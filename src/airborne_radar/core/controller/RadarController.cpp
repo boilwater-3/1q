@@ -1,0 +1,150 @@
+// Copyright 2026. All Rights Reserved.
+//
+// Description: RadarController 的核心调度实现。
+
+#include "1q/airborne_radar/core/controller/RadarController.h"
+
+#include <algorithm>
+
+#include <Eigen/Core>
+
+#include "1q/airborne_radar/core/context/DecisionContext.h"
+#include "1q/airborne_radar/core/context/IRadarContext.h"
+#include "1q/airborne_radar/core/event/IEventBus.h"
+#include "1q/airborne_radar/core/event/RadarEvents.h"
+#include "1q/airborne_radar/decision/pipeline/ITacticalProcessor.h"
+#include "1q/airborne_radar/environment/IEnvironmentService.h"
+#include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
+#include "1q/airborne_radar/signal/tracking/ITrackLifecycleManager.h"
+
+namespace {
+
+std::vector<airborne_radar::signal::tracking::TrackMeasurement>
+BuildMeasurementsFromFeatures(
+		const airborne_radar::common::TargetFeatureList &features) {
+	std::vector<airborne_radar::signal::tracking::TrackMeasurement> measurements;
+	measurements.reserve(features.size());
+
+	for (std::size_t i = 0; i < features.size(); ++i) {
+		const airborne_radar::common::TargetFeature &feature = features[i];
+		airborne_radar::signal::tracking::TrackMeasurement measurement;
+		measurement.association_key = static_cast<std::uint64_t>(i + 1);
+		measurement.position = Eigen::Vector3f::Zero();
+		measurement.velocity = Eigen::Vector3f(feature.current_track_speed, 0.0f, 0.0f);
+		measurement.acceleration =
+				Eigen::Vector3f(feature.current_track_acceleration, 0.0f, 0.0f);
+		measurement.rcs = feature.current_track_rcs;
+		measurement.jamming_detected = feature.check_jamming_detected;
+		measurements.push_back(measurement);
+	}
+
+	return measurements;
+}
+
+} // namespace
+
+namespace airborne_radar::core::controller {
+
+RadarController::RadarController(
+		core::context::IRadarContext &radar_context,
+		signal::pipeline::ISignalPipeline &signal_pipeline,
+		decision::pipeline::ITacticalProcessor &decision_pipeline,
+		environment::IEnvironmentService &environment_service)
+		: radar_context_(radar_context), signal_pipeline_(signal_pipeline),
+			decision_pipeline_(decision_pipeline),
+			environment_service_(environment_service) {}
+
+RadarController::RadarController(
+		core::context::IRadarContext &radar_context,
+		signal::pipeline::ISignalPipeline &signal_pipeline,
+		decision::pipeline::ITacticalProcessor &decision_pipeline,
+		environment::IEnvironmentService &environment_service,
+		core::event::IEventBus &event_bus)
+		: radar_context_(radar_context), signal_pipeline_(signal_pipeline),
+			decision_pipeline_(decision_pipeline),
+			environment_service_(environment_service), event_bus_(&event_bus) {}
+
+void RadarController::RunOnce() {
+	if (event_bus_ != nullptr) {
+		// 周期开始：先处理上一周期沉淀到当前队列的事件。
+		event_bus_->BeginCycle();
+		event_bus_->DispatchCurrentCycle();
+	}
+
+	const common::TargetFeatureList input_features =
+			radar_context_.GetTargetFeatures();
+	common::TargetFeatureList lifecycle_features = input_features;
+
+	if (track_lifecycle_manager_ != nullptr) {
+		const auto measurements = BuildMeasurementsFromFeatures(input_features);
+		signal::tracking::CycleContext cycle;
+		cycle.cycle_index = cycle_index_;
+		cycle.batch_id = batch_id_;
+		track_lifecycle_manager_->Update(cycle, measurements);
+		lifecycle_features = track_lifecycle_manager_->BuildFeatureSnapshot();
+	}
+
+	const common::TargetFeatureList updated_features =
+			signal_pipeline_.RunCycle(lifecycle_features, environment_service_);
+
+	core::context::DecisionContext context(updated_features);
+	decision_pipeline_.ProcessTactics(context);
+	ExecuteCommands(context);
+
+	const bool jamming_detected = std::any_of(
+			updated_features.begin(), updated_features.end(),
+			[](const common::TargetFeature &feature) {
+				return feature.check_jamming_detected;
+			});
+
+	if (event_bus_ != nullptr) {
+		core::event::TracksUpdatedEvent tracks_event;
+		tracks_event.state = updated_features;
+		event_bus_->Enqueue(tracks_event);
+
+		if (jamming_detected) {
+			core::event::JammingAlertEvent jamming_event;
+			jamming_event.detected = true;
+			event_bus_->Enqueue(jamming_event);
+		}
+
+		core::event::CommandsSubmittedEvent commands_event;
+		commands_event.command_count = context.decision_commands.size();
+		event_bus_->Enqueue(commands_event);
+
+		core::event::RadarCycleCompletedEvent event;
+		event.command_count = context.decision_commands.size();
+		event.jamming_detected = jamming_detected;
+		event_bus_->Enqueue(event);
+
+		// 周期结束：本周期发布的事件将留待下一周期处理。
+		event_bus_->EndCycle();
+	}
+
+	++cycle_index_;
+	++batch_id_;
+}
+
+void RadarController::RunCycles(std::size_t cycles) {
+	for (std::size_t i = 0; i < cycles; ++i) {
+		RunOnce();
+	}
+}
+
+void RadarController::ExecuteCommands(
+		const core::context::DecisionContext &context) {
+	for (const auto &cmd : context.decision_commands) {
+		radar_context_.SubmitControlCommand(cmd);
+	}
+}
+
+void RadarController::SetEventBus(core::event::IEventBus *event_bus) {
+	event_bus_ = event_bus;
+}
+
+void RadarController::SetTrackLifecycleManager(
+		signal::tracking::ITrackLifecycleManager *lifecycle_manager) {
+	track_lifecycle_manager_ = lifecycle_manager;
+}
+
+} // namespace airborne_radar::core::controller

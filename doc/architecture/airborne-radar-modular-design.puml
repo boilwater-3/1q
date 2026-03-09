@@ -1,0 +1,155 @@
+@startuml airborne-radar-modular-design
+skinparam linetype ortho
+skinparam packageStyle rectangle
+skinparam defaultFontName sans-serif
+
+package "行为决策层 (Decision Layer)\n【责任链 / 管道模式】" #LightCyan {
+    class TargetClassifier {
+        - 识别目标属性情报
+    }
+    class LpiController {
+        - 降低截获概率控制
+    }
+    class EccmController {
+        - 执行抗干扰对抗
+    }
+    
+    interface ITacticalProcessor << (I,orchid) >> {
+        + processTactics(context: IRadarContext)
+        + setNext(processor: ITacticalProcessor): ITacticalProcessor
+    }
+    
+    ITacticalProcessor <|.. TargetClassifier
+    ITacticalProcessor <|.. LpiController
+    ITacticalProcessor <|.. EccmController
+
+    TargetClassifier -right-> LpiController : next
+    LpiController -right-> EccmController : next
+}
+
+package "核心处理层 (Core Layer)\n【中介者 / 外观层】" #LightYellow {
+    class RadarController {
+        - 生命周期调度
+        - 探测循环驱动
+    }
+    class ConfigurationManager {
+        - 解析及维护配置
+    }
+    class ObjectPoolManager {
+        - 对象缓存复用 (资源池)
+    }
+    class ResultIOGateway {
+        - 标准格式输出转换
+    }
+    class EventBus << (B,#FFAAAA) >> {
+        - 跨层高速异步消息分发
+    }
+    class TacticalContext << (D,#FF7700) Data >> {
+        + Payload: 富血动态数据
+        + CommandList: 指令暂存箱 (Sink)
+    }
+    
+    interface IRadarContext << (I,orchid) >> {
+        + getRadarState()
+        + updateControlCommand()
+    }
+    
+    RadarController ..|> IRadarContext
+}
+
+package "信号处理层 (Signal Layer)\n【领域核心】" #LightGreen {
+    class EchoCalculator {
+    }
+    class SignalDetector {
+    }
+    class DataAssociator {
+    }
+    class TrackFilter {
+    }
+    
+    interface ISignalPipeline << (I,orchid) >> {
+        + process()
+    }
+    
+    EchoCalculator ..|> ISignalPipeline
+    SignalDetector ..|> ISignalPipeline
+    DataAssociator ..|> ISignalPipeline
+    TrackFilter ..|> ISignalPipeline
+}
+
+package "环境建模层 (Environment Layer)\n【基础设施】" #LightGray {
+    class SceneManager {
+        - 统一目标与干扰源列表
+    }
+    class PropagationModel {
+        - 大气/多径效应参数计算
+    }
+    class InterferenceModel {
+        - 干扰物理建模
+    }
+    class FeatureRepository {
+        - 目标特征分类库 (内存级缓存防腐层)
+    }
+    
+    interface IEnvironmentService << (I,orchid) >> {
+        + getPathLoss()
+        + getInterferencePower()
+        + getSceneEntities()
+    }
+    
+    SceneManager ..|> IEnvironmentService
+    PropagationModel ..|> IEnvironmentService
+    InterferenceModel ..|> IEnvironmentService
+    FeatureRepository ..|> IEnvironmentService
+}
+
+' ==========================================
+' 关系设计 (应用设计原则)
+' ==========================================
+
+' 1. 行为决策层的顺序链路连接
+ITacticalProcessor --> IRadarContext : "消费系统状态与环境数据"
+ITacticalProcessor ..> RadarController : "下发防御与应对指令"
+
+' 2. 核心层对底层模块的调度统筹
+RadarController --> ISignalPipeline : "驱动信号处理流水线"
+RadarController --> IEnvironmentService : "初始化与注入探测场景参数"
+RadarController --> ObjectPoolManager : "对象生命周期管理"
+RadarController --> ResultIOGateway : "投递流水线结果"
+RadarController --> ConfigurationManager : "读取初始化配置"
+
+' 3. 信号处理层依赖倒置 (DIP)
+' 信号处理层不需要知道具体的传播计算或场景管理细节，只依赖抽象接口获取参数
+ISignalPipeline --> IEnvironmentService : "查询所需的损耗/干扰信息"
+
+' 模块之间的内部数据流
+EchoCalculator --> SignalDetector : "信噪比 / 探测概率"
+SignalDetector --> DataAssociator : "探测点迹集"
+DataAssociator --> TrackFilter : "关联点迹与历史航迹"
+TrackFilter ..> EventBus : "(发布) 抛出 Tracks_Updated 事件"
+
+' 4. 信息源与核心数据流 (CQRS, Repository, EventBus)
+EventBus ..> TacticalContext : "1组装 (生成包含最新点迹与告警的Context)"
+TacticalContext ..> ITacticalProcessor : "2注入 (流入行为决策管线)"
+ITacticalProcessor ..> TacticalContext : "3反馈 (向CommandList追加纯函数控制指令)"
+TargetClassifier ..> FeatureRepository : "高频查询目标分类库"
+
+note top of ITacticalProcessor
+  **责任链模式/管道模式 \n(Chain of Responsibility / Pipeline)**
+  行为决策以数据流方式依序处理：
+  情报获取 -> 风险评估 -> 对抗执行。
+end note
+
+note right of RadarController
+  **中介者模式 (Mediator Pattern)**
+  系统总线与调度器。避免层与层之间的网状紧耦合，
+  特别是剥离了原设计中【场景设置】同时被核心和环境管理带来的混乱。
+end note
+
+note right of IEnvironmentService
+  **依赖倒置原则 (DIP)**
+  核心层和信号处理层不直接依赖底层物理模型文件，
+  而是依赖抽象服务接口，便于后期替换为仿真环境或实战环境。
+end note
+
+@enduml

@@ -1,0 +1,40 @@
+@startuml eventbus-cycle-flow
+skinparam defaultFontName "PingFang SC"
+autonumber
+
+actor "Main Loop" as LOOP
+participant "RadarController" as RC
+participant "IEventBus" as BUS
+participant "CycleEventBus\n(current/next queues)" as CBUS
+
+LOOP -> RC : RunOnce()
+RC -> BUS : BeginCycle()
+BUS -> CBUS : swap(current, next)
+RC -> BUS : DispatchCurrentCycle()
+BUS -> CBUS : process(current queue)
+
+RC -> RC : signal pipeline + decision pipeline
+RC -> RC : submit decision_commands
+
+RC -> BUS : Enqueue(TracksUpdatedEvent)
+BUS -> CBUS : push to next queue
+RC -> BUS : Enqueue(JammingAlertEvent?)
+BUS -> CBUS : push to next queue
+RC -> BUS : Enqueue(CommandsSubmittedEvent)
+BUS -> CBUS : push to next queue
+RC -> BUS : Enqueue(RadarCycleCompletedEvent)
+BUS -> CBUS : push to next queue
+
+RC -> BUS : EndCycle()
+note right of CBUS
+本周期新发布事件留在 next queue
+不会在本次 RunOnce() 内被消费
+end note
+
+LOOP -> RC : RunOnce() (next cycle)
+RC -> BUS : BeginCycle()
+BUS -> CBUS : swap(current, next)
+RC -> BUS : DispatchCurrentCycle()
+BUS -> CBUS : process(previous cycle events)
+
+@enduml

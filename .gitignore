@@ -1,0 +1,29 @@
+# macOS
+.DS_Store
+
+# Build outputs
+build/
+out/
+
+# CMake local/user files
+CMakeUserPresets.json
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+Testing/
+
+# Conan local cache in workspace
+.cache/
+
+# VS Code local settings
+.vscode/
+
+# Binary artifacts
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
