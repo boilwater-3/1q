@@ -5,6 +5,8 @@
 #ifndef AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_SIGNAL_PIPELINE_H_
 #define AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_SIGNAL_PIPELINE_H_
 
+#include <memory>
+
 #include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
 
 namespace airborne_radar::environment {
@@ -36,6 +38,7 @@ class SignalPipeline final : public ISignalPipeline {
 public:
   /// @brief 使用配置构造信号处理模型。
   explicit SignalPipeline(SignalPipelineConfig config = {});
+  ~SignalPipeline() override;
 
   /// @brief 执行一次信号处理循环。
   common::TargetFeatureList RunCycle(
@@ -46,12 +49,8 @@ public:
   void UpdateConfig(SignalPipelineConfig config);
 
 private:
-  /// @brief 估计当前输入状态在环境下的探测裕量。
-  float EstimateDetectionMarginDb(
-      const common::TargetFeature &state,
-      const environment::EnvironmentSnapshot &snapshot) const;
-
-  SignalPipelineConfig config_{};
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 } // namespace airborne_radar::signal::pipeline

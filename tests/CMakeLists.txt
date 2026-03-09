@@ -14,6 +14,7 @@ set(TEST_SOURCES
     core_controller_test.cpp
     event_bus_test.cpp
     signal_environment_test.cpp
+    signal_association_test.cpp
     track_lifecycle_test.cpp
 )
 

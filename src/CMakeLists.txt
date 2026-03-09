@@ -9,6 +9,8 @@ set(PROJECT_SOURCES
     airborne_radar/core/event/CycleEventBus.cpp
     airborne_radar/environment/EnvironmentService.cpp
     airborne_radar/environment/database/FeatureRepository.cpp
+    airborne_radar/signal/association/DataAssociation.cpp
+    airborne_radar/signal/association/LapjvSolver.cpp
     airborne_radar/signal/pipeline/SignalPipeline.cpp
     airborne_radar/signal/tracking/BoostTrackPool.cpp
     airborne_radar/signal/tracking/TrackLifecycleManager.cpp

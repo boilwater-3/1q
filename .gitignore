@@ -19,6 +19,9 @@ Testing/
 # VS Code local settings
 .vscode/
 
+# Local draft docs
+doc/airborne-radar.md
+
 # Binary artifacts
 *.o
 *.obj

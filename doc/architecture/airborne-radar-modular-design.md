@@ -14,23 +14,28 @@
 新的架构设计重点分离控制平面与数据平面，梳理清晰各模块边界，并注入以下重要机制：
 
 1. **单一职责原则 (SRP)**
-   - 【核心处理层】转化为纯粹的**中介者与生命周期调度器**，不再夹杂具体的物理建模与算法工作。
+   - 【核心处理层】转化为纯粹的**中介者与流程调度器**，不再夹杂具体的物理建模与算法工作。
    - 【环境建模层】统一收口所有的“场景设置”、“传播模型”、“干扰特征”，作为全局的物理基础设施。
 
 2. **依赖倒置原则 (DIP)**
    - 信号处理层与行为决策层**不再依赖具体的实体类**。取而代之的是依赖抽象接口（如`IEnvironmentService`、`IRadarContext`）。这使得具体环境模块的修改不会波及核心雷达处理流程。
 
 3. **责任链与中介者模式 (Chain of Responsibility & Mediator)**
-   - 对于【行为决策】层，考虑到“情报获取→生存控制→对抗措施”属于先后依存的顺序链，采用**责任链模式（又称管道模式/Pipeline）**，让战术上下文数据在各处理阶段（`ITacticalProcessor`）依次流转。
+   - 对于【行为决策】层，考虑到“情报获取→生存控制→对抗措施”属于先后依存的顺序链，采用**责任链模式（又称管道模式/Pipeline）**，让决策上下文数据在各处理阶段（`ITacticalProcessor`）依次流转。
    - 以【核心处理层-雷达调度控制器】（Mediator）居中统筹，避免信号处理和环境建模的直接互相调用。
 
-4. **战术上下文与数据解耦 (Context Object & CQRS 思想)**
-   - 引入 **战术上下文 (Tactical Context)**，封装单次探测处理周期的所有输入（信噪比、航迹、外部干扰告警），并在节点间传递。
+4. **决策上下文与数据解耦 (Context Object & CQRS 思想)**
+   - 引入 **决策上下文 (`DecisionContext`)**，封装单次探测处理周期的输入特征、中间结果与指令输出，并在节点间传递。
    - 处理器节点绝不直接修改硬件状态，而是将动作以**指令对象 (Command Object)** 的形式追加至上下文中（CQRS 的命令/查询分离思路），统一由核心层拉取执行。
 
 5. **高速信息源架构 (Repository & EventBus)**
    - **静态特征数据库**：使用**仓储模式 (Repository + Memory Cache)**，防止流水线高频直接进行 SQL/磁盘 I/O 阻塞。
    - **跨层级动态告警**：采用**事件总线 (EventBus / Pub-Sub)** 进行松耦合的跨层异步消息传递。
+
+6. **基础设施与领域服务边界 (Infrastructure vs Domain Service)**
+   - **对象池 (ObjectPool/ITrackPool)** 仅承担内存复用职责（Acquire/Release/Prewarm），不承担目标业务生命周期语义。
+   - **目标生命周期管理 (TrackLifecycleManager)** 承担目标状态机、批号分配、丢失判定与回收策略，是信号跟踪域服务。
+   - 核心调度层（`RadarController`）只做编排与调用，不承载目标生命周期策略，避免业务语义污染控制层。
 
 ## 3. 模块化设计类与包架构图
 
@@ -42,18 +47,21 @@
 
 ### 3.1 行为决策层 (Behavior Decision Layer)
 作为雷达的战术“大脑”，它是一条严格流转的战术处理管线（Pipeline）。
-- 依赖于核心层提供的数据环境接口（`IRadarContext`）获取追踪点迹与信噪比威胁情况，并流转执行下发应对措施。
+- 输入由核心层构造 `DecisionContext` 后注入决策链，节点通过受限视图（TargetClassifier/LPI/ECCM）读取各自可见字段，避免跨模块读写污染。
 - 包含模块：目标分类、LPI控制、ECCM对抗。应用**责任链模式（Chain of Responsibility）**代替了最开始误用的策略模式。因为这三者不是“面对同种情况多选一”的同构算法，而是具有明显“先后因果”的链路（如：得先进行目标分类特征获取，才能做出相应的 LPI、ECCM 对抗组合）。
 
 ### 3.2 核心处理层 (Core Processing Layer)
 作为雷达系统的“心脏”或系统总线（Facade/Mediator）。
-- 此层中完全剥离了原乱入的【场景设置】。主要专注于生命周期调度、执行循环、初始化配置以及外部接口对接。
-- 核心组件为 `RadarController`，它负责驱动 `ISignalPipeline` 处理循环，并管理 `ObjectPoolManager` 资源。
+- 此层中完全剥离了原乱入的【场景设置】。主要专注于执行循环调度、事件编排、初始化配置以及外部接口对接。
+- 核心组件为 `RadarController`，它负责驱动 `ISignalPipeline` 处理循环、组织事件与命令流转。
+- 约束：`RadarController` 不直接承担目标状态机、批号与回收策略，这些由信号跟踪域服务 `TrackLifecycleManager` 负责。
 
 ### 3.3 信号处理层 (Signal Processing Layer)
 作为雷达系统的“数据泵”与领域核心。
-- 提供回波计算、检测、关联和跟踪的流水线（`ISignalPipeline`）。
+- 提供从回波计算、检测判决、数据关联、状态估计到轨迹生命周期管理的完整处理链路。
 - **关键设计**：需要获取传播损耗和多径干扰时，通过调用 `IEnvironmentService` 抽象接口取得，而不知晓具体的物理计算类。
+- **模块边界**：数据关联负责输出“量测-航迹匹配结果”，跟踪滤波负责状态预测与更新，轨迹生命周期管理负责建轨、确认、丢失、回收与批号推进。
+- **生命周期主责**：目标状态迁移、批号分配、丢失与回收策略统一收敛于 `TrackLifecycleManager`；对象池仅作为其下层内存复用基础设施。
 
 ### 3.4 环境建模层 (Environment Modeling Layer)
 作为底层“基础设施”（Infrastructure）。
@@ -68,15 +76,46 @@
 ### 4.1 方案 A：静态信息源与防腐读取 —— 仓储模式 (Repository)
 主要针对 **目标分类 (TargetClassifier)** 所需的庞大特征数据库。
 - **避免 I/O 阻塞**：禁止在微秒级的责任链处理中直接写入 SQL。
-- **设计结构**：通过 `IFeatureRepository` 进行门面包装。系统初始化（`ConfigurationManager` 时期），将磁盘或远程数据库中的雷达/平台特征参数，全量加载至极速内存池（Hash/树结构）中。工作时，流水线仅进行 O(1) 或 O(log n) 级别的内存比对计算。
+- **设计结构**：通过 `IFeatureRepository` 进行门面包装。系统初始化阶段将磁盘或远程数据库中的雷达/平台特征参数加载到内存索引，工作时流水线仅进行内存比对计算。
 
 ### 4.2 方案 B：跨层动态数据投递 —— 事件总线 (EventBus / Pub-Sub)
 针对 **信号处理层** 到 **核心层**、外界侦察到 **决策层** 的高速异构数据流动。
-- **发布-订阅解耦**：信号处理层生成的最新航迹点迹一旦确认，抛出事件 `Topic::Tracks_Updated`；干扰检测抛出 `Topic::Jamming_Alert` 等。
-- **响应机制**：核心调度器 (Mediator) 订阅上述消息，一旦有新状态到来，即可组织并生成最新的 `TacticalContext` 喂入决策流水线，而不采用低效的阻塞轮询机制。这也解约了模块生命周期的并发冲突锁。
+- **发布-订阅解耦**：当前实现采用强类型事件：`TracksUpdatedEvent`、`JammingAlertEvent`、`CommandsSubmittedEvent`、`RadarCycleCompletedEvent`。
+- **响应机制**：核心调度器在每周期执行 `BeginCycle -> DispatchCurrentCycle`，信号/决策完成后 `Enqueue` 本周期结果事件，并在 `EndCycle` 结束。对于 `CycleEventBus`，本周期发布事件在下一周期消费。
 
 ### 4.3 方案 C：战术上下文模式与双向控制解耦 (CQRS 思想体现)
 对于整个“情报获取→生存控制→对抗执行”执行链内。
-- **Context 的富血有效载荷**：由核心层捕获 EventBus 发来的瞬态信息包装成的只读 `Payload`。传给 `ITacticalProcessor` 接口进行分析（如航迹的速度、是否被干扰等）。
-- **Command Sink (指令反向暂存)**：各策略节点**不再**直接调用发送机/接收机的降功率、抗干扰函数的 API。相反，流水线节点均为**纯函数**计算单元，它们做出决策后，仅仅在 Context 的 `CommandList` 中追加指令元素（如 `SET_POWER_LOW`）。
-- **统一处理延缓**：流水线退出后，将填满决策的 Context 返回给核心调度器 (`RadarController`)。由核心组件通过 `RadarHardwareGateway` 一次性转化并下推到底层驱动，实现了绝对的控制流和逻辑运算分离。
+- **Context 的富血有效载荷**：由核心层将本周期目标特征包装为 `DecisionContext`，并生成模块视图（TargetClassifierView/LpiControllerView/EccmControllerView）传给各责任链节点。
+- **Command Sink (指令反向暂存)**：各策略节点不直接操作硬件 API，而是在 `DecisionContext.decision_commands` 中追加命令。
+- **统一处理延缓**：责任链结束后，由 `RadarController` 统一遍历 `decision_commands`，通过 `IRadarContext::SubmitControlCommand(...)` 下推执行。
+
+## 5. 当前实现增量补充（2026-03）
+
+### 5.1 周期事件总线双缓冲语义
+
+- 新增 `CycleEventBus` 作为 `IEventBus` 的周期实现，内部采用双队列切换。
+- 周期开始消费上一周期队列，当前周期发布事件进入下一周期队列，避免同周期回流。
+- 该设计降低了跨层回调重入风险，适配主循环调度模型。
+
+### 5.2 跟踪生命周期域服务化
+
+- 新增 `TrackLifecycleManager` 承担目标状态机、批号推进、丢失判定与回收策略。
+- `ITrackPool`/对象池仅做内存复用，不承载业务语义。
+- `RadarController` 通过可选注入方式绑定生命周期管理器，未绑定时可退化为直接特征流处理。
+
+### 5.3 信号层目标处理边界细化
+
+- 将原先笼统的“目标跟踪”拆分为三个职责明确的子模块：`DataAssociator`、`TrackFilter`、`TrackLifecycleManager`。
+- `DataAssociator` 只负责量测到航迹预测的匹配决策，不直接承担建轨与删轨。
+- `TrackFilter` 只负责状态预测、更新、平滑与外推，不承载轨迹状态机语义。
+- `TrackLifecycleManager` 消费关联/滤波结果，统一维护候选、确认、丢失、回收等生命周期状态。
+
+### 5.4 向量化量测建模
+
+- 在核心调度到跟踪域服务的桥接中，量测位置、速度、加速度使用 Eigen 向量表达（`Eigen::Vector3f`）。
+- 该设计为后续关联/滤波算法升级提供统一向量接口，减少标量字段扩散。
+
+### 5.5 现阶段已知约束
+
+- 当前 `TrackMeasurement.association_key` 仍采用按输入顺序生成的临时策略，需要后续替换为稳定关联键（如 track seed/外部航迹 ID）。
+- `CycleEventBus` 目前按单线程主循环使用，尚未引入并发同步策略。

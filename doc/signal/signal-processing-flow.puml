@@ -1,0 +1,44 @@
+@startuml signal-processing-flow
+skinparam linetype ortho
+skinparam packageStyle rectangle
+skinparam defaultFontName sans-serif
+
+title Signal 层目标处理主流程
+
+rectangle "环境建模输入\n传播损耗 / 杂波 / 干扰" as ENV
+rectangle "回波计算" as ECHO
+rectangle "信号检测\n输出有效量测" as DETECT
+rectangle "数据关联\n量测-航迹匹配" as ASSOC
+rectangle "跟踪滤波\n状态预测与更新" as FILTER
+rectangle "轨迹管理\n建轨/确认/丢失/回收" as LIFECYCLE
+rectangle "稳定航迹快照\n供决策层/目标分类使用" as SNAPSHOT
+rectangle "轨迹对象池\n仅内存复用" as POOL
+
+ENV --> ECHO
+ECHO --> DETECT
+DETECT --> ASSOC
+ASSOC --> FILTER
+FILTER --> LIFECYCLE
+LIFECYCLE --> SNAPSHOT
+LIFECYCLE --> POOL : 申请/归还对象
+
+note right of ASSOC
+只负责匹配关系，
+不负责建轨与删轨。
+end note
+
+note right of FILTER
+只负责状态估计，
+不负责生命周期状态机。
+end note
+
+note right of LIFECYCLE
+统一维护候选、确认、丢失、回收。
+是目标分类的直接上游。
+end note
+
+note bottom of POOL
+对象池只承担内存复用职责。
+end note
+
+@enduml
