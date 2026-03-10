@@ -44,6 +44,8 @@ RadarController --> JammingAlertEvent
 RadarController --> CommandsSubmittedEvent
 RadarController --> RadarCycleCompletedEvent
 
+IEventBus .> EventToken : returns
+
 EventBus --> EventDispatcher : immediate dispatch
 CycleEventBus --> EventQueue : double-buffer queue
 
@@ -59,3 +61,4 @@ Publish/Enqueue: always enqueue to next
 end note
 
 @enduml
+

@@ -10,13 +10,15 @@ package "Core" #FFF8DC {
 
 package "Decision Pipeline" #E6F7FF {
   interface ITacticalProcessor
+  class "TacticalProcessor<TView>" as TacticalProcessor
   class TargetClassifier
   class LpiController
   class EccmController
 
-  ITacticalProcessor <|.. TargetClassifier
-  ITacticalProcessor <|.. LpiController
-  ITacticalProcessor <|.. EccmController
+  ITacticalProcessor <|.. TacticalProcessor
+  TacticalProcessor <|-- TargetClassifier
+  TacticalProcessor <|-- LpiController
+  TacticalProcessor <|-- EccmController
 
   TargetClassifier --> LpiController : next
   LpiController --> EccmController : next
@@ -57,18 +59,21 @@ EccmController --> EccmSourceInfo : read-only
 EccmController --> RadarCommand : append
 
 note right of TargetClassifier
+- 依赖 TargetClassifierView
 - 遍历全部目标
 - 仓储匹配 + 规则回退
-- 更新 LPI 来源信息
+- 更新 LpiSourceInfo
 end note
 
 note right of LpiController
-当前仅下发 SET_LPI_POWER
-BEAMFORMING/DWELL 为预留
+- 依赖 LpiControllerView
+- 当前仅下发 SET_LPI_POWER
 end note
 
 note right of EccmController
-干扰存在时下发 5 条 ECCM 指令
+- 依赖 EccmControllerView
+- 干扰存在时下发 5 条 ECCM 指令
 end note
 
 @enduml
+
