@@ -94,6 +94,6 @@ MeasurementCovariance EkfUpdater::BuildMeasurementNoise(float std_dev) {
   return MeasurementCovariance::Identity() * variance;
 }
 
-}  // namespace tracking
-}  // namespace signal
-}  // namespace airborne_radar
+} // namespace tracking
+} // namespace signal
+} // namespace airborne_radar

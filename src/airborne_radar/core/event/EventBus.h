@@ -13,7 +13,7 @@
 
 #include "1q/airborne_radar/core/event/IEventBus.h"
 
-namespace airborne_radar::core::event {
+namespace airborne_radar { namespace core { namespace event {
 
 /// @brief EventBus 使用 eventpp 实现事件分发。
 class EventBus final : public IEventBus {
@@ -40,6 +40,9 @@ private:
 	using Handle = Dispatcher::Handle;
 
 	struct ListenerRecord {
+		ListenerRecord() = default;
+		ListenerRecord(std::type_index t, Handle h) : type(t), handle(h) {}
+
 		std::type_index type{typeid(void)};
 		Handle handle{};
 	};
@@ -49,6 +52,6 @@ private:
 	std::size_t next_id_{0};
 };
 
-} // namespace airborne_radar::core::event
+} } } // namespace airborne_radar::core::event
 
 #endif // AIRBORNE_RADAR_SRC_CORE_EVENT_EVENT_BUS_H_

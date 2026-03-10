@@ -10,7 +10,7 @@
 #include "1q/airborne_radar/common/TargetFeature.h"
 
 namespace airborne_radar {
-namespace core{
+namespace core {
 namespace context {
 
 /// @brief IRadarContext 抽象了系统的当前战术态势操作。

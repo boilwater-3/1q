@@ -22,7 +22,7 @@
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 
-namespace airborne_radar::tests {
+namespace airborne_radar { namespace tests {
 
 namespace {
 
@@ -87,9 +87,9 @@ protected:
   /// @brief 构建最小化的决策管线与核心调度器。
   void SetUp() override {
     auto classifier =
-        std::make_unique<decision::classifier::TargetClassifier>();
-    auto lpi = std::make_unique<decision::lpi::LpiController>();
-    auto eccm = std::make_unique<decision::eccm::EccmController>();
+        std::unique_ptr<decision::classifier::TargetClassifier>(new decision::classifier::TargetClassifier());
+    auto lpi = std::unique_ptr<decision::lpi::LpiController>(new decision::lpi::LpiController());
+    auto eccm = std::unique_ptr<decision::eccm::EccmController>(new decision::eccm::EccmController());
 
     classifier->SetNext(std::move(lpi))->SetNext(std::move(eccm));
     decision_pipeline_ = std::move(classifier);
@@ -261,4 +261,4 @@ TEST_F(CoreControllerTest, LifecycleManagerConsumesRealAssociationMeasurements) 
   EXPECT_FALSE(lifecycle_manager.last_measurements[0].has_cartesian_position);
 }
 
-} // namespace airborne_radar::tests
+} } // namespace airborne_radar::tests

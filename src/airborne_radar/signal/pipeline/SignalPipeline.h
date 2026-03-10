@@ -9,11 +9,15 @@
 
 #include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
 
-namespace airborne_radar::environment {
+namespace airborne_radar {
+namespace environment {
 struct EnvironmentSnapshot;
 }
+}
 
-namespace airborne_radar::signal::pipeline {
+namespace airborne_radar {
+namespace signal {
+namespace pipeline {
 
 /// @brief SignalPipelineConfig 描述信号处理模型参数。
 struct SignalPipelineConfig {
@@ -65,6 +69,8 @@ private:
   std::unique_ptr<Impl> impl_;
 };
 
-} // namespace airborne_radar::signal::pipeline
+} // namespace pipeline
+} // namespace signal
+} // namespace airborne_radar
 
 #endif // AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_SIGNAL_PIPELINE_H_

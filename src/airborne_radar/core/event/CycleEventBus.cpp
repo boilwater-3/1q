@@ -6,7 +6,7 @@
 
 #include <utility>
 
-namespace airborne_radar::core::event {
+namespace airborne_radar { namespace core { namespace event {
 
 EventToken CycleEventBus::SubscribeImpl(
 		std::type_index type,
@@ -57,4 +57,4 @@ void CycleEventBus::EndCycle() {
 	// 预留扩展点：可在此记录周期处理统计。
 }
 
-} // namespace airborne_radar::core::event
+} } } // namespace airborne_radar::core::event

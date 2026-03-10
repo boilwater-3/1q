@@ -34,6 +34,12 @@ struct DataAssociationConfig {
 
 /// @brief 单个成功关联结果。
 struct AssociationMatch {
+	/// @brief 默认构造。
+  AssociationMatch() = default;
+	/// @brief 参数构造。
+  AssociationMatch(std::uint64_t key, std::size_t target_idx, float c)
+      : association_key(key), target_index(target_idx), cost(c) {}
+
 	/// @brief 稳定关联键。
   std::uint64_t association_key{0};
 	/// @brief 输入目标在当前批次中的索引。
@@ -81,6 +87,12 @@ public:
 private:
 	/// @brief 轻量轨迹签名。
   struct TrackSignature {
+		/// @brief 默认构造。
+    TrackSignature() = default;
+		/// @brief 参数构造。
+    TrackSignature(std::uint64_t k, const Eigen::Vector3f &f)
+        : key(k), feature(f) {}
+
 		/// @brief 历史轨迹稳定键。
     std::uint64_t key{0};
 		/// @brief 用于下一周期关联的特征向量。

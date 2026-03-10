@@ -9,7 +9,9 @@
 
 #include "1q/airborne_radar/common/TargetFeature.h"
 
-namespace airborne_radar::core::event {
+namespace airborne_radar {
+namespace core {
+namespace event {
 
 /// @brief TracksUpdatedEvent 表示本周期的航迹状态已更新。
 struct TracksUpdatedEvent {
@@ -38,6 +40,8 @@ struct RadarCycleCompletedEvent {
   bool jamming_detected{false};
 };
 
-} // namespace airborne_radar::core::event
+} // namespace event
+} // namespace core
+} // namespace airborne_radar
 
 #endif // AIRBORNE_RADAR_CORE_EVENT_RADAR_EVENTS_H_

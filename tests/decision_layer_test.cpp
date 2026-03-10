@@ -47,9 +47,9 @@ protected:
   void SetUp() override {
     // Assemble the Pipeline (Chain of Responsibility)
     auto classifier =
-        std::make_unique<decision::classifier::TargetClassifier>();
-    auto lpi = std::make_unique<decision::lpi::LpiController>();
-    auto eccm = std::make_unique<decision::eccm::EccmController>();
+        std::unique_ptr<decision::classifier::TargetClassifier>(new decision::classifier::TargetClassifier());
+    auto lpi = std::unique_ptr<decision::lpi::LpiController>(new decision::lpi::LpiController());
+    auto eccm = std::unique_ptr<decision::eccm::EccmController>(new decision::eccm::EccmController());
 
     // Connect the chain: Classifier -> LPI -> ECCM
     classifier->SetNext(std::move(lpi))->SetNext(std::move(eccm));

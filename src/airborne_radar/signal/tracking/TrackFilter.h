@@ -25,6 +25,9 @@ struct TrackFilterContext {
 };
 
 struct PredictedTrackState {
+	PredictedTrackState() = default;
+	PredictedTrackState(float s, float r, float a) : speed(s), rcs(r), acceleration(a) {}
+
 	float speed{0.0f};
 	float rcs{0.0f};
 	float acceleration{0.0f};

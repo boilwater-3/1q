@@ -19,6 +19,9 @@ namespace tracking {
 
 /// @brief IMM 模型分支状态。
 struct ImmModelState {
+  ImmModelState() = default;
+  ImmModelState(const GaussianTrackState &s, float w) : state(s), weight(w) {}
+
   /// @brief 当前模型的高斯状态估计。
   GaussianTrackState state;
 
@@ -133,8 +136,8 @@ class ImmFilter {
   GaussianTrackState combined_state_;
 };
 
-}  // namespace tracking
-}  // namespace signal
-}  // namespace airborne_radar
+} // namespace tracking
+} // namespace signal
+} // namespace airborne_radar
 
 #endif  // AIRBORNE_RADAR_SIGNAL_TRACKING_IMM_FILTER_H_

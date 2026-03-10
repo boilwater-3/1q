@@ -8,32 +8,56 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace airborne_radar::core::context {
+namespace airborne_radar {
+namespace core {
+namespace context {
 class IRadarContext;
 struct DecisionContext;
 }
+}
+}
 
-namespace airborne_radar::core::event {
+namespace airborne_radar {
+namespace core {
+namespace event {
 class IEventBus;
 }
+}
+}
 
-namespace airborne_radar::decision::pipeline {
+namespace airborne_radar {
+namespace decision {
+namespace pipeline {
 class ITacticalProcessor;
 }
+}
+}
 
-namespace airborne_radar::environment {
+namespace airborne_radar {
+namespace environment {
 class IEnvironmentService;
 }
+}
 
-namespace airborne_radar::signal::pipeline {
+namespace airborne_radar {
+namespace signal {
+namespace pipeline {
 class ISignalPipeline;
 }
-
-namespace airborne_radar::signal::tracking {
-class ITrackLifecycleManager;
+}
 }
 
-namespace airborne_radar::core::controller {
+namespace airborne_radar {
+namespace signal {
+namespace tracking {
+class ITrackLifecycleManager;
+}
+}
+}
+
+namespace airborne_radar {
+namespace core {
+namespace controller {
 
 /// @brief RadarController 负责调度信号处理、行为决策与指令下发。
 class RadarController {
@@ -97,6 +121,8 @@ private:
 	std::uint64_t batch_id_{1};
 };
 
-} // namespace airborne_radar::core::controller
+} // namespace controller
+} // namespace core
+} // namespace airborne_radar
 
 #endif // AIRBORNE_RADAR_CORE_CONTROLLER_RADAR_CONTROLLER_H_

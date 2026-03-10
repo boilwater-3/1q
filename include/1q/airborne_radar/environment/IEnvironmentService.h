@@ -5,7 +5,8 @@
 #ifndef AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_
 #define AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_
 
-namespace airborne_radar::environment {
+namespace airborne_radar {
+namespace environment {
 
 /// @brief EnvironmentSnapshot 用于封装单个处理周期内的环境快照。
 struct EnvironmentSnapshot {
@@ -26,6 +27,7 @@ public:
 	virtual EnvironmentSnapshot SampleEnvironment() const = 0;
 };
 
-} // namespace airborne_radar::environment
+} // namespace environment
+} // namespace airborne_radar
 
 #endif // AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_

@@ -7,7 +7,8 @@
 
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 
-namespace airborne_radar::environment {
+namespace airborne_radar {
+namespace environment {
 
 /// @brief EnvironmentModelConfig 描述环境模型参数。
 struct EnvironmentModelConfig {
@@ -50,6 +51,7 @@ private:
   float jamming_detection_threshold_db_{6.0f};
 };
 
-} // namespace airborne_radar::environment
+} // namespace environment
+} // namespace airborne_radar
 
 #endif // AIRBORNE_RADAR_SRC_ENVIRONMENT_ENVIRONMENT_SERVICE_H_

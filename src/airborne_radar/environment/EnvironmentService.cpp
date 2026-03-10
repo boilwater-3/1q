@@ -6,7 +6,8 @@
 
 #include <algorithm>
 
-namespace airborne_radar::environment {
+namespace airborne_radar {
+namespace environment {
 
 EnvironmentService::EnvironmentService(EnvironmentModelConfig config)
     : config_(config) {}
@@ -37,4 +38,5 @@ void EnvironmentService::SetJammingDetectionThresholdDb(float threshold_db) {
   jamming_detection_threshold_db_ = threshold_db;
 }
 
-} // namespace airborne_radar::environment
+} // namespace environment
+} // namespace airborne_radar

@@ -19,6 +19,12 @@ namespace association {
 
 /// @brief 单个关联候选假设。
 struct AssociationHypothesis {
+  /// @brief 默认构造。
+  AssociationHypothesis() = default;
+  /// @brief 参数构造。
+  AssociationHypothesis(std::size_t t, std::size_t m, float c)
+      : track_index(t), measurement_index(m), cost(c) {}
+
   /// @brief 历史轨迹索引。
   std::size_t track_index{0};
   /// @brief 当前量测索引。

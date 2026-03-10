@@ -10,7 +10,7 @@
 
 #include "1q/airborne_radar/environment/database/IFeatureRepository.h"
 
-namespace airborne_radar::environment::database {
+namespace airborne_radar { namespace environment { namespace database {
 
 /// @brief RawFeatureRow 表示外部数据库拉取后的原始记录。
 struct RawFeatureRow {
@@ -32,6 +32,12 @@ struct RawFeatureRow {
 
 /// @brief FeatureRecord 表示加载后的内存仓储记录。
 struct FeatureRecord {
+	FeatureRecord() = default;
+	FeatureRecord(std::string type, FeatureVector proto,
+	              float ss, float sr, float p)
+	    : target_type(std::move(type)), prototype(std::move(proto)),
+	      sigma_speed(ss), sigma_rcs(sr), prior(p) {}
+
 	/// @brief 目标类型标签。
 	std::string target_type;
 	/// @brief 原型特征向量（键值结构，可扩展多维特征）。
@@ -101,6 +107,6 @@ private:
 	std::vector<FeatureRecord> records_;
 };
 
-} // namespace airborne_radar::environment::database
+} } } // namespace airborne_radar::environment::database
 
 #endif // AIRBORNE_RADAR_SRC_ENVIRONMENT_DATABASE_FEATURE_REPOSITORY_H_

@@ -16,7 +16,7 @@
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
 
-namespace airborne_radar::tests {
+namespace airborne_radar { namespace tests {
 
 namespace {
 
@@ -346,4 +346,4 @@ TEST(ImmFilterTest, ModelWeightsSumToOne) {
   }
 }
 
-}  // namespace airborne_radar::tests
+} } // namespace airborne_radar::tests

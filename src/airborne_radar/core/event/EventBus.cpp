@@ -4,7 +4,7 @@
 
 #include "airborne_radar/core/event/EventBus.h"
 
-namespace airborne_radar::core::event {
+namespace airborne_radar { namespace core { namespace event {
 
 EventToken EventBus::SubscribeImpl(std::type_index type,
 											std::function<void(const EventPayload &)> handler) {
@@ -35,4 +35,4 @@ void EventBus::Clear() {
 	listeners_.clear();
 }
 
-} // namespace airborne_radar::core::event
+} } } // namespace airborne_radar::core::event

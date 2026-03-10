@@ -10,7 +10,7 @@
 #include <limits>
 #include <numeric>
 
-namespace airborne_radar::environment::database {
+namespace airborne_radar { namespace environment { namespace database {
 
 namespace {
 
@@ -179,4 +179,4 @@ float FeatureRepository::DistanceToScore(float distance) {
 	return std::exp(-distance);
 }
 
-} // namespace airborne_radar::environment::database
+} } } // namespace airborne_radar::environment::database

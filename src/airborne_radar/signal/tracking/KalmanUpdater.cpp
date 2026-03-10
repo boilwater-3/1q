@@ -95,6 +95,6 @@ MeasurementCovariance KalmanUpdater::BuildMeasurementNoise(float std_dev) {
   return R;
 }
 
-}  // namespace tracking
-}  // namespace signal
-}  // namespace airborne_radar
+} // namespace tracking
+} // namespace signal
+} // namespace airborne_radar

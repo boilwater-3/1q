@@ -8,7 +8,7 @@
 #include "1q/airborne_radar/signal/tracking/TrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/BoostTrackPool.h"
 
-namespace airborne_radar::tests {
+namespace airborne_radar { namespace tests {
 
 TEST(TrackLifecycleManagerTest, ConfirmsTrackAfterConfiguredHits) {
   signal::tracking::BoostTrackPool pool(4, 16);
@@ -89,4 +89,4 @@ TEST(TrackLifecycleManagerTest, RecyclesTrackAfterLostTimeout) {
   EXPECT_TRUE(snapshot.empty());
 }
 
-} // namespace airborne_radar::tests
+} } // namespace airborne_radar::tests

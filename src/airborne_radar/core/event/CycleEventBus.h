@@ -14,7 +14,7 @@
 
 #include "1q/airborne_radar/core/event/IEventBus.h"
 
-namespace airborne_radar::core::event {
+namespace airborne_radar { namespace core { namespace event {
 
 /// @brief CycleEventBus 在周期边界消费事件，发布事件默认进入下一周期。
 class CycleEventBus final : public IEventBus {
@@ -53,6 +53,10 @@ private:
 	using Handle = Queue::Handle;
 
 	struct ListenerRecord {
+		ListenerRecord() = default;
+		ListenerRecord(std::type_index t, Handle q0, Handle q1) 
+		    : type(t), queue_zero_handle(q0), queue_one_handle(q1) {}
+
 		std::type_index type{typeid(void)};
 		Handle queue_zero_handle{};
 		Handle queue_one_handle{};
@@ -68,6 +72,6 @@ private:
 	std::size_t next_queue_index_{1};
 };
 
-} // namespace airborne_radar::core::event
+} } } // namespace airborne_radar::core::event
 
 #endif // AIRBORNE_RADAR_SRC_CORE_EVENT_CYCLE_EVENT_BUS_H_

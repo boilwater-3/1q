@@ -14,7 +14,7 @@ class OneQConan(ConanFile):
         self.requires("fmt/10.2.1", override=True)
         self.requires("boost/1.83.0")
         self.requires("eventpp/0.1.3")
-        self.requires("gtest/1.14.0", test=True)
+        self.requires("gtest/1.12.1", test=True)
 
     def generate(self):
         CMakeDeps(self).generate()

@@ -9,7 +9,7 @@
 #include <map>
 #include <string>
 
-namespace airborne_radar::environment::database {
+namespace airborne_radar { namespace environment { namespace database {
 
 /// @brief FeatureVector 表示用于分类匹配的输入特征向量。
 /// 使用键值对存储，避免固定n维特征写死，便于后续扩展。
@@ -80,6 +80,6 @@ public:
                               MatchResult &result) const = 0;
 };
 
-} // namespace airborne_radar::environment::database
+} } } // namespace airborne_radar::environment::database
 
 #endif // AIRBORNE_RADAR_ENVIRONMENT_DATABASE_I_FEATURE_REPOSITORY_H_

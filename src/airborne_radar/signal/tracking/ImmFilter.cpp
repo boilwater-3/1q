@@ -211,6 +211,6 @@ void ImmFilter::SetModelStates(const std::vector<ImmModelState> &states) {
   model_states_ = states;
 }
 
-}  // namespace tracking
-}  // namespace signal
-}  // namespace airborne_radar
+} // namespace tracking
+} // namespace signal
+} // namespace airborne_radar

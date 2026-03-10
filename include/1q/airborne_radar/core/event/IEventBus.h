@@ -10,10 +10,13 @@
 #include <memory>
 #include <typeindex>
 
-namespace airborne_radar::core::event {
+namespace airborne_radar { namespace core { namespace event {
 
 /// @brief EventToken 表示订阅的可撤销句柄。
 struct EventToken {
+	EventToken() = default;
+	EventToken(std::type_index t, std::size_t i) : type(t), id(i) {}
+
 	std::type_index type{typeid(void)};
 	std::size_t id{0};
 };
@@ -94,6 +97,6 @@ protected:
 	}
 };
 
-} // namespace airborne_radar::core::event
+} } } // namespace airborne_radar::core::event
 
 #endif // AIRBORNE_RADAR_CORE_EVENT_I_EVENT_BUS_H_

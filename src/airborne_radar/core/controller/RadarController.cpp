@@ -17,7 +17,9 @@
 #include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "1q/airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 
-namespace airborne_radar::core::controller {
+namespace airborne_radar {
+namespace core {
+namespace controller {
 
 RadarController::RadarController(
 		core::context::IRadarContext &radar_context,
@@ -121,4 +123,6 @@ void RadarController::SetTrackLifecycleManager(
 	track_lifecycle_manager_ = lifecycle_manager;
 }
 
-} // namespace airborne_radar::core::controller
+} // namespace controller
+} // namespace core
+} // namespace airborne_radar

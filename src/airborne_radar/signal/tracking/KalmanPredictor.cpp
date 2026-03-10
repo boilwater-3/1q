@@ -79,6 +79,6 @@ ProcessNoiseCovariance KalmanPredictor::BuildProcessNoise(float dt, float q) {
   return Q;
 }
 
-}  // namespace tracking
-}  // namespace signal
-}  // namespace airborne_radar
+} // namespace tracking
+} // namespace signal
+} // namespace airborne_radar

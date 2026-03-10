@@ -30,3 +30,6 @@ doc/airborne-radar.md
 *.dylib
 *.dll
 *.exe
+
+# Submodules or embedded repos
+src/airborne_radar/signal/Stone-Soup/

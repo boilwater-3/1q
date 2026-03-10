@@ -7,10 +7,12 @@
 #include "1q/airborne_radar/core/event/IEventBus.h"
 #include "airborne_radar/core/event/EventBus.h"
 
-namespace airborne_radar::tests {
+namespace airborne_radar { namespace tests {
 namespace {
 
 struct BusTestEvent {
+  BusTestEvent() = default;
+  BusTestEvent(int v) : value(v) {}
   int value{0};
 };
 
@@ -83,4 +85,4 @@ TEST(EventBusTest, UnsubscribeUnknownTokenIsNoOp) {
   EXPECT_EQ(hit_count, 1);
 }
 
-} // namespace airborne_radar::tests
+} } // namespace airborne_radar::tests

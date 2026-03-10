@@ -8,11 +8,15 @@
 #include "1q/airborne_radar/common/TargetFeature.h"
 #include "1q/airborne_radar/signal/tracking/TrackLifecycleTypes.h"
 
-namespace airborne_radar::environment {
+namespace airborne_radar {
+namespace environment {
 class IEnvironmentService;
 }
+}
 
-namespace airborne_radar::signal::pipeline {
+namespace airborne_radar {
+namespace signal {
+namespace pipeline {
 
 /// @brief ISignalPipeline 定义单周期内的探测与跟踪处理流程。
 class ISignalPipeline {
@@ -32,6 +36,8 @@ public:
 		GetLastTrackMeasurements() const = 0;
 };
 
-} // namespace airborne_radar::signal::pipeline
+} // namespace pipeline
+} // namespace signal
+} // namespace airborne_radar
 
 #endif // AIRBORNE_RADAR_SIGNAL_PIPELINE_I_SIGNAL_PIPELINE_H_

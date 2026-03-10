@@ -13,7 +13,7 @@
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
 
-namespace airborne_radar::tests {
+namespace airborne_radar { namespace tests {
 
 namespace {
 
@@ -422,4 +422,4 @@ TEST(KalmanPredictUpdateTest, VelocityConvergesFromWrongInitialGuess) {
   EXPECT_NEAR(state.mean(1), 20.0f, 3.0f);   // vx → 20
 }
 
-}  // namespace airborne_radar::tests
+} } // namespace airborne_radar::tests

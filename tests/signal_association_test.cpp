@@ -10,7 +10,7 @@
 #include "airborne_radar/signal/association/Gater.h"
 #include "airborne_radar/signal/association/Hypothesiser.h"
 
-namespace airborne_radar::tests {
+namespace airborne_radar { namespace tests {
 
 namespace {
 
@@ -166,4 +166,4 @@ TEST(DenseCostHypothesiserTest, GeneratesOnlyGatedHypotheses) {
   EXPECT_LT(hypotheses[0].cost, 9.0f);
 }
 
-} // namespace airborne_radar::tests
+} } // namespace airborne_radar::tests

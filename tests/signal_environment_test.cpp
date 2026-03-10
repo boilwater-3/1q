@@ -9,7 +9,7 @@
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
 
-namespace airborne_radar::tests {
+namespace airborne_radar { namespace tests {
 
 TEST(EnvironmentServiceTest, DetectsJammingByConfiguredThreshold) {
   environment::EnvironmentModelConfig config;
@@ -139,4 +139,4 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
   EXPECT_GT(second_measurements[1].association_cost, 0.0f);
 }
 
-} // namespace airborne_radar::tests
+} } // namespace airborne_radar::tests

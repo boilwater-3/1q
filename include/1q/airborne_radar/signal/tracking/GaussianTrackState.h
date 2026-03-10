@@ -65,8 +65,8 @@ struct GaussianTrackState {
       : mean(m), covariance(p) {}
 };
 
-}  // namespace tracking
-}  // namespace signal
-}  // namespace airborne_radar
+} // namespace tracking
+} // namespace signal
+} // namespace airborne_radar
 
 #endif  // AIRBORNE_RADAR_SIGNAL_TRACKING_GAUSSIAN_TRACK_STATE_H_

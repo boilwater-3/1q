@@ -18,7 +18,9 @@
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/core/pipeline/IChainProcessor.h"
 
-namespace airborne_radar::signal::pipeline {
+namespace airborne_radar {
+namespace signal {
+namespace pipeline {
 
 namespace {
 
@@ -204,18 +206,18 @@ struct SignalPipeline::Impl {
     if (config.enable_kalman_filter) {
       tracking::KalmanPredictorConfig pred_cfg;
       pred_cfg.noise_diff_coeff = config.kalman_noise_diff_coeff;
-      kalman_predictor = std::make_unique<tracking::KalmanPredictor>(pred_cfg);
+      kalman_predictor = std::unique_ptr<tracking::KalmanPredictor>(new tracking::KalmanPredictor(pred_cfg));
 
       tracking::KalmanUpdaterConfig upd_cfg;
       upd_cfg.measurement_noise_std = config.kalman_measurement_noise_std;
-      kalman_updater = std::make_unique<tracking::KalmanUpdater>(upd_cfg);
+      kalman_updater = std::unique_ptr<tracking::KalmanUpdater>(new tracking::KalmanUpdater(upd_cfg));
     }
 
-    pipeline_head = std::make_unique<EnvironmentSamplingStage>();
-    pipeline_head->SetNext(std::make_unique<EchoEstimationStage>())
-      ->SetNext(std::make_unique<DetectionStage>(&config))
-        ->SetNext(std::make_unique<AssociationStage>(&association_engine))
-      ->SetNext(std::make_unique<TrackingFilterStage>(&track_filter));
+    pipeline_head = std::unique_ptr<EnvironmentSamplingStage>(new EnvironmentSamplingStage());
+    pipeline_head->SetNext(std::unique_ptr<EchoEstimationStage>(new EchoEstimationStage()))
+      ->SetNext(std::unique_ptr<DetectionStage>(new DetectionStage(&config)))
+        ->SetNext(std::unique_ptr<AssociationStage>(new AssociationStage(&association_engine)))
+      ->SetNext(std::unique_ptr<TrackingFilterStage>(new TrackingFilterStage(&track_filter)));
   }
 
   common::TargetFeatureList RunCycle(
@@ -257,7 +259,7 @@ struct SignalPipeline::Impl {
 };
 
 SignalPipeline::SignalPipeline(SignalPipelineConfig config)
-    : impl_(std::make_unique<Impl>(config)) {}
+    : impl_(std::unique_ptr<Impl>(new Impl(config))) {}
 
 SignalPipeline::~SignalPipeline() = default;
 
@@ -276,4 +278,6 @@ void SignalPipeline::UpdateConfig(SignalPipelineConfig config) {
   impl_->UpdateConfig(config);
 }
 
-} // namespace airborne_radar::signal::pipeline
+} // namespace pipeline
+} // namespace signal
+} // namespace airborne_radar

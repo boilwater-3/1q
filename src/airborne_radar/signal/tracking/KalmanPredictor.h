@@ -78,8 +78,8 @@ class KalmanPredictor final : public IKalmanPredictor {
   KalmanPredictorConfig config_{};
 };
 
-}  // namespace tracking
-}  // namespace signal
-}  // namespace airborne_radar
+} // namespace tracking
+} // namespace signal
+} // namespace airborne_radar
 
 #endif  // AIRBORNE_RADAR_SIGNAL_TRACKING_KALMAN_PREDICTOR_H_

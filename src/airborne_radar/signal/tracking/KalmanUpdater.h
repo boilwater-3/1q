@@ -94,8 +94,8 @@ class KalmanUpdater final : public IKalmanUpdater {
   MeasurementCovariance R_;
 };
 
-}  // namespace tracking
-}  // namespace signal
-}  // namespace airborne_radar
+} // namespace tracking
+} // namespace signal
+} // namespace airborne_radar
 
 #endif  // AIRBORNE_RADAR_SIGNAL_TRACKING_KALMAN_UPDATER_H_
