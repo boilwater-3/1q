@@ -6,6 +6,7 @@
 #define AIRBORNE_RADAR_SIGNAL_PIPELINE_I_SIGNAL_PIPELINE_H_
 
 #include "1q/airborne_radar/common/TargetFeature.h"
+#include "1q/airborne_radar/signal/tracking/TrackLifecycleTypes.h"
 
 namespace airborne_radar::environment {
 class IEnvironmentService;
@@ -25,6 +26,10 @@ public:
 		virtual common::TargetFeatureList
 		RunCycle(const common::TargetFeatureList &input_state,
 						 const environment::IEnvironmentService &environment) = 0;
+
+		/// @brief 导出最近一次处理周期生成的跟踪量测。
+		virtual std::vector<tracking::TrackMeasurement>
+		GetLastTrackMeasurements() const = 0;
 };
 
 } // namespace airborne_radar::signal::pipeline

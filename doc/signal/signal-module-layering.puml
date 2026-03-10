@@ -1,0 +1,99 @@
+@startuml signal-module-layering
+skinparam linetype ortho
+skinparam packageStyle rectangle
+skinparam defaultFontName sans-serif
+skinparam shadowing false
+
+title Signal 层模块分层（含 Kalman / EKF / IMM）
+
+package "编排层" {
+  rectangle "RadarController\n跨层调度入口" as CTRL
+  rectangle "SignalPipeline\nSignal 周期主编排器" as PIPELINE
+}
+
+package "信号处理算法层" {
+  rectangle "EnvironmentSampling / Echo / Detection\n回波与探测判决" as DETECT
+
+  package "Association" {
+    rectangle "DataAssociationEngine\n关联编排" as ASSOC_ENGINE
+    rectangle "MahalanobisDistanceMetric\n对角简化马氏距离" as METRIC
+    rectangle "FullMahalanobisDistanceMetric\n完整协方差马氏距离" as FULL_METRIC
+    rectangle "CostThresholdGater\n波门裁剪" as GATER
+    rectangle "DenseCostHypothesiser\n假设生成" as HYP
+    rectangle "LapjvSolver\n最优指派" as SOLVER
+  }
+
+  package "Tracking Filter" {
+    rectangle "TrackFilter\n标量特征预测/更新" as FILTER
+
+    package "Kalman Family" {
+      rectangle "KalmanPredictor\n3D CV 标准 Kalman" as KF_PRED
+      rectangle "KalmanUpdater\nJoseph 形式" as KF_UPD
+      rectangle "EkfPredictor\n扩展 Kalman 预测" as EKF_PRED
+      rectangle "EkfUpdater\n扩展 Kalman 更新" as EKF_UPD
+      rectangle "ImmFilter\n交互多模型 (Bar-Shalom)" as IMM
+    }
+  }
+
+  rectangle "TrackMeasurement bridge\nGetLastTrackMeasurements()" as MEAS
+}
+
+package "生命周期域层" {
+  rectangle "TrackLifecycleManager\n建轨/确认/丢失/回收\n+ Kalman 状态估计集成" as LIFECYCLE
+  rectangle "Stable Track Snapshot\n供决策层/分类使用" as SNAPSHOT
+}
+
+package "基础设施层" {
+  rectangle "ITrackPool / BoostTrackPool\n对象池" as POOL
+}
+
+CTRL --> PIPELINE
+PIPELINE --> DETECT
+PIPELINE --> ASSOC_ENGINE
+PIPELINE --> FILTER
+PIPELINE --> MEAS
+PIPELINE ..> KF_PRED : 持有
+PIPELINE ..> KF_UPD : 持有
+MEAS --> LIFECYCLE
+LIFECYCLE --> SNAPSHOT
+LIFECYCLE --> POOL : 申请 / 归还
+LIFECYCLE ..> KF_PRED : 可选注入
+LIFECYCLE ..> KF_UPD : 可选注入
+
+ASSOC_ENGINE --> METRIC
+ASSOC_ENGINE --> FULL_METRIC
+ASSOC_ENGINE --> GATER
+ASSOC_ENGINE --> HYP
+ASSOC_ENGINE --> SOLVER
+FILTER --> KF_PRED
+FILTER --> KF_UPD
+
+EKF_PRED --|> KF_PRED : 实现 IKalmanPredictor
+EKF_UPD --|> KF_UPD : 实现 IKalmanUpdater
+IMM --> KF_PRED : N 个 Predictor
+IMM --> KF_UPD : N 个 Updater
+
+note right of PIPELINE
+  负责串接单周期执行顺序。
+  按配置创建 Kalman 组件并
+  通过指针注入到 LifecycleManager。
+end note
+
+note right of IMM
+  Bar-Shalom 4 步算法：
+  混合 → 预测 → 更新 → 组合。
+  支持 KF + EKF 混合模型集。
+end note
+
+note right of LIFECYCLE
+  唯一生命周期域服务。
+  集成 Kalman predict-update 逻辑。
+  has_cartesian_position 为激活条件。
+end note
+
+note bottom of POOL
+  对象池属于基础设施，
+  不承载航迹业务语义。
+end note
+
+@enduml

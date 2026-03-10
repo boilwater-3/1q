@@ -10,9 +10,16 @@ set(PROJECT_SOURCES
     airborne_radar/environment/EnvironmentService.cpp
     airborne_radar/environment/database/FeatureRepository.cpp
     airborne_radar/signal/association/DataAssociation.cpp
+    airborne_radar/signal/association/DistanceMetric.cpp
+    airborne_radar/signal/association/Hypothesiser.cpp
     airborne_radar/signal/association/LapjvSolver.cpp
     airborne_radar/signal/pipeline/SignalPipeline.cpp
     airborne_radar/signal/tracking/BoostTrackPool.cpp
+    airborne_radar/signal/tracking/KalmanPredictor.cpp
+    airborne_radar/signal/tracking/KalmanUpdater.cpp
+    airborne_radar/signal/tracking/EkfFilter.cpp
+    airborne_radar/signal/tracking/ImmFilter.cpp
+    airborne_radar/signal/tracking/TrackFilter.cpp
     airborne_radar/signal/tracking/TrackLifecycleManager.cpp
 )
 

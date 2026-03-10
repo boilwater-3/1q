@@ -18,6 +18,9 @@ namespace airborne_radar {
 namespace signal {
 namespace tracking {
 
+class IKalmanPredictor;
+class IKalmanUpdater;
+
 /// @brief LifecycleConfig 定义轨迹状态机阈值配置。
 struct LifecycleConfig {
   /// @brief 候选轨迹转已确认所需最小命中次数。
@@ -37,7 +40,11 @@ public:
   /// @brief 构造函数。
   /// @param pool 轨迹对象池抽象。
   /// @param config 生命周期阈值配置。
-  TrackLifecycleManager(ITrackPool &pool, const LifecycleConfig &config);
+  /// @param predictor 可选的 Kalman 预测器（为 nullptr 时不执行状态外推）。
+  /// @param updater 可选的 Kalman 更新器（为 nullptr 时不执行状态更新）。
+  TrackLifecycleManager(ITrackPool &pool, const LifecycleConfig &config,
+                        const IKalmanPredictor *predictor = nullptr,
+                        const IKalmanUpdater *updater = nullptr);
 
   /// @brief 用本周期量测更新轨迹生命周期。
   /// @param cycle 当前周期上下文。
@@ -78,6 +85,18 @@ private:
 
   /// @brief 活跃轨迹表，key 为关联键。
   std::map<std::uint64_t, common::TrackState *> tracks_by_key_;
+
+  /// @brief 可选 Kalman 预测器（非拥有）。
+  const IKalmanPredictor *kalman_predictor_{nullptr};
+
+  /// @brief 可选 Kalman 更新器（非拥有）。
+  const IKalmanUpdater *kalman_updater_{nullptr};
+
+  /// @brief 上一周期编号，用于计算 dt。
+  std::uint32_t last_cycle_index_{0};
+
+  /// @brief 每周期时间步长（秒）。
+  float cycle_dt_{1.0f};
 };
 
 } // namespace tracking

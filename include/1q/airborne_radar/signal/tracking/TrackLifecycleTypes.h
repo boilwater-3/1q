@@ -5,6 +5,7 @@
 #ifndef AIRBORNE_RADAR_SIGNAL_TRACKING_TRACK_LIFECYCLE_TYPES_H_
 #define AIRBORNE_RADAR_SIGNAL_TRACKING_TRACK_LIFECYCLE_TYPES_H_
 
+#include <cstddef>
 #include <cstdint>
 
 #include <Eigen/Core>
@@ -24,14 +25,35 @@ struct CycleContext {
 
 /// @brief TrackMeasurement 描述关联后量测输入。
 struct TrackMeasurement {
+  /// @brief 原始输入目标索引，用于调试和结果回溯。
+  std::size_t source_index{0};
+
   /// @brief 关联键（例如关联模块输出的轨迹键）。
   std::uint64_t association_key{0};
+
+  /// @brief 是否匹配到了上一周期已有轨迹。
+  bool matched_existing_track{false};
+
+  /// @brief 关联代价；未命中旧轨迹时为 0。
+  float association_cost{0.0f};
+
+  /// @brief 当前量测探测裕量（dB）。
+  float detection_margin_db{0.0f};
+
+  /// @brief 当前是否具备可信的笛卡尔位置量测。
+  bool has_cartesian_position{false};
 
   /// @brief 当前量测位置向量（x, y, z）。
   Eigen::Vector3f position{Eigen::Vector3f::Zero()};
 
+  /// @brief 当前量测标量速度估计（m/s）。
+  float observed_speed{0.0f};
+
   /// @brief 当前量测速度向量（vx, vy, vz）。
   Eigen::Vector3f velocity{Eigen::Vector3f::Zero()};
+
+  /// @brief 当前量测标量加速度估计（m/s^2）。
+  float observed_acceleration{0.0f};
 
   /// @brief 当前量测加速度向量（ax, ay, az）。
   Eigen::Vector3f acceleration{Eigen::Vector3f::Zero()};

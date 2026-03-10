@@ -6,6 +6,9 @@
 
 #include "1q/airborne_radar/common/TargetFeature.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
+#include "airborne_radar/signal/association/DistanceMetric.h"
+#include "airborne_radar/signal/association/Gater.h"
+#include "airborne_radar/signal/association/Hypothesiser.h"
 
 namespace airborne_radar::tests {
 
@@ -83,6 +86,84 @@ TEST(DataAssociationEngineTest, AssignsNewKeysForNewMeasurements) {
   ASSERT_EQ(keys_2.size(), 1u);
   EXPECT_NE(keys_2[0], 0u);
   EXPECT_NE(keys_2[0], keys_1[0]);
+}
+
+TEST(DataAssociationEngineTest, ReportsMatchesMissesAndUnassociatedTargets) {
+  signal::association::DataAssociationEngine engine;
+
+  const common::TargetFeatureList cycle_1{MakeTarget(120.0f, 2.0f, 1.0f)};
+  const std::vector<std::uint8_t> detected_1{1U};
+  const std::vector<std::uint64_t> keys_1 = engine.Associate(cycle_1, detected_1);
+  ASSERT_EQ(keys_1.size(), 1u);
+  ASSERT_NE(keys_1[0], 0u);
+
+  const common::TargetFeatureList cycle_2{
+      MakeTarget(121.0f, 2.1f, 1.1f),
+      MakeTarget(700.0f, 35.0f, 20.0f)};
+  const std::vector<std::uint8_t> detected_2{1U, 1U};
+
+  const signal::association::AssociationResult result =
+      engine.AssociateDetections(cycle_2, detected_2);
+
+  ASSERT_EQ(result.target_keys.size(), 2u);
+  ASSERT_EQ(result.matches.size(), 1u);
+  EXPECT_EQ(result.matches[0].association_key, keys_1[0]);
+  EXPECT_EQ(result.matches[0].target_index, 0u);
+  EXPECT_TRUE(result.missed_track_keys.empty());
+  ASSERT_EQ(result.unassociated_target_indices.size(), 1u);
+  EXPECT_EQ(result.unassociated_target_indices[0], 1u);
+  EXPECT_EQ(result.target_keys[0], keys_1[0]);
+  EXPECT_NE(result.target_keys[1], 0u);
+  EXPECT_NE(result.target_keys[1], keys_1[0]);
+}
+
+TEST(DataAssociationEngineTest, ReportsMissedTrackKeysWhenNoDetectionArrives) {
+  signal::association::DataAssociationEngine engine;
+
+  const common::TargetFeatureList cycle_1{MakeTarget(120.0f, 2.0f, 1.0f)};
+  const std::vector<std::uint8_t> detected_1{1U};
+  const std::vector<std::uint64_t> keys_1 = engine.Associate(cycle_1, detected_1);
+  ASSERT_EQ(keys_1.size(), 1u);
+
+  const common::TargetFeatureList cycle_2{MakeTarget(120.0f, 2.0f, 1.0f)};
+  const std::vector<std::uint8_t> detected_2{0U};
+  const signal::association::AssociationResult result =
+      engine.AssociateDetections(cycle_2, detected_2);
+
+  EXPECT_TRUE(result.matches.empty());
+  EXPECT_TRUE(result.unassociated_target_indices.empty());
+  ASSERT_EQ(result.missed_track_keys.size(), 1u);
+  EXPECT_EQ(result.missed_track_keys[0], keys_1[0]);
+  ASSERT_EQ(result.target_keys.size(), 1u);
+  EXPECT_EQ(result.target_keys[0], 0u);
+}
+
+TEST(CostThresholdGaterTest, RejectsHypothesesOutsideThreshold) {
+  const signal::association::CostThresholdGater gater(9.0f);
+
+  EXPECT_TRUE(gater.Accept(8.5f));
+  EXPECT_TRUE(gater.Accept(9.0f));
+  EXPECT_FALSE(gater.Accept(9.1f));
+}
+
+TEST(DenseCostHypothesiserTest, GeneratesOnlyGatedHypotheses) {
+  const signal::association::MahalanobisDistanceMetric metric(40.0f, 8.0f, 10.0f);
+  const signal::association::CostThresholdGater gater(9.0f);
+  const signal::association::DenseCostHypothesiser hypothesiser(&metric, &gater);
+
+  const signal::association::FeatureVectorList predicted_tracks{
+      Eigen::Vector3f(100.0f, 2.0f, 1.0f)};
+  const signal::association::FeatureVectorList measurements{
+      Eigen::Vector3f(101.0f, 2.1f, 1.1f),
+      Eigen::Vector3f(700.0f, 35.0f, 20.0f)};
+
+  const std::vector<signal::association::AssociationHypothesis> hypotheses =
+      hypothesiser.Generate(predicted_tracks, measurements);
+
+  ASSERT_EQ(hypotheses.size(), 1u);
+  EXPECT_EQ(hypotheses[0].track_index, 0u);
+  EXPECT_EQ(hypotheses[0].measurement_index, 0u);
+  EXPECT_LT(hypotheses[0].cost, 9.0f);
 }
 
 } // namespace airborne_radar::tests

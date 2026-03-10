@@ -1,16 +1,43 @@
 # Signal 层文档目录
 
-- 设计说明：`signal-architecture.md`
-- 流程图（PlantUML）：`signal-processing-flow.puml`
-- 流程图（PNG）：`signal-processing-flow.png`
+Signal 层是机载雷达仿真系统的信号处理核心，负责 **探测 → 关联 → 滤波 → 航迹管理** 完整链路。
 
-说明：本文档聚焦信号处理层的职责边界、模块协同关系，以及目标分类上游所依赖的稳定航迹数据来源。
+## 文件说明
 
-## 文档说明
+| 文件 | 说明 |
+|------|------|
+| `signal-architecture.md` | **核心文档**：架构概览、目录结构、算法详解、Stone Soup 对照、类图和时序图 |
+| `signal-processing-flow.puml` | Signal 主处理链路流程图（PlantUML 源文件） |
+| `signal-processing-flow.png` | 流程图导出图 |
+| `signal-module-layering.puml` | Signal 模块分层图（PlantUML 源文件） |
+| `signal-module-layering.png` | 模块分层图导出图 |
 
-- `signal-architecture.md`：解释信号层为什么拆分为数据关联、跟踪滤波、轨迹管理三类职责。
-- `signal-processing-flow.puml`：用流程图表达从量测输入到稳定航迹快照输出的主处理链路。
+## 建议阅读顺序
+
+1. 先看 `signal-architecture.md` — 全面了解架构边界、算法原理和实现状态。
+2. 再看 `signal-module-layering.puml` 或 PNG — 建立模块分层视图。
+3. 然后看 `signal-processing-flow.puml` 或 PNG — 补足单周期执行链路视图。
+4. 需要落代码时，回到源码核对以下入口：
+   - `SignalPipeline` — 周期编排
+   - `DataAssociationEngine` — 关联编排
+   - `KalmanPredictor / KalmanUpdater` — 标准 Kalman
+   - `EkfPredictor / EkfUpdater` — 扩展 Kalman
+   - `ImmFilter` — 交互多模型
+   - `TrackLifecycleManager` — 轨迹生命周期 + Kalman 集成
+
+## 算法层级
+
+```
+Level 0: TrackFilter（标量特征的最小预测/更新）
+Level 1: KalmanPredictor + KalmanUpdater（标准线性 Kalman，3D CV）
+Level 2: EkfPredictor + EkfUpdater（扩展 Kalman，非线性模型支持）
+Level 3: ImmFilter（交互多模型，Bar-Shalom 4 步算法）
+```
 
 ## 流程图预览
 
 ![Signal Processing Flow](./signal-processing-flow.png)
+
+## 模块分层图预览
+
+![Signal Module Layering](./signal-module-layering.png)

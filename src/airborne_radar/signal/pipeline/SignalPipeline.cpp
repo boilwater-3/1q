@@ -12,6 +12,9 @@
 #include <Eigen/Core>
 
 #include "airborne_radar/signal/association/DataAssociation.h"
+#include "airborne_radar/signal/tracking/KalmanPredictor.h"
+#include "airborne_radar/signal/tracking/KalmanUpdater.h"
+#include "airborne_radar/signal/tracking/TrackFilter.h"
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/core/pipeline/IChainProcessor.h"
 
@@ -19,10 +22,33 @@ namespace airborne_radar::signal::pipeline {
 
 namespace {
 
+tracking::TrackFilterConfig ToTrackFilterConfig(
+    const SignalPipelineConfig &config) {
+  tracking::TrackFilterConfig filter_config;
+  filter_config.speed_decay_ratio_on_loss = config.speed_decay_ratio_on_loss;
+  filter_config.rcs_decay_ratio_on_loss = config.rcs_decay_ratio_on_loss;
+  filter_config.jamming_acceleration_penalty =
+      config.jamming_acceleration_penalty;
+  filter_config.stable_acceleration_gain = config.stable_acceleration_gain;
+  return filter_config;
+}
+
+const association::AssociationMatch *FindAssociationMatch(
+    const association::AssociationResult &result,
+    std::size_t target_index) {
+  for (const association::AssociationMatch &match : result.matches) {
+    if (match.target_index == target_index) {
+      return &match;
+    }
+  }
+  return nullptr;
+}
+
 struct SignalCycleContext {
   const common::TargetFeatureList *input_state{nullptr};
   const environment::IEnvironmentService *environment{nullptr};
   common::TargetFeatureList output_state;
+  std::vector<tracking::TrackMeasurement> track_measurements;
 
   environment::EnvironmentSnapshot environment_snapshot{};
 
@@ -31,6 +57,7 @@ struct SignalCycleContext {
   std::vector<float> speed_penalty_db;
   std::vector<float> detection_margin_db;
   std::vector<std::uint8_t> detection_succeeded;
+  association::AssociationResult association_result;
   std::vector<std::uint64_t> association_keys;
 };
 
@@ -48,6 +75,7 @@ protected:
     context.detection_margin_db.resize(target_count);
     context.detection_succeeded.resize(target_count);
     context.association_keys.resize(target_count);
+    context.track_measurements.clear();
   }
 };
 
@@ -106,8 +134,10 @@ public:
 
 protected:
   void ProcessNode(SignalCycleContext &context) override {
-    context.association_keys =
-        engine_->Associate(*context.input_state, context.detection_succeeded);
+    context.association_result =
+        engine_->AssociateDetections(*context.input_state,
+                                     context.detection_succeeded);
+    context.association_keys = context.association_result.target_keys;
   }
 
 private:
@@ -117,53 +147,75 @@ private:
 class TrackingFilterStage
     : public core::pipeline::IChainProcessor<SignalCycleContext> {
 public:
-  explicit TrackingFilterStage(const SignalPipelineConfig *config) : config_(config) {}
+  explicit TrackingFilterStage(tracking::TrackFilter *filter) : filter_(filter) {}
 
 protected:
   void ProcessNode(SignalCycleContext &context) override {
     const common::TargetFeatureList &input = *context.input_state;
     common::TargetFeatureList &output = context.output_state;
 
-    const bool jamming = context.environment_snapshot.jamming_detected;
-    const float jamming_penalty = config_->jamming_acceleration_penalty;
-    const float stable_gain = config_->stable_acceleration_gain;
-
     const std::size_t count = output.size();
+    context.track_measurements.clear();
     for (std::size_t i = 0; i < count; ++i) {
-      output[i].check_jamming_detected = jamming;
+      tracking::TrackFilterContext filter_context;
+      filter_context.detection_succeeded = context.detection_succeeded[i] != 0U;
+      filter_context.jamming_detected =
+          context.environment_snapshot.jamming_detected;
+      filter_context.detection_margin_db = context.detection_margin_db[i];
+      output[i] = filter_->Filter(input[i], filter_context);
 
-      if (context.detection_succeeded[i] == 0U) {
-        output[i].current_track_speed =
-          std::max(0.0f, input[i].current_track_speed * config_->speed_decay_ratio_on_loss);
-        output[i].current_track_rcs =
-          std::max(0.05f, input[i].current_track_rcs * config_->rcs_decay_ratio_on_loss);
+      if (!filter_context.detection_succeeded) {
+        continue;
       }
 
-      if (jamming) {
-        output[i].current_track_acceleration =
-            input[i].current_track_acceleration - jamming_penalty;
-      } else {
-        output[i].current_track_acceleration =
-            input[i].current_track_acceleration +
-            stable_gain * context.detection_margin_db[i];
-      }
+        const association::AssociationMatch *match =
+          FindAssociationMatch(context.association_result, i);
+      tracking::TrackMeasurement measurement;
+        measurement.source_index = i;
+      measurement.association_key = context.association_keys[i];
+        measurement.matched_existing_track = match != nullptr;
+        measurement.association_cost = match != nullptr ? match->cost : 0.0f;
+        measurement.detection_margin_db = context.detection_margin_db[i];
+        measurement.has_cartesian_position = false;
+      measurement.position = Eigen::Vector3f::Zero();
+        measurement.observed_speed = output[i].current_track_speed;
+      measurement.velocity =
+          Eigen::Vector3f(output[i].current_track_speed, 0.0f, 0.0f);
+        measurement.observed_acceleration = output[i].current_track_acceleration;
+      measurement.acceleration =
+          Eigen::Vector3f(output[i].current_track_acceleration, 0.0f, 0.0f);
+      measurement.rcs = output[i].current_track_rcs;
+      measurement.jamming_detected = output[i].check_jamming_detected;
+      context.track_measurements.push_back(measurement);
     }
   }
 
 private:
-  const SignalPipelineConfig *config_{nullptr};
+  tracking::TrackFilter *filter_{nullptr};
 };
 
 } // namespace
 
 struct SignalPipeline::Impl {
   explicit Impl(SignalPipelineConfig initial_config)
-  : config(initial_config) {
+  : config(initial_config),
+    track_filter(ToTrackFilterConfig(initial_config)) {
+    // 按配置条件创建 Kalman 组件
+    if (config.enable_kalman_filter) {
+      tracking::KalmanPredictorConfig pred_cfg;
+      pred_cfg.noise_diff_coeff = config.kalman_noise_diff_coeff;
+      kalman_predictor = std::make_unique<tracking::KalmanPredictor>(pred_cfg);
+
+      tracking::KalmanUpdaterConfig upd_cfg;
+      upd_cfg.measurement_noise_std = config.kalman_measurement_noise_std;
+      kalman_updater = std::make_unique<tracking::KalmanUpdater>(upd_cfg);
+    }
+
     pipeline_head = std::make_unique<EnvironmentSamplingStage>();
     pipeline_head->SetNext(std::make_unique<EchoEstimationStage>())
       ->SetNext(std::make_unique<DetectionStage>(&config))
         ->SetNext(std::make_unique<AssociationStage>(&association_engine))
-      ->SetNext(std::make_unique<TrackingFilterStage>(&config));
+      ->SetNext(std::make_unique<TrackingFilterStage>(&track_filter));
   }
 
   common::TargetFeatureList RunCycle(
@@ -176,12 +228,30 @@ struct SignalPipeline::Impl {
     return cached_context.output_state;
   }
 
+  std::vector<tracking::TrackMeasurement> GetLastTrackMeasurements() const {
+    return cached_context.track_measurements;
+  }
+
+  /// @brief 获取 Kalman 预测器指针（可为 nullptr）。
+  const tracking::IKalmanPredictor *GetKalmanPredictor() const {
+    return kalman_predictor.get();
+  }
+
+  /// @brief 获取 Kalman 更新器指针（可为 nullptr）。
+  const tracking::IKalmanUpdater *GetKalmanUpdater() const {
+    return kalman_updater.get();
+  }
+
   void UpdateConfig(SignalPipelineConfig new_config) {
     config = new_config;
+    track_filter.UpdateConfig(ToTrackFilterConfig(new_config));
   }
 
   SignalPipelineConfig config{};
   association::DataAssociationEngine association_engine{};
+  tracking::TrackFilter track_filter{};
+  std::unique_ptr<tracking::KalmanPredictor> kalman_predictor;
+  std::unique_ptr<tracking::KalmanUpdater> kalman_updater;
   SignalCycleContext cached_context{};
   std::unique_ptr<core::pipeline::IChainProcessor<SignalCycleContext> > pipeline_head;
 };
@@ -195,6 +265,11 @@ common::TargetFeatureList SignalPipeline::RunCycle(
     const common::TargetFeatureList &input_state,
     const environment::IEnvironmentService &environment) {
   return impl_->RunCycle(input_state, environment);
+}
+
+std::vector<tracking::TrackMeasurement>
+SignalPipeline::GetLastTrackMeasurements() const {
+  return impl_->GetLastTrackMeasurements();
 }
 
 void SignalPipeline::UpdateConfig(SignalPipelineConfig config) {

@@ -6,9 +6,10 @@
 #define AIRBORNE_RADAR_COMMON_TRACK_TYPES_H_
 
 #include <cstdint>
-#include <vector>
 
 #include <Eigen/Core>
+
+#include "1q/airborne_radar/signal/tracking/GaussianTrackState.h"
 
 namespace airborne_radar {
 namespace common {
@@ -71,8 +72,9 @@ struct TrackState {
   /// @brief 当前周期是否检测到与该目标相关的干扰信号。
   bool jamming_detected{false};
 
-  /// @brief 简化协方差存储，后续可替换为固定维度矩阵。
-  std::vector<float> covariance;
+  /// @brief 高斯状态估计（位置+速度的均值和协方差）。
+  /// @details 与 Kalman 滤波器的 GaussianTrackState 共享类型定义。
+  signal::tracking::GaussianTrackState gaussian_state;
 };
 
 } // namespace common

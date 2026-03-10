@@ -12,6 +12,8 @@
 #include "1q/airborne_radar/core/context/IRadarContext.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"
 #include "1q/airborne_radar/core/event/RadarEvents.h"
+#include "1q/airborne_radar/signal/tracking/ITrackLifecycleManager.h"
+#include "1q/airborne_radar/signal/tracking/TrackLifecycleTypes.h"
 #include "airborne_radar/decision/classifier/TargetClassifier.h"
 #include "airborne_radar/decision/eccm/EccmController.h"
 #include "airborne_radar/decision/lpi/LpiController.h"
@@ -53,6 +55,30 @@ public:
 private:
   common::TargetFeatureList state_;
   std::vector<common::RadarCommand> submitted_commands_;
+};
+
+class SpyTrackLifecycleManager : public signal::tracking::ITrackLifecycleManager {
+public:
+  void Update(const signal::tracking::CycleContext &cycle,
+              const std::vector<signal::tracking::TrackMeasurement> &measurements) override {
+    last_cycle = cycle;
+    last_measurements = measurements;
+  }
+
+  common::TargetFeatureList BuildFeatureSnapshot() const override {
+    common::TargetFeatureList snapshot;
+    snapshot.reserve(last_measurements.size());
+    for (const signal::tracking::TrackMeasurement &measurement : last_measurements) {
+      snapshot.push_back(common::TargetFeature(measurement.velocity.norm(),
+                                               measurement.rcs,
+                                               measurement.jamming_detected,
+                                               measurement.acceleration.norm()));
+    }
+    return snapshot;
+  }
+
+  signal::tracking::CycleContext last_cycle{};
+  std::vector<signal::tracking::TrackMeasurement> last_measurements;
 };
 
 /// @brief CoreControllerTest 覆盖核心调度与指令下发路径。
@@ -201,6 +227,38 @@ TEST_F(CoreControllerTest, CycleEventBusDeliversEventsOnNextCycle) {
   controller.RunOnce();
   EXPECT_EQ(completed_event_hits, 1u);
   EXPECT_GT(last_command_count, 0u);
+}
+
+TEST_F(CoreControllerTest, LifecycleManagerConsumesRealAssociationMeasurements) {
+  const common::TargetFeatureList input_state = {
+      common::TargetFeature(100.0f, 2.0f, false, 1.0f),
+      common::TargetFeature(220.0f, 5.0f, false, 3.0f)};
+  FakeRadarContext radar_context(input_state);
+
+  environment::EnvironmentModelConfig env_config;
+  env_config.jammer_power_db = 0.0f;
+  environment::EnvironmentService environment_service(env_config);
+
+  signal::pipeline::SignalPipeline signal_pipeline;
+  SpyTrackLifecycleManager lifecycle_manager;
+
+  core::controller::RadarController controller(
+      radar_context, signal_pipeline, *decision_pipeline_, environment_service);
+  controller.SetTrackLifecycleManager(&lifecycle_manager);
+
+  controller.RunOnce();
+
+  ASSERT_EQ(lifecycle_manager.last_cycle.cycle_index, 1u);
+  ASSERT_EQ(lifecycle_manager.last_measurements.size(), 2u);
+  EXPECT_NE(lifecycle_manager.last_measurements[0].association_key, 0u);
+  EXPECT_NE(lifecycle_manager.last_measurements[1].association_key, 0u);
+  EXPECT_NE(lifecycle_manager.last_measurements[0].association_key,
+            lifecycle_manager.last_measurements[1].association_key);
+  EXPECT_EQ(lifecycle_manager.last_measurements[0].source_index, 0u);
+  EXPECT_EQ(lifecycle_manager.last_measurements[1].source_index, 1u);
+  EXPECT_FALSE(lifecycle_manager.last_measurements[0].matched_existing_track);
+  EXPECT_FALSE(lifecycle_manager.last_measurements[1].matched_existing_track);
+  EXPECT_FALSE(lifecycle_manager.last_measurements[0].has_cartesian_position);
 }
 
 } // namespace airborne_radar::tests

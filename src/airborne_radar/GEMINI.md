@@ -28,15 +28,6 @@ src/airborne_radar/
     └── simulation/              # PropagationModel: Physical loss and interference simulation
 ```
 
-# Module Architectural Design
-
-- Control Plane vs Data Plane separation: decision logic stays pure, execution is centralized in core.
-- Core layer acts as the mediator and lifecycle scheduler; environment layer is the unified infrastructure boundary.
-- Decision layer is a strict pipeline (Chain of Responsibility) over `ITacticalProcessor` with `TacticalContext` as the payload carrier.
-- Actions are collected as commands in context and executed by core in a unified step (CQRS-style separation).
-- Signal layer queries environment only through abstract services (e.g., `IEnvironmentService`) to enforce DIP.
-- EventBus delivers high-frequency, cross-layer data; repositories serve static features from in-memory cache.
-- No Direct Implement Inclusion: decision/signal `.cpp` files must not include concrete classes from `environment`.
 
 
 

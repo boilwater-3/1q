@@ -17,32 +17,6 @@
 #include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "1q/airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 
-namespace {
-
-std::vector<airborne_radar::signal::tracking::TrackMeasurement>
-BuildMeasurementsFromFeatures(
-		const airborne_radar::common::TargetFeatureList &features) {
-	std::vector<airborne_radar::signal::tracking::TrackMeasurement> measurements;
-	measurements.reserve(features.size());
-
-	for (std::size_t i = 0; i < features.size(); ++i) {
-		const airborne_radar::common::TargetFeature &feature = features[i];
-		airborne_radar::signal::tracking::TrackMeasurement measurement;
-		measurement.association_key = static_cast<std::uint64_t>(i + 1);
-		measurement.position = Eigen::Vector3f::Zero();
-		measurement.velocity = Eigen::Vector3f(feature.current_track_speed, 0.0f, 0.0f);
-		measurement.acceleration =
-				Eigen::Vector3f(feature.current_track_acceleration, 0.0f, 0.0f);
-		measurement.rcs = feature.current_track_rcs;
-		measurement.jamming_detected = feature.check_jamming_detected;
-		measurements.push_back(measurement);
-	}
-
-	return measurements;
-}
-
-} // namespace
-
 namespace airborne_radar::core::controller {
 
 RadarController::RadarController(
@@ -73,33 +47,33 @@ void RadarController::RunOnce() {
 
 	const common::TargetFeatureList input_features =
 			radar_context_.GetTargetFeatures();
-	common::TargetFeatureList lifecycle_features = input_features;
+	const common::TargetFeatureList updated_features =
+			signal_pipeline_.RunCycle(input_features, environment_service_);
+	common::TargetFeatureList decision_features = updated_features;
 
 	if (track_lifecycle_manager_ != nullptr) {
-		const auto measurements = BuildMeasurementsFromFeatures(input_features);
+		const std::vector<signal::tracking::TrackMeasurement> measurements =
+				signal_pipeline_.GetLastTrackMeasurements();
 		signal::tracking::CycleContext cycle;
 		cycle.cycle_index = cycle_index_;
 		cycle.batch_id = batch_id_;
 		track_lifecycle_manager_->Update(cycle, measurements);
-		lifecycle_features = track_lifecycle_manager_->BuildFeatureSnapshot();
+		decision_features = track_lifecycle_manager_->BuildFeatureSnapshot();
 	}
 
-	const common::TargetFeatureList updated_features =
-			signal_pipeline_.RunCycle(lifecycle_features, environment_service_);
-
-	core::context::DecisionContext context(updated_features);
+	core::context::DecisionContext context(decision_features);
 	decision_pipeline_.ProcessTactics(context);
 	ExecuteCommands(context);
 
 	const bool jamming_detected = std::any_of(
-			updated_features.begin(), updated_features.end(),
+			decision_features.begin(), decision_features.end(),
 			[](const common::TargetFeature &feature) {
 				return feature.check_jamming_detected;
 			});
 
 	if (event_bus_ != nullptr) {
 		core::event::TracksUpdatedEvent tracks_event;
-		tracks_event.state = updated_features;
+		tracks_event.state = decision_features;
 		event_bus_->Enqueue(tracks_event);
 
 		if (jamming_detected) {

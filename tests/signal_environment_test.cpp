@@ -7,6 +7,7 @@
 #include "1q/airborne_radar/common/TargetFeature.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
+#include "airborne_radar/signal/tracking/TrackFilter.h"
 
 namespace airborne_radar::tests {
 
@@ -63,6 +64,79 @@ TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
   EXPECT_TRUE(output_state[0].check_jamming_detected);
   EXPECT_LT(output_state[0].current_track_acceleration,
             input_state[0].current_track_acceleration);
+}
+
+TEST(TrackFilterTest, KeepsStateWhenDetectionIsStable) {
+  signal::tracking::TrackFilter filter;
+  const common::TargetFeature input(800.0f, 2.5f, false, 0.0f);
+
+  signal::tracking::TrackFilterContext context;
+  context.detection_succeeded = true;
+  context.jamming_detected = false;
+  context.detection_margin_db = 0.0f;
+
+  const common::TargetFeature output = filter.Filter(input, context);
+
+  EXPECT_FLOAT_EQ(output.current_track_speed, input.current_track_speed);
+  EXPECT_FLOAT_EQ(output.current_track_rcs, input.current_track_rcs);
+  EXPECT_FLOAT_EQ(output.current_track_acceleration,
+                  input.current_track_acceleration);
+  EXPECT_FALSE(output.check_jamming_detected);
+}
+
+TEST(TrackFilterTest, AppliesLossDecayAndJammingPenalty) {
+  signal::tracking::TrackFilter filter;
+  const common::TargetFeature input(800.0f, 2.5f, false, 1.0f);
+
+  signal::tracking::TrackFilterContext context;
+  context.detection_succeeded = false;
+  context.jamming_detected = true;
+  context.detection_margin_db = -10.0f;
+
+  const common::TargetFeature output = filter.Filter(input, context);
+
+  EXPECT_LT(output.current_track_speed, input.current_track_speed);
+  EXPECT_LT(output.current_track_rcs, input.current_track_rcs);
+  EXPECT_LT(output.current_track_acceleration,
+            input.current_track_acceleration);
+  EXPECT_TRUE(output.check_jamming_detected);
+}
+
+TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
+  environment::EnvironmentModelConfig env_config;
+  env_config.jammer_power_db = 0.0f;
+  environment::EnvironmentService environment_service(env_config);
+
+  signal::pipeline::SignalPipeline signal_pipeline;
+  const common::TargetFeatureList cycle_1{
+      common::TargetFeature(100.0f, 2.0f, false, 1.0f),
+      common::TargetFeature(220.0f, 5.0f, false, 3.0f)};
+
+  signal_pipeline.RunCycle(cycle_1, environment_service);
+  const std::vector<signal::tracking::TrackMeasurement> first_measurements =
+      signal_pipeline.GetLastTrackMeasurements();
+
+  ASSERT_EQ(first_measurements.size(), 2u);
+  EXPECT_FALSE(first_measurements[0].matched_existing_track);
+  EXPECT_FALSE(first_measurements[1].matched_existing_track);
+  EXPECT_EQ(first_measurements[0].source_index, 0u);
+  EXPECT_EQ(first_measurements[1].source_index, 1u);
+  EXPECT_FALSE(first_measurements[0].has_cartesian_position);
+  EXPECT_GT(first_measurements[0].observed_speed, 0.0f);
+  EXPECT_GT(first_measurements[0].detection_margin_db, -2.0f);
+
+  const common::TargetFeatureList cycle_2{
+      common::TargetFeature(101.0f, 2.1f, false, 1.1f),
+      common::TargetFeature(219.5f, 4.9f, false, 2.9f)};
+  signal_pipeline.RunCycle(cycle_2, environment_service);
+  const std::vector<signal::tracking::TrackMeasurement> second_measurements =
+      signal_pipeline.GetLastTrackMeasurements();
+
+  ASSERT_EQ(second_measurements.size(), 2u);
+  EXPECT_TRUE(second_measurements[0].matched_existing_track);
+  EXPECT_TRUE(second_measurements[1].matched_existing_track);
+  EXPECT_GT(second_measurements[0].association_cost, 0.0f);
+  EXPECT_GT(second_measurements[1].association_cost, 0.0f);
 }
 
 } // namespace airborne_radar::tests

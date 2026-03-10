@@ -31,6 +31,15 @@ struct SignalPipelineConfig {
 
   /// @brief 稳定跟踪时的加速度增益。
   float stable_acceleration_gain{0.05f};
+
+  /// @brief 是否启用 Kalman 状态估计（位置/速度）。
+  bool enable_kalman_filter{true};
+
+  /// @brief Kalman 预测器过程噪声扩散系数。
+  float kalman_noise_diff_coeff{1.0f};
+
+  /// @brief Kalman 更新器量测噪声标准差（米）。
+  float kalman_measurement_noise_std{10.0f};
 };
 
 /// @brief SignalPipeline 提供可配置的信号处理周期实现。
@@ -44,6 +53,9 @@ public:
   common::TargetFeatureList RunCycle(
       const common::TargetFeatureList &input_state,
       const environment::IEnvironmentService &environment) override;
+
+  std::vector<tracking::TrackMeasurement>
+  GetLastTrackMeasurements() const override;
 
   /// @brief 更新信号处理配置。
   void UpdateConfig(SignalPipelineConfig config);
