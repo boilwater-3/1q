@@ -4,6 +4,13 @@
 
 Signal 层是机载雷达仿真系统的**信号处理核心**，负责从原始目标特征出发，完成完整的 **探测 → 关联 → 滤波 → 航迹管理** 处理链路。
 
+截至当前版本，Signal 层已经同时支持：
+
+- 基于 `[speed, rcs, acceleration]` 的**标量特征关联路径**（兼容旧实现）
+- 基于 `TargetFeature.position_x/y/z` 的**位置空间关联路径**（显式开关启用）
+- `TrackLifecycleManager` 内部的**单模型 Kalman**与**每轨 IMM 多模型运行态**
+- `FullMahalanobisDistanceMetric` 对轨迹级新息协方差 $S$ 的直接消费
+
 Signal 层遵循三条关键设计原则：
 
 1. **控制面与数据面分离** — 编排逻辑与算法实现通过接口隔离，Pipeline 节点只传递上下文、不直接耦合底层算法。
@@ -21,7 +28,7 @@ src/airborne_radar/signal/
 │   ├── Hypothesiser.h/.cpp         #   └─ DenseCostHypothesiser（假设生成）
 │   ├── AssignmentSolver.h          #   └─ IAssignmentSolver 接口
 │   ├── LapjvSolver.h/.cpp          #   └─ LapjvSolver（Jonker-Volgenant 最优指派）
-│   └── DataAssociation.h/.cpp      #   └─ DataAssociationEngine（关联编排器）
+│   └── DataAssociation.h/.cpp      #   └─ DataAssociationEngine（标量/位置双路径关联编排器）
 │
 ├── detection/                      # [信号检测层]
 │   ├── RadarEquations.h/.cpp       #   ├─ 雷达物理方程纯函数库（回波功率、噪声底、积累增益、测量精度、检测概率）
@@ -44,7 +51,7 @@ src/airborne_radar/signal/
     │                               #   └─ LinearCv / LinearPosition 默认模型
     ├── ImmFilter.h/.cpp            #   └─ ImmFilter（交互多模型滤波器，Bar-Shalom）
     ├── TrackFilter.h/.cpp          #   └─ TrackFilter（标量特征预测/更新编排）
-    ├── TrackLifecycleManager.h/.cpp #   └─ 轨迹生命周期状态机（Kalman 集成）
+    ├── TrackLifecycleManager.h/.cpp #   └─ 轨迹生命周期状态机（Kalman / 每轨 IMM 集成）
     ├── BoostTrackPool.h/.cpp       #   └─ 基于 Boost.Pool 的对象池
     └── ITrackPool.h                #   └─ 对象池抽象接口
 
@@ -55,7 +62,7 @@ include/1q/airborne_radar/signal/
     ├── GaussianTrackState.h         # 高斯状态类型定义（公共 API）
     ├── ITrackLifecycleManager.h     # 生命周期管理器接口
     ├── ITrackPool.h                 # 对象池接口
-    ├── TrackLifecycleManager.h      # 生命周期管理器（含 Kalman 注入）
+    ├── TrackLifecycleManager.h      # 生命周期管理器（含 Kalman / IMM 注入）
     └── TrackLifecycleTypes.h        # 轨迹数据类型定义
 ```
 
@@ -69,14 +76,15 @@ flowchart TD
     ECHO["回波计算<br/>SignalDetector"]
     DETECT["信号检测<br/>CFAR 探测判决"]
     ASSOC["数据关联<br/>DataAssociationEngine"]
-    FILTER["跟踪滤波<br/>TrackFilter + KalmanPredictor/Updater"]
+    ASSOC_DETAIL["可选：位置空间关联<br/>预测位置 + 量测位置 + S"]
+    FILTER["跟踪滤波<br/>TrackFilter（标量特征）"]
     MEAS["TrackMeasurement 导出<br/>GetLastTrackMeasurements()"]
     LIFECYCLE["轨迹管理<br/>TrackLifecycleManager"]
-    KALMAN["Kalman 状态估计<br/>Predict → Update → 写回"]
+    KFIMM["状态估计<br/>Kalman / 每轨 IMM"]
     SNAPSHOT["稳定航迹快照<br/>供决策层 / 目标分类"]
 
-    ENV --> ECHO --> DETECT --> ASSOC --> FILTER --> MEAS --> LIFECYCLE
-    LIFECYCLE --> KALMAN --> SNAPSHOT
+    ENV --> ECHO --> DETECT --> ASSOC --> FILTER --> MEAS --> LIFECYCLE --> KFIMM --> SNAPSHOT
+    ASSOC -.-> ASSOC_DETAIL
     LIFECYCLE -->|"申请/归还"| POOL["BoostTrackPool"]
 ```
 
@@ -89,7 +97,7 @@ flowchart TD
 EnvironmentSamplingStage
   → EchoEstimationStage          # 线性占位符公式
     → DetectionStage              # 简单 margin 比较
-      → AssociationStage
+            → AssociationStage          # 可选位置空间关联
         → TrackingFilterStage
 ```
 
@@ -97,11 +105,13 @@ EnvironmentSamplingStage
 ```
 EnvironmentSamplingStage
   → PhysicsEchoEstimationStage   # 雷达方程 + CFAR 检测概率 + 蒙特卡洛判决
-    → AssociationStage
+        → AssociationStage           # 可选位置空间关联
       → TrackingFilterStage
 ```
 
 每个 Stage 实现 `IChainProcessor<SignalCycleContext>` 接口，通过 `SignalCycleContext` 共享上下文数据。
+
+当前 `AssociationStage` 仍然是 Pipeline 链路中的单一节点；当打开 `enable_position_guided_association` 时，**位置预测与轨迹级新息协方差 $S$ 的生成发生在 `DataAssociationEngine` 内部**，而不是新增一个独立的前置 Stage。
 
 ## 4. 核心算法详解
 
@@ -148,23 +158,49 @@ flowchart LR
 ```mermaid
 flowchart LR
     subgraph DataAssociationEngine
+        MODE["模式选择<br/>标量特征 / 位置空间"]
+        PRED["内部预测<br/>KalmanPredictor + KalmanUpdater"]
         M["DistanceMetric<br/>马氏距离计算"] --> G["Gater<br/>波门裁剪"]
         G --> H["Hypothesiser<br/>候选假设生成"]
         H --> S["LapjvSolver<br/>最优指派"]
     end
-    INPUT["量测 + 历史轨迹签名"] --> M
+    INPUT["量测 + 历史轨迹签名"] --> MODE --> M
+    MODE -. 位置路径 .-> PRED -. 输出 ẑ / S .-> H
     S --> OUTPUT["AssociationResult"]
 ```
+
+`DataAssociationEngine` 当前有两条可切换路径：
+
+1. **标量特征路径（默认）**
+   - 输入特征：`[speed, rcs, acceleration]`
+   - 距离度量：`MahalanobisDistanceMetric`
+   - 作用：保持旧行为与现有调用方兼容
+
+2. **位置空间路径（`enable_position_guided_association = true`）**
+   - 量测来源：`TargetFeature.position_x / position_y / position_z`
+   - 历史轨迹状态：`TrackSignature.position + gaussian_state`
+   - 距离度量：`FullMahalanobisDistanceMetric`
+   - 协方差来源：内部 `KalmanPredictor` 预测得到 $P$，随后按
+     $$S = HPH^T + R$$
+     计算轨迹级新息协方差并传递给 `DenseCostHypothesiser`
 
 | 组件 | 算法 | 复杂度 |
 |------|------|--------|
 | `MahalanobisDistanceMetric` | d² = Σ(Δfᵢ/σᵢ)² （对角简化） | O(D) |
 | `FullMahalanobisDistanceMetric` | d² = Δzᵀ S⁻¹ Δz （LLT 分解） | O(D³) |
 | `CostThresholdGater` | 代价 > 阈值则裁剪 | O(MN) |
-| `DenseCostHypothesiser` | 生成所有通过波门的 (轨迹, 量测) 对 | O(MN) |
+| `DenseCostHypothesiser` | 生成所有通过波门的 (轨迹, 量测) 对；位置路径支持逐轨迹 S 注入 | O(MN) |
 | `LapjvSolver` | Jonker-Volgenant 线性指派 | O(N³) |
 
-### 4.2 状态估计滤波器
+#### 4.2.1 当前位置空间关联的实现边界
+
+当前版本已经完成 `FullMahalanobisDistanceMetric` 与轨迹级 $S$ 的联动，但需要注意：
+
+- 关联域维护的是**关联侧内部高斯状态**，尚未与 `TrackLifecycleManager` 的后验状态完全统一成单一真源
+- `SignalPipeline` 只有在输入 `TargetFeature` 已携带 `position_x/y/z` 时，才会导出 `has_cartesian_position = true` 的 `TrackMeasurement`
+- 因此当前位置空间关联已经可用，但仍属于**已实现的前向能力 + 待进一步统一的数据流**
+
+### 4.3 状态估计滤波器
 
 Signal 层提供三级滤波器，复杂度递增：
 
@@ -221,6 +257,14 @@ flowchart TD
 
 通过依赖注入接收 N 个 `IKalmanPredictor*` / `IKalmanUpdater*`，支持 KF + EKF 混合模型集。
 
+当前 `TrackLifecycleManager` 已支持**每轨一份 `ImmFilter` 运行态**：
+
+- 以 `association_key` 为键维护 `imm_filters_by_key_`
+- 新轨时初始化对应模型集合与初始权重
+- 命中时执行 `ImmFilter::Process()`
+- 失配时执行 `ImmFilter::Predict()`
+- 回收时同步清理该轨迹绑定的 IMM 运行态
+
 ## 5. 与 Stone Soup 的对照
 
 ### 5.1 概念映射
@@ -239,7 +283,7 @@ flowchart TD
 | `ExtendedKalmanUpdater` | `EkfUpdater` | 同上 |
 | `TransitionModel.jacobian()` | `ITransitionModel::Jacobian()` | 纯虚函数 |
 | `MeasurementModel.jacobian()` | `IMeasurementModel::Jacobian()` | 纯虚函数 |
-| `Tracker` (multi-model) | `ImmFilter` | Bar-Shalom 4 步算法 |
+| `Tracker` (multi-model) | `ImmFilter` + `TrackLifecycleManager` | `ImmFilter` 提供每轨多模型估计，Lifecycle 管理状态机与对象生命周期 |
 | `Initiator / Deleter` | `TrackLifecycleManager` | 合并为统一状态机 |
 
 ### 5.2 架构差异
@@ -282,9 +326,12 @@ classDiagram
     class DataAssociationEngine {
         +Associate(signatures, targets) AssociationResult
         -IDistanceMetric metric
+        -FullMahalanobisDistanceMetric full_metric
         -IGater gater
         -IHypothesiser hypothesiser
         -IAssignmentSolver solver
+        -KalmanPredictor association_predictor
+        -KalmanUpdater association_updater
     }
 
     class TrackLifecycleManager {
@@ -293,6 +340,7 @@ classDiagram
         +BuildFeatureSnapshot() TargetFeatureList
         -IKalmanPredictor* kalman_predictor
         -IKalmanUpdater* kalman_updater
+        -map~association_key, ImmFilter~ imm_filters_by_key
     }
 
     class IKalmanPredictor {
@@ -312,6 +360,7 @@ classDiagram
 
     ImmFilter o-- IKalmanPredictor : N 个模型
     ImmFilter o-- IKalmanUpdater : N 个模型
+    TrackLifecycleManager o-- ImmFilter : 每轨运行态
     TrackLifecycleManager o-- IKalmanPredictor : 可选注入
     TrackLifecycleManager o-- IKalmanUpdater : 可选注入
     SignalPipeline *-- DataAssociationEngine
@@ -319,9 +368,14 @@ classDiagram
     SignalPipeline *-- KalmanUpdater
 ```
 
-## 7. Kalman 集成机制
+## 7. Kalman / IMM 集成机制
 
-`TrackLifecycleManager` 通过构造函数可选注入 `IKalmanPredictor*` 和 `IKalmanUpdater*`：
+`TrackLifecycleManager` 当前支持两类状态估计接入方式：
+
+1. **单模型路径**：通过构造函数注入 `IKalmanPredictor*` 和 `IKalmanUpdater*`
+2. **多模型路径**：通过构造函数注入 `vector<IKalmanPredictor*>`、`vector<IKalmanUpdater*>` 以及转移矩阵/初始权重，按轨迹创建 `ImmFilter`
+
+### 7.1 单模型 Kalman 路径
 
 ```mermaid
 sequenceDiagram
@@ -356,16 +410,61 @@ sequenceDiagram
 - `kalman_predictor_` 和 `kalman_updater_` 均不为 `nullptr`
 - `measurement.has_cartesian_position == true`
 
+### 7.2 每轨 IMM 路径
+
+```mermaid
+sequenceDiagram
+    participant M as TrackMeasurement
+    participant L as TrackLifecycleManager
+    participant IMM as ImmFilter(按 association_key 维护)
+
+    M->>L: Update(cycle, measurements)
+
+    loop 每条量测
+        alt 新轨迹 + has_cartesian_position
+            L->>L: 构造初始 GaussianTrackState
+            L->>IMM: 创建该轨迹专属 ImmFilter
+            L->>L: 写回组合态到 TrackState
+        else 已有轨迹 + has_cartesian_position
+            L->>IMM: Process(z, dt)
+            IMM-->>L: combined_state
+            L->>L: 写回 position / velocity / gaussian_state
+        end
+    end
+
+    loop 未命中轨迹
+        L->>IMM: Predict(dt)
+        IMM-->>L: combined_state
+        L->>L: 写回外推状态
+    end
+```
+
+**激活条件**：
+- `imm_predictors_` 与 `imm_updaters_` 成对配置
+- `measurement.has_cartesian_position == true`
+
+### 7.3 关联侧 $S$ 联动机制
+
+`FullMahalanobisDistanceMetric` 的轨迹级 $S$ 联动当前由 `DataAssociationEngine` 内部完成：
+
+1. 根据 `TrackSignature.gaussian_state` 做位置预测
+2. 提取预测位置量测均值 $\hat{z} = [x, y, z]^T$
+3. 通过
+   $$S = HPH^T + R$$
+   计算该轨迹的新息协方差
+4. 将 `S` 逐轨迹注入 `DenseCostHypothesiser`
+5. 由 `FullMahalanobisDistanceMetric` 计算位置空间关联代价
+
 ## 8. 测试覆盖
 
 | 测试套件 | 测试数 | 覆盖范围 |
 |---------|--------|---------|
 | `SignalPipelineTest` | 3 | 端到端周期处理、探测裕量衰减、TrackMeasurement 导出 |
 | `TrackFilterTest` | 2 | 标量特征稳定传递、损耗衰减 + 干扰惩罚 |
-| `DataAssociationEngineTest` | 5 | 稳定关联、交叉匹配、新目标分配、匹配/失配报告 |
+| `DataAssociationEngineTest` | 6 | 稳定关联、交叉匹配、新目标分配、匹配/失配报告、位置空间关联 |
 | `CostThresholdGaterTest` | 1 | 超阈值裁剪 |
-| `DenseCostHypothesiserTest` | 1 | 仅输出波门内假设 |
-| `TrackLifecycleManagerTest` | 2 | 确认阈值、超时回收 |
+| `DenseCostHypothesiserTest` | 2 | 波门内假设、逐轨迹 S 注入 |
+| `TrackLifecycleManagerTest` | 3 | 确认阈值、超时回收、每轨 IMM 漏检预测 |
 | `KalmanPredictorTest` | 7 | 零步长恒等、位置传播、协方差增长、对称性、Q 矩阵公式 |
 | `KalmanUpdaterTest` | 8 | 协方差收缩、均值收敛、新息正确性、动态R矩阵自适应、正定性 |
 | `KalmanPredictUpdateTest` | 2 | 预测-更新集成、速度收敛 |
@@ -375,7 +474,7 @@ sequenceDiagram
 | `RadarEquationsTest` | 8 | 回波功率手算、R⁴规律、玻尔兹曼噪声、相参/非相参积累、测距/测角精度 |
 | `SignalDetectorTest` | 4 | 高/低 SNR 探测、确定性种子、干扰降级 |
 | `SwerlingDetectionTest` | 11| Swerling 0~4 边界、极限定理、多脉冲增益平滑对比 |
-| **合计** | **60+** | 单元测试合计 83 个绿灯 |
+| **合计** | **80+** | 当前单元测试合计 86 个绿灯 |
 
 ## 9. 当前状态与待完善事项
 
@@ -387,7 +486,9 @@ sequenceDiagram
 - EKF 扩展（虚函数接口）
 - IMM 多模型滤波器（Bar-Shalom 4 步）
 - `TrackLifecycleManager` 中的 Kalman 集成
+- `TrackLifecycleManager` 中的每轨 IMM 运行态集成
 - `SignalPipeline` 中 Kalman 组件的配置化创建
+- `SignalPipeline` 中位置空间关联开关透传与笛卡尔位置量测导出
 - 物理化信号检测（`RadarEquations` + `SignalDetector`）
   - 单站雷达方程回波功率计算（对数域）
   - 接收机热噪声功率底（kTBF）
@@ -400,9 +501,21 @@ sequenceDiagram
   - `SignalDetector` 极坐标物理误差 → 笛卡尔空间 R 矩阵转换（Jacobian 近似投影）
   - `TrackMeasurement` 加入动态协方差并外传给 LifecycleManager
   - `KalmanUpdater` 和 `EkfUpdater` 自适应更新 R 权重增益
+- 位置空间关联与轨迹级新息协方差联动
+    - `DataAssociationEngine` 支持位置空间关联模式
+    - `DenseCostHypothesiser` 支持逐轨迹新息协方差注入
+    - `FullMahalanobisDistanceMetric` 可直接消费轨迹级 $S$
 
 ### 待完善 🔲
 
-- IMM 集成到 `TrackLifecycleManager`（当前仅 KF 路径）
-- `FullMahalanobisDistanceMetric` 与 Kalman 新息协方差 S 的联动
+- 关联侧内部高斯状态与 `TrackLifecycleManager` 后验状态统一为单一真源
+- 将动态量测协方差 `measurement_covariance` 直接接入位置空间关联的 $S$ 计算
+- `SignalPipeline` / `RadarController` 层面对 IMM 生命周期服务的自动装配
 - 杂波图与动态门限环境适配机制
+
+### 当前已知限制 ⚠️
+
+- 位置空间关联是**显式开关功能**，默认仍走旧的标量特征关联路径
+- 位置空间关联当前要求输入 `TargetFeature` 已提供 `position_x / position_y / position_z`
+- 关联侧和生命周期侧仍各自维护高斯状态，尚未完成统一状态源收敛
+- `SignalPipeline` 当前只负责导出位置量测与位置关联配置；`TrackLifecycleManager` 的 IMM 实例化仍由上层显式创建/注入

@@ -4,7 +4,7 @@ skinparam packageStyle rectangle
 skinparam defaultFontName sans-serif
 skinparam shadowing false
 
-title Signal 层模块分层（含 Kalman / EKF / IMM）
+title Signal 层模块分层（含位置关联 / Kalman / EKF / IMM）
 
 package "编排层" {
   rectangle "RadarController\n跨层调度入口" as CTRL
@@ -15,12 +15,13 @@ package "信号处理算法层" {
   rectangle "EnvironmentSampling / Echo / Detection\n回波与探测判决" as DETECT
 
   package "Association" {
-    rectangle "DataAssociationEngine\n关联编排" as ASSOC_ENGINE
+    rectangle "DataAssociationEngine\n标量/位置双路径关联编排" as ASSOC_ENGINE
     rectangle "MahalanobisDistanceMetric\n对角简化马氏距离" as METRIC
     rectangle "FullMahalanobisDistanceMetric\n完整协方差马氏距离" as FULL_METRIC
     rectangle "CostThresholdGater\n波门裁剪" as GATER
-    rectangle "DenseCostHypothesiser\n假设生成" as HYP
+    rectangle "DenseCostHypothesiser\n假设生成（支持逐轨迹 S）" as HYP
     rectangle "LapjvSolver\n最优指派" as SOLVER
+    rectangle "Association-side Kalman\nPredictor / Updater" as ASSOC_KF
   }
 
   package "Tracking Filter" {
@@ -39,7 +40,7 @@ package "信号处理算法层" {
 }
 
 package "生命周期域层" {
-  rectangle "TrackLifecycleManager\n建轨/确认/丢失/回收\n+ Kalman 状态估计集成" as LIFECYCLE
+  rectangle "TrackLifecycleManager\n建轨/确认/丢失/回收\n+ Kalman / 每轨 IMM 状态估计集成" as LIFECYCLE
   rectangle "Stable Track Snapshot\n供决策层/分类使用" as SNAPSHOT
 }
 
@@ -65,6 +66,7 @@ ASSOC_ENGINE --> FULL_METRIC
 ASSOC_ENGINE --> GATER
 ASSOC_ENGINE --> HYP
 ASSOC_ENGINE --> SOLVER
+ASSOC_ENGINE --> ASSOC_KF
 FILTER --> KF_PRED
 FILTER --> KF_UPD
 
@@ -72,22 +74,34 @@ EKF_PRED --|> KF_PRED : 实现 IKalmanPredictor
 EKF_UPD --|> KF_UPD : 实现 IKalmanUpdater
 IMM --> KF_PRED : N 个 Predictor
 IMM --> KF_UPD : N 个 Updater
+LIFECYCLE ..> IMM : 按轨迹持有
 
 note right of PIPELINE
   负责串接单周期执行顺序。
-  按配置创建 Kalman 组件并
-  通过指针注入到 LifecycleManager。
+  透传位置关联开关，导出 TrackMeasurement。
+  Kalman 生命周期服务与 IMM 生命周期服务
+  当前仍由上层显式注入。
+end note
+
+note right of ASSOC_ENGINE
+  默认走 speed / RCS / acceleration
+  标量特征关联。
+
+  打开 enable_position_guided_association 后，
+  切换到基于 position_x/y/z 的位置空间关联，
+  并在内部计算逐轨迹新息协方差 S。
 end note
 
 note right of IMM
   Bar-Shalom 4 步算法：
   混合 → 预测 → 更新 → 组合。
   支持 KF + EKF 混合模型集。
+  当前以每轨运行态形式挂接到 LifecycleManager。
 end note
 
 note right of LIFECYCLE
   唯一生命周期域服务。
-  集成 Kalman predict-update 逻辑。
+  集成 Kalman 与每轨 IMM 状态估计逻辑。
   has_cartesian_position 为激活条件。
 end note
 

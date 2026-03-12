@@ -3,20 +3,21 @@ skinparam linetype ortho
 skinparam packageStyle rectangle
 skinparam defaultFontName sans-serif
 
-title Signal 层主处理链路（含 Kalman 集成）
+title Signal 层主处理链路（含位置关联 / Kalman / IMM）
 
 rectangle "环境建模输入\n传播损耗 / 杂波 / 干扰" as ENV
 rectangle "回波计算\nSignalDetector" as ECHO
 rectangle "信号检测\nCFAR 探测判决" as DETECT
 rectangle "数据关联\nDataAssociationEngine" as ASSOC
+rectangle "可选位置空间关联\n预测位置 + 量测位置 + S" as POS_ASSOC
 rectangle "跟踪滤波\nTrackFilter（标量特征）" as FILTER
 rectangle "TrackMeasurement 导出\nSignalPipeline bridge" as MEAS
 rectangle "轨迹管理\nTrackLifecycleManager" as LIFECYCLE
 
-rectangle "Kalman 状态估计\n(集成于 LifecycleManager)" as KALMAN {
+rectangle "状态估计\n(集成于 LifecycleManager)" as KALMAN {
   rectangle "新轨迹\n从量测初始化\nGaussianTrackState" as INIT
-  rectangle "已有轨迹\nPredict → Update\n→ 写回 position/velocity" as PU
-  rectangle "未命中轨迹\n仅 Predict\n协方差膨胀 + 均值外推" as PRED_ONLY
+  rectangle "已有轨迹\nKalman: Predict → Update\nIMM: Process\n→ 写回 position/velocity" as PU
+  rectangle "未命中轨迹\nKalman/IMM 仅 Predict\n协方差膨胀 + 均值外推" as PRED_ONLY
 }
 
 rectangle "稳定航迹快照\n供决策层/目标分类使用" as SNAPSHOT
@@ -25,6 +26,7 @@ rectangle "轨迹对象池\n仅内存复用" as POOL
 ENV --> ECHO
 ECHO --> DETECT
 DETECT --> ASSOC
+ASSOC ..> POS_ASSOC
 ASSOC --> FILTER
 FILTER --> MEAS
 MEAS --> LIFECYCLE
@@ -38,6 +40,10 @@ note right of ASSOC
   - missed_track_keys
   - unassociated_target_indices
   - target_keys
+
+  默认：标量特征关联
+  可选：位置空间关联
+  （position_x/y/z + 轨迹级 S）
 end note
 
 note right of FILTER
@@ -52,15 +58,21 @@ note right of MEAS
 
   语义字段：
   - source_index, association_key
-  - has_cartesian_position（Kalman 激活条件）
+  - has_cartesian_position（Kalman / IMM 激活条件）
   - position, velocity（空间量测）
   - measurement_covariance（动态 R 矩阵）
 end note
 
 note right of KALMAN
-  Kalman 集成激活条件：
-  1. predictor/updater 均不为 nullptr
+  状态估计激活条件：
+  1. Kalman predictor/updater 或 IMM 模型集已配置
   2. measurement.has_cartesian_position == true
+end note
+
+note right of POS_ASSOC
+  当前版本由 DataAssociationEngine 内部维护
+  关联侧高斯状态，并通过 HPH^T + R
+  计算 FullMahalanobisDistanceMetric 所需的 S。
 end note
 
 note bottom of SNAPSHOT
