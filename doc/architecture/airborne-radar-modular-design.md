@@ -89,33 +89,26 @@
 - **Command Sink (指令反向暂存)**：各策略节点不直接操作硬件 API，而是在 `DecisionContext.decision_commands` 中追加命令。
 - **统一处理延缓**：责任链结束后，由 `RadarController` 统一遍历 `decision_commands`，通过 `IRadarContext::SubmitControlCommand(...)` 下推执行。
 
-## 5. 当前实现增量补充（2026-03）
+## 5. 组件级落地架构特性（2026-03更新）
 
-### 5.1 周期事件总线双缓冲语义
+随着核心链路的打通，各层级的微观边界已经完全形成并落地，各域呈现出极高内聚特质：
 
-- 新增 `CycleEventBus` 作为 `IEventBus` 的周期实现，内部采用双队列切换。
-- 周期开始消费上一周期队列，当前周期发布事件进入下一周期队列，避免同周期回流。
-- 该设计降低了跨层回调重入风险，适配主循环调度模型。
+### 5.1 决策层 (Decision)：严格视图管线
 
-### 5.2 跟踪生命周期域服务化
+- **链式流转与视图隔离**：`TargetClassifier`、`LpiController`、`EccmController` 三阶串行。各接点只能处理为其开辟的专用视图（如 `EccmControllerView`），从根源防止了模块越权读取修改全局环境特征数据。
+- **Command 缓存收集**：各模块在评估时将战术对策转为统一雷达指令存入 Context，不直接调用底层硬件层 API，而是统一通过 `RadarController` 在总控循环里下推。
 
-- 新增 `TrackLifecycleManager` 承担目标状态机、批号推进、丢失判定与回收策略。
-- `ITrackPool`/对象池仅做内存复用，不承载业务语义。
-- `RadarController` 通过可选注入方式绑定生命周期管理器，未绑定时可退化为直接特征流处理。
+### 5.2 核心层 (Core)：强解耦双路总线驱动
 
-### 5.3 信号层目标处理边界细化
+- **EventBus 差异化语义**：除了支持即时执行同步分派的 `EventBus`，新增了基于双缓冲数组切换的 `CycleEventBus`（异步周期分派）。彻底规避了同周期引发的事件回调死循环重入风险，配合单线程的主循环推进机制使用。
+- **配置与生命周期隔离**：`RadarController` 驱动全局运转，不再亲自掌管航迹列表的批号生命周期，而是通过接口 `ITrackLifecycleManager` 绑定跟踪域的专业生命周期服务。
 
-- 将原先笼统的“目标跟踪”拆分为三个职责明确的子模块：`DataAssociator`、`TrackFilter`、`TrackLifecycleManager`。
-- `DataAssociator` 只负责量测到航迹预测的匹配决策，不直接承担建轨与删轨。
-- `TrackFilter` 只负责状态预测、更新、平滑与外推，不承载轨迹状态机语义。
-- `TrackLifecycleManager` 消费关联/滤波结果，统一维护候选、确认、丢失、回收等生命周期状态。
+### 5.3 信号层 (Signal)：“Stone Soup” C++ 重塑
 
-### 5.4 向量化量测建模
+- **四步关联域拆分**：原笼统的 `DataAssociator` 退化为编排壳，内聚切分为 `DistanceMetric`（支持完整协方差的高斯马氏距离）、`Gater`（代价波门）、`Hypothesiser`（假设生成）、`Solver`（全局指派）四套标准抽象。此模式极大便利了后续关联法则的无缝热拔插。
+- **多级滤波架构并存 (KF/EKF/IMM)**：全面落地基于 C++11 特性的矩阵估计器。支持带 Joseph 形式协方差更新的标准 `Kalman`，支持通过纯虚函数计算雅可比的非线性 `EKF`，并实现了 Bar-Shalom 4 步组合算法（混合→预测→更新→组合）的交互多模型滤波器 `IMM`。这些滤波器不保有状态控制逻辑。
+- **统一的连续性出口**：信号层将量测特征、状态滤波彻底压合到 `TrackLifecycleManager` 生命周期状态机。向上提供稳定的高内聚快照集合，不再对外直接散落碎片化事件。
 
-- 在核心调度到跟踪域服务的桥接中，量测位置、速度、加速度使用 Eigen 向量表达（`Eigen::Vector3f`）。
-- 该设计为后续关联/滤波算法升级提供统一向量接口，减少标量字段扩散。
+### 5.4 现阶段已知约束
 
-### 5.5 现阶段已知约束
-
-- 当前 `TrackMeasurement.association_key` 仍采用按输入顺序生成的临时策略，需要后续替换为稳定关联键（如 track seed/外部航迹 ID）。
-- `CycleEventBus` 目前按单线程主循环使用，尚未引入并发同步策略。
+- 当前 `TrackMeasurement.association_key` 仍采用按输入顺序生成的临时策略，后续可替换为跨传感器全域稳定关联键（如 track seed/网联航迹 ID）。

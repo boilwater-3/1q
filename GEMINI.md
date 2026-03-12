@@ -11,6 +11,8 @@ Tech stack:
 - Testing : GoogleTest
 - Testing : GoogleMock
 - Documentation : Doxygen
+- Diagram (PlantUML) : plantuml 
+- Diagram (Mermaid) : mermaid-cli 
 - Event bus : eventpp
 - Math library : Eigen
 - Math library : Sophus

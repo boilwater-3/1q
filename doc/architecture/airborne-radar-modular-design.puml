@@ -75,27 +75,30 @@ package "核心处理层 (Core Layer)\n【中介者 / 外观层】" #LightYellow
 }
 
 package "信号处理层 (Signal Layer)\n【领域核心 + 跟踪域服务】" #LightGreen {
-    class EchoCalculator {
-        - 回波功率建模
-    }
     class SignalDetector {
-        - 探测判决
+        - 回波计算与探测判决
     }
-    class DataAssociator {
-        - 量测-航迹匹配
+    class DataAssociationEngine {
+        - 关联管线编排
     }
-    class TrackFilter {
-        - 状态预测与更新
+    class IDistanceMetric << (I,orchid) >> {
+        - 马氏距离等代价评估
+    }
+    class IAssignmentSolver << (I,orchid) >> {
+        - Lapjv 等全局指派求解
+    }
+    class KalmanFamilyFilters {
+        - KF / EKF / IMM 状态预测更新
     }
     class SignalPipeline {
-        - 信号处理编排
+        - 信号处理周期编排
     }
     class TrackLifecycleManager {
         - 目标状态机
-        - 批号分配与回收策略
+        - 集成 Kalman 状态估计
     }
     class BoostTrackPool {
-        - 内存复用
+        - 内存对象池复用
     }
 
     interface ISignalPipeline << (I,orchid) >> {
@@ -113,15 +116,17 @@ package "信号处理层 (Signal Layer)\n【领域核心 + 跟踪域服务】" #
     }
 
     SignalPipeline ..|> ISignalPipeline
-    SignalPipeline --> EchoCalculator : 调用
     SignalPipeline --> SignalDetector : 调用
-    SignalPipeline --> DataAssociator : 调用
-    SignalPipeline --> TrackFilter : 调用
+    SignalPipeline --> DataAssociationEngine : 调用
+    SignalPipeline --> KalmanFamilyFilters : 持有与驱动
+    
+    DataAssociationEngine --> IDistanceMetric : 依赖
+    DataAssociationEngine --> IAssignmentSolver : 依赖
+    
     TrackLifecycleManager ..|> ITrackLifecycleManager
     BoostTrackPool ..|> ITrackPool
-    TrackLifecycleManager --> ITrackPool : 内存复用
-    DataAssociator --> TrackFilter : 关联结果输入
-    TrackFilter --> TrackLifecycleManager : 状态更新输入
+    TrackLifecycleManager --> ITrackPool : 内存分配归还
+    TrackLifecycleManager --> KalmanFamilyFilters : 注入与集成
 }
 
 package "环境建模层 (Environment Layer)\n【基础设施】" #LightGray {
@@ -173,8 +178,8 @@ ISignalPipeline --> IEnvironmentService : "查询所需的损耗/干扰信息"
 ' 4. 跟踪域服务边界
 ITrackLifecycleManager --> ITrackPool : "仅依赖内存复用接口"
 ITrackLifecycleManager ..> ISignalPipeline : "输出特征快照供后续处理"
-DataAssociator ..> TrackLifecycleManager : "不直接承担生命周期策略"
-TrackFilter ..> TrackLifecycleManager : "不直接承担状态机管理"
+DataAssociationEngine ..> TrackLifecycleManager : "输出匹配结果映射，不直接承担生命周期策略"
+KalmanFamilyFilters ..> TrackLifecycleManager : "仅作空间预测计算，不直接承担状态机管理"
 
 ' 5. 信息源与核心数据流 (CQRS, Repository, EventBus)
 RadarController ..> EventBus : "即时语义：Publish/Enqueue 立即可见"

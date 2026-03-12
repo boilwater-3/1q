@@ -54,6 +54,7 @@ note right of MEAS
   - source_index, association_key
   - has_cartesian_position（Kalman 激活条件）
   - position, velocity（空间量测）
+  - measurement_covariance（动态 R 矩阵）
 end note
 
 note right of KALMAN
