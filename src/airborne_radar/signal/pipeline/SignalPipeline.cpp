@@ -39,8 +39,6 @@ tracking::TrackFilterConfig ToTrackFilterConfig(
 association::DataAssociationConfig ToAssociationConfig(
     const SignalPipelineConfig &config) {
   association::DataAssociationConfig association_config;
-  association_config.enable_position_guided_association =
-      config.enable_position_guided_association;
   association_config.kalman_noise_diff_coeff = config.kalman_noise_diff_coeff;
   association_config.kalman_measurement_noise_std =
       config.kalman_measurement_noise_std;
@@ -58,6 +56,42 @@ const association::AssociationMatch *FindAssociationMatch(
   return nullptr;
 }
 
+tracking::MeasurementCovariance BuildMeasurementCovariance(
+    const common::TargetFeature &target,
+    float range_error_std,
+    float angle_error_std,
+    float default_measurement_noise_std) {
+  if (range_error_std <= 0.0f || angle_error_std <= 0.0f) {
+    return tracking::MeasurementCovariance::Identity() *
+           default_measurement_noise_std * default_measurement_noise_std;
+  }
+
+  const float range_m = target.range_m > 0.1f
+                            ? target.range_m
+                            : std::max(
+                                  Eigen::Vector3f(target.position_x,
+                                                  target.position_y,
+                                                  target.position_z)
+                                      .norm(),
+                                  0.1f);
+  const float var_r = range_error_std * range_error_std;
+  const float var_theta = angle_error_std * angle_error_std;
+  Eigen::Vector3f pos = (target.position_x != 0.0f || target.position_y != 0.0f ||
+                         target.position_z != 0.0f)
+                            ? Eigen::Vector3f(target.position_x, target.position_y,
+                                              target.position_z)
+                            : Eigen::Vector3f(range_m, 0.0f, 0.0f);
+  const float pos_norm = pos.norm();
+  if (pos_norm > 0.1f) {
+    const Eigen::Vector3f u = pos / pos_norm;
+    const Eigen::Matrix3f identity = Eigen::Matrix3f::Identity();
+    const Eigen::Matrix3f uu_t = u * u.transpose();
+    return var_r * uu_t + (range_m * range_m * var_theta) * (identity - uu_t);
+  }
+
+  return tracking::MeasurementCovariance::Identity() * var_r;
+}
+
 struct SignalCycleContext {
   const common::TargetFeatureList *input_state{nullptr};
   const environment::IEnvironmentService *environment{nullptr};
@@ -72,14 +106,15 @@ struct SignalCycleContext {
   std::vector<std::uint8_t> detection_succeeded;
   association::AssociationResult association_result;
   std::vector<std::uint64_t> association_keys;
-  
-  // Storage for newly retained signal estimates required for downstream dynamic covariance
-  std::vector<float> range_error_std;
-  std::vector<float> angle_error_std;
+  std::vector<tracking::MeasurementCovariance> measurement_covariances;
 };
 
 class EnvironmentSamplingStage
     : public core::pipeline::IChainProcessor<SignalCycleContext> {
+public:
+  explicit EnvironmentSamplingStage(const SignalPipelineConfig *config)
+      : config_(config) {}
+
 protected:
   void ProcessNode(SignalCycleContext &context) override {
     context.environment_snapshot = context.environment->SampleEnvironment();
@@ -92,10 +127,16 @@ protected:
     context.detection_margin_db.resize(target_count);
     context.detection_succeeded.resize(target_count);
     context.association_keys.resize(target_count);
-    context.range_error_std.resize(target_count);
-    context.angle_error_std.resize(target_count);
+    context.measurement_covariances.assign(
+        target_count,
+        tracking::MeasurementCovariance::Identity() *
+            config_->kalman_measurement_noise_std *
+            config_->kalman_measurement_noise_std);
     context.track_measurements.clear();
   }
+
+private:
+  const SignalPipelineConfig *config_{nullptr};
 };
 
 class EchoEstimationStage
@@ -118,9 +159,11 @@ class PhysicsEchoEstimationStage
 public:
   explicit PhysicsEchoEstimationStage(
       detection::SignalDetector *detector,
+      const SignalPipelineConfig *config,
       int pulse_count,
       bool coherent_integration)
       : detector_(detector),
+        config_(config),
         pulse_count_(pulse_count),
         coherent_integration_(coherent_integration) {}
 
@@ -161,15 +204,15 @@ protected:
       context.detection_margin_db[i] = det.snr_db;
       context.detection_succeeded[i] =
           static_cast<std::uint8_t>(det.detected ? 1U : 0U);
-      
-      // Store measurement errors for dynamic covariance construction
-      context.range_error_std[i] = det.range_error_std_m;
-      context.angle_error_std[i] = det.angle_error_std_rad;
+      context.measurement_covariances[i] = BuildMeasurementCovariance(
+          input[i], det.range_error_std_m, det.angle_error_std_rad,
+          config_->kalman_measurement_noise_std);
     }
   }
 
 private:
   detection::SignalDetector *detector_{nullptr};
+  const SignalPipelineConfig *config_{nullptr};
   int pulse_count_{1};
   bool coherent_integration_{false};
 };
@@ -217,7 +260,8 @@ protected:
   void ProcessNode(SignalCycleContext &context) override {
     context.association_result =
         engine_->AssociateDetections(*context.input_state,
-                                     context.detection_succeeded);
+                                     context.detection_succeeded,
+                                     context.measurement_covariances);
     context.association_keys = context.association_result.target_keys;
   }
 
@@ -256,11 +300,9 @@ protected:
       measurement.association_key = context.association_keys[i];
       measurement.matched_existing_track = match != nullptr;
       measurement.association_cost = match != nullptr ? match->cost : 0.0f;
-        measurement.used_position_association =
+      measurement.used_position_association =
           context.association_result.used_position_association;
-        measurement.fell_back_to_feature_association =
-          context.association_result.fell_back_to_feature_association;
-        measurement.used_external_association_seeds =
+      measurement.used_external_association_seeds =
           context.association_result.used_external_association_seeds;
       measurement.detection_margin_db = context.detection_margin_db[i];
       measurement.has_cartesian_position =
@@ -279,26 +321,8 @@ protected:
           Eigen::Vector3f(output[i].current_track_acceleration, 0.0f, 0.0f);
       measurement.rcs = output[i].current_track_rcs;
       measurement.jamming_detected = output[i].check_jamming_detected;
+      measurement.measurement_covariance = context.measurement_covariances[i];
 
-      // 构建笛卡尔下的量测噪声协方差矩阵 R
-      const float range_m = input[i].range_m > 0.1f ? input[i].range_m : 50000.0f;
-      const float var_r = context.range_error_std[i] * context.range_error_std[i];
-      const float var_theta = context.angle_error_std[i] * context.angle_error_std[i];
-      
-      // 当我们没有笛卡尔位置时，仅能使用假设的先验。这里我们假设目标沿着 X 轴进行粗略估计变换
-      Eigen::Vector3f pos = measurement.has_cartesian_position
-               ? measurement.position
-               : Eigen::Vector3f(range_m, 0.0f, 0.0f);
-      const float pos_norm = pos.norm();
-      if (pos_norm > 0.1f) {
-        Eigen::Vector3f u = pos / pos_norm;
-        Eigen::Matrix3f I = Eigen::Matrix3f::Identity();
-        Eigen::Matrix3f uuT = u * u.transpose();
-        measurement.measurement_covariance = var_r * uuT + (range_m * range_m * var_theta) * (I - uuT);
-      } else {
-        measurement.measurement_covariance = Eigen::Matrix3f::Identity() * var_r;
-      }
-      
       context.track_measurements.push_back(measurement);
     }
   }
@@ -330,11 +354,12 @@ struct SignalPipeline::Impl {
           new detection::SignalDetector(config.radar_system));
 
       pipeline_head = std::unique_ptr<EnvironmentSamplingStage>(
-          new EnvironmentSamplingStage());
+          new EnvironmentSamplingStage(&config));
       pipeline_head
           ->SetNext(std::unique_ptr<PhysicsEchoEstimationStage>(
               new PhysicsEchoEstimationStage(
                   signal_detector.get(),
+              &config,
                   config.pulse_count,
                   config.coherent_integration)))
           ->SetNext(std::unique_ptr<AssociationStage>(
@@ -343,7 +368,7 @@ struct SignalPipeline::Impl {
               new TrackingFilterStage(&track_filter)));
     } else {
       pipeline_head = std::unique_ptr<EnvironmentSamplingStage>(
-          new EnvironmentSamplingStage());
+        new EnvironmentSamplingStage(&config));
       pipeline_head
           ->SetNext(std::unique_ptr<EchoEstimationStage>(
               new EchoEstimationStage()))

@@ -84,6 +84,18 @@ public:
       const FeatureVectorList &measurements,
       const std::vector<Eigen::Matrix3f> &innovation_covariances) const;
 
+  	/// @brief 使用逐轨迹预测协方差和逐量测动态协方差生成候选假设。
+  	/// @param predicted_tracks 历史轨迹预测特征集合。
+  	/// @param measurements 当前量测特征集合。
+  	/// @param projected_measurement_covariances 与轨迹索引对齐的 HPH^T 列表。
+  	/// @param measurement_covariances 与量测索引对齐的动态量测协方差 R 列表。
+  	/// @return 候选假设列表。
+    std::vector<AssociationHypothesis> Generate(
+      const FeatureVectorList &predicted_tracks,
+      const FeatureVectorList &measurements,
+      const std::vector<Eigen::Matrix3f> &projected_measurement_covariances,
+      const std::vector<Eigen::Matrix3f> &measurement_covariances) const;
+
 private:
   /// @brief 距离度量器。
   IDistanceMetric *distance_metric_{nullptr};

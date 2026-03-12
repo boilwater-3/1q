@@ -26,17 +26,8 @@ namespace association {
 
 /// @brief 数据关联配置。
 struct DataAssociationConfig {
-	/// @brief 速度维度标准差，用于距离归一化。
-  float speed_sigma{40.0f};
-	/// @brief RCS 维度标准差，用于距离归一化。
-  float rcs_sigma{8.0f};
-	/// @brief 加速度维度标准差，用于距离归一化。
-  float acceleration_sigma{10.0f};
 	/// @brief 未分配虚拟槽代价上限。
   float unassigned_cost{9.0f};
-
-	/// @brief 是否启用基于笛卡尔位置的主关联路径。
-	bool enable_position_guided_association{true};
 
 	/// @brief 位置关联使用的过程噪声扩散系数。
   float kalman_noise_diff_coeff{1.0f};
@@ -73,8 +64,6 @@ struct AssociationResult {
   std::vector<std::uint64_t> target_keys;
 	/// @brief 本周期是否实际执行了位置空间关联路径。
   bool used_position_association{false};
-	/// @brief 本周期是否因位置量测不完整而回退到标量特征关联。
-  bool fell_back_to_feature_association{false};
 	/// @brief 本周期是否使用了外部注入的轨迹种子作为关联先验。
   bool used_external_association_seeds{false};
 };
@@ -99,6 +88,16 @@ public:
       const common::TargetFeatureList &targets,
       const std::vector<std::uint8_t> &detection_succeeded);
 
+	/// @brief 关联当前周期探测并返回结构化结果（使用动态量测协方差）。
+	/// @param targets 当前周期输入目标特征集合。
+	/// @param detection_succeeded 探测阶段输出的有效标记。
+	/// @param measurement_covariances 与目标索引对齐的动态量测协方差。
+	/// @return 包含命中、失配和未关联目标的完整结果。
+  AssociationResult AssociateDetections(
+	  const common::TargetFeatureList &targets,
+	  const std::vector<std::uint8_t> &detection_succeeded,
+	  const std::vector<tracking::MeasurementCovariance> &measurement_covariances);
+
 	/// @brief 关联当前周期探测并返回稳定关联键。
 	/// @param targets 当前周期输入目标特征集合。
 	/// @param detection_succeeded 探测阶段输出的有效标记。
@@ -106,6 +105,16 @@ public:
   std::vector<std::uint64_t> Associate(
       const common::TargetFeatureList &targets,
       const std::vector<std::uint8_t> &detection_succeeded);
+
+	/// @brief 关联当前周期探测并返回稳定关联键（使用动态量测协方差）。
+	/// @param targets 当前周期输入目标特征集合。
+	/// @param detection_succeeded 探测阶段输出的有效标记。
+	/// @param measurement_covariances 与目标索引对齐的动态量测协方差。
+	/// @return 与目标索引对齐的关联键列表；0 表示未关联。
+  std::vector<std::uint64_t> Associate(
+	  const common::TargetFeatureList &targets,
+	  const std::vector<std::uint8_t> &detection_succeeded,
+	  const std::vector<tracking::MeasurementCovariance> &measurement_covariances);
 
 	/// @brief 使用生命周期侧导出的轨迹种子覆盖关联引擎历史状态。
 	/// @param seeds 上一周期轨迹种子列表。
@@ -126,13 +135,11 @@ private:
 		/// @brief 默认构造。
     TrackSignature() = default;
 		/// @brief 参数构造。
-		TrackSignature(std::uint64_t k, const Eigen::Vector3f &f)
-				: key(k), feature(f) {}
+		explicit TrackSignature(std::uint64_t k)
+				: key(k) {}
 
 		/// @brief 历史轨迹稳定键。
     std::uint64_t key{0};
-		/// @brief 用于下一周期关联的特征向量。
-    Eigen::Vector3f feature{Eigen::Vector3f::Zero()};
 		/// @brief 当前轨迹是否具有笛卡尔位置量测。
 		bool has_position{false};
 		/// @brief 当前轨迹位置量测/预测量测。
@@ -142,11 +149,6 @@ private:
 		/// @brief 用于位置空间关联预测的高斯状态。
 		tracking::GaussianTrackState gaussian_state;
   };
-
-	/// @brief 构建用于距离计算的特征向量。
-	/// @param target 输入目标特征。
-	/// @return 由速度、RCS 和加速度组成的三维向量。
-  Eigen::Vector3f BuildFeatureVector(const common::TargetFeature &target) const;
 
 	/// @brief 构建笛卡尔位置量测向量。
 	/// @param target 输入目标特征。
@@ -158,11 +160,10 @@ private:
 	/// @return 若存在位置量测则返回 true。
   bool HasPositionMeasurement(const common::TargetFeature &target) const;
 
-	/// @brief 判断本周期是否应启用位置引导关联。
+	/// @brief 校验所有成功探测目标都携带笛卡尔位置量测。
 	/// @param targets 当前周期输入目标。
 	/// @param detection_succeeded 当前周期探测标记。
-	/// @return 若可使用位置量测并且配置已开启，则返回 true；否则回退到标量特征关联。
-  bool UsePositionAssociation(
+  void ValidateDetectedTargetsHavePosition(
       const common::TargetFeatureList &targets,
       const std::vector<std::uint8_t> &detection_succeeded) const;
 
@@ -172,22 +173,18 @@ private:
   tracking::GaussianTrackState InitializeGaussianState(
       const Eigen::Vector3f &position) const;
 
-	/// @brief 计算预测状态对应的位置空间新息协方差 S。
+	/// @brief 计算预测状态投影到量测空间后的协方差 HPH^T。
 	/// @param predicted 预测后的高斯状态。
-	/// @return 对应的位置新息协方差。
-  tracking::MeasurementCovariance ComputeInnovationCovariance(
+ 	/// @return 对应的位置量测空间协方差。
+  tracking::MeasurementCovariance ComputeProjectedMeasurementCovariance(
       const tracking::GaussianTrackState &predicted) const;
 
 	/// @brief 当前引擎配置。
   DataAssociationConfig config_{};
-	/// @brief 马氏距离度量实现。
-  MahalanobisDistanceMetric distance_metric_;
 	/// @brief 完整协方差位置空间马氏距离度量实现。
   FullMahalanobisDistanceMetric full_distance_metric_;
 	/// @brief 基于代价阈值的波门器。
   CostThresholdGater gater_;
-	/// @brief 稠密代价假设生成器。
-  DenseCostHypothesiser hypothesiser_;
 	/// @brief 位置空间候选假设生成器。
   DenseCostHypothesiser position_hypothesiser_;
 	/// @brief LAPJV 指派求解器。
@@ -200,6 +197,8 @@ private:
   std::uint64_t next_key_{1};
 	/// @brief 仅在未接入 Lifecycle 种子时启用的 fallback 兼容历史缓存。
   std::vector<TrackSignature> fallback_history_tracks_;
+	/// @brief 当前周期外部注入的 Lifecycle 轨迹种子缓存。
+	std::vector<TrackSignature> external_seed_tracks_;
 	/// @brief 当前周期关联先验状态来源模式。
   AssociationSeedMode association_seed_mode_{AssociationSeedMode::kFallbackHistoryCache};
 };

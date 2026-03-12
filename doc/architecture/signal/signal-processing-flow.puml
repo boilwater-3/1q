@@ -10,8 +10,7 @@ rectangle "回波计算\nSignalDetector" as ECHO
 rectangle "信号检测\nCFAR 探测判决" as DETECT
 rectangle "Lifecycle 关联种子注入\nBuildAssociationSeeds → SetAssociationSeeds" as SEEDS
 rectangle "数据关联\nDataAssociationEngine" as ASSOC
-rectangle "位置空间主关联\n预测位置 + 量测位置 + S" as POS_ASSOC
-rectangle "legacy fallback 关联\nspeed / RCS / acceleration" as LEGACY_ASSOC
+rectangle "位置空间关联\n预测位置 + 量测位置 + HPH^T + R" as POS_ASSOC
 rectangle "跟踪滤波\nTrackFilter（标量特征）" as FILTER
 rectangle "TrackMeasurement 导出\nSignalPipeline bridge" as MEAS
 rectangle "轨迹管理\nTrackLifecycleManager" as LIFECYCLE
@@ -31,7 +30,6 @@ LIFECYCLE --> SEEDS
 SEEDS --> ASSOC
 DETECT --> ASSOC
 ASSOC --> POS_ASSOC
-ASSOC ..> LEGACY_ASSOC
 ASSOC --> FILTER
 FILTER --> MEAS
 MEAS --> LIFECYCLE
@@ -46,11 +44,11 @@ note right of ASSOC
   - unassociated_target_indices
   - target_keys
   - used_position_association
-  - fell_back_to_feature_association
   - used_external_association_seeds
 
-  默认：位置空间主关联
-  兼容：legacy fallback 关联
+  仅支持位置空间主关联；
+  成功探测目标若缺位置量测，
+  直接触发契约失败。
 end note
 
 note right of SEEDS
@@ -85,14 +83,9 @@ end note
 
 note right of POS_ASSOC
   当前版本由 DataAssociationEngine 内部维护
-  关联侧高斯状态，并通过 HPH^T + R
-  计算 FullMahalanobisDistanceMetric 所需的 S。
-end note
-
-note right of LEGACY_ASSOC
-  仅在位置量测缺失，或显式关闭
-  enable_position_guided_association
-  时启用。
+  关联侧高斯状态，并将逐轨迹 HPH^T
+  与逐量测 measurement_covariance(R)
+  合成为 FullMahalanobisDistanceMetric 所需的 S。
 end note
 
 note bottom of SNAPSHOT

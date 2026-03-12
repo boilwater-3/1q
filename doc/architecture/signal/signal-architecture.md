@@ -111,17 +111,17 @@ EnvironmentSamplingStage
 ```
 EnvironmentSamplingStage
   → PhysicsEchoEstimationStage   # 雷达方程 + CFAR 检测概率 + 蒙特卡洛判决
-        → AssociationStage           # 默认位置空间关联（必要时回退）
+                → AssociationStage           # 位置空间关联（缺位置直接失败）
       → TrackingFilterStage
 ```
 
 每个 Stage 实现 `IChainProcessor<SignalCycleContext>` 接口，通过 `SignalCycleContext` 共享上下文数据。
 
-当前 `AssociationStage` 仍然是 Pipeline 链路中的单一节点；在默认启用位置主路径的配置下，**位置预测与轨迹级新息协方差 $S$ 的生成发生在 `DataAssociationEngine` 内部**，而不是新增一个独立的前置 Stage。只有当位置量测不完整，或显式关闭 `enable_position_guided_association` 时，关联阶段才会退回 legacy 标量特征路径。
+当前 `AssociationStage` 仍然是 Pipeline 链路中的单一节点；**位置预测、逐轨迹预测协方差 $HPH^T$ 与逐量测动态协方差 $R$ 的合成，发生在 `DataAssociationEngine` 内部**，而不是新增一个独立的前置 Stage。当前实现已移除 legacy 标量特征回退路径；若成功探测目标缺失 `position_x / y / z`，关联阶段会直接触发契约失败。
 
 当前版本中，`RadarController` 会在调用 `SignalPipeline::RunCycle()` 之前，先从 `TrackLifecycleManager` 拉取上一周期活跃轨迹的 `AssociationTrackSeed`，再注入 `SignalPipeline` 作为本周期关联的先验种子；因此位置空间关联的预测真理源已开始从 `DataAssociationEngine` 内部缓存，向 Lifecycle 侧收敛。
 
-为方便调试与测试，关联结果和 `TrackMeasurement` 现已显式暴露 `used_external_association_seeds` 标记，用于区分“本周期位置关联来自 Lifecycle 外部种子”还是“退回关联引擎内部兼容缓存”。
+为方便调试与测试，关联结果和 `TrackMeasurement` 现已显式暴露 `used_external_association_seeds` 标记，用于区分“本周期位置关联来自 Lifecycle 外部种子”还是“使用关联引擎内部兼容缓存”。
 
 当 `RadarController` / `SignalPipeline` 已显式注入外部种子时，即便该周期种子列表为空，也表示“Lifecycle 当前没有可供关联的活跃轨迹”；此时 `DataAssociationEngine` 不会再回退复用内部历史缓存，而是把自身内部缓存视为 fallback-only 机制，仅在**未接入 Lifecycle 种子提供者**的场景下启用。
 
@@ -170,9 +170,9 @@ flowchart LR
 ```mermaid
 flowchart LR
     subgraph DataAssociationEngine
-        MODE["双层选择<br/>先验来源 / 匹配空间"]
+        MODE["先验来源选择<br/>external seeds / fallback cache"]
         PRED["内部预测<br/>KalmanPredictor + KalmanUpdater"]
-        INNOV["轨迹级新息协方差<br/>S = HPH^T + R"]
+        INNOV["逐假设新息协方差<br/>S = HPH^T + R"]
         M["DistanceMetric<br/>马氏距离计算"] --> G["Gater<br/>波门裁剪"]
         G --> H["Hypothesiser<br/>候选假设生成"]
         H --> S["LapjvSolver<br/>最优指派"]
@@ -180,35 +180,29 @@ flowchart LR
     DET["位置量测<br/>TargetFeature.position_x/y/z"] --> MODE
     EXT["external association seeds<br/>Lifecycle truth source"] --> MODE
     FALLBACK["fallback_history_tracks_<br/>兼容缓存"] --> MODE
-    MEAS_COV["measurement_covariance<br/>动态量测协方差"] -. 当前未直接接入 .-> INNOV
+    MEAS_COV["measurement_covariance<br/>动态量测协方差 R"] --> INNOV
     MODE --> M
     MODE -. 位置路径 .-> PRED --> INNOV -. 输出 ẑ / S .-> H
     S --> OUTPUT["AssociationResult"]
 ```
 
-图中将 `external association seeds` 与 `fallback_history_tracks_` 拆开显示，是为了强调 **prior fallback** 与 **feature fallback** 是两个正交维度：前者决定“关联先验从哪里来”，后者决定“在什么特征空间做匹配”。另外，`measurement_covariance` 当前虽已进入 Lifecycle / Kalman / EKF 更新链路，但**尚未直接注入** `DataAssociationEngine` 侧的轨迹级 $S$ 计算，这也是当前位置关联链路仍待继续收敛的关键边界之一。
+图中将 `external association seeds` 与 `fallback_history_tracks_` 拆开显示，是为了强调当前仅保留 **prior fallback** 这一个回退维度：它只回答“关联先验从哪里来”，不再承担“切换到另一套特征空间匹配”的职责。另外，`measurement_covariance` 已通过 `SignalCycleContext` 前移到 `AssociationStage`，并直接进入 `DataAssociationEngine` 的逐假设 $S$ 计算。
 
-`DataAssociationEngine` 当前保留两条路径，但语义已区分主次：
+`DataAssociationEngine` 当前收敛为单一位置空间路径：
 
-1. **位置空间路径（默认主路径）**
+1. **位置空间路径（唯一主路径）**
     - 量测来源：`TargetFeature.position_x / position_y / position_z`
     - 历史轨迹状态：`TrackSignature.position + gaussian_state`
     - 距离度量：`FullMahalanobisDistanceMetric`
-    - 协方差来源：内部 `KalmanPredictor` 预测得到 $P$，随后按
+    - 协方差来源：内部 `KalmanPredictor` 预测得到 $P$，与来自 `SignalPipeline` 的动态量测协方差 $R$ 在假设生成阶段合成为
       $$S = HPH^T + R$$
-      计算轨迹级新息协方差并传递给 `DenseCostHypothesiser`
-
-2. **标量特征路径（legacy 回退）**
-   - 输入特征：`[speed, rcs, acceleration]`
-   - 距离度量：`MahalanobisDistanceMetric`
-    - 作用：当位置量测缺失，或配置显式关闭位置路径时，保持旧行为与现有调用方兼容
+    - 契约要求：所有成功探测目标必须携带笛卡尔位置量测；缺失时直接失败，而不是静默退回 legacy 特征空间
 
 | 组件 | 算法 | 复杂度 |
 |------|------|--------|
-| `MahalanobisDistanceMetric` | d² = Σ(Δfᵢ/σᵢ)² （对角简化） | O(D) |
 | `FullMahalanobisDistanceMetric` | d² = Δzᵀ S⁻¹ Δz （LLT 分解） | O(D³) |
 | `CostThresholdGater` | 代价 > 阈值则裁剪 | O(MN) |
-| `DenseCostHypothesiser` | 生成所有通过波门的 (轨迹, 量测) 对；位置路径支持逐轨迹 S 注入 | O(MN) |
+| `DenseCostHypothesiser` | 生成所有通过波门的 (轨迹, 量测) 对；支持逐轨迹 $HPH^T$ 与逐量测 $R$ 合成 | O(MN) |
 | `LapjvSolver` | Jonker-Volgenant 线性指派 | O(N³) |
 
 #### 4.2.1 当前位置空间关联的实现边界
@@ -217,37 +211,28 @@ flowchart LR
 
 - `RadarController` 已通过 `AssociationTrackSeed` 将 Lifecycle 侧活跃轨迹状态注入关联阶段，关联真理源正在向 `TrackLifecycleManager` 收敛
 - 关联域仍保留内部签名缓存作为无 Lifecycle 管理器场景下的兼容路径，尚未完全删除内部状态副本
+- `SignalPipeline` 会在 `SignalCycleContext` 中提前构造 `measurement_covariance`，供关联与 Lifecycle 更新共享同一份动态 $R$
 - `SignalPipeline` 只有在输入 `TargetFeature` 已携带 `position_x/y/z` 时，才会导出 `has_cartesian_position = true` 的 `TrackMeasurement`
-- 当位置量测不完整时，当前实现会显式回退到 legacy 标量特征关联
-- 因此当前位置空间关联已经是默认主路径，但仍属于**已主化的关联能力 + 待进一步统一的数据流**
+- 当成功探测目标位置量测不完整时，当前实现会直接触发契约失败
+- 因此当前位置空间关联已经是唯一正式路径，但内部状态所有权仍属于**已主化的关联能力 + 待进一步统一的数据流**
 
 #### 4.2.2 当前文档中的 fallback 术语约定
 
-为避免后续讨论中将不同层次的“回退”混为一谈，本文将 `fallback` 明确拆分为两个概念：
+为避免后续讨论中将不同层次的“回退”混为一谈，本文当前只保留 `prior fallback` 这一术语：
 
 1. **prior fallback（先验来源回退）**
     - 含义：当前周期没有 `TrackLifecycleManager -> BuildAssociationSeeds() -> SetAssociationSeeds()` 这条外部 seeds 接管链时，`DataAssociationEngine` 退回使用自身内部维护的 `fallback_history_tracks_` 作为关联先验。
     - 作用：为“尚未接入 Lifecycle 真理源”的兼容场景保留最小可运行能力。
     - 非作用：一旦外部 seeds 已显式接管，即便 seeds 为空，也**不会**再回退复用内部历史缓存。
 
-2. **feature fallback（特征空间回退）**
-    - 含义：当前周期无法走位置空间主关联时，`DataAssociationEngine` 从 `position_x / y / z + FullMahalanobisDistanceMetric + 轨迹级 S` 的主路径，回退到 `[speed, rcs, acceleration] + MahalanobisDistanceMetric` 的 legacy 标量特征关联。
-    - 触发条件：位置量测不完整，或配置显式关闭 `enable_position_guided_association`。
-    - 作用：在位置量测契约尚未对所有输入完全收敛前，维持旧链路兼容性。
+当前实现不再保留 `feature fallback`；成功探测目标若缺失位置量测，会直接失败而不是切换到 `[speed, rcs, acceleration]` 的 legacy 标量特征关联。
 
-可以将两者理解为两个正交维度：
-
-- `prior fallback` 回答的是“**当前关联先验从哪里来**”；
-- `feature fallback` 回答的是“**当前量测在什么空间做匹配**”。
-
-因此，当前实现允许出现如下组合：
+因此，当前实现仅存在如下两种先验来源组合：
 
 | 先验来源 | 匹配空间 | 语义 |
 |---------|---------|------|
 | Lifecycle external seeds | 位置空间主关联 | 理想主路径 |
-| Lifecycle external seeds | legacy 标量特征 | 外部真理源已接管，但位置量测不足 |
 | fallback history cache | 位置空间主关联 | 尚未接入 Lifecycle，但内部缓存仍可支撑位置预测 |
-| fallback history cache | legacy 标量特征 | 最老的兼容兜底路径 |
 
 ### 4.3 状态估计滤波器
 

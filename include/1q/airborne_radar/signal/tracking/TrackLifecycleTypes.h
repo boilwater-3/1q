@@ -63,9 +63,6 @@ struct TrackMeasurement {
   /// @brief 当前量测是否通过位置空间关联路径得到关联结果。
   bool used_position_association{false};
 
-  /// @brief 当前量测是否因位置量测不足而回退到标量特征关联。
-  bool fell_back_to_feature_association{false};
-
   /// @brief 当前量测关联时是否使用了外部 Lifecycle 轨迹种子。
   bool used_external_association_seeds{false};
 

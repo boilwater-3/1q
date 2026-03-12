@@ -28,8 +28,12 @@ TEST(SignalPipelineTest, KeepsTrackStableWhenDetectionMarginIsEnough) {
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  const common::TargetFeatureList input_state{
-      common::TargetFeature(800.0f, 2.5f, false, 0.0f)};
+  common::TargetFeature target(800.0f, 2.5f, false, 0.0f);
+  target.position_x = 100.0f;
+  target.position_y = 0.0f;
+  target.position_z = 0.0f;
+  target.range_m = 100.0f;
+  const common::TargetFeatureList input_state{target};
 
   const auto output_state =
       signal_pipeline.RunCycle(input_state, environment_service);
@@ -108,9 +112,13 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  const common::TargetFeatureList cycle_1{
-      common::TargetFeature(100.0f, 2.0f, false, 1.0f),
-      common::TargetFeature(220.0f, 5.0f, false, 3.0f)};
+  common::TargetFeature first(100.0f, 2.0f, false, 1.0f);
+  first.position_x = 10.0f;
+  first.range_m = 10.0f;
+  common::TargetFeature second(220.0f, 5.0f, false, 3.0f);
+  second.position_x = 100.0f;
+  second.range_m = 100.0f;
+  const common::TargetFeatureList cycle_1{first, second};
 
   signal_pipeline.RunCycle(cycle_1, environment_service);
   const std::vector<signal::tracking::TrackMeasurement> first_measurements =
@@ -121,13 +129,22 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
   EXPECT_FALSE(first_measurements[1].matched_existing_track);
   EXPECT_EQ(first_measurements[0].source_index, 0u);
   EXPECT_EQ(first_measurements[1].source_index, 1u);
-  EXPECT_FALSE(first_measurements[0].has_cartesian_position);
+    EXPECT_TRUE(first_measurements[0].has_cartesian_position);
   EXPECT_GT(first_measurements[0].observed_speed, 0.0f);
   EXPECT_GT(first_measurements[0].detection_margin_db, -2.0f);
+    EXPECT_TRUE(first_measurements[0].used_position_association);
 
-  const common::TargetFeatureList cycle_2{
-      common::TargetFeature(101.0f, 2.1f, false, 1.1f),
-      common::TargetFeature(219.5f, 4.9f, false, 2.9f)};
+    first.current_track_speed = 101.0f;
+    first.current_track_rcs = 2.1f;
+    first.current_track_acceleration = 1.1f;
+    first.position_x = 11.0f;
+    first.range_m = 11.0f;
+    second.current_track_speed = 219.5f;
+    second.current_track_rcs = 4.9f;
+    second.current_track_acceleration = 2.9f;
+    second.position_x = 101.0f;
+    second.range_m = 101.0f;
+    const common::TargetFeatureList cycle_2{first, second};
   signal_pipeline.RunCycle(cycle_2, environment_service);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
@@ -137,8 +154,20 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
   EXPECT_TRUE(second_measurements[1].matched_existing_track);
   EXPECT_GT(second_measurements[0].association_cost, 0.0f);
   EXPECT_GT(second_measurements[1].association_cost, 0.0f);
-  EXPECT_FALSE(second_measurements[0].used_position_association);
-  EXPECT_TRUE(second_measurements[0].fell_back_to_feature_association);
+  EXPECT_TRUE(second_measurements[0].used_position_association);
+}
+
+TEST(SignalPipelineTest, FailsFastWhenDetectedTargetLacksCartesianPosition) {
+  environment::EnvironmentModelConfig env_config;
+  env_config.jammer_power_db = 0.0f;
+  environment::EnvironmentService environment_service(env_config);
+
+  signal::pipeline::SignalPipeline signal_pipeline;
+  const common::TargetFeatureList input_state{
+      common::TargetFeature(100.0f, 2.0f, false, 1.0f)};
+
+  EXPECT_DEATH_IF_SUPPORTED(signal_pipeline.RunCycle(input_state, environment_service),
+                            "missing cartesian position");
 }
 
 TEST(SignalPipelineTest,
@@ -167,7 +196,6 @@ TEST(SignalPipelineTest,
 
   ASSERT_EQ(first_measurements.size(), 2u);
   EXPECT_TRUE(first_measurements[0].used_position_association);
-  EXPECT_FALSE(first_measurements[0].fell_back_to_feature_association);
   EXPECT_TRUE(first_measurements[0].has_cartesian_position);
   EXPECT_TRUE(first_measurements[1].used_position_association);
 
@@ -180,7 +208,6 @@ TEST(SignalPipelineTest,
 
   ASSERT_EQ(second_measurements.size(), 2u);
   EXPECT_TRUE(second_measurements[0].used_position_association);
-  EXPECT_FALSE(second_measurements[0].fell_back_to_feature_association);
   EXPECT_TRUE(second_measurements[0].matched_existing_track);
   EXPECT_TRUE(second_measurements[1].matched_existing_track);
 }

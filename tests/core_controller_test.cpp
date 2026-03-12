@@ -27,7 +27,12 @@ namespace airborne_radar { namespace tests {
 namespace {
 
 common::TargetFeatureList BuildSingleTarget(float speed, float rcs, bool jamming) {
-  return common::TargetFeatureList{common::TargetFeature(speed, rcs, jamming)};
+  common::TargetFeature target(speed, rcs, jamming);
+  target.position_x = 100.0f;
+  target.position_y = 0.0f;
+  target.position_z = 0.0f;
+  target.range_m = 100.0f;
+  return common::TargetFeatureList{target};
 }
 
 } // namespace
@@ -264,9 +269,17 @@ TEST_F(CoreControllerTest, CycleEventBusDeliversEventsOnNextCycle) {
 }
 
 TEST_F(CoreControllerTest, LifecycleManagerConsumesRealAssociationMeasurements) {
-  const common::TargetFeatureList input_state = {
-      common::TargetFeature(100.0f, 2.0f, false, 1.0f),
-      common::TargetFeature(220.0f, 5.0f, false, 3.0f)};
+  common::TargetFeature first(100.0f, 2.0f, false, 1.0f);
+  first.position_x = 10.0f;
+  first.position_y = 0.0f;
+  first.position_z = 0.0f;
+  first.range_m = 10.0f;
+  common::TargetFeature second(220.0f, 5.0f, false, 3.0f);
+  second.position_x = 100.0f;
+  second.position_y = 0.0f;
+  second.position_z = 0.0f;
+  second.range_m = 100.0f;
+  const common::TargetFeatureList input_state = {first, second};
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentModelConfig env_config;
@@ -292,7 +305,8 @@ TEST_F(CoreControllerTest, LifecycleManagerConsumesRealAssociationMeasurements) 
   EXPECT_EQ(lifecycle_manager.last_measurements[1].source_index, 1u);
   EXPECT_FALSE(lifecycle_manager.last_measurements[0].matched_existing_track);
   EXPECT_FALSE(lifecycle_manager.last_measurements[1].matched_existing_track);
-  EXPECT_FALSE(lifecycle_manager.last_measurements[0].has_cartesian_position);
+  EXPECT_TRUE(lifecycle_manager.last_measurements[0].has_cartesian_position);
+  EXPECT_TRUE(lifecycle_manager.last_measurements[1].has_cartesian_position);
 }
 
 TEST_F(CoreControllerTest, LifecycleSeedsDrivePositionAssociationBeforeRunCycle) {
@@ -334,7 +348,6 @@ TEST_F(CoreControllerTest, LifecycleSeedsDrivePositionAssociationBeforeRunCycle)
   EXPECT_EQ(lifecycle_manager.last_measurements[0].association_key, 42u);
   EXPECT_TRUE(lifecycle_manager.last_measurements[0].matched_existing_track);
   EXPECT_TRUE(lifecycle_manager.last_measurements[0].used_position_association);
-  EXPECT_FALSE(lifecycle_manager.last_measurements[0].fell_back_to_feature_association);
   EXPECT_TRUE(lifecycle_manager.last_measurements[0].used_external_association_seeds);
 }
 
