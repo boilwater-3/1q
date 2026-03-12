@@ -21,6 +21,7 @@ Testing/
 
 # Local draft docs
 doc/airborne-radar.md
+doc/reference/
 
 # Binary artifacts
 *.o

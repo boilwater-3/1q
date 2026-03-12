@@ -12,6 +12,7 @@
 #include <Eigen/Core>
 
 #include "airborne_radar/signal/association/DataAssociation.h"
+#include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
@@ -54,13 +55,16 @@ struct SignalCycleContext {
 
   environment::EnvironmentSnapshot environment_snapshot{};
 
-  // Reused, cache-friendly SoA buffers to avoid per-stage temporary allocations.
   std::vector<float> signal_term_db;
   std::vector<float> speed_penalty_db;
   std::vector<float> detection_margin_db;
   std::vector<std::uint8_t> detection_succeeded;
   association::AssociationResult association_result;
   std::vector<std::uint64_t> association_keys;
+  
+  // Storage for newly retained signal estimates required for downstream dynamic covariance
+  std::vector<float> range_error_std;
+  std::vector<float> angle_error_std;
 };
 
 class EnvironmentSamplingStage
@@ -77,6 +81,8 @@ protected:
     context.detection_margin_db.resize(target_count);
     context.detection_succeeded.resize(target_count);
     context.association_keys.resize(target_count);
+    context.range_error_std.resize(target_count);
+    context.angle_error_std.resize(target_count);
     context.track_measurements.clear();
   }
 };
@@ -93,6 +99,68 @@ protected:
       context.speed_penalty_db[i] = input[i].current_track_speed * 0.002f;
     }
   }
+};
+
+/// @brief 物理化回波估计阶段，使用 SignalDetector 执行雷达方程。
+class PhysicsEchoEstimationStage
+    : public core::pipeline::IChainProcessor<SignalCycleContext> {
+public:
+  explicit PhysicsEchoEstimationStage(
+      detection::SignalDetector *detector,
+      int pulse_count,
+      bool coherent_integration)
+      : detector_(detector),
+        pulse_count_(pulse_count),
+        coherent_integration_(coherent_integration) {}
+
+protected:
+  void ProcessNode(SignalCycleContext &context) override {
+    const common::TargetFeatureList &input = *context.input_state;
+    const std::size_t count = input.size();
+
+    const float clutter_w =
+        std::pow(10.0f,
+                 context.environment_snapshot.clutter_power_db / 10.0f);
+    const float jam_w =
+        context.environment_snapshot.jamming_detected ? 1e-12f : 0.0f;
+
+    detection::EnvironmentState env;
+    env.propagation_loss_db = context.environment_snapshot.propagation_loss_db;
+    env.clutter_noise_w = clutter_w;
+    env.jam_noise_w = jam_w;
+
+    for (std::size_t i = 0; i < count; ++i) {
+      const float range =
+          input[i].range_m > 0.0f ? input[i].range_m : 50000.0f;
+          
+      detection::TargetReturn target;
+      target.rcs_m2 = input[i].current_track_rcs;
+      target.range_m = range;
+      target.swerling_type = static_cast<detection::SwerlingModel>(
+          input[i].target_swerling_type);
+
+      detection::DetectionResult det = detector_->Detect(
+          target,
+          env,
+          pulse_count_,
+          coherent_integration_);
+
+      context.signal_term_db[i] = det.snr_db;
+      context.speed_penalty_db[i] = 0.0f;
+      context.detection_margin_db[i] = det.snr_db;
+      context.detection_succeeded[i] =
+          static_cast<std::uint8_t>(det.detected ? 1U : 0U);
+      
+      // Store measurement errors for dynamic covariance construction
+      context.range_error_std[i] = det.range_error_std_m;
+      context.angle_error_std[i] = det.angle_error_std_rad;
+    }
+  }
+
+private:
+  detection::SignalDetector *detector_{nullptr};
+  int pulse_count_{1};
+  bool coherent_integration_{false};
 };
 
 class DetectionStage : public core::pipeline::IChainProcessor<SignalCycleContext> {
@@ -188,6 +256,24 @@ protected:
           Eigen::Vector3f(output[i].current_track_acceleration, 0.0f, 0.0f);
       measurement.rcs = output[i].current_track_rcs;
       measurement.jamming_detected = output[i].check_jamming_detected;
+
+      // 构建笛卡尔下的量测噪声协方差矩阵 R
+      const float range_m = input[i].range_m > 0.1f ? input[i].range_m : 50000.0f;
+      const float var_r = context.range_error_std[i] * context.range_error_std[i];
+      const float var_theta = context.angle_error_std[i] * context.angle_error_std[i];
+      
+      // 当我们没有笛卡尔位置时，仅能使用假设的先验。这里我们假设目标沿着 X 轴进行粗略估计变换
+      Eigen::Vector3f pos = measurement.has_cartesian_position ? measurement.position : Eigen::Vector3f(range_m, 0.0f, 0.0f);
+      const float pos_norm = pos.norm();
+      if (pos_norm > 0.1f) {
+        Eigen::Vector3f u = pos / pos_norm;
+        Eigen::Matrix3f I = Eigen::Matrix3f::Identity();
+        Eigen::Matrix3f uuT = u * u.transpose();
+        measurement.measurement_covariance = var_r * uuT + (range_m * range_m * var_theta) * (I - uuT);
+      } else {
+        measurement.measurement_covariance = Eigen::Matrix3f::Identity() * var_r;
+      }
+      
       context.track_measurements.push_back(measurement);
     }
   }
@@ -213,11 +299,35 @@ struct SignalPipeline::Impl {
       kalman_updater = std::unique_ptr<tracking::KalmanUpdater>(new tracking::KalmanUpdater(upd_cfg));
     }
 
-    pipeline_head = std::unique_ptr<EnvironmentSamplingStage>(new EnvironmentSamplingStage());
-    pipeline_head->SetNext(std::unique_ptr<EchoEstimationStage>(new EchoEstimationStage()))
-      ->SetNext(std::unique_ptr<DetectionStage>(new DetectionStage(&config)))
-        ->SetNext(std::unique_ptr<AssociationStage>(new AssociationStage(&association_engine)))
-      ->SetNext(std::unique_ptr<TrackingFilterStage>(new TrackingFilterStage(&track_filter)));
+    if (config.enable_physics_detection) {
+      signal_detector = std::unique_ptr<detection::SignalDetector>(
+          new detection::SignalDetector(config.radar_system));
+
+      pipeline_head = std::unique_ptr<EnvironmentSamplingStage>(
+          new EnvironmentSamplingStage());
+      pipeline_head
+          ->SetNext(std::unique_ptr<PhysicsEchoEstimationStage>(
+              new PhysicsEchoEstimationStage(
+                  signal_detector.get(),
+                  config.pulse_count,
+                  config.coherent_integration)))
+          ->SetNext(std::unique_ptr<AssociationStage>(
+              new AssociationStage(&association_engine)))
+          ->SetNext(std::unique_ptr<TrackingFilterStage>(
+              new TrackingFilterStage(&track_filter)));
+    } else {
+      pipeline_head = std::unique_ptr<EnvironmentSamplingStage>(
+          new EnvironmentSamplingStage());
+      pipeline_head
+          ->SetNext(std::unique_ptr<EchoEstimationStage>(
+              new EchoEstimationStage()))
+          ->SetNext(std::unique_ptr<DetectionStage>(
+              new DetectionStage(&config)))
+          ->SetNext(std::unique_ptr<AssociationStage>(
+              new AssociationStage(&association_engine)))
+          ->SetNext(std::unique_ptr<TrackingFilterStage>(
+              new TrackingFilterStage(&track_filter)));
+    }
   }
 
   common::TargetFeatureList RunCycle(
@@ -254,6 +364,7 @@ struct SignalPipeline::Impl {
   tracking::TrackFilter track_filter{};
   std::unique_ptr<tracking::KalmanPredictor> kalman_predictor;
   std::unique_ptr<tracking::KalmanUpdater> kalman_updater;
+  std::unique_ptr<detection::SignalDetector> signal_detector;
   SignalCycleContext cached_context{};
   std::unique_ptr<core::pipeline::IChainProcessor<SignalCycleContext> > pipeline_head;
 };

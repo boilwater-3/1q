@@ -28,6 +28,13 @@ KalmanUpdater::KalmanUpdater(KalmanUpdaterConfig config)
 KalmanUpdateResult KalmanUpdater::Update(
     const GaussianTrackState &predicted,
     const MeasurementVector &measurement) const {
+  return Update(predicted, measurement, R_);
+}
+
+KalmanUpdateResult KalmanUpdater::Update(
+    const GaussianTrackState &predicted,
+    const MeasurementVector &measurement,
+    const MeasurementCovariance &dynamic_R) const {
   KalmanUpdateResult result;
 
   // 1. Innovation (新息)
@@ -36,7 +43,7 @@ KalmanUpdateResult KalmanUpdater::Update(
   // 2. Innovation covariance (新息协方差)
   //    S = H · P̂ · Hᵀ + R
   result.innovation_covariance =
-      H_ * predicted.covariance * H_.transpose() + R_;
+      H_ * predicted.covariance * H_.transpose() + dynamic_R;
 
   // 3. Kalman gain (Kalman 增益)
   //    K = P̂ · Hᵀ · S⁻¹
@@ -59,7 +66,7 @@ KalmanUpdateResult KalmanUpdater::Update(
       StateCovariance::Identity() - K * H_;
   result.posterior.covariance =
       I_KH * predicted.covariance * I_KH.transpose() +
-      K * R_ * K.transpose();
+      K * dynamic_R * K.transpose();
 
   return result;
 }

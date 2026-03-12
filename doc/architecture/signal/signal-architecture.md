@@ -24,7 +24,10 @@ src/airborne_radar/signal/
 │   └── DataAssociation.h/.cpp      #   └─ DataAssociationEngine（关联编排器）
 │
 ├── detection/                      # [信号检测层]
-│   └── SignalDetector.h/.cpp       #   └─ 回波计算 + 探测判决
+│   ├── RadarEquations.h/.cpp       #   ├─ 雷达物理方程纯函数库（回波功率、噪声底、积累增益、测量精度、检测概率）
+│   │                               #   ├─ TransmitterConfig / AntennaConfig / ReceiverConfig / DetectionPolicy
+│   │                               #   └─ RadarSystemConfig（组合配置）
+│   └── SignalDetector.h/.cpp       #   └─ SignalDetector（6 步检测链：功率→SNR→Pd→判决→误差）
 │
 ├── pipeline/                       # [编排层]
 │   └── SignalPipeline.h/.cpp       #   └─ 周期主编排器（ChainProcessor 模式）
@@ -81,19 +84,66 @@ flowchart TD
 
 `SignalPipeline` 采用 **ChainProcessor（责任链）模式**组织单周期的各处理阶段：
 
+**占位符路径**（`enable_physics_detection = false`，默认）：
 ```
 EnvironmentSamplingStage
-  → EchoEstimationStage
-    → DetectionStage
+  → EchoEstimationStage          # 线性占位符公式
+    → DetectionStage              # 简单 margin 比较
       → AssociationStage
         → TrackingFilterStage
+```
+
+**物理路径**（`enable_physics_detection = true`）：
+```
+EnvironmentSamplingStage
+  → PhysicsEchoEstimationStage   # 雷达方程 + CFAR 检测概率 + 蒙特卡洛判决
+    → AssociationStage
+      → TrackingFilterStage
 ```
 
 每个 Stage 实现 `IChainProcessor<SignalCycleContext>` 接口，通过 `SignalCycleContext` 共享上下文数据。
 
 ## 4. 核心算法详解
 
-### 4.1 数据关联
+### 4.1 信号检测（物理化路径）
+
+信号检测层由两个组件层叠构成：
+
+```mermaid
+flowchart LR
+    subgraph RadarEquations["纯函数层 RadarEquations"]
+        direction TB
+        EQ1["雷达方程<br/>ComputeEchoPower_dBW"]
+        EQ2["热噪声功率<br/>ComputeThermalNoisePower_W"]
+        EQ3["积累增益<br/>ComputeIntegrationGain"]
+        EQ4["测距精度<br/>ComputeRangeErrorStdDev"]
+        EQ5["测角精度<br/>ComputeAngleErrorStdDev"]
+        EQ6["检测概率<br/>ComputeDetectionProbability"]
+        EQ7["探测判决<br/>ThresholdDecision"]
+    end
+
+    subgraph SignalDetector["有状态桥梁 SignalDetector"]
+        direction TB
+        SD["① 回波功率<br/>② 综合噪声底<br/>③ SNR<br/>④ Pd<br/>⑤ 判决<br/>⑥ 误差"]
+    end
+
+    RadarEquations -->|"static 调用"| SignalDetector
+    CONFIG["RadarSystemConfig<br/>TransmitterConfig<br/>AntennaConfig<br/>ReceiverConfig<br/>DetectionPolicy"] --> SignalDetector
+    SignalDetector --> OUTPUT["DetectionResult<br/>echo_power_dbw / snr_db<br/>detection_prob / detected<br/>range_error_std_m<br/>angle_error_std_rad"]
+```
+
+#### 核心公式（Skolnik 交叉验证）
+
+| 公式 | 数学表达 | 参考 |
+|------|----------|------|
+| 单站雷达方程 | Pr = Pt + 2Gt + 2λ + σ - 30·lg(4π) - 4·R - L | Skolnik eq.1.6 |
+| 热噪声功率 | N₀ = k·T₀·B·F | IEEE 标准 |
+| 相参积累 | G = N；非相参: G = √N | Skolnik Ch.2 |
+| 测距精度 | σ_R ≈ 0.5·c/(2B) / √(SNR) + bias | Skolnik eq.11.2 工程近似 |
+| 测角精度 | σ_θ ≈ 0.317·θ_bw / √(SNR) + θ_bw/30 | Skolnik eq.11.27 工程近似 |
+| 检测概率 | Swerling 0~4 精确公式 (Boost.Math) | Richards/M&M 定理 |
+
+### 4.2 数据关联
 
 ```mermaid
 flowchart LR
@@ -317,13 +367,15 @@ sequenceDiagram
 | `DenseCostHypothesiserTest` | 1 | 仅输出波门内假设 |
 | `TrackLifecycleManagerTest` | 2 | 确认阈值、超时回收 |
 | `KalmanPredictorTest` | 7 | 零步长恒等、位置传播、协方差增长、对称性、Q 矩阵公式 |
-| `KalmanUpdaterTest` | 7 | 协方差收缩、均值收敛、新息正确性、对称性、正定性 |
+| `KalmanUpdaterTest` | 8 | 协方差收缩、均值收敛、新息正确性、动态R矩阵自适应、正定性 |
 | `KalmanPredictUpdateTest` | 2 | 预测-更新集成、速度收敛 |
 | `FullMahalanobisTest` | 4 | 对角等价、非对角正确性、单位阵 = 欧氏、动态更新 |
 | `EkfPredictorTest` | 1 | 线性场景与标准 KF 数学等价 |
 | `EkfUpdaterTest` | 1 | 同上 |
-| `ImmFilterTest` | 4 | 单模型等价 KF、匀速低机动占优、机动权重偏移、权重归一化 |
-| **合计** | **40** | |
+| `RadarEquationsTest` | 8 | 回波功率手算、R⁴规律、玻尔兹曼噪声、相参/非相参积累、测距/测角精度 |
+| `SignalDetectorTest` | 4 | 高/低 SNR 探测、确定性种子、干扰降级 |
+| `SwerlingDetectionTest` | 11| Swerling 0~4 边界、极限定理、多脉冲增益平滑对比 |
+| **合计** | **60+** | 单元测试合计 83 个绿灯 |
 
 ## 9. 当前状态与待完善事项
 
@@ -336,10 +388,21 @@ sequenceDiagram
 - IMM 多模型滤波器（Bar-Shalom 4 步）
 - `TrackLifecycleManager` 中的 Kalman 集成
 - `SignalPipeline` 中 Kalman 组件的配置化创建
+- 物理化信号检测（`RadarEquations` + `SignalDetector`）
+  - 单站雷达方程回波功率计算（对数域）
+  - 接收机热噪声功率底（kTBF）
+  - 相参/非相参脉冲积累增益
+  - SNR → Swerling 0~4 模型多脉冲检测概率（Richards 准确公式）
+  - 基于 SNR 的测距/测角误差标准差计算
+  - `SignalDetector` 上下文 DTO（TargetReturn / EnvironmentState）重构
+  - `PhysicsEchoEstimationStage` 集成到 Pipeline
+- 动态量测噪声协方差（R 矩阵）传递链路
+  - `SignalDetector` 极坐标物理误差 → 笛卡尔空间 R 矩阵转换（Jacobian 近似投影）
+  - `TrackMeasurement` 加入动态协方差并外传给 LifecycleManager
+  - `KalmanUpdater` 和 `EkfUpdater` 自适应更新 R 权重增益
 
 ### 待完善 🔲
 
-- 上游 `IRadarContext::GetTargetFeatures()` 稳定提供笛卡尔空间输入
-- `has_cartesian_position` 自动激活 Kalman 路径
 - IMM 集成到 `TrackLifecycleManager`（当前仅 KF 路径）
 - `FullMahalanobisDistanceMetric` 与 Kalman 新息协方差 S 的联动
+- 杂波图与动态门限环境适配机制

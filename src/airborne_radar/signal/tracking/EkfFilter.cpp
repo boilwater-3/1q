@@ -55,6 +55,13 @@ EkfUpdater::EkfUpdater(const IMeasurementModel *model,
 KalmanUpdateResult EkfUpdater::Update(
     const GaussianTrackState &predicted,
     const MeasurementVector &measurement) const {
+  return Update(predicted, measurement, R_);
+}
+
+KalmanUpdateResult EkfUpdater::Update(
+    const GaussianTrackState &predicted,
+    const MeasurementVector &measurement,
+    const MeasurementCovariance &dynamic_R) const {
   KalmanUpdateResult result;
 
   // 非线性量测预测
@@ -68,7 +75,7 @@ KalmanUpdateResult EkfUpdater::Update(
 
   // 2. Innovation covariance
   result.innovation_covariance =
-      H * predicted.covariance * H.transpose() + R_;
+      H * predicted.covariance * H.transpose() + dynamic_R;
 
   // 3. Kalman gain (LLT 分解)
   const KalmanGainMatrix K =
@@ -84,7 +91,7 @@ KalmanUpdateResult EkfUpdater::Update(
       StateCovariance::Identity() - K * H;
   result.posterior.covariance =
       I_KH * predicted.covariance * I_KH.transpose() +
-      K * R_ * K.transpose();
+      K * dynamic_R * K.transpose();
 
   return result;
 }

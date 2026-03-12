@@ -63,6 +63,10 @@ struct TrackMeasurement {
 
   /// @brief 当前量测是否检测到干扰。
   bool jamming_detected{false};
+
+  /// @brief 笛卡尔坐标系下的量测噪声协方差矩阵 R。
+  /// 对于 3D 位置 [x,y,z]，这是一个 3x3 矩阵，由雷达方程由于信噪比推算出的物理方差经坐标转换后得到。
+  Eigen::Matrix3f measurement_covariance{Eigen::Matrix3f::Zero()};
 };
 
 } // namespace tracking

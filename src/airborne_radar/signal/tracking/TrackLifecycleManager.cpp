@@ -100,7 +100,7 @@ void TrackLifecycleManager::Update(
         z(0) = measurement.position(0);
         z(1) = measurement.position(1);
         z(2) = measurement.position(2);
-        KalmanUpdateResult result = kalman_updater_->Update(predicted, z);
+        KalmanUpdateResult result = kalman_updater_->Update(predicted, z, measurement.measurement_covariance);
         track->gaussian_state = result.posterior;
       }
 

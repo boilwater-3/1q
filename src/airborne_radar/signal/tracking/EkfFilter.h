@@ -135,6 +135,11 @@ class EkfUpdater final : public IKalmanUpdater {
   KalmanUpdateResult Update(const GaussianTrackState &predicted,
                             const MeasurementVector &measurement) const override;
 
+  /// @brief 使用非线性量测模型执行更新（使用动态观测协方差）。
+  KalmanUpdateResult Update(const GaussianTrackState &predicted,
+                            const MeasurementVector &measurement,
+                            const MeasurementCovariance &dynamic_R) const override;
+
  private:
   static MeasurementCovariance BuildMeasurementNoise(float std_dev);
 

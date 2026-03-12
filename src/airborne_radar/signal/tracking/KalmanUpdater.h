@@ -42,6 +42,15 @@ class IKalmanUpdater {
   /// @return 更新结果，包含后验状态和诊断信息。
   virtual KalmanUpdateResult Update(const GaussianTrackState &predicted,
                                     const MeasurementVector &measurement) const = 0;
+
+  /// @brief 对预测状态执行带有动态误差协方差矩阵的量测更新。
+  /// @param predicted 预测后的高斯状态。
+  /// @param measurement 量测向量 [x, y, z]。
+  /// @param dynamic_R 动态计算的笛卡尔系量测噪声协方差矩阵 R。
+  /// @return 更新结果，包含后验状态和诊断信息。
+  virtual KalmanUpdateResult Update(const GaussianTrackState &predicted,
+                                    const MeasurementVector &measurement,
+                                    const MeasurementCovariance &dynamic_R) const = 0;
 };
 
 /// @brief 标准线性 Kalman 更新器。
@@ -69,6 +78,15 @@ class KalmanUpdater final : public IKalmanUpdater {
   /// @return 更新结果。
   KalmanUpdateResult Update(const GaussianTrackState &predicted,
                             const MeasurementVector &measurement) const override;
+
+  /// @brief 对预测状态执行标准 Kalman 量测更新（使用动态雷达观测协方差）。
+  /// @param predicted 预测后的高斯状态。
+  /// @param measurement 量测向量 [x, y, z]。
+  /// @param dynamic_R 笛卡尔坐标系下动态解算的量测噪声协方差。
+  /// @return 更新结果。
+  KalmanUpdateResult Update(const GaussianTrackState &predicted,
+                            const MeasurementVector &measurement,
+                            const MeasurementCovariance &dynamic_R) const override;
 
   /// @brief 更新配置。
   /// @param config 新的更新器配置。

@@ -1,4 +1,4 @@
-﻿if(NOT ENABLE_TESTING)
+if(NOT ENABLE_TESTING)
     return()
 endif()
 
@@ -15,6 +15,7 @@ set(TEST_SOURCES
     event_bus_test.cpp
     signal_environment_test.cpp
     signal_association_test.cpp
+    signal_detection_test.cpp
     track_lifecycle_test.cpp
     kalman_filter_test.cpp
     advanced_filter_test.cpp

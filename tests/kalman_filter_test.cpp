@@ -355,6 +355,27 @@ TEST(KalmanUpdaterTest, NoisyMeasurementHasLessInfluence) {
   EXPECT_NEAR(result.posterior.mean(4), 0.0f, 1.0f);    // z ≈ 0
 }
 
+TEST(KalmanUpdaterTest, DynamicCovarianceAltersUpdateWeight) {
+  KalmanUpdater updater;
+
+  // 预测状态均值为 100
+  GaussianTrackState predicted = MakePrior(100.0f, 10.0f, 100.0f, 25.0f);
+  const MeasurementVector measurement(150.0f, 0.0f, 0.0f);
+
+  // 1. 使用极小的动态 R (极其信任量测)
+  signal::tracking::MeasurementCovariance small_R = signal::tracking::MeasurementCovariance::Identity() * 1.0f;
+  const KalmanUpdateResult result_small_R = updater.Update(predicted, measurement, small_R);
+
+  // 2. 使用极大的动态 R (极度不信任量测，信任先验)
+  signal::tracking::MeasurementCovariance large_R = signal::tracking::MeasurementCovariance::Identity() * 10000.0f;
+  const KalmanUpdateResult result_large_R = updater.Update(predicted, measurement, large_R);
+
+  // 结果对比：小 R 下均值应被拉向 150，大 R 下均值应保持在 100 附近
+  EXPECT_GT(result_small_R.posterior.mean(0), result_large_R.posterior.mean(0));
+  EXPECT_NEAR(result_small_R.posterior.mean(0), 150.0f, 5.0f);
+  EXPECT_NEAR(result_large_R.posterior.mean(0), 100.0f, 5.0f);
+}
+
 // ============================================================================
 // Predict-Update 联合测试
 // ============================================================================

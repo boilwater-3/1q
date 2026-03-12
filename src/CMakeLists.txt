@@ -13,6 +13,8 @@ set(PROJECT_SOURCES
     airborne_radar/signal/association/DistanceMetric.cpp
     airborne_radar/signal/association/Hypothesiser.cpp
     airborne_radar/signal/association/LapjvSolver.cpp
+    airborne_radar/signal/detection/RadarEquations.cpp
+    airborne_radar/signal/detection/SignalDetector.cpp
     airborne_radar/signal/pipeline/SignalPipeline.cpp
     airborne_radar/signal/tracking/BoostTrackPool.cpp
     airborne_radar/signal/tracking/KalmanPredictor.cpp

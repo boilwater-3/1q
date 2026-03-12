@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
+#include "airborne_radar/signal/detection/RadarEquations.h"
 
 namespace airborne_radar {
 namespace environment {
@@ -44,6 +45,18 @@ struct SignalPipelineConfig {
 
   /// @brief Kalman 更新器量测噪声标准差（米）。
   float kalman_measurement_noise_std{10.0f};
+
+  /// @brief 是否启用物理化信号检测（false 则使用旧占位符逻辑）。
+  bool enable_physics_detection{false};
+
+  /// @brief 雷达系统物理参数（仅在 enable_physics_detection = true 时生效）。
+  detection::RadarSystemConfig radar_system{};
+
+  /// @brief 驻留期的脉冲积累数。
+  int pulse_count{10};
+
+  /// @brief 是否采用相参积累（true为相参，false为非相参）。
+  bool coherent_integration{true};
 };
 
 /// @brief SignalPipeline 提供可配置的信号处理周期实现。

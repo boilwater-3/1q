@@ -26,14 +26,30 @@ struct TargetFeature {
   // @brief 保留用于其他航迹特征，例如：加速度、高度等。
   float current_track_acceleration{0.0f};
 
+  // @brief 目标到雷达的斜距（单位：m）。
+  float range_m{0.0f};
+
+  // @brief 笛卡尔空间位置（单位：m），[x, y, z]。
+  // 注：不使用 Eigen 以保持 POD 布局，Pipeline 内部按需转换。
+  float position_x{0.0f};
+  float position_y{0.0f};
+  float position_z{0.0f};
+
+  // @brief 目标的 Swerling 起伏模型，默认 0 (kSwerling0，无起伏)
+  // 保持整数类型以避免在公开头文件中引入底层检测枚举依赖
+  int target_swerling_type{0};
+
   // @brief 默认构造函数
   TargetFeature() = default;
 
   // @brief 带参数的构造函数，为了方便初始化
-  TargetFeature(float speed, float rcs, bool jamming_detected, float accel = 0.0f)
+  TargetFeature(float speed, float rcs, bool jamming_detected,
+                float accel = 0.0f, float range = 0.0f, int swerling_type = 0)
       : current_track_speed(speed), current_track_rcs(rcs),
         check_jamming_detected(jamming_detected),
-        current_track_acceleration(accel) {}
+        current_track_acceleration(accel),
+        range_m(range),
+        target_swerling_type(swerling_type) {}
 };
 
 /// @brief TargetFeatureList 是 TargetFeature 的列表，表示当前处理周期内所有相关目标的特征集合。
