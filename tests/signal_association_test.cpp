@@ -146,32 +146,143 @@ TEST(DataAssociationEngineTest, ReportsMissedTrackKeysWhenNoDetectionArrives) {
   EXPECT_EQ(result.target_keys[0], 0u);
 }
 
-TEST(DataAssociationEngineTest, UsesCartesianPositionWhenPositionAssociationEnabled) {
-  signal::association::DataAssociationConfig config;
-  config.enable_position_guided_association = true;
-  config.kalman_measurement_noise_std = 2.0f;
-  signal::association::DataAssociationEngine engine(config);
+  TEST(DataAssociationEngineTest, UsesCartesianPositionByDefaultWhenPositionAvailable) {
+    signal::association::DataAssociationConfig config;
+    config.kalman_measurement_noise_std = 2.0f;
+    signal::association::DataAssociationEngine engine(config);
 
   const common::TargetFeatureList cycle_1{
       MakePositionTarget(10.0f, 0.0f, 0.0f),
       MakePositionTarget(100.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_1{1U, 1U};
 
-  const std::vector<std::uint64_t> keys_1 = engine.Associate(cycle_1, detected_1);
-  ASSERT_EQ(keys_1.size(), 2u);
+    const signal::association::AssociationResult first_result =
+      engine.AssociateDetections(cycle_1, detected_1);
+    const std::vector<std::uint64_t> &keys_1 = first_result.target_keys;
+    ASSERT_EQ(keys_1.size(), 2u);
   ASSERT_NE(keys_1[0], 0u);
   ASSERT_NE(keys_1[1], 0u);
+    EXPECT_TRUE(first_result.used_position_association);
+    EXPECT_FALSE(first_result.fell_back_to_feature_association);
 
   const common::TargetFeatureList cycle_2{
       MakePositionTarget(101.0f, 0.0f, 0.0f),
       MakePositionTarget(11.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_2{1U, 1U};
 
-  const std::vector<std::uint64_t> keys_2 = engine.Associate(cycle_2, detected_2);
+    const signal::association::AssociationResult second_result =
+      engine.AssociateDetections(cycle_2, detected_2);
+    const std::vector<std::uint64_t> &keys_2 = second_result.target_keys;
   ASSERT_EQ(keys_2.size(), 2u);
   EXPECT_EQ(keys_2[0], keys_1[1]);
   EXPECT_EQ(keys_2[1], keys_1[0]);
+    EXPECT_TRUE(second_result.used_position_association);
+    EXPECT_FALSE(second_result.fell_back_to_feature_association);
+  }
+
+  TEST(DataAssociationEngineTest,
+     FallsBackToFeatureAssociationWhenDetectedTargetLacksPosition) {
+    signal::association::DataAssociationEngine engine;
+
+    const common::TargetFeatureList cycle_1{
+      MakeTarget(100.0f, 2.0f, 1.0f),
+      MakeTarget(220.0f, 5.0f, 3.0f)};
+    const std::vector<std::uint8_t> detected_1{1U, 1U};
+
+    const signal::association::AssociationResult first_result =
+      engine.AssociateDetections(cycle_1, detected_1);
+    ASSERT_EQ(first_result.target_keys.size(), 2u);
+    EXPECT_FALSE(first_result.used_position_association);
+    EXPECT_TRUE(first_result.fell_back_to_feature_association);
+
+    common::TargetFeature positioned = MakePositionTarget(500.0f, 0.0f, 0.0f);
+    positioned.current_track_speed = 220.5f;
+    positioned.current_track_rcs = 5.1f;
+    positioned.current_track_acceleration = 3.1f;
+
+    const common::TargetFeatureList cycle_2{
+      MakeTarget(99.5f, 2.1f, 1.1f),
+      positioned};
+    const std::vector<std::uint8_t> detected_2{1U, 1U};
+
+    const signal::association::AssociationResult second_result =
+      engine.AssociateDetections(cycle_2, detected_2);
+    ASSERT_EQ(second_result.target_keys.size(), 2u);
+    EXPECT_FALSE(second_result.used_position_association);
+    EXPECT_TRUE(second_result.fell_back_to_feature_association);
+    EXPECT_EQ(second_result.target_keys[0], first_result.target_keys[0]);
+    EXPECT_EQ(second_result.target_keys[1], first_result.target_keys[1]);
 }
+
+  TEST(DataAssociationEngineTest,
+       ExternalAssociationSeedsAffectOnlyCurrentCycle) {
+    signal::association::DataAssociationEngine engine;
+
+    signal::tracking::AssociationTrackSeed seed;
+    seed.association_key = 42;
+    seed.legacy_feature = Eigen::Vector3f(800.0f, 20.0f, 5.0f);
+    seed.has_position = true;
+    seed.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
+    seed.has_gaussian_state = true;
+    seed.gaussian_state.mean(0) = 100.0f;
+    seed.gaussian_state.mean(2) = 0.0f;
+    seed.gaussian_state.mean(4) = 0.0f;
+    seed.gaussian_state.covariance =
+        signal::tracking::StateCovariance::Identity() * 25.0f;
+
+    engine.SetAssociationSeeds(std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
+
+    const common::TargetFeatureList cycle_1{MakePositionTarget(101.0f, 0.0f, 0.0f)};
+    const std::vector<std::uint8_t> detected_1{1U};
+    const signal::association::AssociationResult first_result =
+        engine.AssociateDetections(cycle_1, detected_1);
+
+    ASSERT_EQ(first_result.target_keys.size(), 1u);
+    EXPECT_EQ(first_result.target_keys[0], 42u);
+    EXPECT_TRUE(first_result.used_position_association);
+    EXPECT_FALSE(first_result.fell_back_to_feature_association);
+      EXPECT_TRUE(first_result.used_external_association_seeds);
+
+    const common::TargetFeatureList cycle_2{MakePositionTarget(102.0f, 0.0f, 0.0f)};
+    const std::vector<std::uint8_t> detected_2{1U};
+    const signal::association::AssociationResult second_result =
+        engine.AssociateDetections(cycle_2, detected_2);
+
+    ASSERT_EQ(second_result.target_keys.size(), 1u);
+    EXPECT_NE(second_result.target_keys[0], 42u);
+    EXPECT_TRUE(second_result.matches.empty());
+    ASSERT_EQ(second_result.unassociated_target_indices.size(), 1u);
+    EXPECT_EQ(second_result.unassociated_target_indices[0], 0u);
+    EXPECT_FALSE(second_result.used_external_association_seeds);
+  }
+
+  TEST(DataAssociationEngineTest,
+       EmptyExternalSeedsSuppressInternalHistoryFallback) {
+    signal::association::DataAssociationEngine engine;
+
+    const common::TargetFeatureList warmup_cycle{MakePositionTarget(50.0f, 0.0f, 0.0f)};
+    const std::vector<std::uint8_t> warmup_detected{1U};
+    const signal::association::AssociationResult warmup_result =
+        engine.AssociateDetections(warmup_cycle, warmup_detected);
+
+    ASSERT_EQ(warmup_result.target_keys.size(), 1u);
+    const std::uint64_t warmup_key = warmup_result.target_keys[0];
+    ASSERT_NE(warmup_key, 0u);
+
+    engine.SetAssociationSeeds(std::vector<signal::tracking::AssociationTrackSeed>());
+
+    const common::TargetFeatureList cycle_2{MakePositionTarget(51.0f, 0.0f, 0.0f)};
+    const std::vector<std::uint8_t> detected_2{1U};
+    const signal::association::AssociationResult result =
+        engine.AssociateDetections(cycle_2, detected_2);
+
+    ASSERT_EQ(result.target_keys.size(), 1u);
+    EXPECT_TRUE(result.used_external_association_seeds);
+    EXPECT_NE(result.target_keys[0], warmup_key);
+    EXPECT_TRUE(result.matches.empty());
+    ASSERT_EQ(result.unassociated_target_indices.size(), 1u);
+    EXPECT_EQ(result.unassociated_target_indices[0], 0u);
+  }
 
 TEST(CostThresholdGaterTest, RejectsHypothesesOutsideThreshold) {
   const signal::association::CostThresholdGater gater(9.0f);

@@ -6,8 +6,8 @@ Signal 层是机载雷达仿真系统的**信号处理核心**，负责从原始
 
 截至当前版本，Signal 层已经同时支持：
 
-- 基于 `[speed, rcs, acceleration]` 的**标量特征关联路径**（兼容旧实现）
-- 基于 `TargetFeature.position_x/y/z` 的**位置空间关联路径**（显式开关启用）
+- 基于 `TargetFeature.position_x/y/z` 的**位置空间关联主路径**（默认启用）
+- 基于 `[speed, rcs, acceleration]` 的**标量特征关联回退路径**（兼容旧实现）
 - `TrackLifecycleManager` 内部的**单模型 Kalman**与**每轨 IMM 多模型运行态**
 - `FullMahalanobisDistanceMetric` 对轨迹级新息协方差 $S$ 的直接消费
 
@@ -113,6 +113,12 @@ EnvironmentSamplingStage
 
 当前 `AssociationStage` 仍然是 Pipeline 链路中的单一节点；当打开 `enable_position_guided_association` 时，**位置预测与轨迹级新息协方差 $S$ 的生成发生在 `DataAssociationEngine` 内部**，而不是新增一个独立的前置 Stage。
 
+当前版本中，`RadarController` 会在调用 `SignalPipeline::RunCycle()` 之前，先从 `TrackLifecycleManager` 拉取上一周期活跃轨迹的 `AssociationTrackSeed`，再注入 `SignalPipeline` 作为本周期关联的先验种子；因此位置空间关联的预测真理源已开始从 `DataAssociationEngine` 内部缓存，向 Lifecycle 侧收敛。
+
+为方便调试与测试，关联结果和 `TrackMeasurement` 现已显式暴露 `used_external_association_seeds` 标记，用于区分“本周期位置关联来自 Lifecycle 外部种子”还是“退回关联引擎内部兼容缓存”。
+
+当 `RadarController` / `SignalPipeline` 已显式注入外部种子时，即便该周期种子列表为空，也表示“Lifecycle 当前没有可供关联的活跃轨迹”；此时 `DataAssociationEngine` 不会再回退复用内部历史缓存，而是把自身内部缓存视为 fallback-only 机制，仅在**未接入 Lifecycle 种子提供者**的场景下启用。
+
 ## 4. 核心算法详解
 
 ### 4.1 信号检测（物理化路径）
@@ -169,20 +175,20 @@ flowchart LR
     S --> OUTPUT["AssociationResult"]
 ```
 
-`DataAssociationEngine` 当前有两条可切换路径：
+`DataAssociationEngine` 当前保留两条路径，但语义已区分主次：
 
-1. **标量特征路径（默认）**
+1. **位置空间路径（默认主路径）**
+    - 量测来源：`TargetFeature.position_x / position_y / position_z`
+    - 历史轨迹状态：`TrackSignature.position + gaussian_state`
+    - 距离度量：`FullMahalanobisDistanceMetric`
+    - 协方差来源：内部 `KalmanPredictor` 预测得到 $P$，随后按
+      $$S = HPH^T + R$$
+      计算轨迹级新息协方差并传递给 `DenseCostHypothesiser`
+
+2. **标量特征路径（legacy 回退）**
    - 输入特征：`[speed, rcs, acceleration]`
    - 距离度量：`MahalanobisDistanceMetric`
-   - 作用：保持旧行为与现有调用方兼容
-
-2. **位置空间路径（`enable_position_guided_association = true`）**
-   - 量测来源：`TargetFeature.position_x / position_y / position_z`
-   - 历史轨迹状态：`TrackSignature.position + gaussian_state`
-   - 距离度量：`FullMahalanobisDistanceMetric`
-   - 协方差来源：内部 `KalmanPredictor` 预测得到 $P$，随后按
-     $$S = HPH^T + R$$
-     计算轨迹级新息协方差并传递给 `DenseCostHypothesiser`
+    - 作用：当位置量测缺失，或配置显式关闭位置路径时，保持旧行为与现有调用方兼容
 
 | 组件 | 算法 | 复杂度 |
 |------|------|--------|
@@ -196,9 +202,11 @@ flowchart LR
 
 当前版本已经完成 `FullMahalanobisDistanceMetric` 与轨迹级 $S$ 的联动，但需要注意：
 
-- 关联域维护的是**关联侧内部高斯状态**，尚未与 `TrackLifecycleManager` 的后验状态完全统一成单一真源
+- `RadarController` 已通过 `AssociationTrackSeed` 将 Lifecycle 侧活跃轨迹状态注入关联阶段，关联真理源正在向 `TrackLifecycleManager` 收敛
+- 关联域仍保留内部签名缓存作为无 Lifecycle 管理器场景下的兼容路径，尚未完全删除内部状态副本
 - `SignalPipeline` 只有在输入 `TargetFeature` 已携带 `position_x/y/z` 时，才会导出 `has_cartesian_position = true` 的 `TrackMeasurement`
-- 因此当前位置空间关联已经可用，但仍属于**已实现的前向能力 + 待进一步统一的数据流**
+- 当位置量测不完整时，当前实现会显式回退到 legacy 标量特征关联
+- 因此当前位置空间关联已经是默认主路径，但仍属于**已主化的关联能力 + 待进一步统一的数据流**
 
 ### 4.3 状态估计滤波器
 
@@ -455,6 +463,8 @@ sequenceDiagram
 4. 将 `S` 逐轨迹注入 `DenseCostHypothesiser`
 5. 由 `FullMahalanobisDistanceMetric` 计算位置空间关联代价
 
+当前实现里，步骤 1 所使用的 `TrackSignature.gaussian_state` 优先来自 `RadarController -> TrackLifecycleManager::BuildAssociationSeeds() -> SignalPipeline::SetAssociationSeeds()` 这条桥接链；只有在未接入 Lifecycle 管理器时，才退回 `DataAssociationEngine` 自身缓存的历史签名。
+
 ## 8. 测试覆盖
 
 | 测试套件 | 测试数 | 覆盖范围 |
@@ -515,7 +525,7 @@ sequenceDiagram
 
 ### 当前已知限制 ⚠️
 
-- 位置空间关联是**显式开关功能**，默认仍走旧的标量特征关联路径
+- 位置空间关联已是**默认主路径**，但当位置量测不完整时仍会回退到旧的标量特征关联路径
 - 位置空间关联当前要求输入 `TargetFeature` 已提供 `position_x / position_y / position_z`
 - 关联侧和生命周期侧仍各自维护高斯状态，尚未完成统一状态源收敛
 - `SignalPipeline` 当前只负责导出位置量测与位置关联配置；`TrackLifecycleManager` 的 IMM 实例化仍由上层显式创建/注入

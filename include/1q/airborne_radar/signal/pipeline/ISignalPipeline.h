@@ -34,6 +34,10 @@ public:
 		/// @brief 导出最近一次处理周期生成的跟踪量测。
 		virtual std::vector<tracking::TrackMeasurement>
 		GetLastTrackMeasurements() const = 0;
+
+		/// @brief 设置本周期关联阶段应使用的上一周期轨迹种子。
+		virtual void SetAssociationSeeds(
+				const std::vector<tracking::AssociationTrackSeed> &seeds) = 0;
 };
 
 } // namespace pipeline

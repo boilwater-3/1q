@@ -300,6 +300,34 @@ common::TargetFeatureList TrackLifecycleManager::BuildFeatureSnapshot() const {
   return features;
 }
 
+std::vector<AssociationTrackSeed> TrackLifecycleManager::BuildAssociationSeeds()
+    const {
+  std::vector<AssociationTrackSeed> seeds;
+  seeds.reserve(tracks_by_key_.size());
+
+  for (std::map<std::uint64_t, common::TrackState *>::const_iterator it =
+           tracks_by_key_.begin();
+       it != tracks_by_key_.end(); ++it) {
+    const common::TrackState *track = it->second;
+    if (track->status == common::TrackStatus::kRecycled) {
+      continue;
+    }
+
+    AssociationTrackSeed seed;
+    seed.association_key = it->first;
+    seed.legacy_feature =
+        Eigen::Vector3f(track->velocity.norm(), track->rcs,
+                        track->acceleration.norm());
+    seed.has_position = true;
+    seed.position = track->position;
+    seed.has_gaussian_state = true;
+    seed.gaussian_state = track->gaussian_state;
+    seeds.push_back(seed);
+  }
+
+  return seeds;
+}
+
 void TrackLifecycleManager::PromoteState(common::TrackState &track,
                                          std::uint32_t cycle_index,
                                          bool hit_this_cycle) {

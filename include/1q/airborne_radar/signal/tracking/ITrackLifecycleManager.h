@@ -27,6 +27,9 @@ public:
 
   /// @brief 导出兼容决策链路的目标特征快照。
   virtual common::TargetFeatureList BuildFeatureSnapshot() const = 0;
+
+  /// @brief 导出供关联阶段使用的上一周期轨迹种子。
+  virtual std::vector<AssociationTrackSeed> BuildAssociationSeeds() const = 0;
 };
 
 } // namespace tracking

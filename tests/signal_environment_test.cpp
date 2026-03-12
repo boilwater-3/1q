@@ -137,6 +137,52 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
   EXPECT_TRUE(second_measurements[1].matched_existing_track);
   EXPECT_GT(second_measurements[0].association_cost, 0.0f);
   EXPECT_GT(second_measurements[1].association_cost, 0.0f);
+  EXPECT_FALSE(second_measurements[0].used_position_association);
+  EXPECT_TRUE(second_measurements[0].fell_back_to_feature_association);
+}
+
+TEST(SignalPipelineTest,
+     UsesPositionAssociationByDefaultWhenCartesianPositionExists) {
+  environment::EnvironmentModelConfig env_config;
+  env_config.jammer_power_db = 0.0f;
+  environment::EnvironmentService environment_service(env_config);
+
+  signal::pipeline::SignalPipeline signal_pipeline;
+  common::TargetFeature first(100.0f, 2.0f, false, 1.0f);
+  first.position_x = 10.0f;
+  first.position_y = 0.0f;
+  first.position_z = 0.0f;
+  first.range_m = 10.0f;
+
+  common::TargetFeature second(220.0f, 5.0f, false, 3.0f);
+  second.position_x = 100.0f;
+  second.position_y = 0.0f;
+  second.position_z = 0.0f;
+  second.range_m = 100.0f;
+
+  signal_pipeline.RunCycle(common::TargetFeatureList{first, second},
+                           environment_service);
+  const std::vector<signal::tracking::TrackMeasurement> first_measurements =
+      signal_pipeline.GetLastTrackMeasurements();
+
+  ASSERT_EQ(first_measurements.size(), 2u);
+  EXPECT_TRUE(first_measurements[0].used_position_association);
+  EXPECT_FALSE(first_measurements[0].fell_back_to_feature_association);
+  EXPECT_TRUE(first_measurements[0].has_cartesian_position);
+  EXPECT_TRUE(first_measurements[1].used_position_association);
+
+  first.position_x = 11.0f;
+  second.position_x = 101.0f;
+  signal_pipeline.RunCycle(common::TargetFeatureList{second, first},
+                           environment_service);
+  const std::vector<signal::tracking::TrackMeasurement> second_measurements =
+      signal_pipeline.GetLastTrackMeasurements();
+
+  ASSERT_EQ(second_measurements.size(), 2u);
+  EXPECT_TRUE(second_measurements[0].used_position_association);
+  EXPECT_FALSE(second_measurements[0].fell_back_to_feature_association);
+  EXPECT_TRUE(second_measurements[0].matched_existing_track);
+  EXPECT_TRUE(second_measurements[1].matched_existing_track);
 }
 
 } } // namespace airborne_radar::tests

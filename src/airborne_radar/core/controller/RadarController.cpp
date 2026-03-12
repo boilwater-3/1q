@@ -49,6 +49,10 @@ void RadarController::RunOnce() {
 
 	const common::TargetFeatureList input_features =
 			radar_context_.GetTargetFeatures();
+	if (track_lifecycle_manager_ != nullptr) {
+		signal_pipeline_.SetAssociationSeeds(
+				track_lifecycle_manager_->BuildAssociationSeeds());
+	}
 	const common::TargetFeatureList updated_features =
 			signal_pipeline_.RunCycle(input_features, environment_service_);
 	common::TargetFeatureList decision_features = updated_features;

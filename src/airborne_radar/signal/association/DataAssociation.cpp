@@ -40,7 +40,8 @@ DataAssociationEngine::DataAssociationEngine(DataAssociationConfig config)
     kalman_predictor_(tracking::KalmanPredictorConfig()),
     kalman_updater_(tracking::KalmanUpdaterConfig()),
     next_key_(1),
-    previous_tracks_() {
+    fallback_history_tracks_(),
+    association_seed_mode_(AssociationSeedMode::kFallbackHistoryCache) {
   tracking::KalmanPredictorConfig predictor_config;
   predictor_config.noise_diff_coeff = config.kalman_noise_diff_coeff;
   kalman_predictor_.UpdateConfig(predictor_config);
@@ -89,16 +90,22 @@ AssociationResult DataAssociationEngine::AssociateDetections(
   }
 
   if (measurement_indices.empty()) {
-    result.missed_track_keys.reserve(previous_tracks_.size());
-    for (const TrackSignature &track : previous_tracks_) {
+    result.missed_track_keys.reserve(fallback_history_tracks_.size());
+    for (const TrackSignature &track : fallback_history_tracks_) {
       result.missed_track_keys.push_back(track.key);
     }
-    previous_tracks_.clear();
+    fallback_history_tracks_.clear();
+    association_seed_mode_ = AssociationSeedMode::kFallbackHistoryCache;
     return result;
   }
 
   const bool use_position_association =
       UsePositionAssociation(targets, detection_succeeded);
+  result.used_position_association = use_position_association;
+  result.fell_back_to_feature_association =
+    config_.enable_position_guided_association && !use_position_association;
+    result.used_external_association_seeds =
+      association_seed_mode_ == AssociationSeedMode::kExternalSeeds;
 
   std::vector<Eigen::Vector3f> measurements;
   measurements.reserve(measurement_indices.size());
@@ -111,10 +118,10 @@ AssociationResult DataAssociationEngine::AssociateDetections(
 
   std::vector<std::uint64_t> measurement_to_key(measurements.size(), kUnassociatedKey);
   std::vector<float> measurement_match_cost(measurements.size(), 0.0f);
-  std::vector<std::uint8_t> track_matched(previous_tracks_.size(), 0U);
+  std::vector<std::uint8_t> track_matched(fallback_history_tracks_.size(), 0U);
 
-  if (!previous_tracks_.empty()) {
-    const std::size_t rows = previous_tracks_.size();
+  if (!fallback_history_tracks_.empty()) {
+    const std::size_t rows = fallback_history_tracks_.size();
     const std::size_t cols = measurements.size();
     const std::size_t dim = std::max(rows, cols);
     const float rejected_cost = config_.unassigned_cost + 1.0f;
@@ -124,7 +131,7 @@ AssociationResult DataAssociationEngine::AssociateDetections(
     std::vector<Eigen::Matrix3f> innovation_covariances;
     predicted_states.reserve(rows);
     innovation_covariances.reserve(rows);
-    for (const TrackSignature &track : previous_tracks_) {
+    for (const TrackSignature &track : fallback_history_tracks_) {
       if (use_position_association && track.has_position && track.has_gaussian_state) {
         const tracking::GaussianTrackState predicted =
             kalman_predictor_.Predict(track.gaussian_state, 1.0f);
@@ -179,7 +186,7 @@ AssociationResult DataAssociationEngine::AssociateDetections(
           cost_matrix(static_cast<Eigen::Index>(r), static_cast<Eigen::Index>(assigned_col));
       if (matched_cost <= config_.unassigned_cost) {
         const std::size_t measurement_index = static_cast<std::size_t>(assigned_col);
-        measurement_to_key[measurement_index] = previous_tracks_[r].key;
+        measurement_to_key[measurement_index] = fallback_history_tracks_[r].key;
         measurement_match_cost[measurement_index] = matched_cost;
         track_matched[r] = 1U;
       }
@@ -187,7 +194,7 @@ AssociationResult DataAssociationEngine::AssociateDetections(
 
     for (std::size_t r = 0; r < rows; ++r) {
       if (track_matched[r] == 0U) {
-        result.missed_track_keys.push_back(previous_tracks_[r].key);
+        result.missed_track_keys.push_back(fallback_history_tracks_[r].key);
       }
     }
   }
@@ -217,15 +224,16 @@ AssociationResult DataAssociationEngine::AssociateDetections(
       signature.position = measurements[m];
 
       if (matched_existing_track) {
-        for (std::size_t row = 0; row < previous_tracks_.size(); ++row) {
-          if (previous_tracks_[row].key != key) {
+        for (std::size_t row = 0; row < fallback_history_tracks_.size(); ++row) {
+          if (fallback_history_tracks_[row].key != key) {
             continue;
           }
 
           const tracking::GaussianTrackState predicted =
-              previous_tracks_[row].has_gaussian_state
-                  ? kalman_predictor_.Predict(previous_tracks_[row].gaussian_state, 1.0f)
-                  : InitializeGaussianState(previous_tracks_[row].position);
+              fallback_history_tracks_[row].has_gaussian_state
+                  ? kalman_predictor_.Predict(
+                        fallback_history_tracks_[row].gaussian_state, 1.0f)
+                  : InitializeGaussianState(fallback_history_tracks_[row].position);
           tracking::MeasurementVector z;
           z << measurements[m](0), measurements[m](1), measurements[m](2);
           const tracking::KalmanUpdateResult update_result =
@@ -243,7 +251,12 @@ AssociationResult DataAssociationEngine::AssociateDetections(
     next_tracks.push_back(signature);
   }
 
-  previous_tracks_.swap(next_tracks);
+  if (association_seed_mode_ == AssociationSeedMode::kExternalSeeds) {
+    fallback_history_tracks_.clear();
+  } else {
+    fallback_history_tracks_.swap(next_tracks);
+  }
+  association_seed_mode_ = AssociationSeedMode::kFallbackHistoryCache;
   return result;
 }
 
@@ -255,6 +268,23 @@ std::vector<std::uint64_t> DataAssociationEngine::Associate(
     const common::TargetFeatureList &targets,
     const std::vector<std::uint8_t> &detection_succeeded) {
   return AssociateDetections(targets, detection_succeeded).target_keys;
+}
+
+void DataAssociationEngine::SetAssociationSeeds(
+    const std::vector<tracking::AssociationTrackSeed> &seeds) {
+  fallback_history_tracks_.clear();
+  fallback_history_tracks_.reserve(seeds.size());
+  association_seed_mode_ = AssociationSeedMode::kExternalSeeds;
+
+  for (std::size_t i = 0; i < seeds.size(); ++i) {
+    const tracking::AssociationTrackSeed &seed = seeds[i];
+    TrackSignature signature(seed.association_key, seed.legacy_feature);
+    signature.has_position = seed.has_position;
+    signature.position = seed.position;
+    signature.has_gaussian_state = seed.has_gaussian_state;
+    signature.gaussian_state = seed.gaussian_state;
+    fallback_history_tracks_.push_back(signature);
+  }
 }
 
 /// @brief 从目标特征中提取关联使用的三维特征向量。

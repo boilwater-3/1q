@@ -78,6 +78,10 @@ public:
   /// @return 可直接用于 DecisionContext 的目标特征列表。
   common::TargetFeatureList BuildFeatureSnapshot() const override;
 
+  /// @brief 导出供关联阶段消费的轨迹种子。
+  /// @return 由当前活跃轨迹构成的关联种子列表。
+  std::vector<AssociationTrackSeed> BuildAssociationSeeds() const override;
+
 private:
 
   /// @brief 判断当前是否启用了 IMM 多模型路径。

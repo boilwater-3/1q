@@ -10,6 +10,8 @@
 
 #include <Eigen/Core>
 
+#include "1q/airborne_radar/signal/tracking/GaussianTrackState.h"
+
 namespace airborne_radar {
 namespace signal {
 namespace tracking {
@@ -21,6 +23,27 @@ struct CycleContext {
 
   /// @brief 当前探测批号。
   std::uint64_t batch_id{0};
+};
+
+/// @brief AssociationTrackSeed 描述关联阶段使用的上一周期轨迹种子。
+struct AssociationTrackSeed {
+  /// @brief 关联键。
+  std::uint64_t association_key{0};
+
+  /// @brief legacy 标量特征回退路径使用的特征向量 [speed, rcs, acceleration]。
+  Eigen::Vector3f legacy_feature{Eigen::Vector3f::Zero()};
+
+  /// @brief 是否具备有效的笛卡尔位置。
+  bool has_position{false};
+
+  /// @brief 笛卡尔位置种子。
+  Eigen::Vector3f position{Eigen::Vector3f::Zero()};
+
+  /// @brief 是否具备有效的高斯状态种子。
+  bool has_gaussian_state{false};
+
+  /// @brief 用于位置空间预测的高斯状态。
+  GaussianTrackState gaussian_state;
 };
 
 /// @brief TrackMeasurement 描述关联后量测输入。
@@ -36,6 +59,15 @@ struct TrackMeasurement {
 
   /// @brief 关联代价；未命中旧轨迹时为 0。
   float association_cost{0.0f};
+
+  /// @brief 当前量测是否通过位置空间关联路径得到关联结果。
+  bool used_position_association{false};
+
+  /// @brief 当前量测是否因位置量测不足而回退到标量特征关联。
+  bool fell_back_to_feature_association{false};
+
+  /// @brief 当前量测关联时是否使用了外部 Lifecycle 轨迹种子。
+  bool used_external_association_seeds{false};
 
   /// @brief 当前量测探测裕量（dB）。
   float detection_margin_db{0.0f};

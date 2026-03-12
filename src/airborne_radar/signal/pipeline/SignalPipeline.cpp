@@ -256,6 +256,12 @@ protected:
       measurement.association_key = context.association_keys[i];
       measurement.matched_existing_track = match != nullptr;
       measurement.association_cost = match != nullptr ? match->cost : 0.0f;
+        measurement.used_position_association =
+          context.association_result.used_position_association;
+        measurement.fell_back_to_feature_association =
+          context.association_result.fell_back_to_feature_association;
+        measurement.used_external_association_seeds =
+          context.association_result.used_external_association_seeds;
       measurement.detection_margin_db = context.detection_margin_db[i];
       measurement.has_cartesian_position =
           input[i].position_x != 0.0f || input[i].position_y != 0.0f ||
@@ -364,6 +370,11 @@ struct SignalPipeline::Impl {
     return cached_context.track_measurements;
   }
 
+  void SetAssociationSeeds(
+      const std::vector<tracking::AssociationTrackSeed> &seeds) {
+    association_engine.SetAssociationSeeds(seeds);
+  }
+
   /// @brief 获取 Kalman 预测器指针（可为 nullptr）。
   const tracking::IKalmanPredictor *GetKalmanPredictor() const {
     return kalman_predictor.get();
@@ -404,6 +415,11 @@ common::TargetFeatureList SignalPipeline::RunCycle(
 std::vector<tracking::TrackMeasurement>
 SignalPipeline::GetLastTrackMeasurements() const {
   return impl_->GetLastTrackMeasurements();
+}
+
+void SignalPipeline::SetAssociationSeeds(
+    const std::vector<tracking::AssociationTrackSeed> &seeds) {
+  impl_->SetAssociationSeeds(seeds);
 }
 
 void SignalPipeline::UpdateConfig(SignalPipelineConfig config) {

@@ -4,24 +4,25 @@ skinparam packageStyle rectangle
 skinparam defaultFontName sans-serif
 skinparam shadowing false
 
-title Signal 层模块分层（含位置关联 / Kalman / EKF / IMM）
+title Signal 层模块分层（位置关联主路径 / Lifecycle 种子接管 / Kalman / EKF / IMM）
 
 package "编排层" {
   rectangle "RadarController\n跨层调度入口" as CTRL
   rectangle "SignalPipeline\nSignal 周期主编排器" as PIPELINE
+  rectangle "Association seed bridge\nBuildAssociationSeeds()\n→ SetAssociationSeeds()" as SEED_BRIDGE
 }
 
 package "信号处理算法层" {
   rectangle "EnvironmentSampling / Echo / Detection\n回波与探测判决" as DETECT
 
   package "Association" {
-    rectangle "DataAssociationEngine\n标量/位置双路径关联编排" as ASSOC_ENGINE
+    rectangle "DataAssociationEngine\n位置主路径 + legacy fallback 关联编排" as ASSOC_ENGINE
     rectangle "MahalanobisDistanceMetric\n对角简化马氏距离" as METRIC
     rectangle "FullMahalanobisDistanceMetric\n完整协方差马氏距离" as FULL_METRIC
     rectangle "CostThresholdGater\n波门裁剪" as GATER
     rectangle "DenseCostHypothesiser\n假设生成（支持逐轨迹 S）" as HYP
     rectangle "LapjvSolver\n最优指派" as SOLVER
-    rectangle "Association-side Kalman\nPredictor / Updater" as ASSOC_KF
+    rectangle "Association-side Kalman\nPredictor / Updater\n（仅位置关联预测使用）" as ASSOC_KF
   }
 
   package "Tracking Filter" {
@@ -49,6 +50,9 @@ package "基础设施层" {
 }
 
 CTRL --> PIPELINE
+CTRL --> SEED_BRIDGE
+SEED_BRIDGE --> PIPELINE
+SEED_BRIDGE --> LIFECYCLE
 PIPELINE --> DETECT
 PIPELINE --> ASSOC_ENGINE
 PIPELINE --> FILTER
@@ -78,18 +82,21 @@ LIFECYCLE ..> IMM : 按轨迹持有
 
 note right of PIPELINE
   负责串接单周期执行顺序。
-  透传位置关联开关，导出 TrackMeasurement。
-  Kalman 生命周期服务与 IMM 生命周期服务
-  当前仍由上层显式注入。
+  默认走位置空间关联。
+  导出 TrackMeasurement，并接收
+  来自 Lifecycle 的外部关联 seeds。
 end note
 
 note right of ASSOC_ENGINE
-  默认走 speed / RCS / acceleration
-  标量特征关联。
+  默认走基于 position_x/y/z 的
+  位置空间关联，并在内部计算
+  逐轨迹新息协方差 S。
 
-  打开 enable_position_guided_association 后，
-  切换到基于 position_x/y/z 的位置空间关联，
-  并在内部计算逐轨迹新息协方差 S。
+  speed / RCS / acceleration
+  仅保留为 legacy fallback。
+
+  外部 Lifecycle seeds 一旦接管，
+  内部历史仅保留 fallback-only 兼容角色。
 end note
 
 note right of IMM
@@ -103,6 +110,8 @@ note right of LIFECYCLE
   唯一生命周期域服务。
   集成 Kalman 与每轨 IMM 状态估计逻辑。
   has_cartesian_position 为激活条件。
+  同时导出 AssociationTrackSeed
+  作为下一周期关联先验真理源。
 end note
 
 note bottom of POOL

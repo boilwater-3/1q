@@ -12,6 +12,7 @@
 
 #include "1q/airborne_radar/common/TargetFeature.h"
 #include "1q/airborne_radar/signal/tracking/GaussianTrackState.h"
+#include "1q/airborne_radar/signal/tracking/TrackLifecycleTypes.h"
 #include "airborne_radar/signal/association/DistanceMetric.h"
 #include "airborne_radar/signal/association/Gater.h"
 #include "airborne_radar/signal/association/Hypothesiser.h"
@@ -34,8 +35,8 @@ struct DataAssociationConfig {
 	/// @brief 未分配虚拟槽代价上限。
   float unassigned_cost{9.0f};
 
-	/// @brief 是否启用基于笛卡尔位置的关联路径。
-  bool enable_position_guided_association{false};
+	/// @brief 是否启用基于笛卡尔位置的主关联路径。
+	bool enable_position_guided_association{true};
 
 	/// @brief 位置关联使用的过程噪声扩散系数。
   float kalman_noise_diff_coeff{1.0f};
@@ -70,6 +71,12 @@ struct AssociationResult {
   std::vector<std::size_t> unassociated_target_indices;
 	/// @brief 与输入目标索引对齐的稳定关联键列表。
   std::vector<std::uint64_t> target_keys;
+	/// @brief 本周期是否实际执行了位置空间关联路径。
+  bool used_position_association{false};
+	/// @brief 本周期是否因位置量测不完整而回退到标量特征关联。
+  bool fell_back_to_feature_association{false};
+	/// @brief 本周期是否使用了外部注入的轨迹种子作为关联先验。
+  bool used_external_association_seeds{false};
 };
 
 /// @brief 数据关联引擎。
@@ -100,7 +107,20 @@ public:
       const common::TargetFeatureList &targets,
       const std::vector<std::uint8_t> &detection_succeeded);
 
+	/// @brief 使用生命周期侧导出的轨迹种子覆盖关联引擎历史状态。
+	/// @param seeds 上一周期轨迹种子列表。
+  void SetAssociationSeeds(
+      const std::vector<tracking::AssociationTrackSeed> &seeds);
+
 private:
+	/// @brief 关联先验状态来源模式。
+	enum class AssociationSeedMode {
+		/// @brief 使用关联引擎内部维护的 fallback 兼容历史缓存。
+		kFallbackHistoryCache = 0,
+		/// @brief 使用外部注入的 Lifecycle 轨迹种子。
+		kExternalSeeds,
+	};
+
 	/// @brief 轻量轨迹签名。
   struct TrackSignature {
 		/// @brief 默认构造。
@@ -141,7 +161,7 @@ private:
 	/// @brief 判断本周期是否应启用位置引导关联。
 	/// @param targets 当前周期输入目标。
 	/// @param detection_succeeded 当前周期探测标记。
-	/// @return 若可使用位置量测并且配置已开启，则返回 true。
+	/// @return 若可使用位置量测并且配置已开启，则返回 true；否则回退到标量特征关联。
   bool UsePositionAssociation(
       const common::TargetFeatureList &targets,
       const std::vector<std::uint8_t> &detection_succeeded) const;
@@ -178,8 +198,10 @@ private:
   tracking::KalmanUpdater kalman_updater_;
 	/// @brief 下一次分配给新目标的稳定键。
   std::uint64_t next_key_{1};
-	/// @brief 上一周期保留下来的轨迹签名集合。
-  std::vector<TrackSignature> previous_tracks_;
+	/// @brief 仅在未接入 Lifecycle 种子时启用的 fallback 兼容历史缓存。
+  std::vector<TrackSignature> fallback_history_tracks_;
+	/// @brief 当前周期关联先验状态来源模式。
+  AssociationSeedMode association_seed_mode_{AssociationSeedMode::kFallbackHistoryCache};
 };
 
 } // namespace association

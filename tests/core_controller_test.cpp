@@ -77,8 +77,42 @@ public:
     return snapshot;
   }
 
+  std::vector<signal::tracking::AssociationTrackSeed>
+  BuildAssociationSeeds() const override {
+    return association_seeds;
+  }
+
   signal::tracking::CycleContext last_cycle{};
   std::vector<signal::tracking::TrackMeasurement> last_measurements;
+  std::vector<signal::tracking::AssociationTrackSeed> association_seeds;
+};
+
+class FixedSeedLifecycleManager : public signal::tracking::ITrackLifecycleManager {
+public:
+  explicit FixedSeedLifecycleManager(
+      std::vector<signal::tracking::AssociationTrackSeed> initial_seeds)
+      : seeds_(initial_seeds) {}
+
+  void Update(const signal::tracking::CycleContext &cycle,
+              const std::vector<signal::tracking::TrackMeasurement> &measurements) override {
+    last_cycle = cycle;
+    last_measurements = measurements;
+  }
+
+  common::TargetFeatureList BuildFeatureSnapshot() const override {
+    return common::TargetFeatureList();
+  }
+
+  std::vector<signal::tracking::AssociationTrackSeed>
+  BuildAssociationSeeds() const override {
+    return seeds_;
+  }
+
+  signal::tracking::CycleContext last_cycle{};
+  std::vector<signal::tracking::TrackMeasurement> last_measurements;
+
+private:
+  std::vector<signal::tracking::AssociationTrackSeed> seeds_;
 };
 
 /// @brief CoreControllerTest 覆盖核心调度与指令下发路径。
@@ -259,6 +293,49 @@ TEST_F(CoreControllerTest, LifecycleManagerConsumesRealAssociationMeasurements) 
   EXPECT_FALSE(lifecycle_manager.last_measurements[0].matched_existing_track);
   EXPECT_FALSE(lifecycle_manager.last_measurements[1].matched_existing_track);
   EXPECT_FALSE(lifecycle_manager.last_measurements[0].has_cartesian_position);
+}
+
+TEST_F(CoreControllerTest, LifecycleSeedsDrivePositionAssociationBeforeRunCycle) {
+  common::TargetFeature target(10.0f, 0.2f, false, 0.1f);
+  target.position_x = 101.0f;
+  target.position_y = 0.0f;
+  target.position_z = 0.0f;
+  target.range_m = 101.0f;
+  const common::TargetFeatureList input_state{target};
+  FakeRadarContext radar_context(input_state);
+
+  environment::EnvironmentModelConfig env_config;
+  env_config.jammer_power_db = 0.0f;
+  environment::EnvironmentService environment_service(env_config);
+
+  signal::pipeline::SignalPipeline signal_pipeline;
+
+  signal::tracking::AssociationTrackSeed seed;
+  seed.association_key = 42;
+  seed.legacy_feature = Eigen::Vector3f(800.0f, 20.0f, 5.0f);
+  seed.has_position = true;
+  seed.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
+  seed.has_gaussian_state = true;
+  seed.gaussian_state.mean(0) = 100.0f;
+  seed.gaussian_state.mean(2) = 0.0f;
+  seed.gaussian_state.mean(4) = 0.0f;
+  seed.gaussian_state.covariance =
+      signal::tracking::StateCovariance::Identity() * 25.0f;
+
+  FixedSeedLifecycleManager lifecycle_manager({seed});
+
+  core::controller::RadarController controller(
+      radar_context, signal_pipeline, *decision_pipeline_, environment_service);
+  controller.SetTrackLifecycleManager(&lifecycle_manager);
+
+  controller.RunOnce();
+
+  ASSERT_EQ(lifecycle_manager.last_measurements.size(), 1u);
+  EXPECT_EQ(lifecycle_manager.last_measurements[0].association_key, 42u);
+  EXPECT_TRUE(lifecycle_manager.last_measurements[0].matched_existing_track);
+  EXPECT_TRUE(lifecycle_manager.last_measurements[0].used_position_association);
+  EXPECT_FALSE(lifecycle_manager.last_measurements[0].fell_back_to_feature_association);
+  EXPECT_TRUE(lifecycle_manager.last_measurements[0].used_external_association_seeds);
 }
 
 } } // namespace airborne_radar::tests
