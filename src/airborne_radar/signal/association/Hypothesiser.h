@@ -57,6 +57,12 @@ public:
   /// @brief 构造候选假设生成器。
   /// @param distance_metric 距离度量器。
   /// @param gater 波门裁剪器。
+  DenseCostHypothesiser(IDistanceMetric *distance_metric,
+                        const IGater *gater);
+
+  /// @brief 构造候选假设生成器（兼容只读距离度量器）。
+  /// @param distance_metric 距离度量器。
+  /// @param gater 波门裁剪器。
   DenseCostHypothesiser(const IDistanceMetric *distance_metric,
                         const IGater *gater);
 
@@ -68,9 +74,19 @@ public:
       const FeatureVectorList &predicted_tracks,
       const FeatureVectorList &measurements) const override;
 
+  /// @brief 使用逐轨迹新息协方差生成候选假设。
+  /// @param predicted_tracks 历史轨迹预测特征集合。
+  /// @param measurements 当前量测特征集合。
+  /// @param innovation_covariances 与轨迹索引对齐的 3×3 新息协方差列表。
+  /// @return 候选假设列表。
+  std::vector<AssociationHypothesis> Generate(
+      const FeatureVectorList &predicted_tracks,
+      const FeatureVectorList &measurements,
+      const std::vector<Eigen::Matrix3f> &innovation_covariances) const;
+
 private:
   /// @brief 距离度量器。
-  const IDistanceMetric *distance_metric_{nullptr};
+  IDistanceMetric *distance_metric_{nullptr};
   /// @brief 波门裁剪器。
   const IGater *gater_{nullptr};
 };

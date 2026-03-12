@@ -18,6 +18,14 @@ common::TargetFeature MakeTarget(float speed, float rcs, float acceleration) {
   return common::TargetFeature(speed, rcs, false, acceleration);
 }
 
+common::TargetFeature MakePositionTarget(float x, float y, float z) {
+  common::TargetFeature target(100.0f, 2.0f, false, 1.0f);
+  target.position_x = x;
+  target.position_y = y;
+  target.position_z = z;
+  return target;
+}
+
 } // namespace
 
 TEST(DataAssociationEngineTest, KeepsStableAssociationAcrossCycles) {
@@ -138,6 +146,33 @@ TEST(DataAssociationEngineTest, ReportsMissedTrackKeysWhenNoDetectionArrives) {
   EXPECT_EQ(result.target_keys[0], 0u);
 }
 
+TEST(DataAssociationEngineTest, UsesCartesianPositionWhenPositionAssociationEnabled) {
+  signal::association::DataAssociationConfig config;
+  config.enable_position_guided_association = true;
+  config.kalman_measurement_noise_std = 2.0f;
+  signal::association::DataAssociationEngine engine(config);
+
+  const common::TargetFeatureList cycle_1{
+      MakePositionTarget(10.0f, 0.0f, 0.0f),
+      MakePositionTarget(100.0f, 0.0f, 0.0f)};
+  const std::vector<std::uint8_t> detected_1{1U, 1U};
+
+  const std::vector<std::uint64_t> keys_1 = engine.Associate(cycle_1, detected_1);
+  ASSERT_EQ(keys_1.size(), 2u);
+  ASSERT_NE(keys_1[0], 0u);
+  ASSERT_NE(keys_1[1], 0u);
+
+  const common::TargetFeatureList cycle_2{
+      MakePositionTarget(101.0f, 0.0f, 0.0f),
+      MakePositionTarget(11.0f, 0.0f, 0.0f)};
+  const std::vector<std::uint8_t> detected_2{1U, 1U};
+
+  const std::vector<std::uint64_t> keys_2 = engine.Associate(cycle_2, detected_2);
+  ASSERT_EQ(keys_2.size(), 2u);
+  EXPECT_EQ(keys_2[0], keys_1[1]);
+  EXPECT_EQ(keys_2[1], keys_1[0]);
+}
+
 TEST(CostThresholdGaterTest, RejectsHypothesesOutsideThreshold) {
   const signal::association::CostThresholdGater gater(9.0f);
 
@@ -164,6 +199,29 @@ TEST(DenseCostHypothesiserTest, GeneratesOnlyGatedHypotheses) {
   EXPECT_EQ(hypotheses[0].track_index, 0u);
   EXPECT_EQ(hypotheses[0].measurement_index, 0u);
   EXPECT_LT(hypotheses[0].cost, 9.0f);
+}
+
+TEST(DenseCostHypothesiserTest, UsesTrackWiseInnovationCovarianceForFullMahalanobis) {
+  signal::association::FullMahalanobisDistanceMetric metric(Eigen::Matrix3f::Identity());
+  const signal::association::CostThresholdGater gater(1.5f);
+  const signal::association::DenseCostHypothesiser hypothesiser(&metric, &gater);
+
+  const signal::association::FeatureVectorList predicted_tracks{
+      Eigen::Vector3f(0.0f, 0.0f, 0.0f)};
+  const signal::association::FeatureVectorList measurements{
+      Eigen::Vector3f(2.0f, 0.0f, 0.0f)};
+
+  const std::vector<signal::association::AssociationHypothesis> no_match =
+      hypothesiser.Generate(predicted_tracks, measurements,
+                            std::vector<Eigen::Matrix3f>(1, Eigen::Matrix3f::Identity()));
+  EXPECT_TRUE(no_match.empty());
+
+  Eigen::Matrix3f wide_covariance = Eigen::Matrix3f::Identity() * 4.0f;
+  const std::vector<signal::association::AssociationHypothesis> accepted =
+      hypothesiser.Generate(predicted_tracks, measurements,
+                            std::vector<Eigen::Matrix3f>(1, wide_covariance));
+  ASSERT_EQ(accepted.size(), 1u);
+  EXPECT_NEAR(accepted[0].cost, 1.0f, 1e-3f);
 }
 
 } } // namespace airborne_radar::tests

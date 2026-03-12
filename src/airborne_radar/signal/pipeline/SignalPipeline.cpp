@@ -36,6 +36,17 @@ tracking::TrackFilterConfig ToTrackFilterConfig(
   return filter_config;
 }
 
+association::DataAssociationConfig ToAssociationConfig(
+    const SignalPipelineConfig &config) {
+  association::DataAssociationConfig association_config;
+  association_config.enable_position_guided_association =
+      config.enable_position_guided_association;
+  association_config.kalman_noise_diff_coeff = config.kalman_noise_diff_coeff;
+  association_config.kalman_measurement_noise_std =
+      config.kalman_measurement_noise_std;
+  return association_config;
+}
+
 const association::AssociationMatch *FindAssociationMatch(
     const association::AssociationResult &result,
     std::size_t target_index) {
@@ -241,17 +252,23 @@ protected:
         const association::AssociationMatch *match =
           FindAssociationMatch(context.association_result, i);
       tracking::TrackMeasurement measurement;
-        measurement.source_index = i;
+      measurement.source_index = i;
       measurement.association_key = context.association_keys[i];
-        measurement.matched_existing_track = match != nullptr;
-        measurement.association_cost = match != nullptr ? match->cost : 0.0f;
-        measurement.detection_margin_db = context.detection_margin_db[i];
-        measurement.has_cartesian_position = false;
-      measurement.position = Eigen::Vector3f::Zero();
-        measurement.observed_speed = output[i].current_track_speed;
+      measurement.matched_existing_track = match != nullptr;
+      measurement.association_cost = match != nullptr ? match->cost : 0.0f;
+      measurement.detection_margin_db = context.detection_margin_db[i];
+      measurement.has_cartesian_position =
+          input[i].position_x != 0.0f || input[i].position_y != 0.0f ||
+          input[i].position_z != 0.0f;
+      measurement.position = measurement.has_cartesian_position
+                                 ? Eigen::Vector3f(input[i].position_x,
+                                                   input[i].position_y,
+                                                   input[i].position_z)
+                                 : Eigen::Vector3f::Zero();
+      measurement.observed_speed = output[i].current_track_speed;
       measurement.velocity =
           Eigen::Vector3f(output[i].current_track_speed, 0.0f, 0.0f);
-        measurement.observed_acceleration = output[i].current_track_acceleration;
+      measurement.observed_acceleration = output[i].current_track_acceleration;
       measurement.acceleration =
           Eigen::Vector3f(output[i].current_track_acceleration, 0.0f, 0.0f);
       measurement.rcs = output[i].current_track_rcs;
@@ -263,7 +280,9 @@ protected:
       const float var_theta = context.angle_error_std[i] * context.angle_error_std[i];
       
       // 当我们没有笛卡尔位置时，仅能使用假设的先验。这里我们假设目标沿着 X 轴进行粗略估计变换
-      Eigen::Vector3f pos = measurement.has_cartesian_position ? measurement.position : Eigen::Vector3f(range_m, 0.0f, 0.0f);
+      Eigen::Vector3f pos = measurement.has_cartesian_position
+               ? measurement.position
+               : Eigen::Vector3f(range_m, 0.0f, 0.0f);
       const float pos_norm = pos.norm();
       if (pos_norm > 0.1f) {
         Eigen::Vector3f u = pos / pos_norm;
@@ -287,6 +306,7 @@ private:
 struct SignalPipeline::Impl {
   explicit Impl(SignalPipelineConfig initial_config)
   : config(initial_config),
+    association_engine(ToAssociationConfig(initial_config)),
     track_filter(ToTrackFilterConfig(initial_config)) {
     // 按配置条件创建 Kalman 组件
     if (config.enable_kalman_filter) {
@@ -356,6 +376,7 @@ struct SignalPipeline::Impl {
 
   void UpdateConfig(SignalPipelineConfig new_config) {
     config = new_config;
+    association_engine.UpdateConfig(ToAssociationConfig(new_config));
     track_filter.UpdateConfig(ToTrackFilterConfig(new_config));
   }
 

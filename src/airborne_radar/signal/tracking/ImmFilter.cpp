@@ -39,6 +39,12 @@ void ImmFilter::Process(const MeasurementVector &measurement, float dt) {
 void ImmFilter::Predict(float dt) {
   MixStates();
   PredictModels(dt);
+
+  for (int j = 0; j < num_models_; ++j) {
+    const auto ju = static_cast<std::size_t>(j);
+    model_states_[ju].state = predicted_states_[ju];
+  }
+
   CombineEstimates();
 }
 

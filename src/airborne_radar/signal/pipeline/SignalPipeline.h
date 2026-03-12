@@ -40,6 +40,9 @@ struct SignalPipelineConfig {
   /// @brief 是否启用 Kalman 状态估计（位置/速度）。
   bool enable_kalman_filter{true};
 
+  /// @brief 是否启用基于笛卡尔位置的关联路径。
+  bool enable_position_guided_association{false};
+
   /// @brief Kalman 预测器过程噪声扩散系数。
   float kalman_noise_diff_coeff{1.0f};
 

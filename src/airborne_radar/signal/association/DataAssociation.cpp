@@ -15,18 +15,59 @@ namespace {
 /// @brief 未关联目标使用的保留键值。
 constexpr std::uint64_t kUnassociatedKey = 0;
 
+tracking::MeasurementMatrix BuildPositionMeasurementMatrix() {
+  tracking::MeasurementMatrix H = tracking::MeasurementMatrix::Zero();
+  H(0, 0) = 1.0f;
+  H(1, 2) = 1.0f;
+  H(2, 4) = 1.0f;
+  return H;
+}
+
 } // namespace
 
 /// @brief 构造数据关联引擎并初始化内部组件。
 /// @param config 关联配置。
 DataAssociationEngine::DataAssociationEngine(DataAssociationConfig config)
-    : config_(config),
-      distance_metric_(config.speed_sigma, config.rcs_sigma,
-                       config.acceleration_sigma),
-  gater_(config.unassigned_cost),
-  hypothesiser_(&distance_metric_, &gater_),
-      next_key_(1),
-      previous_tracks_() {}
+  : config_(config),
+    distance_metric_(config.speed_sigma, config.rcs_sigma,
+             config.acceleration_sigma),
+    full_distance_metric_(Eigen::Matrix3f::Identity() *
+              config.kalman_measurement_noise_std *
+              config.kalman_measurement_noise_std),
+    gater_(config.unassigned_cost),
+    hypothesiser_(&distance_metric_, &gater_),
+    position_hypothesiser_(&full_distance_metric_, &gater_),
+    kalman_predictor_(tracking::KalmanPredictorConfig()),
+    kalman_updater_(tracking::KalmanUpdaterConfig()),
+    next_key_(1),
+    previous_tracks_() {
+  tracking::KalmanPredictorConfig predictor_config;
+  predictor_config.noise_diff_coeff = config.kalman_noise_diff_coeff;
+  kalman_predictor_.UpdateConfig(predictor_config);
+
+  tracking::KalmanUpdaterConfig updater_config;
+  updater_config.measurement_noise_std = config.kalman_measurement_noise_std;
+  kalman_updater_.UpdateConfig(updater_config);
+}
+
+void DataAssociationEngine::UpdateConfig(DataAssociationConfig config) {
+  config_ = config;
+  distance_metric_ = MahalanobisDistanceMetric(
+    config.speed_sigma, config.rcs_sigma, config.acceleration_sigma);
+  full_distance_metric_ = FullMahalanobisDistanceMetric(
+    Eigen::Matrix3f::Identity() * config.kalman_measurement_noise_std *
+    config.kalman_measurement_noise_std);
+  gater_ = CostThresholdGater(config.unassigned_cost);
+  hypothesiser_ = DenseCostHypothesiser(&distance_metric_, &gater_);
+  position_hypothesiser_ = DenseCostHypothesiser(&full_distance_metric_, &gater_);
+    tracking::KalmanPredictorConfig predictor_config;
+    predictor_config.noise_diff_coeff = config.kalman_noise_diff_coeff;
+    kalman_predictor_.UpdateConfig(predictor_config);
+
+    tracking::KalmanUpdaterConfig updater_config;
+    updater_config.measurement_noise_std = config.kalman_measurement_noise_std;
+    kalman_updater_.UpdateConfig(updater_config);
+}
 
 /// @brief 执行一次完整的数据关联。
 /// @param targets 当前周期输入目标特征集合。
@@ -56,10 +97,16 @@ AssociationResult DataAssociationEngine::AssociateDetections(
     return result;
   }
 
+  const bool use_position_association =
+      UsePositionAssociation(targets, detection_succeeded);
+
   std::vector<Eigen::Vector3f> measurements;
   measurements.reserve(measurement_indices.size());
   for (std::size_t i = 0; i < measurement_indices.size(); ++i) {
-    measurements.push_back(BuildFeatureVector(targets[measurement_indices[i]]));
+    const std::size_t target_index = measurement_indices[i];
+    measurements.push_back(use_position_association
+                               ? BuildPositionVector(targets[target_index])
+                               : BuildFeatureVector(targets[target_index]));
   }
 
   std::vector<std::uint64_t> measurement_to_key(measurements.size(), kUnassociatedKey);
@@ -73,8 +120,29 @@ AssociationResult DataAssociationEngine::AssociateDetections(
     const float rejected_cost = config_.unassigned_cost + 1.0f;
     FeatureVectorList predicted_tracks;
     predicted_tracks.reserve(rows);
+    std::vector<tracking::GaussianTrackState> predicted_states;
+    std::vector<Eigen::Matrix3f> innovation_covariances;
+    predicted_states.reserve(rows);
+    innovation_covariances.reserve(rows);
     for (const TrackSignature &track : previous_tracks_) {
-      predicted_tracks.push_back(track.feature);
+      if (use_position_association && track.has_position && track.has_gaussian_state) {
+        const tracking::GaussianTrackState predicted =
+            kalman_predictor_.Predict(track.gaussian_state, 1.0f);
+        predicted_states.push_back(predicted);
+        predicted_tracks.push_back(
+            Eigen::Vector3f(predicted.mean(0), predicted.mean(2), predicted.mean(4)));
+        innovation_covariances.push_back(ComputeInnovationCovariance(predicted));
+      } else if (use_position_association && track.has_position) {
+        const tracking::GaussianTrackState predicted =
+            InitializeGaussianState(track.position);
+        predicted_states.push_back(predicted);
+        predicted_tracks.push_back(track.position);
+        innovation_covariances.push_back(ComputeInnovationCovariance(predicted));
+      } else {
+        predicted_states.push_back(tracking::GaussianTrackState());
+        innovation_covariances.push_back(Eigen::Matrix3f::Identity());
+        predicted_tracks.push_back(track.feature);
+      }
     }
 
     Eigen::MatrixXf cost_matrix =
@@ -89,7 +157,10 @@ AssociationResult DataAssociationEngine::AssociateDetections(
     }
 
     const std::vector<AssociationHypothesis> hypotheses =
-        hypothesiser_.Generate(predicted_tracks, measurements);
+      use_position_association
+        ? position_hypothesiser_.Generate(predicted_tracks, measurements,
+                          innovation_covariances)
+        : hypothesiser_.Generate(predicted_tracks, measurements);
     for (const AssociationHypothesis &hypothesis : hypotheses) {
       cost_matrix(static_cast<Eigen::Index>(hypothesis.track_index),
                   static_cast<Eigen::Index>(hypothesis.measurement_index)) =
@@ -140,7 +211,36 @@ AssociationResult DataAssociationEngine::AssociateDetections(
       result.unassociated_target_indices.push_back(target_index);
     }
 
-    next_tracks.push_back(TrackSignature{key, measurements[m]});
+    TrackSignature signature{key, BuildFeatureVector(targets[target_index])};
+    if (use_position_association) {
+      signature.has_position = true;
+      signature.position = measurements[m];
+
+      if (matched_existing_track) {
+        for (std::size_t row = 0; row < previous_tracks_.size(); ++row) {
+          if (previous_tracks_[row].key != key) {
+            continue;
+          }
+
+          const tracking::GaussianTrackState predicted =
+              previous_tracks_[row].has_gaussian_state
+                  ? kalman_predictor_.Predict(previous_tracks_[row].gaussian_state, 1.0f)
+                  : InitializeGaussianState(previous_tracks_[row].position);
+          tracking::MeasurementVector z;
+          z << measurements[m](0), measurements[m](1), measurements[m](2);
+          const tracking::KalmanUpdateResult update_result =
+              kalman_updater_.Update(predicted, z);
+          signature.has_gaussian_state = true;
+          signature.gaussian_state = update_result.posterior;
+          break;
+        }
+      } else {
+        signature.has_gaussian_state = true;
+        signature.gaussian_state = InitializeGaussianState(measurements[m]);
+      }
+    }
+
+    next_tracks.push_back(signature);
   }
 
   previous_tracks_.swap(next_tracks);
@@ -164,6 +264,56 @@ Eigen::Vector3f DataAssociationEngine::BuildFeatureVector(
     const common::TargetFeature &target) const {
   return Eigen::Vector3f(target.current_track_speed, target.current_track_rcs,
                          target.current_track_acceleration);
+}
+
+Eigen::Vector3f DataAssociationEngine::BuildPositionVector(
+    const common::TargetFeature &target) const {
+  return Eigen::Vector3f(target.position_x, target.position_y, target.position_z);
+}
+
+bool DataAssociationEngine::HasPositionMeasurement(
+    const common::TargetFeature &target) const {
+  return target.position_x != 0.0f || target.position_y != 0.0f ||
+         target.position_z != 0.0f;
+}
+
+bool DataAssociationEngine::UsePositionAssociation(
+    const common::TargetFeatureList &targets,
+    const std::vector<std::uint8_t> &detection_succeeded) const {
+  if (!config_.enable_position_guided_association) {
+    return false;
+  }
+
+  for (std::size_t i = 0; i < targets.size() && i < detection_succeeded.size(); ++i) {
+    if (detection_succeeded[i] == 0U) {
+      continue;
+    }
+    if (!HasPositionMeasurement(targets[i])) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+tracking::GaussianTrackState DataAssociationEngine::InitializeGaussianState(
+    const Eigen::Vector3f &position) const {
+  tracking::StateVector mean = tracking::StateVector::Zero();
+  mean(0) = position(0);
+  mean(2) = position(1);
+  mean(4) = position(2);
+
+  tracking::StateCovariance covariance = tracking::StateCovariance::Identity() * 100.0f;
+  return tracking::GaussianTrackState(mean, covariance);
+}
+
+tracking::MeasurementCovariance DataAssociationEngine::ComputeInnovationCovariance(
+    const tracking::GaussianTrackState &predicted) const {
+  const tracking::MeasurementMatrix H = BuildPositionMeasurementMatrix();
+  const tracking::MeasurementCovariance R =
+      tracking::MeasurementCovariance::Identity() *
+      config_.kalman_measurement_noise_std * config_.kalman_measurement_noise_std;
+  return H * predicted.covariance * H.transpose() + R;
 }
 
 } // namespace association
