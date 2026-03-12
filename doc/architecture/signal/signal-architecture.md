@@ -7,9 +7,10 @@ Signal 层是机载雷达仿真系统的**信号处理核心**，负责从原始
 截至当前版本，Signal 层已经同时支持：
 
 - 基于 `TargetFeature.position_x/y/z` 的**位置空间关联主路径**（默认启用）
-- 基于 `[speed, rcs, acceleration]` 的**标量特征关联回退路径**（兼容旧实现）
 - `TrackLifecycleManager` 内部的**单模型 Kalman**与**每轨 IMM 多模型运行态**
 - `FullMahalanobisDistanceMetric` 对轨迹级新息协方差 $S$ 的直接消费
+- `FallbackHistoryCache` 作为**未接入 Lifecycle 场景**下的内部兼容先验缓存
+- `DataAssociationEngine` / `TrackLifecycleManager` / `RadarController` 的关键路径摘要日志
 
 Signal 层遵循三条关键设计原则：
 
@@ -28,7 +29,7 @@ src/airborne_radar/signal/
 │   ├── Hypothesiser.h/.cpp         #   └─ DenseCostHypothesiser（假设生成）
 │   ├── AssignmentSolver.h          #   └─ IAssignmentSolver 接口
 │   ├── LapjvSolver.h/.cpp          #   └─ LapjvSolver（Jonker-Volgenant 最优指派）
-│   └── DataAssociation.h/.cpp      #   └─ DataAssociationEngine（位置主路径 + legacy 回退关联编排器）
+│   └── DataAssociation.h/.cpp      #   └─ DataAssociationEngine（位置主路径 + FallbackHistoryCache 兼容缓存）
 │
 ├── detection/                      # [信号检测层]
 │   ├── RadarEquations.h/.cpp       #   ├─ 雷达物理方程纯函数库（回波功率、噪声底、积累增益、测量精度、检测概率）
@@ -78,21 +79,22 @@ flowchart TD
     SEEDS["Lifecycle 关联种子注入<br/>BuildAssociationSeeds() → SetAssociationSeeds()"]
     ASSOC["数据关联<br/>DataAssociationEngine"]
     POS_ASSOC["位置空间主关联<br/>position_x/y/z + 轨迹级 S"]
-    LEGACY_ASSOC["legacy 特征回退<br/>speed / RCS / acceleration"]
     FILTER["跟踪滤波<br/>TrackFilter（标量特征）"]
     MEAS["TrackMeasurement 导出<br/>GetLastTrackMeasurements()"]
     LIFECYCLE["轨迹管理<br/>TrackLifecycleManager"]
+    LOGS["关键路径摘要日志<br/>Association / Lifecycle / Controller"]
     KFIMM["状态估计<br/>Kalman / 每轨 IMM"]
     SNAPSHOT["稳定航迹快照<br/>供决策层 / 目标分类"]
 
     ENV --> ECHO --> DETECT --> ASSOC --> FILTER --> MEAS --> LIFECYCLE --> KFIMM --> SNAPSHOT
     LIFECYCLE --> SEEDS --> ASSOC
     ASSOC --> POS_ASSOC
-    ASSOC -. feature fallback .-> LEGACY_ASSOC
+    ASSOC --> LOGS
+    LIFECYCLE --> LOGS
     LIFECYCLE -->|"申请/归还"| POOL["BoostTrackPool"]
 ```
 
-图中 `SEEDS` 表示当前已经落地的 Lifecycle → Association 先验接桥；`ASSOC -> POS_ASSOC` 表示默认位置主路径，`ASSOC -. feature fallback .-> LEGACY_ASSOC` 表示当位置量测不完整或显式关闭位置路径时，关联阶段退回 legacy 标量特征空间。至于 `prior fallback`，则发生在 `DataAssociationEngine` 内部：若当前周期没有外部 seeds 接管，才退回使用内部 `fallback_history_tracks_` 兼容缓存。
+图中 `SEEDS` 表示当前已经落地的 Lifecycle → Association 先验接桥；`ASSOC -> POS_ASSOC` 表示当前唯一正式的关联主路径。至于 `prior fallback`，则发生在 `DataAssociationEngine` 内部：若当前周期没有外部 seeds 接管，且内部兼容模式已启用，才会退回使用 `FallbackHistoryCache` 作为位置空间关联先验。
 
 ### 3.1 编排机制
 
@@ -103,7 +105,7 @@ flowchart TD
 EnvironmentSamplingStage
   → EchoEstimationStage          # 线性占位符公式
     → DetectionStage              # 简单 margin 比较
-            → AssociationStage          # 默认位置空间关联（必要时回退）
+            → AssociationStage          # 默认位置空间关联
         → TrackingFilterStage
 ```
 
@@ -179,7 +181,7 @@ flowchart LR
     end
     DET["位置量测<br/>TargetFeature.position_x/y/z"] --> MODE
     EXT["external association seeds<br/>Lifecycle truth source"] --> MODE
-    FALLBACK["fallback_history_tracks_<br/>兼容缓存"] --> MODE
+    FALLBACK["FallbackHistoryCache<br/>兼容缓存对象"] --> MODE
     MEAS_COV["measurement_covariance<br/>动态量测协方差 R"] --> INNOV
     MODE --> M
     MODE -. 位置路径 .-> PRED --> INNOV -. 输出 ẑ / S .-> H
@@ -210,10 +212,12 @@ flowchart LR
 当前版本已经完成 `FullMahalanobisDistanceMetric` 与轨迹级 $S$ 的联动，但需要注意：
 
 - `RadarController` 已通过 `AssociationTrackSeed` 将 Lifecycle 侧活跃轨迹状态注入关联阶段，关联真理源正在向 `TrackLifecycleManager` 收敛
-- 关联域仍保留内部签名缓存作为无 Lifecycle 管理器场景下的兼容路径，尚未完全删除内部状态副本
+- 关联域仍保留 `FallbackHistoryCache` 作为无 Lifecycle 管理器场景下的兼容路径，尚未完全删除内部状态副本
 - `SignalPipeline` 会在 `SignalCycleContext` 中提前构造 `measurement_covariance`，供关联与 Lifecycle 更新共享同一份动态 $R$
 - `SignalPipeline` 只有在输入 `TargetFeature` 已携带 `position_x/y/z` 时，才会导出 `has_cartesian_position = true` 的 `TrackMeasurement`
 - 当成功探测目标位置量测不完整时，当前实现会直接触发契约失败
+- `RadarController` 绑定 `TrackLifecycleManager` 时，会自动关闭内部 fallback 兼容模式，使主路径明确由 external seeds 接管
+- `DataAssociationEngine` / `TrackLifecycleManager` / `RadarController` 已补充关键路径摘要日志，用于排查 prior 来源、匹配数量和生命周期推进结果
 - 因此当前位置空间关联已经是唯一正式路径，但内部状态所有权仍属于**已主化的关联能力 + 待进一步统一的数据流**
 
 #### 4.2.2 当前文档中的 fallback 术语约定
@@ -221,7 +225,7 @@ flowchart LR
 为避免后续讨论中将不同层次的“回退”混为一谈，本文当前只保留 `prior fallback` 这一术语：
 
 1. **prior fallback（先验来源回退）**
-    - 含义：当前周期没有 `TrackLifecycleManager -> BuildAssociationSeeds() -> SetAssociationSeeds()` 这条外部 seeds 接管链时，`DataAssociationEngine` 退回使用自身内部维护的 `fallback_history_tracks_` 作为关联先验。
+    - 含义：当前周期没有 `TrackLifecycleManager -> BuildAssociationSeeds() -> SetAssociationSeeds()` 这条外部 seeds 接管链时，`DataAssociationEngine` 退回使用自身内部维护的 `FallbackHistoryCache` 作为关联先验。
     - 作用：为“尚未接入 Lifecycle 真理源”的兼容场景保留最小可运行能力。
     - 非作用：一旦外部 seeds 已显式接管，即便 seeds 为空，也**不会**再回退复用内部历史缓存。
 
@@ -232,7 +236,7 @@ flowchart LR
 | 先验来源 | 匹配空间 | 语义 |
 |---------|---------|------|
 | Lifecycle external seeds | 位置空间主关联 | 理想主路径 |
-| fallback history cache | 位置空间主关联 | 尚未接入 Lifecycle，但内部缓存仍可支撑位置预测 |
+| FallbackHistoryCache | 位置空间主关联 | 尚未接入 Lifecycle，但内部兼容缓存仍可支撑位置预测 |
 
 ### 4.3 状态估计滤波器
 
@@ -354,6 +358,7 @@ classDiagram
         +RunCycle(features, env) TargetFeatureList
         +GetLastTrackMeasurements() vector~TrackMeasurement~
         +SetAssociationSeeds(seeds) void
+        +SetInternalAssociationHistoryFallbackEnabled(enabled) void
         -KalmanPredictor kalman_predictor
         -KalmanUpdater kalman_updater
     }
@@ -362,6 +367,7 @@ classDiagram
         +AssociateDetections(targets, detection_succeeded) AssociationResult
         +Associate(targets, detection_succeeded) vector~uint64_t~
         +SetAssociationSeeds(seeds) void
+        +SetInternalHistoryFallbackEnabled(enabled) void
         -IDistanceMetric metric
         -FullMahalanobisDistanceMetric full_metric
         -IGater gater
@@ -369,6 +375,7 @@ classDiagram
         -IAssignmentSolver solver
         -KalmanPredictor association_predictor
         -KalmanUpdater association_updater
+        -FallbackHistoryCache fallback_cache
     }
 
     class TrackLifecycleManager {
@@ -501,10 +508,10 @@ sequenceDiagram
 |---------|--------|---------|
 | `SignalPipelineTest` | 4 | 端到端周期处理、探测裕量衰减、TrackMeasurement 导出、默认位置关联主路径 |
 | `TrackFilterTest` | 2 | 标量特征稳定传递、损耗衰减 + 干扰惩罚 |
-| `DataAssociationEngineTest` | 9 | 稳定关联、交叉匹配、新目标分配、匹配/失配报告、位置空间关联、外部 seeds 单周期语义、空 seeds 抑制内部 fallback |
+| `DataAssociationEngineTest` | 12 | 稳定关联、交叉匹配、新目标分配、匹配/失配报告、位置空间关联、external seeds 单周期语义、空 seeds 抑制内部 fallback、兼容缓存开关与清缓存契约 |
 | `CostThresholdGaterTest` | 1 | 超阈值裁剪 |
 | `DenseCostHypothesiserTest` | 2 | 波门内假设、逐轨迹 S 注入 |
-| `TrackLifecycleManagerTest` | 3 | 确认阈值、超时回收、每轨 IMM 漏检预测 |
+| `TrackLifecycleManagerTest` | 4 | 确认阈值、超时回收、每轨 IMM 漏检预测、AssociationSeeds 导出位置与高斯状态 |
 | `CoreControllerTest` | 6 | Controller 调度、事件发布、Lifecycle 消费真实量测、RunCycle 前注入 Lifecycle seeds |
 | `KalmanPredictorTest` | 7 | 零步长恒等、位置传播、协方差增长、对称性、Q 矩阵公式 |
 | `KalmanUpdaterTest` | 8 | 协方差收缩、均值收敛、新息正确性、动态R矩阵自适应、正定性 |
@@ -516,9 +523,9 @@ sequenceDiagram
 | `RadarEquationsTest` | 8 | 回波功率手算、R⁴规律、玻尔兹曼噪声、相参/非相参积累、测距/测角精度 |
 | `SignalDetectorTest` | 4 | 高/低 SNR 探测、确定性种子、干扰降级 |
 | `SwerlingDetectionTest` | 11| Swerling 0~4 边界、极限定理、多脉冲增益平滑对比 |
-| **合计（Signal 相关 + 跨层集成）** | **77** | 上表覆盖当前 Signal 相关算法与 Controller 集成测试 |
+| **合计（Signal 相关 + 跨层集成）** | **81** | 上表覆盖当前 Signal 相关算法与 Controller 集成测试 |
 
-补充说明：当前仓库全量回归已达到 **91 / 91** 绿灯；其余测试主要覆盖决策层、事件总线与环境服务等非 Signal 专属模块。
+补充说明：当前仓库全量回归已达到 **93 / 93** 绿灯；其余测试主要覆盖决策层、事件总线与环境服务等非 Signal 专属模块。
 
 ## 9. 当前状态与待完善事项
 
@@ -532,7 +539,7 @@ sequenceDiagram
 - `TrackLifecycleManager` 中的 Kalman 集成
 - `TrackLifecycleManager` 中的每轨 IMM 运行态集成
 - `SignalPipeline` 中 Kalman 组件的配置化创建
-- `SignalPipeline` 中位置空间关联开关透传与笛卡尔位置量测导出
+- `SignalPipeline` 中内部 fallback 开关透传与笛卡尔位置量测导出
 - 物理化信号检测（`RadarEquations` + `SignalDetector`）
   - 单站雷达方程回波功率计算（对数域）
   - 接收机热噪声功率底（kTBF）
@@ -549,20 +556,21 @@ sequenceDiagram
     - `DataAssociationEngine` 支持位置空间关联模式
     - `DenseCostHypothesiser` 支持逐轨迹新息协方差注入
     - `FullMahalanobisDistanceMetric` 可直接消费轨迹级 $S$
+- Lifecycle external seeds 接桥 + `FallbackHistoryCache` 兼容缓存降格
+- `DataAssociationEngine` / `TrackLifecycleManager` / `RadarController` 关键路径摘要日志
 
 ### 待完善 🔲
 
 - 完成关联侧内部高斯状态向 `TrackLifecycleManager` 单一真源的最终收敛（当前已完成 external seeds 接桥与 fallback 降格，但尚未删除关联侧兼容状态副本）
-- 将动态量测协方差 `measurement_covariance` 直接接入位置空间关联的 $S$ 计算
-- 随位置量测输入契约继续收敛，进一步压缩 legacy 标量特征关联的兼容兜底角色，并评估其后续保留范围
+- 将关联侧内部高斯状态副本继续向 Lifecycle 单一真源收敛，评估 `FallbackHistoryCache` 的最终保留形态
 - `SignalPipeline` / `RadarController` 层面对 IMM 生命周期服务的自动装配
 - 杂波图与动态门限环境适配机制
 
 ### 当前已知限制 ⚠️
 
-- 位置空间关联已是**默认主路径**，但当位置量测不完整时仍会回退到旧的标量特征关联路径；后者当前仅作为位置量测契约尚未完全收敛时的兼容兜底方案
+- 位置空间关联已是**唯一正式主路径**，成功探测目标若缺位置量测会直接失败
 - 位置空间关联当前要求输入 `TargetFeature` 已提供 `position_x / position_y / position_z`
-- 统一状态源收敛仍在进行中：Lifecycle 已开始主导关联先验输入，但 `DataAssociationEngine` 仍保留兼容性的高斯状态缓存
-- 动态量测协方差当前已用于 Lifecycle / Kalman / EKF 更新阶段，但尚未直接进入 `DataAssociationEngine` 的位置空间关联 $S$ 计算
-- 一旦 `RadarController` / `SignalPipeline` 已显式注入 external association seeds，则即便 seeds 为空，也表示 Lifecycle 当前无可供关联的活跃轨迹；此时关联侧不会再回退复用内部 `fallback_history_tracks_`
+- 统一状态源收敛仍在进行中：Lifecycle 已开始主导关联先验输入，但 `DataAssociationEngine` 仍保留兼容性的 `FallbackHistoryCache` 高斯状态缓存
+- 动态量测协方差当前已直接进入 `DataAssociationEngine` 的位置空间关联 $S$ 计算，并与 Lifecycle / Kalman / EKF 更新共享同一份动态 $R$
+- 一旦 `RadarController` / `SignalPipeline` 已显式注入 external association seeds，则即便 seeds 为空，也表示 Lifecycle 当前无可供关联的活跃轨迹；此时关联侧不会再回退复用内部 `FallbackHistoryCache`
 - `SignalPipeline` 当前只负责导出位置量测与位置关联配置；`TrackLifecycleManager` 的 IMM 实例化仍由上层显式创建/注入

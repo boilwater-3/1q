@@ -4,11 +4,12 @@ Signal 层是机载雷达仿真系统的信号处理核心，负责 **探测 →
 
 当前文档已同步到以下实现状态：
 
-- 位置空间关联已成为默认主路径，标量特征关联保留为兼容回退路径
+- 位置空间关联已成为唯一正式路径，成功探测目标缺位置量测时直接失败
 - `FullMahalanobisDistanceMetric` 支持逐轨迹新息协方差 $S$ 联动
 - `TrackLifecycleManager` 已支持每轨 IMM 运行态
 - `RadarController` 会在每周期开始前把 Lifecycle 导出的关联种子注入 `SignalPipeline`
-- 文档明确区分“已实现能力”和“尚待统一的数据流边界”
+- `DataAssociationEngine` 已将内部 fallback history 收敛为 `FallbackHistoryCache` 兼容缓存对象
+- `DataAssociationEngine` / `TrackLifecycleManager` / `RadarController` 已补充关键路径摘要日志
 
 ## 文件说明
 
@@ -38,7 +39,7 @@ Signal 层是机载雷达仿真系统的信号处理核心，负责 **探测 →
 
 ```
 Level 0: TrackFilter（标量特征的最小预测/更新）
-Level 1: DataAssociationEngine（位置主路径 + legacy 标量回退，位置路径支持轨迹级 S）
+Level 1: DataAssociationEngine（位置唯一主路径 + FallbackHistoryCache 兼容缓存，支持轨迹级 S）
 Level 2: KalmanPredictor + KalmanUpdater（标准线性 Kalman，3D CV）
 Level 3: EkfPredictor + EkfUpdater（扩展 Kalman，非线性模型支持）
 Level 4: ImmFilter（交互多模型，Bar-Shalom 4 步算法）
