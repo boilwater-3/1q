@@ -169,4 +169,46 @@ TEST(TrackLifecycleManagerTest, ImmPathPredictsConfirmedTrackAcrossMissedCycles)
   EXPECT_FLOAT_EQ(snapshot[0].position_x, active_tracks[0]->position(0));
 }
 
+TEST(TrackLifecycleManagerTest,
+     BuildAssociationSeedsExportsPositionAndGaussianState) {
+  signal::tracking::BoostTrackPool pool(4, 16);
+  signal::tracking::LifecycleConfig config;
+  config.confirm_hits = 1;
+
+  signal::tracking::KalmanPredictorConfig pred_cfg;
+  pred_cfg.noise_diff_coeff = 1.0f;
+  signal::tracking::KalmanPredictor predictor(pred_cfg);
+
+  signal::tracking::KalmanUpdaterConfig upd_cfg;
+  upd_cfg.measurement_noise_std = 1.0f;
+  signal::tracking::KalmanUpdater updater(upd_cfg);
+
+  signal::tracking::TrackLifecycleManager manager(pool, config, &predictor, &updater);
+
+  signal::tracking::TrackMeasurement measurement;
+  measurement.association_key = 99u;
+  measurement.matched_existing_track = false;
+  measurement.has_cartesian_position = true;
+  measurement.position = Eigen::Vector3f(30.0f, 2.0f, -1.0f);
+  measurement.velocity = Eigen::Vector3f(5.0f, 0.0f, 0.0f);
+  measurement.measurement_covariance = Eigen::Matrix3f::Identity();
+
+  signal::tracking::CycleContext cycle;
+  cycle.cycle_index = 1;
+  cycle.batch_id = 4001;
+  manager.Update(cycle, {measurement});
+
+  const std::vector<signal::tracking::AssociationTrackSeed> seeds =
+      manager.BuildAssociationSeeds();
+  ASSERT_EQ(seeds.size(), 1u);
+  EXPECT_EQ(seeds[0].association_key, 99u);
+  EXPECT_TRUE(seeds[0].has_position);
+  EXPECT_EQ(seeds[0].position, measurement.position);
+  EXPECT_TRUE(seeds[0].has_gaussian_state);
+  EXPECT_FLOAT_EQ(seeds[0].gaussian_state.mean(0), measurement.position(0));
+  EXPECT_FLOAT_EQ(seeds[0].gaussian_state.mean(1), measurement.velocity(0));
+  EXPECT_FLOAT_EQ(seeds[0].gaussian_state.mean(2), measurement.position(1));
+  EXPECT_FLOAT_EQ(seeds[0].gaussian_state.mean(4), measurement.position(2));
+}
+
 } } // namespace airborne_radar::tests

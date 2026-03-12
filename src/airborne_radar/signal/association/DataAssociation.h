@@ -76,6 +76,10 @@ public:
 	/// @param config 关联配置。
   explicit DataAssociationEngine(DataAssociationConfig config = {});
 
+	/// @brief 启用或关闭内部 history fallback 兼容模式。
+	/// @param enabled 为 true 时允许在无外部 seeds 时复用内部缓存。
+  void SetInternalHistoryFallbackEnabled(bool enabled);
+
 	/// @brief 更新关联配置。
 	/// @param config 新配置。
   void UpdateConfig(DataAssociationConfig config);
@@ -150,6 +154,34 @@ private:
 		tracking::GaussianTrackState gaussian_state;
   };
 
+	/// @brief 仅用于无 Lifecycle 场景的内部 fallback 兼容缓存。
+  struct FallbackHistoryCache {
+		/// @brief 返回一个空的轨迹签名集合引用。
+    static const std::vector<TrackSignature> &EmptyTracks();
+
+		/// @brief 启用或关闭兼容缓存。
+		/// @param enabled 为 true 时允许缓存跨周期历史。
+    void SetEnabled(bool enabled);
+
+		/// @brief 当前兼容缓存是否启用。
+    bool IsEnabled() const;
+
+		/// @brief 获取当前可用的兼容历史先验集合。
+    const std::vector<TrackSignature> &GetTracks() const;
+
+		/// @brief 清空内部兼容历史缓存。
+    void Clear();
+
+		/// @brief 用新的兼容历史签名替换旧缓存。
+		/// @param next_tracks 下一周期要保留的兼容历史。
+    void Replace(std::vector<TrackSignature> *next_tracks);
+
+		/// @brief 是否允许提供/持久化兼容历史。
+    bool enabled{true};
+		/// @brief 兼容模式下的跨周期轻量轨迹缓存。
+    std::vector<TrackSignature> tracks;
+  };
+
 	/// @brief 构建笛卡尔位置量测向量。
 	/// @param target 输入目标特征。
 	/// @return 由 x、y、z 组成的三维位置向量。
@@ -179,6 +211,36 @@ private:
   tracking::MeasurementCovariance ComputeProjectedMeasurementCovariance(
       const tracking::GaussianTrackState &predicted) const;
 
+	/// @brief 当前周期是否使用外部注入的 Lifecycle seeds。
+  bool UsingExternalSeeds() const;
+
+	/// @brief 当前周期是否允许维护内部 fallback history。
+  bool AllowInternalFallbackHistory() const;
+
+	/// @brief 获取当前周期关联使用的先验集合。
+  const std::vector<TrackSignature> &GetAssociationPriors() const;
+
+	/// @brief 清理本周期消费后的先验状态。
+  void ClearConsumedAssociationPriors();
+
+	/// @brief 用新一轮轨迹签名替换 fallback history。
+	/// @param next_tracks 下一周期要持有的兼容历史签名。
+  void ReplaceFallbackHistory(std::vector<TrackSignature> *next_tracks);
+
+	/// @brief 根据匹配结果构造 fallback history 中的新轨迹签名。
+	/// @param association_priors 当前周期使用的先验集合。
+	/// @param key 关联键。
+	/// @param matched_existing_track 是否命中已有轨迹。
+	/// @param measurement 当前量测位置。
+	/// @param measurement_covariance 当前量测协方差。
+	/// @return 用于 fallback history 的轻量轨迹签名。
+  TrackSignature BuildFallbackTrackSignature(
+      const std::vector<TrackSignature> &association_priors,
+      std::uint64_t key,
+      bool matched_existing_track,
+      const Eigen::Vector3f &measurement,
+      const tracking::MeasurementCovariance &measurement_covariance) const;
+
 	/// @brief 当前引擎配置。
   DataAssociationConfig config_{};
 	/// @brief 完整协方差位置空间马氏距离度量实现。
@@ -195,8 +257,8 @@ private:
   tracking::KalmanUpdater kalman_updater_;
 	/// @brief 下一次分配给新目标的稳定键。
   std::uint64_t next_key_{1};
-	/// @brief 仅在未接入 Lifecycle 种子时启用的 fallback 兼容历史缓存。
-  std::vector<TrackSignature> fallback_history_tracks_;
+	/// @brief 无 Lifecycle 场景下使用的 fallback 兼容缓存对象。
+  FallbackHistoryCache fallback_cache_{};
 	/// @brief 当前周期外部注入的 Lifecycle 轨迹种子缓存。
 	std::vector<TrackSignature> external_seed_tracks_;
 	/// @brief 当前周期关联先验状态来源模式。

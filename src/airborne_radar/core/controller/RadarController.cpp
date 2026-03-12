@@ -7,6 +7,7 @@
 #include <algorithm>
 
 #include <Eigen/Core>
+#include <spdlog/spdlog.h>
 
 #include "1q/airborne_radar/core/context/DecisionContext.h"
 #include "1q/airborne_radar/core/context/IRadarContext.h"
@@ -49,17 +50,22 @@ void RadarController::RunOnce() {
 
 	const common::TargetFeatureList input_features =
 			radar_context_.GetTargetFeatures();
+	std::size_t association_seed_count = 0;
 	if (track_lifecycle_manager_ != nullptr) {
-		signal_pipeline_.SetAssociationSeeds(
-				track_lifecycle_manager_->BuildAssociationSeeds());
+		const std::vector<signal::tracking::AssociationTrackSeed> seeds =
+				track_lifecycle_manager_->BuildAssociationSeeds();
+		association_seed_count = seeds.size();
+		signal_pipeline_.SetAssociationSeeds(seeds);
 	}
 	const common::TargetFeatureList updated_features =
 			signal_pipeline_.RunCycle(input_features, environment_service_);
 	common::TargetFeatureList decision_features = updated_features;
+	std::size_t measurement_count = 0;
 
 	if (track_lifecycle_manager_ != nullptr) {
 		const std::vector<signal::tracking::TrackMeasurement> measurements =
 				signal_pipeline_.GetLastTrackMeasurements();
+		measurement_count = measurements.size();
 		signal::tracking::CycleContext cycle;
 		cycle.cycle_index = cycle_index_;
 		cycle.batch_id = batch_id_;
@@ -101,6 +107,14 @@ void RadarController::RunOnce() {
 		event_bus_->EndCycle();
 	}
 
+	spdlog::debug(
+			"[RadarController] cycle summary: cycle_index={} batch_id={} input_targets={} association_seeds={} measurements={} decision_features={} commands={} lifecycle_enabled={} jamming_detected={}",
+			cycle_index_, batch_id_, input_features.size(), association_seed_count,
+			measurement_count, decision_features.size(),
+			context.decision_commands.size(),
+			track_lifecycle_manager_ != nullptr ? "true" : "false",
+			jamming_detected ? "true" : "false");
+
 	++cycle_index_;
 	++batch_id_;
 }
@@ -125,6 +139,11 @@ void RadarController::SetEventBus(core::event::IEventBus *event_bus) {
 void RadarController::SetTrackLifecycleManager(
 		signal::tracking::ITrackLifecycleManager *lifecycle_manager) {
 	track_lifecycle_manager_ = lifecycle_manager;
+	signal_pipeline_.SetInternalAssociationHistoryFallbackEnabled(
+			lifecycle_manager == nullptr);
+	spdlog::info(
+			"[RadarController] track lifecycle manager {}",
+			lifecycle_manager != nullptr ? "attached" : "detached");
 }
 
 } // namespace controller

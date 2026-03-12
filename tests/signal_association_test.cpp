@@ -53,6 +53,104 @@ TEST(DataAssociationEngineTest, KeepsStableAssociationAcrossCycles) {
   EXPECT_EQ(keys_2[1], keys_1[1]);
 }
 
+  TEST(DataAssociationEngineTest,
+     DisablingInternalHistoryFallbackMakesAssociationStatelessWithoutSeeds) {
+    signal::association::DataAssociationEngine engine;
+
+    const common::TargetFeatureList cycle_1{
+      MakePositionTarget(10.0f, 0.0f, 0.0f)};
+    const std::vector<std::uint8_t> detected_1{1U};
+
+    const signal::association::AssociationResult first_result =
+      engine.AssociateDetections(cycle_1, detected_1);
+    ASSERT_EQ(first_result.target_keys.size(), 1u);
+    ASSERT_NE(first_result.target_keys[0], 0u);
+
+    engine.SetInternalHistoryFallbackEnabled(false);
+
+    const common::TargetFeatureList cycle_2{
+      MakePositionTarget(10.5f, 0.0f, 0.0f)};
+    const std::vector<std::uint8_t> detected_2{1U};
+    const signal::association::AssociationResult second_result =
+      engine.AssociateDetections(cycle_2, detected_2);
+
+    ASSERT_EQ(second_result.target_keys.size(), 1u);
+    EXPECT_NE(second_result.target_keys[0], 0u);
+    EXPECT_NE(second_result.target_keys[0], first_result.target_keys[0]);
+    EXPECT_TRUE(second_result.matches.empty());
+    ASSERT_EQ(second_result.unassociated_target_indices.size(), 1u);
+    EXPECT_EQ(second_result.unassociated_target_indices[0], 0u);
+
+    engine.SetInternalHistoryFallbackEnabled(true);
+
+    const signal::association::AssociationResult third_result =
+      engine.AssociateDetections(cycle_2, detected_2);
+    ASSERT_EQ(third_result.target_keys.size(), 1u);
+    EXPECT_NE(third_result.target_keys[0], 0u);
+
+    const common::TargetFeatureList cycle_3{
+      MakePositionTarget(11.0f, 0.0f, 0.0f)};
+    const signal::association::AssociationResult fourth_result =
+      engine.AssociateDetections(cycle_3, detected_2);
+    ASSERT_EQ(fourth_result.target_keys.size(), 1u);
+    EXPECT_EQ(fourth_result.target_keys[0], third_result.target_keys[0]);
+    ASSERT_EQ(fourth_result.matches.size(), 1u);
+    EXPECT_EQ(fourth_result.matches[0].association_key, third_result.target_keys[0]);
+  }
+
+  TEST(DataAssociationEngineTest,
+       DisablingInternalHistoryFallbackClearsExistingHistoryCache) {
+    signal::association::DataAssociationEngine engine;
+
+    const common::TargetFeatureList warmup_cycle{
+        MakePositionTarget(50.0f, 0.0f, 0.0f)};
+    const std::vector<std::uint8_t> detected{1U};
+    const signal::association::AssociationResult warmup_result =
+        engine.AssociateDetections(warmup_cycle, detected);
+    ASSERT_EQ(warmup_result.target_keys.size(), 1u);
+    ASSERT_NE(warmup_result.target_keys[0], 0u);
+
+    engine.SetInternalHistoryFallbackEnabled(false);
+
+    const std::vector<std::uint8_t> no_detection{0U};
+    const signal::association::AssociationResult result =
+        engine.AssociateDetections(warmup_cycle, no_detection);
+
+    EXPECT_TRUE(result.matches.empty());
+    EXPECT_TRUE(result.unassociated_target_indices.empty());
+    EXPECT_TRUE(result.missed_track_keys.empty());
+    ASSERT_EQ(result.target_keys.size(), 1u);
+    EXPECT_EQ(result.target_keys[0], 0u);
+  }
+
+  TEST(DataAssociationEngineTest,
+       DisablingInternalHistoryFallbackDoesNotBlockExternalSeeds) {
+    signal::association::DataAssociationEngine engine;
+    engine.SetInternalHistoryFallbackEnabled(false);
+
+    signal::tracking::AssociationTrackSeed seed;
+    seed.association_key = 88u;
+    seed.has_position = true;
+    seed.position = Eigen::Vector3f(20.0f, 0.0f, 0.0f);
+    seed.has_gaussian_state = true;
+    seed.gaussian_state.mean = signal::tracking::StateVector::Zero();
+    seed.gaussian_state.mean(0) = 20.0f;
+    seed.gaussian_state.covariance =
+        signal::tracking::StateCovariance::Identity() * 4.0f;
+    engine.SetAssociationSeeds(std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
+
+    const common::TargetFeatureList targets{MakePositionTarget(20.5f, 0.0f, 0.0f)};
+    const std::vector<std::uint8_t> detected{1U};
+    const signal::association::AssociationResult result =
+        engine.AssociateDetections(targets, detected);
+
+    ASSERT_EQ(result.target_keys.size(), 1u);
+    EXPECT_EQ(result.target_keys[0], 88u);
+    EXPECT_TRUE(result.used_external_association_seeds);
+    ASSERT_EQ(result.matches.size(), 1u);
+    EXPECT_EQ(result.matches[0].association_key, 88u);
+  }
+
 TEST(DataAssociationEngineTest, HandlesCrossedMeasurementsByCostMinimization) {
   signal::association::DataAssociationEngine engine;
 
@@ -235,7 +333,6 @@ TEST(DataAssociationEngineTest,
 
     signal::tracking::AssociationTrackSeed seed;
     seed.association_key = 42;
-    seed.legacy_feature = Eigen::Vector3f(800.0f, 20.0f, 5.0f);
     seed.has_position = true;
     seed.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
     seed.has_gaussian_state = true;

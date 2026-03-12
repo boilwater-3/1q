@@ -6,6 +6,8 @@
 
 #include <algorithm>
 
+#include <spdlog/spdlog.h>
+
 #include "airborne_radar/signal/tracking/ImmFilter.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
@@ -118,6 +120,8 @@ void TrackLifecycleManager::Update(
     const CycleContext &cycle,
     const std::vector<TrackMeasurement> &measurements) {
   std::map<std::uint64_t, bool> hit_flags;
+  std::size_t new_track_count = 0;
+  std::size_t updated_track_count = 0;
 
   for (std::vector<TrackMeasurement>::const_iterator it = measurements.begin();
        it != measurements.end(); ++it) {
@@ -130,6 +134,9 @@ void TrackLifecycleManager::Update(
     if (found == tracks_by_key_.end()) {
       track = pool_.Acquire();
       if (track == nullptr) {
+        spdlog::warn(
+            "[TrackLifecycleManager] failed to acquire track from pool for association_key={}",
+            measurement.association_key);
         continue;
       }
 
@@ -143,11 +150,13 @@ void TrackLifecycleManager::Update(
       track->miss_count = 0;
 
       tracks_by_key_[measurement.association_key] = track;
+      ++new_track_count;
     } else {
       track = found->second;
       track->last_update_cycle = cycle.cycle_index;
       track->hit_count += 1;
       track->miss_count = 0;
+      ++updated_track_count;
     }
 
     if (measurement.has_cartesian_position) {
@@ -209,6 +218,7 @@ void TrackLifecycleManager::Update(
   }
 
   std::vector<std::uint64_t> keys_to_recycle;
+  std::size_t predicted_without_hit_count = 0;
   for (std::map<std::uint64_t, common::TrackState *>::iterator it =
            tracks_by_key_.begin();
        it != tracks_by_key_.end(); ++it) {
@@ -218,6 +228,8 @@ void TrackLifecycleManager::Update(
     if (hit_flags.find(key) != hit_flags.end()) {
       continue;
     }
+
+    ++predicted_without_hit_count;
 
     PromoteState(*track, cycle.cycle_index, false);
 
@@ -256,6 +268,12 @@ void TrackLifecycleManager::Update(
     pool_.Release(found->second);
     tracks_by_key_.erase(found);
   }
+
+  spdlog::debug(
+      "[TrackLifecycleManager] cycle summary: cycle_index={} measurements={} new_tracks={} updated_tracks={} predicted_without_hit={} recycled_tracks={} active_tracks={} imm_enabled={}",
+      cycle.cycle_index, measurements.size(), new_track_count, updated_track_count,
+      predicted_without_hit_count, keys_to_recycle.size(), tracks_by_key_.size(),
+      IsImmEnabled() ? "true" : "false");
 }
 
 std::vector<const common::TrackState *> TrackLifecycleManager::GetActiveTracks()
@@ -315,9 +333,6 @@ std::vector<AssociationTrackSeed> TrackLifecycleManager::BuildAssociationSeeds()
 
     AssociationTrackSeed seed;
     seed.association_key = it->first;
-    seed.legacy_feature =
-        Eigen::Vector3f(track->velocity.norm(), track->rcs,
-                        track->acceleration.norm());
     seed.has_position = true;
     seed.position = track->position;
     seed.has_gaussian_state = true;

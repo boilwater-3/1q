@@ -326,7 +326,6 @@ TEST_F(CoreControllerTest, LifecycleSeedsDrivePositionAssociationBeforeRunCycle)
 
   signal::tracking::AssociationTrackSeed seed;
   seed.association_key = 42;
-  seed.legacy_feature = Eigen::Vector3f(800.0f, 20.0f, 5.0f);
   seed.has_position = true;
   seed.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
   seed.has_gaussian_state = true;

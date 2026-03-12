@@ -30,9 +30,6 @@ struct AssociationTrackSeed {
   /// @brief 关联键。
   std::uint64_t association_key{0};
 
-  /// @brief legacy 标量特征回退路径使用的特征向量 [speed, rcs, acceleration]。
-  Eigen::Vector3f legacy_feature{Eigen::Vector3f::Zero()};
-
   /// @brief 是否具备有效的笛卡尔位置。
   bool has_position{false};
 

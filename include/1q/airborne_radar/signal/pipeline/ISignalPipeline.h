@@ -38,6 +38,10 @@ public:
 		/// @brief 设置本周期关联阶段应使用的上一周期轨迹种子。
 		virtual void SetAssociationSeeds(
 				const std::vector<tracking::AssociationTrackSeed> &seeds) = 0;
+
+		/// @brief 启用或关闭内部关联 history fallback 兼容模式。
+		/// @param enabled 为 true 时允许在无 Lifecycle seeds 时使用内部兼容缓存。
+		virtual void SetInternalAssociationHistoryFallbackEnabled(bool enabled) = 0;
 };
 
 } // namespace pipeline
