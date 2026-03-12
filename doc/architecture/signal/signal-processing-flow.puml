@@ -90,8 +90,9 @@ note right of POS_ASSOC
 end note
 
 note right of LEGACY_ASSOC
-  仅在位置量测缺失或未接入外部 seeds
-  的兼容场景下启用。
+  仅在位置量测缺失，或显式关闭
+  enable_position_guided_association
+  时启用。
 end note
 
 note bottom of SNAPSHOT
