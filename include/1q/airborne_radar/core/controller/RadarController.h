@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 namespace airborne_radar {
 namespace core {
@@ -62,6 +63,8 @@ namespace controller {
 /// @brief RadarController 负责调度信号处理、行为决策与指令下发。
 class RadarController {
 public:
+	~RadarController();
+
 	/// @brief 构造函数，注入核心依赖组件。
 	RadarController(
 			core::context::IRadarContext &radar_context,
@@ -93,6 +96,9 @@ public:
 			signal::tracking::ITrackLifecycleManager *lifecycle_manager);
 
 private:
+	/// @brief 若尚未绑定 Lifecycle，则尝试通过 Pipeline 自动装配。
+	void EnsureAutoLifecycleManager();
+
 	/// @brief 将决策管线输出的指令批量提交给雷达上下文。
 	void ExecuteCommands(const core::context::DecisionContext &context);
 
@@ -113,6 +119,10 @@ private:
 
 	/// @brief 轨迹生命周期管理器（可选注入）。
 	signal::tracking::ITrackLifecycleManager *track_lifecycle_manager_{nullptr};
+
+	/// @brief Controller 自动装配并托管的生命周期管理器实例。
+	std::unique_ptr<signal::tracking::ITrackLifecycleManager>
+			auto_track_lifecycle_manager_;
 
 	/// @brief 当前处理周期号。
 	std::uint32_t cycle_index_{1};

@@ -7,6 +7,7 @@ Signal 层是机载雷达仿真系统的信号处理核心，负责 **探测 →
 - 位置空间关联已成为唯一正式路径，成功探测目标缺位置量测时直接失败
 - `FullMahalanobisDistanceMetric` 支持逐轨迹新息协方差 $S$ 联动
 - `TrackLifecycleManager` 已支持每轨 IMM 运行态
+- `SignalPipeline` / `RadarController` 已支持 Lifecycle 服务自动装配（可配置启用 IMM）
 - `RadarController` 会在每周期开始前把 Lifecycle 导出的关联种子注入 `SignalPipeline`
 - `DataAssociationEngine` 仅消费 external seeds 作为关联先验；无 seeds 时按 stateless 模式运行
 - external seeds 进入关联前已收紧为强契约：必须同时携带位置与高斯状态

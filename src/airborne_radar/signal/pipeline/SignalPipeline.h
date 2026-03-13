@@ -6,9 +6,11 @@
 #define AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_SIGNAL_PIPELINE_H_
 
 #include <memory>
+#include <vector>
 
 #include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "airborne_radar/signal/detection/RadarEquations.h"
+#include "1q/airborne_radar/signal/tracking/TrackLifecycleManager.h"
 
 namespace airborne_radar {
 namespace environment {
@@ -57,6 +59,30 @@ struct SignalPipelineConfig {
 
   /// @brief 是否采用相参积累（true为相参，false为非相参）。
   bool coherent_integration{true};
+
+  /// @brief 是否启用 Lifecycle 自动装配。
+  bool enable_auto_lifecycle_manager{false};
+
+  /// @brief 自动装配 Lifecycle 的状态机阈值配置。
+  tracking::LifecycleConfig lifecycle_config{};
+
+  /// @brief 自动装配时是否启用 IMM 多模型路径。
+  bool enable_imm_lifecycle{false};
+
+  /// @brief IMM 各模型噪声扩散系数列表（一个元素对应一个 CV 模型）。
+  std::vector<float> imm_model_noise_diff_coeffs;
+
+  /// @brief IMM 初始权重（可选；为空时使用均匀分布）。
+  std::vector<float> imm_initial_weights;
+
+  /// @brief IMM 转移矩阵（可选；行优先扁平化 N*N）。
+  std::vector<float> imm_transition_probability;
+
+  /// @brief 自动装配 Lifecycle 时对象池初始块大小。
+  std::size_t lifecycle_track_pool_initial_chunk{64};
+
+  /// @brief 自动装配 Lifecycle 时对象池最大块数量。
+  std::size_t lifecycle_track_pool_max_chunks{256};
 };
 
 /// @brief SignalPipeline 提供可配置的信号处理周期实现。
@@ -84,6 +110,10 @@ public:
 
   /// @brief 清理外部 seeds 状态并恢复无先验（stateless）关联模式。
   void ResetAssociationSeedModeToStateless() override;
+
+  /// @brief 按当前配置自动创建生命周期管理器。
+  std::unique_ptr<tracking::ITrackLifecycleManager>
+  CreateAutoLifecycleManager() const override;
 
   /// @brief 更新信号处理配置。
   void UpdateConfig(SignalPipelineConfig config);

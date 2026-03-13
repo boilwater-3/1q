@@ -5,8 +5,18 @@
 #ifndef AIRBORNE_RADAR_SIGNAL_PIPELINE_I_SIGNAL_PIPELINE_H_
 #define AIRBORNE_RADAR_SIGNAL_PIPELINE_I_SIGNAL_PIPELINE_H_
 
+#include <memory>
+
 #include "1q/airborne_radar/common/TargetFeature.h"
 #include "1q/airborne_radar/signal/tracking/TrackLifecycleTypes.h"
+
+namespace airborne_radar {
+namespace signal {
+namespace tracking {
+class ITrackLifecycleManager;
+}
+}
+}
 
 namespace airborne_radar {
 namespace environment {
@@ -70,6 +80,11 @@ public:
 		/// @brief 清理外部 seeds 状态并恢复无先验（stateless）关联模式。
 		/// @details 用于确保 external seeds 仅由控制器+Lifecycle 链路注入。
 		virtual void ResetAssociationSeedModeToStateless() = 0;
+
+		/// @brief 按当前 Pipeline 配置创建生命周期管理器（自动装配入口）。
+		/// @return 若未启用自动装配则返回空指针；否则返回可直接挂载到 Controller 的生命周期服务。
+		virtual std::unique_ptr<tracking::ITrackLifecycleManager>
+		CreateAutoLifecycleManager() const = 0;
 };
 
 } // namespace pipeline

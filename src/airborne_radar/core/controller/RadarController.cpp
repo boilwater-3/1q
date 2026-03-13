@@ -41,7 +41,26 @@ RadarController::RadarController(
 			decision_pipeline_(decision_pipeline),
 			environment_service_(environment_service), event_bus_(&event_bus) {}
 
+RadarController::~RadarController() = default;
+
+void RadarController::EnsureAutoLifecycleManager() {
+	if (track_lifecycle_manager_ != nullptr) {
+		return;
+	}
+
+	auto_track_lifecycle_manager_ = signal_pipeline_.CreateAutoLifecycleManager();
+	if (auto_track_lifecycle_manager_ == nullptr) {
+		return;
+	}
+
+	track_lifecycle_manager_ = auto_track_lifecycle_manager_.get();
+	spdlog::info(
+			"[RadarController] auto lifecycle manager assembled from pipeline config");
+}
+
 void RadarController::RunOnce() {
+	EnsureAutoLifecycleManager();
+
 	if (event_bus_ != nullptr) {
 		// 周期开始：先处理上一周期沉淀到当前队列的事件。
 		event_bus_->BeginCycle();
@@ -152,6 +171,7 @@ void RadarController::SetEventBus(core::event::IEventBus *event_bus) {
 
 void RadarController::SetTrackLifecycleManager(
 		signal::tracking::ITrackLifecycleManager *lifecycle_manager) {
+	auto_track_lifecycle_manager_.reset();
 	track_lifecycle_manager_ = lifecycle_manager;
 	spdlog::info(
 			"[RadarController] track lifecycle manager {} (association priors: external seeds only)",

@@ -525,4 +525,67 @@ TEST_F(CoreControllerTest,
     EXPECT_NE(second_measurements[0].association_key, first_key);
   }
 
+  TEST_F(CoreControllerTest,
+       AutoAssemblesLifecycleManagerFromPipelineConfigWhenEnabled) {
+    common::TargetFeature target(15.0f, 0.8f, false, 0.1f);
+    target.position_x = 80.0f;
+    target.position_y = 0.0f;
+    target.position_z = 0.0f;
+    target.range_m = 80.0f;
+    const common::TargetFeatureList input_state{target};
+    FakeRadarContext radar_context(input_state);
+
+    environment::EnvironmentModelConfig env_config;
+    env_config.jammer_power_db = 0.0f;
+    environment::EnvironmentService environment_service(env_config);
+
+    signal::pipeline::SignalPipelineConfig pipeline_config;
+    pipeline_config.enable_auto_lifecycle_manager = true;
+    pipeline_config.lifecycle_config.confirm_hits = 1;
+    signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
+
+    core::controller::RadarController controller(
+      radar_context, signal_pipeline, *decision_pipeline_, environment_service);
+
+    controller.RunOnce();
+    const std::vector<signal::tracking::TrackMeasurement> first_measurements =
+      signal_pipeline.GetLastTrackMeasurements();
+    ASSERT_EQ(first_measurements.size(), 1u);
+    EXPECT_FALSE(first_measurements[0].matched_existing_track);
+
+    controller.RunOnce();
+    const std::vector<signal::tracking::TrackMeasurement> second_measurements =
+      signal_pipeline.GetLastTrackMeasurements();
+    ASSERT_EQ(second_measurements.size(), 1u);
+    EXPECT_TRUE(second_measurements[0].matched_existing_track);
+    EXPECT_TRUE(second_measurements[0].used_external_association_seeds);
+  }
+
+  TEST_F(CoreControllerTest,
+       AutoAssembleImmLifecycleFailsFastOnInvalidInitialWeights) {
+    common::TargetFeature target(20.0f, 1.0f, false, 0.1f);
+    target.position_x = 60.0f;
+    target.position_y = 0.0f;
+    target.position_z = 0.0f;
+    target.range_m = 60.0f;
+    const common::TargetFeatureList input_state{target};
+    FakeRadarContext radar_context(input_state);
+
+    environment::EnvironmentModelConfig env_config;
+    env_config.jammer_power_db = 0.0f;
+    environment::EnvironmentService environment_service(env_config);
+
+    signal::pipeline::SignalPipelineConfig pipeline_config;
+    pipeline_config.enable_auto_lifecycle_manager = true;
+    pipeline_config.enable_imm_lifecycle = true;
+    pipeline_config.imm_model_noise_diff_coeffs = std::vector<float>{0.5f, 15.0f};
+    pipeline_config.imm_initial_weights = std::vector<float>{1.0f};
+    signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
+
+    core::controller::RadarController controller(
+      radar_context, signal_pipeline, *decision_pipeline_, environment_service);
+
+    EXPECT_DEATH_IF_SUPPORTED(controller.RunOnce(), ".*");
+  }
+
 } } // namespace airborne_radar::tests

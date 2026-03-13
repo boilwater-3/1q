@@ -8,6 +8,7 @@ Signal 层是机载雷达仿真系统的**信号处理核心**，负责从原始
 
 - 基于 `TargetFeature.position_x/y/z` 的**位置空间关联主路径**（默认启用）
 - `TrackLifecycleManager` 内部的**单模型 Kalman**与**每轨 IMM 多模型运行态**
+- `SignalPipeline` / `RadarController` 对 Lifecycle 服务支持**配置驱动自动装配**（含 IMM）
 - `FullMahalanobisDistanceMetric` 对轨迹级新息协方差 $S$ 的直接消费
 - `DataAssociationEngine` 仅消费 external seeds 作为关联先验；无 seeds 时按无先验（stateless）模式运行
 - external seeds 强契约（必须同时携带位置与高斯状态）
@@ -124,6 +125,8 @@ EnvironmentSamplingStage
 当前 `AssociationStage` 仍然是 Pipeline 链路中的单一节点；**位置预测、逐轨迹预测协方差 $HPH^T$ 与逐量测动态协方差 $R$ 的合成，发生在 `DataAssociationEngine` 内部**，而不是新增一个独立的前置 Stage。当前实现已移除 legacy 标量特征回退路径；若成功探测目标缺失 `position_x / y / z`，关联阶段会直接触发契约失败。
 
 当前版本中，`RadarController` 会在调用 `SignalPipeline::RunCycle()` 之前，先从 `TrackLifecycleManager` 拉取上一周期活跃轨迹的 `AssociationTrackSeed`，再注入 `SignalPipeline` 作为本周期关联的先验种子；因此位置空间关联的预测真理源已开始从 `DataAssociationEngine` 内部缓存，向 Lifecycle 侧收敛。
+
+当前实现已支持 Lifecycle 自动装配：当 `SignalPipelineConfig.enable_auto_lifecycle_manager=true` 时，`RadarController` 会通过 `ISignalPipeline::CreateAutoLifecycleManager()` 自动创建并托管生命周期服务；若同时开启 `enable_imm_lifecycle=true`，则按 `imm_model_noise_diff_coeffs / imm_transition_probability / imm_initial_weights` 配置装配 IMM 多模型路径，并在配置非法时 fail-fast。
 
 为方便调试与测试，关联结果和 `TrackMeasurement` 现已显式暴露 `used_external_association_seeds` 标记，用于区分“本周期位置关联来自 Lifecycle 外部种子”还是“无外部 seeds 的 stateless 关联”。
 
@@ -286,7 +289,10 @@ flowchart TD
     COMB -.->|"下一周期"| MIX
 ```
 
-通过依赖注入接收 N 个 `IKalmanPredictor*` / `IKalmanUpdater*`，支持 KF + EKF 混合模型集。
+当前实现支持两种装配方式：
+
+1. 手工依赖注入（兼容旧路径）：通过构造参数传入 `IKalmanPredictor* / IKalmanUpdater*` 或 IMM 模型集合。
+2. 自动装配（推荐路径）：由 `SignalPipeline` 基于配置创建 Lifecycle 服务并由 `RadarController` 自动绑定。
 
 当前 `TrackLifecycleManager` 已支持**每轨一份 `ImmFilter` 运行态**：
 
@@ -503,7 +509,7 @@ sequenceDiagram
 | `CostThresholdGaterTest` | 1 | 超阈值裁剪 |
 | `DenseCostHypothesiserTest` | 2 | 波门内假设、逐轨迹 S 注入 |
 | `TrackLifecycleManagerTest` | 4 | 确认阈值、超时回收、每轨 IMM 漏检预测、AssociationSeeds 导出位置与高斯状态 |
-| `CoreControllerTest` | 9 | Controller 调度、事件发布、Lifecycle 消费真实量测、RunCycle 前注入 Lifecycle seeds |
+| `CoreControllerTest` | 11 | Controller 调度、事件发布、Lifecycle 消费真实量测、RunCycle 前注入 Lifecycle seeds、自动装配成功与非法配置 fail-fast |
 | `KalmanPredictorTest` | 7 | 零步长恒等、位置传播、协方差增长、对称性、Q 矩阵公式 |
 | `KalmanUpdaterTest` | 8 | 协方差收缩、均值收敛、新息正确性、动态R矩阵自适应、正定性 |
 | `KalmanPredictUpdateTest` | 2 | 预测-更新集成、速度收敛 |
@@ -514,9 +520,9 @@ sequenceDiagram
 | `RadarEquationsTest` | 8 | 回波功率手算、R⁴规律、玻尔兹曼噪声、相参/非相参积累、测距/测角精度 |
 | `SignalDetectorTest` | 4 | 高/低 SNR 探测、确定性种子、干扰降级 |
 | `SwerlingDetectionTest` | 11| Swerling 0~4 边界、极限定理、多脉冲增益平滑对比 |
-| **合计（Signal 相关 + 跨层集成）** | **87** | 上表覆盖当前 Signal 相关算法与 Controller 集成测试 |
+| **合计（Signal 相关 + 跨层集成）** | **89** | 上表覆盖当前 Signal 相关算法与 Controller 集成测试 |
 
-补充说明：当前仓库全量回归已达到 **101 / 101** 绿灯；其余测试主要覆盖决策层、事件总线与环境服务等非 Signal 专属模块。
+补充说明：当前仓库全量回归已达到 **103 / 103** 绿灯；其余测试主要覆盖决策层、事件总线与环境服务等非 Signal 专属模块。
 
 ## 9. 当前状态与待完善事项
 
@@ -552,10 +558,10 @@ sequenceDiagram
 - external seeds 单一入口收敛：`RadarController` 在未挂载 Lifecycle 管理器时会主动清理旁路 external-seed 注入状态；关联层保持无先验（stateless）
 - 兼容 fallback 命名接口已移除，统一收敛为 `ResetAssociationSeedModeToStateless()`
 - 关联质量观测指标闭环：`DataAssociationEngine` 输出 `AssociationQualityMetrics`，`SignalPipeline` 暴露查询接口，`RadarController` 周期日志输出命中率/新生率/漏失率与代价统计
+- Lifecycle 自动装配落地：`SignalPipeline` 可按配置创建 Kalman/IMM 生命周期服务，`RadarController` 在未显式绑定时自动接管
 
 ### 待完善 🔲
 
-- `SignalPipeline` / `RadarController` 层面对 IMM 生命周期服务的自动装配
 - 杂波图与动态门限环境适配机制
 
 ### 当前已知限制 ⚠️
@@ -565,4 +571,4 @@ sequenceDiagram
 - external seeds 已成为关联先验唯一来源；无 seeds 时关联为 stateless
 - 动态量测协方差当前已直接进入 `DataAssociationEngine` 的位置空间关联 $S$ 计算，并与 Lifecycle / Kalman / EKF 更新共享同一份动态 $R$
 - 一旦 `RadarController` / `SignalPipeline` 已显式注入 external association seeds，则即便 seeds 为空，也表示 Lifecycle 当前无可供关联的活跃轨迹；此时关联侧保持 stateless
-- `SignalPipeline` 当前除导出位置量测与位置关联配置外，也导出最近周期的关联质量指标；`TrackLifecycleManager` 的 IMM 实例化仍由上层显式创建/注入
+- `SignalPipeline` 当前除导出位置量测与位置关联配置外，也导出最近周期的关联质量指标；IMM 自动装配默认关闭，需显式配置开启
