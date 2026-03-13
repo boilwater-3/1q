@@ -111,11 +111,7 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
   env_config.jammer_power_db = 0.0f;
   environment::EnvironmentService environment_service(env_config);
 
-  signal::pipeline::SignalPipelineConfig pipeline_config;
-  pipeline_config.allow_runtime_enable_internal_association_history_fallback =
-      true;
-  signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
-  signal_pipeline.SetInternalAssociationHistoryFallbackEnabled(true);
+  signal::pipeline::SignalPipeline signal_pipeline;
   common::TargetFeature first(100.0f, 2.0f, false, 1.0f);
   first.position_x = 10.0f;
   first.range_m = 10.0f;
@@ -148,6 +144,29 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
     second.current_track_acceleration = 2.9f;
     second.position_x = 101.0f;
     second.range_m = 101.0f;
+    signal::tracking::AssociationTrackSeed first_seed;
+    first_seed.association_key = first_measurements[0].association_key;
+    first_seed.has_position = true;
+    first_seed.position = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
+    first_seed.has_gaussian_state = true;
+    first_seed.gaussian_state.mean = signal::tracking::StateVector::Zero();
+    first_seed.gaussian_state.mean(0) = 10.0f;
+    first_seed.gaussian_state.covariance =
+      signal::tracking::StateCovariance::Identity() * 25.0f;
+
+    signal::tracking::AssociationTrackSeed second_seed;
+    second_seed.association_key = first_measurements[1].association_key;
+    second_seed.has_position = true;
+    second_seed.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
+    second_seed.has_gaussian_state = true;
+    second_seed.gaussian_state.mean = signal::tracking::StateVector::Zero();
+    second_seed.gaussian_state.mean(0) = 100.0f;
+    second_seed.gaussian_state.covariance =
+      signal::tracking::StateCovariance::Identity() * 25.0f;
+
+    signal_pipeline.SetAssociationSeeds(
+      std::vector<signal::tracking::AssociationTrackSeed>{first_seed,
+                                 second_seed});
     const common::TargetFeatureList cycle_2{first, second};
   signal_pipeline.RunCycle(cycle_2, environment_service);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
@@ -180,11 +199,7 @@ TEST(SignalPipelineTest,
   env_config.jammer_power_db = 0.0f;
   environment::EnvironmentService environment_service(env_config);
 
-  signal::pipeline::SignalPipelineConfig pipeline_config;
-  pipeline_config.allow_runtime_enable_internal_association_history_fallback =
-      true;
-  signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
-  signal_pipeline.SetInternalAssociationHistoryFallbackEnabled(true);
+  signal::pipeline::SignalPipeline signal_pipeline;
   common::TargetFeature first(100.0f, 2.0f, false, 1.0f);
   first.position_x = 10.0f;
   first.position_y = 0.0f;
@@ -206,6 +221,30 @@ TEST(SignalPipelineTest,
   EXPECT_TRUE(first_measurements[0].used_position_association);
   EXPECT_TRUE(first_measurements[0].has_cartesian_position);
   EXPECT_TRUE(first_measurements[1].used_position_association);
+
+    signal::tracking::AssociationTrackSeed first_seed;
+    first_seed.association_key = first_measurements[0].association_key;
+    first_seed.has_position = true;
+    first_seed.position = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
+    first_seed.has_gaussian_state = true;
+    first_seed.gaussian_state.mean = signal::tracking::StateVector::Zero();
+    first_seed.gaussian_state.mean(0) = 10.0f;
+    first_seed.gaussian_state.covariance =
+      signal::tracking::StateCovariance::Identity() * 25.0f;
+
+    signal::tracking::AssociationTrackSeed second_seed;
+    second_seed.association_key = first_measurements[1].association_key;
+    second_seed.has_position = true;
+    second_seed.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
+    second_seed.has_gaussian_state = true;
+    second_seed.gaussian_state.mean = signal::tracking::StateVector::Zero();
+    second_seed.gaussian_state.mean(0) = 100.0f;
+    second_seed.gaussian_state.covariance =
+      signal::tracking::StateCovariance::Identity() * 25.0f;
+
+    signal_pipeline.SetAssociationSeeds(
+      std::vector<signal::tracking::AssociationTrackSeed>{first_seed,
+                                 second_seed});
 
   first.position_x = 11.0f;
   second.position_x = 101.0f;

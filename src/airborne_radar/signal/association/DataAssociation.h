@@ -94,7 +94,7 @@ struct AssociationResult {
 };
 
 /// @brief 数据关联引擎。
-/// @details 维护轻量历史轨迹签名，并将当前周期有效探测关联到上一周期轨迹。
+/// @details 仅消费外部注入的 Lifecycle 轨迹种子作为关联先验；无外部 seeds 时按无先验模式执行。
 class DataAssociationEngine {
 public:
 	/// @brief 构造数据关联引擎。
@@ -102,7 +102,7 @@ public:
   explicit DataAssociationEngine(DataAssociationConfig config = {});
 
 	/// @brief 启用或关闭内部 history fallback 兼容模式。
-	/// @param enabled 为 true 时允许在无外部 seeds 时复用内部缓存。
+	/// @param enabled 兼容接口参数，当前实现不会启用内部历史关联。
   void SetInternalHistoryFallbackEnabled(bool enabled);
 
 	/// @brief 更新关联配置。
@@ -150,15 +150,15 @@ public:
   void SetAssociationSeeds(
       const std::vector<tracking::AssociationTrackSeed> &seeds);
 
-	/// @brief 重置外部 seeds 注入状态并回归 fallback-history 模式。
+	/// @brief 重置外部 seeds 注入状态并回归无先验（stateless）模式。
 	/// @details 用于收敛 external seeds 单一入口，清理旁路注入的临时外部 seeds。
   void ResetAssociationSeedModeToFallbackHistory();
 
 private:
 	/// @brief 关联先验状态来源模式。
 	enum class AssociationSeedMode {
-		/// @brief 使用关联引擎内部维护的 fallback 兼容历史缓存。
-		kFallbackHistoryCache = 0,
+		/// @brief 无 external seeds 时的无先验关联模式。
+		kStateless = 0,
 		/// @brief 使用外部注入的 Lifecycle 轨迹种子。
 		kExternalSeeds,
 	};
@@ -183,20 +183,6 @@ private:
 		tracking::GaussianTrackState gaussian_state;
   };
 
-	/// @brief 关联侧内部 fallback 兼容签名（仅 key+position）。
-  struct FallbackTrackSignature {
-		/// @brief 默认构造。
-    FallbackTrackSignature() = default;
-		/// @brief 参数构造。
-		explicit FallbackTrackSignature(std::uint64_t k)
-				: key(k) {}
-
-		/// @brief 历史轨迹稳定键。
-    std::uint64_t key{0};
-		/// @brief 当前轨迹位置量测。
-		Eigen::Vector3f position{Eigen::Vector3f::Zero()};
-  };
-
 	/// @brief 位置空间关联输入先验的统一视图。
 	struct PositionAssociationPriors {
 		/// @brief 与预测轨迹按行对齐的稳定键列表。
@@ -206,34 +192,6 @@ private:
 		/// @brief 与预测轨迹按行对齐的投影协方差 HPH^T。
 		std::vector<Eigen::Matrix3f> projected_measurement_covariances;
 	};
-
-	/// @brief 仅用于无 Lifecycle 场景的内部 fallback 兼容缓存。
-  struct FallbackHistoryCache {
-		/// @brief 返回一个空的轨迹签名集合引用。
-		static const std::vector<FallbackTrackSignature> &EmptyTracks();
-
-		/// @brief 启用或关闭兼容缓存。
-		/// @param enabled 为 true 时允许缓存跨周期历史。
-    void SetEnabled(bool enabled);
-
-		/// @brief 当前兼容缓存是否启用。
-    bool IsEnabled() const;
-
-		/// @brief 获取当前可用的兼容历史先验集合。
-		const std::vector<FallbackTrackSignature> &GetTracks() const;
-
-		/// @brief 清空内部兼容历史缓存。
-    void Clear();
-
-		/// @brief 用新的兼容历史签名替换旧缓存。
-		/// @param next_tracks 下一周期要保留的兼容历史。
-    void Replace(std::vector<FallbackTrackSignature> *next_tracks);
-
-		/// @brief 是否允许提供/持久化兼容历史。
-    bool enabled{true};
-		/// @brief 兼容模式下的跨周期轻量轨迹缓存。
-		std::vector<FallbackTrackSignature> tracks;
-  };
 
 	/// @brief 构建笛卡尔位置量测向量。
 	/// @param target 输入目标特征。
@@ -267,35 +225,14 @@ private:
 	/// @brief 当前周期是否使用外部注入的 Lifecycle seeds。
   bool UsingExternalSeeds() const;
 
-	/// @brief 当前周期是否允许维护内部 fallback history。
-  bool AllowInternalFallbackHistory() const;
-
 	/// @brief 清理本周期消费后的先验状态。
   void ClearConsumedAssociationPriors();
-
-	/// @brief 用新一轮轨迹签名替换 fallback history。
-	/// @param next_tracks 下一周期要持有的兼容历史签名。
-  void ReplaceFallbackHistory(std::vector<FallbackTrackSignature> *next_tracks);
-
-	/// @brief 根据匹配结果构造 fallback history 中的新轨迹签名。
-	/// @param key 关联键。
-	/// @param measurement 当前量测位置。
-	/// @return 用于 fallback history 的轻量轨迹签名。
-  FallbackTrackSignature BuildFallbackTrackSignature(
-      std::uint64_t key,
-      const Eigen::Vector3f &measurement) const;
 
 	/// @brief 构建 external-seed 路径的 position-only 关联先验视图。
 	/// @param external_priors 外部注入的关联先验。
 	/// @return 位置空间关联统一先验。
   PositionAssociationPriors BuildExternalPositionAssociationPriors(
       const std::vector<ExternalSeedTrackSignature> &external_priors) const;
-
-	/// @brief 构建 fallback-history 路径的 position-only 关联先验视图。
-	/// @param fallback_priors 内部 fallback 历史先验。
-	/// @return 位置空间关联统一先验。
-  PositionAssociationPriors BuildFallbackPositionAssociationPriors(
-      const std::vector<FallbackTrackSignature> &fallback_priors) const;
 
 	/// @brief 当前引擎配置。
   DataAssociationConfig config_{};
@@ -311,12 +248,10 @@ private:
   tracking::KalmanPredictor kalman_predictor_;
 	/// @brief 下一次分配给新目标的稳定键。
   std::uint64_t next_key_{1};
-	/// @brief 无 Lifecycle 场景下使用的 fallback 兼容缓存对象。
-  FallbackHistoryCache fallback_cache_{};
 	/// @brief 当前周期外部注入的 Lifecycle 轨迹种子缓存。
 	std::vector<ExternalSeedTrackSignature> external_seed_tracks_;
 	/// @brief 当前周期关联先验状态来源模式。
-  AssociationSeedMode association_seed_mode_{AssociationSeedMode::kFallbackHistoryCache};
+  AssociationSeedMode association_seed_mode_{AssociationSeedMode::kStateless};
 };
 
 } // namespace association

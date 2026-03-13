@@ -9,7 +9,7 @@ Signal 层是机载雷达仿真系统的**信号处理核心**，负责从原始
 - 基于 `TargetFeature.position_x/y/z` 的**位置空间关联主路径**（默认启用）
 - `TrackLifecycleManager` 内部的**单模型 Kalman**与**每轨 IMM 多模型运行态**
 - `FullMahalanobisDistanceMetric` 对轨迹级新息协方差 $S$ 的直接消费
-- `FallbackHistoryCache` 作为**未接入 Lifecycle 场景**下的内部兼容先验缓存（仅 `key + position`）
+- `DataAssociationEngine` 仅消费 external seeds 作为关联先验；无 seeds 时按无先验（stateless）模式运行
 - external seeds 强契约（必须同时携带位置与高斯状态）
 - 契约失败路径接入 `spdlog::critical` 并保持 fail-fast
 - `DataAssociationEngine` / `TrackLifecycleManager` / `RadarController` 的关键路径摘要日志
@@ -31,7 +31,7 @@ src/airborne_radar/signal/
 │   ├── Hypothesiser.h/.cpp         #   └─ DenseCostHypothesiser（假设生成）
 │   ├── AssignmentSolver.h          #   └─ IAssignmentSolver 接口
 │   ├── LapjvSolver.h/.cpp          #   └─ LapjvSolver（Jonker-Volgenant 最优指派）
-│   └── DataAssociation.h/.cpp      #   └─ DataAssociationEngine（位置主路径 + FallbackHistoryCache 兼容缓存）
+│   └── DataAssociation.h/.cpp      #   └─ DataAssociationEngine（位置主路径 + external seeds 单一先验）
 │
 ├── detection/                      # [信号检测层]
 │   ├── RadarEquations.h/.cpp       #   ├─ 雷达物理方程纯函数库（回波功率、噪声底、积累增益、测量精度、检测概率）
@@ -96,7 +96,7 @@ flowchart TD
     LIFECYCLE -->|"申请/归还"| POOL["BoostTrackPool"]
 ```
 
-图中 `SEEDS` 表示当前已经落地的 Lifecycle → Association 先验接桥；`ASSOC -> POS_ASSOC` 表示当前唯一正式的关联主路径。至于 `prior fallback`，则发生在 `DataAssociationEngine` 内部：若当前周期没有外部 seeds 接管，且内部兼容模式已启用，才会退回使用 `FallbackHistoryCache` 作为位置空间关联先验。
+图中 `SEEDS` 表示当前已经落地的 Lifecycle → Association 先验接桥；`ASSOC -> POS_ASSOC` 表示当前唯一正式的关联主路径。当前 `DataAssociationEngine` 只消费 external seeds；若当前周期没有外部 seeds，则按无先验（stateless）模式执行关联。
 
 ### 3.1 编排机制
 
@@ -125,9 +125,9 @@ EnvironmentSamplingStage
 
 当前版本中，`RadarController` 会在调用 `SignalPipeline::RunCycle()` 之前，先从 `TrackLifecycleManager` 拉取上一周期活跃轨迹的 `AssociationTrackSeed`，再注入 `SignalPipeline` 作为本周期关联的先验种子；因此位置空间关联的预测真理源已开始从 `DataAssociationEngine` 内部缓存，向 Lifecycle 侧收敛。
 
-为方便调试与测试，关联结果和 `TrackMeasurement` 现已显式暴露 `used_external_association_seeds` 标记，用于区分“本周期位置关联来自 Lifecycle 外部种子”还是“使用关联引擎内部兼容缓存”。
+为方便调试与测试，关联结果和 `TrackMeasurement` 现已显式暴露 `used_external_association_seeds` 标记，用于区分“本周期位置关联来自 Lifecycle 外部种子”还是“无外部 seeds 的 stateless 关联”。
 
-当 `RadarController` / `SignalPipeline` 已显式注入外部种子时，即便该周期种子列表为空，也表示“Lifecycle 当前没有可供关联的活跃轨迹”；此时 `DataAssociationEngine` 不会再回退复用内部历史缓存，而是把自身内部缓存视为 fallback-only 机制，仅在**未接入 Lifecycle 种子提供者**的场景下启用。
+当 `RadarController` / `SignalPipeline` 已显式注入外部种子时，即便该周期种子列表为空，也表示“Lifecycle 当前没有可供关联的活跃轨迹”；此时 `DataAssociationEngine` 会保持无先验（stateless）行为，不做内部历史回退。
 
 ## 4. 核心算法详解
 
@@ -174,7 +174,7 @@ flowchart LR
 ```mermaid
 flowchart LR
     subgraph DataAssociationEngine
-        MODE["先验来源选择<br/>external seeds / fallback cache"]
+        MODE["先验来源选择<br/>external seeds / stateless"]
         PRED["内部预测<br/>KalmanPredictor + KalmanUpdater"]
         INNOV["逐假设新息协方差<br/>S = HPH^T + R"]
         M["DistanceMetric<br/>马氏距离计算"] --> G["Gater<br/>波门裁剪"]
@@ -183,14 +183,13 @@ flowchart LR
     end
     DET["位置量测<br/>TargetFeature.position_x/y/z"] --> MODE
     EXT["external association seeds<br/>Lifecycle truth source"] --> MODE
-    FALLBACK["FallbackHistoryCache<br/>兼容缓存对象"] --> MODE
     MEAS_COV["measurement_covariance<br/>动态量测协方差 R"] --> INNOV
     MODE --> M
     MODE -. 位置路径 .-> PRED --> INNOV -. 输出 ẑ / S .-> H
     S --> OUTPUT["AssociationResult"]
 ```
 
-图中将 `external association seeds` 与 `fallback_history_tracks_` 拆开显示，是为了强调当前仅保留 **prior fallback** 这一个回退维度：它只回答“关联先验从哪里来”，不再承担“切换到另一套特征空间匹配”的职责。另外，`measurement_covariance` 已通过 `SignalCycleContext` 前移到 `AssociationStage`，并直接进入 `DataAssociationEngine` 的逐假设 $S$ 计算。
+图中强调当前仅保留一个先验入口：`external association seeds`。当不存在 external seeds 时，关联阶段不消费内部历史副本，直接以 stateless 方式完成本周期匹配。`measurement_covariance` 已通过 `SignalCycleContext` 前移到 `AssociationStage`，并直接进入 `DataAssociationEngine` 的逐假设 $S$ 计算。
 
 `DataAssociationEngine` 当前收敛为单一位置空间路径：
 
@@ -214,32 +213,23 @@ flowchart LR
 当前版本已经完成 `FullMahalanobisDistanceMetric` 与轨迹级 $S$ 的联动，但需要注意：
 
 - `RadarController` 已通过 `AssociationTrackSeed` 将 Lifecycle 侧活跃轨迹状态注入关联阶段，关联真理源正在向 `TrackLifecycleManager` 收敛
-- 关联域仍保留 `FallbackHistoryCache` 作为无 Lifecycle 管理器场景下的兼容路径，但其语义已收敛为 position-only prior 缓存
+- 关联域已移除内部历史先验消费路径，仅接收 external seeds；无 seeds 时为 stateless 关联
 - `SignalPipeline` 会在 `SignalCycleContext` 中提前构造 `measurement_covariance`，供关联与 Lifecycle 更新共享同一份动态 $R$
 - `SignalPipeline` 只有在输入 `TargetFeature` 已携带 `position_x/y/z` 时，才会导出 `has_cartesian_position = true` 的 `TrackMeasurement`
 - 当成功探测目标位置量测不完整时，当前实现会直接触发契约失败
 - external seeds 缺失位置或高斯状态时，当前实现会直接触发契约失败
-- `RadarController` 绑定 `TrackLifecycleManager` 时，会自动关闭内部 fallback 兼容模式，使主路径明确由 external seeds 接管
+- `RadarController` 绑定 `TrackLifecycleManager` 时，会强制维持 external seeds 主路径；解绑后也不会自动开启内部 fallback
 - `DataAssociationEngine` / `TrackLifecycleManager` / `RadarController` 已补充关键路径摘要日志，用于排查 prior 来源、匹配数量和生命周期推进结果
 - 因此当前位置空间关联已经是唯一正式路径，但内部状态所有权仍属于**已主化的关联能力 + 待进一步统一的数据流**
 
-#### 4.2.2 当前文档中的 fallback 术语约定
+#### 4.2.2 先验来源约定（终态）
 
-为避免后续讨论中将不同层次的“回退”混为一谈，本文当前只保留 `prior fallback` 这一术语：
-
-1. **prior fallback（先验来源回退）**
-    - 含义：当前周期没有 `TrackLifecycleManager -> BuildAssociationSeeds() -> SetAssociationSeeds()` 这条外部 seeds 接管链时，`DataAssociationEngine` 退回使用自身内部维护的 `FallbackHistoryCache` 作为关联先验。
-    - 作用：为“尚未接入 Lifecycle 真理源”的兼容场景保留最小可运行能力。
-    - 非作用：一旦外部 seeds 已显式接管，即便 seeds 为空，也**不会**再回退复用内部历史缓存。
-
-当前实现不再保留 `feature fallback`；成功探测目标若缺失位置量测，会直接失败而不是切换到 `[speed, rcs, acceleration]` 的 legacy 标量特征关联。
-
-因此，当前实现仅存在如下两种先验来源组合：
+当前实现仅存在如下两种先验来源组合：
 
 | 先验来源 | 匹配空间 | 语义 |
 |---------|---------|------|
-| Lifecycle external seeds | 位置空间主关联 | 理想主路径（必须含位置+高斯态） |
-| FallbackHistoryCache | 位置空间主关联 | 尚未接入 Lifecycle 的兼容路径（仅 key+position） |
+| Lifecycle external seeds | 位置空间主关联 | 唯一先验主路径（必须含位置+高斯态） |
+| 无 external seeds | 位置空间主关联 | stateless（不消费内部历史先验） |
 
 ### 4.3 状态估计滤波器
 
@@ -510,7 +500,7 @@ sequenceDiagram
 |---------|--------|---------|
 | `SignalPipelineTest` | 5 | 端到端周期处理、探测裕量衰减、TrackMeasurement 导出、默认位置关联主路径 |
 | `TrackFilterTest` | 2 | 标量特征稳定传递、损耗衰减 + 干扰惩罚 |
-| `DataAssociationEngineTest` | 14 | 稳定关联、交叉匹配、新目标分配、匹配/失配报告、位置空间关联、external seeds 单周期语义、空 seeds 抑制内部 fallback、兼容缓存开关与清缓存契约、external seed 缺高斯态 fail-fast |
+| `DataAssociationEngineTest` | 14 | 稳定关联、交叉匹配、新目标分配、匹配/失配报告、位置空间关联、external seeds 单周期语义、无 external seeds 的 stateless 行为、兼容开关接口忽略语义、external seed 缺高斯态 fail-fast |
 | `CostThresholdGaterTest` | 1 | 超阈值裁剪 |
 | `DenseCostHypothesiserTest` | 2 | 波门内假设、逐轨迹 S 注入 |
 | `TrackLifecycleManagerTest` | 4 | 确认阈值、超时回收、每轨 IMM 漏检预测、AssociationSeeds 导出位置与高斯状态 |
@@ -541,7 +531,7 @@ sequenceDiagram
 - `TrackLifecycleManager` 中的 Kalman 集成
 - `TrackLifecycleManager` 中的每轨 IMM 运行态集成
 - `SignalPipeline` 中 Kalman 组件的配置化创建
-- `SignalPipeline` 中内部 fallback 开关透传与笛卡尔位置量测导出
+- `SignalPipeline` 中 external seeds 先验透传与笛卡尔位置量测导出
 - 物理化信号检测（`RadarEquations` + `SignalDetector`）
   - 单站雷达方程回波功率计算（对数域）
   - 接收机热噪声功率底（kTBF）
@@ -558,15 +548,15 @@ sequenceDiagram
     - `DataAssociationEngine` 支持位置空间关联模式
     - `DenseCostHypothesiser` 支持逐轨迹新息协方差注入
     - `FullMahalanobisDistanceMetric` 可直接消费轨迹级 $S$
-- Lifecycle external seeds 接桥 + `FallbackHistoryCache` 兼容缓存降格
+- Lifecycle external seeds 接桥 + 关联侧 internal fallback 消费路径下线
 - `DataAssociationEngine` / `TrackLifecycleManager` / `RadarController` 关键路径摘要日志
-- external seeds 单一入口收敛：`RadarController` 在未挂载 Lifecycle 管理器时会主动清理旁路 external-seed 注入状态；关联层默认保持无状态，除非显式开启 fallback 兼容开关
-- `SignalPipeline` 内部 fallback 兼容缓存默认关闭；运行时调用 `SetInternalAssociationHistoryFallbackEnabled(true)` 仅在显式开启兼容配置后才生效
+- external seeds 单一入口收敛：`RadarController` 在未挂载 Lifecycle 管理器时会主动清理旁路 external-seed 注入状态；关联层保持无先验（stateless）
+- `SetInternalAssociationHistoryFallbackEnabled(...)` 仅保留兼容接口语义，不再改变关联先验来源
 - 关联质量观测指标闭环：`DataAssociationEngine` 输出 `AssociationQualityMetrics`，`SignalPipeline` 暴露查询接口，`RadarController` 周期日志输出命中率/新生率/漏失率与代价统计
 
 ### 待完善 🔲
 
-- 继续评估并收敛 `FallbackHistoryCache` 的最终保留形态（当前已切换为默认关闭 + 显式兼容开关；长期目标为进一步下线关联侧状态副本）
+- 清理 `FallbackHistoryCache` 相关遗留类型/术语（文档与代码注释层面）
 - `SignalPipeline` / `RadarController` 层面对 IMM 生命周期服务的自动装配
 - 杂波图与动态门限环境适配机制
 
@@ -574,7 +564,7 @@ sequenceDiagram
 
 - 位置空间关联已是**唯一正式主路径**，成功探测目标若缺位置量测会直接失败
 - 位置空间关联当前要求输入 `TargetFeature` 已提供 `position_x / position_y / position_z`
-- 统一状态源收敛仍在进行中：Lifecycle 已主导 external-seed 先验输入，但 `DataAssociationEngine` 仍保留 `FallbackHistoryCache` 作为 position-only 兼容缓存
+- external seeds 已成为关联先验唯一来源；无 seeds 时关联为 stateless
 - 动态量测协方差当前已直接进入 `DataAssociationEngine` 的位置空间关联 $S$ 计算，并与 Lifecycle / Kalman / EKF 更新共享同一份动态 $R$
-- 一旦 `RadarController` / `SignalPipeline` 已显式注入 external association seeds，则即便 seeds 为空，也表示 Lifecycle 当前无可供关联的活跃轨迹；此时关联侧不会再回退复用内部 `FallbackHistoryCache`
+- 一旦 `RadarController` / `SignalPipeline` 已显式注入 external association seeds，则即便 seeds 为空，也表示 Lifecycle 当前无可供关联的活跃轨迹；此时关联侧保持 stateless
 - `SignalPipeline` 当前除导出位置量测与位置关联配置外，也导出最近周期的关联质量指标；`TrackLifecycleManager` 的 IMM 实例化仍由上层显式创建/注入

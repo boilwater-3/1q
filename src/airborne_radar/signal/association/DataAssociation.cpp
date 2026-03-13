@@ -48,13 +48,9 @@ tracking::MeasurementCovariance BuildDefaultMeasurementCovariance(
   return tracking::MeasurementCovariance::Identity() * variance;
 }
 
-const char *AssociationPriorSourceName(bool using_external_seeds,
-                                       bool allow_internal_fallback_history) {
+const char *AssociationPriorSourceName(bool using_external_seeds) {
   if (using_external_seeds) {
     return "external-seeds";
-  }
-  if (allow_internal_fallback_history) {
-    return "fallback-history";
   }
   return "stateless";
 }
@@ -124,9 +120,8 @@ DataAssociationEngine::DataAssociationEngine(DataAssociationConfig config)
     position_hypothesiser_(&full_distance_metric_, &gater_),
     kalman_predictor_(tracking::KalmanPredictorConfig()),
     next_key_(1),
-    fallback_cache_(),
     external_seed_tracks_(),
-    association_seed_mode_(AssociationSeedMode::kFallbackHistoryCache) {
+    association_seed_mode_(AssociationSeedMode::kStateless) {
   tracking::KalmanPredictorConfig predictor_config;
   predictor_config.noise_diff_coeff = config.kalman_noise_diff_coeff;
   kalman_predictor_.UpdateConfig(predictor_config);
@@ -134,9 +129,8 @@ DataAssociationEngine::DataAssociationEngine(DataAssociationConfig config)
 }
 
 void DataAssociationEngine::SetInternalHistoryFallbackEnabled(bool enabled) {
-  fallback_cache_.SetEnabled(enabled);
-  spdlog::info(
-      "[DataAssociationEngine] internal history fallback {}",
+  spdlog::warn(
+      "[DataAssociationEngine] internal history fallback switch is ignored in external-seed-only mode (requested={})",
       enabled ? "enabled" : "disabled");
 }
 
@@ -190,25 +184,17 @@ AssociationResult DataAssociationEngine::AssociateDetections(
   }
 
   const bool using_external_seeds = UsingExternalSeeds();
-  const bool persist_internal_fallback_history = AllowInternalFallbackHistory();
   const std::vector<ExternalSeedTrackSignature> &external_priors =
       external_seed_tracks_;
-  const std::vector<FallbackTrackSignature> &fallback_priors =
-      fallback_cache_.GetTracks();
-  const std::size_t association_prior_count =
-      using_external_seeds ? external_priors.size() : fallback_priors.size();
-  const char *prior_source = AssociationPriorSourceName(
-      using_external_seeds, persist_internal_fallback_history);
+    const std::size_t association_prior_count =
+      using_external_seeds ? external_priors.size() : 0U;
+    const char *prior_source = AssociationPriorSourceName(using_external_seeds);
 
   if (measurement_indices.empty()) {
     result.missed_track_keys.reserve(association_prior_count);
     if (using_external_seeds) {
       for (std::size_t i = 0; i < external_priors.size(); ++i) {
         result.missed_track_keys.push_back(external_priors[i].key);
-      }
-    } else {
-      for (std::size_t i = 0; i < fallback_priors.size(); ++i) {
-        result.missed_track_keys.push_back(fallback_priors[i].key);
       }
     }
     result.quality_metrics = BuildAssociationQualityMetrics(
@@ -238,9 +224,7 @@ AssociationResult DataAssociationEngine::AssociateDetections(
 
   if (association_prior_count > 0U) {
     const PositionAssociationPriors priors =
-        using_external_seeds
-            ? BuildExternalPositionAssociationPriors(external_priors)
-            : BuildFallbackPositionAssociationPriors(fallback_priors);
+      BuildExternalPositionAssociationPriors(external_priors);
     const std::size_t rows = association_prior_count;
     const std::size_t cols = measurements.size();
     const std::size_t dim = std::max(rows, cols);
@@ -300,11 +284,6 @@ AssociationResult DataAssociationEngine::AssociateDetections(
     }
   }
 
-  std::vector<FallbackTrackSignature> next_tracks;
-  if (persist_internal_fallback_history) {
-    next_tracks.reserve(measurements.size());
-  }
-
   for (std::size_t m = 0; m < measurements.size(); ++m) {
     std::uint64_t key = measurement_to_key[m];
     const bool matched_existing_track = key != kUnassociatedKey;
@@ -321,31 +300,19 @@ AssociationResult DataAssociationEngine::AssociateDetections(
       result.unassociated_target_indices.push_back(target_index);
     }
 
-    if (!persist_internal_fallback_history) {
-      continue;
-    }
-
-    next_tracks.push_back(BuildFallbackTrackSignature(key, measurements[m]));
   }
 
-  if (using_external_seeds) {
-    ClearConsumedAssociationPriors();
-  } else if (persist_internal_fallback_history) {
-    ReplaceFallbackHistory(&next_tracks);
-  } else {
-    ClearConsumedAssociationPriors();
-  }
+  ClearConsumedAssociationPriors();
 
   result.quality_metrics = BuildAssociationQualityMetrics(
       association_prior_count, measurement_indices.size(), result.matches,
       result.unassociated_target_indices.size(), result.missed_track_keys.size());
 
   spdlog::debug(
-      "[DataAssociationEngine] cycle summary: prior_source={} priors={} detections={} matches={} missed_tracks={} new_tracks={} persisted_fallback_history={}",
+      "[DataAssociationEngine] cycle summary: prior_source={} priors={} detections={} matches={} missed_tracks={} new_tracks={}",
       prior_source, association_prior_count, measurement_indices.size(),
       result.matches.size(), result.missed_track_keys.size(),
-      result.unassociated_target_indices.size(),
-      persist_internal_fallback_history ? "true" : "false");
+      result.unassociated_target_indices.size());
   return result;
 }
 
@@ -370,7 +337,6 @@ std::vector<std::uint64_t> DataAssociationEngine::Associate(
 
 void DataAssociationEngine::SetAssociationSeeds(
     const std::vector<tracking::AssociationTrackSeed> &seeds) {
-  fallback_cache_.Clear();
   external_seed_tracks_.clear();
   external_seed_tracks_.reserve(seeds.size());
   association_seed_mode_ = AssociationSeedMode::kExternalSeeds;
@@ -399,75 +365,16 @@ void DataAssociationEngine::SetAssociationSeeds(
 
 void DataAssociationEngine::ResetAssociationSeedModeToFallbackHistory() {
   external_seed_tracks_.clear();
-  association_seed_mode_ = AssociationSeedMode::kFallbackHistoryCache;
+  association_seed_mode_ = AssociationSeedMode::kStateless;
 }
 
 bool DataAssociationEngine::UsingExternalSeeds() const {
   return association_seed_mode_ == AssociationSeedMode::kExternalSeeds;
 }
 
-bool DataAssociationEngine::AllowInternalFallbackHistory() const {
-  return !UsingExternalSeeds() && fallback_cache_.IsEnabled();
-}
-
 void DataAssociationEngine::ClearConsumedAssociationPriors() {
-  if (UsingExternalSeeds()) {
-    external_seed_tracks_.clear();
-  } else {
-    fallback_cache_.Clear();
-  }
-  association_seed_mode_ = AssociationSeedMode::kFallbackHistoryCache;
-}
-
-void DataAssociationEngine::ReplaceFallbackHistory(
-    std::vector<FallbackTrackSignature> *next_tracks) {
-  fallback_cache_.Replace(next_tracks);
   external_seed_tracks_.clear();
-  association_seed_mode_ = AssociationSeedMode::kFallbackHistoryCache;
-}
-
-const std::vector<DataAssociationEngine::FallbackTrackSignature> &
-DataAssociationEngine::FallbackHistoryCache::EmptyTracks() {
-  static const std::vector<DataAssociationEngine::FallbackTrackSignature> kEmptyTracks;
-  return kEmptyTracks;
-}
-
-void DataAssociationEngine::FallbackHistoryCache::SetEnabled(bool enabled_value) {
-  enabled = enabled_value;
-  if (!enabled) {
-    tracks.clear();
-  }
-}
-
-bool DataAssociationEngine::FallbackHistoryCache::IsEnabled() const {
-  return enabled;
-}
-
-const std::vector<DataAssociationEngine::FallbackTrackSignature> &
-DataAssociationEngine::FallbackHistoryCache::GetTracks() const {
-  return enabled ? tracks : EmptyTracks();
-}
-
-void DataAssociationEngine::FallbackHistoryCache::Clear() {
-  tracks.clear();
-}
-
-void DataAssociationEngine::FallbackHistoryCache::Replace(
-    std::vector<FallbackTrackSignature> *next_tracks) {
-  if (!enabled) {
-    tracks.clear();
-    return;
-  }
-  tracks.swap(*next_tracks);
-}
-
-DataAssociationEngine::FallbackTrackSignature
-DataAssociationEngine::BuildFallbackTrackSignature(
-    std::uint64_t key,
-    const Eigen::Vector3f &measurement) const {
-  FallbackTrackSignature signature(key);
-  signature.position = measurement;
-  return signature;
+  association_seed_mode_ = AssociationSeedMode::kStateless;
 }
 
 DataAssociationEngine::PositionAssociationPriors
@@ -496,28 +403,6 @@ DataAssociationEngine::BuildExternalPositionAssociationPriors(
     priors.keys.push_back(track.key);
     priors.predicted_tracks.push_back(
         Eigen::Vector3f(predicted.mean(0), predicted.mean(2), predicted.mean(4)));
-    priors.projected_measurement_covariances.push_back(
-        ComputeProjectedMeasurementCovariance(predicted));
-  }
-
-  return priors;
-}
-
-DataAssociationEngine::PositionAssociationPriors
-DataAssociationEngine::BuildFallbackPositionAssociationPriors(
-    const std::vector<FallbackTrackSignature> &fallback_priors) const {
-  PositionAssociationPriors priors;
-  priors.keys.reserve(fallback_priors.size());
-  priors.predicted_tracks.reserve(fallback_priors.size());
-  priors.projected_measurement_covariances.reserve(fallback_priors.size());
-
-  for (std::size_t i = 0; i < fallback_priors.size(); ++i) {
-    const FallbackTrackSignature &track = fallback_priors[i];
-    const tracking::GaussianTrackState predicted =
-        InitializeGaussianState(track.position);
-    priors.keys.push_back(track.key);
-    // fallback 明确为 position-only：直接用缓存位置作为预测位置。
-    priors.predicted_tracks.push_back(track.position);
     priors.projected_measurement_covariances.push_back(
         ComputeProjectedMeasurementCovariance(predicted));
   }

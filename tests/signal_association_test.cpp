@@ -26,6 +26,23 @@ common::TargetFeature MakePositionTarget(float x, float y, float z) {
   return target;
 }
 
+signal::tracking::AssociationTrackSeed MakeExternalSeed(
+    std::uint64_t key,
+    const Eigen::Vector3f &position) {
+  signal::tracking::AssociationTrackSeed seed;
+  seed.association_key = key;
+  seed.has_position = true;
+  seed.position = position;
+  seed.has_gaussian_state = true;
+  seed.gaussian_state.mean = signal::tracking::StateVector::Zero();
+  seed.gaussian_state.mean(0) = position(0);
+  seed.gaussian_state.mean(2) = position(1);
+  seed.gaussian_state.mean(4) = position(2);
+  seed.gaussian_state.covariance =
+      signal::tracking::StateCovariance::Identity() * 25.0f;
+  return seed;
+}
+
 } // namespace
 
 TEST(DataAssociationEngineTest, KeepsStableAssociationAcrossCycles) {
@@ -42,6 +59,11 @@ TEST(DataAssociationEngineTest, KeepsStableAssociationAcrossCycles) {
   EXPECT_NE(keys_1[1], 0u);
   EXPECT_NE(keys_1[0], keys_1[1]);
 
+  const std::vector<signal::tracking::AssociationTrackSeed> seeds{
+      MakeExternalSeed(keys_1[0], Eigen::Vector3f(10.0f, 0.0f, 0.0f)),
+      MakeExternalSeed(keys_1[1], Eigen::Vector3f(100.0f, 0.0f, 0.0f))};
+  engine.SetAssociationSeeds(seeds);
+
   const common::TargetFeatureList cycle_2{
       MakePositionTarget(11.0f, 0.0f, 0.0f),
       MakePositionTarget(101.0f, 0.0f, 0.0f)};
@@ -53,8 +75,8 @@ TEST(DataAssociationEngineTest, KeepsStableAssociationAcrossCycles) {
   EXPECT_EQ(keys_2[1], keys_1[1]);
 }
 
-  TEST(DataAssociationEngineTest,
-     DisablingInternalHistoryFallbackMakesAssociationStatelessWithoutSeeds) {
+    TEST(DataAssociationEngineTest,
+      DisablingInternalHistoryFallbackMakesAssociationStatelessWithoutSeeds) {
     signal::association::DataAssociationEngine engine;
 
     const common::TargetFeatureList cycle_1{
@@ -65,8 +87,6 @@ TEST(DataAssociationEngineTest, KeepsStableAssociationAcrossCycles) {
       engine.AssociateDetections(cycle_1, detected_1);
     ASSERT_EQ(first_result.target_keys.size(), 1u);
     ASSERT_NE(first_result.target_keys[0], 0u);
-
-    engine.SetInternalHistoryFallbackEnabled(false);
 
     const common::TargetFeatureList cycle_2{
       MakePositionTarget(10.5f, 0.0f, 0.0f)};
@@ -80,47 +100,28 @@ TEST(DataAssociationEngineTest, KeepsStableAssociationAcrossCycles) {
     EXPECT_TRUE(second_result.matches.empty());
     ASSERT_EQ(second_result.unassociated_target_indices.size(), 1u);
     EXPECT_EQ(second_result.unassociated_target_indices[0], 0u);
-
-    engine.SetInternalHistoryFallbackEnabled(true);
-
-    const signal::association::AssociationResult third_result =
-      engine.AssociateDetections(cycle_2, detected_2);
-    ASSERT_EQ(third_result.target_keys.size(), 1u);
-    EXPECT_NE(third_result.target_keys[0], 0u);
-
-    const common::TargetFeatureList cycle_3{
-      MakePositionTarget(11.0f, 0.0f, 0.0f)};
-    const signal::association::AssociationResult fourth_result =
-      engine.AssociateDetections(cycle_3, detected_2);
-    ASSERT_EQ(fourth_result.target_keys.size(), 1u);
-    EXPECT_EQ(fourth_result.target_keys[0], third_result.target_keys[0]);
-    ASSERT_EQ(fourth_result.matches.size(), 1u);
-    EXPECT_EQ(fourth_result.matches[0].association_key, third_result.target_keys[0]);
   }
 
-  TEST(DataAssociationEngineTest,
-       DisablingInternalHistoryFallbackClearsExistingHistoryCache) {
+    TEST(DataAssociationEngineTest,
+      DisablingInternalHistoryFallbackClearsExistingHistoryCache) {
     signal::association::DataAssociationEngine engine;
 
     const common::TargetFeatureList warmup_cycle{
         MakePositionTarget(50.0f, 0.0f, 0.0f)};
     const std::vector<std::uint8_t> detected{1U};
-    const signal::association::AssociationResult warmup_result =
+    const signal::association::AssociationResult first_result =
         engine.AssociateDetections(warmup_cycle, detected);
-    ASSERT_EQ(warmup_result.target_keys.size(), 1u);
-    ASSERT_NE(warmup_result.target_keys[0], 0u);
+    ASSERT_EQ(first_result.target_keys.size(), 1u);
+    ASSERT_NE(first_result.target_keys[0], 0u);
 
-    engine.SetInternalHistoryFallbackEnabled(false);
+    engine.SetInternalHistoryFallbackEnabled(true);
 
-    const std::vector<std::uint8_t> no_detection{0U};
-    const signal::association::AssociationResult result =
-        engine.AssociateDetections(warmup_cycle, no_detection);
-
-    EXPECT_TRUE(result.matches.empty());
-    EXPECT_TRUE(result.unassociated_target_indices.empty());
-    EXPECT_TRUE(result.missed_track_keys.empty());
-    ASSERT_EQ(result.target_keys.size(), 1u);
-    EXPECT_EQ(result.target_keys[0], 0u);
+    const signal::association::AssociationResult second_result =
+      engine.AssociateDetections(warmup_cycle, detected);
+    ASSERT_EQ(second_result.target_keys.size(), 1u);
+    ASSERT_NE(second_result.target_keys[0], 0u);
+    EXPECT_NE(second_result.target_keys[0], first_result.target_keys[0]);
+    EXPECT_TRUE(second_result.matches.empty());
   }
 
   TEST(DataAssociationEngineTest,
@@ -178,6 +179,10 @@ TEST(DataAssociationEngineTest, HandlesCrossedMeasurementsByCostMinimization) {
   const std::vector<std::uint64_t> keys_1 = engine.Associate(cycle_1, detected_1);
   ASSERT_EQ(keys_1.size(), 2u);
 
+  engine.SetAssociationSeeds(std::vector<signal::tracking::AssociationTrackSeed>{
+      MakeExternalSeed(keys_1[0], Eigen::Vector3f(20.0f, 0.0f, 0.0f)),
+      MakeExternalSeed(keys_1[1], Eigen::Vector3f(200.0f, 0.0f, 0.0f))});
+
     // The measurement order is swapped, but position-space cost should preserve identity.
   const common::TargetFeatureList cycle_2{
       MakePositionTarget(201.0f, 0.0f, 0.0f),
@@ -219,6 +224,9 @@ TEST(DataAssociationEngineTest, ReportsMatchesMissesAndUnassociatedTargets) {
   ASSERT_EQ(keys_1.size(), 1u);
   ASSERT_NE(keys_1[0], 0u);
 
+  engine.SetAssociationSeeds(std::vector<signal::tracking::AssociationTrackSeed>{
+      MakeExternalSeed(keys_1[0], Eigen::Vector3f(10.0f, 0.0f, 0.0f))});
+
   const common::TargetFeatureList cycle_2{
       MakePositionTarget(11.0f, 0.0f, 0.0f),
       MakePositionTarget(200.0f, 0.0f, 0.0f)};
@@ -258,6 +266,9 @@ TEST(DataAssociationEngineTest, ReportsMissedTrackKeysWhenNoDetectionArrives) {
   const std::vector<std::uint8_t> detected_1{1U};
   const std::vector<std::uint64_t> keys_1 = engine.Associate(cycle_1, detected_1);
   ASSERT_EQ(keys_1.size(), 1u);
+
+  engine.SetAssociationSeeds(std::vector<signal::tracking::AssociationTrackSeed>{
+      MakeExternalSeed(keys_1[0], Eigen::Vector3f(10.0f, 0.0f, 0.0f))});
 
   const common::TargetFeatureList cycle_2{MakePositionTarget(10.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_2{0U};
@@ -306,13 +317,18 @@ TEST(DataAssociationEngineTest, ReportsMissedTrackKeysWhenNoDetectionArrives) {
       MakePositionTarget(11.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_2{1U, 1U};
 
-    const signal::association::AssociationResult second_result =
+  engine.SetAssociationSeeds(std::vector<signal::tracking::AssociationTrackSeed>{
+      MakeExternalSeed(keys_1[0], Eigen::Vector3f(10.0f, 0.0f, 0.0f)),
+      MakeExternalSeed(keys_1[1], Eigen::Vector3f(100.0f, 0.0f, 0.0f))});
+
+  const signal::association::AssociationResult second_result =
       engine.AssociateDetections(cycle_2, detected_2);
-    const std::vector<std::uint64_t> &keys_2 = second_result.target_keys;
+  const std::vector<std::uint64_t> &keys_2 = second_result.target_keys;
   ASSERT_EQ(keys_2.size(), 2u);
   EXPECT_EQ(keys_2[0], keys_1[1]);
   EXPECT_EQ(keys_2[1], keys_1[0]);
-    EXPECT_TRUE(second_result.used_position_association);
+  EXPECT_TRUE(second_result.used_position_association);
+  EXPECT_TRUE(second_result.used_external_association_seeds);
   }
 
   TEST(DataAssociationEngineTest,
