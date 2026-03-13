@@ -151,6 +151,22 @@ TEST(DataAssociationEngineTest, KeepsStableAssociationAcrossCycles) {
     EXPECT_EQ(result.matches[0].association_key, 88u);
   }
 
+TEST(DataAssociationEngineTest,
+     ExternalAssociationSeedMissingGaussianStateFailsFast) {
+  signal::association::DataAssociationEngine engine;
+
+  signal::tracking::AssociationTrackSeed seed;
+  seed.association_key = 77u;
+  seed.has_position = true;
+  seed.position = Eigen::Vector3f(20.0f, 0.0f, 0.0f);
+  seed.has_gaussian_state = false;
+
+  EXPECT_DEATH_IF_SUPPORTED(
+      engine.SetAssociationSeeds(
+          std::vector<signal::tracking::AssociationTrackSeed>(1, seed)),
+      "missing gaussian state");
+}
+
 TEST(DataAssociationEngineTest, HandlesCrossedMeasurementsByCostMinimization) {
   signal::association::DataAssociationEngine engine;
 

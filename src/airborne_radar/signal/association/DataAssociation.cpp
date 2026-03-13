@@ -21,6 +21,12 @@ constexpr std::uint64_t kUnassociatedKey = 0;
 
 [[noreturn]] void AbortContractViolation(const char *message,
                                         std::size_t index) {
+  if (spdlog::default_logger_raw() != nullptr) {
+    spdlog::critical(
+        "[DataAssociationEngine] Contract violation at target[{}]: {}",
+        index, message);
+    spdlog::default_logger_raw()->flush();
+  }
   std::fprintf(stderr,
                "[DataAssociationEngine] Contract violation at target[%zu]: %s\n",
                index, message);
@@ -310,6 +316,15 @@ void DataAssociationEngine::SetAssociationSeeds(
 
   for (std::size_t i = 0; i < seeds.size(); ++i) {
     const tracking::AssociationTrackSeed &seed = seeds[i];
+    if (!seed.has_position) {
+      AbortContractViolation(
+          "external association seed missing cartesian position", i);
+    }
+    if (!seed.has_gaussian_state) {
+      AbortContractViolation(
+          "external association seed missing gaussian state", i);
+    }
+
     ExternalSeedTrackSignature signature(seed.association_key);
     signature.has_position = seed.has_position;
     signature.position = seed.position;
@@ -404,11 +419,14 @@ DataAssociationEngine::BuildExternalPositionAssociationPriors(
           "association prior missing cartesian position under position-only mode",
           track.key);
     }
+    if (!track.has_gaussian_state) {
+      AbortContractViolation(
+          "association prior missing gaussian state under external-seed mode",
+          track.key);
+    }
 
     const tracking::GaussianTrackState predicted =
-        track.has_gaussian_state
-            ? kalman_predictor_.Predict(track.gaussian_state, 1.0f)
-            : InitializeGaussianState(track.position);
+        kalman_predictor_.Predict(track.gaussian_state, 1.0f);
     priors.keys.push_back(track.key);
     priors.predicted_tracks.push_back(
         Eigen::Vector3f(predicted.mean(0), predicted.mean(2), predicted.mean(4)));
