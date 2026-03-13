@@ -120,6 +120,27 @@ private:
   std::vector<signal::tracking::AssociationTrackSeed> seeds_;
 };
 
+class EmptySeedLifecycleManager : public signal::tracking::ITrackLifecycleManager {
+public:
+  void Update(const signal::tracking::CycleContext &cycle,
+              const std::vector<signal::tracking::TrackMeasurement> &measurements) override {
+    last_cycle = cycle;
+    last_measurements = measurements;
+  }
+
+  common::TargetFeatureList BuildFeatureSnapshot() const override {
+    return common::TargetFeatureList();
+  }
+
+  std::vector<signal::tracking::AssociationTrackSeed>
+  BuildAssociationSeeds() const override {
+    return std::vector<signal::tracking::AssociationTrackSeed>();
+  }
+
+  signal::tracking::CycleContext last_cycle{};
+  std::vector<signal::tracking::TrackMeasurement> last_measurements;
+};
+
 /// @brief CoreControllerTest 覆盖核心调度与指令下发路径。
 class CoreControllerTest : public ::testing::Test {
 protected:
@@ -348,6 +369,74 @@ TEST_F(CoreControllerTest, LifecycleSeedsDrivePositionAssociationBeforeRunCycle)
   EXPECT_TRUE(lifecycle_manager.last_measurements[0].matched_existing_track);
   EXPECT_TRUE(lifecycle_manager.last_measurements[0].used_position_association);
   EXPECT_TRUE(lifecycle_manager.last_measurements[0].used_external_association_seeds);
+}
+
+TEST_F(CoreControllerTest,
+       EmptyLifecycleSeedsDisableInternalFallbackAcrossCycles) {
+  common::TargetFeature target(12.0f, 0.5f, false, 0.1f);
+  target.position_x = 55.0f;
+  target.position_y = 0.0f;
+  target.position_z = 0.0f;
+  target.range_m = 55.0f;
+  const common::TargetFeatureList input_state{target};
+  FakeRadarContext radar_context(input_state);
+
+  environment::EnvironmentModelConfig env_config;
+  env_config.jammer_power_db = 0.0f;
+  environment::EnvironmentService environment_service(env_config);
+
+  signal::pipeline::SignalPipeline signal_pipeline;
+  EmptySeedLifecycleManager lifecycle_manager;
+
+  core::controller::RadarController controller(
+      radar_context, signal_pipeline, *decision_pipeline_, environment_service);
+  controller.SetTrackLifecycleManager(&lifecycle_manager);
+
+  controller.RunOnce();
+  ASSERT_EQ(lifecycle_manager.last_measurements.size(), 1u);
+  const std::uint64_t first_key = lifecycle_manager.last_measurements[0].association_key;
+  EXPECT_NE(first_key, 0u);
+  EXPECT_FALSE(lifecycle_manager.last_measurements[0].matched_existing_track);
+  EXPECT_TRUE(lifecycle_manager.last_measurements[0].used_external_association_seeds);
+
+  controller.RunOnce();
+  ASSERT_EQ(lifecycle_manager.last_measurements.size(), 1u);
+  const std::uint64_t second_key = lifecycle_manager.last_measurements[0].association_key;
+  EXPECT_NE(second_key, 0u);
+  EXPECT_NE(second_key, first_key);
+  EXPECT_FALSE(lifecycle_manager.last_measurements[0].matched_existing_track);
+  EXPECT_TRUE(lifecycle_manager.last_measurements[0].used_external_association_seeds);
+}
+
+TEST_F(CoreControllerTest,
+       LifecycleSeedMissingGaussianStateFailsFastDuringRunCycle) {
+  common::TargetFeature target(10.0f, 0.2f, false, 0.1f);
+  target.position_x = 20.0f;
+  target.position_y = 0.0f;
+  target.position_z = 0.0f;
+  target.range_m = 20.0f;
+  const common::TargetFeatureList input_state{target};
+  FakeRadarContext radar_context(input_state);
+
+  environment::EnvironmentModelConfig env_config;
+  env_config.jammer_power_db = 0.0f;
+  environment::EnvironmentService environment_service(env_config);
+
+  signal::pipeline::SignalPipeline signal_pipeline;
+
+  signal::tracking::AssociationTrackSeed invalid_seed;
+  invalid_seed.association_key = 9001u;
+  invalid_seed.has_position = true;
+  invalid_seed.position = Eigen::Vector3f(19.0f, 0.0f, 0.0f);
+  invalid_seed.has_gaussian_state = false;
+
+  FixedSeedLifecycleManager lifecycle_manager({invalid_seed});
+
+  core::controller::RadarController controller(
+      radar_context, signal_pipeline, *decision_pipeline_, environment_service);
+  controller.SetTrackLifecycleManager(&lifecycle_manager);
+
+  EXPECT_DEATH_IF_SUPPORTED(controller.RunOnce(), "missing gaussian state");
 }
 
 } } // namespace airborne_radar::tests
