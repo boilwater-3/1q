@@ -404,6 +404,10 @@ struct SignalPipeline::Impl {
     association_engine.SetInternalHistoryFallbackEnabled(enabled);
   }
 
+  void ResetAssociationSeedModeToFallbackHistory() {
+    association_engine.ResetAssociationSeedModeToFallbackHistory();
+  }
+
   /// @brief 获取 Kalman 预测器指针（可为 nullptr）。
   const tracking::IKalmanPredictor *GetKalmanPredictor() const {
     return kalman_predictor.get();
@@ -453,6 +457,10 @@ void SignalPipeline::SetAssociationSeeds(
 
 void SignalPipeline::SetInternalAssociationHistoryFallbackEnabled(bool enabled) {
   impl_->SetInternalAssociationHistoryFallbackEnabled(enabled);
+}
+
+void SignalPipeline::ResetAssociationSeedModeToFallbackHistory() {
+  impl_->ResetAssociationSeedModeToFallbackHistory();
 }
 
 void SignalPipeline::UpdateConfig(SignalPipelineConfig config) {

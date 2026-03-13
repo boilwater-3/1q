@@ -439,4 +439,44 @@ TEST_F(CoreControllerTest,
   EXPECT_DEATH_IF_SUPPORTED(controller.RunOnce(), "missing gaussian state");
 }
 
+  TEST_F(CoreControllerTest,
+       NoLifecycleManagerScrubsSideChannelExternalSeedsBeforeRunCycle) {
+    common::TargetFeature target(10.0f, 0.2f, false, 0.1f);
+    target.position_x = 101.0f;
+    target.position_y = 0.0f;
+    target.position_z = 0.0f;
+    target.range_m = 101.0f;
+    const common::TargetFeatureList input_state{target};
+    FakeRadarContext radar_context(input_state);
+
+    environment::EnvironmentModelConfig env_config;
+    env_config.jammer_power_db = 0.0f;
+    environment::EnvironmentService environment_service(env_config);
+
+    signal::pipeline::SignalPipeline signal_pipeline;
+
+    signal::tracking::AssociationTrackSeed side_channel_seed;
+    side_channel_seed.association_key = 777u;
+    side_channel_seed.has_position = true;
+    side_channel_seed.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
+    side_channel_seed.has_gaussian_state = true;
+    side_channel_seed.gaussian_state.mean = signal::tracking::StateVector::Zero();
+    side_channel_seed.gaussian_state.mean(0) = 100.0f;
+    side_channel_seed.gaussian_state.covariance =
+      signal::tracking::StateCovariance::Identity() * 25.0f;
+    signal_pipeline.SetAssociationSeeds(
+      std::vector<signal::tracking::AssociationTrackSeed>(1, side_channel_seed));
+
+    core::controller::RadarController controller(
+      radar_context, signal_pipeline, *decision_pipeline_, environment_service);
+
+    controller.RunOnce();
+
+    const std::vector<signal::tracking::TrackMeasurement> measurements =
+      signal_pipeline.GetLastTrackMeasurements();
+    ASSERT_EQ(measurements.size(), 1u);
+    EXPECT_NE(measurements[0].association_key, 777u);
+    EXPECT_FALSE(measurements[0].used_external_association_seeds);
+  }
+
 } } // namespace airborne_radar::tests

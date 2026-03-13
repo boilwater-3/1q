@@ -337,6 +337,11 @@ void DataAssociationEngine::SetAssociationSeeds(
                 external_seed_tracks_.size());
 }
 
+void DataAssociationEngine::ResetAssociationSeedModeToFallbackHistory() {
+  external_seed_tracks_.clear();
+  association_seed_mode_ = AssociationSeedMode::kFallbackHistoryCache;
+}
+
 bool DataAssociationEngine::UsingExternalSeeds() const {
   return association_seed_mode_ == AssociationSeedMode::kExternalSeeds;
 }

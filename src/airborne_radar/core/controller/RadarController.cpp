@@ -56,6 +56,8 @@ void RadarController::RunOnce() {
 				track_lifecycle_manager_->BuildAssociationSeeds();
 		association_seed_count = seeds.size();
 		signal_pipeline_.SetAssociationSeeds(seeds);
+	} else {
+		signal_pipeline_.ResetAssociationSeedModeToFallbackHistory();
 	}
 	const common::TargetFeatureList updated_features =
 			signal_pipeline_.RunCycle(input_features, environment_service_);

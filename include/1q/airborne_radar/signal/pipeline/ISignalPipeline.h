@@ -42,6 +42,10 @@ public:
 		/// @brief 启用或关闭内部关联 history fallback 兼容模式。
 		/// @param enabled 为 true 时允许在无 Lifecycle seeds 时使用内部兼容缓存。
 		virtual void SetInternalAssociationHistoryFallbackEnabled(bool enabled) = 0;
+
+		/// @brief 清理外部 seeds 状态并恢复 fallback-history 关联模式。
+		/// @details 用于确保 external seeds 仅由控制器+Lifecycle 链路注入。
+		virtual void ResetAssociationSeedModeToFallbackHistory() = 0;
 };
 
 } // namespace pipeline

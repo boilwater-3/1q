@@ -124,6 +124,10 @@ public:
   void SetAssociationSeeds(
       const std::vector<tracking::AssociationTrackSeed> &seeds);
 
+	/// @brief 重置外部 seeds 注入状态并回归 fallback-history 模式。
+	/// @details 用于收敛 external seeds 单一入口，清理旁路注入的临时外部 seeds。
+  void ResetAssociationSeedModeToFallbackHistory();
+
 private:
 	/// @brief 关联先验状态来源模式。
 	enum class AssociationSeedMode {
