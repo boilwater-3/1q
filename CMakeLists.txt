@@ -3,6 +3,55 @@
 
 cmake_minimum_required(VERSION 3.16...3.30)
 
+# Conan 自动安装逻辑（在 project() 之前执行）
+# 检测是否使用了 Conan toolchain，如果 toolchain 文件不存在则自动运行 conan install
+if(DEFINED CMAKE_TOOLCHAIN_FILE)
+    if(NOT EXISTS "${CMAKE_TOOLCHAIN_FILE}")
+        # 从 toolchain 路径推断输出目录和构建类型
+        get_filename_component(CONAN_OUTPUT_DIR "${CMAKE_TOOLCHAIN_FILE}" DIRECTORY)
+        get_filename_component(CONAN_OUTPUT_DIR "${CONAN_OUTPUT_DIR}" DIRECTORY)
+        get_filename_component(CONAN_OUTPUT_DIR "${CONAN_OUTPUT_DIR}" DIRECTORY)
+        get_filename_component(CONAN_OUTPUT_DIR "${CONAN_OUTPUT_DIR}" DIRECTORY)
+        
+        # 检测构建类型（从路径中提取）
+        if("${CMAKE_TOOLCHAIN_FILE}" MATCHES "/Debug/")
+            set(CONAN_BUILD_TYPE "Debug")
+        elseif("${CMAKE_TOOLCHAIN_FILE}" MATCHES "/Release/")
+            set(CONAN_BUILD_TYPE "Release")
+        else()
+            set(CONAN_BUILD_TYPE "Debug")  # 默认 Debug
+        endif()
+        
+        message(STATUS "Conan toolchain not found: ${CMAKE_TOOLCHAIN_FILE}")
+        message(STATUS "Automatically running Conan install...")
+        message(STATUS "  └─ Output folder: ${CONAN_OUTPUT_DIR}")
+        message(STATUS "  └─ Build type: ${CONAN_BUILD_TYPE}")
+        
+        # 执行 conan install
+        execute_process(
+            COMMAND conan install ${CMAKE_SOURCE_DIR}
+                    --output-folder=${CONAN_OUTPUT_DIR}
+                    --build=missing
+                    -s build_type=${CONAN_BUILD_TYPE}
+            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            RESULT_VARIABLE CONAN_RESULT
+            OUTPUT_VARIABLE CONAN_OUTPUT
+            ERROR_VARIABLE CONAN_ERROR
+        )
+        
+        if(NOT CONAN_RESULT EQUAL 0)
+            message(FATAL_ERROR "Conan install failed:\n${CONAN_ERROR}")
+        else()
+            message(STATUS "Conan install completed successfully")
+        endif()
+        
+        # 再次检查 toolchain 文件是否已生成
+        if(NOT EXISTS "${CMAKE_TOOLCHAIN_FILE}")
+            message(FATAL_ERROR "Conan toolchain still not found after installation: ${CMAKE_TOOLCHAIN_FILE}")
+        endif()
+    endif()
+endif()
+
 # 项目元数据
 set(PROJECT_NAME "1q" CACHE STRING "Root project name for this template")
 set(PROJECT_ALIAS "${PROJECT_NAME}::core" CACHE STRING "Alias namespace for the primary library target")
