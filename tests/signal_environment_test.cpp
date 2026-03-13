@@ -293,13 +293,25 @@ TEST(SignalPipelineTest,
 }
 
 TEST(SignalPipelineTest,
-     RejectsRuntimeFallbackEnableByDefaultWithoutCompatibilityFlag) {
+   ResetAssociationSeedModeToStatelessClearsSideChannelSeeds) {
   environment::EnvironmentModelConfig env_config;
   env_config.jammer_power_db = 0.0f;
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  signal_pipeline.SetInternalAssociationHistoryFallbackEnabled(true);
+
+  signal::tracking::AssociationTrackSeed side_channel_seed;
+  side_channel_seed.association_key = 777u;
+  side_channel_seed.has_position = true;
+  side_channel_seed.position = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
+  side_channel_seed.has_gaussian_state = true;
+  side_channel_seed.gaussian_state.mean = signal::tracking::StateVector::Zero();
+  side_channel_seed.gaussian_state.mean(0) = 10.0f;
+  side_channel_seed.gaussian_state.covariance =
+    signal::tracking::StateCovariance::Identity() * 25.0f;
+  signal_pipeline.SetAssociationSeeds(
+    std::vector<signal::tracking::AssociationTrackSeed>(1, side_channel_seed));
+  signal_pipeline.ResetAssociationSeedModeToStateless();
 
   common::TargetFeature target(100.0f, 2.0f, false, 1.0f);
   target.position_x = 10.0f;

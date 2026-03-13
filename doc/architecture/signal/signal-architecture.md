@@ -218,7 +218,7 @@ flowchart LR
 - `SignalPipeline` 只有在输入 `TargetFeature` 已携带 `position_x/y/z` 时，才会导出 `has_cartesian_position = true` 的 `TrackMeasurement`
 - 当成功探测目标位置量测不完整时，当前实现会直接触发契约失败
 - external seeds 缺失位置或高斯状态时，当前实现会直接触发契约失败
-- `RadarController` 绑定 `TrackLifecycleManager` 时，会强制维持 external seeds 主路径；解绑后也不会自动开启内部 fallback
+- `RadarController` 绑定 `TrackLifecycleManager` 时，会强制维持 external seeds 主路径；解绑后会显式回到 stateless 关联
 - `DataAssociationEngine` / `TrackLifecycleManager` / `RadarController` 已补充关键路径摘要日志，用于排查 prior 来源、匹配数量和生命周期推进结果
 - 因此当前位置空间关联已经是唯一正式路径，但内部状态所有权仍属于**已主化的关联能力 + 待进一步统一的数据流**
 
@@ -351,7 +351,7 @@ classDiagram
         +RunCycle(features, env) TargetFeatureList
         +GetLastTrackMeasurements() vector~TrackMeasurement~
         +SetAssociationSeeds(seeds) void
-        +SetInternalAssociationHistoryFallbackEnabled(enabled) void
+        +ResetAssociationSeedModeToStateless() void
         -KalmanPredictor kalman_predictor
         -KalmanUpdater kalman_updater
     }
@@ -360,14 +360,13 @@ classDiagram
         +AssociateDetections(targets, detection_succeeded) AssociationResult
         +Associate(targets, detection_succeeded) vector~uint64_t~
         +SetAssociationSeeds(seeds) void
-        +SetInternalHistoryFallbackEnabled(enabled) void
+        +ResetAssociationSeedModeToStateless() void
         -IDistanceMetric metric
         -FullMahalanobisDistanceMetric full_metric
         -IGater gater
         -IHypothesiser hypothesiser
         -IAssignmentSolver solver
         -KalmanPredictor association_predictor
-        -FallbackHistoryCache fallback_cache
     }
 
     class TrackLifecycleManager {
@@ -492,7 +491,7 @@ sequenceDiagram
 4. 将 `S` 逐轨迹注入 `DenseCostHypothesiser`
 5. 由 `FullMahalanobisDistanceMetric` 计算位置空间关联代价
 
-当前实现里，步骤 1 所使用的 `gaussian_state` 来自 `RadarController -> TrackLifecycleManager::BuildAssociationSeeds() -> SignalPipeline::SetAssociationSeeds()` 这条桥接链；只有在未接入 Lifecycle 管理器时，才退回 `FallbackHistoryCache` 的 position-only 先验（该路径不持久化高斯状态）。
+当前实现里，步骤 1 所使用的 `gaussian_state` 来自 `RadarController -> TrackLifecycleManager::BuildAssociationSeeds() -> SignalPipeline::SetAssociationSeeds()` 这条桥接链；当未接入 Lifecycle 管理器时，控制器会显式调用 `ResetAssociationSeedModeToStateless()`，关联阶段按无先验模式运行。
 
 ## 8. 测试覆盖
 
@@ -500,7 +499,7 @@ sequenceDiagram
 |---------|--------|---------|
 | `SignalPipelineTest` | 5 | 端到端周期处理、探测裕量衰减、TrackMeasurement 导出、默认位置关联主路径 |
 | `TrackFilterTest` | 2 | 标量特征稳定传递、损耗衰减 + 干扰惩罚 |
-| `DataAssociationEngineTest` | 14 | 稳定关联、交叉匹配、新目标分配、匹配/失配报告、位置空间关联、external seeds 单周期语义、无 external seeds 的 stateless 行为、兼容开关接口忽略语义、external seed 缺高斯态 fail-fast |
+| `DataAssociationEngineTest` | 14 | 稳定关联、交叉匹配、新目标分配、匹配/失配报告、位置空间关联、external seeds 单周期语义、无 external seeds 的 stateless 行为、external seed 缺高斯态 fail-fast |
 | `CostThresholdGaterTest` | 1 | 超阈值裁剪 |
 | `DenseCostHypothesiserTest` | 2 | 波门内假设、逐轨迹 S 注入 |
 | `TrackLifecycleManagerTest` | 4 | 确认阈值、超时回收、每轨 IMM 漏检预测、AssociationSeeds 导出位置与高斯状态 |
@@ -548,15 +547,14 @@ sequenceDiagram
     - `DataAssociationEngine` 支持位置空间关联模式
     - `DenseCostHypothesiser` 支持逐轨迹新息协方差注入
     - `FullMahalanobisDistanceMetric` 可直接消费轨迹级 $S$
-- Lifecycle external seeds 接桥 + 关联侧 internal fallback 消费路径下线
+- Lifecycle external seeds 接桥 + 关联侧内部历史先验消费路径下线
 - `DataAssociationEngine` / `TrackLifecycleManager` / `RadarController` 关键路径摘要日志
 - external seeds 单一入口收敛：`RadarController` 在未挂载 Lifecycle 管理器时会主动清理旁路 external-seed 注入状态；关联层保持无先验（stateless）
-- `SetInternalAssociationHistoryFallbackEnabled(...)` 仅保留兼容接口语义，不再改变关联先验来源
+- 兼容 fallback 命名接口已移除，统一收敛为 `ResetAssociationSeedModeToStateless()`
 - 关联质量观测指标闭环：`DataAssociationEngine` 输出 `AssociationQualityMetrics`，`SignalPipeline` 暴露查询接口，`RadarController` 周期日志输出命中率/新生率/漏失率与代价统计
 
 ### 待完善 🔲
 
-- 清理 `FallbackHistoryCache` 相关遗留类型/术语（文档与代码注释层面）
 - `SignalPipeline` / `RadarController` 层面对 IMM 生命周期服务的自动装配
 - 杂波图与动态门限环境适配机制
 

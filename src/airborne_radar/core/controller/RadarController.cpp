@@ -57,7 +57,7 @@ void RadarController::RunOnce() {
 		association_seed_count = seeds.size();
 		signal_pipeline_.SetAssociationSeeds(seeds);
 	} else {
-		signal_pipeline_.ResetAssociationSeedModeToFallbackHistory();
+		signal_pipeline_.ResetAssociationSeedModeToStateless();
 	}
 	const common::TargetFeatureList updated_features =
 			signal_pipeline_.RunCycle(input_features, environment_service_);
@@ -153,11 +153,8 @@ void RadarController::SetEventBus(core::event::IEventBus *event_bus) {
 void RadarController::SetTrackLifecycleManager(
 		signal::tracking::ITrackLifecycleManager *lifecycle_manager) {
 	track_lifecycle_manager_ = lifecycle_manager;
-	if (lifecycle_manager != nullptr) {
-		signal_pipeline_.SetInternalAssociationHistoryFallbackEnabled(false);
-	}
 	spdlog::info(
-			"[RadarController] track lifecycle manager {} (fallback auto-enable on detach: false)",
+			"[RadarController] track lifecycle manager {} (association priors: external seeds only)",
 			lifecycle_manager != nullptr ? "attached" : "detached");
 }
 

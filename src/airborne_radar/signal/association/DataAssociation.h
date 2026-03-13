@@ -101,10 +101,6 @@ public:
 	/// @param config 关联配置。
   explicit DataAssociationEngine(DataAssociationConfig config = {});
 
-	/// @brief 启用或关闭内部 history fallback 兼容模式。
-	/// @param enabled 兼容接口参数，当前实现不会启用内部历史关联。
-  void SetInternalHistoryFallbackEnabled(bool enabled);
-
 	/// @brief 更新关联配置。
 	/// @param config 新配置。
   void UpdateConfig(DataAssociationConfig config);
@@ -152,7 +148,7 @@ public:
 
 	/// @brief 重置外部 seeds 注入状态并回归无先验（stateless）模式。
 	/// @details 用于收敛 external seeds 单一入口，清理旁路注入的临时外部 seeds。
-  void ResetAssociationSeedModeToFallbackHistory();
+  void ResetAssociationSeedModeToStateless();
 
 private:
 	/// @brief 关联先验状态来源模式。

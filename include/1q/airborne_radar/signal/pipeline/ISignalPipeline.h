@@ -67,13 +67,9 @@ public:
 		virtual void SetAssociationSeeds(
 				const std::vector<tracking::AssociationTrackSeed> &seeds) = 0;
 
-		/// @brief 启用或关闭内部关联 history fallback 兼容模式。
-		/// @param enabled 兼容接口参数；当前 external-seed-only 架构下仅用于日志告警，不改变关联先验来源。
-		virtual void SetInternalAssociationHistoryFallbackEnabled(bool enabled) = 0;
-
-		/// @brief 清理外部 seeds 状态并恢复 fallback-history 关联模式。
+		/// @brief 清理外部 seeds 状态并恢复无先验（stateless）关联模式。
 		/// @details 用于确保 external seeds 仅由控制器+Lifecycle 链路注入。
-		virtual void ResetAssociationSeedModeToFallbackHistory() = 0;
+		virtual void ResetAssociationSeedModeToStateless() = 0;
 };
 
 } // namespace pipeline

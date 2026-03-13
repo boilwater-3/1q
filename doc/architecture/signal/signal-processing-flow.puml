@@ -3,7 +3,7 @@ skinparam linetype ortho
 skinparam packageStyle rectangle
 skinparam defaultFontName sans-serif
 
-title Signal 层主处理链路（位置唯一主路径 / Lifecycle seeds / FallbackHistoryCache / Kalman / IMM）
+title Signal 层主处理链路（位置唯一主路径 / Lifecycle seeds / Stateless / Kalman / IMM）
 
 rectangle "环境建模输入\n传播损耗 / 杂波 / 干扰" as ENV
 rectangle "回波计算\nSignalDetector" as ECHO
@@ -11,7 +11,6 @@ rectangle "信号检测\nCFAR 探测判决" as DETECT
 rectangle "Lifecycle 关联种子注入\nBuildAssociationSeeds → SetAssociationSeeds" as SEEDS
 rectangle "数据关联\nDataAssociationEngine" as ASSOC
 rectangle "位置空间关联\n预测位置 + 量测位置 + HPH^T + R" as POS_ASSOC
-rectangle "兼容先验缓存\nFallbackHistoryCache" as FALLBACK
 rectangle "跟踪滤波\nTrackFilter（标量特征）" as FILTER
 rectangle "TrackMeasurement 导出\nSignalPipeline bridge" as MEAS
 rectangle "轨迹管理\nTrackLifecycleManager" as LIFECYCLE
@@ -31,7 +30,6 @@ ECHO --> DETECT
 LIFECYCLE --> SEEDS
 SEEDS --> ASSOC
 DETECT --> ASSOC
-FALLBACK --> ASSOC
 ASSOC --> POS_ASSOC
 ASSOC --> FILTER
 FILTER --> MEAS
@@ -56,19 +54,11 @@ note right of ASSOC
   直接触发契约失败。
 end note
 
-note right of FALLBACK
-  仅在未接入 external seeds
-  且内部兼容模式启用时参与。
-  负责 prior fallback，
-  仅缓存 key + position，
-  不再承担 feature-space fallback。
-end note
-
 note right of SEEDS
   当 Controller / Pipeline 已显式注入
   外部 seeds 时，即便 seeds 为空，
   也表示 Lifecycle 已接管先验输入；
-  关联侧不会再回退复用内部兼容缓存。
+  关联侧保持 stateless，不复用内部历史先验。
 end note
 
 note right of FILTER
@@ -96,7 +86,7 @@ end note
 
 note right of POS_ASSOC
   external-seed 路径直接使用 Lifecycle 导出的
-  高斯状态做预测；fallback 路径仅使用 position 先验。
+  高斯状态做预测；无 external seeds 时按 stateless 运行。
   逐轨迹 HPH^T 与逐量测 measurement_covariance(R)
   合成为 FullMahalanobisDistanceMetric 所需的 S。
   external seeds 缺失位置或高斯状态会直接契约失败。

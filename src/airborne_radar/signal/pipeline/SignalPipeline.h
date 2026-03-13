@@ -82,11 +82,8 @@ public:
   void SetAssociationSeeds(
       const std::vector<tracking::AssociationTrackSeed> &seeds) override;
 
-	/// @brief 启用或关闭内部关联 history fallback 兼容模式。
-  void SetInternalAssociationHistoryFallbackEnabled(bool enabled) override;
-
-  /// @brief 清理外部 seeds 状态并恢复 fallback-history 关联模式。
-  void ResetAssociationSeedModeToFallbackHistory() override;
+  /// @brief 清理外部 seeds 状态并恢复无先验（stateless）关联模式。
+  void ResetAssociationSeedModeToStateless() override;
 
   /// @brief 更新信号处理配置。
   void UpdateConfig(SignalPipelineConfig config);

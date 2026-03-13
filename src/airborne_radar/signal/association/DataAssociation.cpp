@@ -128,12 +128,6 @@ DataAssociationEngine::DataAssociationEngine(DataAssociationConfig config)
 
 }
 
-void DataAssociationEngine::SetInternalHistoryFallbackEnabled(bool enabled) {
-  spdlog::warn(
-      "[DataAssociationEngine] internal history fallback switch is ignored in external-seed-only mode (requested={})",
-      enabled ? "enabled" : "disabled");
-}
-
 void DataAssociationEngine::UpdateConfig(DataAssociationConfig config) {
   config_ = config;
   full_distance_metric_ = FullMahalanobisDistanceMetric(
@@ -363,7 +357,7 @@ void DataAssociationEngine::SetAssociationSeeds(
                 external_seed_tracks_.size());
 }
 
-void DataAssociationEngine::ResetAssociationSeedModeToFallbackHistory() {
+void DataAssociationEngine::ResetAssociationSeedModeToStateless() {
   external_seed_tracks_.clear();
   association_seed_mode_ = AssociationSeedMode::kStateless;
 }

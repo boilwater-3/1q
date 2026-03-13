@@ -4,7 +4,7 @@ skinparam packageStyle rectangle
 skinparam defaultFontName sans-serif
 skinparam shadowing false
 
-title Signal 层模块分层（位置唯一主路径 / Lifecycle 种子接管 / FallbackHistoryCache / Kalman / EKF / IMM）
+title Signal 层模块分层（位置唯一主路径 / Lifecycle 种子接管 / Stateless / Kalman / EKF / IMM）
 
 package "编排层" {
   rectangle "RadarController\n跨层调度入口" as CTRL
@@ -16,14 +16,13 @@ package "信号处理算法层" {
   rectangle "EnvironmentSampling / Echo / Detection\n回波与探测判决" as DETECT
 
   package "Association" {
-    rectangle "DataAssociationEngine\n位置主路径 + FallbackHistoryCache 兼容缓存" as ASSOC_ENGINE
+    rectangle "DataAssociationEngine\n位置主路径 + external seeds/stateless" as ASSOC_ENGINE
     rectangle "MahalanobisDistanceMetric\n对角简化马氏距离" as METRIC
     rectangle "FullMahalanobisDistanceMetric\n完整协方差马氏距离" as FULL_METRIC
     rectangle "CostThresholdGater\n波门裁剪" as GATER
     rectangle "DenseCostHypothesiser\n假设生成（支持逐轨迹 S）" as HYP
     rectangle "LapjvSolver\n最优指派" as SOLVER
     rectangle "Association-side Kalman\nPredictor\n（仅 external-seed 位置预测使用）" as ASSOC_KF
-    rectangle "FallbackHistoryCache\n无 Lifecycle 场景兼容缓存" as FALLBACK_CACHE
   }
 
   package "Tracking Filter" {
@@ -72,7 +71,6 @@ ASSOC_ENGINE --> GATER
 ASSOC_ENGINE --> HYP
 ASSOC_ENGINE --> SOLVER
 ASSOC_ENGINE --> ASSOC_KF
-ASSOC_ENGINE --> FALLBACK_CACHE
 FILTER --> KF_PRED
 FILTER --> KF_UPD
 
@@ -87,8 +85,7 @@ note right of PIPELINE
   默认走位置空间关联。
   导出 TrackMeasurement，并接收
   来自 Lifecycle 的外部关联 seeds。
-  绑定 Lifecycle 时会自动关闭
-  内部 fallback 兼容模式。
+  无外部 seeds 时保持 stateless。
 end note
 
 note right of ASSOC_ENGINE
@@ -98,15 +95,8 @@ note right of ASSOC_ENGINE
 
   外部 Lifecycle seeds 一旦接管，
   external seeds 必须携带位置与高斯状态。
-  内部历史仅保留 fallback-only 兼容角色。
-  当前已收敛为 FallbackHistoryCache 对象。
-end note
-
-note right of FALLBACK_CACHE
-  仅在未接入 Lifecycle 种子时启用。
-  承担 prior fallback 的最小兼容能力，
-  仅缓存 key + position，
-  不再扩张正式主路径状态所有权。
+  无 external seeds 时直接按 stateless 执行，
+  不消费内部历史先验。
 end note
 
 note right of IMM

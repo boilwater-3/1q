@@ -383,7 +383,7 @@ TEST_F(CoreControllerTest, LifecycleSeedsDrivePositionAssociationBeforeRunCycle)
 }
 
 TEST_F(CoreControllerTest,
-       EmptyLifecycleSeedsDisableInternalFallbackAcrossCycles) {
+  EmptyLifecycleSeedsKeepAssociationStatelessAcrossCycles) {
   common::TargetFeature target(12.0f, 0.5f, false, 0.1f);
   target.position_x = 55.0f;
   target.position_y = 0.0f;

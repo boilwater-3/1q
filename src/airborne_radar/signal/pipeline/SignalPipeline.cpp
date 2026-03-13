@@ -421,12 +421,8 @@ struct SignalPipeline::Impl {
     association_engine.SetAssociationSeeds(seeds);
   }
 
-  void SetInternalAssociationHistoryFallbackEnabled(bool enabled) {
-    association_engine.SetInternalHistoryFallbackEnabled(enabled);
-  }
-
-  void ResetAssociationSeedModeToFallbackHistory() {
-    association_engine.ResetAssociationSeedModeToFallbackHistory();
+  void ResetAssociationSeedModeToStateless() {
+    association_engine.ResetAssociationSeedModeToStateless();
   }
 
   /// @brief 获取 Kalman 预测器指针（可为 nullptr）。
@@ -481,12 +477,8 @@ void SignalPipeline::SetAssociationSeeds(
   impl_->SetAssociationSeeds(seeds);
 }
 
-void SignalPipeline::SetInternalAssociationHistoryFallbackEnabled(bool enabled) {
-  impl_->SetInternalAssociationHistoryFallbackEnabled(enabled);
-}
-
-void SignalPipeline::ResetAssociationSeedModeToFallbackHistory() {
-  impl_->ResetAssociationSeedModeToFallbackHistory();
+void SignalPipeline::ResetAssociationSeedModeToStateless() {
+  impl_->ResetAssociationSeedModeToStateless();
 }
 
 void SignalPipeline::UpdateConfig(SignalPipelineConfig config) {

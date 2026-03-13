@@ -76,7 +76,7 @@ TEST(DataAssociationEngineTest, KeepsStableAssociationAcrossCycles) {
 }
 
     TEST(DataAssociationEngineTest,
-      DisablingInternalHistoryFallbackMakesAssociationStatelessWithoutSeeds) {
+      StatelessWithoutSeedsMakesAssociationAcrossCyclesIndependent) {
     signal::association::DataAssociationEngine engine;
 
     const common::TargetFeatureList cycle_1{
@@ -103,7 +103,7 @@ TEST(DataAssociationEngineTest, KeepsStableAssociationAcrossCycles) {
   }
 
     TEST(DataAssociationEngineTest,
-      DisablingInternalHistoryFallbackClearsExistingHistoryCache) {
+      StatelessModeDoesNotReusePreviousCycleAssociations) {
     signal::association::DataAssociationEngine engine;
 
     const common::TargetFeatureList warmup_cycle{
@@ -114,8 +114,6 @@ TEST(DataAssociationEngineTest, KeepsStableAssociationAcrossCycles) {
     ASSERT_EQ(first_result.target_keys.size(), 1u);
     ASSERT_NE(first_result.target_keys[0], 0u);
 
-    engine.SetInternalHistoryFallbackEnabled(true);
-
     const signal::association::AssociationResult second_result =
       engine.AssociateDetections(warmup_cycle, detected);
     ASSERT_EQ(second_result.target_keys.size(), 1u);
@@ -124,10 +122,9 @@ TEST(DataAssociationEngineTest, KeepsStableAssociationAcrossCycles) {
     EXPECT_TRUE(second_result.matches.empty());
   }
 
-  TEST(DataAssociationEngineTest,
-       DisablingInternalHistoryFallbackDoesNotBlockExternalSeeds) {
+    TEST(DataAssociationEngineTest,
+      ExternalSeedsStillDriveAssociationWhenProvided) {
     signal::association::DataAssociationEngine engine;
-    engine.SetInternalHistoryFallbackEnabled(false);
 
     signal::tracking::AssociationTrackSeed seed;
     seed.association_key = 88u;
@@ -422,8 +419,8 @@ TEST(DataAssociationEngineTest,
     EXPECT_FALSE(second_result.used_external_association_seeds);
   }
 
-  TEST(DataAssociationEngineTest,
-       EmptyExternalSeedsSuppressInternalHistoryFallback) {
+    TEST(DataAssociationEngineTest,
+      EmptyExternalSeedsKeepsAssociationStateless) {
     signal::association::DataAssociationEngine engine;
 
     const common::TargetFeatureList warmup_cycle{MakePositionTarget(50.0f, 0.0f, 0.0f)};
