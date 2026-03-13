@@ -237,6 +237,18 @@ TEST(DataAssociationEngineTest, ReportsMatchesMissesAndUnassociatedTargets) {
   EXPECT_EQ(result.target_keys[0], keys_1[0]);
   EXPECT_NE(result.target_keys[1], 0u);
   EXPECT_NE(result.target_keys[1], keys_1[0]);
+
+  EXPECT_EQ(result.quality_metrics.prior_track_count, 1u);
+  EXPECT_EQ(result.quality_metrics.detection_count, 2u);
+  EXPECT_EQ(result.quality_metrics.matched_count, 1u);
+  EXPECT_EQ(result.quality_metrics.new_track_count, 1u);
+  EXPECT_EQ(result.quality_metrics.missed_track_count, 0u);
+  EXPECT_FLOAT_EQ(result.quality_metrics.match_rate, 0.5f);
+  EXPECT_FLOAT_EQ(result.quality_metrics.new_track_rate, 0.5f);
+  EXPECT_FLOAT_EQ(result.quality_metrics.missed_track_rate, 0.0f);
+  EXPECT_GT(result.quality_metrics.mean_match_cost, 0.0f);
+  EXPECT_FLOAT_EQ(result.quality_metrics.p95_match_cost,
+                  result.matches[0].cost);
 }
 
 TEST(DataAssociationEngineTest, ReportsMissedTrackKeysWhenNoDetectionArrives) {
@@ -258,6 +270,17 @@ TEST(DataAssociationEngineTest, ReportsMissedTrackKeysWhenNoDetectionArrives) {
   EXPECT_EQ(result.missed_track_keys[0], keys_1[0]);
   ASSERT_EQ(result.target_keys.size(), 1u);
   EXPECT_EQ(result.target_keys[0], 0u);
+
+  EXPECT_EQ(result.quality_metrics.prior_track_count, 1u);
+  EXPECT_EQ(result.quality_metrics.detection_count, 0u);
+  EXPECT_EQ(result.quality_metrics.matched_count, 0u);
+  EXPECT_EQ(result.quality_metrics.new_track_count, 0u);
+  EXPECT_EQ(result.quality_metrics.missed_track_count, 1u);
+  EXPECT_FLOAT_EQ(result.quality_metrics.match_rate, 0.0f);
+  EXPECT_FLOAT_EQ(result.quality_metrics.new_track_rate, 0.0f);
+  EXPECT_FLOAT_EQ(result.quality_metrics.missed_track_rate, 1.0f);
+  EXPECT_FLOAT_EQ(result.quality_metrics.mean_match_cost, 0.0f);
+  EXPECT_FLOAT_EQ(result.quality_metrics.p95_match_cost, 0.0f);
 }
 
   TEST(DataAssociationEngineTest, UsesCartesianPositionByDefaultWhenPositionAvailable) {

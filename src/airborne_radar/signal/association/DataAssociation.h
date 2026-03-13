@@ -51,6 +51,30 @@ struct AssociationMatch {
   float cost{0.0f};
 };
 
+/// @brief 一次关联计算的质量观测指标快照。
+struct AssociationQualityMetrics {
+	/// @brief 进入关联阶段的历史先验轨迹数。
+	std::size_t prior_track_count{0};
+	/// @brief 本周期探测成功并参与关联的量测数。
+	std::size_t detection_count{0};
+	/// @brief 命中已有轨迹的关联数。
+	std::size_t matched_count{0};
+	/// @brief 触发新建轨迹键的量测数。
+	std::size_t new_track_count{0};
+	/// @brief 未命中任何量测的历史轨迹数。
+	std::size_t missed_track_count{0};
+	/// @brief 命中率（matched_count / detection_count）。
+	float match_rate{0.0f};
+	/// @brief 新生率（new_track_count / detection_count）。
+	float new_track_rate{0.0f};
+	/// @brief 漏失率（missed_track_count / prior_track_count）。
+	float missed_track_rate{0.0f};
+	/// @brief 命中关联代价均值（仅统计 matches）。
+	float mean_match_cost{0.0f};
+	/// @brief 命中关联代价 P95（仅统计 matches）。
+	float p95_match_cost{0.0f};
+};
+
 /// @brief 一次关联计算的完整输出。
 struct AssociationResult {
 	/// @brief 成功命中已有轨迹的关联结果列表。
@@ -65,6 +89,8 @@ struct AssociationResult {
   bool used_position_association{false};
 	/// @brief 本周期是否使用了外部注入的轨迹种子作为关联先验。
   bool used_external_association_seeds{false};
+	/// @brief 本周期关联质量观测指标。
+  AssociationQualityMetrics quality_metrics;
 };
 
 /// @brief 数据关联引擎。

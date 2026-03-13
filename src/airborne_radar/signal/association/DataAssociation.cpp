@@ -59,6 +59,58 @@ const char *AssociationPriorSourceName(bool using_external_seeds,
   return "stateless";
 }
 
+float SafeRatio(std::size_t numerator, std::size_t denominator) {
+  if (denominator == 0U) {
+    return 0.0f;
+  }
+  return static_cast<float>(numerator) /
+         static_cast<float>(denominator);
+}
+
+std::size_t ComputeNearestRankP95Index(std::size_t sample_size) {
+  if (sample_size == 0U) {
+    return 0U;
+  }
+  const std::size_t rank = (95U * sample_size + 99U) / 100U;
+  return rank > 0U ? rank - 1U : 0U;
+}
+
+AssociationQualityMetrics BuildAssociationQualityMetrics(
+    std::size_t prior_track_count,
+    std::size_t detection_count,
+    const std::vector<AssociationMatch> &matches,
+    std::size_t new_track_count,
+    std::size_t missed_track_count) {
+  AssociationQualityMetrics metrics;
+  metrics.prior_track_count = prior_track_count;
+  metrics.detection_count = detection_count;
+  metrics.matched_count = matches.size();
+  metrics.new_track_count = new_track_count;
+  metrics.missed_track_count = missed_track_count;
+  metrics.match_rate = SafeRatio(metrics.matched_count, detection_count);
+  metrics.new_track_rate = SafeRatio(new_track_count, detection_count);
+  metrics.missed_track_rate = SafeRatio(missed_track_count, prior_track_count);
+
+  if (matches.empty()) {
+    return metrics;
+  }
+
+  float sum_match_cost = 0.0f;
+  std::vector<float> sorted_costs;
+  sorted_costs.reserve(matches.size());
+  for (std::size_t i = 0; i < matches.size(); ++i) {
+    sum_match_cost += matches[i].cost;
+    sorted_costs.push_back(matches[i].cost);
+  }
+  metrics.mean_match_cost =
+      sum_match_cost / static_cast<float>(matches.size());
+
+  std::sort(sorted_costs.begin(), sorted_costs.end());
+  metrics.p95_match_cost =
+      sorted_costs[ComputeNearestRankP95Index(sorted_costs.size())];
+  return metrics;
+}
+
 } // namespace
 
 /// @brief 构造数据关联引擎并初始化内部组件。
@@ -159,6 +211,9 @@ AssociationResult DataAssociationEngine::AssociateDetections(
         result.missed_track_keys.push_back(fallback_priors[i].key);
       }
     }
+    result.quality_metrics = BuildAssociationQualityMetrics(
+      association_prior_count, 0U, result.matches, 0U,
+      result.missed_track_keys.size());
     spdlog::debug(
         "[DataAssociationEngine] cycle summary: prior_source={} priors={} detections=0 matches=0 missed_tracks={} new_tracks=0",
         prior_source, association_prior_count, result.missed_track_keys.size());
@@ -280,6 +335,11 @@ AssociationResult DataAssociationEngine::AssociateDetections(
   } else {
     ClearConsumedAssociationPriors();
   }
+
+  result.quality_metrics = BuildAssociationQualityMetrics(
+      association_prior_count, measurement_indices.size(), result.matches,
+      result.unassociated_target_indices.size(), result.missed_track_keys.size());
+
   spdlog::debug(
       "[DataAssociationEngine] cycle summary: prior_source={} priors={} detections={} matches={} missed_tracks={} new_tracks={} persisted_fallback_history={}",
       prior_source, association_prior_count, measurement_indices.size(),
