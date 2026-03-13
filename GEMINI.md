@@ -6,13 +6,10 @@ Tech stack:
 - C++ standard : C++11.
 - Build system : CMake 
 - Package manager : Conan
-- Build tool : Ninja
 - Logging : spdlog
 - Testing : GoogleTest
 - Testing : GoogleMock
 - Documentation : Doxygen
-- Diagram (PlantUML) : plantuml 
-- Diagram (Mermaid) : mermaid-cli 
 - Event bus : eventpp
 - Math library : Eigen
 - Math library : Sophus
@@ -25,8 +22,8 @@ This project strictly follows the principle of public/private header separation 
 1q/
 ├── include/1q/                  # [Public API Root Directory]
 │   ├── api.hpp                  # Global export macros and basic definitions
-│   └── airborne_radar/          # Radar core library abstract interfaces
-│   └── ej/                      # electronic jamming (EJ) core library abstract interfaces
+│   └── airborne_radar/          # radar signal processing simulation api
+│   └── ej/                      # electronic jamming simulation api
 ├── src                          # [Private implementation and internal concrete classes]
 │   ├── airborne_radar/          # Radar module. Has a sub GEMINI.md in this dirctory.
 │   ├── ej/                      # electronic jamming (EJ) module. Has a sub GEMINI.md in this dirctory.
@@ -45,9 +42,6 @@ This project strictly follows the principle of public/private header separation 
 - No C++ Exceptions.
 - Log Critical Paths and Events.
 - Inter-module blocking calls are forbidden.
-- Decouple Control Plane from Data Plane: pipeline nodes should only pass state context, and actions must be encapsulated as commands for deferred, unified execution.
-- Decouple high-frequency, cross-layer data using an internal event bus (publish/subscribe) to avoid point-to-point coupling.
-- Strictly prohibit SQL/disk I/O in hot paths; static data must be loaded into memory during the initialization phase.
 
 # Coding Standards
 
@@ -62,19 +56,27 @@ This project strictly follows the principle of public/private header separation 
 
 # Build & Test
 
-- Test dependencies must not pollute the top-level build; they should be managed in the `[test_requires]` section of `conanfile.txt`.
-- Do not use globbing for source files; new `.cpp` files must be explicitly added to the module's source list.
+- Test dependencies must not pollute the top-level build; they should be managed in the `[test_requires]` section of `conanfile.py` (or `vcpkg.json`).
 - To test private implementations (in `src/`), explicitly expose the `src` directory to the test target in `tests/CMakeLists.txt`.
+- Configuration: `cmake --preset llvm-ninja-debug-local`
+- Build: `cmake --build --preset llvm-ninja-debug-local`
+- Test: `ctest --preset llvm-ninja-debug-local`
 
 # AI Behavior
 
-- Prior to modifying files in any subdirectory, proactively search for a local GEMINI.md file. Local instructions take precedence over global ones for that specific scope.
-- Provide concise diffs
-- Explain non-trivial decisions
-- Do not assume missing requirements
-- Leverage CLI tools for maximum efficiency
-- Use Chinese when communicating with users
-- When running terminal commands, prefer background execution and retrieve output via get_terminal_output
+- Provide concise diffs.
+- Do not assume missing requirements.
+- Use Chinese when thinking and communicating with users.
+
+# Terminal Usage
+
+- Prefer background execution and retrieve complete output afterward when terminal output may be truncated or hidden.
+- For commands with large outputs, redirect to file using `> output.txt 2>&1` and read selectively.
+- Never read entire files unless necessary.
+- Always search first using rg or grep.
+- Use line numbers to locate relevant sections.
+- Only read small ranges using sed/head/tail.
+- Avoid commands that produce large outputs.
 
 
 

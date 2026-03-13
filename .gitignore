@@ -23,6 +23,11 @@ Testing/
 doc/airborne-radar.md
 doc/reference/
 
+# project prompts
+.github/
+GEMINI.md
+CLAUDE.md
+
 # Binary artifacts
 *.o
 *.obj
