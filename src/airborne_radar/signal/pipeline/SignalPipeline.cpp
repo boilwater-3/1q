@@ -354,6 +354,9 @@ struct SignalPipeline::Impl {
   : config(initial_config),
     association_engine(ToAssociationConfig(initial_config)),
     track_filter(ToTrackFilterConfig(initial_config)) {
+    association_engine.SetInternalHistoryFallbackEnabled(
+        config.enable_internal_association_history_fallback);
+
     // 按配置条件创建 Kalman 组件
     if (config.enable_kalman_filter) {
       tracking::KalmanPredictorConfig pred_cfg;
@@ -442,6 +445,8 @@ struct SignalPipeline::Impl {
   void UpdateConfig(SignalPipelineConfig new_config) {
     config = new_config;
     association_engine.UpdateConfig(ToAssociationConfig(new_config));
+    association_engine.SetInternalHistoryFallbackEnabled(
+        config.enable_internal_association_history_fallback);
     track_filter.UpdateConfig(ToTrackFilterConfig(new_config));
   }
 
