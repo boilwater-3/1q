@@ -425,6 +425,11 @@ struct SignalPipeline::Impl {
   }
 
   void SetInternalAssociationHistoryFallbackEnabled(bool enabled) {
+    if (enabled &&
+        !config.allow_runtime_enable_internal_association_history_fallback) {
+      association_engine.SetInternalHistoryFallbackEnabled(false);
+      return;
+    }
     association_engine.SetInternalHistoryFallbackEnabled(enabled);
   }
 

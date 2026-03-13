@@ -111,7 +111,10 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
   env_config.jammer_power_db = 0.0f;
   environment::EnvironmentService environment_service(env_config);
 
-  signal::pipeline::SignalPipeline signal_pipeline;
+  signal::pipeline::SignalPipelineConfig pipeline_config;
+  pipeline_config.allow_runtime_enable_internal_association_history_fallback =
+      true;
+  signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
   signal_pipeline.SetInternalAssociationHistoryFallbackEnabled(true);
   common::TargetFeature first(100.0f, 2.0f, false, 1.0f);
   first.position_x = 10.0f;
@@ -177,7 +180,10 @@ TEST(SignalPipelineTest,
   env_config.jammer_power_db = 0.0f;
   environment::EnvironmentService environment_service(env_config);
 
-  signal::pipeline::SignalPipeline signal_pipeline;
+  signal::pipeline::SignalPipelineConfig pipeline_config;
+  pipeline_config.allow_runtime_enable_internal_association_history_fallback =
+      true;
+  signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
   signal_pipeline.SetInternalAssociationHistoryFallbackEnabled(true);
   common::TargetFeature first(100.0f, 2.0f, false, 1.0f);
   first.position_x = 10.0f;
@@ -238,6 +244,41 @@ TEST(SignalPipelineTest,
 
   target.position_x = 10.2f;
   target.range_m = 10.2f;
+  signal_pipeline.RunCycle(common::TargetFeatureList{target},
+                           environment_service);
+  const std::vector<signal::tracking::TrackMeasurement> second_measurements =
+      signal_pipeline.GetLastTrackMeasurements();
+  ASSERT_EQ(second_measurements.size(), 1u);
+  EXPECT_FALSE(second_measurements[0].matched_existing_track);
+  EXPECT_NE(second_measurements[0].association_key, first_key);
+}
+
+TEST(SignalPipelineTest,
+     RejectsRuntimeFallbackEnableByDefaultWithoutCompatibilityFlag) {
+  environment::EnvironmentModelConfig env_config;
+  env_config.jammer_power_db = 0.0f;
+  environment::EnvironmentService environment_service(env_config);
+
+  signal::pipeline::SignalPipeline signal_pipeline;
+  signal_pipeline.SetInternalAssociationHistoryFallbackEnabled(true);
+
+  common::TargetFeature target(100.0f, 2.0f, false, 1.0f);
+  target.position_x = 10.0f;
+  target.position_y = 0.0f;
+  target.position_z = 0.0f;
+  target.range_m = 10.0f;
+
+  signal_pipeline.RunCycle(common::TargetFeatureList{target},
+                           environment_service);
+  const std::vector<signal::tracking::TrackMeasurement> first_measurements =
+      signal_pipeline.GetLastTrackMeasurements();
+  ASSERT_EQ(first_measurements.size(), 1u);
+  const std::uint64_t first_key = first_measurements[0].association_key;
+  EXPECT_NE(first_key, 0u);
+  EXPECT_FALSE(first_measurements[0].matched_existing_track);
+
+  target.position_x = 10.1f;
+  target.range_m = 10.1f;
   signal_pipeline.RunCycle(common::TargetFeatureList{target},
                            environment_service);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =

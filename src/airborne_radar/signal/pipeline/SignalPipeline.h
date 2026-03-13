@@ -52,6 +52,9 @@ struct SignalPipelineConfig {
   /// @brief 是否启用内部关联 history fallback 兼容缓存（默认关闭）。
   bool enable_internal_association_history_fallback{false};
 
+  /// @brief 是否允许通过运行时接口开启内部 fallback 兼容缓存（默认不允许）。
+  bool allow_runtime_enable_internal_association_history_fallback{false};
+
   /// @brief 雷达系统物理参数（仅在 enable_physics_detection = true 时生效）。
   detection::RadarSystemConfig radar_system{};
 

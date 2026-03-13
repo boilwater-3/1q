@@ -561,7 +561,7 @@ sequenceDiagram
 - Lifecycle external seeds 接桥 + `FallbackHistoryCache` 兼容缓存降格
 - `DataAssociationEngine` / `TrackLifecycleManager` / `RadarController` 关键路径摘要日志
 - external seeds 单一入口收敛：`RadarController` 在未挂载 Lifecycle 管理器时会主动清理旁路 external-seed 注入状态；关联层默认保持无状态，除非显式开启 fallback 兼容开关
-- `SignalPipeline` 内部 fallback 兼容缓存默认关闭，需显式开启 `SetInternalAssociationHistoryFallbackEnabled(true)` 才允许跨周期复用
+- `SignalPipeline` 内部 fallback 兼容缓存默认关闭；运行时调用 `SetInternalAssociationHistoryFallbackEnabled(true)` 仅在显式开启兼容配置后才生效
 - 关联质量观测指标闭环：`DataAssociationEngine` 输出 `AssociationQualityMetrics`，`SignalPipeline` 暴露查询接口，`RadarController` 周期日志输出命中率/新生率/漏失率与代价统计
 
 ### 待完善 🔲
