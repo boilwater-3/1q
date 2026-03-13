@@ -328,6 +328,17 @@ TEST_F(CoreControllerTest, LifecycleManagerConsumesRealAssociationMeasurements) 
   EXPECT_FALSE(lifecycle_manager.last_measurements[1].matched_existing_track);
   EXPECT_TRUE(lifecycle_manager.last_measurements[0].has_cartesian_position);
   EXPECT_TRUE(lifecycle_manager.last_measurements[1].has_cartesian_position);
+
+  const signal::pipeline::AssociationQualityMetrics metrics =
+      signal_pipeline.GetLastAssociationQualityMetrics();
+  EXPECT_EQ(metrics.prior_track_count, 0u);
+  EXPECT_EQ(metrics.detection_count, 2u);
+  EXPECT_EQ(metrics.matched_count, 0u);
+  EXPECT_EQ(metrics.new_track_count, 2u);
+  EXPECT_EQ(metrics.missed_track_count, 0u);
+  EXPECT_FLOAT_EQ(metrics.match_rate, 0.0f);
+  EXPECT_FLOAT_EQ(metrics.new_track_rate, 1.0f);
+  EXPECT_FLOAT_EQ(metrics.missed_track_rate, 0.0f);
 }
 
 TEST_F(CoreControllerTest, LifecycleSeedsDrivePositionAssociationBeforeRunCycle) {

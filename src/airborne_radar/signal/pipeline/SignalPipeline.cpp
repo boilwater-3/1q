@@ -25,6 +25,22 @@ namespace pipeline {
 
 namespace {
 
+AssociationQualityMetrics ToPipelineAssociationQualityMetrics(
+    const association::AssociationQualityMetrics &source) {
+  AssociationQualityMetrics metrics;
+  metrics.prior_track_count = source.prior_track_count;
+  metrics.detection_count = source.detection_count;
+  metrics.matched_count = source.matched_count;
+  metrics.new_track_count = source.new_track_count;
+  metrics.missed_track_count = source.missed_track_count;
+  metrics.match_rate = source.match_rate;
+  metrics.new_track_rate = source.new_track_rate;
+  metrics.missed_track_rate = source.missed_track_rate;
+  metrics.mean_match_cost = source.mean_match_cost;
+  metrics.p95_match_cost = source.p95_match_cost;
+  return metrics;
+}
+
 tracking::TrackFilterConfig ToTrackFilterConfig(
     const SignalPipelineConfig &config) {
   tracking::TrackFilterConfig filter_config;
@@ -395,6 +411,11 @@ struct SignalPipeline::Impl {
     return cached_context.track_measurements;
   }
 
+  AssociationQualityMetrics GetLastAssociationQualityMetrics() const {
+    return ToPipelineAssociationQualityMetrics(
+        cached_context.association_result.quality_metrics);
+  }
+
   void SetAssociationSeeds(
       const std::vector<tracking::AssociationTrackSeed> &seeds) {
     association_engine.SetAssociationSeeds(seeds);
@@ -448,6 +469,11 @@ common::TargetFeatureList SignalPipeline::RunCycle(
 std::vector<tracking::TrackMeasurement>
 SignalPipeline::GetLastTrackMeasurements() const {
   return impl_->GetLastTrackMeasurements();
+}
+
+AssociationQualityMetrics
+SignalPipeline::GetLastAssociationQualityMetrics() const {
+  return impl_->GetLastAssociationQualityMetrics();
 }
 
 void SignalPipeline::SetAssociationSeeds(

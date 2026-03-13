@@ -74,6 +74,10 @@ public:
   std::vector<tracking::TrackMeasurement>
   GetLastTrackMeasurements() const override;
 
+  /// @brief 获取最近一次处理周期的关联质量观测指标。
+  AssociationQualityMetrics
+  GetLastAssociationQualityMetrics() const override;
+
   /// @brief 设置本周期关联阶段应使用的轨迹种子。
   void SetAssociationSeeds(
       const std::vector<tracking::AssociationTrackSeed> &seeds) override;

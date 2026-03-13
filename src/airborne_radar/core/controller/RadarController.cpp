@@ -61,6 +61,8 @@ void RadarController::RunOnce() {
 	}
 	const common::TargetFeatureList updated_features =
 			signal_pipeline_.RunCycle(input_features, environment_service_);
+	const signal::pipeline::AssociationQualityMetrics association_metrics =
+			signal_pipeline_.GetLastAssociationQualityMetrics();
 	common::TargetFeatureList decision_features = updated_features;
 	std::size_t measurement_count = 0;
 
@@ -110,12 +112,22 @@ void RadarController::RunOnce() {
 	}
 
 	spdlog::debug(
-			"[RadarController] cycle summary: cycle_index={} batch_id={} input_targets={} association_seeds={} measurements={} decision_features={} commands={} lifecycle_enabled={} jamming_detected={}",
+			"[RadarController] cycle summary: cycle_index={} batch_id={} input_targets={} association_seeds={} measurements={} decision_features={} commands={} lifecycle_enabled={} jamming_detected={} assoc_priors={} assoc_detections={} assoc_matches={} assoc_new_tracks={} assoc_missed_tracks={} assoc_match_rate={:.3f} assoc_new_track_rate={:.3f} assoc_missed_rate={:.3f} assoc_mean_cost={:.3f} assoc_p95_cost={:.3f}",
 			cycle_index_, batch_id_, input_features.size(), association_seed_count,
 			measurement_count, decision_features.size(),
 			context.decision_commands.size(),
 			track_lifecycle_manager_ != nullptr ? "true" : "false",
-			jamming_detected ? "true" : "false");
+			jamming_detected ? "true" : "false",
+			association_metrics.prior_track_count,
+			association_metrics.detection_count,
+			association_metrics.matched_count,
+			association_metrics.new_track_count,
+			association_metrics.missed_track_count,
+			association_metrics.match_rate,
+			association_metrics.new_track_rate,
+			association_metrics.missed_track_rate,
+			association_metrics.mean_match_cost,
+			association_metrics.p95_match_cost);
 
 	++cycle_index_;
 	++batch_id_;

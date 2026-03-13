@@ -18,6 +18,30 @@ namespace airborne_radar {
 namespace signal {
 namespace pipeline {
 
+/// @brief 关联质量观测指标（Pipeline 对外公开版本）。
+struct AssociationQualityMetrics {
+	/// @brief 进入关联阶段的历史先验轨迹数。
+	std::size_t prior_track_count{0};
+	/// @brief 本周期探测成功并参与关联的量测数。
+	std::size_t detection_count{0};
+	/// @brief 命中已有轨迹的关联数。
+	std::size_t matched_count{0};
+	/// @brief 触发新建轨迹键的量测数。
+	std::size_t new_track_count{0};
+	/// @brief 未命中任何量测的历史轨迹数。
+	std::size_t missed_track_count{0};
+	/// @brief 命中率（matched_count / detection_count）。
+	float match_rate{0.0f};
+	/// @brief 新生率（new_track_count / detection_count）。
+	float new_track_rate{0.0f};
+	/// @brief 漏失率（missed_track_count / prior_track_count）。
+	float missed_track_rate{0.0f};
+	/// @brief 命中关联代价均值（仅统计 matches）。
+	float mean_match_cost{0.0f};
+	/// @brief 命中关联代价 P95（仅统计 matches）。
+	float p95_match_cost{0.0f};
+};
+
 /// @brief ISignalPipeline 定义单周期内的探测与跟踪处理流程。
 class ISignalPipeline {
 public:
@@ -34,6 +58,10 @@ public:
 		/// @brief 导出最近一次处理周期生成的跟踪量测。
 		virtual std::vector<tracking::TrackMeasurement>
 		GetLastTrackMeasurements() const = 0;
+
+		/// @brief 导出最近一次处理周期的关联质量观测指标。
+		virtual AssociationQualityMetrics
+		GetLastAssociationQualityMetrics() const = 0;
 
 		/// @brief 设置本周期关联阶段应使用的上一周期轨迹种子。
 		virtual void SetAssociationSeeds(
