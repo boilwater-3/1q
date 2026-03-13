@@ -60,6 +60,7 @@ note right of FALLBACK
   仅在未接入 external seeds
   且内部兼容模式启用时参与。
   负责 prior fallback，
+  仅缓存 key + position，
   不再承担 feature-space fallback。
 end note
 
@@ -94,10 +95,11 @@ note right of KALMAN
 end note
 
 note right of POS_ASSOC
-  当前版本由 DataAssociationEngine 内部维护
-  关联侧兼容高斯状态副本，并将逐轨迹 HPH^T
-  与逐量测 measurement_covariance(R)
+  external-seed 路径直接使用 Lifecycle 导出的
+  高斯状态做预测；fallback 路径仅使用 position 先验。
+  逐轨迹 HPH^T 与逐量测 measurement_covariance(R)
   合成为 FullMahalanobisDistanceMetric 所需的 S。
+  external seeds 缺失位置或高斯状态会直接契约失败。
 end note
 
 note right of LOGS

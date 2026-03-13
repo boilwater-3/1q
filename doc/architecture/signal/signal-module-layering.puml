@@ -22,7 +22,7 @@ package "信号处理算法层" {
     rectangle "CostThresholdGater\n波门裁剪" as GATER
     rectangle "DenseCostHypothesiser\n假设生成（支持逐轨迹 S）" as HYP
     rectangle "LapjvSolver\n最优指派" as SOLVER
-    rectangle "Association-side Kalman\nPredictor / Updater\n（仅位置关联预测使用）" as ASSOC_KF
+    rectangle "Association-side Kalman\nPredictor\n（仅 external-seed 位置预测使用）" as ASSOC_KF
     rectangle "FallbackHistoryCache\n无 Lifecycle 场景兼容缓存" as FALLBACK_CACHE
   }
 
@@ -97,6 +97,7 @@ note right of ASSOC_ENGINE
   逐轨迹新息协方差 S。
 
   外部 Lifecycle seeds 一旦接管，
+  external seeds 必须携带位置与高斯状态。
   内部历史仅保留 fallback-only 兼容角色。
   当前已收敛为 FallbackHistoryCache 对象。
 end note
@@ -104,6 +105,7 @@ end note
 note right of FALLBACK_CACHE
   仅在未接入 Lifecycle 种子时启用。
   承担 prior fallback 的最小兼容能力，
+  仅缓存 key + position，
   不再扩张正式主路径状态所有权。
 end note
 

@@ -8,7 +8,9 @@ Signal 层是机载雷达仿真系统的信号处理核心，负责 **探测 →
 - `FullMahalanobisDistanceMetric` 支持逐轨迹新息协方差 $S$ 联动
 - `TrackLifecycleManager` 已支持每轨 IMM 运行态
 - `RadarController` 会在每周期开始前把 Lifecycle 导出的关联种子注入 `SignalPipeline`
-- `DataAssociationEngine` 已将内部 fallback history 收敛为 `FallbackHistoryCache` 兼容缓存对象
+- `DataAssociationEngine` 已将内部 fallback history 收敛为 `FallbackHistoryCache`（仅 `key + position`）
+- external seeds 进入关联前已收紧为强契约：必须同时携带位置与高斯状态
+- 关联契约失败路径已接入 `spdlog::critical`，并保持 fail-fast（`abort`）
 - `DataAssociationEngine` / `TrackLifecycleManager` / `RadarController` 已补充关键路径摘要日志
 
 ## 文件说明
@@ -39,7 +41,7 @@ Signal 层是机载雷达仿真系统的信号处理核心，负责 **探测 →
 
 ```
 Level 0: TrackFilter（标量特征的最小预测/更新）
-Level 1: DataAssociationEngine（位置唯一主路径 + FallbackHistoryCache 兼容缓存，支持轨迹级 S）
+Level 1: DataAssociationEngine（位置唯一主路径 + FallbackHistoryCache 兼容缓存，仅 position-only fallback）
 Level 2: KalmanPredictor + KalmanUpdater（标准线性 Kalman，3D CV）
 Level 3: EkfPredictor + EkfUpdater（扩展 Kalman，非线性模型支持）
 Level 4: ImmFilter（交互多模型，Bar-Shalom 4 步算法）
