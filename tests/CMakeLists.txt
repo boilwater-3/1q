@@ -16,6 +16,7 @@ set(TEST_SOURCES
     signal_environment_test.cpp
     signal_association_test.cpp
     signal_detection_test.cpp
+    signal_bulk_data_test.cpp
     track_lifecycle_test.cpp
     kalman_filter_test.cpp
     advanced_filter_test.cpp

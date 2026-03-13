@@ -28,7 +28,8 @@ TEST(SignalPipelineTest, KeepsTrackStableWhenDetectionMarginIsEnough) {
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  common::TargetFeature target(800.0f, 2.5f, false, 0.0f);
+  common::TargetFeature target(800.0f, 0.0f, 0.0f, 2.5f, 0.0f, 0.0f,
+                               0.0f);
   target.position_x = 100.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
@@ -43,7 +44,6 @@ TEST(SignalPipelineTest, KeepsTrackStableWhenDetectionMarginIsEnough) {
                   input_state[0].current_track_speed);
   EXPECT_FLOAT_EQ(output_state[0].current_track_rcs,
                   input_state[0].current_track_rcs);
-  EXPECT_FALSE(output_state[0].check_jamming_detected);
 }
 
 TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
@@ -56,8 +56,8 @@ TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  const common::TargetFeatureList input_state{
-      common::TargetFeature(800.0f, 2.5f, false, 1.0f)};
+    const common::TargetFeatureList input_state{common::TargetFeature(
+      800.0f, 0.0f, 0.0f, 2.5f, 1.0f, 0.0f, 0.0f)};
 
   const auto output_state =
       signal_pipeline.RunCycle(input_state, environment_service);
@@ -65,14 +65,14 @@ TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
   ASSERT_EQ(output_state.size(), 1u);
   EXPECT_LT(output_state[0].current_track_speed, input_state[0].current_track_speed);
   EXPECT_LT(output_state[0].current_track_rcs, input_state[0].current_track_rcs);
-  EXPECT_TRUE(output_state[0].check_jamming_detected);
   EXPECT_LT(output_state[0].current_track_acceleration,
             input_state[0].current_track_acceleration);
 }
 
 TEST(TrackFilterTest, KeepsStateWhenDetectionIsStable) {
   signal::tracking::TrackFilter filter;
-  const common::TargetFeature input(800.0f, 2.5f, false, 0.0f);
+  const common::TargetFeature input(800.0f, 0.0f, 0.0f, 2.5f, 0.0f,
+                                    0.0f, 0.0f);
 
   signal::tracking::TrackFilterContext context;
   context.detection_succeeded = true;
@@ -85,12 +85,12 @@ TEST(TrackFilterTest, KeepsStateWhenDetectionIsStable) {
   EXPECT_FLOAT_EQ(output.current_track_rcs, input.current_track_rcs);
   EXPECT_FLOAT_EQ(output.current_track_acceleration,
                   input.current_track_acceleration);
-  EXPECT_FALSE(output.check_jamming_detected);
 }
 
 TEST(TrackFilterTest, AppliesLossDecayAndJammingPenalty) {
   signal::tracking::TrackFilter filter;
-  const common::TargetFeature input(800.0f, 2.5f, false, 1.0f);
+  const common::TargetFeature input(800.0f, 0.0f, 0.0f, 2.5f, 1.0f,
+                                    0.0f, 0.0f);
 
   signal::tracking::TrackFilterContext context;
   context.detection_succeeded = false;
@@ -103,7 +103,6 @@ TEST(TrackFilterTest, AppliesLossDecayAndJammingPenalty) {
   EXPECT_LT(output.current_track_rcs, input.current_track_rcs);
   EXPECT_LT(output.current_track_acceleration,
             input.current_track_acceleration);
-  EXPECT_TRUE(output.check_jamming_detected);
 }
 
 TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
@@ -112,10 +111,12 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  common::TargetFeature first(100.0f, 2.0f, false, 1.0f);
+  common::TargetFeature first(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f,
+                              0.0f);
   first.position_x = 10.0f;
   first.range_m = 10.0f;
-  common::TargetFeature second(220.0f, 5.0f, false, 3.0f);
+  common::TargetFeature second(220.0f, 0.0f, 0.0f, 5.0f, 3.0f, 0.0f,
+                               0.0f);
   second.position_x = 100.0f;
   second.range_m = 100.0f;
   const common::TargetFeatureList cycle_1{first, second};
@@ -186,8 +187,8 @@ TEST(SignalPipelineTest, FailsFastWhenDetectedTargetLacksCartesianPosition) {
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  const common::TargetFeatureList input_state{
-      common::TargetFeature(100.0f, 2.0f, false, 1.0f)};
+    const common::TargetFeatureList input_state{common::TargetFeature(
+      100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f)};
 
   EXPECT_DEATH_IF_SUPPORTED(signal_pipeline.RunCycle(input_state, environment_service),
                             "missing cartesian position");
@@ -200,13 +201,15 @@ TEST(SignalPipelineTest,
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  common::TargetFeature first(100.0f, 2.0f, false, 1.0f);
+  common::TargetFeature first(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f,
+                              0.0f);
   first.position_x = 10.0f;
   first.position_y = 0.0f;
   first.position_z = 0.0f;
   first.range_m = 10.0f;
 
-  common::TargetFeature second(220.0f, 5.0f, false, 3.0f);
+  common::TargetFeature second(220.0f, 0.0f, 0.0f, 5.0f, 3.0f, 0.0f,
+                               0.0f);
   second.position_x = 100.0f;
   second.position_y = 0.0f;
   second.position_z = 0.0f;
@@ -266,7 +269,8 @@ TEST(SignalPipelineTest,
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  common::TargetFeature target(100.0f, 2.0f, false, 1.0f);
+  common::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f,
+                               0.0f);
   target.position_x = 10.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
@@ -313,7 +317,8 @@ TEST(SignalPipelineTest,
     std::vector<signal::tracking::AssociationTrackSeed>(1, side_channel_seed));
   signal_pipeline.ResetAssociationSeedModeToStateless();
 
-  common::TargetFeature target(100.0f, 2.0f, false, 1.0f);
+  common::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f,
+                               0.0f);
   target.position_x = 10.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;

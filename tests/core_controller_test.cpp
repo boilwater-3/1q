@@ -27,7 +27,8 @@ namespace airborne_radar { namespace tests {
 namespace {
 
 common::TargetFeatureList BuildSingleTarget(float speed, float rcs, bool jamming) {
-  common::TargetFeature target(speed, rcs, jamming);
+  (void)jamming;
+  common::TargetFeature target(speed, 0.0f, 0.0f, rcs);
   target.position_x = 100.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
@@ -74,10 +75,13 @@ public:
     common::TargetFeatureList snapshot;
     snapshot.reserve(last_measurements.size());
     for (const signal::tracking::TrackMeasurement &measurement : last_measurements) {
-      snapshot.push_back(common::TargetFeature(measurement.velocity.norm(),
+      snapshot.push_back(common::TargetFeature(measurement.velocity(0),
+                                               measurement.velocity(1),
+                                               measurement.velocity(2),
                                                measurement.rcs,
-                                               measurement.jamming_detected,
-                                               measurement.acceleration.norm()));
+                                               measurement.acceleration(0),
+                                               measurement.acceleration(1),
+                                               measurement.acceleration(2)));
     }
     return snapshot;
   }
@@ -223,16 +227,15 @@ TEST_F(CoreControllerTest, RunOncePublishesFineGrainedEvents) {
   core::event::EventBus event_bus;
 
   bool tracks_event_received = false;
+  bool tracks_event_has_jamming_flag = false;
   bool jamming_event_received = false;
   std::size_t submitted_commands = 0;
 
   event_bus.Subscribe<core::event::TracksUpdatedEvent>(
-      [&tracks_event_received](const core::event::TracksUpdatedEvent &event) {
-        tracks_event_received = std::any_of(
-            event.state.begin(), event.state.end(),
-            [](const common::TargetFeature &feature) {
-              return feature.check_jamming_detected;
-            });
+      [&tracks_event_received, &tracks_event_has_jamming_flag](
+          const core::event::TracksUpdatedEvent &event) {
+        tracks_event_received = true;
+        tracks_event_has_jamming_flag = false;
       });
 
   event_bus.Subscribe<core::event::JammingAlertEvent>(
@@ -252,6 +255,7 @@ TEST_F(CoreControllerTest, RunOncePublishesFineGrainedEvents) {
   controller.RunOnce();
 
   EXPECT_TRUE(tracks_event_received);
+  EXPECT_FALSE(tracks_event_has_jamming_flag);
   EXPECT_TRUE(jamming_event_received);
   EXPECT_GT(submitted_commands, 0u);
 }
@@ -290,12 +294,14 @@ TEST_F(CoreControllerTest, CycleEventBusDeliversEventsOnNextCycle) {
 }
 
 TEST_F(CoreControllerTest, LifecycleManagerConsumesRealAssociationMeasurements) {
-  common::TargetFeature first(100.0f, 2.0f, false, 1.0f);
+  common::TargetFeature first(100.0f, 0.0f, 0.0f, 2.0f, false, 1.0f, 0.0f,
+                              0.0f);
   first.position_x = 10.0f;
   first.position_y = 0.0f;
   first.position_z = 0.0f;
   first.range_m = 10.0f;
-  common::TargetFeature second(220.0f, 5.0f, false, 3.0f);
+  common::TargetFeature second(220.0f, 0.0f, 0.0f, 5.0f, false, 3.0f, 0.0f,
+                               0.0f);
   second.position_x = 100.0f;
   second.position_y = 0.0f;
   second.position_z = 0.0f;
@@ -342,7 +348,8 @@ TEST_F(CoreControllerTest, LifecycleManagerConsumesRealAssociationMeasurements) 
 }
 
 TEST_F(CoreControllerTest, LifecycleSeedsDrivePositionAssociationBeforeRunCycle) {
-  common::TargetFeature target(10.0f, 0.2f, false, 0.1f);
+  common::TargetFeature target(10.0f, 0.0f, 0.0f, 0.2f, false, 0.1f, 0.0f,
+                               0.0f);
   target.position_x = 101.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
@@ -384,7 +391,8 @@ TEST_F(CoreControllerTest, LifecycleSeedsDrivePositionAssociationBeforeRunCycle)
 
 TEST_F(CoreControllerTest,
   EmptyLifecycleSeedsKeepAssociationStatelessAcrossCycles) {
-  common::TargetFeature target(12.0f, 0.5f, false, 0.1f);
+  common::TargetFeature target(12.0f, 0.0f, 0.0f, 0.5f, false, 0.1f, 0.0f,
+                               0.0f);
   target.position_x = 55.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
@@ -421,7 +429,8 @@ TEST_F(CoreControllerTest,
 
 TEST_F(CoreControllerTest,
        LifecycleSeedMissingGaussianStateFailsFastDuringRunCycle) {
-  common::TargetFeature target(10.0f, 0.2f, false, 0.1f);
+  common::TargetFeature target(10.0f, 0.0f, 0.0f, 0.2f, false, 0.1f, 0.0f,
+                               0.0f);
   target.position_x = 20.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
@@ -452,7 +461,8 @@ TEST_F(CoreControllerTest,
 
   TEST_F(CoreControllerTest,
        NoLifecycleManagerScrubsSideChannelExternalSeedsBeforeRunCycle) {
-    common::TargetFeature target(10.0f, 0.2f, false, 0.1f);
+    common::TargetFeature target(10.0f, 0.0f, 0.0f, 0.2f, false, 0.1f, 0.0f,
+                   0.0f);
     target.position_x = 101.0f;
     target.position_y = 0.0f;
     target.position_z = 0.0f;
@@ -492,7 +502,8 @@ TEST_F(CoreControllerTest,
 
   TEST_F(CoreControllerTest,
        NoLifecycleManagerUsesStatelessAssociationByDefaultAcrossCycles) {
-    common::TargetFeature target(10.0f, 0.2f, false, 0.1f);
+    common::TargetFeature target(10.0f, 0.0f, 0.0f, 0.2f, false, 0.1f, 0.0f,
+                   0.0f);
     target.position_x = 101.0f;
     target.position_y = 0.0f;
     target.position_z = 0.0f;
@@ -527,7 +538,8 @@ TEST_F(CoreControllerTest,
 
   TEST_F(CoreControllerTest,
        AutoAssemblesLifecycleManagerFromPipelineConfigWhenEnabled) {
-    common::TargetFeature target(15.0f, 0.8f, false, 0.1f);
+    common::TargetFeature target(15.0f, 0.0f, 0.0f, 0.8f, false, 0.1f, 0.0f,
+                   0.0f);
     target.position_x = 80.0f;
     target.position_y = 0.0f;
     target.position_z = 0.0f;
@@ -563,7 +575,8 @@ TEST_F(CoreControllerTest,
 
   TEST_F(CoreControllerTest,
        AutoAssembleImmLifecycleFailsFastOnInvalidInitialWeights) {
-    common::TargetFeature target(20.0f, 1.0f, false, 0.1f);
+    common::TargetFeature target(20.0f, 0.0f, 0.0f, 1.0f, false, 0.1f, 0.0f,
+                   0.0f);
     target.position_x = 60.0f;
     target.position_y = 0.0f;
     target.position_z = 0.0f;

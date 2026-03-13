@@ -15,11 +15,13 @@ namespace airborne_radar { namespace tests {
 namespace {
 
 common::TargetFeature MakeTarget(float speed, float rcs, float acceleration) {
-  return common::TargetFeature(speed, rcs, false, acceleration);
+  return common::TargetFeature(speed, 0.0f, 0.0f, rcs,
+                               acceleration, 0.0f, 0.0f);
 }
 
 common::TargetFeature MakePositionTarget(float x, float y, float z) {
-  common::TargetFeature target(100.0f, 2.0f, false, 1.0f);
+  common::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f,
+                               0.0f);
   target.position_x = x;
   target.position_y = y;
   target.position_z = z;

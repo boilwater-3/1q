@@ -211,4 +211,62 @@ TEST(TrackLifecycleManagerTest,
   EXPECT_FLOAT_EQ(seeds[0].gaussian_state.mean(4), measurement.position(2));
 }
 
+TEST(TrackLifecycleManagerTest,
+     FilterWritebackUpdatesAccelerationFromVelocityDelta) {
+  signal::tracking::BoostTrackPool pool(4, 16);
+  signal::tracking::LifecycleConfig config;
+  config.confirm_hits = 1;
+
+  signal::tracking::KalmanPredictorConfig pred_cfg;
+  pred_cfg.noise_diff_coeff = 1.0f;
+  signal::tracking::KalmanPredictor predictor(pred_cfg);
+
+  signal::tracking::KalmanUpdaterConfig upd_cfg;
+  upd_cfg.measurement_noise_std = 0.5f;
+  signal::tracking::KalmanUpdater updater(upd_cfg);
+
+  signal::tracking::TrackLifecycleManager manager(pool, config, &predictor, &updater);
+
+  signal::tracking::TrackMeasurement first;
+  first.association_key = 501u;
+  first.matched_existing_track = false;
+  first.has_cartesian_position = true;
+  first.position = Eigen::Vector3f(0.0f, 0.0f, 0.0f);
+  first.velocity = Eigen::Vector3f(1.0f, 2.0f, 0.0f);
+  first.acceleration = Eigen::Vector3f::Zero();
+  first.measurement_covariance = Eigen::Matrix3f::Identity();
+
+  signal::tracking::CycleContext cycle_1;
+  cycle_1.cycle_index = 1u;
+  cycle_1.batch_id = 9001u;
+  manager.Update(cycle_1, {first});
+
+  signal::tracking::TrackMeasurement second = first;
+  second.matched_existing_track = true;
+  second.position = Eigen::Vector3f(1.0f, 2.0f, 0.0f);
+  second.velocity = Eigen::Vector3f(3.0f, 5.0f, 0.0f);
+
+  signal::tracking::CycleContext cycle_2;
+  cycle_2.cycle_index = 2u;
+  cycle_2.batch_id = 9002u;
+  manager.Update(cycle_2, {second});
+
+  const std::vector<const common::TrackState *> active = manager.GetActiveTracks();
+  ASSERT_EQ(active.size(), 1u);
+  EXPECT_GT(active[0]->acceleration.norm(), 0.0f);
+
+  const common::TargetFeatureList snapshot = manager.BuildFeatureSnapshot();
+  ASSERT_EQ(snapshot.size(), 1u);
+  EXPECT_NEAR(snapshot[0].current_track_speed,
+              std::sqrt(snapshot[0].current_track_velocity_x * snapshot[0].current_track_velocity_x +
+                        snapshot[0].current_track_velocity_y * snapshot[0].current_track_velocity_y +
+                        snapshot[0].current_track_velocity_z * snapshot[0].current_track_velocity_z),
+              1e-4f);
+  EXPECT_NEAR(snapshot[0].current_track_acceleration,
+              std::sqrt(snapshot[0].current_track_acceleration_x * snapshot[0].current_track_acceleration_x +
+                        snapshot[0].current_track_acceleration_y * snapshot[0].current_track_acceleration_y +
+                        snapshot[0].current_track_acceleration_z * snapshot[0].current_track_acceleration_z),
+              1e-4f);
+}
+
 } } // namespace airborne_radar::tests
