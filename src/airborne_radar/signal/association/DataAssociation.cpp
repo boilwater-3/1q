@@ -44,8 +44,8 @@ tracking::MeasurementMatrix BuildPositionMeasurementMatrix() {
 
 tracking::MeasurementCovariance BuildDefaultMeasurementCovariance(
     float measurement_noise_std) {
-  return tracking::MeasurementCovariance::Identity() *
-         measurement_noise_std * measurement_noise_std;
+  const float variance = measurement_noise_std * measurement_noise_std;
+  return tracking::MeasurementCovariance::Identity() * variance;
 }
 
 const char *AssociationPriorSourceName(bool using_external_seeds,
@@ -66,8 +66,8 @@ const char *AssociationPriorSourceName(bool using_external_seeds,
 DataAssociationEngine::DataAssociationEngine(DataAssociationConfig config)
   : config_(config),
     full_distance_metric_(Eigen::Matrix3f::Identity() *
-              config.kalman_measurement_noise_std *
-              config.kalman_measurement_noise_std),
+              (config.kalman_measurement_noise_std *
+               config.kalman_measurement_noise_std)),
     gater_(config.unassigned_cost),
     position_hypothesiser_(&full_distance_metric_, &gater_),
     kalman_predictor_(tracking::KalmanPredictorConfig()),
@@ -91,8 +91,9 @@ void DataAssociationEngine::SetInternalHistoryFallbackEnabled(bool enabled) {
 void DataAssociationEngine::UpdateConfig(DataAssociationConfig config) {
   config_ = config;
   full_distance_metric_ = FullMahalanobisDistanceMetric(
-    Eigen::Matrix3f::Identity() * config.kalman_measurement_noise_std *
-    config.kalman_measurement_noise_std);
+    Eigen::Matrix3f::Identity() *
+    (config.kalman_measurement_noise_std *
+     config.kalman_measurement_noise_std));
   gater_ = CostThresholdGater(config.unassigned_cost);
   position_hypothesiser_ = DenseCostHypothesiser(&full_distance_metric_, &gater_);
   tracking::KalmanPredictorConfig predictor_config;
