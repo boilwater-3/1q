@@ -560,7 +560,7 @@ sequenceDiagram
     - `FullMahalanobisDistanceMetric` 可直接消费轨迹级 $S$
 - Lifecycle external seeds 接桥 + `FallbackHistoryCache` 兼容缓存降格
 - `DataAssociationEngine` / `TrackLifecycleManager` / `RadarController` 关键路径摘要日志
-- external seeds 单一入口收敛：`RadarController` 在未挂载 Lifecycle 管理器时会主动清理旁路 external-seed 注入状态，回归 fallback-history 模式
+- external seeds 单一入口收敛：`RadarController` 在未挂载 Lifecycle 管理器时会主动清理旁路 external-seed 注入状态；关联层默认保持无状态，除非显式开启 fallback 兼容开关
 - `SignalPipeline` 内部 fallback 兼容缓存默认关闭，需显式开启 `SetInternalAssociationHistoryFallbackEnabled(true)` 才允许跨周期复用
 - 关联质量观测指标闭环：`DataAssociationEngine` 输出 `AssociationQualityMetrics`，`SignalPipeline` 暴露查询接口，`RadarController` 周期日志输出命中率/新生率/漏失率与代价统计
 

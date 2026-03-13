@@ -153,10 +153,11 @@ void RadarController::SetEventBus(core::event::IEventBus *event_bus) {
 void RadarController::SetTrackLifecycleManager(
 		signal::tracking::ITrackLifecycleManager *lifecycle_manager) {
 	track_lifecycle_manager_ = lifecycle_manager;
-	signal_pipeline_.SetInternalAssociationHistoryFallbackEnabled(
-			lifecycle_manager == nullptr);
+	if (lifecycle_manager != nullptr) {
+		signal_pipeline_.SetInternalAssociationHistoryFallbackEnabled(false);
+	}
 	spdlog::info(
-			"[RadarController] track lifecycle manager {}",
+			"[RadarController] track lifecycle manager {} (fallback auto-enable on detach: false)",
 			lifecycle_manager != nullptr ? "attached" : "detached");
 }
 

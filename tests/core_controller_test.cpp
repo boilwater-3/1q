@@ -490,4 +490,39 @@ TEST_F(CoreControllerTest,
     EXPECT_FALSE(measurements[0].used_external_association_seeds);
   }
 
+  TEST_F(CoreControllerTest,
+       NoLifecycleManagerUsesStatelessAssociationByDefaultAcrossCycles) {
+    common::TargetFeature target(10.0f, 0.2f, false, 0.1f);
+    target.position_x = 101.0f;
+    target.position_y = 0.0f;
+    target.position_z = 0.0f;
+    target.range_m = 101.0f;
+    const common::TargetFeatureList input_state{target};
+    FakeRadarContext radar_context(input_state);
+
+    environment::EnvironmentModelConfig env_config;
+    env_config.jammer_power_db = 0.0f;
+    environment::EnvironmentService environment_service(env_config);
+
+    signal::pipeline::SignalPipeline signal_pipeline;
+
+    core::controller::RadarController controller(
+      radar_context, signal_pipeline, *decision_pipeline_, environment_service);
+
+    controller.RunOnce();
+    const std::vector<signal::tracking::TrackMeasurement> first_measurements =
+      signal_pipeline.GetLastTrackMeasurements();
+    ASSERT_EQ(first_measurements.size(), 1u);
+    EXPECT_FALSE(first_measurements[0].matched_existing_track);
+    const std::uint64_t first_key = first_measurements[0].association_key;
+    EXPECT_NE(first_key, 0u);
+
+    controller.RunOnce();
+    const std::vector<signal::tracking::TrackMeasurement> second_measurements =
+      signal_pipeline.GetLastTrackMeasurements();
+    ASSERT_EQ(second_measurements.size(), 1u);
+    EXPECT_FALSE(second_measurements[0].matched_existing_track);
+    EXPECT_NE(second_measurements[0].association_key, first_key);
+  }
+
 } } // namespace airborne_radar::tests
