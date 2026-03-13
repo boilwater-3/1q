@@ -5,7 +5,6 @@
 #ifndef AIRBORNE_RADAR_CORE_CONTEXT_DECISION_CONTEXT_H_
 #define AIRBORNE_RADAR_CORE_CONTEXT_DECISION_CONTEXT_H_
 
-#include <algorithm>
 #include <vector>
 
 #include "1q/airborne_radar/common/DecisionSourceInfo.h"
@@ -28,6 +27,9 @@ struct TargetClassifierView {
 
   /// @brief LPI 来源信息（可写）。
   common::LpiSourceInfo &lpi_source_info;
+
+  /// @brief ECCM 来源信息（只读，携带全局干扰状态）。
+  const common::EccmSourceInfo &eccm_source_info;
 };
 
 /// @brief LpiControllerView 只对 LPI 控制模块展示的上下文视图。
@@ -72,16 +74,8 @@ struct DecisionContext {
       : targets_features(state),
         target_classification_result(),
         lpi_source_info(),
-        eccm_source_info(IsJammingDetected()),
+        eccm_source_info(false),
         decision_commands() {}
-
-  /// @brief 判断当前周期是否存在干扰。
-  bool IsJammingDetected() const {
-    return std::any_of(targets_features.begin(), targets_features.end(),
-                       [](const common::TargetFeature &target) {
-                         return target.check_jamming_detected;
-                       });
-  }
 
   /// @brief 帮助函数：向指令输出箱添加一条指令。
   /// @param cmd 雷达战术指令。
@@ -96,7 +90,8 @@ inline TargetClassifierView
 CreateTargetClassifierView(DecisionContext &context) {
   return TargetClassifierView{context.targets_features,
                               context.target_classification_result,
-                              context.lpi_source_info};
+                              context.lpi_source_info,
+                              context.eccm_source_info};
 }
 
 inline LpiControllerView

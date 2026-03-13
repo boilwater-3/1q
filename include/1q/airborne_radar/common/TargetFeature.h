@@ -5,6 +5,8 @@
 #ifndef AIRBORNE_RADAR_COMMON_TARGET_FEATURE_H_
 #define AIRBORNE_RADAR_COMMON_TARGET_FEATURE_H_
 
+#include <cmath>
+#include <cstdint>
 #include <vector>
 
 namespace airborne_radar {
@@ -14,16 +16,28 @@ namespace common {
 /// 它作为只读的有效载荷在行为决策层管线中传递。
 /// TODO 目前仅包含几个核心特征，后续可根据需要扩展更多特征字段。
 struct TargetFeature {
-  // @brief 当前被跟踪主要目标的速度（单位：m/s）。
+  // @brief 外部输入原始目标标识符（0 表示未知/未提供）。
+  std::uint64_t external_target_id{0};
+
+  // @brief 目标速度向量（单位：m/s），[vx, vy, vz]。
+  float current_track_velocity_x{0.0f};
+  float current_track_velocity_y{0.0f};
+  float current_track_velocity_z{0.0f};
+
+  // @brief 当前被跟踪主要目标速度模长（单位：m/s）。
+  // @note 由构造函数根据速度向量自动计算赋值，不作为输入参数。
   float current_track_speed{0.0f};
 
   // @brief 目标的估计雷达散射截面积（RCS）（单位：平方米）。
   float current_track_rcs{0.0f};
 
-  // @brief 指示环境层是否检测到活跃的电子干扰。
-  bool check_jamming_detected{false};
+  // @brief 目标加速度向量（单位：m/s^2），[ax, ay, az]。
+  float current_track_acceleration_x{0.0f};
+  float current_track_acceleration_y{0.0f};
+  float current_track_acceleration_z{0.0f};
 
-  // @brief 保留用于其他航迹特征，例如：加速度、高度等。
+  // @brief 当前被跟踪主要目标加速度模长（单位：m/s^2）。
+  // @note 由构造函数根据加速度向量自动计算赋值，不作为输入参数。
   float current_track_acceleration{0.0f};
 
   // @brief 目标到雷达的斜距（单位：m）。
@@ -42,12 +56,28 @@ struct TargetFeature {
   // @brief 默认构造函数
   TargetFeature() = default;
 
-  // @brief 带参数的构造函数，为了方便初始化
-  TargetFeature(float speed, float rcs, bool jamming_detected,
-                float accel = 0.0f, float range = 0.0f, int swerling_type = 0)
-      : current_track_speed(speed), current_track_rcs(rcs),
-        check_jamming_detected(jamming_detected),
-        current_track_acceleration(accel),
+  // @brief 带参数的构造函数，为了方便初始化。
+  // @note 速度/加速度模长由 [vx,vy,vz] 与 [ax,ay,az] 自动计算，调用方只输入向量。
+  TargetFeature(float velocity_x, float velocity_y, float velocity_z,
+      float rcs,
+      float acceleration_x = 0.0f, float acceleration_y = 0.0f,
+      float acceleration_z = 0.0f,
+      float range = 0.0f, int swerling_type = 0,
+      std::uint64_t ext_target_id = 0)
+      : external_target_id(ext_target_id),
+        current_track_velocity_x(velocity_x),
+        current_track_velocity_y(velocity_y),
+        current_track_velocity_z(velocity_z),
+        current_track_speed(std::sqrt(velocity_x * velocity_x +
+                                      velocity_y * velocity_y +
+                                      velocity_z * velocity_z)),
+        current_track_rcs(rcs),
+        current_track_acceleration_x(acceleration_x),
+        current_track_acceleration_y(acceleration_y),
+        current_track_acceleration_z(acceleration_z),
+        current_track_acceleration(std::sqrt(acceleration_x * acceleration_x +
+                                             acceleration_y * acceleration_y +
+                                             acceleration_z * acceleration_z)),
         range_m(range),
         target_swerling_type(swerling_type) {}
 };

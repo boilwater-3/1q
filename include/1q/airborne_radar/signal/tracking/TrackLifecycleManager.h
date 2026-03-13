@@ -101,11 +101,15 @@ private:
   ImmFilter *GetOrCreateImmFilter(std::uint64_t association_key,
                                   const GaussianTrackState &initial_state);
 
-  /// @brief 将高斯状态回写到轨迹的位置和速度字段。
+  /// @brief 将高斯状态回写到轨迹的位置/速度，并由速度变化估计加速度。
   /// @param track 待写回轨迹对象。
   /// @param state 高斯状态。
+  /// @param previous_velocity 回写前速度，用于估计滤波加速度。
+  /// @param dt 周期步长（秒）。
   void ApplyGaussianState(common::TrackState &track,
-                          const GaussianTrackState &state) const;
+                          const GaussianTrackState &state,
+                          const Eigen::Vector3f &previous_velocity,
+                          float dt) const;
 
   /// @brief 根据命中结果推进单条轨迹状态。
   /// @param track 轨迹对象。

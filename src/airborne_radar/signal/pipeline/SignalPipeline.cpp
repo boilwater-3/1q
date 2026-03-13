@@ -114,6 +114,46 @@ tracking::MeasurementCovariance BuildMeasurementCovariance(
   return tracking::MeasurementCovariance::Identity() * var_r;
 }
 
+float ResolveSpeedMagnitude(const common::TargetFeature &target) {
+  const Eigen::Vector3f velocity(target.current_track_velocity_x,
+                                 target.current_track_velocity_y,
+                                 target.current_track_velocity_z);
+  if (velocity.squaredNorm() > 0.0f) {
+    return velocity.norm();
+  }
+  return target.current_track_speed;
+}
+
+Eigen::Vector3f ResolveVelocityVector(const common::TargetFeature &target) {
+  const Eigen::Vector3f velocity(target.current_track_velocity_x,
+                                 target.current_track_velocity_y,
+                                 target.current_track_velocity_z);
+  if (velocity.squaredNorm() > 0.0f) {
+    return velocity;
+  }
+  return Eigen::Vector3f(target.current_track_speed, 0.0f, 0.0f);
+}
+
+float ResolveAccelerationMagnitude(const common::TargetFeature &target) {
+  const Eigen::Vector3f acceleration(target.current_track_acceleration_x,
+                                     target.current_track_acceleration_y,
+                                     target.current_track_acceleration_z);
+  if (acceleration.squaredNorm() > 0.0f) {
+    return acceleration.norm();
+  }
+  return target.current_track_acceleration;
+}
+
+Eigen::Vector3f ResolveAccelerationVector(const common::TargetFeature &target) {
+  const Eigen::Vector3f acceleration(target.current_track_acceleration_x,
+                                     target.current_track_acceleration_y,
+                                     target.current_track_acceleration_z);
+  if (acceleration.squaredNorm() > 0.0f) {
+    return acceleration;
+  }
+  return Eigen::Vector3f(target.current_track_acceleration, 0.0f, 0.0f);
+}
+
 [[noreturn]] void AbortLifecycleAssemblyConfigViolation(
     const char *message,
     float value) {
@@ -361,7 +401,7 @@ protected:
 
     for (std::size_t i = 0; i < count; ++i) {
       context.signal_term_db[i] = input[i].current_track_rcs * 6.0f;
-      context.speed_penalty_db[i] = input[i].current_track_speed * 0.002f;
+      context.speed_penalty_db[i] = ResolveSpeedMagnitude(input[i]) * 0.002f;
     }
   }
 };
@@ -510,6 +550,7 @@ protected:
           FindAssociationMatch(context.association_result, i);
       tracking::TrackMeasurement measurement;
       measurement.source_index = i;
+      measurement.external_target_id = input[i].external_target_id;
       measurement.association_key = context.association_keys[i];
       measurement.matched_existing_track = match != nullptr;
       measurement.association_cost = match != nullptr ? match->cost : 0.0f;
@@ -526,14 +567,12 @@ protected:
                                                    input[i].position_y,
                                                    input[i].position_z)
                                  : Eigen::Vector3f::Zero();
-      measurement.observed_speed = output[i].current_track_speed;
-      measurement.velocity =
-          Eigen::Vector3f(output[i].current_track_speed, 0.0f, 0.0f);
-      measurement.observed_acceleration = output[i].current_track_acceleration;
-      measurement.acceleration =
-          Eigen::Vector3f(output[i].current_track_acceleration, 0.0f, 0.0f);
+        measurement.observed_speed = ResolveSpeedMagnitude(output[i]);
+        measurement.velocity = ResolveVelocityVector(output[i]);
+        measurement.observed_acceleration = ResolveAccelerationMagnitude(output[i]);
+        measurement.acceleration = ResolveAccelerationVector(output[i]);
       measurement.rcs = output[i].current_track_rcs;
-      measurement.jamming_detected = output[i].check_jamming_detected;
+        measurement.jamming_detected = context.environment_snapshot.jamming_detected;
       measurement.measurement_covariance = context.measurement_covariances[i];
 
       context.track_measurements.push_back(measurement);

@@ -106,7 +106,9 @@ ImmFilter *TrackLifecycleManager::GetOrCreateImmFilter(
 }
 
 void TrackLifecycleManager::ApplyGaussianState(common::TrackState &track,
-                                               const GaussianTrackState &state) const {
+                                               const GaussianTrackState &state,
+                                               const Eigen::Vector3f &previous_velocity,
+                                               float dt) const {
   track.gaussian_state = state;
   track.position(0) = state.mean(0);
   track.position(1) = state.mean(2);
@@ -114,6 +116,10 @@ void TrackLifecycleManager::ApplyGaussianState(common::TrackState &track,
   track.velocity(0) = state.mean(1);
   track.velocity(1) = state.mean(3);
   track.velocity(2) = state.mean(5);
+
+  if (dt > 1e-6f) {
+    track.acceleration = (track.velocity - previous_velocity) / dt;
+  }
 }
 
 void TrackLifecycleManager::Update(
@@ -163,6 +169,10 @@ void TrackLifecycleManager::Update(
       track->position = measurement.position;
     }
 
+    if (measurement.external_target_id != 0U) {
+      track->external_target_id = measurement.external_target_id;
+    }
+
     if (measurement.velocity != Eigen::Vector3f::Zero()) {
       track->velocity = measurement.velocity;
     } else {
@@ -183,24 +193,28 @@ void TrackLifecycleManager::Update(
 
     // ---- Kalman/IMM 滤波集成 ----
     if (measurement.has_cartesian_position) {
+      const Eigen::Vector3f velocity_before_filter = track->velocity;
       if (IsImmEnabled()) {
         const GaussianTrackState initial_state = BuildInitialGaussianState(measurement);
         ImmFilter *imm_filter = GetOrCreateImmFilter(
             measurement.association_key,
             measurement.matched_existing_track ? track->gaussian_state : initial_state);
         if (!measurement.matched_existing_track) {
-          ApplyGaussianState(*track, initial_state);
+          ApplyGaussianState(*track, initial_state, velocity_before_filter,
+                             cycle_dt_);
         } else {
           MeasurementVector z;
           z(0) = measurement.position(0);
           z(1) = measurement.position(1);
           z(2) = measurement.position(2);
           imm_filter->Process(z, cycle_dt_);
-          ApplyGaussianState(*track, imm_filter->GetCombinedState());
+          ApplyGaussianState(*track, imm_filter->GetCombinedState(),
+                             velocity_before_filter, cycle_dt_);
         }
       } else if (kalman_predictor_ != nullptr && kalman_updater_ != nullptr) {
         if (!measurement.matched_existing_track) {
-          ApplyGaussianState(*track, BuildInitialGaussianState(measurement));
+          ApplyGaussianState(*track, BuildInitialGaussianState(measurement),
+                             velocity_before_filter, cycle_dt_);
         } else {
           GaussianTrackState predicted =
               kalman_predictor_->Predict(track->gaussian_state, cycle_dt_);
@@ -211,7 +225,8 @@ void TrackLifecycleManager::Update(
           KalmanUpdateResult result =
               kalman_updater_->Update(predicted, z,
                                       measurement.measurement_covariance);
-          ApplyGaussianState(*track, result.posterior);
+          ApplyGaussianState(*track, result.posterior, velocity_before_filter,
+                             cycle_dt_);
         }
       }
     }
@@ -240,13 +255,17 @@ void TrackLifecycleManager::Update(
       std::map<std::uint64_t, std::unique_ptr<ImmFilter> >::iterator imm_found =
           imm_filters_by_key_.find(key);
       if (imm_found != imm_filters_by_key_.end()) {
+        const Eigen::Vector3f velocity_before_filter = track->velocity;
         imm_found->second->Predict(cycle_dt_);
-        ApplyGaussianState(*track, imm_found->second->GetCombinedState());
+        ApplyGaussianState(*track, imm_found->second->GetCombinedState(),
+                           velocity_before_filter, cycle_dt_);
       }
     } else if (kalman_predictor_ != nullptr) {
       // 未命中的轨迹也需要做预测（协方差膨胀，均值外推）
+      const Eigen::Vector3f velocity_before_filter = track->velocity;
       ApplyGaussianState(
-          *track, kalman_predictor_->Predict(track->gaussian_state, cycle_dt_));
+          *track, kalman_predictor_->Predict(track->gaussian_state, cycle_dt_),
+          velocity_before_filter, cycle_dt_);
     }
   }
 
@@ -305,13 +324,17 @@ common::TargetFeatureList TrackLifecycleManager::BuildFeatureSnapshot() const {
       continue;
     }
 
-    const float speed = track->velocity.norm();
-    const float accel = track->acceleration.norm();
-    common::TargetFeature feature(speed, track->rcs,
-                    track->jamming_detected, accel);
+    common::TargetFeature feature(track->velocity(0),
+                    track->velocity(1),
+                    track->velocity(2),
+                    track->rcs,
+                    track->acceleration(0),
+                    track->acceleration(1),
+                    track->acceleration(2));
     feature.position_x = track->position(0);
     feature.position_y = track->position(1);
     feature.position_z = track->position(2);
+    feature.external_target_id = track->external_target_id;
     features.push_back(feature);
   }
 
@@ -379,6 +402,7 @@ void TrackLifecycleManager::PromoteState(common::TrackState &track,
 
 void TrackLifecycleManager::ResetForReuse(common::TrackState &track) const {
   track.batch_id = 0;
+  track.external_target_id = 0;
   track.status = common::TrackStatus::kTentative;
   track.first_cycle = 0;
   track.last_update_cycle = 0;

@@ -97,14 +97,13 @@ void RadarController::RunOnce() {
 	}
 
 	core::context::DecisionContext context(decision_features);
+	const bool environment_jamming_detected =
+			environment_service_.SampleEnvironment().jamming_detected;
+	context.eccm_source_info.has_jamming_signal = environment_jamming_detected;
 	decision_pipeline_.ProcessTactics(context);
 	ExecuteCommands(context);
 
-	const bool jamming_detected = std::any_of(
-			decision_features.begin(), decision_features.end(),
-			[](const common::TargetFeature &feature) {
-				return feature.check_jamming_detected;
-			});
+	const bool jamming_detected = environment_jamming_detected;
 
 	if (event_bus_ != nullptr) {
 		core::event::TracksUpdatedEvent tracks_event;

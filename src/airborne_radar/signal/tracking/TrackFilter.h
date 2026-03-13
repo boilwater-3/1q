@@ -26,11 +26,22 @@ struct TrackFilterContext {
 
 struct PredictedTrackState {
 	PredictedTrackState() = default;
-	PredictedTrackState(float s, float r, float a) : speed(s), rcs(r), acceleration(a) {}
+	PredictedTrackState(float s, float r, float a,
+							 float vx, float vy, float vz,
+							 float ax, float ay, float az)
+			: speed(s), rcs(r), acceleration(a),
+				velocity_x(vx), velocity_y(vy), velocity_z(vz),
+				acceleration_x(ax), acceleration_y(ay), acceleration_z(az) {}
 
 	float speed{0.0f};
 	float rcs{0.0f};
 	float acceleration{0.0f};
+	float velocity_x{0.0f};
+	float velocity_y{0.0f};
+	float velocity_z{0.0f};
+	float acceleration_x{0.0f};
+	float acceleration_y{0.0f};
+	float acceleration_z{0.0f};
 };
 
 class ITrackPredictor {

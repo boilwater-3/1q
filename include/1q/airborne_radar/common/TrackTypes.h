@@ -39,6 +39,9 @@ struct TrackState {
   /// @brief 轨迹所属发现批号（首次建轨批次号）。
   std::uint64_t batch_id{0};
 
+  /// @brief 外部输入原始目标标识符（0 表示未知/未提供）。
+  std::uint64_t external_target_id{0};
+
   /// @brief 复用代次，用于识别已回收对象的旧引用。
   std::uint32_t generation{0};
 

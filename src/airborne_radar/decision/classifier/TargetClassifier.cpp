@@ -46,7 +46,7 @@ void TargetClassifier::ProcessView(core::context::TargetClassifierView &view) {
     const common::TargetFeature &target = view.targets_features[i];
     const float track_speed = target.current_track_speed;
     const float track_rcs = target.current_track_rcs;
-    const bool jamming_detected = target.check_jamming_detected;
+    const bool jamming_detected = false; // TODO 不一定是全局干扰，这里感觉不应该是干扰
 
     // 首先尝试使用外部特征仓储进行分类匹配（带过滤）。
     std::string classification = "UNKNOWN";
@@ -107,7 +107,7 @@ float TargetClassifier::ComputeThreatScore(
   float threat_score = 0.0f;
   const float track_speed = target.current_track_speed;
   const float track_rcs = target.current_track_rcs;
-  const bool jamming_detected = target.check_jamming_detected;
+  const bool jamming_detected = false;
 
   if (track_speed > 300.0f) {
     threat_score += 2.0f;

@@ -48,6 +48,9 @@ struct TrackMeasurement {
   /// @brief 原始输入目标索引，用于调试和结果回溯。
   std::size_t source_index{0};
 
+  /// @brief 外部输入原始目标标识符（0 表示未知/未提供）。
+  std::uint64_t external_target_id{0};
+
   /// @brief 关联键（例如关联模块输出的轨迹键）。
   std::uint64_t association_key{0};
 
