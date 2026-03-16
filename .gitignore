@@ -26,6 +26,7 @@ doc/reference/
 # project prompts
 .github/
 GEMINI.md
+AGENTS.md
 CLAUDE.md
 
 # Binary artifacts
