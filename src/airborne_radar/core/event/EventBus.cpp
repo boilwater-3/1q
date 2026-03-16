@@ -7,11 +7,11 @@
 namespace airborne_radar { namespace core { namespace event {
 
 EventToken EventBus::SubscribeImpl(std::type_index type,
-											std::function<void(const EventPayload &)> handler) {
-	const auto handle = dispatcher_.appendListener(type, std::move(handler));
-	const std::size_t id = ++next_id_;
-	listeners_.emplace(id, ListenerRecord{type, handle});
-	return EventToken{type, id};
+												std::function<void(const EventPayload &)> handler) {
+		const auto handle = dispatcher_.appendListener(type, handler);
+		const std::size_t id = ++next_id_;
+		listeners_.emplace(id, ListenerRecord{type, handle});
+		return EventToken{type, id};
 }
 
 void EventBus::PublishImpl(std::type_index type, EventPayload payload) {

@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <memory>
 #include <numeric>
+#include <utility>
 #include <vector>
 
 #include <Eigen/Core>
@@ -587,9 +588,9 @@ private:
 
 struct SignalPipeline::Impl {
   explicit Impl(SignalPipelineConfig initial_config)
-  : config(initial_config),
-    association_engine(ToAssociationConfig(initial_config)),
-    track_filter(ToTrackFilterConfig(initial_config)) {
+  : config(std::move(initial_config)),
+    association_engine(ToAssociationConfig(config)),
+    track_filter(ToTrackFilterConfig(config)) {
     // 按配置条件创建 Kalman 组件
     if (config.enable_kalman_filter) {
       tracking::KalmanPredictorConfig pred_cfg;
@@ -681,9 +682,9 @@ struct SignalPipeline::Impl {
   }
 
   void UpdateConfig(SignalPipelineConfig new_config) {
-    config = new_config;
-    association_engine.UpdateConfig(ToAssociationConfig(new_config));
-    track_filter.UpdateConfig(ToTrackFilterConfig(new_config));
+    config = std::move(new_config);
+    association_engine.UpdateConfig(ToAssociationConfig(config));
+    track_filter.UpdateConfig(ToTrackFilterConfig(config));
   }
 
   SignalPipelineConfig config{};
@@ -697,7 +698,7 @@ struct SignalPipeline::Impl {
 };
 
 SignalPipeline::SignalPipeline(SignalPipelineConfig config)
-    : impl_(std::unique_ptr<Impl>(new Impl(config))) {}
+    : impl_(std::unique_ptr<Impl>(new Impl(std::move(config)))) {}
 
 SignalPipeline::~SignalPipeline() = default;
 
@@ -732,7 +733,7 @@ SignalPipeline::CreateAutoLifecycleManager() const {
 }
 
 void SignalPipeline::UpdateConfig(SignalPipelineConfig config) {
-  impl_->UpdateConfig(config);
+  impl_->UpdateConfig(std::move(config));
 }
 
 } // namespace pipeline

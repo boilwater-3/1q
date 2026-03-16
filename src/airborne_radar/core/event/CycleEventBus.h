@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <typeindex>
 #include <unordered_map>
+#include <utility>
 
 #include <eventpp/eventqueue.h>
 
@@ -55,7 +56,9 @@ private:
 	struct ListenerRecord {
 		ListenerRecord() = default;
 		ListenerRecord(std::type_index t, Handle q0, Handle q1) 
-		    : type(t), queue_zero_handle(q0), queue_one_handle(q1) {}
+		    : type(t),
+		      queue_zero_handle(std::move(q0)),
+		      queue_one_handle(std::move(q1)) {}
 
 		std::type_index type{typeid(void)};
 		Handle queue_zero_handle{};

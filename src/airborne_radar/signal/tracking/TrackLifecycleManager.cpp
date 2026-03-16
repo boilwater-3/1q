@@ -370,10 +370,9 @@ void TrackLifecycleManager::PromoteState(common::TrackState &track,
                                          std::uint32_t cycle_index,
                                          bool hit_this_cycle) {
   if (hit_this_cycle) {
-    if (track.status == common::TrackStatus::kTentative &&
-        track.hit_count >= config_.confirm_hits) {
-      track.status = common::TrackStatus::kConfirmed;
-    } else if (track.status == common::TrackStatus::kLost) {
+    if (track.status == common::TrackStatus::kLost ||
+        (track.status == common::TrackStatus::kTentative &&
+         track.hit_count >= config_.confirm_hits)) {
       track.status = common::TrackStatus::kConfirmed;
     }
     return;

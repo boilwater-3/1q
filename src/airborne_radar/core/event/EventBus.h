@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <typeindex>
 #include <unordered_map>
+#include <utility>
 
 #include <eventpp/eventdispatcher.h>
 
@@ -41,7 +42,8 @@ private:
 
 	struct ListenerRecord {
 		ListenerRecord() = default;
-		ListenerRecord(std::type_index t, Handle h) : type(t), handle(h) {}
+		ListenerRecord(std::type_index t, Handle h)
+				: type(t), handle(std::move(h)) {}
 
 		std::type_index type{typeid(void)};
 		Handle handle{};

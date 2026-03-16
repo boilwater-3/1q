@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "1q/airborne_radar/common/RadarCommand.h"
@@ -43,7 +44,7 @@ class FakeRadarContext : public core::context::IRadarContext {
 public:
   /// @brief 构造函数，注入固定的输入状态。
   explicit FakeRadarContext(common::TargetFeatureList state)
-      : state_(state) {}
+      : state_(std::move(state)) {}
 
   /// @brief 获取当前雷达状态。
   common::TargetFeatureList GetTargetFeatures() const override { return state_; }
@@ -100,7 +101,7 @@ class FixedSeedLifecycleManager : public signal::tracking::ITrackLifecycleManage
 public:
   explicit FixedSeedLifecycleManager(
       std::vector<signal::tracking::AssociationTrackSeed> initial_seeds)
-      : seeds_(initial_seeds) {}
+      : seeds_(std::move(initial_seeds)) {}
 
   void Update(const signal::tracking::CycleContext &cycle,
               const std::vector<signal::tracking::TrackMeasurement> &measurements) override {
@@ -233,7 +234,7 @@ TEST_F(CoreControllerTest, RunOncePublishesFineGrainedEvents) {
 
   event_bus.Subscribe<core::event::TracksUpdatedEvent>(
       [&tracks_event_received, &tracks_event_has_jamming_flag](
-          const core::event::TracksUpdatedEvent &event) {
+          const core::event::TracksUpdatedEvent &) {
         tracks_event_received = true;
         tracks_event_has_jamming_flag = false;
       });

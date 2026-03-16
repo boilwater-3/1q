@@ -1,0 +1,23 @@
+---
+Checks: >-
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-exception-escape,
+  -bugprone-reserved-identifier,
+  performance-for-range-copy,
+  performance-implicit-conversion-in-loop,
+  performance-inefficient-algorithm,
+  performance-inefficient-string-concatenation,
+  performance-move-const-arg,
+  performance-move-constructor-init,
+  performance-type-promotion-in-math-fn,
+  performance-unnecessary-copy-initialization,
+  performance-unnecessary-value-param
+WarningsAsErrors: >-
+  bugprone-*
+HeaderFilterRegex: '^(.*(/include/1q/|/src/|/tests/).*)$'
+FormatStyle: none
+SystemHeaders: false
+UseColor: false
+

@@ -16,18 +16,6 @@ static common::RadarCommand BuildLpiPowerCommand() {
                               common::RadarCommandSource::LPI);
 }
 
-/// @brief 生成 LPI 波束控制指令（当前为预留占位命令）。
-static common::RadarCommand BuildLpiBeamformingCommand() {
-  return common::RadarCommand(common::RadarCommandType::SET_LPI_BEAMFORMING,
-                              common::RadarCommandSource::LPI);
-}
-
-/// @brief 生成 LPI 驻留控制指令（当前为预留占位命令）。
-static common::RadarCommand BuildLpiDwellCommand() {
-  return common::RadarCommand(common::RadarCommandType::SET_LPI_DWELL,
-                              common::RadarCommandSource::LPI);
-}
-
 } // namespace
 
 core::context::LpiControllerView LpiController::CreateView(
@@ -40,7 +28,7 @@ void LpiController::ProcessView(core::context::LpiControllerView &view) {
     // 识别到侦察类平台后，生成本周期 LPI 控制指令（当前仅启用功率控制，后续可根据需求启用更多控制维度）。
     view.decision_commands.push_back(BuildLpiPowerCommand());
     spdlog::info("[LpiController] High threat detected. Appending command: "
-                 "SET_LPI_POWER, SET_LPI_BEAMFORMING, SET_LPI_DWELL");
+                 "SET_LPI_POWER");
   } else {
     spdlog::info(
         "[LpiController] No severe threat. LPI control remains inactive.");

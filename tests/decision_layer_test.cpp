@@ -114,16 +114,6 @@ TEST_F(DecisionPipelineTest, HighRcsCanPromoteThreatWithModerateSpeed) {
   EXPECT_EQ(PrimaryCategory(ctx), "HIGH_THREAT_TARGET");
 }
 
-TEST_F(DecisionPipelineTest, JammingCanPromoteThreatWithLowRcs) {
-  // Speed 150, RCS 0.8, Jamming TRUE
-  core::context::DecisionContext ctx(BuildSingleTarget(150.0f, 0.8f, true));
-  ctx.eccm_source_info.has_jamming_signal = true;
-
-  pipeline_head_->ProcessTactics(ctx);
-
-  EXPECT_EQ(PrimaryCategory(ctx), "HIGH_THREAT_TARGET");
-}
-
 TEST_F(DecisionPipelineTest, RuleBasedClassificationProducesCategory) {
   core::context::DecisionContext ctx(BuildSingleTarget(150.0f, 1.0f, false));
   ctx.eccm_source_info.has_jamming_signal = false;

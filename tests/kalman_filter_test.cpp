@@ -43,8 +43,11 @@ GaussianTrackState MakePrior(float x, float vx,
 
   StateCovariance P = StateCovariance::Zero();
   for (int axis = 0; axis < 3; ++axis) {
-    P(axis * 2, axis * 2) = initial_pos_var;
-    P(axis * 2 + 1, axis * 2 + 1) = initial_vel_var;
+    const Eigen::Index axis_index = static_cast<Eigen::Index>(axis);
+    const Eigen::Index position_index = axis_index * 2;
+    const Eigen::Index velocity_index = position_index + 1;
+    P(position_index, position_index) = initial_pos_var;
+    P(velocity_index, velocity_index) = initial_vel_var;
   }
 
   return GaussianTrackState(mean, P);

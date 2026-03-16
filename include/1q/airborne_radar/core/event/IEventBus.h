@@ -33,7 +33,7 @@ public:
 	/// @param handler 事件回调。
 	/// @return 订阅句柄。
 	template <typename Event>
-	EventToken Subscribe(std::function<void(const Event &)> handler) {
+	EventToken Subscribe(const std::function<void(const Event &)> &handler) {
 		return SubscribeImpl(
 				typeid(Event),
 				[handler](const EventPayload &payload) {
