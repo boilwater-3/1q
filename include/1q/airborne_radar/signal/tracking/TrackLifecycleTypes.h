@@ -23,6 +23,10 @@ struct CycleContext {
 
   /// @brief 当前探测批号。
   std::uint64_t batch_id{0};
+
+  /// @brief 当前周期时间步长（秒）。
+  /// @note 由外部平台模型提供；当值 <= 0 时，Lifecycle 会按内部兜底规则回退。
+  float dt_sec{0.0f};
 };
 
 /// @brief AssociationTrackSeed 描述关联阶段使用的上一周期轨迹种子。

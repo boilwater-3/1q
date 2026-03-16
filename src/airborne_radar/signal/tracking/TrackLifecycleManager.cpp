@@ -125,6 +125,9 @@ void TrackLifecycleManager::ApplyGaussianState(common::TrackState &track,
 void TrackLifecycleManager::Update(
     const CycleContext &cycle,
     const std::vector<TrackMeasurement> &measurements) {
+  bool dt_fallback_used = false;
+  const float effective_dt_sec =
+      ResolveEffectiveCycleDeltaTimeSec(cycle, &dt_fallback_used);
   std::map<std::uint64_t, bool> hit_flags;
   std::size_t new_track_count = 0;
   std::size_t updated_track_count = 0;
@@ -204,23 +207,24 @@ void TrackLifecycleManager::Update(
                 : initial_state);
         if (!measurement.raw_measurement.matched_existing_track) {
           ApplyGaussianState(*track, initial_state, velocity_before_filter,
-                             cycle_dt_);
+                             effective_dt_sec);
         } else {
           MeasurementVector z;
           z(0) = measurement.raw_measurement.position(0);
           z(1) = measurement.raw_measurement.position(1);
           z(2) = measurement.raw_measurement.position(2);
-          imm_filter->Process(z, cycle_dt_);
+          imm_filter->Process(z, effective_dt_sec);
           ApplyGaussianState(*track, imm_filter->GetCombinedState(),
-                             velocity_before_filter, cycle_dt_);
+                             velocity_before_filter, effective_dt_sec);
         }
       } else if (kalman_predictor_ != nullptr && kalman_updater_ != nullptr) {
         if (!measurement.raw_measurement.matched_existing_track) {
           ApplyGaussianState(*track, BuildInitialGaussianState(measurement),
-                             velocity_before_filter, cycle_dt_);
+                             velocity_before_filter, effective_dt_sec);
         } else {
           GaussianTrackState predicted =
-              kalman_predictor_->Predict(track->gaussian_state, cycle_dt_);
+              kalman_predictor_->Predict(track->gaussian_state,
+                                         effective_dt_sec);
           MeasurementVector z;
           z(0) = measurement.raw_measurement.position(0);
           z(1) = measurement.raw_measurement.position(1);
@@ -230,7 +234,7 @@ void TrackLifecycleManager::Update(
                                       measurement.raw_measurement
                                           .measurement_covariance);
           ApplyGaussianState(*track, result.posterior, velocity_before_filter,
-                             cycle_dt_);
+                             effective_dt_sec);
         }
       }
     }
@@ -260,23 +264,20 @@ void TrackLifecycleManager::Update(
           imm_filters_by_key_.find(key);
       if (imm_found != imm_filters_by_key_.end()) {
         const Eigen::Vector3f velocity_before_filter = track->velocity;
-        imm_found->second->Predict(cycle_dt_);
+        imm_found->second->Predict(effective_dt_sec);
         ApplyGaussianState(*track, imm_found->second->GetCombinedState(),
-                           velocity_before_filter, cycle_dt_);
+                           velocity_before_filter, effective_dt_sec);
       }
     } else if (kalman_predictor_ != nullptr) {
       // 未命中的轨迹也需要做预测（协方差膨胀，均值外推）
       const Eigen::Vector3f velocity_before_filter = track->velocity;
       ApplyGaussianState(
-          *track, kalman_predictor_->Predict(track->gaussian_state, cycle_dt_),
-          velocity_before_filter, cycle_dt_);
+          *track,
+          kalman_predictor_->Predict(track->gaussian_state, effective_dt_sec),
+          velocity_before_filter, effective_dt_sec);
     }
   }
 
-  // 更新周期时间信息
-  if (cycle.cycle_index > last_cycle_index_ && last_cycle_index_ > 0) {
-    cycle_dt_ = static_cast<float>(cycle.cycle_index - last_cycle_index_);
-  }
   last_cycle_index_ = cycle.cycle_index;
 
   for (std::vector<std::uint64_t>::const_iterator it = keys_to_recycle.begin();
@@ -293,10 +294,37 @@ void TrackLifecycleManager::Update(
   }
 
   spdlog::debug(
-      "[TrackLifecycleManager] cycle summary: cycle_index={} measurements={} new_tracks={} updated_tracks={} predicted_without_hit={} recycled_tracks={} active_tracks={} imm_enabled={}",
+      "[TrackLifecycleManager] cycle summary: cycle_index={} measurements={} new_tracks={} updated_tracks={} predicted_without_hit={} recycled_tracks={} active_tracks={} imm_enabled={} dt_sec={:.3f} dt_fallback_used={}",
       cycle.cycle_index, measurements.size(), new_track_count, updated_track_count,
       predicted_without_hit_count, keys_to_recycle.size(), tracks_by_key_.size(),
-      IsImmEnabled() ? "true" : "false");
+      IsImmEnabled() ? "true" : "false", effective_dt_sec,
+      dt_fallback_used ? "true" : "false");
+}
+
+float TrackLifecycleManager::ResolveEffectiveCycleDeltaTimeSec(
+    const CycleContext &cycle,
+    bool *dt_fallback_used) const {
+  if (dt_fallback_used != nullptr) {
+    *dt_fallback_used = false;
+  }
+
+  if (cycle.dt_sec > 0.0f) {
+    return cycle.dt_sec;
+  }
+
+  if (dt_fallback_used != nullptr) {
+    *dt_fallback_used = true;
+  }
+
+  spdlog::warn(
+      "[TrackLifecycleManager] invalid external dt_sec={}, fallback to "
+      "cycle-index-derived step",
+      cycle.dt_sec);
+
+  if (last_cycle_index_ > 0 && cycle.cycle_index > last_cycle_index_) {
+    return static_cast<float>(cycle.cycle_index - last_cycle_index_);
+  }
+  return 1.0f;
 }
 
 std::vector<const common::TrackState *> TrackLifecycleManager::GetActiveTracks()

@@ -137,6 +137,7 @@ flowchart LR
 - `SignalPipeline` 会在 `SignalCycleContext` 中提前构造 `measurement_covariance`，供关联与 Lifecycle 更新共享同一份动态 $R$
 - `TrackMeasurement` 当前明确拆分为 `raw_measurement` 与 `filtered_feature` 两段：前者承载位置量测与关联语义，后者承载 `TrackFilter` 回写后的动态特征
 - `SignalPipeline` 只有在输入 `TargetFeature` 已携带 `position_x/y/z` 时，才会导出 `raw_measurement.has_cartesian_position = true` 的 `TrackMeasurement`
+- `TrackLifecycleManager` 的状态估计步长优先读取外部模型注入的 `CycleContext.dt_sec`；当 `dt_sec <= 0` 时，才回退到基于 `cycle_index` 差分的兜底规则
 - 当成功探测目标位置量测不完整时，当前实现会直接触发契约失败
 - external seeds 缺失位置或高斯状态时，当前实现会直接触发契约失败
 - `RadarController` 绑定 `TrackLifecycleManager` 时，会强制维持 external seeds 主路径；解绑后会显式回到 stateless 关联
@@ -151,6 +152,11 @@ flowchart LR
 |---------|---------|------|
 | Lifecycle external seeds | 位置空间主关联 | 唯一先验主路径（必须含位置+高斯态） |
 | 无 external seeds | 位置空间主关联 | stateless（不消费内部历史先验） |
+
+另外，`TargetFeature` 与对象池内的 `TrackState` 当前保持明确分层：
+- `TargetFeature` 服务于外部输入、Signal 输入和 Decision 输出
+- `TrackState` 仅服务于 Lifecycle 内部状态机、Gaussian 状态与对象池复用
+- 若未来要减少重复构造，应引入共享轻量观测/运动学结构，而不是直接把 `TrackState` 暴露为公共输入类型
 
 ## 3. 状态估计滤波器
 

@@ -123,6 +123,13 @@ private:
   /// @param track 待重置轨迹对象。
   void ResetForReuse(common::TrackState &track) const;
 
+  /// @brief 解析本周期状态估计使用的有效时间步长。
+  /// @param cycle 当前周期上下文。
+  /// @param dt_fallback_used 输出是否触发内部兜底。
+  /// @return 有效时间步长（秒）。
+  float ResolveEffectiveCycleDeltaTimeSec(const CycleContext &cycle,
+                                          bool *dt_fallback_used) const;
+
 private:
 	/// @brief 轨迹对象池抽象，用于对象申请与归还。
   ITrackPool &pool_;
@@ -159,9 +166,6 @@ private:
 
   /// @brief 上一周期编号，用于计算 dt。
   std::uint32_t last_cycle_index_{0};
-
-  /// @brief 每周期时间步长（秒）。
-  float cycle_dt_{1.0f};
 };
 
 } // namespace tracking

@@ -87,16 +87,17 @@ void RadarController::RunOnce() {
 	common::TargetFeatureList decision_features = updated_features;
 	std::size_t measurement_count = 0;
 
-	if (track_lifecycle_manager_ != nullptr) {
-		const std::vector<signal::tracking::TrackMeasurement> measurements =
-				signal_pipeline_.GetLastTrackMeasurements();
-		measurement_count = measurements.size();
-		signal::tracking::CycleContext cycle;
-		cycle.cycle_index = cycle_index_;
-		cycle.batch_id = batch_id_;
-		track_lifecycle_manager_->Update(cycle, measurements);
-		decision_features = track_lifecycle_manager_->BuildFeatureSnapshot();
-	}
+		if (track_lifecycle_manager_ != nullptr) {
+			const std::vector<signal::tracking::TrackMeasurement> measurements =
+					signal_pipeline_.GetLastTrackMeasurements();
+			measurement_count = measurements.size();
+			signal::tracking::CycleContext cycle;
+			cycle.cycle_index = cycle_index_;
+			cycle.batch_id = batch_id_;
+			cycle.dt_sec = radar_context_.GetCycleDeltaTimeSec();
+			track_lifecycle_manager_->Update(cycle, measurements);
+			decision_features = track_lifecycle_manager_->BuildFeatureSnapshot();
+		}
 
 	core::context::DecisionContext context(decision_features);
 	const bool environment_jamming_detected =

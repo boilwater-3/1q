@@ -392,8 +392,65 @@ TEST(BeamControlResolverTest, InertialStabilizedCompensatesPlatformAttitude) {
       signal::detection::BeamControlResolver::Resolve(
           antenna, orientation, platform_attitude_deg, look_angles);
 
-  EXPECT_NEAR(state.beam_pointing_deg.az_deg, -15.0f, 1e-3f);
-  EXPECT_NEAR(state.beam_pointing_deg.el_deg, -5.0f, 1e-3f);
+  // 3D 姿态逆变换后，az/el 会出现轻微耦合，结果不再等同于简单 yaw/pitch 相减。
+  EXPECT_NEAR(state.beam_pointing_deg.az_deg, -15.0547f, 1e-3f);
+  EXPECT_NEAR(state.beam_pointing_deg.el_deg, -4.8292f, 1e-3f);
+}
+
+/// @brief 对惯性稳定模式应显式补偿平台滚转角。
+TEST(BeamControlResolverTest, InertialStabilizedAccountsForPlatformRoll) {
+  AntennaConfig antenna;
+  common::RadarOrientationConfig orientation;
+  orientation.stabilization_mode =
+      common::StabilizationMode::kInertialStabilized;
+  orientation.scan_center_deg.el_deg = 30.0f;
+
+  common::PlatformAttitudeDeg platform_attitude_deg;
+  platform_attitude_deg.roll_deg = 90.0f;
+
+  signal::detection::TargetLookAnglesDeg look_angles;
+  look_angles.has_look_angles = true;
+
+  const signal::detection::ResolvedBeamState state =
+      signal::detection::BeamControlResolver::Resolve(
+          antenna, orientation, platform_attitude_deg, look_angles);
+
+  EXPECT_NEAR(state.beam_pointing_deg.az_deg, 30.0f, 1e-3f);
+  EXPECT_NEAR(state.beam_pointing_deg.el_deg, 0.0f, 1e-3f);
+}
+
+/// @brief 对地稳定当前无地理参考输入，代码上显式等同于惯性稳定。
+TEST(BeamControlResolverTest, GroundStabilizedCurrentlyMatchesInertialStabilized) {
+  AntennaConfig antenna;
+  common::RadarOrientationConfig inertial_orientation;
+  inertial_orientation.stabilization_mode =
+      common::StabilizationMode::kInertialStabilized;
+  inertial_orientation.scan_center_deg.az_deg = 5.0f;
+  inertial_orientation.scan_center_deg.el_deg = 20.0f;
+
+  common::RadarOrientationConfig ground_orientation = inertial_orientation;
+  ground_orientation.stabilization_mode =
+      common::StabilizationMode::kGroundStabilized;
+
+  common::PlatformAttitudeDeg platform_attitude_deg;
+  platform_attitude_deg.yaw_deg = 15.0f;
+  platform_attitude_deg.pitch_deg = -8.0f;
+  platform_attitude_deg.roll_deg = 20.0f;
+
+  signal::detection::TargetLookAnglesDeg look_angles;
+  look_angles.has_look_angles = true;
+
+  const signal::detection::ResolvedBeamState inertial_state =
+      signal::detection::BeamControlResolver::Resolve(
+          antenna, inertial_orientation, platform_attitude_deg, look_angles);
+  const signal::detection::ResolvedBeamState ground_state =
+      signal::detection::BeamControlResolver::Resolve(
+          antenna, ground_orientation, platform_attitude_deg, look_angles);
+
+  EXPECT_NEAR(inertial_state.beam_pointing_deg.az_deg,
+              ground_state.beam_pointing_deg.az_deg, 1e-6f);
+  EXPECT_NEAR(inertial_state.beam_pointing_deg.el_deg,
+              ground_state.beam_pointing_deg.el_deg, 1e-6f);
 }
 
 // ===========================================================================

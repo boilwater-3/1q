@@ -54,6 +54,9 @@ public:
     return platform_attitude_deg_;
   }
 
+  /// @brief 获取当前周期时间步长。
+  float GetCycleDeltaTimeSec() const override { return cycle_dt_sec_; }
+
   /// @brief 收集控制指令。
   void SubmitControlCommand(common::RadarCommand cmd) override {
     submitted_commands_.push_back(cmd);
@@ -70,9 +73,13 @@ public:
     platform_attitude_deg_ = platform_attitude_deg;
   }
 
+  /// @brief 设置当前周期时间步长。
+  void SetCycleDeltaTimeSec(float cycle_dt_sec) { cycle_dt_sec_ = cycle_dt_sec; }
+
 private:
   common::TargetFeatureList state_;
   common::PlatformAttitudeDeg platform_attitude_deg_{};
+  float cycle_dt_sec_{1.0f};
   std::vector<common::RadarCommand> submitted_commands_;
 };
 
@@ -223,6 +230,28 @@ TEST_F(CoreControllerTest, PushesPlatformAttitudeIntoSignalPipelineBeforeRun) {
   EXPECT_FLOAT_EQ(cached_platform_attitude.yaw_deg, 18.0f);
   EXPECT_FLOAT_EQ(cached_platform_attitude.pitch_deg, -4.0f);
   EXPECT_FLOAT_EQ(cached_platform_attitude.roll_deg, 2.0f);
+}
+
+TEST_F(CoreControllerTest, PushesCycleDeltaTimeIntoLifecycleBeforeRun) {
+  const common::TargetFeatureList input_state =
+      BuildSingleTarget(800.0f, 2.5f, false);
+  FakeRadarContext radar_context(input_state);
+  radar_context.SetCycleDeltaTimeSec(2.5f);
+
+  environment::EnvironmentModelConfig env_config;
+  env_config.jammer_power_db = 0.0f;
+  environment::EnvironmentService environment_service(env_config);
+
+  signal::pipeline::SignalPipeline signal_pipeline;
+  SpyTrackLifecycleManager lifecycle_manager;
+
+  core::controller::RadarController controller(
+      radar_context, signal_pipeline, *decision_pipeline_, environment_service);
+  controller.SetTrackLifecycleManager(&lifecycle_manager);
+
+  controller.RunOnce();
+
+  EXPECT_FLOAT_EQ(lifecycle_manager.last_cycle.dt_sec, 2.5f);
 }
 
 TEST_F(CoreControllerTest, RunOncePublishesCycleEvent) {

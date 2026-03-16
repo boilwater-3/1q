@@ -107,6 +107,7 @@ flowchart TD
 - `SignalPipeline` 保留单周期 orchestrator 角色，但内部已改为**显式步骤编排**，不再使用责任链节点。
 - `SignalPipeline` 的配置映射与组件创建已收口到 `SignalComponentFactory`，避免构造、热更新与 Lifecycle 自动装配三条路径重复拼装。
 - `ISignalPipeline` / `SignalPipeline` 已对外暴露平台姿态更新接口，供搭载平台在周期间刷新姿态。
+- `TrackLifecycleManager` 的时间步长优先由外部平台通过 `IRadarContext -> CycleContext.dt_sec` 提供；当外部输入无效时，才回退到基于 `cycle_index` 的内部兜底规则。
 - 位置空间关联是唯一主路径，`external seeds` 为唯一先验来源，无 seeds 时按 stateless 关联执行。
 - `TrackLifecycleManager` 提供生命周期管理与 Kalman/IMM 集成，支持自动装配与可配置启用。
 - 动态量测协方差 `R` 由检测链路生成并前移复用，供关联与滤波共享。
@@ -119,6 +120,13 @@ flowchart TD
 - `TrackMeasurement` 已明确拆分为：
   - `raw_measurement`：关联后的原始位置量测、关联键、关联代价、动态量测协方差
   - `filtered_feature`：`TrackFilter` 回写后的速度、加速度、RCS、干扰标记
+- `TargetFeature` 与 `TrackState` 不直接互相替代：
+  - `TargetFeature` 是外部输入 / Signal 输入 / Decision 输出的轻量公共载荷
+  - `TrackState` 是 Lifecycle 内部重对象，承载状态机、Gaussian 状态和对象池复用语义
+- `BeamControlResolver` 中：
+  - `kBodyStabilized` 走机体稳定路径
+  - `kInertialStabilized` 走完整 3D 姿态逆变换
+  - `kGroundStabilized` 当前无地理参考输入，代码上显式等同于 `kInertialStabilized`
 - 成功探测目标必须具备上述局部坐标位置，否则 fail-fast。
 - external seeds 必须同时携带位置与高斯状态，否则 fail-fast。
 - 关联先验仅来自 external seeds；未注入时按 stateless 语义执行。
@@ -240,6 +248,8 @@ classDiagram
 - 动态量测协方差当前已直接进入 `DataAssociationEngine` 的位置空间关联 $S$ 计算，并与 Lifecycle / Kalman / EKF 更新共享同一份动态 $R$
 - 一旦 `RadarController` / `SignalPipeline` 已显式注入 external association seeds，则即便 seeds 为空，也表示 Lifecycle 当前无可供关联的活跃轨迹；此时关联侧保持 stateless
 - `SignalPipeline` 当前除导出位置量测与位置关联配置外，也导出最近周期的关联质量指标；IMM 自动装配默认关闭，需显式配置开启
+- `kGroundStabilized` 当前只是 `kInertialStabilized` 的实现别名，尚未接入真正的地理/地平参考
+- `TargetFeature` 的原点位置当前仍会落入“缺失位置”语义；本轮仿真模型不处理该限制
 
 ## 11. 扩展阅读
 
