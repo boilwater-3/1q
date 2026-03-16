@@ -21,7 +21,11 @@ ImmFilter::ImmFilter(ImmConfig config,
       updaters_(std::move(updaters)),
       model_states_(static_cast<std::size_t>(num_models_)),
       mixed_states_(static_cast<std::size_t>(num_models_)),
-      predicted_states_(static_cast<std::size_t>(num_models_)) {
+      predicted_states_(static_cast<std::size_t>(num_models_)),
+      update_results_(static_cast<std::size_t>(num_models_)),
+      likelihoods_(Eigen::VectorXf::Zero(num_models_)),
+      c_bar_(Eigen::VectorXf::Zero(num_models_)),
+      new_weights_(Eigen::VectorXf::Zero(num_models_)) {
   // 初始化模型权重
   for (int j = 0; j < num_models_; ++j) {
     model_states_[static_cast<std::size_t>(j)].weight =
@@ -110,43 +114,37 @@ void ImmFilter::PredictModels(float dt) {
 void ImmFilter::UpdateModels(const MeasurementVector &measurement) {
   const int N = num_models_;
 
-  // 各模型条件更新
-  std::vector<KalmanUpdateResult> results(static_cast<std::size_t>(N));
-  Eigen::VectorXf likelihoods(N);
-
   for (int j = 0; j < N; ++j) {
     const auto ju = static_cast<std::size_t>(j);
-    results[ju] = updaters_[ju]->Update(predicted_states_[ju], measurement);
-    model_states_[ju].state = results[ju].posterior;
+    update_results_[ju] = updaters_[ju]->Update(predicted_states_[ju], measurement);
+    model_states_[ju].state = update_results_[ju].posterior;
 
     // 模型似然
-    likelihoods(j) = GaussianLikelihood(results[ju].innovation,
-                                         results[ju].innovation_covariance);
+    likelihoods_(j) = GaussianLikelihood(update_results_[ju].innovation,
+                                         update_results_[ju].innovation_covariance);
   }
 
   // 计算归一化常数 c̄_j
-  Eigen::VectorXf c_bar(N);
   for (int j = 0; j < N; ++j) {
-    c_bar(j) = 0.0f;
+    c_bar_(j) = 0.0f;
     for (int i = 0; i < N; ++i) {
-      c_bar(j) += config_.transition_probability(i, j) *
-                  model_states_[static_cast<std::size_t>(i)].weight;
+      c_bar_(j) += config_.transition_probability(i, j) *
+                   model_states_[static_cast<std::size_t>(i)].weight;
     }
   }
 
   // 更新模型权重
   float total = 0.0f;
-  Eigen::VectorXf new_weights(N);
   for (int j = 0; j < N; ++j) {
-    new_weights(j) = c_bar(j) * likelihoods(j);
-    total += new_weights(j);
+    new_weights_(j) = c_bar_(j) * likelihoods_(j);
+    total += new_weights_(j);
   }
   if (total < 1e-30f) {
     total = 1e-30f;
   }
 
   for (int j = 0; j < N; ++j) {
-    model_states_[static_cast<std::size_t>(j)].weight = new_weights(j) / total;
+    model_states_[static_cast<std::size_t>(j)].weight = new_weights_(j) / total;
   }
 }
 

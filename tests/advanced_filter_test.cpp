@@ -346,4 +346,61 @@ TEST(ImmFilterTest, ModelWeightsSumToOne) {
   }
 }
 
+TEST(ImmFilterTest, RepeatedProcessSequenceRemainsDeterministic) {
+  signal::tracking::KalmanPredictorConfig cfg1;
+  cfg1.noise_diff_coeff = 0.5f;
+  signal::tracking::KalmanPredictor pred1(cfg1);
+
+  signal::tracking::KalmanPredictorConfig cfg2;
+  cfg2.noise_diff_coeff = 25.0f;
+  signal::tracking::KalmanPredictor pred2(cfg2);
+
+  signal::tracking::KalmanUpdaterConfig ucfg;
+  ucfg.measurement_noise_std = 1.0f;
+  signal::tracking::KalmanUpdater upd1(ucfg), upd2(ucfg);
+
+  signal::tracking::ImmConfig config;
+  config.transition_probability.resize(2, 2);
+  config.transition_probability << 0.9f, 0.1f,
+                                   0.1f, 0.9f;
+  config.initial_weights.resize(2);
+  config.initial_weights << 0.5f, 0.5f;
+
+  signal::tracking::ImmFilter first(config, {&pred1, &pred2}, {&upd1, &upd2});
+  signal::tracking::ImmFilter second(config, {&pred1, &pred2}, {&upd1, &upd2});
+
+  GaussianTrackState init(StateVector::Zero(),
+                          StateCovariance::Identity() * 100.0f);
+  signal::tracking::ImmModelState m1{init, 0.5f};
+  signal::tracking::ImmModelState m2{init, 0.5f};
+  first.SetModelStates({m1, m2});
+  second.SetModelStates({m1, m2});
+
+  const std::vector<MeasurementVector> measurements = {
+      MeasurementVector(10.0f, 0.0f, 0.0f),
+      MeasurementVector(21.0f, 0.0f, 0.0f),
+      MeasurementVector(35.0f, 0.0f, 0.0f),
+      MeasurementVector(54.0f, 0.0f, 0.0f),
+  };
+
+  for (std::size_t i = 0; i < measurements.size(); ++i) {
+    first.Process(measurements[i], 1.0f);
+    second.Process(measurements[i], 1.0f);
+
+    const GaussianTrackState first_state = first.GetCombinedState();
+    const GaussianTrackState second_state = second.GetCombinedState();
+    const Eigen::VectorXf first_weights = first.GetModelWeights();
+    const Eigen::VectorXf second_weights = second.GetModelWeights();
+
+    for (int j = 0; j < kStateDim; ++j) {
+      EXPECT_NEAR(first_state.mean(j), second_state.mean(j), kTolerance)
+          << "mean mismatch at cycle " << i << " state index " << j;
+    }
+    for (int j = 0; j < first_weights.size(); ++j) {
+      EXPECT_NEAR(first_weights(j), second_weights(j), kTolerance)
+          << "weight mismatch at cycle " << i << " model index " << j;
+    }
+  }
+}
+
 } } // namespace airborne_radar::tests

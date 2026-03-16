@@ -148,6 +148,12 @@ class SignalComponentFactory final {
             "IMM enabled but imm_model_noise_diff_coeffs is empty",
             model_count);
       }
+      if (model_count > 3U) {
+        spdlog::warn(
+            "[SignalPipeline] IMM model count {} may increase lifecycle "
+            "latency; 2-3 models are recommended for routine workloads",
+            model_count);
+      }
 
       artifacts.imm_predictors_owned.reserve(model_count);
       artifacts.imm_updaters_owned.reserve(model_count);

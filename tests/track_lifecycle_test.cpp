@@ -2,6 +2,8 @@
 //
 // Description: 验证轨迹对象池与生命周期管理的基础状态机行为。
 
+#include <cmath>
+
 #include <gtest/gtest.h>
 
 #include "1q/airborne_radar/common/TrackTypes.h"
@@ -224,6 +226,7 @@ TEST(TrackLifecycleManagerTest, ImmPathPredictsConfirmedTrackAcrossMissedCycles)
   config.confirm_hits = 1;
   config.max_miss_before_lost = 1;
   config.max_lost_cycles = 3;
+  config.imm_activation_policy = signal::tracking::ImmActivationPolicy::kAllTracks;
 
   signal::tracking::KalmanPredictorConfig pred_cfg_1;
   pred_cfg_1.noise_diff_coeff = 0.5f;
@@ -296,6 +299,151 @@ TEST(TrackLifecycleManagerTest, ImmPathPredictsConfirmedTrackAcrossMissedCycles)
   const common::TargetFeatureList snapshot = manager.BuildFeatureSnapshot();
   ASSERT_EQ(snapshot.size(), 1u);
   EXPECT_FLOAT_EQ(snapshot[0].position_x, active_tracks[0]->position(0));
+}
+
+TEST(TrackLifecycleManagerTest,
+     ConfirmedOnlyImmFallsBackToSingleModelBeforeImmCreation) {
+  signal::tracking::BoostTrackPool pool(4, 16);
+  signal::tracking::LifecycleConfig config;
+  config.confirm_hits = 1;
+  config.max_miss_before_lost = 1;
+  config.max_lost_cycles = 3;
+
+  signal::tracking::KalmanPredictorConfig pred_cfg_1;
+  pred_cfg_1.noise_diff_coeff = 0.5f;
+  signal::tracking::KalmanPredictor pred_1(pred_cfg_1);
+
+  signal::tracking::KalmanPredictorConfig pred_cfg_2;
+  pred_cfg_2.noise_diff_coeff = 15.0f;
+  signal::tracking::KalmanPredictor pred_2(pred_cfg_2);
+
+  signal::tracking::KalmanUpdaterConfig upd_cfg;
+  upd_cfg.measurement_noise_std = 1.0f;
+  signal::tracking::KalmanUpdater upd_1(upd_cfg);
+  signal::tracking::KalmanUpdater upd_2(upd_cfg);
+
+  Eigen::MatrixXf transition_probability(2, 2);
+  transition_probability << 0.95f, 0.05f,
+                            0.05f, 0.95f;
+  Eigen::VectorXf initial_weights(2);
+  initial_weights << 0.5f, 0.5f;
+
+  signal::tracking::TrackLifecycleManager manager(
+      pool, config, {&pred_1, &pred_2}, {&upd_1, &upd_2},
+      transition_probability, initial_weights);
+
+  signal::tracking::TrackMeasurement measurement;
+  measurement.raw_measurement.association_key = 52u;
+  measurement.raw_measurement.matched_existing_track = false;
+  measurement.raw_measurement.has_cartesian_position = true;
+  measurement.raw_measurement.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
+  measurement.filtered_feature.velocity = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
+  measurement.raw_measurement.measurement_covariance =
+      Eigen::Matrix3f::Identity();
+
+  signal::tracking::CycleContext cycle_1;
+  cycle_1.cycle_index = 1u;
+  cycle_1.batch_id = 5201u;
+  manager.Update(cycle_1, {measurement});
+
+  signal::tracking::CycleContext cycle_2;
+  cycle_2.cycle_index = 2u;
+  cycle_2.batch_id = 5202u;
+  manager.Update(cycle_2, {});
+
+  const std::vector<const common::TrackState *> active_tracks =
+      manager.GetActiveTracks();
+  ASSERT_EQ(active_tracks.size(), 1u);
+
+  signal::tracking::GaussianTrackState expected_initial;
+  expected_initial.mean << 100.0f, 10.0f, 0.0f, 0.0f, 0.0f, 0.0f;
+  expected_initial.covariance =
+      signal::tracking::StateCovariance::Identity() * 100.0f;
+  const signal::tracking::GaussianTrackState expected_predicted =
+      pred_1.Predict(expected_initial, 1.0f);
+
+  EXPECT_NEAR(active_tracks[0]->position(0), 110.0f, 1e-3f);
+  EXPECT_NEAR(active_tracks[0]->gaussian_state.mean(0),
+              expected_predicted.mean(0), 1e-3f);
+  EXPECT_NEAR(active_tracks[0]->gaussian_state.covariance(0, 0),
+              expected_predicted.covariance(0, 0), 1e-3f);
+}
+
+TEST(TrackLifecycleManagerTest,
+     ConfirmedOnlyImmCreatesAndUsesFilterOnFirstConfirmedRehit) {
+  signal::tracking::BoostTrackPool pool_confirmed(4, 16);
+  signal::tracking::BoostTrackPool pool_all_tracks(4, 16);
+
+  signal::tracking::LifecycleConfig confirmed_only_config;
+  confirmed_only_config.confirm_hits = 1;
+  confirmed_only_config.max_miss_before_lost = 1;
+  confirmed_only_config.max_lost_cycles = 3;
+
+  signal::tracking::LifecycleConfig all_tracks_config = confirmed_only_config;
+  all_tracks_config.imm_activation_policy =
+      signal::tracking::ImmActivationPolicy::kAllTracks;
+
+  signal::tracking::KalmanPredictorConfig pred_cfg_1;
+  pred_cfg_1.noise_diff_coeff = 0.5f;
+  signal::tracking::KalmanPredictor pred_1(pred_cfg_1);
+
+  signal::tracking::KalmanPredictorConfig pred_cfg_2;
+  pred_cfg_2.noise_diff_coeff = 50.0f;
+  signal::tracking::KalmanPredictor pred_2(pred_cfg_2);
+
+  signal::tracking::KalmanUpdaterConfig upd_cfg;
+  upd_cfg.measurement_noise_std = 1.0f;
+  signal::tracking::KalmanUpdater upd_1(upd_cfg);
+  signal::tracking::KalmanUpdater upd_2(upd_cfg);
+
+  Eigen::MatrixXf transition_probability(2, 2);
+  transition_probability << 0.95f, 0.05f,
+                            0.05f, 0.95f;
+  Eigen::VectorXf initial_weights(2);
+  initial_weights << 0.5f, 0.5f;
+
+  signal::tracking::TrackLifecycleManager confirmed_only_manager(
+      pool_confirmed, confirmed_only_config, {&pred_1, &pred_2},
+      {&upd_1, &upd_2}, transition_probability, initial_weights);
+  signal::tracking::TrackLifecycleManager all_tracks_manager(
+      pool_all_tracks, all_tracks_config, {&pred_1, &pred_2},
+      {&upd_1, &upd_2}, transition_probability, initial_weights);
+
+  signal::tracking::TrackMeasurement first;
+  first.raw_measurement.association_key = 62u;
+  first.raw_measurement.matched_existing_track = false;
+  first.raw_measurement.has_cartesian_position = true;
+  first.raw_measurement.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
+  first.filtered_feature.velocity = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
+  first.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
+
+  signal::tracking::CycleContext cycle_1;
+  cycle_1.cycle_index = 1u;
+  cycle_1.batch_id = 6201u;
+  confirmed_only_manager.Update(cycle_1, {first});
+  all_tracks_manager.Update(cycle_1, {first});
+
+  signal::tracking::TrackMeasurement second = first;
+  second.raw_measurement.matched_existing_track = true;
+  second.raw_measurement.position = Eigen::Vector3f(150.0f, 0.0f, 0.0f);
+
+  signal::tracking::CycleContext cycle_2;
+  cycle_2.cycle_index = 2u;
+  cycle_2.batch_id = 6202u;
+  confirmed_only_manager.Update(cycle_2, {second});
+  all_tracks_manager.Update(cycle_2, {second});
+
+  const std::vector<const common::TrackState *> confirmed_only_tracks =
+      confirmed_only_manager.GetActiveTracks();
+  const std::vector<const common::TrackState *> all_tracks =
+      all_tracks_manager.GetActiveTracks();
+  ASSERT_EQ(confirmed_only_tracks.size(), 1u);
+  ASSERT_EQ(all_tracks.size(), 1u);
+
+  EXPECT_NEAR(confirmed_only_tracks[0]->gaussian_state.mean(0),
+              all_tracks[0]->gaussian_state.mean(0), 1e-3f);
+  EXPECT_NEAR(confirmed_only_tracks[0]->gaussian_state.covariance(0, 0),
+              all_tracks[0]->gaussian_state.covariance(0, 0), 1e-3f);
 }
 
 TEST(TrackLifecycleManagerTest,

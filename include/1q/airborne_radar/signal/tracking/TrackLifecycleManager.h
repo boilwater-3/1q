@@ -6,8 +6,8 @@
 #define AIRBORNE_RADAR_SIGNAL_TRACKING_TRACK_LIFECYCLE_MANAGER_H_
 
 #include <cstdint>
-#include <map>
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
 #include "1q/airborne_radar/common/TargetFeature.h"
@@ -23,6 +23,15 @@ class IKalmanPredictor;
 class IKalmanUpdater;
 class ImmFilter;
 
+/// @brief ImmActivationPolicy 定义 IMM 多模型路径的激活策略。
+enum class ImmActivationPolicy {
+  /// @brief 所有轨迹都按当前 IMM 语义创建和使用多模型路径。
+  kAllTracks = 0,
+
+  /// @brief 仅已确认轨迹在再次命中时懒创建并启用 IMM。
+  kConfirmedTracksOnly
+};
+
 /// @brief LifecycleConfig 定义轨迹状态机阈值配置。
 struct LifecycleConfig {
   /// @brief 候选轨迹转已确认所需最小命中次数。
@@ -33,6 +42,10 @@ struct LifecycleConfig {
 
   /// @brief 丢失轨迹可保留的最大周期数，超出则回收。
   std::uint32_t max_lost_cycles{5};
+
+  /// @brief IMM 激活策略。
+  ImmActivationPolicy imm_activation_policy{
+      ImmActivationPolicy::kConfirmedTracksOnly};
 };
 
 /// @brief TrackLifecycleManager 负责轨迹生命周期状态推进。
@@ -94,12 +107,32 @@ private:
   GaussianTrackState BuildInitialGaussianState(
       const TrackMeasurement &measurement) const;
 
+  /// @brief 判断指定轨迹在当前命中周期是否应走 IMM 路径。
+  /// @param track_existed_before_cycle 命中前轨迹是否已存在。
+  /// @param status_before_update 命中前轨迹状态。
+  /// @param measurement 当前量测。
+  /// @return 若应创建或使用 IMM 路径则返回 true。
+  bool ShouldUseImmForMeasurement(
+      bool track_existed_before_cycle,
+      common::TrackStatus status_before_update,
+      const TrackMeasurement &measurement) const;
+
+  /// @brief 判断指定轨迹在当前失配周期是否应走 IMM 预测路径。
+  /// @param status_before_prediction 预测前轨迹状态。
+  /// @return 若应使用 IMM 预测则返回 true。
+  bool ShouldUseImmForMiss(common::TrackStatus status_before_prediction) const;
+
   /// @brief 获取或创建指定轨迹键对应的 IMM 运行态。
   /// @param association_key 轨迹关联键。
   /// @param initial_state 初始化状态。
   /// @return IMM 运行态指针。
   ImmFilter *GetOrCreateImmFilter(std::uint64_t association_key,
                                   const GaussianTrackState &initial_state);
+
+  /// @brief 查找指定轨迹键对应的 IMM 运行态。
+  /// @param association_key 轨迹关联键。
+  /// @return 若存在则返回 IMM 运行态指针，否则返回空指针。
+  ImmFilter *FindImmFilter(std::uint64_t association_key) const;
 
   /// @brief 将高斯状态回写到轨迹的位置/速度，并由速度变化估计加速度。
   /// @param track 待写回轨迹对象。
@@ -141,7 +174,7 @@ private:
   std::uint64_t next_track_id_{1};
 
   /// @brief 活跃轨迹表，key 为关联键。
-  std::map<std::uint64_t, common::TrackState *> tracks_by_key_;
+  std::unordered_map<std::uint64_t, common::TrackState *> tracks_by_key_;
 
   /// @brief 可选 Kalman 预测器（非拥有）。
   const IKalmanPredictor *kalman_predictor_{nullptr};
@@ -162,7 +195,8 @@ private:
   Eigen::VectorXf imm_initial_weights_;
 
   /// @brief 每条轨迹对应的 IMM 运行态。
-  std::map<std::uint64_t, std::unique_ptr<ImmFilter> > imm_filters_by_key_;
+  std::unordered_map<std::uint64_t, std::unique_ptr<ImmFilter> >
+      imm_filters_by_key_;
 
   /// @brief 上一周期编号，用于计算 dt。
   std::uint32_t last_cycle_index_{0};

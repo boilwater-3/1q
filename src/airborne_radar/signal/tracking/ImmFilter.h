@@ -132,6 +132,18 @@ class ImmFilter {
   /// @brief 预测后的各模型状态（临时缓冲）。
   std::vector<GaussianTrackState> predicted_states_;
 
+  /// @brief 各模型更新结果缓冲，避免高频重复分配。
+  std::vector<KalmanUpdateResult> update_results_;
+
+  /// @brief 各模型似然缓冲。
+  Eigen::VectorXf likelihoods_;
+
+  /// @brief 各模型归一化常数缓冲。
+  Eigen::VectorXf c_bar_;
+
+  /// @brief 各模型新权重缓冲。
+  Eigen::VectorXf new_weights_;
+
   /// @brief 组合后的最终状态。
   GaussianTrackState combined_state_;
 };

@@ -110,6 +110,7 @@ flowchart TD
 - `TrackLifecycleManager` 的时间步长优先由外部平台通过 `IRadarContext -> CycleContext.dt_sec` 提供；当外部输入无效时，才回退到基于 `cycle_index` 的内部兜底规则。
 - 位置空间关联是唯一主路径，`external seeds` 为唯一先验来源，无 seeds 时按 stateless 关联执行。
 - `TrackLifecycleManager` 提供生命周期管理与 Kalman/IMM 集成，支持自动装配与可配置启用。
+- IMM 激活策略支持 `kAllTracks` 与 `kConfirmedTracksOnly`；默认采用 `kConfirmedTracksOnly`，即仅对进入本周期前已确认且再次命中的轨迹懒创建并启用 IMM，其余阶段回退到首个模型对应的单模型预测/更新路径。
 - 动态量测协方差 `R` 由检测链路生成并前移复用，供关联与滤波共享。
 - 关键路径日志已覆盖 Association / Lifecycle / Controller，便于溯源。
 

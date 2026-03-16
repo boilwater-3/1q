@@ -92,6 +92,59 @@ std::unordered_set<std::uint64_t> BuildExternalIdSet(
   return ids;
 }
 
+/// @brief 运行双周期 IMM 生命周期场景并返回总耗时。
+double RunImmLifecycleScenarioMs(
+    std::size_t target_count,
+    signal::tracking::ImmActivationPolicy activation_policy) {
+  signal::pipeline::SignalPipelineConfig pipeline_config;
+  pipeline_config.detection.min_detection_margin_db = -100.0f;
+  pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
+  pipeline_config.lifecycle.enable_imm_lifecycle = true;
+  pipeline_config.lifecycle.lifecycle_config.confirm_hits = 1;
+  pipeline_config.lifecycle.lifecycle_config.imm_activation_policy =
+      activation_policy;
+  pipeline_config.lifecycle.imm_model_noise_diff_coeffs =
+      std::vector<float>{0.5f, 8.0f};
+  signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
+
+  environment::EnvironmentModelConfig env_config;
+  env_config.jammer_power_db = 0.0f;
+  environment::EnvironmentService environment_service(env_config);
+
+  std::unique_ptr<signal::tracking::ITrackLifecycleManager> lifecycle_manager =
+      signal_pipeline.CreateAutoLifecycleManager();
+  EXPECT_TRUE(lifecycle_manager != nullptr);
+  if (lifecycle_manager == nullptr) {
+    return 0.0;
+  }
+
+  const std::array<common::TargetFeatureList, 2> cycle_inputs{{
+      BuildBatchTargets(target_count, 400.0f, 12.0f, 1.0f),
+      BuildBatchTargets(target_count, 401.0f, 12.4f, 1.2f),
+  }};
+
+  const std::chrono::steady_clock::time_point start =
+      std::chrono::steady_clock::now();
+
+  for (std::size_t cycle_index = 0; cycle_index < cycle_inputs.size();
+       ++cycle_index) {
+    signal_pipeline.SetAssociationSeeds(lifecycle_manager->BuildAssociationSeeds());
+    signal_pipeline.RunCycle(cycle_inputs[cycle_index], environment_service);
+    const std::vector<signal::tracking::TrackMeasurement> measurements =
+        signal_pipeline.GetLastTrackMeasurements();
+    EXPECT_EQ(measurements.size(), target_count);
+
+    signal::tracking::CycleContext cycle;
+    cycle.cycle_index = static_cast<std::uint32_t>(cycle_index + 1U);
+    cycle.batch_id = static_cast<std::uint32_t>(cycle_index + 1U);
+    lifecycle_manager->Update(cycle, measurements);
+  }
+
+  const std::chrono::steady_clock::time_point end =
+      std::chrono::steady_clock::now();
+  return std::chrono::duration<double, std::milli>(end - start).count();
+}
+
 }  // namespace
 
 /// @brief 大批量单周期输入应稳定产出等量量测和合理质量指标。
@@ -334,6 +387,56 @@ TEST(SignalBulkDataTest, ExternalTargetIdStaysConsistentAcrossImmLifecycleCycles
   const common::TargetFeatureList snapshot_after_cycle_2 =
       lifecycle_manager->BuildFeatureSnapshot();
   EXPECT_EQ(BuildExternalIdSet(snapshot_after_cycle_2), expected_ids);
+}
+
+/// @brief 比较全轨迹 IMM 与仅确认轨迹 IMM 的双周期批量耗时分布。
+TEST(SignalBulkDataTest, ImmLifecyclePoliciesReportLatencyComparison) {
+  struct BatchTier {
+    std::size_t target_count;
+    const char *label;
+  };
+
+  const std::array<BatchTier, 1> tiers{{
+      {2000u, "2k"},
+  }};
+  const std::size_t kRepeatsPerTier = 1u;
+
+  for (const BatchTier &tier : tiers) {
+    std::vector<double> all_tracks_samples;
+    std::vector<double> confirmed_only_samples;
+    all_tracks_samples.reserve(kRepeatsPerTier);
+    confirmed_only_samples.reserve(kRepeatsPerTier);
+
+    for (std::size_t repeat = 0; repeat < kRepeatsPerTier; ++repeat) {
+      all_tracks_samples.push_back(RunImmLifecycleScenarioMs(
+          tier.target_count, signal::tracking::ImmActivationPolicy::kAllTracks));
+      confirmed_only_samples.push_back(RunImmLifecycleScenarioMs(
+          tier.target_count,
+          signal::tracking::ImmActivationPolicy::kConfirmedTracksOnly));
+    }
+
+    const double all_tracks_p50_ms =
+        ComputePercentileMs(all_tracks_samples, 0.50);
+    const double all_tracks_p95_ms =
+        ComputePercentileMs(all_tracks_samples, 0.95);
+    const double confirmed_only_p50_ms =
+        ComputePercentileMs(confirmed_only_samples, 0.50);
+    const double confirmed_only_p95_ms =
+        ComputePercentileMs(confirmed_only_samples, 0.95);
+
+    EXPECT_GT(all_tracks_p50_ms, 0.0);
+    EXPECT_GT(all_tracks_p95_ms, 0.0);
+    EXPECT_GT(confirmed_only_p50_ms, 0.0);
+    EXPECT_GT(confirmed_only_p95_ms, 0.0);
+
+    std::cout << "[SignalBulkDataTest] imm_policy_compare tier=" << tier.label
+              << " targets=" << tier.target_count
+              << " all_tracks_p50_ms=" << all_tracks_p50_ms
+              << " all_tracks_p95_ms=" << all_tracks_p95_ms
+              << " confirmed_only_p50_ms=" << confirmed_only_p50_ms
+              << " confirmed_only_p95_ms=" << confirmed_only_p95_ms
+              << std::endl;
+  }
 }
 
 }  // namespace tests
