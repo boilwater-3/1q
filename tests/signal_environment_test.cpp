@@ -69,6 +69,22 @@ TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
             input_state[0].current_track_acceleration);
 }
 
+TEST(SignalPipelineTest, ExposesPublicPlatformAttitudeUpdateApi) {
+  signal::pipeline::SignalPipeline signal_pipeline;
+  common::PlatformAttitudeDeg platform_attitude_deg;
+  platform_attitude_deg.yaw_deg = 12.0f;
+  platform_attitude_deg.pitch_deg = -3.0f;
+  platform_attitude_deg.roll_deg = 1.5f;
+
+  signal_pipeline.UpdatePlatformAttitude(platform_attitude_deg);
+
+  const common::PlatformAttitudeDeg cached_platform_attitude =
+      signal_pipeline.GetPlatformAttitude();
+  EXPECT_FLOAT_EQ(cached_platform_attitude.yaw_deg, 12.0f);
+  EXPECT_FLOAT_EQ(cached_platform_attitude.pitch_deg, -3.0f);
+  EXPECT_FLOAT_EQ(cached_platform_attitude.roll_deg, 1.5f);
+}
+
 TEST(TrackFilterTest, KeepsStateWhenDetectionIsStable) {
   signal::tracking::TrackFilter filter;
   const common::TargetFeature input(800.0f, 0.0f, 0.0f, 2.5f, 0.0f,

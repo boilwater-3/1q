@@ -24,6 +24,9 @@ struct EulerAnglesDeg {
   float roll_deg{0.0f};
 };
 
+/// @brief PlatformAttitudeDeg 表示搭载平台姿态角（单位：度）。
+using PlatformAttitudeDeg = EulerAnglesDeg;
+
 /// @brief AzimuthElevationDeg 表示方位-俯仰二维角度（单位：度）。
 struct AzimuthElevationDeg {
   /// @brief 方位角（单位：度）。

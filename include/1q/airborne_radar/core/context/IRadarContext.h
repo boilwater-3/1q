@@ -6,6 +6,7 @@
 #ifndef AIRBORNE_RADAR_CORE_CONTEXT_I_RADAR_CONTEXT_H_
 #define AIRBORNE_RADAR_CORE_CONTEXT_I_RADAR_CONTEXT_H_
 
+#include "1q/airborne_radar/common/RadarOrientationConfig.h"
 #include "1q/airborne_radar/common/RadarCommand.h"
 #include "1q/airborne_radar/common/TargetFeature.h"
 
@@ -21,6 +22,10 @@ public:
 
   /// @brief 获取当前周期的目标特征列表。
   virtual common::TargetFeatureList GetTargetFeatures() const = 0;
+
+  /// @brief 获取当前搭载平台姿态角。
+  /// @return 当前平台姿态角（单位：度）。
+  virtual common::PlatformAttitudeDeg GetPlatformAttitude() const = 0;
 
   /// @brief 提交（发射）一组战术动作命令给底座硬件或协调总线执行。
   /// @param cmd 单个被执行的控制器指令。

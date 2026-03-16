@@ -69,6 +69,8 @@ void RadarController::RunOnce() {
 
 	const common::TargetFeatureList input_features =
 			radar_context_.GetTargetFeatures();
+	signal_pipeline_.UpdatePlatformAttitude(
+			radar_context_.GetPlatformAttitude());
 	std::size_t association_seed_count = 0;
 	if (track_lifecycle_manager_ != nullptr) {
 		const std::vector<signal::tracking::AssociationTrackSeed> seeds =

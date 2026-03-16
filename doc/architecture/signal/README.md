@@ -9,6 +9,7 @@ Signal 层是机载雷达仿真系统的信号处理核心，负责 **探测 →
 - `TrackLifecycleManager` 已支持每轨 IMM 运行态
 - `SignalPipeline` / `RadarController` 已支持 Lifecycle 服务自动装配（可配置启用 IMM）
 - `SignalPipeline` 已改为显式步骤编排；`SignalDetector` 只保留纯探测物理职责
+- `ISignalPipeline` 已对外暴露平台姿态更新接口，供搭载平台在周期间刷新姿态
 - `RadarController` 会在每周期开始前把 Lifecycle 导出的关联种子注入 `SignalPipeline`
 - `TargetFeature.position_x/y/z` 在 Signal 层的公共契约已收口为雷达局部笛卡尔坐标
 - `DataAssociationEngine` 仅消费 external seeds 作为关联先验；无 seeds 时按 stateless 模式运行

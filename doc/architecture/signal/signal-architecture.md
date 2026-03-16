@@ -35,6 +35,7 @@ src/airborne_radar/signal/
 │   │                               #   ├─ TransmitterConfig / AntennaConfig / ReceiverConfig / DetectionPolicy
 │   │                               #   └─ RadarSystemConfig（组合配置）
 │   ├── SignalDetector.h/.cpp       #   └─ SignalDetector（纯探测物理：功率→噪声→SNR→Pd→判决）
+│   ├── TargetGeometryResolver.h    #   └─ 统一 range / position / look 真值源
 │   ├── TargetLookResolver.h        #   └─ 目标局部坐标 -> look az/el
 │   ├── BeamControlResolver.h       #   └─ 波束宽度/指向/方向图增益解析
 │   └── MeasurementErrorModel.h     #   └─ 有效波束宽度 + SNR -> 量测误差
@@ -103,6 +104,7 @@ flowchart TD
 ## 5. 关键机制
 
 - `SignalPipeline` 保留单周期 orchestrator 角色，但内部已改为**显式步骤编排**，不再使用责任链节点。
+- `ISignalPipeline` / `SignalPipeline` 已对外暴露平台姿态更新接口，供搭载平台在周期间刷新姿态。
 - 位置空间关联是唯一主路径，`external seeds` 为唯一先验来源，无 seeds 时按 stateless 关联执行。
 - `TrackLifecycleManager` 提供生命周期管理与 Kalman/IMM 集成，支持自动装配与可配置启用。
 - 动态量测协方差 `R` 由检测链路生成并前移复用，供关联与滤波共享。
@@ -111,6 +113,7 @@ flowchart TD
 ## 6. 关键契约与边界
 
 - `TargetFeature.position_x / position_y / position_z` 的公共契约已经收口为**雷达局部笛卡尔坐标**。
+- `range / position / look angle` 在 `SignalPipeline` 内已统一经 `TargetGeometryResolver` 解析，避免 SNR 与量测协方差使用不同距离真值源。
 - 成功探测目标必须具备上述局部坐标位置，否则 fail-fast。
 - external seeds 必须同时携带位置与高斯状态，否则 fail-fast。
 - 关联先验仅来自 external seeds；未注入时按 stateless 语义执行。

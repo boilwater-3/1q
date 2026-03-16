@@ -35,7 +35,7 @@ flowchart LR
 
     subgraph SignalPipelineResolvers["SignalPipeline 前置解析"]
         direction TB
-        TLR["TargetLookResolver<br/>雷达局部坐标 -> look az/el"]
+        TGR["TargetGeometryResolver<br/>统一 range / position / look"]
         BCR["BeamControlResolver<br/>effective beamwidth / pointing / gain"]
         MEM["MeasurementErrorModel<br/>range std / angle std"]
     end
@@ -47,7 +47,7 @@ flowchart LR
 
     CONFIG["RadarSystemConfig<br/>TransmitterConfig<br/>AntennaConfig<br/>ReceiverConfig<br/>DetectionPolicy"] --> BCR
     CONFIG --> SignalDetector
-    TLR --> BCR --> SignalDetector
+    TGR --> BCR --> SignalDetector
     SignalDetector --> MEM
     RadarEquations -->|"static 调用"| SignalDetector
     SignalDetector --> OUTPUT["DetectionResult<br/>echo_power_dbw / snr_db<br/>detection_prob / detected"]
@@ -62,7 +62,9 @@ flowchart LR
 
 `SignalDetector` 现在不再直接消费某一个原始 beamwidth 字段，也不再直接解析方向图和波束指向。`SignalPipeline` 会先通过 `BeamControlResolver` 解析 `effective beamwidth` 和单程天线增益，再由 `MeasurementErrorModel` 根据 `effective beamwidth + SNR` 计算 `range_error_std_m / angle_error_std_rad`。其中 `angle_error_std_rad` 不是单独某一轴的测角精度，而是面向后续笛卡尔量测协方差构造的等效角误差近似。
 
-当 `AntennaConfig::enable_directional_pattern = true` 且目标具备雷达局部坐标位置时，`SignalPipeline` 会先经 `TargetLookResolver` 和 `BeamControlResolver` 调用 `EvaluateAntennaPattern(...)`，将主瓣离轴衰减、旁瓣/后瓣截平和扫描损失折算到单程天线增益，再进入单站雷达方程。也就是说，`commanded_*_beamwidth_deg` 现在不仅影响测角误差，也会影响离轴目标的回波功率和 SNR。
+当 `AntennaConfig::enable_directional_pattern = true` 且目标具备雷达局部坐标位置时，`SignalPipeline` 会先经 `TargetGeometryResolver` 和 `BeamControlResolver` 调用 `EvaluateAntennaPattern(...)`，将主瓣离轴衰减、旁瓣/后瓣截平和扫描损失折算到单程天线增益，再进入单站雷达方程。也就是说，`commanded_*_beamwidth_deg` 现在不仅影响测角误差，也会影响离轴目标的回波功率和 SNR。
+
+另外，`ISignalPipeline` 已对外提供平台姿态更新接口。搭载该机载雷达的平台可在每个处理周期前调用 `UpdatePlatformAttitude(...)`，由 `BeamControlResolver` 按当前 `stabilization_mode` 参与波束指向解析；其中 `kGroundStabilized` 当前先按对惯性空间稳定近似处理，待接入地理参考后再细化。
 
 ### 核心公式（Skolnik 交叉验证）
 

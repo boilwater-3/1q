@@ -39,12 +39,13 @@ class BeamControlResolver {
   static ResolvedBeamState Resolve(
       const AntennaConfig& antenna_config,
       const common::RadarOrientationConfig& orientation_config,
+      const common::PlatformAttitudeDeg& platform_attitude_deg,
       const TargetLookAnglesDeg& target_look_angles) {
     ResolvedBeamState state;
     state.effective_beamwidth_deg =
         ResolveEffectiveBeamwidth(antenna_config, orientation_config);
-    state.beam_pointing_deg =
-        common::ComputeMountFrameBeamPointing(orientation_config);
+    state.beam_pointing_deg = ResolveMountFrameBeamPointing(
+        orientation_config, platform_attitude_deg);
     state.one_way_antenna_gain_db = antenna_config.main_beam_gain_db;
 
     if (!antenna_config.enable_directional_pattern ||
@@ -71,6 +72,40 @@ class BeamControlResolver {
             orientation_config.scan_center_deg);
     state.one_way_antenna_gain_db = sample.gain_dbi;
     return state;
+  }
+
+ private:
+  /// @brief 解析当前稳定模式下的挂架坐标系波束指向。
+  /// @param orientation_config 雷达方向与控制配置。
+  /// @param platform_attitude_deg 当前平台姿态角。
+  /// @return 挂架坐标系下的波束指向。
+  /// @note 对地稳定当前先按对惯性空间稳定近似处理，后续接入地理参考后再细化。
+  static common::AzimuthElevationDeg ResolveMountFrameBeamPointing(
+      const common::RadarOrientationConfig& orientation_config,
+      const common::PlatformAttitudeDeg& platform_attitude_deg) {
+    if (orientation_config.stabilization_mode ==
+        common::StabilizationMode::kBodyStabilized) {
+      return common::ComputeMountFrameBeamPointing(orientation_config);
+    }
+
+    common::AzimuthElevationDeg stabilized_mount_frame_pointing;
+    stabilized_mount_frame_pointing.az_deg =
+        orientation_config.scan_center_deg.az_deg +
+        orientation_config.dwell_center_deg.az_deg -
+        platform_attitude_deg.yaw_deg -
+        orientation_config.mount_angles_deg.yaw_deg;
+    stabilized_mount_frame_pointing.el_deg =
+        orientation_config.scan_center_deg.el_deg +
+        orientation_config.dwell_center_deg.el_deg -
+        platform_attitude_deg.pitch_deg -
+        orientation_config.mount_angles_deg.pitch_deg;
+
+    const common::AzimuthElevationLimitsDeg effective_limits =
+        common::IntersectScanLimits(
+            orientation_config.mechanical_scan_limits_deg,
+            orientation_config.electronic_scan_limits_deg);
+    return common::ClampAzimuthElevation(stabilized_mount_frame_pointing,
+                                         effective_limits);
   }
 };
 

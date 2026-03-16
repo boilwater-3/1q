@@ -23,7 +23,7 @@
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/MeasurementErrorModel.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
-#include "airborne_radar/signal/detection/TargetLookResolver.h"
+#include "airborne_radar/signal/detection/TargetGeometryResolver.h"
 #include "airborne_radar/signal/tracking/BoostTrackPool.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
@@ -100,7 +100,7 @@ const association::AssociationMatch* FindAssociationMatch(
 }
 
 /// @brief 根据距离/角度测量精度构造笛卡尔位置量测协方差。
-/// @param target 目标当前位置量测。
+/// @param geometry 统一解析后的目标几何信息。
 /// @param range_error_std 距离测量标准差（m）。
 /// @param angle_error_std 等效角度测量标准差（rad）。
 /// @param default_measurement_noise_std 默认回退量测标准差（m）。
@@ -108,7 +108,7 @@ const association::AssociationMatch* FindAssociationMatch(
 /// @note angle_error_std 由 MeasurementErrorModel 基于有效 az/el 波束宽度
 ///       合成得到，effective beamwidth 来自 BeamControlResolver。
 tracking::MeasurementCovariance BuildMeasurementCovariance(
-    const common::TargetFeature& target,
+    const detection::ResolvedTargetGeometry& geometry,
     float range_error_std,
     float angle_error_std,
     float default_measurement_noise_std) {
@@ -117,21 +117,12 @@ tracking::MeasurementCovariance BuildMeasurementCovariance(
            default_measurement_noise_std * default_measurement_noise_std;
   }
 
-  const float range_m = target.range_m > 0.1f
-                            ? target.range_m
-                            : std::max(Eigen::Vector3f(target.position_x,
-                                                      target.position_y,
-                                                      target.position_z)
-                                           .norm(),
-                                       0.1f);
+  const float range_m = std::max(geometry.range_m, 0.1f);
   const float var_r = range_error_std * range_error_std;
   const float var_theta = angle_error_std * angle_error_std;
-  Eigen::Vector3f pos =
-      (target.position_x != 0.0f || target.position_y != 0.0f ||
-       target.position_z != 0.0f)
-          ? Eigen::Vector3f(target.position_x, target.position_y,
-                            target.position_z)
-          : Eigen::Vector3f(range_m, 0.0f, 0.0f);
+  Eigen::Vector3f pos = geometry.has_cartesian_position
+                            ? geometry.position_m
+                            : Eigen::Vector3f(range_m, 0.0f, 0.0f);
   const float pos_norm = pos.norm();
   if (pos_norm > 0.1f) {
     const Eigen::Vector3f u = pos / pos_norm;
@@ -437,6 +428,7 @@ struct SignalCycleContext {
   std::vector<std::uint64_t> association_keys;
   std::vector<tracking::MeasurementCovariance> measurement_covariances;
   std::vector<int> measurement_slots;
+  std::vector<detection::ResolvedTargetGeometry> target_geometry;
 };
 
 }  // namespace
@@ -518,6 +510,19 @@ struct SignalPipeline::Impl {
     RebuildOwnedComponents();
   }
 
+  /// @brief 更新当前平台姿态。
+  /// @param platform_attitude_deg 平台姿态角。
+  void UpdatePlatformAttitude(
+      const common::PlatformAttitudeDeg& platform_attitude_deg) {
+    config.beam_control.platform_attitude_deg = platform_attitude_deg;
+  }
+
+  /// @brief 获取当前平台姿态。
+  /// @return 当前缓存的平台姿态角。
+  common::PlatformAttitudeDeg GetPlatformAttitude() const {
+    return config.beam_control.platform_attitude_deg;
+  }
+
   /// @brief 初始化单周期缓存。
   /// @param input_state 输入目标列表。
   /// @param environment 环境服务。
@@ -535,6 +540,7 @@ struct SignalPipeline::Impl {
     cached_context.detection_succeeded.assign(target_count, 0U);
     cached_context.association_keys.assign(target_count, 0U);
     cached_context.measurement_slots.assign(target_count, -1);
+    cached_context.target_geometry.resize(target_count);
     cached_context.measurement_covariances.assign(
         target_count, tracking::MeasurementCovariance::Identity() *
                           config.tracking.kalman_measurement_noise_std *
@@ -553,8 +559,11 @@ struct SignalPipeline::Impl {
     const common::TargetFeatureList& input = *cached_context.input_state;
     const std::size_t count = input.size();
     for (std::size_t i = 0; i < count; ++i) {
+      cached_context.target_geometry[i] =
+          detection::TargetGeometryResolver::Resolve(input[i]);
       cached_context.signal_term_db[i] = input[i].current_track_rcs * 6.0f;
-      cached_context.speed_penalty_db[i] = ResolveSpeedMagnitude(input[i]) * 0.002f;
+      cached_context.speed_penalty_db[i] =
+          ResolveSpeedMagnitude(input[i]) * 0.002f;
     }
 
     const float environment_penalty_db =
@@ -588,18 +597,20 @@ struct SignalPipeline::Impl {
     env.jam_noise_w = jam_w;
 
     for (std::size_t i = 0; i < count; ++i) {
+      cached_context.target_geometry[i] =
+          detection::TargetGeometryResolver::Resolve(input[i]);
       detection::TargetReturn target;
       target.rcs_m2 = input[i].current_track_rcs;
-      target.range_m = input[i].range_m > 0.0f ? input[i].range_m : 50000.0f;
+      target.range_m = cached_context.target_geometry[i].range_m;
       target.swerling_type = static_cast<detection::SwerlingModel>(
           input[i].target_swerling_type);
 
-      const detection::TargetLookAnglesDeg look_angles =
-          detection::TargetLookResolver::Resolve(input[i]);
       const detection::ResolvedBeamState beam_state =
           detection::BeamControlResolver::Resolve(
               config.detection.radar_system.antenna,
-              config.beam_control.radar_orientation, look_angles);
+              config.beam_control.radar_orientation,
+              config.beam_control.platform_attitude_deg,
+              cached_context.target_geometry[i].look_angles_deg);
       const detection::DetectionResult detection_result =
           signal_detector->Detect(
               target, env, beam_state.one_way_antenna_gain_db,
@@ -616,7 +627,7 @@ struct SignalPipeline::Impl {
       cached_context.detection_succeeded[i] = static_cast<std::uint8_t>(
           detection_result.detected ? 1U : 0U);
       cached_context.measurement_covariances[i] = BuildMeasurementCovariance(
-          input[i], measurement_error.range_error_std_m,
+          cached_context.target_geometry[i], measurement_error.range_error_std_m,
           measurement_error.angle_error_std_rad,
           config.tracking.kalman_measurement_noise_std);
     }
@@ -655,12 +666,9 @@ struct SignalPipeline::Impl {
           cached_context.association_result.used_external_association_seeds;
       measurement.detection_margin_db = cached_context.detection_margin_db[i];
       measurement.has_cartesian_position =
-          input[i].position_x != 0.0f || input[i].position_y != 0.0f ||
-          input[i].position_z != 0.0f;
+          cached_context.target_geometry[i].has_cartesian_position;
       measurement.position = measurement.has_cartesian_position
-                                 ? Eigen::Vector3f(input[i].position_x,
-                                                   input[i].position_y,
-                                                   input[i].position_z)
+                                 ? cached_context.target_geometry[i].position_m
                                  : Eigen::Vector3f::Zero();
       measurement.jamming_detected =
           cached_context.environment_snapshot.jamming_detected;
@@ -774,6 +782,15 @@ void SignalPipeline::ResetAssociationSeedModeToStateless() {
 std::unique_ptr<tracking::ITrackLifecycleManager>
 SignalPipeline::CreateAutoLifecycleManager() const {
   return impl_->CreateAutoLifecycleManager();
+}
+
+void SignalPipeline::UpdatePlatformAttitude(
+    const common::PlatformAttitudeDeg& platform_attitude_deg) {
+  impl_->UpdatePlatformAttitude(platform_attitude_deg);
+}
+
+common::PlatformAttitudeDeg SignalPipeline::GetPlatformAttitude() const {
+  return impl_->GetPlatformAttitude();
 }
 
 void SignalPipeline::UpdateConfig(SignalPipelineConfig config) {

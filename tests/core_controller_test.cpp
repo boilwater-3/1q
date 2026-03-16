@@ -49,6 +49,11 @@ public:
   /// @brief 获取当前雷达状态。
   common::TargetFeatureList GetTargetFeatures() const override { return state_; }
 
+  /// @brief 获取当前搭载平台姿态角。
+  common::PlatformAttitudeDeg GetPlatformAttitude() const override {
+    return platform_attitude_deg_;
+  }
+
   /// @brief 收集控制指令。
   void SubmitControlCommand(common::RadarCommand cmd) override {
     submitted_commands_.push_back(cmd);
@@ -59,8 +64,15 @@ public:
     return submitted_commands_;
   }
 
+  /// @brief 设置测试上下文使用的平台姿态角。
+  void SetPlatformAttitude(
+      const common::PlatformAttitudeDeg &platform_attitude_deg) {
+    platform_attitude_deg_ = platform_attitude_deg;
+  }
+
 private:
   common::TargetFeatureList state_;
+  common::PlatformAttitudeDeg platform_attitude_deg_{};
   std::vector<common::RadarCommand> submitted_commands_;
 };
 
@@ -182,6 +194,34 @@ TEST_F(CoreControllerTest, RunOnceSubmitsCommands) {
 
   const auto &cmds = radar_context.SubmittedCommands();
   EXPECT_GT(cmds.size(), 0u);
+}
+
+TEST_F(CoreControllerTest, PushesPlatformAttitudeIntoSignalPipelineBeforeRun) {
+  const common::TargetFeatureList input_state =
+      BuildSingleTarget(800.0f, 2.5f, false);
+  FakeRadarContext radar_context(input_state);
+  common::PlatformAttitudeDeg platform_attitude_deg;
+  platform_attitude_deg.yaw_deg = 18.0f;
+  platform_attitude_deg.pitch_deg = -4.0f;
+  platform_attitude_deg.roll_deg = 2.0f;
+  radar_context.SetPlatformAttitude(platform_attitude_deg);
+
+  environment::EnvironmentModelConfig env_config;
+  env_config.jammer_power_db = 0.0f;
+  environment::EnvironmentService environment_service(env_config);
+
+  signal::pipeline::SignalPipeline signal_pipeline;
+  core::controller::RadarController controller(
+      radar_context, signal_pipeline, *decision_pipeline_,
+      environment_service);
+
+  controller.RunOnce();
+
+  const common::PlatformAttitudeDeg cached_platform_attitude =
+      signal_pipeline.GetPlatformAttitude();
+  EXPECT_FLOAT_EQ(cached_platform_attitude.yaw_deg, 18.0f);
+  EXPECT_FLOAT_EQ(cached_platform_attitude.pitch_deg, -4.0f);
+  EXPECT_FLOAT_EQ(cached_platform_attitude.roll_deg, 2.0f);
 }
 
 TEST_F(CoreControllerTest, RunOncePublishesCycleEvent) {

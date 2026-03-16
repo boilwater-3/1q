@@ -253,16 +253,19 @@ TEST(MeasurementErrorModelTest, ElevationBeamwidthAffectsEquivalentAngleStdDev) 
   wide_el_antenna.nominal_el_beamwidth_deg = 8.0f;
 
   common::RadarOrientationConfig orientation;
+  common::PlatformAttitudeDeg platform_attitude_deg;
   signal::detection::TargetLookAnglesDeg look_angles;
   look_angles.has_look_angles = true;
 
   const signal::detection::ResolvedBeamState narrow_state =
       signal::detection::BeamControlResolver::Resolve(narrow_antenna,
                                                       orientation,
+                                                      platform_attitude_deg,
                                                       look_angles);
   const signal::detection::ResolvedBeamState wide_state =
       signal::detection::BeamControlResolver::Resolve(wide_el_antenna,
                                                       orientation,
+                                                      platform_attitude_deg,
                                                       look_angles);
 
   const signal::detection::MeasurementErrorState narrow_error =
@@ -283,6 +286,7 @@ TEST(MeasurementErrorModelTest, CommandedBeamwidthOverrideAffectsAngleStdDev) {
 
   common::RadarOrientationConfig nominal_orientation;
   nominal_orientation.commanded_beamwidth_enabled = false;
+  common::PlatformAttitudeDeg platform_attitude_deg;
 
   common::RadarOrientationConfig commanded_orientation;
   commanded_orientation.commanded_beamwidth_enabled = true;
@@ -297,10 +301,12 @@ TEST(MeasurementErrorModelTest, CommandedBeamwidthOverrideAffectsAngleStdDev) {
   const signal::detection::ResolvedBeamState nominal_state =
       signal::detection::BeamControlResolver::Resolve(antenna,
                                                       nominal_orientation,
+                                                      platform_attitude_deg,
                                                       look_angles);
   const signal::detection::ResolvedBeamState commanded_state =
       signal::detection::BeamControlResolver::Resolve(antenna,
                                                       commanded_orientation,
+                                                      platform_attitude_deg,
                                                       look_angles);
 
   const signal::detection::MeasurementErrorState nominal_error =
@@ -324,6 +330,7 @@ TEST(BeamControlResolverTest, CommandedBeamwidthAffectsDirectionalPatternGain) {
 
   common::RadarOrientationConfig nominal_orientation;
   nominal_orientation.commanded_beamwidth_enabled = false;
+  common::PlatformAttitudeDeg platform_attitude_deg;
 
   common::RadarOrientationConfig commanded_orientation;
   commanded_orientation.commanded_beamwidth_enabled = true;
@@ -339,10 +346,12 @@ TEST(BeamControlResolverTest, CommandedBeamwidthAffectsDirectionalPatternGain) {
 
   const signal::detection::ResolvedBeamState nominal_state =
       signal::detection::BeamControlResolver::Resolve(
-          config.antenna, nominal_orientation, look_angles);
+          config.antenna, nominal_orientation, platform_attitude_deg,
+          look_angles);
   const signal::detection::ResolvedBeamState commanded_state =
       signal::detection::BeamControlResolver::Resolve(
-          config.antenna, commanded_orientation, look_angles);
+          config.antenna, commanded_orientation, platform_attitude_deg,
+          look_angles);
 
   SignalDetector detector(config);
 
@@ -364,6 +373,27 @@ TEST(BeamControlResolverTest, CommandedBeamwidthAffectsDirectionalPatternGain) {
             nominal_state.one_way_antenna_gain_db);
   EXPECT_GT(commanded.echo_power_dbw, nominal.echo_power_dbw);
   EXPECT_GT(commanded.snr_db, nominal.snr_db);
+}
+
+/// @brief 对惯性稳定模式应补偿平台姿态变化。
+TEST(BeamControlResolverTest, InertialStabilizedCompensatesPlatformAttitude) {
+  AntennaConfig antenna;
+  common::RadarOrientationConfig orientation;
+  orientation.stabilization_mode = common::StabilizationMode::kInertialStabilized;
+
+  common::PlatformAttitudeDeg platform_attitude_deg;
+  platform_attitude_deg.yaw_deg = 15.0f;
+  platform_attitude_deg.pitch_deg = 5.0f;
+
+  signal::detection::TargetLookAnglesDeg look_angles;
+  look_angles.has_look_angles = true;
+
+  const signal::detection::ResolvedBeamState state =
+      signal::detection::BeamControlResolver::Resolve(
+          antenna, orientation, platform_attitude_deg, look_angles);
+
+  EXPECT_NEAR(state.beam_pointing_deg.az_deg, -15.0f, 1e-3f);
+  EXPECT_NEAR(state.beam_pointing_deg.el_deg, -5.0f, 1e-3f);
 }
 
 // ===========================================================================

@@ -39,6 +39,9 @@ struct SignalDetectionConfig {
 struct SignalBeamControlConfig {
   /// @brief 雷达方向与控制配置。
   common::RadarOrientationConfig radar_orientation{};
+
+  /// @brief 当前搭载平台姿态角。
+  common::PlatformAttitudeDeg platform_attitude_deg{};
 };
 
 /// @brief SignalTrackingConfig 描述信号层跟踪域配置。
@@ -144,6 +147,15 @@ class SignalPipeline final : public ISignalPipeline {
   /// @return 若未启用自动装配则返回空指针；否则返回生命周期服务。
   std::unique_ptr<tracking::ITrackLifecycleManager>
   CreateAutoLifecycleManager() const override;
+
+  /// @brief 更新当前搭载平台姿态。
+  /// @param platform_attitude_deg 平台姿态角。
+  void UpdatePlatformAttitude(
+      const common::PlatformAttitudeDeg& platform_attitude_deg) override;
+
+  /// @brief 获取当前搭载平台姿态。
+  /// @return 当前缓存的平台姿态角。
+  common::PlatformAttitudeDeg GetPlatformAttitude() const override;
 
   /// @brief 更新信号处理配置。
   /// @param config 新配置。

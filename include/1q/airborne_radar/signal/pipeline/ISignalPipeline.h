@@ -7,6 +7,7 @@
 
 #include <memory>
 
+#include "1q/airborne_radar/common/RadarOrientationConfig.h"
 #include "1q/airborne_radar/common/TargetFeature.h"
 #include "1q/airborne_radar/signal/tracking/TrackLifecycleTypes.h"
 
@@ -85,6 +86,15 @@ public:
 		/// @return 若未启用自动装配则返回空指针；否则返回可直接挂载到 Controller 的生命周期服务。
 		virtual std::unique_ptr<tracking::ITrackLifecycleManager>
 		CreateAutoLifecycleManager() const = 0;
+
+		/// @brief 更新当前搭载平台姿态。
+		/// @param platform_attitude_deg 平台姿态角（单位：度）。
+		virtual void UpdatePlatformAttitude(
+				const common::PlatformAttitudeDeg &platform_attitude_deg) = 0;
+
+		/// @brief 获取当前搭载平台姿态。
+		/// @return 当前缓存的平台姿态角。
+		virtual common::PlatformAttitudeDeg GetPlatformAttitude() const = 0;
 };
 
 } // namespace pipeline
