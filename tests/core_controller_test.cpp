@@ -88,13 +88,14 @@ public:
     common::TargetFeatureList snapshot;
     snapshot.reserve(last_measurements.size());
     for (const signal::tracking::TrackMeasurement &measurement : last_measurements) {
-      snapshot.push_back(common::TargetFeature(measurement.velocity(0),
-                                               measurement.velocity(1),
-                                               measurement.velocity(2),
-                                               measurement.rcs,
-                                               measurement.acceleration(0),
-                                               measurement.acceleration(1),
-                                               measurement.acceleration(2)));
+      snapshot.push_back(common::TargetFeature(
+          measurement.filtered_feature.velocity(0),
+          measurement.filtered_feature.velocity(1),
+          measurement.filtered_feature.velocity(2),
+          measurement.filtered_feature.rcs,
+          measurement.filtered_feature.acceleration(0),
+          measurement.filtered_feature.acceleration(1),
+          measurement.filtered_feature.acceleration(2)));
     }
     return snapshot;
   }
@@ -365,16 +366,16 @@ TEST_F(CoreControllerTest, LifecycleManagerConsumesRealAssociationMeasurements) 
 
   ASSERT_EQ(lifecycle_manager.last_cycle.cycle_index, 1u);
   ASSERT_EQ(lifecycle_manager.last_measurements.size(), 2u);
-  EXPECT_NE(lifecycle_manager.last_measurements[0].association_key, 0u);
-  EXPECT_NE(lifecycle_manager.last_measurements[1].association_key, 0u);
-  EXPECT_NE(lifecycle_manager.last_measurements[0].association_key,
-            lifecycle_manager.last_measurements[1].association_key);
-  EXPECT_EQ(lifecycle_manager.last_measurements[0].source_index, 0u);
-  EXPECT_EQ(lifecycle_manager.last_measurements[1].source_index, 1u);
-  EXPECT_FALSE(lifecycle_manager.last_measurements[0].matched_existing_track);
-  EXPECT_FALSE(lifecycle_manager.last_measurements[1].matched_existing_track);
-  EXPECT_TRUE(lifecycle_manager.last_measurements[0].has_cartesian_position);
-  EXPECT_TRUE(lifecycle_manager.last_measurements[1].has_cartesian_position);
+  EXPECT_NE(lifecycle_manager.last_measurements[0].raw_measurement.association_key, 0u);
+  EXPECT_NE(lifecycle_manager.last_measurements[1].raw_measurement.association_key, 0u);
+  EXPECT_NE(lifecycle_manager.last_measurements[0].raw_measurement.association_key,
+            lifecycle_manager.last_measurements[1].raw_measurement.association_key);
+  EXPECT_EQ(lifecycle_manager.last_measurements[0].raw_measurement.source_index, 0u);
+  EXPECT_EQ(lifecycle_manager.last_measurements[1].raw_measurement.source_index, 1u);
+  EXPECT_FALSE(lifecycle_manager.last_measurements[0].raw_measurement.matched_existing_track);
+  EXPECT_FALSE(lifecycle_manager.last_measurements[1].raw_measurement.matched_existing_track);
+  EXPECT_TRUE(lifecycle_manager.last_measurements[0].raw_measurement.has_cartesian_position);
+  EXPECT_TRUE(lifecycle_manager.last_measurements[1].raw_measurement.has_cartesian_position);
 
   const signal::pipeline::AssociationQualityMetrics metrics =
       signal_pipeline.GetLastAssociationQualityMetrics();
@@ -424,10 +425,14 @@ TEST_F(CoreControllerTest, LifecycleSeedsDrivePositionAssociationBeforeRunCycle)
   controller.RunOnce();
 
   ASSERT_EQ(lifecycle_manager.last_measurements.size(), 1u);
-  EXPECT_EQ(lifecycle_manager.last_measurements[0].association_key, 42u);
-  EXPECT_TRUE(lifecycle_manager.last_measurements[0].matched_existing_track);
-  EXPECT_TRUE(lifecycle_manager.last_measurements[0].used_position_association);
-  EXPECT_TRUE(lifecycle_manager.last_measurements[0].used_external_association_seeds);
+  EXPECT_EQ(lifecycle_manager.last_measurements[0].raw_measurement.association_key,
+            42u);
+  EXPECT_TRUE(
+      lifecycle_manager.last_measurements[0].raw_measurement.matched_existing_track);
+  EXPECT_TRUE(
+      lifecycle_manager.last_measurements[0].raw_measurement.used_position_association);
+  EXPECT_TRUE(lifecycle_manager.last_measurements[0]
+                  .raw_measurement.used_external_association_seeds);
 }
 
 TEST_F(CoreControllerTest,
@@ -454,18 +459,24 @@ TEST_F(CoreControllerTest,
 
   controller.RunOnce();
   ASSERT_EQ(lifecycle_manager.last_measurements.size(), 1u);
-  const std::uint64_t first_key = lifecycle_manager.last_measurements[0].association_key;
+  const std::uint64_t first_key =
+      lifecycle_manager.last_measurements[0].raw_measurement.association_key;
   EXPECT_NE(first_key, 0u);
-  EXPECT_FALSE(lifecycle_manager.last_measurements[0].matched_existing_track);
-  EXPECT_TRUE(lifecycle_manager.last_measurements[0].used_external_association_seeds);
+  EXPECT_FALSE(
+      lifecycle_manager.last_measurements[0].raw_measurement.matched_existing_track);
+  EXPECT_TRUE(lifecycle_manager.last_measurements[0]
+                  .raw_measurement.used_external_association_seeds);
 
   controller.RunOnce();
   ASSERT_EQ(lifecycle_manager.last_measurements.size(), 1u);
-  const std::uint64_t second_key = lifecycle_manager.last_measurements[0].association_key;
+  const std::uint64_t second_key =
+      lifecycle_manager.last_measurements[0].raw_measurement.association_key;
   EXPECT_NE(second_key, 0u);
   EXPECT_NE(second_key, first_key);
-  EXPECT_FALSE(lifecycle_manager.last_measurements[0].matched_existing_track);
-  EXPECT_TRUE(lifecycle_manager.last_measurements[0].used_external_association_seeds);
+  EXPECT_FALSE(
+      lifecycle_manager.last_measurements[0].raw_measurement.matched_existing_track);
+  EXPECT_TRUE(lifecycle_manager.last_measurements[0]
+                  .raw_measurement.used_external_association_seeds);
 }
 
 TEST_F(CoreControllerTest,
@@ -537,8 +548,8 @@ TEST_F(CoreControllerTest,
     const std::vector<signal::tracking::TrackMeasurement> measurements =
       signal_pipeline.GetLastTrackMeasurements();
     ASSERT_EQ(measurements.size(), 1u);
-    EXPECT_NE(measurements[0].association_key, 777u);
-    EXPECT_FALSE(measurements[0].used_external_association_seeds);
+    EXPECT_NE(measurements[0].raw_measurement.association_key, 777u);
+    EXPECT_FALSE(measurements[0].raw_measurement.used_external_association_seeds);
   }
 
   TEST_F(CoreControllerTest,
@@ -565,16 +576,17 @@ TEST_F(CoreControllerTest,
     const std::vector<signal::tracking::TrackMeasurement> first_measurements =
       signal_pipeline.GetLastTrackMeasurements();
     ASSERT_EQ(first_measurements.size(), 1u);
-    EXPECT_FALSE(first_measurements[0].matched_existing_track);
-    const std::uint64_t first_key = first_measurements[0].association_key;
+    EXPECT_FALSE(first_measurements[0].raw_measurement.matched_existing_track);
+    const std::uint64_t first_key =
+        first_measurements[0].raw_measurement.association_key;
     EXPECT_NE(first_key, 0u);
 
     controller.RunOnce();
     const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
     ASSERT_EQ(second_measurements.size(), 1u);
-    EXPECT_FALSE(second_measurements[0].matched_existing_track);
-    EXPECT_NE(second_measurements[0].association_key, first_key);
+    EXPECT_FALSE(second_measurements[0].raw_measurement.matched_existing_track);
+    EXPECT_NE(second_measurements[0].raw_measurement.association_key, first_key);
   }
 
   TEST_F(CoreControllerTest,
@@ -604,14 +616,15 @@ TEST_F(CoreControllerTest,
     const std::vector<signal::tracking::TrackMeasurement> first_measurements =
       signal_pipeline.GetLastTrackMeasurements();
     ASSERT_EQ(first_measurements.size(), 1u);
-    EXPECT_FALSE(first_measurements[0].matched_existing_track);
+    EXPECT_FALSE(first_measurements[0].raw_measurement.matched_existing_track);
 
     controller.RunOnce();
     const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
     ASSERT_EQ(second_measurements.size(), 1u);
-    EXPECT_TRUE(second_measurements[0].matched_existing_track);
-    EXPECT_TRUE(second_measurements[0].used_external_association_seeds);
+    EXPECT_TRUE(second_measurements[0].raw_measurement.matched_existing_track);
+    EXPECT_TRUE(
+        second_measurements[0].raw_measurement.used_external_association_seeds);
   }
 
   TEST_F(CoreControllerTest,

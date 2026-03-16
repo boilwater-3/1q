@@ -22,10 +22,11 @@ TEST(TrackLifecycleManagerTest, ConfirmsTrackAfterConfiguredHits) {
   signal::tracking::TrackLifecycleManager manager(pool, config);
 
   signal::tracking::TrackMeasurement measurement;
-  measurement.association_key = 7;
-  measurement.velocity = Eigen::Vector3f(3.0f, 4.0f, 0.0f);
-  measurement.acceleration = Eigen::Vector3f(0.0f, 2.0f, 0.0f);
-  measurement.rcs = 1.5f;
+  measurement.raw_measurement.association_key = 7;
+  measurement.filtered_feature.velocity = Eigen::Vector3f(3.0f, 4.0f, 0.0f);
+  measurement.filtered_feature.acceleration =
+      Eigen::Vector3f(0.0f, 2.0f, 0.0f);
+  measurement.filtered_feature.rcs = 1.5f;
 
   signal::tracking::CycleContext cycle_1;
   cycle_1.cycle_index = 1;
@@ -62,8 +63,8 @@ TEST(TrackLifecycleManagerTest, RecyclesTrackAfterLostTimeout) {
   signal::tracking::TrackLifecycleManager manager(pool, config);
 
   signal::tracking::TrackMeasurement measurement;
-  measurement.association_key = 3;
-  measurement.velocity = Eigen::Vector3f(1.0f, 0.0f, 0.0f);
+  measurement.raw_measurement.association_key = 3;
+  measurement.filtered_feature.velocity = Eigen::Vector3f(1.0f, 0.0f, 0.0f);
 
   signal::tracking::CycleContext cycle_1;
   cycle_1.cycle_index = 1;
@@ -122,12 +123,13 @@ TEST(TrackLifecycleManagerTest, ImmPathPredictsConfirmedTrackAcrossMissedCycles)
       transition_probability, initial_weights);
 
   signal::tracking::TrackMeasurement measurement;
-  measurement.association_key = 42;
-  measurement.matched_existing_track = false;
-  measurement.has_cartesian_position = true;
-  measurement.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
-  measurement.velocity = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
-  measurement.measurement_covariance = Eigen::Matrix3f::Identity();
+  measurement.raw_measurement.association_key = 42;
+  measurement.raw_measurement.matched_existing_track = false;
+  measurement.raw_measurement.has_cartesian_position = true;
+  measurement.raw_measurement.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
+  measurement.filtered_feature.velocity = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
+  measurement.raw_measurement.measurement_covariance =
+      Eigen::Matrix3f::Identity();
 
   signal::tracking::CycleContext cycle_1;
   cycle_1.cycle_index = 1;
@@ -139,8 +141,9 @@ TEST(TrackLifecycleManagerTest, ImmPathPredictsConfirmedTrackAcrossMissedCycles)
   EXPECT_EQ(active_tracks[0]->status, common::TrackStatus::kConfirmed);
   EXPECT_FLOAT_EQ(active_tracks[0]->position(0), 100.0f);
 
-  measurement.matched_existing_track = true;
-  measurement.position = Eigen::Vector3f(110.0f, 0.0f, 0.0f);
+  measurement.raw_measurement.matched_existing_track = true;
+  measurement.raw_measurement.position =
+      Eigen::Vector3f(110.0f, 0.0f, 0.0f);
 
   signal::tracking::CycleContext cycle_2;
   cycle_2.cycle_index = 2;
@@ -186,12 +189,13 @@ TEST(TrackLifecycleManagerTest,
   signal::tracking::TrackLifecycleManager manager(pool, config, &predictor, &updater);
 
   signal::tracking::TrackMeasurement measurement;
-  measurement.association_key = 99u;
-  measurement.matched_existing_track = false;
-  measurement.has_cartesian_position = true;
-  measurement.position = Eigen::Vector3f(30.0f, 2.0f, -1.0f);
-  measurement.velocity = Eigen::Vector3f(5.0f, 0.0f, 0.0f);
-  measurement.measurement_covariance = Eigen::Matrix3f::Identity();
+  measurement.raw_measurement.association_key = 99u;
+  measurement.raw_measurement.matched_existing_track = false;
+  measurement.raw_measurement.has_cartesian_position = true;
+  measurement.raw_measurement.position = Eigen::Vector3f(30.0f, 2.0f, -1.0f);
+  measurement.filtered_feature.velocity = Eigen::Vector3f(5.0f, 0.0f, 0.0f);
+  measurement.raw_measurement.measurement_covariance =
+      Eigen::Matrix3f::Identity();
 
   signal::tracking::CycleContext cycle;
   cycle.cycle_index = 1;
@@ -203,12 +207,16 @@ TEST(TrackLifecycleManagerTest,
   ASSERT_EQ(seeds.size(), 1u);
   EXPECT_EQ(seeds[0].association_key, 99u);
   EXPECT_TRUE(seeds[0].has_position);
-  EXPECT_EQ(seeds[0].position, measurement.position);
+  EXPECT_EQ(seeds[0].position, measurement.raw_measurement.position);
   EXPECT_TRUE(seeds[0].has_gaussian_state);
-  EXPECT_FLOAT_EQ(seeds[0].gaussian_state.mean(0), measurement.position(0));
-  EXPECT_FLOAT_EQ(seeds[0].gaussian_state.mean(1), measurement.velocity(0));
-  EXPECT_FLOAT_EQ(seeds[0].gaussian_state.mean(2), measurement.position(1));
-  EXPECT_FLOAT_EQ(seeds[0].gaussian_state.mean(4), measurement.position(2));
+  EXPECT_FLOAT_EQ(seeds[0].gaussian_state.mean(0),
+                  measurement.raw_measurement.position(0));
+  EXPECT_FLOAT_EQ(seeds[0].gaussian_state.mean(1),
+                  measurement.filtered_feature.velocity(0));
+  EXPECT_FLOAT_EQ(seeds[0].gaussian_state.mean(2),
+                  measurement.raw_measurement.position(1));
+  EXPECT_FLOAT_EQ(seeds[0].gaussian_state.mean(4),
+                  measurement.raw_measurement.position(2));
 }
 
 TEST(TrackLifecycleManagerTest,
@@ -228,13 +236,13 @@ TEST(TrackLifecycleManagerTest,
   signal::tracking::TrackLifecycleManager manager(pool, config, &predictor, &updater);
 
   signal::tracking::TrackMeasurement first;
-  first.association_key = 501u;
-  first.matched_existing_track = false;
-  first.has_cartesian_position = true;
-  first.position = Eigen::Vector3f(0.0f, 0.0f, 0.0f);
-  first.velocity = Eigen::Vector3f(1.0f, 2.0f, 0.0f);
-  first.acceleration = Eigen::Vector3f::Zero();
-  first.measurement_covariance = Eigen::Matrix3f::Identity();
+  first.raw_measurement.association_key = 501u;
+  first.raw_measurement.matched_existing_track = false;
+  first.raw_measurement.has_cartesian_position = true;
+  first.raw_measurement.position = Eigen::Vector3f(0.0f, 0.0f, 0.0f);
+  first.filtered_feature.velocity = Eigen::Vector3f(1.0f, 2.0f, 0.0f);
+  first.filtered_feature.acceleration = Eigen::Vector3f::Zero();
+  first.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
 
   signal::tracking::CycleContext cycle_1;
   cycle_1.cycle_index = 1u;
@@ -242,9 +250,9 @@ TEST(TrackLifecycleManagerTest,
   manager.Update(cycle_1, {first});
 
   signal::tracking::TrackMeasurement second = first;
-  second.matched_existing_track = true;
-  second.position = Eigen::Vector3f(1.0f, 2.0f, 0.0f);
-  second.velocity = Eigen::Vector3f(3.0f, 5.0f, 0.0f);
+  second.raw_measurement.matched_existing_track = true;
+  second.raw_measurement.position = Eigen::Vector3f(1.0f, 2.0f, 0.0f);
+  second.filtered_feature.velocity = Eigen::Vector3f(3.0f, 5.0f, 0.0f);
 
   signal::tracking::CycleContext cycle_2;
   cycle_2.cycle_index = 2u;

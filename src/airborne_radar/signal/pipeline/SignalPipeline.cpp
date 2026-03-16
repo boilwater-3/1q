@@ -24,9 +24,7 @@
 #include "airborne_radar/signal/detection/MeasurementErrorModel.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
-#include "airborne_radar/signal/tracking/BoostTrackPool.h"
-#include "airborne_radar/signal/tracking/KalmanPredictor.h"
-#include "airborne_radar/signal/tracking/KalmanUpdater.h"
+#include "airborne_radar/signal/pipeline/SignalComponentFactory.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
 
 namespace airborne_radar {
@@ -52,36 +50,6 @@ AssociationQualityMetrics ToPipelineAssociationQualityMetrics(
   metrics.mean_match_cost = source.mean_match_cost;
   metrics.p95_match_cost = source.p95_match_cost;
   return metrics;
-}
-
-/// @brief 从顶层配置构造轨迹滤波配置。
-/// @param config Signal 顶层配置。
-/// @return TrackFilter 使用的配置。
-tracking::TrackFilterConfig ToTrackFilterConfig(
-    const SignalPipelineConfig& config) {
-  tracking::TrackFilterConfig filter_config;
-  filter_config.speed_decay_ratio_on_loss =
-      config.tracking.speed_decay_ratio_on_loss;
-  filter_config.rcs_decay_ratio_on_loss =
-      config.tracking.rcs_decay_ratio_on_loss;
-  filter_config.jamming_acceleration_penalty =
-      config.tracking.jamming_acceleration_penalty;
-  filter_config.stable_acceleration_gain =
-      config.tracking.stable_acceleration_gain;
-  return filter_config;
-}
-
-/// @brief 从顶层配置构造数据关联配置。
-/// @param config Signal 顶层配置。
-/// @return DataAssociationEngine 使用的配置。
-association::DataAssociationConfig ToAssociationConfig(
-    const SignalPipelineConfig& config) {
-  association::DataAssociationConfig association_config;
-  association_config.kalman_noise_diff_coeff =
-      config.tracking.kalman_noise_diff_coeff;
-  association_config.kalman_measurement_noise_std =
-      config.tracking.kalman_measurement_noise_std;
-  return association_config;
 }
 
 /// @brief 在关联结果中查找指定输入目标索引对应的匹配结果。
@@ -186,30 +154,6 @@ Eigen::Vector3f ResolveAccelerationVector(const common::TargetFeature& target) {
   return Eigen::Vector3f(target.current_track_acceleration, 0.0f, 0.0f);
 }
 
-/// @brief 终止生命周期自动装配配置违规。
-/// @param message 错误消息。
-/// @param value 附带数值。
-[[noreturn]] void AbortLifecycleAssemblyConfigViolation(const char* message,
-                                                        float value) {
-  spdlog::critical(
-      "[SignalPipeline] lifecycle auto-assembly config violation: {} "
-      "(value={})",
-      message, value);
-  std::abort();
-}
-
-/// @brief 终止生命周期自动装配配置违规。
-/// @param message 错误消息。
-/// @param value 附带数值。
-[[noreturn]] void AbortLifecycleAssemblyConfigViolation(const char* message,
-                                                        std::size_t value) {
-  spdlog::critical(
-      "[SignalPipeline] lifecycle auto-assembly config violation: {} "
-      "(value={})",
-      message, value);
-  std::abort();
-}
-
 /// @brief 基于 Pipeline 配置自动装配生命周期管理器。
 class AutoConfiguredLifecycleManager final
     : public tracking::ITrackLifecycleManager {
@@ -217,80 +161,8 @@ class AutoConfiguredLifecycleManager final
   /// @brief 使用 SignalPipeline 顶层配置构造生命周期管理器。
   /// @param config 顶层配置。
   explicit AutoConfiguredLifecycleManager(const SignalPipelineConfig& config)
-      : pool_(config.lifecycle.lifecycle_track_pool_initial_chunk,
-              config.lifecycle.lifecycle_track_pool_max_chunks) {
-    const float measurement_noise_std =
-        std::max(config.tracking.kalman_measurement_noise_std, 0.001f);
-
-    if (config.lifecycle.enable_imm_lifecycle) {
-      const std::size_t model_count =
-          config.lifecycle.imm_model_noise_diff_coeffs.size();
-      if (model_count == 0U) {
-        AbortLifecycleAssemblyConfigViolation(
-            "IMM enabled but imm_model_noise_diff_coeffs is empty",
-            model_count);
-      }
-
-      imm_predictors_owned_.reserve(model_count);
-      imm_updaters_owned_.reserve(model_count);
-      imm_predictors_.reserve(model_count);
-      imm_updaters_.reserve(model_count);
-
-      for (std::size_t i = 0; i < model_count; ++i) {
-        const float noise_diff_coeff =
-            config.lifecycle.imm_model_noise_diff_coeffs[i];
-        if (noise_diff_coeff <= 0.0f) {
-          AbortLifecycleAssemblyConfigViolation(
-              "IMM model noise_diff_coeff must be > 0", noise_diff_coeff);
-        }
-
-        tracking::KalmanPredictorConfig predictor_config;
-        predictor_config.noise_diff_coeff = noise_diff_coeff;
-        std::unique_ptr<tracking::KalmanPredictor> predictor(
-            new tracking::KalmanPredictor(predictor_config));
-
-        tracking::KalmanUpdaterConfig updater_config;
-        updater_config.measurement_noise_std = measurement_noise_std;
-        std::unique_ptr<tracking::KalmanUpdater> updater(
-            new tracking::KalmanUpdater(updater_config));
-
-        imm_predictors_.push_back(predictor.get());
-        imm_updaters_.push_back(updater.get());
-        imm_predictors_owned_.push_back(std::move(predictor));
-        imm_updaters_owned_.push_back(std::move(updater));
-      }
-
-      const Eigen::MatrixXf transition_probability =
-          BuildTransitionProbability(config, model_count);
-      const Eigen::VectorXf initial_weights =
-          BuildInitialWeights(config, model_count);
-
-      lifecycle_manager_.reset(new tracking::TrackLifecycleManager(
-          pool_, config.lifecycle.lifecycle_config, imm_predictors_,
-          imm_updaters_, transition_probability, initial_weights));
-      return;
-    }
-
-    if (config.tracking.enable_kalman_filter) {
-      tracking::KalmanPredictorConfig predictor_config;
-      predictor_config.noise_diff_coeff =
-          std::max(config.tracking.kalman_noise_diff_coeff, 0.001f);
-      kalman_predictor_.reset(
-          new tracking::KalmanPredictor(predictor_config));
-
-      tracking::KalmanUpdaterConfig updater_config;
-      updater_config.measurement_noise_std = measurement_noise_std;
-      kalman_updater_.reset(new tracking::KalmanUpdater(updater_config));
-
-      lifecycle_manager_.reset(new tracking::TrackLifecycleManager(
-          pool_, config.lifecycle.lifecycle_config, kalman_predictor_.get(),
-          kalman_updater_.get()));
-      return;
-    }
-
-    lifecycle_manager_.reset(new tracking::TrackLifecycleManager(
-        pool_, config.lifecycle.lifecycle_config));
-  }
+      : assembly_(internal::SignalComponentFactory::BuildLifecycleAssemblyArtifacts(
+            config)) {}
 
   /// @brief 更新生命周期状态。
   /// @param cycle 当前周期上下文。
@@ -298,117 +170,24 @@ class AutoConfiguredLifecycleManager final
   void Update(const tracking::CycleContext& cycle,
               const std::vector<tracking::TrackMeasurement>& measurements)
       override {
-    lifecycle_manager_->Update(cycle, measurements);
+    assembly_.lifecycle_manager->Update(cycle, measurements);
   }
 
   /// @brief 构建特征快照。
   /// @return 生命周期输出的轨迹特征快照。
   common::TargetFeatureList BuildFeatureSnapshot() const override {
-    return lifecycle_manager_->BuildFeatureSnapshot();
+    return assembly_.lifecycle_manager->BuildFeatureSnapshot();
   }
 
   /// @brief 构建关联种子。
   /// @return 上一周期轨迹种子列表。
   std::vector<tracking::AssociationTrackSeed> BuildAssociationSeeds()
       const override {
-    return lifecycle_manager_->BuildAssociationSeeds();
+    return assembly_.lifecycle_manager->BuildAssociationSeeds();
   }
 
  private:
-  /// @brief 构建 IMM 转移矩阵。
-  /// @param config 顶层配置。
-  /// @param model_count IMM 模型数。
-  /// @return 转移概率矩阵。
-  static Eigen::MatrixXf BuildTransitionProbability(
-      const SignalPipelineConfig& config,
-      std::size_t model_count) {
-    if (config.lifecycle.imm_transition_probability.empty()) {
-      Eigen::MatrixXf matrix = Eigen::MatrixXf::Constant(
-          static_cast<Eigen::Index>(model_count),
-          static_cast<Eigen::Index>(model_count),
-          model_count > 1U ? 0.05f / static_cast<float>(model_count - 1U)
-                           : 1.0f);
-      matrix.diagonal().setConstant(model_count > 1U ? 0.95f : 1.0f);
-      return matrix;
-    }
-
-    if (config.lifecycle.imm_transition_probability.size() !=
-        model_count * model_count) {
-      AbortLifecycleAssemblyConfigViolation(
-          "imm_transition_probability size must equal model_count*model_count",
-          config.lifecycle.imm_transition_probability.size());
-    }
-
-    Eigen::MatrixXf matrix(static_cast<Eigen::Index>(model_count),
-                           static_cast<Eigen::Index>(model_count));
-    for (std::size_t r = 0; r < model_count; ++r) {
-      float row_sum = 0.0f;
-      for (std::size_t c = 0; c < model_count; ++c) {
-        const float value = config.lifecycle
-                                .imm_transition_probability[r * model_count +
-                                                            c];
-        if (value < 0.0f || value > 1.0f) {
-          AbortLifecycleAssemblyConfigViolation(
-              "IMM transition probability must be in [0,1]", value);
-        }
-        matrix(static_cast<Eigen::Index>(r), static_cast<Eigen::Index>(c)) =
-            value;
-        row_sum += value;
-      }
-      if (std::fabs(row_sum - 1.0f) > 1e-3f) {
-        AbortLifecycleAssemblyConfigViolation(
-            "each IMM transition matrix row must sum to 1", row_sum);
-      }
-    }
-    return matrix;
-  }
-
-  /// @brief 构建 IMM 初始权重。
-  /// @param config 顶层配置。
-  /// @param model_count IMM 模型数。
-  /// @return 初始权重向量。
-  static Eigen::VectorXf BuildInitialWeights(const SignalPipelineConfig& config,
-                                             std::size_t model_count) {
-    if (config.lifecycle.imm_initial_weights.empty()) {
-      return Eigen::VectorXf::Constant(
-          static_cast<Eigen::Index>(model_count),
-          1.0f / static_cast<float>(model_count));
-    }
-
-    if (config.lifecycle.imm_initial_weights.size() != model_count) {
-      AbortLifecycleAssemblyConfigViolation(
-          "imm_initial_weights size must equal model_count",
-          config.lifecycle.imm_initial_weights.size());
-    }
-
-    Eigen::VectorXf weights(static_cast<Eigen::Index>(model_count));
-    float sum = 0.0f;
-    for (std::size_t i = 0; i < model_count; ++i) {
-      const float value = config.lifecycle.imm_initial_weights[i];
-      if (value < 0.0f || value > 1.0f) {
-        AbortLifecycleAssemblyConfigViolation(
-            "IMM initial weight must be in [0,1]", value);
-      }
-      weights(static_cast<Eigen::Index>(i)) = value;
-      sum += value;
-    }
-
-    if (std::fabs(sum - 1.0f) > 1e-3f) {
-      AbortLifecycleAssemblyConfigViolation(
-          "IMM initial weights must sum to 1", sum);
-    }
-    return weights;
-  }
-
-  tracking::BoostTrackPool pool_;
-  std::unique_ptr<tracking::KalmanPredictor> kalman_predictor_;
-  std::unique_ptr<tracking::KalmanUpdater> kalman_updater_;
-  std::vector<std::unique_ptr<tracking::KalmanPredictor> >
-      imm_predictors_owned_;
-  std::vector<std::unique_ptr<tracking::KalmanUpdater> > imm_updaters_owned_;
-  std::vector<const tracking::IKalmanPredictor*> imm_predictors_;
-  std::vector<const tracking::IKalmanUpdater*> imm_updaters_;
-  std::unique_ptr<tracking::TrackLifecycleManager> lifecycle_manager_;
+  internal::LifecycleAssemblyArtifacts assembly_;
 };
 
 /// @brief 单周期缓存上下文。
@@ -439,8 +218,10 @@ struct SignalPipeline::Impl {
   /// @param initial_config 顶层配置。
   explicit Impl(SignalPipelineConfig initial_config)
       : config(std::move(initial_config)),
-        association_engine(ToAssociationConfig(config)),
-        track_filter(ToTrackFilterConfig(config)) {
+        association_engine(
+            internal::SignalComponentFactory::BuildAssociationConfig(config)),
+        track_filter(
+            internal::SignalComponentFactory::BuildTrackFilterConfig(config)) {
     RebuildOwnedComponents();
   }
 
@@ -505,8 +286,10 @@ struct SignalPipeline::Impl {
   /// @param new_config 新配置。
   void UpdateConfig(SignalPipelineConfig new_config) {
     config = std::move(new_config);
-    association_engine.UpdateConfig(ToAssociationConfig(config));
-    track_filter.UpdateConfig(ToTrackFilterConfig(config));
+    association_engine.UpdateConfig(
+        internal::SignalComponentFactory::BuildAssociationConfig(config));
+    track_filter.UpdateConfig(
+        internal::SignalComponentFactory::BuildTrackFilterConfig(config));
     RebuildOwnedComponents();
   }
 
@@ -655,25 +438,30 @@ struct SignalPipeline::Impl {
       const association::AssociationMatch* match =
           FindAssociationMatch(cached_context.association_result, i);
       tracking::TrackMeasurement measurement;
-      measurement.source_index = i;
-      measurement.external_target_id = input[i].external_target_id;
-      measurement.association_key = cached_context.association_keys[i];
-      measurement.matched_existing_track = match != nullptr;
-      measurement.association_cost = match != nullptr ? match->cost : 0.0f;
-      measurement.used_position_association =
+      measurement.raw_measurement.source_index = i;
+      measurement.raw_measurement.external_target_id =
+          input[i].external_target_id;
+      measurement.raw_measurement.association_key =
+          cached_context.association_keys[i];
+      measurement.raw_measurement.matched_existing_track = match != nullptr;
+      measurement.raw_measurement.association_cost =
+          match != nullptr ? match->cost : 0.0f;
+      measurement.raw_measurement.used_position_association =
           cached_context.association_result.used_position_association;
-      measurement.used_external_association_seeds =
+      measurement.raw_measurement.used_external_association_seeds =
           cached_context.association_result.used_external_association_seeds;
-      measurement.detection_margin_db = cached_context.detection_margin_db[i];
-      measurement.has_cartesian_position =
+      measurement.raw_measurement.detection_margin_db =
+          cached_context.detection_margin_db[i];
+      measurement.raw_measurement.has_cartesian_position =
           cached_context.target_geometry[i].has_cartesian_position;
-      measurement.position = measurement.has_cartesian_position
-                                 ? cached_context.target_geometry[i].position_m
-                                 : Eigen::Vector3f::Zero();
-      measurement.jamming_detected =
-          cached_context.environment_snapshot.jamming_detected;
-      measurement.measurement_covariance =
+      measurement.raw_measurement.position =
+          measurement.raw_measurement.has_cartesian_position
+              ? cached_context.target_geometry[i].position_m
+              : Eigen::Vector3f::Zero();
+      measurement.raw_measurement.measurement_covariance =
           cached_context.measurement_covariances[i];
+      measurement.filtered_feature.jamming_detected =
+          cached_context.environment_snapshot.jamming_detected;
 
       cached_context.measurement_slots[i] =
           static_cast<int>(cached_context.track_measurements.size());
@@ -704,11 +492,16 @@ struct SignalPipeline::Impl {
       tracking::TrackMeasurement& measurement =
           cached_context.track_measurements[static_cast<std::size_t>(
               measurement_slot)];
-      measurement.observed_speed = ResolveSpeedMagnitude(output[i]);
-      measurement.velocity = ResolveVelocityVector(output[i]);
-      measurement.observed_acceleration = ResolveAccelerationMagnitude(output[i]);
-      measurement.acceleration = ResolveAccelerationVector(output[i]);
-      measurement.rcs = output[i].current_track_rcs;
+      measurement.filtered_feature.observed_speed =
+          ResolveSpeedMagnitude(output[i]);
+      measurement.filtered_feature.velocity = ResolveVelocityVector(output[i]);
+      measurement.filtered_feature.observed_acceleration =
+          ResolveAccelerationMagnitude(output[i]);
+      measurement.filtered_feature.acceleration =
+          ResolveAccelerationVector(output[i]);
+      measurement.filtered_feature.rcs = output[i].current_track_rcs;
+      measurement.filtered_feature.jamming_detected =
+          cached_context.environment_snapshot.jamming_detected;
     }
   }
 
@@ -717,27 +510,11 @@ struct SignalPipeline::Impl {
 
   /// @brief 依据当前配置重建自持有组件。
   void RebuildOwnedComponents() {
-    if (config.tracking.enable_kalman_filter) {
-      tracking::KalmanPredictorConfig predictor_config;
-      predictor_config.noise_diff_coeff =
-          config.tracking.kalman_noise_diff_coeff;
-      kalman_predictor.reset(new tracking::KalmanPredictor(predictor_config));
-
-      tracking::KalmanUpdaterConfig updater_config;
-      updater_config.measurement_noise_std =
-          config.tracking.kalman_measurement_noise_std;
-      kalman_updater.reset(new tracking::KalmanUpdater(updater_config));
-    } else {
-      kalman_predictor.reset();
-      kalman_updater.reset();
-    }
-
-    if (config.detection.enable_physics_detection) {
-      signal_detector.reset(
-          new detection::SignalDetector(config.detection.radar_system));
-    } else {
-      signal_detector.reset();
-    }
+    internal::OwnedSignalComponents components =
+        internal::SignalComponentFactory::BuildOwnedPipelineComponents(config);
+    kalman_predictor = std::move(components.kalman_predictor);
+    kalman_updater = std::move(components.kalman_updater);
+    signal_detector = std::move(components.signal_detector);
   }
 
   SignalPipelineConfig config{};

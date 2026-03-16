@@ -135,7 +135,8 @@ flowchart LR
 - `RadarController` 已通过 `AssociationTrackSeed` 将 Lifecycle 侧活跃轨迹状态注入关联阶段，关联真理源正在向 `TrackLifecycleManager` 收敛
 - 关联域已移除内部历史先验消费路径，仅接收 external seeds；无 seeds 时为 stateless 关联
 - `SignalPipeline` 会在 `SignalCycleContext` 中提前构造 `measurement_covariance`，供关联与 Lifecycle 更新共享同一份动态 $R$
-- `SignalPipeline` 只有在输入 `TargetFeature` 已携带 `position_x/y/z` 时，才会导出 `has_cartesian_position = true` 的 `TrackMeasurement`
+- `TrackMeasurement` 当前明确拆分为 `raw_measurement` 与 `filtered_feature` 两段：前者承载位置量测与关联语义，后者承载 `TrackFilter` 回写后的动态特征
+- `SignalPipeline` 只有在输入 `TargetFeature` 已携带 `position_x/y/z` 时，才会导出 `raw_measurement.has_cartesian_position = true` 的 `TrackMeasurement`
 - 当成功探测目标位置量测不完整时，当前实现会直接触发契约失败
 - external seeds 缺失位置或高斯状态时，当前实现会直接触发契约失败
 - `RadarController` 绑定 `TrackLifecycleManager` 时，会强制维持 external seeds 主路径；解绑后会显式回到 stateless 关联

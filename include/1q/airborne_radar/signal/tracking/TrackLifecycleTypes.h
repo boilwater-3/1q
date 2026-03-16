@@ -43,8 +43,8 @@ struct AssociationTrackSeed {
   GaussianTrackState gaussian_state;
 };
 
-/// @brief TrackMeasurement 描述关联后量测输入。
-struct TrackMeasurement {
+/// @brief RawTrackMeasurement 描述关联后的原始量测语义。
+struct RawTrackMeasurement {
   /// @brief 原始输入目标索引，用于调试和结果回溯。
   std::size_t source_index{0};
 
@@ -75,6 +75,13 @@ struct TrackMeasurement {
   /// @brief 当前量测位置向量（x, y, z）。
   Eigen::Vector3f position{Eigen::Vector3f::Zero()};
 
+  /// @brief 笛卡尔坐标系下的量测噪声协方差矩阵 R。
+  /// 对于 3D 位置 [x,y,z]，这是一个 3x3 矩阵，由雷达方程由于信噪比推算出的物理方差经坐标转换后得到。
+  Eigen::Matrix3f measurement_covariance{Eigen::Matrix3f::Zero()};
+};
+
+/// @brief FilteredTrackFeature 描述轨迹滤波后的动态特征。
+struct FilteredTrackFeature {
   /// @brief 当前量测标量速度估计（m/s）。
   float observed_speed{0.0f};
 
@@ -92,10 +99,17 @@ struct TrackMeasurement {
 
   /// @brief 当前量测是否检测到干扰。
   bool jamming_detected{false};
+};
 
-  /// @brief 笛卡尔坐标系下的量测噪声协方差矩阵 R。
-  /// 对于 3D 位置 [x,y,z]，这是一个 3x3 矩阵，由雷达方程由于信噪比推算出的物理方差经坐标转换后得到。
-  Eigen::Matrix3f measurement_covariance{Eigen::Matrix3f::Zero()};
+/// @brief TrackMeasurement 描述提供给 Lifecycle 的组合输入。
+/// @note 该类型显式区分原始量测语义与滤波后特征语义，
+///       避免一个平面结构同时承载两类不同来源的数据。
+struct TrackMeasurement {
+  /// @brief 关联后的原始量测部分。
+  RawTrackMeasurement raw_measurement;
+
+  /// @brief 轨迹滤波后的动态特征部分。
+  FilteredTrackFeature filtered_feature;
 };
 
 } // namespace tracking

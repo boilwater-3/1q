@@ -88,8 +88,8 @@ private:
   /// @return 若已配置有效 IMM 模型集合则返回 true。
   bool IsImmEnabled() const;
 
-  /// @brief 从量测构造初始高斯状态。
-  /// @param measurement 当前量测。
+  /// @brief 从组合量测构造初始高斯状态。
+  /// @param measurement 当前组合量测。
   /// @return 初始化后的高斯状态。
   GaussianTrackState BuildInitialGaussianState(
       const TrackMeasurement &measurement) const;

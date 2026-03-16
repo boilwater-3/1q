@@ -59,7 +59,7 @@ std::size_t CountMatchedTracks(
     const std::vector<signal::tracking::TrackMeasurement> &measurements) {
   std::size_t matched = 0;
   for (const signal::tracking::TrackMeasurement &measurement : measurements) {
-    if (measurement.matched_existing_track) {
+    if (measurement.raw_measurement.matched_existing_track) {
       ++matched;
     }
   }
@@ -126,8 +126,8 @@ TEST(SignalBulkDataTest, LargeBatchSingleCycleProducesConsistentMeasurements) {
   EXPECT_FLOAT_EQ(metrics.new_track_rate, 1.0f);
 
   for (const signal::tracking::TrackMeasurement &measurement : measurements) {
-    EXPECT_NE(measurement.association_key, 0u);
-    EXPECT_TRUE(measurement.has_cartesian_position);
+    EXPECT_NE(measurement.raw_measurement.association_key, 0u);
+    EXPECT_TRUE(measurement.raw_measurement.has_cartesian_position);
   }
 }
 
@@ -182,7 +182,7 @@ TEST(SignalBulkDataTest,
 
   EXPECT_GT(match_ratio, 0.95f);
   for (const signal::tracking::TrackMeasurement &measurement : cycle_2_measurements) {
-    EXPECT_TRUE(measurement.used_external_association_seeds);
+    EXPECT_TRUE(measurement.raw_measurement.used_external_association_seeds);
   }
 }
 
@@ -294,10 +294,11 @@ TEST(SignalBulkDataTest, ExternalTargetIdStaysConsistentAcrossImmLifecycleCycles
   ASSERT_EQ(cycle_1_measurements.size(), kTargetCount);
 
   for (const signal::tracking::TrackMeasurement &measurement : cycle_1_measurements) {
-    ASSERT_LT(measurement.source_index, cycle_1_input.size());
-    EXPECT_EQ(measurement.external_target_id,
-              cycle_1_input[measurement.source_index].external_target_id);
-    EXPECT_NE(measurement.external_target_id, 0U);
+    ASSERT_LT(measurement.raw_measurement.source_index, cycle_1_input.size());
+    EXPECT_EQ(measurement.raw_measurement.external_target_id,
+              cycle_1_input[measurement.raw_measurement.source_index]
+                  .external_target_id);
+    EXPECT_NE(measurement.raw_measurement.external_target_id, 0U);
   }
 
   signal::tracking::CycleContext cycle_1_context;
@@ -318,10 +319,11 @@ TEST(SignalBulkDataTest, ExternalTargetIdStaysConsistentAcrossImmLifecycleCycles
   ASSERT_EQ(cycle_2_measurements.size(), kTargetCount);
 
   for (const signal::tracking::TrackMeasurement &measurement : cycle_2_measurements) {
-    ASSERT_LT(measurement.source_index, cycle_2_input.size());
-    EXPECT_EQ(measurement.external_target_id,
-              cycle_2_input[measurement.source_index].external_target_id);
-    EXPECT_NE(measurement.external_target_id, 0U);
+    ASSERT_LT(measurement.raw_measurement.source_index, cycle_2_input.size());
+    EXPECT_EQ(measurement.raw_measurement.external_target_id,
+              cycle_2_input[measurement.raw_measurement.source_index]
+                  .external_target_id);
+    EXPECT_NE(measurement.raw_measurement.external_target_id, 0U);
   }
 
   signal::tracking::CycleContext cycle_2_context;

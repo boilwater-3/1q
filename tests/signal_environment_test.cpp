@@ -142,14 +142,14 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
       signal_pipeline.GetLastTrackMeasurements();
 
   ASSERT_EQ(first_measurements.size(), 2u);
-  EXPECT_FALSE(first_measurements[0].matched_existing_track);
-  EXPECT_FALSE(first_measurements[1].matched_existing_track);
-  EXPECT_EQ(first_measurements[0].source_index, 0u);
-  EXPECT_EQ(first_measurements[1].source_index, 1u);
-    EXPECT_TRUE(first_measurements[0].has_cartesian_position);
-  EXPECT_GT(first_measurements[0].observed_speed, 0.0f);
-  EXPECT_GT(first_measurements[0].detection_margin_db, -2.0f);
-    EXPECT_TRUE(first_measurements[0].used_position_association);
+  EXPECT_FALSE(first_measurements[0].raw_measurement.matched_existing_track);
+  EXPECT_FALSE(first_measurements[1].raw_measurement.matched_existing_track);
+  EXPECT_EQ(first_measurements[0].raw_measurement.source_index, 0u);
+  EXPECT_EQ(first_measurements[1].raw_measurement.source_index, 1u);
+  EXPECT_TRUE(first_measurements[0].raw_measurement.has_cartesian_position);
+  EXPECT_GT(first_measurements[0].filtered_feature.observed_speed, 0.0f);
+  EXPECT_GT(first_measurements[0].raw_measurement.detection_margin_db, -2.0f);
+  EXPECT_TRUE(first_measurements[0].raw_measurement.used_position_association);
 
     first.current_track_speed = 101.0f;
     first.current_track_rcs = 2.1f;
@@ -162,7 +162,8 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
     second.position_x = 101.0f;
     second.range_m = 101.0f;
     signal::tracking::AssociationTrackSeed first_seed;
-    first_seed.association_key = first_measurements[0].association_key;
+    first_seed.association_key =
+        first_measurements[0].raw_measurement.association_key;
     first_seed.has_position = true;
     first_seed.position = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
     first_seed.has_gaussian_state = true;
@@ -172,7 +173,8 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
       signal::tracking::StateCovariance::Identity() * 25.0f;
 
     signal::tracking::AssociationTrackSeed second_seed;
-    second_seed.association_key = first_measurements[1].association_key;
+    second_seed.association_key =
+        first_measurements[1].raw_measurement.association_key;
     second_seed.has_position = true;
     second_seed.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
     second_seed.has_gaussian_state = true;
@@ -190,11 +192,11 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
       signal_pipeline.GetLastTrackMeasurements();
 
   ASSERT_EQ(second_measurements.size(), 2u);
-  EXPECT_TRUE(second_measurements[0].matched_existing_track);
-  EXPECT_TRUE(second_measurements[1].matched_existing_track);
-  EXPECT_GT(second_measurements[0].association_cost, 0.0f);
-  EXPECT_GT(second_measurements[1].association_cost, 0.0f);
-  EXPECT_TRUE(second_measurements[0].used_position_association);
+  EXPECT_TRUE(second_measurements[0].raw_measurement.matched_existing_track);
+  EXPECT_TRUE(second_measurements[1].raw_measurement.matched_existing_track);
+  EXPECT_GT(second_measurements[0].raw_measurement.association_cost, 0.0f);
+  EXPECT_GT(second_measurements[1].raw_measurement.association_cost, 0.0f);
+  EXPECT_TRUE(second_measurements[0].raw_measurement.used_position_association);
 }
 
 TEST(SignalPipelineTest, FailsFastWhenDetectedTargetLacksCartesianPosition) {
@@ -237,12 +239,13 @@ TEST(SignalPipelineTest,
       signal_pipeline.GetLastTrackMeasurements();
 
   ASSERT_EQ(first_measurements.size(), 2u);
-  EXPECT_TRUE(first_measurements[0].used_position_association);
-  EXPECT_TRUE(first_measurements[0].has_cartesian_position);
-  EXPECT_TRUE(first_measurements[1].used_position_association);
+  EXPECT_TRUE(first_measurements[0].raw_measurement.used_position_association);
+  EXPECT_TRUE(first_measurements[0].raw_measurement.has_cartesian_position);
+  EXPECT_TRUE(first_measurements[1].raw_measurement.used_position_association);
 
     signal::tracking::AssociationTrackSeed first_seed;
-    first_seed.association_key = first_measurements[0].association_key;
+    first_seed.association_key =
+        first_measurements[0].raw_measurement.association_key;
     first_seed.has_position = true;
     first_seed.position = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
     first_seed.has_gaussian_state = true;
@@ -252,7 +255,8 @@ TEST(SignalPipelineTest,
       signal::tracking::StateCovariance::Identity() * 25.0f;
 
     signal::tracking::AssociationTrackSeed second_seed;
-    second_seed.association_key = first_measurements[1].association_key;
+    second_seed.association_key =
+        first_measurements[1].raw_measurement.association_key;
     second_seed.has_position = true;
     second_seed.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
     second_seed.has_gaussian_state = true;
@@ -273,9 +277,9 @@ TEST(SignalPipelineTest,
       signal_pipeline.GetLastTrackMeasurements();
 
   ASSERT_EQ(second_measurements.size(), 2u);
-  EXPECT_TRUE(second_measurements[0].used_position_association);
-  EXPECT_TRUE(second_measurements[0].matched_existing_track);
-  EXPECT_TRUE(second_measurements[1].matched_existing_track);
+  EXPECT_TRUE(second_measurements[0].raw_measurement.used_position_association);
+  EXPECT_TRUE(second_measurements[0].raw_measurement.matched_existing_track);
+  EXPECT_TRUE(second_measurements[1].raw_measurement.matched_existing_track);
 }
 
 TEST(SignalPipelineTest,
@@ -297,8 +301,9 @@ TEST(SignalPipelineTest,
   const std::vector<signal::tracking::TrackMeasurement> first_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(first_measurements.size(), 1u);
-  EXPECT_FALSE(first_measurements[0].matched_existing_track);
-  const std::uint64_t first_key = first_measurements[0].association_key;
+  EXPECT_FALSE(first_measurements[0].raw_measurement.matched_existing_track);
+  const std::uint64_t first_key =
+      first_measurements[0].raw_measurement.association_key;
   EXPECT_NE(first_key, 0u);
 
   target.position_x = 10.2f;
@@ -308,8 +313,8 @@ TEST(SignalPipelineTest,
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(second_measurements.size(), 1u);
-  EXPECT_FALSE(second_measurements[0].matched_existing_track);
-  EXPECT_NE(second_measurements[0].association_key, first_key);
+  EXPECT_FALSE(second_measurements[0].raw_measurement.matched_existing_track);
+  EXPECT_NE(second_measurements[0].raw_measurement.association_key, first_key);
 }
 
 TEST(SignalPipelineTest,
@@ -345,9 +350,10 @@ TEST(SignalPipelineTest,
   const std::vector<signal::tracking::TrackMeasurement> first_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(first_measurements.size(), 1u);
-  const std::uint64_t first_key = first_measurements[0].association_key;
+  const std::uint64_t first_key =
+      first_measurements[0].raw_measurement.association_key;
   EXPECT_NE(first_key, 0u);
-  EXPECT_FALSE(first_measurements[0].matched_existing_track);
+  EXPECT_FALSE(first_measurements[0].raw_measurement.matched_existing_track);
 
   target.position_x = 10.1f;
   target.range_m = 10.1f;
@@ -356,8 +362,8 @@ TEST(SignalPipelineTest,
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(second_measurements.size(), 1u);
-  EXPECT_FALSE(second_measurements[0].matched_existing_track);
-  EXPECT_NE(second_measurements[0].association_key, first_key);
+  EXPECT_FALSE(second_measurements[0].raw_measurement.matched_existing_track);
+  EXPECT_NE(second_measurements[0].raw_measurement.association_key, first_key);
 }
 
 } } // namespace airborne_radar::tests

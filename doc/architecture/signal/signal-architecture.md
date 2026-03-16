@@ -7,7 +7,7 @@ Signal 层是机载雷达仿真系统的**信号处理核心**，负责从原始
 Signal 层遵循三条关键设计原则：
 
 1. **控制面与数据面分离** — 编排逻辑与算法实现通过接口隔离，`SignalPipeline` 仅负责单周期显式步骤编排，不把几何、方向图和探测方程揉进同一类。
-2. **关联、滤波、生命周期三者解耦** — 每个子域有独立的数据契约和职责边界，通过 `TrackMeasurement` 结构在域间传递。
+2. **关联、滤波、生命周期三者解耦** — 每个子域有独立的数据契约和职责边界，通过 `TrackMeasurement(raw_measurement + filtered_feature)` 在域间传递。
 3. **参考 Stone Soup 的算法分层** — 借鉴 Stone Soup 的职责拆分思路（Measure / Gater / Hypothesiser / Associator / Predictor / Updater / Tracker），在 C++ 中重新实现为高性能静态分发版本。
 
 ## 2. 图形索引（Mermaid）
@@ -41,7 +41,8 @@ src/airborne_radar/signal/
 │   └── MeasurementErrorModel.h     #   └─ 有效波束宽度 + SNR -> 量测误差
 │
 ├── pipeline/                       # [编排层]
-│   └── SignalPipeline.h/.cpp       #   └─ 周期主编排器（显式步骤编排）
+│   ├── SignalPipeline.h/.cpp       #   └─ 周期主编排器（显式步骤编排）
+│   └── SignalComponentFactory.h    #   └─ 配置映射与组件装配工厂
 │
 └── tracking/                       # [跟踪滤波层]
     ├── GaussianTrackState.h        # [公共] 高斯状态表示（6D CV: x,vx,y,vy,z,vz）
@@ -104,6 +105,7 @@ flowchart TD
 ## 5. 关键机制
 
 - `SignalPipeline` 保留单周期 orchestrator 角色，但内部已改为**显式步骤编排**，不再使用责任链节点。
+- `SignalPipeline` 的配置映射与组件创建已收口到 `SignalComponentFactory`，避免构造、热更新与 Lifecycle 自动装配三条路径重复拼装。
 - `ISignalPipeline` / `SignalPipeline` 已对外暴露平台姿态更新接口，供搭载平台在周期间刷新姿态。
 - 位置空间关联是唯一主路径，`external seeds` 为唯一先验来源，无 seeds 时按 stateless 关联执行。
 - `TrackLifecycleManager` 提供生命周期管理与 Kalman/IMM 集成，支持自动装配与可配置启用。
@@ -114,6 +116,9 @@ flowchart TD
 
 - `TargetFeature.position_x / position_y / position_z` 的公共契约已经收口为**雷达局部笛卡尔坐标**。
 - `range / position / look angle` 在 `SignalPipeline` 内已统一经 `TargetGeometryResolver` 解析，避免 SNR 与量测协方差使用不同距离真值源。
+- `TrackMeasurement` 已明确拆分为：
+  - `raw_measurement`：关联后的原始位置量测、关联键、关联代价、动态量测协方差
+  - `filtered_feature`：`TrackFilter` 回写后的速度、加速度、RCS、干扰标记
 - 成功探测目标必须具备上述局部坐标位置，否则 fail-fast。
 - external seeds 必须同时携带位置与高斯状态，否则 fail-fast。
 - 关联先验仅来自 external seeds；未注入时按 stateless 语义执行。

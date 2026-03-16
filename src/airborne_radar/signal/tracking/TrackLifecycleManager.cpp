@@ -69,12 +69,12 @@ bool TrackLifecycleManager::IsImmEnabled() const {
 GaussianTrackState TrackLifecycleManager::BuildInitialGaussianState(
     const TrackMeasurement &measurement) const {
   GaussianTrackState init;
-  init.mean(0) = measurement.position(0);
-  init.mean(1) = measurement.velocity(0);
-  init.mean(2) = measurement.position(1);
-  init.mean(3) = measurement.velocity(1);
-  init.mean(4) = measurement.position(2);
-  init.mean(5) = measurement.velocity(2);
+  init.mean(0) = measurement.raw_measurement.position(0);
+  init.mean(1) = measurement.filtered_feature.velocity(0);
+  init.mean(2) = measurement.raw_measurement.position(1);
+  init.mean(3) = measurement.filtered_feature.velocity(1);
+  init.mean(4) = measurement.raw_measurement.position(2);
+  init.mean(5) = measurement.filtered_feature.velocity(2);
   init.covariance = StateCovariance::Identity() * 100.0f;
   return init;
 }
@@ -134,7 +134,7 @@ void TrackLifecycleManager::Update(
     const TrackMeasurement &measurement = *it;
 
     std::map<std::uint64_t, common::TrackState *>::iterator found =
-        tracks_by_key_.find(measurement.association_key);
+        tracks_by_key_.find(measurement.raw_measurement.association_key);
 
     common::TrackState *track = nullptr;
     if (found == tracks_by_key_.end()) {
@@ -142,7 +142,7 @@ void TrackLifecycleManager::Update(
       if (track == nullptr) {
         spdlog::warn(
             "[TrackLifecycleManager] failed to acquire track from pool for association_key={}",
-            measurement.association_key);
+            measurement.raw_measurement.association_key);
         continue;
       }
 
@@ -155,7 +155,7 @@ void TrackLifecycleManager::Update(
       track->hit_count = 1;
       track->miss_count = 0;
 
-      tracks_by_key_[measurement.association_key] = track;
+      tracks_by_key_[measurement.raw_measurement.association_key] = track;
       ++new_track_count;
     } else {
       track = found->second;
@@ -165,66 +165,70 @@ void TrackLifecycleManager::Update(
       ++updated_track_count;
     }
 
-    if (measurement.has_cartesian_position) {
-      track->position = measurement.position;
+    if (measurement.raw_measurement.has_cartesian_position) {
+      track->position = measurement.raw_measurement.position;
     }
 
-    if (measurement.external_target_id != 0U) {
-      track->external_target_id = measurement.external_target_id;
+    if (measurement.raw_measurement.external_target_id != 0U) {
+      track->external_target_id = measurement.raw_measurement.external_target_id;
     }
 
-    if (measurement.velocity != Eigen::Vector3f::Zero()) {
-      track->velocity = measurement.velocity;
+    if (measurement.filtered_feature.velocity != Eigen::Vector3f::Zero()) {
+      track->velocity = measurement.filtered_feature.velocity;
     } else {
-      track->velocity = Eigen::Vector3f(measurement.observed_speed, 0.0f, 0.0f);
+      track->velocity = Eigen::Vector3f(
+          measurement.filtered_feature.observed_speed, 0.0f, 0.0f);
     }
 
-    if (measurement.acceleration != Eigen::Vector3f::Zero()) {
-      track->acceleration = measurement.acceleration;
+    if (measurement.filtered_feature.acceleration != Eigen::Vector3f::Zero()) {
+      track->acceleration = measurement.filtered_feature.acceleration;
     } else {
-      track->acceleration =
-          Eigen::Vector3f(measurement.observed_acceleration, 0.0f, 0.0f);
+      track->acceleration = Eigen::Vector3f(
+          measurement.filtered_feature.observed_acceleration, 0.0f, 0.0f);
     }
-    track->rcs = measurement.rcs;
-    track->jamming_detected = measurement.jamming_detected;
+    track->rcs = measurement.filtered_feature.rcs;
+    track->jamming_detected = measurement.filtered_feature.jamming_detected;
 
     PromoteState(*track, cycle.cycle_index, true);
-    hit_flags[measurement.association_key] = true;
+    hit_flags[measurement.raw_measurement.association_key] = true;
 
     // ---- Kalman/IMM 滤波集成 ----
-    if (measurement.has_cartesian_position) {
+    if (measurement.raw_measurement.has_cartesian_position) {
       const Eigen::Vector3f velocity_before_filter = track->velocity;
       if (IsImmEnabled()) {
         const GaussianTrackState initial_state = BuildInitialGaussianState(measurement);
         ImmFilter *imm_filter = GetOrCreateImmFilter(
-            measurement.association_key,
-            measurement.matched_existing_track ? track->gaussian_state : initial_state);
-        if (!measurement.matched_existing_track) {
+            measurement.raw_measurement.association_key,
+            measurement.raw_measurement.matched_existing_track
+                ? track->gaussian_state
+                : initial_state);
+        if (!measurement.raw_measurement.matched_existing_track) {
           ApplyGaussianState(*track, initial_state, velocity_before_filter,
                              cycle_dt_);
         } else {
           MeasurementVector z;
-          z(0) = measurement.position(0);
-          z(1) = measurement.position(1);
-          z(2) = measurement.position(2);
+          z(0) = measurement.raw_measurement.position(0);
+          z(1) = measurement.raw_measurement.position(1);
+          z(2) = measurement.raw_measurement.position(2);
           imm_filter->Process(z, cycle_dt_);
           ApplyGaussianState(*track, imm_filter->GetCombinedState(),
                              velocity_before_filter, cycle_dt_);
         }
       } else if (kalman_predictor_ != nullptr && kalman_updater_ != nullptr) {
-        if (!measurement.matched_existing_track) {
+        if (!measurement.raw_measurement.matched_existing_track) {
           ApplyGaussianState(*track, BuildInitialGaussianState(measurement),
                              velocity_before_filter, cycle_dt_);
         } else {
           GaussianTrackState predicted =
               kalman_predictor_->Predict(track->gaussian_state, cycle_dt_);
           MeasurementVector z;
-          z(0) = measurement.position(0);
-          z(1) = measurement.position(1);
-          z(2) = measurement.position(2);
+          z(0) = measurement.raw_measurement.position(0);
+          z(1) = measurement.raw_measurement.position(1);
+          z(2) = measurement.raw_measurement.position(2);
           KalmanUpdateResult result =
               kalman_updater_->Update(predicted, z,
-                                      measurement.measurement_covariance);
+                                      measurement.raw_measurement
+                                          .measurement_covariance);
           ApplyGaussianState(*track, result.posterior, velocity_before_filter,
                              cycle_dt_);
         }
