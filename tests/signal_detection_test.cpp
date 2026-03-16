@@ -6,7 +6,7 @@
 
 #include <gtest/gtest.h>
 
-#include "airborne_radar/signal/detection/RadarEquations.h"
+#include "1q/airborne_radar/signal/detection/RadarEquations.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 
 namespace airborne_radar {
@@ -393,4 +393,3 @@ TEST(SwerlingDetectionTest, Threshold_MultiPulse_Consistency) {
 
 }  // namespace tests
 }  // namespace airborne_radar
-

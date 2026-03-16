@@ -13,6 +13,8 @@ set(TEST_SOURCES
     decision_layer_test.cpp
     core_controller_test.cpp
     event_bus_test.cpp
+    beamwidth_resolution_test.cpp
+    radar_orientation_utils_test.cpp
     signal_environment_test.cpp
     signal_association_test.cpp
     signal_detection_test.cpp

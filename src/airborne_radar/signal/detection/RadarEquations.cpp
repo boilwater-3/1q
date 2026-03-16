@@ -5,7 +5,7 @@
 // 并与 Skolnik《Introduction to Radar Systems》及
 // Richards《Exact and Approximate Detection Probability Formulas》交叉验证。
 
-#include "airborne_radar/signal/detection/RadarEquations.h"
+#include "1q/airborne_radar/signal/detection/RadarEquations.h"
 
 #include <cmath>
 #include <algorithm>
@@ -390,5 +390,4 @@ bool RadarEquations::ThresholdDecision(
 }  // namespace detection
 }  // namespace signal
 }  // namespace airborne_radar
-
 

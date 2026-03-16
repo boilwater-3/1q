@@ -78,7 +78,7 @@ DetectionResult SignalDetector::Detect(
   // 使用方位波束宽度计算角度误差
   const float kDeg2Rad = 3.14159265358979f / 180.0f;
   const float az_beamwidth_rad =
-      config_.antenna.az_beamwidth_deg * kDeg2Rad;
+      config_.antenna.nominal_az_beamwidth_deg * kDeg2Rad;
   result.angle_error_std_rad =
       RadarEquations::ComputeAngleErrorStdDev(
           effective_snr_db, az_beamwidth_rad);

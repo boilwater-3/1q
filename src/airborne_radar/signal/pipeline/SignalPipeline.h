@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
-#include "airborne_radar/signal/detection/RadarEquations.h"
+#include "1q/airborne_radar/signal/detection/RadarEquations.h"
 #include "1q/airborne_radar/signal/tracking/TrackLifecycleManager.h"
 
 namespace airborne_radar {
