@@ -8,6 +8,7 @@
 #include <memory>
 #include <vector>
 
+#include "1q/airborne_radar/common/RadarOrientationConfig.h"
 #include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "1q/airborne_radar/signal/detection/RadarEquations.h"
 #include "1q/airborne_radar/signal/tracking/TrackLifecycleManager.h"
@@ -53,6 +54,10 @@ struct SignalPipelineConfig {
 
   /// @brief 雷达系统物理参数（仅在 enable_physics_detection = true 时生效）。
   detection::RadarSystemConfig radar_system{};
+
+  /// @brief 雷达方向与控制配置（仅在 enable_physics_detection = true 时生效）。
+  /// @note 当 commanded_beamwidth_enabled = true 时，探测链路会优先使用指令态波束宽度。
+  common::RadarOrientationConfig radar_orientation{};
 
   /// @brief 驻留期的脉冲积累数。
   int pulse_count{10};

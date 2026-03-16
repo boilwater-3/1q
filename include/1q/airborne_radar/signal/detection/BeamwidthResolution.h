@@ -26,6 +26,9 @@ struct EffectiveBeamwidthDeg {
 /// @param orientation_config 雷达方向与控制配置。
 /// @return 若启用指令态覆盖，则返回 commanded_*；
 ///         否则回退到 nominal_*。
+/// @note 该返回值是“探测/控制共享的统一入口”。
+///       SignalDetector 会基于解析后的有效波束宽度计算等效角度测量标准差，
+///       后续由 SignalPipeline 将其传播到量测协方差建模。
 inline EffectiveBeamwidthDeg ResolveEffectiveBeamwidth(
     const AntennaConfig& antenna_config,
     const common::RadarOrientationConfig& orientation_config) {

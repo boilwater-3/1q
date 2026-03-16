@@ -79,6 +79,16 @@ const association::AssociationMatch *FindAssociationMatch(
   return nullptr;
 }
 
+/// @brief 根据距离/角度测量精度构造笛卡尔位置量测协方差。
+/// @param target 目标当前位置量测。
+/// @param range_error_std 距离测量标准差（m）。
+/// @param angle_error_std 等效角度测量标准差（rad）。
+/// @param default_measurement_noise_std 默认回退量测标准差（m）。
+/// @return 3x3 笛卡尔位置量测协方差。
+/// @note angle_error_std 由 SignalDetector 基于有效波束宽度解析结果计算得到：
+///       commanded_* 生效时优先使用指令态波束宽度，否则回退 nominal_*。
+/// @note 当前模型将方位/俯仰二维角误差压缩为单一标量，并在目标 LOS 正交平面上
+///       采用各向同性近似，即 var_theta 同时作用于两条横向轴。
 tracking::MeasurementCovariance BuildMeasurementCovariance(
     const common::TargetFeature &target,
     float range_error_std,
@@ -451,7 +461,8 @@ protected:
           target,
           env,
           pulse_count_,
-          coherent_integration_);
+          coherent_integration_,
+          &config_->radar_orientation);
 
       context.signal_term_db[i] = det.snr_db;
       context.speed_penalty_db[i] = 0.0f;

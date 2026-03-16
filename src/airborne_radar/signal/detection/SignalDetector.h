@@ -11,6 +11,12 @@
 #include "1q/airborne_radar/signal/detection/RadarEquations.h"
 
 namespace airborne_radar {
+namespace common {
+struct RadarOrientationConfig;
+}  // namespace common
+}  // namespace airborne_radar
+
+namespace airborne_radar {
 namespace signal {
 namespace detection {
 
@@ -21,7 +27,7 @@ struct DetectionResult {
   float detection_prob{0.0f};      ///< 检测概率 Pd
   bool detected{false};            ///< 是否达到门限
   float range_error_std_m{0.0f};   ///< 距离测量标准差 (m)
-  float angle_error_std_rad{0.0f}; ///< 角度测量标准差 (rad)
+  float angle_error_std_rad{0.0f}; ///< 方位/俯仰合成的等效角度测量标准差 (rad)，供后续量测协方差建模使用
 };
 
 /// @brief 目标回波特征上下文。
@@ -56,11 +62,16 @@ class SignalDetector {
   /// @param env                  环境噪声上下文
   /// @param pulse_count          积累的脉冲数
   /// @param coherent_integration 是否为相参积累
+  /// @param orientation_config   可选的雷达方向/控制配置，用于解析指令态波束宽度
+  /// @note 若 orientation_config 非空，则先按 commanded_* / nominal_* 规则解析有效波束宽度，
+  ///       再计算等效 angle_error_std_rad；该量会被 SignalPipeline 继续用于量测协方差建模。
   /// @return 探测结果
   DetectionResult Detect(const TargetReturn& target,
                          const EnvironmentState& env,
                          int pulse_count = 1,
-                         bool coherent_integration = false);
+                         bool coherent_integration = false,
+                         const common::RadarOrientationConfig* orientation_config =
+                             nullptr);
   /// @brief 设置随机种子（用于确定性回归测试）。
   /// @param seed 随机数种子
   void SetRandomSeed(unsigned int seed);

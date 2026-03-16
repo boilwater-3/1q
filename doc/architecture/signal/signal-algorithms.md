@@ -43,6 +43,14 @@ flowchart LR
     SignalDetector --> OUTPUT["DetectionResult<br/>echo_power_dbw / snr_db<br/>detection_prob / detected<br/>range_error_std_m<br/>angle_error_std_rad"]
 ```
 
+当前版本对波束宽度采用“双层语义 + 单一消费入口”的约定：
+
+- `AntennaConfig::nominal_*_beamwidth_deg` 表示体制/硬件标称波束宽度
+- `RadarOrientationConfig::commanded_*_beamwidth_deg` 表示控制链路下发的指令态波束宽度
+- `ResolveEffectiveBeamwidth(...)` 是唯一解析入口：当 `commanded_beamwidth_enabled = true` 时优先使用 `commanded_*`，否则回退 `nominal_*`
+
+`SignalDetector` 不再直接消费某一个原始 beamwidth 字段，而是先解析 `effective beamwidth`，再分别计算方位/俯仰角误差，并以 RMS 方式合成为单标量 `angle_error_std_rad`。该标量不是单独某一轴的测角精度，而是面向后续笛卡尔量测协方差构造的等效角误差近似。
+
 ### 核心公式（Skolnik 交叉验证）
 
 | 公式 | 数学表达 | 参考 |
@@ -88,6 +96,15 @@ flowchart LR
 5. 协方差来源：内部 `KalmanPredictor` 预测得到 $P$，与来自 `SignalPipeline` 的动态量测协方差 $R$ 在假设生成阶段合成为
    $$S = HPH^T + R$$
 6. 契约要求：所有成功探测目标必须携带笛卡尔位置量测；缺失时直接失败，而不是静默退回 legacy 特征空间
+
+当前 `SignalPipeline::BuildMeasurementCovariance(...)` 对动态量测协方差 $R$ 的构造规则为：
+
+- 径向方向使用 `range_error_std_m²`
+- 横向方向使用 `range² × angle_error_std_rad²`
+- 其中 `angle_error_std_rad` 来自 `SignalDetector` 基于 `effective beamwidth` 的统一解析结果
+- 由于当前输出接口仍为单标量角误差，横向协方差在 LOS 正交平面上采用各向同性近似，而不是显式区分 az/el 两个主轴
+
+这意味着 `commanded_*_beamwidth_deg` 一旦启用，不仅会改变探测结果中的角误差估计，也会同步改变关联与生命周期更新阶段共享的动态量测协方差 $R$。
 
 | 组件 | 算法 | 复杂度 |
 |------|------|--------|

@@ -6,6 +6,7 @@
 
 #include <gtest/gtest.h>
 
+#include "1q/airborne_radar/common/RadarOrientationConfig.h"
 #include "1q/airborne_radar/signal/detection/RadarEquations.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 
@@ -221,6 +222,68 @@ TEST(SignalDetectorTest, JammingIncreasesNoise) {
   DetectionResult jammed = detector.Detect(target, env_jam);
 
   EXPECT_LT(jammed.snr_db, clean.snr_db);
+}
+
+/// @brief 俯仰名义波束宽度变化应影响等效角误差，避免配置悬空。
+TEST(SignalDetectorTest, ElevationBeamwidthAffectsEquivalentAngleStdDev) {
+  RadarSystemConfig narrow_config;
+  narrow_config.antenna.nominal_az_beamwidth_deg = 2.0f;
+  narrow_config.antenna.nominal_el_beamwidth_deg = 2.0f;
+
+  RadarSystemConfig wide_el_config = narrow_config;
+  wide_el_config.antenna.nominal_el_beamwidth_deg = 8.0f;
+
+  SignalDetector narrow_detector(narrow_config);
+  SignalDetector wide_el_detector(wide_el_config);
+
+  signal::detection::TargetReturn target;
+  target.rcs_m2 = 10.0f;
+  target.range_m = 50000.0f;
+
+  signal::detection::EnvironmentState env;
+  env.propagation_loss_db = 2.0f;
+  env.clutter_noise_w = 0.0f;
+  env.jam_noise_w = 0.0f;
+
+  const DetectionResult narrow = narrow_detector.Detect(target, env);
+  const DetectionResult wide_el = wide_el_detector.Detect(target, env);
+
+  EXPECT_GT(wide_el.angle_error_std_rad, narrow.angle_error_std_rad);
+}
+
+/// @brief 启用指令态波束宽度后，应覆盖名义波束宽度参与角误差计算。
+TEST(SignalDetectorTest, CommandedBeamwidthOverrideAffectsAngleStdDev) {
+  RadarSystemConfig config;
+  config.antenna.nominal_az_beamwidth_deg = 2.0f;
+  config.antenna.nominal_el_beamwidth_deg = 2.0f;
+
+  common::RadarOrientationConfig nominal_orientation;
+  nominal_orientation.commanded_beamwidth_enabled = false;
+
+  common::RadarOrientationConfig commanded_orientation;
+  commanded_orientation.commanded_beamwidth_enabled = true;
+  commanded_orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg =
+      8.0f;
+  commanded_orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg =
+      8.0f;
+
+  SignalDetector detector(config);
+
+  signal::detection::TargetReturn target;
+  target.rcs_m2 = 10.0f;
+  target.range_m = 50000.0f;
+
+  signal::detection::EnvironmentState env;
+  env.propagation_loss_db = 2.0f;
+  env.clutter_noise_w = 0.0f;
+  env.jam_noise_w = 0.0f;
+
+  const DetectionResult nominal = detector.Detect(
+      target, env, 1, false, &nominal_orientation);
+  const DetectionResult commanded = detector.Detect(
+      target, env, 1, false, &commanded_orientation);
+
+  EXPECT_GT(commanded.angle_error_std_rad, nominal.angle_error_std_rad);
 }
 
 // ===========================================================================
