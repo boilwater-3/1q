@@ -13,6 +13,7 @@
 #include "1q/airborne_radar/core/context/IRadarContext.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"
 #include "1q/airborne_radar/core/event/RadarEvents.h"
+#include "1q/airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "1q/airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "1q/airborne_radar/signal/tracking/TrackLifecycleTypes.h"
 #include "airborne_radar/decision/classifier/TargetClassifier.h"
@@ -21,7 +22,6 @@
 #include "airborne_radar/core/event/EventBus.h"
 #include "airborne_radar/core/event/CycleEventBus.h"
 #include "airborne_radar/environment/EnvironmentService.h"
-#include "airborne_radar/signal/pipeline/SignalPipeline.h"
 
 namespace airborne_radar { namespace tests {
 
@@ -553,8 +553,8 @@ TEST_F(CoreControllerTest,
     environment::EnvironmentService environment_service(env_config);
 
     signal::pipeline::SignalPipelineConfig pipeline_config;
-    pipeline_config.enable_auto_lifecycle_manager = true;
-    pipeline_config.lifecycle_config.confirm_hits = 1;
+    pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
+    pipeline_config.lifecycle.lifecycle_config.confirm_hits = 1;
     signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
 
     core::controller::RadarController controller(
@@ -590,10 +590,11 @@ TEST_F(CoreControllerTest,
     environment::EnvironmentService environment_service(env_config);
 
     signal::pipeline::SignalPipelineConfig pipeline_config;
-    pipeline_config.enable_auto_lifecycle_manager = true;
-    pipeline_config.enable_imm_lifecycle = true;
-    pipeline_config.imm_model_noise_diff_coeffs = std::vector<float>{0.5f, 15.0f};
-    pipeline_config.imm_initial_weights = std::vector<float>{1.0f};
+    pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
+    pipeline_config.lifecycle.enable_imm_lifecycle = true;
+    pipeline_config.lifecycle.imm_model_noise_diff_coeffs =
+        std::vector<float>{0.5f, 15.0f};
+    pipeline_config.lifecycle.imm_initial_weights = std::vector<float>{1.0f};
     signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
 
     core::controller::RadarController controller(

@@ -5,8 +5,8 @@
 #include <gtest/gtest.h>
 
 #include "1q/airborne_radar/common/TargetFeature.h"
+#include "1q/airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "airborne_radar/environment/EnvironmentService.h"
-#include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
 
 namespace airborne_radar { namespace tests {

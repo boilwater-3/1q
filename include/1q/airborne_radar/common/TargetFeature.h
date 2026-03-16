@@ -43,7 +43,8 @@ struct TargetFeature {
   // @brief 目标到雷达的斜距（单位：m）。
   float range_m{0.0f};
 
-  // @brief 笛卡尔空间位置（单位：m），[x, y, z]。
+  // @brief 雷达局部笛卡尔坐标位置（单位：m），[x, y, z]。
+  // @note 该坐标系以当前雷达为原点，仅接受雷达局部坐标输入。
   // 注：不使用 Eigen 以保持 POD 布局，Pipeline 内部按需转换。
   float position_x{0.0f};
   float position_y{0.0f};

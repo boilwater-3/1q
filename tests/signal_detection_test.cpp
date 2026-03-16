@@ -6,10 +6,12 @@
 
 #include <gtest/gtest.h>
 
-#include "1q/airborne_radar/common/AntennaPatternUtils.h"
 #include "1q/airborne_radar/common/RadarOrientationConfig.h"
 #include "1q/airborne_radar/signal/detection/RadarEquations.h"
+#include "airborne_radar/signal/detection/BeamControlResolver.h"
+#include "airborne_radar/signal/detection/MeasurementErrorModel.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
+#include "airborne_radar/signal/detection/TargetLookResolver.h"
 
 namespace airborne_radar {
 namespace tests {
@@ -17,10 +19,12 @@ namespace tests {
 using signal::detection::AntennaConfig;
 using signal::detection::DetectionPolicy;
 using signal::detection::DetectionResult;
+using signal::detection::MeasurementErrorModel;
 using signal::detection::RadarEquations;
 using signal::detection::RadarSystemConfig;
 using signal::detection::ReceiverConfig;
 using signal::detection::SignalDetector;
+using signal::detection::TargetLookResolver;
 using signal::detection::TransmitterConfig;
 
 // ===========================================================================
@@ -225,38 +229,57 @@ TEST(SignalDetectorTest, JammingIncreasesNoise) {
   EXPECT_LT(jammed.snr_db, clean.snr_db);
 }
 
-/// @brief 俯仰名义波束宽度变化应影响等效角误差，避免配置悬空。
-TEST(SignalDetectorTest, ElevationBeamwidthAffectsEquivalentAngleStdDev) {
-  RadarSystemConfig narrow_config;
-  narrow_config.antenna.nominal_az_beamwidth_deg = 2.0f;
-  narrow_config.antenna.nominal_el_beamwidth_deg = 2.0f;
+/// @brief 雷达局部坐标应能解析出稳定的目标方位/俯仰角。
+TEST(TargetLookResolverTest, ResolvesRadarLocalLookAngles) {
+  common::TargetFeature target;
+  target.position_x = 10.0f;
+  target.position_y = 10.0f;
+  target.position_z = 10.0f;
 
-  RadarSystemConfig wide_el_config = narrow_config;
-  wide_el_config.antenna.nominal_el_beamwidth_deg = 8.0f;
-
-  SignalDetector narrow_detector(narrow_config);
-  SignalDetector wide_el_detector(wide_el_config);
-
-  signal::detection::TargetReturn target;
-  target.rcs_m2 = 10.0f;
-  target.range_m = 50000.0f;
-
-  signal::detection::EnvironmentState env;
-  env.propagation_loss_db = 2.0f;
-  env.clutter_noise_w = 0.0f;
-  env.jam_noise_w = 0.0f;
-
-  const DetectionResult narrow = narrow_detector.Detect(target, env);
-  const DetectionResult wide_el = wide_el_detector.Detect(target, env);
-
-  EXPECT_GT(wide_el.angle_error_std_rad, narrow.angle_error_std_rad);
+  const signal::detection::TargetLookAnglesDeg look_angles =
+      TargetLookResolver::Resolve(target);
+  ASSERT_TRUE(look_angles.has_look_angles);
+  EXPECT_NEAR(look_angles.look_az_deg, 45.0f, 1e-3f);
+  EXPECT_NEAR(look_angles.look_el_deg, 35.264f, 1e-2f);
 }
 
-/// @brief 启用指令态波束宽度后，应覆盖名义波束宽度参与角误差计算。
-TEST(SignalDetectorTest, CommandedBeamwidthOverrideAffectsAngleStdDev) {
-  RadarSystemConfig config;
-  config.antenna.nominal_az_beamwidth_deg = 2.0f;
-  config.antenna.nominal_el_beamwidth_deg = 2.0f;
+/// @brief 俯仰名义波束宽度变化应影响等效角误差，避免配置悬空。
+TEST(MeasurementErrorModelTest, ElevationBeamwidthAffectsEquivalentAngleStdDev) {
+  AntennaConfig narrow_antenna;
+  narrow_antenna.nominal_az_beamwidth_deg = 2.0f;
+  narrow_antenna.nominal_el_beamwidth_deg = 2.0f;
+
+  AntennaConfig wide_el_antenna = narrow_antenna;
+  wide_el_antenna.nominal_el_beamwidth_deg = 8.0f;
+
+  common::RadarOrientationConfig orientation;
+  signal::detection::TargetLookAnglesDeg look_angles;
+  look_angles.has_look_angles = true;
+
+  const signal::detection::ResolvedBeamState narrow_state =
+      signal::detection::BeamControlResolver::Resolve(narrow_antenna,
+                                                      orientation,
+                                                      look_angles);
+  const signal::detection::ResolvedBeamState wide_state =
+      signal::detection::BeamControlResolver::Resolve(wide_el_antenna,
+                                                      orientation,
+                                                      look_angles);
+
+  const signal::detection::MeasurementErrorState narrow_error =
+      MeasurementErrorModel::Compute(20.0f, narrow_state.effective_beamwidth_deg,
+                                     1e6f);
+  const signal::detection::MeasurementErrorState wide_error =
+      MeasurementErrorModel::Compute(20.0f, wide_state.effective_beamwidth_deg,
+                                     1e6f);
+
+  EXPECT_GT(wide_error.angle_error_std_rad, narrow_error.angle_error_std_rad);
+}
+
+/// @brief 启用指令态波束宽度后，应覆盖名义波束宽度参与角误差建模。
+TEST(MeasurementErrorModelTest, CommandedBeamwidthOverrideAffectsAngleStdDev) {
+  AntennaConfig antenna;
+  antenna.nominal_az_beamwidth_deg = 2.0f;
+  antenna.nominal_el_beamwidth_deg = 2.0f;
 
   common::RadarOrientationConfig nominal_orientation;
   nominal_orientation.commanded_beamwidth_enabled = false;
@@ -268,27 +291,31 @@ TEST(SignalDetectorTest, CommandedBeamwidthOverrideAffectsAngleStdDev) {
   commanded_orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg =
       8.0f;
 
-  SignalDetector detector(config);
+  signal::detection::TargetLookAnglesDeg look_angles;
+  look_angles.has_look_angles = true;
 
-  signal::detection::TargetReturn target;
-  target.rcs_m2 = 10.0f;
-  target.range_m = 50000.0f;
+  const signal::detection::ResolvedBeamState nominal_state =
+      signal::detection::BeamControlResolver::Resolve(antenna,
+                                                      nominal_orientation,
+                                                      look_angles);
+  const signal::detection::ResolvedBeamState commanded_state =
+      signal::detection::BeamControlResolver::Resolve(antenna,
+                                                      commanded_orientation,
+                                                      look_angles);
 
-  signal::detection::EnvironmentState env;
-  env.propagation_loss_db = 2.0f;
-  env.clutter_noise_w = 0.0f;
-  env.jam_noise_w = 0.0f;
+  const signal::detection::MeasurementErrorState nominal_error =
+      MeasurementErrorModel::Compute(
+          20.0f, nominal_state.effective_beamwidth_deg, 1e6f);
+  const signal::detection::MeasurementErrorState commanded_error =
+      MeasurementErrorModel::Compute(
+          20.0f, commanded_state.effective_beamwidth_deg, 1e6f);
 
-  const DetectionResult nominal = detector.Detect(
-      target, env, 1, false, &nominal_orientation);
-  const DetectionResult commanded = detector.Detect(
-      target, env, 1, false, &commanded_orientation);
-
-  EXPECT_GT(commanded.angle_error_std_rad, nominal.angle_error_std_rad);
+  EXPECT_GT(commanded_error.angle_error_std_rad,
+            nominal_error.angle_error_std_rad);
 }
 
 /// @brief 指令态波束展宽应通过方向图增益修正改善离轴目标的回波功率。
-TEST(SignalDetectorTest, CommandedBeamwidthAffectsDirectionalPatternGain) {
+TEST(BeamControlResolverTest, CommandedBeamwidthAffectsDirectionalPatternGain) {
   RadarSystemConfig config;
   config.antenna.nominal_az_beamwidth_deg = 2.0f;
   config.antenna.nominal_el_beamwidth_deg = 2.0f;
@@ -305,14 +332,23 @@ TEST(SignalDetectorTest, CommandedBeamwidthAffectsDirectionalPatternGain) {
   commanded_orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg =
       8.0f;
 
+  signal::detection::TargetLookAnglesDeg look_angles;
+  look_angles.look_az_deg = 3.0f;
+  look_angles.look_el_deg = 0.0f;
+  look_angles.has_look_angles = true;
+
+  const signal::detection::ResolvedBeamState nominal_state =
+      signal::detection::BeamControlResolver::Resolve(
+          config.antenna, nominal_orientation, look_angles);
+  const signal::detection::ResolvedBeamState commanded_state =
+      signal::detection::BeamControlResolver::Resolve(
+          config.antenna, commanded_orientation, look_angles);
+
   SignalDetector detector(config);
 
   signal::detection::TargetReturn target;
   target.rcs_m2 = 10.0f;
   target.range_m = 50000.0f;
-  target.look_az_deg = 3.0f;
-  target.look_el_deg = 0.0f;
-  target.has_look_angles = true;
 
   signal::detection::EnvironmentState env;
   env.propagation_loss_db = 2.0f;
@@ -320,10 +356,12 @@ TEST(SignalDetectorTest, CommandedBeamwidthAffectsDirectionalPatternGain) {
   env.jam_noise_w = 0.0f;
 
   const DetectionResult nominal = detector.Detect(
-      target, env, 1, false, &nominal_orientation);
+      target, env, nominal_state.one_way_antenna_gain_db, 1, false);
   const DetectionResult commanded = detector.Detect(
-      target, env, 1, false, &commanded_orientation);
+      target, env, commanded_state.one_way_antenna_gain_db, 1, false);
 
+  EXPECT_GT(commanded_state.one_way_antenna_gain_db,
+            nominal_state.one_way_antenna_gain_db);
   EXPECT_GT(commanded.echo_power_dbw, nominal.echo_power_dbw);
   EXPECT_GT(commanded.snr_db, nominal.snr_db);
 }

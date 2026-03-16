@@ -17,7 +17,7 @@
 
 因此当前实现优先保证：
 
-- 与现有 `SignalDetector` / `RadarEquations` 链路兼容
+- 与现有 `SignalPipeline -> SignalDetector -> RadarEquations` 链路兼容
 - 参数语义单一，不引入重复真值源
 - 后续可逐步替换为更复杂的阵列模型
 
@@ -50,13 +50,16 @@
 
 ```text
 TargetFeature.position_x/y/z
-  -> ResolveTargetLookAnglesDeg(...)
-  -> TargetReturn.look_az_deg / look_el_deg
-  -> ResolveEffectiveBeamwidth(...)
-  -> EvaluateAntennaPattern(...)
-  -> one_way_antenna_gain_db
-  -> RadarEquations::ComputeEchoPowerWithGain_dBW(...)
-  -> snr_db / detection_prob / angle_error_std_rad
+  -> TargetLookResolver
+  -> BeamControlResolver
+     -> ResolveEffectiveBeamwidth(...)
+     -> EvaluateAntennaPattern(...)
+     -> one_way_antenna_gain_db
+  -> SignalDetector
+     -> RadarEquations::ComputeEchoPowerWithGain_dBW(...)
+     -> snr_db / detection_prob
+  -> MeasurementErrorModel
+     -> range_error_std_m / angle_error_std_rad
 ```
 
 其中：
@@ -177,9 +180,9 @@ scan_loss_db =
 当前实现建立在以下假设上：
 
 1. `TargetFeature.position_x/y/z` 位于雷达局部坐标系
-2. `ResolveTargetLookAnglesDeg(...)` 可直接由局部位置反解目标 `look az/el`
+2. `TargetLookResolver` 可直接由局部位置反解目标 `look az/el`
 3. 发射与接收方向图相同，因此单站雷达方程用同一个 `one_way_antenna_gain_db` 参与两次增益叠加
-4. `RadarOrientationConfig` 当前通过 `ComputeMountFrameBeamPointing(...)` 计算波束指向
+4. `BeamControlResolver` 当前通过 `ComputeMountFrameBeamPointing(...)` 计算波束指向
 5. 若目标没有 look angle，或未启用方向图功能，则回退到 `main_beam_gain_db`
 
 这些假设在当前代码规模下是合理的，但如果后续引入以下能力，就需要重新审视：

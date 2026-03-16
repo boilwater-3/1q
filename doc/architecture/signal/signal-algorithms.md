@@ -15,7 +15,7 @@
 
 ## 1. 信号检测（物理化路径）
 
-信号检测层由两个组件层叠构成：
+信号检测层当前由“前置解析”与“纯探测物理”两段构成：
 
 <a id="diagram-m1-detection"></a>
 图 ID: M1 -> 生成文件：`./signal-algo-m1-detection.png`
@@ -33,14 +33,25 @@ flowchart LR
         EQ7["探测判决<br/>ThresholdDecision"]
     end
 
-    subgraph SignalDetector["有状态桥梁 SignalDetector"]
+    subgraph SignalPipelineResolvers["SignalPipeline 前置解析"]
         direction TB
-        SD["① 回波功率<br/>② 综合噪声底<br/>③ SNR<br/>④ Pd<br/>⑤ 判决<br/>⑥ 误差"]
+        TLR["TargetLookResolver<br/>雷达局部坐标 -> look az/el"]
+        BCR["BeamControlResolver<br/>effective beamwidth / pointing / gain"]
+        MEM["MeasurementErrorModel<br/>range std / angle std"]
     end
 
+    subgraph SignalDetector["纯探测物理 SignalDetector"]
+        direction TB
+        SD["① 回波功率<br/>② 综合噪声底<br/>③ SNR<br/>④ Pd<br/>⑤ 判决"]
+    end
+
+    CONFIG["RadarSystemConfig<br/>TransmitterConfig<br/>AntennaConfig<br/>ReceiverConfig<br/>DetectionPolicy"] --> BCR
+    CONFIG --> SignalDetector
+    TLR --> BCR --> SignalDetector
+    SignalDetector --> MEM
     RadarEquations -->|"static 调用"| SignalDetector
-    CONFIG["RadarSystemConfig<br/>TransmitterConfig<br/>AntennaConfig<br/>ReceiverConfig<br/>DetectionPolicy"] --> SignalDetector
-    SignalDetector --> OUTPUT["DetectionResult<br/>echo_power_dbw / snr_db<br/>detection_prob / detected<br/>range_error_std_m<br/>angle_error_std_rad"]
+    SignalDetector --> OUTPUT["DetectionResult<br/>echo_power_dbw / snr_db<br/>detection_prob / detected"]
+    MEM --> ERR["MeasurementErrorState<br/>range_error_std_m / angle_error_std_rad"]
 ```
 
 当前版本对波束宽度采用“双层语义 + 单一消费入口”的约定：
@@ -49,9 +60,9 @@ flowchart LR
 - `RadarOrientationConfig::commanded_*_beamwidth_deg` 表示控制链路下发的指令态波束宽度
 - `ResolveEffectiveBeamwidth(...)` 是唯一解析入口：当 `commanded_beamwidth_enabled = true` 时优先使用 `commanded_*`，否则回退 `nominal_*`
 
-`SignalDetector` 不再直接消费某一个原始 beamwidth 字段，而是先解析 `effective beamwidth`，再分别计算方位/俯仰角误差，并以 RMS 方式合成为单标量 `angle_error_std_rad`。该标量不是单独某一轴的测角精度，而是面向后续笛卡尔量测协方差构造的等效角误差近似。
+`SignalDetector` 现在不再直接消费某一个原始 beamwidth 字段，也不再直接解析方向图和波束指向。`SignalPipeline` 会先通过 `BeamControlResolver` 解析 `effective beamwidth` 和单程天线增益，再由 `MeasurementErrorModel` 根据 `effective beamwidth + SNR` 计算 `range_error_std_m / angle_error_std_rad`。其中 `angle_error_std_rad` 不是单独某一轴的测角精度，而是面向后续笛卡尔量测协方差构造的等效角误差近似。
 
-当 `AntennaConfig::enable_directional_pattern = true` 且目标提供了相对雷达坐标系的 look angle 时，`SignalDetector` 还会基于 `effective beamwidth`、当前波束指向和扫描中心调用 `EvaluateAntennaPattern(...)`，将主瓣离轴衰减、旁瓣/后瓣截平和扫描损失折算到单程天线增益，再进入单站雷达方程。也就是说，`commanded_*_beamwidth_deg` 现在不仅影响测角误差，也会影响离轴目标的回波功率和 SNR。
+当 `AntennaConfig::enable_directional_pattern = true` 且目标具备雷达局部坐标位置时，`SignalPipeline` 会先经 `TargetLookResolver` 和 `BeamControlResolver` 调用 `EvaluateAntennaPattern(...)`，将主瓣离轴衰减、旁瓣/后瓣截平和扫描损失折算到单程天线增益，再进入单站雷达方程。也就是说，`commanded_*_beamwidth_deg` 现在不仅影响测角误差，也会影响离轴目标的回波功率和 SNR。
 
 ### 核心公式（Skolnik 交叉验证）
 
@@ -79,7 +90,7 @@ flowchart LR
         G --> H["Hypothesiser<br/>候选假设生成"]
         H --> S["LapjvSolver<br/>最优指派"]
     end
-    DET["位置量测<br/>TargetFeature.position_x/y/z"] --> MODE
+    DET["位置量测<br/>TargetFeature.position_x/y/z<br/>(雷达局部坐标)"] --> MODE
     EXT["external association seeds<br/>Lifecycle truth source"] --> MODE
     MEAS_COV["measurement_covariance<br/>动态量测协方差 R"] --> INNOV
     MODE --> M
@@ -92,7 +103,7 @@ flowchart LR
 `DataAssociationEngine` 当前收敛为单一位置空间路径：
 
 1. **位置空间路径（唯一主路径）**
-2. 量测来源：`TargetFeature.position_x / position_y / position_z`
+2. 量测来源：`TargetFeature.position_x / position_y / position_z`（雷达局部笛卡尔坐标）
 3. 历史轨迹状态：`TrackSignature.position + gaussian_state`
 4. 距离度量：`FullMahalanobisDistanceMetric`
 5. 协方差来源：内部 `KalmanPredictor` 预测得到 $P$，与来自 `SignalPipeline` 的动态量测协方差 $R$ 在假设生成阶段合成为
@@ -103,7 +114,7 @@ flowchart LR
 
 - 径向方向使用 `range_error_std_m²`
 - 横向方向使用 `range² × angle_error_std_rad²`
-- 其中 `angle_error_std_rad` 来自 `SignalDetector` 基于 `effective beamwidth` 的统一解析结果
+- 其中 `angle_error_std_rad` 来自 `MeasurementErrorModel` 基于 `effective beamwidth` 的统一解析结果
 - 由于当前输出接口仍为单标量角误差，横向协方差在 LOS 正交平面上采用各向同性近似，而不是显式区分 az/el 两个主轴
 
 这意味着 `commanded_*_beamwidth_deg` 一旦启用，不仅会改变探测结果中的角误差估计，也会同步改变关联与生命周期更新阶段共享的动态量测协方差 $R$。

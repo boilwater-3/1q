@@ -15,10 +15,10 @@
 #include <gtest/gtest.h>
 
 #include "1q/airborne_radar/common/TargetFeature.h"
+#include "1q/airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "1q/airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "1q/airborne_radar/signal/tracking/TrackLifecycleTypes.h"
 #include "airborne_radar/environment/EnvironmentService.h"
-#include "airborne_radar/signal/pipeline/SignalPipeline.h"
 
 namespace airborne_radar {
 namespace tests {
@@ -99,7 +99,7 @@ TEST(SignalBulkDataTest, LargeBatchSingleCycleProducesConsistentMeasurements) {
   const std::size_t kTargetCount = 5000u;
 
   signal::pipeline::SignalPipelineConfig pipeline_config;
-  pipeline_config.min_detection_margin_db = -100.0f;
+  pipeline_config.detection.min_detection_margin_db = -100.0f;
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
 
   environment::EnvironmentModelConfig env_config;
@@ -137,11 +137,12 @@ TEST(SignalBulkDataTest,
   const std::size_t kTargetCount = 2000u;
 
   signal::pipeline::SignalPipelineConfig pipeline_config;
-  pipeline_config.min_detection_margin_db = -100.0f;
-  pipeline_config.enable_auto_lifecycle_manager = true;
-  pipeline_config.enable_imm_lifecycle = true;
-  pipeline_config.lifecycle_config.confirm_hits = 1;
-  pipeline_config.imm_model_noise_diff_coeffs = std::vector<float>{0.5f, 8.0f};
+  pipeline_config.detection.min_detection_margin_db = -100.0f;
+  pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
+  pipeline_config.lifecycle.enable_imm_lifecycle = true;
+  pipeline_config.lifecycle.lifecycle_config.confirm_hits = 1;
+  pipeline_config.lifecycle.imm_model_noise_diff_coeffs =
+      std::vector<float>{0.5f, 8.0f};
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
 
   environment::EnvironmentModelConfig env_config;
@@ -200,7 +201,7 @@ TEST(SignalBulkDataTest, TieredBatchSingleCycleReportsP50AndP95Latency) {
   const std::size_t kRepeatsPerTier = 5u;
 
   signal::pipeline::SignalPipelineConfig pipeline_config;
-  pipeline_config.min_detection_margin_db = -100.0f;
+  pipeline_config.detection.min_detection_margin_db = -100.0f;
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
 
   environment::EnvironmentModelConfig env_config;
@@ -264,11 +265,12 @@ TEST(SignalBulkDataTest, ExternalTargetIdStaysConsistentAcrossImmLifecycleCycles
   const std::size_t kTargetCount = 512u;
 
   signal::pipeline::SignalPipelineConfig pipeline_config;
-  pipeline_config.min_detection_margin_db = -100.0f;
-  pipeline_config.enable_auto_lifecycle_manager = true;
-  pipeline_config.enable_imm_lifecycle = true;
-  pipeline_config.lifecycle_config.confirm_hits = 1;
-  pipeline_config.imm_model_noise_diff_coeffs = std::vector<float>{0.5f, 8.0f};
+  pipeline_config.detection.min_detection_margin_db = -100.0f;
+  pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
+  pipeline_config.lifecycle.enable_imm_lifecycle = true;
+  pipeline_config.lifecycle.lifecycle_config.confirm_hits = 1;
+  pipeline_config.lifecycle.imm_model_noise_diff_coeffs =
+      std::vector<float>{0.5f, 8.0f};
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
 
   environment::EnvironmentModelConfig env_config;

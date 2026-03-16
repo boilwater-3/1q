@@ -6,7 +6,7 @@ Signal 层是机载雷达仿真系统的**信号处理核心**，负责从原始
 
 Signal 层遵循三条关键设计原则：
 
-1. **控制面与数据面分离** — 编排逻辑与算法实现通过接口隔离，Pipeline 节点只传递上下文、不直接耦合底层算法。
+1. **控制面与数据面分离** — 编排逻辑与算法实现通过接口隔离，`SignalPipeline` 仅负责单周期显式步骤编排，不把几何、方向图和探测方程揉进同一类。
 2. **关联、滤波、生命周期三者解耦** — 每个子域有独立的数据契约和职责边界，通过 `TrackMeasurement` 结构在域间传递。
 3. **参考 Stone Soup 的算法分层** — 借鉴 Stone Soup 的职责拆分思路（Measure / Gater / Hypothesiser / Associator / Predictor / Updater / Tracker），在 C++ 中重新实现为高性能静态分发版本。
 
@@ -34,10 +34,13 @@ src/airborne_radar/signal/
 │   ├── RadarEquations.h/.cpp       #   ├─ 雷达物理方程纯函数库（回波功率、噪声底、积累增益、测量精度、检测概率）
 │   │                               #   ├─ TransmitterConfig / AntennaConfig / ReceiverConfig / DetectionPolicy
 │   │                               #   └─ RadarSystemConfig（组合配置）
-│   └── SignalDetector.h/.cpp       #   └─ SignalDetector（6 步检测链：功率→SNR→Pd→判决→误差）
+│   ├── SignalDetector.h/.cpp       #   └─ SignalDetector（纯探测物理：功率→噪声→SNR→Pd→判决）
+│   ├── TargetLookResolver.h        #   └─ 目标局部坐标 -> look az/el
+│   ├── BeamControlResolver.h       #   └─ 波束宽度/指向/方向图增益解析
+│   └── MeasurementErrorModel.h     #   └─ 有效波束宽度 + SNR -> 量测误差
 │
 ├── pipeline/                       # [编排层]
-│   └── SignalPipeline.h/.cpp       #   └─ 周期主编排器（ChainProcessor 模式）
+│   └── SignalPipeline.h/.cpp       #   └─ 周期主编排器（显式步骤编排）
 │
 └── tracking/                       # [跟踪滤波层]
     ├── GaussianTrackState.h        # [公共] 高斯状态表示（6D CV: x,vx,y,vy,z,vz）
@@ -57,7 +60,8 @@ src/airborne_radar/signal/
 
 include/1q/airborne_radar/signal/
 ├── pipeline/
-│   └── ISignalPipeline.h           # SignalPipeline 公共接口
+│   ├── ISignalPipeline.h           # SignalPipeline 公共接口
+│   └── SignalPipeline.h            # SignalPipeline 默认实现与四域配置
 └── tracking/
     ├── GaussianTrackState.h         # 高斯状态类型定义（公共 API）
     ├── ITrackLifecycleManager.h     # 生命周期管理器接口
@@ -98,7 +102,7 @@ flowchart TD
 
 ## 5. 关键机制
 
-- `SignalPipeline` 采用 **ChainProcessor（责任链）** 编排单周期处理。
+- `SignalPipeline` 保留单周期 orchestrator 角色，但内部已改为**显式步骤编排**，不再使用责任链节点。
 - 位置空间关联是唯一主路径，`external seeds` 为唯一先验来源，无 seeds 时按 stateless 关联执行。
 - `TrackLifecycleManager` 提供生命周期管理与 Kalman/IMM 集成，支持自动装配与可配置启用。
 - 动态量测协方差 `R` 由检测链路生成并前移复用，供关联与滤波共享。
@@ -106,7 +110,8 @@ flowchart TD
 
 ## 6. 关键契约与边界
 
-- 成功探测目标必须具备 `position_x / position_y / position_z`，否则 fail-fast。
+- `TargetFeature.position_x / position_y / position_z` 的公共契约已经收口为**雷达局部笛卡尔坐标**。
+- 成功探测目标必须具备上述局部坐标位置，否则 fail-fast。
 - external seeds 必须同时携带位置与高斯状态，否则 fail-fast。
 - 关联先验仅来自 external seeds；未注入时按 stateless 语义执行。
 - 并发语义在文档中未声明，默认按主循环单线程驱动；若引入并发需补充同步策略与可见性约束。
@@ -183,28 +188,15 @@ classDiagram
 
 ## 9. 测试覆盖
 
-| 测试套件 | 测试数 | 覆盖范围 |
-|---------|--------|---------|
-| `SignalPipelineTest` | 5 | 端到端周期处理、探测裕量衰减、TrackMeasurement 导出、默认位置关联主路径 |
-| `TrackFilterTest` | 2 | 标量特征稳定传递、损耗衰减 + 干扰惩罚 |
-| `DataAssociationEngineTest` | 14 | 稳定关联、交叉匹配、新目标分配、匹配/失配报告、位置空间关联、external seeds 单周期语义、无 external seeds 的 stateless 行为、external seed 缺高斯态 fail-fast |
-| `CostThresholdGaterTest` | 1 | 超阈值裁剪 |
-| `DenseCostHypothesiserTest` | 2 | 波门内假设、逐轨迹 S 注入 |
-| `TrackLifecycleManagerTest` | 4 | 确认阈值、超时回收、每轨 IMM 漏检预测、AssociationSeeds 导出位置与高斯状态 |
-| `CoreControllerTest` | 11 | Controller 调度、事件发布、Lifecycle 消费真实量测、RunCycle 前注入 Lifecycle seeds、自动装配成功与非法配置 fail-fast |
-| `KalmanPredictorTest` | 7 | 零步长恒等、位置传播、协方差增长、对称性、Q 矩阵公式 |
-| `KalmanUpdaterTest` | 8 | 协方差收缩、均值收敛、新息正确性、动态R矩阵自适应、正定性 |
-| `KalmanPredictUpdateTest` | 2 | 预测-更新集成、速度收敛 |
-| `FullMahalanobisTest` | 4 | 对角等价、非对角正确性、单位阵 = 欧氏、动态更新 |
-| `EkfPredictorTest` | 1 | 线性场景与标准 KF 数学等价 |
-| `EkfUpdaterTest` | 1 | 同上 |
-| `ImmFilterTest` | 4 | 单模型等价 KF、双模型权重收敛、机动切换、权重归一化 |
-| `RadarEquationsTest` | 8 | 回波功率手算、R⁴规律、玻尔兹曼噪声、相参/非相参积累、测距/测角精度 |
-| `SignalDetectorTest` | 4 | 高/低 SNR 探测、确定性种子、干扰降级 |
-| `SwerlingDetectionTest` | 11| Swerling 0~4 边界、极限定理、多脉冲增益平滑对比 |
-| **合计（Signal 相关 + 跨层集成）** | **89** | 上表覆盖当前 Signal 相关算法与 Controller 集成测试 |
+当前 Signal 层回归重点覆盖以下方面：
 
-补充说明：当前仓库全量回归已达到 **103 / 103** 绿灯；其余测试主要覆盖决策层、事件总线与环境服务等非 Signal 专属模块。
+- `SignalPipelineTest` / `CoreControllerTest`：验证单周期编排、Lifecycle seeds 注入、自动装配与 controller 集成行为。
+- `SignalDetectorTest` / `RadarEquationsTest` / `SwerlingDetectionTest`：验证雷达方程、SNR/Pd、积累增益和 Swerling 模型边界。
+- `TargetLookResolverTest` / `BeamControlResolverTest` / `MeasurementErrorModelTest`：验证雷达局部坐标 look angle 解析、波束控制解析以及误差建模拆分后的职责边界。
+- `DataAssociationEngineTest` / `TrackLifecycleManagerTest`：验证位置空间关联、external seeds 单一先验、Lifecycle 更新与 fail-fast 契约。
+- `TrackFilterTest` / Kalman/EKF/IMM 相关测试：验证标量特征更新与状态估计器数学正确性。
+
+本次重构验收以全量 `ctest --preset llvm-ninja-debug-local --output-on-failure` 通过为准。
 
 ## 10. 当前状态与待完善事项
 

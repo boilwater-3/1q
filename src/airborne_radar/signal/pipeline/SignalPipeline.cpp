@@ -1,13 +1,14 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: SignalPipeline 的实现。
+// Description: SignalPipeline 的显式步骤编排实现。
 
-#include "airborne_radar/signal/pipeline/SignalPipeline.h"
+#include "1q/airborne_radar/signal/pipeline/SignalPipeline.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
+#include <limits>
 #include <memory>
 #include <numeric>
 #include <utility>
@@ -16,15 +17,17 @@
 #include <Eigen/Core>
 #include <spdlog/spdlog.h>
 
+#include "1q/airborne_radar/environment/IEnvironmentService.h"
+#include "1q/airborne_radar/signal/tracking/TrackLifecycleManager.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
+#include "airborne_radar/signal/detection/BeamControlResolver.h"
+#include "airborne_radar/signal/detection/MeasurementErrorModel.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
+#include "airborne_radar/signal/detection/TargetLookResolver.h"
 #include "airborne_radar/signal/tracking/BoostTrackPool.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
-#include "1q/airborne_radar/signal/tracking/TrackLifecycleManager.h"
-#include "1q/airborne_radar/environment/IEnvironmentService.h"
-#include "1q/airborne_radar/core/pipeline/IChainProcessor.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -32,8 +35,11 @@ namespace pipeline {
 
 namespace {
 
+/// @brief 将内部关联质量观测指标转换为对外公开格式。
+/// @param source 内部关联质量观测指标。
+/// @return Pipeline 对外公开的关联质量观测指标。
 AssociationQualityMetrics ToPipelineAssociationQualityMetrics(
-    const association::AssociationQualityMetrics &source) {
+    const association::AssociationQualityMetrics& source) {
   AssociationQualityMetrics metrics;
   metrics.prior_track_count = source.prior_track_count;
   metrics.detection_count = source.detection_count;
@@ -48,30 +54,44 @@ AssociationQualityMetrics ToPipelineAssociationQualityMetrics(
   return metrics;
 }
 
+/// @brief 从顶层配置构造轨迹滤波配置。
+/// @param config Signal 顶层配置。
+/// @return TrackFilter 使用的配置。
 tracking::TrackFilterConfig ToTrackFilterConfig(
-    const SignalPipelineConfig &config) {
+    const SignalPipelineConfig& config) {
   tracking::TrackFilterConfig filter_config;
-  filter_config.speed_decay_ratio_on_loss = config.speed_decay_ratio_on_loss;
-  filter_config.rcs_decay_ratio_on_loss = config.rcs_decay_ratio_on_loss;
+  filter_config.speed_decay_ratio_on_loss =
+      config.tracking.speed_decay_ratio_on_loss;
+  filter_config.rcs_decay_ratio_on_loss =
+      config.tracking.rcs_decay_ratio_on_loss;
   filter_config.jamming_acceleration_penalty =
-      config.jamming_acceleration_penalty;
-  filter_config.stable_acceleration_gain = config.stable_acceleration_gain;
+      config.tracking.jamming_acceleration_penalty;
+  filter_config.stable_acceleration_gain =
+      config.tracking.stable_acceleration_gain;
   return filter_config;
 }
 
+/// @brief 从顶层配置构造数据关联配置。
+/// @param config Signal 顶层配置。
+/// @return DataAssociationEngine 使用的配置。
 association::DataAssociationConfig ToAssociationConfig(
-    const SignalPipelineConfig &config) {
+    const SignalPipelineConfig& config) {
   association::DataAssociationConfig association_config;
-  association_config.kalman_noise_diff_coeff = config.kalman_noise_diff_coeff;
+  association_config.kalman_noise_diff_coeff =
+      config.tracking.kalman_noise_diff_coeff;
   association_config.kalman_measurement_noise_std =
-      config.kalman_measurement_noise_std;
+      config.tracking.kalman_measurement_noise_std;
   return association_config;
 }
 
-const association::AssociationMatch *FindAssociationMatch(
-    const association::AssociationResult &result,
+/// @brief 在关联结果中查找指定输入目标索引对应的匹配结果。
+/// @param result 关联结果。
+/// @param target_index 输入目标索引。
+/// @return 若命中已有轨迹则返回匹配结果指针，否则返回空指针。
+const association::AssociationMatch* FindAssociationMatch(
+    const association::AssociationResult& result,
     std::size_t target_index) {
-  for (const association::AssociationMatch &match : result.matches) {
+  for (const association::AssociationMatch& match : result.matches) {
     if (match.target_index == target_index) {
       return &match;
     }
@@ -85,12 +105,10 @@ const association::AssociationMatch *FindAssociationMatch(
 /// @param angle_error_std 等效角度测量标准差（rad）。
 /// @param default_measurement_noise_std 默认回退量测标准差（m）。
 /// @return 3x3 笛卡尔位置量测协方差。
-/// @note angle_error_std 由 SignalDetector 基于有效波束宽度解析结果计算得到：
-///       commanded_* 生效时优先使用指令态波束宽度，否则回退 nominal_*。
-/// @note 当前模型将方位/俯仰二维角误差压缩为单一标量，并在目标 LOS 正交平面上
-///       采用各向同性近似，即 var_theta 同时作用于两条横向轴。
+/// @note angle_error_std 由 MeasurementErrorModel 基于有效 az/el 波束宽度
+///       合成得到，effective beamwidth 来自 BeamControlResolver。
 tracking::MeasurementCovariance BuildMeasurementCovariance(
-    const common::TargetFeature &target,
+    const common::TargetFeature& target,
     float range_error_std,
     float angle_error_std,
     float default_measurement_noise_std) {
@@ -101,19 +119,19 @@ tracking::MeasurementCovariance BuildMeasurementCovariance(
 
   const float range_m = target.range_m > 0.1f
                             ? target.range_m
-                            : std::max(
-                                  Eigen::Vector3f(target.position_x,
-                                                  target.position_y,
-                                                  target.position_z)
-                                      .norm(),
-                                  0.1f);
+                            : std::max(Eigen::Vector3f(target.position_x,
+                                                      target.position_y,
+                                                      target.position_z)
+                                           .norm(),
+                                       0.1f);
   const float var_r = range_error_std * range_error_std;
   const float var_theta = angle_error_std * angle_error_std;
-  Eigen::Vector3f pos = (target.position_x != 0.0f || target.position_y != 0.0f ||
-                         target.position_z != 0.0f)
-                            ? Eigen::Vector3f(target.position_x, target.position_y,
-                                              target.position_z)
-                            : Eigen::Vector3f(range_m, 0.0f, 0.0f);
+  Eigen::Vector3f pos =
+      (target.position_x != 0.0f || target.position_y != 0.0f ||
+       target.position_z != 0.0f)
+          ? Eigen::Vector3f(target.position_x, target.position_y,
+                            target.position_z)
+          : Eigen::Vector3f(range_m, 0.0f, 0.0f);
   const float pos_norm = pos.norm();
   if (pos_norm > 0.1f) {
     const Eigen::Vector3f u = pos / pos_norm;
@@ -125,7 +143,10 @@ tracking::MeasurementCovariance BuildMeasurementCovariance(
   return tracking::MeasurementCovariance::Identity() * var_r;
 }
 
-float ResolveSpeedMagnitude(const common::TargetFeature &target) {
+/// @brief 解析目标标量速度。
+/// @param target 输入目标。
+/// @return 标量速度模长。
+float ResolveSpeedMagnitude(const common::TargetFeature& target) {
   const Eigen::Vector3f velocity(target.current_track_velocity_x,
                                  target.current_track_velocity_y,
                                  target.current_track_velocity_z);
@@ -135,7 +156,10 @@ float ResolveSpeedMagnitude(const common::TargetFeature &target) {
   return target.current_track_speed;
 }
 
-Eigen::Vector3f ResolveVelocityVector(const common::TargetFeature &target) {
+/// @brief 解析目标速度向量。
+/// @param target 输入目标。
+/// @return 速度向量。
+Eigen::Vector3f ResolveVelocityVector(const common::TargetFeature& target) {
   const Eigen::Vector3f velocity(target.current_track_velocity_x,
                                  target.current_track_velocity_y,
                                  target.current_track_velocity_z);
@@ -145,7 +169,10 @@ Eigen::Vector3f ResolveVelocityVector(const common::TargetFeature &target) {
   return Eigen::Vector3f(target.current_track_speed, 0.0f, 0.0f);
 }
 
-float ResolveAccelerationMagnitude(const common::TargetFeature &target) {
+/// @brief 解析目标标量加速度。
+/// @param target 输入目标。
+/// @return 标量加速度模长。
+float ResolveAccelerationMagnitude(const common::TargetFeature& target) {
   const Eigen::Vector3f acceleration(target.current_track_acceleration_x,
                                      target.current_track_acceleration_y,
                                      target.current_track_acceleration_z);
@@ -155,7 +182,10 @@ float ResolveAccelerationMagnitude(const common::TargetFeature &target) {
   return target.current_track_acceleration;
 }
 
-Eigen::Vector3f ResolveAccelerationVector(const common::TargetFeature &target) {
+/// @brief 解析目标加速度向量。
+/// @param target 输入目标。
+/// @return 加速度向量。
+Eigen::Vector3f ResolveAccelerationVector(const common::TargetFeature& target) {
   const Eigen::Vector3f acceleration(target.current_track_acceleration_x,
                                      target.current_track_acceleration_y,
                                      target.current_track_acceleration_z);
@@ -165,64 +195,49 @@ Eigen::Vector3f ResolveAccelerationVector(const common::TargetFeature &target) {
   return Eigen::Vector3f(target.current_track_acceleration, 0.0f, 0.0f);
 }
 
-/// @brief 根据雷达局部笛卡尔位置解析目标方位/俯仰角。
-/// @param target 目标特征。
-/// @param target_az_deg 输出方位角（单位：度）。
-/// @param target_el_deg 输出俯仰角（单位：度）。
-/// @return 若位置量测有效则返回 true。
-/// @note 当前实现假定 position_x/y/z 位于雷达局部坐标系中。
-bool ResolveTargetLookAnglesDeg(const common::TargetFeature &target,
-                                float *target_az_deg,
-                                float *target_el_deg) {
-  const Eigen::Vector3f position(target.position_x, target.position_y,
-                                 target.position_z);
-  const float horizontal_norm =
-      std::sqrt(position.x() * position.x() + position.y() * position.y());
-  const float position_norm = position.norm();
-  if (position_norm <= 0.1f) {
-    return false;
-  }
-
-  const float kRad2Deg = 180.0f / 3.14159265358979f;
-  *target_az_deg = std::atan2(position.y(), position.x()) * kRad2Deg;
-  *target_el_deg = std::atan2(position.z(), horizontal_norm) * kRad2Deg;
-  return true;
-}
-
-[[noreturn]] void AbortLifecycleAssemblyConfigViolation(
-    const char *message,
-    float value) {
+/// @brief 终止生命周期自动装配配置违规。
+/// @param message 错误消息。
+/// @param value 附带数值。
+[[noreturn]] void AbortLifecycleAssemblyConfigViolation(const char* message,
+                                                        float value) {
   spdlog::critical(
-      "[SignalPipeline] lifecycle auto-assembly config violation: {} (value={})",
-      message,
-      value);
+      "[SignalPipeline] lifecycle auto-assembly config violation: {} "
+      "(value={})",
+      message, value);
   std::abort();
 }
 
-[[noreturn]] void AbortLifecycleAssemblyConfigViolation(
-    const char *message,
-    std::size_t value) {
+/// @brief 终止生命周期自动装配配置违规。
+/// @param message 错误消息。
+/// @param value 附带数值。
+[[noreturn]] void AbortLifecycleAssemblyConfigViolation(const char* message,
+                                                        std::size_t value) {
   spdlog::critical(
-      "[SignalPipeline] lifecycle auto-assembly config violation: {} (value={})",
-      message,
-      value);
+      "[SignalPipeline] lifecycle auto-assembly config violation: {} "
+      "(value={})",
+      message, value);
   std::abort();
 }
 
+/// @brief 基于 Pipeline 配置自动装配生命周期管理器。
 class AutoConfiguredLifecycleManager final
     : public tracking::ITrackLifecycleManager {
  public:
-  explicit AutoConfiguredLifecycleManager(const SignalPipelineConfig &config)
-      : pool_(config.lifecycle_track_pool_initial_chunk,
-              config.lifecycle_track_pool_max_chunks) {
+  /// @brief 使用 SignalPipeline 顶层配置构造生命周期管理器。
+  /// @param config 顶层配置。
+  explicit AutoConfiguredLifecycleManager(const SignalPipelineConfig& config)
+      : pool_(config.lifecycle.lifecycle_track_pool_initial_chunk,
+              config.lifecycle.lifecycle_track_pool_max_chunks) {
     const float measurement_noise_std =
-        std::max(config.kalman_measurement_noise_std, 0.001f);
+        std::max(config.tracking.kalman_measurement_noise_std, 0.001f);
 
-    if (config.enable_imm_lifecycle) {
-      const std::size_t model_count = config.imm_model_noise_diff_coeffs.size();
+    if (config.lifecycle.enable_imm_lifecycle) {
+      const std::size_t model_count =
+          config.lifecycle.imm_model_noise_diff_coeffs.size();
       if (model_count == 0U) {
         AbortLifecycleAssemblyConfigViolation(
-            "IMM enabled but imm_model_noise_diff_coeffs is empty", model_count);
+            "IMM enabled but imm_model_noise_diff_coeffs is empty",
+            model_count);
       }
 
       imm_predictors_owned_.reserve(model_count);
@@ -231,7 +246,8 @@ class AutoConfiguredLifecycleManager final
       imm_updaters_.reserve(model_count);
 
       for (std::size_t i = 0; i < model_count; ++i) {
-        const float noise_diff_coeff = config.imm_model_noise_diff_coeffs[i];
+        const float noise_diff_coeff =
+            config.lifecycle.imm_model_noise_diff_coeffs[i];
         if (noise_diff_coeff <= 0.0f) {
           AbortLifecycleAssemblyConfigViolation(
               "IMM model noise_diff_coeff must be > 0", noise_diff_coeff);
@@ -253,64 +269,83 @@ class AutoConfiguredLifecycleManager final
         imm_updaters_owned_.push_back(std::move(updater));
       }
 
-      Eigen::MatrixXf transition_probability = BuildTransitionProbability(config, model_count);
-      Eigen::VectorXf initial_weights = BuildInitialWeights(config, model_count);
+      const Eigen::MatrixXf transition_probability =
+          BuildTransitionProbability(config, model_count);
+      const Eigen::VectorXf initial_weights =
+          BuildInitialWeights(config, model_count);
 
       lifecycle_manager_.reset(new tracking::TrackLifecycleManager(
-          pool_, config.lifecycle_config, imm_predictors_, imm_updaters_,
-          transition_probability, initial_weights));
+          pool_, config.lifecycle.lifecycle_config, imm_predictors_,
+          imm_updaters_, transition_probability, initial_weights));
       return;
     }
 
-    if (config.enable_kalman_filter) {
+    if (config.tracking.enable_kalman_filter) {
       tracking::KalmanPredictorConfig predictor_config;
-      predictor_config.noise_diff_coeff = std::max(config.kalman_noise_diff_coeff, 0.001f);
-      kalman_predictor_.reset(new tracking::KalmanPredictor(predictor_config));
+      predictor_config.noise_diff_coeff =
+          std::max(config.tracking.kalman_noise_diff_coeff, 0.001f);
+      kalman_predictor_.reset(
+          new tracking::KalmanPredictor(predictor_config));
 
       tracking::KalmanUpdaterConfig updater_config;
       updater_config.measurement_noise_std = measurement_noise_std;
       kalman_updater_.reset(new tracking::KalmanUpdater(updater_config));
 
       lifecycle_manager_.reset(new tracking::TrackLifecycleManager(
-          pool_, config.lifecycle_config, kalman_predictor_.get(),
+          pool_, config.lifecycle.lifecycle_config, kalman_predictor_.get(),
           kalman_updater_.get()));
       return;
     }
 
-    lifecycle_manager_.reset(
-        new tracking::TrackLifecycleManager(pool_, config.lifecycle_config));
+    lifecycle_manager_.reset(new tracking::TrackLifecycleManager(
+        pool_, config.lifecycle.lifecycle_config));
   }
 
-  void Update(const tracking::CycleContext &cycle,
-              const std::vector<tracking::TrackMeasurement> &measurements) override {
+  /// @brief 更新生命周期状态。
+  /// @param cycle 当前周期上下文。
+  /// @param measurements 当前周期量测。
+  void Update(const tracking::CycleContext& cycle,
+              const std::vector<tracking::TrackMeasurement>& measurements)
+      override {
     lifecycle_manager_->Update(cycle, measurements);
   }
 
+  /// @brief 构建特征快照。
+  /// @return 生命周期输出的轨迹特征快照。
   common::TargetFeatureList BuildFeatureSnapshot() const override {
     return lifecycle_manager_->BuildFeatureSnapshot();
   }
 
-  std::vector<tracking::AssociationTrackSeed> BuildAssociationSeeds() const override {
+  /// @brief 构建关联种子。
+  /// @return 上一周期轨迹种子列表。
+  std::vector<tracking::AssociationTrackSeed> BuildAssociationSeeds()
+      const override {
     return lifecycle_manager_->BuildAssociationSeeds();
   }
 
  private:
+  /// @brief 构建 IMM 转移矩阵。
+  /// @param config 顶层配置。
+  /// @param model_count IMM 模型数。
+  /// @return 转移概率矩阵。
   static Eigen::MatrixXf BuildTransitionProbability(
-      const SignalPipelineConfig &config,
+      const SignalPipelineConfig& config,
       std::size_t model_count) {
-    if (config.imm_transition_probability.empty()) {
+    if (config.lifecycle.imm_transition_probability.empty()) {
       Eigen::MatrixXf matrix = Eigen::MatrixXf::Constant(
           static_cast<Eigen::Index>(model_count),
           static_cast<Eigen::Index>(model_count),
-          model_count > 1U ? 0.05f / static_cast<float>(model_count - 1U) : 1.0f);
+          model_count > 1U ? 0.05f / static_cast<float>(model_count - 1U)
+                           : 1.0f);
       matrix.diagonal().setConstant(model_count > 1U ? 0.95f : 1.0f);
       return matrix;
     }
 
-    if (config.imm_transition_probability.size() != model_count * model_count) {
+    if (config.lifecycle.imm_transition_probability.size() !=
+        model_count * model_count) {
       AbortLifecycleAssemblyConfigViolation(
           "imm_transition_probability size must equal model_count*model_count",
-          config.imm_transition_probability.size());
+          config.lifecycle.imm_transition_probability.size());
     }
 
     Eigen::MatrixXf matrix(static_cast<Eigen::Index>(model_count),
@@ -318,13 +353,15 @@ class AutoConfiguredLifecycleManager final
     for (std::size_t r = 0; r < model_count; ++r) {
       float row_sum = 0.0f;
       for (std::size_t c = 0; c < model_count; ++c) {
-        const float value =
-            config.imm_transition_probability[r * model_count + c];
+        const float value = config.lifecycle
+                                .imm_transition_probability[r * model_count +
+                                                            c];
         if (value < 0.0f || value > 1.0f) {
           AbortLifecycleAssemblyConfigViolation(
               "IMM transition probability must be in [0,1]", value);
         }
-        matrix(static_cast<Eigen::Index>(r), static_cast<Eigen::Index>(c)) = value;
+        matrix(static_cast<Eigen::Index>(r), static_cast<Eigen::Index>(c)) =
+            value;
         row_sum += value;
       }
       if (std::fabs(row_sum - 1.0f) > 1e-3f) {
@@ -335,25 +372,28 @@ class AutoConfiguredLifecycleManager final
     return matrix;
   }
 
-  static Eigen::VectorXf BuildInitialWeights(
-      const SignalPipelineConfig &config,
-      std::size_t model_count) {
-    if (config.imm_initial_weights.empty()) {
+  /// @brief 构建 IMM 初始权重。
+  /// @param config 顶层配置。
+  /// @param model_count IMM 模型数。
+  /// @return 初始权重向量。
+  static Eigen::VectorXf BuildInitialWeights(const SignalPipelineConfig& config,
+                                             std::size_t model_count) {
+    if (config.lifecycle.imm_initial_weights.empty()) {
       return Eigen::VectorXf::Constant(
           static_cast<Eigen::Index>(model_count),
           1.0f / static_cast<float>(model_count));
     }
 
-    if (config.imm_initial_weights.size() != model_count) {
+    if (config.lifecycle.imm_initial_weights.size() != model_count) {
       AbortLifecycleAssemblyConfigViolation(
           "imm_initial_weights size must equal model_count",
-          config.imm_initial_weights.size());
+          config.lifecycle.imm_initial_weights.size());
     }
 
     Eigen::VectorXf weights(static_cast<Eigen::Index>(model_count));
     float sum = 0.0f;
     for (std::size_t i = 0; i < model_count; ++i) {
-      const float value = config.imm_initial_weights[i];
+      const float value = config.lifecycle.imm_initial_weights[i];
       if (value < 0.0f || value > 1.0f) {
         AbortLifecycleAssemblyConfigViolation(
             "IMM initial weight must be in [0,1]", value);
@@ -369,20 +409,21 @@ class AutoConfiguredLifecycleManager final
     return weights;
   }
 
- private:
   tracking::BoostTrackPool pool_;
   std::unique_ptr<tracking::KalmanPredictor> kalman_predictor_;
   std::unique_ptr<tracking::KalmanUpdater> kalman_updater_;
-  std::vector<std::unique_ptr<tracking::KalmanPredictor> > imm_predictors_owned_;
+  std::vector<std::unique_ptr<tracking::KalmanPredictor> >
+      imm_predictors_owned_;
   std::vector<std::unique_ptr<tracking::KalmanUpdater> > imm_updaters_owned_;
-  std::vector<const tracking::IKalmanPredictor *> imm_predictors_;
-  std::vector<const tracking::IKalmanUpdater *> imm_updaters_;
+  std::vector<const tracking::IKalmanPredictor*> imm_predictors_;
+  std::vector<const tracking::IKalmanUpdater*> imm_updaters_;
   std::unique_ptr<tracking::TrackLifecycleManager> lifecycle_manager_;
 };
 
+/// @brief 单周期缓存上下文。
 struct SignalCycleContext {
-  const common::TargetFeatureList *input_state{nullptr};
-  const environment::IEnvironmentService *environment{nullptr};
+  const common::TargetFeatureList* input_state{nullptr};
+  const environment::IEnvironmentService* environment{nullptr};
   common::TargetFeatureList output_state;
   std::vector<tracking::TrackMeasurement> track_measurements;
 
@@ -395,208 +436,224 @@ struct SignalCycleContext {
   association::AssociationResult association_result;
   std::vector<std::uint64_t> association_keys;
   std::vector<tracking::MeasurementCovariance> measurement_covariances;
+  std::vector<int> measurement_slots;
 };
 
-class EnvironmentSamplingStage
-    : public core::pipeline::IChainProcessor<SignalCycleContext> {
-public:
-  explicit EnvironmentSamplingStage(const SignalPipelineConfig *config)
-      : config_(config) {}
+}  // namespace
 
-protected:
-  void ProcessNode(SignalCycleContext &context) override {
-    context.environment_snapshot = context.environment->SampleEnvironment();
-
-    const std::size_t target_count = context.input_state->size();
-    context.output_state = *context.input_state;
-
-    context.signal_term_db.resize(target_count);
-    context.speed_penalty_db.resize(target_count);
-    context.detection_margin_db.resize(target_count);
-    context.detection_succeeded.resize(target_count);
-    context.association_keys.resize(target_count);
-    context.measurement_covariances.assign(
-        target_count,
-        tracking::MeasurementCovariance::Identity() *
-            config_->kalman_measurement_noise_std *
-            config_->kalman_measurement_noise_std);
-    context.track_measurements.clear();
+/// @brief SignalPipeline 私有实现。
+struct SignalPipeline::Impl {
+  /// @brief 使用顶层配置构造私有实现。
+  /// @param initial_config 顶层配置。
+  explicit Impl(SignalPipelineConfig initial_config)
+      : config(std::move(initial_config)),
+        association_engine(ToAssociationConfig(config)),
+        track_filter(ToTrackFilterConfig(config)) {
+    RebuildOwnedComponents();
   }
 
-private:
-  const SignalPipelineConfig *config_{nullptr};
-};
+  /// @brief 执行一次信号处理周期。
+  /// @param input_state 输入目标列表。
+  /// @param environment 环境服务。
+  /// @return 输出目标列表。
+  common::TargetFeatureList RunCycle(
+      const common::TargetFeatureList& input_state,
+      const environment::IEnvironmentService& environment) {
+    PrepareCycleContext(input_state, environment);
+    SampleEnvironment();
+    if (config.detection.enable_physics_detection) {
+      RunPhysicalDetection();
+    } else {
+      RunHeuristicDetection();
+    }
+    RunAssociation();
+    BuildTrackMeasurements();
+    ApplyTrackFilter();
+    CollectOutputs();
+    return cached_context.output_state;
+  }
 
-class EchoEstimationStage
-    : public core::pipeline::IChainProcessor<SignalCycleContext> {
-protected:
-  void ProcessNode(SignalCycleContext &context) override {
-    const common::TargetFeatureList &input = *context.input_state;
+  /// @brief 获取最近一次处理周期导出的跟踪量测。
+  /// @return 跟踪量测列表。
+  std::vector<tracking::TrackMeasurement> GetLastTrackMeasurements() const {
+    return cached_context.track_measurements;
+  }
+
+  /// @brief 获取最近一次处理周期的关联质量观测指标。
+  /// @return 关联质量观测指标。
+  AssociationQualityMetrics GetLastAssociationQualityMetrics() const {
+    return ToPipelineAssociationQualityMetrics(
+        cached_context.association_result.quality_metrics);
+  }
+
+  /// @brief 设置本周期关联阶段应使用的轨迹种子。
+  /// @param seeds 外部种子。
+  void SetAssociationSeeds(
+      const std::vector<tracking::AssociationTrackSeed>& seeds) {
+    association_engine.SetAssociationSeeds(seeds);
+  }
+
+  /// @brief 清理外部 seeds 状态并恢复无先验模式。
+  void ResetAssociationSeedModeToStateless() {
+    association_engine.ResetAssociationSeedModeToStateless();
+  }
+
+  /// @brief 按当前配置自动装配生命周期管理器。
+  /// @return 若未启用则返回空指针。
+  std::unique_ptr<tracking::ITrackLifecycleManager>
+  CreateAutoLifecycleManager() const {
+    if (!config.lifecycle.enable_auto_lifecycle_manager) {
+      return std::unique_ptr<tracking::ITrackLifecycleManager>();
+    }
+    return std::unique_ptr<tracking::ITrackLifecycleManager>(
+        new AutoConfiguredLifecycleManager(config));
+  }
+
+  /// @brief 更新顶层配置。
+  /// @param new_config 新配置。
+  void UpdateConfig(SignalPipelineConfig new_config) {
+    config = std::move(new_config);
+    association_engine.UpdateConfig(ToAssociationConfig(config));
+    track_filter.UpdateConfig(ToTrackFilterConfig(config));
+    RebuildOwnedComponents();
+  }
+
+  /// @brief 初始化单周期缓存。
+  /// @param input_state 输入目标列表。
+  /// @param environment 环境服务。
+  void PrepareCycleContext(const common::TargetFeatureList& input_state,
+                           const environment::IEnvironmentService& environment) {
+    cached_context.input_state = &input_state;
+    cached_context.environment = &environment;
+    cached_context.output_state = input_state;
+
+    const std::size_t target_count = input_state.size();
+    cached_context.track_measurements.clear();
+    cached_context.signal_term_db.assign(target_count, 0.0f);
+    cached_context.speed_penalty_db.assign(target_count, 0.0f);
+    cached_context.detection_margin_db.assign(target_count, 0.0f);
+    cached_context.detection_succeeded.assign(target_count, 0U);
+    cached_context.association_keys.assign(target_count, 0U);
+    cached_context.measurement_slots.assign(target_count, -1);
+    cached_context.measurement_covariances.assign(
+        target_count, tracking::MeasurementCovariance::Identity() *
+                          config.tracking.kalman_measurement_noise_std *
+                          config.tracking.kalman_measurement_noise_std);
+    cached_context.association_result = association::AssociationResult();
+  }
+
+  /// @brief 采样本周期环境快照。
+  void SampleEnvironment() {
+    cached_context.environment_snapshot =
+        cached_context.environment->SampleEnvironment();
+  }
+
+  /// @brief 运行经验探测逻辑。
+  void RunHeuristicDetection() {
+    const common::TargetFeatureList& input = *cached_context.input_state;
     const std::size_t count = input.size();
-
     for (std::size_t i = 0; i < count; ++i) {
-      context.signal_term_db[i] = input[i].current_track_rcs * 6.0f;
-      context.speed_penalty_db[i] = ResolveSpeedMagnitude(input[i]) * 0.002f;
+      cached_context.signal_term_db[i] = input[i].current_track_rcs * 6.0f;
+      cached_context.speed_penalty_db[i] = ResolveSpeedMagnitude(input[i]) * 0.002f;
+    }
+
+    const float environment_penalty_db =
+        cached_context.environment_snapshot.propagation_loss_db * 0.2f +
+        cached_context.environment_snapshot.clutter_power_db * 0.3f +
+        (cached_context.environment_snapshot.jamming_detected ? 5.0f : 0.0f);
+    for (std::size_t i = 0; i < count; ++i) {
+      const float margin = cached_context.signal_term_db[i] -
+                           cached_context.speed_penalty_db[i] -
+                           environment_penalty_db;
+      cached_context.detection_margin_db[i] = margin;
+      cached_context.detection_succeeded[i] = static_cast<std::uint8_t>(
+          margin >= config.detection.min_detection_margin_db);
     }
   }
-};
 
-/// @brief 物理化回波估计阶段，使用 SignalDetector 执行雷达方程。
-class PhysicsEchoEstimationStage
-    : public core::pipeline::IChainProcessor<SignalCycleContext> {
-public:
-  explicit PhysicsEchoEstimationStage(
-      detection::SignalDetector *detector,
-      const SignalPipelineConfig *config,
-      int pulse_count,
-      bool coherent_integration)
-      : detector_(detector),
-        config_(config),
-        pulse_count_(pulse_count),
-        coherent_integration_(coherent_integration) {}
-
-protected:
-  void ProcessNode(SignalCycleContext &context) override {
-    const common::TargetFeatureList &input = *context.input_state;
+  /// @brief 运行物理探测逻辑。
+  void RunPhysicalDetection() {
+    const common::TargetFeatureList& input = *cached_context.input_state;
     const std::size_t count = input.size();
 
-    const float clutter_w =
-        std::pow(10.0f,
-                 context.environment_snapshot.clutter_power_db / 10.0f);
+    const float clutter_w = std::pow(
+        10.0f, cached_context.environment_snapshot.clutter_power_db / 10.0f);
     const float jam_w =
-        context.environment_snapshot.jamming_detected ? 1e-12f : 0.0f;
+        cached_context.environment_snapshot.jamming_detected ? 1e-12f : 0.0f;
 
     detection::EnvironmentState env;
-    env.propagation_loss_db = context.environment_snapshot.propagation_loss_db;
+    env.propagation_loss_db =
+        cached_context.environment_snapshot.propagation_loss_db;
     env.clutter_noise_w = clutter_w;
     env.jam_noise_w = jam_w;
 
     for (std::size_t i = 0; i < count; ++i) {
-      const float range =
-          input[i].range_m > 0.0f ? input[i].range_m : 50000.0f;
-          
       detection::TargetReturn target;
       target.rcs_m2 = input[i].current_track_rcs;
-      target.range_m = range;
+      target.range_m = input[i].range_m > 0.0f ? input[i].range_m : 50000.0f;
       target.swerling_type = static_cast<detection::SwerlingModel>(
           input[i].target_swerling_type);
-      target.has_look_angles = ResolveTargetLookAnglesDeg(
-          input[i], &target.look_az_deg, &target.look_el_deg);
 
-      detection::DetectionResult det = detector_->Detect(
-          target,
-          env,
-          pulse_count_,
-          coherent_integration_,
-          &config_->radar_orientation);
+      const detection::TargetLookAnglesDeg look_angles =
+          detection::TargetLookResolver::Resolve(input[i]);
+      const detection::ResolvedBeamState beam_state =
+          detection::BeamControlResolver::Resolve(
+              config.detection.radar_system.antenna,
+              config.beam_control.radar_orientation, look_angles);
+      const detection::DetectionResult detection_result =
+          signal_detector->Detect(
+              target, env, beam_state.one_way_antenna_gain_db,
+              config.detection.pulse_count,
+              config.detection.coherent_integration);
+      const detection::MeasurementErrorState measurement_error =
+          detection::MeasurementErrorModel::Compute(
+              detection_result.snr_db, beam_state.effective_beamwidth_deg,
+              config.detection.radar_system.transmitter.bandwidth_hz);
 
-      context.signal_term_db[i] = det.snr_db;
-      context.speed_penalty_db[i] = 0.0f;
-      context.detection_margin_db[i] = det.snr_db;
-      context.detection_succeeded[i] =
-          static_cast<std::uint8_t>(det.detected ? 1U : 0U);
-      context.measurement_covariances[i] = BuildMeasurementCovariance(
-          input[i], det.range_error_std_m, det.angle_error_std_rad,
-          config_->kalman_measurement_noise_std);
+      cached_context.signal_term_db[i] = detection_result.snr_db;
+      cached_context.speed_penalty_db[i] = 0.0f;
+      cached_context.detection_margin_db[i] = detection_result.snr_db;
+      cached_context.detection_succeeded[i] = static_cast<std::uint8_t>(
+          detection_result.detected ? 1U : 0U);
+      cached_context.measurement_covariances[i] = BuildMeasurementCovariance(
+          input[i], measurement_error.range_error_std_m,
+          measurement_error.angle_error_std_rad,
+          config.tracking.kalman_measurement_noise_std);
     }
   }
 
-private:
-  detection::SignalDetector *detector_{nullptr};
-  const SignalPipelineConfig *config_{nullptr};
-  int pulse_count_{1};
-  bool coherent_integration_{false};
-};
-
-class DetectionStage : public core::pipeline::IChainProcessor<SignalCycleContext> {
-public:
-  explicit DetectionStage(const SignalPipelineConfig *config) : config_(config) {}
-
-protected:
-  void ProcessNode(SignalCycleContext &context) override {
-    const float environment_penalty_db =
-        context.environment_snapshot.propagation_loss_db * 0.2f +
-        context.environment_snapshot.clutter_power_db * 0.3f +
-        (context.environment_snapshot.jamming_detected ? 5.0f : 0.0f);
-
-    const std::size_t count = context.signal_term_db.size();
-    Eigen::Map<const Eigen::ArrayXf> signal_term(context.signal_term_db.data(),
-                                                 static_cast<Eigen::Index>(count));
-    Eigen::Map<const Eigen::ArrayXf> speed_penalty(context.speed_penalty_db.data(),
-                                                   static_cast<Eigen::Index>(count));
-    Eigen::Map<Eigen::ArrayXf> detection_margin(context.detection_margin_db.data(),
-                                                static_cast<Eigen::Index>(count));
-    detection_margin =
-        signal_term - speed_penalty - Eigen::ArrayXf::Constant(detection_margin.size(),
-                                                                environment_penalty_db);
-
-    for (std::size_t i = 0; i < count; ++i) {
-      const float margin = context.detection_margin_db[i];
-      context.detection_succeeded[i] =
-          static_cast<std::uint8_t>(margin >= config_->min_detection_margin_db);
-    }
+  /// @brief 执行位置关联。
+  void RunAssociation() {
+    cached_context.association_result = association_engine.AssociateDetections(
+        *cached_context.input_state, cached_context.detection_succeeded,
+        cached_context.measurement_covariances);
+    cached_context.association_keys = cached_context.association_result.target_keys;
   }
 
-private:
-  const SignalPipelineConfig *config_{nullptr};
-};
+  /// @brief 构建跟踪量测骨架。
+  void BuildTrackMeasurements() {
+    const common::TargetFeatureList& input = *cached_context.input_state;
+    const std::size_t count = input.size();
+    cached_context.track_measurements.clear();
 
-class AssociationStage
-    : public core::pipeline::IChainProcessor<SignalCycleContext> {
-public:
-  explicit AssociationStage(association::DataAssociationEngine *engine)
-      : engine_(engine) {}
-
-protected:
-  void ProcessNode(SignalCycleContext &context) override {
-    context.association_result =
-        engine_->AssociateDetections(*context.input_state,
-                                     context.detection_succeeded,
-                                     context.measurement_covariances);
-    context.association_keys = context.association_result.target_keys;
-  }
-
-private:
-  association::DataAssociationEngine *engine_{nullptr};
-};
-
-class TrackingFilterStage
-    : public core::pipeline::IChainProcessor<SignalCycleContext> {
-public:
-  explicit TrackingFilterStage(tracking::TrackFilter *filter) : filter_(filter) {}
-
-protected:
-  void ProcessNode(SignalCycleContext &context) override {
-    const common::TargetFeatureList &input = *context.input_state;
-    common::TargetFeatureList &output = context.output_state;
-
-    const std::size_t count = output.size();
-    context.track_measurements.clear();
     for (std::size_t i = 0; i < count; ++i) {
-      tracking::TrackFilterContext filter_context;
-      filter_context.detection_succeeded = context.detection_succeeded[i] != 0U;
-      filter_context.jamming_detected =
-          context.environment_snapshot.jamming_detected;
-      filter_context.detection_margin_db = context.detection_margin_db[i];
-      output[i] = filter_->Filter(input[i], filter_context);
-
-      if (!filter_context.detection_succeeded) {
+      if (cached_context.detection_succeeded[i] == 0U) {
         continue;
       }
 
-        const association::AssociationMatch *match =
-          FindAssociationMatch(context.association_result, i);
+      const association::AssociationMatch* match =
+          FindAssociationMatch(cached_context.association_result, i);
       tracking::TrackMeasurement measurement;
       measurement.source_index = i;
       measurement.external_target_id = input[i].external_target_id;
-      measurement.association_key = context.association_keys[i];
+      measurement.association_key = cached_context.association_keys[i];
       measurement.matched_existing_track = match != nullptr;
       measurement.association_cost = match != nullptr ? match->cost : 0.0f;
       measurement.used_position_association =
-          context.association_result.used_position_association;
+          cached_context.association_result.used_position_association;
       measurement.used_external_association_seeds =
-          context.association_result.used_external_association_seeds;
-      measurement.detection_margin_db = context.detection_margin_db[i];
+          cached_context.association_result.used_external_association_seeds;
+      measurement.detection_margin_db = cached_context.detection_margin_db[i];
       measurement.has_cartesian_position =
           input[i].position_x != 0.0f || input[i].position_y != 0.0f ||
           input[i].position_z != 0.0f;
@@ -605,123 +662,74 @@ protected:
                                                    input[i].position_y,
                                                    input[i].position_z)
                                  : Eigen::Vector3f::Zero();
-        measurement.observed_speed = ResolveSpeedMagnitude(output[i]);
-        measurement.velocity = ResolveVelocityVector(output[i]);
-        measurement.observed_acceleration = ResolveAccelerationMagnitude(output[i]);
-        measurement.acceleration = ResolveAccelerationVector(output[i]);
+      measurement.jamming_detected =
+          cached_context.environment_snapshot.jamming_detected;
+      measurement.measurement_covariance =
+          cached_context.measurement_covariances[i];
+
+      cached_context.measurement_slots[i] =
+          static_cast<int>(cached_context.track_measurements.size());
+      cached_context.track_measurements.push_back(measurement);
+    }
+  }
+
+  /// @brief 执行跟踪滤波并补全量测动态属性。
+  void ApplyTrackFilter() {
+    const common::TargetFeatureList& input = *cached_context.input_state;
+    common::TargetFeatureList& output = cached_context.output_state;
+    const std::size_t count = output.size();
+
+    for (std::size_t i = 0; i < count; ++i) {
+      tracking::TrackFilterContext filter_context;
+      filter_context.detection_succeeded =
+          cached_context.detection_succeeded[i] != 0U;
+      filter_context.jamming_detected =
+          cached_context.environment_snapshot.jamming_detected;
+      filter_context.detection_margin_db = cached_context.detection_margin_db[i];
+      output[i] = track_filter.Filter(input[i], filter_context);
+
+      const int measurement_slot = cached_context.measurement_slots[i];
+      if (measurement_slot < 0) {
+        continue;
+      }
+
+      tracking::TrackMeasurement& measurement =
+          cached_context.track_measurements[static_cast<std::size_t>(
+              measurement_slot)];
+      measurement.observed_speed = ResolveSpeedMagnitude(output[i]);
+      measurement.velocity = ResolveVelocityVector(output[i]);
+      measurement.observed_acceleration = ResolveAccelerationMagnitude(output[i]);
+      measurement.acceleration = ResolveAccelerationVector(output[i]);
       measurement.rcs = output[i].current_track_rcs;
-        measurement.jamming_detected = context.environment_snapshot.jamming_detected;
-      measurement.measurement_covariance = context.measurement_covariances[i];
-
-      context.track_measurements.push_back(measurement);
     }
   }
 
-private:
-  tracking::TrackFilter *filter_{nullptr};
-};
+  /// @brief 收尾当前周期输出。
+  void CollectOutputs() {}
 
-} // namespace
+  /// @brief 依据当前配置重建自持有组件。
+  void RebuildOwnedComponents() {
+    if (config.tracking.enable_kalman_filter) {
+      tracking::KalmanPredictorConfig predictor_config;
+      predictor_config.noise_diff_coeff =
+          config.tracking.kalman_noise_diff_coeff;
+      kalman_predictor.reset(new tracking::KalmanPredictor(predictor_config));
 
-struct SignalPipeline::Impl {
-  explicit Impl(SignalPipelineConfig initial_config)
-  : config(std::move(initial_config)),
-    association_engine(ToAssociationConfig(config)),
-    track_filter(ToTrackFilterConfig(config)) {
-    // 按配置条件创建 Kalman 组件
-    if (config.enable_kalman_filter) {
-      tracking::KalmanPredictorConfig pred_cfg;
-      pred_cfg.noise_diff_coeff = config.kalman_noise_diff_coeff;
-      kalman_predictor = std::unique_ptr<tracking::KalmanPredictor>(new tracking::KalmanPredictor(pred_cfg));
-
-      tracking::KalmanUpdaterConfig upd_cfg;
-      upd_cfg.measurement_noise_std = config.kalman_measurement_noise_std;
-      kalman_updater = std::unique_ptr<tracking::KalmanUpdater>(new tracking::KalmanUpdater(upd_cfg));
-    }
-
-    if (config.enable_physics_detection) {
-      signal_detector = std::unique_ptr<detection::SignalDetector>(
-          new detection::SignalDetector(config.radar_system));
-
-      pipeline_head = std::unique_ptr<EnvironmentSamplingStage>(
-          new EnvironmentSamplingStage(&config));
-      pipeline_head
-          ->SetNext(std::unique_ptr<PhysicsEchoEstimationStage>(
-              new PhysicsEchoEstimationStage(
-                  signal_detector.get(),
-              &config,
-                  config.pulse_count,
-                  config.coherent_integration)))
-          ->SetNext(std::unique_ptr<AssociationStage>(
-              new AssociationStage(&association_engine)))
-          ->SetNext(std::unique_ptr<TrackingFilterStage>(
-              new TrackingFilterStage(&track_filter)));
+      tracking::KalmanUpdaterConfig updater_config;
+      updater_config.measurement_noise_std =
+          config.tracking.kalman_measurement_noise_std;
+      kalman_updater.reset(new tracking::KalmanUpdater(updater_config));
     } else {
-      pipeline_head = std::unique_ptr<EnvironmentSamplingStage>(
-        new EnvironmentSamplingStage(&config));
-      pipeline_head
-          ->SetNext(std::unique_ptr<EchoEstimationStage>(
-              new EchoEstimationStage()))
-          ->SetNext(std::unique_ptr<DetectionStage>(
-              new DetectionStage(&config)))
-          ->SetNext(std::unique_ptr<AssociationStage>(
-              new AssociationStage(&association_engine)))
-          ->SetNext(std::unique_ptr<TrackingFilterStage>(
-              new TrackingFilterStage(&track_filter)));
+      kalman_predictor.reset();
+      kalman_updater.reset();
     }
-  }
 
-  common::TargetFeatureList RunCycle(
-      const common::TargetFeatureList &input_state,
-      const environment::IEnvironmentService &environment) {
-    cached_context.input_state = &input_state;
-    cached_context.environment = &environment;
-
-    pipeline_head->Process(cached_context);
-    return cached_context.output_state;
-  }
-
-  std::vector<tracking::TrackMeasurement> GetLastTrackMeasurements() const {
-    return cached_context.track_measurements;
-  }
-
-  AssociationQualityMetrics GetLastAssociationQualityMetrics() const {
-    return ToPipelineAssociationQualityMetrics(
-        cached_context.association_result.quality_metrics);
-  }
-
-  void SetAssociationSeeds(
-      const std::vector<tracking::AssociationTrackSeed> &seeds) {
-    association_engine.SetAssociationSeeds(seeds);
-  }
-
-  void ResetAssociationSeedModeToStateless() {
-    association_engine.ResetAssociationSeedModeToStateless();
-  }
-
-  std::unique_ptr<tracking::ITrackLifecycleManager>
-  CreateAutoLifecycleManager() const {
-    if (!config.enable_auto_lifecycle_manager) {
-      return std::unique_ptr<tracking::ITrackLifecycleManager>();
+    if (config.detection.enable_physics_detection) {
+      signal_detector.reset(
+          new detection::SignalDetector(config.detection.radar_system));
+    } else {
+      signal_detector.reset();
     }
-    return std::unique_ptr<tracking::ITrackLifecycleManager>(
-        new AutoConfiguredLifecycleManager(config));
-  }
-
-  /// @brief 获取 Kalman 预测器指针（可为 nullptr）。
-  const tracking::IKalmanPredictor *GetKalmanPredictor() const {
-    return kalman_predictor.get();
-  }
-
-  /// @brief 获取 Kalman 更新器指针（可为 nullptr）。
-  const tracking::IKalmanUpdater *GetKalmanUpdater() const {
-    return kalman_updater.get();
-  }
-
-  void UpdateConfig(SignalPipelineConfig new_config) {
-    config = std::move(new_config);
-    association_engine.UpdateConfig(ToAssociationConfig(config));
-    track_filter.UpdateConfig(ToTrackFilterConfig(config));
   }
 
   SignalPipelineConfig config{};
@@ -731,7 +739,6 @@ struct SignalPipeline::Impl {
   std::unique_ptr<tracking::KalmanUpdater> kalman_updater;
   std::unique_ptr<detection::SignalDetector> signal_detector;
   SignalCycleContext cached_context{};
-  std::unique_ptr<core::pipeline::IChainProcessor<SignalCycleContext> > pipeline_head;
 };
 
 SignalPipeline::SignalPipeline(SignalPipelineConfig config)
@@ -740,8 +747,8 @@ SignalPipeline::SignalPipeline(SignalPipelineConfig config)
 SignalPipeline::~SignalPipeline() = default;
 
 common::TargetFeatureList SignalPipeline::RunCycle(
-    const common::TargetFeatureList &input_state,
-    const environment::IEnvironmentService &environment) {
+    const common::TargetFeatureList& input_state,
+    const environment::IEnvironmentService& environment) {
   return impl_->RunCycle(input_state, environment);
 }
 
@@ -756,7 +763,7 @@ SignalPipeline::GetLastAssociationQualityMetrics() const {
 }
 
 void SignalPipeline::SetAssociationSeeds(
-    const std::vector<tracking::AssociationTrackSeed> &seeds) {
+    const std::vector<tracking::AssociationTrackSeed>& seeds) {
   impl_->SetAssociationSeeds(seeds);
 }
 
@@ -773,6 +780,6 @@ void SignalPipeline::UpdateConfig(SignalPipelineConfig config) {
   impl_->UpdateConfig(std::move(config));
 }
 
-} // namespace pipeline
-} // namespace signal
-} // namespace airborne_radar
+}  // namespace pipeline
+}  // namespace signal
+}  // namespace airborne_radar
