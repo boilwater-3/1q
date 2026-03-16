@@ -165,6 +165,30 @@ Eigen::Vector3f ResolveAccelerationVector(const common::TargetFeature &target) {
   return Eigen::Vector3f(target.current_track_acceleration, 0.0f, 0.0f);
 }
 
+/// @brief 根据雷达局部笛卡尔位置解析目标方位/俯仰角。
+/// @param target 目标特征。
+/// @param target_az_deg 输出方位角（单位：度）。
+/// @param target_el_deg 输出俯仰角（单位：度）。
+/// @return 若位置量测有效则返回 true。
+/// @note 当前实现假定 position_x/y/z 位于雷达局部坐标系中。
+bool ResolveTargetLookAnglesDeg(const common::TargetFeature &target,
+                                float *target_az_deg,
+                                float *target_el_deg) {
+  const Eigen::Vector3f position(target.position_x, target.position_y,
+                                 target.position_z);
+  const float horizontal_norm =
+      std::sqrt(position.x() * position.x() + position.y() * position.y());
+  const float position_norm = position.norm();
+  if (position_norm <= 0.1f) {
+    return false;
+  }
+
+  const float kRad2Deg = 180.0f / 3.14159265358979f;
+  *target_az_deg = std::atan2(position.y(), position.x()) * kRad2Deg;
+  *target_el_deg = std::atan2(position.z(), horizontal_norm) * kRad2Deg;
+  return true;
+}
+
 [[noreturn]] void AbortLifecycleAssemblyConfigViolation(
     const char *message,
     float value) {
@@ -456,6 +480,8 @@ protected:
       target.range_m = range;
       target.swerling_type = static_cast<detection::SwerlingModel>(
           input[i].target_swerling_type);
+      target.has_look_angles = ResolveTargetLookAnglesDeg(
+          input[i], &target.look_az_deg, &target.look_el_deg);
 
       detection::DetectionResult det = detector_->Detect(
           target,

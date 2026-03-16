@@ -16,6 +16,22 @@ namespace detection {
 /// @brief 无状态的雷达物理计算函数集合。
 /// 所有方法为 static，不持有任何内部状态。
 struct RadarEquations {
+  /// @brief 单站雷达方程（对数域），按指定单程天线增益计算接收回波功率。
+  /// 公式: Pr_dBW = Pt_dB + 2*G_one_way_dB + 2*λ_dB + σ_dB
+  ///                - 30*log10(4π) - 4*R_dB - L_sys
+  /// @param tx 发射机参数
+  /// @param one_way_gain_db 当前波束指向下的单程天线增益
+  /// @param rcs_m2 目标雷达散射截面 (m²)
+  /// @param range_m 目标斜距 (m)
+  /// @param propagation_loss_db 大气传播往返损耗 (dB)
+  /// @return 接收回波功率 (dBW)
+  static float ComputeEchoPowerWithGain_dBW(
+      const TransmitterConfig& tx,
+      float one_way_gain_db,
+      float rcs_m2,
+      float range_m,
+      float propagation_loss_db);
+
   /// @brief 单站雷达方程（对数域），计算接收回波功率。
   /// 公式: Pr_dBW = Pt_dB + 2*Gt_dB + 2*λ_dB + σ_dB
   ///                - 30*log10(4π) - 4*R_dB - L_sys

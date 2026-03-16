@@ -6,6 +6,7 @@
 
 #include <gtest/gtest.h>
 
+#include "1q/airborne_radar/common/AntennaPatternUtils.h"
 #include "1q/airborne_radar/common/RadarOrientationConfig.h"
 #include "1q/airborne_radar/signal/detection/RadarEquations.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
@@ -284,6 +285,47 @@ TEST(SignalDetectorTest, CommandedBeamwidthOverrideAffectsAngleStdDev) {
       target, env, 1, false, &commanded_orientation);
 
   EXPECT_GT(commanded.angle_error_std_rad, nominal.angle_error_std_rad);
+}
+
+/// @brief 指令态波束展宽应通过方向图增益修正改善离轴目标的回波功率。
+TEST(SignalDetectorTest, CommandedBeamwidthAffectsDirectionalPatternGain) {
+  RadarSystemConfig config;
+  config.antenna.nominal_az_beamwidth_deg = 2.0f;
+  config.antenna.nominal_el_beamwidth_deg = 2.0f;
+  config.antenna.enable_directional_pattern = true;
+  config.antenna.pattern.max_sidelobe_level_db = -25.0f;
+
+  common::RadarOrientationConfig nominal_orientation;
+  nominal_orientation.commanded_beamwidth_enabled = false;
+
+  common::RadarOrientationConfig commanded_orientation;
+  commanded_orientation.commanded_beamwidth_enabled = true;
+  commanded_orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg =
+      8.0f;
+  commanded_orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg =
+      8.0f;
+
+  SignalDetector detector(config);
+
+  signal::detection::TargetReturn target;
+  target.rcs_m2 = 10.0f;
+  target.range_m = 50000.0f;
+  target.look_az_deg = 3.0f;
+  target.look_el_deg = 0.0f;
+  target.has_look_angles = true;
+
+  signal::detection::EnvironmentState env;
+  env.propagation_loss_db = 2.0f;
+  env.clutter_noise_w = 0.0f;
+  env.jam_noise_w = 0.0f;
+
+  const DetectionResult nominal = detector.Detect(
+      target, env, 1, false, &nominal_orientation);
+  const DetectionResult commanded = detector.Detect(
+      target, env, 1, false, &commanded_orientation);
+
+  EXPECT_GT(commanded.echo_power_dbw, nominal.echo_power_dbw);
+  EXPECT_GT(commanded.snr_db, nominal.snr_db);
 }
 
 // ===========================================================================

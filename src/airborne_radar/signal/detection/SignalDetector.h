@@ -8,6 +8,7 @@
 
 #include <random>
 
+#include "1q/airborne_radar/common/AntennaPatternConfig.h"
 #include "1q/airborne_radar/signal/detection/RadarEquations.h"
 
 namespace airborne_radar {
@@ -34,6 +35,9 @@ struct DetectionResult {
 struct TargetReturn {
   float rcs_m2{0.0f};              ///< 目标 RCS (m²)
   float range_m{0.0f};             ///< 目标到雷达斜距 (m)
+  float look_az_deg{0.0f};         ///< 目标相对雷达坐标系的方位角 (deg)
+  float look_el_deg{0.0f};         ///< 目标相对雷达坐标系的俯仰角 (deg)
+  bool has_look_angles{false};     ///< 是否携带可用于方向图评估的目标角度
   SwerlingModel swerling_type{kSwerling0}; ///< 目标的 Swerling 起伏模型
 };
 

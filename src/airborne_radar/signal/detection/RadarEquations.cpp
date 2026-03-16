@@ -60,9 +60,9 @@ float ClampPd(float pd) {
 // 回波功率、噪声、积累、测量精度（不变）
 // ===========================================================================
 
-float RadarEquations::ComputeEchoPower_dBW(
+float RadarEquations::ComputeEchoPowerWithGain_dBW(
     const TransmitterConfig& tx,
-    const AntennaConfig& ant,
+    float one_way_gain_db,
     float rcs_m2,
     float range_m,
     float propagation_loss_db) {
@@ -78,8 +78,8 @@ float RadarEquations::ComputeEchoPower_dBW(
   const float total_loss_db = tx.transmit_loss_db + propagation_loss_db;
 
   const float pr_dbw = pt_db
-      + ant.main_beam_gain_db
-      + ant.main_beam_gain_db
+      + one_way_gain_db
+      + one_way_gain_db
       + 2.0f * lambda_db
       + rcs_db
       - 30.0f * std::log10(4.0f * kPi)
@@ -87,6 +87,16 @@ float RadarEquations::ComputeEchoPower_dBW(
       - total_loss_db;
 
   return pr_dbw;
+}
+
+float RadarEquations::ComputeEchoPower_dBW(
+    const TransmitterConfig& tx,
+    const AntennaConfig& ant,
+    float rcs_m2,
+    float range_m,
+    float propagation_loss_db) {
+  return ComputeEchoPowerWithGain_dBW(
+      tx, ant.main_beam_gain_db, rcs_m2, range_m, propagation_loss_db);
 }
 
 float RadarEquations::ComputeThermalNoisePower_W(
@@ -390,4 +400,3 @@ bool RadarEquations::ThresholdDecision(
 }  // namespace detection
 }  // namespace signal
 }  // namespace airborne_radar
-

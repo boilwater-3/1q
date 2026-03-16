@@ -244,3 +244,4 @@ classDiagram
 ## 11. 扩展阅读
 
 - `signal-algorithms.md`：算法、公式推导、对照分析与时序细节
+- `signal-antenna-pattern.md`：天线方向图模型语义、输入输出链路与工程近似边界

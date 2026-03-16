@@ -5,6 +5,8 @@
 #ifndef AIRBORNE_RADAR_SIGNAL_DETECTION_DETECTION_TYPES_H_
 #define AIRBORNE_RADAR_SIGNAL_DETECTION_DETECTION_TYPES_H_
 
+#include "1q/airborne_radar/common/AntennaPatternConfig.h"
+
 namespace airborne_radar {
 namespace signal {
 namespace detection {
@@ -24,9 +26,11 @@ struct TransmitterConfig {
 ///       若后续引入动态波束控制，应额外定义命令态波束宽度配置，
 ///       避免与姿态/扫描层中的瞬时波束宽度混淆。
 struct AntennaConfig {
-  float main_beam_gain_db{35.0f}; ///< 主瓣增益 (dB)
+  float main_beam_gain_db{35.0f}; ///< 波束中心名义峰值增益 (dB)
   float nominal_az_beamwidth_deg{4.0f}; ///< 名义方位波束宽度 (°)
   float nominal_el_beamwidth_deg{4.0f}; ///< 名义俯仰波束宽度 (°)
+  common::AntennaPatternConfig pattern;  ///< 天线方向图形状配置
+  bool enable_directional_pattern{false}; ///< 是否启用离轴方向图增益修正
 };
 
 /// @brief 接收机配置参数。

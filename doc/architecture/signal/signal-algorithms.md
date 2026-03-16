@@ -51,6 +51,8 @@ flowchart LR
 
 `SignalDetector` 不再直接消费某一个原始 beamwidth 字段，而是先解析 `effective beamwidth`，再分别计算方位/俯仰角误差，并以 RMS 方式合成为单标量 `angle_error_std_rad`。该标量不是单独某一轴的测角精度，而是面向后续笛卡尔量测协方差构造的等效角误差近似。
 
+当 `AntennaConfig::enable_directional_pattern = true` 且目标提供了相对雷达坐标系的 look angle 时，`SignalDetector` 还会基于 `effective beamwidth`、当前波束指向和扫描中心调用 `EvaluateAntennaPattern(...)`，将主瓣离轴衰减、旁瓣/后瓣截平和扫描损失折算到单程天线增益，再进入单站雷达方程。也就是说，`commanded_*_beamwidth_deg` 现在不仅影响测角误差，也会影响离轴目标的回波功率和 SNR。
+
 ### 核心公式（Skolnik 交叉验证）
 
 | 公式 | 数学表达 | 参考 |
