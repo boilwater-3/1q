@@ -2,8 +2,8 @@
 //
 // Description: 定义战术责任链中的电子反对抗策略(ECCM)实现节点。
 
-#ifndef AIRBORNE_RADAR_SRC_DECISION_ECCM_ECCM_CONTROLLER_H_
-#define AIRBORNE_RADAR_SRC_DECISION_ECCM_ECCM_CONTROLLER_H_
+#ifndef AIRBORNE_RADAR_DECISION_ECCM_ECCM_CONTROLLER_H_
+#define AIRBORNE_RADAR_DECISION_ECCM_ECCM_CONTROLLER_H_
 
 #include "1q/airborne_radar/decision/pipeline/ITacticalProcessor.h"
 
@@ -28,4 +28,4 @@ protected:
 } // namespace decision
 } // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_SRC_DECISION_ECCM_ECCM_CONTROLLER_H_
+#endif // AIRBORNE_RADAR_DECISION_ECCM_ECCM_CONTROLLER_H_

@@ -2,8 +2,8 @@
 //
 // Description: 定义环境建模层的基础实现。
 
-#ifndef AIRBORNE_RADAR_SRC_ENVIRONMENT_ENVIRONMENT_SERVICE_H_
-#define AIRBORNE_RADAR_SRC_ENVIRONMENT_ENVIRONMENT_SERVICE_H_
+#ifndef AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_SERVICE_H_
+#define AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_SERVICE_H_
 
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 
@@ -54,4 +54,4 @@ private:
 } // namespace environment
 } // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_SRC_ENVIRONMENT_ENVIRONMENT_SERVICE_H_
+#endif // AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_SERVICE_H_

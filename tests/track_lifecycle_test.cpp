@@ -7,8 +7,8 @@
 
 #include <gtest/gtest.h>
 
-#include "1q/airborne_radar/common/TrackTypes.h"
-#include "1q/airborne_radar/signal/tracking/TrackLifecycleManager.h"
+#include "airborne_radar/common/TrackTypes.h"
+#include "airborne_radar/signal/tracking/TrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/BoostTrackPool.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"

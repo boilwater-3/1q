@@ -4,21 +4,21 @@
 
 ## 图形索引（Mermaid）
 
-| 图 ID | 用途 | Mermaid 段落锚点 | 生成文件 |
-|------|------|------------------|---------|
-| M1 | 物理化信号检测链路 | `#diagram-m1-detection` | `./signal-algo-m1-detection.png` |
-| M2 | 数据关联机制 | `#diagram-m2-association` | `./signal-algo-m2-association.png` |
-| M3 | IMM 四步流程 | `#diagram-m3-imm` | `./signal-algo-m3-imm.png` |
-| M4 | Stone Soup 架构差异 | `#diagram-m4-stonesoup` | `./signal-algo-m4-stonesoup.png` |
-| M5 | 单模型 Kalman 路径时序 | `#diagram-m5-kalman-seq` | `./signal-algo-m5-kalman-seq.png` |
-| M6 | 每轨 IMM 路径时序 | `#diagram-m6-imm-seq` | `./signal-algo-m6-imm-seq.png` |
+| 图 ID | 用途 | 段落锚点 |
+|------|------|---------|
+| M1 | 物理化信号检测链路 | `#diagram-m1-detection` |
+| M2 | 数据关联机制 | `#diagram-m2-association` |
+| M3 | IMM 四步流程 | `#diagram-m3-imm` |
+| M4 | Stone Soup 架构差异 | `#diagram-m4-stonesoup` |
+| M5 | 单模型 Kalman 路径时序 | `#diagram-m5-kalman-seq` |
+| M6 | 每轨 IMM 路径时序 | `#diagram-m6-imm-seq` |
 
 ## 1. 信号检测（物理化路径）
 
 信号检测层当前由“前置解析”与“纯探测物理”两段构成：
 
 <a id="diagram-m1-detection"></a>
-图 ID: M1 -> 生成文件：`./signal-algo-m1-detection.png`
+图 ID: M1
 
 ```mermaid
 flowchart LR
@@ -80,7 +80,7 @@ flowchart LR
 ## 2. 数据关联
 
 <a id="diagram-m2-association"></a>
-图 ID: M2 -> 生成文件：`./signal-algo-m2-association.png`
+图 ID: M2
 
 ```mermaid
 flowchart LR
@@ -204,7 +204,7 @@ Q_1d = q × | dt³/3  dt²/2 |
 实现 Bar-Shalom 标准 4 步 IMM 算法（Chapter 11.6）：
 
 <a id="diagram-m3-imm"></a>
-图 ID: M3 -> 生成文件：`./signal-algo-m3-imm.png`
+图 ID: M3
 
 ```mermaid
 flowchart TD
@@ -254,7 +254,7 @@ flowchart TD
 ### 4.2 架构差异
 
 <a id="diagram-m4-stonesoup"></a>
-图 ID: M4 -> 生成文件：`./signal-algo-m4-stonesoup.png`
+图 ID: M4
 
 ```mermaid
 graph LR
@@ -291,7 +291,7 @@ graph LR
 ### 5.1 单模型 Kalman 路径
 
 <a id="diagram-m5-kalman-seq"></a>
-图 ID: M5 -> 生成文件：`./signal-algo-m5-kalman-seq.png`
+图 ID: M5
 
 ```mermaid
 sequenceDiagram
@@ -330,7 +330,7 @@ sequenceDiagram
 ### 5.2 每轨 IMM 路径
 
 <a id="diagram-m6-imm-seq"></a>
-图 ID: M6 -> 生成文件：`./signal-algo-m6-imm-seq.png`
+图 ID: M6
 
 ```mermaid
 sequenceDiagram

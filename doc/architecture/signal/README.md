@@ -1,70 +1,47 @@
-# Signal 层文档目录
+# Signal Docs Index
 
-Signal 层是机载雷达仿真系统的信号处理核心，负责 **探测 → 关联 → 滤波 → 航迹管理** 完整链路。
+Signal 层负责机载雷达仿真中的单周期信号处理，输入为目标特征与环境快照，输出为探测、关联、跟踪量测和稳定航迹快照。
 
-当前文档已同步到以下实现状态：
+## Files
 
-- 位置空间关联已成为唯一正式路径，成功探测目标缺位置量测时直接失败
-- `FullMahalanobisDistanceMetric` 支持逐轨迹新息协方差 $S$ 联动
-- `TrackLifecycleManager` 已支持每轨 IMM 运行态
-- `TrackLifecycleManager` 支持 `kAllTracks` / `kConfirmedTracksOnly` 两种 IMM 激活策略，默认采用“确认后懒启用 IMM”
-- `SignalPipeline` / `RadarController` 已支持 Lifecycle 服务自动装配（可配置启用 IMM）
-- `SignalPipeline` 已改为显式步骤编排；`SignalDetector` 只保留纯探测物理职责
-- `ISignalPipeline` 已对外暴露平台姿态更新接口，供搭载平台在周期间刷新姿态
-- `RadarController` 会在每周期开始前把 Lifecycle 导出的关联种子注入 `SignalPipeline`
-- `TargetFeature.position_x/y/z` 在 Signal 层的公共契约已收口为雷达局部笛卡尔坐标
-- `DataAssociationEngine` 仅消费 external seeds 作为关联先验；无 seeds 时按 stateless 模式运行
-- external seeds 进入关联前已收紧为强契约：必须同时携带位置与高斯状态
-- 关联契约失败路径已接入 `spdlog::critical`，并保持 fail-fast（`abort`）
-- `DataAssociationEngine` / `TrackLifecycleManager` / `RadarController` 已补充关键路径摘要日志
-
-## 文件说明
-
-| 文件 | 说明 |
-|------|------|
-| `signal-architecture.md` | **核心文档**：架构概览、目录结构、关键机制、边界约束、测试与状态 |
-| `signal-algorithms.md` | 算法/公式推导、Stone Soup 对照、时序细节 |
-| `signal-antenna-pattern.md` | 天线方向图设计说明、模型语义、输入输出链路与当前限制 |
-| `signal-processing-flow.puml` | Signal 主处理链路流程图（PlantUML 源文件） |
-| `signal-processing-flow.png` | 流程图导出图 |
-| `signal-module-layering.puml` | Signal 模块分层图（PlantUML 源文件） |
+| File | Description |
+|------|-------------|
+| `signal-architecture.md` | **核心文档**：模块定位、目录分层、处理流程、关键机制、边界与测试 |
+| `signal-processing-flow.puml` | 主处理链路图源文件 |
+| `signal-processing-flow.png` | 主处理链路图导出图 |
+| `signal-module-layering.puml` | 模块分层图源文件 |
 | `signal-module-layering.png` | 模块分层图导出图 |
+| `signal-algorithms.md` | 探测、关联、Kalman/EKF/IMM 等算法细节 |
+| `signal-data-contracts.md` | 公共契约、封装边界、失败策略与并发语义 |
+| `signal-antenna-pattern.md` | 天线方向图建模语义与工程限制 |
 
-## 建议阅读顺序
+## Recommended Reading Order
 
-1. 先看 `signal-architecture.md` — 了解架构边界、关键机制与契约。
-2. 需要深入时再看 `signal-algorithms.md` — 算法推导、对照与时序细节。
-3. 若要理解机载雷达离轴增益、波束宽度与扫描损失关系，再看 `signal-antenna-pattern.md`。
-4. 再看 `signal-module-layering.puml` 或 PNG — 建立模块分层视图。
-5. 然后看 `signal-processing-flow.puml` 或 PNG — 补足单周期执行链路视图。
-6. 需要落代码时，回到源码核对以下入口：
-   - `SignalPipeline` — 周期编排
-   - `DataAssociationEngine` — 关联编排
-   - `DenseCostHypothesiser` — 逐轨迹 S 注入点
-   - `KalmanPredictor / KalmanUpdater` — 标准 Kalman
-   - `EkfPredictor / EkfUpdater` — 扩展 Kalman
-   - `ImmFilter` — 交互多模型
-   - `TrackLifecycleManager` — 轨迹生命周期 + Kalman / 每轨 IMM 集成
+1. `signal-architecture.md`
+2. `signal-module-layering.puml/png`
+3. `signal-processing-flow.puml/png`
+4. `signal-data-contracts.md`
+5. `signal-algorithms.md`
+6. `signal-antenna-pattern.md`
 
-## 算法层级
+落代码时，优先对照以下入口：
+- `include/1q/airborne_radar/signal/pipeline/ISignalPipeline.h`
+- `include/1q/airborne_radar/signal/pipeline/SignalPipeline.h`
+- `include/1q/airborne_radar/signal/tracking/ITrackLifecycleManager.h`
+- `src/airborne_radar/signal/pipeline/SignalComponentFactory.h`
+- `src/airborne_radar/signal/association/DataAssociation.h`
+- `src/airborne_radar/signal/tracking/TrackLifecycleManager.h`
 
-```
-Level 0: TrackFilter（标量特征的最小预测/更新）
-Level 1: DataAssociationEngine（位置唯一主路径 + external seeds/stateless 双态语义）
-Level 2: KalmanPredictor + KalmanUpdater（标准线性 Kalman，3D CV）
-Level 3: EkfPredictor + EkfUpdater（扩展 Kalman，非线性模型支持）
-Level 4: ImmFilter（交互多模型，Bar-Shalom 4 步算法）
-```
+## Extension Docs
 
-## 扩展文档
+- `signal-data-contracts.md` - 公共契约、封装边界与失败策略
+- `signal-algorithms.md` - 算法与公式细节
+- `signal-antenna-pattern.md` - 方向图模型与输入输出链路
 
-- `signal-algorithms.md` — 算法/公式推导、Stone Soup 对照、时序细节
-- `signal-antenna-pattern.md` — 天线方向图设计、方向图模型语义与当前工程近似边界
-
-## 流程图预览
+## Flow Preview
 
 ![Signal Processing Flow](./signal-processing-flow.png)
 
-## 模块分层图预览
+## Layering Preview
 
 ![Signal Module Layering](./signal-module-layering.png)

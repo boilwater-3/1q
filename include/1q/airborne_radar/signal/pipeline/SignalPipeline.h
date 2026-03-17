@@ -11,7 +11,7 @@
 #include "1q/airborne_radar/common/RadarOrientationConfig.h"
 #include "1q/airborne_radar/signal/detection/RadarEquations.h"
 #include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
-#include "1q/airborne_radar/signal/tracking/TrackLifecycleManager.h"
+#include "1q/airborne_radar/signal/tracking/LifecycleConfig.h"
 
 namespace airborne_radar {
 namespace signal {

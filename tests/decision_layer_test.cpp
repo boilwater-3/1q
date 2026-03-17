@@ -11,10 +11,10 @@
 #include "1q/airborne_radar/common/RadarCommand.h"
 #include "1q/airborne_radar/common/TargetFeature.h"
 #include "1q/airborne_radar/core/context/DecisionContext.h"
-#include "airborne_radar/decision/classifier/TargetClassifier.h"
-#include "airborne_radar/decision/eccm/EccmController.h"
-#include "airborne_radar/decision/lpi/LpiController.h"
-#include "airborne_radar/environment/database/FeatureRepository.h"
+#include "1q/airborne_radar/decision/classifier/TargetClassifier.h"
+#include "1q/airborne_radar/decision/eccm/EccmController.h"
+#include "1q/airborne_radar/decision/lpi/LpiController.h"
+#include "1q/airborne_radar/environment/database/FeatureRepository.h"
 
 using namespace airborne_radar;
 

@@ -142,9 +142,10 @@ if(ENABLE_INSTALL)
 
     # 生成 PackageConfig 文件（供 find_package 使用）
     configure_package_config_file(
-        "${CMAKE_SOURCE_DIR}/cmake/${PROJECT_NAME}Config.cmake.in"
+        "${CMAKE_SOURCE_DIR}/cmake/ProjectTemplateConfig.cmake.in"
         "${CMAKE_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
         INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+        PATH_VARS CMAKE_INSTALL_INCLUDEDIR
     )
 
     # 生成版本文件
@@ -161,4 +162,3 @@ if(ENABLE_INSTALL)
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
     )
 endif()
-

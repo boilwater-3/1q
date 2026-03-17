@@ -2,8 +2,8 @@
 //
 // Description: 基于 eventpp::EventQueue 的周期事件总线实现。
 
-#ifndef AIRBORNE_RADAR_SRC_CORE_EVENT_CYCLE_EVENT_BUS_H_
-#define AIRBORNE_RADAR_SRC_CORE_EVENT_CYCLE_EVENT_BUS_H_
+#ifndef AIRBORNE_RADAR_CORE_EVENT_CYCLE_EVENT_BUS_H_
+#define AIRBORNE_RADAR_CORE_EVENT_CYCLE_EVENT_BUS_H_
 
 #include <array>
 #include <cstddef>
@@ -77,4 +77,4 @@ private:
 
 } } } // namespace airborne_radar::core::event
 
-#endif // AIRBORNE_RADAR_SRC_CORE_EVENT_CYCLE_EVENT_BUS_H_
+#endif // AIRBORNE_RADAR_CORE_EVENT_CYCLE_EVENT_BUS_H_
