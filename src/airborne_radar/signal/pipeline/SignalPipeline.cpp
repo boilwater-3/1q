@@ -154,6 +154,144 @@ Eigen::Vector3f ResolveAccelerationVector(const common::TargetFeature& target) {
   return Eigen::Vector3f(target.current_track_acceleration, 0.0f, 0.0f);
 }
 
+/// @brief 约束控制比例，避免非法值污染运行时配置。
+float ClampProfileScale(float scale, float fallback) {
+  if (!std::isfinite(scale) || scale <= 0.0f) {
+    return fallback;
+  }
+  return scale;
+}
+
+/// @brief 将线性比例转换为 dB 修正量。
+float ToDbDelta(float linear_scale) {
+  const float clamped_scale = ClampProfileScale(linear_scale, 1.0f);
+  return 10.0f * std::log10(clamped_scale);
+}
+
+/// @brief 计算控制 profile 对波束宽度的收缩比例。
+float ResolveBeamwidthScale(const common::RadarControlProfile& control_profile) {
+  float beamwidth_scale = 1.0f;
+  if (control_profile.enable_lpi_beamforming) {
+    beamwidth_scale = std::min(beamwidth_scale, 0.75f);
+  }
+  if (control_profile.enable_adaptive_beamforming) {
+    beamwidth_scale = std::min(beamwidth_scale, 0.60f);
+  }
+  return beamwidth_scale;
+}
+
+/// @brief 计算 profile 对经验检测项的信号修正。
+float ComputeHeuristicSignalAdjustmentDb(
+    const common::RadarControlProfile& control_profile) {
+  float adjustment_db = 0.0f;
+  if (control_profile.enable_lpi_power_control) {
+    adjustment_db += ToDbDelta(control_profile.lpi_power_scale);
+  }
+  if (control_profile.enable_lpi_beamforming) {
+    adjustment_db += 1.0f;
+  }
+  if (control_profile.enable_adaptive_beamforming) {
+    adjustment_db += 1.5f;
+  }
+  return adjustment_db;
+}
+
+/// @brief 计算 profile 对经验环境惩罚项的抵消量。
+float ComputeHeuristicEnvironmentReliefDb(
+    const common::RadarControlProfile& control_profile,
+    const environment::EnvironmentSnapshot& environment_snapshot) {
+  float relief_db = 0.0f;
+  if (environment_snapshot.jamming_detected) {
+    if (control_profile.enable_sidelobe_canceller) {
+      relief_db += 2.5f;
+    }
+    if (control_profile.enable_agility_frequency) {
+      relief_db += 1.5f;
+    }
+    if (control_profile.enable_eccm_rejitter) {
+      relief_db += 1.0f;
+    }
+  }
+  if (control_profile.enable_adaptive_beamforming) {
+    relief_db += 0.8f;
+  }
+  if (control_profile.eccm_burnthrough_gain > 1.0f) {
+    relief_db += ToDbDelta(control_profile.eccm_burnthrough_gain);
+  }
+  return relief_db;
+}
+
+/// @brief 将控制 profile 映射为当前周期生效的运行时配置。
+void ApplyControlProfileToConfig(const common::RadarControlProfile& control_profile,
+                                 SignalPipelineConfig* runtime_config) {
+  if (runtime_config == nullptr) {
+    return;
+  }
+
+  if (control_profile.enable_lpi_power_control) {
+    runtime_config->detection.radar_system.transmitter.peak_power_w *=
+        ClampProfileScale(control_profile.lpi_power_scale, 1.0f);
+  }
+
+  if (control_profile.lpi_dwell_scale != 1.0f) {
+    const float dwell_scale =
+        std::max(0.25f, std::min(4.0f,
+                                 ClampProfileScale(control_profile.lpi_dwell_scale,
+                                                   1.0f)));
+    const double scaled_pulse_count =
+        static_cast<double>(runtime_config->detection.pulse_count) *
+        static_cast<double>(dwell_scale);
+    runtime_config->detection.pulse_count = std::max(
+        1, static_cast<int>(std::lround(scaled_pulse_count)));
+  }
+
+  if (control_profile.enable_agility_frequency) {
+    const float hop_factor =
+        (control_profile.version % 2U == 0U) ? 1.015f : 0.985f;
+    runtime_config->detection.radar_system.transmitter.frequency_hz *=
+        hop_factor;
+  }
+
+  if (control_profile.enable_eccm_rejitter) {
+    runtime_config->detection.radar_system.transmitter.prf_hz *= 1.10f;
+  }
+
+  if (control_profile.eccm_burnthrough_gain > 1.0f) {
+    const float gain_db = ToDbDelta(control_profile.eccm_burnthrough_gain);
+    runtime_config->detection.radar_system.receiver.noise_figure_db =
+        std::max(0.0f,
+                 runtime_config->detection.radar_system.receiver.noise_figure_db -
+                     gain_db);
+  }
+
+  if (control_profile.enable_sidelobe_canceller) {
+    runtime_config->detection.radar_system.antenna.enable_directional_pattern =
+        true;
+    runtime_config->detection.radar_system.antenna.pattern.max_sidelobe_level_db -=
+        6.0f;
+  }
+
+  const float beamwidth_scale = ResolveBeamwidthScale(control_profile);
+  if (beamwidth_scale < 0.999f) {
+    runtime_config->beam_control.radar_orientation.commanded_beamwidth_enabled =
+        true;
+    runtime_config->beam_control.radar_orientation.commanded_beamwidth_deg
+        .commanded_az_beamwidth_deg = std::max(
+        0.5f,
+        runtime_config->detection.radar_system.antenna.nominal_az_beamwidth_deg *
+            beamwidth_scale);
+    runtime_config->beam_control.radar_orientation.commanded_beamwidth_deg
+        .commanded_el_beamwidth_deg = std::max(
+        0.5f,
+        runtime_config->detection.radar_system.antenna.nominal_el_beamwidth_deg *
+            beamwidth_scale);
+  }
+
+  if (control_profile.enable_adaptive_beamforming) {
+    runtime_config->detection.radar_system.antenna.main_beam_gain_db += 2.0f;
+  }
+}
+
 /// @brief 基于 Pipeline 配置自动装配生命周期管理器。
 class AutoConfiguredLifecycleManager final
     : public tracking::ITrackLifecycleManager {
@@ -208,6 +346,7 @@ class AutoConfiguredLifecycleManager final
 struct SignalCycleContext {
   const common::TargetFeatureList* input_state{nullptr};
   const environment::IEnvironmentService* environment{nullptr};
+  SignalPipelineConfig runtime_config{};
   common::TargetFeatureList output_state;
   std::vector<tracking::TrackMeasurement> track_measurements;
 
@@ -320,6 +459,13 @@ struct SignalPipeline::Impl {
     return config.beam_control.platform_attitude_deg;
   }
 
+  /// @brief 构建本周期生效的运行时配置。
+  SignalPipelineConfig BuildRuntimeConfig() const {
+    SignalPipelineConfig runtime_config = config;
+    ApplyControlProfileToConfig(control_profile_, &runtime_config);
+    return runtime_config;
+  }
+
   /// @brief 更新当前控制真值。
   void SetControlProfile(const common::RadarControlProfile& control_profile) {
     control_profile_ = control_profile;
@@ -337,6 +483,7 @@ struct SignalPipeline::Impl {
                            const environment::IEnvironmentService& environment) {
     cached_context.input_state = &input_state;
     cached_context.environment = &environment;
+    cached_context.runtime_config = BuildRuntimeConfig();
     cached_context.output_state = input_state;
 
     const std::size_t target_count = input_state.size();
@@ -350,8 +497,10 @@ struct SignalPipeline::Impl {
     cached_context.target_geometry.resize(target_count);
     cached_context.measurement_covariances.assign(
         target_count, tracking::MeasurementCovariance::Identity() *
-                          config.tracking.kalman_measurement_noise_std *
-                          config.tracking.kalman_measurement_noise_std);
+                          cached_context.runtime_config.tracking
+                              .kalman_measurement_noise_std *
+                          cached_context.runtime_config.tracking
+                              .kalman_measurement_noise_std);
     cached_context.association_result = association::AssociationResult();
   }
 
@@ -364,44 +513,70 @@ struct SignalPipeline::Impl {
   /// @brief 运行经验探测逻辑。
   void RunHeuristicDetection() {
     const common::TargetFeatureList& input = *cached_context.input_state;
+    const SignalPipelineConfig& runtime_config = cached_context.runtime_config;
     const std::size_t count = input.size();
+    const float signal_adjustment_db =
+        ComputeHeuristicSignalAdjustmentDb(control_profile_);
     for (std::size_t i = 0; i < count; ++i) {
       cached_context.target_geometry[i] =
           detection::TargetGeometryResolver::Resolve(input[i]);
-      cached_context.signal_term_db[i] = input[i].current_track_rcs * 6.0f;
+      cached_context.signal_term_db[i] =
+          input[i].current_track_rcs * 6.0f + signal_adjustment_db;
       cached_context.speed_penalty_db[i] =
           ResolveSpeedMagnitude(input[i]) * 0.002f;
     }
 
     const float environment_penalty_db =
-        cached_context.environment_snapshot.propagation_loss_db * 0.2f +
+        std::max(
+            0.0f,
+            cached_context.environment_snapshot.propagation_loss_db * 0.2f +
         cached_context.environment_snapshot.clutter_power_db * 0.3f +
-        (cached_context.environment_snapshot.jamming_detected ? 5.0f : 0.0f);
+                (cached_context.environment_snapshot.jamming_detected ? 5.0f
+                                                                     : 0.0f) -
+                ComputeHeuristicEnvironmentReliefDb(control_profile_,
+                                                    cached_context
+                                                        .environment_snapshot));
     for (std::size_t i = 0; i < count; ++i) {
       const float margin = cached_context.signal_term_db[i] -
                            cached_context.speed_penalty_db[i] -
                            environment_penalty_db;
       cached_context.detection_margin_db[i] = margin;
       cached_context.detection_succeeded[i] = static_cast<std::uint8_t>(
-          margin >= config.detection.min_detection_margin_db);
+          margin >= runtime_config.detection.min_detection_margin_db);
     }
   }
 
   /// @brief 运行物理探测逻辑。
   void RunPhysicalDetection() {
     const common::TargetFeatureList& input = *cached_context.input_state;
+    const SignalPipelineConfig& runtime_config = cached_context.runtime_config;
     const std::size_t count = input.size();
 
-    const float clutter_w = std::pow(
+    float clutter_w = std::pow(
         10.0f, cached_context.environment_snapshot.clutter_power_db / 10.0f);
-    const float jam_w =
+    if (control_profile_.enable_sidelobe_canceller) {
+      clutter_w *= 0.70f;
+    }
+
+    float jam_w =
         cached_context.environment_snapshot.jamming_detected ? 1e-12f : 0.0f;
+    if (control_profile_.enable_sidelobe_canceller) {
+      jam_w *= 0.55f;
+    }
+    if (control_profile_.enable_agility_frequency) {
+      jam_w *= 0.70f;
+    }
+    if (control_profile_.enable_eccm_rejitter) {
+      jam_w *= 0.85f;
+    }
 
     detection::EnvironmentState env;
     env.propagation_loss_db =
         cached_context.environment_snapshot.propagation_loss_db;
     env.clutter_noise_w = clutter_w;
     env.jam_noise_w = jam_w;
+
+    signal_detector->UpdateConfig(runtime_config.detection.radar_system);
 
     for (std::size_t i = 0; i < count; ++i) {
       cached_context.target_geometry[i] =
@@ -414,19 +589,19 @@ struct SignalPipeline::Impl {
 
       const detection::ResolvedBeamState beam_state =
           detection::BeamControlResolver::Resolve(
-              config.detection.radar_system.antenna,
-              config.beam_control.radar_orientation,
-              config.beam_control.platform_attitude_deg,
+              runtime_config.detection.radar_system.antenna,
+              runtime_config.beam_control.radar_orientation,
+              runtime_config.beam_control.platform_attitude_deg,
               cached_context.target_geometry[i].look_angles_deg);
       const detection::DetectionResult detection_result =
           signal_detector->Detect(
               target, env, beam_state.one_way_antenna_gain_db,
-              config.detection.pulse_count,
-              config.detection.coherent_integration);
+              runtime_config.detection.pulse_count,
+              runtime_config.detection.coherent_integration);
       const detection::MeasurementErrorState measurement_error =
           detection::MeasurementErrorModel::Compute(
               detection_result.snr_db, beam_state.effective_beamwidth_deg,
-              config.detection.radar_system.transmitter.bandwidth_hz);
+              runtime_config.detection.radar_system.transmitter.bandwidth_hz);
 
       cached_context.signal_term_db[i] = detection_result.snr_db;
       cached_context.speed_penalty_db[i] = 0.0f;
@@ -436,7 +611,7 @@ struct SignalPipeline::Impl {
       cached_context.measurement_covariances[i] = BuildMeasurementCovariance(
           cached_context.target_geometry[i], measurement_error.range_error_std_m,
           measurement_error.angle_error_std_rad,
-          config.tracking.kalman_measurement_noise_std);
+          runtime_config.tracking.kalman_measurement_noise_std);
     }
   }
 

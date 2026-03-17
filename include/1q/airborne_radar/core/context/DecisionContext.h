@@ -33,13 +33,45 @@ struct TargetClassifierView {
   const common::EccmSourceInfo &eccm_source_info;
 };
 
+/// @brief LegacyDecisionCommandSink 为旧责任链提供受控命令输出口。
+class LegacyDecisionCommandSink {
+ public:
+  /// @brief 追加一条兼容旧链路的雷达命令。
+  void AddCommand(const common::RadarCommand &command) {
+    commands_.push_back(command);
+  }
+
+  /// @brief 以字段形式追加命令。
+  void AddCommand(common::RadarCommandType cmd_type,
+                  common::RadarCommandSource cmd_source,
+                  const boost::any &cmd_info = boost::any()) {
+    commands_.emplace_back(cmd_type, cmd_source, cmd_info);
+  }
+
+  /// @brief 返回兼容命令集合。
+  const std::vector<common::RadarCommand> &Commands() const {
+    return commands_;
+  }
+
+  /// @brief 返回兼容命令集合的可写引用，仅用于兼容旧测试/适配层。
+  std::vector<common::RadarCommand> &MutableCommands() { return commands_; }
+
+ private:
+  std::vector<common::RadarCommand> commands_;
+};
+
 /// @brief LpiControllerView 只对 LPI 控制模块展示的上下文视图。
 struct LpiControllerView {
   /// @brief LPI 来源信息（只读）。
   const common::LpiSourceInfo &lpi_source_info;
 
-  /// @brief 管线输出指令（可写）。
-  std::vector<common::RadarCommand> &decision_commands;
+  /// @brief 旧责任链输出命令口（可写）。
+  LegacyDecisionCommandSink &command_sink;
+
+  /// @brief 追加一条兼容命令。
+  void AddCommand(const common::RadarCommand &command) {
+    command_sink.AddCommand(command);
+  }
 };
 
 /// @brief EccmControllerView 只对 ECCM 控制模块展示的上下文视图。
@@ -47,8 +79,13 @@ struct EccmControllerView {
   /// @brief ECCM 来源信息（只读）。
   const common::EccmSourceInfo &eccm_source_info;
 
-  /// @brief 管线输出指令（可写）。
-  std::vector<common::RadarCommand> &decision_commands;
+  /// @brief 旧责任链输出命令口（可写）。
+  LegacyDecisionCommandSink &command_sink;
+
+  /// @brief 追加一条兼容命令。
+  void AddCommand(const common::RadarCommand &command) {
+    command_sink.AddCommand(command);
+  }
 };
 
 /// @brief DecisionContext 表示行为决策层的上下文信息，包含当前处理周期的轨迹快照与其他相关信息。
@@ -66,8 +103,11 @@ struct DecisionContext {
   /// @brief ECCM 模块的来源信息，由 DecisionContext 在构建时从输入中汇总。
   common::EccmSourceInfo eccm_source_info;
 
-  /// @brief 决策管线输出，存储下发到底层的指令序列。
-  std::vector<common::RadarCommand> decision_commands;
+  /// @brief 旧责任链兼容命令输出口。
+  LegacyDecisionCommandSink legacy_command_sink;
+
+  /// @brief 兼容旧测试/适配层暴露的命令视图。
+  std::vector<common::RadarCommand> &decision_commands;
 
   /// @brief 构造函数，向本次处理周期注入输入状态。
   /// @param input 当前周期决策输入帧。
@@ -76,7 +116,8 @@ struct DecisionContext {
         target_classification_result(),
         lpi_source_info(),
         eccm_source_info(false),
-        decision_commands() {}
+        legacy_command_sink(),
+        decision_commands(legacy_command_sink.MutableCommands()) {}
 
   /// @brief 兼容构造：仅使用轨迹快照初始化输入帧。
   explicit DecisionContext(const common::DecisionTrackSnapshotList &snapshots)
@@ -84,14 +125,15 @@ struct DecisionContext {
         target_classification_result(),
         lpi_source_info(),
         eccm_source_info(false),
-        decision_commands() {}
+        legacy_command_sink(),
+        decision_commands(legacy_command_sink.MutableCommands()) {}
 
   /// @brief 帮助函数：向指令输出箱添加一条指令。
   /// @param cmd 雷达战术指令。
   void AddCommand(common::RadarCommandType cmd_type,
                   common::RadarCommandSource cmd_source,
                   const boost::any &cmd_info = boost::any()) {
-    decision_commands.emplace_back(cmd_type, cmd_source, cmd_info);
+    legacy_command_sink.AddCommand(cmd_type, cmd_source, cmd_info);
   }
 };
 
@@ -105,13 +147,13 @@ CreateTargetClassifierView(DecisionContext &context) {
 
 inline LpiControllerView
 CreateLpiControllerView(DecisionContext &context) {
-  return LpiControllerView{context.lpi_source_info, context.decision_commands};
+  return LpiControllerView{context.lpi_source_info, context.legacy_command_sink};
 }
 
 inline EccmControllerView
 CreateEccmControllerView(DecisionContext &context) {
   return EccmControllerView{context.eccm_source_info,
-                            context.decision_commands};
+                            context.legacy_command_sink};
 }
 
 } // namespace context

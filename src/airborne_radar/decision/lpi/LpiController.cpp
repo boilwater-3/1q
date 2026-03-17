@@ -26,7 +26,7 @@ core::context::LpiControllerView LpiController::CreateView(
 void LpiController::ProcessView(core::context::LpiControllerView &view) {
   if (view.lpi_source_info.has_recon_platform) {
     // 识别到侦察类平台后，生成本周期 LPI 控制指令（当前仅启用功率控制，后续可根据需求启用更多控制维度）。
-    view.decision_commands.push_back(BuildLpiPowerCommand());
+    view.AddCommand(BuildLpiPowerCommand());
     spdlog::info("[LpiController] High threat detected. Appending command: "
                  "SET_LPI_POWER");
   } else {

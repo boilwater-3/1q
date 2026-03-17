@@ -52,11 +52,11 @@ core::context::EccmControllerView EccmController::CreateView(
 void EccmController::ProcessView(core::context::EccmControllerView &view) {
   if (view.eccm_source_info.has_jamming_signal) {
     // 识别到干扰后，生成本周期 ECCM 控制指令。
-    view.decision_commands.push_back(BuildSidelobeCancellerCommand());
-    view.decision_commands.push_back(BuildAdaptiveBeamformingCommand());
-    view.decision_commands.push_back(BuildAgilityFrequencyCommand());
-    view.decision_commands.push_back(BuildEccmRejitterCommand());
-    view.decision_commands.push_back(BuildEccmBurnthroughGainCommand());
+    view.AddCommand(BuildSidelobeCancellerCommand());
+    view.AddCommand(BuildAdaptiveBeamformingCommand());
+    view.AddCommand(BuildAgilityFrequencyCommand());
+    view.AddCommand(BuildEccmRejitterCommand());
+    view.AddCommand(BuildEccmBurnthroughGainCommand());
     spdlog::info(
         "[EccmController] Active jamming detected in environment! Appending "
         "commands: ENABLE_SIDELOBE_CANCELLER, "

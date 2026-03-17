@@ -50,6 +50,10 @@ class SignalDetector {
   /// @param config 完整雷达系统参数
   explicit SignalDetector(RadarSystemConfig config);
 
+  /// @brief 更新雷达系统配置并重算热噪声底。
+  /// @param config 完整雷达系统参数
+  void UpdateConfig(RadarSystemConfig config);
+
   /// @brief 对单个目标执行完整检测链。
   /// @param target               目标回波特征上下文
   /// @param env                  环境噪声上下文

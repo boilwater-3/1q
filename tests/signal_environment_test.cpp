@@ -4,12 +4,26 @@
 
 #include <gtest/gtest.h>
 
+#include "1q/airborne_radar/common/RadarControlProfile.h"
 #include "1q/airborne_radar/common/TargetFeature.h"
 #include "1q/airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "1q/airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
 
 namespace airborne_radar { namespace tests {
+
+namespace {
+
+common::TargetFeature BuildPhysicsTarget(float range_m, float rcs) {
+  common::TargetFeature target(220.0f, 0.0f, 0.0f, rcs, 0.0f, 0.0f, 0.0f);
+  target.position_x = range_m;
+  target.position_y = 0.0f;
+  target.position_z = 0.0f;
+  target.range_m = range_m;
+  return target;
+}
+
+} // namespace
 
 TEST(EnvironmentServiceTest, DetectsJammingByConfiguredThreshold) {
   environment::EnvironmentModelConfig config;
@@ -83,6 +97,114 @@ TEST(SignalPipelineTest, ExposesPublicPlatformAttitudeUpdateApi) {
   EXPECT_FLOAT_EQ(cached_platform_attitude.yaw_deg, 12.0f);
   EXPECT_FLOAT_EQ(cached_platform_attitude.pitch_deg, -3.0f);
   EXPECT_FLOAT_EQ(cached_platform_attitude.roll_deg, 1.5f);
+}
+
+TEST(SignalPipelineTest,
+     ControlProfilePowerReductionLowersPhysicalDetectionMargin) {
+  signal::pipeline::SignalPipelineConfig pipeline_config;
+  pipeline_config.detection.enable_physics_detection = true;
+  pipeline_config.detection.pulse_count = 64;
+  pipeline_config.detection.radar_system.detection.cfar_pfa = 0.5f;
+  pipeline_config.detection.radar_system.detection.min_snr_db = -50.0f;
+
+  environment::EnvironmentModelConfig env_config;
+  env_config.jammer_power_db = 0.0f;
+  environment::EnvironmentService environment_service(env_config);
+
+  const common::TargetFeatureList input_state{
+      BuildPhysicsTarget(1000.0f, 1000.0f)};
+
+  signal::pipeline::SignalPipeline baseline_pipeline(pipeline_config);
+  baseline_pipeline.RunCycle(input_state, environment_service);
+  const auto baseline_measurements =
+      baseline_pipeline.GetLastTrackMeasurements();
+
+  common::RadarControlProfile reduced_power_profile;
+  reduced_power_profile.enable_lpi_power_control = true;
+  reduced_power_profile.lpi_power_scale = 0.20f;
+  signal::pipeline::SignalPipeline reduced_pipeline(pipeline_config);
+  reduced_pipeline.SetControlProfile(reduced_power_profile);
+  reduced_pipeline.RunCycle(input_state, environment_service);
+  const auto reduced_measurements = reduced_pipeline.GetLastTrackMeasurements();
+
+  ASSERT_EQ(baseline_measurements.size(), 1u);
+  ASSERT_EQ(reduced_measurements.size(), 1u);
+  EXPECT_LT(reduced_measurements[0].raw_measurement.detection_margin_db,
+            baseline_measurements[0].raw_measurement.detection_margin_db);
+}
+
+TEST(SignalPipelineTest,
+     AdaptiveBeamformingProfileTightensMeasurementCovariance) {
+  signal::pipeline::SignalPipelineConfig pipeline_config;
+  pipeline_config.detection.enable_physics_detection = true;
+  pipeline_config.detection.pulse_count = 64;
+  pipeline_config.detection.radar_system.detection.cfar_pfa = 0.5f;
+  pipeline_config.detection.radar_system.detection.min_snr_db = -50.0f;
+  pipeline_config.detection.radar_system.antenna.nominal_az_beamwidth_deg =
+      8.0f;
+  pipeline_config.detection.radar_system.antenna.nominal_el_beamwidth_deg =
+      8.0f;
+
+  environment::EnvironmentModelConfig env_config;
+  env_config.jammer_power_db = 0.0f;
+  environment::EnvironmentService environment_service(env_config);
+
+  const common::TargetFeatureList input_state{
+      BuildPhysicsTarget(1000.0f, 1000.0f)};
+
+  signal::pipeline::SignalPipeline baseline_pipeline(pipeline_config);
+  baseline_pipeline.RunCycle(input_state, environment_service);
+  const auto baseline_measurements =
+      baseline_pipeline.GetLastTrackMeasurements();
+
+  common::RadarControlProfile adaptive_profile;
+  adaptive_profile.enable_adaptive_beamforming = true;
+  signal::pipeline::SignalPipeline adaptive_pipeline(pipeline_config);
+  adaptive_pipeline.SetControlProfile(adaptive_profile);
+  adaptive_pipeline.RunCycle(input_state, environment_service);
+  const auto adaptive_measurements = adaptive_pipeline.GetLastTrackMeasurements();
+
+  ASSERT_EQ(baseline_measurements.size(), 1u);
+  ASSERT_EQ(adaptive_measurements.size(), 1u);
+  EXPECT_LT(adaptive_measurements[0].raw_measurement.measurement_covariance(1, 1),
+            baseline_measurements[0].raw_measurement.measurement_covariance(1, 1));
+  EXPECT_LT(adaptive_measurements[0].raw_measurement.measurement_covariance(2, 2),
+            baseline_measurements[0].raw_measurement.measurement_covariance(2, 2));
+}
+
+TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) {
+  signal::pipeline::SignalPipelineConfig pipeline_config;
+  pipeline_config.detection.enable_physics_detection = true;
+  pipeline_config.detection.pulse_count = 64;
+  pipeline_config.detection.radar_system.detection.cfar_pfa = 0.5f;
+  pipeline_config.detection.radar_system.detection.min_snr_db = -50.0f;
+
+  environment::EnvironmentModelConfig env_config;
+  env_config.jammer_power_db = 12.0f;
+  environment::EnvironmentService environment_service(env_config);
+
+  const common::TargetFeatureList input_state{
+      BuildPhysicsTarget(1000.0f, 1000.0f)};
+
+  signal::pipeline::SignalPipeline baseline_pipeline(pipeline_config);
+  baseline_pipeline.RunCycle(input_state, environment_service);
+  const auto baseline_measurements =
+      baseline_pipeline.GetLastTrackMeasurements();
+
+  common::RadarControlProfile eccm_profile;
+  eccm_profile.enable_sidelobe_canceller = true;
+  eccm_profile.enable_agility_frequency = true;
+  eccm_profile.enable_eccm_rejitter = true;
+  eccm_profile.eccm_burnthrough_gain = 1.5f;
+  signal::pipeline::SignalPipeline eccm_pipeline(pipeline_config);
+  eccm_pipeline.SetControlProfile(eccm_profile);
+  eccm_pipeline.RunCycle(input_state, environment_service);
+  const auto eccm_measurements = eccm_pipeline.GetLastTrackMeasurements();
+
+  ASSERT_EQ(baseline_measurements.size(), 1u);
+  ASSERT_EQ(eccm_measurements.size(), 1u);
+  EXPECT_GT(eccm_measurements[0].raw_measurement.detection_margin_db,
+            baseline_measurements[0].raw_measurement.detection_margin_db);
 }
 
 TEST(TrackFilterTest, KeepsStateWhenDetectionIsStable) {

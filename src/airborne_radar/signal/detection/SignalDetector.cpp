@@ -21,6 +21,12 @@ SignalDetector::SignalDetector(RadarSystemConfig config)
       rng_(42u) {  // 默认种子，可通过 SetRandomSeed 重置
 }
 
+void SignalDetector::UpdateConfig(RadarSystemConfig config) {
+  config_ = config;
+  thermal_noise_w_ = RadarEquations::ComputeThermalNoisePower_W(
+      config_.transmitter, config_.receiver);
+}
+
 DetectionResult SignalDetector::Detect(
     const TargetReturn& target,
     const EnvironmentState& env,
