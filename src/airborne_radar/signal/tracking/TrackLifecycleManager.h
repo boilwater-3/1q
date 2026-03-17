@@ -154,9 +154,6 @@ private:
 	/// @brief 轨迹对象池抽象，用于对象申请与归还。
   ITrackPool *pool_{nullptr};
 
-  /// @brief 可选线程安全对象池包装器。
-  std::unique_ptr<ITrackPool> owned_pool_wrapper_;
-
 	/// @brief 生命周期阈值配置。
   LifecycleConfig config_;
 

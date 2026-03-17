@@ -6,6 +6,8 @@
 #define AIRBORNE_RADAR_SIGNAL_TRACKING_EKF_FILTER_H_
 
 #include "1q/airborne_radar/signal/tracking/GaussianTrackState.h"
+#include "airborne_radar/signal/tracking/IKalmanPredictor.h"
+#include "airborne_radar/signal/tracking/IKalmanUpdater.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
 

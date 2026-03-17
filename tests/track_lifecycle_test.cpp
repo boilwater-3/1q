@@ -10,6 +10,7 @@
 #include "airborne_radar/common/TrackTypes.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/BoostTrackPool.h"
+#include "airborne_radar/signal/tracking/SynchronizedTrackPool.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
 
@@ -584,8 +585,9 @@ TEST(TrackLifecycleManagerTest,
 
   signal::tracking::TrackLifecycleManager single_thread_manager(
       single_thread_pool, single_thread_config, &predictor, &updater);
+  signal::tracking::SynchronizedTrackPool wrapped_locked_pool(locked_pool);
   signal::tracking::TrackLifecycleManager locked_manager(
-      locked_pool, locked_config, &predictor, &updater);
+      wrapped_locked_pool, locked_config, &predictor, &updater);
 
   const signal::tracking::TrackMeasurement first =
       MakeCartesianMeasurement(71u, 100.0f, 10.0f, false);
@@ -674,7 +676,8 @@ TEST(TrackLifecycleManagerTest,
   config.track_pool_thread_safety_mode =
       signal::tracking::TrackPoolThreadSafetyMode::kMultiThreadGlobalLock;
 
-  signal::tracking::TrackLifecycleManager manager(pool, config);
+  signal::tracking::SynchronizedTrackPool wrapped_pool(pool);
+  signal::tracking::TrackLifecycleManager manager(wrapped_pool, config);
 
   manager.Update(MakeCycle(1u, 8201u),
                  {MakeCartesianMeasurement(91u, 10.0f, 1.0f, false),

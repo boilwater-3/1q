@@ -33,54 +33,6 @@ common::DecisionTrackStatus ToDecisionTrackStatus(common::TrackStatus status) {
   }
 }
 
-/// @brief SynchronizedTrackPool 为任意对象池提供全局互斥包装。
-class SynchronizedTrackPool : public ITrackPool {
-public:
-  explicit SynchronizedTrackPool(ITrackPool &inner) : inner_(inner) {}
-
-  common::TrackState *Acquire() override {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return inner_.Acquire();
-  }
-
-  void Release(common::TrackState *track) override {
-    std::lock_guard<std::mutex> lock(mutex_);
-    inner_.Release(track);
-  }
-
-  std::size_t Capacity() const override {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return inner_.Capacity();
-  }
-
-  std::size_t InUseCount() const override {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return inner_.InUseCount();
-  }
-
-private:
-  ITrackPool &inner_;
-  mutable std::mutex mutex_;
-};
-
-/// @brief ConfigureEffectiveTrackPool 根据配置选择直接池或加锁包装池。
-void ConfigureEffectiveTrackPool(
-    ITrackPool &pool, TrackPoolThreadSafetyMode mode,
-    std::unique_ptr<ITrackPool> *owned_pool_wrapper, ITrackPool **effective_pool) {
-  if (owned_pool_wrapper == nullptr || effective_pool == nullptr) {
-    return;
-  }
-
-  owned_pool_wrapper->reset();
-  if (mode == TrackPoolThreadSafetyMode::kMultiThreadGlobalLock) {
-    owned_pool_wrapper->reset(new SynchronizedTrackPool(pool));
-    *effective_pool = owned_pool_wrapper->get();
-    return;
-  }
-
-  *effective_pool = &pool;
-}
-
 /// @brief WorkItemKind 描述单条轨迹工作单元的命中类型。
 enum class WorkItemKind {
   kHit = 0,
@@ -136,10 +88,8 @@ TrackLifecycleManager::TrackLifecycleManager(ITrackPool &pool,
                                              const LifecycleConfig &config,
                                              const IKalmanPredictor *predictor,
                                              const IKalmanUpdater *updater)
-    : config_(config), next_track_id_(1), tracks_by_key_(),
+    : pool_(&pool), config_(config), next_track_id_(1), tracks_by_key_(),
       kalman_predictor_(predictor), kalman_updater_(updater) {
-  ConfigureEffectiveTrackPool(pool, config_.track_pool_thread_safety_mode,
-                              &owned_pool_wrapper_, &pool_);
 }
 
 TrackLifecycleManager::TrackLifecycleManager(
@@ -148,14 +98,12 @@ TrackLifecycleManager::TrackLifecycleManager(
     const std::vector<const IKalmanUpdater *> &imm_updaters,
     const Eigen::MatrixXf &imm_transition_probability,
     const Eigen::VectorXf &imm_initial_weights)
-    : config_(config), next_track_id_(1), tracks_by_key_(),
+    : pool_(&pool), config_(config), next_track_id_(1), tracks_by_key_(),
       kalman_predictor_(imm_predictors.empty() ? nullptr : imm_predictors.front()),
       kalman_updater_(imm_updaters.empty() ? nullptr : imm_updaters.front()),
       imm_predictors_(imm_predictors), imm_updaters_(imm_updaters),
       imm_transition_probability_(imm_transition_probability),
       imm_initial_weights_(imm_initial_weights) {
-  ConfigureEffectiveTrackPool(pool, config_.track_pool_thread_safety_mode,
-                              &owned_pool_wrapper_, &pool_);
   const int num_models = static_cast<int>(imm_predictors_.size());
   if (num_models <= 0 || imm_updaters_.size() != imm_predictors_.size()) {
     kalman_predictor_ = nullptr;

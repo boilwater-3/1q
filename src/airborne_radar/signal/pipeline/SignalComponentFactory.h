@@ -20,6 +20,7 @@
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/tracking/BoostTrackPool.h"
+#include "airborne_radar/signal/tracking/SynchronizedTrackPool.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
@@ -51,6 +52,9 @@ struct OwnedSignalComponents {
 struct LifecycleAssemblyArtifacts {
   /// @brief 生命周期对象池。
   std::unique_ptr<tracking::BoostTrackPool> pool;
+
+  /// @brief 可选包装的线程安全对象池。
+  std::unique_ptr<tracking::ITrackPool> pool_wrapper;
 
   /// @brief 单模型 Kalman 预测器。
   std::unique_ptr<tracking::KalmanPredictor> kalman_predictor;
@@ -141,6 +145,14 @@ class SignalComponentFactory final {
         config.lifecycle.lifecycle_track_pool_initial_chunk,
         config.lifecycle.lifecycle_track_pool_max_chunks));
 
+    tracking::ITrackPool* effective_pool = artifacts.pool.get();
+    if (config.lifecycle.lifecycle_config.track_pool_thread_safety_mode ==
+        tracking::TrackPoolThreadSafetyMode::kMultiThreadGlobalLock) {
+      artifacts.pool_wrapper.reset(
+          new tracking::SynchronizedTrackPool(*artifacts.pool));
+      effective_pool = artifacts.pool_wrapper.get();
+    }
+
     if (config.lifecycle.enable_imm_lifecycle) {
       const std::size_t model_count =
           config.lifecycle.imm_model_noise_diff_coeffs.size();
@@ -179,7 +191,7 @@ class SignalComponentFactory final {
       }
 
       artifacts.lifecycle_manager.reset(new tracking::TrackLifecycleManager(
-          *artifacts.pool, config.lifecycle.lifecycle_config,
+          *effective_pool, config.lifecycle.lifecycle_config,
           artifacts.imm_predictors, artifacts.imm_updaters,
           BuildImmTransitionProbability(config, model_count),
           BuildImmInitialWeights(config, model_count)));
@@ -192,13 +204,13 @@ class SignalComponentFactory final {
       artifacts.kalman_updater = CreateKalmanUpdater(
           config.tracking.kalman_measurement_noise_std);
       artifacts.lifecycle_manager.reset(new tracking::TrackLifecycleManager(
-          *artifacts.pool, config.lifecycle.lifecycle_config,
+          *effective_pool, config.lifecycle.lifecycle_config,
           artifacts.kalman_predictor.get(), artifacts.kalman_updater.get()));
       return artifacts;
     }
 
     artifacts.lifecycle_manager.reset(new tracking::TrackLifecycleManager(
-        *artifacts.pool, config.lifecycle.lifecycle_config));
+        *effective_pool, config.lifecycle.lifecycle_config));
     return artifacts;
   }
 

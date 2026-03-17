@@ -19,6 +19,7 @@ set(PROJECT_SOURCES
     airborne_radar/signal/detection/SignalDetector.cpp
     airborne_radar/signal/pipeline/SignalPipeline.cpp
     airborne_radar/signal/tracking/BoostTrackPool.cpp
+    airborne_radar/signal/tracking/SynchronizedTrackPool.cpp
     airborne_radar/signal/tracking/KalmanPredictor.cpp
     airborne_radar/signal/tracking/KalmanUpdater.cpp
     airborne_radar/signal/tracking/EkfFilter.cpp

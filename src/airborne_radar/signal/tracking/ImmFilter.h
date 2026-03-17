@@ -10,8 +10,8 @@
 #include <Eigen/Core>
 
 #include "1q/airborne_radar/signal/tracking/GaussianTrackState.h"
-#include "airborne_radar/signal/tracking/KalmanPredictor.h"
-#include "airborne_radar/signal/tracking/KalmanUpdater.h"
+#include "airborne_radar/signal/tracking/IKalmanPredictor.h"
+#include "airborne_radar/signal/tracking/IKalmanUpdater.h"
 
 namespace airborne_radar {
 namespace signal {
