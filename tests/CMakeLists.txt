@@ -10,6 +10,7 @@ find_package(Eigen3 CONFIG REQUIRED)
 
 # 定义测试源文件
 set(TEST_SOURCES
+    tactical_coordinator_test.cpp
     decision_layer_test.cpp
     core_controller_test.cpp
     event_bus_test.cpp

@@ -9,7 +9,6 @@
 #include <vector>
 
 #include "1q/airborne_radar/common/RadarCommand.h"
-#include "1q/airborne_radar/common/TargetFeature.h"
 #include "1q/airborne_radar/core/context/DecisionContext.h"
 #include "1q/airborne_radar/decision/classifier/TargetClassifier.h"
 #include "1q/airborne_radar/decision/eccm/EccmController.h"
@@ -20,10 +19,11 @@ using namespace airborne_radar;
 
 namespace {
 
-common::TargetFeatureList BuildSingleTarget(float speed, float rcs, bool jamming) {
-  (void)jamming;
-  return common::TargetFeatureList{common::TargetFeature(speed, 0.0f, 0.0f,
-                                                         rcs)};
+common::DecisionTrackSnapshotList BuildSingleTrackSnapshot(
+    float speed, float rcs, bool jamming) {
+  return common::DecisionTrackSnapshotList{
+      common::DecisionTrackSnapshot(speed, 0.0f, 0.0f, rcs, 0.0f, 0.0f, 0.0f,
+                                    jamming)};
 }
 
 std::string PrimaryCategory(
@@ -64,7 +64,8 @@ protected:
 
 TEST_F(DecisionPipelineTest, HighThreatAndJamming) {
   // Speed 800, RCS 2.5, Jamming TRUE
-  core::context::DecisionContext ctx(BuildSingleTarget(800.0f, 2.5f, true));
+  core::context::DecisionContext ctx(
+      BuildSingleTrackSnapshot(800.0f, 2.5f, true));
   ctx.eccm_source_info.has_jamming_signal = true;
 
   pipeline_head_->ProcessTactics(ctx);
@@ -81,7 +82,8 @@ TEST_F(DecisionPipelineTest, HighThreatAndJamming) {
 
 TEST_F(DecisionPipelineTest, LowThreatClearEnvironment) {
   // Speed 150, RCS 1.0, Jamming FALSE
-  core::context::DecisionContext ctx(BuildSingleTarget(150.0f, 1.0f, false));
+  core::context::DecisionContext ctx(
+      BuildSingleTrackSnapshot(150.0f, 1.0f, false));
   ctx.eccm_source_info.has_jamming_signal = false;
 
   pipeline_head_->ProcessTactics(ctx);
@@ -92,7 +94,8 @@ TEST_F(DecisionPipelineTest, LowThreatClearEnvironment) {
 
 TEST_F(DecisionPipelineTest, HighThreatClearEnvironment) {
   // Speed 900, RCS 5.0, Jamming FALSE
-  core::context::DecisionContext ctx(BuildSingleTarget(900.0f, 5.0f, false));
+  core::context::DecisionContext ctx(
+      BuildSingleTrackSnapshot(900.0f, 5.0f, false));
   ctx.eccm_source_info.has_jamming_signal = false;
 
   pipeline_head_->ProcessTactics(ctx);
@@ -106,7 +109,8 @@ TEST_F(DecisionPipelineTest, HighThreatClearEnvironment) {
 
 TEST_F(DecisionPipelineTest, HighRcsCanPromoteThreatWithModerateSpeed) {
   // Speed 180, RCS 4.2, Jamming FALSE
-  core::context::DecisionContext ctx(BuildSingleTarget(180.0f, 4.2f, false));
+  core::context::DecisionContext ctx(
+      BuildSingleTrackSnapshot(180.0f, 4.2f, false));
   ctx.eccm_source_info.has_jamming_signal = false;
 
   pipeline_head_->ProcessTactics(ctx);
@@ -115,7 +119,8 @@ TEST_F(DecisionPipelineTest, HighRcsCanPromoteThreatWithModerateSpeed) {
 }
 
 TEST_F(DecisionPipelineTest, RuleBasedClassificationProducesCategory) {
-  core::context::DecisionContext ctx(BuildSingleTarget(150.0f, 1.0f, false));
+  core::context::DecisionContext ctx(
+      BuildSingleTrackSnapshot(150.0f, 1.0f, false));
   ctx.eccm_source_info.has_jamming_signal = false;
 
   pipeline_head_->ProcessTactics(ctx);
@@ -125,15 +130,15 @@ TEST_F(DecisionPipelineTest, RuleBasedClassificationProducesCategory) {
 }
 
 TEST_F(DecisionPipelineTest, ClassifiesAllTargetsInView) {
-  common::TargetFeatureList targets;
-  targets.push_back(common::TargetFeature(900.0f, 0.0f, 0.0f, 4.5f));
-  targets.push_back(common::TargetFeature(160.0f, 0.0f, 0.0f, 0.8f));
+  common::DecisionTrackSnapshotList tracks;
+  tracks.push_back(common::DecisionTrackSnapshot(900.0f, 0.0f, 0.0f, 4.5f));
+  tracks.push_back(common::DecisionTrackSnapshot(160.0f, 0.0f, 0.0f, 0.8f));
 
-  core::context::DecisionContext ctx(targets);
+  core::context::DecisionContext ctx(tracks);
   ctx.eccm_source_info.has_jamming_signal = false;
   pipeline_head_->ProcessTactics(ctx);
 
-  ASSERT_EQ(ctx.target_classification_result.size(), targets.size());
+  ASSERT_EQ(ctx.target_classification_result.size(), tracks.size());
   EXPECT_EQ(ctx.target_classification_result[0].target_type,
             "HIGH_THREAT_TARGET");
   EXPECT_EQ(ctx.target_classification_result[1].target_type,
@@ -144,7 +149,8 @@ TEST(DecisionClassifierRepositoryTest, RepositoryMatchProvidesProbability) {
   environment::database::FeatureRepository repository;
   decision::classifier::TargetClassifier classifier(&repository);
 
-  core::context::DecisionContext ctx(BuildSingleTarget(780.0f, 2.8f, true));
+  core::context::DecisionContext ctx(
+      BuildSingleTrackSnapshot(780.0f, 2.8f, true));
   ctx.eccm_source_info.has_jamming_signal = true;
 
   classifier.ProcessTactics(ctx);

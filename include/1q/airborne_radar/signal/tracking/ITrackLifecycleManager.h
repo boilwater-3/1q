@@ -7,6 +7,8 @@
 
 #include <vector>
 
+#include "1q/airborne_radar/common/DecisionInputFrame.h"
+#include "1q/airborne_radar/common/DecisionTrackSnapshot.h"
 #include "1q/airborne_radar/common/TargetFeature.h"
 #include "1q/airborne_radar/signal/tracking/TrackLifecycleTypes.h"
 
@@ -27,6 +29,14 @@ public:
 
   /// @brief 导出兼容决策链路的目标特征快照。
   virtual common::TargetFeatureList BuildFeatureSnapshot() const = 0;
+
+  /// @brief 导出供决策链路消费的稳定轨迹快照。
+  virtual common::DecisionTrackSnapshotList BuildDecisionSnapshot() const = 0;
+
+  /// @brief 导出完整的单周期决策输入帧。
+  virtual common::DecisionInputFrame BuildDecisionFrame(
+      std::uint32_t cycle_index, std::uint64_t batch_id,
+      bool environment_jamming_detected) const = 0;
 
   /// @brief 导出供关联阶段使用的上一周期轨迹种子。
   virtual std::vector<AssociationTrackSeed> BuildAssociationSeeds() const = 0;

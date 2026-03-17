@@ -25,7 +25,7 @@ package "Decision Pipeline" #E6F7FF {
 }
 
 package "Common Models" #F6FFED {
-  class TargetFeatureList
+  class DecisionTrackSnapshotList
   class TargetCategoryList
   class LpiSourceInfo
   class EccmSourceInfo
@@ -42,7 +42,7 @@ RadarController --> DecisionContext : construct/update
 RadarController --> ITacticalProcessor : ProcessTactics(context)
 RadarController --> RadarCommand : submit commands
 
-DecisionContext --> TargetFeatureList : input
+DecisionContext --> DecisionTrackSnapshotList : input
 DecisionContext --> TargetCategoryList : classify result
 DecisionContext --> LpiSourceInfo : source info
 DecisionContext --> EccmSourceInfo : source info
@@ -76,4 +76,3 @@ note right of EccmController
 end note
 
 @enduml
-

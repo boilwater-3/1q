@@ -8,6 +8,7 @@
 
 #include "1q/airborne_radar/common/RadarOrientationConfig.h"
 #include "1q/airborne_radar/common/RadarCommand.h"
+#include "1q/airborne_radar/common/RadarControlProfile.h"
 #include "1q/airborne_radar/common/TargetFeature.h"
 
 namespace airborne_radar {
@@ -34,6 +35,13 @@ public:
   /// @brief 提交（发射）一组战术动作命令给底座硬件或协调总线执行。
   /// @param cmd 单个被执行的控制器指令。
   virtual void SubmitControlCommand(common::RadarCommand cmd) = 0;
+
+  /// @brief 通知最新控制真值已生成。
+  /// @param profile 下一周期控制真值。
+  virtual void UpdateRadarControlProfile(
+      const common::RadarControlProfile& profile) {
+    (void)profile;
+  }
 };
 } // namespace context
 } // namespace core

@@ -10,14 +10,14 @@ skinparam activity {
 
 start
 
-:Core 构造 DecisionContext(updated_features);
+:Core 构造 DecisionContext(track_snapshots);
 :创建 TargetClassifierView;
 
-if (targets_features 为空?) then (是)
+if (track_snapshots 为空?) then (是)
   :写入 UNKNOWN 分类;
   :结束分类步骤;
 else (否)
-  :循环遍历每个 target feature;
+  :循环遍历每个 track snapshot;
   if (注入了 IFeatureRepository?) then (是)
     :构造 FeatureVector(speed, rcs, jamming);
     :QueryBestMatch;

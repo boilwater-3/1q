@@ -8,6 +8,7 @@
 #include <memory>
 #include <vector>
 
+#include "1q/airborne_radar/common/RadarControlProfile.h"
 #include "1q/airborne_radar/common/RadarOrientationConfig.h"
 #include "1q/airborne_radar/signal/detection/RadarEquations.h"
 #include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
@@ -156,6 +157,13 @@ class SignalPipeline final : public ISignalPipeline {
   /// @brief 获取当前搭载平台姿态。
   /// @return 当前缓存的平台姿态角。
   common::PlatformAttitudeDeg GetPlatformAttitude() const override;
+
+  /// @brief 设置当前缓存的控制真值。
+  void SetControlProfile(
+      const common::RadarControlProfile& control_profile) override;
+
+  /// @brief 获取当前缓存的控制真值。
+  common::RadarControlProfile GetControlProfile() const override;
 
   /// @brief 更新信号处理配置。
   /// @param config 新配置。

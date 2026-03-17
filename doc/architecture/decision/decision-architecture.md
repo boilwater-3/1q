@@ -36,7 +36,7 @@ include/1q/airborne_radar/core/context/
 
 ```mermaid
 flowchart TD
-    IN["Signal 层输出<br/>TargetFeatureList"] --> CTX["构造 DecisionContext"]
+    IN["Signal/Lifecycle 输出<br/>DecisionTrackSnapshotList"] --> CTX["构造 DecisionContext"]
     CTX --> CLI["TargetClassifier<br/>识别分类与 LPI 标记"]
     CLI --> LPI["LpiController<br/>依据 LPI 标记控制功率"]
     LPI --> ECC["EccmController<br/>依据干扰标记抗干扰"]
@@ -105,7 +105,7 @@ sequenceDiagram
 ```mermaid
 classDiagram
     class DecisionContext {
-        +vector~TargetFeature~ targets_features
+        +vector~DecisionTrackSnapshot~ track_snapshots
         +vector~TargetCategory~ target_classification_result
         +vector~RadarCommand~ decision_commands
         +CreateTargetClassifierView()

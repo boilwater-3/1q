@@ -8,12 +8,15 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <vector>
+
+#include "1q/airborne_radar/common/ControlDirective.h"
+#include "1q/airborne_radar/common/RadarControlProfile.h"
 
 namespace airborne_radar {
 namespace core {
 namespace context {
 class IRadarContext;
-struct DecisionContext;
 }
 }
 }
@@ -23,6 +26,14 @@ namespace core {
 namespace event {
 class IEventBus;
 }
+}
+}
+
+namespace airborne_radar {
+namespace decision {
+class ITacticalDecisionEngine;
+class ControlReducer;
+struct TacticalStateStore;
 }
 }
 
@@ -69,10 +80,25 @@ public:
 	RadarController(
 			core::context::IRadarContext &radar_context,
 			signal::pipeline::ISignalPipeline &signal_pipeline,
+			decision::ITacticalDecisionEngine &decision_engine,
+			environment::IEnvironmentService &environment_service);
+
+	/// @brief 构造函数，注入新的决策引擎与事件总线。
+	RadarController(
+			core::context::IRadarContext &radar_context,
+			signal::pipeline::ISignalPipeline &signal_pipeline,
+			decision::ITacticalDecisionEngine &decision_engine,
+			environment::IEnvironmentService &environment_service,
+			core::event::IEventBus &event_bus);
+
+	/// @brief 构造函数，兼容旧责任链接口并自动装配适配器。
+	RadarController(
+			core::context::IRadarContext &radar_context,
+			signal::pipeline::ISignalPipeline &signal_pipeline,
 			decision::pipeline::ITacticalProcessor &decision_pipeline,
 			environment::IEnvironmentService &environment_service);
 
-	/// @brief 构造函数，注入核心依赖组件与事件总线。
+	/// @brief 构造函数，兼容旧责任链接口并自动装配适配器与事件总线。
 	RadarController(
 			core::context::IRadarContext &radar_context,
 			signal::pipeline::ISignalPipeline &signal_pipeline,
@@ -99,8 +125,9 @@ private:
 	/// @brief 若尚未绑定 Lifecycle，则尝试通过 Pipeline 自动装配。
 	void EnsureAutoLifecycleManager();
 
-	/// @brief 将决策管线输出的指令批量提交给雷达上下文。
-	void ExecuteCommands(const core::context::DecisionContext &context);
+	/// @brief 将控制意图映射为兼容命令并提交到雷达上下文。
+	void ExecuteCommands(
+			const std::vector<common::ControlDirective> &directives);
 
 	/// @brief 雷达上下文抽象，提供输入状态与命令下发接口。
 	core::context::IRadarContext &radar_context_;
@@ -108,8 +135,11 @@ private:
 	/// @brief 信号处理流水线抽象。
 	signal::pipeline::ISignalPipeline &signal_pipeline_;
 
-	/// @brief 决策处理流水线抽象。
-	decision::pipeline::ITacticalProcessor &decision_pipeline_;
+	/// @brief 决策引擎抽象。
+	decision::ITacticalDecisionEngine *decision_engine_{nullptr};
+
+	/// @brief 为兼容旧责任链持有的适配器。
+	std::unique_ptr<decision::ITacticalDecisionEngine> owned_decision_engine_;
 
 	/// @brief 环境建模服务抽象。
 	environment::IEnvironmentService &environment_service_;
@@ -123,6 +153,18 @@ private:
 	/// @brief Controller 自动装配并托管的生命周期管理器实例。
 	std::unique_ptr<signal::tracking::ITrackLifecycleManager>
 			auto_track_lifecycle_manager_;
+
+	/// @brief 当前持有的下一周期控制真值。
+	common::RadarControlProfile *control_profile_;
+
+	/// @brief 控制真值存储。
+	std::unique_ptr<common::RadarControlProfile> owned_control_profile_;
+
+	/// @brief 战术跨周期内存。
+	std::unique_ptr<decision::TacticalStateStore> tactical_state_store_;
+
+	/// @brief 控制归并器。
+	std::unique_ptr<decision::ControlReducer> control_reducer_;
 
 	/// @brief 当前处理周期号。
 	std::uint32_t cycle_index_{1};

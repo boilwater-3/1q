@@ -7,20 +7,21 @@
 
 #include <vector>
 
+#include "1q/airborne_radar/common/DecisionInputFrame.h"
+#include "1q/airborne_radar/common/DecisionTrackSnapshot.h"
 #include "1q/airborne_radar/common/DecisionSourceInfo.h"
 #include "1q/airborne_radar/common/RadarCommand.h"
 #include "1q/airborne_radar/common/TargetCategory.h"
-#include "1q/airborne_radar/common/TargetFeature.h"
 
 namespace airborne_radar {
 namespace core {
 namespace context {
 
 /// @brief TargetClassifierView 只对目标分类模块展示的上下文视图。
-/// 该结构体包含当前处理周期的目标特征，只允许写分类结果。
+/// 该结构体包含当前处理周期的轨迹快照，只允许写分类结果。
 struct TargetClassifierView {
-  /// @brief 输入目标特征（只读）。
-  const common::TargetFeatureList &targets_features;
+  /// @brief 输入轨迹快照（只读）。
+  const common::DecisionTrackSnapshotList &track_snapshots;
 
   /// @brief 目标分类结果（可写）。
   common::TargetCategoryList &target_classification_result;
@@ -50,11 +51,11 @@ struct EccmControllerView {
   std::vector<common::RadarCommand> &decision_commands;
 };
 
-/// @brief DecisionContext 表示行为决策层的上下文信息，包含当前处理周期的输入状态和其他相关信息。
+/// @brief DecisionContext 表示行为决策层的上下文信息，包含当前处理周期的轨迹快照与其他相关信息。
 /// 遵循 CQRS 原则，它将系统状态输入（Payload）和战术动作输出（Command Sink）分离。
 struct DecisionContext {
-  /// @brief 当前处理周期的目标特征输入（只读）。
-  const common::TargetFeatureList targets_features;
+  /// @brief 当前处理周期的决策输入帧（只读）。
+  const common::DecisionInputFrame input_frame;
 
   /// @brief 目标分类结果，由 TargetClassifier 写入，后续节点读取。
   common::TargetCategoryList target_classification_result;
@@ -69,9 +70,17 @@ struct DecisionContext {
   std::vector<common::RadarCommand> decision_commands;
 
   /// @brief 构造函数，向本次处理周期注入输入状态。
-  /// @param state 当前周期目标特征列表。
-  explicit DecisionContext(const common::TargetFeatureList &state)
-      : targets_features(state),
+  /// @param input 当前周期决策输入帧。
+  explicit DecisionContext(const common::DecisionInputFrame &input)
+      : input_frame(input),
+        target_classification_result(),
+        lpi_source_info(),
+        eccm_source_info(false),
+        decision_commands() {}
+
+  /// @brief 兼容构造：仅使用轨迹快照初始化输入帧。
+  explicit DecisionContext(const common::DecisionTrackSnapshotList &snapshots)
+      : input_frame(common::DecisionInputFrame(snapshots)),
         target_classification_result(),
         lpi_source_info(),
         eccm_source_info(false),
@@ -88,7 +97,7 @@ struct DecisionContext {
 
 inline TargetClassifierView
 CreateTargetClassifierView(DecisionContext &context) {
-  return TargetClassifierView{context.targets_features,
+  return TargetClassifierView{context.input_frame.tracks,
                               context.target_classification_result,
                               context.lpi_source_info,
                               context.eccm_source_info};

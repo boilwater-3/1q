@@ -20,7 +20,7 @@ package "行为决策层 (Decision Layer)\n【责任链 / 管道模式】" #Ligh
     }
 
     class DecisionContext << (D,#FF7700) Data >> {
-        + targets_features
+        + track_snapshots
         + target_classification_result
         + lpi_source_info
         + eccm_source_info

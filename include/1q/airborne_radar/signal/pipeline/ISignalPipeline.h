@@ -7,6 +7,7 @@
 
 #include <memory>
 
+#include "1q/airborne_radar/common/RadarControlProfile.h"
 #include "1q/airborne_radar/common/RadarOrientationConfig.h"
 #include "1q/airborne_radar/common/TargetFeature.h"
 #include "1q/airborne_radar/signal/tracking/TrackLifecycleTypes.h"
@@ -95,6 +96,13 @@ public:
 		/// @brief 获取当前搭载平台姿态。
 		/// @return 当前缓存的平台姿态角。
 		virtual common::PlatformAttitudeDeg GetPlatformAttitude() const = 0;
+
+		/// @brief 设置下一周期生效的控制真值。
+		virtual void SetControlProfile(
+				const common::RadarControlProfile &control_profile) = 0;
+
+		/// @brief 获取当前缓存的控制真值。
+		virtual common::RadarControlProfile GetControlProfile() const = 0;
 };
 
 } // namespace pipeline

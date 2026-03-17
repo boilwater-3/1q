@@ -8,7 +8,10 @@
 #include <utility>
 #include <vector>
 
+#include "1q/airborne_radar/common/DecisionInputFrame.h"
 #include "1q/airborne_radar/common/RadarCommand.h"
+#include "1q/airborne_radar/common/RadarControlProfile.h"
+#include "1q/airborne_radar/common/DecisionTrackSnapshot.h"
 #include "1q/airborne_radar/common/TargetFeature.h"
 #include "1q/airborne_radar/core/context/IRadarContext.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"
@@ -67,6 +70,17 @@ public:
     return submitted_commands_;
   }
 
+  /// @brief 记录最新控制真值。
+  void UpdateRadarControlProfile(
+      const common::RadarControlProfile &profile) override {
+    latest_control_profile_ = profile;
+  }
+
+  /// @brief 获取最新控制真值。
+  const common::RadarControlProfile &LatestControlProfile() const {
+    return latest_control_profile_;
+  }
+
   /// @brief 设置测试上下文使用的平台姿态角。
   void SetPlatformAttitude(
       const common::PlatformAttitudeDeg &platform_attitude_deg) {
@@ -81,6 +95,7 @@ private:
   common::PlatformAttitudeDeg platform_attitude_deg_{};
   float cycle_dt_sec_{1.0f};
   std::vector<common::RadarCommand> submitted_commands_;
+  common::RadarControlProfile latest_control_profile_{};
 };
 
 class SpyTrackLifecycleManager : public signal::tracking::ITrackLifecycleManager {
@@ -105,6 +120,43 @@ public:
           measurement.filtered_feature.acceleration(2)));
     }
     return snapshot;
+  }
+
+  common::DecisionTrackSnapshotList BuildDecisionSnapshot() const override {
+    common::DecisionTrackSnapshotList snapshot;
+    snapshot.reserve(last_measurements.size());
+    for (const signal::tracking::TrackMeasurement &measurement :
+         last_measurements) {
+      common::DecisionTrackSnapshot track_snapshot(
+          measurement.filtered_feature.velocity(0),
+          measurement.filtered_feature.velocity(1),
+          measurement.filtered_feature.velocity(2),
+          measurement.filtered_feature.rcs,
+          measurement.filtered_feature.acceleration(0),
+          measurement.filtered_feature.acceleration(1),
+          measurement.filtered_feature.acceleration(2),
+          measurement.filtered_feature.jamming_detected,
+          measurement.raw_measurement.external_target_id,
+          measurement.raw_measurement.association_key);
+      track_snapshot.state.position_x = measurement.raw_measurement.position(0);
+      track_snapshot.state.position_y = measurement.raw_measurement.position(1);
+      track_snapshot.state.position_z = measurement.raw_measurement.position(2);
+      track_snapshot.evidence.has_measurement_evidence = true;
+      track_snapshot.evidence.updated_this_cycle = true;
+      snapshot.push_back(track_snapshot);
+    }
+    return snapshot;
+  }
+
+  common::DecisionInputFrame BuildDecisionFrame(
+      std::uint32_t cycle_index, std::uint64_t batch_id,
+      bool environment_jamming_detected) const override {
+    common::DecisionInputFrame frame;
+    frame.cycle_index = cycle_index;
+    frame.batch_id = batch_id;
+    frame.environment_jamming_detected = environment_jamming_detected;
+    frame.tracks = BuildDecisionSnapshot();
+    return frame;
   }
 
   std::vector<signal::tracking::AssociationTrackSeed>
@@ -133,6 +185,20 @@ public:
     return common::TargetFeatureList();
   }
 
+  common::DecisionTrackSnapshotList BuildDecisionSnapshot() const override {
+    return common::DecisionTrackSnapshotList();
+  }
+
+  common::DecisionInputFrame BuildDecisionFrame(
+      std::uint32_t cycle_index, std::uint64_t batch_id,
+      bool environment_jamming_detected) const override {
+    common::DecisionInputFrame frame;
+    frame.cycle_index = cycle_index;
+    frame.batch_id = batch_id;
+    frame.environment_jamming_detected = environment_jamming_detected;
+    return frame;
+  }
+
   std::vector<signal::tracking::AssociationTrackSeed>
   BuildAssociationSeeds() const override {
     return seeds_;
@@ -155,6 +221,20 @@ public:
 
   common::TargetFeatureList BuildFeatureSnapshot() const override {
     return common::TargetFeatureList();
+  }
+
+  common::DecisionTrackSnapshotList BuildDecisionSnapshot() const override {
+    return common::DecisionTrackSnapshotList();
+  }
+
+  common::DecisionInputFrame BuildDecisionFrame(
+      std::uint32_t cycle_index, std::uint64_t batch_id,
+      bool environment_jamming_detected) const override {
+    common::DecisionInputFrame frame;
+    frame.cycle_index = cycle_index;
+    frame.batch_id = batch_id;
+    frame.environment_jamming_detected = environment_jamming_detected;
+    return frame;
   }
 
   std::vector<signal::tracking::AssociationTrackSeed>
@@ -301,6 +381,8 @@ TEST_F(CoreControllerTest, RunOncePublishesFineGrainedEvents) {
   bool tracks_event_has_jamming_flag = false;
   bool jamming_event_received = false;
   std::size_t submitted_commands = 0;
+  std::uint64_t control_profile_version = 0;
+  std::size_t applied_directive_events = 0;
 
   event_bus.Subscribe<core::event::TracksUpdatedEvent>(
       [&tracks_event_received, &tracks_event_has_jamming_flag](
@@ -319,6 +401,18 @@ TEST_F(CoreControllerTest, RunOncePublishesFineGrainedEvents) {
         submitted_commands = event.command_count;
       });
 
+  event_bus.Subscribe<core::event::ControlProfileUpdatedEvent>(
+      [&control_profile_version](
+          const core::event::ControlProfileUpdatedEvent &event) {
+        control_profile_version = event.profile_version;
+      });
+
+  event_bus.Subscribe<core::event::DirectiveAppliedEvent>(
+      [&applied_directive_events](
+          const core::event::DirectiveAppliedEvent &) {
+        ++applied_directive_events;
+      });
+
   core::controller::RadarController controller(
       radar_context, signal_pipeline, *decision_pipeline_,
       environment_service, event_bus);
@@ -329,6 +423,33 @@ TEST_F(CoreControllerTest, RunOncePublishesFineGrainedEvents) {
   EXPECT_FALSE(tracks_event_has_jamming_flag);
   EXPECT_TRUE(jamming_event_received);
   EXPECT_GT(submitted_commands, 0u);
+  EXPECT_GT(control_profile_version, 0u);
+  EXPECT_GT(applied_directive_events, 0u);
+}
+
+TEST_F(CoreControllerTest, NextCycleAppliesPendingControlProfileToSignalPipeline) {
+  const common::TargetFeatureList input_state =
+      BuildSingleTarget(800.0f, 2.5f, false);
+  FakeRadarContext radar_context(input_state);
+
+  environment::EnvironmentModelConfig env_config;
+  env_config.jammer_power_db = 12.0f;
+  environment::EnvironmentService environment_service(env_config);
+
+  signal::pipeline::SignalPipeline signal_pipeline;
+
+  core::controller::RadarController controller(
+      radar_context, signal_pipeline, *decision_pipeline_,
+      environment_service);
+
+  controller.RunOnce();
+  EXPECT_EQ(signal_pipeline.GetControlProfile().version, 0u);
+  const std::uint64_t first_pending_version =
+      radar_context.LatestControlProfile().version;
+  EXPECT_GT(first_pending_version, 0u);
+
+  controller.RunOnce();
+  EXPECT_EQ(signal_pipeline.GetControlProfile().version, first_pending_version);
 }
 
 TEST_F(CoreControllerTest, CycleEventBusDeliversEventsOnNextCycle) {

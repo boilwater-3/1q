@@ -179,6 +179,20 @@ class AutoConfiguredLifecycleManager final
     return assembly_.lifecycle_manager->BuildFeatureSnapshot();
   }
 
+  /// @brief 构建供决策层消费的稳定轨迹快照。
+  /// @return 生命周期输出的决策轨迹快照。
+  common::DecisionTrackSnapshotList BuildDecisionSnapshot() const override {
+    return assembly_.lifecycle_manager->BuildDecisionSnapshot();
+  }
+
+  /// @brief 构建完整的决策输入帧。
+  common::DecisionInputFrame BuildDecisionFrame(
+      std::uint32_t cycle_index, std::uint64_t batch_id,
+      bool environment_jamming_detected) const override {
+    return assembly_.lifecycle_manager->BuildDecisionFrame(
+        cycle_index, batch_id, environment_jamming_detected);
+  }
+
   /// @brief 构建关联种子。
   /// @return 上一周期轨迹种子列表。
   std::vector<tracking::AssociationTrackSeed> BuildAssociationSeeds()
@@ -304,6 +318,16 @@ struct SignalPipeline::Impl {
   /// @return 当前缓存的平台姿态角。
   common::PlatformAttitudeDeg GetPlatformAttitude() const {
     return config.beam_control.platform_attitude_deg;
+  }
+
+  /// @brief 更新当前控制真值。
+  void SetControlProfile(const common::RadarControlProfile& control_profile) {
+    control_profile_ = control_profile;
+  }
+
+  /// @brief 获取当前控制真值。
+  common::RadarControlProfile GetControlProfile() const {
+    return control_profile_;
   }
 
   /// @brief 初始化单周期缓存。
@@ -518,6 +542,7 @@ struct SignalPipeline::Impl {
   }
 
   SignalPipelineConfig config{};
+  common::RadarControlProfile control_profile_{};
   association::DataAssociationEngine association_engine{};
   tracking::TrackFilter track_filter{};
   std::unique_ptr<tracking::KalmanPredictor> kalman_predictor;
@@ -568,6 +593,15 @@ void SignalPipeline::UpdatePlatformAttitude(
 
 common::PlatformAttitudeDeg SignalPipeline::GetPlatformAttitude() const {
   return impl_->GetPlatformAttitude();
+}
+
+void SignalPipeline::SetControlProfile(
+    const common::RadarControlProfile& control_profile) {
+  impl_->SetControlProfile(control_profile);
+}
+
+common::RadarControlProfile SignalPipeline::GetControlProfile() const {
+  return impl_->GetControlProfile();
 }
 
 void SignalPipeline::UpdateConfig(SignalPipelineConfig config) {

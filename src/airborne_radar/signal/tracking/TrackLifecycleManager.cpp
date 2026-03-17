@@ -20,6 +20,19 @@ namespace tracking {
 
 namespace {
 
+common::DecisionTrackStatus ToDecisionTrackStatus(common::TrackStatus status) {
+  switch (status) {
+    case common::TrackStatus::kConfirmed:
+      return common::DecisionTrackStatus::kConfirmed;
+    case common::TrackStatus::kLost:
+      return common::DecisionTrackStatus::kLost;
+    case common::TrackStatus::kTentative:
+    case common::TrackStatus::kRecycled:
+    default:
+      return common::DecisionTrackStatus::kTentative;
+  }
+}
+
 /// @brief SynchronizedTrackPool 为任意对象池提供全局互斥包装。
 class SynchronizedTrackPool : public ITrackPool {
 public:
@@ -544,6 +557,32 @@ void TrackLifecycleManager::Update(
     tracks_by_key_.erase(found);
   }
 
+  latest_evidence_by_key_.clear();
+  latest_evidence_by_key_.reserve(scratch.measurement_by_key.size());
+  for (std::unordered_map<std::uint64_t, const TrackMeasurement *>::const_iterator
+           it = scratch.measurement_by_key.begin();
+       it != scratch.measurement_by_key.end(); ++it) {
+    if (tracks_by_key_.find(it->first) == tracks_by_key_.end()) {
+      continue;
+    }
+
+    const TrackMeasurement &measurement = *(it->second);
+    common::DecisionMeasurementEvidence evidence;
+    evidence.has_measurement_evidence = true;
+    evidence.updated_this_cycle = true;
+    evidence.predicted_only_this_cycle = false;
+    evidence.matched_existing_track =
+        measurement.raw_measurement.matched_existing_track;
+    evidence.association_cost = measurement.raw_measurement.association_cost;
+    evidence.detection_margin_db =
+        measurement.raw_measurement.detection_margin_db;
+    evidence.used_position_association =
+        measurement.raw_measurement.used_position_association;
+    evidence.used_external_association_seeds =
+        measurement.raw_measurement.used_external_association_seeds;
+    latest_evidence_by_key_[it->first] = evidence;
+  }
+
   spdlog::debug(
       "[TrackLifecycleManager] cycle summary: cycle_index={} measurements={} new_tracks={} updated_tracks={} predicted_without_hit={} recycled_tracks={} active_tracks={} imm_enabled={} dt_sec={:.3f} dt_fallback_used={}",
       cycle.cycle_index, measurements.size(), scratch.new_track_count,
@@ -623,6 +662,57 @@ common::TargetFeatureList TrackLifecycleManager::BuildFeatureSnapshot() const {
   }
 
   return features;
+}
+
+common::DecisionTrackSnapshotList
+TrackLifecycleManager::BuildDecisionSnapshot() const {
+  common::DecisionTrackSnapshotList snapshots;
+  snapshots.reserve(tracks_by_key_.size());
+
+  for (std::unordered_map<std::uint64_t, common::TrackState *>::const_iterator it =
+           tracks_by_key_.begin();
+       it != tracks_by_key_.end(); ++it) {
+    const common::TrackState *track = it->second;
+    if (track->status == common::TrackStatus::kRecycled) {
+      continue;
+    }
+
+    common::DecisionTrackSnapshot snapshot(
+        track->velocity(0), track->velocity(1), track->velocity(2), track->rcs,
+        track->acceleration(0), track->acceleration(1), track->acceleration(2),
+        track->jamming_detected, track->external_target_id, it->first);
+    snapshot.state.status = ToDecisionTrackStatus(track->status);
+    snapshot.state.position_x = track->position(0);
+    snapshot.state.position_y = track->position(1);
+    snapshot.state.position_z = track->position(2);
+    snapshot.state.hit_count = track->hit_count;
+    snapshot.state.miss_count = track->miss_count;
+
+    std::unordered_map<std::uint64_t, common::DecisionMeasurementEvidence>::
+        const_iterator evidence_found = latest_evidence_by_key_.find(it->first);
+    if (evidence_found != latest_evidence_by_key_.end()) {
+      snapshot.evidence = evidence_found->second;
+    } else {
+      snapshot.evidence.has_measurement_evidence = false;
+      snapshot.evidence.updated_this_cycle = false;
+      snapshot.evidence.predicted_only_this_cycle =
+          track->last_update_cycle != last_cycle_index_;
+    }
+    snapshots.push_back(snapshot);
+  }
+
+  return snapshots;
+}
+
+common::DecisionInputFrame TrackLifecycleManager::BuildDecisionFrame(
+    std::uint32_t cycle_index, std::uint64_t batch_id,
+    bool environment_jamming_detected) const {
+  common::DecisionInputFrame frame;
+  frame.cycle_index = cycle_index;
+  frame.batch_id = batch_id;
+  frame.environment_jamming_detected = environment_jamming_detected;
+  frame.tracks = BuildDecisionSnapshot();
+  return frame;
 }
 
 std::vector<AssociationTrackSeed> TrackLifecycleManager::BuildAssociationSeeds()

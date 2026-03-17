@@ -46,13 +46,15 @@ private:
   /// @param target 输入目标特征。
   /// @return 目标分类标签。
   /// TODO 当前的规则算法仅基于简单加权评分，后续可引入更多特征维度和更复杂的决策逻辑。
-  std::string IdentifyTarget(const common::TargetFeature &target) const;
+  std::string IdentifyTarget(
+      const common::DecisionTrackSnapshot &track_snapshot) const;
 
   /// @brief 根据三维输入计算威胁评分。
   /// @param target 输入目标特征。
   /// @return 计算得到的威胁评分。
   /// TODO 当前的规则算法仅基于简单加权评分，后续可引入更多特征维度和更复杂的决策逻辑。
-  float ComputeThreatScore(const common::TargetFeature &target) const;
+  float ComputeThreatScore(
+      const common::DecisionTrackSnapshot &track_snapshot) const;
 
   /// @brief 更新供 LPI 使用的来源信息。
   /// @param source_info 待更新的 LPI 来源信息。

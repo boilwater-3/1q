@@ -34,19 +34,21 @@ void TargetClassifier::ProcessView(core::context::TargetClassifierView &view) {
   view.target_classification_result.clear();
   view.lpi_source_info.has_recon_platform = false;
 
-  if (view.targets_features.empty()) {
+  if (view.track_snapshots.empty()) {
     AppendType(view.target_classification_result, "UNKNOWN");
-    spdlog::warn("[TargetClassifier] Empty feature list, classification reset.");
+    spdlog::warn(
+        "[TargetClassifier] Empty track snapshot list, classification reset.");
     return;
   }
 
-  view.target_classification_result.reserve(view.targets_features.size());
+  view.target_classification_result.reserve(view.track_snapshots.size());
 
-  for (std::size_t i = 0; i < view.targets_features.size(); ++i) {
-    const common::TargetFeature &target = view.targets_features[i];
-    const float track_speed = target.current_track_speed;
-    const float track_rcs = target.current_track_rcs;
-    const bool jamming_detected = false; // TODO 不一定是全局干扰，这里感觉不应该是干扰
+  for (std::size_t i = 0; i < view.track_snapshots.size(); ++i) {
+    const common::DecisionTrackSnapshot &track_snapshot =
+        view.track_snapshots[i];
+    const float track_speed = track_snapshot.state.speed;
+    const float track_rcs = track_snapshot.state.rcs;
+    const bool jamming_detected = track_snapshot.state.jamming_detected;
 
     // 首先尝试使用外部特征仓储进行分类匹配（带过滤）。
     std::string classification = "UNKNOWN";
@@ -76,7 +78,7 @@ void TargetClassifier::ProcessView(core::context::TargetClassifierView &view) {
     }
     // 如果仓储匹配不可用或不可靠，则退回到规则算法识别。
     if (!accepted_repository_match) {
-      classification = IdentifyTarget(target);
+      classification = IdentifyTarget(track_snapshot);
     }
     // 将最终分类结果附加到输出列表中。
     AppendType(view.target_classification_result, classification);
@@ -89,8 +91,8 @@ void TargetClassifier::ProcessView(core::context::TargetClassifierView &view) {
 }
 
 std::string TargetClassifier::IdentifyTarget(
-  const common::TargetFeature &target) const {
-  const float threat_score = ComputeThreatScore(target);
+  const common::DecisionTrackSnapshot &track_snapshot) const {
+  const float threat_score = ComputeThreatScore(track_snapshot);
 
   if (threat_score >= 2.0f) {
     return "HIGH_THREAT_TARGET";
@@ -103,11 +105,11 @@ std::string TargetClassifier::IdentifyTarget(
 }
 
 float TargetClassifier::ComputeThreatScore(
-  const common::TargetFeature &target) const {
+  const common::DecisionTrackSnapshot &track_snapshot) const {
   float threat_score = 0.0f;
-  const float track_speed = target.current_track_speed;
-  const float track_rcs = target.current_track_rcs;
-  const bool jamming_detected = false;
+  const float track_speed = track_snapshot.state.speed;
+  const float track_rcs = track_snapshot.state.rcs;
+  const bool jamming_detected = track_snapshot.state.jamming_detected;
 
   if (track_speed > 300.0f) {
     threat_score += 2.0f;

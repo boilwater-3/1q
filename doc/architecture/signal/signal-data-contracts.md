@@ -71,6 +71,12 @@
 
 这个拆分的目的，是避免一个平面结构同时承载“原始量测语义”和“滤波后特征语义”。
 
+### `DecisionTrackSnapshot`
+
+- 这是从 Lifecycle 当前活跃轨迹导出的稳定只读快照。
+- 它面向决策层，只保留位置、速度、加速度、RCS、干扰标记以及轨迹标识等必要字段。
+- 它不是对象池重对象本身，也不是 `TrackMeasurement` 的完整暴露；内部对象池、状态机计数、滤波运行态仍保持封装。
+
 ### `GaussianTrackState`
 
 - 目前仍属于公共类型，因为 `AssociationTrackSeed` 需要携带状态种子。

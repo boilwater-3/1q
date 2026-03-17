@@ -67,6 +67,15 @@ public:
   /// @return 可直接用于 DecisionContext 的目标特征列表。
   common::TargetFeatureList BuildFeatureSnapshot() const override;
 
+  /// @brief 导出供决策层消费的稳定轨迹快照。
+  /// @return 基于当前活跃轨迹构建的决策快照列表。
+  common::DecisionTrackSnapshotList BuildDecisionSnapshot() const override;
+
+  /// @brief 导出完整的决策输入帧。
+  common::DecisionInputFrame BuildDecisionFrame(
+      std::uint32_t cycle_index, std::uint64_t batch_id,
+      bool environment_jamming_detected) const override;
+
   /// @brief 导出供关联阶段消费的轨迹种子。
   /// @return 由当前活跃轨迹构成的关联种子列表。
   std::vector<AssociationTrackSeed> BuildAssociationSeeds() const override;
@@ -179,6 +188,10 @@ private:
 
   /// @brief 上一周期编号，用于计算 dt。
   std::uint32_t last_cycle_index_{0};
+
+  /// @brief 最近一次命中量测对应的证据快照。
+  std::unordered_map<std::uint64_t, common::DecisionMeasurementEvidence>
+      latest_evidence_by_key_;
 };
 
 } // namespace tracking
