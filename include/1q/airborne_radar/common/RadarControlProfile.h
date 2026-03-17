@@ -41,6 +41,18 @@ struct RadarControlProfile {
 
   /// @brief ECCM 烧穿增益倍率。
   float eccm_burnthrough_gain{1.0f};
+
+  /// @brief LPI 域剩余保持周期，仅供 reducer 运行态使用。
+  std::uint32_t lpi_hold_cycles_remaining{0};
+
+  /// @brief ECCM 域剩余保持周期，仅供 reducer 运行态使用。
+  std::uint32_t eccm_hold_cycles_remaining{0};
+
+  /// @brief LPI 域释放后的冷却周期，仅供 reducer 运行态使用。
+  std::uint32_t lpi_cooldown_cycles_remaining{0};
+
+  /// @brief ECCM 域释放后的冷却周期，仅供 reducer 运行态使用。
+  std::uint32_t eccm_cooldown_cycles_remaining{0};
 };
 
 } // namespace common

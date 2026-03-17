@@ -4,10 +4,89 @@
 
 #include "1q/airborne_radar/decision/TacticalCoordinator.h"
 
+#include <string>
+#include <vector>
+
 #include <spdlog/spdlog.h>
 
 namespace airborne_radar {
 namespace decision {
+
+namespace {
+
+bool IsAssociationDrivenJammingSemantic(common::JammingSemantic semantic) {
+  return semantic == common::JammingSemantic::kDeception ||
+         semantic == common::JammingSemantic::kRepeater ||
+         semantic == common::JammingSemantic::kMixed;
+}
+
+bool HasAssociationDrivenEccmEvidence(
+    const common::AssociationQualityInfo& association_quality_info) {
+  if (!IsAssociationDrivenJammingSemantic(
+          association_quality_info.dominant_jamming_semantic) ||
+      association_quality_info.jamming_severity < 0.35f ||
+      association_quality_info.association_stress < 0.18f) {
+    return false;
+  }
+  return true;
+}
+
+bool HasMeaningfulDetectionPressure(
+    const common::PerceptionQualityInfo& perception_quality_info) {
+  return perception_quality_info.input_target_count > 0U &&
+         perception_quality_info.detection_stress >= 0.35f;
+}
+
+std::string BuildDecisionSummary(const common::DecisionInputFrame& input_frame,
+                                 const TacticalEvaluationState& evaluation_state) {
+  std::vector<std::string> causes;
+  if (input_frame.environment_jamming_detected ||
+      input_frame.eccm_source_info.has_jamming_signal) {
+    causes.push_back("environment-jamming");
+  }
+  if (HasAssociationDrivenEccmEvidence(input_frame.association_quality_info)) {
+    causes.push_back("association-pressure");
+  }
+  if (HasMeaningfulDetectionPressure(input_frame.perception_quality_info)) {
+    causes.push_back("detection-pressure");
+  }
+
+  std::string summary;
+  if (evaluation_state.should_enable_eccm) {
+    summary = "protected-emission";
+  } else if (evaluation_state.should_reduce_power) {
+    summary = "threat-response";
+  } else {
+    summary = "baseline";
+  }
+
+  if (causes.empty()) {
+    return summary;
+  }
+
+  summary += "(";
+  for (std::size_t i = 0; i < causes.size(); ++i) {
+    if (i != 0U) {
+      summary += "+";
+    }
+    summary += causes[i];
+  }
+  summary += ")";
+  return summary;
+}
+
+void BackfillAssociationDrivenEccmTrigger(
+    const common::AssociationQualityInfo& association_quality_info,
+    common::EccmSourceInfo* eccm_source_info) {
+  if (eccm_source_info == nullptr ||
+      !HasAssociationDrivenEccmEvidence(association_quality_info)) {
+    return;
+  }
+
+  eccm_source_info->has_jamming_signal = true;
+}
+
+}  // namespace
 
 TacticalCoordinator::TacticalCoordinator(
     const environment::database::IFeatureRepository* feature_repository)
@@ -24,6 +103,8 @@ TacticalDecisionResult TacticalCoordinator::Evaluate(
     evaluation_state.eccm_source_info.has_jamming_signal =
         input_frame.environment_jamming_detected;
   }
+  BackfillAssociationDrivenEccmTrigger(input_frame.association_quality_info,
+                                       &evaluation_state.eccm_source_info);
 
   threat_assessment_evaluator_.Evaluate(input_frame, state_store,
                                         evaluation_state);
@@ -57,16 +138,14 @@ TacticalDecisionResult TacticalCoordinator::Evaluate(
     state_store.last_classification_labels.push_back(
         result.target_classification_result[i].target_type);
   }
-  state_store.last_decision_summary = evaluation_state.should_enable_eccm
-                                          ? "protected-emission"
-                                          : (evaluation_state.should_reduce_power
-                                                 ? "threat-response"
-                                                 : "baseline");
+  state_store.last_decision_summary =
+      BuildDecisionSummary(input_frame, evaluation_state);
 
   spdlog::debug(
-      "[TacticalCoordinator] cycle_index={} tracks={} mode={} proposals={}",
+      "[TacticalCoordinator] cycle_index={} tracks={} mode={} proposals={} assoc_stress={:.3f}",
       input_frame.cycle_index, input_frame.tracks.size(),
-      static_cast<int>(result.selected_mode), result.proposals.size());
+      static_cast<int>(result.selected_mode), result.proposals.size(),
+      input_frame.association_quality_info.association_stress);
   return result;
 }
 

@@ -74,6 +74,8 @@ TEST(TacticalCoordinatorTest, HighThreatAndJamming) {
       common::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER));
   EXPECT_TRUE(ContainsDirectiveType(
       result.proposals, common::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
+  EXPECT_TRUE(ContainsDirectiveType(
+      result.proposals, common::ControlDirectiveType::REQUEST_ECCM_REJITTER));
 }
 
 TEST(TacticalCoordinatorTest, LowThreatClearEnvironment) {

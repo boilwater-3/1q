@@ -10,6 +10,7 @@
 
 #include <Eigen/Core>
 
+#include "1q/airborne_radar/common/JammingSemantics.h"
 #include "1q/airborne_radar/signal/tracking/GaussianTrackState.h"
 
 namespace airborne_radar {
@@ -107,6 +108,13 @@ struct FilteredTrackFeature {
 
   /// @brief 当前量测是否检测到干扰。
   bool jamming_detected{false};
+
+  /// @brief 当前量测对应的主导干扰摘要类型。
+  common::JammingSemantic dominant_jamming_semantic{
+      common::JammingSemantic::kNone};
+
+  /// @brief 当前量测对应的残余干扰强度摘要，范围 [0, 1]。
+  float jamming_severity{0.0f};
 };
 
 /// @brief TrackMeasurement 描述提供给 Lifecycle 的组合输入。

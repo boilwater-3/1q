@@ -5,6 +5,8 @@
 #ifndef AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_SERVICE_H_
 #define AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_SERVICE_H_
 
+#include <vector>
+
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 
 namespace airborne_radar {
@@ -35,6 +37,9 @@ struct EnvironmentModelConfig {
 
   /// @brief 干扰是否主要经由旁瓣进入。
   bool jammer_in_sidelobe{false};
+
+  /// @brief 多源干扰事实输入。
+  JammerSourceFactList jammer_sources{};
 };
 
 /// @brief EnvironmentService 提供可配置的环境快照采样。

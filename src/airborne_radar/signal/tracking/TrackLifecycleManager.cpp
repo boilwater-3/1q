@@ -82,6 +82,24 @@ MeasurementVector BuildMeasurementVector(const TrackMeasurement &measurement) {
   return z;
 }
 
+std::uint32_t ResolveLocalMissToleranceBonus(const common::TrackState &track) {
+  if (!track.jamming_detected || track.jamming_severity < 0.35f) {
+    return 0U;
+  }
+
+  switch (track.dominant_jamming_semantic) {
+    case common::JammingSemantic::kDeception:
+    case common::JammingSemantic::kRepeater:
+      return 1U;
+    case common::JammingSemantic::kMixed:
+      return track.jamming_severity >= 0.55f ? 1U : 0U;
+    case common::JammingSemantic::kNoiseSuppression:
+    case common::JammingSemantic::kNone:
+    default:
+      return 0U;
+  }
+}
+
 } // namespace
 
 TrackLifecycleManager::TrackLifecycleManager(ITrackPool &pool,
@@ -414,6 +432,9 @@ void TrackLifecycleManager::Update(
       }
       track.rcs = measurement.filtered_feature.rcs;
       track.jamming_detected = measurement.filtered_feature.jamming_detected;
+      track.dominant_jamming_semantic =
+          measurement.filtered_feature.dominant_jamming_semantic;
+      track.jamming_severity = measurement.filtered_feature.jamming_severity;
 
       PromoteState(track, cycle.cycle_index, true,
                    cycle.extra_miss_tolerance);
@@ -707,7 +728,8 @@ void TrackLifecycleManager::PromoteState(common::TrackState &track,
   if (track.status == common::TrackStatus::kTentative ||
       track.status == common::TrackStatus::kConfirmed) {
     const std::uint32_t max_miss_before_lost =
-        config_.max_miss_before_lost + extra_miss_tolerance;
+        config_.max_miss_before_lost + extra_miss_tolerance +
+        ResolveLocalMissToleranceBonus(track);
     if (track.miss_count > max_miss_before_lost) {
       track.status = common::TrackStatus::kLost;
     }
@@ -739,6 +761,8 @@ void TrackLifecycleManager::ResetForReuse(common::TrackState &track) const {
   track.acceleration.setZero();
   track.rcs = 0.0f;
   track.jamming_detected = false;
+  track.dominant_jamming_semantic = common::JammingSemantic::kNone;
+  track.jamming_severity = 0.0f;
   track.gaussian_state = GaussianTrackState();
 }
 

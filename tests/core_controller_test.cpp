@@ -281,6 +281,20 @@ private:
   std::vector<decision::TacticalProposal> proposals_;
 };
 
+class CapturingDecisionEngine : public decision::ITacticalDecisionEngine {
+public:
+  decision::TacticalDecisionResult Evaluate(
+      const common::DecisionInputFrame& frame,
+      decision::TacticalStateStore&) override {
+    last_frame = frame;
+    ++evaluate_count;
+    return decision::TacticalDecisionResult();
+  }
+
+  common::DecisionInputFrame last_frame{};
+  std::size_t evaluate_count{0U};
+};
+
 /// @brief CoreControllerTest 覆盖核心调度与指令下发路径。
 class CoreControllerTest : public ::testing::Test {
 };
@@ -330,6 +344,61 @@ TEST_F(CoreControllerTest, PushesPlatformAttitudeIntoSignalPipelineBeforeRun) {
   EXPECT_FLOAT_EQ(cached_platform_attitude.yaw_deg, 18.0f);
   EXPECT_FLOAT_EQ(cached_platform_attitude.pitch_deg, -4.0f);
   EXPECT_FLOAT_EQ(cached_platform_attitude.roll_deg, 2.0f);
+}
+
+TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
+  const common::TargetFeatureList input_state =
+      BuildSingleTarget(800.0f, 2.5f, false);
+  FakeRadarContext radar_context(input_state);
+
+  environment::EnvironmentModelConfig env_config;
+  environment::JammerSourceFact deception_source;
+  deception_source.technique = environment::JammingTechnique::kDeception;
+  deception_source.power_db = 9.0f;
+  deception_source.js_db = 7.5f;
+  deception_source.frequency_overlap_ratio = 0.85f;
+  deception_source.prf_lock_risk = 0.90f;
+  deception_source.azimuth_deg = 30.0f;
+  deception_source.elevation_deg = 5.0f;
+  deception_source.angular_span_deg = 8.0f;
+  deception_source.in_sidelobe = false;
+  deception_source.confidence = 0.95f;
+  env_config.jammer_sources.push_back(deception_source);
+  environment::EnvironmentService environment_service(env_config);
+
+  signal::pipeline::SignalPipeline signal_pipeline;
+  CapturingDecisionEngine decision_engine;
+  core::controller::RadarController controller(
+      radar_context, signal_pipeline, decision_engine, environment_service);
+
+  controller.RunOnce();
+
+  ASSERT_EQ(decision_engine.evaluate_count, 1u);
+  EXPECT_TRUE(decision_engine.last_frame.environment_jamming_detected);
+  ASSERT_EQ(decision_engine.last_frame.eccm_source_info.jammer_sources.size(), 1u);
+  const common::EccmJammerSourceInfo& mapped_source =
+      decision_engine.last_frame.eccm_source_info.jammer_sources.front();
+  EXPECT_EQ(mapped_source.technique, common::JammingTechnique::kDeception);
+  EXPECT_FLOAT_EQ(mapped_source.jammer_power_db, 9.0f);
+  EXPECT_FLOAT_EQ(mapped_source.jammer_to_signal_db, 7.5f);
+  EXPECT_FLOAT_EQ(mapped_source.frequency_overlap_ratio, 0.85f);
+  EXPECT_FLOAT_EQ(mapped_source.prf_lock_risk, 0.90f);
+  EXPECT_FLOAT_EQ(mapped_source.azimuth_deg, 30.0f);
+  EXPECT_FLOAT_EQ(mapped_source.angular_span_deg, 8.0f);
+  EXPECT_EQ(decision_engine.last_frame.association_quality_info.dominant_jamming_semantic,
+            common::JammingSemantic::kDeception);
+  EXPECT_GT(decision_engine.last_frame.association_quality_info.jamming_severity,
+            0.0f);
+  EXPECT_GT(decision_engine.last_frame.association_quality_info.association_stress,
+            0.0f);
+  EXPECT_EQ(decision_engine.last_frame.perception_quality_info.input_target_count,
+            1u);
+  EXPECT_EQ(decision_engine.last_frame.perception_quality_info.detection_count,
+            1u);
+  EXPECT_FLOAT_EQ(decision_engine.last_frame.perception_quality_info.detection_rate,
+                  1.0f);
+  EXPECT_FLOAT_EQ(
+      decision_engine.last_frame.perception_quality_info.detection_stress, 0.0f);
 }
 
 TEST_F(CoreControllerTest, PushesCycleDeltaTimeIntoLifecycleBeforeRun) {

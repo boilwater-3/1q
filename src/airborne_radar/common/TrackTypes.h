@@ -9,6 +9,7 @@
 
 #include <Eigen/Core>
 
+#include "1q/airborne_radar/common/JammingSemantics.h"
 #include "1q/airborne_radar/signal/tracking/GaussianTrackState.h"
 
 namespace airborne_radar {
@@ -74,6 +75,12 @@ struct TrackState {
 
   /// @brief 当前周期是否检测到与该目标相关的干扰信号。
   bool jamming_detected{false};
+
+  /// @brief 当前轨迹最近一次命中所对应的主导干扰摘要类型。
+  JammingSemantic dominant_jamming_semantic{JammingSemantic::kNone};
+
+  /// @brief 当前轨迹最近一次命中所对应的残余干扰强度摘要，范围 [0, 1]。
+  float jamming_severity{0.0f};
 
   /// @brief 高斯状态估计（位置+速度的均值和协方差）。
   /// @details 与 Kalman 滤波器的 GaussianTrackState 共享类型定义。

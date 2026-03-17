@@ -5,6 +5,7 @@
 #ifndef AIRBORNE_RADAR_SIGNAL_TRACKING_TRACK_FILTER_H_
 #define AIRBORNE_RADAR_SIGNAL_TRACKING_TRACK_FILTER_H_
 
+#include "1q/airborne_radar/common/JammingSemantics.h"
 #include "1q/airborne_radar/common/TargetFeature.h"
 
 namespace airborne_radar {
@@ -21,6 +22,9 @@ struct TrackFilterConfig {
 struct TrackFilterContext {
 	bool detection_succeeded{false};
 	bool jamming_detected{false};
+	common::JammingSemantic dominant_jamming_semantic{
+			common::JammingSemantic::kNone};
+	float jamming_severity{0.0f};
 	float detection_margin_db{0.0f};
 };
 

@@ -107,6 +107,15 @@ Signal 层当前的正式主链路如下：
 2. 量测面：`BeamControlResolver` 与 `MeasurementErrorModel` 的有效波束宽度和误差。
 3. 跟踪面：关联代价、Kalman/IMM 噪声和失配容忍。
 
+在当前版本里，Signal 层不会把多源干扰事实原样传给 `TrackFilter` 和 `TrackLifecycleManager`，而是先压缩成“主导干扰类型 + 残余干扰强度”两项摘要语义：
+
+- 欺骗式 / 转发式干扰会更明显地抬高关联与量测统计的不确定性。
+- `TrackFilter` 在这两类干扰下会减少对失配周期的误惩罚，避免把关联抖动直接解释成目标机动衰减。
+- `TrackLifecycleManager` 会基于上一命中周期记录的摘要语义，为欺骗式 / 转发式干扰提供一个小的本地失配容忍 bonus；压制式干扰不享受这项 bonus，因为它更接近真实探测能量下降。
+- `AssociationQualityMetrics` 现在同时导出 `dominant_jamming_semantic`、`jamming_severity` 和 `association_stress`，用于区分“当前关联变差”到底更像是普通失配，还是受类型化干扰驱动的关联压力上升。
+- `RadarController` 已把这组关联质量摘要上送到 `DecisionInputFrame`；决策层可在环境层事实不足时，把高关联压力视为补充证据触发 ECCM，并进一步只修正频率捷变 / 重频抖动 / 自适应波束形成的优先级，而不是把它整体伪装成完整环境干扰事实。
+- `RadarController` 还会基于 `input_targets` 与 `detection_count` 生成 `PerceptionQualityInfo`，让决策层能区分“探测阶段掉量”与“关联阶段抖动”，避免把所有感知退化都解释成同一种 ECCM 问题。
+
 ## 6. Contracts and Boundaries
 
 详细字段契约见 [signal-data-contracts.md](/Users/aurora/Code/1q/doc/architecture/signal/signal-data-contracts.md)。这里仅保留架构级边界：
@@ -164,9 +173,11 @@ Signal 层当前的正式主链路如下：
 - Lifecycle external seeds -> Association 桥接已稳定
 - 生命周期自动装配、每轨 IMM、关键路径日志已接入
 - 公共接口与私有实现边界已按封装性重新收口
+- 多源干扰事实已继续传播到 TrackFilter / Lifecycle 的汇总级干扰语义
 
 ### Next
 
+- 把类型化干扰对关联质量观测的影响继续显式化，而不只停留在运行时参数和本地 miss tolerance
 - 为 IMM 多线程优化重新评估 `TrackLifecycleManager` 的阶段划分和可并行区间
 - 优化长耗时批量 IMM 测试后，再恢复 `signal_bulk_data_test.cpp`
 - 视需要继续收紧 `AssociationTrackSeed` 对高斯状态的公开暴露

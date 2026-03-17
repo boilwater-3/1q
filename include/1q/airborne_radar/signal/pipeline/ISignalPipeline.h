@@ -52,6 +52,13 @@ struct AssociationQualityMetrics {
 	float mean_match_cost{0.0f};
 	/// @brief 命中关联代价 P95（仅统计 matches）。
 	float p95_match_cost{0.0f};
+	/// @brief 当前周期关联质量对应的主导干扰摘要类型。
+	common::JammingSemantic dominant_jamming_semantic{
+			common::JammingSemantic::kNone};
+	/// @brief 当前周期关联质量对应的残余干扰强度摘要，范围 [0, 1]。
+	float jamming_severity{0.0f};
+	/// @brief 当前周期的归一化关联压力，范围 [0, 1]，值越大表示越容易受干扰导致关联抖动。
+	float association_stress{0.0f};
 };
 
 /// @brief ISignalPipeline 定义单周期内的探测与跟踪处理流程。

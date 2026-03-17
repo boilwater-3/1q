@@ -30,6 +30,38 @@ namespace controller {
 
 namespace {
 
+common::JammingTechnique ToCommonJammingTechnique(
+    environment::JammingTechnique technique) {
+  switch (technique) {
+    case environment::JammingTechnique::kNoiseSuppression:
+      return common::JammingTechnique::kNoiseSuppression;
+    case environment::JammingTechnique::kDeception:
+      return common::JammingTechnique::kDeception;
+    case environment::JammingTechnique::kRepeater:
+      return common::JammingTechnique::kRepeater;
+    case environment::JammingTechnique::kUnknown:
+    default:
+      return common::JammingTechnique::kUnknown;
+  }
+}
+
+common::EccmJammerSourceInfo BuildEccmJammerSourceInfo(
+    const environment::JammerSourceFact& environment_source) {
+  common::EccmJammerSourceInfo source_info;
+  source_info.technique = ToCommonJammingTechnique(environment_source.technique);
+  source_info.jammer_power_db = environment_source.power_db;
+  source_info.jammer_to_signal_db = environment_source.js_db;
+  source_info.frequency_overlap_ratio =
+      environment_source.frequency_overlap_ratio;
+  source_info.prf_lock_risk = environment_source.prf_lock_risk;
+  source_info.azimuth_deg = environment_source.azimuth_deg;
+  source_info.elevation_deg = environment_source.elevation_deg;
+  source_info.angular_span_deg = environment_source.angular_span_deg;
+  source_info.jammer_in_sidelobe = environment_source.in_sidelobe;
+  source_info.confidence = environment_source.confidence;
+  return source_info;
+}
+
 common::EccmSourceInfo BuildEccmSourceInfo(
     const environment::EnvironmentSnapshot& environment_snapshot) {
   common::EccmSourceInfo source_info;
@@ -39,7 +71,28 @@ common::EccmSourceInfo BuildEccmSourceInfo(
       environment_snapshot.jammer_frequency_overlap_ratio;
   source_info.prf_lock_risk = environment_snapshot.jammer_prf_lock_risk;
   source_info.jammer_in_sidelobe = environment_snapshot.jammer_in_sidelobe;
+  source_info.jammer_sources.reserve(environment_snapshot.jammer_sources.size());
+  for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
+    source_info.jammer_sources.push_back(
+        BuildEccmJammerSourceInfo(environment_snapshot.jammer_sources[i]));
+  }
   return source_info;
+}
+
+const char* JammingSemanticName(common::JammingSemantic semantic) {
+  switch (semantic) {
+    case common::JammingSemantic::kNoiseSuppression:
+      return "noise";
+    case common::JammingSemantic::kDeception:
+      return "deception";
+    case common::JammingSemantic::kRepeater:
+      return "repeater";
+    case common::JammingSemantic::kMixed:
+      return "mixed";
+    case common::JammingSemantic::kNone:
+    default:
+      return "none";
+  }
 }
 
 common::DecisionTrackSnapshot BuildDecisionTrackSnapshotFromFeature(
@@ -78,6 +131,39 @@ common::DecisionInputFrame BuildDecisionFrameFromFeatures(
     frame.tracks.push_back(BuildDecisionTrackSnapshotFromFeature(features[i], i));
   }
   return frame;
+}
+
+common::AssociationQualityInfo BuildAssociationQualityInfo(
+    const signal::pipeline::AssociationQualityMetrics& metrics) {
+  common::AssociationQualityInfo info;
+  info.match_rate = metrics.match_rate;
+  info.new_track_rate = metrics.new_track_rate;
+  info.missed_track_rate = metrics.missed_track_rate;
+  info.mean_match_cost = metrics.mean_match_cost;
+  info.p95_match_cost = metrics.p95_match_cost;
+  info.dominant_jamming_semantic = metrics.dominant_jamming_semantic;
+  info.jamming_severity = metrics.jamming_severity;
+  info.association_stress = metrics.association_stress;
+  return info;
+}
+
+common::PerceptionQualityInfo BuildPerceptionQualityInfo(
+    std::size_t input_target_count,
+    const signal::pipeline::AssociationQualityMetrics& metrics) {
+  common::PerceptionQualityInfo info;
+  info.input_target_count = input_target_count;
+  info.detection_count = metrics.detection_count;
+  if (input_target_count == 0U) {
+    info.detection_rate = 1.0f;
+    info.detection_stress = 0.0f;
+    return info;
+  }
+
+  info.detection_rate = std::min(
+      1.0f, static_cast<float>(metrics.detection_count) /
+                static_cast<float>(input_target_count));
+  info.detection_stress = std::max(0.0f, 1.0f - info.detection_rate);
+  return info;
 }
 
 common::RadarCommandType ToRadarCommandType(
@@ -270,10 +356,16 @@ void RadarController::RunOnce() {
       environment_service_.SampleEnvironment();
   const common::EccmSourceInfo eccm_source_info =
       BuildEccmSourceInfo(environment_snapshot);
+  const common::AssociationQualityInfo association_quality_info =
+      BuildAssociationQualityInfo(association_metrics);
+  const common::PerceptionQualityInfo perception_quality_info =
+      BuildPerceptionQualityInfo(input_features.size(), association_metrics);
   const bool environment_jamming_detected = eccm_source_info.has_jamming_signal;
   common::TargetFeatureList decision_features = updated_features;
   common::DecisionInputFrame decision_frame = BuildDecisionFrameFromFeatures(
       updated_features, cycle_index_, batch_id_, eccm_source_info);
+  decision_frame.association_quality_info = association_quality_info;
+  decision_frame.perception_quality_info = perception_quality_info;
   std::size_t measurement_count = 0;
 
   if (track_lifecycle_manager_ != nullptr) {
@@ -292,6 +384,8 @@ void RadarController::RunOnce() {
         cycle_index_, batch_id_, environment_jamming_detected);
     decision_frame.environment_jamming_detected = environment_jamming_detected;
     decision_frame.eccm_source_info = eccm_source_info;
+    decision_frame.association_quality_info = association_quality_info;
+    decision_frame.perception_quality_info = perception_quality_info;
   }
 
   decision::TacticalDecisionResult decision_result;
@@ -368,20 +462,25 @@ void RadarController::RunOnce() {
   }
 
   spdlog::debug(
-      "[RadarController] cycle summary: cycle_index={} batch_id={} input_targets={} association_seeds={} measurements={} decision_features={} directives={} lifecycle_enabled={} jamming_detected={} profile_version={} assoc_priors={} assoc_detections={} assoc_matches={} assoc_new_tracks={} assoc_missed_tracks={} assoc_match_rate={:.3f} assoc_new_track_rate={:.3f} assoc_missed_rate={:.3f} assoc_mean_cost={:.3f} assoc_p95_cost={:.3f}",
+      "[RadarController] cycle summary: cycle_index={} batch_id={} input_targets={} association_seeds={} measurements={} decision_features={} directives={} lifecycle_enabled={} jamming_detected={} profile_version={} detect_rate={:.3f} detect_stress={:.3f} assoc_priors={} assoc_detections={} assoc_matches={} assoc_new_tracks={} assoc_missed_tracks={} assoc_match_rate={:.3f} assoc_new_track_rate={:.3f} assoc_missed_rate={:.3f} assoc_mean_cost={:.3f} assoc_p95_cost={:.3f} assoc_jam_semantic={} assoc_jam_severity={:.3f} assoc_stress={:.3f}",
       cycle_index_, batch_id_, input_features.size(), association_seed_count,
       measurement_count, decision_features.size(),
       reduction_result.applied_directives.size(),
       track_lifecycle_manager_ != nullptr ? "true" : "false",
       environment_jamming_detected ? "true" : "false",
-      control_profile_->version, association_metrics.prior_track_count,
+      control_profile_->version, perception_quality_info.detection_rate,
+      perception_quality_info.detection_stress,
+      association_metrics.prior_track_count,
       association_metrics.detection_count, association_metrics.matched_count,
       association_metrics.new_track_count,
       association_metrics.missed_track_count, association_metrics.match_rate,
       association_metrics.new_track_rate,
       association_metrics.missed_track_rate,
       association_metrics.mean_match_cost,
-      association_metrics.p95_match_cost);
+      association_metrics.p95_match_cost,
+      JammingSemanticName(association_metrics.dominant_jamming_semantic),
+      association_metrics.jamming_severity,
+      association_metrics.association_stress);
 
   ++cycle_index_;
   ++batch_id_;
@@ -424,10 +523,15 @@ void RadarController::UpdateControlReducerConfig(
   }
   control_reducer_->UpdateConfig(config);
   spdlog::info(
-      "[RadarController] control reducer config updated: lpi_power_scale={} dwell_scale={} burnthrough_gain={} burnthrough_power_floor={} prefer_survivability={}",
+      "[RadarController] control reducer config updated: lpi_power_scale={} dwell_scale={} burnthrough_gain={} burnthrough_power_floor={} lpi_hold={} eccm_hold={} lpi_cooldown={} eccm_cooldown={} prefer_survivability_power={} prefer_survivability_beam={}",
       config.lpi_power_scale_on_reduction, config.lpi_dwell_scale,
       config.eccm_burnthrough_gain, config.burnthrough_lpi_power_floor,
-      config.prefer_survivability_in_power_conflict ? "true" : "false");
+      config.lpi_hold_cycles_after_request,
+      config.eccm_hold_cycles_after_request,
+      config.lpi_cooldown_cycles_after_release,
+      config.eccm_cooldown_cycles_after_release,
+      config.prefer_survivability_in_power_conflict ? "true" : "false",
+      config.prefer_survivability_in_beam_conflict ? "true" : "false");
 }
 
 } // namespace controller

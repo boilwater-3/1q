@@ -94,6 +94,15 @@ EnvironmentService.SampleEnvironment()
 
 这说明当前 ECCM 设计已经是“策略可叠加”的组合式输出，而不是“多选一”的互斥策略。
 
+另外，当前决策链已经引入 `AssociationQualityInfo` 作为补充证据，但边界被限定为：
+
+- `TacticalCoordinator` 只把“高关联压力 + 欺骗/转发语义”当成 ECCM 触发补位，不把它伪装成完整环境事实。
+- `SurvivabilityEvaluator` 再根据 `association_stress`、`jamming_severity` 和语义类型，抬高频率捷变 / 重频抖动 / 自适应波束形成的 proposal 优先级。
+- 因此，仅由关联压力触发的 ECCM 不应默认推出旁瓣对消或烧穿增益这类需要更强环境事实支撑的动作。
+- 纯粹的匹配率下降、随机丢检或无类型语义的关联变差，不应直接触发 ECCM。
+
+同时，控制器还会补充 `PerceptionQualityInfo`，用于把“探测阶段已经明显掉量”与“探测还在、但关联在抖”分开表达。当前版本里它主要用于决策摘要与模式解释，不直接驱动新的控制动作。
+
 ECCM 在决策层的正式职责应该限定为：
 
 | 决策层 ECCM 要做 | 决策层 ECCM 不做 |
@@ -161,10 +170,23 @@ EnvironmentSnapshot.jamming_detected
 ```text
 环境层干扰事实
   -> EccmSourceInfo
-  -> SurvivabilityEvaluator
+  -> TacticalCoordinator / SurvivabilityEvaluator
   -> TacticalProposal[]
   -> RadarControlProfile
   -> SignalPipeline 运行时配置
+```
+
+```text
+信号层关联质量摘要
+  -> AssociationQualityInfo
+  -> TacticalCoordinator(仅做 ECCM 触发补位)
+  -> SurvivabilityEvaluator(只做 proposal 优先级修正)
+```
+
+```text
+控制器探测质量摘要
+  -> PerceptionQualityInfo(detection_rate / detection_stress)
+  -> TacticalCoordinator(只做模式说明与原因摘要)
 ```
 
 建议扩展的是“事实”，而不是绕过 reducer 直接给信号层下参数。
@@ -273,7 +295,7 @@ EnvironmentSnapshot.jamming_detected
 
 ## 8. 冲突与优先级建议
 
-当前实现允许 LPI 与 ECCM 同时打开，这对“可叠加”是正确的，但还缺少更明确的冲突裁决规则。建议保持以下原则：
+当前实现允许 LPI 与 ECCM 同时打开，这对“可叠加”是正确的。当前 reducer 已经具备域级 release / hold / cooldown 与显式冲突裁决骨架，建议保持以下原则：
 
 1. 安全/生存性优先于隐身性。
 2. ECCM 能量域动作可以覆盖 LPI 的功率压低，但应保留版本化痕迹。
@@ -285,7 +307,14 @@ EnvironmentSnapshot.jamming_detected
 - 旁瓣对消与自适应波束形成可同时打开。
 - 频率捷变与重频抖动可同时打开。
 
-这部分目前主要依赖 `ControlReducer` 的固定映射，后续如果策略种类增加，优先扩展 reducer，而不是让 evaluator 直接写信号参数。
+当前已落地的 reducer 规则包括：
+
+- 当某一域没有新 proposal 且保持周期已结束时，自动回落到基线 profile，而不是无限继承旧状态。
+- LPI / ECCM 可以分别配置域级 hold 与 release cooldown。
+- `eccm_burnthrough_gain > 1.0f` 时，仍可通过功率保护下限覆盖部分 `lpi_power_scale`。
+- `REQUEST_LPI_BEAMFORMING` 与 `REQUEST_ENABLE_ADAPTIVE_BEAMFORMING` 同时出现时，默认优先生存性，保留自适应波束形成。
+
+后续如果策略种类继续增加，仍应优先扩展 reducer，而不是让 evaluator 直接写信号参数。
 
 ## 9. 当前状态与设计缺口
 
@@ -298,9 +327,9 @@ EnvironmentSnapshot.jamming_detected
 
 ### 仍需补强
 
-- `EnvironmentSnapshot` 只有 `jamming_detected`，干扰事实颗粒度不足
-- `EccmSourceInfo` 只有布尔量，无法按干扰类型做细分决策
-- `ControlReducer` 还没有显式表达 LPI/ECCM 冲突裁决策略
+- 多源干扰事实仍是单层列表，尚未形成更稳定的主源/群组/角域聚类抽象
+- `ControlReducer` 已具备域级状态管理，但还没有更细粒度的策略表与来源追踪
+- 信号层尚未把 reducer 的域级状态元数据转化为更明确的统计稳定性策略
 
 ## 10. 推荐阅读
 

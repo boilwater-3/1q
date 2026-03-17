@@ -53,6 +53,46 @@ TEST(EnvironmentServiceTest, DetectsJammingByConfiguredThreshold) {
   EXPECT_FLOAT_EQ(snapshot.jammer_frequency_overlap_ratio, 0.75f);
   EXPECT_FLOAT_EQ(snapshot.jammer_prf_lock_risk, 0.60f);
   EXPECT_TRUE(snapshot.jammer_in_sidelobe);
+  ASSERT_EQ(snapshot.jammer_sources.size(), 1u);
+  EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].power_db, 7.0f);
+}
+
+TEST(EnvironmentServiceTest, SupportsMultipleJammerSourcesInSnapshot) {
+  environment::EnvironmentModelConfig config;
+
+  environment::JammerSourceFact noise_source;
+  noise_source.technique = environment::JammingTechnique::kNoiseSuppression;
+  noise_source.power_db = 9.0f;
+  noise_source.js_db = 7.0f;
+  noise_source.frequency_overlap_ratio = 0.2f;
+  noise_source.prf_lock_risk = 0.1f;
+  noise_source.in_sidelobe = true;
+  noise_source.confidence = 0.9f;
+
+  environment::JammerSourceFact deception_source;
+  deception_source.technique = environment::JammingTechnique::kDeception;
+  deception_source.power_db = 4.0f;
+  deception_source.js_db = 5.0f;
+  deception_source.frequency_overlap_ratio = 0.85f;
+  deception_source.prf_lock_risk = 0.80f;
+  deception_source.in_sidelobe = false;
+  deception_source.confidence = 0.8f;
+
+  config.jammer_sources.push_back(noise_source);
+  config.jammer_sources.push_back(deception_source);
+
+  environment::EnvironmentService service(config);
+  service.SetJammingDetectionThresholdDb(6.0f);
+
+  const auto snapshot = service.SampleEnvironment();
+  ASSERT_EQ(snapshot.jammer_sources.size(), 2u);
+  EXPECT_TRUE(snapshot.jamming_detected);
+  EXPECT_EQ(snapshot.jammer_sources[0].technique,
+            environment::JammingTechnique::kNoiseSuppression);
+  EXPECT_EQ(snapshot.jammer_sources[1].technique,
+            environment::JammingTechnique::kDeception);
+  EXPECT_FLOAT_EQ(snapshot.jammer_power_db, 9.0f);
+  EXPECT_TRUE(snapshot.jammer_in_sidelobe);
 }
 
 TEST(SignalPipelineTest, KeepsTrackStableWhenDetectionMarginIsEnough) {
@@ -239,6 +279,128 @@ TEST(SignalPipelineTest,
   EXPECT_TRUE(protected_measurements[0].raw_measurement.matched_existing_track);
 }
 
+TEST(SignalPipelineTest,
+     AssociationQualityMetricsExposeTypeSpecificStressSummary) {
+  signal::pipeline::SignalPipelineConfig pipeline_config;
+  pipeline_config.tracking.kalman_measurement_noise_std = 1.0f;
+
+  common::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f);
+  target.position_x = 4.0f;
+  target.position_y = 0.0f;
+  target.position_z = 0.0f;
+  target.range_m = 4.0f;
+  const common::TargetFeatureList input_state{target};
+
+  signal::tracking::AssociationTrackSeed seed;
+  seed.association_key = 11u;
+  seed.has_position = true;
+  seed.position = Eigen::Vector3f::Zero();
+  seed.has_gaussian_state = true;
+  seed.gaussian_state.mean = signal::tracking::StateVector::Zero();
+  seed.gaussian_state.covariance = signal::tracking::StateCovariance::Zero();
+
+  environment::EnvironmentModelConfig noise_env_config;
+  environment::JammerSourceFact noise_source;
+  noise_source.technique = environment::JammingTechnique::kNoiseSuppression;
+  noise_source.power_db = 8.0f;
+  noise_source.js_db = 8.0f;
+  noise_source.in_sidelobe = true;
+  noise_source.confidence = 1.0f;
+  noise_env_config.jammer_sources.push_back(noise_source);
+  environment::EnvironmentService noise_environment(noise_env_config);
+
+  environment::EnvironmentModelConfig deception_env_config;
+  environment::JammerSourceFact deception_source;
+  deception_source.technique = environment::JammingTechnique::kDeception;
+  deception_source.power_db = 8.0f;
+  deception_source.js_db = 8.0f;
+  deception_source.frequency_overlap_ratio = 0.9f;
+  deception_source.prf_lock_risk = 0.9f;
+  deception_source.confidence = 1.0f;
+  deception_env_config.jammer_sources.push_back(deception_source);
+  environment::EnvironmentService deception_environment(deception_env_config);
+
+  signal::pipeline::SignalPipeline noise_pipeline(pipeline_config);
+  noise_pipeline.SetAssociationSeeds(
+      std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
+  noise_pipeline.RunCycle(input_state, noise_environment);
+  const signal::pipeline::AssociationQualityMetrics noise_metrics =
+      noise_pipeline.GetLastAssociationQualityMetrics();
+
+  signal::pipeline::SignalPipeline deception_pipeline(pipeline_config);
+  deception_pipeline.SetAssociationSeeds(
+      std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
+  deception_pipeline.RunCycle(input_state, deception_environment);
+  const signal::pipeline::AssociationQualityMetrics deception_metrics =
+      deception_pipeline.GetLastAssociationQualityMetrics();
+
+  EXPECT_EQ(noise_metrics.dominant_jamming_semantic,
+            common::JammingSemantic::kNoiseSuppression);
+  EXPECT_EQ(deception_metrics.dominant_jamming_semantic,
+            common::JammingSemantic::kDeception);
+  EXPECT_GT(deception_metrics.jamming_severity, noise_metrics.jamming_severity);
+  EXPECT_GT(noise_metrics.association_stress, 0.0f);
+  EXPECT_GT(deception_metrics.association_stress, 0.0f);
+}
+
+TEST(SignalPipelineTest,
+     MatchedEccmLowersAssociationStressForDeceptionJamming) {
+  signal::pipeline::SignalPipelineConfig pipeline_config;
+  pipeline_config.tracking.kalman_measurement_noise_std = 1.0f;
+
+  common::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f);
+  target.position_x = 4.0f;
+  target.position_y = 0.0f;
+  target.position_z = 0.0f;
+  target.range_m = 4.0f;
+  const common::TargetFeatureList input_state{target};
+
+  signal::tracking::AssociationTrackSeed seed;
+  seed.association_key = 12u;
+  seed.has_position = true;
+  seed.position = Eigen::Vector3f::Zero();
+  seed.has_gaussian_state = true;
+  seed.gaussian_state.mean = signal::tracking::StateVector::Zero();
+  seed.gaussian_state.covariance = signal::tracking::StateCovariance::Zero();
+
+  environment::EnvironmentModelConfig deception_env_config;
+  environment::JammerSourceFact deception_source;
+  deception_source.technique = environment::JammingTechnique::kDeception;
+  deception_source.power_db = 8.0f;
+  deception_source.js_db = 8.0f;
+  deception_source.frequency_overlap_ratio = 0.9f;
+  deception_source.prf_lock_risk = 0.9f;
+  deception_source.confidence = 1.0f;
+  deception_env_config.jammer_sources.push_back(deception_source);
+  environment::EnvironmentService deception_environment(deception_env_config);
+
+  signal::pipeline::SignalPipeline baseline_pipeline(pipeline_config);
+  baseline_pipeline.SetAssociationSeeds(
+      std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
+  baseline_pipeline.RunCycle(input_state, deception_environment);
+  const signal::pipeline::AssociationQualityMetrics baseline_metrics =
+      baseline_pipeline.GetLastAssociationQualityMetrics();
+
+  common::RadarControlProfile protected_profile;
+  protected_profile.enable_agility_frequency = true;
+  protected_profile.enable_eccm_rejitter = true;
+  signal::pipeline::SignalPipeline protected_pipeline(pipeline_config);
+  protected_pipeline.SetAssociationSeeds(
+      std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
+  protected_pipeline.SetControlProfile(protected_profile);
+  protected_pipeline.RunCycle(input_state, deception_environment);
+  const signal::pipeline::AssociationQualityMetrics protected_metrics =
+      protected_pipeline.GetLastAssociationQualityMetrics();
+
+  EXPECT_EQ(baseline_metrics.dominant_jamming_semantic,
+            common::JammingSemantic::kDeception);
+  EXPECT_EQ(protected_metrics.dominant_jamming_semantic,
+            common::JammingSemantic::kDeception);
+  EXPECT_LT(protected_metrics.jamming_severity, baseline_metrics.jamming_severity);
+  EXPECT_LT(protected_metrics.association_stress,
+            baseline_metrics.association_stress);
+}
+
 TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) {
   signal::pipeline::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.enable_physics_detection = true;
@@ -323,6 +485,50 @@ TEST(SignalPipelineTest,
   ASSERT_EQ(unfavorable_measurements.size(), 1u);
   EXPECT_GT(favorable_measurements[0].raw_measurement.detection_margin_db,
             unfavorable_measurements[0].raw_measurement.detection_margin_db);
+}
+
+TEST(SignalPipelineTest,
+     DeceptionJammingFactsShrinkPhysicalCovarianceWhenMatchedEccmEnabled) {
+  signal::pipeline::SignalPipelineConfig pipeline_config;
+  pipeline_config.detection.enable_physics_detection = true;
+  pipeline_config.detection.pulse_count = 64;
+  pipeline_config.detection.radar_system.detection.cfar_pfa = 0.5f;
+  pipeline_config.detection.radar_system.detection.min_snr_db = -50.0f;
+
+  environment::EnvironmentModelConfig env_config;
+  environment::JammerSourceFact deception_source;
+  deception_source.technique = environment::JammingTechnique::kDeception;
+  deception_source.power_db = -20.0f;
+  deception_source.js_db = 8.0f;
+  deception_source.frequency_overlap_ratio = 0.9f;
+  deception_source.prf_lock_risk = 0.9f;
+  deception_source.confidence = 1.0f;
+  env_config.jammer_sources.push_back(deception_source);
+  environment::EnvironmentService environment_service(env_config);
+
+  const common::TargetFeatureList input_state{
+      BuildPhysicsTarget(1000.0f, 1000.0f)};
+
+  signal::pipeline::SignalPipeline baseline_pipeline(pipeline_config);
+  baseline_pipeline.RunCycle(input_state, environment_service);
+  const auto baseline_measurements =
+      baseline_pipeline.GetLastTrackMeasurements();
+
+  common::RadarControlProfile protected_profile;
+  protected_profile.enable_agility_frequency = true;
+  protected_profile.enable_eccm_rejitter = true;
+  signal::pipeline::SignalPipeline protected_pipeline(pipeline_config);
+  protected_pipeline.SetControlProfile(protected_profile);
+  protected_pipeline.RunCycle(input_state, environment_service);
+  const auto protected_measurements =
+      protected_pipeline.GetLastTrackMeasurements();
+
+  ASSERT_EQ(baseline_measurements.size(), 1u);
+  ASSERT_EQ(protected_measurements.size(), 1u);
+  EXPECT_LT(protected_measurements[0].raw_measurement.measurement_covariance(0, 0),
+            baseline_measurements[0].raw_measurement.measurement_covariance(0, 0));
+  EXPECT_LT(protected_measurements[0].raw_measurement.measurement_covariance(1, 1),
+            baseline_measurements[0].raw_measurement.measurement_covariance(1, 1));
 }
 
 TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
@@ -481,6 +687,55 @@ TEST(SignalPipelineTest,
 }
 
 TEST(SignalPipelineTest,
+     DeceptionJammingInflatesPhysicalCovarianceMoreThanNoiseSuppression) {
+  signal::pipeline::SignalPipelineConfig pipeline_config;
+  pipeline_config.detection.enable_physics_detection = true;
+  pipeline_config.detection.pulse_count = 64;
+  pipeline_config.detection.radar_system.detection.cfar_pfa = 0.5f;
+  pipeline_config.detection.radar_system.detection.min_snr_db = -50.0f;
+
+  environment::EnvironmentModelConfig noise_env_config;
+  environment::JammerSourceFact noise_source;
+  noise_source.technique = environment::JammingTechnique::kNoiseSuppression;
+  noise_source.power_db = -20.0f;
+  noise_source.js_db = 8.0f;
+  noise_source.in_sidelobe = true;
+  noise_source.confidence = 1.0f;
+  noise_env_config.jammer_sources.push_back(noise_source);
+  environment::EnvironmentService noise_environment(noise_env_config);
+
+  environment::EnvironmentModelConfig deception_env_config;
+  environment::JammerSourceFact deception_source;
+  deception_source.technique = environment::JammingTechnique::kDeception;
+  deception_source.power_db = -20.0f;
+  deception_source.js_db = 8.0f;
+  deception_source.frequency_overlap_ratio = 0.9f;
+  deception_source.prf_lock_risk = 0.9f;
+  deception_source.confidence = 1.0f;
+  deception_env_config.jammer_sources.push_back(deception_source);
+  environment::EnvironmentService deception_environment(deception_env_config);
+
+  const common::TargetFeatureList input_state{
+      BuildPhysicsTarget(1000.0f, 1000.0f)};
+
+  signal::pipeline::SignalPipeline noise_pipeline(pipeline_config);
+  noise_pipeline.RunCycle(input_state, noise_environment);
+  const auto noise_measurements = noise_pipeline.GetLastTrackMeasurements();
+
+  signal::pipeline::SignalPipeline deception_pipeline(pipeline_config);
+  deception_pipeline.RunCycle(input_state, deception_environment);
+  const auto deception_measurements =
+      deception_pipeline.GetLastTrackMeasurements();
+
+  ASSERT_EQ(noise_measurements.size(), 1u);
+  ASSERT_EQ(deception_measurements.size(), 1u);
+  EXPECT_GT(deception_measurements[0].raw_measurement.measurement_covariance(0, 0),
+            noise_measurements[0].raw_measurement.measurement_covariance(0, 0));
+  EXPECT_GT(deception_measurements[0].raw_measurement.measurement_covariance(1, 1),
+            noise_measurements[0].raw_measurement.measurement_covariance(1, 1));
+}
+
+TEST(SignalPipelineTest,
      AutoImmLifecycleAssemblyUsesControlProfileAdjustedImmParameters) {
   signal::pipeline::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.min_detection_margin_db = -100.0f;
@@ -566,6 +821,33 @@ TEST(TrackFilterTest, AppliesLossDecayAndJammingPenalty) {
   EXPECT_LT(output.current_track_rcs, input.current_track_rcs);
   EXPECT_LT(output.current_track_acceleration,
             input.current_track_acceleration);
+}
+
+TEST(TrackFilterTest, DeceptionJammingRetainsMoreTrackEnergyThanNoiseSuppression) {
+  signal::tracking::TrackFilter filter;
+  const common::TargetFeature input(800.0f, 0.0f, 0.0f, 2.5f, 1.0f,
+                                    0.0f, 0.0f);
+
+  signal::tracking::TrackFilterContext noise_context;
+  noise_context.detection_succeeded = false;
+  noise_context.jamming_detected = true;
+  noise_context.dominant_jamming_semantic =
+      common::JammingSemantic::kNoiseSuppression;
+  noise_context.jamming_severity = 0.8f;
+  noise_context.detection_margin_db = -10.0f;
+
+  signal::tracking::TrackFilterContext deception_context = noise_context;
+  deception_context.dominant_jamming_semantic =
+      common::JammingSemantic::kDeception;
+
+  const common::TargetFeature noise_output = filter.Filter(input, noise_context);
+  const common::TargetFeature deception_output =
+      filter.Filter(input, deception_context);
+
+  EXPECT_GT(deception_output.current_track_speed, noise_output.current_track_speed);
+  EXPECT_GT(deception_output.current_track_rcs, noise_output.current_track_rcs);
+  EXPECT_GT(deception_output.current_track_acceleration,
+            noise_output.current_track_acceleration);
 }
 
 TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {

@@ -209,6 +209,53 @@ TEST(TrackLifecycleManagerTest, ExtraMissToleranceDelaysLostTransition) {
   EXPECT_EQ(active_tracks[0]->miss_count, 1u);
 }
 
+TEST(TrackLifecycleManagerTest,
+     DeceptionSummaryExtendsLocalMissToleranceOnMiss) {
+  signal::tracking::BoostTrackPool deception_pool(2, 8);
+  signal::tracking::LifecycleConfig config;
+  config.confirm_hits = 1;
+  config.max_miss_before_lost = 0;
+  config.max_lost_cycles = 2;
+
+  signal::tracking::TrackLifecycleManager deception_manager(deception_pool,
+                                                            config);
+  signal::tracking::TrackMeasurement deception_measurement =
+      MakeCartesianMeasurement(41u, 100.0f, 10.0f);
+  deception_measurement.filtered_feature.jamming_detected = true;
+  deception_measurement.filtered_feature.dominant_jamming_semantic =
+      common::JammingSemantic::kDeception;
+  deception_measurement.filtered_feature.jamming_severity = 0.8f;
+
+  deception_manager.Update(MakeCycle(1u, 4101u), {deception_measurement});
+  deception_manager.Update(MakeCycle(2u, 4102u), {});
+
+  std::vector<const common::TrackState *> active_tracks =
+      deception_manager.GetActiveTracks();
+  ASSERT_EQ(active_tracks.size(), 1u);
+  EXPECT_EQ(active_tracks[0]->status, common::TrackStatus::kConfirmed);
+
+  deception_manager.Update(MakeCycle(3u, 4103u), {});
+  active_tracks = deception_manager.GetActiveTracks();
+  ASSERT_EQ(active_tracks.size(), 1u);
+  EXPECT_EQ(active_tracks[0]->status, common::TrackStatus::kLost);
+
+  signal::tracking::BoostTrackPool noise_pool(2, 8);
+  signal::tracking::TrackLifecycleManager noise_manager(noise_pool, config);
+  signal::tracking::TrackMeasurement noise_measurement =
+      MakeCartesianMeasurement(42u, 100.0f, 10.0f);
+  noise_measurement.filtered_feature.jamming_detected = true;
+  noise_measurement.filtered_feature.dominant_jamming_semantic =
+      common::JammingSemantic::kNoiseSuppression;
+  noise_measurement.filtered_feature.jamming_severity = 0.8f;
+
+  noise_manager.Update(MakeCycle(1u, 4201u), {noise_measurement});
+  noise_manager.Update(MakeCycle(2u, 4202u), {});
+
+  active_tracks = noise_manager.GetActiveTracks();
+  ASSERT_EQ(active_tracks.size(), 1u);
+  EXPECT_EQ(active_tracks[0]->status, common::TrackStatus::kLost);
+}
+
 TEST(TrackLifecycleManagerTest, UsesExternalDtForPredictionWhenProvided) {
   signal::tracking::BoostTrackPool pool(2, 8);
   signal::tracking::LifecycleConfig config;

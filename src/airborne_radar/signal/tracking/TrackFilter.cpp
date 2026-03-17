@@ -43,6 +43,12 @@ void NormalizeOrFallback(float x,
   nz = fallback_z;
 }
 
+bool IsAssociationFragileJamming(common::JammingSemantic semantic) {
+  return semantic == common::JammingSemantic::kDeception ||
+         semantic == common::JammingSemantic::kRepeater ||
+         semantic == common::JammingSemantic::kMixed;
+}
+
 }  // namespace
 
 PredictedTrackState IdentityTrackPredictor::Predict(
@@ -99,10 +105,19 @@ common::TargetFeature SimpleTrackUpdater::Update(
 		output.current_track_acceleration_z = predicted.acceleration_z;
 
 	if (!context.detection_succeeded) {
+		float speed_decay_ratio = config_.speed_decay_ratio_on_loss;
+		float rcs_decay_ratio = config_.rcs_decay_ratio_on_loss;
+		if (context.jamming_detected &&
+				IsAssociationFragileJamming(context.dominant_jamming_semantic)) {
+			const float relief_scale =
+					std::min(0.10f, 0.10f * std::max(0.0f, context.jamming_severity));
+			speed_decay_ratio = std::min(0.995f, speed_decay_ratio + relief_scale);
+			rcs_decay_ratio = std::min(0.999f, rcs_decay_ratio + 1.2f * relief_scale);
+		}
 		output.current_track_speed =
-				std::max(0.0f, predicted.speed * config_.speed_decay_ratio_on_loss);
+				std::max(0.0f, predicted.speed * speed_decay_ratio);
 		output.current_track_rcs =
-				std::max(0.05f, predicted.rcs * config_.rcs_decay_ratio_on_loss);
+				std::max(0.05f, predicted.rcs * rcs_decay_ratio);
 
 			float dir_vx = 1.0f;
 			float dir_vy = 0.0f;
@@ -117,8 +132,13 @@ common::TargetFeature SimpleTrackUpdater::Update(
 	}
 
 	if (context.jamming_detected) {
+		float acceleration_penalty = config_.jamming_acceleration_penalty;
+		if (IsAssociationFragileJamming(context.dominant_jamming_semantic)) {
+			acceleration_penalty *=
+					std::max(0.55f, 1.0f - 0.35f * std::max(0.0f, context.jamming_severity));
+		}
 		output.current_track_acceleration =
-				predicted.acceleration - config_.jamming_acceleration_penalty;
+				predicted.acceleration - acceleration_penalty;
 	} else {
 		output.current_track_acceleration =
 				predicted.acceleration +

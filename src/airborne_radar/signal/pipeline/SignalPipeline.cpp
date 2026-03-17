@@ -36,8 +36,27 @@ namespace {
 /// @brief 将内部关联质量观测指标转换为对外公开格式。
 /// @param source 内部关联质量观测指标。
 /// @return Pipeline 对外公开的关联质量观测指标。
+float ResolveAssociationFragilityWeight(common::JammingSemantic semantic) {
+  switch (semantic) {
+    case common::JammingSemantic::kDeception:
+      return 1.00f;
+    case common::JammingSemantic::kRepeater:
+      return 0.88f;
+    case common::JammingSemantic::kMixed:
+      return 0.94f;
+    case common::JammingSemantic::kNoiseSuppression:
+      return 0.60f;
+    case common::JammingSemantic::kNone:
+    default:
+      return 0.0f;
+  }
+}
+
 AssociationQualityMetrics ToPipelineAssociationQualityMetrics(
-    const association::AssociationQualityMetrics& source) {
+    const association::AssociationQualityMetrics& source,
+    common::JammingSemantic dominant_jamming_semantic,
+    float jamming_severity,
+    float association_unassigned_cost) {
   AssociationQualityMetrics metrics;
   metrics.prior_track_count = source.prior_track_count;
   metrics.detection_count = source.detection_count;
@@ -49,6 +68,26 @@ AssociationQualityMetrics ToPipelineAssociationQualityMetrics(
   metrics.missed_track_rate = source.missed_track_rate;
   metrics.mean_match_cost = source.mean_match_cost;
   metrics.p95_match_cost = source.p95_match_cost;
+  metrics.dominant_jamming_semantic = dominant_jamming_semantic;
+  metrics.jamming_severity = std::max(0.0f, std::min(1.0f, jamming_severity));
+  const float normalized_cost_pressure =
+      association_unassigned_cost > 1e-6f
+          ? std::max(0.0f, std::min(1.0f,
+                                    source.mean_match_cost /
+                                        association_unassigned_cost))
+          : 0.0f;
+  const float operational_pressure =
+      0.20f +
+      0.30f * std::max(0.0f, std::min(1.0f, 1.0f - source.match_rate)) +
+      0.20f * source.new_track_rate +
+      0.15f * source.missed_track_rate +
+      0.15f * normalized_cost_pressure;
+  metrics.association_stress = std::max(
+      0.0f,
+      std::min(1.0f, metrics.jamming_severity *
+                           ResolveAssociationFragilityWeight(
+                               metrics.dominant_jamming_semantic) *
+                           operational_pressure));
   return metrics;
 }
 
@@ -172,6 +211,397 @@ float DbToLinearPower(float power_db) {
   return std::pow(10.0f, power_db / 10.0f);
 }
 
+/// @brief 判断环境快照中是否携带多源干扰事实。
+bool HasMultiSourceJammingFacts(
+    const environment::EnvironmentSnapshot& environment_snapshot) {
+  return !environment_snapshot.jammer_sources.empty();
+}
+
+/// @brief 解析干扰事实置信度权重。
+float ResolveJammerConfidenceWeight(
+    const environment::JammerSourceFact& jammer_source) {
+  return ClampFloat(jammer_source.confidence, 0.25f, 1.0f);
+}
+
+/// @brief 计算控制 profile 对单个干扰源的残余作用系数。
+float ComputeResidualJammerFactor(
+    const common::RadarControlProfile& control_profile,
+    const environment::JammerSourceFact& jammer_source) {
+  float residual_factor = 1.0f;
+
+  if (control_profile.enable_sidelobe_canceller && jammer_source.in_sidelobe) {
+    residual_factor *= 0.55f;
+  }
+  if (control_profile.enable_adaptive_beamforming) {
+    residual_factor *= jammer_source.angular_span_deg > 0.0f &&
+                               jammer_source.angular_span_deg <= 10.0f
+                           ? 0.72f
+                           : 0.82f;
+  }
+  if (control_profile.enable_agility_frequency &&
+      jammer_source.frequency_overlap_ratio > 0.0f) {
+    residual_factor *=
+        ClampFloat(1.0f - 0.50f * jammer_source.frequency_overlap_ratio, 0.35f,
+                   1.0f);
+  }
+  if (control_profile.enable_eccm_rejitter &&
+      jammer_source.prf_lock_risk > 0.0f) {
+    residual_factor *=
+        ClampFloat(1.0f - 0.55f * jammer_source.prf_lock_risk, 0.30f, 1.0f);
+  }
+  if (control_profile.eccm_burnthrough_gain > 1.0f) {
+    residual_factor *=
+        ClampFloat(1.0f / control_profile.eccm_burnthrough_gain, 0.55f, 1.0f);
+  }
+
+  switch (jammer_source.technique) {
+    case environment::JammingTechnique::kNoiseSuppression:
+      if (control_profile.enable_sidelobe_canceller && jammer_source.in_sidelobe) {
+        residual_factor *= 0.75f;
+      }
+      break;
+    case environment::JammingTechnique::kDeception:
+      if (control_profile.enable_agility_frequency) {
+        residual_factor *= 0.65f;
+      }
+      if (control_profile.enable_eccm_rejitter) {
+        residual_factor *= 0.65f;
+      }
+      break;
+    case environment::JammingTechnique::kRepeater:
+      if (control_profile.enable_eccm_rejitter) {
+        residual_factor *= 0.60f;
+      }
+      break;
+    case environment::JammingTechnique::kUnknown:
+    default:
+      break;
+  }
+
+  return ClampFloat(residual_factor, 0.15f, 1.0f);
+}
+
+/// @brief 计算单个干扰源对经验检测的惩罚项。
+float ComputeHeuristicSourcePenaltyDb(
+    const environment::JammerSourceFact& jammer_source) {
+  const float confidence_weight = ResolveJammerConfidenceWeight(jammer_source);
+  float penalty_db = 0.8f + 0.18f * ClampFloat(jammer_source.power_db, 0.0f, 20.0f);
+
+  switch (jammer_source.technique) {
+    case environment::JammingTechnique::kNoiseSuppression:
+      penalty_db += 0.9f * (jammer_source.in_sidelobe ? 1.0f : 0.4f);
+      penalty_db += 0.4f * ClampFloat(jammer_source.js_db, 0.0f, 12.0f) / 6.0f;
+      break;
+    case environment::JammingTechnique::kDeception:
+      penalty_db += 1.8f * ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f,
+                                      1.0f);
+      penalty_db += 1.2f * ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
+      break;
+    case environment::JammingTechnique::kRepeater:
+      penalty_db += 1.0f * ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
+      penalty_db += 0.8f * ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f,
+                                      1.0f);
+      break;
+    case environment::JammingTechnique::kUnknown:
+    default:
+      penalty_db += 1.1f * ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f,
+                                      1.0f);
+      penalty_db += 0.9f * ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
+      penalty_db += jammer_source.in_sidelobe ? 0.6f : 0.2f;
+      break;
+  }
+
+  return penalty_db * confidence_weight;
+}
+
+/// @brief 计算多源干扰对经验检测的总惩罚项。
+float ComputeHeuristicJammingPenaltyDb(
+    const environment::EnvironmentSnapshot& environment_snapshot) {
+  if (!HasMultiSourceJammingFacts(environment_snapshot)) {
+    return environment_snapshot.jamming_detected
+               ? (1.0f +
+                  0.35f * ClampFloat(environment_snapshot.jammer_power_db, 0.0f,
+                                     20.0f) +
+                  2.0f *
+                      ClampFloat(environment_snapshot.jammer_frequency_overlap_ratio,
+                                 0.0f, 1.0f) +
+                  1.5f *
+                      ClampFloat(environment_snapshot.jammer_prf_lock_risk, 0.0f,
+                                 1.0f) +
+                  (environment_snapshot.jammer_in_sidelobe ? 1.0f : 0.0f))
+               : 0.0f;
+  }
+
+  float penalty_db = 0.0f;
+  for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
+    penalty_db +=
+        ComputeHeuristicSourcePenaltyDb(environment_snapshot.jammer_sources[i]);
+  }
+  return penalty_db;
+}
+
+/// @brief 计算单个干扰源的等效 jam 噪声功率贡献。
+float ComputePhysicalSourceJamContributionW(
+    const environment::JammerSourceFact& jammer_source) {
+  float source_weight = 1.0f;
+  switch (jammer_source.technique) {
+    case environment::JammingTechnique::kNoiseSuppression:
+      source_weight = 1.0f;
+      break;
+    case environment::JammingTechnique::kDeception:
+      source_weight = 0.20f;
+      break;
+    case environment::JammingTechnique::kRepeater:
+      source_weight = 0.40f;
+      break;
+    case environment::JammingTechnique::kUnknown:
+    default:
+      source_weight = 0.70f;
+      break;
+  }
+  return DbToLinearPower(jammer_source.power_db) * source_weight *
+         ResolveJammerConfidenceWeight(jammer_source);
+}
+
+/// @brief 计算多源干扰对量测协方差的膨胀因子。
+float ComputeMeasurementCovarianceInflation(
+    const common::RadarControlProfile& control_profile,
+    const environment::EnvironmentSnapshot& environment_snapshot) {
+  if (!HasMultiSourceJammingFacts(environment_snapshot)) {
+    return 1.0f;
+  }
+
+  float inflation = 1.0f;
+  for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
+    const environment::JammerSourceFact& source =
+        environment_snapshot.jammer_sources[i];
+    const float residual_factor =
+        ComputeResidualJammerFactor(control_profile, source);
+    const float confidence_weight = ResolveJammerConfidenceWeight(source);
+    switch (source.technique) {
+      case environment::JammingTechnique::kDeception:
+        inflation += 0.20f * confidence_weight * residual_factor *
+                     (1.0f + source.frequency_overlap_ratio);
+        break;
+      case environment::JammingTechnique::kRepeater:
+        inflation += 0.16f * confidence_weight * residual_factor *
+                     (1.0f + source.prf_lock_risk);
+        break;
+      case environment::JammingTechnique::kNoiseSuppression:
+        inflation += 0.08f * confidence_weight * residual_factor *
+                     (source.in_sidelobe ? 1.0f : 0.5f);
+        break;
+      case environment::JammingTechnique::kUnknown:
+      default:
+        inflation += 0.10f * confidence_weight * residual_factor;
+        break;
+    }
+  }
+  return ClampFloat(inflation, 1.0f, 2.5f);
+}
+
+/// @brief 将环境层干扰技术映射为轨迹级摘要语义。
+common::JammingSemantic ToJammingSemantic(
+    environment::JammingTechnique technique) {
+  switch (technique) {
+    case environment::JammingTechnique::kNoiseSuppression:
+      return common::JammingSemantic::kNoiseSuppression;
+    case environment::JammingTechnique::kDeception:
+      return common::JammingSemantic::kDeception;
+    case environment::JammingTechnique::kRepeater:
+      return common::JammingSemantic::kRepeater;
+    case environment::JammingTechnique::kUnknown:
+    default:
+      return common::JammingSemantic::kMixed;
+  }
+}
+
+/// @brief 估算单个干扰源对轨迹级残余干扰强度的贡献。
+float ComputeTrackLevelJammingContribution(
+    const common::RadarControlProfile& control_profile,
+    const environment::JammerSourceFact& jammer_source) {
+  const float confidence_weight = ResolveJammerConfidenceWeight(jammer_source);
+  const float residual_factor =
+      ComputeResidualJammerFactor(control_profile, jammer_source);
+  float contribution = 0.10f + 0.020f * ClampFloat(jammer_source.power_db, 0.0f, 20.0f) +
+                       0.015f * ClampFloat(jammer_source.js_db, 0.0f, 12.0f);
+
+  switch (jammer_source.technique) {
+    case environment::JammingTechnique::kNoiseSuppression:
+      contribution += jammer_source.in_sidelobe ? 0.14f : 0.08f;
+      break;
+    case environment::JammingTechnique::kDeception:
+      contribution +=
+          0.25f * ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
+      contribution +=
+          0.22f * ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
+      break;
+    case environment::JammingTechnique::kRepeater:
+      contribution +=
+          0.18f * ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
+      contribution +=
+          0.14f * ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
+      break;
+    case environment::JammingTechnique::kUnknown:
+    default:
+      contribution +=
+          0.15f * ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
+      contribution +=
+          0.12f * ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
+      break;
+  }
+
+  return ClampFloat(contribution * confidence_weight * residual_factor, 0.0f, 1.0f);
+}
+
+/// @brief 汇总环境快照的主导干扰语义。
+common::JammingSemantic ResolveDominantJammingSemantic(
+    const common::RadarControlProfile& control_profile,
+    const environment::EnvironmentSnapshot& environment_snapshot) {
+  if (!environment_snapshot.jamming_detected) {
+    return common::JammingSemantic::kNone;
+  }
+
+  if (!HasMultiSourceJammingFacts(environment_snapshot)) {
+    return common::JammingSemantic::kMixed;
+  }
+
+  float type_scores[3] = {0.0f, 0.0f, 0.0f};
+  for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
+    const environment::JammerSourceFact& source =
+        environment_snapshot.jammer_sources[i];
+    const float contribution =
+        ComputeTrackLevelJammingContribution(control_profile, source);
+    switch (source.technique) {
+      case environment::JammingTechnique::kNoiseSuppression:
+        type_scores[0] += contribution;
+        break;
+      case environment::JammingTechnique::kDeception:
+        type_scores[1] += contribution;
+        break;
+      case environment::JammingTechnique::kRepeater:
+        type_scores[2] += contribution;
+        break;
+      case environment::JammingTechnique::kUnknown:
+      default:
+        type_scores[0] += 0.5f * contribution;
+        type_scores[1] += 0.5f * contribution;
+        break;
+    }
+  }
+
+  std::size_t best_index = 0U;
+  std::size_t second_index = 0U;
+  for (std::size_t i = 1; i < 3U; ++i) {
+    if (type_scores[i] > type_scores[best_index]) {
+      second_index = best_index;
+      best_index = i;
+    } else if (i != best_index && type_scores[i] > type_scores[second_index]) {
+      second_index = i;
+    }
+  }
+
+  if (type_scores[best_index] <= 1e-6f) {
+    return common::JammingSemantic::kNone;
+  }
+  if (second_index != best_index &&
+      type_scores[second_index] >= 0.65f * type_scores[best_index] &&
+      type_scores[second_index] > 0.18f) {
+    return common::JammingSemantic::kMixed;
+  }
+
+  if (best_index == 0U) {
+    return common::JammingSemantic::kNoiseSuppression;
+  }
+  if (best_index == 1U) {
+    return common::JammingSemantic::kDeception;
+  }
+  return common::JammingSemantic::kRepeater;
+}
+
+/// @brief 汇总环境快照的轨迹级残余干扰强度。
+float ComputeTrackLevelJammingSeverity(
+    const common::RadarControlProfile& control_profile,
+    const environment::EnvironmentSnapshot& environment_snapshot) {
+  if (!environment_snapshot.jamming_detected) {
+    return 0.0f;
+  }
+
+  if (!HasMultiSourceJammingFacts(environment_snapshot)) {
+    const float severity =
+        0.03f * ClampFloat(environment_snapshot.jammer_power_db, 0.0f, 20.0f) +
+        0.22f *
+            ClampFloat(environment_snapshot.jammer_frequency_overlap_ratio, 0.0f,
+                       1.0f) +
+        0.18f *
+            ClampFloat(environment_snapshot.jammer_prf_lock_risk, 0.0f, 1.0f) +
+        (environment_snapshot.jammer_in_sidelobe ? 0.10f : 0.0f);
+    return ClampFloat(severity, 0.0f, 1.0f);
+  }
+
+  float total_severity = 0.0f;
+  for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
+    total_severity += ComputeTrackLevelJammingContribution(
+        control_profile, environment_snapshot.jammer_sources[i]);
+  }
+  return ClampFloat(total_severity, 0.0f, 1.0f);
+}
+
+/// @brief 把多源干扰事实传播到关联/跟踪运行时统计量。
+void ApplyEnvironmentJammingFactsToRuntimeConfig(
+    const common::RadarControlProfile& control_profile,
+    const environment::EnvironmentSnapshot& environment_snapshot,
+    SignalPipelineConfig* runtime_config) {
+  if (runtime_config == nullptr || !HasMultiSourceJammingFacts(environment_snapshot)) {
+    return;
+  }
+
+  float association_scale = 1.0f;
+  float tracking_noise_scale = 1.0f;
+  float measurement_noise_scale = 1.0f;
+
+  for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
+    const environment::JammerSourceFact& source =
+        environment_snapshot.jammer_sources[i];
+    const float residual_factor =
+        ComputeResidualJammerFactor(control_profile, source);
+    const float confidence_weight = ResolveJammerConfidenceWeight(source);
+
+    switch (source.technique) {
+      case environment::JammingTechnique::kDeception:
+        association_scale += 0.18f * confidence_weight * residual_factor *
+                             (1.0f + source.frequency_overlap_ratio);
+        tracking_noise_scale += 0.12f * confidence_weight * residual_factor *
+                                (1.0f + source.prf_lock_risk);
+        measurement_noise_scale += 0.10f * confidence_weight * residual_factor;
+        break;
+      case environment::JammingTechnique::kRepeater:
+        association_scale += 0.12f * confidence_weight * residual_factor *
+                             (1.0f + source.prf_lock_risk);
+        tracking_noise_scale += 0.15f * confidence_weight * residual_factor *
+                                (1.0f + source.prf_lock_risk);
+        measurement_noise_scale += 0.08f * confidence_weight * residual_factor;
+        break;
+      case environment::JammingTechnique::kNoiseSuppression:
+        measurement_noise_scale += 0.06f * confidence_weight * residual_factor;
+        break;
+      case environment::JammingTechnique::kUnknown:
+      default:
+        association_scale += 0.08f * confidence_weight * residual_factor;
+        tracking_noise_scale += 0.08f * confidence_weight * residual_factor;
+        measurement_noise_scale += 0.05f * confidence_weight * residual_factor;
+        break;
+    }
+  }
+
+  runtime_config->association.unassigned_cost *=
+      ClampFloat(association_scale, 1.0f, 2.5f);
+  runtime_config->tracking.kalman_noise_diff_coeff *=
+      ClampFloat(tracking_noise_scale, 1.0f, 2.0f);
+  runtime_config->tracking.kalman_measurement_noise_std *=
+      ClampFloat(measurement_noise_scale, 1.0f, 1.8f);
+}
+
 /// @brief 归一化 IMM 初始权重，避免 profile 调整后破坏概率约束。
 void NormalizeImmInitialWeights(std::vector<float>* weights) {
   if (weights == nullptr || weights->empty()) {
@@ -235,6 +665,19 @@ float ComputeHeuristicSignalAdjustmentDb(
 float ComputeHeuristicEnvironmentReliefDb(
     const common::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot) {
+  if (HasMultiSourceJammingFacts(environment_snapshot)) {
+    float relief_db = 0.0f;
+    for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
+      const environment::JammerSourceFact& source =
+          environment_snapshot.jammer_sources[i];
+      const float residual_factor =
+          ComputeResidualJammerFactor(control_profile, source);
+      relief_db += ComputeHeuristicSourcePenaltyDb(source) *
+                   (1.0f - residual_factor);
+    }
+    return relief_db;
+  }
+
   float relief_db = 0.0f;
   if (environment_snapshot.jamming_detected) {
     if (control_profile.enable_sidelobe_canceller) {
@@ -520,7 +963,12 @@ struct SignalPipeline::Impl {
   /// @return 关联质量观测指标。
   AssociationQualityMetrics GetLastAssociationQualityMetrics() const {
     return ToPipelineAssociationQualityMetrics(
-        cached_context.association_result.quality_metrics);
+        cached_context.association_result.quality_metrics,
+        ResolveDominantJammingSemantic(control_profile_,
+                                       cached_context.environment_snapshot),
+        ComputeTrackLevelJammingSeverity(control_profile_,
+                                        cached_context.environment_snapshot),
+        cached_context.runtime_config.association.unassigned_cost);
   }
 
   /// @brief 设置本周期关联阶段应使用的轨迹种子。
@@ -627,6 +1075,22 @@ struct SignalPipeline::Impl {
   void SampleEnvironment() {
     cached_context.environment_snapshot =
         cached_context.environment->SampleEnvironment();
+    ApplyEnvironmentJammingFactsToRuntimeConfig(
+        control_profile_, cached_context.environment_snapshot,
+        &cached_context.runtime_config);
+    const std::size_t target_count = cached_context.target_geometry.size();
+    cached_context.measurement_covariances.assign(
+        target_count, tracking::MeasurementCovariance::Identity() *
+                          cached_context.runtime_config.tracking
+                              .kalman_measurement_noise_std *
+                          cached_context.runtime_config.tracking
+                              .kalman_measurement_noise_std);
+    association_engine.UpdateConfig(
+        internal::SignalComponentFactory::BuildAssociationConfig(
+            cached_context.runtime_config));
+    track_filter.UpdateConfig(
+        internal::SignalComponentFactory::BuildTrackFilterConfig(
+            cached_context.runtime_config));
   }
 
   /// @brief 运行经验探测逻辑。
@@ -646,21 +1110,7 @@ struct SignalPipeline::Impl {
     }
 
     const float jamming_penalty_db =
-        cached_context.environment_snapshot.jamming_detected
-            ? (1.0f +
-               0.35f * ClampFloat(
-                           cached_context.environment_snapshot.jammer_power_db,
-                           0.0f, 20.0f) +
-               2.0f * ClampFloat(
-                           cached_context.environment_snapshot
-                               .jammer_frequency_overlap_ratio,
-                           0.0f, 1.0f) +
-               1.5f * ClampFloat(
-                           cached_context.environment_snapshot.jammer_prf_lock_risk,
-                           0.0f, 1.0f) +
-               (cached_context.environment_snapshot.jammer_in_sidelobe ? 1.0f
-                                                                       : 0.0f))
-            : 0.0f;
+        ComputeHeuristicJammingPenaltyDb(cached_context.environment_snapshot);
     const float environment_penalty_db =
         std::max(
             0.0f,
@@ -694,29 +1144,37 @@ struct SignalPipeline::Impl {
                        : 0.80f;
     }
 
-    float jam_w = cached_context.environment_snapshot.jamming_detected
-                      ? DbToLinearPower(
-                            cached_context.environment_snapshot.jammer_power_db)
-                      : 0.0f;
-    if (control_profile_.enable_sidelobe_canceller) {
-      jam_w *= cached_context.environment_snapshot.jammer_in_sidelobe
-                   ? 0.35f
-                   : 0.80f;
-    }
-    if (control_profile_.enable_agility_frequency) {
-      const float overlap_ratio = ClampFloat(
-          cached_context.environment_snapshot.jammer_frequency_overlap_ratio,
-          0.0f, 1.0f);
-      jam_w *= ClampFloat(1.0f - 0.60f * overlap_ratio, 0.25f, 1.0f);
-    }
-    if (control_profile_.enable_eccm_rejitter) {
-      const float prf_lock_risk = ClampFloat(
-          cached_context.environment_snapshot.jammer_prf_lock_risk, 0.0f, 1.0f);
-      jam_w *= ClampFloat(1.0f - 0.50f * prf_lock_risk, 0.35f, 1.0f);
-    }
-    if (control_profile_.enable_adaptive_beamforming) {
-      jam_w *= cached_context.environment_snapshot.jammer_in_sidelobe ? 0.85f
-                                                                      : 0.75f;
+    float jam_w = 0.0f;
+    if (HasMultiSourceJammingFacts(cached_context.environment_snapshot)) {
+      for (std::size_t i = 0;
+           i < cached_context.environment_snapshot.jammer_sources.size(); ++i) {
+        const environment::JammerSourceFact& source =
+            cached_context.environment_snapshot.jammer_sources[i];
+        jam_w += ComputePhysicalSourceJamContributionW(source) *
+                 ComputeResidualJammerFactor(control_profile_, source);
+      }
+    } else if (cached_context.environment_snapshot.jamming_detected) {
+      jam_w = DbToLinearPower(cached_context.environment_snapshot.jammer_power_db);
+      if (control_profile_.enable_sidelobe_canceller) {
+        jam_w *= cached_context.environment_snapshot.jammer_in_sidelobe
+                     ? 0.35f
+                     : 0.80f;
+      }
+      if (control_profile_.enable_agility_frequency) {
+        const float overlap_ratio = ClampFloat(
+            cached_context.environment_snapshot.jammer_frequency_overlap_ratio,
+            0.0f, 1.0f);
+        jam_w *= ClampFloat(1.0f - 0.60f * overlap_ratio, 0.25f, 1.0f);
+      }
+      if (control_profile_.enable_eccm_rejitter) {
+        const float prf_lock_risk = ClampFloat(
+            cached_context.environment_snapshot.jammer_prf_lock_risk, 0.0f, 1.0f);
+        jam_w *= ClampFloat(1.0f - 0.50f * prf_lock_risk, 0.35f, 1.0f);
+      }
+      if (control_profile_.enable_adaptive_beamforming) {
+        jam_w *= cached_context.environment_snapshot.jammer_in_sidelobe ? 0.85f
+                                                                        : 0.75f;
+      }
     }
 
     detection::EnvironmentState env;
@@ -761,6 +1219,9 @@ struct SignalPipeline::Impl {
           cached_context.target_geometry[i], measurement_error.range_error_std_m,
           measurement_error.angle_error_std_rad,
           runtime_config.tracking.kalman_measurement_noise_std);
+      cached_context.measurement_covariances[i] *=
+          ComputeMeasurementCovarianceInflation(control_profile_,
+                                               cached_context.environment_snapshot);
     }
   }
 
@@ -810,6 +1271,12 @@ struct SignalPipeline::Impl {
           cached_context.measurement_covariances[i];
       measurement.filtered_feature.jamming_detected =
           cached_context.environment_snapshot.jamming_detected;
+      measurement.filtered_feature.dominant_jamming_semantic =
+          ResolveDominantJammingSemantic(control_profile_,
+                                         cached_context.environment_snapshot);
+      measurement.filtered_feature.jamming_severity =
+          ComputeTrackLevelJammingSeverity(control_profile_,
+                                          cached_context.environment_snapshot);
 
       cached_context.measurement_slots[i] =
           static_cast<int>(cached_context.track_measurements.size());
@@ -829,6 +1296,12 @@ struct SignalPipeline::Impl {
           cached_context.detection_succeeded[i] != 0U;
       filter_context.jamming_detected =
           cached_context.environment_snapshot.jamming_detected;
+      filter_context.dominant_jamming_semantic =
+          ResolveDominantJammingSemantic(control_profile_,
+                                         cached_context.environment_snapshot);
+      filter_context.jamming_severity =
+          ComputeTrackLevelJammingSeverity(control_profile_,
+                                          cached_context.environment_snapshot);
       filter_context.detection_margin_db = cached_context.detection_margin_db[i];
       output[i] = track_filter.Filter(input[i], filter_context);
 
@@ -850,6 +1323,10 @@ struct SignalPipeline::Impl {
       measurement.filtered_feature.rcs = output[i].current_track_rcs;
       measurement.filtered_feature.jamming_detected =
           cached_context.environment_snapshot.jamming_detected;
+      measurement.filtered_feature.dominant_jamming_semantic =
+          filter_context.dominant_jamming_semantic;
+      measurement.filtered_feature.jamming_severity =
+          filter_context.jamming_severity;
     }
   }
 

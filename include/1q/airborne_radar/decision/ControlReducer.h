@@ -28,8 +28,23 @@ struct ControlReducerConfig {
   /// @brief 当烧穿增益与 LPI 降功率并存时，对功率比例施加的保护下限。
   float burnthrough_lpi_power_floor{0.85f};
 
+  /// @brief LPI 域在收到 proposal 后额外保持的周期数。
+  std::uint32_t lpi_hold_cycles_after_request{0};
+
+  /// @brief ECCM 域在收到 proposal 后额外保持的周期数。
+  std::uint32_t eccm_hold_cycles_after_request{0};
+
+  /// @brief LPI 域释放后的冷却周期数。
+  std::uint32_t lpi_cooldown_cycles_after_release{0};
+
+  /// @brief ECCM 域释放后的冷却周期数。
+  std::uint32_t eccm_cooldown_cycles_after_release{0};
+
   /// @brief 是否在烧穿/LPI 冲突时优先生存性。
   bool prefer_survivability_in_power_conflict{true};
+
+  /// @brief 是否在 LPI 波束形成与自适应波束形成冲突时优先生存性。
+  bool prefer_survivability_in_beam_conflict{true};
 };
 
 /// @brief ControlReductionResult 表示 reducer 的单周期输出。

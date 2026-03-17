@@ -5,6 +5,8 @@
 #ifndef AIRBORNE_RADAR_COMMON_DECISION_SOURCE_INFO_H_
 #define AIRBORNE_RADAR_COMMON_DECISION_SOURCE_INFO_H_
 
+#include <vector>
+
 namespace airborne_radar {
 namespace common {
 
@@ -15,8 +17,55 @@ struct LpiSourceInfo {
   bool has_recon_platform{false};
 };
 
+/// @brief JammingTechnique 表示供决策层消费的干扰技术类型。
+enum class JammingTechnique {
+  /// @brief 未知或未分类干扰。
+  kUnknown = 0,
+  /// @brief 压制式/噪声式干扰。
+  kNoiseSuppression,
+  /// @brief 欺骗式干扰。
+  kDeception,
+  /// @brief 转发式/重复器式干扰。
+  kRepeater
+};
+
+/// @brief EccmJammerSourceInfo 表示单个干扰源的摘要事实。
+struct EccmJammerSourceInfo {
+  /// @brief 干扰技术类型。
+  JammingTechnique technique{JammingTechnique::kUnknown};
+
+  /// @brief 干扰功率估计（单位：dB）。
+  float jammer_power_db{0.0f};
+
+  /// @brief 干扰与信号比估计（单位：dB）。
+  float jammer_to_signal_db{0.0f};
+
+  /// @brief 干扰与当前工作频率的重叠度，范围 [0, 1]。
+  float frequency_overlap_ratio{0.0f};
+
+  /// @brief 干扰对当前 PRF 锁定的风险度，范围 [0, 1]。
+  float prf_lock_risk{0.0f};
+
+  /// @brief 干扰来向方位角（单位：deg）。
+  float azimuth_deg{0.0f};
+
+  /// @brief 干扰来向俯仰角（单位：deg）。
+  float elevation_deg{0.0f};
+
+  /// @brief 干扰角域宽度（单位：deg）。
+  float angular_span_deg{0.0f};
+
+  /// @brief 干扰是否主要经由旁瓣进入。
+  bool jammer_in_sidelobe{false};
+
+  /// @brief 干扰事实置信度，范围 [0, 1]。
+  float confidence{1.0f};
+};
+
+/// @brief 供 ECCM 消费的多源干扰摘要列表。
+typedef std::vector<EccmJammerSourceInfo> EccmJammerSourceInfoList;
+
 /// @brief EccmSourceInfo 表示供 ECCM 模块消费的干扰来源信息。
-/// TODO 当前仅保留一个布尔量，后续可扩展为干扰类型、强度和来源方向等信息。
 struct EccmSourceInfo {
   /// @brief 当前周期是否检测到干扰信号。
   bool has_jamming_signal{false};
@@ -32,6 +81,9 @@ struct EccmSourceInfo {
 
   /// @brief 干扰是否主要经由旁瓣进入。
   bool jammer_in_sidelobe{false};
+
+  /// @brief 当前周期可见的多源干扰摘要。
+  EccmJammerSourceInfoList jammer_sources{};
 
   /// @brief 默认构造函数。
   EccmSourceInfo() = default;
