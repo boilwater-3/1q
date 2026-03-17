@@ -87,6 +87,26 @@ Signal 层当前的正式主链路如下：
 - 关联契约失败、非法 lifecycle 装配配置等场景保持 fail-fast。
 - `DataAssociationEngine`、`TrackLifecycleManager`、`RadarController` 已补充关键路径摘要日志，便于定位先验来源、匹配质量与周期推进结果。
 
+### 5.5 控制真值如何作用于 ECCM 探测
+
+信号层并不决定是否启用 ECCM，而是在每周期开始时读取 `RadarControlProfile`，并通过 `ApplyControlProfileToConfig()` 把控制真值映射为运行时配置。
+
+当前已落地的映射关系如下：
+
+| 控制真值 | 主要影响 |
+|----------|----------|
+| `enable_sidelobe_canceller` | 压低 `jam_noise_w`、`clutter_noise_w`，降低方向图旁瓣电平 |
+| `enable_adaptive_beamforming` | 提高主瓣增益、缩窄波束、降低量测噪声 |
+| `enable_agility_frequency` | 调整载频，并提高关联/跟踪保守度 |
+| `enable_eccm_rejitter` | 调整 PRF，并提高关联/跟踪保守度 |
+| `eccm_burnthrough_gain` | 提升有效探测能力、放宽关联保留、降低量测噪声 |
+
+因此，Decision 层输出的是“策略真值”，Signal 层负责把它们落到三个执行面：
+
+1. 探测面：`SignalDetector` 的频率、PRF、主瓣/旁瓣、噪声项。
+2. 量测面：`BeamControlResolver` 与 `MeasurementErrorModel` 的有效波束宽度和误差。
+3. 跟踪面：关联代价、Kalman/IMM 噪声和失配容忍。
+
 ## 6. Contracts and Boundaries
 
 详细字段契约见 [signal-data-contracts.md](/Users/aurora/Code/1q/doc/architecture/signal/signal-data-contracts.md)。这里仅保留架构级边界：
@@ -117,6 +137,7 @@ Signal 层当前的正式主链路如下：
   - 为探测链和误差建模提供环境快照
 - 决策层
   - 消费 Lifecycle 输出的稳定轨迹特征，不直接依赖信号层内部重对象
+  - 通过 `RadarControlProfile` 间接控制信号层，不直接写探测器参数
 
 ## 8. Test Coverage
 

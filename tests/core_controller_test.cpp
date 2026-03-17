@@ -16,6 +16,7 @@
 #include "1q/airborne_radar/core/context/IRadarContext.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"
 #include "1q/airborne_radar/core/event/RadarEvents.h"
+#include "1q/airborne_radar/decision/ControlReducer.h"
 #include "1q/airborne_radar/decision/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "1q/airborne_radar/signal/tracking/ITrackLifecycleManager.h"
@@ -247,7 +248,7 @@ public:
 class FixedDirectiveDecisionEngine : public decision::ITacticalDecisionEngine {
 public:
   explicit FixedDirectiveDecisionEngine(common::ControlDirective directive)
-      : directive_(directive) {}
+      : directive_(std::move(directive)) {}
 
   decision::TacticalDecisionResult Evaluate(
       const common::DecisionInputFrame&,
@@ -260,6 +261,24 @@ public:
 
 private:
   common::ControlDirective directive_;
+};
+
+class FixedProposalDecisionEngine : public decision::ITacticalDecisionEngine {
+public:
+  explicit FixedProposalDecisionEngine(
+      std::vector<decision::TacticalProposal> proposals)
+      : proposals_(std::move(proposals)) {}
+
+  decision::TacticalDecisionResult Evaluate(
+      const common::DecisionInputFrame&,
+      decision::TacticalStateStore&) override {
+    decision::TacticalDecisionResult result;
+    result.proposals = proposals_;
+    return result;
+  }
+
+private:
+  std::vector<decision::TacticalProposal> proposals_;
 };
 
 /// @brief CoreControllerTest 覆盖核心调度与指令下发路径。
@@ -474,6 +493,47 @@ TEST_F(CoreControllerTest, NextCycleAppliesPendingControlProfileToSignalPipeline
 
   controller.RunOnce();
   EXPECT_EQ(signal_pipeline.GetControlProfile().version, first_pending_version);
+}
+
+TEST_F(CoreControllerTest, CustomReducerConfigChangesPendingControlProfile) {
+  const common::TargetFeatureList input_state =
+      BuildSingleTarget(800.0f, 2.5f, false);
+  FakeRadarContext radar_context(input_state);
+
+  environment::EnvironmentModelConfig env_config;
+  env_config.jammer_power_db = 0.0f;
+  environment::EnvironmentService environment_service(env_config);
+
+  signal::pipeline::SignalPipeline signal_pipeline;
+  std::vector<decision::TacticalProposal> proposals;
+  proposals.push_back(decision::TacticalProposal{
+      common::ControlDirective(
+          common::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+          common::ControlDirectiveSource::EMISSION_CONTROL),
+      60,
+      "reduce power"});
+  proposals.push_back(decision::TacticalProposal{
+      common::ControlDirective(
+          common::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
+          common::ControlDirectiveSource::SURVIVABILITY),
+      82,
+      "burnthrough"});
+  FixedProposalDecisionEngine decision_engine(proposals);
+
+  core::controller::RadarController controller(
+      radar_context, signal_pipeline, decision_engine, environment_service);
+
+  decision::ControlReducerConfig reducer_config;
+  reducer_config.lpi_power_scale_on_reduction = 0.60f;
+  reducer_config.eccm_burnthrough_gain = 1.8f;
+  reducer_config.burnthrough_lpi_power_floor = 0.95f;
+  controller.UpdateControlReducerConfig(reducer_config);
+
+  controller.RunOnce();
+
+  EXPECT_FLOAT_EQ(radar_context.LatestControlProfile().eccm_burnthrough_gain,
+                  1.8f);
+  EXPECT_FLOAT_EQ(radar_context.LatestControlProfile().lpi_power_scale, 0.95f);
 }
 
 TEST_F(CoreControllerTest, CycleEventBusDeliversEventsOnNextCycle) {

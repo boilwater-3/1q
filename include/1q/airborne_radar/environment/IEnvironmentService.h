@@ -14,6 +14,14 @@ struct EnvironmentSnapshot {
 	float propagation_loss_db{0.0f};
 	/// @brief 杂波功率估计（单位：dB）。
 	float clutter_power_db{0.0f};
+	/// @brief 干扰功率估计（单位：dB）。
+	float jammer_power_db{0.0f};
+	/// @brief 干扰与当前工作频率的重叠度，范围 [0, 1]。
+	float jammer_frequency_overlap_ratio{0.0f};
+	/// @brief 干扰对当前 PRF 锁定的风险度，范围 [0, 1]。
+	float jammer_prf_lock_risk{0.0f};
+	/// @brief 干扰是否主要经由旁瓣进入。
+	bool jammer_in_sidelobe{false};
 	/// @brief 是否检测到干扰。
 	bool jamming_detected{false};
 };

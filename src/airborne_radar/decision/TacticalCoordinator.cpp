@@ -19,8 +19,11 @@ TacticalDecisionResult TacticalCoordinator::Evaluate(
     const common::DecisionInputFrame& input_frame,
     TacticalStateStore& state_store) {
   TacticalEvaluationState evaluation_state;
-  evaluation_state.eccm_source_info.has_jamming_signal =
-      input_frame.environment_jamming_detected;
+  evaluation_state.eccm_source_info = input_frame.eccm_source_info;
+  if (!evaluation_state.eccm_source_info.has_jamming_signal) {
+    evaluation_state.eccm_source_info.has_jamming_signal =
+        input_frame.environment_jamming_detected;
+  }
 
   threat_assessment_evaluator_.Evaluate(input_frame, state_store,
                                         evaluation_state);

@@ -55,6 +55,11 @@ TEST(TacticalCoordinatorTest, HighThreatAndJamming) {
   common::DecisionInputFrame frame =
       BuildSingleTrackFrame(800.0f, 2.5f, true);
   frame.environment_jamming_detected = true;
+  frame.eccm_source_info.has_jamming_signal = true;
+  frame.eccm_source_info.jammer_power_db = 10.0f;
+  frame.eccm_source_info.frequency_overlap_ratio = 0.9f;
+  frame.eccm_source_info.prf_lock_risk = 0.9f;
+  frame.eccm_source_info.jammer_in_sidelobe = true;
 
   const decision::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);

@@ -7,6 +7,7 @@
 
 #include <cstdint>
 
+#include "1q/airborne_radar/common/DecisionSourceInfo.h"
 #include "1q/airborne_radar/common/DecisionTrackSnapshot.h"
 
 namespace airborne_radar {
@@ -22,6 +23,9 @@ struct DecisionInputFrame {
 
   /// @brief 环境是否检测到干扰。
   bool environment_jamming_detected{false};
+
+  /// @brief 供 ECCM 消费的干扰事实摘要。
+  EccmSourceInfo eccm_source_info{};
 
   /// @brief 当前周期可见的轨迹快照。
   DecisionTrackSnapshotList tracks{};

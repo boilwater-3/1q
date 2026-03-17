@@ -40,12 +40,19 @@ signal::tracking::CycleContext MakeLifecycleCycle(std::uint32_t cycle_index,
 TEST(EnvironmentServiceTest, DetectsJammingByConfiguredThreshold) {
   environment::EnvironmentModelConfig config;
   config.jammer_power_db = 7.0f;
+  config.jammer_frequency_overlap_ratio = 0.75f;
+  config.jammer_prf_lock_risk = 0.60f;
+  config.jammer_in_sidelobe = true;
 
   environment::EnvironmentService service(config);
   service.SetJammingDetectionThresholdDb(6.0f);
 
   const auto snapshot = service.SampleEnvironment();
   EXPECT_TRUE(snapshot.jamming_detected);
+  EXPECT_FLOAT_EQ(snapshot.jammer_power_db, 7.0f);
+  EXPECT_FLOAT_EQ(snapshot.jammer_frequency_overlap_ratio, 0.75f);
+  EXPECT_FLOAT_EQ(snapshot.jammer_prf_lock_risk, 0.60f);
+  EXPECT_TRUE(snapshot.jammer_in_sidelobe);
 }
 
 TEST(SignalPipelineTest, KeepsTrackStableWhenDetectionMarginIsEnough) {
@@ -267,6 +274,57 @@ TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) 
             baseline_measurements[0].raw_measurement.detection_margin_db);
 }
 
+TEST(SignalPipelineTest,
+     DetailedJammingFactsModulatePhysicalEccmBenefit) {
+  signal::pipeline::SignalPipelineConfig pipeline_config;
+  pipeline_config.detection.enable_physics_detection = true;
+  pipeline_config.detection.pulse_count = 64;
+  pipeline_config.detection.radar_system.detection.cfar_pfa = 0.5f;
+  pipeline_config.detection.radar_system.detection.min_snr_db = -50.0f;
+
+  environment::EnvironmentModelConfig favorable_env_config;
+  favorable_env_config.jammer_power_db = 12.0f;
+  favorable_env_config.jammer_frequency_overlap_ratio = 0.9f;
+  favorable_env_config.jammer_prf_lock_risk = 0.9f;
+  favorable_env_config.jammer_in_sidelobe = true;
+  environment::EnvironmentService favorable_environment(favorable_env_config);
+
+  environment::EnvironmentModelConfig unfavorable_env_config;
+  unfavorable_env_config.jammer_power_db = 12.0f;
+  unfavorable_env_config.jammer_frequency_overlap_ratio = 0.0f;
+  unfavorable_env_config.jammer_prf_lock_risk = 0.0f;
+  unfavorable_env_config.jammer_in_sidelobe = false;
+  environment::EnvironmentService unfavorable_environment(
+      unfavorable_env_config);
+
+  const common::TargetFeatureList input_state{
+      BuildPhysicsTarget(1000.0f, 1000.0f)};
+
+  common::RadarControlProfile eccm_profile;
+  eccm_profile.enable_sidelobe_canceller = true;
+  eccm_profile.enable_adaptive_beamforming = true;
+  eccm_profile.enable_agility_frequency = true;
+  eccm_profile.enable_eccm_rejitter = true;
+  eccm_profile.eccm_burnthrough_gain = 1.5f;
+
+  signal::pipeline::SignalPipeline favorable_pipeline(pipeline_config);
+  favorable_pipeline.SetControlProfile(eccm_profile);
+  favorable_pipeline.RunCycle(input_state, favorable_environment);
+  const auto favorable_measurements =
+      favorable_pipeline.GetLastTrackMeasurements();
+
+  signal::pipeline::SignalPipeline unfavorable_pipeline(pipeline_config);
+  unfavorable_pipeline.SetControlProfile(eccm_profile);
+  unfavorable_pipeline.RunCycle(input_state, unfavorable_environment);
+  const auto unfavorable_measurements =
+      unfavorable_pipeline.GetLastTrackMeasurements();
+
+  ASSERT_EQ(favorable_measurements.size(), 1u);
+  ASSERT_EQ(unfavorable_measurements.size(), 1u);
+  EXPECT_GT(favorable_measurements[0].raw_measurement.detection_margin_db,
+            unfavorable_measurements[0].raw_measurement.detection_margin_db);
+}
+
 TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
   environment::EnvironmentModelConfig env_config;
   env_config.base_propagation_loss_db = 80.0f;
@@ -276,8 +334,12 @@ TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
   env_config.jammer_power_db = 0.0f;
   environment::EnvironmentService environment_service(env_config);
 
-  const common::TargetFeatureList input_state{common::TargetFeature(
-      800.0f, 0.0f, 0.0f, 2.5f, 1.0f, 0.0f, 0.0f)};
+  common::TargetFeature target(800.0f, 0.0f, 0.0f, 2.5f, 1.0f, 0.0f, 0.0f);
+  target.position_x = 100.0f;
+  target.position_y = 0.0f;
+  target.position_z = 0.0f;
+  target.range_m = 100.0f;
+  const common::TargetFeatureList input_state{target};
 
   signal::pipeline::SignalPipeline baseline_pipeline;
   const auto baseline_output =
@@ -300,6 +362,61 @@ TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
             baseline_output[0].current_track_rcs);
   EXPECT_GT(protected_output[0].current_track_acceleration,
             baseline_output[0].current_track_acceleration);
+}
+
+TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
+  signal::pipeline::SignalPipelineConfig pipeline_config;
+  pipeline_config.detection.min_detection_margin_db = -6.0f;
+
+  environment::EnvironmentModelConfig favorable_env_config;
+  favorable_env_config.base_propagation_loss_db = 30.0f;
+  favorable_env_config.atmospheric_attenuation_db = 10.0f;
+  favorable_env_config.terrain_reflection_db = 5.0f;
+  favorable_env_config.clutter_power_db = 12.0f;
+  favorable_env_config.jammer_power_db = 12.0f;
+  favorable_env_config.jammer_frequency_overlap_ratio = 0.9f;
+  favorable_env_config.jammer_prf_lock_risk = 0.9f;
+  favorable_env_config.jammer_in_sidelobe = true;
+  environment::EnvironmentService favorable_environment(favorable_env_config);
+
+  environment::EnvironmentModelConfig unfavorable_env_config =
+      favorable_env_config;
+  unfavorable_env_config.jammer_frequency_overlap_ratio = 0.0f;
+  unfavorable_env_config.jammer_prf_lock_risk = 0.0f;
+  unfavorable_env_config.jammer_in_sidelobe = false;
+  environment::EnvironmentService unfavorable_environment(
+      unfavorable_env_config);
+
+  common::TargetFeature target(800.0f, 0.0f, 0.0f, 2.5f, 1.0f, 0.0f, 0.0f);
+  target.position_x = 100.0f;
+  target.position_y = 0.0f;
+  target.position_z = 0.0f;
+  target.range_m = 100.0f;
+  const common::TargetFeatureList input_state{target};
+
+  common::RadarControlProfile eccm_profile;
+  eccm_profile.enable_sidelobe_canceller = true;
+  eccm_profile.enable_adaptive_beamforming = true;
+  eccm_profile.enable_agility_frequency = true;
+  eccm_profile.enable_eccm_rejitter = true;
+  eccm_profile.eccm_burnthrough_gain = 1.5f;
+
+  signal::pipeline::SignalPipeline favorable_pipeline(pipeline_config);
+  favorable_pipeline.SetControlProfile(eccm_profile);
+  favorable_pipeline.RunCycle(input_state, favorable_environment);
+  const auto favorable_measurements =
+      favorable_pipeline.GetLastTrackMeasurements();
+
+  signal::pipeline::SignalPipeline unfavorable_pipeline(pipeline_config);
+  unfavorable_pipeline.SetControlProfile(eccm_profile);
+  unfavorable_pipeline.RunCycle(input_state, unfavorable_environment);
+  const auto unfavorable_measurements =
+      unfavorable_pipeline.GetLastTrackMeasurements();
+
+  ASSERT_EQ(favorable_measurements.size(), 1u);
+  ASSERT_EQ(unfavorable_measurements.size(), 1u);
+  EXPECT_GT(favorable_measurements[0].raw_measurement.detection_margin_db,
+            unfavorable_measurements[0].raw_measurement.detection_margin_db);
 }
 
 TEST(SignalPipelineTest,

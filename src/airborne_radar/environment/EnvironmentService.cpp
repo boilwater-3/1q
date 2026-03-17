@@ -20,6 +20,12 @@ EnvironmentSnapshot EnvironmentService::SampleEnvironment() const {
                          config_.atmospheric_attenuation_db +
                          config_.terrain_reflection_db);
   snapshot.clutter_power_db = std::max(0.0f, config_.clutter_power_db);
+  snapshot.jammer_power_db = std::max(0.0f, config_.jammer_power_db);
+  snapshot.jammer_frequency_overlap_ratio =
+      std::max(0.0f, std::min(1.0f, config_.jammer_frequency_overlap_ratio));
+  snapshot.jammer_prf_lock_risk =
+      std::max(0.0f, std::min(1.0f, config_.jammer_prf_lock_risk));
+  snapshot.jammer_in_sidelobe = config_.jammer_in_sidelobe;
   snapshot.jamming_detected =
       config_.jammer_power_db >= jamming_detection_threshold_db_;
 

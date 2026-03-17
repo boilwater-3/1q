@@ -33,6 +33,7 @@ namespace airborne_radar {
 namespace decision {
 class ITacticalDecisionEngine;
 class ControlReducer;
+struct ControlReducerConfig;
 struct TacticalStateStore;
 }
 }
@@ -110,6 +111,11 @@ public:
 	/// @param lifecycle_manager 生命周期管理器，可为 nullptr。
 	void SetTrackLifecycleManager(
 			signal::tracking::ITrackLifecycleManager *lifecycle_manager);
+
+	/// @brief 更新控制归并器配置。
+	/// @param config 新的 reducer 配置。
+	void UpdateControlReducerConfig(
+			const decision::ControlReducerConfig &config);
 
 private:
 	/// @brief 若尚未绑定 Lifecycle，则尝试通过 Pipeline 自动装配。

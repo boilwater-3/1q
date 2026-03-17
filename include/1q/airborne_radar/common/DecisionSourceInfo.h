@@ -21,6 +21,18 @@ struct EccmSourceInfo {
   /// @brief 当前周期是否检测到干扰信号。
   bool has_jamming_signal{false};
 
+  /// @brief 干扰功率估计（单位：dB）。
+  float jammer_power_db{0.0f};
+
+  /// @brief 干扰与当前工作频率的重叠度，范围 [0, 1]。
+  float frequency_overlap_ratio{0.0f};
+
+  /// @brief 干扰对当前 PRF 锁定的风险度，范围 [0, 1]。
+  float prf_lock_risk{0.0f};
+
+  /// @brief 干扰是否主要经由旁瓣进入。
+  bool jammer_in_sidelobe{false};
+
   /// @brief 默认构造函数。
   EccmSourceInfo() = default;
 

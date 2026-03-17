@@ -167,6 +167,11 @@ float ClampFloat(float value, float min_value, float max_value) {
   return std::max(min_value, std::min(max_value, value));
 }
 
+/// @brief 将 dB 功率转换为线性功率（W）。
+float DbToLinearPower(float power_db) {
+  return std::pow(10.0f, power_db / 10.0f);
+}
+
 /// @brief 归一化 IMM 初始权重，避免 profile 调整后破坏概率约束。
 void NormalizeImmInitialWeights(std::vector<float>* weights) {
   if (weights == nullptr || weights->empty()) {
@@ -233,20 +238,30 @@ float ComputeHeuristicEnvironmentReliefDb(
   float relief_db = 0.0f;
   if (environment_snapshot.jamming_detected) {
     if (control_profile.enable_sidelobe_canceller) {
-      relief_db += 2.5f;
+      relief_db += environment_snapshot.jammer_in_sidelobe ? 3.0f : 0.8f;
     }
     if (control_profile.enable_agility_frequency) {
-      relief_db += 1.5f;
+      relief_db += 0.6f + 1.8f * ClampFloat(
+                                     environment_snapshot
+                                         .jammer_frequency_overlap_ratio,
+                                     0.0f, 1.0f);
     }
     if (control_profile.enable_eccm_rejitter) {
-      relief_db += 1.0f;
+      relief_db += 0.4f +
+                   1.4f * ClampFloat(
+                              environment_snapshot.jammer_prf_lock_risk, 0.0f,
+                              1.0f);
     }
   }
   if (control_profile.enable_adaptive_beamforming) {
-    relief_db += 0.8f;
+    relief_db += environment_snapshot.jammer_in_sidelobe ? 1.2f : 0.8f;
   }
   if (control_profile.eccm_burnthrough_gain > 1.0f) {
-    relief_db += ToDbDelta(control_profile.eccm_burnthrough_gain);
+    const float jammer_scale =
+        0.5f + 0.06f * ClampFloat(environment_snapshot.jammer_power_db, 0.0f,
+                                  20.0f);
+    relief_db += ToDbDelta(control_profile.eccm_burnthrough_gain) *
+                 ClampFloat(jammer_scale, 0.5f, 1.7f);
   }
   return relief_db;
 }
@@ -630,13 +645,28 @@ struct SignalPipeline::Impl {
           ResolveSpeedMagnitude(input[i]) * 0.002f;
     }
 
+    const float jamming_penalty_db =
+        cached_context.environment_snapshot.jamming_detected
+            ? (1.0f +
+               0.35f * ClampFloat(
+                           cached_context.environment_snapshot.jammer_power_db,
+                           0.0f, 20.0f) +
+               2.0f * ClampFloat(
+                           cached_context.environment_snapshot
+                               .jammer_frequency_overlap_ratio,
+                           0.0f, 1.0f) +
+               1.5f * ClampFloat(
+                           cached_context.environment_snapshot.jammer_prf_lock_risk,
+                           0.0f, 1.0f) +
+               (cached_context.environment_snapshot.jammer_in_sidelobe ? 1.0f
+                                                                       : 0.0f))
+            : 0.0f;
     const float environment_penalty_db =
         std::max(
             0.0f,
             cached_context.environment_snapshot.propagation_loss_db * 0.2f +
-        cached_context.environment_snapshot.clutter_power_db * 0.3f +
-                (cached_context.environment_snapshot.jamming_detected ? 5.0f
-                                                                     : 0.0f) -
+                cached_context.environment_snapshot.clutter_power_db * 0.3f +
+                jamming_penalty_db -
                 ComputeHeuristicEnvironmentReliefDb(control_profile_,
                                                     cached_context
                                                         .environment_snapshot));
@@ -659,19 +689,34 @@ struct SignalPipeline::Impl {
     float clutter_w = std::pow(
         10.0f, cached_context.environment_snapshot.clutter_power_db / 10.0f);
     if (control_profile_.enable_sidelobe_canceller) {
-      clutter_w *= 0.70f;
+      clutter_w *= cached_context.environment_snapshot.jammer_in_sidelobe
+                       ? 0.55f
+                       : 0.80f;
     }
 
-    float jam_w =
-        cached_context.environment_snapshot.jamming_detected ? 1e-12f : 0.0f;
+    float jam_w = cached_context.environment_snapshot.jamming_detected
+                      ? DbToLinearPower(
+                            cached_context.environment_snapshot.jammer_power_db)
+                      : 0.0f;
     if (control_profile_.enable_sidelobe_canceller) {
-      jam_w *= 0.55f;
+      jam_w *= cached_context.environment_snapshot.jammer_in_sidelobe
+                   ? 0.35f
+                   : 0.80f;
     }
     if (control_profile_.enable_agility_frequency) {
-      jam_w *= 0.70f;
+      const float overlap_ratio = ClampFloat(
+          cached_context.environment_snapshot.jammer_frequency_overlap_ratio,
+          0.0f, 1.0f);
+      jam_w *= ClampFloat(1.0f - 0.60f * overlap_ratio, 0.25f, 1.0f);
     }
     if (control_profile_.enable_eccm_rejitter) {
-      jam_w *= 0.85f;
+      const float prf_lock_risk = ClampFloat(
+          cached_context.environment_snapshot.jammer_prf_lock_risk, 0.0f, 1.0f);
+      jam_w *= ClampFloat(1.0f - 0.50f * prf_lock_risk, 0.35f, 1.0f);
+    }
+    if (control_profile_.enable_adaptive_beamforming) {
+      jam_w *= cached_context.environment_snapshot.jammer_in_sidelobe ? 0.85f
+                                                                      : 0.75f;
     }
 
     detection::EnvironmentState env;

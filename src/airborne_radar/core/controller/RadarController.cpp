@@ -30,6 +30,18 @@ namespace controller {
 
 namespace {
 
+common::EccmSourceInfo BuildEccmSourceInfo(
+    const environment::EnvironmentSnapshot& environment_snapshot) {
+  common::EccmSourceInfo source_info;
+  source_info.has_jamming_signal = environment_snapshot.jamming_detected;
+  source_info.jammer_power_db = environment_snapshot.jammer_power_db;
+  source_info.frequency_overlap_ratio =
+      environment_snapshot.jammer_frequency_overlap_ratio;
+  source_info.prf_lock_risk = environment_snapshot.jammer_prf_lock_risk;
+  source_info.jammer_in_sidelobe = environment_snapshot.jammer_in_sidelobe;
+  return source_info;
+}
+
 common::DecisionTrackSnapshot BuildDecisionTrackSnapshotFromFeature(
     const common::TargetFeature& feature, std::size_t index) {
   const std::uint64_t association_key =
@@ -54,11 +66,13 @@ common::DecisionTrackSnapshot BuildDecisionTrackSnapshotFromFeature(
 
 common::DecisionInputFrame BuildDecisionFrameFromFeatures(
     const common::TargetFeatureList& features, std::uint32_t cycle_index,
-    std::uint64_t batch_id, bool environment_jamming_detected) {
+    std::uint64_t batch_id,
+    const common::EccmSourceInfo& eccm_source_info) {
   common::DecisionInputFrame frame;
   frame.cycle_index = cycle_index;
   frame.batch_id = batch_id;
-  frame.environment_jamming_detected = environment_jamming_detected;
+  frame.environment_jamming_detected = eccm_source_info.has_jamming_signal;
+  frame.eccm_source_info = eccm_source_info;
   frame.tracks.reserve(features.size());
   for (std::size_t i = 0; i < features.size(); ++i) {
     frame.tracks.push_back(BuildDecisionTrackSnapshotFromFeature(features[i], i));
@@ -252,11 +266,14 @@ void RadarController::RunOnce() {
   const signal::pipeline::AssociationQualityMetrics association_metrics =
       signal_pipeline_.GetLastAssociationQualityMetrics();
 
-  const bool environment_jamming_detected =
-      environment_service_.SampleEnvironment().jamming_detected;
+  const environment::EnvironmentSnapshot environment_snapshot =
+      environment_service_.SampleEnvironment();
+  const common::EccmSourceInfo eccm_source_info =
+      BuildEccmSourceInfo(environment_snapshot);
+  const bool environment_jamming_detected = eccm_source_info.has_jamming_signal;
   common::TargetFeatureList decision_features = updated_features;
   common::DecisionInputFrame decision_frame = BuildDecisionFrameFromFeatures(
-      updated_features, cycle_index_, batch_id_, environment_jamming_detected);
+      updated_features, cycle_index_, batch_id_, eccm_source_info);
   std::size_t measurement_count = 0;
 
   if (track_lifecycle_manager_ != nullptr) {
@@ -273,6 +290,8 @@ void RadarController::RunOnce() {
     decision_features = track_lifecycle_manager_->BuildFeatureSnapshot();
     decision_frame = track_lifecycle_manager_->BuildDecisionFrame(
         cycle_index_, batch_id_, environment_jamming_detected);
+    decision_frame.environment_jamming_detected = environment_jamming_detected;
+    decision_frame.eccm_source_info = eccm_source_info;
   }
 
   decision::TacticalDecisionResult decision_result;
@@ -396,6 +415,19 @@ void RadarController::SetTrackLifecycleManager(
   spdlog::info(
       "[RadarController] track lifecycle manager {} (association priors: external seeds only)",
       lifecycle_manager != nullptr ? "attached" : "detached");
+}
+
+void RadarController::UpdateControlReducerConfig(
+    const decision::ControlReducerConfig& config) {
+  if (control_reducer_ == nullptr) {
+    return;
+  }
+  control_reducer_->UpdateConfig(config);
+  spdlog::info(
+      "[RadarController] control reducer config updated: lpi_power_scale={} dwell_scale={} burnthrough_gain={} burnthrough_power_floor={} prefer_survivability={}",
+      config.lpi_power_scale_on_reduction, config.lpi_dwell_scale,
+      config.eccm_burnthrough_gain, config.burnthrough_lpi_power_floor,
+      config.prefer_survivability_in_power_conflict ? "true" : "false");
 }
 
 } // namespace controller
