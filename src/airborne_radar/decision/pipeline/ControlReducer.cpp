@@ -2,7 +2,7 @@
 //
 // Description: ControlReducer 的实现。
 
-#include "1q/airborne_radar/decision/ControlReducer.h"
+#include "1q/airborne_radar/decision/pipeline/ControlReducer.h"
 
 #include <algorithm>
 #include <set>
@@ -10,6 +10,7 @@
 
 namespace airborne_radar {
 namespace decision {
+namespace pipeline {
 
 namespace {
 
@@ -347,5 +348,6 @@ ControlReductionResult ControlReducer::Reduce(
   return result;
 }
 
+} // namespace pipeline
 } // namespace decision
 } // namespace airborne_radar

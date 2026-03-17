@@ -31,10 +31,12 @@ class IEventBus;
 
 namespace airborne_radar {
 namespace decision {
+namespace pipeline {
 class ITacticalDecisionEngine;
 class ControlReducer;
 struct ControlReducerConfig;
 struct TacticalStateStore;
+}
 }
 }
 
@@ -86,14 +88,14 @@ public:
 	RadarController(
 			core::context::IRadarContext &radar_context,
 			signal::pipeline::ISignalPipeline &signal_pipeline,
-			decision::ITacticalDecisionEngine &decision_engine,
+			decision::pipeline::ITacticalDecisionEngine &decision_engine,
 			environment::IEnvironmentService &environment_service);
 
 	/// @brief 构造函数，显式注入新的决策引擎与事件总线。
 	RadarController(
 			core::context::IRadarContext &radar_context,
 			signal::pipeline::ISignalPipeline &signal_pipeline,
-			decision::ITacticalDecisionEngine &decision_engine,
+			decision::pipeline::ITacticalDecisionEngine &decision_engine,
 			environment::IEnvironmentService &environment_service,
 			core::event::IEventBus &event_bus);
 
@@ -115,7 +117,7 @@ public:
 	/// @brief 更新控制归并器配置。
 	/// @param config 新的 reducer 配置。
 	void UpdateControlReducerConfig(
-			const decision::ControlReducerConfig &config);
+			const decision::pipeline::ControlReducerConfig &config);
 
 private:
 	/// @brief 若尚未绑定 Lifecycle，则尝试通过 Pipeline 自动装配。
@@ -132,10 +134,10 @@ private:
 	signal::pipeline::ISignalPipeline &signal_pipeline_;
 
 	/// @brief 决策引擎抽象。
-	decision::ITacticalDecisionEngine *decision_engine_{nullptr};
+	decision::pipeline::ITacticalDecisionEngine *decision_engine_{nullptr};
 
 	/// @brief 若由 Controller 自持有，则保存默认决策引擎实例。
-	std::unique_ptr<decision::ITacticalDecisionEngine> owned_decision_engine_;
+	std::unique_ptr<decision::pipeline::ITacticalDecisionEngine> owned_decision_engine_;
 
 	/// @brief 环境建模服务抽象。
 	environment::IEnvironmentService &environment_service_;
@@ -157,10 +159,10 @@ private:
 	std::unique_ptr<common::RadarControlProfile> owned_control_profile_;
 
 	/// @brief 战术跨周期内存。
-	std::unique_ptr<decision::TacticalStateStore> tactical_state_store_;
+	std::unique_ptr<decision::pipeline::TacticalStateStore> tactical_state_store_;
 
 	/// @brief 控制归并器。
-	std::unique_ptr<decision::ControlReducer> control_reducer_;
+	std::unique_ptr<decision::pipeline::ControlReducer> control_reducer_;
 
 	/// @brief 当前处理周期号。
 	std::uint32_t cycle_index_{1};

@@ -17,9 +17,9 @@
 #include "1q/airborne_radar/core/event/IEventBus.h"
 #include "1q/airborne_radar/core/event/RadarEvents.h"
 #include "1q/airborne_radar/core/context/IRadarContext.h"
-#include "1q/airborne_radar/decision/ControlReducer.h"
-#include "1q/airborne_radar/decision/ITacticalDecisionEngine.h"
-#include "1q/airborne_radar/decision/TacticalCoordinator.h"
+#include "1q/airborne_radar/decision/pipeline/ControlReducer.h"
+#include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/decision/pipeline/TacticalCoordinator.h"
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "1q/airborne_radar/signal/tracking/ITrackLifecycleManager.h"
@@ -243,12 +243,12 @@ RadarController::RadarController(
     : radar_context_(radar_context),
       signal_pipeline_(signal_pipeline),
       decision_engine_(nullptr),
-      owned_decision_engine_(new decision::TacticalCoordinator()),
+      owned_decision_engine_(new decision::pipeline::TacticalCoordinator()),
       environment_service_(environment_service),
       control_profile_(nullptr),
       owned_control_profile_(new common::RadarControlProfile()),
-      tactical_state_store_(new decision::TacticalStateStore()),
-      control_reducer_(new decision::ControlReducer()) {
+      tactical_state_store_(new decision::pipeline::TacticalStateStore()),
+      control_reducer_(new decision::pipeline::ControlReducer()) {
   decision_engine_ = owned_decision_engine_.get();
   control_profile_ = owned_control_profile_.get();
 }
@@ -261,13 +261,13 @@ RadarController::RadarController(
     : radar_context_(radar_context),
       signal_pipeline_(signal_pipeline),
       decision_engine_(nullptr),
-      owned_decision_engine_(new decision::TacticalCoordinator()),
+      owned_decision_engine_(new decision::pipeline::TacticalCoordinator()),
       environment_service_(environment_service),
       event_bus_(&event_bus),
       control_profile_(nullptr),
       owned_control_profile_(new common::RadarControlProfile()),
-      tactical_state_store_(new decision::TacticalStateStore()),
-      control_reducer_(new decision::ControlReducer()) {
+      tactical_state_store_(new decision::pipeline::TacticalStateStore()),
+      control_reducer_(new decision::pipeline::ControlReducer()) {
   decision_engine_ = owned_decision_engine_.get();
   control_profile_ = owned_control_profile_.get();
 }
@@ -275,7 +275,7 @@ RadarController::RadarController(
 RadarController::RadarController(
     core::context::IRadarContext& radar_context,
     signal::pipeline::ISignalPipeline& signal_pipeline,
-    decision::ITacticalDecisionEngine& decision_engine,
+    decision::pipeline::ITacticalDecisionEngine& decision_engine,
     environment::IEnvironmentService& environment_service)
     : radar_context_(radar_context),
       signal_pipeline_(signal_pipeline),
@@ -284,15 +284,15 @@ RadarController::RadarController(
       control_profile_(nullptr),
       owned_control_profile_(
           new common::RadarControlProfile()),
-      tactical_state_store_(new decision::TacticalStateStore()),
-      control_reducer_(new decision::ControlReducer()) {
+      tactical_state_store_(new decision::pipeline::TacticalStateStore()),
+      control_reducer_(new decision::pipeline::ControlReducer()) {
   control_profile_ = owned_control_profile_.get();
 }
 
 RadarController::RadarController(
     core::context::IRadarContext& radar_context,
     signal::pipeline::ISignalPipeline& signal_pipeline,
-    decision::ITacticalDecisionEngine& decision_engine,
+    decision::pipeline::ITacticalDecisionEngine& decision_engine,
     environment::IEnvironmentService& environment_service,
     core::event::IEventBus& event_bus)
     : radar_context_(radar_context),
@@ -302,8 +302,8 @@ RadarController::RadarController(
       event_bus_(&event_bus),
       control_profile_(nullptr),
       owned_control_profile_(new common::RadarControlProfile()),
-      tactical_state_store_(new decision::TacticalStateStore()),
-      control_reducer_(new decision::ControlReducer()) {
+      tactical_state_store_(new decision::pipeline::TacticalStateStore()),
+      control_reducer_(new decision::pipeline::ControlReducer()) {
   control_profile_ = owned_control_profile_.get();
 }
 
@@ -388,17 +388,16 @@ void RadarController::RunOnce() {
     decision_frame.perception_quality_info = perception_quality_info;
   }
 
-  decision::TacticalDecisionResult decision_result;
+  decision::pipeline::TacticalDecisionResult decision_result;
   if (decision_engine_ != nullptr && tactical_state_store_ != nullptr) {
-    decision_result =
-        decision_engine_->Evaluate(decision_frame, *tactical_state_store_);
+    decision_result = decision_engine_->Evaluate(decision_frame, *tactical_state_store_);
   }
 
   const common::RadarControlProfile previous_profile = *control_profile_;
-  const decision::ControlReductionResult reduction_result =
+  const decision::pipeline::ControlReductionResult reduction_result =
       control_reducer_ != nullptr
           ? control_reducer_->Reduce(*control_profile_, decision_result.proposals)
-          : decision::ControlReductionResult();
+          : decision::pipeline::ControlReductionResult();
   *control_profile_ = reduction_result.profile;
   radar_context_.UpdateRadarControlProfile(*control_profile_);
 
@@ -517,7 +516,7 @@ void RadarController::SetTrackLifecycleManager(
 }
 
 void RadarController::UpdateControlReducerConfig(
-    const decision::ControlReducerConfig& config) {
+    const decision::pipeline::ControlReducerConfig& config) {
   if (control_reducer_ == nullptr) {
     return;
   }

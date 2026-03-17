@@ -7,12 +7,13 @@
 
 #include "1q/airborne_radar/decision/classifier/ThreatAssessmentEvaluator.h"
 #include "1q/airborne_radar/decision/eccm/SurvivabilityEvaluator.h"
-#include "1q/airborne_radar/decision/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/decision/lpi/EmissionControlEvaluator.h"
 #include "1q/airborne_radar/environment/database/IFeatureRepository.h"
 
 namespace airborne_radar {
 namespace decision {
+namespace pipeline {
 
 /// @brief TacticalCoordinator 是默认的决策协调器实现。
 class TacticalCoordinator final : public ITacticalDecisionEngine {
@@ -33,6 +34,7 @@ class TacticalCoordinator final : public ITacticalDecisionEngine {
   eccm::SurvivabilityEvaluator survivability_evaluator_;
 };
 
+} // namespace pipeline
 } // namespace decision
 } // namespace airborne_radar
 

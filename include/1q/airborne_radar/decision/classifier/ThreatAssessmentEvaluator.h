@@ -10,7 +10,7 @@
 #include "1q/airborne_radar/common/DecisionSourceInfo.h"
 #include "1q/airborne_radar/common/DecisionTrackSnapshot.h"
 #include "1q/airborne_radar/common/TargetCategory.h"
-#include "1q/airborne_radar/decision/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/environment/database/IFeatureRepository.h"
 
 namespace airborne_radar {
@@ -18,7 +18,7 @@ namespace decision {
 namespace classifier {
 
 /// @brief ThreatAssessmentEvaluator 实现目标分类与威胁记忆更新。
-class ThreatAssessmentEvaluator final : public ITacticalEvaluator {
+class ThreatAssessmentEvaluator final : public pipeline::ITacticalEvaluator {
  public:
   /// @brief 构造函数，可选注入特征仓储。
   explicit ThreatAssessmentEvaluator(
@@ -27,8 +27,8 @@ class ThreatAssessmentEvaluator final : public ITacticalEvaluator {
 
   /// @brief 评估单周期输入并更新分类与威胁状态。
   void Evaluate(const common::DecisionInputFrame& input_frame,
-                TacticalStateStore& state_store,
-                TacticalEvaluationState& evaluation_state) const override;
+                pipeline::TacticalStateStore& state_store,
+                pipeline::TacticalEvaluationState& evaluation_state) const override;
 
  private:
   /// @brief 识别目标类型。

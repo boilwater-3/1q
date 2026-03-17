@@ -9,10 +9,11 @@
 
 #include "1q/airborne_radar/common/ControlDirective.h"
 #include "1q/airborne_radar/common/RadarControlProfile.h"
-#include "1q/airborne_radar/decision/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
 
 namespace airborne_radar {
 namespace decision {
+namespace pipeline {
 
 /// @brief ControlReducerConfig 描述 proposal -> profile 的固定映射与冲突裁决策略。
 struct ControlReducerConfig {
@@ -80,6 +81,7 @@ class ControlReducer {
   ControlReducerConfig config_{};
 };
 
+} // namespace pipeline
 } // namespace decision
 } // namespace airborne_radar
 

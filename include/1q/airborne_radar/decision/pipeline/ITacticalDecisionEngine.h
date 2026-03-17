@@ -17,6 +17,7 @@
 
 namespace airborne_radar {
 namespace decision {
+namespace pipeline {
 
 /// @brief TacticalMode 表示当前战术模式。
 enum class TacticalMode {
@@ -132,6 +133,7 @@ class ITacticalDecisionEngine {
       TacticalStateStore& state_store) = 0;
 };
 
+} // namespace pipeline
 } // namespace decision
 } // namespace airborne_radar
 

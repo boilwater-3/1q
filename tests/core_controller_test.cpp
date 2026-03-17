@@ -16,8 +16,8 @@
 #include "1q/airborne_radar/core/context/IRadarContext.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"
 #include "1q/airborne_radar/core/event/RadarEvents.h"
-#include "1q/airborne_radar/decision/ControlReducer.h"
-#include "1q/airborne_radar/decision/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/decision/pipeline/ControlReducer.h"
+#include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "1q/airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "1q/airborne_radar/signal/tracking/TrackLifecycleTypes.h"
@@ -245,17 +245,17 @@ public:
   std::vector<signal::tracking::TrackMeasurement> last_measurements;
 };
 
-class FixedDirectiveDecisionEngine : public decision::ITacticalDecisionEngine {
+class FixedDirectiveDecisionEngine : public decision::pipeline::ITacticalDecisionEngine {
 public:
   explicit FixedDirectiveDecisionEngine(common::ControlDirective directive)
       : directive_(std::move(directive)) {}
 
-  decision::TacticalDecisionResult Evaluate(
+  decision::pipeline::TacticalDecisionResult Evaluate(
       const common::DecisionInputFrame&,
-      decision::TacticalStateStore&) override {
-    decision::TacticalDecisionResult result;
+      decision::pipeline::TacticalStateStore&) override {
+    decision::pipeline::TacticalDecisionResult result;
     result.proposals.push_back(
-        decision::TacticalProposal(directive_, 10, "test directive"));
+        decision::pipeline::TacticalProposal(directive_, 10, "test directive"));
     return result;
   }
 
@@ -263,32 +263,32 @@ private:
   common::ControlDirective directive_;
 };
 
-class FixedProposalDecisionEngine : public decision::ITacticalDecisionEngine {
+class FixedProposalDecisionEngine : public decision::pipeline::ITacticalDecisionEngine {
 public:
   explicit FixedProposalDecisionEngine(
-      std::vector<decision::TacticalProposal> proposals)
+      std::vector<decision::pipeline::TacticalProposal> proposals)
       : proposals_(std::move(proposals)) {}
 
-  decision::TacticalDecisionResult Evaluate(
+  decision::pipeline::TacticalDecisionResult Evaluate(
       const common::DecisionInputFrame&,
-      decision::TacticalStateStore&) override {
-    decision::TacticalDecisionResult result;
+      decision::pipeline::TacticalStateStore&) override {
+    decision::pipeline::TacticalDecisionResult result;
     result.proposals = proposals_;
     return result;
   }
 
 private:
-  std::vector<decision::TacticalProposal> proposals_;
+  std::vector<decision::pipeline::TacticalProposal> proposals_;
 };
 
-class CapturingDecisionEngine : public decision::ITacticalDecisionEngine {
+class CapturingDecisionEngine : public decision::pipeline::ITacticalDecisionEngine {
 public:
-  decision::TacticalDecisionResult Evaluate(
+  decision::pipeline::TacticalDecisionResult Evaluate(
       const common::DecisionInputFrame& frame,
-      decision::TacticalStateStore&) override {
+      decision::pipeline::TacticalStateStore&) override {
     last_frame = frame;
     ++evaluate_count;
-    return decision::TacticalDecisionResult();
+    return decision::pipeline::TacticalDecisionResult();
   }
 
   common::DecisionInputFrame last_frame{};
@@ -574,14 +574,14 @@ TEST_F(CoreControllerTest, CustomReducerConfigChangesPendingControlProfile) {
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  std::vector<decision::TacticalProposal> proposals;
-  proposals.push_back(decision::TacticalProposal{
+  std::vector<decision::pipeline::TacticalProposal> proposals;
+  proposals.push_back(decision::pipeline::TacticalProposal{
       common::ControlDirective(
           common::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
           common::ControlDirectiveSource::EMISSION_CONTROL),
       60,
       "reduce power"});
-  proposals.push_back(decision::TacticalProposal{
+  proposals.push_back(decision::pipeline::TacticalProposal{
       common::ControlDirective(
           common::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
           common::ControlDirectiveSource::SURVIVABILITY),
@@ -592,7 +592,7 @@ TEST_F(CoreControllerTest, CustomReducerConfigChangesPendingControlProfile) {
   core::controller::RadarController controller(
       radar_context, signal_pipeline, decision_engine, environment_service);
 
-  decision::ControlReducerConfig reducer_config;
+  decision::pipeline::ControlReducerConfig reducer_config;
   reducer_config.lpi_power_scale_on_reduction = 0.60f;
   reducer_config.eccm_burnthrough_gain = 1.8f;
   reducer_config.burnthrough_lpi_power_floor = 0.95f;

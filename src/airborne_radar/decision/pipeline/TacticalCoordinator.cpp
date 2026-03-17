@@ -2,7 +2,7 @@
 //
 // Description: TacticalCoordinator 的默认实现。
 
-#include "1q/airborne_radar/decision/TacticalCoordinator.h"
+#include "1q/airborne_radar/decision/pipeline/TacticalCoordinator.h"
 
 #include <string>
 #include <vector>
@@ -11,6 +11,7 @@
 
 namespace airborne_radar {
 namespace decision {
+namespace pipeline {
 
 namespace {
 
@@ -149,5 +150,6 @@ TacticalDecisionResult TacticalCoordinator::Evaluate(
   return result;
 }
 
+} // namespace pipeline
 } // namespace decision
 } // namespace airborne_radar

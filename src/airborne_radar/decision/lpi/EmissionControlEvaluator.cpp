@@ -23,8 +23,8 @@ common::ControlDirective BuildLpiPowerDirective() {
 } // namespace
 
 void EmissionControlEvaluator::Evaluate(
-    const common::DecisionInputFrame& input_frame, TacticalStateStore& state_store,
-    TacticalEvaluationState& evaluation_state) const {
+    const common::DecisionInputFrame& input_frame, pipeline::TacticalStateStore& state_store,
+    pipeline::TacticalEvaluationState& evaluation_state) const {
   (void)input_frame;
 
   bool should_reduce_power = evaluation_state.should_reduce_power;
@@ -40,7 +40,7 @@ void EmissionControlEvaluator::Evaluate(
   }
 
   state_store.lpi_hold_cycles_remaining = kLpiHoldCycles;
-  evaluation_state.proposals.push_back(TacticalProposal{
+  evaluation_state.proposals.push_back(pipeline::TacticalProposal{
       BuildLpiPowerDirective(),
       60,
       "high-confidence threat requires reduced emission"});

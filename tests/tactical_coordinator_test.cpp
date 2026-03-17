@@ -10,8 +10,8 @@
 
 #include "1q/airborne_radar/common/DecisionInputFrame.h"
 #include "1q/airborne_radar/common/DecisionTrackSnapshot.h"
-#include "1q/airborne_radar/decision/ControlReducer.h"
-#include "1q/airborne_radar/decision/TacticalCoordinator.h"
+#include "1q/airborne_radar/decision/pipeline/ControlReducer.h"
+#include "1q/airborne_radar/decision/pipeline/TacticalCoordinator.h"
 
 namespace airborne_radar { namespace tests {
 
@@ -32,30 +32,30 @@ common::DecisionTrackSnapshot BuildTrack(
 }
 
 bool ContainsDirectiveType(
-    const std::vector<decision::TacticalProposal>& proposals,
+    const std::vector<decision::pipeline::TacticalProposal>& proposals,
     common::ControlDirectiveType type) {
   return std::find_if(proposals.begin(), proposals.end(),
-                      [type](const decision::TacticalProposal& proposal) {
+                      [type](const decision::pipeline::TacticalProposal& proposal) {
                         return proposal.directive.type == type;
                       }) != proposals.end();
 }
 
-int FindDirectivePriority(const std::vector<decision::TacticalProposal>& proposals,
+int FindDirectivePriority(const std::vector<decision::pipeline::TacticalProposal>& proposals,
                           common::ControlDirectiveType type) {
-  const std::vector<decision::TacticalProposal>::const_iterator found =
+  const std::vector<decision::pipeline::TacticalProposal>::const_iterator found =
       std::find_if(proposals.begin(), proposals.end(),
-                   [type](const decision::TacticalProposal& proposal) {
+                   [type](const decision::pipeline::TacticalProposal& proposal) {
                      return proposal.directive.type == type;
                    });
   return found == proposals.end() ? -1 : found->priority;
 }
 
 std::string FindDirectiveRationale(
-    const std::vector<decision::TacticalProposal>& proposals,
+    const std::vector<decision::pipeline::TacticalProposal>& proposals,
     common::ControlDirectiveType type) {
-  const std::vector<decision::TacticalProposal>::const_iterator found =
+  const std::vector<decision::pipeline::TacticalProposal>::const_iterator found =
       std::find_if(proposals.begin(), proposals.end(),
-                   [type](const decision::TacticalProposal& proposal) {
+                   [type](const decision::pipeline::TacticalProposal& proposal) {
                      return proposal.directive.type == type;
                    });
   return found == proposals.end() ? std::string() : found->rationale;
@@ -64,8 +64,8 @@ std::string FindDirectiveRationale(
 } // namespace
 
 TEST(TacticalCoordinatorTest, HighThreatTrackGeneratesLpiProposal) {
-  decision::TacticalCoordinator coordinator;
-  decision::TacticalStateStore state_store;
+  decision::pipeline::TacticalCoordinator coordinator;
+  decision::pipeline::TacticalStateStore state_store;
 
   common::DecisionInputFrame frame;
   frame.cycle_index = 1u;
@@ -74,18 +74,18 @@ TEST(TacticalCoordinatorTest, HighThreatTrackGeneratesLpiProposal) {
                                     common::DecisionTrackStatus::kConfirmed,
                                     true));
 
-  const decision::TacticalDecisionResult result =
+  const decision::pipeline::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
-  EXPECT_EQ(result.selected_mode, decision::TacticalMode::kThreatResponse);
+  EXPECT_EQ(result.selected_mode, decision::pipeline::TacticalMode::kThreatResponse);
   ASSERT_FALSE(result.proposals.empty());
   EXPECT_EQ(result.proposals[0].directive.type,
             common::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION);
 }
 
 TEST(TacticalCoordinatorTest, LowEvidenceTrackDoesNotTriggerAggressiveControl) {
-  decision::TacticalCoordinator coordinator;
-  decision::TacticalStateStore state_store;
+  decision::pipeline::TacticalCoordinator coordinator;
+  decision::pipeline::TacticalStateStore state_store;
 
   common::DecisionInputFrame frame;
   frame.cycle_index = 1u;
@@ -94,16 +94,16 @@ TEST(TacticalCoordinatorTest, LowEvidenceTrackDoesNotTriggerAggressiveControl) {
                                     common::DecisionTrackStatus::kTentative,
                                     false));
 
-  const decision::TacticalDecisionResult result =
+  const decision::pipeline::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
-  EXPECT_EQ(result.selected_mode, decision::TacticalMode::kBaseline);
+  EXPECT_EQ(result.selected_mode, decision::pipeline::TacticalMode::kBaseline);
   EXPECT_TRUE(result.proposals.empty());
 }
 
 TEST(TacticalCoordinatorTest, JammingEnvironmentGeneratesEccmProposals) {
-  decision::TacticalCoordinator coordinator;
-  decision::TacticalStateStore state_store;
+  decision::pipeline::TacticalCoordinator coordinator;
+  decision::pipeline::TacticalStateStore state_store;
 
   common::DecisionInputFrame frame;
   frame.cycle_index = 1u;
@@ -113,10 +113,10 @@ TEST(TacticalCoordinatorTest, JammingEnvironmentGeneratesEccmProposals) {
                                     common::DecisionTrackStatus::kConfirmed,
                                     true, true));
 
-  const decision::TacticalDecisionResult result =
+  const decision::pipeline::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
-  EXPECT_EQ(result.selected_mode, decision::TacticalMode::kProtectedEmission);
+  EXPECT_EQ(result.selected_mode, decision::pipeline::TacticalMode::kProtectedEmission);
   ASSERT_GE(result.proposals.size(), 5u);
 
   std::set<common::ControlDirectiveType> directive_types;
@@ -143,8 +143,8 @@ TEST(TacticalCoordinatorTest, JammingEnvironmentGeneratesEccmProposals) {
 }
 
 TEST(TacticalCoordinatorTest, DetailedEccmFactsSelectOnlyRelevantProposals) {
-  decision::TacticalCoordinator coordinator;
-  decision::TacticalStateStore state_store;
+  decision::pipeline::TacticalCoordinator coordinator;
+  decision::pipeline::TacticalStateStore state_store;
 
   common::DecisionInputFrame frame;
   frame.cycle_index = 1u;
@@ -158,10 +158,10 @@ TEST(TacticalCoordinatorTest, DetailedEccmFactsSelectOnlyRelevantProposals) {
                                     common::DecisionTrackStatus::kConfirmed,
                                     true, true));
 
-  const decision::TacticalDecisionResult result =
+  const decision::pipeline::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
-  EXPECT_EQ(result.selected_mode, decision::TacticalMode::kProtectedEmission);
+  EXPECT_EQ(result.selected_mode, decision::pipeline::TacticalMode::kProtectedEmission);
   EXPECT_TRUE(ContainsDirectiveType(
       result.proposals,
       common::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING));
@@ -180,8 +180,8 @@ TEST(TacticalCoordinatorTest, DetailedEccmFactsSelectOnlyRelevantProposals) {
 
 TEST(TacticalCoordinatorTest,
      MultiSourceEccmFactsCombineTypeSpecificCountermeasures) {
-  decision::TacticalCoordinator coordinator;
-  decision::TacticalStateStore state_store;
+  decision::pipeline::TacticalCoordinator coordinator;
+  decision::pipeline::TacticalStateStore state_store;
 
   common::DecisionInputFrame frame;
   frame.cycle_index = 1u;
@@ -210,10 +210,10 @@ TEST(TacticalCoordinatorTest,
                                     common::DecisionTrackStatus::kConfirmed,
                                     true, true));
 
-  const decision::TacticalDecisionResult result =
+  const decision::pipeline::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
-  EXPECT_EQ(result.selected_mode, decision::TacticalMode::kProtectedEmission);
+  EXPECT_EQ(result.selected_mode, decision::pipeline::TacticalMode::kProtectedEmission);
   EXPECT_TRUE(ContainsDirectiveType(
       result.proposals,
       common::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER));
@@ -238,8 +238,8 @@ TEST(TacticalCoordinatorTest,
 
 TEST(TacticalCoordinatorTest,
      LowConfidenceMultiSourceFactsDoNotTriggerAggressiveTypeSpecificActions) {
-  decision::TacticalCoordinator coordinator;
-  decision::TacticalStateStore state_store;
+  decision::pipeline::TacticalCoordinator coordinator;
+  decision::pipeline::TacticalStateStore state_store;
 
   common::DecisionInputFrame frame;
   frame.cycle_index = 1u;
@@ -259,10 +259,10 @@ TEST(TacticalCoordinatorTest,
                                     common::DecisionTrackStatus::kConfirmed,
                                     true, true));
 
-  const decision::TacticalDecisionResult result =
+  const decision::pipeline::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
-  EXPECT_EQ(result.selected_mode, decision::TacticalMode::kProtectedEmission);
+  EXPECT_EQ(result.selected_mode, decision::pipeline::TacticalMode::kProtectedEmission);
   EXPECT_TRUE(ContainsDirectiveType(
       result.proposals,
       common::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING));
@@ -277,8 +277,8 @@ TEST(TacticalCoordinatorTest,
 
 TEST(TacticalCoordinatorTest,
      AssociationStressCanBackfillDeceptionDrivenEccmTrigger) {
-  decision::TacticalCoordinator coordinator;
-  decision::TacticalStateStore state_store;
+  decision::pipeline::TacticalCoordinator coordinator;
+  decision::pipeline::TacticalStateStore state_store;
 
   common::DecisionInputFrame frame;
   frame.cycle_index = 1u;
@@ -291,10 +291,10 @@ TEST(TacticalCoordinatorTest,
                                     common::DecisionTrackStatus::kConfirmed,
                                     true, false));
 
-  const decision::TacticalDecisionResult result =
+  const decision::pipeline::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
-  EXPECT_EQ(result.selected_mode, decision::TacticalMode::kProtectedEmission);
+  EXPECT_EQ(result.selected_mode, decision::pipeline::TacticalMode::kProtectedEmission);
   EXPECT_TRUE(ContainsDirectiveType(
       result.proposals,
       common::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
@@ -315,9 +315,9 @@ TEST(TacticalCoordinatorTest,
 
 TEST(TacticalCoordinatorTest,
      AssociationStressRaisesTypeSpecificEccmPriorityWithoutMutatingFacts) {
-  decision::TacticalCoordinator coordinator;
-  decision::TacticalStateStore baseline_state_store;
-  decision::TacticalStateStore stressed_state_store;
+  decision::pipeline::TacticalCoordinator coordinator;
+  decision::pipeline::TacticalStateStore baseline_state_store;
+  decision::pipeline::TacticalStateStore stressed_state_store;
 
   common::DecisionInputFrame baseline_frame;
   baseline_frame.cycle_index = 1u;
@@ -337,9 +337,9 @@ TEST(TacticalCoordinatorTest,
   stressed_frame.association_quality_info.mean_match_cost = 1.2f;
   stressed_frame.association_quality_info.p95_match_cost = 2.4f;
 
-  const decision::TacticalDecisionResult baseline_result =
+  const decision::pipeline::TacticalDecisionResult baseline_result =
       coordinator.Evaluate(baseline_frame, baseline_state_store);
-  const decision::TacticalDecisionResult stressed_result =
+  const decision::pipeline::TacticalDecisionResult stressed_result =
       coordinator.Evaluate(stressed_frame, stressed_state_store);
 
   EXPECT_GT(FindDirectivePriority(
@@ -363,8 +363,8 @@ TEST(TacticalCoordinatorTest,
 
 TEST(TacticalCoordinatorTest,
      PoorAssociationQualityWithoutJammingSemanticDoesNotTriggerEccm) {
-  decision::TacticalCoordinator coordinator;
-  decision::TacticalStateStore state_store;
+  decision::pipeline::TacticalCoordinator coordinator;
+  decision::pipeline::TacticalStateStore state_store;
 
   common::DecisionInputFrame frame;
   frame.cycle_index = 1u;
@@ -385,18 +385,18 @@ TEST(TacticalCoordinatorTest,
                                     common::DecisionTrackStatus::kConfirmed,
                                     true, false));
 
-  const decision::TacticalDecisionResult result =
+  const decision::pipeline::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
-  EXPECT_EQ(result.selected_mode, decision::TacticalMode::kBaseline);
+  EXPECT_EQ(result.selected_mode, decision::pipeline::TacticalMode::kBaseline);
   EXPECT_TRUE(result.proposals.empty());
   EXPECT_EQ(state_store.last_decision_summary, "baseline(detection-pressure)");
 }
 
 TEST(TacticalCoordinatorTest,
      EnvironmentJammingAndAssociationPressureAreBothReflectedInSummary) {
-  decision::TacticalCoordinator coordinator;
-  decision::TacticalStateStore state_store;
+  decision::pipeline::TacticalCoordinator coordinator;
+  decision::pipeline::TacticalStateStore state_store;
 
   common::DecisionInputFrame frame;
   frame.cycle_index = 1u;
@@ -415,40 +415,40 @@ TEST(TacticalCoordinatorTest,
                                     common::DecisionTrackStatus::kConfirmed,
                                     true, true));
 
-  const decision::TacticalDecisionResult result =
+  const decision::pipeline::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
-  EXPECT_EQ(result.selected_mode, decision::TacticalMode::kProtectedEmission);
+  EXPECT_EQ(result.selected_mode, decision::pipeline::TacticalMode::kProtectedEmission);
   EXPECT_EQ(
       state_store.last_decision_summary,
       "protected-emission(environment-jamming+association-pressure+detection-pressure)");
 }
 
 TEST(ControlReducerTest, ReducerBuildsNextControlProfileAndRejectsDuplicates) {
-  decision::ControlReducer reducer;
+  decision::pipeline::ControlReducer reducer;
   common::RadarControlProfile previous_profile;
 
-  std::vector<decision::TacticalProposal> proposals;
-  proposals.push_back(decision::TacticalProposal{
+  std::vector<decision::pipeline::TacticalProposal> proposals;
+  proposals.push_back(decision::pipeline::TacticalProposal{
       common::ControlDirective(
           common::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
           common::ControlDirectiveSource::EMISSION_CONTROL),
       60,
       "reduce power"});
-  proposals.push_back(decision::TacticalProposal{
+  proposals.push_back(decision::pipeline::TacticalProposal{
       common::ControlDirective(
           common::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
           common::ControlDirectiveSource::UNKNOWN),
       10,
       "duplicate reduce power"});
-  proposals.push_back(decision::TacticalProposal{
+  proposals.push_back(decision::pipeline::TacticalProposal{
       common::ControlDirective(
           common::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
           common::ControlDirectiveSource::SURVIVABILITY),
       84,
       "enable agility"});
 
-  const decision::ControlReductionResult result =
+  const decision::pipeline::ControlReductionResult result =
       reducer.Reduce(previous_profile, proposals);
 
   EXPECT_EQ(result.profile.version, 1u);
@@ -461,24 +461,24 @@ TEST(ControlReducerTest, ReducerBuildsNextControlProfileAndRejectsDuplicates) {
 
 TEST(ControlReducerTest,
      BurnthroughGainFloorsLpiPowerReductionForSurvivability) {
-  decision::ControlReducer reducer;
+  decision::pipeline::ControlReducer reducer;
   common::RadarControlProfile previous_profile;
 
-  std::vector<decision::TacticalProposal> proposals;
-  proposals.push_back(decision::TacticalProposal{
+  std::vector<decision::pipeline::TacticalProposal> proposals;
+  proposals.push_back(decision::pipeline::TacticalProposal{
       common::ControlDirective(
           common::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
           common::ControlDirectiveSource::EMISSION_CONTROL),
       60,
       "reduce power"});
-  proposals.push_back(decision::TacticalProposal{
+  proposals.push_back(decision::pipeline::TacticalProposal{
       common::ControlDirective(
           common::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
           common::ControlDirectiveSource::SURVIVABILITY),
       82,
       "increase burnthrough"});
 
-  const decision::ControlReductionResult result =
+  const decision::pipeline::ControlReductionResult result =
       reducer.Reduce(previous_profile, proposals);
 
   EXPECT_TRUE(result.profile.enable_lpi_power_control);
@@ -487,36 +487,36 @@ TEST(ControlReducerTest,
 }
 
 TEST(ControlReducerTest, ReducerSupportsCustomConfigPolicyTable) {
-  decision::ControlReducerConfig config;
+  decision::pipeline::ControlReducerConfig config;
   config.lpi_power_scale_on_reduction = 0.65f;
   config.lpi_dwell_scale = 0.60f;
   config.eccm_burnthrough_gain = 1.8f;
   config.burnthrough_lpi_power_floor = 0.92f;
 
-  decision::ControlReducer reducer(config);
+  decision::pipeline::ControlReducer reducer(config);
   common::RadarControlProfile previous_profile;
 
-  std::vector<decision::TacticalProposal> proposals;
-  proposals.push_back(decision::TacticalProposal{
+  std::vector<decision::pipeline::TacticalProposal> proposals;
+  proposals.push_back(decision::pipeline::TacticalProposal{
       common::ControlDirective(
           common::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
           common::ControlDirectiveSource::EMISSION_CONTROL),
       60,
       "reduce power"});
-  proposals.push_back(decision::TacticalProposal{
+  proposals.push_back(decision::pipeline::TacticalProposal{
       common::ControlDirective(
           common::ControlDirectiveType::REQUEST_LPI_DWELL,
           common::ControlDirectiveSource::EMISSION_CONTROL),
       55,
       "reduce dwell"});
-  proposals.push_back(decision::TacticalProposal{
+  proposals.push_back(decision::pipeline::TacticalProposal{
       common::ControlDirective(
           common::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
           common::ControlDirectiveSource::SURVIVABILITY),
       82,
       "increase burnthrough"});
 
-  const decision::ControlReductionResult result =
+  const decision::pipeline::ControlReductionResult result =
       reducer.Reduce(previous_profile, proposals);
 
   EXPECT_FLOAT_EQ(result.profile.eccm_burnthrough_gain, 1.8f);
@@ -525,14 +525,14 @@ TEST(ControlReducerTest, ReducerSupportsCustomConfigPolicyTable) {
 }
 
 TEST(ControlReducerTest, ReducerClearsExpiredDomainWhenNoProposalArrives) {
-  decision::ControlReducer reducer;
+  decision::pipeline::ControlReducer reducer;
   common::RadarControlProfile previous_profile;
   previous_profile.version = 3u;
   previous_profile.enable_lpi_power_control = true;
   previous_profile.lpi_power_scale = 0.5f;
 
-  const decision::ControlReductionResult result =
-      reducer.Reduce(previous_profile, std::vector<decision::TacticalProposal>());
+  const decision::pipeline::ControlReductionResult result =
+      reducer.Reduce(previous_profile, std::vector<decision::pipeline::TacticalProposal>());
 
   EXPECT_EQ(result.profile.version, 4u);
   EXPECT_FALSE(result.profile.enable_lpi_power_control);
@@ -540,97 +540,97 @@ TEST(ControlReducerTest, ReducerClearsExpiredDomainWhenNoProposalArrives) {
 }
 
 TEST(ControlReducerTest, ReducerPreservesDomainDuringConfiguredHoldWindow) {
-  decision::ControlReducerConfig config;
+  decision::pipeline::ControlReducerConfig config;
   config.eccm_hold_cycles_after_request = 1u;
-  decision::ControlReducer reducer(config);
+  decision::pipeline::ControlReducer reducer(config);
   common::RadarControlProfile previous_profile;
 
-  std::vector<decision::TacticalProposal> proposals;
-  proposals.push_back(decision::TacticalProposal{
+  std::vector<decision::pipeline::TacticalProposal> proposals;
+  proposals.push_back(decision::pipeline::TacticalProposal{
       common::ControlDirective(
           common::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
           common::ControlDirectiveSource::SURVIVABILITY),
       82,
       "increase burnthrough"});
 
-  const decision::ControlReductionResult first =
+  const decision::pipeline::ControlReductionResult first =
       reducer.Reduce(previous_profile, proposals);
   ASSERT_FLOAT_EQ(first.profile.eccm_burnthrough_gain, 1.5f);
   EXPECT_EQ(first.profile.eccm_hold_cycles_remaining, 1u);
 
-  const decision::ControlReductionResult held =
-      reducer.Reduce(first.profile, std::vector<decision::TacticalProposal>());
+  const decision::pipeline::ControlReductionResult held =
+      reducer.Reduce(first.profile, std::vector<decision::pipeline::TacticalProposal>());
   EXPECT_FLOAT_EQ(held.profile.eccm_burnthrough_gain, 1.5f);
   EXPECT_EQ(held.profile.eccm_hold_cycles_remaining, 0u);
   EXPECT_EQ(held.profile.version, first.profile.version);
 
-  const decision::ControlReductionResult released =
-      reducer.Reduce(held.profile, std::vector<decision::TacticalProposal>());
+  const decision::pipeline::ControlReductionResult released =
+      reducer.Reduce(held.profile, std::vector<decision::pipeline::TacticalProposal>());
   EXPECT_FLOAT_EQ(released.profile.eccm_burnthrough_gain, 1.0f);
   EXPECT_EQ(released.profile.version, held.profile.version + 1u);
 }
 
 TEST(ControlReducerTest, ReducerRejectsReentryDuringConfiguredCooldown) {
-  decision::ControlReducerConfig config;
+  decision::pipeline::ControlReducerConfig config;
   config.eccm_cooldown_cycles_after_release = 2u;
-  decision::ControlReducer reducer(config);
+  decision::pipeline::ControlReducer reducer(config);
 
   common::RadarControlProfile active_profile;
   active_profile.version = 7u;
   active_profile.eccm_burnthrough_gain = 1.5f;
 
-  const decision::ControlReductionResult released =
-      reducer.Reduce(active_profile, std::vector<decision::TacticalProposal>());
+  const decision::pipeline::ControlReductionResult released =
+      reducer.Reduce(active_profile, std::vector<decision::pipeline::TacticalProposal>());
   EXPECT_FLOAT_EQ(released.profile.eccm_burnthrough_gain, 1.0f);
   EXPECT_EQ(released.profile.eccm_cooldown_cycles_remaining, 2u);
 
-  std::vector<decision::TacticalProposal> proposals;
-  proposals.push_back(decision::TacticalProposal{
+  std::vector<decision::pipeline::TacticalProposal> proposals;
+  proposals.push_back(decision::pipeline::TacticalProposal{
       common::ControlDirective(
           common::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
           common::ControlDirectiveSource::SURVIVABILITY),
       82,
       "increase burnthrough"});
 
-  const decision::ControlReductionResult blocked_once =
+  const decision::pipeline::ControlReductionResult blocked_once =
       reducer.Reduce(released.profile, proposals);
   EXPECT_FLOAT_EQ(blocked_once.profile.eccm_burnthrough_gain, 1.0f);
   EXPECT_EQ(blocked_once.profile.eccm_cooldown_cycles_remaining, 1u);
   EXPECT_EQ(blocked_once.applied_directives.size(), 0u);
   EXPECT_EQ(blocked_once.rejected_directives.size(), 1u);
 
-  const decision::ControlReductionResult blocked_twice =
+  const decision::pipeline::ControlReductionResult blocked_twice =
       reducer.Reduce(blocked_once.profile, proposals);
   EXPECT_FLOAT_EQ(blocked_twice.profile.eccm_burnthrough_gain, 1.0f);
   EXPECT_EQ(blocked_twice.profile.eccm_cooldown_cycles_remaining, 0u);
   EXPECT_EQ(blocked_twice.applied_directives.size(), 0u);
   EXPECT_EQ(blocked_twice.rejected_directives.size(), 1u);
 
-  const decision::ControlReductionResult allowed =
+  const decision::pipeline::ControlReductionResult allowed =
       reducer.Reduce(blocked_twice.profile, proposals);
   EXPECT_FLOAT_EQ(allowed.profile.eccm_burnthrough_gain, 1.5f);
   EXPECT_EQ(allowed.applied_directives.size(), 1u);
 }
 
 TEST(ControlReducerTest, BeamConflictPrefersSurvivabilityByDefault) {
-  decision::ControlReducer reducer;
+  decision::pipeline::ControlReducer reducer;
   common::RadarControlProfile previous_profile;
 
-  std::vector<decision::TacticalProposal> proposals;
-  proposals.push_back(decision::TacticalProposal{
+  std::vector<decision::pipeline::TacticalProposal> proposals;
+  proposals.push_back(decision::pipeline::TacticalProposal{
       common::ControlDirective(
           common::ControlDirectiveType::REQUEST_LPI_BEAMFORMING,
           common::ControlDirectiveSource::EMISSION_CONTROL),
       65,
       "beamforming for lpi"});
-  proposals.push_back(decision::TacticalProposal{
+  proposals.push_back(decision::pipeline::TacticalProposal{
       common::ControlDirective(
           common::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
           common::ControlDirectiveSource::SURVIVABILITY),
       85,
       "adaptive beamforming for eccm"});
 
-  const decision::ControlReductionResult result =
+  const decision::pipeline::ControlReductionResult result =
       reducer.Reduce(previous_profile, proposals);
 
   EXPECT_FALSE(result.profile.enable_lpi_beamforming);

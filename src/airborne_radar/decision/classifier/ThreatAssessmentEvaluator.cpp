@@ -32,8 +32,8 @@ ThreatAssessmentEvaluator::ThreatAssessmentEvaluator(
     : feature_repository_(feature_repository) {}
 
 void ThreatAssessmentEvaluator::Evaluate(
-    const common::DecisionInputFrame& input_frame, TacticalStateStore& state_store,
-    TacticalEvaluationState& evaluation_state) const {
+    const common::DecisionInputFrame& input_frame, pipeline::TacticalStateStore& state_store,
+    pipeline::TacticalEvaluationState& evaluation_state) const {
   evaluation_state.target_classification_result.clear();
   evaluation_state.target_classification_result.reserve(input_frame.tracks.size());
   evaluation_state.lpi_source_info.has_recon_platform = false;

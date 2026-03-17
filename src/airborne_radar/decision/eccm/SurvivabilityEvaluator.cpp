@@ -285,19 +285,19 @@ std::string BuildProposalRationale(
 
 void AppendProposal(common::ControlDirectiveType type, int priority,
                     const std::string& rationale,
-                    std::vector<TacticalProposal>* proposals) {
+                    std::vector<pipeline::TacticalProposal>* proposals) {
   if (proposals == nullptr) {
     return;
   }
   proposals->push_back(
-      TacticalProposal{BuildDirective(type), priority, rationale});
+      pipeline::TacticalProposal{BuildDirective(type), priority, rationale});
 }
 
 void AppendEccmProposals(const common::EccmSourceInfo& source_info,
                          const common::AssociationQualityInfo& association_quality_info,
                          bool environment_jamming_detected,
                          bool hold_only,
-                         std::vector<TacticalProposal>* proposals) {
+                         std::vector<pipeline::TacticalProposal>* proposals) {
   EccmProposalSelection selection;
   if (!source_info.jammer_sources.empty()) {
     for (std::size_t i = 0; i < source_info.jammer_sources.size(); ++i) {
@@ -373,8 +373,8 @@ void AppendEccmProposals(const common::EccmSourceInfo& source_info,
 } // namespace
 
 void SurvivabilityEvaluator::Evaluate(
-    const common::DecisionInputFrame& input_frame, TacticalStateStore& state_store,
-    TacticalEvaluationState& evaluation_state) const {
+    const common::DecisionInputFrame& input_frame, pipeline::TacticalStateStore& state_store,
+    pipeline::TacticalEvaluationState& evaluation_state) const {
   bool should_enable_eccm =
       evaluation_state.eccm_source_info.has_jamming_signal ||
       input_frame.environment_jamming_detected;
