@@ -36,7 +36,7 @@ include/1q/airborne_radar/signal/
     └── TrackLifecycleTypes.h     # 量测与关联种子契约
 ```
 
-当前信号层的公共边界已经收紧：`TrackLifecycleManager`、`ITrackPool`、`BoostTrackPool`、`KalmanPredictor`、`KalmanUpdater` 等默认实现与对象池细节均留在 `src/`，只供库内部和白盒测试使用。
+当前信号层的公共边界已经收紧：`TrackLifecycleManager`、`SynchronizedTrackPool`、`ITrackPool`、`BoostTrackPool`、`KalmanPredictor`、`KalmanUpdater` 等默认实现与对象池细节均留在 `src/`，只供库内部和白盒测试使用。
 
 ## 3. Diagram Index
 
@@ -79,6 +79,7 @@ Signal 层当前的正式主链路如下：
 ### 5.3 生命周期自动装配
 
 - `SignalPipeline` 通过 `SignalComponentFactory` 统一做配置映射与组件装配。
+- 当 `SignalLifecycleConfig.track_pool_thread_safety_mode` 配置需要时，`SignalComponentFactory` 会使用 `SynchronizedTrackPool` 包装底层对象池，保证单轨操作的线程安全。
 - 当 `SignalLifecycleConfig.enable_auto_lifecycle_manager = true` 时，`SignalPipeline` 可创建默认 Lifecycle 服务。
 - 默认 Lifecycle 服务内部仍使用 `TrackLifecycleManager`、对象池、Kalman 或每轨 IMM，但这些实现不再是公共安装接口。
 
@@ -129,6 +130,7 @@ Signal 层当前的正式主链路如下：
   - 探测域的公共配置与雷达方程
 - 内部实现头：
   - `TrackLifecycleManager`
+  - `SynchronizedTrackPool`
   - `ITrackPool` / `BoostTrackPool`
   - `KalmanPredictor` / `KalmanUpdater`
   - `EkfFilter` / `ImmFilter` / `TrackFilter`

@@ -46,7 +46,7 @@ package "生命周期域层" {
 }
 
 package "基础设施层" {
-  rectangle "ITrackPool / BoostTrackPool\n对象池" as POOL
+  rectangle "ITrackPool / BoostTrackPool\nSynchronizedTrackPool 对象池与线程约束" as POOL
 }
 
 CTRL --> PIPELINE

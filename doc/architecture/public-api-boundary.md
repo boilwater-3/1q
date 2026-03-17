@@ -58,6 +58,7 @@
 - `src/airborne_radar/signal/tracking/TrackLifecycleManager.h`
 - `src/airborne_radar/signal/tracking/ITrackPool.h`
 - `src/airborne_radar/signal/tracking/BoostTrackPool.h`
+- `src/airborne_radar/signal/tracking/SynchronizedTrackPool.h`
 - `src/airborne_radar/signal/tracking/KalmanPredictor.h`
 - `src/airborne_radar/signal/tracking/KalmanUpdater.h`
 - `src/airborne_radar/common/TrackTypes.h`

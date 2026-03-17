@@ -19,6 +19,7 @@
 - `src/airborne_radar/signal/tracking/TrackLifecycleManager.h`
 - `src/airborne_radar/signal/tracking/ITrackPool.h`
 - `src/airborne_radar/signal/tracking/BoostTrackPool.h`
+- `src/airborne_radar/signal/tracking/SynchronizedTrackPool.h`
 - `src/airborne_radar/signal/tracking/KalmanPredictor.h`
 - `src/airborne_radar/signal/tracking/KalmanUpdater.h`
 - `src/airborne_radar/signal/tracking/EkfFilter.h`
@@ -95,7 +96,7 @@ Signal 层当前对关键契约采用 fail-fast：
 ## 5. Concurrency Semantics
 
 - 当前信号层默认仍按主循环单线程驱动。
-- `LifecycleConfig.track_pool_thread_safety_mode` 只是声明对象池包装策略，不代表现阶段 `TrackLifecycleManager` 可被并发调用。
+- `LifecycleConfig.track_pool_thread_safety_mode` 配置声明对象池包装策略。若选择多线程安全模式，`SignalComponentFactory` 会在装配时引入 `SynchronizedTrackPool`，保证对象池和底层对象创建时的状态安全。
 - 后续若做 IMM 多线程优化，只能优先考虑每轨独立的计算阶段并行，容器写入、回收和运行态创建仍应保持串行边界。
 
 ## 6. Current Known Constraints
