@@ -63,8 +63,8 @@ public:
   /// @return 活跃轨迹列表。
   std::vector<const common::TrackState *> GetActiveTracks() const;
 
-  /// @brief 导出兼容现有决策链路的轻量目标特征快照。
-  /// @return 可直接用于 DecisionContext 的目标特征列表。
+  /// @brief 导出供外围事件链路消费的轻量目标特征快照。
+  /// @return 可直接用于外部状态广播的目标特征列表。
   common::TargetFeatureList BuildFeatureSnapshot() const override;
 
   /// @brief 导出供决策层消费的稳定轨迹快照。
@@ -133,9 +133,11 @@ private:
   /// @param track 轨迹对象。
   /// @param cycle_index 当前周期号。
   /// @param hit_this_cycle 本周期是否命中。
+  /// @param extra_miss_tolerance 控制平面注入的额外失配容忍周期数。
   void PromoteState(common::TrackState &track,
                     std::uint32_t cycle_index,
-                    bool hit_this_cycle);
+                    bool hit_this_cycle,
+                    std::uint32_t extra_miss_tolerance);
 
   /// @brief 将对象重置为可复用状态，避免脏数据泄露。
   /// @param track 待重置轨迹对象。

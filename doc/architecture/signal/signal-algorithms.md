@@ -110,7 +110,7 @@ flowchart LR
 4. 距离度量：`FullMahalanobisDistanceMetric`
 5. 协方差来源：内部 `KalmanPredictor` 预测得到 $P$，与来自 `SignalPipeline` 的动态量测协方差 $R$ 在假设生成阶段合成为
    $$S = HPH^T + R$$
-6. 契约要求：所有成功探测目标必须携带笛卡尔位置量测；缺失时直接失败，而不是静默退回 legacy 特征空间
+6. 契约要求：所有成功探测目标必须携带笛卡尔位置量测；缺失时直接失败，而不是静默退回历史特征空间
 
 当前 `SignalPipeline::BuildMeasurementCovariance(...)` 对动态量测协方差 $R$ 的构造规则为：
 
@@ -219,7 +219,7 @@ flowchart TD
 
 当前实现支持两种装配方式：
 
-1. 手工依赖注入（兼容旧路径）：通过构造参数传入 `IKalmanPredictor* / IKalmanUpdater*` 或 IMM 模型集合。
+1. 手工依赖注入：通过构造参数传入 `IKalmanPredictor* / IKalmanUpdater*` 或 IMM 模型集合。
 2. 自动装配（推荐路径）：由 `SignalPipeline` 基于配置创建 Lifecycle 服务并由 `RadarController` 自动绑定。
 
 当前 `TrackLifecycleManager` 已支持**每轨一份 `ImmFilter` 运行态**：

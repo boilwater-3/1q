@@ -124,7 +124,7 @@ TEST(ControlReducerTest, ReducerBuildsNextControlProfileAndRejectsDuplicates) {
   proposals.push_back(decision::TacticalProposal{
       common::ControlDirective(
           common::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
-          common::ControlDirectiveSource::LEGACY_PIPELINE),
+          common::ControlDirectiveSource::UNKNOWN),
       10,
       "duplicate reduce power"});
   proposals.push_back(decision::TacticalProposal{

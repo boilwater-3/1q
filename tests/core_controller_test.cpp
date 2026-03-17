@@ -16,12 +16,10 @@
 #include "1q/airborne_radar/core/context/IRadarContext.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"
 #include "1q/airborne_radar/core/event/RadarEvents.h"
+#include "1q/airborne_radar/decision/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "1q/airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "1q/airborne_radar/signal/tracking/TrackLifecycleTypes.h"
-#include "1q/airborne_radar/decision/classifier/TargetClassifier.h"
-#include "1q/airborne_radar/decision/eccm/EccmController.h"
-#include "1q/airborne_radar/decision/lpi/LpiController.h"
 #include "1q/airborne_radar/core/event/EventBus.h"
 #include "1q/airborne_radar/core/event/CycleEventBus.h"
 #include "1q/airborne_radar/environment/EnvironmentService.h"
@@ -246,21 +244,26 @@ public:
   std::vector<signal::tracking::TrackMeasurement> last_measurements;
 };
 
-/// @brief CoreControllerTest 覆盖核心调度与指令下发路径。
-class CoreControllerTest : public ::testing::Test {
-protected:
-  /// @brief 构建最小化的决策管线与核心调度器。
-  void SetUp() override {
-    auto classifier =
-        std::unique_ptr<decision::classifier::TargetClassifier>(new decision::classifier::TargetClassifier());
-    auto lpi = std::unique_ptr<decision::lpi::LpiController>(new decision::lpi::LpiController());
-    auto eccm = std::unique_ptr<decision::eccm::EccmController>(new decision::eccm::EccmController());
+class FixedDirectiveDecisionEngine : public decision::ITacticalDecisionEngine {
+public:
+  explicit FixedDirectiveDecisionEngine(common::ControlDirective directive)
+      : directive_(directive) {}
 
-    classifier->SetNext(std::move(lpi))->SetNext(std::move(eccm));
-    decision_pipeline_ = std::move(classifier);
+  decision::TacticalDecisionResult Evaluate(
+      const common::DecisionInputFrame&,
+      decision::TacticalStateStore&) override {
+    decision::TacticalDecisionResult result;
+    result.proposals.push_back(
+        decision::TacticalProposal(directive_, 10, "test directive"));
+    return result;
   }
 
-  std::unique_ptr<decision::pipeline::ITacticalProcessor> decision_pipeline_;
+private:
+  common::ControlDirective directive_;
+};
+
+/// @brief CoreControllerTest 覆盖核心调度与指令下发路径。
+class CoreControllerTest : public ::testing::Test {
 };
 
 TEST_F(CoreControllerTest, RunOnceSubmitsCommands) {
@@ -275,8 +278,7 @@ TEST_F(CoreControllerTest, RunOnceSubmitsCommands) {
   signal::pipeline::SignalPipeline signal_pipeline;
 
   core::controller::RadarController controller(
-      radar_context, signal_pipeline, *decision_pipeline_,
-      environment_service);
+      radar_context, signal_pipeline, environment_service);
 
   controller.RunOnce();
 
@@ -300,8 +302,7 @@ TEST_F(CoreControllerTest, PushesPlatformAttitudeIntoSignalPipelineBeforeRun) {
 
   signal::pipeline::SignalPipeline signal_pipeline;
   core::controller::RadarController controller(
-      radar_context, signal_pipeline, *decision_pipeline_,
-      environment_service);
+      radar_context, signal_pipeline, environment_service);
 
   controller.RunOnce();
 
@@ -326,12 +327,38 @@ TEST_F(CoreControllerTest, PushesCycleDeltaTimeIntoLifecycleBeforeRun) {
   SpyTrackLifecycleManager lifecycle_manager;
 
   core::controller::RadarController controller(
-      radar_context, signal_pipeline, *decision_pipeline_, environment_service);
+      radar_context, signal_pipeline, environment_service);
   controller.SetTrackLifecycleManager(&lifecycle_manager);
 
   controller.RunOnce();
 
   EXPECT_FLOAT_EQ(lifecycle_manager.last_cycle.dt_sec, 2.5f);
+}
+
+TEST_F(CoreControllerTest, ProtectiveControlProfileExtendsLifecycleMissTolerance) {
+  const common::TargetFeatureList input_state =
+      BuildSingleTarget(800.0f, 2.5f, false);
+  FakeRadarContext radar_context(input_state);
+
+  environment::EnvironmentModelConfig env_config;
+  env_config.jammer_power_db = 0.0f;
+  environment::EnvironmentService environment_service(env_config);
+
+  signal::pipeline::SignalPipeline signal_pipeline;
+  SpyTrackLifecycleManager lifecycle_manager;
+  FixedDirectiveDecisionEngine decision_engine(common::ControlDirective(
+      common::ControlDirectiveType::REQUEST_ECCM_REJITTER,
+      common::ControlDirectiveSource::SURVIVABILITY));
+
+  core::controller::RadarController controller(
+      radar_context, signal_pipeline, decision_engine, environment_service);
+  controller.SetTrackLifecycleManager(&lifecycle_manager);
+
+  controller.RunOnce();
+  EXPECT_EQ(lifecycle_manager.last_cycle.extra_miss_tolerance, 0u);
+
+  controller.RunOnce();
+  EXPECT_EQ(lifecycle_manager.last_cycle.extra_miss_tolerance, 1u);
 }
 
 TEST_F(CoreControllerTest, RunOncePublishesCycleEvent) {
@@ -356,8 +383,7 @@ TEST_F(CoreControllerTest, RunOncePublishesCycleEvent) {
       });
 
   core::controller::RadarController controller(
-      radar_context, signal_pipeline, *decision_pipeline_,
-      environment_service, event_bus);
+      radar_context, signal_pipeline, environment_service, event_bus);
 
   controller.RunOnce();
 
@@ -414,8 +440,7 @@ TEST_F(CoreControllerTest, RunOncePublishesFineGrainedEvents) {
       });
 
   core::controller::RadarController controller(
-      radar_context, signal_pipeline, *decision_pipeline_,
-      environment_service, event_bus);
+      radar_context, signal_pipeline, environment_service, event_bus);
 
   controller.RunOnce();
 
@@ -439,8 +464,7 @@ TEST_F(CoreControllerTest, NextCycleAppliesPendingControlProfileToSignalPipeline
   signal::pipeline::SignalPipeline signal_pipeline;
 
   core::controller::RadarController controller(
-      radar_context, signal_pipeline, *decision_pipeline_,
-      environment_service);
+      radar_context, signal_pipeline, environment_service);
 
   controller.RunOnce();
   EXPECT_EQ(signal_pipeline.GetControlProfile().version, 0u);
@@ -474,8 +498,7 @@ TEST_F(CoreControllerTest, CycleEventBusDeliversEventsOnNextCycle) {
       });
 
   core::controller::RadarController controller(
-      radar_context, signal_pipeline, *decision_pipeline_,
-      environment_service, event_bus);
+      radar_context, signal_pipeline, environment_service, event_bus);
 
   controller.RunOnce();
   EXPECT_EQ(completed_event_hits, 0u);
@@ -509,7 +532,7 @@ TEST_F(CoreControllerTest, LifecycleManagerConsumesRealAssociationMeasurements) 
   SpyTrackLifecycleManager lifecycle_manager;
 
   core::controller::RadarController controller(
-      radar_context, signal_pipeline, *decision_pipeline_, environment_service);
+      radar_context, signal_pipeline, environment_service);
   controller.SetTrackLifecycleManager(&lifecycle_manager);
 
   controller.RunOnce();
@@ -569,7 +592,7 @@ TEST_F(CoreControllerTest, LifecycleSeedsDrivePositionAssociationBeforeRunCycle)
   FixedSeedLifecycleManager lifecycle_manager({seed});
 
   core::controller::RadarController controller(
-      radar_context, signal_pipeline, *decision_pipeline_, environment_service);
+      radar_context, signal_pipeline, environment_service);
   controller.SetTrackLifecycleManager(&lifecycle_manager);
 
   controller.RunOnce();
@@ -604,7 +627,7 @@ TEST_F(CoreControllerTest,
   EmptySeedLifecycleManager lifecycle_manager;
 
   core::controller::RadarController controller(
-      radar_context, signal_pipeline, *decision_pipeline_, environment_service);
+      radar_context, signal_pipeline, environment_service);
   controller.SetTrackLifecycleManager(&lifecycle_manager);
 
   controller.RunOnce();
@@ -655,7 +678,7 @@ TEST_F(CoreControllerTest,
   FixedSeedLifecycleManager lifecycle_manager({invalid_seed});
 
   core::controller::RadarController controller(
-      radar_context, signal_pipeline, *decision_pipeline_, environment_service);
+      radar_context, signal_pipeline, environment_service);
   controller.SetTrackLifecycleManager(&lifecycle_manager);
 
   EXPECT_DEATH_IF_SUPPORTED(controller.RunOnce(), "missing gaussian state");
@@ -691,7 +714,7 @@ TEST_F(CoreControllerTest,
       std::vector<signal::tracking::AssociationTrackSeed>(1, side_channel_seed));
 
     core::controller::RadarController controller(
-      radar_context, signal_pipeline, *decision_pipeline_, environment_service);
+      radar_context, signal_pipeline, environment_service);
 
     controller.RunOnce();
 
@@ -720,7 +743,7 @@ TEST_F(CoreControllerTest,
     signal::pipeline::SignalPipeline signal_pipeline;
 
     core::controller::RadarController controller(
-      radar_context, signal_pipeline, *decision_pipeline_, environment_service);
+      radar_context, signal_pipeline, environment_service);
 
     controller.RunOnce();
     const std::vector<signal::tracking::TrackMeasurement> first_measurements =
@@ -760,7 +783,7 @@ TEST_F(CoreControllerTest,
     signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
 
     core::controller::RadarController controller(
-      radar_context, signal_pipeline, *decision_pipeline_, environment_service);
+      radar_context, signal_pipeline, environment_service);
 
     controller.RunOnce();
     const std::vector<signal::tracking::TrackMeasurement> first_measurements =
@@ -801,7 +824,7 @@ TEST_F(CoreControllerTest,
     signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
 
     core::controller::RadarController controller(
-      radar_context, signal_pipeline, *decision_pipeline_, environment_service);
+      radar_context, signal_pipeline, environment_service);
 
     EXPECT_DEATH_IF_SUPPORTED(controller.RunOnce(), ".*");
   }

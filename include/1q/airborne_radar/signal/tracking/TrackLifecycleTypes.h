@@ -27,6 +27,10 @@ struct CycleContext {
   /// @brief 当前周期时间步长（秒）。
   /// @note 由外部平台模型提供；当值 <= 0 时，Lifecycle 会按内部兜底规则回退。
   float dt_sec{0.0f};
+
+  /// @brief 额外失配容忍周期数。
+  /// @note 由控制平面按周期注入，用于在保护模式下延长 confirmed->lost 的阈值。
+  std::uint32_t extra_miss_tolerance{0};
 };
 
 /// @brief AssociationTrackSeed 描述关联阶段使用的上一周期轨迹种子。

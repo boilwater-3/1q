@@ -22,10 +22,7 @@ enum class ControlDirectiveSource {
   EMISSION_CONTROL,
 
   /// @brief 生存性/ECCM 来源。
-  SURVIVABILITY,
-
-  /// @brief 旧责任链适配来源。
-  LEGACY_PIPELINE
+  SURVIVABILITY
 };
 
 /// @brief ControlDirectiveType 表示决策层输出的控制意图类型。

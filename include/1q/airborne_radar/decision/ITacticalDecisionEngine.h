@@ -12,6 +12,7 @@
 
 #include "1q/airborne_radar/common/ControlDirective.h"
 #include "1q/airborne_radar/common/DecisionInputFrame.h"
+#include "1q/airborne_radar/common/DecisionSourceInfo.h"
 #include "1q/airborne_radar/common/TargetCategory.h"
 
 namespace airborne_radar {
@@ -84,6 +85,40 @@ struct TacticalDecisionResult {
 
   /// @brief 当前选定战术模式。
   TacticalMode selected_mode{TacticalMode::kBaseline};
+};
+
+/// @brief TacticalEvaluationState 表示 evaluator 间共享的中间结果。
+struct TacticalEvaluationState {
+  /// @brief 目标分类结果。
+  common::TargetCategoryList target_classification_result;
+
+  /// @brief LPI 来源信息。
+  common::LpiSourceInfo lpi_source_info;
+
+  /// @brief ECCM 来源信息。
+  common::EccmSourceInfo eccm_source_info;
+
+  /// @brief 是否应进入威胁响应控制路径。
+  bool should_reduce_power{false};
+
+  /// @brief 是否应进入 ECCM 保护路径。
+  bool should_enable_eccm{false};
+
+  /// @brief evaluator 生成的战术建议集合。
+  std::vector<TacticalProposal> proposals;
+
+  TacticalEvaluationState() : eccm_source_info(false) {}
+};
+
+/// @brief ITacticalEvaluator 抽象单个 evaluator 的评估接口。
+class ITacticalEvaluator {
+ public:
+  virtual ~ITacticalEvaluator() = default;
+
+  /// @brief 读取输入帧与跨周期状态，并更新共享评估状态。
+  virtual void Evaluate(const common::DecisionInputFrame& input_frame,
+                        TacticalStateStore& state_store,
+                        TacticalEvaluationState& evaluation_state) const = 0;
 };
 
 /// @brief ITacticalDecisionEngine 抽象新的决策协调器接口。

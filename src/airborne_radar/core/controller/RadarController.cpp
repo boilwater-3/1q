@@ -19,11 +19,10 @@
 #include "1q/airborne_radar/core/context/IRadarContext.h"
 #include "1q/airborne_radar/decision/ControlReducer.h"
 #include "1q/airborne_radar/decision/ITacticalDecisionEngine.h"
-#include "1q/airborne_radar/decision/pipeline/ITacticalProcessor.h"
+#include "1q/airborne_radar/decision/TacticalCoordinator.h"
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "1q/airborne_radar/signal/tracking/ITrackLifecycleManager.h"
-#include "airborne_radar/decision/LegacyPipelineDecisionEngine.h"
 
 namespace airborne_radar {
 namespace core {
@@ -101,7 +100,6 @@ common::RadarCommandSource ToRadarCommandSource(
       return common::RadarCommandSource::LPI;
     case common::ControlDirectiveSource::SURVIVABILITY:
       return common::RadarCommandSource::ECCM;
-    case common::ControlDirectiveSource::LEGACY_PIPELINE:
     case common::ControlDirectiveSource::UNKNOWN:
     default:
       return common::RadarCommandSource::UNKNOWN;
@@ -119,7 +117,60 @@ bool HasProfileChanged(const common::RadarControlProfile& previous_profile,
   return previous_profile.version != next_profile.version;
 }
 
+/// @brief 解析当前控制真值对生命周期失配容忍的保护增益。
+/// @param control_profile 当前控制真值。
+/// @return 额外允许的 miss 周期数。
+std::uint32_t ResolveLifecycleExtraMissTolerance(
+    const common::RadarControlProfile& control_profile) {
+  std::uint32_t extra_miss_tolerance = 0U;
+  if (control_profile.enable_sidelobe_canceller ||
+      control_profile.enable_agility_frequency ||
+      control_profile.enable_eccm_rejitter) {
+    extra_miss_tolerance += 1U;
+  }
+  if (control_profile.eccm_burnthrough_gain > 1.0f) {
+    extra_miss_tolerance += 1U;
+  }
+  return extra_miss_tolerance;
+}
+
 } // namespace
+
+RadarController::RadarController(
+    core::context::IRadarContext& radar_context,
+    signal::pipeline::ISignalPipeline& signal_pipeline,
+    environment::IEnvironmentService& environment_service)
+    : radar_context_(radar_context),
+      signal_pipeline_(signal_pipeline),
+      decision_engine_(nullptr),
+      owned_decision_engine_(new decision::TacticalCoordinator()),
+      environment_service_(environment_service),
+      control_profile_(nullptr),
+      owned_control_profile_(new common::RadarControlProfile()),
+      tactical_state_store_(new decision::TacticalStateStore()),
+      control_reducer_(new decision::ControlReducer()) {
+  decision_engine_ = owned_decision_engine_.get();
+  control_profile_ = owned_control_profile_.get();
+}
+
+RadarController::RadarController(
+    core::context::IRadarContext& radar_context,
+    signal::pipeline::ISignalPipeline& signal_pipeline,
+    environment::IEnvironmentService& environment_service,
+    core::event::IEventBus& event_bus)
+    : radar_context_(radar_context),
+      signal_pipeline_(signal_pipeline),
+      decision_engine_(nullptr),
+      owned_decision_engine_(new decision::TacticalCoordinator()),
+      environment_service_(environment_service),
+      event_bus_(&event_bus),
+      control_profile_(nullptr),
+      owned_control_profile_(new common::RadarControlProfile()),
+      tactical_state_store_(new decision::TacticalStateStore()),
+      control_reducer_(new decision::ControlReducer()) {
+  decision_engine_ = owned_decision_engine_.get();
+  control_profile_ = owned_control_profile_.get();
+}
 
 RadarController::RadarController(
     core::context::IRadarContext& radar_context,
@@ -156,46 +207,6 @@ RadarController::RadarController(
   control_profile_ = owned_control_profile_.get();
 }
 
-RadarController::RadarController(
-    core::context::IRadarContext& radar_context,
-    signal::pipeline::ISignalPipeline& signal_pipeline,
-    decision::pipeline::ITacticalProcessor& decision_pipeline,
-    environment::IEnvironmentService& environment_service)
-    : radar_context_(radar_context),
-      signal_pipeline_(signal_pipeline),
-      decision_engine_(nullptr),
-      owned_decision_engine_(
-          new decision::LegacyPipelineDecisionEngine(decision_pipeline)),
-      environment_service_(environment_service),
-      control_profile_(nullptr),
-      owned_control_profile_(new common::RadarControlProfile()),
-      tactical_state_store_(new decision::TacticalStateStore()),
-      control_reducer_(new decision::ControlReducer()) {
-  decision_engine_ = owned_decision_engine_.get();
-  control_profile_ = owned_control_profile_.get();
-}
-
-RadarController::RadarController(
-    core::context::IRadarContext& radar_context,
-    signal::pipeline::ISignalPipeline& signal_pipeline,
-    decision::pipeline::ITacticalProcessor& decision_pipeline,
-    environment::IEnvironmentService& environment_service,
-    core::event::IEventBus& event_bus)
-    : radar_context_(radar_context),
-      signal_pipeline_(signal_pipeline),
-      decision_engine_(nullptr),
-      owned_decision_engine_(
-          new decision::LegacyPipelineDecisionEngine(decision_pipeline)),
-      environment_service_(environment_service),
-      event_bus_(&event_bus),
-      control_profile_(nullptr),
-      owned_control_profile_(new common::RadarControlProfile()),
-      tactical_state_store_(new decision::TacticalStateStore()),
-      control_reducer_(new decision::ControlReducer()) {
-  decision_engine_ = owned_decision_engine_.get();
-  control_profile_ = owned_control_profile_.get();
-}
-
 RadarController::~RadarController() = default;
 
 void RadarController::EnsureAutoLifecycleManager() {
@@ -214,14 +225,13 @@ void RadarController::EnsureAutoLifecycleManager() {
 }
 
 void RadarController::RunOnce() {
+  signal_pipeline_.SetControlProfile(*control_profile_);
   EnsureAutoLifecycleManager();
 
   if (event_bus_ != nullptr) {
     event_bus_->BeginCycle();
     event_bus_->DispatchCurrentCycle();
   }
-
-  signal_pipeline_.SetControlProfile(*control_profile_);
 
   const common::TargetFeatureList input_features =
       radar_context_.GetTargetFeatures();
@@ -257,6 +267,8 @@ void RadarController::RunOnce() {
     cycle.cycle_index = cycle_index_;
     cycle.batch_id = batch_id_;
     cycle.dt_sec = radar_context_.GetCycleDeltaTimeSec();
+    cycle.extra_miss_tolerance =
+        ResolveLifecycleExtraMissTolerance(*control_profile_);
     track_lifecycle_manager_->Update(cycle, measurements);
     decision_features = track_lifecycle_manager_->BuildFeatureSnapshot();
     decision_frame = track_lifecycle_manager_->BuildDecisionFrame(

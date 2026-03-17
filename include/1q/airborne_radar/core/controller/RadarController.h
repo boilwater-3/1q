@@ -38,14 +38,6 @@ struct TacticalStateStore;
 }
 
 namespace airborne_radar {
-namespace decision {
-namespace pipeline {
-class ITacticalProcessor;
-}
-}
-}
-
-namespace airborne_radar {
 namespace environment {
 class IEnvironmentService;
 }
@@ -76,33 +68,31 @@ class RadarController {
 public:
 	~RadarController();
 
-	/// @brief 构造函数，注入核心依赖组件。
+	/// @brief 构造函数，使用默认战术协调器。
 	RadarController(
 			core::context::IRadarContext &radar_context,
 			signal::pipeline::ISignalPipeline &signal_pipeline,
-			decision::ITacticalDecisionEngine &decision_engine,
 			environment::IEnvironmentService &environment_service);
 
-	/// @brief 构造函数，注入新的决策引擎与事件总线。
+	/// @brief 构造函数，使用默认战术协调器并注入事件总线。
 	RadarController(
 			core::context::IRadarContext &radar_context,
 			signal::pipeline::ISignalPipeline &signal_pipeline,
-			decision::ITacticalDecisionEngine &decision_engine,
 			environment::IEnvironmentService &environment_service,
 			core::event::IEventBus &event_bus);
 
-	/// @brief 构造函数，兼容旧责任链接口并自动装配适配器。
+	/// @brief 构造函数，显式注入新的决策引擎。
 	RadarController(
 			core::context::IRadarContext &radar_context,
 			signal::pipeline::ISignalPipeline &signal_pipeline,
-			decision::pipeline::ITacticalProcessor &decision_pipeline,
+			decision::ITacticalDecisionEngine &decision_engine,
 			environment::IEnvironmentService &environment_service);
 
-	/// @brief 构造函数，兼容旧责任链接口并自动装配适配器与事件总线。
+	/// @brief 构造函数，显式注入新的决策引擎与事件总线。
 	RadarController(
 			core::context::IRadarContext &radar_context,
 			signal::pipeline::ISignalPipeline &signal_pipeline,
-			decision::pipeline::ITacticalProcessor &decision_pipeline,
+			decision::ITacticalDecisionEngine &decision_engine,
 			environment::IEnvironmentService &environment_service,
 			core::event::IEventBus &event_bus);
 
@@ -125,7 +115,7 @@ private:
 	/// @brief 若尚未绑定 Lifecycle，则尝试通过 Pipeline 自动装配。
 	void EnsureAutoLifecycleManager();
 
-	/// @brief 将控制意图映射为兼容命令并提交到雷达上下文。
+	/// @brief 将控制意图映射为外围命令并提交到雷达上下文。
 	void ExecuteCommands(
 			const std::vector<common::ControlDirective> &directives);
 
@@ -138,7 +128,7 @@ private:
 	/// @brief 决策引擎抽象。
 	decision::ITacticalDecisionEngine *decision_engine_{nullptr};
 
-	/// @brief 为兼容旧责任链持有的适配器。
+	/// @brief 若由 Controller 自持有，则保存默认决策引擎实例。
 	std::unique_ptr<decision::ITacticalDecisionEngine> owned_decision_engine_;
 
 	/// @brief 环境建模服务抽象。

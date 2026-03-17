@@ -3,10 +3,9 @@
 set(PROJECT_SOURCES
     airborne_radar/decision/TacticalCoordinator.cpp
     airborne_radar/decision/ControlReducer.cpp
-    airborne_radar/decision/LegacyPipelineDecisionEngine.cpp
-    airborne_radar/decision/classifier/TargetClassifier.cpp
-    airborne_radar/decision/lpi/LpiController.cpp
-    airborne_radar/decision/eccm/EccmController.cpp
+    airborne_radar/decision/classifier/ThreatAssessmentEvaluator.cpp
+    airborne_radar/decision/lpi/EmissionControlEvaluator.cpp
+    airborne_radar/decision/eccm/SurvivabilityEvaluator.cpp
     airborne_radar/core/controller/RadarController.cpp
     airborne_radar/core/event/EventBus.cpp
     airborne_radar/core/event/CycleEventBus.cpp

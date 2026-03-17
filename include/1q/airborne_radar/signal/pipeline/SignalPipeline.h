@@ -45,6 +45,12 @@ struct SignalBeamControlConfig {
   common::PlatformAttitudeDeg platform_attitude_deg{};
 };
 
+/// @brief SignalAssociationConfig 描述信号层关联域配置。
+struct SignalAssociationConfig {
+  /// @brief 未分配虚拟槽代价上限。
+  float unassigned_cost{9.0f};
+};
+
 /// @brief SignalTrackingConfig 描述信号层跟踪域配置。
 struct SignalTrackingConfig {
   /// @brief 是否启用 Kalman 状态估计（位置/速度）。
@@ -103,6 +109,9 @@ struct SignalPipelineConfig {
 
   /// @brief 波束控制域配置。
   SignalBeamControlConfig beam_control{};
+
+  /// @brief 关联域配置。
+  SignalAssociationConfig association{};
 
   /// @brief 跟踪域配置。
   SignalTrackingConfig tracking{};

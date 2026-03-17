@@ -177,6 +177,37 @@ TEST(TrackLifecycleManagerTest, RecyclesTrackAfterLostTimeout) {
   EXPECT_TRUE(snapshot.empty());
 }
 
+TEST(TrackLifecycleManagerTest, ExtraMissToleranceDelaysLostTransition) {
+  signal::tracking::BoostTrackPool pool(2, 8);
+  signal::tracking::LifecycleConfig config;
+  config.confirm_hits = 1;
+  config.max_miss_before_lost = 0;
+  config.max_lost_cycles = 2;
+
+  signal::tracking::TrackLifecycleManager manager(pool, config);
+
+  const signal::tracking::TrackMeasurement measurement =
+      MakeCartesianMeasurement(31u, 100.0f, 10.0f, false);
+
+  manager.Update(MakeCycle(1u, 3101u), {measurement});
+  manager.Update(MakeCycle(2u, 3102u, 1.0f), {});
+
+  std::vector<const common::TrackState *> active_tracks = manager.GetActiveTracks();
+  ASSERT_EQ(active_tracks.size(), 1u);
+  EXPECT_EQ(active_tracks[0]->status, common::TrackStatus::kLost);
+
+  signal::tracking::TrackLifecycleManager protected_manager(pool, config);
+  protected_manager.Update(MakeCycle(1u, 3201u), {measurement});
+  signal::tracking::CycleContext protected_cycle = MakeCycle(2u, 3202u);
+  protected_cycle.extra_miss_tolerance = 1u;
+  protected_manager.Update(protected_cycle, {});
+
+  active_tracks = protected_manager.GetActiveTracks();
+  ASSERT_EQ(active_tracks.size(), 1u);
+  EXPECT_EQ(active_tracks[0]->status, common::TrackStatus::kConfirmed);
+  EXPECT_EQ(active_tracks[0]->miss_count, 1u);
+}
+
 TEST(TrackLifecycleManagerTest, UsesExternalDtForPredictionWhenProvided) {
   signal::tracking::BoostTrackPool pool(2, 8);
   signal::tracking::LifecycleConfig config;

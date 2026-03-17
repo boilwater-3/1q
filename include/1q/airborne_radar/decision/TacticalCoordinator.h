@@ -5,7 +5,10 @@
 #ifndef AIRBORNE_RADAR_DECISION_TACTICAL_COORDINATOR_H_
 #define AIRBORNE_RADAR_DECISION_TACTICAL_COORDINATOR_H_
 
+#include "1q/airborne_radar/decision/classifier/ThreatAssessmentEvaluator.h"
+#include "1q/airborne_radar/decision/eccm/SurvivabilityEvaluator.h"
 #include "1q/airborne_radar/decision/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/decision/lpi/EmissionControlEvaluator.h"
 #include "1q/airborne_radar/environment/database/IFeatureRepository.h"
 
 namespace airborne_radar {
@@ -20,12 +23,14 @@ class TacticalCoordinator final : public ITacticalDecisionEngine {
           nullptr);
 
   /// @brief 评估单周期输入并输出战术建议。
-  TacticalDecisionResult Evaluate(
+ TacticalDecisionResult Evaluate(
       const common::DecisionInputFrame& input_frame,
       TacticalStateStore& state_store) override;
 
  private:
-  const environment::database::IFeatureRepository* feature_repository_;
+  classifier::ThreatAssessmentEvaluator threat_assessment_evaluator_;
+  lpi::EmissionControlEvaluator emission_control_evaluator_;
+  eccm::SurvivabilityEvaluator survivability_evaluator_;
 };
 
 } // namespace decision

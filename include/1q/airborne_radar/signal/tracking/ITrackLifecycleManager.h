@@ -27,10 +27,10 @@ public:
   virtual void Update(const CycleContext &cycle,
                       const std::vector<TrackMeasurement> &measurements) = 0;
 
-  /// @brief 导出兼容决策链路的目标特征快照。
+  /// @brief 导出供事件广播和外围观测消费的目标特征快照。
   virtual common::TargetFeatureList BuildFeatureSnapshot() const = 0;
 
-  /// @brief 导出供决策链路消费的稳定轨迹快照。
+  /// @brief 导出供决策引擎消费的稳定轨迹快照。
   virtual common::DecisionTrackSnapshotList BuildDecisionSnapshot() const = 0;
 
   /// @brief 导出完整的单周期决策输入帧。

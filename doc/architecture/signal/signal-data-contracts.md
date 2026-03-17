@@ -38,7 +38,7 @@
 
 - `position_x / position_y / position_z` 在 Signal 层内的正式语义是“雷达局部笛卡尔坐标”。
 - 当前位置空间关联是唯一正式主路径，因此成功探测目标必须具备可信的笛卡尔位置。
-- 若仅有速度、RCS 而没有位置，当前不再静默退回 legacy 关联路径。
+- 若仅有速度、RCS 而没有位置，当前不再静默退回历史特征空间关联路径。
 
 ### `environment::IEnvironmentService`
 

@@ -162,6 +162,36 @@ float ClampProfileScale(float scale, float fallback) {
   return scale;
 }
 
+/// @brief 约束浮点范围，避免 profile 将配置推到非法区间。
+float ClampFloat(float value, float min_value, float max_value) {
+  return std::max(min_value, std::min(max_value, value));
+}
+
+/// @brief 归一化 IMM 初始权重，避免 profile 调整后破坏概率约束。
+void NormalizeImmInitialWeights(std::vector<float>* weights) {
+  if (weights == nullptr || weights->empty()) {
+    return;
+  }
+
+  float sum = 0.0f;
+  for (std::size_t i = 0; i < weights->size(); ++i) {
+    (*weights)[i] = ClampFloat((*weights)[i], 0.0f, 1.0f);
+    sum += (*weights)[i];
+  }
+
+  if (sum <= 1e-6f) {
+    const float uniform_weight = 1.0f / static_cast<float>(weights->size());
+    for (std::size_t i = 0; i < weights->size(); ++i) {
+      (*weights)[i] = uniform_weight;
+    }
+    return;
+  }
+
+  for (std::size_t i = 0; i < weights->size(); ++i) {
+    (*weights)[i] /= sum;
+  }
+}
+
 /// @brief 将线性比例转换为 dB 修正量。
 float ToDbDelta(float linear_scale) {
   const float clamped_scale = ClampProfileScale(linear_scale, 1.0f);
@@ -231,6 +261,8 @@ void ApplyControlProfileToConfig(const common::RadarControlProfile& control_prof
   if (control_profile.enable_lpi_power_control) {
     runtime_config->detection.radar_system.transmitter.peak_power_w *=
         ClampProfileScale(control_profile.lpi_power_scale, 1.0f);
+    runtime_config->tracking.kalman_measurement_noise_std *= 1.15f;
+    runtime_config->association.unassigned_cost *= 0.90f;
   }
 
   if (control_profile.lpi_dwell_scale != 1.0f) {
@@ -250,10 +282,14 @@ void ApplyControlProfileToConfig(const common::RadarControlProfile& control_prof
         (control_profile.version % 2U == 0U) ? 1.015f : 0.985f;
     runtime_config->detection.radar_system.transmitter.frequency_hz *=
         hop_factor;
+    runtime_config->association.unassigned_cost *= 1.25f;
+    runtime_config->tracking.kalman_noise_diff_coeff *= 1.10f;
   }
 
   if (control_profile.enable_eccm_rejitter) {
     runtime_config->detection.radar_system.transmitter.prf_hz *= 1.10f;
+    runtime_config->association.unassigned_cost *= 1.35f;
+    runtime_config->tracking.kalman_noise_diff_coeff *= 1.10f;
   }
 
   if (control_profile.eccm_burnthrough_gain > 1.0f) {
@@ -262,6 +298,9 @@ void ApplyControlProfileToConfig(const common::RadarControlProfile& control_prof
         std::max(0.0f,
                  runtime_config->detection.radar_system.receiver.noise_figure_db -
                      gain_db);
+    runtime_config->association.unassigned_cost *=
+        ClampFloat(control_profile.eccm_burnthrough_gain, 1.0f, 2.0f);
+    runtime_config->tracking.kalman_measurement_noise_std *= 0.90f;
   }
 
   if (control_profile.enable_sidelobe_canceller) {
@@ -269,6 +308,8 @@ void ApplyControlProfileToConfig(const common::RadarControlProfile& control_prof
         true;
     runtime_config->detection.radar_system.antenna.pattern.max_sidelobe_level_db -=
         6.0f;
+    runtime_config->association.unassigned_cost *= 1.10f;
+    runtime_config->tracking.jamming_acceleration_penalty *= 0.60f;
   }
 
   const float beamwidth_scale = ResolveBeamwidthScale(control_profile);
@@ -289,6 +330,61 @@ void ApplyControlProfileToConfig(const common::RadarControlProfile& control_prof
 
   if (control_profile.enable_adaptive_beamforming) {
     runtime_config->detection.radar_system.antenna.main_beam_gain_db += 2.0f;
+    runtime_config->association.unassigned_cost *= 1.10f;
+    runtime_config->tracking.kalman_measurement_noise_std *= 0.80f;
+  }
+
+  if (control_profile.enable_lpi_beamforming) {
+    runtime_config->tracking.kalman_measurement_noise_std *= 0.90f;
+  }
+
+  if (control_profile.enable_sidelobe_canceller ||
+      control_profile.enable_agility_frequency ||
+      control_profile.enable_eccm_rejitter ||
+      control_profile.eccm_burnthrough_gain > 1.0f) {
+    runtime_config->tracking.speed_decay_ratio_on_loss =
+        ClampFloat(runtime_config->tracking.speed_decay_ratio_on_loss + 0.05f,
+                   0.0f, 0.995f);
+    runtime_config->tracking.rcs_decay_ratio_on_loss =
+        ClampFloat(runtime_config->tracking.rcs_decay_ratio_on_loss + 0.08f,
+                   0.0f, 0.999f);
+    runtime_config->tracking.jamming_acceleration_penalty =
+        ClampFloat(runtime_config->tracking.jamming_acceleration_penalty * 0.70f,
+                   0.0f, 1000.0f);
+  }
+
+  if (!runtime_config->lifecycle.imm_model_noise_diff_coeffs.empty()) {
+    float imm_noise_scale = 1.0f;
+    if (control_profile.enable_agility_frequency) {
+      imm_noise_scale *= 1.15f;
+    }
+    if (control_profile.enable_eccm_rejitter) {
+      imm_noise_scale *= 1.20f;
+    }
+    if (control_profile.eccm_burnthrough_gain > 1.0f) {
+      imm_noise_scale *= ClampFloat(control_profile.eccm_burnthrough_gain, 1.0f,
+                                    2.0f);
+    }
+    for (std::size_t i = 0;
+         i < runtime_config->lifecycle.imm_model_noise_diff_coeffs.size(); ++i) {
+      runtime_config->lifecycle.imm_model_noise_diff_coeffs[i] =
+          std::max(0.001f,
+                   runtime_config->lifecycle.imm_model_noise_diff_coeffs[i] *
+                       imm_noise_scale);
+    }
+  }
+
+  if (!runtime_config->lifecycle.imm_initial_weights.empty() &&
+      runtime_config->lifecycle.imm_initial_weights.size() > 1U &&
+      (control_profile.enable_agility_frequency ||
+       control_profile.enable_eccm_rejitter ||
+       control_profile.eccm_burnthrough_gain > 1.0f)) {
+    const std::size_t last_index =
+        runtime_config->lifecycle.imm_initial_weights.size() - 1U;
+    const float bonus =
+        control_profile.eccm_burnthrough_gain > 1.0f ? 0.18f : 0.10f;
+    runtime_config->lifecycle.imm_initial_weights[last_index] += bonus;
+    NormalizeImmInitialWeights(&runtime_config->lifecycle.imm_initial_weights);
   }
 }
 
@@ -428,11 +524,12 @@ struct SignalPipeline::Impl {
   /// @return 若未启用则返回空指针。
   std::unique_ptr<tracking::ITrackLifecycleManager>
   CreateAutoLifecycleManager() const {
-    if (!config.lifecycle.enable_auto_lifecycle_manager) {
+    const SignalPipelineConfig runtime_config = BuildRuntimeConfig();
+    if (!runtime_config.lifecycle.enable_auto_lifecycle_manager) {
       return std::unique_ptr<tracking::ITrackLifecycleManager>();
     }
     return std::unique_ptr<tracking::ITrackLifecycleManager>(
-        new AutoConfiguredLifecycleManager(config));
+        new AutoConfiguredLifecycleManager(runtime_config));
   }
 
   /// @brief 更新顶层配置。
@@ -502,6 +599,13 @@ struct SignalPipeline::Impl {
                           cached_context.runtime_config.tracking
                               .kalman_measurement_noise_std);
     cached_context.association_result = association::AssociationResult();
+
+    association_engine.UpdateConfig(
+        internal::SignalComponentFactory::BuildAssociationConfig(
+            cached_context.runtime_config));
+    track_filter.UpdateConfig(
+        internal::SignalComponentFactory::BuildTrackFilterConfig(
+            cached_context.runtime_config));
   }
 
   /// @brief 采样本周期环境快照。

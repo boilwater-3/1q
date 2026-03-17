@@ -467,7 +467,8 @@ void TrackLifecycleManager::Update(
       track.rcs = measurement.filtered_feature.rcs;
       track.jamming_detected = measurement.filtered_feature.jamming_detected;
 
-      PromoteState(track, cycle.cycle_index, true);
+      PromoteState(track, cycle.cycle_index, true,
+                   cycle.extra_miss_tolerance);
 
       if (measurement.raw_measurement.has_cartesian_position) {
         const Eigen::Vector3f velocity_before_filter = track.velocity;
@@ -502,7 +503,8 @@ void TrackLifecycleManager::Update(
         }
       }
     } else {
-      PromoteState(track, cycle.cycle_index, false);
+      PromoteState(track, cycle.cycle_index, false,
+                   cycle.extra_miss_tolerance);
 
       if (track.status == common::TrackStatus::kRecycled) {
         result.should_recycle = true;
@@ -742,7 +744,8 @@ std::vector<AssociationTrackSeed> TrackLifecycleManager::BuildAssociationSeeds()
 
 void TrackLifecycleManager::PromoteState(common::TrackState &track,
                                          std::uint32_t cycle_index,
-                                         bool hit_this_cycle) {
+                                         bool hit_this_cycle,
+                                         std::uint32_t extra_miss_tolerance) {
   if (hit_this_cycle) {
     if (track.status == common::TrackStatus::kLost ||
         (track.status == common::TrackStatus::kTentative &&
@@ -755,7 +758,9 @@ void TrackLifecycleManager::PromoteState(common::TrackState &track,
   track.miss_count += 1;
   if (track.status == common::TrackStatus::kTentative ||
       track.status == common::TrackStatus::kConfirmed) {
-    if (track.miss_count > config_.max_miss_before_lost) {
+    const std::uint32_t max_miss_before_lost =
+        config_.max_miss_before_lost + extra_miss_tolerance;
+    if (track.miss_count > max_miss_before_lost) {
       track.status = common::TrackStatus::kLost;
     }
     return;
