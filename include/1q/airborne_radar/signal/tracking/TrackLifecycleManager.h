@@ -23,6 +23,15 @@ class IKalmanPredictor;
 class IKalmanUpdater;
 class ImmFilter;
 
+/// @brief TrackPoolThreadSafetyMode 定义对象池线程安全策略。
+enum class TrackPoolThreadSafetyMode {
+  /// @brief 默认无锁模式，适用于当前单线程生命周期更新。
+  kSingleThreadNoLock = 0,
+
+  /// @brief 使用全局互斥保护对象池接口，为未来多线程模式做准备。
+  kMultiThreadGlobalLock
+};
+
 /// @brief ImmActivationPolicy 定义 IMM 多模型路径的激活策略。
 enum class ImmActivationPolicy {
   /// @brief 所有轨迹都按当前 IMM 语义创建和使用多模型路径。
@@ -46,6 +55,10 @@ struct LifecycleConfig {
   /// @brief IMM 激活策略。
   ImmActivationPolicy imm_activation_policy{
       ImmActivationPolicy::kConfirmedTracksOnly};
+
+  /// @brief 对象池线程安全策略。
+  TrackPoolThreadSafetyMode track_pool_thread_safety_mode{
+      TrackPoolThreadSafetyMode::kSingleThreadNoLock};
 };
 
 /// @brief TrackLifecycleManager 负责轨迹生命周期状态推进。
@@ -165,7 +178,10 @@ private:
 
 private:
 	/// @brief 轨迹对象池抽象，用于对象申请与归还。
-  ITrackPool &pool_;
+  ITrackPool *pool_{nullptr};
+
+  /// @brief 可选线程安全对象池包装器。
+  std::unique_ptr<ITrackPool> owned_pool_wrapper_;
 
 	/// @brief 生命周期阈值配置。
   LifecycleConfig config_;

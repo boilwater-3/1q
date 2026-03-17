@@ -111,6 +111,8 @@ flowchart TD
 - 位置空间关联是唯一主路径，`external seeds` 为唯一先验来源，无 seeds 时按 stateless 关联执行。
 - `TrackLifecycleManager` 提供生命周期管理与 Kalman/IMM 集成，支持自动装配与可配置启用。
 - IMM 激活策略支持 `kAllTracks` 与 `kConfirmedTracksOnly`；默认采用 `kConfirmedTracksOnly`，即仅对进入本周期前已确认且再次命中的轨迹懒创建并启用 IMM，其余阶段回退到首个模型对应的单模型预测/更新路径。
+- `TrackLifecycleManager::Update()` 已按 `PreparePhase -> EnsurePhase -> ComputePhase -> CommitPhase -> RecyclePhase` 五阶段收口：前两阶段负责量测路由、轨迹/IMM 运行态补齐，`ComputePhase` 仅消费每轨工作单元且不触碰对象池申请/释放与容器插删，最后两阶段统一提交写回与回收。
+- `LifecycleConfig.track_pool_thread_safety_mode` 明确对象池线程安全策略；默认 `kSingleThreadNoLock` 沿用当前单线程模式，未来若启用生命周期并行更新，可切换到 `kMultiThreadGlobalLock` 以全局互斥包装 `ITrackPool`。
 - 动态量测协方差 `R` 由检测链路生成并前移复用，供关联与滤波共享。
 - 关键路径日志已覆盖 Association / Lifecycle / Controller，便于溯源。
 
@@ -131,7 +133,8 @@ flowchart TD
 - 成功探测目标必须具备上述局部坐标位置，否则 fail-fast。
 - external seeds 必须同时携带位置与高斯状态，否则 fail-fast。
 - 关联先验仅来自 external seeds；未注入时按 stateless 语义执行。
-- 并发语义在文档中未声明，默认按主循环单线程驱动；若引入并发需补充同步策略与可见性约束。
+- 并发语义当前仍默认按主循环单线程驱动；本轮仅固定并行化前置条件，不承诺现阶段 `TrackLifecycleManager` 已具备可并发调用的线程安全保证。
+- 后续若要在 `Update()` 内部引入每轨并行，只能并行 `ComputePhase`；`Prepare/Ensure/Commit/Recycle` 继续保持串行，以保证 `tracks_by_key_ / imm_filters_by_key_` 的写入与回收可见性边界明确。
 
 ## 7. 与其他模块协作关系
 

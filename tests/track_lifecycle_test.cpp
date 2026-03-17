@@ -3,6 +3,7 @@
 // Description: 验证轨迹对象池与生命周期管理的基础状态机行为。
 
 #include <cmath>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -13,6 +14,88 @@
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
 
 namespace airborne_radar { namespace tests {
+
+namespace {
+
+class CountingTrackPool : public signal::tracking::ITrackPool {
+public:
+  explicit CountingTrackPool(std::size_t capacity)
+      : storage_(capacity), in_use_count_(0), acquire_calls_(0),
+        release_calls_(0) {
+    free_list_.reserve(storage_.size());
+    for (std::vector<common::TrackState>::iterator it = storage_.begin();
+         it != storage_.end(); ++it) {
+      free_list_.push_back(&(*it));
+    }
+  }
+
+  common::TrackState *Acquire() override {
+    ++acquire_calls_;
+    if (free_list_.empty()) {
+      return nullptr;
+    }
+
+    common::TrackState *track = free_list_.back();
+    free_list_.pop_back();
+    ++in_use_count_;
+    return track;
+  }
+
+  void Release(common::TrackState *track) override {
+    ++release_calls_;
+    if (track == nullptr) {
+      return;
+    }
+
+    free_list_.push_back(track);
+    if (in_use_count_ > 0U) {
+      --in_use_count_;
+    }
+  }
+
+  std::size_t Capacity() const override { return storage_.size(); }
+
+  std::size_t InUseCount() const override { return in_use_count_; }
+
+  std::size_t acquire_calls() const { return acquire_calls_; }
+
+  std::size_t release_calls() const { return release_calls_; }
+
+private:
+  std::vector<common::TrackState> storage_;
+  std::vector<common::TrackState *> free_list_;
+  std::size_t in_use_count_;
+  std::size_t acquire_calls_;
+  std::size_t release_calls_;
+};
+
+signal::tracking::TrackMeasurement MakeCartesianMeasurement(
+    std::uint64_t association_key, float position_x, float velocity_x,
+    bool matched_existing_track = false) {
+  signal::tracking::TrackMeasurement measurement;
+  measurement.raw_measurement.association_key = association_key;
+  measurement.raw_measurement.matched_existing_track = matched_existing_track;
+  measurement.raw_measurement.has_cartesian_position = true;
+  measurement.raw_measurement.position =
+      Eigen::Vector3f(position_x, 0.0f, 0.0f);
+  measurement.raw_measurement.measurement_covariance =
+      Eigen::Matrix3f::Identity();
+  measurement.filtered_feature.velocity =
+      Eigen::Vector3f(velocity_x, 0.0f, 0.0f);
+  return measurement;
+}
+
+signal::tracking::CycleContext MakeCycle(std::uint32_t cycle_index,
+                                         std::uint32_t batch_id,
+                                         float dt_sec = 1.0f) {
+  signal::tracking::CycleContext cycle;
+  cycle.cycle_index = cycle_index;
+  cycle.batch_id = batch_id;
+  cycle.dt_sec = dt_sec;
+  return cycle;
+}
+
+} // namespace
 
 TEST(TrackLifecycleManagerTest, ConfirmsTrackAfterConfiguredHits) {
   signal::tracking::BoostTrackPool pool(4, 16);
@@ -444,6 +527,140 @@ TEST(TrackLifecycleManagerTest,
               all_tracks[0]->gaussian_state.mean(0), 1e-3f);
   EXPECT_NEAR(confirmed_only_tracks[0]->gaussian_state.covariance(0, 0),
               all_tracks[0]->gaussian_state.covariance(0, 0), 1e-3f);
+}
+
+TEST(TrackLifecycleManagerTest,
+     GlobalLockTrackPoolModePreservesLifecycleResults) {
+  CountingTrackPool single_thread_pool(8);
+  CountingTrackPool locked_pool(8);
+
+  signal::tracking::LifecycleConfig single_thread_config;
+  single_thread_config.confirm_hits = 1;
+  single_thread_config.max_miss_before_lost = 1;
+  single_thread_config.max_lost_cycles = 3;
+
+  signal::tracking::LifecycleConfig locked_config = single_thread_config;
+  locked_config.track_pool_thread_safety_mode =
+      signal::tracking::TrackPoolThreadSafetyMode::kMultiThreadGlobalLock;
+
+  signal::tracking::KalmanPredictorConfig pred_cfg;
+  pred_cfg.noise_diff_coeff = 1.0f;
+  signal::tracking::KalmanPredictor predictor(pred_cfg);
+
+  signal::tracking::KalmanUpdaterConfig upd_cfg;
+  upd_cfg.measurement_noise_std = 1.0f;
+  signal::tracking::KalmanUpdater updater(upd_cfg);
+
+  signal::tracking::TrackLifecycleManager single_thread_manager(
+      single_thread_pool, single_thread_config, &predictor, &updater);
+  signal::tracking::TrackLifecycleManager locked_manager(
+      locked_pool, locked_config, &predictor, &updater);
+
+  const signal::tracking::TrackMeasurement first =
+      MakeCartesianMeasurement(71u, 100.0f, 10.0f, false);
+  const signal::tracking::TrackMeasurement second =
+      MakeCartesianMeasurement(71u, 111.0f, 10.0f, true);
+
+  single_thread_manager.Update(MakeCycle(1u, 7101u), {first});
+  locked_manager.Update(MakeCycle(1u, 7101u), {first});
+  single_thread_manager.Update(MakeCycle(2u, 7102u), {second});
+  locked_manager.Update(MakeCycle(2u, 7102u), {second});
+  single_thread_manager.Update(MakeCycle(3u, 7103u), {});
+  locked_manager.Update(MakeCycle(3u, 7103u), {});
+
+  const std::vector<const common::TrackState *> single_thread_tracks =
+      single_thread_manager.GetActiveTracks();
+  const std::vector<const common::TrackState *> locked_tracks =
+      locked_manager.GetActiveTracks();
+  ASSERT_EQ(single_thread_tracks.size(), 1u);
+  ASSERT_EQ(locked_tracks.size(), 1u);
+
+  EXPECT_EQ(single_thread_tracks[0]->status, locked_tracks[0]->status);
+  EXPECT_NEAR(single_thread_tracks[0]->position(0),
+              locked_tracks[0]->position(0), 1e-4f);
+  EXPECT_NEAR(single_thread_tracks[0]->velocity(0),
+              locked_tracks[0]->velocity(0), 1e-4f);
+  EXPECT_NEAR(single_thread_tracks[0]->gaussian_state.mean(0),
+              locked_tracks[0]->gaussian_state.mean(0), 1e-4f);
+  EXPECT_NEAR(single_thread_tracks[0]->gaussian_state.covariance(0, 0),
+              locked_tracks[0]->gaussian_state.covariance(0, 0), 1e-4f);
+  EXPECT_EQ(single_thread_pool.acquire_calls(), locked_pool.acquire_calls());
+  EXPECT_EQ(single_thread_pool.release_calls(), locked_pool.release_calls());
+}
+
+TEST(TrackLifecycleManagerTest,
+     MixedLifecycleCycleOnlyAcquiresNewTracksAndRecyclesInRecyclePhase) {
+  CountingTrackPool pool(8);
+  signal::tracking::LifecycleConfig config;
+  config.confirm_hits = 1;
+  config.max_miss_before_lost = 0;
+  config.max_lost_cycles = 0;
+
+  signal::tracking::TrackLifecycleManager manager(pool, config);
+
+  const signal::tracking::TrackMeasurement first_track =
+      MakeCartesianMeasurement(81u, 10.0f, 1.0f, false);
+  const signal::tracking::TrackMeasurement second_track =
+      MakeCartesianMeasurement(82u, 20.0f, 2.0f, false);
+
+  manager.Update(MakeCycle(1u, 8101u), {first_track, second_track});
+  EXPECT_EQ(pool.acquire_calls(), 2u);
+  EXPECT_EQ(pool.release_calls(), 0u);
+  EXPECT_EQ(pool.InUseCount(), 2u);
+
+  const signal::tracking::TrackMeasurement first_track_rehit =
+      MakeCartesianMeasurement(81u, 11.0f, 1.0f, true);
+  const signal::tracking::TrackMeasurement new_track =
+      MakeCartesianMeasurement(83u, 30.0f, 3.0f, false);
+  manager.Update(MakeCycle(2u, 8102u), {first_track_rehit, new_track});
+
+  EXPECT_EQ(pool.acquire_calls(), 3u);
+  EXPECT_EQ(pool.release_calls(), 0u);
+  EXPECT_EQ(pool.InUseCount(), 3u);
+
+  const std::vector<const common::TrackState *> after_mixed_cycle =
+      manager.GetActiveTracks();
+  ASSERT_EQ(after_mixed_cycle.size(), 3u);
+
+  manager.Update(MakeCycle(3u, 8103u), {});
+
+  EXPECT_EQ(pool.acquire_calls(), 3u);
+  EXPECT_EQ(pool.release_calls(), 1u);
+  EXPECT_EQ(pool.InUseCount(), 2u);
+
+  const std::vector<const common::TrackState *> after_recycle_cycle =
+      manager.GetActiveTracks();
+  EXPECT_EQ(after_recycle_cycle.size(), 2u);
+}
+
+TEST(TrackLifecycleManagerTest,
+     GlobalLockTrackPoolModePreservesAcquireReleaseCounts) {
+  CountingTrackPool pool(8);
+  signal::tracking::LifecycleConfig config;
+  config.confirm_hits = 1;
+  config.max_miss_before_lost = 0;
+  config.max_lost_cycles = 0;
+  config.track_pool_thread_safety_mode =
+      signal::tracking::TrackPoolThreadSafetyMode::kMultiThreadGlobalLock;
+
+  signal::tracking::TrackLifecycleManager manager(pool, config);
+
+  manager.Update(MakeCycle(1u, 8201u),
+                 {MakeCartesianMeasurement(91u, 10.0f, 1.0f, false),
+                  MakeCartesianMeasurement(92u, 20.0f, 2.0f, false)});
+  EXPECT_EQ(pool.acquire_calls(), 2u);
+  EXPECT_EQ(pool.release_calls(), 0u);
+
+  manager.Update(MakeCycle(2u, 8202u),
+                 {MakeCartesianMeasurement(91u, 11.0f, 1.0f, true),
+                  MakeCartesianMeasurement(93u, 30.0f, 3.0f, false)});
+  EXPECT_EQ(pool.acquire_calls(), 3u);
+  EXPECT_EQ(pool.release_calls(), 0u);
+
+  manager.Update(MakeCycle(3u, 8203u), {});
+  EXPECT_EQ(pool.acquire_calls(), 3u);
+  EXPECT_EQ(pool.release_calls(), 1u);
+  EXPECT_EQ(pool.InUseCount(), 2u);
 }
 
 TEST(TrackLifecycleManagerTest,
