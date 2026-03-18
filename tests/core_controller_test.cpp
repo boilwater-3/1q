@@ -24,6 +24,7 @@
 #include "1q/airborne_radar/core/event/EventBus.h"
 #include "1q/airborne_radar/core/event/CycleEventBus.h"
 #include "1q/airborne_radar/environment/EnvironmentService.h"
+#include "environment_test_fixture.h"
 
 namespace airborne_radar { namespace tests {
 
@@ -344,6 +345,83 @@ TEST_F(CoreControllerTest, PushesPlatformAttitudeIntoSignalPipelineBeforeRun) {
   EXPECT_FLOAT_EQ(cached_platform_attitude.yaw_deg, 18.0f);
   EXPECT_FLOAT_EQ(cached_platform_attitude.pitch_deg, -4.0f);
   EXPECT_FLOAT_EQ(cached_platform_attitude.roll_deg, 2.0f);
+}
+
+TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecision) {
+  const common::TargetFeatureList input_state =
+      BuildSingleTarget(800.0f, 2.5f, false);
+  FakeRadarContext radar_context(input_state);
+
+  environment::EnvironmentService environment_service;
+  environment::JammerEmitterState jammer_source =
+      environment_test::MakeJammerEmitter(
+          environment::JammingTechnique::kDeception, 10.0f);
+  jammer_source.js_db = 7.0f;
+  jammer_source.frequency_overlap_ratio = 0.85f;
+  jammer_source.prf_lock_risk = 0.75f;
+  jammer_source.in_sidelobe = false;
+  environment_service.UpdateSceneState(
+      environment_test::MemorySceneBuilder()
+          .WithPropagation(20.0f, 6.0f, 4.0f)
+          .WithClutter(12.0f)
+          .AddJammer(jammer_source)
+          .BuildSceneState());
+
+  signal::pipeline::SignalPipeline signal_pipeline;
+  CapturingDecisionEngine decision_engine;
+  core::controller::RadarController controller(
+      radar_context, signal_pipeline, decision_engine, environment_service);
+
+  controller.RunOnce();
+
+  const environment::EnvironmentSnapshot frozen_snapshot =
+      environment_service.SampleEnvironment();
+  const std::vector<signal::tracking::TrackMeasurement> measurements =
+      signal_pipeline.GetLastTrackMeasurements();
+
+  EXPECT_TRUE(decision_engine.last_frame.environment_jamming_detected);
+  EXPECT_EQ(decision_engine.last_frame.environment_jamming_detected,
+            frozen_snapshot.jamming_detected);
+  EXPECT_EQ(decision_engine.last_frame.eccm_source_info.has_jamming_signal,
+            frozen_snapshot.jamming_detected);
+  EXPECT_FLOAT_EQ(decision_engine.last_frame.eccm_source_info.jammer_power_db,
+                  frozen_snapshot.jammer_power_db);
+  ASSERT_EQ(decision_engine.last_frame.eccm_source_info.jammer_sources.size(),
+            frozen_snapshot.jammer_sources.size());
+  ASSERT_EQ(measurements.size(), 1U);
+  EXPECT_EQ(measurements[0].filtered_feature.jamming_detected,
+            frozen_snapshot.jamming_detected);
+}
+
+TEST_F(CoreControllerTest, AppliesUpdatedSceneOnNextControllerCycle) {
+  const common::TargetFeatureList input_state =
+      BuildSingleTarget(800.0f, 2.5f, false);
+  FakeRadarContext radar_context(input_state);
+
+  environment::EnvironmentService environment_service;
+  signal::pipeline::SignalPipeline signal_pipeline;
+  CapturingDecisionEngine decision_engine;
+  core::controller::RadarController controller(
+      radar_context, signal_pipeline, decision_engine, environment_service);
+
+  controller.RunOnce();
+  EXPECT_FALSE(decision_engine.last_frame.environment_jamming_detected);
+
+  environment::JammerEmitterState jammer_source =
+      environment_test::MakeJammerEmitter(
+          environment::JammingTechnique::kNoiseSuppression, 9.0f);
+  jammer_source.in_sidelobe = true;
+  environment_service.UpdateSceneState(
+      environment_test::MemorySceneBuilder()
+          .AddJammer(jammer_source)
+          .BuildSceneState());
+
+  EXPECT_FALSE(environment_service.SampleEnvironment().jamming_detected);
+
+  controller.RunOnce();
+
+  EXPECT_TRUE(decision_engine.last_frame.environment_jamming_detected);
+  EXPECT_TRUE(environment_service.SampleEnvironment().jamming_detected);
 }
 
 TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {

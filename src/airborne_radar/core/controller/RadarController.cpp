@@ -335,6 +335,10 @@ void RadarController::RunOnce() {
 
   const common::TargetFeatureList input_features =
       radar_context_.GetTargetFeatures();
+  environment::EnvironmentCycleContext environment_cycle_context;
+  environment_cycle_context.cycle_index = cycle_index_;
+  environment_cycle_context.dt_sec = radar_context_.GetCycleDeltaTimeSec();
+  environment_service_.BeginCycle(environment_cycle_context);
   signal_pipeline_.UpdatePlatformAttitude(radar_context_.GetPlatformAttitude());
 
   std::size_t association_seed_count = 0;
@@ -375,7 +379,7 @@ void RadarController::RunOnce() {
     signal::tracking::CycleContext cycle;
     cycle.cycle_index = cycle_index_;
     cycle.batch_id = batch_id_;
-    cycle.dt_sec = radar_context_.GetCycleDeltaTimeSec();
+    cycle.dt_sec = environment_cycle_context.dt_sec;
     cycle.extra_miss_tolerance =
         ResolveLifecycleExtraMissTolerance(*control_profile_);
     track_lifecycle_manager_->Update(cycle, measurements);

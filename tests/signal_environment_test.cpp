@@ -10,7 +10,10 @@
 #include "1q/airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "1q/airborne_radar/signal/tracking/TrackLifecycleTypes.h"
 #include "1q/airborne_radar/environment/EnvironmentService.h"
+#include "airborne_radar/environment/scene/SceneManager.h"
+#include "airborne_radar/environment/simulation/PropagationModel.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
+#include "environment_test_fixture.h"
 
 namespace airborne_radar { namespace tests {
 
@@ -57,6 +60,48 @@ TEST(EnvironmentServiceTest, DetectsJammingByConfiguredThreshold) {
   EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].power_db, 7.0f);
 }
 
+TEST(EnvironmentServiceTest, FreezesSnapshotUntilNextCycle) {
+  environment::EnvironmentService service;
+
+  environment::JammerEmitterState emitter =
+      environment_test::MakeJammerEmitter(
+          environment::JammingTechnique::kNoiseSuppression, 8.0f);
+  emitter.frequency_overlap_ratio = 0.4f;
+  emitter.prf_lock_risk = 0.3f;
+  emitter.in_sidelobe = true;
+  const environment::EnvironmentSceneState scene_state =
+      environment_test::MemorySceneBuilder()
+          .WithPropagation(12.0f, 5.0f, 3.0f)
+          .WithClutter(9.0f)
+          .AddJammer(emitter)
+          .BuildSceneState();
+
+  service.UpdateSceneState(scene_state);
+
+  const environment::EnvironmentSnapshot pending_snapshot =
+      service.SampleEnvironment();
+  EXPECT_FALSE(pending_snapshot.jamming_detected);
+  EXPECT_NEAR(pending_snapshot.propagation_loss_db, 6.5f, 1e-6f);
+
+  service.BeginCycle(environment_test::MakeEnvironmentCycle(1U));
+  const environment::EnvironmentSnapshot cycle_snapshot =
+      service.SampleEnvironment();
+  const environment::EnvironmentSnapshot repeated_snapshot =
+      service.SampleEnvironment();
+
+  EXPECT_TRUE(cycle_snapshot.jamming_detected);
+  EXPECT_FLOAT_EQ(cycle_snapshot.propagation_loss_db, 20.0f);
+  EXPECT_FLOAT_EQ(cycle_snapshot.clutter_power_db, 9.0f);
+  EXPECT_FLOAT_EQ(cycle_snapshot.jammer_power_db, 8.0f);
+  EXPECT_EQ(cycle_snapshot.jammer_sources.size(), 1U);
+  EXPECT_EQ(cycle_snapshot.jammer_sources.size(),
+            repeated_snapshot.jammer_sources.size());
+  EXPECT_FLOAT_EQ(repeated_snapshot.jammer_power_db,
+                  cycle_snapshot.jammer_power_db);
+  EXPECT_EQ(repeated_snapshot.jamming_detected,
+            cycle_snapshot.jamming_detected);
+}
+
 TEST(EnvironmentServiceTest, SupportsMultipleJammerSourcesInSnapshot) {
   environment::EnvironmentModelConfig config;
 
@@ -93,6 +138,58 @@ TEST(EnvironmentServiceTest, SupportsMultipleJammerSourcesInSnapshot) {
             environment::JammingTechnique::kDeception);
   EXPECT_FLOAT_EQ(snapshot.jammer_power_db, 9.0f);
   EXPECT_TRUE(snapshot.jammer_in_sidelobe);
+}
+
+TEST(EnvironmentServiceTest, AppliesLegacyJammerPowerOnNextCycleOnly) {
+  environment::EnvironmentService service;
+
+  EXPECT_FALSE(service.SampleEnvironment().jamming_detected);
+
+  service.SetJammerPowerDb(7.0f);
+
+  EXPECT_FALSE(service.SampleEnvironment().jamming_detected);
+
+  service.BeginCycle(environment_test::MakeEnvironmentCycle(3U));
+  const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
+  EXPECT_TRUE(snapshot.jamming_detected);
+  ASSERT_EQ(snapshot.jammer_sources.size(), 1U);
+  EXPECT_EQ(snapshot.jammer_sources[0].technique,
+            environment::JammingTechnique::kUnknown);
+  EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].power_db, 7.0f);
+}
+
+TEST(SceneManagerTest, CommitsPendingSceneOnlyWhenBeginCycleArrives) {
+  environment::EnvironmentSceneState initial_scene;
+  initial_scene.base_propagation_loss_db = 1.0f;
+
+  environment::scene::SceneManager scene_manager(initial_scene);
+
+  environment::EnvironmentSceneState pending_scene = initial_scene;
+  pending_scene.base_propagation_loss_db = 15.0f;
+  scene_manager.UpdatePendingScene(pending_scene);
+
+  EXPECT_FLOAT_EQ(scene_manager.GetActiveScene().base_propagation_loss_db, 1.0f);
+  EXPECT_FLOAT_EQ(scene_manager.GetPendingScene().base_propagation_loss_db, 15.0f);
+
+  scene_manager.CommitPendingScene(environment_test::MakeEnvironmentCycle(9U));
+
+  EXPECT_FLOAT_EQ(scene_manager.GetActiveScene().base_propagation_loss_db, 15.0f);
+  EXPECT_EQ(scene_manager.GetActiveCycleContext().cycle_index, 9U);
+}
+
+TEST(PropagationModelTest, ClampsCombinedPropagationAndClutterNonNegative) {
+  environment::EnvironmentSceneState scene_state;
+  scene_state.base_propagation_loss_db = -10.0f;
+  scene_state.atmospheric_attenuation_db = 2.0f;
+  scene_state.terrain_reflection_db = -4.0f;
+  scene_state.clutter_power_db = -3.0f;
+
+  environment::simulation::PropagationModel propagation_model;
+  const environment::simulation::PropagationResult result =
+      propagation_model.Evaluate(scene_state);
+
+  EXPECT_FLOAT_EQ(result.propagation_loss_db, 0.0f);
+  EXPECT_FLOAT_EQ(result.clutter_power_db, 0.0f);
 }
 
 TEST(SignalPipelineTest, KeepsTrackStableWhenDetectionMarginIsEnough) {

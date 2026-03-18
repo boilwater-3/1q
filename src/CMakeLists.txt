@@ -10,6 +10,8 @@ set(PROJECT_SOURCES
     airborne_radar/core/event/EventBus.cpp
     airborne_radar/core/event/CycleEventBus.cpp
     airborne_radar/environment/EnvironmentService.cpp
+    airborne_radar/environment/scene/SceneManager.cpp
+    airborne_radar/environment/simulation/PropagationModel.cpp
     airborne_radar/environment/database/FeatureRepository.cpp
     airborne_radar/signal/association/DataAssociation.cpp
     airborne_radar/signal/association/DistanceMetric.cpp

@@ -7,8 +7,10 @@ Environment 层的职责是把场景、传播和干扰条件整理为单周期�
 当前正式公共接口是：
 
 - `environment::IEnvironmentService`
+- `environment::EnvironmentCycleContext`
 - `environment::EnvironmentSnapshot`
 - `environment::EnvironmentService`
+- `environment::EnvironmentSceneState`
 
 其中 `EnvironmentSnapshot` 目前包含：
 
@@ -16,7 +18,12 @@ Environment 层的职责是把场景、传播和干扰条件整理为单周期�
 - `clutter_power_db`
 - `jamming_detected`
 
-这已经足够驱动现有探测链和 ECCM 总开关，但对于细粒度抗干扰策略选择仍偏粗。
+当前环境层 MVP 已补齐两项基础语义：
+
+- `BeginCycle(...)`：冻结单周期环境事实，确保同周期 `Signal/Decision` 读取同一份快照
+- `EnvironmentSceneState`：以内存 API 维护待生效场景，并在下一周期提交
+
+这已经足够驱动现有探测链和 ECCM 总开关，但对于更高保真的传播/干扰物理仍保持组合式近似。
 
 ## 2. 当前代码结构
 
@@ -30,6 +37,12 @@ src/airborne_radar/environment/
 ├── scene/SceneManager.*
 └── simulation/PropagationModel.*
 ```
+
+其中：
+
+- `SceneManager` 负责 pending/active 场景切换
+- `PropagationModel` 负责组合式传播损耗与杂波建模
+- `EnvironmentService` 负责场景冻结、快照聚合和兼容旧配置接口
 
 注意：当前代码中尚未拆出独立的 `InterferenceModel` 公共类。下面关于“干扰建模模块”的边界，属于基于现有 `EnvironmentService` 的推荐拆分方向。
 
@@ -135,9 +148,13 @@ Scene / Propagation / Interference facts
 
 ### 当前实现
 
-- `EnvironmentService` 通过配置直接生成 `propagation_loss_db`、`clutter_power_db`
+- `EnvironmentService` 使用 `EnvironmentSceneState` 作为待生效场景输入
+- `RadarController` 在每周期开始调用 `BeginCycle(...)`，冻结环境快照
+- `PropagationModel` 以 `max(0, base + atmospheric + terrain)` 生成 `propagation_loss_db`
+- `PropagationModel` 以 `max(0, clutter_power_db)` 生成 `clutter_power_db`
+- `EnvironmentService` 聚合多源 jammer，取 `power_db` 最大者作为主摘要
 - 用 `jammer_power_db >= threshold` 生成 `jamming_detected`
-- `SignalPipeline` 再根据 `jamming_detected` 和控制真值推导等效 `jam_noise_w`
+- `SignalPipeline` 再根据冻结后的环境事实和控制真值推导等效 `jam_noise_w`
 
 ### 推荐演进
 

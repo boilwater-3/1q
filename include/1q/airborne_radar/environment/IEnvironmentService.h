@@ -1,10 +1,12 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义环境建模层对外暴露的只读服务接口。
+// @file IEnvironmentService.h
+// @brief 定义环境建模层对外暴露的只读服务接口。
 
 #ifndef AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_
 #define AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_
 
+#include <cstdint>
 #include <vector>
 
 namespace airborne_radar {
@@ -49,6 +51,14 @@ struct JammerSourceFact {
 /// @brief 单周期内可见的干扰源列表。
 typedef std::vector<JammerSourceFact> JammerSourceFactList;
 
+/// @brief EnvironmentCycleContext 描述环境层周期冻结上下文。
+struct EnvironmentCycleContext {
+  /// @brief 当前周期号。
+  std::uint32_t cycle_index{0U};
+  /// @brief 当前周期步长（单位：s）。
+  float dt_sec{0.0f};
+};
+
 /// @brief EnvironmentSnapshot 用于封装单个处理周期内的环境快照。
 struct EnvironmentSnapshot {
 	/// @brief 传播损耗（单位：dB）。
@@ -73,6 +83,10 @@ struct EnvironmentSnapshot {
 class IEnvironmentService {
 public:
 	virtual ~IEnvironmentService() = default;
+
+	/// @brief 冻结当前周期环境事实，供后续只读采样复用。
+	virtual void BeginCycle(
+	    const EnvironmentCycleContext& cycle_context) = 0;
 
 	/// @brief 采样并返回当前处理周期的环境条件。
 	virtual EnvironmentSnapshot SampleEnvironment() const = 0;
