@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "1q/airborne_radar/common/TrackOutputFrame.h"
 #include "1q/airborne_radar/common/ControlDirective.h"
 #include "1q/airborne_radar/common/TargetFeature.h"
 
@@ -19,6 +20,12 @@ namespace event {
 struct TracksUpdatedEvent {
   /// @brief 信号处理后的最新雷达状态。
   common::TargetFeatureList state{};
+};
+
+/// @brief TrackOutputPublishedEvent 表示中性轨迹输出帧已发布。
+struct TrackOutputPublishedEvent {
+  /// @brief 当前周期发布的中性轨迹输出帧。
+  common::TrackOutputFrame frame{};
 };
 
 /// @brief JammingAlertEvent 表示检测到电子干扰告警。

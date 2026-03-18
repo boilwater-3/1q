@@ -14,6 +14,8 @@
 #include "1q/airborne_radar/common/DecisionTrackSnapshot.h"
 #include "1q/airborne_radar/common/RadarCommand.h"
 #include "1q/airborne_radar/common/RadarControlProfile.h"
+#include "1q/airborne_radar/common/TrackOutputFrame.h"
+#include "1q/airborne_radar/core/output/IDataOutputManager.h"
 #include "1q/airborne_radar/core/event/IEventBus.h"
 #include "1q/airborne_radar/core/event/RadarEvents.h"
 #include "1q/airborne_radar/core/context/IRadarContext.h"
@@ -23,6 +25,7 @@
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "1q/airborne_radar/signal/tracking/ITrackLifecycleManager.h"
+#include "airborne_radar/core/output/DataOutputManager.h"
 
 namespace airborne_radar {
 namespace core {
@@ -117,20 +120,17 @@ common::DecisionTrackSnapshot BuildDecisionTrackSnapshotFromFeature(
   return snapshot;
 }
 
-common::DecisionInputFrame BuildDecisionFrameFromFeatures(
-    const common::TargetFeatureList& features, std::uint32_t cycle_index,
-    std::uint64_t batch_id,
-    const common::EccmSourceInfo& eccm_source_info) {
-  common::DecisionInputFrame frame;
-  frame.cycle_index = cycle_index;
-  frame.batch_id = batch_id;
-  frame.environment_jamming_detected = eccm_source_info.has_jamming_signal;
-  frame.eccm_source_info = eccm_source_info;
-  frame.tracks.reserve(features.size());
+/// @brief 使用目标特征构造兼容降级路径的轨迹快照列表。
+/// @param features 当前周期输出目标特征列表。
+/// @return synthetic 的决策轨迹快照列表。
+common::DecisionTrackSnapshotList BuildDecisionSnapshotsFromFeatures(
+    const common::TargetFeatureList& features) {
+  common::DecisionTrackSnapshotList track_snapshots;
+  track_snapshots.reserve(features.size());
   for (std::size_t i = 0; i < features.size(); ++i) {
-    frame.tracks.push_back(BuildDecisionTrackSnapshotFromFeature(features[i], i));
+    track_snapshots.push_back(BuildDecisionTrackSnapshotFromFeature(features[i], i));
   }
-  return frame;
+  return track_snapshots;
 }
 
 common::AssociationQualityInfo BuildAssociationQualityInfo(
@@ -248,7 +248,8 @@ RadarController::RadarController(
       control_profile_(nullptr),
       owned_control_profile_(new common::RadarControlProfile()),
       tactical_state_store_(new decision::pipeline::TacticalStateStore()),
-      control_reducer_(new decision::pipeline::ControlReducer()) {
+      control_reducer_(new decision::pipeline::ControlReducer()),
+      output_manager_(new output::DataOutputManager()) {
   decision_engine_ = owned_decision_engine_.get();
   control_profile_ = owned_control_profile_.get();
 }
@@ -267,7 +268,8 @@ RadarController::RadarController(
       control_profile_(nullptr),
       owned_control_profile_(new common::RadarControlProfile()),
       tactical_state_store_(new decision::pipeline::TacticalStateStore()),
-      control_reducer_(new decision::pipeline::ControlReducer()) {
+      control_reducer_(new decision::pipeline::ControlReducer()),
+      output_manager_(new output::DataOutputManager()) {
   decision_engine_ = owned_decision_engine_.get();
   control_profile_ = owned_control_profile_.get();
 }
@@ -285,7 +287,8 @@ RadarController::RadarController(
       owned_control_profile_(
           new common::RadarControlProfile()),
       tactical_state_store_(new decision::pipeline::TacticalStateStore()),
-      control_reducer_(new decision::pipeline::ControlReducer()) {
+      control_reducer_(new decision::pipeline::ControlReducer()),
+      output_manager_(new output::DataOutputManager()) {
   control_profile_ = owned_control_profile_.get();
 }
 
@@ -303,7 +306,8 @@ RadarController::RadarController(
       control_profile_(nullptr),
       owned_control_profile_(new common::RadarControlProfile()),
       tactical_state_store_(new decision::pipeline::TacticalStateStore()),
-      control_reducer_(new decision::pipeline::ControlReducer()) {
+      control_reducer_(new decision::pipeline::ControlReducer()),
+      output_manager_(new output::DataOutputManager()) {
   control_profile_ = owned_control_profile_.get();
 }
 
@@ -366,10 +370,14 @@ void RadarController::RunOnce() {
       BuildPerceptionQualityInfo(input_features.size(), association_metrics);
   const bool environment_jamming_detected = eccm_source_info.has_jamming_signal;
   common::TargetFeatureList decision_features = updated_features;
-  common::DecisionInputFrame decision_frame = BuildDecisionFrameFromFeatures(
-      updated_features, cycle_index_, batch_id_, eccm_source_info);
-  decision_frame.association_quality_info = association_quality_info;
-  decision_frame.perception_quality_info = perception_quality_info;
+  common::TrackOutputFrame track_output_frame =
+      output_manager_->BuildTrackOutputFrame(
+          cycle_index_, batch_id_,
+          BuildDecisionSnapshotsFromFeatures(updated_features));
+  common::DecisionInputFrame decision_frame =
+      output_manager_->BuildDecisionInputFrame(
+          track_output_frame, eccm_source_info, association_quality_info,
+          perception_quality_info);
   std::size_t measurement_count = 0;
 
   if (track_lifecycle_manager_ != nullptr) {
@@ -384,12 +392,12 @@ void RadarController::RunOnce() {
         ResolveLifecycleExtraMissTolerance(*control_profile_);
     track_lifecycle_manager_->Update(cycle, measurements);
     decision_features = track_lifecycle_manager_->BuildFeatureSnapshot();
-    decision_frame = track_lifecycle_manager_->BuildDecisionFrame(
-        cycle_index_, batch_id_, environment_jamming_detected);
-    decision_frame.environment_jamming_detected = environment_jamming_detected;
-    decision_frame.eccm_source_info = eccm_source_info;
-    decision_frame.association_quality_info = association_quality_info;
-    decision_frame.perception_quality_info = perception_quality_info;
+    track_output_frame = output_manager_->BuildTrackOutputFrame(
+        cycle_index_, batch_id_,
+        track_lifecycle_manager_->BuildDecisionSnapshot());
+    decision_frame = output_manager_->BuildDecisionInputFrame(
+        track_output_frame, eccm_source_info, association_quality_info,
+        perception_quality_info);
   }
 
   decision::pipeline::TacticalDecisionResult decision_result;
@@ -411,6 +419,10 @@ void RadarController::RunOnce() {
     core::event::TracksUpdatedEvent tracks_event;
     tracks_event.state = decision_features;
     event_bus_->Enqueue(tracks_event);
+
+    core::event::TrackOutputPublishedEvent track_output_event;
+    track_output_event.frame = track_output_frame;
+    event_bus_->Enqueue(track_output_event);
 
     if (environment_jamming_detected) {
       core::event::JammingAlertEvent jamming_event;

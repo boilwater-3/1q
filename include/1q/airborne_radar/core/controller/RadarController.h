@@ -30,6 +30,14 @@ class IEventBus;
 }
 
 namespace airborne_radar {
+namespace core {
+namespace output {
+class IDataOutputManager;
+}
+}
+}
+
+namespace airborne_radar {
 namespace decision {
 namespace pipeline {
 class ITacticalDecisionEngine;
@@ -163,6 +171,9 @@ private:
 
 	/// @brief 控制归并器。
 	std::unique_ptr<decision::pipeline::ControlReducer> control_reducer_;
+
+	/// @brief 数据输出管理服务，负责装配中性输出帧与决策输入帧。
+	std::unique_ptr<core::output::IDataOutputManager> output_manager_;
 
 	/// @brief 当前处理周期号。
 	std::uint32_t cycle_index_{1};

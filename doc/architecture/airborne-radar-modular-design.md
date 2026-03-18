@@ -55,6 +55,7 @@
 - 此层中完全剥离了原乱入的【场景设置】。主要专注于执行循环调度、事件编排、初始化配置以及外部接口对接。
 - 核心组件为 `RadarController`，它负责驱动 `ISignalPipeline` 处理循环、组织事件与命令流转。
 - 约束：`RadarController` 不直接承担目标状态机、批号与回收策略，这些由信号跟踪域服务 `TrackLifecycleManager` 负责。
+- 建议把“数据输出管理模块”也放在核心层，作为 `RadarController` 旁的应用服务：它只消费 Lifecycle 导出的只读快照，统一向事件总线、记录器和外部接口分发稳定输出，不反向侵入对象池与决策域。
 
 ### 3.3 信号处理层 (Signal Processing Layer)
 作为雷达系统的“数据泵”与领域核心。
@@ -102,6 +103,7 @@
 
 - **EventBus 差异化语义**：除了支持即时执行同步分派的 `EventBus`，新增了基于双缓冲数组切换的 `CycleEventBus`（异步周期分派）。彻底规避了同周期引发的事件回调死循环重入风险，配合单线程的主循环推进机制使用。
 - **配置与生命周期隔离**：`RadarController` 驱动全局运转，不再亲自掌管航迹列表的批号生命周期，而是通过接口 `ITrackLifecycleManager` 绑定跟踪域的专业生命周期服务。
+- **结果分发收口**：建议新增输出管理模块，把当前分散在 `RadarController` 内的 `BuildFeatureSnapshot()` / `BuildDecisionFrame()` / 事件装配逻辑收敛起来，使控制器只保留调度职责。
 
 ### 5.3 信号层 (Signal)：“Stone Soup” C++ 重塑
 

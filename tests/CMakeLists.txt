@@ -12,6 +12,7 @@ find_package(Eigen3 CONFIG REQUIRED)
 set(TEST_SOURCES
     tactical_coordinator_test.cpp
     decision_layer_test.cpp
+    data_output_manager_test.cpp
     core_controller_test.cpp
     event_bus_test.cpp
     antenna_pattern_utils_test.cpp

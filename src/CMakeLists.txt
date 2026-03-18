@@ -7,6 +7,7 @@ set(PROJECT_SOURCES
     airborne_radar/decision/lpi/EmissionControlEvaluator.cpp
     airborne_radar/decision/eccm/SurvivabilityEvaluator.cpp
     airborne_radar/core/controller/RadarController.cpp
+    airborne_radar/core/output/DataOutputManager.cpp
     airborne_radar/core/event/EventBus.cpp
     airborne_radar/core/event/CycleEventBus.cpp
     airborne_radar/environment/EnvironmentService.cpp
