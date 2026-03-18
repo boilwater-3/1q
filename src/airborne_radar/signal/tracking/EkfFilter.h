@@ -1,6 +1,7 @@
-// Copyright 2026. All Rights Reserved.
-//
-// 文件说明：定义扩展 Kalman 滤波器（EKF）的预测器和更新器。
+/**
+ * @file EkfFilter.h
+ * @brief 定义扩展 Kalman 滤波器（EKF）的预测器和更新器。
+ */
 
 #ifndef AIRBORNE_RADAR_SIGNAL_TRACKING_EKF_FILTER_H_
 #define AIRBORNE_RADAR_SIGNAL_TRACKING_EKF_FILTER_H_
@@ -56,10 +57,18 @@ class IMeasurementModel {
 /// @details f(x,dt) = F·x，Jacobian = F（恒速矩阵）。
 class LinearCvTransitionModel final : public ITransitionModel {
  public:
+  /// @brief 计算恒速状态转移。
+  /// @param state 当前状态 [x, vx, y, vy, z, vz]。
+  /// @param dt 时间步长（秒）。
+  /// @return 线性外推后的状态。
   StateVector Function(const StateVector &state, float dt) const override {
     return KalmanPredictor::BuildTransitionMatrix(dt) * state;
   }
 
+  /// @brief 获取恒速转移 Jacobian（即 F 矩阵）。
+  /// @param state 当前状态点。
+  /// @param dt 时间步长（秒）。
+  /// @return 状态转移 Jacobian 矩阵。
   TransitionMatrix Jacobian(const StateVector &, float dt) const override {
     return KalmanPredictor::BuildTransitionMatrix(dt);
   }
@@ -69,6 +78,9 @@ class LinearCvTransitionModel final : public ITransitionModel {
 /// @details h(x) = H·x，Jacobian = H（位置提取矩阵）。
 class LinearPositionMeasurementModel final : public IMeasurementModel {
  public:
+  /// @brief 从状态中提取位置分量。
+  /// @param state 6 维高斯状态。
+  /// @return 3 维位置量测。
   MeasurementVector Function(const StateVector &state) const override {
     MeasurementVector z;
     z(0) = state(0);
@@ -77,6 +89,9 @@ class LinearPositionMeasurementModel final : public IMeasurementModel {
     return z;
   }
 
+  /// @brief 获取量测 Jacobian（即 H 矩阵）。
+  /// @param state 当前状态点。
+  /// @return 量测 Jacobian 矩阵。
   MeasurementMatrix Jacobian(const StateVector &) const override {
     MeasurementMatrix H = MeasurementMatrix::Zero();
     H(0, 0) = 1.0f;
@@ -106,12 +121,15 @@ class EkfPredictor final : public IKalmanPredictor {
                EkfPredictorConfig config = {});
 
   /// @brief 使用非线性模型执行预测。
+  /// @param prior 先验高斯状态。
+  /// @param dt 时间步长。
+  /// @return 预测后的高斯状态。
   GaussianTrackState Predict(const GaussianTrackState &prior,
                              float dt) const override;
 
  private:
-  const ITransitionModel *model_{nullptr};
-  EkfPredictorConfig config_{};
+  const ITransitionModel *model_{nullptr};   ///< 转移模型
+  EkfPredictorConfig config_{};              ///< 配置参数
 };
 
 /// @brief EKF 更新器配置。
@@ -134,20 +152,30 @@ class EkfUpdater final : public IKalmanUpdater {
              EkfUpdaterConfig config = {});
 
   /// @brief 使用非线性量测模型执行更新。
+  /// @param predicted 预测后的高斯状态。
+  /// @param measurement 量测向量 [x, y, z]。
+  /// @return 更新结果。
   KalmanUpdateResult Update(const GaussianTrackState &predicted,
                             const MeasurementVector &measurement) const override;
 
   /// @brief 使用非线性量测模型执行更新（使用动态观测协方差）。
+  /// @param predicted 预测后的高斯状态。
+  /// @param measurement 量测向量 [x, y, z]。
+  /// @param dynamic_R 动态计算的笛卡尔系量测噪声协方差矩阵 R。
+  /// @return 更新结果。
   KalmanUpdateResult Update(const GaussianTrackState &predicted,
                             const MeasurementVector &measurement,
                             const MeasurementCovariance &dynamic_R) const override;
 
  private:
+  /// @brief 构建量测噪声协方差矩阵 R。
+  /// @param std_dev 标准差。
+  /// @return 协方差矩阵。
   static MeasurementCovariance BuildMeasurementNoise(float std_dev);
 
-  const IMeasurementModel *model_{nullptr};
-  EkfUpdaterConfig config_{};
-  MeasurementCovariance R_;
+  const IMeasurementModel *model_{nullptr};  ///< 量测模型
+  EkfUpdaterConfig config_{};                ///< 配置参数
+  MeasurementCovariance R_;                  ///< 静态量测噪声协方差
 };
 
 } // namespace tracking

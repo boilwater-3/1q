@@ -1,6 +1,7 @@
-// Copyright 2026. All Rights Reserved.
-//
-// 文件说明：定义交互多模型（IMM）滤波器。
+/**
+ * @file ImmFilter.h
+ * @brief 定义交互多模型（IMM）滤波器。
+ */
 
 #ifndef AIRBORNE_RADAR_SIGNAL_TRACKING_IMM_FILTER_H_
 #define AIRBORNE_RADAR_SIGNAL_TRACKING_IMM_FILTER_H_
@@ -31,7 +32,7 @@ struct ImmModelState {
 
 /// @brief IMM 滤波器配置。
 struct ImmConfig {
-  /// @brief 模型转移概率矩阵（行优先，N×N）。
+  /// @brief 模型转移概率矩阵（N×N）。
   /// @details pi(i,j) = P(模型j在k时刻 | 模型i在k-1时刻)。
   ///          每行之和应为 1.0。
   Eigen::MatrixXf transition_probability;
@@ -107,7 +108,7 @@ class ImmFilter {
   /// @brief 计算高斯似然 N(y; 0, S)。
   /// @param innovation 新息向量。
   /// @param S 新息协方差。
-  /// @return 似然值。
+  /// @return 似然值（Likelihood）。
   static float GaussianLikelihood(const MeasurementVector &innovation,
                                   const MeasurementCovariance &S);
 

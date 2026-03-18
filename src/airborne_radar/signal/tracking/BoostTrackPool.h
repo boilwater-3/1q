@@ -1,6 +1,7 @@
-// Copyright 2026. All Rights Reserved.
-//
-// Description: 基于 Boost object_pool 的轨迹对象池实现。
+/**
+ * @file BoostTrackPool.h
+ * @brief 基于 Boost object_pool 的轨迹对象池实现。
+ */
 
 #ifndef AIRBORNE_RADAR_SIGNAL_TRACKING_BOOST_TRACK_POOL_H_
 #define AIRBORNE_RADAR_SIGNAL_TRACKING_BOOST_TRACK_POOL_H_
@@ -37,9 +38,11 @@ public:
   void Release(common::TrackState *track) override;
 
   /// @brief 获取对象池容量估算值（在用 + 空闲）。
+  /// @return 对象池总容量。
   std::size_t Capacity() const override;
 
   /// @brief 获取当前在用对象数量。
+  /// @return 当前在用对象总数。
   std::size_t InUseCount() const override;
 
 private:

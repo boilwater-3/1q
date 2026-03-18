@@ -1,6 +1,7 @@
-// Copyright 2026. All Rights Reserved.
-//
-// Description: 定义基于雷达局部坐标解析目标 look angle 的私有工具。
+/**
+ * @file TargetLookResolver.h
+ * @brief 定义基于雷达局部坐标解析目标 look angle 的私有工具。
+ */
 
 #ifndef AIRBORNE_RADAR_SIGNAL_DETECTION_TARGET_LOOK_RESOLVER_H_
 #define AIRBORNE_RADAR_SIGNAL_DETECTION_TARGET_LOOK_RESOLVER_H_

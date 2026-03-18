@@ -1,9 +1,10 @@
-// Copyright 2026. All Rights Reserved.
-//
-// Description: 雷达物理方程纯函数库的实现。
-// 核心公式提取自参考算法 RadarProcess.cpp，
-// 并与 Skolnik《Introduction to Radar Systems》及
-// Richards《Exact and Approximate Detection Probability Formulas》交叉验证。
+/**
+ * @file RadarEquations.cpp
+ * @brief 雷达物理方程纯函数库实现。
+ * @details 核心公式提取自参考算法 RadarProcess.cpp，
+ *          并与 Skolnik《Introduction to Radar Systems》及
+ *          Richards《Exact and Approximate Detection Probability Formulas》交叉验证。
+ */
 
 #include "1q/airborne_radar/signal/detection/RadarEquations.h"
 
@@ -60,6 +61,13 @@ float ClampPd(float pd) {
 // 回波功率、噪声、积累、测量精度（不变）
 // ===========================================================================
 
+/// @brief 计算带指定单程天线增益的回波功率（dBW）。
+/// @param tx 发射机配置。
+/// @param one_way_gain_db 单程天线增益（dB）。
+/// @param rcs_m2 目标 RCS（m^2）。
+/// @param range_m 目标斜距（m）。
+/// @param propagation_loss_db 传播损耗（dB）。
+/// @return 接收回波功率（dBW）。
 float RadarEquations::ComputeEchoPowerWithGain_dBW(
     const TransmitterConfig& tx,
     float one_way_gain_db,
@@ -89,6 +97,13 @@ float RadarEquations::ComputeEchoPowerWithGain_dBW(
   return pr_dbw;
 }
 
+/// @brief 使用主瓣增益计算回波功率（dBW）。
+/// @param tx 发射机配置。
+/// @param ant 天线配置。
+/// @param rcs_m2 目标 RCS（m^2）。
+/// @param range_m 目标斜距（m）。
+/// @param propagation_loss_db 传播损耗（dB）。
+/// @return 接收回波功率（dBW）。
 float RadarEquations::ComputeEchoPower_dBW(
     const TransmitterConfig& tx,
     const AntennaConfig& ant,
@@ -99,6 +114,10 @@ float RadarEquations::ComputeEchoPower_dBW(
       tx, ant.main_beam_gain_db, rcs_m2, range_m, propagation_loss_db);
 }
 
+/// @brief 计算接收机热噪声功率（W）。
+/// @param tx 发射机配置（带宽使用）。
+/// @param rx 接收机配置（噪声系数使用）。
+/// @return 热噪声功率（W）。
 float RadarEquations::ComputeThermalNoisePower_W(
     const TransmitterConfig& tx,
     const ReceiverConfig& rx) {
@@ -107,6 +126,10 @@ float RadarEquations::ComputeThermalNoisePower_W(
          * noise_figure_linear;
 }
 
+/// @brief 计算脉冲积累增益（线性值）。
+/// @param pulse_count 脉冲数量。
+/// @param coherent_integration 是否相参积累。
+/// @return 积累增益线性值。
 float RadarEquations::ComputeIntegrationGain(
     int pulse_count,
     bool coherent_integration) {
@@ -120,6 +143,10 @@ float RadarEquations::ComputeIntegrationGain(
   return std::sqrt(n);
 }
 
+/// @brief 估计距离误差标准差（m）。
+/// @param snr_db 信噪比（dB）。
+/// @param bandwidth_hz 信号带宽（Hz）。
+/// @return 距离误差标准差（m）。
 float RadarEquations::ComputeRangeErrorStdDev(
     float snr_db,
     float bandwidth_hz) {
@@ -134,6 +161,10 @@ float RadarEquations::ComputeRangeErrorStdDev(
   return std_dev + kRangeBias_m;
 }
 
+/// @brief 估计角度误差标准差（rad）。
+/// @param snr_db 信噪比（dB）。
+/// @param beamwidth_rad 波束宽度（rad）。
+/// @return 角度误差标准差（rad）。
 float RadarEquations::ComputeAngleErrorStdDev(
     float snr_db,
     float beamwidth_rad) {
@@ -151,6 +182,10 @@ float RadarEquations::ComputeAngleErrorStdDev(
 // 检测门限 T（方波检测器，N 脉冲非相参积累）
 // ===========================================================================
 
+/// @brief 计算给定虚警率与脉冲数对应的检测门限。
+/// @param pfa 虚警概率。
+/// @param num_pulses 脉冲数。
+/// @return 方波检测门限。
 double RadarEquations::ComputeThreshold(double pfa, int num_pulses) {
   if (pfa <= 0.0 || pfa >= 1.0) {
     pfa = 1e-6;
@@ -169,6 +204,11 @@ double RadarEquations::ComputeThreshold(double pfa, int num_pulses) {
 // 广义 Marcum Q 函数（Poisson 加权 gamma_q 级数）
 // ===========================================================================
 
+/// @brief 计算广义 Marcum Q 函数。
+/// @param order 阶数 M。
+/// @param a 非中心参数。
+/// @param b 检测门限相关参数。
+/// @return Q_M(a,b) 的数值结果。
 double RadarEquations::MarcumQ(int order, double a, double b) {
   // Q_M(a, b) = Σ_{k=0}^∞ [e^{-λ} · λ^k / k!] · Q(M+k, b²/2)
   // 其中 λ = a²/2
@@ -244,6 +284,12 @@ double RadarEquations::MarcumQ(int order, double a, double b) {
 // Swerling 0~4 全模型检测概率（Richards 精确公式）
 // ===========================================================================
 
+/// @brief 计算 Swerling 模型下检测概率。
+/// @param snr_db 信噪比（dB）。
+/// @param pfa 虚警概率。
+/// @param model Swerling 起伏模型。
+/// @param num_pulses 脉冲积累数。
+/// @return 检测概率（[0,1]）。
 float RadarEquations::ComputeDetectionProbability(
     float snr_db,
     float pfa,
@@ -389,6 +435,10 @@ float RadarEquations::ComputeDetectionProbability(
 // 蒙特卡洛判决
 // ===========================================================================
 
+/// @brief 根据检测概率执行蒙特卡洛门限判决。
+/// @param detection_prob 检测概率。
+/// @param rng 随机数引擎。
+/// @return 命中判决结果。
 bool RadarEquations::ThresholdDecision(
     float detection_prob,
     std::mt19937& rng) {

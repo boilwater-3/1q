@@ -13,14 +13,17 @@ namespace tracking {
 
 namespace {
 
+/// @brief 计算三维向量欧氏范数。
 float VectorNorm3(float x, float y, float z) {
   return std::sqrt(x * x + y * y + z * z);
 }
 
+/// @brief 判断三维向量是否包含任一非零分量。
 bool HasNonZero3(float x, float y, float z) {
   return x != 0.0f || y != 0.0f || z != 0.0f;
 }
 
+/// @brief 将输入向量归一化；若范数过小则使用兜底方向。
 void NormalizeOrFallback(float x,
                          float y,
                          float z,
@@ -43,6 +46,7 @@ void NormalizeOrFallback(float x,
   nz = fallback_z;
 }
 
+/// @brief 判断是否属于易导致关联脆弱的干扰语义。
 bool IsAssociationFragileJamming(common::JammingSemantic semantic) {
   return semantic == common::JammingSemantic::kDeception ||
          semantic == common::JammingSemantic::kRepeater ||
@@ -51,8 +55,10 @@ bool IsAssociationFragileJamming(common::JammingSemantic semantic) {
 
 }  // namespace
 
+/// @brief 执行轻量轨迹预测。
+/// @details 若输入缺失轴向速度/加速度分量，则使用标量值回填。
 PredictedTrackState IdentityTrackPredictor::Predict(
-		const common::TargetFeature &input) const {
+			const common::TargetFeature &input) const {
 	const bool has_velocity_axis =
 			HasNonZero3(input.current_track_velocity_x,
 							input.current_track_velocity_y,
@@ -84,12 +90,18 @@ PredictedTrackState IdentityTrackPredictor::Predict(
 									 vx, vy, vz, ax, ay, az};
 }
 
+/// @brief 构造简单轨迹更新器。
+/// @param config 更新配置。
 SimpleTrackUpdater::SimpleTrackUpdater(TrackFilterConfig config)
-		: config_(config) {}
+			: config_(config) {}
 
+/// @brief 根据检测/干扰上下文更新轨迹特征。
+/// @param predicted 预测态。
+/// @param context 当前周期上下文。
+/// @return 更新后的目标特征。
 common::TargetFeature SimpleTrackUpdater::Update(
-		const PredictedTrackState &predicted,
-		const TrackFilterContext &context) const {
+			const PredictedTrackState &predicted,
+			const TrackFilterContext &context) const {
 		common::TargetFeature output(predicted.velocity_x,
 										 predicted.velocity_y,
 										 predicted.velocity_z,
@@ -159,19 +171,29 @@ common::TargetFeature SimpleTrackUpdater::Update(
 	return output;
 }
 
+/// @brief 更新内部配置。
+/// @param config 新配置。
 void SimpleTrackUpdater::UpdateConfig(TrackFilterConfig config) {
 	config_ = config;
 }
 
+/// @brief 构造综合轨迹滤波器。
+/// @param config 更新器初始配置。
 TrackFilter::TrackFilter(TrackFilterConfig config) : updater_(config) {}
 
+/// @brief 执行一轮预测+更新。
+/// @param input 输入目标特征。
+/// @param context 当前周期上下文。
+/// @return 输出目标特征。
 common::TargetFeature TrackFilter::Filter(
-		const common::TargetFeature &input,
-		const TrackFilterContext &context) const {
+			const common::TargetFeature &input,
+			const TrackFilterContext &context) const {
 	const PredictedTrackState predicted = predictor_.Predict(input);
 	return updater_.Update(predicted, context);
 }
 
+/// @brief 更新滤波器配置。
+/// @param config 新配置。
 void TrackFilter::UpdateConfig(TrackFilterConfig config) {
 	updater_.UpdateConfig(config);
 }

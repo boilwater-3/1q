@@ -1,6 +1,9 @@
-// Copyright 2026. All Rights Reserved.
-//
-// 文件说明：定义基于 Kalman 滤波的状态预测器抽象接口。
+/**
+ * @file IKalmanPredictor.h
+ * @brief 定义基于 Kalman 滤波的状态预测器抽象接口。
+ * @author Antigravity
+ * @date 2026-03-18
+ */
 
 #ifndef AIRBORNE_RADAR_SIGNAL_TRACKING_I_KALMAN_PREDICTOR_H_
 #define AIRBORNE_RADAR_SIGNAL_TRACKING_I_KALMAN_PREDICTOR_H_

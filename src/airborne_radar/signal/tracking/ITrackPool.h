@@ -1,6 +1,7 @@
-// Copyright 2026. All Rights Reserved.
-//
-// Description: 定义轨迹对象池抽象接口。
+/**
+ * @file ITrackPool.h
+ * @brief 定义轨迹对象池抽象接口。
+ */
 
 #ifndef AIRBORNE_RADAR_SIGNAL_TRACKING_I_TRACK_POOL_H_
 #define AIRBORNE_RADAR_SIGNAL_TRACKING_I_TRACK_POOL_H_
@@ -28,9 +29,11 @@ public:
   virtual void Release(common::TrackState *track) = 0;
 
   /// @brief 返回对象池当前可见容量（在用 + 空闲）。
+  /// @return 对象池总容量。
   virtual std::size_t Capacity() const = 0;
 
   /// @brief 返回对象池当前在用对象数量。
+  /// @return 当前在用对象总数。
   virtual std::size_t InUseCount() const = 0;
 };
 

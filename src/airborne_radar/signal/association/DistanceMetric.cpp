@@ -1,6 +1,7 @@
-// Copyright 2026. All Rights Reserved.
-//
-// 文件说明：实现 Signal 层数据关联使用的距离度量算法。
+/**
+ * @file DistanceMetric.cpp
+ * @brief 实现 Signal 层数据关联使用的距离度量算法。
+ */
 
 #include "airborne_radar/signal/association/DistanceMetric.h"
 
@@ -30,10 +31,16 @@ float MahalanobisDistanceMetric::Compute(
   return innovation.array().square().matrix().dot(inverse_variances_.matrix());
 }
 
+/// @brief 构造完整马氏距离度量器（协方差矩阵重载）。
+/// @param innovation_covariance 创新协方差矩阵 S。
 FullMahalanobisDistanceMetric::FullMahalanobisDistanceMetric(
     const Eigen::Matrix3f &innovation_covariance)
     : llt_(innovation_covariance) {}
 
+/// @brief 构造完整马氏距离度量器（对角标准差重载）。
+/// @param sigma_0 第一维标准差。
+/// @param sigma_1 第二维标准差。
+/// @param sigma_2 第三维标准差。
 FullMahalanobisDistanceMetric::FullMahalanobisDistanceMetric(
     float sigma_0, float sigma_1, float sigma_2) {
   Eigen::Matrix3f S = Eigen::Matrix3f::Zero();
@@ -43,6 +50,8 @@ FullMahalanobisDistanceMetric::FullMahalanobisDistanceMetric(
   llt_.compute(S);
 }
 
+/// @brief 更新创新协方差矩阵分解缓存。
+/// @param S 创新协方差矩阵。
 void FullMahalanobisDistanceMetric::SetInnovationCovariance(
     const Eigen::Matrix3f &S) {
   llt_.compute(S);

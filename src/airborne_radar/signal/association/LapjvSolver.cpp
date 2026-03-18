@@ -1,6 +1,7 @@
-// Copyright 2026. All Rights Reserved.
-//
-// 文件说明：实现基于 LAPJV 最短增广路的线性指派求解。
+/**
+ * @file LapjvSolver.cpp
+ * @brief 实现基于 LAPJV 最短增广路的线性指派求解。
+ */
 
 #include "airborne_radar/signal/association/LapjvSolver.h"
 

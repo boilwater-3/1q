@@ -1,6 +1,7 @@
-// Copyright 2026. All Rights Reserved.
-//
-// Description: 定义轨迹生命周期管理器接口。
+/**
+ * @file TrackLifecycleManager.h
+ * @brief 定义轨迹生命周期管理器接口。
+ */
 
 #ifndef AIRBORNE_RADAR_SIGNAL_TRACKING_TRACK_LIFECYCLE_MANAGER_H_
 #define AIRBORNE_RADAR_SIGNAL_TRACKING_TRACK_LIFECYCLE_MANAGER_H_
@@ -67,17 +68,21 @@ public:
   /// @return 可直接用于外部状态广播的目标特征列表。
   common::TargetFeatureList BuildFeatureSnapshot() const override;
 
-  /// @brief 导出供决策层消费的稳定轨迹快照。
-  /// @return 基于当前活跃轨迹构建的决策快照列表。
+  /// @brief 导出供决策层消费的活跃轨迹快照。
+  /// @return 包含 tentative/confirmed/lost 状态且未回收的决策快照列表。
   common::DecisionTrackSnapshotList BuildDecisionSnapshot() const override;
 
   /// @brief 导出完整的决策输入帧。
+  /// @param cycle_index 当前处理周期索引。
+  /// @param batch_id 本次批处理唯一 ID。
+  /// @param environment_jamming_detected 环境是否检测到大面积干扰。
+  /// @return 填充好的决策输入数据帧。
   common::DecisionInputFrame BuildDecisionFrame(
       std::uint32_t cycle_index, std::uint64_t batch_id,
       bool environment_jamming_detected) const override;
 
   /// @brief 导出供关联阶段消费的轨迹种子。
-  /// @return 由当前活跃轨迹构成的关联种子列表。
+  /// @return 由当前未回收轨迹（tentative/confirmed/lost）构成的关联种子列表。
   std::vector<AssociationTrackSeed> BuildAssociationSeeds() const override;
 
 private:
@@ -145,7 +150,7 @@ private:
 
   /// @brief 解析本周期状态估计使用的有效时间步长。
   /// @param cycle 当前周期上下文。
-  /// @param dt_fallback_used 输出是否触发内部兜底。
+  /// @param dt_fallback_used [out] 输出是否触发内部兜底。
   /// @return 有效时间步长（秒）。
   float ResolveEffectiveCycleDeltaTimeSec(const CycleContext &cycle,
                                           bool *dt_fallback_used) const;

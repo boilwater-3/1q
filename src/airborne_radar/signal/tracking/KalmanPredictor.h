@@ -1,6 +1,7 @@
-// Copyright 2026. All Rights Reserved.
-//
-// 文件说明：定义基于 Kalman 滤波的状态预测器接口与恒速模型实现。
+/**
+ * @file KalmanPredictor.h
+ * @brief 定义基于 Kalman 滤波的状态预测器接口与恒速模型实现。
+ */
 
 #ifndef AIRBORNE_RADAR_SIGNAL_TRACKING_KALMAN_PREDICTOR_H_
 #define AIRBORNE_RADAR_SIGNAL_TRACKING_KALMAN_PREDICTOR_H_
@@ -32,7 +33,8 @@ class KalmanPredictor final : public IKalmanPredictor {
 
   /// @brief 对先验状态执行恒速模型预测。
   /// @param prior 先验高斯状态。
-  /// @param dt 预测时间步长（秒），必须 > 0。
+  /// @param dt 预测时间步长（秒），应由调用方保证 > 0。
+  /// @note 当前实现不做 dt 的运行时校验。
   /// @return 预测后的高斯状态（含传播后的协方差）。
   GaussianTrackState Predict(const GaussianTrackState &prior,
                              float dt) const override;

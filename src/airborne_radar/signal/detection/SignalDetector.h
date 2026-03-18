@@ -40,7 +40,7 @@ struct EnvironmentState {
 /// @brief SignalDetector 封装物理化的回波评估与探测判决。
 ///
 /// 它组合 RadarEquations 纯函数完成一条完整的物理检测链路：
-///   回波功率预算 → SNR 计算 → 检测概率 → 蒙特卡洛判决 → 测量误差评估
+///   回波功率预算 → SNR 计算 → 检测概率 → 蒙特卡洛判决
 ///
 /// 通过构造函数注入 RadarSystemConfig 配置雷达参数，
 /// 热噪声功率底在构造时一次性预计算。

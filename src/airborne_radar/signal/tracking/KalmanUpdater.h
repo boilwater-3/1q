@@ -1,6 +1,9 @@
-// Copyright 2026. All Rights Reserved.
-//
-// 文件说明：定义基于 Kalman 滤波的量测更新器接口与标准 Kalman 更新实现。
+/**
+ * @file KalmanUpdater.h
+ * @brief 定义基于 Kalman 滤波的量测更新器接口与标准 Kalman 更新实现。
+ * @author Antigravity
+ * @date 2026-03-18
+ */
 
 #ifndef AIRBORNE_RADAR_SIGNAL_TRACKING_KALMAN_UPDATER_H_
 #define AIRBORNE_RADAR_SIGNAL_TRACKING_KALMAN_UPDATER_H_

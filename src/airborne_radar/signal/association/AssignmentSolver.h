@@ -1,6 +1,7 @@
-// Copyright 2026. All Rights Reserved.
-//
-// 文件说明：定义 Signal 层数据关联使用的指派求解器抽象接口。
+/**
+ * @file AssignmentSolver.h
+ * @brief 定义 Signal 层数据关联使用的指派求解器抽象接口。
+ */
 
 #ifndef AIRBORNE_RADAR_SIGNAL_ASSOCIATION_ASSIGNMENT_SOLVER_H_
 #define AIRBORNE_RADAR_SIGNAL_ASSOCIATION_ASSIGNMENT_SOLVER_H_

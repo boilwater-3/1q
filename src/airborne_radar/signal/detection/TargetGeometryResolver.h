@@ -1,6 +1,7 @@
-// Copyright 2026. All Rights Reserved.
-//
-// Description: 定义统一的目标几何解析私有工具。
+/**
+ * @file TargetGeometryResolver.h
+ * @brief 定义统一的目标几何解析私有工具。
+ */
 
 #ifndef AIRBORNE_RADAR_SIGNAL_DETECTION_TARGET_GEOMETRY_RESOLVER_H_
 #define AIRBORNE_RADAR_SIGNAL_DETECTION_TARGET_GEOMETRY_RESOLVER_H_

@@ -1,6 +1,7 @@
-// Copyright 2026. All Rights Reserved.
-//
-// 文件说明：定义基于 LAPJV 最短增广路算法的指派求解器。
+/**
+ * @file LapjvSolver.h
+ * @brief 定义基于 LAPJV 最短增广路算法的指派求解器。
+ */
 
 #ifndef AIRBORNE_RADAR_SIGNAL_ASSOCIATION_LAPJV_SOLVER_H_
 #define AIRBORNE_RADAR_SIGNAL_ASSOCIATION_LAPJV_SOLVER_H_
