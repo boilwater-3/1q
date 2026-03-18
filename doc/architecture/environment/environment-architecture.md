@@ -156,12 +156,58 @@ Scene / Propagation / Interference facts
 - 用 `jammer_power_db >= threshold` 生成 `jamming_detected`
 - `SignalPipeline` 再根据冻结后的环境事实和控制真值推导等效 `jam_noise_w`
 
+### 一期完成基线（当前状态）
+
+当前环境层已经达到最小可用实现，可作为后续二期开发基线，具体包括：
+
+- 已有统一只读入口：`IEnvironmentService`
+- 已有周期冻结语义：`BeginCycle(...)` 保证同周期 `Signal/Decision` 读取同一份快照
+- 已有最小场景状态：`EnvironmentSceneState` 通过内存 API 管理传播、杂波和干扰源输入
+- 已有最小场景管理：`SceneManager` 负责 pending/active 双态切换
+- 已有最小传播模型：`PropagationModel` 负责组合式传播损耗与杂波输出
+- 已有最小干扰建模：支持多源 jammer 输入、主摘要聚合和兼容旧版平铺配置
+- 已打通信号层与决策层链路：`RadarController -> SignalPipeline / DecisionInputFrame`
+- 已有测试兜底：覆盖周期冻结、场景提交、传播组合、兼容路径和跨层一致性
+
+当前明确不包含的能力：
+
+- 不按目标/按波束输出局部环境事实
+- 不做距离相关传播修正
+- 不做高保真大气衰减、多径、折射或地球曲率修正
+- 不提供独立公开的 `InterferenceModel`
+- 不支持文件场景格式、场景持久化和外部场景加载
+
 ### 推荐演进
 
 1. 先扩展 `EnvironmentSnapshot` 的干扰事实颗粒度。
 2. 再在 `RadarController` 中把其中面向决策的摘要映射为 `EccmSourceInfo`。
 3. 保持 `RadarControlProfile` 仍是唯一进入信号层的控制真值。
 4. 不要让决策层直接输出 `jam_noise_w`、`beamwidth_deg`、`frequency_hz` 这类执行参数。
+
+### 二期开发指标
+
+二期环境层的目标不是推翻当前实现，而是在当前一期基线之上扩展真实环境表达能力，建议按以下顺序推进：
+
+1. 目标相关环境事实
+   - 从全局周期快照扩展到与目标几何、距离、角域相关的局部环境事实
+   - 让传播、杂波、干扰影响可随目标状态变化
+
+2. 独立干扰建模模块
+   - 从 `EnvironmentService` 内部聚合逻辑拆分出独立 `InterferenceModel`
+   - 明确区分干扰检测、干扰表征、干扰注入三层职责
+
+3. 更高保真传播模型
+   - 引入距离相关传播修正
+   - 逐步补充气象分项衰减、多径、折射和曲率等能力
+   - 保持可退化到当前组合式模型，避免破坏现有主链路
+
+4. 场景输入体系升级
+   - 在保留内存 API 的前提下增加文件/外部配置加载
+   - 定义场景格式、版本和校验规则
+
+5. 测试基础设施增强
+   - 持续扩展内存场景构造器/fixture
+   - 增加目标相关环境事实和多模型传播/干扰组合的回归测试
 
 ## 9. 与当前代码的契合点
 

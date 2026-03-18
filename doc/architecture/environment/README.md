@@ -6,7 +6,7 @@ Environment 层负责产出传播、杂波和干扰等环境事实，供信号�
 
 | File | Description |
 |------|-------------|
-| `environment-architecture.md` | **核心文档**：环境层职责、干扰建模边界、与 Decision/Signal 的数据流 |
+| `environment-architecture.md` | **核心文档**：环境层职责、一期完成基线、二期开发指标、干扰建模边界与跨层数据流 |
 
 ## Recommended Reading Order
 
@@ -20,4 +20,3 @@ Environment 层负责产出传播、杂波和干扰等环境事实，供信号�
 - `include/1q/airborne_radar/environment/EnvironmentService.h`
 - `src/airborne_radar/environment/EnvironmentService.cpp`
 - `include/1q/airborne_radar/common/DecisionInputFrame.h`
-
