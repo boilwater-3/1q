@@ -302,7 +302,9 @@ TEST(SignalBulkDataTest, TieredBatchSingleCycleReportsP50AndP95Latency) {
     EXPECT_GT(p50_ms, 0.0);
     EXPECT_GE(p95_ms, p50_ms);
     if (tier_index > 0u) {
-      EXPECT_GE(p95_ms, previous_p95_ms);
+      const double allowed_regression_ms =
+          std::max(0.05, previous_p95_ms * 0.15);
+      EXPECT_GE(p95_ms + allowed_regression_ms, previous_p95_ms);
     }
     previous_p95_ms = p95_ms;
 

@@ -13,6 +13,7 @@
 #include "1q/airborne_radar/common/RadarControlProfile.h"
 #include "1q/airborne_radar/common/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
+#include "1q/airborne_radar/core/session/RadarCycleResult.h"
 #include "1q/airborne_radar/environment/EnvironmentService.h"
 #include "1q/airborne_radar/signal/pipeline/SignalPipeline.h"
 
@@ -53,6 +54,19 @@ public:
   /// @return 当前周期生成的轨迹输出帧拷贝。
   common::TrackOutputFrame Step(const context::RadarCycleInput& input,
                                 const environment::EnvironmentSceneState& scene_state);
+
+  /// @brief 执行一个不显式切场景的处理周期，并返回聚合结果。
+  /// @param input 当前周期输入。
+  /// @return 当前周期聚合结果。
+  RadarCycleResult StepWithResult(const context::RadarCycleInput& input);
+
+  /// @brief 先更新待生效场景，再执行当前周期，并返回聚合结果。
+  /// @param input 当前周期输入。
+  /// @param scene_state 当前 step 之前要提交的待生效场景。
+  /// @return 当前周期聚合结果。
+  RadarCycleResult StepWithResult(
+      const context::RadarCycleInput& input,
+      const environment::EnvironmentSceneState& scene_state);
 
   /// @brief 获取当前周期已提交的控制指令。
   const std::vector<common::RadarCommand>& GetSubmittedCommands() const;

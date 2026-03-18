@@ -6,12 +6,15 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <vector>
 
 #include <gtest/gtest.h>
 
+#include "1q/airborne_radar/common/ConfigPresets.h"
 #include "1q/airborne_radar/common/TargetFeatureUtils.h"
 #include "1q/airborne_radar/core/context/MutableRadarContext.h"
+#include "1q/airborne_radar/core/context/RadarInputValidation.h"
 #include "1q/airborne_radar/core/output/TrackOutputQueries.h"
 #include "1q/airborne_radar/core/session/RadarSession.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
@@ -79,6 +82,21 @@ void ExpectEquivalentProfiles(const common::RadarControlProfile& expected,
   EXPECT_EQ(expected.enable_eccm_rejitter, actual.enable_eccm_rejitter);
   EXPECT_NEAR(expected.eccm_burnthrough_gain, actual.eccm_burnthrough_gain,
               1e-5f);
+}
+
+/// @brief 判断问题列表是否包含指定编码。
+/// @param issues 校验问题列表。
+/// @param code 目标编码。
+/// @return 若存在则返回 true。
+bool ContainsIssueCode(
+    const std::vector<core::context::ValidationIssue>& issues,
+    core::context::ValidationCode code) {
+  for (std::size_t i = 0; i < issues.size(); ++i) {
+    if (issues[i].code == code) {
+      return true;
+    }
+  }
+  return false;
 }
 
 } // namespace
@@ -245,6 +263,115 @@ TEST(PublicApiConvenienceTest,
   EXPECT_TRUE(core::output::ContainsExternalTargetId(frame, 0U));
   EXPECT_FALSE(core::output::ContainsExternalTargetId(frame, 999U));
   EXPECT_EQ(core::output::CountJammingTracks(frame), 2U);
+  EXPECT_EQ(core::output::CountTracksByStatus(
+                frame, common::DecisionTrackStatus::kTentative),
+            4U);
+}
+
+TEST(PublicApiConvenienceTest,
+     TrackOutputQueriesSupportAssociationKeyStatusAndJammingCollections) {
+  common::TrackOutputFrame frame;
+  common::DecisionTrackSnapshot confirmed(
+      20.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, false, 410U, 11U);
+  confirmed.state.status = common::DecisionTrackStatus::kConfirmed;
+  common::DecisionTrackSnapshot lost(
+      5.0f, 0.0f, 0.0f, 0.8f, 0.0f, 0.0f, 0.0f, false, 411U, 12U);
+  lost.state.status = common::DecisionTrackStatus::kLost;
+  common::DecisionTrackSnapshot jammed(
+      18.0f, 0.0f, 0.0f, 1.2f, 0.0f, 0.0f, 0.0f, true, 412U, 13U);
+  jammed.state.status = common::DecisionTrackStatus::kConfirmed;
+  frame.tracks.push_back(confirmed);
+  frame.tracks.push_back(lost);
+  frame.tracks.push_back(jammed);
+
+  const auto track_map = core::output::BuildTrackMapByAssociationKey(frame);
+  ASSERT_EQ(track_map.size(), 3U);
+  EXPECT_EQ(track_map.at(13U).state.external_target_id, 412U);
+  EXPECT_EQ(core::output::CollectConfirmedTracks(frame).size(), 2U);
+  EXPECT_EQ(core::output::CollectLostTracks(frame).size(), 1U);
+  EXPECT_EQ(core::output::CollectJammingTracks(frame).size(), 1U);
+  EXPECT_EQ(core::output::CountTracksByStatus(
+                frame, common::DecisionTrackStatus::kConfirmed),
+            2U);
+}
+
+TEST(PublicApiConvenienceTest,
+     RadarInputValidationReportsWarningsAndErrorsForCommonBoundaryCases) {
+  core::context::RadarCycleInput input = MakeCycleInput(
+      common::TargetFeatureList{
+          common::MakeAirTarget(0U, 120.0f, 0.0f, 10.0f, 55.0f, 0.0f, 0.0f,
+                                1.0f),
+          common::MakeAirTarget(800U, 150.0f, -2.0f, 12.0f, 62.0f, 0.2f, 0.0f,
+                                1.0f),
+          common::MakeAirTarget(800U, 155.0f, 2.0f, 12.0f, 63.0f, -0.2f, 0.0f,
+                                -1.1f),
+      },
+      0.0f);
+  input.target_features[2].position_x =
+      std::numeric_limits<float>::infinity();
+  input.target_features[2].range_m = 0.0f;
+
+  const std::vector<core::context::ValidationIssue> issues =
+      core::context::ValidateRadarCycleInput(input);
+  EXPECT_TRUE(ContainsIssueCode(
+      issues, core::context::ValidationCode::kInvalidCycleDeltaTime));
+  EXPECT_TRUE(ContainsIssueCode(
+      issues, core::context::ValidationCode::kUnknownExternalTargetId));
+  EXPECT_TRUE(ContainsIssueCode(
+      issues, core::context::ValidationCode::kDuplicateExternalTargetId));
+  EXPECT_TRUE(ContainsIssueCode(issues,
+                                core::context::ValidationCode::kNegativeRcs));
+  EXPECT_TRUE(ContainsIssueCode(
+      issues, core::context::ValidationCode::kNonFiniteTargetField));
+  EXPECT_TRUE(core::context::HasValidationError(issues));
+}
+
+TEST(PublicApiConvenienceTest,
+     RadarInputValidationFlagsMissingGeometryAndNonFiniteCycleDelta) {
+  core::context::RadarCycleInput input;
+  input.dt_sec = std::numeric_limits<float>::quiet_NaN();
+  common::TargetFeature invalid_target;
+  invalid_target.external_target_id = 900U;
+  invalid_target.range_m = 0.0f;
+  input.target_features.push_back(invalid_target);
+
+  const std::vector<core::context::ValidationIssue> issues =
+      core::context::ValidateRadarCycleInput(input);
+  EXPECT_TRUE(ContainsIssueCode(
+      issues, core::context::ValidationCode::kNonFiniteCycleDeltaTime));
+  EXPECT_TRUE(ContainsIssueCode(
+      issues,
+      core::context::ValidationCode::kMissingRangeAndCartesianPosition));
+  EXPECT_TRUE(core::context::HasValidationError(issues));
+}
+
+TEST(PublicApiConvenienceTest,
+     ConfigPresetsProvideExpectedDetectionAndRobustnessDefaults) {
+  const signal::pipeline::SignalPipelineConfig detection_config =
+      common::MakeDetectionMissionSignalPipelineConfig();
+  EXPECT_TRUE(detection_config.lifecycle.enable_auto_lifecycle_manager);
+  EXPECT_EQ(detection_config.lifecycle.lifecycle_config.confirm_hits, 1U);
+  EXPECT_NEAR(detection_config.detection.min_detection_margin_db, -100.0f,
+              1e-5f);
+
+  const signal::pipeline::SignalPipelineConfig robust_config =
+      common::MakeHighRobustnessSignalPipelineConfig();
+  EXPECT_TRUE(robust_config.lifecycle.enable_auto_lifecycle_manager);
+  EXPECT_GT(robust_config.association.unassigned_cost,
+            detection_config.association.unassigned_cost);
+  EXPECT_GT(robust_config.lifecycle.lifecycle_config.max_miss_before_lost,
+            detection_config.lifecycle.lifecycle_config.max_miss_before_lost);
+  EXPECT_GT(robust_config.tracking.speed_decay_ratio_on_loss,
+            detection_config.tracking.speed_decay_ratio_on_loss);
+
+  const core::session::RadarSessionConfig session_config =
+      common::MakeDetectionMissionRadarSessionConfig();
+  core::session::RadarSession session(session_config);
+  const common::TrackOutputFrame frame = session.Step(MakeCycleInput(
+      common::TargetFeatureList{
+          common::MakeGroundTarget(901U, 20.0f, 5.0f, 0.8f),
+      }));
+  EXPECT_EQ(frame.confirmed_track_count, 1U);
 }
 
 TEST(PublicApiConvenienceTest,
@@ -392,6 +519,85 @@ TEST(PublicApiConvenienceTest,
   EXPECT_GT(frame_3.published_track_count, 0U);
   EXPECT_TRUE(core::output::ContainsExternalTargetId(frame_3, 703U));
   EXPECT_TRUE(core::output::ContainsExternalTargetId(frame_3, 704U));
+}
+
+TEST(PublicApiConvenienceTest,
+     RadarSessionStepWithResultAggregatesCurrentCycleObservations) {
+  const core::session::RadarSessionConfig config =
+      common::MakeDetectionMissionRadarSessionConfig();
+  core::session::RadarSession session(config);
+
+  const core::context::RadarCycleInput input = MakeCycleInput(
+      common::TargetFeatureList{
+          common::MakeAirTarget(950U, 200.0f, -3.0f, 15.0f, 70.0f, 0.0f, 0.0f,
+                                1.0f),
+          common::MakeAirTarget(951U, 240.0f, 4.0f, 18.0f, 78.0f, 0.3f, 0.0f,
+                                1.1f),
+      });
+
+  const core::session::RadarCycleResult result = session.StepWithResult(input);
+
+  EXPECT_GT(result.track_output_frame.published_track_count, 0U);
+  EXPECT_GE(result.track_output_frame.published_track_count,
+            result.track_output_frame.confirmed_track_count);
+  EXPECT_EQ(result.submitted_commands.size(),
+            session.GetSubmittedCommands().size());
+  EXPECT_EQ(result.has_control_profile, session.HasLatestControlProfile());
+  if (result.has_control_profile) {
+    ExpectEquivalentProfiles(result.control_profile,
+                             session.GetLatestControlProfile());
+  }
+  EXPECT_EQ(result.association_quality_metrics.detection_count,
+            session.GetLastAssociationQualityMetrics().detection_count);
+  EXPECT_EQ(result.track_measurements.size(),
+            session.GetLastTrackMeasurements().size());
+}
+
+TEST(PublicApiConvenienceTest,
+     RadarSessionStepWithResultMatchesManualChainUnderJammedScene) {
+  const core::session::RadarSessionConfig config =
+      common::MakeDetectionMissionRadarSessionConfig();
+  core::session::RadarSession session(config);
+
+  core::context::MutableRadarContext manual_context;
+  signal::pipeline::SignalPipeline signal_pipeline(config.signal_pipeline_config);
+  environment::EnvironmentService environment_service(
+      config.environment_model_config);
+  environment_service.SetJammingDetectionThresholdDb(
+      config.jamming_detection_threshold_db);
+  core::controller::RadarController controller(
+      manual_context, signal_pipeline, environment_service);
+
+  const core::context::RadarCycleInput input = MakeCycleInput(
+      common::TargetFeatureList{
+          common::MakeAirTarget(960U, 180.0f, -4.0f, 16.0f, 60.0f, 0.0f, 0.0f,
+                                1.0f),
+      });
+  const environment::EnvironmentSceneState scene =
+      environment::EnvironmentSceneBuilder()
+          .AddNoiseJammer(12.0f, 8.0f, 0.2f, 0.1f, true)
+          .Build();
+
+  const core::session::RadarCycleResult session_result =
+      session.StepWithResult(input, scene);
+
+  environment_service.UpdateSceneState(scene);
+  manual_context.BeginCycle(input);
+  controller.RunOnce();
+
+  ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
+  EXPECT_EQ(session_result.track_output_frame.published_track_count,
+            controller.GetLatestTrackOutputFrame().published_track_count);
+  ExpectEquivalentCommands(manual_context.GetSubmittedCommands(),
+                           session_result.submitted_commands);
+  ASSERT_TRUE(manual_context.HasLatestControlProfile());
+  ASSERT_TRUE(session_result.has_control_profile);
+  ExpectEquivalentProfiles(manual_context.GetLatestControlProfile(),
+                           session_result.control_profile);
+  EXPECT_EQ(session_result.association_quality_metrics.detection_count,
+            signal_pipeline.GetLastAssociationQualityMetrics().detection_count);
+  EXPECT_EQ(session_result.track_measurements.size(),
+            signal_pipeline.GetLastTrackMeasurements().size());
 }
 
 } // namespace tests

@@ -21,6 +21,24 @@ struct RadarSession::Impl {
         config.jamming_detection_threshold_db);
   }
 
+  /// @brief 收集当前周期的聚合结果。
+  /// @return 当前 Session 运行态导出的聚合结果。
+  RadarCycleResult BuildCycleResult() const {
+    RadarCycleResult result;
+    if (controller.HasLatestTrackOutputFrame()) {
+      result.track_output_frame = controller.GetLatestTrackOutputFrame();
+    }
+    result.submitted_commands = radar_context.GetSubmittedCommands();
+    result.has_control_profile = radar_context.HasLatestControlProfile();
+    if (result.has_control_profile) {
+      result.control_profile = radar_context.GetLatestControlProfile();
+    }
+    result.association_quality_metrics =
+        signal_pipeline.GetLastAssociationQualityMetrics();
+    result.track_measurements = signal_pipeline.GetLastTrackMeasurements();
+    return result;
+  }
+
   context::MutableRadarContext radar_context{};
   signal::pipeline::SignalPipeline signal_pipeline;
   environment::EnvironmentService environment_service;
@@ -34,19 +52,27 @@ RadarSession::~RadarSession() = default;
 
 common::TrackOutputFrame RadarSession::Step(
     const context::RadarCycleInput& input) {
-  impl_->radar_context.BeginCycle(input);
-  impl_->controller.RunOnce();
-  if (!impl_->controller.HasLatestTrackOutputFrame()) {
-    return common::TrackOutputFrame();
-  }
-  return impl_->controller.GetLatestTrackOutputFrame();
+  return StepWithResult(input).track_output_frame;
 }
 
 common::TrackOutputFrame RadarSession::Step(
     const context::RadarCycleInput& input,
     const environment::EnvironmentSceneState& scene_state) {
+  return StepWithResult(input, scene_state).track_output_frame;
+}
+
+RadarCycleResult RadarSession::StepWithResult(
+    const context::RadarCycleInput& input) {
+  impl_->radar_context.BeginCycle(input);
+  impl_->controller.RunOnce();
+  return impl_->BuildCycleResult();
+}
+
+RadarCycleResult RadarSession::StepWithResult(
+    const context::RadarCycleInput& input,
+    const environment::EnvironmentSceneState& scene_state) {
   impl_->environment_service.UpdateSceneState(scene_state);
-  return Step(input);
+  return StepWithResult(input);
 }
 
 const std::vector<common::RadarCommand>&

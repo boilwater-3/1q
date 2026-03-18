@@ -1,6 +1,7 @@
 # 显式列出源文件（推荐做法，便于版本控制和构建可靠性）
 # 按模块分组管理，每次添加/删除源文件时需要手动更新对应模块列表
 set(PROJECT_SOURCES
+    airborne_radar/common/ConfigPresets.cpp
     airborne_radar/common/TargetFeatureUtils.cpp
     airborne_radar/decision/pipeline/TacticalCoordinator.cpp
     airborne_radar/decision/pipeline/ControlReducer.cpp
@@ -8,6 +9,7 @@ set(PROJECT_SOURCES
     airborne_radar/decision/lpi/EmissionControlEvaluator.cpp
     airborne_radar/decision/eccm/SurvivabilityEvaluator.cpp
     airborne_radar/core/context/MutableRadarContext.cpp
+    airborne_radar/core/context/RadarInputValidation.cpp
     airborne_radar/core/controller/RadarController.cpp
     airborne_radar/core/output/DataOutputManager.cpp
     airborne_radar/core/output/TrackOutputQueries.cpp
