@@ -7,6 +7,7 @@ find_package(GTest CONFIG REQUIRED)
 find_package(eventpp CONFIG REQUIRED)
 find_package(Boost CONFIG REQUIRED)
 find_package(Eigen3 CONFIG REQUIRED)
+option(ENABLE_STRESS_TESTING "Enable long-running radar stress tests" OFF)
 
 # 定义测试源文件
 set(TEST_SOURCES
@@ -14,6 +15,7 @@ set(TEST_SOURCES
     decision_layer_test.cpp
     data_output_manager_test.cpp
     core_controller_test.cpp
+    radar_joint_integration_test.cpp
     event_bus_test.cpp
     antenna_pattern_utils_test.cpp
     beamwidth_resolution_test.cpp
@@ -82,3 +84,43 @@ gtest_discover_tests(${PROJECT_NAME}_tests
     DISCOVERY_MODE PRE_TEST
     DISCOVERY_TIMEOUT 60
 )
+
+if(ENABLE_STRESS_TESTING)
+    set(STRESS_TEST_SOURCES
+        signal_bulk_data_test.cpp
+        radar_detection_stress_test.cpp
+    )
+
+    add_executable(${PROJECT_NAME}_stress_tests ${STRESS_TEST_SOURCES})
+    target_link_libraries(${PROJECT_NAME}_stress_tests PRIVATE
+        GTest::gtest_main
+        GTest::gmock
+        eventpp::eventpp
+        Boost::boost
+        Eigen3::Eigen
+        ${PROJECT_ALIAS}
+    )
+    target_include_directories(${PROJECT_NAME}_stress_tests PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}
+    )
+
+    if(WIN32 AND BUILD_SHARED_LIBS)
+        add_custom_command(TARGET ${PROJECT_NAME}_stress_tests POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:${PROJECT_CORE_TARGET}>
+                $<TARGET_FILE_DIR:${PROJECT_NAME}_stress_tests>
+            COMMENT "Copying ${PROJECT_CORE_TARGET} DLL to stress test directory"
+        )
+    endif()
+
+    gtest_discover_tests(${PROJECT_NAME}_stress_tests
+        DISCOVERY_MODE PRE_TEST
+        DISCOVERY_TIMEOUT 120
+        TEST_PREFIX "stress::"
+        PROPERTIES LABELS "stress"
+    )
+else()
+    message(STATUS "Stress tests disabled. Configure with -DENABLE_STRESS_TESTING=ON to enable long-running suites.")
+endif()
