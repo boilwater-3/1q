@@ -15,6 +15,7 @@ set(TEST_SOURCES
     decision_layer_test.cpp
     data_output_manager_test.cpp
     core_controller_test.cpp
+    public_api_convenience_test.cpp
     radar_joint_integration_test.cpp
     event_bus_test.cpp
     antenna_pattern_utils_test.cpp

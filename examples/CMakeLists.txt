@@ -8,10 +8,7 @@ endif()
 
 # 定义示例源文件
 set(EXAMPLE_SOURCES
-    # 添加你的示例文件，例如：
-    # example_basic_usage.cpp
-    # example_advanced_features.cpp
-    # example_custom_config.cpp
+    example_radar_session.cpp
 )
 
 if(NOT EXAMPLE_SOURCES)

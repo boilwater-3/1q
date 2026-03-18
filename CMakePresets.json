@@ -102,6 +102,7 @@
                 "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/llvm-ninja-debug-local/build/Debug/generators/conan_toolchain.cmake",
                 "CMAKE_BUILD_TYPE": "Debug",
                 "ENABLE_TESTING": "ON",
+                "ENABLE_STRESS_TESTING": "OFF",
                 "BUILD_SHARED_LIBS": "OFF"
             }
         },
@@ -110,7 +111,10 @@
             "inherits": "macos-base",
             "displayName": "macOS LLVM Ninja Release",
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release"
+                "CMAKE_BUILD_TYPE": "Release",
+                "ENABLE_TESTING": "ON",
+                "ENABLE_STRESS_TESTING": "OFF",
+                "BUILD_SHARED_LIBS": "OFF"
             }
         }
     ],
@@ -226,12 +230,42 @@
         {
             "name": "llvm-ninja-debug",
             "inherits": "test-base",
-            "configurePreset": "llvm-ninja-debug"
+            "configurePreset": "llvm-ninja-debug",
+            "filter": {
+                "exclude": {
+                    "label": "stress"
+                }
+            }
         },
         {
             "name": "llvm-ninja-release",
             "inherits": "test-base",
-            "configurePreset": "llvm-ninja-release"
+            "configurePreset": "llvm-ninja-release",
+            "filter": {
+                "exclude": {
+                    "label": "stress"
+                }
+            }
+        },
+        {
+            "name": "llvm-ninja-debug-stress",
+            "inherits": "test-base",
+            "configurePreset": "llvm-ninja-debug",
+            "filter": {
+                "include": {
+                    "label": "stress"
+                }
+            }
+        },
+        {
+            "name": "llvm-ninja-release-stress",
+            "inherits": "test-base",
+            "configurePreset": "llvm-ninja-release",
+            "filter": {
+                "include": {
+                    "label": "stress"
+                }
+            }
         }
     ]
 }

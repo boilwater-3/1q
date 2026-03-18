@@ -15,8 +15,14 @@
 以下头文件属于“外部项目可以直接依赖”的 API：
 
 - 核心抽象与数据类型：`include/1q/airborne_radar/common/*`
+- 外部输入与上下文默认实现：
+  - `include/1q/airborne_radar/core/context/IRadarContext.h`
+  - `include/1q/airborne_radar/core/context/RadarCycleInput.h`
+  - `include/1q/airborne_radar/core/context/MutableRadarContext.h`
 - 核心上下文与事件契约：`include/1q/airborne_radar/core/context/*`
 - 核心输出读取与装配契约：`include/1q/airborne_radar/core/output/*`
+- 轨迹输出查询辅助：
+  - `include/1q/airborne_radar/core/output/TrackOutputQueries.h`
 - 核心事件接口与默认实现：
   - `include/1q/airborne_radar/core/event/IEventBus.h`
   - `include/1q/airborne_radar/core/event/EventBus.h`
@@ -25,6 +31,7 @@
   - `include/1q/airborne_radar/core/event/TrackEvents.h`
 - 控制与决策入口：
   - `include/1q/airborne_radar/core/controller/RadarController.h`
+  - `include/1q/airborne_radar/core/session/RadarSession.h`
   - `include/1q/airborne_radar/decision/pipeline/ITacticalProcessor.h`
   - `include/1q/airborne_radar/decision/classifier/TargetClassifier.h`
   - `include/1q/airborne_radar/decision/lpi/LpiController.h`
@@ -32,6 +39,7 @@
 - 环境层接口与默认实现：
   - `include/1q/airborne_radar/environment/IEnvironmentService.h`
   - `include/1q/airborne_radar/environment/EnvironmentService.h`
+  - `include/1q/airborne_radar/environment/EnvironmentSceneBuilder.h`
   - `include/1q/airborne_radar/environment/database/IFeatureRepository.h`
   - `include/1q/airborne_radar/environment/database/FeatureRepository.h`
 - 信号层公共入口与可选默认实现：
@@ -42,8 +50,17 @@
   - `include/1q/airborne_radar/signal/tracking/GaussianTrackState.h`
   - `include/1q/airborne_radar/signal/tracking/TrackLifecycleTypes.h`
   - `include/1q/airborne_radar/signal/detection/*.h`
+- 目标输入辅助：
+  - `include/1q/airborne_radar/common/TargetFeatureUtils.h`
 
 这些头要么定义了外部交互契约，要么提供了外部工程配置和驱动默认仿真链路所需的稳定入口。公共层应暴露“做什么”和“如何配置”，而不是把对象池、滤波器拼装细节一并暴露出去。
+
+## 面向外部库用户的推荐接入路径
+
+- 轻量组件路径：当外部项目已经自持有调度与依赖注入框架时，优先组合 `MutableRadarContext + SignalPipeline + EnvironmentService + RadarController`，并配合 `RadarCycleInput`、`TargetFeatureUtils`、`EnvironmentSceneBuilder`、`TrackOutputQueries` 降低样板代码。
+- 高层门面路径：当外部项目只需要“按周期喂输入并拿输出”时，优先使用 `RadarSession`；它托管默认 `MutableRadarContext + SignalPipeline + EnvironmentService + RadarController` 装配，并保留 `TrackOutputFrame`、控制命令、控制真值和关联质量指标的读取能力。
+
+这两条路径都属于稳定公共 API。前者适合已有宿主框架的工程，后者适合快速接入、示例程序和测试夹具。
 
 ## 应保留在 src 的头文件
 
