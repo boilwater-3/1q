@@ -3,8 +3,9 @@
 ## 0. 当前实现状态（2026-03）
 
 - 一期已落地中性输出结构 `TrackOutputFrame`
-- `RadarController` 已通过输出管理模块统一装配决策输入与中性输出事件
-- `TracksUpdatedEvent` 仍保留兼容；新增 `TrackOutputPublishedEvent`
+- `RadarController` 已通过输出管理模块统一装配决策输入
+- `TracksUpdatedEvent` 仍保留兼容；`TrackOutputPublishedEvent` 仅保留契约，当前默认不发布
+- `RadarController` 已对外提供最新 `TrackOutputFrame` 的只读查询能力，支持外部组件主动拉取
 
 ## 1. 设计背景
 

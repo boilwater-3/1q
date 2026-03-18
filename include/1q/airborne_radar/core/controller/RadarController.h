@@ -12,6 +12,7 @@
 
 #include "1q/airborne_radar/common/ControlDirective.h"
 #include "1q/airborne_radar/common/RadarControlProfile.h"
+#include "1q/airborne_radar/core/output/IRadarOutputReader.h"
 
 namespace airborne_radar {
 namespace core {
@@ -75,7 +76,7 @@ namespace core {
 namespace controller {
 
 /// @brief RadarController 负责调度信号处理、行为决策与指令下发。
-class RadarController {
+class RadarController : public core::output::IRadarOutputReader {
 public:
 	~RadarController();
 
@@ -127,6 +128,14 @@ public:
 	void UpdateControlReducerConfig(
 			const decision::pipeline::ControlReducerConfig &config);
 
+	/// @brief 判断是否已有可读取的最新轨迹输出帧。
+	/// @return 若已完成至少一次输出帧装配则返回 true。
+	bool HasLatestTrackOutputFrame() const override;
+
+	/// @brief 获取最近一次已缓存的轨迹输出帧。
+	/// @return 最近一次运行周期产生的中性轨迹输出帧。
+	const common::TrackOutputFrame &GetLatestTrackOutputFrame() const override;
+
 private:
 	/// @brief 若尚未绑定 Lifecycle，则尝试通过 Pipeline 自动装配。
 	void EnsureAutoLifecycleManager();
@@ -174,6 +183,12 @@ private:
 
 	/// @brief 数据输出管理服务，负责装配中性输出帧与决策输入帧。
 	std::unique_ptr<core::output::IDataOutputManager> output_manager_;
+
+	/// @brief 最近一次已缓存的中性轨迹输出帧。
+	common::TrackOutputFrame latest_track_output_frame_{};
+
+	/// @brief 是否已经缓存过至少一次有效输出帧。
+	bool has_latest_track_output_frame_{false};
 
 	/// @brief 当前处理周期号。
 	std::uint32_t cycle_index_{1};

@@ -16,6 +16,7 @@
 
 - 核心抽象与数据类型：`include/1q/airborne_radar/common/*`
 - 核心上下文与事件契约：`include/1q/airborne_radar/core/context/*`
+- 核心输出读取与装配契约：`include/1q/airborne_radar/core/output/*`
 - 核心事件接口与默认实现：
   - `include/1q/airborne_radar/core/event/IEventBus.h`
   - `include/1q/airborne_radar/core/event/EventBus.h`

@@ -576,8 +576,6 @@ TEST_F(CoreControllerTest, RunOncePublishesFineGrainedEvents) {
 
   bool tracks_event_received = false;
   bool tracks_event_has_jamming_flag = false;
-  bool track_output_event_received = false;
-  common::TrackOutputFrame last_track_output_frame{};
   bool jamming_event_received = false;
   std::size_t submitted_commands = 0;
   std::uint64_t control_profile_version = 0;
@@ -589,12 +587,11 @@ TEST_F(CoreControllerTest, RunOncePublishesFineGrainedEvents) {
         tracks_event_received = true;
         tracks_event_has_jamming_flag = false;
       });
-
+  bool track_output_event_received = false;
   event_bus.Subscribe<core::event::TrackOutputPublishedEvent>(
-      [&track_output_event_received, &last_track_output_frame](
-          const core::event::TrackOutputPublishedEvent &event) {
+      [&track_output_event_received](
+          const core::event::TrackOutputPublishedEvent &) {
         track_output_event_received = true;
-        last_track_output_frame = event.frame;
       });
 
   event_bus.Subscribe<core::event::JammingAlertEvent>(
@@ -626,10 +623,7 @@ TEST_F(CoreControllerTest, RunOncePublishesFineGrainedEvents) {
 
   EXPECT_TRUE(tracks_event_received);
   EXPECT_FALSE(tracks_event_has_jamming_flag);
-  EXPECT_TRUE(track_output_event_received);
-  EXPECT_EQ(last_track_output_frame.published_track_count, 1U);
-  EXPECT_EQ(last_track_output_frame.confirmed_track_count, 1U);
-  EXPECT_FALSE(last_track_output_frame.contains_lost_tracks);
+  EXPECT_FALSE(track_output_event_received);
   EXPECT_TRUE(jamming_event_received);
   EXPECT_GT(submitted_commands, 0u);
   EXPECT_GT(control_profile_version, 0u);
@@ -649,32 +643,23 @@ TEST_F(CoreControllerTest,
   signal::pipeline::SignalPipeline signal_pipeline;
   SpyTrackLifecycleManager lifecycle_manager;
   CapturingDecisionEngine decision_engine;
-  core::event::EventBus event_bus;
-
-  bool track_output_event_received = false;
-  common::TrackOutputFrame last_track_output_frame{};
-  event_bus.Subscribe<core::event::TrackOutputPublishedEvent>(
-      [&track_output_event_received, &last_track_output_frame](
-          const core::event::TrackOutputPublishedEvent &event) {
-        track_output_event_received = true;
-        last_track_output_frame = event.frame;
-      });
 
   core::controller::RadarController controller(
-      radar_context, signal_pipeline, decision_engine, environment_service,
-      event_bus);
+      radar_context, signal_pipeline, decision_engine, environment_service);
   controller.SetTrackLifecycleManager(&lifecycle_manager);
 
   controller.RunOnce();
 
   EXPECT_GT(lifecycle_manager.build_decision_snapshot_call_count, 0U);
   EXPECT_EQ(lifecycle_manager.build_decision_frame_call_count, 0U);
-  EXPECT_TRUE(track_output_event_received);
+  EXPECT_TRUE(controller.HasLatestTrackOutputFrame());
+  const common::TrackOutputFrame& latest_track_output_frame =
+      controller.GetLatestTrackOutputFrame();
   ASSERT_EQ(decision_engine.last_frame.tracks.size(),
-            last_track_output_frame.tracks.size());
+            latest_track_output_frame.tracks.size());
   ASSERT_EQ(decision_engine.last_frame.tracks.size(), 1U);
   EXPECT_EQ(decision_engine.last_frame.tracks[0].state.association_key,
-            last_track_output_frame.tracks[0].state.association_key);
+            latest_track_output_frame.tracks[0].state.association_key);
 }
 
 TEST_F(CoreControllerTest,
@@ -689,32 +674,53 @@ TEST_F(CoreControllerTest,
 
   signal::pipeline::SignalPipeline signal_pipeline;
   CapturingDecisionEngine decision_engine;
-  core::event::EventBus event_bus;
-
-  bool track_output_event_received = false;
-  common::TrackOutputFrame last_track_output_frame{};
-  event_bus.Subscribe<core::event::TrackOutputPublishedEvent>(
-      [&track_output_event_received, &last_track_output_frame](
-          const core::event::TrackOutputPublishedEvent &event) {
-        track_output_event_received = true;
-        last_track_output_frame = event.frame;
-      });
 
   core::controller::RadarController controller(
-      radar_context, signal_pipeline, decision_engine, environment_service,
-      event_bus);
+      radar_context, signal_pipeline, decision_engine, environment_service);
 
   controller.RunOnce();
 
-  EXPECT_TRUE(track_output_event_received);
-  EXPECT_EQ(last_track_output_frame.published_track_count, 1U);
-  EXPECT_EQ(last_track_output_frame.confirmed_track_count, 1U);
-  EXPECT_FALSE(last_track_output_frame.contains_lost_tracks);
+  EXPECT_TRUE(controller.HasLatestTrackOutputFrame());
+  const common::TrackOutputFrame& latest_track_output_frame =
+      controller.GetLatestTrackOutputFrame();
+  EXPECT_EQ(latest_track_output_frame.published_track_count, 1U);
+  EXPECT_EQ(latest_track_output_frame.confirmed_track_count, 1U);
+  EXPECT_FALSE(latest_track_output_frame.contains_lost_tracks);
   ASSERT_EQ(decision_engine.last_frame.tracks.size(), 1U);
   EXPECT_EQ(decision_engine.last_frame.tracks[0].state.status,
             common::DecisionTrackStatus::kConfirmed);
   EXPECT_EQ(decision_engine.last_frame.tracks[0].state.association_key,
-            last_track_output_frame.tracks[0].state.association_key);
+            latest_track_output_frame.tracks[0].state.association_key);
+}
+
+TEST_F(CoreControllerTest, PublicOutputReaderApiExposesLatestTrackOutputFrame) {
+  const common::TargetFeatureList input_state =
+      BuildSingleTarget(510.0f, 1.0f, false);
+  FakeRadarContext radar_context(input_state);
+
+  environment::EnvironmentModelConfig env_config;
+  env_config.jammer_power_db = 0.0f;
+  environment::EnvironmentService environment_service(env_config);
+
+  signal::pipeline::SignalPipeline signal_pipeline;
+  core::event::EventBus event_bus;
+
+  core::controller::RadarController controller(
+      radar_context, signal_pipeline, environment_service, event_bus);
+
+  EXPECT_FALSE(controller.HasLatestTrackOutputFrame());
+
+  controller.RunOnce();
+
+  EXPECT_TRUE(controller.HasLatestTrackOutputFrame());
+  const common::TrackOutputFrame& latest_track_output_frame =
+      controller.GetLatestTrackOutputFrame();
+  EXPECT_EQ(latest_track_output_frame.cycle_index, 1U);
+  EXPECT_EQ(latest_track_output_frame.batch_id, 1U);
+  EXPECT_EQ(latest_track_output_frame.published_track_count, 1U);
+  ASSERT_EQ(latest_track_output_frame.tracks.size(), 1U);
+  EXPECT_EQ(latest_track_output_frame.tracks[0].state.status,
+            common::DecisionTrackStatus::kConfirmed);
 }
 
 TEST_F(CoreControllerTest, NextCycleAppliesPendingControlProfileToSignalPipeline) {

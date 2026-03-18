@@ -399,6 +399,8 @@ void RadarController::RunOnce() {
         track_output_frame, eccm_source_info, association_quality_info,
         perception_quality_info);
   }
+  latest_track_output_frame_ = track_output_frame;
+  has_latest_track_output_frame_ = true;
 
   decision::pipeline::TacticalDecisionResult decision_result;
   if (decision_engine_ != nullptr && tactical_state_store_ != nullptr) {
@@ -420,9 +422,8 @@ void RadarController::RunOnce() {
     tracks_event.state = decision_features;
     event_bus_->Enqueue(tracks_event);
 
-    core::event::TrackOutputPublishedEvent track_output_event;
-    track_output_event.frame = track_output_frame;
-    event_bus_->Enqueue(track_output_event);
+    // TODO(aurora): 引入显式开关后再恢复默认内部发布中性输出事件；
+    // 当前阶段仅保留公开读取 API，避免默认拉长主执行路径。
 
     if (environment_jamming_detected) {
       core::event::JammingAlertEvent jamming_event;
@@ -547,6 +548,14 @@ void RadarController::UpdateControlReducerConfig(
       config.eccm_cooldown_cycles_after_release,
       config.prefer_survivability_in_power_conflict ? "true" : "false",
       config.prefer_survivability_in_beam_conflict ? "true" : "false");
+}
+
+bool RadarController::HasLatestTrackOutputFrame() const {
+  return has_latest_track_output_frame_;
+}
+
+const common::TrackOutputFrame& RadarController::GetLatestTrackOutputFrame() const {
+  return latest_track_output_frame_;
 }
 
 } // namespace controller
