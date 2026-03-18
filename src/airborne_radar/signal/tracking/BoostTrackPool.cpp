@@ -8,9 +8,6 @@ namespace airborne_radar {
 namespace signal {
 namespace tracking {
 
-/// @brief 构造并预热对象池。
-/// @param prewarm_count 启动时预分配并放入空闲列表的对象数量。
-/// @param max_cached_objects 空闲缓存上限。
 BoostTrackPool::BoostTrackPool(std::size_t prewarm_count,
                                std::size_t max_cached_objects)
     : pool_(),
@@ -27,8 +24,6 @@ BoostTrackPool::BoostTrackPool(std::size_t prewarm_count,
   }
 }
 
-/// @brief 申请轨迹对象。
-/// @return 成功返回对象指针；内存分配失败返回 nullptr。
 common::TrackState *BoostTrackPool::Acquire() {
   common::TrackState *track = nullptr;
   if (!free_list_.empty()) {
@@ -44,8 +39,6 @@ common::TrackState *BoostTrackPool::Acquire() {
   return track;
 }
 
-/// @brief 归还轨迹对象。
-/// @param track 待归还对象；为空时忽略。
 void BoostTrackPool::Release(common::TrackState *track) {
   if (track == nullptr) {
     return;
@@ -64,14 +57,10 @@ void BoostTrackPool::Release(common::TrackState *track) {
   pool_.destroy(track);
 }
 
-/// @brief 返回对象池可见容量（在用 + 空闲）。
-/// @return 对象池可见容量。
 std::size_t BoostTrackPool::Capacity() const {
   return in_use_count_ + free_list_.size();
 }
 
-/// @brief 返回当前在用对象数量。
-/// @return 当前在用对象总数。
 std::size_t BoostTrackPool::InUseCount() const {
   return in_use_count_;
 }

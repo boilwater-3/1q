@@ -102,11 +102,6 @@ std::uint32_t ResolveLocalMissToleranceBonus(const common::TrackState &track) {
 
 } // namespace
 
-/// @brief 构造生命周期管理器（单模型 Kalman 路径）。
-/// @param pool 轨迹对象池。
-/// @param config 生命周期配置。
-/// @param predictor 可选预测器。
-/// @param updater 可选更新器。
 TrackLifecycleManager::TrackLifecycleManager(ITrackPool &pool,
                                              const LifecycleConfig &config,
                                              const IKalmanPredictor *predictor,
@@ -115,13 +110,6 @@ TrackLifecycleManager::TrackLifecycleManager(ITrackPool &pool,
       kalman_predictor_(predictor), kalman_updater_(updater) {
 }
 
-/// @brief 构造生命周期管理器（IMM 多模型路径）。
-/// @param pool 轨迹对象池。
-/// @param config 生命周期配置。
-/// @param imm_predictors IMM 预测器集合。
-/// @param imm_updaters IMM 更新器集合。
-/// @param imm_transition_probability 模型转移概率矩阵。
-/// @param imm_initial_weights 初始模型权重。
 TrackLifecycleManager::TrackLifecycleManager(
     ITrackPool &pool, const LifecycleConfig &config,
     const std::vector<const IKalmanPredictor *> &imm_predictors,
@@ -159,11 +147,8 @@ TrackLifecycleManager::TrackLifecycleManager(
   }
 }
 
-/// @brief 析构函数。
 TrackLifecycleManager::~TrackLifecycleManager() = default;
 
-/// @brief 判断当前是否可执行 IMM 多模型路径。
-/// @return 当模型集合与矩阵维度一致时返回 true。
 bool TrackLifecycleManager::IsImmEnabled() const {
   return !imm_predictors_.empty() && imm_predictors_.size() == imm_updaters_.size() &&
          imm_transition_probability_.rows() ==
@@ -172,9 +157,6 @@ bool TrackLifecycleManager::IsImmEnabled() const {
              static_cast<Eigen::Index>(imm_predictors_.size());
 }
 
-/// @brief 用量测构建初始高斯状态。
-/// @param measurement 组合量测输入。
-/// @return 初始化高斯状态。
 GaussianTrackState TrackLifecycleManager::BuildInitialGaussianState(
     const TrackMeasurement &measurement) const {
   GaussianTrackState init;
@@ -188,8 +170,6 @@ GaussianTrackState TrackLifecycleManager::BuildInitialGaussianState(
   return init;
 }
 
-/// @brief 判断命中路径是否启用 IMM。
-/// @return 命中路径应使用 IMM 返回 true。
 bool TrackLifecycleManager::ShouldUseImmForMeasurement(
     bool track_existed_before_cycle,
     common::TrackStatus status_before_update,
@@ -207,8 +187,6 @@ bool TrackLifecycleManager::ShouldUseImmForMeasurement(
          measurement.raw_measurement.matched_existing_track;
 }
 
-/// @brief 判断失配路径是否启用 IMM 预测。
-/// @return 失配路径应使用 IMM 返回 true。
 bool TrackLifecycleManager::ShouldUseImmForMiss(
     common::TrackStatus status_before_prediction) const {
   if (!IsImmEnabled()) {
@@ -287,9 +265,6 @@ void TrackLifecycleManager::ApplyGaussianState(common::TrackState &track,
   }
 }
 
-/// @brief 执行单周期生命周期更新。
-/// @param cycle 周期上下文。
-/// @param measurements 关联后的组合量测列表。
 void TrackLifecycleManager::Update(
     const CycleContext &cycle,
     const std::vector<TrackMeasurement> &measurements) {
@@ -600,10 +575,6 @@ void TrackLifecycleManager::Update(
       dt_fallback_used ? "true" : "false");
 }
 
-/// @brief 解析有效时间步长。
-/// @param cycle 周期上下文。
-/// @param dt_fallback_used [out] 是否触发兜底。
-/// @return 有效时间步长（秒）。
 float TrackLifecycleManager::ResolveEffectiveCycleDeltaTimeSec(
     const CycleContext &cycle,
     bool *dt_fallback_used) const {
@@ -630,8 +601,6 @@ float TrackLifecycleManager::ResolveEffectiveCycleDeltaTimeSec(
   return 1.0f;
 }
 
-/// @brief 获取当前未回收轨迹列表。
-/// @return 活跃轨迹只读指针列表。
 std::vector<const common::TrackState *> TrackLifecycleManager::GetActiveTracks()
     const {
   std::vector<const common::TrackState *> result;
@@ -649,8 +618,6 @@ std::vector<const common::TrackState *> TrackLifecycleManager::GetActiveTracks()
   return result;
 }
 
-/// @brief 构建对外目标特征快照。
-/// @return 未回收轨迹对应的目标特征列表。
 common::TargetFeatureList TrackLifecycleManager::BuildFeatureSnapshot() const {
   common::TargetFeatureList features;
   features.reserve(tracks_by_key_.size());
@@ -680,8 +647,6 @@ common::TargetFeatureList TrackLifecycleManager::BuildFeatureSnapshot() const {
   return features;
 }
 
-/// @brief 构建决策快照。
-/// @return 未回收轨迹的决策快照列表（含 tentative/confirmed/lost）。
 common::DecisionTrackSnapshotList
 TrackLifecycleManager::BuildDecisionSnapshot() const {
   common::DecisionTrackSnapshotList snapshots;
@@ -722,11 +687,6 @@ TrackLifecycleManager::BuildDecisionSnapshot() const {
   return snapshots;
 }
 
-/// @brief 构建完整决策输入帧。
-/// @param cycle_index 当前周期号。
-/// @param batch_id 批次号。
-/// @param environment_jamming_detected 环境干扰标记。
-/// @return 完整决策输入帧。
 common::DecisionInputFrame TrackLifecycleManager::BuildDecisionFrame(
     std::uint32_t cycle_index, std::uint64_t batch_id,
     bool environment_jamming_detected) const {
@@ -738,8 +698,6 @@ common::DecisionInputFrame TrackLifecycleManager::BuildDecisionFrame(
   return frame;
 }
 
-/// @brief 构建关联种子。
-/// @return 未回收轨迹种子列表（含 tentative/confirmed/lost）。
 std::vector<AssociationTrackSeed> TrackLifecycleManager::BuildAssociationSeeds()
     const {
   std::vector<AssociationTrackSeed> seeds;
@@ -765,11 +723,6 @@ std::vector<AssociationTrackSeed> TrackLifecycleManager::BuildAssociationSeeds()
   return seeds;
 }
 
-/// @brief 根据命中结果推进状态机。
-/// @param track 轨迹对象。
-/// @param cycle_index 当前周期号。
-/// @param hit_this_cycle 本周期是否命中。
-/// @param extra_miss_tolerance 外部注入的额外失配容忍值。
 void TrackLifecycleManager::PromoteState(common::TrackState &track,
                                          std::uint32_t cycle_index,
                                          bool hit_this_cycle,
@@ -807,8 +760,6 @@ void TrackLifecycleManager::PromoteState(common::TrackState &track,
   }
 }
 
-/// @brief 将轨迹对象重置为可复用状态。
-/// @param track 待重置轨迹对象。
 void TrackLifecycleManager::ResetForReuse(common::TrackState &track) const {
   track.batch_id = 0;
   track.external_target_id = 0;

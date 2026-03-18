@@ -55,8 +55,6 @@ bool IsAssociationFragileJamming(common::JammingSemantic semantic) {
 
 }  // namespace
 
-/// @brief 执行轻量轨迹预测。
-/// @details 若输入缺失轴向速度/加速度分量，则使用标量值回填。
 PredictedTrackState IdentityTrackPredictor::Predict(
 			const common::TargetFeature &input) const {
 	const bool has_velocity_axis =
@@ -90,15 +88,9 @@ PredictedTrackState IdentityTrackPredictor::Predict(
 									 vx, vy, vz, ax, ay, az};
 }
 
-/// @brief 构造简单轨迹更新器。
-/// @param config 更新配置。
 SimpleTrackUpdater::SimpleTrackUpdater(TrackFilterConfig config)
 			: config_(config) {}
 
-/// @brief 根据检测/干扰上下文更新轨迹特征。
-/// @param predicted 预测态。
-/// @param context 当前周期上下文。
-/// @return 更新后的目标特征。
 common::TargetFeature SimpleTrackUpdater::Update(
 			const PredictedTrackState &predicted,
 			const TrackFilterContext &context) const {
@@ -171,20 +163,12 @@ common::TargetFeature SimpleTrackUpdater::Update(
 	return output;
 }
 
-/// @brief 更新内部配置。
-/// @param config 新配置。
 void SimpleTrackUpdater::UpdateConfig(TrackFilterConfig config) {
 	config_ = config;
 }
 
-/// @brief 构造综合轨迹滤波器。
-/// @param config 更新器初始配置。
 TrackFilter::TrackFilter(TrackFilterConfig config) : updater_(config) {}
 
-/// @brief 执行一轮预测+更新。
-/// @param input 输入目标特征。
-/// @param context 当前周期上下文。
-/// @return 输出目标特征。
 common::TargetFeature TrackFilter::Filter(
 			const common::TargetFeature &input,
 			const TrackFilterContext &context) const {
@@ -192,8 +176,6 @@ common::TargetFeature TrackFilter::Filter(
 	return updater_.Update(predicted, context);
 }
 
-/// @brief 更新滤波器配置。
-/// @param config 新配置。
 void TrackFilter::UpdateConfig(TrackFilterConfig config) {
 	updater_.UpdateConfig(config);
 }

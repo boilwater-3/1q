@@ -135,8 +135,6 @@ AssociationQualityMetrics BuildAssociationQualityMetrics(
 
 } // namespace
 
-/// @brief 构造数据关联引擎并初始化内部组件。
-/// @param config 关联配置。
 DataAssociationEngine::DataAssociationEngine(DataAssociationConfig config)
   : config_(config),
     full_distance_metric_(Eigen::Matrix3f::Identity() *
@@ -154,8 +152,6 @@ DataAssociationEngine::DataAssociationEngine(DataAssociationConfig config)
 
 }
 
-/// @brief 更新关联配置并重建相关组件。
-/// @param config 新关联配置。
 void DataAssociationEngine::UpdateConfig(DataAssociationConfig config) {
   config_ = config;
   full_distance_metric_ = FullMahalanobisDistanceMetric(
@@ -170,10 +166,6 @@ void DataAssociationEngine::UpdateConfig(DataAssociationConfig config) {
 
 }
 
-/// @brief 执行一次完整的数据关联（默认静态量测协方差）。
-/// @param targets 当前周期输入目标特征集合。
-/// @param detection_succeeded 探测成功标记。
-/// @return 结构化关联结果。
 AssociationResult DataAssociationEngine::AssociateDetections(
     const common::TargetFeatureList &targets,
     const std::vector<std::uint8_t> &detection_succeeded) {
@@ -184,11 +176,6 @@ AssociationResult DataAssociationEngine::AssociateDetections(
                              measurement_covariances);
 }
 
-/// @brief 执行一次完整的数据关联。
-/// @param targets 当前周期输入目标特征集合。
-/// @param detection_succeeded 探测成功标记。
-/// @param measurement_covariances 与目标索引对齐的量测协方差。
-/// @return 结构化关联结果。
 AssociationResult DataAssociationEngine::AssociateDetections(
     const common::TargetFeatureList &targets,
     const std::vector<std::uint8_t> &detection_succeeded,
@@ -343,21 +330,12 @@ AssociationResult DataAssociationEngine::AssociateDetections(
   return result;
 }
 
-/// @brief 执行一次兼容旧接口的数据关联。
-/// @param targets 当前周期输入目标特征集合。
-/// @param detection_succeeded 探测成功标记。
-/// @return 与目标索引对齐的稳定关联键列表。
 std::vector<std::uint64_t> DataAssociationEngine::Associate(
     const common::TargetFeatureList &targets,
     const std::vector<std::uint8_t> &detection_succeeded) {
   return AssociateDetections(targets, detection_succeeded).target_keys;
 }
 
-/// @brief 执行一次兼容旧接口的数据关联（动态量测协方差）。
-/// @param targets 当前周期输入目标特征集合。
-/// @param detection_succeeded 探测成功标记。
-/// @param measurement_covariances 与目标索引对齐的量测协方差。
-/// @return 与目标索引对齐的稳定关联键列表。
 std::vector<std::uint64_t> DataAssociationEngine::Associate(
     const common::TargetFeatureList &targets,
     const std::vector<std::uint8_t> &detection_succeeded,
@@ -367,8 +345,6 @@ std::vector<std::uint64_t> DataAssociationEngine::Associate(
       .target_keys;
 }
 
-/// @brief 注入 Lifecycle 导出的关联种子。
-/// @param seeds 外部轨迹种子列表。
 void DataAssociationEngine::SetAssociationSeeds(
     const std::vector<tracking::AssociationTrackSeed> &seeds) {
   external_seed_tracks_.clear();
@@ -397,27 +373,20 @@ void DataAssociationEngine::SetAssociationSeeds(
                 external_seed_tracks_.size());
 }
 
-/// @brief 清空外部 seeds 并回到 stateless 模式。
 void DataAssociationEngine::ResetAssociationSeedModeToStateless() {
   external_seed_tracks_.clear();
   association_seed_mode_ = AssociationSeedMode::kStateless;
 }
 
-/// @brief 判断当前是否启用外部 seeds。
-/// @return 使用外部 seeds 返回 true。
 bool DataAssociationEngine::UsingExternalSeeds() const {
   return association_seed_mode_ == AssociationSeedMode::kExternalSeeds;
 }
 
-/// @brief 清理单周期消费后的关联先验。
 void DataAssociationEngine::ClearConsumedAssociationPriors() {
   external_seed_tracks_.clear();
   association_seed_mode_ = AssociationSeedMode::kStateless;
 }
 
-/// @brief 从外部先验构建位置关联输入。
-/// @param external_priors 外部轨迹签名列表。
-/// @return 位置关联所需的统一先验视图。
 DataAssociationEngine::PositionAssociationPriors
 DataAssociationEngine::BuildExternalPositionAssociationPriors(
     const std::vector<ExternalSeedTrackSignature> &external_priors) const {
@@ -451,26 +420,17 @@ DataAssociationEngine::BuildExternalPositionAssociationPriors(
   return priors;
 }
 
-/// @brief 从目标特征构建笛卡尔位置向量。
-/// @param target 输入目标特征。
-/// @return 三维位置向量。
 Eigen::Vector3f DataAssociationEngine::BuildPositionVector(
     const common::TargetFeature &target) const {
   return Eigen::Vector3f(target.position_x, target.position_y, target.position_z);
 }
 
-/// @brief 判断目标是否具备位置量测。
-/// @param target 输入目标特征。
-/// @return 存在任一非零坐标返回 true。
 bool DataAssociationEngine::HasPositionMeasurement(
     const common::TargetFeature &target) const {
   return target.position_x != 0.0f || target.position_y != 0.0f ||
          target.position_z != 0.0f;
 }
 
-/// @brief 校验检测成功目标都携带位置量测。
-/// @param targets 当前周期输入目标。
-/// @param detection_succeeded 检测成功标记。
 void DataAssociationEngine::ValidateDetectedTargetsHavePosition(
     const common::TargetFeatureList &targets,
     const std::vector<std::uint8_t> &detection_succeeded) const {
@@ -484,9 +444,6 @@ void DataAssociationEngine::ValidateDetectedTargetsHavePosition(
   }
 }
 
-/// @brief 由位置向量初始化高斯状态。
-/// @param position 位置向量。
-/// @return 初始化后的高斯状态。
 tracking::GaussianTrackState DataAssociationEngine::InitializeGaussianState(
     const Eigen::Vector3f &position) const {
   tracking::StateVector mean = tracking::StateVector::Zero();
@@ -498,9 +455,6 @@ tracking::GaussianTrackState DataAssociationEngine::InitializeGaussianState(
   return tracking::GaussianTrackState(mean, covariance);
 }
 
-/// @brief 计算预测状态投影到量测空间后的协方差。
-/// @param predicted 预测高斯状态。
-/// @return 量测空间协方差 HPH^T。
 tracking::MeasurementCovariance DataAssociationEngine::ComputeProjectedMeasurementCovariance(
     const tracking::GaussianTrackState &predicted) const {
   const tracking::MeasurementMatrix H = BuildPositionMeasurementMatrix();

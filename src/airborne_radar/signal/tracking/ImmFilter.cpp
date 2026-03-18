@@ -52,12 +52,6 @@ void ImmFilter::Predict(float dt) {
   CombineEstimates();
 }
 
-/// @brief 步骤 1：交互/混合。
-/// @details Bar-Shalom 11.6.6-2：
-///          c̄_j = Σ_i π_{ij} · μ_{i,k-1}     （归一化常数）
-///          μ_{i|j} = π_{ij} · μ_{i,k-1} / c̄_j （混合概率）
-///          x̂⁰_{j} = Σ_i μ_{i|j} · x̂_i        （混合均值）
-///          P⁰_{j} = Σ_i μ_{i|j} · [P_i + (x̂_i - x̂⁰_j)(x̂_i - x̂⁰_j)ᵀ] （混合协方差）
 void ImmFilter::MixStates() {
   const int N = num_models_;
 
@@ -99,7 +93,6 @@ void ImmFilter::MixStates() {
   }
 }
 
-/// @brief 步骤 2：模型条件预测。
 void ImmFilter::PredictModels(float dt) {
   for (int j = 0; j < num_models_; ++j) {
     const auto ju = static_cast<std::size_t>(j);
@@ -107,10 +100,6 @@ void ImmFilter::PredictModels(float dt) {
   }
 }
 
-/// @brief 步骤 3：模型条件更新 + 权重更新。
-/// @details Bar-Shalom 11.6.6-8：
-///          Λ_j = N(y_j; 0, S_j)              （模型似然）
-///          μ_{j,k} = c̄_j · Λ_j / Σ(c̄_l · Λ_l) （更新权重）
 void ImmFilter::UpdateModels(const MeasurementVector &measurement) {
   const int N = num_models_;
 
@@ -148,10 +137,6 @@ void ImmFilter::UpdateModels(const MeasurementVector &measurement) {
   }
 }
 
-/// @brief 步骤 4：组合各模型估计。
-/// @details Bar-Shalom 11.6.6-9：
-///          x̂ = Σ_j μ_j · x̂_j
-///          P = Σ_j μ_j · [P_j + (x̂_j - x̂)(x̂_j - x̂)ᵀ]
 void ImmFilter::CombineEstimates() {
   StateVector combined_mean = StateVector::Zero();
   for (int j = 0; j < num_models_; ++j) {
@@ -172,8 +157,6 @@ void ImmFilter::CombineEstimates() {
   combined_state_.covariance = combined_cov;
 }
 
-/// @brief 计算多元高斯似然 N(y; 0, S)。
-/// @details L = (2π)^{-d/2} |S|^{-1/2} exp(-½ yᵀ S⁻¹ y)
 float ImmFilter::GaussianLikelihood(const MeasurementVector &innovation,
                                     const MeasurementCovariance &S) {
   const Eigen::LLT<MeasurementCovariance> llt(S);

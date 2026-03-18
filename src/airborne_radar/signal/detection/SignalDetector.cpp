@@ -15,8 +15,6 @@ namespace {
 
 }  // namespace
 
-/// @brief 构造信号检测器并缓存热噪声底。
-/// @param config 雷达系统配置。
 SignalDetector::SignalDetector(RadarSystemConfig config)
     : config_(config),
       thermal_noise_w_(RadarEquations::ComputeThermalNoisePower_W(
@@ -24,21 +22,12 @@ SignalDetector::SignalDetector(RadarSystemConfig config)
       rng_(42u) {  // 默认种子，可通过 SetRandomSeed 重置
 }
 
-/// @brief 更新检测器配置并重算热噪声底。
-/// @param config 新的雷达系统配置。
 void SignalDetector::UpdateConfig(RadarSystemConfig config) {
   config_ = config;
   thermal_noise_w_ = RadarEquations::ComputeThermalNoisePower_W(
       config_.transmitter, config_.receiver);
 }
 
-/// @brief 对单目标执行检测判决。
-/// @param target 目标回波输入。
-/// @param env 环境噪声与传播损耗输入。
-/// @param one_way_antenna_gain_db 单程天线增益（dB）。
-/// @param pulse_count 脉冲积累数。
-/// @param coherent_integration 是否相参积累。
-/// @return 包含回波功率、SNR、检测概率与判决结果的检测输出。
 DetectionResult SignalDetector::Detect(
     const TargetReturn& target,
     const EnvironmentState& env,
@@ -99,8 +88,6 @@ DetectionResult SignalDetector::Detect(
   return result;
 }
 
-/// @brief 设置随机数种子。
-/// @param seed 随机种子。
 void SignalDetector::SetRandomSeed(unsigned int seed) {
   rng_.seed(seed);
 }

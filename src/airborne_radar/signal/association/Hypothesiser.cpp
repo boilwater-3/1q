@@ -11,9 +11,6 @@ namespace airborne_radar {
 namespace signal {
 namespace association {
 
-/// @brief 构造候选假设生成器。
-/// @param distance_metric 距离度量器。
-/// @param gater 波门裁剪器。
 DenseCostHypothesiser::DenseCostHypothesiser(IDistanceMetric *distance_metric,
                                              const IGater *gater)
     : distance_metric_(distance_metric), gater_(gater) {
@@ -22,17 +19,10 @@ DenseCostHypothesiser::DenseCostHypothesiser(IDistanceMetric *distance_metric,
   }
 }
 
-/// @brief 构造候选假设生成器（const 度量器重载）。
-/// @param distance_metric 距离度量器。
-/// @param gater 波门裁剪器。
 DenseCostHypothesiser::DenseCostHypothesiser(
     const IDistanceMetric *distance_metric, const IGater *gater)
     : DenseCostHypothesiser(const_cast<IDistanceMetric *>(distance_metric), gater) {}
 
-/// @brief 生成所有通过波门的轨迹-量测候选假设。
-/// @param predicted_tracks 历史轨迹预测特征集合。
-/// @param measurements 当前量测特征集合。
-/// @return 候选假设列表。
 std::vector<AssociationHypothesis> DenseCostHypothesiser::Generate(
     const FeatureVectorList &predicted_tracks,
     const FeatureVectorList &measurements) const {
@@ -56,11 +46,6 @@ std::vector<AssociationHypothesis> DenseCostHypothesiser::Generate(
   return hypotheses;
 }
 
-/// @brief 生成候选假设（按轨迹注入创新协方差）。
-/// @param predicted_tracks 历史轨迹预测特征集合。
-/// @param measurements 当前量测特征集合。
-/// @param innovation_covariances 与轨迹索引对齐的创新协方差。
-/// @return 通过波门的候选假设列表。
 std::vector<AssociationHypothesis> DenseCostHypothesiser::Generate(
     const FeatureVectorList &predicted_tracks,
     const FeatureVectorList &measurements,
@@ -98,12 +83,6 @@ std::vector<AssociationHypothesis> DenseCostHypothesiser::Generate(
   return hypotheses;
 }
 
-/// @brief 生成候选假设（动态量测协方差）。
-/// @param predicted_tracks 历史轨迹预测特征集合。
-/// @param measurements 当前量测特征集合。
-/// @param projected_measurement_covariances 预测轨迹投影协方差列表。
-/// @param measurement_covariances 当前量测协方差列表。
-/// @return 通过波门的候选假设列表。
 std::vector<AssociationHypothesis> DenseCostHypothesiser::Generate(
     const FeatureVectorList &predicted_tracks,
     const FeatureVectorList &measurements,

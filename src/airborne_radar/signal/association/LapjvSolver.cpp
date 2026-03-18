@@ -13,9 +13,6 @@ namespace airborne_radar {
 namespace signal {
 namespace association {
 
-/// @brief 求解稠密方阵代价矩阵的线性指派关系。
-/// @param cost_matrix 输入代价矩阵。
-/// @return 行索引到列索引的映射。
 std::vector<int> LapjvSolver::Solve(
     const Eigen::Ref<const Eigen::MatrixXf> &cost_matrix) const {
   const Eigen::Index n = cost_matrix.rows();

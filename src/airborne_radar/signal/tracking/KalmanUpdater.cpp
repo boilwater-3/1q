@@ -15,16 +15,6 @@ KalmanUpdater::KalmanUpdater(KalmanUpdaterConfig config)
       H_(BuildMeasurementMatrix()),
       R_(BuildMeasurementNoise(config.measurement_noise_std)) {}
 
-/// @brief 执行标准 Kalman 量测更新步骤。
-/// @param predicted 预测后的高斯状态。
-/// @param measurement 量测向量 [x, y, z]。
-/// @return 包含后验状态、新息和新息协方差的更新结果。
-/// @details 数学公式（参考 Stone Soup KalmanUpdater.update）：
-///          1. y = z - H·x̂                     （新息 / Innovation）
-///          2. S = H·P̂·Hᵀ + R                  （新息协方差）
-///          3. K = P̂·Hᵀ·S⁻¹                    （Kalman 增益）
-///          4. x = x̂ + K·y                      （后验均值）
-///          5. P = (I-KH)·P̂·(I-KH)ᵀ + K·R·Kᵀ  （Joseph 形式后验协方差）
 KalmanUpdateResult KalmanUpdater::Update(
     const GaussianTrackState &predicted,
     const MeasurementVector &measurement) const {
@@ -76,12 +66,6 @@ void KalmanUpdater::UpdateConfig(KalmanUpdaterConfig config) {
   R_ = BuildMeasurementNoise(config.measurement_noise_std);
 }
 
-/// @brief 构建 3×6 线性位置提取量测矩阵。
-/// @return H 矩阵。
-/// @details 状态向量 [x, vx, y, vy, z, vz] 中提取位置分量 [x, y, z]：
-///          | 1 0 0 0 0 0 |
-///          | 0 0 1 0 0 0 |
-///          | 0 0 0 0 1 0 |
 MeasurementMatrix KalmanUpdater::BuildMeasurementMatrix() {
   MeasurementMatrix H = MeasurementMatrix::Zero();
   H(0, 0) = 1.0f;  // x
@@ -90,9 +74,6 @@ MeasurementMatrix KalmanUpdater::BuildMeasurementMatrix() {
   return H;
 }
 
-/// @brief 构建 3×3 量测噪声协方差矩阵。
-/// @param std_dev 噪声标准差。
-/// @return 对角量测噪声矩阵 R = diag(σ², σ², σ²)。
 MeasurementCovariance KalmanUpdater::BuildMeasurementNoise(float std_dev) {
   const float variance = std_dev * std_dev;
   MeasurementCovariance R = MeasurementCovariance::Zero();

@@ -14,12 +14,6 @@ EkfPredictor::EkfPredictor(const ITransitionModel *model,
                            EkfPredictorConfig config)
     : model_(model), config_(config) {}
 
-/// @brief EKF 预测步骤。
-/// @details 参考 Stone Soup ExtendedKalmanPredictor：
-///          1. x̂ = f(x, dt)             ← 非线性转移
-///          2. F = ∂f/∂x |_{x,dt}       ← Jacobian 线性化
-///          3. Q = BuildProcessNoise(dt) ← 复用 CV 模型噪声
-///          4. P̂ = F·P·Fᵀ + Q           ← 协方差传播
 GaussianTrackState EkfPredictor::Predict(const GaussianTrackState &prior,
                                          float dt) const {
   // 非线性均值预测
@@ -43,15 +37,6 @@ EkfUpdater::EkfUpdater(const IMeasurementModel *model,
     : model_(model), config_(config),
       R_(BuildMeasurementNoise(config.measurement_noise_std)) {}
 
-/// @brief EKF 更新步骤。
-/// @details 参考 Stone Soup ExtendedKalmanUpdater：
-///          1. ẑ = h(x̂)                 ← 非线性量测预测
-///          2. H = ∂h/∂x |_{x̂}          ← Jacobian 线性化
-///          3. y = z - ẑ                ← 新息
-///          4. S = H·P̂·Hᵀ + R           ← 新息协方差
-///          5. K = P̂·Hᵀ·S⁻¹             ← Kalman 增益
-///          6. x = x̂ + K·y              ← 后验均值
-///          7. P = (I-KH)P̂(I-KH)ᵀ+KRKᵀ ← Joseph 形式
 KalmanUpdateResult EkfUpdater::Update(
     const GaussianTrackState &predicted,
     const MeasurementVector &measurement) const {
