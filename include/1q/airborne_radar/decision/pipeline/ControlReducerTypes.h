@@ -1,7 +1,7 @@
-// Copyright 2026. All Rights Reserved.
-//
-// @file ControlReducerTypes.h
-// @brief 定义控制归并器对外公开的配置与结果类型。
+/**
+ * @file ControlReducerTypes.h
+ * @brief 定义控制归并器对外公开的配置与结果类型。
+ */
 
 #ifndef AIRBORNE_RADAR_DECISION_PIPELINE_CONTROL_REDUCER_TYPES_H_
 #define AIRBORNE_RADAR_DECISION_PIPELINE_CONTROL_REDUCER_TYPES_H_
@@ -16,49 +16,29 @@ namespace airborne_radar {
 namespace decision {
 namespace pipeline {
 
-/// @brief ControlReducerConfig 描述 proposal -> profile 的固定映射与冲突裁决策略。
+/**
+ * @brief ControlReducerConfig 描述 proposal -> profile 的固定映射与冲突裁决策略。
+ */
 struct ControlReducerConfig {
-  /// @brief LPI 降功率意图映射到的默认功率比例。
-  float lpi_power_scale_on_reduction{0.5f};
-
-  /// @brief LPI 驻留调整意图映射到的默认驻留比例。
-  float lpi_dwell_scale{0.75f};
-
-  /// @brief ECCM 烧穿意图映射到的默认增益倍率。
-  float eccm_burnthrough_gain{1.5f};
-
-  /// @brief 当烧穿增益与 LPI 降功率并存时，对功率比例施加的保护下限。
-  float burnthrough_lpi_power_floor{0.85f};
-
-  /// @brief LPI 域在收到 proposal 后额外保持的周期数。
-  std::uint32_t lpi_hold_cycles_after_request{0};
-
-  /// @brief ECCM 域在收到 proposal 后额外保持的周期数。
-  std::uint32_t eccm_hold_cycles_after_request{0};
-
-  /// @brief LPI 域释放后的冷却周期数。
-  std::uint32_t lpi_cooldown_cycles_after_release{0};
-
-  /// @brief ECCM 域释放后的冷却周期数。
-  std::uint32_t eccm_cooldown_cycles_after_release{0};
-
-  /// @brief 是否在烧穿/LPI 冲突时优先生存性。
-  bool prefer_survivability_in_power_conflict{true};
-
-  /// @brief 是否在 LPI 波束形成与自适应波束形成冲突时优先生存性。
-  bool prefer_survivability_in_beam_conflict{true};
+  float lpi_power_scale_on_reduction{0.5f}; /**< LPI 降功率意图映射到的默认功率比例 */
+  float lpi_dwell_scale{0.75f}; /**< LPI 驻留调整意图映射到的默认驻留比例 */
+  float eccm_burnthrough_gain{1.5f}; /**< ECCM 烧穿意图映射到的默认增益倍率 */
+  float burnthrough_lpi_power_floor{0.85f}; /**< 当烧穿增益与 LPI 降功率并存时，对功率比例施加的保护下限 */
+  std::uint32_t lpi_hold_cycles_after_request{0}; /**< LPI 域在收到 proposal 后额外保持的周期数 */
+  std::uint32_t eccm_hold_cycles_after_request{0}; /**< ECCM 域在收到 proposal 后额外保持的周期数 */
+  std::uint32_t lpi_cooldown_cycles_after_release{0}; /**< LPI 域释放后的冷却周期数 */
+  std::uint32_t eccm_cooldown_cycles_after_release{0}; /**< ECCM 域释放后的冷却周期数 */
+  bool prefer_survivability_in_power_conflict{true}; /**< 是否在烧穿/LPI 冲突时优先生存性 */
+  bool prefer_survivability_in_beam_conflict{true}; /**< 是否在 LPI 波束形成与自适应波束形成冲突时优先生存性 */
 };
 
-/// @brief ControlReductionResult 表示 reducer 的单周期输出。
+/**
+ * @brief ControlReductionResult 表示 reducer 的单周期输出。
+ */
 struct ControlReductionResult {
-  /// @brief 归并后的下一周期控制真值。
-  common::RadarControlProfile profile;
-
-  /// @brief 被采纳的控制意图。
-  std::vector<common::ControlDirective> applied_directives;
-
-  /// @brief 被拒绝的控制意图。
-  std::vector<common::ControlDirective> rejected_directives;
+  common::RadarControlProfile profile; /**< 归并后的下一周期控制真值 */
+  std::vector<common::ControlDirective> applied_directives; /**< 被采纳的控制意图 */
+  std::vector<common::ControlDirective> rejected_directives; /**< 被拒绝的控制意图 */
 };
 
 } // namespace pipeline

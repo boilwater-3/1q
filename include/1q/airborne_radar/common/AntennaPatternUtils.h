@@ -1,7 +1,7 @@
-// Copyright 2026. All Rights Reserved.
-//
-// @file AntennaPatternUtils.h
-// @brief 定义机载雷达天线方向图的工程近似评估工具函数。
+/**
+ * @file AntennaPatternUtils.h
+ * @brief 定义机载雷达天线方向图的工程近似评估工具函数。
+ */
 
 #ifndef AIRBORNE_RADAR_COMMON_ANTENNA_PATTERN_UTILS_H_
 #define AIRBORNE_RADAR_COMMON_ANTENNA_PATTERN_UTILS_H_
@@ -15,19 +15,23 @@ namespace common {
 
 namespace antenna_pattern_internal {
 
-/// @brief 对浮点值执行下限保护。
-/// @param value 原始值。
-/// @param min_value 下限。
-/// @return 不小于下限的结果。
+/**
+ * @brief 对浮点值执行下限保护。
+ * @param value 原始值。
+ * @param min_value 下限。
+ * @return 不小于下限的结果。
+ */
 inline float ClampLowerBound(float value, float min_value) {
   return value < min_value ? min_value : value;
 }
 
-/// @brief 计算闭区间限幅结果。
-/// @param value 原始值。
-/// @param min_value 下界。
-/// @param max_value 上界。
-/// @return 限幅后的结果。
+/**
+ * @brief 计算闭区间限幅结果。
+ * @param value 原始值。
+ * @param min_value 下界。
+ * @param max_value 上界。
+ * @return 限幅后的结果。
+ */
 inline float ClampFloat(float value, float min_value, float max_value) {
   if (value < min_value) {
     return min_value;
@@ -38,9 +42,11 @@ inline float ClampFloat(float value, float min_value, float max_value) {
   return value;
 }
 
-/// @brief 判断给定离轴角是否位于后瓣区域。
-/// @param offset_deg 目标相对当前波束中心的离轴角。
-/// @return 若任一轴绝对离轴角超过 90 度，则视为后瓣区域。
+/**
+ * @brief 判断给定离轴角是否位于后瓣区域。
+ * @param offset_deg 目标相对当前波束中心的离轴角。
+ * @return 若任一轴绝对离轴角超过 90 度，则视为后瓣区域。
+ */
 inline bool IsInsideBackLobe(const AntennaLookOffsetDeg& offset_deg) {
   return std::fabs(offset_deg.delta_az_deg) > 90.0f ||
          std::fabs(offset_deg.delta_el_deg) > 90.0f;
@@ -48,10 +54,12 @@ inline bool IsInsideBackLobe(const AntennaLookOffsetDeg& offset_deg) {
 
 }  // namespace antenna_pattern_internal
 
-/// @brief 判断目标是否位于主瓣范围内。
-/// @param beamwidth_deg 用于评估的有效波束宽度。
-/// @param offset_deg 目标相对当前波束中心的离轴角。
-/// @return 若方位与俯仰离轴角均不超过对应半功率波束半宽，则返回 true。
+/**
+ * @brief 判断目标是否位于主瓣范围内。
+ * @param beamwidth_deg 用于评估的有效波束宽度。
+ * @param offset_deg 目标相对当前波束中心的离轴角。
+ * @return 若方位与俯仰离轴角均不超过对应半功率波束半宽，则返回 true。
+ */
 inline bool IsInsideMainLobe(
     const AntennaPatternBeamwidthDeg& beamwidth_deg,
     const AntennaLookOffsetDeg& offset_deg) {
@@ -67,11 +75,13 @@ inline bool IsInsideMainLobe(
          std::fabs(offset_deg.delta_el_deg) <= half_el_beamwidth_deg;
 }
 
-/// @brief 计算指定离轴角下的主瓣衰减。
-/// @param config 天线方向图配置。
-/// @param beamwidth_deg 用于评估的有效波束宽度。
-/// @param offset_deg 目标相对当前波束中心的离轴角。
-/// @return 主瓣离轴衰减（单位：dB）。
+/**
+ * @brief 计算指定离轴角下的主瓣衰减。
+ * @param config 天线方向图配置。
+ * @param beamwidth_deg 用于评估的有效波束宽度。
+ * @param offset_deg 目标相对当前波束中心的离轴角。
+ * @return 主瓣离轴衰减（单位：dB）。
+ */
 inline float ComputeMainLobeAttenuationDb(
     const AntennaPatternConfig& config,
     const AntennaPatternBeamwidthDeg& beamwidth_deg,
@@ -136,10 +146,12 @@ inline float ComputeMainLobeAttenuationDb(
   }
 }
 
-/// @brief 计算当前扫描中心下的扫描损失。
-/// @param config 天线方向图配置。
-/// @param scan_center_deg 当前扫描中心方向。
-/// @return 扫描损失（单位：dB）。
+/**
+ * @brief 计算当前扫描中心下的扫描损失。
+ * @param config 天线方向图配置。
+ * @param scan_center_deg 当前扫描中心方向。
+ * @return 扫描损失（单位：dB）。
+ */
 inline float ComputeScanLossDb(
     const AntennaPatternConfig& config,
     const AzimuthElevationDeg& scan_center_deg) {
@@ -156,16 +168,18 @@ inline float ComputeScanLossDb(
       antenna_pattern_internal::ClampLowerBound(config.max_scan_loss_db, 0.0f));
 }
 
-/// @brief 评估指定方向上的天线方向图结果。
-/// @param peak_gain_dbi 波束中心峰值增益（单位：dBi）。
-/// @param config 天线方向图配置。
-/// @param beamwidth_deg 用于评估的有效波束宽度。
-/// @param offset_deg 目标相对当前波束中心的离轴角。
-/// @param scan_center_deg 当前扫描中心方向。
-/// @return 方向图采样结果。
-/// @note 主瓣内返回峰值增益扣除主瓣衰减与扫描损失；
-///       主瓣外返回固定旁瓣电平；
-///       后瓣区域返回固定后瓣电平。
+/**
+ * @brief 评估指定方向上的天线方向图结果。
+ * @param peak_gain_dbi 波束中心峰值增益（单位：dBi）。
+ * @param config 天线方向图配置。
+ * @param beamwidth_deg 用于评估的有效波束宽度。
+ * @param offset_deg 目标相对当前波束中心的离轴角。
+ * @param scan_center_deg 当前扫描中心方向。
+ * @return 方向图采样结果。
+ * @note 主瓣内返回峰值增益扣除主瓣衰减与扫描损失；
+ *       主瓣外返回固定旁瓣电平；
+ *       后瓣区域返回固定后瓣电平。
+ */
 inline AntennaPatternSample EvaluateAntennaPattern(
     float peak_gain_dbi,
     const AntennaPatternConfig& config,

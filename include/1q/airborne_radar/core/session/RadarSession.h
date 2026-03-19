@@ -1,7 +1,7 @@
-// Copyright 2026. All Rights Reserved.
-//
-// @file RadarSession.h
-// @brief 定义面向外部接入的高层机载雷达会话门面。
+/**
+ * @file RadarSession.h
+ * @brief 定义面向外部接入的高层机载雷达会话门面。
+ */
 
 #ifndef AIRBORNE_RADAR_CORE_SESSION_RADAR_SESSION_H_
 #define AIRBORNE_RADAR_CORE_SESSION_RADAR_SESSION_H_
@@ -21,75 +21,82 @@ namespace airborne_radar {
 namespace core {
 namespace session {
 
-/// @brief RadarSessionConfig 描述 RadarSession 的默认装配配置。
+/**
+ * @brief RadarSessionConfig 描述 RadarSession 的默认装配配置。
+ */
 struct RadarSessionConfig {
-  /// @brief 信号流水线配置。
-  signal::pipeline::SignalPipelineConfig signal_pipeline_config{};
-
-  /// @brief 环境模型配置。
-  environment::EnvironmentModelConfig environment_model_config{};
-
-  /// @brief 干扰判定阈值（单位：dB）。
-  float jamming_detection_threshold_db{6.0f};
+  signal::pipeline::SignalPipelineConfig signal_pipeline_config{}; /**< 信号流水线配置 */
+  environment::EnvironmentModelConfig environment_model_config{}; /**< 环境模型配置 */
+  float jamming_detection_threshold_db{6.0f}; /**< 干扰判定阈值（单位：dB） */
 };
 
-/// @brief RadarSession 提供“一步一帧”的外部接入门面。
+/**
+ * @brief RadarSession 提供"一步一帧"的外部接入门面。
+ */
 class RadarSession {
 public:
-  /// @brief 使用默认链路构造会话。
+  /** @brief 使用默认链路构造会话 */
   explicit RadarSession(RadarSessionConfig config = {});
   ~RadarSession();
 
   RadarSession(const RadarSession&) = delete;
   RadarSession& operator=(const RadarSession&) = delete;
 
-  /// @brief 执行一个不显式切场景的处理周期。
-  /// @param input 当前周期输入。
-  /// @return 当前周期生成的轨迹输出帧拷贝。
+  /**
+   * @brief 执行一个不显式切场景的处理周期。
+   * @param input 当前周期输入。
+   * @return 当前周期生成的轨迹输出帧拷贝。
+   */
   common::TrackOutputFrame Step(const context::RadarCycleInput& input);
 
-  /// @brief 先更新待生效场景，再执行当前周期。
-  /// @param input 当前周期输入。
-  /// @param scene_state 当前 step 之前要提交的待生效场景。
-  /// @return 当前周期生成的轨迹输出帧拷贝。
+  /**
+   * @brief 先更新待生效场景，再执行当前周期。
+   * @param input 当前周期输入。
+   * @param scene_state 当前 step 之前要提交的待生效场景。
+   * @return 当前周期生成的轨迹输出帧拷贝。
+   */
   common::TrackOutputFrame Step(const context::RadarCycleInput& input,
                                 const environment::EnvironmentSceneState& scene_state);
 
-  /// @brief 执行一个不显式切场景的处理周期，并返回聚合结果。
-  /// @param input 当前周期输入。
-  /// @return 当前周期聚合结果。
+  /**
+   * @brief 执行一个不显式切场景的处理周期，并返回聚合结果。
+   * @param input 当前周期输入。
+   * @return 当前周期聚合结果。
+   */
   RadarCycleResult StepWithResult(const context::RadarCycleInput& input);
 
-  /// @brief 先更新待生效场景，再执行当前周期，并返回聚合结果。
-  /// @param input 当前周期输入。
-  /// @param scene_state 当前 step 之前要提交的待生效场景。
-  /// @return 当前周期聚合结果。
+  /**
+   * @brief 先更新待生效场景，再执行当前周期，并返回聚合结果。
+   * @param input 当前周期输入。
+   * @param scene_state 当前 step 之前要提交的待生效场景。
+   * @return 当前周期聚合结果。
+   */
   RadarCycleResult StepWithResult(
       const context::RadarCycleInput& input,
       const environment::EnvironmentSceneState& scene_state);
 
-  /// @brief 获取当前周期已提交的控制指令。
+  /** @brief 获取当前周期已提交的控制指令 */
   const std::vector<common::RadarCommand>& GetSubmittedCommands() const;
 
-  /// @brief 判断是否已经保存过最新控制真值。
+  /** @brief 判断是否已经保存过最新控制真值 */
   bool HasLatestControlProfile() const;
 
-  /// @brief 获取最近一次控制真值。
+  /** @brief 获取最近一次控制真值 */
   const common::RadarControlProfile& GetLatestControlProfile() const;
 
-  /// @brief 获取最近一次关联质量观测指标。
+  /** @brief 获取最近一次关联质量观测指标 */
   signal::pipeline::AssociationQualityMetrics
   GetLastAssociationQualityMetrics() const;
 
-  /// @brief 更新信号流水线配置。
+  /** @brief 更新信号流水线配置 */
   void UpdateSignalPipelineConfig(
       const signal::pipeline::SignalPipelineConfig& config);
 
-  /// @brief 更新环境模型配置。
+  /** @brief 更新环境模型配置 */
   void UpdateEnvironmentModelConfig(
       const environment::EnvironmentModelConfig& config);
 
-  /// @brief 更新干扰判定阈值。
+  /** @brief 更新干扰判定阈值 */
   void SetJammingDetectionThresholdDb(float threshold_db);
 
 private:

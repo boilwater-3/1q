@@ -1,7 +1,7 @@
-// Copyright 2026. All Rights Reserved.
-//
-// @file RadarController.h
-// @brief 定义核心处理层的雷达调度控制器接口。
+/**
+ * @file RadarController.h
+ * @brief 定义核心处理层的雷达调度控制器接口。
+ */
 
 #ifndef AIRBORNE_RADAR_CORE_CONTROLLER_RADAR_CONTROLLER_H_
 #define AIRBORNE_RADAR_CORE_CONTROLLER_RADAR_CONTROLLER_H_
@@ -60,33 +60,42 @@ namespace airborne_radar {
 namespace core {
 namespace controller {
 
-/// @brief RadarController 负责调度信号处理、行为决策与指令下发。
+/**
+ * @brief RadarController 负责调度信号处理、行为决策与指令下发。
+ */
 class RadarController : public core::output::IRadarOutputReader {
  public:
   ~RadarController();
 
-  /// @brief 构造函数，使用默认战术协调器。
+  /**
+   * @brief 构造函数，使用默认战术协调器。
+   */
   RadarController(core::context::IRadarContext& radar_context,
                   signal::pipeline::ISignalPipeline& signal_pipeline,
                   environment::IEnvironmentService& environment_service);
 
-  /// @brief 构造函数，显式注入新的决策引擎。
+  /**
+   * @brief 构造函数，显式注入新的决策引擎。
+   */
   RadarController(core::context::IRadarContext& radar_context,
                   signal::pipeline::ISignalPipeline& signal_pipeline,
                   decision::pipeline::ITacticalDecisionEngine& decision_engine,
                   environment::IEnvironmentService& environment_service);
 
-  /// @brief 执行一次雷达处理循环。
+  /** @brief 执行一次雷达处理循环 */
   void RunOnce();
 
-  /// @brief 执行指定次数的处理循环（用于仿真或测试）。
+  /** @brief 执行指定次数的处理循环（用于仿真或测试） */
   void RunCycles(std::size_t cycles);
 
-  /// @brief 更新控制归并器配置。
+  /** @brief 更新控制归并器配置 */
   void UpdateControlReducerConfig(
       const decision::pipeline::ControlReducerConfig& config);
 
+  /** @brief 判断当前是否已有可读取的最新轨迹输出帧 */
   bool HasLatestTrackOutputFrame() const override;
+
+  /** @brief 获取最近一次已缓存的轨迹输出帧 */
   const common::TrackOutputFrame& GetLatestTrackOutputFrame() const override;
 
  private:

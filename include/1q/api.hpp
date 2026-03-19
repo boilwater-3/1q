@@ -1,3 +1,8 @@
+/**
+ * @file api.hpp
+ * @brief 1Q 库的公共导出宏与版本信息。
+ */
+
 #pragma once
 
 // Export macro placeholder; adjust when building shared libs if needed.

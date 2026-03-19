@@ -1,7 +1,7 @@
-// Copyright 2026. All Rights Reserved.
-//
-// @file ControlDirective.h
-// @brief 定义决策层输出的控制意图。
+/**
+ * @file ControlDirective.h
+ * @brief 定义决策层输出的控制意图。
+ */
 
 #ifndef AIRBORNE_RADAR_COMMON_CONTROL_DIRECTIVE_H_
 #define AIRBORNE_RADAR_COMMON_CONTROL_DIRECTIVE_H_
@@ -9,63 +9,41 @@
 namespace airborne_radar {
 namespace common {
 
-/// @brief ControlDirectiveSource 表示控制意图来源模块。
+/**
+ * @brief ControlDirectiveSource 表示控制意图来源模块。
+ */
 enum class ControlDirectiveSource {
-  /// @brief 未知来源。
-  UNKNOWN = 0,
-
-  /// @brief 威胁评估/分类来源。
-  THREAT_ASSESSMENT,
-
-  /// @brief 发射控制来源。
-  EMISSION_CONTROL,
-
-  /// @brief 生存性/ECCM 来源。
-  SURVIVABILITY
+  UNKNOWN = 0, /**< 未知来源 */
+  THREAT_ASSESSMENT, /**< 威胁评估/分类来源 */
+  EMISSION_CONTROL, /**< 发射控制来源 */
+  SURVIVABILITY /**< 生存性/ECCM 来源 */
 };
 
-/// @brief ControlDirectiveType 表示决策层输出的控制意图类型。
+/**
+ * @brief ControlDirectiveType 表示决策层输出的控制意图类型。
+ */
 enum class ControlDirectiveType {
-  /// @brief 空意图。
-  NONE = 0,
-
-  /// @brief 请求降低发射功率。
-  REQUEST_LPI_POWER_REDUCTION,
-
-  /// @brief 请求启用 LPI 波束形成。
-  REQUEST_LPI_BEAMFORMING,
-
-  /// @brief 请求调整 LPI 驻留参数。
-  REQUEST_LPI_DWELL,
-
-  /// @brief 请求启用旁瓣对消。
-  REQUEST_ENABLE_SIDELOBE_CANCELLER,
-
-  /// @brief 请求启用自适应波束形成。
-  REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
-
-  /// @brief 请求启用频率捷变。
-  REQUEST_AGILITY_FREQUENCY,
-
-  /// @brief 请求启用重频抖动。
-  REQUEST_ECCM_REJITTER,
-
-  /// @brief 请求提升烧穿增益。
-  REQUEST_ECCM_BURNTHROUGH_GAIN
+  NONE = 0, /**< 空意图 */
+  REQUEST_LPI_POWER_REDUCTION, /**< 请求降低发射功率 */
+  REQUEST_LPI_BEAMFORMING, /**< 请求启用 LPI 波束形成 */
+  REQUEST_LPI_DWELL, /**< 请求调整 LPI 驻留参数 */
+  REQUEST_ENABLE_SIDELOBE_CANCELLER, /**< 请求启用旁瓣对消 */
+  REQUEST_ENABLE_ADAPTIVE_BEAMFORMING, /**< 请求启用自适应波束形成 */
+  REQUEST_AGILITY_FREQUENCY, /**< 请求启用频率捷变 */
+  REQUEST_ECCM_REJITTER, /**< 请求启用重频抖动 */
+  REQUEST_ECCM_BURNTHROUGH_GAIN /**< 请求提升烧穿增益 */
 };
 
-/// @brief ControlDirective 表示一条可带附加信息的控制意图。
+/**
+ * @brief ControlDirective 表示一条可带附加信息的控制意图。
+ */
 struct ControlDirective {
-  /// @brief 控制意图类型。
-  ControlDirectiveType type{ControlDirectiveType::NONE};
+  ControlDirectiveType type{ControlDirectiveType::NONE}; /**< 控制意图类型 */
+  ControlDirectiveSource source{ControlDirectiveSource::UNKNOWN}; /**< 控制意图来源 */
 
-  /// @brief 控制意图来源。
-  ControlDirectiveSource source{ControlDirectiveSource::UNKNOWN};
+  ControlDirective() = default; /**< 默认构造 */
 
-  /// @brief 默认构造。
-  ControlDirective() = default;
-
-  /// @brief 便捷构造。
+  /** @brief 便捷构造 */
   ControlDirective(ControlDirectiveType directive_type,
                    ControlDirectiveSource directive_source)
       : type(directive_type),

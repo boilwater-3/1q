@@ -1,7 +1,7 @@
-// Copyright 2026. All Rights Reserved.
-//
-// @file RadarOrientationUtils.h
-// @brief 定义机载雷达方向配置的组合、限幅与校验工具函数。
+/**
+ * @file RadarOrientationUtils.h
+ * @brief 定义机载雷达方向配置的组合、限幅与校验工具函数。
+ */
 
 #ifndef AIRBORNE_RADAR_COMMON_RADAR_ORIENTATION_UTILS_H_
 #define AIRBORNE_RADAR_COMMON_RADAR_ORIENTATION_UTILS_H_
@@ -11,19 +11,23 @@
 namespace airborne_radar {
 namespace common {
 
-/// @brief 判断扫描限位是否合法。
-/// @param limits 待校验的方位/俯仰限位。
-/// @return 若方位和俯仰最小值均不大于最大值，则返回 true。
+/**
+ * @brief 判断扫描限位是否合法。
+ * @param limits 待校验的方位/俯仰限位。
+ * @return 若方位和俯仰最小值均不大于最大值，则返回 true。
+ */
 inline bool IsValidScanLimits(const AzimuthElevationLimitsDeg &limits) {
   return limits.az_min_deg <= limits.az_max_deg &&
          limits.el_min_deg <= limits.el_max_deg;
 }
 
-/// @brief 对浮点值执行闭区间限幅。
-/// @param value 原始值。
-/// @param min_value 下界。
-/// @param max_value 上界。
-/// @return 限幅后的结果。
+/**
+ * @brief 对浮点值执行闭区间限幅。
+ * @param value 原始值。
+ * @param min_value 下界。
+ * @param max_value 上界。
+ * @return 限幅后的结果。
+ */
 inline float ClampFloat(float value, float min_value, float max_value) {
   if (value < min_value) {
     return min_value;
@@ -34,10 +38,12 @@ inline float ClampFloat(float value, float min_value, float max_value) {
   return value;
 }
 
-/// @brief 对方位/俯仰角执行扫描窗口限幅。
-/// @param angle 待限幅角度。
-/// @param limits 扫描窗口。
-/// @return 限幅后的方位/俯仰角。
+/**
+ * @brief 对方位/俯仰角执行扫描窗口限幅。
+ * @param angle 待限幅角度。
+ * @param limits 扫描窗口。
+ * @return 限幅后的方位/俯仰角。
+ */
 inline AzimuthElevationDeg ClampAzimuthElevation(
     const AzimuthElevationDeg &angle,
     const AzimuthElevationLimitsDeg &limits) {
@@ -49,10 +55,12 @@ inline AzimuthElevationDeg ClampAzimuthElevation(
   return clamped;
 }
 
-/// @brief 计算机械扫描窗口与电子扫描窗口的交集。
-/// @param mechanical_limits 机械扫描限位。
-/// @param electronic_limits 电子扫描限位。
-/// @return 两者交集；若无交集，则退化为零宽限位并由调用方继续处理。
+/**
+ * @brief 计算机械扫描窗口与电子扫描窗口的交集。
+ * @param mechanical_limits 机械扫描限位。
+ * @param electronic_limits 电子扫描限位。
+ * @return 两者交集；若无交集，则退化为零宽限位并由调用方继续处理。
+ */
 inline AzimuthElevationLimitsDeg IntersectScanLimits(
     const AzimuthElevationLimitsDeg &mechanical_limits,
     const AzimuthElevationLimitsDeg &electronic_limits) {
@@ -89,9 +97,11 @@ inline AzimuthElevationLimitsDeg IntersectScanLimits(
   return limits;
 }
 
-/// @brief 计算挂架坐标系下的实际波束指向，并按扫描窗口限幅。
-/// @param config 雷达方向配置。
-/// @return 相对雷达安装基准轴的方位/俯仰指向。
+/**
+ * @brief 计算挂架坐标系下的实际波束指向，并按扫描窗口限幅。
+ * @param config 雷达方向配置。
+ * @return 相对雷达安装基准轴的方位/俯仰指向。
+ */
 inline AzimuthElevationDeg ComputeMountFrameBeamPointing(
     const RadarOrientationConfig &config) {
   AzimuthElevationDeg unclamped;
@@ -104,9 +114,11 @@ inline AzimuthElevationDeg ComputeMountFrameBeamPointing(
   return ClampAzimuthElevation(unclamped, effective_limits);
 }
 
-/// @brief 计算机体系下的实际波束指向。
-/// @param config 雷达方向配置。
-/// @return 机体系下的欧拉角；roll 继承安装滚转角。
+/**
+ * @brief 计算机体系下的实际波束指向。
+ * @param config 雷达方向配置。
+ * @return 机体系下的欧拉角；roll 继承安装滚转角。
+ */
 inline EulerAnglesDeg ComputeBodyFrameBeamPointing(
     const RadarOrientationConfig &config) {
   const AzimuthElevationDeg mount_frame_pointing =
@@ -120,12 +132,14 @@ inline EulerAnglesDeg ComputeBodyFrameBeamPointing(
   return body_frame_pointing;
 }
 
-/// @brief 计算平台姿态叠加后的波束指向。
-/// @param platform_attitude_deg 平台姿态角。
-/// @param config 雷达方向配置。
-/// @return 平台姿态叠加后的欧拉角结果。
-/// @note 该函数仅执行几何叠加，适用于机体稳定模式；
-///       若采用惯性稳定或对地稳定，调用方应先求得等效平台姿态后再使用。
+/**
+ * @brief 计算平台姿态叠加后的波束指向。
+ * @param platform_attitude_deg 平台姿态角。
+ * @param config 雷达方向配置。
+ * @return 平台姿态叠加后的欧拉角结果。
+ * @note 该函数仅执行几何叠加，适用于机体稳定模式；
+ *       若采用惯性稳定或对地稳定，调用方应先求得等效平台姿态后再使用。
+ */
 inline EulerAnglesDeg ComputePlatformFrameBeamPointing(
     const EulerAnglesDeg &platform_attitude_deg,
     const RadarOrientationConfig &config) {
