@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义轨迹生命周期管理的输入类型。
+// @file TrackLifecycleTypes.h
+// @brief 定义轨迹生命周期管理的输入类型。
 
 #ifndef AIRBORNE_RADAR_SIGNAL_TRACKING_TRACK_LIFECYCLE_TYPES_H_
 #define AIRBORNE_RADAR_SIGNAL_TRACKING_TRACK_LIFECYCLE_TYPES_H_
@@ -11,7 +12,7 @@
 #include <Eigen/Core>
 
 #include "1q/airborne_radar/common/JammingSemantics.h"
-#include "1q/airborne_radar/signal/tracking/GaussianTrackState.h"
+#include "airborne_radar/signal/tracking/GaussianTrackState.h"
 
 namespace airborne_radar {
 namespace signal {

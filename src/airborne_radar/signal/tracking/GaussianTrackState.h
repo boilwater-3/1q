@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// 文件说明：定义高斯状态表示，用于 Kalman 滤波系列的状态预测与更新。
+// @file GaussianTrackState.h
+// @brief 定义高斯状态表示，用于 Kalman 滤波系列的状态预测与更新。
 
 #ifndef AIRBORNE_RADAR_SIGNAL_TRACKING_GAUSSIAN_TRACK_STATE_H_
 #define AIRBORNE_RADAR_SIGNAL_TRACKING_GAUSSIAN_TRACK_STATE_H_

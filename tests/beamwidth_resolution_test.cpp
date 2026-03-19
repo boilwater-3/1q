@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 验证名义波束宽度与指令态波束宽度的解析规则。
+// @file beamwidth_resolution_test.cpp
+// @brief 验证名义波束宽度与指令态波束宽度的解析规则。
 
 #include <gtest/gtest.h>
 

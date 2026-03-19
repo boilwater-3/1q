@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义对外公开的轨迹生命周期配置类型。
+// @file LifecycleConfig.h
+// @brief 定义轨迹生命周期配置类型。
 
 #ifndef AIRBORNE_RADAR_SIGNAL_TRACKING_LIFECYCLE_CONFIG_H_
 #define AIRBORNE_RADAR_SIGNAL_TRACKING_LIFECYCLE_CONFIG_H_

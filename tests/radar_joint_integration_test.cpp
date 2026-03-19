@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 验证机载雷达两阶段联调场景下的控制器驱动集成链路。
+// @file radar_joint_integration_test.cpp
+// @brief 验证机载雷达两阶段联调场景下的控制器驱动集成链路。
 
 #include <algorithm>
 #include <cmath>
@@ -19,8 +20,8 @@
 #include "1q/airborne_radar/common/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/context/IRadarContext.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"
-#include "1q/airborne_radar/environment/EnvironmentService.h"
-#include "1q/airborne_radar/signal/pipeline/SignalPipeline.h"
+#include "airborne_radar/environment/EnvironmentService.h"
+#include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "environment_test_fixture.h"
 
 namespace airborne_radar {

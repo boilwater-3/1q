@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义跟踪对象池与生命周期管理使用的公共轨迹类型。
+// @file TrackTypes.h
+// @brief 定义跟踪对象池与生命周期管理使用的公共轨迹类型。
 
 #ifndef AIRBORNE_RADAR_COMMON_TRACK_TYPES_H_
 #define AIRBORNE_RADAR_COMMON_TRACK_TYPES_H_
@@ -10,7 +11,7 @@
 #include <Eigen/Core>
 
 #include "1q/airborne_radar/common/JammingSemantics.h"
-#include "1q/airborne_radar/signal/tracking/GaussianTrackState.h"
+#include "airborne_radar/signal/tracking/GaussianTrackState.h"
 
 namespace airborne_radar {
 namespace common {

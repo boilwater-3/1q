@@ -1,15 +1,16 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 验证真实环境建模与信号处理实现的基础行为。
+// @file signal_environment_test.cpp
+// @brief 验证真实环境建模与信号处理实现的基础行为。
 
 #include <gtest/gtest.h>
 
 #include "1q/airborne_radar/common/RadarControlProfile.h"
 #include "1q/airborne_radar/common/TargetFeature.h"
-#include "1q/airborne_radar/signal/pipeline/SignalPipeline.h"
-#include "1q/airborne_radar/signal/tracking/ITrackLifecycleManager.h"
-#include "1q/airborne_radar/signal/tracking/TrackLifecycleTypes.h"
-#include "1q/airborne_radar/environment/EnvironmentService.h"
+#include "airborne_radar/signal/pipeline/SignalPipeline.h"
+#include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
+#include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
+#include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/environment/scene/SceneManager.h"
 #include "airborne_radar/environment/simulation/PropagationModel.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
@@ -207,7 +208,7 @@ TEST(SignalPipelineTest, KeepsTrackStableWhenDetectionMarginIsEnough) {
   const common::TargetFeatureList input_state{target};
 
   const auto output_state =
-      signal_pipeline.RunCycle(input_state, environment_service);
+      signal_pipeline.RunCycle(input_state, environment_service).updated_features;
 
   ASSERT_EQ(output_state.size(), 1u);
   EXPECT_FLOAT_EQ(output_state[0].current_track_speed,
@@ -230,7 +231,7 @@ TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
       800.0f, 0.0f, 0.0f, 2.5f, 1.0f, 0.0f, 0.0f)};
 
   const auto output_state =
-      signal_pipeline.RunCycle(input_state, environment_service);
+      signal_pipeline.RunCycle(input_state, environment_service).updated_features;
 
   ASSERT_EQ(output_state.size(), 1u);
   EXPECT_LT(output_state[0].current_track_speed, input_state[0].current_track_speed);
@@ -646,7 +647,7 @@ TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
 
   signal::pipeline::SignalPipeline baseline_pipeline;
   const auto baseline_output =
-      baseline_pipeline.RunCycle(input_state, environment_service);
+      baseline_pipeline.RunCycle(input_state, environment_service).updated_features;
 
   common::RadarControlProfile eccm_profile;
   eccm_profile.enable_sidelobe_canceller = true;
@@ -655,7 +656,7 @@ TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
   signal::pipeline::SignalPipeline protected_pipeline;
   protected_pipeline.SetControlProfile(eccm_profile);
   const auto protected_output =
-      protected_pipeline.RunCycle(input_state, environment_service);
+      protected_pipeline.RunCycle(input_state, environment_service).updated_features;
 
   ASSERT_EQ(baseline_output.size(), 1u);
   ASSERT_EQ(protected_output.size(), 1u);
@@ -840,7 +841,7 @@ TEST(SignalPipelineTest,
   pipeline_config.lifecycle.enable_imm_lifecycle = true;
   pipeline_config.lifecycle.lifecycle_config.confirm_hits = 1;
   pipeline_config.lifecycle.lifecycle_config.imm_activation_policy =
-      signal::tracking::ImmActivationPolicy::kAllTracks;
+      signal::pipeline::ImmActivationPolicy::kAllTracks;
   pipeline_config.lifecycle.imm_model_noise_diff_coeffs =
       std::vector<float>{0.5f, 4.0f};
   pipeline_config.lifecycle.imm_initial_weights = std::vector<float>{0.8f, 0.2f};

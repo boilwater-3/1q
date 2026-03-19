@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义决策控制模块消费的来源信息结构体。
+// @file DecisionSourceInfo.h
+// @brief 定义决策控制模块消费的来源信息结构体。
 
 #ifndef AIRBORNE_RADAR_COMMON_DECISION_SOURCE_INFO_H_
 #define AIRBORNE_RADAR_COMMON_DECISION_SOURCE_INFO_H_

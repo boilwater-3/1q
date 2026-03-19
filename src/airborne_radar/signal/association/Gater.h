@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// 文件说明：定义数据关联阶段使用的波门裁剪接口与阈值实现。
+// @file Gater.h
+// @brief 定义数据关联阶段使用的波门裁剪接口与阈值实现。
 
 #ifndef AIRBORNE_RADAR_SIGNAL_ASSOCIATION_GATER_H_
 #define AIRBORNE_RADAR_SIGNAL_ASSOCIATION_GATER_H_

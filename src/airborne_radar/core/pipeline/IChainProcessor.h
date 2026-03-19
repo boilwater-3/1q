@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义可复用的责任链处理器基础模板。
+// @file IChainProcessor.h
+// @brief 定义可复用的责任链处理器基础模板。
 
 #ifndef AIRBORNE_RADAR_CORE_PIPELINE_I_CHAIN_PROCESSOR_H_
 #define AIRBORNE_RADAR_CORE_PIPELINE_I_CHAIN_PROCESSOR_H_

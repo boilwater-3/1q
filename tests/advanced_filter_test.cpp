@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 验证 FullMahalanobisDistanceMetric、EkfFilter 和 ImmFilter 的正确性。
+// @file advanced_filter_test.cpp
+// @brief 验证 FullMahalanobisDistanceMetric、EkfFilter 和 ImmFilter 的正确性。
 
 #include <gtest/gtest.h>
 
@@ -9,7 +10,7 @@
 
 #include <Eigen/Core>
 
-#include "1q/airborne_radar/signal/tracking/GaussianTrackState.h"
+#include "airborne_radar/signal/tracking/GaussianTrackState.h"
 #include "airborne_radar/signal/association/DistanceMetric.h"
 #include "airborne_radar/signal/tracking/EkfFilter.h"
 #include "airborne_radar/signal/tracking/ImmFilter.h"

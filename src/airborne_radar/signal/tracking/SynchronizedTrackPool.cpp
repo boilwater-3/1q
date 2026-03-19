@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: SynchronizedTrackPool 的实现。
+// @file SynchronizedTrackPool.cpp
+// @brief 实现 SynchronizedTrackPool 的线程安全对象池逻辑。
 
 #include "airborne_radar/signal/tracking/SynchronizedTrackPool.h"
 

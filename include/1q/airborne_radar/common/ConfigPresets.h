@@ -7,7 +7,7 @@
 #define AIRBORNE_RADAR_COMMON_CONFIG_PRESETS_H_
 
 #include "1q/airborne_radar/core/session/RadarSession.h"
-#include "1q/airborne_radar/signal/pipeline/SignalPipeline.h"
+#include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
 
 namespace airborne_radar {
 namespace common {

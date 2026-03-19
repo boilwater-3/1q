@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义轨迹生命周期相关事件。
+// @file TrackEvents.h
+// @brief 定义轨迹生命周期相关事件。
 
 #ifndef AIRBORNE_RADAR_CORE_EVENT_TRACK_EVENTS_H_
 #define AIRBORNE_RADAR_CORE_EVENT_TRACK_EVENTS_H_

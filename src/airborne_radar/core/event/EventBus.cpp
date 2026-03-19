@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: EventBus 的实现。
+// @file EventBus.cpp
+// @brief 实现 EventBus 的订阅与事件派发逻辑。
 
 #include "airborne_radar/core/event/EventBus.h"
 

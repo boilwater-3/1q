@@ -1,8 +1,9 @@
-// Copyright 2026. All Rights Reserved.
-//
-// Description: SignalPipeline 的显式步骤编排实现。
+/**
+ * @file SignalPipeline.cpp
+ * @brief 实现 SignalPipeline 的显式步骤编排、关联质量聚合与默认生命周期衔接。
+ */
 
-#include "1q/airborne_radar/signal/pipeline/SignalPipeline.h"
+#include "airborne_radar/signal/pipeline/SignalPipeline.h"
 
 #include <algorithm>
 #include <cmath>
@@ -18,6 +19,7 @@
 #include <spdlog/spdlog.h>
 
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
+#include "airborne_radar/core/output/DataOutputManager.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleManager.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
@@ -33,9 +35,9 @@ namespace pipeline {
 
 namespace {
 
-/// @brief 将内部关联质量观测指标转换为对外公开格式。
-/// @param source 内部关联质量观测指标。
-/// @return Pipeline 对外公开的关联质量观测指标。
+/// @brief 解析关联脆弱度权重。
+/// @param semantic 当前周期主导干扰语义。
+/// @return 与干扰语义对应的关联脆弱度权重。
 float ResolveAssociationFragilityWeight(common::JammingSemantic semantic) {
   switch (semantic) {
     case common::JammingSemantic::kDeception:
@@ -52,6 +54,12 @@ float ResolveAssociationFragilityWeight(common::JammingSemantic semantic) {
   }
 }
 
+/// @brief 将内部关联质量观测指标转换为对外公开格式。
+/// @param source 内部关联质量观测指标。
+/// @param dominant_jamming_semantic 当前周期主导干扰语义。
+/// @param jamming_severity 当前周期残余干扰强度。
+/// @param association_unassigned_cost 当前关联未分配代价配置。
+/// @return Pipeline 对外公开的关联质量观测指标。
 AssociationQualityMetrics ToPipelineAssociationQualityMetrics(
     const association::AssociationQualityMetrics& source,
     common::JammingSemantic dominant_jamming_semantic,
@@ -89,6 +97,160 @@ AssociationQualityMetrics ToPipelineAssociationQualityMetrics(
                                metrics.dominant_jamming_semantic) *
                            operational_pressure));
   return metrics;
+}
+
+/// @brief 将环境层干扰技术枚举转换为公共决策语义枚举。
+/// @param technique 环境层干扰技术。
+/// @return 公共层干扰技术枚举。
+common::JammingTechnique ToCommonJammingTechnique(
+    environment::JammingTechnique technique) {
+  switch (technique) {
+    case environment::JammingTechnique::kNoiseSuppression:
+      return common::JammingTechnique::kNoiseSuppression;
+    case environment::JammingTechnique::kDeception:
+      return common::JammingTechnique::kDeception;
+    case environment::JammingTechnique::kRepeater:
+      return common::JammingTechnique::kRepeater;
+    case environment::JammingTechnique::kUnknown:
+    default:
+      return common::JammingTechnique::kUnknown;
+  }
+}
+
+/// @brief 将环境层单个干扰源事实转换为 ECCM 输入结构。
+/// @param environment_source 环境层单个干扰源事实。
+/// @return 供决策层消费的单源干扰摘要。
+common::EccmJammerSourceInfo BuildEccmJammerSourceInfo(
+    const environment::JammerSourceFact& environment_source) {
+  common::EccmJammerSourceInfo source_info;
+  source_info.technique = ToCommonJammingTechnique(environment_source.technique);
+  source_info.jammer_power_db = environment_source.power_db;
+  source_info.jammer_to_signal_db = environment_source.js_db;
+  source_info.frequency_overlap_ratio =
+      environment_source.frequency_overlap_ratio;
+  source_info.prf_lock_risk = environment_source.prf_lock_risk;
+  source_info.azimuth_deg = environment_source.azimuth_deg;
+  source_info.elevation_deg = environment_source.elevation_deg;
+  source_info.angular_span_deg = environment_source.angular_span_deg;
+  source_info.jammer_in_sidelobe = environment_source.in_sidelobe;
+  source_info.confidence = environment_source.confidence;
+  return source_info;
+}
+
+/// @brief 将环境快照转换为决策层 ECCM 输入摘要。
+/// @param environment_snapshot 当前周期环境快照。
+/// @return 供决策层消费的 ECCM 输入摘要。
+common::EccmSourceInfo BuildEccmSourceInfo(
+    const environment::EnvironmentSnapshot& environment_snapshot) {
+  common::EccmSourceInfo source_info;
+  source_info.has_jamming_signal = environment_snapshot.jamming_detected;
+  source_info.jammer_power_db = environment_snapshot.jammer_power_db;
+  source_info.frequency_overlap_ratio =
+      environment_snapshot.jammer_frequency_overlap_ratio;
+  source_info.prf_lock_risk = environment_snapshot.jammer_prf_lock_risk;
+  source_info.jammer_in_sidelobe = environment_snapshot.jammer_in_sidelobe;
+  source_info.jammer_sources.reserve(environment_snapshot.jammer_sources.size());
+  for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
+    source_info.jammer_sources.push_back(
+        BuildEccmJammerSourceInfo(environment_snapshot.jammer_sources[i]));
+  }
+  return source_info;
+}
+
+/// @brief 将 Pipeline 关联质量指标转换为决策层质量摘要。
+/// @param metrics Pipeline 对外关联质量指标。
+/// @return 决策层消费的关联质量摘要。
+common::AssociationQualityInfo BuildAssociationQualityInfo(
+    const AssociationQualityMetrics& metrics) {
+  common::AssociationQualityInfo info;
+  info.match_rate = metrics.match_rate;
+  info.new_track_rate = metrics.new_track_rate;
+  info.missed_track_rate = metrics.missed_track_rate;
+  info.mean_match_cost = metrics.mean_match_cost;
+  info.p95_match_cost = metrics.p95_match_cost;
+  info.dominant_jamming_semantic = metrics.dominant_jamming_semantic;
+  info.jamming_severity = metrics.jamming_severity;
+  info.association_stress = metrics.association_stress;
+  return info;
+}
+
+/// @brief 构造当前周期探测质量摘要。
+/// @param input_target_count 当前周期输入目标数。
+/// @param metrics 当前周期关联质量指标。
+/// @return 决策层消费的探测质量摘要。
+common::PerceptionQualityInfo BuildPerceptionQualityInfo(
+    std::size_t input_target_count,
+    const AssociationQualityMetrics& metrics) {
+  common::PerceptionQualityInfo info;
+  info.input_target_count = input_target_count;
+  info.detection_count = metrics.detection_count;
+  if (input_target_count == 0U) {
+    info.detection_rate = 1.0f;
+    info.detection_stress = 0.0f;
+    return info;
+  }
+
+  info.detection_rate = std::min(
+      1.0f, static_cast<float>(metrics.detection_count) /
+                static_cast<float>(input_target_count));
+  info.detection_stress = std::max(0.0f, 1.0f - info.detection_rate);
+  return info;
+}
+
+/// @brief 将单个目标特征转换为决策轨迹快照。
+/// @param feature 输入目标特征。
+/// @param index 输入目标索引。
+/// @return 对应的决策轨迹快照。
+common::DecisionTrackSnapshot BuildDecisionTrackSnapshotFromFeature(
+    const common::TargetFeature& feature, std::size_t index) {
+  const std::uint64_t association_key =
+      feature.external_target_id != 0U ? feature.external_target_id
+                                       : static_cast<std::uint64_t>(index + 1U);
+  common::DecisionTrackSnapshot snapshot(
+      feature.current_track_velocity_x, feature.current_track_velocity_y,
+      feature.current_track_velocity_z, feature.current_track_rcs,
+      feature.current_track_acceleration_x,
+      feature.current_track_acceleration_y,
+      feature.current_track_acceleration_z, false,
+      feature.external_target_id, association_key);
+  snapshot.state.status = common::DecisionTrackStatus::kConfirmed;
+  snapshot.state.position_x = feature.position_x;
+  snapshot.state.position_y = feature.position_y;
+  snapshot.state.position_z = feature.position_z;
+  snapshot.evidence.has_measurement_evidence = true;
+  snapshot.evidence.updated_this_cycle = true;
+  snapshot.evidence.predicted_only_this_cycle = false;
+  return snapshot;
+}
+
+/// @brief 将目标特征列表转换为决策轨迹快照列表。
+/// @param features 输入目标特征列表。
+/// @return 对应的决策轨迹快照列表。
+common::DecisionTrackSnapshotList BuildDecisionSnapshotsFromFeatures(
+    const common::TargetFeatureList& features) {
+  common::DecisionTrackSnapshotList track_snapshots;
+  track_snapshots.reserve(features.size());
+  for (std::size_t i = 0; i < features.size(); ++i) {
+    track_snapshots.push_back(BuildDecisionTrackSnapshotFromFeature(features[i], i));
+  }
+  return track_snapshots;
+}
+
+/// @brief 根据控制真值推导生命周期额外失配容忍度。
+/// @param control_profile 当前控制真值。
+/// @return 由保护性控制策略带来的额外失配容忍周期数。
+std::uint32_t ResolveLifecycleExtraMissTolerance(
+    const common::RadarControlProfile& control_profile) {
+  std::uint32_t extra_miss_tolerance = 0U;
+  if (control_profile.enable_sidelobe_canceller ||
+      control_profile.enable_agility_frequency ||
+      control_profile.enable_eccm_rejitter) {
+    extra_miss_tolerance += 1U;
+  }
+  if (control_profile.eccm_burnthrough_gain > 1.0f) {
+    extra_miss_tolerance += 1U;
+  }
+  return extra_miss_tolerance;
 }
 
 /// @brief 在关联结果中查找指定输入目标索引对应的匹配结果。
@@ -903,6 +1065,8 @@ struct SignalCycleContext {
   SignalPipelineConfig runtime_config{};
   common::TargetFeatureList output_state;
   std::vector<tracking::TrackMeasurement> track_measurements;
+  common::DecisionInputFrame decision_frame{};
+  AssociationQualityMetrics association_quality_metrics{};
 
   environment::EnvironmentSnapshot environment_snapshot{};
 
@@ -936,11 +1100,12 @@ struct SignalPipeline::Impl {
   /// @param input_state 输入目标列表。
   /// @param environment 环境服务。
   /// @return 输出目标列表。
-  common::TargetFeatureList RunCycle(
+  SignalCycleResult RunCycle(
       const common::TargetFeatureList& input_state,
       const environment::IEnvironmentService& environment) {
     PrepareCycleContext(input_state, environment);
     SampleEnvironment();
+    PrepareAssociationSeeds();
     if (config.detection.enable_physics_detection) {
       RunPhysicalDetection();
     } else {
@@ -950,7 +1115,13 @@ struct SignalPipeline::Impl {
     BuildTrackMeasurements();
     ApplyTrackFilter();
     CollectOutputs();
-    return cached_context.output_state;
+    SignalCycleResult result;
+    result.updated_features = cached_context.output_state;
+    result.decision_frame = cached_context.decision_frame;
+    result.association_quality_metrics = cached_context.association_quality_metrics;
+    ++cycle_index_;
+    ++batch_id_;
+    return result;
   }
 
   /// @brief 获取最近一次处理周期导出的跟踪量测。
@@ -962,24 +1133,22 @@ struct SignalPipeline::Impl {
   /// @brief 获取最近一次处理周期的关联质量观测指标。
   /// @return 关联质量观测指标。
   AssociationQualityMetrics GetLastAssociationQualityMetrics() const {
-    return ToPipelineAssociationQualityMetrics(
-        cached_context.association_result.quality_metrics,
-        ResolveDominantJammingSemantic(control_profile_,
-                                       cached_context.environment_snapshot),
-        ComputeTrackLevelJammingSeverity(control_profile_,
-                                        cached_context.environment_snapshot),
-        cached_context.runtime_config.association.unassigned_cost);
+    return cached_context.association_quality_metrics;
   }
 
   /// @brief 设置本周期关联阶段应使用的轨迹种子。
   /// @param seeds 外部种子。
   void SetAssociationSeeds(
       const std::vector<tracking::AssociationTrackSeed>& seeds) {
-    association_engine.SetAssociationSeeds(seeds);
+    has_manual_association_seeds_ = true;
+    manual_association_seeds_ = seeds;
+    association_engine.SetAssociationSeeds(manual_association_seeds_);
   }
 
   /// @brief 清理外部 seeds 状态并恢复无先验模式。
   void ResetAssociationSeedModeToStateless() {
+    has_manual_association_seeds_ = false;
+    manual_association_seeds_.clear();
     association_engine.ResetAssociationSeedModeToStateless();
   }
 
@@ -1045,6 +1214,8 @@ struct SignalPipeline::Impl {
     cached_context.environment = &environment;
     cached_context.runtime_config = BuildRuntimeConfig();
     cached_context.output_state = input_state;
+    cached_context.decision_frame = common::DecisionInputFrame();
+    cached_context.association_quality_metrics = AssociationQualityMetrics();
 
     const std::size_t target_count = input_state.size();
     cached_context.track_measurements.clear();
@@ -1069,6 +1240,20 @@ struct SignalPipeline::Impl {
     track_filter.UpdateConfig(
         internal::SignalComponentFactory::BuildTrackFilterConfig(
             cached_context.runtime_config));
+  }
+
+  /// @brief 预配置本周期关联使用的先验种子。
+  void PrepareAssociationSeeds() {
+    if (has_manual_association_seeds_) {
+      association_engine.SetAssociationSeeds(manual_association_seeds_);
+      return;
+    }
+    if (auto_lifecycle_manager_ != nullptr) {
+      association_engine.SetAssociationSeeds(
+          auto_lifecycle_manager_->BuildAssociationSeeds());
+      return;
+    }
+    association_engine.ResetAssociationSeedModeToStateless();
   }
 
   /// @brief 采样本周期环境快照。
@@ -1331,7 +1516,52 @@ struct SignalPipeline::Impl {
   }
 
   /// @brief 收尾当前周期输出。
-  void CollectOutputs() {}
+  void CollectOutputs() {
+    cached_context.association_quality_metrics =
+        ToPipelineAssociationQualityMetrics(
+            cached_context.association_result.quality_metrics,
+            ResolveDominantJammingSemantic(control_profile_,
+                                           cached_context.environment_snapshot),
+            ComputeTrackLevelJammingSeverity(control_profile_,
+                                            cached_context.environment_snapshot),
+            cached_context.runtime_config.association.unassigned_cost);
+
+    const common::EccmSourceInfo eccm_source_info =
+        BuildEccmSourceInfo(cached_context.environment_snapshot);
+    const common::AssociationQualityInfo association_quality_info =
+        BuildAssociationQualityInfo(cached_context.association_quality_metrics);
+    const common::PerceptionQualityInfo perception_quality_info =
+        BuildPerceptionQualityInfo(cached_context.input_state->size(),
+                                   cached_context.association_quality_metrics);
+
+    if (auto_lifecycle_manager_ != nullptr) {
+      tracking::CycleContext cycle;
+      cycle.cycle_index = cycle_index_;
+      cycle.batch_id = batch_id_;
+      cycle.dt_sec = cached_context.environment_snapshot.cycle_dt_sec;
+      cycle.extra_miss_tolerance =
+          ResolveLifecycleExtraMissTolerance(control_profile_);
+      auto_lifecycle_manager_->Update(cycle, cached_context.track_measurements);
+      cached_context.decision_frame = auto_lifecycle_manager_->BuildDecisionFrame(
+          cycle_index_, batch_id_, eccm_source_info.has_jamming_signal);
+      cached_context.decision_frame.environment_jamming_detected =
+          eccm_source_info.has_jamming_signal;
+      cached_context.decision_frame.eccm_source_info = eccm_source_info;
+      cached_context.decision_frame.association_quality_info =
+          association_quality_info;
+      cached_context.decision_frame.perception_quality_info =
+          perception_quality_info;
+      return;
+    }
+
+    const common::TrackOutputFrame track_output_frame =
+        output_manager_.BuildTrackOutputFrame(
+            cycle_index_, batch_id_,
+            BuildDecisionSnapshotsFromFeatures(cached_context.output_state));
+    cached_context.decision_frame = output_manager_.BuildDecisionInputFrame(
+        track_output_frame, eccm_source_info, association_quality_info,
+        perception_quality_info);
+  }
 
   /// @brief 依据当前配置重建自持有组件。
   void RebuildOwnedComponents() {
@@ -1340,15 +1570,26 @@ struct SignalPipeline::Impl {
     kalman_predictor = std::move(components.kalman_predictor);
     kalman_updater = std::move(components.kalman_updater);
     signal_detector = std::move(components.signal_detector);
+    if (config.lifecycle.enable_auto_lifecycle_manager) {
+      auto_lifecycle_manager_ = CreateAutoLifecycleManager();
+    } else {
+      auto_lifecycle_manager_.reset();
+    }
   }
 
   SignalPipelineConfig config{};
   common::RadarControlProfile control_profile_{};
   association::DataAssociationEngine association_engine{};
   tracking::TrackFilter track_filter{};
+  core::output::DataOutputManager output_manager_{};
   std::unique_ptr<tracking::KalmanPredictor> kalman_predictor;
   std::unique_ptr<tracking::KalmanUpdater> kalman_updater;
   std::unique_ptr<detection::SignalDetector> signal_detector;
+  std::unique_ptr<tracking::ITrackLifecycleManager> auto_lifecycle_manager_;
+  std::vector<tracking::AssociationTrackSeed> manual_association_seeds_;
+  bool has_manual_association_seeds_{false};
+  std::uint32_t cycle_index_{1};
+  std::uint64_t batch_id_{1};
   SignalCycleContext cached_context{};
 };
 
@@ -1357,7 +1598,7 @@ SignalPipeline::SignalPipeline(SignalPipelineConfig config)
 
 SignalPipeline::~SignalPipeline() = default;
 
-common::TargetFeatureList SignalPipeline::RunCycle(
+SignalCycleResult SignalPipeline::RunCycle(
     const common::TargetFeatureList& input_state,
     const environment::IEnvironmentService& environment) {
   return impl_->RunCycle(input_state, environment);

@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 验证 EventBus 的边界行为与订阅生命周期。
+// @file event_bus_test.cpp
+// @brief 验证 EventBus 的边界行为与订阅生命周期。
 
 #include <gtest/gtest.h>
 

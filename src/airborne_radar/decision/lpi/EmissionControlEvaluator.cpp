@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: EmissionControlEvaluator 的实现。
+// @file EmissionControlEvaluator.cpp
+// @brief 实现 EmissionControlEvaluator 的 LPI 发射控制评估逻辑。
 
 #include "airborne_radar/decision/lpi/EmissionControlEvaluator.h"
 
@@ -14,6 +15,8 @@ namespace {
 
 const std::uint32_t kLpiHoldCycles = 2;
 
+/// @brief 构造一条 LPI 降功率控制意图。
+/// @return 来源固定为 EMISSION_CONTROL 的控制意图。
 common::ControlDirective BuildLpiPowerDirective() {
   return common::ControlDirective(
       common::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,

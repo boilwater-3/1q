@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义目标特征仓储的具体实现。
+// @file FeatureRepository.h
+// @brief 定义目标特征仓储的具体实现。
 
 #ifndef AIRBORNE_RADAR_ENVIRONMENT_DATABASE_FEATURE_REPOSITORY_H_
 #define AIRBORNE_RADAR_ENVIRONMENT_DATABASE_FEATURE_REPOSITORY_H_
@@ -8,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/environment/database/IFeatureRepository.h"
+#include "airborne_radar/environment/database/IFeatureRepository.h"
 
 namespace airborne_radar { namespace environment { namespace database {
 

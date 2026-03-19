@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义表示当前雷达处理周期内目标的目标分类信息。
+// @file TargetCategory.h
+// @brief 定义表示当前雷达处理周期内目标的目标分类信息。
 
 #ifndef AIRBORNE_RADAR_COMMON_TARGET_CATEGORY_H_
 #define AIRBORNE_RADAR_COMMON_TARGET_CATEGORY_H_

@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义机载雷达天线方向图的工程近似评估工具函数。
+// @file AntennaPatternUtils.h
+// @brief 定义机载雷达天线方向图的工程近似评估工具函数。
 
 #ifndef AIRBORNE_RADAR_COMMON_ANTENNA_PATTERN_UTILS_H_
 #define AIRBORNE_RADAR_COMMON_ANTENNA_PATTERN_UTILS_H_

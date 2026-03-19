@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: Minimal predictor/updater based track filter implementations.
+// @file TrackFilter.cpp
+// @brief 实现基于最小 predictor/updater 组合的轨迹滤波逻辑。
 
 #include "airborne_radar/signal/tracking/TrackFilter.h"
 

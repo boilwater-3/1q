@@ -1,11 +1,10 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义行为决策层可以下发的指令。
+// @file RadarCommand.h
+// @brief 定义行为决策层可以下发的指令。
 
 #ifndef AIRBORNE_RADAR_COMMON_RADAR_COMMAND_H_
 #define AIRBORNE_RADAR_COMMON_RADAR_COMMAND_H_
-
-# include <boost/any.hpp>
 
 namespace airborne_radar {
 namespace common {
@@ -64,16 +63,12 @@ struct RadarCommand {
   /// @brief 指令来源模块。
   RadarCommandSource source{RadarCommandSource::UNKNOWN};
 
-  /// @brief 指令伴随信息。
-  boost::any info;
-
   /// @brief 默认构造函数，初始化为无操作指令。
   RadarCommand() = default;
 
   /// @brief 构造函数，初始化指令类型和来源。
-  RadarCommand(RadarCommandType cmd_type, RadarCommandSource cmd_source,
-               const boost::any &cmd_info = boost::any())
-      : type(cmd_type), source(cmd_source), info(cmd_info) {}
+  RadarCommand(RadarCommandType cmd_type, RadarCommandSource cmd_source)
+      : type(cmd_type), source(cmd_source) {}
 
 };
 } // namespace common

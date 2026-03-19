@@ -149,7 +149,6 @@ if(ENABLE_INSTALL)
     )
     set(PUBLIC_HEADERS_CORE_CONTEXT
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/context/IRadarContext.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/context/MutableRadarContext.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/context/RadarCycleInput.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/context/RadarInputValidation.h
     )
@@ -170,7 +169,7 @@ if(ENABLE_INSTALL)
     )
     set(PUBLIC_HEADERS_ENVIRONMENT
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentSceneBuilder.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentService.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentTypes.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/IEnvironmentService.h
     )
     set(PUBLIC_HEADERS_SIGNAL_DETECTION
@@ -178,13 +177,7 @@ if(ENABLE_INSTALL)
     )
     set(PUBLIC_HEADERS_SIGNAL_PIPELINE
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/pipeline/ISignalPipeline.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/pipeline/SignalPipeline.h
-    )
-    set(PUBLIC_HEADERS_SIGNAL_TRACKING
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/tracking/GaussianTrackState.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/tracking/ITrackLifecycleManager.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/tracking/LifecycleConfig.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/tracking/TrackLifecycleTypes.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h
     )
     set(PUBLIC_HEADERS_ROOT
         ${CMAKE_SOURCE_DIR}/include/1q/api.hpp
@@ -224,18 +217,11 @@ if(ENABLE_INSTALL)
     install(FILES ${PUBLIC_HEADERS_ENVIRONMENT}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/environment
     )
-    install(FILES
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/database/IFeatureRepository.h
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/environment/database
-    )
     install(FILES ${PUBLIC_HEADERS_SIGNAL_DETECTION}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/signal/detection
     )
     install(FILES ${PUBLIC_HEADERS_SIGNAL_PIPELINE}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/signal/pipeline
-    )
-    install(FILES ${PUBLIC_HEADERS_SIGNAL_TRACKING}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/signal/tracking
     )
 
     # 安装导出的 CMake targets 文件

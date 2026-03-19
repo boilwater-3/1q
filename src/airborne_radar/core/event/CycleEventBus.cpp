@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: CycleEventBus 的实现。
+// @file CycleEventBus.cpp
+// @brief 实现 CycleEventBus 的周期事件派发逻辑。
 
 #include "airborne_radar/core/event/CycleEventBus.h"
 

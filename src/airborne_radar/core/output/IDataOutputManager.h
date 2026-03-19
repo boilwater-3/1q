@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义数据输出管理服务抽象接口。
+// @file IDataOutputManager.h
+// @brief 定义数据输出管理服务抽象接口。
 
 #ifndef AIRBORNE_RADAR_CORE_OUTPUT_I_DATA_OUTPUT_MANAGER_H_
 #define AIRBORNE_RADAR_CORE_OUTPUT_I_DATA_OUTPUT_MANAGER_H_

@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 验证探测任务在大规模与长时场景下的稳健性趋势。
+// @file radar_detection_stress_test.cpp
+// @brief 验证探测任务在大规模与长时场景下的稳健性趋势。
 
 #include <cmath>
 #include <cstddef>
@@ -19,8 +20,8 @@
 #include "1q/airborne_radar/common/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/context/IRadarContext.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"
-#include "1q/airborne_radar/environment/EnvironmentService.h"
-#include "1q/airborne_radar/signal/pipeline/SignalPipeline.h"
+#include "airborne_radar/environment/EnvironmentService.h"
+#include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "environment_test_fixture.h"
 
 namespace airborne_radar {

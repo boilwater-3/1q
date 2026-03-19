@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义雷达系统在更广泛操作下暴露给外部的上下文抽象接口。
+// @file IRadarContext.h
+// @brief 定义雷达系统对外暴露的上下文抽象接口。
 // 它解耦了中介者模式与环境状态之间的依赖。
 
 #ifndef AIRBORNE_RADAR_CORE_CONTEXT_I_RADAR_CONTEXT_H_

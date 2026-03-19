@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义机载雷达天线方向图建模所需的公共配置结构。
+// @file AntennaPatternConfig.h
+// @brief 定义机载雷达天线方向图建模所需的公共配置结构。
 
 #ifndef AIRBORNE_RADAR_COMMON_ANTENNA_PATTERN_CONFIG_H_
 #define AIRBORNE_RADAR_COMMON_ANTENNA_PATTERN_CONFIG_H_

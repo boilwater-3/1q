@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义供信号层和决策层共享的干扰摘要语义。
+// @file JammingSemantics.h
+// @brief 定义供信号层和决策层共享的干扰摘要语义。
 
 #ifndef AIRBORNE_RADAR_COMMON_JAMMING_SEMANTICS_H_
 #define AIRBORNE_RADAR_COMMON_JAMMING_SEMANTICS_H_

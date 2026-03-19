@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// 文件说明：定义基于距离度量与线性指派的数据关联组件。
+// @file DataAssociation.h
+// @brief 定义基于距离度量与线性指派的数据关联组件。
 
 #ifndef AIRBORNE_RADAR_SIGNAL_ASSOCIATION_DATA_ASSOCIATION_H_
 #define AIRBORNE_RADAR_SIGNAL_ASSOCIATION_DATA_ASSOCIATION_H_
@@ -11,8 +12,8 @@
 #include <Eigen/Core>
 
 #include "1q/airborne_radar/common/TargetFeature.h"
-#include "1q/airborne_radar/signal/tracking/GaussianTrackState.h"
-#include "1q/airborne_radar/signal/tracking/TrackLifecycleTypes.h"
+#include "airborne_radar/signal/tracking/GaussianTrackState.h"
+#include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
 #include "airborne_radar/signal/association/DistanceMetric.h"
 #include "airborne_radar/signal/association/Gater.h"
 #include "airborne_radar/signal/association/Hypothesiser.h"

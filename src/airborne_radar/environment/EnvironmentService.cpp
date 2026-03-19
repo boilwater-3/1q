@@ -3,7 +3,7 @@
 // @file EnvironmentService.cpp
 // @brief 实现环境层场景冻结、传播聚合与干扰事实生成。
 
-#include "1q/airborne_radar/environment/EnvironmentService.h"
+#include "airborne_radar/environment/EnvironmentService.h"
 
 #include <algorithm>
 #include <limits>
@@ -214,6 +214,7 @@ void EnvironmentService::RefreshFrozenSnapshotFromActiveScene() {
 
   const simulation::PropagationResult propagation_result =
       propagation_model_->Evaluate(scene_manager_->GetActiveScene());
+  frozen_snapshot_.cycle_dt_sec = current_cycle_context_.dt_sec;
   frozen_snapshot_.propagation_loss_db =
       propagation_result.propagation_loss_db;
   frozen_snapshot_.clutter_power_db = propagation_result.clutter_power_db;

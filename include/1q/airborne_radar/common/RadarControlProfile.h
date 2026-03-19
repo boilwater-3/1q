@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义信号层在下一周期读取的控制真值。
+// @file RadarControlProfile.h
+// @brief 定义信号层在下一周期读取的控制真值。
 
 #ifndef AIRBORNE_RADAR_COMMON_RADAR_CONTROL_PROFILE_H_
 #define AIRBORNE_RADAR_COMMON_RADAR_CONTROL_PROFILE_H_

@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: SurvivabilityEvaluator 的实现。
+// @file SurvivabilityEvaluator.cpp
+// @brief 实现 SurvivabilityEvaluator 的 ECCM 生存性评估逻辑。
 
 #include "airborne_radar/decision/eccm/SurvivabilityEvaluator.h"
 
@@ -36,11 +37,17 @@ const float kThresholdAgilityFrequency = 1.5f;
 const float kThresholdEccmRejitter = 1.5f;
 const float kThresholdBurnthroughGain = 1.5f;
 
+/// @brief 构造一条生存性域控制意图。
+/// @param type 控制意图类型。
+/// @return 来源固定为 SURVIVABILITY 的控制意图。
 common::ControlDirective BuildDirective(common::ControlDirectiveType type) {
   return common::ControlDirective(type,
                                   common::ControlDirectiveSource::SURVIVABILITY);
 }
 
+/// @brief 判断 ECCM 输入是否携带可用的细粒度干扰事实。
+/// @param source_info 当前周期 ECCM 输入摘要。
+/// @return 至少存在多源事实或兼容字段时返回 true。
 bool HasDetailedEccmFacts(const common::EccmSourceInfo& source_info) {
   if (!source_info.jammer_sources.empty()) {
     return true;
@@ -63,10 +70,17 @@ struct EccmProposalSelection {
   common::JammingSemantic association_semantic{common::JammingSemantic::kNone};
 };
 
+/// @brief 根据评分增益调整控制意图优先级。
+/// @param base_priority 基础优先级。
+/// @param score 当前评分。
+/// @return 叠加评分后的优先级。
 int ResolvePriorityFromScore(int base_priority, float score) {
   return base_priority + static_cast<int>(score * 10.0f);
 }
 
+/// @brief 将浮点值裁剪到 [0, 1] 区间。
+/// @param value 输入值。
+/// @return 裁剪后的结果。
 float ClampUnit(float value) {
   return std::max(0.0f, std::min(1.0f, value));
 }
@@ -79,6 +93,8 @@ bool HasMeaningfulAssociationPressure(
              kMinimumAssociationSeverity;
 }
 
+/// @brief 为缺少细粒度事实的场景添加保守自适应波束形成偏置。
+/// @param selection 待累加的提案选择状态。
 void AccumulateCautiousFallback(EccmProposalSelection* selection) {
   if (selection == nullptr) {
     return;
@@ -87,6 +103,9 @@ void AccumulateCautiousFallback(EccmProposalSelection* selection) {
       std::max(selection->adaptive_beamforming_score, 1.0f);
 }
 
+/// @brief 将兼容旧版平铺 ECCM 字段累加为提案评分。
+/// @param source_info 当前周期 ECCM 输入摘要。
+/// @param selection 待累加的提案选择状态。
 void AccumulateLegacyEccmFacts(const common::EccmSourceInfo& source_info,
                                EccmProposalSelection* selection) {
   if (selection == nullptr) {
@@ -225,6 +244,9 @@ void AccumulateAssociationDrivenBias(
   }
 }
 
+/// @brief 将关联语义转换为可读描述文本。
+/// @param semantic 当前周期主导干扰语义。
+/// @return 用于 rationale 的简短描述。
 std::string DescribeAssociationSemantic(common::JammingSemantic semantic) {
   switch (semantic) {
     case common::JammingSemantic::kDeception:

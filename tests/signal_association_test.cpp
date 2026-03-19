@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 验证数据关联模块的关键行为（稳定匹配/交叉匹配/新生目标）。
+// @file signal_association_test.cpp
+// @brief 验证数据关联模块的关键行为。
 
 #include <gtest/gtest.h>
 

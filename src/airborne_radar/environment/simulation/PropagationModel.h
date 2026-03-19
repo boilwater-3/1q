@@ -6,7 +6,7 @@
 #ifndef AIRBORNE_RADAR_ENVIRONMENT_SIMULATION_PROPAGATION_MODEL_H_
 #define AIRBORNE_RADAR_ENVIRONMENT_SIMULATION_PROPAGATION_MODEL_H_
 
-#include "1q/airborne_radar/environment/EnvironmentService.h"
+#include "1q/airborne_radar/environment/EnvironmentTypes.h"
 
 namespace airborne_radar {
 namespace environment {

@@ -16,6 +16,7 @@ set(TEST_SOURCES
     data_output_manager_test.cpp
     core_controller_test.cpp
     public_api_convenience_test.cpp
+    public_headers_smoke_test.cpp
     radar_joint_integration_test.cpp
     event_bus_test.cpp
     antenna_pattern_utils_test.cpp
@@ -84,6 +85,13 @@ include(GoogleTest)
 gtest_discover_tests(${PROJECT_NAME}_tests
     DISCOVERY_MODE PRE_TEST
     DISCOVERY_TIMEOUT 60
+)
+
+add_test(
+    NAME public_api_boundary_guard
+    COMMAND ${CMAKE_COMMAND}
+            -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/check_public_api_boundary.cmake
 )
 
 if(ENABLE_STRESS_TESTING)

@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: FeatureRepository 的实现。
+// @file FeatureRepository.cpp
+// @brief 实现 FeatureRepository 的特征仓储加载与查询逻辑。
 
 #include "airborne_radar/environment/database/FeatureRepository.h"
 
@@ -21,6 +22,9 @@ constexpr const char kJammingFeature[] = "jamming";
 constexpr std::array<const char *, 3> kKnownFeatureKeys = {
 		kSpeedFeature, kRcsFeature, kJammingFeature};
 
+/// @brief 判断给定特征名是否属于仓储内建标准维度。
+/// @param feature_name 待判定的特征名。
+/// @return 命中标准维度时返回 true。
 bool IsKnownFeature(const std::string &feature_name) {
 	return std::find(kKnownFeatureKeys.begin(), kKnownFeatureKeys.end(),
 									 feature_name) != kKnownFeatureKeys.end();

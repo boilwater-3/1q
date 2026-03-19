@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 基于 eventpp 的事件总线实现。
+// @file EventBus.h
+// @brief 定义基于 eventpp 的事件总线实现。
 
 #ifndef AIRBORNE_RADAR_CORE_EVENT_EVENT_BUS_H_
 #define AIRBORNE_RADAR_CORE_EVENT_EVENT_BUS_H_

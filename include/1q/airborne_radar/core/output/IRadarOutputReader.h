@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义供外部组件读取最新轨迹输出帧的只读接口。
+// @file IRadarOutputReader.h
+// @brief 定义供外部组件读取最新轨迹输出帧的只读接口。
 
 #ifndef AIRBORNE_RADAR_CORE_OUTPUT_I_RADAR_OUTPUT_READER_H_
 #define AIRBORNE_RADAR_CORE_OUTPUT_I_RADAR_OUTPUT_READER_H_

@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义供输出管理模块消费和发布的中性轨迹输出帧。
+// @file TrackOutputFrame.h
+// @brief 定义供输出管理模块消费和发布的中性轨迹输出帧。
 
 #ifndef AIRBORNE_RADAR_COMMON_TRACK_OUTPUT_FRAME_H_
 #define AIRBORNE_RADAR_COMMON_TRACK_OUTPUT_FRAME_H_

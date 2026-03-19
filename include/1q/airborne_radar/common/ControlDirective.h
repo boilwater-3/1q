@@ -1,11 +1,10 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义决策层输出的控制意图。
+// @file ControlDirective.h
+// @brief 定义决策层输出的控制意图。
 
 #ifndef AIRBORNE_RADAR_COMMON_CONTROL_DIRECTIVE_H_
 #define AIRBORNE_RADAR_COMMON_CONTROL_DIRECTIVE_H_
-
-#include <boost/any.hpp>
 
 namespace airborne_radar {
 namespace common {
@@ -63,19 +62,14 @@ struct ControlDirective {
   /// @brief 控制意图来源。
   ControlDirectiveSource source{ControlDirectiveSource::UNKNOWN};
 
-  /// @brief 附加信息。
-  boost::any info;
-
   /// @brief 默认构造。
   ControlDirective() = default;
 
   /// @brief 便捷构造。
   ControlDirective(ControlDirectiveType directive_type,
-                   ControlDirectiveSource directive_source,
-                   const boost::any& directive_info = boost::any())
+                   ControlDirectiveSource directive_source)
       : type(directive_type),
-        source(directive_source),
-        info(directive_info) {}
+        source(directive_source) {}
 };
 
 } // namespace common

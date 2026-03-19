@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义雷达探测通用配置结构与目标起伏模型枚举。
+// @file DetectionTypes.h
+// @brief 定义雷达探测通用配置结构与目标起伏模型枚举。
 
 #ifndef AIRBORNE_RADAR_SIGNAL_DETECTION_DETECTION_TYPES_H_
 #define AIRBORNE_RADAR_SIGNAL_DETECTION_DETECTION_TYPES_H_

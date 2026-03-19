@@ -1,28 +1,22 @@
-// Copyright 2026. All Rights Reserved.
-//
-// Description: RadarController 的核心调度实现。
+/**
+ * @file RadarController.cpp
+ * @brief 实现 RadarController 的周期调度、决策归并与命令下发逻辑。
+ */
 
 #include "1q/airborne_radar/core/controller/RadarController.h"
 
-#include <algorithm>
-
-#include <Eigen/Core>
 #include <spdlog/spdlog.h>
 
 #include "1q/airborne_radar/common/ControlDirective.h"
-#include "1q/airborne_radar/common/DecisionInputFrame.h"
-#include "1q/airborne_radar/common/DecisionTrackSnapshot.h"
 #include "1q/airborne_radar/common/RadarCommand.h"
 #include "1q/airborne_radar/common/RadarControlProfile.h"
 #include "1q/airborne_radar/common/TrackOutputFrame.h"
-#include "1q/airborne_radar/decision/pipeline/ControlReducerTypes.h"
 #include "1q/airborne_radar/core/context/IRadarContext.h"
 #include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
-#include "1q/airborne_radar/signal/tracking/ITrackLifecycleManager.h"
-#include "airborne_radar/core/output/IDataOutputManager.h"
 #include "airborne_radar/core/output/DataOutputManager.h"
+#include "airborne_radar/core/output/IDataOutputManager.h"
 #include "airborne_radar/decision/pipeline/ControlReducer.h"
 #include "airborne_radar/decision/pipeline/TacticalCoordinator.h"
 
@@ -32,55 +26,9 @@ namespace controller {
 
 namespace {
 
-common::JammingTechnique ToCommonJammingTechnique(
-    environment::JammingTechnique technique) {
-  switch (technique) {
-    case environment::JammingTechnique::kNoiseSuppression:
-      return common::JammingTechnique::kNoiseSuppression;
-    case environment::JammingTechnique::kDeception:
-      return common::JammingTechnique::kDeception;
-    case environment::JammingTechnique::kRepeater:
-      return common::JammingTechnique::kRepeater;
-    case environment::JammingTechnique::kUnknown:
-    default:
-      return common::JammingTechnique::kUnknown;
-  }
-}
-
-common::EccmJammerSourceInfo BuildEccmJammerSourceInfo(
-    const environment::JammerSourceFact& environment_source) {
-  common::EccmJammerSourceInfo source_info;
-  source_info.technique = ToCommonJammingTechnique(environment_source.technique);
-  source_info.jammer_power_db = environment_source.power_db;
-  source_info.jammer_to_signal_db = environment_source.js_db;
-  source_info.frequency_overlap_ratio =
-      environment_source.frequency_overlap_ratio;
-  source_info.prf_lock_risk = environment_source.prf_lock_risk;
-  source_info.azimuth_deg = environment_source.azimuth_deg;
-  source_info.elevation_deg = environment_source.elevation_deg;
-  source_info.angular_span_deg = environment_source.angular_span_deg;
-  source_info.jammer_in_sidelobe = environment_source.in_sidelobe;
-  source_info.confidence = environment_source.confidence;
-  return source_info;
-}
-
-common::EccmSourceInfo BuildEccmSourceInfo(
-    const environment::EnvironmentSnapshot& environment_snapshot) {
-  common::EccmSourceInfo source_info;
-  source_info.has_jamming_signal = environment_snapshot.jamming_detected;
-  source_info.jammer_power_db = environment_snapshot.jammer_power_db;
-  source_info.frequency_overlap_ratio =
-      environment_snapshot.jammer_frequency_overlap_ratio;
-  source_info.prf_lock_risk = environment_snapshot.jammer_prf_lock_risk;
-  source_info.jammer_in_sidelobe = environment_snapshot.jammer_in_sidelobe;
-  source_info.jammer_sources.reserve(environment_snapshot.jammer_sources.size());
-  for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
-    source_info.jammer_sources.push_back(
-        BuildEccmJammerSourceInfo(environment_snapshot.jammer_sources[i]));
-  }
-  return source_info;
-}
-
+/// @brief 将干扰语义枚举转换为日志可读字符串。
+/// @param semantic 当前周期主导干扰语义。
+/// @return 供日志输出使用的短字符串。
 const char* JammingSemanticName(common::JammingSemantic semantic) {
   switch (semantic) {
     case common::JammingSemantic::kNoiseSuppression:
@@ -97,74 +45,9 @@ const char* JammingSemanticName(common::JammingSemantic semantic) {
   }
 }
 
-common::DecisionTrackSnapshot BuildDecisionTrackSnapshotFromFeature(
-    const common::TargetFeature& feature, std::size_t index) {
-  const std::uint64_t association_key =
-      feature.external_target_id != 0U ? feature.external_target_id
-                                       : static_cast<std::uint64_t>(index + 1U);
-  common::DecisionTrackSnapshot snapshot(
-      feature.current_track_velocity_x, feature.current_track_velocity_y,
-      feature.current_track_velocity_z, feature.current_track_rcs,
-      feature.current_track_acceleration_x,
-      feature.current_track_acceleration_y,
-      feature.current_track_acceleration_z, false,
-      feature.external_target_id, association_key);
-  snapshot.state.status = common::DecisionTrackStatus::kConfirmed;
-  snapshot.state.position_x = feature.position_x;
-  snapshot.state.position_y = feature.position_y;
-  snapshot.state.position_z = feature.position_z;
-  snapshot.evidence.has_measurement_evidence = true;
-  snapshot.evidence.updated_this_cycle = true;
-  snapshot.evidence.predicted_only_this_cycle = false;
-  return snapshot;
-}
-
-/// @brief 使用目标特征构造兼容降级路径的轨迹快照列表。
-/// @param features 当前周期输出目标特征列表。
-/// @return synthetic 的决策轨迹快照列表。
-common::DecisionTrackSnapshotList BuildDecisionSnapshotsFromFeatures(
-    const common::TargetFeatureList& features) {
-  common::DecisionTrackSnapshotList track_snapshots;
-  track_snapshots.reserve(features.size());
-  for (std::size_t i = 0; i < features.size(); ++i) {
-    track_snapshots.push_back(BuildDecisionTrackSnapshotFromFeature(features[i], i));
-  }
-  return track_snapshots;
-}
-
-common::AssociationQualityInfo BuildAssociationQualityInfo(
-    const signal::pipeline::AssociationQualityMetrics& metrics) {
-  common::AssociationQualityInfo info;
-  info.match_rate = metrics.match_rate;
-  info.new_track_rate = metrics.new_track_rate;
-  info.missed_track_rate = metrics.missed_track_rate;
-  info.mean_match_cost = metrics.mean_match_cost;
-  info.p95_match_cost = metrics.p95_match_cost;
-  info.dominant_jamming_semantic = metrics.dominant_jamming_semantic;
-  info.jamming_severity = metrics.jamming_severity;
-  info.association_stress = metrics.association_stress;
-  return info;
-}
-
-common::PerceptionQualityInfo BuildPerceptionQualityInfo(
-    std::size_t input_target_count,
-    const signal::pipeline::AssociationQualityMetrics& metrics) {
-  common::PerceptionQualityInfo info;
-  info.input_target_count = input_target_count;
-  info.detection_count = metrics.detection_count;
-  if (input_target_count == 0U) {
-    info.detection_rate = 1.0f;
-    info.detection_stress = 0.0f;
-    return info;
-  }
-
-  info.detection_rate = std::min(
-      1.0f, static_cast<float>(metrics.detection_count) /
-                static_cast<float>(input_target_count));
-  info.detection_stress = std::max(0.0f, 1.0f - info.detection_rate);
-  return info;
-}
-
+/// @brief 将控制意图类型映射为底座命令类型。
+/// @param type 控制意图类型。
+/// @return 对应的雷达命令类型。
 common::RadarCommandType ToRadarCommandType(
     common::ControlDirectiveType type) {
   switch (type) {
@@ -190,6 +73,9 @@ common::RadarCommandType ToRadarCommandType(
   }
 }
 
+/// @brief 将控制意图来源映射为底座命令来源。
+/// @param source 控制意图来源。
+/// @return 对应的雷达命令来源。
 common::RadarCommandSource ToRadarCommandSource(
     common::ControlDirectiveSource source) {
   switch (source) {
@@ -205,27 +91,12 @@ common::RadarCommandSource ToRadarCommandSource(
   }
 }
 
+/// @brief 将单条控制意图转换为可提交的雷达命令。
+/// @param directive 单条控制意图。
+/// @return 与控制意图等价的雷达命令。
 common::RadarCommand ToRadarCommand(const common::ControlDirective& directive) {
   return common::RadarCommand(ToRadarCommandType(directive.type),
-                              ToRadarCommandSource(directive.source),
-                              directive.info);
-}
-
-/// @brief 解析当前控制真值对生命周期失配容忍的保护增益。
-/// @param control_profile 当前控制真值。
-/// @return 额外允许的 miss 周期数。
-std::uint32_t ResolveLifecycleExtraMissTolerance(
-    const common::RadarControlProfile& control_profile) {
-  std::uint32_t extra_miss_tolerance = 0U;
-  if (control_profile.enable_sidelobe_canceller ||
-      control_profile.enable_agility_frequency ||
-      control_profile.enable_eccm_rejitter) {
-    extra_miss_tolerance += 1U;
-  }
-  if (control_profile.eccm_burnthrough_gain > 1.0f) {
-    extra_miss_tolerance += 1U;
-  }
-  return extra_miss_tolerance;
+                              ToRadarCommandSource(directive.source));
 }
 
 } // namespace
@@ -268,24 +139,8 @@ RadarController::RadarController(
 
 RadarController::~RadarController() = default;
 
-void RadarController::EnsureAutoLifecycleManager() {
-  if (track_lifecycle_manager_ != nullptr) {
-    return;
-  }
-
-  auto_track_lifecycle_manager_ = signal_pipeline_.CreateAutoLifecycleManager();
-  if (auto_track_lifecycle_manager_ == nullptr) {
-    return;
-  }
-
-  track_lifecycle_manager_ = auto_track_lifecycle_manager_.get();
-  spdlog::info(
-      "[RadarController] auto lifecycle manager assembled from pipeline config");
-}
-
 void RadarController::RunOnce() {
   signal_pipeline_.SetControlProfile(*control_profile_);
-  EnsureAutoLifecycleManager();
 
   const common::TargetFeatureList input_features =
       radar_context_.GetTargetFeatures();
@@ -295,60 +150,16 @@ void RadarController::RunOnce() {
   environment_service_.BeginCycle(environment_cycle_context);
   signal_pipeline_.UpdatePlatformAttitude(radar_context_.GetPlatformAttitude());
 
-  std::size_t association_seed_count = 0;
-  if (track_lifecycle_manager_ != nullptr) {
-    const std::vector<signal::tracking::AssociationTrackSeed> seeds =
-        track_lifecycle_manager_->BuildAssociationSeeds();
-    association_seed_count = seeds.size();
-    signal_pipeline_.SetAssociationSeeds(seeds);
-  } else {
-    signal_pipeline_.ResetAssociationSeedModeToStateless();
-  }
-
-  const common::TargetFeatureList updated_features =
+  const signal::pipeline::SignalCycleResult signal_result =
       signal_pipeline_.RunCycle(input_features, environment_service_);
   const signal::pipeline::AssociationQualityMetrics association_metrics =
-      signal_pipeline_.GetLastAssociationQualityMetrics();
-
-  const environment::EnvironmentSnapshot environment_snapshot =
-      environment_service_.SampleEnvironment();
-  const common::EccmSourceInfo eccm_source_info =
-      BuildEccmSourceInfo(environment_snapshot);
-  const common::AssociationQualityInfo association_quality_info =
-      BuildAssociationQualityInfo(association_metrics);
-  const common::PerceptionQualityInfo perception_quality_info =
-      BuildPerceptionQualityInfo(input_features.size(), association_metrics);
-  const bool environment_jamming_detected = eccm_source_info.has_jamming_signal;
-  common::TargetFeatureList decision_features = updated_features;
+      signal_result.association_quality_metrics;
+  common::DecisionInputFrame decision_frame = signal_result.decision_frame;
+  decision_frame.cycle_index = cycle_index_;
+  decision_frame.batch_id = batch_id_;
   common::TrackOutputFrame track_output_frame =
-      output_manager_->BuildTrackOutputFrame(
-          cycle_index_, batch_id_,
-          BuildDecisionSnapshotsFromFeatures(updated_features));
-  common::DecisionInputFrame decision_frame =
-      output_manager_->BuildDecisionInputFrame(
-          track_output_frame, eccm_source_info, association_quality_info,
-          perception_quality_info);
-  std::size_t measurement_count = 0;
-
-  if (track_lifecycle_manager_ != nullptr) {
-    const std::vector<signal::tracking::TrackMeasurement> measurements =
-        signal_pipeline_.GetLastTrackMeasurements();
-    measurement_count = measurements.size();
-    signal::tracking::CycleContext cycle;
-    cycle.cycle_index = cycle_index_;
-    cycle.batch_id = batch_id_;
-    cycle.dt_sec = environment_cycle_context.dt_sec;
-    cycle.extra_miss_tolerance =
-        ResolveLifecycleExtraMissTolerance(*control_profile_);
-    track_lifecycle_manager_->Update(cycle, measurements);
-    decision_features = track_lifecycle_manager_->BuildFeatureSnapshot();
-    track_output_frame = output_manager_->BuildTrackOutputFrame(
-        cycle_index_, batch_id_,
-        track_lifecycle_manager_->BuildDecisionSnapshot());
-    decision_frame = output_manager_->BuildDecisionInputFrame(
-        track_output_frame, eccm_source_info, association_quality_info,
-        perception_quality_info);
-  }
+      output_manager_->BuildTrackOutputFrame(cycle_index_, batch_id_,
+                                             decision_frame.tracks);
   latest_track_output_frame_ = track_output_frame;
   has_latest_track_output_frame_ = true;
 
@@ -368,14 +179,12 @@ void RadarController::RunOnce() {
   ExecuteCommands(reduction_result.applied_directives);
 
   spdlog::debug(
-      "[RadarController] cycle summary: cycle_index={} batch_id={} input_targets={} association_seeds={} measurements={} decision_features={} directives={} lifecycle_enabled={} jamming_detected={} profile_version={} detect_rate={:.3f} detect_stress={:.3f} assoc_priors={} assoc_detections={} assoc_matches={} assoc_new_tracks={} assoc_missed_tracks={} assoc_match_rate={:.3f} assoc_new_track_rate={:.3f} assoc_missed_rate={:.3f} assoc_mean_cost={:.3f} assoc_p95_cost={:.3f} assoc_jam_semantic={} assoc_jam_severity={:.3f} assoc_stress={:.3f}",
-      cycle_index_, batch_id_, input_features.size(), association_seed_count,
-      measurement_count, decision_features.size(),
+      "[RadarController] cycle summary: cycle_index={} batch_id={} input_targets={} decision_features={} directives={} jamming_detected={} profile_version={} detect_rate={:.3f} detect_stress={:.3f} assoc_priors={} assoc_detections={} assoc_matches={} assoc_new_tracks={} assoc_missed_tracks={} assoc_match_rate={:.3f} assoc_new_track_rate={:.3f} assoc_missed_rate={:.3f} assoc_mean_cost={:.3f} assoc_p95_cost={:.3f} assoc_jam_semantic={} assoc_jam_severity={:.3f} assoc_stress={:.3f}",
+      cycle_index_, batch_id_, input_features.size(), decision_frame.tracks.size(),
       reduction_result.applied_directives.size(),
-      track_lifecycle_manager_ != nullptr ? "true" : "false",
-      environment_jamming_detected ? "true" : "false",
-      control_profile_->version, perception_quality_info.detection_rate,
-      perception_quality_info.detection_stress,
+      decision_frame.environment_jamming_detected ? "true" : "false",
+      control_profile_->version, decision_frame.perception_quality_info.detection_rate,
+      decision_frame.perception_quality_info.detection_stress,
       association_metrics.prior_track_count,
       association_metrics.detection_count, association_metrics.matched_count,
       association_metrics.new_track_count,
@@ -407,15 +216,6 @@ void RadarController::ExecuteCommands(
     }
     radar_context_.SubmitControlCommand(command);
   }
-}
-
-void RadarController::SetTrackLifecycleManager(
-    signal::tracking::ITrackLifecycleManager* lifecycle_manager) {
-  auto_track_lifecycle_manager_.reset();
-  track_lifecycle_manager_ = lifecycle_manager;
-  spdlog::info(
-      "[RadarController] track lifecycle manager {} (association priors: external seeds only)",
-      lifecycle_manager != nullptr ? "attached" : "detached");
 }
 
 void RadarController::UpdateControlReducerConfig(

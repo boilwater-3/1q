@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义事件总线抽象接口。
+// @file IEventBus.h
+// @brief 定义事件总线抽象接口。
 
 #ifndef AIRBORNE_RADAR_CORE_EVENT_I_EVENT_BUS_H_
 #define AIRBORNE_RADAR_CORE_EVENT_I_EVENT_BUS_H_

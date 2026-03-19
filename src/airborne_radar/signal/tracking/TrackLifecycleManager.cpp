@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: TrackLifecycleManager 的实现。
+// @file TrackLifecycleManager.cpp
+// @brief 实现 TrackLifecycleManager 的轨迹生命周期推进逻辑。
 
 #include "airborne_radar/signal/tracking/TrackLifecycleManager.h"
 
@@ -20,6 +21,9 @@ namespace tracking {
 
 namespace {
 
+/// @brief 将内部轨迹状态映射为决策层轨迹状态。
+/// @param status 内部轨迹状态。
+/// @return 决策层可见的轨迹状态。
 common::DecisionTrackStatus ToDecisionTrackStatus(common::TrackStatus status) {
   switch (status) {
     case common::TrackStatus::kConfirmed:
@@ -73,7 +77,9 @@ struct LifecycleUpdateScratch {
   std::size_t predicted_without_hit_count{0};
 };
 
-/// @brief BuildMeasurementVector 将位置量测写入滤波观测向量。
+/// @brief 将位置量测写入滤波观测向量。
+/// @param measurement 当前量测。
+/// @return 供滤波器消费的观测向量。
 MeasurementVector BuildMeasurementVector(const TrackMeasurement &measurement) {
   MeasurementVector z;
   z(0) = measurement.raw_measurement.position(0);
@@ -82,6 +88,9 @@ MeasurementVector BuildMeasurementVector(const TrackMeasurement &measurement) {
   return z;
 }
 
+/// @brief 依据干扰态势补充局部失配容忍度。
+/// @param track 当前轨迹状态。
+/// @return 当前轨迹可获得的额外失配容忍周期数。
 std::uint32_t ResolveLocalMissToleranceBonus(const common::TrackState &track) {
   if (!track.jamming_detected || track.jamming_severity < 0.35f) {
     return 0U;

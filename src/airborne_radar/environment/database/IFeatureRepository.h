@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义目标特征仓储抽象接口。
+// @file IFeatureRepository.h
+// @brief 定义目标特征仓储抽象接口。
 
 #ifndef AIRBORNE_RADAR_ENVIRONMENT_DATABASE_I_FEATURE_REPOSITORY_H_
 #define AIRBORNE_RADAR_ENVIRONMENT_DATABASE_I_FEATURE_REPOSITORY_H_

@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义 SignalPipeline 私有组件工厂，负责配置映射与组件装配。
+// @file SignalComponentFactory.h
+// @brief 定义 SignalPipeline 私有组件工厂，负责配置映射与组件装配。
 
 #ifndef AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_SIGNAL_COMPONENT_FACTORY_H_
 #define AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_SIGNAL_COMPONENT_FACTORY_H_
@@ -14,8 +15,8 @@
 #include <Eigen/Core>
 #include <spdlog/spdlog.h>
 
-#include "1q/airborne_radar/signal/pipeline/SignalPipeline.h"
-#include "1q/airborne_radar/signal/tracking/ITrackLifecycleManager.h"
+#include "airborne_radar/signal/pipeline/SignalPipeline.h"
+#include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleManager.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
@@ -81,6 +82,29 @@ struct LifecycleAssemblyArtifacts {
 /// @brief SignalComponentFactory 统一负责 Signal 层组件装配。
 class SignalComponentFactory final {
  public:
+  /// @brief 将公共生命周期配置映射为内部 tracking 配置。
+  static tracking::LifecycleConfig BuildLifecycleConfig(
+      const SignalPipelineConfig& config) {
+    tracking::LifecycleConfig lifecycle_config;
+    lifecycle_config.confirm_hits =
+        config.lifecycle.lifecycle_config.confirm_hits;
+    lifecycle_config.max_miss_before_lost =
+        config.lifecycle.lifecycle_config.max_miss_before_lost;
+    lifecycle_config.max_lost_cycles =
+        config.lifecycle.lifecycle_config.max_lost_cycles;
+    lifecycle_config.imm_activation_policy =
+        config.lifecycle.lifecycle_config.imm_activation_policy ==
+                ImmActivationPolicy::kAllTracks
+            ? tracking::ImmActivationPolicy::kAllTracks
+            : tracking::ImmActivationPolicy::kConfirmedTracksOnly;
+    lifecycle_config.track_pool_thread_safety_mode =
+        config.lifecycle.lifecycle_config.track_pool_thread_safety_mode ==
+                TrackPoolThreadSafetyMode::kMultiThreadGlobalLock
+            ? tracking::TrackPoolThreadSafetyMode::kMultiThreadGlobalLock
+            : tracking::TrackPoolThreadSafetyMode::kSingleThreadNoLock;
+    return lifecycle_config;
+  }
+
   /// @brief 从顶层配置构造轨迹滤波配置。
   /// @param config Signal 顶层配置。
   /// @return TrackFilter 使用的配置。
@@ -141,12 +165,14 @@ class SignalComponentFactory final {
   static LifecycleAssemblyArtifacts BuildLifecycleAssemblyArtifacts(
       const SignalPipelineConfig& config) {
     LifecycleAssemblyArtifacts artifacts;
+    const tracking::LifecycleConfig lifecycle_config =
+        BuildLifecycleConfig(config);
     artifacts.pool.reset(new tracking::BoostTrackPool(
         config.lifecycle.lifecycle_track_pool_initial_chunk,
         config.lifecycle.lifecycle_track_pool_max_chunks));
 
     tracking::ITrackPool* effective_pool = artifacts.pool.get();
-    if (config.lifecycle.lifecycle_config.track_pool_thread_safety_mode ==
+    if (lifecycle_config.track_pool_thread_safety_mode ==
         tracking::TrackPoolThreadSafetyMode::kMultiThreadGlobalLock) {
       artifacts.pool_wrapper.reset(
           new tracking::SynchronizedTrackPool(*artifacts.pool));
@@ -191,7 +217,7 @@ class SignalComponentFactory final {
       }
 
       artifacts.lifecycle_manager.reset(new tracking::TrackLifecycleManager(
-          *effective_pool, config.lifecycle.lifecycle_config,
+          *effective_pool, lifecycle_config,
           artifacts.imm_predictors, artifacts.imm_updaters,
           BuildImmTransitionProbability(config, model_count),
           BuildImmInitialWeights(config, model_count)));
@@ -204,13 +230,13 @@ class SignalComponentFactory final {
       artifacts.kalman_updater = CreateKalmanUpdater(
           config.tracking.kalman_measurement_noise_std);
       artifacts.lifecycle_manager.reset(new tracking::TrackLifecycleManager(
-          *effective_pool, config.lifecycle.lifecycle_config,
+          *effective_pool, lifecycle_config,
           artifacts.kalman_predictor.get(), artifacts.kalman_updater.get()));
       return artifacts;
     }
 
     artifacts.lifecycle_manager.reset(new tracking::TrackLifecycleManager(
-        *effective_pool, config.lifecycle.lifecycle_config));
+        *effective_pool, lifecycle_config));
     return artifacts;
   }
 

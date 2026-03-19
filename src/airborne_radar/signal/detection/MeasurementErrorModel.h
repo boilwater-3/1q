@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义基于有效信噪比与波束宽度的测量误差模型。
+// @file MeasurementErrorModel.h
+// @brief 定义基于有效信噪比与波束宽度的测量误差模型。
 
 #ifndef AIRBORNE_RADAR_SIGNAL_DETECTION_MEASUREMENT_ERROR_MODEL_H_
 #define AIRBORNE_RADAR_SIGNAL_DETECTION_MEASUREMENT_ERROR_MODEL_H_

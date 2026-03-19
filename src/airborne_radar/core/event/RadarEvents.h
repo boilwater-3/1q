@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义雷达核心流程对外发布的事件类型。
+// @file RadarEvents.h
+// @brief 定义雷达核心流程对外发布的事件类型。
 
 #ifndef AIRBORNE_RADAR_CORE_EVENT_RADAR_EVENTS_H_
 #define AIRBORNE_RADAR_CORE_EVENT_RADAR_EVENTS_H_

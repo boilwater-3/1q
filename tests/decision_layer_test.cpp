@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: GTest based verification for the tactical coordinator path.
+// @file decision_layer_test.cpp
+// @brief 验证默认战术协调器路径的核心行为。
 
 #include <algorithm>
 #include <gtest/gtest.h>
@@ -11,6 +12,7 @@
 #include "1q/airborne_radar/common/DecisionInputFrame.h"
 #include "1q/airborne_radar/common/DecisionTrackSnapshot.h"
 #include "airborne_radar/decision/pipeline/TacticalCoordinator.h"
+#include "airborne_radar/decision/pipeline/TacticalEvaluation.h"
 #include "airborne_radar/decision/classifier/ThreatAssessmentEvaluator.h"
 #include "airborne_radar/environment/database/FeatureRepository.h"
 

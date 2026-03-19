@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义基于协调器模型的默认决策引擎。
+// @file TacticalCoordinator.h
+// @brief 定义基于协调器模型的默认决策引擎。
 
 #ifndef AIRBORNE_RADAR_DECISION_TACTICAL_COORDINATOR_H_
 #define AIRBORNE_RADAR_DECISION_TACTICAL_COORDINATOR_H_
@@ -8,8 +9,9 @@
 #include "airborne_radar/decision/classifier/ThreatAssessmentEvaluator.h"
 #include "airborne_radar/decision/eccm/SurvivabilityEvaluator.h"
 #include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
+#include "airborne_radar/decision/pipeline/TacticalEvaluation.h"
 #include "airborne_radar/decision/lpi/EmissionControlEvaluator.h"
-#include "1q/airborne_radar/environment/database/IFeatureRepository.h"
+#include "airborne_radar/environment/database/IFeatureRepository.h"
 
 namespace airborne_radar {
 namespace decision {

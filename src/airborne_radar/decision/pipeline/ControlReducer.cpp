@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: ControlReducer 的实现。
+// @file ControlReducer.cpp
+// @brief 实现 ControlReducer 的控制意图归并逻辑。
 
 #include "airborne_radar/decision/pipeline/ControlReducer.h"
 
@@ -14,11 +15,18 @@ namespace pipeline {
 
 namespace {
 
+/// @brief 按 proposal 优先级降序比较。
+/// @param lhs 左侧 proposal。
+/// @param rhs 右侧 proposal。
+/// @return 左侧优先级更高时返回 true。
 bool CompareProposalPriority(const TacticalProposal& lhs,
                              const TacticalProposal& rhs) {
   return lhs.priority > rhs.priority;
 }
 
+/// @brief 判断控制意图是否属于 LPI 域。
+/// @param type 控制意图类型。
+/// @return 属于 LPI 域时返回 true。
 bool IsLpiDirective(common::ControlDirectiveType type) {
   switch (type) {
     case common::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION:
@@ -36,6 +44,9 @@ bool IsLpiDirective(common::ControlDirectiveType type) {
   }
 }
 
+/// @brief 判断控制意图是否属于 ECCM 域。
+/// @param type 控制意图类型。
+/// @return 属于 ECCM 域时返回 true。
 bool IsEccmDirective(common::ControlDirectiveType type) {
   switch (type) {
     case common::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER:
@@ -53,17 +64,25 @@ bool IsEccmDirective(common::ControlDirectiveType type) {
   }
 }
 
+/// @brief 判断当前控制真值中 LPI 域是否处于激活状态。
+/// @param profile 当前控制真值。
+/// @return LPI 任一子域生效时返回 true。
 bool IsLpiDomainActive(const common::RadarControlProfile& profile) {
   return profile.enable_lpi_power_control || profile.enable_lpi_beamforming ||
          profile.lpi_dwell_scale != 1.0f;
 }
 
+/// @brief 判断当前控制真值中 ECCM 域是否处于激活状态。
+/// @param profile 当前控制真值。
+/// @return ECCM 任一子域生效时返回 true。
 bool IsEccmDomainActive(const common::RadarControlProfile& profile) {
   return profile.enable_agility_frequency || profile.enable_sidelobe_canceller ||
          profile.enable_adaptive_beamforming || profile.enable_eccm_rejitter ||
          profile.eccm_burnthrough_gain > 1.0f;
 }
 
+/// @brief 将控制真值中的 LPI 域恢复为默认关闭态。
+/// @param profile 待修改的控制真值。
 void ResetLpiDomain(common::RadarControlProfile* profile) {
   if (profile == nullptr) {
     return;
@@ -74,6 +93,8 @@ void ResetLpiDomain(common::RadarControlProfile* profile) {
   profile->lpi_dwell_scale = 1.0f;
 }
 
+/// @brief 将控制真值中的 ECCM 域恢复为默认关闭态。
+/// @param profile 待修改的控制真值。
 void ResetEccmDomain(common::RadarControlProfile* profile) {
   if (profile == nullptr) {
     return;

@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 验证雷达物理方程库和信号检测器的正确性。
+// @file signal_detection_test.cpp
+// @brief 验证雷达物理方程库和信号检测器的正确性。
 
 #include <cmath>
 

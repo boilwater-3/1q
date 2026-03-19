@@ -1,12 +1,13 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义 LPI 发射控制 evaluator，与旧 LPI 控制节点共享逻辑。
+// @file EmissionControlEvaluator.h
+// @brief 定义 LPI 发射控制 evaluator，与旧 LPI 控制节点共享逻辑。
 
 #ifndef AIRBORNE_RADAR_DECISION_LPI_EMISSION_CONTROL_EVALUATOR_H_
 #define AIRBORNE_RADAR_DECISION_LPI_EMISSION_CONTROL_EVALUATOR_H_
 
 #include "1q/airborne_radar/common/DecisionSourceInfo.h"
-#include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
+#include "airborne_radar/decision/pipeline/TacticalEvaluation.h"
 
 namespace airborne_radar {
 namespace decision {

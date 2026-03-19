@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: BoostTrackPool 的实现。
+// @file BoostTrackPool.cpp
+// @brief 实现 BoostTrackPool 的对象池分配与回收逻辑。
 
 #include "airborne_radar/signal/tracking/BoostTrackPool.h"
 

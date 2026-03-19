@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义机载雷达方向配置的组合、限幅与校验工具函数。
+// @file RadarOrientationUtils.h
+// @brief 定义机载雷达方向配置的组合、限幅与校验工具函数。
 
 #ifndef AIRBORNE_RADAR_COMMON_RADAR_ORIENTATION_UTILS_H_
 #define AIRBORNE_RADAR_COMMON_RADAR_ORIENTATION_UTILS_H_

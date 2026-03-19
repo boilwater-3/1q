@@ -14,8 +14,8 @@
 #include "1q/airborne_radar/common/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/airborne_radar/core/session/RadarCycleResult.h"
-#include "1q/airborne_radar/environment/EnvironmentService.h"
-#include "1q/airborne_radar/signal/pipeline/SignalPipeline.h"
+#include "1q/airborne_radar/environment/EnvironmentTypes.h"
+#include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
 
 namespace airborne_radar {
 namespace core {
@@ -80,10 +80,6 @@ public:
   /// @brief 获取最近一次关联质量观测指标。
   signal::pipeline::AssociationQualityMetrics
   GetLastAssociationQualityMetrics() const;
-
-  /// @brief 获取最近一次跟踪量测。
-  std::vector<signal::tracking::TrackMeasurement>
-  GetLastTrackMeasurements() const;
 
   /// @brief 更新信号流水线配置。
   void UpdateSignalPipelineConfig(

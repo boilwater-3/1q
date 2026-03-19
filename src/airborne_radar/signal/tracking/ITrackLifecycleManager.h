@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义轨迹生命周期管理抽象接口。
+// @file ITrackLifecycleManager.h
+// @brief 定义轨迹生命周期管理抽象接口。
 
 #ifndef AIRBORNE_RADAR_SIGNAL_TRACKING_I_TRACK_LIFECYCLE_MANAGER_H_
 #define AIRBORNE_RADAR_SIGNAL_TRACKING_I_TRACK_LIFECYCLE_MANAGER_H_
@@ -10,7 +11,7 @@
 #include "1q/airborne_radar/common/DecisionInputFrame.h"
 #include "1q/airborne_radar/common/DecisionTrackSnapshot.h"
 #include "1q/airborne_radar/common/TargetFeature.h"
-#include "1q/airborne_radar/signal/tracking/TrackLifecycleTypes.h"
+#include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
 
 namespace airborne_radar {
 namespace signal {

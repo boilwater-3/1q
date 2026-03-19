@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义供决策引擎消费的单周期输入帧。
+// @file DecisionInputFrame.h
+// @brief 定义供决策引擎消费的单周期输入帧。
 
 #ifndef AIRBORNE_RADAR_COMMON_DECISION_INPUT_FRAME_H_
 #define AIRBORNE_RADAR_COMMON_DECISION_INPUT_FRAME_H_

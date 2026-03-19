@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 验证信号层在批量/大规模输入下的稳定性与关联一致性。
+// @file signal_bulk_data_test.cpp
+// @brief 验证信号层在批量与大规模输入下的稳定性与关联一致性。
 
 #include <cstddef>
 #include <cstdint>
@@ -15,10 +16,10 @@
 #include <gtest/gtest.h>
 
 #include "1q/airborne_radar/common/TargetFeature.h"
-#include "1q/airborne_radar/signal/pipeline/SignalPipeline.h"
-#include "1q/airborne_radar/signal/tracking/ITrackLifecycleManager.h"
-#include "1q/airborne_radar/signal/tracking/TrackLifecycleTypes.h"
-#include "1q/airborne_radar/environment/EnvironmentService.h"
+#include "airborne_radar/signal/pipeline/SignalPipeline.h"
+#include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
+#include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
+#include "airborne_radar/environment/EnvironmentService.h"
 
 namespace airborne_radar {
 namespace tests {
@@ -95,7 +96,7 @@ std::unordered_set<std::uint64_t> BuildExternalIdSet(
 /// @brief 运行双周期 IMM 生命周期场景并返回总耗时。
 double RunImmLifecycleScenarioMs(
     std::size_t target_count,
-    signal::tracking::ImmActivationPolicy activation_policy) {
+    signal::pipeline::ImmActivationPolicy activation_policy) {
   signal::pipeline::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.min_detection_margin_db = -100.0f;
   pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
@@ -411,10 +412,10 @@ TEST(SignalBulkDataTest, ImmLifecyclePoliciesReportLatencyComparison) {
 
     for (std::size_t repeat = 0; repeat < kRepeatsPerTier; ++repeat) {
       all_tracks_samples.push_back(RunImmLifecycleScenarioMs(
-          tier.target_count, signal::tracking::ImmActivationPolicy::kAllTracks));
+          tier.target_count, signal::pipeline::ImmActivationPolicy::kAllTracks));
       confirmed_only_samples.push_back(RunImmLifecycleScenarioMs(
           tier.target_count,
-          signal::tracking::ImmActivationPolicy::kConfirmedTracksOnly));
+          signal::pipeline::ImmActivationPolicy::kConfirmedTracksOnly));
     }
 
     const double all_tracks_p50_ms =

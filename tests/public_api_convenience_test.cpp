@@ -13,7 +13,9 @@
 
 #include "1q/airborne_radar/common/ConfigPresets.h"
 #include "1q/airborne_radar/common/TargetFeatureUtils.h"
-#include "1q/airborne_radar/core/context/MutableRadarContext.h"
+#include "airborne_radar/core/context/MutableRadarContext.h"
+#include "airborne_radar/environment/EnvironmentService.h"
+#include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "1q/airborne_radar/core/context/RadarInputValidation.h"
 #include "1q/airborne_radar/core/output/TrackOutputQueries.h"
 #include "1q/airborne_radar/core/session/RadarSession.h"
@@ -463,17 +465,6 @@ TEST(PublicApiConvenienceTest,
   EXPECT_NEAR(session_metrics.association_stress,
               manual_metrics.association_stress, 1e-5f);
 
-  const std::vector<signal::tracking::TrackMeasurement> session_measurements =
-      session.GetLastTrackMeasurements();
-  const std::vector<signal::tracking::TrackMeasurement> manual_measurements =
-      signal_pipeline.GetLastTrackMeasurements();
-  ASSERT_EQ(session_measurements.size(), manual_measurements.size());
-  for (std::size_t i = 0; i < session_measurements.size(); ++i) {
-    EXPECT_EQ(session_measurements[i].raw_measurement.external_target_id,
-              manual_measurements[i].raw_measurement.external_target_id);
-    EXPECT_EQ(session_measurements[i].raw_measurement.association_key,
-              manual_measurements[i].raw_measurement.association_key);
-  }
 }
 
 TEST(PublicApiConvenienceTest,
@@ -549,8 +540,6 @@ TEST(PublicApiConvenienceTest,
   }
   EXPECT_EQ(result.association_quality_metrics.detection_count,
             session.GetLastAssociationQualityMetrics().detection_count);
-  EXPECT_EQ(result.track_measurements.size(),
-            session.GetLastTrackMeasurements().size());
 }
 
 TEST(PublicApiConvenienceTest,
@@ -596,8 +585,6 @@ TEST(PublicApiConvenienceTest,
                            session_result.control_profile);
   EXPECT_EQ(session_result.association_quality_metrics.detection_count,
             signal_pipeline.GetLastAssociationQualityMetrics().detection_count);
-  EXPECT_EQ(session_result.track_measurements.size(),
-            signal_pipeline.GetLastTrackMeasurements().size());
 }
 
 } // namespace tests

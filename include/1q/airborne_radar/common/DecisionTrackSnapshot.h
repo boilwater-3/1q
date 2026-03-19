@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义供决策层消费的稳定轨迹快照。
+// @file DecisionTrackSnapshot.h
+// @brief 定义供决策层消费的稳定轨迹快照。
 
 #ifndef AIRBORNE_RADAR_COMMON_DECISION_TRACK_SNAPSHOT_H_
 #define AIRBORNE_RADAR_COMMON_DECISION_TRACK_SNAPSHOT_H_

@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义机载雷达方向、扫描窗口与波束指向相关配置结构。
+// @file RadarOrientationConfig.h
+// @brief 定义机载雷达方向、扫描窗口与波束指向相关配置结构。
 
 #ifndef AIRBORNE_RADAR_COMMON_RADAR_ORIENTATION_CONFIG_H_
 #define AIRBORNE_RADAR_COMMON_RADAR_ORIENTATION_CONFIG_H_

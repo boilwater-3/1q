@@ -5,8 +5,10 @@
 
 #include "1q/airborne_radar/core/session/RadarSession.h"
 
-#include "1q/airborne_radar/core/context/MutableRadarContext.h"
+#include "airborne_radar/core/context/MutableRadarContext.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"
+#include "airborne_radar/environment/EnvironmentService.h"
+#include "airborne_radar/signal/pipeline/SignalPipeline.h"
 
 namespace airborne_radar {
 namespace core {
@@ -35,7 +37,6 @@ struct RadarSession::Impl {
     }
     result.association_quality_metrics =
         signal_pipeline.GetLastAssociationQualityMetrics();
-    result.track_measurements = signal_pipeline.GetLastTrackMeasurements();
     return result;
   }
 
@@ -93,15 +94,9 @@ RadarSession::GetLastAssociationQualityMetrics() const {
   return impl_->signal_pipeline.GetLastAssociationQualityMetrics();
 }
 
-std::vector<signal::tracking::TrackMeasurement>
-RadarSession::GetLastTrackMeasurements() const {
-  return impl_->signal_pipeline.GetLastTrackMeasurements();
-}
-
 void RadarSession::UpdateSignalPipelineConfig(
     const signal::pipeline::SignalPipelineConfig& config) {
   impl_->signal_pipeline.UpdateConfig(config);
-  impl_->controller.SetTrackLifecycleManager(nullptr);
 }
 
 void RadarSession::UpdateEnvironmentModelConfig(

@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 验证 KalmanPredictor 和 KalmanUpdater 的核心算法正确性。
+// @file kalman_filter_test.cpp
+// @brief 验证 KalmanPredictor 和 KalmanUpdater 的核心算法正确性。
 
 #include <gtest/gtest.h>
 
@@ -9,7 +10,7 @@
 #include <Eigen/Core>
 #include <Eigen/Cholesky>
 
-#include "1q/airborne_radar/signal/tracking/GaussianTrackState.h"
+#include "airborne_radar/signal/tracking/GaussianTrackState.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
 

@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义表示当前雷达处理周期内目标的核心状态数据结构。
+// @file TargetFeature.h
+// @brief 定义表示当前雷达处理周期内目标的核心状态数据结构。
 
 #ifndef AIRBORNE_RADAR_COMMON_TARGET_FEATURE_H_
 #define AIRBORNE_RADAR_COMMON_TARGET_FEATURE_H_

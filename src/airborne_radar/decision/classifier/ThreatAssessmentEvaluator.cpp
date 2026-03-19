@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: ThreatAssessmentEvaluator 的实现。
+// @file ThreatAssessmentEvaluator.cpp
+// @brief 实现 ThreatAssessmentEvaluator 的分类与威胁评估逻辑。
 
 #include "airborne_radar/decision/classifier/ThreatAssessmentEvaluator.h"
 

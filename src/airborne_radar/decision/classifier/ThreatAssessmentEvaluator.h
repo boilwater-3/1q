@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义威胁评估 evaluator，与旧分类节点共享核心逻辑。
+// @file ThreatAssessmentEvaluator.h
+// @brief 定义威胁评估 evaluator，与旧分类节点共享核心逻辑。
 
 #ifndef AIRBORNE_RADAR_DECISION_CLASSIFIER_THREAT_ASSESSMENT_EVALUATOR_H_
 #define AIRBORNE_RADAR_DECISION_CLASSIFIER_THREAT_ASSESSMENT_EVALUATOR_H_
@@ -10,8 +11,8 @@
 #include "1q/airborne_radar/common/DecisionSourceInfo.h"
 #include "1q/airborne_radar/common/DecisionTrackSnapshot.h"
 #include "1q/airborne_radar/common/TargetCategory.h"
-#include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
-#include "1q/airborne_radar/environment/database/IFeatureRepository.h"
+#include "airborne_radar/decision/pipeline/TacticalEvaluation.h"
+#include "airborne_radar/environment/database/IFeatureRepository.h"
 
 namespace airborne_radar {
 namespace decision {

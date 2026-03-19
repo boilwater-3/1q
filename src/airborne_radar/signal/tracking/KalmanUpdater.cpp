@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// 文件说明：实现标准线性 Kalman 量测更新器。
+// @file KalmanUpdater.cpp
+// @brief 实现标准线性 Kalman 量测更新器。
 
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
 

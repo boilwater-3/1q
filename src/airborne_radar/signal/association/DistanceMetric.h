@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// 文件说明：定义 Signal 层数据关联使用的距离度量接口与实现。
+// @file DistanceMetric.h
+// @brief 定义 Signal 层数据关联使用的距离度量接口与实现。
 
 #ifndef AIRBORNE_RADAR_SIGNAL_ASSOCIATION_DISTANCE_METRIC_H_
 #define AIRBORNE_RADAR_SIGNAL_ASSOCIATION_DISTANCE_METRIC_H_

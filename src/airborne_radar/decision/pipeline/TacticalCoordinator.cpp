@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: TacticalCoordinator 的默认实现。
+// @file TacticalCoordinator.cpp
+// @brief 实现 TacticalCoordinator 的默认决策协调逻辑。
 
 #include "airborne_radar/decision/pipeline/TacticalCoordinator.h"
 
@@ -15,12 +16,18 @@ namespace pipeline {
 
 namespace {
 
+/// @brief 判断关联压力语义是否指向 ECCM 驱动型干扰。
+/// @param semantic 当前周期主导干扰语义。
+/// @return 属于 deception/repeater/mixed 时返回 true。
 bool IsAssociationDrivenJammingSemantic(common::JammingSemantic semantic) {
   return semantic == common::JammingSemantic::kDeception ||
          semantic == common::JammingSemantic::kRepeater ||
          semantic == common::JammingSemantic::kMixed;
 }
 
+/// @brief 判断关联质量摘要是否足以反向触发 ECCM。
+/// @param association_quality_info 当前周期关联质量摘要。
+/// @return 关联压力足够显著时返回 true。
 bool HasAssociationDrivenEccmEvidence(
     const common::AssociationQualityInfo& association_quality_info) {
   if (!IsAssociationDrivenJammingSemantic(
@@ -32,12 +39,19 @@ bool HasAssociationDrivenEccmEvidence(
   return true;
 }
 
+/// @brief 判断探测质量是否存在可观测压力。
+/// @param perception_quality_info 当前周期探测质量摘要。
+/// @return 探测压力达到阈值时返回 true。
 bool HasMeaningfulDetectionPressure(
     const common::PerceptionQualityInfo& perception_quality_info) {
   return perception_quality_info.input_target_count > 0U &&
          perception_quality_info.detection_stress >= 0.35f;
 }
 
+/// @brief 构造单周期决策摘要字符串。
+/// @param input_frame 当前周期决策输入帧。
+/// @param evaluation_state 本周期 evaluator 聚合状态。
+/// @return 用于跨周期记忆与日志的决策摘要。
 std::string BuildDecisionSummary(const common::DecisionInputFrame& input_frame,
                                  const TacticalEvaluationState& evaluation_state) {
   std::vector<std::string> causes;
@@ -76,6 +90,9 @@ std::string BuildDecisionSummary(const common::DecisionInputFrame& input_frame,
   return summary;
 }
 
+/// @brief 用关联质量压力为 ECCM 输入补齐隐式触发信号。
+/// @param association_quality_info 当前周期关联质量摘要。
+/// @param eccm_source_info 待回填的 ECCM 输入摘要。
 void BackfillAssociationDrivenEccmTrigger(
     const common::AssociationQualityInfo& association_quality_info,
     common::EccmSourceInfo* eccm_source_info) {

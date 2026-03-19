@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 验证数据输出管理模块的输出帧与决策输入装配行为。
+// @file data_output_manager_test.cpp
+// @brief 验证数据输出管理模块的输出帧与决策输入装配行为。
 
 #include <gtest/gtest.h>
 

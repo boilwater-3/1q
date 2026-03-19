@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// 文件说明：实现扩展 Kalman 滤波器的预测器和更新器。
+// @file EkfFilter.cpp
+// @brief 实现扩展 Kalman 滤波器的预测器和更新器。
 
 #include "airborne_radar/signal/tracking/EkfFilter.h"
 

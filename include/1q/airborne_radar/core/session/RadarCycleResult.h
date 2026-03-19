@@ -11,8 +11,7 @@
 #include "1q/airborne_radar/common/RadarCommand.h"
 #include "1q/airborne_radar/common/RadarControlProfile.h"
 #include "1q/airborne_radar/common/TrackOutputFrame.h"
-#include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
-#include "1q/airborne_radar/signal/tracking/TrackLifecycleTypes.h"
+#include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
 
 namespace airborne_radar {
 namespace core {
@@ -35,8 +34,6 @@ struct RadarCycleResult {
   /// @brief 最近一次关联质量观测指标。
   signal::pipeline::AssociationQualityMetrics association_quality_metrics{};
 
-  /// @brief 最近一次跟踪量测列表。
-  std::vector<signal::tracking::TrackMeasurement> track_measurements{};
 };
 
 } // namespace session
