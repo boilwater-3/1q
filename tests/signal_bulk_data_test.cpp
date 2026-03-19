@@ -163,14 +163,14 @@ TEST(SignalBulkDataTest, LargeBatchSingleCycleProducesConsistentMeasurements) {
   const common::TargetFeatureList input_state =
       BuildBatchTargets(kTargetCount, 1000.0f, 10.0f, 5.0f);
 
-  const common::TargetFeatureList output_state =
+  const signal::pipeline::SignalCycleResult output_state =
       signal_pipeline.RunCycle(input_state, environment_service);
   const std::vector<signal::tracking::TrackMeasurement> measurements =
       signal_pipeline.GetLastTrackMeasurements();
   const signal::pipeline::AssociationQualityMetrics metrics =
       signal_pipeline.GetLastAssociationQualityMetrics();
 
-  ASSERT_EQ(output_state.size(), kTargetCount);
+  ASSERT_EQ(output_state.updated_features.size(), kTargetCount);
   ASSERT_EQ(measurements.size(), kTargetCount);
   EXPECT_EQ(metrics.detection_count, kTargetCount);
   EXPECT_EQ(metrics.new_track_count, kTargetCount);
@@ -277,7 +277,7 @@ TEST(SignalBulkDataTest, TieredBatchSingleCycleReportsP50AndP95Latency) {
 
       const std::chrono::steady_clock::time_point start =
           std::chrono::steady_clock::now();
-      const common::TargetFeatureList output_state =
+      const signal::pipeline::SignalCycleResult output_state =
           signal_pipeline.RunCycle(input_state, environment_service);
       const std::chrono::steady_clock::time_point end =
           std::chrono::steady_clock::now();
@@ -287,7 +287,7 @@ TEST(SignalBulkDataTest, TieredBatchSingleCycleReportsP50AndP95Latency) {
       const signal::pipeline::AssociationQualityMetrics metrics =
           signal_pipeline.GetLastAssociationQualityMetrics();
 
-      ASSERT_EQ(output_state.size(), tier.target_count);
+      ASSERT_EQ(output_state.updated_features.size(), tier.target_count);
       ASSERT_EQ(measurements.size(), tier.target_count);
       EXPECT_EQ(metrics.detection_count, tier.target_count);
       EXPECT_EQ(metrics.new_track_count, tier.target_count);
