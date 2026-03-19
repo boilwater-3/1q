@@ -2,7 +2,7 @@
 //
 // Description: EmissionControlEvaluator 的实现。
 
-#include "1q/airborne_radar/decision/lpi/EmissionControlEvaluator.h"
+#include "airborne_radar/decision/lpi/EmissionControlEvaluator.h"
 
 #include <spdlog/spdlog.h>
 

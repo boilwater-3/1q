@@ -4,8 +4,8 @@
 
 #include <gtest/gtest.h>
 
-#include "1q/airborne_radar/core/event/IEventBus.h"
-#include "1q/airborne_radar/core/event/EventBus.h"
+#include "airborne_radar/core/event/IEventBus.h"
+#include "airborne_radar/core/event/EventBus.h"
 
 namespace airborne_radar { namespace tests {
 namespace {

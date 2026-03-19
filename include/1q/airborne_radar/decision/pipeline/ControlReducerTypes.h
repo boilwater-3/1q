@@ -1,15 +1,16 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义控制意图到控制真值的归并器。
+// @file ControlReducerTypes.h
+// @brief 定义控制归并器对外公开的配置与结果类型。
 
-#ifndef AIRBORNE_RADAR_DECISION_CONTROL_REDUCER_H_
-#define AIRBORNE_RADAR_DECISION_CONTROL_REDUCER_H_
+#ifndef AIRBORNE_RADAR_DECISION_PIPELINE_CONTROL_REDUCER_TYPES_H_
+#define AIRBORNE_RADAR_DECISION_PIPELINE_CONTROL_REDUCER_TYPES_H_
 
+#include <cstdint>
 #include <vector>
 
 #include "1q/airborne_radar/common/ControlDirective.h"
 #include "1q/airborne_radar/common/RadarControlProfile.h"
-#include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
 
 namespace airborne_radar {
 namespace decision {
@@ -60,29 +61,8 @@ struct ControlReductionResult {
   std::vector<common::ControlDirective> rejected_directives;
 };
 
-/// @brief ControlReducer 负责把控制意图归并为唯一控制真值。
-class ControlReducer {
- public:
-  /// @brief 使用配置构造 reducer。
-  explicit ControlReducer(ControlReducerConfig config = {});
-
-  /// @brief 更新 reducer 配置。
-  void UpdateConfig(ControlReducerConfig config);
-
-  /// @brief 获取当前 reducer 配置。
-  ControlReducerConfig GetConfig() const;
-
-  /// @brief 使用上一版 profile 和 proposal 列表生成下一版 profile。
-  ControlReductionResult Reduce(
-      const common::RadarControlProfile& previous_profile,
-      const std::vector<TacticalProposal>& proposals) const;
-
- private:
-  ControlReducerConfig config_{};
-};
-
 } // namespace pipeline
 } // namespace decision
 } // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_DECISION_CONTROL_REDUCER_H_
+#endif // AIRBORNE_RADAR_DECISION_PIPELINE_CONTROL_REDUCER_TYPES_H_

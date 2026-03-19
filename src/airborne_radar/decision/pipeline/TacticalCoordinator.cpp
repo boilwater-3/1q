@@ -2,7 +2,7 @@
 //
 // Description: TacticalCoordinator 的默认实现。
 
-#include "1q/airborne_radar/decision/pipeline/TacticalCoordinator.h"
+#include "airborne_radar/decision/pipeline/TacticalCoordinator.h"
 
 #include <string>
 #include <vector>

@@ -15,17 +15,16 @@
 #include "1q/airborne_radar/common/RadarCommand.h"
 #include "1q/airborne_radar/common/RadarControlProfile.h"
 #include "1q/airborne_radar/common/TrackOutputFrame.h"
-#include "1q/airborne_radar/core/output/IDataOutputManager.h"
-#include "1q/airborne_radar/core/event/IEventBus.h"
-#include "1q/airborne_radar/core/event/RadarEvents.h"
+#include "1q/airborne_radar/decision/pipeline/ControlReducerTypes.h"
 #include "1q/airborne_radar/core/context/IRadarContext.h"
-#include "1q/airborne_radar/decision/pipeline/ControlReducer.h"
 #include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
-#include "1q/airborne_radar/decision/pipeline/TacticalCoordinator.h"
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "1q/airborne_radar/signal/tracking/ITrackLifecycleManager.h"
+#include "airborne_radar/core/output/IDataOutputManager.h"
 #include "airborne_radar/core/output/DataOutputManager.h"
+#include "airborne_radar/decision/pipeline/ControlReducer.h"
+#include "airborne_radar/decision/pipeline/TacticalCoordinator.h"
 
 namespace airborne_radar {
 namespace core {
@@ -212,11 +211,6 @@ common::RadarCommand ToRadarCommand(const common::ControlDirective& directive) {
                               directive.info);
 }
 
-bool HasProfileChanged(const common::RadarControlProfile& previous_profile,
-                       const common::RadarControlProfile& next_profile) {
-  return previous_profile.version != next_profile.version;
-}
-
 /// @brief 解析当前控制真值对生命周期失配容忍的保护增益。
 /// @param control_profile 当前控制真值。
 /// @return 额外允许的 miss 周期数。
@@ -257,26 +251,6 @@ RadarController::RadarController(
 RadarController::RadarController(
     core::context::IRadarContext& radar_context,
     signal::pipeline::ISignalPipeline& signal_pipeline,
-    environment::IEnvironmentService& environment_service,
-    core::event::IEventBus& event_bus)
-    : radar_context_(radar_context),
-      signal_pipeline_(signal_pipeline),
-      decision_engine_(nullptr),
-      owned_decision_engine_(new decision::pipeline::TacticalCoordinator()),
-      environment_service_(environment_service),
-      event_bus_(&event_bus),
-      control_profile_(nullptr),
-      owned_control_profile_(new common::RadarControlProfile()),
-      tactical_state_store_(new decision::pipeline::TacticalStateStore()),
-      control_reducer_(new decision::pipeline::ControlReducer()),
-      output_manager_(new output::DataOutputManager()) {
-  decision_engine_ = owned_decision_engine_.get();
-  control_profile_ = owned_control_profile_.get();
-}
-
-RadarController::RadarController(
-    core::context::IRadarContext& radar_context,
-    signal::pipeline::ISignalPipeline& signal_pipeline,
     decision::pipeline::ITacticalDecisionEngine& decision_engine,
     environment::IEnvironmentService& environment_service)
     : radar_context_(radar_context),
@@ -286,25 +260,6 @@ RadarController::RadarController(
       control_profile_(nullptr),
       owned_control_profile_(
           new common::RadarControlProfile()),
-      tactical_state_store_(new decision::pipeline::TacticalStateStore()),
-      control_reducer_(new decision::pipeline::ControlReducer()),
-      output_manager_(new output::DataOutputManager()) {
-  control_profile_ = owned_control_profile_.get();
-}
-
-RadarController::RadarController(
-    core::context::IRadarContext& radar_context,
-    signal::pipeline::ISignalPipeline& signal_pipeline,
-    decision::pipeline::ITacticalDecisionEngine& decision_engine,
-    environment::IEnvironmentService& environment_service,
-    core::event::IEventBus& event_bus)
-    : radar_context_(radar_context),
-      signal_pipeline_(signal_pipeline),
-      decision_engine_(&decision_engine),
-      environment_service_(environment_service),
-      event_bus_(&event_bus),
-      control_profile_(nullptr),
-      owned_control_profile_(new common::RadarControlProfile()),
       tactical_state_store_(new decision::pipeline::TacticalStateStore()),
       control_reducer_(new decision::pipeline::ControlReducer()),
       output_manager_(new output::DataOutputManager()) {
@@ -331,11 +286,6 @@ void RadarController::EnsureAutoLifecycleManager() {
 void RadarController::RunOnce() {
   signal_pipeline_.SetControlProfile(*control_profile_);
   EnsureAutoLifecycleManager();
-
-  if (event_bus_ != nullptr) {
-    event_bus_->BeginCycle();
-    event_bus_->DispatchCurrentCycle();
-  }
 
   const common::TargetFeatureList input_features =
       radar_context_.GetTargetFeatures();
@@ -417,66 +367,6 @@ void RadarController::RunOnce() {
 
   ExecuteCommands(reduction_result.applied_directives);
 
-  if (event_bus_ != nullptr) {
-    core::event::TracksUpdatedEvent tracks_event;
-    tracks_event.state = decision_features;
-    event_bus_->Enqueue(tracks_event);
-
-    // TODO(aurora): 引入显式开关后再恢复默认内部发布中性输出事件；
-    // 当前阶段仅保留公开读取 API，避免默认拉长主执行路径。
-
-    if (environment_jamming_detected) {
-      core::event::JammingAlertEvent jamming_event;
-      jamming_event.detected = true;
-      event_bus_->Enqueue(jamming_event);
-    }
-
-    core::event::CommandsSubmittedEvent commands_event;
-    commands_event.command_count = reduction_result.applied_directives.size();
-    event_bus_->Enqueue(commands_event);
-
-    if (HasProfileChanged(previous_profile, *control_profile_)) {
-      core::event::ControlProfileUpdatedEvent profile_event;
-      profile_event.cycle_index = cycle_index_;
-      profile_event.profile_version = control_profile_->version;
-      profile_event.applied_directive_count =
-          reduction_result.applied_directives.size();
-      profile_event.rejected_directive_count =
-          reduction_result.rejected_directives.size();
-      profile_event.lpi_power_control_enabled =
-          control_profile_->enable_lpi_power_control;
-      profile_event.agility_frequency_enabled =
-          control_profile_->enable_agility_frequency;
-      profile_event.sidelobe_canceller_enabled =
-          control_profile_->enable_sidelobe_canceller;
-      profile_event.adaptive_beamforming_enabled =
-          control_profile_->enable_adaptive_beamforming;
-      event_bus_->Enqueue(profile_event);
-    }
-
-    for (std::size_t i = 0; i < reduction_result.applied_directives.size(); ++i) {
-      core::event::DirectiveAppliedEvent directive_event;
-      directive_event.cycle_index = cycle_index_;
-      directive_event.profile_version = control_profile_->version;
-      directive_event.directive = reduction_result.applied_directives[i];
-      event_bus_->Enqueue(directive_event);
-    }
-
-    for (std::size_t i = 0; i < reduction_result.rejected_directives.size(); ++i) {
-      core::event::DirectiveRejectedEvent directive_event;
-      directive_event.cycle_index = cycle_index_;
-      directive_event.profile_version = control_profile_->version;
-      directive_event.directive = reduction_result.rejected_directives[i];
-      event_bus_->Enqueue(directive_event);
-    }
-
-    core::event::RadarCycleCompletedEvent event;
-    event.command_count = reduction_result.applied_directives.size();
-    event.jamming_detected = environment_jamming_detected;
-    event_bus_->Enqueue(event);
-    event_bus_->EndCycle();
-  }
-
   spdlog::debug(
       "[RadarController] cycle summary: cycle_index={} batch_id={} input_targets={} association_seeds={} measurements={} decision_features={} directives={} lifecycle_enabled={} jamming_detected={} profile_version={} detect_rate={:.3f} detect_stress={:.3f} assoc_priors={} assoc_detections={} assoc_matches={} assoc_new_tracks={} assoc_missed_tracks={} assoc_match_rate={:.3f} assoc_new_track_rate={:.3f} assoc_missed_rate={:.3f} assoc_mean_cost={:.3f} assoc_p95_cost={:.3f} assoc_jam_semantic={} assoc_jam_severity={:.3f} assoc_stress={:.3f}",
       cycle_index_, batch_id_, input_features.size(), association_seed_count,
@@ -517,10 +407,6 @@ void RadarController::ExecuteCommands(
     }
     radar_context_.SubmitControlCommand(command);
   }
-}
-
-void RadarController::SetEventBus(core::event::IEventBus* event_bus) {
-  event_bus_ = event_bus;
 }
 
 void RadarController::SetTrackLifecycleManager(

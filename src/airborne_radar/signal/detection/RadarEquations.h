@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义雷达探测通用物理方程纯函数接口。
+// @file RadarEquations.h
+// @brief 定义雷达探测通用物理方程纯函数接口。
 
 #ifndef AIRBORNE_RADAR_SIGNAL_DETECTION_RADAR_EQUATIONS_H_
 #define AIRBORNE_RADAR_SIGNAL_DETECTION_RADAR_EQUATIONS_H_

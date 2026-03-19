@@ -20,4 +20,4 @@
 - `include/1q/airborne_radar/common/DecisionTrackSnapshot.h`
 - `include/1q/airborne_radar/common/DecisionInputFrame.h`
 - `src/airborne_radar/core/controller/RadarController.cpp`
-- `include/1q/airborne_radar/core/event/RadarEvents.h`
+- `src/airborne_radar/core/event/RadarEvents.h`

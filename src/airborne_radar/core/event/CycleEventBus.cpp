@@ -2,7 +2,7 @@
 //
 // Description: CycleEventBus 的实现。
 
-#include "1q/airborne_radar/core/event/CycleEventBus.h"
+#include "airborne_radar/core/event/CycleEventBus.h"
 
 #include <utility>
 

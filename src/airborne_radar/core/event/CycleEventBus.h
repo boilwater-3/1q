@@ -13,7 +13,7 @@
 
 #include <eventpp/eventqueue.h>
 
-#include "1q/airborne_radar/core/event/IEventBus.h"
+#include "airborne_radar/core/event/IEventBus.h"
 
 namespace airborne_radar { namespace core { namespace event {
 

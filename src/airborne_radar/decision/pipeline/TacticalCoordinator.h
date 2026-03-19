@@ -5,10 +5,10 @@
 #ifndef AIRBORNE_RADAR_DECISION_TACTICAL_COORDINATOR_H_
 #define AIRBORNE_RADAR_DECISION_TACTICAL_COORDINATOR_H_
 
-#include "1q/airborne_radar/decision/classifier/ThreatAssessmentEvaluator.h"
-#include "1q/airborne_radar/decision/eccm/SurvivabilityEvaluator.h"
+#include "airborne_radar/decision/classifier/ThreatAssessmentEvaluator.h"
+#include "airborne_radar/decision/eccm/SurvivabilityEvaluator.h"
 #include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
-#include "1q/airborne_radar/decision/lpi/EmissionControlEvaluator.h"
+#include "airborne_radar/decision/lpi/EmissionControlEvaluator.h"
 #include "1q/airborne_radar/environment/database/IFeatureRepository.h"
 
 namespace airborne_radar {

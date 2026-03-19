@@ -6,7 +6,7 @@
 #ifndef AIRBORNE_RADAR_CORE_OUTPUT_DATA_OUTPUT_MANAGER_H_
 #define AIRBORNE_RADAR_CORE_OUTPUT_DATA_OUTPUT_MANAGER_H_
 
-#include "1q/airborne_radar/core/output/IDataOutputManager.h"
+#include "airborne_radar/core/output/IDataOutputManager.h"
 
 namespace airborne_radar {
 namespace core {

@@ -13,19 +13,12 @@
 #include "1q/airborne_radar/common/ControlDirective.h"
 #include "1q/airborne_radar/common/RadarControlProfile.h"
 #include "1q/airborne_radar/core/output/IRadarOutputReader.h"
+#include "1q/airborne_radar/decision/pipeline/ControlReducerTypes.h"
 
 namespace airborne_radar {
 namespace core {
 namespace context {
 class IRadarContext;
-}
-}
-}
-
-namespace airborne_radar {
-namespace core {
-namespace event {
-class IEventBus;
 }
 }
 }
@@ -43,7 +36,6 @@ namespace decision {
 namespace pipeline {
 class ITacticalDecisionEngine;
 class ControlReducer;
-struct ControlReducerConfig;
 struct TacticalStateStore;
 }
 }
@@ -86,13 +78,6 @@ public:
 			signal::pipeline::ISignalPipeline &signal_pipeline,
 			environment::IEnvironmentService &environment_service);
 
-	/// @brief 构造函数，使用默认战术协调器并注入事件总线。
-	RadarController(
-			core::context::IRadarContext &radar_context,
-			signal::pipeline::ISignalPipeline &signal_pipeline,
-			environment::IEnvironmentService &environment_service,
-			core::event::IEventBus &event_bus);
-
 	/// @brief 构造函数，显式注入新的决策引擎。
 	RadarController(
 			core::context::IRadarContext &radar_context,
@@ -100,23 +85,11 @@ public:
 			decision::pipeline::ITacticalDecisionEngine &decision_engine,
 			environment::IEnvironmentService &environment_service);
 
-	/// @brief 构造函数，显式注入新的决策引擎与事件总线。
-	RadarController(
-			core::context::IRadarContext &radar_context,
-			signal::pipeline::ISignalPipeline &signal_pipeline,
-			decision::pipeline::ITacticalDecisionEngine &decision_engine,
-			environment::IEnvironmentService &environment_service,
-			core::event::IEventBus &event_bus);
-
 	/// @brief 执行一次雷达处理循环。
 	void RunOnce();
 
 	/// @brief 执行指定次数的处理循环（用于仿真或测试）。
 	void RunCycles(std::size_t cycles);
-
-	/// @brief 运行时绑定事件总线。
-	/// @param event_bus 事件总线指针，可为 nullptr。
-	void SetEventBus(core::event::IEventBus *event_bus);
 
 	/// @brief 运行时绑定轨迹生命周期管理器。
 	/// @param lifecycle_manager 生命周期管理器，可为 nullptr。
@@ -158,9 +131,6 @@ private:
 
 	/// @brief 环境建模服务抽象。
 	environment::IEnvironmentService &environment_service_;
-
-	/// @brief 事件总线（可选注入）。
-	core::event::IEventBus *event_bus_{nullptr};
 
 	/// @brief 轨迹生命周期管理器（可选注入）。
 	signal::tracking::ITrackLifecycleManager *track_lifecycle_manager_{nullptr};

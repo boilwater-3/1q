@@ -5,7 +5,7 @@
 #include <gtest/gtest.h>
 
 #include "1q/airborne_radar/common/RadarOrientationConfig.h"
-#include "1q/airborne_radar/signal/detection/BeamwidthResolution.h"
+#include "airborne_radar/signal/detection/BeamwidthResolution.h"
 
 namespace airborne_radar {
 namespace tests {

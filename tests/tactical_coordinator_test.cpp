@@ -10,8 +10,8 @@
 
 #include "1q/airborne_radar/common/DecisionInputFrame.h"
 #include "1q/airborne_radar/common/DecisionTrackSnapshot.h"
-#include "1q/airborne_radar/decision/pipeline/ControlReducer.h"
-#include "1q/airborne_radar/decision/pipeline/TacticalCoordinator.h"
+#include "airborne_radar/decision/pipeline/ControlReducer.h"
+#include "airborne_radar/decision/pipeline/TacticalCoordinator.h"
 
 namespace airborne_radar { namespace tests {
 

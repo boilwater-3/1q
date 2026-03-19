@@ -2,7 +2,7 @@
 //
 // Description: ControlReducer 的实现。
 
-#include "1q/airborne_radar/decision/pipeline/ControlReducer.h"
+#include "airborne_radar/decision/pipeline/ControlReducer.h"
 
 #include <algorithm>
 #include <set>

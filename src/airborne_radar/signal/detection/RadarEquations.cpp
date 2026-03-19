@@ -6,7 +6,7 @@
  *          Richards《Exact and Approximate Detection Probability Formulas》交叉验证。
  */
 
-#include "1q/airborne_radar/signal/detection/RadarEquations.h"
+#include "airborne_radar/signal/detection/RadarEquations.h"
 
 #include <cmath>
 #include <algorithm>

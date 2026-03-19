@@ -12,7 +12,7 @@
 #include "1q/airborne_radar/common/AntennaPatternUtils.h"
 #include "1q/airborne_radar/common/RadarOrientationConfig.h"
 #include "1q/airborne_radar/common/RadarOrientationUtils.h"
-#include "1q/airborne_radar/signal/detection/BeamwidthResolution.h"
+#include "airborne_radar/signal/detection/BeamwidthResolution.h"
 #include "1q/airborne_radar/signal/detection/DetectionTypes.h"
 #include "airborne_radar/signal/detection/TargetLookResolver.h"
 

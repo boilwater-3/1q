@@ -1,6 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// Description: 定义雷达名义波束宽度与指令态波束宽度的统一解析规则。
+// @file BeamwidthResolution.h
+// @brief 定义雷达名义波束宽度与指令态波束宽度的统一解析规则。
 
 #ifndef AIRBORNE_RADAR_SIGNAL_DETECTION_BEAMWIDTH_RESOLUTION_H_
 #define AIRBORNE_RADAR_SIGNAL_DETECTION_BEAMWIDTH_RESOLUTION_H_

@@ -10,9 +10,9 @@
 #include "1q/airborne_radar/common/ControlDirective.h"
 #include "1q/airborne_radar/common/DecisionInputFrame.h"
 #include "1q/airborne_radar/common/DecisionTrackSnapshot.h"
-#include "1q/airborne_radar/decision/pipeline/TacticalCoordinator.h"
-#include "1q/airborne_radar/decision/classifier/ThreatAssessmentEvaluator.h"
-#include "1q/airborne_radar/environment/database/FeatureRepository.h"
+#include "airborne_radar/decision/pipeline/TacticalCoordinator.h"
+#include "airborne_radar/decision/classifier/ThreatAssessmentEvaluator.h"
+#include "airborne_radar/environment/database/FeatureRepository.h"
 
 using namespace airborne_radar;
 

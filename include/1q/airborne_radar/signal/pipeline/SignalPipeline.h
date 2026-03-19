@@ -10,7 +10,7 @@
 
 #include "1q/airborne_radar/common/RadarControlProfile.h"
 #include "1q/airborne_radar/common/RadarOrientationConfig.h"
-#include "1q/airborne_radar/signal/detection/RadarEquations.h"
+#include "1q/airborne_radar/signal/detection/DetectionTypes.h"
 #include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "1q/airborne_radar/signal/tracking/LifecycleConfig.h"
 

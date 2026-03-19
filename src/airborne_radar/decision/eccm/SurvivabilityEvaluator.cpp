@@ -2,7 +2,7 @@
 //
 // Description: SurvivabilityEvaluator 的实现。
 
-#include "1q/airborne_radar/decision/eccm/SurvivabilityEvaluator.h"
+#include "airborne_radar/decision/eccm/SurvivabilityEvaluator.h"
 
 #include <algorithm>
 #include <string>

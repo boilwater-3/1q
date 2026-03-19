@@ -9,7 +9,7 @@
 #include <limits>
 #include <random>
 
-#include "1q/airborne_radar/signal/detection/RadarEquations.h"
+#include "airborne_radar/signal/detection/RadarEquations.h"
 
 namespace airborne_radar {
 namespace signal {

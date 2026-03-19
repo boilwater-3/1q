@@ -4,10 +4,10 @@
 
 #include <gtest/gtest.h>
 
+#include "airborne_radar/core/output/DataOutputManager.h"
 #include "1q/airborne_radar/common/DecisionInputFrame.h"
 #include "1q/airborne_radar/common/DecisionTrackSnapshot.h"
 #include "1q/airborne_radar/common/TrackOutputFrame.h"
-#include "airborne_radar/core/output/DataOutputManager.h"
 
 namespace airborne_radar {
 namespace tests {

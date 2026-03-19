@@ -2,7 +2,7 @@
 //
 // Description: EventBus 的实现。
 
-#include "1q/airborne_radar/core/event/EventBus.h"
+#include "airborne_radar/core/event/EventBus.h"
 
 namespace airborne_radar { namespace core { namespace event {
 

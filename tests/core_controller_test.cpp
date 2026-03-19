@@ -16,14 +16,11 @@
 #include "1q/airborne_radar/common/TargetFeature.h"
 #include "1q/airborne_radar/core/context/IRadarContext.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"
-#include "1q/airborne_radar/core/event/RadarEvents.h"
-#include "1q/airborne_radar/decision/pipeline/ControlReducer.h"
+#include "1q/airborne_radar/decision/pipeline/ControlReducerTypes.h"
 #include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "1q/airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "1q/airborne_radar/signal/tracking/TrackLifecycleTypes.h"
-#include "1q/airborne_radar/core/event/EventBus.h"
-#include "1q/airborne_radar/core/event/CycleEventBus.h"
 #include "1q/airborne_radar/environment/EnvironmentService.h"
 #include "environment_test_fixture.h"
 
@@ -532,104 +529,6 @@ TEST_F(CoreControllerTest, ProtectiveControlProfileExtendsLifecycleMissTolerance
   EXPECT_EQ(lifecycle_manager.last_cycle.extra_miss_tolerance, 1u);
 }
 
-TEST_F(CoreControllerTest, RunOncePublishesCycleEvent) {
-  const common::TargetFeatureList input_state =
-      BuildSingleTarget(800.0f, 2.5f, false);
-  FakeRadarContext radar_context(input_state);
-
-  environment::EnvironmentModelConfig env_config;
-  env_config.jammer_power_db = 12.0f;
-  environment::EnvironmentService environment_service(env_config);
-
-  signal::pipeline::SignalPipeline signal_pipeline;
-  core::event::EventBus event_bus;
-
-  std::size_t received_count = 0;
-  bool received_jamming = false;
-  event_bus.Subscribe<core::event::RadarCycleCompletedEvent>(
-      [&received_count, &received_jamming](
-          const core::event::RadarCycleCompletedEvent &event) {
-        received_count = event.command_count;
-        received_jamming = event.jamming_detected;
-      });
-
-  core::controller::RadarController controller(
-      radar_context, signal_pipeline, environment_service, event_bus);
-
-  controller.RunOnce();
-
-  EXPECT_GT(received_count, 0u);
-  EXPECT_TRUE(received_jamming);
-}
-
-TEST_F(CoreControllerTest, RunOncePublishesFineGrainedEvents) {
-  const common::TargetFeatureList input_state =
-      BuildSingleTarget(800.0f, 2.5f, false);
-  FakeRadarContext radar_context(input_state);
-
-  environment::EnvironmentModelConfig env_config;
-  env_config.jammer_power_db = 12.0f;
-  environment::EnvironmentService environment_service(env_config);
-
-  signal::pipeline::SignalPipeline signal_pipeline;
-  core::event::EventBus event_bus;
-
-  bool tracks_event_received = false;
-  bool tracks_event_has_jamming_flag = false;
-  bool jamming_event_received = false;
-  std::size_t submitted_commands = 0;
-  std::uint64_t control_profile_version = 0;
-  std::size_t applied_directive_events = 0;
-
-  event_bus.Subscribe<core::event::TracksUpdatedEvent>(
-      [&tracks_event_received, &tracks_event_has_jamming_flag](
-          const core::event::TracksUpdatedEvent &) {
-        tracks_event_received = true;
-        tracks_event_has_jamming_flag = false;
-      });
-  bool track_output_event_received = false;
-  event_bus.Subscribe<core::event::TrackOutputPublishedEvent>(
-      [&track_output_event_received](
-          const core::event::TrackOutputPublishedEvent &) {
-        track_output_event_received = true;
-      });
-
-  event_bus.Subscribe<core::event::JammingAlertEvent>(
-      [&jamming_event_received](const core::event::JammingAlertEvent &event) {
-        jamming_event_received = event.detected;
-      });
-
-  event_bus.Subscribe<core::event::CommandsSubmittedEvent>(
-      [&submitted_commands](const core::event::CommandsSubmittedEvent &event) {
-        submitted_commands = event.command_count;
-      });
-
-  event_bus.Subscribe<core::event::ControlProfileUpdatedEvent>(
-      [&control_profile_version](
-          const core::event::ControlProfileUpdatedEvent &event) {
-        control_profile_version = event.profile_version;
-      });
-
-  event_bus.Subscribe<core::event::DirectiveAppliedEvent>(
-      [&applied_directive_events](
-          const core::event::DirectiveAppliedEvent &) {
-        ++applied_directive_events;
-      });
-
-  core::controller::RadarController controller(
-      radar_context, signal_pipeline, environment_service, event_bus);
-
-  controller.RunOnce();
-
-  EXPECT_TRUE(tracks_event_received);
-  EXPECT_FALSE(tracks_event_has_jamming_flag);
-  EXPECT_FALSE(track_output_event_received);
-  EXPECT_TRUE(jamming_event_received);
-  EXPECT_GT(submitted_commands, 0u);
-  EXPECT_GT(control_profile_version, 0u);
-  EXPECT_GT(applied_directive_events, 0u);
-}
-
 TEST_F(CoreControllerTest,
        LifecycleManagerDecisionUsesOutputSnapshotPathInsteadOfLegacyFrame) {
   const common::TargetFeatureList input_state =
@@ -703,10 +602,8 @@ TEST_F(CoreControllerTest, PublicOutputReaderApiExposesLatestTrackOutputFrame) {
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  core::event::EventBus event_bus;
-
   core::controller::RadarController controller(
-      radar_context, signal_pipeline, environment_service, event_bus);
+      radar_context, signal_pipeline, environment_service);
 
   EXPECT_FALSE(controller.HasLatestTrackOutputFrame());
 
@@ -786,38 +683,6 @@ TEST_F(CoreControllerTest, CustomReducerConfigChangesPendingControlProfile) {
   EXPECT_FLOAT_EQ(radar_context.LatestControlProfile().eccm_burnthrough_gain,
                   1.8f);
   EXPECT_FLOAT_EQ(radar_context.LatestControlProfile().lpi_power_scale, 0.95f);
-}
-
-TEST_F(CoreControllerTest, CycleEventBusDeliversEventsOnNextCycle) {
-  const common::TargetFeatureList input_state =
-      BuildSingleTarget(800.0f, 2.5f, false);
-  FakeRadarContext radar_context(input_state);
-
-  environment::EnvironmentModelConfig env_config;
-  env_config.jammer_power_db = 12.0f;
-  environment::EnvironmentService environment_service(env_config);
-
-  signal::pipeline::SignalPipeline signal_pipeline;
-  core::event::CycleEventBus event_bus;
-
-  std::size_t completed_event_hits = 0;
-  std::size_t last_command_count = 0;
-  event_bus.Subscribe<core::event::RadarCycleCompletedEvent>(
-      [&completed_event_hits, &last_command_count](
-          const core::event::RadarCycleCompletedEvent &event) {
-        ++completed_event_hits;
-        last_command_count = event.command_count;
-      });
-
-  core::controller::RadarController controller(
-      radar_context, signal_pipeline, environment_service, event_bus);
-
-  controller.RunOnce();
-  EXPECT_EQ(completed_event_hits, 0u);
-
-  controller.RunOnce();
-  EXPECT_EQ(completed_event_hits, 1u);
-  EXPECT_GT(last_command_count, 0u);
 }
 
 TEST_F(CoreControllerTest, LifecycleManagerConsumesRealAssociationMeasurements) {

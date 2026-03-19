@@ -129,6 +129,67 @@ if(ENABLE_INSTALL)
     include(GNUInstallDirs)
     include(CMakePackageConfigHelpers)
 
+    set(PUBLIC_HEADERS_COMMON
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/AntennaPatternConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/AntennaPatternUtils.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/ConfigPresets.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/ControlDirective.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/DecisionInputFrame.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/DecisionSourceInfo.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/DecisionTrackSnapshot.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/JammingSemantics.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/RadarCommand.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/RadarControlProfile.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/RadarOrientationConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/RadarOrientationUtils.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/TargetCategory.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/TargetFeature.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/TargetFeatureUtils.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/TrackOutputFrame.h
+    )
+    set(PUBLIC_HEADERS_CORE_CONTEXT
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/context/IRadarContext.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/context/MutableRadarContext.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/context/RadarCycleInput.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/context/RadarInputValidation.h
+    )
+    set(PUBLIC_HEADERS_CORE_CONTROLLER
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/controller/RadarController.h
+    )
+    set(PUBLIC_HEADERS_CORE_OUTPUT
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/output/IRadarOutputReader.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/output/TrackOutputQueries.h
+    )
+    set(PUBLIC_HEADERS_CORE_SESSION
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/session/RadarCycleResult.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/session/RadarSession.h
+    )
+    set(PUBLIC_HEADERS_DECISION
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/decision/pipeline/ControlReducerTypes.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h
+    )
+    set(PUBLIC_HEADERS_ENVIRONMENT
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentSceneBuilder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentService.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/IEnvironmentService.h
+    )
+    set(PUBLIC_HEADERS_SIGNAL_DETECTION
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/detection/DetectionTypes.h
+    )
+    set(PUBLIC_HEADERS_SIGNAL_PIPELINE
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/pipeline/ISignalPipeline.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/pipeline/SignalPipeline.h
+    )
+    set(PUBLIC_HEADERS_SIGNAL_TRACKING
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/tracking/GaussianTrackState.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/tracking/ITrackLifecycleManager.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/tracking/LifecycleConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/tracking/TrackLifecycleTypes.h
+    )
+    set(PUBLIC_HEADERS_ROOT
+        ${CMAKE_SOURCE_DIR}/include/1q/api.hpp
+    )
+
     # 安装库目标
     install(TARGETS ${PROJECT_CORE_TARGET}
         EXPORT ${PROJECT_EXPORT_SET}
@@ -138,12 +199,43 @@ if(ENABLE_INSTALL)
         INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     )
 
-    # 安装公共头文件（仅包含 .h 和 .hpp）
-    install(DIRECTORY ${CMAKE_SOURCE_DIR}/include/
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-        FILES_MATCHING 
-        PATTERN "*.h"
-        PATTERN "*.hpp"
+    # 安装公共头文件（显式白名单，避免内部头被自动导出）
+    install(FILES ${PUBLIC_HEADERS_ROOT}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q
+    )
+    install(FILES ${PUBLIC_HEADERS_COMMON}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/common
+    )
+    install(FILES ${PUBLIC_HEADERS_CORE_CONTEXT}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/core/context
+    )
+    install(FILES ${PUBLIC_HEADERS_CORE_CONTROLLER}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/core/controller
+    )
+    install(FILES ${PUBLIC_HEADERS_CORE_OUTPUT}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/core/output
+    )
+    install(FILES ${PUBLIC_HEADERS_CORE_SESSION}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/core/session
+    )
+    install(FILES ${PUBLIC_HEADERS_DECISION}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/decision/pipeline
+    )
+    install(FILES ${PUBLIC_HEADERS_ENVIRONMENT}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/environment
+    )
+    install(FILES
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/database/IFeatureRepository.h
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/environment/database
+    )
+    install(FILES ${PUBLIC_HEADERS_SIGNAL_DETECTION}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/signal/detection
+    )
+    install(FILES ${PUBLIC_HEADERS_SIGNAL_PIPELINE}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/signal/pipeline
+    )
+    install(FILES ${PUBLIC_HEADERS_SIGNAL_TRACKING}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/signal/tracking
     )
 
     # 安装导出的 CMake targets 文件
