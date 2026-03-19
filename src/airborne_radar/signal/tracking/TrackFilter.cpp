@@ -1,8 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-//
-// @file TrackFilter.cpp
-// @brief 实现基于最小 predictor/updater 组合的轨迹滤波逻辑。
-
 #include "airborne_radar/signal/tracking/TrackFilter.h"
 
 #include <algorithm>
@@ -15,18 +10,35 @@ namespace tracking {
 namespace {
 /**
  * @brief 计算三维向量欧氏范数。
+ * @param x X 分量。
+ * @param y Y 分量。
+ * @param z Z 分量。
+ * @return 三维向量模长。
  */
 float VectorNorm3(float x, float y, float z) {
   return std::sqrt(x * x + y * y + z * z);
 }
 /**
  * @brief 判断三维向量是否包含任一非零分量。
+ * @param x X 分量。
+ * @param y Y 分量。
+ * @param z Z 分量。
+ * @return 至少存在一个非零分量时返回 true。
  */
 bool HasNonZero3(float x, float y, float z) {
   return x != 0.0f || y != 0.0f || z != 0.0f;
 }
 /**
  * @brief 将输入向量归一化；若范数过小则使用兜底方向。
+ * @param x 输入 X 分量。
+ * @param y 输入 Y 分量。
+ * @param z 输入 Z 分量。
+ * @param nx [out] 归一化后的 X 分量。
+ * @param ny [out] 归一化后的 Y 分量。
+ * @param nz [out] 归一化后的 Z 分量。
+ * @param fallback_x 兜底 X 分量。
+ * @param fallback_y 兜底 Y 分量。
+ * @param fallback_z 兜底 Z 分量。
  */
 void NormalizeOrFallback(float x,
                          float y,
@@ -51,6 +63,8 @@ void NormalizeOrFallback(float x,
 }
 /**
  * @brief 判断是否属于易导致关联脆弱的干扰语义。
+ * @param semantic 当前主导干扰语义。
+ * @return 属于 deception/repeater/mixed 时返回 true。
  */
 bool IsAssociationFragileJamming(common::JammingSemantic semantic) {
   return semantic == common::JammingSemantic::kDeception ||

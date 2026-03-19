@@ -1,5 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-
 /**
  * @file SurvivabilityEvaluator.h
  * @brief 定义 ECCM 生存性 evaluator，与旧 ECCM 控制节点共享逻辑。

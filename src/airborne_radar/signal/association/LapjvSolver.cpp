@@ -1,8 +1,3 @@
-/**
- * @file LapjvSolver.cpp
- * @brief 实现基于 LAPJV 最短增广路的线性指派求解。
- */
-
 #include "airborne_radar/signal/association/LapjvSolver.h"
 
 #include <algorithm>

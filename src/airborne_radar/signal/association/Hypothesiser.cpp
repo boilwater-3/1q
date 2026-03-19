@@ -1,8 +1,3 @@
-/**
- * @file Hypothesiser.cpp
- * @brief 实现数据关联候选假设的生成逻辑。
- */
-
 #include "airborne_radar/signal/association/Hypothesiser.h"
 
 #include <stdexcept>

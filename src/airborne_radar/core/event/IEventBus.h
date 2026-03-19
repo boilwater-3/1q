@@ -1,5 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-
 /**
  * @file IEventBus.h
  * @brief 定义事件总线抽象接口。

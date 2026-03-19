@@ -15,37 +15,21 @@ namespace tracking {
  * @brief Kalman 更新器配置。
  */
 struct KalmanUpdaterConfig {
-/**
- * @brief 位置量测噪声标准差（米），各轴相同。
- * @details 对应 Stone Soup MeasurementModel 中 noise_covar 的对角元素平方根。
- */
-  float measurement_noise_std{10.0f};
+  float measurement_noise_std{10.0f};  /**< 位置量测噪声标准差（米），各轴相同。对应 Stone Soup MeasurementModel 中 noise_covar 的对角元素平方根。 */
 };
 /**
  * @brief Kalman 更新结果，包含后验状态和增益等诊断信息。
  */
 struct KalmanUpdateResult {
-/**
- * @brief 后验高斯状态。
- */
-  GaussianTrackState posterior;
-/**
- * @brief 新息向量 y = z - H·x̂。
- */
-  MeasurementVector innovation{MeasurementVector::Zero()};
-/**
- * @brief 新息协方差 S = H·P̂·Hᵀ + R。
- */
-  MeasurementCovariance innovation_covariance{MeasurementCovariance::Identity()};
+  GaussianTrackState posterior;  /**< 后验高斯状态。 */
+  MeasurementVector innovation{MeasurementVector::Zero()};  /**< 新息向量 y = z - H·x̂。 */
+  MeasurementCovariance innovation_covariance{MeasurementCovariance::Identity()};  /**< 新息协方差 S = H·P̂·Hᵀ + R。 */
 };
 /**
  * @brief Kalman 更新器抽象接口。
  */
 class IKalmanUpdater {
  public:
-/**
- * @brief 析构函数。
- */
   virtual ~IKalmanUpdater() = default;
 /**
  * @brief 对预测状态执行量测更新。

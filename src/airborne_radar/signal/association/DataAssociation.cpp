@@ -1,8 +1,3 @@
-/**
- * @file DataAssociation.cpp
- * @brief 实现基于距离度量、波门与指派求解的数据关联流程。
- */
-
 #include "airborne_radar/signal/association/DataAssociation.h"
 
 #include <algorithm>
@@ -18,6 +13,7 @@ namespace association {
 namespace {
 /**
  * @brief 未关联目标使用的保留键值。
+ * @note 代码行为依据：关联结果会用该值区分“命中已有轨迹”与“需要分配新键”的目标。
  */
 constexpr std::uint64_t kUnassociatedKey = 0;
 /**

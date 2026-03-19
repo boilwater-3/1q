@@ -1,5 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-
 /**
  * @file EmissionControlEvaluator.h
  * @brief 定义 LPI 发射控制 evaluator，与旧 LPI 控制节点共享逻辑。

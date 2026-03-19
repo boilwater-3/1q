@@ -1,5 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-
 /**
  * @file BeamwidthResolution.h
  * @brief 定义雷达名义波束宽度与指令态波束宽度的统一解析规则。
@@ -18,14 +16,8 @@ namespace detection {
  * @brief EffectiveBeamwidthDeg 表示解析后的有效波束宽度（单位：度）。
  */
 struct EffectiveBeamwidthDeg {
-/**
- * @brief 有效方位波束宽度（单位：度）。
- */
-  float az_beamwidth_deg{0.0f};
-/**
- * @brief 有效俯仰波束宽度（单位：度）。
- */
-  float el_beamwidth_deg{0.0f};
+  float az_beamwidth_deg{0.0f};  /**< 有效方位波束宽度（单位：度）。 */
+  float el_beamwidth_deg{0.0f};  /**< 有效俯仰波束宽度（单位：度）。 */
 };
 /**
  * @brief 解析有效波束宽度。

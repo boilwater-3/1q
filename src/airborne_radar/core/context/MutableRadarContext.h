@@ -1,5 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-
 /**
  * @file MutableRadarContext.h
  * @brief 定义面向外部接入的可变雷达上下文默认实现。

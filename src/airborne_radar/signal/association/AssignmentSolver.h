@@ -19,9 +19,6 @@ namespace association {
  */
 class IAssignmentSolver {
 public:
-/**
- * @brief 析构函数。
- */
   virtual ~IAssignmentSolver() = default;
 /**
  * @brief 求解线性指派问题。

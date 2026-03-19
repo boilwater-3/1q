@@ -1,8 +1,6 @@
 /**
  * @file KalmanUpdater.h
  * @brief 定义基于 Kalman 滤波的量测更新器接口与标准 Kalman 更新实现。
- * @author Antigravity
- * @date 2026-03-18
  */
 
 #ifndef AIRBORNE_RADAR_SIGNAL_TRACKING_KALMAN_UPDATER_H_
@@ -60,7 +58,7 @@ class KalmanUpdater final : public IKalmanUpdater {
  */
   void UpdateConfig(KalmanUpdaterConfig config);
 
- private:
+private:
 /**
  * @brief 构建量测矩阵 H（3×6 位置提取矩阵）。
  * @return 量测矩阵。
@@ -72,18 +70,9 @@ class KalmanUpdater final : public IKalmanUpdater {
  * @return 量测噪声协方差矩阵。
  */
   static MeasurementCovariance BuildMeasurementNoise(float std_dev);
-/**
- * @brief 当前配置。
- */
-  KalmanUpdaterConfig config_{};
-/**
- * @brief 量测矩阵 H（编译期可确定，只构建一次）。
- */
-  MeasurementMatrix H_;
-/**
- * @brief 量测噪声协方差 R。
- */
-  MeasurementCovariance R_;
+  KalmanUpdaterConfig config_{};  /**< 当前配置。 */
+  MeasurementMatrix H_;  /**< 量测矩阵 H（编译期可确定，只构建一次）。 */
+  MeasurementCovariance R_;  /**< 量测噪声协方差 R。 */
 };
 
 } // namespace tracking

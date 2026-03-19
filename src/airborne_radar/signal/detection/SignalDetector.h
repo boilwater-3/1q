@@ -1,10 +1,7 @@
-// Copyright 2026. All Rights Reserved.
-
 /**
  * @file SignalDetector.h
  * @brief 定义封装物理化回波评估与探测判决的信号检测器。
  */
-// 它是 RadarEquations 纯函数与 Pipeline Stage 之间的有状态桥梁。
 
 #ifndef AIRBORNE_RADAR_SRC_SIGNAL_DETECTION_SIGNAL_DETECTOR_H_
 #define AIRBORNE_RADAR_SRC_SIGNAL_DETECTION_SIGNAL_DETECTOR_H_

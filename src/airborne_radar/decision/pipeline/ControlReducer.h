@@ -1,5 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-
 /**
  * @file ControlReducer.h
  * @brief 定义控制意图到控制真值的私有归并器实现。

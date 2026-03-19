@@ -1,5 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-
 /**
  * @file IDataOutputManager.h
  * @brief 定义数据输出管理服务抽象接口。

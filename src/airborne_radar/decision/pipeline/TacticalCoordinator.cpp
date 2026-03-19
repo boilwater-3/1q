@@ -1,8 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-//
-// @file TacticalCoordinator.cpp
-// @brief 实现 TacticalCoordinator 的默认决策协调逻辑。
-
 #include "airborne_radar/decision/pipeline/TacticalCoordinator.h"
 
 #include <string>

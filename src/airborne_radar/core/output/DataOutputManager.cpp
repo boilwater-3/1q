@@ -1,8 +1,3 @@
-/**
- * @file DataOutputManager.cpp
- * @brief 实现默认数据输出管理服务。
- */
-
 #include "airborne_radar/core/output/DataOutputManager.h"
 
 #include <cstddef>

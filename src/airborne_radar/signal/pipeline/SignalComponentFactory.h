@@ -1,5 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-
 /**
  * @file SignalComponentFactory.h
  * @brief 定义 SignalPipeline 私有组件工厂，负责配置映射与组件装配。
@@ -36,67 +34,25 @@ namespace internal {
  * @brief Pipeline 自持有组件集合。
  */
 struct OwnedSignalComponents {
-/**
- * @brief 关联引擎配置。
- */
-  association::DataAssociationConfig association_config{};
-/**
- * @brief 轨迹滤波配置。
- */
-  tracking::TrackFilterConfig track_filter_config{};
-/**
- * @brief 可选 Kalman 预测器。
- */
-  std::unique_ptr<tracking::KalmanPredictor> kalman_predictor;
-/**
- * @brief 可选 Kalman 更新器。
- */
-  std::unique_ptr<tracking::KalmanUpdater> kalman_updater;
-/**
- * @brief 可选物理探测器。
- */
-  std::unique_ptr<detection::SignalDetector> signal_detector;
+  association::DataAssociationConfig association_config{};  /**< 关联引擎配置。 */
+  tracking::TrackFilterConfig track_filter_config{};  /**< 轨迹滤波配置。 */
+  std::unique_ptr<tracking::KalmanPredictor> kalman_predictor;  /**< 可选 Kalman 预测器。 */
+  std::unique_ptr<tracking::KalmanUpdater> kalman_updater;  /**< 可选 Kalman 更新器。 */
+  std::unique_ptr<detection::SignalDetector> signal_detector;  /**< 可选物理探测器。 */
 };
 /**
  * @brief Lifecycle 自动装配后的组件集合。
  */
 struct LifecycleAssemblyArtifacts {
-/**
- * @brief 生命周期对象池。
- */
-  std::unique_ptr<tracking::BoostTrackPool> pool;
-/**
- * @brief 可选包装的线程安全对象池。
- */
-  std::unique_ptr<tracking::ITrackPool> pool_wrapper;
-/**
- * @brief 单模型 Kalman 预测器。
- */
-  std::unique_ptr<tracking::KalmanPredictor> kalman_predictor;
-/**
- * @brief 单模型 Kalman 更新器。
- */
-  std::unique_ptr<tracking::KalmanUpdater> kalman_updater;
-/**
- * @brief IMM 自持有预测器集合。
- */
-  std::vector<std::unique_ptr<tracking::KalmanPredictor> > imm_predictors_owned;
-/**
- * @brief IMM 自持有更新器集合。
- */
-  std::vector<std::unique_ptr<tracking::KalmanUpdater> > imm_updaters_owned;
-/**
- * @brief 传递给生命周期管理器的 IMM 预测器视图。
- */
-  std::vector<const tracking::IKalmanPredictor*> imm_predictors;
-/**
- * @brief 传递给生命周期管理器的 IMM 更新器视图。
- */
-  std::vector<const tracking::IKalmanUpdater*> imm_updaters;
-/**
- * @brief 自动装配后的生命周期管理器。
- */
-  std::unique_ptr<tracking::ITrackLifecycleManager> lifecycle_manager;
+  std::unique_ptr<tracking::BoostTrackPool> pool;  /**< 生命周期对象池。 */
+  std::unique_ptr<tracking::ITrackPool> pool_wrapper;  /**< 可选包装的线程安全对象池。 */
+  std::unique_ptr<tracking::KalmanPredictor> kalman_predictor;  /**< 单模型 Kalman 预测器。 */
+  std::unique_ptr<tracking::KalmanUpdater> kalman_updater;  /**< 单模型 Kalman 更新器。 */
+  std::vector<std::unique_ptr<tracking::KalmanPredictor> > imm_predictors_owned;  /**< IMM 自持有预测器集合。 */
+  std::vector<std::unique_ptr<tracking::KalmanUpdater> > imm_updaters_owned;  /**< IMM 自持有更新器集合。 */
+  std::vector<const tracking::IKalmanPredictor*> imm_predictors;  /**< 传递给生命周期管理器的 IMM 预测器视图。 */
+  std::vector<const tracking::IKalmanUpdater*> imm_updaters;  /**< 传递给生命周期管理器的 IMM 更新器视图。 */
+  std::unique_ptr<tracking::ITrackLifecycleManager> lifecycle_manager;  /**< 自动装配后的生命周期管理器。 */
 };
 /**
  * @brief SignalComponentFactory 统一负责 Signal 层组件装配。

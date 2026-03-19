@@ -1,8 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-//
-// @file EventBus.cpp
-// @brief 实现 EventBus 的订阅与事件派发逻辑。
-
 #include "airborne_radar/core/event/EventBus.h"
 
 namespace airborne_radar { namespace core { namespace event {

@@ -1,5 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-
 /**
  * @file TrackEvents.h
  * @brief 定义轨迹生命周期相关事件。

@@ -1,5 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-
 /**
  * @file TrackTypes.h
  * @brief 定义跟踪对象池与生命周期管理使用的公共轨迹类型。

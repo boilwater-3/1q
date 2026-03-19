@@ -1,8 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-//
-// @file ControlReducer.cpp
-// @brief 实现 ControlReducer 的控制意图归并逻辑。
-
 #include "airborne_radar/decision/pipeline/ControlReducer.h"
 
 #include <algorithm>
@@ -113,6 +108,11 @@ void ResetEccmDomain(common::RadarControlProfile* profile) {
   profile->eccm_burnthrough_gain = 1.0f;
 }
 
+/**
+ * @brief 将控制真值中的 LPI 域状态复制到目标 profile。
+ * @param from 源控制真值。
+ * @param to 目标控制真值。
+ */
 void CopyLpiDomain(const common::RadarControlProfile& from,
                    common::RadarControlProfile* to) {
   if (to == nullptr) {
@@ -124,6 +124,11 @@ void CopyLpiDomain(const common::RadarControlProfile& from,
   to->lpi_dwell_scale = from.lpi_dwell_scale;
 }
 
+/**
+ * @brief 将控制真值中的 ECCM 域状态复制到目标 profile。
+ * @param from 源控制真值。
+ * @param to 目标控制真值。
+ */
 void CopyEccmDomain(const common::RadarControlProfile& from,
                     common::RadarControlProfile* to) {
   if (to == nullptr) {
@@ -136,6 +141,14 @@ void CopyEccmDomain(const common::RadarControlProfile& from,
   to->eccm_burnthrough_gain = from.eccm_burnthrough_gain;
 }
 
+/**
+ * @brief 把单条控制意图映射到运行时控制真值。
+ * @param config 归并器配置。
+ * @param directive 待应用的控制意图。
+ * @param profile 待写入的控制真值。
+ * @param applied 已接受的控制意图列表。
+ * @param rejected 已拒绝的控制意图列表。
+ */
 void ApplyDirectiveToProfile(const ControlReducerConfig& config,
                              const common::ControlDirective& directive,
                              common::RadarControlProfile* profile,
@@ -186,6 +199,12 @@ void ApplyDirectiveToProfile(const ControlReducerConfig& config,
   }
 }
 
+/**
+ * @brief 将已接受列表中的指定控制意图移入拒绝列表。
+ * @param type 待迁移的控制意图类型。
+ * @param applied 已接受的控制意图列表。
+ * @param rejected 已拒绝的控制意图列表。
+ */
 void MoveAppliedDirectiveToRejected(
     common::ControlDirectiveType type,
     std::vector<common::ControlDirective>* applied,
@@ -205,6 +224,13 @@ void MoveAppliedDirectiveToRejected(
   applied->erase(found);
 }
 
+/**
+ * @brief 处理发射域与生存性域之间的已知冲突。
+ * @param config 归并器配置。
+ * @param profile 当前控制真值。
+ * @param applied 已接受的控制意图列表。
+ * @param rejected 已拒绝的控制意图列表。
+ */
 void ResolveEmissionSurvivabilityConflict(
     const ControlReducerConfig& config, common::RadarControlProfile* profile,
     std::vector<common::ControlDirective>* applied,
@@ -234,10 +260,16 @@ void ResolveEmissionSurvivabilityConflict(
       MoveAppliedDirectiveToRejected(
           common::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
           applied, rejected);
-    }
+      }
   }
 }
 
+/**
+ * @brief 判断两个控制真值是否在运行时效果上存在差异。
+ * @param previous 上一周期控制真值。
+ * @param next 当前周期控制真值。
+ * @return 任一运行时控制字段发生变化时返回 true。
+ */
 bool HasOperationalProfileChanged(const common::RadarControlProfile& previous,
                                   const common::RadarControlProfile& next) {
   return previous.enable_lpi_power_control != next.enable_lpi_power_control ||

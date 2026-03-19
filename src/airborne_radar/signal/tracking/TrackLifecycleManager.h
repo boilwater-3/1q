@@ -176,60 +176,21 @@ private:
                                           bool *dt_fallback_used) const;
 
 private:
-/**
- * @brief 轨迹对象池抽象，用于对象申请与归还。
- */
-  ITrackPool *pool_{nullptr};
-/**
- * @brief 生命周期阈值配置。
- */
-  LifecycleConfig config_;
-/**
- * @brief 下一个待分配轨迹 ID。
- */
-  std::uint64_t next_track_id_{1};
-/**
- * @brief 活跃轨迹表，key 为关联键。
- */
-  std::unordered_map<std::uint64_t, common::TrackState *> tracks_by_key_;
-/**
- * @brief 可选 Kalman 预测器（非拥有）。
- */
-  const IKalmanPredictor *kalman_predictor_{nullptr};
-/**
- * @brief 可选 Kalman 更新器（非拥有）。
- */
-  const IKalmanUpdater *kalman_updater_{nullptr};
-/**
- * @brief IMM 各模型预测器集合（非拥有）。
- */
-  std::vector<const IKalmanPredictor *> imm_predictors_;
-/**
- * @brief IMM 各模型更新器集合（非拥有）。
- */
-  std::vector<const IKalmanUpdater *> imm_updaters_;
-/**
- * @brief IMM 模型转移概率矩阵。
- */
-  Eigen::MatrixXf imm_transition_probability_;
-/**
- * @brief IMM 模型初始权重。
- */
-  Eigen::VectorXf imm_initial_weights_;
-/**
- * @brief 每条轨迹对应的 IMM 运行态。
- */
+  ITrackPool *pool_{nullptr};  /**< 轨迹对象池抽象，用于对象申请与归还。 */
+  LifecycleConfig config_;  /**< 生命周期阈值配置。 */
+  std::uint64_t next_track_id_{1};  /**< 下一个待分配轨迹 ID。 */
+  std::unordered_map<std::uint64_t, common::TrackState *> tracks_by_key_;  /**< 活跃轨迹表，key 为关联键。 */
+  const IKalmanPredictor *kalman_predictor_{nullptr};  /**< 可选 Kalman 预测器（非拥有）。 */
+  const IKalmanUpdater *kalman_updater_{nullptr};  /**< 可选 Kalman 更新器（非拥有）。 */
+  std::vector<const IKalmanPredictor *> imm_predictors_;  /**< IMM 各模型预测器集合（非拥有）。 */
+  std::vector<const IKalmanUpdater *> imm_updaters_;  /**< IMM 各模型更新器集合（非拥有）。 */
+  Eigen::MatrixXf imm_transition_probability_;  /**< IMM 模型转移概率矩阵。 */
+  Eigen::VectorXf imm_initial_weights_;  /**< IMM 模型初始权重。 */
   std::unordered_map<std::uint64_t, std::unique_ptr<ImmFilter> >
-      imm_filters_by_key_;
-/**
- * @brief 上一周期编号，用于计算 dt。
- */
-  std::uint32_t last_cycle_index_{0};
-/**
- * @brief 最近一次命中量测对应的证据快照。
- */
+      imm_filters_by_key_;  /**< 每条轨迹对应的 IMM 运行态。 */
+  std::uint32_t last_cycle_index_{0};  /**< 上一周期编号，用于计算 dt。 */
   std::unordered_map<std::uint64_t, common::DecisionMeasurementEvidence>
-      latest_evidence_by_key_;
+      latest_evidence_by_key_;  /**< 最近一次命中量测对应的证据快照。 */
 };
 
 } // namespace tracking

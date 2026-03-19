@@ -1,5 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-
 /**
  * @file DistanceMetric.h
  * @brief 定义 Signal 层数据关联使用的距离度量接口与实现。
@@ -19,9 +17,6 @@ namespace association {
  */
 class IDistanceMetric {
 public:
-/**
- * @brief 析构函数。
- */
   virtual ~IDistanceMetric() = default;
 /**
  * @brief 计算预测轨迹与当前量测之间的距离代价。
@@ -55,10 +50,7 @@ public:
                 const Eigen::Vector3f &measurement) const override;
 
 private:
-/**
- * @brief 各维度逆方差系数。
- */
-  Eigen::Array3f inverse_variances_{Eigen::Array3f::Ones()};
+  Eigen::Array3f inverse_variances_{Eigen::Array3f::Ones()};  /**< 各维度逆方差系数。 */
 };
 /**
  * @brief 完整协方差矩阵马氏距离度量实现。
@@ -96,10 +88,7 @@ public:
                 const Eigen::Vector3f &measurement) const override;
 
 private:
-/**
- * @brief S 的 LLT 分解，用于高效求解 S⁻¹ Δz。
- */
-  Eigen::LLT<Eigen::Matrix3f> llt_;
+  Eigen::LLT<Eigen::Matrix3f> llt_;  /**< S 的 LLT 分解，用于高效求解 S⁻¹ Δz。 */
 };
 
 } // namespace association

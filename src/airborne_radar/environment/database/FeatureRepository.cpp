@@ -1,8 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-//
-// @file FeatureRepository.cpp
-// @brief 实现 FeatureRepository 的特征仓储加载与查询逻辑。
-
 #include "airborne_radar/environment/database/FeatureRepository.h"
 
 #include <algorithm>
@@ -15,10 +10,28 @@ namespace airborne_radar { namespace environment { namespace database {
 
 namespace {
 
+/**
+ * @brief `FeatureVector` 中表示速度维度的内建键名。
+ * @note 代码行为依据：默认样本、行转换和距离计算都会通过该键访问速度特征。
+ */
 constexpr const char kSpeedFeature[] = "speed";
+/**
+ * @brief `FeatureVector` 中表示 RCS 维度的内建键名。
+ * @note 代码行为依据：默认样本、行转换和距离计算都会通过该键访问 RCS 特征。
+ */
 constexpr const char kRcsFeature[] = "rcs";
+/**
+ * @brief `FeatureVector` 中表示干扰存在性的内建键名。
+ * @note 代码行为依据：默认样本、行转换和距离计算都会通过该键访问干扰特征，
+ *       并把布尔干扰事实映射为 `0.0f / 1.0f`。
+ */
 constexpr const char kJammingFeature[] = "jamming";
 
+/**
+ * @brief 仓储内建标准特征键集合。
+ * @note 代码行为依据：`IsKnownFeature()` 依赖该集合把内建维度与扩展维度区分开，
+ *       避免速度、RCS 与干扰键在附加距离循环中被重复累计。
+ */
 constexpr std::array<const char *, 3> kKnownFeatureKeys = {
 		kSpeedFeature, kRcsFeature, kJammingFeature};
 /**

@@ -1,8 +1,3 @@
-/**
- * @file RadarController.cpp
- * @brief 实现 RadarController 的周期调度、决策归并与命令下发逻辑。
- */
-
 #include "1q/airborne_radar/core/controller/RadarController.h"
 
 #include <spdlog/spdlog.h>

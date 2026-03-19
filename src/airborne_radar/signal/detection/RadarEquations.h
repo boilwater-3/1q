@@ -1,5 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-
 /**
  * @file RadarEquations.h
  * @brief 定义雷达探测通用物理方程纯函数接口。

@@ -1,8 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-//
-// @file KalmanPredictor.cpp
-// @brief 实现基于 3D 恒速模型的 Kalman 状态预测器。
-
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 
 namespace airborne_radar {

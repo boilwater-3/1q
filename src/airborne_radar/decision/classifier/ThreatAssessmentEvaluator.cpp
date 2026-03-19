@@ -1,8 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-//
-// @file ThreatAssessmentEvaluator.cpp
-// @brief 实现 ThreatAssessmentEvaluator 的分类与威胁评估逻辑。
-
 #include "airborne_radar/decision/classifier/ThreatAssessmentEvaluator.h"
 
 #include <cmath>
@@ -15,10 +10,29 @@ namespace classifier {
 
 namespace {
 
+/**
+ * @brief 仓储匹配结果通过验收所需的最小概率阈值。
+ * @note 代码行为依据：仅当匹配概率不低于该阈值时，仓储结果才可能覆盖启发式分类。
+ */
 const float kMinRepositoryMatchProbability = 0.55f;
+
+/**
+ * @brief 仓储匹配结果通过验收所允许的最大距离阈值。
+ * @note 代码行为依据：仅当匹配距离不高于该阈值时，仓储结果才会被视为可接受匹配。
+ */
 const float kMaxRepositoryMatchDistance = 1.80f;
+
+/**
+ * @brief 触发高威胁控制路径所需的最小置信度阈值。
+ * @note 代码行为依据：该值位于单次 tentative 命中的 `0.35` 与 confirmed / 持续命中的 `0.70` 之间，用于区分低证据与可触发激进控制的目标。
+ */
 const float kHighThreatConfidenceThreshold = 0.55f;
 
+/**
+ * @brief 向分类结果列表追加单个目标类型标签。
+ * @param[in,out] categories 待写入的分类结果列表。
+ * @param target_type 待追加的目标类型标签。
+ */
 void AppendType(common::TargetCategoryList* categories,
                 const std::string& target_type) {
   if (categories != nullptr) {

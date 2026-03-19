@@ -1,5 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-
 /**
  * @file TacticalEvaluation.h
  * @brief 定义默认决策协调器内部评估拼装类型。

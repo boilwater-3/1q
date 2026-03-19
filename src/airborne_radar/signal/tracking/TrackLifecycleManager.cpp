@@ -1,8 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-//
-// @file TrackLifecycleManager.cpp
-// @brief 实现 TrackLifecycleManager 的轨迹生命周期推进逻辑。
-
 #include "airborne_radar/signal/tracking/TrackLifecycleManager.h"
 
 #include <algorithm>

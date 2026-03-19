@@ -1,8 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-//
-// @file MutableRadarContext.cpp
-// @brief 实现面向外部接入的可变雷达上下文默认实现。
-
 #include "airborne_radar/core/context/MutableRadarContext.h"
 
 #include <utility>

@@ -1,8 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-//
-// @file EmissionControlEvaluator.cpp
-// @brief 实现 EmissionControlEvaluator 的 LPI 发射控制评估逻辑。
-
 #include "airborne_radar/decision/lpi/EmissionControlEvaluator.h"
 
 #include <spdlog/spdlog.h>
@@ -13,10 +8,17 @@ namespace lpi {
 
 namespace {
 
+/**
+ * @brief LPI 降功率提案的保持周期计数。
+ * @note 代码行为依据：每当降功率路径成立时，当前实现都会把
+ *       `state_store.lpi_hold_cycles_remaining` 重置为该值，用于维持后续周期的
+ *       LPI 提案输出窗口。
+ */
 const std::uint32_t kLpiHoldCycles = 2;
 /**
  * @brief 构造一条 LPI 降功率控制意图。
- * @return 来源固定为 EMISSION_CONTROL 的控制意图。
+ * @return 返回类型为 `REQUEST_LPI_POWER_REDUCTION` 且 `source` 字段为
+ *         `EMISSION_CONTROL` 的控制意图。
  */
 common::ControlDirective BuildLpiPowerDirective() {
   return common::ControlDirective(

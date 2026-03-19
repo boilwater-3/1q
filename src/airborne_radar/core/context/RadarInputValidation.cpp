@@ -1,8 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-//
-// @file RadarInputValidation.cpp
-// @brief 实现雷达周期输入显式校验接口。
-
 #include "1q/airborne_radar/core/context/RadarInputValidation.h"
 
 #include <cmath>

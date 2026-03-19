@@ -1,8 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-//
-// @file SceneManager.cpp
-// @brief 实现环境场景待生效与冻结状态管理。
-
 #include "airborne_radar/environment/scene/SceneManager.h"
 
 namespace airborne_radar {

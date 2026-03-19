@@ -1,5 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-
 /**
  * @file EventBus.h
  * @brief 定义基于 eventpp 的事件总线实现。

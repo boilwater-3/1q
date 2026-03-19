@@ -20,22 +20,10 @@ namespace detection {
  * @brief ResolvedTargetGeometry 表示单目标统一解析后的几何信息。
  */
 struct ResolvedTargetGeometry {
-/**
- * @brief 是否具备雷达局部笛卡尔位置。
- */
-  bool has_cartesian_position{false};
-/**
- * @brief 雷达局部笛卡尔位置向量。
- */
-  Eigen::Vector3f position_m{Eigen::Vector3f::Zero()};
-/**
- * @brief 统一解析后的斜距（m）。
- */
-  float range_m{50000.0f};
-/**
- * @brief 目标在雷达局部坐标系下的 look angle。
- */
-  TargetLookAnglesDeg look_angles_deg;
+  bool has_cartesian_position{false};  /**< 是否具备雷达局部笛卡尔位置。 */
+  Eigen::Vector3f position_m{Eigen::Vector3f::Zero()};  /**< 雷达局部笛卡尔位置向量。 */
+  float range_m{50000.0f};  /**< 统一解析后的斜距（m）。 */
+  TargetLookAnglesDeg look_angles_deg;  /**< 目标在雷达局部坐标系下的 look angle。 */
 };
 /**
  * @brief TargetGeometryResolver 负责统一解析目标几何真值源。

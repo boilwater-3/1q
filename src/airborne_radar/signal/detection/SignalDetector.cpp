@@ -1,8 +1,3 @@
-/**
- * @file SignalDetector.cpp
- * @brief SignalDetector 的实现，完成物理化的回波评估与探测判决。
- */
-
 #include "airborne_radar/signal/detection/SignalDetector.h"
 
 #include <cmath>

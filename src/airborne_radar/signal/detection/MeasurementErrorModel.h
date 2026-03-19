@@ -1,5 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-
 /**
  * @file MeasurementErrorModel.h
  * @brief 定义基于有效信噪比与波束宽度的测量误差模型。
@@ -20,14 +18,8 @@ namespace detection {
  * @brief MeasurementErrorState 表示当前探测的测量误差结果。
  */
 struct MeasurementErrorState {
-/**
- * @brief 距离测量标准差（米）。
- */
-  float range_error_std_m{0.0f};
-/**
- * @brief 方位/俯仰合成的等效角度测量标准差（弧度）。
- */
-  float angle_error_std_rad{0.0f};
+  float range_error_std_m{0.0f};   /**< 距离测量标准差（米）。 */
+  float angle_error_std_rad{0.0f}; /**< 方位/俯仰合成的等效角度测量标准差（弧度）。 */
 };
 /**
  * @brief MeasurementErrorModel 负责计算当前探测的测量误差。

@@ -1,8 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-//
-// @file ImmFilter.cpp
-// @brief 实现交互多模型（IMM）滤波器。
-
 #include "airborne_radar/signal/tracking/ImmFilter.h"
 
 #include <cmath>

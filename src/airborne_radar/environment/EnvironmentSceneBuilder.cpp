@@ -1,13 +1,14 @@
-/**
- * @file EnvironmentSceneBuilder.cpp
- * @brief 实现场景状态构造器。
- */
-
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 
 namespace airborne_radar {
 namespace environment {
 
+/**
+ * @brief 基于统一参数构造指定类型的干扰源状态。
+ * @param technique 干扰技术类型。
+ * @param params 干扰源参数集合。
+ * @return 写入对应技术类型后的干扰源状态。
+ */
 JammerEmitterState BuildTypedJammerEmitter(
     JammingTechnique technique,
     const JammerEmitterParams& params) {

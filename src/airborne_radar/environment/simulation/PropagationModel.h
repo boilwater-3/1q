@@ -1,5 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-
 /**
  * @file PropagationModel.h
  * @brief 定义环境层最小传播与杂波组合模型。

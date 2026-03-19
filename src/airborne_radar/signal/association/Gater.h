@@ -1,5 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-
 /**
  * @file Gater.h
  * @brief 定义数据关联阶段使用的波门裁剪接口与阈值实现。
@@ -16,9 +14,6 @@ namespace association {
  */
 class IGater {
 public:
-/**
- * @brief 析构函数。
- */
   virtual ~IGater() = default;
 /**
  * @brief 判断当前关联代价是否允许进入候选集合。
@@ -45,10 +40,7 @@ public:
   bool Accept(float cost) const override { return cost <= max_cost_; }
 
 private:
-/**
- * @brief 允许通过的最大代价值。
- */
-  float max_cost_{0.0f};
+  float max_cost_{0.0f};  /**< 允许通过的最大代价值。 */
 };
 
 } // namespace association

@@ -1,8 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-//
-// @file PropagationModel.cpp
-// @brief 实现环境层最小传播与杂波组合模型。
-
 #include "airborne_radar/environment/simulation/PropagationModel.h"
 
 #include <algorithm>

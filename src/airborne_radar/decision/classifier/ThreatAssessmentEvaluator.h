@@ -1,5 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-
 /**
  * @file ThreatAssessmentEvaluator.h
  * @brief 定义威胁评估 evaluator，与旧分类节点共享核心逻辑。

@@ -1,5 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-
 /**
  * @file RadarEvents.h
  * @brief 定义雷达核心流程对外发布的事件类型。

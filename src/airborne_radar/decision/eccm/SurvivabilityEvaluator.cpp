@@ -1,8 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-//
-// @file SurvivabilityEvaluator.cpp
-// @brief 实现 SurvivabilityEvaluator 的 ECCM 生存性评估逻辑。
-
 #include "airborne_radar/decision/eccm/SurvivabilityEvaluator.h"
 
 #include <algorithm>
@@ -16,30 +11,120 @@ namespace eccm {
 
 namespace {
 
+/**
+ * @brief ECCM 提案保持周期计数。
+ * @note 代码行为依据：只要当前周期仍判定需要启用 ECCM，`Evaluate()` 就会把
+ *       `state_store.eccm_hold_cycles_remaining` 设回该值，用于延续保护发射路径。
+ */
 const std::uint32_t kEccmHoldCycles = 2;
+/**
+ * @brief 触发频率捷变强化评分的频谱重叠分界值。
+ * @note 代码行为依据：旧版事实与多源事实都在频谱重叠比例不低于该值时，才显著提高
+ *       `agility_frequency_score`。
+ */
 const float kHighFrequencyOverlapRatio = 0.5f;
+/**
+ * @brief 触发重频抖动强化评分的锁定风险分界值。
+ * @note 代码行为依据：旧版事实与多源事实都在 `prf_lock_risk` 不低于该值时，才显著提高
+ *       `eccm_rejitter_score`。
+ */
 const float kHighPrfLockRisk = 0.5f;
+/**
+ * @brief 触发烧穿增益强化评分的干扰功率分界值。
+ * @note 代码行为依据：旧版事实路径把该值作为 `burnthrough_gain_score` 的高功率门限，
+ *       多源事实路径还会用它归一化功率权重。
+ */
 const float kHighJammerPowerDb = 8.0f;
+/**
+ * @brief 触发烧穿增益强化评分的干信比分界值。
+ * @note 代码行为依据：多源事实路径在 `jammer_to_signal_db` 不低于该值时，会把对应源纳入
+ *       烧穿增益评分并参与权重归一化。
+ */
 const float kHighJammerToSignalDb = 6.0f;
+/**
+ * @brief 多源干扰事实被视为可信证据的最小置信度。
+ * @note 代码行为依据：`AccumulateMultiSourceEccmFacts()` 会直接过滤低于该值的源，
+ *       使低置信度样本只能走保守回退路径，而不会触发激进的类型特定 ECCM 动作。
+ */
 const float kMinimumCredibleConfidence = 0.35f;
+/**
+ * @brief 允许关联压力参与 ECCM 补位的最小干扰严重度。
+ * @note 代码行为依据：只有 `jamming_severity` 不低于该值时，
+ *       `HasMeaningfulAssociationPressure()` 才允许关联语义抬高 ECCM 评分。
+ */
 const float kMinimumAssociationSeverity = 0.30f;
+/**
+ * @brief 允许关联压力参与 ECCM 补位的最小关联压力值。
+ * @note 代码行为依据：只有 `association_stress` 不低于该值时，
+ *       `HasMeaningfulAssociationPressure()` 才把关联退化视作 ECCM 的有效补充证据。
+ */
 const float kMinimumAssociationStress = 0.18f;
 
+/**
+ * @brief 旁瓣对消提案的基础优先级。
+ * @note 代码行为依据：该值作为 `ResolvePriorityFromScore()` 的基线，保证旁瓣污染明确时，
+ *       旁瓣对消在当前 ECCM 动作中保持最高起始优先级。
+ */
 const int kBasePrioritySidelobeCanceller = 86;
+/**
+ * @brief 自适应波束形成提案的基础优先级。
+ * @note 代码行为依据：该值低于其他强对抗动作，使其既能作为保守回退动作输出，
+ *       又不会轻易压过更具体的 ECCM 手段。
+ */
 const int kBasePriorityAdaptiveBeamforming = 80;
+/**
+ * @brief 频率捷变提案的基础优先级。
+ * @note 代码行为依据：该值位于旁瓣对消之后、重频抖动之前，用于表达频谱重叠类干扰下的
+ *       中高优先级处置次序。
+ */
 const int kBasePriorityAgilityFrequency = 84;
+/**
+ * @brief 重频抖动提案的基础优先级。
+ * @note 代码行为依据：该值略低于频率捷变，用于在 PRF 锁定风险成立时参与排序，
+ *       同时保留分数叠加后的调节空间。
+ */
 const int kBasePriorityEccmRejitter = 83;
+/**
+ * @brief 烧穿增益提案的基础优先级。
+ * @note 代码行为依据：该值低于频率捷变与重频抖动，使烧穿增益默认作为高功率压制下的
+ *       补充动作，而不是最先执行的动作。
+ */
 const int kBasePriorityBurnthroughGain = 82;
 
+/**
+ * @brief 输出旁瓣对消提案所需的最小累计评分。
+ * @note 代码行为依据：只有明确存在旁瓣污染证据时，`sidelobe_canceller_score`
+ *       才能跨过该门限，避免弱证据默认启用旁瓣对消。
+ */
 const float kThresholdSidelobeCanceller = 1.5f;
+/**
+ * @brief 输出自适应波束形成提案所需的最小累计评分。
+ * @note 代码行为依据：该门限低于其他 ECCM 动作，使保守回退路径的
+ *       `adaptive_beamforming_score = 1.0f` 也能独立输出。
+ */
 const float kThresholdAdaptiveBeamforming = 0.8f;
+/**
+ * @brief 输出频率捷变提案所需的最小累计评分。
+ * @note 代码行为依据：该值要求频谱重叠或关联语义证据累计到足够强度后，
+ *       才会真正下发频率捷变 proposal。
+ */
 const float kThresholdAgilityFrequency = 1.5f;
+/**
+ * @brief 输出重频抖动提案所需的最小累计评分。
+ * @note 代码行为依据：该值要求 PRF 锁定风险或关联语义证据累计到足够强度后，
+ *       才会真正下发重频抖动 proposal。
+ */
 const float kThresholdEccmRejitter = 1.5f;
+/**
+ * @brief 输出烧穿增益提案所需的最小累计评分。
+ * @note 代码行为依据：该值要求高功率或高干信比证据累计到足够强度后，
+ *       才会下发烧穿增益 proposal，避免弱事实直接触发功率对抗。
+ */
 const float kThresholdBurnthroughGain = 1.5f;
 /**
  * @brief 构造一条生存性域控制意图。
  * @param type 控制意图类型。
- * @return 来源固定为 SURVIVABILITY 的控制意图。
+ * @return 返回 `type` 指定类型且 `source` 字段为 `SURVIVABILITY` 的控制意图。
  */
 common::ControlDirective BuildDirective(common::ControlDirectiveType type) {
   return common::ControlDirective(type,
@@ -89,6 +174,11 @@ float ClampUnit(float value) {
   return std::max(0.0f, std::min(1.0f, value));
 }
 
+/**
+ * @brief 判断关联质量是否足以作为 ECCM 补充触发证据。
+ * @param association_quality_info 当前周期关联质量摘要。
+ * @return 关联压力和干扰严重度同时达到最小门限时返回 true。
+ */
 bool HasMeaningfulAssociationPressure(
     const common::AssociationQualityInfo& association_quality_info) {
   return association_quality_info.association_stress >=
@@ -139,6 +229,11 @@ void AccumulateLegacyEccmFacts(const common::EccmSourceInfo& source_info,
   }
 }
 
+/**
+ * @brief 把单个可信多源干扰事实累加为 ECCM 动作评分。
+ * @param source 单个干扰源事实。
+ * @param selection 待累加的提案选择状态。
+ */
 void AccumulateMultiSourceEccmFacts(
     const common::EccmJammerSourceInfo& source,
     EccmProposalSelection* selection) {
@@ -199,6 +294,11 @@ void AccumulateMultiSourceEccmFacts(
   }
 }
 
+/**
+ * @brief 根据关联压力与语义信息补充 ECCM 动作偏置。
+ * @param association_quality_info 当前周期关联质量摘要。
+ * @param selection 待累加的提案选择状态。
+ */
 void AccumulateAssociationDrivenBias(
     const common::AssociationQualityInfo& association_quality_info,
     EccmProposalSelection* selection) {
@@ -270,6 +370,12 @@ std::string DescribeAssociationSemantic(common::JammingSemantic semantic) {
   }
 }
 
+/**
+ * @brief 生成指定 ECCM proposal 的解释文本。
+ * @param type 控制意图类型。
+ * @param selection 当前提案选择状态。
+ * @return 对应 proposal 的 rationale 文本。
+ */
 std::string BuildProposalRationale(
     common::ControlDirectiveType type,
     const EccmProposalSelection& selection) {
@@ -312,6 +418,13 @@ std::string BuildProposalRationale(
   return rationale;
 }
 
+/**
+ * @brief 向提案列表追加一条 ECCM 控制意图。
+ * @param type 控制意图类型。
+ * @param priority 提案优先级。
+ * @param rationale 提案解释文本。
+ * @param proposals 提案输出列表。
+ */
 void AppendProposal(common::ControlDirectiveType type, int priority,
                     const std::string& rationale,
                     std::vector<pipeline::TacticalProposal>* proposals) {
@@ -322,6 +435,14 @@ void AppendProposal(common::ControlDirectiveType type, int priority,
       pipeline::TacticalProposal{BuildDirective(type), priority, rationale});
 }
 
+/**
+ * @brief 根据干扰事实与关联质量生成当前周期的 ECCM proposal 集合。
+ * @param source_info 当前周期 ECCM 输入摘要。
+ * @param association_quality_info 当前周期关联质量摘要。
+ * @param environment_jamming_detected 环境层是否直接报告干扰存在。
+ * @param hold_only 当前周期是否仅由 hold 机制维持 ECCM 输出。
+ * @param proposals 提案输出列表。
+ */
 void AppendEccmProposals(const common::EccmSourceInfo& source_info,
                          const common::AssociationQualityInfo& association_quality_info,
                          bool environment_jamming_detected,

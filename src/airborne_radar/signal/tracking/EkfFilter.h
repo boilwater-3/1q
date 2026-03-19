@@ -118,10 +118,7 @@ class LinearPositionMeasurementModel final : public IMeasurementModel {
  * @brief EKF 预测器配置。
  */
 struct EkfPredictorConfig {
-/**
- * @brief 过程噪声扩散系数 q。
- */
-  float noise_diff_coeff{1.0f};
+  float noise_diff_coeff{1.0f};  /**< 过程噪声扩散系数 q。 */
 };
 /**
  * @brief 扩展 Kalman 预测器。
@@ -156,10 +153,7 @@ class EkfPredictor final : public IKalmanPredictor {
  * @brief EKF 更新器配置。
  */
 struct EkfUpdaterConfig {
-/**
- * @brief 量测噪声标准差。
- */
-  float measurement_noise_std{10.0f};
+  float measurement_noise_std{10.0f};  /**< 量测噪声标准差。 */
 };
 /**
  * @brief 扩展 Kalman 更新器。

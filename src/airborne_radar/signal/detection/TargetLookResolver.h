@@ -17,18 +17,9 @@ namespace detection {
  * @brief TargetLookAnglesDeg 表示目标在雷达局部坐标系下的 look angle。
  */
 struct TargetLookAnglesDeg {
-/**
- * @brief 目标方位角（单位：度）。
- */
-  float look_az_deg{0.0f};
-/**
- * @brief 目标俯仰角（单位：度）。
- */
-  float look_el_deg{0.0f};
-/**
- * @brief 是否成功解析到有效角度。
- */
-  bool has_look_angles{false};
+  float look_az_deg{0.0f};   /**< 目标方位角（单位：度）。 */
+  float look_el_deg{0.0f};   /**< 目标俯仰角（单位：度）。 */
+  bool has_look_angles{false};  /**< 是否成功解析到有效角度。 */
 };
 /**
  * @brief TargetLookResolver 负责从雷达局部坐标解析目标 look angle。

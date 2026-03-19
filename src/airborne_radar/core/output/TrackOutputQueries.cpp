@@ -1,8 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-//
-// @file TrackOutputQueries.cpp
-// @brief 实现轨迹输出帧查询辅助函数。
-
 #include "1q/airborne_radar/core/output/TrackOutputQueries.h"
 
 namespace airborne_radar {

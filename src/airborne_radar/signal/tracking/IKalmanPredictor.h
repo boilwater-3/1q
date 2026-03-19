@@ -1,8 +1,6 @@
 /**
  * @file IKalmanPredictor.h
  * @brief 定义基于 Kalman 滤波的状态预测器抽象接口。
- * @author Antigravity
- * @date 2026-03-18
  */
 
 #ifndef AIRBORNE_RADAR_SIGNAL_TRACKING_I_KALMAN_PREDICTOR_H_
@@ -29,9 +27,6 @@ struct KalmanPredictorConfig {
  */
 class IKalmanPredictor {
  public:
-/**
- * @brief 析构函数。
- */
   virtual ~IKalmanPredictor() = default;
 /**
  * @brief 对先验状态执行时间外推预测。

@@ -1,17 +1,7 @@
-/**
- * @file RadarEquations.cpp
- * @brief 雷达物理方程纯函数库实现。
- * @details 核心公式提取自参考算法 RadarProcess.cpp，
- *          并与 Skolnik《Introduction to Radar Systems》及
- *          Richards《Exact and Approximate Detection Probability Formulas》交叉验证。
- */
-
 #include "airborne_radar/signal/detection/RadarEquations.h"
 
 #include <cmath>
 #include <algorithm>
-
-// Boost.Math 不完全 Gamma 函数（header-only）
 #include <boost/math/special_functions/gamma.hpp>
 
 namespace airborne_radar {
@@ -21,26 +11,35 @@ namespace detection {
 namespace {
 /**
  * @brief 光速 (m/s)。
+ * @note 代码行为依据：当前实现用该值完成波长与距离分辨力换算。
  */
 const float kLightSpeed = 3.0e8f;
 /**
  * @brief 玻尔兹曼常数 (J/K)。
+ * @note 代码行为依据：当前实现用该值计算热噪声功率 `k*T*B*F`。
  */
 const float kBoltzmann = 1.38064852e-23f;
 /**
  * @brief IEEE 标准参考温度 (K)。
+ * @note 代码行为依据：当前实现把热噪声参考温度固定为该值，与
+ *       `ComputeThermalNoisePower_W()` 的噪声底计算保持一致。
  */
 const float kRefTemperature = 290.0f;
 /**
  * @brief π 常数。
+ * @note 代码行为依据：当前实现用该值展开雷达方程中的 `4π` 项。
  */
 const float kPi = 3.14159265358979323846f;
 /**
  * @brief 防止 log10(0) 的极小值保护。
+ * @note 代码行为依据：当前实现把对数变换与 SNR 计算的最小输入钳制到该值，
+ *       避免出现 `-inf` 或数值下溢。
  */
 const float kEpsilon = 1e-30f;
 /**
  * @brief 将线性值转为 dB。
+ * @param linear 线性值。
+ * @return 对应的 dB 值。
  */
 float LinearToDb(float linear) {
   if (linear <= kEpsilon) {
@@ -50,12 +49,16 @@ float LinearToDb(float linear) {
 }
 /**
  * @brief 将 dB 转为线性值。
+ * @param db dB 值。
+ * @return 对应的线性值。
  */
 float DbToLinear(float db) {
   return std::pow(10.0f, db / 10.0f);
 }
 /**
  * @brief 钳位到 [0, 1]。
+ * @param pd 输入检测概率。
+ * @return 钳位后的检测概率。
  */
 float ClampPd(float pd) {
   if (pd < 0.0f) return 0.0f;
@@ -64,10 +67,6 @@ float ClampPd(float pd) {
 }
 
 }  // namespace
-
-// ===========================================================================
-// 回波功率、噪声、积累、测量精度（不变）
-// ===========================================================================
 
 float RadarEquations::ComputeEchoPowerWithGain_dBW(
     const TransmitterConfig& tx,
@@ -156,10 +155,6 @@ float RadarEquations::ComputeAngleErrorStdDev(
   return std_dev + angle_bias;
 }
 
-// ===========================================================================
-// 检测门限 T（方波检测器，N 脉冲非相参积累）
-// ===========================================================================
-
 double RadarEquations::ComputeThreshold(double pfa, int num_pulses) {
   if (pfa <= 0.0 || pfa >= 1.0) {
     pfa = 1e-6;
@@ -173,10 +168,6 @@ double RadarEquations::ComputeThreshold(double pfa, int num_pulses) {
   return boost::math::gamma_q_inv(
       static_cast<double>(num_pulses), pfa);
 }
-
-// ===========================================================================
-// 广义 Marcum Q 函数（Poisson 加权 gamma_q 级数）
-// ===========================================================================
 
 double RadarEquations::MarcumQ(int order, double a, double b) {
   // Q_M(a, b) = Σ_{k=0}^∞ [e^{-λ} · λ^k / k!] · Q(M+k, b²/2)
@@ -248,10 +239,6 @@ double RadarEquations::MarcumQ(int order, double a, double b) {
   if (sum > 1.0) return 1.0;
   return sum;
 }
-
-// ===========================================================================
-// Swerling 0~4 全模型检测概率（Richards 精确公式）
-// ===========================================================================
 
 float RadarEquations::ComputeDetectionProbability(
     float snr_db,
@@ -393,10 +380,6 @@ float RadarEquations::ComputeDetectionProbability(
 
   return ClampPd(static_cast<float>(pd));
 }
-
-// ===========================================================================
-// 蒙特卡洛判决
-// ===========================================================================
 
 bool RadarEquations::ThresholdDecision(
     float detection_prob,

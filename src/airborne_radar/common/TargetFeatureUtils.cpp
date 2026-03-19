@@ -1,8 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-//
-// @file TargetFeatureUtils.cpp
-// @brief 实现目标构造与几何规范化工具。
-
 #include "1q/airborne_radar/common/TargetFeatureUtils.h"
 
 #include <cmath>

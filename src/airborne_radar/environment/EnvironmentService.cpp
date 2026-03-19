@@ -1,8 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-//
-// @file EnvironmentService.cpp
-// @brief 实现环境层场景冻结、传播聚合与干扰事实生成。
-
 #include "airborne_radar/environment/EnvironmentService.h"
 
 #include <algorithm>
@@ -17,6 +12,11 @@ namespace environment {
 
 namespace {
 
+/**
+ * @brief 标记“当前不存在兼容旧版平铺字段的干扰源索引”的哨兵值。
+ * @note 代码行为依据：旧版干扰配置只在存在兼容提示时才会映射到额外 emitter，
+ *       该值用于区分“尚未建立兼容 emitter”与“已有有效索引”两种状态。
+ */
 constexpr std::size_t kNoLegacyJammerEmitterIndex =
     static_cast<std::size_t>(-1);
 /**

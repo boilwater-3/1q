@@ -1,5 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-
 /**
  * @file IChainProcessor.h
  * @brief 定义可复用的责任链处理器基础模板。

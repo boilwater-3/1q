@@ -23,29 +23,15 @@ namespace tracking {
 struct ImmModelState {
   ImmModelState() = default;
   ImmModelState(const GaussianTrackState &s, float w) : state(s), weight(w) {}
-/**
- * @brief 当前模型的高斯状态估计。
- */
-  GaussianTrackState state;
-/**
- * @brief 当前模型权重（概率）。
- */
-  float weight{0.0f};
+  GaussianTrackState state;  /**< 当前模型的高斯状态估计。 */
+  float weight{0.0f};  /**< 当前模型权重（概率）。 */
 };
 /**
  * @brief IMM 滤波器配置。
  */
 struct ImmConfig {
-/**
- * @brief 模型转移概率矩阵（N×N）。
- * @details pi(i,j) = P(模型j在k时刻 | 模型i在k-1时刻)。
- *          每行之和应为 1.0。
- */
-  Eigen::MatrixXf transition_probability;
-/**
- * @brief 各模型初始权重。
- */
-  Eigen::VectorXf initial_weights;
+  Eigen::MatrixXf transition_probability;  /**< 模型转移概率矩阵（N×N）。pi(i,j) = P(模型j在k时刻 | 模型i在k-1时刻)，每行之和应为 1.0。 */
+  Eigen::VectorXf initial_weights;  /**< 各模型初始权重。 */
 };
 /**
  * @brief 交互多模型（IMM）滤波器。
@@ -133,54 +119,18 @@ class ImmFilter {
  */
   static float GaussianLikelihood(const MeasurementVector &innovation,
                                   const MeasurementCovariance &S);
-/**
- * @brief 模型数量。
- */
-  int num_models_{0};
-/**
- * @brief IMM 配置。
- */
-  ImmConfig config_;
-/**
- * @brief 各模型的预测器。
- */
-  std::vector<const IKalmanPredictor *> predictors_;
-/**
- * @brief 各模型的更新器。
- */
-  std::vector<const IKalmanUpdater *> updaters_;
-/**
- * @brief 各模型分支状态。
- */
-  std::vector<ImmModelState> model_states_;
-/**
- * @brief 混合后的各模型状态（临时缓冲）。
- */
-  std::vector<GaussianTrackState> mixed_states_;
-/**
- * @brief 预测后的各模型状态（临时缓冲）。
- */
-  std::vector<GaussianTrackState> predicted_states_;
-/**
- * @brief 各模型更新结果缓冲，避免高频重复分配。
- */
-  std::vector<KalmanUpdateResult> update_results_;
-/**
- * @brief 各模型似然缓冲。
- */
-  Eigen::VectorXf likelihoods_;
-/**
- * @brief 各模型归一化常数缓冲。
- */
-  Eigen::VectorXf c_bar_;
-/**
- * @brief 各模型新权重缓冲。
- */
-  Eigen::VectorXf new_weights_;
-/**
- * @brief 组合后的最终状态。
- */
-  GaussianTrackState combined_state_;
+  int num_models_{0};  /**< 模型数量。 */
+  ImmConfig config_;  /**< IMM 配置。 */
+  std::vector<const IKalmanPredictor *> predictors_;  /**< 各模型的预测器。 */
+  std::vector<const IKalmanUpdater *> updaters_;  /**< 各模型的更新器。 */
+  std::vector<ImmModelState> model_states_;  /**< 各模型分支状态。 */
+  std::vector<GaussianTrackState> mixed_states_;  /**< 混合后的各模型状态（临时缓冲）。 */
+  std::vector<GaussianTrackState> predicted_states_;  /**< 预测后的各模型状态（临时缓冲）。 */
+  std::vector<KalmanUpdateResult> update_results_;  /**< 各模型更新结果缓冲，避免高频重复分配。 */
+  Eigen::VectorXf likelihoods_;  /**< 各模型似然缓冲。 */
+  Eigen::VectorXf c_bar_;  /**< 各模型归一化常数缓冲。 */
+  Eigen::VectorXf new_weights_;  /**< 各模型新权重缓冲。 */
+  GaussianTrackState combined_state_;  /**< 组合后的最终状态。 */
 };
 
 } // namespace tracking

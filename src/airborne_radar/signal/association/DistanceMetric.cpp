@@ -1,8 +1,3 @@
-/**
- * @file DistanceMetric.cpp
- * @brief 实现 Signal 层数据关联使用的距离度量算法。
- */
-
 #include "airborne_radar/signal/association/DistanceMetric.h"
 
 namespace airborne_radar {

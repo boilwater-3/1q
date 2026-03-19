@@ -1,5 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-
 /**
  * @file TacticalCoordinator.h
  * @brief 定义基于协调器模型的默认决策引擎。

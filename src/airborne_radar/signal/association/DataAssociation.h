@@ -1,5 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-
 /**
  * @file DataAssociation.h
  * @brief 定义基于距离度量与线性指派的数据关联组件。
@@ -29,122 +27,50 @@ namespace association {
  * @brief 数据关联配置。
  */
 struct DataAssociationConfig {
-/**
- * @brief 未分配虚拟槽代价上限。
- */
-  float unassigned_cost{9.0f};
-/**
- * @brief 位置关联使用的过程噪声扩散系数。
- */
-  float kalman_noise_diff_coeff{1.0f};
-/**
- * @brief 位置关联使用的默认量测噪声标准差（米）。
- */
-  float kalman_measurement_noise_std{10.0f};
+  float unassigned_cost{9.0f};  /**< 未分配虚拟槽代价上限。 */
+  float kalman_noise_diff_coeff{1.0f};  /**< 位置关联使用的过程噪声扩散系数。 */
+  float kalman_measurement_noise_std{10.0f};  /**< 位置关联使用的默认量测噪声标准差（米）。 */
 };
 /**
  * @brief 单个成功关联结果。
  */
 struct AssociationMatch {
-/**
- * @brief 默认构造。
- */
   AssociationMatch() = default;
 /**
  * @brief 参数构造。
  */
   AssociationMatch(std::uint64_t key, std::size_t target_idx, float c)
       : association_key(key), target_index(target_idx), cost(c) {}
-/**
- * @brief 稳定关联键。
- */
-  std::uint64_t association_key{0};
-/**
- * @brief 输入目标在当前批次中的索引。
- */
-  std::size_t target_index{0};
-/**
- * @brief 本次关联代价。
- */
-  float cost{0.0f};
+  std::uint64_t association_key{0};  /**< 稳定关联键。 */
+  std::size_t target_index{0};  /**< 输入目标在当前批次中的索引。 */
+  float cost{0.0f};  /**< 本次关联代价。 */
 };
 /**
  * @brief 一次关联计算的质量观测指标快照。
  */
 struct AssociationQualityMetrics {
-/**
- * @brief 进入关联阶段的历史先验轨迹数。
- */
-	std::size_t prior_track_count{0};
-/**
- * @brief 本周期探测成功并参与关联的量测数。
- */
-	std::size_t detection_count{0};
-/**
- * @brief 命中已有轨迹的关联数。
- */
-	std::size_t matched_count{0};
-/**
- * @brief 触发新建轨迹键的量测数。
- */
-	std::size_t new_track_count{0};
-/**
- * @brief 未命中任何量测的历史轨迹数。
- */
-	std::size_t missed_track_count{0};
-/**
- * @brief 命中率（matched_count / detection_count）。
- */
-	float match_rate{0.0f};
-/**
- * @brief 新生率（new_track_count / detection_count）。
- */
-	float new_track_rate{0.0f};
-/**
- * @brief 漏失率（missed_track_count / prior_track_count）。
- */
-	float missed_track_rate{0.0f};
-/**
- * @brief 命中关联代价均值（仅统计 matches）。
- */
-	float mean_match_cost{0.0f};
-/**
- * @brief 命中关联代价 P95（仅统计 matches）。
- */
-	float p95_match_cost{0.0f};
+  std::size_t prior_track_count{0};  /**< 进入关联阶段的历史先验轨迹数。 */
+  std::size_t detection_count{0};  /**< 本周期探测成功并参与关联的量测数。 */
+  std::size_t matched_count{0};  /**< 命中已有轨迹的关联数。 */
+  std::size_t new_track_count{0};  /**< 触发新建轨迹键的量测数。 */
+  std::size_t missed_track_count{0};  /**< 未命中任何量测的历史轨迹数。 */
+  float match_rate{0.0f};  /**< 命中率（matched_count / detection_count）。 */
+  float new_track_rate{0.0f};  /**< 新生率（new_track_count / detection_count）。 */
+  float missed_track_rate{0.0f};  /**< 漏失率（missed_track_count / prior_track_count）。 */
+  float mean_match_cost{0.0f};  /**< 命中关联代价均值（仅统计 matches）。 */
+  float p95_match_cost{0.0f};  /**< 命中关联代价 P95（仅统计 matches）。 */
 };
 /**
  * @brief 一次关联计算的完整输出。
  */
 struct AssociationResult {
-/**
- * @brief 成功命中已有轨迹的关联结果列表。
- */
-  std::vector<AssociationMatch> matches;
-/**
- * @brief 本周期未命中量测的历史轨迹键。
- */
-  std::vector<std::uint64_t> missed_track_keys;
-/**
- * @brief 本周期未命中历史轨迹、需要新建键的目标索引。
- */
-  std::vector<std::size_t> unassociated_target_indices;
-/**
- * @brief 与输入目标索引对齐的稳定关联键列表。
- */
-  std::vector<std::uint64_t> target_keys;
-/**
- * @brief 本周期是否实际执行了位置空间关联路径。
- */
-  bool used_position_association{false};
-/**
- * @brief 本周期是否使用了外部注入的轨迹种子作为关联先验。
- */
-  bool used_external_association_seeds{false};
-/**
- * @brief 本周期关联质量观测指标。
- */
-  AssociationQualityMetrics quality_metrics;
+  std::vector<AssociationMatch> matches;  /**< 成功命中已有轨迹的关联结果列表。 */
+  std::vector<std::uint64_t> missed_track_keys;  /**< 本周期未命中量测的历史轨迹键。 */
+  std::vector<std::size_t> unassociated_target_indices;  /**< 本周期未命中历史轨迹、需要新建键的目标索引。 */
+  std::vector<std::uint64_t> target_keys;  /**< 与输入目标索引对齐的稳定关联键列表。 */
+  bool used_position_association{false};  /**< 本周期是否实际执行了位置空间关联路径。 */
+  bool used_external_association_seeds{false};  /**< 本周期是否使用了外部注入的轨迹种子作为关联先验。 */
+  AssociationQualityMetrics quality_metrics;  /**< 本周期关联质量观测指标。 */
 };
 /**
  * @brief 数据关联引擎。
@@ -215,69 +141,33 @@ public:
   void ResetAssociationSeedModeToStateless();
 
 private:
-/**
- * @brief 关联先验状态来源模式。
- */
 	enum class AssociationSeedMode {
-/**
- * @brief 无 external seeds 时的无先验关联模式。
- */
-		kStateless = 0,
-/**
- * @brief 使用外部注入的 Lifecycle 轨迹种子。
- */
-		kExternalSeeds,
+		kStateless = 0,  /**< 无 external seeds 时的无先验关联模式。 */
+		kExternalSeeds,  /**< 使用外部注入的 Lifecycle 轨迹种子。 */
 	};
 /**
  * @brief 外部 Lifecycle 注入的关联种子签名。
  */
   struct ExternalSeedTrackSignature {
-/**
- * @brief 默认构造。
- */
     ExternalSeedTrackSignature() = default;
 /**
  * @brief 参数构造。
  */
 		explicit ExternalSeedTrackSignature(std::uint64_t k)
 				: key(k) {}
-/**
- * @brief 历史轨迹稳定键。
- */
-    std::uint64_t key{0};
-/**
- * @brief 当前轨迹是否具有笛卡尔位置量测。
- */
-		bool has_position{false};
-/**
- * @brief 当前轨迹位置量测/预测量测。
- */
-		Eigen::Vector3f position{Eigen::Vector3f::Zero()};
-/**
- * @brief 当前轨迹是否具有高斯状态。
- */
-		bool has_gaussian_state{false};
-/**
- * @brief 用于位置空间关联预测的高斯状态。
- */
-		tracking::GaussianTrackState gaussian_state;
+    std::uint64_t key{0};  /**< 历史轨迹稳定键。 */
+		bool has_position{false};  /**< 当前轨迹是否具有笛卡尔位置量测。 */
+		Eigen::Vector3f position{Eigen::Vector3f::Zero()};  /**< 当前轨迹位置量测/预测量测。 */
+		bool has_gaussian_state{false};  /**< 当前轨迹是否具有高斯状态。 */
+		tracking::GaussianTrackState gaussian_state;  /**< 用于位置空间关联预测的高斯状态。 */
   };
 /**
  * @brief 位置空间关联输入先验的统一视图。
  */
 	struct PositionAssociationPriors {
-/**
- * @brief 与预测轨迹按行对齐的稳定键列表。
- */
-		std::vector<std::uint64_t> keys;
-/**
- * @brief 进入位置空间代价计算的预测轨迹集合。
- */
-		FeatureVectorList predicted_tracks;
-/**
- * @brief 与预测轨迹按行对齐的投影协方差 HPH^T。
- */
-		std::vector<Eigen::Matrix3f> projected_measurement_covariances;
+		std::vector<std::uint64_t> keys;  /**< 与预测轨迹按行对齐的稳定键列表。 */
+		FeatureVectorList predicted_tracks;  /**< 进入位置空间代价计算的预测轨迹集合。 */
+		std::vector<Eigen::Matrix3f> projected_measurement_covariances;  /**< 与预测轨迹按行对齐的投影协方差 HPH^T。 */
 	};
 /**
  * @brief 构建笛卡尔位置量测向量。
@@ -328,42 +218,15 @@ private:
  */
   PositionAssociationPriors BuildExternalPositionAssociationPriors(
       const std::vector<ExternalSeedTrackSignature> &external_priors) const;
-/**
- * @brief 当前引擎配置。
- */
-  DataAssociationConfig config_{};
-/**
- * @brief 完整协方差位置空间马氏距离度量实现。
- */
-  FullMahalanobisDistanceMetric full_distance_metric_;
-/**
- * @brief 基于代价阈值的波门器。
- */
-  CostThresholdGater gater_;
-/**
- * @brief 位置空间候选假设生成器。
- */
-  DenseCostHypothesiser position_hypothesiser_;
-/**
- * @brief LAPJV 指派求解器。
- */
-  LapjvSolver assignment_solver_;
-/**
- * @brief 位置空间关联使用的内部预测器。
- */
-  tracking::KalmanPredictor kalman_predictor_;
-/**
- * @brief 下一次分配给新目标的稳定键。
- */
-  std::uint64_t next_key_{1};
-/**
- * @brief 当前周期外部注入的 Lifecycle 轨迹种子缓存。
- */
-	std::vector<ExternalSeedTrackSignature> external_seed_tracks_;
-/**
- * @brief 当前周期关联先验状态来源模式。
- */
-  AssociationSeedMode association_seed_mode_{AssociationSeedMode::kStateless};
+  DataAssociationConfig config_{};  /**< 当前引擎配置。 */
+  FullMahalanobisDistanceMetric full_distance_metric_;  /**< 完整协方差位置空间马氏距离度量实现。 */
+  CostThresholdGater gater_;  /**< 基于代价阈值的波门器。 */
+  DenseCostHypothesiser position_hypothesiser_;  /**< 位置空间候选假设生成器。 */
+  LapjvSolver assignment_solver_;  /**< LAPJV 指派求解器。 */
+  tracking::KalmanPredictor kalman_predictor_;  /**< 位置空间关联使用的内部预测器。 */
+  std::uint64_t next_key_{1};  /**< 下一次分配给新目标的稳定键。 */
+	std::vector<ExternalSeedTrackSignature> external_seed_tracks_;  /**< 当前周期外部注入的 Lifecycle 轨迹种子缓存。 */
+  AssociationSeedMode association_seed_mode_{AssociationSeedMode::kStateless};  /**< 当前周期关联先验状态来源模式。 */
 };
 
 } // namespace association

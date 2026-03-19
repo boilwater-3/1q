@@ -1,5 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-
 /**
  * @file BeamControlResolver.h
  * @brief 定义波束控制与方向图增益解析的私有工具。
@@ -26,18 +24,9 @@ namespace detection {
  * @brief ResolvedBeamState 表示当前探测使用的波束状态。
  */
 struct ResolvedBeamState {
-/**
- * @brief 生效方位/俯仰波束宽度。
- */
-  EffectiveBeamwidthDeg effective_beamwidth_deg;
-/**
- * @brief 挂架坐标系下的当前波束中心。
- */
-  common::AzimuthElevationDeg beam_pointing_deg;
-/**
- * @brief 当前目标方向上的单程天线增益（dB）。
- */
-  float one_way_antenna_gain_db{0.0f};
+  EffectiveBeamwidthDeg effective_beamwidth_deg;  /**< 生效方位/俯仰波束宽度。 */
+  common::AzimuthElevationDeg beam_pointing_deg;  /**< 挂架坐标系下的当前波束中心。 */
+  float one_way_antenna_gain_db{0.0f};  /**< 当前目标方向上的单程天线增益（dB）。 */
 };
 /**
  * @brief BeamControlResolver 负责组合波束宽度、指向与方向图增益。

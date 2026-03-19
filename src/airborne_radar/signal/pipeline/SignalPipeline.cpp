@@ -1,8 +1,3 @@
-/**
- * @file SignalPipeline.cpp
- * @brief 实现 SignalPipeline 的显式步骤编排、关联质量聚合与默认生命周期衔接。
- */
-
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 
 #include <algorithm>
@@ -372,6 +367,9 @@ Eigen::Vector3f ResolveAccelerationVector(const common::TargetFeature& target) {
 }
 /**
  * @brief 约束控制比例，避免非法值污染运行时配置。
+ * @param scale 待校验比例。
+ * @param fallback 非法输入时的回退值。
+ * @return 合法比例或回退值。
  */
 float ClampProfileScale(float scale, float fallback) {
   if (!std::isfinite(scale) || scale <= 0.0f) {
@@ -381,18 +379,26 @@ float ClampProfileScale(float scale, float fallback) {
 }
 /**
  * @brief 约束浮点范围，避免 profile 将配置推到非法区间。
+ * @param value 输入值。
+ * @param min_value 下界。
+ * @param max_value 上界。
+ * @return 钳位后的结果。
  */
 float ClampFloat(float value, float min_value, float max_value) {
   return std::max(min_value, std::min(max_value, value));
 }
 /**
  * @brief 将 dB 功率转换为线性功率（W）。
+ * @param power_db dB 功率值。
+ * @return 对应的线性功率。
  */
 float DbToLinearPower(float power_db) {
   return std::pow(10.0f, power_db / 10.0f);
 }
 /**
  * @brief 判断环境快照中是否携带多源干扰事实。
+ * @param environment_snapshot 当前周期环境快照。
+ * @return 至少存在一个显式干扰源事实时返回 true。
  */
 bool HasMultiSourceJammingFacts(
     const environment::EnvironmentSnapshot& environment_snapshot) {
@@ -400,6 +406,8 @@ bool HasMultiSourceJammingFacts(
 }
 /**
  * @brief 解析干扰事实置信度权重。
+ * @param jammer_source 单个干扰源事实。
+ * @return 归一化后的置信度权重。
  */
 float ResolveJammerConfidenceWeight(
     const environment::JammerSourceFact& jammer_source) {
@@ -407,6 +415,9 @@ float ResolveJammerConfidenceWeight(
 }
 /**
  * @brief 计算控制 profile 对单个干扰源的残余作用系数。
+ * @param control_profile 当前控制真值。
+ * @param jammer_source 单个干扰源事实。
+ * @return ECCM 动作作用后的残余干扰系数。
  */
 float ComputeResidualJammerFactor(
     const common::RadarControlProfile& control_profile,
@@ -466,6 +477,8 @@ float ComputeResidualJammerFactor(
 }
 /**
  * @brief 计算单个干扰源对经验检测的惩罚项。
+ * @param jammer_source 单个干扰源事实。
+ * @return 对经验检测链路的惩罚量（dB）。
  */
 float ComputeHeuristicSourcePenaltyDb(
     const environment::JammerSourceFact& jammer_source) {
@@ -500,6 +513,8 @@ float ComputeHeuristicSourcePenaltyDb(
 }
 /**
  * @brief 计算多源干扰对经验检测的总惩罚项。
+ * @param environment_snapshot 当前周期环境快照。
+ * @return 多源干扰的累计惩罚量（dB）。
  */
 float ComputeHeuristicJammingPenaltyDb(
     const environment::EnvironmentSnapshot& environment_snapshot) {
@@ -527,6 +542,8 @@ float ComputeHeuristicJammingPenaltyDb(
 }
 /**
  * @brief 计算单个干扰源的等效 jam 噪声功率贡献。
+ * @param jammer_source 单个干扰源事实。
+ * @return 等效 jam 噪声功率贡献（W）。
  */
 float ComputePhysicalSourceJamContributionW(
     const environment::JammerSourceFact& jammer_source) {
@@ -551,6 +568,9 @@ float ComputePhysicalSourceJamContributionW(
 }
 /**
  * @brief 计算多源干扰对量测协方差的膨胀因子。
+ * @param control_profile 当前控制真值。
+ * @param environment_snapshot 当前周期环境快照。
+ * @return 量测协方差膨胀因子。
  */
 float ComputeMeasurementCovarianceInflation(
     const common::RadarControlProfile& control_profile,
@@ -589,6 +609,8 @@ float ComputeMeasurementCovarianceInflation(
 }
 /**
  * @brief 将环境层干扰技术映射为轨迹级摘要语义。
+ * @param technique 环境层干扰技术。
+ * @return 轨迹级干扰语义。
  */
 common::JammingSemantic ToJammingSemantic(
     environment::JammingTechnique technique) {
@@ -606,6 +628,9 @@ common::JammingSemantic ToJammingSemantic(
 }
 /**
  * @brief 估算单个干扰源对轨迹级残余干扰强度的贡献。
+ * @param control_profile 当前控制真值。
+ * @param jammer_source 单个干扰源事实。
+ * @return 轨迹级残余干扰强度贡献。
  */
 float ComputeTrackLevelJammingContribution(
     const common::RadarControlProfile& control_profile,
@@ -645,6 +670,9 @@ float ComputeTrackLevelJammingContribution(
 }
 /**
  * @brief 汇总环境快照的主导干扰语义。
+ * @param control_profile 当前控制真值。
+ * @param environment_snapshot 当前周期环境快照。
+ * @return 当前周期主导干扰语义。
  */
 common::JammingSemantic ResolveDominantJammingSemantic(
     const common::RadarControlProfile& control_profile,
@@ -711,6 +739,9 @@ common::JammingSemantic ResolveDominantJammingSemantic(
 }
 /**
  * @brief 汇总环境快照的轨迹级残余干扰强度。
+ * @param control_profile 当前控制真值。
+ * @param environment_snapshot 当前周期环境快照。
+ * @return 当前周期轨迹级残余干扰强度。
  */
 float ComputeTrackLevelJammingSeverity(
     const common::RadarControlProfile& control_profile,
@@ -740,6 +771,9 @@ float ComputeTrackLevelJammingSeverity(
 }
 /**
  * @brief 把多源干扰事实传播到关联/跟踪运行时统计量。
+ * @param control_profile 当前控制真值。
+ * @param environment_snapshot 当前周期环境快照。
+ * @param runtime_config [in,out] 待调整的运行时配置。
  */
 void ApplyEnvironmentJammingFactsToRuntimeConfig(
     const common::RadarControlProfile& control_profile,
@@ -796,6 +830,7 @@ void ApplyEnvironmentJammingFactsToRuntimeConfig(
 }
 /**
  * @brief 归一化 IMM 初始权重，避免 profile 调整后破坏概率约束。
+ * @param weights [in,out] 待归一化的权重数组。
  */
 void NormalizeImmInitialWeights(std::vector<float>* weights) {
   if (weights == nullptr || weights->empty()) {
@@ -822,6 +857,8 @@ void NormalizeImmInitialWeights(std::vector<float>* weights) {
 }
 /**
  * @brief 将线性比例转换为 dB 修正量。
+ * @param linear_scale 线性比例。
+ * @return 对应的 dB 修正量。
  */
 float ToDbDelta(float linear_scale) {
   const float clamped_scale = ClampProfileScale(linear_scale, 1.0f);
@@ -829,6 +866,8 @@ float ToDbDelta(float linear_scale) {
 }
 /**
  * @brief 计算控制 profile 对波束宽度的收缩比例。
+ * @param control_profile 当前控制真值。
+ * @return 波束宽度比例。
  */
 float ResolveBeamwidthScale(const common::RadarControlProfile& control_profile) {
   float beamwidth_scale = 1.0f;
@@ -842,6 +881,8 @@ float ResolveBeamwidthScale(const common::RadarControlProfile& control_profile) 
 }
 /**
  * @brief 计算 profile 对经验检测项的信号修正。
+ * @param control_profile 当前控制真值。
+ * @return 对经验信号项的修正量（dB）。
  */
 float ComputeHeuristicSignalAdjustmentDb(
     const common::RadarControlProfile& control_profile) {
@@ -859,6 +900,9 @@ float ComputeHeuristicSignalAdjustmentDb(
 }
 /**
  * @brief 计算 profile 对经验环境惩罚项的抵消量。
+ * @param control_profile 当前控制真值。
+ * @param environment_snapshot 当前周期环境快照。
+ * @return 对经验环境惩罚项的抵消量（dB）。
  */
 float ComputeHeuristicEnvironmentReliefDb(
     const common::RadarControlProfile& control_profile,
@@ -908,6 +952,8 @@ float ComputeHeuristicEnvironmentReliefDb(
 }
 /**
  * @brief 将控制 profile 映射为当前周期生效的运行时配置。
+ * @param control_profile 当前控制真值。
+ * @param runtime_config [in,out] 待调整的运行时配置。
  */
 void ApplyControlProfileToConfig(const common::RadarControlProfile& control_profile,
                                  SignalPipelineConfig* runtime_config) {

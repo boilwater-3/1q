@@ -1,5 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-
 /**
  * @file GaussianTrackState.h
  * @brief 定义高斯状态表示，用于 Kalman 滤波系列的状态预测与更新。
@@ -62,17 +60,8 @@ using KalmanGainMatrix = Eigen::Matrix<float, kStateDim, kMeasurementDim>;
  */
 struct GaussianTrackState {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-/**
- * @brief 状态均值向量。
- */
-  StateVector mean{StateVector::Zero()};
-/**
- * @brief 状态协方差矩阵。
- */
-  StateCovariance covariance{StateCovariance::Identity()};
-/**
- * @brief 默认构造函数。
- */
+  StateVector mean{StateVector::Zero()};  /**< 状态均值向量。 */
+  StateCovariance covariance{StateCovariance::Identity()};  /**< 状态协方差矩阵。 */
   GaussianTrackState() = default;
 /**
  * @brief 从均值和协方差构造。

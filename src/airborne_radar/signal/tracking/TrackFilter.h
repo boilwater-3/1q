@@ -16,48 +16,21 @@ namespace tracking {
  * @brief 轨迹滤波器配置参数。
  */
 struct TrackFilterConfig {
-/**
- * @brief 失配时的速度衰减系数。
- */
-  float speed_decay_ratio_on_loss{0.90f};
-/**
- * @brief 失配时的 RCS 衰减系数。
- */
-  float rcs_decay_ratio_on_loss{0.85f};
-/**
- * @brief 干扰时的加速度惩罚系数。
- */
-  float jamming_acceleration_penalty{0.5f};
-/**
- * @brief 稳定状态下的加速度增益。
- */
-  float stable_acceleration_gain{0.05f};
+  float speed_decay_ratio_on_loss{0.90f};  /**< 失配时的速度衰减系数。 */
+  float rcs_decay_ratio_on_loss{0.85f};  /**< 失配时的 RCS 衰减系数。 */
+  float jamming_acceleration_penalty{0.5f};  /**< 干扰时的加速度惩罚系数。 */
+  float stable_acceleration_gain{0.05f};  /**< 稳定状态下的加速度增益。 */
 };
 /**
  * @brief 轨迹滤波器处理上下文。
  */
 struct TrackFilterContext {
-/**
- * @brief 本周期是否检测成功。
- */
-  bool detection_succeeded{false};
-/**
- * @brief 是否探测到干扰。
- */
-  bool jamming_detected{false};
-/**
- * @brief 主要干扰语义类型。
- */
+  bool detection_succeeded{false};  /**< 本周期是否检测成功。 */
+  bool jamming_detected{false};  /**< 是否探测到干扰。 */
   common::JammingSemantic dominant_jamming_semantic{
-      common::JammingSemantic::kNone};
-/**
- * @brief 干扰严重程度。
- */
-  float jamming_severity{0.0f};
-/**
- * @brief 检测余量（dB）。
- */
-  float detection_margin_db{0.0f};
+      common::JammingSemantic::kNone};  /**< 主要干扰语义类型。 */
+  float jamming_severity{0.0f};  /**< 干扰严重程度。 */
+  float detection_margin_db{0.0f};  /**< 检测余量（dB）。 */
 };
 /**
  * @brief 预测后的轨迹状态。
@@ -153,7 +126,7 @@ class SimpleTrackUpdater final : public ITrackUpdater {
   void UpdateConfig(TrackFilterConfig config);
 
  private:
-  TrackFilterConfig config_{};
+  TrackFilterConfig config_{};  /**< 更新器配置。 */
 };
 /**
  * @brief 综合轨迹滤波器。
@@ -180,8 +153,8 @@ class TrackFilter final {
   void UpdateConfig(TrackFilterConfig config);
 
 private:
-	IdentityTrackPredictor predictor_{};
-	SimpleTrackUpdater updater_{};
+  IdentityTrackPredictor predictor_{};  /**< 轻量预测器实现。 */
+  SimpleTrackUpdater updater_{};  /**< 轻量更新器实现。 */
 };
 
 } // namespace tracking

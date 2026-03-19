@@ -1,8 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-//
-// @file ConfigPresets.cpp
-// @brief 实现面向外部调用方的常用配置预设工厂。
-
 #include "1q/airborne_radar/common/ConfigPresets.h"
 
 namespace airborne_radar {

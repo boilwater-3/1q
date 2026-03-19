@@ -1,8 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-//
-// @file RadarSession.cpp
-// @brief 实现面向外部接入的雷达高层会话门面。
-
 #include "1q/airborne_radar/core/session/RadarSession.h"
 
 #include "airborne_radar/core/context/MutableRadarContext.h"

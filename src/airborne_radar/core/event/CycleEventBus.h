@@ -1,5 +1,3 @@
-// Copyright 2026. All Rights Reserved.
-
 /**
  * @file CycleEventBus.h
  * @brief 定义基于 eventpp::EventQueue 的周期事件总线实现。
