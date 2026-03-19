@@ -207,18 +207,51 @@ TEST(PublicApiConvenienceTest,
 
 TEST(PublicApiConvenienceTest,
      EnvironmentSceneBuilderJammerHelpersPopulateTypedEmitters) {
+  environment::JammerEmitterParams noise_params_1;
+  noise_params_1.power_db = 11.0f;
+  noise_params_1.js_db = 8.0f;
+  noise_params_1.frequency_overlap_ratio = 0.2f;
+  noise_params_1.prf_lock_risk = 0.1f;
+  noise_params_1.in_sidelobe = true;
+  noise_params_1.azimuth_deg = 12.0f;
+  noise_params_1.elevation_deg = 1.0f;
+  noise_params_1.angular_span_deg = 5.0f;
+  noise_params_1.confidence = 0.9f;
+
+  environment::JammerEmitterParams deception_params;
+  deception_params.power_db = 9.0f;
+  deception_params.js_db = 7.5f;
+  deception_params.frequency_overlap_ratio = 0.9f;
+  deception_params.prf_lock_risk = 0.8f;
+  deception_params.in_sidelobe = false;
+  deception_params.azimuth_deg = -8.0f;
+  deception_params.elevation_deg = 2.5f;
+  deception_params.angular_span_deg = 3.0f;
+  deception_params.confidence = 0.8f;
+
+  environment::JammerEmitterParams repeater_params;
+  repeater_params.power_db = 8.5f;
+  repeater_params.js_db = 6.5f;
+  repeater_params.frequency_overlap_ratio = 0.1f;
+  repeater_params.prf_lock_risk = 0.95f;
+  repeater_params.in_sidelobe = false;
+  repeater_params.azimuth_deg = 4.0f;
+  repeater_params.elevation_deg = -1.0f;
+  repeater_params.angular_span_deg = 2.0f;
+  repeater_params.confidence = 0.7f;
+
   const environment::EnvironmentSceneState scene =
       environment::EnvironmentSceneBuilder()
           .SetBasePropagationLossDb(5.5f)
           .SetAtmosphericAttenuationDb(2.0f)
           .SetTerrainReflectionDb(1.2f)
           .SetClutterPowerDb(4.5f)
-          .AddNoiseJammer(11.0f, 8.0f, 0.2f, 0.1f, true, 12.0f, 1.0f, 5.0f,
-                          0.9f)
-          .AddDeceptionJammer(9.0f, 7.5f, 0.9f, 0.8f, false, -8.0f, 2.5f, 3.0f,
-                              0.8f)
-          .AddRepeaterJammer(8.5f, 6.5f, 0.1f, 0.95f, false, 4.0f, -1.0f, 2.0f,
-                             0.7f)
+          .AddNoiseJammer(environment::BuildTypedJammerEmitter(
+              environment::JammingTechnique::kNoiseSuppression, noise_params_1))
+          .AddDeceptionJammer(environment::BuildTypedJammerEmitter(
+              environment::JammingTechnique::kDeception, deception_params))
+          .AddRepeaterJammer(environment::BuildTypedJammerEmitter(
+              environment::JammingTechnique::kRepeater, repeater_params))
           .Build();
 
   ASSERT_EQ(scene.jammer_emitters.size(), 3U);
@@ -417,9 +450,17 @@ TEST(PublicApiConvenienceTest,
           common::MakeAirTarget(602U, 240.0f, 8.0f, 18.0f, 76.0f, 0.5f, 0.0f,
                                 1.1f),
       });
+  environment::JammerEmitterParams noise_params_2;
+  noise_params_2.power_db = 12.0f;
+  noise_params_2.js_db = 8.0f;
+  noise_params_2.frequency_overlap_ratio = 0.2f;
+  noise_params_2.prf_lock_risk = 0.1f;
+  noise_params_2.in_sidelobe = true;
+
   const environment::EnvironmentSceneState scene =
       environment::EnvironmentSceneBuilder()
-          .AddNoiseJammer(12.0f, 8.0f, 0.2f, 0.1f, true)
+          .AddNoiseJammer(environment::BuildTypedJammerEmitter(
+              environment::JammingTechnique::kNoiseSuppression, noise_params_2))
           .Build();
 
   const common::TrackOutputFrame session_frame = session.Step(input, scene);
@@ -493,9 +534,17 @@ TEST(PublicApiConvenienceTest,
   for (std::size_t i = 0; i < cycle_2.target_features.size(); ++i) {
     cycle_2.target_features[i].position_x += 5.0f;
   }
+  environment::JammerEmitterParams noise_params_3;
+  noise_params_3.power_db = 12.0f;
+  noise_params_3.js_db = 8.0f;
+  noise_params_3.frequency_overlap_ratio = 0.2f;
+  noise_params_3.prf_lock_risk = 0.1f;
+  noise_params_3.in_sidelobe = true;
+
   const common::TrackOutputFrame frame_2 = session.Step(
       cycle_2, environment::EnvironmentSceneBuilder()
-                   .AddNoiseJammer(12.0f, 8.0f, 0.2f, 0.1f, true)
+                   .AddNoiseJammer(environment::BuildTypedJammerEmitter(
+                       environment::JammingTechnique::kNoiseSuppression, noise_params_3))
                    .Build());
   EXPECT_GT(frame_2.published_track_count, 0U);
   EXPECT_GT(core::output::CountJammingTracks(frame_2), 0U);
@@ -562,9 +611,17 @@ TEST(PublicApiConvenienceTest,
           common::MakeAirTarget(960U, 180.0f, -4.0f, 16.0f, 60.0f, 0.0f, 0.0f,
                                 1.0f),
       });
+  environment::JammerEmitterParams noise_params_5;
+  noise_params_5.power_db = 12.0f;
+  noise_params_5.js_db = 8.0f;
+  noise_params_5.frequency_overlap_ratio = 0.2f;
+  noise_params_5.prf_lock_risk = 0.1f;
+  noise_params_5.in_sidelobe = true;
+
   const environment::EnvironmentSceneState scene =
       environment::EnvironmentSceneBuilder()
-          .AddNoiseJammer(12.0f, 8.0f, 0.2f, 0.1f, true)
+          .AddNoiseJammer(environment::BuildTypedJammerEmitter(
+              environment::JammingTechnique::kNoiseSuppression, noise_params_5))
           .Build();
 
   const core::session::RadarCycleResult session_result =
