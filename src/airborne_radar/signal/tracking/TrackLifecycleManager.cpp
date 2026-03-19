@@ -20,10 +20,11 @@ namespace signal {
 namespace tracking {
 
 namespace {
-
-/// @brief 将内部轨迹状态映射为决策层轨迹状态。
-/// @param status 内部轨迹状态。
-/// @return 决策层可见的轨迹状态。
+/**
+ * @brief 将内部轨迹状态映射为决策层轨迹状态。
+ * @param status 内部轨迹状态。
+ * @return 决策层可见的轨迹状态。
+ */
 common::DecisionTrackStatus ToDecisionTrackStatus(common::TrackStatus status) {
   switch (status) {
     case common::TrackStatus::kConfirmed:
@@ -36,14 +37,16 @@ common::DecisionTrackStatus ToDecisionTrackStatus(common::TrackStatus status) {
       return common::DecisionTrackStatus::kTentative;
   }
 }
-
-/// @brief WorkItemKind 描述单条轨迹工作单元的命中类型。
+/**
+ * @brief WorkItemKind 描述单条轨迹工作单元的命中类型。
+ */
 enum class WorkItemKind {
   kHit = 0,
   kMiss
 };
-
-/// @brief TrackUpdateWorkItem 表示单条轨迹在计算阶段的只读输入。
+/**
+ * @brief TrackUpdateWorkItem 表示单条轨迹在计算阶段的只读输入。
+ */
 struct TrackUpdateWorkItem {
   std::uint64_t association_key{0};
   WorkItemKind kind{WorkItemKind::kMiss};
@@ -55,16 +58,18 @@ struct TrackUpdateWorkItem {
   common::TrackStatus status_before_update{common::TrackStatus::kTentative};
   common::TrackState track_before_update;
 };
-
-/// @brief TrackUpdateResult 表示单条轨迹计算阶段产出的写回结果。
+/**
+ * @brief TrackUpdateResult 表示单条轨迹计算阶段产出的写回结果。
+ */
 struct TrackUpdateResult {
   std::uint64_t association_key{0};
   common::TrackState *track{nullptr};
   common::TrackState track_after_update;
   bool should_recycle{false};
 };
-
-/// @brief LifecycleUpdateScratch 聚合单周期生命周期更新的中间缓存。
+/**
+ * @brief LifecycleUpdateScratch 聚合单周期生命周期更新的中间缓存。
+ */
 struct LifecycleUpdateScratch {
   std::unordered_map<std::uint64_t, const TrackMeasurement *> measurement_by_key;
   std::unordered_map<std::uint64_t, common::TrackState> track_snapshots;
@@ -76,10 +81,11 @@ struct LifecycleUpdateScratch {
   std::size_t updated_track_count{0};
   std::size_t predicted_without_hit_count{0};
 };
-
-/// @brief 将位置量测写入滤波观测向量。
-/// @param measurement 当前量测。
-/// @return 供滤波器消费的观测向量。
+/**
+ * @brief 将位置量测写入滤波观测向量。
+ * @param measurement 当前量测。
+ * @return 供滤波器消费的观测向量。
+ */
 MeasurementVector BuildMeasurementVector(const TrackMeasurement &measurement) {
   MeasurementVector z;
   z(0) = measurement.raw_measurement.position(0);
@@ -87,10 +93,11 @@ MeasurementVector BuildMeasurementVector(const TrackMeasurement &measurement) {
   z(2) = measurement.raw_measurement.position(2);
   return z;
 }
-
-/// @brief 依据干扰态势补充局部失配容忍度。
-/// @param track 当前轨迹状态。
-/// @return 当前轨迹可获得的额外失配容忍周期数。
+/**
+ * @brief 依据干扰态势补充局部失配容忍度。
+ * @param track 当前轨迹状态。
+ * @return 当前轨迹可获得的额外失配容忍周期数。
+ */
 std::uint32_t ResolveLocalMissToleranceBonus(const common::TrackState &track) {
   if (!track.jamming_detected || track.jamming_severity < 0.35f) {
     return 0U;
@@ -208,11 +215,12 @@ bool TrackLifecycleManager::ShouldUseImmForMiss(
 
   return status_before_prediction == common::TrackStatus::kConfirmed;
 }
-
-/// @brief 获取或创建指定 key 的 IMM 运行态。
-/// @param association_key 关联键。
-/// @param initial_state 初始化状态。
-/// @return IMM 运行态指针；创建失败时返回 nullptr。
+/**
+ * @brief 获取或创建指定 key 的 IMM 运行态。
+ * @param association_key 关联键。
+ * @param initial_state 初始化状态。
+ * @return IMM 运行态指针；创建失败时返回 nullptr。
+ */
 ImmFilter *TrackLifecycleManager::GetOrCreateImmFilter(
     std::uint64_t association_key, const GaussianTrackState &initial_state) {
   std::unordered_map<std::uint64_t, std::unique_ptr<ImmFilter> >::iterator found =
@@ -238,10 +246,11 @@ ImmFilter *TrackLifecycleManager::GetOrCreateImmFilter(
   imm_filters_by_key_[association_key] = std::move(filter);
   return filter_ptr;
 }
-
-/// @brief 查找指定 key 的 IMM 运行态。
-/// @param association_key 关联键。
-/// @return 命中时返回运行态指针，否则返回 nullptr。
+/**
+ * @brief 查找指定 key 的 IMM 运行态。
+ * @param association_key 关联键。
+ * @return 命中时返回运行态指针，否则返回 nullptr。
+ */
 ImmFilter *TrackLifecycleManager::FindImmFilter(
     std::uint64_t association_key) const {
   std::unordered_map<std::uint64_t, std::unique_ptr<ImmFilter> >::const_iterator
@@ -251,12 +260,13 @@ ImmFilter *TrackLifecycleManager::FindImmFilter(
   }
   return found->second.get();
 }
-
-/// @brief 将高斯状态回写至轨迹状态。
-/// @param track 轨迹对象。
-/// @param state 高斯状态。
-/// @param previous_velocity 回写前速度。
-/// @param dt 时间步长（秒）。
+/**
+ * @brief 将高斯状态回写至轨迹状态。
+ * @param track 轨迹对象。
+ * @param state 高斯状态。
+ * @param previous_velocity 回写前速度。
+ * @param dt 时间步长（秒）。
+ */
 void TrackLifecycleManager::ApplyGaussianState(common::TrackState &track,
                                                const GaussianTrackState &state,
                                                const Eigen::Vector3f &previous_velocity,

@@ -1,7 +1,9 @@
 // Copyright 2026. All Rights Reserved.
-//
-// @file SignalPipeline.h
-// @brief 定义信号处理流水线的默认内部实现。
+
+/**
+ * @file SignalPipeline.h
+ * @brief 定义信号处理流水线的默认内部实现。
+ */
 
 #ifndef AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_SIGNAL_PIPELINE_H_
 #define AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_SIGNAL_PIPELINE_H_
@@ -16,8 +18,9 @@
 namespace airborne_radar {
 namespace signal {
 namespace pipeline {
-
-/// @brief SignalPipeline 提供可配置的信号处理默认实现。
+/**
+ * @brief SignalPipeline 提供可配置的信号处理默认实现。
+ */
 class SignalPipeline final : public ISignalPipeline {
  public:
   explicit SignalPipeline(SignalPipelineConfig config = {});

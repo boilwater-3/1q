@@ -1,7 +1,9 @@
 // Copyright 2026. All Rights Reserved.
-//
-// @file RadarEvents.h
-// @brief 定义雷达核心流程对外发布的事件类型。
+
+/**
+ * @file RadarEvents.h
+ * @brief 定义雷达核心流程对外发布的事件类型。
+ */
 
 #ifndef AIRBORNE_RADAR_CORE_EVENT_RADAR_EVENTS_H_
 #define AIRBORNE_RADAR_CORE_EVENT_RADAR_EVENTS_H_
@@ -17,88 +19,72 @@ namespace airborne_radar {
 namespace core {
 namespace event {
 
-/// @brief TracksUpdatedEvent 表示本周期的航迹状态已更新。
+/**
+ * @brief 表示本周期的航迹状态已更新。
+ */
 struct TracksUpdatedEvent {
-  /// @brief 信号处理后的最新雷达状态。
-  common::TargetFeatureList state{};
+  common::TargetFeatureList state{}; /**< 信号处理后的最新雷达状态。 */
 };
 
-/// @brief TrackOutputPublishedEvent 表示中性轨迹输出帧已发布。
+/**
+ * @brief 表示中性轨迹输出帧已发布。
+ */
 struct TrackOutputPublishedEvent {
-  /// @brief 当前周期发布的中性轨迹输出帧。
-  common::TrackOutputFrame frame{};
+  common::TrackOutputFrame frame{}; /**< 当前周期发布的中性轨迹输出帧。 */
 };
 
-/// @brief JammingAlertEvent 表示检测到电子干扰告警。
+/**
+ * @brief 表示检测到电子干扰告警。
+ */
 struct JammingAlertEvent {
-  /// @brief 干扰是否被检测到。
-  bool detected{false};
+  bool detected{false}; /**< 干扰是否被检测到。 */
 };
 
-/// @brief CommandsSubmittedEvent 表示命令已提交到硬件层。
+/**
+ * @brief 表示命令已提交到硬件层。
+ */
 struct CommandsSubmittedEvent {
-  /// @brief 本周期提交命令数量。
-  std::size_t command_count{0};
+  std::size_t command_count{0}; /**< 本周期提交的命令数量。 */
 };
 
-/// @brief RadarCycleCompletedEvent 表示单次雷达处理循环完成事件。
+/**
+ * @brief 表示单次雷达处理循环完成。
+ */
 struct RadarCycleCompletedEvent {
-  /// @brief 本周期提交到硬件层的命令数量。
-  std::size_t command_count{0};
-
-  /// @brief 本周期是否检测到干扰。
-  bool jamming_detected{false};
+  std::size_t command_count{0}; /**< 本周期提交到硬件层的命令数量。 */
+  bool jamming_detected{false}; /**< 本周期是否检测到干扰。 */
 };
 
-/// @brief ControlProfileUpdatedEvent 表示控制真值已经更新。
+/**
+ * @brief 表示控制真值已经更新。
+ */
 struct ControlProfileUpdatedEvent {
-  /// @brief 触发更新的周期号。
-  std::uint32_t cycle_index{0};
-
-  /// @brief 新 profile 版本号。
-  std::uint64_t profile_version{0};
-
-  /// @brief 采纳的控制意图数量。
-  std::size_t applied_directive_count{0};
-
-  /// @brief 拒绝的控制意图数量。
-  std::size_t rejected_directive_count{0};
-
-  /// @brief LPI 功率控制是否启用。
-  bool lpi_power_control_enabled{false};
-
-  /// @brief 频率捷变是否启用。
-  bool agility_frequency_enabled{false};
-
-  /// @brief 旁瓣对消是否启用。
-  bool sidelobe_canceller_enabled{false};
-
-  /// @brief 自适应波束形成是否启用。
-  bool adaptive_beamforming_enabled{false};
+  std::uint32_t cycle_index{0}; /**< 触发更新的周期号。 */
+  std::uint64_t profile_version{0}; /**< 新控制 profile 的版本号。 */
+  std::size_t applied_directive_count{0}; /**< 已采纳的控制意图数量。 */
+  std::size_t rejected_directive_count{0}; /**< 已拒绝的控制意图数量。 */
+  bool lpi_power_control_enabled{false}; /**< LPI 功率控制是否启用。 */
+  bool agility_frequency_enabled{false}; /**< 频率捷变是否启用。 */
+  bool sidelobe_canceller_enabled{false}; /**< 旁瓣对消是否启用。 */
+  bool adaptive_beamforming_enabled{false}; /**< 自适应波束形成是否启用。 */
 };
 
-/// @brief DirectiveAppliedEvent 表示单条控制意图被采纳。
+/**
+ * @brief 表示单条控制意图被采纳。
+ */
 struct DirectiveAppliedEvent {
-  /// @brief 触发事件的周期号。
-  std::uint32_t cycle_index{0};
-
-  /// @brief 生效 profile 版本号。
-  std::uint64_t profile_version{0};
-
-  /// @brief 被采纳的控制意图。
-  common::ControlDirective directive{};
+  std::uint32_t cycle_index{0}; /**< 触发事件的周期号。 */
+  std::uint64_t profile_version{0}; /**< 生效 profile 的版本号。 */
+  common::ControlDirective directive{}; /**< 被采纳的控制意图。 */
 };
 
-/// @brief DirectiveRejectedEvent 表示单条控制意图被拒绝。
+/**
+ * @brief 表示单条控制意图被拒绝。
+ */
 struct DirectiveRejectedEvent {
-  /// @brief 触发事件的周期号。
-  std::uint32_t cycle_index{0};
-
-  /// @brief 生效 profile 版本号。
-  std::uint64_t profile_version{0};
-
-  /// @brief 被拒绝的控制意图。
-  common::ControlDirective directive{};
+  std::uint32_t cycle_index{0}; /**< 触发事件的周期号。 */
+  std::uint64_t profile_version{0}; /**< 生效 profile 的版本号。 */
+  common::ControlDirective directive{}; /**< 被拒绝的控制意图。 */
 };
 
 } // namespace event

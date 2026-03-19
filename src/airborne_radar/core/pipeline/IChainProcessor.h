@@ -1,7 +1,9 @@
 // Copyright 2026. All Rights Reserved.
-//
-// @file IChainProcessor.h
-// @brief 定义可复用的责任链处理器基础模板。
+
+/**
+ * @file IChainProcessor.h
+ * @brief 定义可复用的责任链处理器基础模板。
+ */
 
 #ifndef AIRBORNE_RADAR_CORE_PIPELINE_I_CHAIN_PROCESSOR_H_
 #define AIRBORNE_RADAR_CORE_PIPELINE_I_CHAIN_PROCESSOR_H_
@@ -13,20 +15,29 @@ namespace airborne_radar {
 namespace core {
 namespace pipeline {
 
-/// @brief IChainProcessor 提供跨层可复用的责任链节点抽象。
-/// @tparam Context 管线在节点间传递的上下文类型。
+/**
+ * @brief 提供跨层可复用的责任链节点抽象。
+ * @tparam Context 管线在节点间传递的上下文类型。
+ */
 template <typename Context>
 class IChainProcessor {
 public:
   virtual ~IChainProcessor() {}
 
-  /// @brief 设置当前节点的后继节点。
+  /**
+   * @brief 设置当前节点的后继节点。
+   * @param next 后继节点所有权。
+   * @return 后继节点的裸指针，便于链式组装。
+   */
   IChainProcessor *SetNext(std::unique_ptr<IChainProcessor> next) {
     next_processor_ = std::move(next);
     return next_processor_.get();
   }
 
-  /// @brief 执行责任链：先处理当前节点，再处理后继节点。
+  /**
+   * @brief 执行责任链，先处理当前节点，再处理后继节点。
+   * @param[in,out] context 节点间共享的管线上下文。
+   */
   virtual void Process(Context &context) {
     ProcessNode(context);
     if (next_processor_) {
@@ -41,10 +52,12 @@ private:
   std::unique_ptr<IChainProcessor> next_processor_;
 };
 
-/// @brief ChainProcessorWithView 为“上下文 -> 视图 -> 节点逻辑”提供模板桥接。
-/// @tparam Context 管线上下文类型。
-/// @tparam View 当前节点可见的上下文视图类型。
-/// @tparam ProcessorBase 可选基类，默认使用 IChainProcessor<Context>。
+/**
+ * @brief 为“上下文 -> 视图 -> 节点逻辑”提供模板桥接。
+ * @tparam Context 管线上下文类型。
+ * @tparam View 当前节点可见的上下文视图类型。
+ * @tparam ProcessorBase 可选基类，默认使用 `IChainProcessor<Context>`。
+ */
 template <typename Context, typename View,
           typename ProcessorBase = IChainProcessor<Context> >
 class ChainProcessorWithView : public ProcessorBase {

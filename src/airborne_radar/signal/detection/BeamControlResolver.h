@@ -1,7 +1,9 @@
 // Copyright 2026. All Rights Reserved.
-//
-// @file BeamControlResolver.h
-// @brief 定义波束控制与方向图增益解析的私有工具。
+
+/**
+ * @file BeamControlResolver.h
+ * @brief 定义波束控制与方向图增益解析的私有工具。
+ */
 
 #ifndef AIRBORNE_RADAR_SIGNAL_DETECTION_BEAM_CONTROL_RESOLVER_H_
 #define AIRBORNE_RADAR_SIGNAL_DETECTION_BEAM_CONTROL_RESOLVER_H_
@@ -20,27 +22,35 @@
 namespace airborne_radar {
 namespace signal {
 namespace detection {
-
-/// @brief ResolvedBeamState 表示当前探测使用的波束状态。
+/**
+ * @brief ResolvedBeamState 表示当前探测使用的波束状态。
+ */
 struct ResolvedBeamState {
-  /// @brief 生效方位/俯仰波束宽度。
+/**
+ * @brief 生效方位/俯仰波束宽度。
+ */
   EffectiveBeamwidthDeg effective_beamwidth_deg;
-
-  /// @brief 挂架坐标系下的当前波束中心。
+/**
+ * @brief 挂架坐标系下的当前波束中心。
+ */
   common::AzimuthElevationDeg beam_pointing_deg;
-
-  /// @brief 当前目标方向上的单程天线增益（dB）。
+/**
+ * @brief 当前目标方向上的单程天线增益（dB）。
+ */
   float one_way_antenna_gain_db{0.0f};
 };
-
-/// @brief BeamControlResolver 负责组合波束宽度、指向与方向图增益。
+/**
+ * @brief BeamControlResolver 负责组合波束宽度、指向与方向图增益。
+ */
 class BeamControlResolver {
  public:
-  /// @brief 解析当前探测使用的波束状态。
-  /// @param antenna_config 天线配置。
-  /// @param orientation_config 雷达方向与控制配置。
-  /// @param target_look_angles 目标在雷达局部坐标系中的 look angle。
-  /// @return 当前探测使用的波束状态。
+/**
+ * @brief 解析当前探测使用的波束状态。
+ * @param antenna_config 天线配置。
+ * @param orientation_config 雷达方向与控制配置。
+ * @param target_look_angles 目标在雷达局部坐标系中的 look angle。
+ * @return 当前探测使用的波束状态。
+ */
   static ResolvedBeamState Resolve(
       const AntennaConfig& antenna_config,
       const common::RadarOrientationConfig& orientation_config,
@@ -80,23 +90,27 @@ class BeamControlResolver {
   }
 
  private:
-  /// @brief 将角度从度转换为弧度。
-  /// @param angle_deg 角度（度）。
-  /// @return 弧度值。
+/**
+ * @brief 将角度从度转换为弧度。
+ * @param angle_deg 角度（度）。
+ * @return 弧度值。
+ */
   static float DegToRad(float angle_deg) {
     return angle_deg * 3.14159265358979f / 180.0f;
   }
-
-  /// @brief 将角度从弧度转换为度。
-  /// @param angle_rad 角度（弧度）。
-  /// @return 度值。
+/**
+ * @brief 将角度从弧度转换为度。
+ * @param angle_rad 角度（弧度）。
+ * @return 度值。
+ */
   static float RadToDeg(float angle_rad) {
     return angle_rad * 180.0f / 3.14159265358979f;
   }
-
-  /// @brief 将方位/俯仰角转换为单位方向向量。
-  /// @param pointing_deg 方位/俯仰角（度）。
-  /// @return 单位方向向量。
+/**
+ * @brief 将方位/俯仰角转换为单位方向向量。
+ * @param pointing_deg 方位/俯仰角（度）。
+ * @return 单位方向向量。
+ */
   static Eigen::Vector3f AzimuthElevationToUnitVector(
       const common::AzimuthElevationDeg& pointing_deg) {
     const float az_rad = DegToRad(pointing_deg.az_deg);
@@ -106,10 +120,11 @@ class BeamControlResolver {
                            cos_el * std::sin(az_rad),
                            std::sin(el_rad));
   }
-
-  /// @brief 将单位方向向量转换为方位/俯仰角。
-  /// @param unit_vector 单位方向向量。
-  /// @return 方位/俯仰角（度）。
+/**
+ * @brief 将单位方向向量转换为方位/俯仰角。
+ * @param unit_vector 单位方向向量。
+ * @return 方位/俯仰角（度）。
+ */
   static common::AzimuthElevationDeg UnitVectorToAzimuthElevation(
       const Eigen::Vector3f& unit_vector) {
     common::AzimuthElevationDeg pointing_deg;
@@ -119,10 +134,11 @@ class BeamControlResolver {
     pointing_deg.el_deg = RadToDeg(std::atan2(unit_vector.z(), horizontal_norm));
     return pointing_deg;
   }
-
-  /// @brief 构建 Z-Y-X 顺序的欧拉角旋转矩阵。
-  /// @param euler_deg 欧拉角（yaw/pitch/roll，单位：度）。
-  /// @return 旋转矩阵。
+/**
+ * @brief 构建 Z-Y-X 顺序的欧拉角旋转矩阵。
+ * @param euler_deg 欧拉角（yaw/pitch/roll，单位：度）。
+ * @return 旋转矩阵。
+ */
   static Eigen::Matrix3f BuildRotationMatrix(
       const common::EulerAnglesDeg& euler_deg) {
     const float yaw_rad = DegToRad(euler_deg.yaw_deg);
@@ -144,12 +160,13 @@ class BeamControlResolver {
         -sp, cp * sr, cp * cr;
     return rotation;
   }
-
-  /// @brief 将稳定参考系下的期望波束指向逆变换到挂架坐标系。
-  /// @param desired_platform_pointing_deg 稳定参考系下的期望方位/俯仰角。
-  /// @param platform_attitude_deg 当前平台姿态角。
-  /// @param mount_angles_deg 雷达安装角。
-  /// @return 挂架坐标系下的波束指向。
+/**
+ * @brief 将稳定参考系下的期望波束指向逆变换到挂架坐标系。
+ * @param desired_platform_pointing_deg 稳定参考系下的期望方位/俯仰角。
+ * @param platform_attitude_deg 当前平台姿态角。
+ * @param mount_angles_deg 雷达安装角。
+ * @return 挂架坐标系下的波束指向。
+ */
   static common::AzimuthElevationDeg ResolveStabilizedMountFramePointing(
       const common::AzimuthElevationDeg& desired_platform_pointing_deg,
       const common::PlatformAttitudeDeg& platform_attitude_deg,
@@ -166,12 +183,13 @@ class BeamControlResolver {
         mount_rotation.transpose() * body_vector;
     return UnitVectorToAzimuthElevation(mount_vector);
   }
-
-  /// @brief 解析当前稳定模式下的挂架坐标系波束指向。
-  /// @param orientation_config 雷达方向与控制配置。
-  /// @param platform_attitude_deg 当前平台姿态角。
-  /// @return 挂架坐标系下的波束指向。
-  /// @note 对地稳定当前无地理参考输入，代码上显式等同于对惯性空间稳定。
+/**
+ * @brief 解析当前稳定模式下的挂架坐标系波束指向。
+ * @param orientation_config 雷达方向与控制配置。
+ * @param platform_attitude_deg 当前平台姿态角。
+ * @return 挂架坐标系下的波束指向。
+ * @note 对地稳定当前无地理参考输入，代码上显式等同于对惯性空间稳定。
+ */
   static common::AzimuthElevationDeg ResolveMountFrameBeamPointing(
       const common::RadarOrientationConfig& orientation_config,
       const common::PlatformAttitudeDeg& platform_attitude_deg) {

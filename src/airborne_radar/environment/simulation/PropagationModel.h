@@ -1,7 +1,9 @@
 // Copyright 2026. All Rights Reserved.
-//
-// @file PropagationModel.h
-// @brief 定义环境层最小传播与杂波组合模型。
+
+/**
+ * @file PropagationModel.h
+ * @brief 定义环境层最小传播与杂波组合模型。
+ */
 
 #ifndef AIRBORNE_RADAR_ENVIRONMENT_SIMULATION_PROPAGATION_MODEL_H_
 #define AIRBORNE_RADAR_ENVIRONMENT_SIMULATION_PROPAGATION_MODEL_H_
@@ -11,19 +13,27 @@
 namespace airborne_radar {
 namespace environment {
 namespace simulation {
-
-/// @brief PropagationResult 表示传播与杂波组合输出。
+/**
+ * @brief PropagationResult 表示传播与杂波组合输出。
+ */
 struct PropagationResult {
-  /// @brief 传播损耗（单位：dB）。
+/**
+ * @brief 传播损耗（单位：dB）。
+ */
   float propagation_loss_db{0.0f};
-  /// @brief 杂波功率（单位：dB）。
+/**
+ * @brief 杂波功率（单位：dB）。
+ */
   float clutter_power_db{0.0f};
 };
-
-/// @brief PropagationModel 提供组合式传播/杂波建模。
+/**
+ * @brief PropagationModel 提供组合式传播/杂波建模。
+ */
 class PropagationModel {
 public:
-  /// @brief 根据场景状态计算传播与杂波输出。
+/**
+ * @brief 根据场景状态计算传播与杂波输出。
+ */
   PropagationResult Evaluate(const EnvironmentSceneState& scene_state) const;
 };
 

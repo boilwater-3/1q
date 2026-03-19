@@ -21,10 +21,11 @@ constexpr const char kJammingFeature[] = "jamming";
 
 constexpr std::array<const char *, 3> kKnownFeatureKeys = {
 		kSpeedFeature, kRcsFeature, kJammingFeature};
-
-/// @brief 判断给定特征名是否属于仓储内建标准维度。
-/// @param feature_name 待判定的特征名。
-/// @return 命中标准维度时返回 true。
+/**
+ * @brief 判断给定特征名是否属于仓储内建标准维度。
+ * @param feature_name 待判定的特征名。
+ * @return 命中标准维度时返回 true。
+ */
 bool IsKnownFeature(const std::string &feature_name) {
 	return std::find(kKnownFeatureKeys.begin(), kKnownFeatureKeys.end(),
 									 feature_name) != kKnownFeatureKeys.end();

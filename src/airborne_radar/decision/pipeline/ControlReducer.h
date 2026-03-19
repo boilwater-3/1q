@@ -1,7 +1,9 @@
 // Copyright 2026. All Rights Reserved.
-//
-// @file ControlReducer.h
-// @brief 定义控制意图到控制真值的私有归并器实现。
+
+/**
+ * @file ControlReducer.h
+ * @brief 定义控制意图到控制真值的私有归并器实现。
+ */
 
 #ifndef AIRBORNE_RADAR_DECISION_CONTROL_REDUCER_H_
 #define AIRBORNE_RADAR_DECISION_CONTROL_REDUCER_H_
@@ -13,19 +15,35 @@ namespace airborne_radar {
 namespace decision {
 namespace pipeline {
 
-/// @brief ControlReducer 负责把控制意图归并为唯一控制真值。
+/**
+ * @brief 负责把控制意图归并为唯一控制真值。
+ */
 class ControlReducer {
  public:
-  /// @brief 使用配置构造 reducer。
+  /**
+   * @brief 使用配置构造 reducer。
+   * @param config reducer 配置。
+   */
   explicit ControlReducer(ControlReducerConfig config = {});
 
-  /// @brief 更新 reducer 配置。
+  /**
+   * @brief 更新 reducer 配置。
+   * @param config 新的 reducer 配置。
+   */
   void UpdateConfig(ControlReducerConfig config);
 
-  /// @brief 获取当前 reducer 配置。
+  /**
+   * @brief 获取当前 reducer 配置。
+   * @return 当前 reducer 配置副本。
+   */
   ControlReducerConfig GetConfig() const;
 
-  /// @brief 使用上一版 profile 和 proposal 列表生成下一版 profile。
+  /**
+   * @brief 使用上一版 profile 和 proposal 列表生成下一版 profile。
+   * @param previous_profile 上一版控制真值。
+   * @param proposals 当前周期候选控制意图列表。
+   * @return 归并后的控制真值与采纳结果。
+   */
   ControlReductionResult Reduce(
       const common::RadarControlProfile& previous_profile,
       const std::vector<TacticalProposal>& proposals) const;

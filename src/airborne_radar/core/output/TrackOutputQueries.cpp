@@ -11,10 +11,12 @@ namespace output {
 
 namespace {
 
-/// @brief 收集满足给定状态的轨迹。
-/// @param frame 待查询的输出帧。
-/// @param status 目标状态。
-/// @return 匹配状态的轨迹快照拷贝列表。
+/**
+ * @brief 收集满足给定状态的轨迹快照。
+ * @param frame 待查询的输出帧。
+ * @param status 目标状态。
+ * @return 匹配状态的轨迹快照拷贝列表。
+ */
 common::DecisionTrackSnapshotList CollectTracksByStatus(
     const common::TrackOutputFrame& frame, common::DecisionTrackStatus status) {
   common::DecisionTrackSnapshotList tracks;

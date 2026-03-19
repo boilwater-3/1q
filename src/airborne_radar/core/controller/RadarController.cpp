@@ -26,9 +26,11 @@ namespace controller {
 
 namespace {
 
-/// @brief 将干扰语义枚举转换为日志可读字符串。
-/// @param semantic 当前周期主导干扰语义。
-/// @return 供日志输出使用的短字符串。
+/**
+ * @brief 将干扰语义枚举转换为日志可读字符串。
+ * @param semantic 当前周期主导干扰语义。
+ * @return 供日志输出使用的短字符串。
+ */
 const char* JammingSemanticName(common::JammingSemantic semantic) {
   switch (semantic) {
     case common::JammingSemantic::kNoiseSuppression:
@@ -45,9 +47,11 @@ const char* JammingSemanticName(common::JammingSemantic semantic) {
   }
 }
 
-/// @brief 将控制意图类型映射为底座命令类型。
-/// @param type 控制意图类型。
-/// @return 对应的雷达命令类型。
+/**
+ * @brief 将控制意图类型映射为底座命令类型。
+ * @param type 控制意图类型。
+ * @return 对应的雷达命令类型。
+ */
 common::RadarCommandType ToRadarCommandType(
     common::ControlDirectiveType type) {
   switch (type) {
@@ -73,9 +77,11 @@ common::RadarCommandType ToRadarCommandType(
   }
 }
 
-/// @brief 将控制意图来源映射为底座命令来源。
-/// @param source 控制意图来源。
-/// @return 对应的雷达命令来源。
+/**
+ * @brief 将控制意图来源映射为底座命令来源。
+ * @param source 控制意图来源。
+ * @return 对应的雷达命令来源。
+ */
 common::RadarCommandSource ToRadarCommandSource(
     common::ControlDirectiveSource source) {
   switch (source) {
@@ -91,9 +97,11 @@ common::RadarCommandSource ToRadarCommandSource(
   }
 }
 
-/// @brief 将单条控制意图转换为可提交的雷达命令。
-/// @param directive 单条控制意图。
-/// @return 与控制意图等价的雷达命令。
+/**
+ * @brief 将单条控制意图转换为可提交的雷达命令。
+ * @param directive 单条控制意图。
+ * @return 与控制意图等价的雷达命令。
+ */
 common::RadarCommand ToRadarCommand(const common::ControlDirective& directive) {
   return common::RadarCommand(ToRadarCommandType(directive.type),
                               ToRadarCommandSource(directive.source));

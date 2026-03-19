@@ -14,9 +14,10 @@ namespace lpi {
 namespace {
 
 const std::uint32_t kLpiHoldCycles = 2;
-
-/// @brief 构造一条 LPI 降功率控制意图。
-/// @return 来源固定为 EMISSION_CONTROL 的控制意图。
+/**
+ * @brief 构造一条 LPI 降功率控制意图。
+ * @return 来源固定为 EMISSION_CONTROL 的控制意图。
+ */
 common::ControlDirective BuildLpiPowerDirective() {
   return common::ControlDirective(
       common::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,

@@ -1,7 +1,9 @@
 // Copyright 2026. All Rights Reserved.
-//
-// @file ITrackLifecycleManager.h
-// @brief 定义轨迹生命周期管理抽象接口。
+
+/**
+ * @file ITrackLifecycleManager.h
+ * @brief 定义轨迹生命周期管理抽象接口。
+ */
 
 #ifndef AIRBORNE_RADAR_SIGNAL_TRACKING_I_TRACK_LIFECYCLE_MANAGER_H_
 #define AIRBORNE_RADAR_SIGNAL_TRACKING_I_TRACK_LIFECYCLE_MANAGER_H_
@@ -16,37 +18,43 @@
 namespace airborne_radar {
 namespace signal {
 namespace tracking {
-
-/// @brief ITrackLifecycleManager 抽象轨迹生命周期推进与快照导出能力。
+/**
+ * @brief ITrackLifecycleManager 抽象轨迹生命周期推进与快照导出能力。
+ */
 class ITrackLifecycleManager {
 public:
   virtual ~ITrackLifecycleManager() {}
-
-  /// @brief 用本周期量测更新轨迹状态机。
-  /// @param cycle 周期上下文。
-  /// @param measurements 关联后量测列表。
+/**
+ * @brief 用本周期量测更新轨迹状态机。
+ * @param cycle 周期上下文。
+ * @param measurements 关联后量测列表。
+ */
   virtual void Update(const CycleContext &cycle,
                       const std::vector<TrackMeasurement> &measurements) = 0;
-
-  /// @brief 导出供事件广播和外围观测消费的目标特征快照。
-  /// @return 获取到的轻量级目标特征列表。
+/**
+ * @brief 导出供事件广播和外围观测消费的目标特征快照。
+ * @return 获取到的轻量级目标特征列表。
+ */
   virtual common::TargetFeatureList BuildFeatureSnapshot() const = 0;
-
-  /// @brief 导出供决策引擎消费的活跃轨迹快照。
-  /// @return 包含 tentative/confirmed/lost 状态且未回收的轨迹列表。
+/**
+ * @brief 导出供决策引擎消费的活跃轨迹快照。
+ * @return 包含 tentative/confirmed/lost 状态且未回收的轨迹列表。
+ */
   virtual common::DecisionTrackSnapshotList BuildDecisionSnapshot() const = 0;
-
-  /// @brief 导出完整的单周期决策输入帧。
-  /// @param cycle_index 当前处理周期索引。
-  /// @param batch_id 本批关联唯一标识符。
-  /// @param environment_jamming_detected 环境是否检测到严重干扰。
-  /// @return 封装好的决策数据帧，包含轨迹和量测证据。
+/**
+ * @brief 导出完整的单周期决策输入帧。
+ * @param cycle_index 当前处理周期索引。
+ * @param batch_id 本批关联唯一标识符。
+ * @param environment_jamming_detected 环境是否检测到严重干扰。
+ * @return 封装好的决策数据帧，包含轨迹和量测证据。
+ */
   virtual common::DecisionInputFrame BuildDecisionFrame(
       std::uint32_t cycle_index, std::uint64_t batch_id,
       bool environment_jamming_detected) const = 0;
-
-  /// @brief 导出供关联阶段使用的上一周期轨迹种子。
-  /// @return 由当前未回收轨迹（tentative/confirmed/lost）组成的关联候选列表。
+/**
+ * @brief 导出供关联阶段使用的上一周期轨迹种子。
+ * @return 由当前未回收轨迹（tentative/confirmed/lost）组成的关联候选列表。
+ */
   virtual std::vector<AssociationTrackSeed> BuildAssociationSeeds() const = 0;
 };
 

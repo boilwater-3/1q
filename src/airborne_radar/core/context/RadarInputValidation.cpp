@@ -15,12 +15,14 @@ namespace context {
 
 namespace {
 
-/// @brief 构造一条结构化校验结果。
-/// @param severity 严重级别。
-/// @param code 问题编码。
-/// @param target_index 目标索引。
-/// @param message 面向调用方的简短说明。
-/// @return 组装后的校验结果。
+/**
+ * @brief 构造一条结构化校验结果。
+ * @param severity 严重级别。
+ * @param code 问题编码。
+ * @param target_index 目标索引。
+ * @param message 面向调用方的简短说明。
+ * @return 组装后的校验结果。
+ */
 ValidationIssue MakeIssue(ValidationSeverity severity,
                           ValidationCode code,
                           std::size_t target_index,
@@ -33,25 +35,31 @@ ValidationIssue MakeIssue(ValidationSeverity severity,
   return issue;
 }
 
-/// @brief 判断输入浮点值是否为有限数。
-/// @param value 输入浮点值。
-/// @return 有限数返回 true。
+/**
+ * @brief 判断输入浮点值是否为有限数。
+ * @param value 输入浮点值。
+ * @return 有限数时返回 `true`。
+ */
 bool IsFinite(float value) {
   return std::isfinite(value) != 0;
 }
 
-/// @brief 判断目标是否携带笛卡尔位置。
-/// @param target 目标特征。
-/// @return 至少存在一个非零位置分量时返回 true。
+/**
+ * @brief 判断目标是否携带笛卡尔位置。
+ * @param target 目标特征。
+ * @return 至少存在一个非零位置分量时返回 `true`。
+ */
 bool HasCartesianPosition(const common::TargetFeature& target) {
   return target.position_x != 0.0f || target.position_y != 0.0f ||
          target.position_z != 0.0f;
 }
 
-/// @brief 收集单个目标的字段级校验问题。
-/// @param target 目标特征。
-/// @param target_index 目标索引。
-/// @param issues 输出问题列表。
+/**
+ * @brief 收集单个目标的字段级校验问题。
+ * @param target 目标特征。
+ * @param target_index 目标索引。
+ * @param[out] issues 输出问题列表。
+ */
 void ValidateSingleTarget(const common::TargetFeature& target,
                           std::size_t target_index,
                           std::vector<ValidationIssue>* issues) {

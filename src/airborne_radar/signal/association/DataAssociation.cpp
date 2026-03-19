@@ -16,13 +16,15 @@ namespace signal {
 namespace association {
 
 namespace {
-
-/// @brief 未关联目标使用的保留键值。
+/**
+ * @brief 未关联目标使用的保留键值。
+ */
 constexpr std::uint64_t kUnassociatedKey = 0;
-
-/// @brief 触发关联输入契约违例并终止进程。
-/// @param message 违例信息。
-/// @param index 违例目标索引或轨迹键。
+/**
+ * @brief 触发关联输入契约违例并终止进程。
+ * @param message 违例信息。
+ * @param index 违例目标索引或轨迹键。
+ */
 [[noreturn]] void AbortContractViolation(const char *message,
                                         std::size_t index) {
   if (spdlog::default_logger_raw() != nullptr) {
@@ -37,9 +39,10 @@ constexpr std::uint64_t kUnassociatedKey = 0;
   std::fflush(stderr);
   std::abort();
 }
-
-/// @brief 构建位置量测矩阵 H（3x6）。
-/// @return 位置提取矩阵。
+/**
+ * @brief 构建位置量测矩阵 H（3x6）。
+ * @return 位置提取矩阵。
+ */
 tracking::MeasurementMatrix BuildPositionMeasurementMatrix() {
   tracking::MeasurementMatrix H = tracking::MeasurementMatrix::Zero();
   H(0, 0) = 1.0f;
@@ -47,30 +50,33 @@ tracking::MeasurementMatrix BuildPositionMeasurementMatrix() {
   H(2, 4) = 1.0f;
   return H;
 }
-
-/// @brief 构建默认量测协方差矩阵。
-/// @param measurement_noise_std 量测标准差。
-/// @return 对角协方差矩阵。
+/**
+ * @brief 构建默认量测协方差矩阵。
+ * @param measurement_noise_std 量测标准差。
+ * @return 对角协方差矩阵。
+ */
 tracking::MeasurementCovariance BuildDefaultMeasurementCovariance(
     float measurement_noise_std) {
   const float variance = measurement_noise_std * measurement_noise_std;
   return tracking::MeasurementCovariance::Identity() * variance;
 }
-
-/// @brief 关联先验来源文本化。
-/// @param using_external_seeds 是否使用外部 seeds。
-/// @return 先验来源字符串。
+/**
+ * @brief 关联先验来源文本化。
+ * @param using_external_seeds 是否使用外部 seeds。
+ * @return 先验来源字符串。
+ */
 const char *AssociationPriorSourceName(bool using_external_seeds) {
   if (using_external_seeds) {
     return "external-seeds";
   }
   return "stateless";
 }
-
-/// @brief 安全比值计算。
-/// @param numerator 分子。
-/// @param denominator 分母。
-/// @return 分母为 0 时返回 0，否则返回浮点比值。
+/**
+ * @brief 安全比值计算。
+ * @param numerator 分子。
+ * @param denominator 分母。
+ * @return 分母为 0 时返回 0，否则返回浮点比值。
+ */
 float SafeRatio(std::size_t numerator, std::size_t denominator) {
   if (denominator == 0U) {
     return 0.0f;
@@ -78,10 +84,11 @@ float SafeRatio(std::size_t numerator, std::size_t denominator) {
   return static_cast<float>(numerator) /
          static_cast<float>(denominator);
 }
-
-/// @brief 计算 P95 的 nearest-rank 下标。
-/// @param sample_size 样本数。
-/// @return 排序后对应的 P95 下标。
+/**
+ * @brief 计算 P95 的 nearest-rank 下标。
+ * @param sample_size 样本数。
+ * @return 排序后对应的 P95 下标。
+ */
 std::size_t ComputeNearestRankP95Index(std::size_t sample_size) {
   if (sample_size == 0U) {
     return 0U;
@@ -89,14 +96,15 @@ std::size_t ComputeNearestRankP95Index(std::size_t sample_size) {
   const std::size_t rank = (95U * sample_size + 99U) / 100U;
   return rank > 0U ? rank - 1U : 0U;
 }
-
-/// @brief 构建关联质量指标汇总。
-/// @param prior_track_count 先验轨迹数量。
-/// @param detection_count 本周期检测数量。
-/// @param matches 命中列表。
-/// @param new_track_count 新建轨迹数量。
-/// @param missed_track_count 失配轨迹数量。
-/// @return 聚合后的质量指标。
+/**
+ * @brief 构建关联质量指标汇总。
+ * @param prior_track_count 先验轨迹数量。
+ * @param detection_count 本周期检测数量。
+ * @param matches 命中列表。
+ * @param new_track_count 新建轨迹数量。
+ * @param missed_track_count 失配轨迹数量。
+ * @return 聚合后的质量指标。
+ */
 AssociationQualityMetrics BuildAssociationQualityMetrics(
     std::size_t prior_track_count,
     std::size_t detection_count,

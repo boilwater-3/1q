@@ -12,25 +12,31 @@ namespace common {
 
 namespace {
 
-/// @brief 计算三维向量模长。
-/// @param x x 分量。
-/// @param y y 分量。
-/// @param z z 分量。
-/// @return 三维欧氏范数。
+/**
+ * @brief 计算三维向量的欧氏范数。
+ * @param x x 分量。
+ * @param y y 分量。
+ * @param z z 分量。
+ * @return 三维向量模长。
+ */
 float ComputeNorm3(float x, float y, float z) {
   return std::sqrt(x * x + y * y + z * z);
 }
 
-/// @brief 判断目标是否携带非零笛卡尔位置。
-/// @param target 目标特征。
-/// @return 至少存在一个非零位置分量时返回 true。
+/**
+ * @brief 判断目标是否携带可用的笛卡尔位置分量。
+ * @param target 目标特征。
+ * @return 位置向量至少有一个非零分量时返回 `true`。
+ */
 bool HasCartesianPosition(const TargetFeature& target) {
   return target.position_x != 0.0f || target.position_y != 0.0f ||
          target.position_z != 0.0f;
 }
 
-/// @brief 刷新目标中由向量派生出的模长字段。
-/// @param target 目标特征指针。
+/**
+ * @brief 刷新目标中由速度和加速度向量派生出的标量字段。
+ * @param[in,out] target 待更新的目标特征指针。
+ */
 void RefreshDerivedKinematics(TargetFeature* target) {
   if (target == nullptr) {
     return;

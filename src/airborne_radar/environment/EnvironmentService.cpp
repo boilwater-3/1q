@@ -19,33 +19,37 @@ namespace {
 
 constexpr std::size_t kNoLegacyJammerEmitterIndex =
     static_cast<std::size_t>(-1);
-
-/// @brief 将输入值裁剪到 [0, 1] 区间。
-/// @param value 输入标量。
-/// @return 裁剪后的结果。
+/**
+ * @brief 将输入值裁剪到 [0, 1] 区间。
+ * @param value 输入标量。
+ * @return 裁剪后的结果。
+ */
 float Clamp01(float value) {
   return std::max(0.0f, std::min(1.0f, value));
 }
-
-/// @brief 将输入值裁剪为非负数。
-/// @param value 输入标量。
-/// @return 不小于 0 的结果。
+/**
+ * @brief 将输入值裁剪为非负数。
+ * @param value 输入标量。
+ * @return 不小于 0 的结果。
+ */
 float ClampNonNegative(float value) {
   return std::max(0.0f, value);
 }
-
-/// @brief 判断旧版配置字段是否提供了兼容干扰提示。
-/// @param config 旧版环境模型配置。
-/// @return 存在任一旧版干扰提示时返回 true。
+/**
+ * @brief 判断旧版配置字段是否提供了兼容干扰提示。
+ * @param config 旧版环境模型配置。
+ * @return 存在任一旧版干扰提示时返回 true。
+ */
 bool HasLegacyJammerHints(const EnvironmentModelConfig& config) {
   return config.jammer_power_db > 0.0f ||
          config.jammer_frequency_overlap_ratio > 0.0f ||
          config.jammer_prf_lock_risk > 0.0f || config.jammer_in_sidelobe;
 }
-
-/// @brief 规范化场景中的单个干扰源输入。
-/// @param raw_source 原始干扰源输入。
-/// @return 完成边界裁剪后的干扰源状态。
+/**
+ * @brief 规范化场景中的单个干扰源输入。
+ * @param raw_source 原始干扰源输入。
+ * @return 完成边界裁剪后的干扰源状态。
+ */
 JammerEmitterState NormalizeEmitterState(const JammerEmitterState& raw_source) {
   JammerEmitterState normalized = raw_source;
   normalized.power_db = ClampNonNegative(raw_source.power_db);
@@ -56,10 +60,11 @@ JammerEmitterState NormalizeEmitterState(const JammerEmitterState& raw_source) {
   normalized.confidence = Clamp01(raw_source.confidence);
   return normalized;
 }
-
-/// @brief 将场景干扰源转换为对外暴露的干扰事实。
-/// @param emitter_state 场景中的干扰源状态。
-/// @return 供快照输出使用的干扰事实。
+/**
+ * @brief 将场景干扰源转换为对外暴露的干扰事实。
+ * @param emitter_state 场景中的干扰源状态。
+ * @return 供快照输出使用的干扰事实。
+ */
 JammerSourceFact ToJammerSourceFact(const JammerEmitterState& emitter_state) {
   const JammerEmitterState normalized = NormalizeEmitterState(emitter_state);
   JammerSourceFact source;
@@ -75,10 +80,11 @@ JammerSourceFact ToJammerSourceFact(const JammerEmitterState& emitter_state) {
   source.confidence = normalized.confidence;
   return source;
 }
-
-/// @brief 从多源干扰事实中选取主干扰源。
-/// @param sources 单周期干扰源事实列表。
-/// @return 功率最大的干扰源指针；若为空则返回 nullptr。
+/**
+ * @brief 从多源干扰事实中选取主干扰源。
+ * @param sources 单周期干扰源事实列表。
+ * @return 功率最大的干扰源指针；若为空则返回 nullptr。
+ */
 const JammerSourceFact* SelectPrimaryJammerSource(
     const JammerSourceFactList& sources) {
   if (sources.empty()) {
@@ -90,10 +96,11 @@ const JammerSourceFact* SelectPrimaryJammerSource(
         return lhs.power_db < rhs.power_db;
       }));
 }
-
-/// @brief 将旧版平铺干扰配置转换为兼容场景干扰源。
-/// @param config 旧版环境模型配置。
-/// @return 对应的兼容干扰源状态。
+/**
+ * @brief 将旧版平铺干扰配置转换为兼容场景干扰源。
+ * @param config 旧版环境模型配置。
+ * @return 对应的兼容干扰源状态。
+ */
 JammerEmitterState ToLegacyEmitterState(const EnvironmentModelConfig& config) {
   JammerEmitterState emitter;
   emitter.technique = JammingTechnique::kUnknown;
@@ -104,11 +111,12 @@ JammerEmitterState ToLegacyEmitterState(const EnvironmentModelConfig& config) {
   emitter.confidence = HasLegacyJammerHints(config) ? 1.0f : 0.0f;
   return emitter;
 }
-
-/// @brief 将旧版环境配置适配为待生效场景状态。
-/// @param config 旧版环境模型配置。
-/// @param legacy_emitter_index 输出兼容干扰源在场景中的索引。
-/// @return 统一后的环境场景状态。
+/**
+ * @brief 将旧版环境配置适配为待生效场景状态。
+ * @param config 旧版环境模型配置。
+ * @param legacy_emitter_index 输出兼容干扰源在场景中的索引。
+ * @return 统一后的环境场景状态。
+ */
 EnvironmentSceneState BuildSceneStateFromModelConfig(
     const EnvironmentModelConfig& config, std::size_t* legacy_emitter_index) {
   EnvironmentSceneState scene_state;

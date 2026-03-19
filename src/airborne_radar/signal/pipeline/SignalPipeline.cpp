@@ -34,10 +34,11 @@ namespace signal {
 namespace pipeline {
 
 namespace {
-
-/// @brief 解析关联脆弱度权重。
-/// @param semantic 当前周期主导干扰语义。
-/// @return 与干扰语义对应的关联脆弱度权重。
+/**
+ * @brief 解析关联脆弱度权重。
+ * @param semantic 当前周期主导干扰语义。
+ * @return 与干扰语义对应的关联脆弱度权重。
+ */
 float ResolveAssociationFragilityWeight(common::JammingSemantic semantic) {
   switch (semantic) {
     case common::JammingSemantic::kDeception:
@@ -53,13 +54,14 @@ float ResolveAssociationFragilityWeight(common::JammingSemantic semantic) {
       return 0.0f;
   }
 }
-
-/// @brief 将内部关联质量观测指标转换为对外公开格式。
-/// @param source 内部关联质量观测指标。
-/// @param dominant_jamming_semantic 当前周期主导干扰语义。
-/// @param jamming_severity 当前周期残余干扰强度。
-/// @param association_unassigned_cost 当前关联未分配代价配置。
-/// @return Pipeline 对外公开的关联质量观测指标。
+/**
+ * @brief 将内部关联质量观测指标转换为对外公开格式。
+ * @param source 内部关联质量观测指标。
+ * @param dominant_jamming_semantic 当前周期主导干扰语义。
+ * @param jamming_severity 当前周期残余干扰强度。
+ * @param association_unassigned_cost 当前关联未分配代价配置。
+ * @return Pipeline 对外公开的关联质量观测指标。
+ */
 AssociationQualityMetrics ToPipelineAssociationQualityMetrics(
     const association::AssociationQualityMetrics& source,
     common::JammingSemantic dominant_jamming_semantic,
@@ -98,10 +100,11 @@ AssociationQualityMetrics ToPipelineAssociationQualityMetrics(
                            operational_pressure));
   return metrics;
 }
-
-/// @brief 将环境层干扰技术枚举转换为公共决策语义枚举。
-/// @param technique 环境层干扰技术。
-/// @return 公共层干扰技术枚举。
+/**
+ * @brief 将环境层干扰技术枚举转换为公共决策语义枚举。
+ * @param technique 环境层干扰技术。
+ * @return 公共层干扰技术枚举。
+ */
 common::JammingTechnique ToCommonJammingTechnique(
     environment::JammingTechnique technique) {
   switch (technique) {
@@ -116,10 +119,11 @@ common::JammingTechnique ToCommonJammingTechnique(
       return common::JammingTechnique::kUnknown;
   }
 }
-
-/// @brief 将环境层单个干扰源事实转换为 ECCM 输入结构。
-/// @param environment_source 环境层单个干扰源事实。
-/// @return 供决策层消费的单源干扰摘要。
+/**
+ * @brief 将环境层单个干扰源事实转换为 ECCM 输入结构。
+ * @param environment_source 环境层单个干扰源事实。
+ * @return 供决策层消费的单源干扰摘要。
+ */
 common::EccmJammerSourceInfo BuildEccmJammerSourceInfo(
     const environment::JammerSourceFact& environment_source) {
   common::EccmJammerSourceInfo source_info;
@@ -136,10 +140,11 @@ common::EccmJammerSourceInfo BuildEccmJammerSourceInfo(
   source_info.confidence = environment_source.confidence;
   return source_info;
 }
-
-/// @brief 将环境快照转换为决策层 ECCM 输入摘要。
-/// @param environment_snapshot 当前周期环境快照。
-/// @return 供决策层消费的 ECCM 输入摘要。
+/**
+ * @brief 将环境快照转换为决策层 ECCM 输入摘要。
+ * @param environment_snapshot 当前周期环境快照。
+ * @return 供决策层消费的 ECCM 输入摘要。
+ */
 common::EccmSourceInfo BuildEccmSourceInfo(
     const environment::EnvironmentSnapshot& environment_snapshot) {
   common::EccmSourceInfo source_info;
@@ -156,10 +161,11 @@ common::EccmSourceInfo BuildEccmSourceInfo(
   }
   return source_info;
 }
-
-/// @brief 将 Pipeline 关联质量指标转换为决策层质量摘要。
-/// @param metrics Pipeline 对外关联质量指标。
-/// @return 决策层消费的关联质量摘要。
+/**
+ * @brief 将 Pipeline 关联质量指标转换为决策层质量摘要。
+ * @param metrics Pipeline 对外关联质量指标。
+ * @return 决策层消费的关联质量摘要。
+ */
 common::AssociationQualityInfo BuildAssociationQualityInfo(
     const AssociationQualityMetrics& metrics) {
   common::AssociationQualityInfo info;
@@ -173,11 +179,12 @@ common::AssociationQualityInfo BuildAssociationQualityInfo(
   info.association_stress = metrics.association_stress;
   return info;
 }
-
-/// @brief 构造当前周期探测质量摘要。
-/// @param input_target_count 当前周期输入目标数。
-/// @param metrics 当前周期关联质量指标。
-/// @return 决策层消费的探测质量摘要。
+/**
+ * @brief 构造当前周期探测质量摘要。
+ * @param input_target_count 当前周期输入目标数。
+ * @param metrics 当前周期关联质量指标。
+ * @return 决策层消费的探测质量摘要。
+ */
 common::PerceptionQualityInfo BuildPerceptionQualityInfo(
     std::size_t input_target_count,
     const AssociationQualityMetrics& metrics) {
@@ -196,11 +203,12 @@ common::PerceptionQualityInfo BuildPerceptionQualityInfo(
   info.detection_stress = std::max(0.0f, 1.0f - info.detection_rate);
   return info;
 }
-
-/// @brief 将单个目标特征转换为决策轨迹快照。
-/// @param feature 输入目标特征。
-/// @param index 输入目标索引。
-/// @return 对应的决策轨迹快照。
+/**
+ * @brief 将单个目标特征转换为决策轨迹快照。
+ * @param feature 输入目标特征。
+ * @param index 输入目标索引。
+ * @return 对应的决策轨迹快照。
+ */
 common::DecisionTrackSnapshot BuildDecisionTrackSnapshotFromFeature(
     const common::TargetFeature& feature, std::size_t index) {
   const std::uint64_t association_key =
@@ -222,10 +230,11 @@ common::DecisionTrackSnapshot BuildDecisionTrackSnapshotFromFeature(
   snapshot.evidence.predicted_only_this_cycle = false;
   return snapshot;
 }
-
-/// @brief 将目标特征列表转换为决策轨迹快照列表。
-/// @param features 输入目标特征列表。
-/// @return 对应的决策轨迹快照列表。
+/**
+ * @brief 将目标特征列表转换为决策轨迹快照列表。
+ * @param features 输入目标特征列表。
+ * @return 对应的决策轨迹快照列表。
+ */
 common::DecisionTrackSnapshotList BuildDecisionSnapshotsFromFeatures(
     const common::TargetFeatureList& features) {
   common::DecisionTrackSnapshotList track_snapshots;
@@ -235,10 +244,11 @@ common::DecisionTrackSnapshotList BuildDecisionSnapshotsFromFeatures(
   }
   return track_snapshots;
 }
-
-/// @brief 根据控制真值推导生命周期额外失配容忍度。
-/// @param control_profile 当前控制真值。
-/// @return 由保护性控制策略带来的额外失配容忍周期数。
+/**
+ * @brief 根据控制真值推导生命周期额外失配容忍度。
+ * @param control_profile 当前控制真值。
+ * @return 由保护性控制策略带来的额外失配容忍周期数。
+ */
 std::uint32_t ResolveLifecycleExtraMissTolerance(
     const common::RadarControlProfile& control_profile) {
   std::uint32_t extra_miss_tolerance = 0U;
@@ -252,11 +262,12 @@ std::uint32_t ResolveLifecycleExtraMissTolerance(
   }
   return extra_miss_tolerance;
 }
-
-/// @brief 在关联结果中查找指定输入目标索引对应的匹配结果。
-/// @param result 关联结果。
-/// @param target_index 输入目标索引。
-/// @return 若命中已有轨迹则返回匹配结果指针，否则返回空指针。
+/**
+ * @brief 在关联结果中查找指定输入目标索引对应的匹配结果。
+ * @param result 关联结果。
+ * @param target_index 输入目标索引。
+ * @return 若命中已有轨迹则返回匹配结果指针，否则返回空指针。
+ */
 const association::AssociationMatch* FindAssociationMatch(
     const association::AssociationResult& result,
     std::size_t target_index) {
@@ -267,15 +278,16 @@ const association::AssociationMatch* FindAssociationMatch(
   }
   return nullptr;
 }
-
-/// @brief 根据距离/角度测量精度构造笛卡尔位置量测协方差。
-/// @param geometry 统一解析后的目标几何信息。
-/// @param range_error_std 距离测量标准差（m）。
-/// @param angle_error_std 等效角度测量标准差（rad）。
-/// @param default_measurement_noise_std 默认回退量测标准差（m）。
-/// @return 3x3 笛卡尔位置量测协方差。
-/// @note angle_error_std 由 MeasurementErrorModel 基于有效 az/el 波束宽度
-///       合成得到，effective beamwidth 来自 BeamControlResolver。
+/**
+ * @brief 根据距离/角度测量精度构造笛卡尔位置量测协方差。
+ * @param geometry 统一解析后的目标几何信息。
+ * @param range_error_std 距离测量标准差（m）。
+ * @param angle_error_std 等效角度测量标准差（rad）。
+ * @param default_measurement_noise_std 默认回退量测标准差（m）。
+ * @return 3x3 笛卡尔位置量测协方差。
+ * @note angle_error_std 由 MeasurementErrorModel 基于有效 az/el 波束宽度
+ *       合成得到，effective beamwidth 来自 BeamControlResolver。
+ */
 tracking::MeasurementCovariance BuildMeasurementCovariance(
     const detection::ResolvedTargetGeometry& geometry,
     float range_error_std,
@@ -302,10 +314,11 @@ tracking::MeasurementCovariance BuildMeasurementCovariance(
 
   return tracking::MeasurementCovariance::Identity() * var_r;
 }
-
-/// @brief 解析目标标量速度。
-/// @param target 输入目标。
-/// @return 标量速度模长。
+/**
+ * @brief 解析目标标量速度。
+ * @param target 输入目标。
+ * @return 标量速度模长。
+ */
 float ResolveSpeedMagnitude(const common::TargetFeature& target) {
   const Eigen::Vector3f velocity(target.current_track_velocity_x,
                                  target.current_track_velocity_y,
@@ -315,10 +328,11 @@ float ResolveSpeedMagnitude(const common::TargetFeature& target) {
   }
   return target.current_track_speed;
 }
-
-/// @brief 解析目标速度向量。
-/// @param target 输入目标。
-/// @return 速度向量。
+/**
+ * @brief 解析目标速度向量。
+ * @param target 输入目标。
+ * @return 速度向量。
+ */
 Eigen::Vector3f ResolveVelocityVector(const common::TargetFeature& target) {
   const Eigen::Vector3f velocity(target.current_track_velocity_x,
                                  target.current_track_velocity_y,
@@ -328,10 +342,11 @@ Eigen::Vector3f ResolveVelocityVector(const common::TargetFeature& target) {
   }
   return Eigen::Vector3f(target.current_track_speed, 0.0f, 0.0f);
 }
-
-/// @brief 解析目标标量加速度。
-/// @param target 输入目标。
-/// @return 标量加速度模长。
+/**
+ * @brief 解析目标标量加速度。
+ * @param target 输入目标。
+ * @return 标量加速度模长。
+ */
 float ResolveAccelerationMagnitude(const common::TargetFeature& target) {
   const Eigen::Vector3f acceleration(target.current_track_acceleration_x,
                                      target.current_track_acceleration_y,
@@ -341,10 +356,11 @@ float ResolveAccelerationMagnitude(const common::TargetFeature& target) {
   }
   return target.current_track_acceleration;
 }
-
-/// @brief 解析目标加速度向量。
-/// @param target 输入目标。
-/// @return 加速度向量。
+/**
+ * @brief 解析目标加速度向量。
+ * @param target 输入目标。
+ * @return 加速度向量。
+ */
 Eigen::Vector3f ResolveAccelerationVector(const common::TargetFeature& target) {
   const Eigen::Vector3f acceleration(target.current_track_acceleration_x,
                                      target.current_track_acceleration_y,
@@ -354,38 +370,44 @@ Eigen::Vector3f ResolveAccelerationVector(const common::TargetFeature& target) {
   }
   return Eigen::Vector3f(target.current_track_acceleration, 0.0f, 0.0f);
 }
-
-/// @brief 约束控制比例，避免非法值污染运行时配置。
+/**
+ * @brief 约束控制比例，避免非法值污染运行时配置。
+ */
 float ClampProfileScale(float scale, float fallback) {
   if (!std::isfinite(scale) || scale <= 0.0f) {
     return fallback;
   }
   return scale;
 }
-
-/// @brief 约束浮点范围，避免 profile 将配置推到非法区间。
+/**
+ * @brief 约束浮点范围，避免 profile 将配置推到非法区间。
+ */
 float ClampFloat(float value, float min_value, float max_value) {
   return std::max(min_value, std::min(max_value, value));
 }
-
-/// @brief 将 dB 功率转换为线性功率（W）。
+/**
+ * @brief 将 dB 功率转换为线性功率（W）。
+ */
 float DbToLinearPower(float power_db) {
   return std::pow(10.0f, power_db / 10.0f);
 }
-
-/// @brief 判断环境快照中是否携带多源干扰事实。
+/**
+ * @brief 判断环境快照中是否携带多源干扰事实。
+ */
 bool HasMultiSourceJammingFacts(
     const environment::EnvironmentSnapshot& environment_snapshot) {
   return !environment_snapshot.jammer_sources.empty();
 }
-
-/// @brief 解析干扰事实置信度权重。
+/**
+ * @brief 解析干扰事实置信度权重。
+ */
 float ResolveJammerConfidenceWeight(
     const environment::JammerSourceFact& jammer_source) {
   return ClampFloat(jammer_source.confidence, 0.25f, 1.0f);
 }
-
-/// @brief 计算控制 profile 对单个干扰源的残余作用系数。
+/**
+ * @brief 计算控制 profile 对单个干扰源的残余作用系数。
+ */
 float ComputeResidualJammerFactor(
     const common::RadarControlProfile& control_profile,
     const environment::JammerSourceFact& jammer_source) {
@@ -442,8 +464,9 @@ float ComputeResidualJammerFactor(
 
   return ClampFloat(residual_factor, 0.15f, 1.0f);
 }
-
-/// @brief 计算单个干扰源对经验检测的惩罚项。
+/**
+ * @brief 计算单个干扰源对经验检测的惩罚项。
+ */
 float ComputeHeuristicSourcePenaltyDb(
     const environment::JammerSourceFact& jammer_source) {
   const float confidence_weight = ResolveJammerConfidenceWeight(jammer_source);
@@ -475,8 +498,9 @@ float ComputeHeuristicSourcePenaltyDb(
 
   return penalty_db * confidence_weight;
 }
-
-/// @brief 计算多源干扰对经验检测的总惩罚项。
+/**
+ * @brief 计算多源干扰对经验检测的总惩罚项。
+ */
 float ComputeHeuristicJammingPenaltyDb(
     const environment::EnvironmentSnapshot& environment_snapshot) {
   if (!HasMultiSourceJammingFacts(environment_snapshot)) {
@@ -501,8 +525,9 @@ float ComputeHeuristicJammingPenaltyDb(
   }
   return penalty_db;
 }
-
-/// @brief 计算单个干扰源的等效 jam 噪声功率贡献。
+/**
+ * @brief 计算单个干扰源的等效 jam 噪声功率贡献。
+ */
 float ComputePhysicalSourceJamContributionW(
     const environment::JammerSourceFact& jammer_source) {
   float source_weight = 1.0f;
@@ -524,8 +549,9 @@ float ComputePhysicalSourceJamContributionW(
   return DbToLinearPower(jammer_source.power_db) * source_weight *
          ResolveJammerConfidenceWeight(jammer_source);
 }
-
-/// @brief 计算多源干扰对量测协方差的膨胀因子。
+/**
+ * @brief 计算多源干扰对量测协方差的膨胀因子。
+ */
 float ComputeMeasurementCovarianceInflation(
     const common::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot) {
@@ -561,8 +587,9 @@ float ComputeMeasurementCovarianceInflation(
   }
   return ClampFloat(inflation, 1.0f, 2.5f);
 }
-
-/// @brief 将环境层干扰技术映射为轨迹级摘要语义。
+/**
+ * @brief 将环境层干扰技术映射为轨迹级摘要语义。
+ */
 common::JammingSemantic ToJammingSemantic(
     environment::JammingTechnique technique) {
   switch (technique) {
@@ -577,8 +604,9 @@ common::JammingSemantic ToJammingSemantic(
       return common::JammingSemantic::kMixed;
   }
 }
-
-/// @brief 估算单个干扰源对轨迹级残余干扰强度的贡献。
+/**
+ * @brief 估算单个干扰源对轨迹级残余干扰强度的贡献。
+ */
 float ComputeTrackLevelJammingContribution(
     const common::RadarControlProfile& control_profile,
     const environment::JammerSourceFact& jammer_source) {
@@ -615,8 +643,9 @@ float ComputeTrackLevelJammingContribution(
 
   return ClampFloat(contribution * confidence_weight * residual_factor, 0.0f, 1.0f);
 }
-
-/// @brief 汇总环境快照的主导干扰语义。
+/**
+ * @brief 汇总环境快照的主导干扰语义。
+ */
 common::JammingSemantic ResolveDominantJammingSemantic(
     const common::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot) {
@@ -680,8 +709,9 @@ common::JammingSemantic ResolveDominantJammingSemantic(
   }
   return common::JammingSemantic::kRepeater;
 }
-
-/// @brief 汇总环境快照的轨迹级残余干扰强度。
+/**
+ * @brief 汇总环境快照的轨迹级残余干扰强度。
+ */
 float ComputeTrackLevelJammingSeverity(
     const common::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot) {
@@ -708,8 +738,9 @@ float ComputeTrackLevelJammingSeverity(
   }
   return ClampFloat(total_severity, 0.0f, 1.0f);
 }
-
-/// @brief 把多源干扰事实传播到关联/跟踪运行时统计量。
+/**
+ * @brief 把多源干扰事实传播到关联/跟踪运行时统计量。
+ */
 void ApplyEnvironmentJammingFactsToRuntimeConfig(
     const common::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot,
@@ -763,8 +794,9 @@ void ApplyEnvironmentJammingFactsToRuntimeConfig(
   runtime_config->tracking.kalman_measurement_noise_std *=
       ClampFloat(measurement_noise_scale, 1.0f, 1.8f);
 }
-
-/// @brief 归一化 IMM 初始权重，避免 profile 调整后破坏概率约束。
+/**
+ * @brief 归一化 IMM 初始权重，避免 profile 调整后破坏概率约束。
+ */
 void NormalizeImmInitialWeights(std::vector<float>* weights) {
   if (weights == nullptr || weights->empty()) {
     return;
@@ -788,14 +820,16 @@ void NormalizeImmInitialWeights(std::vector<float>* weights) {
     (*weights)[i] /= sum;
   }
 }
-
-/// @brief 将线性比例转换为 dB 修正量。
+/**
+ * @brief 将线性比例转换为 dB 修正量。
+ */
 float ToDbDelta(float linear_scale) {
   const float clamped_scale = ClampProfileScale(linear_scale, 1.0f);
   return 10.0f * std::log10(clamped_scale);
 }
-
-/// @brief 计算控制 profile 对波束宽度的收缩比例。
+/**
+ * @brief 计算控制 profile 对波束宽度的收缩比例。
+ */
 float ResolveBeamwidthScale(const common::RadarControlProfile& control_profile) {
   float beamwidth_scale = 1.0f;
   if (control_profile.enable_lpi_beamforming) {
@@ -806,8 +840,9 @@ float ResolveBeamwidthScale(const common::RadarControlProfile& control_profile) 
   }
   return beamwidth_scale;
 }
-
-/// @brief 计算 profile 对经验检测项的信号修正。
+/**
+ * @brief 计算 profile 对经验检测项的信号修正。
+ */
 float ComputeHeuristicSignalAdjustmentDb(
     const common::RadarControlProfile& control_profile) {
   float adjustment_db = 0.0f;
@@ -822,8 +857,9 @@ float ComputeHeuristicSignalAdjustmentDb(
   }
   return adjustment_db;
 }
-
-/// @brief 计算 profile 对经验环境惩罚项的抵消量。
+/**
+ * @brief 计算 profile 对经验环境惩罚项的抵消量。
+ */
 float ComputeHeuristicEnvironmentReliefDb(
     const common::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot) {
@@ -870,8 +906,9 @@ float ComputeHeuristicEnvironmentReliefDb(
   }
   return relief_db;
 }
-
-/// @brief 将控制 profile 映射为当前周期生效的运行时配置。
+/**
+ * @brief 将控制 profile 映射为当前周期生效的运行时配置。
+ */
 void ApplyControlProfileToConfig(const common::RadarControlProfile& control_profile,
                                  SignalPipelineConfig* runtime_config) {
   if (runtime_config == nullptr) {
@@ -1007,48 +1044,56 @@ void ApplyControlProfileToConfig(const common::RadarControlProfile& control_prof
     NormalizeImmInitialWeights(&runtime_config->lifecycle.imm_initial_weights);
   }
 }
-
-/// @brief 基于 Pipeline 配置自动装配生命周期管理器。
+/**
+ * @brief 基于 Pipeline 配置自动装配生命周期管理器。
+ */
 class AutoConfiguredLifecycleManager final
     : public tracking::ITrackLifecycleManager {
  public:
-  /// @brief 使用 SignalPipeline 顶层配置构造生命周期管理器。
-  /// @param config 顶层配置。
+/**
+ * @brief 使用 SignalPipeline 顶层配置构造生命周期管理器。
+ * @param config 顶层配置。
+ */
   explicit AutoConfiguredLifecycleManager(const SignalPipelineConfig& config)
       : assembly_(internal::SignalComponentFactory::BuildLifecycleAssemblyArtifacts(
             config)) {}
-
-  /// @brief 更新生命周期状态。
-  /// @param cycle 当前周期上下文。
-  /// @param measurements 当前周期量测。
+/**
+ * @brief 更新生命周期状态。
+ * @param cycle 当前周期上下文。
+ * @param measurements 当前周期量测。
+ */
   void Update(const tracking::CycleContext& cycle,
               const std::vector<tracking::TrackMeasurement>& measurements)
       override {
     assembly_.lifecycle_manager->Update(cycle, measurements);
   }
-
-  /// @brief 构建特征快照。
-  /// @return 生命周期输出的轨迹特征快照。
+/**
+ * @brief 构建特征快照。
+ * @return 生命周期输出的轨迹特征快照。
+ */
   common::TargetFeatureList BuildFeatureSnapshot() const override {
     return assembly_.lifecycle_manager->BuildFeatureSnapshot();
   }
-
-  /// @brief 构建供决策层消费的稳定轨迹快照。
-  /// @return 生命周期输出的决策轨迹快照。
+/**
+ * @brief 构建供决策层消费的稳定轨迹快照。
+ * @return 生命周期输出的决策轨迹快照。
+ */
   common::DecisionTrackSnapshotList BuildDecisionSnapshot() const override {
     return assembly_.lifecycle_manager->BuildDecisionSnapshot();
   }
-
-  /// @brief 构建完整的决策输入帧。
+/**
+ * @brief 构建完整的决策输入帧。
+ */
   common::DecisionInputFrame BuildDecisionFrame(
       std::uint32_t cycle_index, std::uint64_t batch_id,
       bool environment_jamming_detected) const override {
     return assembly_.lifecycle_manager->BuildDecisionFrame(
         cycle_index, batch_id, environment_jamming_detected);
   }
-
-  /// @brief 构建关联种子。
-  /// @return 上一周期轨迹种子列表。
+/**
+ * @brief 构建关联种子。
+ * @return 上一周期轨迹种子列表。
+ */
   std::vector<tracking::AssociationTrackSeed> BuildAssociationSeeds()
       const override {
     return assembly_.lifecycle_manager->BuildAssociationSeeds();
@@ -1057,8 +1102,9 @@ class AutoConfiguredLifecycleManager final
  private:
   internal::LifecycleAssemblyArtifacts assembly_;
 };
-
-/// @brief 单周期缓存上下文。
+/**
+ * @brief 单周期缓存上下文。
+ */
 struct SignalCycleContext {
   const common::TargetFeatureList* input_state{nullptr};
   const environment::IEnvironmentService* environment{nullptr};
@@ -1082,11 +1128,14 @@ struct SignalCycleContext {
 };
 
 }  // namespace
-
-/// @brief SignalPipeline 私有实现。
+/**
+ * @brief SignalPipeline 私有实现。
+ */
 struct SignalPipeline::Impl {
-  /// @brief 使用顶层配置构造私有实现。
-  /// @param initial_config 顶层配置。
+/**
+ * @brief 使用顶层配置构造私有实现。
+ * @param initial_config 顶层配置。
+ */
   explicit Impl(SignalPipelineConfig initial_config)
       : config(std::move(initial_config)),
         association_engine(
@@ -1095,11 +1144,12 @@ struct SignalPipeline::Impl {
             internal::SignalComponentFactory::BuildTrackFilterConfig(config)) {
     RebuildOwnedComponents();
   }
-
-  /// @brief 执行一次信号处理周期。
-  /// @param input_state 输入目标列表。
-  /// @param environment 环境服务。
-  /// @return 输出目标列表。
+/**
+ * @brief 执行一次信号处理周期。
+ * @param input_state 输入目标列表。
+ * @param environment 环境服务。
+ * @return 输出目标列表。
+ */
   SignalCycleResult RunCycle(
       const common::TargetFeatureList& input_state,
       const environment::IEnvironmentService& environment) {
@@ -1123,37 +1173,42 @@ struct SignalPipeline::Impl {
     ++batch_id_;
     return result;
   }
-
-  /// @brief 获取最近一次处理周期导出的跟踪量测。
-  /// @return 跟踪量测列表。
+/**
+ * @brief 获取最近一次处理周期导出的跟踪量测。
+ * @return 跟踪量测列表。
+ */
   std::vector<tracking::TrackMeasurement> GetLastTrackMeasurements() const {
     return cached_context.track_measurements;
   }
-
-  /// @brief 获取最近一次处理周期的关联质量观测指标。
-  /// @return 关联质量观测指标。
+/**
+ * @brief 获取最近一次处理周期的关联质量观测指标。
+ * @return 关联质量观测指标。
+ */
   AssociationQualityMetrics GetLastAssociationQualityMetrics() const {
     return cached_context.association_quality_metrics;
   }
-
-  /// @brief 设置本周期关联阶段应使用的轨迹种子。
-  /// @param seeds 外部种子。
+/**
+ * @brief 设置本周期关联阶段应使用的轨迹种子。
+ * @param seeds 外部种子。
+ */
   void SetAssociationSeeds(
       const std::vector<tracking::AssociationTrackSeed>& seeds) {
     has_manual_association_seeds_ = true;
     manual_association_seeds_ = seeds;
     association_engine.SetAssociationSeeds(manual_association_seeds_);
   }
-
-  /// @brief 清理外部 seeds 状态并恢复无先验模式。
+/**
+ * @brief 清理外部 seeds 状态并恢复无先验模式。
+ */
   void ResetAssociationSeedModeToStateless() {
     has_manual_association_seeds_ = false;
     manual_association_seeds_.clear();
     association_engine.ResetAssociationSeedModeToStateless();
   }
-
-  /// @brief 按当前配置自动装配生命周期管理器。
-  /// @return 若未启用则返回空指针。
+/**
+ * @brief 按当前配置自动装配生命周期管理器。
+ * @return 若未启用则返回空指针。
+ */
   std::unique_ptr<tracking::ITrackLifecycleManager>
   CreateAutoLifecycleManager() const {
     const SignalPipelineConfig runtime_config = BuildRuntimeConfig();
@@ -1163,9 +1218,10 @@ struct SignalPipeline::Impl {
     return std::unique_ptr<tracking::ITrackLifecycleManager>(
         new AutoConfiguredLifecycleManager(runtime_config));
   }
-
-  /// @brief 更新顶层配置。
-  /// @param new_config 新配置。
+/**
+ * @brief 更新顶层配置。
+ * @param new_config 新配置。
+ */
   void UpdateConfig(SignalPipelineConfig new_config) {
     config = std::move(new_config);
     association_engine.UpdateConfig(
@@ -1174,40 +1230,46 @@ struct SignalPipeline::Impl {
         internal::SignalComponentFactory::BuildTrackFilterConfig(config));
     RebuildOwnedComponents();
   }
-
-  /// @brief 更新当前平台姿态。
-  /// @param platform_attitude_deg 平台姿态角。
+/**
+ * @brief 更新当前平台姿态。
+ * @param platform_attitude_deg 平台姿态角。
+ */
   void UpdatePlatformAttitude(
       const common::PlatformAttitudeDeg& platform_attitude_deg) {
     config.beam_control.platform_attitude_deg = platform_attitude_deg;
   }
-
-  /// @brief 获取当前平台姿态。
-  /// @return 当前缓存的平台姿态角。
+/**
+ * @brief 获取当前平台姿态。
+ * @return 当前缓存的平台姿态角。
+ */
   common::PlatformAttitudeDeg GetPlatformAttitude() const {
     return config.beam_control.platform_attitude_deg;
   }
-
-  /// @brief 构建本周期生效的运行时配置。
+/**
+ * @brief 构建本周期生效的运行时配置。
+ */
   SignalPipelineConfig BuildRuntimeConfig() const {
     SignalPipelineConfig runtime_config = config;
     ApplyControlProfileToConfig(control_profile_, &runtime_config);
     return runtime_config;
   }
-
-  /// @brief 更新当前控制真值。
+/**
+ * @brief 更新当前控制真值。
+ */
   void SetControlProfile(const common::RadarControlProfile& control_profile) {
     control_profile_ = control_profile;
   }
-
-  /// @brief 获取当前控制真值。
+/**
+ * @brief 获取当前控制真值。
+ */
   common::RadarControlProfile GetControlProfile() const {
     return control_profile_;
   }
-
-  /// @brief 初始化单周期缓存。
-  /// @param input_state 输入目标列表。
-  /// @param environment 环境服务。
+/**
+ * @brief 初始化单周期缓存。
+ * @param input_state 输入目标列表。
+ * @param environment 环境服务。
+ */
   void PrepareCycleContext(const common::TargetFeatureList& input_state,
                            const environment::IEnvironmentService& environment) {
     cached_context.input_state = &input_state;
@@ -1241,8 +1303,9 @@ struct SignalPipeline::Impl {
         internal::SignalComponentFactory::BuildTrackFilterConfig(
             cached_context.runtime_config));
   }
-
-  /// @brief 预配置本周期关联使用的先验种子。
+/**
+ * @brief 预配置本周期关联使用的先验种子。
+ */
   void PrepareAssociationSeeds() {
     if (has_manual_association_seeds_) {
       association_engine.SetAssociationSeeds(manual_association_seeds_);
@@ -1255,8 +1318,9 @@ struct SignalPipeline::Impl {
     }
     association_engine.ResetAssociationSeedModeToStateless();
   }
-
-  /// @brief 采样本周期环境快照。
+/**
+ * @brief 采样本周期环境快照。
+ */
   void SampleEnvironment() {
     cached_context.environment_snapshot =
         cached_context.environment->SampleEnvironment();
@@ -1277,8 +1341,9 @@ struct SignalPipeline::Impl {
         internal::SignalComponentFactory::BuildTrackFilterConfig(
             cached_context.runtime_config));
   }
-
-  /// @brief 运行经验探测逻辑。
+/**
+ * @brief 运行经验探测逻辑。
+ */
   void RunHeuristicDetection() {
     const common::TargetFeatureList& input = *cached_context.input_state;
     const SignalPipelineConfig& runtime_config = cached_context.runtime_config;
@@ -1314,8 +1379,9 @@ struct SignalPipeline::Impl {
           margin >= runtime_config.detection.min_detection_margin_db);
     }
   }
-
-  /// @brief 运行物理探测逻辑。
+/**
+ * @brief 运行物理探测逻辑。
+ */
   void RunPhysicalDetection() {
     const common::TargetFeatureList& input = *cached_context.input_state;
     const SignalPipelineConfig& runtime_config = cached_context.runtime_config;
@@ -1409,16 +1475,18 @@ struct SignalPipeline::Impl {
                                                cached_context.environment_snapshot);
     }
   }
-
-  /// @brief 执行位置关联。
+/**
+ * @brief 执行位置关联。
+ */
   void RunAssociation() {
     cached_context.association_result = association_engine.AssociateDetections(
         *cached_context.input_state, cached_context.detection_succeeded,
         cached_context.measurement_covariances);
     cached_context.association_keys = cached_context.association_result.target_keys;
   }
-
-  /// @brief 构建跟踪量测骨架。
+/**
+ * @brief 构建跟踪量测骨架。
+ */
   void BuildTrackMeasurements() {
     const common::TargetFeatureList& input = *cached_context.input_state;
     const std::size_t count = input.size();
@@ -1468,8 +1536,9 @@ struct SignalPipeline::Impl {
       cached_context.track_measurements.push_back(measurement);
     }
   }
-
-  /// @brief 执行跟踪滤波并补全量测动态属性。
+/**
+ * @brief 执行跟踪滤波并补全量测动态属性。
+ */
   void ApplyTrackFilter() {
     const common::TargetFeatureList& input = *cached_context.input_state;
     common::TargetFeatureList& output = cached_context.output_state;
@@ -1514,8 +1583,9 @@ struct SignalPipeline::Impl {
           filter_context.jamming_severity;
     }
   }
-
-  /// @brief 收尾当前周期输出。
+/**
+ * @brief 收尾当前周期输出。
+ */
   void CollectOutputs() {
     cached_context.association_quality_metrics =
         ToPipelineAssociationQualityMetrics(
@@ -1562,8 +1632,9 @@ struct SignalPipeline::Impl {
         track_output_frame, eccm_source_info, association_quality_info,
         perception_quality_info);
   }
-
-  /// @brief 依据当前配置重建自持有组件。
+/**
+ * @brief 依据当前配置重建自持有组件。
+ */
   void RebuildOwnedComponents() {
     internal::OwnedSignalComponents components =
         internal::SignalComponentFactory::BuildOwnedPipelineComponents(config);

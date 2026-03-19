@@ -19,36 +19,44 @@ namespace signal {
 namespace detection {
 
 namespace {
-
-/// @brief 光速 (m/s)。
+/**
+ * @brief 光速 (m/s)。
+ */
 const float kLightSpeed = 3.0e8f;
-
-/// @brief 玻尔兹曼常数 (J/K)。
+/**
+ * @brief 玻尔兹曼常数 (J/K)。
+ */
 const float kBoltzmann = 1.38064852e-23f;
-
-/// @brief IEEE 标准参考温度 (K)。
+/**
+ * @brief IEEE 标准参考温度 (K)。
+ */
 const float kRefTemperature = 290.0f;
-
-/// @brief π 常数。
+/**
+ * @brief π 常数。
+ */
 const float kPi = 3.14159265358979323846f;
-
-/// @brief 防止 log10(0) 的极小值保护。
+/**
+ * @brief 防止 log10(0) 的极小值保护。
+ */
 const float kEpsilon = 1e-30f;
-
-/// @brief 将线性值转为 dB。
+/**
+ * @brief 将线性值转为 dB。
+ */
 float LinearToDb(float linear) {
   if (linear <= kEpsilon) {
     return 10.0f * std::log10(kEpsilon);
   }
   return 10.0f * std::log10(linear);
 }
-
-/// @brief 将 dB 转为线性值。
+/**
+ * @brief 将 dB 转为线性值。
+ */
 float DbToLinear(float db) {
   return std::pow(10.0f, db / 10.0f);
 }
-
-/// @brief 钳位到 [0, 1]。
+/**
+ * @brief 钳位到 [0, 1]。
+ */
 float ClampPd(float pd) {
   if (pd < 0.0f) return 0.0f;
   if (pd > 1.0f) return 1.0f;

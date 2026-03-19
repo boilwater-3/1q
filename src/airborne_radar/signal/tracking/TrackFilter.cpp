@@ -13,18 +13,21 @@ namespace signal {
 namespace tracking {
 
 namespace {
-
-/// @brief 计算三维向量欧氏范数。
+/**
+ * @brief 计算三维向量欧氏范数。
+ */
 float VectorNorm3(float x, float y, float z) {
   return std::sqrt(x * x + y * y + z * z);
 }
-
-/// @brief 判断三维向量是否包含任一非零分量。
+/**
+ * @brief 判断三维向量是否包含任一非零分量。
+ */
 bool HasNonZero3(float x, float y, float z) {
   return x != 0.0f || y != 0.0f || z != 0.0f;
 }
-
-/// @brief 将输入向量归一化；若范数过小则使用兜底方向。
+/**
+ * @brief 将输入向量归一化；若范数过小则使用兜底方向。
+ */
 void NormalizeOrFallback(float x,
                          float y,
                          float z,
@@ -46,8 +49,9 @@ void NormalizeOrFallback(float x,
   ny = fallback_y;
   nz = fallback_z;
 }
-
-/// @brief 判断是否属于易导致关联脆弱的干扰语义。
+/**
+ * @brief 判断是否属于易导致关联脆弱的干扰语义。
+ */
 bool IsAssociationFragileJamming(common::JammingSemantic semantic) {
   return semantic == common::JammingSemantic::kDeception ||
          semantic == common::JammingSemantic::kRepeater ||

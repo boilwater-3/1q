@@ -16,28 +16,37 @@
 namespace airborne_radar {
 namespace signal {
 namespace detection {
-
-/// @brief ResolvedTargetGeometry 表示单目标统一解析后的几何信息。
+/**
+ * @brief ResolvedTargetGeometry 表示单目标统一解析后的几何信息。
+ */
 struct ResolvedTargetGeometry {
-  /// @brief 是否具备雷达局部笛卡尔位置。
+/**
+ * @brief 是否具备雷达局部笛卡尔位置。
+ */
   bool has_cartesian_position{false};
-
-  /// @brief 雷达局部笛卡尔位置向量。
+/**
+ * @brief 雷达局部笛卡尔位置向量。
+ */
   Eigen::Vector3f position_m{Eigen::Vector3f::Zero()};
-
-  /// @brief 统一解析后的斜距（m）。
+/**
+ * @brief 统一解析后的斜距（m）。
+ */
   float range_m{50000.0f};
-
-  /// @brief 目标在雷达局部坐标系下的 look angle。
+/**
+ * @brief 目标在雷达局部坐标系下的 look angle。
+ */
   TargetLookAnglesDeg look_angles_deg;
 };
-
-/// @brief TargetGeometryResolver 负责统一解析目标几何真值源。
+/**
+ * @brief TargetGeometryResolver 负责统一解析目标几何真值源。
+ */
 class TargetGeometryResolver {
  public:
-  /// @brief 从目标特征解析统一几何信息。
-  /// @param target 输入目标。
-  /// @return 统一解析后的目标几何信息。
+/**
+ * @brief 从目标特征解析统一几何信息。
+ * @param target 输入目标。
+ * @return 统一解析后的目标几何信息。
+ */
   static ResolvedTargetGeometry Resolve(const common::TargetFeature& target) {
     ResolvedTargetGeometry geometry;
     geometry.position_m =

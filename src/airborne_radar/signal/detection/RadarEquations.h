@@ -1,7 +1,9 @@
 // Copyright 2026. All Rights Reserved.
-//
-// @file RadarEquations.h
-// @brief 定义雷达探测通用物理方程纯函数接口。
+
+/**
+ * @file RadarEquations.h
+ * @brief 定义雷达探测通用物理方程纯函数接口。
+ */
 
 #ifndef AIRBORNE_RADAR_SIGNAL_DETECTION_RADAR_EQUATIONS_H_
 #define AIRBORNE_RADAR_SIGNAL_DETECTION_RADAR_EQUATIONS_H_
@@ -13,106 +15,118 @@
 namespace airborne_radar {
 namespace signal {
 namespace detection {
-
-/// @brief 无状态的雷达物理计算函数集合。
-/// 所有方法为 static，不持有任何内部状态。
+/**
+ * @brief 无状态的雷达物理计算函数集合。
+ * 所有方法为 static，不持有任何内部状态。
+ */
 struct RadarEquations {
-  /// @brief 单站雷达方程（对数域），按指定单程天线增益计算接收回波功率。
-  /// 公式: Pr_dBW = Pt_dB + 2*G_one_way_dB + 2*λ_dB + σ_dB
-  ///                - 30*log10(4π) - 4*R_dB - L_sys
-  /// @param tx 发射机参数
-  /// @param one_way_gain_db 当前波束指向下的单程天线增益
-  /// @param rcs_m2 目标雷达散射截面 (m²)
-  /// @param range_m 目标斜距 (m)
-  /// @param propagation_loss_db 大气传播往返损耗 (dB)
-  /// @return 接收回波功率 (dBW)
+/**
+ * @brief 单站雷达方程（对数域），按指定单程天线增益计算接收回波功率。
+ * 公式: Pr_dBW = Pt_dB + 2*G_one_way_dB + 2*λ_dB + σ_dB
+ *                - 30*log10(4π) - 4*R_dB - L_sys
+ * @param tx 发射机参数
+ * @param one_way_gain_db 当前波束指向下的单程天线增益
+ * @param rcs_m2 目标雷达散射截面 (m²)
+ * @param range_m 目标斜距 (m)
+ * @param propagation_loss_db 大气传播往返损耗 (dB)
+ * @return 接收回波功率 (dBW)
+ */
   static float ComputeEchoPowerWithGain_dBW(
       const TransmitterConfig& tx,
       float one_way_gain_db,
       float rcs_m2,
       float range_m,
       float propagation_loss_db);
-
-  /// @brief 单站雷达方程（对数域），计算接收回波功率。
-  /// 公式: Pr_dBW = Pt_dB + 2*Gt_dB + 2*λ_dB + σ_dB
-  ///                - 30*log10(4π) - 4*R_dB - L_sys
-  /// Skolnik eq.1.6 对数展开形式。
-  /// @param tx       发射机参数
-  /// @param ant      天线参数
-  /// @param rcs_m2   目标雷达散射截面 (m²)
-  /// @param range_m  目标斜距 (m)
-  /// @param propagation_loss_db 大气传播往返损耗 (dB)
-  /// @return 接收回波功率 (dBW)
+/**
+ * @brief 单站雷达方程（对数域），计算接收回波功率。
+ * 公式: Pr_dBW = Pt_dB + 2*Gt_dB + 2*λ_dB + σ_dB
+ *                - 30*log10(4π) - 4*R_dB - L_sys
+ * Skolnik eq.1.6 对数展开形式。
+ * @param tx       发射机参数
+ * @param ant      天线参数
+ * @param rcs_m2   目标雷达散射截面 (m²)
+ * @param range_m  目标斜距 (m)
+ * @param propagation_loss_db 大气传播往返损耗 (dB)
+ * @return 接收回波功率 (dBW)
+ */
   static float ComputeEchoPower_dBW(
       const TransmitterConfig& tx,
       const AntennaConfig& ant,
       float rcs_m2,
       float range_m,
       float propagation_loss_db);
-
-  /// @brief 接收机热噪声功率底: N₀ = k·T₀·B·F。
-  /// T₀ = 290K (IEEE 标准参考温度)。
-  /// @param tx 发射机参数（取带宽）
-  /// @param rx 接收机参数（取噪声系数）
-  /// @return 热噪声功率 (W)
+/**
+ * @brief 接收机热噪声功率底: N₀ = k·T₀·B·F。
+ * T₀ = 290K (IEEE 标准参考温度)。
+ * @param tx 发射机参数（取带宽）
+ * @param rx 接收机参数（取噪声系数）
+ * @return 热噪声功率 (W)
+ */
   static float ComputeThermalNoisePower_W(
       const TransmitterConfig& tx,
       const ReceiverConfig& rx);
-
-  /// @brief 脉冲积累增益因子。
-  /// 相参积累: G = N。
-  /// 非相参积累: G = √N。
-  /// Skolnik Ch.2 积累理论。
-  /// @param pulse_count 积累脉冲数
-  /// @param coherent_integration 是否为相参积累
-  /// @return 积累增益因子（线性值）
+/**
+ * @brief 脉冲积累增益因子。
+ * 相参积累: G = N。
+ * 非相参积累: G = √N。
+ * Skolnik Ch.2 积累理论。
+ * @param pulse_count 积累脉冲数
+ * @param coherent_integration 是否为相参积累
+ * @return 积累增益因子（线性值）
+ */
   static float ComputeIntegrationGain(int pulse_count,
                                       bool coherent_integration);
-
-  /// @brief 测距标准差 σ_R (m)。
-  /// 工程近似: σ_R ≈ 0.5·δ_R / √(SNR_linear) + bias，
-  /// 其中 δ_R = c/(2B) 为距离分辨力。
-  /// @param snr_db    信噪比 (dB)
-  /// @param bandwidth_hz 信号带宽 (Hz)
-  /// @return 距离测量标准差 (m)
+/**
+ * @brief 测距标准差 σ_R (m)。
+ * 工程近似: σ_R ≈ 0.5·δ_R / √(SNR_linear) + bias，
+ * 其中 δ_R = c/(2B) 为距离分辨力。
+ * @param snr_db    信噪比 (dB)
+ * @param bandwidth_hz 信号带宽 (Hz)
+ * @return 距离测量标准差 (m)
+ */
   static float ComputeRangeErrorStdDev(float snr_db,
                                        float bandwidth_hz);
-
-  /// @brief 测角标准差 σ_θ (rad)。
-  /// 工程近似: σ_θ ≈ 0.317·θ_bw / √(SNR_linear) + θ_bw/30。
-  /// @param snr_db         信噪比 (dB)
-  /// @param beamwidth_rad  波束宽度 (rad)
-  /// @return 角度测量标准差 (rad)
+/**
+ * @brief 测角标准差 σ_θ (rad)。
+ * 工程近似: σ_θ ≈ 0.317·θ_bw / √(SNR_linear) + θ_bw/30。
+ * @param snr_db         信噪比 (dB)
+ * @param beamwidth_rad  波束宽度 (rad)
+ * @return 角度测量标准差 (rad)
+ */
   static float ComputeAngleErrorStdDev(float snr_db,
                                        float beamwidth_rad);
-
-  /// @brief 支持 Swerling 0~4 全模型、多脉冲非相参积累的检测概率。
-  /// @param snr_db      每脉冲信噪比 (dB)
-  /// @param pfa         虚警概率
-  /// @param model       Swerling 起伏模型
-  /// @param num_pulses  非相参积累脉冲数 (N ≥ 1)
-  /// @return 检测概率 Pd ∈ [0, 1]
+/**
+ * @brief 支持 Swerling 0~4 全模型、多脉冲非相参积累的检测概率。
+ * @param snr_db      每脉冲信噪比 (dB)
+ * @param pfa         虚警概率
+ * @param model       Swerling 起伏模型
+ * @param num_pulses  非相参积累脉冲数 (N ≥ 1)
+ * @return 检测概率 Pd ∈ [0, 1]
+ */
   static float ComputeDetectionProbability(float snr_db, float pfa,
                                            SwerlingModel model,
                                            int num_pulses);
-
-  /// @brief 计算方波检测器的检测门限 T。
-  /// @param pfa         虚警概率
-  /// @param num_pulses  积累脉冲数 (N ≥ 1)
-  /// @return 检测门限 T
+/**
+ * @brief 计算方波检测器的检测门限 T。
+ * @param pfa         虚警概率
+ * @param num_pulses  积累脉冲数 (N ≥ 1)
+ * @return 检测门限 T
+ */
   static double ComputeThreshold(double pfa, int num_pulses);
-
-  /// @brief 广义 Marcum Q 函数 Q_M(a, b)。
-  /// @param order  阶数 M (= 积累脉冲数 N)
-  /// @param a      √(2·N·SNR_linear)
-  /// @param b      √(2·T)
-  /// @return Q_M(a, b) ∈ [0, 1]
+/**
+ * @brief 广义 Marcum Q 函数 Q_M(a, b)。
+ * @param order  阶数 M (= 积累脉冲数 N)
+ * @param a      √(2·N·SNR_linear)
+ * @param b      √(2·T)
+ * @return Q_M(a, b) ∈ [0, 1]
+ */
   static double MarcumQ(int order, double a, double b);
-
-  /// @brief 蒙特卡洛探测判决。
-  /// @param detection_prob 检测概率 Pd
-  /// @param rng            随机数引擎（外部注入保证确定性）
-  /// @return 是否探测成功
+/**
+ * @brief 蒙特卡洛探测判决。
+ * @param detection_prob 检测概率 Pd
+ * @param rng            随机数引擎（外部注入保证确定性）
+ * @return 是否探测成功
+ */
   static bool ThresholdDecision(float detection_prob,
                                 std::mt19937& rng);
 };
