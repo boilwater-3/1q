@@ -118,26 +118,6 @@
             }
         },
         {
-            "name": "windows-conan-vs2015-release",
-            "inherits": "base",
-            "displayName": "Windows Conan VS2015 Release (x64 DLL)",
-            "condition": {
-                "type": "equals",
-                "lhs": "${hostSystemName}",
-                "rhs": "Windows"
-            },
-            "generator": "Visual Studio 14 2015",
-            "toolset": "host=x64",
-            "architecture": "x64",
-            "cacheVariables": {
-                "PACKAGE_MANAGER": "conan",
-                "BUILD_SHARED_LIBS": "ON",
-                "ENABLE_INSTALL": "ON",
-                "ENABLE_TESTING": "OFF",
-                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/ConanBootstrapToolchain.cmake"
-            }
-        },
-        {
             "name": "windows-conan-base",
             "hidden": true,
             "inherits": "base",
@@ -146,7 +126,6 @@
                 "lhs": "${hostSystemName}",
                 "rhs": "Windows"
             },
-            "generator": "Visual Studio 17 2022",
             "toolset": "host=x64",
             "architecture": "x64",
             "cacheVariables": {
@@ -158,9 +137,22 @@
             }
         },
         {
-            "name": "windows-conan-release",
+            "name": "windows-conan-vs2015",
             "inherits": "windows-conan-base",
-            "displayName": "Windows Conan Release (x64 DLL)"
+            "displayName": "Windows Conan VS2015 x64 DLL",
+            "generator": "Visual Studio 14 2015"
+        },
+        {
+            "name": "windows-conan-vs2017",
+            "inherits": "windows-conan-base",
+            "displayName": "Windows Conan VS2017 x64 DLL",
+            "generator": "Visual Studio 15 2017"
+        },
+        {
+            "name": "windows-conan-vs2022",
+            "inherits": "windows-conan-base",
+            "displayName": "Windows Conan VS2022 x64 DLL",
+            "generator": "Visual Studio 17 2022"
         }
     ],
     "buildPresets": [
@@ -213,13 +205,18 @@
             "configurePreset": "llvm-ninja-release"
         },
         {
-            "name": "windows-conan-release",
-            "configurePreset": "windows-conan-release",
+            "name": "windows-conan-vs2022-release",
+            "configurePreset": "windows-conan-vs2022",
             "configuration": "Release"
         },
         {
             "name": "windows-conan-vs2015-release",
-            "configurePreset": "windows-conan-vs2015-release",
+            "configurePreset": "windows-conan-vs2015",
+            "configuration": "Release"
+        },
+        {
+            "name": "windows-conan-vs2017-release",
+            "configurePreset": "windows-conan-vs2017",
             "configuration": "Release"
         }
     ],
