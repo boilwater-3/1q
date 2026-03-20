@@ -116,6 +116,33 @@
                 "ENABLE_STRESS_TESTING": "OFF",
                 "BUILD_SHARED_LIBS": "OFF"
             }
+        },
+        {
+            "name": "windows-conan-base",
+            "hidden": true,
+            "inherits": "base",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "generator": "Visual Studio 17 2022",
+            "toolset": "host=x64",
+            "architecture": "x64",
+            "cacheVariables": {
+                "PACKAGE_MANAGER": "conan",
+                "BUILD_SHARED_LIBS": "ON",
+                "ENABLE_INSTALL": "ON",
+                "ENABLE_TESTING": "OFF"
+            }
+        },
+        {
+            "name": "windows-conan-release",
+            "inherits": "windows-conan-base",
+            "displayName": "Windows Conan Release (x64 DLL)",
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/windows-conan-release/conan_toolchain.cmake"
+            }
         }
     ],
     "buildPresets": [
@@ -166,6 +193,11 @@
         {
             "name": "llvm-ninja-release",
             "configurePreset": "llvm-ninja-release"
+        },
+        {
+            "name": "windows-conan-release",
+            "configurePreset": "windows-conan-release",
+            "configuration": "Release"
         }
     ],
     "testPresets": [

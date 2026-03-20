@@ -4,7 +4,6 @@
 include(CMakeFindDependencyMacro)
 
 find_dependency(Eigen3 REQUIRED CONFIG)
-find_dependency(Sophus REQUIRED CONFIG)
 find_dependency(spdlog REQUIRED CONFIG)
 find_dependency(eventpp REQUIRED CONFIG)
 find_dependency(Boost REQUIRED CONFIG)

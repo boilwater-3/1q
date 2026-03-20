@@ -58,17 +58,16 @@ target_include_directories(${PROJECT_CORE_TARGET}
 #   - cmake/PackageManagerVcpkg.cmake
 #   - cmake/PackageManagerConan.cmake
 find_package(Eigen3 CONFIG REQUIRED)
-find_package(Sophus CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(eventpp CONFIG REQUIRED)
 find_package(Boost CONFIG REQUIRED)
-target_link_libraries(${PROJECT_CORE_TARGET} PRIVATE spdlog::spdlog Eigen3::Eigen Sophus::Sophus eventpp::eventpp Boost::boost)
+target_link_libraries(${PROJECT_CORE_TARGET} PRIVATE spdlog::spdlog Eigen3::Eigen eventpp::eventpp Boost::boost)
 
 # 设置与 api.hpp 符号匹配的编译定义
 target_compile_definitions(${PROJECT_CORE_TARGET}
-    PRIVATE $<$<BOOL:${BUILD_SHARED_LIBS}>:TEMPLATE_LIBRARY_BUILD>
-    PUBLIC  $<$<BOOL:${BUILD_SHARED_LIBS}>:TEMPLATE_LIBRARY_SHARED>
-    PUBLIC  $<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:TEMPLATE_STATIC>
+    PRIVATE $<$<BOOL:${BUILD_SHARED_LIBS}>:ONEQ_LIBRARY_BUILD>
+    PUBLIC  $<$<BOOL:${BUILD_SHARED_LIBS}>:ONEQ_LIBRARY_SHARED>
+    PUBLIC  $<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:ONEQ_STATIC>
 )
 
 # 设置目标属性
@@ -79,6 +78,13 @@ set_target_properties(${PROJECT_CORE_TARGET} PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR}
 )
+
+# Windows DLL 自动导出全部符号（公共头无 ONEQ_API 装饰时的兜底方案）
+if(BUILD_SHARED_LIBS)
+    set_target_properties(${PROJECT_CORE_TARGET} PROPERTIES
+        WINDOWS_EXPORT_ALL_SYMBOLS ON
+    )
+endif()
 
 # PCH设置（预编译头）
 if(ENABLE_PCH)
