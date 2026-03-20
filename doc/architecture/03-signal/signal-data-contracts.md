@@ -4,33 +4,36 @@
 
 ## 1. Public vs Internal Boundary
 
-### 对外公共头
+### 对外公共头（仅 3 个）
 
-- `include/1q/airborne_radar/signal/pipeline/ISignalPipeline.h`
-- `include/1q/airborne_radar/signal/pipeline/SignalPipeline.h`
-- `include/1q/airborne_radar/signal/tracking/ITrackLifecycleManager.h`
-- `include/1q/airborne_radar/signal/tracking/LifecycleConfig.h`
-- `include/1q/airborne_radar/signal/tracking/TrackLifecycleTypes.h`
-- `include/1q/airborne_radar/signal/tracking/GaussianTrackState.h`
-- `include/1q/airborne_radar/signal/detection/*.h`
+- `include/1q/airborne_radar/signal/pipeline/ISignalPipeline.h` — 信号处理抽象接口
+- `include/1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h` — 全部配置结构 + 关联质量指标 + 周期输出
+- `include/1q/airborne_radar/signal/detection/DetectionTypes.h` — 雷达系统配置 + Swerling 模型
 
 ### 库内部实现头
 
-- `src/airborne_radar/signal/tracking/TrackLifecycleManager.h`
-- `src/airborne_radar/signal/tracking/ITrackPool.h`
-- `src/airborne_radar/signal/tracking/BoostTrackPool.h`
-- `src/airborne_radar/signal/tracking/SynchronizedTrackPool.h`
-- `src/airborne_radar/signal/tracking/KalmanPredictor.h`
-- `src/airborne_radar/signal/tracking/KalmanUpdater.h`
-- `src/airborne_radar/signal/tracking/EkfFilter.h`
-- `src/airborne_radar/signal/tracking/ImmFilter.h`
-- `src/airborne_radar/signal/tracking/TrackFilter.h`
-- `src/airborne_radar/signal/association/*`
-- `src/airborne_radar/signal/pipeline/SignalComponentFactory.h`
+- `src/airborne_radar/signal/pipeline/SignalPipeline.h` — 默认流水线实现（PIMPL）
+- `src/airborne_radar/signal/pipeline/SignalComponentFactory.h` — 配置映射与组件装配
+- `src/airborne_radar/signal/tracking/ITrackLifecycleManager.h` — 生命周期管理抽象
+- `src/airborne_radar/signal/tracking/TrackLifecycleManager.h` — 默认生命周期实现
+- `src/airborne_radar/signal/tracking/TrackLifecycleTypes.h` — 量测与关联种子内部契约
+- `src/airborne_radar/signal/tracking/LifecycleConfig.h` — 生命周期内部配置
+- `src/airborne_radar/signal/tracking/GaussianTrackState.h` — 高斯状态类型
+- `src/airborne_radar/signal/tracking/TrackFilter.h` — 轨迹滤波抽象层
+- `src/airborne_radar/signal/tracking/ITrackPool.h` — 对象池接口
+- `src/airborne_radar/signal/tracking/BoostTrackPool.h` — 对象池实现
+- `src/airborne_radar/signal/tracking/SynchronizedTrackPool.h` — 线程安全包装
+- `src/airborne_radar/signal/tracking/IKalmanPredictor.h` / `IKalmanUpdater.h` — Kalman 接口
+- `src/airborne_radar/signal/tracking/KalmanPredictor.h` / `KalmanUpdater.h` — 标准 Kalman 实现
+- `src/airborne_radar/signal/tracking/EkfFilter.h` — EKF（含 ITransitionModel / IMeasurementModel 接口）
+- `src/airborne_radar/signal/tracking/ImmFilter.h` — IMM 交互多模型
+- `src/airborne_radar/signal/association/*` — 关联引擎全部组件
+- `src/airborne_radar/signal/detection/*` — 探测链内部组件
 
 边界原则：
 
-- 对外只暴露“如何配置”和“如何调用”。
+- 对外只暴露”如何配置”（`SignalPipelineTypes.h`）和”如何调用”（`ISignalPipeline.h`）。
+- 所有原先独立的公共头（`SignalPipeline.h`、`ITrackLifecycleManager.h`、`GaussianTrackState.h`、`TrackLifecycleTypes.h`、`LifecycleConfig.h`）已移入 `src/`，配置参数合并到 `SignalPipelineTypes.h`。
 - 对象池、默认滤波器拼装、Lifecycle 内部重对象都不作为安装接口承诺。
 
 ## 2. Input Contracts
@@ -101,6 +104,7 @@ Signal 层当前对关键契约采用 fail-fast：
 
 ## 6. Current Known Constraints
 
-- `AssociationTrackSeed` 仍直接暴露 `GaussianTrackState`
+- `AssociationTrackSeed` 仍直接暴露 `GaussianTrackState`（两者均已移入 `src/`，不再是公共类型）
 - `kGroundStabilized` 当前仍按对惯性空间稳定近似处理
 - 长耗时 `IMM` 批量 Debug 压测已临时从默认测试目标中移除，待多线程优化后恢复
+- 探测链路当前仍输出单标量 `angle_error_std_rad`，量测协方差在 LOS 正交平面上采用各向同性近似

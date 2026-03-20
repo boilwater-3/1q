@@ -3,213 +3,212 @@ skinparam linetype ortho
 skinparam packageStyle rectangle
 skinparam defaultFontName sans-serif
 
-package "行为决策层 (Decision Layer)\n【责任链 / 管道模式】" #LightCyan {
-    class TargetClassifier {
-        - 识别目标属性情报
-    }
-    class LpiController {
-        - 降低截获概率控制
-    }
-    class EccmController {
-        - 执行抗干扰对抗
+package "公共 API 层 (01-api)\n【Facade / PIMPL / Builder】" #LightBlue {
+    class RadarSession {
+        - impl_ : unique_ptr<Impl>
+        + Step(input) : TrackOutputFrame
+        + StepWithResult(input) : RadarCycleResult
     }
 
-    interface ITacticalProcessor << (I,orchid) >> {
-        + processTactics(context: DecisionContext)
-        + setNext(processor: ITacticalProcessor): ITacticalProcessor
+    class ConfigPresets << (F,#FF7700) Factory >> {
+        + MakeDetectionMissionRadarSessionConfig()
+        + MakeHighRobustnessSignalPipelineConfig()
     }
 
-    class DecisionContext << (D,#FF7700) Data >> {
-        + track_snapshots
-        + target_classification_result
-        + lpi_source_info
-        + eccm_source_info
-        + decision_commands
+    class RadarSessionConfigBuilder << (B,#FF7700) Builder >> {
+        + WithTransmitter...() / WithAntenna...()
+        + WithTracking...() / WithLifecycle...()
+        + Build() : RadarSessionConfig
     }
 
-    class TargetClassifierView
-    class LpiControllerView
-    class EccmControllerView
+    class TargetFeatureBuilder << (B,#FF7700) Builder >> {
+        + Position() / Velocity() / Rcs()
+        + Build() : TargetFeature
+    }
 
-    ITacticalProcessor <|.. TargetClassifier
-    ITacticalProcessor <|.. LpiController
-    ITacticalProcessor <|.. EccmController
+    class TrackOutputQueries {
+        + CollectConfirmedTracks()
+        + BuildTrackMapByExternalTargetId()
+    }
 
-    TargetClassifier -right-> LpiController : next
-    LpiController -right-> EccmController : next
-
-    DecisionContext ..> TargetClassifierView : create view
-    DecisionContext ..> LpiControllerView : create view
-    DecisionContext ..> EccmControllerView : create view
+    class RadarInputValidation {
+        + ValidateRadarCycleInput()
+        + HasValidationError()
+    }
 }
 
-package "核心处理层 (Core Layer)\n【中介者 / 外观层】" #LightYellow {
+package "核心协调层 (02-core)\n【Mediator / 依赖注入】" #LightYellow {
     class RadarController {
-        - 周期调度与编排
-        - 探测循环驱动
+        - impl_ : unique_ptr<Impl>
+        + RunOnce()
+        + RunCycles(n)
     }
-    class ResultIOGateway {
-        - 标准格式输出转换
+
+    class MutableRadarContext {
+        + BeginCycle(input)
+        + GetTargetFeatures()
+        + SubmitControlCommand(cmd)
     }
-    class EventBus << (B,#FFAAAA) >> {
-        - 即时事件分发
-    }
-    class CycleEventBus << (B,#FFAAAA) >> {
-        - 周期双缓冲事件队列
+
+    class DataOutputManager {
+        + BuildTrackOutputFrame()
+        + BuildDecisionInputFrame()
     }
 
     interface IRadarContext << (I,orchid) >> {
-        + getTargetFeatures()
-        + submitControlCommand(cmd)
+        + GetTargetFeatures()
+        + SubmitControlCommand(cmd)
     }
 
     interface IEventBus << (I,orchid) >> {
-        + beginCycle()
-        + dispatchCurrentCycle()
-        + enqueue(event)
-        + endCycle()
+        + Subscribe<Event>() / Publish<Event>()
+        + BeginCycle() / DispatchCurrentCycle()
     }
 
+    class EventBus {
+        即时同步分发
+    }
+    class CycleEventBus {
+        双缓冲周期延迟
+    }
+
+    MutableRadarContext ..|> IRadarContext
     EventBus ..|> IEventBus
     CycleEventBus ..|> IEventBus
 }
 
-package "信号处理层 (Signal Layer)\n【领域核心 + 跟踪域服务】" #LightGreen {
-    class SignalDetector {
-        - 回波计算与探测判决
-    }
-    class DataAssociationEngine {
-        - 关联管线编排
-    }
-    class IDistanceMetric << (I,orchid) >> {
-        - 马氏距离等代价评估
-    }
-    class IAssignmentSolver << (I,orchid) >> {
-        - Lapjv 等全局指派求解
-    }
-    class KalmanFamilyFilters {
-        - KF / EKF / IMM 状态预测更新
-    }
-    class SignalPipeline {
-        - 信号处理周期编排
-    }
-    class TrackLifecycleManager {
-        - 目标状态机
-        - 集成 Kalman 状态估计
-    }
-    class BoostTrackPool {
-        - 内存对象池复用
+package "信号处理层 (03-signal)\n【Pipeline / Strategy】" #LightGreen {
+    interface ISignalPipeline << (I,orchid) >> {
+        + RunCycle(targets, env) : SignalCycleResult
+        + SetControlProfile(profile)
     }
 
-    interface ISignalPipeline << (I,orchid) >> {
-        + runCycle(features, env)
+    class SignalPipeline {
+        - impl_ : unique_ptr<Impl>
+        + SetAssociationSeeds(seeds)
+        + CreateAutoLifecycleManager()
+    }
+
+    class SignalDetector {
+        回波功率 → SNR → Pd → 判决
+    }
+    class BeamControlResolver {
+        波束宽度 / 指向 / 方向图增益
+    }
+    class DataAssociationEngine {
+        波门 → 假设生成 → LAPJV
+    }
+    class TrackLifecycleManager {
+        状态机 + Kalman/EKF/IMM
     }
 
     interface ITrackLifecycleManager << (I,orchid) >> {
-        + update(cycle, measurements)
-        + buildFeatureSnapshot()
+        + Update(cycle, measurements)
+        + BuildDecisionSnapshot()
+        + BuildAssociationSeeds()
     }
 
     interface ITrackPool << (I,orchid) >> {
-        + acquire()
-        + release(track)
+        + Acquire() / Release()
     }
 
     SignalPipeline ..|> ISignalPipeline
-    SignalPipeline --> SignalDetector : 调用
-    SignalPipeline --> DataAssociationEngine : 调用
-    SignalPipeline --> KalmanFamilyFilters : 持有与驱动
-    
-    DataAssociationEngine --> IDistanceMetric : 依赖
-    DataAssociationEngine --> IAssignmentSolver : 依赖
-    
+    SignalPipeline --> SignalDetector
+    SignalPipeline --> BeamControlResolver
+    SignalPipeline --> DataAssociationEngine
+
     TrackLifecycleManager ..|> ITrackLifecycleManager
-    BoostTrackPool ..|> ITrackPool
-    TrackLifecycleManager --> ITrackPool : 内存分配归还
-    TrackLifecycleManager --> KalmanFamilyFilters : 注入与集成
+    TrackLifecycleManager --> ITrackPool : 内存复用
 }
 
-package "环境建模层 (Environment Layer)\n【基础设施】" #LightGray {
-    class SceneManager {
-        - 统一目标与干扰源列表
+package "决策层 (04-decision)\n【评估器管线 / Proposal 归约】" #LightCyan {
+    interface ITacticalDecisionEngine << (I,orchid) >> {
+        + Evaluate(input, state) : TacticalDecisionResult
     }
-    class PropagationModel {
-        - 大气/多径效应参数计算
+
+    class TacticalCoordinator {
+        编排三个评估器
     }
-    class InterferenceModel {
-        - 干扰物理建模
+
+    class ThreatAssessmentEvaluator {
+        威胁识别 + 跨周期记忆
     }
-    class FeatureRepository {
-        - 目标特征分类库 (内存级缓存防腐层)
+    class EmissionControlEvaluator {
+        LPI 控制建议
     }
-    
+    class SurvivabilityEvaluator {
+        ECCM 组合策略建议
+    }
+    class ControlReducer {
+        归约 + hold/cooldown + 冲突裁决
+    }
+
+    TacticalCoordinator ..|> ITacticalDecisionEngine
+    TacticalCoordinator --> ThreatAssessmentEvaluator
+    TacticalCoordinator --> EmissionControlEvaluator
+    TacticalCoordinator --> SurvivabilityEvaluator
+
+    ThreatAssessmentEvaluator -[hidden]right-> EmissionControlEvaluator
+    EmissionControlEvaluator -[hidden]right-> SurvivabilityEvaluator
+}
+
+package "环境层 (05-environment)\n【基础设施 / Repository】" #LightGray {
     interface IEnvironmentService << (I,orchid) >> {
-        + getPathLoss()
-        + getInterferencePower()
-        + getSceneEntities()
+        + SampleEnvironment() : EnvironmentSnapshot
     }
 
-    SceneManager ..|> IEnvironmentService
-    PropagationModel ..|> IEnvironmentService
-    InterferenceModel ..|> IEnvironmentService
+    class EnvironmentService {
+        传播损耗 / 杂波 / 干扰事实
+    }
+    class SceneManager {
+        场景实体与干扰源管理
+    }
+
+    interface IFeatureRepository << (I,orchid) >> {
+        + Match(feature) : MatchResult
+    }
+
+    EnvironmentService ..|> IEnvironmentService
+    EnvironmentService --> SceneManager
 }
 
 ' ==========================================
-' 关系设计 (应用设计原则)
+' 层间关系
 ' ==========================================
 
-' 1. 行为决策层的顺序链路连接
-RadarController --> DecisionContext : "构造本周期决策上下文"
-DecisionContext --> ITacticalProcessor : "注入责任链处理"
-ITacticalProcessor --> DecisionContext : "追加 decision_commands"
+RadarSession --> RadarController : 内部持有
 
-' 2. 核心层对底层模块的调度统筹
-RadarController --> ISignalPipeline : "驱动信号处理流水线"
-RadarController --> IEnvironmentService : "初始化与注入探测场景参数"
-RadarController --> ITrackLifecycleManager : "调用生命周期域服务"
-RadarController --> IRadarContext : "统一下发控制命令"
-RadarController --> IEventBus : "周期事件编排"
-RadarController --> ResultIOGateway : "投递流水线结果"
+RadarController --> IRadarContext : 周期上下文
+RadarController --> ISignalPipeline : 驱动信号处理
+RadarController --> ITacticalDecisionEngine : 驱动决策
+RadarController --> IEnvironmentService : 采样环境
+RadarController --> IEventBus : 事件编排
+RadarController --> DataOutputManager : 输出装配
 
-' 3. 信号处理层依赖倒置 (DIP)
-' 信号处理层不需要知道具体的传播计算或场景管理细节，只依赖抽象接口获取参数
-ISignalPipeline --> IEnvironmentService : "查询所需的损耗/干扰信息"
+RadarController --> ITrackLifecycleManager : 种子回灌 / 快照消费
 
-' 4. 跟踪域服务边界
-ITrackLifecycleManager --> ITrackPool : "仅依赖内存复用接口"
-ITrackLifecycleManager ..> ISignalPipeline : "输出特征快照供后续处理"
-DataAssociationEngine ..> TrackLifecycleManager : "输出匹配结果映射，不直接承担生命周期策略"
-KalmanFamilyFilters ..> TrackLifecycleManager : "仅作空间预测计算，不直接承担状态机管理"
+ISignalPipeline --> IEnvironmentService : 查询环境快照
 
-' 5. 信息源与核心数据流 (CQRS, Repository, EventBus)
-RadarController ..> EventBus : "即时语义：Publish/Enqueue 立即可见"
-RadarController ..> CycleEventBus : "周期语义：本周期发布，下周期消费"
-CycleEventBus ..> RadarController : "BeginCycle -> DispatchCurrentCycle"
-TargetClassifier ..> FeatureRepository : "高频查询目标分类库"
-RadarController ..> IRadarContext : "SubmitControlCommand(cmd)"
+ThreatAssessmentEvaluator --> IFeatureRepository : 特征匹配
 
-note top of ITacticalProcessor
-  **责任链模式/管道模式 \n(Chain of Responsibility / Pipeline)**
-  行为决策以数据流方式依序处理：
-  情报获取 -> 风险评估 -> 对抗执行。
+note top of RadarController
+  **Mediator 模式**
+  唯一协调点：编排 Signal → Decision → Environment
+  不承载业务逻辑，不持有可变共享状态
 end note
 
-note right of RadarController
-  **中介者模式 (Mediator Pattern)**
-    系统总线与调度器。避免层与层之间的网状紧耦合。
-    当前主责是周期编排、事件调度与命令统一下推。
+note right of ISignalPipeline
+  **公共边界极简**
+  对外仅 3 个公共头：
+  ISignalPipeline.h
+  SignalPipelineTypes.h
+  DetectionTypes.h
 end note
 
-note right of IEnvironmentService
-  **依赖倒置原则 (DIP)**
-  核心层和信号处理层不直接依赖底层物理模型文件，
-  而是依赖抽象服务接口，便于后期替换为仿真环境或实战环境。
-end note
-
-note right of ITrackPool
-    **边界约束**
-    对象池只负责内存复用，
-    不承载目标状态机和回收策略语义。
+note bottom of ControlReducer
+  **Proposal 归约**
+  按优先级排序 → 去重 → 域级 hold/cooldown
+  → LPI/ECCM 冲突裁决 → RadarControlProfile
 end note
 
 @enduml

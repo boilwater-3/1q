@@ -11,8 +11,8 @@ Environment 层负责产出传播、杂波和干扰等环境事实，供信号�
 ## Recommended Reading Order
 
 1. `environment-architecture.md`
-2. `../decision/decision-architecture.md`
-3. `../signal/signal-architecture.md`
+2. `../04-decision/decision-architecture.md`
+3. `../03-signal/signal-architecture.md`
 
 落代码时，优先对照以下入口：
 

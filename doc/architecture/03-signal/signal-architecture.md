@@ -20,23 +20,52 @@ Signal 层是机载雷达仿真中的信号处理核心，负责把输入目标�
 ## 2. Directory Layout
 
 ```text
-src/airborne_radar/signal/
-├── association/                  # 位置主路径关联、波门、假设生成、最优指派
-├── detection/                    # 几何解析、方向图、误差建模、物理探测
-├── pipeline/                     # 单周期编排与组件装配
-└── tracking/                     # 生命周期、Kalman/EKF/IMM、对象池
-
 include/1q/airborne_radar/signal/
-├── detection/                    # 公共探测配置与雷达方程
-├── pipeline/                     # ISignalPipeline / SignalPipeline
+├── pipeline/
+│   ├── ISignalPipeline.h         # [公共接口] 信号处理抽象（RunCycle、平台姿态、控制真值）
+│   └── SignalPipelineTypes.h     # [公共类型] 全部配置结构（探测/波束/关联/跟踪/生命周期）
+│                                 #            + AssociationQualityMetrics + SignalCycleResult
+└── detection/
+    └── DetectionTypes.h          # [公共类型] RadarSystemConfig（发射/天线/接收/检测策略）+ SwerlingModel
+
+src/airborne_radar/signal/
+├── pipeline/
+│   ├── SignalPipeline.h/.cpp     # 默认流水线实现（PIMPL）
+│   └── SignalComponentFactory.h  # 配置映射与组件装配工厂
+├── detection/
+│   ├── RadarEquations.h          # 纯函数层：雷达方程、热噪声、积累增益、Pd
+│   ├── SignalDetector.h/.cpp     # 探测物理：回波功率 → SNR → Pd → 判决
+│   ├── TargetGeometryResolver.h  # 几何解析：统一 range / position / look
+│   ├── TargetLookResolver.h      # 目标方向解析
+│   ├── BeamControlResolver.h     # 波束控制：有效波束宽度 / 指向 / 方向图增益
+│   ├── BeamwidthResolution.h     # 波束宽度解析工具
+│   └── MeasurementErrorModel.h   # 量测误差：距离误差 / 角度误差
+├── association/
+│   ├── DataAssociation.h/.cpp    # 编排引擎 + AssociationResult
+│   ├── DistanceMetric.h          # 马氏距离度量（MahalanobisDistanceMetric / FullMahalanobisDistanceMetric）
+│   ├── Gater.h                   # 代价阈值波门（CostThresholdGater）
+│   ├── Hypothesiser.h            # 密集假设生成（DenseCostHypothesiser）
+│   ├── AssignmentSolver.h        # 指派求解器接口
+│   └── LapjvSolver.h             # Jonker-Volgenant 线性指派
 └── tracking/
-    ├── GaussianTrackState.h      # 公开的高斯状态类型
-    ├── ITrackLifecycleManager.h  # 生命周期管理抽象
-    ├── LifecycleConfig.h         # 生命周期公开配置
-    └── TrackLifecycleTypes.h     # 量测与关联种子契约
+    ├── ITrackLifecycleManager.h  # 生命周期管理抽象接口
+    ├── TrackLifecycleManager.h/.cpp # 默认生命周期实现（状态机 + 滤波集成）
+    ├── TrackLifecycleTypes.h     # 量测与关联种子内部契约
+    ├── LifecycleConfig.h         # 生命周期内部配置（公共版合并入 SignalPipelineTypes.h）
+    ├── GaussianTrackState.h      # 高斯状态（6D CV + 协方差）
+    ├── TrackFilter.h             # 轨迹滤波抽象（ITrackPredictor / ITrackUpdater / TrackFilter）
+    ├── IKalmanPredictor.h        # Kalman 预测器接口
+    ├── IKalmanUpdater.h          # Kalman 更新器接口
+    ├── KalmanPredictor.h/.cpp    # 标准线性 Kalman 预测
+    ├── KalmanUpdater.h/.cpp      # 标准 Kalman 更新（Joseph 形式）
+    ├── EkfFilter.h               # EKF：ITransitionModel / IMeasurementModel + EkfPredictor / EkfUpdater
+    ├── ImmFilter.h/.cpp          # IMM：Bar-Shalom 四步交互多模型
+    ├── ITrackPool.h              # 对象池接口
+    ├── BoostTrackPool.h          # 对象池实现（Boost.Pool）
+    └── SynchronizedTrackPool.h   # 线程安全对象池包装
 ```
 
-当前信号层的公共边界已经收紧：`TrackLifecycleManager`、`SynchronizedTrackPool`、`ITrackPool`、`BoostTrackPool`、`KalmanPredictor`、`KalmanUpdater` 等默认实现与对象池细节均留在 `src/`，只供库内部和白盒测试使用。
+当前信号层的公共边界已收紧至 **3 个公共头文件**。`SignalPipeline`（具体实现）、`ITrackLifecycleManager`、`GaussianTrackState`、`TrackLifecycleTypes` 等全部移入 `src/`，对外只暴露 `ISignalPipeline` 接口和配置类型。所有生命周期配置参数已合并到 `SignalPipelineTypes.h` 中的 `LifecycleConfig` / `SignalLifecycleConfig`。
 
 ## 3. Diagram Index
 
@@ -58,8 +87,8 @@ Signal 层当前的正式主链路如下：
 
 推荐配合图示阅读：
 
-- 主链路图：[signal-processing-flow.puml](/Users/aurora/Code/1q/doc/architecture/signal/signal-processing-flow.puml)
-- 主链路导出图：[signal-processing-flow.png](/Users/aurora/Code/1q/doc/architecture/signal/signal-processing-flow.png)
+- 主链路图：[signal-processing-flow.puml](./signal-processing-flow.puml)
+- 主链路导出图：[signal-processing-flow.png](./signal-processing-flow.png)
 
 ## 5. Key Mechanisms
 
@@ -119,25 +148,25 @@ Signal 层当前的正式主链路如下：
 
 ## 6. Contracts and Boundaries
 
-详细字段契约见 [signal-data-contracts.md](/Users/aurora/Code/1q/doc/architecture/signal/signal-data-contracts.md)。这里仅保留架构级边界：
+详细字段契约见 [signal-data-contracts.md](./signal-data-contracts.md)。这里仅保留架构级边界：
 
-- 对外公共头：
-  - `ISignalPipeline` / `SignalPipeline`
-  - `ITrackLifecycleManager`
-  - `LifecycleConfig`
-  - `TrackLifecycleTypes`
-  - `GaussianTrackState`
-  - 探测域的公共配置与雷达方程
-- 内部实现头：
-  - `TrackLifecycleManager`
-  - `SynchronizedTrackPool`
-  - `ITrackPool` / `BoostTrackPool`
-  - `KalmanPredictor` / `KalmanUpdater`
-  - `EkfFilter` / `ImmFilter` / `TrackFilter`
-  - `SignalComponentFactory`
-  - `association/*`
+- 对外公共头（仅 3 个）：
+  - `ISignalPipeline.h` — 信号处理抽象接口
+  - `SignalPipelineTypes.h` — 全部配置结构（`SignalPipelineConfig` 及其子配置）、`AssociationQualityMetrics`、`SignalCycleResult`
+  - `DetectionTypes.h` — `RadarSystemConfig`（发射/天线/接收/检测策略）、`SwerlingModel`
+- 内部实现头（全部在 `src/`）：
+  - `SignalPipeline` — 默认流水线实现（PIMPL）
+  - `ITrackLifecycleManager` / `TrackLifecycleManager` — 生命周期管理抽象与默认实现
+  - `TrackLifecycleTypes` / `GaussianTrackState` — 量测、关联种子、高斯状态内部契约
+  - `SynchronizedTrackPool` / `ITrackPool` / `BoostTrackPool` — 对象池层次
+  - `KalmanPredictor` / `KalmanUpdater` — 标准线性 Kalman
+  - `EkfFilter`（`EkfPredictor` / `EkfUpdater` + `ITransitionModel` / `IMeasurementModel`）— EKF
+  - `ImmFilter` — 交互多模型
+  - `TrackFilter`（`ITrackPredictor` / `ITrackUpdater`）— 轨迹滤波抽象
+  - `SignalComponentFactory` — 配置映射与组件装配
+  - `association/*` — 关联引擎全部组件
 
-显式边界的目的不是隐藏算法存在，而是避免外部项目直接依赖默认实现的拼装方式、对象池策略和内部重对象结构。
+显式边界的目的不是隐藏算法存在，而是避免外部项目直接依赖默认实现的拼装方式、对象池策略和内部重对象结构。外部项目只需通过 `SignalPipelineConfig` 调参，无需直接接触任何内部组件。
 
 ## 7. Collaboration with Other Modules
 

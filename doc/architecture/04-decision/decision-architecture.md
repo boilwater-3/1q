@@ -22,18 +22,28 @@ DecisionInputFrame
 
 ```text
 include/1q/airborne_radar/decision/
-├── ITacticalDecisionEngine.h              # 决策引擎接口、proposal/result/state 契约
-├── TacticalCoordinator.h                  # 默认协调器
-├── ControlReducer.h                       # proposal -> RadarControlProfile
-├── classifier/ThreatAssessmentEvaluator.h # 威胁评估
-├── lpi/EmissionControlEvaluator.h         # LPI 评估
-└── eccm/SurvivabilityEvaluator.h          # ECCM 生存性评估
+└── pipeline/
+    ├── ITacticalDecisionEngine.h          # [公共接口] 决策引擎接口、TacticalStateStore、TacticalProposal、TacticalDecisionResult
+    └── ControlReducerTypes.h              # [公共类型] ControlReducerConfig、ControlReductionResult
+
+include/1q/airborne_radar/common/
+├── ControlDirective.h                     # [公共类型] ControlDirectiveType/Source 枚举与 ControlDirective 结构
+├── DecisionInputFrame.h                   # [公共类型] 决策输入帧、AssociationQualityInfo、PerceptionQualityInfo
+├── DecisionSourceInfo.h                   # [公共类型] LpiSourceInfo、EccmSourceInfo、EccmJammerSourceInfo
+├── RadarControlProfile.h                  # [公共类型] 控制真值（含域级 hold/cooldown 状态）
+└── TargetCategory.h                       # [公共类型] 分类结果
 
 src/airborne_radar/decision/
-├── ControlReducer.cpp
-├── classifier/ThreatAssessmentEvaluator.cpp
-├── lpi/EmissionControlEvaluator.cpp
-└── eccm/SurvivabilityEvaluator.cpp
+├── pipeline/
+│   ├── TacticalCoordinator.h/.cpp         # 默认协调器（编排三个 evaluator）
+│   ├── TacticalEvaluation.h               # ITacticalEvaluator 内部接口 + TacticalEvaluationState
+│   └── ControlReducer.h/.cpp              # proposal -> RadarControlProfile 归约
+├── classifier/
+│   └── ThreatAssessmentEvaluator.h/.cpp   # 威胁评估（支持 IFeatureRepository 注入）
+├── lpi/
+│   └── EmissionControlEvaluator.h/.cpp    # LPI 评估
+└── eccm/
+    └── SurvivabilityEvaluator.h/.cpp      # ECCM 生存性评估
 ```
 
 ## 3. 主处理链路
@@ -150,9 +160,9 @@ ECCM 在决策层的正式职责应该限定为：
 - `ControlReducer` 只需要处理冲突和限幅，不需要理解干扰物理。
 - `SignalPipeline` 可以按域做参数映射，避免相互覆盖。
 
-## 6. 建议的数据流分层
+## 6. 数据流分层
 
-### 6.1 当前已落地的数据流
+### 6.1 主数据流
 
 ```text
 EnvironmentSnapshot.jamming_detected
@@ -163,18 +173,31 @@ EnvironmentSnapshot.jamming_detected
   -> SignalPipeline::ApplyControlProfileToConfig()
 ```
 
-### 6.2 建议扩展的数据流
+### 6.2 多源干扰事实数据流
 
-当前只有一个布尔量，足以触发 ECCM，但不足以支撑“按干扰类型选择最优组合”。建议保持单向数据流不变，只扩展事实颗粒度：
+`EccmSourceInfo` 已落地多源干扰事实，`SurvivabilityEvaluator` 根据事实颗粒度动态调整各 proposal 的优先级：
 
 ```text
-环境层干扰事实
-  -> EccmSourceInfo
+环境层干扰事实（EccmSourceInfo + EccmJammerSourceInfoList）
   -> TacticalCoordinator / SurvivabilityEvaluator
-  -> TacticalProposal[]
+  -> TacticalProposal[]（优先级按事实维度调整）
   -> RadarControlProfile
   -> SignalPipeline 运行时配置
 ```
+
+当前 `EccmSourceInfo` 已承载的事实维度：
+
+| 事实维度 | 对应字段 | 决策用途 |
+|----------|----------|----------|
+| 干扰存在性 | `has_jamming_signal` | ECCM 触发总开关 |
+| 干扰强度 / J/S 估计 | `jammer_power_db` / `jammer_to_signal_db` | 决定是否需要烧穿增益 |
+| 干扰入射方向/角域 | `azimuth_deg` / `elevation_deg` / `angular_span_deg` / `jammer_in_sidelobe` | 决定旁瓣对消与自适应波束形成是否有效 |
+| 与当前载频的重叠程度 | `frequency_overlap_ratio` | 决定频率捷变价值 |
+| 与当前 PRF 的锁定/相干程度 | `prf_lock_risk` | 决定重频抖动价值 |
+| 干扰类型标签 | `JammingTechnique`（kNoiseSuppression / kDeception / kRepeater） | 决定组合策略优先级 |
+| 多源置信度 | `EccmJammerSourceInfo.confidence` | 低于 0.35 时保守处理 |
+
+### 6.3 关联质量补位数据流
 
 ```text
 信号层关联质量摘要
@@ -183,25 +206,17 @@ EnvironmentSnapshot.jamming_detected
   -> SurvivabilityEvaluator(只做 proposal 优先级修正)
 ```
 
+补位触发条件：无环境层干扰信号时，若同时满足欺骗/转发/混合语义 + `jamming_severity ≥ 0.35` + `association_stress ≥ 0.18`，则补位触发 ECCM。仅由关联压力触发的 ECCM 不输出旁瓣对消或烧穿增益等需要更强环境事实支撑的动作。
+
+### 6.4 探测质量摘要数据流
+
 ```text
 控制器探测质量摘要
   -> PerceptionQualityInfo(detection_rate / detection_stress)
   -> TacticalCoordinator(只做模式说明与原因摘要)
 ```
 
-建议扩展的是“事实”，而不是绕过 reducer 直接给信号层下参数。
-
-最小可用的扩展事实建议：
-
-| 事实维度 | 为什么需要 |
-|----------|------------|
-| 干扰强度或 J/S 估计 | 决定是否需要烧穿增益 |
-| 干扰入射方向/角域 | 决定旁瓣对消与自适应波束形成是否有效 |
-| 与当前载频的重叠程度 | 决定频率捷变价值 |
-| 与当前 PRF 的锁定/相干程度 | 决定重频抖动价值 |
-| 干扰类型标签（压制/欺骗/转发） | 决定组合策略优先级 |
-
-注意：这些字段是设计建议，不是当前已实现 API。
+当前版本主要用于决策摘要与模式解释，不直接驱动新的控制动作。
 
 ## 7. 各抗干扰技术如何落到信号层
 
@@ -320,18 +335,23 @@ EnvironmentSnapshot.jamming_detected
 
 ### 已落地
 
-- `SurvivabilityEvaluator` 已实现 ECCM proposal 输出
-- `ControlReducer` 已把 proposal 归并为 `RadarControlProfile`
+- `ThreatAssessmentEvaluator` 已实现目标分类与威胁评分，支持 `IFeatureRepository` 注入做特征匹配
+- `EmissionControlEvaluator` 已实现 LPI proposal 输出，含 2 周期保持逻辑
+- `SurvivabilityEvaluator` 已实现 ECCM proposal 输出，基于多源干扰事实动态调整各 proposal 优先级
+- `ControlReducer` 已把 proposal 归并为 `RadarControlProfile`，含域级 hold/cooldown/冲突裁决
 - `RadarController` 已把 profile 注入 `SignalPipeline`
 - `SignalPipeline` 已把多种 ECCM 控制真值映射到探测/关联/跟踪运行时配置
+- `EccmSourceInfo` 已承载多源干扰事实（`EccmJammerSourceInfoList`），含角域、频率重叠、PRF 锁定风险等维度
+- `AssociationQualityInfo` 已落地关联质量补位触发（欺骗/转发语义 + 严重度/压力门限）
+- `PerceptionQualityInfo` 已落地探测质量摘要
 
 ### 仍需补强
 
-- 多源干扰事实仍是单层列表，尚未形成更稳定的主源/群组/角域聚类抽象
+- 多源干扰事实为平坦列表，尚未形成主源/群组/角域聚类抽象
 - `ControlReducer` 已具备域级状态管理，但还没有更细粒度的策略表与来源追踪
-- 信号层尚未把 reducer 的域级状态元数据转化为更明确的统计稳定性策略
+- `SurvivabilityEvaluator` 的优先级调整阈值为硬编码常量，尚未暴露为可配置参数
 
 ## 10. 推荐阅读
 
-- [environment-architecture.md](/Users/aurora/Code/1q/doc/architecture/environment/environment-architecture.md)
-- [signal-architecture.md](/Users/aurora/Code/1q/doc/architecture/signal/signal-architecture.md)
+- [environment-architecture.md](../05-environment/environment-architecture.md)
+- [signal-architecture.md](../03-signal/signal-architecture.md)
