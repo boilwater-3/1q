@@ -99,7 +99,7 @@
             "displayName": "macOS LLVM Ninja Debug",
             "binaryDir": "${sourceDir}/build/llvm-ninja-debug-local",
             "cacheVariables": {
-                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/llvm-ninja-debug-local/build/Debug/generators/conan_toolchain.cmake",
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/ConanBootstrapToolchain.cmake",
                 "CMAKE_BUILD_TYPE": "Debug",
                 "ENABLE_TESTING": "ON",
                 "ENABLE_STRESS_TESTING": "OFF",
