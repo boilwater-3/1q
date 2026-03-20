@@ -96,25 +96,6 @@ AssociationQualityMetrics ToPipelineAssociationQualityMetrics(
   return metrics;
 }
 /**
- * @brief 将环境层干扰技术枚举转换为公共决策语义枚举。
- * @param technique 环境层干扰技术。
- * @return 公共层干扰技术枚举。
- */
-common::JammingTechnique ToCommonJammingTechnique(
-    environment::JammingTechnique technique) {
-  switch (technique) {
-    case environment::JammingTechnique::kNoiseSuppression:
-      return common::JammingTechnique::kNoiseSuppression;
-    case environment::JammingTechnique::kDeception:
-      return common::JammingTechnique::kDeception;
-    case environment::JammingTechnique::kRepeater:
-      return common::JammingTechnique::kRepeater;
-    case environment::JammingTechnique::kUnknown:
-    default:
-      return common::JammingTechnique::kUnknown;
-  }
-}
-/**
  * @brief 将环境层单个干扰源事实转换为 ECCM 输入结构。
  * @param environment_source 环境层单个干扰源事实。
  * @return 供决策层消费的单源干扰摘要。
@@ -122,7 +103,7 @@ common::JammingTechnique ToCommonJammingTechnique(
 common::EccmJammerSourceInfo BuildEccmJammerSourceInfo(
     const environment::JammerSourceFact& environment_source) {
   common::EccmJammerSourceInfo source_info;
-  source_info.technique = ToCommonJammingTechnique(environment_source.technique);
+  source_info.technique = environment_source.technique;
   source_info.jammer_power_db = environment_source.power_db;
   source_info.jammer_to_signal_db = environment_source.js_db;
   source_info.frequency_overlap_ratio =

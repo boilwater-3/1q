@@ -7,12 +7,9 @@
 #define AIRBORNE_RADAR_CORE_CONTROLLER_RADAR_CONTROLLER_H_
 
 #include <cstddef>
-#include <cstdint>
 #include <memory>
-#include <vector>
 
-#include "1q/airborne_radar/common/ControlDirective.h"
-#include "1q/airborne_radar/common/RadarControlProfile.h"
+#include "1q/airborne_radar/common/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/output/IRadarOutputReader.h"
 #include "1q/airborne_radar/decision/pipeline/ControlReducerTypes.h"
 
@@ -25,19 +22,9 @@ class IRadarContext;
 }
 
 namespace airborne_radar {
-namespace core {
-namespace output {
-class IDataOutputManager;
-}
-}
-}
-
-namespace airborne_radar {
 namespace decision {
 namespace pipeline {
 class ITacticalDecisionEngine;
-class ControlReducer;
-struct TacticalStateStore;
 }
 }
 }
@@ -62,6 +49,8 @@ namespace controller {
 
 /**
  * @brief RadarController 负责调度信号处理、行为决策与指令下发。
+ * @details 采用 PIMPL 模式隐藏实现细节，保证 ABI 稳定性；
+ *          内部状态变更不会触发外部项目重编。
  */
 class RadarController : public core::output::IRadarOutputReader {
  public:
@@ -99,23 +88,8 @@ class RadarController : public core::output::IRadarOutputReader {
   const common::TrackOutputFrame& GetLatestTrackOutputFrame() const override;
 
  private:
-  void ExecuteCommands(const std::vector<common::ControlDirective>& directives);
-
-  core::context::IRadarContext& radar_context_;
-  signal::pipeline::ISignalPipeline& signal_pipeline_;
-  decision::pipeline::ITacticalDecisionEngine* decision_engine_{nullptr};
-  std::unique_ptr<decision::pipeline::ITacticalDecisionEngine>
-      owned_decision_engine_;
-  environment::IEnvironmentService& environment_service_;
-  common::RadarControlProfile* control_profile_;
-  std::unique_ptr<common::RadarControlProfile> owned_control_profile_;
-  std::unique_ptr<decision::pipeline::TacticalStateStore> tactical_state_store_;
-  std::unique_ptr<decision::pipeline::ControlReducer> control_reducer_;
-  std::unique_ptr<core::output::IDataOutputManager> output_manager_;
-  common::TrackOutputFrame latest_track_output_frame_{};
-  bool has_latest_track_output_frame_{false};
-  std::uint32_t cycle_index_{1};
-  std::uint64_t batch_id_{1};
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 } // namespace controller

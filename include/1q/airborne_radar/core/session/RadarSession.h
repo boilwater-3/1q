@@ -46,6 +46,9 @@ public:
    * @brief 执行一个不显式切场景的处理周期。
    * @param input 当前周期输入。
    * @return 当前周期生成的轨迹输出帧拷贝。
+   * @note 输入容错：`dt_sec ≤ 0` 或其他非法输入时，函数不抛异常，
+   *       会以尽力而为出发返回上一周期有效状态，输出帧中
+   *       `published_track_count` 可能为零。
    */
   common::TrackOutputFrame Step(const context::RadarCycleInput& input);
 
@@ -54,14 +57,19 @@ public:
    * @param input 当前周期输入。
    * @param scene_state 当前 step 之前要提交的待生效场景。
    * @return 当前周期生成的轨迹输出帧拷贝。
+   * @note 输入容错：`dt_sec ≤ 0` 或其他非法输入时，函数不抛异常，
+   *       会以尽力而为出发返回上一周期有效状态，输出帧中
+   *       `published_track_count` 可能为零。
    */
   common::TrackOutputFrame Step(const context::RadarCycleInput& input,
                                 const environment::EnvironmentSceneState& scene_state);
+
 
   /**
    * @brief 执行一个不显式切场景的处理周期，并返回聚合结果。
    * @param input 当前周期输入。
    * @return 当前周期聚合结果。
+   * @note 输入容错：行为与 `Step()` 一致。
    */
   RadarCycleResult StepWithResult(const context::RadarCycleInput& input);
 

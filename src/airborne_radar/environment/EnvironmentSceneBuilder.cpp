@@ -3,28 +3,6 @@
 namespace airborne_radar {
 namespace environment {
 
-/**
- * @brief 基于统一参数构造指定类型的干扰源状态。
- * @param technique 干扰技术类型。
- * @param params 干扰源参数集合。
- * @return 写入对应技术类型后的干扰源状态。
- */
-JammerEmitterState BuildTypedJammerEmitter(
-    JammingTechnique technique,
-    const JammerEmitterParams& params) {
-  JammerEmitterState emitter;
-  emitter.technique = technique;
-  emitter.power_db = params.power_db;
-  emitter.js_db = params.js_db;
-  emitter.frequency_overlap_ratio = params.frequency_overlap_ratio;
-  emitter.prf_lock_risk = params.prf_lock_risk;
-  emitter.in_sidelobe = params.in_sidelobe;
-  emitter.azimuth_deg = params.azimuth_deg;
-  emitter.elevation_deg = params.elevation_deg;
-  emitter.angular_span_deg = params.angular_span_deg;
-  emitter.confidence = params.confidence;
-  return emitter;
-}
 
 EnvironmentSceneBuilder& EnvironmentSceneBuilder::SetBasePropagationLossDb(
     float base_loss_db) {

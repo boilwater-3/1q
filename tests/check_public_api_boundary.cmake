@@ -15,6 +15,7 @@ set(EXPECTED_PUBLIC_HEADERS
     "airborne_radar/common/RadarOrientationUtils.h"
     "airborne_radar/common/TargetCategory.h"
     "airborne_radar/common/TargetFeature.h"
+    "airborne_radar/common/TargetFeatureBuilder.h"
     "airborne_radar/common/TargetFeatureUtils.h"
     "airborne_radar/common/TrackOutputFrame.h"
     "airborne_radar/core/context/IRadarContext.h"

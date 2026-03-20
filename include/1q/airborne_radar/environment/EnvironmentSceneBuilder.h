@@ -11,15 +11,6 @@
 namespace airborne_radar {
 namespace environment {
 
-/**
- * @brief 构造指定技术类型的干扰源输入。
- * @param technique 干扰技术类型。
- * @param params 干扰源参数。
- * @return 干扰源状态。
- */
-JammerEmitterState BuildTypedJammerEmitter(
-    JammingTechnique technique,
-    const JammerEmitterParams& params);
 
 /**
  * @brief EnvironmentSceneBuilder 用于构造待生效的环境场景状态。

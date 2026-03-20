@@ -9,18 +9,18 @@
 #include <cstdint>
 #include <vector>
 
+#include "1q/airborne_radar/common/DecisionSourceInfo.h"
+
 namespace airborne_radar {
 namespace environment {
 
 /**
- * @brief JammingTechnique 表示干扰技术类型。
+ * @brief JammingTechnique 与 `common::JammingTechnique` 保持统一的别名。
+ * @details 权威定义位于 `common/DecisionSourceInfo.h`；
+ *          此别名保证环境层代码可继续通过
+ *          `environment::JammingTechnique` 引用，无需修改已有代码。
  */
-enum class JammingTechnique {
-  kUnknown = 0, /**< 未知或未分类干扰 */
-  kNoiseSuppression, /**< 压制式/噪声式干扰 */
-  kDeception, /**< 欺骗式干扰 */
-  kRepeater /**< 转发式/重复器式干扰 */
-};
+using JammingTechnique = common::JammingTechnique;
 
 /**
  * @brief JammerSourceFact 表示单个干扰源的事实描述。
@@ -39,7 +39,7 @@ struct JammerSourceFact {
 };
 
 /** @brief 单周期内可见的干扰源列表 */
-typedef std::vector<JammerSourceFact> JammerSourceFactList;
+using JammerSourceFactList = std::vector<JammerSourceFact>;
 
 /**
  * @brief EnvironmentCycleContext 描述环境层周期冻结上下文。
@@ -81,24 +81,7 @@ struct JammerEmitterState {
 };
 
 /** @brief 场景中的干扰源列表 */
-typedef std::vector<JammerEmitterState> JammerEmitterStateList;
-
-/**
- * @brief JammerEmitterParams 用于批量传递干扰源配置参数。
- * @note 与 JammerEmitterState 字段相同，但不含 technique，
- *       technique 由调用方在构造时单独指定。
- */
-struct JammerEmitterParams {
-  float power_db{0.0f};                    /**< 干扰功率（dB） */
-  float js_db{0.0f};                     /**< 干扰与信号比（dB） */
-  float frequency_overlap_ratio{0.0f};    /**< 频率重叠度，范围 [0, 1] */
-  float prf_lock_risk{0.0f};              /**< PRF 锁定风险，范围 [0, 1] */
-  bool in_sidelobe{false};               /**< 是否经由旁瓣进入 */
-  float azimuth_deg{0.0f};               /**< 来向方位角（度） */
-  float elevation_deg{0.0f};            /**< 来向俯仰角（度） */
-  float angular_span_deg{0.0f};          /**< 角域宽度（度） */
-  float confidence{1.0f};                /**< 干扰置信度，范围 [0, 1] */
-};
+using JammerEmitterStateList = std::vector<JammerEmitterState>;
 
 /**
  * @brief EnvironmentSceneState 描述环境层待冻结的场景状态。
