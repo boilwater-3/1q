@@ -12,10 +12,7 @@
 #include "1q/airborne_radar/core/output/TrackOutputQueries.h"
 #include "1q/airborne_radar/core/session/RadarSession.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
-
-namespace {
-
-} // namespace
+#include "1q/airborne_radar/environment/EnvironmentTypes.h"
 
 int main() {
   using airborne_radar::common::MakeDetectionMissionRadarSessionConfig;
@@ -28,6 +25,8 @@ int main() {
   using airborne_radar::core::session::RadarSession;
   using airborne_radar::core::session::RadarCycleResult;
   using airborne_radar::environment::EnvironmentSceneBuilder;
+  using airborne_radar::environment::JammerEmitterState;
+  using airborne_radar::environment::JammingTechnique;
 
   // RadarSession 托管默认的 Context / Signal / Environment / Controller 链路，
   // 外部调用方只需要按周期喂输入并读取输出。
@@ -70,16 +69,24 @@ int main() {
             << " match_rate="
             << result_2.association_quality_metrics.match_rate << std::endl;
 
-  // 周期 3：在 step 前提交场景更新，演示“当前周期切入干扰”的高层用法。
+  // 周期 3：在 step 前提交场景更新，演示"当前周期切入干扰"的高层用法。
   RadarCycleInput cycle_3 = cycle_2;
   for (std::size_t i = 0; i < cycle_3.target_features.size(); ++i) {
     cycle_3.target_features[i].position_x +=
         cycle_3.target_features[i].current_track_velocity_x * cycle_3.dt_sec;
   }
 
+  JammerEmitterState noise_jammer;
+  noise_jammer.technique = JammingTechnique::kNoiseSuppression;
+  noise_jammer.power_db = 12.0f;
+  noise_jammer.js_db = 8.0f;
+  noise_jammer.frequency_overlap_ratio = 0.25f;
+  noise_jammer.prf_lock_risk = 0.10f;
+  noise_jammer.in_sidelobe = true;
+
   const airborne_radar::environment::EnvironmentSceneState jammed_scene =
       EnvironmentSceneBuilder()
-          .AddNoiseJammer(12.0f, 8.0f, 0.25f, 0.10f, true)
+          .AddNoiseJammer(noise_jammer)
           .Build();
   const RadarCycleResult result_3 = session.StepWithResult(cycle_3, jammed_scene);
 

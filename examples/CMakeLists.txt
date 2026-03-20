@@ -9,6 +9,8 @@ endif()
 # 定义示例源文件
 set(EXAMPLE_SOURCES
     example_radar_session.cpp
+    example_quick_start.cpp
+    example_advanced_injection.cpp
 )
 
 if(NOT EXAMPLE_SOURCES)
