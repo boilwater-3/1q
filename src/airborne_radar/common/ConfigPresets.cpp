@@ -31,8 +31,6 @@ MakeHighRobustnessSignalPipelineConfig() {
       MakeTrackingMissionSignalPipelineConfig();
   config.association.unassigned_cost = 12.0f;
   config.tracking.kalman_measurement_noise_std = 3.0f;
-  config.tracking.jamming_acceleration_penalty = 0.25f;
-  config.tracking.stable_acceleration_gain = 0.03f;
   config.lifecycle.lifecycle_config.max_miss_before_lost = 3U;
   config.lifecycle.lifecycle_config.max_lost_cycles = 8U;
   return config;

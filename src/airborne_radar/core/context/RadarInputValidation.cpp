@@ -67,11 +67,7 @@ void ValidateSingleTarget(const common::TargetFeature& target,
       !IsFinite(target.current_track_velocity_x) ||
       !IsFinite(target.current_track_velocity_y) ||
       !IsFinite(target.current_track_velocity_z) ||
-      !IsFinite(target.current_track_acceleration_x) ||
-      !IsFinite(target.current_track_acceleration_y) ||
-      !IsFinite(target.current_track_acceleration_z) ||
       !IsFinite(target.current_track_speed) ||
-      !IsFinite(target.current_track_acceleration) ||
       !IsFinite(target.current_track_rcs) || !IsFinite(target.range_m)) {
     issues->push_back(MakeIssue(
         ValidationSeverity::kError, ValidationCode::kNonFiniteTargetField,

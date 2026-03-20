@@ -144,7 +144,7 @@ TEST(PublicApiConvenienceTest,
      TargetFeatureUtilsBuildCartesianGroundAndAirTargets) {
   const common::TargetFeature cartesian_target =
       common::MakeTargetFromCartesian(201U, 3.0f, 4.0f, 12.0f, 10.0f, -2.0f,
-                                      1.0f, 0.9f, 0.0f, 3.0f, 4.0f, 2);
+                                      1.0f, 0.9f, 2);
   EXPECT_EQ(cartesian_target.external_target_id, 201U);
   EXPECT_NEAR(cartesian_target.range_m, 13.0f, 1e-5f);
   EXPECT_NEAR(cartesian_target.current_track_speed,

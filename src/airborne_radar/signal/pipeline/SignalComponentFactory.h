@@ -95,10 +95,6 @@ class SignalComponentFactory final {
         config.tracking.speed_decay_ratio_on_loss;
     filter_config.rcs_decay_ratio_on_loss =
         config.tracking.rcs_decay_ratio_on_loss;
-    filter_config.jamming_acceleration_penalty =
-        config.tracking.jamming_acceleration_penalty;
-    filter_config.stable_acceleration_gain =
-        config.tracking.stable_acceleration_gain;
     return filter_config;
   }
 /**

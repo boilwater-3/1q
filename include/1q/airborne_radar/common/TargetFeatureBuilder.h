@@ -26,6 +26,12 @@ namespace common {
  *     .Build();
  * @endcode
  *
+ * @note 输入必要性：
+ * - <b>Position</b> 必须调用，提供雷达局部笛卡尔坐标下的目标位置（m）。
+ * - <b>Velocity</b> 强烈建议调用，提供目标速度向量（m/s），否则 Kalman 初始化时速度为零，
+ *   轨迹预测和关联精度会显著下降。
+ * - <b>Rcs</b> 可省略，默认 0。
+ *
  * @note 调用 `Build()` 前会自动规范化斜距（同 `NormalizeTargetGeometry`）。
  */
 class TargetFeatureBuilder {
@@ -55,16 +61,6 @@ class TargetFeatureBuilder {
     target_.current_track_velocity_x = vx;
     target_.current_track_velocity_y = vy;
     target_.current_track_velocity_z = vz;
-    return *this;
-  }
-
-  /**
-   * @brief 设置目标加速度向量（单位：m/s^2）。默认全零。
-   */
-  TargetFeatureBuilder& Acceleration(float ax, float ay, float az) {
-    target_.current_track_acceleration_x = ax;
-    target_.current_track_acceleration_y = ay;
-    target_.current_track_acceleration_z = az;
     return *this;
   }
 

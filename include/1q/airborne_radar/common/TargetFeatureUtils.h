@@ -23,9 +23,6 @@ namespace common {
  * @param velocity_y 目标速度 y 分量（m/s）。
  * @param velocity_z 目标速度 z 分量（m/s）。
  * @param rcs 目标 RCS（平方米）。
- * @param acceleration_x 目标加速度 x 分量（m/s^2）。
- * @param acceleration_y 目标加速度 y 分量（m/s^2）。
- * @param acceleration_z 目标加速度 z 分量（m/s^2）。
  * @param swerling_type 目标起伏模型编号。
  * @return 已写入位置、速度与斜距的目标特征。
  */
@@ -38,9 +35,6 @@ TargetFeature MakeTargetFromCartesian(
     float velocity_y,
     float velocity_z,
     float rcs,
-    float acceleration_x = 0.0f,
-    float acceleration_y = 0.0f,
-    float acceleration_z = 0.0f,
     int swerling_type = 0);
 
 /**
@@ -51,8 +45,6 @@ TargetFeature MakeTargetFromCartesian(
  * @param rcs 目标 RCS（平方米）。
  * @param velocity_x 地面目标速度 x 分量（m/s）。
  * @param velocity_y 地面目标速度 y 分量（m/s）。
- * @param acceleration_x 地面目标加速度 x 分量（m/s^2）。
- * @param acceleration_y 地面目标加速度 y 分量（m/s^2）。
  * @param swerling_type 目标起伏模型编号。
  * @return `z=0` 的目标特征。
  */
@@ -63,8 +55,6 @@ TargetFeature MakeGroundTarget(
     float rcs = 1.0f,
     float velocity_x = 0.0f,
     float velocity_y = 0.0f,
-    float acceleration_x = 0.0f,
-    float acceleration_y = 0.0f,
     int swerling_type = 0);
 
 /**
@@ -77,9 +67,6 @@ TargetFeature MakeGroundTarget(
  * @param velocity_y 目标速度 y 分量（m/s）。
  * @param velocity_z 目标速度 z 分量（m/s）。
  * @param rcs 目标 RCS（平方米）。
- * @param acceleration_x 目标加速度 x 分量（m/s^2）。
- * @param acceleration_y 目标加速度 y 分量（m/s^2）。
- * @param acceleration_z 目标加速度 z 分量（m/s^2）。
  * @param swerling_type 目标起伏模型编号。
  * @return 已写入三维位置与斜距的目标特征。
  */
@@ -92,9 +79,6 @@ TargetFeature MakeAirTarget(
     float velocity_y,
     float velocity_z,
     float rcs = 1.0f,
-    float acceleration_x = 0.0f,
-    float acceleration_y = 0.0f,
-    float acceleration_z = 0.0f,
     int swerling_type = 0);
 
 /**

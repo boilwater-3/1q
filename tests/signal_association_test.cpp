@@ -15,9 +15,8 @@ namespace airborne_radar { namespace tests {
 
 namespace {
 
-common::TargetFeature MakeTarget(float speed, float rcs, float acceleration) {
-  return common::TargetFeature(speed, 0.0f, 0.0f, rcs,
-                               acceleration, 0.0f, 0.0f);
+common::TargetFeature MakeTarget(float speed, float rcs) {
+  return common::TargetFeature(speed, 0.0f, 0.0f, rcs);
 }
 
 common::TargetFeature MakePositionTarget(float x, float y, float z) {
@@ -336,8 +335,8 @@ TEST(DataAssociationEngineTest, ReportsMissedTrackKeysWhenNoDetectionArrives) {
     signal::association::DataAssociationEngine engine;
 
     const common::TargetFeatureList cycle_1{
-      MakeTarget(100.0f, 2.0f, 1.0f),
-      MakeTarget(220.0f, 5.0f, 3.0f)};
+      MakeTarget(100.0f, 2.0f),
+      MakeTarget(220.0f, 5.0f)};
     const std::vector<std::uint8_t> detected_1{1U, 1U};
 
     EXPECT_DEATH_IF_SUPPORTED(engine.AssociateDetections(cycle_1, detected_1),

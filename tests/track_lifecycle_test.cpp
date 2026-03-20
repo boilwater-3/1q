@@ -111,8 +111,6 @@ TEST(TrackLifecycleManagerTest, ConfirmsTrackAfterConfiguredHits) {
   signal::tracking::TrackMeasurement measurement;
   measurement.raw_measurement.association_key = 7;
   measurement.filtered_feature.velocity = Eigen::Vector3f(3.0f, 4.0f, 0.0f);
-  measurement.filtered_feature.acceleration =
-      Eigen::Vector3f(0.0f, 2.0f, 0.0f);
   measurement.filtered_feature.rcs = 1.5f;
 
   signal::tracking::CycleContext cycle_1;
@@ -136,7 +134,6 @@ TEST(TrackLifecycleManagerTest, ConfirmsTrackAfterConfiguredHits) {
   const common::TargetFeatureList snapshot = manager.BuildFeatureSnapshot();
   ASSERT_EQ(snapshot.size(), 1u);
   EXPECT_FLOAT_EQ(snapshot[0].current_track_speed, 5.0f);
-  EXPECT_FLOAT_EQ(snapshot[0].current_track_acceleration, 2.0f);
   EXPECT_FLOAT_EQ(snapshot[0].current_track_rcs, 1.5f);
 }
 
@@ -814,7 +811,6 @@ TEST(TrackLifecycleManagerTest,
   first.raw_measurement.has_cartesian_position = true;
   first.raw_measurement.position = Eigen::Vector3f(0.0f, 0.0f, 0.0f);
   first.filtered_feature.velocity = Eigen::Vector3f(1.0f, 2.0f, 0.0f);
-  first.filtered_feature.acceleration = Eigen::Vector3f::Zero();
   first.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
 
   signal::tracking::CycleContext cycle_1;
@@ -842,11 +838,6 @@ TEST(TrackLifecycleManagerTest,
               std::sqrt(snapshot[0].current_track_velocity_x * snapshot[0].current_track_velocity_x +
                         snapshot[0].current_track_velocity_y * snapshot[0].current_track_velocity_y +
                         snapshot[0].current_track_velocity_z * snapshot[0].current_track_velocity_z),
-              1e-4f);
-  EXPECT_NEAR(snapshot[0].current_track_acceleration,
-              std::sqrt(snapshot[0].current_track_acceleration_x * snapshot[0].current_track_acceleration_x +
-                        snapshot[0].current_track_acceleration_y * snapshot[0].current_track_acceleration_y +
-                        snapshot[0].current_track_acceleration_z * snapshot[0].current_track_acceleration_z),
               1e-4f);
 }
 

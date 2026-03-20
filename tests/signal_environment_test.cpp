@@ -227,8 +227,8 @@ TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-    const common::TargetFeatureList input_state{common::TargetFeature(
-      800.0f, 0.0f, 0.0f, 2.5f, 1.0f, 0.0f, 0.0f)};
+  const common::TargetFeatureList input_state{common::TargetFeature(
+      800.0f, 0.0f, 0.0f, 2.5f)};
 
   const auto output_state =
       signal_pipeline.RunCycle(input_state, environment_service).updated_features;
@@ -236,8 +236,6 @@ TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
   ASSERT_EQ(output_state.size(), 1u);
   EXPECT_LT(output_state[0].current_track_speed, input_state[0].current_track_speed);
   EXPECT_LT(output_state[0].current_track_rcs, input_state[0].current_track_rcs);
-  EXPECT_LT(output_state[0].current_track_acceleration,
-            input_state[0].current_track_acceleration);
 }
 
 TEST(SignalPipelineTest, ExposesPublicPlatformAttitudeUpdateApi) {
@@ -638,7 +636,7 @@ TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
   env_config.jammer_power_db = 0.0f;
   environment::EnvironmentService environment_service(env_config);
 
-  common::TargetFeature target(800.0f, 0.0f, 0.0f, 2.5f, 1.0f, 0.0f, 0.0f);
+  common::TargetFeature target(800.0f, 0.0f, 0.0f, 2.5f);
   target.position_x = 100.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
@@ -664,8 +662,6 @@ TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
             baseline_output[0].current_track_speed);
   EXPECT_GT(protected_output[0].current_track_rcs,
             baseline_output[0].current_track_rcs);
-  EXPECT_GT(protected_output[0].current_track_acceleration,
-            baseline_output[0].current_track_acceleration);
 }
 
 TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
@@ -887,8 +883,7 @@ TEST(SignalPipelineTest,
 
 TEST(TrackFilterTest, KeepsStateWhenDetectionIsStable) {
   signal::tracking::TrackFilter filter;
-  const common::TargetFeature input(800.0f, 0.0f, 0.0f, 2.5f, 0.0f,
-                                    0.0f, 0.0f);
+  const common::TargetFeature input(800.0f, 0.0f, 0.0f, 2.5f);
 
   signal::tracking::TrackFilterContext context;
   context.detection_succeeded = true;
@@ -899,14 +894,11 @@ TEST(TrackFilterTest, KeepsStateWhenDetectionIsStable) {
 
   EXPECT_FLOAT_EQ(output.current_track_speed, input.current_track_speed);
   EXPECT_FLOAT_EQ(output.current_track_rcs, input.current_track_rcs);
-  EXPECT_FLOAT_EQ(output.current_track_acceleration,
-                  input.current_track_acceleration);
 }
 
 TEST(TrackFilterTest, AppliesLossDecayAndJammingPenalty) {
   signal::tracking::TrackFilter filter;
-  const common::TargetFeature input(800.0f, 0.0f, 0.0f, 2.5f, 1.0f,
-                                    0.0f, 0.0f);
+  const common::TargetFeature input(800.0f, 0.0f, 0.0f, 2.5f);
 
   signal::tracking::TrackFilterContext context;
   context.detection_succeeded = false;
@@ -917,14 +909,11 @@ TEST(TrackFilterTest, AppliesLossDecayAndJammingPenalty) {
 
   EXPECT_LT(output.current_track_speed, input.current_track_speed);
   EXPECT_LT(output.current_track_rcs, input.current_track_rcs);
-  EXPECT_LT(output.current_track_acceleration,
-            input.current_track_acceleration);
 }
 
 TEST(TrackFilterTest, DeceptionJammingRetainsMoreTrackEnergyThanNoiseSuppression) {
   signal::tracking::TrackFilter filter;
-  const common::TargetFeature input(800.0f, 0.0f, 0.0f, 2.5f, 1.0f,
-                                    0.0f, 0.0f);
+  const common::TargetFeature input(800.0f, 0.0f, 0.0f, 2.5f);
 
   signal::tracking::TrackFilterContext noise_context;
   noise_context.detection_succeeded = false;
@@ -944,8 +933,6 @@ TEST(TrackFilterTest, DeceptionJammingRetainsMoreTrackEnergyThanNoiseSuppression
 
   EXPECT_GT(deception_output.current_track_speed, noise_output.current_track_speed);
   EXPECT_GT(deception_output.current_track_rcs, noise_output.current_track_rcs);
-  EXPECT_GT(deception_output.current_track_acceleration,
-            noise_output.current_track_acceleration);
 }
 
 TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
@@ -954,12 +941,10 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  common::TargetFeature first(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f,
-                              0.0f);
+  common::TargetFeature first(100.0f, 0.0f, 0.0f, 2.0f);
   first.position_x = 10.0f;
   first.range_m = 10.0f;
-  common::TargetFeature second(220.0f, 0.0f, 0.0f, 5.0f, 3.0f, 0.0f,
-                               0.0f);
+  common::TargetFeature second(220.0f, 0.0f, 0.0f, 5.0f);
   second.position_x = 100.0f;
   second.range_m = 100.0f;
   const common::TargetFeatureList cycle_1{first, second};
@@ -980,12 +965,10 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
 
     first.current_track_speed = 101.0f;
     first.current_track_rcs = 2.1f;
-    first.current_track_acceleration = 1.1f;
     first.position_x = 11.0f;
     first.range_m = 11.0f;
     second.current_track_speed = 219.5f;
     second.current_track_rcs = 4.9f;
-    second.current_track_acceleration = 2.9f;
     second.position_x = 101.0f;
     second.range_m = 101.0f;
     signal::tracking::AssociationTrackSeed first_seed;

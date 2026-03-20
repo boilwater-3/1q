@@ -29,7 +29,7 @@ bool HasCartesianPosition(const TargetFeature& target) {
 }
 
 /**
- * @brief 刷新目标中由速度和加速度向量派生出的标量字段。
+ * @brief 刷新目标中由速度向量派生出的标量字段。
  * @param[in,out] target 待更新的目标特征指针。
  */
 void RefreshDerivedKinematics(TargetFeature* target) {
@@ -40,10 +40,6 @@ void RefreshDerivedKinematics(TargetFeature* target) {
   target->current_track_speed = ComputeNorm3(
       target->current_track_velocity_x, target->current_track_velocity_y,
       target->current_track_velocity_z);
-  target->current_track_acceleration = ComputeNorm3(
-      target->current_track_acceleration_x,
-      target->current_track_acceleration_y,
-      target->current_track_acceleration_z);
 }
 
 } // namespace
@@ -57,13 +53,9 @@ TargetFeature MakeTargetFromCartesian(
     float velocity_y,
     float velocity_z,
     float rcs,
-    float acceleration_x,
-    float acceleration_y,
-    float acceleration_z,
     int swerling_type) {
-  TargetFeature target(velocity_x, velocity_y, velocity_z, rcs, acceleration_x,
-                       acceleration_y, acceleration_z, 0.0f, swerling_type,
-                       external_target_id);
+  TargetFeature target(velocity_x, velocity_y, velocity_z, rcs, 0.0f,
+                       swerling_type, external_target_id);
   target.position_x = position_x;
   target.position_y = position_y;
   target.position_z = position_z;
@@ -78,12 +70,9 @@ TargetFeature MakeGroundTarget(
     float rcs,
     float velocity_x,
     float velocity_y,
-    float acceleration_x,
-    float acceleration_y,
     int swerling_type) {
   return MakeTargetFromCartesian(external_target_id, position_x, position_y,
                                  0.0f, velocity_x, velocity_y, 0.0f, rcs,
-                                 acceleration_x, acceleration_y, 0.0f,
                                  swerling_type);
 }
 
@@ -96,15 +85,10 @@ TargetFeature MakeAirTarget(
     float velocity_y,
     float velocity_z,
     float rcs,
-    float acceleration_x,
-    float acceleration_y,
-    float acceleration_z,
     int swerling_type) {
   return MakeTargetFromCartesian(external_target_id, position_x, position_y,
                                  position_z, velocity_x, velocity_y,
-                                 velocity_z, rcs, acceleration_x,
-                                 acceleration_y, acceleration_z,
-                                 swerling_type);
+                                 velocity_z, rcs, swerling_type);
 }
 
 void NormalizeTargetGeometry(TargetFeature* target) {

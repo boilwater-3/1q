@@ -18,8 +18,6 @@ namespace tracking {
 struct TrackFilterConfig {
   float speed_decay_ratio_on_loss{0.90f};  /**< 失配时的速度衰减系数。 */
   float rcs_decay_ratio_on_loss{0.85f};  /**< 失配时的 RCS 衰减系数。 */
-  float jamming_acceleration_penalty{0.5f};  /**< 干扰时的加速度惩罚系数。 */
-  float stable_acceleration_gain{0.05f};  /**< 稳定状态下的加速度增益。 */
 };
 /**
  * @brief 轨迹滤波器处理上下文。
@@ -40,22 +38,16 @@ struct PredictedTrackState {
 /**
  * @brief 构造函数。
  */
-  PredictedTrackState(float s, float r, float a,
-                      float vx, float vy, float vz,
-                      float ax, float ay, float az)
-      : speed(s), rcs(r), acceleration(a),
-        velocity_x(vx), velocity_y(vy), velocity_z(vz),
-        acceleration_x(ax), acceleration_y(ay), acceleration_z(az) {}
+  PredictedTrackState(float s, float r,
+                      float vx, float vy, float vz)
+      : speed(s), rcs(r),
+        velocity_x(vx), velocity_y(vy), velocity_z(vz) {}
 
-  float speed{0.0f};           /**< 速度大小 */
-  float rcs{0.0f};             /**< 雷达散射截面积 */
-  float acceleration{0.0f};    /**< 加速度大小 */
-  float velocity_x{0.0f};      /**< X轴速度 */
-  float velocity_y{0.0f};      /**< Y轴速度 */
-  float velocity_z{0.0f};      /**< Z轴速度 */
-  float acceleration_x{0.0f};  /**< X轴加速度 */
-  float acceleration_y{0.0f};  /**< Y轴加速度 */
-  float acceleration_z{0.0f};  /**< Z轴加速度 */
+  float speed{0.0f};      /**< 速度大小 */
+  float rcs{0.0f};        /**< 雷达散射截面积 */
+  float velocity_x{0.0f}; /**< X轴速度 */
+  float velocity_y{0.0f}; /**< Y轴速度 */
+  float velocity_z{0.0f}; /**< Z轴速度 */
 };
 /**
  * @brief 轨迹预测器抽象接口。
@@ -73,8 +65,8 @@ class ITrackPredictor {
 };
 /**
  * @brief 轻量轨迹预测器。
- * @details 默认保持输入语义；当轴向速度/加速度分量缺失时，
- *          会使用标量速度/加速度回填 X 轴并将其余轴置零。
+ * @details 默认保持输入语义；当轴向速度分量缺失时，
+ *          会使用标量速度回填 X 轴并将其余轴置零。
  */
 class IdentityTrackPredictor final : public ITrackPredictor {
  public:

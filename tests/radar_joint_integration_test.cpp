@@ -122,8 +122,7 @@ common::TargetFeature BuildTarget(std::uint64_t external_target_id,
                                   float position_y,
                                   float position_z) {
   common::TargetFeature target(velocity_x, velocity_y, velocity_z, rcs, 0.0f,
-                               0.0f, 0.0f, 0.0f, 0,
-                               external_target_id);
+                               0, external_target_id);
   target.position_x = position_x;
   target.position_y = position_y;
   target.position_z = position_z;

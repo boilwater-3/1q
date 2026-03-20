@@ -86,25 +86,11 @@ PredictedTrackState IdentityTrackPredictor::Predict(
 							 input.current_track_velocity_z)
 			: input.current_track_speed;
 
-	const bool has_accel_axis =
-			HasNonZero3(input.current_track_acceleration_x,
-							input.current_track_acceleration_y,
-							input.current_track_acceleration_z);
-	const float acceleration = has_accel_axis
-			? VectorNorm3(input.current_track_acceleration_x,
-							 input.current_track_acceleration_y,
-							 input.current_track_acceleration_z)
-			: input.current_track_acceleration;
-
 	const float vx = has_velocity_axis ? input.current_track_velocity_x : speed;
 	const float vy = has_velocity_axis ? input.current_track_velocity_y : 0.0f;
 	const float vz = has_velocity_axis ? input.current_track_velocity_z : 0.0f;
-	const float ax = has_accel_axis ? input.current_track_acceleration_x : acceleration;
-	const float ay = has_accel_axis ? input.current_track_acceleration_y : 0.0f;
-	const float az = has_accel_axis ? input.current_track_acceleration_z : 0.0f;
 
-	return PredictedTrackState{speed, input.current_track_rcs, acceleration,
-									 vx, vy, vz, ax, ay, az};
+	return PredictedTrackState{speed, input.current_track_rcs, vx, vy, vz};
 }
 
 SimpleTrackUpdater::SimpleTrackUpdater(TrackFilterConfig config)
@@ -113,19 +99,13 @@ SimpleTrackUpdater::SimpleTrackUpdater(TrackFilterConfig config)
 common::TargetFeature SimpleTrackUpdater::Update(
 			const PredictedTrackState &predicted,
 			const TrackFilterContext &context) const {
-		common::TargetFeature output(predicted.velocity_x,
-										 predicted.velocity_y,
-										 predicted.velocity_z,
-										 predicted.rcs,
-										 predicted.acceleration_x,
-										 predicted.acceleration_y,
-										 predicted.acceleration_z);
-		output.current_track_velocity_x = predicted.velocity_x;
-		output.current_track_velocity_y = predicted.velocity_y;
-		output.current_track_velocity_z = predicted.velocity_z;
-		output.current_track_acceleration_x = predicted.acceleration_x;
-		output.current_track_acceleration_y = predicted.acceleration_y;
-		output.current_track_acceleration_z = predicted.acceleration_z;
+	common::TargetFeature output(predicted.velocity_x,
+								 predicted.velocity_y,
+								 predicted.velocity_z,
+								 predicted.rcs);
+	output.current_track_velocity_x = predicted.velocity_x;
+	output.current_track_velocity_y = predicted.velocity_y;
+	output.current_track_velocity_z = predicted.velocity_z;
 
 	if (!context.detection_succeeded) {
 		float speed_decay_ratio = config_.speed_decay_ratio_on_loss;
@@ -142,42 +122,17 @@ common::TargetFeature SimpleTrackUpdater::Update(
 		output.current_track_rcs =
 				std::max(0.05f, predicted.rcs * rcs_decay_ratio);
 
-			float dir_vx = 1.0f;
-			float dir_vy = 0.0f;
-			float dir_vz = 0.0f;
-			NormalizeOrFallback(predicted.velocity_x, predicted.velocity_y,
-									 predicted.velocity_z,
-									 dir_vx, dir_vy, dir_vz,
-									 1.0f, 0.0f, 0.0f);
-			output.current_track_velocity_x = dir_vx * output.current_track_speed;
-			output.current_track_velocity_y = dir_vy * output.current_track_speed;
-			output.current_track_velocity_z = dir_vz * output.current_track_speed;
-	}
-
-	if (context.jamming_detected) {
-		float acceleration_penalty = config_.jamming_acceleration_penalty;
-		if (IsAssociationFragileJamming(context.dominant_jamming_semantic)) {
-			acceleration_penalty *=
-					std::max(0.55f, 1.0f - 0.35f * std::max(0.0f, context.jamming_severity));
-		}
-		output.current_track_acceleration =
-				predicted.acceleration - acceleration_penalty;
-	} else {
-		output.current_track_acceleration =
-				predicted.acceleration +
-				config_.stable_acceleration_gain * context.detection_margin_db;
-	}
-
-	float dir_ax = 1.0f;
-	float dir_ay = 0.0f;
-	float dir_az = 0.0f;
-	NormalizeOrFallback(predicted.acceleration_x, predicted.acceleration_y,
-							 predicted.acceleration_z,
-							 dir_ax, dir_ay, dir_az,
+		float dir_vx = 1.0f;
+		float dir_vy = 0.0f;
+		float dir_vz = 0.0f;
+		NormalizeOrFallback(predicted.velocity_x, predicted.velocity_y,
+							 predicted.velocity_z,
+							 dir_vx, dir_vy, dir_vz,
 							 1.0f, 0.0f, 0.0f);
-	output.current_track_acceleration_x = dir_ax * output.current_track_acceleration;
-	output.current_track_acceleration_y = dir_ay * output.current_track_acceleration;
-	output.current_track_acceleration_z = dir_az * output.current_track_acceleration;
+		output.current_track_velocity_x = dir_vx * output.current_track_speed;
+		output.current_track_velocity_y = dir_vy * output.current_track_speed;
+		output.current_track_velocity_z = dir_vz * output.current_track_speed;
+	}
 
 	return output;
 }

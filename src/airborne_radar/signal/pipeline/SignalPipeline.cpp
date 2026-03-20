@@ -193,9 +193,7 @@ common::DecisionTrackSnapshot BuildDecisionTrackSnapshotFromFeature(
   common::DecisionTrackSnapshot snapshot(
       feature.current_track_velocity_x, feature.current_track_velocity_y,
       feature.current_track_velocity_z, feature.current_track_rcs,
-      feature.current_track_acceleration_x,
-      feature.current_track_acceleration_y,
-      feature.current_track_acceleration_z, false,
+      0.0f, 0.0f, 0.0f, false,
       feature.external_target_id, association_key);
   snapshot.state.status = common::DecisionTrackStatus::kConfirmed;
   snapshot.state.position_x = feature.position_x;
@@ -317,34 +315,6 @@ Eigen::Vector3f ResolveVelocityVector(const common::TargetFeature& target) {
     return velocity;
   }
   return Eigen::Vector3f(target.current_track_speed, 0.0f, 0.0f);
-}
-/**
- * @brief 解析目标标量加速度。
- * @param target 输入目标。
- * @return 标量加速度模长。
- */
-float ResolveAccelerationMagnitude(const common::TargetFeature& target) {
-  const Eigen::Vector3f acceleration(target.current_track_acceleration_x,
-                                     target.current_track_acceleration_y,
-                                     target.current_track_acceleration_z);
-  if (acceleration.squaredNorm() > 0.0f) {
-    return acceleration.norm();
-  }
-  return target.current_track_acceleration;
-}
-/**
- * @brief 解析目标加速度向量。
- * @param target 输入目标。
- * @return 加速度向量。
- */
-Eigen::Vector3f ResolveAccelerationVector(const common::TargetFeature& target) {
-  const Eigen::Vector3f acceleration(target.current_track_acceleration_x,
-                                     target.current_track_acceleration_y,
-                                     target.current_track_acceleration_z);
-  if (acceleration.squaredNorm() > 0.0f) {
-    return acceleration;
-  }
-  return Eigen::Vector3f(target.current_track_acceleration, 0.0f, 0.0f);
 }
 /**
  * @brief 约束控制比例，避免非法值污染运行时配置。
@@ -993,7 +963,6 @@ void ApplyControlProfileToConfig(const common::RadarControlProfile& control_prof
     runtime_config->detection.radar_system.antenna.pattern.max_sidelobe_level_db -=
         6.0f;
     runtime_config->association.unassigned_cost *= 1.10f;
-    runtime_config->tracking.jamming_acceleration_penalty *= 0.60f;
   }
 
   const float beamwidth_scale = ResolveBeamwidthScale(control_profile);
@@ -1032,9 +1001,6 @@ void ApplyControlProfileToConfig(const common::RadarControlProfile& control_prof
     runtime_config->tracking.rcs_decay_ratio_on_loss =
         ClampFloat(runtime_config->tracking.rcs_decay_ratio_on_loss + 0.08f,
                    0.0f, 0.999f);
-    runtime_config->tracking.jamming_acceleration_penalty =
-        ClampFloat(runtime_config->tracking.jamming_acceleration_penalty * 0.70f,
-                   0.0f, 1000.0f);
   }
 
   if (!runtime_config->lifecycle.imm_model_noise_diff_coeffs.empty()) {
@@ -1597,10 +1563,6 @@ struct SignalPipeline::Impl {
       measurement.filtered_feature.observed_speed =
           ResolveSpeedMagnitude(output[i]);
       measurement.filtered_feature.velocity = ResolveVelocityVector(output[i]);
-      measurement.filtered_feature.observed_acceleration =
-          ResolveAccelerationMagnitude(output[i]);
-      measurement.filtered_feature.acceleration =
-          ResolveAccelerationVector(output[i]);
       measurement.filtered_feature.rcs = output[i].current_track_rcs;
       measurement.filtered_feature.jamming_detected =
           cached_context.environment_snapshot.jamming_detected;

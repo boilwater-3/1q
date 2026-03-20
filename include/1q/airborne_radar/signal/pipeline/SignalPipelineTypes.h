@@ -104,8 +104,6 @@ struct SignalTrackingConfig {
   float kalman_measurement_noise_std{10.0f}; /**< 卡尔曼测量噪声标准差 */
   float speed_decay_ratio_on_loss{0.90f}; /**< 丢失时速度衰减比例 */
   float rcs_decay_ratio_on_loss{0.85f}; /**< 丢失时 RCS 衰减比例 */
-  float jamming_acceleration_penalty{0.5f}; /**< 干扰加速度惩罚 */
-  float stable_acceleration_gain{0.05f}; /**< 稳定加速度增益 */
 };
 
 /**

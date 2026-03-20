@@ -450,12 +450,6 @@ void TrackLifecycleManager::Update(
             measurement.filtered_feature.observed_speed, 0.0f, 0.0f);
       }
 
-      if (measurement.filtered_feature.acceleration != Eigen::Vector3f::Zero()) {
-        track.acceleration = measurement.filtered_feature.acceleration;
-      } else {
-        track.acceleration = Eigen::Vector3f(
-            measurement.filtered_feature.observed_acceleration, 0.0f, 0.0f);
-      }
       track.rcs = measurement.filtered_feature.rcs;
       track.jamming_detected = measurement.filtered_feature.jamming_detected;
       track.dominant_jamming_semantic =
@@ -647,10 +641,7 @@ common::TargetFeatureList TrackLifecycleManager::BuildFeatureSnapshot() const {
     common::TargetFeature feature(track->velocity(0),
                     track->velocity(1),
                     track->velocity(2),
-                    track->rcs,
-                    track->acceleration(0),
-                    track->acceleration(1),
-                    track->acceleration(2));
+                    track->rcs);
     feature.position_x = track->position(0);
     feature.position_y = track->position(1);
     feature.position_z = track->position(2);

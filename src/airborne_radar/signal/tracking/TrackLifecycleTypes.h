@@ -58,8 +58,6 @@ struct RawTrackMeasurement {
 struct FilteredTrackFeature {
   float observed_speed{0.0f};  /**< 当前量测标量速度估计（m/s）。 */
   Eigen::Vector3f velocity{Eigen::Vector3f::Zero()};  /**< 当前量测速度向量（vx, vy, vz）。 */
-  float observed_acceleration{0.0f};  /**< 当前量测标量加速度估计（m/s^2）。 */
-  Eigen::Vector3f acceleration{Eigen::Vector3f::Zero()};  /**< 当前量测加速度向量（ax, ay, az）。 */
   float rcs{0.0f};  /**< 当前量测估计 RCS。 */
   bool jamming_detected{false};  /**< 当前量测是否检测到干扰。 */
   common::JammingSemantic dominant_jamming_semantic{
