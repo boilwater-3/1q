@@ -134,7 +134,7 @@
                 "BUILD_SHARED_LIBS": "ON",
                 "ENABLE_INSTALL": "ON",
                 "ENABLE_TESTING": "OFF",
-                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/windows-conan-vs2015-release/conan_toolchain.cmake"
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/windows-conan-vs2015-release/build/Release/generators/conan_toolchain.cmake"
             }
         },
         {
@@ -161,7 +161,7 @@
             "inherits": "windows-conan-base",
             "displayName": "Windows Conan Release (x64 DLL)",
             "cacheVariables": {
-                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/windows-conan-release/conan_toolchain.cmake"
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/windows-conan-release/build/Release/generators/conan_toolchain.cmake"
             }
         }
     ],
