@@ -8,12 +8,15 @@ class OneQConan(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
 
     def requirements(self):
-        self.requires("spdlog/1.8.5")
-        self.requires("eigen/3.3.9")
-        self.requires("fmt/7.1.3", override=True)
-        self.requires("boost/1.79.0")
+        # Windows 使用 VS2015 (MSVC 14.0) 兼容版本；其他平台使用最新稳定版
+        is_windows = self.settings.os == "Windows"
+
+        self.requires("spdlog/1.8.5"  if is_windows else "spdlog/1.12.0")
+        self.requires("eigen/3.3.9"   if is_windows else "eigen/3.4.0")
+        self.requires("fmt/7.1.3"     if is_windows else "fmt/10.2.1", override=True)
+        self.requires("boost/1.79.0"  if is_windows else "boost/1.83.0")
         self.requires("eventpp/0.1.3")
-        self.requires("gtest/1.11.0", test=True)
+        self.requires("gtest/1.12.1", test=True)
 
     def generate(self):
         CMakeDeps(self).generate()
