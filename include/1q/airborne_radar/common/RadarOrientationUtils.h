@@ -6,6 +6,7 @@
 #ifndef AIRBORNE_RADAR_COMMON_RADAR_ORIENTATION_UTILS_H_
 #define AIRBORNE_RADAR_COMMON_RADAR_ORIENTATION_UTILS_H_
 
+#include "1q/airborne_radar/common/MathUtils.h"
 #include "1q/airborne_radar/common/RadarOrientationConfig.h"
 
 namespace airborne_radar {
@@ -21,22 +22,6 @@ inline bool IsValidScanLimits(const AzimuthElevationLimitsDeg &limits) {
          limits.el_min_deg <= limits.el_max_deg;
 }
 
-/**
- * @brief 对浮点值执行闭区间限幅。
- * @param value 原始值。
- * @param min_value 下界。
- * @param max_value 上界。
- * @return 限幅后的结果。
- */
-inline float ClampFloat(float value, float min_value, float max_value) {
-  if (value < min_value) {
-    return min_value;
-  }
-  if (value > max_value) {
-    return max_value;
-  }
-  return value;
-}
 
 /**
  * @brief 对方位/俯仰角执行扫描窗口限幅。

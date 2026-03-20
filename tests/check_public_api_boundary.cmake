@@ -9,6 +9,7 @@ set(EXPECTED_PUBLIC_HEADERS
     "airborne_radar/common/DecisionSourceInfo.h"
     "airborne_radar/common/DecisionTrackSnapshot.h"
     "airborne_radar/common/JammingSemantics.h"
+    "airborne_radar/common/MathUtils.h"
     "airborne_radar/common/RadarCommand.h"
     "airborne_radar/common/RadarControlProfile.h"
     "airborne_radar/common/RadarOrientationConfig.h"

@@ -9,6 +9,7 @@
 #include <cmath>
 
 #include "1q/airborne_radar/common/AntennaPatternConfig.h"
+#include "1q/airborne_radar/common/MathUtils.h"
 
 namespace airborne_radar {
 namespace common {
@@ -25,22 +26,6 @@ inline float ClampLowerBound(float value, float min_value) {
   return value < min_value ? min_value : value;
 }
 
-/**
- * @brief 计算闭区间限幅结果。
- * @param value 原始值。
- * @param min_value 下界。
- * @param max_value 上界。
- * @return 限幅后的结果。
- */
-inline float ClampFloat(float value, float min_value, float max_value) {
-  if (value < min_value) {
-    return min_value;
-  }
-  if (value > max_value) {
-    return max_value;
-  }
-  return value;
-}
 
 /**
  * @brief 判断给定离轴角是否位于后瓣区域。
@@ -108,13 +93,9 @@ inline float ComputeMainLobeAttenuationDb(
     case AntennaPatternModelType::kCosinePower: {
       const float kDeg2Rad = 3.14159265358979f / 180.0f;
       const float az_offset_rad =
-          antenna_pattern_internal::ClampFloat(offset_deg.delta_az_deg, -89.9f,
-                                               89.9f) *
-          kDeg2Rad;
+          ClampFloat(offset_deg.delta_az_deg, -89.9f, 89.9f) * kDeg2Rad;
       const float el_offset_rad =
-          antenna_pattern_internal::ClampFloat(offset_deg.delta_el_deg, -89.9f,
-                                               89.9f) *
-          kDeg2Rad;
+          ClampFloat(offset_deg.delta_el_deg, -89.9f, 89.9f) * kDeg2Rad;
       const float az_half_bw_rad = half_az_beamwidth_deg * kDeg2Rad;
       const float el_half_bw_rad = half_el_beamwidth_deg * kDeg2Rad;
       const float az_denominator =
@@ -163,7 +144,7 @@ inline float ComputeScanLossDb(
       config.scan_loss_coeff_db_per_deg2 *
       (delta_scan_az_deg * delta_scan_az_deg +
        delta_scan_el_deg * delta_scan_el_deg);
-  return antenna_pattern_internal::ClampFloat(
+  return ClampFloat(
       raw_scan_loss_db, 0.0f,
       antenna_pattern_internal::ClampLowerBound(config.max_scan_loss_db, 0.0f));
 }
