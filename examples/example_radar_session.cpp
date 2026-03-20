@@ -2,10 +2,16 @@
 //
 // @file example_radar_session.cpp
 // @brief 演示如何使用 RadarSession 驱动三周期机载雷达探测流程。
+//
+// 本文件同时展示使用 RadarSessionConfigBuilder 按平台硬件参数定制会话配置：
+//   - 以探测任务预设为基础，叠加平台发射机、天线、接收机参数
+//   - 启用物理层雷达方程检测（enable_physics_detection）
+//   - 设置平台干扰判定灵敏度
 
 #include <iostream>
 
 #include "1q/airborne_radar/common/ConfigPresets.h"
+#include "1q/airborne_radar/common/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/common/TargetFeatureUtils.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/airborne_radar/core/context/RadarInputValidation.h"
@@ -15,8 +21,7 @@
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 
 int main() {
-  using airborne_radar::common::MakeDetectionMissionRadarSessionConfig;
-  using airborne_radar::common::MakeAirTarget;
+  namespace aq = airborne_radar::common;
   using airborne_radar::core::context::HasValidationError;
   using airborne_radar::core::context::RadarCycleInput;
   using airborne_radar::core::context::ValidateRadarCycleInput;
@@ -30,15 +35,37 @@ int main() {
 
   // RadarSession 托管默认的 Context / Signal / Environment / Controller 链路，
   // 外部调用方只需要按周期喂输入并读取输出。
-  RadarSession session(MakeDetectionMissionRadarSessionConfig());
+  //
+  // 使用 RadarSessionConfigBuilder 以探测任务预设为基础，叠加平台雷达硬件参数：
+  //   - EnablePhysicsDetection()：启用雷达方程 SNR/Pd 计算，使探测结果与硬件挂钩
+  //   - WithTransmitter*：填写平台实际发射机参数（功率、载频、带宽、脉宽、PRF）
+  //   - WithAntenna*：填写天线名义峰值增益与波束宽度
+  //   - WithReceiverNoiseFigureDb：填写接收机噪声系数
+  //   - WithJammingDetectionThresholdDb：调整干扰判定灵敏度（默认 6.0 dB）
+  //
+  // 若平台暂无硬件参数，可退回到最简形式：
+  //   RadarSession session(aq::MakeDetectionMissionRadarSessionConfig());
+  RadarSession session(
+      aq::RadarSessionConfigBuilder(aq::MakeDetectionMissionRadarSessionConfig())
+          .EnablePhysicsDetection()
+          .WithTransmitterPeakPowerW(5e6f)
+          .WithTransmitterFrequencyHz(9.3e9f)
+          .WithTransmitterBandwidthHz(10e6f)
+          .WithTransmitterPulseWidthS(20e-6f)
+          .WithTransmitterPrfHz(500.0f)
+          .WithAntennaMainBeamGainDb(38.0f)
+          .WithAntennaNominalBeamwidthDeg(3.5f, 3.5f)
+          .WithReceiverNoiseFigureDb(3.5f)
+          .WithJammingDetectionThresholdDb(5.0f)
+          .Build());
 
   // 周期 1：构造两批空中目标并执行一次无干扰探测。
   RadarCycleInput cycle_1;
   cycle_1.dt_sec = 1.0f;
   cycle_1.target_features.push_back(
-      MakeAirTarget(1001U, 180.0f, -5.0f, 18.0f, 65.0f, 0.0f, 0.0f, 1.0f));
+      aq::MakeAirTarget(1001U, 180.0f, -5.0f, 18.0f, 65.0f, 0.0f, 0.0f, 1.0f));
   cycle_1.target_features.push_back(
-      MakeAirTarget(1002U, 260.0f, 8.0f, 22.0f, 82.0f, 1.0f, 0.0f, 1.1f));
+      aq::MakeAirTarget(1002U, 260.0f, 8.0f, 22.0f, 82.0f, 1.0f, 0.0f, 1.1f));
 
   const std::vector<airborne_radar::core::context::ValidationIssue>
       cycle_1_issues = ValidateRadarCycleInput(cycle_1);

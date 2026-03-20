@@ -133,6 +133,7 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/AntennaPatternConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/AntennaPatternUtils.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/ConfigPresets.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/RadarSessionConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/ControlDirective.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/DecisionInputFrame.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/DecisionSourceInfo.h

@@ -33,6 +33,7 @@ set(TEST_SOURCES
     track_lifecycle_test.cpp
     kalman_filter_test.cpp
     advanced_filter_test.cpp
+    radar_session_config_builder_test.cpp
 )
 
 if(NOT TEST_SOURCES)

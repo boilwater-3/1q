@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/common/ConfigPresets.h"
+#include "1q/airborne_radar/common/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/common/TargetFeatureBuilder.h"
 #include "1q/airborne_radar/common/TargetFeatureUtils.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
@@ -61,6 +62,21 @@ int main() {
   // =========================================================================
   // 1. 最简路径
   //    使用探测任务预设配置构造 Session，每周期只需填写输入、读取输出。
+  //
+  //    若平台有确定的雷达硬件参数（发射机功率、载频、天线增益等），
+  //    推荐改用 RadarSessionConfigBuilder 在预设基础上叠加：
+  //
+  //      session_t session(
+  //          aq::RadarSessionConfigBuilder(
+  //              aq::MakeDetectionMissionRadarSessionConfig())
+  //              .EnablePhysicsDetection()
+  //              .WithTransmitterPeakPowerW(5e6f)
+  //              .WithTransmitterFrequencyHz(9.3e9f)
+  //              .WithAntennaMainBeamGainDb(38.0f)
+  //              .WithReceiverNoiseFigureDb(3.5f)
+  //              .Build());
+  //
+  //    详细示例参见 example_radar_session.cpp。
   // =========================================================================
   session_t session(aq::MakeDetectionMissionRadarSessionConfig());
 
