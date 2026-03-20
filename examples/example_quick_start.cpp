@@ -166,16 +166,36 @@ int main() {
     t.position_x += t.current_track_velocity_x * input.dt_sec;
   }
   const auto r4 = session.StepWithResult(input, compound_scene);
-  PrintFrameSummary("cycle-4 切换稳健配置", r4);
+  PrintFrameSummary("cycle-4 稳健配置(首周期)", r4);
+
+  // HighRobustness 配置下确认阈值更高，需要连续命中更多周期才能重新确认。
+  // cycle 5~7：持续推进目标，让跟踪器积累命中次数直到重新确认。
+  for (int i = 5; i <= 7; ++i) {
+    for (auto& t : input.target_features) {
+      t.position_x += t.current_track_velocity_x * input.dt_sec;
+    }
+    char label[32];
+    std::snprintf(label, sizeof(label), "cycle-%d 稳健配置", i);
+    const auto rn = session.StepWithResult(input, compound_scene);
+    PrintFrameSummary(label, rn);
+  }
 
   // =========================================================================
   // 4. 批量结果读取
   //    使用 TrackOutputQueries 全系列辅助函数查询敌情态势。
+  //    以 cycle-7（稳健配置充分收敛后）的输出帧为例。
   // =========================================================================
+
+  // 取最后一帧做详细查询
+  for (auto& t : input.target_features) {
+    t.position_x += t.current_track_velocity_x * input.dt_sec;
+  }
+  const auto r_final = session.StepWithResult(input, compound_scene);
+  PrintFrameSummary("cycle-8 最终读取", r_final);
 
   // 按外部目标 ID 快速查询特定目标的轨迹状态
   const auto track_map = out::BuildTrackMapByExternalTargetId(
-      r4.track_output_frame);
+      r_final.track_output_frame);
   for (const auto& kv : track_map) {
     std::cout << "  target_id=" << kv.first
               << " jamming=" << kv.second.state.jamming_detected << "\n";
@@ -183,12 +203,12 @@ int main() {
 
   // 检查某个外部目标 ID 是否还在跟踪链中
   const bool has_2001 = out::ContainsExternalTargetId(
-      r4.track_output_frame, 2001U);
+      r_final.track_output_frame, 2001U);
   std::cout << "target 2001 still tracked: " << has_2001 << "\n";
 
   // 获取所有已确认轨迹集合做进一步处理
-  const auto confirmed = out::CollectConfirmedTracks(r4.track_output_frame);
-  std::cout << "confirmed tracks in cycle-4: " << confirmed.size() << "\n";
+  const auto confirmed = out::CollectConfirmedTracks(r_final.track_output_frame);
+  std::cout << "confirmed tracks in cycle-8: " << confirmed.size() << "\n";
 
   // 最新控制真值（仅在 HasLatestControlProfile() == true 时有效）
   if (session.HasLatestControlProfile()) {
