@@ -75,11 +75,16 @@ class PlatformSpecificDecisionEngine
 
     // 基于平台特有阈值判断是否进入威胁响应模式
     float max_threat = 0.0f;
-    for (const auto& track : input_frame.track_snapshot_list) {
-      if (track.state.threat_level > max_threat) {
-        max_threat = track.state.threat_level;
+    for (const auto& track : input_frame.tracks) {
+      if (track.state.jamming_detected) {
+        // 若有干扰标记的轨迹，提升响应优先级
+        max_threat += 0.5f;
       }
+      // miss_count 越高表示目标越难跟踪，视为威胁增益
+      max_threat += static_cast<float>(track.state.miss_count) * 0.1f;
     }
+    // 归一化到 [0, 1]
+    if (max_threat > 1.0f) { max_threat = 1.0f; }
 
     if (max_threat >= custom_threat_threshold_) {
       state_store.current_mode = TacticalMode::kThreatResponse;
@@ -193,7 +198,7 @@ int main() {
   // ------------------------------------------------------------------
   // 实例化自定义组件（在真实代码中直接传引用给 RadarController）
   // ------------------------------------------------------------------
-  PlatformSpecificDecisionEngine custom_engine(/*threat_threshold=*/0.7f);
+  PlatformSpecificDecisionEngine custom_engine(/*custom_threat_threshold=*/0.7f);
   SimulatedEnvironmentService    custom_env(
       /*propagation_loss_db=*/5.5f,
       /*clutter_power_db=*/3.5f);

@@ -193,8 +193,9 @@ int main() {
   // 最新控制真值（仅在 HasLatestControlProfile() == true 时有效）
   if (session.HasLatestControlProfile()) {
     const auto& profile = session.GetLatestControlProfile();
-    std::cout << "antenna az_deg=" << profile.scan_center_deg.az_deg
-              << " el_deg=" << profile.scan_center_deg.el_deg << "\n";
+    std::cout << "control_profile version=" << profile.version
+              << " lpi_power=" << profile.enable_lpi_power_control
+              << " eccm_rejitter=" << profile.enable_eccm_rejitter << "\n";
   }
 
   return 0;
