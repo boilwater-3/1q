@@ -8,13 +8,12 @@ class OneQConan(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
 
     def requirements(self):
-        self.requires("spdlog/1.12.0")
-        self.requires("eigen/3.4.0")
-        self.requires("sophus/1.22.10")
-        self.requires("fmt/10.2.1", override=True)
-        self.requires("boost/1.83.0")
+        self.requires("spdlog/1.8.5")
+        self.requires("eigen/3.3.9")
+        self.requires("fmt/7.1.3", override=True)
+        self.requires("boost/1.79.0")
         self.requires("eventpp/0.1.3")
-        self.requires("gtest/1.12.1", test=True)
+        self.requires("gtest/1.11.0", test=True)
 
     def generate(self):
         CMakeDeps(self).generate()
