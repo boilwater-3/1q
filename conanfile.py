@@ -28,6 +28,10 @@ class OneQConan(ConanFile):
     name = "1q"
     version = "0.1"
     settings = "os", "compiler", "build_type", "arch"
+    default_options = {
+        "imgui/*:with_glfw": True,
+        "imgui/*:with_opengl3": True,
+    }
 
     def requirements(self):
         is_vs2015_target = (
@@ -41,6 +45,13 @@ class OneQConan(ConanFile):
         self.requires(deps["boost"])
         self.requires("eventpp/0.1.3")
         self.requires("gtest/1.12.1", test=True)
+
+        # 可视化依赖（macOS/Linux dev 工具，Windows 不安装）
+        is_windows = self.settings.os == "Windows"
+        if not is_windows:
+            self.requires("imgui/1.90.5")
+            self.requires("implot/0.16")
+            self.requires("glfw/3.4")
 
     def generate(self):
         CMakeDeps(self).generate()

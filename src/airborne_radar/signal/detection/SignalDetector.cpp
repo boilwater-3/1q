@@ -6,10 +6,6 @@ namespace airborne_radar {
 namespace signal {
 namespace detection {
 
-namespace {
-
-}  // namespace
-
 SignalDetector::SignalDetector(RadarSystemConfig config)
     : config_(config),
       thermal_noise_w_(RadarEquations::ComputeThermalNoisePower_W(

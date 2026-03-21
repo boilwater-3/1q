@@ -622,5 +622,134 @@ TEST(SwerlingDetectionTest, Threshold_MultiPulse_Consistency) {
   }
 }
 
+// ===========================================================================
+// SignalDetector — 边界条件补充
+// ===========================================================================
+
+/// @brief 目标距离为零时，ComputeEchoPower 返回保护值 -300 dBW，触发硬截断，不检测。
+TEST(SignalDetectorTest, ZeroRange_TargetNotDetected) {
+  RadarSystemConfig config;
+  SignalDetector detector(config);
+  detector.SetRandomSeed(42u);
+
+  signal::detection::TargetReturn target;
+  target.rcs_m2 = 100.0f;
+  target.range_m = 0.0f;  // 非正距离
+
+  signal::detection::EnvironmentState env;
+  env.propagation_loss_db = 0.0f;
+  env.clutter_noise_w = 0.0f;
+  env.jam_noise_w = 0.0f;
+
+  DetectionResult result = detector.Detect(target, env);
+
+  EXPECT_FALSE(result.detected);
+  EXPECT_FLOAT_EQ(result.detection_prob, 0.0f);
+}
+
+/// @brief 目标 RCS 为零时，回波功率为保护值，不检测。
+TEST(SignalDetectorTest, ZeroRcs_TargetNotDetected) {
+  RadarSystemConfig config;
+  SignalDetector detector(config);
+  detector.SetRandomSeed(42u);
+
+  signal::detection::TargetReturn target;
+  target.rcs_m2 = 0.0f;  // 零 RCS
+  target.range_m = 5000.0f;
+
+  signal::detection::EnvironmentState env;
+  env.propagation_loss_db = 0.0f;
+  env.clutter_noise_w = 0.0f;
+  env.jam_noise_w = 0.0f;
+
+  DetectionResult result = detector.Detect(target, env);
+
+  EXPECT_FALSE(result.detected);
+  EXPECT_FLOAT_EQ(result.detection_prob, 0.0f);
+}
+
+/// @brief 超大杂波噪声（远超回波功率）应压制检测。
+TEST(SignalDetectorTest, MassiveClutterSuppressesDetection) {
+  RadarSystemConfig config;
+  SignalDetector detector(config);
+  detector.SetRandomSeed(42u);
+
+  signal::detection::TargetReturn target;
+  target.rcs_m2 = 1.0f;
+  target.range_m = 5000.0f;
+
+  signal::detection::EnvironmentState env;
+  env.propagation_loss_db = 0.0f;
+  env.clutter_noise_w = 1e6f;  // 极大杂波 → SNR << 0
+  env.jam_noise_w = 0.0f;
+
+  DetectionResult result = detector.Detect(target, env);
+
+  // SNR << 0 → effective_snr < min_snr_db → 不检测
+  EXPECT_LT(result.snr_db, 0.0f);
+  EXPECT_FALSE(result.detected);
+  EXPECT_FLOAT_EQ(result.detection_prob, 0.0f);
+}
+
+/// @brief 总噪声接近零时，SNR 返回保护值（100 dB），不崩溃。
+TEST(SignalDetectorTest, NearZeroTotalNoise_GivesSafetySnr) {
+  RadarSystemConfig config;
+  // 将热噪声降至最低（极低带宽 + 零噪声指数）
+  config.transmitter.bandwidth_hz = 1.0f;        // 1 Hz 带宽 → 极小热噪声
+  config.receiver.noise_figure_db = 0.0f;        // 理想接收机
+  config.receiver.receive_loss_db = 0.0f;
+  SignalDetector detector(config);
+  detector.SetRandomSeed(42u);
+
+  signal::detection::TargetReturn target;
+  target.rcs_m2 = 100.0f;
+  target.range_m = 100.0f;
+
+  signal::detection::EnvironmentState env;
+  env.propagation_loss_db = 0.0f;
+  env.clutter_noise_w = 0.0f;
+  env.jam_noise_w = 0.0f;
+
+  DetectionResult result = detector.Detect(target, env);
+
+  // 噪声极小时，SNR 应为正值且不产生 NaN/Inf
+  EXPECT_TRUE(std::isfinite(result.snr_db));
+  EXPECT_GT(result.snr_db, 0.0f);
+}
+
+/// @brief effective_snr < min_snr_db 时，detection_prob 强制为 0，detected = false。
+TEST(SignalDetectorTest, BelowMinSnrIsNeverDetected) {
+  RadarSystemConfig config;
+  config.detection.min_snr_db = 20.0f;  // 极高硬门限
+  SignalDetector detector(config);
+  detector.SetRandomSeed(0u);
+
+  signal::detection::TargetReturn target;
+  target.rcs_m2 = 0.001f;   // 很小 RCS
+  target.range_m = 500000.0f;  // 极远
+
+  signal::detection::EnvironmentState env;
+  env.propagation_loss_db = 0.0f;
+  env.clutter_noise_w = 0.0f;
+  env.jam_noise_w = 0.0f;
+
+  DetectionResult result = detector.Detect(target, env);
+
+  EXPECT_FALSE(result.detected);
+  EXPECT_FLOAT_EQ(result.detection_prob, 0.0f);
+}
+
+/// @brief 积累脉冲数 <= 0 时，积累增益退化为 1.0（不崩溃）。
+TEST(RadarEquationsTest, IntegrationGain_ZeroPulseCount_IsOne) {
+  EXPECT_FLOAT_EQ(RadarEquations::ComputeIntegrationGain(0, true), 1.0f);
+  EXPECT_FLOAT_EQ(RadarEquations::ComputeIntegrationGain(-1, false), 1.0f);
+}
+
+/// @brief 单脉冲积累增益：相参 = 1.0，非相参 = 1.0。
+TEST(RadarEquationsTest, IntegrationGain_OnePulse_IsOne) {
+  EXPECT_FLOAT_EQ(RadarEquations::ComputeIntegrationGain(1, true), 1.0f);
+  EXPECT_FLOAT_EQ(RadarEquations::ComputeIntegrationGain(1, false), 1.0f);
+}
+
 }  // namespace tests
 }  // namespace airborne_radar

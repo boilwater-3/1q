@@ -25,6 +25,7 @@ set(TEST_SOURCES
     signal_environment_test.cpp
     signal_association_test.cpp
     signal_detection_test.cpp
+    radar_input_validation_test.cpp
     # NOTE:
     # signal_bulk_data_test.cpp contains long-running IMM debug workload tests.
     # Keep it disabled until IMM multi-thread optimization is implemented,

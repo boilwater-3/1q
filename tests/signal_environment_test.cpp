@@ -178,19 +178,24 @@ TEST(SceneManagerTest, CommitsPendingSceneOnlyWhenBeginCycleArrives) {
   EXPECT_EQ(scene_manager.GetActiveCycleContext().cycle_index, 9U);
 }
 
-TEST(PropagationModelTest, ClampsCombinedPropagationAndClutterNonNegative) {
+TEST(PropagationModelTest, ClampsPropagationLossNonNegativeButPassesThroughNegativeClutter) {
   environment::EnvironmentSceneState scene_state;
   scene_state.base_propagation_loss_db = -10.0f;
   scene_state.atmospheric_attenuation_db = 2.0f;
   scene_state.terrain_reflection_db = -4.0f;
+  // Negative clutter_power_db (e.g. -3 dBW ≈ 0.5 W) is physically valid for
+  // low-clutter environments and must not be clamped.
   scene_state.clutter_power_db = -3.0f;
 
   environment::simulation::PropagationModel propagation_model;
   const environment::simulation::PropagationResult result =
       propagation_model.Evaluate(scene_state);
 
+  // Propagation loss is clamped at 0: a path cannot provide net gain.
   EXPECT_FLOAT_EQ(result.propagation_loss_db, 0.0f);
-  EXPECT_FLOAT_EQ(result.clutter_power_db, 0.0f);
+  // Clutter power passes through unchanged so callers can model near-zero
+  // clutter by setting large negative dBW values.
+  EXPECT_FLOAT_EQ(result.clutter_power_db, -3.0f);
 }
 
 TEST(SignalPipelineTest, KeepsTrackStableWhenDetectionMarginIsEnough) {
@@ -1174,6 +1179,337 @@ TEST(SignalPipelineTest,
   ASSERT_EQ(second_measurements.size(), 1u);
   EXPECT_FALSE(second_measurements[0].raw_measurement.matched_existing_track);
   EXPECT_NE(second_measurements[0].raw_measurement.association_key, first_key);
+}
+
+// ============================================================================
+// PropagationModel — 边界条件补充
+// ============================================================================
+
+/// @brief 大负值杂波功率（低杂波场景，-200 dBW）透传不被钳位。
+TEST(PropagationModelTest, LargeNegativeClutterPassesThroughUnchanged) {
+  environment::EnvironmentSceneState scene_state;
+  scene_state.base_propagation_loss_db = 5.0f;
+  scene_state.atmospheric_attenuation_db = 0.0f;
+  scene_state.terrain_reflection_db = 0.0f;
+  scene_state.clutter_power_db = -200.0f;
+
+  environment::simulation::PropagationModel model;
+  const environment::simulation::PropagationResult result =
+      model.Evaluate(scene_state);
+
+  EXPECT_FLOAT_EQ(result.propagation_loss_db, 5.0f);
+  EXPECT_FLOAT_EQ(result.clutter_power_db, -200.0f);
+}
+
+/// @brief 零杂波功率透传不被修改。
+TEST(PropagationModelTest, ZeroClutterPassesThroughUnchanged) {
+  environment::EnvironmentSceneState scene_state;
+  scene_state.clutter_power_db = 0.0f;
+
+  environment::simulation::PropagationModel model;
+  EXPECT_FLOAT_EQ(model.Evaluate(scene_state).clutter_power_db, 0.0f);
+}
+
+/// @brief 正值杂波功率透传不被修改。
+TEST(PropagationModelTest, PositiveClutterPassesThroughUnchanged) {
+  environment::EnvironmentSceneState scene_state;
+  scene_state.clutter_power_db = 15.0f;
+
+  environment::simulation::PropagationModel model;
+  EXPECT_FLOAT_EQ(model.Evaluate(scene_state).clutter_power_db, 15.0f);
+}
+
+/// @brief 各组件均为正值时，传播损耗等于三者之和。
+TEST(PropagationModelTest, PositivePropagationLossIsRetained) {
+  environment::EnvironmentSceneState scene_state;
+  scene_state.base_propagation_loss_db = 10.0f;
+  scene_state.atmospheric_attenuation_db = 3.0f;
+  scene_state.terrain_reflection_db = 2.0f;
+  scene_state.clutter_power_db = 0.0f;
+
+  environment::simulation::PropagationModel model;
+  const environment::simulation::PropagationResult result =
+      model.Evaluate(scene_state);
+
+  EXPECT_FLOAT_EQ(result.propagation_loss_db, 15.0f);
+}
+
+/// @brief 各分量均为零时，损耗和杂波均为零。
+TEST(PropagationModelTest, AllZeroComponentsProduceZeroResults) {
+  environment::EnvironmentSceneState scene_state;
+  scene_state.base_propagation_loss_db = 0.0f;
+  scene_state.atmospheric_attenuation_db = 0.0f;
+  scene_state.terrain_reflection_db = 0.0f;
+  scene_state.clutter_power_db = 0.0f;
+
+  environment::simulation::PropagationModel model;
+  const environment::simulation::PropagationResult result =
+      model.Evaluate(scene_state);
+
+  EXPECT_FLOAT_EQ(result.propagation_loss_db, 0.0f);
+  EXPECT_FLOAT_EQ(result.clutter_power_db, 0.0f);
+}
+
+// ============================================================================
+// EnvironmentService — HasLegacyJammerHints 边界与规范化测试
+// ============================================================================
+
+/// @brief jammer_power_db == 0 不构成旧版干扰提示，不创建 legacy emitter。
+TEST(EnvironmentServiceTest, ZeroJammerPowerDoesNotCreateLegacyEmitter) {
+  environment::EnvironmentModelConfig config;
+  config.jammer_power_db = 0.0f;
+  // 其余旧版字段全部默认 (0 / false)
+
+  environment::EnvironmentService service(config);
+  service.SetJammingDetectionThresholdDb(0.001f);  // 极低门限确保一有 emitter 就触发
+
+  const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
+
+  // 无 legacy emitter → jammer_sources 为空
+  EXPECT_EQ(snapshot.jammer_sources.size(), 0u);
+  EXPECT_FALSE(snapshot.jamming_detected);
+}
+
+/// @brief 负值 jammer_power_db 不构成旧版干扰提示。
+TEST(EnvironmentServiceTest, NegativeJammerPowerDoesNotCreateLegacyEmitter) {
+  environment::EnvironmentModelConfig config;
+  config.jammer_power_db = -5.0f;
+
+  environment::EnvironmentService service(config);
+  service.SetJammingDetectionThresholdDb(0.001f);
+
+  EXPECT_EQ(service.SampleEnvironment().jammer_sources.size(), 0u);
+}
+
+/// @brief 仅 jammer_in_sidelobe = true 即创建 legacy emitter（即使 power=0）。
+TEST(EnvironmentServiceTest, SidelobeAloneCreatesLegacyEmitter) {
+  environment::EnvironmentModelConfig config;
+  config.jammer_power_db = 0.0f;
+  config.jammer_in_sidelobe = true;
+
+  environment::EnvironmentService service(config);
+
+  const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
+  // HasLegacyJammerHints → jammer_in_sidelobe=true → 创建 legacy emitter
+  ASSERT_EQ(snapshot.jammer_sources.size(), 1u);
+  EXPECT_TRUE(snapshot.jammer_sources[0].in_sidelobe);
+}
+
+/// @brief NormalizeEmitterState：负值 power_db 钳位到 0。
+TEST(EnvironmentServiceTest, NegativeEmitterPowerIsClampedToZero) {
+  environment::EnvironmentModelConfig config;
+  environment::JammerSourceFact source;
+  source.technique = environment::JammingTechnique::kNoiseSuppression;
+  source.power_db = -10.0f;  // 负值应被钳位
+  source.js_db = 3.0f;
+  source.confidence = 1.0f;
+  config.jammer_sources.push_back(source);
+
+  environment::EnvironmentService service(config);
+  const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
+
+  ASSERT_EQ(snapshot.jammer_sources.size(), 1u);
+  EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].power_db, 0.0f);
+}
+
+/// @brief NormalizeEmitterState：frequency_overlap_ratio > 1.0 钳位到 1.0。
+TEST(EnvironmentServiceTest, EmitterOverlapRatioAboveOneIsClampedToOne) {
+  environment::EnvironmentModelConfig config;
+  environment::JammerSourceFact source;
+  source.technique = environment::JammingTechnique::kDeception;
+  source.power_db = 5.0f;
+  source.frequency_overlap_ratio = 1.5f;  // 超出范围
+  source.confidence = 0.8f;
+  config.jammer_sources.push_back(source);
+
+  environment::EnvironmentService service(config);
+  const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
+
+  ASSERT_EQ(snapshot.jammer_sources.size(), 1u);
+  EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].frequency_overlap_ratio, 1.0f);
+}
+
+/// @brief NormalizeEmitterState：confidence > 1.0 钳位到 1.0。
+TEST(EnvironmentServiceTest, EmitterConfidenceAboveOneIsClampedToOne) {
+  environment::EnvironmentModelConfig config;
+  environment::JammerSourceFact source;
+  source.power_db = 5.0f;
+  source.confidence = 2.5f;  // 超出范围
+  config.jammer_sources.push_back(source);
+
+  environment::EnvironmentService service(config);
+  const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
+
+  ASSERT_EQ(snapshot.jammer_sources.size(), 1u);
+  EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].confidence, 1.0f);
+}
+
+/// @brief 干扰功率恰好等于检测门限时，应判定为探测到干扰（>= 门限）。
+TEST(EnvironmentServiceTest, JammingDetectedWhenPowerEqualsThreshold) {
+  environment::EnvironmentModelConfig config;
+  config.jammer_power_db = 5.0f;
+
+  environment::EnvironmentService service(config);
+  service.SetJammingDetectionThresholdDb(5.0f);  // 恰好等于
+
+  EXPECT_TRUE(service.SampleEnvironment().jamming_detected);
+}
+
+/// @brief 干扰功率低于检测门限时，不判定为探测到干扰。
+TEST(EnvironmentServiceTest, JammingNotDetectedWhenPowerBelowThreshold) {
+  environment::EnvironmentModelConfig config;
+  config.jammer_power_db = 4.9f;
+
+  environment::EnvironmentService service(config);
+  service.SetJammingDetectionThresholdDb(5.0f);
+
+  EXPECT_FALSE(service.SampleEnvironment().jamming_detected);
+}
+
+/// @brief 多干扰源时，primary jammer 选取功率最大的来源。
+TEST(EnvironmentServiceTest, PrimaryJammerIsTheHighestPowerSource) {
+  environment::EnvironmentModelConfig config;
+
+  environment::JammerSourceFact low;
+  low.power_db = 3.0f;
+  low.technique = environment::JammingTechnique::kNoiseSuppression;
+  low.confidence = 1.0f;
+
+  environment::JammerSourceFact high;
+  high.power_db = 12.0f;
+  high.technique = environment::JammingTechnique::kDeception;
+  high.confidence = 1.0f;
+
+  config.jammer_sources.push_back(low);
+  config.jammer_sources.push_back(high);
+
+  environment::EnvironmentService service(config);
+  service.SetJammingDetectionThresholdDb(2.0f);
+
+  const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
+  EXPECT_FLOAT_EQ(snapshot.jammer_power_db, 12.0f);
+  EXPECT_TRUE(snapshot.jamming_detected);
+}
+
+// ============================================================================
+// TrackFilter — 衰减语义正确性测试
+// ============================================================================
+
+/// @brief 检测成功时，速度和 RCS 保持不变。
+TEST(TrackFilterTest, DetectionSuccessPreservesSpeedAndRcs) {
+  signal::tracking::TrackFilter filter;
+
+  common::TargetFeature input(300.0f, 0.0f, 0.0f, 2.0f);
+  input.position_x = 1000.0f;
+  input.range_m = 1000.0f;
+
+  signal::tracking::TrackFilterContext ctx;
+  ctx.detection_succeeded = true;
+
+  const common::TargetFeature output = filter.Filter(input, ctx);
+
+  EXPECT_FLOAT_EQ(output.current_track_speed, 300.0f);
+  EXPECT_FLOAT_EQ(output.current_track_rcs, 2.0f);
+}
+
+/// @brief 检测失配时，速度按配置系数衰减（speed = input * ratio）。
+TEST(TrackFilterTest, DetectionMissDecaysSpeedByConfiguredRatio) {
+  signal::tracking::TrackFilterConfig cfg;
+  cfg.speed_decay_ratio_on_loss = 0.80f;
+  cfg.rcs_decay_ratio_on_loss = 1.0f;  // RCS 不衰减，隔离速度分支
+  signal::tracking::TrackFilter filter(cfg);
+
+  common::TargetFeature input(500.0f, 0.0f, 0.0f, 2.0f);
+  signal::tracking::TrackFilterContext ctx;
+  ctx.detection_succeeded = false;
+
+  const common::TargetFeature output = filter.Filter(input, ctx);
+
+  EXPECT_FLOAT_EQ(output.current_track_speed, 400.0f);  // 500 * 0.8
+}
+
+/// @brief 检测失配时，RCS 按配置系数衰减，且不低于 0.05。
+TEST(TrackFilterTest, DetectionMissDecaysRcsByConfiguredRatio) {
+  signal::tracking::TrackFilterConfig cfg;
+  cfg.speed_decay_ratio_on_loss = 1.0f;
+  cfg.rcs_decay_ratio_on_loss = 0.70f;
+  signal::tracking::TrackFilter filter(cfg);
+
+  common::TargetFeature input(100.0f, 0.0f, 0.0f, 2.0f);
+  signal::tracking::TrackFilterContext ctx;
+  ctx.detection_succeeded = false;
+
+  const common::TargetFeature output = filter.Filter(input, ctx);
+
+  EXPECT_NEAR(output.current_track_rcs, 1.40f, 1e-4f);  // 2.0 * 0.7
+}
+
+/// @brief 连续多次失配时，速度单调递减。
+TEST(TrackFilterTest, ConsecutiveMissesMonotonicallyReduceSpeed) {
+  signal::tracking::TrackFilterConfig cfg;
+  cfg.speed_decay_ratio_on_loss = 0.90f;
+  cfg.rcs_decay_ratio_on_loss = 1.0f;
+  signal::tracking::TrackFilter filter(cfg);
+
+  signal::tracking::TrackFilterContext miss_ctx;
+  miss_ctx.detection_succeeded = false;
+
+  common::TargetFeature state(500.0f, 0.0f, 0.0f, 1.0f);
+  float prev_speed = 500.0f;
+  for (int i = 0; i < 5; ++i) {
+    state = filter.Filter(state, miss_ctx);
+    EXPECT_LT(state.current_track_speed, prev_speed)
+        << "Speed should decrease at miss #" << (i + 1);
+    prev_speed = state.current_track_speed;
+  }
+}
+
+/// @brief 衰减系数为 1.0 时，失配不改变速度。
+TEST(TrackFilterTest, DecayRatioOnePreservesSpeedOnMiss) {
+  signal::tracking::TrackFilterConfig cfg;
+  cfg.speed_decay_ratio_on_loss = 1.0f;
+  cfg.rcs_decay_ratio_on_loss = 1.0f;
+  signal::tracking::TrackFilter filter(cfg);
+
+  common::TargetFeature input(400.0f, 0.0f, 0.0f, 1.5f);
+  signal::tracking::TrackFilterContext ctx;
+  ctx.detection_succeeded = false;
+
+  const common::TargetFeature output = filter.Filter(input, ctx);
+
+  EXPECT_FLOAT_EQ(output.current_track_speed, 400.0f);
+}
+
+/// @brief 速度不会因失配变为负数（钳位到 0）。
+TEST(TrackFilterTest, SpeedNeverGoesNegativeOnMiss) {
+  signal::tracking::TrackFilterConfig cfg;
+  cfg.speed_decay_ratio_on_loss = 0.0f;  // 衰减至 0
+  cfg.rcs_decay_ratio_on_loss = 1.0f;
+  signal::tracking::TrackFilter filter(cfg);
+
+  common::TargetFeature input(300.0f, 0.0f, 0.0f, 1.0f);
+  signal::tracking::TrackFilterContext ctx;
+  ctx.detection_succeeded = false;
+
+  const common::TargetFeature output = filter.Filter(input, ctx);
+
+  EXPECT_GE(output.current_track_speed, 0.0f);
+}
+
+/// @brief RCS 不会因失配低于最小值 0.05。
+TEST(TrackFilterTest, RcsNeverGoesBelowMinimumOnMiss) {
+  signal::tracking::TrackFilterConfig cfg;
+  cfg.speed_decay_ratio_on_loss = 1.0f;
+  cfg.rcs_decay_ratio_on_loss = 0.0f;  // 衰减至 0
+  signal::tracking::TrackFilter filter(cfg);
+
+  common::TargetFeature input(100.0f, 0.0f, 0.0f, 0.01f);  // 极小 RCS
+  signal::tracking::TrackFilterContext ctx;
+  ctx.detection_succeeded = false;
+
+  const common::TargetFeature output = filter.Filter(input, ctx);
+
+  EXPECT_GE(output.current_track_rcs, 0.05f);
 }
 
 } } // namespace airborne_radar::tests
