@@ -3,53 +3,17 @@
 
 cmake_minimum_required(VERSION 3.16...3.30)
 
-# Conan 自动安装逻辑（在 project() 之前执行）
-# 检测是否使用了 Conan toolchain，如果 toolchain 文件不存在则自动运行 conan install
-if(DEFINED CMAKE_TOOLCHAIN_FILE)
-    if(NOT EXISTS "${CMAKE_TOOLCHAIN_FILE}")
-        # 从 toolchain 路径推断输出目录和构建类型
-        get_filename_component(CONAN_OUTPUT_DIR "${CMAKE_TOOLCHAIN_FILE}" DIRECTORY)
-        get_filename_component(CONAN_OUTPUT_DIR "${CONAN_OUTPUT_DIR}" DIRECTORY)
-        get_filename_component(CONAN_OUTPUT_DIR "${CONAN_OUTPUT_DIR}" DIRECTORY)
-        get_filename_component(CONAN_OUTPUT_DIR "${CONAN_OUTPUT_DIR}" DIRECTORY)
-        
-        # 检测构建类型（从路径中提取）
-        if("${CMAKE_TOOLCHAIN_FILE}" MATCHES "/Debug/")
-            set(CONAN_BUILD_TYPE "Debug")
-        elseif("${CMAKE_TOOLCHAIN_FILE}" MATCHES "/Release/")
-            set(CONAN_BUILD_TYPE "Release")
-        else()
-            set(CONAN_BUILD_TYPE "Debug")  # 默认 Debug
-        endif()
-        
-        message(STATUS "Conan toolchain not found: ${CMAKE_TOOLCHAIN_FILE}")
-        message(STATUS "Automatically running Conan install...")
-        message(STATUS "  └─ Output folder: ${CONAN_OUTPUT_DIR}")
-        message(STATUS "  └─ Build type: ${CONAN_BUILD_TYPE}")
-        
-        # 执行 conan install
-        execute_process(
-            COMMAND conan install ${CMAKE_SOURCE_DIR}
-                    --output-folder=${CONAN_OUTPUT_DIR}
-                    --build=missing
-                    -s build_type=${CONAN_BUILD_TYPE}
-            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-            RESULT_VARIABLE CONAN_RESULT
-            OUTPUT_VARIABLE CONAN_OUTPUT
-            ERROR_VARIABLE CONAN_ERROR
-        )
-        
-        if(NOT CONAN_RESULT EQUAL 0)
-            message(FATAL_ERROR "Conan install failed:\n${CONAN_ERROR}")
-        else()
-            message(STATUS "Conan install completed successfully")
-        endif()
-        
-        # 再次检查 toolchain 文件是否已生成
-        if(NOT EXISTS "${CMAKE_TOOLCHAIN_FILE}")
-            message(FATAL_ERROR "Conan toolchain still not found after installation: ${CMAKE_TOOLCHAIN_FILE}")
-        endif()
-    endif()
+include(cmake/ProjectLanguageDefaults.cmake)
+
+# 项目期望的 C++ 标准
+set(PROJECT_DEFAULT_CXX_STANDARD "${ONEQ_DEFAULT_CXX_STANDARD}")
+if(DEFINED CMAKE_CXX_STANDARD AND NOT CMAKE_CXX_STANDARD STREQUAL "")
+    set(PROJECT_CXX_STANDARD "${CMAKE_CXX_STANDARD}")
+else()
+    set(PROJECT_CXX_STANDARD "${PROJECT_DEFAULT_CXX_STANDARD}")
+endif()
+if(PROJECT_CXX_STANDARD LESS 11)
+    message(FATAL_ERROR "CMAKE_CXX_STANDARD must be at least 11")
 endif()
 
 # 项目元数据
@@ -75,7 +39,7 @@ project(${PROJECT_NAME}
 )
 
 # C++ 标准配置
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD "${PROJECT_CXX_STANDARD}")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)  # 为 IDE 工具提供编译命令数据库
@@ -182,6 +146,8 @@ message(STATUS "  └─ Install support: ${ENABLE_INSTALL}")
 # 子目录包含
 if(EXISTS "${CMAKE_SOURCE_DIR}/src/CMakeLists.txt")
     add_subdirectory(src)
+else()
+    message(FATAL_ERROR "Required module missing: ${CMAKE_SOURCE_DIR}/src/CMakeLists.txt")
 endif()
 
 # 包管理器配置（必须在 target 创建之后）
