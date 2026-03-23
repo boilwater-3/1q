@@ -23,6 +23,7 @@
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
 #include "airborne_radar/signal/pipeline/SignalComponentFactory.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
+#include "common/timing/TimingRegimeModel.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -920,15 +921,11 @@ void ApplyControlProfileToConfig(const common::RadarControlProfile& control_prof
   }
 
   if (control_profile.lpi_dwell_scale != 1.0f) {
-    const float dwell_scale =
-        std::max(0.25f, std::min(4.0f,
-                                 ClampProfileScale(control_profile.lpi_dwell_scale,
-                                                   1.0f)));
-    const double scaled_pulse_count =
-        static_cast<double>(runtime_config->detection.pulse_count) *
-        static_cast<double>(dwell_scale);
-    runtime_config->detection.pulse_count = std::max(
-        1, static_cast<int>(std::lround(scaled_pulse_count)));
+    oneq::internal::timing::CycleTimingControlParams timing_control_params;
+    timing_control_params.base_pulse_count = runtime_config->detection.pulse_count;
+    timing_control_params.dwell_scale = control_profile.lpi_dwell_scale;
+    runtime_config->detection.pulse_count =
+        oneq::internal::timing::ResolvePulseCountWithDwell(timing_control_params);
   }
 
   if (control_profile.enable_agility_frequency) {
@@ -941,7 +938,12 @@ void ApplyControlProfileToConfig(const common::RadarControlProfile& control_prof
   }
 
   if (control_profile.enable_eccm_rejitter) {
-    runtime_config->detection.radar_system.transmitter.prf_hz *= 1.10f;
+    oneq::internal::timing::CycleTimingControlParams timing_control_params;
+    timing_control_params.base_prf_hz =
+        runtime_config->detection.radar_system.transmitter.prf_hz;
+    timing_control_params.enable_rejitter = true;
+    runtime_config->detection.radar_system.transmitter.prf_hz =
+        oneq::internal::timing::ResolvePrfWithRejitter(timing_control_params);
     runtime_config->association.unassigned_cost *= 1.35f;
     runtime_config->tracking.kalman_noise_diff_coeff *= 1.10f;
   }

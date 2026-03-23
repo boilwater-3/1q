@@ -1,0 +1,154 @@
+#include "common/timing/TimingRegimeModel.h"
+
+#include <algorithm>
+#include <cmath>
+
+namespace oneq {
+namespace internal {
+namespace timing {
+
+namespace {
+
+/**
+ * @brief 数值稳定保护下限。
+ * @note 用于避免除零、`log10(0)` 与阈值因子退化。
+ */
+constexpr double kNumericFloor = 1.0e-18;
+/**
+ * @brief 默认虚警概率回退值。
+ */
+constexpr float kDefaultPfa = 1.0e-6f;
+/**
+ * @brief 虚警概率下界。
+ */
+constexpr float kMinPfa = 1.0e-9f;
+/**
+ * @brief 虚警概率上界。
+ */
+constexpr float kMaxPfa = 1.0e-2f;
+/**
+ * @brief 驻留缩放下界。
+ */
+constexpr float kMinDwellScale = 0.25f;
+/**
+ * @brief 驻留缩放上界。
+ */
+constexpr float kMaxDwellScale = 4.0f;
+/**
+ * @brief 非法比例的默认回退值。
+ */
+constexpr float kScaleFallback = 1.0f;
+/**
+ * @brief 重频抖动缩放因子。
+ */
+constexpr float kPrfRejitterScale = 1.10f;
+
+/**
+ * @brief 将输入裁剪到 [0, 1]。
+ * @param[in] value 输入值。
+ * @return 裁剪后的结果。
+ */
+float Clamp01(float value) {
+  return std::max(0.0f, std::min(1.0f, value));
+}
+
+/**
+ * @brief 约束控制比例，避免非法值污染运行时配置。
+ * @param[in] scale 待校验比例。
+ * @param[in] fallback 非法输入时的回退值。
+ * @return 合法比例或回退值。
+ */
+float ClampProfileScale(float scale, float fallback) {
+  if (!std::isfinite(scale) || scale <= 0.0f) {
+    return fallback;
+  }
+  return scale;
+}
+
+/**
+ * @brief 把线性功率比转换为 dB。
+ * @param[in] ratio 线性功率比。
+ * @return dB 表示值。
+ */
+float ToDb(double ratio) {
+  return static_cast<float>(10.0 * std::log10(std::max(ratio, kNumericFloor)));
+}
+
+}  // namespace
+
+float NormalizePfa(float pfa) {
+  if (!std::isfinite(pfa)) {
+    return kDefaultPfa;
+  }
+  return std::max(kMinPfa, std::min(kMaxPfa, pfa));
+}
+
+int ResolvePulseCountWithDwell(const CycleTimingControlParams& params) {
+  const float safe_dwell_scale = ClampProfileScale(params.dwell_scale, kScaleFallback);
+  const float dwell_scale =
+      std::max(kMinDwellScale, std::min(kMaxDwellScale, safe_dwell_scale));
+  const double scaled_pulse_count =
+      static_cast<double>(params.base_pulse_count) *
+      static_cast<double>(dwell_scale);
+  return std::max(1, static_cast<int>(std::lround(scaled_pulse_count)));
+}
+
+float ResolvePrfWithRejitter(const CycleTimingControlParams& params) {
+  if (params.enable_rejitter) {
+    return params.base_prf_hz * kPrfRejitterScale;
+  }
+  return params.base_prf_hz;
+}
+
+double ComputeIntegrationGain(const StatisticalDetectionParams& params) {
+  const std::uint32_t pulse_count = std::max(1U, params.pulse_count);
+  if (params.integration_mode == IntegrationMode::kCoherent) {
+    return static_cast<double>(pulse_count);
+  }
+  return std::sqrt(static_cast<double>(pulse_count));
+}
+
+float ComputeDynamicThresholdSnrDb(double noise_power_w,
+                                   const StatisticalDetectionParams& params) {
+  const double safe_noise_power_w = std::max(noise_power_w, kNumericFloor);
+  const float pfa = NormalizePfa(params.pfa);
+  const std::uint32_t pulse_count = std::max(1U, params.pulse_count);
+  const double pulse_count_double = static_cast<double>(pulse_count);
+  const double threshold_scale = std::max(
+      static_cast<double>(params.threshold_scale), static_cast<double>(0.1f));
+
+  double threshold_factor = 1.0;
+  if (params.integration_mode == IntegrationMode::kCoherent) {
+    threshold_factor = -std::log(static_cast<double>(pfa)) / pulse_count_double;
+  } else {
+    threshold_factor =
+        pulse_count_double *
+        (std::pow(1.0 / static_cast<double>(pfa), 1.0 / pulse_count_double) -
+         1.0);
+  }
+  threshold_factor = std::max(threshold_factor, kNumericFloor) * threshold_scale;
+  const double threshold_power_w = safe_noise_power_w * threshold_factor;
+  const float threshold_db = ToDb(threshold_power_w / safe_noise_power_w);
+  return std::max(params.min_snr_db, threshold_db);
+}
+
+float ComputeStatisticalDetectionProbability(
+    float snr_db, float threshold_snr_db,
+    const StatisticalDetectionParams& params) {
+  if (!std::isfinite(snr_db) || !std::isfinite(threshold_snr_db)) {
+    return 0.0f;
+  }
+  const double snr_linear =
+      std::pow(10.0, static_cast<double>(snr_db) / 10.0);
+  const double threshold_linear =
+      std::pow(10.0, static_cast<double>(threshold_snr_db) / 10.0);
+  const double normalized_metric =
+      (snr_linear / std::max(threshold_linear, kNumericFloor)) *
+      ComputeIntegrationGain(params);
+  const double pd = 1.0 - std::exp(-std::max(normalized_metric, 0.0));
+  return Clamp01(std::max(static_cast<float>(pd), NormalizePfa(params.pfa)));
+}
+
+}  // namespace timing
+}  // namespace internal
+}  // namespace oneq

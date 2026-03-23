@@ -15,6 +15,7 @@
 #include "electronic_surveillance_radar/intercept/ScanPatternGenerator.h"
 #include "electronic_surveillance_radar/pipeline/InterceptComponentFactory.h"
 #include "electronic_surveillance_radar/pipeline/ObservationFeatureEncoder.h"
+#include "common/timing/TimingRegimeModel.h"
 
 namespace electronic_surveillance_radar {
 namespace pipeline {
@@ -56,83 +57,33 @@ float ToDb(double ratio) {
 }
 
 /**
- * @brief 对统计检测配置中的 Pfa 做数值归一化。
- * @param[in] pfa 输入虚警概率。
- * @return 归一化后的 Pfa。
+ * @brief 把 ESR 积累模式映射为共享时序体制积累模式。
+ * @param[in] mode ESR 统计检测积累模式。
+ * @return 共享时序体制积累模式。
  */
-float NormalizePfa(float pfa) {
-  if (!std::isfinite(pfa)) {
-    return 1.0e-6f;
+oneq::internal::timing::IntegrationMode ToTimingIntegrationMode(
+    InterceptIntegrationMode mode) {
+  if (mode == InterceptIntegrationMode::kCoherent) {
+    return oneq::internal::timing::IntegrationMode::kCoherent;
   }
-  return std::max(1.0e-9f, std::min(1.0e-2f, pfa));
+  return oneq::internal::timing::IntegrationMode::kNonCoherent;
 }
 
 /**
- * @brief 计算统计检测对应的积累增益。
- * @param[in] config 统计检测配置。
- * @return 增益系数。
+ * @brief 把 ESR 统计检测配置映射为共享时序体制参数。
+ * @param[in] config ESR 统计检测配置。
+ * @return 共享时序体制参数。
  */
-double ComputeIntegrationGain(
+oneq::internal::timing::StatisticalDetectionParams ToTimingDetectionParams(
     const InterceptStatisticalDetectionConfig& config) {
-  const std::uint32_t pulse_count = std::max(1U, config.pulse_count);
-  if (config.integration_mode == InterceptIntegrationMode::kCoherent) {
-    return static_cast<double>(pulse_count);
-  }
-  return std::sqrt(static_cast<double>(pulse_count));
-}
-
-/**
- * @brief 根据 Pfa 与噪声底计算 CFAR 风格动态门限。
- * @param[in] noise_power_w 等效噪声底（单位：W）。
- * @param[in] config 统计检测配置。
- * @return 动态检测门限（单位：dB）。
- */
-float ComputeDynamicThresholdSnrDb(
-    double noise_power_w, const InterceptStatisticalDetectionConfig& config) {
-  const double safe_noise_power_w = std::max(noise_power_w, kNumericFloor);
-  const float pfa = NormalizePfa(config.pfa);
-  const std::uint32_t pulse_count = std::max(1U, config.pulse_count);
-  const double pulse_count_double = static_cast<double>(pulse_count);
-  const double threshold_scale = std::max(
-      static_cast<double>(config.threshold_scale), static_cast<double>(0.1f));
-
-  double threshold_factor = 1.0;
-  if (config.integration_mode == InterceptIntegrationMode::kCoherent) {
-    threshold_factor = -std::log(static_cast<double>(pfa)) / pulse_count_double;
-  } else {
-    threshold_factor =
-        pulse_count_double *
-        (std::pow(1.0 / static_cast<double>(pfa), 1.0 / pulse_count_double) -
-         1.0);
-  }
-  threshold_factor = std::max(threshold_factor, kNumericFloor) * threshold_scale;
-  const double threshold_power_w = safe_noise_power_w * threshold_factor;
-  const float threshold_db = ToDb(threshold_power_w / safe_noise_power_w);
-  return std::max(config.min_snr_db, threshold_db);
-}
-
-/**
- * @brief 计算统计检测概率 Pd。
- * @param[in] snr_db 当前观测信噪比（单位：dB）。
- * @param[in] threshold_snr_db 动态门限（单位：dB）。
- * @param[in] config 统计检测配置。
- * @return 检测概率 Pd，范围 [0, 1]。
- */
-float ComputeStatisticalDetectionProbability(
-    float snr_db, float threshold_snr_db,
-    const InterceptStatisticalDetectionConfig& config) {
-  if (!std::isfinite(snr_db) || !std::isfinite(threshold_snr_db)) {
-    return 0.0f;
-  }
-  const double snr_linear =
-      std::pow(10.0, static_cast<double>(snr_db) / 10.0);
-  const double threshold_linear =
-      std::pow(10.0, static_cast<double>(threshold_snr_db) / 10.0);
-  const double normalized_metric =
-      (snr_linear / std::max(threshold_linear, kNumericFloor)) *
-      ComputeIntegrationGain(config);
-  const double pd = 1.0 - std::exp(-std::max(normalized_metric, 0.0));
-  return Clamp01(std::max(static_cast<float>(pd), NormalizePfa(config.pfa)));
+  oneq::internal::timing::StatisticalDetectionParams params;
+  params.pfa = config.pfa;
+  params.min_snr_db = config.min_snr_db;
+  params.pulse_count = config.pulse_count;
+  params.integration_mode = ToTimingIntegrationMode(config.integration_mode);
+  params.threshold_scale = config.threshold_scale;
+  params.enable_statistical_detection = config.enable_statistical_detection;
+  return params;
 }
 
 /**
@@ -440,6 +391,9 @@ InterceptCycleResult InterceptPipeline::RunCycle(
       internal::InterceptComponentFactory::BuildAngleErrorModelConfig(config_);
   const std::pair<double, double> receiver_window =
       BuildReceiverWindow(input_state.cycle_index);
+  const oneq::internal::timing::StatisticalDetectionParams
+      statistical_detection_params =
+          ToTimingDetectionParams(config_.statistical_detection);
 
   std::vector<internal::RawObservationRecord> raw_records;
   raw_records.reserve(
@@ -475,8 +429,9 @@ InterceptCycleResult InterceptPipeline::RunCycle(
                      effective_suppression_power_w,
                  kNumericFloor);
     const float static_threshold_snr_db = config_.detection.min_detect_snr_db;
-    const float dynamic_threshold_snr_db = ComputeDynamicThresholdSnrDb(
-        noise_power_w, config_.statistical_detection);
+    const float dynamic_threshold_snr_db =
+        oneq::internal::timing::ComputeDynamicThresholdSnrDb(
+            noise_power_w, statistical_detection_params);
     const float detection_threshold_snr_db =
         config_.statistical_detection.enable_statistical_detection
             ? std::max(static_threshold_snr_db, dynamic_threshold_snr_db)
@@ -565,8 +520,10 @@ InterceptCycleResult InterceptPipeline::RunCycle(
     bool detection_passed = gate_decision.passed;
     if (detection_passed &&
         config_.statistical_detection.enable_statistical_detection) {
-      const float detection_probability = ComputeStatisticalDetectionProbability(
-          snr_db, detection_threshold_snr_db, config_.statistical_detection);
+      const float detection_probability =
+          oneq::internal::timing::ComputeStatisticalDetectionProbability(
+              snr_db, detection_threshold_snr_db,
+              statistical_detection_params);
       detection_passed = uniform_01(rng_) < detection_probability;
     }
     if (!detection_passed) {
