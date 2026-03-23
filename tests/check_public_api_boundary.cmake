@@ -36,6 +36,20 @@ set(EXPECTED_PUBLIC_HEADERS
     "airborne_radar/signal/detection/DetectionTypes.h"
     "airborne_radar/signal/pipeline/ISignalPipeline.h"
     "airborne_radar/signal/pipeline/SignalPipelineTypes.h"
+    "electronic_surveillance_radar/common/EmitterHypothesis.h"
+    "electronic_surveillance_radar/common/EmitterObservation.h"
+    "electronic_surveillance_radar/common/EmitterTruthState.h"
+    "electronic_surveillance_radar/common/EsrOrientationConfig.h"
+    "electronic_surveillance_radar/common/EsrOutputFrame.h"
+    "electronic_surveillance_radar/core/context/EsrCycleInput.h"
+    "electronic_surveillance_radar/core/context/EsrInputValidation.h"
+    "electronic_surveillance_radar/core/controller/EsrController.h"
+    "electronic_surveillance_radar/core/session/EsrCycleResult.h"
+    "electronic_surveillance_radar/core/session/EsrSession.h"
+    "electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
+    "electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
+    "electronic_surveillance_radar/pipeline/IInterceptPipeline.h"
+    "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
     "api.hpp")
 
 file(GLOB_RECURSE ACTUAL_PUBLIC_HEADERS

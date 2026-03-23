@@ -36,6 +36,12 @@ set(PROJECT_SOURCES
     airborne_radar/signal/tracking/ImmFilter.cpp
     airborne_radar/signal/tracking/TrackFilter.cpp
     airborne_radar/signal/tracking/TrackLifecycleManager.cpp
+    electronic_surveillance_radar/core/context/EsrInputValidation.cpp
+    electronic_surveillance_radar/core/controller/EsrController.cpp
+    electronic_surveillance_radar/core/output/EsrOutputManager.cpp
+    electronic_surveillance_radar/core/session/EsrSession.cpp
+    electronic_surveillance_radar/environment/EsrEnvironmentService.cpp
+    electronic_surveillance_radar/pipeline/InterceptPipeline.cpp
 )
 
 # 创建库目标及其别名（名称由顶层变量驱动）
@@ -198,6 +204,32 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/pipeline/ISignalPipeline.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h
     )
+    set(PUBLIC_HEADERS_ESR_COMMON
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/common/EmitterHypothesis.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/common/EmitterObservation.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/common/EmitterTruthState.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/common/EsrOrientationConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/common/EsrOutputFrame.h
+    )
+    set(PUBLIC_HEADERS_ESR_CORE_CONTEXT
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/core/context/EsrCycleInput.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/core/context/EsrInputValidation.h
+    )
+    set(PUBLIC_HEADERS_ESR_CORE_CONTROLLER
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/core/controller/EsrController.h
+    )
+    set(PUBLIC_HEADERS_ESR_CORE_SESSION
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/core/session/EsrCycleResult.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/core/session/EsrSession.h
+    )
+    set(PUBLIC_HEADERS_ESR_ENVIRONMENT
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h
+    )
+    set(PUBLIC_HEADERS_ESR_PIPELINE
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/pipeline/IInterceptPipeline.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h
+    )
     set(PUBLIC_HEADERS_ROOT
         ${CMAKE_SOURCE_DIR}/include/1q/api.hpp
     )
@@ -244,6 +276,24 @@ if(ENABLE_INSTALL)
     )
     install(FILES ${PUBLIC_HEADERS_SIGNAL_PIPELINE}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/signal/pipeline
+    )
+    install(FILES ${PUBLIC_HEADERS_ESR_COMMON}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/common
+    )
+    install(FILES ${PUBLIC_HEADERS_ESR_CORE_CONTEXT}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/core/context
+    )
+    install(FILES ${PUBLIC_HEADERS_ESR_CORE_CONTROLLER}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/core/controller
+    )
+    install(FILES ${PUBLIC_HEADERS_ESR_CORE_SESSION}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/core/session
+    )
+    install(FILES ${PUBLIC_HEADERS_ESR_ENVIRONMENT}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/environment
+    )
+    install(FILES ${PUBLIC_HEADERS_ESR_PIPELINE}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/pipeline
     )
 
     # 安装导出的 CMake targets 文件

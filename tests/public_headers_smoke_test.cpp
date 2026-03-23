@@ -38,6 +38,10 @@
 #include "1q/airborne_radar/signal/detection/DetectionTypes.h"
 #include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
+#include "1q/electronic_surveillance_radar/common/EmitterTruthState.h"
+#include "1q/electronic_surveillance_radar/core/context/EsrCycleInput.h"
+#include "1q/electronic_surveillance_radar/core/context/EsrInputValidation.h"
+#include "1q/electronic_surveillance_radar/core/session/EsrSession.h"
 
 namespace airborne_radar {
 namespace {
@@ -76,3 +80,43 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
 
 } // namespace
 } // namespace airborne_radar
+
+namespace electronic_surveillance_radar {
+namespace {
+
+TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
+  core::session::EsrSessionConfig session_config;
+  session_config.pipeline_config.scan.scan_start_az_deg = -60.0f;
+  session_config.pipeline_config.scan.scan_end_az_deg = 60.0f;
+  session_config.pipeline_config.scan.scan_start_el_deg = -20.0f;
+  session_config.pipeline_config.scan.scan_end_el_deg = 20.0f;
+  session_config.pipeline_config.scan.az_step_deg = 120.0f;
+  session_config.pipeline_config.scan.el_step_deg = 40.0f;
+
+  core::context::EsrCycleInput input;
+  input.cycle_index = 4U;
+  input.dt_sec = 1.0f;
+  common::EmitterTruthState emitter;
+  emitter.emitter_id = "smoke-emitter";
+  emitter.pose.position_m.x = 1200.0f;
+  emitter.carrier_hz = 10.0e9;
+  emitter.bandwidth_hz = 2.0e6;
+  emitter.tx_power_w = 5.0e7;
+  emitter.pulse_width_s = 1.0e-6;
+  emitter.pri_s = 1.0e-4;
+  input.scene_emitters.push_back(emitter);
+
+  const core::context::EsrValidationIssueList issues =
+      core::context::ValidateEsrCycleInput(input);
+  EXPECT_FALSE(core::context::HasEsrValidationError(issues));
+
+  core::session::EsrSession session(session_config);
+  const core::session::EsrCycleResult result = session.StepWithResult(input);
+
+  EXPECT_GE(result.output_frame.observation_output.observations.size(), 0U);
+  EXPECT_GE(result.output_frame.emitter_output.hypotheses.size(), 0U);
+  EXPECT_GE(result.output_frame.truth_evaluation_output.associations.size(), 0U);
+}
+
+}  // namespace
+}  // namespace electronic_surveillance_radar
