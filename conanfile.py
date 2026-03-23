@@ -44,6 +44,7 @@ class OneQConan(ConanFile):
         self.requires(deps["fmt"], override=True)
         self.requires(deps["boost"])
         self.requires("eventpp/0.1.3")
+        self.requires("nanoflann/1.6.0")
         self.requires("gtest/1.12.1", test=True)
 
         # 可视化依赖（macOS/Linux dev 工具，Windows 不安装）

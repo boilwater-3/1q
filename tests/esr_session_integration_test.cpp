@@ -83,7 +83,8 @@ TEST(EsrSessionIntegrationTest, StepWithResultProducesThreeChannelOutput) {
   EXPECT_EQ(result.output_frame.emitter_output.cycle_index, input.cycle_index);
   EXPECT_EQ(result.output_frame.truth_evaluation_output.cycle_index,
             input.cycle_index);
-  EXPECT_EQ(result.output_frame.emitter_output.hypotheses.size(),
+  EXPECT_FALSE(result.output_frame.emitter_output.hypotheses.empty());
+  EXPECT_LE(result.output_frame.emitter_output.hypotheses.size(),
             result.output_frame.observation_output.observations.size());
   EXPECT_GE(result.output_frame.truth_evaluation_output.associations.size(),
             result.output_frame.observation_output.observations.size());
@@ -136,6 +137,27 @@ TEST(EsrSessionIntegrationTest, EmptyEmitterSceneReturnsEmptyObservation) {
   EXPECT_TRUE(result.output_frame.observation_output.observations.empty());
   EXPECT_TRUE(result.output_frame.emitter_output.hypotheses.empty());
   EXPECT_TRUE(result.output_frame.truth_evaluation_output.associations.empty());
+}
+
+TEST(EsrSessionIntegrationTest, MultiEmitterSceneProducesClusteredHypotheses) {
+  EsrSession session(MakeSessionConfig());
+  context::EsrCycleInput input = MakeBaseInput();
+
+  common::EmitterTruthState emitter_2 = input.scene_emitters.front();
+  emitter_2.emitter_id = "target-emitter-2";
+  emitter_2.pose.position_m.y = 200.0f;
+  emitter_2.carrier_hz = 10.2e9;
+  emitter_2.bandwidth_hz = 1.5e6;
+  emitter_2.tx_power_w = 3.0e7;
+  input.scene_emitters.push_back(emitter_2);
+
+  const EsrCycleResult result = session.StepWithResult(input);
+
+  EXPECT_FALSE(result.has_validation_error);
+  EXPECT_GE(result.output_frame.observation_output.observations.size(), 2U);
+  EXPECT_GE(result.output_frame.emitter_output.hypotheses.size(), 1U);
+  EXPECT_LE(result.output_frame.emitter_output.hypotheses.size(),
+            result.output_frame.observation_output.observations.size());
 }
 
 }  // namespace

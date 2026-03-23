@@ -10,6 +10,10 @@
 #include <random>
 
 #include "1q/electronic_surveillance_radar/pipeline/IInterceptPipeline.h"
+#include "electronic_surveillance_radar/pipeline/HypothesisAssociator.h"
+#include "electronic_surveillance_radar/pipeline/KdTreeClusterer.h"
+#include "electronic_surveillance_radar/pipeline/ObservationPipelineTypes.h"
+#include "electronic_surveillance_radar/pipeline/ObservationPreprocessor.h"
 
 namespace electronic_surveillance_radar {
 namespace pipeline {
@@ -37,6 +41,10 @@ class InterceptPipeline final : public IInterceptPipeline {
 
  private:
   InterceptPipelineConfig config_{};
+  internal::ObservationFeatureScales feature_scales_{};
+  internal::ObservationPreprocessor preprocessor_{};
+  internal::KdTreeClusterer clusterer_{};
+  internal::HypothesisAssociator associator_{};
   std::mt19937 rng_{};
   std::uint64_t next_observation_id_{1U};
   std::uint64_t next_hypothesis_id_{1U};

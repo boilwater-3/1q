@@ -41,6 +41,9 @@ set(PROJECT_SOURCES
     electronic_surveillance_radar/core/output/EsrOutputManager.cpp
     electronic_surveillance_radar/core/session/EsrSession.cpp
     electronic_surveillance_radar/environment/EsrEnvironmentService.cpp
+    electronic_surveillance_radar/pipeline/ObservationPreprocessor.cpp
+    electronic_surveillance_radar/pipeline/KdTreeClusterer.cpp
+    electronic_surveillance_radar/pipeline/HypothesisAssociator.cpp
     electronic_surveillance_radar/pipeline/InterceptPipeline.cpp
 )
 
@@ -79,7 +82,8 @@ find_package(Eigen3 CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(eventpp CONFIG REQUIRED)
 find_package(Boost CONFIG REQUIRED)
-target_link_libraries(${PROJECT_CORE_TARGET} PRIVATE spdlog::spdlog Eigen3::Eigen eventpp::eventpp Boost::boost)
+find_package(nanoflann CONFIG REQUIRED)
+target_link_libraries(${PROJECT_CORE_TARGET} PRIVATE spdlog::spdlog Eigen3::Eigen eventpp::eventpp Boost::boost nanoflann::nanoflann)
 
 if(NOT BUILD_SHARED_LIBS)
     target_compile_definitions(${PROJECT_CORE_TARGET}

@@ -3,18 +3,18 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <limits>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "electronic_surveillance_radar/intercept/AngleErrorModel.h"
-#include "electronic_surveillance_radar/intercept/BandClassifier.h"
 #include "electronic_surveillance_radar/intercept/BoundarySearchSolver.h"
 #include "electronic_surveillance_radar/intercept/InterceptGate.h"
 #include "electronic_surveillance_radar/intercept/JammingAggregator.h"
 #include "electronic_surveillance_radar/intercept/ScanPatternGenerator.h"
 #include "electronic_surveillance_radar/pipeline/InterceptComponentFactory.h"
+#include "electronic_surveillance_radar/pipeline/ObservationFeatureEncoder.h"
 
 namespace electronic_surveillance_radar {
 namespace pipeline {
@@ -63,12 +63,9 @@ float ToDb(double ratio) {
  */
 float ComputeRangeM(const common::EsrPoseState& platform_pose,
                     const common::EmitterTruthState& emitter_state) {
-  const float dx =
-      emitter_state.pose.position_m.x - platform_pose.position_m.x;
-  const float dy =
-      emitter_state.pose.position_m.y - platform_pose.position_m.y;
-  const float dz =
-      emitter_state.pose.position_m.z - platform_pose.position_m.z;
+  const float dx = emitter_state.pose.position_m.x - platform_pose.position_m.x;
+  const float dy = emitter_state.pose.position_m.y - platform_pose.position_m.y;
+  const float dz = emitter_state.pose.position_m.z - platform_pose.position_m.z;
   return std::sqrt(dx * dx + dy * dy + dz * dz);
 }
 
@@ -80,10 +77,8 @@ float ComputeRangeM(const common::EsrPoseState& platform_pose,
  */
 float ComputeAzimuthDeg(const common::EsrPoseState& platform_pose,
                         const common::EmitterTruthState& emitter_state) {
-  const float dx =
-      emitter_state.pose.position_m.x - platform_pose.position_m.x;
-  const float dy =
-      emitter_state.pose.position_m.y - platform_pose.position_m.y;
+  const float dx = emitter_state.pose.position_m.x - platform_pose.position_m.x;
+  const float dy = emitter_state.pose.position_m.y - platform_pose.position_m.y;
   return static_cast<float>(std::atan2(dy, dx) * 180.0 / kPi);
 }
 
@@ -95,12 +90,9 @@ float ComputeAzimuthDeg(const common::EsrPoseState& platform_pose,
  */
 float ComputeElevationDeg(const common::EsrPoseState& platform_pose,
                           const common::EmitterTruthState& emitter_state) {
-  const float dx =
-      emitter_state.pose.position_m.x - platform_pose.position_m.x;
-  const float dy =
-      emitter_state.pose.position_m.y - platform_pose.position_m.y;
-  const float dz =
-      emitter_state.pose.position_m.z - platform_pose.position_m.z;
+  const float dx = emitter_state.pose.position_m.x - platform_pose.position_m.x;
+  const float dy = emitter_state.pose.position_m.y - platform_pose.position_m.y;
+  const float dz = emitter_state.pose.position_m.z - platform_pose.position_m.z;
   const float horizontal = std::sqrt(dx * dx + dy * dy);
   return static_cast<float>(std::atan2(dz, horizontal) * 180.0 / kPi);
 }
@@ -138,9 +130,9 @@ std::pair<double, double> BuildReceiverWindow(std::uint32_t cycle_index) {
     double upper_hz;
   };
   static const BandWindow kBandWindows[] = {
-      {0.23e9, 1.0e9}, {1.0e9, 2.0e9},  {2.0e9, 4.0e9},  {4.0e9, 8.0e9},
-      {8.0e9, 12.0e9}, {12.0e9, 18.0e9}, {18.0e9, 27.0e9}, {27.0e9, 40.0e9},
-      {40.0e9, 60.0e9}, {60.0e9, 100.0e9}};
+      {0.23e9, 1.0e9},   {1.0e9, 2.0e9},   {2.0e9, 4.0e9},   {4.0e9, 8.0e9},
+      {8.0e9, 12.0e9},   {12.0e9, 18.0e9}, {18.0e9, 27.0e9}, {27.0e9, 40.0e9},
+      {40.0e9, 60.0e9},  {60.0e9, 100.0e9}};
   const std::size_t window_index =
       static_cast<std::size_t>(cycle_index) %
       (sizeof(kBandWindows) / sizeof(kBandWindows[0]));
@@ -166,79 +158,125 @@ common::ObservationQuality ClassifyObservationQuality(float snr_db,
 }
 
 /**
- * @brief 基于辐射体制参数推断工作模式。
- * @param[in] emitter_state 辐射源真值状态。
- * @return 工作模式假设。
- */
-common::EmitterMode InferEmitterMode(
-    const common::EmitterTruthState& emitter_state) {
-  if (emitter_state.pri_s <= 0.0 || emitter_state.pulse_width_s <= 0.0) {
-    return common::EmitterMode::kUnknown;
-  }
-  const double duty_ratio = emitter_state.pulse_width_s / emitter_state.pri_s;
-  if (duty_ratio < 0.10) {
-    return common::EmitterMode::kSearch;
-  }
-  if (duty_ratio < 0.30) {
-    return common::EmitterMode::kTracking;
-  }
-  return common::EmitterMode::kGuidance;
-}
-
-/**
- * @brief 根据模式和观测强度评估威胁等级。
- * @param[in] mode 工作模式假设。
+ * @brief 构造观测级置信度。
  * @param[in] snr_db 观测信噪比（单位：dB）。
- * @return 威胁等级。
- */
-common::ThreatLevel InferThreatLevel(common::EmitterMode mode, float snr_db) {
-  if (mode == common::EmitterMode::kGuidance || snr_db >= 20.0f) {
-    return common::ThreatLevel::kHigh;
-  }
-  if (mode == common::EmitterMode::kTracking || snr_db >= 10.0f) {
-    return common::ThreatLevel::kMedium;
-  }
-  return common::ThreatLevel::kLow;
-}
-
-/**
- * @brief 生成辐射源候选类别列表。
- * @param[in] carrier_hz 载频（单位：Hz）。
- * @return 候选类别列表。
- */
-std::vector<std::string> BuildCandidateClasses(double carrier_hz) {
-  const intercept::RadarBand band =
-      intercept::BandClassifier::Classify(carrier_hz);
-  std::vector<std::string> classes;
-  classes.push_back(
-      std::string("RADAR_BAND_") + intercept::BandClassifier::ToString(band));
-  classes.push_back("RADAR_EMITTER");
-  return classes;
-}
-
-/**
- * @brief 计算侦察假设置信度。
- * @param[in] snr_db 观测信噪比（单位：dB）。
- * @param[in] jammer_power_w 聚合干扰功率（单位：W）。
- * @param[in] deception_risk 聚合欺骗风险，范围 [0, 1]。
+ * @param[in] is_jammed 是否受扰。
+ * @param[in] deception_risk 欺骗风险度。
  * @return 置信度，范围 [0, 1]。
  */
-float ComputeHypothesisConfidence(float snr_db, float jammer_power_w,
-                                  float deception_risk) {
+float ComputeObservationConfidence(float snr_db, bool is_jammed,
+                                   float deception_risk) {
   const float snr_score = Clamp01((snr_db + 5.0f) / 30.0f);
-  const float jammer_penalty =
-      jammer_power_w / (jammer_power_w + static_cast<float>(kNumericFloor));
-  const float anti_jam_score = 1.0f - 0.35f * jammer_penalty;
-  const float anti_deception_score = 1.0f - 0.45f * Clamp01(deception_risk);
-  return Clamp01(snr_score * anti_jam_score * anti_deception_score);
+  const float jam_penalty = is_jammed ? 0.75f : 1.0f;
+  const float deception_penalty = 1.0f - 0.45f * Clamp01(deception_risk);
+  return Clamp01(snr_score * jam_penalty * deception_penalty);
+}
+
+/**
+ * @brief 构造簇级摘要。
+ * @param[in] cluster_indices 簇内观测索引。
+ * @param[in] records 预处理后的观测记录。
+ * @param[in] features 观测特征向量。
+ * @return 簇摘要。
+ */
+internal::ClusterSummary BuildClusterSummary(
+    const std::vector<std::size_t>& cluster_indices,
+    const std::vector<internal::RawObservationRecord>& records,
+    const std::vector<internal::ObservationFeatureVector>& features) {
+  internal::ClusterSummary summary;
+  if (cluster_indices.empty()) {
+    return summary;
+  }
+
+  summary.support_count = cluster_indices.size();
+  std::size_t representative = cluster_indices[0];
+  float representative_snr = records[representative].observation.snr_db;
+  float confidence_acc = 0.0f;
+
+  for (std::size_t i = 0; i < cluster_indices.size(); ++i) {
+    const std::size_t index = cluster_indices[i];
+    for (std::size_t dim = 0; dim < internal::kObservationFeatureDimension; ++dim) {
+      summary.centroid_feature.values[dim] += features[index].values[dim];
+    }
+    summary.mean_snr_db += records[index].observation.snr_db;
+    summary.mean_az_deg += records[index].observation.aoa_az_deg;
+    summary.mean_el_deg += records[index].observation.aoa_el_deg;
+    summary.mean_rf_hz += records[index].observation.rf_hz;
+    summary.mean_pulse_width_s += records[index].observation.pulse_width_s;
+    confidence_acc += ComputeObservationConfidence(
+        records[index].observation.snr_db, records[index].observation.is_jammed,
+        records[index].matched_truth ? 0.0f : 0.8f);
+    summary.any_jammed =
+        summary.any_jammed || records[index].observation.is_jammed;
+    if (records[index].observation.snr_db > representative_snr) {
+      representative = index;
+      representative_snr = records[index].observation.snr_db;
+    }
+  }
+
+  const float inv_count = 1.0f / static_cast<float>(cluster_indices.size());
+  for (std::size_t dim = 0; dim < internal::kObservationFeatureDimension; ++dim) {
+    summary.centroid_feature.values[dim] *= inv_count;
+  }
+  summary.mean_snr_db *= inv_count;
+  summary.mean_az_deg *= inv_count;
+  summary.mean_el_deg *= inv_count;
+  summary.mean_rf_hz *= static_cast<double>(inv_count);
+  summary.mean_pulse_width_s *= static_cast<double>(inv_count);
+  summary.confidence_score = Clamp01(confidence_acc * inv_count);
+  summary.representative_index = representative;
+  return summary;
+}
+
+/**
+ * @brief 生成欺骗式伪观测。
+ * @param[in] template_record 模板观测。
+ * @param[in] deception_strength 欺骗强度。
+ * @param[in,out] rng 随机引擎。
+ * @param[in,out] next_observation_id 观测 ID 分配器。
+ * @return 伪观测记录。
+ */
+internal::RawObservationRecord BuildDeceptionRecord(
+    const internal::RawObservationRecord& template_record,
+    float deception_strength, std::mt19937* rng,
+    std::uint64_t* next_observation_id) {
+  internal::RawObservationRecord record = template_record;
+  if (next_observation_id != nullptr) {
+    record.observation.observation_id = (*next_observation_id)++;
+  }
+  std::normal_distribution<float> angle_dist(0.0f,
+                                             3.0f + 8.0f * deception_strength);
+  std::uniform_real_distribution<float> rf_shift_dist(
+      0.6f + deception_strength, 1.4f + deception_strength);
+  std::uniform_real_distribution<float> snr_loss_dist(4.0f, 10.0f);
+  if (rng != nullptr) {
+    record.observation.aoa_az_deg += angle_dist(*rng);
+    record.observation.aoa_el_deg += angle_dist(*rng) * 0.6f;
+    record.observation.rf_hz +=
+        static_cast<double>(template_record.observation.rf_hz *
+                            0.01f * rf_shift_dist(*rng));
+    record.observation.snr_db -= snr_loss_dist(*rng);
+  }
+  record.observation.quality = common::ObservationQuality::kLow;
+  record.observation.is_jammed = true;
+  record.truth_emitter_id = "";
+  record.matched_truth = false;
+  return record;
 }
 
 }  // namespace
 
 InterceptPipeline::InterceptPipeline(InterceptPipelineConfig config)
     : config_(config),
+      associator_(config.association),
       rng_(config.algorithm.random_seed == 0U ? 1U
-                                              : config.algorithm.random_seed) {}
+                                              : config.algorithm.random_seed) {
+  feature_scales_.rf_scale_hz = config_.cluster.rf_scale_hz;
+  feature_scales_.pw_scale_sec = config_.cluster.pw_scale_sec;
+  feature_scales_.az_scale_deg = config_.cluster.az_scale_deg;
+  feature_scales_.el_scale_deg = config_.cluster.el_scale_deg;
+  feature_scales_.snr_scale_db = config_.cluster.snr_scale_db;
+}
 
 InterceptCycleResult InterceptPipeline::RunCycle(
     const core::context::EsrCycleInput& input_state,
@@ -263,7 +301,10 @@ InterceptCycleResult InterceptPipeline::RunCycle(
   const std::pair<double, double> receiver_window =
       BuildReceiverWindow(input_state.cycle_index);
 
-  std::vector<bool> observed_emitters(input_state.scene_emitters.size(), false);
+  std::vector<internal::RawObservationRecord> raw_records;
+  raw_records.reserve(input_state.scene_emitters.size() * 2U);
+  std::uniform_real_distribution<float> uniform_01(0.0f, 1.0f);
+
   for (std::size_t i = 0; i < input_state.scene_emitters.size(); ++i) {
     const common::EmitterTruthState& emitter = input_state.scene_emitters[i];
     if (!emitter.is_emitting || emitter.carrier_hz <= 0.0 ||
@@ -299,7 +340,6 @@ InterceptCycleResult InterceptPipeline::RunCycle(
                   ToDb(candidate_received_power_w / noise_power_w);
               return candidate_snr_db >= config_.detection.min_detect_snr_db;
             });
-
     const double received_power_w = ComputeReceivedPowerW(
         emitter.tx_power_w, emitter.carrier_hz, range_m,
         environment_snapshot.propagation_loss_db);
@@ -325,6 +365,7 @@ InterceptCycleResult InterceptPipeline::RunCycle(
         snr_db - config_.detection.min_detect_snr_db;
     gate_input.min_dynamic_range_margin_db =
         config_.detection.min_dynamic_range_margin_db;
+    gate_input.min_frequency_overlap_ratio = 0.05f;
     gate_input.beam_guard_factor = 1.5f;
 
     const intercept::InterceptGateDecision gate_decision =
@@ -333,61 +374,113 @@ InterceptCycleResult InterceptPipeline::RunCycle(
       continue;
     }
 
-    observed_emitters[i] = true;
     const float effective_beamwidth_deg =
         std::max(1.0f, 0.5f * (gate_input.beam_az_width_deg +
                                gate_input.beam_el_width_deg));
-    const float angle_std_deg = intercept::AngleErrorModel::ComputeStdDevDeg(
-        snr_db, effective_beamwidth_deg, angle_error_config);
     const float measured_az_deg =
-        target_az_deg +
-        intercept::AngleErrorModel::SampleErrorDeg(
-            snr_db, effective_beamwidth_deg, &rng_, angle_error_config);
+        target_az_deg + intercept::AngleErrorModel::SampleErrorDeg(
+                            snr_db, effective_beamwidth_deg, &rng_,
+                            angle_error_config);
     const float measured_el_deg =
-        target_el_deg +
-        intercept::AngleErrorModel::SampleErrorDeg(
-            snr_db, effective_beamwidth_deg, &rng_, angle_error_config);
+        target_el_deg + intercept::AngleErrorModel::SampleErrorDeg(
+                            snr_db, effective_beamwidth_deg, &rng_,
+                            angle_error_config);
     const bool is_jammed =
         jamming_result.jammer_power_w > environment_snapshot.clutter_noise_w;
 
-    common::EmitterObservation observation;
-    observation.observation_id = next_observation_id_++;
-    observation.timestamp_s =
+    internal::RawObservationRecord record;
+    record.observation.observation_id = next_observation_id_++;
+    record.observation.timestamp_s =
         static_cast<double>(input_state.cycle_index) *
         static_cast<double>(input_state.dt_sec);
-    observation.aoa_az_deg = measured_az_deg;
-    observation.aoa_el_deg = measured_el_deg;
-    observation.rf_hz = emitter.carrier_hz;
-    observation.pulse_width_s = emitter.pulse_width_s;
-    observation.amplitude_db = ToDb(received_power_w);
-    observation.snr_db = snr_db;
-    observation.quality = ClassifyObservationQuality(snr_db, is_jammed);
-    observation.is_jammed = is_jammed;
-    result.observations.push_back(observation);
+    record.observation.aoa_az_deg = measured_az_deg;
+    record.observation.aoa_el_deg = measured_el_deg;
+    record.observation.rf_hz = emitter.carrier_hz;
+    record.observation.pulse_width_s = emitter.pulse_width_s;
+    record.observation.amplitude_db = ToDb(received_power_w);
+    record.observation.snr_db = snr_db;
+    record.observation.quality = ClassifyObservationQuality(snr_db, is_jammed);
+    record.observation.is_jammed = is_jammed;
+    record.truth_emitter_id = emitter.emitter_id;
+    record.matched_truth = true;
+    raw_records.push_back(record);
 
-    common::EmitterHypothesis hypothesis;
-    hypothesis.hypothesis_id = next_hypothesis_id_++;
-    hypothesis.candidate_classes = BuildCandidateClasses(emitter.carrier_hz);
-    hypothesis.mode = InferEmitterMode(emitter);
-    hypothesis.threat_level = InferThreatLevel(hypothesis.mode, snr_db);
-    hypothesis.bearing_az_deg = measured_az_deg;
-    hypothesis.bearing_el_deg = measured_el_deg;
-    hypothesis.bearing_std_deg = angle_std_deg;
-    hypothesis.confidence = ComputeHypothesisConfidence(
-        snr_db, jamming_result.jammer_power_w, jamming_result.deception_risk);
-    hypothesis.last_seen_cycle = input_state.cycle_index;
-    result.emitter_hypotheses.push_back(hypothesis);
+    const float deception_probability =
+        Clamp01(jamming_result.deception_risk *
+                jamming_result.weighted_overlap_ratio);
+    if (uniform_01(rng_) < deception_probability) {
+      raw_records.push_back(BuildDeceptionRecord(
+          record, deception_probability, &rng_, &next_observation_id_));
+    }
+  }
 
+  const std::vector<internal::RawObservationRecord> records =
+      preprocessor_.Run(raw_records, config_.preprocess);
+  result.observations.reserve(records.size());
+  for (std::size_t i = 0; i < records.size(); ++i) {
+    result.observations.push_back(records[i].observation);
+  }
+
+  std::vector<internal::ObservationFeatureVector> features;
+  features.reserve(records.size());
+  for (std::size_t i = 0; i < records.size(); ++i) {
+    features.push_back(
+        internal::ObservationFeatureEncoder::Encode(records[i].observation,
+                                                    feature_scales_));
+  }
+
+  internal::KdTreeClusterResult cluster_result =
+      clusterer_.Cluster(features, config_.cluster);
+  for (std::size_t i = 0; i < cluster_result.noise_indices.size(); ++i) {
+    std::vector<std::size_t> singleton(1U, cluster_result.noise_indices[i]);
+    cluster_result.clusters.push_back(singleton);
+  }
+  std::sort(cluster_result.clusters.begin(), cluster_result.clusters.end(),
+            [](const std::vector<std::size_t>& lhs,
+               const std::vector<std::size_t>& rhs) {
+              if (lhs.empty() || rhs.empty()) {
+                return lhs.size() < rhs.size();
+              }
+              return lhs.front() < rhs.front();
+            });
+
+  std::vector<internal::ClusterSummary> cluster_summaries;
+  cluster_summaries.reserve(cluster_result.clusters.size());
+  for (std::size_t i = 0; i < cluster_result.clusters.size(); ++i) {
+    cluster_summaries.push_back(
+        BuildClusterSummary(cluster_result.clusters[i], records, features));
+  }
+
+  associator_.UpdateConfig(config_.association);
+  result.emitter_hypotheses = associator_.Update(
+      input_state.cycle_index, cluster_summaries, &next_hypothesis_id_);
+
+  std::set<std::string> observed_truth_ids;
+  for (std::size_t i = 0; i < records.size(); ++i) {
     common::TruthAssociationRecord association;
-    association.observation_id = observation.observation_id;
-    association.truth_emitter_id = emitter.emitter_id;
-    association.matched = true;
-    association.confidence = hypothesis.confidence;
+    association.observation_id = records[i].observation.observation_id;
+    association.truth_emitter_id =
+        records[i].truth_emitter_id.empty() ? "UNASSOCIATED"
+                                            : records[i].truth_emitter_id;
+    association.matched =
+        records[i].matched_truth && !records[i].truth_emitter_id.empty();
+    association.confidence = association.matched
+                                 ? ComputeObservationConfidence(
+                                       records[i].observation.snr_db,
+                                       records[i].observation.is_jammed, 0.0f)
+                                 : 0.1f;
     result.truth_associations.push_back(association);
+    if (association.matched) {
+      observed_truth_ids.insert(records[i].truth_emitter_id);
+    }
   }
 
   for (std::size_t i = 0; i < input_state.scene_emitters.size(); ++i) {
-    if (observed_emitters[i] || !input_state.scene_emitters[i].is_emitting) {
+    if (!input_state.scene_emitters[i].is_emitting) {
+      continue;
+    }
+    if (observed_truth_ids.find(input_state.scene_emitters[i].emitter_id) !=
+        observed_truth_ids.end()) {
       continue;
     }
     common::TruthAssociationRecord missed_association;
