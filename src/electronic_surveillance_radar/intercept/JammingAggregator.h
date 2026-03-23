@@ -6,7 +6,9 @@
 #ifndef ELECTRONIC_SURVEILLANCE_RADAR_SRC_INTERCEPT_JAMMING_AGGREGATOR_H_
 #define ELECTRONIC_SURVEILLANCE_RADAR_SRC_INTERCEPT_JAMMING_AGGREGATOR_H_
 
+#include <algorithm>
 #include <cstddef>
+#include <cmath>
 
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
 #include "electronic_surveillance_radar/intercept/InterceptGate.h"
@@ -40,17 +42,24 @@ class JammingAggregator final {
       const environment::EsrJammerSourceList& jammer_sources,
       double target_center_hz, double target_bandwidth_hz) {
     JammingAggregateResult result;
-    if (target_bandwidth_hz <= 0.0) {
+    if (!std::isfinite(target_center_hz) || !std::isfinite(target_bandwidth_hz) ||
+        target_bandwidth_hz <= 0.0) {
       return result;
     }
 
     const double target_lower = target_center_hz - 0.5 * target_bandwidth_hz;
     const double target_upper = target_center_hz + 0.5 * target_bandwidth_hz;
-    float overlap_weight_sum = 0.0f;
-    float confidence_sum = 0.0f;
+    float overlap_weighted_sum = 0.0f;
+    float power_weight_sum = 0.0f;
+    float deception_clear_probability = 1.0f;
     for (std::size_t i = 0; i < jammer_sources.size(); ++i) {
       if (!jammer_sources[i].active || jammer_sources[i].bandwidth_hz <= 0.0 ||
-          jammer_sources[i].power_w <= 0.0f) {
+          jammer_sources[i].power_w <= 0.0f ||
+          !std::isfinite(jammer_sources[i].bandwidth_hz) ||
+          !std::isfinite(jammer_sources[i].power_w) ||
+          !std::isfinite(jammer_sources[i].center_hz) ||
+          !std::isfinite(jammer_sources[i].confidence) ||
+          !std::isfinite(jammer_sources[i].deception_risk)) {
         continue;
       }
       const float overlap_ratio = InterceptGate::ComputeFrequencyOverlapRatio(
@@ -59,26 +68,37 @@ class JammingAggregator final {
       if (overlap_ratio <= 0.0f) {
         continue;
       }
-      const float confidence =
-          jammer_sources[i].confidence < 0.0f
-              ? 0.0f
-              : (jammer_sources[i].confidence > 1.0f ? 1.0f
-                                                     : jammer_sources[i].confidence);
+      const float confidence = Clamp01(jammer_sources[i].confidence);
+      const float deception_risk = Clamp01(jammer_sources[i].deception_risk);
       const float effective_power =
           jammer_sources[i].power_w * overlap_ratio * confidence;
       result.jammer_power_w += effective_power;
-      overlap_weight_sum += overlap_ratio * confidence;
-      confidence_sum += confidence;
-      if (jammer_sources[i].deception_risk > result.deception_risk) {
-        result.deception_risk = jammer_sources[i].deception_risk;
+      overlap_weighted_sum += overlap_ratio * effective_power;
+      power_weight_sum += effective_power;
+      const float deception_effect = Clamp01(deception_risk * overlap_ratio *
+                                             confidence);
+      deception_clear_probability *= (1.0f - deception_effect);
+      if (deception_clear_probability < 0.0f) {
+        deception_clear_probability = 0.0f;
       }
       ++result.active_source_count;
     }
 
-    if (confidence_sum > 0.0f) {
-      result.weighted_overlap_ratio = overlap_weight_sum / confidence_sum;
+    if (power_weight_sum > 0.0f) {
+      result.weighted_overlap_ratio = overlap_weighted_sum / power_weight_sum;
     }
+    result.deception_risk = Clamp01(1.0f - deception_clear_probability);
     return result;
+  }
+
+ private:
+  /**
+   * @brief 将输入裁剪到 [0, 1]。
+   * @param[in] value 输入值。
+   * @return 裁剪结果。
+   */
+  static float Clamp01(float value) {
+    return std::max(0.0f, std::min(1.0f, value));
   }
 };
 

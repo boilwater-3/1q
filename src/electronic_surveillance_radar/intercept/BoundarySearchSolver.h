@@ -41,7 +41,8 @@ class BoundarySearchSolver final {
                                     const Predicate& predicate) {
     BoundarySearchResult result;
     if (max_range_m <= min_range_m || resolution_m <= 0.0f ||
-        max_iterations <= 0) {
+        max_iterations <= 0 || !std::isfinite(min_range_m) ||
+        !std::isfinite(max_range_m) || !std::isfinite(resolution_m)) {
       return result;
     }
 
@@ -49,13 +50,21 @@ class BoundarySearchSolver final {
     float high = max_range_m;
     float best = min_range_m;
     const bool low_ok = predicate(low);
+    ++result.iterations;
     if (!low_ok) {
       result.boundary_range_m = min_range_m;
+      result.converged = true;
       return result;
     }
-    best = low;
+    const bool high_ok = predicate(high);
+    ++result.iterations;
+    if (high_ok) {
+      result.boundary_range_m = max_range_m;
+      result.converged = true;
+      return result;
+    }
 
-    for (int i = 0; i < max_iterations; ++i) {
+    for (int i = result.iterations; i < max_iterations; ++i) {
       ++result.iterations;
       const float mid = 0.5f * (low + high);
       if (predicate(mid)) {
@@ -68,6 +77,9 @@ class BoundarySearchSolver final {
         result.converged = true;
         break;
       }
+    }
+    if (!result.converged && std::fabs(high - low) <= resolution_m) {
+      result.converged = true;
     }
     result.boundary_range_m = best;
     return result;

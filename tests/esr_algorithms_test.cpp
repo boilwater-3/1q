@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <limits>
 #include <random>
 #include <vector>
 
@@ -22,7 +23,11 @@ namespace intercept {
 namespace {
 
 TEST(EsrAlgorithmsTest, BandClassifierMapsTypicalBoundaryValues) {
+  EXPECT_EQ(BandClassifier::Classify(-1.0), RadarBand::kInvalid);
+  EXPECT_EQ(BandClassifier::Classify(std::numeric_limits<double>::infinity()),
+            RadarBand::kInvalid);
   EXPECT_EQ(BandClassifier::Classify(0.10e9), RadarBand::kBelowP);
+  EXPECT_EQ(BandClassifier::Classify(0.23e9), RadarBand::kP);
   EXPECT_EQ(BandClassifier::Classify(0.50e9), RadarBand::kP);
   EXPECT_EQ(BandClassifier::Classify(1.20e9), RadarBand::kL);
   EXPECT_EQ(BandClassifier::Classify(3.00e9), RadarBand::kS);
@@ -47,6 +52,8 @@ TEST(EsrAlgorithmsTest, ScanPatternGeneratorRespectsStartPositionAndSequence) {
   ASSERT_EQ(pattern.size(), 9U);
   EXPECT_NEAR(pattern.front().az_deg, -10.0f, 1.0e-6f);
   EXPECT_NEAR(pattern.front().el_deg, 5.0f, 1.0e-6f);
+  EXPECT_NEAR(pattern[3].az_deg, 10.0f, 1.0e-6f);
+  EXPECT_NEAR(pattern[3].el_deg, 0.0f, 1.0e-6f);
   EXPECT_NEAR(pattern.back().az_deg, 10.0f, 1.0e-6f);
   EXPECT_NEAR(pattern.back().el_deg, -5.0f, 1.0e-6f);
 }
@@ -80,6 +87,28 @@ TEST(EsrAlgorithmsTest, InterceptGateEvaluatesJointConstraints) {
   const InterceptGateDecision fail_decision = InterceptGate::Evaluate(gate_input);
   EXPECT_FALSE(fail_decision.passed);
   EXPECT_FALSE(fail_decision.dynamic_range_ok);
+
+  gate_input = InterceptGateInput();
+  gate_input.line_of_sight = true;
+  gate_input.target_az_deg = 4.0f;
+  gate_input.target_el_deg = 2.0f;
+  gate_input.beam_az_deg = 0.0f;
+  gate_input.beam_el_deg = 0.0f;
+  gate_input.beam_az_width_deg = 8.0f;
+  gate_input.beam_el_width_deg = 6.0f;
+  gate_input.receiver_lower_hz = 9.5e9;
+  gate_input.receiver_upper_hz = 10.5e9;
+  gate_input.signal_center_hz = 10.4e9;
+  gate_input.signal_bandwidth_hz = 2.0e9;
+  gate_input.range_m = 50.0f;
+  gate_input.max_range_m = 100.0f;
+  gate_input.dynamic_range_margin_db = 1.0f;
+  gate_input.min_dynamic_range_margin_db = -3.0f;
+  gate_input.min_frequency_overlap_ratio = 0.6f;
+  gate_input.beam_guard_factor = 0.9f;
+  const InterceptGateDecision strict_decision = InterceptGate::Evaluate(gate_input);
+  EXPECT_FALSE(strict_decision.passed);
+  EXPECT_FALSE(strict_decision.frequency_covered);
 }
 
 TEST(EsrAlgorithmsTest, JammingAggregatorAccumulatesOverlappingPower) {
@@ -114,8 +143,8 @@ TEST(EsrAlgorithmsTest, JammingAggregatorAccumulatesOverlappingPower) {
       JammingAggregator::Aggregate(sources, 10.0e9, 2.0e9);
 
   EXPECT_NEAR(result.jammer_power_w, 11.0f, 1.0e-5f);
-  EXPECT_NEAR(result.weighted_overlap_ratio, 0.8333333f, 1.0e-5f);
-  EXPECT_NEAR(result.deception_risk, 0.8f, 1.0e-6f);
+  EXPECT_NEAR(result.weighted_overlap_ratio, 0.9545454f, 1.0e-5f);
+  EXPECT_NEAR(result.deception_risk, 0.36f, 1.0e-6f);
   EXPECT_EQ(result.active_source_count, 2U);
 }
 
@@ -134,6 +163,10 @@ TEST(EsrAlgorithmsTest, AngleErrorModelSamplingIsStableWithFixedSeed) {
         AngleErrorModel::SampleErrorDeg(18.0f, 8.0f, &rng_b, config);
     EXPECT_FLOAT_EQ(sample_a, sample_b);
   }
+
+  const float low_snr_std = AngleErrorModel::ComputeStdDevDeg(-3.0f, 8.0f, config);
+  const float high_snr_std = AngleErrorModel::ComputeStdDevDeg(20.0f, 8.0f, config);
+  EXPECT_GT(low_snr_std, high_snr_std);
 }
 
 TEST(EsrAlgorithmsTest, BoundarySearchSolverConvergesForMonotonicPredicate) {
@@ -146,6 +179,16 @@ TEST(EsrAlgorithmsTest, BoundarySearchSolverConvergesForMonotonicPredicate) {
   EXPECT_TRUE(result.converged);
   EXPECT_GT(result.iterations, 0);
   EXPECT_NEAR(result.boundary_range_m, expected_boundary, 1.5f);
+
+  const BoundarySearchResult all_true = BoundarySearchSolver::Solve(
+      0.0f, 100.0f, 0.1f, 20, [](float) { return true; });
+  EXPECT_TRUE(all_true.converged);
+  EXPECT_NEAR(all_true.boundary_range_m, 100.0f, 1.0e-6f);
+
+  const BoundarySearchResult all_false = BoundarySearchSolver::Solve(
+      0.0f, 100.0f, 0.1f, 20, [](float) { return false; });
+  EXPECT_TRUE(all_false.converged);
+  EXPECT_NEAR(all_false.boundary_range_m, 0.0f, 1.0e-6f);
 }
 
 }  // namespace

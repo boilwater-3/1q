@@ -325,6 +325,7 @@ InterceptCycleResult InterceptPipeline::RunCycle(
         snr_db - config_.detection.min_detect_snr_db;
     gate_input.min_dynamic_range_margin_db =
         config_.detection.min_dynamic_range_margin_db;
+    gate_input.beam_guard_factor = 1.5f;
 
     const intercept::InterceptGateDecision gate_decision =
         intercept::InterceptGate::Evaluate(gate_input);

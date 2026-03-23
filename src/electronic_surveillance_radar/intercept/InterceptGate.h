@@ -31,6 +31,8 @@ struct InterceptGateInput {
   float max_range_m{0.0f}; /**< 可截获最大距离（单位：m） */
   float dynamic_range_margin_db{0.0f}; /**< 动态范围裕量（单位：dB） */
   float min_dynamic_range_margin_db{-3.0f}; /**< 动态范围最小裕量（单位：dB） */
+  float min_frequency_overlap_ratio{0.0f}; /**< 频段覆盖最小重叠比例，范围 [0, 1] */
+  float beam_guard_factor{1.0f}; /**< 波束守护因子（对半波束宽度的缩放） */
 };
 
 /**
@@ -43,6 +45,7 @@ struct InterceptGateDecision {
   bool dynamic_range_ok{false}; /**< 是否满足动态范围裕量 */
   bool passed{false}; /**< 是否通过全部门判定 */
   float frequency_overlap_ratio{0.0f}; /**< 频段重叠度，范围 [0, 1] */
+  float beam_overlap_ratio{0.0f}; /**< 波束重叠度近似指标，范围 [0, 1] */
 };
 
 /**
@@ -62,7 +65,9 @@ class InterceptGate final {
                                             double receiver_upper_hz,
                                             double signal_center_hz,
                                             double signal_bandwidth_hz) {
-    if (receiver_upper_hz <= receiver_lower_hz || signal_bandwidth_hz <= 0.0) {
+    if (!std::isfinite(receiver_lower_hz) || !std::isfinite(receiver_upper_hz) ||
+        !std::isfinite(signal_center_hz) || !std::isfinite(signal_bandwidth_hz) ||
+        receiver_upper_hz <= receiver_lower_hz || signal_bandwidth_hz <= 0.0) {
       return 0.0f;
     }
     const double signal_lower = signal_center_hz - 0.5 * signal_bandwidth_hz;
@@ -90,19 +95,45 @@ class InterceptGate final {
    */
   static InterceptGateDecision Evaluate(const InterceptGateInput& input) {
     InterceptGateDecision decision;
+    if (!IsFinite(input.target_az_deg) || !IsFinite(input.target_el_deg) ||
+        !IsFinite(input.beam_az_deg) || !IsFinite(input.beam_el_deg) ||
+        !IsFinite(input.beam_az_width_deg) || !IsFinite(input.beam_el_width_deg) ||
+        !IsFinite(input.range_m) || !IsFinite(input.max_range_m) ||
+        !IsFinite(input.dynamic_range_margin_db) ||
+        !IsFinite(input.min_dynamic_range_margin_db) ||
+        !IsFinite(input.min_frequency_overlap_ratio) ||
+        !IsFinite(input.beam_guard_factor)) {
+      return decision;
+    }
+
     decision.frequency_overlap_ratio = ComputeFrequencyOverlapRatio(
         input.receiver_lower_hz, input.receiver_upper_hz, input.signal_center_hz,
         input.signal_bandwidth_hz);
-    decision.frequency_covered = decision.frequency_overlap_ratio > 0.0f;
+    const float min_overlap_ratio =
+        Clamp01(input.min_frequency_overlap_ratio);
+    decision.frequency_covered =
+        decision.frequency_overlap_ratio >= min_overlap_ratio;
 
     const float az_diff =
         std::fabs(ComputeAzimuthDifferenceDeg(input.target_az_deg,
                                               input.beam_az_deg));
     const float el_diff = std::fabs(input.target_el_deg - input.beam_el_deg);
-    decision.in_beam =
-        az_diff <= 0.5f * input.beam_az_width_deg &&
-        el_diff <= 0.5f * input.beam_el_width_deg;
-    decision.in_range = input.range_m <= input.max_range_m;
+    const float guard_factor = std::max(0.0f, input.beam_guard_factor);
+    const float half_az_width =
+        std::max(1.0e-6f, 0.5f * input.beam_az_width_deg * guard_factor);
+    const float half_el_width =
+        std::max(1.0e-6f, 0.5f * input.beam_el_width_deg * guard_factor);
+    const float normalized_az = az_diff / half_az_width;
+    const float normalized_el = el_diff / half_el_width;
+    const float normalized_distance =
+        std::sqrt(normalized_az * normalized_az + normalized_el * normalized_el);
+
+    decision.in_beam = normalized_distance <= 1.0f;
+    decision.beam_overlap_ratio =
+        normalized_distance >= 1.0f ? 0.0f : (1.0f - normalized_distance);
+    decision.in_range =
+        input.max_range_m > 0.0f && input.range_m >= 0.0f &&
+        input.range_m <= input.max_range_m;
     decision.dynamic_range_ok =
         input.dynamic_range_margin_db >= input.min_dynamic_range_margin_db;
     decision.passed = input.line_of_sight && decision.frequency_covered &&
@@ -127,6 +158,30 @@ class InterceptGate final {
       diff += 360.0f;
     }
     return diff;
+  }
+
+  /**
+   * @brief 将输入裁剪到 [0, 1] 区间。
+   * @param[in] value 输入标量。
+   * @return 裁剪后的结果。
+   */
+  static float Clamp01(float value) {
+    if (value <= 0.0f) {
+      return 0.0f;
+    }
+    if (value >= 1.0f) {
+      return 1.0f;
+    }
+    return value;
+  }
+
+  /**
+   * @brief 判断输入浮点值是否为有限数。
+   * @param[in] value 输入值。
+   * @return 有限数时返回 `true`。
+   */
+  static bool IsFinite(float value) {
+    return std::isfinite(value) != 0;
   }
 };
 

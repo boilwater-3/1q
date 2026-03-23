@@ -35,21 +35,21 @@ class AngleErrorModel final {
    */
   static float ComputeStdDevDeg(float snr_db, float beamwidth_deg,
                                 const AngleErrorModelConfig& config) {
-    if (beamwidth_deg <= 0.0f) {
-      return config.min_std_deg;
-    }
-    const double snr_linear = std::pow(10.0, static_cast<double>(snr_db) / 10.0);
-    if (snr_linear <= 1.0e-9) {
+    if (!std::isfinite(snr_db) || !std::isfinite(beamwidth_deg) ||
+        beamwidth_deg <= 0.0f) {
       return config.max_std_deg;
     }
-    float std_dev = static_cast<float>(config.coefficient * beamwidth_deg /
-                                       std::sqrt(snr_linear));
-    if (std_dev < config.min_std_deg) {
-      std_dev = config.min_std_deg;
-    }
-    if (std_dev > config.max_std_deg) {
-      std_dev = config.max_std_deg;
-    }
+    const double snr_linear =
+        std::pow(10.0, static_cast<double>(snr_db) / 10.0);
+    const double effective_snr_linear = std::max(1.0e-6, snr_linear - 1.0);
+    const double base_std_deg =
+        static_cast<double>(config.coefficient) *
+        static_cast<double>(beamwidth_deg) /
+        std::sqrt(effective_snr_linear);
+    const double low_snr_inflation =
+        1.0 + 1.0 / std::sqrt(effective_snr_linear + 1.0);
+    float std_dev = static_cast<float>(base_std_deg * low_snr_inflation);
+    std_dev = std::max(config.min_std_deg, std::min(config.max_std_deg, std_dev));
     return std_dev;
   }
 
@@ -70,7 +70,15 @@ class AngleErrorModel final {
     }
     const float std_dev = ComputeStdDevDeg(snr_db, beamwidth_deg, config);
     std::normal_distribution<float> distribution(0.0f, std_dev);
-    return distribution(*rng);
+    const float raw_sample = distribution(*rng);
+    const float clip_bound = std::max(config.min_std_deg, 3.0f * std_dev);
+    if (raw_sample > clip_bound) {
+      return clip_bound;
+    }
+    if (raw_sample < -clip_bound) {
+      return -clip_bound;
+    }
+    return raw_sample;
   }
 };
 
