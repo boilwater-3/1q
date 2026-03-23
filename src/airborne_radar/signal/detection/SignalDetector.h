@@ -65,8 +65,8 @@ class SignalDetector {
  * @param target               目标回波特征上下文
  * @param env                  环境噪声上下文
  * @param one_way_antenna_gain_db 单程天线增益；若为 NaN 则回退到配置中的主瓣峰值增益
- * @param pulse_count          积累的脉冲数
- * @param coherent_integration 是否为相参积累
+ * @param pulse_count          检测脉冲数 N
+ * @param coherent_integration 积累方式标记（当前检测概率语义统一为“每脉冲 SNR + N”，该参数仅保留兼容）
  * @return 探测结果
  */
   DetectionResult Detect(const TargetReturn& target,

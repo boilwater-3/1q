@@ -94,11 +94,11 @@ struct RadarEquations {
   static float ComputeAngleErrorStdDev(float snr_db,
                                        float beamwidth_rad);
 /**
- * @brief 支持 Swerling 0~4 全模型、多脉冲非相参积累的检测概率。
+ * @brief 支持 Swerling 0~4 全模型的多脉冲检测概率计算。
  * @param snr_db      每脉冲信噪比 (dB)
  * @param pfa         虚警概率
  * @param model       Swerling 起伏模型
- * @param num_pulses  非相参积累脉冲数 (N ≥ 1)
+ * @param num_pulses  检测脉冲数 N (N ≥ 1)
  * @return 检测概率 Pd ∈ [0, 1]
  */
   static float ComputeDetectionProbability(float snr_db, float pfa,

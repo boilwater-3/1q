@@ -27,6 +27,27 @@ struct ONEQ_API InterceptDetectionConfig {
 };
 
 /**
+ * @brief InterceptIntegrationMode 表示统计检测中的积累模式。
+ */
+enum class InterceptIntegrationMode {
+  kNonCoherent = 0, /**< 非相参积累 */
+  kCoherent /**< 相参积累 */
+};
+
+/**
+ * @brief InterceptStatisticalDetectionConfig 描述统计检测与门限映射参数。
+ */
+struct ONEQ_API InterceptStatisticalDetectionConfig {
+  float pfa{1.0e-6f}; /**< 期望虚警概率 Pfa，范围 (0, 1) */
+  float min_snr_db{6.0f}; /**< 动态门限下限（单位：dB） */
+  std::uint32_t pulse_count{8U}; /**< 脉冲积累数量 */
+  InterceptIntegrationMode integration_mode{
+      InterceptIntegrationMode::kNonCoherent}; /**< 积累模式 */
+  float threshold_scale{1.0f}; /**< 门限缩放系数 */
+  bool enable_statistical_detection{true}; /**< 是否启用统计检测模型 */
+};
+
+/**
  * @brief InterceptScanConfig 描述扫描调度配置。
  */
 struct ONEQ_API InterceptScanConfig {
@@ -110,6 +131,7 @@ struct ONEQ_API InterceptDeceptionModelConfig {
  */
 struct ONEQ_API InterceptPipelineConfig {
   InterceptDetectionConfig detection{}; /**< 截获判定配置 */
+  InterceptStatisticalDetectionConfig statistical_detection{}; /**< 统计检测配置 */
   InterceptScanConfig scan{}; /**< 扫描调度配置 */
   InterceptAlgorithmConfig algorithm{}; /**< 算法辅助配置 */
   InterceptPreprocessConfig preprocess{}; /**< 观测预处理配置 */

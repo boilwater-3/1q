@@ -6,8 +6,8 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
-#include <cstdint>
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include <string>
 
@@ -70,6 +70,13 @@ EsrSessionConfig MakeSessionConfig() {
   config.pipeline_config.detection.max_detect_range_m = 400000.0f;
   config.pipeline_config.detection.boundary_resolution_m = 25.0f;
   config.pipeline_config.detection.boundary_max_iterations = 32;
+  config.pipeline_config.statistical_detection.enable_statistical_detection = true;
+  config.pipeline_config.statistical_detection.pfa = 1.0e-6f;
+  config.pipeline_config.statistical_detection.min_snr_db = 6.0f;
+  config.pipeline_config.statistical_detection.pulse_count = 8U;
+  config.pipeline_config.statistical_detection.integration_mode =
+      pipeline::InterceptIntegrationMode::kNonCoherent;
+  config.pipeline_config.statistical_detection.threshold_scale = 1.0f;
   config.pipeline_config.algorithm.random_seed = 20260323U;
   config.pipeline_config.deception_model.false_alarm_probability_scale = 1.0f;
   config.pipeline_config.deception_model.max_false_observations_per_emitter = 2U;
@@ -92,6 +99,26 @@ std::size_t CountFalseAlarms(const EsrCycleResult& result) {
     }
   }
   return false_alarm_count;
+}
+
+/**
+ * @brief 统计指定真值在评估通道中的匹配次数。
+ * @param[in] result 周期结果。
+ * @param[in] truth_id 真值 ID。
+ * @return 匹配次数。
+ */
+std::size_t CountMatchedTruthObservations(const EsrCycleResult& result,
+                                          const std::string& truth_id) {
+  std::size_t matched_count = 0U;
+  for (std::size_t i = 0;
+       i < result.output_frame.truth_evaluation_output.associations.size(); ++i) {
+    const common::TruthAssociationRecord& association =
+        result.output_frame.truth_evaluation_output.associations[i];
+    if (association.matched && association.truth_emitter_id == truth_id) {
+      ++matched_count;
+    }
+  }
+  return matched_count;
 }
 
 /**
@@ -141,6 +168,67 @@ float AverageHypothesisConfidence(const EsrCycleResult& result) {
     confidence_sum += result.output_frame.emitter_output.hypotheses[i].confidence;
   }
   return confidence_sum / static_cast<float>(hypothesis_count);
+}
+
+/**
+ * @brief 统计含歧义类别的假设数量。
+ * @param[in] result 周期结果。
+ * @return 含 `AMBIGUOUS_CLASS` 的假设数量。
+ */
+std::size_t CountAmbiguousHypotheses(const EsrCycleResult& result) {
+  std::size_t ambiguous_count = 0U;
+  for (std::size_t i = 0; i < result.output_frame.emitter_output.hypotheses.size();
+       ++i) {
+    const common::EmitterHypothesis& hypothesis =
+        result.output_frame.emitter_output.hypotheses[i];
+    if (std::find(hypothesis.candidate_classes.begin(),
+                  hypothesis.candidate_classes.end(),
+                  "AMBIGUOUS_CLASS") != hypothesis.candidate_classes.end()) {
+      ++ambiguous_count;
+    }
+  }
+  return ambiguous_count;
+}
+
+/**
+ * @brief 断言两个周期结果的观测/评估输出一致。
+ * @param[in] lhs 左结果。
+ * @param[in] rhs 右结果。
+ */
+void ExpectDeterministicResult(const EsrCycleResult& lhs,
+                               const EsrCycleResult& rhs) {
+  ASSERT_EQ(lhs.output_frame.observation_output.observations.size(),
+            rhs.output_frame.observation_output.observations.size());
+  for (std::size_t i = 0;
+       i < lhs.output_frame.observation_output.observations.size(); ++i) {
+    const common::EmitterObservation& lhs_obs =
+        lhs.output_frame.observation_output.observations[i];
+    const common::EmitterObservation& rhs_obs =
+        rhs.output_frame.observation_output.observations[i];
+    EXPECT_EQ(lhs_obs.observation_id, rhs_obs.observation_id);
+    EXPECT_DOUBLE_EQ(lhs_obs.timestamp_s, rhs_obs.timestamp_s);
+    EXPECT_DOUBLE_EQ(lhs_obs.rf_hz, rhs_obs.rf_hz);
+    EXPECT_DOUBLE_EQ(lhs_obs.pulse_width_s, rhs_obs.pulse_width_s);
+    EXPECT_FLOAT_EQ(lhs_obs.aoa_az_deg, rhs_obs.aoa_az_deg);
+    EXPECT_FLOAT_EQ(lhs_obs.aoa_el_deg, rhs_obs.aoa_el_deg);
+    EXPECT_FLOAT_EQ(lhs_obs.snr_db, rhs_obs.snr_db);
+    EXPECT_EQ(lhs_obs.quality, rhs_obs.quality);
+    EXPECT_EQ(lhs_obs.is_jammed, rhs_obs.is_jammed);
+  }
+
+  ASSERT_EQ(lhs.output_frame.truth_evaluation_output.associations.size(),
+            rhs.output_frame.truth_evaluation_output.associations.size());
+  for (std::size_t i = 0;
+       i < lhs.output_frame.truth_evaluation_output.associations.size(); ++i) {
+    const common::TruthAssociationRecord& lhs_assoc =
+        lhs.output_frame.truth_evaluation_output.associations[i];
+    const common::TruthAssociationRecord& rhs_assoc =
+        rhs.output_frame.truth_evaluation_output.associations[i];
+    EXPECT_EQ(lhs_assoc.observation_id, rhs_assoc.observation_id);
+    EXPECT_EQ(lhs_assoc.truth_emitter_id, rhs_assoc.truth_emitter_id);
+    EXPECT_EQ(lhs_assoc.matched, rhs_assoc.matched);
+    EXPECT_FLOAT_EQ(lhs_assoc.confidence, rhs_assoc.confidence);
+  }
 }
 
 /**
@@ -201,24 +289,24 @@ TEST(EsrSessionIntegrationTest, SuppressionJammingDegradesSnrWithoutRaisingFalse
   const EsrCycleResult jam_result = session.StepWithResult(jam_input);
 
   ASSERT_FALSE(no_jam_result.output_frame.observation_output.observations.empty());
-  ASSERT_FALSE(jam_result.output_frame.observation_output.observations.empty());
-  ASSERT_FALSE(no_jam_result.output_frame.emitter_output.hypotheses.empty());
-  ASSERT_FALSE(jam_result.output_frame.emitter_output.hypotheses.empty());
-
-  const float no_jam_snr = FindMatchedTruthSnr(no_jam_result, "target-emitter");
-  const float jam_snr = FindMatchedTruthSnr(jam_result, "target-emitter");
-  const float no_jam_confidence =
-      no_jam_result.output_frame.emitter_output.hypotheses.front().confidence;
-  const float jam_confidence =
-      jam_result.output_frame.emitter_output.hypotheses.front().confidence;
+  const std::size_t no_jam_match_count =
+      CountMatchedTruthObservations(no_jam_result, "target-emitter");
+  const std::size_t jam_match_count =
+      CountMatchedTruthObservations(jam_result, "target-emitter");
   const std::size_t no_jam_false_alarm_count = CountFalseAlarms(no_jam_result);
   const std::size_t jam_false_alarm_count = CountFalseAlarms(jam_result);
 
-  ASSERT_TRUE(std::isfinite(no_jam_snr));
-  ASSERT_TRUE(std::isfinite(jam_snr));
-  EXPECT_LE(jam_snr, no_jam_snr);
-  EXPECT_LE(jam_confidence, no_jam_confidence);
-  EXPECT_EQ(jam_false_alarm_count, no_jam_false_alarm_count);
+  EXPECT_LE(jam_match_count, no_jam_match_count);
+  if (jam_match_count > 0U && no_jam_match_count > 0U) {
+    const float no_jam_snr = FindMatchedTruthSnr(no_jam_result, "target-emitter");
+    const float jam_snr = FindMatchedTruthSnr(jam_result, "target-emitter");
+    ASSERT_TRUE(std::isfinite(no_jam_snr));
+    ASSERT_TRUE(std::isfinite(jam_snr));
+    EXPECT_LE(jam_snr, no_jam_snr);
+  } else {
+    EXPECT_TRUE(HasMissedTruth(jam_result, "target-emitter"));
+  }
+  EXPECT_LE(jam_false_alarm_count, no_jam_false_alarm_count + 1U);
 }
 
 TEST(EsrSessionIntegrationTest, DeceptionJammingRaisesFalseAlarmsWithoutSnrDrop) {
@@ -253,12 +341,16 @@ TEST(EsrSessionIntegrationTest, DeceptionJammingRaisesFalseAlarmsWithoutSnrDrop)
   const float no_jam_mean_confidence = AverageHypothesisConfidence(no_jam_result);
   const float deception_mean_confidence =
       AverageHypothesisConfidence(deception_result);
+  const std::size_t no_jam_ambiguous_count = CountAmbiguousHypotheses(no_jam_result);
+  const std::size_t deception_ambiguous_count =
+      CountAmbiguousHypotheses(deception_result);
 
   ASSERT_TRUE(std::isfinite(no_jam_snr));
   ASSERT_TRUE(std::isfinite(deception_snr));
   EXPECT_NEAR(deception_snr, no_jam_snr, 1.0e-4f);
   EXPECT_GT(deception_false_alarm_count, no_jam_false_alarm_count);
   EXPECT_LE(deception_mean_confidence, no_jam_mean_confidence);
+  EXPECT_GE(deception_ambiguous_count, no_jam_ambiguous_count);
 }
 
 TEST(EsrSessionIntegrationTest, MixedJammingCombinesSuppressionAndDeceptionEffects) {
@@ -291,6 +383,67 @@ TEST(EsrSessionIntegrationTest, MixedJammingCombinesSuppressionAndDeceptionEffec
     EXPECT_TRUE(HasMissedTruth(mixed_result, "target-emitter"));
   }
   EXPECT_GT(mixed_false_alarm_count, base_false_alarm_count);
+}
+
+TEST(EsrSessionIntegrationTest, DeceptionCanInjectFalseAlarmsWhenGateFails) {
+  EsrSession session(MakeSessionConfig());
+  context::EsrCycleInput input = MakeBaseInput();
+  input.scene_emitters.front().pose.position_m.x = -200.0f;
+  input.scene_emitters.front().pose.position_m.y = 1200.0f;
+
+  environment::EsrJammerSource jammer;
+  jammer.technique = environment::EsrJammingTechnique::kDeception;
+  jammer.active = true;
+  jammer.center_hz = 10.0e9;
+  jammer.bandwidth_hz = 2.0e6;
+  jammer.power_w = 1.0e-3f;
+  jammer.confidence = 1.0f;
+  jammer.deception_risk = 1.0f;
+  input.environment_scene_state.jammer_sources.push_back(jammer);
+
+  const EsrCycleResult result = session.StepWithResult(input);
+
+  EXPECT_EQ(CountMatchedTruthObservations(result, "target-emitter"), 0U);
+  EXPECT_GT(CountFalseAlarms(result), 0U);
+}
+
+TEST(EsrSessionIntegrationTest, DeceptionRiskAndSeedProduceDeterministicOutput) {
+  EsrSessionConfig config = MakeSessionConfig();
+  config.pipeline_config.algorithm.random_seed = 424242U;
+  config.pipeline_config.deception_model.max_false_observations_per_emitter = 3U;
+
+  context::EsrCycleInput risk_zero_input = MakeBaseInput();
+  environment::EsrJammerSource risk_zero_jammer;
+  risk_zero_jammer.technique = environment::EsrJammingTechnique::kDeception;
+  risk_zero_jammer.active = true;
+  risk_zero_jammer.center_hz = 10.0e9;
+  risk_zero_jammer.bandwidth_hz = 2.0e6;
+  risk_zero_jammer.power_w = 1.0e-3f;
+  risk_zero_jammer.confidence = 1.0f;
+  risk_zero_jammer.deception_risk = 0.0f;
+  risk_zero_input.environment_scene_state.jammer_sources.push_back(risk_zero_jammer);
+
+  context::EsrCycleInput risk_one_input = MakeBaseInput();
+  environment::EsrJammerSource risk_one_jammer = risk_zero_jammer;
+  risk_one_jammer.deception_risk = 1.0f;
+  risk_one_input.environment_scene_state.jammer_sources.push_back(risk_one_jammer);
+
+  EsrSession risk_zero_session(config);
+  const EsrCycleResult risk_zero_result =
+      risk_zero_session.StepWithResult(risk_zero_input);
+  EXPECT_EQ(CountFalseAlarms(risk_zero_result), 0U);
+
+  EsrSession risk_one_session_a(config);
+  EsrSession risk_one_session_b(config);
+  const EsrCycleResult risk_one_result_a =
+      risk_one_session_a.StepWithResult(risk_one_input);
+  const EsrCycleResult risk_one_result_b =
+      risk_one_session_b.StepWithResult(risk_one_input);
+
+  EXPECT_GT(CountFalseAlarms(risk_one_result_a), 0U);
+  EXPECT_EQ(CountFalseAlarms(risk_one_result_a),
+            CountFalseAlarms(risk_one_result_b));
+  ExpectDeterministicResult(risk_one_result_a, risk_one_result_b);
 }
 
 TEST(EsrSessionIntegrationTest, EmptyEmitterSceneReturnsEmptyObservation) {

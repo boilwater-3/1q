@@ -1,5 +1,6 @@
 #include "airborne_radar/signal/detection/SignalDetector.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace airborne_radar {
@@ -25,6 +26,7 @@ DetectionResult SignalDetector::Detect(
     float one_way_antenna_gain_db,
     int pulse_count,
     bool coherent_integration) {
+  (void)coherent_integration;  // 兼容参数：检测概率统一采用“每脉冲 SNR + N”语义。
   DetectionResult result;
   if (std::isnan(one_way_antenna_gain_db)) {
     one_way_antenna_gain_db = config_.antenna.main_beam_gain_db;
@@ -42,33 +44,28 @@ DetectionResult SignalDetector::Detect(
   const float echo_power_w =
       std::pow(10.0f, result.echo_power_dbw / 10.0f);
 
-  // ② 综合噪声基底 = 热噪声 + 杂波 + 干扰
-  const float total_noise_w =
-      thermal_noise_w_ + env.clutter_noise_w + env.jam_noise_w;
+  // ② 综合噪声基底 = max(热噪声,0) + max(杂波,0) + max(干扰,0)
+  //    并做最小值保护，避免负噪声或异常输入导致虚高 SNR。
+  const float kNoiseFloorW = 1e-30f;
+  const float safe_thermal_noise_w = std::max(thermal_noise_w_, 0.0f);
+  const float safe_clutter_noise_w = std::max(env.clutter_noise_w, 0.0f);
+  const float safe_jam_noise_w = std::max(env.jam_noise_w, 0.0f);
+  const float total_noise_w = std::max(
+      safe_thermal_noise_w + safe_clutter_noise_w + safe_jam_noise_w,
+      kNoiseFloorW);
 
-  // ③ 基准单脉冲信噪比 = 回波功率 / 综合噪声
-  const float kEps = 1e-30f;
-  float base_snr_linear = echo_power_w / total_noise_w;
-  if (total_noise_w <= kEps) {
-    result.snr_db = 100.0f;  // 无噪声环境保护值
-  } else {
-    result.snr_db = 10.0f * std::log10(base_snr_linear + kEps);
-  }
+  // ③ 单脉冲 SNR = 回波功率 / 综合噪声
+  const float base_snr_linear = echo_power_w / total_noise_w;
+  result.snr_db = 10.0f * std::log10(base_snr_linear + kNoiseFloorW);
 
-  // ④ 计算积累增益（改善等效信噪比）
-  const float integration_gain = RadarEquations::ComputeIntegrationGain(
-      pulse_count, coherent_integration);
-  // 对于检测概率计算，使用等效积累信噪比
-  const float effective_snr_db = result.snr_db + 10.0f * std::log10(integration_gain);
-
-  // ⑤ 检测概率（结合 Swerling 模型与多脉冲）
+  // ④ 检测概率（统一语义：输入每脉冲 SNR + 脉冲数 N）
   result.detection_prob = RadarEquations::ComputeDetectionProbability(
-      effective_snr_db, config_.detection.cfar_pfa,
+      result.snr_db, config_.detection.cfar_pfa,
       target.swerling_type, pulse_count);
 
-  // ⑥ 蒙特卡洛判决
-  // 若等效 SNR 低于硬截断下限，直接判为未探测
-  if (effective_snr_db < config_.detection.min_snr_db) {
+  // ⑤ 蒙特卡洛判决
+  // 若单脉冲 SNR 低于硬截断下限，直接判为未探测。
+  if (result.snr_db < config_.detection.min_snr_db) {
     result.detected = false;
     result.detection_prob = 0.0f;
   } else {

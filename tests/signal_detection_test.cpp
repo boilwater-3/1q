@@ -97,6 +97,21 @@ TEST(RadarEquationsTest, AccGain_IncoherentSqrt) {
   EXPECT_FLOAT_EQ(gain, 4.0f);
 }
 
+/// @brief 判决逻辑应先将 Pd 钳位到 [0,1]，越界输入与边界输入等价。
+TEST(RadarEquationsTest, ThresholdDecision_ClampsOutOfRangePd) {
+  std::mt19937 rng_negative(2026u);
+  std::mt19937 rng_zero(2026u);
+  std::mt19937 rng_over_one(2027u);
+  std::mt19937 rng_one(2027u);
+
+  for (int i = 0; i < 512; ++i) {
+    EXPECT_EQ(RadarEquations::ThresholdDecision(-0.5f, rng_negative),
+              RadarEquations::ThresholdDecision(0.0f, rng_zero));
+    EXPECT_EQ(RadarEquations::ThresholdDecision(1.5f, rng_over_one),
+              RadarEquations::ThresholdDecision(1.0f, rng_one));
+  }
+}
+
 /// @brief 高信噪比下测距方差较小。
 TEST(RadarEquationsTest, RangeStdDev_HighSNR) {
   // SNR=20dB, BW=1MHz
@@ -228,6 +243,66 @@ TEST(SignalDetectorTest, JammingIncreasesNoise) {
   DetectionResult jammed = detector.Detect(target, env_jam);
 
   EXPECT_LT(jammed.snr_db, clean.snr_db);
+}
+
+/// @brief Detect 应直接使用“每脉冲 SNR + N”语义，避免在外部重复折算积累增益。
+TEST(SignalDetectorTest, DetectionProbabilityUsesPerPulseSnrWithoutDoubleCounting) {
+  RadarSystemConfig config;
+  config.detection.min_snr_db = -80.0f;  // 关闭硬门限影响
+  SignalDetector detector(config);
+  detector.SetRandomSeed(42u);
+
+  signal::detection::TargetReturn target;
+  target.rcs_m2 = 0.5f;
+  target.range_m = 120000.0f;
+  target.swerling_type = signal::detection::kSwerling2;
+
+  signal::detection::EnvironmentState env;
+  env.propagation_loss_db = 0.0f;
+  env.clutter_noise_w = 2e-14f;
+  env.jam_noise_w = 0.0f;
+
+  const DetectionResult n1 = detector.Detect(
+      target, env, std::numeric_limits<float>::quiet_NaN(), 1, false);
+  const DetectionResult n8 = detector.Detect(
+      target, env, std::numeric_limits<float>::quiet_NaN(), 8, false);
+
+  const float expected_pd_n1 = RadarEquations::ComputeDetectionProbability(
+      n1.snr_db, config.detection.cfar_pfa, target.swerling_type, 1);
+  const float expected_pd_n8 = RadarEquations::ComputeDetectionProbability(
+      n8.snr_db, config.detection.cfar_pfa, target.swerling_type, 8);
+
+  EXPECT_NEAR(n1.detection_prob, expected_pd_n1, 1e-6f);
+  EXPECT_NEAR(n8.detection_prob, expected_pd_n8, 1e-6f);
+  EXPECT_GT(n8.detection_prob, n1.detection_prob);
+}
+
+/// @brief 相参/非相参标记不应在 Detect 内额外叠加增益（语义一致）。
+TEST(SignalDetectorTest, CoherentFlagDoesNotApplyExtraGainInDetector) {
+  RadarSystemConfig config;
+  config.detection.min_snr_db = -80.0f;
+  SignalDetector detector(config);
+
+  signal::detection::TargetReturn target;
+  target.rcs_m2 = 1.0f;
+  target.range_m = 90000.0f;
+  target.swerling_type = signal::detection::kSwerling1;
+
+  signal::detection::EnvironmentState env;
+  env.propagation_loss_db = 0.0f;
+  env.clutter_noise_w = 1e-14f;
+  env.jam_noise_w = 0.0f;
+
+  detector.SetRandomSeed(123u);
+  const DetectionResult incoherent = detector.Detect(
+      target, env, std::numeric_limits<float>::quiet_NaN(), 6, false);
+  detector.SetRandomSeed(123u);
+  const DetectionResult coherent = detector.Detect(
+      target, env, std::numeric_limits<float>::quiet_NaN(), 6, true);
+
+  EXPECT_NEAR(coherent.snr_db, incoherent.snr_db, 1e-6f);
+  EXPECT_NEAR(coherent.detection_prob, incoherent.detection_prob, 1e-6f);
+  EXPECT_EQ(coherent.detected, incoherent.detected);
 }
 
 /// @brief 雷达局部坐标应能解析出稳定的目标方位/俯仰角。
@@ -685,13 +760,13 @@ TEST(SignalDetectorTest, MassiveClutterSuppressesDetection) {
 
   DetectionResult result = detector.Detect(target, env);
 
-  // SNR << 0 → effective_snr < min_snr_db → 不检测
+  // SNR << 0 → snr < min_snr_db → 不检测
   EXPECT_LT(result.snr_db, 0.0f);
   EXPECT_FALSE(result.detected);
   EXPECT_FLOAT_EQ(result.detection_prob, 0.0f);
 }
 
-/// @brief 总噪声接近零时，SNR 返回保护值（100 dB），不崩溃。
+/// @brief 总噪声接近零时，SNR 使用噪声下限保护，结果应有限且不崩溃。
 TEST(SignalDetectorTest, NearZeroTotalNoise_GivesSafetySnr) {
   RadarSystemConfig config;
   // 将热噪声降至最低（极低带宽 + 零噪声指数）
@@ -717,7 +792,37 @@ TEST(SignalDetectorTest, NearZeroTotalNoise_GivesSafetySnr) {
   EXPECT_GT(result.snr_db, 0.0f);
 }
 
-/// @brief effective_snr < min_snr_db 时，detection_prob 强制为 0，detected = false。
+/// @brief 非正噪声输入应被钳位为非负，不得造成虚高 SNR。
+TEST(SignalDetectorTest, NonPositiveNoiseInputDoesNotInflateSnr) {
+  RadarSystemConfig config;
+  config.detection.min_snr_db = -80.0f;
+  SignalDetector detector(config);
+  detector.SetRandomSeed(42u);
+
+  signal::detection::TargetReturn target;
+  target.rcs_m2 = 1.0f;
+  target.range_m = 100000.0f;
+  target.swerling_type = kSwerling0;
+
+  signal::detection::EnvironmentState baseline_env;
+  baseline_env.propagation_loss_db = 0.0f;
+  baseline_env.clutter_noise_w = 0.0f;
+  baseline_env.jam_noise_w = 0.0f;
+
+  const DetectionResult baseline = detector.Detect(target, baseline_env);
+
+  detector.SetRandomSeed(42u);
+  signal::detection::EnvironmentState invalid_env = baseline_env;
+  invalid_env.clutter_noise_w = -1e5f;
+  invalid_env.jam_noise_w = -1e5f;
+  const DetectionResult invalid = detector.Detect(target, invalid_env);
+
+  EXPECT_TRUE(std::isfinite(invalid.snr_db));
+  EXPECT_NEAR(invalid.snr_db, baseline.snr_db, 1e-4f);
+  EXPECT_NEAR(invalid.detection_prob, baseline.detection_prob, 1e-6f);
+}
+
+/// @brief snr < min_snr_db 时，detection_prob 强制为 0，detected = false。
 TEST(SignalDetectorTest, BelowMinSnrIsNeverDetected) {
   RadarSystemConfig config;
   config.detection.min_snr_db = 20.0f;  // 极高硬门限

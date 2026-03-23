@@ -56,6 +56,86 @@ float ToDb(double ratio) {
 }
 
 /**
+ * @brief 对统计检测配置中的 Pfa 做数值归一化。
+ * @param[in] pfa 输入虚警概率。
+ * @return 归一化后的 Pfa。
+ */
+float NormalizePfa(float pfa) {
+  if (!std::isfinite(pfa)) {
+    return 1.0e-6f;
+  }
+  return std::max(1.0e-9f, std::min(1.0e-2f, pfa));
+}
+
+/**
+ * @brief 计算统计检测对应的积累增益。
+ * @param[in] config 统计检测配置。
+ * @return 增益系数。
+ */
+double ComputeIntegrationGain(
+    const InterceptStatisticalDetectionConfig& config) {
+  const std::uint32_t pulse_count = std::max(1U, config.pulse_count);
+  if (config.integration_mode == InterceptIntegrationMode::kCoherent) {
+    return static_cast<double>(pulse_count);
+  }
+  return std::sqrt(static_cast<double>(pulse_count));
+}
+
+/**
+ * @brief 根据 Pfa 与噪声底计算 CFAR 风格动态门限。
+ * @param[in] noise_power_w 等效噪声底（单位：W）。
+ * @param[in] config 统计检测配置。
+ * @return 动态检测门限（单位：dB）。
+ */
+float ComputeDynamicThresholdSnrDb(
+    double noise_power_w, const InterceptStatisticalDetectionConfig& config) {
+  const double safe_noise_power_w = std::max(noise_power_w, kNumericFloor);
+  const float pfa = NormalizePfa(config.pfa);
+  const std::uint32_t pulse_count = std::max(1U, config.pulse_count);
+  const double pulse_count_double = static_cast<double>(pulse_count);
+  const double threshold_scale = std::max(
+      static_cast<double>(config.threshold_scale), static_cast<double>(0.1f));
+
+  double threshold_factor = 1.0;
+  if (config.integration_mode == InterceptIntegrationMode::kCoherent) {
+    threshold_factor = -std::log(static_cast<double>(pfa)) / pulse_count_double;
+  } else {
+    threshold_factor =
+        pulse_count_double *
+        (std::pow(1.0 / static_cast<double>(pfa), 1.0 / pulse_count_double) -
+         1.0);
+  }
+  threshold_factor = std::max(threshold_factor, kNumericFloor) * threshold_scale;
+  const double threshold_power_w = safe_noise_power_w * threshold_factor;
+  const float threshold_db = ToDb(threshold_power_w / safe_noise_power_w);
+  return std::max(config.min_snr_db, threshold_db);
+}
+
+/**
+ * @brief 计算统计检测概率 Pd。
+ * @param[in] snr_db 当前观测信噪比（单位：dB）。
+ * @param[in] threshold_snr_db 动态门限（单位：dB）。
+ * @param[in] config 统计检测配置。
+ * @return 检测概率 Pd，范围 [0, 1]。
+ */
+float ComputeStatisticalDetectionProbability(
+    float snr_db, float threshold_snr_db,
+    const InterceptStatisticalDetectionConfig& config) {
+  if (!std::isfinite(snr_db) || !std::isfinite(threshold_snr_db)) {
+    return 0.0f;
+  }
+  const double snr_linear =
+      std::pow(10.0, static_cast<double>(snr_db) / 10.0);
+  const double threshold_linear =
+      std::pow(10.0, static_cast<double>(threshold_snr_db) / 10.0);
+  const double normalized_metric =
+      (snr_linear / std::max(threshold_linear, kNumericFloor)) *
+      ComputeIntegrationGain(config);
+  const double pd = 1.0 - std::exp(-std::max(normalized_metric, 0.0));
+  return Clamp01(std::max(static_cast<float>(pd), NormalizePfa(config.pfa)));
+}
+
+/**
  * @brief 计算平台与辐射源之间的欧氏距离。
  * @param[in] platform_pose 平台状态。
  * @param[in] emitter_state 辐射源状态。
@@ -394,6 +474,13 @@ InterceptCycleResult InterceptPipeline::RunCycle(
                      static_cast<double>(environment_snapshot.clutter_noise_w) +
                      effective_suppression_power_w,
                  kNumericFloor);
+    const float static_threshold_snr_db = config_.detection.min_detect_snr_db;
+    const float dynamic_threshold_snr_db = ComputeDynamicThresholdSnrDb(
+        noise_power_w, config_.statistical_detection);
+    const float detection_threshold_snr_db =
+        config_.statistical_detection.enable_statistical_detection
+            ? std::max(static_threshold_snr_db, dynamic_threshold_snr_db)
+            : static_threshold_snr_db;
 
     const intercept::BoundarySearchResult boundary_result =
         intercept::BoundarySearchSolver::Solve(
@@ -406,7 +493,7 @@ InterceptCycleResult InterceptPipeline::RunCycle(
                   environment_snapshot.propagation_loss_db);
               const float candidate_snr_db =
                   ToDb(candidate_received_power_w / noise_power_w);
-              return candidate_snr_db >= config_.detection.min_detect_snr_db;
+              return candidate_snr_db >= detection_threshold_snr_db;
             });
     const double received_power_w = ComputeReceivedPowerW(
         emitter.tx_power_w, emitter.carrier_hz, range_m,
@@ -430,7 +517,7 @@ InterceptCycleResult InterceptPipeline::RunCycle(
         boundary_result.boundary_range_m > 0.0f ? boundary_result.boundary_range_m
                                                  : 0.0f;
     gate_input.dynamic_range_margin_db =
-        snr_db - config_.detection.min_detect_snr_db;
+        snr_db - detection_threshold_snr_db;
     gate_input.min_dynamic_range_margin_db =
         config_.detection.min_dynamic_range_margin_db;
     gate_input.min_frequency_overlap_ratio = 0.05f;
@@ -475,7 +562,14 @@ InterceptCycleResult InterceptPipeline::RunCycle(
 
     const std::uint32_t false_alarm_cap =
         config_.deception_model.max_false_observations_per_emitter;
-    if (!gate_decision.passed) {
+    bool detection_passed = gate_decision.passed;
+    if (detection_passed &&
+        config_.statistical_detection.enable_statistical_detection) {
+      const float detection_probability = ComputeStatisticalDetectionProbability(
+          snr_db, detection_threshold_snr_db, config_.statistical_detection);
+      detection_passed = uniform_01(rng_) < detection_probability;
+    }
+    if (!detection_passed) {
       for (std::uint32_t fake_index = 0U; fake_index < false_alarm_cap;
            ++fake_index) {
         if (uniform_01(rng_) >= deception_probability) {

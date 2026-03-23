@@ -384,9 +384,10 @@ float RadarEquations::ComputeDetectionProbability(
 bool RadarEquations::ThresholdDecision(
     float detection_prob,
     std::mt19937& rng) {
+  const float clamped_detection_prob = ClampPd(detection_prob);
   std::uniform_real_distribution<float> dist(0.0f, 1.0f);
   const float r = dist(rng);
-  return r <= detection_prob;
+  return r <= clamped_detection_prob;
 }
 
 }  // namespace detection
