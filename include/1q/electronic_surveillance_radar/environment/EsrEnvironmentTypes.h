@@ -15,9 +15,20 @@ namespace electronic_surveillance_radar {
 namespace environment {
 
 /**
+ * @brief EsrJammingTechnique 表示干扰技术类型。
+ */
+enum class EsrJammingTechnique {
+  kUnknown = 0, /**< 未知或未分类干扰 */
+  kNoiseSuppression, /**< 压制式/噪声式干扰 */
+  kDeception, /**< 欺骗式干扰 */
+  kMixed /**< 压制与欺骗并存 */
+};
+
+/**
  * @brief EsrJammerSource 描述场景中的单个干扰源输入。
  */
 struct ONEQ_API EsrJammerSource {
+  EsrJammingTechnique technique{EsrJammingTechnique::kUnknown}; /**< 干扰技术类型 */
   bool active{false}; /**< 干扰源是否激活 */
   double center_hz{0.0}; /**< 干扰中心频率（单位：Hz） */
   double bandwidth_hz{0.0}; /**< 干扰带宽（单位：Hz） */
@@ -58,7 +69,8 @@ struct ONEQ_API EsrEnvironmentSnapshot {
   float dt_sec{0.0f}; /**< 当前周期步长（单位：s） */
   float propagation_loss_db{0.0f}; /**< 聚合传播损耗（单位：dB） */
   float clutter_noise_w{0.0f}; /**< 杂波噪声功率（单位：W） */
-  float jammer_power_w{0.0f}; /**< 聚合干扰功率（单位：W） */
+  float suppression_power_w{0.0f}; /**< 聚合压制干扰功率（单位：W） */
+  float jammer_power_w{0.0f}; /**< 兼容字段：等价于 suppression_power_w（单位：W） */
   float deception_risk{0.0f}; /**< 聚合欺骗风险度，范围 [0, 1] */
   float spectrum_occupancy_ratio{0.0f}; /**< 频谱占用率，范围 [0, 1] */
   bool jamming_detected{false}; /**< 是否检测到显著干扰 */

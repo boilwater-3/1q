@@ -111,40 +111,87 @@ TEST(EsrAlgorithmsTest, InterceptGateEvaluatesJointConstraints) {
   EXPECT_FALSE(strict_decision.frequency_covered);
 }
 
-TEST(EsrAlgorithmsTest, JammingAggregatorAccumulatesOverlappingPower) {
+TEST(EsrAlgorithmsTest, JammingAggregatorSeparatesSuppressionChannel) {
   environment::EsrJammerSourceList sources;
   environment::EsrJammerSource source_a;
+  source_a.technique = environment::EsrJammingTechnique::kNoiseSuppression;
   source_a.active = true;
   source_a.center_hz = 10.0e9;
   source_a.bandwidth_hz = 2.0e9;
   source_a.power_w = 10.0f;
   source_a.confidence = 1.0f;
-  source_a.deception_risk = 0.2f;
+  source_a.deception_risk = 0.9f;
   sources.push_back(source_a);
 
   environment::EsrJammerSource source_b;
+  source_b.technique = environment::EsrJammingTechnique::kNoiseSuppression;
   source_b.active = true;
   source_b.center_hz = 11.0e9;
   source_b.bandwidth_hz = 4.0e9;
   source_b.power_w = 4.0f;
   source_b.confidence = 0.5f;
-  source_b.deception_risk = 0.8f;
   sources.push_back(source_b);
-
-  environment::EsrJammerSource source_c;
-  source_c.active = true;
-  source_c.center_hz = 20.0e9;
-  source_c.bandwidth_hz = 1.0e9;
-  source_c.power_w = 100.0f;
-  source_c.confidence = 1.0f;
-  sources.push_back(source_c);
 
   const JammingAggregateResult result =
       JammingAggregator::Aggregate(sources, 10.0e9, 2.0e9);
 
-  EXPECT_NEAR(result.jammer_power_w, 11.0f, 1.0e-5f);
-  EXPECT_NEAR(result.weighted_overlap_ratio, 0.9545454f, 1.0e-5f);
-  EXPECT_NEAR(result.deception_risk, 0.36f, 1.0e-6f);
+  EXPECT_NEAR(result.suppression_power_w, 11.0f, 1.0e-5f);
+  EXPECT_NEAR(result.suppression_weighted_overlap_ratio, 0.9545454f, 1.0e-6f);
+  EXPECT_NEAR(result.deception_risk, 0.0f, 1.0e-6f);
+  EXPECT_EQ(result.suppression_source_count, 2U);
+  EXPECT_EQ(result.deception_source_count, 0U);
+  EXPECT_EQ(result.active_source_count, 2U);
+}
+
+TEST(EsrAlgorithmsTest, JammingAggregatorSeparatesDeceptionChannel) {
+  environment::EsrJammerSource source;
+  source.technique = environment::EsrJammingTechnique::kDeception;
+  source.active = true;
+  source.center_hz = 10.0e9;
+  source.bandwidth_hz = 2.0e9;
+  source.power_w = 20.0f;
+  source.deception_risk = 0.8f;
+  source.confidence = 1.0f;
+
+  const JammingAggregateResult result =
+      JammingAggregator::Aggregate({source}, 10.0e9, 2.0e9);
+
+  EXPECT_NEAR(result.suppression_power_w, 0.0f, 1.0e-6f);
+  EXPECT_NEAR(result.deception_risk, 0.8f, 1.0e-6f);
+  EXPECT_NEAR(result.deception_weighted_overlap_ratio, 1.0f, 1.0e-6f);
+  EXPECT_EQ(result.suppression_source_count, 0U);
+  EXPECT_EQ(result.deception_source_count, 1U);
+  EXPECT_EQ(result.active_source_count, 1U);
+}
+
+TEST(EsrAlgorithmsTest, JammingAggregatorUnknownTechniqueFallsBackToMixed) {
+  environment::EsrJammerSource source_mixed;
+  source_mixed.technique = environment::EsrJammingTechnique::kMixed;
+  source_mixed.active = true;
+  source_mixed.center_hz = 12.0e9;
+  source_mixed.bandwidth_hz = 4.0e9;
+  source_mixed.power_w = 8.0f;
+  source_mixed.deception_risk = 0.5f;
+  source_mixed.confidence = 1.0f;
+
+  environment::EsrJammerSource source_unknown;
+  source_unknown.technique = environment::EsrJammingTechnique::kUnknown;
+  source_unknown.active = true;
+  source_unknown.center_hz = 10.0e9;
+  source_unknown.bandwidth_hz = 2.0e9;
+  source_unknown.power_w = 6.0f;
+  source_unknown.deception_risk = 0.2f;
+  source_unknown.confidence = 0.5f;
+
+  const JammingAggregateResult result =
+      JammingAggregator::Aggregate({source_mixed, source_unknown}, 10.0e9, 2.0e9);
+
+  EXPECT_NEAR(result.suppression_power_w, 5.0f, 1.0e-5f);
+  EXPECT_NEAR(result.suppression_weighted_overlap_ratio, 0.7f, 1.0e-5f);
+  EXPECT_NEAR(result.deception_risk, 0.2125f, 1.0e-6f);
+  EXPECT_NEAR(result.deception_weighted_overlap_ratio, 0.5833333f, 1.0e-5f);
+  EXPECT_EQ(result.suppression_source_count, 2U);
+  EXPECT_EQ(result.deception_source_count, 2U);
   EXPECT_EQ(result.active_source_count, 2U);
 }
 

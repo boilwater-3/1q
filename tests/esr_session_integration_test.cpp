@@ -6,6 +6,10 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cstdint>
+#include <cmath>
+#include <limits>
+#include <string>
 
 #include "1q/electronic_surveillance_radar/common/EmitterTruthState.h"
 #include "1q/electronic_surveillance_radar/core/context/EsrCycleInput.h"
@@ -67,7 +71,94 @@ EsrSessionConfig MakeSessionConfig() {
   config.pipeline_config.detection.boundary_resolution_m = 25.0f;
   config.pipeline_config.detection.boundary_max_iterations = 32;
   config.pipeline_config.algorithm.random_seed = 20260323U;
+  config.pipeline_config.deception_model.false_alarm_probability_scale = 1.0f;
+  config.pipeline_config.deception_model.max_false_observations_per_emitter = 2U;
   return config;
+}
+
+/**
+ * @brief 统计评估通道中的伪观测数量。
+ * @param[in] result 周期结果。
+ * @return 伪观测数量。
+ */
+std::size_t CountFalseAlarms(const EsrCycleResult& result) {
+  std::size_t false_alarm_count = 0U;
+  for (std::size_t i = 0;
+       i < result.output_frame.truth_evaluation_output.associations.size(); ++i) {
+    const common::TruthAssociationRecord& association =
+        result.output_frame.truth_evaluation_output.associations[i];
+    if (!association.matched && association.truth_emitter_id == "UNASSOCIATED") {
+      ++false_alarm_count;
+    }
+  }
+  return false_alarm_count;
+}
+
+/**
+ * @brief 获取与指定真值 ID 匹配的首条观测 SNR。
+ * @param[in] result 周期结果。
+ * @param[in] truth_id 真值 ID。
+ * @return 匹配观测 SNR；未找到时返回 NaN。
+ */
+float FindMatchedTruthSnr(const EsrCycleResult& result, const std::string& truth_id) {
+  std::uint64_t observation_id = 0U;
+  for (std::size_t i = 0;
+       i < result.output_frame.truth_evaluation_output.associations.size(); ++i) {
+    const common::TruthAssociationRecord& association =
+        result.output_frame.truth_evaluation_output.associations[i];
+    if (association.matched && association.truth_emitter_id == truth_id) {
+      observation_id = association.observation_id;
+      break;
+    }
+  }
+  if (observation_id == 0U) {
+    return std::numeric_limits<float>::quiet_NaN();
+  }
+  for (std::size_t i = 0;
+       i < result.output_frame.observation_output.observations.size(); ++i) {
+    const common::EmitterObservation& observation =
+        result.output_frame.observation_output.observations[i];
+    if (observation.observation_id == observation_id) {
+      return observation.snr_db;
+    }
+  }
+  return std::numeric_limits<float>::quiet_NaN();
+}
+
+/**
+ * @brief 计算假设平均置信度。
+ * @param[in] result 周期结果。
+ * @return 平均置信度。
+ */
+float AverageHypothesisConfidence(const EsrCycleResult& result) {
+  const std::size_t hypothesis_count =
+      result.output_frame.emitter_output.hypotheses.size();
+  if (hypothesis_count == 0U) {
+    return 0.0f;
+  }
+  float confidence_sum = 0.0f;
+  for (std::size_t i = 0; i < hypothesis_count; ++i) {
+    confidence_sum += result.output_frame.emitter_output.hypotheses[i].confidence;
+  }
+  return confidence_sum / static_cast<float>(hypothesis_count);
+}
+
+/**
+ * @brief 判断指定真值是否在当前周期被漏检。
+ * @param[in] result 周期结果。
+ * @param[in] truth_id 真值 ID。
+ * @return 漏检时返回 `true`。
+ */
+bool HasMissedTruth(const EsrCycleResult& result, const std::string& truth_id) {
+  for (std::size_t i = 0;
+       i < result.output_frame.truth_evaluation_output.associations.size(); ++i) {
+    const common::TruthAssociationRecord& association =
+        result.output_frame.truth_evaluation_output.associations[i];
+    if (!association.matched && association.truth_emitter_id == truth_id) {
+      return true;
+    }
+  }
+  return false;
 }
 
 TEST(EsrSessionIntegrationTest, StepWithResultProducesThreeChannelOutput) {
@@ -90,19 +181,20 @@ TEST(EsrSessionIntegrationTest, StepWithResultProducesThreeChannelOutput) {
             result.output_frame.observation_output.observations.size());
 }
 
-TEST(EsrSessionIntegrationTest, JammingDegradesObservationQualityAndConfidence) {
+TEST(EsrSessionIntegrationTest, SuppressionJammingDegradesSnrWithoutRaisingFalseAlarms) {
   EsrSession session(MakeSessionConfig());
   context::EsrCycleInput no_jam_input = MakeBaseInput();
   context::EsrCycleInput jam_input = no_jam_input;
   jam_input.cycle_index = no_jam_input.cycle_index;
 
   environment::EsrJammerSource jammer;
+  jammer.technique = environment::EsrJammingTechnique::kNoiseSuppression;
   jammer.active = true;
   jammer.center_hz = 10.0e9;
   jammer.bandwidth_hz = 3.0e9;
   jammer.power_w = 1.0e-4f;
   jammer.confidence = 1.0f;
-  jammer.deception_risk = 0.3f;
+  jammer.deception_risk = 1.0f;
   jam_input.environment_scene_state.jammer_sources.push_back(jammer);
 
   const EsrCycleResult no_jam_result = session.StepWithResult(no_jam_input);
@@ -113,17 +205,92 @@ TEST(EsrSessionIntegrationTest, JammingDegradesObservationQualityAndConfidence) 
   ASSERT_FALSE(no_jam_result.output_frame.emitter_output.hypotheses.empty());
   ASSERT_FALSE(jam_result.output_frame.emitter_output.hypotheses.empty());
 
-  const float no_jam_snr =
-      no_jam_result.output_frame.observation_output.observations.front().snr_db;
-  const float jam_snr =
-      jam_result.output_frame.observation_output.observations.front().snr_db;
+  const float no_jam_snr = FindMatchedTruthSnr(no_jam_result, "target-emitter");
+  const float jam_snr = FindMatchedTruthSnr(jam_result, "target-emitter");
   const float no_jam_confidence =
       no_jam_result.output_frame.emitter_output.hypotheses.front().confidence;
   const float jam_confidence =
       jam_result.output_frame.emitter_output.hypotheses.front().confidence;
+  const std::size_t no_jam_false_alarm_count = CountFalseAlarms(no_jam_result);
+  const std::size_t jam_false_alarm_count = CountFalseAlarms(jam_result);
 
+  ASSERT_TRUE(std::isfinite(no_jam_snr));
+  ASSERT_TRUE(std::isfinite(jam_snr));
   EXPECT_LE(jam_snr, no_jam_snr);
   EXPECT_LE(jam_confidence, no_jam_confidence);
+  EXPECT_EQ(jam_false_alarm_count, no_jam_false_alarm_count);
+}
+
+TEST(EsrSessionIntegrationTest, DeceptionJammingRaisesFalseAlarmsWithoutSnrDrop) {
+  EsrSession session(MakeSessionConfig());
+  context::EsrCycleInput no_jam_input = MakeBaseInput();
+  context::EsrCycleInput deception_input = no_jam_input;
+
+  environment::EsrJammerSource jammer;
+  jammer.technique = environment::EsrJammingTechnique::kDeception;
+  jammer.active = true;
+  jammer.center_hz = 10.0e9;
+  jammer.bandwidth_hz = 2.0e6;
+  jammer.power_w = 1.0e-3f;
+  jammer.confidence = 1.0f;
+  jammer.deception_risk = 1.0f;
+  deception_input.environment_scene_state.jammer_sources.push_back(jammer);
+
+  const EsrCycleResult no_jam_result = session.StepWithResult(no_jam_input);
+  const EsrCycleResult deception_result = session.StepWithResult(deception_input);
+
+  ASSERT_FALSE(no_jam_result.output_frame.emitter_output.hypotheses.empty());
+  ASSERT_FALSE(deception_result.output_frame.emitter_output.hypotheses.empty());
+  ASSERT_FALSE(no_jam_result.output_frame.observation_output.observations.empty());
+  ASSERT_FALSE(deception_result.output_frame.observation_output.observations.empty());
+
+  const float no_jam_snr = FindMatchedTruthSnr(no_jam_result, "target-emitter");
+  const float deception_snr =
+      FindMatchedTruthSnr(deception_result, "target-emitter");
+  const std::size_t no_jam_false_alarm_count = CountFalseAlarms(no_jam_result);
+  const std::size_t deception_false_alarm_count =
+      CountFalseAlarms(deception_result);
+  const float no_jam_mean_confidence = AverageHypothesisConfidence(no_jam_result);
+  const float deception_mean_confidence =
+      AverageHypothesisConfidence(deception_result);
+
+  ASSERT_TRUE(std::isfinite(no_jam_snr));
+  ASSERT_TRUE(std::isfinite(deception_snr));
+  EXPECT_NEAR(deception_snr, no_jam_snr, 1.0e-4f);
+  EXPECT_GT(deception_false_alarm_count, no_jam_false_alarm_count);
+  EXPECT_LE(deception_mean_confidence, no_jam_mean_confidence);
+}
+
+TEST(EsrSessionIntegrationTest, MixedJammingCombinesSuppressionAndDeceptionEffects) {
+  EsrSession session(MakeSessionConfig());
+  context::EsrCycleInput base_input = MakeBaseInput();
+  context::EsrCycleInput mixed_input = base_input;
+
+  environment::EsrJammerSource jammer;
+  jammer.technique = environment::EsrJammingTechnique::kMixed;
+  jammer.active = true;
+  jammer.center_hz = 10.0e9;
+  jammer.bandwidth_hz = 2.0e6;
+  jammer.power_w = 1.0e-4f;
+  jammer.confidence = 1.0f;
+  jammer.deception_risk = 1.0f;
+  mixed_input.environment_scene_state.jammer_sources.push_back(jammer);
+
+  const EsrCycleResult base_result = session.StepWithResult(base_input);
+  const EsrCycleResult mixed_result = session.StepWithResult(mixed_input);
+
+  const float base_snr = FindMatchedTruthSnr(base_result, "target-emitter");
+  const float mixed_snr = FindMatchedTruthSnr(mixed_result, "target-emitter");
+  const std::size_t base_false_alarm_count = CountFalseAlarms(base_result);
+  const std::size_t mixed_false_alarm_count = CountFalseAlarms(mixed_result);
+
+  ASSERT_TRUE(std::isfinite(base_snr));
+  if (std::isfinite(mixed_snr)) {
+    EXPECT_LE(mixed_snr, base_snr);
+  } else {
+    EXPECT_TRUE(HasMissedTruth(mixed_result, "target-emitter"));
+  }
+  EXPECT_GT(mixed_false_alarm_count, base_false_alarm_count);
 }
 
 TEST(EsrSessionIntegrationTest, EmptyEmitterSceneReturnsEmptyObservation) {

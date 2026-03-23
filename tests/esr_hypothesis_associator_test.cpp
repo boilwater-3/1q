@@ -30,7 +30,8 @@ namespace {
  * @return 簇摘要。
  */
 ClusterSummary MakeCluster(float x, float y, float az_deg, float el_deg,
-                           double rf_hz, float snr_db, std::size_t support_count) {
+                           double rf_hz, float snr_db, std::size_t support_count,
+                           float deception_support_ratio = 0.0f) {
   ClusterSummary summary;
   summary.centroid_feature.values =
       std::array<float, kObservationFeatureDimension>{{x, y, 0.0f, 0.0f, 0.0f}};
@@ -42,6 +43,7 @@ ClusterSummary MakeCluster(float x, float y, float az_deg, float el_deg,
   summary.mean_rf_hz = rf_hz;
   summary.mean_pulse_width_s = 1.0e-6;
   summary.confidence_score = 0.8f;
+  summary.deception_support_ratio = deception_support_ratio;
   return summary;
 }
 
@@ -134,6 +136,46 @@ TEST(EsrHypothesisAssociatorTest, RecyclesTrackAfterConfiguredMissedCycles) {
   const common::EmitterHypothesisList cycle_3 =
       associator.Update(32U, empty_clusters, &next_hypothesis_id);
   EXPECT_TRUE(cycle_3.empty());
+}
+
+TEST(EsrHypothesisAssociatorTest,
+     HighDeceptionSupportLowersConfidenceAndAddsAmbiguousClass) {
+  InterceptAssociationConfig config;
+  config.gate_distance = 1.0f;
+  config.confirm_hits = 1U;
+  config.max_missed_cycles = 2U;
+  config.confidence_alpha = 0.3f;
+  config.output_tentative = true;
+  HypothesisAssociator associator(config);
+
+  std::uint64_t next_hypothesis_id = 1U;
+  std::vector<ClusterSummary> clusters;
+  clusters.push_back(
+      MakeCluster(0.0f, 0.0f, 1.0f, 0.1f, 10.0e9, 14.0f, 3U, 0.0f));
+  clusters.push_back(
+      MakeCluster(5.0f, 5.0f, 2.0f, 0.2f, 12.0e9, 14.0f, 3U, 0.8f));
+
+  const common::EmitterHypothesisList hypotheses =
+      associator.Update(40U, clusters, &next_hypothesis_id);
+  ASSERT_EQ(hypotheses.size(), 2U);
+
+  const common::EmitterHypothesis* clean_hypothesis = nullptr;
+  const common::EmitterHypothesis* deceptive_hypothesis = nullptr;
+  for (std::size_t i = 0; i < hypotheses.size(); ++i) {
+    if (hypotheses[i].bearing_az_deg < 1.5f) {
+      clean_hypothesis = &hypotheses[i];
+    } else {
+      deceptive_hypothesis = &hypotheses[i];
+    }
+  }
+  ASSERT_NE(clean_hypothesis, static_cast<const common::EmitterHypothesis*>(nullptr));
+  ASSERT_NE(deceptive_hypothesis,
+            static_cast<const common::EmitterHypothesis*>(nullptr));
+  EXPECT_LT(deceptive_hypothesis->confidence, clean_hypothesis->confidence);
+  EXPECT_NE(std::find(deceptive_hypothesis->candidate_classes.begin(),
+                      deceptive_hypothesis->candidate_classes.end(),
+                      "AMBIGUOUS_CLASS"),
+            deceptive_hypothesis->candidate_classes.end());
 }
 
 }  // namespace

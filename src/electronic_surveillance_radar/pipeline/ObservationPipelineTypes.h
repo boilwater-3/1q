@@ -45,6 +45,8 @@ struct RawObservationRecord {
   common::EmitterObservation observation{}; /**< 观测记录 */
   std::string truth_emitter_id{}; /**< 真值辐射源标识 */
   bool matched_truth{true}; /**< 是否来自真实辐射源链路 */
+  bool deception_affected{false}; /**< 是否受到欺骗分量影响 */
+  bool synthetic_false_alarm{false}; /**< 是否为欺骗注入的伪观测 */
 };
 
 /**
@@ -60,6 +62,8 @@ struct ClusterSummary {
   double mean_rf_hz{0.0}; /**< 簇均值载频（单位：Hz） */
   double mean_pulse_width_s{0.0}; /**< 簇均值脉宽（单位：s） */
   float confidence_score{0.0f}; /**< 簇级置信度 */
+  float deception_support_ratio{0.0f}; /**< 簇内欺骗受影响样本占比，范围 [0, 1] */
+  float false_alarm_ratio{0.0f}; /**< 簇内伪观测占比，范围 [0, 1] */
   bool any_jammed{false}; /**< 簇内是否存在受扰观测 */
 };
 

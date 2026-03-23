@@ -28,6 +28,7 @@ set(TEST_SOURCES
     radar_input_validation_test.cpp
     esr_input_validation_test.cpp
     esr_algorithms_test.cpp
+    esr_environment_service_test.cpp
     esr_kdtree_clusterer_test.cpp
     esr_hypothesis_associator_test.cpp
     esr_session_integration_test.cpp

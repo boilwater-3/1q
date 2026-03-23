@@ -60,14 +60,23 @@ common::ThreatLevel InferThreatFromCluster(common::EmitterMode mode,
 /**
  * @brief 构造候选类别列表。
  * @param[in] rf_hz 均值载频（单位：Hz）。
+ * @param[in] deception_support_ratio 欺骗支持度，范围 [0, 1]。
  * @return 候选类别字符串列表。
  */
-std::vector<std::string> BuildCandidateClasses(double rf_hz) {
+std::vector<std::string> BuildCandidateClasses(double rf_hz,
+                                               float deception_support_ratio) {
   const intercept::RadarBand band = intercept::BandClassifier::Classify(rf_hz);
   std::vector<std::string> classes;
   classes.push_back(
       std::string("RADAR_BAND_") + intercept::BandClassifier::ToString(band));
   classes.push_back("RADAR_EMITTER");
+  const float deception_ratio = Clamp01(deception_support_ratio);
+  if (deception_ratio >= 0.6f) {
+    classes.push_back("POSSIBLE_DECEPTION");
+  }
+  if (deception_ratio >= 0.3f) {
+    classes.push_back("AMBIGUOUS_CLASS");
+  }
   return classes;
 }
 
@@ -151,6 +160,7 @@ common::EmitterHypothesisList HypothesisAssociator::Update(
     }
     TrackState& track = tracks_[pair.track_index];
     const ClusterSummary& summary = clusters[pair.cluster_index];
+    const float deception_ratio = Clamp01(summary.deception_support_ratio);
 
     for (std::size_t dim = 0; dim < kObservationFeatureDimension; ++dim) {
       track.feature.values[dim] =
@@ -159,15 +169,20 @@ common::EmitterHypothesisList HypothesisAssociator::Update(
     }
     track.mode = InferModeFromCluster(summary);
     track.threat_level = InferThreatFromCluster(track.mode, summary.mean_snr_db);
-    track.candidate_classes = BuildCandidateClasses(summary.mean_rf_hz);
+    track.candidate_classes =
+        BuildCandidateClasses(summary.mean_rf_hz, deception_ratio);
     track.bearing_az_deg =
         Blend(track.bearing_az_deg, summary.mean_az_deg, config_.confidence_alpha);
     track.bearing_el_deg =
         Blend(track.bearing_el_deg, summary.mean_el_deg, config_.confidence_alpha);
-    track.bearing_std_deg =
+    const float base_bearing_std_deg =
         std::max(0.1f, 3.0f / std::sqrt(static_cast<float>(summary.support_count)));
+    track.bearing_std_deg =
+        base_bearing_std_deg * (1.0f + 0.8f * deception_ratio);
+    const float confidence_measurement =
+        Clamp01(summary.confidence_score * (1.0f - 0.45f * deception_ratio));
     track.confidence =
-        Blend(track.confidence, summary.confidence_score, config_.confidence_alpha);
+        Blend(track.confidence, confidence_measurement, config_.confidence_alpha);
     track.last_seen_cycle = cycle_index;
     ++track.hit_streak;
     track.missed_cycles = 0U;
@@ -189,15 +204,20 @@ common::EmitterHypothesisList HypothesisAssociator::Update(
     if (next_hypothesis_id != nullptr) {
       track.hypothesis_id = (*next_hypothesis_id)++;
     }
+    const float deception_ratio = Clamp01(clusters[i].deception_support_ratio);
     track.feature = clusters[i].centroid_feature;
     track.mode = InferModeFromCluster(clusters[i]);
     track.threat_level = InferThreatFromCluster(track.mode, clusters[i].mean_snr_db);
-    track.candidate_classes = BuildCandidateClasses(clusters[i].mean_rf_hz);
+    track.candidate_classes =
+        BuildCandidateClasses(clusters[i].mean_rf_hz, deception_ratio);
     track.bearing_az_deg = clusters[i].mean_az_deg;
     track.bearing_el_deg = clusters[i].mean_el_deg;
-    track.bearing_std_deg =
+    const float base_bearing_std_deg =
         std::max(0.1f, 3.0f / std::sqrt(static_cast<float>(clusters[i].support_count)));
-    track.confidence = Clamp01(clusters[i].confidence_score);
+    track.bearing_std_deg =
+        base_bearing_std_deg * (1.0f + 0.8f * deception_ratio);
+    track.confidence =
+        Clamp01(clusters[i].confidence_score * (1.0f - 0.45f * deception_ratio));
     track.last_seen_cycle = cycle_index;
     track.hit_streak = 1U;
     track.missed_cycles = 0U;

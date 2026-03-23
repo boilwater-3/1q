@@ -27,6 +27,41 @@ float ClampNonNegative(float value) {
 }
 
 /**
+ * @brief 解析干扰技术类型并应用兼容推断。
+ * @param[in] source 干扰源输入。
+ * @return 解析后的干扰技术类型。
+ */
+EsrJammingTechnique ResolveTechnique(const EsrJammerSource& source) {
+  if (source.technique != EsrJammingTechnique::kUnknown) {
+    return source.technique;
+  }
+  if (source.deception_risk > 0.0f) {
+    return EsrJammingTechnique::kMixed;
+  }
+  return EsrJammingTechnique::kNoiseSuppression;
+}
+
+/**
+ * @brief 判断技术类型是否包含压制分量。
+ * @param[in] technique 干扰技术类型。
+ * @return 包含压制分量时返回 `true`。
+ */
+bool HasSuppressionEffect(EsrJammingTechnique technique) {
+  return technique == EsrJammingTechnique::kNoiseSuppression ||
+         technique == EsrJammingTechnique::kMixed;
+}
+
+/**
+ * @brief 判断技术类型是否包含欺骗分量。
+ * @param[in] technique 干扰技术类型。
+ * @return 包含欺骗分量时返回 `true`。
+ */
+bool HasDeceptionEffect(EsrJammingTechnique technique) {
+  return technique == EsrJammingTechnique::kDeception ||
+         technique == EsrJammingTechnique::kMixed;
+}
+
+/**
  * @brief 规范化单个干扰源输入。
  * @param[in] raw_source 原始输入。
  * @return 规范化后的干扰源。
@@ -37,6 +72,7 @@ EsrJammerSource NormalizeJammerSource(const EsrJammerSource& raw_source) {
   normalized.bandwidth_hz = std::max(0.0, raw_source.bandwidth_hz);
   normalized.deception_risk = Clamp01(raw_source.deception_risk);
   normalized.confidence = Clamp01(raw_source.confidence);
+  normalized.technique = ResolveTechnique(normalized);
   normalized.active = raw_source.active && normalized.power_w > 0.0f &&
                       normalized.bandwidth_hz > 0.0;
   return normalized;
@@ -68,8 +104,10 @@ EsrEnvironmentSnapshot BuildSnapshot(
 
   snapshot.jammer_sources.clear();
   snapshot.jammer_sources.reserve(cycle_context.scene_state.jammer_sources.size());
+  snapshot.suppression_power_w = 0.0f;
   snapshot.jammer_power_w = 0.0f;
   snapshot.deception_risk = 0.0f;
+  float deception_clear_probability = 1.0f;
   for (std::size_t i = 0; i < cycle_context.scene_state.jammer_sources.size();
        ++i) {
     const EsrJammerSource source =
@@ -79,15 +117,23 @@ EsrEnvironmentSnapshot BuildSnapshot(
       continue;
     }
 
-    snapshot.jammer_power_w += source.power_w * source.confidence;
-    const float source_risk = source.deception_risk * source.confidence;
-    if (source_risk > snapshot.deception_risk) {
-      snapshot.deception_risk = source_risk;
+    const float weighted_power = source.power_w * source.confidence;
+    if (HasSuppressionEffect(source.technique)) {
+      snapshot.suppression_power_w += weighted_power;
+    }
+    if (HasDeceptionEffect(source.technique)) {
+      const float source_risk = Clamp01(source.deception_risk * source.confidence);
+      deception_clear_probability *= (1.0f - source_risk);
+      if (deception_clear_probability < 0.0f) {
+        deception_clear_probability = 0.0f;
+      }
     }
   }
+  snapshot.deception_risk = Clamp01(1.0f - deception_clear_probability);
+  snapshot.jammer_power_w = snapshot.suppression_power_w;
 
   snapshot.jamming_detected =
-      snapshot.jammer_power_w >= config.jamming_detection_threshold_w;
+      snapshot.suppression_power_w >= config.jamming_detection_threshold_w;
   return snapshot;
 }
 

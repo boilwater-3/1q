@@ -161,15 +161,12 @@ common::ObservationQuality ClassifyObservationQuality(float snr_db,
  * @brief 构造观测级置信度。
  * @param[in] snr_db 观测信噪比（单位：dB）。
  * @param[in] is_jammed 是否受扰。
- * @param[in] deception_risk 欺骗风险度。
  * @return 置信度，范围 [0, 1]。
  */
-float ComputeObservationConfidence(float snr_db, bool is_jammed,
-                                   float deception_risk) {
+float ComputeObservationConfidence(float snr_db, bool is_jammed) {
   const float snr_score = Clamp01((snr_db + 5.0f) / 30.0f);
   const float jam_penalty = is_jammed ? 0.75f : 1.0f;
-  const float deception_penalty = 1.0f - 0.45f * Clamp01(deception_risk);
-  return Clamp01(snr_score * jam_penalty * deception_penalty);
+  return Clamp01(snr_score * jam_penalty);
 }
 
 /**
@@ -182,7 +179,8 @@ float ComputeObservationConfidence(float snr_db, bool is_jammed,
 internal::ClusterSummary BuildClusterSummary(
     const std::vector<std::size_t>& cluster_indices,
     const std::vector<internal::RawObservationRecord>& records,
-    const std::vector<internal::ObservationFeatureVector>& features) {
+    const std::vector<internal::ObservationFeatureVector>& features,
+    const InterceptDeceptionModelConfig& deception_config) {
   internal::ClusterSummary summary;
   if (cluster_indices.empty()) {
     return summary;
@@ -192,6 +190,8 @@ internal::ClusterSummary BuildClusterSummary(
   std::size_t representative = cluster_indices[0];
   float representative_snr = records[representative].observation.snr_db;
   float confidence_acc = 0.0f;
+  std::size_t deception_affected_count = 0U;
+  std::size_t false_alarm_count = 0U;
 
   for (std::size_t i = 0; i < cluster_indices.size(); ++i) {
     const std::size_t index = cluster_indices[i];
@@ -204,8 +204,13 @@ internal::ClusterSummary BuildClusterSummary(
     summary.mean_rf_hz += records[index].observation.rf_hz;
     summary.mean_pulse_width_s += records[index].observation.pulse_width_s;
     confidence_acc += ComputeObservationConfidence(
-        records[index].observation.snr_db, records[index].observation.is_jammed,
-        records[index].matched_truth ? 0.0f : 0.8f);
+        records[index].observation.snr_db, records[index].observation.is_jammed);
+    if (records[index].deception_affected) {
+      ++deception_affected_count;
+    }
+    if (records[index].synthetic_false_alarm) {
+      ++false_alarm_count;
+    }
     summary.any_jammed =
         summary.any_jammed || records[index].observation.is_jammed;
     if (records[index].observation.snr_db > representative_snr) {
@@ -223,44 +228,99 @@ internal::ClusterSummary BuildClusterSummary(
   summary.mean_el_deg *= inv_count;
   summary.mean_rf_hz *= static_cast<double>(inv_count);
   summary.mean_pulse_width_s *= static_cast<double>(inv_count);
-  summary.confidence_score = Clamp01(confidence_acc * inv_count);
+  summary.deception_support_ratio =
+      static_cast<float>(deception_affected_count) * inv_count;
+  summary.false_alarm_ratio = static_cast<float>(false_alarm_count) * inv_count;
+  const float deception_penalty = 1.0f - Clamp01(
+                                             deception_config
+                                                 .cluster_confidence_penalty_scale *
+                                             summary.deception_support_ratio);
+  summary.confidence_score = Clamp01(confidence_acc * inv_count * deception_penalty);
   summary.representative_index = representative;
   return summary;
+}
+
+/**
+ * @brief 对真实观测施加欺骗式错分选扰动。
+ * @param[in] deception_strength 欺骗强度。
+ * @param[in] config 欺骗建模配置。
+ * @param[in,out] rng 随机引擎。
+ * @param[in,out] record 待扰动观测。
+ */
+void ApplyDeceptionConfusion(float deception_strength,
+                             const InterceptDeceptionModelConfig& config,
+                             std::mt19937* rng,
+                             internal::RawObservationRecord* record) {
+  if (rng == nullptr || record == nullptr) {
+    return;
+  }
+  const float strength = Clamp01(deception_strength);
+  const float aoa_std_deg = std::max(0.1f, config.aoa_confusion_std_deg);
+  const float rf_ratio = std::max(0.0f, config.rf_confusion_ratio);
+  const float pw_ratio = std::max(0.0f, config.pw_confusion_ratio);
+  std::normal_distribution<float> az_noise_dist(0.0f, aoa_std_deg * strength);
+  std::normal_distribution<float> el_noise_dist(0.0f, aoa_std_deg * 0.6f * strength);
+  std::uniform_real_distribution<float> rf_ratio_dist(-rf_ratio, rf_ratio);
+  std::uniform_real_distribution<float> pw_ratio_dist(-pw_ratio, pw_ratio);
+
+  record->observation.aoa_az_deg += az_noise_dist(*rng);
+  record->observation.aoa_el_deg += el_noise_dist(*rng);
+  record->observation.rf_hz +=
+      static_cast<double>(record->observation.rf_hz) *
+      static_cast<double>(rf_ratio_dist(*rng) * strength);
+  record->observation.pulse_width_s +=
+      static_cast<double>(record->observation.pulse_width_s) *
+      static_cast<double>(pw_ratio_dist(*rng) * strength);
+  record->observation.pulse_width_s =
+      std::max(record->observation.pulse_width_s, 1.0e-9);
+  record->deception_affected = true;
 }
 
 /**
  * @brief 生成欺骗式伪观测。
  * @param[in] template_record 模板观测。
  * @param[in] deception_strength 欺骗强度。
+ * @param[in] config 欺骗建模配置。
  * @param[in,out] rng 随机引擎。
  * @param[in,out] next_observation_id 观测 ID 分配器。
  * @return 伪观测记录。
  */
 internal::RawObservationRecord BuildDeceptionRecord(
     const internal::RawObservationRecord& template_record,
-    float deception_strength, std::mt19937* rng,
+    float deception_strength, const InterceptDeceptionModelConfig& config,
+    std::mt19937* rng,
     std::uint64_t* next_observation_id) {
   internal::RawObservationRecord record = template_record;
   if (next_observation_id != nullptr) {
     record.observation.observation_id = (*next_observation_id)++;
   }
-  std::normal_distribution<float> angle_dist(0.0f,
-                                             3.0f + 8.0f * deception_strength);
+  const float strength = Clamp01(deception_strength);
+  std::normal_distribution<float> angle_dist(
+      0.0f, std::max(0.5f, config.aoa_confusion_std_deg) * (0.5f + strength));
   std::uniform_real_distribution<float> rf_shift_dist(
-      0.6f + deception_strength, 1.4f + deception_strength);
+      -(0.6f + strength), 0.6f + strength);
+  std::uniform_real_distribution<float> pw_shift_dist(
+      -std::max(0.0f, config.pw_confusion_ratio),
+      std::max(0.0f, config.pw_confusion_ratio));
   std::uniform_real_distribution<float> snr_loss_dist(4.0f, 10.0f);
   if (rng != nullptr) {
     record.observation.aoa_az_deg += angle_dist(*rng);
     record.observation.aoa_el_deg += angle_dist(*rng) * 0.6f;
-    record.observation.rf_hz +=
-        static_cast<double>(template_record.observation.rf_hz *
-                            0.01f * rf_shift_dist(*rng));
+    record.observation.rf_hz += static_cast<double>(template_record.observation.rf_hz) *
+                                static_cast<double>(0.01f * rf_shift_dist(*rng));
+    record.observation.pulse_width_s +=
+        static_cast<double>(template_record.observation.pulse_width_s) *
+        static_cast<double>(pw_shift_dist(*rng));
+    record.observation.pulse_width_s =
+        std::max(record.observation.pulse_width_s, 1.0e-9);
     record.observation.snr_db -= snr_loss_dist(*rng);
   }
   record.observation.quality = common::ObservationQuality::kLow;
-  record.observation.is_jammed = true;
+  record.observation.is_jammed = false;
   record.truth_emitter_id = "";
   record.matched_truth = false;
+  record.deception_affected = true;
+  record.synthetic_false_alarm = true;
   return record;
 }
 
@@ -302,7 +362,10 @@ InterceptCycleResult InterceptPipeline::RunCycle(
       BuildReceiverWindow(input_state.cycle_index);
 
   std::vector<internal::RawObservationRecord> raw_records;
-  raw_records.reserve(input_state.scene_emitters.size() * 2U);
+  raw_records.reserve(
+      input_state.scene_emitters.size() *
+      (1U + static_cast<std::size_t>(
+                config_.deception_model.max_false_observations_per_emitter)));
   std::uniform_real_distribution<float> uniform_01(0.0f, 1.0f);
 
   for (std::size_t i = 0; i < input_state.scene_emitters.size(); ++i) {
@@ -321,10 +384,15 @@ InterceptCycleResult InterceptPipeline::RunCycle(
         intercept::JammingAggregator::Aggregate(
             environment_snapshot.jammer_sources, emitter.carrier_hz,
             emitter.bandwidth_hz);
+    const float suppression_noise_scale =
+        std::max(0.0f, config_.suppression_model.suppression_noise_scale);
+    const double effective_suppression_power_w =
+        static_cast<double>(jamming_result.suppression_power_w) *
+        static_cast<double>(suppression_noise_scale);
     const double noise_power_w =
         std::max(static_cast<double>(config_.detection.receiver_noise_floor_w) +
                      static_cast<double>(environment_snapshot.clutter_noise_w) +
-                     static_cast<double>(jamming_result.jammer_power_w),
+                     effective_suppression_power_w,
                  kNumericFloor);
 
     const intercept::BoundarySearchResult boundary_result =
@@ -370,10 +438,6 @@ InterceptCycleResult InterceptPipeline::RunCycle(
 
     const intercept::InterceptGateDecision gate_decision =
         intercept::InterceptGate::Evaluate(gate_input);
-    if (!gate_decision.passed) {
-      continue;
-    }
-
     const float effective_beamwidth_deg =
         std::max(1.0f, 0.5f * (gate_input.beam_az_width_deg +
                                gate_input.beam_el_width_deg));
@@ -386,31 +450,67 @@ InterceptCycleResult InterceptPipeline::RunCycle(
                             snr_db, effective_beamwidth_deg, &rng_,
                             angle_error_config);
     const bool is_jammed =
-        jamming_result.jammer_power_w > environment_snapshot.clutter_noise_w;
-
-    internal::RawObservationRecord record;
-    record.observation.observation_id = next_observation_id_++;
-    record.observation.timestamp_s =
-        static_cast<double>(input_state.cycle_index) *
-        static_cast<double>(input_state.dt_sec);
-    record.observation.aoa_az_deg = measured_az_deg;
-    record.observation.aoa_el_deg = measured_el_deg;
-    record.observation.rf_hz = emitter.carrier_hz;
-    record.observation.pulse_width_s = emitter.pulse_width_s;
-    record.observation.amplitude_db = ToDb(received_power_w);
-    record.observation.snr_db = snr_db;
-    record.observation.quality = ClassifyObservationQuality(snr_db, is_jammed);
-    record.observation.is_jammed = is_jammed;
-    record.truth_emitter_id = emitter.emitter_id;
-    record.matched_truth = true;
-    raw_records.push_back(record);
-
+        effective_suppression_power_w >=
+        static_cast<double>(std::max(
+            0.0f, config_.suppression_model.suppression_mark_threshold_w));
     const float deception_probability =
         Clamp01(jamming_result.deception_risk *
-                jamming_result.weighted_overlap_ratio);
-    if (uniform_01(rng_) < deception_probability) {
-      raw_records.push_back(BuildDeceptionRecord(
-          record, deception_probability, &rng_, &next_observation_id_));
+                jamming_result.deception_weighted_overlap_ratio *
+                std::max(0.0f,
+                         config_.deception_model.false_alarm_probability_scale));
+
+    internal::RawObservationRecord base_record;
+    base_record.observation.observation_id = next_observation_id_++;
+    base_record.observation.timestamp_s =
+        static_cast<double>(input_state.cycle_index) *
+        static_cast<double>(input_state.dt_sec);
+    base_record.observation.aoa_az_deg = measured_az_deg;
+    base_record.observation.aoa_el_deg = measured_el_deg;
+    base_record.observation.rf_hz = emitter.carrier_hz;
+    base_record.observation.pulse_width_s = emitter.pulse_width_s;
+    base_record.observation.amplitude_db = ToDb(received_power_w);
+    base_record.observation.snr_db = snr_db;
+    base_record.observation.quality = ClassifyObservationQuality(snr_db, is_jammed);
+    base_record.observation.is_jammed = is_jammed;
+
+    const std::uint32_t false_alarm_cap =
+        config_.deception_model.max_false_observations_per_emitter;
+    if (!gate_decision.passed) {
+      for (std::uint32_t fake_index = 0U; fake_index < false_alarm_cap;
+           ++fake_index) {
+        if (uniform_01(rng_) >= deception_probability) {
+          continue;
+        }
+        raw_records.push_back(
+            BuildDeceptionRecord(base_record, deception_probability,
+                                 config_.deception_model, &rng_,
+                                 &next_observation_id_));
+      }
+      continue;
+    }
+
+    internal::RawObservationRecord record = base_record;
+    record.truth_emitter_id = emitter.emitter_id;
+    record.matched_truth = true;
+
+    const float confusion_probability =
+        Clamp01(deception_probability *
+                std::max(0.0f, config_.deception_model.confusion_probability_scale));
+    if (uniform_01(rng_) < confusion_probability) {
+      ApplyDeceptionConfusion(deception_probability, config_.deception_model, &rng_,
+                              &record);
+    }
+    raw_records.push_back(record);
+
+    for (std::uint32_t fake_index = 0U; fake_index < false_alarm_cap;
+         ++fake_index) {
+      if (uniform_01(rng_) >= deception_probability) {
+        continue;
+      }
+      raw_records.push_back(
+          BuildDeceptionRecord(record, deception_probability,
+                               config_.deception_model, &rng_,
+                               &next_observation_id_));
     }
   }
 
@@ -448,7 +548,8 @@ InterceptCycleResult InterceptPipeline::RunCycle(
   cluster_summaries.reserve(cluster_result.clusters.size());
   for (std::size_t i = 0; i < cluster_result.clusters.size(); ++i) {
     cluster_summaries.push_back(
-        BuildClusterSummary(cluster_result.clusters[i], records, features));
+        BuildClusterSummary(cluster_result.clusters[i], records, features,
+                            config_.deception_model));
   }
 
   associator_.UpdateConfig(config_.association);
@@ -467,7 +568,7 @@ InterceptCycleResult InterceptPipeline::RunCycle(
     association.confidence = association.matched
                                  ? ComputeObservationConfidence(
                                        records[i].observation.snr_db,
-                                       records[i].observation.is_jammed, 0.0f)
+                                       records[i].observation.is_jammed)
                                  : 0.1f;
     result.truth_associations.push_back(association);
     if (association.matched) {

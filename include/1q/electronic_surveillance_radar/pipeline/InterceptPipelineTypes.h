@@ -85,6 +85,27 @@ struct ONEQ_API InterceptAssociationConfig {
 };
 
 /**
+ * @brief InterceptSuppressionModelConfig 描述压制分量建模参数。
+ */
+struct ONEQ_API InterceptSuppressionModelConfig {
+  float suppression_noise_scale{1.0f}; /**< 压制功率映射到等效噪声功率的比例系数 */
+  float suppression_mark_threshold_w{1.0e-12f}; /**< 压制生效判定阈值（单位：W） */
+};
+
+/**
+ * @brief InterceptDeceptionModelConfig 描述欺骗分量建模参数。
+ */
+struct ONEQ_API InterceptDeceptionModelConfig {
+  float false_alarm_probability_scale{1.0f}; /**< 欺骗虚警注入概率缩放系数 */
+  float confusion_probability_scale{0.6f}; /**< 欺骗错分选触发概率缩放系数 */
+  std::uint32_t max_false_observations_per_emitter{1U}; /**< 每辐射源每周期最大伪观测注入数 */
+  float aoa_confusion_std_deg{4.0f}; /**< 错分选方位扰动标准差（单位：deg） */
+  float rf_confusion_ratio{0.02f}; /**< 错分选载频扰动比例上限 */
+  float pw_confusion_ratio{0.35f}; /**< 错分选脉宽扰动比例上限 */
+  float cluster_confidence_penalty_scale{0.55f}; /**< 簇级置信度欺骗惩罚缩放系数 */
+};
+
+/**
  * @brief InterceptPipelineConfig 描述电子侦察流水线顶层配置。
  */
 struct ONEQ_API InterceptPipelineConfig {
@@ -94,6 +115,8 @@ struct ONEQ_API InterceptPipelineConfig {
   InterceptPreprocessConfig preprocess{}; /**< 观测预处理配置 */
   InterceptClusterConfig cluster{}; /**< 聚类配置 */
   InterceptAssociationConfig association{}; /**< 假设关联配置 */
+  InterceptSuppressionModelConfig suppression_model{}; /**< 压制分量建模配置 */
+  InterceptDeceptionModelConfig deception_model{}; /**< 欺骗分量建模配置 */
 };
 
 /**
