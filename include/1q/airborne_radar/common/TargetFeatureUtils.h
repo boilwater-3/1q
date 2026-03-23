@@ -8,6 +8,7 @@
 
 #include <cstdint>
 
+#include "1q/api.hpp"
 #include "1q/airborne_radar/common/TargetFeature.h"
 
 namespace airborne_radar {
@@ -26,7 +27,7 @@ namespace common {
  * @param swerling_type 目标起伏模型编号。
  * @return 已写入位置、速度与斜距的目标特征。
  */
-TargetFeature MakeTargetFromCartesian(
+ONEQ_API TargetFeature MakeTargetFromCartesian(
     std::uint64_t external_target_id,
     float position_x,
     float position_y,
@@ -48,7 +49,7 @@ TargetFeature MakeTargetFromCartesian(
  * @param swerling_type 目标起伏模型编号。
  * @return `z=0` 的目标特征。
  */
-TargetFeature MakeGroundTarget(
+ONEQ_API TargetFeature MakeGroundTarget(
     std::uint64_t external_target_id,
     float position_x,
     float position_y,
@@ -70,7 +71,7 @@ TargetFeature MakeGroundTarget(
  * @param swerling_type 目标起伏模型编号。
  * @return 已写入三维位置与斜距的目标特征。
  */
-TargetFeature MakeAirTarget(
+ONEQ_API TargetFeature MakeAirTarget(
     std::uint64_t external_target_id,
     float position_x,
     float position_y,
@@ -87,13 +88,13 @@ TargetFeature MakeAirTarget(
  *          当 `range_m <= 0` 且位置全零时，不做静默修复。
  * @param target 目标特征指针，可为 nullptr。
  */
-void NormalizeTargetGeometry(TargetFeature* target);
+ONEQ_API void NormalizeTargetGeometry(TargetFeature* target);
 
 /**
  * @brief 批量规范化目标几何派生量。
  * @param targets 目标特征列表指针，可为 nullptr。
  */
-void NormalizeTargetGeometry(TargetFeatureList* targets);
+ONEQ_API void NormalizeTargetGeometry(TargetFeatureList* targets);
 
 } // namespace common
 } // namespace airborne_radar

@@ -42,6 +42,17 @@ set(PROJECT_SOURCES
 add_library(${PROJECT_CORE_TARGET} ${PROJECT_SOURCES})
 add_library(${PROJECT_ALIAS} ALIAS ${PROJECT_CORE_TARGET})
 
+include(GenerateExportHeader)
+set(PROJECT_GENERATED_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/include")
+set(PROJECT_GENERATED_EXPORT_HEADER
+    "${PROJECT_GENERATED_INCLUDE_DIR}/1q/oneq_export.h")
+file(MAKE_DIRECTORY "${PROJECT_GENERATED_INCLUDE_DIR}/1q")
+generate_export_header(${PROJECT_CORE_TARGET}
+    BASE_NAME ONEQ
+    EXPORT_FILE_NAME "${PROJECT_GENERATED_EXPORT_HEADER}"
+    STATIC_DEFINE ONEQ_STATIC_DEFINE
+)
+
 # 添加源文件到目标
 target_sources(${PROJECT_CORE_TARGET} PRIVATE ${PROJECT_SOURCES})
 # 设置包含目录
@@ -49,6 +60,7 @@ target_include_directories(${PROJECT_CORE_TARGET}
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
     PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_GENERATED_INCLUDE_DIR}>
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
 )
@@ -63,12 +75,11 @@ find_package(eventpp CONFIG REQUIRED)
 find_package(Boost CONFIG REQUIRED)
 target_link_libraries(${PROJECT_CORE_TARGET} PRIVATE spdlog::spdlog Eigen3::Eigen eventpp::eventpp Boost::boost)
 
-# 设置与 api.hpp 符号匹配的编译定义
-target_compile_definitions(${PROJECT_CORE_TARGET}
-    PRIVATE $<$<BOOL:${BUILD_SHARED_LIBS}>:ONEQ_LIBRARY_BUILD>
-    PUBLIC  $<$<BOOL:${BUILD_SHARED_LIBS}>:ONEQ_LIBRARY_SHARED>
-    PUBLIC  $<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:ONEQ_STATIC>
-)
+if(NOT BUILD_SHARED_LIBS)
+    target_compile_definitions(${PROJECT_CORE_TARGET}
+        PUBLIC ONEQ_STATIC_DEFINE
+    )
+endif()
 
 # 设置目标属性
 set_target_properties(${PROJECT_CORE_TARGET} PROPERTIES
@@ -79,10 +90,11 @@ set_target_properties(${PROJECT_CORE_TARGET} PROPERTIES
     SOVERSION ${PROJECT_VERSION_MAJOR}
 )
 
-# Windows DLL 自动导出全部符号（公共头无 ONEQ_API 装饰时的兜底方案）
-if(BUILD_SHARED_LIBS)
+# 非 Windows 平台默认隐藏符号，仅显式导出公共 API
+if(NOT WIN32)
     set_target_properties(${PROJECT_CORE_TARGET} PROPERTIES
-        WINDOWS_EXPORT_ALL_SYMBOLS ON
+        CXX_VISIBILITY_PRESET hidden
+        VISIBILITY_INLINES_HIDDEN YES
     )
 endif()
 
@@ -201,6 +213,9 @@ if(ENABLE_INSTALL)
 
     # 安装公共头文件（显式白名单，避免内部头被自动导出）
     install(FILES ${PUBLIC_HEADERS_ROOT}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q
+    )
+    install(FILES "${PROJECT_GENERATED_EXPORT_HEADER}"
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q
     )
     install(FILES ${PUBLIC_HEADERS_COMMON}

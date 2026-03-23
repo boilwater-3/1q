@@ -6,6 +6,7 @@
 #ifndef AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_SCENE_BUILDER_H_
 #define AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_SCENE_BUILDER_H_
 
+#include "1q/api.hpp"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 
 namespace airborne_radar {
@@ -15,7 +16,7 @@ namespace environment {
 /**
  * @brief EnvironmentSceneBuilder 用于构造待生效的环境场景状态。
  */
-class EnvironmentSceneBuilder {
+class ONEQ_API EnvironmentSceneBuilder {
 public:
   /** @brief 默认构造函数，使用 EnvironmentSceneState 默认值初始化 */
   EnvironmentSceneBuilder() = default;

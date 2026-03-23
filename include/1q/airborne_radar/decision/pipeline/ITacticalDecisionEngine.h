@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "1q/api.hpp"
 #include "1q/airborne_radar/common/ControlDirective.h"
 #include "1q/airborne_radar/common/DecisionInputFrame.h"
 #include "1q/airborne_radar/common/DecisionSourceInfo.h"
@@ -72,7 +73,7 @@ struct TacticalDecisionResult {
 /**
  * @brief ITacticalDecisionEngine 抽象新的决策协调器接口。
  */
-class ITacticalDecisionEngine {
+class ONEQ_API ITacticalDecisionEngine {
  public:
   virtual ~ITacticalDecisionEngine() = default;
 

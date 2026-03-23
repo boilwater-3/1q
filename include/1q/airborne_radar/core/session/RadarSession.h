@@ -9,6 +9,7 @@
 #include <memory>
 #include <vector>
 
+#include "1q/api.hpp"
 #include "1q/airborne_radar/common/RadarCommand.h"
 #include "1q/airborne_radar/common/RadarControlProfile.h"
 #include "1q/airborne_radar/common/TrackOutputFrame.h"
@@ -24,7 +25,7 @@ namespace session {
 /**
  * @brief RadarSessionConfig 描述 RadarSession 的默认装配配置。
  */
-struct RadarSessionConfig {
+struct ONEQ_API RadarSessionConfig {
   signal::pipeline::SignalPipelineConfig signal_pipeline_config{}; /**< 信号流水线配置 */
   environment::EnvironmentModelConfig environment_model_config{}; /**< 环境模型配置 */
   float jamming_detection_threshold_db{6.0f}; /**< 干扰判定阈值（单位：dB） */
@@ -33,7 +34,7 @@ struct RadarSessionConfig {
 /**
  * @brief RadarSession 提供"一步一帧"的外部接入门面。
  */
-class RadarSession {
+class ONEQ_API RadarSession {
 public:
   /** @brief 使用默认链路构造会话 */
   explicit RadarSession(RadarSessionConfig config = {});

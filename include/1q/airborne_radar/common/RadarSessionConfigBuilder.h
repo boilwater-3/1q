@@ -8,6 +8,7 @@
 
 #include <cstdint>
 
+#include "1q/api.hpp"
 #include "1q/airborne_radar/core/session/RadarSession.h"
 
 namespace airborne_radar {
@@ -42,7 +43,7 @@ namespace common {
  * - 未暴露于 Builder 的高级选项（天线方向图、IMM 参数、对象池大小等）
  *   仍可通过直接访问 `RadarSessionConfig` 内部嵌套字段配置。
  */
-class RadarSessionConfigBuilder {
+class ONEQ_API RadarSessionConfigBuilder {
  public:
   /**
    * @brief 以给定配置为基础构造 Builder。

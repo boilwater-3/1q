@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <memory>
 
+#include "1q/api.hpp"
 #include "1q/airborne_radar/common/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/output/IRadarOutputReader.h"
 #include "1q/airborne_radar/decision/pipeline/ControlReducerTypes.h"
@@ -52,7 +53,7 @@ namespace controller {
  * @details 采用 PIMPL 模式隐藏实现细节，保证 ABI 稳定性；
  *          内部状态变更不会触发外部项目重编。
  */
-class RadarController : public core::output::IRadarOutputReader {
+class ONEQ_API RadarController : public core::output::IRadarOutputReader {
  public:
   ~RadarController();
 

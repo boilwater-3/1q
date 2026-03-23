@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "1q/api.hpp"
 #include "1q/airborne_radar/common/TargetFeature.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 
@@ -55,7 +56,7 @@ struct ValidationIssue {
  * @param input 当前周期输入。
  * @return 按发现顺序返回的校验问题列表。
  */
-std::vector<ValidationIssue>
+ONEQ_API std::vector<ValidationIssue>
 ValidateRadarCycleInput(const RadarCycleInput& input);
 
 /**
@@ -63,7 +64,7 @@ ValidateRadarCycleInput(const RadarCycleInput& input);
  * @param targets 当前周期目标列表。
  * @return 按发现顺序返回的校验问题列表。
  */
-std::vector<ValidationIssue>
+ONEQ_API std::vector<ValidationIssue>
 ValidateTargetFeatures(const common::TargetFeatureList& targets);
 
 /**
@@ -71,7 +72,7 @@ ValidateTargetFeatures(const common::TargetFeatureList& targets);
  * @param issues 校验问题列表。
  * @return 至少存在一个 `kError` 时返回 true。
  */
-bool HasValidationError(const std::vector<ValidationIssue>& issues);
+ONEQ_API bool HasValidationError(const std::vector<ValidationIssue>& issues);
 
 } // namespace context
 } // namespace core

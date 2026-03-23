@@ -6,6 +6,7 @@
 #ifndef AIRBORNE_RADAR_SIGNAL_PIPELINE_I_SIGNAL_PIPELINE_H_
 #define AIRBORNE_RADAR_SIGNAL_PIPELINE_I_SIGNAL_PIPELINE_H_
 
+#include "1q/api.hpp"
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/common/RadarControlProfile.h"
 #include "1q/airborne_radar/common/RadarOrientationConfig.h"
@@ -18,7 +19,7 @@ namespace pipeline {
 /**
  * @brief ISignalPipeline 定义单周期内的探测与跟踪处理流程。
  */
-class ISignalPipeline {
+class ONEQ_API ISignalPipeline {
  public:
   virtual ~ISignalPipeline() = default;
 

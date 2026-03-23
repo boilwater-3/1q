@@ -1,6 +1,7 @@
 #include "airborne_radar/decision/classifier/ThreatAssessmentEvaluator.h"
 
 #include <cmath>
+#include <algorithm>
 
 #include <spdlog/spdlog.h>
 

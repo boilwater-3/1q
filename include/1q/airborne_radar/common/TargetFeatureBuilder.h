@@ -8,6 +8,7 @@
 
 #include <cstdint>
 
+#include "1q/api.hpp"
 #include "1q/airborne_radar/common/TargetFeature.h"
 #include "1q/airborne_radar/common/TargetFeatureUtils.h"
 
@@ -34,7 +35,7 @@ namespace common {
  *
  * @note 调用 `Build()` 前会自动规范化斜距（同 `NormalizeTargetGeometry`）。
  */
-class TargetFeatureBuilder {
+class ONEQ_API TargetFeatureBuilder {
  public:
   /**
    * @brief 构造函数，需提供外部目标标识符。

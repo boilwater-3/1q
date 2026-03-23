@@ -7,6 +7,7 @@
 #ifndef AIRBORNE_RADAR_CORE_CONTEXT_I_RADAR_CONTEXT_H_
 #define AIRBORNE_RADAR_CORE_CONTEXT_I_RADAR_CONTEXT_H_
 
+#include "1q/api.hpp"
 #include "1q/airborne_radar/common/RadarOrientationConfig.h"
 #include "1q/airborne_radar/common/RadarCommand.h"
 #include "1q/airborne_radar/common/RadarControlProfile.h"
@@ -20,7 +21,7 @@ namespace context {
  * @brief IRadarContext 抽象了系统的当前战术态势操作。
  * 通过该接口，控制器不再依赖具体的处理层类，实现依赖倒置。
  */
-class IRadarContext {
+class ONEQ_API IRadarContext {
 public:
   virtual ~IRadarContext() = default;
 

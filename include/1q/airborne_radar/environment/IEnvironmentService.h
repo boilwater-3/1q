@@ -6,6 +6,7 @@
 #ifndef AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_
 #define AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_
 
+#include "1q/api.hpp"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 
 namespace airborne_radar {
@@ -14,7 +15,7 @@ namespace environment {
 /**
  * @brief IEnvironmentService 为信号处理与决策层提供只读环境查询接口。
  */
-class IEnvironmentService {
+class ONEQ_API IEnvironmentService {
  public:
   virtual ~IEnvironmentService() = default;
 

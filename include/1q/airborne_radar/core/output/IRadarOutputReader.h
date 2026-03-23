@@ -6,6 +6,7 @@
 #ifndef AIRBORNE_RADAR_CORE_OUTPUT_I_RADAR_OUTPUT_READER_H_
 #define AIRBORNE_RADAR_CORE_OUTPUT_I_RADAR_OUTPUT_READER_H_
 
+#include "1q/api.hpp"
 #include "1q/airborne_radar/common/TrackOutputFrame.h"
 
 namespace airborne_radar {
@@ -15,7 +16,7 @@ namespace output {
 /**
  * @brief IRadarOutputReader 抽象外部读取最新轨迹输出帧的只读能力。
  */
-class IRadarOutputReader {
+class ONEQ_API IRadarOutputReader {
 public:
   virtual ~IRadarOutputReader() = default;
 
