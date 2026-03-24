@@ -3,10 +3,24 @@
 
 cmake_minimum_required(VERSION 3.16...3.30)
 
+if(DEFINED CMAKE_TOOLCHAIN_FILE)
+    get_filename_component(_requested_toolchain "${CMAKE_TOOLCHAIN_FILE}" ABSOLUTE)
+    get_filename_component(_bootstrap_toolchain
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/ConanBootstrapToolchain.cmake" ABSOLUTE)
+
+    if(NOT EXISTS "${_requested_toolchain}"
+       AND NOT _requested_toolchain STREQUAL _bootstrap_toolchain)
+        message(FATAL_ERROR
+            "Requested toolchain does not exist: ${CMAKE_TOOLCHAIN_FILE}\n"
+            "Use ${_bootstrap_toolchain} as CMAKE_TOOLCHAIN_FILE so Conan can "
+            "bootstrap the generated toolchain, or run conan install manually "
+            "before configuring.")
+    endif()
+endif()
+
 include(cmake/ProjectLanguageDefaults.cmake)
 
 # 项目期望的 C++ 标准
-set(PROJECT_DEFAULT_CXX_STANDARD "${ONEQ_DEFAULT_CXX_STANDARD}")
 if(DEFINED CMAKE_CXX_STANDARD AND NOT CMAKE_CXX_STANDARD STREQUAL "")
     set(PROJECT_CXX_STANDARD "${CMAKE_CXX_STANDARD}")
 else()

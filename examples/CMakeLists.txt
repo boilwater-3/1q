@@ -66,7 +66,6 @@ if(ENABLE_VISUALIZATION_EXAMPLES)
     find_package(imgui  CONFIG QUIET)
     find_package(implot CONFIG QUIET)
     find_package(glfw3  CONFIG QUIET)
-    find_package(spdlog CONFIG REQUIRED)
     if(imgui_FOUND AND implot_FOUND AND glfw3_FOUND)
         # imgui conan 包的 bindings 目录（源文件 + 头文件）
         set(IMGUI_BINDINGS_DIR "${imgui_PACKAGE_FOLDER_RELEASE}/res/bindings")
@@ -76,7 +75,7 @@ if(ENABLE_VISUALIZATION_EXAMPLES)
             "${IMGUI_BINDINGS_DIR}/imgui_impl_opengl3.cpp"
         )
         target_link_libraries(example_track_visualizer PRIVATE
-            ${PROJECT_ALIAS} imgui::imgui implot::implot glfw spdlog::spdlog)
+            ${PROJECT_ALIAS} imgui::imgui implot::implot glfw)
         # imgui backends 头文件位于 res/bindings/，不在默认 include 路径
         target_include_directories(example_track_visualizer PRIVATE
             ${CMAKE_SOURCE_DIR}/include
@@ -94,7 +93,7 @@ if(ENABLE_VISUALIZATION_EXAMPLES)
             "${IMGUI_BINDINGS_DIR}/imgui_impl_opengl3.cpp"
         )
         target_link_libraries(example_ecm_scenario_visualizer PRIVATE
-            ${PROJECT_ALIAS} imgui::imgui implot::implot glfw spdlog::spdlog)
+            ${PROJECT_ALIAS} imgui::imgui implot::implot glfw)
         target_include_directories(example_ecm_scenario_visualizer PRIVATE
             ${CMAKE_SOURCE_DIR}/include
             "${IMGUI_BINDINGS_DIR}")
@@ -111,7 +110,7 @@ if(ENABLE_VISUALIZATION_EXAMPLES)
             "${IMGUI_BINDINGS_DIR}/imgui_impl_opengl3.cpp"
         )
         target_link_libraries(example_multi_target_visualizer PRIVATE
-            ${PROJECT_ALIAS} imgui::imgui implot::implot glfw spdlog::spdlog)
+            ${PROJECT_ALIAS} imgui::imgui implot::implot glfw)
         target_include_directories(example_multi_target_visualizer PRIVATE
             ${CMAKE_SOURCE_DIR}/include
             "${IMGUI_BINDINGS_DIR}")
@@ -128,7 +127,7 @@ if(ENABLE_VISUALIZATION_EXAMPLES)
             "${IMGUI_BINDINGS_DIR}/imgui_impl_opengl3.cpp"
         )
         target_link_libraries(example_detection_range_visualizer PRIVATE
-            ${PROJECT_ALIAS} imgui::imgui implot::implot glfw spdlog::spdlog)
+            ${PROJECT_ALIAS} imgui::imgui implot::implot glfw)
         target_include_directories(example_detection_range_visualizer PRIVATE
             ${CMAKE_SOURCE_DIR}/include
             "${IMGUI_BINDINGS_DIR}")
@@ -145,7 +144,7 @@ if(ENABLE_VISUALIZATION_EXAMPLES)
             "${IMGUI_BINDINGS_DIR}/imgui_impl_opengl3.cpp"
         )
         target_link_libraries(example_tactical_mode_visualizer PRIVATE
-            ${PROJECT_ALIAS} imgui::imgui implot::implot glfw spdlog::spdlog)
+            ${PROJECT_ALIAS} imgui::imgui implot::implot glfw)
         target_include_directories(example_tactical_mode_visualizer PRIVATE
             ${CMAKE_SOURCE_DIR}/include
             "${IMGUI_BINDINGS_DIR}")
