@@ -10,26 +10,36 @@ message(STATUS "  └─ Compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER
 
 # 栈大小设置（通过链接器标志）
 if(STACK_SIZE_OPTION STREQUAL "DEFAULT")
-    message(STATUS "  └─ Stack size: Using system default (1MB)")
+    message(STATUS "  Stack size: Using system default (1MB)")
 elseif(STACK_SIZE_OPTION STREQUAL "RECOMMENDED")
-    add_link_options(/STACK:2097152)    # 2MB
-    message(STATUS "  └─ Stack size: 2MB (Recommended)")
+    add_link_options(/STACK:2097152)  # 2MB
+    message(STATUS "  Stack size: 2MB (Recommended)")
 elseif(STACK_SIZE_OPTION STREQUAL "LARGE_PROJECT")
-    add_link_options(/STACK:4194304)    # 4MB
-    message(STATUS "  └─ Stack size: 4MB (Large Project)")
+    add_link_options(/STACK:4194304)  # 4MB
+    message(STATUS "  Stack size: 4MB (Large Project)")
 elseif(STACK_SIZE_OPTION STREQUAL "EXTREME_RECURSION")
-    add_link_options(/STACK:8388608)    # 8MB
-    message(STATUS "  └─ Stack size: 8MB (Extreme Recursion)")
+    add_link_options(/STACK:8388608)  # 8MB
+    message(STATUS "  Stack size: 8MB (Extreme Recursion)")
 endif()
 
 # 通用编译选项
-add_compile_options(
-    /Zc:referenceBinding    # 严格的引用绑定规则
-    /Zc:inline              # 移除未引用的函数/数据
-    /utf-8                  # UTF-8 源文件和执行字符集
-    /MP                     # 多处理器并行编译
-    /permissive-            # 标准一致性模式（推荐）
+set(ONEQ_MSVC_COMMON_COMPILE_OPTIONS
+    /MP
+    /Zc:inline
 )
+
+# VS2017+ 引入了新的编译器选项，启用更严格的标准兼容性和更好的 UTF-8 支持
+if(MSVC_VERSION GREATER_EQUAL 1910)
+    list(APPEND ONEQ_MSVC_COMMON_COMPILE_OPTIONS
+        /utf-8
+        /permissive-
+        /Zc:referenceBinding
+    )
+else()
+    message(STATUS "  Legacy MSVC mode: skipping /utf-8 /permissive- /Zc:referenceBinding for VS2015 compatibility")
+endif()
+
+add_compile_options(${ONEQ_MSVC_COMMON_COMPILE_OPTIONS})
 
 # 警告配置
 if(ENABLE_WARNINGS)
@@ -56,17 +66,21 @@ if(ENABLE_WARNINGS)
         /w14906                 # 字符串字面值强制转换
         /w14928                 # 非法的复制初始化
     )
-    message(STATUS "  └─ Warnings: Enhanced (/W4 + additional checks)")
+    message(STATUS "  Warnings: Enhanced (/W4 + additional checks)")
 else()
     add_compile_options(/W3)
-    message(STATUS "  └─ Warnings: Standard (/W3)")
+    message(STATUS "  Warnings: Standard (/W3)")
 endif()
 
 # Debug 模式配置
 add_compile_options($<$<CONFIG:Debug>:/Zi>)        # 完整调试信息
 add_compile_options($<$<CONFIG:Debug>:/Od>)        # 禁用优化
 add_compile_options($<$<CONFIG:Debug>:/RTC1>)      # 运行时错误检查
-add_compile_options($<$<CONFIG:Debug>:/JMC>)       # Just My Code调试
+
+# VS2017+ 支持 /JMC（Just My Code）选项，增强调试体验
+if(MSVC_VERSION GREATER_EQUAL 1910)
+    add_compile_options($<$<CONFIG:Debug>:/JMC>)
+endif()
 add_link_options($<$<CONFIG:Debug>:/DEBUG:FULL>)   # 完整调试信息
 add_link_options($<$<CONFIG:Debug>:/INCREMENTAL>)  # 增量链接
 
