@@ -2,7 +2,7 @@
 
 #include <memory>
 
-#include <spdlog/spdlog.h>
+#include "common/logging/ProjectLog.h"
 
 #include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
 #include "1q/electronic_surveillance_radar/pipeline/IInterceptPipeline.h"
@@ -55,7 +55,7 @@ void EsrController::RunOnce(const context::EsrCycleInput& input) {
       input.cycle_index, impl_->batch_id, intercept_result);
   impl_->has_latest_output_frame = true;
 
-  spdlog::debug(
+  PROJECT_LOG_DEBUG(
       "[EsrController] cycle summary: cycle_index={} batch_id={} "
       "observations={} hypotheses={} truth_associations={}",
       input.cycle_index, impl_->batch_id,

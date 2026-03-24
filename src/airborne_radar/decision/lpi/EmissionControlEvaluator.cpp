@@ -1,6 +1,6 @@
 #include "airborne_radar/decision/lpi/EmissionControlEvaluator.h"
 
-#include <spdlog/spdlog.h>
+#include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
 namespace decision {
@@ -41,7 +41,7 @@ void EmissionControlEvaluator::Evaluate(
 
   evaluation_state.should_reduce_power = should_reduce_power;
   if (!should_reduce_power) {
-    spdlog::info("[EmissionControlEvaluator] No severe threat. LPI remains inactive.");
+    PROJECT_LOG_INFO("[EmissionControlEvaluator] No severe threat. LPI remains inactive.");
     return;
   }
 
@@ -50,7 +50,7 @@ void EmissionControlEvaluator::Evaluate(
       BuildLpiPowerDirective(),
       60,
       "high-confidence threat requires reduced emission"});
-  spdlog::info(
+  PROJECT_LOG_INFO(
       "[EmissionControlEvaluator] High threat detected. Appending proposal: REQUEST_LPI_POWER_REDUCTION");
 }
 

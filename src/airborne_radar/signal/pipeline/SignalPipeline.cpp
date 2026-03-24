@@ -11,7 +11,7 @@
 #include <vector>
 
 #include <Eigen/Core>
-#include <spdlog/spdlog.h>
+#include "common/logging/ProjectLog.h"
 
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "airborne_radar/core/output/DataOutputManager.h"

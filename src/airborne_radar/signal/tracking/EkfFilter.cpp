@@ -12,13 +12,13 @@ EkfPredictor::EkfPredictor(const ITransitionModel *model,
 
 GaussianTrackState EkfPredictor::Predict(const GaussianTrackState &prior,
                                          float dt) const {
-  // 非线性均值预测
+  /* 非线性均值预测 */
   const StateVector x_pred = model_->Function(prior.mean, dt);
 
-  // Jacobian 线性化
+  /* Jacobian 线性化 */
   const TransitionMatrix F = model_->Jacobian(prior.mean, dt);
 
-  // 过程噪声（复用 KalmanPredictor 的 CV 模型噪声结构）
+  /* 过程噪声（复用 KalmanPredictor 的 CV 模型噪声结构） */
   const ProcessNoiseCovariance Q =
       KalmanPredictor::BuildProcessNoise(dt, config_.noise_diff_coeff);
 
@@ -45,29 +45,29 @@ KalmanUpdateResult EkfUpdater::Update(
     const MeasurementCovariance &dynamic_R) const {
   KalmanUpdateResult result;
 
-  // 非线性量测预测
+  /* 非线性量测预测 */
   const MeasurementVector z_pred = model_->Function(predicted.mean);
 
-  // Jacobian
+  /* Jacobian */
   const MeasurementMatrix H = model_->Jacobian(predicted.mean);
 
-  // 1. Innovation
+  /* Innovation */
   result.innovation = measurement - z_pred;
 
-  // 2. Innovation covariance
+  /* Innovation covariance */
   result.innovation_covariance =
       H * predicted.covariance * H.transpose() + dynamic_R;
 
-  // 3. Kalman gain (LLT 分解)
+  /* Kalman gain (LLT 分解) */
   const KalmanGainMatrix K =
       predicted.covariance * H.transpose() *
       result.innovation_covariance.llt().solve(
           MeasurementCovariance::Identity());
 
-  // 4. Posterior mean
+  /* Posterior mean */
   result.posterior.mean = predicted.mean + K * result.innovation;
 
-  // 5. Posterior covariance (Joseph 形式)
+  /* Posterior covariance (Joseph 形式) */
   const StateCovariance I_KH =
       StateCovariance::Identity() - K * H;
   result.posterior.covariance =

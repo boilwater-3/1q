@@ -23,31 +23,39 @@ KalmanUpdateResult KalmanUpdater::Update(
     const MeasurementCovariance &dynamic_R) const {
   KalmanUpdateResult result;
 
-  // 1. Innovation (新息)
+  /* Innovation (新息) */
   result.innovation = measurement - H_ * predicted.mean;
 
-  // 2. Innovation covariance (新息协方差)
-  //    S = H · P̂ · Hᵀ + R
+  /** 
+   * Innovation covariance (新息协方差)
+   * S = H · P̂ · Hᵀ + R
+   */ 
   result.innovation_covariance =
       H_ * predicted.covariance * H_.transpose() + dynamic_R;
 
-  // 3. Kalman gain (Kalman 增益)
-  //    K = P̂ · Hᵀ · S⁻¹
-  //    使用 LLT 分解求解 S⁻¹，比直接 .inverse() 更稳定
+  /** 
+   *  Kalman gain (Kalman 增益)
+   *  K = P̂ · Hᵀ · S⁻¹
+   *  使用 LLT 分解求解 S⁻¹，比直接 .inverse() 更稳定
+   */ 
   const KalmanGainMatrix K =
       predicted.covariance * H_.transpose() *
       result.innovation_covariance.llt().solve(
           MeasurementCovariance::Identity());
 
-  // 4. Posterior mean (后验均值)
-  //    x = x̂ + K · y
+  /** 
+   * Posterior mean (后验均值)
+   * x = x̂ + K · y
+   */ 
   result.posterior.mean = predicted.mean + K * result.innovation;
 
-  // 5. Posterior covariance (Joseph 形式)
-  //    P = (I - K·H) · P̂ · (I - K·H)ᵀ + K · R · Kᵀ
-  //    相比简化公式 P = (I-KH)·P̂，Joseph 形式在数值上更稳定，
-  //    能保证协方差矩阵的对称正定性。
-  //    参考 Stone Soup KalmanUpdater._posterior_covariance 中的实现。
+  /** 
+   * Posterior covariance (Joseph 形式)
+   * P = (I - K·H) · P̂ · (I - K·H)ᵀ + K · R · Kᵀ
+   * 相比简化公式 P = (I-KH)·P̂，Joseph 形式在数值上更稳定，
+   * 能保证协方差矩阵的对称正定性。
+   * 参考 Stone Soup KalmanUpdater._posterior_covariance 中的实现。
+   */ 
   const StateCovariance I_KH =
       StateCovariance::Identity() - K * H_;
   result.posterior.covariance =

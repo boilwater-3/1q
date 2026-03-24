@@ -3,7 +3,7 @@
 #include <cmath>
 #include <algorithm>
 
-#include <spdlog/spdlog.h>
+#include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
 namespace decision {
@@ -56,7 +56,7 @@ void ThreatAssessmentEvaluator::Evaluate(
 
   if (input_frame.tracks.empty()) {
     AppendType(&evaluation_state.target_classification_result, "UNKNOWN");
-    spdlog::warn(
+    PROJECT_LOG_WARN(
         "[ThreatAssessmentEvaluator] Empty track snapshot list, classification reset.");
     return;
   }
@@ -89,7 +89,7 @@ void ThreatAssessmentEvaluator::Evaluate(
       evaluation_state.eccm_source_info.has_jamming_signal = true;
     }
 
-    spdlog::info("[ThreatAssessmentEvaluator] Target[{}] -> Classification: {}",
+    PROJECT_LOG_INFO("[ThreatAssessmentEvaluator] Target[{}] -> Classification: {}",
                  i, classification);
   }
 }
@@ -107,7 +107,7 @@ std::string ThreatAssessmentEvaluator::IdentifyTarget(
       if (ShouldAcceptRepositoryMatch(match_result)) {
         return match_result.target_type;
       }
-      spdlog::debug(
+      PROJECT_LOG_DEBUG(
           "[ThreatAssessmentEvaluator] Repository match filtered out (type: {}, "
           "probability: {:.3f}, distance: {:.3f}).",
           match_result.target_type, match_result.probability,

@@ -78,11 +78,17 @@ float RadarEquations::ComputeEchoPowerWithGain_dBW(
     return -300.0f;
   }
 
+  /* 计算波长、对数域参数和总损耗 */
   const float wavelength_m = kLightSpeed / tx.frequency_hz;
+  /* 公式中 PT 的对数域值是 10*log10(PT²) */
   const float pt_db = LinearToDb(tx.peak_power_w);
+  /* 公式中 λ 的对数域值是 10*log10(λ²) = 20*log10(λ) */
   const float lambda_db = LinearToDb(wavelength_m);
+  /* 公式中 R 的对数域值是 10*log10(R²) = 20*log10(R) */
   const float r_db = LinearToDb(range_m);
+  /* 公式中 σ 的对数域值是 10*log10(σ²) = 20*log10(σ) */
   const float rcs_db = LinearToDb(rcs_m2);
+  /* 公式中总损耗 L_sys 包含发射系统损耗和传播损耗 */
   const float total_loss_db = tx.transmit_loss_db + propagation_loss_db;
 
   const float pr_dbw = pt_db
@@ -163,24 +169,31 @@ double RadarEquations::ComputeThreshold(double pfa, int num_pulses) {
     // N=1: P_fa = exp(-T) → T = -ln(P_fa)
     return -std::log(pfa);
   }
-  // N>1: 求解 Q(N, T) = P_fa
-  // boost::math::gamma_q_inv(a, q) 返回 x 使得 Q(a,x) = q
+  /**
+   *  N>1: 求解 Q(N, T) = P_fa
+   * boost::math::gamma_q_inv(a, q) 返回 x 使得 Q(a,x) = q
+   */
   return boost::math::gamma_q_inv(
       static_cast<double>(num_pulses), pfa);
 }
 
-double RadarEquations::MarcumQ(int order, double a, double b) {
-  // Q_M(a, b) = Σ_{k=0}^∞ [e^{-λ} · λ^k / k!] · Q(M+k, b²/2)
-  // 其中 λ = a²/2
-  //
-  // 数值稳定性：从 Poisson 分布峰值 k₀ ≈ ⌊λ⌋ 处开始，
-  // 向两侧累加。避免从 k=0 开始导致 exp(-λ) 下溢。
+double RadarEquations::MarcumQ(int order, double a, double b)
+{
+  /**
+   *  Q_M(a, b) = Σ_{k=0}^∞ [e^{-λ} · λ^k / k!] · Q(M+k, b²/2)
+   *  其中 λ = a²/2
+   *
+   *  数值稳定性：从 Poisson 分布峰值 k₀ ≈ ⌊λ⌋ 处开始，
+   *  向两侧累加。避免从 k=0 开始导致 exp(-λ) 下溢。
+   */
 
   if (b <= 0.0) return 1.0;
   if (a < 0.0) a = 0.0;
 
-  // 极大信噪比情况（极远大于检测门限），由于 Poisson 分布的方差导致两翼截断误差会显现出数值不稳定
-  // 根据渐进性，当 a >> b 时，检测概率必然趋于 1.0
+  /**
+   *  极大信噪比情况（极远大于检测门限），由于 Poisson 分布的方差导致两翼截断误差会显现出数值不稳定
+   *  根据渐进性，当 a >> b 时，检测概率必然趋于 1.0
+   */
   if (a > b + 20.0) return 1.0;
 
   const double lambda = a * a / 2.0;
@@ -189,20 +202,23 @@ double RadarEquations::MarcumQ(int order, double a, double b) {
   const int kMaxIter = 500;
   const double kConvergence = 1e-12;
 
-  // 从 Poisson 峰值处开始
+  /* 从 Poisson 峰值处开始 */
   const int k0 = static_cast<int>(lambda);
 
-  // 计算 k0 处的 log(Poisson(k0, λ))，然后以此为基准
-  // log P(k, λ) = -λ + k·ln(λ) - ln(k!)
-  // 使用 lgamma 计算 ln(k!) = lgamma(k+1)
-  auto log_poisson = [lambda](int k) -> double {
+  /**
+   *  计算 k0 处的 log(Poisson(k0, λ))，然后以此为基准
+   *  log P(k, λ) = -λ + k·ln(λ) - ln(k!)
+   *  使用 lgamma 计算 ln(k!) = lgamma(k+1)
+   */
+  auto log_poisson = [lambda](int k) -> double
+  {
     if (k == 0) return -lambda;
     return -lambda + k * std::log(lambda) - std::lgamma(k + 1);
   };
 
   double sum = 0.0;
 
-  // 向右累加：k = k0, k0+1, k0+2, ...
+  /* 向右累加：k = k0, k0+1, k0+2, ... */
   {
     double log_pk = log_poisson(k0);
     for (int k = k0; k < k0 + kMaxIter; ++k) {
@@ -218,7 +234,7 @@ double RadarEquations::MarcumQ(int order, double a, double b) {
     }
   }
 
-  // 向左累加：k = k0-1, k0-2, ..., 0
+  /* 向左累加：k = k0-1, k0-2, ..., 0 */
   {
     double log_pk = log_poisson(k0 > 0 ? k0 - 1 : 0);
     for (int k = (k0 > 0 ? k0 - 1 : -1); k >= 0; --k) {
@@ -234,7 +250,6 @@ double RadarEquations::MarcumQ(int order, double a, double b) {
     }
   }
 
-  // 钳位
   if (sum < 0.0) return 0.0;
   if (sum > 1.0) return 1.0;
   return sum;
@@ -258,24 +273,12 @@ float RadarEquations::ComputeDetectionProbability(
   double pd = 0.0;
 
   switch (model) {
-    // -----------------------------------------------------------------
-    // Swerling 0（非起伏 / 确定性 RCS）
-    // Pd = Q_N(√(2Nχ), √(2T))  — Marcum Q
-    // -----------------------------------------------------------------
     case kSwerling0: {
       const double a = std::sqrt(2.0 * N * chi);
       const double b = std::sqrt(2.0 * T);
       pd = MarcumQ(N, a, b);
       break;
     }
-
-    // -----------------------------------------------------------------
-    // Swerling 1（扫描间慢起伏，Rayleigh RCS）
-    // N=1 精确: Pd = exp(-T/(1+χ))    [Richards/M&M eq.3-52]
-    // N≥2 精确: Pd = Q(N-1, V) + C^{N-1} · [Q(N-1, V/C) - Q(N-1, V)]
-    //          V = T/(1+Nχ),  C = Nχ/(1+Nχ)
-    //          Q(a,x) = gamma_q(a, x)    [Richards Table 2]
-    // -----------------------------------------------------------------
     case kSwerling1: {
       const double total_snr = N * chi;  // N 个脉冲的总 SNR
       if (N == 1) {
@@ -287,7 +290,6 @@ float RadarEquations::ComputeDetectionProbability(
 
         const double q1 = boost::math::gamma_q(a_shape, V);
 
-        // V/C = T/(Nχ)，当 χ→0 时趋于无穷
         if (C < 1e-15) {
           pd = q1;
         } else {
@@ -298,26 +300,12 @@ float RadarEquations::ComputeDetectionProbability(
       break;
     }
 
-    // -----------------------------------------------------------------
-    // Swerling 2（脉冲间快起伏，Rayleigh RCS）
-    // 精确: Pd = Q(N, T/(1+χ)) = gamma_q(N, T/(1+χ))
-    // [Richards Table 2, DiFranco & Rubin]
-    // -----------------------------------------------------------------
     case kSwerling2: {
       const double cT = T / (1.0 + chi);
       pd = boost::math::gamma_q(static_cast<double>(N), cT);
       break;
     }
 
-    // -----------------------------------------------------------------
-    // Swerling 3（扫描间慢起伏，卡方 k=4 RCS）
-    // N=1 精确: Pd = (1 + 2T/(2+χ)) · exp(-2T/(2+χ))  [M&M eq.3-55]
-    // N≥2: 使用与 Swerling 1 类似的结构，但有效自由度翻倍
-    //       V = 2T/(2+Nχ),  C = Nχ/(2+Nχ)
-    //       Pd = Q(2(N-1), V) + C^{2(N-1)} · [Q(2(N-1), V/C) - Q(2(N-1),V)]
-    //            + (2(N-1)) · C^{2(N-1)-1} · (1-C)
-    //            · [Q(2(N-1)-1, V/C) - Q(2(N-1)-1, V)]
-    // -----------------------------------------------------------------
     case kSwerling3: {
       const double total_snr = N * chi;  // N 个脉冲的总 SNR
       if (N == 1) {
@@ -336,7 +324,6 @@ float RadarEquations::ComputeDetectionProbability(
           const double c_pow_M = std::pow(C, M);
           pd = q_M_V + c_pow_M * (q_M_VC - q_M_V);
 
-          // 修正项（卡方 k=4 的额外自由度贡献）
           if (M >= 2.0) {
             const double q_M1_V = boost::math::gamma_q(M - 1.0, V);
             const double q_M1_VC = boost::math::gamma_q(M - 1.0, V / C);
@@ -347,30 +334,13 @@ float RadarEquations::ComputeDetectionProbability(
       }
       break;
     }
-
-    // -----------------------------------------------------------------
-    // Swerling 4（脉冲间快起伏，卡方 k=4 RCS）
-    // 精确: Pd = gamma_q(2N, 2T/(2+χ))
-    //          + (2N)·C·(1-C)^{2N-1} · [partial correction]
-    // 简化为等效双自由度形式:
-    //   Pd = gamma_q(2N, 2T/(2+χ))
-    //      · (1 + correction_term)
-    // [Richards Table 2, M&M Appendix A]
-    // -----------------------------------------------------------------
     case kSwerling4: {
-      // Swerling 4 精确公式（脉冲间快起伏，χ²(k=4) RCS）:
-      // 每脉冲独立的 χ²(k=4) RCS → 等效 2 自由度/脉冲
-      // Pd = gamma_q(2N, 2T/(2+χ))
-      // [DiFranco & Rubin, Robertson 1967]
-      //
-      // N=1 时退化为 (1+u)·exp(-u) = Swerling 3 单脉冲结果 ✓
       const double u = 2.0 * T / (2.0 + chi);
       pd = boost::math::gamma_q(2.0 * N, u);
       break;
     }
 
     default: {
-      // 未知模型，回退到 Swerling 0 逻辑
       const double a = std::sqrt(2.0 * N * chi);
       const double b = std::sqrt(2.0 * T);
       pd = MarcumQ(N, a, b);
@@ -384,10 +354,9 @@ float RadarEquations::ComputeDetectionProbability(
 bool RadarEquations::ThresholdDecision(
     float detection_prob,
     std::mt19937& rng) {
-  const float clamped_detection_prob = ClampPd(detection_prob);
   std::uniform_real_distribution<float> dist(0.0f, 1.0f);
   const float r = dist(rng);
-  return r <= clamped_detection_prob;
+  return r <= detection_prob;
 }
 
 }  // namespace detection

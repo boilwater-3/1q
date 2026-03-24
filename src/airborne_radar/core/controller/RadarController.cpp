@@ -4,7 +4,7 @@
 #include <memory>
 #include <vector>
 
-#include <spdlog/spdlog.h>
+#include "common/logging/ProjectLog.h"
 
 #include "1q/airborne_radar/common/ControlDirective.h"
 #include "1q/airborne_radar/common/RadarCommand.h"
@@ -232,7 +232,7 @@ void RadarController::RunOnce() {
 
   impl_->ExecuteCommands(reduction_result.applied_directives);
 
-  spdlog::debug(
+  PROJECT_LOG_DEBUG(
       "[RadarController] cycle summary: cycle_index={} batch_id={} "
       "input_targets={} decision_features={} directives={} "
       "jamming_detected={} profile_version={} detect_rate={:.3f} "
@@ -277,7 +277,7 @@ void RadarController::UpdateControlReducerConfig(
     return;
   }
   impl_->control_reducer->UpdateConfig(config);
-  spdlog::info(
+  PROJECT_LOG_INFO(
       "[RadarController] control reducer config updated: "
       "lpi_power_scale={} dwell_scale={} burnthrough_gain={} "
       "burnthrough_power_floor={} lpi_hold={} eccm_hold={} "

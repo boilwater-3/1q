@@ -13,7 +13,7 @@
 #include <vector>
 
 #include <Eigen/Core>
-#include <spdlog/spdlog.h>
+#include "common/logging/ProjectLog.h"
 
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
@@ -167,7 +167,7 @@ class SignalComponentFactory final {
             model_count);
       }
       if (model_count > 3U) {
-        spdlog::warn(
+        PROJECT_LOG_WARN(
             "[SignalPipeline] IMM model count {} may increase lifecycle "
             "latency; 2-3 models are recommended for routine workloads",
             model_count);
@@ -227,7 +227,7 @@ class SignalComponentFactory final {
  */
   static void AbortLifecycleAssemblyConfigViolation(const char* message,
                                                    float value) {
-    spdlog::critical(
+    PROJECT_LOG_CRITICAL(
         "[SignalPipeline] lifecycle auto-assembly config violation: {} "
         "(value={})",
         message, value);
@@ -240,7 +240,7 @@ class SignalComponentFactory final {
  */
   static void AbortLifecycleAssemblyConfigViolation(const char* message,
                                                    std::size_t value) {
-    spdlog::critical(
+    PROJECT_LOG_CRITICAL(
         "[SignalPipeline] lifecycle auto-assembly config violation: {} "
         "(value={})",
         message, value);

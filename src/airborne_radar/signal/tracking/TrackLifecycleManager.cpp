@@ -4,7 +4,7 @@
 #include <mutex>
 #include <unordered_set>
 
-#include <spdlog/spdlog.h>
+#include "common/logging/ProjectLog.h"
 
 #include "airborne_radar/signal/tracking/ImmFilter.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
@@ -304,7 +304,7 @@ void TrackLifecycleManager::Update(
     std::unordered_map<std::uint64_t, const TrackMeasurement *>::iterator found =
         scratch.measurement_by_key.find(association_key);
     if (found != scratch.measurement_by_key.end()) {
-      spdlog::warn(
+      PROJECT_LOG_WARN(
           "[TrackLifecycleManager] duplicate measurement for association_key={} in one cycle, use last measurement for staged update",
           association_key);
     }
@@ -335,7 +335,7 @@ void TrackLifecycleManager::Update(
     if (!track_existed_before_cycle) {
       track = pool_ != nullptr ? pool_->Acquire() : nullptr;
       if (track == nullptr) {
-        spdlog::warn(
+        PROJECT_LOG_WARN(
             "[TrackLifecycleManager] failed to acquire track from pool for association_key={}",
             association_key);
         continue;
@@ -574,7 +574,7 @@ void TrackLifecycleManager::Update(
     latest_evidence_by_key_[it->first] = evidence;
   }
 
-  spdlog::debug(
+  PROJECT_LOG_DEBUG(
       "[TrackLifecycleManager] cycle summary: cycle_index={} measurements={} new_tracks={} updated_tracks={} predicted_without_hit={} recycled_tracks={} active_tracks={} imm_enabled={} dt_sec={:.3f} dt_fallback_used={}",
       cycle.cycle_index, measurements.size(), scratch.new_track_count,
       scratch.updated_track_count, scratch.predicted_without_hit_count,
@@ -598,7 +598,7 @@ float TrackLifecycleManager::ResolveEffectiveCycleDeltaTimeSec(
     *dt_fallback_used = true;
   }
 
-  spdlog::warn(
+  PROJECT_LOG_WARN(
       "[TrackLifecycleManager] invalid external dt_sec={}, fallback to "
       "cycle-index-derived step",
       cycle.dt_sec);

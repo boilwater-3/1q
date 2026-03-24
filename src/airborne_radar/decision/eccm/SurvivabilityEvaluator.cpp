@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <string>
 
-#include <spdlog/spdlog.h>
+#include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
 namespace decision {
@@ -536,7 +536,7 @@ void SurvivabilityEvaluator::Evaluate(
 
   evaluation_state.should_enable_eccm = should_enable_eccm;
   if (!should_enable_eccm) {
-    spdlog::info(
+    PROJECT_LOG_INFO(
         "[SurvivabilityEvaluator] Environment is clear. Continuing nominal operation.");
     return;
   }
@@ -547,7 +547,7 @@ void SurvivabilityEvaluator::Evaluate(
                       input_frame.environment_jamming_detected,
                       !has_current_eccm_evidence,
                       &evaluation_state.proposals);
-  spdlog::info(
+  PROJECT_LOG_INFO(
       "[SurvivabilityEvaluator] Active jamming detected. Appending ECCM proposals.");
 }
 

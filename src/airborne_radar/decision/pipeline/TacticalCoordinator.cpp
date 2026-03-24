@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-#include <spdlog/spdlog.h>
+#include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
 namespace decision {
@@ -159,7 +159,7 @@ TacticalDecisionResult TacticalCoordinator::Evaluate(
   state_store.last_decision_summary =
       BuildDecisionSummary(input_frame, evaluation_state);
 
-  spdlog::debug(
+  PROJECT_LOG_DEBUG(
       "[TacticalCoordinator] cycle_index={} tracks={} mode={} proposals={} assoc_stress={:.3f}",
       input_frame.cycle_index, input_frame.tracks.size(),
       static_cast<int>(result.selected_mode), result.proposals.size(),

@@ -17,9 +17,10 @@ struct RadarSession::Impl {
     environment_service.SetJammingDetectionThresholdDb(
         config.jamming_detection_threshold_db);
   }
-
-  /// @brief 收集当前周期的聚合结果。
-  /// @return 当前 Session 运行态导出的聚合结果。
+  /**
+   * @brief 收集当前周期的聚合结果。 
+   * @return 当前 Session 运行态导出的聚合结果。 
+   */
   RadarCycleResult BuildCycleResult() const {
     RadarCycleResult result;
     if (controller.HasLatestTrackOutputFrame()) {
@@ -106,3 +107,5 @@ void RadarSession::SetJammingDetectionThresholdDb(float threshold_db) {
 } // namespace session
 } // namespace core
 } // namespace airborne_radar
+
+

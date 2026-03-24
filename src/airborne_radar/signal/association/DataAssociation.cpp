@@ -4,7 +4,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include <spdlog/spdlog.h>
+#include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -23,11 +23,11 @@ constexpr std::uint64_t kUnassociatedKey = 0;
  */
 [[noreturn]] void AbortContractViolation(const char *message,
                                         std::size_t index) {
-  if (spdlog::default_logger_raw() != nullptr) {
-    spdlog::critical(
+  if (PROJECT_LOG_HAS_DEFAULT_LOGGER()) {
+    PROJECT_LOG_CRITICAL(
         "[DataAssociationEngine] Contract violation at target[{}]: {}",
         index, message);
-    spdlog::default_logger_raw()->flush();
+    PROJECT_LOG_FLUSH_DEFAULT();
   }
   std::fprintf(stderr,
                "[DataAssociationEngine] Contract violation at target[%zu]: %s\n",
@@ -218,7 +218,7 @@ AssociationResult DataAssociationEngine::AssociateDetections(
     result.quality_metrics = BuildAssociationQualityMetrics(
       association_prior_count, 0U, result.matches, 0U,
       result.missed_track_keys.size());
-    spdlog::debug(
+    PROJECT_LOG_DEBUG(
         "[DataAssociationEngine] cycle summary: prior_source={} priors={} detections=0 matches=0 missed_tracks={} new_tracks=0",
         prior_source, association_prior_count, result.missed_track_keys.size());
     ClearConsumedAssociationPriors();
@@ -326,7 +326,7 @@ AssociationResult DataAssociationEngine::AssociateDetections(
       association_prior_count, measurement_indices.size(), result.matches,
       result.unassociated_target_indices.size(), result.missed_track_keys.size());
 
-  spdlog::debug(
+  PROJECT_LOG_DEBUG(
       "[DataAssociationEngine] cycle summary: prior_source={} priors={} detections={} matches={} missed_tracks={} new_tracks={}",
       prior_source, association_prior_count, measurement_indices.size(),
       result.matches.size(), result.missed_track_keys.size(),
@@ -373,7 +373,7 @@ void DataAssociationEngine::SetAssociationSeeds(
     signature.gaussian_state = seed.gaussian_state;
     external_seed_tracks_.push_back(signature);
   }
-  spdlog::debug("[DataAssociationEngine] accepted {} external association seeds",
+  PROJECT_LOG_DEBUG("[DataAssociationEngine] accepted {} external association seeds",
                 external_seed_tracks_.size());
 }
 
