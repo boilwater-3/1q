@@ -79,12 +79,40 @@ target_include_directories(${PROJECT_CORE_TARGET}
 # 如需添加依赖，请编辑对应的包管理器配置文件：
 #   - cmake/PackageManagerVcpkg.cmake
 #   - cmake/PackageManagerConan.cmake
+if(WIN32)
+    set(PROJECT_ENABLE_SPDLOG OFF)
+else()
+    set(PROJECT_ENABLE_SPDLOG ON)
+endif()
+
 find_package(Eigen3 CONFIG REQUIRED)
-find_package(spdlog CONFIG REQUIRED)
 find_package(eventpp CONFIG REQUIRED)
 find_package(Boost CONFIG REQUIRED)
 find_package(nanoflann CONFIG REQUIRED)
-target_link_libraries(${PROJECT_CORE_TARGET} PRIVATE spdlog::spdlog Eigen3::Eigen eventpp::eventpp Boost::boost nanoflann::nanoflann)
+if(PROJECT_ENABLE_SPDLOG)
+    find_package(spdlog CONFIG REQUIRED)
+endif()
+
+target_link_libraries(${PROJECT_CORE_TARGET} PRIVATE
+    Eigen3::Eigen
+    eventpp::eventpp
+    Boost::boost
+    nanoflann::nanoflann
+)
+if(PROJECT_ENABLE_SPDLOG)
+    if(TARGET spdlog::spdlog_header_only)
+        set(PROJECT_SPDLOG_TARGET spdlog::spdlog_header_only)
+    elseif(TARGET spdlog::spdlog)
+        set(PROJECT_SPDLOG_TARGET spdlog::spdlog)
+    else()
+        message(FATAL_ERROR "spdlog target is not available")
+    endif()
+    target_link_libraries(${PROJECT_CORE_TARGET} PRIVATE ${PROJECT_SPDLOG_TARGET})
+endif()
+
+target_compile_definitions(${PROJECT_CORE_TARGET}
+    PRIVATE PROJECT_LOG_BACKEND_SPDLOG=$<BOOL:${PROJECT_ENABLE_SPDLOG}>
+)
 
 if(NOT BUILD_SHARED_LIBS)
     target_compile_definitions(${PROJECT_CORE_TARGET}

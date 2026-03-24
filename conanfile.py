@@ -1,26 +1,20 @@
 from conan import ConanFile
 from conan.tools.cmake import CMakeDeps, CMakeToolchain, cmake_layout
 
-# Windows 交付目标 VS 版本，切换时修改此变量。macOS 忽略此项。
-# 可选值: "vs2015" | "vs2017" | "vs2022"
-WINDOWS_TARGET_VS = "vs2015"
-
-# 依赖版本表
-#   vs2015: MSVC 14.0，要求 C++11，部分 C++14
-#   vs2017+: MSVC 14.1+，C++14/17 完整支持，可用最新版
-_DEPS = {
+_BASE_DEPS = {
     "vs2015": {
-        "spdlog": "spdlog/1.8.5",
         "eigen":  "eigen/3.3.9",
-        "fmt":    "fmt/7.1.3",
         "boost":  "boost/1.79.0",
     },
     "modern": {
-        "spdlog": "spdlog/1.12.0",
         "eigen":  "eigen/3.4.0",
-        "fmt":    "fmt/10.2.1",
         "boost":  "boost/1.83.0",
     },
+}
+
+_MAC_LOG_DEPS = {
+    "spdlog": "spdlog/1.12.0",
+    "fmt": "fmt/10.2.1",
 }
 
 
@@ -31,25 +25,39 @@ class OneQConan(ConanFile):
     default_options = {
         "imgui/*:with_glfw": True,
         "imgui/*:with_opengl3": True,
+        "boost/*:header_only": True,
+        "spdlog/*:header_only": True,
+        "fmt/*:header_only": True,
     }
 
-    def requirements(self):
-        is_vs2015_target = (
-            self.settings.os == "Windows" and WINDOWS_TARGET_VS == "vs2015"
-        )
-        deps = _DEPS["vs2015"] if is_vs2015_target else _DEPS["modern"]
+    def _is_windows(self):
+        return str(self.settings.os) == "Windows"
 
-        self.requires(deps["spdlog"])
+    def _is_vs2015_target(self):
+        if not self._is_windows():
+            return False
+
+        compiler = str(self.settings.compiler)
+        version = str(self.settings.compiler.version)
+        return ((compiler == "msvc" and version == "190") or
+                (compiler == "Visual Studio" and version == "14"))
+
+    def requirements(self):
+        deps = _BASE_DEPS["vs2015"] if self._is_vs2015_target() else _BASE_DEPS["modern"]
+
         self.requires(deps["eigen"])
-        self.requires(deps["fmt"], override=True)
         self.requires(deps["boost"])
         self.requires("eventpp/0.1.3")
         self.requires("nanoflann/1.6.0")
         self.requires("gtest/1.12.1", test=True)
 
+        # macOS/Linux 保留调试日志能力，Windows 全平台关闭 spdlog/fmt。
+        if not self._is_windows():
+            self.requires(_MAC_LOG_DEPS["spdlog"])
+            self.requires(_MAC_LOG_DEPS["fmt"], override=True)
+
         # 可视化依赖（macOS/Linux dev 工具，Windows 不安装）
-        is_windows = self.settings.os == "Windows"
-        if not is_windows:
+        if not self._is_windows():
             self.requires("imgui/1.90.5")
             self.requires("implot/0.16")
             self.requires("glfw/3.4")
