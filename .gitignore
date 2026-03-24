@@ -18,6 +18,7 @@ Testing/
 
 # VS Code local settings
 .vscode/
+imgui.ini
 
 # Local draft docs
 doc/airborne-radar.md

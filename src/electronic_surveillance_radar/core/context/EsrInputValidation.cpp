@@ -34,7 +34,8 @@ EsrValidationIssue MakeIssue(EsrValidationSeverity severity,
  * @param[in] value 输入标量。
  * @return 当输入为有限数时返回 `true`。
  */
-bool IsFinite(double value) {
+template <typename T>
+bool IsFinite(T value) {
   return std::isfinite(value) != 0;
 }
 

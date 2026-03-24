@@ -100,10 +100,10 @@ target_link_libraries(${PROJECT_CORE_TARGET} PRIVATE
     nanoflann::nanoflann
 )
 if(PROJECT_ENABLE_SPDLOG)
-    if(TARGET spdlog::spdlog_header_only)
-        set(PROJECT_SPDLOG_TARGET spdlog::spdlog_header_only)
-    elseif(TARGET spdlog::spdlog)
+    if(TARGET spdlog::spdlog)
         set(PROJECT_SPDLOG_TARGET spdlog::spdlog)
+    elseif(TARGET spdlog::spdlog_header_only)
+        message(FATAL_ERROR "spdlog header-only target is not allowed in this configuration")
     else()
         message(FATAL_ERROR "spdlog target is not available")
     endif()

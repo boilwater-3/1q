@@ -26,8 +26,6 @@ class OneQConan(ConanFile):
         "imgui/*:with_glfw": True,
         "imgui/*:with_opengl3": True,
         "boost/*:header_only": True,
-        "spdlog/*:header_only": True,
-        "fmt/*:header_only": True,
     }
 
     def _is_windows(self):

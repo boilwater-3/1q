@@ -54,8 +54,10 @@ common::ObservationQuality NormalizeQuality(float snr_db) {
 bool IsDuplicateObservation(const common::EmitterObservation& lhs,
                             const common::EmitterObservation& rhs,
                             const InterceptPreprocessConfig& config) {
+  const double dedup_time_window_sec =
+      static_cast<double>(config.dedup_time_window_sec);
   return std::fabs(lhs.timestamp_s - rhs.timestamp_s) <=
-             config.dedup_time_window_sec &&
+             dedup_time_window_sec &&
          std::fabs(lhs.rf_hz - rhs.rf_hz) <= config.dedup_rf_window_hz &&
          std::fabs(lhs.pulse_width_s - rhs.pulse_width_s) <=
              config.dedup_pw_window_sec &&
@@ -118,7 +120,7 @@ std::vector<RawObservationRecord> ObservationPreprocessor::Run(
       RawObservationRecord& candidate = output[j - 1U];
       if (current.observation.timestamp_s -
               candidate.observation.timestamp_s >
-          config.dedup_time_window_sec) {
+          static_cast<double>(config.dedup_time_window_sec)) {
         break;
       }
 

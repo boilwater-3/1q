@@ -560,25 +560,6 @@ float ComputeMeasurementCovarianceInflation(
   return ClampFloat(inflation, 1.0f, 2.5f);
 }
 /**
- * @brief 将环境层干扰技术映射为轨迹级摘要语义。
- * @param technique 环境层干扰技术。
- * @return 轨迹级干扰语义。
- */
-common::JammingSemantic ToJammingSemantic(
-    environment::JammingTechnique technique) {
-  switch (technique) {
-    case environment::JammingTechnique::kNoiseSuppression:
-      return common::JammingSemantic::kNoiseSuppression;
-    case environment::JammingTechnique::kDeception:
-      return common::JammingSemantic::kDeception;
-    case environment::JammingTechnique::kRepeater:
-      return common::JammingSemantic::kRepeater;
-    case environment::JammingTechnique::kUnknown:
-    default:
-      return common::JammingSemantic::kMixed;
-  }
-}
-/**
  * @brief 估算单个干扰源对轨迹级残余干扰强度的贡献。
  * @param control_profile 当前控制真值。
  * @param jammer_source 单个干扰源事实。

@@ -110,7 +110,8 @@ float ComputeAzimuthDeg(const common::EsrPoseState& platform_pose,
                         const common::EmitterTruthState& emitter_state) {
   const float dx = emitter_state.pose.position_m.x - platform_pose.position_m.x;
   const float dy = emitter_state.pose.position_m.y - platform_pose.position_m.y;
-  return static_cast<float>(std::atan2(dy, dx) * 180.0 / kPi);
+  const float degrees_per_radian = static_cast<float>(180.0 / kPi);
+  return std::atan2(dy, dx) * degrees_per_radian;
 }
 
 /**
@@ -125,7 +126,8 @@ float ComputeElevationDeg(const common::EsrPoseState& platform_pose,
   const float dy = emitter_state.pose.position_m.y - platform_pose.position_m.y;
   const float dz = emitter_state.pose.position_m.z - platform_pose.position_m.z;
   const float horizontal = std::sqrt(dx * dx + dy * dy);
-  return static_cast<float>(std::atan2(dz, horizontal) * 180.0 / kPi);
+  const float degrees_per_radian = static_cast<float>(180.0 / kPi);
+  return std::atan2(dz, horizontal) * degrees_per_radian;
 }
 
 /**
@@ -145,8 +147,8 @@ double ComputeReceivedPowerW(double tx_power_w, double carrier_hz, float range_m
   const double wavelength = kLightSpeedMps / carrier_hz;
   const double fspl_linear =
       std::pow((4.0 * kPi * safe_range) / wavelength, 2.0);
-  const double propagation_loss_linear =
-      std::pow(10.0, std::max(0.0f, propagation_loss_db) / 10.0);
+  const double propagation_loss_linear = std::pow(
+      10.0, static_cast<double>(std::max(0.0f, propagation_loss_db)) / 10.0);
   return tx_power_w / (fspl_linear * propagation_loss_linear);
 }
 
