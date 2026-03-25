@@ -239,6 +239,29 @@ bool HasMissedTruth(const EsrCycleResult& result, const std::string& truth_id) {
   return false;
 }
 
+/**
+ * @brief 统计多周期中指定真值的匹配总次数。
+ * @param[in] session 会话实例。
+ * @param[in] base_input 基础输入模板。
+ * @param[in] truth_id 真值 ID。
+ * @param[in] cycle_count 统计周期数。
+ * @return 累计匹配次数。
+ */
+std::size_t CountMatchedAcrossCycles(EsrSession* session, const context::EsrCycleInput& base_input,
+                                     const std::string& truth_id, std::size_t cycle_count) {
+  if (session == nullptr) {
+    return 0U;
+  }
+  std::size_t matched_total = 0U;
+  for (std::size_t i = 0; i < cycle_count; ++i) {
+    context::EsrCycleInput input = base_input;
+    input.cycle_index = base_input.cycle_index + static_cast<std::uint32_t>(i);
+    const EsrCycleResult result = session->StepWithResult(input);
+    matched_total += CountMatchedTruthObservations(result, truth_id);
+  }
+  return matched_total;
+}
+
 TEST(EsrSessionIntegrationTest, StepWithResultProducesThreeChannelOutput) {
   EsrSession session(MakeSessionConfig());
   const context::EsrCycleInput input = MakeBaseInput();
@@ -255,6 +278,118 @@ TEST(EsrSessionIntegrationTest, StepWithResultProducesThreeChannelOutput) {
             result.output_frame.observation_output.observations.size());
   EXPECT_GE(result.output_frame.truth_evaluation_output.associations.size(),
             result.output_frame.observation_output.observations.size());
+}
+
+TEST(EsrSessionIntegrationTest, LayeredDisabledKeepsLegacyExecutionPath) {
+  EsrSessionConfig baseline_config = MakeSessionConfig();
+  EsrSessionConfig layered_config = baseline_config;
+  layered_config.enable_layered_config = false;
+  layered_config.layered_config.hardware.receiver_band_lower_hz = 30.0e9;
+  layered_config.layered_config.hardware.receiver_band_upper_hz = 31.0e9;
+  layered_config.layered_config.hardware.integrated_receive_loss_db = 40.0f;
+  layered_config.layered_config.mission.power_on = false;
+  layered_config.layered_config.mission.work_mode = EsrWorkMode::kRwr;
+  layered_config.layered_config.mission.scan_rate_hz = 8.0f;
+
+  const context::EsrCycleInput input = MakeBaseInput();
+  EsrSession baseline_session(baseline_config);
+  EsrSession layered_session(layered_config);
+  const EsrCycleResult baseline_result = baseline_session.StepWithResult(input);
+  const EsrCycleResult layered_result = layered_session.StepWithResult(input);
+
+  ExpectDeterministicResult(baseline_result, layered_result);
+}
+
+TEST(EsrSessionIntegrationTest, LayeredFixedBandFiltersOutOfBandEmitters) {
+  EsrSessionConfig config = MakeSessionConfig();
+  config.enable_layered_config = true;
+  config.layered_config.hardware.receiver_band_lower_hz = 8.0e9;
+  config.layered_config.hardware.receiver_band_upper_hz = 9.0e9;
+  config.layered_config.mission.power_on = true;
+
+  context::EsrCycleInput input = MakeBaseInput();
+  input.scene_emitters.front().carrier_hz = 10.0e9;
+
+  EsrSession session(config);
+  const EsrCycleResult result = session.StepWithResult(input);
+
+  EXPECT_TRUE(result.output_frame.observation_output.observations.empty());
+  EXPECT_EQ(CountMatchedTruthObservations(result, "target-emitter"), 0U);
+}
+
+TEST(EsrSessionIntegrationTest, LayeredReceiveLossReducesMatchedObservationSnr) {
+  EsrSessionConfig baseline_config = MakeSessionConfig();
+  EsrSessionConfig high_loss_config = baseline_config;
+  high_loss_config.enable_layered_config = true;
+  high_loss_config.layered_config.hardware.receiver_band_lower_hz = 9.0e9;
+  high_loss_config.layered_config.hardware.receiver_band_upper_hz = 11.0e9;
+  high_loss_config.layered_config.hardware.integrated_receive_loss_db = 20.0f;
+  high_loss_config.layered_config.mission.power_on = true;
+
+  context::EsrCycleInput input = MakeBaseInput();
+  EsrSession baseline_session(baseline_config);
+  EsrSession high_loss_session(high_loss_config);
+
+  const EsrCycleResult baseline_result = baseline_session.StepWithResult(input);
+  const EsrCycleResult high_loss_result = high_loss_session.StepWithResult(input);
+
+  ASSERT_GT(CountMatchedTruthObservations(baseline_result, "target-emitter"), 0U);
+  const std::size_t high_loss_matched =
+      CountMatchedTruthObservations(high_loss_result, "target-emitter");
+  ASSERT_TRUE(high_loss_matched > 0U || HasMissedTruth(high_loss_result, "target-emitter"));
+  const float baseline_snr = FindMatchedTruthSnr(baseline_result, "target-emitter");
+  const float high_loss_snr = FindMatchedTruthSnr(high_loss_result, "target-emitter");
+  ASSERT_TRUE(std::isfinite(baseline_snr));
+  if (high_loss_matched > 0U) {
+    ASSERT_TRUE(std::isfinite(high_loss_snr));
+    EXPECT_LT(high_loss_snr, baseline_snr);
+  } else {
+    EXPECT_TRUE(HasMissedTruth(high_loss_result, "target-emitter"));
+  }
+}
+
+TEST(EsrSessionIntegrationTest, LayeredModeMappingMakesHgesmMoreDetectableThanRwr) {
+  EsrSessionConfig hgesm_config = MakeSessionConfig();
+  hgesm_config.enable_layered_config = true;
+  hgesm_config.layered_config.hardware.receiver_band_lower_hz = 9.0e9;
+  hgesm_config.layered_config.hardware.receiver_band_upper_hz = 11.0e9;
+  hgesm_config.layered_config.mission.power_on = true;
+  hgesm_config.layered_config.mission.work_mode = EsrWorkMode::kHgesm;
+
+  EsrSessionConfig rwr_config = hgesm_config;
+  rwr_config.layered_config.mission.work_mode = EsrWorkMode::kRwr;
+
+  const double kPowerSweepW[] = {20.0, 30.0, 40.0, 60.0};
+  bool has_strict_advantage = false;
+  for (std::size_t i = 0; i < sizeof(kPowerSweepW) / sizeof(kPowerSweepW[0]); ++i) {
+    context::EsrCycleInput input = MakeBaseInput();
+    input.scene_emitters.front().tx_power_w = kPowerSweepW[i];
+
+    EsrSession hgesm_session(hgesm_config);
+    EsrSession rwr_session(rwr_config);
+    const std::size_t hgesm_matched =
+        CountMatchedAcrossCycles(&hgesm_session, input, "target-emitter", 32U);
+    const std::size_t rwr_matched =
+        CountMatchedAcrossCycles(&rwr_session, input, "target-emitter", 32U);
+    EXPECT_GE(hgesm_matched, rwr_matched);
+    if (hgesm_matched > rwr_matched) {
+      has_strict_advantage = true;
+    }
+  }
+  EXPECT_TRUE(has_strict_advantage);
+}
+
+TEST(EsrSessionIntegrationTest, LayeredPowerOffReturnsEmptyChannels) {
+  EsrSessionConfig config = MakeSessionConfig();
+  config.enable_layered_config = true;
+  config.layered_config.mission.power_on = false;
+
+  EsrSession session(config);
+  const EsrCycleResult result = session.StepWithResult(MakeBaseInput());
+
+  EXPECT_TRUE(result.output_frame.observation_output.observations.empty());
+  EXPECT_TRUE(result.output_frame.emitter_output.hypotheses.empty());
+  EXPECT_TRUE(result.output_frame.truth_evaluation_output.associations.empty());
 }
 
 TEST(EsrSessionIntegrationTest, SuppressionJammingDegradesSnrWithoutRaisingFalseAlarms) {

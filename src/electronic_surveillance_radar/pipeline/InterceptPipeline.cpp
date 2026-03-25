@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <set>
 #include <string>
 #include <utility>
@@ -61,6 +62,25 @@ constexpr float kDefaultEmitterElBeamwidthDeg = 20.0f;
  * @return 裁剪后结果。
  */
 float Clamp01(float value) { return std::max(0.0f, std::min(1.0f, value)); }
+
+/**
+ * @brief 判断双精度浮点是否为有限数。
+ * @param[in] value 输入值。
+ * @return 有限数时返回 `true`。
+ */
+bool IsFinite(double value) { return std::isfinite(value) != 0; }
+
+/**
+ * @brief 把综合接收损耗 dB 映射到接收功率比例。
+ * @param[in] loss_db 综合接收损耗（单位：dB）。
+ * @return 线性接收功率比例，范围 `(0, 1]`。
+ */
+double ComputeReceiveLossScale(float loss_db) {
+  if (!std::isfinite(loss_db) || loss_db <= 0.0f) {
+    return 1.0;
+  }
+  return std::pow(10.0, -static_cast<double>(loss_db) / 10.0);
+}
 
 /**
  * @brief 判断发射源波束状态是否仍为历史默认值。
@@ -166,6 +186,22 @@ oneq::internal::geometry::AzimuthElevationDeg ComputeEmitterLookAngles(
 }
 
 /**
+ * @brief 把平台机体参考系视线角转换为天线参考系视线角。
+ * @param[in] look_angles 机体参考系方位/俯仰角。
+ * @param[in] runtime_config 会话运行态配置。
+ * @return 天线参考系方位/俯仰角。
+ */
+oneq::internal::geometry::AzimuthElevationDeg ApplyAntennaMountOffset(
+    const oneq::internal::geometry::AzimuthElevationDeg& look_angles,
+    const InterceptRuntimeConfig& runtime_config) {
+  oneq::internal::geometry::AzimuthElevationDeg adjusted = look_angles;
+  adjusted.az_deg = oneq::internal::geometry::ComputeAzimuthDifferenceDeg(
+      look_angles.az_deg, runtime_config.antenna_mount_az_deg);
+  adjusted.el_deg = look_angles.el_deg - runtime_config.antenna_mount_el_deg;
+  return adjusted;
+}
+
+/**
  * @brief 计算平台是否落入发射源当前辐射波束，并返回重叠比例。
  * @param[in] platform_pose 平台状态。
  * @param[in] emitter_state 发射源状态。
@@ -241,11 +277,18 @@ double ComputeReceivedPowerW(double tx_power_w, double carrier_hz, float range_m
 }
 
 /**
- * @brief 构造按周期轮换的接收机工作频段窗口。
+ * @brief 构造当前周期接收机工作频段窗口。
  * @param[in] cycle_index 当前周期号。
+ * @param[in] runtime_config 会话运行态配置。
  * @return 接收机频段 `[lower, upper]`，单位 Hz。
  */
-std::pair<double, double> BuildReceiverWindow(std::uint32_t cycle_index) {
+std::pair<double, double> BuildReceiverWindow(std::uint32_t cycle_index,
+                                              const InterceptRuntimeConfig& runtime_config) {
+  if (runtime_config.use_fixed_receiver_window && IsFinite(runtime_config.receiver_lower_hz) &&
+      IsFinite(runtime_config.receiver_upper_hz) &&
+      runtime_config.receiver_upper_hz > runtime_config.receiver_lower_hz) {
+    return std::make_pair(runtime_config.receiver_lower_hz, runtime_config.receiver_upper_hz);
+  }
   struct BandWindow {
     double lower_hz;
     double upper_hz;
@@ -256,6 +299,33 @@ std::pair<double, double> BuildReceiverWindow(std::uint32_t cycle_index) {
   const std::size_t window_index =
       static_cast<std::size_t>(cycle_index) % (sizeof(kBandWindows) / sizeof(kBandWindows[0]));
   return std::make_pair(kBandWindows[window_index].lower_hz, kBandWindows[window_index].upper_hz);
+}
+
+/**
+ * @brief 根据扫描数据率解析当前周期激活波束索引。
+ * @param[in] cycle_index 当前周期号。
+ * @param[in] dt_sec 周期步长（单位：s）。
+ * @param[in] scan_pattern_size 扫描序列长度。
+ * @param[in] runtime_config 会话运行态配置。
+ * @return 激活波束索引。
+ */
+std::size_t ResolveActiveBeamIndex(std::uint32_t cycle_index, float dt_sec,
+                                   std::size_t scan_pattern_size,
+                                   const InterceptRuntimeConfig& runtime_config) {
+  if (scan_pattern_size == 0U) {
+    return 0U;
+  }
+  const double safe_dt_sec =
+      (std::isfinite(dt_sec) != 0 && dt_sec > 0.0f) ? static_cast<double>(dt_sec) : 1.0;
+  const double scan_rate_hz =
+      (std::isfinite(runtime_config.scan_rate_hz) != 0 && runtime_config.scan_rate_hz > 0.0f)
+          ? static_cast<double>(runtime_config.scan_rate_hz)
+          : 1.0;
+  const double beam_advance_per_cycle = std::max(1.0, std::round(scan_rate_hz * safe_dt_sec));
+  const std::uint64_t stride = static_cast<std::uint64_t>(std::max(1.0, beam_advance_per_cycle));
+  const std::uint64_t beam_index = (static_cast<std::uint64_t>(cycle_index) * stride) %
+                                   static_cast<std::uint64_t>(scan_pattern_size);
+  return static_cast<std::size_t>(beam_index);
 }
 
 /**
@@ -433,8 +503,10 @@ internal::RawObservationRecord BuildDeceptionRecord(
 
 }  // namespace
 
-InterceptPipeline::InterceptPipeline(InterceptPipelineConfig config)
+InterceptPipeline::InterceptPipeline(InterceptPipelineConfig config,
+                                     InterceptRuntimeConfig runtime_config)
     : config_(config),
+      runtime_config_(runtime_config),
       associator_(config.association),
       rng_(config.algorithm.random_seed == 0U ? 1U : config.algorithm.random_seed) {
   feature_scales_.rf_scale_hz = config_.cluster.rf_scale_hz;
@@ -448,6 +520,10 @@ InterceptCycleResult InterceptPipeline::RunCycle(
     const core::context::EsrCycleInput& input_state,
     const environment::IEsrEnvironmentService& environment_service) {
   InterceptCycleResult result;
+  if (!runtime_config_.sensor_enabled) {
+    return result;
+  }
+
   const environment::EsrEnvironmentSnapshot environment_snapshot =
       environment_service.SampleEnvironment();
 
@@ -458,12 +534,16 @@ InterceptCycleResult InterceptPipeline::RunCycle(
   if (scan_pattern.empty()) {
     scan_pattern.push_back(intercept::BeamPointingDeg());
   }
-  const intercept::BeamPointingDeg active_beam =
-      scan_pattern[static_cast<std::size_t>(input_state.cycle_index) % scan_pattern.size()];
+  const std::size_t active_beam_index = ResolveActiveBeamIndex(
+      input_state.cycle_index, input_state.dt_sec, scan_pattern.size(), runtime_config_);
+  const intercept::BeamPointingDeg active_beam = scan_pattern[active_beam_index];
 
   const intercept::AngleErrorModelConfig angle_error_config =
       internal::InterceptComponentFactory::BuildAngleErrorModelConfig(config_);
-  const std::pair<double, double> receiver_window = BuildReceiverWindow(input_state.cycle_index);
+  const std::pair<double, double> receiver_window =
+      BuildReceiverWindow(input_state.cycle_index, runtime_config_);
+  const double receive_loss_scale =
+      ComputeReceiveLossScale(runtime_config_.integrated_receive_loss_db);
   const oneq::internal::timing::StatisticalDetectionParams base_statistical_detection_params =
       ToTimingDetectionParams(config_.statistical_detection);
 
@@ -482,7 +562,8 @@ InterceptCycleResult InterceptPipeline::RunCycle(
 
     const float range_m = ComputeRangeM(input_state.platform_pose, emitter);
     const oneq::internal::geometry::AzimuthElevationDeg target_look_angles =
-        ComputeEmitterLookAngles(input_state.platform_pose, emitter);
+        ApplyAntennaMountOffset(ComputeEmitterLookAngles(input_state.platform_pose, emitter),
+                                runtime_config_);
     const float target_az_deg = target_look_angles.az_deg;
     const float target_el_deg = target_look_angles.el_deg;
     const float emitter_beam_overlap_ratio =
@@ -524,14 +605,14 @@ InterceptCycleResult InterceptPipeline::RunCycle(
           const double candidate_received_power_w =
               ComputeReceivedPowerW(emitter.tx_power_w, emitter.carrier_hz, candidate_range_m,
                                     environment_snapshot.propagation_loss_db) *
-              static_cast<double>(emitter_beam_overlap_ratio);
+              static_cast<double>(emitter_beam_overlap_ratio) * receive_loss_scale;
           const float candidate_snr_db = ToDb(candidate_received_power_w / noise_power_w);
           return candidate_snr_db >= detection_threshold_snr_db;
         });
     const double received_power_w =
         ComputeReceivedPowerW(emitter.tx_power_w, emitter.carrier_hz, range_m,
                               environment_snapshot.propagation_loss_db) *
-        static_cast<double>(emitter_beam_overlap_ratio);
+        static_cast<double>(emitter_beam_overlap_ratio) * receive_loss_scale;
     const float snr_db = ToDb(received_power_w / noise_power_w);
 
     intercept::InterceptGateInput gate_input;

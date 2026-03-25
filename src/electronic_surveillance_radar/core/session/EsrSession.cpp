@@ -1,6 +1,7 @@
 #include "1q/electronic_surveillance_radar/core/session/EsrSession.h"
 
 #include "1q/electronic_surveillance_radar/core/controller/EsrController.h"
+#include "electronic_surveillance_radar/core/session/EsrSessionConfigResolver.h"
 #include "electronic_surveillance_radar/environment/EsrEnvironmentService.h"
 #include "electronic_surveillance_radar/pipeline/InterceptPipeline.h"
 
@@ -10,8 +11,9 @@ namespace session {
 
 struct EsrSession::Impl {
   explicit Impl(const EsrSessionConfig& config)
-      : pipeline(config.pipeline_config),
-        environment_service(config.environment_config),
+      : resolved_config(internal::ResolveEsrSessionConfig(config)),
+        pipeline(resolved_config.pipeline_config, resolved_config.runtime_config),
+        environment_service(resolved_config.environment_config),
         controller(pipeline, environment_service) {}
 
   // 装配当前周期会话结果。
@@ -25,6 +27,7 @@ struct EsrSession::Impl {
     return result;
   }
 
+  internal::ResolvedEsrSessionConfig resolved_config{};
   pipeline::InterceptPipeline pipeline;
   environment::EsrEnvironmentService environment_service;
   controller::EsrController controller;

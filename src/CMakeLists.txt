@@ -41,6 +41,7 @@ set(PROJECT_SOURCES
     electronic_surveillance_radar/core/context/EsrInputValidation.cpp
     electronic_surveillance_radar/core/controller/EsrController.cpp
     electronic_surveillance_radar/core/output/EsrOutputManager.cpp
+    electronic_surveillance_radar/core/session/EsrSessionConfigResolver.cpp
     electronic_surveillance_radar/core/session/EsrSession.cpp
     electronic_surveillance_radar/environment/EsrEnvironmentService.cpp
     electronic_surveillance_radar/pipeline/ObservationPreprocessor.cpp

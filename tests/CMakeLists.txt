@@ -36,6 +36,7 @@ set(TEST_SOURCES
     esr_kdtree_clusterer_test.cpp
     esr_hypothesis_associator_test.cpp
     esr_output_manager_test.cpp
+    esr_session_config_resolver_test.cpp
     esr_session_integration_test.cpp
     # NOTE:
     # signal_bulk_data_test.cpp contains long-running IMM debug workload tests.

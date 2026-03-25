@@ -19,6 +19,20 @@ namespace electronic_surveillance_radar {
 namespace pipeline {
 
 /**
+ * @brief InterceptRuntimeConfig 描述会话层注入的运行态参数。
+ */
+struct InterceptRuntimeConfig {
+  bool sensor_enabled{true};              /**< 设备是否开启 */
+  bool use_fixed_receiver_window{false};  /**< 是否启用固定接收频段窗口 */
+  double receiver_lower_hz{0.0};          /**< 固定接收频段下限（单位：Hz） */
+  double receiver_upper_hz{0.0};          /**< 固定接收频段上限（单位：Hz） */
+  float integrated_receive_loss_db{0.0f}; /**< 系统综合接收损耗（单位：dB） */
+  float antenna_mount_az_deg{0.0f};       /**< 天线方位安装角（单位：deg） */
+  float antenna_mount_el_deg{0.0f};       /**< 天线俯仰安装角（单位：deg） */
+  float scan_rate_hz{1.0f};               /**< 扫描数据率（单位：Hz） */
+};
+
+/**
  * @brief InterceptPipeline 是电子侦察流水线默认实现。
  */
 class InterceptPipeline final : public IInterceptPipeline {
@@ -26,8 +40,10 @@ class InterceptPipeline final : public IInterceptPipeline {
   /**
    * @brief 构造默认流水线。
    * @param[in] config 流水线配置。
+   * @param[in] runtime_config 会话运行态参数。
    */
-  explicit InterceptPipeline(InterceptPipelineConfig config = {});
+  explicit InterceptPipeline(InterceptPipelineConfig config = {},
+                             InterceptRuntimeConfig runtime_config = {});
 
   /**
    * @brief 执行单周期流水线。
@@ -40,6 +56,7 @@ class InterceptPipeline final : public IInterceptPipeline {
 
  private:
   InterceptPipelineConfig config_{};
+  InterceptRuntimeConfig runtime_config_{};
   internal::ObservationFeatureScales feature_scales_{};
   internal::ObservationPreprocessor preprocessor_{};
   internal::KdTreeClusterer clusterer_{};

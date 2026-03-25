@@ -20,9 +20,80 @@ namespace core {
 namespace session {
 
 /**
+ * @brief EsrWorkMode 描述 ESR 工作模式。
+ */
+enum class ONEQ_API EsrWorkMode {
+  kEsm = 0, /**< 常规电子支援侦察模式 */
+  kHgesm,   /**< 高增益电子支援侦察模式 */
+  kRwr      /**< 告警接收机模式 */
+};
+
+/**
+ * @brief EsrScanStartPosition 描述扫描起始象限。
+ */
+enum class ONEQ_API EsrScanStartPosition {
+  kLeftTop = 0, /**< 左上起始 */
+  kRightTop,    /**< 右上起始 */
+  kRightBottom, /**< 右下起始 */
+  kLeftBottom   /**< 左下起始 */
+};
+
+/**
+ * @brief EsrScanSequence 描述二维扫描推进顺序。
+ */
+enum class ONEQ_API EsrScanSequence {
+  kAzimuthFirst = 0, /**< 先方位后俯仰 */
+  kElevationFirst    /**< 先俯仰后方位 */
+};
+
+/**
+ * @brief EsrHardwareConfig 描述 ESR 装备固有参数。
+ */
+struct ONEQ_API EsrHardwareConfig {
+  double receiver_band_lower_hz{0.23e9};  /**< 接收频段下限（单位：Hz） */
+  double receiver_band_upper_hz{100.0e9}; /**< 接收频段上限（单位：Hz） */
+  float receiver_sensitivity_w{1.0e-12f}; /**< 接收机灵敏度（单位：W） */
+  float integrated_receive_loss_db{0.0f}; /**< 系统综合接收损耗（单位：dB） */
+  float beam_az_width_deg{5.0f};          /**< 方位波束宽度（单位：deg） */
+  float beam_el_width_deg{5.0f};          /**< 俯仰波束宽度（单位：deg） */
+  float az_scan_range_deg{120.0f};        /**< 方位扫描范围（单位：deg） */
+  float el_scan_range_deg{20.0f};         /**< 俯仰扫描范围（单位：deg） */
+  float antenna_mount_az_deg{0.0f};       /**< 天线中心方位相对角（单位：deg） */
+  float antenna_mount_el_deg{0.0f};       /**< 天线中心俯仰相对角（单位：deg） */
+};
+
+/**
+ * @brief EsrMissionControlConfig 描述 ESR 任务运行态控制参数。
+ */
+struct ONEQ_API EsrMissionControlConfig {
+  bool power_on{true};                      /**< 设备开关机状态 */
+  EsrWorkMode work_mode{EsrWorkMode::kEsm}; /**< 当前工作模式 */
+  float scan_center_az_deg{0.0f};           /**< 扫描中心方位（单位：deg） */
+  float scan_center_el_deg{0.0f};           /**< 扫描中心俯仰（单位：deg） */
+  float scan_rate_hz{1.0f};                 /**< 扫描数据率（单位：Hz） */
+  EsrScanStartPosition scan_start_position{EsrScanStartPosition::kLeftTop}; /**< 扫描起始位置 */
+  EsrScanSequence scan_sequence{EsrScanSequence::kAzimuthFirst};            /**< 扫描顺序 */
+  bool use_explicit_scan_bounds{false}; /**< 是否使用显式扫描起止角 */
+  float scan_start_az_deg{-60.0f};      /**< 扫描起始方位（单位：deg） */
+  float scan_end_az_deg{60.0f};         /**< 扫描结束方位（单位：deg） */
+  float scan_start_el_deg{-10.0f};      /**< 扫描起始俯仰（单位：deg） */
+  float scan_end_el_deg{10.0f};         /**< 扫描结束俯仰（单位：deg） */
+};
+
+/**
+ * @brief EsrLayeredConfig 描述 ESR 分层参数入口。
+ */
+struct ONEQ_API EsrLayeredConfig {
+  EsrHardwareConfig hardware{};      /**< 装备固有参数 */
+  EsrMissionControlConfig mission{}; /**< 任务控制参数 */
+};
+
+/**
  * @brief EsrSessionConfig 描述电子侦察会话默认装配配置。
  */
 struct ONEQ_API EsrSessionConfig {
+  bool enable_layered_config{false};                           /**< 是否启用分层参数覆盖 */
+  EsrLayeredConfig layered_config{};                           /**< 分层参数入口 */
   pipeline::InterceptPipelineConfig pipeline_config{};         /**< 流水线配置 */
   environment::EsrEnvironmentModelConfig environment_config{}; /**< 环境模型配置 */
 };
