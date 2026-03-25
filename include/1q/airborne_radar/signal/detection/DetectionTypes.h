@@ -31,10 +31,10 @@ struct TransmitterConfig {
  *       避免与姿态/扫描层中的瞬时波束宽度混淆。
  */
 struct AntennaConfig {
-  float main_beam_gain_db{35.0f}; /**< 波束中心名义峰值增益 (dB) */
-  float nominal_az_beamwidth_deg{4.0f}; /**< 名义方位波束宽度 (°) */
-  float nominal_el_beamwidth_deg{4.0f}; /**< 名义俯仰波束宽度 (°) */
-  common::AntennaPatternConfig pattern;  /**< 天线方向图形状配置 */
+  float main_beam_gain_db{35.0f};         /**< 波束中心名义峰值增益 (dB) */
+  float nominal_az_beamwidth_deg{4.0f};   /**< 名义方位波束宽度 (°) */
+  float nominal_el_beamwidth_deg{4.0f};   /**< 名义俯仰波束宽度 (°) */
+  common::AntennaPatternConfig pattern;   /**< 天线方向图形状配置 */
   bool enable_directional_pattern{false}; /**< 是否启用离轴方向图增益修正 */
 };
 
@@ -50,8 +50,8 @@ struct ReceiverConfig {
  * @brief 检测策略参数。
  */
 struct DetectionPolicy {
-  float cfar_pfa{1e-6f};     /**< 恒虚警概率 */
-  float min_snr_db{-10.0f};  /**< SNR 硬截断下限 (dB) */
+  float cfar_pfa{1e-6f};    /**< 恒虚警概率 */
+  float min_snr_db{-10.0f}; /**< SNR 硬截断下限 (dB) */
 };
 
 /**
@@ -72,11 +72,11 @@ struct RadarSystemConfig {
  * - 3/4:   卡方 k=4 分布（一个主散射体+多个小散射体）, PDF: (4σ/σ̄²)·exp(-2σ/σ̄)
  */
 enum SwerlingModel {
-  kSwerling0 = 0,  /**< 无起伏（确定性 RCS / Swerling V） */
-  kSwerling1 = 1,  /**< 扫描间慢起伏，Rayleigh */
-  kSwerling2 = 2,  /**< 脉冲间快起伏，Rayleigh */
-  kSwerling3 = 3,  /**< 扫描间慢起伏，卡方 k=4 */
-  kSwerling4 = 4   /**< 脉冲间快起伏，卡方 k=4 */
+  kSwerling0 = 0, /**< 无起伏（确定性 RCS / Swerling V） */
+  kSwerling1 = 1, /**< 扫描间慢起伏，Rayleigh */
+  kSwerling2 = 2, /**< 脉冲间快起伏，Rayleigh */
+  kSwerling3 = 3, /**< 扫描间慢起伏，卡方 k=4 */
+  kSwerling4 = 4  /**< 脉冲间快起伏，卡方 k=4 */
 };
 
 }  // namespace detection

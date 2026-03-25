@@ -9,7 +9,6 @@
 #include <memory>
 #include <vector>
 
-#include "1q/api.hpp"
 #include "1q/airborne_radar/common/RadarCommand.h"
 #include "1q/airborne_radar/common/RadarControlProfile.h"
 #include "1q/airborne_radar/common/TrackOutputFrame.h"
@@ -17,6 +16,7 @@
 #include "1q/airborne_radar/core/session/RadarCycleResult.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
+#include "1q/api.hpp"
 
 namespace airborne_radar {
 namespace core {
@@ -27,15 +27,15 @@ namespace session {
  */
 struct ONEQ_API RadarSessionConfig {
   signal::pipeline::SignalPipelineConfig signal_pipeline_config{}; /**< 信号流水线配置 */
-  environment::EnvironmentModelConfig environment_model_config{}; /**< 环境模型配置 */
-  float jamming_detection_threshold_db{6.0f}; /**< 干扰判定阈值（单位：dB） */
+  environment::EnvironmentModelConfig environment_model_config{};  /**< 环境模型配置 */
+  float jamming_detection_threshold_db{6.0f};                      /**< 干扰判定阈值（单位：dB） */
 };
 
 /**
  * @brief RadarSession 提供"一步一帧"的外部接入门面。
  */
 class ONEQ_API RadarSession {
-public:
+ public:
   /** @brief 使用默认链路构造会话 */
   explicit RadarSession(const RadarSessionConfig& config = {});
   ~RadarSession();
@@ -65,7 +65,6 @@ public:
   common::TrackOutputFrame Step(const context::RadarCycleInput& input,
                                 const environment::EnvironmentSceneState& scene_state);
 
-
   /**
    * @brief 执行一个不显式切场景的处理周期，并返回聚合结果。
    * @param input 当前周期输入。
@@ -80,9 +79,8 @@ public:
    * @param scene_state 当前 step 之前要提交的待生效场景。
    * @return 当前周期聚合结果。
    */
-  RadarCycleResult StepWithResult(
-      const context::RadarCycleInput& input,
-      const environment::EnvironmentSceneState& scene_state);
+  RadarCycleResult StepWithResult(const context::RadarCycleInput& input,
+                                  const environment::EnvironmentSceneState& scene_state);
 
   /** @brief 获取当前周期已提交的控制指令 */
   const std::vector<common::RadarCommand>& GetSubmittedCommands() const;
@@ -94,27 +92,24 @@ public:
   const common::RadarControlProfile& GetLatestControlProfile() const;
 
   /** @brief 获取最近一次关联质量观测指标 */
-  signal::pipeline::AssociationQualityMetrics
-  GetLastAssociationQualityMetrics() const;
+  signal::pipeline::AssociationQualityMetrics GetLastAssociationQualityMetrics() const;
 
   /** @brief 更新信号流水线配置 */
-  void UpdateSignalPipelineConfig(
-      const signal::pipeline::SignalPipelineConfig& config);
+  void UpdateSignalPipelineConfig(const signal::pipeline::SignalPipelineConfig& config);
 
   /** @brief 更新环境模型配置 */
-  void UpdateEnvironmentModelConfig(
-      const environment::EnvironmentModelConfig& config);
+  void UpdateEnvironmentModelConfig(const environment::EnvironmentModelConfig& config);
 
   /** @brief 更新干扰判定阈值 */
   void SetJammingDetectionThresholdDb(float threshold_db);
 
-private:
+ private:
   struct Impl;
   std::unique_ptr<Impl> impl_;
 };
 
-} // namespace session
-} // namespace core
-} // namespace airborne_radar
+}  // namespace session
+}  // namespace core
+}  // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_CORE_SESSION_RADAR_SESSION_H_
+#endif  // AIRBORNE_RADAR_CORE_SESSION_RADAR_SESSION_H_

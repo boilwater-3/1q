@@ -23,7 +23,7 @@ namespace session {
  * @brief EsrSessionConfig 描述电子侦察会话默认装配配置。
  */
 struct ONEQ_API EsrSessionConfig {
-  pipeline::InterceptPipelineConfig pipeline_config{}; /**< 流水线配置 */
+  pipeline::InterceptPipelineConfig pipeline_config{};         /**< 流水线配置 */
   environment::EsrEnvironmentModelConfig environment_config{}; /**< 环境模型配置 */
 };
 

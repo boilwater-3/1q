@@ -23,10 +23,10 @@ struct LpiSourceInfo {
  * @brief JammingTechnique 表示供决策层消费的干扰技术类型。
  */
 enum class JammingTechnique {
-  kUnknown = 0, /**< 未知或未分类干扰 */
+  kUnknown = 0,      /**< 未知或未分类干扰 */
   kNoiseSuppression, /**< 压制式/噪声式干扰 */
-  kDeception, /**< 欺骗式干扰 */
-  kRepeater /**< 转发式/重复器式干扰 */
+  kDeception,        /**< 欺骗式干扰 */
+  kRepeater          /**< 转发式/重复器式干扰 */
 };
 
 /**
@@ -34,15 +34,15 @@ enum class JammingTechnique {
  */
 struct EccmJammerSourceInfo {
   JammingTechnique technique{JammingTechnique::kUnknown}; /**< 干扰技术类型 */
-  float jammer_power_db{0.0f}; /**< 干扰功率估计（单位：dB） */
-  float jammer_to_signal_db{0.0f}; /**< 干扰与信号比估计（单位：dB） */
+  float jammer_power_db{0.0f};                            /**< 干扰功率估计（单位：dB） */
+  float jammer_to_signal_db{0.0f};                        /**< 干扰与信号比估计（单位：dB） */
   float frequency_overlap_ratio{0.0f}; /**< 干扰与当前工作频率的重叠度，范围 [0, 1] */
-  float prf_lock_risk{0.0f}; /**< 干扰对当前 PRF 锁定的风险度，范围 [0, 1] */
-  float azimuth_deg{0.0f}; /**< 干扰来向方位角（单位：deg） */
-  float elevation_deg{0.0f}; /**< 干扰来向俯仰角（单位：deg） */
-  float angular_span_deg{0.0f}; /**< 干扰角域宽度（单位：deg） */
-  bool jammer_in_sidelobe{false}; /**< 干扰是否主要经由旁瓣进入 */
-  float confidence{1.0f}; /**< 干扰事实置信度，范围 [0, 1] */
+  float prf_lock_risk{0.0f};           /**< 干扰对当前 PRF 锁定的风险度，范围 [0, 1] */
+  float azimuth_deg{0.0f};             /**< 干扰来向方位角（单位：deg） */
+  float elevation_deg{0.0f};           /**< 干扰来向俯仰角（单位：deg） */
+  float angular_span_deg{0.0f};        /**< 干扰角域宽度（单位：deg） */
+  bool jammer_in_sidelobe{false};      /**< 干扰是否主要经由旁瓣进入 */
+  float confidence{1.0f};              /**< 干扰事实置信度，范围 [0, 1] */
 };
 
 /** @brief 供 ECCM 消费的多源干扰摘要列表 */
@@ -52,11 +52,11 @@ using EccmJammerSourceInfoList = std::vector<EccmJammerSourceInfo>;
  * @brief EccmSourceInfo 表示供 ECCM 模块消费的干扰来源信息。
  */
 struct EccmSourceInfo {
-  bool has_jamming_signal{false}; /**< 当前周期是否检测到干扰信号 */
-  float jammer_power_db{0.0f}; /**< 干扰功率估计（单位：dB） */
-  float frequency_overlap_ratio{0.0f}; /**< 干扰与当前工作频率的重叠度，范围 [0, 1] */
-  float prf_lock_risk{0.0f}; /**< 干扰对当前 PRF 锁定的风险度，范围 [0, 1] */
-  bool jammer_in_sidelobe{false}; /**< 干扰是否主要经由旁瓣进入 */
+  bool has_jamming_signal{false};            /**< 当前周期是否检测到干扰信号 */
+  float jammer_power_db{0.0f};               /**< 干扰功率估计（单位：dB） */
+  float frequency_overlap_ratio{0.0f};       /**< 干扰与当前工作频率的重叠度，范围 [0, 1] */
+  float prf_lock_risk{0.0f};                 /**< 干扰对当前 PRF 锁定的风险度，范围 [0, 1] */
+  bool jammer_in_sidelobe{false};            /**< 干扰是否主要经由旁瓣进入 */
   EccmJammerSourceInfoList jammer_sources{}; /**< 当前周期可见的多源干扰摘要 */
 
   EccmSourceInfo() = default; /**< 默认构造函数 */
@@ -65,7 +65,7 @@ struct EccmSourceInfo {
       : has_jamming_signal(has_jamming) {}
 };
 
-} // namespace common
-} // namespace airborne_radar
+}  // namespace common
+}  // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_COMMON_DECISION_SOURCE_INFO_H_
+#endif  // AIRBORNE_RADAR_COMMON_DECISION_SOURCE_INFO_H_

@@ -15,9 +15,9 @@ namespace intercept {
  * @brief BoundarySearchResult 描述边界搜索输出。
  */
 struct BoundarySearchResult {
-  bool converged{false}; /**< 是否收敛 */
+  bool converged{false};        /**< 是否收敛 */
   float boundary_range_m{0.0f}; /**< 边界距离（单位：m） */
-  int iterations{0}; /**< 实际迭代次数 */
+  int iterations{0};            /**< 实际迭代次数 */
 };
 
 /**
@@ -36,13 +36,12 @@ class BoundarySearchSolver final {
    * @return 边界搜索结果。
    */
   template <typename Predicate>
-  static BoundarySearchResult Solve(float min_range_m, float max_range_m,
-                                    float resolution_m, int max_iterations,
-                                    const Predicate& predicate) {
+  static BoundarySearchResult Solve(float min_range_m, float max_range_m, float resolution_m,
+                                    int max_iterations, const Predicate& predicate) {
     BoundarySearchResult result;
-    if (max_range_m <= min_range_m || resolution_m <= 0.0f ||
-        max_iterations <= 0 || !std::isfinite(min_range_m) ||
-        !std::isfinite(max_range_m) || !std::isfinite(resolution_m)) {
+    if (max_range_m <= min_range_m || resolution_m <= 0.0f || max_iterations <= 0 ||
+        !std::isfinite(min_range_m) || !std::isfinite(max_range_m) ||
+        !std::isfinite(resolution_m)) {
       return result;
     }
 

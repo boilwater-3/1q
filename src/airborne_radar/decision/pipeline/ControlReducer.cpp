@@ -15,8 +15,7 @@ namespace {
  * @param rhs 右侧 proposal。
  * @return 左侧优先级更高时返回 true。
  */
-bool CompareProposalPriority(const TacticalProposal& lhs,
-                             const TacticalProposal& rhs) {
+bool CompareProposalPriority(const TacticalProposal& lhs, const TacticalProposal& rhs) {
   return lhs.priority > rhs.priority;
 }
 /**
@@ -113,8 +112,7 @@ void ResetEccmDomain(common::RadarControlProfile* profile) {
  * @param from 源控制真值。
  * @param to 目标控制真值。
  */
-void CopyLpiDomain(const common::RadarControlProfile& from,
-                   common::RadarControlProfile* to) {
+void CopyLpiDomain(const common::RadarControlProfile& from, common::RadarControlProfile* to) {
   if (to == nullptr) {
     return;
   }
@@ -129,8 +127,7 @@ void CopyLpiDomain(const common::RadarControlProfile& from,
  * @param from 源控制真值。
  * @param to 目标控制真值。
  */
-void CopyEccmDomain(const common::RadarControlProfile& from,
-                    common::RadarControlProfile* to) {
+void CopyEccmDomain(const common::RadarControlProfile& from, common::RadarControlProfile* to) {
   if (to == nullptr) {
     return;
   }
@@ -205,18 +202,15 @@ void ApplyDirectiveToProfile(const ControlReducerConfig& config,
  * @param applied 已接受的控制意图列表。
  * @param rejected 已拒绝的控制意图列表。
  */
-void MoveAppliedDirectiveToRejected(
-    common::ControlDirectiveType type,
-    std::vector<common::ControlDirective>* applied,
-    std::vector<common::ControlDirective>* rejected) {
+void MoveAppliedDirectiveToRejected(common::ControlDirectiveType type,
+                                    std::vector<common::ControlDirective>* applied,
+                                    std::vector<common::ControlDirective>* rejected) {
   if (applied == nullptr || rejected == nullptr) {
     return;
   }
-  std::vector<common::ControlDirective>::iterator found =
-      std::find_if(applied->begin(), applied->end(),
-                   [type](const common::ControlDirective& directive) {
-                     return directive.type == type;
-                   });
+  std::vector<common::ControlDirective>::iterator found = std::find_if(
+      applied->begin(), applied->end(),
+      [type](const common::ControlDirective& directive) { return directive.type == type; });
   if (found == applied->end()) {
     return;
   }
@@ -231,36 +225,32 @@ void MoveAppliedDirectiveToRejected(
  * @param applied 已接受的控制意图列表。
  * @param rejected 已拒绝的控制意图列表。
  */
-void ResolveEmissionSurvivabilityConflict(
-    const ControlReducerConfig& config, common::RadarControlProfile* profile,
-    std::vector<common::ControlDirective>* applied,
-    std::vector<common::ControlDirective>* rejected) {
+void ResolveEmissionSurvivabilityConflict(const ControlReducerConfig& config,
+                                          common::RadarControlProfile* profile,
+                                          std::vector<common::ControlDirective>* applied,
+                                          std::vector<common::ControlDirective>* rejected) {
   if (profile == nullptr) {
     return;
   }
 
   // 烧穿增益属于生存性优先路径，应对 LPI 功率压低设置保护下限，
   // 避免 profile 同时要求“强穿透”和“显著降功率”而互相抵消。
-  if (config.prefer_survivability_in_power_conflict &&
-      profile->eccm_burnthrough_gain > 1.0f &&
+  if (config.prefer_survivability_in_power_conflict && profile->eccm_burnthrough_gain > 1.0f &&
       profile->enable_lpi_power_control) {
     profile->lpi_power_scale =
         std::max(profile->lpi_power_scale, config.burnthrough_lpi_power_floor);
   }
 
-  if (profile->enable_lpi_beamforming &&
-      profile->enable_adaptive_beamforming) {
+  if (profile->enable_lpi_beamforming && profile->enable_adaptive_beamforming) {
     if (config.prefer_survivability_in_beam_conflict) {
       profile->enable_lpi_beamforming = false;
-      MoveAppliedDirectiveToRejected(
-          common::ControlDirectiveType::REQUEST_LPI_BEAMFORMING, applied,
-          rejected);
+      MoveAppliedDirectiveToRejected(common::ControlDirectiveType::REQUEST_LPI_BEAMFORMING, applied,
+                                     rejected);
     } else {
       profile->enable_adaptive_beamforming = false;
       MoveAppliedDirectiveToRejected(
-          common::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
-          applied, rejected);
-      }
+          common::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING, applied, rejected);
+    }
   }
 }
 
@@ -278,24 +268,18 @@ bool HasOperationalProfileChanged(const common::RadarControlProfile& previous,
          previous.lpi_dwell_scale != next.lpi_dwell_scale ||
          previous.enable_agility_frequency != next.enable_agility_frequency ||
          previous.enable_sidelobe_canceller != next.enable_sidelobe_canceller ||
-         previous.enable_adaptive_beamforming !=
-             next.enable_adaptive_beamforming ||
+         previous.enable_adaptive_beamforming != next.enable_adaptive_beamforming ||
          previous.enable_eccm_rejitter != next.enable_eccm_rejitter ||
          previous.eccm_burnthrough_gain != next.eccm_burnthrough_gain;
 }
 
-} // namespace
+}  // namespace
 
-ControlReducer::ControlReducer(ControlReducerConfig config)
-    : config_(config) {}
+ControlReducer::ControlReducer(ControlReducerConfig config) : config_(config) {}
 
-void ControlReducer::UpdateConfig(ControlReducerConfig config) {
-  config_ = config;
-}
+void ControlReducer::UpdateConfig(ControlReducerConfig config) { config_ = config; }
 
-ControlReducerConfig ControlReducer::GetConfig() const {
-  return config_;
-}
+ControlReducerConfig ControlReducer::GetConfig() const { return config_; }
 
 ControlReductionResult ControlReducer::Reduce(
     const common::RadarControlProfile& previous_profile,
@@ -304,19 +288,14 @@ ControlReductionResult ControlReducer::Reduce(
   result.profile = previous_profile;
   common::RadarControlProfile next_profile = previous_profile;
   std::vector<TacticalProposal> sorted_proposals = proposals;
-  std::stable_sort(sorted_proposals.begin(), sorted_proposals.end(),
-                   CompareProposalPriority);
+  std::stable_sort(sorted_proposals.begin(), sorted_proposals.end(), CompareProposalPriority);
 
   const bool previous_lpi_active = IsLpiDomainActive(previous_profile);
   const bool previous_eccm_active = IsEccmDomainActive(previous_profile);
-  const std::uint32_t previous_lpi_hold =
-      previous_profile.lpi_hold_cycles_remaining;
-  const std::uint32_t previous_eccm_hold =
-      previous_profile.eccm_hold_cycles_remaining;
-  std::uint32_t next_lpi_cooldown =
-      previous_profile.lpi_cooldown_cycles_remaining;
-  std::uint32_t next_eccm_cooldown =
-      previous_profile.eccm_cooldown_cycles_remaining;
+  const std::uint32_t previous_lpi_hold = previous_profile.lpi_hold_cycles_remaining;
+  const std::uint32_t previous_eccm_hold = previous_profile.eccm_hold_cycles_remaining;
+  std::uint32_t next_lpi_cooldown = previous_profile.lpi_cooldown_cycles_remaining;
+  std::uint32_t next_eccm_cooldown = previous_profile.eccm_cooldown_cycles_remaining;
 
   std::set<common::ControlDirectiveType> applied_types;
   std::vector<common::ControlDirective> accepted_directives;
@@ -348,14 +327,12 @@ ControlReductionResult ControlReducer::Reduce(
 
   if (has_lpi_requests) {
     ResetLpiDomain(&next_profile);
-    next_profile.lpi_hold_cycles_remaining =
-        config_.lpi_hold_cycles_after_request;
+    next_profile.lpi_hold_cycles_remaining = config_.lpi_hold_cycles_after_request;
     next_profile.lpi_cooldown_cycles_remaining = 0U;
     for (std::size_t i = 0; i < accepted_directives.size(); ++i) {
       if (IsLpiDirective(accepted_directives[i].type)) {
         ApplyDirectiveToProfile(config_, accepted_directives[i], &next_profile,
-                               &result.applied_directives,
-                               &result.rejected_directives);
+                                &result.applied_directives, &result.rejected_directives);
       }
     }
   } else if (previous_lpi_active && previous_lpi_hold > 0U) {
@@ -367,20 +344,17 @@ ControlReductionResult ControlReducer::Reduce(
     next_profile.lpi_hold_cycles_remaining = 0U;
     next_profile.lpi_cooldown_cycles_remaining =
         previous_lpi_active ? config_.lpi_cooldown_cycles_after_release
-                            : (next_lpi_cooldown > 0U ? next_lpi_cooldown - 1U
-                                                      : 0U);
+                            : (next_lpi_cooldown > 0U ? next_lpi_cooldown - 1U : 0U);
   }
 
   if (has_eccm_requests) {
     ResetEccmDomain(&next_profile);
-    next_profile.eccm_hold_cycles_remaining =
-        config_.eccm_hold_cycles_after_request;
+    next_profile.eccm_hold_cycles_remaining = config_.eccm_hold_cycles_after_request;
     next_profile.eccm_cooldown_cycles_remaining = 0U;
     for (std::size_t i = 0; i < accepted_directives.size(); ++i) {
       if (IsEccmDirective(accepted_directives[i].type)) {
         ApplyDirectiveToProfile(config_, accepted_directives[i], &next_profile,
-                               &result.applied_directives,
-                               &result.rejected_directives);
+                                &result.applied_directives, &result.rejected_directives);
       }
     }
   } else if (previous_eccm_active && previous_eccm_hold > 0U) {
@@ -392,22 +366,18 @@ ControlReductionResult ControlReducer::Reduce(
     next_profile.eccm_hold_cycles_remaining = 0U;
     next_profile.eccm_cooldown_cycles_remaining =
         previous_eccm_active ? config_.eccm_cooldown_cycles_after_release
-                             : (next_eccm_cooldown > 0U
-                                    ? next_eccm_cooldown - 1U
-                                    : 0U);
+                             : (next_eccm_cooldown > 0U ? next_eccm_cooldown - 1U : 0U);
   }
 
-  ResolveEmissionSurvivabilityConflict(config_, &next_profile,
-                                       &result.applied_directives,
+  ResolveEmissionSurvivabilityConflict(config_, &next_profile, &result.applied_directives,
                                        &result.rejected_directives);
-  next_profile.version =
-      HasOperationalProfileChanged(previous_profile, next_profile)
-          ? previous_profile.version + 1U
-          : previous_profile.version;
+  next_profile.version = HasOperationalProfileChanged(previous_profile, next_profile)
+                             ? previous_profile.version + 1U
+                             : previous_profile.version;
   result.profile = next_profile;
   return result;
 }
 
-} // namespace pipeline
-} // namespace decision
-} // namespace airborne_radar
+}  // namespace pipeline
+}  // namespace decision
+}  // namespace airborne_radar

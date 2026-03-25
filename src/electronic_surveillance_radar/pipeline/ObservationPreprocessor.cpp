@@ -17,12 +17,9 @@ namespace {
  * @return 合法时返回 `true`。
  */
 bool IsValidObservation(const common::EmitterObservation& observation) {
-  if (!std::isfinite(observation.timestamp_s) ||
-      !std::isfinite(observation.aoa_az_deg) ||
-      !std::isfinite(observation.aoa_el_deg) ||
-      !std::isfinite(observation.rf_hz) ||
-      !std::isfinite(observation.pulse_width_s) ||
-      !std::isfinite(observation.amplitude_db) ||
+  if (!std::isfinite(observation.timestamp_s) || !std::isfinite(observation.aoa_az_deg) ||
+      !std::isfinite(observation.aoa_el_deg) || !std::isfinite(observation.rf_hz) ||
+      !std::isfinite(observation.pulse_width_s) || !std::isfinite(observation.amplitude_db) ||
       !std::isfinite(observation.snr_db)) {
     return false;
   }
@@ -54,17 +51,12 @@ common::ObservationQuality NormalizeQuality(float snr_db) {
 bool IsDuplicateObservation(const common::EmitterObservation& lhs,
                             const common::EmitterObservation& rhs,
                             const InterceptPreprocessConfig& config) {
-  const double dedup_time_window_sec =
-      static_cast<double>(config.dedup_time_window_sec);
-  return std::fabs(lhs.timestamp_s - rhs.timestamp_s) <=
-             dedup_time_window_sec &&
+  const double dedup_time_window_sec = static_cast<double>(config.dedup_time_window_sec);
+  return std::fabs(lhs.timestamp_s - rhs.timestamp_s) <= dedup_time_window_sec &&
          std::fabs(lhs.rf_hz - rhs.rf_hz) <= config.dedup_rf_window_hz &&
-         std::fabs(lhs.pulse_width_s - rhs.pulse_width_s) <=
-             config.dedup_pw_window_sec &&
-         std::fabs(lhs.aoa_az_deg - rhs.aoa_az_deg) <=
-             config.dedup_az_window_deg &&
-         std::fabs(lhs.aoa_el_deg - rhs.aoa_el_deg) <=
-             config.dedup_el_window_deg;
+         std::fabs(lhs.pulse_width_s - rhs.pulse_width_s) <= config.dedup_pw_window_sec &&
+         std::fabs(lhs.aoa_az_deg - rhs.aoa_az_deg) <= config.dedup_az_window_deg &&
+         std::fabs(lhs.aoa_el_deg - rhs.aoa_el_deg) <= config.dedup_el_window_deg;
 }
 
 /**
@@ -73,8 +65,7 @@ bool IsDuplicateObservation(const common::EmitterObservation& lhs,
  * @param[in] rhs 右侧记录。
  * @return 若 lhs 优先于 rhs 则返回 `true`。
  */
-bool IsPreferredRecord(const RawObservationRecord& lhs,
-                       const RawObservationRecord& rhs) {
+bool IsPreferredRecord(const RawObservationRecord& lhs, const RawObservationRecord& rhs) {
   if (lhs.observation.snr_db != rhs.observation.snr_db) {
     return lhs.observation.snr_db > rhs.observation.snr_db;
   }
@@ -87,8 +78,7 @@ bool IsPreferredRecord(const RawObservationRecord& lhs,
  * @param[in] rhs 右侧记录。
  * @return 排序谓词结果。
  */
-bool CompareRecordByTime(const RawObservationRecord& lhs,
-                         const RawObservationRecord& rhs) {
+bool CompareRecordByTime(const RawObservationRecord& lhs, const RawObservationRecord& rhs) {
   if (lhs.observation.timestamp_s != rhs.observation.timestamp_s) {
     return lhs.observation.timestamp_s < rhs.observation.timestamp_s;
   }
@@ -118,14 +108,12 @@ std::vector<RawObservationRecord> ObservationPreprocessor::Run(
     bool consumed = false;
     for (std::size_t j = output.size(); j > 0; --j) {
       RawObservationRecord& candidate = output[j - 1U];
-      if (current.observation.timestamp_s -
-              candidate.observation.timestamp_s >
+      if (current.observation.timestamp_s - candidate.observation.timestamp_s >
           static_cast<double>(config.dedup_time_window_sec)) {
         break;
       }
 
-      if (!IsDuplicateObservation(current.observation, candidate.observation,
-                                  config)) {
+      if (!IsDuplicateObservation(current.observation, candidate.observation, config)) {
         continue;
       }
 

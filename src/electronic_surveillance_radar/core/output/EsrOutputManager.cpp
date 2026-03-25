@@ -13,8 +13,7 @@ namespace {
  * @param[in] associations 真值关联记录列表。
  * @return 匹配成功的记录数量。
  */
-std::size_t CountMatched(
-    const common::TruthAssociationRecordList& associations) {
+std::size_t CountMatched(const common::TruthAssociationRecordList& associations) {
   std::size_t matched_count = 0U;
   for (std::size_t i = 0; i < associations.size(); ++i) {
     if (associations[i].matched) {
@@ -33,15 +32,13 @@ common::EsrOutputFrame EsrOutputManager::BuildOutputFrame(
   frame.observation_output.observations = cycle_result.observations;
   frame.emitter_output.hypotheses = cycle_result.emitter_hypotheses;
   frame.truth_evaluation_output.associations = cycle_result.truth_associations;
-  frame.truth_evaluation_output.total_observation_count =
-      cycle_result.observations.size();
-  frame.truth_evaluation_output.matched_count =
-      CountMatched(cycle_result.truth_associations);
+  frame.truth_evaluation_output.total_observation_count = cycle_result.observations.size();
+  frame.truth_evaluation_output.matched_count = CountMatched(cycle_result.truth_associations);
   return frame;
 }
 
-common::EsrOutputFrame EsrOutputManager::BuildEmptyFrame(
-    std::uint32_t cycle_index, std::uint64_t batch_id) const {
+common::EsrOutputFrame EsrOutputManager::BuildEmptyFrame(std::uint32_t cycle_index,
+                                                         std::uint64_t batch_id) const {
   common::EsrOutputFrame frame;
   frame.observation_output.cycle_index = cycle_index;
   frame.observation_output.batch_id = batch_id;

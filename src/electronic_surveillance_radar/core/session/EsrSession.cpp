@@ -21,8 +21,7 @@ struct EsrSession::Impl {
       result.output_frame = controller.GetLatestOutputFrame();
     }
     result.validation_issues = controller.GetLastValidationIssues();
-    result.has_validation_error =
-        context::HasEsrValidationError(result.validation_issues);
+    result.has_validation_error = context::HasEsrValidationError(result.validation_issues);
     return result;
   }
 

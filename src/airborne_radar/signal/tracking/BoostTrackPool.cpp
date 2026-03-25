@@ -4,14 +4,11 @@ namespace airborne_radar {
 namespace signal {
 namespace tracking {
 
-BoostTrackPool::BoostTrackPool(std::size_t prewarm_count,
-                               std::size_t max_cached_objects)
-    : pool_(),
-      free_list_(),
-      max_cached_objects_(max_cached_objects) {
+BoostTrackPool::BoostTrackPool(std::size_t prewarm_count, std::size_t max_cached_objects)
+    : pool_(), free_list_(), max_cached_objects_(max_cached_objects) {
   free_list_.reserve(prewarm_count);
   for (std::size_t i = 0; i < prewarm_count; ++i) {
-    common::TrackState *track = pool_.construct();
+    common::TrackState* track = pool_.construct();
     if (track == nullptr) {
       break;
     }
@@ -19,8 +16,8 @@ BoostTrackPool::BoostTrackPool(std::size_t prewarm_count,
   }
 }
 
-common::TrackState *BoostTrackPool::Acquire() {
-  common::TrackState *track = nullptr;
+common::TrackState* BoostTrackPool::Acquire() {
+  common::TrackState* track = nullptr;
   if (!free_list_.empty()) {
     track = free_list_.back();
     free_list_.pop_back();
@@ -34,7 +31,7 @@ common::TrackState *BoostTrackPool::Acquire() {
   return track;
 }
 
-void BoostTrackPool::Release(common::TrackState *track) {
+void BoostTrackPool::Release(common::TrackState* track) {
   if (track == nullptr) {
     return;
   }
@@ -52,14 +49,10 @@ void BoostTrackPool::Release(common::TrackState *track) {
   pool_.destroy(track);
 }
 
-std::size_t BoostTrackPool::Capacity() const {
-  return in_use_count_ + free_list_.size();
-}
+std::size_t BoostTrackPool::Capacity() const { return in_use_count_ + free_list_.size(); }
 
-std::size_t BoostTrackPool::InUseCount() const {
-  return in_use_count_;
-}
+std::size_t BoostTrackPool::InUseCount() const { return in_use_count_; }
 
-} // namespace tracking
-} // namespace signal
-} // namespace airborne_radar
+}  // namespace tracking
+}  // namespace signal
+}  // namespace airborne_radar

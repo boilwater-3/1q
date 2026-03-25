@@ -16,32 +16,30 @@ namespace tracking {
  * @brief 轨迹滤波器配置参数。
  */
 struct TrackFilterConfig {
-  float speed_decay_ratio_on_loss{0.90f};  /**< 失配时的速度衰减系数。 */
-  float rcs_decay_ratio_on_loss{0.85f};  /**< 失配时的 RCS 衰减系数。 */
+  float speed_decay_ratio_on_loss{0.90f}; /**< 失配时的速度衰减系数。 */
+  float rcs_decay_ratio_on_loss{0.85f};   /**< 失配时的 RCS 衰减系数。 */
 };
 /**
  * @brief 轨迹滤波器处理上下文。
  */
 struct TrackFilterContext {
-  bool detection_succeeded{false};  /**< 本周期是否检测成功。 */
-  bool jamming_detected{false};  /**< 是否探测到干扰。 */
+  bool detection_succeeded{false}; /**< 本周期是否检测成功。 */
+  bool jamming_detected{false};    /**< 是否探测到干扰。 */
   common::JammingSemantic dominant_jamming_semantic{
-      common::JammingSemantic::kNone};  /**< 主要干扰语义类型。 */
-  float jamming_severity{0.0f};  /**< 干扰严重程度。 */
-  float detection_margin_db{0.0f};  /**< 检测余量（dB）。 */
+      common::JammingSemantic::kNone}; /**< 主要干扰语义类型。 */
+  float jamming_severity{0.0f};        /**< 干扰严重程度。 */
+  float detection_margin_db{0.0f};     /**< 检测余量（dB）。 */
 };
 /**
  * @brief 预测后的轨迹状态。
  */
 struct PredictedTrackState {
   PredictedTrackState() = default;
-/**
- * @brief 构造函数。
- */
-  PredictedTrackState(float s, float r,
-                      float vx, float vy, float vz)
-      : speed(s), rcs(r),
-        velocity_x(vx), velocity_y(vy), velocity_z(vz) {}
+  /**
+   * @brief 构造函数。
+   */
+  PredictedTrackState(float s, float r, float vx, float vy, float vz)
+      : speed(s), rcs(r), velocity_x(vx), velocity_y(vy), velocity_z(vz) {}
 
   float speed{0.0f};      /**< 速度大小 */
   float rcs{0.0f};        /**< 雷达散射截面积 */
@@ -55,13 +53,12 @@ struct PredictedTrackState {
 class ITrackPredictor {
  public:
   virtual ~ITrackPredictor() = default;
-/**
- * @brief 执行轨迹预测。
- * @param input 输入目标特征。
- * @return 预测后的轨迹状态。
- */
-  virtual PredictedTrackState Predict(
-      const common::TargetFeature &input) const = 0;
+  /**
+   * @brief 执行轨迹预测。
+   * @param input 输入目标特征。
+   * @return 预测后的轨迹状态。
+   */
+  virtual PredictedTrackState Predict(const common::TargetFeature& input) const = 0;
 };
 /**
  * @brief 轻量轨迹预测器。
@@ -70,12 +67,12 @@ class ITrackPredictor {
  */
 class IdentityTrackPredictor final : public ITrackPredictor {
  public:
-/**
- * @brief 执行恒等预测。
- * @param input 输入目标特征。
- * @return 预测后的轨迹状态。
- */
-  PredictedTrackState Predict(const common::TargetFeature &input) const override;
+  /**
+   * @brief 执行恒等预测。
+   * @param input 输入目标特征。
+   * @return 预测后的轨迹状态。
+   */
+  PredictedTrackState Predict(const common::TargetFeature& input) const override;
 };
 /**
  * @brief 轨迹更新器抽象接口。
@@ -83,74 +80,73 @@ class IdentityTrackPredictor final : public ITrackPredictor {
 class ITrackUpdater {
  public:
   virtual ~ITrackUpdater() = default;
-/**
- * @brief 执行轨迹更新。
- * @param predicted 预测后的状态。
- * @param context 处理上下文。
- * @return 更新后的目标特征。
- */
-  virtual common::TargetFeature Update(
-      const PredictedTrackState &predicted,
-      const TrackFilterContext &context) const = 0;
+  /**
+   * @brief 执行轨迹更新。
+   * @param predicted 预测后的状态。
+   * @param context 处理上下文。
+   * @return 更新后的目标特征。
+   */
+  virtual common::TargetFeature Update(const PredictedTrackState& predicted,
+                                       const TrackFilterContext& context) const = 0;
 };
 /**
  * @brief 简单轨迹更新器实现。
  */
 class SimpleTrackUpdater final : public ITrackUpdater {
  public:
-/**
- * @brief 构造函数。
- * @param config 滤波器配置。
- */
+  /**
+   * @brief 构造函数。
+   * @param config 滤波器配置。
+   */
   explicit SimpleTrackUpdater(TrackFilterConfig config = {});
-/**
- * @brief 执行简单更新逻辑。
- * @param predicted 预测后的状态。
- * @param context 处理上下文。
- * @return 更新后的目标特征。
- */
-  common::TargetFeature Update(const PredictedTrackState &predicted,
-                               const TrackFilterContext &context) const override;
-/**
- * @brief 更新配置参数。
- * @param config 新配置。
- */
+  /**
+   * @brief 执行简单更新逻辑。
+   * @param predicted 预测后的状态。
+   * @param context 处理上下文。
+   * @return 更新后的目标特征。
+   */
+  common::TargetFeature Update(const PredictedTrackState& predicted,
+                               const TrackFilterContext& context) const override;
+  /**
+   * @brief 更新配置参数。
+   * @param config 新配置。
+   */
   void UpdateConfig(TrackFilterConfig config);
 
  private:
-  TrackFilterConfig config_{};  /**< 更新器配置。 */
+  TrackFilterConfig config_{}; /**< 更新器配置。 */
 };
 /**
  * @brief 综合轨迹滤波器。
  */
 class TrackFilter final {
  public:
-/**
- * @brief 构造函数。
- * @param config 滤波器配置。
- */
+  /**
+   * @brief 构造函数。
+   * @param config 滤波器配置。
+   */
   explicit TrackFilter(TrackFilterConfig config = {});
-/**
- * @brief 执行滤波处理。
- * @param input 输入目标特征（来自检测或关联）。
- * @param context 当前周期的传感器处理上下文。
- * @return 滤波后的平滑目标特征。
- */
-  common::TargetFeature Filter(const common::TargetFeature &input,
-                               const TrackFilterContext &context) const;
-/**
- * @brief 更新配置参数。
- * @param config 全新的配置结构。
- */
+  /**
+   * @brief 执行滤波处理。
+   * @param input 输入目标特征（来自检测或关联）。
+   * @param context 当前周期的传感器处理上下文。
+   * @return 滤波后的平滑目标特征。
+   */
+  common::TargetFeature Filter(const common::TargetFeature& input,
+                               const TrackFilterContext& context) const;
+  /**
+   * @brief 更新配置参数。
+   * @param config 全新的配置结构。
+   */
   void UpdateConfig(TrackFilterConfig config);
 
-private:
-  IdentityTrackPredictor predictor_{};  /**< 轻量预测器实现。 */
-  SimpleTrackUpdater updater_{};  /**< 轻量更新器实现。 */
+ private:
+  IdentityTrackPredictor predictor_{}; /**< 轻量预测器实现。 */
+  SimpleTrackUpdater updater_{};       /**< 轻量更新器实现。 */
 };
 
-} // namespace tracking
-} // namespace signal
-} // namespace airborne_radar
+}  // namespace tracking
+}  // namespace signal
+}  // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_SIGNAL_TRACKING_TRACK_FILTER_H_
+#endif  // AIRBORNE_RADAR_SIGNAL_TRACKING_TRACK_FILTER_H_

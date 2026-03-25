@@ -67,10 +67,10 @@ TEST(TimingRegimeModelTest, DynamicThresholdAndPdKeepMonotonicBehavior) {
   EXPECT_GT(strict_pfa_threshold_db, base_threshold_db);
 
   params.pfa = 1.0e-6f;
-  const float pd_low = ComputeStatisticalDetectionProbability(
-      base_threshold_db - 3.0f, base_threshold_db, params);
-  const float pd_high = ComputeStatisticalDetectionProbability(
-      base_threshold_db + 6.0f, base_threshold_db, params);
+  const float pd_low =
+      ComputeStatisticalDetectionProbability(base_threshold_db - 3.0f, base_threshold_db, params);
+  const float pd_high =
+      ComputeStatisticalDetectionProbability(base_threshold_db + 6.0f, base_threshold_db, params);
   EXPECT_LT(pd_low, pd_high);
 
   StatisticalDetectionParams coherent_params = params;
@@ -84,10 +84,9 @@ TEST(TimingRegimeModelTest, DynamicThresholdAndPdKeepMonotonicBehavior) {
       base_threshold_db + 2.0f, base_threshold_db, noncoherent_params);
   EXPECT_GT(pd_coherent, pd_noncoherent);
 
-  EXPECT_FLOAT_EQ(
-      ComputeStatisticalDetectionProbability(
-          std::numeric_limits<float>::quiet_NaN(), base_threshold_db, params),
-      0.0f);
+  EXPECT_FLOAT_EQ(ComputeStatisticalDetectionProbability(std::numeric_limits<float>::quiet_NaN(),
+                                                         base_threshold_db, params),
+                  0.0f);
 }
 
 }  // namespace

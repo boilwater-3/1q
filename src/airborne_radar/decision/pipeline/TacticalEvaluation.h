@@ -20,10 +20,10 @@ namespace pipeline {
  */
 struct TacticalEvaluationState {
   common::TargetCategoryList target_classification_result; /**< 当前周期的目标分类结果。 */
-  common::LpiSourceInfo lpi_source_info; /**< 供 LPI evaluator 使用的来源信息。 */
+  common::LpiSourceInfo lpi_source_info;                   /**< 供 LPI evaluator 使用的来源信息。 */
   common::EccmSourceInfo eccm_source_info; /**< 供 ECCM evaluator 使用的来源信息。 */
-  bool should_reduce_power{false}; /**< 是否应触发降功率路径。 */
-  bool should_enable_eccm{false}; /**< 是否应触发 ECCM 保护发射路径。 */
+  bool should_reduce_power{false};         /**< 是否应触发降功率路径。 */
+  bool should_enable_eccm{false};          /**< 是否应触发 ECCM 保护发射路径。 */
   std::vector<TacticalProposal> proposals; /**< 当前周期累计的控制提案列表。 */
 
   TacticalEvaluationState() : eccm_source_info(false) {}

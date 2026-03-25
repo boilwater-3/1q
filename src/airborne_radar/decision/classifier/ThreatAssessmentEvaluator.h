@@ -28,8 +28,7 @@ class ThreatAssessmentEvaluator final : public pipeline::ITacticalEvaluator {
    * @param feature_repository 用于目标特征匹配的仓储接口；可为空。
    */
   explicit ThreatAssessmentEvaluator(
-      const environment::database::IFeatureRepository* feature_repository =
-          nullptr);
+      const environment::database::IFeatureRepository* feature_repository = nullptr);
 
   /**
    * @brief 评估单周期输入并更新分类与威胁状态。
@@ -47,16 +46,14 @@ class ThreatAssessmentEvaluator final : public pipeline::ITacticalEvaluator {
    * @param track_snapshot 单条轨迹快照。
    * @return 识别出的目标类型标签。
    */
-  std::string IdentifyTarget(
-      const common::DecisionTrackSnapshot& track_snapshot) const;
+  std::string IdentifyTarget(const common::DecisionTrackSnapshot& track_snapshot) const;
 
   /**
    * @brief 计算威胁评分。
    * @param track_snapshot 单条轨迹快照。
    * @return 轨迹的威胁评分。
    */
-  float ComputeThreatScore(
-      const common::DecisionTrackSnapshot& track_snapshot) const;
+  float ComputeThreatScore(const common::DecisionTrackSnapshot& track_snapshot) const;
 
   /**
    * @brief 更新供 LPI 使用的来源信息。
@@ -71,8 +68,7 @@ class ThreatAssessmentEvaluator final : public pipeline::ITacticalEvaluator {
    * @param match_result 仓储匹配结果。
    * @return 结果足够可靠时返回 `true`。
    */
-  bool ShouldAcceptRepositoryMatch(
-      const environment::database::MatchResult& match_result) const;
+  bool ShouldAcceptRepositoryMatch(const environment::database::MatchResult& match_result) const;
 
   /**
    * @brief 更新跨周期置信度。
@@ -93,8 +89,8 @@ class ThreatAssessmentEvaluator final : public pipeline::ITacticalEvaluator {
   const environment::database::IFeatureRepository* feature_repository_;
 };
 
-} // namespace classifier
-} // namespace decision
-} // namespace airborne_radar
+}  // namespace classifier
+}  // namespace decision
+}  // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_DECISION_CLASSIFIER_THREAT_ASSESSMENT_EVALUATOR_H_
+#endif  // AIRBORNE_RADAR_DECISION_CLASSIFIER_THREAT_ASSESSMENT_EVALUATOR_H_

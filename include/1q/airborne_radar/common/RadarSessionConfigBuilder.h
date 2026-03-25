@@ -8,8 +8,8 @@
 
 #include <cstdint>
 
-#include "1q/api.hpp"
 #include "1q/airborne_radar/core/session/RadarSession.h"
+#include "1q/api.hpp"
 
 namespace airborne_radar {
 namespace common {
@@ -50,8 +50,7 @@ class ONEQ_API RadarSessionConfigBuilder {
    * @param config 基础配置，默认为零值构造的 RadarSessionConfig。
    *        通常传入 `MakeDetectionMissionRadarSessionConfig()` 等预设函数返回值。
    */
-  explicit RadarSessionConfigBuilder(
-      const core::session::RadarSessionConfig& config = {})
+  explicit RadarSessionConfigBuilder(const core::session::RadarSessionConfig& config = {})
       : config_(config) {}
 
   // -------------------------------------------------------------------------
@@ -60,43 +59,37 @@ class ONEQ_API RadarSessionConfigBuilder {
 
   /** @brief 设置峰值发射功率（单位：W）。 */
   RadarSessionConfigBuilder& WithTransmitterPeakPowerW(float w) {
-    config_.signal_pipeline_config.detection.radar_system.transmitter
-        .peak_power_w = w;
+    config_.signal_pipeline_config.detection.radar_system.transmitter.peak_power_w = w;
     return *this;
   }
 
   /** @brief 设置工作载频（单位：Hz）。 */
   RadarSessionConfigBuilder& WithTransmitterFrequencyHz(float hz) {
-    config_.signal_pipeline_config.detection.radar_system.transmitter
-        .frequency_hz = hz;
+    config_.signal_pipeline_config.detection.radar_system.transmitter.frequency_hz = hz;
     return *this;
   }
 
   /** @brief 设置信号带宽（单位：Hz）。 */
   RadarSessionConfigBuilder& WithTransmitterBandwidthHz(float hz) {
-    config_.signal_pipeline_config.detection.radar_system.transmitter
-        .bandwidth_hz = hz;
+    config_.signal_pipeline_config.detection.radar_system.transmitter.bandwidth_hz = hz;
     return *this;
   }
 
   /** @brief 设置脉冲宽度（单位：s）。 */
   RadarSessionConfigBuilder& WithTransmitterPulseWidthS(float s) {
-    config_.signal_pipeline_config.detection.radar_system.transmitter
-        .pulse_width_s = s;
+    config_.signal_pipeline_config.detection.radar_system.transmitter.pulse_width_s = s;
     return *this;
   }
 
   /** @brief 设置脉冲重复频率（单位：Hz）。 */
   RadarSessionConfigBuilder& WithTransmitterPrfHz(float hz) {
-    config_.signal_pipeline_config.detection.radar_system.transmitter.prf_hz =
-        hz;
+    config_.signal_pipeline_config.detection.radar_system.transmitter.prf_hz = hz;
     return *this;
   }
 
   /** @brief 设置馈线/发射系统损耗（单位：dB）。 */
   RadarSessionConfigBuilder& WithTransmitterLossDb(float db) {
-    config_.signal_pipeline_config.detection.radar_system.transmitter
-        .transmit_loss_db = db;
+    config_.signal_pipeline_config.detection.radar_system.transmitter.transmit_loss_db = db;
     return *this;
   }
 
@@ -106,8 +99,7 @@ class ONEQ_API RadarSessionConfigBuilder {
 
   /** @brief 设置波束中心名义峰值增益（单位：dB）。 */
   RadarSessionConfigBuilder& WithAntennaMainBeamGainDb(float db) {
-    config_.signal_pipeline_config.detection.radar_system.antenna
-        .main_beam_gain_db = db;
+    config_.signal_pipeline_config.detection.radar_system.antenna.main_beam_gain_db = db;
     return *this;
   }
 
@@ -116,10 +108,8 @@ class ONEQ_API RadarSessionConfigBuilder {
    * @param az_deg 方位波束宽度。
    * @param el_deg 俯仰波束宽度。
    */
-  RadarSessionConfigBuilder& WithAntennaNominalBeamwidthDeg(float az_deg,
-                                                             float el_deg) {
-    auto& antenna =
-        config_.signal_pipeline_config.detection.radar_system.antenna;
+  RadarSessionConfigBuilder& WithAntennaNominalBeamwidthDeg(float az_deg, float el_deg) {
+    auto& antenna = config_.signal_pipeline_config.detection.radar_system.antenna;
     antenna.nominal_az_beamwidth_deg = az_deg;
     antenna.nominal_el_beamwidth_deg = el_deg;
     return *this;
@@ -131,15 +121,13 @@ class ONEQ_API RadarSessionConfigBuilder {
 
   /** @brief 设置接收机噪声系数（单位：dB）。 */
   RadarSessionConfigBuilder& WithReceiverNoiseFigureDb(float db) {
-    config_.signal_pipeline_config.detection.radar_system.receiver
-        .noise_figure_db = db;
+    config_.signal_pipeline_config.detection.radar_system.receiver.noise_figure_db = db;
     return *this;
   }
 
   /** @brief 设置接收系统损耗（单位：dB）。 */
   RadarSessionConfigBuilder& WithReceiverLossDb(float db) {
-    config_.signal_pipeline_config.detection.radar_system.receiver
-        .receive_loss_db = db;
+    config_.signal_pipeline_config.detection.radar_system.receiver.receive_loss_db = db;
     return *this;
   }
 
@@ -183,8 +171,7 @@ class ONEQ_API RadarSessionConfigBuilder {
 
   /** @brief 设置卡尔曼测量噪声标准差。值越大，滤波器对新量测的信任度越低。 */
   RadarSessionConfigBuilder& WithKalmanMeasurementNoiseStd(float std_dev) {
-    config_.signal_pipeline_config.tracking.kalman_measurement_noise_std =
-        std_dev;
+    config_.signal_pipeline_config.tracking.kalman_measurement_noise_std = std_dev;
     return *this;
   }
 
@@ -197,29 +184,25 @@ class ONEQ_API RadarSessionConfigBuilder {
    * @param enable 默认 `true`（启用）。生产配置通常应设为 `true`。
    */
   RadarSessionConfigBuilder& EnableAutoLifecycleManager(bool enable = true) {
-    config_.signal_pipeline_config.lifecycle.enable_auto_lifecycle_manager =
-        enable;
+    config_.signal_pipeline_config.lifecycle.enable_auto_lifecycle_manager = enable;
     return *this;
   }
 
   /** @brief 设置候选轨迹转已确认所需最小命中次数。 */
   RadarSessionConfigBuilder& WithConfirmHits(std::uint32_t hits) {
-    config_.signal_pipeline_config.lifecycle.lifecycle_config.confirm_hits =
-        hits;
+    config_.signal_pipeline_config.lifecycle.lifecycle_config.confirm_hits = hits;
     return *this;
   }
 
   /** @brief 设置已确认轨迹转丢失前允许的最大连续失配次数。 */
   RadarSessionConfigBuilder& WithMaxMissBeforeLost(std::uint32_t misses) {
-    config_.signal_pipeline_config.lifecycle.lifecycle_config
-        .max_miss_before_lost = misses;
+    config_.signal_pipeline_config.lifecycle.lifecycle_config.max_miss_before_lost = misses;
     return *this;
   }
 
   /** @brief 设置丢失轨迹可保留的最大周期数，超出则回收。 */
   RadarSessionConfigBuilder& WithMaxLostCycles(std::uint32_t cycles) {
-    config_.signal_pipeline_config.lifecycle.lifecycle_config.max_lost_cycles =
-        cycles;
+    config_.signal_pipeline_config.lifecycle.lifecycle_config.max_lost_cycles = cycles;
     return *this;
   }
 

@@ -14,9 +14,7 @@ namespace {
  * @param z z 分量。
  * @return 三维向量模长。
  */
-float ComputeNorm3(float x, float y, float z) {
-  return std::sqrt(x * x + y * y + z * z);
-}
+float ComputeNorm3(float x, float y, float z) { return std::sqrt(x * x + y * y + z * z); }
 
 /**
  * @brief 判断目标是否携带可用的笛卡尔位置分量。
@@ -24,8 +22,7 @@ float ComputeNorm3(float x, float y, float z) {
  * @return 位置向量至少有一个非零分量时返回 `true`。
  */
 bool HasCartesianPosition(const TargetFeature& target) {
-  return target.position_x != 0.0f || target.position_y != 0.0f ||
-         target.position_z != 0.0f;
+  return target.position_x != 0.0f || target.position_y != 0.0f || target.position_z != 0.0f;
 }
 
 /**
@@ -37,25 +34,19 @@ void RefreshDerivedKinematics(TargetFeature* target) {
     return;
   }
 
-  target->current_track_speed = ComputeNorm3(
-      target->current_track_velocity_x, target->current_track_velocity_y,
-      target->current_track_velocity_z);
+  target->current_track_speed =
+      ComputeNorm3(target->current_track_velocity_x, target->current_track_velocity_y,
+                   target->current_track_velocity_z);
 }
 
-} // namespace
+}  // namespace
 
-TargetFeature MakeTargetFromCartesian(
-    std::uint64_t external_target_id,
-    float position_x,
-    float position_y,
-    float position_z,
-    float velocity_x,
-    float velocity_y,
-    float velocity_z,
-    float rcs,
-    int swerling_type) {
-  TargetFeature target(velocity_x, velocity_y, velocity_z, rcs, 0.0f,
-                       swerling_type, external_target_id);
+TargetFeature MakeTargetFromCartesian(std::uint64_t external_target_id, float position_x,
+                                      float position_y, float position_z, float velocity_x,
+                                      float velocity_y, float velocity_z, float rcs,
+                                      int swerling_type) {
+  TargetFeature target(velocity_x, velocity_y, velocity_z, rcs, 0.0f, swerling_type,
+                       external_target_id);
   target.position_x = position_x;
   target.position_y = position_y;
   target.position_z = position_z;
@@ -63,32 +54,17 @@ TargetFeature MakeTargetFromCartesian(
   return target;
 }
 
-TargetFeature MakeGroundTarget(
-    std::uint64_t external_target_id,
-    float position_x,
-    float position_y,
-    float rcs,
-    float velocity_x,
-    float velocity_y,
-    int swerling_type) {
-  return MakeTargetFromCartesian(external_target_id, position_x, position_y,
-                                 0.0f, velocity_x, velocity_y, 0.0f, rcs,
-                                 swerling_type);
+TargetFeature MakeGroundTarget(std::uint64_t external_target_id, float position_x, float position_y,
+                               float rcs, float velocity_x, float velocity_y, int swerling_type) {
+  return MakeTargetFromCartesian(external_target_id, position_x, position_y, 0.0f, velocity_x,
+                                 velocity_y, 0.0f, rcs, swerling_type);
 }
 
-TargetFeature MakeAirTarget(
-    std::uint64_t external_target_id,
-    float position_x,
-    float position_y,
-    float position_z,
-    float velocity_x,
-    float velocity_y,
-    float velocity_z,
-    float rcs,
-    int swerling_type) {
-  return MakeTargetFromCartesian(external_target_id, position_x, position_y,
-                                 position_z, velocity_x, velocity_y,
-                                 velocity_z, rcs, swerling_type);
+TargetFeature MakeAirTarget(std::uint64_t external_target_id, float position_x, float position_y,
+                            float position_z, float velocity_x, float velocity_y, float velocity_z,
+                            float rcs, int swerling_type) {
+  return MakeTargetFromCartesian(external_target_id, position_x, position_y, position_z, velocity_x,
+                                 velocity_y, velocity_z, rcs, swerling_type);
 }
 
 void NormalizeTargetGeometry(TargetFeature* target) {
@@ -101,8 +77,7 @@ void NormalizeTargetGeometry(TargetFeature* target) {
     return;
   }
 
-  target->range_m =
-      ComputeNorm3(target->position_x, target->position_y, target->position_z);
+  target->range_m = ComputeNorm3(target->position_x, target->position_y, target->position_z);
 }
 
 void NormalizeTargetGeometry(TargetFeatureList* targets) {
@@ -115,5 +90,5 @@ void NormalizeTargetGeometry(TargetFeatureList* targets) {
   }
 }
 
-} // namespace common
-} // namespace airborne_radar
+}  // namespace common
+}  // namespace airborne_radar

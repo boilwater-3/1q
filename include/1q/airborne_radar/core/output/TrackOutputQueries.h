@@ -10,8 +10,8 @@
 #include <cstdint>
 #include <unordered_map>
 
-#include "1q/api.hpp"
 #include "1q/airborne_radar/common/TrackOutputFrame.h"
+#include "1q/api.hpp"
 
 namespace airborne_radar {
 namespace core {
@@ -50,24 +50,23 @@ ONEQ_API common::DecisionTrackSnapshotList CollectTracksByExternalTargetId(
  * @param frame 待查询的输出帧。
  * @return `status == kConfirmed` 的轨迹快照拷贝列表。
  */
-ONEQ_API common::DecisionTrackSnapshotList
-CollectConfirmedTracks(const common::TrackOutputFrame& frame);
+ONEQ_API common::DecisionTrackSnapshotList CollectConfirmedTracks(
+    const common::TrackOutputFrame& frame);
 
 /**
  * @brief 收集所有 lost 轨迹。
  * @param frame 待查询的输出帧。
  * @return `status == kLost` 的轨迹快照拷贝列表。
  */
-ONEQ_API common::DecisionTrackSnapshotList
-CollectLostTracks(const common::TrackOutputFrame& frame);
+ONEQ_API common::DecisionTrackSnapshotList CollectLostTracks(const common::TrackOutputFrame& frame);
 
 /**
  * @brief 收集所有带干扰标记的轨迹。
  * @param frame 待查询的输出帧。
  * @return `state.jamming_detected == true` 的轨迹快照拷贝列表。
  */
-ONEQ_API common::DecisionTrackSnapshotList
-CollectJammingTracks(const common::TrackOutputFrame& frame);
+ONEQ_API common::DecisionTrackSnapshotList CollectJammingTracks(
+    const common::TrackOutputFrame& frame);
 
 /**
  * @brief 判断输出帧中是否包含指定外部目标 ID。
@@ -94,8 +93,8 @@ ONEQ_API std::size_t CountJammingTracks(const common::TrackOutputFrame& frame);
 ONEQ_API std::size_t CountTracksByStatus(const common::TrackOutputFrame& frame,
                                          common::DecisionTrackStatus status);
 
-} // namespace output
-} // namespace core
-} // namespace airborne_radar
+}  // namespace output
+}  // namespace core
+}  // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_CORE_OUTPUT_TRACK_OUTPUT_QUERIES_H_
+#endif  // AIRBORNE_RADAR_CORE_OUTPUT_TRACK_OUTPUT_QUERIES_H_

@@ -1,5 +1,6 @@
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 
+#include <Eigen/Core>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -10,12 +11,8 @@
 #include <utility>
 #include <vector>
 
-#include <Eigen/Core>
-#include "common/logging/ProjectLog.h"
-
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "airborne_radar/core/output/DataOutputManager.h"
-#include "airborne_radar/signal/tracking/TrackLifecycleManager.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/MeasurementErrorModel.h"
@@ -23,6 +20,8 @@
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
 #include "airborne_radar/signal/pipeline/SignalComponentFactory.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
+#include "airborne_radar/signal/tracking/TrackLifecycleManager.h"
+#include "common/logging/ProjectLog.h"
 #include "common/timing/TimingRegimeModel.h"
 
 namespace airborne_radar {
@@ -60,8 +59,7 @@ float ResolveAssociationFragilityWeight(common::JammingSemantic semantic) {
  */
 AssociationQualityMetrics ToPipelineAssociationQualityMetrics(
     const association::AssociationQualityMetrics& source,
-    common::JammingSemantic dominant_jamming_semantic,
-    float jamming_severity,
+    common::JammingSemantic dominant_jamming_semantic, float jamming_severity,
     float association_unassigned_cost) {
   AssociationQualityMetrics metrics;
   metrics.prior_track_count = source.prior_track_count;
@@ -78,22 +76,17 @@ AssociationQualityMetrics ToPipelineAssociationQualityMetrics(
   metrics.jamming_severity = std::max(0.0f, std::min(1.0f, jamming_severity));
   const float normalized_cost_pressure =
       association_unassigned_cost > 1e-6f
-          ? std::max(0.0f, std::min(1.0f,
-                                    source.mean_match_cost /
-                                        association_unassigned_cost))
+          ? std::max(0.0f, std::min(1.0f, source.mean_match_cost / association_unassigned_cost))
           : 0.0f;
   const float operational_pressure =
-      0.20f +
-      0.30f * std::max(0.0f, std::min(1.0f, 1.0f - source.match_rate)) +
-      0.20f * source.new_track_rate +
-      0.15f * source.missed_track_rate +
+      0.20f + 0.30f * std::max(0.0f, std::min(1.0f, 1.0f - source.match_rate)) +
+      0.20f * source.new_track_rate + 0.15f * source.missed_track_rate +
       0.15f * normalized_cost_pressure;
   metrics.association_stress = std::max(
       0.0f,
       std::min(1.0f, metrics.jamming_severity *
-                           ResolveAssociationFragilityWeight(
-                               metrics.dominant_jamming_semantic) *
-                           operational_pressure));
+                         ResolveAssociationFragilityWeight(metrics.dominant_jamming_semantic) *
+                         operational_pressure));
   return metrics;
 }
 /**
@@ -107,8 +100,7 @@ common::EccmJammerSourceInfo BuildEccmJammerSourceInfo(
   source_info.technique = environment_source.technique;
   source_info.jammer_power_db = environment_source.power_db;
   source_info.jammer_to_signal_db = environment_source.js_db;
-  source_info.frequency_overlap_ratio =
-      environment_source.frequency_overlap_ratio;
+  source_info.frequency_overlap_ratio = environment_source.frequency_overlap_ratio;
   source_info.prf_lock_risk = environment_source.prf_lock_risk;
   source_info.azimuth_deg = environment_source.azimuth_deg;
   source_info.elevation_deg = environment_source.elevation_deg;
@@ -127,8 +119,7 @@ common::EccmSourceInfo BuildEccmSourceInfo(
   common::EccmSourceInfo source_info;
   source_info.has_jamming_signal = environment_snapshot.jamming_detected;
   source_info.jammer_power_db = environment_snapshot.jammer_power_db;
-  source_info.frequency_overlap_ratio =
-      environment_snapshot.jammer_frequency_overlap_ratio;
+  source_info.frequency_overlap_ratio = environment_snapshot.jammer_frequency_overlap_ratio;
   source_info.prf_lock_risk = environment_snapshot.jammer_prf_lock_risk;
   source_info.jammer_in_sidelobe = environment_snapshot.jammer_in_sidelobe;
   source_info.jammer_sources.reserve(environment_snapshot.jammer_sources.size());
@@ -162,9 +153,8 @@ common::AssociationQualityInfo BuildAssociationQualityInfo(
  * @param metrics 当前周期关联质量指标。
  * @return 决策层消费的探测质量摘要。
  */
-common::PerceptionQualityInfo BuildPerceptionQualityInfo(
-    std::size_t input_target_count,
-    const AssociationQualityMetrics& metrics) {
+common::PerceptionQualityInfo BuildPerceptionQualityInfo(std::size_t input_target_count,
+                                                         const AssociationQualityMetrics& metrics) {
   common::PerceptionQualityInfo info;
   info.input_target_count = input_target_count;
   info.detection_count = metrics.detection_count;
@@ -175,8 +165,7 @@ common::PerceptionQualityInfo BuildPerceptionQualityInfo(
   }
 
   info.detection_rate = std::min(
-      1.0f, static_cast<float>(metrics.detection_count) /
-                static_cast<float>(input_target_count));
+      1.0f, static_cast<float>(metrics.detection_count) / static_cast<float>(input_target_count));
   info.detection_stress = std::max(0.0f, 1.0f - info.detection_rate);
   return info;
 }
@@ -188,13 +177,12 @@ common::PerceptionQualityInfo BuildPerceptionQualityInfo(
  */
 common::DecisionTrackSnapshot BuildDecisionTrackSnapshotFromFeature(
     const common::TargetFeature& feature, std::size_t index) {
-  const std::uint64_t association_key =
-      feature.external_target_id != 0U ? feature.external_target_id
-                                       : static_cast<std::uint64_t>(index + 1U);
+  const std::uint64_t association_key = feature.external_target_id != 0U
+                                            ? feature.external_target_id
+                                            : static_cast<std::uint64_t>(index + 1U);
   common::DecisionTrackSnapshot snapshot(
       feature.current_track_velocity_x, feature.current_track_velocity_y,
-      feature.current_track_velocity_z, feature.current_track_rcs,
-      0.0f, 0.0f, 0.0f, false,
+      feature.current_track_velocity_z, feature.current_track_rcs, 0.0f, 0.0f, 0.0f, false,
       feature.external_target_id, association_key);
   snapshot.state.status = common::DecisionTrackStatus::kConfirmed;
   snapshot.state.position_x = feature.position_x;
@@ -227,8 +215,7 @@ common::DecisionTrackSnapshotList BuildDecisionSnapshotsFromFeatures(
 std::uint32_t ResolveLifecycleExtraMissTolerance(
     const common::RadarControlProfile& control_profile) {
   std::uint32_t extra_miss_tolerance = 0U;
-  if (control_profile.enable_sidelobe_canceller ||
-      control_profile.enable_agility_frequency ||
+  if (control_profile.enable_sidelobe_canceller || control_profile.enable_agility_frequency ||
       control_profile.enable_eccm_rejitter) {
     extra_miss_tolerance += 1U;
   }
@@ -244,8 +231,7 @@ std::uint32_t ResolveLifecycleExtraMissTolerance(
  * @return 若命中已有轨迹则返回匹配结果指针，否则返回空指针。
  */
 const association::AssociationMatch* FindAssociationMatch(
-    const association::AssociationResult& result,
-    std::size_t target_index) {
+    const association::AssociationResult& result, std::size_t target_index) {
   for (const association::AssociationMatch& match : result.matches) {
     if (match.target_index == target_index) {
       return &match;
@@ -264,21 +250,18 @@ const association::AssociationMatch* FindAssociationMatch(
  *       合成得到，effective beamwidth 来自 BeamControlResolver。
  */
 tracking::MeasurementCovariance BuildMeasurementCovariance(
-    const detection::ResolvedTargetGeometry& geometry,
-    float range_error_std,
-    float angle_error_std,
+    const detection::ResolvedTargetGeometry& geometry, float range_error_std, float angle_error_std,
     float default_measurement_noise_std) {
   if (range_error_std <= 0.0f || angle_error_std <= 0.0f) {
-    return tracking::MeasurementCovariance::Identity() *
-           default_measurement_noise_std * default_measurement_noise_std;
+    return tracking::MeasurementCovariance::Identity() * default_measurement_noise_std *
+           default_measurement_noise_std;
   }
 
   const float range_m = std::max(geometry.range_m, 0.1f);
   const float var_r = range_error_std * range_error_std;
   const float var_theta = angle_error_std * angle_error_std;
-  Eigen::Vector3f pos = geometry.has_cartesian_position
-                            ? geometry.position_m
-                            : Eigen::Vector3f(range_m, 0.0f, 0.0f);
+  Eigen::Vector3f pos =
+      geometry.has_cartesian_position ? geometry.position_m : Eigen::Vector3f(range_m, 0.0f, 0.0f);
   const float pos_norm = pos.norm();
   if (pos_norm > 0.1f) {
     const Eigen::Vector3f u = pos / pos_norm;
@@ -295,8 +278,7 @@ tracking::MeasurementCovariance BuildMeasurementCovariance(
  * @return 标量速度模长。
  */
 float ResolveSpeedMagnitude(const common::TargetFeature& target) {
-  const Eigen::Vector3f velocity(target.current_track_velocity_x,
-                                 target.current_track_velocity_y,
+  const Eigen::Vector3f velocity(target.current_track_velocity_x, target.current_track_velocity_y,
                                  target.current_track_velocity_z);
   if (velocity.squaredNorm() > 0.0f) {
     return velocity.norm();
@@ -309,8 +291,7 @@ float ResolveSpeedMagnitude(const common::TargetFeature& target) {
  * @return 速度向量。
  */
 Eigen::Vector3f ResolveVelocityVector(const common::TargetFeature& target) {
-  const Eigen::Vector3f velocity(target.current_track_velocity_x,
-                                 target.current_track_velocity_y,
+  const Eigen::Vector3f velocity(target.current_track_velocity_x, target.current_track_velocity_y,
                                  target.current_track_velocity_z);
   if (velocity.squaredNorm() > 0.0f) {
     return velocity;
@@ -344,16 +325,13 @@ float ClampFloat(float value, float min_value, float max_value) {
  * @param power_db dB 功率值。
  * @return 对应的线性功率。
  */
-float DbToLinearPower(float power_db) {
-  return std::pow(10.0f, power_db / 10.0f);
-}
+float DbToLinearPower(float power_db) { return std::pow(10.0f, power_db / 10.0f); }
 /**
  * @brief 判断环境快照中是否携带多源干扰事实。
  * @param environment_snapshot 当前周期环境快照。
  * @return 至少存在一个显式干扰源事实时返回 true。
  */
-bool HasMultiSourceJammingFacts(
-    const environment::EnvironmentSnapshot& environment_snapshot) {
+bool HasMultiSourceJammingFacts(const environment::EnvironmentSnapshot& environment_snapshot) {
   return !environment_snapshot.jammer_sources.empty();
 }
 /**
@@ -361,8 +339,7 @@ bool HasMultiSourceJammingFacts(
  * @param jammer_source 单个干扰源事实。
  * @return 归一化后的置信度权重。
  */
-float ResolveJammerConfidenceWeight(
-    const environment::JammerSourceFact& jammer_source) {
+float ResolveJammerConfidenceWeight(const environment::JammerSourceFact& jammer_source) {
   return ClampFloat(jammer_source.confidence, 0.25f, 1.0f);
 }
 /**
@@ -371,34 +348,27 @@ float ResolveJammerConfidenceWeight(
  * @param jammer_source 单个干扰源事实。
  * @return ECCM 动作作用后的残余干扰系数。
  */
-float ComputeResidualJammerFactor(
-    const common::RadarControlProfile& control_profile,
-    const environment::JammerSourceFact& jammer_source) {
+float ComputeResidualJammerFactor(const common::RadarControlProfile& control_profile,
+                                  const environment::JammerSourceFact& jammer_source) {
   float residual_factor = 1.0f;
 
   if (control_profile.enable_sidelobe_canceller && jammer_source.in_sidelobe) {
     residual_factor *= 0.55f;
   }
   if (control_profile.enable_adaptive_beamforming) {
-    residual_factor *= jammer_source.angular_span_deg > 0.0f &&
-                               jammer_source.angular_span_deg <= 10.0f
-                           ? 0.72f
-                           : 0.82f;
-  }
-  if (control_profile.enable_agility_frequency &&
-      jammer_source.frequency_overlap_ratio > 0.0f) {
     residual_factor *=
-        ClampFloat(1.0f - 0.50f * jammer_source.frequency_overlap_ratio, 0.35f,
-                   1.0f);
+        jammer_source.angular_span_deg > 0.0f && jammer_source.angular_span_deg <= 10.0f ? 0.72f
+                                                                                         : 0.82f;
   }
-  if (control_profile.enable_eccm_rejitter &&
-      jammer_source.prf_lock_risk > 0.0f) {
+  if (control_profile.enable_agility_frequency && jammer_source.frequency_overlap_ratio > 0.0f) {
     residual_factor *=
-        ClampFloat(1.0f - 0.55f * jammer_source.prf_lock_risk, 0.30f, 1.0f);
+        ClampFloat(1.0f - 0.50f * jammer_source.frequency_overlap_ratio, 0.35f, 1.0f);
+  }
+  if (control_profile.enable_eccm_rejitter && jammer_source.prf_lock_risk > 0.0f) {
+    residual_factor *= ClampFloat(1.0f - 0.55f * jammer_source.prf_lock_risk, 0.30f, 1.0f);
   }
   if (control_profile.eccm_burnthrough_gain > 1.0f) {
-    residual_factor *=
-        ClampFloat(1.0f / control_profile.eccm_burnthrough_gain, 0.55f, 1.0f);
+    residual_factor *= ClampFloat(1.0f / control_profile.eccm_burnthrough_gain, 0.55f, 1.0f);
   }
 
   switch (jammer_source.technique) {
@@ -432,8 +402,7 @@ float ComputeResidualJammerFactor(
  * @param jammer_source 单个干扰源事实。
  * @return 对经验检测链路的惩罚量（dB）。
  */
-float ComputeHeuristicSourcePenaltyDb(
-    const environment::JammerSourceFact& jammer_source) {
+float ComputeHeuristicSourcePenaltyDb(const environment::JammerSourceFact& jammer_source) {
   const float confidence_weight = ResolveJammerConfidenceWeight(jammer_source);
   float penalty_db = 0.8f + 0.18f * ClampFloat(jammer_source.power_db, 0.0f, 20.0f);
 
@@ -443,19 +412,16 @@ float ComputeHeuristicSourcePenaltyDb(
       penalty_db += 0.4f * ClampFloat(jammer_source.js_db, 0.0f, 12.0f) / 6.0f;
       break;
     case environment::JammingTechnique::kDeception:
-      penalty_db += 1.8f * ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f,
-                                      1.0f);
+      penalty_db += 1.8f * ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
       penalty_db += 1.2f * ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
       break;
     case environment::JammingTechnique::kRepeater:
       penalty_db += 1.0f * ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
-      penalty_db += 0.8f * ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f,
-                                      1.0f);
+      penalty_db += 0.8f * ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
       break;
     case environment::JammingTechnique::kUnknown:
     default:
-      penalty_db += 1.1f * ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f,
-                                      1.0f);
+      penalty_db += 1.1f * ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
       penalty_db += 0.9f * ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
       penalty_db += jammer_source.in_sidelobe ? 0.6f : 0.2f;
       break;
@@ -472,23 +438,17 @@ float ComputeHeuristicJammingPenaltyDb(
     const environment::EnvironmentSnapshot& environment_snapshot) {
   if (!HasMultiSourceJammingFacts(environment_snapshot)) {
     return environment_snapshot.jamming_detected
-               ? (1.0f +
-                  0.35f * ClampFloat(environment_snapshot.jammer_power_db, 0.0f,
-                                     20.0f) +
+               ? (1.0f + 0.35f * ClampFloat(environment_snapshot.jammer_power_db, 0.0f, 20.0f) +
                   2.0f *
-                      ClampFloat(environment_snapshot.jammer_frequency_overlap_ratio,
-                                 0.0f, 1.0f) +
-                  1.5f *
-                      ClampFloat(environment_snapshot.jammer_prf_lock_risk, 0.0f,
-                                 1.0f) +
+                      ClampFloat(environment_snapshot.jammer_frequency_overlap_ratio, 0.0f, 1.0f) +
+                  1.5f * ClampFloat(environment_snapshot.jammer_prf_lock_risk, 0.0f, 1.0f) +
                   (environment_snapshot.jammer_in_sidelobe ? 1.0f : 0.0f))
                : 0.0f;
   }
 
   float penalty_db = 0.0f;
   for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
-    penalty_db +=
-        ComputeHeuristicSourcePenaltyDb(environment_snapshot.jammer_sources[i]);
+    penalty_db += ComputeHeuristicSourcePenaltyDb(environment_snapshot.jammer_sources[i]);
   }
   return penalty_db;
 }
@@ -497,8 +457,7 @@ float ComputeHeuristicJammingPenaltyDb(
  * @param jammer_source 单个干扰源事实。
  * @return 等效 jam 噪声功率贡献（W）。
  */
-float ComputePhysicalSourceJamContributionW(
-    const environment::JammerSourceFact& jammer_source) {
+float ComputePhysicalSourceJamContributionW(const environment::JammerSourceFact& jammer_source) {
   float source_weight = 1.0f;
   switch (jammer_source.technique) {
     case environment::JammingTechnique::kNoiseSuppression:
@@ -533,23 +492,20 @@ float ComputeMeasurementCovarianceInflation(
 
   float inflation = 1.0f;
   for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
-    const environment::JammerSourceFact& source =
-        environment_snapshot.jammer_sources[i];
-    const float residual_factor =
-        ComputeResidualJammerFactor(control_profile, source);
+    const environment::JammerSourceFact& source = environment_snapshot.jammer_sources[i];
+    const float residual_factor = ComputeResidualJammerFactor(control_profile, source);
     const float confidence_weight = ResolveJammerConfidenceWeight(source);
     switch (source.technique) {
       case environment::JammingTechnique::kDeception:
-        inflation += 0.20f * confidence_weight * residual_factor *
-                     (1.0f + source.frequency_overlap_ratio);
+        inflation +=
+            0.20f * confidence_weight * residual_factor * (1.0f + source.frequency_overlap_ratio);
         break;
       case environment::JammingTechnique::kRepeater:
-        inflation += 0.16f * confidence_weight * residual_factor *
-                     (1.0f + source.prf_lock_risk);
+        inflation += 0.16f * confidence_weight * residual_factor * (1.0f + source.prf_lock_risk);
         break;
       case environment::JammingTechnique::kNoiseSuppression:
-        inflation += 0.08f * confidence_weight * residual_factor *
-                     (source.in_sidelobe ? 1.0f : 0.5f);
+        inflation +=
+            0.08f * confidence_weight * residual_factor * (source.in_sidelobe ? 1.0f : 0.5f);
         break;
       case environment::JammingTechnique::kUnknown:
       default:
@@ -565,12 +521,10 @@ float ComputeMeasurementCovarianceInflation(
  * @param jammer_source 单个干扰源事实。
  * @return 轨迹级残余干扰强度贡献。
  */
-float ComputeTrackLevelJammingContribution(
-    const common::RadarControlProfile& control_profile,
-    const environment::JammerSourceFact& jammer_source) {
+float ComputeTrackLevelJammingContribution(const common::RadarControlProfile& control_profile,
+                                           const environment::JammerSourceFact& jammer_source) {
   const float confidence_weight = ResolveJammerConfidenceWeight(jammer_source);
-  const float residual_factor =
-      ComputeResidualJammerFactor(control_profile, jammer_source);
+  const float residual_factor = ComputeResidualJammerFactor(control_profile, jammer_source);
   float contribution = 0.10f + 0.020f * ClampFloat(jammer_source.power_db, 0.0f, 20.0f) +
                        0.015f * ClampFloat(jammer_source.js_db, 0.0f, 12.0f);
 
@@ -579,23 +533,17 @@ float ComputeTrackLevelJammingContribution(
       contribution += jammer_source.in_sidelobe ? 0.14f : 0.08f;
       break;
     case environment::JammingTechnique::kDeception:
-      contribution +=
-          0.25f * ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
-      contribution +=
-          0.22f * ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
+      contribution += 0.25f * ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
+      contribution += 0.22f * ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
       break;
     case environment::JammingTechnique::kRepeater:
-      contribution +=
-          0.18f * ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
-      contribution +=
-          0.14f * ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
+      contribution += 0.18f * ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
+      contribution += 0.14f * ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
       break;
     case environment::JammingTechnique::kUnknown:
     default:
-      contribution +=
-          0.15f * ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
-      contribution +=
-          0.12f * ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
+      contribution += 0.15f * ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
+      contribution += 0.12f * ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
       break;
   }
 
@@ -620,10 +568,8 @@ common::JammingSemantic ResolveDominantJammingSemantic(
 
   float type_scores[3] = {0.0f, 0.0f, 0.0f};
   for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
-    const environment::JammerSourceFact& source =
-        environment_snapshot.jammer_sources[i];
-    const float contribution =
-        ComputeTrackLevelJammingContribution(control_profile, source);
+    const environment::JammerSourceFact& source = environment_snapshot.jammer_sources[i];
+    const float contribution = ComputeTrackLevelJammingContribution(control_profile, source);
     switch (source.technique) {
       case environment::JammingTechnique::kNoiseSuppression:
         type_scores[0] += contribution;
@@ -656,8 +602,7 @@ common::JammingSemantic ResolveDominantJammingSemantic(
   if (type_scores[best_index] <= 1e-6f) {
     return common::JammingSemantic::kNone;
   }
-  if (second_index != best_index &&
-      type_scores[second_index] >= 0.65f * type_scores[best_index] &&
+  if (second_index != best_index && type_scores[second_index] >= 0.65f * type_scores[best_index] &&
       type_scores[second_index] > 0.18f) {
     return common::JammingSemantic::kMixed;
   }
@@ -686,19 +631,16 @@ float ComputeTrackLevelJammingSeverity(
   if (!HasMultiSourceJammingFacts(environment_snapshot)) {
     const float severity =
         0.03f * ClampFloat(environment_snapshot.jammer_power_db, 0.0f, 20.0f) +
-        0.22f *
-            ClampFloat(environment_snapshot.jammer_frequency_overlap_ratio, 0.0f,
-                       1.0f) +
-        0.18f *
-            ClampFloat(environment_snapshot.jammer_prf_lock_risk, 0.0f, 1.0f) +
+        0.22f * ClampFloat(environment_snapshot.jammer_frequency_overlap_ratio, 0.0f, 1.0f) +
+        0.18f * ClampFloat(environment_snapshot.jammer_prf_lock_risk, 0.0f, 1.0f) +
         (environment_snapshot.jammer_in_sidelobe ? 0.10f : 0.0f);
     return ClampFloat(severity, 0.0f, 1.0f);
   }
 
   float total_severity = 0.0f;
   for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
-    total_severity += ComputeTrackLevelJammingContribution(
-        control_profile, environment_snapshot.jammer_sources[i]);
+    total_severity += ComputeTrackLevelJammingContribution(control_profile,
+                                                           environment_snapshot.jammer_sources[i]);
   }
   return ClampFloat(total_severity, 0.0f, 1.0f);
 }
@@ -721,25 +663,23 @@ void ApplyEnvironmentJammingFactsToRuntimeConfig(
   float measurement_noise_scale = 1.0f;
 
   for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
-    const environment::JammerSourceFact& source =
-        environment_snapshot.jammer_sources[i];
-    const float residual_factor =
-        ComputeResidualJammerFactor(control_profile, source);
+    const environment::JammerSourceFact& source = environment_snapshot.jammer_sources[i];
+    const float residual_factor = ComputeResidualJammerFactor(control_profile, source);
     const float confidence_weight = ResolveJammerConfidenceWeight(source);
 
     switch (source.technique) {
       case environment::JammingTechnique::kDeception:
-        association_scale += 0.18f * confidence_weight * residual_factor *
-                             (1.0f + source.frequency_overlap_ratio);
-        tracking_noise_scale += 0.12f * confidence_weight * residual_factor *
-                                (1.0f + source.prf_lock_risk);
+        association_scale +=
+            0.18f * confidence_weight * residual_factor * (1.0f + source.frequency_overlap_ratio);
+        tracking_noise_scale +=
+            0.12f * confidence_weight * residual_factor * (1.0f + source.prf_lock_risk);
         measurement_noise_scale += 0.10f * confidence_weight * residual_factor;
         break;
       case environment::JammingTechnique::kRepeater:
-        association_scale += 0.12f * confidence_weight * residual_factor *
-                             (1.0f + source.prf_lock_risk);
-        tracking_noise_scale += 0.15f * confidence_weight * residual_factor *
-                                (1.0f + source.prf_lock_risk);
+        association_scale +=
+            0.12f * confidence_weight * residual_factor * (1.0f + source.prf_lock_risk);
+        tracking_noise_scale +=
+            0.15f * confidence_weight * residual_factor * (1.0f + source.prf_lock_risk);
         measurement_noise_scale += 0.08f * confidence_weight * residual_factor;
         break;
       case environment::JammingTechnique::kNoiseSuppression:
@@ -754,10 +694,8 @@ void ApplyEnvironmentJammingFactsToRuntimeConfig(
     }
   }
 
-  runtime_config->association.unassigned_cost *=
-      ClampFloat(association_scale, 1.0f, 2.5f);
-  runtime_config->tracking.kalman_noise_diff_coeff *=
-      ClampFloat(tracking_noise_scale, 1.0f, 2.0f);
+  runtime_config->association.unassigned_cost *= ClampFloat(association_scale, 1.0f, 2.5f);
+  runtime_config->tracking.kalman_noise_diff_coeff *= ClampFloat(tracking_noise_scale, 1.0f, 2.0f);
   runtime_config->tracking.kalman_measurement_noise_std *=
       ClampFloat(measurement_noise_scale, 1.0f, 1.8f);
 }
@@ -817,8 +755,7 @@ float ResolveBeamwidthScale(const common::RadarControlProfile& control_profile) 
  * @param control_profile 当前控制真值。
  * @return 对经验信号项的修正量（dB）。
  */
-float ComputeHeuristicSignalAdjustmentDb(
-    const common::RadarControlProfile& control_profile) {
+float ComputeHeuristicSignalAdjustmentDb(const common::RadarControlProfile& control_profile) {
   float adjustment_db = 0.0f;
   if (control_profile.enable_lpi_power_control) {
     adjustment_db += ToDbDelta(control_profile.lpi_power_scale);
@@ -843,12 +780,9 @@ float ComputeHeuristicEnvironmentReliefDb(
   if (HasMultiSourceJammingFacts(environment_snapshot)) {
     float relief_db = 0.0f;
     for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
-      const environment::JammerSourceFact& source =
-          environment_snapshot.jammer_sources[i];
-      const float residual_factor =
-          ComputeResidualJammerFactor(control_profile, source);
-      relief_db += ComputeHeuristicSourcePenaltyDb(source) *
-                   (1.0f - residual_factor);
+      const environment::JammerSourceFact& source = environment_snapshot.jammer_sources[i];
+      const float residual_factor = ComputeResidualJammerFactor(control_profile, source);
+      relief_db += ComputeHeuristicSourcePenaltyDb(source) * (1.0f - residual_factor);
     }
     return relief_db;
   }
@@ -859,16 +793,11 @@ float ComputeHeuristicEnvironmentReliefDb(
       relief_db += environment_snapshot.jammer_in_sidelobe ? 3.0f : 0.8f;
     }
     if (control_profile.enable_agility_frequency) {
-      relief_db += 0.6f + 1.8f * ClampFloat(
-                                     environment_snapshot
-                                         .jammer_frequency_overlap_ratio,
-                                     0.0f, 1.0f);
+      relief_db +=
+          0.6f + 1.8f * ClampFloat(environment_snapshot.jammer_frequency_overlap_ratio, 0.0f, 1.0f);
     }
     if (control_profile.enable_eccm_rejitter) {
-      relief_db += 0.4f +
-                   1.4f * ClampFloat(
-                              environment_snapshot.jammer_prf_lock_risk, 0.0f,
-                              1.0f);
+      relief_db += 0.4f + 1.4f * ClampFloat(environment_snapshot.jammer_prf_lock_risk, 0.0f, 1.0f);
     }
   }
   if (control_profile.enable_adaptive_beamforming) {
@@ -876,10 +805,9 @@ float ComputeHeuristicEnvironmentReliefDb(
   }
   if (control_profile.eccm_burnthrough_gain > 1.0f) {
     const float jammer_scale =
-        0.5f + 0.06f * ClampFloat(environment_snapshot.jammer_power_db, 0.0f,
-                                  20.0f);
-    relief_db += ToDbDelta(control_profile.eccm_burnthrough_gain) *
-                 ClampFloat(jammer_scale, 0.5f, 1.7f);
+        0.5f + 0.06f * ClampFloat(environment_snapshot.jammer_power_db, 0.0f, 20.0f);
+    relief_db +=
+        ToDbDelta(control_profile.eccm_burnthrough_gain) * ClampFloat(jammer_scale, 0.5f, 1.7f);
   }
   return relief_db;
 }
@@ -910,18 +838,15 @@ void ApplyControlProfileToConfig(const common::RadarControlProfile& control_prof
   }
 
   if (control_profile.enable_agility_frequency) {
-    const float hop_factor =
-        (control_profile.version % 2U == 0U) ? 1.015f : 0.985f;
-    runtime_config->detection.radar_system.transmitter.frequency_hz *=
-        hop_factor;
+    const float hop_factor = (control_profile.version % 2U == 0U) ? 1.015f : 0.985f;
+    runtime_config->detection.radar_system.transmitter.frequency_hz *= hop_factor;
     runtime_config->association.unassigned_cost *= 1.25f;
     runtime_config->tracking.kalman_noise_diff_coeff *= 1.10f;
   }
 
   if (control_profile.enable_eccm_rejitter) {
     oneq::internal::timing::CycleTimingControlParams timing_control_params;
-    timing_control_params.base_prf_hz =
-        runtime_config->detection.radar_system.transmitter.prf_hz;
+    timing_control_params.base_prf_hz = runtime_config->detection.radar_system.transmitter.prf_hz;
     timing_control_params.enable_rejitter = true;
     runtime_config->detection.radar_system.transmitter.prf_hz =
         oneq::internal::timing::ResolvePrfWithRejitter(timing_control_params);
@@ -932,36 +857,29 @@ void ApplyControlProfileToConfig(const common::RadarControlProfile& control_prof
   if (control_profile.eccm_burnthrough_gain > 1.0f) {
     const float gain_db = ToDbDelta(control_profile.eccm_burnthrough_gain);
     runtime_config->detection.radar_system.receiver.noise_figure_db =
-        std::max(0.0f,
-                 runtime_config->detection.radar_system.receiver.noise_figure_db -
-                     gain_db);
+        std::max(0.0f, runtime_config->detection.radar_system.receiver.noise_figure_db - gain_db);
     runtime_config->association.unassigned_cost *=
         ClampFloat(control_profile.eccm_burnthrough_gain, 1.0f, 2.0f);
     runtime_config->tracking.kalman_measurement_noise_std *= 0.90f;
   }
 
   if (control_profile.enable_sidelobe_canceller) {
-    runtime_config->detection.radar_system.antenna.enable_directional_pattern =
-        true;
-    runtime_config->detection.radar_system.antenna.pattern.max_sidelobe_level_db -=
-        6.0f;
+    runtime_config->detection.radar_system.antenna.enable_directional_pattern = true;
+    runtime_config->detection.radar_system.antenna.pattern.max_sidelobe_level_db -= 6.0f;
     runtime_config->association.unassigned_cost *= 1.10f;
   }
 
   const float beamwidth_scale = ResolveBeamwidthScale(control_profile);
   if (beamwidth_scale < 0.999f) {
-    runtime_config->beam_control.radar_orientation.commanded_beamwidth_enabled =
-        true;
+    runtime_config->beam_control.radar_orientation.commanded_beamwidth_enabled = true;
     runtime_config->beam_control.radar_orientation.commanded_beamwidth_deg
-        .commanded_az_beamwidth_deg = std::max(
-        0.5f,
-        runtime_config->detection.radar_system.antenna.nominal_az_beamwidth_deg *
-            beamwidth_scale);
+        .commanded_az_beamwidth_deg =
+        std::max(0.5f, runtime_config->detection.radar_system.antenna.nominal_az_beamwidth_deg *
+                           beamwidth_scale);
     runtime_config->beam_control.radar_orientation.commanded_beamwidth_deg
-        .commanded_el_beamwidth_deg = std::max(
-        0.5f,
-        runtime_config->detection.radar_system.antenna.nominal_el_beamwidth_deg *
-            beamwidth_scale);
+        .commanded_el_beamwidth_deg =
+        std::max(0.5f, runtime_config->detection.radar_system.antenna.nominal_el_beamwidth_deg *
+                           beamwidth_scale);
   }
 
   if (control_profile.enable_adaptive_beamforming) {
@@ -974,16 +892,12 @@ void ApplyControlProfileToConfig(const common::RadarControlProfile& control_prof
     runtime_config->tracking.kalman_measurement_noise_std *= 0.90f;
   }
 
-  if (control_profile.enable_sidelobe_canceller ||
-      control_profile.enable_agility_frequency ||
-      control_profile.enable_eccm_rejitter ||
-      control_profile.eccm_burnthrough_gain > 1.0f) {
+  if (control_profile.enable_sidelobe_canceller || control_profile.enable_agility_frequency ||
+      control_profile.enable_eccm_rejitter || control_profile.eccm_burnthrough_gain > 1.0f) {
     runtime_config->tracking.speed_decay_ratio_on_loss =
-        ClampFloat(runtime_config->tracking.speed_decay_ratio_on_loss + 0.05f,
-                   0.0f, 0.995f);
+        ClampFloat(runtime_config->tracking.speed_decay_ratio_on_loss + 0.05f, 0.0f, 0.995f);
     runtime_config->tracking.rcs_decay_ratio_on_loss =
-        ClampFloat(runtime_config->tracking.rcs_decay_ratio_on_loss + 0.08f,
-                   0.0f, 0.999f);
+        ClampFloat(runtime_config->tracking.rcs_decay_ratio_on_loss + 0.08f, 0.0f, 0.999f);
   }
 
   if (!runtime_config->lifecycle.imm_model_noise_diff_coeffs.empty()) {
@@ -995,27 +909,20 @@ void ApplyControlProfileToConfig(const common::RadarControlProfile& control_prof
       imm_noise_scale *= 1.20f;
     }
     if (control_profile.eccm_burnthrough_gain > 1.0f) {
-      imm_noise_scale *= ClampFloat(control_profile.eccm_burnthrough_gain, 1.0f,
-                                    2.0f);
+      imm_noise_scale *= ClampFloat(control_profile.eccm_burnthrough_gain, 1.0f, 2.0f);
     }
-    for (std::size_t i = 0;
-         i < runtime_config->lifecycle.imm_model_noise_diff_coeffs.size(); ++i) {
-      runtime_config->lifecycle.imm_model_noise_diff_coeffs[i] =
-          std::max(0.001f,
-                   runtime_config->lifecycle.imm_model_noise_diff_coeffs[i] *
-                       imm_noise_scale);
+    for (std::size_t i = 0; i < runtime_config->lifecycle.imm_model_noise_diff_coeffs.size(); ++i) {
+      runtime_config->lifecycle.imm_model_noise_diff_coeffs[i] = std::max(
+          0.001f, runtime_config->lifecycle.imm_model_noise_diff_coeffs[i] * imm_noise_scale);
     }
   }
 
   if (!runtime_config->lifecycle.imm_initial_weights.empty() &&
       runtime_config->lifecycle.imm_initial_weights.size() > 1U &&
-      (control_profile.enable_agility_frequency ||
-       control_profile.enable_eccm_rejitter ||
+      (control_profile.enable_agility_frequency || control_profile.enable_eccm_rejitter ||
        control_profile.eccm_burnthrough_gain > 1.0f)) {
-    const std::size_t last_index =
-        runtime_config->lifecycle.imm_initial_weights.size() - 1U;
-    const float bonus =
-        control_profile.eccm_burnthrough_gain > 1.0f ? 0.18f : 0.10f;
+    const std::size_t last_index = runtime_config->lifecycle.imm_initial_weights.size() - 1U;
+    const float bonus = control_profile.eccm_burnthrough_gain > 1.0f ? 0.18f : 0.10f;
     runtime_config->lifecycle.imm_initial_weights[last_index] += bonus;
     NormalizeImmInitialWeights(&runtime_config->lifecycle.imm_initial_weights);
   }
@@ -1023,55 +930,50 @@ void ApplyControlProfileToConfig(const common::RadarControlProfile& control_prof
 /**
  * @brief 基于 Pipeline 配置自动装配生命周期管理器。
  */
-class AutoConfiguredLifecycleManager final
-    : public tracking::ITrackLifecycleManager {
+class AutoConfiguredLifecycleManager final : public tracking::ITrackLifecycleManager {
  public:
-/**
- * @brief 使用 SignalPipeline 顶层配置构造生命周期管理器。
- * @param config 顶层配置。
- */
+  /**
+   * @brief 使用 SignalPipeline 顶层配置构造生命周期管理器。
+   * @param config 顶层配置。
+   */
   explicit AutoConfiguredLifecycleManager(const SignalPipelineConfig& config)
-      : assembly_(internal::SignalComponentFactory::BuildLifecycleAssemblyArtifacts(
-            config)) {}
-/**
- * @brief 更新生命周期状态。
- * @param cycle 当前周期上下文。
- * @param measurements 当前周期量测。
- */
+      : assembly_(internal::SignalComponentFactory::BuildLifecycleAssemblyArtifacts(config)) {}
+  /**
+   * @brief 更新生命周期状态。
+   * @param cycle 当前周期上下文。
+   * @param measurements 当前周期量测。
+   */
   void Update(const tracking::CycleContext& cycle,
-              const std::vector<tracking::TrackMeasurement>& measurements)
-      override {
+              const std::vector<tracking::TrackMeasurement>& measurements) override {
     assembly_.lifecycle_manager->Update(cycle, measurements);
   }
-/**
- * @brief 构建特征快照。
- * @return 生命周期输出的轨迹特征快照。
- */
+  /**
+   * @brief 构建特征快照。
+   * @return 生命周期输出的轨迹特征快照。
+   */
   common::TargetFeatureList BuildFeatureSnapshot() const override {
     return assembly_.lifecycle_manager->BuildFeatureSnapshot();
   }
-/**
- * @brief 构建供决策层消费的稳定轨迹快照。
- * @return 生命周期输出的决策轨迹快照。
- */
+  /**
+   * @brief 构建供决策层消费的稳定轨迹快照。
+   * @return 生命周期输出的决策轨迹快照。
+   */
   common::DecisionTrackSnapshotList BuildDecisionSnapshot() const override {
     return assembly_.lifecycle_manager->BuildDecisionSnapshot();
   }
-/**
- * @brief 构建完整的决策输入帧。
- */
-  common::DecisionInputFrame BuildDecisionFrame(
-      std::uint32_t cycle_index, std::uint64_t batch_id,
-      bool environment_jamming_detected) const override {
-    return assembly_.lifecycle_manager->BuildDecisionFrame(
-        cycle_index, batch_id, environment_jamming_detected);
+  /**
+   * @brief 构建完整的决策输入帧。
+   */
+  common::DecisionInputFrame BuildDecisionFrame(std::uint32_t cycle_index, std::uint64_t batch_id,
+                                                bool environment_jamming_detected) const override {
+    return assembly_.lifecycle_manager->BuildDecisionFrame(cycle_index, batch_id,
+                                                           environment_jamming_detected);
   }
-/**
- * @brief 构建关联种子。
- * @return 上一周期轨迹种子列表。
- */
-  std::vector<tracking::AssociationTrackSeed> BuildAssociationSeeds()
-      const override {
+  /**
+   * @brief 构建关联种子。
+   * @return 上一周期轨迹种子列表。
+   */
+  std::vector<tracking::AssociationTrackSeed> BuildAssociationSeeds() const override {
     return assembly_.lifecycle_manager->BuildAssociationSeeds();
   }
 
@@ -1108,27 +1010,24 @@ struct SignalCycleContext {
  * @brief SignalPipeline 私有实现。
  */
 struct SignalPipeline::Impl {
-/**
- * @brief 使用顶层配置构造私有实现。
- * @param initial_config 顶层配置。
- */
+  /**
+   * @brief 使用顶层配置构造私有实现。
+   * @param initial_config 顶层配置。
+   */
   explicit Impl(SignalPipelineConfig initial_config)
       : config(std::move(initial_config)),
-        association_engine(
-            internal::SignalComponentFactory::BuildAssociationConfig(config)),
-        track_filter(
-            internal::SignalComponentFactory::BuildTrackFilterConfig(config)) {
+        association_engine(internal::SignalComponentFactory::BuildAssociationConfig(config)),
+        track_filter(internal::SignalComponentFactory::BuildTrackFilterConfig(config)) {
     RebuildOwnedComponents();
   }
-/**
- * @brief 执行一次信号处理周期。
- * @param input_state 输入目标列表。
- * @param environment 环境服务。
- * @return 输出目标列表。
- */
-  SignalCycleResult RunCycle(
-      const common::TargetFeatureList& input_state,
-      const environment::IEnvironmentService& environment) {
+  /**
+   * @brief 执行一次信号处理周期。
+   * @param input_state 输入目标列表。
+   * @param environment 环境服务。
+   * @return 输出目标列表。
+   */
+  SignalCycleResult RunCycle(const common::TargetFeatureList& input_state,
+                             const environment::IEnvironmentService& environment) {
     PrepareCycleContext(input_state, environment);
     SampleEnvironment();
     PrepareAssociationSeeds();
@@ -1149,44 +1048,42 @@ struct SignalPipeline::Impl {
     ++batch_id_;
     return result;
   }
-/**
- * @brief 获取最近一次处理周期导出的跟踪量测。
- * @return 跟踪量测列表。
- */
+  /**
+   * @brief 获取最近一次处理周期导出的跟踪量测。
+   * @return 跟踪量测列表。
+   */
   std::vector<tracking::TrackMeasurement> GetLastTrackMeasurements() const {
     return cached_context.track_measurements;
   }
-/**
- * @brief 获取最近一次处理周期的关联质量观测指标。
- * @return 关联质量观测指标。
- */
+  /**
+   * @brief 获取最近一次处理周期的关联质量观测指标。
+   * @return 关联质量观测指标。
+   */
   AssociationQualityMetrics GetLastAssociationQualityMetrics() const {
     return cached_context.association_quality_metrics;
   }
-/**
- * @brief 设置本周期关联阶段应使用的轨迹种子。
- * @param seeds 外部种子。
- */
-  void SetAssociationSeeds(
-      const std::vector<tracking::AssociationTrackSeed>& seeds) {
+  /**
+   * @brief 设置本周期关联阶段应使用的轨迹种子。
+   * @param seeds 外部种子。
+   */
+  void SetAssociationSeeds(const std::vector<tracking::AssociationTrackSeed>& seeds) {
     has_manual_association_seeds_ = true;
     manual_association_seeds_ = seeds;
     association_engine.SetAssociationSeeds(manual_association_seeds_);
   }
-/**
- * @brief 清理外部 seeds 状态并恢复无先验模式。
- */
+  /**
+   * @brief 清理外部 seeds 状态并恢复无先验模式。
+   */
   void ResetAssociationSeedModeToStateless() {
     has_manual_association_seeds_ = false;
     manual_association_seeds_.clear();
     association_engine.ResetAssociationSeedModeToStateless();
   }
-/**
- * @brief 按当前配置自动装配生命周期管理器。
- * @return 若未启用则返回空指针。
- */
-  std::unique_ptr<tracking::ITrackLifecycleManager>
-  CreateAutoLifecycleManager() const {
+  /**
+   * @brief 按当前配置自动装配生命周期管理器。
+   * @return 若未启用则返回空指针。
+   */
+  std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManager() const {
     const SignalPipelineConfig runtime_config = BuildRuntimeConfig();
     if (!runtime_config.lifecycle.enable_auto_lifecycle_manager) {
       return std::unique_ptr<tracking::ITrackLifecycleManager>();
@@ -1194,58 +1091,54 @@ struct SignalPipeline::Impl {
     return std::unique_ptr<tracking::ITrackLifecycleManager>(
         new AutoConfiguredLifecycleManager(runtime_config));
   }
-/**
- * @brief 更新顶层配置。
- * @param new_config 新配置。
- */
+  /**
+   * @brief 更新顶层配置。
+   * @param new_config 新配置。
+   */
   void UpdateConfig(SignalPipelineConfig new_config) {
     config = std::move(new_config);
     association_engine.UpdateConfig(
         internal::SignalComponentFactory::BuildAssociationConfig(config));
-    track_filter.UpdateConfig(
-        internal::SignalComponentFactory::BuildTrackFilterConfig(config));
+    track_filter.UpdateConfig(internal::SignalComponentFactory::BuildTrackFilterConfig(config));
     RebuildOwnedComponents();
   }
-/**
- * @brief 更新当前平台姿态。
- * @param platform_attitude_deg 平台姿态角。
- */
-  void UpdatePlatformAttitude(
-      const common::PlatformAttitudeDeg& platform_attitude_deg) {
+  /**
+   * @brief 更新当前平台姿态。
+   * @param platform_attitude_deg 平台姿态角。
+   */
+  void UpdatePlatformAttitude(const common::PlatformAttitudeDeg& platform_attitude_deg) {
     config.beam_control.platform_attitude_deg = platform_attitude_deg;
   }
-/**
- * @brief 获取当前平台姿态。
- * @return 当前缓存的平台姿态角。
- */
+  /**
+   * @brief 获取当前平台姿态。
+   * @return 当前缓存的平台姿态角。
+   */
   common::PlatformAttitudeDeg GetPlatformAttitude() const {
     return config.beam_control.platform_attitude_deg;
   }
-/**
- * @brief 构建本周期生效的运行时配置。
- */
+  /**
+   * @brief 构建本周期生效的运行时配置。
+   */
   SignalPipelineConfig BuildRuntimeConfig() const {
     SignalPipelineConfig runtime_config = config;
     ApplyControlProfileToConfig(control_profile_, &runtime_config);
     return runtime_config;
   }
-/**
- * @brief 更新当前控制真值。
- */
+  /**
+   * @brief 更新当前控制真值。
+   */
   void SetControlProfile(const common::RadarControlProfile& control_profile) {
     control_profile_ = control_profile;
   }
-/**
- * @brief 获取当前控制真值。
- */
-  common::RadarControlProfile GetControlProfile() const {
-    return control_profile_;
-  }
-/**
- * @brief 初始化单周期缓存。
- * @param input_state 输入目标列表。
- * @param environment 环境服务。
- */
+  /**
+   * @brief 获取当前控制真值。
+   */
+  common::RadarControlProfile GetControlProfile() const { return control_profile_; }
+  /**
+   * @brief 初始化单周期缓存。
+   * @param input_state 输入目标列表。
+   * @param environment 环境服务。
+   */
   void PrepareCycleContext(const common::TargetFeatureList& input_state,
                            const environment::IEnvironmentService& environment) {
     cached_context.input_state = &input_state;
@@ -1266,115 +1159,91 @@ struct SignalPipeline::Impl {
     cached_context.target_geometry.resize(target_count);
     cached_context.measurement_covariances.assign(
         target_count, tracking::MeasurementCovariance::Identity() *
-                          cached_context.runtime_config.tracking
-                              .kalman_measurement_noise_std *
-                          cached_context.runtime_config.tracking
-                              .kalman_measurement_noise_std);
+                          cached_context.runtime_config.tracking.kalman_measurement_noise_std *
+                          cached_context.runtime_config.tracking.kalman_measurement_noise_std);
     cached_context.association_result = association::AssociationResult();
 
     association_engine.UpdateConfig(
-        internal::SignalComponentFactory::BuildAssociationConfig(
-            cached_context.runtime_config));
+        internal::SignalComponentFactory::BuildAssociationConfig(cached_context.runtime_config));
     track_filter.UpdateConfig(
-        internal::SignalComponentFactory::BuildTrackFilterConfig(
-            cached_context.runtime_config));
+        internal::SignalComponentFactory::BuildTrackFilterConfig(cached_context.runtime_config));
   }
-/**
- * @brief 预配置本周期关联使用的先验种子。
- */
+  /**
+   * @brief 预配置本周期关联使用的先验种子。
+   */
   void PrepareAssociationSeeds() {
     if (has_manual_association_seeds_) {
       association_engine.SetAssociationSeeds(manual_association_seeds_);
       return;
     }
     if (auto_lifecycle_manager_ != nullptr) {
-      association_engine.SetAssociationSeeds(
-          auto_lifecycle_manager_->BuildAssociationSeeds());
+      association_engine.SetAssociationSeeds(auto_lifecycle_manager_->BuildAssociationSeeds());
       return;
     }
     association_engine.ResetAssociationSeedModeToStateless();
   }
-/**
- * @brief 采样本周期环境快照。
- */
+  /**
+   * @brief 采样本周期环境快照。
+   */
   void SampleEnvironment() {
-    cached_context.environment_snapshot =
-        cached_context.environment->SampleEnvironment();
+    cached_context.environment_snapshot = cached_context.environment->SampleEnvironment();
     ApplyEnvironmentJammingFactsToRuntimeConfig(
-        control_profile_, cached_context.environment_snapshot,
-        &cached_context.runtime_config);
+        control_profile_, cached_context.environment_snapshot, &cached_context.runtime_config);
     const std::size_t target_count = cached_context.target_geometry.size();
     cached_context.measurement_covariances.assign(
         target_count, tracking::MeasurementCovariance::Identity() *
-                          cached_context.runtime_config.tracking
-                              .kalman_measurement_noise_std *
-                          cached_context.runtime_config.tracking
-                              .kalman_measurement_noise_std);
+                          cached_context.runtime_config.tracking.kalman_measurement_noise_std *
+                          cached_context.runtime_config.tracking.kalman_measurement_noise_std);
     association_engine.UpdateConfig(
-        internal::SignalComponentFactory::BuildAssociationConfig(
-            cached_context.runtime_config));
+        internal::SignalComponentFactory::BuildAssociationConfig(cached_context.runtime_config));
     track_filter.UpdateConfig(
-        internal::SignalComponentFactory::BuildTrackFilterConfig(
-            cached_context.runtime_config));
+        internal::SignalComponentFactory::BuildTrackFilterConfig(cached_context.runtime_config));
   }
-/**
- * @brief 运行经验探测逻辑。
- */
+  /**
+   * @brief 运行经验探测逻辑。
+   */
   void RunHeuristicDetection() {
     const common::TargetFeatureList& input = *cached_context.input_state;
     const SignalPipelineConfig& runtime_config = cached_context.runtime_config;
     const std::size_t count = input.size();
-    const float signal_adjustment_db =
-        ComputeHeuristicSignalAdjustmentDb(control_profile_);
+    const float signal_adjustment_db = ComputeHeuristicSignalAdjustmentDb(control_profile_);
     for (std::size_t i = 0; i < count; ++i) {
-      cached_context.target_geometry[i] =
-          detection::TargetGeometryResolver::Resolve(input[i]);
-      cached_context.signal_term_db[i] =
-          input[i].current_track_rcs * 6.0f + signal_adjustment_db;
-      cached_context.speed_penalty_db[i] =
-          ResolveSpeedMagnitude(input[i]) * 0.002f;
+      cached_context.target_geometry[i] = detection::TargetGeometryResolver::Resolve(input[i]);
+      cached_context.signal_term_db[i] = input[i].current_track_rcs * 6.0f + signal_adjustment_db;
+      cached_context.speed_penalty_db[i] = ResolveSpeedMagnitude(input[i]) * 0.002f;
     }
 
     const float jamming_penalty_db =
         ComputeHeuristicJammingPenaltyDb(cached_context.environment_snapshot);
-    const float environment_penalty_db =
-        std::max(
-            0.0f,
-            cached_context.environment_snapshot.propagation_loss_db * 0.2f +
-                cached_context.environment_snapshot.clutter_power_db * 0.3f +
-                jamming_penalty_db -
-                ComputeHeuristicEnvironmentReliefDb(control_profile_,
-                                                    cached_context
-                                                        .environment_snapshot));
+    const float environment_penalty_db = std::max(
+        0.0f, cached_context.environment_snapshot.propagation_loss_db * 0.2f +
+                  cached_context.environment_snapshot.clutter_power_db * 0.3f + jamming_penalty_db -
+                  ComputeHeuristicEnvironmentReliefDb(control_profile_,
+                                                      cached_context.environment_snapshot));
     for (std::size_t i = 0; i < count; ++i) {
-      const float margin = cached_context.signal_term_db[i] -
-                           cached_context.speed_penalty_db[i] -
+      const float margin = cached_context.signal_term_db[i] - cached_context.speed_penalty_db[i] -
                            environment_penalty_db;
       cached_context.detection_margin_db[i] = margin;
-      cached_context.detection_succeeded[i] = static_cast<std::uint8_t>(
-          margin >= runtime_config.detection.min_detection_margin_db);
+      cached_context.detection_succeeded[i] =
+          static_cast<std::uint8_t>(margin >= runtime_config.detection.min_detection_margin_db);
     }
   }
-/**
- * @brief 运行物理探测逻辑。
- */
+  /**
+   * @brief 运行物理探测逻辑。
+   */
   void RunPhysicalDetection() {
     const common::TargetFeatureList& input = *cached_context.input_state;
     const SignalPipelineConfig& runtime_config = cached_context.runtime_config;
     const std::size_t count = input.size();
 
-    float clutter_w = std::pow(
-        10.0f, cached_context.environment_snapshot.clutter_power_db / 10.0f);
+    float clutter_w = std::pow(10.0f, cached_context.environment_snapshot.clutter_power_db / 10.0f);
     if (control_profile_.enable_sidelobe_canceller) {
-      clutter_w *= cached_context.environment_snapshot.jammer_in_sidelobe
-                       ? 0.55f
-                       : 0.80f;
+      clutter_w *= cached_context.environment_snapshot.jammer_in_sidelobe ? 0.55f : 0.80f;
     }
 
     float jam_w = 0.0f;
     if (HasMultiSourceJammingFacts(cached_context.environment_snapshot)) {
-      for (std::size_t i = 0;
-           i < cached_context.environment_snapshot.jammer_sources.size(); ++i) {
+      for (std::size_t i = 0; i < cached_context.environment_snapshot.jammer_sources.size(); ++i) {
         const environment::JammerSourceFact& source =
             cached_context.environment_snapshot.jammer_sources[i];
         jam_w += ComputePhysicalSourceJamContributionW(source) *
@@ -1383,55 +1252,45 @@ struct SignalPipeline::Impl {
     } else if (cached_context.environment_snapshot.jamming_detected) {
       jam_w = DbToLinearPower(cached_context.environment_snapshot.jammer_power_db);
       if (control_profile_.enable_sidelobe_canceller) {
-        jam_w *= cached_context.environment_snapshot.jammer_in_sidelobe
-                     ? 0.35f
-                     : 0.80f;
+        jam_w *= cached_context.environment_snapshot.jammer_in_sidelobe ? 0.35f : 0.80f;
       }
       if (control_profile_.enable_agility_frequency) {
         const float overlap_ratio = ClampFloat(
-            cached_context.environment_snapshot.jammer_frequency_overlap_ratio,
-            0.0f, 1.0f);
+            cached_context.environment_snapshot.jammer_frequency_overlap_ratio, 0.0f, 1.0f);
         jam_w *= ClampFloat(1.0f - 0.60f * overlap_ratio, 0.25f, 1.0f);
       }
       if (control_profile_.enable_eccm_rejitter) {
-        const float prf_lock_risk = ClampFloat(
-            cached_context.environment_snapshot.jammer_prf_lock_risk, 0.0f, 1.0f);
+        const float prf_lock_risk =
+            ClampFloat(cached_context.environment_snapshot.jammer_prf_lock_risk, 0.0f, 1.0f);
         jam_w *= ClampFloat(1.0f - 0.50f * prf_lock_risk, 0.35f, 1.0f);
       }
       if (control_profile_.enable_adaptive_beamforming) {
-        jam_w *= cached_context.environment_snapshot.jammer_in_sidelobe ? 0.85f
-                                                                        : 0.75f;
+        jam_w *= cached_context.environment_snapshot.jammer_in_sidelobe ? 0.85f : 0.75f;
       }
     }
 
     detection::EnvironmentState env;
-    env.propagation_loss_db =
-        cached_context.environment_snapshot.propagation_loss_db;
+    env.propagation_loss_db = cached_context.environment_snapshot.propagation_loss_db;
     env.clutter_noise_w = clutter_w;
     env.jam_noise_w = jam_w;
 
     signal_detector->UpdateConfig(runtime_config.detection.radar_system);
 
     for (std::size_t i = 0; i < count; ++i) {
-      cached_context.target_geometry[i] =
-          detection::TargetGeometryResolver::Resolve(input[i]);
+      cached_context.target_geometry[i] = detection::TargetGeometryResolver::Resolve(input[i]);
       detection::TargetReturn target;
       target.rcs_m2 = input[i].current_track_rcs;
       target.range_m = cached_context.target_geometry[i].range_m;
-      target.swerling_type = static_cast<detection::SwerlingModel>(
-          input[i].target_swerling_type);
+      target.swerling_type = static_cast<detection::SwerlingModel>(input[i].target_swerling_type);
 
-      const detection::ResolvedBeamState beam_state =
-          detection::BeamControlResolver::Resolve(
-              runtime_config.detection.radar_system.antenna,
-              runtime_config.beam_control.radar_orientation,
-              runtime_config.beam_control.platform_attitude_deg,
-              cached_context.target_geometry[i].look_angles_deg);
-      const detection::DetectionResult detection_result =
-          signal_detector->Detect(
-              target, env, beam_state.one_way_antenna_gain_db,
-              runtime_config.detection.pulse_count,
-              runtime_config.detection.coherent_integration);
+      const detection::ResolvedBeamState beam_state = detection::BeamControlResolver::Resolve(
+          runtime_config.detection.radar_system.antenna,
+          runtime_config.beam_control.radar_orientation,
+          runtime_config.beam_control.platform_attitude_deg,
+          cached_context.target_geometry[i].look_angles_deg);
+      const detection::DetectionResult detection_result = signal_detector->Detect(
+          target, env, beam_state.one_way_antenna_gain_db, runtime_config.detection.pulse_count,
+          runtime_config.detection.coherent_integration);
       const detection::MeasurementErrorState measurement_error =
           detection::MeasurementErrorModel::Compute(
               detection_result.snr_db, beam_state.effective_beamwidth_deg,
@@ -1440,29 +1299,28 @@ struct SignalPipeline::Impl {
       cached_context.signal_term_db[i] = detection_result.snr_db;
       cached_context.speed_penalty_db[i] = 0.0f;
       cached_context.detection_margin_db[i] = detection_result.snr_db;
-      cached_context.detection_succeeded[i] = static_cast<std::uint8_t>(
-          detection_result.detected ? 1U : 0U);
+      cached_context.detection_succeeded[i] =
+          static_cast<std::uint8_t>(detection_result.detected ? 1U : 0U);
       cached_context.measurement_covariances[i] = BuildMeasurementCovariance(
           cached_context.target_geometry[i], measurement_error.range_error_std_m,
           measurement_error.angle_error_std_rad,
           runtime_config.tracking.kalman_measurement_noise_std);
-      cached_context.measurement_covariances[i] *=
-          ComputeMeasurementCovarianceInflation(control_profile_,
-                                               cached_context.environment_snapshot);
+      cached_context.measurement_covariances[i] *= ComputeMeasurementCovarianceInflation(
+          control_profile_, cached_context.environment_snapshot);
     }
   }
-/**
- * @brief 执行位置关联。
- */
+  /**
+   * @brief 执行位置关联。
+   */
   void RunAssociation() {
     cached_context.association_result = association_engine.AssociateDetections(
         *cached_context.input_state, cached_context.detection_succeeded,
         cached_context.measurement_covariances);
     cached_context.association_keys = cached_context.association_result.target_keys;
   }
-/**
- * @brief 构建跟踪量测骨架。
- */
+  /**
+   * @brief 构建跟踪量测骨架。
+   */
   void BuildTrackMeasurements() {
     const common::TargetFeatureList& input = *cached_context.input_state;
     const std::size_t count = input.size();
@@ -1477,44 +1335,37 @@ struct SignalPipeline::Impl {
           FindAssociationMatch(cached_context.association_result, i);
       tracking::TrackMeasurement measurement;
       measurement.raw_measurement.source_index = i;
-      measurement.raw_measurement.external_target_id =
-          input[i].external_target_id;
-      measurement.raw_measurement.association_key =
-          cached_context.association_keys[i];
+      measurement.raw_measurement.external_target_id = input[i].external_target_id;
+      measurement.raw_measurement.association_key = cached_context.association_keys[i];
       measurement.raw_measurement.matched_existing_track = match != nullptr;
-      measurement.raw_measurement.association_cost =
-          match != nullptr ? match->cost : 0.0f;
+      measurement.raw_measurement.association_cost = match != nullptr ? match->cost : 0.0f;
       measurement.raw_measurement.used_position_association =
           cached_context.association_result.used_position_association;
       measurement.raw_measurement.used_external_association_seeds =
           cached_context.association_result.used_external_association_seeds;
-      measurement.raw_measurement.detection_margin_db =
-          cached_context.detection_margin_db[i];
+      measurement.raw_measurement.detection_margin_db = cached_context.detection_margin_db[i];
       measurement.raw_measurement.has_cartesian_position =
           cached_context.target_geometry[i].has_cartesian_position;
-      measurement.raw_measurement.position =
-          measurement.raw_measurement.has_cartesian_position
-              ? cached_context.target_geometry[i].position_m
-              : Eigen::Vector3f::Zero();
+      measurement.raw_measurement.position = measurement.raw_measurement.has_cartesian_position
+                                                 ? cached_context.target_geometry[i].position_m
+                                                 : Eigen::Vector3f::Zero();
       measurement.raw_measurement.measurement_covariance =
           cached_context.measurement_covariances[i];
       measurement.filtered_feature.jamming_detected =
           cached_context.environment_snapshot.jamming_detected;
       measurement.filtered_feature.dominant_jamming_semantic =
-          ResolveDominantJammingSemantic(control_profile_,
-                                         cached_context.environment_snapshot);
+          ResolveDominantJammingSemantic(control_profile_, cached_context.environment_snapshot);
       measurement.filtered_feature.jamming_severity =
-          ComputeTrackLevelJammingSeverity(control_profile_,
-                                          cached_context.environment_snapshot);
+          ComputeTrackLevelJammingSeverity(control_profile_, cached_context.environment_snapshot);
 
       cached_context.measurement_slots[i] =
           static_cast<int>(cached_context.track_measurements.size());
       cached_context.track_measurements.push_back(measurement);
     }
   }
-/**
- * @brief 执行跟踪滤波并补全量测动态属性。
- */
+  /**
+   * @brief 执行跟踪滤波并补全量测动态属性。
+   */
   void ApplyTrackFilter() {
     const common::TargetFeatureList& input = *cached_context.input_state;
     common::TargetFeatureList& output = cached_context.output_state;
@@ -1522,16 +1373,12 @@ struct SignalPipeline::Impl {
 
     for (std::size_t i = 0; i < count; ++i) {
       tracking::TrackFilterContext filter_context;
-      filter_context.detection_succeeded =
-          cached_context.detection_succeeded[i] != 0U;
-      filter_context.jamming_detected =
-          cached_context.environment_snapshot.jamming_detected;
+      filter_context.detection_succeeded = cached_context.detection_succeeded[i] != 0U;
+      filter_context.jamming_detected = cached_context.environment_snapshot.jamming_detected;
       filter_context.dominant_jamming_semantic =
-          ResolveDominantJammingSemantic(control_profile_,
-                                         cached_context.environment_snapshot);
+          ResolveDominantJammingSemantic(control_profile_, cached_context.environment_snapshot);
       filter_context.jamming_severity =
-          ComputeTrackLevelJammingSeverity(control_profile_,
-                                          cached_context.environment_snapshot);
+          ComputeTrackLevelJammingSeverity(control_profile_, cached_context.environment_snapshot);
       filter_context.detection_margin_db = cached_context.detection_margin_db[i];
       output[i] = track_filter.Filter(input[i], filter_context);
 
@@ -1541,72 +1388,59 @@ struct SignalPipeline::Impl {
       }
 
       tracking::TrackMeasurement& measurement =
-          cached_context.track_measurements[static_cast<std::size_t>(
-              measurement_slot)];
-      measurement.filtered_feature.observed_speed =
-          ResolveSpeedMagnitude(output[i]);
+          cached_context.track_measurements[static_cast<std::size_t>(measurement_slot)];
+      measurement.filtered_feature.observed_speed = ResolveSpeedMagnitude(output[i]);
       measurement.filtered_feature.velocity = ResolveVelocityVector(output[i]);
       measurement.filtered_feature.rcs = output[i].current_track_rcs;
       measurement.filtered_feature.jamming_detected =
           cached_context.environment_snapshot.jamming_detected;
       measurement.filtered_feature.dominant_jamming_semantic =
           filter_context.dominant_jamming_semantic;
-      measurement.filtered_feature.jamming_severity =
-          filter_context.jamming_severity;
+      measurement.filtered_feature.jamming_severity = filter_context.jamming_severity;
     }
   }
-/**
- * @brief 收尾当前周期输出。
- */
+  /**
+   * @brief 收尾当前周期输出。
+   */
   void CollectOutputs() {
-    cached_context.association_quality_metrics =
-        ToPipelineAssociationQualityMetrics(
-            cached_context.association_result.quality_metrics,
-            ResolveDominantJammingSemantic(control_profile_,
-                                           cached_context.environment_snapshot),
-            ComputeTrackLevelJammingSeverity(control_profile_,
-                                            cached_context.environment_snapshot),
-            cached_context.runtime_config.association.unassigned_cost);
+    cached_context.association_quality_metrics = ToPipelineAssociationQualityMetrics(
+        cached_context.association_result.quality_metrics,
+        ResolveDominantJammingSemantic(control_profile_, cached_context.environment_snapshot),
+        ComputeTrackLevelJammingSeverity(control_profile_, cached_context.environment_snapshot),
+        cached_context.runtime_config.association.unassigned_cost);
 
     const common::EccmSourceInfo eccm_source_info =
         BuildEccmSourceInfo(cached_context.environment_snapshot);
     const common::AssociationQualityInfo association_quality_info =
         BuildAssociationQualityInfo(cached_context.association_quality_metrics);
-    const common::PerceptionQualityInfo perception_quality_info =
-        BuildPerceptionQualityInfo(cached_context.input_state->size(),
-                                   cached_context.association_quality_metrics);
+    const common::PerceptionQualityInfo perception_quality_info = BuildPerceptionQualityInfo(
+        cached_context.input_state->size(), cached_context.association_quality_metrics);
 
     if (auto_lifecycle_manager_ != nullptr) {
       tracking::CycleContext cycle;
       cycle.cycle_index = cycle_index_;
       cycle.batch_id = batch_id_;
       cycle.dt_sec = cached_context.environment_snapshot.cycle_dt_sec;
-      cycle.extra_miss_tolerance =
-          ResolveLifecycleExtraMissTolerance(control_profile_);
+      cycle.extra_miss_tolerance = ResolveLifecycleExtraMissTolerance(control_profile_);
       auto_lifecycle_manager_->Update(cycle, cached_context.track_measurements);
       cached_context.decision_frame = auto_lifecycle_manager_->BuildDecisionFrame(
           cycle_index_, batch_id_, eccm_source_info.has_jamming_signal);
       cached_context.decision_frame.environment_jamming_detected =
           eccm_source_info.has_jamming_signal;
       cached_context.decision_frame.eccm_source_info = eccm_source_info;
-      cached_context.decision_frame.association_quality_info =
-          association_quality_info;
-      cached_context.decision_frame.perception_quality_info =
-          perception_quality_info;
+      cached_context.decision_frame.association_quality_info = association_quality_info;
+      cached_context.decision_frame.perception_quality_info = perception_quality_info;
       return;
     }
 
-    const common::TrackOutputFrame track_output_frame =
-        output_manager_.BuildTrackOutputFrame(
-            cycle_index_, batch_id_,
-            BuildDecisionSnapshotsFromFeatures(cached_context.output_state));
+    const common::TrackOutputFrame track_output_frame = output_manager_.BuildTrackOutputFrame(
+        cycle_index_, batch_id_, BuildDecisionSnapshotsFromFeatures(cached_context.output_state));
     cached_context.decision_frame = output_manager_.BuildDecisionInputFrame(
-        track_output_frame, eccm_source_info, association_quality_info,
-        perception_quality_info);
+        track_output_frame, eccm_source_info, association_quality_info, perception_quality_info);
   }
-/**
- * @brief 依据当前配置重建自持有组件。
- */
+  /**
+   * @brief 依据当前配置重建自持有组件。
+   */
   void RebuildOwnedComponents() {
     internal::OwnedSignalComponents components =
         internal::SignalComponentFactory::BuildOwnedPipelineComponents(config);
@@ -1641,24 +1475,20 @@ SignalPipeline::SignalPipeline(SignalPipelineConfig config)
 
 SignalPipeline::~SignalPipeline() = default;
 
-SignalCycleResult SignalPipeline::RunCycle(
-    const common::TargetFeatureList& input_state,
-    const environment::IEnvironmentService& environment) {
+SignalCycleResult SignalPipeline::RunCycle(const common::TargetFeatureList& input_state,
+                                           const environment::IEnvironmentService& environment) {
   return impl_->RunCycle(input_state, environment);
 }
 
-std::vector<tracking::TrackMeasurement>
-SignalPipeline::GetLastTrackMeasurements() const {
+std::vector<tracking::TrackMeasurement> SignalPipeline::GetLastTrackMeasurements() const {
   return impl_->GetLastTrackMeasurements();
 }
 
-AssociationQualityMetrics
-SignalPipeline::GetLastAssociationQualityMetrics() const {
+AssociationQualityMetrics SignalPipeline::GetLastAssociationQualityMetrics() const {
   return impl_->GetLastAssociationQualityMetrics();
 }
 
-void SignalPipeline::SetAssociationSeeds(
-    const std::vector<tracking::AssociationTrackSeed>& seeds) {
+void SignalPipeline::SetAssociationSeeds(const std::vector<tracking::AssociationTrackSeed>& seeds) {
   impl_->SetAssociationSeeds(seeds);
 }
 
@@ -1666,8 +1496,8 @@ void SignalPipeline::ResetAssociationSeedModeToStateless() {
   impl_->ResetAssociationSeedModeToStateless();
 }
 
-std::unique_ptr<tracking::ITrackLifecycleManager>
-SignalPipeline::CreateAutoLifecycleManager() const {
+std::unique_ptr<tracking::ITrackLifecycleManager> SignalPipeline::CreateAutoLifecycleManager()
+    const {
   return impl_->CreateAutoLifecycleManager();
 }
 
@@ -1680,8 +1510,7 @@ common::PlatformAttitudeDeg SignalPipeline::GetPlatformAttitude() const {
   return impl_->GetPlatformAttitude();
 }
 
-void SignalPipeline::SetControlProfile(
-    const common::RadarControlProfile& control_profile) {
+void SignalPipeline::SetControlProfile(const common::RadarControlProfile& control_profile) {
   impl_->SetControlProfile(control_profile);
 }
 

@@ -5,12 +5,12 @@
 
 #include <cstddef>
 
-#include "1q/api.hpp"
 #include "1q/airborne_radar/common/ConfigPresets.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/airborne_radar/core/context/RadarInputValidation.h"
 #include "1q/airborne_radar/core/output/TrackOutputQueries.h"
 #include "1q/airborne_radar/core/session/RadarSession.h"
+#include "1q/api.hpp"
 
 int main() {
   airborne_radar::core::session::RadarSessionConfig config =
@@ -26,12 +26,9 @@ int main() {
     return 1;
   }
 
-  const airborne_radar::core::session::RadarCycleResult result =
-      session.StepWithResult(input);
-  const std::size_t confirmed_tracks =
-      airborne_radar::core::output::CountTracksByStatus(
-          result.track_output_frame,
-          airborne_radar::common::DecisionTrackStatus::kConfirmed);
+  const airborne_radar::core::session::RadarCycleResult result = session.StepWithResult(input);
+  const std::size_t confirmed_tracks = airborne_radar::core::output::CountTracksByStatus(
+      result.track_output_frame, airborne_radar::common::DecisionTrackStatus::kConfirmed);
 
   return confirmed_tracks > result.track_output_frame.tracks.size() ? 1 : 0;
 }

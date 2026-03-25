@@ -27,8 +27,7 @@ bool IsAssociationDrivenJammingSemantic(common::JammingSemantic semantic) {
  */
 bool HasAssociationDrivenEccmEvidence(
     const common::AssociationQualityInfo& association_quality_info) {
-  if (!IsAssociationDrivenJammingSemantic(
-          association_quality_info.dominant_jamming_semantic) ||
+  if (!IsAssociationDrivenJammingSemantic(association_quality_info.dominant_jamming_semantic) ||
       association_quality_info.jamming_severity < 0.35f ||
       association_quality_info.association_stress < 0.18f) {
     return false;
@@ -40,8 +39,7 @@ bool HasAssociationDrivenEccmEvidence(
  * @param perception_quality_info 当前周期探测质量摘要。
  * @return 探测压力达到阈值时返回 true。
  */
-bool HasMeaningfulDetectionPressure(
-    const common::PerceptionQualityInfo& perception_quality_info) {
+bool HasMeaningfulDetectionPressure(const common::PerceptionQualityInfo& perception_quality_info) {
   return perception_quality_info.input_target_count > 0U &&
          perception_quality_info.detection_stress >= 0.35f;
 }
@@ -54,8 +52,7 @@ bool HasMeaningfulDetectionPressure(
 std::string BuildDecisionSummary(const common::DecisionInputFrame& input_frame,
                                  const TacticalEvaluationState& evaluation_state) {
   std::vector<std::string> causes;
-  if (input_frame.environment_jamming_detected ||
-      input_frame.eccm_source_info.has_jamming_signal) {
+  if (input_frame.environment_jamming_detected || input_frame.eccm_source_info.has_jamming_signal) {
     causes.push_back("environment-jamming");
   }
   if (HasAssociationDrivenEccmEvidence(input_frame.association_quality_info)) {
@@ -96,8 +93,7 @@ std::string BuildDecisionSummary(const common::DecisionInputFrame& input_frame,
 void BackfillAssociationDrivenEccmTrigger(
     const common::AssociationQualityInfo& association_quality_info,
     common::EccmSourceInfo* eccm_source_info) {
-  if (eccm_source_info == nullptr ||
-      !HasAssociationDrivenEccmEvidence(association_quality_info)) {
+  if (eccm_source_info == nullptr || !HasAssociationDrivenEccmEvidence(association_quality_info)) {
     return;
   }
 
@@ -112,32 +108,25 @@ TacticalCoordinator::TacticalCoordinator(
       emission_control_evaluator_(),
       survivability_evaluator_() {}
 
-TacticalDecisionResult TacticalCoordinator::Evaluate(
-    const common::DecisionInputFrame& input_frame,
-    TacticalStateStore& state_store) {
+TacticalDecisionResult TacticalCoordinator::Evaluate(const common::DecisionInputFrame& input_frame,
+                                                     TacticalStateStore& state_store) {
   TacticalEvaluationState evaluation_state;
   evaluation_state.eccm_source_info = input_frame.eccm_source_info;
   if (!evaluation_state.eccm_source_info.has_jamming_signal) {
-    evaluation_state.eccm_source_info.has_jamming_signal =
-        input_frame.environment_jamming_detected;
+    evaluation_state.eccm_source_info.has_jamming_signal = input_frame.environment_jamming_detected;
   }
   BackfillAssociationDrivenEccmTrigger(input_frame.association_quality_info,
                                        &evaluation_state.eccm_source_info);
 
-  threat_assessment_evaluator_.Evaluate(input_frame, state_store,
-                                        evaluation_state);
-  emission_control_evaluator_.Evaluate(input_frame, state_store,
-                                       evaluation_state);
-  survivability_evaluator_.Evaluate(input_frame, state_store,
-                                    evaluation_state);
+  threat_assessment_evaluator_.Evaluate(input_frame, state_store, evaluation_state);
+  emission_control_evaluator_.Evaluate(input_frame, state_store, evaluation_state);
+  survivability_evaluator_.Evaluate(input_frame, state_store, evaluation_state);
 
   TacticalDecisionResult result;
-  result.target_classification_result.reserve(
-      evaluation_state.target_classification_result.size());
-  for (std::size_t i = 0;
-       i < evaluation_state.target_classification_result.size(); ++i) {
-    result.target_classification_result.push_back(common::TargetCategory(
-        evaluation_state.target_classification_result[i].target_type));
+  result.target_classification_result.reserve(evaluation_state.target_classification_result.size());
+  for (std::size_t i = 0; i < evaluation_state.target_classification_result.size(); ++i) {
+    result.target_classification_result.push_back(
+        common::TargetCategory(evaluation_state.target_classification_result[i].target_type));
   }
   result.proposals = evaluation_state.proposals;
   if (evaluation_state.should_enable_eccm) {
@@ -150,23 +139,20 @@ TacticalDecisionResult TacticalCoordinator::Evaluate(
 
   state_store.current_mode = result.selected_mode;
   state_store.last_classification_labels.clear();
-  state_store.last_classification_labels.reserve(
-      result.target_classification_result.size());
+  state_store.last_classification_labels.reserve(result.target_classification_result.size());
   for (std::size_t i = 0; i < result.target_classification_result.size(); ++i) {
     state_store.last_classification_labels.push_back(
         result.target_classification_result[i].target_type);
   }
-  state_store.last_decision_summary =
-      BuildDecisionSummary(input_frame, evaluation_state);
+  state_store.last_decision_summary = BuildDecisionSummary(input_frame, evaluation_state);
 
   PROJECT_LOG_DEBUG(
       "[TacticalCoordinator] cycle_index={} tracks={} mode={} proposals={} assoc_stress={:.3f}",
-      input_frame.cycle_index, input_frame.tracks.size(),
-      static_cast<int>(result.selected_mode), result.proposals.size(),
-      input_frame.association_quality_info.association_stress);
+      input_frame.cycle_index, input_frame.tracks.size(), static_cast<int>(result.selected_mode),
+      result.proposals.size(), input_frame.association_quality_info.association_stress);
   return result;
 }
 
-} // namespace pipeline
-} // namespace decision
-} // namespace airborne_radar
+}  // namespace pipeline
+}  // namespace decision
+}  // namespace airborne_radar

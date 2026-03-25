@@ -42,16 +42,15 @@ class ControlReducer {
    * @param proposals 当前周期候选控制意图列表。
    * @return 归并后的控制真值与采纳结果。
    */
-  ControlReductionResult Reduce(
-      const common::RadarControlProfile& previous_profile,
-      const std::vector<TacticalProposal>& proposals) const;
+  ControlReductionResult Reduce(const common::RadarControlProfile& previous_profile,
+                                const std::vector<TacticalProposal>& proposals) const;
 
  private:
   ControlReducerConfig config_{};
 };
 
-} // namespace pipeline
-} // namespace decision
-} // namespace airborne_radar
+}  // namespace pipeline
+}  // namespace decision
+}  // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_DECISION_CONTROL_REDUCER_H_
+#endif  // AIRBORNE_RADAR_DECISION_CONTROL_REDUCER_H_

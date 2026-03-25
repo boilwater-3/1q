@@ -26,9 +26,8 @@ class ObservationPreprocessor final {
    * @param[in] config 预处理配置。
    * @return 预处理后的观测记录列表。
    */
-  std::vector<RawObservationRecord> Run(
-      const std::vector<RawObservationRecord>& records,
-      const InterceptPreprocessConfig& config) const;
+  std::vector<RawObservationRecord> Run(const std::vector<RawObservationRecord>& records,
+                                        const InterceptPreprocessConfig& config) const;
 };
 
 }  // namespace internal

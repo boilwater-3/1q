@@ -27,8 +27,8 @@ int main() {
   using airborne_radar::core::context::ValidateRadarCycleInput;
   using airborne_radar::core::output::CollectConfirmedTracks;
   using airborne_radar::core::output::CollectJammingTracks;
-  using airborne_radar::core::session::RadarSession;
   using airborne_radar::core::session::RadarCycleResult;
+  using airborne_radar::core::session::RadarSession;
   using airborne_radar::environment::EnvironmentSceneBuilder;
   using airborne_radar::environment::JammerEmitterState;
   using airborne_radar::environment::JammingTechnique;
@@ -45,19 +45,18 @@ int main() {
   //
   // 若平台暂无硬件参数，可退回到最简形式：
   //   RadarSession session(aq::MakeDetectionMissionRadarSessionConfig());
-  RadarSession session(
-      aq::RadarSessionConfigBuilder(aq::MakeDetectionMissionRadarSessionConfig())
-          .EnablePhysicsDetection()
-          .WithTransmitterPeakPowerW(5e6f)
-          .WithTransmitterFrequencyHz(9.3e9f)
-          .WithTransmitterBandwidthHz(10e6f)
-          .WithTransmitterPulseWidthS(20e-6f)
-          .WithTransmitterPrfHz(500.0f)
-          .WithAntennaMainBeamGainDb(38.0f)
-          .WithAntennaNominalBeamwidthDeg(3.5f, 3.5f)
-          .WithReceiverNoiseFigureDb(3.5f)
-          .WithJammingDetectionThresholdDb(5.0f)
-          .Build());
+  RadarSession session(aq::RadarSessionConfigBuilder(aq::MakeDetectionMissionRadarSessionConfig())
+                           .EnablePhysicsDetection()
+                           .WithTransmitterPeakPowerW(5e6f)
+                           .WithTransmitterFrequencyHz(9.3e9f)
+                           .WithTransmitterBandwidthHz(10e6f)
+                           .WithTransmitterPulseWidthS(20e-6f)
+                           .WithTransmitterPrfHz(500.0f)
+                           .WithAntennaMainBeamGainDb(38.0f)
+                           .WithAntennaNominalBeamwidthDeg(3.5f, 3.5f)
+                           .WithReceiverNoiseFigureDb(3.5f)
+                           .WithJammingDetectionThresholdDb(5.0f)
+                           .Build());
 
   // 周期 1：构造两批空中目标并执行一次无干扰探测。
   RadarCycleInput cycle_1;
@@ -67,19 +66,16 @@ int main() {
   cycle_1.target_features.push_back(
       aq::MakeAirTarget(1002U, 260.0f, 8.0f, 22.0f, 82.0f, 1.0f, 0.0f, 1.1f));
 
-  const std::vector<airborne_radar::core::context::ValidationIssue>
-      cycle_1_issues = ValidateRadarCycleInput(cycle_1);
+  const std::vector<airborne_radar::core::context::ValidationIssue> cycle_1_issues =
+      ValidateRadarCycleInput(cycle_1);
   if (HasValidationError(cycle_1_issues)) {
     std::cerr << "cycle_1 input validation failed" << std::endl;
     return 1;
   }
   const RadarCycleResult result_1 = session.StepWithResult(cycle_1);
-  std::cout << "cycle_1 published="
-            << result_1.track_output_frame.published_track_count
-            << " confirmed="
-            << CollectConfirmedTracks(result_1.track_output_frame).size()
-            << " commands=" << result_1.submitted_commands.size()
-            << std::endl;
+  std::cout << "cycle_1 published=" << result_1.track_output_frame.published_track_count
+            << " confirmed=" << CollectConfirmedTracks(result_1.track_output_frame).size()
+            << " commands=" << result_1.submitted_commands.size() << std::endl;
 
   // 周期 2：调用方按自己的平台/目标模型推进相对位置后继续执行。
   RadarCycleInput cycle_2 = cycle_1;
@@ -89,12 +85,9 @@ int main() {
   }
 
   const RadarCycleResult result_2 = session.StepWithResult(cycle_2);
-  std::cout << "cycle_2 published="
-            << result_2.track_output_frame.published_track_count
-            << " confirmed="
-            << CollectConfirmedTracks(result_2.track_output_frame).size()
-            << " match_rate="
-            << result_2.association_quality_metrics.match_rate << std::endl;
+  std::cout << "cycle_2 published=" << result_2.track_output_frame.published_track_count
+            << " confirmed=" << CollectConfirmedTracks(result_2.track_output_frame).size()
+            << " match_rate=" << result_2.association_quality_metrics.match_rate << std::endl;
 
   // 周期 3：在 step 前提交场景更新，演示"当前周期切入干扰"的高层用法。
   RadarCycleInput cycle_3 = cycle_2;
@@ -112,21 +105,15 @@ int main() {
   noise_jammer.in_sidelobe = true;
 
   const airborne_radar::environment::EnvironmentSceneState jammed_scene =
-      EnvironmentSceneBuilder()
-          .AddNoiseJammer(noise_jammer)
-          .Build();
+      EnvironmentSceneBuilder().AddNoiseJammer(noise_jammer).Build();
   const RadarCycleResult result_3 = session.StepWithResult(cycle_3, jammed_scene);
 
   // 输出查询 helper 适合外部模块快速按状态或干扰标记获取敌情集合。
-  const std::size_t confirmed_count =
-      CollectConfirmedTracks(result_3.track_output_frame).size();
-  const std::size_t jamming_count =
-      CollectJammingTracks(result_3.track_output_frame).size();
+  const std::size_t confirmed_count = CollectConfirmedTracks(result_3.track_output_frame).size();
+  const std::size_t jamming_count = CollectJammingTracks(result_3.track_output_frame).size();
 
-  std::cout << "cycle_3 published="
-            << result_3.track_output_frame.published_track_count
-            << " confirmed=" << confirmed_count
-            << " jamming_tracks=" << jamming_count
+  std::cout << "cycle_3 published=" << result_3.track_output_frame.published_track_count
+            << " confirmed=" << confirmed_count << " jamming_tracks=" << jamming_count
             << " commands=" << result_3.submitted_commands.size() << std::endl;
   return 0;
 }

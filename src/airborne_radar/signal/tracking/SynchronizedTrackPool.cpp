@@ -4,14 +4,14 @@ namespace airborne_radar {
 namespace signal {
 namespace tracking {
 
-SynchronizedTrackPool::SynchronizedTrackPool(ITrackPool &inner) : inner_(inner) {}
+SynchronizedTrackPool::SynchronizedTrackPool(ITrackPool& inner) : inner_(inner) {}
 
-common::TrackState *SynchronizedTrackPool::Acquire() {
+common::TrackState* SynchronizedTrackPool::Acquire() {
   std::lock_guard<std::mutex> lock(mutex_);
   return inner_.Acquire();
 }
 
-void SynchronizedTrackPool::Release(common::TrackState *track) {
+void SynchronizedTrackPool::Release(common::TrackState* track) {
   std::lock_guard<std::mutex> lock(mutex_);
   inner_.Release(track);
 }
@@ -26,6 +26,6 @@ std::size_t SynchronizedTrackPool::InUseCount() const {
   return inner_.InUseCount();
 }
 
-} // namespace tracking
-} // namespace signal
-} // namespace airborne_radar
+}  // namespace tracking
+}  // namespace signal
+}  // namespace airborne_radar

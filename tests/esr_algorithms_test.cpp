@@ -24,8 +24,7 @@ namespace {
 
 TEST(EsrAlgorithmsTest, BandClassifierMapsTypicalBoundaryValues) {
   EXPECT_EQ(BandClassifier::Classify(-1.0), RadarBand::kInvalid);
-  EXPECT_EQ(BandClassifier::Classify(std::numeric_limits<double>::infinity()),
-            RadarBand::kInvalid);
+  EXPECT_EQ(BandClassifier::Classify(std::numeric_limits<double>::infinity()), RadarBand::kInvalid);
   EXPECT_EQ(BandClassifier::Classify(0.10e9), RadarBand::kBelowP);
   EXPECT_EQ(BandClassifier::Classify(0.23e9), RadarBand::kP);
   EXPECT_EQ(BandClassifier::Classify(0.50e9), RadarBand::kP);
@@ -47,8 +46,7 @@ TEST(EsrAlgorithmsTest, ScanPatternGeneratorRespectsStartPositionAndSequence) {
   config.start_pos = 0;
   config.sequence = 0;
 
-  const std::vector<BeamPointingDeg> pattern =
-      ScanPatternGenerator::Generate(config);
+  const std::vector<BeamPointingDeg> pattern = ScanPatternGenerator::Generate(config);
   ASSERT_EQ(pattern.size(), 9U);
   EXPECT_NEAR(pattern.front().az_deg, -10.0f, 1.0e-6f);
   EXPECT_NEAR(pattern.front().el_deg, 5.0f, 1.0e-6f);
@@ -132,8 +130,7 @@ TEST(EsrAlgorithmsTest, JammingAggregatorSeparatesSuppressionChannel) {
   source_b.confidence = 0.5f;
   sources.push_back(source_b);
 
-  const JammingAggregateResult result =
-      JammingAggregator::Aggregate(sources, 10.0e9, 2.0e9);
+  const JammingAggregateResult result = JammingAggregator::Aggregate(sources, 10.0e9, 2.0e9);
 
   EXPECT_NEAR(result.suppression_power_w, 11.0f, 1.0e-5f);
   EXPECT_NEAR(result.suppression_weighted_overlap_ratio, 0.9545454f, 1.0e-6f);
@@ -153,8 +150,7 @@ TEST(EsrAlgorithmsTest, JammingAggregatorSeparatesDeceptionChannel) {
   source.deception_risk = 0.8f;
   source.confidence = 1.0f;
 
-  const JammingAggregateResult result =
-      JammingAggregator::Aggregate({source}, 10.0e9, 2.0e9);
+  const JammingAggregateResult result = JammingAggregator::Aggregate({source}, 10.0e9, 2.0e9);
 
   EXPECT_NEAR(result.suppression_power_w, 0.0f, 1.0e-6f);
   EXPECT_NEAR(result.deception_risk, 0.8f, 1.0e-6f);
@@ -204,10 +200,8 @@ TEST(EsrAlgorithmsTest, AngleErrorModelSamplingIsStableWithFixedSeed) {
   std::mt19937 rng_a(42U);
   std::mt19937 rng_b(42U);
   for (int i = 0; i < 10; ++i) {
-    const float sample_a =
-        AngleErrorModel::SampleErrorDeg(18.0f, 8.0f, &rng_a, config);
-    const float sample_b =
-        AngleErrorModel::SampleErrorDeg(18.0f, 8.0f, &rng_b, config);
+    const float sample_a = AngleErrorModel::SampleErrorDeg(18.0f, 8.0f, &rng_a, config);
+    const float sample_b = AngleErrorModel::SampleErrorDeg(18.0f, 8.0f, &rng_b, config);
     EXPECT_FLOAT_EQ(sample_a, sample_b);
   }
 
@@ -219,21 +213,19 @@ TEST(EsrAlgorithmsTest, AngleErrorModelSamplingIsStableWithFixedSeed) {
 TEST(EsrAlgorithmsTest, BoundarySearchSolverConvergesForMonotonicPredicate) {
   const float expected_boundary = 1234.0f;
   const BoundarySearchResult result = BoundarySearchSolver::Solve(
-      0.0f, 5000.0f, 1.0f, 40, [&](float range_m) {
-        return range_m <= expected_boundary;
-      });
+      0.0f, 5000.0f, 1.0f, 40, [&](float range_m) { return range_m <= expected_boundary; });
 
   EXPECT_TRUE(result.converged);
   EXPECT_GT(result.iterations, 0);
   EXPECT_NEAR(result.boundary_range_m, expected_boundary, 1.5f);
 
-  const BoundarySearchResult all_true = BoundarySearchSolver::Solve(
-      0.0f, 100.0f, 0.1f, 20, [](float) { return true; });
+  const BoundarySearchResult all_true =
+      BoundarySearchSolver::Solve(0.0f, 100.0f, 0.1f, 20, [](float) { return true; });
   EXPECT_TRUE(all_true.converged);
   EXPECT_NEAR(all_true.boundary_range_m, 100.0f, 1.0e-6f);
 
-  const BoundarySearchResult all_false = BoundarySearchSolver::Solve(
-      0.0f, 100.0f, 0.1f, 20, [](float) { return false; });
+  const BoundarySearchResult all_false =
+      BoundarySearchSolver::Solve(0.0f, 100.0f, 0.1f, 20, [](float) { return false; });
   EXPECT_TRUE(all_false.converged);
   EXPECT_NEAR(all_false.boundary_range_m, 0.0f, 1.0e-6f);
 }

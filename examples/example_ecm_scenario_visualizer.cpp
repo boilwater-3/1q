@@ -57,10 +57,10 @@ constexpr int kMaxCycles = 30;
 constexpr float kDtSec = 0.5f;
 
 // 干扰阶段划分（cycle 0~9 为无干扰基线）
-constexpr int kPhaseNoise = 10;       // cycle 10~14
-constexpr int kPhaseDeception = 15;   // cycle 15~19
-constexpr int kPhaseRepeater = 20;    // cycle 20~24
-constexpr int kPhaseRecovery = 25;    // cycle 25~29
+constexpr int kPhaseNoise = 10;      // cycle 10~14
+constexpr int kPhaseDeception = 15;  // cycle 15~19
+constexpr int kPhaseRepeater = 20;   // cycle 20~24
+constexpr int kPhaseRecovery = 25;   // cycle 25~29
 
 struct TargetInit {
   std::uint64_t id;
@@ -79,9 +79,8 @@ constexpr TargetInit kTargets[] = {
 
 ImVec4 TrackColor(std::uint64_t association_key) {
   static const ImVec4 kPalette[] = {
-      {0.12f, 0.47f, 0.71f, 1.0f}, {1.00f, 0.50f, 0.05f, 1.0f},
-      {0.17f, 0.63f, 0.17f, 1.0f}, {0.84f, 0.15f, 0.16f, 1.0f},
-      {0.58f, 0.40f, 0.74f, 1.0f}, {0.55f, 0.34f, 0.29f, 1.0f},
+      {0.12f, 0.47f, 0.71f, 1.0f}, {1.00f, 0.50f, 0.05f, 1.0f}, {0.17f, 0.63f, 0.17f, 1.0f},
+      {0.84f, 0.15f, 0.16f, 1.0f}, {0.58f, 0.40f, 0.74f, 1.0f}, {0.55f, 0.34f, 0.29f, 1.0f},
       {0.89f, 0.47f, 0.76f, 1.0f},
   };
   return kPalette[association_key % 7];
@@ -92,15 +91,24 @@ ImVec4 TrackColor(std::uint64_t association_key) {
 const char* CommandTypeName(airborne_radar::common::RadarCommandType t) {
   using T = airborne_radar::common::RadarCommandType;
   switch (t) {
-    case T::NONE: return "NONE";
-    case T::SET_LPI_POWER: return "LPI_Power";
-    case T::SET_LPI_BEAMFORMING: return "LPI_Beam";
-    case T::SET_LPI_DWELL: return "LPI_Dwell";
-    case T::ENABLE_SIDELOBE_CANCELLER: return "SLC";
-    case T::ENABLE_ADAPTIVE_BEAMFORMING: return "ABF";
-    case T::SET_AGILITY_FREQ: return "FreqAgility";
-    case T::SET_ECCM_REJITTER: return "Rejitter";
-    case T::SET_ECCM_BURNTHROUGH_GAIN: return "Burnthrough";
+    case T::NONE:
+      return "NONE";
+    case T::SET_LPI_POWER:
+      return "LPI_Power";
+    case T::SET_LPI_BEAMFORMING:
+      return "LPI_Beam";
+    case T::SET_LPI_DWELL:
+      return "LPI_Dwell";
+    case T::ENABLE_SIDELOBE_CANCELLER:
+      return "SLC";
+    case T::ENABLE_ADAPTIVE_BEAMFORMING:
+      return "ABF";
+    case T::SET_AGILITY_FREQ:
+      return "FreqAgility";
+    case T::SET_ECCM_REJITTER:
+      return "Rejitter";
+    case T::SET_ECCM_BURNTHROUGH_GAIN:
+      return "Burnthrough";
   }
   return "?";
 }
@@ -172,8 +180,7 @@ std::unique_ptr<airborne_radar::core::session::RadarSession> MakeSession() {
   namespace aq = airborne_radar::common;
   auto session = std::unique_ptr<airborne_radar::core::session::RadarSession>(
       new airborne_radar::core::session::RadarSession(
-          aq::RadarSessionConfigBuilder(
-              aq::MakeDetectionMissionRadarSessionConfig())
+          aq::RadarSessionConfigBuilder(aq::MakeDetectionMissionRadarSessionConfig())
               .EnablePhysicsDetection()
               .WithTransmitterPeakPowerW(5e6f)
               .WithTransmitterFrequencyHz(9.3e9f)
@@ -256,8 +263,7 @@ airborne_radar::environment::EnvironmentSceneState BuildScene(int cycle) {
 
 // ── 推进一个 cycle ────────────────────────────────────────────────────────────
 
-void StepOnce(airborne_radar::core::session::RadarSession& session,
-              SimState& sim) {
+void StepOnce(airborne_radar::core::session::RadarSession& session, SimState& sim) {
   if (sim.finished || sim.current_cycle >= kMaxCycles) {
     sim.finished = true;
     return;
@@ -271,8 +277,7 @@ void StepOnce(airborne_radar::core::session::RadarSession& session,
   for (const auto& kv : sim.target_pos) {
     const auto& p = kv.second;
     input.target_features.push_back(
-        aq::MakeAirTarget(kv.first, p.px, p.py, p.pz,
-                          p.vx, p.vy, p.vz, p.rcs));
+        aq::MakeAirTarget(kv.first, p.px, p.py, p.pz, p.vx, p.vy, p.vz, p.rcs));
   }
 
   // 根据当前 cycle 构造环境场景
@@ -303,8 +308,7 @@ void StepOnce(airborne_radar::core::session::RadarSession& session,
   }
 
   // 记录干扰强度
-  sim.jamming_severity_history.push_back(
-      result.association_quality_metrics.jamming_severity);
+  sim.jamming_severity_history.push_back(result.association_quality_metrics.jamming_severity);
 
   // 推进目标位置
   for (auto& kv : sim.target_pos) {
@@ -348,8 +352,7 @@ ImPlotMarker StatusMarker(airborne_radar::common::DecisionTrackStatus s) {
 // ── 渲染轨迹 XY 俯视图 ──────────────────────────────────────────────────────
 
 void RenderXYPlot(const SimState& sim) {
-  if (!ImPlot::BeginPlot("XY Top-Down View", ImVec2(-1, -1),
-                          ImPlotFlags_Equal)) {
+  if (!ImPlot::BeginPlot("XY Top-Down View", ImVec2(-1, -1), ImPlotFlags_Equal)) {
     return;
   }
   ImPlot::SetupAxes("X (km)", "Y (km)");
@@ -363,10 +366,8 @@ void RenderXYPlot(const SimState& sim) {
     ImVec4 col = TrackColor(key);
     ImPlot::SetNextLineStyle({col.x, col.y, col.z, col.w}, 1.5f);
     char label[32];
-    std::snprintf(label, sizeof(label), "Track %llu",
-                  static_cast<unsigned long long>(key));
-    ImPlot::PlotLine(label, xs.data(), ys.data(),
-                     static_cast<int>(xs.size()));
+    std::snprintf(label, sizeof(label), "Track %llu", static_cast<unsigned long long>(key));
+    ImPlot::PlotLine(label, xs.data(), ys.data(), static_cast<int>(xs.size()));
 
     ImPlotMarker marker = ImPlotMarker_Circle;
     for (const auto& snap : sim.latest_tracks) {
@@ -377,8 +378,7 @@ void RenderXYPlot(const SimState& sim) {
     }
     ImPlot::SetNextMarkerStyle(marker, 8.0f, {col.x, col.y, col.z, col.w});
     char slabel[48];
-    std::snprintf(slabel, sizeof(slabel), "Pos %llu",
-                  static_cast<unsigned long long>(key));
+    std::snprintf(slabel, sizeof(slabel), "Pos %llu", static_cast<unsigned long long>(key));
     ImPlot::PlotScatter(slabel, &xs.back(), &ys.back(), 1);
   }
 
@@ -388,15 +388,13 @@ void RenderXYPlot(const SimState& sim) {
 // ── 渲染轨迹状态表格 ──────────────────────────────────────────────────────────
 
 void RenderTrackTable(const SimState& sim) {
-  ImGui::TextColored(PhaseColor(sim.current_cycle),
-                     "Phase: %s", PhaseName(sim.current_cycle));
+  ImGui::TextColored(PhaseColor(sim.current_cycle), "Phase: %s", PhaseName(sim.current_cycle));
   ImGui::Text("Cycle %d / %d", sim.current_cycle, kMaxCycles);
   ImGui::Separator();
 
-  if (ImGui::BeginTable("tracks", 6,
-                         ImGuiTableFlags_Borders |
-                             ImGuiTableFlags_RowBg |
-                             ImGuiTableFlags_SizingFixedFit)) {
+  if (ImGui::BeginTable(
+          "tracks", 6,
+          ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit)) {
     ImGui::TableSetupColumn("ID");
     ImGui::TableSetupColumn("Status");
     ImGui::TableSetupColumn("Speed");
@@ -447,18 +445,12 @@ void RenderCommandTimeline(const SimState& sim) {
     ImVec4 color;
   };
   const CmdRow rows[] = {
-      {CmdType::ENABLE_SIDELOBE_CANCELLER, 1.0f,
-       {0.2f, 0.8f, 0.2f, 1.0f}},
-      {CmdType::ENABLE_ADAPTIVE_BEAMFORMING, 2.0f,
-       {0.2f, 0.6f, 1.0f, 1.0f}},
-      {CmdType::SET_AGILITY_FREQ, 3.0f,
-       {1.0f, 0.8f, 0.2f, 1.0f}},
-      {CmdType::SET_ECCM_REJITTER, 4.0f,
-       {1.0f, 0.5f, 0.2f, 1.0f}},
-      {CmdType::SET_ECCM_BURNTHROUGH_GAIN, 5.0f,
-       {1.0f, 0.2f, 0.2f, 1.0f}},
-      {CmdType::SET_LPI_POWER, 6.0f,
-       {0.6f, 0.4f, 0.8f, 1.0f}},
+      {CmdType::ENABLE_SIDELOBE_CANCELLER, 1.0f, {0.2f, 0.8f, 0.2f, 1.0f}},
+      {CmdType::ENABLE_ADAPTIVE_BEAMFORMING, 2.0f, {0.2f, 0.6f, 1.0f, 1.0f}},
+      {CmdType::SET_AGILITY_FREQ, 3.0f, {1.0f, 0.8f, 0.2f, 1.0f}},
+      {CmdType::SET_ECCM_REJITTER, 4.0f, {1.0f, 0.5f, 0.2f, 1.0f}},
+      {CmdType::SET_ECCM_BURNTHROUGH_GAIN, 5.0f, {1.0f, 0.2f, 0.2f, 1.0f}},
+      {CmdType::SET_LPI_POWER, 6.0f, {0.6f, 0.4f, 0.8f, 1.0f}},
   };
 
   for (const auto& row : rows) {
@@ -475,8 +467,7 @@ void RenderCommandTimeline(const SimState& sim) {
     }
     if (!xs.empty()) {
       ImPlot::SetNextMarkerStyle(ImPlotMarker_Diamond, 6.0f,
-                                  {row.color.x, row.color.y, row.color.z,
-                                   row.color.w});
+                                 {row.color.x, row.color.y, row.color.z, row.color.w});
       ImPlot::PlotScatter(CommandTypeName(row.type), xs.data(), ys.data(),
                           static_cast<int>(xs.size()));
     }
@@ -491,8 +482,7 @@ void RenderCommandTimeline(const SimState& sim) {
       scaled[i] = sim.jamming_severity_history[i] * 7.0f;
     }
     ImPlot::SetNextLineStyle({1.0f, 0.3f, 0.3f, 0.6f}, 1.5f);
-    ImPlot::PlotLine("JamSeverity", cycles.data(), scaled.data(),
-                     static_cast<int>(cycles.size()));
+    ImPlot::PlotLine("JamSeverity", cycles.data(), scaled.data(), static_cast<int>(cycles.size()));
   }
 
   ImPlot::EndPlot();
@@ -518,8 +508,7 @@ void RenderControlProfile(const SimState& sim) {
     }
   };
 
-  ImGui::Text("Version: %llu",
-              static_cast<unsigned long long>(prof.version));
+  ImGui::Text("Version: %llu", static_cast<unsigned long long>(prof.version));
   ImGui::Spacing();
 
   ImGui::TextUnformatted("-- LPI --");
@@ -529,8 +518,7 @@ void RenderControlProfile(const SimState& sim) {
     ImGui::Text("(scale=%.2f)", static_cast<double>(prof.lpi_power_scale));
   }
   BoolIndicator("Beamforming", prof.enable_lpi_beamforming);
-  ImGui::Text("Dwell Scale: %.2f",
-              static_cast<double>(prof.lpi_dwell_scale));
+  ImGui::Text("Dwell Scale: %.2f", static_cast<double>(prof.lpi_dwell_scale));
 
   ImGui::Spacing();
   ImGui::TextUnformatted("-- ECCM --");
@@ -538,8 +526,7 @@ void RenderControlProfile(const SimState& sim) {
   BoolIndicator("Adaptive BF", prof.enable_adaptive_beamforming);
   BoolIndicator("Freq Agility", prof.enable_agility_frequency);
   BoolIndicator("Rejitter", prof.enable_eccm_rejitter);
-  ImGui::Text("Burnthrough Gain: %.2f",
-              static_cast<double>(prof.eccm_burnthrough_gain));
+  ImGui::Text("Burnthrough Gain: %.2f", static_cast<double>(prof.eccm_burnthrough_gain));
 }
 
 }  // namespace
@@ -558,8 +545,8 @@ int main() {
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
-  GLFWwindow* window = glfwCreateWindow(
-      1400, 900, "Airborne Radar - ECM Scenario", nullptr, nullptr);
+  GLFWwindow* window =
+      glfwCreateWindow(1400, 900, "Airborne Radar - ECM Scenario", nullptr, nullptr);
   if (!window) {
     std::fprintf(stderr, "GLFW window creation failed\n");
     glfwTerminate();
@@ -589,12 +576,10 @@ int main() {
     int display_w = 0, display_h = 0;
     glfwGetFramebufferSize(window, &display_w, &display_h);
     ImGui::SetNextWindowPos({0, 0});
-    ImGui::SetNextWindowSize(
-        {static_cast<float>(display_w), static_cast<float>(display_h)});
+    ImGui::SetNextWindowSize({static_cast<float>(display_w), static_cast<float>(display_h)});
     ImGui::Begin("##main", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
-                     ImGuiWindowFlags_NoSavedSettings |
-                     ImGuiWindowFlags_NoBringToFrontOnFocus);
+                     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus);
 
     // 顶部控制栏
     if (ImGui::Button("Step") && !sim.finished) {
@@ -612,8 +597,7 @@ int main() {
       sim.Reset();
     }
     ImGui::SameLine();
-    ImGui::TextColored(PhaseColor(sim.current_cycle),
-                       "[%s]", PhaseName(sim.current_cycle));
+    ImGui::TextColored(PhaseColor(sim.current_cycle), "[%s]", PhaseName(sim.current_cycle));
     if (sim.finished) {
       ImGui::SameLine();
       ImGui::TextColored({0.4f, 1.0f, 0.4f, 1.0f}, "Complete.");

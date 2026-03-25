@@ -27,9 +27,8 @@ class EsrOutputManager final {
    * @param[in] cycle_result 流水线结果。
    * @return 组装后的输出帧。
    */
-  common::EsrOutputFrame BuildOutputFrame(
-      std::uint32_t cycle_index, std::uint64_t batch_id,
-      const pipeline::InterceptCycleResult& cycle_result) const;
+  common::EsrOutputFrame BuildOutputFrame(std::uint32_t cycle_index, std::uint64_t batch_id,
+                                          const pipeline::InterceptCycleResult& cycle_result) const;
 
   /**
    * @brief 构造空内容输出帧。
@@ -37,8 +36,7 @@ class EsrOutputManager final {
    * @param[in] batch_id 批次号。
    * @return 无观测、无假设、无关联的输出帧。
    */
-  common::EsrOutputFrame BuildEmptyFrame(std::uint32_t cycle_index,
-                                         std::uint64_t batch_id) const;
+  common::EsrOutputFrame BuildEmptyFrame(std::uint32_t cycle_index, std::uint64_t batch_id) const;
 };
 
 }  // namespace output

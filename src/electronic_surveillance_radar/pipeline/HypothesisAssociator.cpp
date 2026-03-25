@@ -21,9 +21,7 @@ namespace {
  * @param[in] value 输入值。
  * @return 裁剪后结果。
  */
-float Clamp01(float value) {
-  return std::max(0.0f, std::min(1.0f, value));
-}
+float Clamp01(float value) { return std::max(0.0f, std::min(1.0f, value)); }
 
 /**
  * @brief 根据簇摘要推断工作模式。
@@ -46,8 +44,7 @@ common::EmitterMode InferModeFromCluster(const ClusterSummary& summary) {
  * @param[in] mean_snr_db 簇均值信噪比。
  * @return 威胁等级。
  */
-common::ThreatLevel InferThreatFromCluster(common::EmitterMode mode,
-                                           float mean_snr_db) {
+common::ThreatLevel InferThreatFromCluster(common::EmitterMode mode, float mean_snr_db) {
   if (mode == common::EmitterMode::kGuidance || mean_snr_db >= 20.0f) {
     return common::ThreatLevel::kHigh;
   }
@@ -63,12 +60,10 @@ common::ThreatLevel InferThreatFromCluster(common::EmitterMode mode,
  * @param[in] deception_support_ratio 欺骗支持度，范围 [0, 1]。
  * @return 候选类别字符串列表。
  */
-std::vector<std::string> BuildCandidateClasses(double rf_hz,
-                                               float deception_support_ratio) {
+std::vector<std::string> BuildCandidateClasses(double rf_hz, float deception_support_ratio) {
   const intercept::RadarBand band = intercept::BandClassifier::Classify(rf_hz);
   std::vector<std::string> classes;
-  classes.push_back(
-      std::string("RADAR_BAND_") + intercept::BandClassifier::ToString(band));
+  classes.push_back(std::string("RADAR_BAND_") + intercept::BandClassifier::ToString(band));
   classes.push_back("RADAR_EMITTER");
   const float deception_ratio = Clamp01(deception_support_ratio);
   if (deception_ratio >= 0.6f) {
@@ -105,12 +100,9 @@ float ComputeDistance(const ObservationFeatureVector& feature_a,
 
 }  // namespace
 
-HypothesisAssociator::HypothesisAssociator(InterceptAssociationConfig config)
-    : config_(config) {}
+HypothesisAssociator::HypothesisAssociator(InterceptAssociationConfig config) : config_(config) {}
 
-void HypothesisAssociator::UpdateConfig(InterceptAssociationConfig config) {
-  config_ = config;
-}
+void HypothesisAssociator::UpdateConfig(InterceptAssociationConfig config) { config_ = config; }
 
 common::EmitterHypothesisList HypothesisAssociator::Update(
     std::uint32_t cycle_index, const std::vector<ClusterSummary>& clusters,
@@ -125,13 +117,10 @@ common::EmitterHypothesisList HypothesisAssociator::Update(
     float distance;
   };
   std::vector<CandidatePair> pairs;
-  for (std::size_t cluster_index = 0; cluster_index < clusters.size();
-       ++cluster_index) {
-    for (std::size_t track_index = 0; track_index < original_track_count;
-         ++track_index) {
+  for (std::size_t cluster_index = 0; cluster_index < clusters.size(); ++cluster_index) {
+    for (std::size_t track_index = 0; track_index < original_track_count; ++track_index) {
       const float distance =
-          ComputeDistance(clusters[cluster_index].centroid_feature,
-                          tracks_[track_index].feature);
+          ComputeDistance(clusters[cluster_index].centroid_feature, tracks_[track_index].feature);
       if (distance <= config_.gate_distance) {
         CandidatePair pair;
         pair.cluster_index = cluster_index;
@@ -141,21 +130,19 @@ common::EmitterHypothesisList HypothesisAssociator::Update(
       }
     }
   }
-  std::sort(pairs.begin(), pairs.end(),
-            [](const CandidatePair& lhs, const CandidatePair& rhs) {
-              if (lhs.distance != rhs.distance) {
-                return lhs.distance < rhs.distance;
-              }
-              if (lhs.cluster_index != rhs.cluster_index) {
-                return lhs.cluster_index < rhs.cluster_index;
-              }
-              return lhs.track_index < rhs.track_index;
-            });
+  std::sort(pairs.begin(), pairs.end(), [](const CandidatePair& lhs, const CandidatePair& rhs) {
+    if (lhs.distance != rhs.distance) {
+      return lhs.distance < rhs.distance;
+    }
+    if (lhs.cluster_index != rhs.cluster_index) {
+      return lhs.cluster_index < rhs.cluster_index;
+    }
+    return lhs.track_index < rhs.track_index;
+  });
 
   for (std::size_t i = 0; i < pairs.size(); ++i) {
     const CandidatePair pair = pairs[i];
-    if (cluster_matched[pair.cluster_index] != 0U ||
-        track_matched[pair.track_index] != 0U) {
+    if (cluster_matched[pair.cluster_index] != 0U || track_matched[pair.track_index] != 0U) {
       continue;
     }
     TrackState& track = tracks_[pair.track_index];
@@ -169,20 +156,17 @@ common::EmitterHypothesisList HypothesisAssociator::Update(
     }
     track.mode = InferModeFromCluster(summary);
     track.threat_level = InferThreatFromCluster(track.mode, summary.mean_snr_db);
-    track.candidate_classes =
-        BuildCandidateClasses(summary.mean_rf_hz, deception_ratio);
+    track.candidate_classes = BuildCandidateClasses(summary.mean_rf_hz, deception_ratio);
     track.bearing_az_deg =
         Blend(track.bearing_az_deg, summary.mean_az_deg, config_.confidence_alpha);
     track.bearing_el_deg =
         Blend(track.bearing_el_deg, summary.mean_el_deg, config_.confidence_alpha);
     const float base_bearing_std_deg =
         std::max(0.1f, 3.0f / std::sqrt(static_cast<float>(summary.support_count)));
-    track.bearing_std_deg =
-        base_bearing_std_deg * (1.0f + 0.8f * deception_ratio);
+    track.bearing_std_deg = base_bearing_std_deg * (1.0f + 0.8f * deception_ratio);
     const float confidence_measurement =
         Clamp01(summary.confidence_score * (1.0f - 0.45f * deception_ratio));
-    track.confidence =
-        Blend(track.confidence, confidence_measurement, config_.confidence_alpha);
+    track.confidence = Blend(track.confidence, confidence_measurement, config_.confidence_alpha);
     track.last_seen_cycle = cycle_index;
     ++track.hit_streak;
     track.missed_cycles = 0U;
@@ -208,16 +192,13 @@ common::EmitterHypothesisList HypothesisAssociator::Update(
     track.feature = clusters[i].centroid_feature;
     track.mode = InferModeFromCluster(clusters[i]);
     track.threat_level = InferThreatFromCluster(track.mode, clusters[i].mean_snr_db);
-    track.candidate_classes =
-        BuildCandidateClasses(clusters[i].mean_rf_hz, deception_ratio);
+    track.candidate_classes = BuildCandidateClasses(clusters[i].mean_rf_hz, deception_ratio);
     track.bearing_az_deg = clusters[i].mean_az_deg;
     track.bearing_el_deg = clusters[i].mean_el_deg;
     const float base_bearing_std_deg =
         std::max(0.1f, 3.0f / std::sqrt(static_cast<float>(clusters[i].support_count)));
-    track.bearing_std_deg =
-        base_bearing_std_deg * (1.0f + 0.8f * deception_ratio);
-    track.confidence =
-        Clamp01(clusters[i].confidence_score * (1.0f - 0.45f * deception_ratio));
+    track.bearing_std_deg = base_bearing_std_deg * (1.0f + 0.8f * deception_ratio);
+    track.confidence = Clamp01(clusters[i].confidence_score * (1.0f - 0.45f * deception_ratio));
     track.last_seen_cycle = cycle_index;
     track.hit_streak = 1U;
     track.missed_cycles = 0U;
@@ -239,15 +220,13 @@ common::EmitterHypothesisList HypothesisAssociator::Update(
 
   tracks_.erase(std::remove_if(tracks_.begin(), tracks_.end(),
                                [&](const TrackState& track) {
-                                 return track.missed_cycles >=
-                                        config_.max_missed_cycles;
+                                 return track.missed_cycles >= config_.max_missed_cycles;
                                }),
-               tracks_.end());
+                tracks_.end());
 
-  std::sort(tracks_.begin(), tracks_.end(),
-            [](const TrackState& lhs, const TrackState& rhs) {
-              return lhs.hypothesis_id < rhs.hypothesis_id;
-            });
+  std::sort(tracks_.begin(), tracks_.end(), [](const TrackState& lhs, const TrackState& rhs) {
+    return lhs.hypothesis_id < rhs.hypothesis_id;
+  });
 
   common::EmitterHypothesisList hypotheses;
   hypotheses.reserve(tracks_.size());
@@ -270,9 +249,7 @@ common::EmitterHypothesisList HypothesisAssociator::Update(
   return hypotheses;
 }
 
-void HypothesisAssociator::Reset() {
-  tracks_.clear();
-}
+void HypothesisAssociator::Reset() { tracks_.clear(); }
 
 }  // namespace internal
 }  // namespace pipeline

@@ -67,9 +67,8 @@ ImVec4 TrackColor(std::uint64_t association_key) {
   (void)colors;
   // ImPlot 颜色通过 SetNextLineStyle 注入；此处仅返回近似色用于表格着色
   static const ImVec4 kPalette[] = {
-      {0.12f, 0.47f, 0.71f, 1.0f}, {1.00f, 0.50f, 0.05f, 1.0f},
-      {0.17f, 0.63f, 0.17f, 1.0f}, {0.84f, 0.15f, 0.16f, 1.0f},
-      {0.58f, 0.40f, 0.74f, 1.0f}, {0.55f, 0.34f, 0.29f, 1.0f},
+      {0.12f, 0.47f, 0.71f, 1.0f}, {1.00f, 0.50f, 0.05f, 1.0f}, {0.17f, 0.63f, 0.17f, 1.0f},
+      {0.84f, 0.15f, 0.16f, 1.0f}, {0.58f, 0.40f, 0.74f, 1.0f}, {0.55f, 0.34f, 0.29f, 1.0f},
       {0.89f, 0.47f, 0.76f, 1.0f},
   };
   return kPalette[association_key % 7];
@@ -134,10 +133,10 @@ std::unique_ptr<airborne_radar::core::session::RadarSession> MakeSession() {
 
   // 空对空场景：关闭地面杂波，仅保留热噪声底
   airborne_radar::environment::EnvironmentModelConfig env_cfg;
-  env_cfg.clutter_power_db = -200.0f;        // 杂波清零
-  env_cfg.base_propagation_loss_db = 0.0f;   // 无额外传播损耗
-  env_cfg.atmospheric_attenuation_db = 0.0f; // 无大气衰减
-  env_cfg.terrain_reflection_db = 0.0f;      // 无地形多径
+  env_cfg.clutter_power_db = -200.0f;         // 杂波清零
+  env_cfg.base_propagation_loss_db = 0.0f;    // 无额外传播损耗
+  env_cfg.atmospheric_attenuation_db = 0.0f;  // 无大气衰减
+  env_cfg.terrain_reflection_db = 0.0f;       // 无地形多径
   session->UpdateEnvironmentModelConfig(env_cfg);
 
   return session;
@@ -145,8 +144,7 @@ std::unique_ptr<airborne_radar::core::session::RadarSession> MakeSession() {
 
 // ── 推进一个 cycle ────────────────────────────────────────────────────────────
 
-void StepOnce(airborne_radar::core::session::RadarSession& session,
-              SimState& sim) {
+void StepOnce(airborne_radar::core::session::RadarSession& session, SimState& sim) {
   if (sim.finished || sim.current_cycle >= kMaxCycles) {
     sim.finished = true;
     return;
@@ -164,8 +162,7 @@ void StepOnce(airborne_radar::core::session::RadarSession& session,
   for (const auto& kv : sim.target_pos) {
     const auto& p = kv.second;
     input.target_features.push_back(
-        aq::MakeAirTarget(kv.first, p.px, p.py, p.pz,
-                          p.vx, p.vy, p.vz, p.rcs));
+        aq::MakeAirTarget(kv.first, p.px, p.py, p.pz, p.vx, p.vy, p.vz, p.rcs));
   }
 
   // cycle 12+ 注入噪声干扰
@@ -245,10 +242,9 @@ void RenderTrackTable(const SimState& sim) {
   ImGui::Text("轨迹状态  Cycle %d / %d", sim.current_cycle, kMaxCycles);
   ImGui::Separator();
 
-  if (ImGui::BeginTable("tracks", 6,
-                         ImGuiTableFlags_Borders |
-                             ImGuiTableFlags_RowBg |
-                             ImGuiTableFlags_SizingFixedFit)) {
+  if (ImGui::BeginTable(
+          "tracks", 6,
+          ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit)) {
     ImGui::TableSetupColumn("ID");
     ImGui::TableSetupColumn("Status");
     ImGui::TableSetupColumn("Speed(m/s)");
@@ -297,8 +293,7 @@ void RenderTrackTable(const SimState& sim) {
 // ── 渲染 XY 顶视图 ────────────────────────────────────────────────────────────
 
 void RenderXYPlot(const SimState& sim) {
-  if (!ImPlot::BeginPlot("XY Top-Down View", ImVec2(-1, -1),
-                          ImPlotFlags_Equal)) {
+  if (!ImPlot::BeginPlot("XY Top-Down View", ImVec2(-1, -1), ImPlotFlags_Equal)) {
     return;
   }
   ImPlot::SetupAxes("X (km)", "Y (km)");
@@ -313,10 +308,8 @@ void RenderXYPlot(const SimState& sim) {
     ImVec4 col = TrackColor(key);
     ImPlot::SetNextLineStyle({col.x, col.y, col.z, col.w}, 1.5f);
     char label[32];
-    std::snprintf(label, sizeof(label), "Track %llu",
-                  static_cast<unsigned long long>(key));
-    ImPlot::PlotLine(label, xs.data(), ys.data(),
-                     static_cast<int>(xs.size()));
+    std::snprintf(label, sizeof(label), "Track %llu", static_cast<unsigned long long>(key));
+    ImPlot::PlotLine(label, xs.data(), ys.data(), static_cast<int>(xs.size()));
 
     // 当前位置散点（按状态选 Marker）
     ImPlotMarker marker = ImPlotMarker_Circle;
@@ -328,8 +321,7 @@ void RenderXYPlot(const SimState& sim) {
     }
     ImPlot::SetNextMarkerStyle(marker, 8.0f, {col.x, col.y, col.z, col.w});
     char slabel[48];
-    std::snprintf(slabel, sizeof(slabel), "Pos %llu",
-                  static_cast<unsigned long long>(key));
+    std::snprintf(slabel, sizeof(slabel), "Pos %llu", static_cast<unsigned long long>(key));
     ImPlot::PlotScatter(slabel, &xs.back(), &ys.back(), 1);
   }
 
@@ -358,10 +350,8 @@ void RenderSpeedPlot(const SimState& sim) {
     ImVec4 col = TrackColor(key);
     ImPlot::SetNextLineStyle({col.x, col.y, col.z, col.w}, 1.5f);
     char label[32];
-    std::snprintf(label, sizeof(label), "Track %llu",
-                  static_cast<unsigned long long>(key));
-    ImPlot::PlotLine(label, cycles.data(), speeds.data(),
-                     static_cast<int>(speeds.size()));
+    std::snprintf(label, sizeof(label), "Track %llu", static_cast<unsigned long long>(key));
+    ImPlot::PlotLine(label, cycles.data(), speeds.data(), static_cast<int>(speeds.size()));
   }
 
   ImPlot::EndPlot();
@@ -384,8 +374,8 @@ int main() {
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
-  GLFWwindow* window = glfwCreateWindow(
-      1280, 800, "Airborne Radar - Track Visualizer", nullptr, nullptr);
+  GLFWwindow* window =
+      glfwCreateWindow(1280, 800, "Airborne Radar - Track Visualizer", nullptr, nullptr);
   if (!window) {
     std::fprintf(stderr, "GLFW window creation failed\n");
     glfwTerminate();
@@ -419,12 +409,10 @@ int main() {
     int display_w = 0, display_h = 0;
     glfwGetFramebufferSize(window, &display_w, &display_h);
     ImGui::SetNextWindowPos({0, 0});
-    ImGui::SetNextWindowSize(
-        {static_cast<float>(display_w), static_cast<float>(display_h)});
+    ImGui::SetNextWindowSize({static_cast<float>(display_w), static_cast<float>(display_h)});
     ImGui::Begin("##main", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
-                     ImGuiWindowFlags_NoSavedSettings |
-                     ImGuiWindowFlags_NoBringToFrontOnFocus);
+                     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus);
 
     // ── 顶部控制栏 ────────────────────────────────────────────────────────────
     if (ImGui::Button("Step") && !sim.finished) {

@@ -5,7 +5,6 @@
 
 #include <gtest/gtest.h>
 
-#include "1q/api.hpp"
 #include "1q/airborne_radar/common/AntennaPatternConfig.h"
 #include "1q/airborne_radar/common/AntennaPatternUtils.h"
 #include "1q/airborne_radar/common/ConfigPresets.h"
@@ -38,6 +37,7 @@
 #include "1q/airborne_radar/signal/detection/DetectionTypes.h"
 #include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
+#include "1q/api.hpp"
 #include "1q/electronic_surveillance_radar/common/EmitterTruthState.h"
 #include "1q/electronic_surveillance_radar/core/context/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/core/context/EsrInputValidation.h"
@@ -47,13 +47,10 @@ namespace airborne_radar {
 namespace {
 
 TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
-  core::session::RadarSessionConfig session_config =
-      common::MakeDefaultRadarSessionConfig();
+  core::session::RadarSessionConfig session_config = common::MakeDefaultRadarSessionConfig();
   session_config.environment_model_config.base_propagation_loss_db = 6.0f;
-  session_config.signal_pipeline_config.lifecycle.enable_auto_lifecycle_manager =
-      true;
-  session_config.signal_pipeline_config.lifecycle.lifecycle_config
-      .imm_activation_policy =
+  session_config.signal_pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
+  session_config.signal_pipeline_config.lifecycle.lifecycle_config.imm_activation_policy =
       signal::pipeline::ImmActivationPolicy::kConfirmedTracksOnly;
 
   core::context::RadarCycleInput input;
@@ -67,19 +64,16 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   scene_state.jammer_emitters.push_back(environment::JammerEmitterState{});
 
   core::session::RadarSession session(session_config);
-  const core::session::RadarCycleResult result =
-      session.StepWithResult(input, scene_state);
-  const std::size_t confirmed_tracks =
-      core::output::CountTracksByStatus(
-          result.track_output_frame,
-          common::DecisionTrackStatus::kConfirmed);
+  const core::session::RadarCycleResult result = session.StepWithResult(input, scene_state);
+  const std::size_t confirmed_tracks = core::output::CountTracksByStatus(
+      result.track_output_frame, common::DecisionTrackStatus::kConfirmed);
 
   EXPECT_GE(confirmed_tracks, 0U);
   EXPECT_GE(result.association_quality_metrics.detection_count, 0U);
 }
 
-} // namespace
-} // namespace airborne_radar
+}  // namespace
+}  // namespace airborne_radar
 
 namespace electronic_surveillance_radar {
 namespace {
@@ -106,8 +100,7 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   emitter.pri_s = 1.0e-4;
   input.scene_emitters.push_back(emitter);
 
-  const core::context::EsrValidationIssueList issues =
-      core::context::ValidateEsrCycleInput(input);
+  const core::context::EsrValidationIssueList issues = core::context::ValidateEsrCycleInput(input);
   EXPECT_FALSE(core::context::HasEsrValidationError(issues));
 
   core::session::EsrSession session(session_config);

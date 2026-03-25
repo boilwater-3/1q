@@ -19,7 +19,7 @@ namespace pipeline {
  */
 template <typename Context>
 class IChainProcessor {
-public:
+ public:
   virtual ~IChainProcessor() {}
 
   /**
@@ -27,7 +27,7 @@ public:
    * @param next 后继节点所有权。
    * @return 后继节点的裸指针，便于链式组装。
    */
-  IChainProcessor *SetNext(std::unique_ptr<IChainProcessor> next) {
+  IChainProcessor* SetNext(std::unique_ptr<IChainProcessor> next) {
     next_processor_ = std::move(next);
     return next_processor_.get();
   }
@@ -36,17 +36,17 @@ public:
    * @brief 执行责任链，先处理当前节点，再处理后继节点。
    * @param[in,out] context 节点间共享的管线上下文。
    */
-  virtual void Process(Context &context) {
+  virtual void Process(Context& context) {
     ProcessNode(context);
     if (next_processor_) {
       next_processor_->Process(context);
     }
   }
 
-protected:
-  virtual void ProcessNode(Context &context) = 0;
+ protected:
+  virtual void ProcessNode(Context& context) = 0;
 
-private:
+ private:
   std::unique_ptr<IChainProcessor> next_processor_;
 };
 
@@ -56,21 +56,20 @@ private:
  * @tparam View 当前节点可见的上下文视图类型。
  * @tparam ProcessorBase 可选基类，默认使用 `IChainProcessor<Context>`。
  */
-template <typename Context, typename View,
-          typename ProcessorBase = IChainProcessor<Context> >
+template <typename Context, typename View, typename ProcessorBase = IChainProcessor<Context>>
 class ChainProcessorWithView : public ProcessorBase {
-protected:
-  void ProcessNode(Context &context) final {
+ protected:
+  void ProcessNode(Context& context) final {
     View view = CreateView(context);
     ProcessView(view);
   }
 
-  virtual View CreateView(Context &context) const = 0;
-  virtual void ProcessView(View &view) = 0;
+  virtual View CreateView(Context& context) const = 0;
+  virtual void ProcessView(View& view) = 0;
 };
 
-} // namespace pipeline
-} // namespace core
-} // namespace airborne_radar
+}  // namespace pipeline
+}  // namespace core
+}  // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_CORE_PIPELINE_I_CHAIN_PROCESSOR_H_
+#endif  // AIRBORNE_RADAR_CORE_PIPELINE_I_CHAIN_PROCESSOR_H_

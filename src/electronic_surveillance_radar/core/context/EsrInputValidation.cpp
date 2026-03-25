@@ -18,9 +18,8 @@ namespace {
  * @param[in] message 面向调用方的短消息。
  * @return 组装后的校验问题。
  */
-EsrValidationIssue MakeIssue(EsrValidationSeverity severity,
-                             EsrValidationCode code, std::size_t emitter_index,
-                             const std::string& message) {
+EsrValidationIssue MakeIssue(EsrValidationSeverity severity, EsrValidationCode code,
+                             std::size_t emitter_index, const std::string& message) {
   EsrValidationIssue issue;
   issue.severity = severity;
   issue.code = code;
@@ -45,52 +44,42 @@ bool IsFinite(T value) {
  * @param[in] emitter_index 辐射源索引。
  * @param[out] issues 校验问题列表。
  */
-void ValidateEmitter(const common::EmitterTruthState& emitter,
-                     std::size_t emitter_index,
+void ValidateEmitter(const common::EmitterTruthState& emitter, std::size_t emitter_index,
                      EsrValidationIssueList* issues) {
   if (issues == nullptr) {
     return;
   }
 
   if (emitter.emitter_id.empty()) {
-    issues->push_back(MakeIssue(EsrValidationSeverity::kError,
-                                EsrValidationCode::kEmptyEmitterId,
+    issues->push_back(MakeIssue(EsrValidationSeverity::kError, EsrValidationCode::kEmptyEmitterId,
                                 emitter_index, "emitter id must not be empty"));
   }
 
   if (!IsFinite(emitter.carrier_hz) || !IsFinite(emitter.bandwidth_hz) ||
       !IsFinite(emitter.tx_power_w) || !IsFinite(emitter.pulse_width_s) ||
-      !IsFinite(emitter.pri_s) ||
-      !IsFinite(emitter.pose.position_m.x) ||
-      !IsFinite(emitter.pose.position_m.y) ||
-      !IsFinite(emitter.pose.position_m.z) ||
-      !IsFinite(emitter.beam_state.center_az_deg) ||
-      !IsFinite(emitter.beam_state.center_el_deg) ||
+      !IsFinite(emitter.pri_s) || !IsFinite(emitter.pose.position_m.x) ||
+      !IsFinite(emitter.pose.position_m.y) || !IsFinite(emitter.pose.position_m.z) ||
+      !IsFinite(emitter.beam_state.center_az_deg) || !IsFinite(emitter.beam_state.center_el_deg) ||
       !IsFinite(emitter.beam_state.az_beamwidth_deg) ||
       !IsFinite(emitter.beam_state.el_beamwidth_deg)) {
-    issues->push_back(
-        MakeIssue(EsrValidationSeverity::kError,
-                  EsrValidationCode::kNonFiniteEmitterNumericField,
-                  emitter_index,
-                  "emitter contains non-finite numeric field"));
+    issues->push_back(MakeIssue(EsrValidationSeverity::kError,
+                                EsrValidationCode::kNonFiniteEmitterNumericField, emitter_index,
+                                "emitter contains non-finite numeric field"));
   }
 
   if (emitter.carrier_hz <= 0.0) {
     issues->push_back(MakeIssue(EsrValidationSeverity::kError,
-                                EsrValidationCode::kInvalidEmitterFrequency,
-                                emitter_index,
+                                EsrValidationCode::kInvalidEmitterFrequency, emitter_index,
                                 "emitter carrier frequency must be positive"));
   }
   if (emitter.bandwidth_hz <= 0.0) {
     issues->push_back(MakeIssue(EsrValidationSeverity::kError,
-                                EsrValidationCode::kInvalidEmitterBandwidth,
-                                emitter_index,
+                                EsrValidationCode::kInvalidEmitterBandwidth, emitter_index,
                                 "emitter bandwidth must be positive"));
   }
   if (emitter.tx_power_w <= 0.0) {
     issues->push_back(MakeIssue(EsrValidationSeverity::kError,
-                                EsrValidationCode::kInvalidEmitterPower,
-                                emitter_index,
+                                EsrValidationCode::kInvalidEmitterPower, emitter_index,
                                 "emitter transmit power must be positive"));
   }
 }
@@ -101,17 +90,13 @@ EsrValidationIssueList ValidateEsrCycleInput(const EsrCycleInput& input) {
   EsrValidationIssueList issues;
 
   if (!IsFinite(input.dt_sec)) {
-    issues.push_back(
-        MakeIssue(EsrValidationSeverity::kError,
-                  EsrValidationCode::kNonFiniteCycleDeltaTime,
-                  static_cast<std::size_t>(-1),
-                  "cycle delta time must be finite"));
+    issues.push_back(MakeIssue(EsrValidationSeverity::kError,
+                               EsrValidationCode::kNonFiniteCycleDeltaTime,
+                               static_cast<std::size_t>(-1), "cycle delta time must be finite"));
   } else if (input.dt_sec <= 0.0f) {
-    issues.push_back(
-        MakeIssue(EsrValidationSeverity::kError,
-                  EsrValidationCode::kInvalidCycleDeltaTime,
-                  static_cast<std::size_t>(-1),
-                  "cycle delta time must be positive"));
+    issues.push_back(MakeIssue(EsrValidationSeverity::kError,
+                               EsrValidationCode::kInvalidCycleDeltaTime,
+                               static_cast<std::size_t>(-1), "cycle delta time must be positive"));
   }
 
   for (std::size_t i = 0; i < input.scene_emitters.size(); ++i) {

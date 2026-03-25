@@ -37,9 +37,8 @@ class SignalPipeline final : public ISignalPipeline {
    * @param environment 当前环境服务。
    * @return 当前周期的信号处理输出。
    */
-  SignalCycleResult RunCycle(
-      const common::TargetFeatureList& input_state,
-      const environment::IEnvironmentService& environment) override;
+  SignalCycleResult RunCycle(const common::TargetFeatureList& input_state,
+                             const environment::IEnvironmentService& environment) override;
 
   /**
    * @brief 获取上一周期生成的跟踪量测列表。
@@ -57,8 +56,7 @@ class SignalPipeline final : public ISignalPipeline {
    * @brief 注入关联阶段下一周期使用的轨迹种子。
    * @param seeds 由生命周期阶段导出的轨迹种子。
    */
-  void SetAssociationSeeds(
-      const std::vector<tracking::AssociationTrackSeed>& seeds);
+  void SetAssociationSeeds(const std::vector<tracking::AssociationTrackSeed>& seeds);
 
   /**
    * @brief 清空外部注入的关联种子并回到无先验模式。
@@ -69,15 +67,13 @@ class SignalPipeline final : public ISignalPipeline {
    * @brief 按当前配置构造默认生命周期管理器。
    * @return 生命周期管理器实例。
    */
-  std::unique_ptr<tracking::ITrackLifecycleManager>
-  CreateAutoLifecycleManager() const;
+  std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManager() const;
 
   /**
    * @brief 更新平台姿态输入。
    * @param platform_attitude_deg 当前平台姿态。
    */
-  void UpdatePlatformAttitude(
-      const common::PlatformAttitudeDeg& platform_attitude_deg) override;
+  void UpdatePlatformAttitude(const common::PlatformAttitudeDeg& platform_attitude_deg) override;
 
   /**
    * @brief 获取当前缓存的平台姿态。
@@ -89,8 +85,7 @@ class SignalPipeline final : public ISignalPipeline {
    * @brief 更新当前生效的控制真值。
    * @param control_profile 控制真值。
    */
-  void SetControlProfile(
-      const common::RadarControlProfile& control_profile) override;
+  void SetControlProfile(const common::RadarControlProfile& control_profile) override;
 
   /**
    * @brief 获取当前缓存的控制真值。

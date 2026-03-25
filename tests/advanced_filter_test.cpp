@@ -5,29 +5,29 @@
 
 #include <gtest/gtest.h>
 
+#include <Eigen/Core>
 #include <cmath>
 #include <vector>
 
-#include <Eigen/Core>
-
-#include "airborne_radar/signal/tracking/GaussianTrackState.h"
 #include "airborne_radar/signal/association/DistanceMetric.h"
 #include "airborne_radar/signal/tracking/EkfFilter.h"
+#include "airborne_radar/signal/tracking/GaussianTrackState.h"
 #include "airborne_radar/signal/tracking/ImmFilter.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
 
-namespace airborne_radar { namespace tests {
+namespace airborne_radar {
+namespace tests {
 
 namespace {
 
 constexpr float kTolerance = 1e-3f;
 
 using signal::tracking::GaussianTrackState;
-using signal::tracking::StateVector;
-using signal::tracking::StateCovariance;
-using signal::tracking::MeasurementVector;
 using signal::tracking::kStateDim;
+using signal::tracking::MeasurementVector;
+using signal::tracking::StateCovariance;
+using signal::tracking::StateVector;
 
 }  // namespace
 
@@ -41,10 +41,8 @@ TEST(FullMahalanobisTest, DiagonalMatchesSimplifiedVersion) {
   const float sigma_rcs = 8.0f;
   const float sigma_accel = 10.0f;
 
-  signal::association::MahalanobisDistanceMetric simple(
-      sigma_speed, sigma_rcs, sigma_accel);
-  signal::association::FullMahalanobisDistanceMetric full(
-      sigma_speed, sigma_rcs, sigma_accel);
+  signal::association::MahalanobisDistanceMetric simple(sigma_speed, sigma_rcs, sigma_accel);
+  signal::association::FullMahalanobisDistanceMetric full(sigma_speed, sigma_rcs, sigma_accel);
 
   const Eigen::Vector3f predicted(100.0f, 2.0f, 1.0f);
   const Eigen::Vector3f measured(110.0f, 3.0f, 2.0f);
@@ -58,9 +56,7 @@ TEST(FullMahalanobisTest, DiagonalMatchesSimplifiedVersion) {
 TEST(FullMahalanobisTest, CorrelatedCovarianceWorksCorrectly) {
   // 非对角协方差的手动验证
   Eigen::Matrix3f S;
-  S << 4.0f, 1.0f, 0.0f,
-       1.0f, 4.0f, 0.0f,
-       0.0f, 0.0f, 1.0f;
+  S << 4.0f, 1.0f, 0.0f, 1.0f, 4.0f, 0.0f, 0.0f, 0.0f, 1.0f;
 
   signal::association::FullMahalanobisDistanceMetric metric(S);
 
@@ -75,8 +71,7 @@ TEST(FullMahalanobisTest, CorrelatedCovarianceWorksCorrectly) {
 }
 
 TEST(FullMahalanobisTest, IdentityCovarianceGivesEuclidean) {
-  signal::association::FullMahalanobisDistanceMetric metric(
-      Eigen::Matrix3f::Identity());
+  signal::association::FullMahalanobisDistanceMetric metric(Eigen::Matrix3f::Identity());
 
   const Eigen::Vector3f a(1.0f, 2.0f, 3.0f);
   const Eigen::Vector3f b(4.0f, 6.0f, 3.0f);
@@ -88,8 +83,7 @@ TEST(FullMahalanobisTest, IdentityCovarianceGivesEuclidean) {
 }
 
 TEST(FullMahalanobisTest, SetInnovationCovarianceUpdates) {
-  signal::association::FullMahalanobisDistanceMetric metric(
-      Eigen::Matrix3f::Identity());
+  signal::association::FullMahalanobisDistanceMetric metric(Eigen::Matrix3f::Identity());
 
   const Eigen::Vector3f a(0.0f, 0.0f, 0.0f);
   const Eigen::Vector3f b(1.0f, 0.0f, 0.0f);
@@ -127,13 +121,11 @@ TEST(EkfPredictorTest, LinearModelMatchesStandardKalman) {
   const GaussianTrackState ekf_pred = ekf.Predict(prior, 0.5f);
 
   for (int i = 0; i < kStateDim; ++i) {
-    EXPECT_NEAR(ekf_pred.mean(i), kf_pred.mean(i), kTolerance)
-        << "mean mismatch at " << i;
+    EXPECT_NEAR(ekf_pred.mean(i), kf_pred.mean(i), kTolerance) << "mean mismatch at " << i;
   }
   for (int r = 0; r < kStateDim; ++r) {
     for (int c = 0; c < kStateDim; ++c) {
-      EXPECT_NEAR(ekf_pred.covariance(r, c), kf_pred.covariance(r, c),
-                  kTolerance)
+      EXPECT_NEAR(ekf_pred.covariance(r, c), kf_pred.covariance(r, c), kTolerance)
           << "cov mismatch at (" << r << "," << c << ")";
     }
   }
@@ -158,8 +150,7 @@ TEST(EkfUpdaterTest, LinearModelMatchesStandardKalman) {
   const auto ekf_result = ekf.Update(predicted, z);
 
   for (int i = 0; i < kStateDim; ++i) {
-    EXPECT_NEAR(ekf_result.posterior.mean(i), kf_result.posterior.mean(i),
-                kTolerance)
+    EXPECT_NEAR(ekf_result.posterior.mean(i), kf_result.posterior.mean(i), kTolerance)
         << "posterior mean mismatch at " << i;
   }
 }
@@ -183,10 +174,7 @@ TEST(ImmFilterTest, SingleModelEquivalentToKF) {
   imm_config.transition_probability = Eigen::MatrixXf::Ones(1, 1);
   imm_config.initial_weights = Eigen::VectorXf::Ones(1);
 
-  signal::tracking::ImmFilter imm(
-      imm_config,
-      {&predictor},
-      {&updater});
+  signal::tracking::ImmFilter imm(imm_config, {&predictor}, {&updater});
 
   // 初始化
   StateVector mean = StateVector::Zero();
@@ -213,8 +201,7 @@ TEST(ImmFilterTest, SingleModelEquivalentToKF) {
   auto imm_state = imm.GetCombinedState();
 
   for (int i = 0; i < kStateDim; ++i) {
-    EXPECT_NEAR(imm_state.mean(i), kf_state.mean(i), kTolerance)
-        << "mean mismatch at " << i;
+    EXPECT_NEAR(imm_state.mean(i), kf_state.mean(i), kTolerance) << "mean mismatch at " << i;
   }
 }
 
@@ -234,15 +221,11 @@ TEST(ImmFilterTest, TwoModelWeightsConvergeToCorrectModel) {
 
   signal::tracking::ImmConfig imm_config;
   imm_config.transition_probability.resize(2, 2);
-  imm_config.transition_probability << 0.95f, 0.05f,
-                                        0.05f, 0.95f;
+  imm_config.transition_probability << 0.95f, 0.05f, 0.05f, 0.95f;
   imm_config.initial_weights.resize(2);
   imm_config.initial_weights << 0.5f, 0.5f;
 
-  signal::tracking::ImmFilter imm(
-      imm_config,
-      {&pred1, &pred2},
-      {&upd1, &upd2});
+  signal::tracking::ImmFilter imm(imm_config, {&pred1, &pred2}, {&upd1, &upd2});
 
   StateVector mean = StateVector::Zero();
   mean(0) = 0.0f;
@@ -261,10 +244,8 @@ TEST(ImmFilterTest, TwoModelWeightsConvergeToCorrectModel) {
   }
 
   Eigen::VectorXf weights = imm.GetModelWeights();
-  EXPECT_GT(weights(0), weights(1))
-      << "低机动模型应在匀速运动中占优";
-  EXPECT_GT(weights(0), 0.7f)
-      << "低机动模型权重应显著大于 0.5";
+  EXPECT_GT(weights(0), weights(1)) << "低机动模型应在匀速运动中占优";
+  EXPECT_GT(weights(0), 0.7f) << "低机动模型权重应显著大于 0.5";
 }
 
 TEST(ImmFilterTest, ModelWeightsShiftOnManeuver) {
@@ -284,13 +265,11 @@ TEST(ImmFilterTest, ModelWeightsShiftOnManeuver) {
 
   signal::tracking::ImmConfig imm_config;
   imm_config.transition_probability.resize(2, 2);
-  imm_config.transition_probability << 0.95f, 0.05f,
-                                        0.05f, 0.95f;
+  imm_config.transition_probability << 0.95f, 0.05f, 0.05f, 0.95f;
   imm_config.initial_weights.resize(2);
   imm_config.initial_weights << 0.5f, 0.5f;
 
-  signal::tracking::ImmFilter imm(
-      imm_config, {&pred1, &pred2}, {&upd1, &upd2});
+  signal::tracking::ImmFilter imm(imm_config, {&pred1, &pred2}, {&upd1, &upd2});
 
   StateVector mean = StateVector::Zero();
   GaussianTrackState init(mean, StateCovariance::Identity() * 100.0f);
@@ -318,8 +297,7 @@ TEST(ImmFilterTest, ModelWeightsShiftOnManeuver) {
   Eigen::VectorXf weights_after = imm.GetModelWeights();
 
   // 高机动模型（模型 2）权重应在机动后增加
-  EXPECT_GT(weights_after(1), weights_before(1))
-      << "高机动模型权重应在急转弯后增加";
+  EXPECT_GT(weights_after(1), weights_before(1)) << "高机动模型权重应在急转弯后增加";
 }
 
 TEST(ImmFilterTest, ModelWeightsSumToOne) {
@@ -345,8 +323,7 @@ TEST(ImmFilterTest, ModelWeightsSumToOne) {
     imm.Process(z, 1.0f);
 
     Eigen::VectorXf w = imm.GetModelWeights();
-    EXPECT_NEAR(w.sum(), 1.0f, kTolerance)
-        << "weights should sum to 1 at cycle " << i;
+    EXPECT_NEAR(w.sum(), 1.0f, kTolerance) << "weights should sum to 1 at cycle " << i;
   }
 }
 
@@ -366,16 +343,14 @@ TEST(ImmFilterTest, RepeatedProcessSequenceRemainsDeterministic) {
 
   signal::tracking::ImmConfig config;
   config.transition_probability.resize(2, 2);
-  config.transition_probability << 0.9f, 0.1f,
-                                   0.1f, 0.9f;
+  config.transition_probability << 0.9f, 0.1f, 0.1f, 0.9f;
   config.initial_weights.resize(2);
   config.initial_weights << 0.5f, 0.5f;
 
   signal::tracking::ImmFilter first(config, {&pred1, &pred2}, {&upd1, &upd2});
   signal::tracking::ImmFilter second(config, {&pred1, &pred2}, {&upd1, &upd2});
 
-  GaussianTrackState init(StateVector::Zero(),
-                          StateCovariance::Identity() * 100.0f);
+  GaussianTrackState init(StateVector::Zero(), StateCovariance::Identity() * 100.0f);
   signal::tracking::ImmModelState m1{init, 0.5f};
   signal::tracking::ImmModelState m2{init, 0.5f};
   first.SetModelStates({m1, m2});
@@ -408,4 +383,5 @@ TEST(ImmFilterTest, RepeatedProcessSequenceRemainsDeterministic) {
   }
 }
 
-} } // namespace airborne_radar::tests
+}  // namespace tests
+}  // namespace airborne_radar

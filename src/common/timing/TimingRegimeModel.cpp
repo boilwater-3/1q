@@ -48,9 +48,7 @@ constexpr float kPrfRejitterScale = 1.10f;
  * @param[in] value 输入值。
  * @return 裁剪后的结果。
  */
-float Clamp01(float value) {
-  return std::max(0.0f, std::min(1.0f, value));
-}
+float Clamp01(float value) { return std::max(0.0f, std::min(1.0f, value)); }
 
 /**
  * @brief 约束控制比例，避免非法值污染运行时配置。
@@ -85,11 +83,9 @@ float NormalizePfa(float pfa) {
 
 int ResolvePulseCountWithDwell(const CycleTimingControlParams& params) {
   const float safe_dwell_scale = ClampProfileScale(params.dwell_scale, kScaleFallback);
-  const float dwell_scale =
-      std::max(kMinDwellScale, std::min(kMaxDwellScale, safe_dwell_scale));
+  const float dwell_scale = std::max(kMinDwellScale, std::min(kMaxDwellScale, safe_dwell_scale));
   const double scaled_pulse_count =
-      static_cast<double>(params.base_pulse_count) *
-      static_cast<double>(dwell_scale);
+      static_cast<double>(params.base_pulse_count) * static_cast<double>(dwell_scale);
   return std::max(1, static_cast<int>(std::lround(scaled_pulse_count)));
 }
 
@@ -108,23 +104,20 @@ double ComputeIntegrationGain(const StatisticalDetectionParams& params) {
   return std::sqrt(static_cast<double>(pulse_count));
 }
 
-float ComputeDynamicThresholdSnrDb(double noise_power_w,
-                                   const StatisticalDetectionParams& params) {
+float ComputeDynamicThresholdSnrDb(double noise_power_w, const StatisticalDetectionParams& params) {
   const double safe_noise_power_w = std::max(noise_power_w, kNumericFloor);
   const float pfa = NormalizePfa(params.pfa);
   const std::uint32_t pulse_count = std::max(1U, params.pulse_count);
   const double pulse_count_double = static_cast<double>(pulse_count);
-  const double threshold_scale = std::max(
-      static_cast<double>(params.threshold_scale), static_cast<double>(0.1f));
+  const double threshold_scale =
+      std::max(static_cast<double>(params.threshold_scale), static_cast<double>(0.1f));
 
   double threshold_factor = 1.0;
   if (params.integration_mode == IntegrationMode::kCoherent) {
     threshold_factor = -std::log(static_cast<double>(pfa)) / pulse_count_double;
   } else {
-    threshold_factor =
-        pulse_count_double *
-        (std::pow(1.0 / static_cast<double>(pfa), 1.0 / pulse_count_double) -
-         1.0);
+    threshold_factor = pulse_count_double *
+                       (std::pow(1.0 / static_cast<double>(pfa), 1.0 / pulse_count_double) - 1.0);
   }
   threshold_factor = std::max(threshold_factor, kNumericFloor) * threshold_scale;
   const double threshold_power_w = safe_noise_power_w * threshold_factor;
@@ -132,19 +125,15 @@ float ComputeDynamicThresholdSnrDb(double noise_power_w,
   return std::max(params.min_snr_db, threshold_db);
 }
 
-float ComputeStatisticalDetectionProbability(
-    float snr_db, float threshold_snr_db,
-    const StatisticalDetectionParams& params) {
+float ComputeStatisticalDetectionProbability(float snr_db, float threshold_snr_db,
+                                             const StatisticalDetectionParams& params) {
   if (!std::isfinite(snr_db) || !std::isfinite(threshold_snr_db)) {
     return 0.0f;
   }
-  const double snr_linear =
-      std::pow(10.0, static_cast<double>(snr_db) / 10.0);
-  const double threshold_linear =
-      std::pow(10.0, static_cast<double>(threshold_snr_db) / 10.0);
+  const double snr_linear = std::pow(10.0, static_cast<double>(snr_db) / 10.0);
+  const double threshold_linear = std::pow(10.0, static_cast<double>(threshold_snr_db) / 10.0);
   const double normalized_metric =
-      (snr_linear / std::max(threshold_linear, kNumericFloor)) *
-      ComputeIntegrationGain(params);
+      (snr_linear / std::max(threshold_linear, kNumericFloor)) * ComputeIntegrationGain(params);
   const double pd = 1.0 - std::exp(-std::max(normalized_metric, 0.0));
   return Clamp01(std::max(static_cast<float>(pd), NormalizePfa(params.pfa)));
 }

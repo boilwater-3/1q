@@ -6,8 +6,8 @@
 #ifndef AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_
 #define AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_
 
-#include "1q/api.hpp"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
+#include "1q/api.hpp"
 
 namespace airborne_radar {
 namespace environment {
@@ -26,7 +26,7 @@ class ONEQ_API IEnvironmentService {
   virtual EnvironmentSnapshot SampleEnvironment() const = 0;
 };
 
-} // namespace environment
-} // namespace airborne_radar
+}  // namespace environment
+}  // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_
+#endif  // AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_

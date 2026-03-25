@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include "common/timing/TimingRegimeModel.h"
 #include "electronic_surveillance_radar/intercept/AngleErrorModel.h"
 #include "electronic_surveillance_radar/intercept/BoundarySearchSolver.h"
 #include "electronic_surveillance_radar/intercept/InterceptGate.h"
@@ -15,7 +16,6 @@
 #include "electronic_surveillance_radar/intercept/ScanPatternGenerator.h"
 #include "electronic_surveillance_radar/pipeline/InterceptComponentFactory.h"
 #include "electronic_surveillance_radar/pipeline/ObservationFeatureEncoder.h"
-#include "common/timing/TimingRegimeModel.h"
 
 namespace electronic_surveillance_radar {
 namespace pipeline {
@@ -43,9 +43,7 @@ constexpr double kNumericFloor = 1.0e-18;
  * @param[in] value 输入值。
  * @return 裁剪后结果。
  */
-float Clamp01(float value) {
-  return std::max(0.0f, std::min(1.0f, value));
-}
+float Clamp01(float value) { return std::max(0.0f, std::min(1.0f, value)); }
 
 /**
  * @brief 把线性功率比转换为 dB。
@@ -61,8 +59,7 @@ float ToDb(double ratio) {
  * @param[in] mode ESR 统计检测积累模式。
  * @return 共享时序体制积累模式。
  */
-oneq::internal::timing::IntegrationMode ToTimingIntegrationMode(
-    InterceptIntegrationMode mode) {
+oneq::internal::timing::IntegrationMode ToTimingIntegrationMode(InterceptIntegrationMode mode) {
   if (mode == InterceptIntegrationMode::kCoherent) {
     return oneq::internal::timing::IntegrationMode::kCoherent;
   }
@@ -145,10 +142,9 @@ double ComputeReceivedPowerW(double tx_power_w, double carrier_hz, float range_m
   }
   const double safe_range = std::max(static_cast<double>(range_m), 1.0);
   const double wavelength = kLightSpeedMps / carrier_hz;
-  const double fspl_linear =
-      std::pow((4.0 * kPi * safe_range) / wavelength, 2.0);
-  const double propagation_loss_linear = std::pow(
-      10.0, static_cast<double>(std::max(0.0f, propagation_loss_db)) / 10.0);
+  const double fspl_linear = std::pow((4.0 * kPi * safe_range) / wavelength, 2.0);
+  const double propagation_loss_linear =
+      std::pow(10.0, static_cast<double>(std::max(0.0f, propagation_loss_db)) / 10.0);
   return tx_power_w / (fspl_linear * propagation_loss_linear);
 }
 
@@ -163,14 +159,11 @@ std::pair<double, double> BuildReceiverWindow(std::uint32_t cycle_index) {
     double upper_hz;
   };
   static const BandWindow kBandWindows[] = {
-      {0.23e9, 1.0e9},   {1.0e9, 2.0e9},   {2.0e9, 4.0e9},   {4.0e9, 8.0e9},
-      {8.0e9, 12.0e9},   {12.0e9, 18.0e9}, {18.0e9, 27.0e9}, {27.0e9, 40.0e9},
-      {40.0e9, 60.0e9},  {60.0e9, 100.0e9}};
+      {0.23e9, 1.0e9},  {1.0e9, 2.0e9},   {2.0e9, 4.0e9},   {4.0e9, 8.0e9},   {8.0e9, 12.0e9},
+      {12.0e9, 18.0e9}, {18.0e9, 27.0e9}, {27.0e9, 40.0e9}, {40.0e9, 60.0e9}, {60.0e9, 100.0e9}};
   const std::size_t window_index =
-      static_cast<std::size_t>(cycle_index) %
-      (sizeof(kBandWindows) / sizeof(kBandWindows[0]));
-  return std::make_pair(kBandWindows[window_index].lower_hz,
-                        kBandWindows[window_index].upper_hz);
+      static_cast<std::size_t>(cycle_index) % (sizeof(kBandWindows) / sizeof(kBandWindows[0]));
+  return std::make_pair(kBandWindows[window_index].lower_hz, kBandWindows[window_index].upper_hz);
 }
 
 /**
@@ -179,8 +172,7 @@ std::pair<double, double> BuildReceiverWindow(std::uint32_t cycle_index) {
  * @param[in] is_jammed 是否受干扰显著影响。
  * @return 观测质量等级。
  */
-common::ObservationQuality ClassifyObservationQuality(float snr_db,
-                                                      bool is_jammed) {
+common::ObservationQuality ClassifyObservationQuality(float snr_db, bool is_jammed) {
   if (!is_jammed && snr_db >= 18.0f) {
     return common::ObservationQuality::kHigh;
   }
@@ -236,16 +228,15 @@ internal::ClusterSummary BuildClusterSummary(
     summary.mean_el_deg += records[index].observation.aoa_el_deg;
     summary.mean_rf_hz += records[index].observation.rf_hz;
     summary.mean_pulse_width_s += records[index].observation.pulse_width_s;
-    confidence_acc += ComputeObservationConfidence(
-        records[index].observation.snr_db, records[index].observation.is_jammed);
+    confidence_acc += ComputeObservationConfidence(records[index].observation.snr_db,
+                                                   records[index].observation.is_jammed);
     if (records[index].deception_affected) {
       ++deception_affected_count;
     }
     if (records[index].synthetic_false_alarm) {
       ++false_alarm_count;
     }
-    summary.any_jammed =
-        summary.any_jammed || records[index].observation.is_jammed;
+    summary.any_jammed = summary.any_jammed || records[index].observation.is_jammed;
     if (records[index].observation.snr_db > representative_snr) {
       representative = index;
       representative_snr = records[index].observation.snr_db;
@@ -261,13 +252,10 @@ internal::ClusterSummary BuildClusterSummary(
   summary.mean_el_deg *= inv_count;
   summary.mean_rf_hz *= static_cast<double>(inv_count);
   summary.mean_pulse_width_s *= static_cast<double>(inv_count);
-  summary.deception_support_ratio =
-      static_cast<float>(deception_affected_count) * inv_count;
+  summary.deception_support_ratio = static_cast<float>(deception_affected_count) * inv_count;
   summary.false_alarm_ratio = static_cast<float>(false_alarm_count) * inv_count;
-  const float deception_penalty = 1.0f - Clamp01(
-                                             deception_config
-                                                 .cluster_confidence_penalty_scale *
-                                             summary.deception_support_ratio);
+  const float deception_penalty = 1.0f - Clamp01(deception_config.cluster_confidence_penalty_scale *
+                                                 summary.deception_support_ratio);
   summary.confidence_score = Clamp01(confidence_acc * inv_count * deception_penalty);
   summary.representative_index = representative;
   return summary;
@@ -280,10 +268,8 @@ internal::ClusterSummary BuildClusterSummary(
  * @param[in,out] rng 随机引擎。
  * @param[in,out] record 待扰动观测。
  */
-void ApplyDeceptionConfusion(float deception_strength,
-                             const InterceptDeceptionModelConfig& config,
-                             std::mt19937* rng,
-                             internal::RawObservationRecord* record) {
+void ApplyDeceptionConfusion(float deception_strength, const InterceptDeceptionModelConfig& config,
+                             std::mt19937* rng, internal::RawObservationRecord* record) {
   if (rng == nullptr || record == nullptr) {
     return;
   }
@@ -298,14 +284,11 @@ void ApplyDeceptionConfusion(float deception_strength,
 
   record->observation.aoa_az_deg += az_noise_dist(*rng);
   record->observation.aoa_el_deg += el_noise_dist(*rng);
-  record->observation.rf_hz +=
-      static_cast<double>(record->observation.rf_hz) *
-      static_cast<double>(rf_ratio_dist(*rng) * strength);
-  record->observation.pulse_width_s +=
-      static_cast<double>(record->observation.pulse_width_s) *
-      static_cast<double>(pw_ratio_dist(*rng) * strength);
-  record->observation.pulse_width_s =
-      std::max(record->observation.pulse_width_s, 1.0e-9);
+  record->observation.rf_hz += static_cast<double>(record->observation.rf_hz) *
+                               static_cast<double>(rf_ratio_dist(*rng) * strength);
+  record->observation.pulse_width_s += static_cast<double>(record->observation.pulse_width_s) *
+                                       static_cast<double>(pw_ratio_dist(*rng) * strength);
+  record->observation.pulse_width_s = std::max(record->observation.pulse_width_s, 1.0e-9);
   record->deception_affected = true;
 }
 
@@ -319,9 +302,8 @@ void ApplyDeceptionConfusion(float deception_strength,
  * @return 伪观测记录。
  */
 internal::RawObservationRecord BuildDeceptionRecord(
-    const internal::RawObservationRecord& template_record,
-    float deception_strength, const InterceptDeceptionModelConfig& config,
-    std::mt19937* rng,
+    const internal::RawObservationRecord& template_record, float deception_strength,
+    const InterceptDeceptionModelConfig& config, std::mt19937* rng,
     std::uint64_t* next_observation_id) {
   internal::RawObservationRecord record = template_record;
   if (next_observation_id != nullptr) {
@@ -330,11 +312,9 @@ internal::RawObservationRecord BuildDeceptionRecord(
   const float strength = Clamp01(deception_strength);
   std::normal_distribution<float> angle_dist(
       0.0f, std::max(0.5f, config.aoa_confusion_std_deg) * (0.5f + strength));
-  std::uniform_real_distribution<float> rf_shift_dist(
-      -(0.6f + strength), 0.6f + strength);
-  std::uniform_real_distribution<float> pw_shift_dist(
-      -std::max(0.0f, config.pw_confusion_ratio),
-      std::max(0.0f, config.pw_confusion_ratio));
+  std::uniform_real_distribution<float> rf_shift_dist(-(0.6f + strength), 0.6f + strength);
+  std::uniform_real_distribution<float> pw_shift_dist(-std::max(0.0f, config.pw_confusion_ratio),
+                                                      std::max(0.0f, config.pw_confusion_ratio));
   std::uniform_real_distribution<float> snr_loss_dist(4.0f, 10.0f);
   if (rng != nullptr) {
     record.observation.aoa_az_deg += angle_dist(*rng);
@@ -344,8 +324,7 @@ internal::RawObservationRecord BuildDeceptionRecord(
     record.observation.pulse_width_s +=
         static_cast<double>(template_record.observation.pulse_width_s) *
         static_cast<double>(pw_shift_dist(*rng));
-    record.observation.pulse_width_s =
-        std::max(record.observation.pulse_width_s, 1.0e-9);
+    record.observation.pulse_width_s = std::max(record.observation.pulse_width_s, 1.0e-9);
     record.observation.snr_db -= snr_loss_dist(*rng);
   }
   record.observation.quality = common::ObservationQuality::kLow;
@@ -362,8 +341,7 @@ internal::RawObservationRecord BuildDeceptionRecord(
 InterceptPipeline::InterceptPipeline(InterceptPipelineConfig config)
     : config_(config),
       associator_(config.association),
-      rng_(config.algorithm.random_seed == 0U ? 1U
-                                              : config.algorithm.random_seed) {
+      rng_(config.algorithm.random_seed == 0U ? 1U : config.algorithm.random_seed) {
   feature_scales_.rf_scale_hz = config_.cluster.rf_scale_hz;
   feature_scales_.pw_scale_sec = config_.cluster.pw_scale_sec;
   feature_scales_.az_scale_deg = config_.cluster.az_scale_deg;
@@ -386,40 +364,34 @@ InterceptCycleResult InterceptPipeline::RunCycle(
     scan_pattern.push_back(intercept::BeamPointingDeg());
   }
   const intercept::BeamPointingDeg active_beam =
-      scan_pattern[static_cast<std::size_t>(input_state.cycle_index) %
-                   scan_pattern.size()];
+      scan_pattern[static_cast<std::size_t>(input_state.cycle_index) % scan_pattern.size()];
 
   const intercept::AngleErrorModelConfig angle_error_config =
       internal::InterceptComponentFactory::BuildAngleErrorModelConfig(config_);
-  const std::pair<double, double> receiver_window =
-      BuildReceiverWindow(input_state.cycle_index);
-  const oneq::internal::timing::StatisticalDetectionParams
-      statistical_detection_params =
-          ToTimingDetectionParams(config_.statistical_detection);
+  const std::pair<double, double> receiver_window = BuildReceiverWindow(input_state.cycle_index);
+  const oneq::internal::timing::StatisticalDetectionParams statistical_detection_params =
+      ToTimingDetectionParams(config_.statistical_detection);
 
   std::vector<internal::RawObservationRecord> raw_records;
   raw_records.reserve(
       input_state.scene_emitters.size() *
-      (1U + static_cast<std::size_t>(
-                config_.deception_model.max_false_observations_per_emitter)));
+      (1U + static_cast<std::size_t>(config_.deception_model.max_false_observations_per_emitter)));
   std::uniform_real_distribution<float> uniform_01(0.0f, 1.0f);
 
   for (std::size_t i = 0; i < input_state.scene_emitters.size(); ++i) {
     const common::EmitterTruthState& emitter = input_state.scene_emitters[i];
-    if (!emitter.is_emitting || emitter.carrier_hz <= 0.0 ||
-        emitter.bandwidth_hz <= 0.0 || emitter.tx_power_w <= 0.0) {
+    if (!emitter.is_emitting || emitter.carrier_hz <= 0.0 || emitter.bandwidth_hz <= 0.0 ||
+        emitter.tx_power_w <= 0.0) {
       continue;
     }
 
     const float range_m = ComputeRangeM(input_state.platform_pose, emitter);
     const float target_az_deg = ComputeAzimuthDeg(input_state.platform_pose, emitter);
-    const float target_el_deg =
-        ComputeElevationDeg(input_state.platform_pose, emitter);
+    const float target_el_deg = ComputeElevationDeg(input_state.platform_pose, emitter);
 
     const intercept::JammingAggregateResult jamming_result =
-        intercept::JammingAggregator::Aggregate(
-            environment_snapshot.jammer_sources, emitter.carrier_hz,
-            emitter.bandwidth_hz);
+        intercept::JammingAggregator::Aggregate(environment_snapshot.jammer_sources,
+                                                emitter.carrier_hz, emitter.bandwidth_hz);
     const float suppression_noise_scale =
         std::max(0.0f, config_.suppression_model.suppression_noise_scale);
     const double effective_suppression_power_w =
@@ -431,30 +403,24 @@ InterceptCycleResult InterceptPipeline::RunCycle(
                      effective_suppression_power_w,
                  kNumericFloor);
     const float static_threshold_snr_db = config_.detection.min_detect_snr_db;
-    const float dynamic_threshold_snr_db =
-        oneq::internal::timing::ComputeDynamicThresholdSnrDb(
-            noise_power_w, statistical_detection_params);
+    const float dynamic_threshold_snr_db = oneq::internal::timing::ComputeDynamicThresholdSnrDb(
+        noise_power_w, statistical_detection_params);
     const float detection_threshold_snr_db =
         config_.statistical_detection.enable_statistical_detection
             ? std::max(static_threshold_snr_db, dynamic_threshold_snr_db)
             : static_threshold_snr_db;
 
-    const intercept::BoundarySearchResult boundary_result =
-        intercept::BoundarySearchSolver::Solve(
-            1.0f, config_.detection.max_detect_range_m,
-            config_.detection.boundary_resolution_m,
-            config_.detection.boundary_max_iterations,
-            [&](float candidate_range_m) {
-              const double candidate_received_power_w = ComputeReceivedPowerW(
-                  emitter.tx_power_w, emitter.carrier_hz, candidate_range_m,
-                  environment_snapshot.propagation_loss_db);
-              const float candidate_snr_db =
-                  ToDb(candidate_received_power_w / noise_power_w);
-              return candidate_snr_db >= detection_threshold_snr_db;
-            });
+    const intercept::BoundarySearchResult boundary_result = intercept::BoundarySearchSolver::Solve(
+        1.0f, config_.detection.max_detect_range_m, config_.detection.boundary_resolution_m,
+        config_.detection.boundary_max_iterations, [&](float candidate_range_m) {
+          const double candidate_received_power_w =
+              ComputeReceivedPowerW(emitter.tx_power_w, emitter.carrier_hz, candidate_range_m,
+                                    environment_snapshot.propagation_loss_db);
+          const float candidate_snr_db = ToDb(candidate_received_power_w / noise_power_w);
+          return candidate_snr_db >= detection_threshold_snr_db;
+        });
     const double received_power_w = ComputeReceivedPowerW(
-        emitter.tx_power_w, emitter.carrier_hz, range_m,
-        environment_snapshot.propagation_loss_db);
+        emitter.tx_power_w, emitter.carrier_hz, range_m, environment_snapshot.propagation_loss_db);
     const float snr_db = ToDb(received_power_w / noise_power_w);
 
     intercept::InterceptGateInput gate_input;
@@ -471,43 +437,33 @@ InterceptCycleResult InterceptPipeline::RunCycle(
     gate_input.signal_bandwidth_hz = emitter.bandwidth_hz;
     gate_input.range_m = range_m;
     gate_input.max_range_m =
-        boundary_result.boundary_range_m > 0.0f ? boundary_result.boundary_range_m
-                                                 : 0.0f;
-    gate_input.dynamic_range_margin_db =
-        snr_db - detection_threshold_snr_db;
-    gate_input.min_dynamic_range_margin_db =
-        config_.detection.min_dynamic_range_margin_db;
+        boundary_result.boundary_range_m > 0.0f ? boundary_result.boundary_range_m : 0.0f;
+    gate_input.dynamic_range_margin_db = snr_db - detection_threshold_snr_db;
+    gate_input.min_dynamic_range_margin_db = config_.detection.min_dynamic_range_margin_db;
     gate_input.min_frequency_overlap_ratio = 0.05f;
     gate_input.beam_guard_factor = 1.5f;
 
     const intercept::InterceptGateDecision gate_decision =
         intercept::InterceptGate::Evaluate(gate_input);
     const float effective_beamwidth_deg =
-        std::max(1.0f, 0.5f * (gate_input.beam_az_width_deg +
-                               gate_input.beam_el_width_deg));
+        std::max(1.0f, 0.5f * (gate_input.beam_az_width_deg + gate_input.beam_el_width_deg));
     const float measured_az_deg =
-        target_az_deg + intercept::AngleErrorModel::SampleErrorDeg(
-                            snr_db, effective_beamwidth_deg, &rng_,
-                            angle_error_config);
+        target_az_deg + intercept::AngleErrorModel::SampleErrorDeg(snr_db, effective_beamwidth_deg,
+                                                                   &rng_, angle_error_config);
     const float measured_el_deg =
-        target_el_deg + intercept::AngleErrorModel::SampleErrorDeg(
-                            snr_db, effective_beamwidth_deg, &rng_,
-                            angle_error_config);
+        target_el_deg + intercept::AngleErrorModel::SampleErrorDeg(snr_db, effective_beamwidth_deg,
+                                                                   &rng_, angle_error_config);
     const bool is_jammed =
         effective_suppression_power_w >=
-        static_cast<double>(std::max(
-            0.0f, config_.suppression_model.suppression_mark_threshold_w));
+        static_cast<double>(std::max(0.0f, config_.suppression_model.suppression_mark_threshold_w));
     const float deception_probability =
-        Clamp01(jamming_result.deception_risk *
-                jamming_result.deception_weighted_overlap_ratio *
-                std::max(0.0f,
-                         config_.deception_model.false_alarm_probability_scale));
+        Clamp01(jamming_result.deception_risk * jamming_result.deception_weighted_overlap_ratio *
+                std::max(0.0f, config_.deception_model.false_alarm_probability_scale));
 
     internal::RawObservationRecord base_record;
     base_record.observation.observation_id = next_observation_id_++;
     base_record.observation.timestamp_s =
-        static_cast<double>(input_state.cycle_index) *
-        static_cast<double>(input_state.dt_sec);
+        static_cast<double>(input_state.cycle_index) * static_cast<double>(input_state.dt_sec);
     base_record.observation.aoa_az_deg = measured_az_deg;
     base_record.observation.aoa_el_deg = measured_el_deg;
     base_record.observation.rf_hz = emitter.carrier_hz;
@@ -520,24 +476,20 @@ InterceptCycleResult InterceptPipeline::RunCycle(
     const std::uint32_t false_alarm_cap =
         config_.deception_model.max_false_observations_per_emitter;
     bool detection_passed = gate_decision.passed;
-    if (detection_passed &&
-        config_.statistical_detection.enable_statistical_detection) {
+    if (detection_passed && config_.statistical_detection.enable_statistical_detection) {
       const float detection_probability =
           oneq::internal::timing::ComputeStatisticalDetectionProbability(
-              snr_db, detection_threshold_snr_db,
-              statistical_detection_params);
+              snr_db, detection_threshold_snr_db, statistical_detection_params);
       detection_passed = uniform_01(rng_) < detection_probability;
     }
     if (!detection_passed) {
-      for (std::uint32_t fake_index = 0U; fake_index < false_alarm_cap;
-           ++fake_index) {
+      for (std::uint32_t fake_index = 0U; fake_index < false_alarm_cap; ++fake_index) {
         if (uniform_01(rng_) >= deception_probability) {
           continue;
         }
-        raw_records.push_back(
-            BuildDeceptionRecord(base_record, deception_probability,
-                                 config_.deception_model, &rng_,
-                                 &next_observation_id_));
+        raw_records.push_back(BuildDeceptionRecord(base_record, deception_probability,
+                                                   config_.deception_model, &rng_,
+                                                   &next_observation_id_));
       }
       continue;
     }
@@ -550,20 +502,16 @@ InterceptCycleResult InterceptPipeline::RunCycle(
         Clamp01(deception_probability *
                 std::max(0.0f, config_.deception_model.confusion_probability_scale));
     if (uniform_01(rng_) < confusion_probability) {
-      ApplyDeceptionConfusion(deception_probability, config_.deception_model, &rng_,
-                              &record);
+      ApplyDeceptionConfusion(deception_probability, config_.deception_model, &rng_, &record);
     }
     raw_records.push_back(record);
 
-    for (std::uint32_t fake_index = 0U; fake_index < false_alarm_cap;
-         ++fake_index) {
+    for (std::uint32_t fake_index = 0U; fake_index < false_alarm_cap; ++fake_index) {
       if (uniform_01(rng_) >= deception_probability) {
         continue;
       }
-      raw_records.push_back(
-          BuildDeceptionRecord(record, deception_probability,
-                               config_.deception_model, &rng_,
-                               &next_observation_id_));
+      raw_records.push_back(BuildDeceptionRecord(
+          record, deception_probability, config_.deception_model, &rng_, &next_observation_id_));
     }
   }
 
@@ -578,19 +526,16 @@ InterceptCycleResult InterceptPipeline::RunCycle(
   features.reserve(records.size());
   for (std::size_t i = 0; i < records.size(); ++i) {
     features.push_back(
-        internal::ObservationFeatureEncoder::Encode(records[i].observation,
-                                                    feature_scales_));
+        internal::ObservationFeatureEncoder::Encode(records[i].observation, feature_scales_));
   }
 
-  internal::KdTreeClusterResult cluster_result =
-      clusterer_.Cluster(features, config_.cluster);
+  internal::KdTreeClusterResult cluster_result = clusterer_.Cluster(features, config_.cluster);
   for (std::size_t i = 0; i < cluster_result.noise_indices.size(); ++i) {
     std::vector<std::size_t> singleton(1U, cluster_result.noise_indices[i]);
     cluster_result.clusters.push_back(singleton);
   }
   std::sort(cluster_result.clusters.begin(), cluster_result.clusters.end(),
-            [](const std::vector<std::size_t>& lhs,
-               const std::vector<std::size_t>& rhs) {
+            [](const std::vector<std::size_t>& lhs, const std::vector<std::size_t>& rhs) {
               if (lhs.empty() || rhs.empty()) {
                 return lhs.size() < rhs.size();
               }
@@ -600,28 +545,24 @@ InterceptCycleResult InterceptPipeline::RunCycle(
   std::vector<internal::ClusterSummary> cluster_summaries;
   cluster_summaries.reserve(cluster_result.clusters.size());
   for (std::size_t i = 0; i < cluster_result.clusters.size(); ++i) {
-    cluster_summaries.push_back(
-        BuildClusterSummary(cluster_result.clusters[i], records, features,
-                            config_.deception_model));
+    cluster_summaries.push_back(BuildClusterSummary(cluster_result.clusters[i], records, features,
+                                                    config_.deception_model));
   }
 
   associator_.UpdateConfig(config_.association);
-  result.emitter_hypotheses = associator_.Update(
-      input_state.cycle_index, cluster_summaries, &next_hypothesis_id_);
+  result.emitter_hypotheses =
+      associator_.Update(input_state.cycle_index, cluster_summaries, &next_hypothesis_id_);
 
   std::set<std::string> observed_truth_ids;
   for (std::size_t i = 0; i < records.size(); ++i) {
     common::TruthAssociationRecord association;
     association.observation_id = records[i].observation.observation_id;
     association.truth_emitter_id =
-        records[i].truth_emitter_id.empty() ? "UNASSOCIATED"
-                                            : records[i].truth_emitter_id;
-    association.matched =
-        records[i].matched_truth && !records[i].truth_emitter_id.empty();
+        records[i].truth_emitter_id.empty() ? "UNASSOCIATED" : records[i].truth_emitter_id;
+    association.matched = records[i].matched_truth && !records[i].truth_emitter_id.empty();
     association.confidence = association.matched
-                                 ? ComputeObservationConfidence(
-                                       records[i].observation.snr_db,
-                                       records[i].observation.is_jammed)
+                                 ? ComputeObservationConfidence(records[i].observation.snr_db,
+                                                                records[i].observation.is_jammed)
                                  : 0.1f;
     result.truth_associations.push_back(association);
     if (association.matched) {

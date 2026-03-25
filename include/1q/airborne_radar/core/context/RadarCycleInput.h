@@ -17,13 +17,13 @@ namespace context {
  * @brief RadarCycleInput 描述单周期输入的目标、姿态与步长。
  */
 struct RadarCycleInput {
-  common::TargetFeatureList target_features{}; /**< 当前周期的目标特征列表 */
+  common::TargetFeatureList target_features{};         /**< 当前周期的目标特征列表 */
   common::PlatformAttitudeDeg platform_attitude_deg{}; /**< 当前周期的搭载平台姿态角（单位：度） */
-  float dt_sec{1.0f}; /**< 当前周期步长（单位：秒） */
+  float dt_sec{1.0f};                                  /**< 当前周期步长（单位：秒） */
 };
 
-} // namespace context
-} // namespace core
-} // namespace airborne_radar
+}  // namespace context
+}  // namespace core
+}  // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_CORE_CONTEXT_RADAR_CYCLE_INPUT_H_
+#endif  // AIRBORNE_RADAR_CORE_CONTEXT_RADAR_CYCLE_INPUT_H_

@@ -5,10 +5,11 @@
 
 #include <gtest/gtest.h>
 
-#include "airborne_radar/core/event/IEventBus.h"
 #include "airborne_radar/core/event/EventBus.h"
+#include "airborne_radar/core/event/IEventBus.h"
 
-namespace airborne_radar { namespace tests {
+namespace airborne_radar {
+namespace tests {
 namespace {
 
 struct BusTestEvent {
@@ -17,7 +18,7 @@ struct BusTestEvent {
   int value{0};
 };
 
-} // namespace
+}  // namespace
 
 TEST(EventBusTest, PublishWithoutSubscribersIsNoOp) {
   core::event::EventBus bus;
@@ -35,9 +36,9 @@ TEST(EventBusTest, DuplicateSubscriptionsAllReceiveEvent) {
   int second_sum = 0;
 
   bus.Subscribe<BusTestEvent>(
-      [&first_sum](const BusTestEvent &event) { first_sum += event.value; });
+      [&first_sum](const BusTestEvent& event) { first_sum += event.value; });
   bus.Subscribe<BusTestEvent>(
-      [&second_sum](const BusTestEvent &event) { second_sum += event.value; });
+      [&second_sum](const BusTestEvent& event) { second_sum += event.value; });
 
   const BusTestEvent event{7};
   bus.Publish(event);
@@ -50,8 +51,8 @@ TEST(EventBusTest, UnsubscribeStopsDelivery) {
   core::event::EventBus bus;
 
   int hit_count = 0;
-  const auto token = bus.Subscribe<BusTestEvent>(
-      [&hit_count](const BusTestEvent &) { ++hit_count; });
+  const auto token =
+      bus.Subscribe<BusTestEvent>([&hit_count](const BusTestEvent&) { ++hit_count; });
 
   bus.Publish(BusTestEvent{1});
   bus.Unsubscribe(token);
@@ -64,8 +65,7 @@ TEST(EventBusTest, ClearRemovesAllSubscriptions) {
   core::event::EventBus bus;
 
   int hit_count = 0;
-  bus.Subscribe<BusTestEvent>(
-      [&hit_count](const BusTestEvent &) { ++hit_count; });
+  bus.Subscribe<BusTestEvent>([&hit_count](const BusTestEvent&) { ++hit_count; });
 
   bus.Clear();
   bus.Publish(BusTestEvent{1});
@@ -77,8 +77,7 @@ TEST(EventBusTest, UnsubscribeUnknownTokenIsNoOp) {
   core::event::EventBus bus;
 
   int hit_count = 0;
-  bus.Subscribe<BusTestEvent>(
-      [&hit_count](const BusTestEvent &) { ++hit_count; });
+  bus.Subscribe<BusTestEvent>([&hit_count](const BusTestEvent&) { ++hit_count; });
 
   bus.Unsubscribe(core::event::EventToken{typeid(BusTestEvent), 99999});
   bus.Publish(BusTestEvent{1});
@@ -86,4 +85,5 @@ TEST(EventBusTest, UnsubscribeUnknownTokenIsNoOp) {
   EXPECT_EQ(hit_count, 1);
 }
 
-} } // namespace airborne_radar::tests
+}  // namespace tests
+}  // namespace airborne_radar

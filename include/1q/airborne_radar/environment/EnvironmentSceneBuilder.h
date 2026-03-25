@@ -6,18 +6,17 @@
 #ifndef AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_SCENE_BUILDER_H_
 #define AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_SCENE_BUILDER_H_
 
-#include "1q/api.hpp"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
+#include "1q/api.hpp"
 
 namespace airborne_radar {
 namespace environment {
-
 
 /**
  * @brief EnvironmentSceneBuilder 用于构造待生效的环境场景状态。
  */
 class ONEQ_API EnvironmentSceneBuilder {
-public:
+ public:
   /** @brief 默认构造函数，使用 EnvironmentSceneState 默认值初始化 */
   EnvironmentSceneBuilder() = default;
 
@@ -25,8 +24,7 @@ public:
   EnvironmentSceneBuilder& SetBasePropagationLossDb(float base_loss_db);
 
   /** @brief 设置大气附加衰减 */
-  EnvironmentSceneBuilder& SetAtmosphericAttenuationDb(
-      float atmospheric_loss_db);
+  EnvironmentSceneBuilder& SetAtmosphericAttenuationDb(float atmospheric_loss_db);
 
   /** @brief 设置地形/多径附加项 */
   EnvironmentSceneBuilder& SetTerrainReflectionDb(float terrain_loss_db);
@@ -49,11 +47,11 @@ public:
   /** @brief 生成当前构造结果 */
   EnvironmentSceneState Build() const;
 
-private:
+ private:
   EnvironmentSceneState scene_state_{};
 };
 
-} // namespace environment
-} // namespace airborne_radar
+}  // namespace environment
+}  // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_SCENE_BUILDER_H_
+#endif  // AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_SCENE_BUILDER_H_

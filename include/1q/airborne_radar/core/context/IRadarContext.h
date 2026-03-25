@@ -7,11 +7,11 @@
 #ifndef AIRBORNE_RADAR_CORE_CONTEXT_I_RADAR_CONTEXT_H_
 #define AIRBORNE_RADAR_CORE_CONTEXT_I_RADAR_CONTEXT_H_
 
-#include "1q/api.hpp"
-#include "1q/airborne_radar/common/RadarOrientationConfig.h"
 #include "1q/airborne_radar/common/RadarCommand.h"
 #include "1q/airborne_radar/common/RadarControlProfile.h"
+#include "1q/airborne_radar/common/RadarOrientationConfig.h"
 #include "1q/airborne_radar/common/TargetFeature.h"
+#include "1q/api.hpp"
 
 namespace airborne_radar {
 namespace core {
@@ -22,7 +22,7 @@ namespace context {
  * 通过该接口，控制器不再依赖具体的处理层类，实现依赖倒置。
  */
 class ONEQ_API IRadarContext {
-public:
+ public:
   virtual ~IRadarContext() = default;
 
   /** @brief 获取当前周期的目标特征列表 */
@@ -50,13 +50,12 @@ public:
    * @brief 通知最新控制真值已生成。
    * @param profile 下一周期控制真值。
    */
-  virtual void UpdateRadarControlProfile(
-      const common::RadarControlProfile& profile) {
+  virtual void UpdateRadarControlProfile(const common::RadarControlProfile& profile) {
     (void)profile;
   }
 };
-} // namespace context
-} // namespace core
-} // namespace airborne_radar
+}  // namespace context
+}  // namespace core
+}  // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_CORE_CONTEXT_I_RADAR_CONTEXT_H_
+#endif  // AIRBORNE_RADAR_CORE_CONTEXT_I_RADAR_CONTEXT_H_

@@ -52,8 +52,7 @@ TEST(RadarOrientationUtilsTest, IntersectScanLimitsReturnsOverlapWindow) {
   electronic.el_min_deg = -10.0f;
   electronic.el_max_deg = 20.0f;
 
-  const AzimuthElevationLimitsDeg limits =
-      IntersectScanLimits(mechanical, electronic);
+  const AzimuthElevationLimitsDeg limits = IntersectScanLimits(mechanical, electronic);
 
   EXPECT_FLOAT_EQ(limits.az_min_deg, -45.0f);
   EXPECT_FLOAT_EQ(limits.az_max_deg, 50.0f);
@@ -76,8 +75,7 @@ TEST(RadarOrientationUtilsTest, ComputeMountFrameBeamPointingClampsToOverlap) {
   config.electronic_scan_limits_deg.el_min_deg = -15.0f;
   config.electronic_scan_limits_deg.el_max_deg = 15.0f;
 
-  const AzimuthElevationDeg pointing =
-      ComputeMountFrameBeamPointing(config);
+  const AzimuthElevationDeg pointing = ComputeMountFrameBeamPointing(config);
 
   EXPECT_FLOAT_EQ(pointing.az_deg, 45.0f);
   EXPECT_FLOAT_EQ(pointing.el_deg, -15.0f);
@@ -108,8 +106,7 @@ TEST(RadarOrientationUtilsTest, ComputeBodyFrameBeamPointingAddsMountOffset) {
   EXPECT_FLOAT_EQ(pointing.roll_deg, 2.0f);
 }
 
-TEST(RadarOrientationUtilsTest,
-     ComputePlatformFrameBeamPointingAddsPlatformAttitude) {
+TEST(RadarOrientationUtilsTest, ComputePlatformFrameBeamPointingAddsPlatformAttitude) {
   RadarOrientationConfig config;
   config.mount_angles_deg.yaw_deg = 10.0f;
   config.mount_angles_deg.pitch_deg = 5.0f;
@@ -131,13 +128,12 @@ TEST(RadarOrientationUtilsTest,
   platform_attitude.yaw_deg = 90.0f;
   platform_attitude.pitch_deg = 3.0f;
   platform_attitude.roll_deg = 1.0f;
-  const EulerAnglesDeg pointing =
-      ComputePlatformFrameBeamPointing(platform_attitude, config);
+  const EulerAnglesDeg pointing = ComputePlatformFrameBeamPointing(platform_attitude, config);
 
   EXPECT_FLOAT_EQ(pointing.yaw_deg, 135.0f);
   EXPECT_FLOAT_EQ(pointing.pitch_deg, 3.0f);
   EXPECT_FLOAT_EQ(pointing.roll_deg, 3.0f);
 }
 
-} // namespace tests
-} // namespace airborne_radar
+}  // namespace tests
+}  // namespace airborne_radar

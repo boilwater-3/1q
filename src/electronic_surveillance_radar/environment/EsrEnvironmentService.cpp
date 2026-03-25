@@ -13,18 +13,14 @@ namespace {
  * @param[in] value 输入值。
  * @return 裁剪后结果。
  */
-float Clamp01(float value) {
-  return std::max(0.0f, std::min(1.0f, value));
-}
+float Clamp01(float value) { return std::max(0.0f, std::min(1.0f, value)); }
 
 /**
  * @brief 将输入裁剪到非负区间。
  * @param[in] value 输入值。
  * @return 裁剪后结果。
  */
-float ClampNonNegative(float value) {
-  return std::max(0.0f, value);
-}
+float ClampNonNegative(float value) { return std::max(0.0f, value); }
 
 /**
  * @brief 解析干扰技术类型并应用兼容推断。
@@ -57,8 +53,7 @@ bool HasSuppressionEffect(EsrJammingTechnique technique) {
  * @return 包含欺骗分量时返回 `true`。
  */
 bool HasDeceptionEffect(EsrJammingTechnique technique) {
-  return technique == EsrJammingTechnique::kDeception ||
-         technique == EsrJammingTechnique::kMixed;
+  return technique == EsrJammingTechnique::kDeception || technique == EsrJammingTechnique::kMixed;
 }
 
 /**
@@ -73,8 +68,8 @@ EsrJammerSource NormalizeJammerSource(const EsrJammerSource& raw_source) {
   normalized.deception_risk = Clamp01(raw_source.deception_risk);
   normalized.confidence = Clamp01(raw_source.confidence);
   normalized.technique = ResolveTechnique(normalized);
-  normalized.active = raw_source.active && normalized.power_w > 0.0f &&
-                      normalized.bandwidth_hz > 0.0;
+  normalized.active =
+      raw_source.active && normalized.power_w > 0.0f && normalized.bandwidth_hz > 0.0;
   return normalized;
 }
 
@@ -84,23 +79,21 @@ EsrJammerSource NormalizeJammerSource(const EsrJammerSource& raw_source) {
  * @param[in] config 环境配置。
  * @return 冻结环境快照。
  */
-EsrEnvironmentSnapshot BuildSnapshot(
-    const EsrEnvironmentCycleContext& cycle_context,
-    const EsrEnvironmentModelConfig& config) {
+EsrEnvironmentSnapshot BuildSnapshot(const EsrEnvironmentCycleContext& cycle_context,
+                                     const EsrEnvironmentModelConfig& config) {
   EsrEnvironmentSnapshot snapshot;
   snapshot.cycle_index = cycle_context.cycle_index;
   snapshot.dt_sec = cycle_context.dt_sec;
-  snapshot.propagation_loss_db = ClampNonNegative(
-      cycle_context.scene_state.base_propagation_loss_db +
-      cycle_context.scene_state.atmospheric_attenuation_db +
-      cycle_context.scene_state.terrain_reflection_db);
+  snapshot.propagation_loss_db =
+      ClampNonNegative(cycle_context.scene_state.base_propagation_loss_db +
+                       cycle_context.scene_state.atmospheric_attenuation_db +
+                       cycle_context.scene_state.terrain_reflection_db);
 
   const float clutter_noise = cycle_context.scene_state.clutter_noise_w > 0.0f
                                   ? cycle_context.scene_state.clutter_noise_w
                                   : config.default_clutter_noise_w;
   snapshot.clutter_noise_w = ClampNonNegative(clutter_noise);
-  snapshot.spectrum_occupancy_ratio =
-      Clamp01(cycle_context.scene_state.spectrum_occupancy_ratio);
+  snapshot.spectrum_occupancy_ratio = Clamp01(cycle_context.scene_state.spectrum_occupancy_ratio);
 
   snapshot.jammer_sources.clear();
   snapshot.jammer_sources.reserve(cycle_context.scene_state.jammer_sources.size());
@@ -108,8 +101,7 @@ EsrEnvironmentSnapshot BuildSnapshot(
   snapshot.jammer_power_w = 0.0f;
   snapshot.deception_risk = 0.0f;
   float deception_clear_probability = 1.0f;
-  for (std::size_t i = 0; i < cycle_context.scene_state.jammer_sources.size();
-       ++i) {
+  for (std::size_t i = 0; i < cycle_context.scene_state.jammer_sources.size(); ++i) {
     const EsrJammerSource source =
         NormalizeJammerSource(cycle_context.scene_state.jammer_sources[i]);
     snapshot.jammer_sources.push_back(source);
@@ -132,24 +124,19 @@ EsrEnvironmentSnapshot BuildSnapshot(
   snapshot.deception_risk = Clamp01(1.0f - deception_clear_probability);
   snapshot.jammer_power_w = snapshot.suppression_power_w;
 
-  snapshot.jamming_detected =
-      snapshot.suppression_power_w >= config.jamming_detection_threshold_w;
+  snapshot.jamming_detected = snapshot.suppression_power_w >= config.jamming_detection_threshold_w;
   return snapshot;
 }
 
 }  // namespace
 
-EsrEnvironmentService::EsrEnvironmentService(EsrEnvironmentModelConfig config)
-    : config_(config) {}
+EsrEnvironmentService::EsrEnvironmentService(EsrEnvironmentModelConfig config) : config_(config) {}
 
-void EsrEnvironmentService::BeginCycle(
-    const EsrEnvironmentCycleContext& cycle_context) {
+void EsrEnvironmentService::BeginCycle(const EsrEnvironmentCycleContext& cycle_context) {
   frozen_snapshot_ = BuildSnapshot(cycle_context, config_);
 }
 
-EsrEnvironmentSnapshot EsrEnvironmentService::SampleEnvironment() const {
-  return frozen_snapshot_;
-}
+EsrEnvironmentSnapshot EsrEnvironmentService::SampleEnvironment() const { return frozen_snapshot_; }
 
 void EsrEnvironmentService::UpdateModelConfig(EsrEnvironmentModelConfig config) {
   config_ = config;

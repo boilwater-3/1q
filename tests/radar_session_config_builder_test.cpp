@@ -3,9 +3,9 @@
 // @file radar_session_config_builder_test.cpp
 // @brief 验证 RadarSessionConfigBuilder 的链式配置语义与覆盖行为。
 
-#include <cstdint>
-
 #include <gtest/gtest.h>
+
+#include <cstdint>
 
 #include "1q/airborne_radar/common/ConfigPresets.h"
 #include "1q/airborne_radar/common/RadarSessionConfigBuilder.h"
@@ -19,30 +19,19 @@ namespace tests {
 // ---------------------------------------------------------------------------
 
 TEST(RadarSessionConfigBuilderTest, DefaultConstructionPreservesStructDefaults) {
-  const auto config =
-      common::RadarSessionConfigBuilder().Build();
+  const auto config = common::RadarSessionConfigBuilder().Build();
 
   EXPECT_FLOAT_EQ(config.jamming_detection_threshold_db, 6.0f);
-  EXPECT_FALSE(
-      config.signal_pipeline_config.detection.enable_physics_detection);
-  EXPECT_FLOAT_EQ(
-      config.signal_pipeline_config.detection.min_detection_margin_db, -2.0f);
-  EXPECT_FLOAT_EQ(
-      config.signal_pipeline_config.detection.radar_system.transmitter
-          .peak_power_w,
-      1e6f);
-  EXPECT_FLOAT_EQ(
-      config.signal_pipeline_config.detection.radar_system.transmitter
-          .frequency_hz,
-      3e9f);
-  EXPECT_FLOAT_EQ(
-      config.signal_pipeline_config.detection.radar_system.antenna
-          .main_beam_gain_db,
-      35.0f);
-  EXPECT_FLOAT_EQ(
-      config.signal_pipeline_config.detection.radar_system.receiver
-          .noise_figure_db,
-      4.0f);
+  EXPECT_FALSE(config.signal_pipeline_config.detection.enable_physics_detection);
+  EXPECT_FLOAT_EQ(config.signal_pipeline_config.detection.min_detection_margin_db, -2.0f);
+  EXPECT_FLOAT_EQ(config.signal_pipeline_config.detection.radar_system.transmitter.peak_power_w,
+                  1e6f);
+  EXPECT_FLOAT_EQ(config.signal_pipeline_config.detection.radar_system.transmitter.frequency_hz,
+                  3e9f);
+  EXPECT_FLOAT_EQ(config.signal_pipeline_config.detection.radar_system.antenna.main_beam_gain_db,
+                  35.0f);
+  EXPECT_FLOAT_EQ(config.signal_pipeline_config.detection.radar_system.receiver.noise_figure_db,
+                  4.0f);
 }
 
 // ---------------------------------------------------------------------------
@@ -50,21 +39,15 @@ TEST(RadarSessionConfigBuilderTest, DefaultConstructionPreservesStructDefaults) 
 // ---------------------------------------------------------------------------
 
 TEST(RadarSessionConfigBuilderTest, PresetBasePreservesPresetValues) {
-  const auto config = common::RadarSessionConfigBuilder(
-                          common::MakeDetectionMissionRadarSessionConfig())
-                          .Build();
+  const auto config =
+      common::RadarSessionConfigBuilder(common::MakeDetectionMissionRadarSessionConfig()).Build();
 
   // 探测任务预设设置了 min_detection_margin_db = -100.0f
-  EXPECT_FLOAT_EQ(
-      config.signal_pipeline_config.detection.min_detection_margin_db,
-      -100.0f);
+  EXPECT_FLOAT_EQ(config.signal_pipeline_config.detection.min_detection_margin_db, -100.0f);
   // lifecycle 已启用
-  EXPECT_TRUE(
-      config.signal_pipeline_config.lifecycle.enable_auto_lifecycle_manager);
+  EXPECT_TRUE(config.signal_pipeline_config.lifecycle.enable_auto_lifecycle_manager);
   // confirm_hits = 1
-  EXPECT_EQ(
-      config.signal_pipeline_config.lifecycle.lifecycle_config.confirm_hits,
-      1U);
+  EXPECT_EQ(config.signal_pipeline_config.lifecycle.lifecycle_config.confirm_hits, 1U);
 }
 
 // ---------------------------------------------------------------------------
@@ -81,8 +64,7 @@ TEST(RadarSessionConfigBuilderTest, TransmitterSettersApplyCorrectly) {
                           .WithTransmitterLossDb(4.0f)
                           .Build();
 
-  const auto& tx =
-      config.signal_pipeline_config.detection.radar_system.transmitter;
+  const auto& tx = config.signal_pipeline_config.detection.radar_system.transmitter;
   EXPECT_FLOAT_EQ(tx.peak_power_w, 5e6f);
   EXPECT_FLOAT_EQ(tx.frequency_hz, 9.3e9f);
   EXPECT_FLOAT_EQ(tx.bandwidth_hz, 10e6f);
@@ -101,8 +83,7 @@ TEST(RadarSessionConfigBuilderTest, AntennaSettersApplyCorrectly) {
                           .WithAntennaNominalBeamwidthDeg(3.0f, 3.5f)
                           .Build();
 
-  const auto& ant =
-      config.signal_pipeline_config.detection.radar_system.antenna;
+  const auto& ant = config.signal_pipeline_config.detection.radar_system.antenna;
   EXPECT_FLOAT_EQ(ant.main_beam_gain_db, 38.0f);
   EXPECT_FLOAT_EQ(ant.nominal_az_beamwidth_deg, 3.0f);
   EXPECT_FLOAT_EQ(ant.nominal_el_beamwidth_deg, 3.5f);
@@ -118,8 +99,7 @@ TEST(RadarSessionConfigBuilderTest, ReceiverSettersApplyCorrectly) {
                           .WithReceiverLossDb(1.5f)
                           .Build();
 
-  const auto& rx =
-      config.signal_pipeline_config.detection.radar_system.receiver;
+  const auto& rx = config.signal_pipeline_config.detection.radar_system.receiver;
   EXPECT_FLOAT_EQ(rx.noise_figure_db, 3.5f);
   EXPECT_FLOAT_EQ(rx.receive_loss_db, 1.5f);
 }
@@ -129,11 +109,9 @@ TEST(RadarSessionConfigBuilderTest, ReceiverSettersApplyCorrectly) {
 // ---------------------------------------------------------------------------
 
 TEST(RadarSessionConfigBuilderTest, EnablePhysicsDetectionDefaultsToTrue) {
-  const auto config =
-      common::RadarSessionConfigBuilder().EnablePhysicsDetection().Build();
+  const auto config = common::RadarSessionConfigBuilder().EnablePhysicsDetection().Build();
 
-  EXPECT_TRUE(
-      config.signal_pipeline_config.detection.enable_physics_detection);
+  EXPECT_TRUE(config.signal_pipeline_config.detection.enable_physics_detection);
 }
 
 TEST(RadarSessionConfigBuilderTest, EnablePhysicsDetectionCanBeDisabled) {
@@ -142,8 +120,7 @@ TEST(RadarSessionConfigBuilderTest, EnablePhysicsDetectionCanBeDisabled) {
                           .EnablePhysicsDetection(false)
                           .Build();
 
-  EXPECT_FALSE(
-      config.signal_pipeline_config.detection.enable_physics_detection);
+  EXPECT_FALSE(config.signal_pipeline_config.detection.enable_physics_detection);
 }
 
 TEST(RadarSessionConfigBuilderTest, DetectionPolicySettersApplyCorrectly) {
@@ -153,8 +130,7 @@ TEST(RadarSessionConfigBuilderTest, DetectionPolicySettersApplyCorrectly) {
                           .WithCoherentIntegration(false)
                           .Build();
 
-  EXPECT_FLOAT_EQ(
-      config.signal_pipeline_config.detection.min_detection_margin_db, -15.0f);
+  EXPECT_FLOAT_EQ(config.signal_pipeline_config.detection.min_detection_margin_db, -15.0f);
   EXPECT_EQ(config.signal_pipeline_config.detection.pulse_count, 20);
   EXPECT_FALSE(config.signal_pipeline_config.detection.coherent_integration);
 }
@@ -164,13 +140,10 @@ TEST(RadarSessionConfigBuilderTest, DetectionPolicySettersApplyCorrectly) {
 // ---------------------------------------------------------------------------
 
 TEST(RadarSessionConfigBuilderTest, KalmanMeasurementNoiseStdApplied) {
-  const auto config = common::RadarSessionConfigBuilder()
-                          .WithKalmanMeasurementNoiseStd(3.0f)
-                          .Build();
+  const auto config =
+      common::RadarSessionConfigBuilder().WithKalmanMeasurementNoiseStd(3.0f).Build();
 
-  EXPECT_FLOAT_EQ(
-      config.signal_pipeline_config.tracking.kalman_measurement_noise_std,
-      3.0f);
+  EXPECT_FLOAT_EQ(config.signal_pipeline_config.tracking.kalman_measurement_noise_std, 3.0f);
 }
 
 // ---------------------------------------------------------------------------
@@ -197,9 +170,8 @@ TEST(RadarSessionConfigBuilderTest, LifecycleSettersApplyCorrectly) {
 // ---------------------------------------------------------------------------
 
 TEST(RadarSessionConfigBuilderTest, JammingThresholdApplied) {
-  const auto config = common::RadarSessionConfigBuilder()
-                          .WithJammingDetectionThresholdDb(4.5f)
-                          .Build();
+  const auto config =
+      common::RadarSessionConfigBuilder().WithJammingDetectionThresholdDb(4.5f).Build();
 
   EXPECT_FLOAT_EQ(config.jamming_detection_threshold_db, 4.5f);
 }
@@ -210,8 +182,7 @@ TEST(RadarSessionConfigBuilderTest, JammingThresholdApplied) {
 
 TEST(RadarSessionConfigBuilderTest, ChainedPresetPlusHardwareOverride) {
   const auto config =
-      common::RadarSessionConfigBuilder(
-          common::MakeDetectionMissionRadarSessionConfig())
+      common::RadarSessionConfigBuilder(common::MakeDetectionMissionRadarSessionConfig())
           .EnablePhysicsDetection()
           .WithTransmitterPeakPowerW(5e6f)
           .WithTransmitterFrequencyHz(9.3e9f)
@@ -221,32 +192,19 @@ TEST(RadarSessionConfigBuilderTest, ChainedPresetPlusHardwareOverride) {
           .Build();
 
   // 预设值保留
-  EXPECT_FLOAT_EQ(
-      config.signal_pipeline_config.detection.min_detection_margin_db,
-      -100.0f);
-  EXPECT_EQ(
-      config.signal_pipeline_config.lifecycle.lifecycle_config.confirm_hits,
-      1U);
+  EXPECT_FLOAT_EQ(config.signal_pipeline_config.detection.min_detection_margin_db, -100.0f);
+  EXPECT_EQ(config.signal_pipeline_config.lifecycle.lifecycle_config.confirm_hits, 1U);
 
   // 硬件叠加值已覆盖
-  EXPECT_TRUE(
-      config.signal_pipeline_config.detection.enable_physics_detection);
-  EXPECT_FLOAT_EQ(
-      config.signal_pipeline_config.detection.radar_system.transmitter
-          .peak_power_w,
-      5e6f);
-  EXPECT_FLOAT_EQ(
-      config.signal_pipeline_config.detection.radar_system.transmitter
-          .frequency_hz,
-      9.3e9f);
-  EXPECT_FLOAT_EQ(
-      config.signal_pipeline_config.detection.radar_system.antenna
-          .main_beam_gain_db,
-      38.0f);
-  EXPECT_FLOAT_EQ(
-      config.signal_pipeline_config.detection.radar_system.receiver
-          .noise_figure_db,
-      3.5f);
+  EXPECT_TRUE(config.signal_pipeline_config.detection.enable_physics_detection);
+  EXPECT_FLOAT_EQ(config.signal_pipeline_config.detection.radar_system.transmitter.peak_power_w,
+                  5e6f);
+  EXPECT_FLOAT_EQ(config.signal_pipeline_config.detection.radar_system.transmitter.frequency_hz,
+                  9.3e9f);
+  EXPECT_FLOAT_EQ(config.signal_pipeline_config.detection.radar_system.antenna.main_beam_gain_db,
+                  38.0f);
+  EXPECT_FLOAT_EQ(config.signal_pipeline_config.detection.radar_system.receiver.noise_figure_db,
+                  3.5f);
   EXPECT_FLOAT_EQ(config.jamming_detection_threshold_db, 4.5f);
 }
 
@@ -256,8 +214,7 @@ TEST(RadarSessionConfigBuilderTest, ChainedPresetPlusHardwareOverride) {
 
 TEST(RadarSessionConfigBuilderTest, BuiltConfigCanConstructRadarSession) {
   const auto config =
-      common::RadarSessionConfigBuilder(
-          common::MakeDetectionMissionRadarSessionConfig())
+      common::RadarSessionConfigBuilder(common::MakeDetectionMissionRadarSessionConfig())
           .WithJammingDetectionThresholdDb(5.0f)
           .Build();
 

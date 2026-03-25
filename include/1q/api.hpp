@@ -31,4 +31,4 @@
 #define ONEQ_API ONEQ_EXPORT
 #endif
 
-#endif // ONEQ_API_HPP_
+#endif  // ONEQ_API_HPP_

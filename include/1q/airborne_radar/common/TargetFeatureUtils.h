@@ -8,8 +8,8 @@
 
 #include <cstdint>
 
-#include "1q/api.hpp"
 #include "1q/airborne_radar/common/TargetFeature.h"
+#include "1q/api.hpp"
 
 namespace airborne_radar {
 namespace common {
@@ -27,16 +27,10 @@ namespace common {
  * @param swerling_type 目标起伏模型编号。
  * @return 已写入位置、速度与斜距的目标特征。
  */
-ONEQ_API TargetFeature MakeTargetFromCartesian(
-    std::uint64_t external_target_id,
-    float position_x,
-    float position_y,
-    float position_z,
-    float velocity_x,
-    float velocity_y,
-    float velocity_z,
-    float rcs,
-    int swerling_type = 0);
+ONEQ_API TargetFeature MakeTargetFromCartesian(std::uint64_t external_target_id, float position_x,
+                                               float position_y, float position_z, float velocity_x,
+                                               float velocity_y, float velocity_z, float rcs,
+                                               int swerling_type = 0);
 
 /**
  * @brief 构造地面目标。
@@ -49,14 +43,9 @@ ONEQ_API TargetFeature MakeTargetFromCartesian(
  * @param swerling_type 目标起伏模型编号。
  * @return `z=0` 的目标特征。
  */
-ONEQ_API TargetFeature MakeGroundTarget(
-    std::uint64_t external_target_id,
-    float position_x,
-    float position_y,
-    float rcs = 1.0f,
-    float velocity_x = 0.0f,
-    float velocity_y = 0.0f,
-    int swerling_type = 0);
+ONEQ_API TargetFeature MakeGroundTarget(std::uint64_t external_target_id, float position_x,
+                                        float position_y, float rcs = 1.0f, float velocity_x = 0.0f,
+                                        float velocity_y = 0.0f, int swerling_type = 0);
 
 /**
  * @brief 构造空中目标。
@@ -71,16 +60,10 @@ ONEQ_API TargetFeature MakeGroundTarget(
  * @param swerling_type 目标起伏模型编号。
  * @return 已写入三维位置与斜距的目标特征。
  */
-ONEQ_API TargetFeature MakeAirTarget(
-    std::uint64_t external_target_id,
-    float position_x,
-    float position_y,
-    float position_z,
-    float velocity_x,
-    float velocity_y,
-    float velocity_z,
-    float rcs = 1.0f,
-    int swerling_type = 0);
+ONEQ_API TargetFeature MakeAirTarget(std::uint64_t external_target_id, float position_x,
+                                     float position_y, float position_z, float velocity_x,
+                                     float velocity_y, float velocity_z, float rcs = 1.0f,
+                                     int swerling_type = 0);
 
 /**
  * @brief 规范化单个目标的几何派生量。
@@ -96,7 +79,7 @@ ONEQ_API void NormalizeTargetGeometry(TargetFeature* target);
  */
 ONEQ_API void NormalizeTargetGeometry(TargetFeatureList* targets);
 
-} // namespace common
-} // namespace airborne_radar
+}  // namespace common
+}  // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_COMMON_TARGET_FEATURE_UTILS_H_
+#endif  // AIRBORNE_RADAR_COMMON_TARGET_FEATURE_UTILS_H_

@@ -17,32 +17,26 @@ namespace {
  * @note 代码行为依据：旧版干扰配置只在存在兼容提示时才会映射到额外 emitter，
  *       该值用于区分“尚未建立兼容 emitter”与“已有有效索引”两种状态。
  */
-constexpr std::size_t kNoLegacyJammerEmitterIndex =
-    static_cast<std::size_t>(-1);
+constexpr std::size_t kNoLegacyJammerEmitterIndex = static_cast<std::size_t>(-1);
 /**
  * @brief 将输入值裁剪到 [0, 1] 区间。
  * @param value 输入标量。
  * @return 裁剪后的结果。
  */
-float Clamp01(float value) {
-  return std::max(0.0f, std::min(1.0f, value));
-}
+float Clamp01(float value) { return std::max(0.0f, std::min(1.0f, value)); }
 /**
  * @brief 将输入值裁剪为非负数。
  * @param value 输入标量。
  * @return 不小于 0 的结果。
  */
-float ClampNonNegative(float value) {
-  return std::max(0.0f, value);
-}
+float ClampNonNegative(float value) { return std::max(0.0f, value); }
 /**
  * @brief 判断旧版配置字段是否提供了兼容干扰提示。
  * @param config 旧版环境模型配置。
  * @return 存在任一旧版干扰提示时返回 true。
  */
 bool HasLegacyJammerHints(const EnvironmentModelConfig& config) {
-  return config.jammer_power_db > 0.0f ||
-         config.jammer_frequency_overlap_ratio > 0.0f ||
+  return config.jammer_power_db > 0.0f || config.jammer_frequency_overlap_ratio > 0.0f ||
          config.jammer_prf_lock_risk > 0.0f || config.jammer_in_sidelobe;
 }
 /**
@@ -85,16 +79,14 @@ JammerSourceFact ToJammerSourceFact(const JammerEmitterState& emitter_state) {
  * @param sources 单周期干扰源事实列表。
  * @return 功率最大的干扰源指针；若为空则返回 nullptr。
  */
-const JammerSourceFact* SelectPrimaryJammerSource(
-    const JammerSourceFactList& sources) {
+const JammerSourceFact* SelectPrimaryJammerSource(const JammerSourceFactList& sources) {
   if (sources.empty()) {
     return nullptr;
   }
-  return &(*std::max_element(
-      sources.begin(), sources.end(),
-      [](const JammerSourceFact& lhs, const JammerSourceFact& rhs) {
-        return lhs.power_db < rhs.power_db;
-      }));
+  return &(*std::max_element(sources.begin(), sources.end(),
+                             [](const JammerSourceFact& lhs, const JammerSourceFact& rhs) {
+                               return lhs.power_db < rhs.power_db;
+                             }));
 }
 /**
  * @brief 将旧版平铺干扰配置转换为兼容场景干扰源。
@@ -117,22 +109,21 @@ JammerEmitterState ToLegacyEmitterState(const EnvironmentModelConfig& config) {
  * @param legacy_emitter_index 输出兼容干扰源在场景中的索引。
  * @return 统一后的环境场景状态。
  */
-EnvironmentSceneState BuildSceneStateFromModelConfig(
-    const EnvironmentModelConfig& config, std::size_t* legacy_emitter_index) {
+EnvironmentSceneState BuildSceneStateFromModelConfig(const EnvironmentModelConfig& config,
+                                                     std::size_t* legacy_emitter_index) {
   EnvironmentSceneState scene_state;
   scene_state.base_propagation_loss_db = config.base_propagation_loss_db;
   scene_state.atmospheric_attenuation_db = config.atmospheric_attenuation_db;
   scene_state.terrain_reflection_db = config.terrain_reflection_db;
   scene_state.clutter_power_db = config.clutter_power_db;
-  scene_state.jammer_emitters.reserve(
-      config.jammer_sources.size() + (HasLegacyJammerHints(config) ? 1U : 0U));
+  scene_state.jammer_emitters.reserve(config.jammer_sources.size() +
+                                      (HasLegacyJammerHints(config) ? 1U : 0U));
   for (std::size_t i = 0; i < config.jammer_sources.size(); ++i) {
     JammerEmitterState emitter;
     emitter.technique = config.jammer_sources[i].technique;
     emitter.power_db = config.jammer_sources[i].power_db;
     emitter.js_db = config.jammer_sources[i].js_db;
-    emitter.frequency_overlap_ratio =
-        config.jammer_sources[i].frequency_overlap_ratio;
+    emitter.frequency_overlap_ratio = config.jammer_sources[i].frequency_overlap_ratio;
     emitter.prf_lock_risk = config.jammer_sources[i].prf_lock_risk;
     emitter.azimuth_deg = config.jammer_sources[i].azimuth_deg;
     emitter.elevation_deg = config.jammer_sources[i].elevation_deg;
@@ -154,12 +145,11 @@ EnvironmentSceneState BuildSceneStateFromModelConfig(
   return scene_state;
 }
 
-} // namespace
+}  // namespace
 
 EnvironmentService::EnvironmentService(const EnvironmentModelConfig& config)
     : scene_manager_(new scene::SceneManager(
-          BuildSceneStateFromModelConfig(config,
-                                         &pending_legacy_jammer_emitter_index_))),
+          BuildSceneStateFromModelConfig(config, &pending_legacy_jammer_emitter_index_))),
       propagation_model_(new simulation::PropagationModel()) {
   active_legacy_jammer_emitter_index_ = pending_legacy_jammer_emitter_index_;
   RefreshFrozenSnapshotFromActiveScene();
@@ -167,28 +157,23 @@ EnvironmentService::EnvironmentService(const EnvironmentModelConfig& config)
 
 EnvironmentService::~EnvironmentService() = default;
 
-void EnvironmentService::BeginCycle(
-    const EnvironmentCycleContext& cycle_context) {
+void EnvironmentService::BeginCycle(const EnvironmentCycleContext& cycle_context) {
   current_cycle_context_ = cycle_context;
   scene_manager_->CommitPendingScene(cycle_context);
   active_legacy_jammer_emitter_index_ = pending_legacy_jammer_emitter_index_;
   RefreshFrozenSnapshotFromActiveScene();
 }
 
-EnvironmentSnapshot EnvironmentService::SampleEnvironment() const {
-  return frozen_snapshot_;
-}
+EnvironmentSnapshot EnvironmentService::SampleEnvironment() const { return frozen_snapshot_; }
 
-void EnvironmentService::UpdateSceneState(
-    const EnvironmentSceneState& scene_state) {
+void EnvironmentService::UpdateSceneState(const EnvironmentSceneState& scene_state) {
   scene_manager_->UpdatePendingScene(scene_state);
   pending_legacy_jammer_emitter_index_ = kNoLegacyJammerEmitterIndex;
 }
 
 void EnvironmentService::UpdateModelConfig(const EnvironmentModelConfig& config) {
   scene_manager_->UpdatePendingScene(
-      BuildSceneStateFromModelConfig(config,
-                                     &pending_legacy_jammer_emitter_index_));
+      BuildSceneStateFromModelConfig(config, &pending_legacy_jammer_emitter_index_));
 }
 
 void EnvironmentService::SetJammerPowerDb(float jammer_power_db) {
@@ -205,8 +190,7 @@ void EnvironmentService::SetJammerPowerDb(float jammer_power_db) {
     pending_scene->jammer_emitters.back().confidence = 1.0f;
   }
 
-  pending_scene->jammer_emitters[pending_legacy_jammer_emitter_index_].power_db =
-      jammer_power_db;
+  pending_scene->jammer_emitters[pending_legacy_jammer_emitter_index_].power_db = jammer_power_db;
 }
 
 void EnvironmentService::SetJammingDetectionThresholdDb(float threshold_db) {
@@ -223,36 +207,31 @@ void EnvironmentService::RefreshFrozenSnapshotFromActiveScene() {
   const simulation::PropagationResult propagation_result =
       propagation_model_->Evaluate(scene_manager_->GetActiveScene());
   frozen_snapshot_.cycle_dt_sec = current_cycle_context_.dt_sec;
-  frozen_snapshot_.propagation_loss_db =
-      propagation_result.propagation_loss_db;
+  frozen_snapshot_.propagation_loss_db = propagation_result.propagation_loss_db;
   frozen_snapshot_.clutter_power_db = propagation_result.clutter_power_db;
 
   const EnvironmentSceneState& active_scene = scene_manager_->GetActiveScene();
   frozen_snapshot_.jammer_sources.clear();
   frozen_snapshot_.jammer_sources.reserve(active_scene.jammer_emitters.size());
   for (std::size_t i = 0; i < active_scene.jammer_emitters.size(); ++i) {
-    frozen_snapshot_.jammer_sources.push_back(
-        ToJammerSourceFact(active_scene.jammer_emitters[i]));
+    frozen_snapshot_.jammer_sources.push_back(ToJammerSourceFact(active_scene.jammer_emitters[i]));
   }
 
   const JammerSourceFact* primary_source =
       SelectPrimaryJammerSource(frozen_snapshot_.jammer_sources);
   if (primary_source != nullptr) {
     frozen_snapshot_.jammer_power_db = primary_source->power_db;
-    frozen_snapshot_.jammer_frequency_overlap_ratio =
-        primary_source->frequency_overlap_ratio;
+    frozen_snapshot_.jammer_frequency_overlap_ratio = primary_source->frequency_overlap_ratio;
     frozen_snapshot_.jammer_prf_lock_risk = primary_source->prf_lock_risk;
     frozen_snapshot_.jammer_in_sidelobe = primary_source->in_sidelobe;
   }
 
   frozen_snapshot_.jamming_detected =
-      std::find_if(frozen_snapshot_.jammer_sources.begin(),
-                   frozen_snapshot_.jammer_sources.end(),
+      std::find_if(frozen_snapshot_.jammer_sources.begin(), frozen_snapshot_.jammer_sources.end(),
                    [this](const JammerSourceFact& source) {
-                     return source.power_db >=
-                            jamming_detection_threshold_db_;
+                     return source.power_db >= jamming_detection_threshold_db_;
                    }) != frozen_snapshot_.jammer_sources.end();
 }
 
-} // namespace environment
-} // namespace airborne_radar
+}  // namespace environment
+}  // namespace airborne_radar

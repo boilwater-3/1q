@@ -35,9 +35,8 @@ class InterceptPipeline final : public IInterceptPipeline {
    * @param[in] environment 环境服务。
    * @return 单周期输出。
    */
-  InterceptCycleResult RunCycle(
-      const core::context::EsrCycleInput& input_state,
-      const environment::IEsrEnvironmentService& environment) override;
+  InterceptCycleResult RunCycle(const core::context::EsrCycleInput& input_state,
+                                const environment::IEsrEnvironmentService& environment) override;
 
  private:
   InterceptPipelineConfig config_{};

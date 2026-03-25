@@ -19,7 +19,7 @@ namespace context {
  * @brief 提供一个可直接驱动控制器的默认雷达上下文实现。
  */
 class MutableRadarContext final : public IRadarContext {
-public:
+ public:
   /**
    * @brief 默认构造函数。
    */
@@ -42,8 +42,7 @@ public:
    * @brief 更新当前平台姿态角。
    * @param platform_attitude_deg 平台姿态角，单位为度。
    */
-  void SetPlatformAttitude(
-      const common::PlatformAttitudeDeg& platform_attitude_deg);
+  void SetPlatformAttitude(const common::PlatformAttitudeDeg& platform_attitude_deg);
 
   /**
    * @brief 更新当前周期时间步长。
@@ -103,10 +102,9 @@ public:
    * @brief 保存最近一次控制真值。
    * @param profile 下一周期控制真值。
    */
-  void UpdateRadarControlProfile(
-      const common::RadarControlProfile& profile) override;
+  void UpdateRadarControlProfile(const common::RadarControlProfile& profile) override;
 
-private:
+ private:
   common::TargetFeatureList target_features_{};
   common::PlatformAttitudeDeg platform_attitude_deg_{};
   float cycle_dt_sec_{1.0f};
@@ -115,8 +113,8 @@ private:
   bool has_latest_control_profile_{false};
 };
 
-} // namespace context
-} // namespace core
-} // namespace airborne_radar
+}  // namespace context
+}  // namespace core
+}  // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_CORE_CONTEXT_MUTABLE_RADAR_CONTEXT_H_
+#endif  // AIRBORNE_RADAR_CORE_CONTEXT_MUTABLE_RADAR_CONTEXT_H_

@@ -20,8 +20,8 @@ namespace internal {
  * @brief KdTreeClusterResult 描述聚类输出。
  */
 struct KdTreeClusterResult {
-  std::vector<std::vector<std::size_t> > clusters{}; /**< 聚类簇索引集合 */
-  std::vector<std::size_t> noise_indices{}; /**< 未满足簇条件的噪声索引 */
+  std::vector<std::vector<std::size_t>> clusters{}; /**< 聚类簇索引集合 */
+  std::vector<std::size_t> noise_indices{};         /**< 未满足簇条件的噪声索引 */
 };
 
 /**

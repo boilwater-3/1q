@@ -24,17 +24,17 @@ struct ONEQ_API EsrVector3f {
  * @brief EsrEulerAngleDeg 描述欧拉角姿态（单位：度）。
  */
 struct ONEQ_API EsrEulerAngleDeg {
-  float yaw_deg{0.0f}; /**< 偏航角（单位：deg） */
+  float yaw_deg{0.0f};   /**< 偏航角（单位：deg） */
   float pitch_deg{0.0f}; /**< 俯仰角（单位：deg） */
-  float roll_deg{0.0f}; /**< 横滚角（单位：deg） */
+  float roll_deg{0.0f};  /**< 横滚角（单位：deg） */
 };
 
 /**
  * @brief EsrPoseState 描述平台姿态与运动状态。
  */
 struct ONEQ_API EsrPoseState {
-  EsrVector3f position_m{}; /**< 平台位置（单位：m） */
-  EsrVector3f velocity_mps{}; /**< 平台速度（单位：m/s） */
+  EsrVector3f position_m{};        /**< 平台位置（单位：m） */
+  EsrVector3f velocity_mps{};      /**< 平台速度（单位：m/s） */
   EsrEulerAngleDeg attitude_deg{}; /**< 平台姿态角（单位：deg） */
 };
 

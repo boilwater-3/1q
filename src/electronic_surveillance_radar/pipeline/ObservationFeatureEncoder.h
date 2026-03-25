@@ -6,8 +6,8 @@
 #ifndef ELECTRONIC_SURVEILLANCE_RADAR_SRC_PIPELINE_OBSERVATION_FEATURE_ENCODER_H_
 #define ELECTRONIC_SURVEILLANCE_RADAR_SRC_PIPELINE_OBSERVATION_FEATURE_ENCODER_H_
 
-#include <cstddef>
 #include <cmath>
+#include <cstddef>
 
 #include "electronic_surveillance_radar/pipeline/ObservationPipelineTypes.h"
 
@@ -26,34 +26,25 @@ class ObservationFeatureEncoder final {
    * @param[in] scales 特征尺度。
    * @return 特征向量。
    */
-  static ObservationFeatureVector Encode(
-      const common::EmitterObservation& observation,
-      const ObservationFeatureScales& scales) {
+  static ObservationFeatureVector Encode(const common::EmitterObservation& observation,
+                                         const ObservationFeatureScales& scales) {
     ObservationFeatureVector feature;
     const double rf_scale =
         scales.rf_scale_hz > 0.0f ? static_cast<double>(scales.rf_scale_hz) : 1.0;
     const double pw_scale =
-        scales.pw_scale_sec > 0.0f ? static_cast<double>(scales.pw_scale_sec)
-                                   : 1.0e-6;
-    const double az_scale = scales.az_scale_deg > 0.0f
-                                ? static_cast<double>(scales.az_scale_deg)
-                                : 1.0;
-    const double el_scale = scales.el_scale_deg > 0.0f
-                                ? static_cast<double>(scales.el_scale_deg)
-                                : 1.0;
-    const double snr_scale = scales.snr_scale_db > 0.0f
-                                 ? static_cast<double>(scales.snr_scale_db)
-                                 : 1.0;
+        scales.pw_scale_sec > 0.0f ? static_cast<double>(scales.pw_scale_sec) : 1.0e-6;
+    const double az_scale =
+        scales.az_scale_deg > 0.0f ? static_cast<double>(scales.az_scale_deg) : 1.0;
+    const double el_scale =
+        scales.el_scale_deg > 0.0f ? static_cast<double>(scales.el_scale_deg) : 1.0;
+    const double snr_scale =
+        scales.snr_scale_db > 0.0f ? static_cast<double>(scales.snr_scale_db) : 1.0;
 
     feature.values[0] = static_cast<float>(observation.rf_hz / rf_scale);
-    feature.values[1] =
-        static_cast<float>(observation.pulse_width_s / pw_scale);
-    feature.values[2] =
-        static_cast<float>(static_cast<double>(observation.aoa_az_deg) / az_scale);
-    feature.values[3] =
-        static_cast<float>(static_cast<double>(observation.aoa_el_deg) / el_scale);
-    feature.values[4] =
-        static_cast<float>(static_cast<double>(observation.snr_db) / snr_scale);
+    feature.values[1] = static_cast<float>(observation.pulse_width_s / pw_scale);
+    feature.values[2] = static_cast<float>(static_cast<double>(observation.aoa_az_deg) / az_scale);
+    feature.values[3] = static_cast<float>(static_cast<double>(observation.aoa_el_deg) / el_scale);
+    feature.values[4] = static_cast<float>(static_cast<double>(observation.snr_db) / snr_scale);
     return feature;
   }
 
@@ -63,8 +54,7 @@ class ObservationFeatureEncoder final {
    * @param[in] rhs 右侧特征向量。
    * @return 欧氏距离。
    */
-  static float Distance(const ObservationFeatureVector& lhs,
-                        const ObservationFeatureVector& rhs) {
+  static float Distance(const ObservationFeatureVector& lhs, const ObservationFeatureVector& rhs) {
     float sum_sq = 0.0f;
     for (std::size_t i = 0; i < kObservationFeatureDimension; ++i) {
       const float diff = lhs.values[i] - rhs.values[i];

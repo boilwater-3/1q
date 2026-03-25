@@ -6,11 +6,11 @@
 #ifndef AIRBORNE_RADAR_DECISION_TACTICAL_COORDINATOR_H_
 #define AIRBORNE_RADAR_DECISION_TACTICAL_COORDINATOR_H_
 
+#include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
 #include "airborne_radar/decision/classifier/ThreatAssessmentEvaluator.h"
 #include "airborne_radar/decision/eccm/SurvivabilityEvaluator.h"
-#include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
-#include "airborne_radar/decision/pipeline/TacticalEvaluation.h"
 #include "airborne_radar/decision/lpi/EmissionControlEvaluator.h"
+#include "airborne_radar/decision/pipeline/TacticalEvaluation.h"
 #include "airborne_radar/environment/database/IFeatureRepository.h"
 
 namespace airborne_radar {
@@ -27,8 +27,7 @@ class TacticalCoordinator final : public ITacticalDecisionEngine {
    * @param feature_repository 供威胁识别使用的特征仓储；可为空。
    */
   explicit TacticalCoordinator(
-      const environment::database::IFeatureRepository* feature_repository =
-          nullptr);
+      const environment::database::IFeatureRepository* feature_repository = nullptr);
 
   /**
    * @brief 评估单周期输入并输出战术建议。
@@ -36,9 +35,8 @@ class TacticalCoordinator final : public ITacticalDecisionEngine {
    * @param[in,out] state_store 跨周期战术状态存储。
    * @return 本周期的战术决策结果。
    */
-  TacticalDecisionResult Evaluate(
-      const common::DecisionInputFrame& input_frame,
-      TacticalStateStore& state_store) override;
+  TacticalDecisionResult Evaluate(const common::DecisionInputFrame& input_frame,
+                                  TacticalStateStore& state_store) override;
 
  private:
   classifier::ThreatAssessmentEvaluator threat_assessment_evaluator_;
@@ -46,8 +44,8 @@ class TacticalCoordinator final : public ITacticalDecisionEngine {
   eccm::SurvivabilityEvaluator survivability_evaluator_;
 };
 
-} // namespace pipeline
-} // namespace decision
-} // namespace airborne_radar
+}  // namespace pipeline
+}  // namespace decision
+}  // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_DECISION_TACTICAL_COORDINATOR_H_
+#endif  // AIRBORNE_RADAR_DECISION_TACTICAL_COORDINATOR_H_

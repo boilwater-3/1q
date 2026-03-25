@@ -21,22 +21,24 @@ namespace common {
 struct TargetCategory {
   std::string target_type{"UNKNOWN"}; /**< 目标类别标识符 */
 
-  std::unordered_map<std::string, double> feature_values; /**< 目标类别的特征值列表，表示该类别的特征集合 */
+  std::unordered_map<std::string, double>
+      feature_values; /**< 目标类别的特征值列表，表示该类别的特征集合 */
 
   TargetCategory() = default; /**< 默认构造函数 */
 
-  explicit TargetCategory(const std::string &type) : target_type(type) {} /**< 带参数的构造函数 */
+  explicit TargetCategory(const std::string& type) : target_type(type) {} /**< 带参数的构造函数 */
 
   /** @brief 添加或更新特征值 */
-  void SetFeature(const std::string &feature_name, double value) {
+  void SetFeature(const std::string& feature_name, double value) {
     feature_values[feature_name] = value;
   }
 };
 
-/** @brief TargetCategoryList 是 TargetCategory 的列表，表示当前处理周期内所有相关目标类别的特征集合 */
+/** @brief TargetCategoryList 是 TargetCategory 的列表，表示当前处理周期内所有相关目标类别的特征集合
+ */
 using TargetCategoryList = std::vector<TargetCategory>;
 
-} // namespace common
-} // namespace airborne_radar
+}  // namespace common
+}  // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_COMMON_TARGET_CATEGORY_H_
+#endif  // AIRBORNE_RADAR_COMMON_TARGET_CATEGORY_H_

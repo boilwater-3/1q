@@ -3,6 +3,8 @@
 // @file radar_joint_integration_test.cpp
 // @brief 验证机载雷达两阶段联调场景下的控制器驱动集成链路。
 
+#include <gtest/gtest.h>
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -11,8 +13,6 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-
-#include <gtest/gtest.h>
 
 #include "1q/airborne_radar/common/RadarCommand.h"
 #include "1q/airborne_radar/common/RadarControlProfile.h"
@@ -34,9 +34,7 @@ class ScenarioRadarContext : public core::context::IRadarContext {
   explicit ScenarioRadarContext(common::TargetFeatureList target_features = {})
       : target_features_(std::move(target_features)) {}
 
-  common::TargetFeatureList GetTargetFeatures() const override {
-    return target_features_;
-  }
+  common::TargetFeatureList GetTargetFeatures() const override { return target_features_; }
 
   common::PlatformAttitudeDeg GetPlatformAttitude() const override {
     return platform_attitude_deg_;
@@ -48,8 +46,7 @@ class ScenarioRadarContext : public core::context::IRadarContext {
     submitted_commands_.push_back(command);
   }
 
-  void UpdateRadarControlProfile(
-      const common::RadarControlProfile& profile) override {
+  void UpdateRadarControlProfile(const common::RadarControlProfile& profile) override {
     latest_control_profile_ = profile;
   }
 
@@ -57,16 +54,13 @@ class ScenarioRadarContext : public core::context::IRadarContext {
     target_features_ = std::move(target_features);
   }
 
-  void SetPlatformAttitude(
-      const common::PlatformAttitudeDeg& platform_attitude_deg) {
+  void SetPlatformAttitude(const common::PlatformAttitudeDeg& platform_attitude_deg) {
     platform_attitude_deg_ = platform_attitude_deg;
   }
 
   void SetCycleDeltaTimeSec(float cycle_dt_sec) { cycle_dt_sec_ = cycle_dt_sec; }
 
-  const std::vector<common::RadarCommand>& SubmittedCommands() const {
-    return submitted_commands_;
-  }
+  const std::vector<common::RadarCommand>& SubmittedCommands() const { return submitted_commands_; }
 
   const common::RadarControlProfile& LatestControlProfile() const {
     return latest_control_profile_;
@@ -93,8 +87,7 @@ struct SceneScriptStep {
   environment::EnvironmentSceneState scene_state{};
   bool expect_jamming{false};
 
-  SceneScriptStep(const environment::EnvironmentSceneState& scene_state_in,
-                  bool expect_jamming_in)
+  SceneScriptStep(const environment::EnvironmentSceneState& scene_state_in, bool expect_jamming_in)
       : scene_state(scene_state_in), expect_jamming(expect_jamming_in) {}
 };
 
@@ -108,21 +101,15 @@ signal::pipeline::SignalPipelineConfig MakeJointIntegrationPipelineConfig() {
 }
 
 float ComputeRange(const common::TargetFeature& target) {
-  return std::sqrt(target.position_x * target.position_x +
-                   target.position_y * target.position_y +
+  return std::sqrt(target.position_x * target.position_x + target.position_y * target.position_y +
                    target.position_z * target.position_z);
 }
 
-common::TargetFeature BuildTarget(std::uint64_t external_target_id,
-                                  float velocity_x,
-                                  float velocity_y,
-                                  float velocity_z,
-                                  float rcs,
-                                  float position_x,
-                                  float position_y,
-                                  float position_z) {
-  common::TargetFeature target(velocity_x, velocity_y, velocity_z, rcs, 0.0f,
-                               0, external_target_id);
+common::TargetFeature BuildTarget(std::uint64_t external_target_id, float velocity_x,
+                                  float velocity_y, float velocity_z, float rcs, float position_x,
+                                  float position_y, float position_z) {
+  common::TargetFeature target(velocity_x, velocity_y, velocity_z, rcs, 0.0f, 0,
+                               external_target_id);
   target.position_x = position_x;
   target.position_y = position_y;
   target.position_z = position_z;
@@ -130,80 +117,59 @@ common::TargetFeature BuildTarget(std::uint64_t external_target_id,
   return target;
 }
 
-common::TargetFeature BuildGroundTarget(std::uint64_t external_target_id,
-                                        float position_x,
-                                        float position_y,
-                                        float rcs = 0.8f) {
-  return BuildTarget(external_target_id, 0.0f, 0.0f, 0.0f, rcs, position_x,
-                     position_y, 0.0f);
+common::TargetFeature BuildGroundTarget(std::uint64_t external_target_id, float position_x,
+                                        float position_y, float rcs = 0.8f) {
+  return BuildTarget(external_target_id, 0.0f, 0.0f, 0.0f, rcs, position_x, position_y, 0.0f);
 }
 
-common::TargetFeature BuildAirTarget(std::uint64_t external_target_id,
-                                     float velocity_x,
-                                     float velocity_y,
-                                     float velocity_z,
-                                     float rcs,
-                                     float position_x,
-                                     float position_y,
-                                     float position_z) {
-  return BuildTarget(external_target_id, velocity_x, velocity_y, velocity_z, rcs,
-                     position_x, position_y, position_z);
+common::TargetFeature BuildAirTarget(std::uint64_t external_target_id, float velocity_x,
+                                     float velocity_y, float velocity_z, float rcs,
+                                     float position_x, float position_y, float position_z) {
+  return BuildTarget(external_target_id, velocity_x, velocity_y, velocity_z, rcs, position_x,
+                     position_y, position_z);
 }
 
-common::TargetFeatureList BuildMixedPatrolTargetsWithBaseId(
-    std::size_t count,
-    std::uint64_t base_target_id,
-    float x_bias,
-    float y_bias,
-    float z_bias);
+common::TargetFeatureList BuildMixedPatrolTargetsWithBaseId(std::size_t count,
+                                                            std::uint64_t base_target_id,
+                                                            float x_bias, float y_bias,
+                                                            float z_bias);
 
-common::TargetFeatureList BuildStaticGroundTargets(std::size_t count,
-                                                   float x_bias,
-                                                   float y_bias) {
+common::TargetFeatureList BuildStaticGroundTargets(std::size_t count, float x_bias, float y_bias) {
   common::TargetFeatureList targets;
   targets.reserve(count);
   for (std::size_t i = 0; i < count; ++i) {
-    targets.push_back(BuildGroundTarget(
-        1000u + static_cast<std::uint64_t>(i),
-        x_bias + static_cast<float>(i) * 15.0f,
-        y_bias + static_cast<float>(i % 7) * 2.0f - 6.0f));
+    targets.push_back(BuildGroundTarget(1000u + static_cast<std::uint64_t>(i),
+                                        x_bias + static_cast<float>(i) * 15.0f,
+                                        y_bias + static_cast<float>(i % 7) * 2.0f - 6.0f));
   }
   return targets;
 }
 
-common::TargetFeatureList BuildMixedPatrolTargets(std::size_t count,
-                                                  float x_bias,
-                                                  float y_bias,
+common::TargetFeatureList BuildMixedPatrolTargets(std::size_t count, float x_bias, float y_bias,
                                                   float z_bias) {
   return BuildMixedPatrolTargetsWithBaseId(count, 5000u, x_bias, y_bias, z_bias);
 }
 
-common::TargetFeatureList BuildMixedPatrolTargetsWithBaseId(
-    std::size_t count,
-    std::uint64_t base_target_id,
-    float x_bias,
-    float y_bias,
-    float z_bias) {
+common::TargetFeatureList BuildMixedPatrolTargetsWithBaseId(std::size_t count,
+                                                            std::uint64_t base_target_id,
+                                                            float x_bias, float y_bias,
+                                                            float z_bias) {
   common::TargetFeatureList targets;
   targets.reserve(count);
   for (std::size_t i = 0; i < count; ++i) {
     const std::uint64_t target_id = base_target_id + static_cast<std::uint64_t>(i);
     if ((i % 3U) == 0U) {
-      targets.push_back(BuildGroundTarget(
-          target_id, x_bias + static_cast<float>(i) * 10.0f,
-          y_bias + static_cast<float>(i % 5) * 3.0f - 6.0f,
-          0.7f + static_cast<float>(i % 4) * 0.05f));
+      targets.push_back(BuildGroundTarget(target_id, x_bias + static_cast<float>(i) * 10.0f,
+                                          y_bias + static_cast<float>(i % 5) * 3.0f - 6.0f,
+                                          0.7f + static_cast<float>(i % 4) * 0.05f));
       continue;
     }
 
     const float velocity_x = 55.0f + static_cast<float>(i % 11);
-    const float velocity_y =
-        (static_cast<float>(i % 5) - 2.0f) * 0.6f;
+    const float velocity_y = (static_cast<float>(i % 5) - 2.0f) * 0.6f;
     targets.push_back(BuildAirTarget(
-        target_id, velocity_x, velocity_y, 0.0f,
-        0.9f + static_cast<float>(i % 3) * 0.1f,
-        x_bias + static_cast<float>(i) * 12.0f,
-        y_bias + static_cast<float>(i % 9) * 1.5f - 6.0f,
+        target_id, velocity_x, velocity_y, 0.0f, 0.9f + static_cast<float>(i % 3) * 0.1f,
+        x_bias + static_cast<float>(i) * 12.0f, y_bias + static_cast<float>(i % 9) * 1.5f - 6.0f,
         z_bias + static_cast<float>(i % 4) * 2.0f));
   }
   return targets;
@@ -220,8 +186,8 @@ void AdvanceTargets(float dt_sec, common::TargetFeatureList* targets) {
   }
 }
 
-std::unordered_map<std::uint64_t, const common::DecisionTrackSnapshot*>
-BuildTrackMapByExternalId(const common::TrackOutputFrame& frame) {
+std::unordered_map<std::uint64_t, const common::DecisionTrackSnapshot*> BuildTrackMapByExternalId(
+    const common::TrackOutputFrame& frame) {
   std::unordered_map<std::uint64_t, const common::DecisionTrackSnapshot*> track_map;
   for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
     const common::DecisionTrackSnapshot& track = frame.tracks[i];
@@ -243,8 +209,7 @@ std::vector<const common::DecisionTrackSnapshot*> CollectTracksByExternalId(
   return matching_tracks;
 }
 
-bool ContainsCommandType(const ScenarioRadarContext& radar_context,
-                         common::RadarCommandType type) {
+bool ContainsCommandType(const ScenarioRadarContext& radar_context, common::RadarCommandType type) {
   for (std::size_t i = 0; i < radar_context.SubmittedCommands().size(); ++i) {
     if (radar_context.SubmittedCommands()[i].type == type) {
       return true;
@@ -263,13 +228,10 @@ std::size_t CountJammingFlaggedTracks(const common::TrackOutputFrame& frame) {
   return count;
 }
 
-environment::JammerEmitterState BuildJammerEmitter(
-    environment::JammingTechnique technique,
-    float power_db,
-    float js_db,
-    float frequency_overlap_ratio,
-    float prf_lock_risk,
-    bool in_sidelobe) {
+environment::JammerEmitterState BuildJammerEmitter(environment::JammingTechnique technique,
+                                                   float power_db, float js_db,
+                                                   float frequency_overlap_ratio,
+                                                   float prf_lock_risk, bool in_sidelobe) {
   environment::JammerEmitterState emitter =
       environment_test::MakeJammerEmitter(technique, power_db);
   emitter.js_db = js_db;
@@ -285,33 +247,31 @@ environment::EnvironmentSceneState MakeClearScene() {
 
 environment::EnvironmentSceneState MakeNoiseScene() {
   return environment_test::MemorySceneBuilder()
-      .AddJammer(BuildJammerEmitter(
-          environment::JammingTechnique::kNoiseSuppression, 11.0f, 8.0f,
-          0.20f, 0.10f, true))
+      .AddJammer(BuildJammerEmitter(environment::JammingTechnique::kNoiseSuppression, 11.0f, 8.0f,
+                                    0.20f, 0.10f, true))
       .BuildSceneState();
 }
 
 environment::EnvironmentSceneState MakeDeceptionScene() {
   return environment_test::MemorySceneBuilder()
-      .AddJammer(BuildJammerEmitter(environment::JammingTechnique::kDeception,
-                                   8.0f, 8.0f, 0.90f, 0.90f, false))
+      .AddJammer(BuildJammerEmitter(environment::JammingTechnique::kDeception, 8.0f, 8.0f, 0.90f,
+                                    0.90f, false))
       .BuildSceneState();
 }
 
 environment::EnvironmentSceneState MakeRepeaterScene() {
   return environment_test::MemorySceneBuilder()
-      .AddJammer(BuildJammerEmitter(environment::JammingTechnique::kRepeater,
-                                   8.5f, 7.0f, 0.15f, 0.95f, false))
+      .AddJammer(BuildJammerEmitter(environment::JammingTechnique::kRepeater, 8.5f, 7.0f, 0.15f,
+                                    0.95f, false))
       .BuildSceneState();
 }
 
 environment::EnvironmentSceneState MakeMixedScene() {
   return environment_test::MemorySceneBuilder()
-      .AddJammer(BuildJammerEmitter(
-          environment::JammingTechnique::kNoiseSuppression, 12.0f, 8.0f, 0.18f,
-          0.10f, true))
-      .AddJammer(BuildJammerEmitter(environment::JammingTechnique::kDeception,
-                                   9.0f, 7.5f, 0.90f, 0.90f, false))
+      .AddJammer(BuildJammerEmitter(environment::JammingTechnique::kNoiseSuppression, 12.0f, 8.0f,
+                                    0.18f, 0.10f, true))
+      .AddJammer(BuildJammerEmitter(environment::JammingTechnique::kDeception, 9.0f, 7.5f, 0.90f,
+                                    0.90f, false))
       .BuildSceneState();
 }
 
@@ -325,10 +285,9 @@ void ExpectFrameContainsTargets(const common::TrackOutputFrame& frame,
   }
 }
 
-common::TrackOutputFrame RunScenarioCycle(
-    core::controller::RadarController* controller,
-    ScenarioRadarContext* radar_context,
-    const common::TargetFeatureList& targets) {
+common::TrackOutputFrame RunScenarioCycle(core::controller::RadarController* controller,
+                                          ScenarioRadarContext* radar_context,
+                                          const common::TargetFeatureList& targets) {
   EXPECT_NE(controller, nullptr);
   EXPECT_NE(radar_context, nullptr);
   if (controller == nullptr || radar_context == nullptr) {
@@ -340,19 +299,17 @@ common::TrackOutputFrame RunScenarioCycle(
   return controller->GetLatestTrackOutputFrame();
 }
 
-CycleStats CaptureCycleStats(
-    const common::TrackOutputFrame& frame,
-    const ScenarioRadarContext& radar_context,
-    const signal::pipeline::SignalPipeline& signal_pipeline,
-    std::size_t previous_command_count) {
+CycleStats CaptureCycleStats(const common::TrackOutputFrame& frame,
+                             const ScenarioRadarContext& radar_context,
+                             const signal::pipeline::SignalPipeline& signal_pipeline,
+                             std::size_t previous_command_count) {
   const signal::pipeline::AssociationQualityMetrics metrics =
       signal_pipeline.GetLastAssociationQualityMetrics();
   CycleStats stats;
   stats.published_track_count = frame.published_track_count;
   stats.confirmed_track_count = frame.confirmed_track_count;
   stats.jamming_track_count = CountJammingFlaggedTracks(frame);
-  stats.command_delta_count =
-      radar_context.SubmittedCommands().size() - previous_command_count;
+  stats.command_delta_count = radar_context.SubmittedCommands().size() - previous_command_count;
   stats.association_stress = metrics.association_stress;
   stats.match_rate = metrics.match_rate;
   return stats;
@@ -388,8 +345,7 @@ void ExpectFrameContainsTargetIds(const common::TrackOutputFrame& frame,
   }
 }
 
-std::vector<std::uint64_t> ExtractTargetIds(
-    const common::TargetFeatureList& targets) {
+std::vector<std::uint64_t> ExtractTargetIds(const common::TargetFeatureList& targets) {
   std::vector<std::uint64_t> target_ids;
   target_ids.reserve(targets.size());
   for (std::size_t i = 0; i < targets.size(); ++i) {
@@ -400,14 +356,11 @@ std::vector<std::uint64_t> ExtractTargetIds(
 
 }  // namespace
 
-TEST(RadarJointIntegrationTest,
-     StageOneGroundTargetsRemainStableWithoutInterference) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+TEST(RadarJointIntegrationTest, StageOneGroundTargetsRemainStableWithoutInterference) {
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   common::TargetFeatureList targets{
       BuildGroundTarget(101u, 20.0f, -5.0f),
@@ -416,8 +369,7 @@ TEST(RadarJointIntegrationTest,
   };
 
   for (std::size_t cycle = 0; cycle < 3U; ++cycle) {
-    const common::TrackOutputFrame frame =
-        RunScenarioCycle(&controller, &radar_context, targets);
+    const common::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
 
     ASSERT_EQ(frame.published_track_count, targets.size());
     ASSERT_EQ(frame.confirmed_track_count, targets.size());
@@ -426,8 +378,7 @@ TEST(RadarJointIntegrationTest,
 
     const auto track_map = BuildTrackMapByExternalId(frame);
     for (std::size_t i = 0; i < targets.size(); ++i) {
-      const common::DecisionTrackSnapshot& track =
-          *track_map.at(targets[i].external_target_id);
+      const common::DecisionTrackSnapshot& track = *track_map.at(targets[i].external_target_id);
       EXPECT_NEAR(track.state.position_z, 0.0f, 1e-5f);
       EXPECT_NEAR(track.state.speed, 0.0f, 1e-5f);
       EXPECT_FALSE(track.state.jamming_detected);
@@ -437,15 +388,12 @@ TEST(RadarJointIntegrationTest,
   EXPECT_TRUE(radar_context.SubmittedCommands().empty());
 }
 
-TEST(RadarJointIntegrationTest,
-     StageOneMovingAirTargetsKeepStableEnemyOutputWithoutInterference) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+TEST(RadarJointIntegrationTest, StageOneMovingAirTargetsKeepStableEnemyOutputWithoutInterference) {
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   common::TargetFeatureList targets{
       BuildAirTarget(201u, 70.0f, 0.0f, 0.0f, 0.9f, 200.0f, -20.0f, 18.0f),
@@ -458,8 +406,7 @@ TEST(RadarJointIntegrationTest,
   std::unordered_map<std::uint64_t, float> previous_position_x;
 
   for (std::size_t cycle = 0; cycle < 4U; ++cycle) {
-    const common::TrackOutputFrame frame =
-        RunScenarioCycle(&controller, &radar_context, targets);
+    const common::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
 
     ASSERT_EQ(frame.published_track_count, targets.size());
     ASSERT_EQ(frame.confirmed_track_count, targets.size());
@@ -469,24 +416,18 @@ TEST(RadarJointIntegrationTest,
     const auto track_map = BuildTrackMapByExternalId(frame);
     for (std::size_t i = 0; i < targets.size(); ++i) {
       const common::TargetFeature& target = targets[i];
-      const common::DecisionTrackSnapshot& track =
-          *track_map.at(target.external_target_id);
+      const common::DecisionTrackSnapshot& track = *track_map.at(target.external_target_id);
       const float expected_speed =
-          std::sqrt(target.current_track_velocity_x *
-                        target.current_track_velocity_x +
-                    target.current_track_velocity_y *
-                        target.current_track_velocity_y +
-                    target.current_track_velocity_z *
-                        target.current_track_velocity_z);
+          std::sqrt(target.current_track_velocity_x * target.current_track_velocity_x +
+                    target.current_track_velocity_y * target.current_track_velocity_y +
+                    target.current_track_velocity_z * target.current_track_velocity_z);
       EXPECT_GT(track.state.position_z, 0.0f);
       EXPECT_NEAR(track.state.speed, expected_speed, 1e-4f);
       EXPECT_FALSE(track.state.jamming_detected);
 
       if (cycle > 0U) {
-        EXPECT_EQ(track.state.association_key,
-                  previous_keys[target.external_target_id]);
-        EXPECT_GT(track.state.position_x,
-                  previous_position_x[target.external_target_id]);
+        EXPECT_EQ(track.state.association_key, previous_keys[target.external_target_id]);
+        EXPECT_GT(track.state.position_x, previous_position_x[target.external_target_id]);
       }
       previous_keys[target.external_target_id] = track.state.association_key;
       previous_position_x[target.external_target_id] = track.state.position_x;
@@ -500,13 +441,11 @@ TEST(RadarJointIntegrationTest,
 
 TEST(RadarJointIntegrationTest,
      StageTwoNoiseSuppressionInterferenceKeepsEnemyOutputAndEnablesEccm) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   common::TargetFeatureList targets{
       BuildAirTarget(301u, 60.0f, 0.0f, 0.0f, 1.0f, 180.0f, -6.0f, 16.0f),
@@ -521,9 +460,8 @@ TEST(RadarJointIntegrationTest,
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   environment_service.UpdateSceneState(
       environment_test::MemorySceneBuilder()
-          .AddJammer(BuildJammerEmitter(
-              environment::JammingTechnique::kNoiseSuppression, 12.0f, 8.0f,
-              0.20f, 0.10f, true))
+          .AddJammer(BuildJammerEmitter(environment::JammingTechnique::kNoiseSuppression, 12.0f,
+                                        8.0f, 0.20f, 0.10f, true))
           .BuildSceneState());
 
   const common::TrackOutputFrame jammed_frame =
@@ -531,16 +469,14 @@ TEST(RadarJointIntegrationTest,
   EXPECT_GT(CountJammingFlaggedTracks(jammed_frame), 0U);
   ExpectFrameContainsTargets(jammed_frame, targets);
 
-  const common::RadarControlProfile cycle_2_profile =
-      radar_context.LatestControlProfile();
+  const common::RadarControlProfile cycle_2_profile = radar_context.LatestControlProfile();
   EXPECT_TRUE(cycle_2_profile.enable_sidelobe_canceller);
   EXPECT_TRUE(cycle_2_profile.enable_adaptive_beamforming);
   EXPECT_GT(cycle_2_profile.eccm_burnthrough_gain, 1.0f);
   EXPECT_TRUE(
-      ContainsCommandType(radar_context,
-                          common::RadarCommandType::ENABLE_SIDELOBE_CANCELLER));
-  EXPECT_TRUE(ContainsCommandType(
-      radar_context, common::RadarCommandType::SET_ECCM_BURNTHROUGH_GAIN));
+      ContainsCommandType(radar_context, common::RadarCommandType::ENABLE_SIDELOBE_CANCELLER));
+  EXPECT_TRUE(
+      ContainsCommandType(radar_context, common::RadarCommandType::SET_ECCM_BURNTHROUGH_GAIN));
 
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   const common::TrackOutputFrame protected_frame =
@@ -553,13 +489,11 @@ TEST(RadarJointIntegrationTest,
 
 TEST(RadarJointIntegrationTest,
      StageTwoDeceptionInterferenceImprovesAssociationAfterProfileApplies) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   common::TargetFeatureList targets{
       BuildAirTarget(401u, 1.0f, 0.0f, 0.0f, 1.0f, 4.0f, 0.0f, 3.0f),
@@ -572,8 +506,8 @@ TEST(RadarJointIntegrationTest,
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   environment_service.UpdateSceneState(
       environment_test::MemorySceneBuilder()
-          .AddJammer(BuildJammerEmitter(environment::JammingTechnique::kDeception,
-                                       8.0f, 8.0f, 0.90f, 0.90f, false))
+          .AddJammer(BuildJammerEmitter(environment::JammingTechnique::kDeception, 8.0f, 8.0f,
+                                        0.90f, 0.90f, false))
           .BuildSceneState());
 
   const common::TrackOutputFrame cycle_2_frame =
@@ -581,17 +515,13 @@ TEST(RadarJointIntegrationTest,
   const signal::pipeline::AssociationQualityMetrics cycle_2_metrics =
       signal_pipeline.GetLastAssociationQualityMetrics();
   EXPECT_GT(CountJammingFlaggedTracks(cycle_2_frame), 0U);
-  EXPECT_EQ(cycle_2_metrics.dominant_jamming_semantic,
-            common::JammingSemantic::kDeception);
+  EXPECT_EQ(cycle_2_metrics.dominant_jamming_semantic, common::JammingSemantic::kDeception);
 
-  const common::RadarControlProfile cycle_2_profile =
-      radar_context.LatestControlProfile();
+  const common::RadarControlProfile cycle_2_profile = radar_context.LatestControlProfile();
   EXPECT_TRUE(cycle_2_profile.enable_agility_frequency);
   EXPECT_TRUE(cycle_2_profile.enable_eccm_rejitter);
-  EXPECT_TRUE(ContainsCommandType(radar_context,
-                                  common::RadarCommandType::SET_AGILITY_FREQ));
-  EXPECT_TRUE(ContainsCommandType(
-      radar_context, common::RadarCommandType::SET_ECCM_REJITTER));
+  EXPECT_TRUE(ContainsCommandType(radar_context, common::RadarCommandType::SET_AGILITY_FREQ));
+  EXPECT_TRUE(ContainsCommandType(radar_context, common::RadarCommandType::SET_ECCM_REJITTER));
 
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   const common::TrackOutputFrame cycle_3_frame =
@@ -601,20 +531,16 @@ TEST(RadarJointIntegrationTest,
 
   EXPECT_GT(cycle_3_frame.confirmed_track_count, 0U);
   ExpectFrameContainsTargets(cycle_3_frame, targets);
-  EXPECT_LE(cycle_3_metrics.association_stress,
-            cycle_2_metrics.association_stress);
+  EXPECT_LE(cycle_3_metrics.association_stress, cycle_2_metrics.association_stress);
   EXPECT_GE(cycle_3_metrics.match_rate, cycle_2_metrics.match_rate);
 }
 
-TEST(RadarJointIntegrationTest,
-     StageTwoRepeaterInterferenceKeepsTrackOutputAndSustainsRejitter) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+TEST(RadarJointIntegrationTest, StageTwoRepeaterInterferenceKeepsTrackOutputAndSustainsRejitter) {
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   common::TargetFeatureList targets{
       BuildAirTarget(501u, 2.0f, 0.0f, 0.0f, 1.0f, 8.0f, -1.0f, 3.0f),
@@ -628,21 +554,19 @@ TEST(RadarJointIntegrationTest,
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   environment_service.UpdateSceneState(
       environment_test::MemorySceneBuilder()
-          .AddJammer(BuildJammerEmitter(environment::JammingTechnique::kRepeater,
-                                       7.5f, 7.0f, 0.10f, 0.95f, false))
+          .AddJammer(BuildJammerEmitter(environment::JammingTechnique::kRepeater, 7.5f, 7.0f, 0.10f,
+                                        0.95f, false))
           .BuildSceneState());
 
   const common::TrackOutputFrame cycle_2_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
-  const common::RadarControlProfile cycle_2_profile =
-      radar_context.LatestControlProfile();
+  const common::RadarControlProfile cycle_2_profile = radar_context.LatestControlProfile();
   EXPECT_GT(CountJammingFlaggedTracks(cycle_2_frame), 0U);
   EXPECT_TRUE(cycle_2_profile.enable_eccm_rejitter);
   EXPECT_TRUE(cycle_2_profile.enable_adaptive_beamforming);
-  EXPECT_TRUE(ContainsCommandType(
-      radar_context, common::RadarCommandType::SET_ECCM_REJITTER));
-  EXPECT_TRUE(ContainsCommandType(
-      radar_context, common::RadarCommandType::ENABLE_ADAPTIVE_BEAMFORMING));
+  EXPECT_TRUE(ContainsCommandType(radar_context, common::RadarCommandType::SET_ECCM_REJITTER));
+  EXPECT_TRUE(
+      ContainsCommandType(radar_context, common::RadarCommandType::ENABLE_ADAPTIVE_BEAMFORMING));
 
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   const common::TrackOutputFrame cycle_3_frame =
@@ -654,13 +578,11 @@ TEST(RadarJointIntegrationTest,
 
 TEST(RadarJointIntegrationTest,
      StageTwoMixedInterferenceStacksCountermeasuresAndPreservesEnemyInfo) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   common::TargetFeatureList targets{
       BuildAirTarget(601u, 4.0f, 0.0f, 0.0f, 1.0f, 14.0f, -4.0f, 4.0f),
@@ -675,17 +597,15 @@ TEST(RadarJointIntegrationTest,
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   environment_service.UpdateSceneState(
       environment_test::MemorySceneBuilder()
-          .AddJammer(BuildJammerEmitter(
-              environment::JammingTechnique::kNoiseSuppression, 12.0f, 8.0f,
-              0.15f, 0.10f, true))
-          .AddJammer(BuildJammerEmitter(environment::JammingTechnique::kDeception,
-                                       9.0f, 7.5f, 0.90f, 0.90f, false))
+          .AddJammer(BuildJammerEmitter(environment::JammingTechnique::kNoiseSuppression, 12.0f,
+                                        8.0f, 0.15f, 0.10f, true))
+          .AddJammer(BuildJammerEmitter(environment::JammingTechnique::kDeception, 9.0f, 7.5f,
+                                        0.90f, 0.90f, false))
           .BuildSceneState());
 
   const common::TrackOutputFrame cycle_2_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
-  const common::RadarControlProfile cycle_2_profile =
-      radar_context.LatestControlProfile();
+  const common::RadarControlProfile cycle_2_profile = radar_context.LatestControlProfile();
   EXPECT_GT(CountJammingFlaggedTracks(cycle_2_frame), 0U);
   EXPECT_TRUE(cycle_2_profile.enable_sidelobe_canceller);
   EXPECT_TRUE(cycle_2_profile.enable_agility_frequency);
@@ -702,31 +622,26 @@ TEST(RadarJointIntegrationTest,
   EXPECT_GT(CountJammingFlaggedTracks(cycle_3_frame), 0U);
   ExpectFrameContainsTargets(cycle_3_frame, targets);
   for (std::size_t i = 0; i < targets.size(); ++i) {
-    const common::DecisionTrackSnapshot& track =
-        *track_map.at(targets[i].external_target_id);
+    const common::DecisionTrackSnapshot& track = *track_map.at(targets[i].external_target_id);
     EXPECT_GT(track.state.speed, 0.0f);
     EXPECT_GT(track.state.position_z, 0.0f);
     EXPECT_TRUE(track.state.jamming_detected);
   }
 }
 
-TEST(RadarJointIntegrationTest,
-     MediumScaleStaticSearchMaintainsStableOutputAcrossTargetTiers) {
+TEST(RadarJointIntegrationTest, MediumScaleStaticSearchMaintainsStableOutputAcrossTargetTiers) {
   const std::vector<std::size_t> target_tiers{10U, 50U, 100U};
-  for (std::size_t tier_index = 0; tier_index < target_tiers.size();
-       ++tier_index) {
-    signal::pipeline::SignalPipeline signal_pipeline(
-        MakeJointIntegrationPipelineConfig());
+  for (std::size_t tier_index = 0; tier_index < target_tiers.size(); ++tier_index) {
+    signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
     environment::EnvironmentService environment_service;
     ScenarioRadarContext radar_context;
-    core::controller::RadarController controller(
-        radar_context, signal_pipeline, environment_service);
+    core::controller::RadarController controller(radar_context, signal_pipeline,
+                                                 environment_service);
 
-    const common::TargetFeatureList targets = BuildStaticGroundTargets(
-        target_tiers[tier_index], 60.0f, -8.0f);
+    const common::TargetFeatureList targets =
+        BuildStaticGroundTargets(target_tiers[tier_index], 60.0f, -8.0f);
     for (std::size_t cycle = 0; cycle < 5U; ++cycle) {
-      const common::TrackOutputFrame frame =
-          RunScenarioCycle(&controller, &radar_context, targets);
+      const common::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
       ASSERT_EQ(frame.published_track_count, target_tiers[tier_index]);
       ASSERT_EQ(frame.confirmed_track_count, target_tiers[tier_index]);
       EXPECT_FALSE(frame.contains_lost_tracks);
@@ -737,8 +652,7 @@ TEST(RadarJointIntegrationTest,
   }
 }
 
-TEST(RadarJointIntegrationTest,
-     MediumScaleDynamicSearchMaintainsStableAssociationsAcrossDuration) {
+TEST(RadarJointIntegrationTest, MediumScaleDynamicSearchMaintainsStableAssociationsAcrossDuration) {
   struct DynamicTier {
     std::size_t target_count;
     std::size_t cycle_count;
@@ -746,27 +660,24 @@ TEST(RadarJointIntegrationTest,
 
   const std::vector<DynamicTier> tiers{{10U, 20U}, {50U, 30U}};
   for (std::size_t tier_index = 0; tier_index < tiers.size(); ++tier_index) {
-    signal::pipeline::SignalPipeline signal_pipeline(
-        MakeJointIntegrationPipelineConfig());
+    signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
     environment::EnvironmentService environment_service;
     ScenarioRadarContext radar_context;
     radar_context.SetCycleDeltaTimeSec(1.0f);
-    core::controller::RadarController controller(
-        radar_context, signal_pipeline, environment_service);
+    core::controller::RadarController controller(radar_context, signal_pipeline,
+                                                 environment_service);
 
-    common::TargetFeatureList targets = BuildMixedPatrolTargets(
-        tiers[tier_index].target_count, 120.0f, -6.0f, 6.0f);
+    common::TargetFeatureList targets =
+        BuildMixedPatrolTargets(tiers[tier_index].target_count, 120.0f, -6.0f, 6.0f);
     std::unordered_map<std::uint64_t, std::uint64_t> previous_keys;
     std::vector<CycleStats> stats;
     stats.reserve(tiers[tier_index].cycle_count);
 
     for (std::size_t cycle = 0; cycle < tiers[tier_index].cycle_count; ++cycle) {
-      const std::size_t previous_command_count =
-          radar_context.SubmittedCommands().size();
-      const common::TrackOutputFrame frame =
-          RunScenarioCycle(&controller, &radar_context, targets);
-      stats.push_back(CaptureCycleStats(frame, radar_context, signal_pipeline,
-                                        previous_command_count));
+      const std::size_t previous_command_count = radar_context.SubmittedCommands().size();
+      const common::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
+      stats.push_back(
+          CaptureCycleStats(frame, radar_context, signal_pipeline, previous_command_count));
       ASSERT_EQ(frame.published_track_count, tiers[tier_index].target_count);
       ASSERT_EQ(frame.confirmed_track_count, tiers[tier_index].target_count);
       ExpectFrameContainsTargets(frame, targets);
@@ -776,8 +687,7 @@ TEST(RadarJointIntegrationTest,
         const std::uint64_t target_id = targets[i].external_target_id;
         ASSERT_NE(track_map.count(target_id), 0U);
         if (cycle > 0U) {
-          EXPECT_EQ(track_map.at(target_id)->state.association_key,
-                    previous_keys[target_id]);
+          EXPECT_EQ(track_map.at(target_id)->state.association_key, previous_keys[target_id]);
         }
         previous_keys[target_id] = track_map.at(target_id)->state.association_key;
       }
@@ -792,25 +702,17 @@ TEST(RadarJointIntegrationTest,
 
 TEST(RadarJointIntegrationTest,
      FrequentSceneSwitchingKeepsOutputReadableAndFreezesPerCycleEnvironment) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
-  common::TargetFeatureList targets =
-      BuildMixedPatrolTargets(20U, 100.0f, -5.0f, 6.0f);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
+  common::TargetFeatureList targets = BuildMixedPatrolTargets(20U, 100.0f, -5.0f, 6.0f);
 
   const std::vector<SceneScriptStep> script{
-      {MakeClearScene(), false},
-      {MakeNoiseScene(), true},
-      {MakeDeceptionScene(), true},
-      {MakeClearScene(), false},
-      {MakeMixedScene(), true},
-      {MakeClearScene(), false},
-      {MakeRepeaterScene(), true},
-      {MakeClearScene(), false},
+      {MakeClearScene(), false},   {MakeNoiseScene(), true},  {MakeDeceptionScene(), true},
+      {MakeClearScene(), false},   {MakeMixedScene(), true},  {MakeClearScene(), false},
+      {MakeRepeaterScene(), true}, {MakeClearScene(), false},
   };
 
   std::vector<CycleStats> stats;
@@ -820,12 +722,10 @@ TEST(RadarJointIntegrationTest,
 
   for (std::size_t cycle = 0; cycle < script.size(); ++cycle) {
     environment_service.UpdateSceneState(script[cycle].scene_state);
-    const std::size_t previous_command_count =
-        radar_context.SubmittedCommands().size();
-    const common::TrackOutputFrame frame =
-        RunScenarioCycle(&controller, &radar_context, targets);
-    stats.push_back(CaptureCycleStats(frame, radar_context, signal_pipeline,
-                                      previous_command_count));
+    const std::size_t previous_command_count = radar_context.SubmittedCommands().size();
+    const common::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
+    stats.push_back(
+        CaptureCycleStats(frame, radar_context, signal_pipeline, previous_command_count));
 
     ASSERT_GE(frame.published_track_count, targets.size());
     ASSERT_GE(frame.confirmed_track_count, targets.size());
@@ -836,8 +736,7 @@ TEST(RadarJointIntegrationTest,
       EXPECT_EQ(stats.back().jamming_track_count, 0U);
     }
 
-    const std::uint64_t current_profile_version =
-        radar_context.LatestControlProfile().version;
+    const std::uint64_t current_profile_version = radar_context.LatestControlProfile().version;
     if (current_profile_version != previous_profile_version) {
       ++changed_profile_cycles;
     }
@@ -850,17 +749,13 @@ TEST(RadarJointIntegrationTest,
   EXPECT_GT(changed_profile_cycles, 0U);
 }
 
-TEST(RadarJointIntegrationTest,
-     LongDurationMediumLoadPatrolKeepsMetricsBoundedWithoutDivergence) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+TEST(RadarJointIntegrationTest, LongDurationMediumLoadPatrolKeepsMetricsBoundedWithoutDivergence) {
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
-  common::TargetFeatureList targets =
-      BuildMixedPatrolTargets(32U, 140.0f, -8.0f, 8.0f);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
+  common::TargetFeatureList targets = BuildMixedPatrolTargets(32U, 140.0f, -8.0f, 8.0f);
 
   const std::size_t cycle_count = 120U;
   std::vector<CycleStats> stats;
@@ -891,15 +786,12 @@ TEST(RadarJointIntegrationTest,
       }
     }
 
-    const std::size_t previous_command_count =
-        radar_context.SubmittedCommands().size();
-    const common::TrackOutputFrame frame =
-        RunScenarioCycle(&controller, &radar_context, targets);
-    const CycleStats cycle_stats = CaptureCycleStats(
-        frame, radar_context, signal_pipeline, previous_command_count);
+    const std::size_t previous_command_count = radar_context.SubmittedCommands().size();
+    const common::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
+    const CycleStats cycle_stats =
+        CaptureCycleStats(frame, radar_context, signal_pipeline, previous_command_count);
     stats.push_back(cycle_stats);
-    max_association_stress =
-        std::max(max_association_stress, cycle_stats.association_stress);
+    max_association_stress = std::max(max_association_stress, cycle_stats.association_stress);
     min_match_rate = std::min(min_match_rate, cycle_stats.match_rate);
 
     EXPECT_GE(frame.published_track_count, 24U);
@@ -914,42 +806,33 @@ TEST(RadarJointIntegrationTest,
   EXPECT_GE(min_match_rate, 0.0f);
 }
 
-TEST(RadarJointIntegrationTest,
-     EmptySearchAreaKeepsTrackOutputReadableWithoutSpuriousCommands) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+TEST(RadarJointIntegrationTest, EmptySearchAreaKeepsTrackOutputReadableWithoutSpuriousCommands) {
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   const common::TargetFeatureList targets;
   for (std::size_t cycle = 0; cycle < 3U; ++cycle) {
-    const common::TrackOutputFrame frame =
-        RunScenarioCycle(&controller, &radar_context, targets);
+    const common::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
     EXPECT_EQ(frame.published_track_count, 0U);
     EXPECT_EQ(frame.confirmed_track_count, 0U);
     EXPECT_TRUE(frame.tracks.empty());
     EXPECT_FALSE(frame.contains_lost_tracks);
   }
 
-  EXPECT_FALSE(ContainsCommandType(
-      radar_context, common::RadarCommandType::SET_AGILITY_FREQ));
-  EXPECT_FALSE(ContainsCommandType(
-      radar_context, common::RadarCommandType::SET_ECCM_REJITTER));
-  EXPECT_FALSE(ContainsCommandType(
-      radar_context, common::RadarCommandType::ENABLE_SIDELOBE_CANCELLER));
+  EXPECT_FALSE(ContainsCommandType(radar_context, common::RadarCommandType::SET_AGILITY_FREQ));
+  EXPECT_FALSE(ContainsCommandType(radar_context, common::RadarCommandType::SET_ECCM_REJITTER));
+  EXPECT_FALSE(
+      ContainsCommandType(radar_context, common::RadarCommandType::ENABLE_SIDELOBE_CANCELLER));
 }
 
-TEST(RadarJointIntegrationTest,
-     DuplicateExternalTargetIdsStillProduceDistinctStableTracks) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+TEST(RadarJointIntegrationTest, DuplicateExternalTargetIdsStillProduceDistinctStableTracks) {
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   common::TargetFeatureList targets{
       BuildAirTarget(9001u, 42.0f, 0.4f, 0.0f, 0.9f, 120.0f, -6.0f, 12.0f),
@@ -959,8 +842,7 @@ TEST(RadarJointIntegrationTest,
 
   std::vector<std::uint64_t> previous_duplicate_keys;
   for (std::size_t cycle = 0; cycle < 3U; ++cycle) {
-    const common::TrackOutputFrame frame =
-        RunScenarioCycle(&controller, &radar_context, targets);
+    const common::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
     ASSERT_EQ(frame.published_track_count, targets.size());
     ASSERT_EQ(frame.confirmed_track_count, targets.size());
     EXPECT_FALSE(frame.contains_lost_tracks);
@@ -990,15 +872,12 @@ TEST(RadarJointIntegrationTest,
   }
 }
 
-TEST(RadarJointIntegrationTest,
-     ExtremeRangeTargetsKeepFiniteStableOutputAcrossCycles) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+TEST(RadarJointIntegrationTest, ExtremeRangeTargetsKeepFiniteStableOutputAcrossCycles) {
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   common::TargetFeatureList targets{
       BuildGroundTarget(9101u, 2.5f, -0.5f, 0.8f),
@@ -1009,8 +888,7 @@ TEST(RadarJointIntegrationTest,
 
   std::unordered_map<std::uint64_t, std::uint64_t> previous_keys;
   for (std::size_t cycle = 0; cycle < 4U; ++cycle) {
-    const common::TrackOutputFrame frame =
-        RunScenarioCycle(&controller, &radar_context, targets);
+    const common::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
     ASSERT_EQ(frame.published_track_count, targets.size());
     ASSERT_EQ(frame.confirmed_track_count, targets.size());
     EXPECT_FALSE(frame.contains_lost_tracks);
@@ -1018,15 +896,13 @@ TEST(RadarJointIntegrationTest,
 
     const auto track_map = BuildTrackMapByExternalId(frame);
     for (std::size_t i = 0; i < targets.size(); ++i) {
-      const common::DecisionTrackSnapshot& track =
-          *track_map.at(targets[i].external_target_id);
+      const common::DecisionTrackSnapshot& track = *track_map.at(targets[i].external_target_id);
       ExpectFiniteTrackState(track);
       EXPECT_FALSE(track.state.jamming_detected);
       EXPECT_GT(track.state.association_key, 0U);
       EXPECT_GT(track.state.position_x, 0.0f);
       if (cycle > 0U) {
-        EXPECT_EQ(track.state.association_key,
-                  previous_keys[targets[i].external_target_id]);
+        EXPECT_EQ(track.state.association_key, previous_keys[targets[i].external_target_id]);
       }
       previous_keys[targets[i].external_target_id] = track.state.association_key;
     }
@@ -1036,13 +912,11 @@ TEST(RadarJointIntegrationTest,
 
 TEST(RadarJointIntegrationTest,
      StationaryAndHighSpeedTargetsRemainTrackableWithoutAssociationCollapse) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   common::TargetFeatureList targets{
       BuildGroundTarget(9201u, 35.0f, -4.0f, 0.9f),
@@ -1055,8 +929,7 @@ TEST(RadarJointIntegrationTest,
   float previous_stationary_x = 0.0f;
   float previous_fast_x = 0.0f;
   for (std::size_t cycle = 0; cycle < 5U; ++cycle) {
-    const common::TrackOutputFrame frame =
-        RunScenarioCycle(&controller, &radar_context, targets);
+    const common::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
     ASSERT_EQ(frame.published_track_count, targets.size());
     ASSERT_EQ(frame.confirmed_track_count, targets.size());
     EXPECT_FALSE(frame.contains_lost_tracks);
@@ -1085,31 +958,25 @@ TEST(RadarJointIntegrationTest,
     AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   }
 
-  EXPECT_FALSE(ContainsCommandType(
-      radar_context, common::RadarCommandType::SET_AGILITY_FREQ));
-  EXPECT_FALSE(ContainsCommandType(
-      radar_context, common::RadarCommandType::SET_ECCM_REJITTER));
+  EXPECT_FALSE(ContainsCommandType(radar_context, common::RadarCommandType::SET_AGILITY_FREQ));
+  EXPECT_FALSE(ContainsCommandType(radar_context, common::RadarCommandType::SET_ECCM_REJITTER));
 }
 
 TEST(RadarJointIntegrationTest,
      TargetBurstGrowthAndShrinkKeepsSurvivingTargetsReadableAcrossScaleSteps) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   const common::TargetFeatureList initial_targets =
       BuildMixedPatrolTargetsWithBaseId(10U, 10000u, 120.0f, -8.0f, 8.0f);
   const common::TargetFeatureList burst_targets =
       BuildMixedPatrolTargetsWithBaseId(20U, 10100u, 320.0f, 10.0f, 10.0f);
   common::TargetFeatureList expanded_targets = initial_targets;
-  expanded_targets.insert(expanded_targets.end(), burst_targets.begin(),
-                          burst_targets.end());
-  common::TargetFeatureList shrunk_targets(initial_targets.begin(),
-                                           initial_targets.begin() + 6);
+  expanded_targets.insert(expanded_targets.end(), burst_targets.begin(), burst_targets.end());
+  common::TargetFeatureList shrunk_targets(initial_targets.begin(), initial_targets.begin() + 6);
 
   const common::TrackOutputFrame cycle_1_frame =
       RunScenarioCycle(&controller, &radar_context, initial_targets);
@@ -1145,18 +1012,15 @@ TEST(RadarJointIntegrationTest,
 
 TEST(RadarJointIntegrationTest,
      PartialDropoutThenRecoveryRestoresTrackOutputWithoutReadabilityCollapse) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   common::TargetFeatureList full_targets =
       BuildMixedPatrolTargetsWithBaseId(12U, 11000u, 150.0f, -10.0f, 8.0f);
-  common::TargetFeatureList dropout_targets(full_targets.begin(),
-                                            full_targets.begin() + 6);
+  common::TargetFeatureList dropout_targets(full_targets.begin(), full_targets.begin() + 6);
 
   const common::TrackOutputFrame cycle_1_frame =
       RunScenarioCycle(&controller, &radar_context, full_targets);
@@ -1193,15 +1057,12 @@ TEST(RadarJointIntegrationTest,
   }
 }
 
-TEST(RadarJointIntegrationTest,
-     InputOrderingPermutationKeepsExternalIdentityStableAcrossCycles) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+TEST(RadarJointIntegrationTest, InputOrderingPermutationKeepsExternalIdentityStableAcrossCycles) {
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   common::TargetFeatureList targets =
       BuildMixedPatrolTargetsWithBaseId(15U, 12000u, 180.0f, -6.0f, 8.0f);
@@ -1215,8 +1076,7 @@ TEST(RadarJointIntegrationTest,
       std::rotate(targets.rbegin(), targets.rbegin() + 4, targets.rend());
     }
 
-    const common::TrackOutputFrame frame =
-        RunScenarioCycle(&controller, &radar_context, targets);
+    const common::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
     ASSERT_GE(frame.published_track_count, targets.size());
     ASSERT_GE(frame.confirmed_track_count, targets.size());
     ExpectFrameContainsTargetIds(frame, ExtractTargetIds(targets));
@@ -1237,23 +1097,17 @@ TEST(RadarJointIntegrationTest,
 
 TEST(RadarJointIntegrationTest,
      PulsedInterferenceKeepsOutputRecoverableAcrossSingleCycleJammingBursts) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
   common::TargetFeatureList targets =
       BuildMixedPatrolTargetsWithBaseId(18U, 13000u, 200.0f, -4.0f, 8.0f);
 
   const std::vector<SceneScriptStep> script{
-      {MakeClearScene(), false},
-      {MakeNoiseScene(), true},
-      {MakeClearScene(), false},
-      {MakeMixedScene(), true},
-      {MakeClearScene(), false},
-      {MakeRepeaterScene(), true},
+      {MakeClearScene(), false}, {MakeNoiseScene(), true},  {MakeClearScene(), false},
+      {MakeMixedScene(), true},  {MakeClearScene(), false}, {MakeRepeaterScene(), true},
       {MakeClearScene(), false},
   };
 
@@ -1261,12 +1115,10 @@ TEST(RadarJointIntegrationTest,
   stats.reserve(script.size());
   for (std::size_t cycle = 0; cycle < script.size(); ++cycle) {
     environment_service.UpdateSceneState(script[cycle].scene_state);
-    const std::size_t previous_command_count =
-        radar_context.SubmittedCommands().size();
-    const common::TrackOutputFrame frame =
-        RunScenarioCycle(&controller, &radar_context, targets);
-    const CycleStats cycle_stats = CaptureCycleStats(
-        frame, radar_context, signal_pipeline, previous_command_count);
+    const std::size_t previous_command_count = radar_context.SubmittedCommands().size();
+    const common::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
+    const CycleStats cycle_stats =
+        CaptureCycleStats(frame, radar_context, signal_pipeline, previous_command_count);
     stats.push_back(cycle_stats);
 
     EXPECT_EQ(frame.published_track_count, targets.size());
@@ -1286,13 +1138,11 @@ TEST(RadarJointIntegrationTest,
 
 TEST(RadarJointIntegrationTest,
      MixedUnknownExternalIdsKeepKnownTargetsRecoverableAndUnknownTracksFinite) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   common::TargetFeatureList targets{
       BuildAirTarget(0u, 42.0f, 0.0f, 0.0f, 0.9f, 110.0f, -4.0f, 12.0f),
@@ -1303,8 +1153,7 @@ TEST(RadarJointIntegrationTest,
 
   std::unordered_map<std::uint64_t, std::uint64_t> previous_known_keys;
   for (std::size_t cycle = 0; cycle < 3U; ++cycle) {
-    const common::TrackOutputFrame frame =
-        RunScenarioCycle(&controller, &radar_context, targets);
+    const common::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
     ASSERT_EQ(frame.published_track_count, targets.size());
     ASSERT_EQ(frame.confirmed_track_count, targets.size());
     ASSERT_EQ(CollectTracksByExternalId(frame, 0u).size(), 2U);
@@ -1344,15 +1193,12 @@ TEST(RadarJointIntegrationTest,
   }
 }
 
-TEST(RadarJointIntegrationTest,
-     CoLocatedTargetsWithDistinctIdsRemainSeparateAcrossCycles) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+TEST(RadarJointIntegrationTest, CoLocatedTargetsWithDistinctIdsRemainSeparateAcrossCycles) {
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   common::TargetFeatureList targets{
       BuildAirTarget(15001u, 38.0f, 0.0f, 0.0f, 0.9f, 160.0f, 2.0f, 14.0f),
@@ -1361,8 +1207,7 @@ TEST(RadarJointIntegrationTest,
   };
 
   for (std::size_t cycle = 0; cycle < 3U; ++cycle) {
-    const common::TrackOutputFrame frame =
-        RunScenarioCycle(&controller, &radar_context, targets);
+    const common::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
     ASSERT_GE(frame.published_track_count, targets.size());
     ASSERT_GE(frame.confirmed_track_count, targets.size());
     ExpectFrameContainsTargetIds(frame, ExtractTargetIds(targets));
@@ -1384,22 +1229,18 @@ TEST(RadarJointIntegrationTest,
     for (std::size_t i = 0; i < measurements.size(); ++i) {
       ASSERT_LT(measurements[i].raw_measurement.source_index, targets.size());
       EXPECT_EQ(measurements[i].raw_measurement.external_target_id,
-                targets[measurements[i].raw_measurement.source_index]
-                    .external_target_id);
+                targets[measurements[i].raw_measurement.source_index].external_target_id);
     }
     AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   }
 }
 
-TEST(RadarJointIntegrationTest,
-     SuddenVelocityMutationKeepsKnownTargetReadableAcrossCycles) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+TEST(RadarJointIntegrationTest, SuddenVelocityMutationKeepsKnownTargetReadableAcrossCycles) {
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   common::TargetFeatureList targets{
       BuildAirTarget(16001u, 28.0f, 0.0f, 0.0f, 1.0f, 140.0f, -2.0f, 14.0f),
@@ -1409,8 +1250,7 @@ TEST(RadarJointIntegrationTest,
   const common::TrackOutputFrame cycle_1_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
   const auto cycle_1_track_map = BuildTrackMapByExternalId(cycle_1_frame);
-  const std::uint64_t mutated_key =
-      cycle_1_track_map.at(16001u)->state.association_key;
+  const std::uint64_t mutated_key = cycle_1_track_map.at(16001u)->state.association_key;
   const float cycle_1_speed = cycle_1_track_map.at(16001u)->state.speed;
   const float cycle_1_position_x = cycle_1_track_map.at(16001u)->state.position_x;
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
@@ -1422,8 +1262,7 @@ TEST(RadarJointIntegrationTest,
   const common::TrackOutputFrame cycle_2_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
   const auto cycle_2_track_map = BuildTrackMapByExternalId(cycle_2_frame);
-  const common::DecisionTrackSnapshot& cycle_2_track =
-      *cycle_2_track_map.at(16001u);
+  const common::DecisionTrackSnapshot& cycle_2_track = *cycle_2_track_map.at(16001u);
   ExpectFiniteTrackState(cycle_2_track);
   EXPECT_EQ(cycle_2_track.state.association_key, mutated_key);
   EXPECT_GE(cycle_2_track.state.speed, cycle_1_speed);
@@ -1437,8 +1276,7 @@ TEST(RadarJointIntegrationTest,
   const common::TrackOutputFrame cycle_3_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
   const auto cycle_3_track_map = BuildTrackMapByExternalId(cycle_3_frame);
-  const common::DecisionTrackSnapshot& cycle_3_track =
-      *cycle_3_track_map.at(16001u);
+  const common::DecisionTrackSnapshot& cycle_3_track = *cycle_3_track_map.at(16001u);
   ExpectFiniteTrackState(cycle_3_track);
   EXPECT_EQ(cycle_3_track.state.association_key, mutated_key);
   EXPECT_GT(cycle_3_track.state.speed, 20.0f);
@@ -1447,13 +1285,11 @@ TEST(RadarJointIntegrationTest,
 
 TEST(RadarJointIntegrationTest,
      FullBatchReplacementKeepsCurrentEnemySetReadableWithoutPipelineStall) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   const std::vector<common::TargetFeatureList> batches{
       BuildMixedPatrolTargetsWithBaseId(8U, 17000u, 160.0f, -8.0f, 8.0f),
@@ -1483,31 +1319,20 @@ TEST(RadarJointIntegrationTest,
   }
 }
 
-TEST(RadarJointIntegrationTest,
-     LongDurationPulsedInterferenceRecoversOnEveryClearWindow) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+TEST(RadarJointIntegrationTest, LongDurationPulsedInterferenceRecoversOnEveryClearWindow) {
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
   common::TargetFeatureList targets =
       BuildMixedPatrolTargetsWithBaseId(20U, 18000u, 220.0f, -6.0f, 8.0f);
 
   const std::vector<SceneScriptStep> script{
-      {MakeClearScene(), false},
-      {MakeNoiseScene(), true},
-      {MakeClearScene(), false},
-      {MakeClearScene(), false},
-      {MakeMixedScene(), true},
-      {MakeClearScene(), false},
-      {MakeRepeaterScene(), true},
-      {MakeClearScene(), false},
-      {MakeNoiseScene(), true},
-      {MakeClearScene(), false},
-      {MakeDeceptionScene(), true},
-      {MakeClearScene(), false},
+      {MakeClearScene(), false},   {MakeNoiseScene(), true},     {MakeClearScene(), false},
+      {MakeClearScene(), false},   {MakeMixedScene(), true},     {MakeClearScene(), false},
+      {MakeRepeaterScene(), true}, {MakeClearScene(), false},    {MakeNoiseScene(), true},
+      {MakeClearScene(), false},   {MakeDeceptionScene(), true}, {MakeClearScene(), false},
   };
 
   std::vector<CycleStats> stats;
@@ -1515,12 +1340,10 @@ TEST(RadarJointIntegrationTest,
   std::size_t clear_recovery_cycles = 0U;
   for (std::size_t cycle = 0; cycle < script.size(); ++cycle) {
     environment_service.UpdateSceneState(script[cycle].scene_state);
-    const std::size_t previous_command_count =
-        radar_context.SubmittedCommands().size();
-    const common::TrackOutputFrame frame =
-        RunScenarioCycle(&controller, &radar_context, targets);
-    const CycleStats cycle_stats = CaptureCycleStats(
-        frame, radar_context, signal_pipeline, previous_command_count);
+    const std::size_t previous_command_count = radar_context.SubmittedCommands().size();
+    const common::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
+    const CycleStats cycle_stats =
+        CaptureCycleStats(frame, radar_context, signal_pipeline, previous_command_count);
     stats.push_back(cycle_stats);
 
     EXPECT_EQ(frame.published_track_count, targets.size());
@@ -1542,14 +1365,11 @@ TEST(RadarJointIntegrationTest,
   EXPECT_GE(clear_recovery_cycles, 4U);
 }
 
-TEST(RadarJointIntegrationTest,
-     InvalidCycleDeltaFallsBackWithoutBreakingTrackContinuity) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+TEST(RadarJointIntegrationTest, InvalidCycleDeltaFallsBackWithoutBreakingTrackContinuity) {
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
   common::TargetFeatureList targets =
       BuildMixedPatrolTargetsWithBaseId(6U, 19000u, 180.0f, -5.0f, 8.0f);
 
@@ -1558,8 +1378,7 @@ TEST(RadarJointIntegrationTest,
   const std::vector<float> invalid_dts{0.0f, -1.0f, 0.0f, -3.0f};
   for (std::size_t cycle = 0; cycle < invalid_dts.size(); ++cycle) {
     radar_context.SetCycleDeltaTimeSec(invalid_dts[cycle]);
-    const common::TrackOutputFrame frame =
-        RunScenarioCycle(&controller, &radar_context, targets);
+    const common::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
     ASSERT_GE(frame.published_track_count, targets.size());
     ASSERT_GE(frame.confirmed_track_count, targets.size());
     ExpectFrameContainsTargetIds(frame, ExtractTargetIds(targets));
@@ -1581,14 +1400,11 @@ TEST(RadarJointIntegrationTest,
   }
 }
 
-TEST(RadarJointIntegrationTest,
-     NonPositiveRangeAndNearOriginInputsRemainFiniteAndReadable) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+TEST(RadarJointIntegrationTest, NonPositiveRangeAndNearOriginInputsRemainFiniteAndReadable) {
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   common::TargetFeatureList targets{
       BuildAirTarget(20001u, 12.0f, 0.0f, 0.0f, 0.8f, 0.01f, 0.0f, 0.0f),
@@ -1600,16 +1416,14 @@ TEST(RadarJointIntegrationTest,
   targets[2].range_m = 0.0f;
 
   for (std::size_t cycle = 0; cycle < 3U; ++cycle) {
-    const common::TrackOutputFrame frame =
-        RunScenarioCycle(&controller, &radar_context, targets);
+    const common::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
     ASSERT_EQ(frame.published_track_count, targets.size());
     ASSERT_EQ(frame.confirmed_track_count, targets.size());
     ExpectFrameContainsTargets(frame, targets);
 
     const auto track_map = BuildTrackMapByExternalId(frame);
     for (std::size_t i = 0; i < targets.size(); ++i) {
-      const common::DecisionTrackSnapshot& track =
-          *track_map.at(targets[i].external_target_id);
+      const common::DecisionTrackSnapshot& track = *track_map.at(targets[i].external_target_id);
       ExpectFiniteTrackState(track);
       EXPECT_NE(track.state.association_key, 0U);
     }
@@ -1620,14 +1434,11 @@ TEST(RadarJointIntegrationTest,
   }
 }
 
-TEST(RadarJointIntegrationTest,
-     MissingCartesianPositionWithNonPositiveRangeFailsFast) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+TEST(RadarJointIntegrationTest, MissingCartesianPositionWithNonPositiveRangeFailsFast) {
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   common::TargetFeatureList targets{
       BuildGroundTarget(20011u, 0.0f, 0.0f, 0.7f),
@@ -1635,19 +1446,15 @@ TEST(RadarJointIntegrationTest,
   targets[0].range_m = 0.0f;
   radar_context.SetTargetFeatures(targets);
 
-  EXPECT_DEATH_IF_SUPPORTED(controller.RunOnce(),
-                            "missing cartesian position");
+  EXPECT_DEATH_IF_SUPPORTED(controller.RunOnce(), "missing cartesian position");
 }
 
-TEST(RadarJointIntegrationTest,
-     ExtremeRcsSpreadKeepsAllTracksFiniteAcrossCycles) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+TEST(RadarJointIntegrationTest, ExtremeRcsSpreadKeepsAllTracksFiniteAcrossCycles) {
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   common::TargetFeatureList targets{
       BuildAirTarget(21001u, 30.0f, 0.0f, 0.0f, 0.001f, 180.0f, -6.0f, 12.0f),
@@ -1657,16 +1464,14 @@ TEST(RadarJointIntegrationTest,
   };
 
   for (std::size_t cycle = 0; cycle < 3U; ++cycle) {
-    const common::TrackOutputFrame frame =
-        RunScenarioCycle(&controller, &radar_context, targets);
+    const common::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
     ASSERT_EQ(frame.published_track_count, targets.size());
     ASSERT_EQ(frame.confirmed_track_count, targets.size());
     ExpectFrameContainsTargets(frame, targets);
 
     const auto track_map = BuildTrackMapByExternalId(frame);
     for (std::size_t i = 0; i < targets.size(); ++i) {
-      const common::DecisionTrackSnapshot& track =
-          *track_map.at(targets[i].external_target_id);
+      const common::DecisionTrackSnapshot& track = *track_map.at(targets[i].external_target_id);
       ExpectFiniteTrackState(track);
       EXPECT_TRUE(std::isfinite(track.state.rcs));
       EXPECT_GT(track.state.association_key, 0U);
@@ -1675,15 +1480,12 @@ TEST(RadarJointIntegrationTest,
   }
 }
 
-TEST(RadarJointIntegrationTest,
-     UltraHighAltitudeTargetsRemainTrackableAcrossCycles) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+TEST(RadarJointIntegrationTest, UltraHighAltitudeTargetsRemainTrackableAcrossCycles) {
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   common::TargetFeatureList targets{
       BuildAirTarget(22001u, 48.0f, 0.0f, 4.0f, 0.9f, 260.0f, -8.0f, 1200.0f),
@@ -1693,21 +1495,18 @@ TEST(RadarJointIntegrationTest,
 
   std::unordered_map<std::uint64_t, std::uint64_t> previous_keys;
   for (std::size_t cycle = 0; cycle < 4U; ++cycle) {
-    const common::TrackOutputFrame frame =
-        RunScenarioCycle(&controller, &radar_context, targets);
+    const common::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
     ASSERT_EQ(frame.published_track_count, targets.size());
     ASSERT_EQ(frame.confirmed_track_count, targets.size());
     ExpectFrameContainsTargets(frame, targets);
 
     const auto track_map = BuildTrackMapByExternalId(frame);
     for (std::size_t i = 0; i < targets.size(); ++i) {
-      const common::DecisionTrackSnapshot& track =
-          *track_map.at(targets[i].external_target_id);
+      const common::DecisionTrackSnapshot& track = *track_map.at(targets[i].external_target_id);
       ExpectFiniteTrackState(track);
       EXPECT_GT(track.state.position_z, 500.0f);
       if (cycle > 0U) {
-        EXPECT_EQ(track.state.association_key,
-                  previous_keys[targets[i].external_target_id]);
+        EXPECT_EQ(track.state.association_key, previous_keys[targets[i].external_target_id]);
       }
       previous_keys[targets[i].external_target_id] = track.state.association_key;
     }
@@ -1715,15 +1514,12 @@ TEST(RadarJointIntegrationTest,
   }
 }
 
-TEST(RadarJointIntegrationTest,
-     SimultaneousTargetAndJammerVolatilityKeepsCurrentEnemySetReadable) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+TEST(RadarJointIntegrationTest, SimultaneousTargetAndJammerVolatilityKeepsCurrentEnemySetReadable) {
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   const std::vector<common::TargetFeatureList> batches{
       BuildMixedPatrolTargetsWithBaseId(6U, 23000u, 180.0f, -6.0f, 8.0f),
@@ -1733,22 +1529,18 @@ TEST(RadarJointIntegrationTest,
       BuildMixedPatrolTargetsWithBaseId(8U, 23400u, 160.0f, -14.0f, 7.0f),
   };
   const std::vector<SceneScriptStep> script{
-      {MakeClearScene(), false},
-      {MakeNoiseScene(), true},
-      {MakeClearScene(), false},
-      {MakeMixedScene(), true},
-      {MakeRepeaterScene(), true},
+      {MakeClearScene(), false}, {MakeNoiseScene(), true},    {MakeClearScene(), false},
+      {MakeMixedScene(), true},  {MakeRepeaterScene(), true},
   };
 
   std::vector<CycleStats> stats;
   for (std::size_t cycle = 0; cycle < batches.size(); ++cycle) {
     environment_service.UpdateSceneState(script[cycle].scene_state);
-    const std::size_t previous_command_count =
-        radar_context.SubmittedCommands().size();
+    const std::size_t previous_command_count = radar_context.SubmittedCommands().size();
     const common::TrackOutputFrame frame =
         RunScenarioCycle(&controller, &radar_context, batches[cycle]);
-    const CycleStats cycle_stats = CaptureCycleStats(
-        frame, radar_context, signal_pipeline, previous_command_count);
+    const CycleStats cycle_stats =
+        CaptureCycleStats(frame, radar_context, signal_pipeline, previous_command_count);
     stats.push_back(cycle_stats);
 
     EXPECT_GE(frame.published_track_count, batches[cycle].size());
@@ -1763,14 +1555,11 @@ TEST(RadarJointIntegrationTest,
   ExpectBoundedCommandBurst(stats, 5U);
 }
 
-TEST(RadarJointIntegrationTest,
-     LongDurationCycleDeltaAndGeometryVolatilityKeepsOutputReadable) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+TEST(RadarJointIntegrationTest, LongDurationCycleDeltaAndGeometryVolatilityKeepsOutputReadable) {
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
   common::TargetFeatureList targets =
       BuildMixedPatrolTargetsWithBaseId(10U, 24000u, 200.0f, -8.0f, 8.0f);
 
@@ -1789,12 +1578,10 @@ TEST(RadarJointIntegrationTest,
       targets[2].range_m = 0.0f;
     }
 
-    const std::size_t previous_command_count =
-        radar_context.SubmittedCommands().size();
-    const common::TrackOutputFrame frame =
-        RunScenarioCycle(&controller, &radar_context, targets);
-    stats.push_back(CaptureCycleStats(frame, radar_context, signal_pipeline,
-                                      previous_command_count));
+    const std::size_t previous_command_count = radar_context.SubmittedCommands().size();
+    const common::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
+    stats.push_back(
+        CaptureCycleStats(frame, radar_context, signal_pipeline, previous_command_count));
 
     ASSERT_GE(frame.published_track_count, targets.size());
     ASSERT_GE(frame.confirmed_track_count, targets.size());
@@ -1815,15 +1602,12 @@ TEST(RadarJointIntegrationTest,
   ExpectBoundedCommandBurst(stats, 5U);
 }
 
-TEST(RadarJointIntegrationTest,
-     BatchReplacementAndPulsedInterferenceKeepCurrentEnemySetVisible) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+TEST(RadarJointIntegrationTest, BatchReplacementAndPulsedInterferenceKeepCurrentEnemySetVisible) {
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   const std::vector<common::TargetFeatureList> batches{
       BuildMixedPatrolTargetsWithBaseId(9U, 25000u, 180.0f, -8.0f, 8.0f),
@@ -1834,23 +1618,18 @@ TEST(RadarJointIntegrationTest,
       BuildMixedPatrolTargetsWithBaseId(15U, 25500u, 380.0f, 6.0f, 11.0f),
   };
   const std::vector<SceneScriptStep> script{
-      {MakeClearScene(), false},
-      {MakeNoiseScene(), true},
-      {MakeClearScene(), false},
-      {MakeMixedScene(), true},
-      {MakeClearScene(), false},
-      {MakeRepeaterScene(), true},
+      {MakeClearScene(), false}, {MakeNoiseScene(), true},  {MakeClearScene(), false},
+      {MakeMixedScene(), true},  {MakeClearScene(), false}, {MakeRepeaterScene(), true},
   };
 
   std::vector<CycleStats> stats;
   for (std::size_t cycle = 0; cycle < batches.size(); ++cycle) {
     environment_service.UpdateSceneState(script[cycle].scene_state);
-    const std::size_t previous_command_count =
-        radar_context.SubmittedCommands().size();
+    const std::size_t previous_command_count = radar_context.SubmittedCommands().size();
     const common::TrackOutputFrame frame =
         RunScenarioCycle(&controller, &radar_context, batches[cycle]);
-    const CycleStats cycle_stats = CaptureCycleStats(
-        frame, radar_context, signal_pipeline, previous_command_count);
+    const CycleStats cycle_stats =
+        CaptureCycleStats(frame, radar_context, signal_pipeline, previous_command_count);
     stats.push_back(cycle_stats);
 
     EXPECT_GE(frame.published_track_count, batches[cycle].size());
@@ -1865,15 +1644,12 @@ TEST(RadarJointIntegrationTest,
   ExpectBoundedCommandBurst(stats, 5U);
 }
 
-TEST(RadarJointIntegrationTest,
-     LongDurationExtremeRcsAndAltitudeMixKeepsMetricsControlled) {
-  signal::pipeline::SignalPipeline signal_pipeline(
-      MakeJointIntegrationPipelineConfig());
+TEST(RadarJointIntegrationTest, LongDurationExtremeRcsAndAltitudeMixKeepsMetricsControlled) {
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
-  core::controller::RadarController controller(radar_context, signal_pipeline,
-                                               environment_service);
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   common::TargetFeatureList targets{
       BuildAirTarget(26001u, 34.0f, 0.0f, 0.0f, 0.001f, 180.0f, -5.0f, 20.0f),
@@ -1884,12 +1660,8 @@ TEST(RadarJointIntegrationTest,
   };
 
   const std::vector<SceneScriptStep> script{
-      {MakeClearScene(), false},
-      {MakeNoiseScene(), true},
-      {MakeClearScene(), false},
-      {MakeDeceptionScene(), true},
-      {MakeClearScene(), false},
-      {MakeMixedScene(), true},
+      {MakeClearScene(), false},    {MakeNoiseScene(), true},  {MakeClearScene(), false},
+      {MakeDeceptionScene(), true}, {MakeClearScene(), false}, {MakeMixedScene(), true},
   };
 
   std::vector<CycleStats> stats;
@@ -1897,23 +1669,19 @@ TEST(RadarJointIntegrationTest,
   for (std::size_t cycle = 0; cycle < 18U; ++cycle) {
     const std::size_t step = cycle % script.size();
     environment_service.UpdateSceneState(script[step].scene_state);
-    const std::size_t previous_command_count =
-        radar_context.SubmittedCommands().size();
-    const common::TrackOutputFrame frame =
-        RunScenarioCycle(&controller, &radar_context, targets);
-    const CycleStats cycle_stats = CaptureCycleStats(
-        frame, radar_context, signal_pipeline, previous_command_count);
+    const std::size_t previous_command_count = radar_context.SubmittedCommands().size();
+    const common::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
+    const CycleStats cycle_stats =
+        CaptureCycleStats(frame, radar_context, signal_pipeline, previous_command_count);
     stats.push_back(cycle_stats);
-    max_association_stress =
-        std::max(max_association_stress, cycle_stats.association_stress);
+    max_association_stress = std::max(max_association_stress, cycle_stats.association_stress);
 
     ASSERT_EQ(frame.published_track_count, targets.size());
     ASSERT_EQ(frame.confirmed_track_count, targets.size());
     ExpectFrameContainsTargets(frame, targets);
     const auto track_map = BuildTrackMapByExternalId(frame);
     for (std::size_t i = 0; i < targets.size(); ++i) {
-      const common::DecisionTrackSnapshot& track =
-          *track_map.at(targets[i].external_target_id);
+      const common::DecisionTrackSnapshot& track = *track_map.at(targets[i].external_target_id);
       ExpectFiniteTrackState(track);
       EXPECT_TRUE(std::isfinite(track.state.rcs));
       EXPECT_GT(track.state.position_z, 10.0f);

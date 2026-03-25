@@ -31,28 +31,22 @@ namespace {
 // ---------------------------------------------------------------------------
 // 辅助：打印单帧输出摘要
 // ---------------------------------------------------------------------------
-void PrintFrameSummary(
-    const char* label,
-    const airborne_radar::core::session::RadarCycleResult& result) {
+void PrintFrameSummary(const char* label,
+                       const airborne_radar::core::session::RadarCycleResult& result) {
   using namespace airborne_radar::core::output;
   std::cout << "[" << label << "]"
             << " published=" << result.track_output_frame.published_track_count
-            << " confirmed="
-            << CollectConfirmedTracks(result.track_output_frame).size()
-            << " lost="
-            << CollectLostTracks(result.track_output_frame).size()
-            << " jamming="
-            << CountJammingTracks(result.track_output_frame)
-            << " match_rate="
-            << result.association_quality_metrics.match_rate
-            << " commands=" << result.submitted_commands.size()
-            << "\n";
+            << " confirmed=" << CollectConfirmedTracks(result.track_output_frame).size()
+            << " lost=" << CollectLostTracks(result.track_output_frame).size()
+            << " jamming=" << CountJammingTracks(result.track_output_frame)
+            << " match_rate=" << result.association_quality_metrics.match_rate
+            << " commands=" << result.submitted_commands.size() << "\n";
 }
 
 }  // namespace
 
 int main() {
-  namespace aq  = airborne_radar::common;
+  namespace aq = airborne_radar::common;
   namespace ctx = airborne_radar::core::context;
   namespace env = airborne_radar::environment;
   namespace sig = airborne_radar::signal::pipeline;
@@ -83,18 +77,16 @@ int main() {
   // 使用 TargetFeatureBuilder 构造目标（P1-3），避免参数位置依赖错误。
   ctx::RadarCycleInput input;
   input.dt_sec = 1.0f;
-  input.target_features.push_back(
-      aq::TargetFeatureBuilder(2001U)
-          .Position(150.0f, 10.0f, 5000.0f)
-          .Velocity(180.0f, 0.0f, -5.0f)
-          .Rcs(1.5f)
-          .Build());
-  input.target_features.push_back(
-      aq::TargetFeatureBuilder(2002U)
-          .Position(300.0f, -20.0f, 8000.0f)
-          .Velocity(220.0f, 5.0f, 0.0f)
-          .Rcs(2.0f)
-          .Build());
+  input.target_features.push_back(aq::TargetFeatureBuilder(2001U)
+                                      .Position(150.0f, 10.0f, 5000.0f)
+                                      .Velocity(180.0f, 0.0f, -5.0f)
+                                      .Rcs(1.5f)
+                                      .Build());
+  input.target_features.push_back(aq::TargetFeatureBuilder(2002U)
+                                      .Position(300.0f, -20.0f, 8000.0f)
+                                      .Velocity(220.0f, 5.0f, 0.0f)
+                                      .Rcs(2.0f)
+                                      .Build());
 
   // 可选：用 ValidateRadarCycleInput 检查输入合法性（不强制）
   {
@@ -115,23 +107,22 @@ int main() {
 
   // 构造噪声干扰源
   env::JammerEmitterState noise_jammer;
-  noise_jammer.technique             = env::JammingTechnique::kNoiseSuppression;
-  noise_jammer.power_db              = 14.0f;
-  noise_jammer.js_db                 = 9.0f;
+  noise_jammer.technique = env::JammingTechnique::kNoiseSuppression;
+  noise_jammer.power_db = 14.0f;
+  noise_jammer.js_db = 9.0f;
   noise_jammer.frequency_overlap_ratio = 0.3f;
-  noise_jammer.prf_lock_risk         = 0.15f;
-  noise_jammer.in_sidelobe           = false;
-  noise_jammer.azimuth_deg           = 10.0f;
-  noise_jammer.elevation_deg         = 2.0f;
-  noise_jammer.confidence            = 0.9f;
+  noise_jammer.prf_lock_risk = 0.15f;
+  noise_jammer.in_sidelobe = false;
+  noise_jammer.azimuth_deg = 10.0f;
+  noise_jammer.elevation_deg = 2.0f;
+  noise_jammer.confidence = 0.9f;
 
   // 追加大气衰减并设置杂波功率
-  const env::EnvironmentSceneState jammed_scene =
-      env::EnvironmentSceneBuilder()
-          .SetAtmosphericAttenuationDb(2.5f)
-          .SetClutterPowerDb(4.0f)
-          .AddNoiseJammer(noise_jammer)
-          .Build();
+  const env::EnvironmentSceneState jammed_scene = env::EnvironmentSceneBuilder()
+                                                      .SetAtmosphericAttenuationDb(2.5f)
+                                                      .SetClutterPowerDb(4.0f)
+                                                      .AddNoiseJammer(noise_jammer)
+                                                      .Build();
 
   // 推进目标位置（模拟真实仿真循环）
   for (auto& t : input.target_features) {
@@ -144,22 +135,21 @@ int main() {
   // 2b. 复合干扰：再追加一个欺骗式干扰源
   // =========================================================================
   env::JammerEmitterState deception_jammer;
-  deception_jammer.technique             = env::JammingTechnique::kDeception;
-  deception_jammer.power_db              = 10.0f;
-  deception_jammer.js_db                 = 6.0f;
+  deception_jammer.technique = env::JammingTechnique::kDeception;
+  deception_jammer.power_db = 10.0f;
+  deception_jammer.js_db = 6.0f;
   deception_jammer.frequency_overlap_ratio = 0.85f;
-  deception_jammer.prf_lock_risk         = 0.7f;
-  deception_jammer.in_sidelobe           = false;
-  deception_jammer.azimuth_deg           = -5.0f;
-  deception_jammer.confidence            = 0.8f;
+  deception_jammer.prf_lock_risk = 0.7f;
+  deception_jammer.in_sidelobe = false;
+  deception_jammer.azimuth_deg = -5.0f;
+  deception_jammer.confidence = 0.8f;
 
-  const env::EnvironmentSceneState compound_scene =
-      env::EnvironmentSceneBuilder()
-          .SetAtmosphericAttenuationDb(2.5f)
-          .SetClutterPowerDb(4.0f)
-          .AddNoiseJammer(noise_jammer)
-          .AddDeceptionJammer(deception_jammer)
-          .Build();
+  const env::EnvironmentSceneState compound_scene = env::EnvironmentSceneBuilder()
+                                                        .SetAtmosphericAttenuationDb(2.5f)
+                                                        .SetClutterPowerDb(4.0f)
+                                                        .AddNoiseJammer(noise_jammer)
+                                                        .AddDeceptionJammer(deception_jammer)
+                                                        .Build();
 
   for (auto& t : input.target_features) {
     t.position_x += t.current_track_velocity_x * input.dt_sec;
@@ -210,16 +200,14 @@ int main() {
   PrintFrameSummary("cycle-8 最终读取", r_final);
 
   // 按外部目标 ID 快速查询特定目标的轨迹状态
-  const auto track_map = out::BuildTrackMapByExternalTargetId(
-      r_final.track_output_frame);
+  const auto track_map = out::BuildTrackMapByExternalTargetId(r_final.track_output_frame);
   for (const auto& kv : track_map) {
-    std::cout << "  target_id=" << kv.first
-              << " jamming=" << kv.second.state.jamming_detected << "\n";
+    std::cout << "  target_id=" << kv.first << " jamming=" << kv.second.state.jamming_detected
+              << "\n";
   }
 
   // 检查某个外部目标 ID 是否还在跟踪链中
-  const bool has_2001 = out::ContainsExternalTargetId(
-      r_final.track_output_frame, 2001U);
+  const bool has_2001 = out::ContainsExternalTargetId(r_final.track_output_frame, 2001U);
   std::cout << "target 2001 still tracked: " << has_2001 << "\n";
 
   // 获取所有已确认轨迹集合做进一步处理

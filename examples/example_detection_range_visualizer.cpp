@@ -78,9 +78,8 @@ const ImVec4 kTargetColors[] = {
 
 ImVec4 TrackColor(std::uint64_t association_key) {
   static const ImVec4 kPalette[] = {
-      {0.12f, 0.47f, 0.71f, 1.0f}, {1.00f, 0.50f, 0.05f, 1.0f},
-      {0.17f, 0.63f, 0.17f, 1.0f}, {0.84f, 0.15f, 0.16f, 1.0f},
-      {0.58f, 0.40f, 0.74f, 1.0f}, {0.55f, 0.34f, 0.29f, 1.0f},
+      {0.12f, 0.47f, 0.71f, 1.0f}, {1.00f, 0.50f, 0.05f, 1.0f}, {0.17f, 0.63f, 0.17f, 1.0f},
+      {0.84f, 0.15f, 0.16f, 1.0f}, {0.58f, 0.40f, 0.74f, 1.0f}, {0.55f, 0.34f, 0.29f, 1.0f},
       {0.89f, 0.47f, 0.76f, 1.0f},
   };
   return kPalette[association_key % 7];
@@ -106,8 +105,7 @@ struct SimState {
   std::vector<airborne_radar::common::DecisionTrackSnapshot> latest_tracks;
 
   // 关联质量
-  std::vector<airborne_radar::signal::pipeline::AssociationQualityMetrics>
-      quality_history;
+  std::vector<airborne_radar::signal::pipeline::AssociationQualityMetrics> quality_history;
 
   // 当前各目标距离
   std::map<std::uint64_t, float> current_range;
@@ -134,8 +132,7 @@ std::unique_ptr<airborne_radar::core::session::RadarSession> MakeSession() {
   namespace aq = airborne_radar::common;
   auto session = std::unique_ptr<airborne_radar::core::session::RadarSession>(
       new airborne_radar::core::session::RadarSession(
-          aq::RadarSessionConfigBuilder(
-              aq::MakeDetectionMissionRadarSessionConfig())
+          aq::RadarSessionConfigBuilder(aq::MakeDetectionMissionRadarSessionConfig())
               .EnablePhysicsDetection()
               .WithTransmitterPeakPowerW(5e6f)
               .WithTransmitterFrequencyHz(9.3e9f)
@@ -160,8 +157,7 @@ std::unique_ptr<airborne_radar::core::session::RadarSession> MakeSession() {
 
 // ── 推进一个 cycle ────────────────────────────────────────────────────────────
 
-void StepOnce(airborne_radar::core::session::RadarSession& session,
-              SimState& sim) {
+void StepOnce(airborne_radar::core::session::RadarSession& session, SimState& sim) {
   if (sim.finished || sim.current_cycle >= kMaxCycles) {
     sim.finished = true;
     return;
@@ -178,10 +174,8 @@ void StepOnce(airborne_radar::core::session::RadarSession& session,
     float range = sim.current_range[kTargets[i].id];
     // 目标在 X 轴正方向，Y/Z 略有偏移以区分
     float py = static_cast<float>(i - 1) * 200.0f;
-    input.target_features.push_back(
-        aq::MakeAirTarget(kTargets[i].id, range, py, 3000.0f,
-                          kTargets[i].radial_speed, 0.0f, 0.0f,
-                          kTargets[i].rcs));
+    input.target_features.push_back(aq::MakeAirTarget(
+        kTargets[i].id, range, py, 3000.0f, kTargets[i].radial_speed, 0.0f, 0.0f, kTargets[i].rcs));
     sim.true_range_km[kTargets[i].id].push_back(range / 1000.0f);
   }
 
@@ -191,10 +185,9 @@ void StepOnce(airborne_radar::core::session::RadarSession& session,
   std::map<std::uint64_t, int> cycle_status;
   for (const auto& snap : result.track_output_frame.tracks) {
     const auto key = snap.state.association_key;
-    float range = std::sqrt(
-        snap.state.position_x * snap.state.position_x +
-        snap.state.position_y * snap.state.position_y +
-        snap.state.position_z * snap.state.position_z);
+    float range = std::sqrt(snap.state.position_x * snap.state.position_x +
+                            snap.state.position_y * snap.state.position_y +
+                            snap.state.position_z * snap.state.position_z);
     sim.track_range_km[key].push_back(range / 1000.0f);
     sim.track_cycle[key].push_back(static_cast<float>(sim.current_cycle));
     cycle_status[key] = static_cast<int>(snap.state.status);
@@ -253,8 +246,7 @@ void RenderRangeTimePlot(const SimState& sim) {
     ImPlot::SetNextLineStyle({col.x, col.y, col.z, 0.4f}, 1.0f);
     char label[64];
     std::snprintf(label, sizeof(label), "%s (true)", kTargets[i].label);
-    ImPlot::PlotLine(label, cycles.data(), it->second.data(),
-                     static_cast<int>(it->second.size()));
+    ImPlot::PlotLine(label, cycles.data(), it->second.data(), static_cast<int>(it->second.size()));
   }
 
   // 跟踪距离（实线 + 标记）
@@ -266,13 +258,10 @@ void RenderRangeTimePlot(const SimState& sim) {
 
     ImVec4 col = TrackColor(key);
     ImPlot::SetNextLineStyle({col.x, col.y, col.z, col.w}, 2.0f);
-    ImPlot::SetNextMarkerStyle(ImPlotMarker_Circle, 3.0f,
-                                {col.x, col.y, col.z, col.w});
+    ImPlot::SetNextMarkerStyle(ImPlotMarker_Circle, 3.0f, {col.x, col.y, col.z, col.w});
     char label[32];
-    std::snprintf(label, sizeof(label), "Track %llu",
-                  static_cast<unsigned long long>(key));
-    ImPlot::PlotLine(label, cycles.data(), ranges.data(),
-                     static_cast<int>(ranges.size()));
+    std::snprintf(label, sizeof(label), "Track %llu", static_cast<unsigned long long>(key));
+    ImPlot::PlotLine(label, cycles.data(), ranges.data(), static_cast<int>(ranges.size()));
   }
 
   ImPlot::EndPlot();
@@ -310,8 +299,7 @@ void RenderStatusTimeline(const SimState& sim) {
     for (std::size_t c = 0; c < sim.status_history.size(); ++c) {
       for (std::size_t k = 0; k < all_keys.size(); ++k) {
         auto it2 = sim.status_history[c].find(all_keys[k]);
-        if (it2 != sim.status_history[c].end() &&
-            it2->second == style.status_val) {
+        if (it2 != sim.status_history[c].end() && it2->second == style.status_val) {
           xs.push_back(static_cast<float>(c));
           ys.push_back(static_cast<float>(k));
         }
@@ -319,10 +307,8 @@ void RenderStatusTimeline(const SimState& sim) {
     }
     if (!xs.empty()) {
       ImPlot::SetNextMarkerStyle(style.marker, 5.0f,
-                                  {style.color.x, style.color.y,
-                                   style.color.z, style.color.w});
-      ImPlot::PlotScatter(style.name, xs.data(), ys.data(),
-                          static_cast<int>(xs.size()));
+                                 {style.color.x, style.color.y, style.color.z, style.color.w});
+      ImPlot::PlotScatter(style.name, xs.data(), ys.data(), static_cast<int>(xs.size()));
     }
   }
 
@@ -332,14 +318,12 @@ void RenderStatusTimeline(const SimState& sim) {
 // ── 渲染轨迹状态表格 ────────────────────────────────────────────────────────
 
 void RenderTrackTable(const SimState& sim) {
-  ImGui::Text("Detection Range Test  Cycle %d / %d",
-              sim.current_cycle, kMaxCycles);
+  ImGui::Text("Detection Range Test  Cycle %d / %d", sim.current_cycle, kMaxCycles);
   ImGui::Separator();
 
-  if (ImGui::BeginTable("tracks", 7,
-                         ImGuiTableFlags_Borders |
-                             ImGuiTableFlags_RowBg |
-                             ImGuiTableFlags_SizingFixedFit)) {
+  if (ImGui::BeginTable(
+          "tracks", 7,
+          ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit)) {
     ImGui::TableSetupColumn("Key");
     ImGui::TableSetupColumn("ExtID");
     ImGui::TableSetupColumn("Status");
@@ -351,17 +335,14 @@ void RenderTrackTable(const SimState& sim) {
 
     for (const auto& snap : sim.latest_tracks) {
       const auto& st = snap.state;
-      float range = std::sqrt(
-          st.position_x * st.position_x +
-          st.position_y * st.position_y +
-          st.position_z * st.position_z);
+      float range = std::sqrt(st.position_x * st.position_x + st.position_y * st.position_y +
+                              st.position_z * st.position_z);
       ImGui::TableNextRow();
       ImGui::TableSetColumnIndex(0);
       ImGui::TextColored(TrackColor(st.association_key), "%llu",
                          static_cast<unsigned long long>(st.association_key));
       ImGui::TableSetColumnIndex(1);
-      ImGui::Text("%llu",
-                  static_cast<unsigned long long>(st.external_target_id));
+      ImGui::Text("%llu", static_cast<unsigned long long>(st.external_target_id));
       ImGui::TableSetColumnIndex(2);
       ImGui::TextUnformatted(StatusStr(st.status));
       ImGui::TableSetColumnIndex(3);
@@ -382,8 +363,8 @@ void RenderTrackTable(const SimState& sim) {
   for (int i = 0; i < kTargetCount; ++i) {
     auto it = sim.current_range.find(kTargets[i].id);
     float r = (it != sim.current_range.end()) ? it->second : 0.0f;
-    ImGui::TextColored(kTargetColors[i], "  %s: %.2f km",
-                       kTargets[i].label, static_cast<double>(r / 1000.0f));
+    ImGui::TextColored(kTargetColors[i], "  %s: %.2f km", kTargets[i].label,
+                       static_cast<double>(r / 1000.0f));
   }
 }
 
@@ -399,8 +380,7 @@ void RenderQualityMetrics(const SimState& sim) {
   }
 
   const auto& q = sim.quality_history.back();
-  ImGui::Text("Detections:   %zu / %d targets",
-              q.detection_count, kTargetCount);
+  ImGui::Text("Detections:   %zu / %d targets", q.detection_count, kTargetCount);
   ImGui::Text("Matched:      %zu", q.matched_count);
   ImGui::Text("New Tracks:   %zu", q.new_track_count);
   ImGui::Text("Missed:       %zu", q.missed_track_count);
@@ -410,10 +390,8 @@ void RenderQualityMetrics(const SimState& sim) {
   ImVec4 mr_col = (mr > 0.8f)   ? ImVec4{0.2f, 1.0f, 0.2f, 1.0f}
                   : (mr > 0.5f) ? ImVec4{1.0f, 0.8f, 0.2f, 1.0f}
                                 : ImVec4{1.0f, 0.3f, 0.3f, 1.0f};
-  ImGui::TextColored(mr_col, "Match Rate:   %.1f%%",
-                     static_cast<double>(mr * 100.0f));
-  ImGui::Text("Assoc Stress: %.3f",
-              static_cast<double>(q.association_stress));
+  ImGui::TextColored(mr_col, "Match Rate:   %.1f%%", static_cast<double>(mr * 100.0f));
+  ImGui::Text("Assoc Stress: %.3f", static_cast<double>(q.association_stress));
 }
 
 }  // namespace
@@ -432,8 +410,8 @@ int main() {
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
-  GLFWwindow* window = glfwCreateWindow(
-      1400, 900, "Airborne Radar - Detection Range Test", nullptr, nullptr);
+  GLFWwindow* window =
+      glfwCreateWindow(1400, 900, "Airborne Radar - Detection Range Test", nullptr, nullptr);
   if (!window) {
     std::fprintf(stderr, "GLFW window creation failed\n");
     glfwTerminate();
@@ -463,12 +441,10 @@ int main() {
     int display_w = 0, display_h = 0;
     glfwGetFramebufferSize(window, &display_w, &display_h);
     ImGui::SetNextWindowPos({0, 0});
-    ImGui::SetNextWindowSize(
-        {static_cast<float>(display_w), static_cast<float>(display_h)});
+    ImGui::SetNextWindowSize({static_cast<float>(display_w), static_cast<float>(display_h)});
     ImGui::Begin("##main", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
-                     ImGuiWindowFlags_NoSavedSettings |
-                     ImGuiWindowFlags_NoBringToFrontOnFocus);
+                     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus);
 
     // 顶部控制栏
     if (ImGui::Button("Step") && !sim.finished) {

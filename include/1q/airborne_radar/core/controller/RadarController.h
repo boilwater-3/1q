@@ -9,40 +9,40 @@
 #include <cstddef>
 #include <memory>
 
-#include "1q/api.hpp"
 #include "1q/airborne_radar/common/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/output/IRadarOutputReader.h"
 #include "1q/airborne_radar/decision/pipeline/ControlReducerTypes.h"
+#include "1q/api.hpp"
 
 namespace airborne_radar {
 namespace core {
 namespace context {
 class IRadarContext;
 }
-}
-}
+}  // namespace core
+}  // namespace airborne_radar
 
 namespace airborne_radar {
 namespace decision {
 namespace pipeline {
 class ITacticalDecisionEngine;
 }
-}
-}
+}  // namespace decision
+}  // namespace airborne_radar
 
 namespace airborne_radar {
 namespace environment {
 class IEnvironmentService;
 }
-}
+}  // namespace airborne_radar
 
 namespace airborne_radar {
 namespace signal {
 namespace pipeline {
 class ISignalPipeline;
 }
-}
-}
+}  // namespace signal
+}  // namespace airborne_radar
 
 namespace airborne_radar {
 namespace core {
@@ -79,8 +79,7 @@ class ONEQ_API RadarController : public core::output::IRadarOutputReader {
   void RunCycles(std::size_t cycles);
 
   /** @brief 更新控制归并器配置 */
-  void UpdateControlReducerConfig(
-      const decision::pipeline::ControlReducerConfig& config);
+  void UpdateControlReducerConfig(const decision::pipeline::ControlReducerConfig& config);
 
   /** @brief 判断当前是否已有可读取的最新轨迹输出帧 */
   bool HasLatestTrackOutputFrame() const override;
@@ -93,8 +92,8 @@ class ONEQ_API RadarController : public core::output::IRadarOutputReader {
   std::unique_ptr<Impl> impl_;
 };
 
-} // namespace controller
-} // namespace core
-} // namespace airborne_radar
+}  // namespace controller
+}  // namespace core
+}  // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_CORE_CONTROLLER_RADAR_CONTROLLER_H_
+#endif  // AIRBORNE_RADAR_CORE_CONTROLLER_RADAR_CONTROLLER_H_

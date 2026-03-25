@@ -5,16 +5,16 @@
 
 #include <gtest/gtest.h>
 
-#include <cmath>
-
-#include <Eigen/Core>
 #include <Eigen/Cholesky>
+#include <Eigen/Core>
+#include <cmath>
 
 #include "airborne_radar/signal/tracking/GaussianTrackState.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
 
-namespace airborne_radar { namespace tests {
+namespace airborne_radar {
+namespace tests {
 
 namespace {
 
@@ -24,19 +24,18 @@ using signal::tracking::KalmanPredictorConfig;
 using signal::tracking::KalmanUpdater;
 using signal::tracking::KalmanUpdaterConfig;
 using signal::tracking::KalmanUpdateResult;
-using signal::tracking::StateVector;
-using signal::tracking::StateCovariance;
-using signal::tracking::MeasurementVector;
-using signal::tracking::kStateDim;
 using signal::tracking::kMeasurementDim;
+using signal::tracking::kStateDim;
+using signal::tracking::MeasurementVector;
+using signal::tracking::StateCovariance;
+using signal::tracking::StateVector;
 
 /// @brief 构造一个简单的先验状态用于测试。
 /// @param x 初始 X 位置。
 /// @param vx 初始 X 速度。
 /// @param initial_pos_var 初始位置方差。
 /// @param initial_vel_var 初始速度方差。
-GaussianTrackState MakePrior(float x, float vx,
-                             float initial_pos_var = 100.0f,
+GaussianTrackState MakePrior(float x, float vx, float initial_pos_var = 100.0f,
                              float initial_vel_var = 25.0f) {
   StateVector mean = StateVector::Zero();
   mean(0) = x;   // x
@@ -73,8 +72,7 @@ TEST(KalmanPredictorTest, PredictWithZeroDtReturnsIdentity) {
 
   // dt=0 时 F=I，Q=0 → 均值和协方差不变
   for (int i = 0; i < kStateDim; ++i) {
-    EXPECT_NEAR(predicted.mean(i), prior.mean(i), kTolerance)
-        << "mean mismatch at index " << i;
+    EXPECT_NEAR(predicted.mean(i), prior.mean(i), kTolerance) << "mean mismatch at index " << i;
   }
   for (int r = 0; r < kStateDim; ++r) {
     for (int c = 0; c < kStateDim; ++c) {
@@ -107,24 +105,24 @@ TEST(KalmanPredictorTest, PredictPropagatesAllAxes) {
   KalmanPredictor predictor;
 
   StateVector mean = StateVector::Zero();
-  mean(0) = 10.0f;   // x
-  mean(1) = 1.0f;    // vx
-  mean(2) = 20.0f;   // y
-  mean(3) = -2.0f;   // vy
-  mean(4) = 30.0f;   // z
-  mean(5) = 3.0f;    // vz
+  mean(0) = 10.0f;  // x
+  mean(1) = 1.0f;   // vx
+  mean(2) = 20.0f;  // y
+  mean(3) = -2.0f;  // vy
+  mean(4) = 30.0f;  // z
+  mean(5) = 3.0f;   // vz
 
   GaussianTrackState prior(mean, StateCovariance::Identity());
   const float dt = 2.0f;
   const GaussianTrackState predicted = predictor.Predict(prior, dt);
 
   // 各轴: position = pos + vel * dt
-  EXPECT_NEAR(predicted.mean(0), 10.0f + 1.0f * 2.0f, kTolerance);   // x=12
-  EXPECT_NEAR(predicted.mean(1), 1.0f, kTolerance);                   // vx=1
-  EXPECT_NEAR(predicted.mean(2), 20.0f + (-2.0f) * 2.0f, kTolerance); // y=16
-  EXPECT_NEAR(predicted.mean(3), -2.0f, kTolerance);                  // vy=-2
-  EXPECT_NEAR(predicted.mean(4), 30.0f + 3.0f * 2.0f, kTolerance);   // z=36
-  EXPECT_NEAR(predicted.mean(5), 3.0f, kTolerance);                   // vz=3
+  EXPECT_NEAR(predicted.mean(0), 10.0f + 1.0f * 2.0f, kTolerance);     // x=12
+  EXPECT_NEAR(predicted.mean(1), 1.0f, kTolerance);                    // vx=1
+  EXPECT_NEAR(predicted.mean(2), 20.0f + (-2.0f) * 2.0f, kTolerance);  // y=16
+  EXPECT_NEAR(predicted.mean(3), -2.0f, kTolerance);                   // vy=-2
+  EXPECT_NEAR(predicted.mean(4), 30.0f + 3.0f * 2.0f, kTolerance);     // z=36
+  EXPECT_NEAR(predicted.mean(5), 3.0f, kTolerance);                    // vz=3
 }
 
 TEST(KalmanPredictorTest, CovarianceGrowsWithTime) {
@@ -140,8 +138,7 @@ TEST(KalmanPredictorTest, CovarianceGrowsWithTime) {
 
   // dt 越长，过程噪声 Q 越大，协方差对角线应单调增长
   for (int i = 0; i < kStateDim; ++i) {
-    EXPECT_GT(p1.covariance(i, i), P0(i, i))
-        << "P(1) diagonal should grow at index " << i;
+    EXPECT_GT(p1.covariance(i, i), P0(i, i)) << "P(1) diagonal should grow at index " << i;
     EXPECT_GT(p2.covariance(i, i), p1.covariance(i, i))
         << "P(2) diagonal should be larger than P(1) at index " << i;
   }
@@ -265,9 +262,9 @@ TEST(KalmanUpdaterTest, InnovationIsCorrect) {
   KalmanUpdater updater;
 
   StateVector mean = StateVector::Zero();
-  mean(0) = 50.0f;   // x
-  mean(2) = 30.0f;   // y
-  mean(4) = 10.0f;   // z
+  mean(0) = 50.0f;  // x
+  mean(2) = 30.0f;  // y
+  mean(4) = 10.0f;  // z
   GaussianTrackState predicted(mean, StateCovariance::Identity() * 100.0f);
 
   const MeasurementVector measurement(55.0f, 32.0f, 8.0f);
@@ -297,8 +294,7 @@ TEST(KalmanUpdaterTest, PosteriorCovarianceRemainsSymmetric) {
 
   for (int r = 0; r < kStateDim; ++r) {
     for (int c = r + 1; c < kStateDim; ++c) {
-      EXPECT_NEAR(result.posterior.covariance(r, c),
-                  result.posterior.covariance(c, r), kTolerance)
+      EXPECT_NEAR(result.posterior.covariance(r, c), result.posterior.covariance(c, r), kTolerance)
           << "posterior covariance not symmetric at (" << r << "," << c << ")";
     }
   }
@@ -367,11 +363,13 @@ TEST(KalmanUpdaterTest, DynamicCovarianceAltersUpdateWeight) {
   const MeasurementVector measurement(150.0f, 0.0f, 0.0f);
 
   // 1. 使用极小的动态 R (极其信任量测)
-  signal::tracking::MeasurementCovariance small_R = signal::tracking::MeasurementCovariance::Identity() * 1.0f;
+  signal::tracking::MeasurementCovariance small_R =
+      signal::tracking::MeasurementCovariance::Identity() * 1.0f;
   const KalmanUpdateResult result_small_R = updater.Update(predicted, measurement, small_R);
 
   // 2. 使用极大的动态 R (极度不信任量测，信任先验)
-  signal::tracking::MeasurementCovariance large_R = signal::tracking::MeasurementCovariance::Identity() * 10000.0f;
+  signal::tracking::MeasurementCovariance large_R =
+      signal::tracking::MeasurementCovariance::Identity() * 10000.0f;
   const KalmanUpdateResult result_large_R = updater.Update(predicted, measurement, large_R);
 
   // 结果对比：小 R 下均值应被拉向 150，大 R 下均值应保持在 100 附近
@@ -447,4 +445,5 @@ TEST(KalmanPredictUpdateTest, VelocityConvergesFromWrongInitialGuess) {
   EXPECT_NEAR(state.mean(1), 20.0f, 3.0f);   // vx → 20
 }
 
-} } // namespace airborne_radar::tests
+}  // namespace tests
+}  // namespace airborne_radar

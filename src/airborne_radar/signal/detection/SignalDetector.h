@@ -18,17 +18,17 @@ namespace detection {
  * @brief 单目标探测结果。
  */
 struct DetectionResult {
-  float echo_power_dbw{-300.0f};   /**< 接收回波功率 (dBW) */
-  float snr_db{-100.0f};           /**< 信噪比 (dB) */
-  float detection_prob{0.0f};      /**< 检测概率 Pd */
-  bool detected{false};            /**< 是否达到门限 */
+  float echo_power_dbw{-300.0f}; /**< 接收回波功率 (dBW) */
+  float snr_db{-100.0f};         /**< 信噪比 (dB) */
+  float detection_prob{0.0f};    /**< 检测概率 Pd */
+  bool detected{false};          /**< 是否达到门限 */
 };
 /**
  * @brief 目标回波特征上下文。
  */
 struct TargetReturn {
-  float rcs_m2{0.0f};              /**< 目标 RCS (m²) */
-  float range_m{0.0f};             /**< 目标到雷达斜距 (m) */
+  float rcs_m2{0.0f};                      /**< 目标 RCS (m²) */
+  float range_m{0.0f};                     /**< 目标到雷达斜距 (m) */
   SwerlingModel swerling_type{kSwerling0}; /**< 目标的 Swerling 起伏模型 */
 };
 /**
@@ -50,41 +50,39 @@ struct EnvironmentState {
  */
 class SignalDetector {
  public:
-/**
- * @brief 使用雷达系统配置构造检测器。
- * @param config 完整雷达系统参数
- */
+  /**
+   * @brief 使用雷达系统配置构造检测器。
+   * @param config 完整雷达系统参数
+   */
   explicit SignalDetector(RadarSystemConfig config);
-/**
- * @brief 更新雷达系统配置并重算热噪声底。
- * @param config 完整雷达系统参数
- */
+  /**
+   * @brief 更新雷达系统配置并重算热噪声底。
+   * @param config 完整雷达系统参数
+   */
   void UpdateConfig(RadarSystemConfig config);
-/**
- * @brief 对单个目标执行完整检测链。
- * @param target               目标回波特征上下文
- * @param env                  环境噪声上下文
- * @param one_way_antenna_gain_db 单程天线增益；若为 NaN 则回退到配置中的主瓣峰值增益
- * @param pulse_count          检测脉冲数 N
- * @param coherent_integration 积累方式标记（当前检测概率语义统一为“每脉冲 SNR + N”，该参数仅保留兼容）
- * @return 探测结果
- */
-  DetectionResult Detect(const TargetReturn& target,
-                         const EnvironmentState& env,
-                         float one_way_antenna_gain_db =
-                             std::numeric_limits<float>::quiet_NaN(),
-                         int pulse_count = 1,
-                         bool coherent_integration = false);
-/**
- * @brief 设置随机种子（用于确定性回归测试）。
- * @param seed 随机数种子
- */
+  /**
+   * @brief 对单个目标执行完整检测链。
+   * @param target               目标回波特征上下文
+   * @param env                  环境噪声上下文
+   * @param one_way_antenna_gain_db 单程天线增益；若为 NaN 则回退到配置中的主瓣峰值增益
+   * @param pulse_count          检测脉冲数 N
+   * @param coherent_integration 积累方式标记（当前检测概率语义统一为“每脉冲 SNR +
+   * N”，该参数仅保留兼容）
+   * @return 探测结果
+   */
+  DetectionResult Detect(const TargetReturn& target, const EnvironmentState& env,
+                         float one_way_antenna_gain_db = std::numeric_limits<float>::quiet_NaN(),
+                         int pulse_count = 1, bool coherent_integration = false);
+  /**
+   * @brief 设置随机种子（用于确定性回归测试）。
+   * @param seed 随机数种子
+   */
   void SetRandomSeed(unsigned int seed);
 
  private:
-  RadarSystemConfig config_;    /**< 雷达系统配置 */
-  float thermal_noise_w_;       /**< 预计算的接收机热噪声底 (W) */
-  std::mt19937 rng_;            /**< 确定性随机数引擎 */
+  RadarSystemConfig config_; /**< 雷达系统配置 */
+  float thermal_noise_w_;    /**< 预计算的接收机热噪声底 (W) */
+  std::mt19937 rng_;         /**< 确定性随机数引擎 */
 };
 
 }  // namespace detection

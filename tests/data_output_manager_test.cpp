@@ -5,33 +5,31 @@
 
 #include <gtest/gtest.h>
 
-#include "airborne_radar/core/output/DataOutputManager.h"
 #include "1q/airborne_radar/common/DecisionInputFrame.h"
 #include "1q/airborne_radar/common/DecisionTrackSnapshot.h"
 #include "1q/airborne_radar/common/TrackOutputFrame.h"
+#include "airborne_radar/core/output/DataOutputManager.h"
 
 namespace airborne_radar {
 namespace tests {
 
 namespace {
 
-common::DecisionTrackSnapshot BuildTrackSnapshot(
-    std::uint64_t association_key, common::DecisionTrackStatus status) {
+common::DecisionTrackSnapshot BuildTrackSnapshot(std::uint64_t association_key,
+                                                 common::DecisionTrackStatus status) {
   common::DecisionTrackSnapshot snapshot(120.0f, 0.0f, 0.0f, 3.0f);
   snapshot.state.association_key = association_key;
   snapshot.state.status = status;
   return snapshot;
 }
 
-} // namespace
+}  // namespace
 
 TEST(DataOutputManagerTest, BuildsTrackOutputFrameWithCountsAndLostFlag) {
   core::output::DataOutputManager output_manager;
   common::DecisionTrackSnapshotList track_snapshots;
-  track_snapshots.push_back(
-      BuildTrackSnapshot(101U, common::DecisionTrackStatus::kConfirmed));
-  track_snapshots.push_back(
-      BuildTrackSnapshot(202U, common::DecisionTrackStatus::kLost));
+  track_snapshots.push_back(BuildTrackSnapshot(101U, common::DecisionTrackStatus::kConfirmed));
+  track_snapshots.push_back(BuildTrackSnapshot(202U, common::DecisionTrackStatus::kLost));
 
   const common::TrackOutputFrame frame =
       output_manager.BuildTrackOutputFrame(7U, 88U, track_snapshots);
@@ -47,8 +45,7 @@ TEST(DataOutputManagerTest, BuildsTrackOutputFrameWithCountsAndLostFlag) {
 TEST(DataOutputManagerTest, BuildsDecisionInputFrameFromTrackOutputFrame) {
   core::output::DataOutputManager output_manager;
   common::DecisionTrackSnapshotList track_snapshots;
-  track_snapshots.push_back(
-      BuildTrackSnapshot(303U, common::DecisionTrackStatus::kConfirmed));
+  track_snapshots.push_back(BuildTrackSnapshot(303U, common::DecisionTrackStatus::kConfirmed));
   const common::TrackOutputFrame track_output_frame =
       output_manager.BuildTrackOutputFrame(11U, 99U, track_snapshots);
 
@@ -60,10 +57,8 @@ TEST(DataOutputManagerTest, BuildsDecisionInputFrameFromTrackOutputFrame) {
   perception_quality_info.input_target_count = 3U;
   perception_quality_info.detection_count = 2U;
 
-  const common::DecisionInputFrame frame =
-      output_manager.BuildDecisionInputFrame(
-          track_output_frame, eccm_source_info, association_quality_info,
-          perception_quality_info);
+  const common::DecisionInputFrame frame = output_manager.BuildDecisionInputFrame(
+      track_output_frame, eccm_source_info, association_quality_info, perception_quality_info);
 
   EXPECT_EQ(frame.cycle_index, 11U);
   EXPECT_EQ(frame.batch_id, 99U);
@@ -78,8 +73,7 @@ TEST(DataOutputManagerTest, BuildsDecisionInputFrameFromTrackOutputFrame) {
 TEST(DataOutputManagerTest, EmptyTrackOutputFrameKeepsZeroCounts) {
   core::output::DataOutputManager output_manager;
   const common::TrackOutputFrame frame =
-      output_manager.BuildTrackOutputFrame(
-          5U, 12U, common::DecisionTrackSnapshotList());
+      output_manager.BuildTrackOutputFrame(5U, 12U, common::DecisionTrackSnapshotList());
 
   EXPECT_EQ(frame.cycle_index, 5U);
   EXPECT_EQ(frame.batch_id, 12U);
@@ -89,5 +83,5 @@ TEST(DataOutputManagerTest, EmptyTrackOutputFrameKeepsZeroCounts) {
   EXPECT_FALSE(frame.contains_lost_tracks);
 }
 
-} // namespace tests
-} // namespace airborne_radar
+}  // namespace tests
+}  // namespace airborne_radar

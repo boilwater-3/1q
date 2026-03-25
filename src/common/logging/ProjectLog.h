@@ -10,11 +10,11 @@
 #define PROJECT_LOG_ERROR(...) spdlog::error(__VA_ARGS__)
 #define PROJECT_LOG_CRITICAL(...) spdlog::critical(__VA_ARGS__)
 #define PROJECT_LOG_HAS_DEFAULT_LOGGER() (spdlog::default_logger_raw() != nullptr)
-#define PROJECT_LOG_FLUSH_DEFAULT()                           \
-  do {                                                        \
-    if (spdlog::default_logger_raw() != nullptr) {            \
-      spdlog::default_logger_raw()->flush();                  \
-    }                                                         \
+#define PROJECT_LOG_FLUSH_DEFAULT()                \
+  do {                                             \
+    if (spdlog::default_logger_raw() != nullptr) { \
+      spdlog::default_logger_raw()->flush();       \
+    }                                              \
   } while (false)
 
 #else

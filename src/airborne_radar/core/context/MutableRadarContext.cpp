@@ -13,8 +13,7 @@ void MutableRadarContext::BeginCycle(const RadarCycleInput& input) {
   ResetCycleOutputs();
 }
 
-void MutableRadarContext::SetTargetFeatures(
-    common::TargetFeatureList target_features) {
+void MutableRadarContext::SetTargetFeatures(common::TargetFeatureList target_features) {
   target_features_ = std::move(target_features);
 }
 
@@ -23,25 +22,17 @@ void MutableRadarContext::SetPlatformAttitude(
   platform_attitude_deg_ = platform_attitude_deg;
 }
 
-void MutableRadarContext::SetCycleDeltaTimeSec(float dt_sec) {
-  cycle_dt_sec_ = dt_sec;
-}
+void MutableRadarContext::SetCycleDeltaTimeSec(float dt_sec) { cycle_dt_sec_ = dt_sec; }
 
-void MutableRadarContext::ResetCycleOutputs() {
-  submitted_commands_.clear();
-}
+void MutableRadarContext::ResetCycleOutputs() { submitted_commands_.clear(); }
 
-const std::vector<common::RadarCommand>&
-MutableRadarContext::GetSubmittedCommands() const {
+const std::vector<common::RadarCommand>& MutableRadarContext::GetSubmittedCommands() const {
   return submitted_commands_;
 }
 
-bool MutableRadarContext::HasLatestControlProfile() const {
-  return has_latest_control_profile_;
-}
+bool MutableRadarContext::HasLatestControlProfile() const { return has_latest_control_profile_; }
 
-const common::RadarControlProfile&
-MutableRadarContext::GetLatestControlProfile() const {
+const common::RadarControlProfile& MutableRadarContext::GetLatestControlProfile() const {
   return latest_control_profile_;
 }
 
@@ -53,20 +44,17 @@ common::PlatformAttitudeDeg MutableRadarContext::GetPlatformAttitude() const {
   return platform_attitude_deg_;
 }
 
-float MutableRadarContext::GetCycleDeltaTimeSec() const {
-  return cycle_dt_sec_;
-}
+float MutableRadarContext::GetCycleDeltaTimeSec() const { return cycle_dt_sec_; }
 
 void MutableRadarContext::SubmitControlCommand(common::RadarCommand cmd) {
   submitted_commands_.push_back(std::move(cmd));
 }
 
-void MutableRadarContext::UpdateRadarControlProfile(
-    const common::RadarControlProfile& profile) {
+void MutableRadarContext::UpdateRadarControlProfile(const common::RadarControlProfile& profile) {
   latest_control_profile_ = profile;
   has_latest_control_profile_ = true;
 }
 
-} // namespace context
-} // namespace core
-} // namespace airborne_radar
+}  // namespace context
+}  // namespace core
+}  // namespace airborne_radar

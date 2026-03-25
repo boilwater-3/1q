@@ -21,17 +21,14 @@ constexpr std::uint64_t kUnassociatedKey = 0;
  * @param message 违例信息。
  * @param index 违例目标索引或轨迹键。
  */
-[[noreturn]] void AbortContractViolation(const char *message,
-                                        std::size_t index) {
+[[noreturn]] void AbortContractViolation(const char* message, std::size_t index) {
   if (PROJECT_LOG_HAS_DEFAULT_LOGGER()) {
-    PROJECT_LOG_CRITICAL(
-        "[DataAssociationEngine] Contract violation at target[{}]: {}",
-        index, message);
+    PROJECT_LOG_CRITICAL("[DataAssociationEngine] Contract violation at target[{}]: {}", index,
+                         message);
     PROJECT_LOG_FLUSH_DEFAULT();
   }
-  std::fprintf(stderr,
-               "[DataAssociationEngine] Contract violation at target[%zu]: %s\n",
-               index, message);
+  std::fprintf(stderr, "[DataAssociationEngine] Contract violation at target[%zu]: %s\n", index,
+               message);
   std::fflush(stderr);
   std::abort();
 }
@@ -51,8 +48,7 @@ tracking::MeasurementMatrix BuildPositionMeasurementMatrix() {
  * @param measurement_noise_std 量测标准差。
  * @return 对角协方差矩阵。
  */
-tracking::MeasurementCovariance BuildDefaultMeasurementCovariance(
-    float measurement_noise_std) {
+tracking::MeasurementCovariance BuildDefaultMeasurementCovariance(float measurement_noise_std) {
   const float variance = measurement_noise_std * measurement_noise_std;
   return tracking::MeasurementCovariance::Identity() * variance;
 }
@@ -61,7 +57,7 @@ tracking::MeasurementCovariance BuildDefaultMeasurementCovariance(
  * @param using_external_seeds 是否使用外部 seeds。
  * @return 先验来源字符串。
  */
-const char *AssociationPriorSourceName(bool using_external_seeds) {
+const char* AssociationPriorSourceName(bool using_external_seeds) {
   if (using_external_seeds) {
     return "external-seeds";
   }
@@ -77,8 +73,7 @@ float SafeRatio(std::size_t numerator, std::size_t denominator) {
   if (denominator == 0U) {
     return 0.0f;
   }
-  return static_cast<float>(numerator) /
-         static_cast<float>(denominator);
+  return static_cast<float>(numerator) / static_cast<float>(denominator);
 }
 /**
  * @brief 计算 P95 的 nearest-rank 下标。
@@ -102,10 +97,8 @@ std::size_t ComputeNearestRankP95Index(std::size_t sample_size) {
  * @return 聚合后的质量指标。
  */
 AssociationQualityMetrics BuildAssociationQualityMetrics(
-    std::size_t prior_track_count,
-    std::size_t detection_count,
-    const std::vector<AssociationMatch> &matches,
-    std::size_t new_track_count,
+    std::size_t prior_track_count, std::size_t detection_count,
+    const std::vector<AssociationMatch>& matches, std::size_t new_track_count,
     std::size_t missed_track_count) {
   AssociationQualityMetrics metrics;
   metrics.prior_track_count = prior_track_count;
@@ -128,66 +121,56 @@ AssociationQualityMetrics BuildAssociationQualityMetrics(
     sum_match_cost += matches[i].cost;
     sorted_costs.push_back(matches[i].cost);
   }
-  metrics.mean_match_cost =
-      sum_match_cost / static_cast<float>(matches.size());
+  metrics.mean_match_cost = sum_match_cost / static_cast<float>(matches.size());
 
   std::sort(sorted_costs.begin(), sorted_costs.end());
-  metrics.p95_match_cost =
-      sorted_costs[ComputeNearestRankP95Index(sorted_costs.size())];
+  metrics.p95_match_cost = sorted_costs[ComputeNearestRankP95Index(sorted_costs.size())];
   return metrics;
 }
 
-} // namespace
+}  // namespace
 
 DataAssociationEngine::DataAssociationEngine(DataAssociationConfig config)
-  : config_(config),
-    full_distance_metric_(Eigen::Matrix3f::Identity() *
-              (config.kalman_measurement_noise_std *
-               config.kalman_measurement_noise_std)),
-    gater_(config.unassigned_cost),
-    position_hypothesiser_(&full_distance_metric_, &gater_),
-    kalman_predictor_(tracking::KalmanPredictorConfig()) {
+    : config_(config),
+      full_distance_metric_(Eigen::Matrix3f::Identity() * (config.kalman_measurement_noise_std *
+                                                           config.kalman_measurement_noise_std)),
+      gater_(config.unassigned_cost),
+      position_hypothesiser_(&full_distance_metric_, &gater_),
+      kalman_predictor_(tracking::KalmanPredictorConfig()) {
   tracking::KalmanPredictorConfig predictor_config;
   predictor_config.noise_diff_coeff = config.kalman_noise_diff_coeff;
   kalman_predictor_.UpdateConfig(predictor_config);
-
 }
 
 void DataAssociationEngine::UpdateConfig(DataAssociationConfig config) {
   config_ = config;
   full_distance_metric_ = FullMahalanobisDistanceMetric(
-    Eigen::Matrix3f::Identity() *
-    (config.kalman_measurement_noise_std *
-     config.kalman_measurement_noise_std));
+      Eigen::Matrix3f::Identity() *
+      (config.kalman_measurement_noise_std * config.kalman_measurement_noise_std));
   gater_ = CostThresholdGater(config.unassigned_cost);
   position_hypothesiser_ = DenseCostHypothesiser(&full_distance_metric_, &gater_);
   tracking::KalmanPredictorConfig predictor_config;
   predictor_config.noise_diff_coeff = config.kalman_noise_diff_coeff;
   kalman_predictor_.UpdateConfig(predictor_config);
-
 }
 
 AssociationResult DataAssociationEngine::AssociateDetections(
-    const common::TargetFeatureList &targets,
-    const std::vector<std::uint8_t> &detection_succeeded) {
+    const common::TargetFeatureList& targets,
+    const std::vector<std::uint8_t>& detection_succeeded) {
   std::vector<tracking::MeasurementCovariance> measurement_covariances(
-      targets.size(),
-      BuildDefaultMeasurementCovariance(config_.kalman_measurement_noise_std));
-  return AssociateDetections(targets, detection_succeeded,
-                             measurement_covariances);
+      targets.size(), BuildDefaultMeasurementCovariance(config_.kalman_measurement_noise_std));
+  return AssociateDetections(targets, detection_succeeded, measurement_covariances);
 }
 
 AssociationResult DataAssociationEngine::AssociateDetections(
-    const common::TargetFeatureList &targets,
-    const std::vector<std::uint8_t> &detection_succeeded,
-    const std::vector<tracking::MeasurementCovariance> &measurement_covariances) {
+    const common::TargetFeatureList& targets, const std::vector<std::uint8_t>& detection_succeeded,
+    const std::vector<tracking::MeasurementCovariance>& measurement_covariances) {
   const std::size_t target_count = targets.size();
   AssociationResult result;
   result.target_keys.resize(target_count, kUnassociatedKey);
 
   if (measurement_covariances.size() != target_count) {
-    AbortContractViolation(
-        "measurement_covariances size must match targets size", target_count);
+    AbortContractViolation("measurement_covariances size must match targets size", target_count);
   }
 
   std::vector<std::size_t> measurement_indices;
@@ -199,11 +182,9 @@ AssociationResult DataAssociationEngine::AssociateDetections(
   }
 
   const bool using_external_seeds = UsingExternalSeeds();
-  const std::vector<ExternalSeedTrackSignature> &external_priors =
-      external_seed_tracks_;
-    const std::size_t association_prior_count =
-      using_external_seeds ? external_priors.size() : 0U;
-    const char *prior_source = AssociationPriorSourceName(using_external_seeds);
+  const std::vector<ExternalSeedTrackSignature>& external_priors = external_seed_tracks_;
+  const std::size_t association_prior_count = using_external_seeds ? external_priors.size() : 0U;
+  const char* prior_source = AssociationPriorSourceName(using_external_seeds);
 
   if (measurement_indices.empty()) {
     result.missed_track_keys.reserve(association_prior_count);
@@ -213,10 +194,10 @@ AssociationResult DataAssociationEngine::AssociateDetections(
       }
     }
     result.quality_metrics = BuildAssociationQualityMetrics(
-      association_prior_count, 0U, result.matches, 0U,
-      result.missed_track_keys.size());
+        association_prior_count, 0U, result.matches, 0U, result.missed_track_keys.size());
     PROJECT_LOG_DEBUG(
-        "[DataAssociationEngine] cycle summary: prior_source={} priors={} detections=0 matches=0 missed_tracks={} new_tracks=0",
+        "[DataAssociationEngine] cycle summary: prior_source={} priors={} detections=0 matches=0 "
+        "missed_tracks={} new_tracks=0",
         prior_source, association_prior_count, result.missed_track_keys.size());
     ClearConsumedAssociationPriors();
     return result;
@@ -239,20 +220,17 @@ AssociationResult DataAssociationEngine::AssociateDetections(
 
   if (association_prior_count > 0U) {
     const PositionAssociationPriors priors =
-      BuildExternalPositionAssociationPriors(external_priors);
+        BuildExternalPositionAssociationPriors(external_priors);
     const std::size_t rows = association_prior_count;
     const std::size_t cols = measurements.size();
     const std::size_t dim = std::max(rows, cols);
     const float rejected_cost = config_.unassigned_cost + 1.0f;
 
-    Eigen::MatrixXf cost_matrix =
-        Eigen::MatrixXf::Constant(static_cast<Eigen::Index>(dim),
-                                  static_cast<Eigen::Index>(dim),
-                                  config_.unassigned_cost);
+    Eigen::MatrixXf cost_matrix = Eigen::MatrixXf::Constant(
+        static_cast<Eigen::Index>(dim), static_cast<Eigen::Index>(dim), config_.unassigned_cost);
     for (std::size_t r = 0; r < rows; ++r) {
       for (std::size_t c = 0; c < cols; ++c) {
-        cost_matrix(static_cast<Eigen::Index>(r), static_cast<Eigen::Index>(c)) =
-            rejected_cost;
+        cost_matrix(static_cast<Eigen::Index>(r), static_cast<Eigen::Index>(c)) = rejected_cost;
       }
     }
 
@@ -263,15 +241,12 @@ AssociationResult DataAssociationEngine::AssociateDetections(
           measurement_covariances[measurement_indices[i]]);
     }
 
-    const std::vector<AssociationHypothesis> hypotheses =
-      position_hypothesiser_.Generate(
-        priors.predicted_tracks, measurements,
-        priors.projected_measurement_covariances,
+    const std::vector<AssociationHypothesis> hypotheses = position_hypothesiser_.Generate(
+        priors.predicted_tracks, measurements, priors.projected_measurement_covariances,
         measurement_covariances_for_matches);
-    for (const AssociationHypothesis &hypothesis : hypotheses) {
+    for (const AssociationHypothesis& hypothesis : hypotheses) {
       cost_matrix(static_cast<Eigen::Index>(hypothesis.track_index),
-                  static_cast<Eigen::Index>(hypothesis.measurement_index)) =
-          hypothesis.cost;
+                  static_cast<Eigen::Index>(hypothesis.measurement_index)) = hypothesis.cost;
     }
 
     const std::vector<int> assignment = assignment_solver_.Solve(cost_matrix);
@@ -309,12 +284,10 @@ AssociationResult DataAssociationEngine::AssociateDetections(
     const std::size_t target_index = measurement_indices[m];
     result.target_keys[target_index] = key;
     if (matched_existing_track) {
-      result.matches.push_back(
-          AssociationMatch{key, target_index, measurement_match_cost[m]});
+      result.matches.push_back(AssociationMatch{key, target_index, measurement_match_cost[m]});
     } else {
       result.unassociated_target_indices.push_back(target_index);
     }
-
   }
 
   ClearConsumedAssociationPriors();
@@ -324,43 +297,38 @@ AssociationResult DataAssociationEngine::AssociateDetections(
       result.unassociated_target_indices.size(), result.missed_track_keys.size());
 
   PROJECT_LOG_DEBUG(
-      "[DataAssociationEngine] cycle summary: prior_source={} priors={} detections={} matches={} missed_tracks={} new_tracks={}",
-      prior_source, association_prior_count, measurement_indices.size(),
-      result.matches.size(), result.missed_track_keys.size(),
-      result.unassociated_target_indices.size());
+      "[DataAssociationEngine] cycle summary: prior_source={} priors={} detections={} matches={} "
+      "missed_tracks={} new_tracks={}",
+      prior_source, association_prior_count, measurement_indices.size(), result.matches.size(),
+      result.missed_track_keys.size(), result.unassociated_target_indices.size());
   return result;
 }
 
 std::vector<std::uint64_t> DataAssociationEngine::Associate(
-    const common::TargetFeatureList &targets,
-    const std::vector<std::uint8_t> &detection_succeeded) {
+    const common::TargetFeatureList& targets,
+    const std::vector<std::uint8_t>& detection_succeeded) {
   return AssociateDetections(targets, detection_succeeded).target_keys;
 }
 
 std::vector<std::uint64_t> DataAssociationEngine::Associate(
-    const common::TargetFeatureList &targets,
-    const std::vector<std::uint8_t> &detection_succeeded,
-    const std::vector<tracking::MeasurementCovariance> &measurement_covariances) {
-  return AssociateDetections(targets, detection_succeeded,
-                             measurement_covariances)
-      .target_keys;
+    const common::TargetFeatureList& targets, const std::vector<std::uint8_t>& detection_succeeded,
+    const std::vector<tracking::MeasurementCovariance>& measurement_covariances) {
+  return AssociateDetections(targets, detection_succeeded, measurement_covariances).target_keys;
 }
 
 void DataAssociationEngine::SetAssociationSeeds(
-    const std::vector<tracking::AssociationTrackSeed> &seeds) {
+    const std::vector<tracking::AssociationTrackSeed>& seeds) {
   external_seed_tracks_.clear();
   external_seed_tracks_.reserve(seeds.size());
   association_seed_mode_ = AssociationSeedMode::kExternalSeeds;
 
   for (std::size_t i = 0; i < seeds.size(); ++i) {
-    const tracking::AssociationTrackSeed &seed = seeds[i];
+    const tracking::AssociationTrackSeed& seed = seeds[i];
     if (!seed.has_position) {
-      AbortContractViolation(
-          "external association seed missing cartesian position", i);
+      AbortContractViolation("external association seed missing cartesian position", i);
     }
     if (!seed.has_gaussian_state) {
-      AbortContractViolation(
-          "external association seed missing gaussian state", i);
+      AbortContractViolation("external association seed missing gaussian state", i);
     }
 
     ExternalSeedTrackSignature signature(seed.association_key);
@@ -371,7 +339,7 @@ void DataAssociationEngine::SetAssociationSeeds(
     external_seed_tracks_.push_back(signature);
   }
   PROJECT_LOG_DEBUG("[DataAssociationEngine] accepted {} external association seeds",
-                external_seed_tracks_.size());
+                    external_seed_tracks_.size());
 }
 
 void DataAssociationEngine::ResetAssociationSeedModeToStateless() {
@@ -390,23 +358,21 @@ void DataAssociationEngine::ClearConsumedAssociationPriors() {
 
 DataAssociationEngine::PositionAssociationPriors
 DataAssociationEngine::BuildExternalPositionAssociationPriors(
-    const std::vector<ExternalSeedTrackSignature> &external_priors) const {
+    const std::vector<ExternalSeedTrackSignature>& external_priors) const {
   PositionAssociationPriors priors;
   priors.keys.reserve(external_priors.size());
   priors.predicted_tracks.reserve(external_priors.size());
   priors.projected_measurement_covariances.reserve(external_priors.size());
 
   for (std::size_t i = 0; i < external_priors.size(); ++i) {
-    const ExternalSeedTrackSignature &track = external_priors[i];
+    const ExternalSeedTrackSignature& track = external_priors[i];
     if (!track.has_position) {
       AbortContractViolation(
-          "association prior missing cartesian position under position-only mode",
-          track.key);
+          "association prior missing cartesian position under position-only mode", track.key);
     }
     if (!track.has_gaussian_state) {
-      AbortContractViolation(
-          "association prior missing gaussian state under external-seed mode",
-          track.key);
+      AbortContractViolation("association prior missing gaussian state under external-seed mode",
+                             track.key);
     }
 
     const tracking::GaussianTrackState predicted =
@@ -422,19 +388,17 @@ DataAssociationEngine::BuildExternalPositionAssociationPriors(
 }
 
 Eigen::Vector3f DataAssociationEngine::BuildPositionVector(
-    const common::TargetFeature &target) const {
+    const common::TargetFeature& target) const {
   return Eigen::Vector3f(target.position_x, target.position_y, target.position_z);
 }
 
-bool DataAssociationEngine::HasPositionMeasurement(
-    const common::TargetFeature &target) const {
-  return target.position_x != 0.0f || target.position_y != 0.0f ||
-         target.position_z != 0.0f;
+bool DataAssociationEngine::HasPositionMeasurement(const common::TargetFeature& target) const {
+  return target.position_x != 0.0f || target.position_y != 0.0f || target.position_z != 0.0f;
 }
 
 void DataAssociationEngine::ValidateDetectedTargetsHavePosition(
-    const common::TargetFeatureList &targets,
-    const std::vector<std::uint8_t> &detection_succeeded) const {
+    const common::TargetFeatureList& targets,
+    const std::vector<std::uint8_t>& detection_succeeded) const {
   for (std::size_t i = 0; i < targets.size() && i < detection_succeeded.size(); ++i) {
     if (detection_succeeded[i] == 0U) {
       continue;
@@ -446,7 +410,7 @@ void DataAssociationEngine::ValidateDetectedTargetsHavePosition(
 }
 
 tracking::GaussianTrackState DataAssociationEngine::InitializeGaussianState(
-    const Eigen::Vector3f &position) const {
+    const Eigen::Vector3f& position) const {
   tracking::StateVector mean = tracking::StateVector::Zero();
   mean(0) = position(0);
   mean(2) = position(1);
@@ -457,11 +421,11 @@ tracking::GaussianTrackState DataAssociationEngine::InitializeGaussianState(
 }
 
 tracking::MeasurementCovariance DataAssociationEngine::ComputeProjectedMeasurementCovariance(
-    const tracking::GaussianTrackState &predicted) const {
+    const tracking::GaussianTrackState& predicted) const {
   const tracking::MeasurementMatrix H = BuildPositionMeasurementMatrix();
   return H * predicted.covariance * H.transpose();
 }
 
-} // namespace association
-} // namespace signal
-} // namespace airborne_radar
+}  // namespace association
+}  // namespace signal
+}  // namespace airborne_radar

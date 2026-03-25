@@ -29,8 +29,8 @@ class EmissionControlEvaluator final : public pipeline::ITacticalEvaluator {
                 pipeline::TacticalEvaluationState& evaluation_state) const override;
 };
 
-} // namespace lpi
-} // namespace decision
-} // namespace airborne_radar
+}  // namespace lpi
+}  // namespace decision
+}  // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_DECISION_LPI_EMISSION_CONTROL_EVALUATOR_H_
+#endif  // AIRBORNE_RADAR_DECISION_LPI_EMISSION_CONTROL_EVALUATOR_H_

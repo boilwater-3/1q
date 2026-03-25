@@ -60,20 +60,19 @@ using KalmanGainMatrix = Eigen::Matrix<float, kStateDim, kMeasurementDim>;
  */
 struct GaussianTrackState {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  StateVector mean{StateVector::Zero()};  /**< 状态均值向量。 */
-  StateCovariance covariance{StateCovariance::Identity()};  /**< 状态协方差矩阵。 */
+  StateVector mean{StateVector::Zero()};                   /**< 状态均值向量。 */
+  StateCovariance covariance{StateCovariance::Identity()}; /**< 状态协方差矩阵。 */
   GaussianTrackState() = default;
-/**
- * @brief 从均值和协方差构造。
- * @param m 状态均值向量。
- * @param p 状态协方差矩阵。
- */
-  GaussianTrackState(const StateVector &m, const StateCovariance &p)
-      : mean(m), covariance(p) {}
+  /**
+   * @brief 从均值和协方差构造。
+   * @param m 状态均值向量。
+   * @param p 状态协方差矩阵。
+   */
+  GaussianTrackState(const StateVector& m, const StateCovariance& p) : mean(m), covariance(p) {}
 };
 
-} // namespace tracking
-} // namespace signal
-} // namespace airborne_radar
+}  // namespace tracking
+}  // namespace signal
+}  // namespace airborne_radar
 
 #endif  // AIRBORNE_RADAR_SIGNAL_TRACKING_GAUSSIAN_TRACK_STATE_H_

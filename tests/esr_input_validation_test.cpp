@@ -27,8 +27,7 @@ namespace {
  * @param[in] code 目标编码。
  * @return 若包含指定编码则返回 `true`。
  */
-bool ContainsCode(const EsrValidationIssueList& issues,
-                  EsrValidationCode code) {
+bool ContainsCode(const EsrValidationIssueList& issues, EsrValidationCode code) {
   for (std::size_t i = 0; i < issues.size(); ++i) {
     if (issues[i].code == code) {
       return true;
@@ -57,8 +56,7 @@ template <typename T, typename = void>
 struct HasTruthEmitterId : std::false_type {};
 
 template <typename T>
-struct HasTruthEmitterId<T, decltype((void)std::declval<T>().truth_emitter_id)>
-    : std::true_type {};
+struct HasTruthEmitterId<T, decltype((void)std::declval<T>().truth_emitter_id)> : std::true_type {};
 
 static_assert(!HasTruthEmitterId<common::EmitterHypothesis>::value,
               "EmitterHypothesis must not expose truth emitter id");
@@ -106,8 +104,7 @@ TEST(EsrInputValidationTest, NonFiniteEmitterNumericFieldIsReported) {
 
   const EsrValidationIssueList issues = ValidateEsrCycleInput(input);
 
-  EXPECT_TRUE(
-      ContainsCode(issues, EsrValidationCode::kNonFiniteEmitterNumericField));
+  EXPECT_TRUE(ContainsCode(issues, EsrValidationCode::kNonFiniteEmitterNumericField));
   EXPECT_TRUE(HasEsrValidationError(issues));
 }
 

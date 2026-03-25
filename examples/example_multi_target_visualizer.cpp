@@ -73,15 +73,11 @@ struct TargetInit {
 
 const TargetInit kTargets[] = {
     // 编队 A/B
-    {3001, 8000.0f, 1000.0f, 5000.0f, -220.0f, -10.0f, 0.0f, 1.5f,
-     "Formation"},
-    {3002, 8000.0f, 1300.0f, 5000.0f, -220.0f, -10.0f, 0.0f, 1.5f,
-     "Formation"},
+    {3001, 8000.0f, 1000.0f, 5000.0f, -220.0f, -10.0f, 0.0f, 1.5f, "Formation"},
+    {3002, 8000.0f, 1300.0f, 5000.0f, -220.0f, -10.0f, 0.0f, 1.5f, "Formation"},
     // 交叉 C/D
-    {3003, 10000.0f, -2000.0f, 4000.0f, -200.0f, 80.0f, 0.0f, 2.0f,
-     "Crossing"},
-    {3004, 10000.0f, 2000.0f, 4000.0f, -200.0f, -80.0f, 0.0f, 2.0f,
-     "Crossing"},
+    {3003, 10000.0f, -2000.0f, 4000.0f, -200.0f, 80.0f, 0.0f, 2.0f, "Crossing"},
+    {3004, 10000.0f, 2000.0f, 4000.0f, -200.0f, -80.0f, 0.0f, 2.0f, "Crossing"},
     // 机动 E
     {3005, 6000.0f, 0.0f, 3000.0f, -300.0f, 0.0f, 0.0f, 1.0f, "Maneuver"},
     // 远距微弱 F
@@ -93,9 +89,8 @@ constexpr int kTargetCount = sizeof(kTargets) / sizeof(kTargets[0]);
 
 ImVec4 TrackColor(std::uint64_t association_key) {
   static const ImVec4 kPalette[] = {
-      {0.12f, 0.47f, 0.71f, 1.0f}, {1.00f, 0.50f, 0.05f, 1.0f},
-      {0.17f, 0.63f, 0.17f, 1.0f}, {0.84f, 0.15f, 0.16f, 1.0f},
-      {0.58f, 0.40f, 0.74f, 1.0f}, {0.55f, 0.34f, 0.29f, 1.0f},
+      {0.12f, 0.47f, 0.71f, 1.0f}, {1.00f, 0.50f, 0.05f, 1.0f}, {0.17f, 0.63f, 0.17f, 1.0f},
+      {0.84f, 0.15f, 0.16f, 1.0f}, {0.58f, 0.40f, 0.74f, 1.0f}, {0.55f, 0.34f, 0.29f, 1.0f},
       {0.89f, 0.47f, 0.76f, 1.0f},
   };
   return kPalette[association_key % 7];
@@ -123,8 +118,7 @@ struct SimState {
   std::vector<airborne_radar::common::DecisionTrackSnapshot> latest_tracks;
 
   // 关联质量历史
-  std::vector<airborne_radar::signal::pipeline::AssociationQualityMetrics>
-      quality_history;
+  std::vector<airborne_radar::signal::pipeline::AssociationQualityMetrics> quality_history;
 
   bool finished{false};
 
@@ -150,8 +144,7 @@ std::unique_ptr<airborne_radar::core::session::RadarSession> MakeSession() {
   namespace aq = airborne_radar::common;
   auto session = std::unique_ptr<airborne_radar::core::session::RadarSession>(
       new airborne_radar::core::session::RadarSession(
-          aq::RadarSessionConfigBuilder(
-              aq::MakeDetectionMissionRadarSessionConfig())
+          aq::RadarSessionConfigBuilder(aq::MakeDetectionMissionRadarSessionConfig())
               .EnablePhysicsDetection()
               .WithTransmitterPeakPowerW(5e6f)
               .WithTransmitterFrequencyHz(9.3e9f)
@@ -176,8 +169,7 @@ std::unique_ptr<airborne_radar::core::session::RadarSession> MakeSession() {
 
 // ── 推进一个 cycle ────────────────────────────────────────────────────────────
 
-void StepOnce(airborne_radar::core::session::RadarSession& session,
-              SimState& sim) {
+void StepOnce(airborne_radar::core::session::RadarSession& session, SimState& sim) {
   if (sim.finished || sim.current_cycle >= kMaxCycles) {
     sim.finished = true;
     return;
@@ -191,9 +183,9 @@ void StepOnce(airborne_radar::core::session::RadarSession& session,
   if (it != sim.target_pos.end() && sim.current_cycle >= kManeuverStartCycle) {
     int phase = (sim.current_cycle - kManeuverStartCycle) % 10;
     if (phase < 5) {
-      it->second.vy += 30.0f * kDtSec;   // 向正 Y 加速
+      it->second.vy += 30.0f * kDtSec;  // 向正 Y 加速
     } else {
-      it->second.vy -= 30.0f * kDtSec;   // 反转向负 Y
+      it->second.vy -= 30.0f * kDtSec;  // 反转向负 Y
     }
   }
 
@@ -202,8 +194,7 @@ void StepOnce(airborne_radar::core::session::RadarSession& session,
   for (const auto& kv : sim.target_pos) {
     const auto& p = kv.second;
     input.target_features.push_back(
-        aq::MakeAirTarget(kv.first, p.px, p.py, p.pz,
-                          p.vx, p.vy, p.vz, p.rcs));
+        aq::MakeAirTarget(kv.first, p.px, p.py, p.pz, p.vx, p.vy, p.vz, p.rcs));
   }
 
   auto result = session.StepWithResult(input);
@@ -262,8 +253,7 @@ ImPlotMarker StatusMarker(airborne_radar::common::DecisionTrackStatus s) {
 // ── 渲染 XY 俯视图 ──────────────────────────────────────────────────────────
 
 void RenderXYPlot(const SimState& sim) {
-  if (!ImPlot::BeginPlot("XY Top-Down View (Multi-Target)",
-                          ImVec2(-1, -1), ImPlotFlags_Equal)) {
+  if (!ImPlot::BeginPlot("XY Top-Down View (Multi-Target)", ImVec2(-1, -1), ImPlotFlags_Equal)) {
     return;
   }
   ImPlot::SetupAxes("X (km)", "Y (km)");
@@ -277,10 +267,8 @@ void RenderXYPlot(const SimState& sim) {
     ImVec4 col = TrackColor(key);
     ImPlot::SetNextLineStyle({col.x, col.y, col.z, col.w}, 1.5f);
     char label[32];
-    std::snprintf(label, sizeof(label), "T%llu",
-                  static_cast<unsigned long long>(key));
-    ImPlot::PlotLine(label, xs.data(), ys.data(),
-                     static_cast<int>(xs.size()));
+    std::snprintf(label, sizeof(label), "T%llu", static_cast<unsigned long long>(key));
+    ImPlot::PlotLine(label, xs.data(), ys.data(), static_cast<int>(xs.size()));
 
     // 当前位置标记
     ImPlotMarker marker = ImPlotMarker_Circle;
@@ -292,8 +280,7 @@ void RenderXYPlot(const SimState& sim) {
     }
     ImPlot::SetNextMarkerStyle(marker, 8.0f, {col.x, col.y, col.z, col.w});
     char slabel[48];
-    std::snprintf(slabel, sizeof(slabel), "P%llu",
-                  static_cast<unsigned long long>(key));
+    std::snprintf(slabel, sizeof(slabel), "P%llu", static_cast<unsigned long long>(key));
     ImPlot::PlotScatter(slabel, &xs.back(), &ys.back(), 1);
   }
 
@@ -334,8 +321,7 @@ void RenderStatusTimeline(const SimState& sim) {
     for (std::size_t c = 0; c < sim.status_history.size(); ++c) {
       for (std::size_t k = 0; k < all_keys.size(); ++k) {
         auto it2 = sim.status_history[c].find(all_keys[k]);
-        if (it2 != sim.status_history[c].end() &&
-            it2->second == style.status_val) {
+        if (it2 != sim.status_history[c].end() && it2->second == style.status_val) {
           xs.push_back(static_cast<float>(c));
           ys.push_back(static_cast<float>(k));
         }
@@ -343,10 +329,8 @@ void RenderStatusTimeline(const SimState& sim) {
     }
     if (!xs.empty()) {
       ImPlot::SetNextMarkerStyle(style.marker, 5.0f,
-                                  {style.color.x, style.color.y,
-                                   style.color.z, style.color.w});
-      ImPlot::PlotScatter(style.name, xs.data(), ys.data(),
-                          static_cast<int>(xs.size()));
+                                 {style.color.x, style.color.y, style.color.z, style.color.w});
+      ImPlot::PlotScatter(style.name, xs.data(), ys.data(), static_cast<int>(xs.size()));
     }
   }
 
@@ -362,10 +346,9 @@ void RenderTrackTable(const SimState& sim) {
   }
   ImGui::Separator();
 
-  if (ImGui::BeginTable("tracks", 7,
-                         ImGuiTableFlags_Borders |
-                             ImGuiTableFlags_RowBg |
-                             ImGuiTableFlags_SizingFixedFit)) {
+  if (ImGui::BeginTable(
+          "tracks", 7,
+          ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit)) {
     ImGui::TableSetupColumn("Key");
     ImGui::TableSetupColumn("ExtID");
     ImGui::TableSetupColumn("Status");
@@ -382,8 +365,7 @@ void RenderTrackTable(const SimState& sim) {
       ImGui::TextColored(TrackColor(st.association_key), "%llu",
                          static_cast<unsigned long long>(st.association_key));
       ImGui::TableSetColumnIndex(1);
-      ImGui::Text("%llu",
-                  static_cast<unsigned long long>(st.external_target_id));
+      ImGui::Text("%llu", static_cast<unsigned long long>(st.external_target_id));
       ImGui::TableSetColumnIndex(2);
       ImGui::TextUnformatted(StatusStr(st.status));
       ImGui::TableSetColumnIndex(3);
@@ -393,8 +375,7 @@ void RenderTrackTable(const SimState& sim) {
       ImGui::TableSetColumnIndex(5);
       ImGui::Text("%u", st.miss_count);
       ImGui::TableSetColumnIndex(6);
-      ImGui::Text("(%.1f, %.1f)",
-                  static_cast<double>(st.position_x / 1000.0f),
+      ImGui::Text("(%.1f, %.1f)", static_cast<double>(st.position_x / 1000.0f),
                   static_cast<double>(st.position_y / 1000.0f));
     }
     ImGui::EndTable();
@@ -425,20 +406,14 @@ void RenderQualityMetrics(const SimState& sim) {
   ImVec4 mr_col = (mr > 0.8f)   ? ImVec4{0.2f, 1.0f, 0.2f, 1.0f}
                   : (mr > 0.5f) ? ImVec4{1.0f, 0.8f, 0.2f, 1.0f}
                                 : ImVec4{1.0f, 0.3f, 0.3f, 1.0f};
-  ImGui::TextColored(mr_col, "Match Rate:    %.1f%%",
-                     static_cast<double>(mr * 100.0f));
-  ImGui::Text("New Track Rate:  %.1f%%",
-              static_cast<double>(q.new_track_rate * 100.0f));
-  ImGui::Text("Miss Rate:       %.1f%%",
-              static_cast<double>(q.missed_track_rate * 100.0f));
+  ImGui::TextColored(mr_col, "Match Rate:    %.1f%%", static_cast<double>(mr * 100.0f));
+  ImGui::Text("New Track Rate:  %.1f%%", static_cast<double>(q.new_track_rate * 100.0f));
+  ImGui::Text("Miss Rate:       %.1f%%", static_cast<double>(q.missed_track_rate * 100.0f));
 
   ImGui::Spacing();
-  ImGui::Text("Mean Cost:     %.2f",
-              static_cast<double>(q.mean_match_cost));
-  ImGui::Text("P95 Cost:      %.2f",
-              static_cast<double>(q.p95_match_cost));
-  ImGui::Text("Assoc Stress:  %.3f",
-              static_cast<double>(q.association_stress));
+  ImGui::Text("Mean Cost:     %.2f", static_cast<double>(q.mean_match_cost));
+  ImGui::Text("P95 Cost:      %.2f", static_cast<double>(q.p95_match_cost));
+  ImGui::Text("Assoc Stress:  %.3f", static_cast<double>(q.association_stress));
 }
 
 }  // namespace
@@ -457,8 +432,8 @@ int main() {
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
-  GLFWwindow* window = glfwCreateWindow(
-      1400, 900, "Airborne Radar - Multi-Target Tracking", nullptr, nullptr);
+  GLFWwindow* window =
+      glfwCreateWindow(1400, 900, "Airborne Radar - Multi-Target Tracking", nullptr, nullptr);
   if (!window) {
     std::fprintf(stderr, "GLFW window creation failed\n");
     glfwTerminate();
@@ -488,12 +463,10 @@ int main() {
     int display_w = 0, display_h = 0;
     glfwGetFramebufferSize(window, &display_w, &display_h);
     ImGui::SetNextWindowPos({0, 0});
-    ImGui::SetNextWindowSize(
-        {static_cast<float>(display_w), static_cast<float>(display_h)});
+    ImGui::SetNextWindowSize({static_cast<float>(display_w), static_cast<float>(display_h)});
     ImGui::Begin("##main", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
-                     ImGuiWindowFlags_NoSavedSettings |
-                     ImGuiWindowFlags_NoBringToFrontOnFocus);
+                     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus);
 
     // 顶部控制栏
     if (ImGui::Button("Step") && !sim.finished) {

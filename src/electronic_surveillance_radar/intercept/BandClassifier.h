@@ -7,8 +7,8 @@
 #define ELECTRONIC_SURVEILLANCE_RADAR_SRC_INTERCEPT_BAND_CLASSIFIER_H_
 
 #include <array>
-#include <cstddef>
 #include <cmath>
+#include <cstddef>
 
 namespace electronic_surveillance_radar {
 namespace intercept {
@@ -18,19 +18,19 @@ namespace intercept {
  */
 enum class RadarBand {
   kInvalid = 0, /**< 输入频率非法 */
-  kBelowP, /**< 低于 P 段 */
-  kP, /**< P 段 */
-  kL, /**< L 段 */
-  kS, /**< S 段 */
-  kC, /**< C 段 */
-  kX, /**< X 段 */
-  kKu, /**< Ku 段 */
-  kK, /**< K 段 */
-  kKa, /**< Ka 段 */
-  kU, /**< U 段 */
-  kV, /**< V 段 */
-  kW, /**< W 段 */
-  kAboveW /**< 高于 W 段 */
+  kBelowP,      /**< 低于 P 段 */
+  kP,           /**< P 段 */
+  kL,           /**< L 段 */
+  kS,           /**< S 段 */
+  kC,           /**< C 段 */
+  kX,           /**< X 段 */
+  kKu,          /**< Ku 段 */
+  kK,           /**< K 段 */
+  kKa,          /**< Ka 段 */
+  kU,           /**< U 段 */
+  kV,           /**< V 段 */
+  kW,           /**< W 段 */
+  kAboveW       /**< 高于 W 段 */
 };
 
 /**
@@ -44,7 +44,7 @@ class BandClassifier final {
   struct FrequencyBandRange {
     double lower_ghz; /**< 区间下边界（单位：GHz） */
     double upper_ghz; /**< 区间上边界（单位：GHz） */
-    RadarBand band; /**< 对应频段枚举 */
+    RadarBand band;   /**< 对应频段枚举 */
   };
 
   /**
@@ -57,18 +57,17 @@ class BandClassifier final {
       return RadarBand::kInvalid;
     }
 
-    static const std::array<FrequencyBandRange, 11> kBandTable = {
-        {{0.23, 1.0, RadarBand::kP},
-         {1.0, 2.0, RadarBand::kL},
-         {2.0, 4.0, RadarBand::kS},
-         {4.0, 8.0, RadarBand::kC},
-         {8.0, 12.0, RadarBand::kX},
-         {12.0, 18.0, RadarBand::kKu},
-         {18.0, 27.0, RadarBand::kK},
-         {27.0, 40.0, RadarBand::kKa},
-         {40.0, 60.0, RadarBand::kU},
-         {60.0, 80.0, RadarBand::kV},
-         {80.0, 100.0, RadarBand::kW}}};
+    static const std::array<FrequencyBandRange, 11> kBandTable = {{{0.23, 1.0, RadarBand::kP},
+                                                                   {1.0, 2.0, RadarBand::kL},
+                                                                   {2.0, 4.0, RadarBand::kS},
+                                                                   {4.0, 8.0, RadarBand::kC},
+                                                                   {8.0, 12.0, RadarBand::kX},
+                                                                   {12.0, 18.0, RadarBand::kKu},
+                                                                   {18.0, 27.0, RadarBand::kK},
+                                                                   {27.0, 40.0, RadarBand::kKa},
+                                                                   {40.0, 60.0, RadarBand::kU},
+                                                                   {60.0, 80.0, RadarBand::kV},
+                                                                   {80.0, 100.0, RadarBand::kW}}};
 
     const double ghz = carrier_hz / 1.0e9;
     if (ghz < kBandTable.front().lower_ghz) {

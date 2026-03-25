@@ -6,12 +6,10 @@ namespace airborne_radar {
 namespace signal {
 namespace tracking {
 
-EkfPredictor::EkfPredictor(const ITransitionModel *model,
-                           EkfPredictorConfig config)
+EkfPredictor::EkfPredictor(const ITransitionModel* model, EkfPredictorConfig config)
     : model_(model), config_(config) {}
 
-GaussianTrackState EkfPredictor::Predict(const GaussianTrackState &prior,
-                                         float dt) const {
+GaussianTrackState EkfPredictor::Predict(const GaussianTrackState& prior, float dt) const {
   /* 非线性均值预测 */
   const StateVector x_pred = model_->Function(prior.mean, dt);
 
@@ -19,8 +17,7 @@ GaussianTrackState EkfPredictor::Predict(const GaussianTrackState &prior,
   const TransitionMatrix F = model_->Jacobian(prior.mean, dt);
 
   /* 过程噪声（复用 KalmanPredictor 的 CV 模型噪声结构） */
-  const ProcessNoiseCovariance Q =
-      KalmanPredictor::BuildProcessNoise(dt, config_.noise_diff_coeff);
+  const ProcessNoiseCovariance Q = KalmanPredictor::BuildProcessNoise(dt, config_.noise_diff_coeff);
 
   GaussianTrackState predicted;
   predicted.mean = x_pred;
@@ -28,21 +25,17 @@ GaussianTrackState EkfPredictor::Predict(const GaussianTrackState &prior,
   return predicted;
 }
 
-EkfUpdater::EkfUpdater(const IMeasurementModel *model,
-                       EkfUpdaterConfig config)
-    : model_(model), config_(config),
-      R_(BuildMeasurementNoise(config.measurement_noise_std)) {}
+EkfUpdater::EkfUpdater(const IMeasurementModel* model, EkfUpdaterConfig config)
+    : model_(model), config_(config), R_(BuildMeasurementNoise(config.measurement_noise_std)) {}
 
-KalmanUpdateResult EkfUpdater::Update(
-    const GaussianTrackState &predicted,
-    const MeasurementVector &measurement) const {
+KalmanUpdateResult EkfUpdater::Update(const GaussianTrackState& predicted,
+                                      const MeasurementVector& measurement) const {
   return Update(predicted, measurement, R_);
 }
 
-KalmanUpdateResult EkfUpdater::Update(
-    const GaussianTrackState &predicted,
-    const MeasurementVector &measurement,
-    const MeasurementCovariance &dynamic_R) const {
+KalmanUpdateResult EkfUpdater::Update(const GaussianTrackState& predicted,
+                                      const MeasurementVector& measurement,
+                                      const MeasurementCovariance& dynamic_R) const {
   KalmanUpdateResult result;
 
   /* 非线性量测预测 */
@@ -55,24 +48,20 @@ KalmanUpdateResult EkfUpdater::Update(
   result.innovation = measurement - z_pred;
 
   /* Innovation covariance */
-  result.innovation_covariance =
-      H * predicted.covariance * H.transpose() + dynamic_R;
+  result.innovation_covariance = H * predicted.covariance * H.transpose() + dynamic_R;
 
   /* Kalman gain (LLT 分解) */
   const KalmanGainMatrix K =
       predicted.covariance * H.transpose() *
-      result.innovation_covariance.llt().solve(
-          MeasurementCovariance::Identity());
+      result.innovation_covariance.llt().solve(MeasurementCovariance::Identity());
 
   /* Posterior mean */
   result.posterior.mean = predicted.mean + K * result.innovation;
 
   /* Posterior covariance (Joseph 形式) */
-  const StateCovariance I_KH =
-      StateCovariance::Identity() - K * H;
+  const StateCovariance I_KH = StateCovariance::Identity() - K * H;
   result.posterior.covariance =
-      I_KH * predicted.covariance * I_KH.transpose() +
-      K * dynamic_R * K.transpose();
+      I_KH * predicted.covariance * I_KH.transpose() + K * dynamic_R * K.transpose();
 
   return result;
 }
@@ -82,6 +71,6 @@ MeasurementCovariance EkfUpdater::BuildMeasurementNoise(float std_dev) {
   return MeasurementCovariance::Identity() * variance;
 }
 
-} // namespace tracking
-} // namespace signal
-} // namespace airborne_radar
+}  // namespace tracking
+}  // namespace signal
+}  // namespace airborne_radar

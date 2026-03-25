@@ -42,14 +42,14 @@ class HypothesisAssociator final {
    * @param[in,out] next_hypothesis_id 假设 ID 分配器。
    * @return 当前周期对外导出的假设列表。
    */
-  common::EmitterHypothesisList Update(
-      std::uint32_t cycle_index, const std::vector<ClusterSummary>& clusters,
-      std::uint64_t* next_hypothesis_id);
+  common::EmitterHypothesisList Update(std::uint32_t cycle_index,
+                                       const std::vector<ClusterSummary>& clusters,
+                                       std::uint64_t* next_hypothesis_id);
 
   /**
    * @brief 重置内部历史状态。
    */
- void Reset();
+  void Reset();
 
  private:
   struct TrackState {

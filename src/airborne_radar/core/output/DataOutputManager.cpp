@@ -13,8 +13,7 @@ namespace {
  * @param track_snapshots 当前周期轨迹快照列表。
  * @return 已确认轨迹数量。
  */
-std::size_t CountConfirmedTracks(
-    const common::DecisionTrackSnapshotList& track_snapshots) {
+std::size_t CountConfirmedTracks(const common::DecisionTrackSnapshotList& track_snapshots) {
   std::size_t confirmed_track_count = 0U;
   for (std::size_t i = 0; i < track_snapshots.size(); ++i) {
     if (track_snapshots[i].state.status == common::DecisionTrackStatus::kConfirmed) {
@@ -29,8 +28,7 @@ std::size_t CountConfirmedTracks(
  * @param track_snapshots 当前周期轨迹快照列表。
  * @return 若包含 lost 轨迹则返回 `true`。
  */
-bool ContainsLostTracks(
-    const common::DecisionTrackSnapshotList& track_snapshots) {
+bool ContainsLostTracks(const common::DecisionTrackSnapshotList& track_snapshots) {
   for (std::size_t i = 0; i < track_snapshots.size(); ++i) {
     if (track_snapshots[i].state.status == common::DecisionTrackStatus::kLost) {
       return true;
@@ -39,7 +37,7 @@ bool ContainsLostTracks(
   return false;
 }
 
-} // namespace
+}  // namespace
 
 common::TrackOutputFrame DataOutputManager::BuildTrackOutputFrame(
     std::uint32_t cycle_index, std::uint64_t batch_id,
@@ -70,6 +68,6 @@ common::DecisionInputFrame DataOutputManager::BuildDecisionInputFrame(
   return frame;
 }
 
-} // namespace output
-} // namespace core
-} // namespace airborne_radar
+}  // namespace output
+}  // namespace core
+}  // namespace airborne_radar

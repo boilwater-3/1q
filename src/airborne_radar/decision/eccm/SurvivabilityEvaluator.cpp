@@ -127,8 +127,7 @@ const float kThresholdBurnthroughGain = 1.5f;
  * @return 返回 `type` 指定类型且 `source` 字段为 `SURVIVABILITY` 的控制意图。
  */
 common::ControlDirective BuildDirective(common::ControlDirectiveType type) {
-  return common::ControlDirective(type,
-                                  common::ControlDirectiveSource::SURVIVABILITY);
+  return common::ControlDirective(type, common::ControlDirectiveSource::SURVIVABILITY);
 }
 /**
  * @brief 判断 ECCM 输入是否携带可用的细粒度干扰事实。
@@ -139,8 +138,7 @@ bool HasDetailedEccmFacts(const common::EccmSourceInfo& source_info) {
   if (!source_info.jammer_sources.empty()) {
     return true;
   }
-  return source_info.jammer_power_db > 0.0f ||
-         source_info.frequency_overlap_ratio > 0.0f ||
+  return source_info.jammer_power_db > 0.0f || source_info.frequency_overlap_ratio > 0.0f ||
          source_info.prf_lock_risk > 0.0f || source_info.jammer_in_sidelobe;
 }
 
@@ -170,9 +168,7 @@ int ResolvePriorityFromScore(int base_priority, float score) {
  * @param value 输入值。
  * @return 裁剪后的结果。
  */
-float ClampUnit(float value) {
-  return std::max(0.0f, std::min(1.0f, value));
-}
+float ClampUnit(float value) { return std::max(0.0f, std::min(1.0f, value)); }
 
 /**
  * @brief 判断关联质量是否足以作为 ECCM 补充触发证据。
@@ -181,10 +177,8 @@ float ClampUnit(float value) {
  */
 bool HasMeaningfulAssociationPressure(
     const common::AssociationQualityInfo& association_quality_info) {
-  return association_quality_info.association_stress >=
-             kMinimumAssociationStress &&
-         association_quality_info.jamming_severity >=
-             kMinimumAssociationSeverity;
+  return association_quality_info.association_stress >= kMinimumAssociationStress &&
+         association_quality_info.jamming_severity >= kMinimumAssociationSeverity;
 }
 /**
  * @brief 为缺少细粒度事实的场景添加保守自适应波束形成偏置。
@@ -194,8 +188,7 @@ void AccumulateCautiousFallback(EccmProposalSelection* selection) {
   if (selection == nullptr) {
     return;
   }
-  selection->adaptive_beamforming_score =
-      std::max(selection->adaptive_beamforming_score, 1.0f);
+  selection->adaptive_beamforming_score = std::max(selection->adaptive_beamforming_score, 1.0f);
 }
 /**
  * @brief 将兼容旧版平铺 ECCM 字段累加为提案评分。
@@ -209,23 +202,17 @@ void AccumulateLegacyEccmFacts(const common::EccmSourceInfo& source_info,
   }
   const bool has_detailed_facts = HasDetailedEccmFacts(source_info);
   if (!has_detailed_facts || source_info.jammer_in_sidelobe) {
-    selection->sidelobe_canceller_score =
-        std::max(selection->sidelobe_canceller_score, 2.0f);
+    selection->sidelobe_canceller_score = std::max(selection->sidelobe_canceller_score, 2.0f);
   }
-  selection->adaptive_beamforming_score =
-      std::max(selection->adaptive_beamforming_score, 1.5f);
-  if (!has_detailed_facts ||
-      source_info.frequency_overlap_ratio >= kHighFrequencyOverlapRatio) {
-    selection->agility_frequency_score =
-        std::max(selection->agility_frequency_score, 2.0f);
+  selection->adaptive_beamforming_score = std::max(selection->adaptive_beamforming_score, 1.5f);
+  if (!has_detailed_facts || source_info.frequency_overlap_ratio >= kHighFrequencyOverlapRatio) {
+    selection->agility_frequency_score = std::max(selection->agility_frequency_score, 2.0f);
   }
   if (!has_detailed_facts || source_info.prf_lock_risk >= kHighPrfLockRisk) {
-    selection->eccm_rejitter_score =
-        std::max(selection->eccm_rejitter_score, 2.0f);
+    selection->eccm_rejitter_score = std::max(selection->eccm_rejitter_score, 2.0f);
   }
   if (!has_detailed_facts || source_info.jammer_power_db >= kHighJammerPowerDb) {
-    selection->burnthrough_gain_score =
-        std::max(selection->burnthrough_gain_score, 2.0f);
+    selection->burnthrough_gain_score = std::max(selection->burnthrough_gain_score, 2.0f);
   }
 }
 
@@ -234,9 +221,8 @@ void AccumulateLegacyEccmFacts(const common::EccmSourceInfo& source_info,
  * @param source 单个干扰源事实。
  * @param selection 待累加的提案选择状态。
  */
-void AccumulateMultiSourceEccmFacts(
-    const common::EccmJammerSourceInfo& source,
-    EccmProposalSelection* selection) {
+void AccumulateMultiSourceEccmFacts(const common::EccmJammerSourceInfo& source,
+                                    EccmProposalSelection* selection) {
   if (selection == nullptr) {
     return;
   }
@@ -246,27 +232,22 @@ void AccumulateMultiSourceEccmFacts(
 
   selection->has_credible_multisource_evidence = true;
   const float confidence_weight = std::max(source.confidence, 0.5f);
-  const float power_weight =
-      std::min(source.jammer_power_db / kHighJammerPowerDb, 2.0f);
-  const float js_weight =
-      std::min(source.jammer_to_signal_db / kHighJammerToSignalDb, 2.0f);
+  const float power_weight = std::min(source.jammer_power_db / kHighJammerPowerDb, 2.0f);
+  const float js_weight = std::min(source.jammer_to_signal_db / kHighJammerToSignalDb, 2.0f);
 
   selection->adaptive_beamforming_score += 0.8f * confidence_weight;
   if (source.jammer_in_sidelobe) {
     selection->sidelobe_canceller_score += 2.0f * confidence_weight;
   }
   if (source.frequency_overlap_ratio >= kHighFrequencyOverlapRatio) {
-    selection->agility_frequency_score +=
-        source.frequency_overlap_ratio * 2.0f * confidence_weight;
+    selection->agility_frequency_score += source.frequency_overlap_ratio * 2.0f * confidence_weight;
   }
   if (source.prf_lock_risk >= kHighPrfLockRisk) {
-    selection->eccm_rejitter_score +=
-        source.prf_lock_risk * 2.0f * confidence_weight;
+    selection->eccm_rejitter_score += source.prf_lock_risk * 2.0f * confidence_weight;
   }
   if (source.jammer_power_db >= kHighJammerPowerDb ||
       source.jammer_to_signal_db >= kHighJammerToSignalDb) {
-    selection->burnthrough_gain_score +=
-        std::max(power_weight, js_weight) * confidence_weight;
+    selection->burnthrough_gain_score += std::max(power_weight, js_weight) * confidence_weight;
   }
 
   switch (source.technique) {
@@ -299,21 +280,17 @@ void AccumulateMultiSourceEccmFacts(
  * @param association_quality_info 当前周期关联质量摘要。
  * @param selection 待累加的提案选择状态。
  */
-void AccumulateAssociationDrivenBias(
-    const common::AssociationQualityInfo& association_quality_info,
-    EccmProposalSelection* selection) {
-  if (selection == nullptr ||
-      !HasMeaningfulAssociationPressure(association_quality_info)) {
+void AccumulateAssociationDrivenBias(const common::AssociationQualityInfo& association_quality_info,
+                                     EccmProposalSelection* selection) {
+  if (selection == nullptr || !HasMeaningfulAssociationPressure(association_quality_info)) {
     return;
   }
 
   const float severity = ClampUnit(association_quality_info.jamming_severity);
   const float stress = ClampUnit(association_quality_info.association_stress);
-  const float cost_pressure =
-      ClampUnit(std::max(association_quality_info.mean_match_cost / 3.0f,
-                         association_quality_info.p95_match_cost / 4.0f));
-  const float combined_weight =
-      0.45f * severity + 0.40f * stress + 0.15f * cost_pressure;
+  const float cost_pressure = ClampUnit(std::max(association_quality_info.mean_match_cost / 3.0f,
+                                                 association_quality_info.p95_match_cost / 4.0f));
+  const float combined_weight = 0.45f * severity + 0.40f * stress + 0.15f * cost_pressure;
 
   switch (association_quality_info.dominant_jamming_semantic) {
     case common::JammingSemantic::kDeception:
@@ -376,9 +353,8 @@ std::string DescribeAssociationSemantic(common::JammingSemantic semantic) {
  * @param selection 当前提案选择状态。
  * @return 对应 proposal 的 rationale 文本。
  */
-std::string BuildProposalRationale(
-    common::ControlDirectiveType type,
-    const EccmProposalSelection& selection) {
+std::string BuildProposalRationale(common::ControlDirectiveType type,
+                                   const EccmProposalSelection& selection) {
   std::string rationale;
   switch (type) {
     case common::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER:
@@ -425,14 +401,12 @@ std::string BuildProposalRationale(
  * @param rationale 提案解释文本。
  * @param proposals 提案输出列表。
  */
-void AppendProposal(common::ControlDirectiveType type, int priority,
-                    const std::string& rationale,
+void AppendProposal(common::ControlDirectiveType type, int priority, const std::string& rationale,
                     std::vector<pipeline::TacticalProposal>* proposals) {
   if (proposals == nullptr) {
     return;
   }
-  proposals->push_back(
-      pipeline::TacticalProposal{BuildDirective(type), priority, rationale});
+  proposals->push_back(pipeline::TacticalProposal{BuildDirective(type), priority, rationale});
 }
 
 /**
@@ -445,8 +419,7 @@ void AppendProposal(common::ControlDirectiveType type, int priority,
  */
 void AppendEccmProposals(const common::EccmSourceInfo& source_info,
                          const common::AssociationQualityInfo& association_quality_info,
-                         bool environment_jamming_detected,
-                         bool hold_only,
+                         bool environment_jamming_detected, bool hold_only,
                          std::vector<pipeline::TacticalProposal>* proposals) {
   EccmProposalSelection selection;
   if (!source_info.jammer_sources.empty()) {
@@ -460,8 +433,7 @@ void AppendEccmProposals(const common::EccmSourceInfo& source_info,
     const bool has_detailed_facts = HasDetailedEccmFacts(source_info);
     const bool should_use_cautious_fallback =
         !has_detailed_facts && !environment_jamming_detected &&
-        (HasMeaningfulAssociationPressure(association_quality_info) ||
-         hold_only);
+        (HasMeaningfulAssociationPressure(association_quality_info) || hold_only);
     if (should_use_cautious_fallback) {
       AccumulateCautiousFallback(&selection);
     } else {
@@ -471,63 +443,53 @@ void AppendEccmProposals(const common::EccmSourceInfo& source_info,
   AccumulateAssociationDrivenBias(association_quality_info, &selection);
 
   if (selection.sidelobe_canceller_score >= kThresholdSidelobeCanceller) {
-    AppendProposal(
-        common::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER,
-        ResolvePriorityFromScore(kBasePrioritySidelobeCanceller,
-                                 selection.sidelobe_canceller_score),
-        BuildProposalRationale(
-            common::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER,
-            selection),
-        proposals);
+    AppendProposal(common::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER,
+                   ResolvePriorityFromScore(kBasePrioritySidelobeCanceller,
+                                            selection.sidelobe_canceller_score),
+                   BuildProposalRationale(
+                       common::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER, selection),
+                   proposals);
   }
   if (selection.adaptive_beamforming_score >= kThresholdAdaptiveBeamforming) {
     AppendProposal(
         common::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
         ResolvePriorityFromScore(kBasePriorityAdaptiveBeamforming,
                                  selection.adaptive_beamforming_score),
-        BuildProposalRationale(
-            common::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
-            selection),
+        BuildProposalRationale(common::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
+                               selection),
         proposals);
   }
   if (selection.agility_frequency_score >= kThresholdAgilityFrequency) {
-    AppendProposal(common::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
-                   ResolvePriorityFromScore(kBasePriorityAgilityFrequency,
-                                            selection.agility_frequency_score),
-                   BuildProposalRationale(
-                       common::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
-                       selection),
-                   proposals);
+    AppendProposal(
+        common::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
+        ResolvePriorityFromScore(kBasePriorityAgilityFrequency, selection.agility_frequency_score),
+        BuildProposalRationale(common::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY, selection),
+        proposals);
   }
   if (selection.eccm_rejitter_score >= kThresholdEccmRejitter) {
-    AppendProposal(common::ControlDirectiveType::REQUEST_ECCM_REJITTER,
-                   ResolvePriorityFromScore(kBasePriorityEccmRejitter,
-                                            selection.eccm_rejitter_score),
-                   BuildProposalRationale(
-                       common::ControlDirectiveType::REQUEST_ECCM_REJITTER,
-                       selection),
-                   proposals);
+    AppendProposal(
+        common::ControlDirectiveType::REQUEST_ECCM_REJITTER,
+        ResolvePriorityFromScore(kBasePriorityEccmRejitter, selection.eccm_rejitter_score),
+        BuildProposalRationale(common::ControlDirectiveType::REQUEST_ECCM_REJITTER, selection),
+        proposals);
   }
   if (selection.burnthrough_gain_score >= kThresholdBurnthroughGain) {
     AppendProposal(
         common::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
-        ResolvePriorityFromScore(kBasePriorityBurnthroughGain,
-                                 selection.burnthrough_gain_score),
-        BuildProposalRationale(
-            common::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
-            selection),
+        ResolvePriorityFromScore(kBasePriorityBurnthroughGain, selection.burnthrough_gain_score),
+        BuildProposalRationale(common::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
+                               selection),
         proposals);
   }
 }
 
-} // namespace
+}  // namespace
 
-void SurvivabilityEvaluator::Evaluate(
-    const common::DecisionInputFrame& input_frame, pipeline::TacticalStateStore& state_store,
-    pipeline::TacticalEvaluationState& evaluation_state) const {
-  bool should_enable_eccm =
-      evaluation_state.eccm_source_info.has_jamming_signal ||
-      input_frame.environment_jamming_detected;
+void SurvivabilityEvaluator::Evaluate(const common::DecisionInputFrame& input_frame,
+                                      pipeline::TacticalStateStore& state_store,
+                                      pipeline::TacticalEvaluationState& evaluation_state) const {
+  bool should_enable_eccm = evaluation_state.eccm_source_info.has_jamming_signal ||
+                            input_frame.environment_jamming_detected;
   const bool has_current_eccm_evidence = should_enable_eccm;
   if (!should_enable_eccm && state_store.eccm_hold_cycles_remaining > 0U) {
     should_enable_eccm = true;
@@ -542,15 +504,12 @@ void SurvivabilityEvaluator::Evaluate(
   }
 
   state_store.eccm_hold_cycles_remaining = kEccmHoldCycles;
-  AppendEccmProposals(evaluation_state.eccm_source_info,
-                      input_frame.association_quality_info,
-                      input_frame.environment_jamming_detected,
-                      !has_current_eccm_evidence,
+  AppendEccmProposals(evaluation_state.eccm_source_info, input_frame.association_quality_info,
+                      input_frame.environment_jamming_detected, !has_current_eccm_evidence,
                       &evaluation_state.proposals);
-  PROJECT_LOG_INFO(
-      "[SurvivabilityEvaluator] Active jamming detected. Appending ECCM proposals.");
+  PROJECT_LOG_INFO("[SurvivabilityEvaluator] Active jamming detected. Appending ECCM proposals.");
 }
 
-} // namespace eccm
-} // namespace decision
-} // namespace airborne_radar
+}  // namespace eccm
+}  // namespace decision
+}  // namespace airborne_radar

@@ -3,37 +3,35 @@
 // @file decision_layer_test.cpp
 // @brief 验证默认战术协调器路径的核心行为。
 
-#include <algorithm>
 #include <gtest/gtest.h>
+
+#include <algorithm>
 #include <string>
 #include <vector>
 
 #include "1q/airborne_radar/common/ControlDirective.h"
 #include "1q/airborne_radar/common/DecisionInputFrame.h"
 #include "1q/airborne_radar/common/DecisionTrackSnapshot.h"
+#include "airborne_radar/decision/classifier/ThreatAssessmentEvaluator.h"
 #include "airborne_radar/decision/pipeline/TacticalCoordinator.h"
 #include "airborne_radar/decision/pipeline/TacticalEvaluation.h"
-#include "airborne_radar/decision/classifier/ThreatAssessmentEvaluator.h"
 #include "airborne_radar/environment/database/FeatureRepository.h"
 
 using namespace airborne_radar;
 
 namespace {
 
-common::DecisionInputFrame BuildSingleTrackFrame(float speed, float rcs,
-                                                 bool jamming) {
+common::DecisionInputFrame BuildSingleTrackFrame(float speed, float rcs, bool jamming) {
   common::DecisionInputFrame frame;
   frame.tracks.push_back(
-      common::DecisionTrackSnapshot(speed, 0.0f, 0.0f, rcs, 0.0f, 0.0f, 0.0f,
-                                    jamming));
+      common::DecisionTrackSnapshot(speed, 0.0f, 0.0f, rcs, 0.0f, 0.0f, 0.0f, jamming));
   frame.tracks.back().state.status = common::DecisionTrackStatus::kConfirmed;
   frame.tracks.back().evidence.has_measurement_evidence = true;
   frame.tracks.back().evidence.updated_this_cycle = true;
   return frame;
 }
 
-std::string PrimaryCategory(
-    const decision::pipeline::TacticalDecisionResult& result) {
+std::string PrimaryCategory(const decision::pipeline::TacticalDecisionResult& result) {
   if (result.target_classification_result.empty()) {
     return "UNKNOWN";
   }
@@ -48,14 +46,13 @@ bool ContainsDirectiveType(const std::vector<decision::pipeline::TacticalProposa
                       }) != proposals.end();
 }
 
-} // namespace
+}  // namespace
 
 TEST(TacticalCoordinatorTest, HighThreatAndJamming) {
   decision::pipeline::TacticalCoordinator coordinator;
   decision::pipeline::TacticalStateStore state_store;
 
-  common::DecisionInputFrame frame =
-      BuildSingleTrackFrame(800.0f, 2.5f, true);
+  common::DecisionInputFrame frame = BuildSingleTrackFrame(800.0f, 2.5f, true);
   frame.environment_jamming_detected = true;
   frame.eccm_source_info.has_jamming_signal = true;
   frame.eccm_source_info.jammer_power_db = 10.0f;
@@ -68,24 +65,21 @@ TEST(TacticalCoordinatorTest, HighThreatAndJamming) {
 
   EXPECT_EQ(PrimaryCategory(result), "HIGH_THREAT_TARGET");
   EXPECT_EQ(result.selected_mode, decision::pipeline::TacticalMode::kProtectedEmission);
+  EXPECT_TRUE(ContainsDirectiveType(result.proposals,
+                                    common::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION));
   EXPECT_TRUE(ContainsDirectiveType(
-      result.proposals,
-      common::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION));
-  EXPECT_TRUE(ContainsDirectiveType(
-      result.proposals,
-      common::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER));
-  EXPECT_TRUE(ContainsDirectiveType(
-      result.proposals, common::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
-  EXPECT_TRUE(ContainsDirectiveType(
-      result.proposals, common::ControlDirectiveType::REQUEST_ECCM_REJITTER));
+      result.proposals, common::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER));
+  EXPECT_TRUE(ContainsDirectiveType(result.proposals,
+                                    common::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
+  EXPECT_TRUE(
+      ContainsDirectiveType(result.proposals, common::ControlDirectiveType::REQUEST_ECCM_REJITTER));
 }
 
 TEST(TacticalCoordinatorTest, LowThreatClearEnvironment) {
   decision::pipeline::TacticalCoordinator coordinator;
   decision::pipeline::TacticalStateStore state_store;
 
-  const common::DecisionInputFrame frame =
-      BuildSingleTrackFrame(150.0f, 1.0f, false);
+  const common::DecisionInputFrame frame = BuildSingleTrackFrame(150.0f, 1.0f, false);
   const decision::pipeline::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
@@ -98,8 +92,7 @@ TEST(TacticalCoordinatorTest, HighThreatClearEnvironment) {
   decision::pipeline::TacticalCoordinator coordinator;
   decision::pipeline::TacticalStateStore state_store;
 
-  const common::DecisionInputFrame frame =
-      BuildSingleTrackFrame(900.0f, 5.0f, false);
+  const common::DecisionInputFrame frame = BuildSingleTrackFrame(900.0f, 5.0f, false);
   const decision::pipeline::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
@@ -114,8 +107,7 @@ TEST(TacticalCoordinatorTest, HighRcsCanPromoteThreatWithModerateSpeed) {
   decision::pipeline::TacticalCoordinator coordinator;
   decision::pipeline::TacticalStateStore state_store;
 
-  const common::DecisionInputFrame frame =
-      BuildSingleTrackFrame(180.0f, 4.2f, false);
+  const common::DecisionInputFrame frame = BuildSingleTrackFrame(180.0f, 4.2f, false);
   const decision::pipeline::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
@@ -138,10 +130,8 @@ TEST(TacticalCoordinatorTest, ClassifiesAllTracksInFrame) {
       coordinator.Evaluate(frame, state_store);
 
   ASSERT_EQ(result.target_classification_result.size(), frame.tracks.size());
-  EXPECT_EQ(result.target_classification_result[0].target_type,
-            "HIGH_THREAT_TARGET");
-  EXPECT_EQ(result.target_classification_result[1].target_type,
-            "LOW_THREAT_TARGET");
+  EXPECT_EQ(result.target_classification_result[0].target_type, "HIGH_THREAT_TARGET");
+  EXPECT_EQ(result.target_classification_result[1].target_type, "LOW_THREAT_TARGET");
 }
 
 TEST(ThreatAssessmentEvaluatorTest, RepositoryMatchProvidesProbability) {
@@ -150,8 +140,7 @@ TEST(ThreatAssessmentEvaluatorTest, RepositoryMatchProvidesProbability) {
   decision::pipeline::TacticalStateStore state_store;
   decision::pipeline::TacticalEvaluationState evaluation_state;
 
-  const common::DecisionInputFrame frame =
-      BuildSingleTrackFrame(780.0f, 2.8f, true);
+  const common::DecisionInputFrame frame = BuildSingleTrackFrame(780.0f, 2.8f, true);
 
   evaluator.Evaluate(frame, state_store, evaluation_state);
 

@@ -12,8 +12,7 @@ namespace electronic_surveillance_radar {
 namespace environment {
 namespace {
 
-TEST(EsrEnvironmentServiceTest,
-     UnknownTechniqueWithPositiveRiskInfersMixedAndKeepsBothChannels) {
+TEST(EsrEnvironmentServiceTest, UnknownTechniqueWithPositiveRiskInfersMixedAndKeepsBothChannels) {
   EsrEnvironmentService service;
 
   EsrEnvironmentCycleContext context;
@@ -40,8 +39,7 @@ TEST(EsrEnvironmentServiceTest,
   EXPECT_TRUE(snapshot.jamming_detected);
 }
 
-TEST(EsrEnvironmentServiceTest,
-     UnknownTechniqueWithZeroRiskInfersSuppressionOnly) {
+TEST(EsrEnvironmentServiceTest, UnknownTechniqueWithZeroRiskInfersSuppressionOnly) {
   EsrEnvironmentService service;
 
   EsrEnvironmentCycleContext context;
@@ -61,15 +59,13 @@ TEST(EsrEnvironmentServiceTest,
   const EsrEnvironmentSnapshot snapshot = service.SampleEnvironment();
 
   ASSERT_EQ(snapshot.jammer_sources.size(), 1U);
-  EXPECT_EQ(snapshot.jammer_sources.front().technique,
-            EsrJammingTechnique::kNoiseSuppression);
+  EXPECT_EQ(snapshot.jammer_sources.front().technique, EsrJammingTechnique::kNoiseSuppression);
   EXPECT_NEAR(snapshot.suppression_power_w, 1.5f, 1.0e-6f);
   EXPECT_NEAR(snapshot.deception_risk, 0.0f, 1.0e-6f);
   EXPECT_TRUE(snapshot.jamming_detected);
 }
 
-TEST(EsrEnvironmentServiceTest,
-     DeceptionOnlySourceDoesNotTriggerSuppressionDetection) {
+TEST(EsrEnvironmentServiceTest, DeceptionOnlySourceDoesNotTriggerSuppressionDetection) {
   EsrEnvironmentModelConfig config;
   config.jamming_detection_threshold_w = 1.0e-8f;
   EsrEnvironmentService service(config);

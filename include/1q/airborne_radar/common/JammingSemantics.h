@@ -13,11 +13,11 @@ namespace common {
  * @brief JammingSemantic 表示轨迹级/量测级干扰摘要类型。
  */
 enum class JammingSemantic {
-  kNone = 0, /**< 未观测到有效干扰语义 */
+  kNone = 0,         /**< 未观测到有效干扰语义 */
   kNoiseSuppression, /**< 压制式/噪声式干扰占主导 */
-  kDeception, /**< 欺骗式干扰占主导 */
-  kRepeater, /**< 转发式/重复器式干扰占主导 */
-  kMixed /**< 多种干扰类型同时显著存在，无法稳定归并到单一类型 */
+  kDeception,        /**< 欺骗式干扰占主导 */
+  kRepeater,         /**< 转发式/重复器式干扰占主导 */
+  kMixed             /**< 多种干扰类型同时显著存在，无法稳定归并到单一类型 */
 };
 
 }  // namespace common

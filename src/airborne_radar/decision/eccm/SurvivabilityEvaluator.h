@@ -29,8 +29,8 @@ class SurvivabilityEvaluator final : public pipeline::ITacticalEvaluator {
                 pipeline::TacticalEvaluationState& evaluation_state) const override;
 };
 
-} // namespace eccm
-} // namespace decision
-} // namespace airborne_radar
+}  // namespace eccm
+}  // namespace decision
+}  // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_DECISION_ECCM_SURVIVABILITY_EVALUATOR_H_
+#endif  // AIRBORNE_RADAR_DECISION_ECCM_SURVIVABILITY_EVALUATOR_H_

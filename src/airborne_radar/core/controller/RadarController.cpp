@@ -4,8 +4,6 @@
 #include <memory>
 #include <vector>
 
-#include "common/logging/ProjectLog.h"
-
 #include "1q/airborne_radar/common/ControlDirective.h"
 #include "1q/airborne_radar/common/RadarCommand.h"
 #include "1q/airborne_radar/common/RadarControlProfile.h"
@@ -18,6 +16,7 @@
 #include "airborne_radar/core/output/IDataOutputManager.h"
 #include "airborne_radar/decision/pipeline/ControlReducer.h"
 #include "airborne_radar/decision/pipeline/TacticalCoordinator.h"
+#include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
 namespace core {
@@ -51,8 +50,7 @@ const char* JammingSemanticName(common::JammingSemantic semantic) {
  * @param type 控制意图类型。
  * @return 对应的雷达命令类型。
  */
-common::RadarCommandType ToRadarCommandType(
-    common::ControlDirectiveType type) {
+common::RadarCommandType ToRadarCommandType(common::ControlDirectiveType type) {
   switch (type) {
     case common::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION:
       return common::RadarCommandType::SET_LPI_POWER;
@@ -81,8 +79,7 @@ common::RadarCommandType ToRadarCommandType(
  * @param source 控制意图来源。
  * @return 对应的雷达命令来源。
  */
-common::RadarCommandSource ToRadarCommandSource(
-    common::ControlDirectiveSource source) {
+common::RadarCommandSource ToRadarCommandSource(common::ControlDirectiveSource source) {
   switch (source) {
     case common::ControlDirectiveSource::THREAT_ASSESSMENT:
       return common::RadarCommandSource::CLASSIFIER;
@@ -106,7 +103,7 @@ common::RadarCommand ToRadarCommand(const common::ControlDirective& directive) {
                               ToRadarCommandSource(directive.source));
 }
 
-} // namespace
+}  // namespace
 
 /**
  * @brief RadarController 内部实现体，持有所有运行时状态。
@@ -115,8 +112,7 @@ struct RadarController::Impl {
   core::context::IRadarContext& radar_context;
   signal::pipeline::ISignalPipeline& signal_pipeline;
   decision::pipeline::ITacticalDecisionEngine* decision_engine{nullptr};
-  std::unique_ptr<decision::pipeline::ITacticalDecisionEngine>
-      owned_decision_engine;
+  std::unique_ptr<decision::pipeline::ITacticalDecisionEngine> owned_decision_engine;
   environment::IEnvironmentService& environment_service;
   common::RadarControlProfile* control_profile;
   std::unique_ptr<common::RadarControlProfile> owned_control_profile;
@@ -129,8 +125,7 @@ struct RadarController::Impl {
   std::uint64_t batch_id{1};
 
   /** @brief 构造函数（默认决策引擎路径） */
-  Impl(core::context::IRadarContext& ctx,
-       signal::pipeline::ISignalPipeline& sig,
+  Impl(core::context::IRadarContext& ctx, signal::pipeline::ISignalPipeline& sig,
        environment::IEnvironmentService& env)
       : radar_context(ctx),
         signal_pipeline(sig),
@@ -145,8 +140,7 @@ struct RadarController::Impl {
   }
 
   /** @brief 构造函数（外部决策引擎注入路径） */
-  Impl(core::context::IRadarContext& ctx,
-       signal::pipeline::ISignalPipeline& sig,
+  Impl(core::context::IRadarContext& ctx, signal::pipeline::ISignalPipeline& sig,
        decision::pipeline::ITacticalDecisionEngine& ext_engine,
        environment::IEnvironmentService& env)
       : radar_context(ctx),
@@ -172,60 +166,50 @@ struct RadarController::Impl {
   }
 };
 
-RadarController::RadarController(
-    core::context::IRadarContext& radar_context,
-    signal::pipeline::ISignalPipeline& signal_pipeline,
-    environment::IEnvironmentService& environment_service)
+RadarController::RadarController(core::context::IRadarContext& radar_context,
+                                 signal::pipeline::ISignalPipeline& signal_pipeline,
+                                 environment::IEnvironmentService& environment_service)
     : impl_(new Impl(radar_context, signal_pipeline, environment_service)) {}
 
-RadarController::RadarController(
-    core::context::IRadarContext& radar_context,
-    signal::pipeline::ISignalPipeline& signal_pipeline,
-    decision::pipeline::ITacticalDecisionEngine& decision_engine,
-    environment::IEnvironmentService& environment_service)
-    : impl_(new Impl(radar_context, signal_pipeline, decision_engine,
-                     environment_service)) {}
+RadarController::RadarController(core::context::IRadarContext& radar_context,
+                                 signal::pipeline::ISignalPipeline& signal_pipeline,
+                                 decision::pipeline::ITacticalDecisionEngine& decision_engine,
+                                 environment::IEnvironmentService& environment_service)
+    : impl_(new Impl(radar_context, signal_pipeline, decision_engine, environment_service)) {}
 
 RadarController::~RadarController() = default;
 
 void RadarController::RunOnce() {
   impl_->signal_pipeline.SetControlProfile(*impl_->control_profile);
 
-  const common::TargetFeatureList input_features =
-      impl_->radar_context.GetTargetFeatures();
+  const common::TargetFeatureList input_features = impl_->radar_context.GetTargetFeatures();
   environment::EnvironmentCycleContext environment_cycle_context;
   environment_cycle_context.cycle_index = impl_->cycle_index;
-  environment_cycle_context.dt_sec =
-      impl_->radar_context.GetCycleDeltaTimeSec();
+  environment_cycle_context.dt_sec = impl_->radar_context.GetCycleDeltaTimeSec();
   impl_->environment_service.BeginCycle(environment_cycle_context);
-  impl_->signal_pipeline.UpdatePlatformAttitude(
-      impl_->radar_context.GetPlatformAttitude());
+  impl_->signal_pipeline.UpdatePlatformAttitude(impl_->radar_context.GetPlatformAttitude());
 
   const signal::pipeline::SignalCycleResult signal_result =
-      impl_->signal_pipeline.RunCycle(input_features,
-                                      impl_->environment_service);
+      impl_->signal_pipeline.RunCycle(input_features, impl_->environment_service);
   const signal::pipeline::AssociationQualityMetrics association_metrics =
       signal_result.association_quality_metrics;
   common::DecisionInputFrame decision_frame = signal_result.decision_frame;
   decision_frame.cycle_index = impl_->cycle_index;
   decision_frame.batch_id = impl_->batch_id;
-  common::TrackOutputFrame track_output_frame =
-      impl_->output_manager->BuildTrackOutputFrame(
-          impl_->cycle_index, impl_->batch_id, decision_frame.tracks);
+  common::TrackOutputFrame track_output_frame = impl_->output_manager->BuildTrackOutputFrame(
+      impl_->cycle_index, impl_->batch_id, decision_frame.tracks);
   impl_->latest_track_output_frame = track_output_frame;
   impl_->has_latest_track_output_frame = true;
 
   decision::pipeline::TacticalDecisionResult decision_result;
-  if (impl_->decision_engine != nullptr &&
-      impl_->tactical_state_store != nullptr) {
-    decision_result = impl_->decision_engine->Evaluate(
-        decision_frame, *impl_->tactical_state_store);
+  if (impl_->decision_engine != nullptr && impl_->tactical_state_store != nullptr) {
+    decision_result =
+        impl_->decision_engine->Evaluate(decision_frame, *impl_->tactical_state_store);
   }
 
   const decision::pipeline::ControlReductionResult reduction_result =
       impl_->control_reducer != nullptr
-          ? impl_->control_reducer->Reduce(*impl_->control_profile,
-                                           decision_result.proposals)
+          ? impl_->control_reducer->Reduce(*impl_->control_profile, decision_result.proposals)
           : decision::pipeline::ControlReductionResult();
   *impl_->control_profile = reduction_result.profile;
   impl_->radar_context.UpdateRadarControlProfile(*impl_->control_profile);
@@ -242,24 +226,18 @@ void RadarController::RunOnce() {
       "assoc_missed_rate={:.3f} assoc_mean_cost={:.3f} "
       "assoc_p95_cost={:.3f} assoc_jam_semantic={} "
       "assoc_jam_severity={:.3f} assoc_stress={:.3f}",
-      impl_->cycle_index, impl_->batch_id, input_features.size(),
-      decision_frame.tracks.size(),
+      impl_->cycle_index, impl_->batch_id, input_features.size(), decision_frame.tracks.size(),
       reduction_result.applied_directives.size(),
       decision_frame.environment_jamming_detected ? "true" : "false",
-      impl_->control_profile->version,
-      decision_frame.perception_quality_info.detection_rate,
+      impl_->control_profile->version, decision_frame.perception_quality_info.detection_rate,
       decision_frame.perception_quality_info.detection_stress,
-      association_metrics.prior_track_count,
-      association_metrics.detection_count, association_metrics.matched_count,
-      association_metrics.new_track_count,
+      association_metrics.prior_track_count, association_metrics.detection_count,
+      association_metrics.matched_count, association_metrics.new_track_count,
       association_metrics.missed_track_count, association_metrics.match_rate,
-      association_metrics.new_track_rate,
-      association_metrics.missed_track_rate,
-      association_metrics.mean_match_cost,
-      association_metrics.p95_match_cost,
+      association_metrics.new_track_rate, association_metrics.missed_track_rate,
+      association_metrics.mean_match_cost, association_metrics.p95_match_cost,
       JammingSemanticName(association_metrics.dominant_jamming_semantic),
-      association_metrics.jamming_severity,
-      association_metrics.association_stress);
+      association_metrics.jamming_severity, association_metrics.association_stress);
 
   ++impl_->cycle_index;
   ++impl_->batch_id;
@@ -283,11 +261,9 @@ void RadarController::UpdateControlReducerConfig(
       "burnthrough_power_floor={} lpi_hold={} eccm_hold={} "
       "lpi_cooldown={} eccm_cooldown={} prefer_survivability_power={} "
       "prefer_survivability_beam={}",
-      config.lpi_power_scale_on_reduction, config.lpi_dwell_scale,
-      config.eccm_burnthrough_gain, config.burnthrough_lpi_power_floor,
-      config.lpi_hold_cycles_after_request,
-      config.eccm_hold_cycles_after_request,
-      config.lpi_cooldown_cycles_after_release,
+      config.lpi_power_scale_on_reduction, config.lpi_dwell_scale, config.eccm_burnthrough_gain,
+      config.burnthrough_lpi_power_floor, config.lpi_hold_cycles_after_request,
+      config.eccm_hold_cycles_after_request, config.lpi_cooldown_cycles_after_release,
       config.eccm_cooldown_cycles_after_release,
       config.prefer_survivability_in_power_conflict ? "true" : "false",
       config.prefer_survivability_in_beam_conflict ? "true" : "false");
@@ -297,13 +273,10 @@ bool RadarController::HasLatestTrackOutputFrame() const {
   return impl_->has_latest_track_output_frame;
 }
 
-const common::TrackOutputFrame& RadarController::GetLatestTrackOutputFrame()
-    const {
+const common::TrackOutputFrame& RadarController::GetLatestTrackOutputFrame() const {
   return impl_->latest_track_output_frame;
 }
 
-} // namespace controller
-} // namespace core
-} // namespace airborne_radar
-
-
+}  // namespace controller
+}  // namespace core
+}  // namespace airborne_radar

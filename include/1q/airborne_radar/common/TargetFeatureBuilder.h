@@ -8,9 +8,9 @@
 
 #include <cstdint>
 
-#include "1q/api.hpp"
 #include "1q/airborne_radar/common/TargetFeature.h"
 #include "1q/airborne_radar/common/TargetFeatureUtils.h"
+#include "1q/api.hpp"
 
 namespace airborne_radar {
 namespace common {
@@ -94,7 +94,7 @@ class ONEQ_API TargetFeatureBuilder {
   TargetFeature target_{};
 };
 
-} // namespace common
-} // namespace airborne_radar
+}  // namespace common
+}  // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_COMMON_TARGET_FEATURE_BUILDER_H_
+#endif  // AIRBORNE_RADAR_COMMON_TARGET_FEATURE_BUILDER_H_

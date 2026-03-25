@@ -16,8 +16,8 @@ namespace detection {
  * @brief EffectiveBeamwidthDeg 表示解析后的有效波束宽度（单位：度）。
  */
 struct EffectiveBeamwidthDeg {
-  float az_beamwidth_deg{0.0f};  /**< 有效方位波束宽度（单位：度）。 */
-  float el_beamwidth_deg{0.0f};  /**< 有效俯仰波束宽度（单位：度）。 */
+  float az_beamwidth_deg{0.0f}; /**< 有效方位波束宽度（单位：度）。 */
+  float el_beamwidth_deg{0.0f}; /**< 有效俯仰波束宽度（单位：度）。 */
 };
 /**
  * @brief 解析有效波束宽度。
@@ -30,8 +30,7 @@ struct EffectiveBeamwidthDeg {
  *       后续由 SignalPipeline 将其传播到量测协方差建模。
  */
 inline EffectiveBeamwidthDeg ResolveEffectiveBeamwidth(
-    const AntennaConfig& antenna_config,
-    const common::RadarOrientationConfig& orientation_config) {
+    const AntennaConfig& antenna_config, const common::RadarOrientationConfig& orientation_config) {
   EffectiveBeamwidthDeg beamwidth;
   if (orientation_config.commanded_beamwidth_enabled) {
     beamwidth.az_beamwidth_deg =

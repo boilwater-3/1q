@@ -9,9 +9,9 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "1q/airborne_radar/common/TrackOutputFrame.h"
 #include "1q/airborne_radar/common/ControlDirective.h"
 #include "1q/airborne_radar/common/TargetFeature.h"
+#include "1q/airborne_radar/common/TrackOutputFrame.h"
 
 namespace airborne_radar {
 namespace core {
@@ -57,13 +57,13 @@ struct RadarCycleCompletedEvent {
  * @brief 表示控制真值已经更新。
  */
 struct ControlProfileUpdatedEvent {
-  std::uint32_t cycle_index{0}; /**< 触发更新的周期号。 */
-  std::uint64_t profile_version{0}; /**< 新控制 profile 的版本号。 */
-  std::size_t applied_directive_count{0}; /**< 已采纳的控制意图数量。 */
-  std::size_t rejected_directive_count{0}; /**< 已拒绝的控制意图数量。 */
-  bool lpi_power_control_enabled{false}; /**< LPI 功率控制是否启用。 */
-  bool agility_frequency_enabled{false}; /**< 频率捷变是否启用。 */
-  bool sidelobe_canceller_enabled{false}; /**< 旁瓣对消是否启用。 */
+  std::uint32_t cycle_index{0};             /**< 触发更新的周期号。 */
+  std::uint64_t profile_version{0};         /**< 新控制 profile 的版本号。 */
+  std::size_t applied_directive_count{0};   /**< 已采纳的控制意图数量。 */
+  std::size_t rejected_directive_count{0};  /**< 已拒绝的控制意图数量。 */
+  bool lpi_power_control_enabled{false};    /**< LPI 功率控制是否启用。 */
+  bool agility_frequency_enabled{false};    /**< 频率捷变是否启用。 */
+  bool sidelobe_canceller_enabled{false};   /**< 旁瓣对消是否启用。 */
   bool adaptive_beamforming_enabled{false}; /**< 自适应波束形成是否启用。 */
 };
 
@@ -71,8 +71,8 @@ struct ControlProfileUpdatedEvent {
  * @brief 表示单条控制意图被采纳。
  */
 struct DirectiveAppliedEvent {
-  std::uint32_t cycle_index{0}; /**< 触发事件的周期号。 */
-  std::uint64_t profile_version{0}; /**< 生效 profile 的版本号。 */
+  std::uint32_t cycle_index{0};         /**< 触发事件的周期号。 */
+  std::uint64_t profile_version{0};     /**< 生效 profile 的版本号。 */
   common::ControlDirective directive{}; /**< 被采纳的控制意图。 */
 };
 
@@ -80,13 +80,13 @@ struct DirectiveAppliedEvent {
  * @brief 表示单条控制意图被拒绝。
  */
 struct DirectiveRejectedEvent {
-  std::uint32_t cycle_index{0}; /**< 触发事件的周期号。 */
-  std::uint64_t profile_version{0}; /**< 生效 profile 的版本号。 */
+  std::uint32_t cycle_index{0};         /**< 触发事件的周期号。 */
+  std::uint64_t profile_version{0};     /**< 生效 profile 的版本号。 */
   common::ControlDirective directive{}; /**< 被拒绝的控制意图。 */
 };
 
-} // namespace event
-} // namespace core
-} // namespace airborne_radar
+}  // namespace event
+}  // namespace core
+}  // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_CORE_EVENT_RADAR_EVENTS_H_
+#endif  // AIRBORNE_RADAR_CORE_EVENT_RADAR_EVENTS_H_

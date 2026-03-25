@@ -21,16 +21,15 @@ const std::uint32_t kLpiHoldCycles = 2;
  *         `EMISSION_CONTROL` 的控制意图。
  */
 common::ControlDirective BuildLpiPowerDirective() {
-  return common::ControlDirective(
-      common::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
-      common::ControlDirectiveSource::EMISSION_CONTROL);
+  return common::ControlDirective(common::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+                                  common::ControlDirectiveSource::EMISSION_CONTROL);
 }
 
-} // namespace
+}  // namespace
 
-void EmissionControlEvaluator::Evaluate(
-    const common::DecisionInputFrame& input_frame, pipeline::TacticalStateStore& state_store,
-    pipeline::TacticalEvaluationState& evaluation_state) const {
+void EmissionControlEvaluator::Evaluate(const common::DecisionInputFrame& input_frame,
+                                        pipeline::TacticalStateStore& state_store,
+                                        pipeline::TacticalEvaluationState& evaluation_state) const {
   (void)input_frame;
 
   bool should_reduce_power = evaluation_state.should_reduce_power;
@@ -47,13 +46,12 @@ void EmissionControlEvaluator::Evaluate(
 
   state_store.lpi_hold_cycles_remaining = kLpiHoldCycles;
   evaluation_state.proposals.push_back(pipeline::TacticalProposal{
-      BuildLpiPowerDirective(),
-      60,
-      "high-confidence threat requires reduced emission"});
+      BuildLpiPowerDirective(), 60, "high-confidence threat requires reduced emission"});
   PROJECT_LOG_INFO(
-      "[EmissionControlEvaluator] High threat detected. Appending proposal: REQUEST_LPI_POWER_REDUCTION");
+      "[EmissionControlEvaluator] High threat detected. Appending proposal: "
+      "REQUEST_LPI_POWER_REDUCTION");
 }
 
-} // namespace lpi
-} // namespace decision
-} // namespace airborne_radar
+}  // namespace lpi
+}  // namespace decision
+}  // namespace airborne_radar

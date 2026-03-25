@@ -1,7 +1,7 @@
 #include "airborne_radar/decision/classifier/ThreatAssessmentEvaluator.h"
 
-#include <cmath>
 #include <algorithm>
+#include <cmath>
 
 #include "common/logging/ProjectLog.h"
 
@@ -25,7 +25,8 @@ const float kMaxRepositoryMatchDistance = 1.80f;
 
 /**
  * @brief 触发高威胁控制路径所需的最小置信度阈值。
- * @note 代码行为依据：该值位于单次 tentative 命中的 `0.35` 与 confirmed / 持续命中的 `0.70` 之间，用于区分低证据与可触发激进控制的目标。
+ * @note 代码行为依据：该值位于单次 tentative 命中的 `0.35` 与 confirmed / 持续命中的 `0.70`
+ * 之间，用于区分低证据与可触发激进控制的目标。
  */
 const float kHighThreatConfidenceThreshold = 0.55f;
 
@@ -34,14 +35,13 @@ const float kHighThreatConfidenceThreshold = 0.55f;
  * @param[in,out] categories 待写入的分类结果列表。
  * @param target_type 待追加的目标类型标签。
  */
-void AppendType(common::TargetCategoryList* categories,
-                const std::string& target_type) {
+void AppendType(common::TargetCategoryList* categories, const std::string& target_type) {
   if (categories != nullptr) {
     categories->emplace_back(target_type);
   }
 }
 
-} // namespace
+}  // namespace
 
 ThreatAssessmentEvaluator::ThreatAssessmentEvaluator(
     const environment::database::IFeatureRepository* feature_repository)
@@ -68,10 +68,9 @@ void ThreatAssessmentEvaluator::Evaluate(
     UpdateLpiSourceInfo(&evaluation_state.lpi_source_info, classification);
 
     const std::uint64_t track_key = track_snapshot.state.association_key;
-    const float previous_confidence =
-        state_store.confidence_memory.count(track_key) != 0U
-            ? state_store.confidence_memory[track_key]
-            : 0.0f;
+    const float previous_confidence = state_store.confidence_memory.count(track_key) != 0U
+                                          ? state_store.confidence_memory[track_key]
+                                          : 0.0f;
     const float confidence = UpdateConfidence(track_snapshot, previous_confidence);
     state_store.confidence_memory[track_key] = confidence;
     state_store.threat_memory[track_key] = ComputeThreatScore(track_snapshot);
@@ -89,8 +88,8 @@ void ThreatAssessmentEvaluator::Evaluate(
       evaluation_state.eccm_source_info.has_jamming_signal = true;
     }
 
-    PROJECT_LOG_INFO("[ThreatAssessmentEvaluator] Target[{}] -> Classification: {}",
-                 i, classification);
+    PROJECT_LOG_INFO("[ThreatAssessmentEvaluator] Target[{}] -> Classification: {}", i,
+                     classification);
   }
 }
 
@@ -110,8 +109,7 @@ std::string ThreatAssessmentEvaluator::IdentifyTarget(
       PROJECT_LOG_DEBUG(
           "[ThreatAssessmentEvaluator] Repository match filtered out (type: {}, "
           "probability: {:.3f}, distance: {:.3f}).",
-          match_result.target_type, match_result.probability,
-          match_result.distance);
+          match_result.target_type, match_result.probability, match_result.distance);
     }
   }
 
@@ -155,8 +153,8 @@ float ThreatAssessmentEvaluator::ComputeThreatScore(
   return threat_score;
 }
 
-void ThreatAssessmentEvaluator::UpdateLpiSourceInfo(
-    common::LpiSourceInfo* source_info, const std::string& classification) const {
+void ThreatAssessmentEvaluator::UpdateLpiSourceInfo(common::LpiSourceInfo* source_info,
+                                                    const std::string& classification) const {
   if (source_info == nullptr || source_info->has_recon_platform) {
     return;
   }
@@ -171,8 +169,7 @@ bool ThreatAssessmentEvaluator::ShouldAcceptRepositoryMatch(
   if (match_result.target_type == "UNKNOWN") {
     return false;
   }
-  if (!std::isfinite(match_result.probability) ||
-      !std::isfinite(match_result.distance)) {
+  if (!std::isfinite(match_result.probability) || !std::isfinite(match_result.distance)) {
     return false;
   }
   return match_result.probability >= kMinRepositoryMatchProbability &&
@@ -180,8 +177,7 @@ bool ThreatAssessmentEvaluator::ShouldAcceptRepositoryMatch(
 }
 
 float ThreatAssessmentEvaluator::UpdateConfidence(
-    const common::DecisionTrackSnapshot& track_snapshot,
-    float previous_confidence) const {
+    const common::DecisionTrackSnapshot& track_snapshot, float previous_confidence) const {
   float confidence = previous_confidence;
   if (track_snapshot.evidence.has_measurement_evidence) {
     confidence = std::min(1.0f, confidence + 0.35f);
@@ -205,12 +201,10 @@ float ThreatAssessmentEvaluator::UpdateConfidence(
   return confidence;
 }
 
-bool ThreatAssessmentEvaluator::IsHighThreatCategory(
-    const std::string& category) const {
-  return category == "HIGH_THREAT_TARGET" ||
-         category == "HIGH_THREAT_FIGHTER";
+bool ThreatAssessmentEvaluator::IsHighThreatCategory(const std::string& category) const {
+  return category == "HIGH_THREAT_TARGET" || category == "HIGH_THREAT_FIGHTER";
 }
 
-} // namespace classifier
-} // namespace decision
-} // namespace airborne_radar
+}  // namespace classifier
+}  // namespace decision
+}  // namespace airborne_radar

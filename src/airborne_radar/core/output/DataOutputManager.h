@@ -16,7 +16,7 @@ namespace output {
  * @brief 实现中性输出帧与决策输入帧的装配逻辑。
  */
 class DataOutputManager : public IDataOutputManager {
-public:
+ public:
   /**
    * @brief 使用轨迹快照装配中性输出帧。
    * @param cycle_index 当前周期号。
@@ -43,8 +43,8 @@ public:
       const common::PerceptionQualityInfo& perception_quality_info) const override;
 };
 
-} // namespace output
-} // namespace core
-} // namespace airborne_radar
+}  // namespace output
+}  // namespace core
+}  // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_CORE_OUTPUT_DATA_OUTPUT_MANAGER_H_
+#endif  // AIRBORNE_RADAR_CORE_OUTPUT_DATA_OUTPUT_MANAGER_H_

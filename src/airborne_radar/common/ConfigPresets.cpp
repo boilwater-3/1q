@@ -3,8 +3,7 @@
 namespace airborne_radar {
 namespace common {
 
-signal::pipeline::SignalPipelineConfig
-MakeDetectionMissionSignalPipelineConfig() {
+signal::pipeline::SignalPipelineConfig MakeDetectionMissionSignalPipelineConfig() {
   signal::pipeline::SignalPipelineConfig config;
   config.detection.min_detection_margin_db = -100.0f;
   config.lifecycle.enable_auto_lifecycle_manager = true;
@@ -13,8 +12,7 @@ MakeDetectionMissionSignalPipelineConfig() {
   return config;
 }
 
-signal::pipeline::SignalPipelineConfig
-MakeTrackingMissionSignalPipelineConfig() {
+signal::pipeline::SignalPipelineConfig MakeTrackingMissionSignalPipelineConfig() {
   signal::pipeline::SignalPipelineConfig config;
   config.detection.min_detection_margin_db = -20.0f;
   config.lifecycle.enable_auto_lifecycle_manager = true;
@@ -25,10 +23,8 @@ MakeTrackingMissionSignalPipelineConfig() {
   return config;
 }
 
-signal::pipeline::SignalPipelineConfig
-MakeHighRobustnessSignalPipelineConfig() {
-  signal::pipeline::SignalPipelineConfig config =
-      MakeTrackingMissionSignalPipelineConfig();
+signal::pipeline::SignalPipelineConfig MakeHighRobustnessSignalPipelineConfig() {
+  signal::pipeline::SignalPipelineConfig config = MakeTrackingMissionSignalPipelineConfig();
   config.association.unassigned_cost = 12.0f;
   config.tracking.kalman_measurement_noise_std = 3.0f;
   config.lifecycle.lifecycle_config.max_miss_before_lost = 3U;
@@ -47,5 +43,5 @@ core::session::RadarSessionConfig MakeDetectionMissionRadarSessionConfig() {
   return config;
 }
 
-} // namespace common
-} // namespace airborne_radar
+}  // namespace common
+}  // namespace airborne_radar

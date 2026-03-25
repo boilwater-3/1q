@@ -24,8 +24,8 @@
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"
 #include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
-#include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
+#include "1q/airborne_radar/environment/IEnvironmentService.h"
 // 便捷辅助
 #include "1q/airborne_radar/common/ConfigPresets.h"
 #include "1q/airborne_radar/common/RadarSessionConfigBuilder.h"
@@ -47,12 +47,9 @@ class PlatformSpecificDecisionEngine
     : public airborne_radar::decision::pipeline::ITacticalDecisionEngine {
  public:
   using DecisionInputFrame = airborne_radar::common::DecisionInputFrame;
-  using TacticalDecisionResult =
-      airborne_radar::decision::pipeline::TacticalDecisionResult;
-  using TacticalStateStore =
-      airborne_radar::decision::pipeline::TacticalStateStore;
-  using TacticalProposal =
-      airborne_radar::decision::pipeline::TacticalProposal;
+  using TacticalDecisionResult = airborne_radar::decision::pipeline::TacticalDecisionResult;
+  using TacticalStateStore = airborne_radar::decision::pipeline::TacticalStateStore;
+  using TacticalProposal = airborne_radar::decision::pipeline::TacticalProposal;
   using TacticalMode = airborne_radar::decision::pipeline::TacticalMode;
   using ControlDirective = airborne_radar::common::ControlDirective;
   using ControlDirectiveType = airborne_radar::common::ControlDirectiveType;
@@ -69,9 +66,8 @@ class PlatformSpecificDecisionEngine
    *   - state_store  是跨周期内存（可读写威胁记忆和战术模式）
    *   - 返回的 proposals 会被 RadarController 内部的 ControlReducer 归并
    */
-  TacticalDecisionResult Evaluate(
-      const DecisionInputFrame& input_frame,
-      TacticalStateStore& state_store) override {
+  TacticalDecisionResult Evaluate(const DecisionInputFrame& input_frame,
+                                  TacticalStateStore& state_store) override {
     TacticalDecisionResult result;
 
     // 基于平台特有阈值判断是否进入威胁响应模式
@@ -85,7 +81,9 @@ class PlatformSpecificDecisionEngine
       max_threat += static_cast<float>(track.state.miss_count) * 0.1f;
     }
     // 归一化到 [0, 1]
-    if (max_threat > 1.0f) { max_threat = 1.0f; }
+    if (max_threat > 1.0f) {
+      max_threat = 1.0f;
+    }
 
     if (max_threat >= custom_threat_threshold_) {
       state_store.current_mode = TacticalMode::kThreatResponse;
@@ -94,8 +92,7 @@ class PlatformSpecificDecisionEngine
           ControlDirective(ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
                            ControlDirectiveSource::THREAT_ASSESSMENT),
           /*priority=*/80,
-          "platform threat level exceeded " +
-              std::to_string(custom_threat_threshold_));
+          "platform threat level exceeded " + std::to_string(custom_threat_threshold_));
     } else {
       state_store.current_mode = TacticalMode::kBaseline;
     }
@@ -116,18 +113,14 @@ class PlatformSpecificDecisionEngine
 //   - 仿真环境需要精确控制每周期的电磁参数
 //   - 平台已有电磁环境评估子系统，数据直接来自硬件
 // ---------------------------------------------------------------------------
-class SimulatedEnvironmentService
-    : public airborne_radar::environment::IEnvironmentService {
+class SimulatedEnvironmentService : public airborne_radar::environment::IEnvironmentService {
  public:
-  using EnvironmentCycleContext =
-      airborne_radar::environment::EnvironmentCycleContext;
+  using EnvironmentCycleContext = airborne_radar::environment::EnvironmentCycleContext;
   using EnvironmentSnapshot = airborne_radar::environment::EnvironmentSnapshot;
 
   /** @brief 注入固定的仿真环境参数（实际项目中可改为从文件或总线读取） */
-  explicit SimulatedEnvironmentService(float propagation_loss_db,
-                                       float clutter_power_db)
-      : propagation_loss_db_(propagation_loss_db),
-        clutter_power_db_(clutter_power_db) {}
+  explicit SimulatedEnvironmentService(float propagation_loss_db, float clutter_power_db)
+      : propagation_loss_db_(propagation_loss_db), clutter_power_db_(clutter_power_db) {}
 
   void BeginCycle(const EnvironmentCycleContext& /*cycle_context*/) override {
     // 仿真场景下不依赖外部上下文，参数已在构造时固定
@@ -136,7 +129,7 @@ class SimulatedEnvironmentService
   EnvironmentSnapshot SampleEnvironment() const override {
     EnvironmentSnapshot snapshot;
     snapshot.propagation_loss_db = propagation_loss_db_;
-    snapshot.clutter_power_db    = clutter_power_db_;
+    snapshot.clutter_power_db = clutter_power_db_;
     // 本示例不注入干扰源；实际适配时按平台协议填写 jammer_facts
     return snapshot;
   }
@@ -200,7 +193,7 @@ int main() {
   // 实例化自定义组件（在真实代码中直接传引用给 RadarController）
   // ------------------------------------------------------------------
   PlatformSpecificDecisionEngine custom_engine(/*custom_threat_threshold=*/0.7f);
-  SimulatedEnvironmentService    custom_env(
+  SimulatedEnvironmentService custom_env(
       /*propagation_loss_db=*/5.5f,
       /*clutter_power_db=*/3.5f);
 

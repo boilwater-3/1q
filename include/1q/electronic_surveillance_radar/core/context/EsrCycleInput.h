@@ -19,10 +19,10 @@ namespace context {
  * @brief EsrCycleInput 描述电子侦察单周期输入。
  */
 struct ONEQ_API EsrCycleInput {
-  std::uint32_t cycle_index{0U}; /**< 当前周期号 */
-  float dt_sec{1.0f}; /**< 当前周期步长（单位：s） */
-  common::EsrPoseState platform_pose{}; /**< 侦察平台姿态与运动状态 */
-  common::EmitterTruthStateList scene_emitters{}; /**< 场景辐射源真值列表 */
+  std::uint32_t cycle_index{0U};                                   /**< 当前周期号 */
+  float dt_sec{1.0f};                                              /**< 当前周期步长（单位：s） */
+  common::EsrPoseState platform_pose{};                            /**< 侦察平台姿态与运动状态 */
+  common::EmitterTruthStateList scene_emitters{};                  /**< 场景辐射源真值列表 */
   environment::EsrEnvironmentSceneState environment_scene_state{}; /**< 本周期待冻结环境场景 */
 };
 

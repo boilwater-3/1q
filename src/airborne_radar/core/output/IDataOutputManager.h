@@ -19,7 +19,7 @@ namespace output {
  * @brief 负责中性输出帧与决策输入帧的装配。
  */
 class IDataOutputManager {
-public:
+ public:
   virtual ~IDataOutputManager() = default;
 
   /**
@@ -48,8 +48,8 @@ public:
       const common::PerceptionQualityInfo& perception_quality_info) const = 0;
 };
 
-} // namespace output
-} // namespace core
-} // namespace airborne_radar
+}  // namespace output
+}  // namespace core
+}  // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_CORE_OUTPUT_I_DATA_OUTPUT_MANAGER_H_
+#endif  // AIRBORNE_RADAR_CORE_OUTPUT_I_DATA_OUTPUT_MANAGER_H_

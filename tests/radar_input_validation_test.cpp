@@ -8,11 +8,11 @@
 //   - 重复外部 ID、零 ID、负 RCS 的级别判定
 //   - 周期步长 (dt) 的有效性校验
 
+#include <gtest/gtest.h>
+
 #include <cmath>
 #include <limits>
 #include <vector>
-
-#include <gtest/gtest.h>
 
 #include "1q/airborne_radar/common/TargetFeature.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
@@ -42,8 +42,7 @@ common::TargetFeature MakeValidTarget(std::uint64_t id = 1u) {
 
 // 在 issues 列表中查找指定编码的第一条记录
 const core::context::ValidationIssue* FindIssue(
-    const std::vector<core::context::ValidationIssue>& issues,
-    ValidationCode code) {
+    const std::vector<core::context::ValidationIssue>& issues, ValidationCode code) {
   for (const auto& issue : issues) {
     if (issue.code == code) {
       return &issue;
@@ -71,8 +70,7 @@ TEST(RadarInputValidationTest, OriginWithNoRangeIsError) {
 
   const auto issues = ValidateTargetFeatures({target});
   EXPECT_TRUE(HasValidationError(issues));
-  EXPECT_NE(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition),
-            nullptr);
+  EXPECT_NE(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition), nullptr);
 }
 
 /// @brief 目标位于原点 (0,0,0) 但 range_m > 0 → 斜距有效，不报位置缺失错误。
@@ -87,8 +85,7 @@ TEST(RadarInputValidationTest, OriginWithPositiveRangeIsValid) {
   target.current_track_speed = 0.0f;
 
   const auto issues = ValidateTargetFeatures({target});
-  EXPECT_EQ(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition),
-            nullptr);
+  EXPECT_EQ(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition), nullptr);
   EXPECT_FALSE(HasValidationError(issues));
 }
 
@@ -104,8 +101,7 @@ TEST(RadarInputValidationTest, CartesianPositionWithNonPositiveRangeIsValid) {
   target.current_track_speed = 0.0f;
 
   const auto issues = ValidateTargetFeatures({target});
-  EXPECT_EQ(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition),
-            nullptr);
+  EXPECT_EQ(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition), nullptr);
 }
 
 /// @brief 目标 range_m 为负值且无笛卡尔位置 → 同样报错。
@@ -121,8 +117,7 @@ TEST(RadarInputValidationTest, NegativeRangeWithNoPositionIsError) {
 
   const auto issues = ValidateTargetFeatures({target});
   EXPECT_TRUE(HasValidationError(issues));
-  EXPECT_NE(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition),
-            nullptr);
+  EXPECT_NE(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition), nullptr);
 }
 
 // ===========================================================================
@@ -206,8 +201,7 @@ TEST(RadarInputValidationTest, NegativeRcsIsWarning) {
   target.current_track_rcs = -0.5f;
 
   const auto issues = ValidateTargetFeatures({target});
-  const core::context::ValidationIssue* issue =
-      FindIssue(issues, ValidationCode::kNegativeRcs);
+  const core::context::ValidationIssue* issue = FindIssue(issues, ValidationCode::kNegativeRcs);
   ASSERT_NE(issue, nullptr);
   EXPECT_EQ(issue->severity, ValidationSeverity::kWarning);
   EXPECT_FALSE(HasValidationError(issues));

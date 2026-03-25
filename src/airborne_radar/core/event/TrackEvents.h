@@ -31,7 +31,7 @@ struct TrackConfirmedEvent {
  * @brief 表示轨迹进入丢失状态。
  */
 struct TrackLostEvent {
-  std::uint64_t track_id{0}; /**< 轨迹编号。 */
+  std::uint64_t track_id{0};   /**< 轨迹编号。 */
   std::uint32_t miss_count{0}; /**< 当前连续失配计数。 */
 };
 
@@ -39,12 +39,12 @@ struct TrackLostEvent {
  * @brief 表示轨迹对象已回收到对象池。
  */
 struct TrackRecycledEvent {
-  std::uint64_t track_id{0}; /**< 轨迹编号。 */
+  std::uint64_t track_id{0};   /**< 轨迹编号。 */
   std::uint32_t generation{0}; /**< 回收前对象代次。 */
 };
 
-} // namespace event
-} // namespace core
-} // namespace airborne_radar
+}  // namespace event
+}  // namespace core
+}  // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_CORE_EVENT_TRACK_EVENTS_H_
+#endif  // AIRBORNE_RADAR_CORE_EVENT_TRACK_EVENTS_H_

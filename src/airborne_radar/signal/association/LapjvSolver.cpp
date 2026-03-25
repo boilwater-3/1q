@@ -8,8 +8,7 @@ namespace airborne_radar {
 namespace signal {
 namespace association {
 
-std::vector<int> LapjvSolver::Solve(
-    const Eigen::Ref<const Eigen::MatrixXf> &cost_matrix) const {
+std::vector<int> LapjvSolver::Solve(const Eigen::Ref<const Eigen::MatrixXf>& cost_matrix) const {
   const Eigen::Index n = cost_matrix.rows();
   if (n <= 0 || cost_matrix.cols() != n) {
     throw std::invalid_argument("LAPJV requires a non-empty square cost matrix");
@@ -24,8 +23,7 @@ std::vector<int> LapjvSolver::Solve(
     p[0] = i;
     int j0 = 0;
 
-    std::vector<float> minv(static_cast<std::size_t>(n) + 1U,
-                            std::numeric_limits<float>::max());
+    std::vector<float> minv(static_cast<std::size_t>(n) + 1U, std::numeric_limits<float>::max());
     std::vector<bool> used(static_cast<std::size_t>(n) + 1U, false);
 
     do {
@@ -82,6 +80,6 @@ std::vector<int> LapjvSolver::Solve(
   return row_to_col;
 }
 
-} // namespace association
-} // namespace signal
-} // namespace airborne_radar
+}  // namespace association
+}  // namespace signal
+}  // namespace airborne_radar

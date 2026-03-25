@@ -7,16 +7,17 @@
 
 #include "1q/airborne_radar/common/RadarControlProfile.h"
 #include "1q/airborne_radar/common/TargetFeature.h"
-#include "airborne_radar/signal/pipeline/SignalPipeline.h"
-#include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
-#include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/environment/scene/SceneManager.h"
 #include "airborne_radar/environment/simulation/PropagationModel.h"
+#include "airborne_radar/signal/pipeline/SignalPipeline.h"
+#include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
+#include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
 #include "environment_test_fixture.h"
 
-namespace airborne_radar { namespace tests {
+namespace airborne_radar {
+namespace tests {
 
 namespace {
 
@@ -39,7 +40,7 @@ signal::tracking::CycleContext MakeLifecycleCycle(std::uint32_t cycle_index,
   return cycle;
 }
 
-} // namespace
+}  // namespace
 
 TEST(EnvironmentServiceTest, DetectsJammingByConfiguredThreshold) {
   environment::EnvironmentModelConfig config;
@@ -65,42 +66,34 @@ TEST(EnvironmentServiceTest, FreezesSnapshotUntilNextCycle) {
   environment::EnvironmentService service;
 
   environment::JammerEmitterState emitter =
-      environment_test::MakeJammerEmitter(
-          environment::JammingTechnique::kNoiseSuppression, 8.0f);
+      environment_test::MakeJammerEmitter(environment::JammingTechnique::kNoiseSuppression, 8.0f);
   emitter.frequency_overlap_ratio = 0.4f;
   emitter.prf_lock_risk = 0.3f;
   emitter.in_sidelobe = true;
-  const environment::EnvironmentSceneState scene_state =
-      environment_test::MemorySceneBuilder()
-          .WithPropagation(12.0f, 5.0f, 3.0f)
-          .WithClutter(9.0f)
-          .AddJammer(emitter)
-          .BuildSceneState();
+  const environment::EnvironmentSceneState scene_state = environment_test::MemorySceneBuilder()
+                                                             .WithPropagation(12.0f, 5.0f, 3.0f)
+                                                             .WithClutter(9.0f)
+                                                             .AddJammer(emitter)
+                                                             .BuildSceneState();
 
   service.UpdateSceneState(scene_state);
 
-  const environment::EnvironmentSnapshot pending_snapshot =
-      service.SampleEnvironment();
+  const environment::EnvironmentSnapshot pending_snapshot = service.SampleEnvironment();
   EXPECT_FALSE(pending_snapshot.jamming_detected);
   EXPECT_NEAR(pending_snapshot.propagation_loss_db, 6.5f, 1e-6f);
 
   service.BeginCycle(environment_test::MakeEnvironmentCycle(1U));
-  const environment::EnvironmentSnapshot cycle_snapshot =
-      service.SampleEnvironment();
-  const environment::EnvironmentSnapshot repeated_snapshot =
-      service.SampleEnvironment();
+  const environment::EnvironmentSnapshot cycle_snapshot = service.SampleEnvironment();
+  const environment::EnvironmentSnapshot repeated_snapshot = service.SampleEnvironment();
 
   EXPECT_TRUE(cycle_snapshot.jamming_detected);
   EXPECT_FLOAT_EQ(cycle_snapshot.propagation_loss_db, 20.0f);
   EXPECT_FLOAT_EQ(cycle_snapshot.clutter_power_db, 9.0f);
   EXPECT_FLOAT_EQ(cycle_snapshot.jammer_power_db, 8.0f);
   EXPECT_EQ(cycle_snapshot.jammer_sources.size(), 1U);
-  EXPECT_EQ(cycle_snapshot.jammer_sources.size(),
-            repeated_snapshot.jammer_sources.size());
-  EXPECT_FLOAT_EQ(repeated_snapshot.jammer_power_db,
-                  cycle_snapshot.jammer_power_db);
-  EXPECT_EQ(repeated_snapshot.jamming_detected,
-            cycle_snapshot.jamming_detected);
+  EXPECT_EQ(cycle_snapshot.jammer_sources.size(), repeated_snapshot.jammer_sources.size());
+  EXPECT_FLOAT_EQ(repeated_snapshot.jammer_power_db, cycle_snapshot.jammer_power_db);
+  EXPECT_EQ(repeated_snapshot.jamming_detected, cycle_snapshot.jamming_detected);
 }
 
 TEST(EnvironmentServiceTest, SupportsMultipleJammerSourcesInSnapshot) {
@@ -133,10 +126,8 @@ TEST(EnvironmentServiceTest, SupportsMultipleJammerSourcesInSnapshot) {
   const auto snapshot = service.SampleEnvironment();
   ASSERT_EQ(snapshot.jammer_sources.size(), 2u);
   EXPECT_TRUE(snapshot.jamming_detected);
-  EXPECT_EQ(snapshot.jammer_sources[0].technique,
-            environment::JammingTechnique::kNoiseSuppression);
-  EXPECT_EQ(snapshot.jammer_sources[1].technique,
-            environment::JammingTechnique::kDeception);
+  EXPECT_EQ(snapshot.jammer_sources[0].technique, environment::JammingTechnique::kNoiseSuppression);
+  EXPECT_EQ(snapshot.jammer_sources[1].technique, environment::JammingTechnique::kDeception);
   EXPECT_FLOAT_EQ(snapshot.jammer_power_db, 9.0f);
   EXPECT_TRUE(snapshot.jammer_in_sidelobe);
 }
@@ -154,8 +145,7 @@ TEST(EnvironmentServiceTest, AppliesLegacyJammerPowerOnNextCycleOnly) {
   const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
   EXPECT_TRUE(snapshot.jamming_detected);
   ASSERT_EQ(snapshot.jammer_sources.size(), 1U);
-  EXPECT_EQ(snapshot.jammer_sources[0].technique,
-            environment::JammingTechnique::kUnknown);
+  EXPECT_EQ(snapshot.jammer_sources[0].technique, environment::JammingTechnique::kUnknown);
   EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].power_db, 7.0f);
 }
 
@@ -188,8 +178,7 @@ TEST(PropagationModelTest, ClampsPropagationLossNonNegativeButPassesThroughNegat
   scene_state.clutter_power_db = -3.0f;
 
   environment::simulation::PropagationModel propagation_model;
-  const environment::simulation::PropagationResult result =
-      propagation_model.Evaluate(scene_state);
+  const environment::simulation::PropagationResult result = propagation_model.Evaluate(scene_state);
 
   // Propagation loss is clamped at 0: a path cannot provide net gain.
   EXPECT_FLOAT_EQ(result.propagation_loss_db, 0.0f);
@@ -204,8 +193,7 @@ TEST(SignalPipelineTest, KeepsTrackStableWhenDetectionMarginIsEnough) {
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  common::TargetFeature target(800.0f, 0.0f, 0.0f, 2.5f, 0.0f, 0.0f,
-                               0.0f);
+  common::TargetFeature target(800.0f, 0.0f, 0.0f, 2.5f, 0.0f, 0.0f, 0.0f);
   target.position_x = 100.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
@@ -216,10 +204,8 @@ TEST(SignalPipelineTest, KeepsTrackStableWhenDetectionMarginIsEnough) {
       signal_pipeline.RunCycle(input_state, environment_service).updated_features;
 
   ASSERT_EQ(output_state.size(), 1u);
-  EXPECT_FLOAT_EQ(output_state[0].current_track_speed,
-                  input_state[0].current_track_speed);
-  EXPECT_FLOAT_EQ(output_state[0].current_track_rcs,
-                  input_state[0].current_track_rcs);
+  EXPECT_FLOAT_EQ(output_state[0].current_track_speed, input_state[0].current_track_speed);
+  EXPECT_FLOAT_EQ(output_state[0].current_track_rcs, input_state[0].current_track_rcs);
 }
 
 TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
@@ -232,8 +218,7 @@ TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  const common::TargetFeatureList input_state{common::TargetFeature(
-      800.0f, 0.0f, 0.0f, 2.5f)};
+  const common::TargetFeatureList input_state{common::TargetFeature(800.0f, 0.0f, 0.0f, 2.5f)};
 
   const auto output_state =
       signal_pipeline.RunCycle(input_state, environment_service).updated_features;
@@ -259,8 +244,7 @@ TEST(SignalPipelineTest, ExposesPublicPlatformAttitudeUpdateApi) {
   EXPECT_FLOAT_EQ(cached_platform_attitude.roll_deg, 1.5f);
 }
 
-TEST(SignalPipelineTest,
-     ControlProfilePowerReductionLowersPhysicalDetectionMargin) {
+TEST(SignalPipelineTest, ControlProfilePowerReductionLowersPhysicalDetectionMargin) {
   signal::pipeline::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.enable_physics_detection = true;
   pipeline_config.detection.pulse_count = 64;
@@ -271,13 +255,11 @@ TEST(SignalPipelineTest,
   env_config.jammer_power_db = 0.0f;
   environment::EnvironmentService environment_service(env_config);
 
-  const common::TargetFeatureList input_state{
-      BuildPhysicsTarget(1000.0f, 1000.0f)};
+  const common::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
 
   signal::pipeline::SignalPipeline baseline_pipeline(pipeline_config);
   baseline_pipeline.RunCycle(input_state, environment_service);
-  const auto baseline_measurements =
-      baseline_pipeline.GetLastTrackMeasurements();
+  const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
   common::RadarControlProfile reduced_power_profile;
   reduced_power_profile.enable_lpi_power_control = true;
@@ -293,29 +275,24 @@ TEST(SignalPipelineTest,
             baseline_measurements[0].raw_measurement.detection_margin_db);
 }
 
-TEST(SignalPipelineTest,
-     AdaptiveBeamformingProfileTightensMeasurementCovariance) {
+TEST(SignalPipelineTest, AdaptiveBeamformingProfileTightensMeasurementCovariance) {
   signal::pipeline::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.enable_physics_detection = true;
   pipeline_config.detection.pulse_count = 64;
   pipeline_config.detection.radar_system.detection.cfar_pfa = 0.5f;
   pipeline_config.detection.radar_system.detection.min_snr_db = -50.0f;
-  pipeline_config.detection.radar_system.antenna.nominal_az_beamwidth_deg =
-      8.0f;
-  pipeline_config.detection.radar_system.antenna.nominal_el_beamwidth_deg =
-      8.0f;
+  pipeline_config.detection.radar_system.antenna.nominal_az_beamwidth_deg = 8.0f;
+  pipeline_config.detection.radar_system.antenna.nominal_el_beamwidth_deg = 8.0f;
 
   environment::EnvironmentModelConfig env_config;
   env_config.jammer_power_db = 0.0f;
   environment::EnvironmentService environment_service(env_config);
 
-  const common::TargetFeatureList input_state{
-      BuildPhysicsTarget(1000.0f, 1000.0f)};
+  const common::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
 
   signal::pipeline::SignalPipeline baseline_pipeline(pipeline_config);
   baseline_pipeline.RunCycle(input_state, environment_service);
-  const auto baseline_measurements =
-      baseline_pipeline.GetLastTrackMeasurements();
+  const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
   common::RadarControlProfile adaptive_profile;
   adaptive_profile.enable_adaptive_beamforming = true;
@@ -332,8 +309,7 @@ TEST(SignalPipelineTest,
             baseline_measurements[0].raw_measurement.measurement_covariance(2, 2));
 }
 
-TEST(SignalPipelineTest,
-     EccmProfileRelaxesHeuristicAssociationGateForSeededTracks) {
+TEST(SignalPipelineTest, EccmProfileRelaxesHeuristicAssociationGateForSeededTracks) {
   signal::pipeline::SignalPipelineConfig pipeline_config;
   pipeline_config.tracking.kalman_measurement_noise_std = 1.0f;
 
@@ -371,8 +347,7 @@ TEST(SignalPipelineTest,
       std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
   protected_pipeline.SetControlProfile(eccm_profile);
   protected_pipeline.RunCycle(input_state, environment_service);
-  const auto protected_measurements =
-      protected_pipeline.GetLastTrackMeasurements();
+  const auto protected_measurements = protected_pipeline.GetLastTrackMeasurements();
 
   ASSERT_EQ(baseline_measurements.size(), 1u);
   ASSERT_EQ(protected_measurements.size(), 1u);
@@ -380,8 +355,7 @@ TEST(SignalPipelineTest,
   EXPECT_TRUE(protected_measurements[0].raw_measurement.matched_existing_track);
 }
 
-TEST(SignalPipelineTest,
-     AssociationQualityMetricsExposeTypeSpecificStressSummary) {
+TEST(SignalPipelineTest, AssociationQualityMetricsExposeTypeSpecificStressSummary) {
   signal::pipeline::SignalPipelineConfig pipeline_config;
   pipeline_config.tracking.kalman_measurement_noise_std = 1.0f;
 
@@ -422,8 +396,7 @@ TEST(SignalPipelineTest,
   environment::EnvironmentService deception_environment(deception_env_config);
 
   signal::pipeline::SignalPipeline noise_pipeline(pipeline_config);
-  noise_pipeline.SetAssociationSeeds(
-      std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
+  noise_pipeline.SetAssociationSeeds(std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
   noise_pipeline.RunCycle(input_state, noise_environment);
   const signal::pipeline::AssociationQualityMetrics noise_metrics =
       noise_pipeline.GetLastAssociationQualityMetrics();
@@ -435,17 +408,14 @@ TEST(SignalPipelineTest,
   const signal::pipeline::AssociationQualityMetrics deception_metrics =
       deception_pipeline.GetLastAssociationQualityMetrics();
 
-  EXPECT_EQ(noise_metrics.dominant_jamming_semantic,
-            common::JammingSemantic::kNoiseSuppression);
-  EXPECT_EQ(deception_metrics.dominant_jamming_semantic,
-            common::JammingSemantic::kDeception);
+  EXPECT_EQ(noise_metrics.dominant_jamming_semantic, common::JammingSemantic::kNoiseSuppression);
+  EXPECT_EQ(deception_metrics.dominant_jamming_semantic, common::JammingSemantic::kDeception);
   EXPECT_GT(deception_metrics.jamming_severity, noise_metrics.jamming_severity);
   EXPECT_GT(noise_metrics.association_stress, 0.0f);
   EXPECT_GT(deception_metrics.association_stress, 0.0f);
 }
 
-TEST(SignalPipelineTest,
-     MatchedEccmLowersAssociationStressForDeceptionJamming) {
+TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) {
   signal::pipeline::SignalPipelineConfig pipeline_config;
   pipeline_config.tracking.kalman_measurement_noise_std = 1.0f;
 
@@ -493,13 +463,10 @@ TEST(SignalPipelineTest,
   const signal::pipeline::AssociationQualityMetrics protected_metrics =
       protected_pipeline.GetLastAssociationQualityMetrics();
 
-  EXPECT_EQ(baseline_metrics.dominant_jamming_semantic,
-            common::JammingSemantic::kDeception);
-  EXPECT_EQ(protected_metrics.dominant_jamming_semantic,
-            common::JammingSemantic::kDeception);
+  EXPECT_EQ(baseline_metrics.dominant_jamming_semantic, common::JammingSemantic::kDeception);
+  EXPECT_EQ(protected_metrics.dominant_jamming_semantic, common::JammingSemantic::kDeception);
   EXPECT_LT(protected_metrics.jamming_severity, baseline_metrics.jamming_severity);
-  EXPECT_LT(protected_metrics.association_stress,
-            baseline_metrics.association_stress);
+  EXPECT_LT(protected_metrics.association_stress, baseline_metrics.association_stress);
 }
 
 TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) {
@@ -513,13 +480,11 @@ TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) 
   env_config.jammer_power_db = 12.0f;
   environment::EnvironmentService environment_service(env_config);
 
-  const common::TargetFeatureList input_state{
-      BuildPhysicsTarget(1000.0f, 1000.0f)};
+  const common::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
 
   signal::pipeline::SignalPipeline baseline_pipeline(pipeline_config);
   baseline_pipeline.RunCycle(input_state, environment_service);
-  const auto baseline_measurements =
-      baseline_pipeline.GetLastTrackMeasurements();
+  const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
   common::RadarControlProfile eccm_profile;
   eccm_profile.enable_sidelobe_canceller = true;
@@ -537,8 +502,7 @@ TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) 
             baseline_measurements[0].raw_measurement.detection_margin_db);
 }
 
-TEST(SignalPipelineTest,
-     DetailedJammingFactsModulatePhysicalEccmBenefit) {
+TEST(SignalPipelineTest, DetailedJammingFactsModulatePhysicalEccmBenefit) {
   signal::pipeline::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.enable_physics_detection = true;
   pipeline_config.detection.pulse_count = 64;
@@ -557,11 +521,9 @@ TEST(SignalPipelineTest,
   unfavorable_env_config.jammer_frequency_overlap_ratio = 0.0f;
   unfavorable_env_config.jammer_prf_lock_risk = 0.0f;
   unfavorable_env_config.jammer_in_sidelobe = false;
-  environment::EnvironmentService unfavorable_environment(
-      unfavorable_env_config);
+  environment::EnvironmentService unfavorable_environment(unfavorable_env_config);
 
-  const common::TargetFeatureList input_state{
-      BuildPhysicsTarget(1000.0f, 1000.0f)};
+  const common::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
 
   common::RadarControlProfile eccm_profile;
   eccm_profile.enable_sidelobe_canceller = true;
@@ -573,14 +535,12 @@ TEST(SignalPipelineTest,
   signal::pipeline::SignalPipeline favorable_pipeline(pipeline_config);
   favorable_pipeline.SetControlProfile(eccm_profile);
   favorable_pipeline.RunCycle(input_state, favorable_environment);
-  const auto favorable_measurements =
-      favorable_pipeline.GetLastTrackMeasurements();
+  const auto favorable_measurements = favorable_pipeline.GetLastTrackMeasurements();
 
   signal::pipeline::SignalPipeline unfavorable_pipeline(pipeline_config);
   unfavorable_pipeline.SetControlProfile(eccm_profile);
   unfavorable_pipeline.RunCycle(input_state, unfavorable_environment);
-  const auto unfavorable_measurements =
-      unfavorable_pipeline.GetLastTrackMeasurements();
+  const auto unfavorable_measurements = unfavorable_pipeline.GetLastTrackMeasurements();
 
   ASSERT_EQ(favorable_measurements.size(), 1u);
   ASSERT_EQ(unfavorable_measurements.size(), 1u);
@@ -588,8 +548,7 @@ TEST(SignalPipelineTest,
             unfavorable_measurements[0].raw_measurement.detection_margin_db);
 }
 
-TEST(SignalPipelineTest,
-     DeceptionJammingFactsShrinkPhysicalCovarianceWhenMatchedEccmEnabled) {
+TEST(SignalPipelineTest, DeceptionJammingFactsShrinkPhysicalCovarianceWhenMatchedEccmEnabled) {
   signal::pipeline::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.enable_physics_detection = true;
   pipeline_config.detection.pulse_count = 64;
@@ -607,13 +566,11 @@ TEST(SignalPipelineTest,
   env_config.jammer_sources.push_back(deception_source);
   environment::EnvironmentService environment_service(env_config);
 
-  const common::TargetFeatureList input_state{
-      BuildPhysicsTarget(1000.0f, 1000.0f)};
+  const common::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
 
   signal::pipeline::SignalPipeline baseline_pipeline(pipeline_config);
   baseline_pipeline.RunCycle(input_state, environment_service);
-  const auto baseline_measurements =
-      baseline_pipeline.GetLastTrackMeasurements();
+  const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
   common::RadarControlProfile protected_profile;
   protected_profile.enable_agility_frequency = true;
@@ -621,8 +578,7 @@ TEST(SignalPipelineTest,
   signal::pipeline::SignalPipeline protected_pipeline(pipeline_config);
   protected_pipeline.SetControlProfile(protected_profile);
   protected_pipeline.RunCycle(input_state, environment_service);
-  const auto protected_measurements =
-      protected_pipeline.GetLastTrackMeasurements();
+  const auto protected_measurements = protected_pipeline.GetLastTrackMeasurements();
 
   ASSERT_EQ(baseline_measurements.size(), 1u);
   ASSERT_EQ(protected_measurements.size(), 1u);
@@ -663,10 +619,8 @@ TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
 
   ASSERT_EQ(baseline_output.size(), 1u);
   ASSERT_EQ(protected_output.size(), 1u);
-  EXPECT_GT(protected_output[0].current_track_speed,
-            baseline_output[0].current_track_speed);
-  EXPECT_GT(protected_output[0].current_track_rcs,
-            baseline_output[0].current_track_rcs);
+  EXPECT_GT(protected_output[0].current_track_speed, baseline_output[0].current_track_speed);
+  EXPECT_GT(protected_output[0].current_track_rcs, baseline_output[0].current_track_rcs);
 }
 
 TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
@@ -684,13 +638,11 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
   favorable_env_config.jammer_in_sidelobe = true;
   environment::EnvironmentService favorable_environment(favorable_env_config);
 
-  environment::EnvironmentModelConfig unfavorable_env_config =
-      favorable_env_config;
+  environment::EnvironmentModelConfig unfavorable_env_config = favorable_env_config;
   unfavorable_env_config.jammer_frequency_overlap_ratio = 0.0f;
   unfavorable_env_config.jammer_prf_lock_risk = 0.0f;
   unfavorable_env_config.jammer_in_sidelobe = false;
-  environment::EnvironmentService unfavorable_environment(
-      unfavorable_env_config);
+  environment::EnvironmentService unfavorable_environment(unfavorable_env_config);
 
   common::TargetFeature target(800.0f, 0.0f, 0.0f, 2.5f, 1.0f, 0.0f, 0.0f);
   target.position_x = 100.0f;
@@ -709,14 +661,12 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
   signal::pipeline::SignalPipeline favorable_pipeline(pipeline_config);
   favorable_pipeline.SetControlProfile(eccm_profile);
   favorable_pipeline.RunCycle(input_state, favorable_environment);
-  const auto favorable_measurements =
-      favorable_pipeline.GetLastTrackMeasurements();
+  const auto favorable_measurements = favorable_pipeline.GetLastTrackMeasurements();
 
   signal::pipeline::SignalPipeline unfavorable_pipeline(pipeline_config);
   unfavorable_pipeline.SetControlProfile(eccm_profile);
   unfavorable_pipeline.RunCycle(input_state, unfavorable_environment);
-  const auto unfavorable_measurements =
-      unfavorable_pipeline.GetLastTrackMeasurements();
+  const auto unfavorable_measurements = unfavorable_pipeline.GetLastTrackMeasurements();
 
   ASSERT_EQ(favorable_measurements.size(), 1u);
   ASSERT_EQ(unfavorable_measurements.size(), 1u);
@@ -724,8 +674,7 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
             unfavorable_measurements[0].raw_measurement.detection_margin_db);
 }
 
-TEST(SignalPipelineTest,
-     AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUpdater) {
+TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUpdater) {
   signal::pipeline::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.min_detection_margin_db = -100.0f;
   pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
@@ -785,8 +734,7 @@ TEST(SignalPipelineTest,
             baseline_seeds[0].gaussian_state.covariance(0, 0));
 }
 
-TEST(SignalPipelineTest,
-     DeceptionJammingInflatesPhysicalCovarianceMoreThanNoiseSuppression) {
+TEST(SignalPipelineTest, DeceptionJammingInflatesPhysicalCovarianceMoreThanNoiseSuppression) {
   signal::pipeline::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.enable_physics_detection = true;
   pipeline_config.detection.pulse_count = 64;
@@ -814,8 +762,7 @@ TEST(SignalPipelineTest,
   deception_env_config.jammer_sources.push_back(deception_source);
   environment::EnvironmentService deception_environment(deception_env_config);
 
-  const common::TargetFeatureList input_state{
-      BuildPhysicsTarget(1000.0f, 1000.0f)};
+  const common::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
 
   signal::pipeline::SignalPipeline noise_pipeline(pipeline_config);
   noise_pipeline.RunCycle(input_state, noise_environment);
@@ -823,8 +770,7 @@ TEST(SignalPipelineTest,
 
   signal::pipeline::SignalPipeline deception_pipeline(pipeline_config);
   deception_pipeline.RunCycle(input_state, deception_environment);
-  const auto deception_measurements =
-      deception_pipeline.GetLastTrackMeasurements();
+  const auto deception_measurements = deception_pipeline.GetLastTrackMeasurements();
 
   ASSERT_EQ(noise_measurements.size(), 1u);
   ASSERT_EQ(deception_measurements.size(), 1u);
@@ -834,8 +780,7 @@ TEST(SignalPipelineTest,
             noise_measurements[0].raw_measurement.measurement_covariance(1, 1));
 }
 
-TEST(SignalPipelineTest,
-     AutoImmLifecycleAssemblyUsesControlProfileAdjustedImmParameters) {
+TEST(SignalPipelineTest, AutoImmLifecycleAssemblyUsesControlProfileAdjustedImmParameters) {
   signal::pipeline::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.min_detection_margin_db = -100.0f;
   pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
@@ -843,8 +788,7 @@ TEST(SignalPipelineTest,
   pipeline_config.lifecycle.lifecycle_config.confirm_hits = 1;
   pipeline_config.lifecycle.lifecycle_config.imm_activation_policy =
       signal::pipeline::ImmActivationPolicy::kAllTracks;
-  pipeline_config.lifecycle.imm_model_noise_diff_coeffs =
-      std::vector<float>{0.5f, 4.0f};
+  pipeline_config.lifecycle.imm_model_noise_diff_coeffs = std::vector<float>{0.5f, 4.0f};
   pipeline_config.lifecycle.imm_initial_weights = std::vector<float>{0.8f, 0.2f};
 
   environment::EnvironmentModelConfig env_config;
@@ -923,18 +867,15 @@ TEST(TrackFilterTest, DeceptionJammingRetainsMoreTrackEnergyThanNoiseSuppression
   signal::tracking::TrackFilterContext noise_context;
   noise_context.detection_succeeded = false;
   noise_context.jamming_detected = true;
-  noise_context.dominant_jamming_semantic =
-      common::JammingSemantic::kNoiseSuppression;
+  noise_context.dominant_jamming_semantic = common::JammingSemantic::kNoiseSuppression;
   noise_context.jamming_severity = 0.8f;
   noise_context.detection_margin_db = -10.0f;
 
   signal::tracking::TrackFilterContext deception_context = noise_context;
-  deception_context.dominant_jamming_semantic =
-      common::JammingSemantic::kDeception;
+  deception_context.dominant_jamming_semantic = common::JammingSemantic::kDeception;
 
   const common::TargetFeature noise_output = filter.Filter(input, noise_context);
-  const common::TargetFeature deception_output =
-      filter.Filter(input, deception_context);
+  const common::TargetFeature deception_output = filter.Filter(input, deception_context);
 
   EXPECT_GT(deception_output.current_track_speed, noise_output.current_track_speed);
   EXPECT_GT(deception_output.current_track_rcs, noise_output.current_track_rcs);
@@ -968,40 +909,35 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
   EXPECT_GT(first_measurements[0].raw_measurement.detection_margin_db, -2.0f);
   EXPECT_TRUE(first_measurements[0].raw_measurement.used_position_association);
 
-    first.current_track_speed = 101.0f;
-    first.current_track_rcs = 2.1f;
-    first.position_x = 11.0f;
-    first.range_m = 11.0f;
-    second.current_track_speed = 219.5f;
-    second.current_track_rcs = 4.9f;
-    second.position_x = 101.0f;
-    second.range_m = 101.0f;
-    signal::tracking::AssociationTrackSeed first_seed;
-    first_seed.association_key =
-        first_measurements[0].raw_measurement.association_key;
-    first_seed.has_position = true;
-    first_seed.position = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
-    first_seed.has_gaussian_state = true;
-    first_seed.gaussian_state.mean = signal::tracking::StateVector::Zero();
-    first_seed.gaussian_state.mean(0) = 10.0f;
-    first_seed.gaussian_state.covariance =
-      signal::tracking::StateCovariance::Identity() * 25.0f;
+  first.current_track_speed = 101.0f;
+  first.current_track_rcs = 2.1f;
+  first.position_x = 11.0f;
+  first.range_m = 11.0f;
+  second.current_track_speed = 219.5f;
+  second.current_track_rcs = 4.9f;
+  second.position_x = 101.0f;
+  second.range_m = 101.0f;
+  signal::tracking::AssociationTrackSeed first_seed;
+  first_seed.association_key = first_measurements[0].raw_measurement.association_key;
+  first_seed.has_position = true;
+  first_seed.position = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
+  first_seed.has_gaussian_state = true;
+  first_seed.gaussian_state.mean = signal::tracking::StateVector::Zero();
+  first_seed.gaussian_state.mean(0) = 10.0f;
+  first_seed.gaussian_state.covariance = signal::tracking::StateCovariance::Identity() * 25.0f;
 
-    signal::tracking::AssociationTrackSeed second_seed;
-    second_seed.association_key =
-        first_measurements[1].raw_measurement.association_key;
-    second_seed.has_position = true;
-    second_seed.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
-    second_seed.has_gaussian_state = true;
-    second_seed.gaussian_state.mean = signal::tracking::StateVector::Zero();
-    second_seed.gaussian_state.mean(0) = 100.0f;
-    second_seed.gaussian_state.covariance =
-      signal::tracking::StateCovariance::Identity() * 25.0f;
+  signal::tracking::AssociationTrackSeed second_seed;
+  second_seed.association_key = first_measurements[1].raw_measurement.association_key;
+  second_seed.has_position = true;
+  second_seed.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
+  second_seed.has_gaussian_state = true;
+  second_seed.gaussian_state.mean = signal::tracking::StateVector::Zero();
+  second_seed.gaussian_state.mean(0) = 100.0f;
+  second_seed.gaussian_state.covariance = signal::tracking::StateCovariance::Identity() * 25.0f;
 
-    signal_pipeline.SetAssociationSeeds(
-      std::vector<signal::tracking::AssociationTrackSeed>{first_seed,
-                                 second_seed});
-    const common::TargetFeatureList cycle_2{first, second};
+  signal_pipeline.SetAssociationSeeds(
+      std::vector<signal::tracking::AssociationTrackSeed>{first_seed, second_seed});
+  const common::TargetFeatureList cycle_2{first, second};
   signal_pipeline.RunCycle(cycle_2, environment_service);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
@@ -1020,36 +956,32 @@ TEST(SignalPipelineTest, FailsFastWhenDetectedTargetLacksCartesianPosition) {
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-    const common::TargetFeatureList input_state{common::TargetFeature(
-      100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f)};
+  const common::TargetFeatureList input_state{
+      common::TargetFeature(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f)};
 
   EXPECT_DEATH_IF_SUPPORTED(signal_pipeline.RunCycle(input_state, environment_service),
                             "missing cartesian position");
 }
 
-TEST(SignalPipelineTest,
-     UsesPositionAssociationByDefaultWhenCartesianPositionExists) {
+TEST(SignalPipelineTest, UsesPositionAssociationByDefaultWhenCartesianPositionExists) {
   environment::EnvironmentModelConfig env_config;
   env_config.jammer_power_db = 0.0f;
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  common::TargetFeature first(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f,
-                              0.0f);
+  common::TargetFeature first(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
   first.position_x = 10.0f;
   first.position_y = 0.0f;
   first.position_z = 0.0f;
   first.range_m = 10.0f;
 
-  common::TargetFeature second(220.0f, 0.0f, 0.0f, 5.0f, 3.0f, 0.0f,
-                               0.0f);
+  common::TargetFeature second(220.0f, 0.0f, 0.0f, 5.0f, 3.0f, 0.0f, 0.0f);
   second.position_x = 100.0f;
   second.position_y = 0.0f;
   second.position_z = 0.0f;
   second.range_m = 100.0f;
 
-  signal_pipeline.RunCycle(common::TargetFeatureList{first, second},
-                           environment_service);
+  signal_pipeline.RunCycle(common::TargetFeatureList{first, second}, environment_service);
   const std::vector<signal::tracking::TrackMeasurement> first_measurements =
       signal_pipeline.GetLastTrackMeasurements();
 
@@ -1058,36 +990,30 @@ TEST(SignalPipelineTest,
   EXPECT_TRUE(first_measurements[0].raw_measurement.has_cartesian_position);
   EXPECT_TRUE(first_measurements[1].raw_measurement.used_position_association);
 
-    signal::tracking::AssociationTrackSeed first_seed;
-    first_seed.association_key =
-        first_measurements[0].raw_measurement.association_key;
-    first_seed.has_position = true;
-    first_seed.position = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
-    first_seed.has_gaussian_state = true;
-    first_seed.gaussian_state.mean = signal::tracking::StateVector::Zero();
-    first_seed.gaussian_state.mean(0) = 10.0f;
-    first_seed.gaussian_state.covariance =
-      signal::tracking::StateCovariance::Identity() * 25.0f;
+  signal::tracking::AssociationTrackSeed first_seed;
+  first_seed.association_key = first_measurements[0].raw_measurement.association_key;
+  first_seed.has_position = true;
+  first_seed.position = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
+  first_seed.has_gaussian_state = true;
+  first_seed.gaussian_state.mean = signal::tracking::StateVector::Zero();
+  first_seed.gaussian_state.mean(0) = 10.0f;
+  first_seed.gaussian_state.covariance = signal::tracking::StateCovariance::Identity() * 25.0f;
 
-    signal::tracking::AssociationTrackSeed second_seed;
-    second_seed.association_key =
-        first_measurements[1].raw_measurement.association_key;
-    second_seed.has_position = true;
-    second_seed.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
-    second_seed.has_gaussian_state = true;
-    second_seed.gaussian_state.mean = signal::tracking::StateVector::Zero();
-    second_seed.gaussian_state.mean(0) = 100.0f;
-    second_seed.gaussian_state.covariance =
-      signal::tracking::StateCovariance::Identity() * 25.0f;
+  signal::tracking::AssociationTrackSeed second_seed;
+  second_seed.association_key = first_measurements[1].raw_measurement.association_key;
+  second_seed.has_position = true;
+  second_seed.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
+  second_seed.has_gaussian_state = true;
+  second_seed.gaussian_state.mean = signal::tracking::StateVector::Zero();
+  second_seed.gaussian_state.mean(0) = 100.0f;
+  second_seed.gaussian_state.covariance = signal::tracking::StateCovariance::Identity() * 25.0f;
 
-    signal_pipeline.SetAssociationSeeds(
-      std::vector<signal::tracking::AssociationTrackSeed>{first_seed,
-                                 second_seed});
+  signal_pipeline.SetAssociationSeeds(
+      std::vector<signal::tracking::AssociationTrackSeed>{first_seed, second_seed});
 
   first.position_x = 11.0f;
   second.position_x = 101.0f;
-  signal_pipeline.RunCycle(common::TargetFeatureList{second, first},
-                           environment_service);
+  signal_pipeline.RunCycle(common::TargetFeatureList{second, first}, environment_service);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
 
@@ -1097,34 +1023,29 @@ TEST(SignalPipelineTest,
   EXPECT_TRUE(second_measurements[1].raw_measurement.matched_existing_track);
 }
 
-TEST(SignalPipelineTest,
-     UsesStatelessAssociationByDefaultWithoutLifecycleSeeds) {
+TEST(SignalPipelineTest, UsesStatelessAssociationByDefaultWithoutLifecycleSeeds) {
   environment::EnvironmentModelConfig env_config;
   env_config.jammer_power_db = 0.0f;
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  common::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f,
-                               0.0f);
+  common::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
   target.position_x = 10.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 10.0f;
 
-  signal_pipeline.RunCycle(common::TargetFeatureList{target},
-                           environment_service);
+  signal_pipeline.RunCycle(common::TargetFeatureList{target}, environment_service);
   const std::vector<signal::tracking::TrackMeasurement> first_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(first_measurements.size(), 1u);
   EXPECT_FALSE(first_measurements[0].raw_measurement.matched_existing_track);
-  const std::uint64_t first_key =
-      first_measurements[0].raw_measurement.association_key;
+  const std::uint64_t first_key = first_measurements[0].raw_measurement.association_key;
   EXPECT_NE(first_key, 0u);
 
   target.position_x = 10.2f;
   target.range_m = 10.2f;
-  signal_pipeline.RunCycle(common::TargetFeatureList{target},
-                           environment_service);
+  signal_pipeline.RunCycle(common::TargetFeatureList{target}, environment_service);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(second_measurements.size(), 1u);
@@ -1132,8 +1053,7 @@ TEST(SignalPipelineTest,
   EXPECT_NE(second_measurements[0].raw_measurement.association_key, first_key);
 }
 
-TEST(SignalPipelineTest,
-   ResetAssociationSeedModeToStatelessClearsSideChannelSeeds) {
+TEST(SignalPipelineTest, ResetAssociationSeedModeToStatelessClearsSideChannelSeeds) {
   environment::EnvironmentModelConfig env_config;
   env_config.jammer_power_db = 0.0f;
   environment::EnvironmentService environment_service(env_config);
@@ -1148,32 +1068,28 @@ TEST(SignalPipelineTest,
   side_channel_seed.gaussian_state.mean = signal::tracking::StateVector::Zero();
   side_channel_seed.gaussian_state.mean(0) = 10.0f;
   side_channel_seed.gaussian_state.covariance =
-    signal::tracking::StateCovariance::Identity() * 25.0f;
+      signal::tracking::StateCovariance::Identity() * 25.0f;
   signal_pipeline.SetAssociationSeeds(
-    std::vector<signal::tracking::AssociationTrackSeed>(1, side_channel_seed));
+      std::vector<signal::tracking::AssociationTrackSeed>(1, side_channel_seed));
   signal_pipeline.ResetAssociationSeedModeToStateless();
 
-  common::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f,
-                               0.0f);
+  common::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
   target.position_x = 10.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 10.0f;
 
-  signal_pipeline.RunCycle(common::TargetFeatureList{target},
-                           environment_service);
+  signal_pipeline.RunCycle(common::TargetFeatureList{target}, environment_service);
   const std::vector<signal::tracking::TrackMeasurement> first_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(first_measurements.size(), 1u);
-  const std::uint64_t first_key =
-      first_measurements[0].raw_measurement.association_key;
+  const std::uint64_t first_key = first_measurements[0].raw_measurement.association_key;
   EXPECT_NE(first_key, 0u);
   EXPECT_FALSE(first_measurements[0].raw_measurement.matched_existing_track);
 
   target.position_x = 10.1f;
   target.range_m = 10.1f;
-  signal_pipeline.RunCycle(common::TargetFeatureList{target},
-                           environment_service);
+  signal_pipeline.RunCycle(common::TargetFeatureList{target}, environment_service);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(second_measurements.size(), 1u);
@@ -1194,8 +1110,7 @@ TEST(PropagationModelTest, LargeNegativeClutterPassesThroughUnchanged) {
   scene_state.clutter_power_db = -200.0f;
 
   environment::simulation::PropagationModel model;
-  const environment::simulation::PropagationResult result =
-      model.Evaluate(scene_state);
+  const environment::simulation::PropagationResult result = model.Evaluate(scene_state);
 
   EXPECT_FLOAT_EQ(result.propagation_loss_db, 5.0f);
   EXPECT_FLOAT_EQ(result.clutter_power_db, -200.0f);
@@ -1228,8 +1143,7 @@ TEST(PropagationModelTest, PositivePropagationLossIsRetained) {
   scene_state.clutter_power_db = 0.0f;
 
   environment::simulation::PropagationModel model;
-  const environment::simulation::PropagationResult result =
-      model.Evaluate(scene_state);
+  const environment::simulation::PropagationResult result = model.Evaluate(scene_state);
 
   EXPECT_FLOAT_EQ(result.propagation_loss_db, 15.0f);
 }
@@ -1243,8 +1157,7 @@ TEST(PropagationModelTest, AllZeroComponentsProduceZeroResults) {
   scene_state.clutter_power_db = 0.0f;
 
   environment::simulation::PropagationModel model;
-  const environment::simulation::PropagationResult result =
-      model.Evaluate(scene_state);
+  const environment::simulation::PropagationResult result = model.Evaluate(scene_state);
 
   EXPECT_FLOAT_EQ(result.propagation_loss_db, 0.0f);
   EXPECT_FLOAT_EQ(result.clutter_power_db, 0.0f);
@@ -1512,4 +1425,5 @@ TEST(TrackFilterTest, RcsNeverGoesBelowMinimumOnMiss) {
   EXPECT_GE(output.current_track_rcs, 0.05f);
 }
 
-} } // namespace airborne_radar::tests
+}  // namespace tests
+}  // namespace airborne_radar

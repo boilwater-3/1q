@@ -19,18 +19,13 @@ class DummyRadarContext : public core::context::IRadarContext {
  public:
   common::TargetFeatureList GetTargetFeatures() const override { return {}; }
 
-  common::PlatformAttitudeDeg GetPlatformAttitude() const override {
-    return platform_attitude_;
-  }
+  common::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_; }
 
   float GetCycleDeltaTimeSec() const override { return 1.0f; }
 
-  void SubmitControlCommand(common::RadarCommand cmd) override {
-    commands_.push_back(cmd);
-  }
+  void SubmitControlCommand(common::RadarCommand cmd) override { commands_.push_back(cmd); }
 
-  void UpdateRadarControlProfile(
-      const common::RadarControlProfile& profile) override {
+  void UpdateRadarControlProfile(const common::RadarControlProfile& profile) override {
     control_profile_ = profile;
   }
 
@@ -42,8 +37,7 @@ class DummyRadarContext : public core::context::IRadarContext {
 
 class DummyEnvironmentService : public environment::IEnvironmentService {
  public:
-  void BeginCycle(const environment::EnvironmentCycleContext& cycle_context)
-      override {
+  void BeginCycle(const environment::EnvironmentCycleContext& cycle_context) override {
     cycle_context_ = cycle_context;
   }
 
@@ -68,23 +62,17 @@ class DummySignalPipeline : public signal::pipeline::ISignalPipeline {
     return result;
   }
 
-  void UpdatePlatformAttitude(
-      const common::PlatformAttitudeDeg& platform_attitude_deg) override {
+  void UpdatePlatformAttitude(const common::PlatformAttitudeDeg& platform_attitude_deg) override {
     platform_attitude_ = platform_attitude_deg;
   }
 
-  common::PlatformAttitudeDeg GetPlatformAttitude() const override {
-    return platform_attitude_;
-  }
+  common::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_; }
 
-  void SetControlProfile(
-      const common::RadarControlProfile& control_profile) override {
+  void SetControlProfile(const common::RadarControlProfile& control_profile) override {
     control_profile_ = control_profile;
   }
 
-  common::RadarControlProfile GetControlProfile() const override {
-    return control_profile_;
-  }
+  common::RadarControlProfile GetControlProfile() const override { return control_profile_; }
 
  private:
   common::PlatformAttitudeDeg platform_attitude_{};
@@ -102,8 +90,8 @@ class DummyDecisionEngine : public decision::pipeline::ITacticalDecisionEngine {
   }
 };
 
-} // namespace
-} // namespace airborne_radar
+}  // namespace
+}  // namespace airborne_radar
 
 int main() {
   airborne_radar::DummyRadarContext radar_context;

@@ -2,10 +2,9 @@
 
 #include <memory>
 
-#include "common/logging/ProjectLog.h"
-
 #include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
 #include "1q/electronic_surveillance_radar/pipeline/IInterceptPipeline.h"
+#include "common/logging/ProjectLog.h"
 #include "electronic_surveillance_radar/core/output/EsrOutputManager.h"
 
 namespace electronic_surveillance_radar {
@@ -27,8 +26,7 @@ struct EsrController::Impl {
 };
 
 EsrController::EsrController(pipeline::IInterceptPipeline& pipeline,
-                             environment::IEsrEnvironmentService&
-                                 environment_service)
+                             environment::IEsrEnvironmentService& environment_service)
     : impl_(new Impl(pipeline, environment_service)) {}
 
 EsrController::~EsrController() = default;
@@ -49,10 +47,10 @@ void EsrController::RunOnce(const context::EsrCycleInput& input) {
   environment_context.scene_state = input.environment_scene_state;
   impl_->environment_service.BeginCycle(environment_context);
 
-  const pipeline::InterceptCycleResult intercept_result = impl_->pipeline.RunCycle(
-      input, impl_->environment_service);
-  impl_->latest_output_frame = impl_->output_manager.BuildOutputFrame(
-      input.cycle_index, impl_->batch_id, intercept_result);
+  const pipeline::InterceptCycleResult intercept_result =
+      impl_->pipeline.RunCycle(input, impl_->environment_service);
+  impl_->latest_output_frame =
+      impl_->output_manager.BuildOutputFrame(input.cycle_index, impl_->batch_id, intercept_result);
   impl_->has_latest_output_frame = true;
 
   PROJECT_LOG_DEBUG(
@@ -66,16 +64,13 @@ void EsrController::RunOnce(const context::EsrCycleInput& input) {
   ++impl_->batch_id;
 }
 
-bool EsrController::HasLatestOutputFrame() const {
-  return impl_->has_latest_output_frame;
-}
+bool EsrController::HasLatestOutputFrame() const { return impl_->has_latest_output_frame; }
 
 const common::EsrOutputFrame& EsrController::GetLatestOutputFrame() const {
   return impl_->latest_output_frame;
 }
 
-const context::EsrValidationIssueList& EsrController::GetLastValidationIssues()
-    const {
+const context::EsrValidationIssueList& EsrController::GetLastValidationIssues() const {
   return impl_->last_validation_issues;
 }
 

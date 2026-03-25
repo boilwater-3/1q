@@ -17,28 +17,28 @@ namespace timing {
  */
 enum class IntegrationMode {
   kNonCoherent = 0, /**< 非相参积累 */
-  kCoherent /**< 相参积累 */
+  kCoherent         /**< 相参积累 */
 };
 
 /**
  * @brief StatisticalDetectionParams 描述统计检测与门限映射参数。
  */
 struct StatisticalDetectionParams {
-  float pfa{1.0e-6f}; /**< 期望虚警概率 Pfa，范围 (0, 1) */
-  float min_snr_db{6.0f}; /**< 动态门限下限（单位：dB） */
+  float pfa{1.0e-6f};            /**< 期望虚警概率 Pfa，范围 (0, 1) */
+  float min_snr_db{6.0f};        /**< 动态门限下限（单位：dB） */
   std::uint32_t pulse_count{8U}; /**< 脉冲积累数量 */
   IntegrationMode integration_mode{IntegrationMode::kNonCoherent}; /**< 积累模式 */
-  float threshold_scale{1.0f}; /**< 门限缩放系数 */
-  bool enable_statistical_detection{true}; /**< 是否启用统计检测模型 */
+  float threshold_scale{1.0f};                                     /**< 门限缩放系数 */
+  bool enable_statistical_detection{true};                         /**< 是否启用统计检测模型 */
 };
 
 /**
  * @brief CycleTimingControlParams 描述周期级时序控制输入参数。
  */
 struct CycleTimingControlParams {
-  int base_pulse_count{1}; /**< 基线脉冲数 */
-  float dwell_scale{1.0f}; /**< 驻留缩放因子 */
-  float base_prf_hz{0.0f}; /**< 基线 PRF（单位：Hz） */
+  int base_pulse_count{1};     /**< 基线脉冲数 */
+  float dwell_scale{1.0f};     /**< 驻留缩放因子 */
+  float base_prf_hz{0.0f};     /**< 基线 PRF（单位：Hz） */
   bool enable_rejitter{false}; /**< 是否启用重频抖动 */
 };
 
@@ -76,8 +76,7 @@ double ComputeIntegrationGain(const StatisticalDetectionParams& params);
  * @param[in] params 统计检测与门限映射参数。
  * @return 动态检测门限（单位：dB）。
  */
-float ComputeDynamicThresholdSnrDb(double noise_power_w,
-                                   const StatisticalDetectionParams& params);
+float ComputeDynamicThresholdSnrDb(double noise_power_w, const StatisticalDetectionParams& params);
 
 /**
  * @brief 计算统计检测概率 Pd。
@@ -86,9 +85,8 @@ float ComputeDynamicThresholdSnrDb(double noise_power_w,
  * @param[in] params 统计检测与门限映射参数。
  * @return 检测概率 Pd，范围 [0, 1]。
  */
-float ComputeStatisticalDetectionProbability(
-    float snr_db, float threshold_snr_db,
-    const StatisticalDetectionParams& params);
+float ComputeStatisticalDetectionProbability(float snr_db, float threshold_snr_db,
+                                             const StatisticalDetectionParams& params);
 
 }  // namespace timing
 }  // namespace internal

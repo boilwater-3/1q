@@ -3,48 +3,37 @@
 // @file signal_bulk_data_test.cpp
 // @brief 验证信号层在批量与大规模输入下的稳定性与关联一致性。
 
-#include <cstddef>
-#include <cstdint>
+#include <gtest/gtest.h>
+
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <string>
 #include <unordered_set>
 #include <vector>
 
-#include <gtest/gtest.h>
-
 #include "1q/airborne_radar/common/TargetFeature.h"
+#include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
-#include "airborne_radar/environment/EnvironmentService.h"
 
 namespace airborne_radar {
 namespace tests {
 namespace {
 
 /// @brief 生成一批具备有效位置的目标输入，确保可进入位置关联路径。
-common::TargetFeatureList BuildBatchTargets(
-    std::size_t count,
-    float x_bias,
-    float y_bias,
-    float z_bias) {
+common::TargetFeatureList BuildBatchTargets(std::size_t count, float x_bias, float y_bias,
+                                            float z_bias) {
   common::TargetFeatureList targets;
   targets.reserve(count);
 
   for (std::size_t i = 0; i < count; ++i) {
-    common::TargetFeature target(
-        120.0f + static_cast<float>(i % 7),
-      0.0f,
-      0.0f,
-        6.0f,
-        0.2f,
-      0.0f,
-      0.0f,
-        1000.0f + static_cast<float>(i) * 2.0f,
-        0);
+    common::TargetFeature target(120.0f + static_cast<float>(i % 7), 0.0f, 0.0f, 6.0f, 0.2f, 0.0f,
+                                 0.0f, 1000.0f + static_cast<float>(i) * 2.0f, 0);
     target.position_x = x_bias + static_cast<float>(i) * 15.0f;
     target.position_y = y_bias + static_cast<float>(i % 5) * 3.0f;
     target.position_z = z_bias + static_cast<float>(i % 3) * 2.0f;
@@ -57,9 +46,9 @@ common::TargetFeatureList BuildBatchTargets(
 
 /// @brief 统计量测列表中命中已有轨迹的数量。
 std::size_t CountMatchedTracks(
-    const std::vector<signal::tracking::TrackMeasurement> &measurements) {
+    const std::vector<signal::tracking::TrackMeasurement>& measurements) {
   std::size_t matched = 0;
-  for (const signal::tracking::TrackMeasurement &measurement : measurements) {
+  for (const signal::tracking::TrackMeasurement& measurement : measurements) {
     if (measurement.raw_measurement.matched_existing_track) {
       ++matched;
     }
@@ -75,17 +64,16 @@ double ComputePercentileMs(std::vector<double> samples, double percentile) {
 
   std::sort(samples.begin(), samples.end());
   const double clamped = std::max(0.0, std::min(percentile, 1.0));
-  const std::size_t index = static_cast<std::size_t>(
-      clamped * static_cast<double>(samples.size() - 1));
+  const std::size_t index =
+      static_cast<std::size_t>(clamped * static_cast<double>(samples.size() - 1));
   return samples[index];
 }
 
 /// @brief 从目标列表抽取外部原始 ID 集合。
-std::unordered_set<std::uint64_t> BuildExternalIdSet(
-    const common::TargetFeatureList &features) {
+std::unordered_set<std::uint64_t> BuildExternalIdSet(const common::TargetFeatureList& features) {
   std::unordered_set<std::uint64_t> ids;
   ids.reserve(features.size());
-  for (const common::TargetFeature &feature : features) {
+  for (const common::TargetFeature& feature : features) {
     if (feature.external_target_id != 0U) {
       ids.insert(feature.external_target_id);
     }
@@ -94,18 +82,15 @@ std::unordered_set<std::uint64_t> BuildExternalIdSet(
 }
 
 /// @brief 运行双周期 IMM 生命周期场景并返回总耗时。
-double RunImmLifecycleScenarioMs(
-    std::size_t target_count,
-    signal::pipeline::ImmActivationPolicy activation_policy) {
+double RunImmLifecycleScenarioMs(std::size_t target_count,
+                                 signal::pipeline::ImmActivationPolicy activation_policy) {
   signal::pipeline::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.min_detection_margin_db = -100.0f;
   pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
   pipeline_config.lifecycle.enable_imm_lifecycle = true;
   pipeline_config.lifecycle.lifecycle_config.confirm_hits = 1;
-  pipeline_config.lifecycle.lifecycle_config.imm_activation_policy =
-      activation_policy;
-  pipeline_config.lifecycle.imm_model_noise_diff_coeffs =
-      std::vector<float>{0.5f, 8.0f};
+  pipeline_config.lifecycle.lifecycle_config.imm_activation_policy = activation_policy;
+  pipeline_config.lifecycle.imm_model_noise_diff_coeffs = std::vector<float>{0.5f, 8.0f};
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
 
   environment::EnvironmentModelConfig env_config;
@@ -124,11 +109,9 @@ double RunImmLifecycleScenarioMs(
       BuildBatchTargets(target_count, 401.0f, 12.4f, 1.2f),
   }};
 
-  const std::chrono::steady_clock::time_point start =
-      std::chrono::steady_clock::now();
+  const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 
-  for (std::size_t cycle_index = 0; cycle_index < cycle_inputs.size();
-       ++cycle_index) {
+  for (std::size_t cycle_index = 0; cycle_index < cycle_inputs.size(); ++cycle_index) {
     signal_pipeline.SetAssociationSeeds(lifecycle_manager->BuildAssociationSeeds());
     signal_pipeline.RunCycle(cycle_inputs[cycle_index], environment_service);
     const std::vector<signal::tracking::TrackMeasurement> measurements =
@@ -141,8 +124,7 @@ double RunImmLifecycleScenarioMs(
     lifecycle_manager->Update(cycle, measurements);
   }
 
-  const std::chrono::steady_clock::time_point end =
-      std::chrono::steady_clock::now();
+  const std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
   return std::chrono::duration<double, std::milli>(end - start).count();
 }
 
@@ -179,15 +161,14 @@ TEST(SignalBulkDataTest, LargeBatchSingleCycleProducesConsistentMeasurements) {
   EXPECT_FLOAT_EQ(metrics.match_rate, 0.0f);
   EXPECT_FLOAT_EQ(metrics.new_track_rate, 1.0f);
 
-  for (const signal::tracking::TrackMeasurement &measurement : measurements) {
+  for (const signal::tracking::TrackMeasurement& measurement : measurements) {
     EXPECT_NE(measurement.raw_measurement.association_key, 0u);
     EXPECT_TRUE(measurement.raw_measurement.has_cartesian_position);
   }
 }
 
 /// @brief 批量多周期下，自动装配 IMM 生命周期应在第二周期形成高比例稳定匹配。
-TEST(SignalBulkDataTest,
-     LargeBatchImmAutoLifecycleMaintainsHighMatchRateOnNextCycle) {
+TEST(SignalBulkDataTest, LargeBatchImmAutoLifecycleMaintainsHighMatchRateOnNextCycle) {
   const std::size_t kTargetCount = 2000u;
 
   signal::pipeline::SignalPipelineConfig pipeline_config;
@@ -195,8 +176,7 @@ TEST(SignalBulkDataTest,
   pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
   pipeline_config.lifecycle.enable_imm_lifecycle = true;
   pipeline_config.lifecycle.lifecycle_config.confirm_hits = 1;
-  pipeline_config.lifecycle.imm_model_noise_diff_coeffs =
-      std::vector<float>{0.5f, 8.0f};
+  pipeline_config.lifecycle.imm_model_noise_diff_coeffs = std::vector<float>{0.5f, 8.0f};
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
 
   environment::EnvironmentModelConfig env_config;
@@ -231,11 +211,10 @@ TEST(SignalBulkDataTest,
   ASSERT_EQ(cycle_2_measurements.size(), kTargetCount);
 
   const std::size_t matched_count = CountMatchedTracks(cycle_2_measurements);
-  const float match_ratio =
-      static_cast<float>(matched_count) / static_cast<float>(kTargetCount);
+  const float match_ratio = static_cast<float>(matched_count) / static_cast<float>(kTargetCount);
 
   EXPECT_GT(match_ratio, 0.95f);
-  for (const signal::tracking::TrackMeasurement &measurement : cycle_2_measurements) {
+  for (const signal::tracking::TrackMeasurement& measurement : cycle_2_measurements) {
     EXPECT_TRUE(measurement.raw_measurement.used_external_association_seeds);
   }
 }
@@ -244,7 +223,7 @@ TEST(SignalBulkDataTest,
 TEST(SignalBulkDataTest, TieredBatchSingleCycleReportsP50AndP95Latency) {
   struct BatchTier {
     std::size_t target_count;
-    const char *label;
+    const char* label;
   };
 
   const std::array<BatchTier, 3> tiers{{
@@ -264,23 +243,19 @@ TEST(SignalBulkDataTest, TieredBatchSingleCycleReportsP50AndP95Latency) {
 
   double previous_p95_ms = 0.0;
   for (std::size_t tier_index = 0; tier_index < tiers.size(); ++tier_index) {
-    const BatchTier &tier = tiers[tier_index];
+    const BatchTier& tier = tiers[tier_index];
     std::vector<double> elapsed_ms_samples;
     elapsed_ms_samples.reserve(kRepeatsPerTier);
 
     for (std::size_t repeat = 0; repeat < kRepeatsPerTier; ++repeat) {
       const common::TargetFeatureList input_state = BuildBatchTargets(
-          tier.target_count,
-          1000.0f + static_cast<float>(repeat),
-          8.0f + static_cast<float>(repeat) * 0.1f,
-          2.0f + static_cast<float>(repeat) * 0.1f);
+          tier.target_count, 1000.0f + static_cast<float>(repeat),
+          8.0f + static_cast<float>(repeat) * 0.1f, 2.0f + static_cast<float>(repeat) * 0.1f);
 
-      const std::chrono::steady_clock::time_point start =
-          std::chrono::steady_clock::now();
+      const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
       const signal::pipeline::SignalCycleResult output_state =
           signal_pipeline.RunCycle(input_state, environment_service);
-      const std::chrono::steady_clock::time_point end =
-          std::chrono::steady_clock::now();
+      const std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 
       const std::vector<signal::tracking::TrackMeasurement> measurements =
           signal_pipeline.GetLastTrackMeasurements();
@@ -303,16 +278,13 @@ TEST(SignalBulkDataTest, TieredBatchSingleCycleReportsP50AndP95Latency) {
     EXPECT_GT(p50_ms, 0.0);
     EXPECT_GE(p95_ms, p50_ms);
     if (tier_index > 0u) {
-      const double allowed_regression_ms =
-          std::max(0.05, previous_p95_ms * 0.15);
+      const double allowed_regression_ms = std::max(0.05, previous_p95_ms * 0.15);
       EXPECT_GE(p95_ms + allowed_regression_ms, previous_p95_ms);
     }
     previous_p95_ms = p95_ms;
 
-    std::cout << "[SignalBulkDataTest] tier=" << tier.label
-              << " targets=" << tier.target_count
-              << " p50_ms=" << p50_ms
-              << " p95_ms=" << p95_ms << std::endl;
+    std::cout << "[SignalBulkDataTest] tier=" << tier.label << " targets=" << tier.target_count
+              << " p50_ms=" << p50_ms << " p95_ms=" << p95_ms << std::endl;
   }
 }
 
@@ -325,8 +297,7 @@ TEST(SignalBulkDataTest, ExternalTargetIdStaysConsistentAcrossImmLifecycleCycles
   pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
   pipeline_config.lifecycle.enable_imm_lifecycle = true;
   pipeline_config.lifecycle.lifecycle_config.confirm_hits = 1;
-  pipeline_config.lifecycle.imm_model_noise_diff_coeffs =
-      std::vector<float>{0.5f, 8.0f};
+  pipeline_config.lifecycle.imm_model_noise_diff_coeffs = std::vector<float>{0.5f, 8.0f};
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
 
   environment::EnvironmentModelConfig env_config;
@@ -339,8 +310,7 @@ TEST(SignalBulkDataTest, ExternalTargetIdStaysConsistentAcrossImmLifecycleCycles
 
   const common::TargetFeatureList cycle_1_input =
       BuildBatchTargets(kTargetCount, 600.0f, 15.0f, 2.0f);
-  const std::unordered_set<std::uint64_t> expected_ids =
-      BuildExternalIdSet(cycle_1_input);
+  const std::unordered_set<std::uint64_t> expected_ids = BuildExternalIdSet(cycle_1_input);
   ASSERT_EQ(expected_ids.size(), kTargetCount);
 
   signal_pipeline.SetAssociationSeeds(lifecycle_manager->BuildAssociationSeeds());
@@ -349,11 +319,10 @@ TEST(SignalBulkDataTest, ExternalTargetIdStaysConsistentAcrossImmLifecycleCycles
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(cycle_1_measurements.size(), kTargetCount);
 
-  for (const signal::tracking::TrackMeasurement &measurement : cycle_1_measurements) {
+  for (const signal::tracking::TrackMeasurement& measurement : cycle_1_measurements) {
     ASSERT_LT(measurement.raw_measurement.source_index, cycle_1_input.size());
     EXPECT_EQ(measurement.raw_measurement.external_target_id,
-              cycle_1_input[measurement.raw_measurement.source_index]
-                  .external_target_id);
+              cycle_1_input[measurement.raw_measurement.source_index].external_target_id);
     EXPECT_NE(measurement.raw_measurement.external_target_id, 0U);
   }
 
@@ -374,11 +343,10 @@ TEST(SignalBulkDataTest, ExternalTargetIdStaysConsistentAcrossImmLifecycleCycles
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(cycle_2_measurements.size(), kTargetCount);
 
-  for (const signal::tracking::TrackMeasurement &measurement : cycle_2_measurements) {
+  for (const signal::tracking::TrackMeasurement& measurement : cycle_2_measurements) {
     ASSERT_LT(measurement.raw_measurement.source_index, cycle_2_input.size());
     EXPECT_EQ(measurement.raw_measurement.external_target_id,
-              cycle_2_input[measurement.raw_measurement.source_index]
-                  .external_target_id);
+              cycle_2_input[measurement.raw_measurement.source_index].external_target_id);
     EXPECT_NE(measurement.raw_measurement.external_target_id, 0U);
   }
 
@@ -396,7 +364,7 @@ TEST(SignalBulkDataTest, ExternalTargetIdStaysConsistentAcrossImmLifecycleCycles
 TEST(SignalBulkDataTest, ImmLifecyclePoliciesReportLatencyComparison) {
   struct BatchTier {
     std::size_t target_count;
-    const char *label;
+    const char* label;
   };
 
   const std::array<BatchTier, 1> tiers{{
@@ -404,7 +372,7 @@ TEST(SignalBulkDataTest, ImmLifecyclePoliciesReportLatencyComparison) {
   }};
   const std::size_t kRepeatsPerTier = 1u;
 
-  for (const BatchTier &tier : tiers) {
+  for (const BatchTier& tier : tiers) {
     std::vector<double> all_tracks_samples;
     std::vector<double> confirmed_only_samples;
     all_tracks_samples.reserve(kRepeatsPerTier);
@@ -414,18 +382,13 @@ TEST(SignalBulkDataTest, ImmLifecyclePoliciesReportLatencyComparison) {
       all_tracks_samples.push_back(RunImmLifecycleScenarioMs(
           tier.target_count, signal::pipeline::ImmActivationPolicy::kAllTracks));
       confirmed_only_samples.push_back(RunImmLifecycleScenarioMs(
-          tier.target_count,
-          signal::pipeline::ImmActivationPolicy::kConfirmedTracksOnly));
+          tier.target_count, signal::pipeline::ImmActivationPolicy::kConfirmedTracksOnly));
     }
 
-    const double all_tracks_p50_ms =
-        ComputePercentileMs(all_tracks_samples, 0.50);
-    const double all_tracks_p95_ms =
-        ComputePercentileMs(all_tracks_samples, 0.95);
-    const double confirmed_only_p50_ms =
-        ComputePercentileMs(confirmed_only_samples, 0.50);
-    const double confirmed_only_p95_ms =
-        ComputePercentileMs(confirmed_only_samples, 0.95);
+    const double all_tracks_p50_ms = ComputePercentileMs(all_tracks_samples, 0.50);
+    const double all_tracks_p95_ms = ComputePercentileMs(all_tracks_samples, 0.95);
+    const double confirmed_only_p50_ms = ComputePercentileMs(confirmed_only_samples, 0.50);
+    const double confirmed_only_p95_ms = ComputePercentileMs(confirmed_only_samples, 0.95);
 
     EXPECT_GT(all_tracks_p50_ms, 0.0);
     EXPECT_GT(all_tracks_p95_ms, 0.0);
@@ -433,12 +396,10 @@ TEST(SignalBulkDataTest, ImmLifecyclePoliciesReportLatencyComparison) {
     EXPECT_GT(confirmed_only_p95_ms, 0.0);
 
     std::cout << "[SignalBulkDataTest] imm_policy_compare tier=" << tier.label
-              << " targets=" << tier.target_count
-              << " all_tracks_p50_ms=" << all_tracks_p50_ms
+              << " targets=" << tier.target_count << " all_tracks_p50_ms=" << all_tracks_p50_ms
               << " all_tracks_p95_ms=" << all_tracks_p95_ms
               << " confirmed_only_p50_ms=" << confirmed_only_p50_ms
-              << " confirmed_only_p95_ms=" << confirmed_only_p95_ms
-              << std::endl;
+              << " confirmed_only_p95_ms=" << confirmed_only_p95_ms << std::endl;
   }
 }
 

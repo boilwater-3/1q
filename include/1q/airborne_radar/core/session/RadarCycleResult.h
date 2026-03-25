@@ -21,15 +21,16 @@ namespace session {
  * @brief RadarCycleResult 描述单周期执行后的聚合观测结果。
  */
 struct RadarCycleResult {
-  common::TrackOutputFrame track_output_frame{}; /**< 当前周期轨迹输出帧 */
+  common::TrackOutputFrame track_output_frame{};          /**< 当前周期轨迹输出帧 */
   std::vector<common::RadarCommand> submitted_commands{}; /**< 当前周期已提交的控制指令 */
-  bool has_control_profile{false}; /**< 是否已持有最近一次控制真值 */
-  common::RadarControlProfile control_profile{}; /**< 最近一次控制真值 */
-  signal::pipeline::AssociationQualityMetrics association_quality_metrics{}; /**< 最近一次关联质量观测指标 */
+  bool has_control_profile{false};                        /**< 是否已持有最近一次控制真值 */
+  common::RadarControlProfile control_profile{};          /**< 最近一次控制真值 */
+  signal::pipeline::AssociationQualityMetrics
+      association_quality_metrics{}; /**< 最近一次关联质量观测指标 */
 };
 
-} // namespace session
-} // namespace core
-} // namespace airborne_radar
+}  // namespace session
+}  // namespace core
+}  // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_CORE_SESSION_RADAR_CYCLE_RESULT_H_
+#endif  // AIRBORNE_RADAR_CORE_SESSION_RADAR_CYCLE_RESULT_H_

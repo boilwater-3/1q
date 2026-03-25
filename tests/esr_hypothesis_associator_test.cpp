@@ -29,9 +29,8 @@ namespace {
  * @param[in] support_count 样本数。
  * @return 簇摘要。
  */
-ClusterSummary MakeCluster(float x, float y, float az_deg, float el_deg,
-                           double rf_hz, float snr_db, std::size_t support_count,
-                           float deception_support_ratio = 0.0f) {
+ClusterSummary MakeCluster(float x, float y, float az_deg, float el_deg, double rf_hz, float snr_db,
+                           std::size_t support_count, float deception_support_ratio = 0.0f) {
   ClusterSummary summary;
   summary.centroid_feature.values =
       std::array<float, kObservationFeatureDimension>{{x, y, 0.0f, 0.0f, 0.0f}};
@@ -58,19 +57,15 @@ TEST(EsrHypothesisAssociatorTest, MaintainsStableIdsAcrossMatchedCycles) {
 
   std::uint64_t next_hypothesis_id = 1U;
   std::vector<ClusterSummary> clusters_cycle_1;
-  clusters_cycle_1.push_back(MakeCluster(0.0f, 0.0f, 10.0f, 1.0f, 10.0e9, 15.0f,
-                                         3U));
-  clusters_cycle_1.push_back(MakeCluster(3.0f, 3.0f, -20.0f, 0.0f, 5.0e9, 12.0f,
-                                         2U));
+  clusters_cycle_1.push_back(MakeCluster(0.0f, 0.0f, 10.0f, 1.0f, 10.0e9, 15.0f, 3U));
+  clusters_cycle_1.push_back(MakeCluster(3.0f, 3.0f, -20.0f, 0.0f, 5.0e9, 12.0f, 2U));
   const common::EmitterHypothesisList cycle_1 =
       associator.Update(10U, clusters_cycle_1, &next_hypothesis_id);
   ASSERT_EQ(cycle_1.size(), 2U);
 
   std::vector<ClusterSummary> clusters_cycle_2;
-  clusters_cycle_2.push_back(MakeCluster(0.1f, 0.1f, 11.0f, 1.2f, 10.1e9, 16.0f,
-                                         4U));
-  clusters_cycle_2.push_back(MakeCluster(3.1f, 2.9f, -19.0f, 0.1f, 5.1e9, 13.0f,
-                                         3U));
+  clusters_cycle_2.push_back(MakeCluster(0.1f, 0.1f, 11.0f, 1.2f, 10.1e9, 16.0f, 4U));
+  clusters_cycle_2.push_back(MakeCluster(3.1f, 2.9f, -19.0f, 0.1f, 5.1e9, 13.0f, 3U));
   const common::EmitterHypothesisList cycle_2 =
       associator.Update(11U, clusters_cycle_2, &next_hypothesis_id);
   ASSERT_EQ(cycle_2.size(), 2U);
@@ -92,18 +87,15 @@ TEST(EsrHypothesisAssociatorTest, CreatesNewTrackWhenTwoClustersCompeteOneTrack)
 
   std::uint64_t next_hypothesis_id = 1U;
   std::vector<ClusterSummary> clusters_cycle_1;
-  clusters_cycle_1.push_back(MakeCluster(0.0f, 0.0f, 10.0f, 1.0f, 10.0e9, 15.0f,
-                                         3U));
+  clusters_cycle_1.push_back(MakeCluster(0.0f, 0.0f, 10.0f, 1.0f, 10.0e9, 15.0f, 3U));
   const common::EmitterHypothesisList cycle_1 =
       associator.Update(20U, clusters_cycle_1, &next_hypothesis_id);
   ASSERT_EQ(cycle_1.size(), 1U);
   const std::uint64_t stable_id = cycle_1[0].hypothesis_id;
 
   std::vector<ClusterSummary> clusters_cycle_2;
-  clusters_cycle_2.push_back(MakeCluster(0.1f, 0.1f, 10.5f, 1.1f, 10.0e9, 14.5f,
-                                         2U));
-  clusters_cycle_2.push_back(MakeCluster(0.6f, 0.6f, 15.0f, 2.0f, 9.0e9, 8.0f,
-                                         2U));
+  clusters_cycle_2.push_back(MakeCluster(0.1f, 0.1f, 10.5f, 1.1f, 10.0e9, 14.5f, 2U));
+  clusters_cycle_2.push_back(MakeCluster(0.6f, 0.6f, 15.0f, 2.0f, 9.0e9, 8.0f, 2U));
   const common::EmitterHypothesisList cycle_2 =
       associator.Update(21U, clusters_cycle_2, &next_hypothesis_id);
   ASSERT_EQ(cycle_2.size(), 2U);
@@ -123,8 +115,7 @@ TEST(EsrHypothesisAssociatorTest, RecyclesTrackAfterConfiguredMissedCycles) {
 
   std::uint64_t next_hypothesis_id = 1U;
   std::vector<ClusterSummary> clusters_cycle_1;
-  clusters_cycle_1.push_back(MakeCluster(0.0f, 0.0f, 0.0f, 0.0f, 10.0e9, 10.0f,
-                                         1U));
+  clusters_cycle_1.push_back(MakeCluster(0.0f, 0.0f, 0.0f, 0.0f, 10.0e9, 10.0f, 1U));
   const common::EmitterHypothesisList cycle_1 =
       associator.Update(30U, clusters_cycle_1, &next_hypothesis_id);
   ASSERT_EQ(cycle_1.size(), 1U);
@@ -138,8 +129,7 @@ TEST(EsrHypothesisAssociatorTest, RecyclesTrackAfterConfiguredMissedCycles) {
   EXPECT_TRUE(cycle_3.empty());
 }
 
-TEST(EsrHypothesisAssociatorTest,
-     HighDeceptionSupportLowersConfidenceAndAddsAmbiguousClass) {
+TEST(EsrHypothesisAssociatorTest, HighDeceptionSupportLowersConfidenceAndAddsAmbiguousClass) {
   InterceptAssociationConfig config;
   config.gate_distance = 1.0f;
   config.confirm_hits = 1U;
@@ -150,10 +140,8 @@ TEST(EsrHypothesisAssociatorTest,
 
   std::uint64_t next_hypothesis_id = 1U;
   std::vector<ClusterSummary> clusters;
-  clusters.push_back(
-      MakeCluster(0.0f, 0.0f, 1.0f, 0.1f, 10.0e9, 14.0f, 3U, 0.0f));
-  clusters.push_back(
-      MakeCluster(5.0f, 5.0f, 2.0f, 0.2f, 12.0e9, 14.0f, 3U, 0.8f));
+  clusters.push_back(MakeCluster(0.0f, 0.0f, 1.0f, 0.1f, 10.0e9, 14.0f, 3U, 0.0f));
+  clusters.push_back(MakeCluster(5.0f, 5.0f, 2.0f, 0.2f, 12.0e9, 14.0f, 3U, 0.8f));
 
   const common::EmitterHypothesisList hypotheses =
       associator.Update(40U, clusters, &next_hypothesis_id);
@@ -169,12 +157,10 @@ TEST(EsrHypothesisAssociatorTest,
     }
   }
   ASSERT_NE(clean_hypothesis, static_cast<const common::EmitterHypothesis*>(nullptr));
-  ASSERT_NE(deceptive_hypothesis,
-            static_cast<const common::EmitterHypothesis*>(nullptr));
+  ASSERT_NE(deceptive_hypothesis, static_cast<const common::EmitterHypothesis*>(nullptr));
   EXPECT_LT(deceptive_hypothesis->confidence, clean_hypothesis->confidence);
   EXPECT_NE(std::find(deceptive_hypothesis->candidate_classes.begin(),
-                      deceptive_hypothesis->candidate_classes.end(),
-                      "AMBIGUOUS_CLASS"),
+                      deceptive_hypothesis->candidate_classes.end(), "AMBIGUOUS_CLASS"),
             deceptive_hypothesis->candidate_classes.end());
 }
 

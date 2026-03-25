@@ -1,7 +1,7 @@
 #include "airborne_radar/signal/detection/RadarEquations.h"
 
-#include <cmath>
 #include <algorithm>
+#include <cmath>
 #if defined(__clang__)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-W#warnings"
@@ -59,9 +59,7 @@ float LinearToDb(float linear) {
  * @param db dB 值。
  * @return 对应的线性值。
  */
-float DbToLinear(float db) {
-  return std::pow(10.0f, db / 10.0f);
-}
+float DbToLinear(float db) { return std::pow(10.0f, db / 10.0f); }
 /**
  * @brief 钳位到 [0, 1]。
  * @param pd 输入检测概率。
@@ -79,12 +77,9 @@ float ClampPd(float pd) {
 
 }  // namespace
 
-float RadarEquations::ComputeEchoPowerWithGain_dBW(
-    const TransmitterConfig& tx,
-    float one_way_gain_db,
-    float rcs_m2,
-    float range_m,
-    float propagation_loss_db) {
+float RadarEquations::ComputeEchoPowerWithGain_dBW(const TransmitterConfig& tx,
+                                                   float one_way_gain_db, float rcs_m2,
+                                                   float range_m, float propagation_loss_db) {
   if (range_m <= 0.0f || rcs_m2 <= 0.0f) {
     return -300.0f;
   }
@@ -102,39 +97,25 @@ float RadarEquations::ComputeEchoPowerWithGain_dBW(
   /* 公式中总损耗 L_sys 包含发射系统损耗和传播损耗 */
   const float total_loss_db = tx.transmit_loss_db + propagation_loss_db;
 
-  const float pr_dbw = pt_db
-      + one_way_gain_db
-      + one_way_gain_db
-      + 2.0f * lambda_db
-      + rcs_db
-      - 30.0f * std::log10(4.0f * kPi)
-      - 4.0f * r_db
-      - total_loss_db;
+  const float pr_dbw = pt_db + one_way_gain_db + one_way_gain_db + 2.0f * lambda_db + rcs_db -
+                       30.0f * std::log10(4.0f * kPi) - 4.0f * r_db - total_loss_db;
 
   return pr_dbw;
 }
 
-float RadarEquations::ComputeEchoPower_dBW(
-    const TransmitterConfig& tx,
-    const AntennaConfig& ant,
-    float rcs_m2,
-    float range_m,
-    float propagation_loss_db) {
-  return ComputeEchoPowerWithGain_dBW(
-      tx, ant.main_beam_gain_db, rcs_m2, range_m, propagation_loss_db);
+float RadarEquations::ComputeEchoPower_dBW(const TransmitterConfig& tx, const AntennaConfig& ant,
+                                           float rcs_m2, float range_m, float propagation_loss_db) {
+  return ComputeEchoPowerWithGain_dBW(tx, ant.main_beam_gain_db, rcs_m2, range_m,
+                                      propagation_loss_db);
 }
 
-float RadarEquations::ComputeThermalNoisePower_W(
-    const TransmitterConfig& tx,
-    const ReceiverConfig& rx) {
+float RadarEquations::ComputeThermalNoisePower_W(const TransmitterConfig& tx,
+                                                 const ReceiverConfig& rx) {
   const float noise_figure_linear = DbToLinear(rx.noise_figure_db);
-  return kBoltzmann * kRefTemperature * tx.bandwidth_hz
-         * noise_figure_linear;
+  return kBoltzmann * kRefTemperature * tx.bandwidth_hz * noise_figure_linear;
 }
 
-float RadarEquations::ComputeIntegrationGain(
-    int pulse_count,
-    bool coherent_integration) {
+float RadarEquations::ComputeIntegrationGain(int pulse_count, bool coherent_integration) {
   if (pulse_count <= 0) {
     return 1.0f;
   }
@@ -145,9 +126,7 @@ float RadarEquations::ComputeIntegrationGain(
   return std::sqrt(n);
 }
 
-float RadarEquations::ComputeRangeErrorStdDev(
-    float snr_db,
-    float bandwidth_hz) {
+float RadarEquations::ComputeRangeErrorStdDev(float snr_db, float bandwidth_hz) {
   const float range_resolution = 0.5f * kLightSpeed / bandwidth_hz;
   const float kMinSnrDb = -10.0f;
   if (snr_db < kMinSnrDb) {
@@ -159,9 +138,7 @@ float RadarEquations::ComputeRangeErrorStdDev(
   return std_dev + kRangeBias_m;
 }
 
-float RadarEquations::ComputeAngleErrorStdDev(
-    float snr_db,
-    float beamwidth_rad) {
+float RadarEquations::ComputeAngleErrorStdDev(float snr_db, float beamwidth_rad) {
   const float kMinSnrDb = -10.0f;
   if (snr_db < kMinSnrDb) {
     return beamwidth_rad;
@@ -184,12 +161,10 @@ double RadarEquations::ComputeThreshold(double pfa, int num_pulses) {
    *  N>1: 求解 Q(N, T) = P_fa
    * boost::math::gamma_q_inv(a, q) 返回 x 使得 Q(a,x) = q
    */
-  return boost::math::gamma_q_inv(
-      static_cast<double>(num_pulses), pfa);
+  return boost::math::gamma_q_inv(static_cast<double>(num_pulses), pfa);
 }
 
-double RadarEquations::MarcumQ(int order, double a, double b)
-{
+double RadarEquations::MarcumQ(int order, double a, double b) {
   /**
    *  Q_M(a, b) = Σ_{k=0}^∞ [e^{-λ} · λ^k / k!] · Q(M+k, b²/2)
    *  其中 λ = a²/2
@@ -227,8 +202,7 @@ double RadarEquations::MarcumQ(int order, double a, double b)
    *  log P(k, λ) = -λ + k·ln(λ) - ln(k!)
    *  使用 lgamma 计算 ln(k!) = lgamma(k+1)
    */
-  auto log_poisson = [lambda](int k) -> double
-  {
+  auto log_poisson = [lambda](int k) -> double {
     if (k == 0) {
       return -lambda;
     }
@@ -245,8 +219,7 @@ double RadarEquations::MarcumQ(int order, double a, double b)
         log_pk += std::log(lambda / static_cast<double>(k));
       }
       const double pk = std::exp(log_pk);
-      const double gq = boost::math::gamma_q(
-          static_cast<double>(order + k), x);
+      const double gq = boost::math::gamma_q(static_cast<double>(order + k), x);
       const double term = pk * gq;
       sum += term;
       if (term < kConvergence && k > k0 + 2) {
@@ -263,8 +236,7 @@ double RadarEquations::MarcumQ(int order, double a, double b)
         log_pk += std::log(static_cast<double>(k + 1) / lambda);
       }
       const double pk = std::exp(log_pk);
-      const double gq = boost::math::gamma_q(
-          static_cast<double>(order + k), x);
+      const double gq = boost::math::gamma_q(static_cast<double>(order + k), x);
       const double term = pk * gq;
       sum += term;
       if (term < kConvergence && k < k0 - 2) {
@@ -282,11 +254,8 @@ double RadarEquations::MarcumQ(int order, double a, double b)
   return sum;
 }
 
-float RadarEquations::ComputeDetectionProbability(
-    float snr_db,
-    float pfa,
-    SwerlingModel model,
-    int num_pulses) {
+float RadarEquations::ComputeDetectionProbability(float snr_db, float pfa, SwerlingModel model,
+                                                  int num_pulses) {
   if (pfa <= 0.0f || pfa >= 1.0f) {
     pfa = 1e-6f;
   }
@@ -354,8 +323,7 @@ float RadarEquations::ComputeDetectionProbability(
           if (M >= 2.0) {
             const double q_M1_V = boost::math::gamma_q(M - 1.0, V);
             const double q_M1_VC = boost::math::gamma_q(M - 1.0, V / C);
-            pd += M * std::pow(C, M - 1.0) * (1.0 - C)
-                  * (q_M1_VC - q_M1_V);
+            pd += M * std::pow(C, M - 1.0) * (1.0 - C) * (q_M1_VC - q_M1_V);
           }
         }
       }
@@ -378,9 +346,7 @@ float RadarEquations::ComputeDetectionProbability(
   return ClampPd(static_cast<float>(pd));
 }
 
-bool RadarEquations::ThresholdDecision(
-    float detection_prob,
-    std::mt19937& rng) {
+bool RadarEquations::ThresholdDecision(float detection_prob, std::mt19937& rng) {
   std::uniform_real_distribution<float> dist(0.0f, 1.0f);
   const float r = dist(rng);
   return r <= detection_prob;

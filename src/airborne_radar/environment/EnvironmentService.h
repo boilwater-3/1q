@@ -8,8 +8,9 @@
 
 #include <cstddef>
 #include <memory>
-#include "1q/airborne_radar/environment/IEnvironmentService.h"
+
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
+#include "1q/airborne_radar/environment/IEnvironmentService.h"
 
 namespace airborne_radar {
 namespace environment {
@@ -71,8 +72,7 @@ class EnvironmentService final : public IEnvironmentService {
   void SetJammingDetectionThresholdDb(float threshold_db);
 
  private:
-  static constexpr std::size_t kNoLegacyJammerEmitterIndex =
-      static_cast<std::size_t>(-1);
+  static constexpr std::size_t kNoLegacyJammerEmitterIndex = static_cast<std::size_t>(-1);
 
   void RefreshFrozenSnapshotFromActiveScene();
 
@@ -80,14 +80,12 @@ class EnvironmentService final : public IEnvironmentService {
   std::unique_ptr<simulation::PropagationModel> propagation_model_;
   EnvironmentSnapshot frozen_snapshot_{};
   EnvironmentCycleContext current_cycle_context_{};
-  std::size_t pending_legacy_jammer_emitter_index_{
-      kNoLegacyJammerEmitterIndex};
-  std::size_t active_legacy_jammer_emitter_index_{
-      kNoLegacyJammerEmitterIndex};
+  std::size_t pending_legacy_jammer_emitter_index_{kNoLegacyJammerEmitterIndex};
+  std::size_t active_legacy_jammer_emitter_index_{kNoLegacyJammerEmitterIndex};
   float jamming_detection_threshold_db_{6.0f};
 };
 
-} // namespace environment
-} // namespace airborne_radar
+}  // namespace environment
+}  // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_SERVICE_H_
+#endif  // AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_SERVICE_H_

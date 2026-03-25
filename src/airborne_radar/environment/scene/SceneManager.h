@@ -65,8 +65,8 @@ class SceneManager {
   EnvironmentCycleContext active_cycle_context_{};
 };
 
-} // namespace scene
-} // namespace environment
-} // namespace airborne_radar
+}  // namespace scene
+}  // namespace environment
+}  // namespace airborne_radar
 
-#endif // AIRBORNE_RADAR_ENVIRONMENT_SCENE_SCENE_MANAGER_H_
+#endif  // AIRBORNE_RADAR_ENVIRONMENT_SCENE_SCENE_MANAGER_H_
