@@ -542,6 +542,25 @@ TEST(EsrSessionIntegrationTest, PriWindowCapsEffectivePulseCountAcrossStatistica
   }
 }
 
+TEST(EsrSessionIntegrationTest, ValidationFailureReturnsEmptyFrameAndStillAdvancesBatchId) {
+  EsrSession session(MakeSessionConfig());
+  context::EsrCycleInput invalid_input = MakeBaseInput();
+  invalid_input.dt_sec = 0.0f;
+
+  const EsrCycleResult invalid_result = session.StepWithResult(invalid_input);
+  EXPECT_TRUE(invalid_result.has_validation_error);
+  EXPECT_TRUE(invalid_result.output_frame.observation_output.observations.empty());
+  EXPECT_TRUE(invalid_result.output_frame.emitter_output.hypotheses.empty());
+  EXPECT_TRUE(invalid_result.output_frame.truth_evaluation_output.associations.empty());
+  EXPECT_EQ(invalid_result.output_frame.observation_output.batch_id, 1U);
+
+  context::EsrCycleInput valid_input = MakeBaseInput();
+  valid_input.cycle_index = invalid_input.cycle_index + 1U;
+  const EsrCycleResult valid_result = session.StepWithResult(valid_input);
+  EXPECT_FALSE(valid_result.has_validation_error);
+  EXPECT_EQ(valid_result.output_frame.observation_output.batch_id, 2U);
+}
+
 }  // namespace
 }  // namespace session
 }  // namespace core

@@ -17,6 +17,7 @@
 #include "airborne_radar/decision/pipeline/ControlReducer.h"
 #include "airborne_radar/decision/pipeline/TacticalCoordinator.h"
 #include "common/logging/ProjectLog.h"
+#include "common/runtime/RuntimeCycleExecutor.h"
 
 namespace airborne_radar {
 namespace core {
@@ -103,6 +104,15 @@ common::RadarCommand ToRadarCommand(const common::ControlDirective& directive) {
                               ToRadarCommandSource(directive.source));
 }
 
+/**
+ * @brief AirborneRuntimeInput 描述单周期骨架执行需要的输入快照。
+ */
+struct AirborneRuntimeInput {
+  common::TargetFeatureList target_features{};     /**< 当前周期目标输入。 */
+  common::PlatformAttitudeDeg platform_attitude{}; /**< 当前平台姿态。 */
+  float cycle_dt_sec{1.0f};                        /**< 当前周期步长。 */
+};
+
 }  // namespace
 
 /**
@@ -119,10 +129,10 @@ struct RadarController::Impl {
   std::unique_ptr<decision::pipeline::TacticalStateStore> tactical_state_store;
   std::unique_ptr<decision::pipeline::ControlReducer> control_reducer;
   std::unique_ptr<core::output::IDataOutputManager> output_manager;
-  common::TrackOutputFrame latest_track_output_frame{};
-  bool has_latest_track_output_frame{false};
+  oneq::internal::runtime::RuntimeCycleState<common::TrackOutputFrame,
+                                             oneq::internal::runtime::NoValidationIssues>
+      runtime_state{};
   std::uint32_t cycle_index{1};
-  std::uint64_t batch_id{1};
 
   /** @brief 构造函数（默认决策引擎路径） */
   Impl(core::context::IRadarContext& ctx, signal::pipeline::ISignalPipeline& sig,
@@ -180,67 +190,102 @@ RadarController::RadarController(core::context::IRadarContext& radar_context,
 RadarController::~RadarController() = default;
 
 void RadarController::RunOnce() {
-  impl_->signal_pipeline.SetControlProfile(*impl_->control_profile);
+  AirborneRuntimeInput runtime_input;
+  runtime_input.target_features = impl_->radar_context.GetTargetFeatures();
+  runtime_input.platform_attitude = impl_->radar_context.GetPlatformAttitude();
+  runtime_input.cycle_dt_sec = impl_->radar_context.GetCycleDeltaTimeSec();
 
-  const common::TargetFeatureList input_features = impl_->radar_context.GetTargetFeatures();
-  environment::EnvironmentCycleContext environment_cycle_context;
-  environment_cycle_context.cycle_index = impl_->cycle_index;
-  environment_cycle_context.dt_sec = impl_->radar_context.GetCycleDeltaTimeSec();
-  impl_->environment_service.BeginCycle(environment_cycle_context);
-  impl_->signal_pipeline.UpdatePlatformAttitude(impl_->radar_context.GetPlatformAttitude());
+  struct AirborneRuntimeHooks {
+    Impl* impl{nullptr};
 
-  const signal::pipeline::SignalCycleResult signal_result =
-      impl_->signal_pipeline.RunCycle(input_features, impl_->environment_service);
-  const signal::pipeline::AssociationQualityMetrics association_metrics =
-      signal_result.association_quality_metrics;
-  common::DecisionInputFrame decision_frame = signal_result.decision_frame;
-  decision_frame.cycle_index = impl_->cycle_index;
-  decision_frame.batch_id = impl_->batch_id;
-  common::TrackOutputFrame track_output_frame = impl_->output_manager->BuildTrackOutputFrame(
-      impl_->cycle_index, impl_->batch_id, decision_frame.tracks);
-  impl_->latest_track_output_frame = track_output_frame;
-  impl_->has_latest_track_output_frame = true;
+    oneq::internal::runtime::RuntimeValidationResult<oneq::internal::runtime::NoValidationIssues>
+    Validate(const AirborneRuntimeInput& input) const {
+      (void)input;
+      return oneq::internal::runtime::MakePassValidationResult();
+    }
 
-  decision::pipeline::TacticalDecisionResult decision_result;
-  if (impl_->decision_engine != nullptr && impl_->tactical_state_store != nullptr) {
-    decision_result =
-        impl_->decision_engine->Evaluate(decision_frame, *impl_->tactical_state_store);
-  }
+    void FreezeEnvironment(const AirborneRuntimeInput& input,
+                           const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
+      if (impl == nullptr) {
+        return;
+      }
+      environment::EnvironmentCycleContext environment_cycle_context;
+      environment_cycle_context.cycle_index = stamp.cycle_index;
+      environment_cycle_context.dt_sec = input.cycle_dt_sec;
+      impl->environment_service.BeginCycle(environment_cycle_context);
+    }
 
-  const decision::pipeline::ControlReductionResult reduction_result =
-      impl_->control_reducer != nullptr
-          ? impl_->control_reducer->Reduce(*impl_->control_profile, decision_result.proposals)
-          : decision::pipeline::ControlReductionResult();
-  *impl_->control_profile = reduction_result.profile;
-  impl_->radar_context.UpdateRadarControlProfile(*impl_->control_profile);
+    common::TrackOutputFrame Execute(
+        const AirborneRuntimeInput& input,
+        const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
+      impl->signal_pipeline.SetControlProfile(*impl->control_profile);
+      impl->signal_pipeline.UpdatePlatformAttitude(input.platform_attitude);
 
-  impl_->ExecuteCommands(reduction_result.applied_directives);
+      const signal::pipeline::SignalCycleResult signal_result =
+          impl->signal_pipeline.RunCycle(input.target_features, impl->environment_service);
+      const signal::pipeline::AssociationQualityMetrics association_metrics =
+          signal_result.association_quality_metrics;
+      common::DecisionInputFrame decision_frame = signal_result.decision_frame;
+      decision_frame.cycle_index = stamp.cycle_index;
+      decision_frame.batch_id = stamp.batch_id;
+      common::TrackOutputFrame track_output_frame = impl->output_manager->BuildTrackOutputFrame(
+          stamp.cycle_index, stamp.batch_id, decision_frame.tracks);
 
-  PROJECT_LOG_DEBUG(
-      "[RadarController] cycle summary: cycle_index={} batch_id={} "
-      "input_targets={} decision_features={} directives={} "
-      "jamming_detected={} profile_version={} detect_rate={:.3f} "
-      "detect_stress={:.3f} assoc_priors={} assoc_detections={} "
-      "assoc_matches={} assoc_new_tracks={} assoc_missed_tracks={} "
-      "assoc_match_rate={:.3f} assoc_new_track_rate={:.3f} "
-      "assoc_missed_rate={:.3f} assoc_mean_cost={:.3f} "
-      "assoc_p95_cost={:.3f} assoc_jam_semantic={} "
-      "assoc_jam_severity={:.3f} assoc_stress={:.3f}",
-      impl_->cycle_index, impl_->batch_id, input_features.size(), decision_frame.tracks.size(),
-      reduction_result.applied_directives.size(),
-      decision_frame.environment_jamming_detected ? "true" : "false",
-      impl_->control_profile->version, decision_frame.perception_quality_info.detection_rate,
-      decision_frame.perception_quality_info.detection_stress,
-      association_metrics.prior_track_count, association_metrics.detection_count,
-      association_metrics.matched_count, association_metrics.new_track_count,
-      association_metrics.missed_track_count, association_metrics.match_rate,
-      association_metrics.new_track_rate, association_metrics.missed_track_rate,
-      association_metrics.mean_match_cost, association_metrics.p95_match_cost,
-      JammingSemanticName(association_metrics.dominant_jamming_semantic),
-      association_metrics.jamming_severity, association_metrics.association_stress);
+      decision::pipeline::TacticalDecisionResult decision_result;
+      if (impl->decision_engine != nullptr && impl->tactical_state_store != nullptr) {
+        decision_result =
+            impl->decision_engine->Evaluate(decision_frame, *impl->tactical_state_store);
+      }
 
+      const decision::pipeline::ControlReductionResult reduction_result =
+          impl->control_reducer != nullptr
+              ? impl->control_reducer->Reduce(*impl->control_profile, decision_result.proposals)
+              : decision::pipeline::ControlReductionResult();
+      *impl->control_profile = reduction_result.profile;
+      impl->radar_context.UpdateRadarControlProfile(*impl->control_profile);
+      impl->ExecuteCommands(reduction_result.applied_directives);
+
+      PROJECT_LOG_DEBUG(
+          "[RadarController] cycle summary: cycle_index={} batch_id={} "
+          "input_targets={} decision_features={} directives={} "
+          "jamming_detected={} profile_version={} detect_rate={:.3f} "
+          "detect_stress={:.3f} assoc_priors={} assoc_detections={} "
+          "assoc_matches={} assoc_new_tracks={} assoc_missed_tracks={} "
+          "assoc_match_rate={:.3f} assoc_new_track_rate={:.3f} "
+          "assoc_missed_rate={:.3f} assoc_mean_cost={:.3f} "
+          "assoc_p95_cost={:.3f} assoc_jam_semantic={} "
+          "assoc_jam_severity={:.3f} assoc_stress={:.3f}",
+          stamp.cycle_index, stamp.batch_id, input.target_features.size(),
+          decision_frame.tracks.size(), reduction_result.applied_directives.size(),
+          decision_frame.environment_jamming_detected ? "true" : "false",
+          impl->control_profile->version, decision_frame.perception_quality_info.detection_rate,
+          decision_frame.perception_quality_info.detection_stress,
+          association_metrics.prior_track_count, association_metrics.detection_count,
+          association_metrics.matched_count, association_metrics.new_track_count,
+          association_metrics.missed_track_count, association_metrics.match_rate,
+          association_metrics.new_track_rate, association_metrics.missed_track_rate,
+          association_metrics.mean_match_cost, association_metrics.p95_match_cost,
+          JammingSemanticName(association_metrics.dominant_jamming_semantic),
+          association_metrics.jamming_severity, association_metrics.association_stress);
+      return track_output_frame;
+    }
+
+    common::TrackOutputFrame BuildErrorOutput(
+        const AirborneRuntimeInput& input,
+        const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
+      (void)input;
+      common::TrackOutputFrame frame;
+      frame.cycle_index = stamp.cycle_index;
+      frame.batch_id = stamp.batch_id;
+      return frame;
+    }
+  };
+
+  AirborneRuntimeHooks hooks;
+  hooks.impl = impl_.get();
+  oneq::internal::runtime::ExecuteRuntimeCycle(runtime_input, impl_->cycle_index,
+                                               &impl_->runtime_state, &hooks);
   ++impl_->cycle_index;
-  ++impl_->batch_id;
 }
 
 void RadarController::RunCycles(std::size_t cycles) {
@@ -270,11 +315,11 @@ void RadarController::UpdateControlReducerConfig(
 }
 
 bool RadarController::HasLatestTrackOutputFrame() const {
-  return impl_->has_latest_track_output_frame;
+  return impl_->runtime_state.has_latest_output;
 }
 
 const common::TrackOutputFrame& RadarController::GetLatestTrackOutputFrame() const {
-  return impl_->latest_track_output_frame;
+  return impl_->runtime_state.latest_output;
 }
 
 }  // namespace controller

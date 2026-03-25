@@ -5,6 +5,7 @@
 #include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
 #include "1q/electronic_surveillance_radar/pipeline/IInterceptPipeline.h"
 #include "common/logging/ProjectLog.h"
+#include "common/runtime/RuntimeCycleExecutor.h"
 #include "electronic_surveillance_radar/core/output/EsrOutputManager.h"
 
 namespace electronic_surveillance_radar {
@@ -19,10 +20,9 @@ struct EsrController::Impl {
   pipeline::IInterceptPipeline& pipeline;
   environment::IEsrEnvironmentService& environment_service;
   output::EsrOutputManager output_manager;
-  common::EsrOutputFrame latest_output_frame{};
-  bool has_latest_output_frame{false};
-  context::EsrValidationIssueList last_validation_issues{};
-  std::uint64_t batch_id{1U};
+  oneq::internal::runtime::RuntimeCycleState<common::EsrOutputFrame,
+                                             context::EsrValidationIssueList>
+      runtime_state{};
 };
 
 EsrController::EsrController(pipeline::IInterceptPipeline& pipeline,
@@ -32,46 +32,66 @@ EsrController::EsrController(pipeline::IInterceptPipeline& pipeline,
 EsrController::~EsrController() = default;
 
 void EsrController::RunOnce(const context::EsrCycleInput& input) {
-  impl_->last_validation_issues = context::ValidateEsrCycleInput(input);
-  if (context::HasEsrValidationError(impl_->last_validation_issues)) {
-    impl_->latest_output_frame =
-        impl_->output_manager.BuildEmptyFrame(input.cycle_index, impl_->batch_id);
-    impl_->has_latest_output_frame = true;
-    ++impl_->batch_id;
-    return;
-  }
+  struct EsrRuntimeHooks {
+    Impl* impl{nullptr};
 
-  environment::EsrEnvironmentCycleContext environment_context;
-  environment_context.cycle_index = input.cycle_index;
-  environment_context.dt_sec = input.dt_sec;
-  environment_context.scene_state = input.environment_scene_state;
-  impl_->environment_service.BeginCycle(environment_context);
+    oneq::internal::runtime::RuntimeValidationResult<context::EsrValidationIssueList> Validate(
+        const context::EsrCycleInput& cycle_input) const {
+      oneq::internal::runtime::RuntimeValidationResult<context::EsrValidationIssueList> result;
+      result.issues = context::ValidateEsrCycleInput(cycle_input);
+      result.has_error = context::HasEsrValidationError(result.issues);
+      return result;
+    }
 
-  const pipeline::InterceptCycleResult intercept_result =
-      impl_->pipeline.RunCycle(input, impl_->environment_service);
-  impl_->latest_output_frame =
-      impl_->output_manager.BuildOutputFrame(input.cycle_index, impl_->batch_id, intercept_result);
-  impl_->has_latest_output_frame = true;
+    void FreezeEnvironment(const context::EsrCycleInput& cycle_input,
+                           const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
+      if (impl == nullptr) {
+        return;
+      }
+      environment::EsrEnvironmentCycleContext environment_context;
+      environment_context.cycle_index = stamp.cycle_index;
+      environment_context.dt_sec = cycle_input.dt_sec;
+      environment_context.scene_state = cycle_input.environment_scene_state;
+      impl->environment_service.BeginCycle(environment_context);
+    }
 
-  PROJECT_LOG_DEBUG(
-      "[EsrController] cycle summary: cycle_index={} batch_id={} "
-      "observations={} hypotheses={} truth_associations={}",
-      input.cycle_index, impl_->batch_id,
-      impl_->latest_output_frame.observation_output.observations.size(),
-      impl_->latest_output_frame.emitter_output.hypotheses.size(),
-      impl_->latest_output_frame.truth_evaluation_output.associations.size());
+    common::EsrOutputFrame Execute(const context::EsrCycleInput& cycle_input,
+                                   const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
+      const pipeline::InterceptCycleResult intercept_result =
+          impl->pipeline.RunCycle(cycle_input, impl->environment_service);
+      const common::EsrOutputFrame output_frame = impl->output_manager.BuildOutputFrame(
+          stamp.cycle_index, stamp.batch_id, intercept_result);
+      PROJECT_LOG_DEBUG(
+          "[EsrController] cycle summary: cycle_index={} batch_id={} "
+          "observations={} hypotheses={} truth_associations={}",
+          stamp.cycle_index, stamp.batch_id, output_frame.observation_output.observations.size(),
+          output_frame.emitter_output.hypotheses.size(),
+          output_frame.truth_evaluation_output.associations.size());
+      return output_frame;
+    }
 
-  ++impl_->batch_id;
+    common::EsrOutputFrame BuildErrorOutput(
+        const context::EsrCycleInput& cycle_input,
+        const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
+      (void)cycle_input;
+      return impl->output_manager.BuildEmptyFrame(stamp.cycle_index, stamp.batch_id);
+    }
+  };
+
+  EsrRuntimeHooks hooks;
+  hooks.impl = impl_.get();
+  oneq::internal::runtime::ExecuteRuntimeCycle(input, input.cycle_index, &impl_->runtime_state,
+                                               &hooks);
 }
 
-bool EsrController::HasLatestOutputFrame() const { return impl_->has_latest_output_frame; }
+bool EsrController::HasLatestOutputFrame() const { return impl_->runtime_state.has_latest_output; }
 
 const common::EsrOutputFrame& EsrController::GetLatestOutputFrame() const {
-  return impl_->latest_output_frame;
+  return impl_->runtime_state.latest_output;
 }
 
 const context::EsrValidationIssueList& EsrController::GetLastValidationIssues() const {
-  return impl_->last_validation_issues;
+  return impl_->runtime_state.last_validation_issues;
 }
 
 }  // namespace controller
