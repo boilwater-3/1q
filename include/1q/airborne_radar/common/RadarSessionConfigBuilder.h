@@ -51,7 +51,7 @@ class ONEQ_API RadarSessionConfigBuilder {
    *        通常传入 `MakeDetectionMissionRadarSessionConfig()` 等预设函数返回值。
    */
   explicit RadarSessionConfigBuilder(
-      core::session::RadarSessionConfig config = {})
+      const core::session::RadarSessionConfig& config = {})
       : config_(config) {}
 
   // -------------------------------------------------------------------------

@@ -19,7 +19,7 @@ namespace tracking {
  */
 class ITrackPool {
 public:
-  virtual ~ITrackPool() {}
+  virtual ~ITrackPool() = default;
 /**
  * @brief 申请一个可写轨迹对象。
  * @return 成功返回轨迹对象指针；失败返回 nullptr。

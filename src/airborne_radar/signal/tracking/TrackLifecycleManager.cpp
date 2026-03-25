@@ -117,7 +117,7 @@ TrackLifecycleManager::TrackLifecycleManager(ITrackPool &pool,
                                              const LifecycleConfig &config,
                                              const IKalmanPredictor *predictor,
                                              const IKalmanUpdater *updater)
-    : pool_(&pool), config_(config), next_track_id_(1), tracks_by_key_(),
+    : pool_(&pool), config_(config), tracks_by_key_(),
       kalman_predictor_(predictor), kalman_updater_(updater) {
 }
 
@@ -127,7 +127,7 @@ TrackLifecycleManager::TrackLifecycleManager(
     const std::vector<const IKalmanUpdater *> &imm_updaters,
     const Eigen::MatrixXf &imm_transition_probability,
     const Eigen::VectorXf &imm_initial_weights)
-    : pool_(&pool), config_(config), next_track_id_(1), tracks_by_key_(),
+    : pool_(&pool), config_(config), tracks_by_key_(),
       kalman_predictor_(imm_predictors.empty() ? nullptr : imm_predictors.front()),
       kalman_updater_(imm_updaters.empty() ? nullptr : imm_updaters.front()),
       imm_predictors_(imm_predictors), imm_updaters_(imm_updaters),

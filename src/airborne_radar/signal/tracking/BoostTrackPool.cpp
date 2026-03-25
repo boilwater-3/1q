@@ -8,8 +8,7 @@ BoostTrackPool::BoostTrackPool(std::size_t prewarm_count,
                                std::size_t max_cached_objects)
     : pool_(),
       free_list_(),
-      max_cached_objects_(max_cached_objects),
-      in_use_count_(0) {
+      max_cached_objects_(max_cached_objects) {
   free_list_.reserve(prewarm_count);
   for (std::size_t i = 0; i < prewarm_count; ++i) {
     common::TrackState *track = pool_.construct();

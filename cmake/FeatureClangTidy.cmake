@@ -35,13 +35,6 @@ if(ENABLE_CLANG_TIDY)
             message(STATUS "clang-tidy: Enabled (no checks whitelist)")
         endif()
 
-        if(CLANG_TIDY_AUTO_FIX)
-            list(APPEND _CLANG_TIDY_ARGS "--fix")
-            message(STATUS "  └─ Auto-fix: Enabled (low-risk mechanical fixes)")
-        else()
-            message(STATUS "  └─ Auto-fix: Disabled")
-        endif()
-
         if(EXISTS "${CLANG_TIDY_CONFIG_FILE}")
             list(APPEND _CLANG_TIDY_ARGS "--config-file=${CLANG_TIDY_CONFIG_FILE}")
             message(STATUS "  └─ Config file: ${CLANG_TIDY_CONFIG_FILE}")

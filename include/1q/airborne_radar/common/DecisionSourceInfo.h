@@ -46,7 +46,7 @@ struct EccmJammerSourceInfo {
 };
 
 /** @brief 供 ECCM 消费的多源干扰摘要列表 */
-typedef std::vector<EccmJammerSourceInfo> EccmJammerSourceInfoList;
+using EccmJammerSourceInfoList = std::vector<EccmJammerSourceInfo>;
 
 /**
  * @brief EccmSourceInfo 表示供 ECCM 模块消费的干扰来源信息。

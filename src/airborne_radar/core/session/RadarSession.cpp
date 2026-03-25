@@ -42,7 +42,7 @@ struct RadarSession::Impl {
   controller::RadarController controller;
 };
 
-RadarSession::RadarSession(RadarSessionConfig config)
+RadarSession::RadarSession(const RadarSessionConfig& config)
     : impl_(new Impl(config)) {}
 
 RadarSession::~RadarSession() = default;
@@ -107,5 +107,4 @@ void RadarSession::SetJammingDetectionThresholdDb(float threshold_db) {
 } // namespace session
 } // namespace core
 } // namespace airborne_radar
-
 

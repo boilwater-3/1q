@@ -51,14 +51,14 @@ template <typename IndexType>
 std::vector<std::size_t> RadiusSearch(const IndexType& index,
                                       const ObservationFeatureVector& feature,
                                       float radius) {
-  typedef typename IndexType::DistanceType KdDistanceType;
+  using KdDistanceType = typename IndexType::DistanceType;
 // nanoflann 1.3.x 与 1.5+ 在搜索参数与结果容器类型上存在 API 差异。
 #if defined(NANOFLANN_VERSION) && (NANOFLANN_VERSION >= 0x150)
-  typedef typename IndexType::IndexType KdIndexType;
+  using KdIndexType = typename IndexType::IndexType;
   std::vector<nanoflann::ResultItem<KdIndexType, KdDistanceType> > matches;
   nanoflann::SearchParameters search_params;
 #else
-  typedef std::size_t KdIndexType;
+  using KdIndexType = std::size_t;
   std::vector<std::pair<KdIndexType, KdDistanceType> > matches;
   nanoflann::SearchParams search_params;
 #endif
@@ -105,10 +105,9 @@ KdTreeClusterResult KdTreeClusterer::Cluster(
       config.min_points > 0U ? static_cast<std::size_t>(config.min_points) : 1U;
 
   KdTreeDatasetAdaptor adaptor(features);
-  typedef nanoflann::KDTreeSingleIndexAdaptor<
+  using KdTreeIndex = nanoflann::KDTreeSingleIndexAdaptor<
       nanoflann::L2_Simple_Adaptor<float, KdTreeDatasetAdaptor>,
-      KdTreeDatasetAdaptor, kObservationFeatureDimension, std::size_t>
-      KdTreeIndex;
+      KdTreeDatasetAdaptor, kObservationFeatureDimension, std::size_t>;
   KdTreeIndex index(kObservationFeatureDimension, adaptor,
                     nanoflann::KDTreeSingleIndexAdaptorParams(10));
   index.buildIndex();

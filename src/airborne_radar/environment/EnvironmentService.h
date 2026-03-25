@@ -31,7 +31,7 @@ class EnvironmentService final : public IEnvironmentService {
    * @brief 使用配置构造环境模型。
    * @param config 环境模型初始配置。
    */
-  explicit EnvironmentService(EnvironmentModelConfig config = {});
+  explicit EnvironmentService(const EnvironmentModelConfig& config = {});
   ~EnvironmentService() override;
 
   /**
@@ -56,7 +56,7 @@ class EnvironmentService final : public IEnvironmentService {
    * @brief 更新环境模型配置。
    * @param config 新的环境模型配置。
    */
-  void UpdateModelConfig(EnvironmentModelConfig config);
+  void UpdateModelConfig(const EnvironmentModelConfig& config);
 
   /**
    * @brief 设置兼容旧版路径的干扰功率估计。

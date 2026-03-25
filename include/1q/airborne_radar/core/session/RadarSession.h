@@ -37,7 +37,7 @@ struct ONEQ_API RadarSessionConfig {
 class ONEQ_API RadarSession {
 public:
   /** @brief 使用默认链路构造会话 */
-  explicit RadarSession(RadarSessionConfig config = {});
+  explicit RadarSession(const RadarSessionConfig& config = {});
   ~RadarSession();
 
   RadarSession(const RadarSession&) = delete;

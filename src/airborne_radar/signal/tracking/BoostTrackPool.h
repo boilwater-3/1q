@@ -30,7 +30,7 @@ public:
   explicit BoostTrackPool(std::size_t prewarm_count = 128,
                           std::size_t max_cached_objects = 4096);
 
-  ~BoostTrackPool() override {}
+  ~BoostTrackPool() override = default;
 /**
  * @brief 申请轨迹对象。
  * @return 可写轨迹对象指针；失败返回 nullptr。

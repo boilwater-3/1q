@@ -55,7 +55,7 @@ namespace controller {
  */
 class ONEQ_API RadarController : public core::output::IRadarOutputReader {
  public:
-  ~RadarController();
+  ~RadarController() override;
 
   /**
    * @brief 构造函数，使用默认战术协调器。

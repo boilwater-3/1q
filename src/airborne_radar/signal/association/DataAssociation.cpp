@@ -146,10 +146,7 @@ DataAssociationEngine::DataAssociationEngine(DataAssociationConfig config)
                config.kalman_measurement_noise_std)),
     gater_(config.unassigned_cost),
     position_hypothesiser_(&full_distance_metric_, &gater_),
-    kalman_predictor_(tracking::KalmanPredictorConfig()),
-    next_key_(1),
-    external_seed_tracks_(),
-    association_seed_mode_(AssociationSeedMode::kStateless) {
+    kalman_predictor_(tracking::KalmanPredictorConfig()) {
   tracking::KalmanPredictorConfig predictor_config;
   predictor_config.noise_diff_coeff = config.kalman_noise_diff_coeff;
   kalman_predictor_.UpdateConfig(predictor_config);

@@ -18,7 +18,6 @@
 - `ENABLE_PCH` - 预编译头
 - `ENABLE_WARNINGS` - 额外警告
 - `ENABLE_CLANG_TIDY` - 静态分析
-- `CLANG_TIDY_AUTO_FIX` - clang-tidy 自动修复（低风险白名单）
 - `CLANG_TIDY_CHECKS` - clang-tidy 检查项白名单
 - `STACK_SIZE_OPTION` - 栈大小配置
 - `PACKAGE_MANAGER` - 包管理器选择（none/vcpkg/conan）
@@ -54,7 +53,6 @@
 - 多版本搜索（clang-tidy-20/19/18/17/16）
 - macOS 优先搜索 Homebrew LLVM 路径
 - 支持低风险白名单检查项配置（`CLANG_TIDY_CHECKS`）
-- 支持自动修复开关（`CLANG_TIDY_AUTO_FIX`，默认 ON）
 - 自动检测 `.clang-tidy` 配置文件
 - 提供默认检查项
 - 显示安装说明
@@ -163,9 +161,6 @@ cmake -B build -DENABLE_UNITY_BUILD=ON -DUSE_CCACHE=ON
 
 # 启用静态分析（慎用，会显著增加编译时间）
 cmake -B build -DENABLE_CLANG_TIDY=ON
-
-# 禁用 clang-tidy 自动修复（仅诊断）
-cmake -B build -DENABLE_CLANG_TIDY=ON -DCLANG_TIDY_AUTO_FIX=OFF
 
 # 运行格式化检查（不改文件）
 cmake --build build --target format-check

@@ -22,8 +22,7 @@ namespace {
 class CountingTrackPool : public signal::tracking::ITrackPool {
 public:
   explicit CountingTrackPool(std::size_t capacity)
-      : storage_(capacity), in_use_count_(0), acquire_calls_(0),
-        release_calls_(0) {
+      : storage_(capacity) {
     free_list_.reserve(storage_.size());
     for (std::vector<common::TrackState>::iterator it = storage_.begin();
          it != storage_.end(); ++it) {
@@ -66,9 +65,9 @@ public:
 private:
   std::vector<common::TrackState> storage_;
   std::vector<common::TrackState *> free_list_;
-  std::size_t in_use_count_;
-  std::size_t acquire_calls_;
-  std::size_t release_calls_;
+  std::size_t in_use_count_{0};
+  std::size_t acquire_calls_{0};
+  std::size_t release_calls_{0};
 };
 
 signal::tracking::TrackMeasurement MakeCartesianMeasurement(

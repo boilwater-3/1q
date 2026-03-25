@@ -4,7 +4,7 @@ namespace airborne_radar {
 namespace environment {
 namespace scene {
 
-SceneManager::SceneManager(EnvironmentSceneState initial_scene)
+SceneManager::SceneManager(const EnvironmentSceneState& initial_scene)
     : active_scene_(initial_scene), pending_scene_(initial_scene) {}
 
 void SceneManager::UpdatePendingScene(const EnvironmentSceneState& scene_state) {

@@ -21,7 +21,7 @@ namespace tracking {
  */
 class ITrackLifecycleManager {
 public:
-  virtual ~ITrackLifecycleManager() {}
+  virtual ~ITrackLifecycleManager() = default;
 /**
  * @brief 用本周期量测更新轨迹状态机。
  * @param cycle 周期上下文。

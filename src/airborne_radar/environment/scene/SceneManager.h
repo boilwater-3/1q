@@ -21,7 +21,7 @@ class SceneManager {
    * @brief 使用初始场景构造管理器。
    * @param initial_scene 初始待生效场景。
    */
-  explicit SceneManager(EnvironmentSceneState initial_scene = {});
+  explicit SceneManager(const EnvironmentSceneState& initial_scene = {});
 
   /**
    * @brief 更新待生效场景。

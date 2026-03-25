@@ -156,7 +156,7 @@ EnvironmentSceneState BuildSceneStateFromModelConfig(
 
 } // namespace
 
-EnvironmentService::EnvironmentService(EnvironmentModelConfig config)
+EnvironmentService::EnvironmentService(const EnvironmentModelConfig& config)
     : scene_manager_(new scene::SceneManager(
           BuildSceneStateFromModelConfig(config,
                                          &pending_legacy_jammer_emitter_index_))),
@@ -185,7 +185,7 @@ void EnvironmentService::UpdateSceneState(
   pending_legacy_jammer_emitter_index_ = kNoLegacyJammerEmitterIndex;
 }
 
-void EnvironmentService::UpdateModelConfig(EnvironmentModelConfig config) {
+void EnvironmentService::UpdateModelConfig(const EnvironmentModelConfig& config) {
   scene_manager_->UpdatePendingScene(
       BuildSceneStateFromModelConfig(config,
                                      &pending_legacy_jammer_emitter_index_));

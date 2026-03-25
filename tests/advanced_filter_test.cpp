@@ -279,7 +279,8 @@ TEST(ImmFilterTest, ModelWeightsShiftOnManeuver) {
 
   signal::tracking::KalmanUpdaterConfig ucfg;
   ucfg.measurement_noise_std = 1.0f;
-  signal::tracking::KalmanUpdater upd1(ucfg), upd2(ucfg);
+  signal::tracking::KalmanUpdater upd1(ucfg);
+  signal::tracking::KalmanUpdater upd2(ucfg);
 
   signal::tracking::ImmConfig imm_config;
   imm_config.transition_probability.resize(2, 2);
@@ -322,8 +323,10 @@ TEST(ImmFilterTest, ModelWeightsShiftOnManeuver) {
 }
 
 TEST(ImmFilterTest, ModelWeightsSumToOne) {
-  signal::tracking::KalmanPredictor pred1, pred2;
-  signal::tracking::KalmanUpdater upd1, upd2;
+  signal::tracking::KalmanPredictor pred1;
+  signal::tracking::KalmanPredictor pred2;
+  signal::tracking::KalmanUpdater upd1;
+  signal::tracking::KalmanUpdater upd2;
 
   signal::tracking::ImmConfig config;
   config.transition_probability.resize(2, 2);
@@ -358,7 +361,8 @@ TEST(ImmFilterTest, RepeatedProcessSequenceRemainsDeterministic) {
 
   signal::tracking::KalmanUpdaterConfig ucfg;
   ucfg.measurement_noise_std = 1.0f;
-  signal::tracking::KalmanUpdater upd1(ucfg), upd2(ucfg);
+  signal::tracking::KalmanUpdater upd1(ucfg);
+  signal::tracking::KalmanUpdater upd2(ucfg);
 
   signal::tracking::ImmConfig config;
   config.transition_probability.resize(2, 2);

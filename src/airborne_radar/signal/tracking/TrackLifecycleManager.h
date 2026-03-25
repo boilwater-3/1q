@@ -175,7 +175,7 @@ private:
   float ResolveEffectiveCycleDeltaTimeSec(const CycleContext &cycle,
                                           bool *dt_fallback_used) const;
 
-private:
+// data members
   ITrackPool *pool_{nullptr};  /**< 轨迹对象池抽象，用于对象申请与归还。 */
   LifecycleConfig config_;  /**< 生命周期阈值配置。 */
   std::uint64_t next_track_id_{1};  /**< 下一个待分配轨迹 ID。 */

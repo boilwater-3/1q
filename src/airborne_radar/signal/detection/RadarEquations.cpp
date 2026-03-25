@@ -68,8 +68,12 @@ float DbToLinear(float db) {
  * @return 钳位后的检测概率。
  */
 float ClampPd(float pd) {
-  if (pd < 0.0f) return 0.0f;
-  if (pd > 1.0f) return 1.0f;
+  if (pd < 0.0f) {
+    return 0.0f;
+  }
+  if (pd > 1.0f) {
+    return 1.0f;
+  }
   return pd;
 }
 
@@ -194,14 +198,20 @@ double RadarEquations::MarcumQ(int order, double a, double b)
    *  向两侧累加。避免从 k=0 开始导致 exp(-λ) 下溢。
    */
 
-  if (b <= 0.0) return 1.0;
-  if (a < 0.0) a = 0.0;
+  if (b <= 0.0) {
+    return 1.0;
+  }
+  if (a < 0.0) {
+    a = 0.0;
+  }
 
   /**
    *  极大信噪比情况（极远大于检测门限），由于 Poisson 分布的方差导致两翼截断误差会显现出数值不稳定
    *  根据渐进性，当 a >> b 时，检测概率必然趋于 1.0
    */
-  if (a > b + 20.0) return 1.0;
+  if (a > b + 20.0) {
+    return 1.0;
+  }
 
   const double lambda = a * a / 2.0;
   const double x = b * b / 2.0;
@@ -219,7 +229,9 @@ double RadarEquations::MarcumQ(int order, double a, double b)
    */
   auto log_poisson = [lambda](int k) -> double
   {
-    if (k == 0) return -lambda;
+    if (k == 0) {
+      return -lambda;
+    }
     return -lambda + k * std::log(lambda) - std::lgamma(k + 1);
   };
 
@@ -237,7 +249,9 @@ double RadarEquations::MarcumQ(int order, double a, double b)
           static_cast<double>(order + k), x);
       const double term = pk * gq;
       sum += term;
-      if (term < kConvergence && k > k0 + 2) break;
+      if (term < kConvergence && k > k0 + 2) {
+        break;
+      }
     }
   }
 
@@ -253,12 +267,18 @@ double RadarEquations::MarcumQ(int order, double a, double b)
           static_cast<double>(order + k), x);
       const double term = pk * gq;
       sum += term;
-      if (term < kConvergence && k < k0 - 2) break;
+      if (term < kConvergence && k < k0 - 2) {
+        break;
+      }
     }
   }
 
-  if (sum < 0.0) return 0.0;
-  if (sum > 1.0) return 1.0;
+  if (sum < 0.0) {
+    return 0.0;
+  }
+  if (sum > 1.0) {
+    return 1.0;
+  }
   return sum;
 }
 
