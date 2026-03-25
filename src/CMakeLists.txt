@@ -99,6 +99,22 @@ target_link_libraries(${PROJECT_CORE_TARGET} PRIVATE
     Boost::boost
     nanoflann::nanoflann
 )
+
+# Conan's VS multi-config generation may only attach header-only include dirs
+# to Release. Mirror those include dirs onto this target when available so
+# Debug/RelWithDebInfo/MinSizeRel can compile against the same headers.
+foreach(_oneq_conan_include_var IN ITEMS
+    eigen_INCLUDE_DIRS_RELEASE
+    eventpp_INCLUDE_DIRS_RELEASE
+    boost_INCLUDE_DIRS_RELEASE
+    nanoflann_INCLUDE_DIRS_RELEASE
+)
+    if(DEFINED ${_oneq_conan_include_var})
+        target_include_directories(${PROJECT_CORE_TARGET} PRIVATE ${${_oneq_conan_include_var}})
+    endif()
+endforeach()
+unset(_oneq_conan_include_var)
+
 if(PROJECT_ENABLE_SPDLOG)
     if(TARGET spdlog::spdlog)
         set(PROJECT_SPDLOG_TARGET spdlog::spdlog)
@@ -113,6 +129,13 @@ endif()
 target_compile_definitions(${PROJECT_CORE_TARGET}
     PRIVATE PROJECT_LOG_BACKEND_SPDLOG=$<BOOL:${PROJECT_ENABLE_SPDLOG}>
 )
+
+set(ONEQ_MSVC_RUNTIME_LIBRARY "" CACHE STRING
+    "Optional MSVC runtime override (example: MultiThreadedDLL). Empty keeps toolchain/profile default.")
+if(MSVC AND NOT ONEQ_MSVC_RUNTIME_LIBRARY STREQUAL "")
+    set_property(TARGET ${PROJECT_CORE_TARGET} PROPERTY
+        MSVC_RUNTIME_LIBRARY "${ONEQ_MSVC_RUNTIME_LIBRARY}")
+endif()
 
 if(NOT BUILD_SHARED_LIBS)
     target_compile_definitions(${PROJECT_CORE_TARGET}

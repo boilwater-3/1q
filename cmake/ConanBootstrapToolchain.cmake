@@ -34,8 +34,17 @@ if(DEFINED CMAKE_CXX_STANDARD AND NOT CMAKE_CXX_STANDARD STREQUAL "")
 else()
     set(_conan_cppstd "${PROJECT_DEFAULT_CXX_STANDARD}")
 endif()
+
 if(_conan_cppstd LESS 11)
     message(FATAL_ERROR "[Conan] CMAKE_CXX_STANDARD must be at least 11")
+endif()
+
+# Conan 对 MSVC 190 不接受 compiler.cppstd=11，需要映射为 14
+if(WIN32 AND CMAKE_GENERATOR MATCHES "^Visual Studio 14 2015$")
+    if(_conan_cppstd STREQUAL "11")
+        message(STATUS "[Conan] Mapping C++11 to compiler.cppstd=14 for MSVC 190 / VS2015")
+        set(_conan_cppstd "14")
+    endif()
 endif()
 
 # Conan 生成目录在单配置和 Visual Studio 多配置下不同。
@@ -45,6 +54,20 @@ if(_conan_output_dir MATCHES "^(.*)/CMakeFiles/CMakeScratch/.*$")
 endif()
 
 set(_conan_conanfile_stamp "${_conan_output_dir}/build/conanfile.py.sha256")
+set(_conan_install_fingerprint_stamp "${_conan_output_dir}/build/conan.install.fingerprint")
+
+if(DEFINED ENABLE_TESTING)
+    if(ENABLE_TESTING)
+        set(_conan_enable_testing "True")
+    else()
+        set(_conan_enable_testing "False")
+    endif()
+else()
+    set(_conan_enable_testing "False")
+endif()
+
+set(_conan_install_fingerprint
+    "conanfile=${_conan_conanfile_hash};build_type=${_conan_build_type};cppstd=${_conan_cppstd};enable_testing=${_conan_enable_testing};generator=${CMAKE_GENERATOR};platform=${CMAKE_GENERATOR_PLATFORM};toolset=${CMAKE_GENERATOR_TOOLSET}")
 
 set(_conan_real_toolchain
     "${_conan_output_dir}/build/${_conan_build_type}/generators/conan_toolchain.cmake")
@@ -84,6 +107,17 @@ else()
     endif()
 endif()
 
+if(NOT EXISTS "${_conan_install_fingerprint_stamp}")
+    set(_conan_needs_install TRUE)
+else()
+    file(READ "${_conan_install_fingerprint_stamp}" _conan_previous_install_fingerprint)
+    string(STRIP "${_conan_previous_install_fingerprint}" _conan_previous_install_fingerprint)
+    if(NOT _conan_previous_install_fingerprint STREQUAL _conan_install_fingerprint)
+        set(_conan_needs_install TRUE)
+        message(STATUS "[Conan] install inputs changed, reinstalling...")
+    endif()
+endif()
+
 if(_conan_needs_install)
     find_program(_conan_conan_exe conan)
     if(NOT _conan_conan_exe)
@@ -91,18 +125,20 @@ if(_conan_needs_install)
             "[Conan] 未找到 conan 可执行文件，请先安装 Conan 2.x（pip install conan）")
     endif()
 
-    set(_conan_install_command
-        "${_conan_conan_exe}"
-        install
-        "${_conan_source_dir}"
-        --output-folder
-        "${_conan_output_dir}"
-        --build
-        missing
-        -s
-        "build_type=${_conan_build_type}"
-        -s
-        "compiler.cppstd=${_conan_cppstd}")
+set(_conan_install_command
+    "${_conan_conan_exe}"
+    install
+    "${_conan_source_dir}"
+    --output-folder
+    "${_conan_output_dir}"
+    --build
+    missing
+    -s
+    "build_type=${_conan_build_type}"
+    -s
+    "compiler.cppstd=${_conan_cppstd}"
+    -o
+    "&:enable_testing=${_conan_enable_testing}")
 
     if(WIN32)
         set(_conan_arch "x86_64")
@@ -177,6 +213,7 @@ if(_conan_needs_install)
     endif()
 
     file(WRITE "${_conan_conanfile_stamp}" "${_conan_conanfile_hash}\n")
+    file(WRITE "${_conan_install_fingerprint_stamp}" "${_conan_install_fingerprint}\n")
 endif()
 
 if(NOT EXISTS "${_conan_real_toolchain}")

@@ -4,11 +4,13 @@ from conan.tools.cmake import CMakeDeps, CMakeToolchain, cmake_layout
 _BASE_DEPS = {
     "vs2015": {
         "eigen":  "eigen/3.3.9",
-        "boost":  "boost/1.79.0",
+        "boost":  "boost/1.74.0",
+        "nanoflann": "nanoflann/1.3.2",
     },
     "modern": {
         "eigen":  "eigen/3.4.0",
         "boost":  "boost/1.83.0",
+        "nanoflann": "nanoflann/1.6.0",
     },
 }
 
@@ -22,10 +24,16 @@ class OneQConan(ConanFile):
     name = "1q"
     version = "0.1"
     settings = "os", "compiler", "build_type", "arch"
+
+    options = {
+        "enable_testing": [True, False],
+    }
+
     default_options = {
-        "imgui/*:with_glfw": True,
-        "imgui/*:with_opengl3": True,
+        "enable_testing": False,
         "boost/*:header_only": True,
+        "imgui/*:with_glfw": True,
+        "imgui/*:with_opengl3": True
     }
 
     def _is_windows(self):
@@ -46,8 +54,7 @@ class OneQConan(ConanFile):
         self.requires(deps["eigen"])
         self.requires(deps["boost"])
         self.requires("eventpp/0.1.3")
-        self.requires("nanoflann/1.6.0")
-        self.requires("gtest/1.12.1", test=True)
+        self.requires(deps["nanoflann"])
 
         # macOS/Linux 保留调试日志能力，Windows 全平台关闭 spdlog/fmt。
         if not self._is_windows():
@@ -59,6 +66,13 @@ class OneQConan(ConanFile):
             self.requires("imgui/1.90.5")
             self.requires("implot/0.16")
             self.requires("glfw/3.4")
+
+    def build_requirements(self):
+        if self.options.enable_testing:
+            if self._is_vs2015_target():
+                self.test_requires("gtest/1.8.1")
+            else:
+                self.test_requires("gtest/1.12.1")
 
     def generate(self):
         CMakeDeps(self).generate()

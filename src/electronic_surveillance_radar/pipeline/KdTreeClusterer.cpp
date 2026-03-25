@@ -51,10 +51,17 @@ template <typename IndexType>
 std::vector<std::size_t> RadiusSearch(const IndexType& index,
                                       const ObservationFeatureVector& feature,
                                       float radius) {
-  typedef typename IndexType::IndexType KdIndexType;
   typedef typename IndexType::DistanceType KdDistanceType;
+// nanoflann 1.3.x 与 1.5+ 在搜索参数与结果容器类型上存在 API 差异。
+#if defined(NANOFLANN_VERSION) && (NANOFLANN_VERSION >= 0x150)
+  typedef typename IndexType::IndexType KdIndexType;
   std::vector<nanoflann::ResultItem<KdIndexType, KdDistanceType> > matches;
   nanoflann::SearchParameters search_params;
+#else
+  typedef std::size_t KdIndexType;
+  std::vector<std::pair<KdIndexType, KdDistanceType> > matches;
+  nanoflann::SearchParams search_params;
+#endif
   search_params.sorted = true;
   const KdDistanceType radius_sq =
       static_cast<KdDistanceType>(radius * radius);
