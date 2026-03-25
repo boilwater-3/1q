@@ -44,6 +44,7 @@ struct ObservationFeatureScales {
 struct RawObservationRecord {
   common::EmitterObservation observation{}; /**< 观测记录 */
   std::string truth_emitter_id{};           /**< 真值辐射源标识 */
+  double truth_pri_s{0.0};                  /**< 真值 PRI（单位：s），伪观测为 0 */
   bool matched_truth{true};                 /**< 是否来自真实辐射源链路 */
   bool deception_affected{false};           /**< 是否受到欺骗分量影响 */
   bool synthetic_false_alarm{false};        /**< 是否为欺骗注入的伪观测 */
@@ -61,6 +62,7 @@ struct ClusterSummary {
   float mean_el_deg{0.0f};                     /**< 簇均值俯仰（单位：deg） */
   double mean_rf_hz{0.0};                      /**< 簇均值载频（单位：Hz） */
   double mean_pulse_width_s{0.0};              /**< 簇均值脉宽（单位：s） */
+  double mean_pri_s{0.0};                      /**< 簇均值 PRI（单位：s） */
   float confidence_score{0.0f};                /**< 簇级置信度 */
   float deception_support_ratio{0.0f};         /**< 簇内欺骗受影响样本占比，范围 [0, 1] */
   float false_alarm_ratio{0.0f};               /**< 簇内伪观测占比，范围 [0, 1] */

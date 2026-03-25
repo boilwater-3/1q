@@ -29,10 +29,14 @@ float Clamp01(float value) { return std::max(0.0f, std::min(1.0f, value)); }
  * @return 工作模式。
  */
 common::EmitterMode InferModeFromCluster(const ClusterSummary& summary) {
-  if (summary.mean_pulse_width_s < 1.5e-6) {
+  const bool has_valid_pri = std::isfinite(summary.mean_pri_s) && summary.mean_pri_s > 0.0;
+  if (summary.mean_pulse_width_s < 1.5e-6 && (!has_valid_pri || summary.mean_pri_s >= 1.5e-4)) {
     return common::EmitterMode::kSearch;
   }
-  if (summary.mean_pulse_width_s < 3.0e-6) {
+  if (has_valid_pri && summary.mean_pri_s <= 8.0e-5) {
+    return common::EmitterMode::kGuidance;
+  }
+  if (summary.mean_pulse_width_s < 3.0e-6 || (has_valid_pri && summary.mean_pri_s <= 3.0e-4)) {
     return common::EmitterMode::kTracking;
   }
   return common::EmitterMode::kGuidance;

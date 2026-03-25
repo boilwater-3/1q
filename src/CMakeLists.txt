@@ -1,6 +1,7 @@
 # 显式列出源文件（推荐做法，便于版本控制和构建可靠性）
 # 按模块分组管理，每次添加/删除源文件时需要手动更新对应模块列表
 set(PROJECT_SOURCES
+    common/geometry/GeometryTransform.cpp
     common/timing/TimingRegimeModel.cpp
     airborne_radar/common/ConfigPresets.cpp
     airborne_radar/common/TargetFeatureUtils.cpp

@@ -7,6 +7,9 @@
 
 #include "1q/airborne_radar/common/RadarOrientationConfig.h"
 #include "1q/airborne_radar/common/RadarOrientationUtils.h"
+#include "1q/airborne_radar/signal/detection/DetectionTypes.h"
+#include "airborne_radar/signal/detection/BeamControlResolver.h"
+#include "airborne_radar/signal/detection/TargetLookResolver.h"
 
 namespace airborne_radar {
 namespace tests {
@@ -20,6 +23,11 @@ using common::EulerAnglesDeg;
 using common::IntersectScanLimits;
 using common::IsValidScanLimits;
 using common::RadarOrientationConfig;
+using common::StabilizationMode;
+using signal::detection::AntennaConfig;
+using signal::detection::BeamControlResolver;
+using signal::detection::ResolvedBeamState;
+using signal::detection::TargetLookAnglesDeg;
 
 TEST(RadarOrientationUtilsTest, IsValidScanLimitsAcceptsOrderedBounds) {
   AzimuthElevationLimitsDeg limits;
@@ -133,6 +141,23 @@ TEST(RadarOrientationUtilsTest, ComputePlatformFrameBeamPointingAddsPlatformAtti
   EXPECT_FLOAT_EQ(pointing.yaw_deg, 135.0f);
   EXPECT_FLOAT_EQ(pointing.pitch_deg, 3.0f);
   EXPECT_FLOAT_EQ(pointing.roll_deg, 3.0f);
+}
+
+TEST(RadarOrientationUtilsTest, BeamControlResolverPreservesInertialStabilizedPointing) {
+  RadarOrientationConfig config;
+  config.stabilization_mode = StabilizationMode::kInertialStabilized;
+  config.mechanical_scan_limits_deg.az_min_deg = -120.0f;
+  config.mechanical_scan_limits_deg.az_max_deg = 120.0f;
+  config.electronic_scan_limits_deg.az_min_deg = -120.0f;
+  config.electronic_scan_limits_deg.az_max_deg = 120.0f;
+
+  EulerAnglesDeg platform_attitude;
+  platform_attitude.yaw_deg = 90.0f;
+  const ResolvedBeamState beam_state = BeamControlResolver::Resolve(
+      AntennaConfig(), config, platform_attitude, TargetLookAnglesDeg());
+
+  EXPECT_NEAR(beam_state.beam_pointing_deg.az_deg, -90.0f, 1.0e-5f);
+  EXPECT_NEAR(beam_state.beam_pointing_deg.el_deg, 0.0f, 1.0e-5f);
 }
 
 }  // namespace tests

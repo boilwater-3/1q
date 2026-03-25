@@ -25,6 +25,7 @@ set(TEST_SOURCES
     signal_environment_test.cpp
     signal_association_test.cpp
     signal_detection_test.cpp
+    geometry_transform_test.cpp
     timing_regime_model_test.cpp
     radar_input_validation_test.cpp
     esr_input_validation_test.cpp

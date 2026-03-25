@@ -459,6 +459,66 @@ TEST(EsrSessionIntegrationTest, MultiEmitterSceneProducesClusteredHypotheses) {
             result.output_frame.observation_output.observations.size());
 }
 
+TEST(EsrSessionIntegrationTest, PlatformAttitudeChangesInterceptGateGeometry) {
+  EsrSessionConfig config = MakeSessionConfig();
+  config.pipeline_config.scan.scan_start_az_deg = 0.0f;
+  config.pipeline_config.scan.scan_end_az_deg = 0.0f;
+  config.pipeline_config.scan.scan_start_el_deg = 0.0f;
+  config.pipeline_config.scan.scan_end_el_deg = 0.0f;
+  config.pipeline_config.scan.az_step_deg = 10.0f;
+  config.pipeline_config.scan.el_step_deg = 10.0f;
+
+  context::EsrCycleInput input = MakeBaseInput();
+  input.scene_emitters.front().pose.position_m.x = 0.0f;
+  input.scene_emitters.front().pose.position_m.y = 1200.0f;
+  input.scene_emitters.front().pose.position_m.z = 5000.0f;
+
+  EsrSession zero_attitude_session(config);
+  const EsrCycleResult zero_attitude_result = zero_attitude_session.StepWithResult(input);
+  EXPECT_EQ(CountMatchedTruthObservations(zero_attitude_result, "target-emitter"), 0U);
+
+  input.platform_pose.attitude_deg.yaw_deg = 90.0f;
+  EsrSession yawed_session(config);
+  const EsrCycleResult yawed_result = yawed_session.StepWithResult(input);
+
+  EXPECT_EQ(CountMatchedTruthObservations(yawed_result, "target-emitter"), 1U);
+  ASSERT_FALSE(yawed_result.output_frame.observation_output.observations.empty());
+  EXPECT_NEAR(yawed_result.output_frame.observation_output.observations.front().aoa_az_deg, 0.0f,
+              3.0f);
+}
+
+TEST(EsrSessionIntegrationTest, EmitterBeamStateControlsWhetherTrueObservationCanBeIntercepted) {
+  EsrSession session(MakeSessionConfig());
+  context::EsrCycleInput blocked_input = MakeBaseInput();
+  blocked_input.scene_emitters.front().beam_state.center_az_deg = 0.0f;
+  blocked_input.scene_emitters.front().beam_state.center_el_deg = 0.0f;
+  blocked_input.scene_emitters.front().beam_state.az_beamwidth_deg = 8.0f;
+  blocked_input.scene_emitters.front().beam_state.el_beamwidth_deg = 8.0f;
+
+  context::EsrCycleInput covered_input = blocked_input;
+  covered_input.scene_emitters.front().beam_state.center_az_deg = 180.0f;
+  covered_input.scene_emitters.front().beam_state.center_el_deg = -10.0f;
+
+  const EsrCycleResult blocked_result = session.StepWithResult(blocked_input);
+  const EsrCycleResult covered_result = session.StepWithResult(covered_input);
+
+  EXPECT_EQ(CountMatchedTruthObservations(blocked_result, "target-emitter"), 0U);
+  EXPECT_GT(CountMatchedTruthObservations(covered_result, "target-emitter"), 0U);
+}
+
+TEST(EsrSessionIntegrationTest, PriLongerThanCycleSuppressesTrueDetection) {
+  EsrSession session(MakeSessionConfig());
+  context::EsrCycleInput low_pri_input = MakeBaseInput();
+  context::EsrCycleInput high_pri_input = MakeBaseInput();
+  high_pri_input.scene_emitters.front().pri_s = 10.0;
+
+  const EsrCycleResult low_pri_result = session.StepWithResult(low_pri_input);
+  const EsrCycleResult high_pri_result = session.StepWithResult(high_pri_input);
+
+  EXPECT_GT(CountMatchedTruthObservations(low_pri_result, "target-emitter"), 0U);
+  EXPECT_EQ(CountMatchedTruthObservations(high_pri_result, "target-emitter"), 0U);
+}
+
 }  // namespace
 }  // namespace session
 }  // namespace core

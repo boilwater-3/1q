@@ -108,6 +108,59 @@ TEST(EsrInputValidationTest, NonFiniteEmitterNumericFieldIsReported) {
   EXPECT_TRUE(HasEsrValidationError(issues));
 }
 
+TEST(EsrInputValidationTest, InvalidEmitterPulseWidthIsReportedAsError) {
+  EsrCycleInput input;
+  input.dt_sec = 1.0f;
+  common::EmitterTruthState emitter = MakeValidEmitter();
+  emitter.pulse_width_s = 0.0;
+  input.scene_emitters.push_back(emitter);
+
+  const EsrValidationIssueList issues = ValidateEsrCycleInput(input);
+
+  EXPECT_TRUE(ContainsCode(issues, EsrValidationCode::kInvalidEmitterPulseWidth));
+  EXPECT_TRUE(HasEsrValidationError(issues));
+}
+
+TEST(EsrInputValidationTest, InvalidEmitterPriIsReportedAsError) {
+  EsrCycleInput input;
+  input.dt_sec = 1.0f;
+  common::EmitterTruthState emitter = MakeValidEmitter();
+  emitter.pri_s = 0.0;
+  input.scene_emitters.push_back(emitter);
+
+  const EsrValidationIssueList issues = ValidateEsrCycleInput(input);
+
+  EXPECT_TRUE(ContainsCode(issues, EsrValidationCode::kInvalidEmitterPri));
+  EXPECT_TRUE(HasEsrValidationError(issues));
+}
+
+TEST(EsrInputValidationTest, EmitterPriLessThanPulseWidthIsReportedAsError) {
+  EsrCycleInput input;
+  input.dt_sec = 1.0f;
+  common::EmitterTruthState emitter = MakeValidEmitter();
+  emitter.pulse_width_s = 3.0e-6;
+  emitter.pri_s = 1.0e-6;
+  input.scene_emitters.push_back(emitter);
+
+  const EsrValidationIssueList issues = ValidateEsrCycleInput(input);
+
+  EXPECT_TRUE(ContainsCode(issues, EsrValidationCode::kEmitterPriLessThanPulseWidth));
+  EXPECT_TRUE(HasEsrValidationError(issues));
+}
+
+TEST(EsrInputValidationTest, InvalidEmitterBeamwidthIsReportedAsError) {
+  EsrCycleInput input;
+  input.dt_sec = 1.0f;
+  common::EmitterTruthState emitter = MakeValidEmitter();
+  emitter.beam_state.az_beamwidth_deg = 0.0f;
+  input.scene_emitters.push_back(emitter);
+
+  const EsrValidationIssueList issues = ValidateEsrCycleInput(input);
+
+  EXPECT_TRUE(ContainsCode(issues, EsrValidationCode::kInvalidEmitterBeamwidth));
+  EXPECT_TRUE(HasEsrValidationError(issues));
+}
+
 }  // namespace
 }  // namespace context
 }  // namespace core

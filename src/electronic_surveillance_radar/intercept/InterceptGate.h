@@ -9,6 +9,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "common/geometry/GeometryTransform.h"
+
 namespace electronic_surveillance_radar {
 namespace intercept {
 
@@ -108,8 +110,8 @@ class InterceptGate final {
     const float min_overlap_ratio = Clamp01(input.min_frequency_overlap_ratio);
     decision.frequency_covered = decision.frequency_overlap_ratio >= min_overlap_ratio;
 
-    const float az_diff =
-        std::fabs(ComputeAzimuthDifferenceDeg(input.target_az_deg, input.beam_az_deg));
+    const float az_diff = std::fabs(oneq::internal::geometry::ComputeAzimuthDifferenceDeg(
+        input.target_az_deg, input.beam_az_deg));
     const float el_diff = std::fabs(input.target_el_deg - input.beam_el_deg);
     const float guard_factor = std::max(0.0f, input.beam_guard_factor);
     const float half_az_width = std::max(1.0e-6f, 0.5f * input.beam_az_width_deg * guard_factor);
@@ -130,23 +132,6 @@ class InterceptGate final {
   }
 
  private:
-  /**
-   * @brief 计算方位角差并规范化到 [-180, 180]。
-   * @param[in] lhs_deg 方位角一（单位：deg）。
-   * @param[in] rhs_deg 方位角二（单位：deg）。
-   * @return 方位差（单位：deg）。
-   */
-  static float ComputeAzimuthDifferenceDeg(float lhs_deg, float rhs_deg) {
-    float diff = lhs_deg - rhs_deg;
-    while (diff > 180.0f) {
-      diff -= 360.0f;
-    }
-    while (diff <= -180.0f) {
-      diff += 360.0f;
-    }
-    return diff;
-  }
-
   /**
    * @brief 将输入裁剪到 [0, 1] 区间。
    * @param[in] value 输入标量。

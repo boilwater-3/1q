@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include "common/geometry/GeometryTransform.h"
 #include "common/timing/TimingRegimeModel.h"
 #include "electronic_surveillance_radar/intercept/AngleErrorModel.h"
 #include "electronic_surveillance_radar/intercept/BoundarySearchSolver.h"
@@ -37,6 +38,22 @@ constexpr double kLightSpeedMps = 299792458.0;
  * @note 代码行为依据：用于避免除零、`log10(0)` 与非正噪声功率。
  */
 constexpr double kNumericFloor = 1.0e-18;
+/**
+ * @brief ESR 历史输入里“未显式配置 beam_state”的默认方位中心。
+ */
+constexpr float kDefaultEmitterBeamCenterAzDeg = 0.0f;
+/**
+ * @brief ESR 历史输入里“未显式配置 beam_state”的默认俯仰中心。
+ */
+constexpr float kDefaultEmitterBeamCenterElDeg = 0.0f;
+/**
+ * @brief ESR 历史输入里“未显式配置 beam_state”的默认方位波束宽度。
+ */
+constexpr float kDefaultEmitterAzBeamwidthDeg = 20.0f;
+/**
+ * @brief ESR 历史输入里“未显式配置 beam_state”的默认俯仰波束宽度。
+ */
+constexpr float kDefaultEmitterElBeamwidthDeg = 20.0f;
 
 /**
  * @brief 将输入裁剪到 [0, 1]。
@@ -44,6 +61,18 @@ constexpr double kNumericFloor = 1.0e-18;
  * @return 裁剪后结果。
  */
 float Clamp01(float value) { return std::max(0.0f, std::min(1.0f, value)); }
+
+/**
+ * @brief 判断发射源波束状态是否仍为历史默认值。
+ * @param[in] beam_state 发射源波束状态。
+ * @return 历史默认值返回 `true`。
+ */
+bool IsLegacyDefaultBeamState(const common::EmitterBeamState& beam_state) {
+  return std::fabs(beam_state.center_az_deg - kDefaultEmitterBeamCenterAzDeg) <= 1.0e-6f &&
+         std::fabs(beam_state.center_el_deg - kDefaultEmitterBeamCenterElDeg) <= 1.0e-6f &&
+         std::fabs(beam_state.az_beamwidth_deg - kDefaultEmitterAzBeamwidthDeg) <= 1.0e-6f &&
+         std::fabs(beam_state.el_beamwidth_deg - kDefaultEmitterElBeamwidthDeg) <= 1.0e-6f;
+}
 
 /**
  * @brief 把线性功率比转换为 dB。
@@ -98,33 +127,92 @@ float ComputeRangeM(const common::EsrPoseState& platform_pose,
 }
 
 /**
- * @brief 计算辐射源相对平台的方位角。
- * @param[in] platform_pose 平台状态。
- * @param[in] emitter_state 辐射源状态。
- * @return 方位角（单位：deg）。
+ * @brief 把 ESR 三维向量映射为共享几何三维向量。
+ * @param[in] vector ESR 三维向量。
+ * @return 共享几何三维向量。
  */
-float ComputeAzimuthDeg(const common::EsrPoseState& platform_pose,
-                        const common::EmitterTruthState& emitter_state) {
-  const float dx = emitter_state.pose.position_m.x - platform_pose.position_m.x;
-  const float dy = emitter_state.pose.position_m.y - platform_pose.position_m.y;
-  const float degrees_per_radian = static_cast<float>(180.0 / kPi);
-  return std::atan2(dy, dx) * degrees_per_radian;
+oneq::internal::geometry::Vector3f ToGeometryVector(const common::EsrVector3f& vector) {
+  oneq::internal::geometry::Vector3f result;
+  result.x = vector.x;
+  result.y = vector.y;
+  result.z = vector.z;
+  return result;
 }
 
 /**
- * @brief 计算辐射源相对平台的俯仰角。
+ * @brief 把 ESR 欧拉角映射为共享几何欧拉角。
+ * @param[in] angle ESR 欧拉角。
+ * @return 共享几何欧拉角。
+ */
+oneq::internal::geometry::EulerAnglesDeg ToGeometryEuler(const common::EsrEulerAngleDeg& angle) {
+  oneq::internal::geometry::EulerAnglesDeg result;
+  result.yaw_deg = angle.yaw_deg;
+  result.pitch_deg = angle.pitch_deg;
+  result.roll_deg = angle.roll_deg;
+  return result;
+}
+
+/**
+ * @brief 计算辐射源相对平台在接收机参考系下的视线角。
  * @param[in] platform_pose 平台状态。
  * @param[in] emitter_state 辐射源状态。
- * @return 俯仰角（单位：deg）。
+ * @return 接收机参考系下的方位/俯仰角（单位：deg）。
  */
-float ComputeElevationDeg(const common::EsrPoseState& platform_pose,
-                          const common::EmitterTruthState& emitter_state) {
-  const float dx = emitter_state.pose.position_m.x - platform_pose.position_m.x;
-  const float dy = emitter_state.pose.position_m.y - platform_pose.position_m.y;
-  const float dz = emitter_state.pose.position_m.z - platform_pose.position_m.z;
-  const float horizontal = std::sqrt(dx * dx + dy * dy);
-  const float degrees_per_radian = static_cast<float>(180.0 / kPi);
-  return std::atan2(dz, horizontal) * degrees_per_radian;
+oneq::internal::geometry::AzimuthElevationDeg ComputeEmitterLookAngles(
+    const common::EsrPoseState& platform_pose, const common::EmitterTruthState& emitter_state) {
+  return oneq::internal::geometry::ComputeRelativeLineOfSightAzEl(
+      ToGeometryVector(platform_pose.position_m), ToGeometryEuler(platform_pose.attitude_deg),
+      ToGeometryVector(emitter_state.pose.position_m));
+}
+
+/**
+ * @brief 计算平台是否落入发射源当前辐射波束，并返回重叠比例。
+ * @param[in] platform_pose 平台状态。
+ * @param[in] emitter_state 发射源状态。
+ * @return 发射源波束覆盖比例，范围 [0, 1]。
+ */
+float ComputeEmitterBeamOverlapRatio(const common::EsrPoseState& platform_pose,
+                                     const common::EmitterTruthState& emitter_state) {
+  if (IsLegacyDefaultBeamState(emitter_state.beam_state)) {
+    return 1.0f;
+  }
+
+  const oneq::internal::geometry::AzimuthElevationDeg emitter_to_platform =
+      oneq::internal::geometry::ComputeRelativeLineOfSightAzEl(
+          ToGeometryVector(emitter_state.pose.position_m),
+          ToGeometryEuler(emitter_state.pose.attitude_deg),
+          ToGeometryVector(platform_pose.position_m));
+  const float az_diff = std::fabs(oneq::internal::geometry::ComputeAzimuthDifferenceDeg(
+      emitter_to_platform.az_deg, emitter_state.beam_state.center_az_deg));
+  const float el_diff =
+      std::fabs(emitter_to_platform.el_deg - emitter_state.beam_state.center_el_deg);
+  const float half_az_width = std::max(1.0e-6f, 0.5f * emitter_state.beam_state.az_beamwidth_deg);
+  const float half_el_width = std::max(1.0e-6f, 0.5f * emitter_state.beam_state.el_beamwidth_deg);
+  const float normalized_az = az_diff / half_az_width;
+  const float normalized_el = el_diff / half_el_width;
+  const float normalized_distance =
+      std::sqrt(normalized_az * normalized_az + normalized_el * normalized_el);
+  if (normalized_distance >= 1.0f) {
+    return 0.0f;
+  }
+  return 1.0f - normalized_distance;
+}
+
+/**
+ * @brief 根据 `dt/pri` 估算当前周期可用脉冲数。
+ * @param[in] dt_sec 周期步长（单位：s）。
+ * @param[in] pri_s 脉冲重复间隔（单位：s）。
+ * @return 估算可用脉冲数。
+ */
+std::uint32_t ResolveAvailablePulseCount(float dt_sec, double pri_s) {
+  if (!std::isfinite(dt_sec) || !std::isfinite(pri_s) || dt_sec <= 0.0f || pri_s <= 0.0) {
+    return 0U;
+  }
+  const double pulse_count = static_cast<double>(dt_sec) / pri_s;
+  if (pulse_count <= 0.0) {
+    return 0U;
+  }
+  return static_cast<std::uint32_t>(std::floor(pulse_count));
 }
 
 /**
@@ -228,6 +316,7 @@ internal::ClusterSummary BuildClusterSummary(
     summary.mean_el_deg += records[index].observation.aoa_el_deg;
     summary.mean_rf_hz += records[index].observation.rf_hz;
     summary.mean_pulse_width_s += records[index].observation.pulse_width_s;
+    summary.mean_pri_s += records[index].truth_pri_s;
     confidence_acc += ComputeObservationConfidence(records[index].observation.snr_db,
                                                    records[index].observation.is_jammed);
     if (records[index].deception_affected) {
@@ -252,6 +341,7 @@ internal::ClusterSummary BuildClusterSummary(
   summary.mean_el_deg *= inv_count;
   summary.mean_rf_hz *= static_cast<double>(inv_count);
   summary.mean_pulse_width_s *= static_cast<double>(inv_count);
+  summary.mean_pri_s *= static_cast<double>(inv_count);
   summary.deception_support_ratio = static_cast<float>(deception_affected_count) * inv_count;
   summary.false_alarm_ratio = static_cast<float>(false_alarm_count) * inv_count;
   const float deception_penalty = 1.0f - Clamp01(deception_config.cluster_confidence_penalty_scale *
@@ -330,6 +420,7 @@ internal::RawObservationRecord BuildDeceptionRecord(
   record.observation.quality = common::ObservationQuality::kLow;
   record.observation.is_jammed = false;
   record.truth_emitter_id = "";
+  record.truth_pri_s = 0.0;
   record.matched_truth = false;
   record.deception_affected = true;
   record.synthetic_false_alarm = true;
@@ -369,7 +460,7 @@ InterceptCycleResult InterceptPipeline::RunCycle(
   const intercept::AngleErrorModelConfig angle_error_config =
       internal::InterceptComponentFactory::BuildAngleErrorModelConfig(config_);
   const std::pair<double, double> receiver_window = BuildReceiverWindow(input_state.cycle_index);
-  const oneq::internal::timing::StatisticalDetectionParams statistical_detection_params =
+  const oneq::internal::timing::StatisticalDetectionParams base_statistical_detection_params =
       ToTimingDetectionParams(config_.statistical_detection);
 
   std::vector<internal::RawObservationRecord> raw_records;
@@ -386,8 +477,22 @@ InterceptCycleResult InterceptPipeline::RunCycle(
     }
 
     const float range_m = ComputeRangeM(input_state.platform_pose, emitter);
-    const float target_az_deg = ComputeAzimuthDeg(input_state.platform_pose, emitter);
-    const float target_el_deg = ComputeElevationDeg(input_state.platform_pose, emitter);
+    const oneq::internal::geometry::AzimuthElevationDeg target_look_angles =
+        ComputeEmitterLookAngles(input_state.platform_pose, emitter);
+    const float target_az_deg = target_look_angles.az_deg;
+    const float target_el_deg = target_look_angles.el_deg;
+    const float emitter_beam_overlap_ratio =
+        ComputeEmitterBeamOverlapRatio(input_state.platform_pose, emitter);
+    const bool emitter_beam_covered = emitter_beam_overlap_ratio > 0.0f;
+    const std::uint32_t available_pulse_count =
+        ResolveAvailablePulseCount(input_state.dt_sec, emitter.pri_s);
+    const bool has_available_pulses = available_pulse_count > 0U;
+    oneq::internal::timing::StatisticalDetectionParams emitter_detection_params =
+        base_statistical_detection_params;
+    if (has_available_pulses) {
+      emitter_detection_params.pulse_count = std::max(
+          1U, std::min(base_statistical_detection_params.pulse_count, available_pulse_count));
+    }
 
     const intercept::JammingAggregateResult jamming_result =
         intercept::JammingAggregator::Aggregate(environment_snapshot.jammer_sources,
@@ -404,7 +509,7 @@ InterceptCycleResult InterceptPipeline::RunCycle(
                  kNumericFloor);
     const float static_threshold_snr_db = config_.detection.min_detect_snr_db;
     const float dynamic_threshold_snr_db = oneq::internal::timing::ComputeDynamicThresholdSnrDb(
-        noise_power_w, statistical_detection_params);
+        noise_power_w, emitter_detection_params);
     const float detection_threshold_snr_db =
         config_.statistical_detection.enable_statistical_detection
             ? std::max(static_threshold_snr_db, dynamic_threshold_snr_db)
@@ -415,16 +520,19 @@ InterceptCycleResult InterceptPipeline::RunCycle(
         config_.detection.boundary_max_iterations, [&](float candidate_range_m) {
           const double candidate_received_power_w =
               ComputeReceivedPowerW(emitter.tx_power_w, emitter.carrier_hz, candidate_range_m,
-                                    environment_snapshot.propagation_loss_db);
+                                    environment_snapshot.propagation_loss_db) *
+              static_cast<double>(emitter_beam_overlap_ratio);
           const float candidate_snr_db = ToDb(candidate_received_power_w / noise_power_w);
           return candidate_snr_db >= detection_threshold_snr_db;
         });
-    const double received_power_w = ComputeReceivedPowerW(
-        emitter.tx_power_w, emitter.carrier_hz, range_m, environment_snapshot.propagation_loss_db);
+    const double received_power_w =
+        ComputeReceivedPowerW(emitter.tx_power_w, emitter.carrier_hz, range_m,
+                              environment_snapshot.propagation_loss_db) *
+        static_cast<double>(emitter_beam_overlap_ratio);
     const float snr_db = ToDb(received_power_w / noise_power_w);
 
     intercept::InterceptGateInput gate_input;
-    gate_input.line_of_sight = true;
+    gate_input.line_of_sight = emitter_beam_covered;
     gate_input.target_az_deg = target_az_deg;
     gate_input.target_el_deg = target_el_deg;
     gate_input.beam_az_deg = active_beam.az_deg;
@@ -475,11 +583,11 @@ InterceptCycleResult InterceptPipeline::RunCycle(
 
     const std::uint32_t false_alarm_cap =
         config_.deception_model.max_false_observations_per_emitter;
-    bool detection_passed = gate_decision.passed;
+    bool detection_passed = gate_decision.passed && has_available_pulses;
     if (detection_passed && config_.statistical_detection.enable_statistical_detection) {
       const float detection_probability =
           oneq::internal::timing::ComputeStatisticalDetectionProbability(
-              snr_db, detection_threshold_snr_db, statistical_detection_params);
+              snr_db, detection_threshold_snr_db, emitter_detection_params);
       detection_passed = uniform_01(rng_) < detection_probability;
     }
     if (!detection_passed) {
@@ -496,6 +604,7 @@ InterceptCycleResult InterceptPipeline::RunCycle(
 
     internal::RawObservationRecord record = base_record;
     record.truth_emitter_id = emitter.emitter_id;
+    record.truth_pri_s = emitter.pri_s;
     record.matched_truth = true;
 
     const float confusion_probability =
