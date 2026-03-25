@@ -14,6 +14,7 @@ set(TEST_SOURCES
     tactical_coordinator_test.cpp
     decision_layer_test.cpp
     data_output_manager_test.cpp
+    output_frame_utils_test.cpp
     core_controller_test.cpp
     public_api_convenience_test.cpp
     public_headers_smoke_test.cpp
@@ -27,12 +28,14 @@ set(TEST_SOURCES
     signal_detection_test.cpp
     geometry_transform_test.cpp
     timing_regime_model_test.cpp
+    validation_utils_test.cpp
     radar_input_validation_test.cpp
     esr_input_validation_test.cpp
     esr_algorithms_test.cpp
     esr_environment_service_test.cpp
     esr_kdtree_clusterer_test.cpp
     esr_hypothesis_associator_test.cpp
+    esr_output_manager_test.cpp
     esr_session_integration_test.cpp
     # NOTE:
     # signal_bulk_data_test.cpp contains long-running IMM debug workload tests.
@@ -80,7 +83,7 @@ if(WIN32 AND BUILD_SHARED_LIBS)
             $<TARGET_FILE_DIR:${PROJECT_NAME}_tests>
         COMMENT "Copying ${PROJECT_CORE_TARGET} DLL to tests directory"
     )
-    
+
     # CMake 3.21+ 自动复制第三方 DLLs
     if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.21)
         # 会自动复制 GTest 和其他链接的导入目标的 DLLs

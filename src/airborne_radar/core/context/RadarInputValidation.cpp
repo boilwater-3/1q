@@ -1,8 +1,9 @@
 #include "1q/airborne_radar/core/context/RadarInputValidation.h"
 
-#include <cmath>
 #include <sstream>
 #include <unordered_map>
+
+#include "common/validation/ValidationUtils.h"
 
 namespace airborne_radar {
 namespace core {
@@ -20,12 +21,9 @@ namespace {
  */
 ValidationIssue MakeIssue(ValidationSeverity severity, ValidationCode code,
                           std::size_t target_index, const std::string& message) {
-  ValidationIssue issue;
-  issue.severity = severity;
-  issue.code = code;
-  issue.target_index = target_index;
-  issue.message = message;
-  return issue;
+  return oneq::internal::validation::MakeIndexedIssue<
+      ValidationIssue, ValidationSeverity, ValidationCode, &ValidationIssue::target_index>(
+      severity, code, target_index, message);
 }
 
 /**
@@ -33,7 +31,7 @@ ValidationIssue MakeIssue(ValidationSeverity severity, ValidationCode code,
  * @param value 输入浮点值。
  * @return 有限数时返回 `true`。
  */
-bool IsFinite(float value) { return std::isfinite(value) != 0; }
+bool IsFinite(float value) { return oneq::internal::validation::IsFinite(value); }
 
 /**
  * @brief 判断目标是否携带笛卡尔位置。
@@ -129,12 +127,9 @@ std::vector<ValidationIssue> ValidateTargetFeatures(const common::TargetFeatureL
 }
 
 bool HasValidationError(const std::vector<ValidationIssue>& issues) {
-  for (std::size_t i = 0; i < issues.size(); ++i) {
-    if (issues[i].severity == ValidationSeverity::kError) {
-      return true;
-    }
-  }
-  return false;
+  return oneq::internal::validation::HasSeverity<std::vector<ValidationIssue>, ValidationSeverity,
+                                                 &ValidationIssue::severity>(
+      issues, ValidationSeverity::kError);
 }
 
 }  // namespace context

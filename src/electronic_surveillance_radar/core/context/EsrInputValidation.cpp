@@ -1,8 +1,9 @@
 #include "1q/electronic_surveillance_radar/core/context/EsrInputValidation.h"
 
-#include <cmath>
 #include <cstddef>
 #include <string>
+
+#include "common/validation/ValidationUtils.h"
 
 namespace electronic_surveillance_radar {
 namespace core {
@@ -20,12 +21,10 @@ namespace {
  */
 EsrValidationIssue MakeIssue(EsrValidationSeverity severity, EsrValidationCode code,
                              std::size_t emitter_index, const std::string& message) {
-  EsrValidationIssue issue;
-  issue.severity = severity;
-  issue.code = code;
-  issue.emitter_index = emitter_index;
-  issue.message = message;
-  return issue;
+  return oneq::internal::validation::MakeIndexedIssue<EsrValidationIssue, EsrValidationSeverity,
+                                                      EsrValidationCode,
+                                                      &EsrValidationIssue::emitter_index>(
+      severity, code, emitter_index, message);
 }
 
 /**
@@ -35,7 +34,7 @@ EsrValidationIssue MakeIssue(EsrValidationSeverity severity, EsrValidationCode c
  */
 template <typename T>
 bool IsFinite(T value) {
-  return std::isfinite(value) != 0;
+  return oneq::internal::validation::IsFinite(value);
 }
 
 /**
@@ -127,12 +126,9 @@ EsrValidationIssueList ValidateEsrCycleInput(const EsrCycleInput& input) {
 }
 
 bool HasEsrValidationError(const EsrValidationIssueList& issues) {
-  for (std::size_t i = 0; i < issues.size(); ++i) {
-    if (issues[i].severity == EsrValidationSeverity::kError) {
-      return true;
-    }
-  }
-  return false;
+  return oneq::internal::validation::HasSeverity<EsrValidationIssueList, EsrValidationSeverity,
+                                                 &EsrValidationIssue::severity>(
+      issues, EsrValidationSeverity::kError);
 }
 
 }  // namespace context
