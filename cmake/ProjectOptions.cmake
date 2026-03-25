@@ -68,6 +68,18 @@ option(ENABLE_WARNINGS "Enable additional compiler warnings" ON)
 option(ENABLE_CLANG_TIDY "Enable clang-tidy static analysis" OFF)
 mark_as_advanced(ENABLE_CLANG_TIDY)
 
+# CLANG_TIDY_AUTO_FIX: 启用clang-tidy自动修复（仅建议用于低风险、机械化检查项）
+# 默认开启，配合 CLANG_TIDY_CHECKS 白名单使用
+option(CLANG_TIDY_AUTO_FIX "Enable clang-tidy automatic fixes for whitelisted checks" ON)
+mark_as_advanced(CLANG_TIDY_AUTO_FIX)
+
+# CLANG_TIDY_CHECKS: clang-tidy 检查项白名单（逗号分隔）
+# 仅保留局部、机械、可逆、易review的低风险规则
+set(CLANG_TIDY_CHECKS
+    "-*,readability-braces-around-statements,readability-else-after-return,readability-isolate-declaration,readability-qualified-auto,readability-redundant-access-specifiers,readability-redundant-control-flow,readability-redundant-member-init,readability-redundant-preprocessor,readability-static-accessed-through-instance,modernize-redundant-void-arg,modernize-use-bool-literals,modernize-use-default-member-init,modernize-use-equals-default,modernize-use-equals-delete,modernize-use-nullptr,modernize-use-override,modernize-use-using,performance-for-range-copy,performance-implicit-conversion-in-loop,performance-move-constructor-init,performance-unnecessary-copy-initialization,performance-unnecessary-value-param,bugprone-macro-parentheses,bugprone-string-constructor,bugprone-string-integer-assignment"
+    CACHE STRING "clang-tidy checks whitelist")
+mark_as_advanced(CLANG_TIDY_CHECKS)
+
 # 高级选项
 
 # STACK_SIZE_OPTION: 程序栈大小配置

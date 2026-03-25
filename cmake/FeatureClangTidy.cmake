@@ -2,25 +2,54 @@
 # clang-tidy 在编译时执行代码检查，发现潜在bug和代码质量问题
 
 if(ENABLE_CLANG_TIDY)
-    find_program(CLANG_TIDY_EXECUTABLE NAMES clang-tidy clang-tidy-18 clang-tidy-17 clang-tidy-16)
+    set(_LLVM_HINT_PATHS)
+    if(APPLE)
+        list(APPEND _LLVM_HINT_PATHS
+            "/opt/homebrew/opt/llvm/bin"
+            "/usr/local/opt/llvm/bin")
+        if(DEFINED ENV{HOMEBREW_PREFIX} AND NOT "$ENV{HOMEBREW_PREFIX}" STREQUAL "")
+            list(APPEND _LLVM_HINT_PATHS "$ENV{HOMEBREW_PREFIX}/opt/llvm/bin")
+        endif()
+    endif()
+
+    find_program(CLANG_TIDY_EXECUTABLE
+        NAMES
+            clang-tidy
+            clang-tidy-20
+            clang-tidy-19
+            clang-tidy-18
+            clang-tidy-17
+            clang-tidy-16
+        HINTS ${_LLVM_HINT_PATHS})
+    unset(_LLVM_HINT_PATHS)
     
     if(CLANG_TIDY_EXECUTABLE)
         # 检查是否存在 .clang-tidy 配置文件
         set(CLANG_TIDY_CONFIG_FILE "${CMAKE_SOURCE_DIR}/.clang-tidy")
-        
-        if(EXISTS "${CLANG_TIDY_CONFIG_FILE}")
-            set(CMAKE_CXX_CLANG_TIDY 
-                "${CLANG_TIDY_EXECUTABLE}"
-                "--config-file=${CLANG_TIDY_CONFIG_FILE}")
-            message(STATUS "clang-tidy: Enabled (with config file)")
+        set(_CLANG_TIDY_ARGS "${CLANG_TIDY_EXECUTABLE}")
+
+        if(DEFINED CLANG_TIDY_CHECKS AND NOT CLANG_TIDY_CHECKS STREQUAL "")
+            list(APPEND _CLANG_TIDY_ARGS "-checks=${CLANG_TIDY_CHECKS}")
+            message(STATUS "clang-tidy: Enabled (whitelisted checks)")
         else()
-            # 使用默认检查项
-            set(CMAKE_CXX_CLANG_TIDY 
-                "${CLANG_TIDY_EXECUTABLE}"
-                "-checks=-*,modernize-*,performance-*,readability-*,bugprone-*")
-            message(STATUS "clang-tidy: Enabled (default checks)")
-            message(STATUS "  └─ Tip: Create .clang-tidy file for custom configuration")
+            message(STATUS "clang-tidy: Enabled (no checks whitelist)")
         endif()
+
+        if(CLANG_TIDY_AUTO_FIX)
+            list(APPEND _CLANG_TIDY_ARGS "--fix")
+            message(STATUS "  └─ Auto-fix: Enabled (low-risk mechanical fixes)")
+        else()
+            message(STATUS "  └─ Auto-fix: Disabled")
+        endif()
+
+        if(EXISTS "${CLANG_TIDY_CONFIG_FILE}")
+            list(APPEND _CLANG_TIDY_ARGS "--config-file=${CLANG_TIDY_CONFIG_FILE}")
+            message(STATUS "  └─ Config file: ${CLANG_TIDY_CONFIG_FILE}")
+        else()
+            message(STATUS "  └─ Config file: not found")
+        endif()
+        set(CMAKE_CXX_CLANG_TIDY ${_CLANG_TIDY_ARGS})
+        unset(_CLANG_TIDY_ARGS)
         
         message(STATUS "  └─ Executable: ${CLANG_TIDY_EXECUTABLE}")
         

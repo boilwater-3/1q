@@ -96,6 +96,7 @@ include(cmake/FeatureUnityBuild.cmake)
 include(cmake/FeatureCCache.cmake)
 include(cmake/FeaturePrecompiledHeaders.cmake)
 include(cmake/FeatureClangTidy.cmake)
+include(cmake/FeatureClangFormat.cmake)
 
 # 编译器特定配置
 if(MSVC)

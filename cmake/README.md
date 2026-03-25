@@ -18,6 +18,8 @@
 - `ENABLE_PCH` - 预编译头
 - `ENABLE_WARNINGS` - 额外警告
 - `ENABLE_CLANG_TIDY` - 静态分析
+- `CLANG_TIDY_AUTO_FIX` - clang-tidy 自动修复（低风险白名单）
+- `CLANG_TIDY_CHECKS` - clang-tidy 检查项白名单
 - `STACK_SIZE_OPTION` - 栈大小配置
 - `PACKAGE_MANAGER` - 包管理器选择（none/vcpkg/conan）
 
@@ -49,12 +51,24 @@
 **用途**: 配置 clang-tidy 静态分析  
 **功能**:
 
-- 多版本搜索（clang-tidy-18/17/16）
+- 多版本搜索（clang-tidy-20/19/18/17/16）
+- macOS 优先搜索 Homebrew LLVM 路径
+- 支持低风险白名单检查项配置（`CLANG_TIDY_CHECKS`）
+- 支持自动修复开关（`CLANG_TIDY_AUTO_FIX`，默认 ON）
 - 自动检测 `.clang-tidy` 配置文件
 - 提供默认检查项
 - 显示安装说明
 
-### 6. CompilerMSVC.cmake
+### 6. FeatureClangFormat.cmake
+
+**用途**: 配置 clang-format 代码格式化入口  
+**功能**:
+
+- 多版本搜索（clang-format-20/19/18/17/16）
+- macOS 优先搜索 Homebrew LLVM 路径
+- 提供 `format` 与 `format-check` 构建目标
+
+### 7. CompilerMSVC.cmake
 
 **用途**: MSVC 编译器特定配置  
 **包含**:
@@ -65,7 +79,7 @@
 - LTCG（链接时代码生成）
 - 函数级链接优化
 
-### 7. CompilerGNU.cmake
+### 8. CompilerGNU.cmake
 
 **用途**: GCC/Clang 编译器特定配置  
 **包含**:
@@ -76,7 +90,7 @@
 - 未使用节移除（`--gc-sections`）
 - 位置无关代码（PIC）
 
-### 8. PackageManagerVcpkg.cmake
+### 9. PackageManagerVcpkg.cmake
 
 **用途**: vcpkg 包管理器依赖配置  
 **功能**:
@@ -86,7 +100,7 @@
 - 自动链接到主库目标
 - Windows DLL 运行时安装支持
 
-### 9. PackageManagerConan.cmake
+### 10. PackageManagerConan.cmake
 
 **用途**: Conan 包管理器依赖配置  
 **功能**:
@@ -105,6 +119,7 @@ CMakeLists.txt (主文件)
   ├── FeatureCCache.cmake          # 依赖 USE_CCACHE
   ├── FeaturePrecompiledHeaders.cmake  # 依赖 ENABLE_PCH
   ├── FeatureClangTidy.cmake       # 依赖 ENABLE_CLANG_TIDY
+  ├── FeatureClangFormat.cmake     # 提供 format/format-check 目标
   ├── Compiler{MSVC|GNU}.cmake     # 根据编译器选择一个
   └── PackageManager{Vcpkg|Conan}.cmake  # 根据 PACKAGE_MANAGER 选择（可选）
 
@@ -123,6 +138,7 @@ include(cmake/FeatureUnityBuild.cmake)
 include(cmake/FeatureCCache.cmake)
 include(cmake/FeaturePrecompiledHeaders.cmake)
 include(cmake/FeatureClangTidy.cmake)
+include(cmake/FeatureClangFormat.cmake)
 
 # 编译器特定配置
 if(MSVC)
@@ -147,6 +163,15 @@ cmake -B build -DENABLE_UNITY_BUILD=ON -DUSE_CCACHE=ON
 
 # 启用静态分析（慎用，会显著增加编译时间）
 cmake -B build -DENABLE_CLANG_TIDY=ON
+
+# 禁用 clang-tidy 自动修复（仅诊断）
+cmake -B build -DENABLE_CLANG_TIDY=ON -DCLANG_TIDY_AUTO_FIX=OFF
+
+# 运行格式化检查（不改文件）
+cmake --build build --target format-check
+
+# 执行格式化（会直接改文件）
+cmake --build build --target format
 
 # 配置大栈空间
 cmake -B build -DSTACK_SIZE_OPTION=LARGE_PROJECT
