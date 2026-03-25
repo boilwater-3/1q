@@ -519,6 +519,29 @@ TEST(EsrSessionIntegrationTest, PriLongerThanCycleSuppressesTrueDetection) {
   EXPECT_EQ(CountMatchedTruthObservations(high_pri_result, "target-emitter"), 0U);
 }
 
+TEST(EsrSessionIntegrationTest, PriWindowCapsEffectivePulseCountAcrossStatisticalConfigs) {
+  EsrSessionConfig low_pulse_config = MakeSessionConfig();
+  low_pulse_config.pipeline_config.statistical_detection.pulse_count = 8U;
+  EsrSessionConfig high_pulse_config = low_pulse_config;
+  high_pulse_config.pipeline_config.statistical_detection.pulse_count = 32U;
+
+  context::EsrCycleInput input = MakeBaseInput();
+  input.scene_emitters.front().pri_s = 0.25;
+
+  EsrSession low_pulse_session(low_pulse_config);
+  EsrSession high_pulse_session(high_pulse_config);
+  const EsrCycleResult low_pulse_result = low_pulse_session.StepWithResult(input);
+  const EsrCycleResult high_pulse_result = high_pulse_session.StepWithResult(input);
+
+  EXPECT_EQ(CountMatchedTruthObservations(low_pulse_result, "target-emitter"),
+            CountMatchedTruthObservations(high_pulse_result, "target-emitter"));
+  const float low_pulse_snr = FindMatchedTruthSnr(low_pulse_result, "target-emitter");
+  const float high_pulse_snr = FindMatchedTruthSnr(high_pulse_result, "target-emitter");
+  if (std::isfinite(low_pulse_snr) && std::isfinite(high_pulse_snr)) {
+    EXPECT_FLOAT_EQ(low_pulse_snr, high_pulse_snr);
+  }
+}
+
 }  // namespace
 }  // namespace session
 }  // namespace core

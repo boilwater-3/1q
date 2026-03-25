@@ -72,6 +72,16 @@ float ToDb(double ratio) {
   return static_cast<float>(10.0 * std::log10(std::max(ratio, kNumericFloor)));
 }
 
+/**
+ * @brief 判断是否提供了显式的周期窗口。
+ * @param[in] params 周期级时序原始基线输入。
+ * @return 若 `cycle_dt_sec` 与 `pri_s` 均为正且有限，则返回 `true`。
+ */
+bool HasExplicitPulseWindow(const CycleTimingBaseParams& params) {
+  return std::isfinite(params.cycle_dt_sec) && params.cycle_dt_sec > 0.0f &&
+         std::isfinite(params.pri_s) && params.pri_s > 0.0;
+}
+
 }  // namespace
 
 float NormalizePfa(float pfa) {
@@ -79,6 +89,18 @@ float NormalizePfa(float pfa) {
     return kDefaultPfa;
   }
   return std::max(kMinPfa, std::min(kMaxPfa, pfa));
+}
+
+std::uint32_t ResolveAvailablePulseCount(const CycleTimingBaseParams& params) {
+  if (!HasExplicitPulseWindow(params)) {
+    return static_cast<std::uint32_t>(std::max(1, params.base_pulse_count));
+  }
+  const double pulse_window =
+      static_cast<double>(params.cycle_dt_sec) / std::max(params.pri_s, kNumericFloor);
+  if (!std::isfinite(pulse_window) || pulse_window <= 0.0) {
+    return 0U;
+  }
+  return static_cast<std::uint32_t>(std::floor(pulse_window));
 }
 
 int ResolvePulseCountWithDwell(const CycleTimingControlParams& params) {
@@ -89,11 +111,45 @@ int ResolvePulseCountWithDwell(const CycleTimingControlParams& params) {
   return std::max(1, static_cast<int>(std::lround(scaled_pulse_count)));
 }
 
-float ResolvePrfWithRejitter(const CycleTimingControlParams& params) {
-  if (params.enable_rejitter) {
-    return params.base_prf_hz * kPrfRejitterScale;
+std::uint32_t ResolveEffectivePulseCount(const CycleTimingBaseParams& base_params,
+                                         const CycleTimingControlAdjustments& adjustments) {
+  CycleTimingControlParams dwell_params;
+  dwell_params.base_pulse_count = base_params.base_pulse_count;
+  dwell_params.dwell_scale = adjustments.dwell_scale;
+  const std::uint32_t dwell_adjusted_pulse_count =
+      static_cast<std::uint32_t>(std::max(1, ResolvePulseCountWithDwell(dwell_params)));
+  if (!HasExplicitPulseWindow(base_params)) {
+    return dwell_adjusted_pulse_count;
   }
-  return params.base_prf_hz;
+  return std::min(dwell_adjusted_pulse_count, ResolveAvailablePulseCount(base_params));
+}
+
+float ResolvePrfWithRejitter(const CycleTimingControlParams& params) {
+  CycleTimingBaseParams base_params;
+  base_params.base_prf_hz = params.base_prf_hz;
+  CycleTimingControlAdjustments adjustments;
+  adjustments.enable_rejitter = params.enable_rejitter;
+  return ResolveEffectivePrfHz(base_params, adjustments);
+}
+
+float ResolveEffectivePrfHz(const CycleTimingBaseParams& base_params,
+                            const CycleTimingControlAdjustments& adjustments) {
+  const float safe_prf_scale = ClampProfileScale(adjustments.prf_scale, kScaleFallback);
+  float effective_prf_hz = base_params.base_prf_hz * safe_prf_scale;
+  if (adjustments.enable_rejitter) {
+    effective_prf_hz *= kPrfRejitterScale;
+  }
+  return effective_prf_hz;
+}
+
+ResolvedCycleTimingState ResolveCycleTimingState(const CycleTimingBaseParams& base_params,
+                                                 const CycleTimingControlAdjustments& adjustments) {
+  ResolvedCycleTimingState state;
+  state.available_pulse_count = ResolveAvailablePulseCount(base_params);
+  state.effective_pulse_count = ResolveEffectivePulseCount(base_params, adjustments);
+  state.effective_prf_hz = ResolveEffectivePrfHz(base_params, adjustments);
+  state.integration_mode = base_params.integration_mode;
+  return state;
 }
 
 double ComputeIntegrationGain(const StatisticalDetectionParams& params) {

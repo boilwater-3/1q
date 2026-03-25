@@ -735,6 +735,38 @@ float ToDbDelta(float linear_scale) {
   const float clamped_scale = ClampProfileScale(linear_scale, 1.0f);
   return 10.0f * std::log10(clamped_scale);
 }
+
+/**
+ * @brief 将机载检测积累模式映射为共享周期级时序体制积累模式。
+ * @param[in] coherent_integration 机载检测是否启用相参积累。
+ * @return 共享周期级时序体制积累模式。
+ */
+oneq::internal::timing::IntegrationMode ToTimingIntegrationMode(bool coherent_integration) {
+  if (coherent_integration) {
+    return oneq::internal::timing::IntegrationMode::kCoherent;
+  }
+  return oneq::internal::timing::IntegrationMode::kNonCoherent;
+}
+
+/**
+ * @brief 根据控制 profile 解析当前周期生效的时序体制状态。
+ * @param[in] control_profile 当前控制真值。
+ * @param[in] detection_config 待调整前的检测配置。
+ * @return 当前周期生效的统一时序体制状态。
+ */
+oneq::internal::timing::ResolvedCycleTimingState ResolveDetectionTimingState(
+    const common::RadarControlProfile& control_profile,
+    const SignalDetectionConfig& detection_config) {
+  oneq::internal::timing::CycleTimingBaseParams base_params;
+  base_params.base_pulse_count = detection_config.pulse_count;
+  base_params.base_prf_hz = detection_config.radar_system.transmitter.prf_hz;
+  base_params.integration_mode = ToTimingIntegrationMode(detection_config.coherent_integration);
+
+  oneq::internal::timing::CycleTimingControlAdjustments adjustments;
+  adjustments.dwell_scale = control_profile.lpi_dwell_scale;
+  adjustments.enable_rejitter = control_profile.enable_eccm_rejitter;
+  return oneq::internal::timing::ResolveCycleTimingState(base_params, adjustments);
+}
 /**
  * @brief 计算控制 profile 对波束宽度的收缩比例。
  * @param control_profile 当前控制真值。
@@ -821,6 +853,8 @@ void ApplyControlProfileToConfig(const common::RadarControlProfile& control_prof
   if (runtime_config == nullptr) {
     return;
   }
+  const oneq::internal::timing::ResolvedCycleTimingState timing_state =
+      ResolveDetectionTimingState(control_profile, runtime_config->detection);
 
   if (control_profile.enable_lpi_power_control) {
     runtime_config->detection.radar_system.transmitter.peak_power_w *=
@@ -830,11 +864,7 @@ void ApplyControlProfileToConfig(const common::RadarControlProfile& control_prof
   }
 
   if (control_profile.lpi_dwell_scale != 1.0f) {
-    oneq::internal::timing::CycleTimingControlParams timing_control_params;
-    timing_control_params.base_pulse_count = runtime_config->detection.pulse_count;
-    timing_control_params.dwell_scale = control_profile.lpi_dwell_scale;
-    runtime_config->detection.pulse_count =
-        oneq::internal::timing::ResolvePulseCountWithDwell(timing_control_params);
+    runtime_config->detection.pulse_count = static_cast<int>(timing_state.effective_pulse_count);
   }
 
   if (control_profile.enable_agility_frequency) {
@@ -845,11 +875,7 @@ void ApplyControlProfileToConfig(const common::RadarControlProfile& control_prof
   }
 
   if (control_profile.enable_eccm_rejitter) {
-    oneq::internal::timing::CycleTimingControlParams timing_control_params;
-    timing_control_params.base_prf_hz = runtime_config->detection.radar_system.transmitter.prf_hz;
-    timing_control_params.enable_rejitter = true;
-    runtime_config->detection.radar_system.transmitter.prf_hz =
-        oneq::internal::timing::ResolvePrfWithRejitter(timing_control_params);
+    runtime_config->detection.radar_system.transmitter.prf_hz = timing_state.effective_prf_hz;
     runtime_config->association.unassigned_cost *= 1.35f;
     runtime_config->tracking.kalman_noise_diff_coeff *= 1.10f;
   }

@@ -13,6 +13,7 @@
 #include "airborne_radar/signal/detection/RadarEquations.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/detection/TargetLookResolver.h"
+#include "common/timing/TimingRegimeModel.h"
 
 namespace airborne_radar {
 namespace tests {
@@ -209,6 +210,49 @@ TEST(SignalDetectorTest, DeterministicWithSeed) {
   EXPECT_EQ(r1.detected, r2.detected);
   EXPECT_FLOAT_EQ(r1.snr_db, r2.snr_db);
   EXPECT_FLOAT_EQ(r1.detection_prob, r2.detection_prob);
+}
+
+/// @brief 共享周期级时序状态解析后的脉冲数应继续提高检测概率。
+TEST(SignalDetectorTest, SharedTimingStatePulseCountStillImprovesDetectionProbability) {
+  RadarSystemConfig config;
+  config.detection.cfar_pfa = 1.0e-6f;
+  config.detection.min_snr_db = -50.0f;
+  SignalDetector detector(config);
+  detector.SetRandomSeed(42u);
+
+  signal::detection::TargetReturn target;
+  target.rcs_m2 = 1.0f;
+  target.range_m = 120000.0f;
+
+  signal::detection::EnvironmentState env;
+  env.propagation_loss_db = 3.0f;
+  env.clutter_noise_w = 1.0e-14f;
+  env.jam_noise_w = 0.0f;
+
+  oneq::internal::timing::CycleTimingBaseParams base_params;
+  base_params.base_pulse_count = 8;
+  base_params.base_prf_hz = config.transmitter.prf_hz;
+
+  oneq::internal::timing::CycleTimingControlAdjustments baseline_adjustments;
+  const oneq::internal::timing::ResolvedCycleTimingState baseline_state =
+      oneq::internal::timing::ResolveCycleTimingState(base_params, baseline_adjustments);
+
+  oneq::internal::timing::CycleTimingControlAdjustments dwell_adjustments;
+  dwell_adjustments.dwell_scale = 2.0f;
+  const oneq::internal::timing::ResolvedCycleTimingState dwell_state =
+      oneq::internal::timing::ResolveCycleTimingState(base_params, dwell_adjustments);
+
+  const DetectionResult baseline_result =
+      detector.Detect(target, env, std::numeric_limits<float>::quiet_NaN(),
+                      static_cast<int>(baseline_state.effective_pulse_count));
+  detector.SetRandomSeed(42u);
+  const DetectionResult dwell_result =
+      detector.Detect(target, env, std::numeric_limits<float>::quiet_NaN(),
+                      static_cast<int>(dwell_state.effective_pulse_count));
+
+  EXPECT_EQ(baseline_state.effective_pulse_count, 8U);
+  EXPECT_EQ(dwell_state.effective_pulse_count, 16U);
+  EXPECT_GT(dwell_result.detection_prob, baseline_result.detection_prob);
 }
 
 /// @brief 注入干扰噪声 → SNR 下降、Pd 下降。

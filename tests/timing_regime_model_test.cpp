@@ -41,6 +41,60 @@ TEST(TimingRegimeModelTest, ResolvePrfWithRejitterFollowsSwitch) {
   EXPECT_FLOAT_EQ(ResolvePrfWithRejitter(params), 330.0f);
 }
 
+TEST(TimingRegimeModelTest, ResolveAvailablePulseCountSupportsPriWindowAndFallback) {
+  CycleTimingBaseParams params;
+  params.base_pulse_count = 8;
+  params.cycle_dt_sec = 1.0f;
+  params.pri_s = 0.2;
+  EXPECT_EQ(ResolveAvailablePulseCount(params), 5U);
+
+  params.pri_s = 2.0;
+  EXPECT_EQ(ResolveAvailablePulseCount(params), 0U);
+
+  params.cycle_dt_sec = 0.0f;
+  params.pri_s = 0.0;
+  EXPECT_EQ(ResolveAvailablePulseCount(params), 8U);
+}
+
+TEST(TimingRegimeModelTest, ResolveCycleTimingStateCombinesAvailabilityAndControlMapping) {
+  CycleTimingBaseParams base_params;
+  base_params.base_pulse_count = 10;
+  base_params.base_prf_hz = 300.0f;
+  base_params.cycle_dt_sec = 1.0f;
+  base_params.pri_s = 0.2;
+  base_params.integration_mode = IntegrationMode::kCoherent;
+
+  CycleTimingControlAdjustments adjustments;
+  adjustments.dwell_scale = 2.0f;
+  adjustments.enable_rejitter = true;
+
+  const ResolvedCycleTimingState state = ResolveCycleTimingState(base_params, adjustments);
+  EXPECT_EQ(state.available_pulse_count, 5U);
+  EXPECT_EQ(state.effective_pulse_count, 5U);
+  EXPECT_FLOAT_EQ(state.effective_prf_hz, 330.0f);
+  EXPECT_EQ(state.integration_mode, IntegrationMode::kCoherent);
+}
+
+TEST(TimingRegimeModelTest, ResolveEffectivePulseCountMonotonicallyTracksAvailabilityClamp) {
+  CycleTimingBaseParams base_params;
+  base_params.base_pulse_count = 12;
+  base_params.cycle_dt_sec = 0.35f;
+  base_params.pri_s = 0.1;
+
+  CycleTimingControlAdjustments low_adjustments;
+  low_adjustments.dwell_scale = 0.5f;
+  const std::uint32_t low_effective_pulse_count =
+      ResolveEffectivePulseCount(base_params, low_adjustments);
+
+  CycleTimingControlAdjustments high_adjustments;
+  high_adjustments.dwell_scale = 4.0f;
+  const std::uint32_t high_effective_pulse_count =
+      ResolveEffectivePulseCount(base_params, high_adjustments);
+
+  EXPECT_LE(low_effective_pulse_count, high_effective_pulse_count);
+  EXPECT_EQ(high_effective_pulse_count, ResolveAvailablePulseCount(base_params));
+}
+
 TEST(TimingRegimeModelTest, NormalizePfaClampsAndFallbacks) {
   EXPECT_FLOAT_EQ(NormalizePfa(std::numeric_limits<float>::quiet_NaN()), 1.0e-6f);
   EXPECT_FLOAT_EQ(NormalizePfa(1.0e-12f), 1.0e-9f);

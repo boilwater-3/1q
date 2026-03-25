@@ -199,20 +199,24 @@ float ComputeEmitterBeamOverlapRatio(const common::EsrPoseState& platform_pose,
 }
 
 /**
- * @brief 根据 `dt/pri` 估算当前周期可用脉冲数。
+ * @brief 解析 ESR 发射源在当前周期的共享时序体制状态。
  * @param[in] dt_sec 周期步长（单位：s）。
- * @param[in] pri_s 脉冲重复间隔（单位：s）。
- * @return 估算可用脉冲数。
+ * @param[in] emitter 发射源真值。
+ * @param[in] base_params ESR 统计检测基线参数。
+ * @return 发射源在当前周期的统一时序体制状态。
  */
-std::uint32_t ResolveAvailablePulseCount(float dt_sec, double pri_s) {
-  if (!std::isfinite(dt_sec) || !std::isfinite(pri_s) || dt_sec <= 0.0f || pri_s <= 0.0) {
-    return 0U;
-  }
-  const double pulse_count = static_cast<double>(dt_sec) / pri_s;
-  if (pulse_count <= 0.0) {
-    return 0U;
-  }
-  return static_cast<std::uint32_t>(std::floor(pulse_count));
+oneq::internal::timing::ResolvedCycleTimingState ResolveEmitterTimingState(
+    float dt_sec, const common::EmitterTruthState& emitter,
+    const oneq::internal::timing::StatisticalDetectionParams& base_params) {
+  oneq::internal::timing::CycleTimingBaseParams timing_base_params;
+  timing_base_params.base_pulse_count = static_cast<int>(base_params.pulse_count);
+  timing_base_params.base_prf_hz =
+      emitter.pri_s > 0.0 ? static_cast<float>(1.0 / emitter.pri_s) : 0.0f;
+  timing_base_params.cycle_dt_sec = dt_sec;
+  timing_base_params.pri_s = emitter.pri_s;
+  timing_base_params.integration_mode = base_params.integration_mode;
+  return oneq::internal::timing::ResolveCycleTimingState(
+      timing_base_params, oneq::internal::timing::CycleTimingControlAdjustments());
 }
 
 /**
@@ -484,14 +488,13 @@ InterceptCycleResult InterceptPipeline::RunCycle(
     const float emitter_beam_overlap_ratio =
         ComputeEmitterBeamOverlapRatio(input_state.platform_pose, emitter);
     const bool emitter_beam_covered = emitter_beam_overlap_ratio > 0.0f;
-    const std::uint32_t available_pulse_count =
-        ResolveAvailablePulseCount(input_state.dt_sec, emitter.pri_s);
-    const bool has_available_pulses = available_pulse_count > 0U;
+    const oneq::internal::timing::ResolvedCycleTimingState timing_state =
+        ResolveEmitterTimingState(input_state.dt_sec, emitter, base_statistical_detection_params);
+    const bool has_available_pulses = timing_state.effective_pulse_count > 0U;
     oneq::internal::timing::StatisticalDetectionParams emitter_detection_params =
         base_statistical_detection_params;
     if (has_available_pulses) {
-      emitter_detection_params.pulse_count = std::max(
-          1U, std::min(base_statistical_detection_params.pulse_count, available_pulse_count));
+      emitter_detection_params.pulse_count = std::max(1U, timing_state.effective_pulse_count);
     }
 
     const intercept::JammingAggregateResult jamming_result =

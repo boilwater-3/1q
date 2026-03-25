@@ -43,11 +43,48 @@ struct CycleTimingControlParams {
 };
 
 /**
+ * @brief CycleTimingBaseParams 描述周期级时序的原始基线输入。
+ */
+struct CycleTimingBaseParams {
+  int base_pulse_count{1};                                         /**< 基线脉冲数 */
+  float base_prf_hz{0.0f};                                         /**< 基线 PRF（单位：Hz） */
+  float cycle_dt_sec{0.0f};                                        /**< 周期步长（单位：s） */
+  double pri_s{0.0};                                               /**< 脉冲重复间隔（单位：s） */
+  IntegrationMode integration_mode{IntegrationMode::kNonCoherent}; /**< 积累模式 */
+};
+
+/**
+ * @brief CycleTimingControlAdjustments 描述作用在周期级时序上的控制调节量。
+ */
+struct CycleTimingControlAdjustments {
+  float dwell_scale{1.0f};     /**< 驻留缩放因子 */
+  bool enable_rejitter{false}; /**< 是否启用重频抖动 */
+  float prf_scale{1.0f};       /**< PRF 额外缩放因子，为后续模块扩展预留 */
+};
+
+/**
+ * @brief ResolvedCycleTimingState 描述供检测/截获链路消费的周期级体制状态。
+ */
+struct ResolvedCycleTimingState {
+  std::uint32_t available_pulse_count{1U}; /**< 当前周期可用脉冲数 */
+  std::uint32_t effective_pulse_count{1U}; /**< 当前周期有效脉冲数 */
+  float effective_prf_hz{0.0f};            /**< 当前周期有效 PRF（单位：Hz） */
+  IntegrationMode integration_mode{IntegrationMode::kNonCoherent}; /**< 当前积累模式 */
+};
+
+/**
  * @brief 对统计检测配置中的 Pfa 做数值归一化。
  * @param[in] pfa 输入虚警概率。
  * @return 归一化后的 Pfa。
  */
 float NormalizePfa(float pfa);
+
+/**
+ * @brief 根据周期窗口解析当前周期可用脉冲数。
+ * @param[in] params 周期级时序原始基线输入。
+ * @return 当前周期可用脉冲数。
+ */
+std::uint32_t ResolveAvailablePulseCount(const CycleTimingBaseParams& params);
 
 /**
  * @brief 根据驻留缩放映射当前周期脉冲数。
@@ -57,11 +94,38 @@ float NormalizePfa(float pfa);
 int ResolvePulseCountWithDwell(const CycleTimingControlParams& params);
 
 /**
+ * @brief 根据基线与控制调节量解析当前周期有效脉冲数。
+ * @param[in] base_params 周期级时序原始基线输入。
+ * @param[in] adjustments 周期级时序控制调节量。
+ * @return 当前周期有效脉冲数。
+ */
+std::uint32_t ResolveEffectivePulseCount(const CycleTimingBaseParams& base_params,
+                                         const CycleTimingControlAdjustments& adjustments);
+
+/**
  * @brief 根据重频抖动开关映射当前周期 PRF。
  * @param[in] params 周期级时序控制输入参数。
  * @return 映射后的 PRF（单位：Hz）。
  */
 float ResolvePrfWithRejitter(const CycleTimingControlParams& params);
+
+/**
+ * @brief 根据基线与控制调节量解析当前周期有效 PRF。
+ * @param[in] base_params 周期级时序原始基线输入。
+ * @param[in] adjustments 周期级时序控制调节量。
+ * @return 当前周期有效 PRF（单位：Hz）。
+ */
+float ResolveEffectivePrfHz(const CycleTimingBaseParams& base_params,
+                            const CycleTimingControlAdjustments& adjustments);
+
+/**
+ * @brief 解析统一的周期级体制状态。
+ * @param[in] base_params 周期级时序原始基线输入。
+ * @param[in] adjustments 周期级时序控制调节量。
+ * @return 供检测/截获链路消费的统一周期状态。
+ */
+ResolvedCycleTimingState ResolveCycleTimingState(const CycleTimingBaseParams& base_params,
+                                                 const CycleTimingControlAdjustments& adjustments);
 
 /**
  * @brief 计算统计检测对应的积累增益。
