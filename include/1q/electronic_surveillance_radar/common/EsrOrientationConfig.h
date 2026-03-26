@@ -1,42 +1,24 @@
 /**
  * @file EsrOrientationConfig.h
- * @brief 定义电子侦察雷达模块共享的姿态、位置与速度轻量类型。
+ * @brief 定义 ESR 对公共位姿原语的兼容类型别名。
  */
 
 #ifndef ELECTRONIC_SURVEILLANCE_RADAR_COMMON_ESR_ORIENTATION_CONFIG_H_
 #define ELECTRONIC_SURVEILLANCE_RADAR_COMMON_ESR_ORIENTATION_CONFIG_H_
 
-#include "1q/api.hpp"
+#include "1q/common/pose_types.h"
 
 namespace electronic_surveillance_radar {
 namespace common {
 
-/**
- * @brief EsrVector3f 描述三维向量。
- */
-struct ONEQ_API EsrVector3f {
-  float x{0.0f}; /**< x 分量 */
-  float y{0.0f}; /**< y 分量 */
-  float z{0.0f}; /**< z 分量 */
-};
+/** @brief ESR 兼容别名：三维向量。 */
+using EsrVector3f = oneq::common::Vector3f;
 
-/**
- * @brief EsrEulerAngleDeg 描述欧拉角姿态（单位：度）。
- */
-struct ONEQ_API EsrEulerAngleDeg {
-  float yaw_deg{0.0f};   /**< 偏航角（单位：deg） */
-  float pitch_deg{0.0f}; /**< 俯仰角（单位：deg） */
-  float roll_deg{0.0f};  /**< 横滚角（单位：deg） */
-};
+/** @brief ESR 兼容别名：欧拉角姿态（单位：deg）。 */
+using EsrEulerAngleDeg = oneq::common::EulerAnglesDeg;
 
-/**
- * @brief EsrPoseState 描述平台姿态与运动状态。
- */
-struct ONEQ_API EsrPoseState {
-  EsrVector3f position_m{};        /**< 平台位置（单位：m） */
-  EsrVector3f velocity_mps{};      /**< 平台速度（单位：m/s） */
-  EsrEulerAngleDeg attitude_deg{}; /**< 平台姿态角（单位：deg） */
-};
+/** @brief ESR 兼容别名：位置、速度与姿态组合状态。 */
+using EsrPoseState = oneq::common::PoseState;
 
 }  // namespace common
 }  // namespace electronic_surveillance_radar

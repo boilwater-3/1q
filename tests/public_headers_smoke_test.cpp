@@ -5,6 +5,8 @@
 
 #include <gtest/gtest.h>
 
+#include "1q/common/pose_types.h"
+#include "1q/common/scan_schedule_types.h"
 #include "1q/airborne_radar/common/AntennaPatternConfig.h"
 #include "1q/airborne_radar/common/AntennaPatternUtils.h"
 #include "1q/airborne_radar/common/ConfigPresets.h"
@@ -79,6 +81,9 @@ namespace electronic_surveillance_radar {
 namespace {
 
 TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
+  const oneq::common::ScanStartPosition shared_start = oneq::common::ScanStartPosition::kLeftTop;
+  EXPECT_EQ(static_cast<int>(shared_start), 0);
+
   core::session::EsrSessionConfig session_config;
   session_config.pipeline_config.scan.scan_start_az_deg = -60.0f;
   session_config.pipeline_config.scan.scan_end_az_deg = 60.0f;

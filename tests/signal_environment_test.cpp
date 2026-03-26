@@ -475,6 +475,14 @@ TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) 
   pipeline_config.detection.pulse_count = 64;
   pipeline_config.detection.radar_system.detection.cfar_pfa = 0.5f;
   pipeline_config.detection.radar_system.detection.min_snr_db = -50.0f;
+  pipeline_config.beam_control.radar_orientation.scan_center_deg.az_deg = 0.0f;
+  pipeline_config.beam_control.radar_orientation.scan_center_deg.el_deg = 0.0f;
+  pipeline_config.beam_control.radar_orientation.mechanical_scan_limits_deg.az_min_deg = 0.0f;
+  pipeline_config.beam_control.radar_orientation.mechanical_scan_limits_deg.az_max_deg = 0.0f;
+  pipeline_config.beam_control.radar_orientation.mechanical_scan_limits_deg.el_min_deg = 0.0f;
+  pipeline_config.beam_control.radar_orientation.mechanical_scan_limits_deg.el_max_deg = 0.0f;
+  pipeline_config.beam_control.radar_orientation.electronic_scan_limits_deg =
+      pipeline_config.beam_control.radar_orientation.mechanical_scan_limits_deg;
 
   environment::EnvironmentModelConfig env_config;
   env_config.jammer_power_db = 12.0f;
@@ -508,6 +516,14 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulatePhysicalEccmBenefit) {
   pipeline_config.detection.pulse_count = 64;
   pipeline_config.detection.radar_system.detection.cfar_pfa = 0.5f;
   pipeline_config.detection.radar_system.detection.min_snr_db = -50.0f;
+  pipeline_config.beam_control.radar_orientation.scan_center_deg.az_deg = 0.0f;
+  pipeline_config.beam_control.radar_orientation.scan_center_deg.el_deg = 0.0f;
+  pipeline_config.beam_control.radar_orientation.mechanical_scan_limits_deg.az_min_deg = 0.0f;
+  pipeline_config.beam_control.radar_orientation.mechanical_scan_limits_deg.az_max_deg = 0.0f;
+  pipeline_config.beam_control.radar_orientation.mechanical_scan_limits_deg.el_min_deg = 0.0f;
+  pipeline_config.beam_control.radar_orientation.mechanical_scan_limits_deg.el_max_deg = 0.0f;
+  pipeline_config.beam_control.radar_orientation.electronic_scan_limits_deg =
+      pipeline_config.beam_control.radar_orientation.mechanical_scan_limits_deg;
 
   environment::EnvironmentModelConfig favorable_env_config;
   favorable_env_config.jammer_power_db = 12.0f;

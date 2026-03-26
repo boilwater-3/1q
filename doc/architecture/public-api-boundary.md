@@ -18,6 +18,9 @@
 
 - 根头：
   - `include/1q/api.hpp`
+- 公共原语层：
+  - `include/1q/common/pose_types.h`
+  - `include/1q/common/scan_schedule_types.h`
 - 通用 DTO / helper：
   - `include/1q/airborne_radar/common/*`
 - 默认稳定接入路径：

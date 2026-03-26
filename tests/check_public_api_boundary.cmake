@@ -1,6 +1,8 @@
 set(PUBLIC_INCLUDE_DIR "${SOURCE_DIR}/include/1q")
 
 set(EXPECTED_PUBLIC_HEADERS
+    "common/pose_types.h"
+    "common/scan_schedule_types.h"
     "airborne_radar/common/AntennaPatternConfig.h"
     "airborne_radar/common/AntennaPatternUtils.h"
     "airborne_radar/common/ConfigPresets.h"

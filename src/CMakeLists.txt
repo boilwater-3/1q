@@ -291,6 +291,10 @@ if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_ROOT
         ${CMAKE_SOURCE_DIR}/include/1q/api.hpp
     )
+    set(PUBLIC_HEADERS_FOUNDATION
+        ${CMAKE_SOURCE_DIR}/include/1q/common/pose_types.h
+        ${CMAKE_SOURCE_DIR}/include/1q/common/scan_schedule_types.h
+    )
 
     # 安装库目标
     install(TARGETS ${PROJECT_CORE_TARGET}
@@ -304,6 +308,9 @@ if(ENABLE_INSTALL)
     # 安装公共头文件（显式白名单，避免内部头被自动导出）
     install(FILES ${PUBLIC_HEADERS_ROOT}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q
+    )
+    install(FILES ${PUBLIC_HEADERS_FOUNDATION}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/common
     )
     install(FILES "${PROJECT_GENERATED_EXPORT_HEADER}"
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q

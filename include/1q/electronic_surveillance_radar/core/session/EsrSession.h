@@ -9,6 +9,7 @@
 #include <memory>
 
 #include "1q/api.hpp"
+#include "1q/common/scan_schedule_types.h"
 #include "1q/electronic_surveillance_radar/common/EsrOutputFrame.h"
 #include "1q/electronic_surveillance_radar/core/context/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/core/session/EsrCycleResult.h"
@@ -28,23 +29,11 @@ enum class ONEQ_API EsrWorkMode {
   kRwr      /**< 告警接收机模式 */
 };
 
-/**
- * @brief EsrScanStartPosition 描述扫描起始象限。
- */
-enum class ONEQ_API EsrScanStartPosition {
-  kLeftTop = 0, /**< 左上起始 */
-  kRightTop,    /**< 右上起始 */
-  kRightBottom, /**< 右下起始 */
-  kLeftBottom   /**< 左下起始 */
-};
+/** @brief ESR 兼容别名：扫描起始象限。 */
+using EsrScanStartPosition = oneq::common::ScanStartPosition;
 
-/**
- * @brief EsrScanSequence 描述二维扫描推进顺序。
- */
-enum class ONEQ_API EsrScanSequence {
-  kAzimuthFirst = 0, /**< 先方位后俯仰 */
-  kElevationFirst    /**< 先俯仰后方位 */
-};
+/** @brief ESR 兼容别名：二维扫描推进顺序。 */
+using EsrScanSequence = oneq::common::ScanSequence;
 
 /**
  * @brief EsrHardwareConfig 描述 ESR 装备固有参数。

@@ -5,6 +5,8 @@ namespace common {
 
 signal::pipeline::SignalPipelineConfig MakeDetectionMissionSignalPipelineConfig() {
   signal::pipeline::SignalPipelineConfig config;
+  config.beam_control.radar_orientation.scan_start_position = oneq::common::ScanStartPosition::kLeftTop;
+  config.beam_control.radar_orientation.scan_sequence = oneq::common::ScanSequence::kAzimuthFirst;
   config.detection.min_detection_margin_db = -100.0f;
   config.lifecycle.enable_auto_lifecycle_manager = true;
   config.lifecycle.lifecycle_config.confirm_hits = 1U;
@@ -14,6 +16,8 @@ signal::pipeline::SignalPipelineConfig MakeDetectionMissionSignalPipelineConfig(
 
 signal::pipeline::SignalPipelineConfig MakeTrackingMissionSignalPipelineConfig() {
   signal::pipeline::SignalPipelineConfig config;
+  config.beam_control.radar_orientation.scan_start_position = oneq::common::ScanStartPosition::kLeftTop;
+  config.beam_control.radar_orientation.scan_sequence = oneq::common::ScanSequence::kAzimuthFirst;
   config.detection.min_detection_margin_db = -20.0f;
   config.lifecycle.enable_auto_lifecycle_manager = true;
   config.lifecycle.lifecycle_config.confirm_hits = 2U;
@@ -34,6 +38,10 @@ signal::pipeline::SignalPipelineConfig MakeHighRobustnessSignalPipelineConfig() 
 
 core::session::RadarSessionConfig MakeDefaultRadarSessionConfig() {
   core::session::RadarSessionConfig config;
+  config.signal_pipeline_config.beam_control.radar_orientation.scan_start_position =
+      oneq::common::ScanStartPosition::kLeftTop;
+  config.signal_pipeline_config.beam_control.radar_orientation.scan_sequence =
+      oneq::common::ScanSequence::kAzimuthFirst;
   return config;
 }
 

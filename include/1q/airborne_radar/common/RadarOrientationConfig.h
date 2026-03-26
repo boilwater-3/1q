@@ -6,6 +6,8 @@
 #ifndef AIRBORNE_RADAR_COMMON_RADAR_ORIENTATION_CONFIG_H_
 #define AIRBORNE_RADAR_COMMON_RADAR_ORIENTATION_CONFIG_H_
 
+#include "1q/common/scan_schedule_types.h"
+
 namespace airborne_radar {
 namespace common {
 
@@ -73,6 +75,10 @@ struct RadarOrientationConfig {
   AzimuthElevationDeg scan_center_deg;                  /**< 搜索窗口中心方向 */
   AzimuthElevationLimitsDeg mechanical_scan_limits_deg; /**< 机械扫描限位 */
   AzimuthElevationLimitsDeg electronic_scan_limits_deg; /**< 电子扫描限位 */
+  oneq::common::ScanStartPosition scan_start_position{
+      oneq::common::ScanStartPosition::kLeftTop}; /**< 扫描起始象限 */
+  oneq::common::ScanSequence scan_sequence{
+      oneq::common::ScanSequence::kAzimuthFirst}; /**< 二维扫描推进顺序 */
   AzimuthElevationDeg dwell_center_deg;                 /**< 当前波束驻留中心 */
   CommandedBeamwidthDeg commanded_beamwidth_deg;        /**< 当前指令态瞬时波束宽度 */
 

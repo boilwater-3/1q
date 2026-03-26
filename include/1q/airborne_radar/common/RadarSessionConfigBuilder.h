@@ -116,6 +116,22 @@ class ONEQ_API RadarSessionConfigBuilder {
   }
 
   // -------------------------------------------------------------------------
+  // 扫描调度参数
+  // -------------------------------------------------------------------------
+
+  /** @brief 设置扫描起始象限。 */
+  RadarSessionConfigBuilder& WithScanStartPosition(oneq::common::ScanStartPosition position) {
+    config_.signal_pipeline_config.beam_control.radar_orientation.scan_start_position = position;
+    return *this;
+  }
+
+  /** @brief 设置二维扫描推进顺序。 */
+  RadarSessionConfigBuilder& WithScanSequence(oneq::common::ScanSequence sequence) {
+    config_.signal_pipeline_config.beam_control.radar_orientation.scan_sequence = sequence;
+    return *this;
+  }
+
+  // -------------------------------------------------------------------------
   // 接收机参数
   // -------------------------------------------------------------------------
 

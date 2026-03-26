@@ -89,6 +89,17 @@ TEST(RadarSessionConfigBuilderTest, AntennaSettersApplyCorrectly) {
   EXPECT_FLOAT_EQ(ant.nominal_el_beamwidth_deg, 3.5f);
 }
 
+TEST(RadarSessionConfigBuilderTest, ScanScheduleSettersApplyCorrectly) {
+  const auto config = common::RadarSessionConfigBuilder()
+                          .WithScanStartPosition(oneq::common::ScanStartPosition::kRightBottom)
+                          .WithScanSequence(oneq::common::ScanSequence::kElevationFirst)
+                          .Build();
+
+  const auto& orientation = config.signal_pipeline_config.beam_control.radar_orientation;
+  EXPECT_EQ(orientation.scan_start_position, oneq::common::ScanStartPosition::kRightBottom);
+  EXPECT_EQ(orientation.scan_sequence, oneq::common::ScanSequence::kElevationFirst);
+}
+
 // ---------------------------------------------------------------------------
 // 接收机参数
 // ---------------------------------------------------------------------------

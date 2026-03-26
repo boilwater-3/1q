@@ -25,6 +25,7 @@ set(TEST_SOURCES
     radar_orientation_utils_test.cpp
     signal_environment_test.cpp
     signal_association_test.cpp
+    signal_scan_schedule_test.cpp
     signal_detection_test.cpp
     geometry_transform_test.cpp
     timing_regime_model_test.cpp

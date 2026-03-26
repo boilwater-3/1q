@@ -19,6 +19,7 @@
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
 #include "airborne_radar/signal/pipeline/SignalComponentFactory.h"
+#include "airborne_radar/signal/pipeline/ScanScheduleResolver.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleManager.h"
 #include "common/logging/ProjectLog.h"
@@ -1170,6 +1171,7 @@ struct SignalPipeline::Impl {
     cached_context.input_state = &input_state;
     cached_context.environment = &environment;
     cached_context.runtime_config = BuildRuntimeConfig();
+    internal::ApplyScanScheduleToRuntimeConfig(cycle_index_, &cached_context.runtime_config);
     cached_context.output_state = input_state;
     cached_context.decision_frame = common::DecisionInputFrame();
     cached_context.association_quality_metrics = AssociationQualityMetrics();
