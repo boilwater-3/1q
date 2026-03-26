@@ -1,21 +1,44 @@
 #include "airborne_radar/signal/association/Hypothesiser.h"
 
-#include <stdexcept>
+#include <cstdio>
+#include <cstdlib>
+
+#include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
 namespace signal {
 namespace association {
 
+namespace {
+
+[[noreturn]] void AbortContractViolation(const char* message) {
+  if (PROJECT_LOG_HAS_DEFAULT_LOGGER()) {
+    PROJECT_LOG_CRITICAL("[DenseCostHypothesiser] Contract violation: {}", message);
+    PROJECT_LOG_FLUSH_DEFAULT();
+  }
+  std::fprintf(stderr, "[DenseCostHypothesiser] Contract violation: %s\n", message);
+  std::fflush(stderr);
+  std::abort();
+}
+
+}  // namespace
+
 DenseCostHypothesiser::DenseCostHypothesiser(IDistanceMetric* distance_metric, const IGater* gater)
-    : distance_metric_(distance_metric), gater_(gater) {
+    : distance_metric_(distance_metric),
+      full_metric_(dynamic_cast<FullMahalanobisDistanceMetric*>(distance_metric)),
+      gater_(gater) {
   if (distance_metric_ == nullptr || gater_ == nullptr) {
-    throw std::invalid_argument("hypothesiser requires distance metric and gater");
+    AbortContractViolation("hypothesiser requires distance metric and gater");
   }
 }
 
 DenseCostHypothesiser::DenseCostHypothesiser(const IDistanceMetric* distance_metric,
                                              const IGater* gater)
-    : DenseCostHypothesiser(const_cast<IDistanceMetric*>(distance_metric), gater) {}
+    : distance_metric_(distance_metric), full_metric_(nullptr), gater_(gater) {
+  if (distance_metric_ == nullptr || gater_ == nullptr) {
+    AbortContractViolation("hypothesiser requires distance metric and gater");
+  }
+}
 
 std::vector<AssociationHypothesis> DenseCostHypothesiser::Generate(
     const FeatureVectorList& predicted_tracks, const FeatureVectorList& measurements) const {
@@ -42,13 +65,11 @@ std::vector<AssociationHypothesis> DenseCostHypothesiser::Generate(
     const FeatureVectorList& predicted_tracks, const FeatureVectorList& measurements,
     const std::vector<Eigen::Matrix3f>& innovation_covariances) const {
   if (innovation_covariances.size() != predicted_tracks.size()) {
-    throw std::invalid_argument("innovation_covariances size must match predicted_tracks size");
+    AbortContractViolation("innovation_covariances size must match predicted_tracks size");
   }
 
-  FullMahalanobisDistanceMetric* full_metric =
-      dynamic_cast<FullMahalanobisDistanceMetric*>(distance_metric_);
-  if (full_metric == nullptr) {
-    throw std::invalid_argument(
+  if (full_metric_ == nullptr) {
+    AbortContractViolation(
         "track-wise innovation covariance requires FullMahalanobisDistanceMetric");
   }
 
@@ -56,7 +77,7 @@ std::vector<AssociationHypothesis> DenseCostHypothesiser::Generate(
   hypotheses.reserve(predicted_tracks.size() * measurements.size());
 
   for (std::size_t track_index = 0; track_index < predicted_tracks.size(); ++track_index) {
-    full_metric->SetInnovationCovariance(innovation_covariances[track_index]);
+    full_metric_->SetInnovationCovariance(innovation_covariances[track_index]);
     for (std::size_t measurement_index = 0; measurement_index < measurements.size();
          ++measurement_index) {
       const float cost =
@@ -77,17 +98,15 @@ std::vector<AssociationHypothesis> DenseCostHypothesiser::Generate(
     const std::vector<Eigen::Matrix3f>& projected_measurement_covariances,
     const std::vector<Eigen::Matrix3f>& measurement_covariances) const {
   if (projected_measurement_covariances.size() != predicted_tracks.size()) {
-    throw std::invalid_argument(
+    AbortContractViolation(
         "projected_measurement_covariances size must match predicted_tracks size");
   }
   if (measurement_covariances.size() != measurements.size()) {
-    throw std::invalid_argument("measurement_covariances size must match measurements size");
+    AbortContractViolation("measurement_covariances size must match measurements size");
   }
 
-  FullMahalanobisDistanceMetric* full_metric =
-      dynamic_cast<FullMahalanobisDistanceMetric*>(distance_metric_);
-  if (full_metric == nullptr) {
-    throw std::invalid_argument(
+  if (full_metric_ == nullptr) {
+    AbortContractViolation(
         "dynamic measurement covariance requires FullMahalanobisDistanceMetric");
   }
 
@@ -97,8 +116,8 @@ std::vector<AssociationHypothesis> DenseCostHypothesiser::Generate(
   for (std::size_t track_index = 0; track_index < predicted_tracks.size(); ++track_index) {
     for (std::size_t measurement_index = 0; measurement_index < measurements.size();
          ++measurement_index) {
-      full_metric->SetInnovationCovariance(projected_measurement_covariances[track_index] +
-                                           measurement_covariances[measurement_index]);
+      full_metric_->SetInnovationCovariance(projected_measurement_covariances[track_index] +
+                                            measurement_covariances[measurement_index]);
       const float cost =
           distance_metric_->Compute(predicted_tracks[track_index], measurements[measurement_index]);
       if (!gater_->Accept(cost)) {

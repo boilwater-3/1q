@@ -98,10 +98,11 @@ class DenseCostHypothesiser final : public IHypothesiser {
       const std::vector<Eigen::Matrix3f>& measurement_covariances) const;
 
  private:
-  IDistanceMetric* distance_metric_{nullptr}; /**< 距离度量器。 */
-                                              /**
-                                               * @brief 波门裁剪器。
-                                               */
+  const IDistanceMetric* distance_metric_{nullptr};      /**< 距离度量器。 */
+  FullMahalanobisDistanceMetric* full_metric_{nullptr};  /**< 可变完整协方差度量器。 */
+  /**
+   * @brief 波门裁剪器。
+   */
   const IGater* gater_{nullptr};
 };
 

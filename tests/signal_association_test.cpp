@@ -431,6 +431,20 @@ TEST(CostThresholdGaterTest, RejectsHypothesesOutsideThreshold) {
   EXPECT_FALSE(gater.Accept(9.1f));
 }
 
+TEST(DenseCostHypothesiserTest, NullDependenciesFailFast) {
+  const signal::association::CostThresholdGater gater(9.0f);
+  const signal::association::MahalanobisDistanceMetric metric(40.0f, 8.0f, 10.0f);
+
+  EXPECT_DEATH_IF_SUPPORTED(
+      signal::association::DenseCostHypothesiser(
+          static_cast<signal::association::IDistanceMetric*>(nullptr), &gater),
+      "requires distance metric and gater");
+  EXPECT_DEATH_IF_SUPPORTED(
+      signal::association::DenseCostHypothesiser(
+          &metric, static_cast<const signal::association::IGater*>(nullptr)),
+      "requires distance metric and gater");
+}
+
 TEST(DenseCostHypothesiserTest, GeneratesOnlyGatedHypotheses) {
   const signal::association::MahalanobisDistanceMetric metric(40.0f, 8.0f, 10.0f);
   const signal::association::CostThresholdGater gater(9.0f);
@@ -467,6 +481,47 @@ TEST(DenseCostHypothesiserTest, UsesTrackWiseInnovationCovarianceForFullMahalano
       predicted_tracks, measurements, std::vector<Eigen::Matrix3f>(1, wide_covariance));
   ASSERT_EQ(accepted.size(), 1u);
   EXPECT_NEAR(accepted[0].cost, 1.0f, 1e-3f);
+}
+
+TEST(DenseCostHypothesiserTest, MismatchedTrackWiseInnovationCovarianceFailsFast) {
+  signal::association::FullMahalanobisDistanceMetric metric(Eigen::Matrix3f::Identity());
+  const signal::association::CostThresholdGater gater(1.5f);
+  const signal::association::DenseCostHypothesiser hypothesiser(&metric, &gater);
+
+  const signal::association::FeatureVectorList predicted_tracks{
+      Eigen::Vector3f(0.0f, 0.0f, 0.0f), Eigen::Vector3f(1.0f, 0.0f, 0.0f)};
+  const signal::association::FeatureVectorList measurements{Eigen::Vector3f(2.0f, 0.0f, 0.0f)};
+
+  EXPECT_DEATH_IF_SUPPORTED(
+      hypothesiser.Generate(predicted_tracks, measurements,
+                            std::vector<Eigen::Matrix3f>(1, Eigen::Matrix3f::Identity())),
+      "innovation_covariances size must match predicted_tracks size");
+}
+
+TEST(DenseCostHypothesiserTest, ConstMetricRejectsDynamicInnovationCovariance) {
+  const signal::association::FullMahalanobisDistanceMetric metric(Eigen::Matrix3f::Identity());
+  const signal::association::CostThresholdGater gater(1.5f);
+  const signal::association::DenseCostHypothesiser hypothesiser(&metric, &gater);
+
+  const signal::association::FeatureVectorList predicted_tracks{Eigen::Vector3f(0.0f, 0.0f, 0.0f)};
+  const signal::association::FeatureVectorList measurements{Eigen::Vector3f(2.0f, 0.0f, 0.0f)};
+
+  EXPECT_DEATH_IF_SUPPORTED(
+      hypothesiser.Generate(predicted_tracks, measurements,
+                            std::vector<Eigen::Matrix3f>(1, Eigen::Matrix3f::Identity())),
+      "requires FullMahalanobisDistanceMetric");
+}
+
+TEST(LapjvSolverTest, InvalidMatrixFailsFast) {
+  const signal::association::LapjvSolver solver;
+
+  Eigen::MatrixXf empty_matrix;
+  EXPECT_DEATH_IF_SUPPORTED(solver.Solve(empty_matrix), "requires a non-empty square cost matrix");
+
+  Eigen::MatrixXf non_square(1, 2);
+  non_square << 1.0f, 2.0f;
+  EXPECT_DEATH_IF_SUPPORTED(solver.Solve(non_square),
+                            "requires a non-empty square cost matrix");
 }
 
 }  // namespace tests

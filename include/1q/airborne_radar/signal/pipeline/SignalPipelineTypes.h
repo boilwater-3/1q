@@ -121,14 +121,67 @@ struct SignalLifecycleConfig {
 };
 
 /**
+ * @brief JammingEffectsConfig 描述干扰效应建模的可调参数。
+ *
+ * @details 这些系数控制干扰环境对探测惩罚、量测协方差和关联/跟踪噪声
+ * 的影响程度。默认值来自经验整定，可按业务场景微调。
+ * 内部物理 ECCM 抑制系数（如旁瓣对消残余因子）不在此暴露，
+ * 属于雷达对抗物理模型，不应在运行时修改。
+ */
+struct JammingEffectsConfig {
+  // ---------- D. 置信度截断 ----------
+  float confidence_weight_min{0.25f}; /**< 干扰源置信度归一化下界，低于此值按此值计算权重 */
+
+  // ---------- B. 经验 SNR 惩罚权重 ----------
+  float heuristic_base_penalty_db{0.8f};          /**< 单源基础惩罚量（dB） */
+  float heuristic_power_penalty_slope{0.18f};     /**< 功率贡献斜率（dB/dB，功率范围 [0,20] dB） */
+  float heuristic_noise_sidelobe_penalty{0.9f};   /**< 噪声压制旁瓣命中时的额外惩罚（dB） */
+  float heuristic_noise_frontlobe_ratio{0.4f};    /**< 噪声压制主瓣时旁瓣惩罚的折减比（无量纲） */
+  float heuristic_noise_js_slope{0.4f};           /**< 噪声压制 J/S 比贡献斜率（dB，范围 [0,12]） */
+  float heuristic_deception_freq_penalty{1.8f};   /**< 欺骗干扰频率重叠比惩罚权重（dB） */
+  float heuristic_deception_prf_penalty{1.2f};    /**< 欺骗干扰 PRF 锁定风险惩罚权重（dB） */
+  float heuristic_repeater_prf_penalty{1.0f};     /**< 转发干扰 PRF 锁定风险惩罚权重（dB） */
+  float heuristic_repeater_freq_penalty{0.8f};    /**< 转发干扰频率重叠比惩罚权重（dB） */
+  float heuristic_unknown_freq_penalty{1.1f};     /**< 未知干扰频率重叠比惩罚权重（dB） */
+  float heuristic_unknown_prf_penalty{0.9f};      /**< 未知干扰 PRF 锁定风险惩罚权重（dB） */
+  float heuristic_unknown_sidelobe_penalty{0.6f}; /**< 未知干扰旁瓣命中时额外惩罚（dB） */
+  float heuristic_unknown_frontlobe_penalty{0.2f};/**< 未知干扰主瓣时额外惩罚（dB） */
+
+  // ---------- C. 关联/跟踪噪声缩放上限 ----------
+  float association_scale_max{2.5f};       /**< 关联未分配代价动态放大上限 */
+  float tracking_noise_scale_max{2.0f};    /**< 跟踪过程噪声动态放大上限 */
+  float measurement_noise_scale_max{1.8f}; /**< 量测噪声标准差动态放大上限 */
+
+  // ---------- C. 各干扰类型对关联/跟踪的缩放步长 ----------
+  float deception_association_step{0.18f};    /**< 欺骗干扰对关联代价的放大步长 */
+  float deception_tracking_step{0.12f};       /**< 欺骗干扰对跟踪过程噪声的放大步长 */
+  float deception_measurement_step{0.10f};    /**< 欺骗干扰对量测噪声的放大步长 */
+  float repeater_association_step{0.12f};     /**< 转发干扰对关联代价的放大步长 */
+  float repeater_tracking_step{0.15f};        /**< 转发干扰对跟踪过程噪声的放大步长 */
+  float repeater_measurement_step{0.08f};     /**< 转发干扰对量测噪声的放大步长 */
+  float noise_measurement_step{0.06f};        /**< 噪声压制干扰对量测噪声的放大步长 */
+  float unknown_association_step{0.08f};      /**< 未知干扰对关联代价的放大步长 */
+  float unknown_tracking_step{0.08f};         /**< 未知干扰对跟踪过程噪声的放大步长 */
+  float unknown_measurement_step{0.05f};      /**< 未知干扰对量测噪声的放大步长 */
+
+  // ---------- C. 量测协方差膨胀步长上限 ----------
+  float covariance_inflation_max{2.5f};             /**< 量测协方差总膨胀因子上限 */
+  float covariance_deception_inflation_step{0.20f}; /**< 欺骗干扰协方差膨胀步长 */
+  float covariance_repeater_inflation_step{0.16f};  /**< 转发干扰协方差膨胀步长 */
+  float covariance_noise_inflation_step{0.08f};     /**< 噪声压制干扰协方差膨胀步长 */
+  float covariance_unknown_inflation_step{0.10f};   /**< 未知干扰协方差膨胀步长 */
+};
+
+/**
  * @brief SignalPipelineConfig 描述信号处理流水线顶层配置。
  */
 struct SignalPipelineConfig {
-  SignalDetectionConfig detection{};      /**< 探测配置 */
-  SignalBeamControlConfig beam_control{}; /**< 波束控制配置 */
-  SignalAssociationConfig association{};  /**< 关联配置 */
-  SignalTrackingConfig tracking{};        /**< 跟踪配置 */
-  SignalLifecycleConfig lifecycle{};      /**< 生命周期配置 */
+  SignalDetectionConfig detection{};          /**< 探测配置 */
+  SignalBeamControlConfig beam_control{};     /**< 波束控制配置 */
+  SignalAssociationConfig association{};      /**< 关联配置 */
+  SignalTrackingConfig tracking{};            /**< 跟踪配置 */
+  SignalLifecycleConfig lifecycle{};          /**< 生命周期配置 */
+  JammingEffectsConfig jamming_effects{};     /**< 干扰效应建模参数 */
 };
 
 /**

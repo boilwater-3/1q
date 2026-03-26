@@ -1,0 +1,31 @@
+/**
+ * @file ControlProfileEffects.h
+ * @brief 定义控制真值到 SignalPipeline 运行时配置的内部映射辅助函数。
+ */
+
+#ifndef AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_CONTROL_PROFILE_EFFECTS_H_
+#define AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_CONTROL_PROFILE_EFFECTS_H_
+
+#include "1q/airborne_radar/environment/EnvironmentTypes.h"
+#include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
+
+namespace airborne_radar {
+namespace signal {
+namespace pipeline {
+namespace internal {
+
+float ComputeHeuristicSignalAdjustmentDb(const common::RadarControlProfile& control_profile);
+
+float ComputeHeuristicEnvironmentReliefDb(
+    const JammingEffectsConfig& cfg, const common::RadarControlProfile& control_profile,
+    const environment::EnvironmentSnapshot& environment_snapshot);
+
+void ApplyControlProfileToConfig(const common::RadarControlProfile& control_profile,
+                                 SignalPipelineConfig* runtime_config);
+
+}  // namespace internal
+}  // namespace pipeline
+}  // namespace signal
+}  // namespace airborne_radar
+
+#endif  // AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_CONTROL_PROFILE_EFFECTS_H_

@@ -1,17 +1,34 @@
 #include "airborne_radar/signal/association/LapjvSolver.h"
 
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
 #include <limits>
-#include <stdexcept>
+
+#include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
 namespace signal {
 namespace association {
 
+namespace {
+
+[[noreturn]] void AbortContractViolation(const char* message) {
+  if (PROJECT_LOG_HAS_DEFAULT_LOGGER()) {
+    PROJECT_LOG_CRITICAL("[LapjvSolver] Contract violation: {}", message);
+    PROJECT_LOG_FLUSH_DEFAULT();
+  }
+  std::fprintf(stderr, "[LapjvSolver] Contract violation: %s\n", message);
+  std::fflush(stderr);
+  std::abort();
+}
+
+}  // namespace
+
 std::vector<int> LapjvSolver::Solve(const Eigen::Ref<const Eigen::MatrixXf>& cost_matrix) const {
   const Eigen::Index n = cost_matrix.rows();
   if (n <= 0 || cost_matrix.cols() != n) {
-    throw std::invalid_argument("LAPJV requires a non-empty square cost matrix");
+    AbortContractViolation("LAPJV requires a non-empty square cost matrix");
   }
 
   std::vector<float> u(static_cast<std::size_t>(n) + 1U, 0.0f);

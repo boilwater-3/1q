@@ -29,7 +29,17 @@ set(PROJECT_SOURCES
     airborne_radar/signal/association/LapjvSolver.cpp
     airborne_radar/signal/detection/RadarEquations.cpp
     airborne_radar/signal/detection/SignalDetector.cpp
+    airborne_radar/signal/pipeline/AssociationExecutionSupport.cpp
+    airborne_radar/signal/pipeline/ContextBindingSupport.cpp
+    airborne_radar/signal/pipeline/ControlProfileEffects.cpp
+    airborne_radar/signal/pipeline/CycleContextSupport.cpp
+    airborne_radar/signal/pipeline/DetectionExecution.cpp
+    airborne_radar/signal/pipeline/DecisionFrameBuilders.cpp
+    airborne_radar/signal/pipeline/JammingEffects.cpp
+    airborne_radar/signal/pipeline/OutputAssemblySupport.cpp
+    airborne_radar/signal/pipeline/RuntimeAssemblySupport.cpp
     airborne_radar/signal/pipeline/SignalPipeline.cpp
+    airborne_radar/signal/pipeline/TrackMeasurementProcessing.cpp
     airborne_radar/signal/tracking/BoostTrackPool.cpp
     airborne_radar/signal/tracking/SynchronizedTrackPool.cpp
     airborne_radar/signal/tracking/KalmanPredictor.cpp
@@ -66,7 +76,6 @@ generate_export_header(${PROJECT_CORE_TARGET}
 )
 
 # 添加源文件到目标
-target_sources(${PROJECT_CORE_TARGET} PRIVATE ${PROJECT_SOURCES})
 # 设置包含目录
 target_include_directories(${PROJECT_CORE_TARGET}
     PRIVATE
@@ -187,8 +196,6 @@ if(ENABLE_PCH)
         <utility>
         <functional>
         <tuple>
-        <optional>
-        <variant>
         
         # IO
         <iostream>
@@ -203,6 +210,12 @@ if(ENABLE_PCH)
         <exception>
         <stdexcept>
     )
+    if(CMAKE_CXX_STANDARD GREATER_EQUAL 17)
+        target_precompile_headers(${PROJECT_CORE_TARGET} PRIVATE
+            <optional>
+            <variant>
+        )
+    endif()
 endif()
 
 
