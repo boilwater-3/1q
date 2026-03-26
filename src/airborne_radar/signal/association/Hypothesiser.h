@@ -55,14 +55,14 @@ class IHypothesiser {
 class DenseCostHypothesiser final : public IHypothesiser {
  public:
   /**
-   * @brief 构造候选假设生成器。
-   * @param distance_metric 距离度量器。
+   * @brief 构造候选假设生成器（协方差注入路径）。
+   * @param distance_metric 支持协方差注入的距离度量器，用于带新息协方差的 Generate() 重载。
    * @param gater 波门裁剪器。
    */
-  DenseCostHypothesiser(IDistanceMetric* distance_metric, const IGater* gater);
+  DenseCostHypothesiser(ICovarianceAwareDistanceMetric* distance_metric, const IGater* gater);
   /**
-   * @brief 构造候选假设生成器（兼容只读距离度量器）。
-   * @param distance_metric 距离度量器。
+   * @brief 构造候选假设生成器（只读基础路径）。
+   * @param distance_metric 距离度量器，仅支持基础 Generate() 重载。
    * @param gater 波门裁剪器。
    */
   DenseCostHypothesiser(const IDistanceMetric* distance_metric, const IGater* gater);
@@ -98,12 +98,9 @@ class DenseCostHypothesiser final : public IHypothesiser {
       const std::vector<Eigen::Matrix3f>& measurement_covariances) const;
 
  private:
-  const IDistanceMetric* distance_metric_{nullptr};      /**< 距离度量器。 */
-  FullMahalanobisDistanceMetric* full_metric_{nullptr};  /**< 可变完整协方差度量器。 */
-  /**
-   * @brief 波门裁剪器。
-   */
-  const IGater* gater_{nullptr};
+  const IDistanceMetric* distance_metric_{nullptr};             /**< 距离度量器（基础路径）。 */
+  ICovarianceAwareDistanceMetric* covariance_metric_{nullptr};  /**< 协方差注入度量器（可空）。 */
+  const IGater* gater_{nullptr};                                /**< 波门裁剪器。 */
 };
 
 }  // namespace association

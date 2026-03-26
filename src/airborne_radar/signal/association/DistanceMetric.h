@@ -52,12 +52,27 @@ class MahalanobisDistanceMetric final : public IDistanceMetric {
   Eigen::Array3f inverse_variances_{Eigen::Array3f::Ones()}; /**< 各维度逆方差系数。 */
 };
 /**
+ * @brief 支持协方差注入的距离度量扩展接口。
+ * @details 继承自 IDistanceMetric，增加 SetInnovationCovariance 能力。
+ *          DenseCostHypothesiser 通过该接口注入逐轨迹新息协方差，
+ *          无需了解底层实现类型，消除 dynamic_cast。
+ */
+class ICovarianceAwareDistanceMetric : public IDistanceMetric {
+ public:
+  virtual ~ICovarianceAwareDistanceMetric() = default;
+  /**
+   * @brief 更新本次轨迹计算使用的新息协方差矩阵。
+   * @param S 3×3 新息协方差矩阵。
+   */
+  virtual void SetInnovationCovariance(const Eigen::Matrix3f& S) = 0;
+};
+/**
  * @brief 完整协方差矩阵马氏距离度量实现。
  * @details d² = (Δz)ᵀ S⁻¹ (Δz)，其中 S 为新息协方差矩阵。
  *          使用 LLT 分解求解，比直接求逆更稳定。
  *          对照 Stone Soup measures.Mahalanobis 的 mapping_matrix + covar 实现。
  */
-class FullMahalanobisDistanceMetric final : public IDistanceMetric {
+class FullMahalanobisDistanceMetric final : public ICovarianceAwareDistanceMetric {
  public:
   /**
    * @brief 构造完整协方差马氏距离度量器。
@@ -75,7 +90,7 @@ class FullMahalanobisDistanceMetric final : public IDistanceMetric {
    * @brief 更新新息协方差矩阵。
    * @param S 新的新息协方差。
    */
-  void SetInnovationCovariance(const Eigen::Matrix3f& S);
+  void SetInnovationCovariance(const Eigen::Matrix3f& S) override;
   /**
    * @brief 计算完整马氏距离。
    * @param predicted 预测特征。
