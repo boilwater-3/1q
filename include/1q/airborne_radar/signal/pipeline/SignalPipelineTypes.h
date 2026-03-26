@@ -173,15 +173,72 @@ struct JammingEffectsConfig {
 };
 
 /**
+ * @brief ControlProfileEffectsConfig 描述控制轮廓对跟踪/关联/天线的影响系数。
+ *
+ * @details 这些系数控制各 ECCM/LPI 动作对 runtime_config 的影响程度，
+ * 默认值来自经验整定，可按平台或业务场景微调。
+ * 数值稳定保护边界（如 IMM 系数下界、衰减比上界）不在此暴露。
+ * 设计与 JammingEffectsConfig 对称，嵌入 SignalPipelineConfig。
+ */
+struct ControlProfileEffectsConfig {
+  // ---------- LPI 功率控制对跟踪/关联的影响系数 ----------
+  float lpi_power_kalman_noise_scale{1.15f}; /**< LPI 功率控制启用时量测噪声放大系数 */
+  float lpi_power_assign_cost_scale{0.90f};  /**< LPI 功率控制启用时未指派代价缩放 */
+
+  // ---------- 频率捷变对关联/跟踪的影响系数 ----------
+  float agility_freq_assign_cost_scale{1.25f}; /**< 频率捷变启用时未指派代价放大系数 */
+  float agility_freq_kalman_diff_scale{1.10f}; /**< 频率捷变启用时 Kalman 过程噪声放大系数 */
+
+  // ---------- ECCM 抖动对关联/跟踪的影响系数 ----------
+  float rejitter_assign_cost_scale{1.35f}; /**< ECCM 抖动启用时未指派代价放大系数 */
+  float rejitter_kalman_diff_scale{1.10f}; /**< ECCM 抖动启用时 Kalman 过程噪声放大系数 */
+
+  // ---------- 穿透增益对接收机/跟踪/关联的影响系数 ----------
+  float burnthrough_assign_cost_max{2.0f};    /**< 穿透增益对未指派代价放大的上界 */
+  float burnthrough_kalman_noise_scale{0.90f}; /**< 穿透增益启用时量测噪声缩小系数 */
+
+  // ---------- 旁瓣对消对天线和关联的影响系数 ----------
+  float sidelobe_level_reduction_db{6.0f};  /**< 旁瓣对消启用时天线旁瓣电平降低量（dB）*/
+  float sidelobe_assign_cost_scale{1.10f};  /**< 旁瓣对消启用时未指派代价放大系数 */
+
+  // ---------- 自适应波束对天线增益/跟踪的影响系数 ----------
+  float adaptive_beam_gain_boost_db{2.0f};       /**< 自适应波束成形主波束增益提升量（dB）*/
+  float adaptive_beam_assign_cost_scale{1.10f};  /**< 自适应波束成形启用时未指派代价放大系数 */
+  float adaptive_beam_kalman_noise_scale{0.80f}; /**< 自适应波束成形启用时量测噪声缩小系数 */
+  float adaptive_beamwidth_scale{0.60f};         /**< 自适应波束成形启用时波束宽度缩放系数 */
+
+  // ---------- LPI 波束成形对天线和跟踪的影响系数 ----------
+  float lpi_beam_kalman_noise_scale{0.90f}; /**< LPI 波束成形启用时量测噪声缩小系数 */
+  float lpi_beamwidth_scale{0.75f};         /**< LPI 波束成形启用时波束宽度缩放系数 */
+  float lpi_beam_signal_gain_db{1.0f};      /**< LPI 波束成形启用时启发式信号调整量（dB）*/
+
+  // ---------- 自适应波束对启发式信号的增益 ----------
+  float adaptive_beam_signal_gain_db{1.5f}; /**< 自适应波束成形启用时启发式信号调整量（dB）*/
+
+  // ---------- ECCM 激活对生命周期衰减系数的修正量 ----------
+  float eccm_speed_decay_bonus{0.05f}; /**< ECCM 激活时速度衰减系数增量 */
+  float eccm_rcs_decay_bonus{0.08f};   /**< ECCM 激活时 RCS 衰减系数增量 */
+
+  // ---------- IMM 初始权重补偿系数 ----------
+  float imm_weight_bonus_normal{0.10f};      /**< 普通 ECCM 激活时末态模型权重补偿量 */
+  float imm_weight_bonus_burnthrough{0.18f}; /**< 穿透增益激活时末态模型权重补偿量 */
+
+  // ---------- IMM 各模式对噪声协方差的缩放系数 ----------
+  float imm_agility_noise_scale{1.15f};  /**< 频率捷变启用时 IMM 噪声协方差放大系数 */
+  float imm_rejitter_noise_scale{1.20f}; /**< ECCM 抖动启用时 IMM 噪声协方差放大系数 */
+};
+
+/**
  * @brief SignalPipelineConfig 描述信号处理流水线顶层配置。
  */
 struct SignalPipelineConfig {
-  SignalDetectionConfig detection{};          /**< 探测配置 */
-  SignalBeamControlConfig beam_control{};     /**< 波束控制配置 */
-  SignalAssociationConfig association{};      /**< 关联配置 */
-  SignalTrackingConfig tracking{};            /**< 跟踪配置 */
-  SignalLifecycleConfig lifecycle{};          /**< 生命周期配置 */
-  JammingEffectsConfig jamming_effects{};     /**< 干扰效应建模参数 */
+  SignalDetectionConfig detection{};                          /**< 探测配置 */
+  SignalBeamControlConfig beam_control{};                     /**< 波束控制配置 */
+  SignalAssociationConfig association{};                      /**< 关联配置 */
+  SignalTrackingConfig tracking{};                            /**< 跟踪配置 */
+  SignalLifecycleConfig lifecycle{};                          /**< 生命周期配置 */
+  JammingEffectsConfig jamming_effects{};                     /**< 干扰效应建模参数 */
+  ControlProfileEffectsConfig control_profile_effects{};     /**< 控制轮廓效应建模参数 */
 };
 
 /**

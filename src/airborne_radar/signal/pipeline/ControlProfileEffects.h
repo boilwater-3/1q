@@ -14,7 +14,8 @@ namespace signal {
 namespace pipeline {
 namespace internal {
 
-float ComputeHeuristicSignalAdjustmentDb(const common::RadarControlProfile& control_profile);
+float ComputeHeuristicSignalAdjustmentDb(const ControlProfileEffectsConfig& cfg,
+                                         const common::RadarControlProfile& control_profile);
 
 float ComputeHeuristicEnvironmentReliefDb(
     const JammingEffectsConfig& cfg, const common::RadarControlProfile& control_profile,

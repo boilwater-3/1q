@@ -72,7 +72,8 @@ void RunHeuristicDetectionPass(const common::TargetFeatureList& input,
   }
 
   const std::size_t count = input.size();
-  const float signal_adjustment_db = ComputeHeuristicSignalAdjustmentDb(control_profile);
+  const float signal_adjustment_db = ComputeHeuristicSignalAdjustmentDb(
+      runtime_config.control_profile_effects, control_profile);
   for (std::size_t i = 0; i < count; ++i) {
     (*buffers->target_geometry)[i] = detection::TargetGeometryResolver::Resolve(input[i]);
     (*buffers->signal_term_db)[i] = input[i].current_track_rcs * 6.0f + signal_adjustment_db;
