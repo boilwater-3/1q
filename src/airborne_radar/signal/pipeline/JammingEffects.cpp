@@ -3,12 +3,17 @@
 #include <algorithm>
 #include <cmath>
 
+#include "1q/airborne_radar/common/MathUtils.h"
+
 namespace airborne_radar {
 namespace signal {
 namespace pipeline {
 namespace internal {
 
 namespace {
+
+using common::ClampFloat;
+using common::DbToLinearPower;
 
 // ---------- A. ECCM 物理抑制系数（不开放配置，属于雷达对抗物理模型） ----------
 constexpr float kSidelobeCancellerResidual      = 0.55f; /**< 旁瓣对消主链残余因子 */
@@ -47,11 +52,6 @@ constexpr float kFallbackPenaltyFreqWeight = 2.0f;
 constexpr float kFallbackPenaltyPrfWeight  = 1.5f;
 constexpr float kFallbackPenaltySidelobeBonus = 1.0f;
 
-float ClampFloat(float value, float min_value, float max_value) {
-  return std::max(min_value, std::min(max_value, value));
-}
-
-float DbToLinearPower(float power_db) { return std::pow(10.0f, power_db / 10.0f); }
 
 float ResolveJammerConfidenceWeight(const JammingEffectsConfig& cfg,
                                     const environment::JammerSourceFact& jammer_source) {

@@ -10,6 +10,14 @@ namespace decision {
 namespace pipeline {
 
 namespace {
+
+// ---------- ECCM 反向触发阈值 ----------
+constexpr float kAssociationDrivenEccmMinJammingSeverity   = 0.35f; /**< 触发 ECCM 的最低干扰强度 */
+constexpr float kAssociationDrivenEccmMinAssociationStress = 0.18f; /**< 触发 ECCM 的最低关联压力 */
+
+// ---------- 探测压力判定阈值 ----------
+constexpr float kMeaningfulDetectionPressureThreshold = 0.35f; /**< 可观测探测压力最低值 */
+
 /**
  * @brief 判断关联压力语义是否指向 ECCM 驱动型干扰。
  * @param semantic 当前周期主导干扰语义。
@@ -28,8 +36,8 @@ bool IsAssociationDrivenJammingSemantic(common::JammingSemantic semantic) {
 bool HasAssociationDrivenEccmEvidence(
     const common::AssociationQualityInfo& association_quality_info) {
   if (!IsAssociationDrivenJammingSemantic(association_quality_info.dominant_jamming_semantic) ||
-      association_quality_info.jamming_severity < 0.35f ||
-      association_quality_info.association_stress < 0.18f) {
+      association_quality_info.jamming_severity < kAssociationDrivenEccmMinJammingSeverity ||
+      association_quality_info.association_stress < kAssociationDrivenEccmMinAssociationStress) {
     return false;
   }
   return true;
@@ -41,7 +49,7 @@ bool HasAssociationDrivenEccmEvidence(
  */
 bool HasMeaningfulDetectionPressure(const common::PerceptionQualityInfo& perception_quality_info) {
   return perception_quality_info.input_target_count > 0U &&
-         perception_quality_info.detection_stress >= 0.35f;
+         perception_quality_info.detection_stress >= kMeaningfulDetectionPressureThreshold;
 }
 /**
  * @brief 构造单周期决策摘要字符串。

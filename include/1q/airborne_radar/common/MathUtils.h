@@ -6,6 +6,7 @@
 #ifndef AIRBORNE_RADAR_COMMON_MATH_UTILS_H_
 #define AIRBORNE_RADAR_COMMON_MATH_UTILS_H_
 
+#include <cmath>
 namespace airborne_radar {
 namespace common {
 
@@ -24,6 +25,15 @@ inline float ClampFloat(float value, float min_value, float max_value) {
     return max_value;
   }
   return value;
+}
+
+/**
+ * @brief 将 dB 功率值转换为线性功率比 (10^(x/10))。
+ * @param power_db 功率值（单位：dB）。
+ * @return 线性功率比。
+ */
+inline float DbToLinearPower(float power_db) {
+  return std::pow(10.0f, power_db / 10.0f);
 }
 
 }  // namespace common

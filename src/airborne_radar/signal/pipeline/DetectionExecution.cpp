@@ -9,6 +9,7 @@
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/pipeline/ControlProfileEffects.h"
 #include "airborne_radar/signal/pipeline/JammingEffects.h"
+#include "1q/airborne_radar/common/MathUtils.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -17,11 +18,8 @@ namespace internal {
 
 namespace {
 
-float ClampFloat(float value, float min_value, float max_value) {
-  return std::max(min_value, std::min(max_value, value));
-}
-
-float DbToLinearPower(float power_db) { return std::pow(10.0f, power_db / 10.0f); }
+using common::ClampFloat;
+using common::DbToLinearPower;
 
 tracking::MeasurementCovariance BuildMeasurementCovariance(
     const detection::ResolvedTargetGeometry& geometry, float range_error_std, float angle_error_std,
