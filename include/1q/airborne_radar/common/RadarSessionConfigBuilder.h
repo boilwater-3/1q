@@ -131,6 +131,12 @@ class ONEQ_API RadarSessionConfigBuilder {
     return *this;
   }
 
+  /** @brief 设置雷达工作子模式。 */
+  RadarSessionConfigBuilder& WithRadarWorkSubMode(RadarWorkSubMode work_sub_mode) {
+    config_.signal_pipeline_config.beam_control.radar_orientation.work_sub_mode = work_sub_mode;
+    return *this;
+  }
+
   // -------------------------------------------------------------------------
   // 接收机参数
   // -------------------------------------------------------------------------

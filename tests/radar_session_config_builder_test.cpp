@@ -32,6 +32,8 @@ TEST(RadarSessionConfigBuilderTest, DefaultConstructionPreservesStructDefaults) 
                   35.0f);
   EXPECT_FLOAT_EQ(config.signal_pipeline_config.detection.radar_system.receiver.noise_figure_db,
                   4.0f);
+  EXPECT_EQ(config.signal_pipeline_config.beam_control.radar_orientation.work_sub_mode,
+            common::RadarWorkSubMode::kTws);
 }
 
 // ---------------------------------------------------------------------------
@@ -93,11 +95,13 @@ TEST(RadarSessionConfigBuilderTest, ScanScheduleSettersApplyCorrectly) {
   const auto config = common::RadarSessionConfigBuilder()
                           .WithScanStartPosition(oneq::common::ScanStartPosition::kRightBottom)
                           .WithScanSequence(oneq::common::ScanSequence::kElevationFirst)
+                          .WithRadarWorkSubMode(common::RadarWorkSubMode::kTas)
                           .Build();
 
   const auto& orientation = config.signal_pipeline_config.beam_control.radar_orientation;
   EXPECT_EQ(orientation.scan_start_position, oneq::common::ScanStartPosition::kRightBottom);
   EXPECT_EQ(orientation.scan_sequence, oneq::common::ScanSequence::kElevationFirst);
+  EXPECT_EQ(orientation.work_sub_mode, common::RadarWorkSubMode::kTas);
 }
 
 // ---------------------------------------------------------------------------

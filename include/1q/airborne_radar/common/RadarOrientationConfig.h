@@ -65,6 +65,16 @@ enum class StabilizationMode {
 };
 
 /**
+ * @brief RadarWorkSubMode 表示机载雷达工作子模式。
+ */
+enum class RadarWorkSubMode {
+  kStby = 0, /**< 待机：波束停泊并停止扫描 */
+  kTas = 1,  /**< 目标捕获扫描：较密集重访扫描 */
+  kTws = 2,  /**< 边扫边跟踪：常规二维扫描 */
+  kStt = 3   /**< 单目标跟踪：固定驻留点 */
+};
+
+/**
  * @brief RadarOrientationConfig 表示机载雷达方向与扫描相关配置。
  * 建议组合关系如下:
  * actual_beam_pointing =
@@ -79,6 +89,7 @@ struct RadarOrientationConfig {
       oneq::common::ScanStartPosition::kLeftTop}; /**< 扫描起始象限 */
   oneq::common::ScanSequence scan_sequence{
       oneq::common::ScanSequence::kAzimuthFirst}; /**< 二维扫描推进顺序 */
+  RadarWorkSubMode work_sub_mode{RadarWorkSubMode::kTws}; /**< 当前工作子模式 */
   AzimuthElevationDeg dwell_center_deg;                 /**< 当前波束驻留中心 */
   CommandedBeamwidthDeg commanded_beamwidth_deg;        /**< 当前指令态瞬时波束宽度 */
 

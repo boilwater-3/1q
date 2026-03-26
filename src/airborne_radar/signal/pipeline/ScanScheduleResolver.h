@@ -22,6 +22,41 @@ namespace pipeline {
 namespace internal {
 
 /**
+ * @brief 归一化扫描中心，确保输出有限值。
+ * @param orientation_config 雷达方向配置。
+ * @return 有限值扫描中心。
+ */
+inline common::AzimuthElevationDeg ResolveFiniteScanCenter(
+    const common::RadarOrientationConfig& orientation_config) {
+  common::AzimuthElevationDeg center = orientation_config.scan_center_deg;
+  if (std::isfinite(center.az_deg) == 0) {
+    center.az_deg = 0.0f;
+  }
+  if (std::isfinite(center.el_deg) == 0) {
+    center.el_deg = 0.0f;
+  }
+  return center;
+}
+
+/**
+ * @brief 解析工作子模式对应的扫描步进倍率。
+ * @param mode 工作子模式。
+ * @return 扫描步进倍率。
+ */
+inline float ResolveScanStepScale(common::RadarWorkSubMode mode) {
+  switch (mode) {
+    case common::RadarWorkSubMode::kTas:
+      return 0.5f;
+    case common::RadarWorkSubMode::kTws:
+      return 1.0f;
+    case common::RadarWorkSubMode::kStby:
+    case common::RadarWorkSubMode::kStt:
+    default:
+      return 1.0f;
+  }
+}
+
+/**
  * @brief 依据扫描限位与调度配置生成二维扫描序列。
  * @param limits 扫描限位。
  * @param az_step_deg 方位步进（单位：deg）。
@@ -132,15 +167,23 @@ inline common::AzimuthElevationDeg ResolveScheduledBeamPointing(
                             effective_limits.az_min_deg <= effective_limits.az_max_deg &&
                             effective_limits.el_min_deg <= effective_limits.el_max_deg;
 
-  common::AzimuthElevationDeg fallback_center = orientation_config.scan_center_deg;
-  if (std::isfinite(fallback_center.az_deg) == 0) {
-    fallback_center.az_deg = 0.0f;
-  }
-  if (std::isfinite(fallback_center.el_deg) == 0) {
-    fallback_center.el_deg = 0.0f;
-  }
+  const common::AzimuthElevationDeg normalized_scan_center =
+      ResolveFiniteScanCenter(orientation_config);
+  common::AzimuthElevationDeg fallback_center = normalized_scan_center;
   if (limits_valid) {
     fallback_center = common::ClampAzimuthElevation(fallback_center, effective_limits);
+  }
+
+  if (orientation_config.work_sub_mode == common::RadarWorkSubMode::kStby) {
+    common::AzimuthElevationDeg boresight;
+    if (limits_valid) {
+      boresight = common::ClampAzimuthElevation(boresight, effective_limits);
+    }
+    return boresight;
+  }
+
+  if (orientation_config.work_sub_mode == common::RadarWorkSubMode::kStt) {
+    return normalized_scan_center;
   }
 
   if (!limits_valid || std::isfinite(effective_beamwidth_deg.az_beamwidth_deg) == 0 ||
@@ -149,9 +192,11 @@ inline common::AzimuthElevationDeg ResolveScheduledBeamPointing(
     return fallback_center;
   }
 
+  const float step_scale = ResolveScanStepScale(orientation_config.work_sub_mode);
   const std::vector<common::AzimuthElevationDeg> pattern = BuildScheduledScanPattern(
-      effective_limits, effective_beamwidth_deg.az_beamwidth_deg, effective_beamwidth_deg.el_beamwidth_deg,
-      orientation_config.scan_start_position, orientation_config.scan_sequence);
+      effective_limits, effective_beamwidth_deg.az_beamwidth_deg * step_scale,
+      effective_beamwidth_deg.el_beamwidth_deg * step_scale, orientation_config.scan_start_position,
+      orientation_config.scan_sequence);
   if (pattern.empty()) {
     return fallback_center;
   }
@@ -170,11 +215,16 @@ inline common::AzimuthElevationDeg ResolveScheduledBeamPointing(
 inline common::AzimuthElevationDeg ResolveScheduledDwellCenter(
     const common::RadarOrientationConfig& orientation_config,
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg, std::uint32_t cycle_index) {
+  if (orientation_config.work_sub_mode == common::RadarWorkSubMode::kStt) {
+    return common::AzimuthElevationDeg();
+  }
   const common::AzimuthElevationDeg pointing =
       ResolveScheduledBeamPointing(orientation_config, effective_beamwidth_deg, cycle_index);
+  const common::AzimuthElevationDeg normalized_scan_center =
+      ResolveFiniteScanCenter(orientation_config);
   common::AzimuthElevationDeg dwell;
-  dwell.az_deg = pointing.az_deg - orientation_config.scan_center_deg.az_deg;
-  dwell.el_deg = pointing.el_deg - orientation_config.scan_center_deg.el_deg;
+  dwell.az_deg = pointing.az_deg - normalized_scan_center.az_deg;
+  dwell.el_deg = pointing.el_deg - normalized_scan_center.el_deg;
   return dwell;
 }
 
