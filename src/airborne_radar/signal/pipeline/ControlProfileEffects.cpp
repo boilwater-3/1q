@@ -16,9 +16,44 @@ namespace internal {
 namespace {
 
 // 数值稳定性约束（非用户可调，保持为内部常量）
-constexpr float kImmNoiseCoeffMin  = 0.001f; /**< IMM 噪声协方差系数下界（防止退化）*/
+constexpr float kImmNoiseCoeffMin   = 0.001f; /**< IMM 噪声协方差系数下界（防止退化）*/
 constexpr float kSpeedDecayRatioMax = 0.995f; /**< 速度衰减系数上界 */
 constexpr float kRcsDecayRatioMax   = 0.999f; /**< RCS 衰减系数上界 */
+
+// Kalman/关联算法内部权重（经验整定，与平台无关，不对外暴露）
+// ---------- LPI 功率控制对跟踪/关联的影响系数 ----------
+constexpr float kLpiPowerKalmanNoiseScale     = 1.15f; /**< LPI 功率控制启用时量测噪声放大系数 */
+constexpr float kLpiPowerAssignCostScale      = 0.90f; /**< LPI 功率控制启用时未指派代价缩放 */
+
+// ---------- 频率捷变对关联/跟踪的影响系数 ----------
+constexpr float kAgilityFreqAssignCostScale   = 1.25f; /**< 频率捷变启用时未指派代价放大系数 */
+constexpr float kAgilityFreqKalmanDiffScale   = 1.10f; /**< 频率捷变启用时 Kalman 过程噪声放大系数 */
+
+// ---------- ECCM 抖动对关联/跟踪的影响系数 ----------
+constexpr float kRejitterAssignCostScale      = 1.35f; /**< ECCM 抖动启用时未指派代价放大系数 */
+constexpr float kRejitterKalmanDiffScale      = 1.10f; /**< ECCM 抖动启用时 Kalman 过程噪声放大系数 */
+
+// ---------- 穿透增益对接收机/跟踪/关联的影响系数 ----------
+constexpr float kBurnthroughAssignCostMax     = 2.0f;  /**< 穿透增益对未指派代价放大的上界 */
+constexpr float kBurnthroughKalmanNoiseScale  = 0.90f; /**< 穿透增益启用时量测噪声缩小系数 */
+
+// ---------- 旁瓣对消关联影响系数 ----------
+constexpr float kSidelobeAssignCostScale      = 1.10f; /**< 旁瓣对消启用时未指派代价放大系数 */
+
+// ---------- 自适应波束对跟踪/关联的影响系数 ----------
+constexpr float kAdaptiveBeamAssignCostScale  = 1.10f; /**< 自适应波束成形启用时未指派代价放大系数 */
+constexpr float kAdaptiveBeamKalmanNoiseScale = 0.80f; /**< 自适应波束成形启用时量测噪声缩小系数 */
+
+// ---------- LPI 波束成形对跟踪的影响系数 ----------
+constexpr float kLpiBeamKalmanNoiseScale      = 0.90f; /**< LPI 波束成形启用时量测噪声缩小系数 */
+
+// ---------- IMM 初始权重补偿系数 ----------
+constexpr float kImmWeightBonusNormal         = 0.10f; /**< 普通 ECCM 激活时末态模型权重补偿量 */
+constexpr float kImmWeightBonusBurnthrough    = 0.18f; /**< 穿透增益激活时末态模型权重补偿量 */
+
+// ---------- IMM 各模式对噪声协方差的缩放系数 ----------
+constexpr float kImmAgilityNoiseScale         = 1.15f; /**< 频率捷变启用时 IMM 噪声协方差放大系数 */
+constexpr float kImmRejitterNoiseScale        = 1.20f; /**< ECCM 抖动启用时 IMM 噪声协方差放大系数 */
 
 float ClampProfileScale(float scale, float fallback) {
   if (!std::isfinite(scale) || scale <= 0.0f) {
@@ -158,8 +193,8 @@ void ApplyControlProfileToConfig(const common::RadarControlProfile& control_prof
   if (control_profile.enable_lpi_power_control) {
     runtime_config->detection.radar_system.transmitter.peak_power_w *=
         ClampProfileScale(control_profile.lpi_power_scale, 1.0f);
-    runtime_config->tracking.kalman_measurement_noise_std *= cfg.lpi_power_kalman_noise_scale;
-    runtime_config->association.unassigned_cost *= cfg.lpi_power_assign_cost_scale;
+    runtime_config->tracking.kalman_measurement_noise_std *= kLpiPowerKalmanNoiseScale;
+    runtime_config->association.unassigned_cost *= kLpiPowerAssignCostScale;
   }
 
   if (control_profile.lpi_dwell_scale != 1.0f) {
@@ -169,14 +204,14 @@ void ApplyControlProfileToConfig(const common::RadarControlProfile& control_prof
   if (control_profile.enable_agility_frequency) {
     const float hop_factor = (control_profile.version % 2U == 0U) ? 1.015f : 0.985f;
     runtime_config->detection.radar_system.transmitter.frequency_hz *= hop_factor;
-    runtime_config->association.unassigned_cost *= cfg.agility_freq_assign_cost_scale;
-    runtime_config->tracking.kalman_noise_diff_coeff *= cfg.agility_freq_kalman_diff_scale;
+    runtime_config->association.unassigned_cost *= kAgilityFreqAssignCostScale;
+    runtime_config->tracking.kalman_noise_diff_coeff *= kAgilityFreqKalmanDiffScale;
   }
 
   if (control_profile.enable_eccm_rejitter) {
     runtime_config->detection.radar_system.transmitter.prf_hz = timing_state.effective_prf_hz;
-    runtime_config->association.unassigned_cost *= cfg.rejitter_assign_cost_scale;
-    runtime_config->tracking.kalman_noise_diff_coeff *= cfg.rejitter_kalman_diff_scale;
+    runtime_config->association.unassigned_cost *= kRejitterAssignCostScale;
+    runtime_config->tracking.kalman_noise_diff_coeff *= kRejitterKalmanDiffScale;
   }
 
   if (control_profile.eccm_burnthrough_gain > 1.0f) {
@@ -184,14 +219,14 @@ void ApplyControlProfileToConfig(const common::RadarControlProfile& control_prof
     runtime_config->detection.radar_system.receiver.noise_figure_db =
         std::max(0.0f, runtime_config->detection.radar_system.receiver.noise_figure_db - gain_db);
     runtime_config->association.unassigned_cost *=
-        ClampFloat(control_profile.eccm_burnthrough_gain, 1.0f, cfg.burnthrough_assign_cost_max);
-    runtime_config->tracking.kalman_measurement_noise_std *= cfg.burnthrough_kalman_noise_scale;
+        ClampFloat(control_profile.eccm_burnthrough_gain, 1.0f, kBurnthroughAssignCostMax);
+    runtime_config->tracking.kalman_measurement_noise_std *= kBurnthroughKalmanNoiseScale;
   }
 
   if (control_profile.enable_sidelobe_canceller) {
     runtime_config->detection.radar_system.antenna.enable_directional_pattern = true;
     runtime_config->detection.radar_system.antenna.pattern.max_sidelobe_level_db -= cfg.sidelobe_level_reduction_db;
-    runtime_config->association.unassigned_cost *= cfg.sidelobe_assign_cost_scale;
+    runtime_config->association.unassigned_cost *= kSidelobeAssignCostScale;
   }
 
   const float beamwidth_scale = ResolveBeamwidthScale(cfg, control_profile);
@@ -205,12 +240,12 @@ void ApplyControlProfileToConfig(const common::RadarControlProfile& control_prof
 
   if (control_profile.enable_adaptive_beamforming) {
     runtime_config->detection.radar_system.antenna.main_beam_gain_db += cfg.adaptive_beam_gain_boost_db;
-    runtime_config->association.unassigned_cost *= cfg.adaptive_beam_assign_cost_scale;
-    runtime_config->tracking.kalman_measurement_noise_std *= cfg.adaptive_beam_kalman_noise_scale;
+    runtime_config->association.unassigned_cost *= kAdaptiveBeamAssignCostScale;
+    runtime_config->tracking.kalman_measurement_noise_std *= kAdaptiveBeamKalmanNoiseScale;
   }
 
   if (control_profile.enable_lpi_beamforming) {
-    runtime_config->tracking.kalman_measurement_noise_std *= cfg.lpi_beam_kalman_noise_scale;
+    runtime_config->tracking.kalman_measurement_noise_std *= kLpiBeamKalmanNoiseScale;
   }
 
   if (control_profile.enable_sidelobe_canceller || control_profile.enable_agility_frequency ||
@@ -226,13 +261,13 @@ void ApplyControlProfileToConfig(const common::RadarControlProfile& control_prof
   if (!runtime_config->lifecycle.imm_model_noise_diff_coeffs.empty()) {
     float imm_noise_scale = 1.0f;
     if (control_profile.enable_agility_frequency) {
-      imm_noise_scale *= cfg.imm_agility_noise_scale;
+      imm_noise_scale *= kImmAgilityNoiseScale;
     }
     if (control_profile.enable_eccm_rejitter) {
-      imm_noise_scale *= cfg.imm_rejitter_noise_scale;
+      imm_noise_scale *= kImmRejitterNoiseScale;
     }
     if (control_profile.eccm_burnthrough_gain > 1.0f) {
-      imm_noise_scale *= ClampFloat(control_profile.eccm_burnthrough_gain, 1.0f, cfg.burnthrough_assign_cost_max);
+      imm_noise_scale *= ClampFloat(control_profile.eccm_burnthrough_gain, 1.0f, kBurnthroughAssignCostMax);
     }
     for (std::size_t i = 0; i < runtime_config->lifecycle.imm_model_noise_diff_coeffs.size(); ++i) {
       runtime_config->lifecycle.imm_model_noise_diff_coeffs[i] =
@@ -246,8 +281,8 @@ void ApplyControlProfileToConfig(const common::RadarControlProfile& control_prof
       (control_profile.enable_agility_frequency || control_profile.enable_eccm_rejitter ||
        control_profile.eccm_burnthrough_gain > 1.0f)) {
     const std::size_t last_index = runtime_config->lifecycle.imm_initial_weights.size() - 1U;
-    const float bonus = control_profile.eccm_burnthrough_gain > 1.0f ? cfg.imm_weight_bonus_burnthrough
-                                                                      : cfg.imm_weight_bonus_normal;
+    const float bonus = control_profile.eccm_burnthrough_gain > 1.0f ? kImmWeightBonusBurnthrough
+                                                                      : kImmWeightBonusNormal;
     runtime_config->lifecycle.imm_initial_weights[last_index] += bonus;
     NormalizeImmInitialWeights(&runtime_config->lifecycle.imm_initial_weights);
   }
