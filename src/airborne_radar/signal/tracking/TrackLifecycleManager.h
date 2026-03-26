@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "1q/airborne_radar/common/TargetFeature.h"
@@ -94,6 +95,109 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
   std::vector<AssociationTrackSeed> BuildAssociationSeeds() const override;
 
  private:
+  // ------------------------------------------------------------------
+  // 单周期更新的内部辅助类型（仅供 Update() 及 Phase 方法使用）
+  // ------------------------------------------------------------------
+
+  /** @brief 单条轨迹工作单元的命中类型。 */
+  enum class WorkItemKind { kHit = 0, kMiss };
+
+  /** @brief 单条轨迹在计算阶段的只读输入。 */
+  struct TrackUpdateWorkItem {
+    std::uint64_t association_key{0};
+    WorkItemKind kind{WorkItemKind::kMiss};
+    common::TrackState* track{nullptr};
+    const TrackMeasurement* measurement{nullptr};
+    bool track_existed_before_cycle{false};
+    bool use_imm{false};
+    ImmFilter* imm_filter{nullptr};
+    common::TrackStatus status_before_update{common::TrackStatus::kTentative};
+    common::TrackState track_before_update;
+  };
+
+  /** @brief 单条轨迹计算阶段产出的写回结果。 */
+  struct TrackUpdateResult {
+    std::uint64_t association_key{0};
+    common::TrackState* track{nullptr};
+    common::TrackState track_after_update;
+    bool should_recycle{false};
+  };
+
+  /** @brief 聚合单周期生命周期更新的中间缓存。 */
+  struct LifecycleUpdateScratch {
+    std::unordered_map<std::uint64_t, const TrackMeasurement*> measurement_by_key;
+    std::unordered_map<std::uint64_t, common::TrackState> track_snapshots;
+    std::unordered_set<std::uint64_t> hit_keys;
+    std::vector<TrackUpdateWorkItem> work_items;
+    std::vector<TrackUpdateResult> results;
+    std::vector<std::uint64_t> keys_to_recycle;
+    std::size_t new_track_count{0};
+    std::size_t updated_track_count{0};
+    std::size_t predicted_without_hit_count{0};
+  };
+
+  // ------------------------------------------------------------------
+  // Update() 内部 Phase 方法
+  // ------------------------------------------------------------------
+
+  /**
+   * @brief Phase 1：建立量测路由并快照周期开始时的轨迹状态。
+   * @param scratch 单周期中间缓存。
+   * @param measurements 本周期量测集合。
+   */
+  void PreparePhase(LifecycleUpdateScratch& scratch,
+                    const std::vector<TrackMeasurement>& measurements) const;
+  /**
+   * @brief Phase 2：串行补齐本周期所需的轨迹对象和 IMM 运行态，构造工作单元列表。
+   * @param scratch 单周期中间缓存。
+   * @param measurements 本周期量测集合。
+   * @param cycle 当前周期上下文。
+   */
+  void EnsurePhase(LifecycleUpdateScratch& scratch,
+                   const std::vector<TrackMeasurement>& measurements, const CycleContext& cycle);
+  /**
+   * @brief Phase 3：只读容器并按工作单元计算写回结果。
+   * @param scratch 单周期中间缓存。
+   * @param cycle 当前周期上下文。
+   * @param effective_dt_sec 有效时间步长（秒）。
+   */
+  void ComputePhase(LifecycleUpdateScratch& scratch, const CycleContext& cycle,
+                    float effective_dt_sec) const;
+  /**
+   * @brief Phase 4：串行写回所有轨迹结果并更新周期索引。
+   * @param scratch 单周期中间缓存。
+   * @param cycle_index 当前周期号。
+   */
+  void CommitPhase(LifecycleUpdateScratch& scratch, std::uint32_t cycle_index);
+  /**
+   * @brief Phase 5：串行回收已进入 recycled 状态的轨迹与 IMM 运行态，重建量测证据。
+   * @param scratch 单周期中间缓存。
+   */
+  void RecyclePhase(LifecycleUpdateScratch& scratch);
+
+  /**
+   * @brief 对命中工作单元应用 Kalman/IMM 滤波更新。
+   * @param work_item 当前命中工作单元。
+   * @param measurement 当前量测。
+   * @param track 待更新轨迹状态（in-out）。
+   * @param effective_dt_sec 有效时间步长（秒）。
+   */
+  void ApplyKalmanHitUpdate(const TrackUpdateWorkItem& work_item,
+                            const TrackMeasurement& measurement, common::TrackState& track,
+                            float effective_dt_sec) const;
+  /**
+   * @brief 对失配工作单元应用 Kalman/IMM 预测外推。
+   * @param work_item 当前失配工作单元。
+   * @param track 待更新轨迹状态（in-out）。
+   * @param effective_dt_sec 有效时间步长（秒）。
+   */
+  void ApplyKalmanMissPredict(const TrackUpdateWorkItem& work_item, common::TrackState& track,
+                              float effective_dt_sec) const;
+
+  // ------------------------------------------------------------------
+  // 其他内部辅助方法
+  // ------------------------------------------------------------------
+
   /**
    * @brief 判断当前是否启用了 IMM 多模型路径。
    * @return 若已配置有效 IMM 模型集合则返回 true。
@@ -152,7 +256,7 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
    * @param extra_miss_tolerance 控制平面注入的额外失配容忍周期数。
    */
   void PromoteState(common::TrackState& track, std::uint32_t cycle_index, bool hit_this_cycle,
-                    std::uint32_t extra_miss_tolerance);
+                    std::uint32_t extra_miss_tolerance) const;
   /**
    * @brief 将对象重置为可复用状态，避免脏数据泄露。
    * @param track 待重置轨迹对象。
