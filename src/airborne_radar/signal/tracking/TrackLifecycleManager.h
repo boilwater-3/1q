@@ -269,6 +269,13 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
    * @return 有效时间步长（秒）。
    */
   float ResolveEffectiveCycleDeltaTimeSec(const CycleContext& cycle, bool* dt_fallback_used) const;
+  /**
+   * @brief 遍历所有未回收轨迹，对每条轨迹调用 callback(key, track)。
+   * @tparam Callback 可调用类型，签名为 void(std::uint64_t, const common::TrackState&)。
+   * @param callback 每条活跃轨迹的处理逻辑。
+   */
+  template <typename Callback>
+  void ForEachActiveTrack(Callback&& callback) const;
 
   // data members
   ITrackPool* pool_{nullptr};      /**< 轨迹对象池抽象，用于对象申请与归还。 */

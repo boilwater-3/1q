@@ -524,65 +524,58 @@ std::vector<const common::TrackState*> TrackLifecycleManager::GetActiveTracks() 
   return result;
 }
 
+template <typename Callback>
+void TrackLifecycleManager::ForEachActiveTrack(Callback&& callback) const {
+  for (std::unordered_map<std::uint64_t, common::TrackState*>::const_iterator it =
+           tracks_by_key_.cbegin();
+       it != tracks_by_key_.cend(); ++it) {
+    if (it->second->status != common::TrackStatus::kRecycled) {
+      callback(it->first, *it->second);
+    }
+  }
+}
+
 common::TargetFeatureList TrackLifecycleManager::BuildFeatureSnapshot() const {
   common::TargetFeatureList features;
   features.reserve(tracks_by_key_.size());
-
-  for (std::unordered_map<std::uint64_t, common::TrackState*>::const_iterator it =
-           tracks_by_key_.begin();
-       it != tracks_by_key_.end(); ++it) {
-    const common::TrackState* track = it->second;
-    if (track->status == common::TrackStatus::kRecycled) {
-      continue;
-    }
-
-    common::TargetFeature feature(track->velocity(0), track->velocity(1), track->velocity(2),
-                                  track->rcs);
-    feature.position_x = track->position(0);
-    feature.position_y = track->position(1);
-    feature.position_z = track->position(2);
-    feature.external_target_id = track->external_target_id;
+  ForEachActiveTrack([&features](std::uint64_t /*key*/, const common::TrackState& track) {
+    common::TargetFeature feature(track.velocity(0), track.velocity(1), track.velocity(2),
+                                  track.rcs);
+    feature.position_x = track.position(0);
+    feature.position_y = track.position(1);
+    feature.position_z = track.position(2);
+    feature.external_target_id = track.external_target_id;
     features.push_back(feature);
-  }
-
+  });
   return features;
 }
 
 common::DecisionTrackSnapshotList TrackLifecycleManager::BuildDecisionSnapshot() const {
   common::DecisionTrackSnapshotList snapshots;
   snapshots.reserve(tracks_by_key_.size());
-
-  for (std::unordered_map<std::uint64_t, common::TrackState*>::const_iterator it =
-           tracks_by_key_.begin();
-       it != tracks_by_key_.end(); ++it) {
-    const common::TrackState* track = it->second;
-    if (track->status == common::TrackStatus::kRecycled) {
-      continue;
-    }
-
+  ForEachActiveTrack([&](std::uint64_t key, const common::TrackState& track) {
     common::DecisionTrackSnapshot snapshot(
-        track->velocity(0), track->velocity(1), track->velocity(2), track->rcs,
-        track->acceleration(0), track->acceleration(1), track->acceleration(2),
-        track->jamming_detected, track->external_target_id, it->first);
-    snapshot.state.status = ToDecisionTrackStatus(track->status);
-    snapshot.state.position_x = track->position(0);
-    snapshot.state.position_y = track->position(1);
-    snapshot.state.position_z = track->position(2);
-    snapshot.state.hit_count = track->hit_count;
-    snapshot.state.miss_count = track->miss_count;
+        track.velocity(0), track.velocity(1), track.velocity(2), track.rcs,
+        track.acceleration(0), track.acceleration(1), track.acceleration(2),
+        track.jamming_detected, track.external_target_id, key);
+    snapshot.state.status = ToDecisionTrackStatus(track.status);
+    snapshot.state.position_x = track.position(0);
+    snapshot.state.position_y = track.position(1);
+    snapshot.state.position_z = track.position(2);
+    snapshot.state.hit_count = track.hit_count;
+    snapshot.state.miss_count = track.miss_count;
 
     std::unordered_map<std::uint64_t, common::DecisionMeasurementEvidence>::const_iterator
-        evidence_found = latest_evidence_by_key_.find(it->first);
+        evidence_found = latest_evidence_by_key_.find(key);
     if (evidence_found != latest_evidence_by_key_.end()) {
       snapshot.evidence = evidence_found->second;
     } else {
       snapshot.evidence.has_measurement_evidence = false;
       snapshot.evidence.updated_this_cycle = false;
-      snapshot.evidence.predicted_only_this_cycle = track->last_update_cycle != last_cycle_index_;
+      snapshot.evidence.predicted_only_this_cycle = track.last_update_cycle != last_cycle_index_;
     }
     snapshots.push_back(snapshot);
-  }
-
+  });
   return snapshots;
 }
 
@@ -599,24 +592,15 @@ common::DecisionInputFrame TrackLifecycleManager::BuildDecisionFrame(
 std::vector<AssociationTrackSeed> TrackLifecycleManager::BuildAssociationSeeds() const {
   std::vector<AssociationTrackSeed> seeds;
   seeds.reserve(tracks_by_key_.size());
-
-  for (std::unordered_map<std::uint64_t, common::TrackState*>::const_iterator it =
-           tracks_by_key_.begin();
-       it != tracks_by_key_.end(); ++it) {
-    const common::TrackState* track = it->second;
-    if (track->status == common::TrackStatus::kRecycled) {
-      continue;
-    }
-
+  ForEachActiveTrack([&seeds](std::uint64_t key, const common::TrackState& track) {
     AssociationTrackSeed seed;
-    seed.association_key = it->first;
+    seed.association_key = key;
     seed.has_position = true;
-    seed.position = track->position;
+    seed.position = track.position;
     seed.has_gaussian_state = true;
-    seed.gaussian_state = track->gaussian_state;
+    seed.gaussian_state = track.gaussian_state;
     seeds.push_back(seed);
-  }
-
+  });
   return seeds;
 }
 
