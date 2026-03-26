@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "airborne_radar/environment/EnvironmentService.h"
+#include "airborne_radar/environment/IMutableEnvironmentService.h"
 
 namespace airborne_radar {
 namespace tests {
@@ -82,7 +83,7 @@ class MemorySceneBuilder {
   /// @param environment_service 环境服务实例。
   /// @param cycle_index 生效周期号。
   /// @param dt_sec 周期步长（单位：s）。
-  void CommitTo(environment::EnvironmentService* environment_service,
+  void CommitTo(environment::IMutableEnvironmentService* environment_service,
                 std::uint32_t cycle_index = 1U, float dt_sec = 1.0f) const {
     if (environment_service == nullptr) {
       return;

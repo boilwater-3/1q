@@ -10,7 +10,7 @@
 #include <memory>
 
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "1q/airborne_radar/environment/IEnvironmentService.h"
+#include "airborne_radar/environment/IMutableEnvironmentService.h"
 
 namespace airborne_radar {
 namespace environment {
@@ -26,7 +26,7 @@ class PropagationModel;
 /**
  * @brief 提供可配置的环境快照采样实现。
  */
-class EnvironmentService final : public IEnvironmentService {
+class EnvironmentService final : public IMutableEnvironmentService {
  public:
   /**
    * @brief 使用配置构造环境模型。
@@ -51,25 +51,25 @@ class EnvironmentService final : public IEnvironmentService {
    * @brief 更新待生效场景状态。
    * @param scene_state 新的待生效场景状态。
    */
-  void UpdateSceneState(const EnvironmentSceneState& scene_state);
+  void UpdateSceneState(const EnvironmentSceneState& scene_state) override;
 
   /**
    * @brief 更新环境模型配置。
    * @param config 新的环境模型配置。
    */
-  void UpdateModelConfig(const EnvironmentModelConfig& config);
+  void UpdateModelConfig(const EnvironmentModelConfig& config) override;
 
   /**
    * @brief 设置兼容旧版路径的干扰功率估计。
    * @param jammer_power_db 干扰功率估计，单位为 dB。
    */
-  void SetJammerPowerDb(float jammer_power_db);
+  void SetJammerPowerDb(float jammer_power_db) override;
 
   /**
    * @brief 设置干扰判定阈值。
    * @param threshold_db 干扰判定阈值，单位为 dB。
    */
-  void SetJammingDetectionThresholdDb(float threshold_db);
+  void SetJammingDetectionThresholdDb(float threshold_db) override;
 
  private:
   static constexpr std::size_t kNoLegacyJammerEmitterIndex = static_cast<std::size_t>(-1);
