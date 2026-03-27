@@ -112,12 +112,7 @@ bool FeatureRepository::QueryBestMatch(const FeatureVector& input, MatchResult& 
 
 bool FeatureRepository::FetchRawRowsFromDataSource(std::vector<RawFeatureRow>& rows) const {
   rows.clear();
-
   // 预留：后续按甲方确定的数据库类型接入具体驱动与查询语句。
-  if (connection_string_.empty()) {
-    return false;
-  }
-
   return false;
 }
 

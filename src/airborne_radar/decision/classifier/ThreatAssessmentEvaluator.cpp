@@ -105,7 +105,7 @@ common::TargetCategory ThreatAssessmentEvaluator::IdentifyTarget(
 
   const float threat_score = ComputeThreatScore(track_snapshot);
   if (threat_score >= 2.0f) {
-    return common::TargetCategory("HIGH_THREAT_TARGET");
+    return common::TargetCategory("HIGH_THREAT_FIGHTER");
   }
   if (threat_score >= 0.8f) {
     return common::TargetCategory("LOW_THREAT_TARGET");
@@ -192,7 +192,7 @@ float ThreatAssessmentEvaluator::UpdateConfidence(
 }
 
 bool ThreatAssessmentEvaluator::IsHighThreatCategory(const std::string& category) const {
-  return category == "HIGH_THREAT_TARGET" || category == "HIGH_THREAT_FIGHTER";
+  return category == "HIGH_THREAT_FIGHTER";
 }
 
 }  // namespace classifier

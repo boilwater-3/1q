@@ -68,10 +68,9 @@ class FeatureRepository final : public IFeatureRepository {
   FeatureRepository();
 
   /**
-   * @brief 记录外部数据源连接串。
+   * @brief 数据源连接（存根）。
    * @param connection_string 外部数据库连接串。
-   * @return 连接串非空时返回 `true`。
-   * @note 当前仅保存连接参数，不执行真实连通性校验。
+   * @return 始终返回 `false`——数据库驱动尚未实现。
    */
   bool ConnectDataSource(const std::string& connection_string) override;
 
@@ -127,7 +126,6 @@ class FeatureRepository final : public IFeatureRepository {
    */
   static float DistanceToScore(float distance);
 
-  std::string connection_string_;
   std::vector<FeatureRecord> records_;
 };
 

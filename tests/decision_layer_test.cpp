@@ -66,7 +66,7 @@ TEST(TacticalCoordinatorTest, HighThreatAndJamming) {
   const dp::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
-  EXPECT_EQ(PrimaryCategory(result), "HIGH_THREAT_TARGET");
+  EXPECT_EQ(PrimaryCategory(result), "HIGH_THREAT_FIGHTER");
   EXPECT_EQ(result.selected_mode, dp::TacticalMode::kProtectedEmission);
   EXPECT_TRUE(ContainsDirectiveType(result.proposals,
                                     ac::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION));
@@ -99,7 +99,7 @@ TEST(TacticalCoordinatorTest, HighThreatClearEnvironment) {
   const dp::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
-  EXPECT_EQ(PrimaryCategory(result), "HIGH_THREAT_TARGET");
+  EXPECT_EQ(PrimaryCategory(result), "HIGH_THREAT_FIGHTER");
   EXPECT_EQ(result.selected_mode, dp::TacticalMode::kThreatResponse);
   ASSERT_EQ(result.proposals.size(), 1u);
   EXPECT_EQ(result.proposals[0].directive.type,
@@ -114,7 +114,7 @@ TEST(TacticalCoordinatorTest, HighRcsCanPromoteThreatWithModerateSpeed) {
   const dp::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
-  EXPECT_EQ(PrimaryCategory(result), "HIGH_THREAT_TARGET");
+  EXPECT_EQ(PrimaryCategory(result), "HIGH_THREAT_FIGHTER");
 }
 
 TEST(TacticalCoordinatorTest, ClassifiesAllTracksInFrame) {
@@ -133,7 +133,7 @@ TEST(TacticalCoordinatorTest, ClassifiesAllTracksInFrame) {
       coordinator.Evaluate(frame, state_store);
 
   ASSERT_EQ(result.target_classification_result.size(), frame.tracks.size());
-  EXPECT_EQ(result.target_classification_result[0].target_type, "HIGH_THREAT_TARGET");
+  EXPECT_EQ(result.target_classification_result[0].target_type, "HIGH_THREAT_FIGHTER");
   EXPECT_EQ(result.target_classification_result[1].target_type, "LOW_THREAT_TARGET");
 }
 
