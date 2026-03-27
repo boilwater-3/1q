@@ -4,6 +4,8 @@ set(PROJECT_SOURCES
     common/geometry/GeometryTransform.cpp
     common/timing/TimingRegimeModel.cpp
     airborne_radar/common/ConfigPresets.cpp
+    airborne_radar/common/DecisionTrackSnapshot.cpp
+    airborne_radar/common/TargetFeature.cpp
     airborne_radar/common/TargetFeatureUtils.cpp
     airborne_radar/decision/pipeline/TacticalCoordinator.cpp
     airborne_radar/decision/pipeline/ControlReducer.cpp
@@ -15,8 +17,6 @@ set(PROJECT_SOURCES
     airborne_radar/core/controller/RadarController.cpp
     airborne_radar/core/output/DataOutputManager.cpp
     airborne_radar/core/output/TrackOutputQueries.cpp
-    airborne_radar/core/event/EventBus.cpp
-    airborne_radar/core/event/CycleEventBus.cpp
     airborne_radar/core/session/RadarSession.cpp
     airborne_radar/environment/EnvironmentService.cpp
     airborne_radar/environment/EnvironmentSceneBuilder.cpp
@@ -198,17 +198,13 @@ if(ENABLE_PCH)
         <tuple>
         
         # IO
-        <iostream>
-        <fstream>
         <sstream>
-        
+
         # 其他常用
         <cmath>
         <cstdint>
         <cstring>
         <chrono>
-        <exception>
-        <stdexcept>
     )
     if(CMAKE_CXX_STANDARD GREATER_EQUAL 17)
         target_precompile_headers(${PROJECT_CORE_TARGET} PRIVATE

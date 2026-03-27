@@ -281,9 +281,18 @@ void ControlReducer::UpdateConfig(ControlReducerConfig config) { config_ = confi
 
 ControlReducerConfig ControlReducer::GetConfig() const { return config_; }
 
+ControlReducerRuntimeState ControlReducer::GetRuntimeState() const {
+  ControlReducerRuntimeState state;
+  state.lpi_hold_cycles_remaining = lpi_hold_cycles_remaining_;
+  state.eccm_hold_cycles_remaining = eccm_hold_cycles_remaining_;
+  state.lpi_cooldown_cycles_remaining = lpi_cooldown_cycles_remaining_;
+  state.eccm_cooldown_cycles_remaining = eccm_cooldown_cycles_remaining_;
+  return state;
+}
+
 ControlReductionResult ControlReducer::Reduce(
     const common::RadarControlProfile& previous_profile,
-    const std::vector<TacticalProposal>& proposals) const {
+    const std::vector<TacticalProposal>& proposals) {
   ControlReductionResult result;
   result.profile = previous_profile;
   common::RadarControlProfile next_profile = previous_profile;
@@ -292,10 +301,10 @@ ControlReductionResult ControlReducer::Reduce(
 
   const bool previous_lpi_active = IsLpiDomainActive(previous_profile);
   const bool previous_eccm_active = IsEccmDomainActive(previous_profile);
-  const std::uint32_t previous_lpi_hold = previous_profile.lpi_hold_cycles_remaining;
-  const std::uint32_t previous_eccm_hold = previous_profile.eccm_hold_cycles_remaining;
-  std::uint32_t next_lpi_cooldown = previous_profile.lpi_cooldown_cycles_remaining;
-  std::uint32_t next_eccm_cooldown = previous_profile.eccm_cooldown_cycles_remaining;
+  const std::uint32_t previous_lpi_hold = lpi_hold_cycles_remaining_;
+  const std::uint32_t previous_eccm_hold = eccm_hold_cycles_remaining_;
+  std::uint32_t next_lpi_cooldown = lpi_cooldown_cycles_remaining_;
+  std::uint32_t next_eccm_cooldown = eccm_cooldown_cycles_remaining_;
 
   std::set<common::ControlDirectiveType> applied_types;
   std::vector<common::ControlDirective> accepted_directives;
@@ -327,8 +336,8 @@ ControlReductionResult ControlReducer::Reduce(
 
   if (has_lpi_requests) {
     ResetLpiDomain(&next_profile);
-    next_profile.lpi_hold_cycles_remaining = config_.lpi_hold_cycles_after_request;
-    next_profile.lpi_cooldown_cycles_remaining = 0U;
+    lpi_hold_cycles_remaining_ = config_.lpi_hold_cycles_after_request;
+    lpi_cooldown_cycles_remaining_ = 0U;
     for (std::size_t i = 0; i < accepted_directives.size(); ++i) {
       if (IsLpiDirective(accepted_directives[i].type)) {
         ApplyDirectiveToProfile(config_, accepted_directives[i], &next_profile,
@@ -337,20 +346,20 @@ ControlReductionResult ControlReducer::Reduce(
     }
   } else if (previous_lpi_active && previous_lpi_hold > 0U) {
     CopyLpiDomain(previous_profile, &next_profile);
-    next_profile.lpi_hold_cycles_remaining = previous_lpi_hold - 1U;
-    next_profile.lpi_cooldown_cycles_remaining = 0U;
+    lpi_hold_cycles_remaining_ = previous_lpi_hold - 1U;
+    lpi_cooldown_cycles_remaining_ = 0U;
   } else {
     ResetLpiDomain(&next_profile);
-    next_profile.lpi_hold_cycles_remaining = 0U;
-    next_profile.lpi_cooldown_cycles_remaining =
+    lpi_hold_cycles_remaining_ = 0U;
+    lpi_cooldown_cycles_remaining_ =
         previous_lpi_active ? config_.lpi_cooldown_cycles_after_release
                             : (next_lpi_cooldown > 0U ? next_lpi_cooldown - 1U : 0U);
   }
 
   if (has_eccm_requests) {
     ResetEccmDomain(&next_profile);
-    next_profile.eccm_hold_cycles_remaining = config_.eccm_hold_cycles_after_request;
-    next_profile.eccm_cooldown_cycles_remaining = 0U;
+    eccm_hold_cycles_remaining_ = config_.eccm_hold_cycles_after_request;
+    eccm_cooldown_cycles_remaining_ = 0U;
     for (std::size_t i = 0; i < accepted_directives.size(); ++i) {
       if (IsEccmDirective(accepted_directives[i].type)) {
         ApplyDirectiveToProfile(config_, accepted_directives[i], &next_profile,
@@ -359,12 +368,12 @@ ControlReductionResult ControlReducer::Reduce(
     }
   } else if (previous_eccm_active && previous_eccm_hold > 0U) {
     CopyEccmDomain(previous_profile, &next_profile);
-    next_profile.eccm_hold_cycles_remaining = previous_eccm_hold - 1U;
-    next_profile.eccm_cooldown_cycles_remaining = 0U;
+    eccm_hold_cycles_remaining_ = previous_eccm_hold - 1U;
+    eccm_cooldown_cycles_remaining_ = 0U;
   } else {
     ResetEccmDomain(&next_profile);
-    next_profile.eccm_hold_cycles_remaining = 0U;
-    next_profile.eccm_cooldown_cycles_remaining =
+    eccm_hold_cycles_remaining_ = 0U;
+    eccm_cooldown_cycles_remaining_ =
         previous_eccm_active ? config_.eccm_cooldown_cycles_after_release
                              : (next_eccm_cooldown > 0U ? next_eccm_cooldown - 1U : 0U);
   }

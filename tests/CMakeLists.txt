@@ -19,7 +19,6 @@ set(TEST_SOURCES
     public_api_convenience_test.cpp
     public_headers_smoke_test.cpp
     radar_joint_integration_test.cpp
-    event_bus_test.cpp
     antenna_pattern_utils_test.cpp
     beamwidth_resolution_test.cpp
     radar_orientation_utils_test.cpp

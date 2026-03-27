@@ -12,11 +12,7 @@ namespace environment {
 
 namespace {
 
-/**
- * @brief 标记“当前不存在兼容旧版平铺字段的干扰源索引”的哨兵值。
- * @note 代码行为依据：旧版干扰配置只在存在兼容提示时才会映射到额外 emitter，
- *       该值用于区分“尚未建立兼容 emitter”与“已有有效索引”两种状态。
- */
+/** @brief 标记”当前不存在兼容旧版平铺字段的干扰源索引”的哨兵值。 */
 constexpr std::size_t kNoLegacyJammerEmitterIndex = static_cast<std::size_t>(-1);
 /**
  * @brief 将输入值裁剪到 [0, 1] 区间。
@@ -55,24 +51,12 @@ JammerEmitterState NormalizeEmitterState(const JammerEmitterState& raw_source) {
   return normalized;
 }
 /**
- * @brief 将场景干扰源转换为对外暴露的干扰事实。
+ * @brief 将场景干扰源转换为对外暴露的干扰事实（归一化后直接返回）。
  * @param emitter_state 场景中的干扰源状态。
  * @return 供快照输出使用的干扰事实。
  */
 JammerSourceFact ToJammerSourceFact(const JammerEmitterState& emitter_state) {
-  const JammerEmitterState normalized = NormalizeEmitterState(emitter_state);
-  JammerSourceFact source;
-  source.technique = normalized.technique;
-  source.power_db = normalized.power_db;
-  source.js_db = normalized.js_db;
-  source.frequency_overlap_ratio = normalized.frequency_overlap_ratio;
-  source.prf_lock_risk = normalized.prf_lock_risk;
-  source.azimuth_deg = normalized.azimuth_deg;
-  source.elevation_deg = normalized.elevation_deg;
-  source.angular_span_deg = normalized.angular_span_deg;
-  source.in_sidelobe = normalized.in_sidelobe;
-  source.confidence = normalized.confidence;
-  return source;
+  return NormalizeEmitterState(emitter_state);
 }
 /**
  * @brief 从多源干扰事实中选取主干扰源。
@@ -118,20 +102,8 @@ EnvironmentSceneState BuildSceneStateFromModelConfig(const EnvironmentModelConfi
   scene_state.clutter_power_db = config.clutter_power_db;
   scene_state.jammer_emitters.reserve(config.jammer_sources.size() +
                                       (HasLegacyJammerHints(config) ? 1U : 0U));
-  for (std::size_t i = 0; i < config.jammer_sources.size(); ++i) {
-    JammerEmitterState emitter;
-    emitter.technique = config.jammer_sources[i].technique;
-    emitter.power_db = config.jammer_sources[i].power_db;
-    emitter.js_db = config.jammer_sources[i].js_db;
-    emitter.frequency_overlap_ratio = config.jammer_sources[i].frequency_overlap_ratio;
-    emitter.prf_lock_risk = config.jammer_sources[i].prf_lock_risk;
-    emitter.azimuth_deg = config.jammer_sources[i].azimuth_deg;
-    emitter.elevation_deg = config.jammer_sources[i].elevation_deg;
-    emitter.angular_span_deg = config.jammer_sources[i].angular_span_deg;
-    emitter.in_sidelobe = config.jammer_sources[i].in_sidelobe;
-    emitter.confidence = config.jammer_sources[i].confidence;
-    scene_state.jammer_emitters.push_back(emitter);
-  }
+  scene_state.jammer_emitters.insert(scene_state.jammer_emitters.end(),
+                                     config.jammer_sources.begin(), config.jammer_sources.end());
 
   if (legacy_emitter_index != nullptr) {
     *legacy_emitter_index = kNoLegacyJammerEmitterIndex;
@@ -151,7 +123,6 @@ EnvironmentService::EnvironmentService(const EnvironmentModelConfig& config)
     : scene_manager_(new scene::SceneManager(
           BuildSceneStateFromModelConfig(config, &pending_legacy_jammer_emitter_index_))),
       propagation_model_(new simulation::PropagationModel()) {
-  active_legacy_jammer_emitter_index_ = pending_legacy_jammer_emitter_index_;
   RefreshFrozenSnapshotFromActiveScene();
 }
 
@@ -160,7 +131,6 @@ EnvironmentService::~EnvironmentService() = default;
 void EnvironmentService::BeginCycle(const EnvironmentCycleContext& cycle_context) {
   current_cycle_context_ = cycle_context;
   scene_manager_->CommitPendingScene(cycle_context);
-  active_legacy_jammer_emitter_index_ = pending_legacy_jammer_emitter_index_;
   RefreshFrozenSnapshotFromActiveScene();
 }
 

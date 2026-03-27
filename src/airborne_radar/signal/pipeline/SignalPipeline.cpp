@@ -8,6 +8,7 @@
 
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "airborne_radar/core/output/DataOutputManager.h"
+#include "airborne_radar/core/output/IDataOutputManager.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/pipeline/AssociationExecutionSupport.h"
@@ -70,7 +71,9 @@ struct SignalPipeline::Impl {
   explicit Impl(SignalPipelineConfig initial_config)
       : config(std::move(initial_config)),
         association_engine(internal::SignalComponentFactory::BuildAssociationConfig(config)),
-        track_filter(internal::SignalComponentFactory::BuildTrackFilterConfig(config)) {
+        track_filter(internal::SignalComponentFactory::BuildTrackFilterConfig(config)),
+        output_manager_(std::unique_ptr<core::output::IDataOutputManager>(
+            new core::output::DataOutputManager())) {
     RebuildOwnedComponents();
   }
   /**
@@ -284,7 +287,7 @@ struct SignalPipeline::Impl {
     internal::CollectCycleOutputs(
         control_profile_, cycle_index_, batch_id_, cached_context.runtime_config,
         cached_context.environment_snapshot, *cached_context.input_state, cached_context.output_state,
-        cached_context.association_result, cached_context.track_measurements, &output_manager_,
+        cached_context.association_result, cached_context.track_measurements, output_manager_.get(),
         auto_lifecycle_manager_.get(), &cached_context.association_quality_metrics,
         &cached_context.decision_frame);
   }
@@ -318,7 +321,7 @@ struct SignalPipeline::Impl {
   common::RadarControlProfile control_profile_{};
   association::DataAssociationEngine association_engine{};
   tracking::TrackFilter track_filter{};
-  core::output::DataOutputManager output_manager_{};
+  std::unique_ptr<core::output::IDataOutputManager> output_manager_;
   std::unique_ptr<tracking::KalmanPredictor> kalman_predictor;
   std::unique_ptr<tracking::KalmanUpdater> kalman_updater;
   std::unique_ptr<detection::SignalDetector> signal_detector;

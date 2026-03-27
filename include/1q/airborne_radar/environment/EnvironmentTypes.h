@@ -65,20 +65,11 @@ struct EnvironmentSnapshot {
 };
 
 /**
- * @brief JammerEmitterState 描述场景中的单个干扰源输入。
+ * @brief JammerEmitterState 与 JammerSourceFact 共享相同的字段集，作为别名使用。
+ * @details 场景输入（JammerEmitterState）与快照输出（JammerSourceFact）结构完全一致，
+ *          统一为同一类型以消除逐字段复制。
  */
-struct JammerEmitterState {
-  JammingTechnique technique{JammingTechnique::kUnknown}; /**< 干扰技术类型 */
-  float power_db{0.0f};                                   /**< 干扰功率估计（单位：dB） */
-  float js_db{0.0f};                                      /**< 干扰与信号比估计（单位：dB） */
-  float frequency_overlap_ratio{0.0f}; /**< 干扰与当前工作频率的重叠度，范围 [0, 1] */
-  float prf_lock_risk{0.0f};           /**< 干扰对当前 PRF 锁定的风险度，范围 [0, 1] */
-  float azimuth_deg{0.0f};             /**< 干扰来向方位角（单位：deg） */
-  float elevation_deg{0.0f};           /**< 干扰来向俯仰角（单位：deg） */
-  float angular_span_deg{0.0f};        /**< 干扰角域宽度（单位：deg） */
-  bool in_sidelobe{false};             /**< 干扰是否主要经由旁瓣进入 */
-  float confidence{1.0f};              /**< 干扰事实置信度，范围 [0, 1] */
-};
+using JammerEmitterState = JammerSourceFact;
 
 /** @brief 场景中的干扰源列表 */
 using JammerEmitterStateList = std::vector<JammerEmitterState>;

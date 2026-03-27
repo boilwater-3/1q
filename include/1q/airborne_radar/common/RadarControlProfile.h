@@ -25,12 +25,6 @@ struct RadarControlProfile {
   bool enable_adaptive_beamforming{false};    /**< 是否启用自适应波束形成 */
   bool enable_eccm_rejitter{false};           /**< 是否启用 ECCM 重频抖动 */
   float eccm_burnthrough_gain{1.0f};          /**< ECCM 烧穿增益倍率 */
-  std::uint32_t lpi_hold_cycles_remaining{0}; /**< LPI 域剩余保持周期，仅供 reducer 运行态使用 */
-  std::uint32_t eccm_hold_cycles_remaining{0}; /**< ECCM 域剩余保持周期，仅供 reducer 运行态使用 */
-  std::uint32_t lpi_cooldown_cycles_remaining{
-      0}; /**< LPI 域释放后的冷却周期，仅供 reducer 运行态使用 */
-  std::uint32_t eccm_cooldown_cycles_remaining{
-      0}; /**< ECCM 域释放后的冷却周期，仅供 reducer 运行态使用 */
 };
 
 }  // namespace common

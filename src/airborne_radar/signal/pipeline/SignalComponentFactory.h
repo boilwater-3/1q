@@ -9,7 +9,6 @@
 #include <Eigen/Core>
 #include <algorithm>
 #include <cmath>
-#include <cstdlib>
 #include <memory>
 #include <vector>
 
@@ -150,8 +149,9 @@ class SignalComponentFactory final {
     if (config.lifecycle.enable_imm_lifecycle) {
       const std::size_t model_count = config.lifecycle.imm_model_noise_diff_coeffs.size();
       if (model_count == 0U) {
-        AbortLifecycleAssemblyConfigViolation(
+        LogLifecycleAssemblyConfigViolation(
             "IMM enabled but imm_model_noise_diff_coeffs is empty", model_count);
+        return artifacts;
       }
       if (model_count > 3U) {
         PROJECT_LOG_WARN(
@@ -167,8 +167,9 @@ class SignalComponentFactory final {
       for (std::size_t i = 0; i < model_count; ++i) {
         const float noise_diff_coeff = config.lifecycle.imm_model_noise_diff_coeffs[i];
         if (noise_diff_coeff <= 0.0f) {
-          AbortLifecycleAssemblyConfigViolation("IMM model noise_diff_coeff must be > 0",
-                                                noise_diff_coeff);
+          LogLifecycleAssemblyConfigViolation("IMM model noise_diff_coeff must be > 0",
+                                              noise_diff_coeff);
+          return artifacts;
         }
 
         artifacts.imm_predictors_owned.push_back(CreateKalmanPredictor(noise_diff_coeff));
@@ -201,28 +202,22 @@ class SignalComponentFactory final {
 
  private:
   /**
-   * @brief 终止生命周期自动装配配置违规。
+   * @brief 记录生命周期自动装配配置违规错误日志。
    * @param message 错误消息。
    * @param value 附带数值。
    */
-  static void AbortLifecycleAssemblyConfigViolation(const char* message, float value) {
-    PROJECT_LOG_CRITICAL(
-        "[SignalPipeline] lifecycle auto-assembly config violation: {} "
-        "(value={})",
-        message, value);
-    std::abort();
+  static void LogLifecycleAssemblyConfigViolation(const char* message, float value) {
+    PROJECT_LOG_ERROR(
+        "[SignalPipeline] lifecycle auto-assembly config violation: {} (value={})", message, value);
   }
   /**
-   * @brief 终止生命周期自动装配配置违规。
+   * @brief 记录生命周期自动装配配置违规错误日志。
    * @param message 错误消息。
    * @param value 附带数值。
    */
-  static void AbortLifecycleAssemblyConfigViolation(const char* message, std::size_t value) {
-    PROJECT_LOG_CRITICAL(
-        "[SignalPipeline] lifecycle auto-assembly config violation: {} "
-        "(value={})",
-        message, value);
-    std::abort();
+  static void LogLifecycleAssemblyConfigViolation(const char* message, std::size_t value) {
+    PROJECT_LOG_ERROR(
+        "[SignalPipeline] lifecycle auto-assembly config violation: {} (value={})", message, value);
   }
   /**
    * @brief 构造 Kalman 预测器。
@@ -262,9 +257,10 @@ class SignalComponentFactory final {
     }
 
     if (config.lifecycle.imm_transition_probability.size() != model_count * model_count) {
-      AbortLifecycleAssemblyConfigViolation(
+      LogLifecycleAssemblyConfigViolation(
           "imm_transition_probability size must equal model_count*model_count",
           config.lifecycle.imm_transition_probability.size());
+      return Eigen::MatrixXf();
     }
 
     Eigen::MatrixXf matrix(static_cast<Eigen::Index>(model_count),
@@ -274,15 +270,15 @@ class SignalComponentFactory final {
       for (std::size_t c = 0; c < model_count; ++c) {
         const float value = config.lifecycle.imm_transition_probability[r * model_count + c];
         if (value < 0.0f || value > 1.0f) {
-          AbortLifecycleAssemblyConfigViolation("IMM transition probability must be in [0,1]",
-                                                value);
+          LogLifecycleAssemblyConfigViolation("IMM transition probability must be in [0,1]", value);
+          return Eigen::MatrixXf();
         }
         matrix(static_cast<Eigen::Index>(r), static_cast<Eigen::Index>(c)) = value;
         row_sum += value;
       }
       if (std::fabs(row_sum - 1.0f) > 1e-3f) {
-        AbortLifecycleAssemblyConfigViolation("each IMM transition matrix row must sum to 1",
-                                              row_sum);
+        LogLifecycleAssemblyConfigViolation("each IMM transition matrix row must sum to 1", row_sum);
+        return Eigen::MatrixXf();
       }
     }
     return matrix;
@@ -301,8 +297,9 @@ class SignalComponentFactory final {
     }
 
     if (config.lifecycle.imm_initial_weights.size() != model_count) {
-      AbortLifecycleAssemblyConfigViolation("imm_initial_weights size must equal model_count",
-                                            config.lifecycle.imm_initial_weights.size());
+      LogLifecycleAssemblyConfigViolation("imm_initial_weights size must equal model_count",
+                                          config.lifecycle.imm_initial_weights.size());
+      return Eigen::VectorXf();
     }
 
     Eigen::VectorXf weights(static_cast<Eigen::Index>(model_count));
@@ -310,14 +307,16 @@ class SignalComponentFactory final {
     for (std::size_t i = 0; i < model_count; ++i) {
       const float value = config.lifecycle.imm_initial_weights[i];
       if (value < 0.0f || value > 1.0f) {
-        AbortLifecycleAssemblyConfigViolation("IMM initial weight must be in [0,1]", value);
+        LogLifecycleAssemblyConfigViolation("IMM initial weight must be in [0,1]", value);
+        return Eigen::VectorXf();
       }
       weights(static_cast<Eigen::Index>(i)) = value;
       sum += value;
     }
 
     if (std::fabs(sum - 1.0f) > 1e-3f) {
-      AbortLifecycleAssemblyConfigViolation("IMM initial weights must sum to 1", sum);
+      LogLifecycleAssemblyConfigViolation("IMM initial weights must sum to 1", sum);
+      return Eigen::VectorXf();
     }
     return weights;
   }

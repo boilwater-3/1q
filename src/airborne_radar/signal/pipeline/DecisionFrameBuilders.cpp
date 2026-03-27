@@ -9,22 +9,6 @@ namespace internal {
 
 namespace {
 
-float ResolveAssociationFragilityWeight(common::JammingSemantic semantic) {
-  switch (semantic) {
-    case common::JammingSemantic::kDeception:
-      return 1.00f;
-    case common::JammingSemantic::kRepeater:
-      return 0.88f;
-    case common::JammingSemantic::kMixed:
-      return 0.94f;
-    case common::JammingSemantic::kNoiseSuppression:
-      return 0.60f;
-    case common::JammingSemantic::kNone:
-    default:
-      return 0.0f;
-  }
-}
-
 common::EccmJammerSourceInfo BuildEccmJammerSourceInfo(
     const environment::JammerSourceFact& environment_source) {
   common::EccmJammerSourceInfo source_info;
@@ -61,39 +45,6 @@ common::DecisionTrackSnapshot BuildDecisionTrackSnapshotFromFeature(
 }
 
 }  // namespace
-
-AssociationQualityMetrics ToPipelineAssociationQualityMetrics(
-    const association::AssociationQualityMetrics& source,
-    common::JammingSemantic dominant_jamming_semantic, float jamming_severity,
-    float association_unassigned_cost) {
-  AssociationQualityMetrics metrics;
-  metrics.prior_track_count = source.prior_track_count;
-  metrics.detection_count = source.detection_count;
-  metrics.matched_count = source.matched_count;
-  metrics.new_track_count = source.new_track_count;
-  metrics.missed_track_count = source.missed_track_count;
-  metrics.match_rate = source.match_rate;
-  metrics.new_track_rate = source.new_track_rate;
-  metrics.missed_track_rate = source.missed_track_rate;
-  metrics.mean_match_cost = source.mean_match_cost;
-  metrics.p95_match_cost = source.p95_match_cost;
-  metrics.dominant_jamming_semantic = dominant_jamming_semantic;
-  metrics.jamming_severity = std::max(0.0f, std::min(1.0f, jamming_severity));
-  const float normalized_cost_pressure =
-      association_unassigned_cost > 1e-6f
-          ? std::max(0.0f, std::min(1.0f, source.mean_match_cost / association_unassigned_cost))
-          : 0.0f;
-  const float operational_pressure =
-      0.20f + 0.30f * std::max(0.0f, std::min(1.0f, 1.0f - source.match_rate)) +
-      0.20f * source.new_track_rate + 0.15f * source.missed_track_rate +
-      0.15f * normalized_cost_pressure;
-  metrics.association_stress = std::max(
-      0.0f,
-      std::min(1.0f, metrics.jamming_severity *
-                         ResolveAssociationFragilityWeight(metrics.dominant_jamming_semantic) *
-                         operational_pressure));
-  return metrics;
-}
 
 common::EccmSourceInfo BuildEccmSourceInfo(
     const environment::EnvironmentSnapshot& environment_snapshot) {

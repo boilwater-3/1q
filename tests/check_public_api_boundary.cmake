@@ -15,6 +15,7 @@ set(EXPECTED_PUBLIC_HEADERS
     "airborne_radar/common/RadarCommand.h"
     "airborne_radar/common/RadarControlProfile.h"
     "airborne_radar/common/RadarOrientationConfig.h"
+    "airborne_radar/common/RadarWorkMode.h"
     "airborne_radar/common/RadarOrientationUtils.h"
     "airborne_radar/common/RadarSessionConfigBuilder.h"
     "airborne_radar/common/TargetCategory.h"

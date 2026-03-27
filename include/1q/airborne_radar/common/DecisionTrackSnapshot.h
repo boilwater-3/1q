@@ -6,7 +6,6 @@
 #ifndef AIRBORNE_RADAR_COMMON_DECISION_TRACK_SNAPSHOT_H_
 #define AIRBORNE_RADAR_COMMON_DECISION_TRACK_SNAPSHOT_H_
 
-#include <cmath>
 #include <cstdint>
 #include <vector>
 
@@ -81,23 +80,7 @@ struct DecisionTrackSnapshot {
                         float acceleration_x_in = 0.0f, float acceleration_y_in = 0.0f,
                         float acceleration_z_in = 0.0f, bool jamming_detected_in = false,
                         std::uint64_t external_target_id_in = 0,
-                        std::uint64_t association_key_in = 0) {
-    state.association_key = association_key_in;
-    state.external_target_id = external_target_id_in;
-    state.velocity_x = velocity_x_in;
-    state.velocity_y = velocity_y_in;
-    state.velocity_z = velocity_z_in;
-    state.speed = std::sqrt(velocity_x_in * velocity_x_in + velocity_y_in * velocity_y_in +
-                            velocity_z_in * velocity_z_in);
-    state.acceleration_x = acceleration_x_in;
-    state.acceleration_y = acceleration_y_in;
-    state.acceleration_z = acceleration_z_in;
-    state.acceleration =
-        std::sqrt(acceleration_x_in * acceleration_x_in + acceleration_y_in * acceleration_y_in +
-                  acceleration_z_in * acceleration_z_in);
-    state.rcs = rcs_in;
-    state.jamming_detected = jamming_detected_in;
-  }
+                        std::uint64_t association_key_in = 0);
 };
 
 /** @brief DecisionTrackSnapshotList 表示供决策层消费的轨迹快照集合 */

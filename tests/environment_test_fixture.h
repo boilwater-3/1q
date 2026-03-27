@@ -9,7 +9,6 @@
 #include <utility>
 
 #include "airborne_radar/environment/EnvironmentService.h"
-#include "airborne_radar/environment/IMutableEnvironmentService.h"
 
 namespace airborne_radar {
 namespace tests {

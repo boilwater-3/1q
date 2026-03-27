@@ -8,11 +8,13 @@
 
 #include "1q/airborne_radar/common/RadarControlProfile.h"
 #include "1q/airborne_radar/common/RadarOrientationConfig.h"
-#include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
+namespace environment {
+class IEnvironmentService;
+}  // namespace environment
 namespace signal {
 namespace pipeline {
 

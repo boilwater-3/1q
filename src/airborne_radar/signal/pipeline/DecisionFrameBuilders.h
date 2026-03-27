@@ -8,17 +8,11 @@
 
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
-#include "airborne_radar/signal/association/DataAssociation.h"
 
 namespace airborne_radar {
 namespace signal {
 namespace pipeline {
 namespace internal {
-
-AssociationQualityMetrics ToPipelineAssociationQualityMetrics(
-    const association::AssociationQualityMetrics& source,
-    common::JammingSemantic dominant_jamming_semantic, float jamming_severity,
-    float association_unassigned_cost);
 
 common::EccmSourceInfo BuildEccmSourceInfo(
     const environment::EnvironmentSnapshot& environment_snapshot);

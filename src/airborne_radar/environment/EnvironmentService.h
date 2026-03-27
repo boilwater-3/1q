@@ -72,16 +72,13 @@ class EnvironmentService final : public IMutableEnvironmentService {
   void SetJammingDetectionThresholdDb(float threshold_db) override;
 
  private:
-  static constexpr std::size_t kNoLegacyJammerEmitterIndex = static_cast<std::size_t>(-1);
-
   void RefreshFrozenSnapshotFromActiveScene();
 
   std::unique_ptr<scene::SceneManager> scene_manager_;
   std::unique_ptr<simulation::PropagationModel> propagation_model_;
   EnvironmentSnapshot frozen_snapshot_{};
   EnvironmentCycleContext current_cycle_context_{};
-  std::size_t pending_legacy_jammer_emitter_index_{kNoLegacyJammerEmitterIndex};
-  std::size_t active_legacy_jammer_emitter_index_{kNoLegacyJammerEmitterIndex};
+  std::size_t pending_legacy_jammer_emitter_index_{static_cast<std::size_t>(-1)};
   float jamming_detection_threshold_db_{6.0f};
 };
 

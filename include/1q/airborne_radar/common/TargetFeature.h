@@ -6,7 +6,6 @@
 #ifndef AIRBORNE_RADAR_COMMON_TARGET_FEATURE_H_
 #define AIRBORNE_RADAR_COMMON_TARGET_FEATURE_H_
 
-#include <cmath>
 #include <cstdint>
 #include <vector>
 
@@ -70,16 +69,7 @@ struct TargetFeature {
    * @note 速度模长由 [vx,vy,vz] 自动计算，调用方只输入向量。
    */
   TargetFeature(float velocity_x, float velocity_y, float velocity_z, float rcs, float range = 0.0f,
-                int swerling_type = 0, std::uint64_t ext_target_id = 0)
-      : external_target_id(ext_target_id),
-        current_track_velocity_x(velocity_x),
-        current_track_velocity_y(velocity_y),
-        current_track_velocity_z(velocity_z),
-        current_track_speed(
-            std::sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z)),
-        current_track_rcs(rcs),
-        range_m(range),
-        target_swerling_type(swerling_type) {}
+                int swerling_type = 0, std::uint64_t ext_target_id = 0);
 };
 
 /** @brief TargetFeatureList 是 TargetFeature 的列表，表示当前处理周期内所有相关目标的特征集合 */

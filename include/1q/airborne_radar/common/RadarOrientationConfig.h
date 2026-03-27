@@ -6,6 +6,7 @@
 #ifndef AIRBORNE_RADAR_COMMON_RADAR_ORIENTATION_CONFIG_H_
 #define AIRBORNE_RADAR_COMMON_RADAR_ORIENTATION_CONFIG_H_
 
+#include "1q/airborne_radar/common/RadarWorkMode.h"
 #include "1q/common/scan_schedule_types.h"
 
 namespace airborne_radar {
@@ -62,16 +63,6 @@ enum class StabilizationMode {
   kBodyStabilized = 0,     /**< 随机体稳定，波束方向随平台姿态变化 */
   kInertialStabilized = 1, /**< 对惯性空间稳定，尽量保持相对惯性坐标系方向不变 */
   kGroundStabilized = 2    /**< 对地稳定，适用于对地搜索或地形跟随场景 */
-};
-
-/**
- * @brief RadarWorkSubMode 表示机载雷达工作子模式。
- */
-enum class RadarWorkSubMode {
-  kStby = 0, /**< 待机：波束停泊并停止扫描 */
-  kTas = 1,  /**< 目标捕获扫描：较密集重访扫描 */
-  kTws = 2,  /**< 边扫边跟踪：常规二维扫描 */
-  kStt = 3   /**< 单目标跟踪：固定驻留点 */
 };
 
 /**

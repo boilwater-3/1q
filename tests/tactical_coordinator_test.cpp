@@ -489,12 +489,12 @@ TEST(ControlReducerTest, ReducerPreservesDomainDuringConfiguredHoldWindow) {
   const decision::pipeline::ControlReductionResult first =
       reducer.Reduce(previous_profile, proposals);
   ASSERT_FLOAT_EQ(first.profile.eccm_burnthrough_gain, 1.5f);
-  EXPECT_EQ(first.profile.eccm_hold_cycles_remaining, 1u);
+  EXPECT_EQ(reducer.GetRuntimeState().eccm_hold_cycles_remaining, 1u);
 
   const decision::pipeline::ControlReductionResult held =
       reducer.Reduce(first.profile, std::vector<decision::pipeline::TacticalProposal>());
   EXPECT_FLOAT_EQ(held.profile.eccm_burnthrough_gain, 1.5f);
-  EXPECT_EQ(held.profile.eccm_hold_cycles_remaining, 0u);
+  EXPECT_EQ(reducer.GetRuntimeState().eccm_hold_cycles_remaining, 0u);
   EXPECT_EQ(held.profile.version, first.profile.version);
 
   const decision::pipeline::ControlReductionResult released =
@@ -515,7 +515,7 @@ TEST(ControlReducerTest, ReducerRejectsReentryDuringConfiguredCooldown) {
   const decision::pipeline::ControlReductionResult released =
       reducer.Reduce(active_profile, std::vector<decision::pipeline::TacticalProposal>());
   EXPECT_FLOAT_EQ(released.profile.eccm_burnthrough_gain, 1.0f);
-  EXPECT_EQ(released.profile.eccm_cooldown_cycles_remaining, 2u);
+  EXPECT_EQ(reducer.GetRuntimeState().eccm_cooldown_cycles_remaining, 2u);
 
   std::vector<decision::pipeline::TacticalProposal> proposals;
   proposals.push_back(decision::pipeline::TacticalProposal{
@@ -526,14 +526,14 @@ TEST(ControlReducerTest, ReducerRejectsReentryDuringConfiguredCooldown) {
   const decision::pipeline::ControlReductionResult blocked_once =
       reducer.Reduce(released.profile, proposals);
   EXPECT_FLOAT_EQ(blocked_once.profile.eccm_burnthrough_gain, 1.0f);
-  EXPECT_EQ(blocked_once.profile.eccm_cooldown_cycles_remaining, 1u);
+  EXPECT_EQ(reducer.GetRuntimeState().eccm_cooldown_cycles_remaining, 1u);
   EXPECT_EQ(blocked_once.applied_directives.size(), 0u);
   EXPECT_EQ(blocked_once.rejected_directives.size(), 1u);
 
   const decision::pipeline::ControlReductionResult blocked_twice =
       reducer.Reduce(blocked_once.profile, proposals);
   EXPECT_FLOAT_EQ(blocked_twice.profile.eccm_burnthrough_gain, 1.0f);
-  EXPECT_EQ(blocked_twice.profile.eccm_cooldown_cycles_remaining, 0u);
+  EXPECT_EQ(reducer.GetRuntimeState().eccm_cooldown_cycles_remaining, 0u);
   EXPECT_EQ(blocked_twice.applied_directives.size(), 0u);
   EXPECT_EQ(blocked_twice.rejected_directives.size(), 1u);
 
