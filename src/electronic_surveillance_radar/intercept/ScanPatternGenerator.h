@@ -157,14 +157,7 @@ class ScanPatternGenerator final {
    * @return 规范化后的方位角（单位：deg）。
    */
   static float NormalizeAzimuthDeg(float az_deg) {
-    float normalized = az_deg;
-    while (normalized > 180.0f) {
-      normalized -= 360.0f;
-    }
-    while (normalized <= -180.0f) {
-      normalized += 360.0f;
-    }
-    return normalized;
+    return std::fmod(az_deg + 540.0f, 360.0f) - 180.0f;
   }
 };
 

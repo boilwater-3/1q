@@ -51,8 +51,9 @@ class BoundarySearchSolver final {
     const bool low_ok = predicate(low);
     ++result.iterations;
     if (!low_ok) {
+      // 最小距离处谓词即为 false，截获在任意距离均不可行
       result.boundary_range_m = min_range_m;
-      result.converged = true;
+      result.converged = false;
       return result;
     }
     const bool high_ok = predicate(high);

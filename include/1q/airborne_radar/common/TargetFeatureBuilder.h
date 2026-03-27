@@ -85,10 +85,12 @@ class ONEQ_API TargetFeatureBuilder {
   /**
    * @brief 生成目标特征，并自动规范化斜距。
    * @return 已规范化几何派生量的目标特征。
+   * @note 可安全多次调用；每次均对内部状态的副本执行归一化，不修改 Builder 自身。
    */
-  TargetFeature Build() {
-    NormalizeTargetGeometry(&target_);
-    return target_;
+  TargetFeature Build() const {
+    TargetFeature result = target_;
+    NormalizeTargetGeometry(&result);
+    return result;
   }
 
  private:

@@ -168,10 +168,11 @@ TEST(SceneManagerTest, CommitsPendingSceneOnlyWhenBeginCycleArrives) {
   EXPECT_EQ(scene_manager.GetActiveCycleContext().cycle_index, 9U);
 }
 
-TEST(PropagationModelTest, ClampsPropagationLossNonNegativeButPassesThroughNegativeClutter) {
+TEST(PropagationModelTest, NegativeTerrainReflectionYieldsNetGainPassesThroughUnchanged) {
   environment::EnvironmentSceneState scene_state;
   scene_state.base_propagation_loss_db = -10.0f;
   scene_state.atmospheric_attenuation_db = 2.0f;
+  // terrain_reflection_db < 0 represents multipath gain; must not be clamped.
   scene_state.terrain_reflection_db = -4.0f;
   // Negative clutter_power_db (e.g. -3 dBW ≈ 0.5 W) is physically valid for
   // low-clutter environments and must not be clamped.
@@ -180,8 +181,8 @@ TEST(PropagationModelTest, ClampsPropagationLossNonNegativeButPassesThroughNegat
   environment::simulation::PropagationModel propagation_model;
   const environment::simulation::PropagationResult result = propagation_model.Evaluate(scene_state);
 
-  // Propagation loss is clamped at 0: a path cannot provide net gain.
-  EXPECT_FLOAT_EQ(result.propagation_loss_db, 0.0f);
+  // No clamp: -10 + 2 + (-4) = -12 dB (net multipath gain is physically valid).
+  EXPECT_FLOAT_EQ(result.propagation_loss_db, -12.0f);
   // Clutter power passes through unchanged so callers can model near-zero
   // clutter by setting large negative dBW values.
   EXPECT_FLOAT_EQ(result.clutter_power_db, -3.0f);

@@ -30,16 +30,6 @@ const float kMaxRepositoryMatchDistance = 1.80f;
  */
 const float kHighThreatConfidenceThreshold = 0.55f;
 
-/**
- * @brief 向分类结果列表追加单个目标类型标签。
- * @param[in,out] categories 待写入的分类结果列表。
- * @param target_type 待追加的目标类型标签。
- */
-void AppendType(common::TargetCategoryList* categories, const std::string& target_type) {
-  if (categories != nullptr) {
-    categories->emplace_back(target_type);
-  }
-}
 
 }  // namespace
 
@@ -61,9 +51,9 @@ void ThreatAssessmentEvaluator::Evaluate(
 
   for (std::size_t i = 0; i < input_frame.tracks.size(); ++i) {
     const common::DecisionTrackSnapshot& track_snapshot = input_frame.tracks[i];
-    const std::string classification = IdentifyTarget(track_snapshot);
-    AppendType(&evaluation_state.target_classification_result, classification);
-    UpdateLpiSourceInfo(&evaluation_state.lpi_source_info, classification);
+    const common::TargetCategory category = IdentifyTarget(track_snapshot);
+    evaluation_state.target_classification_result.push_back(category);
+    UpdateLpiSourceInfo(&evaluation_state.lpi_source_info, category.target_type);
 
     const std::uint64_t track_key = track_snapshot.state.association_key;
     const float previous_confidence = state_store.confidence_memory.count(track_key) != 0U
@@ -79,7 +69,7 @@ void ThreatAssessmentEvaluator::Evaluate(
         (track_snapshot.evidence.has_measurement_evidence ||
          track_snapshot.state.status == common::DecisionTrackStatus::kConfirmed);
 
-    if (IsHighThreatCategory(classification) && can_trigger_aggressive_controls) {
+    if (IsHighThreatCategory(category.target_type) && can_trigger_aggressive_controls) {
       evaluation_state.should_reduce_power = true;
     }
     if (track_snapshot.state.jamming_detected && can_trigger_aggressive_controls) {
@@ -87,11 +77,11 @@ void ThreatAssessmentEvaluator::Evaluate(
     }
 
     PROJECT_LOG_INFO("[ThreatAssessmentEvaluator] Target[{}] -> Classification: {}", i,
-                     classification);
+                     category.target_type);
   }
 }
 
-std::string ThreatAssessmentEvaluator::IdentifyTarget(
+common::TargetCategory ThreatAssessmentEvaluator::IdentifyTarget(
     const common::DecisionTrackSnapshot& track_snapshot) const {
   if (feature_repository_ != nullptr) {
     environment::database::FeatureVector input;
@@ -102,7 +92,9 @@ std::string ThreatAssessmentEvaluator::IdentifyTarget(
     environment::database::MatchResult match_result;
     if (feature_repository_->QueryBestMatch(input, match_result)) {
       if (ShouldAcceptRepositoryMatch(match_result)) {
-        return match_result.target_type;
+        common::TargetCategory result(match_result.target_type);
+        result.probability = match_result.probability;
+        return result;
       }
       PROJECT_LOG_DEBUG(
           "[ThreatAssessmentEvaluator] Repository match filtered out (type: {}, "
@@ -113,12 +105,12 @@ std::string ThreatAssessmentEvaluator::IdentifyTarget(
 
   const float threat_score = ComputeThreatScore(track_snapshot);
   if (threat_score >= 2.0f) {
-    return "HIGH_THREAT_TARGET";
+    return common::TargetCategory("HIGH_THREAT_TARGET");
   }
   if (threat_score >= 0.8f) {
-    return "LOW_THREAT_TARGET";
+    return common::TargetCategory("LOW_THREAT_TARGET");
   }
-  return "UNKNOWN";
+  return common::TargetCategory("UNKNOWN");
 }
 
 float ThreatAssessmentEvaluator::ComputeThreatScore(

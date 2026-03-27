@@ -21,6 +21,8 @@ namespace common {
 struct TargetCategory {
   std::string target_type{"UNKNOWN"}; /**< 目标类别标识符 */
 
+  float probability{0.0f}; /**< 归一化后的类别概率（来自特征库匹配；启发式分类时为 0） */
+
   std::unordered_map<std::string, double>
       feature_values; /**< 目标类别的特征值列表，表示该类别的特征集合 */
 

@@ -414,8 +414,8 @@ TEST(KalmanPredictUpdateTest, PredictThenUpdateIntegration) {
   EXPECT_NEAR(state.mean(0), 50.0f, 2.0f);
   // 速度估计应稳定在约 10
   EXPECT_NEAR(state.mean(1), 10.0f, 2.0f);
-  // 协方差应收敛（小于预测阶段的膨胀值，且保持有限）
-  EXPECT_LT(state.covariance(0, 0), 100.0f);
+  // 协方差应收敛（测量噪声 std=5 → 方差≤25；稳态值应明显低于初始值 1.0 的 10 倍）
+  EXPECT_LT(state.covariance(0, 0), 30.0f);
 }
 
 TEST(KalmanPredictUpdateTest, VelocityConvergesFromWrongInitialGuess) {

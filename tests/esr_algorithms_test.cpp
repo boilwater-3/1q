@@ -224,9 +224,10 @@ TEST(EsrAlgorithmsTest, BoundarySearchSolverConvergesForMonotonicPredicate) {
   EXPECT_TRUE(all_true.converged);
   EXPECT_NEAR(all_true.boundary_range_m, 100.0f, 1.0e-6f);
 
+  // 谓词全假：截获条件在全范围内均不满足，应返回 converged=false 以告知调用方截获不可行。
   const BoundarySearchResult all_false =
       BoundarySearchSolver::Solve(0.0f, 100.0f, 0.1f, 20, [](float) { return false; });
-  EXPECT_TRUE(all_false.converged);
+  EXPECT_FALSE(all_false.converged);
   EXPECT_NEAR(all_false.boundary_range_m, 0.0f, 1.0e-6f);
 }
 

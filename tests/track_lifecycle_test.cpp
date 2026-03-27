@@ -38,6 +38,7 @@ class CountingTrackPool : public signal::tracking::ITrackPool {
 
     common::TrackState* track = free_list_.back();
     free_list_.pop_back();
+    *track = common::TrackState{};
     ++in_use_count_;
     return track;
   }

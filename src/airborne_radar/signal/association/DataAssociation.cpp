@@ -1,8 +1,10 @@
 #include "airborne_radar/signal/association/DataAssociation.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <limits>
 
 #include "common/logging/ProjectLog.h"
 
@@ -224,7 +226,8 @@ AssociationResult DataAssociationEngine::AssociateDetections(
     const std::size_t rows = association_prior_count;
     const std::size_t cols = measurements.size();
     const std::size_t dim = std::max(rows, cols);
-    const float rejected_cost = config_.unassigned_cost + 1.0f;
+    const float rejected_cost = std::nextafter(config_.unassigned_cost,
+                                               std::numeric_limits<float>::infinity());
 
     Eigen::MatrixXf cost_matrix = Eigen::MatrixXf::Constant(
         static_cast<Eigen::Index>(dim), static_cast<Eigen::Index>(dim), config_.unassigned_cost);

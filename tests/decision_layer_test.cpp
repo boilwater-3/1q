@@ -150,4 +150,8 @@ TEST(ThreatAssessmentEvaluatorTest, RepositoryMatchProvidesProbability) {
   ASSERT_FALSE(evaluation_state.target_classification_result.empty());
   EXPECT_EQ(evaluation_state.target_classification_result.front().target_type,
             "HIGH_THREAT_FIGHTER");
+  const float prob = evaluation_state.target_classification_result.front().probability;
+  EXPECT_GT(prob, 0.0f);
+  EXPECT_LE(prob, 1.0f);
+  EXPECT_FALSE(std::isnan(prob));
 }

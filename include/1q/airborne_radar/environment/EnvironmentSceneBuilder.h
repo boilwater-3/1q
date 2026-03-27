@@ -35,13 +35,22 @@ class ONEQ_API EnvironmentSceneBuilder {
   /** @brief 追加一个完整的干扰源状态 */
   EnvironmentSceneBuilder& AddJammer(const JammerEmitterState& emitter);
 
-  /** @brief 追加一个压制式/噪声式干扰源 */
+  /**
+   * @brief 追加一个压制式/噪声式干扰源。
+   * @note 无论 `emitter.technique` 的原始值如何，均会被强制覆盖为 `kNoiseSuppression`。
+   */
   EnvironmentSceneBuilder& AddNoiseJammer(const JammerEmitterState& emitter);
 
-  /** @brief 追加一个欺骗式干扰源 */
+  /**
+   * @brief 追加一个欺骗式干扰源。
+   * @note 无论 `emitter.technique` 的原始值如何，均会被强制覆盖为 `kDeception`。
+   */
   EnvironmentSceneBuilder& AddDeceptionJammer(const JammerEmitterState& emitter);
 
-  /** @brief 追加一个转发式/重复器式干扰源 */
+  /**
+   * @brief 追加一个转发式/重复器式干扰源。
+   * @note 无论 `emitter.technique` 的原始值如何，均会被强制覆盖为 `kRepeater`。
+   */
   EnvironmentSceneBuilder& AddRepeaterJammer(const JammerEmitterState& emitter);
 
   /** @brief 生成当前构造结果 */

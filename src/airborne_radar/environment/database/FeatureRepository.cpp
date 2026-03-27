@@ -1,6 +1,9 @@
 #include "airborne_radar/environment/database/FeatureRepository.h"
 
 #include <algorithm>
+#include <string>
+
+#include "common/logging/ProjectLog.h"
 #include <array>
 #include <cmath>
 #include <limits>
@@ -51,8 +54,13 @@ bool IsKnownFeature(const std::string& feature_name) {
 FeatureRepository::FeatureRepository() : records_(BuildDefaultRecords()) {}
 
 bool FeatureRepository::ConnectDataSource(const std::string& connection_string) {
-  connection_string_ = connection_string;
-  return !connection_string_.empty();
+  // 数据库驱动尚未实现；连接请求始终返回 false，以防止调用方误以为连接已建立。
+  PROJECT_LOG_WARN(
+      "[FeatureRepository] ConnectDataSource called with '{}' but data source is not yet "
+      "implemented; returning false.",
+      connection_string);
+  (void)connection_string;
+  return false;
 }
 
 bool FeatureRepository::ReloadFromDataSource() {
@@ -95,9 +103,6 @@ bool FeatureRepository::QueryBestMatch(const FeatureVector& input, MatchResult& 
   }
 
   const float score_sum = std::accumulate(scores.begin(), scores.end(), 0.0f);
-  if (score_sum <= 0.0f) {
-    return false;
-  }
 
   result.target_type = records_[best_index].target_type;
   result.probability = best_score / score_sum;
@@ -165,19 +170,12 @@ float FeatureRepository::ComputeDistance(const FeatureVector& input, const Featu
 
   float distance = 0.45f * speed_term + 0.35f * rcs_term + 0.20f * jamming_term;
 
-  // 可扩展维度：除已知特征外，其余按单位尺度参与距离计算。
+  // 可扩展维度：仅当输入与原型均含该特征时才参与距离计算，避免单侧惩罚。
   for (const auto& entry : input.values) {
     if (IsKnownFeature(entry.first) || !record.prototype.Has(entry.first)) {
       continue;
     }
     distance += std::fabs(entry.second - record.prototype.GetOrDefault(entry.first));
-  }
-
-  for (const auto& entry : record.prototype.values) {
-    if (IsKnownFeature(entry.first) || input.Has(entry.first)) {
-      continue;
-    }
-    distance += std::fabs(entry.second);
   }
 
   return distance;

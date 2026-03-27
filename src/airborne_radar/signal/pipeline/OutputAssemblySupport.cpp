@@ -105,6 +105,7 @@ void CollectCycleOutputs(
       BuildPerceptionQualityInfo(input_state.size(), *association_quality_metrics);
 
   if (auto_lifecycle_manager != nullptr) {
+    /* 生产路径：auto-lifecycle 管理器负责状态机更新与决策帧构建。 */
     tracking::CycleContext cycle;
     cycle.cycle_index = cycle_index;
     cycle.batch_id = batch_id;
@@ -120,6 +121,8 @@ void CollectCycleOutputs(
     return;
   }
 
+  /* 遗留降级路径：仅当 auto_lifecycle_manager 未配置（禁用自动生命周期）时执行。
+   * 生产配置下 auto_lifecycle_manager 始终非空，此路径在正常运行中不可达。 */
   const common::TrackOutputFrame track_output_frame =
       output_manager->BuildTrackOutputFrame(cycle_index, batch_id,
                                             BuildDecisionSnapshotsFromFeatures(output_state));

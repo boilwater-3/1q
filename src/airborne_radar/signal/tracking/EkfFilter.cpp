@@ -50,10 +50,9 @@ KalmanUpdateResult EkfUpdater::Update(const GaussianTrackState& predicted,
   /* Innovation covariance */
   result.innovation_covariance = H * predicted.covariance * H.transpose() + dynamic_R;
 
-  /* Kalman gain (LLT 分解) */
+  /* Kalman gain：K = P̂·Hᵀ·S⁻¹ 等价于 K = (S⁻¹·H·P̂)ᵀ，避免计算显式逆 */
   const KalmanGainMatrix K =
-      predicted.covariance * H.transpose() *
-      result.innovation_covariance.llt().solve(MeasurementCovariance::Identity());
+      result.innovation_covariance.llt().solve(H * predicted.covariance).transpose();
 
   /* Posterior mean */
   result.posterior.mean = predicted.mean + K * result.innovation;

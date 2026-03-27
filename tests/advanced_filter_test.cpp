@@ -203,6 +203,12 @@ TEST(ImmFilterTest, SingleModelEquivalentToKF) {
   for (int i = 0; i < kStateDim; ++i) {
     EXPECT_NEAR(imm_state.mean(i), kf_state.mean(i), kTolerance) << "mean mismatch at " << i;
   }
+  for (int i = 0; i < kStateDim; ++i) {
+    for (int j = 0; j < kStateDim; ++j) {
+      EXPECT_NEAR(imm_state.covariance(i, j), kf_state.covariance(i, j), kTolerance)
+          << "covariance mismatch at (" << i << "," << j << ")";
+    }
+  }
 }
 
 TEST(ImmFilterTest, TwoModelWeightsConvergeToCorrectModel) {

@@ -39,7 +39,7 @@ namespace common {
  * @note
  * - 构造函数接受任意 `RadarSessionConfig`（包括预设函数返回值或默认构造），
  *   未调用的 setter 保留基础配置的原始值。
- * - Builder 不验证参数合法性，物理量取值合理性由调用方负责。
+ * - `Build()` 会校验关键物理约束（功率、载频、带宽 > 0，噪声系数 >= 0），违规时记录 WARN 日志。
  * - 未暴露于 Builder 的高级选项（天线方向图、IMM 参数、对象池大小等）
  *   仍可通过直接访问 `RadarSessionConfig` 内部嵌套字段配置。
  */
@@ -243,8 +243,12 @@ class ONEQ_API RadarSessionConfigBuilder {
 
   // -------------------------------------------------------------------------
 
-  /** @brief 生成配置对象。 */
-  core::session::RadarSessionConfig Build() const { return config_; }
+  /**
+   * @brief 生成配置对象。
+   * @note 对关键物理参数执行范围校验（功率 > 0、载频 > 0、带宽 > 0、噪声系数 >= 0）；
+   *       不满足约束时记录 WARN 日志，但仍返回原始值——调用方需自行保证合理性。
+   */
+  core::session::RadarSessionConfig Build() const;
 
  private:
   core::session::RadarSessionConfig config_;

@@ -42,11 +42,12 @@ class ThreatAssessmentEvaluator final : public pipeline::ITacticalEvaluator {
 
  private:
   /**
-   * @brief 识别目标类型。
+   * @brief 识别目标类型，并填充匹配概率。
    * @param track_snapshot 单条轨迹快照。
-   * @return 识别出的目标类型标签。
+   * @return 含类型标签及归一化概率的 TargetCategory；启发式路径时 probability 为 0。
    */
-  std::string IdentifyTarget(const common::DecisionTrackSnapshot& track_snapshot) const;
+  common::TargetCategory IdentifyTarget(
+      const common::DecisionTrackSnapshot& track_snapshot) const;
 
   /**
    * @brief 计算威胁评分。

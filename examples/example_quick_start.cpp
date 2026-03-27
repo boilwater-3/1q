@@ -127,6 +127,8 @@ int main() {
   // 推进目标位置（模拟真实仿真循环）
   for (auto& t : input.target_features) {
     t.position_x += t.current_track_velocity_x * input.dt_sec;
+    t.position_y += t.current_track_velocity_y * input.dt_sec;
+    t.position_z += t.current_track_velocity_z * input.dt_sec;
   }
   const auto r2 = session.StepWithResult(input, jammed_scene);
   PrintFrameSummary("cycle-2 噪声干扰", r2);
@@ -153,6 +155,8 @@ int main() {
 
   for (auto& t : input.target_features) {
     t.position_x += t.current_track_velocity_x * input.dt_sec;
+    t.position_y += t.current_track_velocity_y * input.dt_sec;
+    t.position_z += t.current_track_velocity_z * input.dt_sec;
   }
   const auto r3 = session.StepWithResult(input, compound_scene);
   PrintFrameSummary("cycle-3 复合干扰", r3);
@@ -170,15 +174,20 @@ int main() {
 
   for (auto& t : input.target_features) {
     t.position_x += t.current_track_velocity_x * input.dt_sec;
+    t.position_y += t.current_track_velocity_y * input.dt_sec;
+    t.position_z += t.current_track_velocity_z * input.dt_sec;
   }
   const auto r4 = session.StepWithResult(input, compound_scene);
   PrintFrameSummary("cycle-4 稳健配置(首周期)", r4);
 
-  // HighRobustness 配置下确认阈值更高，需要连续命中更多周期才能重新确认。
-  // cycle 5~7：持续推进目标，让跟踪器积累命中次数直到重新确认。
+  // HighRobustness 配置下确认阈值更高，新建航迹需要积累更多命中才能确认。
+  // 注意：已确认航迹的状态不会因配置变更而降级；新阈值仅影响此后新建的候选航迹。
+  // cycle 5~7：持续推进目标，让跟踪器积累命中次数。
   for (int i = 5; i <= 7; ++i) {
     for (auto& t : input.target_features) {
       t.position_x += t.current_track_velocity_x * input.dt_sec;
+    t.position_y += t.current_track_velocity_y * input.dt_sec;
+    t.position_z += t.current_track_velocity_z * input.dt_sec;
     }
     char label[32];
     std::snprintf(label, sizeof(label), "cycle-%d 稳健配置", i);
@@ -195,6 +204,8 @@ int main() {
   // 取最后一帧做详细查询
   for (auto& t : input.target_features) {
     t.position_x += t.current_track_velocity_x * input.dt_sec;
+    t.position_y += t.current_track_velocity_y * input.dt_sec;
+    t.position_z += t.current_track_velocity_z * input.dt_sec;
   }
   const auto r_final = session.StepWithResult(input, compound_scene);
   PrintFrameSummary("cycle-8 最终读取", r_final);

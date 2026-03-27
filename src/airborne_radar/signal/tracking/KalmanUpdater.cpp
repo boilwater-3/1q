@@ -32,12 +32,11 @@ KalmanUpdateResult KalmanUpdater::Update(const GaussianTrackState& predicted,
 
   /**
    *  Kalman gain (Kalman 增益)
-   *  K = P̂ · Hᵀ · S⁻¹
-   *  使用 LLT 分解求解 S⁻¹，比直接 .inverse() 更稳定
+   *  K = P̂ · Hᵀ · S⁻¹  等价于  K = (S⁻¹ · H · P̂)ᵀ
+   *  后者避免计算显式逆矩阵，数值更稳定
    */
   const KalmanGainMatrix K =
-      predicted.covariance * H_.transpose() *
-      result.innovation_covariance.llt().solve(MeasurementCovariance::Identity());
+      result.innovation_covariance.llt().solve(H_ * predicted.covariance).transpose();
 
   /**
    * Posterior mean (后验均值)

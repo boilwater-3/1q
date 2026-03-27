@@ -164,19 +164,27 @@ float ImmFilter::GaussianLikelihood(const MeasurementVector& innovation,
                                     const MeasurementCovariance& S) {
   const Eigen::LLT<MeasurementCovariance> llt(S);
 
-  // log|S| = 2 * Σ log(L_ii)
-  const float log_det = 2.0f * llt.matrixL().toDenseMatrix().diagonal().array().log().sum();
+  // log|S| = 2 * Σ log(L_ii)：提升为 double 精度，并对对角元素加 epsilon 防 log(0)
+  constexpr double kLogDetEps = 1.0e-18;
+  const Eigen::Matrix<double, kMeasurementDim, kMeasurementDim> L =
+      llt.matrixL().toDenseMatrix().cast<double>();
+  double log_det_d = 0.0;
+  for (int k = 0; k < kMeasurementDim; ++k) {
+    log_det_d += std::log(std::max(L(k, k), kLogDetEps));
+  }
+  log_det_d *= 2.0;
 
   // yᵀ S⁻¹ y
   const MeasurementVector s_inv_y = llt.solve(innovation);
   const float mahal_sq = innovation.dot(s_inv_y);
 
-  // log-likelihood
-  constexpr float kLogTwoPi = 1.8378770664093455f;  // log(2π)
-  const float log_likelihood =
-      -0.5f * (static_cast<float>(kMeasurementDim) * kLogTwoPi + log_det + mahal_sq);
+  // log-likelihood（用 double 中间值避免精度丢失）
+  constexpr double kLogTwoPi = 1.8378770664093455;  // log(2π)
+  const double log_likelihood =
+      -0.5 * (static_cast<double>(kMeasurementDim) * kLogTwoPi + log_det_d +
+              static_cast<double>(mahal_sq));
 
-  return std::exp(log_likelihood);
+  return static_cast<float>(std::exp(log_likelihood));
 }
 
 GaussianTrackState ImmFilter::GetCombinedState() const { return combined_state_; }

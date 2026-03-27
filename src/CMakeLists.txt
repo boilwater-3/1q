@@ -5,6 +5,7 @@ set(PROJECT_SOURCES
     common/timing/TimingRegimeModel.cpp
     airborne_radar/common/ConfigPresets.cpp
     airborne_radar/common/DecisionTrackSnapshot.cpp
+    airborne_radar/common/RadarSessionConfigBuilder.cpp
     airborne_radar/common/TargetFeature.cpp
     airborne_radar/common/TargetFeatureUtils.cpp
     airborne_radar/decision/pipeline/TacticalCoordinator.cpp

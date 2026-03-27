@@ -89,6 +89,9 @@ std::vector<AssociationHypothesis> DenseCostHypothesiser::Generate(
     }
   }
 
+  // 重置 metric 内部 LLT 状态，防止下次调用基础 2-arg Generate 时继承过期协方差。
+  covariance_metric_->SetInnovationCovariance(Eigen::Matrix3f::Identity());
+
   return hypotheses;
 }
 
@@ -126,6 +129,9 @@ std::vector<AssociationHypothesis> DenseCostHypothesiser::Generate(
       hypotheses.push_back(AssociationHypothesis{track_index, measurement_index, cost});
     }
   }
+
+  // 重置 metric 内部 LLT 状态，防止下次调用基础 2-arg Generate 时继承过期协方差。
+  covariance_metric_->SetInnovationCovariance(Eigen::Matrix3f::Identity());
 
   return hypotheses;
 }
