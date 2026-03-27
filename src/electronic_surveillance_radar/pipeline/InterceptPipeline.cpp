@@ -11,6 +11,7 @@
 
 #include "common/geometry/GeometryTransform.h"
 #include "common/timing/TimingRegimeModel.h"
+#include "electronic_surveillance_radar/EsrSharedUtils.h"
 #include "electronic_surveillance_radar/intercept/AngleErrorModel.h"
 #include "electronic_surveillance_radar/intercept/BoundarySearchSolver.h"
 #include "electronic_surveillance_radar/intercept/InterceptGate.h"
@@ -40,30 +41,6 @@ constexpr double kLightSpeedMps = 299792458.0;
  */
 constexpr double kNumericFloor = 1.0e-18;
 /**
- * @brief ESR 历史输入里“未显式配置 beam_state”的默认方位中心。
- */
-constexpr float kDefaultEmitterBeamCenterAzDeg = 0.0f;
-/**
- * @brief ESR 历史输入里“未显式配置 beam_state”的默认俯仰中心。
- */
-constexpr float kDefaultEmitterBeamCenterElDeg = 0.0f;
-/**
- * @brief ESR 历史输入里“未显式配置 beam_state”的默认方位波束宽度。
- */
-constexpr float kDefaultEmitterAzBeamwidthDeg = 20.0f;
-/**
- * @brief ESR 历史输入里“未显式配置 beam_state”的默认俯仰波束宽度。
- */
-constexpr float kDefaultEmitterElBeamwidthDeg = 20.0f;
-
-/**
- * @brief 将输入裁剪到 [0, 1]。
- * @param[in] value 输入值。
- * @return 裁剪后结果。
- */
-float Clamp01(float value) { return std::max(0.0f, std::min(1.0f, value)); }
-
-/**
  * @brief 判断双精度浮点是否为有限数。
  * @param[in] value 输入值。
  * @return 有限数时返回 `true`。
@@ -88,10 +65,7 @@ double ComputeReceiveLossScale(float loss_db) {
  * @return 历史默认值返回 `true`。
  */
 bool IsLegacyDefaultBeamState(const common::EmitterBeamState& beam_state) {
-  return std::fabs(beam_state.center_az_deg - kDefaultEmitterBeamCenterAzDeg) <= 1.0e-6f &&
-         std::fabs(beam_state.center_el_deg - kDefaultEmitterBeamCenterElDeg) <= 1.0e-6f &&
-         std::fabs(beam_state.az_beamwidth_deg - kDefaultEmitterAzBeamwidthDeg) <= 1.0e-6f &&
-         std::fabs(beam_state.el_beamwidth_deg - kDefaultEmitterElBeamwidthDeg) <= 1.0e-6f;
+  return !beam_state.beam_state_valid;
 }
 
 /**
@@ -505,9 +479,9 @@ internal::RawObservationRecord BuildDeceptionRecord(
 
 InterceptPipeline::InterceptPipeline(InterceptPipelineConfig config,
                                      InterceptRuntimeConfig runtime_config)
-    : config_(config),
-      runtime_config_(runtime_config),
-      associator_(config.association),
+    : config_(std::move(config)),
+      runtime_config_(std::move(runtime_config)),
+      associator_(config_.association),
       rng_(config.algorithm.random_seed == 0U ? 1U : config.algorithm.random_seed) {
   feature_scales_.rf_scale_hz = config_.cluster.rf_scale_hz;
   feature_scales_.pw_scale_sec = config_.cluster.pw_scale_sec;

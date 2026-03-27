@@ -156,15 +156,15 @@ void DataAssociationEngine::UpdateConfig(DataAssociationConfig config) {
 
 AssociationResult DataAssociationEngine::AssociateDetections(
     const common::TargetFeatureList& targets,
-    const std::vector<std::uint8_t>& detection_succeeded) {
+    const std::vector<std::uint8_t>& detection_succeeded, float dt_sec) {
   std::vector<tracking::MeasurementCovariance> measurement_covariances(
       targets.size(), BuildDefaultMeasurementCovariance(config_.kalman_measurement_noise_std));
-  return AssociateDetections(targets, detection_succeeded, measurement_covariances);
+  return AssociateDetections(targets, detection_succeeded, measurement_covariances, dt_sec);
 }
 
 AssociationResult DataAssociationEngine::AssociateDetections(
     const common::TargetFeatureList& targets, const std::vector<std::uint8_t>& detection_succeeded,
-    const std::vector<tracking::MeasurementCovariance>& measurement_covariances) {
+    const std::vector<tracking::MeasurementCovariance>& measurement_covariances, float dt_sec) {
   const std::size_t target_count = targets.size();
   AssociationResult result;
   result.target_keys.resize(target_count, kUnassociatedKey);
@@ -220,7 +220,7 @@ AssociationResult DataAssociationEngine::AssociateDetections(
 
   if (association_prior_count > 0U) {
     const PositionAssociationPriors priors =
-        BuildExternalPositionAssociationPriors(external_priors);
+        BuildExternalPositionAssociationPriors(external_priors, dt_sec);
     const std::size_t rows = association_prior_count;
     const std::size_t cols = measurements.size();
     const std::size_t dim = std::max(rows, cols);
@@ -358,7 +358,7 @@ void DataAssociationEngine::ClearConsumedAssociationPriors() {
 
 DataAssociationEngine::PositionAssociationPriors
 DataAssociationEngine::BuildExternalPositionAssociationPriors(
-    const std::vector<ExternalSeedTrackSignature>& external_priors) const {
+    const std::vector<ExternalSeedTrackSignature>& external_priors, float dt_sec) const {
   PositionAssociationPriors priors;
   priors.keys.reserve(external_priors.size());
   priors.predicted_tracks.reserve(external_priors.size());
@@ -376,7 +376,7 @@ DataAssociationEngine::BuildExternalPositionAssociationPriors(
     }
 
     const tracking::GaussianTrackState predicted =
-        kalman_predictor_.Predict(track.gaussian_state, 1.0f);
+        kalman_predictor_.Predict(track.gaussian_state, dt_sec);
     priors.keys.push_back(track.key);
     priors.predicted_tracks.push_back(
         Eigen::Vector3f(predicted.mean(0), predicted.mean(2), predicted.mean(4)));
@@ -393,7 +393,8 @@ Eigen::Vector3f DataAssociationEngine::BuildPositionVector(
 }
 
 bool DataAssociationEngine::HasPositionMeasurement(const common::TargetFeature& target) const {
-  return target.position_x != 0.0f || target.position_y != 0.0f || target.position_z != 0.0f;
+  return target.has_cartesian_position ||
+         target.position_x != 0.0f || target.position_y != 0.0f || target.position_z != 0.0f;
 }
 
 void DataAssociationEngine::ValidateDetectedTargetsHavePosition(

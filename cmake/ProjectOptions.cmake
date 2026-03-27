@@ -36,9 +36,7 @@ endif()
 # USE_CCACHE: 使用ccache缓存编译结果加速重新编译（仅Linux/macOS）
 # 首次编译无加速，后续修改少量文件时显著提升编译速度
 # 适合频繁增量编译的开发场景
-if(UNIX AND NOT APPLE)
-    option(USE_CCACHE "Use ccache to accelerate rebuilds" OFF)
-elseif(APPLE)
+if(UNIX)
     option(USE_CCACHE "Use ccache to accelerate rebuilds" OFF)
 else()
     set(USE_CCACHE OFF CACHE INTERNAL "ccache is primarily for Linux/macOS")
@@ -96,10 +94,6 @@ mark_as_advanced(STACK_SIZE_OPTION)
 set(PACKAGE_MANAGER "none" CACHE STRING "Package manager to use for dependencies")
 set_property(CACHE PACKAGE_MANAGER PROPERTY STRINGS 
     "none" "vcpkg" "conan")
-
-# 包管理器配置验证（调试信息）
-message(STATUS "DEBUG: PACKAGE_MANAGER = '${PACKAGE_MANAGER}'")
-message(STATUS "DEBUG: PACKAGE_MANAGER type = '${CMAKE_MATCH_0}'")
 
 # 使用最可靠的 STREQUAL 方法
 if(NOT ((PACKAGE_MANAGER STREQUAL "none") OR 

@@ -281,7 +281,7 @@ TEST(SignalDetectorTest, JammingIncreasesNoise) {
 }
 
 /// @brief Detect 应直接使用“每脉冲 SNR + N”语义，避免在外部重复折算积累增益。
-TEST(SignalDetectorTest, DetectionProbabilityUsesPerPulseSnrWithoutDoubleCounting) {
+TEST(SignalDetectorTest, DetectionProbabilityUsesIntegratedSnr) {
   RadarSystemConfig config;
   config.detection.min_snr_db = -80.0f;  // 关闭硬门限影响
   SignalDetector detector(config);
@@ -302,18 +302,30 @@ TEST(SignalDetectorTest, DetectionProbabilityUsesPerPulseSnrWithoutDoubleCountin
   const DetectionResult n8 =
       detector.Detect(target, env, std::numeric_limits<float>::quiet_NaN(), 8, false);
 
+  // 非相参积累增益 = sqrt(N)；Detect 内部将基础 SNR × gain 后以单脉冲语义送入 Pd 计算。
+  const float gain_n1 = RadarEquations::ComputeIntegrationGain(1, false);
+  const float gain_n8 = RadarEquations::ComputeIntegrationGain(8, false);
+  const float kFloor = 1e-30f;
+  const float base_snr_linear_n1 =
+      std::pow(10.0f, n1.snr_db / 10.0f);  // snr_db 为单脉冲 SNR
+  const float base_snr_linear_n8 = std::pow(10.0f, n8.snr_db / 10.0f);
+  const float integrated_snr_db_n1 =
+      10.0f * std::log10(base_snr_linear_n1 * gain_n1 + kFloor);
+  const float integrated_snr_db_n8 =
+      10.0f * std::log10(base_snr_linear_n8 * gain_n8 + kFloor);
+
   const float expected_pd_n1 = RadarEquations::ComputeDetectionProbability(
-      n1.snr_db, config.detection.cfar_pfa, target.swerling_type, 1);
+      integrated_snr_db_n1, config.detection.cfar_pfa, target.swerling_type, 1);
   const float expected_pd_n8 = RadarEquations::ComputeDetectionProbability(
-      n8.snr_db, config.detection.cfar_pfa, target.swerling_type, 8);
+      integrated_snr_db_n8, config.detection.cfar_pfa, target.swerling_type, 1);
 
   EXPECT_NEAR(n1.detection_prob, expected_pd_n1, 1e-6f);
   EXPECT_NEAR(n8.detection_prob, expected_pd_n8, 1e-6f);
   EXPECT_GT(n8.detection_prob, n1.detection_prob);
 }
 
-/// @brief 相参/非相参标记不应在 Detect 内额外叠加增益（语义一致）。
-TEST(SignalDetectorTest, CoherentFlagDoesNotApplyExtraGainInDetector) {
+/// @brief 相参积累（coherent=true）应比非相参（coherent=false）产生更高检测概率。
+TEST(SignalDetectorTest, CoherentIntegrationYieldsHigherPdThanIncoherent) {
   RadarSystemConfig config;
   config.detection.min_snr_db = -80.0f;
   SignalDetector detector(config);
@@ -328,16 +340,15 @@ TEST(SignalDetectorTest, CoherentFlagDoesNotApplyExtraGainInDetector) {
   env.clutter_noise_w = 1e-14f;
   env.jam_noise_w = 0.0f;
 
-  detector.SetRandomSeed(123u);
   const DetectionResult incoherent =
       detector.Detect(target, env, std::numeric_limits<float>::quiet_NaN(), 6, false);
-  detector.SetRandomSeed(123u);
   const DetectionResult coherent =
       detector.Detect(target, env, std::numeric_limits<float>::quiet_NaN(), 6, true);
 
+  // 单脉冲 SNR 相同（积累前）
   EXPECT_NEAR(coherent.snr_db, incoherent.snr_db, 1e-6f);
-  EXPECT_NEAR(coherent.detection_prob, incoherent.detection_prob, 1e-6f);
-  EXPECT_EQ(coherent.detected, incoherent.detected);
+  // 相参积累增益 = N，非相参增益 = sqrt(N)，N>1 时相参 Pd 更高
+  EXPECT_GT(coherent.detection_prob, incoherent.detection_prob);
 }
 
 /// @brief 雷达局部坐标应能解析出稳定的目标方位/俯仰角。

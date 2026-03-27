@@ -37,6 +37,27 @@ void ImmFilter::Predict(float dt) {
   MixStates();
   PredictModels(dt);
 
+  // 通过转移矩阵扩散模型权重（标准 IMM coast 路径）
+  const int N = num_models_;
+  for (int j = 0; j < N; ++j) {
+    float c_bar = 0.0f;
+    for (int i = 0; i < N; ++i) {
+      c_bar +=
+          config_.transition_probability(i, j) * model_states_[static_cast<std::size_t>(i)].weight;
+    }
+    c_bar_(j) = c_bar < 1e-30f ? 1e-30f : c_bar;
+  }
+  float total = 0.0f;
+  for (int j = 0; j < N; ++j) {
+    total += c_bar_(j);
+  }
+  if (total < 1e-30f) {
+    total = 1e-30f;
+  }
+  for (int j = 0; j < N; ++j) {
+    model_states_[static_cast<std::size_t>(j)].weight = c_bar_(j) / total;
+  }
+
   for (int j = 0; j < num_models_; ++j) {
     const auto ju = static_cast<std::size_t>(j);
     model_states_[ju].state = predicted_states_[ju];
@@ -51,15 +72,16 @@ void ImmFilter::MixStates() {
   for (int j = 0; j < N; ++j) {
     const auto ju = static_cast<std::size_t>(j);
 
-    // 计算归一化常数 c̄_j
-    float c_bar = 0.0f;
+    // 计算归一化常数 c̄_j，同时写入成员供 UpdateModels 复用
+    c_bar_(j) = 0.0f;
     for (int i = 0; i < N; ++i) {
-      c_bar +=
+      c_bar_(j) +=
           config_.transition_probability(i, j) * model_states_[static_cast<std::size_t>(i)].weight;
     }
-    if (c_bar < 1e-30f) {
-      c_bar = 1e-30f;  // 防止除零
+    if (c_bar_(j) < 1e-30f) {
+      c_bar_(j) = 1e-30f;  // 防止除零
     }
+    const float c_bar = c_bar_(j);
 
     // 混合均值
     StateVector mixed_mean = StateVector::Zero();
@@ -103,15 +125,7 @@ void ImmFilter::UpdateModels(const MeasurementVector& measurement) {
                                          update_results_[ju].innovation_covariance);
   }
 
-  // 计算归一化常数 c̄_j
-  for (int j = 0; j < N; ++j) {
-    c_bar_(j) = 0.0f;
-    for (int i = 0; i < N; ++i) {
-      c_bar_(j) +=
-          config_.transition_probability(i, j) * model_states_[static_cast<std::size_t>(i)].weight;
-    }
-  }
-
+  // c_bar_ 已由 MixStates() 计算并写入，此处直接复用。
   // 更新模型权重
   float total = 0.0f;
   for (int j = 0; j < N; ++j) {

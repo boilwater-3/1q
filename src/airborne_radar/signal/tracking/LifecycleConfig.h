@@ -32,6 +32,7 @@ struct LifecycleConfig {
   std::uint32_t confirm_hits{3};         /**< 候选轨迹转已确认所需最小命中次数。 */
   std::uint32_t max_miss_before_lost{2}; /**< 已确认轨迹转丢失前允许的最大连续失配次数。 */
   std::uint32_t max_lost_cycles{5};      /**< 丢失轨迹可保留的最大周期数，超出则回收。 */
+  float nominal_cycle_dt_sec{0.1f};      /**< 标称周期间隔（单位：s），dt 回退路径使用。 */
   ImmActivationPolicy imm_activation_policy{
       ImmActivationPolicy::kConfirmedTracksOnly}; /**< IMM 激活策略。 */
   TrackPoolThreadSafetyMode track_pool_thread_safety_mode{

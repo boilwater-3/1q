@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <unordered_set>
 #include <nanoflann.hpp>
 #include <utility>
 #include <vector>
@@ -71,21 +72,6 @@ std::vector<std::size_t> RadiusSearch(const IndexType& index,
   return neighbor_indices;
 }
 
-/**
- * @brief 判断某索引是否已在队列中。
- * @param[in] values 查询队列。
- * @param[in] target 目标索引。
- * @return 存在时返回 `true`。
- */
-bool ContainsIndex(const std::deque<std::size_t>& values, std::size_t target) {
-  for (std::size_t i = 0; i < values.size(); ++i) {
-    if (values[i] == target) {
-      return true;
-    }
-  }
-  return false;
-}
-
 }  // namespace
 
 KdTreeClusterResult KdTreeClusterer::Cluster(const std::vector<ObservationFeatureVector>& features,
@@ -127,9 +113,11 @@ KdTreeClusterResult KdTreeClusterer::Cluster(const std::vector<ObservationFeatur
     result.clusters.push_back(std::vector<std::size_t>());
 
     std::deque<std::size_t> queue(neighbors.begin(), neighbors.end());
+    std::unordered_set<std::size_t> in_queue(neighbors.begin(), neighbors.end());
     while (!queue.empty()) {
       const std::size_t candidate = queue.front();
       queue.pop_front();
+      in_queue.erase(candidate);
 
       if (visited[candidate] == 0U) {
         visited[candidate] = 1U;
@@ -137,8 +125,9 @@ KdTreeClusterResult KdTreeClusterer::Cluster(const std::vector<ObservationFeatur
             RadiusSearch(index, features[candidate], cluster_radius);
         if (candidate_neighbors.size() >= min_points) {
           for (std::size_t j = 0; j < candidate_neighbors.size(); ++j) {
-            if (!ContainsIndex(queue, candidate_neighbors[j])) {
+            if (in_queue.find(candidate_neighbors[j]) == in_queue.end()) {
               queue.push_back(candidate_neighbors[j]);
+              in_queue.insert(candidate_neighbors[j]);
             }
           }
         }

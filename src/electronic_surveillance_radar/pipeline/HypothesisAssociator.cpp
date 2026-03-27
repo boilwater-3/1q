@@ -1,12 +1,12 @@
 #include "electronic_surveillance_radar/pipeline/HypothesisAssociator.h"
 
-#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "electronic_surveillance_radar/EsrSharedUtils.h"
 #include "electronic_surveillance_radar/intercept/BandClassifier.h"
 #include "electronic_surveillance_radar/pipeline/ObservationFeatureEncoder.h"
 
@@ -15,13 +15,6 @@ namespace pipeline {
 namespace internal {
 
 namespace {
-
-/**
- * @brief 将输入裁剪到 [0, 1]。
- * @param[in] value 输入值。
- * @return 裁剪后结果。
- */
-float Clamp01(float value) { return std::max(0.0f, std::min(1.0f, value)); }
 
 /**
  * @brief 根据簇摘要推断工作模式。
@@ -104,7 +97,8 @@ float ComputeDistance(const ObservationFeatureVector& feature_a,
 
 }  // namespace
 
-HypothesisAssociator::HypothesisAssociator(InterceptAssociationConfig config) : config_(config) {}
+HypothesisAssociator::HypothesisAssociator(InterceptAssociationConfig config)
+    : config_(std::move(config)) {}
 
 void HypothesisAssociator::UpdateConfig(InterceptAssociationConfig config) { config_ = config; }
 
@@ -219,6 +213,7 @@ common::EmitterHypothesisList HypothesisAssociator::Update(
     ++tracks_[i].missed_cycles;
     ++tracks_[i].age_cycles;
     tracks_[i].hit_streak = 0U;
+    tracks_[i].confirmed = false;
     tracks_[i].confidence = Clamp01(tracks_[i].confidence * 0.92f);
   }
 

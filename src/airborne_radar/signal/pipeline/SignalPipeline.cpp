@@ -250,6 +250,7 @@ struct SignalPipeline::Impl {
     internal::RunAssociationPass(*cached_context.input_state,
                                  cached_context.detection_succeeded,
                                  cached_context.measurement_covariances,
+                                 cached_context.environment_snapshot.cycle_dt_sec,
                                  &association_engine,
                                  &cached_context.association_result,
                                  &cached_context.association_keys);

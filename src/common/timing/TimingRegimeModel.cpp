@@ -191,7 +191,7 @@ float ComputeStatisticalDetectionProbability(float snr_db, float threshold_snr_d
   const double normalized_metric =
       (snr_linear / std::max(threshold_linear, kNumericFloor)) * ComputeIntegrationGain(params);
   const double pd = 1.0 - std::exp(-std::max(normalized_metric, 0.0));
-  return Clamp01(std::max(static_cast<float>(pd), NormalizePfa(params.pfa)));
+  return Clamp01(static_cast<float>(pd));
 }
 
 }  // namespace timing

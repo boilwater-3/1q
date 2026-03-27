@@ -52,6 +52,7 @@ class ONEQ_API TargetFeatureBuilder {
     target_.position_x = x;
     target_.position_y = y;
     target_.position_z = z;
+    target_.has_cartesian_position = true;
     return *this;
   }
 

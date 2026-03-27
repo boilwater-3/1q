@@ -30,8 +30,9 @@ common::ControlDirective BuildLpiPowerDirective() {
 void EmissionControlEvaluator::Evaluate(const common::DecisionInputFrame& input_frame,
                                         pipeline::TacticalStateStore& state_store,
                                         pipeline::TacticalEvaluationState& evaluation_state) const {
-  (void)input_frame;
-
+  // input_frame 在此评估器中未使用：LPI 降功率条件由上游
+  // ThreatAssessmentEvaluator / BackfillAssociationDrivenEccmTrigger 写入
+  // evaluation_state.should_reduce_power，本评估器仅负责保持计数窗口和生成提案。
   bool should_reduce_power = evaluation_state.should_reduce_power;
   if (!should_reduce_power && state_store.lpi_hold_cycles_remaining > 0U) {
     should_reduce_power = true;

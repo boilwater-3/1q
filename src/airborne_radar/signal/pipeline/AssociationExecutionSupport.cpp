@@ -28,6 +28,7 @@ void PrepareAssociationSeedsForCycle(
 void RunAssociationPass(const common::TargetFeatureList& input_state,
                         const std::vector<std::uint8_t>& detection_succeeded,
                         const std::vector<tracking::MeasurementCovariance>& measurement_covariances,
+                        float dt_sec,
                         association::DataAssociationEngine* association_engine,
                         association::AssociationResult* association_result,
                         std::vector<std::uint64_t>* association_keys) {
@@ -36,7 +37,7 @@ void RunAssociationPass(const common::TargetFeatureList& input_state,
   }
 
   *association_result = association_engine->AssociateDetections(
-      input_state, detection_succeeded, measurement_covariances);
+      input_state, detection_succeeded, measurement_covariances, dt_sec);
   *association_keys = association_result->target_keys;
 }
 

@@ -503,9 +503,10 @@ float TrackLifecycleManager::ResolveEffectiveCycleDeltaTimeSec(const CycleContex
       cycle.dt_sec);
 
   if (last_cycle_index_ > 0 && cycle.cycle_index > last_cycle_index_) {
-    return static_cast<float>(cycle.cycle_index - last_cycle_index_);
+    return static_cast<float>(cycle.cycle_index - last_cycle_index_) *
+           config_.nominal_cycle_dt_sec;
   }
-  return 1.0f;
+  return config_.nominal_cycle_dt_sec;
 }
 
 std::vector<const common::TrackState*> TrackLifecycleManager::GetActiveTracks() const {
@@ -541,6 +542,7 @@ common::TargetFeatureList TrackLifecycleManager::BuildFeatureSnapshot() const {
   ForEachActiveTrack([&features](std::uint64_t /*key*/, const common::TrackState& track) {
     common::TargetFeature feature(track.velocity(0), track.velocity(1), track.velocity(2),
                                   track.rcs);
+    feature.has_cartesian_position = true;
     feature.position_x = track.position(0);
     feature.position_y = track.position(1);
     feature.position_z = track.position(2);

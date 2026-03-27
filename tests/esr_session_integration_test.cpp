@@ -625,6 +625,7 @@ TEST(EsrSessionIntegrationTest, PlatformAttitudeChangesInterceptGateGeometry) {
 TEST(EsrSessionIntegrationTest, EmitterBeamStateControlsWhetherTrueObservationCanBeIntercepted) {
   EsrSession session(MakeSessionConfig());
   context::EsrCycleInput blocked_input = MakeBaseInput();
+  blocked_input.scene_emitters.front().beam_state.beam_state_valid = true;
   blocked_input.scene_emitters.front().beam_state.center_az_deg = 0.0f;
   blocked_input.scene_emitters.front().beam_state.center_el_deg = 0.0f;
   blocked_input.scene_emitters.front().beam_state.az_beamwidth_deg = 8.0f;

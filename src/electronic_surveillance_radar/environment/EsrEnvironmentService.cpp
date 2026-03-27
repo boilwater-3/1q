@@ -1,60 +1,13 @@
 #include "electronic_surveillance_radar/environment/EsrEnvironmentService.h"
 
-#include <algorithm>
 #include <cstddef>
+
+#include "electronic_surveillance_radar/EsrSharedUtils.h"
 
 namespace electronic_surveillance_radar {
 namespace environment {
 
 namespace {
-
-/**
- * @brief 将输入裁剪到 [0, 1]。
- * @param[in] value 输入值。
- * @return 裁剪后结果。
- */
-float Clamp01(float value) { return std::max(0.0f, std::min(1.0f, value)); }
-
-/**
- * @brief 将输入裁剪到非负区间。
- * @param[in] value 输入值。
- * @return 裁剪后结果。
- */
-float ClampNonNegative(float value) { return std::max(0.0f, value); }
-
-/**
- * @brief 解析干扰技术类型并应用兼容推断。
- * @param[in] source 干扰源输入。
- * @return 解析后的干扰技术类型。
- */
-EsrJammingTechnique ResolveTechnique(const EsrJammerSource& source) {
-  if (source.technique != EsrJammingTechnique::kUnknown) {
-    return source.technique;
-  }
-  if (source.deception_risk > 0.0f) {
-    return EsrJammingTechnique::kMixed;
-  }
-  return EsrJammingTechnique::kNoiseSuppression;
-}
-
-/**
- * @brief 判断技术类型是否包含压制分量。
- * @param[in] technique 干扰技术类型。
- * @return 包含压制分量时返回 `true`。
- */
-bool HasSuppressionEffect(EsrJammingTechnique technique) {
-  return technique == EsrJammingTechnique::kNoiseSuppression ||
-         technique == EsrJammingTechnique::kMixed;
-}
-
-/**
- * @brief 判断技术类型是否包含欺骗分量。
- * @param[in] technique 干扰技术类型。
- * @return 包含欺骗分量时返回 `true`。
- */
-bool HasDeceptionEffect(EsrJammingTechnique technique) {
-  return technique == EsrJammingTechnique::kDeception || technique == EsrJammingTechnique::kMixed;
-}
 
 /**
  * @brief 规范化单个干扰源输入。

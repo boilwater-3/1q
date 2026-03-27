@@ -1,5 +1,7 @@
 #include "airborne_radar/signal/tracking/BoostTrackPool.h"
 
+#include "common/logging/ProjectLog.h"
+
 namespace airborne_radar {
 namespace signal {
 namespace tracking {
@@ -36,9 +38,12 @@ void BoostTrackPool::Release(common::TrackState* track) {
     return;
   }
 
-  if (in_use_count_ > 0) {
-    --in_use_count_;
+  if (in_use_count_ == 0) {
+    PROJECT_LOG_ERROR("[BoostTrackPool] Release called with in_use_count_=0: "
+                      "possible double-release or non-pool pointer");
+    return;
   }
+  --in_use_count_;
 
   if (free_list_.size() < max_cached_objects_) {
     free_list_.push_back(track);

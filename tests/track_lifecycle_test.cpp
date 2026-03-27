@@ -290,6 +290,7 @@ TEST(TrackLifecycleManagerTest, FallsBackToCycleDeltaWhenExternalDtIsInvalid) {
   signal::tracking::LifecycleConfig config;
   config.confirm_hits = 1;
   config.max_miss_before_lost = 5;
+  config.nominal_cycle_dt_sec = 1.0f;  // 每周期 1 秒，使回退路径与期望值一致
 
   signal::tracking::KalmanPredictorConfig pred_cfg;
   pred_cfg.noise_diff_coeff = 1.0f;
@@ -329,6 +330,7 @@ TEST(TrackLifecycleManagerTest, FallsBackToUnitDtWhenExternalDtInvalidAndCycleNo
   signal::tracking::LifecycleConfig config;
   config.confirm_hits = 1;
   config.max_miss_before_lost = 5;
+  config.nominal_cycle_dt_sec = 1.0f;  // 每周期 1 秒，使回退路径与期望值一致
 
   signal::tracking::KalmanPredictorConfig pred_cfg;
   pred_cfg.noise_diff_coeff = 1.0f;
@@ -444,6 +446,7 @@ TEST(TrackLifecycleManagerTest, ConfirmedOnlyImmFallsBackToSingleModelBeforeImmC
   config.confirm_hits = 1;
   config.max_miss_before_lost = 1;
   config.max_lost_cycles = 3;
+  config.nominal_cycle_dt_sec = 1.0f;  // 每周期 1 秒，与 Predict(expected_initial, 1.0f) 对齐
 
   signal::tracking::KalmanPredictorConfig pred_cfg_1;
   pred_cfg_1.noise_diff_coeff = 0.5f;

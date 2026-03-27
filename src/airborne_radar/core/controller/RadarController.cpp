@@ -1,6 +1,7 @@
 #include "1q/airborne_radar/core/controller/RadarController.h"
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -124,8 +125,8 @@ struct RadarController::Impl {
   decision::pipeline::ITacticalDecisionEngine* decision_engine{nullptr};
   std::unique_ptr<decision::pipeline::ITacticalDecisionEngine> owned_decision_engine;
   environment::IEnvironmentService& environment_service;
-  common::RadarControlProfile* control_profile;
   std::unique_ptr<common::RadarControlProfile> owned_control_profile;
+  std::reference_wrapper<common::RadarControlProfile> control_profile;
   std::unique_ptr<decision::pipeline::TacticalStateStore> tactical_state_store;
   std::unique_ptr<decision::pipeline::ControlReducer> control_reducer;
   std::unique_ptr<core::output::IDataOutputManager> output_manager;
@@ -142,11 +143,11 @@ struct RadarController::Impl {
         owned_decision_engine(new decision::pipeline::TacticalCoordinator()),
         environment_service(env),
         owned_control_profile(new common::RadarControlProfile()),
+        control_profile(*owned_control_profile),
         tactical_state_store(new decision::pipeline::TacticalStateStore()),
         control_reducer(new decision::pipeline::ControlReducer()),
         output_manager(new output::DataOutputManager()) {
     decision_engine = owned_decision_engine.get();
-    control_profile = owned_control_profile.get();
   }
 
   /** @brief 构造函数（外部决策引擎注入路径） */
@@ -158,10 +159,10 @@ struct RadarController::Impl {
         decision_engine(&ext_engine),
         environment_service(env),
         owned_control_profile(new common::RadarControlProfile()),
+        control_profile(*owned_control_profile),
         tactical_state_store(new decision::pipeline::TacticalStateStore()),
         control_reducer(new decision::pipeline::ControlReducer()),
         output_manager(new output::DataOutputManager()) {
-    control_profile = owned_control_profile.get();
   }
 
   /** @brief 执行控制指令列表 */
@@ -218,7 +219,7 @@ void RadarController::RunOnce() {
     common::TrackOutputFrame Execute(
         const AirborneRuntimeInput& input,
         const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
-      impl->signal_pipeline.SetControlProfile(*impl->control_profile);
+      impl->signal_pipeline.SetControlProfile(impl->control_profile.get());
       impl->signal_pipeline.UpdatePlatformAttitude(input.platform_attitude);
 
       const signal::pipeline::SignalCycleResult signal_result =
@@ -239,10 +240,10 @@ void RadarController::RunOnce() {
 
       const decision::pipeline::ControlReductionResult reduction_result =
           impl->control_reducer != nullptr
-              ? impl->control_reducer->Reduce(*impl->control_profile, decision_result.proposals)
+              ? impl->control_reducer->Reduce(impl->control_profile.get(), decision_result.proposals)
               : decision::pipeline::ControlReductionResult();
-      *impl->control_profile = reduction_result.profile;
-      impl->radar_context.UpdateRadarControlProfile(*impl->control_profile);
+      impl->control_profile.get() = reduction_result.profile;
+      impl->radar_context.UpdateRadarControlProfile(impl->control_profile.get());
       impl->ExecuteCommands(reduction_result.applied_directives);
 
       PROJECT_LOG_DEBUG(
@@ -258,7 +259,7 @@ void RadarController::RunOnce() {
           stamp.cycle_index, stamp.batch_id, input.target_features.size(),
           decision_frame.tracks.size(), reduction_result.applied_directives.size(),
           decision_frame.environment_jamming_detected ? "true" : "false",
-          impl->control_profile->version, decision_frame.perception_quality_info.detection_rate,
+          impl->control_profile.get().version, decision_frame.perception_quality_info.detection_rate,
           decision_frame.perception_quality_info.detection_stress,
           association_metrics.prior_track_count, association_metrics.detection_count,
           association_metrics.matched_count, association_metrics.new_track_count,

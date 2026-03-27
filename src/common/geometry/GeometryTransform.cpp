@@ -75,14 +75,7 @@ AzimuthElevationLimitsDeg IntersectScanLimits(const AzimuthElevationLimitsDeg& l
 }
 
 float ComputeAzimuthDifferenceDeg(float lhs_deg, float rhs_deg) {
-  float diff = lhs_deg - rhs_deg;
-  while (diff > 180.0f) {
-    diff -= 360.0f;
-  }
-  while (diff <= -180.0f) {
-    diff += 360.0f;
-  }
-  return diff;
+  return std::fmod(lhs_deg - rhs_deg + 540.0f, 360.0f) - 180.0f;
 }
 
 Eigen::Vector3f AzimuthElevationToUnitVector(const AzimuthElevationDeg& pointing_deg) {

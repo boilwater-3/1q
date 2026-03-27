@@ -48,6 +48,13 @@ struct TargetFeature {
   float range_m{0.0f}; /**< 目标到雷达的斜距（单位：m） */
 
   /**
+   * @brief 标记该目标是否携带有效的笛卡尔位置量测。
+   * @note 必须显式置 true 才表明 position_x/y/z 中携带真实坐标。
+   *       仅当此标志为 true 时，position_x/y/z 才参与关联及滤波。
+   */
+  bool has_cartesian_position{false};
+
+  /**
    * @brief 雷达局部笛卡尔坐标位置（单位：m），[x, y, z]。
    * @note 该坐标系以当前雷达为原点，仅接受雷达局部坐标输入。
    *       注：不使用 Eigen 以保持 POD 布局，Pipeline 内部按需转换。

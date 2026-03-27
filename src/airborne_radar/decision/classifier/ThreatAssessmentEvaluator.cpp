@@ -55,9 +55,7 @@ void ThreatAssessmentEvaluator::Evaluate(
   evaluation_state.lpi_source_info.has_recon_platform = false;
 
   if (input_frame.tracks.empty()) {
-    AppendType(&evaluation_state.target_classification_result, "UNKNOWN");
-    PROJECT_LOG_WARN(
-        "[ThreatAssessmentEvaluator] Empty track snapshot list, classification reset.");
+    PROJECT_LOG_DEBUG("[ThreatAssessmentEvaluator] Empty track snapshot list, classification reset.");
     return;
   }
 

@@ -93,21 +93,25 @@ class DataAssociationEngine {
    * @brief 关联当前周期探测并返回结构化结果。
    * @param targets 当前周期输入目标特征集合。
    * @param detection_succeeded 探测阶段输出的有效标记。
+   * @param dt_sec 当前周期实际步长（单位：s），用于先验预测。默认值 `1.0f` 向后兼容。
    * @return 包含命中、失配和未关联目标的完整结果。
    */
   AssociationResult AssociateDetections(const common::TargetFeatureList& targets,
-                                        const std::vector<std::uint8_t>& detection_succeeded);
+                                        const std::vector<std::uint8_t>& detection_succeeded,
+                                        float dt_sec = 1.0f);
   /**
    * @brief 关联当前周期探测并返回结构化结果（使用动态量测协方差）。
    * @param targets 当前周期输入目标特征集合。
    * @param detection_succeeded 探测阶段输出的有效标记。
    * @param measurement_covariances 与目标索引对齐的动态量测协方差。
+   * @param dt_sec 当前周期实际步长（单位：s），用于先验预测。默认值 `1.0f` 向后兼容。
    * @return 包含命中、失配和未关联目标的完整结果。
    */
   AssociationResult AssociateDetections(
       const common::TargetFeatureList& targets,
       const std::vector<std::uint8_t>& detection_succeeded,
-      const std::vector<tracking::MeasurementCovariance>& measurement_covariances);
+      const std::vector<tracking::MeasurementCovariance>& measurement_covariances,
+      float dt_sec = 1.0f);
   /**
    * @brief 关联当前周期探测并返回稳定关联键。
    * @param targets 当前周期输入目标特征集合。
@@ -214,7 +218,7 @@ class DataAssociationEngine {
    * @return 位置空间关联统一先验。
    */
   PositionAssociationPriors BuildExternalPositionAssociationPriors(
-      const std::vector<ExternalSeedTrackSignature>& external_priors) const;
+      const std::vector<ExternalSeedTrackSignature>& external_priors, float dt_sec) const;
   DataAssociationConfig config_{};                     /**< 当前引擎配置。 */
   FullMahalanobisDistanceMetric full_distance_metric_; /**< 完整协方差位置空间马氏距离度量实现。 */
   CostThresholdGater gater_;                           /**< 基于代价阈值的波门器。 */
