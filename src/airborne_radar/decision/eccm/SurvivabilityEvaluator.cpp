@@ -12,12 +12,6 @@ namespace eccm {
 namespace {
 
 /**
- * @brief ECCM 提案保持周期计数。
- * @note 代码行为依据：只要当前周期仍判定需要启用 ECCM，`Evaluate()` 就会把
- *       `state_store.eccm_hold_cycles_remaining` 设回该值，用于延续保护发射路径。
- */
-const std::uint32_t kEccmHoldCycles = 2;
-/**
  * @brief 触发频率捷变强化评分的频谱重叠分界值。
  * @note 代码行为依据：旧版事实与多源事实都在频谱重叠比例不低于该值时，才显著提高
  *       `agility_frequency_score`。
@@ -485,6 +479,9 @@ void AppendEccmProposals(const common::EccmSourceInfo& source_info,
 
 }  // namespace
 
+SurvivabilityEvaluator::SurvivabilityEvaluator(SurvivabilityEvaluatorConfig config)
+    : config_(config) {}
+
 void SurvivabilityEvaluator::Evaluate(const common::DecisionInputFrame& input_frame,
                                       pipeline::TacticalStateStore& state_store,
                                       pipeline::TacticalEvaluationState& evaluation_state) const {
@@ -503,7 +500,7 @@ void SurvivabilityEvaluator::Evaluate(const common::DecisionInputFrame& input_fr
     return;
   }
 
-  state_store.eccm_hold_cycles_remaining = kEccmHoldCycles;
+  state_store.eccm_hold_cycles_remaining = config_.eccm_hold_cycles;
   AppendEccmProposals(evaluation_state.eccm_source_info, input_frame.association_quality_info,
                       input_frame.environment_jamming_detected, !has_current_eccm_evidence,
                       &evaluation_state.proposals);

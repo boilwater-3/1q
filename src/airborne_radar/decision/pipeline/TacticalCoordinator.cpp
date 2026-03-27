@@ -126,6 +126,12 @@ TacticalDecisionResult TacticalCoordinator::Evaluate(const common::DecisionInput
   BackfillAssociationDrivenEccmTrigger(input_frame.association_quality_info,
                                        &evaluation_state.eccm_source_info);
 
+  // Evaluator 执行顺序具有数据依赖，不可随意调整：
+  //   [1] ThreatAssessmentEvaluator：写入 target_classification_result /
+  //       lpi_source_info / eccm_source_info.has_jamming_signal（基于 track）。
+  //   [2] EmissionControlEvaluator：读取 lpi_source_info（[1] 写入）。
+  //   [3] SurvivabilityEvaluator：读取 eccm_source_info（Pre-fill + [1] 写入）。
+  // 详见 TacticalEvaluationState 注释中的字段所有权说明。
   threat_assessment_evaluator_.Evaluate(input_frame, state_store, evaluation_state);
   emission_control_evaluator_.Evaluate(input_frame, state_store, evaluation_state);
   survivability_evaluator_.Evaluate(input_frame, state_store, evaluation_state);
