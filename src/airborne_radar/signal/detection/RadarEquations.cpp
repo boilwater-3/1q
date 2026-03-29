@@ -115,15 +115,11 @@ float RadarEquations::ComputeThermalNoisePower_W(const TransmitterConfig& tx,
   return kBoltzmann * kRefTemperature * tx.bandwidth_hz * noise_figure_linear;
 }
 
-float RadarEquations::ComputeIntegrationGain(int pulse_count, bool coherent_integration) {
+float RadarEquations::ComputeIntegrationGain(int pulse_count) {
   if (pulse_count <= 0) {
     return 1.0f;
   }
-  const float n = static_cast<float>(pulse_count);
-  if (coherent_integration) {
-    return n;
-  }
-  return std::sqrt(n);
+  return static_cast<float>(pulse_count);
 }
 
 float RadarEquations::ComputeRangeErrorStdDev(float snr_db, float bandwidth_hz) {

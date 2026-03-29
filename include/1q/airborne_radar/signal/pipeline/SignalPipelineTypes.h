@@ -10,10 +10,10 @@
 #include <cstdint>
 #include <vector>
 
-#include "1q/airborne_radar/common/model/DecisionInputFrame.h"
 #include "1q/airborne_radar/common/control/RadarControlProfile.h"
-#include "1q/airborne_radar/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/common/model/DecisionInputFrame.h"
 #include "1q/airborne_radar/common/model/TargetFeature.h"
+#include "1q/airborne_radar/config/RadarOrientationConfig.h"
 #include "1q/airborne_radar/signal/detection/DetectionTypes.h"
 
 namespace airborne_radar {
@@ -36,8 +36,8 @@ struct AssociationQualityMetrics {
   float p95_match_cost{0.0f};        /**< 命中关联代价 P95（仅统计 matches） */
   common::utils::JammingSemantic dominant_jamming_semantic{
       common::utils::JammingSemantic::kNone}; /**< 当前周期关联质量对应的主导干扰摘要类型 */
-  float jamming_severity{0.0f};        /**< 当前周期关联质量对应的残余干扰强度摘要，范围 [0, 1] */
-  float association_stress{0.0f};      /**< 当前周期的归一化关联压力，范围 [0, 1] */
+  float jamming_severity{0.0f};   /**< 当前周期关联质量对应的残余干扰强度摘要，范围 [0, 1] */
+  float association_stress{0.0f}; /**< 当前周期的归一化关联压力，范围 [0, 1] */
 };
 
 /**
@@ -77,7 +77,6 @@ struct SignalDetectionConfig {
   detection::RadarSystemConfig radar_system{}; /**< 雷达系统配置 */
   float min_detection_margin_db{-2.0f};        /**< 最小检测裕量（dB） */
   int pulse_count{10};                         /**< 脉冲数 */
-  bool coherent_integration{true};             /**< 是否启用相干积累 */
 };
 
 /**
@@ -145,7 +144,7 @@ struct JammingEffectsConfig {
   float heuristic_unknown_freq_penalty{1.1f};     /**< 未知干扰频率重叠比惩罚权重（dB） */
   float heuristic_unknown_prf_penalty{0.9f};      /**< 未知干扰 PRF 锁定风险惩罚权重（dB） */
   float heuristic_unknown_sidelobe_penalty{0.6f}; /**< 未知干扰旁瓣命中时额外惩罚（dB） */
-  float heuristic_unknown_frontlobe_penalty{0.2f};/**< 未知干扰主瓣时额外惩罚（dB） */
+  float heuristic_unknown_frontlobe_penalty{0.2f}; /**< 未知干扰主瓣时额外惩罚（dB） */
 
   // ---------- C. 关联/跟踪噪声缩放上限 ----------
   float association_scale_max{2.5f};       /**< 关联未分配代价动态放大上限 */
@@ -153,16 +152,16 @@ struct JammingEffectsConfig {
   float measurement_noise_scale_max{1.8f}; /**< 量测噪声标准差动态放大上限 */
 
   // ---------- C. 各干扰类型对关联/跟踪的缩放步长 ----------
-  float deception_association_step{0.18f};    /**< 欺骗干扰对关联代价的放大步长 */
-  float deception_tracking_step{0.12f};       /**< 欺骗干扰对跟踪过程噪声的放大步长 */
-  float deception_measurement_step{0.10f};    /**< 欺骗干扰对量测噪声的放大步长 */
-  float repeater_association_step{0.12f};     /**< 转发干扰对关联代价的放大步长 */
-  float repeater_tracking_step{0.15f};        /**< 转发干扰对跟踪过程噪声的放大步长 */
-  float repeater_measurement_step{0.08f};     /**< 转发干扰对量测噪声的放大步长 */
-  float noise_measurement_step{0.06f};        /**< 噪声压制干扰对量测噪声的放大步长 */
-  float unknown_association_step{0.08f};      /**< 未知干扰对关联代价的放大步长 */
-  float unknown_tracking_step{0.08f};         /**< 未知干扰对跟踪过程噪声的放大步长 */
-  float unknown_measurement_step{0.05f};      /**< 未知干扰对量测噪声的放大步长 */
+  float deception_association_step{0.18f}; /**< 欺骗干扰对关联代价的放大步长 */
+  float deception_tracking_step{0.12f};    /**< 欺骗干扰对跟踪过程噪声的放大步长 */
+  float deception_measurement_step{0.10f}; /**< 欺骗干扰对量测噪声的放大步长 */
+  float repeater_association_step{0.12f};  /**< 转发干扰对关联代价的放大步长 */
+  float repeater_tracking_step{0.15f};     /**< 转发干扰对跟踪过程噪声的放大步长 */
+  float repeater_measurement_step{0.08f};  /**< 转发干扰对量测噪声的放大步长 */
+  float noise_measurement_step{0.06f};     /**< 噪声压制干扰对量测噪声的放大步长 */
+  float unknown_association_step{0.08f};   /**< 未知干扰对关联代价的放大步长 */
+  float unknown_tracking_step{0.08f};      /**< 未知干扰对跟踪过程噪声的放大步长 */
+  float unknown_measurement_step{0.05f};   /**< 未知干扰对量测噪声的放大步长 */
 
   // ---------- C. 量测协方差膨胀步长上限 ----------
   float covariance_inflation_max{2.5f};             /**< 量测协方差总膨胀因子上限 */
@@ -203,21 +202,21 @@ struct ControlProfileEffectsConfig {
  * @brief SignalPipelineConfig 描述信号处理流水线顶层配置。
  */
 struct SignalPipelineConfig {
-  SignalDetectionConfig detection{};                          /**< 探测配置 */
-  SignalBeamControlConfig beam_control{};                     /**< 波束控制配置 */
-  SignalAssociationConfig association{};                      /**< 关联配置 */
-  SignalTrackingConfig tracking{};                            /**< 跟踪配置 */
-  SignalLifecycleConfig lifecycle{};                          /**< 生命周期配置 */
-  JammingEffectsConfig jamming_effects{};                     /**< 干扰效应建模参数 */
-  ControlProfileEffectsConfig control_profile_effects{};     /**< 控制轮廓效应建模参数 */
+  SignalDetectionConfig detection{};                     /**< 探测配置 */
+  SignalBeamControlConfig beam_control{};                /**< 波束控制配置 */
+  SignalAssociationConfig association{};                 /**< 关联配置 */
+  SignalTrackingConfig tracking{};                       /**< 跟踪配置 */
+  SignalLifecycleConfig lifecycle{};                     /**< 生命周期配置 */
+  JammingEffectsConfig jamming_effects{};                /**< 干扰效应建模参数 */
+  ControlProfileEffectsConfig control_profile_effects{}; /**< 控制轮廓效应建模参数 */
 };
 
 /**
  * @brief SignalCycleResult 描述信号流水线单周期的稳定输出。
  */
 struct SignalCycleResult {
-  common::model::TargetFeatureList updated_features{};            /**< 当前周期更新后的目标特征列表 */
-  common::model::DecisionInputFrame decision_frame{};             /**< 当前周期决策输入帧 */
+  common::model::TargetFeatureList updated_features{};     /**< 当前周期更新后的目标特征列表 */
+  common::model::DecisionInputFrame decision_frame{};      /**< 当前周期决策输入帧 */
   AssociationQualityMetrics association_quality_metrics{}; /**< 当前周期关联质量观测指标 */
 };
 

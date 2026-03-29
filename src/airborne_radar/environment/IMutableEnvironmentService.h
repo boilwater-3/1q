@@ -36,12 +36,6 @@ class IMutableEnvironmentService : public IEnvironmentService {
   virtual void UpdateModelConfig(const EnvironmentModelConfig& config) = 0;
 
   /**
-   * @brief 设置兼容旧版路径的干扰功率估计。
-   * @param jammer_power_db 干扰功率估计，单位为 dB。
-   */
-  virtual void SetJammerPowerDb(float jammer_power_db) = 0;
-
-  /**
    * @brief 设置干扰判定阈值。
    * @param threshold_db 干扰判定阈值，单位为 dB。
    */

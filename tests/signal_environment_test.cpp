@@ -5,6 +5,7 @@
 
 #include <gtest/gtest.h>
 
+#include <initializer_list>
 #include <vector>
 
 #include "1q/airborne_radar/common/control/RadarControlProfile.h"
@@ -43,16 +44,29 @@ signal::tracking::CycleContext MakeLifecycleCycle(std::uint32_t cycle_index,
   return cycle;
 }
 
+environment::JammerSourceFact MakeJammerSource(environment::JammingTechnique technique,
+                                               float power_db) {
+  return environment_test::MakeJammerEmitter(technique, power_db);
+}
+
+environment::EnvironmentModelConfig MakeEnvironmentConfigWithJammers(
+    std::initializer_list<environment::JammerSourceFact> jammer_sources) {
+  environment::EnvironmentModelConfig config;
+  config.jammer_sources.insert(config.jammer_sources.end(), jammer_sources.begin(),
+                               jammer_sources.end());
+  return config;
+}
+
 }  // namespace
 
 TEST(EnvironmentServiceTest, DetectsJammingByConfiguredThreshold) {
-  environment::EnvironmentModelConfig config;
-  config.jammer_power_db = 7.0f;
-  config.jammer_frequency_overlap_ratio = 0.75f;
-  config.jammer_prf_lock_risk = 0.60f;
-  config.jammer_in_sidelobe = true;
+  environment::JammerSourceFact jammer_source =
+      MakeJammerSource(environment::JammingTechnique::kUnknown, 7.0f);
+  jammer_source.frequency_overlap_ratio = 0.75f;
+  jammer_source.prf_lock_risk = 0.60f;
+  jammer_source.in_sidelobe = true;
 
-  environment::EnvironmentService service(config);
+  environment::EnvironmentService service(MakeEnvironmentConfigWithJammers({jammer_source}));
   service.SetJammingDetectionThresholdDb(6.0f);
 
   const auto snapshot = service.SampleEnvironment();
@@ -135,12 +149,15 @@ TEST(EnvironmentServiceTest, SupportsMultipleJammerSourcesInSnapshot) {
   EXPECT_TRUE(snapshot.jammer_in_sidelobe);
 }
 
-TEST(EnvironmentServiceTest, AppliesLegacyJammerPowerOnNextCycleOnly) {
+TEST(EnvironmentServiceTest, AppliesPendingSceneJammerOnNextCycleOnly) {
   environment::EnvironmentService service;
 
   EXPECT_FALSE(service.SampleEnvironment().jamming_detected);
 
-  service.SetJammerPowerDb(7.0f);
+  service.UpdateSceneState(
+      environment_test::MemorySceneBuilder()
+          .AddJammer(MakeJammerSource(environment::JammingTechnique::kUnknown, 7.0f))
+          .BuildSceneState());
 
   EXPECT_FALSE(service.SampleEnvironment().jamming_detected);
 
@@ -192,9 +209,7 @@ TEST(PropagationModelTest, NegativeTerrainReflectionYieldsNetGainPassesThroughUn
 }
 
 TEST(SignalPipelineTest, KeepsTrackStableWhenDetectionMarginIsEnough) {
-  environment::EnvironmentModelConfig env_config;
-  env_config.jammer_power_db = 0.0f;
-  environment::EnvironmentService environment_service(env_config);
+  environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
   common::model::TargetFeature target(800.0f, 0.0f, 0.0f, 2.5f, 0.0f, 0.0f, 0.0f);
@@ -218,11 +233,13 @@ TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
   env_config.atmospheric_attenuation_db = 25.0f;
   env_config.terrain_reflection_db = 15.0f;
   env_config.clutter_power_db = 20.0f;
-  env_config.jammer_power_db = 12.0f;
+  env_config.jammer_sources.push_back(
+      MakeJammerSource(environment::JammingTechnique::kUnknown, 12.0f));
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  const common::model::TargetFeatureList input_state{common::model::TargetFeature(800.0f, 0.0f, 0.0f, 2.5f)};
+  const common::model::TargetFeatureList input_state{
+      common::model::TargetFeature(800.0f, 0.0f, 0.0f, 2.5f)};
 
   const auto output_state =
       signal_pipeline.RunCycle(input_state, environment_service).updated_features;
@@ -275,9 +292,7 @@ TEST(SignalPipelineTest, ControlProfilePowerReductionLowersPhysicalDetectionMarg
   pipeline_config.detection.radar_system.detection.cfar_pfa = 0.5f;
   pipeline_config.detection.radar_system.detection.min_snr_db = -50.0f;
 
-  environment::EnvironmentModelConfig env_config;
-  env_config.jammer_power_db = 0.0f;
-  environment::EnvironmentService environment_service(env_config);
+  environment::EnvironmentService environment_service;
 
   const common::model::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
 
@@ -308,9 +323,7 @@ TEST(SignalPipelineTest, AdaptiveBeamformingProfileTightensMeasurementCovariance
   pipeline_config.detection.radar_system.antenna.nominal_az_beamwidth_deg = 8.0f;
   pipeline_config.detection.radar_system.antenna.nominal_el_beamwidth_deg = 8.0f;
 
-  environment::EnvironmentModelConfig env_config;
-  env_config.jammer_power_db = 0.0f;
-  environment::EnvironmentService environment_service(env_config);
+  environment::EnvironmentService environment_service;
 
   const common::model::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
 
@@ -337,9 +350,7 @@ TEST(SignalPipelineTest, EccmProfileRelaxesHeuristicAssociationGateForSeededTrac
   signal::pipeline::SignalPipelineConfig pipeline_config;
   pipeline_config.tracking.kalman_measurement_noise_std = 1.0f;
 
-  environment::EnvironmentModelConfig env_config;
-  env_config.jammer_power_db = 0.0f;
-  environment::EnvironmentService environment_service(env_config);
+  environment::EnvironmentService environment_service;
 
   common::model::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f);
   target.position_x = 4.0f;
@@ -432,8 +443,10 @@ TEST(SignalPipelineTest, AssociationQualityMetricsExposeTypeSpecificStressSummar
   const signal::pipeline::AssociationQualityMetrics deception_metrics =
       deception_pipeline.GetLastAssociationQualityMetrics();
 
-  EXPECT_EQ(noise_metrics.dominant_jamming_semantic, common::utils::JammingSemantic::kNoiseSuppression);
-  EXPECT_EQ(deception_metrics.dominant_jamming_semantic, common::utils::JammingSemantic::kDeception);
+  EXPECT_EQ(noise_metrics.dominant_jamming_semantic,
+            common::utils::JammingSemantic::kNoiseSuppression);
+  EXPECT_EQ(deception_metrics.dominant_jamming_semantic,
+            common::utils::JammingSemantic::kDeception);
   EXPECT_GT(deception_metrics.jamming_severity, noise_metrics.jamming_severity);
   EXPECT_GT(noise_metrics.association_stress, 0.0f);
   EXPECT_GT(deception_metrics.association_stress, 0.0f);
@@ -488,7 +501,8 @@ TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) 
       protected_pipeline.GetLastAssociationQualityMetrics();
 
   EXPECT_EQ(baseline_metrics.dominant_jamming_semantic, common::utils::JammingSemantic::kDeception);
-  EXPECT_EQ(protected_metrics.dominant_jamming_semantic, common::utils::JammingSemantic::kDeception);
+  EXPECT_EQ(protected_metrics.dominant_jamming_semantic,
+            common::utils::JammingSemantic::kDeception);
   EXPECT_LT(protected_metrics.jamming_severity, baseline_metrics.jamming_severity);
   EXPECT_LT(protected_metrics.association_stress, baseline_metrics.association_stress);
 }
@@ -509,7 +523,8 @@ TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) 
       pipeline_config.beam_control.radar_orientation.mechanical_scan_limits_deg;
 
   environment::EnvironmentModelConfig env_config;
-  env_config.jammer_power_db = 12.0f;
+  env_config.jammer_sources.push_back(
+      MakeJammerSource(environment::JammingTechnique::kUnknown, 12.0f));
   environment::EnvironmentService environment_service(env_config);
 
   const common::model::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
@@ -549,19 +564,18 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulatePhysicalEccmBenefit) {
   pipeline_config.beam_control.radar_orientation.electronic_scan_limits_deg =
       pipeline_config.beam_control.radar_orientation.mechanical_scan_limits_deg;
 
-  environment::EnvironmentModelConfig favorable_env_config;
-  favorable_env_config.jammer_power_db = 12.0f;
-  favorable_env_config.jammer_frequency_overlap_ratio = 0.9f;
-  favorable_env_config.jammer_prf_lock_risk = 0.9f;
-  favorable_env_config.jammer_in_sidelobe = true;
-  environment::EnvironmentService favorable_environment(favorable_env_config);
+  environment::JammerSourceFact favorable_source =
+      MakeJammerSource(environment::JammingTechnique::kUnknown, 12.0f);
+  favorable_source.frequency_overlap_ratio = 0.9f;
+  favorable_source.prf_lock_risk = 0.9f;
+  favorable_source.in_sidelobe = true;
+  environment::EnvironmentService favorable_environment(
+      MakeEnvironmentConfigWithJammers({favorable_source}));
 
-  environment::EnvironmentModelConfig unfavorable_env_config;
-  unfavorable_env_config.jammer_power_db = 12.0f;
-  unfavorable_env_config.jammer_frequency_overlap_ratio = 0.0f;
-  unfavorable_env_config.jammer_prf_lock_risk = 0.0f;
-  unfavorable_env_config.jammer_in_sidelobe = false;
-  environment::EnvironmentService unfavorable_environment(unfavorable_env_config);
+  environment::JammerSourceFact unfavorable_source =
+      MakeJammerSource(environment::JammingTechnique::kUnknown, 12.0f);
+  environment::EnvironmentService unfavorable_environment(
+      MakeEnvironmentConfigWithJammers({unfavorable_source}));
 
   const common::model::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
 
@@ -634,7 +648,6 @@ TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
   env_config.atmospheric_attenuation_db = 25.0f;
   env_config.terrain_reflection_db = 15.0f;
   env_config.clutter_power_db = 40.0f;
-  env_config.jammer_power_db = 0.0f;
   environment::EnvironmentService environment_service(env_config);
 
   common::model::TargetFeature target(800.0f, 0.0f, 0.0f, 2.5f);
@@ -667,21 +680,29 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
   signal::pipeline::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.min_detection_margin_db = -6.0f;
 
-  environment::EnvironmentModelConfig favorable_env_config;
+  environment::JammerSourceFact favorable_source =
+      MakeJammerSource(environment::JammingTechnique::kUnknown, 12.0f);
+  favorable_source.frequency_overlap_ratio = 0.9f;
+  favorable_source.prf_lock_risk = 0.9f;
+  favorable_source.in_sidelobe = true;
+
+  environment::EnvironmentModelConfig favorable_env_config =
+      MakeEnvironmentConfigWithJammers({favorable_source});
   favorable_env_config.base_propagation_loss_db = 30.0f;
   favorable_env_config.atmospheric_attenuation_db = 10.0f;
   favorable_env_config.terrain_reflection_db = 5.0f;
   favorable_env_config.clutter_power_db = 12.0f;
-  favorable_env_config.jammer_power_db = 12.0f;
-  favorable_env_config.jammer_frequency_overlap_ratio = 0.9f;
-  favorable_env_config.jammer_prf_lock_risk = 0.9f;
-  favorable_env_config.jammer_in_sidelobe = true;
   environment::EnvironmentService favorable_environment(favorable_env_config);
 
-  environment::EnvironmentModelConfig unfavorable_env_config = favorable_env_config;
-  unfavorable_env_config.jammer_frequency_overlap_ratio = 0.0f;
-  unfavorable_env_config.jammer_prf_lock_risk = 0.0f;
-  unfavorable_env_config.jammer_in_sidelobe = false;
+  environment::JammerSourceFact unfavorable_source =
+      MakeJammerSource(environment::JammingTechnique::kUnknown, 12.0f);
+  environment::EnvironmentModelConfig unfavorable_env_config =
+      MakeEnvironmentConfigWithJammers({unfavorable_source});
+  unfavorable_env_config.base_propagation_loss_db = favorable_env_config.base_propagation_loss_db;
+  unfavorable_env_config.atmospheric_attenuation_db =
+      favorable_env_config.atmospheric_attenuation_db;
+  unfavorable_env_config.terrain_reflection_db = favorable_env_config.terrain_reflection_db;
+  unfavorable_env_config.clutter_power_db = favorable_env_config.clutter_power_db;
   environment::EnvironmentService unfavorable_environment(unfavorable_env_config);
 
   common::model::TargetFeature target(800.0f, 0.0f, 0.0f, 2.5f, 1.0f, 0.0f, 0.0f);
@@ -722,9 +743,7 @@ TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUp
   pipeline_config.tracking.enable_kalman_filter = true;
   pipeline_config.tracking.kalman_measurement_noise_std = 4.0f;
 
-  environment::EnvironmentModelConfig env_config;
-  env_config.jammer_power_db = 0.0f;
-  environment::EnvironmentService environment_service(env_config);
+  environment::EnvironmentService environment_service;
 
   common::model::TargetFeature target(1.0f, 0.0f, 0.0f, 5.0f, 0.0f, 0.0f, 0.0f);
   target.position_x = 100.0f;
@@ -831,9 +850,7 @@ TEST(SignalPipelineTest, AutoImmLifecycleAssemblyUsesControlProfileAdjustedImmPa
   pipeline_config.lifecycle.imm_model_noise_diff_coeffs = std::vector<float>{0.5f, 4.0f};
   pipeline_config.lifecycle.imm_initial_weights = std::vector<float>{0.8f, 0.2f};
 
-  environment::EnvironmentModelConfig env_config;
-  env_config.jammer_power_db = 0.0f;
-  environment::EnvironmentService environment_service(env_config);
+  environment::EnvironmentService environment_service;
 
   common::model::TargetFeature target = BuildPhysicsTarget(120.0f, 4.0f);
   const common::model::TargetFeatureList cycle_1_input{target};
@@ -922,9 +939,7 @@ TEST(TrackFilterTest, DeceptionJammingRetainsMoreTrackEnergyThanNoiseSuppression
 }
 
 TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
-  environment::EnvironmentModelConfig env_config;
-  env_config.jammer_power_db = 0.0f;
-  environment::EnvironmentService environment_service(env_config);
+  environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
   common::model::TargetFeature first(100.0f, 0.0f, 0.0f, 2.0f);
@@ -991,9 +1006,7 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
 }
 
 TEST(SignalPipelineTest, FailsFastWhenDetectedTargetLacksCartesianPosition) {
-  environment::EnvironmentModelConfig env_config;
-  env_config.jammer_power_db = 0.0f;
-  environment::EnvironmentService environment_service(env_config);
+  environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
   const common::model::TargetFeatureList input_state{
@@ -1004,9 +1017,7 @@ TEST(SignalPipelineTest, FailsFastWhenDetectedTargetLacksCartesianPosition) {
 }
 
 TEST(SignalPipelineTest, UsesPositionAssociationByDefaultWhenCartesianPositionExists) {
-  environment::EnvironmentModelConfig env_config;
-  env_config.jammer_power_db = 0.0f;
-  environment::EnvironmentService environment_service(env_config);
+  environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
   common::model::TargetFeature first(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
@@ -1064,9 +1075,7 @@ TEST(SignalPipelineTest, UsesPositionAssociationByDefaultWhenCartesianPositionEx
 }
 
 TEST(SignalPipelineTest, UsesStatelessAssociationByDefaultWithoutLifecycleSeeds) {
-  environment::EnvironmentModelConfig env_config;
-  env_config.jammer_power_db = 0.0f;
-  environment::EnvironmentService environment_service(env_config);
+  environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
   common::model::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
@@ -1094,9 +1103,7 @@ TEST(SignalPipelineTest, UsesStatelessAssociationByDefaultWithoutLifecycleSeeds)
 }
 
 TEST(SignalPipelineTest, ResetAssociationSeedModeToStatelessClearsSideChannelSeeds) {
-  environment::EnvironmentModelConfig env_config;
-  env_config.jammer_power_db = 0.0f;
-  environment::EnvironmentService environment_service(env_config);
+  environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
 
@@ -1204,48 +1211,32 @@ TEST(PropagationModelTest, AllZeroComponentsProduceZeroResults) {
 }
 
 // ============================================================================
-// EnvironmentService — HasLegacyJammerHints 边界与规范化测试
+// EnvironmentService — 结构化输入与规范化测试
 // ============================================================================
 
-/// @brief jammer_power_db == 0 不构成旧版干扰提示，不创建 legacy emitter。
-TEST(EnvironmentServiceTest, ZeroJammerPowerDoesNotCreateLegacyEmitter) {
-  environment::EnvironmentModelConfig config;
-  config.jammer_power_db = 0.0f;
-  // 其余旧版字段全部默认 (0 / false)
-
-  environment::EnvironmentService service(config);
-  service.SetJammingDetectionThresholdDb(0.001f);  // 极低门限确保一有 emitter 就触发
+/// @brief 默认配置下不生成干扰源，也不会误判为探测到干扰。
+TEST(EnvironmentServiceTest, EmptyJammerSourcesProduceNoJammingFacts) {
+  environment::EnvironmentService service;
+  service.SetJammingDetectionThresholdDb(0.001f);
 
   const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
-
-  // 无 legacy emitter → jammer_sources 为空
-  EXPECT_EQ(snapshot.jammer_sources.size(), 0u);
+  EXPECT_TRUE(snapshot.jammer_sources.empty());
   EXPECT_FALSE(snapshot.jamming_detected);
 }
 
-/// @brief 负值 jammer_power_db 不构成旧版干扰提示。
-TEST(EnvironmentServiceTest, NegativeJammerPowerDoesNotCreateLegacyEmitter) {
-  environment::EnvironmentModelConfig config;
-  config.jammer_power_db = -5.0f;
+/// @brief 仅旁瓣属性为真且功率为零的结构化输入应被保留，但不应触发干扰探测。
+TEST(EnvironmentServiceTest, StructuredSidelobeFactIsPreservedWithoutDetection) {
+  environment::JammerSourceFact source =
+      MakeJammerSource(environment::JammingTechnique::kUnknown, 0.0f);
+  source.in_sidelobe = true;
 
-  environment::EnvironmentService service(config);
+  environment::EnvironmentService service(MakeEnvironmentConfigWithJammers({source}));
   service.SetJammingDetectionThresholdDb(0.001f);
 
-  EXPECT_EQ(service.SampleEnvironment().jammer_sources.size(), 0u);
-}
-
-/// @brief 仅 jammer_in_sidelobe = true 即创建 legacy emitter（即使 power=0）。
-TEST(EnvironmentServiceTest, SidelobeAloneCreatesLegacyEmitter) {
-  environment::EnvironmentModelConfig config;
-  config.jammer_power_db = 0.0f;
-  config.jammer_in_sidelobe = true;
-
-  environment::EnvironmentService service(config);
-
   const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
-  // HasLegacyJammerHints → jammer_in_sidelobe=true → 创建 legacy emitter
   ASSERT_EQ(snapshot.jammer_sources.size(), 1u);
   EXPECT_TRUE(snapshot.jammer_sources[0].in_sidelobe);
+  EXPECT_FALSE(snapshot.jamming_detected);
 }
 
 /// @brief NormalizeEmitterState：负值 power_db 钳位到 0。
@@ -1299,10 +1290,8 @@ TEST(EnvironmentServiceTest, EmitterConfidenceAboveOneIsClampedToOne) {
 
 /// @brief 干扰功率恰好等于检测门限时，应判定为探测到干扰（>= 门限）。
 TEST(EnvironmentServiceTest, JammingDetectedWhenPowerEqualsThreshold) {
-  environment::EnvironmentModelConfig config;
-  config.jammer_power_db = 5.0f;
-
-  environment::EnvironmentService service(config);
+  environment::EnvironmentService service(MakeEnvironmentConfigWithJammers(
+      {MakeJammerSource(environment::JammingTechnique::kUnknown, 5.0f)}));
   service.SetJammingDetectionThresholdDb(5.0f);  // 恰好等于
 
   EXPECT_TRUE(service.SampleEnvironment().jamming_detected);
@@ -1310,10 +1299,8 @@ TEST(EnvironmentServiceTest, JammingDetectedWhenPowerEqualsThreshold) {
 
 /// @brief 干扰功率低于检测门限时，不判定为探测到干扰。
 TEST(EnvironmentServiceTest, JammingNotDetectedWhenPowerBelowThreshold) {
-  environment::EnvironmentModelConfig config;
-  config.jammer_power_db = 4.9f;
-
-  environment::EnvironmentService service(config);
+  environment::EnvironmentService service(MakeEnvironmentConfigWithJammers(
+      {MakeJammerSource(environment::JammingTechnique::kUnknown, 4.9f)}));
   service.SetJammingDetectionThresholdDb(5.0f);
 
   EXPECT_FALSE(service.SampleEnvironment().jamming_detected);

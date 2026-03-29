@@ -27,13 +27,13 @@ namespace {
 
 /// @brief 生成一批具备有效位置的目标输入，确保可进入位置关联路径。
 common::model::TargetFeatureList BuildBatchTargets(std::size_t count, float x_bias, float y_bias,
-                                            float z_bias) {
+                                                   float z_bias) {
   common::model::TargetFeatureList targets;
   targets.reserve(count);
 
   for (std::size_t i = 0; i < count; ++i) {
-    common::model::TargetFeature target(120.0f + static_cast<float>(i % 7), 0.0f, 0.0f, 6.0f, 0.2f, 0.0f,
-                                 0.0f, 1000.0f + static_cast<float>(i) * 2.0f, 0);
+    common::model::TargetFeature target(120.0f + static_cast<float>(i % 7), 0.0f, 0.0f, 6.0f, 0.2f,
+                                        0.0f, 0.0f, 1000.0f + static_cast<float>(i) * 2.0f, 0);
     target.position_x = x_bias + static_cast<float>(i) * 15.0f;
     target.position_y = y_bias + static_cast<float>(i % 5) * 3.0f;
     target.position_z = z_bias + static_cast<float>(i % 3) * 2.0f;
@@ -70,7 +70,8 @@ double ComputePercentileMs(std::vector<double> samples, double percentile) {
 }
 
 /// @brief 从目标列表抽取外部原始 ID 集合。
-std::unordered_set<std::uint64_t> BuildExternalIdSet(const common::model::TargetFeatureList& features) {
+std::unordered_set<std::uint64_t> BuildExternalIdSet(
+    const common::model::TargetFeatureList& features) {
   std::unordered_set<std::uint64_t> ids;
   ids.reserve(features.size());
   for (const common::model::TargetFeature& feature : features) {
@@ -93,9 +94,7 @@ double RunImmLifecycleScenarioMs(std::size_t target_count,
   pipeline_config.lifecycle.imm_model_noise_diff_coeffs = std::vector<float>{0.5f, 8.0f};
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
 
-  environment::EnvironmentModelConfig env_config;
-  env_config.jammer_power_db = 0.0f;
-  environment::EnvironmentService environment_service(env_config);
+  environment::EnvironmentService environment_service;
 
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> lifecycle_manager =
       signal_pipeline.CreateAutoLifecycleManager();
@@ -138,9 +137,7 @@ TEST(SignalBulkDataTest, LargeBatchSingleCycleProducesConsistentMeasurements) {
   pipeline_config.detection.min_detection_margin_db = -100.0f;
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
 
-  environment::EnvironmentModelConfig env_config;
-  env_config.jammer_power_db = 0.0f;
-  environment::EnvironmentService environment_service(env_config);
+  environment::EnvironmentService environment_service;
 
   const common::model::TargetFeatureList input_state =
       BuildBatchTargets(kTargetCount, 1000.0f, 10.0f, 5.0f);
@@ -179,9 +176,7 @@ TEST(SignalBulkDataTest, LargeBatchImmAutoLifecycleMaintainsHighMatchRateOnNextC
   pipeline_config.lifecycle.imm_model_noise_diff_coeffs = std::vector<float>{0.5f, 8.0f};
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
 
-  environment::EnvironmentModelConfig env_config;
-  env_config.jammer_power_db = 0.0f;
-  environment::EnvironmentService environment_service(env_config);
+  environment::EnvironmentService environment_service;
 
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> lifecycle_manager =
       signal_pipeline.CreateAutoLifecycleManager();
@@ -237,9 +232,7 @@ TEST(SignalBulkDataTest, TieredBatchSingleCycleReportsP50AndP95Latency) {
   pipeline_config.detection.min_detection_margin_db = -100.0f;
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
 
-  environment::EnvironmentModelConfig env_config;
-  env_config.jammer_power_db = 0.0f;
-  environment::EnvironmentService environment_service(env_config);
+  environment::EnvironmentService environment_service;
 
   double previous_p95_ms = 0.0;
   for (std::size_t tier_index = 0; tier_index < tiers.size(); ++tier_index) {
@@ -300,9 +293,7 @@ TEST(SignalBulkDataTest, ExternalTargetIdStaysConsistentAcrossImmLifecycleCycles
   pipeline_config.lifecycle.imm_model_noise_diff_coeffs = std::vector<float>{0.5f, 8.0f};
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
 
-  environment::EnvironmentModelConfig env_config;
-  env_config.jammer_power_db = 0.0f;
-  environment::EnvironmentService environment_service(env_config);
+  environment::EnvironmentService environment_service;
 
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> lifecycle_manager =
       signal_pipeline.CreateAutoLifecycleManager();

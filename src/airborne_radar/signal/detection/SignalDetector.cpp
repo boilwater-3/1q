@@ -21,8 +21,7 @@ void SignalDetector::UpdateConfig(RadarSystemConfig config) {
 }
 
 DetectionResult SignalDetector::Detect(const TargetReturn& target, const EnvironmentState& env,
-                                       float one_way_antenna_gain_db, int pulse_count,
-                                       bool coherent_integration) {
+                                       float one_way_antenna_gain_db, int pulse_count) {
   DetectionResult result;
   if (std::isnan(one_way_antenna_gain_db)) {
     one_way_antenna_gain_db = config_.antenna.main_beam_gain_db;
@@ -53,8 +52,7 @@ DetectionResult SignalDetector::Detect(const TargetReturn& target, const Environ
   result.snr_db = 10.0f * std::log10(base_snr_linear + kNoiseFloorW);
 
   // ④ 积累增益：相参积累 SNR ∝ N，非相参 ∝ √N；将增益折算到等效单脉冲 SNR。
-  const float integration_gain =
-      RadarEquations::ComputeIntegrationGain(pulse_count, coherent_integration);
+  const float integration_gain = RadarEquations::ComputeIntegrationGain(pulse_count);
   const float integrated_snr_linear = base_snr_linear * integration_gain;
   const float integrated_snr_db = 10.0f * std::log10(integrated_snr_linear + kNoiseFloorW);
 

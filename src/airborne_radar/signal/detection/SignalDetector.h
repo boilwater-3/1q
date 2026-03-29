@@ -66,13 +66,11 @@ class SignalDetector {
    * @param env                  环境噪声上下文
    * @param one_way_antenna_gain_db 单程天线增益；若为 NaN 则回退到配置中的主瓣峰值增益
    * @param pulse_count          检测脉冲数 N
-   * @param coherent_integration 积累方式标记（当前检测概率语义统一为“每脉冲 SNR +
-   * N”，该参数仅保留兼容）
    * @return 探测结果
    */
   DetectionResult Detect(const TargetReturn& target, const EnvironmentState& env,
                          float one_way_antenna_gain_db = std::numeric_limits<float>::quiet_NaN(),
-                         int pulse_count = 1, bool coherent_integration = false);
+                         int pulse_count = 1);
   /**
    * @brief 设置随机种子（用于确定性回归测试）。
    * @param seed 随机数种子

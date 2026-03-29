@@ -41,8 +41,9 @@ TEST(RadarSessionConfigBuilderTest, DefaultConstructionPreservesStructDefaults) 
 // ---------------------------------------------------------------------------
 
 TEST(RadarSessionConfigBuilderTest, PresetBasePreservesPresetValues) {
-  const auto config =
-      common::config::RadarSessionConfigBuilder(common::config::MakeDetectionMissionRadarSessionConfig()).Build();
+  const auto config = common::config::RadarSessionConfigBuilder(
+                          common::config::MakeDetectionMissionRadarSessionConfig())
+                          .Build();
 
   // 探测任务预设设置了 min_detection_margin_db = -100.0f
   EXPECT_FLOAT_EQ(config.signal_pipeline_config.detection.min_detection_margin_db, -100.0f);
@@ -142,12 +143,10 @@ TEST(RadarSessionConfigBuilderTest, DetectionPolicySettersApplyCorrectly) {
   const auto config = common::config::RadarSessionConfigBuilder()
                           .WithMinDetectionMarginDb(-15.0f)
                           .WithPulseCount(20)
-                          .WithCoherentIntegration(false)
                           .Build();
 
   EXPECT_FLOAT_EQ(config.signal_pipeline_config.detection.min_detection_margin_db, -15.0f);
   EXPECT_EQ(config.signal_pipeline_config.detection.pulse_count, 20);
-  EXPECT_FALSE(config.signal_pipeline_config.detection.coherent_integration);
 }
 
 // ---------------------------------------------------------------------------
@@ -196,15 +195,15 @@ TEST(RadarSessionConfigBuilderTest, JammingThresholdApplied) {
 // ---------------------------------------------------------------------------
 
 TEST(RadarSessionConfigBuilderTest, ChainedPresetPlusHardwareOverride) {
-  const auto config =
-      common::config::RadarSessionConfigBuilder(common::config::MakeDetectionMissionRadarSessionConfig())
-          .EnablePhysicsDetection()
-          .WithTransmitterPeakPowerW(5e6f)
-          .WithTransmitterFrequencyHz(9.3e9f)
-          .WithAntennaMainBeamGainDb(38.0f)
-          .WithReceiverNoiseFigureDb(3.5f)
-          .WithJammingDetectionThresholdDb(4.5f)
-          .Build();
+  const auto config = common::config::RadarSessionConfigBuilder(
+                          common::config::MakeDetectionMissionRadarSessionConfig())
+                          .EnablePhysicsDetection()
+                          .WithTransmitterPeakPowerW(5e6f)
+                          .WithTransmitterFrequencyHz(9.3e9f)
+                          .WithAntennaMainBeamGainDb(38.0f)
+                          .WithReceiverNoiseFigureDb(3.5f)
+                          .WithJammingDetectionThresholdDb(4.5f)
+                          .Build();
 
   // 预设值保留
   EXPECT_FLOAT_EQ(config.signal_pipeline_config.detection.min_detection_margin_db, -100.0f);
@@ -228,10 +227,10 @@ TEST(RadarSessionConfigBuilderTest, ChainedPresetPlusHardwareOverride) {
 // ---------------------------------------------------------------------------
 
 TEST(RadarSessionConfigBuilderTest, BuiltConfigCanConstructRadarSession) {
-  const auto config =
-      common::config::RadarSessionConfigBuilder(common::config::MakeDetectionMissionRadarSessionConfig())
-          .WithJammingDetectionThresholdDb(5.0f)
-          .Build();
+  const auto config = common::config::RadarSessionConfigBuilder(
+                          common::config::MakeDetectionMissionRadarSessionConfig())
+                          .WithJammingDetectionThresholdDb(5.0f)
+                          .Build();
 
   // 能正常构造 RadarSession 即通过（构造函数不应抛出）
   core::session::RadarSession session(config);

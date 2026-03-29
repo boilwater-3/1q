@@ -55,14 +55,11 @@ struct RadarEquations {
   static float ComputeThermalNoisePower_W(const TransmitterConfig& tx, const ReceiverConfig& rx);
   /**
    * @brief 脉冲积累增益因子。
-   * 相参积累: G = N。
-   * 非相参积累: G = √N。
-   * Skolnik Ch.2 积累理论。
+   * 当前统一采用线性脉冲积累语义: G = N。
    * @param pulse_count 积累脉冲数
-   * @param coherent_integration 是否为相参积累
    * @return 积累增益因子（线性值）
    */
-  static float ComputeIntegrationGain(int pulse_count, bool coherent_integration);
+  static float ComputeIntegrationGain(int pulse_count);
   /**
    * @brief 测距标准差 σ_R (m)。
    * 工程近似: σ_R ≈ 0.5·δ_R / √(SNR_linear) + bias，

@@ -177,8 +177,7 @@ void RunPhysicalDetectionPass(const common::model::TargetFeatureList& input,
                                                 runtime_config.beam_control.platform_attitude_deg,
                                                 (*buffers->target_geometry)[i].look_angles_deg);
     const detection::DetectionResult detection_result = signal_detector->Detect(
-        target, env, beam_state.one_way_antenna_gain_db, runtime_config.detection.pulse_count,
-        runtime_config.detection.coherent_integration);
+        target, env, beam_state.one_way_antenna_gain_db, runtime_config.detection.pulse_count);
     const detection::MeasurementErrorState measurement_error =
         detection::MeasurementErrorModel::Compute(
             detection_result.snr_db, beam_state.effective_beamwidth_deg,

@@ -16,8 +16,8 @@
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/detection/TargetLookResolver.h"
-#include "airborne_radar/signal/runtime/ScanScheduleResolver.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
+#include "airborne_radar/signal/runtime/ScanScheduleResolver.h"
 
 namespace airborne_radar {
 namespace tests {
@@ -300,41 +300,45 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
   environment_config.clutter_power_db = 0.0f;
   environment::EnvironmentService environment_service(environment_config);
 
-  common::model::TargetFeature target = common::utils::MakeAirTarget(
-      2026U, 500.0f, 866.025f, 0.0f, 0.0f, 0.0f, 0.0f, 100.0f);
+  common::model::TargetFeature target =
+      common::utils::MakeAirTarget(2026U, 500.0f, 866.025f, 0.0f, 0.0f, 0.0f, 0.0f, 100.0f);
   const common::model::TargetFeatureList targets(1U, target);
 
   const signal::detection::TargetLookAnglesDeg look_angles =
       signal::detection::TargetLookResolver::Resolve(target);
   ASSERT_TRUE(look_angles.has_look_angles);
   const signal::detection::EffectiveBeamwidthDeg effective_beamwidth =
-      signal::detection::ResolveEffectiveBeamwidth(config.detection.radar_system.antenna, orientation);
+      signal::detection::ResolveEffectiveBeamwidth(config.detection.radar_system.antenna,
+                                                   orientation);
 
   common::config::RadarOrientationConfig cycle_1_orientation = orientation;
   common::config::RadarOrientationConfig cycle_2_orientation = orientation;
-  cycle_1_orientation.dwell_center_deg =
-      signal::runtime::internal::ResolveScheduledDwellCenter(cycle_1_orientation, effective_beamwidth, 1U);
-  cycle_2_orientation.dwell_center_deg =
-      signal::runtime::internal::ResolveScheduledDwellCenter(cycle_2_orientation, effective_beamwidth, 2U);
-  const signal::detection::ResolvedBeamState cycle_1_beam = signal::detection::BeamControlResolver::Resolve(
-      config.detection.radar_system.antenna, cycle_1_orientation, config.beam_control.platform_attitude_deg,
-      look_angles);
-  const signal::detection::ResolvedBeamState cycle_2_beam = signal::detection::BeamControlResolver::Resolve(
-      config.detection.radar_system.antenna, cycle_2_orientation, config.beam_control.platform_attitude_deg,
-      look_angles);
+  cycle_1_orientation.dwell_center_deg = signal::runtime::internal::ResolveScheduledDwellCenter(
+      cycle_1_orientation, effective_beamwidth, 1U);
+  cycle_2_orientation.dwell_center_deg = signal::runtime::internal::ResolveScheduledDwellCenter(
+      cycle_2_orientation, effective_beamwidth, 2U);
+  const signal::detection::ResolvedBeamState cycle_1_beam =
+      signal::detection::BeamControlResolver::Resolve(
+          config.detection.radar_system.antenna, cycle_1_orientation,
+          config.beam_control.platform_attitude_deg, look_angles);
+  const signal::detection::ResolvedBeamState cycle_2_beam =
+      signal::detection::BeamControlResolver::Resolve(
+          config.detection.radar_system.antenna, cycle_2_orientation,
+          config.beam_control.platform_attitude_deg, look_angles);
 
   signal::detection::TargetReturn target_return;
   target_return.rcs_m2 = target.current_track_rcs;
   target_return.range_m = target.range_m;
-  target_return.swerling_type = static_cast<signal::detection::SwerlingModel>(target.target_swerling_type);
+  target_return.swerling_type =
+      static_cast<signal::detection::SwerlingModel>(target.target_swerling_type);
   signal::detection::EnvironmentState environment_state;
   signal::detection::SignalDetector detector(config.detection.radar_system);
-  const signal::detection::DetectionResult cycle_1_detection = detector.Detect(
-      target_return, environment_state, cycle_1_beam.one_way_antenna_gain_db, config.detection.pulse_count,
-      config.detection.coherent_integration);
-  const signal::detection::DetectionResult cycle_2_detection = detector.Detect(
-      target_return, environment_state, cycle_2_beam.one_way_antenna_gain_db, config.detection.pulse_count,
-      config.detection.coherent_integration);
+  const signal::detection::DetectionResult cycle_1_detection =
+      detector.Detect(target_return, environment_state, cycle_1_beam.one_way_antenna_gain_db,
+                      config.detection.pulse_count);
+  const signal::detection::DetectionResult cycle_2_detection =
+      detector.Detect(target_return, environment_state, cycle_2_beam.one_way_antenna_gain_db,
+                      config.detection.pulse_count);
   ASSERT_GT(cycle_2_detection.snr_db, cycle_1_detection.snr_db);
   ASSERT_GT(cycle_2_detection.detection_prob, cycle_1_detection.detection_prob);
 
@@ -366,7 +370,8 @@ TEST(SignalPipelineScanScheduleTest, WorkSubModeSttReducesSweepCoverageComparedT
   tws_config.detection.radar_system.antenna.enable_directional_pattern = true;
   tws_config.detection.radar_system.antenna.pattern.max_sidelobe_level_db = -80.0f;
   tws_config.detection.radar_system.antenna.pattern.backlobe_level_db = -80.0f;
-  common::config::RadarOrientationConfig& tws_orientation = tws_config.beam_control.radar_orientation;
+  common::config::RadarOrientationConfig& tws_orientation =
+      tws_config.beam_control.radar_orientation;
   tws_orientation.work_sub_mode = common::config::RadarWorkSubMode::kTws;
   tws_orientation.scan_center_deg.az_deg = -60.0f;
   tws_orientation.scan_center_deg.el_deg = 0.0f;
@@ -391,8 +396,8 @@ TEST(SignalPipelineScanScheduleTest, WorkSubModeSttReducesSweepCoverageComparedT
   environment_config.clutter_power_db = 0.0f;
   environment::EnvironmentService environment_service(environment_config);
 
-  common::model::TargetFeature target = common::utils::MakeAirTarget(
-      2026U, 500.0f, 866.025f, 0.0f, 0.0f, 0.0f, 0.0f, 100.0f);
+  common::model::TargetFeature target =
+      common::utils::MakeAirTarget(2026U, 500.0f, 866.025f, 0.0f, 0.0f, 0.0f, 0.0f, 100.0f);
   const common::model::TargetFeatureList targets(1U, target);
 
   std::size_t tws_detected = 0U;

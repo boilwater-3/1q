@@ -1,7 +1,6 @@
 #include "airborne_radar/environment/EnvironmentService.h"
 
 #include <algorithm>
-#include <limits>
 #include <utility>
 
 #include "airborne_radar/environment/scene/SceneManager.h"
@@ -12,8 +11,6 @@ namespace environment {
 
 namespace {
 
-/** @brief 标记”当前不存在兼容旧版平铺字段的干扰源索引”的哨兵值。 */
-constexpr std::size_t kNoLegacyJammerEmitterIndex = static_cast<std::size_t>(-1);
 /**
  * @brief 将输入值裁剪到 [0, 1] 区间。
  * @param value 输入标量。
@@ -26,15 +23,6 @@ float Clamp01(float value) { return std::max(0.0f, std::min(1.0f, value)); }
  * @return 不小于 0 的结果。
  */
 float ClampNonNegative(float value) { return std::max(0.0f, value); }
-/**
- * @brief 判断旧版配置字段是否提供了兼容干扰提示。
- * @param config 旧版环境模型配置。
- * @return 存在任一旧版干扰提示时返回 true。
- */
-bool HasLegacyJammerHints(const EnvironmentModelConfig& config) {
-  return config.jammer_power_db > 0.0f || config.jammer_frequency_overlap_ratio > 0.0f ||
-         config.jammer_prf_lock_risk > 0.0f || config.jammer_in_sidelobe;
-}
 /**
  * @brief 规范化场景中的单个干扰源输入。
  * @param raw_source 原始干扰源输入。
@@ -73,55 +61,26 @@ const JammerSourceFact* SelectPrimaryJammerSource(const JammerSourceFactList& so
                              }));
 }
 /**
- * @brief 将旧版平铺干扰配置转换为兼容场景干扰源。
- * @param config 旧版环境模型配置。
- * @return 对应的兼容干扰源状态。
- */
-JammerEmitterState ToLegacyEmitterState(const EnvironmentModelConfig& config) {
-  JammerEmitterState emitter;
-  emitter.technique = JammingTechnique::kUnknown;
-  emitter.power_db = ClampNonNegative(config.jammer_power_db);
-  emitter.frequency_overlap_ratio = Clamp01(config.jammer_frequency_overlap_ratio);
-  emitter.prf_lock_risk = Clamp01(config.jammer_prf_lock_risk);
-  emitter.in_sidelobe = config.jammer_in_sidelobe;
-  emitter.confidence = HasLegacyJammerHints(config) ? 1.0f : 0.0f;
-  return emitter;
-}
-/**
- * @brief 将旧版环境配置适配为待生效场景状态。
- * @param config 旧版环境模型配置。
- * @param legacy_emitter_index 输出兼容干扰源在场景中的索引。
+ * @brief 将环境模型配置适配为待生效场景状态。
+ * @param config 环境模型配置。
  * @return 统一后的环境场景状态。
  */
-EnvironmentSceneState BuildSceneStateFromModelConfig(const EnvironmentModelConfig& config,
-                                                     std::size_t* legacy_emitter_index) {
+EnvironmentSceneState BuildSceneStateFromModelConfig(const EnvironmentModelConfig& config) {
   EnvironmentSceneState scene_state;
   scene_state.base_propagation_loss_db = config.base_propagation_loss_db;
   scene_state.atmospheric_attenuation_db = config.atmospheric_attenuation_db;
   scene_state.terrain_reflection_db = config.terrain_reflection_db;
   scene_state.clutter_power_db = config.clutter_power_db;
-  scene_state.jammer_emitters.reserve(config.jammer_sources.size() +
-                                      (HasLegacyJammerHints(config) ? 1U : 0U));
+  scene_state.jammer_emitters.reserve(config.jammer_sources.size());
   scene_state.jammer_emitters.insert(scene_state.jammer_emitters.end(),
                                      config.jammer_sources.begin(), config.jammer_sources.end());
-
-  if (legacy_emitter_index != nullptr) {
-    *legacy_emitter_index = kNoLegacyJammerEmitterIndex;
-  }
-  if (HasLegacyJammerHints(config)) {
-    if (legacy_emitter_index != nullptr) {
-      *legacy_emitter_index = scene_state.jammer_emitters.size();
-    }
-    scene_state.jammer_emitters.push_back(ToLegacyEmitterState(config));
-  }
   return scene_state;
 }
 
 }  // namespace
 
 EnvironmentService::EnvironmentService(const EnvironmentModelConfig& config)
-    : scene_manager_(new scene::SceneManager(
-          BuildSceneStateFromModelConfig(config, &pending_legacy_jammer_emitter_index_))),
+    : scene_manager_(new scene::SceneManager(BuildSceneStateFromModelConfig(config))),
       propagation_model_(new simulation::PropagationModel()) {
   RefreshFrozenSnapshotFromActiveScene();
 }
@@ -138,29 +97,10 @@ EnvironmentSnapshot EnvironmentService::SampleEnvironment() const { return froze
 
 void EnvironmentService::UpdateSceneState(const EnvironmentSceneState& scene_state) {
   scene_manager_->UpdatePendingScene(scene_state);
-  pending_legacy_jammer_emitter_index_ = kNoLegacyJammerEmitterIndex;
 }
 
 void EnvironmentService::UpdateModelConfig(const EnvironmentModelConfig& config) {
-  scene_manager_->UpdatePendingScene(
-      BuildSceneStateFromModelConfig(config, &pending_legacy_jammer_emitter_index_));
-}
-
-void EnvironmentService::SetJammerPowerDb(float jammer_power_db) {
-  EnvironmentSceneState* pending_scene = scene_manager_->MutablePendingScene();
-  if (pending_scene == nullptr) {
-    return;
-  }
-
-  if (pending_legacy_jammer_emitter_index_ == kNoLegacyJammerEmitterIndex ||
-      pending_legacy_jammer_emitter_index_ >= pending_scene->jammer_emitters.size()) {
-    pending_legacy_jammer_emitter_index_ = pending_scene->jammer_emitters.size();
-    pending_scene->jammer_emitters.push_back(JammerEmitterState());
-    pending_scene->jammer_emitters.back().technique = JammingTechnique::kUnknown;
-    pending_scene->jammer_emitters.back().confidence = 1.0f;
-  }
-
-  pending_scene->jammer_emitters[pending_legacy_jammer_emitter_index_].power_db = jammer_power_db;
+  scene_manager_->UpdatePendingScene(BuildSceneStateFromModelConfig(config));
 }
 
 void EnvironmentService::SetJammingDetectionThresholdDb(float threshold_db) {

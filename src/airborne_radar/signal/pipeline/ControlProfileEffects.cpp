@@ -110,22 +110,15 @@ float ToDbDelta(float linear_scale) {
   return 10.0f * std::log10(clamped_scale);
 }
 
-oneq::internal::timing::IntegrationMode ToTimingIntegrationMode(bool coherent_integration) {
-  if (coherent_integration) {
-    return oneq::internal::timing::IntegrationMode::kCoherent;
-  }
-  return oneq::internal::timing::IntegrationMode::kNonCoherent;
-}
-
 /**
  * @brief 根据控制剖面和检测配置构建检测时序状态。
  *
- * 从检测配置中提取基础脉冲数、PRF 和积分模式，
+ * 从检测配置中提取基础脉冲数与 PRF，
  * 再叠加控制剖面中的 LPI 驻留缩放与 ECCM 抖动调整，
  * 委托 ResolveCycleTimingState 计算最终有效时序参数。
  *
  * @param control_profile      雷达控制剖面，包含 LPI 与 ECCM 相关开关和参数。
- * @param detection_config     信号检测配置，包含脉冲数、PRF 和积分模式。
+ * @param detection_config     信号检测配置，包含脉冲数与 PRF。
  * @return 解析后的周期时序状态，包含有效脉冲数与有效 PRF。
  */
 oneq::internal::timing::ResolvedCycleTimingState ResolveDetectionTimingState(
@@ -134,7 +127,7 @@ oneq::internal::timing::ResolvedCycleTimingState ResolveDetectionTimingState(
   oneq::internal::timing::CycleTimingBaseParams base_params;
   base_params.base_pulse_count = detection_config.pulse_count;
   base_params.base_prf_hz = detection_config.radar_system.transmitter.prf_hz;
-  base_params.integration_mode = ToTimingIntegrationMode(detection_config.coherent_integration);
+  base_params.integration_mode = oneq::internal::timing::IntegrationMode::kCoherent;
 
   oneq::internal::timing::CycleTimingControlAdjustments adjustments;
   adjustments.dwell_scale = control_profile.lpi_dwell_scale;
@@ -167,8 +160,9 @@ float ResolveBeamwidthScale(const ControlProfileEffectsConfig& cfg,
 
 }  // namespace
 
-float ComputeHeuristicSignalAdjustmentDb(const ControlProfileEffectsConfig& cfg,
-                                         const common::control::RadarControlProfile& control_profile) {
+float ComputeHeuristicSignalAdjustmentDb(
+    const ControlProfileEffectsConfig& cfg,
+    const common::control::RadarControlProfile& control_profile) {
   float adjustment_db = 0.0f;
   if (control_profile.enable_lpi_power_control) {
     adjustment_db += ToDbDelta(control_profile.lpi_power_scale);

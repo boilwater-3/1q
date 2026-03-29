@@ -82,16 +82,10 @@ TEST(RadarEquationsTest, NoisePower_BoltzmannFormula) {
   EXPECT_NEAR(noise_w, 4.002e-15f, 1e-16f);
 }
 
-/// @brief 相参积累：增益 = N。
-TEST(RadarEquationsTest, AccGain_CoherentLinear) {
-  const float gain = RadarEquations::ComputeIntegrationGain(16, true);
+/// @brief 当前统一采用线性脉冲积累：增益 = N。
+TEST(RadarEquationsTest, AccGain_PulseCountLinear) {
+  const float gain = RadarEquations::ComputeIntegrationGain(16);
   EXPECT_FLOAT_EQ(gain, 16.0f);
-}
-
-/// @brief 非相参积累：增益 = √N。
-TEST(RadarEquationsTest, AccGain_IncoherentSqrt) {
-  const float gain = RadarEquations::ComputeIntegrationGain(16, false);
-  EXPECT_FLOAT_EQ(gain, 4.0f);
 }
 
 /// @brief 判决逻辑应先将 Pd 钳位到 [0,1]，越界输入与边界输入等价。
@@ -298,21 +292,18 @@ TEST(SignalDetectorTest, DetectionProbabilityUsesIntegratedSnr) {
   env.jam_noise_w = 0.0f;
 
   const DetectionResult n1 =
-      detector.Detect(target, env, std::numeric_limits<float>::quiet_NaN(), 1, false);
+      detector.Detect(target, env, std::numeric_limits<float>::quiet_NaN(), 1);
   const DetectionResult n8 =
-      detector.Detect(target, env, std::numeric_limits<float>::quiet_NaN(), 8, false);
+      detector.Detect(target, env, std::numeric_limits<float>::quiet_NaN(), 8);
 
-  // 非相参积累增益 = sqrt(N)；Detect 内部将基础 SNR × gain 后以单脉冲语义送入 Pd 计算。
-  const float gain_n1 = RadarEquations::ComputeIntegrationGain(1, false);
-  const float gain_n8 = RadarEquations::ComputeIntegrationGain(8, false);
+  // Detect 内部将基础 SNR × N 后以单脉冲语义送入 Pd 计算。
+  const float gain_n1 = RadarEquations::ComputeIntegrationGain(1);
+  const float gain_n8 = RadarEquations::ComputeIntegrationGain(8);
   const float kFloor = 1e-30f;
-  const float base_snr_linear_n1 =
-      std::pow(10.0f, n1.snr_db / 10.0f);  // snr_db 为单脉冲 SNR
+  const float base_snr_linear_n1 = std::pow(10.0f, n1.snr_db / 10.0f);  // snr_db 为单脉冲 SNR
   const float base_snr_linear_n8 = std::pow(10.0f, n8.snr_db / 10.0f);
-  const float integrated_snr_db_n1 =
-      10.0f * std::log10(base_snr_linear_n1 * gain_n1 + kFloor);
-  const float integrated_snr_db_n8 =
-      10.0f * std::log10(base_snr_linear_n8 * gain_n8 + kFloor);
+  const float integrated_snr_db_n1 = 10.0f * std::log10(base_snr_linear_n1 * gain_n1 + kFloor);
+  const float integrated_snr_db_n8 = 10.0f * std::log10(base_snr_linear_n8 * gain_n8 + kFloor);
 
   const float expected_pd_n1 = RadarEquations::ComputeDetectionProbability(
       integrated_snr_db_n1, config.detection.cfar_pfa, target.swerling_type, 1);
@@ -324,8 +315,8 @@ TEST(SignalDetectorTest, DetectionProbabilityUsesIntegratedSnr) {
   EXPECT_GT(n8.detection_prob, n1.detection_prob);
 }
 
-/// @brief 相参积累（coherent=true）应比非相参（coherent=false）产生更高检测概率。
-TEST(SignalDetectorTest, CoherentIntegrationYieldsHigherPdThanIncoherent) {
+/// @brief 更多脉冲应带来更高的积分增益与检测概率。
+TEST(SignalDetectorTest, HigherPulseCountYieldsHigherPd) {
   RadarSystemConfig config;
   config.detection.min_snr_db = -80.0f;
   SignalDetector detector(config);
@@ -340,15 +331,14 @@ TEST(SignalDetectorTest, CoherentIntegrationYieldsHigherPdThanIncoherent) {
   env.clutter_noise_w = 1e-14f;
   env.jam_noise_w = 0.0f;
 
-  const DetectionResult incoherent =
-      detector.Detect(target, env, std::numeric_limits<float>::quiet_NaN(), 6, false);
-  const DetectionResult coherent =
-      detector.Detect(target, env, std::numeric_limits<float>::quiet_NaN(), 6, true);
+  const DetectionResult low_pulse_count =
+      detector.Detect(target, env, std::numeric_limits<float>::quiet_NaN(), 3);
+  const DetectionResult high_pulse_count =
+      detector.Detect(target, env, std::numeric_limits<float>::quiet_NaN(), 6);
 
   // 单脉冲 SNR 相同（积累前）
-  EXPECT_NEAR(coherent.snr_db, incoherent.snr_db, 1e-6f);
-  // 相参积累增益 = N，非相参增益 = sqrt(N)，N>1 时相参 Pd 更高
-  EXPECT_GT(coherent.detection_prob, incoherent.detection_prob);
+  EXPECT_NEAR(high_pulse_count.snr_db, low_pulse_count.snr_db, 1e-6f);
+  EXPECT_GT(high_pulse_count.detection_prob, low_pulse_count.detection_prob);
 }
 
 /// @brief 雷达局部坐标应能解析出稳定的目标方位/俯仰角。
@@ -467,9 +457,9 @@ TEST(BeamControlResolverTest, CommandedBeamwidthAffectsDirectionalPatternGain) {
   env.jam_noise_w = 0.0f;
 
   const DetectionResult nominal =
-      detector.Detect(target, env, nominal_state.one_way_antenna_gain_db, 1, false);
+      detector.Detect(target, env, nominal_state.one_way_antenna_gain_db, 1);
   const DetectionResult commanded =
-      detector.Detect(target, env, commanded_state.one_way_antenna_gain_db, 1, false);
+      detector.Detect(target, env, commanded_state.one_way_antenna_gain_db, 1);
 
   EXPECT_GT(commanded_state.one_way_antenna_gain_db, nominal_state.one_way_antenna_gain_db);
   EXPECT_GT(commanded.echo_power_dbw, nominal.echo_power_dbw);
@@ -843,14 +833,13 @@ TEST(SignalDetectorTest, BelowMinSnrIsNeverDetected) {
 
 /// @brief 积累脉冲数 <= 0 时，积累增益退化为 1.0（不崩溃）。
 TEST(RadarEquationsTest, IntegrationGain_ZeroPulseCount_IsOne) {
-  EXPECT_FLOAT_EQ(RadarEquations::ComputeIntegrationGain(0, true), 1.0f);
-  EXPECT_FLOAT_EQ(RadarEquations::ComputeIntegrationGain(-1, false), 1.0f);
+  EXPECT_FLOAT_EQ(RadarEquations::ComputeIntegrationGain(0), 1.0f);
+  EXPECT_FLOAT_EQ(RadarEquations::ComputeIntegrationGain(-1), 1.0f);
 }
 
-/// @brief 单脉冲积累增益：相参 = 1.0，非相参 = 1.0。
+/// @brief 单脉冲积累增益固定为 1.0。
 TEST(RadarEquationsTest, IntegrationGain_OnePulse_IsOne) {
-  EXPECT_FLOAT_EQ(RadarEquations::ComputeIntegrationGain(1, true), 1.0f);
-  EXPECT_FLOAT_EQ(RadarEquations::ComputeIntegrationGain(1, false), 1.0f);
+  EXPECT_FLOAT_EQ(RadarEquations::ComputeIntegrationGain(1), 1.0f);
 }
 
 }  // namespace tests

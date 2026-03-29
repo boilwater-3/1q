@@ -11,10 +11,10 @@
 #include <utility>
 #include <vector>
 
-#include "1q/airborne_radar/common/model/DecisionInputFrame.h"
-#include "1q/airborne_radar/common/model/DecisionTrackSnapshot.h"
 #include "1q/airborne_radar/common/control/RadarCommand.h"
 #include "1q/airborne_radar/common/control/RadarControlProfile.h"
+#include "1q/airborne_radar/common/model/DecisionInputFrame.h"
+#include "1q/airborne_radar/common/model/DecisionTrackSnapshot.h"
 #include "1q/airborne_radar/common/model/TargetFeature.h"
 #include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/context/IRadarContext.h"
@@ -42,6 +42,13 @@ common::model::TargetFeatureList BuildSingleTarget(float speed, float rcs, bool 
   return common::model::TargetFeatureList{target};
 }
 
+environment::EnvironmentModelConfig BuildJammingEnvironmentConfig(float jammer_power_db) {
+  environment::EnvironmentModelConfig config;
+  config.jammer_sources.push_back(environment_test::MakeJammerEmitter(
+      environment::JammingTechnique::kUnknown, jammer_power_db));
+  return config;
+}
+
 }  // namespace
 
 /// @brief FakeRadarContext 提供最小化的雷达上下文实现。
@@ -67,7 +74,9 @@ class FakeRadarContext : public core::context::IRadarContext {
   }
 
   /// @brief 获取已提交的指令集合。
-  const std::vector<common::control::RadarCommand>& SubmittedCommands() const { return submitted_commands_; }
+  const std::vector<common::control::RadarCommand>& SubmittedCommands() const {
+    return submitted_commands_;
+  }
 
   /// @brief 记录最新控制真值。
   void UpdateRadarControlProfile(const common::control::RadarControlProfile& profile) override {
@@ -131,7 +140,8 @@ class FixedProposalDecisionEngine : public decision::pipeline::ITacticalDecision
 class CapturingDecisionEngine : public decision::pipeline::ITacticalDecisionEngine {
  public:
   decision::pipeline::TacticalDecisionResult Evaluate(
-      const common::model::DecisionInputFrame& frame, decision::pipeline::TacticalStateStore&) override {
+      const common::model::DecisionInputFrame& frame,
+      decision::pipeline::TacticalStateStore&) override {
     last_frame = frame;
     ++evaluate_count;
     return decision::pipeline::TacticalDecisionResult();
@@ -148,9 +158,7 @@ TEST_F(CoreControllerTest, RunOnceSubmitsCommands) {
   const common::model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
-  environment::EnvironmentModelConfig env_config;
-  env_config.jammer_power_db = 12.0f;
-  environment::EnvironmentService environment_service(env_config);
+  environment::EnvironmentService environment_service(BuildJammingEnvironmentConfig(12.0f));
 
   signal::pipeline::SignalPipeline signal_pipeline;
 
@@ -171,9 +179,7 @@ TEST_F(CoreControllerTest, PushesPlatformAttitudeIntoSignalPipelineBeforeRun) {
   platform_attitude_deg.roll_deg = 2.0f;
   radar_context.SetPlatformAttitude(platform_attitude_deg);
 
-  environment::EnvironmentModelConfig env_config;
-  env_config.jammer_power_db = 0.0f;
-  environment::EnvironmentService environment_service(env_config);
+  environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
   core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
@@ -307,9 +313,7 @@ TEST_F(CoreControllerTest, NoLifecycleFallbackBuildsDecisionFrameFromSyntheticTr
   const common::model::TargetFeatureList input_state = BuildSingleTarget(640.0f, 1.5f, false);
   FakeRadarContext radar_context(input_state);
 
-  environment::EnvironmentModelConfig env_config;
-  env_config.jammer_power_db = 0.0f;
-  environment::EnvironmentService environment_service(env_config);
+  environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
   CapturingDecisionEngine decision_engine;
@@ -336,9 +340,7 @@ TEST_F(CoreControllerTest, PublicOutputReaderApiExposesLatestTrackOutputFrame) {
   const common::model::TargetFeatureList input_state = BuildSingleTarget(510.0f, 1.0f, false);
   FakeRadarContext radar_context(input_state);
 
-  environment::EnvironmentModelConfig env_config;
-  env_config.jammer_power_db = 0.0f;
-  environment::EnvironmentService environment_service(env_config);
+  environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
   core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
@@ -363,9 +365,7 @@ TEST_F(CoreControllerTest, RuntimeValidationErrorsAreExposedAndSkipCommandSubmis
   FakeRadarContext radar_context(input_state);
   radar_context.SetCycleDeltaTimeSec(std::numeric_limits<float>::quiet_NaN());
 
-  environment::EnvironmentModelConfig env_config;
-  env_config.jammer_power_db = 0.0f;
-  environment::EnvironmentService environment_service(env_config);
+  environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
   core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
@@ -374,11 +374,10 @@ TEST_F(CoreControllerTest, RuntimeValidationErrorsAreExposedAndSkipCommandSubmis
 
   EXPECT_TRUE(controller.HasValidationError());
   const core::context::ValidationIssueList& issues = controller.GetLastValidationIssues();
-  EXPECT_TRUE(std::find_if(issues.begin(), issues.end(),
-                           [](const core::context::ValidationIssue& issue) {
-                             return issue.code ==
-                                    core::context::ValidationCode::kNonFiniteCycleDeltaTime;
-                           }) != issues.end());
+  EXPECT_TRUE(
+      std::find_if(issues.begin(), issues.end(), [](const core::context::ValidationIssue& issue) {
+        return issue.code == core::context::ValidationCode::kNonFiniteCycleDeltaTime;
+      }) != issues.end());
   EXPECT_TRUE(radar_context.SubmittedCommands().empty());
 }
 
@@ -386,9 +385,7 @@ TEST_F(CoreControllerTest, NextCycleAppliesPendingControlProfileToSignalPipeline
   const common::model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
-  environment::EnvironmentModelConfig env_config;
-  env_config.jammer_power_db = 12.0f;
-  environment::EnvironmentService environment_service(env_config);
+  environment::EnvironmentService environment_service(BuildJammingEnvironmentConfig(12.0f));
 
   signal::pipeline::SignalPipeline signal_pipeline;
 
@@ -407,19 +404,19 @@ TEST_F(CoreControllerTest, CustomReducerConfigChangesPendingControlProfile) {
   const common::model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
-  environment::EnvironmentModelConfig env_config;
-  env_config.jammer_power_db = 0.0f;
-  environment::EnvironmentService environment_service(env_config);
+  environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
   std::vector<decision::pipeline::TacticalProposal> proposals;
   proposals.push_back(decision::pipeline::TacticalProposal{
-      common::control::ControlDirective(common::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
-                               common::control::ControlDirectiveSource::EMISSION_CONTROL),
+      common::control::ControlDirective(
+          common::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+          common::control::ControlDirectiveSource::EMISSION_CONTROL),
       60, "reduce power"});
   proposals.push_back(decision::pipeline::TacticalProposal{
-      common::control::ControlDirective(common::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
-                               common::control::ControlDirectiveSource::SURVIVABILITY),
+      common::control::ControlDirective(
+          common::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
+          common::control::ControlDirectiveSource::SURVIVABILITY),
       82, "burnthrough"});
   FixedProposalDecisionEngine decision_engine(proposals);
 

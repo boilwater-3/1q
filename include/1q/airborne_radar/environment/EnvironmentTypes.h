@@ -89,15 +89,11 @@ struct EnvironmentSceneState {
  * @brief EnvironmentModelConfig 描述环境模型参数。
  */
 struct EnvironmentModelConfig {
-  float base_propagation_loss_db{4.0f};       /**< 基础传播损耗（dB） */
-  float atmospheric_attenuation_db{1.5f};     /**< 大气附加衰减（dB） */
-  float terrain_reflection_db{1.0f};          /**< 地形/多径附加项（dB） */
-  float clutter_power_db{3.0f};               /**< 杂波功率（dB） */
-  float jammer_power_db{0.0f};                /**< 干扰功率估计（dB） */
-  float jammer_frequency_overlap_ratio{0.0f}; /**< 干扰与当前工作频率的重叠度，范围 [0, 1] */
-  float jammer_prf_lock_risk{0.0f};           /**< 干扰对当前 PRF 锁定的风险度，范围 [0, 1] */
-  bool jammer_in_sidelobe{false};             /**< 干扰是否主要经由旁瓣进入 */
-  JammerSourceFactList jammer_sources{};      /**< 多源干扰事实输入 */
+  float base_propagation_loss_db{4.0f};   /**< 基础传播损耗（dB） */
+  float atmospheric_attenuation_db{1.5f}; /**< 大气附加衰减（dB） */
+  float terrain_reflection_db{1.0f};      /**< 地形/多径附加项（dB） */
+  float clutter_power_db{3.0f};           /**< 杂波功率（dB） */
+  JammerSourceFactList jammer_sources{};  /**< 多源干扰事实输入 */
 };
 
 }  // namespace environment

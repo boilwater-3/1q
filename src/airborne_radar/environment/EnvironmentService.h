@@ -6,7 +6,6 @@
 #ifndef AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_SERVICE_H_
 #define AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_SERVICE_H_
 
-#include <cstddef>
 #include <memory>
 
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
@@ -60,12 +59,6 @@ class EnvironmentService final : public IMutableEnvironmentService {
   void UpdateModelConfig(const EnvironmentModelConfig& config) override;
 
   /**
-   * @brief 设置兼容旧版路径的干扰功率估计。
-   * @param jammer_power_db 干扰功率估计，单位为 dB。
-   */
-  void SetJammerPowerDb(float jammer_power_db) override;
-
-  /**
    * @brief 设置干扰判定阈值。
    * @param threshold_db 干扰判定阈值，单位为 dB。
    */
@@ -78,7 +71,6 @@ class EnvironmentService final : public IMutableEnvironmentService {
   std::unique_ptr<simulation::PropagationModel> propagation_model_;
   EnvironmentSnapshot frozen_snapshot_{};
   EnvironmentCycleContext current_cycle_context_{};
-  std::size_t pending_legacy_jammer_emitter_index_{static_cast<std::size_t>(-1)};
   float jamming_detection_threshold_db_{6.0f};
 };
 

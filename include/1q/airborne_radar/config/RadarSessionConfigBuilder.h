@@ -216,20 +216,11 @@ class ONEQ_API RadarSessionConfigBuilder {
   }
 
   /**
-   * @brief 设置相干积累脉冲数。
-   * @param[in] count 相干积累脉冲数。
+   * @brief 设置检测脉冲数。
+   * @param[in] count 检测脉冲数。
    */
   RadarSessionConfigBuilder& WithPulseCount(int count) {
     config_.signal_pipeline_config.detection.pulse_count = count;
-    return *this;
-  }
-
-  /**
-   * @brief 设置是否启用相干积累。
-   * @param[in] enable 是否启用相干积累。
-   */
-  RadarSessionConfigBuilder& WithCoherentIntegration(bool enable) {
-    config_.signal_pipeline_config.detection.coherent_integration = enable;
     return *this;
   }
 
