@@ -3,10 +3,10 @@
  * @brief 定义机载雷达方向、扫描窗口与波束指向相关配置结构。
  */
 
-#ifndef AIRBORNE_RADAR_COMMON_RADAR_ORIENTATION_CONFIG_H_
-#define AIRBORNE_RADAR_COMMON_RADAR_ORIENTATION_CONFIG_H_
+#ifndef AIRBORNE_RADAR_CONFIG_RADAR_ORIENTATION_CONFIG_H_
+#define AIRBORNE_RADAR_CONFIG_RADAR_ORIENTATION_CONFIG_H_
 
-#include "1q/airborne_radar/common/config/RadarWorkMode.h"
+#include "1q/airborne_radar/config/RadarWorkMode.h"
 #include "1q/common/scan_schedule_types.h"
 
 namespace airborne_radar {
@@ -98,4 +98,4 @@ struct RadarOrientationConfig {
 }  // namespace common
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_COMMON_RADAR_ORIENTATION_CONFIG_H_
+#endif  // AIRBORNE_RADAR_CONFIG_RADAR_ORIENTATION_CONFIG_H_

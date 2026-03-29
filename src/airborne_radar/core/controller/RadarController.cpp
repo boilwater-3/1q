@@ -15,8 +15,8 @@
 #include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "airborne_radar/decision/pipeline/ControlReducer.h"
 #include "airborne_radar/decision/pipeline/TacticalCoordinator.h"
-#include "airborne_radar/signal/output/DataOutputManager.h"
-#include "airborne_radar/signal/output/IDataOutputManager.h"
+#include "airborne_radar/signal/assembly/DataOutputManager.h"
+#include "airborne_radar/signal/assembly/IDataOutputManager.h"
 #include "common/logging/ProjectLog.h"
 #include "common/runtime/RuntimeCycleExecutor.h"
 
@@ -129,7 +129,7 @@ struct RadarController::Impl {
   std::reference_wrapper<common::control::RadarControlProfile> control_profile;
   std::unique_ptr<decision::pipeline::TacticalStateStore> tactical_state_store;
   std::unique_ptr<decision::pipeline::ControlReducer> control_reducer;
-  std::unique_ptr<signal::output::IDataOutputManager> output_manager;
+  std::unique_ptr<signal::assembly::IDataOutputManager> output_manager;
   oneq::internal::runtime::RuntimeCycleState<common::output::TrackOutputFrame,
                                              context::ValidationIssueList>
       runtime_state{};
@@ -145,7 +145,7 @@ struct RadarController::Impl {
         control_profile(*owned_control_profile),
         tactical_state_store(new decision::pipeline::TacticalStateStore()),
         control_reducer(new decision::pipeline::ControlReducer()),
-        output_manager(new signal::output::DataOutputManager()) {
+        output_manager(new signal::assembly::DataOutputManager()) {
     decision_engine = owned_decision_engine.get();
   }
 
@@ -160,7 +160,7 @@ struct RadarController::Impl {
         control_profile(*owned_control_profile),
         tactical_state_store(new decision::pipeline::TacticalStateStore()),
         control_reducer(new decision::pipeline::ControlReducer()),
-        output_manager(new signal::output::DataOutputManager()) {}
+        output_manager(new signal::assembly::DataOutputManager()) {}
 
   void ExecuteCommands(const std::vector<common::control::ControlDirective>& directives) {
     for (std::size_t i = 0; i < directives.size(); ++i) {

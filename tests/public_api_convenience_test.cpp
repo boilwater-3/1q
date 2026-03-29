@@ -11,7 +11,7 @@
 #include <limits>
 #include <vector>
 
-#include "1q/airborne_radar/common/config/ConfigPresets.h"
+#include "1q/airborne_radar/config/ConfigPresets.h"
 #include "1q/airborne_radar/common/utils/TargetFeatureUtils.h"
 #include "1q/airborne_radar/core/context/RadarInputValidation.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"

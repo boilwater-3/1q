@@ -3,10 +3,10 @@
  * @brief 定义机载雷达天线方向图建模所需的公共配置结构。
  */
 
-#ifndef AIRBORNE_RADAR_COMMON_ANTENNA_PATTERN_CONFIG_H_
-#define AIRBORNE_RADAR_COMMON_ANTENNA_PATTERN_CONFIG_H_
+#ifndef AIRBORNE_RADAR_CONFIG_ANTENNA_PATTERN_CONFIG_H_
+#define AIRBORNE_RADAR_CONFIG_ANTENNA_PATTERN_CONFIG_H_
 
-#include "1q/airborne_radar/common/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/config/RadarOrientationConfig.h"
 
 namespace airborne_radar {
 namespace common {
@@ -68,4 +68,4 @@ struct AntennaPatternSample {
 }  // namespace common
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_COMMON_ANTENNA_PATTERN_CONFIG_H_
+#endif  // AIRBORNE_RADAR_CONFIG_ANTENNA_PATTERN_CONFIG_H_

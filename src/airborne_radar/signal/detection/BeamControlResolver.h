@@ -7,7 +7,7 @@
 #define AIRBORNE_RADAR_SIGNAL_DETECTION_BEAM_CONTROL_RESOLVER_H_
 
 #include "1q/airborne_radar/common/utils/AntennaPatternUtils.h"
-#include "1q/airborne_radar/common/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/config/RadarOrientationConfig.h"
 #include "1q/airborne_radar/common/utils/RadarOrientationUtils.h"
 #include "1q/airborne_radar/signal/detection/DetectionTypes.h"
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"

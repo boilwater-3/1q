@@ -3,8 +3,8 @@
  * @brief 定义机载雷达工作子模式枚举。
  */
 
-#ifndef AIRBORNE_RADAR_COMMON_RADAR_WORK_MODE_H_
-#define AIRBORNE_RADAR_COMMON_RADAR_WORK_MODE_H_
+#ifndef AIRBORNE_RADAR_CONFIG_RADAR_WORK_MODE_H_
+#define AIRBORNE_RADAR_CONFIG_RADAR_WORK_MODE_H_
 
 namespace airborne_radar {
 namespace common {
@@ -24,4 +24,4 @@ enum class RadarWorkSubMode {
 }  // namespace common
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_COMMON_RADAR_WORK_MODE_H_
+#endif  // AIRBORNE_RADAR_CONFIG_RADAR_WORK_MODE_H_

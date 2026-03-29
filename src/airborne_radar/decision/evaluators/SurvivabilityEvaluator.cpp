@@ -504,7 +504,9 @@ void SurvivabilityEvaluator::Evaluate(const common::model::DecisionInputFrame& i
     return;
   }
 
-  state_store.eccm_hold_cycles_remaining = config_.eccm_hold_cycles;
+  if (has_current_eccm_evidence) {
+    state_store.eccm_hold_cycles_remaining = config_.eccm_hold_cycles;
+  }
   AppendEccmProposals(evaluation_state.eccm_source_info, input_frame.association_quality_info,
                       input_frame.environment_jamming_detected, !has_current_eccm_evidence,
                       &evaluation_state.proposals);

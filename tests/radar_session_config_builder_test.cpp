@@ -7,8 +7,8 @@
 
 #include <cstdint>
 
-#include "1q/airborne_radar/common/config/ConfigPresets.h"
-#include "1q/airborne_radar/common/config/RadarSessionConfigBuilder.h"
+#include "1q/airborne_radar/config/ConfigPresets.h"
+#include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/core/session/RadarSession.h"
 
 namespace airborne_radar {

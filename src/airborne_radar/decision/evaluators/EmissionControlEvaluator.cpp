@@ -34,6 +34,7 @@ void EmissionControlEvaluator::Evaluate(const common::model::DecisionInputFrame&
   // ThreatAssessmentEvaluator / BackfillAssociationDrivenEccmTrigger 写入
   // evaluation_state.should_reduce_power，本评估器仅负责保持计数窗口和生成提案。
   bool should_reduce_power = evaluation_state.should_reduce_power;
+  const bool has_current_lpi_evidence = should_reduce_power;
   if (!should_reduce_power && state_store.lpi_hold_cycles_remaining > 0U) {
     should_reduce_power = true;
     --state_store.lpi_hold_cycles_remaining;
@@ -45,7 +46,9 @@ void EmissionControlEvaluator::Evaluate(const common::model::DecisionInputFrame&
     return;
   }
 
-  state_store.lpi_hold_cycles_remaining = kLpiHoldCycles;
+  if (has_current_lpi_evidence) {
+    state_store.lpi_hold_cycles_remaining = kLpiHoldCycles;
+  }
   evaluation_state.proposals.push_back(pipeline::TacticalProposal{
       BuildLpiPowerDirective(), 60, "high-confidence threat requires reduced emission"});
   PROJECT_LOG_INFO(

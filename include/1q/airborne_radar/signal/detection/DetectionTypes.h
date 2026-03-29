@@ -6,7 +6,7 @@
 #ifndef AIRBORNE_RADAR_SIGNAL_DETECTION_DETECTION_TYPES_H_
 #define AIRBORNE_RADAR_SIGNAL_DETECTION_DETECTION_TYPES_H_
 
-#include "1q/airborne_radar/common/config/AntennaPatternConfig.h"
+#include "1q/airborne_radar/config/AntennaPatternConfig.h"
 
 namespace airborne_radar {
 namespace signal {

@@ -3,8 +3,8 @@
  * @brief 提供链式构造 RadarSessionConfig 的 Builder，简化深层嵌套配置的设置。
  */
 
-#ifndef AIRBORNE_RADAR_COMMON_RADAR_SESSION_CONFIG_BUILDER_H_
-#define AIRBORNE_RADAR_COMMON_RADAR_SESSION_CONFIG_BUILDER_H_
+#ifndef AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_BUILDER_H_
+#define AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_BUILDER_H_
 
 #include <cstdint>
 
@@ -316,4 +316,4 @@ class ONEQ_API RadarSessionConfigBuilder {
 }  // namespace common
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_COMMON_RADAR_SESSION_CONFIG_BUILDER_H_
+#endif  // AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_BUILDER_H_

@@ -5,7 +5,7 @@
 
 #include <cstddef>
 
-#include "1q/airborne_radar/common/config/ConfigPresets.h"
+#include "1q/airborne_radar/config/ConfigPresets.h"
 #include "1q/airborne_radar/common/output/TrackOutputQueries.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/airborne_radar/core/context/RadarInputValidation.h"

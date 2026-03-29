@@ -6,7 +6,7 @@
 #ifndef AIRBORNE_RADAR_CORE_CONTEXT_RADAR_CYCLE_INPUT_H_
 #define AIRBORNE_RADAR_CORE_CONTEXT_RADAR_CYCLE_INPUT_H_
 
-#include "1q/airborne_radar/common/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/config/RadarOrientationConfig.h"
 #include "1q/airborne_radar/common/model/TargetFeature.h"
 
 namespace airborne_radar {

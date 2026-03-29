@@ -7,7 +7,7 @@
 #define AIRBORNE_RADAR_COMMON_RADAR_ORIENTATION_UTILS_H_
 
 #include "1q/airborne_radar/common/utils/MathUtils.h"
-#include "1q/airborne_radar/common/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/config/RadarOrientationConfig.h"
 
 namespace airborne_radar {
 namespace common {

@@ -5,12 +5,15 @@
 
 #include <gtest/gtest.h>
 
+#include <vector>
+
 #include "1q/airborne_radar/common/control/RadarControlProfile.h"
 #include "1q/airborne_radar/common/model/TargetFeature.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/environment/scene/SceneManager.h"
 #include "airborne_radar/environment/simulation/PropagationModel.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
+#include "airborne_radar/signal/runtime/RuntimeAssemblySupport.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
@@ -243,6 +246,26 @@ TEST(SignalPipelineTest, ExposesPublicPlatformAttitudeUpdateApi) {
   EXPECT_FLOAT_EQ(cached_platform_attitude.yaw_deg, 12.0f);
   EXPECT_FLOAT_EQ(cached_platform_attitude.pitch_deg, -3.0f);
   EXPECT_FLOAT_EQ(cached_platform_attitude.roll_deg, 1.5f);
+}
+
+TEST(SignalPipelineTest, AutoLifecycleManagerFallsBackWhenImmConfigInvalid) {
+  signal::pipeline::SignalPipelineConfig runtime_config;
+  runtime_config.lifecycle.enable_auto_lifecycle_manager = true;
+  runtime_config.lifecycle.enable_imm_lifecycle = true;
+  runtime_config.lifecycle.imm_model_noise_diff_coeffs = std::vector<float>();
+
+  std::unique_ptr<signal::tracking::ITrackLifecycleManager> lifecycle_manager =
+      signal::runtime::internal::CreateAutoLifecycleManagerForRuntimeConfig(runtime_config);
+  ASSERT_TRUE(lifecycle_manager != nullptr);
+
+  const signal::tracking::CycleContext cycle = MakeLifecycleCycle(1u, 7u);
+  const std::vector<signal::tracking::TrackMeasurement> measurements;
+  lifecycle_manager->Update(cycle, measurements);
+
+  const common::model::DecisionInputFrame decision_frame =
+      lifecycle_manager->BuildDecisionFrame(1u, 7u, false);
+  EXPECT_EQ(decision_frame.cycle_index, 1u);
+  EXPECT_EQ(decision_frame.batch_id, 7u);
 }
 
 TEST(SignalPipelineTest, ControlProfilePowerReductionLowersPhysicalDetectionMargin) {

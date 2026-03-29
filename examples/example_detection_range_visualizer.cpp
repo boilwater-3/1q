@@ -33,9 +33,9 @@
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/common/config/ConfigPresets.h"
+#include "1q/airborne_radar/config/ConfigPresets.h"
 #include "1q/airborne_radar/common/model/DecisionTrackSnapshot.h"
-#include "1q/airborne_radar/common/config/RadarSessionConfigBuilder.h"
+#include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/common/utils/TargetFeatureUtils.h"
 #include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"

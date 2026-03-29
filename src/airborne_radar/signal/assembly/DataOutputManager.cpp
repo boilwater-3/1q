@@ -1,4 +1,4 @@
-#include "airborne_radar/signal/output/DataOutputManager.h"
+#include "airborne_radar/signal/assembly/DataOutputManager.h"
 
 #include <cstddef>
 
@@ -6,7 +6,7 @@
 
 namespace airborne_radar {
 namespace signal {
-namespace output {
+namespace assembly {
 
 common::output::TrackOutputFrame DataOutputManager::BuildTrackOutputFrame(
     std::uint32_t cycle_index, std::uint64_t batch_id,
@@ -43,6 +43,6 @@ common::model::DecisionInputFrame DataOutputManager::BuildDecisionInputFrame(
   return frame;
 }
 
-}  // namespace output
+}  // namespace assembly
 }  // namespace signal
 }  // namespace airborne_radar

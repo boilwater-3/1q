@@ -1,65 +1,94 @@
 # 显式列出源文件（推荐做法，便于版本控制和构建可靠性）
 # 按模块分组管理，每次添加/删除源文件时需要手动更新对应模块列表
-set(PROJECT_SOURCES
+set(ONEQ_COMMON_SOURCES
     common/geometry/GeometryTransform.cpp
     common/timing/TimingRegimeModel.cpp
-    airborne_radar/common/config/ConfigPresets.cpp
-    airborne_radar/common/config/RadarSessionConfigBuilder.cpp
+)
+
+set(AIRBORNE_COMMON_SOURCES
     airborne_radar/common/model/DecisionTrackSnapshot.cpp
     airborne_radar/common/model/TargetFeature.cpp
-    airborne_radar/common/utils/TargetFeatureUtils.cpp
-    airborne_radar/decision/pipeline/TacticalCoordinator.cpp
-    airborne_radar/decision/pipeline/ControlReducer.cpp
-    airborne_radar/decision/evaluators/ThreatAssessmentEvaluator.cpp
-    airborne_radar/decision/evaluators/EmissionControlEvaluator.cpp
-    airborne_radar/decision/evaluators/SurvivabilityEvaluator.cpp
-    airborne_radar/core/context/MutableRadarContext.cpp
-    airborne_radar/core/context/RadarInputValidation.cpp
-    airborne_radar/core/controller/RadarController.cpp
     airborne_radar/common/output/TrackOutputQueries.cpp
-    airborne_radar/core/session/RadarSession.cpp
-    airborne_radar/environment/EnvironmentService.cpp
-    airborne_radar/environment/EnvironmentSceneBuilder.cpp
-    airborne_radar/environment/scene/SceneManager.cpp
-    airborne_radar/environment/simulation/PropagationModel.cpp
-    airborne_radar/environment/database/FeatureRepository.cpp
+    airborne_radar/common/utils/TargetFeatureUtils.cpp
+)
+
+set(AIRBORNE_SIGNAL_SOURCES
     airborne_radar/signal/association/DataAssociation.cpp
     airborne_radar/signal/association/DistanceMetric.cpp
     airborne_radar/signal/association/Hypothesiser.cpp
     airborne_radar/signal/association/LapjvSolver.cpp
+    airborne_radar/signal/assembly/DataOutputManager.cpp
     airborne_radar/signal/detection/RadarEquations.cpp
     airborne_radar/signal/detection/SignalDetector.cpp
-    airborne_radar/signal/output/DataOutputManager.cpp
     airborne_radar/signal/pipeline/AssociationExecutionSupport.cpp
-    airborne_radar/signal/pipeline/CycleExecutor.cpp
     airborne_radar/signal/pipeline/ContextBindingSupport.cpp
     airborne_radar/signal/pipeline/ControlProfileEffects.cpp
     airborne_radar/signal/pipeline/CycleContextSupport.cpp
-    airborne_radar/signal/pipeline/DetectionExecution.cpp
+    airborne_radar/signal/pipeline/CycleExecutor.cpp
     airborne_radar/signal/pipeline/DecisionFrameBuilders.cpp
+    airborne_radar/signal/pipeline/DetectionExecution.cpp
     airborne_radar/signal/pipeline/JammingEffects.cpp
     airborne_radar/signal/pipeline/OutputAssemblySupport.cpp
     airborne_radar/signal/pipeline/SignalPipeline.cpp
     airborne_radar/signal/pipeline/TrackMeasurementProcessing.cpp
     airborne_radar/signal/runtime/RuntimeAssemblySupport.cpp
     airborne_radar/signal/tracking/BoostTrackPool.cpp
-    airborne_radar/signal/tracking/SynchronizedTrackPool.cpp
-    airborne_radar/signal/tracking/KalmanPredictor.cpp
-    airborne_radar/signal/tracking/KalmanUpdater.cpp
     airborne_radar/signal/tracking/EkfFilter.cpp
     airborne_radar/signal/tracking/ImmFilter.cpp
+    airborne_radar/signal/tracking/KalmanPredictor.cpp
+    airborne_radar/signal/tracking/KalmanUpdater.cpp
+    airborne_radar/signal/tracking/SynchronizedTrackPool.cpp
     airborne_radar/signal/tracking/TrackFilter.cpp
     airborne_radar/signal/tracking/TrackLifecycleManager.cpp
+)
+
+set(AIRBORNE_DECISION_SOURCES
+    airborne_radar/decision/evaluators/EmissionControlEvaluator.cpp
+    airborne_radar/decision/evaluators/SurvivabilityEvaluator.cpp
+    airborne_radar/decision/evaluators/ThreatAssessmentEvaluator.cpp
+    airborne_radar/decision/pipeline/ControlReducer.cpp
+    airborne_radar/decision/pipeline/TacticalCoordinator.cpp
+)
+
+set(AIRBORNE_CORE_SOURCES
+    airborne_radar/core/context/MutableRadarContext.cpp
+    airborne_radar/core/context/RadarInputValidation.cpp
+    airborne_radar/core/controller/RadarController.cpp
+    airborne_radar/core/session/config/ConfigPresets.cpp
+    airborne_radar/core/session/config/RadarSessionConfigBuilder.cpp
+    airborne_radar/core/session/RadarSession.cpp
+    airborne_radar/environment/database/FeatureRepository.cpp
+    airborne_radar/environment/EnvironmentSceneBuilder.cpp
+    airborne_radar/environment/EnvironmentService.cpp
+    airborne_radar/environment/scene/SceneManager.cpp
+    airborne_radar/environment/simulation/PropagationModel.cpp
+)
+
+set(ESR_SOURCES
     electronic_surveillance_radar/core/context/EsrInputValidation.cpp
     electronic_surveillance_radar/core/controller/EsrController.cpp
     electronic_surveillance_radar/core/output/EsrOutputManager.cpp
     electronic_surveillance_radar/core/session/EsrSessionConfigResolver.cpp
     electronic_surveillance_radar/core/session/EsrSession.cpp
     electronic_surveillance_radar/environment/EsrEnvironmentService.cpp
-    electronic_surveillance_radar/pipeline/ObservationPreprocessor.cpp
-    electronic_surveillance_radar/pipeline/KdTreeClusterer.cpp
     electronic_surveillance_radar/pipeline/HypothesisAssociator.cpp
     electronic_surveillance_radar/pipeline/InterceptPipeline.cpp
+    electronic_surveillance_radar/pipeline/KdTreeClusterer.cpp
+    electronic_surveillance_radar/pipeline/ObservationPreprocessor.cpp
+)
+
+add_library(airborne_common OBJECT ${AIRBORNE_COMMON_SOURCES})
+add_library(airborne_signal OBJECT ${AIRBORNE_SIGNAL_SOURCES})
+add_library(airborne_decision OBJECT ${AIRBORNE_DECISION_SOURCES})
+add_library(airborne_core OBJECT ${AIRBORNE_CORE_SOURCES})
+
+set(PROJECT_SOURCES
+    ${ONEQ_COMMON_SOURCES}
+    ${ESR_SOURCES}
+    $<TARGET_OBJECTS:airborne_common>
+    $<TARGET_OBJECTS:airborne_signal>
+    $<TARGET_OBJECTS:airborne_decision>
+    $<TARGET_OBJECTS:airborne_core>
 )
 
 # 创建库目标及其别名（名称由顶层变量驱动）
@@ -87,6 +116,15 @@ target_include_directories(${PROJECT_CORE_TARGET}
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
 )
+foreach(AIRBORNE_SUBTARGET IN ITEMS airborne_common airborne_signal airborne_decision airborne_core)
+    target_include_directories(${AIRBORNE_SUBTARGET}
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${PROJECT_GENERATED_INCLUDE_DIR}
+            ${CMAKE_SOURCE_DIR}/include
+    )
+endforeach()
+unset(AIRBORNE_SUBTARGET)
 
 # 第三方依赖由包管理器模块处理
 # 如需添加依赖，请编辑对应的包管理器配置文件：
@@ -106,12 +144,22 @@ if(PROJECT_ENABLE_SPDLOG)
     find_package(spdlog CONFIG REQUIRED)
 endif()
 
-target_link_libraries(${PROJECT_CORE_TARGET} PRIVATE
+set(ONEQ_LINK_DEPENDENCIES
     Eigen3::Eigen
     eventpp::eventpp
     Boost::boost
     nanoflann::nanoflann
 )
+foreach(ONEQ_BUILD_TARGET IN ITEMS
+    ${PROJECT_CORE_TARGET}
+    airborne_common
+    airborne_signal
+    airborne_decision
+    airborne_core
+)
+    target_link_libraries(${ONEQ_BUILD_TARGET} PRIVATE ${ONEQ_LINK_DEPENDENCIES})
+endforeach()
+unset(ONEQ_BUILD_TARGET)
 
 # Conan's VS multi-config generation may only attach header-only include dirs
 # to Release. Mirror those include dirs onto this target when available so
@@ -123,10 +171,19 @@ foreach(_oneq_conan_include_var IN ITEMS
     nanoflann_INCLUDE_DIRS_RELEASE
 )
     if(DEFINED ${_oneq_conan_include_var})
-        target_include_directories(${PROJECT_CORE_TARGET} PRIVATE ${${_oneq_conan_include_var}})
+        foreach(ONEQ_BUILD_TARGET IN ITEMS
+            ${PROJECT_CORE_TARGET}
+            airborne_common
+            airborne_signal
+            airborne_decision
+            airborne_core
+        )
+            target_include_directories(${ONEQ_BUILD_TARGET} PRIVATE ${${_oneq_conan_include_var}})
+        endforeach()
     endif()
 endforeach()
 unset(_oneq_conan_include_var)
+unset(ONEQ_BUILD_TARGET)
 
 if(PROJECT_ENABLE_SPDLOG)
     if(TARGET spdlog::spdlog)
@@ -136,24 +193,57 @@ if(PROJECT_ENABLE_SPDLOG)
     else()
         message(FATAL_ERROR "spdlog target is not available")
     endif()
-    target_link_libraries(${PROJECT_CORE_TARGET} PRIVATE ${PROJECT_SPDLOG_TARGET})
+    foreach(ONEQ_BUILD_TARGET IN ITEMS
+        ${PROJECT_CORE_TARGET}
+        airborne_common
+        airborne_signal
+        airborne_decision
+        airborne_core
+    )
+        target_link_libraries(${ONEQ_BUILD_TARGET} PRIVATE ${PROJECT_SPDLOG_TARGET})
+    endforeach()
+    unset(ONEQ_BUILD_TARGET)
 endif()
 
-target_compile_definitions(${PROJECT_CORE_TARGET}
-    PRIVATE PROJECT_LOG_BACKEND_SPDLOG=$<BOOL:${PROJECT_ENABLE_SPDLOG}>
+foreach(ONEQ_BUILD_TARGET IN ITEMS
+    ${PROJECT_CORE_TARGET}
+    airborne_common
+    airborne_signal
+    airborne_decision
+    airborne_core
 )
+    target_compile_definitions(${ONEQ_BUILD_TARGET}
+        PRIVATE PROJECT_LOG_BACKEND_SPDLOG=$<BOOL:${PROJECT_ENABLE_SPDLOG}>
+    )
+endforeach()
+unset(ONEQ_BUILD_TARGET)
 
 set(ONEQ_MSVC_RUNTIME_LIBRARY "" CACHE STRING
     "Optional MSVC runtime override (example: MultiThreadedDLL). Empty keeps toolchain/profile default.")
 if(MSVC AND NOT ONEQ_MSVC_RUNTIME_LIBRARY STREQUAL "")
-    set_property(TARGET ${PROJECT_CORE_TARGET} PROPERTY
-        MSVC_RUNTIME_LIBRARY "${ONEQ_MSVC_RUNTIME_LIBRARY}")
+    foreach(ONEQ_BUILD_TARGET IN ITEMS
+        ${PROJECT_CORE_TARGET}
+        airborne_common
+        airborne_signal
+        airborne_decision
+        airborne_core
+    )
+        set_property(TARGET ${ONEQ_BUILD_TARGET} PROPERTY
+            MSVC_RUNTIME_LIBRARY "${ONEQ_MSVC_RUNTIME_LIBRARY}")
+    endforeach()
+    unset(ONEQ_BUILD_TARGET)
 endif()
 
 if(NOT BUILD_SHARED_LIBS)
     target_compile_definitions(${PROJECT_CORE_TARGET}
         PUBLIC ONEQ_STATIC_DEFINE
     )
+    foreach(AIRBORNE_SUBTARGET IN ITEMS airborne_common airborne_signal airborne_decision airborne_core)
+        target_compile_definitions(${AIRBORNE_SUBTARGET}
+            PRIVATE ONEQ_STATIC_DEFINE
+        )
+    endforeach()
+    unset(AIRBORNE_SUBTARGET)
 endif()
 
 # 设置目标属性
@@ -223,10 +313,7 @@ if(ENABLE_INSTALL)
     include(CMakePackageConfigHelpers)
 
     set(PUBLIC_HEADERS_COMMON
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/config/AntennaPatternConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/utils/AntennaPatternUtils.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/config/ConfigPresets.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/config/RadarSessionConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/control/ControlDirective.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/model/DecisionInputFrame.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/model/DecisionSourceInfo.h
@@ -234,7 +321,6 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/utils/JammingSemantics.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/control/RadarCommand.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/control/RadarControlProfile.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/config/RadarOrientationConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/utils/RadarOrientationUtils.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/model/TargetCategory.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/model/TargetFeature.h
@@ -243,6 +329,13 @@ if(ENABLE_INSTALL)
     )
     set(PUBLIC_HEADERS_COMMON_OUTPUT
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/output/TrackOutputQueries.h
+    )
+    set(PUBLIC_HEADERS_CONFIG_ENTRY
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/AntennaPatternConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/ConfigPresets.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarOrientationConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarSessionConfigBuilder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarWorkMode.h
     )
     set(PUBLIC_HEADERS_CORE_CONTEXT
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/context/IRadarContext.h
@@ -331,6 +424,9 @@ if(ENABLE_INSTALL)
     )
     install(FILES ${PUBLIC_HEADERS_COMMON_OUTPUT}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/common/output
+    )
+    install(FILES ${PUBLIC_HEADERS_CONFIG_ENTRY}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/config
     )
     install(FILES ${PUBLIC_HEADERS_CORE_CONTEXT}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/core/context

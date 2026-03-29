@@ -27,8 +27,8 @@
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 // 便捷辅助
-#include "1q/airborne_radar/common/config/ConfigPresets.h"
-#include "1q/airborne_radar/common/config/RadarSessionConfigBuilder.h"
+#include "1q/airborne_radar/config/ConfigPresets.h"
+#include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/common/model/TargetFeatureBuilder.h"
 #include "1q/airborne_radar/core/output/TrackOutputQueries.h"
 // 平台侧需要直接操控原生组件时包含

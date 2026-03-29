@@ -7,7 +7,7 @@
 
 #include <cmath>
 
-#include "1q/airborne_radar/common/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/config/RadarOrientationConfig.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/MeasurementErrorModel.h"
 #include "airborne_radar/signal/detection/RadarEquations.h"

@@ -7,7 +7,7 @@
 #define AIRBORNE_RADAR_SIGNAL_PIPELINE_I_SIGNAL_PIPELINE_H_
 
 #include "1q/airborne_radar/common/control/RadarControlProfile.h"
-#include "1q/airborne_radar/common/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/config/RadarOrientationConfig.h"
 #include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
 #include "1q/api.hpp"
 

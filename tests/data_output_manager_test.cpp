@@ -8,7 +8,7 @@
 #include "1q/airborne_radar/common/model/DecisionInputFrame.h"
 #include "1q/airborne_radar/common/model/DecisionTrackSnapshot.h"
 #include "1q/airborne_radar/common/output/TrackOutputFrame.h"
-#include "airborne_radar/signal/output/DataOutputManager.h"
+#include "airborne_radar/signal/assembly/DataOutputManager.h"
 
 namespace airborne_radar {
 namespace tests {
@@ -26,7 +26,7 @@ common::model::DecisionTrackSnapshot BuildTrackSnapshot(std::uint64_t associatio
 }  // namespace
 
 TEST(DataOutputManagerTest, BuildsTrackOutputFrameWithCountsAndLostFlag) {
-  signal::output::DataOutputManager output_manager;
+  signal::assembly::DataOutputManager output_manager;
   common::model::DecisionTrackSnapshotList track_snapshots;
   track_snapshots.push_back(BuildTrackSnapshot(101U, common::model::DecisionTrackStatus::kConfirmed));
   track_snapshots.push_back(BuildTrackSnapshot(202U, common::model::DecisionTrackStatus::kLost));
@@ -43,7 +43,7 @@ TEST(DataOutputManagerTest, BuildsTrackOutputFrameWithCountsAndLostFlag) {
 }
 
 TEST(DataOutputManagerTest, BuildsDecisionInputFrameFromTrackOutputFrame) {
-  signal::output::DataOutputManager output_manager;
+  signal::assembly::DataOutputManager output_manager;
   common::model::DecisionTrackSnapshotList track_snapshots;
   track_snapshots.push_back(BuildTrackSnapshot(303U, common::model::DecisionTrackStatus::kConfirmed));
   const common::output::TrackOutputFrame track_output_frame =
@@ -71,7 +71,7 @@ TEST(DataOutputManagerTest, BuildsDecisionInputFrameFromTrackOutputFrame) {
 }
 
 TEST(DataOutputManagerTest, EmptyTrackOutputFrameKeepsZeroCounts) {
-  signal::output::DataOutputManager output_manager;
+  signal::assembly::DataOutputManager output_manager;
   const common::output::TrackOutputFrame frame =
       output_manager.BuildTrackOutputFrame(5U, 12U, common::model::DecisionTrackSnapshotList());
 

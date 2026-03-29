@@ -8,8 +8,8 @@
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
-#include "airborne_radar/signal/output/DataOutputManager.h"
-#include "airborne_radar/signal/output/IDataOutputManager.h"
+#include "airborne_radar/signal/assembly/DataOutputManager.h"
+#include "airborne_radar/signal/assembly/IDataOutputManager.h"
 #include "airborne_radar/signal/pipeline/CycleExecutor.h"
 #include "airborne_radar/signal/pipeline/CycleContextSupport.h"
 #include "airborne_radar/signal/runtime/RuntimeAssemblySupport.h"
@@ -27,14 +27,14 @@ struct RuntimeState {
       : config(std::move(initial_config)),
         association_engine(runtime::internal::SignalComponentFactory::BuildAssociationConfig(config)),
         track_filter(runtime::internal::SignalComponentFactory::BuildTrackFilterConfig(config)),
-        output_manager(std::unique_ptr<signal::output::IDataOutputManager>(
-            new signal::output::DataOutputManager())) {}
+        output_manager(std::unique_ptr<signal::assembly::IDataOutputManager>(
+            new signal::assembly::DataOutputManager())) {}
 
   SignalPipelineConfig config{};
   common::control::RadarControlProfile control_profile_{};
   association::DataAssociationEngine association_engine{};
   tracking::TrackFilter track_filter{};
-  std::unique_ptr<signal::output::IDataOutputManager> output_manager;
+  std::unique_ptr<signal::assembly::IDataOutputManager> output_manager;
   std::unique_ptr<tracking::KalmanPredictor> kalman_predictor;
   std::unique_ptr<tracking::KalmanUpdater> kalman_updater;
   std::unique_ptr<detection::SignalDetector> signal_detector;

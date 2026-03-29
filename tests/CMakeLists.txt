@@ -108,6 +108,13 @@ add_test(
             -P ${CMAKE_CURRENT_SOURCE_DIR}/check_public_api_boundary.cmake
 )
 
+add_test(
+    NAME airborne_include_style_guard
+    COMMAND ${CMAKE_COMMAND}
+            -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/check_airborne_include_style.cmake
+)
+
 if(ENABLE_STRESS_TESTING)
     set(STRESS_TEST_SOURCES
         signal_bulk_data_test.cpp

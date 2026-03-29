@@ -1,6 +1,9 @@
 #include "airborne_radar/decision/pipeline/TacticalCoordinator.h"
 
+#include <cstdint>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "common/logging/ProjectLog.h"
@@ -108,6 +111,37 @@ void BackfillAssociationDrivenEccmTrigger(
   eccm_source_info->has_jamming_signal = true;
 }
 
+void PruneInactiveTrackState(
+    const common::model::DecisionTrackSnapshotList& tracks, TacticalStateStore* state_store) {
+  if (state_store == nullptr) {
+    return;
+  }
+
+  std::unordered_set<std::uint64_t> active_keys;
+  active_keys.reserve(tracks.size());
+  for (std::size_t i = 0; i < tracks.size(); ++i) {
+    active_keys.insert(tracks[i].state.association_key);
+  }
+
+  for (std::unordered_map<std::uint64_t, float>::iterator it = state_store->confidence_memory.begin();
+       it != state_store->confidence_memory.end();) {
+    if (active_keys.count(it->first) == 0U) {
+      it = state_store->confidence_memory.erase(it);
+      continue;
+    }
+    ++it;
+  }
+
+  for (std::unordered_map<std::uint64_t, float>::iterator it = state_store->threat_memory.begin();
+       it != state_store->threat_memory.end();) {
+    if (active_keys.count(it->first) == 0U) {
+      it = state_store->threat_memory.erase(it);
+      continue;
+    }
+    ++it;
+  }
+}
+
 }  // namespace
 
 TacticalCoordinator::TacticalCoordinator(
@@ -135,6 +169,7 @@ TacticalDecisionResult TacticalCoordinator::Evaluate(const common::model::Decisi
   threat_assessment_evaluator_.Evaluate(input_frame, state_store, evaluation_state);
   emission_control_evaluator_.Evaluate(input_frame, state_store, evaluation_state);
   survivability_evaluator_.Evaluate(input_frame, state_store, evaluation_state);
+  PruneInactiveTrackState(input_frame.tracks, &state_store);
 
   TacticalDecisionResult result;
   result.target_classification_result.reserve(evaluation_state.target_classification_result.size());

@@ -376,6 +376,125 @@ TEST(TacticalCoordinatorTest, EnvironmentJammingAndAssociationPressureAreBothRef
             "protected-emission(environment-jamming+association-pressure+detection-pressure)");
 }
 
+TEST(TacticalCoordinatorTest, LpiHoldExpiresWithoutFreshThreatEvidence) {
+  decision::pipeline::TacticalCoordinator coordinator;
+  decision::pipeline::TacticalStateStore state_store;
+
+  common::model::DecisionInputFrame trigger_frame;
+  trigger_frame.cycle_index = 1u;
+  trigger_frame.batch_id = 1u;
+  trigger_frame.tracks.push_back(
+      BuildTrack(820.0f, 4.5f, common::model::DecisionTrackStatus::kConfirmed, true));
+  const decision::pipeline::TacticalDecisionResult trigger_result =
+      coordinator.Evaluate(trigger_frame, state_store);
+  EXPECT_EQ(trigger_result.selected_mode, decision::pipeline::TacticalMode::kThreatResponse);
+  EXPECT_TRUE(ContainsDirectiveType(
+      trigger_result.proposals, common::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION));
+  EXPECT_EQ(state_store.lpi_hold_cycles_remaining, 2u);
+
+  common::model::DecisionInputFrame hold_frame_1;
+  hold_frame_1.cycle_index = 2u;
+  hold_frame_1.batch_id = 2u;
+  const decision::pipeline::TacticalDecisionResult hold_result_1 =
+      coordinator.Evaluate(hold_frame_1, state_store);
+  EXPECT_EQ(hold_result_1.selected_mode, decision::pipeline::TacticalMode::kThreatResponse);
+  EXPECT_TRUE(ContainsDirectiveType(
+      hold_result_1.proposals, common::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION));
+  EXPECT_EQ(state_store.lpi_hold_cycles_remaining, 1u);
+
+  common::model::DecisionInputFrame hold_frame_2;
+  hold_frame_2.cycle_index = 3u;
+  hold_frame_2.batch_id = 3u;
+  const decision::pipeline::TacticalDecisionResult hold_result_2 =
+      coordinator.Evaluate(hold_frame_2, state_store);
+  EXPECT_EQ(hold_result_2.selected_mode, decision::pipeline::TacticalMode::kThreatResponse);
+  EXPECT_TRUE(ContainsDirectiveType(
+      hold_result_2.proposals, common::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION));
+  EXPECT_EQ(state_store.lpi_hold_cycles_remaining, 0u);
+
+  common::model::DecisionInputFrame release_frame;
+  release_frame.cycle_index = 4u;
+  release_frame.batch_id = 4u;
+  const decision::pipeline::TacticalDecisionResult release_result =
+      coordinator.Evaluate(release_frame, state_store);
+  EXPECT_EQ(release_result.selected_mode, decision::pipeline::TacticalMode::kBaseline);
+  EXPECT_FALSE(ContainsDirectiveType(
+      release_result.proposals, common::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION));
+  EXPECT_EQ(state_store.lpi_hold_cycles_remaining, 0u);
+}
+
+TEST(TacticalCoordinatorTest, EccmHoldExpiresWithoutFreshJammingEvidence) {
+  decision::pipeline::TacticalCoordinator coordinator;
+  decision::pipeline::TacticalStateStore state_store;
+
+  common::model::DecisionInputFrame trigger_frame;
+  trigger_frame.cycle_index = 1u;
+  trigger_frame.batch_id = 1u;
+  trigger_frame.environment_jamming_detected = true;
+  trigger_frame.tracks.push_back(
+      BuildTrack(260.0f, 2.2f, common::model::DecisionTrackStatus::kConfirmed, true, true));
+  const decision::pipeline::TacticalDecisionResult trigger_result =
+      coordinator.Evaluate(trigger_frame, state_store);
+  EXPECT_EQ(trigger_result.selected_mode, decision::pipeline::TacticalMode::kProtectedEmission);
+  EXPECT_EQ(state_store.eccm_hold_cycles_remaining, 2u);
+
+  common::model::DecisionInputFrame hold_frame_1;
+  hold_frame_1.cycle_index = 2u;
+  hold_frame_1.batch_id = 2u;
+  const decision::pipeline::TacticalDecisionResult hold_result_1 =
+      coordinator.Evaluate(hold_frame_1, state_store);
+  EXPECT_EQ(hold_result_1.selected_mode, decision::pipeline::TacticalMode::kProtectedEmission);
+  EXPECT_EQ(state_store.eccm_hold_cycles_remaining, 1u);
+
+  common::model::DecisionInputFrame hold_frame_2;
+  hold_frame_2.cycle_index = 3u;
+  hold_frame_2.batch_id = 3u;
+  const decision::pipeline::TacticalDecisionResult hold_result_2 =
+      coordinator.Evaluate(hold_frame_2, state_store);
+  EXPECT_EQ(hold_result_2.selected_mode, decision::pipeline::TacticalMode::kProtectedEmission);
+  EXPECT_EQ(state_store.eccm_hold_cycles_remaining, 0u);
+
+  common::model::DecisionInputFrame release_frame;
+  release_frame.cycle_index = 4u;
+  release_frame.batch_id = 4u;
+  const decision::pipeline::TacticalDecisionResult release_result =
+      coordinator.Evaluate(release_frame, state_store);
+  EXPECT_EQ(release_result.selected_mode, decision::pipeline::TacticalMode::kBaseline);
+  EXPECT_EQ(state_store.eccm_hold_cycles_remaining, 0u);
+}
+
+TEST(TacticalCoordinatorTest, PrunesInactiveTrackStateMemoryByActiveTrackKeys) {
+  decision::pipeline::TacticalCoordinator coordinator;
+  decision::pipeline::TacticalStateStore state_store;
+
+  common::model::DecisionInputFrame frame_a;
+  frame_a.cycle_index = 1u;
+  frame_a.batch_id = 1u;
+  frame_a.tracks.push_back(
+      BuildTrack(780.0f, 3.8f, common::model::DecisionTrackStatus::kConfirmed, true));
+  frame_a.tracks.back().state.association_key = 1001u;
+  coordinator.Evaluate(frame_a, state_store);
+  ASSERT_EQ(state_store.confidence_memory.size(), 1u);
+  ASSERT_EQ(state_store.threat_memory.size(), 1u);
+  EXPECT_EQ(state_store.confidence_memory.count(1001u), 1u);
+  EXPECT_EQ(state_store.threat_memory.count(1001u), 1u);
+
+  common::model::DecisionInputFrame frame_b;
+  frame_b.cycle_index = 2u;
+  frame_b.batch_id = 2u;
+  frame_b.tracks.push_back(
+      BuildTrack(260.0f, 1.8f, common::model::DecisionTrackStatus::kConfirmed, true));
+  frame_b.tracks.back().state.association_key = 2002u;
+  coordinator.Evaluate(frame_b, state_store);
+
+  EXPECT_EQ(state_store.confidence_memory.size(), 1u);
+  EXPECT_EQ(state_store.threat_memory.size(), 1u);
+  EXPECT_EQ(state_store.confidence_memory.count(1001u), 0u);
+  EXPECT_EQ(state_store.threat_memory.count(1001u), 0u);
+  EXPECT_EQ(state_store.confidence_memory.count(2002u), 1u);
+  EXPECT_EQ(state_store.threat_memory.count(2002u), 1u);
+}
+
 TEST(ControlReducerTest, ReducerBuildsNextControlProfileAndRejectsDuplicates) {
   decision::pipeline::ControlReducer reducer;
   common::control::RadarControlProfile previous_profile;

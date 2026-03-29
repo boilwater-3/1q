@@ -5,7 +5,7 @@
 
 #include <gtest/gtest.h>
 
-#include "1q/airborne_radar/common/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/config/RadarOrientationConfig.h"
 #include "1q/airborne_radar/common/utils/RadarOrientationUtils.h"
 #include "1q/airborne_radar/signal/detection/DetectionTypes.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"

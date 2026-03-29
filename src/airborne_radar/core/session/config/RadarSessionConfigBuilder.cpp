@@ -1,4 +1,4 @@
-#include "1q/airborne_radar/common/config/RadarSessionConfigBuilder.h"
+#include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 
 #include "common/logging/ProjectLog.h"
 

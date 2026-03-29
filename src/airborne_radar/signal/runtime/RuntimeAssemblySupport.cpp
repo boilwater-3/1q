@@ -4,6 +4,7 @@
 
 #include "airborne_radar/signal/pipeline/ControlProfileEffects.h"
 #include "airborne_radar/signal/runtime/SignalComponentFactory.h"
+#include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -12,31 +13,65 @@ namespace internal {
 
 namespace {
 
+LifecycleAssemblyArtifacts BuildGuaranteedLifecycleAssemblyArtifacts(
+    const SignalPipelineConfig& config) {
+  LifecycleAssemblyArtifacts artifacts = SignalComponentFactory::BuildLifecycleAssemblyArtifacts(config);
+  if (artifacts.lifecycle_manager != nullptr) {
+    return artifacts;
+  }
+
+  SignalPipelineConfig fallback_config = config;
+  fallback_config.lifecycle.enable_imm_lifecycle = false;
+  PROJECT_LOG_ERROR(
+      "[SignalPipeline] lifecycle auto-assembly produced null manager; "
+      "falling back to non-IMM lifecycle manager.");
+  return SignalComponentFactory::BuildLifecycleAssemblyArtifacts(fallback_config);
+}
+
 class AutoConfiguredLifecycleManager final : public tracking::ITrackLifecycleManager {
  public:
   explicit AutoConfiguredLifecycleManager(const SignalPipelineConfig& config)
-      : assembly_(SignalComponentFactory::BuildLifecycleAssemblyArtifacts(config)) {}
+      : assembly_(BuildGuaranteedLifecycleAssemblyArtifacts(config)) {}
 
   void Update(const tracking::CycleContext& cycle,
               const std::vector<tracking::TrackMeasurement>& measurements) override {
+    if (assembly_.lifecycle_manager == nullptr) {
+      return;
+    }
     assembly_.lifecycle_manager->Update(cycle, measurements);
   }
 
   common::model::TargetFeatureList BuildFeatureSnapshot() const override {
+    if (assembly_.lifecycle_manager == nullptr) {
+      return common::model::TargetFeatureList();
+    }
     return assembly_.lifecycle_manager->BuildFeatureSnapshot();
   }
 
   common::model::DecisionTrackSnapshotList BuildDecisionSnapshot() const override {
+    if (assembly_.lifecycle_manager == nullptr) {
+      return common::model::DecisionTrackSnapshotList();
+    }
     return assembly_.lifecycle_manager->BuildDecisionSnapshot();
   }
 
   common::model::DecisionInputFrame BuildDecisionFrame(std::uint32_t cycle_index, std::uint64_t batch_id,
                                                 bool environment_jamming_detected) const override {
+    if (assembly_.lifecycle_manager == nullptr) {
+      common::model::DecisionInputFrame frame;
+      frame.cycle_index = cycle_index;
+      frame.batch_id = batch_id;
+      frame.environment_jamming_detected = environment_jamming_detected;
+      return frame;
+    }
     return assembly_.lifecycle_manager->BuildDecisionFrame(cycle_index, batch_id,
                                                            environment_jamming_detected);
   }
 
   std::vector<tracking::AssociationTrackSeed> BuildAssociationSeeds() const override {
+    if (assembly_.lifecycle_manager == nullptr) {
+      return std::vector<tracking::AssociationTrackSeed>();
+    }
     return assembly_.lifecycle_manager->BuildAssociationSeeds();
   }
 

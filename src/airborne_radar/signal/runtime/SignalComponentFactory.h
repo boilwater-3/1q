@@ -153,10 +153,11 @@ class SignalComponentFactory final {
 
     if (config.lifecycle.enable_imm_lifecycle) {
       const std::size_t model_count = config.lifecycle.imm_model_noise_diff_coeffs.size();
+      bool imm_ready = true;
       if (model_count == 0U) {
         LogLifecycleAssemblyConfigViolation(
             "IMM enabled but imm_model_noise_diff_coeffs is empty", model_count);
-        return artifacts;
+        imm_ready = false;
       }
       if (model_count > 3U) {
         PROJECT_LOG_WARN(
@@ -165,30 +166,48 @@ class SignalComponentFactory final {
             model_count);
       }
 
-      artifacts.imm_predictors_owned.reserve(model_count);
-      artifacts.imm_updaters_owned.reserve(model_count);
-      artifacts.imm_predictors.reserve(model_count);
-      artifacts.imm_updaters.reserve(model_count);
-      for (std::size_t i = 0; i < model_count; ++i) {
-        const float noise_diff_coeff = config.lifecycle.imm_model_noise_diff_coeffs[i];
-        if (noise_diff_coeff <= 0.0f) {
-          LogLifecycleAssemblyConfigViolation("IMM model noise_diff_coeff must be > 0",
-                                              noise_diff_coeff);
-          return artifacts;
-        }
+      if (imm_ready) {
+        artifacts.imm_predictors_owned.reserve(model_count);
+        artifacts.imm_updaters_owned.reserve(model_count);
+        artifacts.imm_predictors.reserve(model_count);
+        artifacts.imm_updaters.reserve(model_count);
+        for (std::size_t i = 0; i < model_count; ++i) {
+          const float noise_diff_coeff = config.lifecycle.imm_model_noise_diff_coeffs[i];
+          if (noise_diff_coeff <= 0.0f) {
+            LogLifecycleAssemblyConfigViolation("IMM model noise_diff_coeff must be > 0",
+                                                noise_diff_coeff);
+            imm_ready = false;
+            break;
+          }
 
-        artifacts.imm_predictors_owned.push_back(CreateKalmanPredictor(noise_diff_coeff));
-        artifacts.imm_updaters_owned.push_back(
-            CreateKalmanUpdater(config.tracking.kalman_measurement_noise_std));
-        artifacts.imm_predictors.push_back(artifacts.imm_predictors_owned.back().get());
-        artifacts.imm_updaters.push_back(artifacts.imm_updaters_owned.back().get());
+          artifacts.imm_predictors_owned.push_back(CreateKalmanPredictor(noise_diff_coeff));
+          artifacts.imm_updaters_owned.push_back(
+              CreateKalmanUpdater(config.tracking.kalman_measurement_noise_std));
+          artifacts.imm_predictors.push_back(artifacts.imm_predictors_owned.back().get());
+          artifacts.imm_updaters.push_back(artifacts.imm_updaters_owned.back().get());
+        }
       }
 
-      artifacts.lifecycle_manager.reset(new tracking::TrackLifecycleManager(
-          *effective_pool, lifecycle_config, artifacts.imm_predictors, artifacts.imm_updaters,
-          BuildImmTransitionProbability(config, model_count),
-          BuildImmInitialWeights(config, model_count)));
-      return artifacts;
+      if (imm_ready) {
+        const Eigen::MatrixXf transition_probability =
+            BuildImmTransitionProbability(config, model_count);
+        const Eigen::VectorXf initial_weights = BuildImmInitialWeights(config, model_count);
+        if (transition_probability.rows() == static_cast<Eigen::Index>(model_count) &&
+            transition_probability.cols() == static_cast<Eigen::Index>(model_count) &&
+            initial_weights.size() == static_cast<Eigen::Index>(model_count)) {
+          artifacts.lifecycle_manager.reset(new tracking::TrackLifecycleManager(
+              *effective_pool, lifecycle_config, artifacts.imm_predictors, artifacts.imm_updaters,
+              transition_probability, initial_weights));
+          return artifacts;
+        }
+        PROJECT_LOG_ERROR(
+            "[SignalPipeline] IMM lifecycle matrix/weights validation failed; fallback to "
+            "non-IMM lifecycle manager (model_count={})",
+            model_count);
+      }
+
+      PROJECT_LOG_WARN(
+          "[SignalPipeline] IMM lifecycle assembly failed; fallback to non-IMM lifecycle manager.");
     }
 
     if (config.tracking.enable_kalman_filter) {
