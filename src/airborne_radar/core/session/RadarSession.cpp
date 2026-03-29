@@ -42,11 +42,11 @@ RadarSession::RadarSession(const RadarSessionConfig& config) : impl_(new Impl(co
 
 RadarSession::~RadarSession() = default;
 
-common::TrackOutputFrame RadarSession::Step(const context::RadarCycleInput& input) {
+common::output::TrackOutputFrame RadarSession::Step(const context::RadarCycleInput& input) {
   return StepWithResult(input).track_output_frame;
 }
 
-common::TrackOutputFrame RadarSession::Step(const context::RadarCycleInput& input,
+common::output::TrackOutputFrame RadarSession::Step(const context::RadarCycleInput& input,
                                             const environment::EnvironmentSceneState& scene_state) {
   return StepWithResult(input, scene_state).track_output_frame;
 }
@@ -63,7 +63,7 @@ RadarCycleResult RadarSession::StepWithResult(
   return StepWithResult(input);
 }
 
-const std::vector<common::RadarCommand>& RadarSession::GetSubmittedCommands() const {
+const std::vector<common::control::RadarCommand>& RadarSession::GetSubmittedCommands() const {
   return impl_->radar_context.GetSubmittedCommands();
 }
 
@@ -71,7 +71,7 @@ bool RadarSession::HasLatestControlProfile() const {
   return impl_->radar_context.HasLatestControlProfile();
 }
 
-const common::RadarControlProfile& RadarSession::GetLatestControlProfile() const {
+const common::control::RadarControlProfile& RadarSession::GetLatestControlProfile() const {
   return impl_->radar_context.GetLatestControlProfile();
 }
 

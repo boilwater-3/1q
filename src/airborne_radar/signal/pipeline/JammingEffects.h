@@ -27,7 +27,7 @@ bool HasMultiSourceJammingFacts(const environment::EnvironmentSnapshot& environm
  * @param[in] jammer_source 单个干扰源事实。
  * @return ECCM 动作作用后的残余干扰系数。
  */
-float ComputeResidualJammerFactor(const common::RadarControlProfile& control_profile,
+float ComputeResidualJammerFactor(const common::control::RadarControlProfile& control_profile,
                                   const environment::JammerSourceFact& jammer_source);
 
 /**
@@ -65,7 +65,7 @@ float ComputePhysicalSourceJamContributionW(const JammingEffectsConfig& cfg,
  * @return 量测协方差膨胀因子。
  */
 float ComputeMeasurementCovarianceInflation(
-    const JammingEffectsConfig& cfg, const common::RadarControlProfile& control_profile,
+    const JammingEffectsConfig& cfg, const common::control::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot);
 
 /**
@@ -74,8 +74,8 @@ float ComputeMeasurementCovarianceInflation(
  * @param[in] environment_snapshot 当前周期环境快照。
  * @return 当前周期主导干扰语义。
  */
-common::JammingSemantic ResolveDominantJammingSemantic(
-    const common::RadarControlProfile& control_profile,
+common::utils::JammingSemantic ResolveDominantJammingSemantic(
+    const common::control::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot);
 
 /**
@@ -85,7 +85,7 @@ common::JammingSemantic ResolveDominantJammingSemantic(
  * @return 当前周期轨迹级残余干扰强度，范围 [0, 1]。
  */
 float ComputeTrackLevelJammingSeverity(
-    const common::RadarControlProfile& control_profile,
+    const common::control::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot);
 
 /**
@@ -96,7 +96,7 @@ float ComputeTrackLevelJammingSeverity(
  * @param[in,out] runtime_config 待调整的运行时配置。
  */
 void ApplyEnvironmentJammingFactsToRuntimeConfig(
-    const JammingEffectsConfig& cfg, const common::RadarControlProfile& control_profile,
+    const JammingEffectsConfig& cfg, const common::control::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot,
     SignalPipelineConfig* runtime_config);
 

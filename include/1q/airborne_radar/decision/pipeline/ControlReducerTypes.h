@@ -9,8 +9,8 @@
 #include <cstdint>
 #include <vector>
 
-#include "1q/airborne_radar/common/ControlDirective.h"
-#include "1q/airborne_radar/common/RadarControlProfile.h"
+#include "1q/airborne_radar/common/control/ControlDirective.h"
+#include "1q/airborne_radar/common/control/RadarControlProfile.h"
 
 namespace airborne_radar {
 namespace decision {
@@ -38,9 +38,9 @@ struct ControlReducerConfig {
  * @brief ControlReductionResult 表示 reducer 的单周期输出。
  */
 struct ControlReductionResult {
-  common::RadarControlProfile profile;                       /**< 归并后的下一周期控制真值 */
-  std::vector<common::ControlDirective> applied_directives;  /**< 被采纳的控制意图 */
-  std::vector<common::ControlDirective> rejected_directives; /**< 被拒绝的控制意图 */
+  common::control::RadarControlProfile profile;                       /**< 归并后的下一周期控制真值 */
+  std::vector<common::control::ControlDirective> applied_directives;  /**< 被采纳的控制意图 */
+  std::vector<common::control::ControlDirective> rejected_directives; /**< 被拒绝的控制意图 */
 };
 
 }  // namespace pipeline

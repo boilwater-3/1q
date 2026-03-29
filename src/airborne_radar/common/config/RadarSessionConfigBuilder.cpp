@@ -1,9 +1,10 @@
-#include "1q/airborne_radar/common/RadarSessionConfigBuilder.h"
+#include "1q/airborne_radar/common/config/RadarSessionConfigBuilder.h"
 
 #include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
 namespace common {
+namespace config {
 
 core::session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
   const auto& tx =
@@ -37,5 +38,6 @@ core::session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
   return config_;
 }
 
+}  // namespace config
 }  // namespace common
 }  // namespace airborne_radar

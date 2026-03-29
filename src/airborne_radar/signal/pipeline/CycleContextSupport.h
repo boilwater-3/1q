@@ -9,8 +9,8 @@
 #include <cstdint>
 #include <vector>
 
-#include "1q/airborne_radar/common/DecisionInputFrame.h"
-#include "1q/airborne_radar/common/TargetFeature.h"
+#include "1q/airborne_radar/common/model/DecisionInputFrame.h"
+#include "1q/airborne_radar/common/model/TargetFeature.h"
 #include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
@@ -24,8 +24,8 @@ namespace pipeline {
 namespace internal {
 
 struct CycleWorkspace {
-  common::TargetFeatureList* output_state{nullptr};                     /**< 输出目标列表 */
-  common::DecisionInputFrame* decision_frame{nullptr};                  /**< 决策输入帧 */
+  common::model::TargetFeatureList* output_state{nullptr};                     /**< 输出目标列表 */
+  common::model::DecisionInputFrame* decision_frame{nullptr};                  /**< 决策输入帧 */
   AssociationQualityMetrics* association_quality_metrics{nullptr};      /**< 关联质量观测指标 */
   std::vector<tracking::TrackMeasurement>* track_measurements{nullptr}; /**< 跟踪量测列表 */
   std::vector<float>* signal_term_db{nullptr};                          /**< 各目标信号项（dB） */
@@ -46,7 +46,7 @@ struct CycleWorkspace {
  * @param[in] runtime_config 运行时配置。
  * @param[out] workspace 待重置的周期工作区。
  */
-void ResetCycleWorkspace(const common::TargetFeatureList& input_state,
+void ResetCycleWorkspace(const common::model::TargetFeatureList& input_state,
                          const SignalPipelineConfig& runtime_config, CycleWorkspace* workspace);
 
 /**

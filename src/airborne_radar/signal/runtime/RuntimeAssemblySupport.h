@@ -29,7 +29,7 @@ namespace internal {
  * @return 调整后的运行时配置。
  */
 SignalPipelineConfig BuildRuntimeConfigFromControlProfile(
-    const SignalPipelineConfig& base_config, const common::RadarControlProfile& control_profile);
+    const SignalPipelineConfig& base_config, const common::control::RadarControlProfile& control_profile);
 
 /**
  * @brief 根据运行时配置自动装配生命周期管理器。
@@ -57,7 +57,7 @@ struct OwnedComponentSlots {
  * @param[in,out] slots 待重建的组件槽位。
  */
 void RebuildOwnedComponentsForPipeline(const SignalPipelineConfig& base_config,
-                                       const common::RadarControlProfile& control_profile,
+                                       const common::control::RadarControlProfile& control_profile,
                                        OwnedComponentSlots* slots);
 
 }  // namespace internal

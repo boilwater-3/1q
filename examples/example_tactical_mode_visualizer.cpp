@@ -36,13 +36,13 @@
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/common/ConfigPresets.h"
-#include "1q/airborne_radar/common/DecisionTrackSnapshot.h"
-#include "1q/airborne_radar/common/RadarCommand.h"
-#include "1q/airborne_radar/common/RadarControlProfile.h"
-#include "1q/airborne_radar/common/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/common/TargetFeatureUtils.h"
-#include "1q/airborne_radar/common/TrackOutputFrame.h"
+#include "1q/airborne_radar/common/config/ConfigPresets.h"
+#include "1q/airborne_radar/common/model/DecisionTrackSnapshot.h"
+#include "1q/airborne_radar/common/control/RadarCommand.h"
+#include "1q/airborne_radar/common/control/RadarControlProfile.h"
+#include "1q/airborne_radar/common/config/RadarSessionConfigBuilder.h"
+#include "1q/airborne_radar/common/utils/TargetFeatureUtils.h"
+#include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/airborne_radar/core/session/RadarCycleResult.h"
 #include "1q/airborne_radar/core/session/RadarSession.h"
@@ -118,10 +118,10 @@ struct SimState {
   std::map<std::uint64_t, std::vector<float>> hist_y;
 
   // 最近一帧
-  std::vector<airborne_radar::common::DecisionTrackSnapshot> latest_tracks;
+  std::vector<airborne_radar::common::model::DecisionTrackSnapshot> latest_tracks;
 
   // 指令历史
-  std::vector<std::vector<airborne_radar::common::RadarCommand>> command_history;
+  std::vector<std::vector<airborne_radar::common::control::RadarCommand>> command_history;
 
   // Profile 历史（逐 cycle 记录各标志）
   std::vector<bool> hist_lpi_power;
@@ -136,7 +136,7 @@ struct SimState {
   std::vector<float> hist_jam_severity;
 
   // 累计指令计数
-  std::map<airborne_radar::common::RadarCommandType, int> total_cmd_count;
+  std::map<airborne_radar::common::control::RadarCommandType, int> total_cmd_count;
 
   void Reset() {
     current_cycle = 0;
@@ -326,32 +326,32 @@ void StepOnce(airborne_radar::core::session::RadarSession& session, SimState& si
 
 // ── 状态字符串 ────────────────────────────────────────────────────────────────
 
-const char* StatusStr(airborne_radar::common::DecisionTrackStatus s) {
+const char* StatusStr(airborne_radar::common::model::DecisionTrackStatus s) {
   switch (s) {
-    case airborne_radar::common::DecisionTrackStatus::kTentative:
+    case airborne_radar::common::model::DecisionTrackStatus::kTentative:
       return "Tentative";
-    case airborne_radar::common::DecisionTrackStatus::kConfirmed:
+    case airborne_radar::common::model::DecisionTrackStatus::kConfirmed:
       return "Confirmed";
-    case airborne_radar::common::DecisionTrackStatus::kLost:
+    case airborne_radar::common::model::DecisionTrackStatus::kLost:
       return "Lost";
   }
   return "Unknown";
 }
 
-ImPlotMarker StatusMarker(airborne_radar::common::DecisionTrackStatus s) {
+ImPlotMarker StatusMarker(airborne_radar::common::model::DecisionTrackStatus s) {
   switch (s) {
-    case airborne_radar::common::DecisionTrackStatus::kTentative:
+    case airborne_radar::common::model::DecisionTrackStatus::kTentative:
       return ImPlotMarker_Circle;
-    case airborne_radar::common::DecisionTrackStatus::kConfirmed:
+    case airborne_radar::common::model::DecisionTrackStatus::kConfirmed:
       return ImPlotMarker_Square;
-    case airborne_radar::common::DecisionTrackStatus::kLost:
+    case airborne_radar::common::model::DecisionTrackStatus::kLost:
       return ImPlotMarker_Cross;
   }
   return ImPlotMarker_Circle;
 }
 
-const char* CmdTypeName(airborne_radar::common::RadarCommandType t) {
-  using T = airborne_radar::common::RadarCommandType;
+const char* CmdTypeName(airborne_radar::common::control::RadarCommandType t) {
+  using T = airborne_radar::common::control::RadarCommandType;
   switch (t) {
     case T::NONE:
       return "NONE";
@@ -552,7 +552,7 @@ void RenderTacticalPanel(const SimState& sim) {
   ImGui::Spacing();
   ImGui::Text("Cumulative Command Count:");
   for (const auto& kv : sim.total_cmd_count) {
-    if (kv.first == airborne_radar::common::RadarCommandType::NONE) continue;
+    if (kv.first == airborne_radar::common::control::RadarCommandType::NONE) continue;
     ImGui::Text("  %-15s : %d", CmdTypeName(kv.first), kv.second);
   }
 

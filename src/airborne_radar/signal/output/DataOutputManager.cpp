@@ -8,31 +8,31 @@ namespace airborne_radar {
 namespace signal {
 namespace output {
 
-common::TrackOutputFrame DataOutputManager::BuildTrackOutputFrame(
+common::output::TrackOutputFrame DataOutputManager::BuildTrackOutputFrame(
     std::uint32_t cycle_index, std::uint64_t batch_id,
-    const common::DecisionTrackSnapshotList& track_snapshots) const {
-  common::TrackOutputFrame frame;
+    const common::model::DecisionTrackSnapshotList& track_snapshots) const {
+  common::output::TrackOutputFrame frame;
   oneq::internal::output::SetCycleAndBatch(frame, cycle_index, batch_id);
   frame.tracks = track_snapshots;
   frame.published_track_count = track_snapshots.size();
   frame.confirmed_track_count = oneq::internal::output::CountMatching(
-      track_snapshots, [](const common::DecisionTrackSnapshot& snapshot) {
-        return snapshot.state.status == common::DecisionTrackStatus::kConfirmed;
+      track_snapshots, [](const common::model::DecisionTrackSnapshot& snapshot) {
+        return snapshot.state.status == common::model::DecisionTrackStatus::kConfirmed;
       });
   frame.contains_lost_tracks =
       oneq::internal::output::CountMatching(
-          track_snapshots, [](const common::DecisionTrackSnapshot& snapshot) {
-            return snapshot.state.status == common::DecisionTrackStatus::kLost;
+          track_snapshots, [](const common::model::DecisionTrackSnapshot& snapshot) {
+            return snapshot.state.status == common::model::DecisionTrackStatus::kLost;
           }) > 0U;
   return frame;
 }
 
-common::DecisionInputFrame DataOutputManager::BuildDecisionInputFrame(
-    const common::TrackOutputFrame& track_output_frame,
-    const common::EccmSourceInfo& eccm_source_info,
-    const common::AssociationQualityInfo& association_quality_info,
-    const common::PerceptionQualityInfo& perception_quality_info) const {
-  common::DecisionInputFrame frame;
+common::model::DecisionInputFrame DataOutputManager::BuildDecisionInputFrame(
+    const common::output::TrackOutputFrame& track_output_frame,
+    const common::model::EccmSourceInfo& eccm_source_info,
+    const common::model::AssociationQualityInfo& association_quality_info,
+    const common::model::PerceptionQualityInfo& perception_quality_info) const {
+  common::model::DecisionInputFrame frame;
   frame.cycle_index = track_output_frame.cycle_index;
   frame.batch_id = track_output_frame.batch_id;
   frame.environment_jamming_detected = eccm_source_info.has_jamming_signal;

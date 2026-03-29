@@ -9,8 +9,8 @@
 #include <cstdint>
 #include <vector>
 
-#include "1q/airborne_radar/common/JammingSemantics.h"
-#include "1q/airborne_radar/common/TargetFeature.h"
+#include "1q/airborne_radar/common/utils/JammingSemantics.h"
+#include "1q/airborne_radar/common/model/TargetFeature.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
 #include "airborne_radar/signal/tracking/GaussianTrackState.h"
@@ -26,7 +26,7 @@ namespace internal {
  * @brief TrackMeasurementBuildContext 汇聚量测构建阶段的输入与输出绑定。
  */
 struct TrackMeasurementBuildContext {
-  const common::TargetFeatureList* input{nullptr};                   /**< 输入目标列表 */
+  const common::model::TargetFeatureList* input{nullptr};                   /**< 输入目标列表 */
   const association::AssociationResult* association_result{nullptr}; /**< 关联匹配结果 */
   const std::vector<std::uint8_t>* detection_succeeded{nullptr};     /**< 各目标探测成功标志 */
   const std::vector<std::uint64_t>* association_keys{nullptr};       /**< 各目标关联键 */
@@ -36,8 +36,8 @@ struct TrackMeasurementBuildContext {
   const std::vector<tracking::MeasurementCovariance>* measurement_covariances{
       nullptr};                 /**< 各目标量测协方差 */
   bool jamming_detected{false}; /**< 是否检测到干扰 */
-  common::JammingSemantic dominant_jamming_semantic{
-      common::JammingSemantic::kNone};                                  /**< 主导干扰语义 */
+  common::utils::JammingSemantic dominant_jamming_semantic{
+      common::utils::JammingSemantic::kNone};                                  /**< 主导干扰语义 */
   float jamming_severity{0.0f};                                         /**< 干扰强度 */
   std::vector<int>* measurement_slots{nullptr};                         /**< 各目标量测槽位 */
   std::vector<tracking::TrackMeasurement>* track_measurements{nullptr}; /**< 跟踪量测输出 */
@@ -53,13 +53,13 @@ void BuildTrackMeasurementsPass(const TrackMeasurementBuildContext& context);
  * @brief TrackFilterApplyContext 汇聚滤波应用阶段的输入与输出绑定。
  */
 struct TrackFilterApplyContext {
-  const common::TargetFeatureList* input{nullptr};               /**< 输入目标列表 */
-  common::TargetFeatureList* output{nullptr};                    /**< 输出目标列表 */
+  const common::model::TargetFeatureList* input{nullptr};               /**< 输入目标列表 */
+  common::model::TargetFeatureList* output{nullptr};                    /**< 输出目标列表 */
   const std::vector<std::uint8_t>* detection_succeeded{nullptr}; /**< 各目标探测成功标志 */
   const std::vector<float>* detection_margin_db{nullptr};        /**< 各目标探测裕量（dB） */
   bool jamming_detected{false};                                  /**< 是否检测到干扰 */
-  common::JammingSemantic dominant_jamming_semantic{
-      common::JammingSemantic::kNone};                                  /**< 主导干扰语义 */
+  common::utils::JammingSemantic dominant_jamming_semantic{
+      common::utils::JammingSemantic::kNone};                                  /**< 主导干扰语义 */
   float jamming_severity{0.0f};                                         /**< 干扰强度 */
   tracking::TrackFilter* track_filter{nullptr};                         /**< 轨迹滤波器 */
   const std::vector<int>* measurement_slots{nullptr};                   /**< 各目标量测槽位 */

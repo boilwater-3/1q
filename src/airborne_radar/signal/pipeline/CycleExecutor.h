@@ -29,17 +29,17 @@ namespace internal {
  * @brief 单周期执行上下文缓存。
  */
 struct CycleExecutionContext {
-  const common::TargetFeatureList* input_state{nullptr};
+  const common::model::TargetFeatureList* input_state{nullptr};
   const environment::IEnvironmentService* environment{nullptr};
   SignalPipelineConfig runtime_config{};
-  common::TargetFeatureList output_state;
+  common::model::TargetFeatureList output_state;
   std::vector<tracking::TrackMeasurement> track_measurements;
-  common::DecisionInputFrame decision_frame{};
+  common::model::DecisionInputFrame decision_frame{};
   AssociationQualityMetrics association_quality_metrics{};
 
   environment::EnvironmentSnapshot environment_snapshot{};
-  common::JammingSemantic dominant_jamming_semantic{
-      common::JammingSemantic::kNone}; /**< 当前周期主导干扰语义（SampleEnvironment 后有效） */
+  common::utils::JammingSemantic dominant_jamming_semantic{
+      common::utils::JammingSemantic::kNone}; /**< 当前周期主导干扰语义（SampleEnvironment 后有效） */
   float jamming_severity{0.0f}; /**< 当前周期轨迹级残余干扰强度（SampleEnvironment 后有效） */
 
   std::vector<float> signal_term_db;
@@ -58,7 +58,7 @@ struct CycleExecutionContext {
  */
 struct CycleExecutionRuntime {
   const SignalPipelineConfig* base_config{nullptr};
-  const common::RadarControlProfile* control_profile{nullptr};
+  const common::control::RadarControlProfile* control_profile{nullptr};
   association::DataAssociationEngine* association_engine{nullptr};
   tracking::TrackFilter* track_filter{nullptr};
   detection::SignalDetector* signal_detector{nullptr};
@@ -77,7 +77,7 @@ struct CycleExecutionRuntime {
  * @param runtime 运行时依赖视图。
  * @param cycle_context 单周期缓存上下文。
  */
-void ExecuteCycle(const common::TargetFeatureList& input_state,
+void ExecuteCycle(const common::model::TargetFeatureList& input_state,
                   const environment::IEnvironmentService& environment,
                   std::uint32_t cycle_index, std::uint64_t batch_id,
                   const CycleExecutionRuntime& runtime, CycleExecutionContext* cycle_context);

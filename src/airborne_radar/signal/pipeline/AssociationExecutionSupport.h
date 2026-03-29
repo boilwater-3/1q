@@ -9,7 +9,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "1q/airborne_radar/common/TargetFeature.h"
+#include "1q/airborne_radar/common/model/TargetFeature.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
@@ -42,7 +42,7 @@ void PrepareAssociationSeedsForCycle(
  * @param[out] association_result 关联匹配结果。
  * @param[out] association_keys 各目标的关联键。
  */
-void RunAssociationPass(const common::TargetFeatureList& input_state,
+void RunAssociationPass(const common::model::TargetFeatureList& input_state,
                         const std::vector<std::uint8_t>& detection_succeeded,
                         const std::vector<tracking::MeasurementCovariance>& measurement_covariances,
                         float dt_sec, association::DataAssociationEngine* association_engine,

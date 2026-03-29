@@ -5,10 +5,12 @@
 
 #include <gtest/gtest.h>
 
-#include "1q/airborne_radar/common/AntennaPatternUtils.h"
+#include "1q/airborne_radar/common/utils/AntennaPatternUtils.h"
 
 namespace airborne_radar {
 namespace common {
+using namespace config;
+using namespace utils;
 namespace {
 
 TEST(AntennaPatternUtilsTest, MainLobeGainDropsWithOffset) {

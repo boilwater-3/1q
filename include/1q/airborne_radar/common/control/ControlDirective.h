@@ -8,6 +8,7 @@
 
 namespace airborne_radar {
 namespace common {
+namespace control {
 
 /**
  * @brief ControlDirectiveSource 表示控制意图来源模块。
@@ -52,6 +53,7 @@ struct ControlDirective {
       : type(directive_type), source(directive_source) {}
 };
 
+}  // namespace control
 }  // namespace common
 }  // namespace airborne_radar
 

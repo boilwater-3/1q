@@ -55,15 +55,15 @@ void NormalizeOrFallback(float x, float y, float z, float& nx, float& ny, float&
  * @param semantic 当前主导干扰语义。
  * @return 属于 deception/repeater/mixed 时返回 true。
  */
-bool IsAssociationFragileJamming(common::JammingSemantic semantic) {
-  return semantic == common::JammingSemantic::kDeception ||
-         semantic == common::JammingSemantic::kRepeater ||
-         semantic == common::JammingSemantic::kMixed;
+bool IsAssociationFragileJamming(common::utils::JammingSemantic semantic) {
+  return semantic == common::utils::JammingSemantic::kDeception ||
+         semantic == common::utils::JammingSemantic::kRepeater ||
+         semantic == common::utils::JammingSemantic::kMixed;
 }
 
 }  // namespace
 
-PredictedTrackState IdentityTrackPredictor::Predict(const common::TargetFeature& input) const {
+PredictedTrackState IdentityTrackPredictor::Predict(const common::model::TargetFeature& input) const {
   const bool has_velocity_axis =
       HasNonZero3(input.current_track_velocity_x, input.current_track_velocity_y,
                   input.current_track_velocity_z);
@@ -81,9 +81,9 @@ PredictedTrackState IdentityTrackPredictor::Predict(const common::TargetFeature&
 
 SimpleTrackUpdater::SimpleTrackUpdater(TrackFilterConfig config) : config_(config) {}
 
-common::TargetFeature SimpleTrackUpdater::Update(const PredictedTrackState& predicted,
+common::model::TargetFeature SimpleTrackUpdater::Update(const PredictedTrackState& predicted,
                                                  const TrackFilterContext& context) const {
-  common::TargetFeature output(predicted.velocity_x, predicted.velocity_y, predicted.velocity_z,
+  common::model::TargetFeature output(predicted.velocity_x, predicted.velocity_y, predicted.velocity_z,
                                predicted.rcs);
   output.current_track_velocity_x = predicted.velocity_x;
   output.current_track_velocity_y = predicted.velocity_y;
@@ -118,7 +118,7 @@ void SimpleTrackUpdater::UpdateConfig(TrackFilterConfig config) { config_ = conf
 
 TrackFilter::TrackFilter(TrackFilterConfig config) : updater_(config) {}
 
-common::TargetFeature TrackFilter::Filter(const common::TargetFeature& input,
+common::model::TargetFeature TrackFilter::Filter(const common::model::TargetFeature& input,
                                           const TrackFilterContext& context) const {
   const PredictedTrackState predicted = predictor_.Predict(input);
   return updater_.Update(predicted, context);

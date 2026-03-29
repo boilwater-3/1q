@@ -1,9 +1,10 @@
-#include "1q/airborne_radar/common/TargetFeatureUtils.h"
+#include "1q/airborne_radar/common/utils/TargetFeatureUtils.h"
 
 #include <cmath>
 
 namespace airborne_radar {
 namespace common {
+namespace utils {
 
 namespace {
 
@@ -21,7 +22,7 @@ float ComputeNorm3(float x, float y, float z) { return std::sqrt(x * x + y * y +
  * @param target 目标特征。
  * @return 位置向量至少有一个非零分量时返回 `true`。
  */
-bool HasCartesianPosition(const TargetFeature& target) {
+bool HasCartesianPosition(const model::TargetFeature& target) {
   return target.position_x != 0.0f || target.position_y != 0.0f || target.position_z != 0.0f;
 }
 
@@ -29,7 +30,7 @@ bool HasCartesianPosition(const TargetFeature& target) {
  * @brief 刷新目标中由速度向量派生出的标量字段。
  * @param[in,out] target 待更新的目标特征指针。
  */
-void RefreshDerivedKinematics(TargetFeature* target) {
+void RefreshDerivedKinematics(model::TargetFeature* target) {
   if (target == nullptr) {
     return;
   }
@@ -41,11 +42,11 @@ void RefreshDerivedKinematics(TargetFeature* target) {
 
 }  // namespace
 
-TargetFeature MakeTargetFromCartesian(std::uint64_t external_target_id, float position_x,
+model::TargetFeature MakeTargetFromCartesian(std::uint64_t external_target_id, float position_x,
                                       float position_y, float position_z, float velocity_x,
                                       float velocity_y, float velocity_z, float rcs,
                                       int swerling_type) {
-  TargetFeature target(velocity_x, velocity_y, velocity_z, rcs, 0.0f, swerling_type,
+  model::TargetFeature target(velocity_x, velocity_y, velocity_z, rcs, 0.0f, swerling_type,
                        external_target_id);
   target.position_x = position_x;
   target.position_y = position_y;
@@ -54,20 +55,20 @@ TargetFeature MakeTargetFromCartesian(std::uint64_t external_target_id, float po
   return target;
 }
 
-TargetFeature MakeGroundTarget(std::uint64_t external_target_id, float position_x, float position_y,
+model::TargetFeature MakeGroundTarget(std::uint64_t external_target_id, float position_x, float position_y,
                                float rcs, float velocity_x, float velocity_y, int swerling_type) {
   return MakeTargetFromCartesian(external_target_id, position_x, position_y, 0.0f, velocity_x,
                                  velocity_y, 0.0f, rcs, swerling_type);
 }
 
-TargetFeature MakeAirTarget(std::uint64_t external_target_id, float position_x, float position_y,
+model::TargetFeature MakeAirTarget(std::uint64_t external_target_id, float position_x, float position_y,
                             float position_z, float velocity_x, float velocity_y, float velocity_z,
                             float rcs, int swerling_type) {
   return MakeTargetFromCartesian(external_target_id, position_x, position_y, position_z, velocity_x,
                                  velocity_y, velocity_z, rcs, swerling_type);
 }
 
-void NormalizeTargetGeometry(TargetFeature* target) {
+void NormalizeTargetGeometry(model::TargetFeature* target) {
   if (target == nullptr) {
     return;
   }
@@ -80,7 +81,7 @@ void NormalizeTargetGeometry(TargetFeature* target) {
   target->range_m = ComputeNorm3(target->position_x, target->position_y, target->position_z);
 }
 
-void NormalizeTargetGeometry(TargetFeatureList* targets) {
+void NormalizeTargetGeometry(model::TargetFeatureList* targets) {
   if (targets == nullptr) {
     return;
   }
@@ -90,5 +91,6 @@ void NormalizeTargetGeometry(TargetFeatureList* targets) {
   }
 }
 
+}  // namespace utils
 }  // namespace common
 }  // namespace airborne_radar

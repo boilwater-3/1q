@@ -5,7 +5,7 @@
 
 #include <vector>
 
-#include "1q/airborne_radar/common/TrackOutputFrame.h"
+#include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/context/IRadarContext.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"
 #include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
@@ -17,25 +17,25 @@ namespace {
 
 class DummyRadarContext : public core::context::IRadarContext {
  public:
-  const common::TargetFeatureList& GetTargetFeatures() const override {
-    static const common::TargetFeatureList kEmptyTargets;
+  const common::model::TargetFeatureList& GetTargetFeatures() const override {
+    static const common::model::TargetFeatureList kEmptyTargets;
     return kEmptyTargets;
   }
 
-  common::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_; }
+  common::config::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_; }
 
   float GetCycleDeltaTimeSec() const override { return 1.0f; }
 
-  void SubmitControlCommand(common::RadarCommand cmd) override { commands_.push_back(cmd); }
+  void SubmitControlCommand(common::control::RadarCommand cmd) override { commands_.push_back(cmd); }
 
-  void UpdateRadarControlProfile(const common::RadarControlProfile& profile) override {
+  void UpdateRadarControlProfile(const common::control::RadarControlProfile& profile) override {
     control_profile_ = profile;
   }
 
  private:
-  common::PlatformAttitudeDeg platform_attitude_{};
-  common::RadarControlProfile control_profile_{};
-  std::vector<common::RadarCommand> commands_{};
+  common::config::PlatformAttitudeDeg platform_attitude_{};
+  common::control::RadarControlProfile control_profile_{};
+  std::vector<common::control::RadarCommand> commands_{};
 };
 
 class DummyEnvironmentService : public environment::IEnvironmentService {
@@ -57,7 +57,7 @@ class DummyEnvironmentService : public environment::IEnvironmentService {
 class DummySignalPipeline : public signal::pipeline::ISignalPipeline {
  public:
   signal::pipeline::SignalCycleResult RunCycle(
-      const common::TargetFeatureList& input_state,
+      const common::model::TargetFeatureList& input_state,
       const environment::IEnvironmentService& environment) override {
     (void)environment;
     signal::pipeline::SignalCycleResult result;
@@ -65,27 +65,27 @@ class DummySignalPipeline : public signal::pipeline::ISignalPipeline {
     return result;
   }
 
-  void UpdatePlatformAttitude(const common::PlatformAttitudeDeg& platform_attitude_deg) override {
+  void UpdatePlatformAttitude(const common::config::PlatformAttitudeDeg& platform_attitude_deg) override {
     platform_attitude_ = platform_attitude_deg;
   }
 
-  common::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_; }
+  common::config::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_; }
 
-  void SetControlProfile(const common::RadarControlProfile& control_profile) override {
+  void SetControlProfile(const common::control::RadarControlProfile& control_profile) override {
     control_profile_ = control_profile;
   }
 
-  common::RadarControlProfile GetControlProfile() const override { return control_profile_; }
+  common::control::RadarControlProfile GetControlProfile() const override { return control_profile_; }
 
  private:
-  common::PlatformAttitudeDeg platform_attitude_{};
-  common::RadarControlProfile control_profile_{};
+  common::config::PlatformAttitudeDeg platform_attitude_{};
+  common::control::RadarControlProfile control_profile_{};
 };
 
 class DummyDecisionEngine : public decision::pipeline::ITacticalDecisionEngine {
  public:
   decision::pipeline::TacticalDecisionResult Evaluate(
-      const common::DecisionInputFrame& input_frame,
+      const common::model::DecisionInputFrame& input_frame,
       decision::pipeline::TacticalStateStore& state_store) override {
     (void)input_frame;
     (void)state_store;

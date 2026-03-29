@@ -8,12 +8,13 @@
 
 #include <cstdint>
 
-#include "1q/airborne_radar/common/TargetFeature.h"
-#include "1q/airborne_radar/common/TargetFeatureUtils.h"
+#include "1q/airborne_radar/common/model/TargetFeature.h"
+#include "1q/airborne_radar/common/utils/TargetFeatureUtils.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
 namespace common {
+namespace model {
 
 /**
  * @brief 目标特征链式构造器。
@@ -97,7 +98,7 @@ class ONEQ_API TargetFeatureBuilder {
    */
   TargetFeature Build() const {
     TargetFeature result = target_;
-    NormalizeTargetGeometry(&result);
+    utils::NormalizeTargetGeometry(&result);
     return result;
   }
 
@@ -105,6 +106,7 @@ class ONEQ_API TargetFeatureBuilder {
   TargetFeature target_{};
 };
 
+}  // namespace model
 }  // namespace common
 }  // namespace airborne_radar
 

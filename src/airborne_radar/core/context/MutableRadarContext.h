@@ -36,13 +36,13 @@ class MutableRadarContext final : public IRadarContext {
    * @brief 更新当前周期目标特征列表。
    * @param target_features 新的目标特征列表。
    */
-  void SetTargetFeatures(common::TargetFeatureList target_features);
+  void SetTargetFeatures(common::model::TargetFeatureList target_features);
 
   /**
    * @brief 更新当前平台姿态角。
    * @param platform_attitude_deg 平台姿态角，单位为度。
    */
-  void SetPlatformAttitude(const common::PlatformAttitudeDeg& platform_attitude_deg);
+  void SetPlatformAttitude(const common::config::PlatformAttitudeDeg& platform_attitude_deg);
 
   /**
    * @brief 更新当前周期时间步长。
@@ -60,7 +60,7 @@ class MutableRadarContext final : public IRadarContext {
    * @brief 获取本周期已提交的控制指令。
    * @return 当前周期命令缓存。
    */
-  const std::vector<common::RadarCommand>& GetSubmittedCommands() const;
+  const std::vector<common::control::RadarCommand>& GetSubmittedCommands() const;
 
   /**
    * @brief 判断是否已经收到过控制真值更新。
@@ -72,19 +72,19 @@ class MutableRadarContext final : public IRadarContext {
    * @brief 获取最近一次保存的控制真值。
    * @return 最近一次控制真值；若尚未更新则返回默认值。
    */
-  const common::RadarControlProfile& GetLatestControlProfile() const;
+  const common::control::RadarControlProfile& GetLatestControlProfile() const;
 
   /**
    * @brief 获取当前周期的目标特征列表。
    * @return 当前周期的目标特征列表只读引用。
    */
-  const common::TargetFeatureList& GetTargetFeatures() const override;
+  const common::model::TargetFeatureList& GetTargetFeatures() const override;
 
   /**
    * @brief 获取当前平台姿态角。
    * @return 当前平台姿态角。
    */
-  common::PlatformAttitudeDeg GetPlatformAttitude() const override;
+  common::config::PlatformAttitudeDeg GetPlatformAttitude() const override;
 
   /**
    * @brief 获取当前周期时间步长。
@@ -96,20 +96,20 @@ class MutableRadarContext final : public IRadarContext {
    * @brief 记录控制器提交的单条控制指令。
    * @param cmd 控制指令。
    */
-  void SubmitControlCommand(common::RadarCommand cmd) override;
+  void SubmitControlCommand(common::control::RadarCommand cmd) override;
 
   /**
    * @brief 保存最近一次控制真值。
    * @param profile 下一周期控制真值。
    */
-  void UpdateRadarControlProfile(const common::RadarControlProfile& profile) override;
+  void UpdateRadarControlProfile(const common::control::RadarControlProfile& profile) override;
 
  private:
-  common::TargetFeatureList target_features_{};
-  common::PlatformAttitudeDeg platform_attitude_deg_{};
+  common::model::TargetFeatureList target_features_{};
+  common::config::PlatformAttitudeDeg platform_attitude_deg_{};
   float cycle_dt_sec_{1.0f};
-  std::vector<common::RadarCommand> submitted_commands_{};
-  common::RadarControlProfile latest_control_profile_{};
+  std::vector<common::control::RadarCommand> submitted_commands_{};
+  common::control::RadarControlProfile latest_control_profile_{};
   bool has_latest_control_profile_{false};
 };
 

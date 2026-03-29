@@ -5,8 +5,8 @@
 
 #include <gtest/gtest.h>
 
-#include "1q/airborne_radar/common/RadarControlProfile.h"
-#include "1q/airborne_radar/common/TargetFeature.h"
+#include "1q/airborne_radar/common/control/RadarControlProfile.h"
+#include "1q/airborne_radar/common/model/TargetFeature.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/environment/scene/SceneManager.h"
 #include "airborne_radar/environment/simulation/PropagationModel.h"
@@ -21,8 +21,8 @@ namespace tests {
 
 namespace {
 
-common::TargetFeature BuildPhysicsTarget(float range_m, float rcs) {
-  common::TargetFeature target(220.0f, 0.0f, 0.0f, rcs, 0.0f, 0.0f, 0.0f);
+common::model::TargetFeature BuildPhysicsTarget(float range_m, float rcs) {
+  common::model::TargetFeature target(220.0f, 0.0f, 0.0f, rcs, 0.0f, 0.0f, 0.0f);
   target.position_x = range_m;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
@@ -194,12 +194,12 @@ TEST(SignalPipelineTest, KeepsTrackStableWhenDetectionMarginIsEnough) {
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  common::TargetFeature target(800.0f, 0.0f, 0.0f, 2.5f, 0.0f, 0.0f, 0.0f);
+  common::model::TargetFeature target(800.0f, 0.0f, 0.0f, 2.5f, 0.0f, 0.0f, 0.0f);
   target.position_x = 100.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 100.0f;
-  const common::TargetFeatureList input_state{target};
+  const common::model::TargetFeatureList input_state{target};
 
   const auto output_state =
       signal_pipeline.RunCycle(input_state, environment_service).updated_features;
@@ -219,7 +219,7 @@ TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  const common::TargetFeatureList input_state{common::TargetFeature(800.0f, 0.0f, 0.0f, 2.5f)};
+  const common::model::TargetFeatureList input_state{common::model::TargetFeature(800.0f, 0.0f, 0.0f, 2.5f)};
 
   const auto output_state =
       signal_pipeline.RunCycle(input_state, environment_service).updated_features;
@@ -231,14 +231,14 @@ TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
 
 TEST(SignalPipelineTest, ExposesPublicPlatformAttitudeUpdateApi) {
   signal::pipeline::SignalPipeline signal_pipeline;
-  common::PlatformAttitudeDeg platform_attitude_deg;
+  common::config::PlatformAttitudeDeg platform_attitude_deg;
   platform_attitude_deg.yaw_deg = 12.0f;
   platform_attitude_deg.pitch_deg = -3.0f;
   platform_attitude_deg.roll_deg = 1.5f;
 
   signal_pipeline.UpdatePlatformAttitude(platform_attitude_deg);
 
-  const common::PlatformAttitudeDeg cached_platform_attitude =
+  const common::config::PlatformAttitudeDeg cached_platform_attitude =
       signal_pipeline.GetPlatformAttitude();
   EXPECT_FLOAT_EQ(cached_platform_attitude.yaw_deg, 12.0f);
   EXPECT_FLOAT_EQ(cached_platform_attitude.pitch_deg, -3.0f);
@@ -256,13 +256,13 @@ TEST(SignalPipelineTest, ControlProfilePowerReductionLowersPhysicalDetectionMarg
   env_config.jammer_power_db = 0.0f;
   environment::EnvironmentService environment_service(env_config);
 
-  const common::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
+  const common::model::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
 
   signal::pipeline::SignalPipeline baseline_pipeline(pipeline_config);
   baseline_pipeline.RunCycle(input_state, environment_service);
   const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
-  common::RadarControlProfile reduced_power_profile;
+  common::control::RadarControlProfile reduced_power_profile;
   reduced_power_profile.enable_lpi_power_control = true;
   reduced_power_profile.lpi_power_scale = 0.20f;
   signal::pipeline::SignalPipeline reduced_pipeline(pipeline_config);
@@ -289,13 +289,13 @@ TEST(SignalPipelineTest, AdaptiveBeamformingProfileTightensMeasurementCovariance
   env_config.jammer_power_db = 0.0f;
   environment::EnvironmentService environment_service(env_config);
 
-  const common::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
+  const common::model::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
 
   signal::pipeline::SignalPipeline baseline_pipeline(pipeline_config);
   baseline_pipeline.RunCycle(input_state, environment_service);
   const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
-  common::RadarControlProfile adaptive_profile;
+  common::control::RadarControlProfile adaptive_profile;
   adaptive_profile.enable_adaptive_beamforming = true;
   signal::pipeline::SignalPipeline adaptive_pipeline(pipeline_config);
   adaptive_pipeline.SetControlProfile(adaptive_profile);
@@ -318,12 +318,12 @@ TEST(SignalPipelineTest, EccmProfileRelaxesHeuristicAssociationGateForSeededTrac
   env_config.jammer_power_db = 0.0f;
   environment::EnvironmentService environment_service(env_config);
 
-  common::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f);
+  common::model::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f);
   target.position_x = 4.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 4.0f;
-  const common::TargetFeatureList input_state{target};
+  const common::model::TargetFeatureList input_state{target};
 
   signal::tracking::AssociationTrackSeed seed;
   seed.association_key = 7u;
@@ -339,7 +339,7 @@ TEST(SignalPipelineTest, EccmProfileRelaxesHeuristicAssociationGateForSeededTrac
   baseline_pipeline.RunCycle(input_state, environment_service);
   const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
-  common::RadarControlProfile eccm_profile;
+  common::control::RadarControlProfile eccm_profile;
   eccm_profile.enable_agility_frequency = true;
   eccm_profile.enable_eccm_rejitter = true;
   eccm_profile.eccm_burnthrough_gain = 1.5f;
@@ -360,12 +360,12 @@ TEST(SignalPipelineTest, AssociationQualityMetricsExposeTypeSpecificStressSummar
   signal::pipeline::SignalPipelineConfig pipeline_config;
   pipeline_config.tracking.kalman_measurement_noise_std = 1.0f;
 
-  common::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f);
+  common::model::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f);
   target.position_x = 4.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 4.0f;
-  const common::TargetFeatureList input_state{target};
+  const common::model::TargetFeatureList input_state{target};
 
   signal::tracking::AssociationTrackSeed seed;
   seed.association_key = 11u;
@@ -409,8 +409,8 @@ TEST(SignalPipelineTest, AssociationQualityMetricsExposeTypeSpecificStressSummar
   const signal::pipeline::AssociationQualityMetrics deception_metrics =
       deception_pipeline.GetLastAssociationQualityMetrics();
 
-  EXPECT_EQ(noise_metrics.dominant_jamming_semantic, common::JammingSemantic::kNoiseSuppression);
-  EXPECT_EQ(deception_metrics.dominant_jamming_semantic, common::JammingSemantic::kDeception);
+  EXPECT_EQ(noise_metrics.dominant_jamming_semantic, common::utils::JammingSemantic::kNoiseSuppression);
+  EXPECT_EQ(deception_metrics.dominant_jamming_semantic, common::utils::JammingSemantic::kDeception);
   EXPECT_GT(deception_metrics.jamming_severity, noise_metrics.jamming_severity);
   EXPECT_GT(noise_metrics.association_stress, 0.0f);
   EXPECT_GT(deception_metrics.association_stress, 0.0f);
@@ -420,12 +420,12 @@ TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) 
   signal::pipeline::SignalPipelineConfig pipeline_config;
   pipeline_config.tracking.kalman_measurement_noise_std = 1.0f;
 
-  common::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f);
+  common::model::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f);
   target.position_x = 4.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 4.0f;
-  const common::TargetFeatureList input_state{target};
+  const common::model::TargetFeatureList input_state{target};
 
   signal::tracking::AssociationTrackSeed seed;
   seed.association_key = 12u;
@@ -453,7 +453,7 @@ TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) 
   const signal::pipeline::AssociationQualityMetrics baseline_metrics =
       baseline_pipeline.GetLastAssociationQualityMetrics();
 
-  common::RadarControlProfile protected_profile;
+  common::control::RadarControlProfile protected_profile;
   protected_profile.enable_agility_frequency = true;
   protected_profile.enable_eccm_rejitter = true;
   signal::pipeline::SignalPipeline protected_pipeline(pipeline_config);
@@ -464,8 +464,8 @@ TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) 
   const signal::pipeline::AssociationQualityMetrics protected_metrics =
       protected_pipeline.GetLastAssociationQualityMetrics();
 
-  EXPECT_EQ(baseline_metrics.dominant_jamming_semantic, common::JammingSemantic::kDeception);
-  EXPECT_EQ(protected_metrics.dominant_jamming_semantic, common::JammingSemantic::kDeception);
+  EXPECT_EQ(baseline_metrics.dominant_jamming_semantic, common::utils::JammingSemantic::kDeception);
+  EXPECT_EQ(protected_metrics.dominant_jamming_semantic, common::utils::JammingSemantic::kDeception);
   EXPECT_LT(protected_metrics.jamming_severity, baseline_metrics.jamming_severity);
   EXPECT_LT(protected_metrics.association_stress, baseline_metrics.association_stress);
 }
@@ -489,13 +489,13 @@ TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) 
   env_config.jammer_power_db = 12.0f;
   environment::EnvironmentService environment_service(env_config);
 
-  const common::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
+  const common::model::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
 
   signal::pipeline::SignalPipeline baseline_pipeline(pipeline_config);
   baseline_pipeline.RunCycle(input_state, environment_service);
   const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
-  common::RadarControlProfile eccm_profile;
+  common::control::RadarControlProfile eccm_profile;
   eccm_profile.enable_sidelobe_canceller = true;
   eccm_profile.enable_agility_frequency = true;
   eccm_profile.enable_eccm_rejitter = true;
@@ -540,9 +540,9 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulatePhysicalEccmBenefit) {
   unfavorable_env_config.jammer_in_sidelobe = false;
   environment::EnvironmentService unfavorable_environment(unfavorable_env_config);
 
-  const common::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
+  const common::model::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
 
-  common::RadarControlProfile eccm_profile;
+  common::control::RadarControlProfile eccm_profile;
   eccm_profile.enable_sidelobe_canceller = true;
   eccm_profile.enable_adaptive_beamforming = true;
   eccm_profile.enable_agility_frequency = true;
@@ -583,13 +583,13 @@ TEST(SignalPipelineTest, DeceptionJammingFactsShrinkPhysicalCovarianceWhenMatche
   env_config.jammer_sources.push_back(deception_source);
   environment::EnvironmentService environment_service(env_config);
 
-  const common::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
+  const common::model::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
 
   signal::pipeline::SignalPipeline baseline_pipeline(pipeline_config);
   baseline_pipeline.RunCycle(input_state, environment_service);
   const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
-  common::RadarControlProfile protected_profile;
+  common::control::RadarControlProfile protected_profile;
   protected_profile.enable_agility_frequency = true;
   protected_profile.enable_eccm_rejitter = true;
   signal::pipeline::SignalPipeline protected_pipeline(pipeline_config);
@@ -614,18 +614,18 @@ TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
   env_config.jammer_power_db = 0.0f;
   environment::EnvironmentService environment_service(env_config);
 
-  common::TargetFeature target(800.0f, 0.0f, 0.0f, 2.5f);
+  common::model::TargetFeature target(800.0f, 0.0f, 0.0f, 2.5f);
   target.position_x = 100.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 100.0f;
-  const common::TargetFeatureList input_state{target};
+  const common::model::TargetFeatureList input_state{target};
 
   signal::pipeline::SignalPipeline baseline_pipeline;
   const auto baseline_output =
       baseline_pipeline.RunCycle(input_state, environment_service).updated_features;
 
-  common::RadarControlProfile eccm_profile;
+  common::control::RadarControlProfile eccm_profile;
   eccm_profile.enable_sidelobe_canceller = true;
   eccm_profile.enable_eccm_rejitter = true;
   eccm_profile.eccm_burnthrough_gain = 1.5f;
@@ -661,14 +661,14 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
   unfavorable_env_config.jammer_in_sidelobe = false;
   environment::EnvironmentService unfavorable_environment(unfavorable_env_config);
 
-  common::TargetFeature target(800.0f, 0.0f, 0.0f, 2.5f, 1.0f, 0.0f, 0.0f);
+  common::model::TargetFeature target(800.0f, 0.0f, 0.0f, 2.5f, 1.0f, 0.0f, 0.0f);
   target.position_x = 100.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 100.0f;
-  const common::TargetFeatureList input_state{target};
+  const common::model::TargetFeatureList input_state{target};
 
-  common::RadarControlProfile eccm_profile;
+  common::control::RadarControlProfile eccm_profile;
   eccm_profile.enable_sidelobe_canceller = true;
   eccm_profile.enable_adaptive_beamforming = true;
   eccm_profile.enable_agility_frequency = true;
@@ -703,12 +703,12 @@ TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUp
   env_config.jammer_power_db = 0.0f;
   environment::EnvironmentService environment_service(env_config);
 
-  common::TargetFeature target(1.0f, 0.0f, 0.0f, 5.0f, 0.0f, 0.0f, 0.0f);
+  common::model::TargetFeature target(1.0f, 0.0f, 0.0f, 5.0f, 0.0f, 0.0f, 0.0f);
   target.position_x = 100.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 100.0f;
-  const common::TargetFeatureList cycle_1_input{target};
+  const common::model::TargetFeatureList cycle_1_input{target};
 
   signal::pipeline::SignalPipeline baseline_pipeline(pipeline_config);
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> baseline_manager =
@@ -720,7 +720,7 @@ TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUp
 
   target.position_x = 101.0f;
   target.range_m = 101.0f;
-  const common::TargetFeatureList cycle_2_input{target};
+  const common::model::TargetFeatureList cycle_2_input{target};
   baseline_pipeline.SetAssociationSeeds(baseline_manager->BuildAssociationSeeds());
   baseline_pipeline.RunCycle(cycle_2_input, environment_service);
   baseline_manager->Update(MakeLifecycleCycle(2u, 2u),
@@ -728,7 +728,7 @@ TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUp
   const std::vector<signal::tracking::AssociationTrackSeed> baseline_seeds =
       baseline_manager->BuildAssociationSeeds();
 
-  common::RadarControlProfile adaptive_profile;
+  common::control::RadarControlProfile adaptive_profile;
   adaptive_profile.enable_adaptive_beamforming = true;
   signal::pipeline::SignalPipeline adaptive_pipeline(pipeline_config);
   adaptive_pipeline.SetControlProfile(adaptive_profile);
@@ -779,7 +779,7 @@ TEST(SignalPipelineTest, DeceptionJammingInflatesPhysicalCovarianceMoreThanNoise
   deception_env_config.jammer_sources.push_back(deception_source);
   environment::EnvironmentService deception_environment(deception_env_config);
 
-  const common::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
+  const common::model::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
 
   signal::pipeline::SignalPipeline noise_pipeline(pipeline_config);
   noise_pipeline.RunCycle(input_state, noise_environment);
@@ -812,8 +812,8 @@ TEST(SignalPipelineTest, AutoImmLifecycleAssemblyUsesControlProfileAdjustedImmPa
   env_config.jammer_power_db = 0.0f;
   environment::EnvironmentService environment_service(env_config);
 
-  common::TargetFeature target = BuildPhysicsTarget(120.0f, 4.0f);
-  const common::TargetFeatureList cycle_1_input{target};
+  common::model::TargetFeature target = BuildPhysicsTarget(120.0f, 4.0f);
+  const common::model::TargetFeatureList cycle_1_input{target};
 
   signal::pipeline::SignalPipeline baseline_pipeline(pipeline_config);
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> baseline_manager =
@@ -826,7 +826,7 @@ TEST(SignalPipelineTest, AutoImmLifecycleAssemblyUsesControlProfileAdjustedImmPa
   const std::vector<signal::tracking::AssociationTrackSeed> baseline_seeds =
       baseline_manager->BuildAssociationSeeds();
 
-  common::RadarControlProfile protected_profile;
+  common::control::RadarControlProfile protected_profile;
   protected_profile.enable_eccm_rejitter = true;
   protected_profile.eccm_burnthrough_gain = 1.5f;
   signal::pipeline::SignalPipeline protected_pipeline(pipeline_config);
@@ -849,14 +849,14 @@ TEST(SignalPipelineTest, AutoImmLifecycleAssemblyUsesControlProfileAdjustedImmPa
 
 TEST(TrackFilterTest, KeepsStateWhenDetectionIsStable) {
   signal::tracking::TrackFilter filter;
-  const common::TargetFeature input(800.0f, 0.0f, 0.0f, 2.5f);
+  const common::model::TargetFeature input(800.0f, 0.0f, 0.0f, 2.5f);
 
   signal::tracking::TrackFilterContext context;
   context.detection_succeeded = true;
   context.jamming_detected = false;
   context.detection_margin_db = 0.0f;
 
-  const common::TargetFeature output = filter.Filter(input, context);
+  const common::model::TargetFeature output = filter.Filter(input, context);
 
   EXPECT_FLOAT_EQ(output.current_track_speed, input.current_track_speed);
   EXPECT_FLOAT_EQ(output.current_track_rcs, input.current_track_rcs);
@@ -864,14 +864,14 @@ TEST(TrackFilterTest, KeepsStateWhenDetectionIsStable) {
 
 TEST(TrackFilterTest, AppliesLossDecayAndJammingPenalty) {
   signal::tracking::TrackFilter filter;
-  const common::TargetFeature input(800.0f, 0.0f, 0.0f, 2.5f);
+  const common::model::TargetFeature input(800.0f, 0.0f, 0.0f, 2.5f);
 
   signal::tracking::TrackFilterContext context;
   context.detection_succeeded = false;
   context.jamming_detected = true;
   context.detection_margin_db = -10.0f;
 
-  const common::TargetFeature output = filter.Filter(input, context);
+  const common::model::TargetFeature output = filter.Filter(input, context);
 
   EXPECT_LT(output.current_track_speed, input.current_track_speed);
   EXPECT_LT(output.current_track_rcs, input.current_track_rcs);
@@ -879,20 +879,20 @@ TEST(TrackFilterTest, AppliesLossDecayAndJammingPenalty) {
 
 TEST(TrackFilterTest, DeceptionJammingRetainsMoreTrackEnergyThanNoiseSuppression) {
   signal::tracking::TrackFilter filter;
-  const common::TargetFeature input(800.0f, 0.0f, 0.0f, 2.5f);
+  const common::model::TargetFeature input(800.0f, 0.0f, 0.0f, 2.5f);
 
   signal::tracking::TrackFilterContext noise_context;
   noise_context.detection_succeeded = false;
   noise_context.jamming_detected = true;
-  noise_context.dominant_jamming_semantic = common::JammingSemantic::kNoiseSuppression;
+  noise_context.dominant_jamming_semantic = common::utils::JammingSemantic::kNoiseSuppression;
   noise_context.jamming_severity = 0.8f;
   noise_context.detection_margin_db = -10.0f;
 
   signal::tracking::TrackFilterContext deception_context = noise_context;
-  deception_context.dominant_jamming_semantic = common::JammingSemantic::kDeception;
+  deception_context.dominant_jamming_semantic = common::utils::JammingSemantic::kDeception;
 
-  const common::TargetFeature noise_output = filter.Filter(input, noise_context);
-  const common::TargetFeature deception_output = filter.Filter(input, deception_context);
+  const common::model::TargetFeature noise_output = filter.Filter(input, noise_context);
+  const common::model::TargetFeature deception_output = filter.Filter(input, deception_context);
 
   EXPECT_GT(deception_output.current_track_speed, noise_output.current_track_speed);
   EXPECT_GT(deception_output.current_track_rcs, noise_output.current_track_rcs);
@@ -904,13 +904,13 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  common::TargetFeature first(100.0f, 0.0f, 0.0f, 2.0f);
+  common::model::TargetFeature first(100.0f, 0.0f, 0.0f, 2.0f);
   first.position_x = 10.0f;
   first.range_m = 10.0f;
-  common::TargetFeature second(220.0f, 0.0f, 0.0f, 5.0f);
+  common::model::TargetFeature second(220.0f, 0.0f, 0.0f, 5.0f);
   second.position_x = 100.0f;
   second.range_m = 100.0f;
-  const common::TargetFeatureList cycle_1{first, second};
+  const common::model::TargetFeatureList cycle_1{first, second};
 
   signal_pipeline.RunCycle(cycle_1, environment_service);
   const std::vector<signal::tracking::TrackMeasurement> first_measurements =
@@ -954,7 +954,7 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
 
   signal_pipeline.SetAssociationSeeds(
       std::vector<signal::tracking::AssociationTrackSeed>{first_seed, second_seed});
-  const common::TargetFeatureList cycle_2{first, second};
+  const common::model::TargetFeatureList cycle_2{first, second};
   signal_pipeline.RunCycle(cycle_2, environment_service);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
@@ -973,8 +973,8 @@ TEST(SignalPipelineTest, FailsFastWhenDetectedTargetLacksCartesianPosition) {
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  const common::TargetFeatureList input_state{
-      common::TargetFeature(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f)};
+  const common::model::TargetFeatureList input_state{
+      common::model::TargetFeature(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f)};
 
   EXPECT_DEATH_IF_SUPPORTED(signal_pipeline.RunCycle(input_state, environment_service),
                             "missing cartesian position");
@@ -986,19 +986,19 @@ TEST(SignalPipelineTest, UsesPositionAssociationByDefaultWhenCartesianPositionEx
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  common::TargetFeature first(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
+  common::model::TargetFeature first(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
   first.position_x = 10.0f;
   first.position_y = 0.0f;
   first.position_z = 0.0f;
   first.range_m = 10.0f;
 
-  common::TargetFeature second(220.0f, 0.0f, 0.0f, 5.0f, 3.0f, 0.0f, 0.0f);
+  common::model::TargetFeature second(220.0f, 0.0f, 0.0f, 5.0f, 3.0f, 0.0f, 0.0f);
   second.position_x = 100.0f;
   second.position_y = 0.0f;
   second.position_z = 0.0f;
   second.range_m = 100.0f;
 
-  signal_pipeline.RunCycle(common::TargetFeatureList{first, second}, environment_service);
+  signal_pipeline.RunCycle(common::model::TargetFeatureList{first, second}, environment_service);
   const std::vector<signal::tracking::TrackMeasurement> first_measurements =
       signal_pipeline.GetLastTrackMeasurements();
 
@@ -1030,7 +1030,7 @@ TEST(SignalPipelineTest, UsesPositionAssociationByDefaultWhenCartesianPositionEx
 
   first.position_x = 11.0f;
   second.position_x = 101.0f;
-  signal_pipeline.RunCycle(common::TargetFeatureList{second, first}, environment_service);
+  signal_pipeline.RunCycle(common::model::TargetFeatureList{second, first}, environment_service);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
 
@@ -1046,13 +1046,13 @@ TEST(SignalPipelineTest, UsesStatelessAssociationByDefaultWithoutLifecycleSeeds)
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  common::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
+  common::model::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
   target.position_x = 10.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 10.0f;
 
-  signal_pipeline.RunCycle(common::TargetFeatureList{target}, environment_service);
+  signal_pipeline.RunCycle(common::model::TargetFeatureList{target}, environment_service);
   const std::vector<signal::tracking::TrackMeasurement> first_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(first_measurements.size(), 1u);
@@ -1062,7 +1062,7 @@ TEST(SignalPipelineTest, UsesStatelessAssociationByDefaultWithoutLifecycleSeeds)
 
   target.position_x = 10.2f;
   target.range_m = 10.2f;
-  signal_pipeline.RunCycle(common::TargetFeatureList{target}, environment_service);
+  signal_pipeline.RunCycle(common::model::TargetFeatureList{target}, environment_service);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(second_measurements.size(), 1u);
@@ -1090,13 +1090,13 @@ TEST(SignalPipelineTest, ResetAssociationSeedModeToStatelessClearsSideChannelSee
       std::vector<signal::tracking::AssociationTrackSeed>(1, side_channel_seed));
   signal_pipeline.ResetAssociationSeedModeToStateless();
 
-  common::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
+  common::model::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
   target.position_x = 10.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 10.0f;
 
-  signal_pipeline.RunCycle(common::TargetFeatureList{target}, environment_service);
+  signal_pipeline.RunCycle(common::model::TargetFeatureList{target}, environment_service);
   const std::vector<signal::tracking::TrackMeasurement> first_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(first_measurements.size(), 1u);
@@ -1106,7 +1106,7 @@ TEST(SignalPipelineTest, ResetAssociationSeedModeToStatelessClearsSideChannelSee
 
   target.position_x = 10.1f;
   target.range_m = 10.1f;
-  signal_pipeline.RunCycle(common::TargetFeatureList{target}, environment_service);
+  signal_pipeline.RunCycle(common::model::TargetFeatureList{target}, environment_service);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(second_measurements.size(), 1u);
@@ -1329,14 +1329,14 @@ TEST(EnvironmentServiceTest, PrimaryJammerIsTheHighestPowerSource) {
 TEST(TrackFilterTest, DetectionSuccessPreservesSpeedAndRcs) {
   signal::tracking::TrackFilter filter;
 
-  common::TargetFeature input(300.0f, 0.0f, 0.0f, 2.0f);
+  common::model::TargetFeature input(300.0f, 0.0f, 0.0f, 2.0f);
   input.position_x = 1000.0f;
   input.range_m = 1000.0f;
 
   signal::tracking::TrackFilterContext ctx;
   ctx.detection_succeeded = true;
 
-  const common::TargetFeature output = filter.Filter(input, ctx);
+  const common::model::TargetFeature output = filter.Filter(input, ctx);
 
   EXPECT_FLOAT_EQ(output.current_track_speed, 300.0f);
   EXPECT_FLOAT_EQ(output.current_track_rcs, 2.0f);
@@ -1349,11 +1349,11 @@ TEST(TrackFilterTest, DetectionMissDecaysSpeedByConfiguredRatio) {
   cfg.rcs_decay_ratio_on_loss = 1.0f;  // RCS 不衰减，隔离速度分支
   signal::tracking::TrackFilter filter(cfg);
 
-  common::TargetFeature input(500.0f, 0.0f, 0.0f, 2.0f);
+  common::model::TargetFeature input(500.0f, 0.0f, 0.0f, 2.0f);
   signal::tracking::TrackFilterContext ctx;
   ctx.detection_succeeded = false;
 
-  const common::TargetFeature output = filter.Filter(input, ctx);
+  const common::model::TargetFeature output = filter.Filter(input, ctx);
 
   EXPECT_FLOAT_EQ(output.current_track_speed, 400.0f);  // 500 * 0.8
 }
@@ -1365,11 +1365,11 @@ TEST(TrackFilterTest, DetectionMissDecaysRcsByConfiguredRatio) {
   cfg.rcs_decay_ratio_on_loss = 0.70f;
   signal::tracking::TrackFilter filter(cfg);
 
-  common::TargetFeature input(100.0f, 0.0f, 0.0f, 2.0f);
+  common::model::TargetFeature input(100.0f, 0.0f, 0.0f, 2.0f);
   signal::tracking::TrackFilterContext ctx;
   ctx.detection_succeeded = false;
 
-  const common::TargetFeature output = filter.Filter(input, ctx);
+  const common::model::TargetFeature output = filter.Filter(input, ctx);
 
   EXPECT_NEAR(output.current_track_rcs, 1.40f, 1e-4f);  // 2.0 * 0.7
 }
@@ -1384,7 +1384,7 @@ TEST(TrackFilterTest, ConsecutiveMissesMonotonicallyReduceSpeed) {
   signal::tracking::TrackFilterContext miss_ctx;
   miss_ctx.detection_succeeded = false;
 
-  common::TargetFeature state(500.0f, 0.0f, 0.0f, 1.0f);
+  common::model::TargetFeature state(500.0f, 0.0f, 0.0f, 1.0f);
   float prev_speed = 500.0f;
   for (int i = 0; i < 5; ++i) {
     state = filter.Filter(state, miss_ctx);
@@ -1401,11 +1401,11 @@ TEST(TrackFilterTest, DecayRatioOnePreservesSpeedOnMiss) {
   cfg.rcs_decay_ratio_on_loss = 1.0f;
   signal::tracking::TrackFilter filter(cfg);
 
-  common::TargetFeature input(400.0f, 0.0f, 0.0f, 1.5f);
+  common::model::TargetFeature input(400.0f, 0.0f, 0.0f, 1.5f);
   signal::tracking::TrackFilterContext ctx;
   ctx.detection_succeeded = false;
 
-  const common::TargetFeature output = filter.Filter(input, ctx);
+  const common::model::TargetFeature output = filter.Filter(input, ctx);
 
   EXPECT_FLOAT_EQ(output.current_track_speed, 400.0f);
 }
@@ -1417,11 +1417,11 @@ TEST(TrackFilterTest, SpeedNeverGoesNegativeOnMiss) {
   cfg.rcs_decay_ratio_on_loss = 1.0f;
   signal::tracking::TrackFilter filter(cfg);
 
-  common::TargetFeature input(300.0f, 0.0f, 0.0f, 1.0f);
+  common::model::TargetFeature input(300.0f, 0.0f, 0.0f, 1.0f);
   signal::tracking::TrackFilterContext ctx;
   ctx.detection_succeeded = false;
 
-  const common::TargetFeature output = filter.Filter(input, ctx);
+  const common::model::TargetFeature output = filter.Filter(input, ctx);
 
   EXPECT_GE(output.current_track_speed, 0.0f);
 }
@@ -1433,11 +1433,11 @@ TEST(TrackFilterTest, RcsNeverGoesBelowMinimumOnMiss) {
   cfg.rcs_decay_ratio_on_loss = 0.0f;  // 衰减至 0
   signal::tracking::TrackFilter filter(cfg);
 
-  common::TargetFeature input(100.0f, 0.0f, 0.0f, 0.01f);  // 极小 RCS
+  common::model::TargetFeature input(100.0f, 0.0f, 0.0f, 0.01f);  // 极小 RCS
   signal::tracking::TrackFilterContext ctx;
   ctx.detection_succeeded = false;
 
-  const common::TargetFeature output = filter.Filter(input, ctx);
+  const common::model::TargetFeature output = filter.Filter(input, ctx);
 
   EXPECT_GE(output.current_track_rcs, 0.05f);
 }

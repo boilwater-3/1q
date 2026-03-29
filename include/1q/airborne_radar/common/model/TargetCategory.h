@@ -12,6 +12,7 @@
 
 namespace airborne_radar {
 namespace common {
+namespace model {
 
 /**
  * @brief TargetCategory 封装了单个处理周期的单个目标类别信息。
@@ -40,6 +41,7 @@ struct TargetCategory {
  */
 using TargetCategoryList = std::vector<TargetCategory>;
 
+}  // namespace model
 }  // namespace common
 }  // namespace airborne_radar
 

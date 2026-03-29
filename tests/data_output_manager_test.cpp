@@ -5,9 +5,9 @@
 
 #include <gtest/gtest.h>
 
-#include "1q/airborne_radar/common/DecisionInputFrame.h"
-#include "1q/airborne_radar/common/DecisionTrackSnapshot.h"
-#include "1q/airborne_radar/common/TrackOutputFrame.h"
+#include "1q/airborne_radar/common/model/DecisionInputFrame.h"
+#include "1q/airborne_radar/common/model/DecisionTrackSnapshot.h"
+#include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 #include "airborne_radar/signal/output/DataOutputManager.h"
 
 namespace airborne_radar {
@@ -15,9 +15,9 @@ namespace tests {
 
 namespace {
 
-common::DecisionTrackSnapshot BuildTrackSnapshot(std::uint64_t association_key,
-                                                 common::DecisionTrackStatus status) {
-  common::DecisionTrackSnapshot snapshot(120.0f, 0.0f, 0.0f, 3.0f);
+common::model::DecisionTrackSnapshot BuildTrackSnapshot(std::uint64_t association_key,
+                                                 common::model::DecisionTrackStatus status) {
+  common::model::DecisionTrackSnapshot snapshot(120.0f, 0.0f, 0.0f, 3.0f);
   snapshot.state.association_key = association_key;
   snapshot.state.status = status;
   return snapshot;
@@ -27,11 +27,11 @@ common::DecisionTrackSnapshot BuildTrackSnapshot(std::uint64_t association_key,
 
 TEST(DataOutputManagerTest, BuildsTrackOutputFrameWithCountsAndLostFlag) {
   signal::output::DataOutputManager output_manager;
-  common::DecisionTrackSnapshotList track_snapshots;
-  track_snapshots.push_back(BuildTrackSnapshot(101U, common::DecisionTrackStatus::kConfirmed));
-  track_snapshots.push_back(BuildTrackSnapshot(202U, common::DecisionTrackStatus::kLost));
+  common::model::DecisionTrackSnapshotList track_snapshots;
+  track_snapshots.push_back(BuildTrackSnapshot(101U, common::model::DecisionTrackStatus::kConfirmed));
+  track_snapshots.push_back(BuildTrackSnapshot(202U, common::model::DecisionTrackStatus::kLost));
 
-  const common::TrackOutputFrame frame =
+  const common::output::TrackOutputFrame frame =
       output_manager.BuildTrackOutputFrame(7U, 88U, track_snapshots);
 
   EXPECT_EQ(frame.cycle_index, 7U);
@@ -44,20 +44,20 @@ TEST(DataOutputManagerTest, BuildsTrackOutputFrameWithCountsAndLostFlag) {
 
 TEST(DataOutputManagerTest, BuildsDecisionInputFrameFromTrackOutputFrame) {
   signal::output::DataOutputManager output_manager;
-  common::DecisionTrackSnapshotList track_snapshots;
-  track_snapshots.push_back(BuildTrackSnapshot(303U, common::DecisionTrackStatus::kConfirmed));
-  const common::TrackOutputFrame track_output_frame =
+  common::model::DecisionTrackSnapshotList track_snapshots;
+  track_snapshots.push_back(BuildTrackSnapshot(303U, common::model::DecisionTrackStatus::kConfirmed));
+  const common::output::TrackOutputFrame track_output_frame =
       output_manager.BuildTrackOutputFrame(11U, 99U, track_snapshots);
 
-  common::EccmSourceInfo eccm_source_info;
+  common::model::EccmSourceInfo eccm_source_info;
   eccm_source_info.has_jamming_signal = true;
-  common::AssociationQualityInfo association_quality_info;
+  common::model::AssociationQualityInfo association_quality_info;
   association_quality_info.association_stress = 0.35f;
-  common::PerceptionQualityInfo perception_quality_info;
+  common::model::PerceptionQualityInfo perception_quality_info;
   perception_quality_info.input_target_count = 3U;
   perception_quality_info.detection_count = 2U;
 
-  const common::DecisionInputFrame frame = output_manager.BuildDecisionInputFrame(
+  const common::model::DecisionInputFrame frame = output_manager.BuildDecisionInputFrame(
       track_output_frame, eccm_source_info, association_quality_info, perception_quality_info);
 
   EXPECT_EQ(frame.cycle_index, 11U);
@@ -67,13 +67,13 @@ TEST(DataOutputManagerTest, BuildsDecisionInputFrameFromTrackOutputFrame) {
   EXPECT_EQ(frame.perception_quality_info.input_target_count, 3U);
   ASSERT_EQ(frame.tracks.size(), 1U);
   EXPECT_EQ(frame.tracks[0].state.association_key, 303U);
-  EXPECT_EQ(frame.tracks[0].state.status, common::DecisionTrackStatus::kConfirmed);
+  EXPECT_EQ(frame.tracks[0].state.status, common::model::DecisionTrackStatus::kConfirmed);
 }
 
 TEST(DataOutputManagerTest, EmptyTrackOutputFrameKeepsZeroCounts) {
   signal::output::DataOutputManager output_manager;
-  const common::TrackOutputFrame frame =
-      output_manager.BuildTrackOutputFrame(5U, 12U, common::DecisionTrackSnapshotList());
+  const common::output::TrackOutputFrame frame =
+      output_manager.BuildTrackOutputFrame(5U, 12U, common::model::DecisionTrackSnapshotList());
 
   EXPECT_EQ(frame.cycle_index, 5U);
   EXPECT_EQ(frame.batch_id, 12U);

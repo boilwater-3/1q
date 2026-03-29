@@ -9,9 +9,9 @@
 #include <memory>
 #include <vector>
 
-#include "1q/airborne_radar/common/RadarCommand.h"
-#include "1q/airborne_radar/common/RadarControlProfile.h"
-#include "1q/airborne_radar/common/TrackOutputFrame.h"
+#include "1q/airborne_radar/common/control/RadarCommand.h"
+#include "1q/airborne_radar/common/control/RadarControlProfile.h"
+#include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/airborne_radar/core/session/RadarCycleResult.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
@@ -51,7 +51,7 @@ class ONEQ_API RadarSession {
    *       会以尽力而为出发返回上一周期有效状态，输出帧中
    *       `published_track_count` 可能为零。
    */
-  common::TrackOutputFrame Step(const context::RadarCycleInput& input);
+  common::output::TrackOutputFrame Step(const context::RadarCycleInput& input);
 
   /**
    * @brief 先更新待生效场景，再执行当前周期。
@@ -62,7 +62,7 @@ class ONEQ_API RadarSession {
    *       会以尽力而为出发返回上一周期有效状态，输出帧中
    *       `published_track_count` 可能为零。
    */
-  common::TrackOutputFrame Step(const context::RadarCycleInput& input,
+  common::output::TrackOutputFrame Step(const context::RadarCycleInput& input,
                                 const environment::EnvironmentSceneState& scene_state);
 
   /**
@@ -85,7 +85,7 @@ class ONEQ_API RadarSession {
   /** @brief 获取当前周期已提交的控制指令。
    * @return 当前周期已提交的控制指令列表引用。
    */
-  const std::vector<common::RadarCommand>& GetSubmittedCommands() const;
+  const std::vector<common::control::RadarCommand>& GetSubmittedCommands() const;
 
   /**
    * @brief 判断是否已经保存过最新控制真值。
@@ -97,7 +97,7 @@ class ONEQ_API RadarSession {
    * @brief 获取最近一次控制真值。
    * @return 最近一次控制真值引用。
    */
-  const common::RadarControlProfile& GetLatestControlProfile() const;
+  const common::control::RadarControlProfile& GetLatestControlProfile() const;
 
   /**
    * @brief 获取最近一次关联质量观测指标。

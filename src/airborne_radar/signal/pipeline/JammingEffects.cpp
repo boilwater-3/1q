@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-#include "1q/airborne_radar/common/MathUtils.h"
+#include "1q/airborne_radar/common/utils/MathUtils.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -12,8 +12,8 @@ namespace internal {
 
 namespace {
 
-using common::ClampFloat;
-using common::DbToLinearPower;
+using common::utils::ClampFloat;
+using common::utils::DbToLinearPower;
 
 // ---------- A. ECCM 物理抑制系数（不开放配置，属于雷达对抗物理模型） ----------
 constexpr float kSidelobeCancellerResidual = 0.55f;    /**< 旁瓣对消主链残余因子 */
@@ -71,7 +71,7 @@ float ResolveJammerConfidenceWeight(const JammingEffectsConfig& cfg,
  * @return 裁剪至 [0.0f, 1.0f] 的轨迹级干扰贡献得分
  * @note 使用固定经验系数，不依赖 cfg，以保持语义判定阶段的稳定性
  */
-float ComputeTrackLevelJammingContribution(const common::RadarControlProfile& control_profile,
+float ComputeTrackLevelJammingContribution(const common::control::RadarControlProfile& control_profile,
                                            const environment::JammerSourceFact& jammer_source) {
   // 轨迹级贡献使用固定系数——该函数参与主导语义判定（E 组），不用 cfg。
   const float confidence_weight = ClampFloat(jammer_source.confidence, 0.25f, 1.0f);
@@ -107,7 +107,7 @@ bool HasMultiSourceJammingFacts(const environment::EnvironmentSnapshot& environm
   return !environment_snapshot.jammer_sources.empty();
 }
 
-float ComputeResidualJammerFactor(const common::RadarControlProfile& control_profile,
+float ComputeResidualJammerFactor(const common::control::RadarControlProfile& control_profile,
                                   const environment::JammerSourceFact& jammer_source) {
   float residual_factor = 1.0f;
 
@@ -245,7 +245,7 @@ float ComputePhysicalSourceJamContributionW(const JammingEffectsConfig& cfg,
 }
 
 float ComputeMeasurementCovarianceInflation(
-    const JammingEffectsConfig& cfg, const common::RadarControlProfile& control_profile,
+    const JammingEffectsConfig& cfg, const common::control::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot) {
   if (!HasMultiSourceJammingFacts(environment_snapshot)) {
     return 1.0f;
@@ -278,15 +278,15 @@ float ComputeMeasurementCovarianceInflation(
   return ClampFloat(inflation, 1.0f, cfg.covariance_inflation_max);
 }
 
-common::JammingSemantic ResolveDominantJammingSemantic(
-    const common::RadarControlProfile& control_profile,
+common::utils::JammingSemantic ResolveDominantJammingSemantic(
+    const common::control::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot) {
   if (!environment_snapshot.jamming_detected) {
-    return common::JammingSemantic::kNone;
+    return common::utils::JammingSemantic::kNone;
   }
 
   if (!HasMultiSourceJammingFacts(environment_snapshot)) {
-    return common::JammingSemantic::kMixed;
+    return common::utils::JammingSemantic::kMixed;
   }
 
   float type_scores[3] = {0.0f, 0.0f, 0.0f};
@@ -323,25 +323,25 @@ common::JammingSemantic ResolveDominantJammingSemantic(
   }
 
   if (type_scores[best_index] <= 1e-6f) {
-    return common::JammingSemantic::kNone;
+    return common::utils::JammingSemantic::kNone;
   }
   if (second_index != best_index &&
       type_scores[second_index] >= kMixedSemanticDominanceRatio * type_scores[best_index] &&
       type_scores[second_index] > kMixedSemanticMinScore) {
-    return common::JammingSemantic::kMixed;
+    return common::utils::JammingSemantic::kMixed;
   }
 
   if (best_index == 0U) {
-    return common::JammingSemantic::kNoiseSuppression;
+    return common::utils::JammingSemantic::kNoiseSuppression;
   }
   if (best_index == 1U) {
-    return common::JammingSemantic::kDeception;
+    return common::utils::JammingSemantic::kDeception;
   }
-  return common::JammingSemantic::kRepeater;
+  return common::utils::JammingSemantic::kRepeater;
 }
 
 float ComputeTrackLevelJammingSeverity(
-    const common::RadarControlProfile& control_profile,
+    const common::control::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot) {
   if (!environment_snapshot.jamming_detected) {
     return 0.0f;
@@ -368,7 +368,7 @@ float ComputeTrackLevelJammingSeverity(
 }
 
 void ApplyEnvironmentJammingFactsToRuntimeConfig(
-    const JammingEffectsConfig& cfg, const common::RadarControlProfile& control_profile,
+    const JammingEffectsConfig& cfg, const common::control::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot,
     SignalPipelineConfig* runtime_config) {
   if (runtime_config == nullptr || !HasMultiSourceJammingFacts(environment_snapshot)) {

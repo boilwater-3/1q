@@ -11,6 +11,7 @@
 
 namespace airborne_radar {
 namespace common {
+namespace model {
 
 /**
  * @brief DecisionTrackStatus 表示决策层可见的轨迹生命周期状态。
@@ -86,6 +87,7 @@ struct DecisionTrackSnapshot {
 /** @brief DecisionTrackSnapshotList 表示供决策层消费的轨迹快照集合 */
 using DecisionTrackSnapshotList = std::vector<DecisionTrackSnapshot>;
 
+}  // namespace model
 }  // namespace common
 }  // namespace airborne_radar
 

@@ -37,7 +37,7 @@ class SignalPipeline final : public ISignalPipeline {
    * @param environment 当前环境服务。
    * @return 当前周期的信号处理输出。
    */
-  SignalCycleResult RunCycle(const common::TargetFeatureList& input_state,
+  SignalCycleResult RunCycle(const common::model::TargetFeatureList& input_state,
                              const environment::IEnvironmentService& environment) override;
 
   /**
@@ -73,25 +73,25 @@ class SignalPipeline final : public ISignalPipeline {
    * @brief 更新平台姿态输入。
    * @param platform_attitude_deg 当前平台姿态。
    */
-  void UpdatePlatformAttitude(const common::PlatformAttitudeDeg& platform_attitude_deg) override;
+  void UpdatePlatformAttitude(const common::config::PlatformAttitudeDeg& platform_attitude_deg) override;
 
   /**
    * @brief 获取当前缓存的平台姿态。
    * @return 当前平台姿态。
    */
-  common::PlatformAttitudeDeg GetPlatformAttitude() const override;
+  common::config::PlatformAttitudeDeg GetPlatformAttitude() const override;
 
   /**
    * @brief 更新当前生效的控制真值。
    * @param control_profile 控制真值。
    */
-  void SetControlProfile(const common::RadarControlProfile& control_profile) override;
+  void SetControlProfile(const common::control::RadarControlProfile& control_profile) override;
 
   /**
    * @brief 获取当前缓存的控制真值。
    * @return 当前控制真值。
    */
-  common::RadarControlProfile GetControlProfile() const override;
+  common::control::RadarControlProfile GetControlProfile() const override;
 
   /**
    * @brief 更新流水线运行配置。

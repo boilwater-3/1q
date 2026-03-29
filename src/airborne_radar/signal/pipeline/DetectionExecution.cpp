@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <cmath>
 
-#include "1q/airborne_radar/common/MathUtils.h"
+#include "1q/airborne_radar/common/utils/MathUtils.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/MeasurementErrorModel.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
@@ -18,8 +18,8 @@ namespace internal {
 
 namespace {
 
-using common::ClampFloat;
-using common::DbToLinearPower;
+using common::utils::ClampFloat;
+using common::utils::DbToLinearPower;
 
 /**
  * @brief 根据目标几何与测量误差参数构建测量协方差矩阵
@@ -58,7 +58,7 @@ tracking::MeasurementCovariance BuildMeasurementCovariance(
  * @param[in] target 目标特征数据，包含航迹速度分量和标量速度
  * @return 速度矢量的范数；当速度分量全为零时回退到 current_track_speed 字段
  */
-float ResolveSpeedMagnitude(const common::TargetFeature& target) {
+float ResolveSpeedMagnitude(const common::model::TargetFeature& target) {
   const Eigen::Vector3f velocity(target.current_track_velocity_x, target.current_track_velocity_y,
                                  target.current_track_velocity_z);
   if (velocity.squaredNorm() > 0.0f) {
@@ -80,9 +80,9 @@ bool HasValidBuffers(const DetectionExecutionBuffers& buffers) {
 
 }  // namespace
 
-void RunHeuristicDetectionPass(const common::TargetFeatureList& input,
+void RunHeuristicDetectionPass(const common::model::TargetFeatureList& input,
                                const SignalPipelineConfig& runtime_config,
-                               const common::RadarControlProfile& control_profile,
+                               const common::control::RadarControlProfile& control_profile,
                                const environment::EnvironmentSnapshot& environment_snapshot,
                                DetectionExecutionBuffers* buffers) {
   if (buffers == nullptr || !HasValidBuffers(*buffers)) {
@@ -114,9 +114,9 @@ void RunHeuristicDetectionPass(const common::TargetFeatureList& input,
   }
 }
 
-void RunPhysicalDetectionPass(const common::TargetFeatureList& input,
+void RunPhysicalDetectionPass(const common::model::TargetFeatureList& input,
                               const SignalPipelineConfig& runtime_config,
-                              const common::RadarControlProfile& control_profile,
+                              const common::control::RadarControlProfile& control_profile,
                               const environment::EnvironmentSnapshot& environment_snapshot,
                               detection::SignalDetector* signal_detector,
                               DetectionExecutionBuffers* buffers) {

@@ -33,11 +33,11 @@
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/common/ConfigPresets.h"
-#include "1q/airborne_radar/common/DecisionTrackSnapshot.h"
-#include "1q/airborne_radar/common/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/common/TargetFeatureUtils.h"
-#include "1q/airborne_radar/common/TrackOutputFrame.h"
+#include "1q/airborne_radar/common/config/ConfigPresets.h"
+#include "1q/airborne_radar/common/model/DecisionTrackSnapshot.h"
+#include "1q/airborne_radar/common/config/RadarSessionConfigBuilder.h"
+#include "1q/airborne_radar/common/utils/TargetFeatureUtils.h"
+#include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/airborne_radar/core/session/RadarCycleResult.h"
 #include "1q/airborne_radar/core/session/RadarSession.h"
@@ -102,7 +102,7 @@ struct SimState {
   std::vector<std::map<std::uint64_t, int>> status_history;
 
   // 最近一帧
-  std::vector<airborne_radar::common::DecisionTrackSnapshot> latest_tracks;
+  std::vector<airborne_radar::common::model::DecisionTrackSnapshot> latest_tracks;
 
   // 关联质量
   std::vector<airborne_radar::signal::pipeline::AssociationQualityMetrics> quality_history;
@@ -211,13 +211,13 @@ void StepOnce(airborne_radar::core::session::RadarSession& session, SimState& si
 
 // ── 状态字符串 ────────────────────────────────────────────────────────────────
 
-const char* StatusStr(airborne_radar::common::DecisionTrackStatus s) {
+const char* StatusStr(airborne_radar::common::model::DecisionTrackStatus s) {
   switch (s) {
-    case airborne_radar::common::DecisionTrackStatus::kTentative:
+    case airborne_radar::common::model::DecisionTrackStatus::kTentative:
       return "Tentative";
-    case airborne_radar::common::DecisionTrackStatus::kConfirmed:
+    case airborne_radar::common::model::DecisionTrackStatus::kConfirmed:
       return "Confirmed";
-    case airborne_radar::common::DecisionTrackStatus::kLost:
+    case airborne_radar::common::model::DecisionTrackStatus::kLost:
       return "Lost";
   }
   return "Unknown";

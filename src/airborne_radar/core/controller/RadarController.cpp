@@ -5,10 +5,10 @@
 #include <memory>
 #include <vector>
 
-#include "1q/airborne_radar/common/ControlDirective.h"
-#include "1q/airborne_radar/common/RadarCommand.h"
-#include "1q/airborne_radar/common/RadarControlProfile.h"
-#include "1q/airborne_radar/common/TrackOutputFrame.h"
+#include "1q/airborne_radar/common/control/ControlDirective.h"
+#include "1q/airborne_radar/common/control/RadarCommand.h"
+#include "1q/airborne_radar/common/control/RadarControlProfile.h"
+#include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/context/IRadarContext.h"
 #include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
@@ -31,17 +31,17 @@ namespace {
  * @param semantic 当前周期主导干扰语义。
  * @return 供日志输出使用的短字符串。
  */
-const char* JammingSemanticName(common::JammingSemantic semantic) {
+const char* JammingSemanticName(common::utils::JammingSemantic semantic) {
   switch (semantic) {
-    case common::JammingSemantic::kNoiseSuppression:
+    case common::utils::JammingSemantic::kNoiseSuppression:
       return "noise";
-    case common::JammingSemantic::kDeception:
+    case common::utils::JammingSemantic::kDeception:
       return "deception";
-    case common::JammingSemantic::kRepeater:
+    case common::utils::JammingSemantic::kRepeater:
       return "repeater";
-    case common::JammingSemantic::kMixed:
+    case common::utils::JammingSemantic::kMixed:
       return "mixed";
-    case common::JammingSemantic::kNone:
+    case common::utils::JammingSemantic::kNone:
     default:
       return "none";
   }
@@ -52,27 +52,27 @@ const char* JammingSemanticName(common::JammingSemantic semantic) {
  * @param type 控制意图类型。
  * @return 对应的雷达命令类型。
  */
-common::RadarCommandType ToRadarCommandType(common::ControlDirectiveType type) {
+common::control::RadarCommandType ToRadarCommandType(common::control::ControlDirectiveType type) {
   switch (type) {
-    case common::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION:
-      return common::RadarCommandType::SET_LPI_POWER;
-    case common::ControlDirectiveType::REQUEST_LPI_BEAMFORMING:
-      return common::RadarCommandType::SET_LPI_BEAMFORMING;
-    case common::ControlDirectiveType::REQUEST_LPI_DWELL:
-      return common::RadarCommandType::SET_LPI_DWELL;
-    case common::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER:
-      return common::RadarCommandType::ENABLE_SIDELOBE_CANCELLER;
-    case common::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING:
-      return common::RadarCommandType::ENABLE_ADAPTIVE_BEAMFORMING;
-    case common::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY:
-      return common::RadarCommandType::SET_AGILITY_FREQ;
-    case common::ControlDirectiveType::REQUEST_ECCM_REJITTER:
-      return common::RadarCommandType::SET_ECCM_REJITTER;
-    case common::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN:
-      return common::RadarCommandType::SET_ECCM_BURNTHROUGH_GAIN;
-    case common::ControlDirectiveType::NONE:
+    case common::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION:
+      return common::control::RadarCommandType::SET_LPI_POWER;
+    case common::control::ControlDirectiveType::REQUEST_LPI_BEAMFORMING:
+      return common::control::RadarCommandType::SET_LPI_BEAMFORMING;
+    case common::control::ControlDirectiveType::REQUEST_LPI_DWELL:
+      return common::control::RadarCommandType::SET_LPI_DWELL;
+    case common::control::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER:
+      return common::control::RadarCommandType::ENABLE_SIDELOBE_CANCELLER;
+    case common::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING:
+      return common::control::RadarCommandType::ENABLE_ADAPTIVE_BEAMFORMING;
+    case common::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY:
+      return common::control::RadarCommandType::SET_AGILITY_FREQ;
+    case common::control::ControlDirectiveType::REQUEST_ECCM_REJITTER:
+      return common::control::RadarCommandType::SET_ECCM_REJITTER;
+    case common::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN:
+      return common::control::RadarCommandType::SET_ECCM_BURNTHROUGH_GAIN;
+    case common::control::ControlDirectiveType::NONE:
     default:
-      return common::RadarCommandType::NONE;
+      return common::control::RadarCommandType::NONE;
   }
 }
 
@@ -81,17 +81,17 @@ common::RadarCommandType ToRadarCommandType(common::ControlDirectiveType type) {
  * @param source 控制意图来源。
  * @return 对应的雷达命令来源。
  */
-common::RadarCommandSource ToRadarCommandSource(common::ControlDirectiveSource source) {
+common::control::RadarCommandSource ToRadarCommandSource(common::control::ControlDirectiveSource source) {
   switch (source) {
-    case common::ControlDirectiveSource::THREAT_ASSESSMENT:
-      return common::RadarCommandSource::CLASSIFIER;
-    case common::ControlDirectiveSource::EMISSION_CONTROL:
-      return common::RadarCommandSource::LPI;
-    case common::ControlDirectiveSource::SURVIVABILITY:
-      return common::RadarCommandSource::ECCM;
-    case common::ControlDirectiveSource::UNKNOWN:
+    case common::control::ControlDirectiveSource::THREAT_ASSESSMENT:
+      return common::control::RadarCommandSource::CLASSIFIER;
+    case common::control::ControlDirectiveSource::EMISSION_CONTROL:
+      return common::control::RadarCommandSource::LPI;
+    case common::control::ControlDirectiveSource::SURVIVABILITY:
+      return common::control::RadarCommandSource::ECCM;
+    case common::control::ControlDirectiveSource::UNKNOWN:
     default:
-      return common::RadarCommandSource::UNKNOWN;
+      return common::control::RadarCommandSource::UNKNOWN;
   }
 }
 
@@ -100,8 +100,8 @@ common::RadarCommandSource ToRadarCommandSource(common::ControlDirectiveSource s
  * @param directive 单条控制意图。
  * @return 与控制意图等价的雷达命令。
  */
-common::RadarCommand ToRadarCommand(const common::ControlDirective& directive) {
-  return common::RadarCommand(ToRadarCommandType(directive.type),
+common::control::RadarCommand ToRadarCommand(const common::control::ControlDirective& directive) {
+  return common::control::RadarCommand(ToRadarCommandType(directive.type),
                               ToRadarCommandSource(directive.source));
 }
 
@@ -109,8 +109,8 @@ common::RadarCommand ToRadarCommand(const common::ControlDirective& directive) {
  * @brief AirborneRuntimeInput 描述单周期骨架执行需要的输入快照。
  */
 struct AirborneRuntimeInput {
-  const common::TargetFeatureList* target_features{nullptr}; /**< 当前周期目标输入只读视图。 */
-  common::PlatformAttitudeDeg platform_attitude{};           /**< 当前平台姿态。 */
+  const common::model::TargetFeatureList* target_features{nullptr}; /**< 当前周期目标输入只读视图。 */
+  common::config::PlatformAttitudeDeg platform_attitude{};           /**< 当前平台姿态。 */
   float cycle_dt_sec{1.0f};                                  /**< 当前周期步长。 */
 };
 
@@ -125,12 +125,12 @@ struct RadarController::Impl {
   decision::pipeline::ITacticalDecisionEngine* decision_engine{nullptr};
   std::unique_ptr<decision::pipeline::ITacticalDecisionEngine> owned_decision_engine;
   environment::IEnvironmentService& environment_service;
-  std::unique_ptr<common::RadarControlProfile> owned_control_profile;
-  std::reference_wrapper<common::RadarControlProfile> control_profile;
+  std::unique_ptr<common::control::RadarControlProfile> owned_control_profile;
+  std::reference_wrapper<common::control::RadarControlProfile> control_profile;
   std::unique_ptr<decision::pipeline::TacticalStateStore> tactical_state_store;
   std::unique_ptr<decision::pipeline::ControlReducer> control_reducer;
   std::unique_ptr<signal::output::IDataOutputManager> output_manager;
-  oneq::internal::runtime::RuntimeCycleState<common::TrackOutputFrame,
+  oneq::internal::runtime::RuntimeCycleState<common::output::TrackOutputFrame,
                                              context::ValidationIssueList>
       runtime_state{};
   std::uint32_t cycle_index{1};
@@ -141,7 +141,7 @@ struct RadarController::Impl {
         signal_pipeline(sig),
         owned_decision_engine(new decision::pipeline::TacticalCoordinator()),
         environment_service(env),
-        owned_control_profile(new common::RadarControlProfile()),
+        owned_control_profile(new common::control::RadarControlProfile()),
         control_profile(*owned_control_profile),
         tactical_state_store(new decision::pipeline::TacticalStateStore()),
         control_reducer(new decision::pipeline::ControlReducer()),
@@ -156,16 +156,16 @@ struct RadarController::Impl {
         signal_pipeline(sig),
         decision_engine(&ext_engine),
         environment_service(env),
-        owned_control_profile(new common::RadarControlProfile()),
+        owned_control_profile(new common::control::RadarControlProfile()),
         control_profile(*owned_control_profile),
         tactical_state_store(new decision::pipeline::TacticalStateStore()),
         control_reducer(new decision::pipeline::ControlReducer()),
         output_manager(new signal::output::DataOutputManager()) {}
 
-  void ExecuteCommands(const std::vector<common::ControlDirective>& directives) {
+  void ExecuteCommands(const std::vector<common::control::ControlDirective>& directives) {
     for (std::size_t i = 0; i < directives.size(); ++i) {
-      const common::RadarCommand command = ToRadarCommand(directives[i]);
-      if (command.type == common::RadarCommandType::NONE) {
+      const common::control::RadarCommand command = ToRadarCommand(directives[i]);
+      if (command.type == common::control::RadarCommandType::NONE) {
         continue;
       }
       radar_context.SubmitControlCommand(command);
@@ -219,11 +219,11 @@ void RadarController::RunOnce() {
       impl->environment_service.BeginCycle(environment_cycle_context);
     }
 
-    common::TrackOutputFrame Execute(
+    common::output::TrackOutputFrame Execute(
         const AirborneRuntimeInput& input,
         const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
-      const common::TargetFeatureList kEmptyTargets;
-      const common::TargetFeatureList& target_features =
+      const common::model::TargetFeatureList kEmptyTargets;
+      const common::model::TargetFeatureList& target_features =
           input.target_features != nullptr ? *input.target_features : kEmptyTargets;
       impl->signal_pipeline.SetControlProfile(impl->control_profile.get());
       impl->signal_pipeline.UpdatePlatformAttitude(input.platform_attitude);
@@ -232,10 +232,10 @@ void RadarController::RunOnce() {
           impl->signal_pipeline.RunCycle(target_features, impl->environment_service);
       const signal::pipeline::AssociationQualityMetrics association_metrics =
           signal_result.association_quality_metrics;
-      common::DecisionInputFrame decision_frame = signal_result.decision_frame;
+      common::model::DecisionInputFrame decision_frame = signal_result.decision_frame;
       decision_frame.cycle_index = stamp.cycle_index;
       decision_frame.batch_id = stamp.batch_id;
-      common::TrackOutputFrame track_output_frame = impl->output_manager->BuildTrackOutputFrame(
+      common::output::TrackOutputFrame track_output_frame = impl->output_manager->BuildTrackOutputFrame(
           stamp.cycle_index, stamp.batch_id, decision_frame.tracks);
 
       decision::pipeline::TacticalDecisionResult decision_result;
@@ -279,11 +279,11 @@ void RadarController::RunOnce() {
       return track_output_frame;
     }
 
-    common::TrackOutputFrame BuildErrorOutput(
+    common::output::TrackOutputFrame BuildErrorOutput(
         const AirborneRuntimeInput& input,
         const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
       (void)input;
-      common::TrackOutputFrame frame;
+      common::output::TrackOutputFrame frame;
       frame.cycle_index = stamp.cycle_index;
       frame.batch_id = stamp.batch_id;
       return frame;
@@ -327,7 +327,7 @@ bool RadarController::HasLatestTrackOutputFrame() const {
   return impl_->runtime_state.has_latest_output;
 }
 
-const common::TrackOutputFrame& RadarController::GetLatestTrackOutputFrame() const {
+const common::output::TrackOutputFrame& RadarController::GetLatestTrackOutputFrame() const {
   return impl_->runtime_state.latest_output;
 }
 

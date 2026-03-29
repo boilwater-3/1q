@@ -14,7 +14,7 @@
 #include <limits>
 #include <vector>
 
-#include "1q/airborne_radar/common/TargetFeature.h"
+#include "1q/airborne_radar/common/model/TargetFeature.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/airborne_radar/core/context/RadarInputValidation.h"
 
@@ -30,8 +30,8 @@ using core::context::ValidationSeverity;
 namespace {
 
 // 构造一个最简有效目标（位于 X 轴方向 1000m，有速度有 ID）
-common::TargetFeature MakeValidTarget(std::uint64_t id = 1u) {
-  common::TargetFeature t(100.0f, 0.0f, 0.0f, 1.0f);
+common::model::TargetFeature MakeValidTarget(std::uint64_t id = 1u) {
+  common::model::TargetFeature t(100.0f, 0.0f, 0.0f, 1.0f);
   t.external_target_id = id;
   t.position_x = 1000.0f;
   t.position_y = 0.0f;
@@ -59,7 +59,7 @@ const core::context::ValidationIssue* FindIssue(
 
 /// @brief 目标位于原点 (0,0,0) 且 range_m <= 0 → 必须报 kMissingRangeAndCartesianPosition。
 TEST(RadarInputValidationTest, OriginWithNoRangeIsError) {
-  common::TargetFeature target;
+  common::model::TargetFeature target;
   target.external_target_id = 1u;
   target.position_x = 0.0f;
   target.position_y = 0.0f;
@@ -75,7 +75,7 @@ TEST(RadarInputValidationTest, OriginWithNoRangeIsError) {
 
 /// @brief 目标位于原点 (0,0,0) 但 range_m > 0 → 斜距有效，不报位置缺失错误。
 TEST(RadarInputValidationTest, OriginWithPositiveRangeIsValid) {
-  common::TargetFeature target;
+  common::model::TargetFeature target;
   target.external_target_id = 1u;
   target.position_x = 0.0f;
   target.position_y = 0.0f;
@@ -91,7 +91,7 @@ TEST(RadarInputValidationTest, OriginWithPositiveRangeIsValid) {
 
 /// @brief 目标有非零笛卡尔位置但 range_m <= 0 → 位置有效，不报位置缺失错误。
 TEST(RadarInputValidationTest, CartesianPositionWithNonPositiveRangeIsValid) {
-  common::TargetFeature target;
+  common::model::TargetFeature target;
   target.external_target_id = 1u;
   target.position_x = 3000.0f;  // 有笛卡尔位置
   target.position_y = 0.0f;
@@ -106,7 +106,7 @@ TEST(RadarInputValidationTest, CartesianPositionWithNonPositiveRangeIsValid) {
 
 /// @brief 目标 range_m 为负值且无笛卡尔位置 → 同样报错。
 TEST(RadarInputValidationTest, NegativeRangeWithNoPositionIsError) {
-  common::TargetFeature target;
+  common::model::TargetFeature target;
   target.external_target_id = 1u;
   target.position_x = 0.0f;
   target.position_y = 0.0f;
@@ -126,7 +126,7 @@ TEST(RadarInputValidationTest, NegativeRangeWithNoPositionIsError) {
 
 /// @brief 位置字段含 NaN → 报 kNonFiniteTargetField（Error 级别）。
 TEST(RadarInputValidationTest, NanPositionFieldIsError) {
-  common::TargetFeature target = MakeValidTarget();
+  common::model::TargetFeature target = MakeValidTarget();
   target.position_x = std::numeric_limits<float>::quiet_NaN();
 
   const auto issues = ValidateTargetFeatures({target});
@@ -136,7 +136,7 @@ TEST(RadarInputValidationTest, NanPositionFieldIsError) {
 
 /// @brief 速度字段含 Inf → 报 kNonFiniteTargetField。
 TEST(RadarInputValidationTest, InfVelocityFieldIsError) {
-  common::TargetFeature target = MakeValidTarget();
+  common::model::TargetFeature target = MakeValidTarget();
   target.current_track_velocity_y = std::numeric_limits<float>::infinity();
 
   const auto issues = ValidateTargetFeatures({target});
@@ -146,7 +146,7 @@ TEST(RadarInputValidationTest, InfVelocityFieldIsError) {
 
 /// @brief RCS 字段含 NaN → 报 kNonFiniteTargetField。
 TEST(RadarInputValidationTest, NanRcsFieldIsError) {
-  common::TargetFeature target = MakeValidTarget();
+  common::model::TargetFeature target = MakeValidTarget();
   target.current_track_rcs = std::numeric_limits<float>::quiet_NaN();
 
   const auto issues = ValidateTargetFeatures({target});
@@ -156,7 +156,7 @@ TEST(RadarInputValidationTest, NanRcsFieldIsError) {
 
 /// @brief range_m 字段含 -Inf → 报 kNonFiniteTargetField。
 TEST(RadarInputValidationTest, NegativeInfRangeFieldIsError) {
-  common::TargetFeature target = MakeValidTarget();
+  common::model::TargetFeature target = MakeValidTarget();
   target.range_m = -std::numeric_limits<float>::infinity();
 
   const auto issues = ValidateTargetFeatures({target});
@@ -170,7 +170,7 @@ TEST(RadarInputValidationTest, NegativeInfRangeFieldIsError) {
 
 /// @brief external_target_id == 0 → kInfo 级别（不阻断执行）。
 TEST(RadarInputValidationTest, ZeroExternalIdIsInfo) {
-  common::TargetFeature target = MakeValidTarget(0u);
+  common::model::TargetFeature target = MakeValidTarget(0u);
 
   const auto issues = ValidateTargetFeatures({target});
   const core::context::ValidationIssue* issue =
@@ -182,8 +182,8 @@ TEST(RadarInputValidationTest, ZeroExternalIdIsInfo) {
 
 /// @brief 同一 external_target_id 出现两次 → Warning 级别。
 TEST(RadarInputValidationTest, DuplicateExternalIdIsWarning) {
-  common::TargetFeature t1 = MakeValidTarget(42u);
-  common::TargetFeature t2 = MakeValidTarget(42u);
+  common::model::TargetFeature t1 = MakeValidTarget(42u);
+  common::model::TargetFeature t2 = MakeValidTarget(42u);
   t2.position_x = 2000.0f;
   t2.range_m = 2000.0f;
 
@@ -197,7 +197,7 @@ TEST(RadarInputValidationTest, DuplicateExternalIdIsWarning) {
 
 /// @brief 负 RCS → Warning 级别（不阻断执行）。
 TEST(RadarInputValidationTest, NegativeRcsIsWarning) {
-  common::TargetFeature target = MakeValidTarget();
+  common::model::TargetFeature target = MakeValidTarget();
   target.current_track_rcs = -0.5f;
 
   const auto issues = ValidateTargetFeatures({target});

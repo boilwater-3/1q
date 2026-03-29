@@ -36,13 +36,13 @@
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/common/ConfigPresets.h"
-#include "1q/airborne_radar/common/DecisionTrackSnapshot.h"
-#include "1q/airborne_radar/common/RadarCommand.h"
-#include "1q/airborne_radar/common/RadarControlProfile.h"
-#include "1q/airborne_radar/common/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/common/TargetFeatureUtils.h"
-#include "1q/airborne_radar/common/TrackOutputFrame.h"
+#include "1q/airborne_radar/common/config/ConfigPresets.h"
+#include "1q/airborne_radar/common/model/DecisionTrackSnapshot.h"
+#include "1q/airborne_radar/common/control/RadarCommand.h"
+#include "1q/airborne_radar/common/control/RadarControlProfile.h"
+#include "1q/airborne_radar/common/config/RadarSessionConfigBuilder.h"
+#include "1q/airborne_radar/common/utils/TargetFeatureUtils.h"
+#include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/airborne_radar/core/session/RadarCycleResult.h"
 #include "1q/airborne_radar/core/session/RadarSession.h"
@@ -88,8 +88,8 @@ ImVec4 TrackColor(std::uint64_t association_key) {
 
 // ── 指令名称映射 ────────────────────────────────────────────────────────────
 
-const char* CommandTypeName(airborne_radar::common::RadarCommandType t) {
-  using T = airborne_radar::common::RadarCommandType;
+const char* CommandTypeName(airborne_radar::common::control::RadarCommandType t) {
+  using T = airborne_radar::common::control::RadarCommandType;
   switch (t) {
     case T::NONE:
       return "NONE";
@@ -145,13 +145,13 @@ struct SimState {
   std::map<std::uint64_t, std::vector<float>> hist_y;
 
   // 最近一帧轨迹
-  std::vector<airborne_radar::common::DecisionTrackSnapshot> latest_tracks;
+  std::vector<airborne_radar::common::model::DecisionTrackSnapshot> latest_tracks;
 
   // 指令历史（每个 cycle 的指令列表）
-  std::vector<std::vector<airborne_radar::common::RadarCommand>> command_history;
+  std::vector<std::vector<airborne_radar::common::control::RadarCommand>> command_history;
 
   // 控制 Profile 历史
-  std::vector<airborne_radar::common::RadarControlProfile> profile_history;
+  std::vector<airborne_radar::common::control::RadarControlProfile> profile_history;
 
   // 关联质量历史
   std::vector<float> jamming_severity_history;
@@ -325,25 +325,25 @@ void StepOnce(airborne_radar::core::session::RadarSession& session, SimState& si
 
 // ── 状态字符串 ────────────────────────────────────────────────────────────────
 
-const char* StatusStr(airborne_radar::common::DecisionTrackStatus s) {
+const char* StatusStr(airborne_radar::common::model::DecisionTrackStatus s) {
   switch (s) {
-    case airborne_radar::common::DecisionTrackStatus::kTentative:
+    case airborne_radar::common::model::DecisionTrackStatus::kTentative:
       return "Tentative";
-    case airborne_radar::common::DecisionTrackStatus::kConfirmed:
+    case airborne_radar::common::model::DecisionTrackStatus::kConfirmed:
       return "Confirmed";
-    case airborne_radar::common::DecisionTrackStatus::kLost:
+    case airborne_radar::common::model::DecisionTrackStatus::kLost:
       return "Lost";
   }
   return "Unknown";
 }
 
-ImPlotMarker StatusMarker(airborne_radar::common::DecisionTrackStatus s) {
+ImPlotMarker StatusMarker(airborne_radar::common::model::DecisionTrackStatus s) {
   switch (s) {
-    case airborne_radar::common::DecisionTrackStatus::kTentative:
+    case airborne_radar::common::model::DecisionTrackStatus::kTentative:
       return ImPlotMarker_Circle;
-    case airborne_radar::common::DecisionTrackStatus::kConfirmed:
+    case airborne_radar::common::model::DecisionTrackStatus::kConfirmed:
       return ImPlotMarker_Square;
-    case airborne_radar::common::DecisionTrackStatus::kLost:
+    case airborne_radar::common::model::DecisionTrackStatus::kLost:
       return ImPlotMarker_Cross;
   }
   return ImPlotMarker_Circle;
@@ -438,7 +438,7 @@ void RenderCommandTimeline(const SimState& sim) {
   ImPlot::SetupAxisLimits(ImAxis_X1, 0, kMaxCycles);
 
   // 为每种指令类型绘制散点标记
-  using CmdType = airborne_radar::common::RadarCommandType;
+  using CmdType = airborne_radar::common::control::RadarCommandType;
   struct CmdRow {
     CmdType type;
     float y_pos;

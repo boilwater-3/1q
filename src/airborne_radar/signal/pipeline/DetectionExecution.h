@@ -35,15 +35,15 @@ struct DetectionExecutionBuffers {
       nullptr}; /**< 各目标量测协方差 */
 };
 
-void RunHeuristicDetectionPass(const common::TargetFeatureList& input,
+void RunHeuristicDetectionPass(const common::model::TargetFeatureList& input,
                                const SignalPipelineConfig& runtime_config,
-                               const common::RadarControlProfile& control_profile,
+                               const common::control::RadarControlProfile& control_profile,
                                const environment::EnvironmentSnapshot& environment_snapshot,
                                DetectionExecutionBuffers* buffers);
 
-void RunPhysicalDetectionPass(const common::TargetFeatureList& input,
+void RunPhysicalDetectionPass(const common::model::TargetFeatureList& input,
                               const SignalPipelineConfig& runtime_config,
-                              const common::RadarControlProfile& control_profile,
+                              const common::control::RadarControlProfile& control_profile,
                               const environment::EnvironmentSnapshot& environment_snapshot,
                               detection::SignalDetector* signal_detector,
                               DetectionExecutionBuffers* buffers);

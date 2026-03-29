@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <unordered_map>
 
-#include "1q/airborne_radar/common/TrackOutputFrame.h"
+#include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
@@ -24,7 +24,7 @@ namespace output {
  * @param[in] frame 待查询的输出帧。
  * @return `external_target_id -> track snapshot` 的拷贝映射。
  */
-ONEQ_API std::unordered_map<std::uint64_t, DecisionTrackSnapshot>
+ONEQ_API std::unordered_map<std::uint64_t, model::DecisionTrackSnapshot>
 BuildTrackMapByExternalTargetId(const TrackOutputFrame& frame);
 
 /**
@@ -33,7 +33,7 @@ BuildTrackMapByExternalTargetId(const TrackOutputFrame& frame);
  * @param[in] frame 待查询的输出帧。
  * @return `association_key -> track snapshot` 的拷贝映射。
  */
-ONEQ_API std::unordered_map<std::uint64_t, DecisionTrackSnapshot>
+ONEQ_API std::unordered_map<std::uint64_t, model::DecisionTrackSnapshot>
 BuildTrackMapByAssociationKey(const TrackOutputFrame& frame);
 
 /**
@@ -42,7 +42,7 @@ BuildTrackMapByAssociationKey(const TrackOutputFrame& frame);
  * @param[in] external_target_id 外部目标 ID。
  * @return 匹配到的轨迹快照拷贝列表。
  */
-ONEQ_API DecisionTrackSnapshotList CollectTracksByExternalTargetId(
+ONEQ_API model::DecisionTrackSnapshotList CollectTracksByExternalTargetId(
     const TrackOutputFrame& frame, std::uint64_t external_target_id);
 
 /**
@@ -50,21 +50,21 @@ ONEQ_API DecisionTrackSnapshotList CollectTracksByExternalTargetId(
  * @param[in] frame 待查询的输出帧。
  * @return `status == kConfirmed` 的轨迹快照拷贝列表。
  */
-ONEQ_API DecisionTrackSnapshotList CollectConfirmedTracks(const TrackOutputFrame& frame);
+ONEQ_API model::DecisionTrackSnapshotList CollectConfirmedTracks(const TrackOutputFrame& frame);
 
 /**
  * @brief 收集所有 lost 轨迹。
  * @param[in] frame 待查询的输出帧。
  * @return `status == kLost` 的轨迹快照拷贝列表。
  */
-ONEQ_API DecisionTrackSnapshotList CollectLostTracks(const TrackOutputFrame& frame);
+ONEQ_API model::DecisionTrackSnapshotList CollectLostTracks(const TrackOutputFrame& frame);
 
 /**
  * @brief 收集所有带干扰标记的轨迹。
  * @param[in] frame 待查询的输出帧。
  * @return `state.jamming_detected == true` 的轨迹快照拷贝列表。
  */
-ONEQ_API DecisionTrackSnapshotList CollectJammingTracks(const TrackOutputFrame& frame);
+ONEQ_API model::DecisionTrackSnapshotList CollectJammingTracks(const TrackOutputFrame& frame);
 
 /**
  * @brief 判断输出帧中是否包含指定外部目标 ID。
@@ -88,7 +88,7 @@ ONEQ_API std::size_t CountJammingTracks(const TrackOutputFrame& frame);
  * @param[in] status 目标状态。
  * @return 匹配状态的轨迹数。
  */
-ONEQ_API std::size_t CountTracksByStatus(const TrackOutputFrame& frame, DecisionTrackStatus status);
+ONEQ_API std::size_t CountTracksByStatus(const TrackOutputFrame& frame, model::DecisionTrackStatus status);
 
 }  // namespace output
 }  // namespace common

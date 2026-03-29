@@ -10,9 +10,9 @@
 
 #include <iostream>
 
-#include "1q/airborne_radar/common/ConfigPresets.h"
-#include "1q/airborne_radar/common/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/common/TargetFeatureUtils.h"
+#include "1q/airborne_radar/common/config/ConfigPresets.h"
+#include "1q/airborne_radar/common/config/RadarSessionConfigBuilder.h"
+#include "1q/airborne_radar/common/utils/TargetFeatureUtils.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/airborne_radar/core/context/RadarInputValidation.h"
 #include "1q/airborne_radar/core/output/TrackOutputQueries.h"

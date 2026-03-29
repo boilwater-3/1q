@@ -23,10 +23,10 @@ constexpr float kMeaningfulDetectionPressureThreshold = 0.35f; /**< 可观测探
  * @param semantic 当前周期主导干扰语义。
  * @return 属于 deception/repeater/mixed 时返回 true。
  */
-bool IsAssociationDrivenJammingSemantic(common::JammingSemantic semantic) {
-  return semantic == common::JammingSemantic::kDeception ||
-         semantic == common::JammingSemantic::kRepeater ||
-         semantic == common::JammingSemantic::kMixed;
+bool IsAssociationDrivenJammingSemantic(common::utils::JammingSemantic semantic) {
+  return semantic == common::utils::JammingSemantic::kDeception ||
+         semantic == common::utils::JammingSemantic::kRepeater ||
+         semantic == common::utils::JammingSemantic::kMixed;
 }
 /**
  * @brief 判断关联质量摘要是否足以反向触发 ECCM。
@@ -34,7 +34,7 @@ bool IsAssociationDrivenJammingSemantic(common::JammingSemantic semantic) {
  * @return 关联压力足够显著时返回 true。
  */
 bool HasAssociationDrivenEccmEvidence(
-    const common::AssociationQualityInfo& association_quality_info) {
+    const common::model::AssociationQualityInfo& association_quality_info) {
   if (!IsAssociationDrivenJammingSemantic(association_quality_info.dominant_jamming_semantic) ||
       association_quality_info.jamming_severity < kAssociationDrivenEccmMinJammingSeverity ||
       association_quality_info.association_stress < kAssociationDrivenEccmMinAssociationStress) {
@@ -47,7 +47,7 @@ bool HasAssociationDrivenEccmEvidence(
  * @param perception_quality_info 当前周期探测质量摘要。
  * @return 探测压力达到阈值时返回 true。
  */
-bool HasMeaningfulDetectionPressure(const common::PerceptionQualityInfo& perception_quality_info) {
+bool HasMeaningfulDetectionPressure(const common::model::PerceptionQualityInfo& perception_quality_info) {
   return perception_quality_info.input_target_count > 0U &&
          perception_quality_info.detection_stress >= kMeaningfulDetectionPressureThreshold;
 }
@@ -57,7 +57,7 @@ bool HasMeaningfulDetectionPressure(const common::PerceptionQualityInfo& percept
  * @param evaluation_state 本周期 evaluator 聚合状态。
  * @return 用于跨周期记忆与日志的决策摘要。
  */
-std::string BuildDecisionSummary(const common::DecisionInputFrame& input_frame,
+std::string BuildDecisionSummary(const common::model::DecisionInputFrame& input_frame,
                                  const TacticalEvaluationState& evaluation_state) {
   std::vector<std::string> causes;
   if (input_frame.environment_jamming_detected || input_frame.eccm_source_info.has_jamming_signal) {
@@ -99,8 +99,8 @@ std::string BuildDecisionSummary(const common::DecisionInputFrame& input_frame,
  * @param eccm_source_info 待回填的 ECCM 输入摘要。
  */
 void BackfillAssociationDrivenEccmTrigger(
-    const common::AssociationQualityInfo& association_quality_info,
-    common::EccmSourceInfo* eccm_source_info) {
+    const common::model::AssociationQualityInfo& association_quality_info,
+    common::model::EccmSourceInfo* eccm_source_info) {
   if (eccm_source_info == nullptr || !HasAssociationDrivenEccmEvidence(association_quality_info)) {
     return;
   }
@@ -116,7 +116,7 @@ TacticalCoordinator::TacticalCoordinator(
       emission_control_evaluator_(),
       survivability_evaluator_() {}
 
-TacticalDecisionResult TacticalCoordinator::Evaluate(const common::DecisionInputFrame& input_frame,
+TacticalDecisionResult TacticalCoordinator::Evaluate(const common::model::DecisionInputFrame& input_frame,
                                                      TacticalStateStore& state_store) {
   TacticalEvaluationState evaluation_state;
   evaluation_state.eccm_source_info = input_frame.eccm_source_info;
@@ -140,7 +140,7 @@ TacticalDecisionResult TacticalCoordinator::Evaluate(const common::DecisionInput
   result.target_classification_result.reserve(evaluation_state.target_classification_result.size());
   for (std::size_t i = 0; i < evaluation_state.target_classification_result.size(); ++i) {
     result.target_classification_result.push_back(
-        common::TargetCategory(evaluation_state.target_classification_result[i].target_type));
+        common::model::TargetCategory(evaluation_state.target_classification_result[i].target_type));
   }
   result.proposals = evaluation_state.proposals;
   if (evaluation_state.should_enable_eccm) {

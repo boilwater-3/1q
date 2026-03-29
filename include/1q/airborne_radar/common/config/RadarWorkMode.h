@@ -8,6 +8,7 @@
 
 namespace airborne_radar {
 namespace common {
+namespace config {
 
 /**
  * @brief RadarWorkSubMode 表示机载雷达工作子模式。
@@ -19,6 +20,7 @@ enum class RadarWorkSubMode {
   kStt = 3   /**< 单目标跟踪：固定驻留点 */
 };
 
+}  // namespace config
 }  // namespace common
 }  // namespace airborne_radar
 

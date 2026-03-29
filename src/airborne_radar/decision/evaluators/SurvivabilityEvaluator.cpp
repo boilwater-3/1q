@@ -120,15 +120,15 @@ const float kThresholdBurnthroughGain = 1.5f;
  * @param type 控制意图类型。
  * @return 返回 `type` 指定类型且 `source` 字段为 `SURVIVABILITY` 的控制意图。
  */
-common::ControlDirective BuildDirective(common::ControlDirectiveType type) {
-  return common::ControlDirective(type, common::ControlDirectiveSource::SURVIVABILITY);
+common::control::ControlDirective BuildDirective(common::control::ControlDirectiveType type) {
+  return common::control::ControlDirective(type, common::control::ControlDirectiveSource::SURVIVABILITY);
 }
 /**
  * @brief 判断 ECCM 输入是否携带可用的细粒度干扰事实。
  * @param source_info 当前周期 ECCM 输入摘要。
  * @return 至少存在多源事实或兼容字段时返回 true。
  */
-bool HasDetailedEccmFacts(const common::EccmSourceInfo& source_info) {
+bool HasDetailedEccmFacts(const common::model::EccmSourceInfo& source_info) {
   if (!source_info.jammer_sources.empty()) {
     return true;
   }
@@ -149,8 +149,8 @@ struct EccmProposalSelection {
   bool association_supports_beam_adaptation{false};   /**< 关联压力是否支持波束自适应 */
   bool association_supports_frequency_agility{false}; /**< 关联压力是否支持频率捷变 */
   bool association_supports_rejitter{false};          /**< 关联压力是否支持重频抖动 */
-  common::JammingSemantic association_semantic{
-      common::JammingSemantic::kNone}; /**< 关联压力对应的干扰语义 */
+  common::utils::JammingSemantic association_semantic{
+      common::utils::JammingSemantic::kNone}; /**< 关联压力对应的干扰语义 */
 };
 /**
  * @brief 根据评分增益调整控制意图优先级。
@@ -174,7 +174,7 @@ float ClampUnit(float value) { return std::max(0.0f, std::min(1.0f, value)); }
  * @return 关联压力和干扰严重度同时达到最小门限时返回 true。
  */
 bool HasMeaningfulAssociationPressure(
-    const common::AssociationQualityInfo& association_quality_info) {
+    const common::model::AssociationQualityInfo& association_quality_info) {
   return association_quality_info.association_stress >= kMinimumAssociationStress &&
          association_quality_info.jamming_severity >= kMinimumAssociationSeverity;
 }
@@ -193,7 +193,7 @@ void AccumulateCautiousFallback(EccmProposalSelection* selection) {
  * @param source_info 当前周期 ECCM 输入摘要。
  * @param selection 待累加的提案选择状态。
  */
-void AccumulateLegacyEccmFacts(const common::EccmSourceInfo& source_info,
+void AccumulateLegacyEccmFacts(const common::model::EccmSourceInfo& source_info,
                                EccmProposalSelection* selection) {
   if (selection == nullptr) {
     return;
@@ -219,7 +219,7 @@ void AccumulateLegacyEccmFacts(const common::EccmSourceInfo& source_info,
  * @param source 单个干扰源事实。
  * @param selection 待累加的提案选择状态。
  */
-void AccumulateMultiSourceEccmFacts(const common::EccmJammerSourceInfo& source,
+void AccumulateMultiSourceEccmFacts(const common::model::EccmJammerSourceInfo& source,
                                     EccmProposalSelection* selection) {
   if (selection == nullptr) {
     return;
@@ -249,24 +249,24 @@ void AccumulateMultiSourceEccmFacts(const common::EccmJammerSourceInfo& source,
   }
 
   switch (source.technique) {
-    case common::JammingTechnique::kNoiseSuppression:
+    case common::model::JammingTechnique::kNoiseSuppression:
       selection->adaptive_beamforming_score += 0.7f * confidence_weight;
       selection->burnthrough_gain_score += 0.8f * confidence_weight;
       if (source.jammer_in_sidelobe) {
         selection->sidelobe_canceller_score += 1.2f * confidence_weight;
       }
       break;
-    case common::JammingTechnique::kDeception:
+    case common::model::JammingTechnique::kDeception:
       selection->agility_frequency_score += 1.5f * confidence_weight;
       selection->eccm_rejitter_score += 1.8f * confidence_weight;
       selection->adaptive_beamforming_score += 0.5f * confidence_weight;
       break;
-    case common::JammingTechnique::kRepeater:
+    case common::model::JammingTechnique::kRepeater:
       selection->eccm_rejitter_score += 1.6f * confidence_weight;
       selection->adaptive_beamforming_score += 1.0f * confidence_weight;
       selection->agility_frequency_score += 0.6f * confidence_weight;
       break;
-    case common::JammingTechnique::kUnknown:
+    case common::model::JammingTechnique::kUnknown:
     default:
       selection->adaptive_beamforming_score += 0.4f * confidence_weight;
       break;
@@ -278,7 +278,7 @@ void AccumulateMultiSourceEccmFacts(const common::EccmJammerSourceInfo& source,
  * @param association_quality_info 当前周期关联质量摘要。
  * @param selection 待累加的提案选择状态。
  */
-void AccumulateAssociationDrivenBias(const common::AssociationQualityInfo& association_quality_info,
+void AccumulateAssociationDrivenBias(const common::model::AssociationQualityInfo& association_quality_info,
                                      EccmProposalSelection* selection) {
   if (selection == nullptr || !HasMeaningfulAssociationPressure(association_quality_info)) {
     return;
@@ -291,8 +291,8 @@ void AccumulateAssociationDrivenBias(const common::AssociationQualityInfo& assoc
   const float combined_weight = 0.45f * severity + 0.40f * stress + 0.15f * cost_pressure;
 
   switch (association_quality_info.dominant_jamming_semantic) {
-    case common::JammingSemantic::kDeception:
-      selection->association_semantic = common::JammingSemantic::kDeception;
+    case common::utils::JammingSemantic::kDeception:
+      selection->association_semantic = common::utils::JammingSemantic::kDeception;
       selection->association_supports_frequency_agility = true;
       selection->association_supports_rejitter = true;
       selection->association_supports_beam_adaptation = true;
@@ -300,8 +300,8 @@ void AccumulateAssociationDrivenBias(const common::AssociationQualityInfo& assoc
       selection->eccm_rejitter_score += 3.8f * combined_weight;
       selection->adaptive_beamforming_score += 0.8f * combined_weight;
       break;
-    case common::JammingSemantic::kRepeater:
-      selection->association_semantic = common::JammingSemantic::kRepeater;
+    case common::utils::JammingSemantic::kRepeater:
+      selection->association_semantic = common::utils::JammingSemantic::kRepeater;
       selection->association_supports_frequency_agility = true;
       selection->association_supports_rejitter = true;
       selection->association_supports_beam_adaptation = true;
@@ -309,8 +309,8 @@ void AccumulateAssociationDrivenBias(const common::AssociationQualityInfo& assoc
       selection->eccm_rejitter_score += 3.6f * combined_weight;
       selection->adaptive_beamforming_score += 0.9f * combined_weight;
       break;
-    case common::JammingSemantic::kMixed:
-      selection->association_semantic = common::JammingSemantic::kMixed;
+    case common::utils::JammingSemantic::kMixed:
+      selection->association_semantic = common::utils::JammingSemantic::kMixed;
       selection->association_supports_frequency_agility = true;
       selection->association_supports_rejitter = true;
       selection->association_supports_beam_adaptation = true;
@@ -318,8 +318,8 @@ void AccumulateAssociationDrivenBias(const common::AssociationQualityInfo& assoc
       selection->eccm_rejitter_score += 3.0f * combined_weight;
       selection->adaptive_beamforming_score += 0.8f * combined_weight;
       break;
-    case common::JammingSemantic::kNoiseSuppression:
-    case common::JammingSemantic::kNone:
+    case common::utils::JammingSemantic::kNoiseSuppression:
+    case common::utils::JammingSemantic::kNone:
     default:
       break;
   }
@@ -329,17 +329,17 @@ void AccumulateAssociationDrivenBias(const common::AssociationQualityInfo& assoc
  * @param semantic 当前周期主导干扰语义。
  * @return 用于 rationale 的简短描述。
  */
-std::string DescribeAssociationSemantic(common::JammingSemantic semantic) {
+std::string DescribeAssociationSemantic(common::utils::JammingSemantic semantic) {
   switch (semantic) {
-    case common::JammingSemantic::kDeception:
+    case common::utils::JammingSemantic::kDeception:
       return "deception-like association stress";
-    case common::JammingSemantic::kRepeater:
+    case common::utils::JammingSemantic::kRepeater:
       return "repeater-like association stress";
-    case common::JammingSemantic::kMixed:
+    case common::utils::JammingSemantic::kMixed:
       return "mixed association stress";
-    case common::JammingSemantic::kNoiseSuppression:
+    case common::utils::JammingSemantic::kNoiseSuppression:
       return "noise-like association stress";
-    case common::JammingSemantic::kNone:
+    case common::utils::JammingSemantic::kNone:
     default:
       return "association stress";
   }
@@ -351,14 +351,14 @@ std::string DescribeAssociationSemantic(common::JammingSemantic semantic) {
  * @param selection 当前提案选择状态。
  * @return 对应 proposal 的 rationale 文本。
  */
-std::string BuildProposalRationale(common::ControlDirectiveType type,
+std::string BuildProposalRationale(common::control::ControlDirectiveType type,
                                    const EccmProposalSelection& selection) {
   std::string rationale;
   switch (type) {
-    case common::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER:
+    case common::control::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER:
       rationale = "jamming facts favor sidelobe cancellation";
       break;
-    case common::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING:
+    case common::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING:
       rationale = "jamming environment requires adaptive beamforming";
       if (selection.association_supports_beam_adaptation) {
         rationale += "; ";
@@ -366,7 +366,7 @@ std::string BuildProposalRationale(common::ControlDirectiveType type,
         rationale += " also degrades association stability";
       }
       break;
-    case common::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY:
+    case common::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY:
       rationale = "jamming facts favor agility frequency";
       if (selection.association_supports_frequency_agility) {
         rationale += "; ";
@@ -374,7 +374,7 @@ std::string BuildProposalRationale(common::ControlDirectiveType type,
         rationale += " raises frequency-agility priority";
       }
       break;
-    case common::ControlDirectiveType::REQUEST_ECCM_REJITTER:
+    case common::control::ControlDirectiveType::REQUEST_ECCM_REJITTER:
       rationale = "jamming facts favor rejitter";
       if (selection.association_supports_rejitter) {
         rationale += "; ";
@@ -382,7 +382,7 @@ std::string BuildProposalRationale(common::ControlDirectiveType type,
         rationale += " raises PRF rejitter priority";
       }
       break;
-    case common::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN:
+    case common::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN:
       rationale = "jamming facts favor burnthrough gain";
       break;
     default:
@@ -399,7 +399,7 @@ std::string BuildProposalRationale(common::ControlDirectiveType type,
  * @param rationale 提案解释文本。
  * @param proposals 提案输出列表。
  */
-void AppendProposal(common::ControlDirectiveType type, int priority, const std::string& rationale,
+void AppendProposal(common::control::ControlDirectiveType type, int priority, const std::string& rationale,
                     std::vector<pipeline::TacticalProposal>* proposals) {
   if (proposals == nullptr) {
     return;
@@ -415,8 +415,8 @@ void AppendProposal(common::ControlDirectiveType type, int priority, const std::
  * @param hold_only 当前周期是否仅由 hold 机制维持 ECCM 输出。
  * @param proposals 提案输出列表。
  */
-void AppendEccmProposals(const common::EccmSourceInfo& source_info,
-                         const common::AssociationQualityInfo& association_quality_info,
+void AppendEccmProposals(const common::model::EccmSourceInfo& source_info,
+                         const common::model::AssociationQualityInfo& association_quality_info,
                          bool environment_jamming_detected, bool hold_only,
                          std::vector<pipeline::TacticalProposal>* proposals) {
   EccmProposalSelection selection;
@@ -441,41 +441,41 @@ void AppendEccmProposals(const common::EccmSourceInfo& source_info,
   AccumulateAssociationDrivenBias(association_quality_info, &selection);
 
   if (selection.sidelobe_canceller_score >= kThresholdSidelobeCanceller) {
-    AppendProposal(common::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER,
+    AppendProposal(common::control::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER,
                    ResolvePriorityFromScore(kBasePrioritySidelobeCanceller,
                                             selection.sidelobe_canceller_score),
                    BuildProposalRationale(
-                       common::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER, selection),
+                       common::control::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER, selection),
                    proposals);
   }
   if (selection.adaptive_beamforming_score >= kThresholdAdaptiveBeamforming) {
     AppendProposal(
-        common::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
+        common::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
         ResolvePriorityFromScore(kBasePriorityAdaptiveBeamforming,
                                  selection.adaptive_beamforming_score),
-        BuildProposalRationale(common::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
+        BuildProposalRationale(common::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
                                selection),
         proposals);
   }
   if (selection.agility_frequency_score >= kThresholdAgilityFrequency) {
     AppendProposal(
-        common::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
+        common::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
         ResolvePriorityFromScore(kBasePriorityAgilityFrequency, selection.agility_frequency_score),
-        BuildProposalRationale(common::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY, selection),
+        BuildProposalRationale(common::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY, selection),
         proposals);
   }
   if (selection.eccm_rejitter_score >= kThresholdEccmRejitter) {
     AppendProposal(
-        common::ControlDirectiveType::REQUEST_ECCM_REJITTER,
+        common::control::ControlDirectiveType::REQUEST_ECCM_REJITTER,
         ResolvePriorityFromScore(kBasePriorityEccmRejitter, selection.eccm_rejitter_score),
-        BuildProposalRationale(common::ControlDirectiveType::REQUEST_ECCM_REJITTER, selection),
+        BuildProposalRationale(common::control::ControlDirectiveType::REQUEST_ECCM_REJITTER, selection),
         proposals);
   }
   if (selection.burnthrough_gain_score >= kThresholdBurnthroughGain) {
     AppendProposal(
-        common::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
+        common::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
         ResolvePriorityFromScore(kBasePriorityBurnthroughGain, selection.burnthrough_gain_score),
-        BuildProposalRationale(common::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
+        BuildProposalRationale(common::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
                                selection),
         proposals);
   }
@@ -486,7 +486,7 @@ void AppendEccmProposals(const common::EccmSourceInfo& source_info,
 SurvivabilityEvaluator::SurvivabilityEvaluator(SurvivabilityEvaluatorConfig config)
     : config_(config) {}
 
-void SurvivabilityEvaluator::Evaluate(const common::DecisionInputFrame& input_frame,
+void SurvivabilityEvaluator::Evaluate(const common::model::DecisionInputFrame& input_frame,
                                       pipeline::TacticalStateStore& state_store,
                                       pipeline::TacticalEvaluationState& evaluation_state) const {
   bool should_enable_eccm = evaluation_state.eccm_source_info.has_jamming_signal ||

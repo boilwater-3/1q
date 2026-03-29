@@ -7,8 +7,8 @@
 
 #include <cstdint>
 
-#include "1q/airborne_radar/common/ConfigPresets.h"
-#include "1q/airborne_radar/common/RadarSessionConfigBuilder.h"
+#include "1q/airborne_radar/common/config/ConfigPresets.h"
+#include "1q/airborne_radar/common/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/core/session/RadarSession.h"
 
 namespace airborne_radar {
@@ -19,7 +19,7 @@ namespace tests {
 // ---------------------------------------------------------------------------
 
 TEST(RadarSessionConfigBuilderTest, DefaultConstructionPreservesStructDefaults) {
-  const auto config = common::RadarSessionConfigBuilder().Build();
+  const auto config = common::config::RadarSessionConfigBuilder().Build();
 
   EXPECT_FLOAT_EQ(config.jamming_detection_threshold_db, 6.0f);
   EXPECT_FALSE(config.signal_pipeline_config.detection.enable_physics_detection);
@@ -33,7 +33,7 @@ TEST(RadarSessionConfigBuilderTest, DefaultConstructionPreservesStructDefaults) 
   EXPECT_FLOAT_EQ(config.signal_pipeline_config.detection.radar_system.receiver.noise_figure_db,
                   4.0f);
   EXPECT_EQ(config.signal_pipeline_config.beam_control.radar_orientation.work_sub_mode,
-            common::RadarWorkSubMode::kTws);
+            common::config::RadarWorkSubMode::kTws);
 }
 
 // ---------------------------------------------------------------------------
@@ -42,7 +42,7 @@ TEST(RadarSessionConfigBuilderTest, DefaultConstructionPreservesStructDefaults) 
 
 TEST(RadarSessionConfigBuilderTest, PresetBasePreservesPresetValues) {
   const auto config =
-      common::RadarSessionConfigBuilder(common::MakeDetectionMissionRadarSessionConfig()).Build();
+      common::config::RadarSessionConfigBuilder(common::config::MakeDetectionMissionRadarSessionConfig()).Build();
 
   // 探测任务预设设置了 min_detection_margin_db = -100.0f
   EXPECT_FLOAT_EQ(config.signal_pipeline_config.detection.min_detection_margin_db, -100.0f);
@@ -57,7 +57,7 @@ TEST(RadarSessionConfigBuilderTest, PresetBasePreservesPresetValues) {
 // ---------------------------------------------------------------------------
 
 TEST(RadarSessionConfigBuilderTest, TransmitterSettersApplyCorrectly) {
-  const auto config = common::RadarSessionConfigBuilder()
+  const auto config = common::config::RadarSessionConfigBuilder()
                           .WithTransmitterPeakPowerW(5e6f)
                           .WithTransmitterFrequencyHz(9.3e9f)
                           .WithTransmitterBandwidthHz(10e6f)
@@ -80,7 +80,7 @@ TEST(RadarSessionConfigBuilderTest, TransmitterSettersApplyCorrectly) {
 // ---------------------------------------------------------------------------
 
 TEST(RadarSessionConfigBuilderTest, AntennaSettersApplyCorrectly) {
-  const auto config = common::RadarSessionConfigBuilder()
+  const auto config = common::config::RadarSessionConfigBuilder()
                           .WithAntennaMainBeamGainDb(38.0f)
                           .WithAntennaNominalBeamwidthDeg(3.0f, 3.5f)
                           .Build();
@@ -92,16 +92,16 @@ TEST(RadarSessionConfigBuilderTest, AntennaSettersApplyCorrectly) {
 }
 
 TEST(RadarSessionConfigBuilderTest, ScanScheduleSettersApplyCorrectly) {
-  const auto config = common::RadarSessionConfigBuilder()
+  const auto config = common::config::RadarSessionConfigBuilder()
                           .WithScanStartPosition(oneq::common::ScanStartPosition::kRightBottom)
                           .WithScanSequence(oneq::common::ScanSequence::kElevationFirst)
-                          .WithRadarWorkSubMode(common::RadarWorkSubMode::kTas)
+                          .WithRadarWorkSubMode(common::config::RadarWorkSubMode::kTas)
                           .Build();
 
   const auto& orientation = config.signal_pipeline_config.beam_control.radar_orientation;
   EXPECT_EQ(orientation.scan_start_position, oneq::common::ScanStartPosition::kRightBottom);
   EXPECT_EQ(orientation.scan_sequence, oneq::common::ScanSequence::kElevationFirst);
-  EXPECT_EQ(orientation.work_sub_mode, common::RadarWorkSubMode::kTas);
+  EXPECT_EQ(orientation.work_sub_mode, common::config::RadarWorkSubMode::kTas);
 }
 
 // ---------------------------------------------------------------------------
@@ -109,7 +109,7 @@ TEST(RadarSessionConfigBuilderTest, ScanScheduleSettersApplyCorrectly) {
 // ---------------------------------------------------------------------------
 
 TEST(RadarSessionConfigBuilderTest, ReceiverSettersApplyCorrectly) {
-  const auto config = common::RadarSessionConfigBuilder()
+  const auto config = common::config::RadarSessionConfigBuilder()
                           .WithReceiverNoiseFigureDb(3.5f)
                           .WithReceiverLossDb(1.5f)
                           .Build();
@@ -124,13 +124,13 @@ TEST(RadarSessionConfigBuilderTest, ReceiverSettersApplyCorrectly) {
 // ---------------------------------------------------------------------------
 
 TEST(RadarSessionConfigBuilderTest, EnablePhysicsDetectionDefaultsToTrue) {
-  const auto config = common::RadarSessionConfigBuilder().EnablePhysicsDetection().Build();
+  const auto config = common::config::RadarSessionConfigBuilder().EnablePhysicsDetection().Build();
 
   EXPECT_TRUE(config.signal_pipeline_config.detection.enable_physics_detection);
 }
 
 TEST(RadarSessionConfigBuilderTest, EnablePhysicsDetectionCanBeDisabled) {
-  const auto config = common::RadarSessionConfigBuilder()
+  const auto config = common::config::RadarSessionConfigBuilder()
                           .EnablePhysicsDetection(true)
                           .EnablePhysicsDetection(false)
                           .Build();
@@ -139,7 +139,7 @@ TEST(RadarSessionConfigBuilderTest, EnablePhysicsDetectionCanBeDisabled) {
 }
 
 TEST(RadarSessionConfigBuilderTest, DetectionPolicySettersApplyCorrectly) {
-  const auto config = common::RadarSessionConfigBuilder()
+  const auto config = common::config::RadarSessionConfigBuilder()
                           .WithMinDetectionMarginDb(-15.0f)
                           .WithPulseCount(20)
                           .WithCoherentIntegration(false)
@@ -156,7 +156,7 @@ TEST(RadarSessionConfigBuilderTest, DetectionPolicySettersApplyCorrectly) {
 
 TEST(RadarSessionConfigBuilderTest, KalmanMeasurementNoiseStdApplied) {
   const auto config =
-      common::RadarSessionConfigBuilder().WithKalmanMeasurementNoiseStd(3.0f).Build();
+      common::config::RadarSessionConfigBuilder().WithKalmanMeasurementNoiseStd(3.0f).Build();
 
   EXPECT_FLOAT_EQ(config.signal_pipeline_config.tracking.kalman_measurement_noise_std, 3.0f);
 }
@@ -166,7 +166,7 @@ TEST(RadarSessionConfigBuilderTest, KalmanMeasurementNoiseStdApplied) {
 // ---------------------------------------------------------------------------
 
 TEST(RadarSessionConfigBuilderTest, LifecycleSettersApplyCorrectly) {
-  const auto config = common::RadarSessionConfigBuilder()
+  const auto config = common::config::RadarSessionConfigBuilder()
                           .EnableAutoLifecycleManager()
                           .WithConfirmHits(2U)
                           .WithMaxMissBeforeLost(4U)
@@ -186,7 +186,7 @@ TEST(RadarSessionConfigBuilderTest, LifecycleSettersApplyCorrectly) {
 
 TEST(RadarSessionConfigBuilderTest, JammingThresholdApplied) {
   const auto config =
-      common::RadarSessionConfigBuilder().WithJammingDetectionThresholdDb(4.5f).Build();
+      common::config::RadarSessionConfigBuilder().WithJammingDetectionThresholdDb(4.5f).Build();
 
   EXPECT_FLOAT_EQ(config.jamming_detection_threshold_db, 4.5f);
 }
@@ -197,7 +197,7 @@ TEST(RadarSessionConfigBuilderTest, JammingThresholdApplied) {
 
 TEST(RadarSessionConfigBuilderTest, ChainedPresetPlusHardwareOverride) {
   const auto config =
-      common::RadarSessionConfigBuilder(common::MakeDetectionMissionRadarSessionConfig())
+      common::config::RadarSessionConfigBuilder(common::config::MakeDetectionMissionRadarSessionConfig())
           .EnablePhysicsDetection()
           .WithTransmitterPeakPowerW(5e6f)
           .WithTransmitterFrequencyHz(9.3e9f)
@@ -229,7 +229,7 @@ TEST(RadarSessionConfigBuilderTest, ChainedPresetPlusHardwareOverride) {
 
 TEST(RadarSessionConfigBuilderTest, BuiltConfigCanConstructRadarSession) {
   const auto config =
-      common::RadarSessionConfigBuilder(common::MakeDetectionMissionRadarSessionConfig())
+      common::config::RadarSessionConfigBuilder(common::config::MakeDetectionMissionRadarSessionConfig())
           .WithJammingDetectionThresholdDb(5.0f)
           .Build();
 

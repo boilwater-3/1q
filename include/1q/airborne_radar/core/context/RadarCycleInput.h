@@ -6,8 +6,8 @@
 #ifndef AIRBORNE_RADAR_CORE_CONTEXT_RADAR_CYCLE_INPUT_H_
 #define AIRBORNE_RADAR_CORE_CONTEXT_RADAR_CYCLE_INPUT_H_
 
-#include "1q/airborne_radar/common/RadarOrientationConfig.h"
-#include "1q/airborne_radar/common/TargetFeature.h"
+#include "1q/airborne_radar/common/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/common/model/TargetFeature.h"
 
 namespace airborne_radar {
 namespace core {
@@ -17,8 +17,8 @@ namespace context {
  * @brief RadarCycleInput 描述单周期输入的目标、姿态与步长。
  */
 struct RadarCycleInput {
-  common::TargetFeatureList target_features{};         /**< 当前周期的目标特征列表 */
-  common::PlatformAttitudeDeg platform_attitude_deg{}; /**< 当前周期的搭载平台姿态角（单位：度） */
+  common::model::TargetFeatureList target_features{};         /**< 当前周期的目标特征列表 */
+  common::config::PlatformAttitudeDeg platform_attitude_deg{}; /**< 当前周期的搭载平台姿态角（单位：度） */
   float dt_sec{1.0f};                                  /**< 当前周期步长（单位：秒） */
 };
 

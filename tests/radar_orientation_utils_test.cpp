@@ -5,8 +5,8 @@
 
 #include <gtest/gtest.h>
 
-#include "1q/airborne_radar/common/RadarOrientationConfig.h"
-#include "1q/airborne_radar/common/RadarOrientationUtils.h"
+#include "1q/airborne_radar/common/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/common/utils/RadarOrientationUtils.h"
 #include "1q/airborne_radar/signal/detection/DetectionTypes.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/TargetLookResolver.h"
@@ -14,16 +14,16 @@
 namespace airborne_radar {
 namespace tests {
 
-using common::AzimuthElevationDeg;
-using common::AzimuthElevationLimitsDeg;
-using common::ComputeBodyFrameBeamPointing;
-using common::ComputeMountFrameBeamPointing;
-using common::ComputePlatformFrameBeamPointing;
-using common::EulerAnglesDeg;
-using common::IntersectScanLimits;
-using common::IsValidScanLimits;
-using common::RadarOrientationConfig;
-using common::StabilizationMode;
+using common::config::AzimuthElevationDeg;
+using common::config::AzimuthElevationLimitsDeg;
+using common::utils::ComputeBodyFrameBeamPointing;
+using common::utils::ComputeMountFrameBeamPointing;
+using common::utils::ComputePlatformFrameBeamPointing;
+using common::config::EulerAnglesDeg;
+using common::utils::IntersectScanLimits;
+using common::utils::IsValidScanLimits;
+using common::config::RadarOrientationConfig;
+using common::config::StabilizationMode;
 using signal::detection::AntennaConfig;
 using signal::detection::BeamControlResolver;
 using signal::detection::ResolvedBeamState;

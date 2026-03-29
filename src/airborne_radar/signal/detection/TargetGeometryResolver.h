@@ -9,7 +9,7 @@
 #include <Eigen/Core>
 #include <algorithm>
 
-#include "1q/airborne_radar/common/TargetFeature.h"
+#include "1q/airborne_radar/common/model/TargetFeature.h"
 #include "airborne_radar/signal/detection/TargetLookResolver.h"
 
 namespace airborne_radar {
@@ -34,7 +34,7 @@ class TargetGeometryResolver {
    * @param target 输入目标。
    * @return 统一解析后的目标几何信息。
    */
-  static ResolvedTargetGeometry Resolve(const common::TargetFeature& target) {
+  static ResolvedTargetGeometry Resolve(const common::model::TargetFeature& target) {
     ResolvedTargetGeometry geometry;
     geometry.position_m = Eigen::Vector3f(target.position_x, target.position_y, target.position_z);
     geometry.has_cartesian_position =

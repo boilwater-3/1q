@@ -12,9 +12,9 @@ namespace {
  * @param status 目标状态。
  * @return 匹配状态的轨迹快照拷贝列表。
  */
-DecisionTrackSnapshotList CollectTracksByStatus(const TrackOutputFrame& frame,
-                                                DecisionTrackStatus status) {
-  DecisionTrackSnapshotList tracks;
+model::DecisionTrackSnapshotList CollectTracksByStatus(const TrackOutputFrame& frame,
+                                                model::DecisionTrackStatus status) {
+  model::DecisionTrackSnapshotList tracks;
   for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
     if (frame.tracks[i].state.status == status) {
       tracks.push_back(frame.tracks[i]);
@@ -25,11 +25,11 @@ DecisionTrackSnapshotList CollectTracksByStatus(const TrackOutputFrame& frame,
 
 }  // namespace
 
-std::unordered_map<std::uint64_t, DecisionTrackSnapshot> BuildTrackMapByExternalTargetId(
+std::unordered_map<std::uint64_t, model::DecisionTrackSnapshot> BuildTrackMapByExternalTargetId(
     const TrackOutputFrame& frame) {
-  std::unordered_map<std::uint64_t, DecisionTrackSnapshot> track_map;
+  std::unordered_map<std::uint64_t, model::DecisionTrackSnapshot> track_map;
   for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
-    const DecisionTrackSnapshot& track = frame.tracks[i];
+    const model::DecisionTrackSnapshot& track = frame.tracks[i];
     if (track.state.external_target_id == 0U) {
       continue;
     }
@@ -38,18 +38,18 @@ std::unordered_map<std::uint64_t, DecisionTrackSnapshot> BuildTrackMapByExternal
   return track_map;
 }
 
-std::unordered_map<std::uint64_t, DecisionTrackSnapshot> BuildTrackMapByAssociationKey(
+std::unordered_map<std::uint64_t, model::DecisionTrackSnapshot> BuildTrackMapByAssociationKey(
     const TrackOutputFrame& frame) {
-  std::unordered_map<std::uint64_t, DecisionTrackSnapshot> track_map;
+  std::unordered_map<std::uint64_t, model::DecisionTrackSnapshot> track_map;
   for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
     track_map[frame.tracks[i].state.association_key] = frame.tracks[i];
   }
   return track_map;
 }
 
-DecisionTrackSnapshotList CollectTracksByExternalTargetId(const TrackOutputFrame& frame,
+model::DecisionTrackSnapshotList CollectTracksByExternalTargetId(const TrackOutputFrame& frame,
                                                           std::uint64_t external_target_id) {
-  DecisionTrackSnapshotList tracks;
+  model::DecisionTrackSnapshotList tracks;
   for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
     if (frame.tracks[i].state.external_target_id == external_target_id) {
       tracks.push_back(frame.tracks[i]);
@@ -58,16 +58,16 @@ DecisionTrackSnapshotList CollectTracksByExternalTargetId(const TrackOutputFrame
   return tracks;
 }
 
-DecisionTrackSnapshotList CollectConfirmedTracks(const TrackOutputFrame& frame) {
-  return CollectTracksByStatus(frame, DecisionTrackStatus::kConfirmed);
+model::DecisionTrackSnapshotList CollectConfirmedTracks(const TrackOutputFrame& frame) {
+  return CollectTracksByStatus(frame, model::DecisionTrackStatus::kConfirmed);
 }
 
-DecisionTrackSnapshotList CollectLostTracks(const TrackOutputFrame& frame) {
-  return CollectTracksByStatus(frame, DecisionTrackStatus::kLost);
+model::DecisionTrackSnapshotList CollectLostTracks(const TrackOutputFrame& frame) {
+  return CollectTracksByStatus(frame, model::DecisionTrackStatus::kLost);
 }
 
-DecisionTrackSnapshotList CollectJammingTracks(const TrackOutputFrame& frame) {
-  DecisionTrackSnapshotList tracks;
+model::DecisionTrackSnapshotList CollectJammingTracks(const TrackOutputFrame& frame) {
+  model::DecisionTrackSnapshotList tracks;
   for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
     if (frame.tracks[i].state.jamming_detected) {
       tracks.push_back(frame.tracks[i]);
@@ -95,7 +95,7 @@ std::size_t CountJammingTracks(const TrackOutputFrame& frame) {
   return count;
 }
 
-std::size_t CountTracksByStatus(const TrackOutputFrame& frame, DecisionTrackStatus status) {
+std::size_t CountTracksByStatus(const TrackOutputFrame& frame, model::DecisionTrackStatus status) {
   std::size_t count = 0U;
   for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
     if (frame.tracks[i].state.status == status) {

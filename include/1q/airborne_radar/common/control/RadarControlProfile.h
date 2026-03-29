@@ -10,6 +10,7 @@
 
 namespace airborne_radar {
 namespace common {
+namespace control {
 
 /**
  * @brief RadarControlProfile 表示下一周期生效的雷达控制状态。
@@ -27,6 +28,7 @@ struct RadarControlProfile {
   float eccm_burnthrough_gain{1.0f};          /**< ECCM 烧穿增益倍率 */
 };
 
+}  // namespace control
 }  // namespace common
 }  // namespace airborne_radar
 

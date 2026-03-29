@@ -9,7 +9,7 @@
 #include <cstddef>
 #include <memory>
 
-#include "1q/airborne_radar/common/TrackOutputFrame.h"
+#include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/controller/IRadarOutputReader.h"
 #include "1q/airborne_radar/core/context/RadarInputValidation.h"
 #include "1q/airborne_radar/decision/pipeline/ControlReducerTypes.h"
@@ -105,7 +105,7 @@ class ONEQ_API RadarController : public IRadarOutputReader {
    * @brief 获取最近一次已缓存的轨迹输出帧。
    * @return 最近一次运行周期产生的轨迹输出帧引用。
    */
-  const common::TrackOutputFrame& GetLatestTrackOutputFrame() const override;
+  const common::output::TrackOutputFrame& GetLatestTrackOutputFrame() const override;
 
   /**
    * @brief 获取最近一次输入校验问题列表。

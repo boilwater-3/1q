@@ -6,11 +6,12 @@
 #ifndef AIRBORNE_RADAR_COMMON_RADAR_ORIENTATION_CONFIG_H_
 #define AIRBORNE_RADAR_COMMON_RADAR_ORIENTATION_CONFIG_H_
 
-#include "1q/airborne_radar/common/RadarWorkMode.h"
+#include "1q/airborne_radar/common/config/RadarWorkMode.h"
 #include "1q/common/scan_schedule_types.h"
 
 namespace airborne_radar {
 namespace common {
+namespace config {
 
 /**
  * @brief EulerAnglesDeg 表示欧拉角定义（单位：度）。
@@ -93,6 +94,7 @@ struct RadarOrientationConfig {
   StabilizationMode stabilization_mode{StabilizationMode::kBodyStabilized}; /**< 波束稳定方式 */
 };
 
+}  // namespace config
 }  // namespace common
 }  // namespace airborne_radar
 

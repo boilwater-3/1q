@@ -17,7 +17,7 @@ namespace pipeline {
 class MockITacticalDecisionEngine : public ITacticalDecisionEngine {
  public:
   MOCK_METHOD(TacticalDecisionResult, Evaluate,
-              (const common::DecisionInputFrame& input_frame, TacticalStateStore& state_store),
+              (const common::model::DecisionInputFrame& input_frame, TacticalStateStore& state_store),
               (override));
 };
 

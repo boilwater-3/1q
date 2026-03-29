@@ -15,17 +15,17 @@ namespace {
 /** @brief 根据干扰语义计算关联脆弱性权重。
  *  @param semantic 主导干扰语义类型。
  *  @return 脆弱性权重，范围 [0, 1]，欺骗类干扰权重最高。 */
-float ResolveAssociationFragilityWeight(common::JammingSemantic semantic) {
+float ResolveAssociationFragilityWeight(common::utils::JammingSemantic semantic) {
   switch (semantic) {
-    case common::JammingSemantic::kDeception:
+    case common::utils::JammingSemantic::kDeception:
       return 1.00f;
-    case common::JammingSemantic::kRepeater:
+    case common::utils::JammingSemantic::kRepeater:
       return 0.88f;
-    case common::JammingSemantic::kMixed:
+    case common::utils::JammingSemantic::kMixed:
       return 0.94f;
-    case common::JammingSemantic::kNoiseSuppression:
+    case common::utils::JammingSemantic::kNoiseSuppression:
       return 0.60f;
-    case common::JammingSemantic::kNone:
+    case common::utils::JammingSemantic::kNone:
     default:
       return 0.0f;
   }
@@ -39,7 +39,7 @@ float ResolveAssociationFragilityWeight(common::JammingSemantic semantic) {
  *  @return 包含关联压力计算的流水线层关联质量度量。 */
 AssociationQualityMetrics ToPipelineAssociationQualityMetrics(
     const association::AssociationQualityMetrics& source,
-    common::JammingSemantic dominant_jamming_semantic, float jamming_severity,
+    common::utils::JammingSemantic dominant_jamming_semantic, float jamming_severity,
     float association_unassigned_cost) {
   AssociationQualityMetrics metrics;
   metrics.prior_track_count = source.prior_track_count;
@@ -74,7 +74,7 @@ AssociationQualityMetrics ToPipelineAssociationQualityMetrics(
  *  @param control_profile 雷达控制配置文件。
  *  @return 额外漏检容忍次数，ECCM 相关功能启用时累加。 */
 std::uint32_t ResolveLifecycleExtraMissTolerance(
-    const common::RadarControlProfile& control_profile) {
+    const common::control::RadarControlProfile& control_profile) {
   std::uint32_t extra_miss_tolerance = 0U;
   if (control_profile.enable_sidelobe_canceller || control_profile.enable_agility_frequency ||
       control_profile.enable_eccm_rejitter) {
@@ -88,24 +88,24 @@ std::uint32_t ResolveLifecycleExtraMissTolerance(
 
 }  // namespace
 
-void CollectCycleOutputs(const common::RadarControlProfile& control_profile,
+void CollectCycleOutputs(const common::control::RadarControlProfile& control_profile,
                          std::uint32_t cycle_index, std::uint64_t batch_id,
                          const SignalPipelineConfig& runtime_config,
                          const environment::EnvironmentSnapshot& environment_snapshot,
-                         const common::TargetFeatureList& input_state,
-                         const common::TargetFeatureList& output_state,
+                         const common::model::TargetFeatureList& input_state,
+                         const common::model::TargetFeatureList& output_state,
                          const association::AssociationResult& association_result,
                          const std::vector<tracking::TrackMeasurement>& track_measurements,
                          signal::output::IDataOutputManager* output_manager,
                          tracking::ITrackLifecycleManager* auto_lifecycle_manager,
                          AssociationQualityMetrics* association_quality_metrics,
-                         common::DecisionInputFrame* decision_frame) {
+                         common::model::DecisionInputFrame* decision_frame) {
   if (output_manager == nullptr || association_quality_metrics == nullptr ||
       decision_frame == nullptr) {
     return;
   }
 
-  const common::JammingSemantic dominant_jamming_semantic =
+  const common::utils::JammingSemantic dominant_jamming_semantic =
       ResolveDominantJammingSemantic(control_profile, environment_snapshot);
   const float jamming_severity =
       ComputeTrackLevelJammingSeverity(control_profile, environment_snapshot);
@@ -113,10 +113,10 @@ void CollectCycleOutputs(const common::RadarControlProfile& control_profile,
       association_result.quality_metrics, dominant_jamming_semantic, jamming_severity,
       runtime_config.association.unassigned_cost);
 
-  const common::EccmSourceInfo eccm_source_info = BuildEccmSourceInfo(environment_snapshot);
-  const common::AssociationQualityInfo association_quality_info =
+  const common::model::EccmSourceInfo eccm_source_info = BuildEccmSourceInfo(environment_snapshot);
+  const common::model::AssociationQualityInfo association_quality_info =
       BuildAssociationQualityInfo(*association_quality_metrics);
-  const common::PerceptionQualityInfo perception_quality_info =
+  const common::model::PerceptionQualityInfo perception_quality_info =
       BuildPerceptionQualityInfo(input_state.size(), *association_quality_metrics);
 
   if (auto_lifecycle_manager != nullptr) {
@@ -138,7 +138,7 @@ void CollectCycleOutputs(const common::RadarControlProfile& control_profile,
 
   /* 遗留降级路径：仅当 auto_lifecycle_manager 未配置（禁用自动生命周期）时执行。
    * 生产配置下 auto_lifecycle_manager 始终非空，此路径在正常运行中不可达。 */
-  const common::TrackOutputFrame track_output_frame = output_manager->BuildTrackOutputFrame(
+  const common::output::TrackOutputFrame track_output_frame = output_manager->BuildTrackOutputFrame(
       cycle_index, batch_id, BuildDecisionSnapshotsFromFeatures(output_state));
   *decision_frame = output_manager->BuildDecisionInputFrame(
       track_output_frame, eccm_source_info, association_quality_info, perception_quality_info);

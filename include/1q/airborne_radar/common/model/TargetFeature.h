@@ -11,6 +11,7 @@
 
 namespace airborne_radar {
 namespace common {
+namespace model {
 
 /**
  * @brief TargetFeature 封装了单个处理周期的目标输入状态。
@@ -82,6 +83,7 @@ struct TargetFeature {
 /** @brief TargetFeatureList 是 TargetFeature 的列表，表示当前处理周期内所有相关目标的特征集合 */
 using TargetFeatureList = std::vector<TargetFeature>;
 
+}  // namespace model
 }  // namespace common
 }  // namespace airborne_radar
 

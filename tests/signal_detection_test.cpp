@@ -7,7 +7,7 @@
 
 #include <cmath>
 
-#include "1q/airborne_radar/common/RadarOrientationConfig.h"
+#include "1q/airborne_radar/common/config/RadarOrientationConfig.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/MeasurementErrorModel.h"
 #include "airborne_radar/signal/detection/RadarEquations.h"
@@ -353,7 +353,7 @@ TEST(SignalDetectorTest, CoherentIntegrationYieldsHigherPdThanIncoherent) {
 
 /// @brief 雷达局部坐标应能解析出稳定的目标方位/俯仰角。
 TEST(TargetLookResolverTest, ResolvesRadarLocalLookAngles) {
-  common::TargetFeature target;
+  common::model::TargetFeature target;
   target.position_x = 10.0f;
   target.position_y = 10.0f;
   target.position_z = 10.0f;
@@ -373,8 +373,8 @@ TEST(MeasurementErrorModelTest, ElevationBeamwidthAffectsEquivalentAngleStdDev) 
   AntennaConfig wide_el_antenna = narrow_antenna;
   wide_el_antenna.nominal_el_beamwidth_deg = 8.0f;
 
-  common::RadarOrientationConfig orientation;
-  common::PlatformAttitudeDeg platform_attitude_deg;
+  common::config::RadarOrientationConfig orientation;
+  common::config::PlatformAttitudeDeg platform_attitude_deg;
   signal::detection::TargetLookAnglesDeg look_angles;
   look_angles.has_look_angles = true;
 
@@ -399,11 +399,11 @@ TEST(MeasurementErrorModelTest, CommandedBeamwidthOverrideAffectsAngleStdDev) {
   antenna.nominal_az_beamwidth_deg = 2.0f;
   antenna.nominal_el_beamwidth_deg = 2.0f;
 
-  common::RadarOrientationConfig nominal_orientation;
+  common::config::RadarOrientationConfig nominal_orientation;
   nominal_orientation.commanded_beamwidth_enabled = false;
-  common::PlatformAttitudeDeg platform_attitude_deg;
+  common::config::PlatformAttitudeDeg platform_attitude_deg;
 
-  common::RadarOrientationConfig commanded_orientation;
+  common::config::RadarOrientationConfig commanded_orientation;
   commanded_orientation.commanded_beamwidth_enabled = true;
   commanded_orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg = 8.0f;
   commanded_orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg = 8.0f;
@@ -434,11 +434,11 @@ TEST(BeamControlResolverTest, CommandedBeamwidthAffectsDirectionalPatternGain) {
   config.antenna.enable_directional_pattern = true;
   config.antenna.pattern.max_sidelobe_level_db = -25.0f;
 
-  common::RadarOrientationConfig nominal_orientation;
+  common::config::RadarOrientationConfig nominal_orientation;
   nominal_orientation.commanded_beamwidth_enabled = false;
-  common::PlatformAttitudeDeg platform_attitude_deg;
+  common::config::PlatformAttitudeDeg platform_attitude_deg;
 
-  common::RadarOrientationConfig commanded_orientation;
+  common::config::RadarOrientationConfig commanded_orientation;
   commanded_orientation.commanded_beamwidth_enabled = true;
   commanded_orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg = 8.0f;
   commanded_orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg = 8.0f;
@@ -479,10 +479,10 @@ TEST(BeamControlResolverTest, CommandedBeamwidthAffectsDirectionalPatternGain) {
 /// @brief 对惯性稳定模式应补偿平台姿态变化。
 TEST(BeamControlResolverTest, InertialStabilizedCompensatesPlatformAttitude) {
   AntennaConfig antenna;
-  common::RadarOrientationConfig orientation;
-  orientation.stabilization_mode = common::StabilizationMode::kInertialStabilized;
+  common::config::RadarOrientationConfig orientation;
+  orientation.stabilization_mode = common::config::StabilizationMode::kInertialStabilized;
 
-  common::PlatformAttitudeDeg platform_attitude_deg;
+  common::config::PlatformAttitudeDeg platform_attitude_deg;
   platform_attitude_deg.yaw_deg = 15.0f;
   platform_attitude_deg.pitch_deg = 5.0f;
 
@@ -501,11 +501,11 @@ TEST(BeamControlResolverTest, InertialStabilizedCompensatesPlatformAttitude) {
 /// @brief 对惯性稳定模式应显式补偿平台滚转角。
 TEST(BeamControlResolverTest, InertialStabilizedAccountsForPlatformRoll) {
   AntennaConfig antenna;
-  common::RadarOrientationConfig orientation;
-  orientation.stabilization_mode = common::StabilizationMode::kInertialStabilized;
+  common::config::RadarOrientationConfig orientation;
+  orientation.stabilization_mode = common::config::StabilizationMode::kInertialStabilized;
   orientation.scan_center_deg.el_deg = 30.0f;
 
-  common::PlatformAttitudeDeg platform_attitude_deg;
+  common::config::PlatformAttitudeDeg platform_attitude_deg;
   platform_attitude_deg.roll_deg = 90.0f;
 
   signal::detection::TargetLookAnglesDeg look_angles;
@@ -522,15 +522,15 @@ TEST(BeamControlResolverTest, InertialStabilizedAccountsForPlatformRoll) {
 /// @brief 对地稳定当前无地理参考输入，代码上显式等同于惯性稳定。
 TEST(BeamControlResolverTest, GroundStabilizedCurrentlyMatchesInertialStabilized) {
   AntennaConfig antenna;
-  common::RadarOrientationConfig inertial_orientation;
-  inertial_orientation.stabilization_mode = common::StabilizationMode::kInertialStabilized;
+  common::config::RadarOrientationConfig inertial_orientation;
+  inertial_orientation.stabilization_mode = common::config::StabilizationMode::kInertialStabilized;
   inertial_orientation.scan_center_deg.az_deg = 5.0f;
   inertial_orientation.scan_center_deg.el_deg = 20.0f;
 
-  common::RadarOrientationConfig ground_orientation = inertial_orientation;
-  ground_orientation.stabilization_mode = common::StabilizationMode::kGroundStabilized;
+  common::config::RadarOrientationConfig ground_orientation = inertial_orientation;
+  ground_orientation.stabilization_mode = common::config::StabilizationMode::kGroundStabilized;
 
-  common::PlatformAttitudeDeg platform_attitude_deg;
+  common::config::PlatformAttitudeDeg platform_attitude_deg;
   platform_attitude_deg.yaw_deg = 15.0f;
   platform_attitude_deg.pitch_deg = -8.0f;
   platform_attitude_deg.roll_deg = 20.0f;

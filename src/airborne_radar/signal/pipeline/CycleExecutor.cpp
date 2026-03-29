@@ -27,7 +27,7 @@ bool HasValidRuntime(const CycleExecutionRuntime& runtime) {
 
 }  // namespace
 
-void ExecuteCycle(const common::TargetFeatureList& input_state,
+void ExecuteCycle(const common::model::TargetFeatureList& input_state,
                   const environment::IEnvironmentService& environment,
                   std::uint32_t cycle_index, std::uint64_t batch_id,
                   const CycleExecutionRuntime& runtime, CycleExecutionContext* cycle_context) {

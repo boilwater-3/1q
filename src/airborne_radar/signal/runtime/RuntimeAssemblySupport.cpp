@@ -22,15 +22,15 @@ class AutoConfiguredLifecycleManager final : public tracking::ITrackLifecycleMan
     assembly_.lifecycle_manager->Update(cycle, measurements);
   }
 
-  common::TargetFeatureList BuildFeatureSnapshot() const override {
+  common::model::TargetFeatureList BuildFeatureSnapshot() const override {
     return assembly_.lifecycle_manager->BuildFeatureSnapshot();
   }
 
-  common::DecisionTrackSnapshotList BuildDecisionSnapshot() const override {
+  common::model::DecisionTrackSnapshotList BuildDecisionSnapshot() const override {
     return assembly_.lifecycle_manager->BuildDecisionSnapshot();
   }
 
-  common::DecisionInputFrame BuildDecisionFrame(std::uint32_t cycle_index, std::uint64_t batch_id,
+  common::model::DecisionInputFrame BuildDecisionFrame(std::uint32_t cycle_index, std::uint64_t batch_id,
                                                 bool environment_jamming_detected) const override {
     return assembly_.lifecycle_manager->BuildDecisionFrame(cycle_index, batch_id,
                                                            environment_jamming_detected);
@@ -57,7 +57,7 @@ bool HasValidOwnedComponentSlots(const OwnedComponentSlots& slots) {
 }  // namespace
 
 SignalPipelineConfig BuildRuntimeConfigFromControlProfile(
-    const SignalPipelineConfig& base_config, const common::RadarControlProfile& control_profile) {
+    const SignalPipelineConfig& base_config, const common::control::RadarControlProfile& control_profile) {
   SignalPipelineConfig runtime_config = base_config;
   pipeline::internal::ApplyControlProfileToConfig(control_profile, &runtime_config);
   return runtime_config;
@@ -73,7 +73,7 @@ std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManagerForR
 }
 
 void RebuildOwnedComponentsForPipeline(const SignalPipelineConfig& base_config,
-                                       const common::RadarControlProfile& control_profile,
+                                       const common::control::RadarControlProfile& control_profile,
                                        OwnedComponentSlots* slots) {
   if (slots == nullptr || !HasValidOwnedComponentSlots(*slots)) {
     return;

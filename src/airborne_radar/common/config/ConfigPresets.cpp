@@ -1,7 +1,8 @@
-#include "1q/airborne_radar/common/ConfigPresets.h"
+#include "1q/airborne_radar/common/config/ConfigPresets.h"
 
 namespace airborne_radar {
 namespace common {
+namespace config {
 
 signal::pipeline::SignalPipelineConfig MakeDetectionMissionSignalPipelineConfig() {
   signal::pipeline::SignalPipelineConfig config;
@@ -55,5 +56,6 @@ core::session::RadarSessionConfig MakeDetectionMissionRadarSessionConfig() {
   return config;
 }
 
+}  // namespace config
 }  // namespace common
 }  // namespace airborne_radar

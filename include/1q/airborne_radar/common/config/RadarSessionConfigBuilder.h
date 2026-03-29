@@ -13,6 +13,7 @@
 
 namespace airborne_radar {
 namespace common {
+namespace config {
 
 /**
  * @brief RadarSession 配置链式构造器。
@@ -24,8 +25,8 @@ namespace common {
  * @code
  * // 以探测任务预设为基础，叠加平台雷达硬件参数
  * auto config =
- *     airborne_radar::common::RadarSessionConfigBuilder(
- *         airborne_radar::common::MakeDetectionMissionRadarSessionConfig())
+ *     airborne_radar::common::config::RadarSessionConfigBuilder(
+ *         airborne_radar::common::config::MakeDetectionMissionRadarSessionConfig())
  *         .EnablePhysicsDetection()
  *         .WithTransmitterPeakPowerW(5e6f)
  *         .WithTransmitterFrequencyHz(9.3e9f)
@@ -311,6 +312,7 @@ class ONEQ_API RadarSessionConfigBuilder {
   core::session::RadarSessionConfig config_;
 };
 
+}  // namespace config
 }  // namespace common
 }  // namespace airborne_radar
 

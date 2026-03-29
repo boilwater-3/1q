@@ -9,6 +9,7 @@
 #include <cmath>
 namespace airborne_radar {
 namespace common {
+namespace utils {
 
 /**
  * @brief 对浮点值执行闭区间限幅。
@@ -34,6 +35,7 @@ inline float ClampFloat(float value, float min_value, float max_value) {
  */
 inline float DbToLinearPower(float power_db) { return std::pow(10.0f, power_db / 10.0f); }
 
+}  // namespace utils
 }  // namespace common
 }  // namespace airborne_radar
 

@@ -10,10 +10,10 @@
 #include <cstdint>
 #include <vector>
 
-#include "1q/airborne_radar/common/DecisionInputFrame.h"
-#include "1q/airborne_radar/common/RadarControlProfile.h"
-#include "1q/airborne_radar/common/RadarOrientationConfig.h"
-#include "1q/airborne_radar/common/TargetFeature.h"
+#include "1q/airborne_radar/common/model/DecisionInputFrame.h"
+#include "1q/airborne_radar/common/control/RadarControlProfile.h"
+#include "1q/airborne_radar/common/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/common/model/TargetFeature.h"
 #include "1q/airborne_radar/signal/detection/DetectionTypes.h"
 
 namespace airborne_radar {
@@ -34,8 +34,8 @@ struct AssociationQualityMetrics {
   float missed_track_rate{0.0f};     /**< 漏失率（missed_track_count / prior_track_count） */
   float mean_match_cost{0.0f};       /**< 命中关联代价均值（仅统计 matches） */
   float p95_match_cost{0.0f};        /**< 命中关联代价 P95（仅统计 matches） */
-  common::JammingSemantic dominant_jamming_semantic{
-      common::JammingSemantic::kNone}; /**< 当前周期关联质量对应的主导干扰摘要类型 */
+  common::utils::JammingSemantic dominant_jamming_semantic{
+      common::utils::JammingSemantic::kNone}; /**< 当前周期关联质量对应的主导干扰摘要类型 */
   float jamming_severity{0.0f};        /**< 当前周期关联质量对应的残余干扰强度摘要，范围 [0, 1] */
   float association_stress{0.0f};      /**< 当前周期的归一化关联压力，范围 [0, 1] */
 };
@@ -84,8 +84,8 @@ struct SignalDetectionConfig {
  * @brief SignalBeamControlConfig 描述波束控制域配置。
  */
 struct SignalBeamControlConfig {
-  common::RadarOrientationConfig radar_orientation{};  /**< 雷达方向配置 */
-  common::PlatformAttitudeDeg platform_attitude_deg{}; /**< 平台姿态角（单位：度） */
+  common::config::RadarOrientationConfig radar_orientation{};  /**< 雷达方向配置 */
+  common::config::PlatformAttitudeDeg platform_attitude_deg{}; /**< 平台姿态角（单位：度） */
 };
 
 /**
@@ -216,8 +216,8 @@ struct SignalPipelineConfig {
  * @brief SignalCycleResult 描述信号流水线单周期的稳定输出。
  */
 struct SignalCycleResult {
-  common::TargetFeatureList updated_features{};            /**< 当前周期更新后的目标特征列表 */
-  common::DecisionInputFrame decision_frame{};             /**< 当前周期决策输入帧 */
+  common::model::TargetFeatureList updated_features{};            /**< 当前周期更新后的目标特征列表 */
+  common::model::DecisionInputFrame decision_frame{};             /**< 当前周期决策输入帧 */
   AssociationQualityMetrics association_quality_metrics{}; /**< 当前周期关联质量观测指标 */
 };
 

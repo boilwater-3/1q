@@ -15,7 +15,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "1q/airborne_radar/common/TargetFeature.h"
+#include "1q/airborne_radar/common/model/TargetFeature.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
@@ -26,13 +26,13 @@ namespace tests {
 namespace {
 
 /// @brief 生成一批具备有效位置的目标输入，确保可进入位置关联路径。
-common::TargetFeatureList BuildBatchTargets(std::size_t count, float x_bias, float y_bias,
+common::model::TargetFeatureList BuildBatchTargets(std::size_t count, float x_bias, float y_bias,
                                             float z_bias) {
-  common::TargetFeatureList targets;
+  common::model::TargetFeatureList targets;
   targets.reserve(count);
 
   for (std::size_t i = 0; i < count; ++i) {
-    common::TargetFeature target(120.0f + static_cast<float>(i % 7), 0.0f, 0.0f, 6.0f, 0.2f, 0.0f,
+    common::model::TargetFeature target(120.0f + static_cast<float>(i % 7), 0.0f, 0.0f, 6.0f, 0.2f, 0.0f,
                                  0.0f, 1000.0f + static_cast<float>(i) * 2.0f, 0);
     target.position_x = x_bias + static_cast<float>(i) * 15.0f;
     target.position_y = y_bias + static_cast<float>(i % 5) * 3.0f;
@@ -70,10 +70,10 @@ double ComputePercentileMs(std::vector<double> samples, double percentile) {
 }
 
 /// @brief 从目标列表抽取外部原始 ID 集合。
-std::unordered_set<std::uint64_t> BuildExternalIdSet(const common::TargetFeatureList& features) {
+std::unordered_set<std::uint64_t> BuildExternalIdSet(const common::model::TargetFeatureList& features) {
   std::unordered_set<std::uint64_t> ids;
   ids.reserve(features.size());
-  for (const common::TargetFeature& feature : features) {
+  for (const common::model::TargetFeature& feature : features) {
     if (feature.external_target_id != 0U) {
       ids.insert(feature.external_target_id);
     }
@@ -104,7 +104,7 @@ double RunImmLifecycleScenarioMs(std::size_t target_count,
     return 0.0;
   }
 
-  const std::array<common::TargetFeatureList, 2> cycle_inputs{{
+  const std::array<common::model::TargetFeatureList, 2> cycle_inputs{{
       BuildBatchTargets(target_count, 400.0f, 12.0f, 1.0f),
       BuildBatchTargets(target_count, 401.0f, 12.4f, 1.2f),
   }};
@@ -142,7 +142,7 @@ TEST(SignalBulkDataTest, LargeBatchSingleCycleProducesConsistentMeasurements) {
   env_config.jammer_power_db = 0.0f;
   environment::EnvironmentService environment_service(env_config);
 
-  const common::TargetFeatureList input_state =
+  const common::model::TargetFeatureList input_state =
       BuildBatchTargets(kTargetCount, 1000.0f, 10.0f, 5.0f);
 
   const signal::pipeline::SignalCycleResult output_state =
@@ -187,7 +187,7 @@ TEST(SignalBulkDataTest, LargeBatchImmAutoLifecycleMaintainsHighMatchRateOnNextC
       signal_pipeline.CreateAutoLifecycleManager();
   ASSERT_TRUE(lifecycle_manager != nullptr);
 
-  const common::TargetFeatureList cycle_1_input =
+  const common::model::TargetFeatureList cycle_1_input =
       BuildBatchTargets(kTargetCount, 500.0f, 20.0f, 3.0f);
 
   signal_pipeline.SetAssociationSeeds(lifecycle_manager->BuildAssociationSeeds());
@@ -201,7 +201,7 @@ TEST(SignalBulkDataTest, LargeBatchImmAutoLifecycleMaintainsHighMatchRateOnNextC
   cycle_1_context.batch_id = 1u;
   lifecycle_manager->Update(cycle_1_context, cycle_1_measurements);
 
-  const common::TargetFeatureList cycle_2_input =
+  const common::model::TargetFeatureList cycle_2_input =
       BuildBatchTargets(kTargetCount, 501.0f, 20.5f, 3.1f);
 
   signal_pipeline.SetAssociationSeeds(lifecycle_manager->BuildAssociationSeeds());
@@ -248,7 +248,7 @@ TEST(SignalBulkDataTest, TieredBatchSingleCycleReportsP50AndP95Latency) {
     elapsed_ms_samples.reserve(kRepeatsPerTier);
 
     for (std::size_t repeat = 0; repeat < kRepeatsPerTier; ++repeat) {
-      const common::TargetFeatureList input_state = BuildBatchTargets(
+      const common::model::TargetFeatureList input_state = BuildBatchTargets(
           tier.target_count, 1000.0f + static_cast<float>(repeat),
           8.0f + static_cast<float>(repeat) * 0.1f, 2.0f + static_cast<float>(repeat) * 0.1f);
 
@@ -308,7 +308,7 @@ TEST(SignalBulkDataTest, ExternalTargetIdStaysConsistentAcrossImmLifecycleCycles
       signal_pipeline.CreateAutoLifecycleManager();
   ASSERT_TRUE(lifecycle_manager != nullptr);
 
-  const common::TargetFeatureList cycle_1_input =
+  const common::model::TargetFeatureList cycle_1_input =
       BuildBatchTargets(kTargetCount, 600.0f, 15.0f, 2.0f);
   const std::unordered_set<std::uint64_t> expected_ids = BuildExternalIdSet(cycle_1_input);
   ASSERT_EQ(expected_ids.size(), kTargetCount);
@@ -331,11 +331,11 @@ TEST(SignalBulkDataTest, ExternalTargetIdStaysConsistentAcrossImmLifecycleCycles
   cycle_1_context.batch_id = 1u;
   lifecycle_manager->Update(cycle_1_context, cycle_1_measurements);
 
-  const common::TargetFeatureList snapshot_after_cycle_1 =
+  const common::model::TargetFeatureList snapshot_after_cycle_1 =
       lifecycle_manager->BuildFeatureSnapshot();
   EXPECT_EQ(BuildExternalIdSet(snapshot_after_cycle_1), expected_ids);
 
-  const common::TargetFeatureList cycle_2_input =
+  const common::model::TargetFeatureList cycle_2_input =
       BuildBatchTargets(kTargetCount, 601.0f, 15.2f, 2.1f);
   signal_pipeline.SetAssociationSeeds(lifecycle_manager->BuildAssociationSeeds());
   signal_pipeline.RunCycle(cycle_2_input, environment_service);
@@ -355,7 +355,7 @@ TEST(SignalBulkDataTest, ExternalTargetIdStaysConsistentAcrossImmLifecycleCycles
   cycle_2_context.batch_id = 2u;
   lifecycle_manager->Update(cycle_2_context, cycle_2_measurements);
 
-  const common::TargetFeatureList snapshot_after_cycle_2 =
+  const common::model::TargetFeatureList snapshot_after_cycle_2 =
       lifecycle_manager->BuildFeatureSnapshot();
   EXPECT_EQ(BuildExternalIdSet(snapshot_after_cycle_2), expected_ids);
 }

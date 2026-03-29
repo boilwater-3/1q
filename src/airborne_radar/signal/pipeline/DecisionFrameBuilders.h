@@ -19,7 +19,7 @@ namespace internal {
  * @param[in] environment_snapshot 当前周期环境快照。
  * @return 供决策层消费的 ECCM 输入摘要。
  */
-common::EccmSourceInfo BuildEccmSourceInfo(
+common::model::EccmSourceInfo BuildEccmSourceInfo(
     const environment::EnvironmentSnapshot& environment_snapshot);
 
 /**
@@ -27,7 +27,7 @@ common::EccmSourceInfo BuildEccmSourceInfo(
  * @param[in] metrics Pipeline 对外关联质量指标。
  * @return 决策层消费的关联质量摘要。
  */
-common::AssociationQualityInfo BuildAssociationQualityInfo(
+common::model::AssociationQualityInfo BuildAssociationQualityInfo(
     const AssociationQualityMetrics& metrics);
 
 /**
@@ -36,7 +36,7 @@ common::AssociationQualityInfo BuildAssociationQualityInfo(
  * @param[in] metrics 当前周期关联质量指标。
  * @return 决策层消费的探测质量摘要。
  */
-common::PerceptionQualityInfo BuildPerceptionQualityInfo(std::size_t input_target_count,
+common::model::PerceptionQualityInfo BuildPerceptionQualityInfo(std::size_t input_target_count,
                                                          const AssociationQualityMetrics& metrics);
 
 /**
@@ -44,8 +44,8 @@ common::PerceptionQualityInfo BuildPerceptionQualityInfo(std::size_t input_targe
  * @param[in] features 输入目标特征列表。
  * @return 对应的决策轨迹快照列表。
  */
-common::DecisionTrackSnapshotList BuildDecisionSnapshotsFromFeatures(
-    const common::TargetFeatureList& features);
+common::model::DecisionTrackSnapshotList BuildDecisionSnapshotsFromFeatures(
+    const common::model::TargetFeatureList& features);
 
 }  // namespace internal
 }  // namespace pipeline

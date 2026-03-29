@@ -31,7 +31,7 @@ struct RuntimeState {
             new signal::output::DataOutputManager())) {}
 
   SignalPipelineConfig config{};
-  common::RadarControlProfile control_profile_{};
+  common::control::RadarControlProfile control_profile_{};
   association::DataAssociationEngine association_engine{};
   tracking::TrackFilter track_filter{};
   std::unique_ptr<signal::output::IDataOutputManager> output_manager;
@@ -56,7 +56,7 @@ struct SignalPipeline::Impl {
     RebuildOwnedComponents();
   }
 
-  SignalCycleResult RunCycle(const common::TargetFeatureList& input_state,
+  SignalCycleResult RunCycle(const common::model::TargetFeatureList& input_state,
                              const environment::IEnvironmentService& environment) {
     internal::CycleExecutionRuntime runtime_execution;
     runtime_execution.base_config = &runtime_.config;
@@ -112,11 +112,11 @@ struct SignalPipeline::Impl {
     RebuildOwnedComponents();
   }
 
-  void UpdatePlatformAttitude(const common::PlatformAttitudeDeg& platform_attitude_deg) {
+  void UpdatePlatformAttitude(const common::config::PlatformAttitudeDeg& platform_attitude_deg) {
     runtime_.config.beam_control.platform_attitude_deg = platform_attitude_deg;
   }
 
-  common::PlatformAttitudeDeg GetPlatformAttitude() const {
+  common::config::PlatformAttitudeDeg GetPlatformAttitude() const {
     return runtime_.config.beam_control.platform_attitude_deg;
   }
 
@@ -125,10 +125,10 @@ struct SignalPipeline::Impl {
                                                                    runtime_.control_profile_);
   }
 
-  void SetControlProfile(const common::RadarControlProfile& control_profile) {
+  void SetControlProfile(const common::control::RadarControlProfile& control_profile) {
     runtime_.control_profile_ = control_profile;
   }
-  common::RadarControlProfile GetControlProfile() const { return runtime_.control_profile_; }
+  common::control::RadarControlProfile GetControlProfile() const { return runtime_.control_profile_; }
 
   void RebuildOwnedComponents() {
     runtime::internal::OwnedComponentSlots component_slots;
@@ -149,7 +149,7 @@ SignalPipeline::SignalPipeline(SignalPipelineConfig config)
 
 SignalPipeline::~SignalPipeline() = default;
 
-SignalCycleResult SignalPipeline::RunCycle(const common::TargetFeatureList& input_state,
+SignalCycleResult SignalPipeline::RunCycle(const common::model::TargetFeatureList& input_state,
                                            const environment::IEnvironmentService& environment) {
   return impl_->RunCycle(input_state, environment);
 }
@@ -176,19 +176,19 @@ std::unique_ptr<tracking::ITrackLifecycleManager> SignalPipeline::CreateAutoLife
 }
 
 void SignalPipeline::UpdatePlatformAttitude(
-    const common::PlatformAttitudeDeg& platform_attitude_deg) {
+    const common::config::PlatformAttitudeDeg& platform_attitude_deg) {
   impl_->UpdatePlatformAttitude(platform_attitude_deg);
 }
 
-common::PlatformAttitudeDeg SignalPipeline::GetPlatformAttitude() const {
+common::config::PlatformAttitudeDeg SignalPipeline::GetPlatformAttitude() const {
   return impl_->GetPlatformAttitude();
 }
 
-void SignalPipeline::SetControlProfile(const common::RadarControlProfile& control_profile) {
+void SignalPipeline::SetControlProfile(const common::control::RadarControlProfile& control_profile) {
   impl_->SetControlProfile(control_profile);
 }
 
-common::RadarControlProfile SignalPipeline::GetControlProfile() const {
+common::control::RadarControlProfile SignalPipeline::GetControlProfile() const {
   return impl_->GetControlProfile();
 }
 

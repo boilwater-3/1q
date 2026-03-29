@@ -8,6 +8,7 @@
 
 namespace airborne_radar {
 namespace common {
+namespace utils {
 
 /**
  * @brief JammingSemantic 表示轨迹级/量测级干扰摘要类型。
@@ -20,6 +21,7 @@ enum class JammingSemantic {
   kMixed             /**< 多种干扰类型同时显著存在，无法稳定归并到单一类型 */
 };
 
+}  // namespace utils
 }  // namespace common
 }  // namespace airborne_radar
 

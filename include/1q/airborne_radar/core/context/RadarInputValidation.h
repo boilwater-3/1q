@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/common/TargetFeature.h"
+#include "1q/airborne_radar/common/model/TargetFeature.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/api.hpp"
 
@@ -74,7 +74,7 @@ ONEQ_API ValidationIssueList ValidateRadarCycleInput(const RadarCycleInput& inpu
  * @param[in] targets 当前周期目标列表。
  * @return 按发现顺序返回的校验问题列表。
  */
-ONEQ_API ValidationIssueList ValidateTargetFeatures(const common::TargetFeatureList& targets);
+ONEQ_API ValidationIssueList ValidateTargetFeatures(const common::model::TargetFeatureList& targets);
 
 /**
  * @brief 判断是否包含 error 级别问题。

@@ -27,9 +27,9 @@
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 // 便捷辅助
-#include "1q/airborne_radar/common/ConfigPresets.h"
-#include "1q/airborne_radar/common/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/common/TargetFeatureBuilder.h"
+#include "1q/airborne_radar/common/config/ConfigPresets.h"
+#include "1q/airborne_radar/common/config/RadarSessionConfigBuilder.h"
+#include "1q/airborne_radar/common/model/TargetFeatureBuilder.h"
 #include "1q/airborne_radar/core/output/TrackOutputQueries.h"
 // 平台侧需要直接操控原生组件时包含
 #include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
@@ -46,14 +46,14 @@ namespace {
 class PlatformSpecificDecisionEngine
     : public airborne_radar::decision::pipeline::ITacticalDecisionEngine {
  public:
-  using DecisionInputFrame = airborne_radar::common::DecisionInputFrame;
+  using DecisionInputFrame = airborne_radar::common::model::DecisionInputFrame;
   using TacticalDecisionResult = airborne_radar::decision::pipeline::TacticalDecisionResult;
   using TacticalStateStore = airborne_radar::decision::pipeline::TacticalStateStore;
   using TacticalProposal = airborne_radar::decision::pipeline::TacticalProposal;
   using TacticalMode = airborne_radar::decision::pipeline::TacticalMode;
-  using ControlDirective = airborne_radar::common::ControlDirective;
-  using ControlDirectiveType = airborne_radar::common::ControlDirectiveType;
-  using ControlDirectiveSource = airborne_radar::common::ControlDirectiveSource;
+  using ControlDirective = airborne_radar::common::control::ControlDirective;
+  using ControlDirectiveType = airborne_radar::common::control::ControlDirectiveType;
+  using ControlDirectiveSource = airborne_radar::common::control::ControlDirectiveSource;
 
   explicit PlatformSpecificDecisionEngine(float custom_threat_threshold)
       : custom_threat_threshold_(custom_threat_threshold) {}

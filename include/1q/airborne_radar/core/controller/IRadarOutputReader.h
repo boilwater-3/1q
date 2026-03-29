@@ -6,7 +6,7 @@
 #ifndef AIRBORNE_RADAR_CORE_CONTROLLER_I_RADAR_OUTPUT_READER_H_
 #define AIRBORNE_RADAR_CORE_CONTROLLER_I_RADAR_OUTPUT_READER_H_
 
-#include "1q/airborne_radar/common/TrackOutputFrame.h"
+#include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
@@ -30,7 +30,7 @@ class ONEQ_API IRadarOutputReader {
    * @brief 获取最近一次已缓存的轨迹输出帧。
    * @return 最近一次运行周期产生的中性轨迹输出帧。
    */
-  virtual const common::TrackOutputFrame& GetLatestTrackOutputFrame() const = 0;
+  virtual const common::output::TrackOutputFrame& GetLatestTrackOutputFrame() const = 0;
 };
 
 }  // namespace controller

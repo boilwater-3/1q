@@ -8,9 +8,9 @@
 
 #include <vector>
 
-#include "1q/airborne_radar/common/DecisionInputFrame.h"
-#include "1q/airborne_radar/common/DecisionTrackSnapshot.h"
-#include "1q/airborne_radar/common/TargetFeature.h"
+#include "1q/airborne_radar/common/model/DecisionInputFrame.h"
+#include "1q/airborne_radar/common/model/DecisionTrackSnapshot.h"
+#include "1q/airborne_radar/common/model/TargetFeature.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
 
 namespace airborne_radar {
@@ -33,12 +33,12 @@ class ITrackLifecycleManager {
    * @brief 导出供事件广播和外围观测消费的目标特征快照。
    * @return 获取到的轻量级目标特征列表。
    */
-  virtual common::TargetFeatureList BuildFeatureSnapshot() const = 0;
+  virtual common::model::TargetFeatureList BuildFeatureSnapshot() const = 0;
   /**
    * @brief 导出供决策引擎消费的活跃轨迹快照。
    * @return 包含 tentative/confirmed/lost 状态且未回收的轨迹列表。
    */
-  virtual common::DecisionTrackSnapshotList BuildDecisionSnapshot() const = 0;
+  virtual common::model::DecisionTrackSnapshotList BuildDecisionSnapshot() const = 0;
   /**
    * @brief 导出完整的单周期决策输入帧。
    * @param cycle_index 当前处理周期索引。
@@ -46,7 +46,7 @@ class ITrackLifecycleManager {
    * @param environment_jamming_detected 环境是否检测到严重干扰。
    * @return 封装好的决策数据帧，包含轨迹和量测证据。
    */
-  virtual common::DecisionInputFrame BuildDecisionFrame(
+  virtual common::model::DecisionInputFrame BuildDecisionFrame(
       std::uint32_t cycle_index, std::uint64_t batch_id,
       bool environment_jamming_detected) const = 0;
   /**

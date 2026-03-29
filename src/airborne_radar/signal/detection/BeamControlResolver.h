@@ -6,9 +6,9 @@
 #ifndef AIRBORNE_RADAR_SIGNAL_DETECTION_BEAM_CONTROL_RESOLVER_H_
 #define AIRBORNE_RADAR_SIGNAL_DETECTION_BEAM_CONTROL_RESOLVER_H_
 
-#include "1q/airborne_radar/common/AntennaPatternUtils.h"
-#include "1q/airborne_radar/common/RadarOrientationConfig.h"
-#include "1q/airborne_radar/common/RadarOrientationUtils.h"
+#include "1q/airborne_radar/common/utils/AntennaPatternUtils.h"
+#include "1q/airborne_radar/common/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/common/utils/RadarOrientationUtils.h"
 #include "1q/airborne_radar/signal/detection/DetectionTypes.h"
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"
 #include "airborne_radar/signal/detection/TargetLookResolver.h"
@@ -22,7 +22,7 @@ namespace detection {
  */
 struct ResolvedBeamState {
   EffectiveBeamwidthDeg effective_beamwidth_deg; /**< 生效方位/俯仰波束宽度。 */
-  common::AzimuthElevationDeg beam_pointing_deg; /**< 挂架坐标系下的当前波束中心。 */
+  common::config::AzimuthElevationDeg beam_pointing_deg; /**< 挂架坐标系下的当前波束中心。 */
   float one_way_antenna_gain_db{0.0f};           /**< 当前目标方向上的单程天线增益（dB）。 */
 };
 /**
@@ -38,8 +38,8 @@ class BeamControlResolver {
    * @return 当前探测使用的波束状态。
    */
   static ResolvedBeamState Resolve(const AntennaConfig& antenna_config,
-                                   const common::RadarOrientationConfig& orientation_config,
-                                   const common::PlatformAttitudeDeg& platform_attitude_deg,
+                                   const common::config::RadarOrientationConfig& orientation_config,
+                                   const common::config::PlatformAttitudeDeg& platform_attitude_deg,
                                    const TargetLookAnglesDeg& target_look_angles) {
     ResolvedBeamState state;
     state.effective_beamwidth_deg = ResolveEffectiveBeamwidth(antenna_config, orientation_config);
@@ -51,15 +51,15 @@ class BeamControlResolver {
       return state;
     }
 
-    common::AntennaPatternBeamwidthDeg pattern_beamwidth;
+    common::config::AntennaPatternBeamwidthDeg pattern_beamwidth;
     pattern_beamwidth.az_beamwidth_deg = state.effective_beamwidth_deg.az_beamwidth_deg;
     pattern_beamwidth.el_beamwidth_deg = state.effective_beamwidth_deg.el_beamwidth_deg;
 
-    common::AntennaLookOffsetDeg offset_deg;
+    common::config::AntennaLookOffsetDeg offset_deg;
     offset_deg.delta_az_deg = target_look_angles.look_az_deg - state.beam_pointing_deg.az_deg;
     offset_deg.delta_el_deg = target_look_angles.look_el_deg - state.beam_pointing_deg.el_deg;
 
-    const common::AntennaPatternSample sample = common::EvaluateAntennaPattern(
+    const common::config::AntennaPatternSample sample = common::utils::EvaluateAntennaPattern(
         antenna_config.main_beam_gain_db, antenna_config.pattern, pattern_beamwidth, offset_deg,
         orientation_config.scan_center_deg);
     state.one_way_antenna_gain_db = sample.gain_dbi;
@@ -74,17 +74,17 @@ class BeamControlResolver {
    * @return 挂架坐标系下的波束指向。
    * @note 对地稳定当前无地理参考输入，代码上显式等同于对惯性空间稳定。
    */
-  static common::AzimuthElevationDeg ResolveMountFrameBeamPointing(
-      const common::RadarOrientationConfig& orientation_config,
-      const common::PlatformAttitudeDeg& platform_attitude_deg) {
-    const common::AzimuthElevationLimitsDeg effective_limits =
-        common::IntersectScanLimits(orientation_config.mechanical_scan_limits_deg,
+  static common::config::AzimuthElevationDeg ResolveMountFrameBeamPointing(
+      const common::config::RadarOrientationConfig& orientation_config,
+      const common::config::PlatformAttitudeDeg& platform_attitude_deg) {
+    const common::config::AzimuthElevationLimitsDeg effective_limits =
+        common::utils::IntersectScanLimits(orientation_config.mechanical_scan_limits_deg,
                                     orientation_config.electronic_scan_limits_deg);
-    if (orientation_config.stabilization_mode == common::StabilizationMode::kBodyStabilized) {
-      return common::ComputeMountFrameBeamPointing(orientation_config);
+    if (orientation_config.stabilization_mode == common::config::StabilizationMode::kBodyStabilized) {
+      return common::utils::ComputeMountFrameBeamPointing(orientation_config);
     }
 
-    common::AzimuthElevationDeg desired_platform_pointing_deg;
+    common::config::AzimuthElevationDeg desired_platform_pointing_deg;
     desired_platform_pointing_deg.az_deg =
         orientation_config.scan_center_deg.az_deg + orientation_config.dwell_center_deg.az_deg;
     desired_platform_pointing_deg.el_deg =
@@ -104,10 +104,10 @@ class BeamControlResolver {
     const oneq::internal::geometry::AzimuthElevationDeg stabilized_mount_pointing =
         oneq::internal::geometry::ResolveStabilizedMountFramePointing(
             desired_platform_pointing, platform_attitude, mount_angles);
-    common::AzimuthElevationDeg stabilized_mount_frame_pointing;
+    common::config::AzimuthElevationDeg stabilized_mount_frame_pointing;
     stabilized_mount_frame_pointing.az_deg = stabilized_mount_pointing.az_deg;
     stabilized_mount_frame_pointing.el_deg = stabilized_mount_pointing.el_deg;
-    return common::ClampAzimuthElevation(stabilized_mount_frame_pointing, effective_limits);
+    return common::utils::ClampAzimuthElevation(stabilized_mount_frame_pointing, effective_limits);
   }
 };
 

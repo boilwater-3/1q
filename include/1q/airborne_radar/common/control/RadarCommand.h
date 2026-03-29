@@ -8,6 +8,7 @@
 
 namespace airborne_radar {
 namespace common {
+namespace control {
 
 /**
  * @brief RadarCommandSource 表示指令来源模块。
@@ -52,6 +53,7 @@ struct RadarCommand {
   RadarCommand(RadarCommandType cmd_type, RadarCommandSource cmd_source)
       : type(cmd_type), source(cmd_source) {}
 };
+}  // namespace control
 }  // namespace common
 }  // namespace airborne_radar
 

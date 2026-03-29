@@ -1,9 +1,10 @@
-#include "1q/airborne_radar/common/DecisionTrackSnapshot.h"
+#include "1q/airborne_radar/common/model/DecisionTrackSnapshot.h"
 
 #include <cmath>
 
 namespace airborne_radar {
 namespace common {
+namespace model {
 
 DecisionTrackSnapshot::DecisionTrackSnapshot(float velocity_x_in, float velocity_y_in,
                                              float velocity_z_in, float rcs_in,
@@ -28,5 +29,6 @@ DecisionTrackSnapshot::DecisionTrackSnapshot(float velocity_x_in, float velocity
   state.jamming_detected = jamming_detected_in;
 }
 
+}  // namespace model
 }  // namespace common
 }  // namespace airborne_radar

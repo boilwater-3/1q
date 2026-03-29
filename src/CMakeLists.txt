@@ -3,11 +3,11 @@
 set(PROJECT_SOURCES
     common/geometry/GeometryTransform.cpp
     common/timing/TimingRegimeModel.cpp
-    airborne_radar/common/ConfigPresets.cpp
-    airborne_radar/common/DecisionTrackSnapshot.cpp
-    airborne_radar/common/RadarSessionConfigBuilder.cpp
-    airborne_radar/common/TargetFeature.cpp
-    airborne_radar/common/TargetFeatureUtils.cpp
+    airborne_radar/common/config/ConfigPresets.cpp
+    airborne_radar/common/config/RadarSessionConfigBuilder.cpp
+    airborne_radar/common/model/DecisionTrackSnapshot.cpp
+    airborne_radar/common/model/TargetFeature.cpp
+    airborne_radar/common/utils/TargetFeatureUtils.cpp
     airborne_radar/decision/pipeline/TacticalCoordinator.cpp
     airborne_radar/decision/pipeline/ControlReducer.cpp
     airborne_radar/decision/evaluators/ThreatAssessmentEvaluator.cpp
@@ -223,23 +223,23 @@ if(ENABLE_INSTALL)
     include(CMakePackageConfigHelpers)
 
     set(PUBLIC_HEADERS_COMMON
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/AntennaPatternConfig.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/AntennaPatternUtils.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/ConfigPresets.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/RadarSessionConfigBuilder.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/ControlDirective.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/DecisionInputFrame.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/DecisionSourceInfo.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/DecisionTrackSnapshot.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/JammingSemantics.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/RadarCommand.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/RadarControlProfile.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/RadarOrientationConfig.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/RadarOrientationUtils.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/TargetCategory.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/TargetFeature.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/TargetFeatureUtils.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/TrackOutputFrame.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/config/AntennaPatternConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/utils/AntennaPatternUtils.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/config/ConfigPresets.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/config/RadarSessionConfigBuilder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/control/ControlDirective.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/model/DecisionInputFrame.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/model/DecisionSourceInfo.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/model/DecisionTrackSnapshot.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/utils/JammingSemantics.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/control/RadarCommand.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/control/RadarControlProfile.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/config/RadarOrientationConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/utils/RadarOrientationUtils.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/model/TargetCategory.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/model/TargetFeature.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/utils/TargetFeatureUtils.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/output/TrackOutputFrame.h
     )
     set(PUBLIC_HEADERS_COMMON_OUTPUT
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/output/TrackOutputQueries.h

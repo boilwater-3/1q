@@ -6,10 +6,11 @@
 #ifndef AIRBORNE_RADAR_COMMON_ANTENNA_PATTERN_CONFIG_H_
 #define AIRBORNE_RADAR_COMMON_ANTENNA_PATTERN_CONFIG_H_
 
-#include "1q/airborne_radar/common/RadarOrientationConfig.h"
+#include "1q/airborne_radar/common/config/RadarOrientationConfig.h"
 
 namespace airborne_radar {
 namespace common {
+namespace config {
 
 /**
  * @brief AntennaPatternModelType 表示天线方向图主瓣近似模型类型。
@@ -63,6 +64,7 @@ struct AntennaPatternSample {
   bool inside_back_lobe{false};         /**< 是否落入后瓣区域 */
 };
 
+}  // namespace config
 }  // namespace common
 }  // namespace airborne_radar
 

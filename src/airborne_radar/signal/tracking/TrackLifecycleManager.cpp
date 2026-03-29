@@ -17,16 +17,16 @@ namespace {
  * @param status 内部轨迹状态。
  * @return 决策层可见的轨迹状态。
  */
-common::DecisionTrackStatus ToDecisionTrackStatus(TrackStatus status) {
+common::model::DecisionTrackStatus ToDecisionTrackStatus(TrackStatus status) {
   switch (status) {
     case TrackStatus::kConfirmed:
-      return common::DecisionTrackStatus::kConfirmed;
+      return common::model::DecisionTrackStatus::kConfirmed;
     case TrackStatus::kLost:
-      return common::DecisionTrackStatus::kLost;
+      return common::model::DecisionTrackStatus::kLost;
     case TrackStatus::kTentative:
     case TrackStatus::kRecycled:
     default:
-      return common::DecisionTrackStatus::kTentative;
+      return common::model::DecisionTrackStatus::kTentative;
   }
 }
 /**
@@ -52,13 +52,13 @@ std::uint32_t ResolveLocalMissToleranceBonus(const TrackState& track) {
   }
 
   switch (track.dominant_jamming_semantic) {
-    case common::JammingSemantic::kDeception:
-    case common::JammingSemantic::kRepeater:
+    case common::utils::JammingSemantic::kDeception:
+    case common::utils::JammingSemantic::kRepeater:
       return 1U;
-    case common::JammingSemantic::kMixed:
+    case common::utils::JammingSemantic::kMixed:
       return track.jamming_severity >= 0.55f ? 1U : 0U;
-    case common::JammingSemantic::kNoiseSuppression:
-    case common::JammingSemantic::kNone:
+    case common::utils::JammingSemantic::kNoiseSuppression:
+    case common::utils::JammingSemantic::kNone:
     default:
       return 0U;
   }
@@ -450,7 +450,7 @@ void TrackLifecycleManager::RecyclePhase(LifecycleUpdateScratch& scratch) {
       continue;
     }
     const TrackMeasurement& measurement = *(it->second);
-    common::DecisionMeasurementEvidence evidence;
+    common::model::DecisionMeasurementEvidence evidence;
     evidence.has_measurement_evidence = true;
     evidence.updated_this_cycle = true;
     evidence.predicted_only_this_cycle = false;
@@ -516,11 +516,11 @@ void TrackLifecycleManager::ForEachActiveTrack(Callback&& callback) const {
   }
 }
 
-common::TargetFeatureList TrackLifecycleManager::BuildFeatureSnapshot() const {
-  common::TargetFeatureList features;
+common::model::TargetFeatureList TrackLifecycleManager::BuildFeatureSnapshot() const {
+  common::model::TargetFeatureList features;
   features.reserve(tracks_by_key_.size());
   ForEachActiveTrack([&features](std::uint64_t /*key*/, const TrackState& track) {
-    common::TargetFeature feature(track.velocity(0), track.velocity(1), track.velocity(2),
+    common::model::TargetFeature feature(track.velocity(0), track.velocity(1), track.velocity(2),
                                   track.rcs);
     feature.has_cartesian_position = true;
     feature.position_x = track.position(0);
@@ -532,11 +532,11 @@ common::TargetFeatureList TrackLifecycleManager::BuildFeatureSnapshot() const {
   return features;
 }
 
-common::DecisionTrackSnapshotList TrackLifecycleManager::BuildDecisionSnapshot() const {
-  common::DecisionTrackSnapshotList snapshots;
+common::model::DecisionTrackSnapshotList TrackLifecycleManager::BuildDecisionSnapshot() const {
+  common::model::DecisionTrackSnapshotList snapshots;
   snapshots.reserve(tracks_by_key_.size());
   ForEachActiveTrack([&](std::uint64_t key, const TrackState& track) {
-    common::DecisionTrackSnapshot snapshot(track.velocity(0), track.velocity(1), track.velocity(2),
+    common::model::DecisionTrackSnapshot snapshot(track.velocity(0), track.velocity(1), track.velocity(2),
                                            track.rcs, track.acceleration(0), track.acceleration(1),
                                            track.acceleration(2), track.jamming_detected,
                                            track.external_target_id, key);
@@ -547,7 +547,7 @@ common::DecisionTrackSnapshotList TrackLifecycleManager::BuildDecisionSnapshot()
     snapshot.state.hit_count = track.hit_count;
     snapshot.state.miss_count = track.miss_count;
 
-    std::unordered_map<std::uint64_t, common::DecisionMeasurementEvidence>::const_iterator
+    std::unordered_map<std::uint64_t, common::model::DecisionMeasurementEvidence>::const_iterator
         evidence_found = latest_evidence_by_key_.find(key);
     if (evidence_found != latest_evidence_by_key_.end()) {
       snapshot.evidence = evidence_found->second;
@@ -561,9 +561,9 @@ common::DecisionTrackSnapshotList TrackLifecycleManager::BuildDecisionSnapshot()
   return snapshots;
 }
 
-common::DecisionInputFrame TrackLifecycleManager::BuildDecisionFrame(
+common::model::DecisionInputFrame TrackLifecycleManager::BuildDecisionFrame(
     std::uint32_t cycle_index, std::uint64_t batch_id, bool environment_jamming_detected) const {
-  common::DecisionInputFrame frame;
+  common::model::DecisionInputFrame frame;
   frame.cycle_index = cycle_index;
   frame.batch_id = batch_id;
   frame.environment_jamming_detected = environment_jamming_detected;
@@ -675,7 +675,7 @@ void TrackLifecycleManager::ResetForReuse(TrackState& track) const {
   track.acceleration.setZero();
   track.rcs = 0.0f;
   track.jamming_detected = false;
-  track.dominant_jamming_semantic = common::JammingSemantic::kNone;
+  track.dominant_jamming_semantic = common::utils::JammingSemantic::kNone;
   track.jamming_severity = 0.0f;
   track.gaussian_state = GaussianTrackState();
 }

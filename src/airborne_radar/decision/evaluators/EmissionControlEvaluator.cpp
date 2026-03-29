@@ -20,14 +20,14 @@ const std::uint32_t kLpiHoldCycles = 2;
  * @return 返回类型为 `REQUEST_LPI_POWER_REDUCTION` 且 `source` 字段为
  *         `EMISSION_CONTROL` 的控制意图。
  */
-common::ControlDirective BuildLpiPowerDirective() {
-  return common::ControlDirective(common::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
-                                  common::ControlDirectiveSource::EMISSION_CONTROL);
+common::control::ControlDirective BuildLpiPowerDirective() {
+  return common::control::ControlDirective(common::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+                                  common::control::ControlDirectiveSource::EMISSION_CONTROL);
 }
 
 }  // namespace
 
-void EmissionControlEvaluator::Evaluate(const common::DecisionInputFrame& input_frame,
+void EmissionControlEvaluator::Evaluate(const common::model::DecisionInputFrame& input_frame,
                                         pipeline::TacticalStateStore& state_store,
                                         pipeline::TacticalEvaluationState& evaluation_state) const {
   // input_frame 在此评估器中未使用：LPI 降功率条件由上游

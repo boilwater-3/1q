@@ -9,18 +9,18 @@
 #include <cstdint>
 #include <vector>
 
-#include "1q/airborne_radar/common/DecisionSourceInfo.h"
+#include "1q/airborne_radar/common/model/DecisionSourceInfo.h"
 
 namespace airborne_radar {
 namespace environment {
 
 /**
- * @brief JammingTechnique 与 `common::JammingTechnique` 保持统一的别名。
+ * @brief JammingTechnique 与 `common::model::JammingTechnique` 保持统一的别名。
  * @details 权威定义位于 `common/DecisionSourceInfo.h`；
  *          此别名保证环境层代码可继续通过
  *          `environment::JammingTechnique` 引用，无需修改已有代码。
  */
-using JammingTechnique = common::JammingTechnique;
+using JammingTechnique = common::model::JammingTechnique;
 
 /**
  * @brief JammerSourceFact 表示单个干扰源的事实描述。

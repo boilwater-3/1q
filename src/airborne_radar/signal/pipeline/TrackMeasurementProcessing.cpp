@@ -30,7 +30,7 @@ const association::AssociationMatch* FindAssociationMatch(
  * @param target  目标特征数据。
  * @return 当三维速度分量非零时返回其模长，否则返回记录的速度标量。
  */
-float ResolveSpeedMagnitude(const common::TargetFeature& target) {
+float ResolveSpeedMagnitude(const common::model::TargetFeature& target) {
   const Eigen::Vector3f velocity(target.current_track_velocity_x, target.current_track_velocity_y,
                                  target.current_track_velocity_z);
   if (velocity.squaredNorm() > 0.0f) {
@@ -44,7 +44,7 @@ float ResolveSpeedMagnitude(const common::TargetFeature& target) {
  * @param target  目标特征数据。
  * @return 当三维速度分量非零时返回对应矢量，否则沿 X 轴方向构造矢量。
  */
-Eigen::Vector3f ResolveVelocityVector(const common::TargetFeature& target) {
+Eigen::Vector3f ResolveVelocityVector(const common::model::TargetFeature& target) {
   const Eigen::Vector3f velocity(target.current_track_velocity_x, target.current_track_velocity_y,
                                  target.current_track_velocity_z);
   if (velocity.squaredNorm() > 0.0f) {

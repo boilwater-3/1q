@@ -11,12 +11,12 @@
 #include <utility>
 #include <vector>
 
-#include "1q/airborne_radar/common/DecisionInputFrame.h"
-#include "1q/airborne_radar/common/DecisionTrackSnapshot.h"
-#include "1q/airborne_radar/common/RadarCommand.h"
-#include "1q/airborne_radar/common/RadarControlProfile.h"
-#include "1q/airborne_radar/common/TargetFeature.h"
-#include "1q/airborne_radar/common/TrackOutputFrame.h"
+#include "1q/airborne_radar/common/model/DecisionInputFrame.h"
+#include "1q/airborne_radar/common/model/DecisionTrackSnapshot.h"
+#include "1q/airborne_radar/common/control/RadarCommand.h"
+#include "1q/airborne_radar/common/control/RadarControlProfile.h"
+#include "1q/airborne_radar/common/model/TargetFeature.h"
+#include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/context/IRadarContext.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"
 #include "1q/airborne_radar/decision/pipeline/ControlReducerTypes.h"
@@ -32,14 +32,14 @@ namespace tests {
 
 namespace {
 
-common::TargetFeatureList BuildSingleTarget(float speed, float rcs, bool jamming) {
+common::model::TargetFeatureList BuildSingleTarget(float speed, float rcs, bool jamming) {
   (void)jamming;
-  common::TargetFeature target(speed, 0.0f, 0.0f, rcs);
+  common::model::TargetFeature target(speed, 0.0f, 0.0f, rcs);
   target.position_x = 100.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 100.0f;
-  return common::TargetFeatureList{target};
+  return common::model::TargetFeatureList{target};
 }
 
 }  // namespace
@@ -48,13 +48,13 @@ common::TargetFeatureList BuildSingleTarget(float speed, float rcs, bool jamming
 class FakeRadarContext : public core::context::IRadarContext {
  public:
   /// @brief 构造函数，注入固定的输入状态。
-  explicit FakeRadarContext(common::TargetFeatureList state) : state_(std::move(state)) {}
+  explicit FakeRadarContext(common::model::TargetFeatureList state) : state_(std::move(state)) {}
 
   /// @brief 获取当前雷达状态。
-  const common::TargetFeatureList& GetTargetFeatures() const override { return state_; }
+  const common::model::TargetFeatureList& GetTargetFeatures() const override { return state_; }
 
   /// @brief 获取当前搭载平台姿态角。
-  common::PlatformAttitudeDeg GetPlatformAttitude() const override {
+  common::config::PlatformAttitudeDeg GetPlatformAttitude() const override {
     return platform_attitude_deg_;
   }
 
@@ -62,25 +62,25 @@ class FakeRadarContext : public core::context::IRadarContext {
   float GetCycleDeltaTimeSec() const override { return cycle_dt_sec_; }
 
   /// @brief 收集控制指令。
-  void SubmitControlCommand(common::RadarCommand cmd) override {
+  void SubmitControlCommand(common::control::RadarCommand cmd) override {
     submitted_commands_.push_back(cmd);
   }
 
   /// @brief 获取已提交的指令集合。
-  const std::vector<common::RadarCommand>& SubmittedCommands() const { return submitted_commands_; }
+  const std::vector<common::control::RadarCommand>& SubmittedCommands() const { return submitted_commands_; }
 
   /// @brief 记录最新控制真值。
-  void UpdateRadarControlProfile(const common::RadarControlProfile& profile) override {
+  void UpdateRadarControlProfile(const common::control::RadarControlProfile& profile) override {
     latest_control_profile_ = profile;
   }
 
   /// @brief 获取最新控制真值。
-  const common::RadarControlProfile& LatestControlProfile() const {
+  const common::control::RadarControlProfile& LatestControlProfile() const {
     return latest_control_profile_;
   }
 
   /// @brief 设置测试上下文使用的平台姿态角。
-  void SetPlatformAttitude(const common::PlatformAttitudeDeg& platform_attitude_deg) {
+  void SetPlatformAttitude(const common::config::PlatformAttitudeDeg& platform_attitude_deg) {
     platform_attitude_deg_ = platform_attitude_deg;
   }
 
@@ -88,20 +88,20 @@ class FakeRadarContext : public core::context::IRadarContext {
   void SetCycleDeltaTimeSec(float cycle_dt_sec) { cycle_dt_sec_ = cycle_dt_sec; }
 
  private:
-  common::TargetFeatureList state_;
-  common::PlatformAttitudeDeg platform_attitude_deg_{};
+  common::model::TargetFeatureList state_;
+  common::config::PlatformAttitudeDeg platform_attitude_deg_{};
   float cycle_dt_sec_{1.0f};
-  std::vector<common::RadarCommand> submitted_commands_;
-  common::RadarControlProfile latest_control_profile_{};
+  std::vector<common::control::RadarCommand> submitted_commands_;
+  common::control::RadarControlProfile latest_control_profile_{};
 };
 
 class FixedDirectiveDecisionEngine : public decision::pipeline::ITacticalDecisionEngine {
  public:
-  explicit FixedDirectiveDecisionEngine(common::ControlDirective directive)
+  explicit FixedDirectiveDecisionEngine(common::control::ControlDirective directive)
       : directive_(std::move(directive)) {}
 
   decision::pipeline::TacticalDecisionResult Evaluate(
-      const common::DecisionInputFrame&, decision::pipeline::TacticalStateStore&) override {
+      const common::model::DecisionInputFrame&, decision::pipeline::TacticalStateStore&) override {
     decision::pipeline::TacticalDecisionResult result;
     result.proposals.push_back(
         decision::pipeline::TacticalProposal(directive_, 10, "test directive"));
@@ -109,7 +109,7 @@ class FixedDirectiveDecisionEngine : public decision::pipeline::ITacticalDecisio
   }
 
  private:
-  common::ControlDirective directive_;
+  common::control::ControlDirective directive_;
 };
 
 class FixedProposalDecisionEngine : public decision::pipeline::ITacticalDecisionEngine {
@@ -118,7 +118,7 @@ class FixedProposalDecisionEngine : public decision::pipeline::ITacticalDecision
       : proposals_(std::move(proposals)) {}
 
   decision::pipeline::TacticalDecisionResult Evaluate(
-      const common::DecisionInputFrame&, decision::pipeline::TacticalStateStore&) override {
+      const common::model::DecisionInputFrame&, decision::pipeline::TacticalStateStore&) override {
     decision::pipeline::TacticalDecisionResult result;
     result.proposals = proposals_;
     return result;
@@ -131,13 +131,13 @@ class FixedProposalDecisionEngine : public decision::pipeline::ITacticalDecision
 class CapturingDecisionEngine : public decision::pipeline::ITacticalDecisionEngine {
  public:
   decision::pipeline::TacticalDecisionResult Evaluate(
-      const common::DecisionInputFrame& frame, decision::pipeline::TacticalStateStore&) override {
+      const common::model::DecisionInputFrame& frame, decision::pipeline::TacticalStateStore&) override {
     last_frame = frame;
     ++evaluate_count;
     return decision::pipeline::TacticalDecisionResult();
   }
 
-  common::DecisionInputFrame last_frame{};
+  common::model::DecisionInputFrame last_frame{};
   std::size_t evaluate_count{0U};
 };
 
@@ -145,7 +145,7 @@ class CapturingDecisionEngine : public decision::pipeline::ITacticalDecisionEngi
 class CoreControllerTest : public ::testing::Test {};
 
 TEST_F(CoreControllerTest, RunOnceSubmitsCommands) {
-  const common::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
+  const common::model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentModelConfig env_config;
@@ -163,9 +163,9 @@ TEST_F(CoreControllerTest, RunOnceSubmitsCommands) {
 }
 
 TEST_F(CoreControllerTest, PushesPlatformAttitudeIntoSignalPipelineBeforeRun) {
-  const common::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
+  const common::model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
-  common::PlatformAttitudeDeg platform_attitude_deg;
+  common::config::PlatformAttitudeDeg platform_attitude_deg;
   platform_attitude_deg.yaw_deg = 18.0f;
   platform_attitude_deg.pitch_deg = -4.0f;
   platform_attitude_deg.roll_deg = 2.0f;
@@ -180,7 +180,7 @@ TEST_F(CoreControllerTest, PushesPlatformAttitudeIntoSignalPipelineBeforeRun) {
 
   controller.RunOnce();
 
-  const common::PlatformAttitudeDeg cached_platform_attitude =
+  const common::config::PlatformAttitudeDeg cached_platform_attitude =
       signal_pipeline.GetPlatformAttitude();
   EXPECT_FLOAT_EQ(cached_platform_attitude.yaw_deg, 18.0f);
   EXPECT_FLOAT_EQ(cached_platform_attitude.pitch_deg, -4.0f);
@@ -188,7 +188,7 @@ TEST_F(CoreControllerTest, PushesPlatformAttitudeIntoSignalPipelineBeforeRun) {
 }
 
 TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecision) {
-  const common::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
+  const common::model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service;
@@ -229,7 +229,7 @@ TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecisio
 }
 
 TEST_F(CoreControllerTest, AppliesUpdatedSceneOnNextControllerCycle) {
-  const common::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
+  const common::model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service;
@@ -256,7 +256,7 @@ TEST_F(CoreControllerTest, AppliesUpdatedSceneOnNextControllerCycle) {
 }
 
 TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
-  const common::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
+  const common::model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentModelConfig env_config;
@@ -284,9 +284,9 @@ TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
   ASSERT_EQ(decision_engine.evaluate_count, 1u);
   EXPECT_TRUE(decision_engine.last_frame.environment_jamming_detected);
   ASSERT_EQ(decision_engine.last_frame.eccm_source_info.jammer_sources.size(), 1u);
-  const common::EccmJammerSourceInfo& mapped_source =
+  const common::model::EccmJammerSourceInfo& mapped_source =
       decision_engine.last_frame.eccm_source_info.jammer_sources.front();
-  EXPECT_EQ(mapped_source.technique, common::JammingTechnique::kDeception);
+  EXPECT_EQ(mapped_source.technique, common::model::JammingTechnique::kDeception);
   EXPECT_FLOAT_EQ(mapped_source.jammer_power_db, 9.0f);
   EXPECT_FLOAT_EQ(mapped_source.jammer_to_signal_db, 7.5f);
   EXPECT_FLOAT_EQ(mapped_source.frequency_overlap_ratio, 0.85f);
@@ -294,7 +294,7 @@ TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
   EXPECT_FLOAT_EQ(mapped_source.azimuth_deg, 30.0f);
   EXPECT_FLOAT_EQ(mapped_source.angular_span_deg, 8.0f);
   EXPECT_EQ(decision_engine.last_frame.association_quality_info.dominant_jamming_semantic,
-            common::JammingSemantic::kDeception);
+            common::utils::JammingSemantic::kDeception);
   EXPECT_GT(decision_engine.last_frame.association_quality_info.jamming_severity, 0.0f);
   EXPECT_GT(decision_engine.last_frame.association_quality_info.association_stress, 0.0f);
   EXPECT_EQ(decision_engine.last_frame.perception_quality_info.input_target_count, 1u);
@@ -304,7 +304,7 @@ TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
 }
 
 TEST_F(CoreControllerTest, NoLifecycleFallbackBuildsDecisionFrameFromSyntheticTrackOutput) {
-  const common::TargetFeatureList input_state = BuildSingleTarget(640.0f, 1.5f, false);
+  const common::model::TargetFeatureList input_state = BuildSingleTarget(640.0f, 1.5f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentModelConfig env_config;
@@ -320,20 +320,20 @@ TEST_F(CoreControllerTest, NoLifecycleFallbackBuildsDecisionFrameFromSyntheticTr
   controller.RunOnce();
 
   EXPECT_TRUE(controller.HasLatestTrackOutputFrame());
-  const common::TrackOutputFrame& latest_track_output_frame =
+  const common::output::TrackOutputFrame& latest_track_output_frame =
       controller.GetLatestTrackOutputFrame();
   EXPECT_EQ(latest_track_output_frame.published_track_count, 1U);
   EXPECT_EQ(latest_track_output_frame.confirmed_track_count, 1U);
   EXPECT_FALSE(latest_track_output_frame.contains_lost_tracks);
   ASSERT_EQ(decision_engine.last_frame.tracks.size(), 1U);
   EXPECT_EQ(decision_engine.last_frame.tracks[0].state.status,
-            common::DecisionTrackStatus::kConfirmed);
+            common::model::DecisionTrackStatus::kConfirmed);
   EXPECT_EQ(decision_engine.last_frame.tracks[0].state.association_key,
             latest_track_output_frame.tracks[0].state.association_key);
 }
 
 TEST_F(CoreControllerTest, PublicOutputReaderApiExposesLatestTrackOutputFrame) {
-  const common::TargetFeatureList input_state = BuildSingleTarget(510.0f, 1.0f, false);
+  const common::model::TargetFeatureList input_state = BuildSingleTarget(510.0f, 1.0f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentModelConfig env_config;
@@ -348,18 +348,18 @@ TEST_F(CoreControllerTest, PublicOutputReaderApiExposesLatestTrackOutputFrame) {
   controller.RunOnce();
 
   EXPECT_TRUE(controller.HasLatestTrackOutputFrame());
-  const common::TrackOutputFrame& latest_track_output_frame =
+  const common::output::TrackOutputFrame& latest_track_output_frame =
       controller.GetLatestTrackOutputFrame();
   EXPECT_EQ(latest_track_output_frame.cycle_index, 1U);
   EXPECT_EQ(latest_track_output_frame.batch_id, 1U);
   EXPECT_EQ(latest_track_output_frame.published_track_count, 1U);
   ASSERT_EQ(latest_track_output_frame.tracks.size(), 1U);
   EXPECT_EQ(latest_track_output_frame.tracks[0].state.status,
-            common::DecisionTrackStatus::kConfirmed);
+            common::model::DecisionTrackStatus::kConfirmed);
 }
 
 TEST_F(CoreControllerTest, RuntimeValidationErrorsAreExposedAndSkipCommandSubmission) {
-  const common::TargetFeatureList input_state = BuildSingleTarget(510.0f, 1.0f, false);
+  const common::model::TargetFeatureList input_state = BuildSingleTarget(510.0f, 1.0f, false);
   FakeRadarContext radar_context(input_state);
   radar_context.SetCycleDeltaTimeSec(std::numeric_limits<float>::quiet_NaN());
 
@@ -383,7 +383,7 @@ TEST_F(CoreControllerTest, RuntimeValidationErrorsAreExposedAndSkipCommandSubmis
 }
 
 TEST_F(CoreControllerTest, NextCycleAppliesPendingControlProfileToSignalPipeline) {
-  const common::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
+  const common::model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentModelConfig env_config;
@@ -404,7 +404,7 @@ TEST_F(CoreControllerTest, NextCycleAppliesPendingControlProfileToSignalPipeline
 }
 
 TEST_F(CoreControllerTest, CustomReducerConfigChangesPendingControlProfile) {
-  const common::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
+  const common::model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentModelConfig env_config;
@@ -414,12 +414,12 @@ TEST_F(CoreControllerTest, CustomReducerConfigChangesPendingControlProfile) {
   signal::pipeline::SignalPipeline signal_pipeline;
   std::vector<decision::pipeline::TacticalProposal> proposals;
   proposals.push_back(decision::pipeline::TacticalProposal{
-      common::ControlDirective(common::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
-                               common::ControlDirectiveSource::EMISSION_CONTROL),
+      common::control::ControlDirective(common::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+                               common::control::ControlDirectiveSource::EMISSION_CONTROL),
       60, "reduce power"});
   proposals.push_back(decision::pipeline::TacticalProposal{
-      common::ControlDirective(common::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
-                               common::ControlDirectiveSource::SURVIVABILITY),
+      common::control::ControlDirective(common::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
+                               common::control::ControlDirectiveSource::SURVIVABILITY),
       82, "burnthrough"});
   FixedProposalDecisionEngine decision_engine(proposals);
 

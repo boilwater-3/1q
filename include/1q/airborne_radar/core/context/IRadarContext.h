@@ -7,10 +7,10 @@
 #ifndef AIRBORNE_RADAR_CORE_CONTEXT_I_RADAR_CONTEXT_H_
 #define AIRBORNE_RADAR_CORE_CONTEXT_I_RADAR_CONTEXT_H_
 
-#include "1q/airborne_radar/common/RadarCommand.h"
-#include "1q/airborne_radar/common/RadarControlProfile.h"
-#include "1q/airborne_radar/common/RadarOrientationConfig.h"
-#include "1q/airborne_radar/common/TargetFeature.h"
+#include "1q/airborne_radar/common/control/RadarCommand.h"
+#include "1q/airborne_radar/common/control/RadarControlProfile.h"
+#include "1q/airborne_radar/common/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/common/model/TargetFeature.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
@@ -29,13 +29,13 @@ class ONEQ_API IRadarContext {
    * @brief 获取当前周期的目标特征列表。
    * @return 当前周期的目标特征列表只读引用。
    */
-  virtual const common::TargetFeatureList& GetTargetFeatures() const = 0;
+  virtual const common::model::TargetFeatureList& GetTargetFeatures() const = 0;
 
   /**
    * @brief 获取当前搭载平台姿态角。
    * @return 当前平台姿态角（单位：度）。
    */
-  virtual common::PlatformAttitudeDeg GetPlatformAttitude() const = 0;
+  virtual common::config::PlatformAttitudeDeg GetPlatformAttitude() const = 0;
 
   /**
    * @brief 获取当前周期时间步长。
@@ -47,13 +47,13 @@ class ONEQ_API IRadarContext {
    * @brief 提交（发射）一组战术动作命令给底座硬件或协调总线执行。
    * @param[in] cmd 单个被执行的控制器指令。
    */
-  virtual void SubmitControlCommand(common::RadarCommand cmd) = 0;
+  virtual void SubmitControlCommand(common::control::RadarCommand cmd) = 0;
 
   /**
    * @brief 通知最新控制真值已生成。
    * @param[in] profile 下一周期控制真值。
    */
-  virtual void UpdateRadarControlProfile(const common::RadarControlProfile& profile) {
+  virtual void UpdateRadarControlProfile(const common::control::RadarControlProfile& profile) {
     (void)profile;
   }
 };

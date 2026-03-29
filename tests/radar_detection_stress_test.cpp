@@ -14,10 +14,10 @@
 #include <utility>
 #include <vector>
 
-#include "1q/airborne_radar/common/RadarCommand.h"
-#include "1q/airborne_radar/common/RadarControlProfile.h"
-#include "1q/airborne_radar/common/TargetFeature.h"
-#include "1q/airborne_radar/common/TrackOutputFrame.h"
+#include "1q/airborne_radar/common/control/RadarCommand.h"
+#include "1q/airborne_radar/common/control/RadarControlProfile.h"
+#include "1q/airborne_radar/common/model/TargetFeature.h"
+#include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/context/IRadarContext.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"
 #include "airborne_radar/environment/EnvironmentService.h"
@@ -31,43 +31,43 @@ namespace {
 
 class ScenarioRadarContext : public core::context::IRadarContext {
  public:
-  explicit ScenarioRadarContext(common::TargetFeatureList target_features = {})
+  explicit ScenarioRadarContext(common::model::TargetFeatureList target_features = {})
       : target_features_(std::move(target_features)) {}
 
-  const common::TargetFeatureList& GetTargetFeatures() const override { return target_features_; }
+  const common::model::TargetFeatureList& GetTargetFeatures() const override { return target_features_; }
 
-  common::PlatformAttitudeDeg GetPlatformAttitude() const override {
+  common::config::PlatformAttitudeDeg GetPlatformAttitude() const override {
     return platform_attitude_deg_;
   }
 
   float GetCycleDeltaTimeSec() const override { return cycle_dt_sec_; }
 
-  void SubmitControlCommand(common::RadarCommand command) override {
+  void SubmitControlCommand(common::control::RadarCommand command) override {
     submitted_commands_.push_back(command);
   }
 
-  void UpdateRadarControlProfile(const common::RadarControlProfile& profile) override {
+  void UpdateRadarControlProfile(const common::control::RadarControlProfile& profile) override {
     latest_control_profile_ = profile;
   }
 
-  void SetTargetFeatures(common::TargetFeatureList target_features) {
+  void SetTargetFeatures(common::model::TargetFeatureList target_features) {
     target_features_ = std::move(target_features);
   }
 
   void SetCycleDeltaTimeSec(float cycle_dt_sec) { cycle_dt_sec_ = cycle_dt_sec; }
 
-  const std::vector<common::RadarCommand>& SubmittedCommands() const { return submitted_commands_; }
+  const std::vector<common::control::RadarCommand>& SubmittedCommands() const { return submitted_commands_; }
 
-  const common::RadarControlProfile& LatestControlProfile() const {
+  const common::control::RadarControlProfile& LatestControlProfile() const {
     return latest_control_profile_;
   }
 
  private:
-  common::TargetFeatureList target_features_;
-  common::PlatformAttitudeDeg platform_attitude_deg_{};
+  common::model::TargetFeatureList target_features_;
+  common::config::PlatformAttitudeDeg platform_attitude_deg_{};
   float cycle_dt_sec_{1.0f};
-  std::vector<common::RadarCommand> submitted_commands_;
-  common::RadarControlProfile latest_control_profile_{};
+  std::vector<common::control::RadarCommand> submitted_commands_;
+  common::control::RadarControlProfile latest_control_profile_{};
 };
 
 struct CycleStats {
@@ -88,15 +88,15 @@ signal::pipeline::SignalPipelineConfig MakeStressPipelineConfig() {
   return config;
 }
 
-float ComputeRange(const common::TargetFeature& target) {
+float ComputeRange(const common::model::TargetFeature& target) {
   return std::sqrt(target.position_x * target.position_x + target.position_y * target.position_y +
                    target.position_z * target.position_z);
 }
 
-common::TargetFeature BuildTarget(std::uint64_t external_target_id, float velocity_x,
+common::model::TargetFeature BuildTarget(std::uint64_t external_target_id, float velocity_x,
                                   float velocity_y, float velocity_z, float rcs, float position_x,
                                   float position_y, float position_z) {
-  common::TargetFeature target(velocity_x, velocity_y, velocity_z, rcs, 0.0f, 0.0f, 0.0f, 0.0f, 0,
+  common::model::TargetFeature target(velocity_x, velocity_y, velocity_z, rcs, 0.0f, 0.0f, 0.0f, 0.0f, 0,
                                external_target_id);
   target.position_x = position_x;
   target.position_y = position_y;
@@ -105,9 +105,9 @@ common::TargetFeature BuildTarget(std::uint64_t external_target_id, float veloci
   return target;
 }
 
-common::TargetFeatureList BuildBatchTargets(std::size_t count, float x_bias, float y_bias,
+common::model::TargetFeatureList BuildBatchTargets(std::size_t count, float x_bias, float y_bias,
                                             float z_bias) {
-  common::TargetFeatureList targets;
+  common::model::TargetFeatureList targets;
   targets.reserve(count);
   for (std::size_t i = 0; i < count; ++i) {
     targets.push_back(BuildTarget(
@@ -118,10 +118,10 @@ common::TargetFeatureList BuildBatchTargets(std::size_t count, float x_bias, flo
   return targets;
 }
 
-void AdvanceTargets(float dt_sec, common::TargetFeatureList* targets) {
+void AdvanceTargets(float dt_sec, common::model::TargetFeatureList* targets) {
   ASSERT_NE(targets, nullptr);
   for (std::size_t i = 0; i < targets->size(); ++i) {
-    common::TargetFeature& target = (*targets)[i];
+    common::model::TargetFeature& target = (*targets)[i];
     target.position_x += target.current_track_velocity_x * dt_sec;
     target.position_y += target.current_track_velocity_y * dt_sec;
     target.position_z += target.current_track_velocity_z * dt_sec;
@@ -129,7 +129,7 @@ void AdvanceTargets(float dt_sec, common::TargetFeatureList* targets) {
   }
 }
 
-std::size_t CountJammingTracks(const common::TrackOutputFrame& frame) {
+std::size_t CountJammingTracks(const common::output::TrackOutputFrame& frame) {
   std::size_t count = 0U;
   for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
     if (frame.tracks[i].state.jamming_detected) {
@@ -139,7 +139,7 @@ std::size_t CountJammingTracks(const common::TrackOutputFrame& frame) {
   return count;
 }
 
-std::unordered_set<std::uint64_t> BuildExternalIdSet(const common::TrackOutputFrame& frame) {
+std::unordered_set<std::uint64_t> BuildExternalIdSet(const common::output::TrackOutputFrame& frame) {
   std::unordered_set<std::uint64_t> ids;
   ids.reserve(frame.tracks.size());
   for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
@@ -148,7 +148,7 @@ std::unordered_set<std::uint64_t> BuildExternalIdSet(const common::TrackOutputFr
   return ids;
 }
 
-std::unordered_set<std::uint64_t> BuildAssociationKeySet(const common::TrackOutputFrame& frame) {
+std::unordered_set<std::uint64_t> BuildAssociationKeySet(const common::output::TrackOutputFrame& frame) {
   std::unordered_set<std::uint64_t> keys;
   keys.reserve(frame.tracks.size());
   for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
@@ -196,9 +196,9 @@ environment::EnvironmentSceneState MakeSceneForIndex(std::size_t cycle_index) {
 CycleStats RunCycleAndCaptureStats(core::controller::RadarController* controller,
                                    ScenarioRadarContext* radar_context,
                                    signal::pipeline::SignalPipeline* signal_pipeline,
-                                   const common::TargetFeatureList& targets,
+                                   const common::model::TargetFeatureList& targets,
                                    std::size_t previous_command_count,
-                                   common::TrackOutputFrame* out_frame) {
+                                   common::output::TrackOutputFrame* out_frame) {
   EXPECT_NE(controller, nullptr);
   EXPECT_NE(radar_context, nullptr);
   EXPECT_NE(signal_pipeline, nullptr);
@@ -210,7 +210,7 @@ CycleStats RunCycleAndCaptureStats(core::controller::RadarController* controller
   controller->RunOnce();
   EXPECT_TRUE(controller->HasLatestTrackOutputFrame());
 
-  const common::TrackOutputFrame& frame = controller->GetLatestTrackOutputFrame();
+  const common::output::TrackOutputFrame& frame = controller->GetLatestTrackOutputFrame();
   if (out_frame != nullptr) {
     *out_frame = frame;
   }
@@ -252,9 +252,9 @@ TEST(RadarDetectionStressTest, LargeBatchSingleCyclePublishesStableTrackOutput) 
     core::controller::RadarController controller(radar_context, signal_pipeline,
                                                  environment_service);
 
-    const common::TargetFeatureList targets = BuildBatchTargets(target_count, 500.0f, 10.0f, 3.0f);
+    const common::model::TargetFeatureList targets = BuildBatchTargets(target_count, 500.0f, 10.0f, 3.0f);
 
-    common::TrackOutputFrame frame;
+    common::output::TrackOutputFrame frame;
     const CycleStats stats =
         RunCycleAndCaptureStats(&controller, &radar_context, &signal_pipeline, targets, 0U, &frame);
 
@@ -277,13 +277,13 @@ TEST(RadarDetectionStressTest, LargeBatchMultiCyclePreservesOutputSetAcrossDurat
     core::controller::RadarController controller(radar_context, signal_pipeline,
                                                  environment_service);
 
-    common::TargetFeatureList targets = BuildBatchTargets(target_count, 800.0f, 16.0f, 4.0f);
+    common::model::TargetFeatureList targets = BuildBatchTargets(target_count, 800.0f, 16.0f, 4.0f);
     std::vector<CycleStats> stats;
     stats.reserve(10U);
 
     for (std::size_t cycle = 0; cycle < 10U; ++cycle) {
       const std::size_t previous_command_count = radar_context.SubmittedCommands().size();
-      common::TrackOutputFrame frame;
+      common::output::TrackOutputFrame frame;
       stats.push_back(RunCycleAndCaptureStats(&controller, &radar_context, &signal_pipeline,
                                               targets, previous_command_count, &frame));
       EXPECT_EQ(BuildExternalIdSet(frame).size(), target_count);
@@ -304,14 +304,14 @@ TEST(RadarDetectionStressTest, LargeBatchSceneSwitchingMaintainsReadableOutput) 
   radar_context.SetCycleDeltaTimeSec(1.0f);
   core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-  common::TargetFeatureList targets = BuildBatchTargets(target_count, 700.0f, 10.0f, 2.0f);
+  common::model::TargetFeatureList targets = BuildBatchTargets(target_count, 700.0f, 10.0f, 2.0f);
   std::vector<CycleStats> stats;
   stats.reserve(12U);
 
   for (std::size_t cycle = 0; cycle < 12U; ++cycle) {
     environment_service.UpdateSceneState(MakeSceneForIndex(cycle));
     const std::size_t previous_command_count = radar_context.SubmittedCommands().size();
-    common::TrackOutputFrame frame;
+    common::output::TrackOutputFrame frame;
     stats.push_back(RunCycleAndCaptureStats(&controller, &radar_context, &signal_pipeline, targets,
                                             previous_command_count, &frame));
     EXPECT_EQ(frame.tracks.size(), target_count);
@@ -332,7 +332,7 @@ TEST(RadarDetectionStressTest, LongDurationPatrolKeepsMetricsWithinReasonableBou
   radar_context.SetCycleDeltaTimeSec(1.0f);
   core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-  common::TargetFeatureList targets = BuildBatchTargets(target_count, 900.0f, 12.0f, 3.0f);
+  common::model::TargetFeatureList targets = BuildBatchTargets(target_count, 900.0f, 12.0f, 3.0f);
   std::vector<CycleStats> stats;
   stats.reserve(cycle_count);
   float max_association_stress = 0.0f;
@@ -371,11 +371,11 @@ TEST(RadarDetectionStressTest, LoadStaircaseRemainsStableAcrossScaleTransitions)
     radar_context.SetCycleDeltaTimeSec(1.0f);
     core::controller::RadarController controller(radar_context, signal_pipeline,
                                                  environment_service);
-    common::TargetFeatureList targets = BuildBatchTargets(
+    common::model::TargetFeatureList targets = BuildBatchTargets(
         target_tiers[tier_index], 600.0f + static_cast<float>(tier_index) * 20.0f, 8.0f, 2.0f);
     for (std::size_t cycle = 0; cycle < 3U; ++cycle) {
       const std::size_t previous_command_count = radar_context.SubmittedCommands().size();
-      common::TrackOutputFrame frame;
+      common::output::TrackOutputFrame frame;
       const CycleStats cycle_stats = RunCycleAndCaptureStats(
           &controller, &radar_context, &signal_pipeline, targets, previous_command_count, &frame);
       stats.push_back(cycle_stats);

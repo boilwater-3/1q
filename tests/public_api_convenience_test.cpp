@@ -11,8 +11,8 @@
 #include <limits>
 #include <vector>
 
-#include "1q/airborne_radar/common/ConfigPresets.h"
-#include "1q/airborne_radar/common/TargetFeatureUtils.h"
+#include "1q/airborne_radar/common/config/ConfigPresets.h"
+#include "1q/airborne_radar/common/utils/TargetFeatureUtils.h"
 #include "1q/airborne_radar/core/context/RadarInputValidation.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"
 #include "1q/airborne_radar/common/output/TrackOutputQueries.h"
@@ -42,7 +42,7 @@ core::session::RadarSessionConfig MakeConvenienceSessionConfig() {
   return config;
 }
 
-core::context::RadarCycleInput MakeCycleInput(common::TargetFeatureList targets,
+core::context::RadarCycleInput MakeCycleInput(common::model::TargetFeatureList targets,
                                               float dt_sec = 1.0f) {
   core::context::RadarCycleInput input;
   input.target_features = std::move(targets);
@@ -56,8 +56,8 @@ core::context::RadarCycleInput MakeCycleInput(common::TargetFeatureList targets,
 /// @brief 比较两组控制命令的类型和来源是否一致。
 /// @param expected 期望命令列表。
 /// @param actual 实际命令列表。
-void ExpectEquivalentCommands(const std::vector<common::RadarCommand>& expected,
-                              const std::vector<common::RadarCommand>& actual) {
+void ExpectEquivalentCommands(const std::vector<common::control::RadarCommand>& expected,
+                              const std::vector<common::control::RadarCommand>& actual) {
   ASSERT_EQ(expected.size(), actual.size());
   for (std::size_t i = 0; i < expected.size(); ++i) {
     EXPECT_EQ(expected[i].type, actual[i].type);
@@ -68,8 +68,8 @@ void ExpectEquivalentCommands(const std::vector<common::RadarCommand>& expected,
 /// @brief 比较两份控制真值的公开语义字段。
 /// @param expected 期望控制真值。
 /// @param actual 实际控制真值。
-void ExpectEquivalentProfiles(const common::RadarControlProfile& expected,
-                              const common::RadarControlProfile& actual) {
+void ExpectEquivalentProfiles(const common::control::RadarControlProfile& expected,
+                              const common::control::RadarControlProfile& actual) {
   EXPECT_EQ(expected.version, actual.version);
   EXPECT_EQ(expected.enable_lpi_power_control, actual.enable_lpi_power_control);
   EXPECT_NEAR(expected.lpi_power_scale, actual.lpi_power_scale, 1e-5f);
@@ -101,8 +101,8 @@ bool ContainsIssueCode(const std::vector<core::context::ValidationIssue>& issues
 TEST(PublicApiConvenienceTest, MutableRadarContextBeginsCycleAndResetsPerCycleCommands) {
   core::context::MutableRadarContext context;
   core::context::RadarCycleInput input = MakeCycleInput(
-      common::TargetFeatureList{
-          common::MakeAirTarget(101U, 120.0f, -5.0f, 18.0f, 62.0f, 0.0f, 0.0f, 1.0f),
+      common::model::TargetFeatureList{
+          common::utils::MakeAirTarget(101U, 120.0f, -5.0f, 18.0f, 62.0f, 0.0f, 0.0f, 1.0f),
       },
       0.5f);
 
@@ -112,9 +112,9 @@ TEST(PublicApiConvenienceTest, MutableRadarContextBeginsCycleAndResetsPerCycleCo
   EXPECT_NEAR(context.GetCycleDeltaTimeSec(), 0.5f, 1e-5f);
   EXPECT_TRUE(context.GetSubmittedCommands().empty());
 
-  context.SubmitControlCommand(common::RadarCommand(common::RadarCommandType::SET_AGILITY_FREQ,
-                                                    common::RadarCommandSource::ECCM));
-  common::RadarControlProfile profile;
+  context.SubmitControlCommand(common::control::RadarCommand(common::control::RadarCommandType::SET_AGILITY_FREQ,
+                                                    common::control::RadarCommandSource::ECCM));
+  common::control::RadarControlProfile profile;
   profile.enable_agility_frequency = true;
   profile.version = 4U;
   context.UpdateRadarControlProfile(profile);
@@ -133,42 +133,42 @@ TEST(PublicApiConvenienceTest, MutableRadarContextBeginsCycleAndResetsPerCycleCo
 }
 
 TEST(PublicApiConvenienceTest, TargetFeatureUtilsBuildCartesianGroundAndAirTargets) {
-  const common::TargetFeature cartesian_target =
-      common::MakeTargetFromCartesian(201U, 3.0f, 4.0f, 12.0f, 10.0f, -2.0f, 1.0f, 0.9f, 2);
+  const common::model::TargetFeature cartesian_target =
+      common::utils::MakeTargetFromCartesian(201U, 3.0f, 4.0f, 12.0f, 10.0f, -2.0f, 1.0f, 0.9f, 2);
   EXPECT_EQ(cartesian_target.external_target_id, 201U);
   EXPECT_NEAR(cartesian_target.range_m, 13.0f, 1e-5f);
   EXPECT_NEAR(cartesian_target.current_track_speed, std::sqrt(105.0f), 1e-5f);
   EXPECT_EQ(cartesian_target.target_swerling_type, 2);
 
-  const common::TargetFeature ground_target = common::MakeGroundTarget(202U, 20.0f, -15.0f, 0.8f);
+  const common::model::TargetFeature ground_target = common::utils::MakeGroundTarget(202U, 20.0f, -15.0f, 0.8f);
   EXPECT_NEAR(ground_target.position_z, 0.0f, 1e-5f);
   EXPECT_NEAR(ground_target.current_track_velocity_z, 0.0f, 1e-5f);
   EXPECT_NEAR(ground_target.range_m, 25.0f, 1e-5f);
 
-  const common::TargetFeature air_target =
-      common::MakeAirTarget(203U, 30.0f, 40.0f, 50.0f, 90.0f, -3.0f, 4.0f, 1.2f);
+  const common::model::TargetFeature air_target =
+      common::utils::MakeAirTarget(203U, 30.0f, 40.0f, 50.0f, 90.0f, -3.0f, 4.0f, 1.2f);
   EXPECT_NEAR(air_target.range_m, std::sqrt(5000.0f), 1e-5f);
   EXPECT_NEAR(air_target.current_track_speed, std::sqrt(8125.0f), 1e-5f);
 }
 
 TEST(PublicApiConvenienceTest, TargetFeatureUtilsNormalizeGeometryOnlyWhenCartesianPositionExists) {
-  common::TargetFeature normalized =
-      common::MakeAirTarget(301U, 6.0f, 8.0f, 0.0f, 50.0f, 0.0f, 0.0f, 1.0f);
+  common::model::TargetFeature normalized =
+      common::utils::MakeAirTarget(301U, 6.0f, 8.0f, 0.0f, 50.0f, 0.0f, 0.0f, 1.0f);
   normalized.range_m = 0.0f;
-  common::NormalizeTargetGeometry(&normalized);
+  common::utils::NormalizeTargetGeometry(&normalized);
   EXPECT_NEAR(normalized.range_m, 10.0f, 1e-5f);
 
-  common::TargetFeature unresolved;
+  common::model::TargetFeature unresolved;
   unresolved.external_target_id = 302U;
   unresolved.range_m = 0.0f;
-  common::NormalizeTargetGeometry(&unresolved);
+  common::utils::NormalizeTargetGeometry(&unresolved);
   EXPECT_NEAR(unresolved.range_m, 0.0f, 1e-5f);
 
-  common::TargetFeatureList targets;
+  common::model::TargetFeatureList targets;
   targets.push_back(normalized);
   targets.back().range_m = -1.0f;
   targets.push_back(unresolved);
-  common::NormalizeTargetGeometry(&targets);
+  common::utils::NormalizeTargetGeometry(&targets);
   EXPECT_NEAR(targets[0].range_m, 10.0f, 1e-5f);
   EXPECT_NEAR(targets[1].range_m, 0.0f, 1e-5f);
 }
@@ -245,15 +245,15 @@ TEST(PublicApiConvenienceTest, EnvironmentSceneBuilderJammerHelpersPopulateTyped
 }
 
 TEST(PublicApiConvenienceTest, TrackOutputQueriesSupportUniqueDuplicateAndJammingSearch) {
-  common::TrackOutputFrame frame;
+  common::output::TrackOutputFrame frame;
   frame.tracks.push_back(
-      common::DecisionTrackSnapshot(10.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, false, 401U, 1U));
+      common::model::DecisionTrackSnapshot(10.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, false, 401U, 1U));
   frame.tracks.push_back(
-      common::DecisionTrackSnapshot(20.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, true, 402U, 2U));
+      common::model::DecisionTrackSnapshot(20.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, true, 402U, 2U));
   frame.tracks.push_back(
-      common::DecisionTrackSnapshot(21.0f, 0.0f, 0.0f, 1.1f, 0.0f, 0.0f, 0.0f, false, 402U, 3U));
+      common::model::DecisionTrackSnapshot(21.0f, 0.0f, 0.0f, 1.1f, 0.0f, 0.0f, 0.0f, false, 402U, 3U));
   frame.tracks.push_back(
-      common::DecisionTrackSnapshot(8.0f, 0.0f, 0.0f, 0.7f, 0.0f, 0.0f, 0.0f, true, 0U, 4U));
+      common::model::DecisionTrackSnapshot(8.0f, 0.0f, 0.0f, 0.7f, 0.0f, 0.0f, 0.0f, true, 0U, 4U));
 
   const auto track_map = common::output::BuildTrackMapByExternalTargetId(frame);
   EXPECT_EQ(track_map.size(), 2U);
@@ -261,25 +261,25 @@ TEST(PublicApiConvenienceTest, TrackOutputQueriesSupportUniqueDuplicateAndJammin
   ASSERT_NE(track_map.count(402U), 0U);
   EXPECT_EQ(track_map.at(402U).state.association_key, 3U);
 
-  const common::DecisionTrackSnapshotList duplicate_tracks =
+  const common::model::DecisionTrackSnapshotList duplicate_tracks =
       common::output::CollectTracksByExternalTargetId(frame, 402U);
   EXPECT_EQ(duplicate_tracks.size(), 2U);
   EXPECT_TRUE(common::output::ContainsExternalTargetId(frame, 401U));
   EXPECT_TRUE(common::output::ContainsExternalTargetId(frame, 0U));
   EXPECT_FALSE(common::output::ContainsExternalTargetId(frame, 999U));
   EXPECT_EQ(common::output::CountJammingTracks(frame), 2U);
-  EXPECT_EQ(common::output::CountTracksByStatus(frame, common::DecisionTrackStatus::kTentative), 4U);
+  EXPECT_EQ(common::output::CountTracksByStatus(frame, common::model::DecisionTrackStatus::kTentative), 4U);
 }
 
 TEST(PublicApiConvenienceTest, TrackOutputQueriesSupportAssociationKeyStatusAndJammingCollections) {
-  common::TrackOutputFrame frame;
-  common::DecisionTrackSnapshot confirmed(20.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, false, 410U,
+  common::output::TrackOutputFrame frame;
+  common::model::DecisionTrackSnapshot confirmed(20.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, false, 410U,
                                           11U);
-  confirmed.state.status = common::DecisionTrackStatus::kConfirmed;
-  common::DecisionTrackSnapshot lost(5.0f, 0.0f, 0.0f, 0.8f, 0.0f, 0.0f, 0.0f, false, 411U, 12U);
-  lost.state.status = common::DecisionTrackStatus::kLost;
-  common::DecisionTrackSnapshot jammed(18.0f, 0.0f, 0.0f, 1.2f, 0.0f, 0.0f, 0.0f, true, 412U, 13U);
-  jammed.state.status = common::DecisionTrackStatus::kConfirmed;
+  confirmed.state.status = common::model::DecisionTrackStatus::kConfirmed;
+  common::model::DecisionTrackSnapshot lost(5.0f, 0.0f, 0.0f, 0.8f, 0.0f, 0.0f, 0.0f, false, 411U, 12U);
+  lost.state.status = common::model::DecisionTrackStatus::kLost;
+  common::model::DecisionTrackSnapshot jammed(18.0f, 0.0f, 0.0f, 1.2f, 0.0f, 0.0f, 0.0f, true, 412U, 13U);
+  jammed.state.status = common::model::DecisionTrackStatus::kConfirmed;
   frame.tracks.push_back(confirmed);
   frame.tracks.push_back(lost);
   frame.tracks.push_back(jammed);
@@ -290,15 +290,15 @@ TEST(PublicApiConvenienceTest, TrackOutputQueriesSupportAssociationKeyStatusAndJ
   EXPECT_EQ(common::output::CollectConfirmedTracks(frame).size(), 2U);
   EXPECT_EQ(common::output::CollectLostTracks(frame).size(), 1U);
   EXPECT_EQ(common::output::CollectJammingTracks(frame).size(), 1U);
-  EXPECT_EQ(common::output::CountTracksByStatus(frame, common::DecisionTrackStatus::kConfirmed), 2U);
+  EXPECT_EQ(common::output::CountTracksByStatus(frame, common::model::DecisionTrackStatus::kConfirmed), 2U);
 }
 
 TEST(PublicApiConvenienceTest, RadarInputValidationReportsWarningsAndErrorsForCommonBoundaryCases) {
   core::context::RadarCycleInput input = MakeCycleInput(
-      common::TargetFeatureList{
-          common::MakeAirTarget(0U, 120.0f, 0.0f, 10.0f, 55.0f, 0.0f, 0.0f, 1.0f),
-          common::MakeAirTarget(800U, 150.0f, -2.0f, 12.0f, 62.0f, 0.2f, 0.0f, 1.0f),
-          common::MakeAirTarget(800U, 155.0f, 2.0f, 12.0f, 63.0f, -0.2f, 0.0f, -1.1f),
+      common::model::TargetFeatureList{
+          common::utils::MakeAirTarget(0U, 120.0f, 0.0f, 10.0f, 55.0f, 0.0f, 0.0f, 1.0f),
+          common::utils::MakeAirTarget(800U, 150.0f, -2.0f, 12.0f, 62.0f, 0.2f, 0.0f, 1.0f),
+          common::utils::MakeAirTarget(800U, 155.0f, 2.0f, 12.0f, 63.0f, -0.2f, 0.0f, -1.1f),
       },
       0.0f);
   input.target_features[2].position_x = std::numeric_limits<float>::infinity();
@@ -317,7 +317,7 @@ TEST(PublicApiConvenienceTest, RadarInputValidationReportsWarningsAndErrorsForCo
 TEST(PublicApiConvenienceTest, RadarInputValidationFlagsMissingGeometryAndNonFiniteCycleDelta) {
   core::context::RadarCycleInput input;
   input.dt_sec = std::numeric_limits<float>::quiet_NaN();
-  common::TargetFeature invalid_target;
+  common::model::TargetFeature invalid_target;
   invalid_target.external_target_id = 900U;
   invalid_target.range_m = 0.0f;
   input.target_features.push_back(invalid_target);
@@ -332,13 +332,13 @@ TEST(PublicApiConvenienceTest, RadarInputValidationFlagsMissingGeometryAndNonFin
 
 TEST(PublicApiConvenienceTest, ConfigPresetsProvideExpectedDetectionAndRobustnessDefaults) {
   const signal::pipeline::SignalPipelineConfig detection_config =
-      common::MakeDetectionMissionSignalPipelineConfig();
+      common::config::MakeDetectionMissionSignalPipelineConfig();
   EXPECT_TRUE(detection_config.lifecycle.enable_auto_lifecycle_manager);
   EXPECT_EQ(detection_config.lifecycle.lifecycle_config.confirm_hits, 1U);
   EXPECT_NEAR(detection_config.detection.min_detection_margin_db, -100.0f, 1e-5f);
 
   const signal::pipeline::SignalPipelineConfig robust_config =
-      common::MakeHighRobustnessSignalPipelineConfig();
+      common::config::MakeHighRobustnessSignalPipelineConfig();
   EXPECT_TRUE(robust_config.lifecycle.enable_auto_lifecycle_manager);
   EXPECT_GT(robust_config.association.unassigned_cost,
             detection_config.association.unassigned_cost);
@@ -348,22 +348,22 @@ TEST(PublicApiConvenienceTest, ConfigPresetsProvideExpectedDetectionAndRobustnes
             detection_config.tracking.speed_decay_ratio_on_loss);
 
   const core::session::RadarSessionConfig session_config =
-      common::MakeDetectionMissionRadarSessionConfig();
+      common::config::MakeDetectionMissionRadarSessionConfig();
   core::session::RadarSession session(session_config);
-  const common::TrackOutputFrame frame = session.Step(MakeCycleInput(common::TargetFeatureList{
-      common::MakeGroundTarget(901U, 20.0f, 5.0f, 0.8f),
+  const common::output::TrackOutputFrame frame = session.Step(MakeCycleInput(common::model::TargetFeatureList{
+      common::utils::MakeGroundTarget(901U, 20.0f, 5.0f, 0.8f),
   }));
   EXPECT_EQ(frame.confirmed_track_count, 1U);
 }
 
 TEST(PublicApiConvenienceTest, RadarSessionStepProducesReadableOutputWithoutInterference) {
   core::session::RadarSession session(MakeConvenienceSessionConfig());
-  const core::context::RadarCycleInput input = MakeCycleInput(common::TargetFeatureList{
-      common::MakeGroundTarget(501U, 25.0f, -5.0f, 0.7f),
-      common::MakeAirTarget(502U, 150.0f, 6.0f, 18.0f, 72.0f, 1.0f, 0.0f, 1.0f),
+  const core::context::RadarCycleInput input = MakeCycleInput(common::model::TargetFeatureList{
+      common::utils::MakeGroundTarget(501U, 25.0f, -5.0f, 0.7f),
+      common::utils::MakeAirTarget(502U, 150.0f, 6.0f, 18.0f, 72.0f, 1.0f, 0.0f, 1.0f),
   });
 
-  const common::TrackOutputFrame frame = session.Step(input);
+  const common::output::TrackOutputFrame frame = session.Step(input);
   EXPECT_EQ(frame.published_track_count, 2U);
   EXPECT_EQ(frame.confirmed_track_count, 2U);
   EXPECT_TRUE(common::output::ContainsExternalTargetId(frame, 501U));
@@ -384,9 +384,9 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
   core::controller::RadarController controller(manual_context, signal_pipeline,
                                                environment_service);
 
-  const core::context::RadarCycleInput input = MakeCycleInput(common::TargetFeatureList{
-      common::MakeAirTarget(601U, 180.0f, -4.0f, 16.0f, 60.0f, 0.0f, 0.0f, 1.0f),
-      common::MakeAirTarget(602U, 240.0f, 8.0f, 18.0f, 76.0f, 0.5f, 0.0f, 1.1f),
+  const core::context::RadarCycleInput input = MakeCycleInput(common::model::TargetFeatureList{
+      common::utils::MakeAirTarget(601U, 180.0f, -4.0f, 16.0f, 60.0f, 0.0f, 0.0f, 1.0f),
+      common::utils::MakeAirTarget(602U, 240.0f, 8.0f, 18.0f, 76.0f, 0.5f, 0.0f, 1.1f),
   });
   environment::JammerEmitterState noise_emitter_2;
   noise_emitter_2.technique = environment::JammingTechnique::kNoiseSuppression;
@@ -399,13 +399,13 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
   const environment::EnvironmentSceneState scene =
       environment::EnvironmentSceneBuilder().AddNoiseJammer(noise_emitter_2).Build();
 
-  const common::TrackOutputFrame session_frame = session.Step(input, scene);
+  const common::output::TrackOutputFrame session_frame = session.Step(input, scene);
 
   environment_service.UpdateSceneState(scene);
   manual_context.BeginCycle(input);
   controller.RunOnce();
   ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
-  const common::TrackOutputFrame manual_frame = controller.GetLatestTrackOutputFrame();
+  const common::output::TrackOutputFrame manual_frame = controller.GetLatestTrackOutputFrame();
 
   EXPECT_EQ(session_frame.published_track_count, manual_frame.published_track_count);
   EXPECT_EQ(session_frame.confirmed_track_count, manual_frame.confirmed_track_count);
@@ -443,14 +443,14 @@ TEST(PublicApiConvenienceTest,
   core::session::RadarSession session(MakeConvenienceSessionConfig());
 
   core::context::RadarCycleInput cycle_1 = MakeCycleInput(
-      common::TargetFeatureList{
-          common::MakeAirTarget(0U, 120.0f, 0.0f, 10.0f, 55.0f, 0.0f, 0.0f, 1.0f),
-          common::MakeAirTarget(701U, 150.0f, -2.0f, 12.0f, 62.0f, 0.2f, 0.0f, 1.0f),
-          common::MakeAirTarget(701U, 155.0f, 2.0f, 12.0f, 63.0f, -0.2f, 0.0f, 1.1f),
-          common::MakeGroundTarget(702U, 40.0f, -6.0f, 0.8f),
+      common::model::TargetFeatureList{
+          common::utils::MakeAirTarget(0U, 120.0f, 0.0f, 10.0f, 55.0f, 0.0f, 0.0f, 1.0f),
+          common::utils::MakeAirTarget(701U, 150.0f, -2.0f, 12.0f, 62.0f, 0.2f, 0.0f, 1.0f),
+          common::utils::MakeAirTarget(701U, 155.0f, 2.0f, 12.0f, 63.0f, -0.2f, 0.0f, 1.1f),
+          common::utils::MakeGroundTarget(702U, 40.0f, -6.0f, 0.8f),
       },
       0.0f);
-  const common::TrackOutputFrame frame_1 = session.Step(cycle_1);
+  const common::output::TrackOutputFrame frame_1 = session.Step(cycle_1);
   EXPECT_GT(frame_1.published_track_count, 0U);
   EXPECT_TRUE(common::output::ContainsExternalTargetId(frame_1, 0U));
   EXPECT_EQ(common::output::CollectTracksByExternalTargetId(frame_1, 701U).size(), 2U);
@@ -468,7 +468,7 @@ TEST(PublicApiConvenienceTest,
   noise_emitter_3.prf_lock_risk = 0.1f;
   noise_emitter_3.in_sidelobe = true;
 
-  const common::TrackOutputFrame frame_2 = session.Step(
+  const common::output::TrackOutputFrame frame_2 = session.Step(
       cycle_2, environment::EnvironmentSceneBuilder().AddNoiseJammer(noise_emitter_3).Build());
 
   EXPECT_GT(frame_2.published_track_count, 0U);
@@ -479,7 +479,7 @@ TEST(PublicApiConvenienceTest,
   cycle_3.dt_sec = 1.0f;
   cycle_3.target_features[1].external_target_id = 703U;
   cycle_3.target_features[2].external_target_id = 704U;
-  const common::TrackOutputFrame frame_3 =
+  const common::output::TrackOutputFrame frame_3 =
       session.Step(cycle_3, environment::EnvironmentSceneBuilder().Build());
   EXPECT_GT(frame_3.published_track_count, 0U);
   EXPECT_TRUE(common::output::ContainsExternalTargetId(frame_3, 703U));
@@ -487,12 +487,12 @@ TEST(PublicApiConvenienceTest,
 }
 
 TEST(PublicApiConvenienceTest, RadarSessionStepWithResultAggregatesCurrentCycleObservations) {
-  const core::session::RadarSessionConfig config = common::MakeDetectionMissionRadarSessionConfig();
+  const core::session::RadarSessionConfig config = common::config::MakeDetectionMissionRadarSessionConfig();
   core::session::RadarSession session(config);
 
-  const core::context::RadarCycleInput input = MakeCycleInput(common::TargetFeatureList{
-      common::MakeAirTarget(950U, 200.0f, -3.0f, 15.0f, 70.0f, 0.0f, 0.0f, 1.0f),
-      common::MakeAirTarget(951U, 240.0f, 4.0f, 18.0f, 78.0f, 0.3f, 0.0f, 1.1f),
+  const core::context::RadarCycleInput input = MakeCycleInput(common::model::TargetFeatureList{
+      common::utils::MakeAirTarget(950U, 200.0f, -3.0f, 15.0f, 70.0f, 0.0f, 0.0f, 1.0f),
+      common::utils::MakeAirTarget(951U, 240.0f, 4.0f, 18.0f, 78.0f, 0.3f, 0.0f, 1.1f),
   });
 
   const core::session::RadarCycleResult result = session.StepWithResult(input);
@@ -516,7 +516,7 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultSurfacesValidationError
 
   core::context::RadarCycleInput input;
   input.dt_sec = std::numeric_limits<float>::quiet_NaN();
-  common::TargetFeature invalid_target;
+  common::model::TargetFeature invalid_target;
   invalid_target.external_target_id = 123U;
   invalid_target.range_m = 0.0f;
   input.target_features.push_back(invalid_target);
@@ -531,7 +531,7 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultSurfacesValidationError
 }
 
 TEST(PublicApiConvenienceTest, RadarSessionStepWithResultMatchesManualChainUnderJammedScene) {
-  const core::session::RadarSessionConfig config = common::MakeDetectionMissionRadarSessionConfig();
+  const core::session::RadarSessionConfig config = common::config::MakeDetectionMissionRadarSessionConfig();
   core::session::RadarSession session(config);
 
   core::context::MutableRadarContext manual_context;
@@ -541,8 +541,8 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultMatchesManualChainUnder
   core::controller::RadarController controller(manual_context, signal_pipeline,
                                                environment_service);
 
-  const core::context::RadarCycleInput input = MakeCycleInput(common::TargetFeatureList{
-      common::MakeAirTarget(960U, 180.0f, -4.0f, 16.0f, 60.0f, 0.0f, 0.0f, 1.0f),
+  const core::context::RadarCycleInput input = MakeCycleInput(common::model::TargetFeatureList{
+      common::utils::MakeAirTarget(960U, 180.0f, -4.0f, 16.0f, 60.0f, 0.0f, 0.0f, 1.0f),
   });
   environment::JammerEmitterState noise_emitter_5;
   noise_emitter_5.technique = environment::JammingTechnique::kNoiseSuppression;

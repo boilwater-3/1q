@@ -8,8 +8,8 @@
 
 #include <cstdint>
 
-#include "1q/airborne_radar/common/DecisionInputFrame.h"
-#include "1q/airborne_radar/common/TrackOutputFrame.h"
+#include "1q/airborne_radar/common/model/DecisionInputFrame.h"
+#include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -29,9 +29,9 @@ class IDataOutputManager {
    * @param track_snapshots 当前周期导出的轨迹快照列表。
    * @return 填充完成的中性输出帧。
    */
-  virtual common::TrackOutputFrame BuildTrackOutputFrame(
+  virtual common::output::TrackOutputFrame BuildTrackOutputFrame(
       std::uint32_t cycle_index, std::uint64_t batch_id,
-      const common::DecisionTrackSnapshotList& track_snapshots) const = 0;
+      const common::model::DecisionTrackSnapshotList& track_snapshots) const = 0;
 
   /**
    * @brief 使用中性输出帧和周期摘要装配决策输入帧。
@@ -41,11 +41,11 @@ class IDataOutputManager {
    * @param perception_quality_info 供决策层消费的探测质量摘要。
    * @return 填充完成的决策输入帧。
    */
-  virtual common::DecisionInputFrame BuildDecisionInputFrame(
-      const common::TrackOutputFrame& track_output_frame,
-      const common::EccmSourceInfo& eccm_source_info,
-      const common::AssociationQualityInfo& association_quality_info,
-      const common::PerceptionQualityInfo& perception_quality_info) const = 0;
+  virtual common::model::DecisionInputFrame BuildDecisionInputFrame(
+      const common::output::TrackOutputFrame& track_output_frame,
+      const common::model::EccmSourceInfo& eccm_source_info,
+      const common::model::AssociationQualityInfo& association_quality_info,
+      const common::model::PerceptionQualityInfo& perception_quality_info) const = 0;
 };
 
 }  // namespace output

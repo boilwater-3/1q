@@ -8,11 +8,12 @@
 
 #include <cmath>
 
-#include "1q/airborne_radar/common/AntennaPatternConfig.h"
-#include "1q/airborne_radar/common/MathUtils.h"
+#include "1q/airborne_radar/common/config/AntennaPatternConfig.h"
+#include "1q/airborne_radar/common/utils/MathUtils.h"
 
 namespace airborne_radar {
 namespace common {
+namespace utils {
 
 namespace antenna_pattern_internal {
 
@@ -31,7 +32,7 @@ inline float ClampLowerBound(float value, float min_value) {
  * @param[in] offset_deg 目标相对当前波束中心的离轴角。
  * @return 若任一轴绝对离轴角超过 90 度，则视为后瓣区域。
  */
-inline bool IsInsideBackLobe(const AntennaLookOffsetDeg& offset_deg) {
+inline bool IsInsideBackLobe(const config::AntennaLookOffsetDeg& offset_deg) {
   return std::fabs(offset_deg.delta_az_deg) > 90.0f || std::fabs(offset_deg.delta_el_deg) > 90.0f;
 }
 
@@ -43,8 +44,8 @@ inline bool IsInsideBackLobe(const AntennaLookOffsetDeg& offset_deg) {
  * @param[in] offset_deg 目标相对当前波束中心的离轴角。
  * @return 若方位与俯仰离轴角均不超过对应半功率波束半宽，则返回 true。
  */
-inline bool IsInsideMainLobe(const AntennaPatternBeamwidthDeg& beamwidth_deg,
-                             const AntennaLookOffsetDeg& offset_deg) {
+inline bool IsInsideMainLobe(const config::AntennaPatternBeamwidthDeg& beamwidth_deg,
+                             const config::AntennaLookOffsetDeg& offset_deg) {
   const float half_az_beamwidth_deg =
       0.5f * antenna_pattern_internal::ClampLowerBound(beamwidth_deg.az_beamwidth_deg, 1e-3f);
   const float half_el_beamwidth_deg =
@@ -60,9 +61,9 @@ inline bool IsInsideMainLobe(const AntennaPatternBeamwidthDeg& beamwidth_deg,
  * @param[in] offset_deg 目标相对当前波束中心的离轴角。
  * @return 主瓣离轴衰减（单位：dB）。
  */
-inline float ComputeMainLobeAttenuationDb(const AntennaPatternConfig& config,
-                                          const AntennaPatternBeamwidthDeg& beamwidth_deg,
-                                          const AntennaLookOffsetDeg& offset_deg) {
+inline float ComputeMainLobeAttenuationDb(const config::AntennaPatternConfig& config,
+                                          const config::AntennaPatternBeamwidthDeg& beamwidth_deg,
+                                          const config::AntennaLookOffsetDeg& offset_deg) {
   const float half_az_beamwidth_deg =
       0.5f * antenna_pattern_internal::ClampLowerBound(beamwidth_deg.az_beamwidth_deg, 1e-3f);
   const float half_el_beamwidth_deg =
@@ -71,10 +72,10 @@ inline float ComputeMainLobeAttenuationDb(const AntennaPatternConfig& config,
   const float normalized_el = std::fabs(offset_deg.delta_el_deg) / half_el_beamwidth_deg;
 
   switch (config.model_type) {
-    case AntennaPatternModelType::kParabolicMainLobe:
+    case config::AntennaPatternModelType::kParabolicMainLobe:
       return 3.0f * (normalized_az * normalized_az + normalized_el * normalized_el);
 
-    case AntennaPatternModelType::kCosinePower: {
+    case config::AntennaPatternModelType::kCosinePower: {
       const float kDeg2Rad = 3.14159265358979f / 180.0f;
       const float az_offset_rad = ClampFloat(offset_deg.delta_az_deg, -89.9f, 89.9f) * kDeg2Rad;
       const float el_offset_rad = ClampFloat(offset_deg.delta_el_deg, -89.9f, 89.9f) * kDeg2Rad;
@@ -94,7 +95,7 @@ inline float ComputeMainLobeAttenuationDb(const AntennaPatternConfig& config,
              std::log10(antenna_pattern_internal::ClampLowerBound(az_gain * el_gain, 1e-6f));
     }
 
-    case AntennaPatternModelType::kGaussianMainLobe:
+    case config::AntennaPatternModelType::kGaussianMainLobe:
     default:
       return 3.0f * (normalized_az * normalized_az + normalized_el * normalized_el);
   }
@@ -106,8 +107,8 @@ inline float ComputeMainLobeAttenuationDb(const AntennaPatternConfig& config,
  * @param[in] scan_center_deg 当前扫描中心方向。
  * @return 扫描损失（单位：dB）。
  */
-inline float ComputeScanLossDb(const AntennaPatternConfig& config,
-                               const AzimuthElevationDeg& scan_center_deg) {
+inline float ComputeScanLossDb(const config::AntennaPatternConfig& config,
+                               const config::AzimuthElevationDeg& scan_center_deg) {
   const float delta_scan_az_deg = scan_center_deg.az_deg - config.boresight_offset_deg.az_deg;
   const float delta_scan_el_deg = scan_center_deg.el_deg - config.boresight_offset_deg.el_deg;
   const float raw_scan_loss_db =
@@ -129,12 +130,12 @@ inline float ComputeScanLossDb(const AntennaPatternConfig& config,
  *       主瓣外返回固定旁瓣电平；
  *       后瓣区域返回固定后瓣电平。
  */
-inline AntennaPatternSample EvaluateAntennaPattern(float peak_gain_dbi,
-                                                   const AntennaPatternConfig& config,
-                                                   const AntennaPatternBeamwidthDeg& beamwidth_deg,
-                                                   const AntennaLookOffsetDeg& offset_deg,
-                                                   const AzimuthElevationDeg& scan_center_deg) {
-  AntennaPatternSample sample;
+inline config::AntennaPatternSample EvaluateAntennaPattern(float peak_gain_dbi,
+                                                   const config::AntennaPatternConfig& config,
+                                                   const config::AntennaPatternBeamwidthDeg& beamwidth_deg,
+                                                   const config::AntennaLookOffsetDeg& offset_deg,
+                                                   const config::AzimuthElevationDeg& scan_center_deg) {
+  config::AntennaPatternSample sample;
   sample.scan_loss_db = ComputeScanLossDb(config, scan_center_deg);
   sample.inside_back_lobe = antenna_pattern_internal::IsInsideBackLobe(offset_deg);
   sample.inside_main_lobe = !sample.inside_back_lobe && IsInsideMainLobe(beamwidth_deg, offset_deg);
@@ -153,6 +154,7 @@ inline AntennaPatternSample EvaluateAntennaPattern(float peak_gain_dbi,
   return sample;
 }
 
+}  // namespace utils
 }  // namespace common
 }  // namespace airborne_radar
 

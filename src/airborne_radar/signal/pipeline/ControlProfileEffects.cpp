@@ -4,7 +4,7 @@
 #include <cmath>
 #include <vector>
 
-#include "1q/airborne_radar/common/MathUtils.h"
+#include "1q/airborne_radar/common/utils/MathUtils.h"
 #include "airborne_radar/signal/pipeline/JammingEffects.h"
 #include "common/timing/TimingRegimeModel.h"
 
@@ -62,7 +62,7 @@ float ClampProfileScale(float scale, float fallback) {
   return scale;
 }
 
-using common::ClampFloat;
+using common::utils::ClampFloat;
 
 /**
  * @brief 将 IMM 初始权重向量归一化为概率分布。
@@ -129,7 +129,7 @@ oneq::internal::timing::IntegrationMode ToTimingIntegrationMode(bool coherent_in
  * @return 解析后的周期时序状态，包含有效脉冲数与有效 PRF。
  */
 oneq::internal::timing::ResolvedCycleTimingState ResolveDetectionTimingState(
-    const common::RadarControlProfile& control_profile,
+    const common::control::RadarControlProfile& control_profile,
     const SignalDetectionConfig& detection_config) {
   oneq::internal::timing::CycleTimingBaseParams base_params;
   base_params.base_pulse_count = detection_config.pulse_count;
@@ -154,7 +154,7 @@ oneq::internal::timing::ResolvedCycleTimingState ResolveDetectionTimingState(
  * @return 有效波束宽度缩放因子，取值范围为 (0, 1]。
  */
 float ResolveBeamwidthScale(const ControlProfileEffectsConfig& cfg,
-                            const common::RadarControlProfile& control_profile) {
+                            const common::control::RadarControlProfile& control_profile) {
   float beamwidth_scale = 1.0f;
   if (control_profile.enable_lpi_beamforming) {
     beamwidth_scale = std::min(beamwidth_scale, cfg.lpi_beamwidth_scale);
@@ -168,7 +168,7 @@ float ResolveBeamwidthScale(const ControlProfileEffectsConfig& cfg,
 }  // namespace
 
 float ComputeHeuristicSignalAdjustmentDb(const ControlProfileEffectsConfig& cfg,
-                                         const common::RadarControlProfile& control_profile) {
+                                         const common::control::RadarControlProfile& control_profile) {
   float adjustment_db = 0.0f;
   if (control_profile.enable_lpi_power_control) {
     adjustment_db += ToDbDelta(control_profile.lpi_power_scale);
@@ -183,7 +183,7 @@ float ComputeHeuristicSignalAdjustmentDb(const ControlProfileEffectsConfig& cfg,
 }
 
 float ComputeHeuristicEnvironmentReliefDb(
-    const JammingEffectsConfig& cfg, const common::RadarControlProfile& control_profile,
+    const JammingEffectsConfig& cfg, const common::control::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot) {
   if (HasMultiSourceJammingFacts(environment_snapshot)) {
     float relief_db = 0.0f;
@@ -220,7 +220,7 @@ float ComputeHeuristicEnvironmentReliefDb(
   return relief_db;
 }
 
-void ApplyControlProfileToConfig(const common::RadarControlProfile& control_profile,
+void ApplyControlProfileToConfig(const common::control::RadarControlProfile& control_profile,
                                  SignalPipelineConfig* runtime_config) {
   if (runtime_config == nullptr) {
     return;

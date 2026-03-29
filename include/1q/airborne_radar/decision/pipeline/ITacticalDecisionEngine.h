@@ -11,10 +11,10 @@
 #include <unordered_map>
 #include <vector>
 
-#include "1q/airborne_radar/common/ControlDirective.h"
-#include "1q/airborne_radar/common/DecisionInputFrame.h"
-#include "1q/airborne_radar/common/DecisionSourceInfo.h"
-#include "1q/airborne_radar/common/TargetCategory.h"
+#include "1q/airborne_radar/common/control/ControlDirective.h"
+#include "1q/airborne_radar/common/model/DecisionInputFrame.h"
+#include "1q/airborne_radar/common/model/DecisionSourceInfo.h"
+#include "1q/airborne_radar/common/model/TargetCategory.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
@@ -47,7 +47,7 @@ struct TacticalStateStore {
  * @brief TacticalProposal 表示单个 evaluator 输出的战术建议。
  */
 struct TacticalProposal {
-  common::ControlDirective directive; /**< 控制意图 */
+  common::control::ControlDirective directive; /**< 控制意图 */
   int priority{0};                    /**< 建议优先级，数值越大优先级越高 */
   std::string rationale;              /**< 生成原因 */
 
@@ -59,7 +59,7 @@ struct TacticalProposal {
    * @param[in] proposal_priority 建议优先级，数值越大优先级越高。
    * @param[in] proposal_rationale 生成原因。
    */
-  TacticalProposal(const common::ControlDirective& proposal_directive, int proposal_priority,
+  TacticalProposal(const common::control::ControlDirective& proposal_directive, int proposal_priority,
                    const std::string& proposal_rationale)
       : directive(proposal_directive), priority(proposal_priority), rationale(proposal_rationale) {}
 };
@@ -68,7 +68,7 @@ struct TacticalProposal {
  * @brief TacticalDecisionResult 表示决策引擎单周期输出。
  */
 struct TacticalDecisionResult {
-  common::TargetCategoryList target_classification_result; /**< 目标分类结果 */
+  common::model::TargetCategoryList target_classification_result; /**< 目标分类结果 */
   std::vector<TacticalProposal> proposals;                 /**< 汇总后的战术建议集合 */
   TacticalMode selected_mode{TacticalMode::kBaseline};     /**< 当前选定战术模式 */
 };
@@ -86,7 +86,7 @@ class ONEQ_API ITacticalDecisionEngine {
    * @param[in,out] state_store 跨周期战术内存，决策执行过程中会更新。
    * @return 当前周期决策输出结果。
    */
-  virtual TacticalDecisionResult Evaluate(const common::DecisionInputFrame& input_frame,
+  virtual TacticalDecisionResult Evaluate(const common::model::DecisionInputFrame& input_frame,
                                           TacticalStateStore& state_store) = 0;
 };
 

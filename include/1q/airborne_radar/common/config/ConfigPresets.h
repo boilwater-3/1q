@@ -12,6 +12,7 @@
 
 namespace airborne_radar {
 namespace common {
+namespace config {
 
 /**
  * @brief 构造偏向探测任务的信号流水线配置。
@@ -38,6 +39,7 @@ ONEQ_API core::session::RadarSessionConfig MakeDefaultRadarSessionConfig();
  */
 ONEQ_API core::session::RadarSessionConfig MakeDetectionMissionRadarSessionConfig();
 
+}  // namespace config
 }  // namespace common
 }  // namespace airborne_radar
 

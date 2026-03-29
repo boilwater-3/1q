@@ -35,7 +35,7 @@ class TacticalCoordinator final : public ITacticalDecisionEngine {
    * @param[in,out] state_store 跨周期战术状态存储。
    * @return 本周期的战术决策结果。
    */
-  TacticalDecisionResult Evaluate(const common::DecisionInputFrame& input_frame,
+  TacticalDecisionResult Evaluate(const common::model::DecisionInputFrame& input_frame,
                                   TacticalStateStore& state_store) override;
 
  private:

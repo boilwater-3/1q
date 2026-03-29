@@ -55,7 +55,7 @@ class ControlReducer {
    * @param proposals 当前周期候选控制意图列表。
    * @return 归并后的控制真值与采纳结果。
    */
-  ControlReductionResult Reduce(const common::RadarControlProfile& previous_profile,
+  ControlReductionResult Reduce(const common::control::RadarControlProfile& previous_profile,
                                 const std::vector<TacticalProposal>& proposals);
 
   /**

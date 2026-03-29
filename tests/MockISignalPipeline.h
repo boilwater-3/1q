@@ -17,15 +17,15 @@ namespace pipeline {
 class MockISignalPipeline : public ISignalPipeline {
  public:
   MOCK_METHOD(SignalCycleResult, RunCycle,
-              (const common::TargetFeatureList& input_state,
+              (const common::model::TargetFeatureList& input_state,
                const environment::IEnvironmentService& environment),
               (override));
   MOCK_METHOD(void, UpdatePlatformAttitude,
-              (const common::PlatformAttitudeDeg& platform_attitude_deg), (override));
-  MOCK_METHOD(common::PlatformAttitudeDeg, GetPlatformAttitude, (), (const, override));
-  MOCK_METHOD(void, SetControlProfile, (const common::RadarControlProfile& control_profile),
+              (const common::config::PlatformAttitudeDeg& platform_attitude_deg), (override));
+  MOCK_METHOD(common::config::PlatformAttitudeDeg, GetPlatformAttitude, (), (const, override));
+  MOCK_METHOD(void, SetControlProfile, (const common::control::RadarControlProfile& control_profile),
               (override));
-  MOCK_METHOD(common::RadarControlProfile, GetControlProfile, (), (const, override));
+  MOCK_METHOD(common::control::RadarControlProfile, GetControlProfile, (), (const, override));
 };
 
 }  // namespace pipeline

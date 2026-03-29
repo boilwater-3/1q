@@ -10,6 +10,7 @@
 
 namespace airborne_radar {
 namespace common {
+namespace model {
 
 /**
  * @brief LpiSourceInfo 表示供 LPI 模块消费的来源信息。
@@ -69,6 +70,7 @@ struct EccmSourceInfo {
       : has_jamming_signal(has_jamming) {}
 };
 
+}  // namespace model
 }  // namespace common
 }  // namespace airborne_radar
 

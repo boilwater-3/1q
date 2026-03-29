@@ -7,22 +7,22 @@
 
 #include "1q/common/pose_types.h"
 #include "1q/common/scan_schedule_types.h"
-#include "1q/airborne_radar/common/AntennaPatternConfig.h"
-#include "1q/airborne_radar/common/AntennaPatternUtils.h"
-#include "1q/airborne_radar/common/ConfigPresets.h"
-#include "1q/airborne_radar/common/ControlDirective.h"
-#include "1q/airborne_radar/common/DecisionInputFrame.h"
-#include "1q/airborne_radar/common/DecisionSourceInfo.h"
-#include "1q/airborne_radar/common/DecisionTrackSnapshot.h"
-#include "1q/airborne_radar/common/JammingSemantics.h"
-#include "1q/airborne_radar/common/RadarCommand.h"
-#include "1q/airborne_radar/common/RadarControlProfile.h"
-#include "1q/airborne_radar/common/RadarOrientationConfig.h"
-#include "1q/airborne_radar/common/RadarOrientationUtils.h"
-#include "1q/airborne_radar/common/TargetCategory.h"
-#include "1q/airborne_radar/common/TargetFeature.h"
-#include "1q/airborne_radar/common/TargetFeatureUtils.h"
-#include "1q/airborne_radar/common/TrackOutputFrame.h"
+#include "1q/airborne_radar/common/config/AntennaPatternConfig.h"
+#include "1q/airborne_radar/common/utils/AntennaPatternUtils.h"
+#include "1q/airborne_radar/common/config/ConfigPresets.h"
+#include "1q/airborne_radar/common/control/ControlDirective.h"
+#include "1q/airborne_radar/common/model/DecisionInputFrame.h"
+#include "1q/airborne_radar/common/model/DecisionSourceInfo.h"
+#include "1q/airborne_radar/common/model/DecisionTrackSnapshot.h"
+#include "1q/airborne_radar/common/utils/JammingSemantics.h"
+#include "1q/airborne_radar/common/control/RadarCommand.h"
+#include "1q/airborne_radar/common/control/RadarControlProfile.h"
+#include "1q/airborne_radar/common/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/common/utils/RadarOrientationUtils.h"
+#include "1q/airborne_radar/common/model/TargetCategory.h"
+#include "1q/airborne_radar/common/model/TargetFeature.h"
+#include "1q/airborne_radar/common/utils/TargetFeatureUtils.h"
+#include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/common/output/TrackOutputQueries.h"
 #include "1q/airborne_radar/core/context/IRadarContext.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
@@ -49,7 +49,7 @@ namespace airborne_radar {
 namespace {
 
 TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
-  core::session::RadarSessionConfig session_config = common::MakeDefaultRadarSessionConfig();
+  core::session::RadarSessionConfig session_config = common::config::MakeDefaultRadarSessionConfig();
   session_config.environment_model_config.base_propagation_loss_db = 6.0f;
   session_config.signal_pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
   session_config.signal_pipeline_config.lifecycle.lifecycle_config.imm_activation_policy =
@@ -68,7 +68,7 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   core::session::RadarSession session(session_config);
   const core::session::RadarCycleResult result = session.StepWithResult(input, scene_state);
   const std::size_t confirmed_tracks = common::output::CountTracksByStatus(
-      result.track_output_frame, common::DecisionTrackStatus::kConfirmed);
+      result.track_output_frame, common::model::DecisionTrackStatus::kConfirmed);
 
   EXPECT_GE(confirmed_tracks, 0U);
   EXPECT_GE(result.association_quality_metrics.detection_count, 0U);
