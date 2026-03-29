@@ -3,8 +3,8 @@
  * @brief 定义 ECCM 生存性 evaluator，与旧 ECCM 控制节点共享逻辑。
  */
 
-#ifndef AIRBORNE_RADAR_DECISION_ECCM_SURVIVABILITY_EVALUATOR_H_
-#define AIRBORNE_RADAR_DECISION_ECCM_SURVIVABILITY_EVALUATOR_H_
+#ifndef AIRBORNE_RADAR_DECISION_EVALUATORS_SURVIVABILITY_EVALUATOR_H_
+#define AIRBORNE_RADAR_DECISION_EVALUATORS_SURVIVABILITY_EVALUATOR_H_
 
 #include <cstdint>
 
@@ -13,7 +13,7 @@
 
 namespace airborne_radar {
 namespace decision {
-namespace eccm {
+namespace evaluators {
 
 /**
  * @brief SurvivabilityEvaluatorConfig 存储生存性 evaluator 的可调参数。
@@ -53,8 +53,8 @@ class SurvivabilityEvaluator final : public pipeline::ITacticalEvaluator {
   SurvivabilityEvaluatorConfig config_;
 };
 
-}  // namespace eccm
+}  // namespace evaluators
 }  // namespace decision
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_DECISION_ECCM_SURVIVABILITY_EVALUATOR_H_
+#endif  // AIRBORNE_RADAR_DECISION_EVALUATORS_SURVIVABILITY_EVALUATOR_H_

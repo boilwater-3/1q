@@ -3,8 +3,8 @@
  * @brief 定义威胁评估 evaluator，与旧分类节点共享核心逻辑。
  */
 
-#ifndef AIRBORNE_RADAR_DECISION_CLASSIFIER_THREAT_ASSESSMENT_EVALUATOR_H_
-#define AIRBORNE_RADAR_DECISION_CLASSIFIER_THREAT_ASSESSMENT_EVALUATOR_H_
+#ifndef AIRBORNE_RADAR_DECISION_EVALUATORS_THREAT_ASSESSMENT_EVALUATOR_H_
+#define AIRBORNE_RADAR_DECISION_EVALUATORS_THREAT_ASSESSMENT_EVALUATOR_H_
 
 #include <string>
 
@@ -16,7 +16,7 @@
 
 namespace airborne_radar {
 namespace decision {
-namespace classifier {
+namespace evaluators {
 
 /**
  * @brief 实现目标分类与威胁记忆更新。
@@ -90,8 +90,8 @@ class ThreatAssessmentEvaluator final : public pipeline::ITacticalEvaluator {
   const environment::database::IFeatureRepository* feature_repository_;
 };
 
-}  // namespace classifier
+}  // namespace evaluators
 }  // namespace decision
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_DECISION_CLASSIFIER_THREAT_ASSESSMENT_EVALUATOR_H_
+#endif  // AIRBORNE_RADAR_DECISION_EVALUATORS_THREAT_ASSESSMENT_EVALUATOR_H_

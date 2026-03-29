@@ -1,4 +1,4 @@
-#include "airborne_radar/decision/classifier/ThreatAssessmentEvaluator.h"
+#include "airborne_radar/decision/evaluators/ThreatAssessmentEvaluator.h"
 
 #include <algorithm>
 #include <cmath>
@@ -7,7 +7,7 @@
 
 namespace airborne_radar {
 namespace decision {
-namespace classifier {
+namespace evaluators {
 
 namespace {
 
@@ -195,6 +195,6 @@ bool ThreatAssessmentEvaluator::IsHighThreatCategory(const std::string& category
   return category == "HIGH_THREAT_FIGHTER";
 }
 
-}  // namespace classifier
+}  // namespace evaluators
 }  // namespace decision
 }  // namespace airborne_radar

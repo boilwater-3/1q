@@ -12,13 +12,13 @@
 #include "1q/airborne_radar/common/ControlDirective.h"
 #include "1q/airborne_radar/common/DecisionInputFrame.h"
 #include "1q/airborne_radar/common/DecisionTrackSnapshot.h"
-#include "airborne_radar/decision/classifier/ThreatAssessmentEvaluator.h"
+#include "airborne_radar/decision/evaluators/ThreatAssessmentEvaluator.h"
 #include "airborne_radar/decision/pipeline/TacticalCoordinator.h"
 #include "airborne_radar/decision/pipeline/TacticalEvaluation.h"
 #include "airborne_radar/environment/database/FeatureRepository.h"
 
 namespace dp = airborne_radar::decision::pipeline;
-namespace dc = airborne_radar::decision::classifier;
+namespace de = airborne_radar::decision::evaluators;
 namespace ac = airborne_radar::common;
 namespace edb = airborne_radar::environment::database;
 
@@ -139,7 +139,7 @@ TEST(TacticalCoordinatorTest, ClassifiesAllTracksInFrame) {
 
 TEST(ThreatAssessmentEvaluatorTest, RepositoryMatchProvidesProbability) {
   edb::FeatureRepository repository;
-  dc::ThreatAssessmentEvaluator evaluator(&repository);
+  de::ThreatAssessmentEvaluator evaluator(&repository);
   dp::TacticalStateStore state_store;
   dp::TacticalEvaluationState evaluation_state;
 

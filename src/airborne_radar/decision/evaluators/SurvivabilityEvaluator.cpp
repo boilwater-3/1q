@@ -1,4 +1,4 @@
-#include "airborne_radar/decision/eccm/SurvivabilityEvaluator.h"
+#include "airborne_radar/decision/evaluators/SurvivabilityEvaluator.h"
 
 #include <algorithm>
 #include <string>
@@ -7,7 +7,7 @@
 
 namespace airborne_radar {
 namespace decision {
-namespace eccm {
+namespace evaluators {
 
 namespace {
 
@@ -511,6 +511,6 @@ void SurvivabilityEvaluator::Evaluate(const common::DecisionInputFrame& input_fr
   PROJECT_LOG_INFO("[SurvivabilityEvaluator] Active jamming detected. Appending ECCM proposals.");
 }
 
-}  // namespace eccm
+}  // namespace evaluators
 }  // namespace decision
 }  // namespace airborne_radar

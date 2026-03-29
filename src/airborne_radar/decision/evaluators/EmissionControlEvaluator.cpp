@@ -1,10 +1,10 @@
-#include "airborne_radar/decision/lpi/EmissionControlEvaluator.h"
+#include "airborne_radar/decision/evaluators/EmissionControlEvaluator.h"
 
 #include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
 namespace decision {
-namespace lpi {
+namespace evaluators {
 
 namespace {
 
@@ -53,6 +53,6 @@ void EmissionControlEvaluator::Evaluate(const common::DecisionInputFrame& input_
       "REQUEST_LPI_POWER_REDUCTION");
 }
 
-}  // namespace lpi
+}  // namespace evaluators
 }  // namespace decision
 }  // namespace airborne_radar

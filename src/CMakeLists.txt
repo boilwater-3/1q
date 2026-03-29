@@ -10,9 +10,9 @@ set(PROJECT_SOURCES
     airborne_radar/common/TargetFeatureUtils.cpp
     airborne_radar/decision/pipeline/TacticalCoordinator.cpp
     airborne_radar/decision/pipeline/ControlReducer.cpp
-    airborne_radar/decision/classifier/ThreatAssessmentEvaluator.cpp
-    airborne_radar/decision/lpi/EmissionControlEvaluator.cpp
-    airborne_radar/decision/eccm/SurvivabilityEvaluator.cpp
+    airborne_radar/decision/evaluators/ThreatAssessmentEvaluator.cpp
+    airborne_radar/decision/evaluators/EmissionControlEvaluator.cpp
+    airborne_radar/decision/evaluators/SurvivabilityEvaluator.cpp
     airborne_radar/core/context/MutableRadarContext.cpp
     airborne_radar/core/context/RadarInputValidation.cpp
     airborne_radar/core/controller/RadarController.cpp

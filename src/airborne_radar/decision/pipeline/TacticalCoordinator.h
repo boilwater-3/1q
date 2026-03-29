@@ -7,9 +7,9 @@
 #define AIRBORNE_RADAR_DECISION_TACTICAL_COORDINATOR_H_
 
 #include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
-#include "airborne_radar/decision/classifier/ThreatAssessmentEvaluator.h"
-#include "airborne_radar/decision/eccm/SurvivabilityEvaluator.h"
-#include "airborne_radar/decision/lpi/EmissionControlEvaluator.h"
+#include "airborne_radar/decision/evaluators/EmissionControlEvaluator.h"
+#include "airborne_radar/decision/evaluators/SurvivabilityEvaluator.h"
+#include "airborne_radar/decision/evaluators/ThreatAssessmentEvaluator.h"
 #include "airborne_radar/decision/pipeline/TacticalEvaluation.h"
 #include "airborne_radar/environment/database/IFeatureRepository.h"
 
@@ -39,9 +39,9 @@ class TacticalCoordinator final : public ITacticalDecisionEngine {
                                   TacticalStateStore& state_store) override;
 
  private:
-  classifier::ThreatAssessmentEvaluator threat_assessment_evaluator_;
-  lpi::EmissionControlEvaluator emission_control_evaluator_;
-  eccm::SurvivabilityEvaluator survivability_evaluator_;
+  evaluators::ThreatAssessmentEvaluator threat_assessment_evaluator_;
+  evaluators::EmissionControlEvaluator emission_control_evaluator_;
+  evaluators::SurvivabilityEvaluator survivability_evaluator_;
 };
 
 }  // namespace pipeline
