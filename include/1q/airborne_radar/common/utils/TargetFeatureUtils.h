@@ -35,6 +35,7 @@ ONEQ_API model::TargetFeature MakeTargetFromCartesian(std::uint64_t external_tar
 
 /**
  * @brief 构造地面目标。
+ * @note 仅用于测试代码；仿真输入不应显式区分空中/地面目标。
  * @param[in] external_target_id 外部目标标识符。
  * @param[in] position_x 目标局部 x 坐标（米）。
  * @param[in] position_y 目标局部 y 坐标（米）。
@@ -44,12 +45,14 @@ ONEQ_API model::TargetFeature MakeTargetFromCartesian(std::uint64_t external_tar
  * @param[in] swerling_type 目标起伏模型编号。
  * @return `z=0` 的目标特征。
  */
-ONEQ_API model::TargetFeature MakeGroundTarget(std::uint64_t external_target_id, float position_x,
+ONEQ_API
+model::TargetFeature MakeGroundTarget(std::uint64_t external_target_id, float position_x,
                                         float position_y, float rcs = 1.0f, float velocity_x = 0.0f,
                                         float velocity_y = 0.0f, int swerling_type = 0);
 
 /**
  * @brief 构造空中目标。
+ * @note 仅用于测试代码；仿真输入不应显式区分空中/地面目标。
  * @param[in] external_target_id 外部目标标识符。
  * @param[in] position_x 目标局部 x 坐标（米）。
  * @param[in] position_y 目标局部 y 坐标（米）。
@@ -61,7 +64,8 @@ ONEQ_API model::TargetFeature MakeGroundTarget(std::uint64_t external_target_id,
  * @param[in] swerling_type 目标起伏模型编号。
  * @return 已写入三维位置与斜距的目标特征。
  */
-ONEQ_API model::TargetFeature MakeAirTarget(std::uint64_t external_target_id, float position_x,
+ONEQ_API
+model::TargetFeature MakeAirTarget(std::uint64_t external_target_id, float position_x,
                                      float position_y, float position_z, float velocity_x,
                                      float velocity_y, float velocity_z, float rcs = 1.0f,
                                      int swerling_type = 0);

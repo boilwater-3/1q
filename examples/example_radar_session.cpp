@@ -62,9 +62,9 @@ int main() {
   RadarCycleInput cycle_1;
   cycle_1.dt_sec = 1.0f;
   cycle_1.target_features.push_back(
-      aq::MakeAirTarget(1001U, 180.0f, -5.0f, 18.0f, 65.0f, 0.0f, 0.0f, 1.0f));
+      aq::MakeTargetFromCartesian(1001U, 180.0f, -5.0f, 18.0f, 65.0f, 0.0f, 0.0f, 1.0f));
   cycle_1.target_features.push_back(
-      aq::MakeAirTarget(1002U, 260.0f, 8.0f, 22.0f, 82.0f, 1.0f, 0.0f, 1.1f));
+      aq::MakeTargetFromCartesian(1002U, 260.0f, 8.0f, 22.0f, 82.0f, 1.0f, 0.0f, 1.1f));
 
   const std::vector<airborne_radar::core::context::ValidationIssue> cycle_1_issues =
       ValidateRadarCycleInput(cycle_1);

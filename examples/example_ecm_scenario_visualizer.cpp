@@ -277,7 +277,7 @@ void StepOnce(airborne_radar::core::session::RadarSession& session, SimState& si
   for (const auto& kv : sim.target_pos) {
     const auto& p = kv.second;
     input.target_features.push_back(
-        aq::MakeAirTarget(kv.first, p.px, p.py, p.pz, p.vx, p.vy, p.vz, p.rcs));
+        aq::MakeTargetFromCartesian(kv.first, p.px, p.py, p.pz, p.vx, p.vy, p.vz, p.rcs));
   }
 
   // 根据当前 cycle 构造环境场景
