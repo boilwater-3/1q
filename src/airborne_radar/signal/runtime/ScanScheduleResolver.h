@@ -3,8 +3,8 @@
  * @brief 定义机载雷达二维扫描调度解析工具。
  */
 
-#ifndef AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_SCAN_SCHEDULE_RESOLVER_H_
-#define AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_SCAN_SCHEDULE_RESOLVER_H_
+#ifndef AIRBORNE_RADAR_SRC_SIGNAL_RUNTIME_SCAN_SCHEDULE_RESOLVER_H_
+#define AIRBORNE_RADAR_SRC_SIGNAL_RUNTIME_SCAN_SCHEDULE_RESOLVER_H_
 
 #include <algorithm>
 #include <cmath>
@@ -18,7 +18,10 @@
 
 namespace airborne_radar {
 namespace signal {
-namespace pipeline {
+namespace runtime {
+
+using pipeline::SignalPipelineConfig;
+
 namespace internal {
 
 /**
@@ -246,8 +249,8 @@ inline void ApplyScanScheduleToRuntimeConfig(std::uint32_t cycle_index,
 }
 
 }  // namespace internal
-}  // namespace pipeline
+}  // namespace runtime
 }  // namespace signal
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_SCAN_SCHEDULE_RESOLVER_H_
+#endif  // AIRBORNE_RADAR_SRC_SIGNAL_RUNTIME_SCAN_SCHEDULE_RESOLVER_H_

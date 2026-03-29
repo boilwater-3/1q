@@ -3,8 +3,8 @@
  * @brief 定义 SignalPipeline 私有组件工厂，负责配置映射与组件装配。
  */
 
-#ifndef AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_SIGNAL_COMPONENT_FACTORY_H_
-#define AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_SIGNAL_COMPONENT_FACTORY_H_
+#ifndef AIRBORNE_RADAR_SRC_SIGNAL_RUNTIME_SIGNAL_COMPONENT_FACTORY_H_
+#define AIRBORNE_RADAR_SRC_SIGNAL_RUNTIME_SIGNAL_COMPONENT_FACTORY_H_
 
 #include <Eigen/Core>
 #include <algorithm>
@@ -14,7 +14,7 @@
 
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
-#include "airborne_radar/signal/pipeline/SignalPipeline.h"
+#include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
 #include "airborne_radar/signal/tracking/BoostTrackPool.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
@@ -26,7 +26,12 @@
 
 namespace airborne_radar {
 namespace signal {
-namespace pipeline {
+namespace runtime {
+
+using pipeline::ImmActivationPolicy;
+using pipeline::SignalPipelineConfig;
+using pipeline::TrackPoolThreadSafetyMode;
+
 namespace internal {
 /**
  * @brief Pipeline 自持有组件集合。
@@ -323,8 +328,8 @@ class SignalComponentFactory final {
 };
 
 }  // namespace internal
-}  // namespace pipeline
+}  // namespace runtime
 }  // namespace signal
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_SIGNAL_COMPONENT_FACTORY_H_
+#endif  // AIRBORNE_RADAR_SRC_SIGNAL_RUNTIME_SIGNAL_COMPONENT_FACTORY_H_

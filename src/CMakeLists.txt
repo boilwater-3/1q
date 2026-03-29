@@ -31,6 +31,7 @@ set(PROJECT_SOURCES
     airborne_radar/signal/detection/RadarEquations.cpp
     airborne_radar/signal/detection/SignalDetector.cpp
     airborne_radar/signal/pipeline/AssociationExecutionSupport.cpp
+    airborne_radar/signal/pipeline/CycleExecutor.cpp
     airborne_radar/signal/pipeline/ContextBindingSupport.cpp
     airborne_radar/signal/pipeline/ControlProfileEffects.cpp
     airborne_radar/signal/pipeline/CycleContextSupport.cpp
@@ -38,9 +39,9 @@ set(PROJECT_SOURCES
     airborne_radar/signal/pipeline/DecisionFrameBuilders.cpp
     airborne_radar/signal/pipeline/JammingEffects.cpp
     airborne_radar/signal/pipeline/OutputAssemblySupport.cpp
-    airborne_radar/signal/pipeline/RuntimeAssemblySupport.cpp
     airborne_radar/signal/pipeline/SignalPipeline.cpp
     airborne_radar/signal/pipeline/TrackMeasurementProcessing.cpp
+    airborne_radar/signal/runtime/RuntimeAssemblySupport.cpp
     airborne_radar/signal/tracking/BoostTrackPool.cpp
     airborne_radar/signal/tracking/SynchronizedTrackPool.cpp
     airborne_radar/signal/tracking/KalmanPredictor.cpp

@@ -1,13 +1,13 @@
-#include "airborne_radar/signal/pipeline/RuntimeAssemblySupport.h"
+#include "airborne_radar/signal/runtime/RuntimeAssemblySupport.h"
 
 #include <utility>
 
 #include "airborne_radar/signal/pipeline/ControlProfileEffects.h"
-#include "airborne_radar/signal/pipeline/SignalComponentFactory.h"
+#include "airborne_radar/signal/runtime/SignalComponentFactory.h"
 
 namespace airborne_radar {
 namespace signal {
-namespace pipeline {
+namespace runtime {
 namespace internal {
 
 namespace {
@@ -59,7 +59,7 @@ bool HasValidOwnedComponentSlots(const OwnedComponentSlots& slots) {
 SignalPipelineConfig BuildRuntimeConfigFromControlProfile(
     const SignalPipelineConfig& base_config, const common::RadarControlProfile& control_profile) {
   SignalPipelineConfig runtime_config = base_config;
-  ApplyControlProfileToConfig(control_profile, &runtime_config);
+  pipeline::internal::ApplyControlProfileToConfig(control_profile, &runtime_config);
   return runtime_config;
 }
 
@@ -91,6 +91,6 @@ void RebuildOwnedComponentsForPipeline(const SignalPipelineConfig& base_config,
 }
 
 }  // namespace internal
-}  // namespace pipeline
+}  // namespace runtime
 }  // namespace signal
 }  // namespace airborne_radar

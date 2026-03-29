@@ -10,242 +10,138 @@
 #include "airborne_radar/core/output/IDataOutputManager.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
-#include "airborne_radar/signal/pipeline/AssociationExecutionSupport.h"
-#include "airborne_radar/signal/pipeline/ContextBindingSupport.h"
-#include "airborne_radar/signal/pipeline/ControlProfileEffects.h"
+#include "airborne_radar/signal/pipeline/CycleExecutor.h"
 #include "airborne_radar/signal/pipeline/CycleContextSupport.h"
-#include "airborne_radar/signal/pipeline/DecisionFrameBuilders.h"
-#include "airborne_radar/signal/pipeline/DetectionExecution.h"
-#include "airborne_radar/signal/pipeline/JammingEffects.h"
-#include "airborne_radar/signal/pipeline/OutputAssemblySupport.h"
-#include "airborne_radar/signal/pipeline/RuntimeAssemblySupport.h"
-#include "airborne_radar/signal/pipeline/ScanScheduleResolver.h"
-#include "airborne_radar/signal/pipeline/SignalComponentFactory.h"
-#include "airborne_radar/signal/pipeline/TrackMeasurementProcessing.h"
+#include "airborne_radar/signal/runtime/RuntimeAssemblySupport.h"
+#include "airborne_radar/signal/runtime/SignalComponentFactory.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleManager.h"
-#include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
 namespace signal {
 namespace pipeline {
 
 namespace {
-/**
- * @brief 单周期缓存上下文。
- */
-struct SignalCycleContext {
-  const common::TargetFeatureList* input_state{nullptr};
-  const environment::IEnvironmentService* environment{nullptr};
-  SignalPipelineConfig runtime_config{};
-  common::TargetFeatureList output_state;
-  std::vector<tracking::TrackMeasurement> track_measurements;
-  common::DecisionInputFrame decision_frame{};
-  AssociationQualityMetrics association_quality_metrics{};
-
-  environment::EnvironmentSnapshot environment_snapshot{};
-  common::JammingSemantic dominant_jamming_semantic{
-      common::JammingSemantic::kNone}; /**< 当前周期主导干扰语义（SampleEnvironment 后有效） */
-  float jamming_severity{0.0f}; /**< 当前周期轨迹级残余干扰强度（SampleEnvironment 后有效） */
-
-  std::vector<float> signal_term_db;
-  std::vector<float> speed_penalty_db;
-  std::vector<float> detection_margin_db;
-  std::vector<std::uint8_t> detection_succeeded;
-  association::AssociationResult association_result;
-  std::vector<std::uint64_t> association_keys;
-  std::vector<tracking::MeasurementCovariance> measurement_covariances;
-  std::vector<int> measurement_slots;
-  std::vector<detection::ResolvedTargetGeometry> target_geometry;
-};
-
-}  // namespace
-
-struct SignalPipeline::Impl {
-  explicit Impl(SignalPipelineConfig initial_config)
+struct RuntimeState {
+  explicit RuntimeState(SignalPipelineConfig initial_config)
       : config(std::move(initial_config)),
-        association_engine(internal::SignalComponentFactory::BuildAssociationConfig(config)),
-        track_filter(internal::SignalComponentFactory::BuildTrackFilterConfig(config)),
-        output_manager_(std::unique_ptr<core::output::IDataOutputManager>(
-            new core::output::DataOutputManager())) {
-    RebuildOwnedComponents();
-  }
-  SignalCycleResult RunCycle(const common::TargetFeatureList& input_state,
-                             const environment::IEnvironmentService& environment) {
-    PrepareCycleContext(input_state, environment);
-    SampleEnvironment();
-    PrepareAssociationSeeds();
-    RunDetection();
-    RunAssociation();
-    BuildTrackMeasurements();
-    ApplyTrackFilter();
-    CollectOutputs();
-    SignalCycleResult result;
-    result.updated_features = cached_context.output_state;
-    result.decision_frame = cached_context.decision_frame;
-    result.association_quality_metrics = cached_context.association_quality_metrics;
-    ++cycle_index_;
-    ++batch_id_;
-    return result;
-  }
-  std::vector<tracking::TrackMeasurement> GetLastTrackMeasurements() const {
-    return cached_context.track_measurements;
-  }
-  AssociationQualityMetrics GetLastAssociationQualityMetrics() const {
-    return cached_context.association_quality_metrics;
-  }
-  void SetAssociationSeeds(const std::vector<tracking::AssociationTrackSeed>& seeds) {
-    has_manual_association_seeds_ = true;
-    manual_association_seeds_ = seeds;
-    association_engine.SetAssociationSeeds(manual_association_seeds_);
-  }
-  void ResetAssociationSeedModeToStateless() {
-    has_manual_association_seeds_ = false;
-    manual_association_seeds_.clear();
-    association_engine.ResetAssociationSeedModeToStateless();
-  }
-  std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManager() const {
-    return internal::CreateAutoLifecycleManagerForRuntimeConfig(BuildRuntimeConfig());
-  }
-  void UpdateConfig(SignalPipelineConfig new_config) {
-    config = std::move(new_config);
-    internal::SyncAssociationAndTrackFilterConfigs(config, &association_engine, &track_filter);
-    RebuildOwnedComponents();
-  }
-  void UpdatePlatformAttitude(const common::PlatformAttitudeDeg& platform_attitude_deg) {
-    config.beam_control.platform_attitude_deg = platform_attitude_deg;
-  }
-  common::PlatformAttitudeDeg GetPlatformAttitude() const {
-    return config.beam_control.platform_attitude_deg;
-  }
-  SignalPipelineConfig BuildRuntimeConfig() const {
-    return internal::BuildRuntimeConfigFromControlProfile(config, control_profile_);
-  }
-  void SetControlProfile(const common::RadarControlProfile& control_profile) {
-    control_profile_ = control_profile;
-  }
-  common::RadarControlProfile GetControlProfile() const { return control_profile_; }
-  void PrepareCycleContext(const common::TargetFeatureList& input_state,
-                           const environment::IEnvironmentService& environment) {
-    cached_context.input_state = &input_state;
-    cached_context.environment = &environment;
-    cached_context.runtime_config = BuildRuntimeConfig();
-    internal::ApplyScanScheduleToRuntimeConfig(cycle_index_, &cached_context.runtime_config);
-    internal::CycleWorkspace cycle_workspace = BuildContextWorkspace();
-    internal::ResetCycleWorkspace(input_state, cached_context.runtime_config, &cycle_workspace);
-    internal::SyncAssociationAndTrackFilterConfigs(cached_context.runtime_config,
-                                                   &association_engine, &track_filter);
-  }
-  void PrepareAssociationSeeds() {
-    internal::PrepareAssociationSeedsForCycle(has_manual_association_seeds_,
-                                              manual_association_seeds_,
-                                              auto_lifecycle_manager_.get(), &association_engine);
-  }
-  void SampleEnvironment() {
-    cached_context.environment_snapshot = cached_context.environment->SampleEnvironment();
-    internal::ApplyEnvironmentJammingFactsToRuntimeConfig(
-        cached_context.runtime_config.jamming_effects, control_profile_,
-        cached_context.environment_snapshot, &cached_context.runtime_config);
-    internal::RefreshMeasurementCovariances(
-        cached_context.target_geometry.size(),
-        cached_context.runtime_config.tracking.kalman_measurement_noise_std,
-        &cached_context.measurement_covariances);
-    // 干扰事实已修正 runtime_config（association.unassigned_cost / tracking 噪声系数），
-    // 必须再次 Sync 才能让关联引擎和跟踪滤波器使用更新后的参数。
-    internal::SyncAssociationAndTrackFilterConfigs(cached_context.runtime_config,
-                                                   &association_engine, &track_filter);
-    // 在环境快照与 runtime_config 均稳定后，统一解析干扰语义与强度，
-    // 供后续 BuildTrackMeasurements / ApplyTrackFilter 直接复用。
-    cached_context.dominant_jamming_semantic = internal::ResolveDominantJammingSemantic(
-        control_profile_, cached_context.environment_snapshot);
-    cached_context.jamming_severity = internal::ComputeTrackLevelJammingSeverity(
-        control_profile_, cached_context.environment_snapshot);
-  }
-  void RunDetection() {
-    internal::DetectionExecutionBuffers detection_buffers =
-        internal::BuildDetectionExecutionBuffers(
-            &cached_context.target_geometry, &cached_context.signal_term_db,
-            &cached_context.speed_penalty_db, &cached_context.detection_margin_db,
-            &cached_context.detection_succeeded, &cached_context.measurement_covariances);
-    if (cached_context.runtime_config.detection.enable_physics_detection) {
-      internal::RunPhysicalDetectionPass(*cached_context.input_state, cached_context.runtime_config,
-                                         control_profile_, cached_context.environment_snapshot,
-                                         signal_detector.get(), &detection_buffers);
-    } else {
-      internal::RunHeuristicDetectionPass(*cached_context.input_state,
-                                          cached_context.runtime_config, control_profile_,
-                                          cached_context.environment_snapshot, &detection_buffers);
-    }
-  }
-  void RunAssociation() {
-    internal::RunAssociationPass(
-        *cached_context.input_state, cached_context.detection_succeeded,
-        cached_context.measurement_covariances, cached_context.environment_snapshot.cycle_dt_sec,
-        &association_engine, &cached_context.association_result, &cached_context.association_keys);
-  }
-  void BuildTrackMeasurements() {
-    internal::TrackMeasurementBuildContext measurement_build_context =
-        internal::BuildTrackMeasurementBuildContextBindings(
-            cached_context.input_state, &cached_context.association_result,
-            &cached_context.detection_succeeded, &cached_context.association_keys,
-            &cached_context.detection_margin_db, &cached_context.target_geometry,
-            &cached_context.measurement_covariances,
-            cached_context.environment_snapshot.jamming_detected,
-            cached_context.dominant_jamming_semantic, cached_context.jamming_severity,
-            &cached_context.measurement_slots, &cached_context.track_measurements);
-    internal::BuildTrackMeasurementsPass(measurement_build_context);
-  }
-  void ApplyTrackFilter() {
-    internal::TrackFilterApplyContext track_filter_apply_context =
-        internal::BuildTrackFilterApplyContextBindings(
-            cached_context.input_state, &cached_context.output_state,
-            &cached_context.detection_succeeded, &cached_context.detection_margin_db,
-            cached_context.environment_snapshot.jamming_detected,
-            cached_context.dominant_jamming_semantic, cached_context.jamming_severity,
-            &track_filter, &cached_context.measurement_slots, &cached_context.track_measurements);
-    internal::ApplyTrackFilterPass(track_filter_apply_context);
-  }
-  void CollectOutputs() {
-    internal::CollectCycleOutputs(
-        control_profile_, cycle_index_, batch_id_, cached_context.runtime_config,
-        cached_context.environment_snapshot, *cached_context.input_state,
-        cached_context.output_state, cached_context.association_result,
-        cached_context.track_measurements, output_manager_.get(), auto_lifecycle_manager_.get(),
-        &cached_context.association_quality_metrics, &cached_context.decision_frame);
-  }
-  internal::CycleWorkspace BuildContextWorkspace() {
-    return internal::BuildCycleWorkspaceBindings(
-        &cached_context.output_state, &cached_context.decision_frame,
-        &cached_context.association_quality_metrics, &cached_context.track_measurements,
-        &cached_context.signal_term_db, &cached_context.speed_penalty_db,
-        &cached_context.detection_margin_db, &cached_context.detection_succeeded,
-        &cached_context.association_keys, &cached_context.measurement_slots,
-        &cached_context.target_geometry, &cached_context.measurement_covariances,
-        &cached_context.association_result);
-  }
-  void RebuildOwnedComponents() {
-    internal::OwnedComponentSlots component_slots;
-    component_slots.kalman_predictor = &kalman_predictor;
-    component_slots.kalman_updater = &kalman_updater;
-    component_slots.signal_detector = &signal_detector;
-    component_slots.auto_lifecycle_manager = &auto_lifecycle_manager_;
-    internal::RebuildOwnedComponentsForPipeline(config, control_profile_, &component_slots);
-  }
+        association_engine(runtime::internal::SignalComponentFactory::BuildAssociationConfig(config)),
+        track_filter(runtime::internal::SignalComponentFactory::BuildTrackFilterConfig(config)),
+        output_manager(std::unique_ptr<core::output::IDataOutputManager>(
+            new core::output::DataOutputManager())) {}
 
   SignalPipelineConfig config{};
   common::RadarControlProfile control_profile_{};
   association::DataAssociationEngine association_engine{};
   tracking::TrackFilter track_filter{};
-  std::unique_ptr<core::output::IDataOutputManager> output_manager_;
+  std::unique_ptr<core::output::IDataOutputManager> output_manager;
   std::unique_ptr<tracking::KalmanPredictor> kalman_predictor;
   std::unique_ptr<tracking::KalmanUpdater> kalman_updater;
   std::unique_ptr<detection::SignalDetector> signal_detector;
-  std::unique_ptr<tracking::ITrackLifecycleManager> auto_lifecycle_manager_;
-  std::vector<tracking::AssociationTrackSeed> manual_association_seeds_;
-  bool has_manual_association_seeds_{false};
-  std::uint32_t cycle_index_{1};
-  std::uint64_t batch_id_{1};
-  SignalCycleContext cached_context{};
+  std::unique_ptr<tracking::ITrackLifecycleManager> auto_lifecycle_manager;
+  std::vector<tracking::AssociationTrackSeed> manual_association_seeds;
+  bool has_manual_association_seeds{false};
+};
+
+struct CycleState {
+  std::uint32_t cycle_index{1};
+  std::uint64_t batch_id{1};
+  internal::CycleExecutionContext context{};
+};
+
+}  // namespace
+
+struct SignalPipeline::Impl {
+  explicit Impl(SignalPipelineConfig initial_config) : runtime_(std::move(initial_config)) {
+    RebuildOwnedComponents();
+  }
+
+  SignalCycleResult RunCycle(const common::TargetFeatureList& input_state,
+                             const environment::IEnvironmentService& environment) {
+    internal::CycleExecutionRuntime runtime_execution;
+    runtime_execution.base_config = &runtime_.config;
+    runtime_execution.control_profile = &runtime_.control_profile_;
+    runtime_execution.association_engine = &runtime_.association_engine;
+    runtime_execution.track_filter = &runtime_.track_filter;
+    runtime_execution.signal_detector = runtime_.signal_detector.get();
+    runtime_execution.output_manager = runtime_.output_manager.get();
+    runtime_execution.auto_lifecycle_manager = runtime_.auto_lifecycle_manager.get();
+    runtime_execution.manual_association_seeds = &runtime_.manual_association_seeds;
+    runtime_execution.has_manual_association_seeds = runtime_.has_manual_association_seeds;
+
+    internal::ExecuteCycle(input_state, environment, cycle_.cycle_index, cycle_.batch_id,
+                           runtime_execution, &cycle_.context);
+
+    SignalCycleResult result;
+    result.updated_features = cycle_.context.output_state;
+    result.decision_frame = cycle_.context.decision_frame;
+    result.association_quality_metrics = cycle_.context.association_quality_metrics;
+    ++cycle_.cycle_index;
+    ++cycle_.batch_id;
+    return result;
+  }
+
+  std::vector<tracking::TrackMeasurement> GetLastTrackMeasurements() const {
+    return cycle_.context.track_measurements;
+  }
+
+  AssociationQualityMetrics GetLastAssociationQualityMetrics() const {
+    return cycle_.context.association_quality_metrics;
+  }
+
+  void SetAssociationSeeds(const std::vector<tracking::AssociationTrackSeed>& seeds) {
+    runtime_.has_manual_association_seeds = true;
+    runtime_.manual_association_seeds = seeds;
+    runtime_.association_engine.SetAssociationSeeds(runtime_.manual_association_seeds);
+  }
+
+  void ResetAssociationSeedModeToStateless() {
+    runtime_.has_manual_association_seeds = false;
+    runtime_.manual_association_seeds.clear();
+    runtime_.association_engine.ResetAssociationSeedModeToStateless();
+  }
+
+  std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManager() const {
+    return runtime::internal::CreateAutoLifecycleManagerForRuntimeConfig(BuildRuntimeConfig());
+  }
+
+  void UpdateConfig(SignalPipelineConfig new_config) {
+    runtime_.config = std::move(new_config);
+    internal::SyncAssociationAndTrackFilterConfigs(runtime_.config, &runtime_.association_engine,
+                                                   &runtime_.track_filter);
+    RebuildOwnedComponents();
+  }
+
+  void UpdatePlatformAttitude(const common::PlatformAttitudeDeg& platform_attitude_deg) {
+    runtime_.config.beam_control.platform_attitude_deg = platform_attitude_deg;
+  }
+
+  common::PlatformAttitudeDeg GetPlatformAttitude() const {
+    return runtime_.config.beam_control.platform_attitude_deg;
+  }
+
+  SignalPipelineConfig BuildRuntimeConfig() const {
+    return runtime::internal::BuildRuntimeConfigFromControlProfile(runtime_.config,
+                                                                   runtime_.control_profile_);
+  }
+
+  void SetControlProfile(const common::RadarControlProfile& control_profile) {
+    runtime_.control_profile_ = control_profile;
+  }
+  common::RadarControlProfile GetControlProfile() const { return runtime_.control_profile_; }
+
+  void RebuildOwnedComponents() {
+    runtime::internal::OwnedComponentSlots component_slots;
+    component_slots.kalman_predictor = &runtime_.kalman_predictor;
+    component_slots.kalman_updater = &runtime_.kalman_updater;
+    component_slots.signal_detector = &runtime_.signal_detector;
+    component_slots.auto_lifecycle_manager = &runtime_.auto_lifecycle_manager;
+    runtime::internal::RebuildOwnedComponentsForPipeline(runtime_.config, runtime_.control_profile_,
+                                                         &component_slots);
+  }
+
+  RuntimeState runtime_;
+  CycleState cycle_;
 };
 
 SignalPipeline::SignalPipeline(SignalPipelineConfig config)

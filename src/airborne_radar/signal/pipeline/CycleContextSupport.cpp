@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#include "airborne_radar/signal/pipeline/SignalComponentFactory.h"
+#include "airborne_radar/signal/runtime/SignalComponentFactory.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -69,10 +69,11 @@ void SyncAssociationAndTrackFilterConfigs(const SignalPipelineConfig& runtime_co
                                           tracking::TrackFilter* track_filter) {
   if (association_engine != nullptr) {
     association_engine->UpdateConfig(
-        SignalComponentFactory::BuildAssociationConfig(runtime_config));
+        runtime::internal::SignalComponentFactory::BuildAssociationConfig(runtime_config));
   }
   if (track_filter != nullptr) {
-    track_filter->UpdateConfig(SignalComponentFactory::BuildTrackFilterConfig(runtime_config));
+    track_filter->UpdateConfig(
+        runtime::internal::SignalComponentFactory::BuildTrackFilterConfig(runtime_config));
   }
 }
 

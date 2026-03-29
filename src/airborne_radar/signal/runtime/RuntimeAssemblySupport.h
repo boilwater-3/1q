@@ -3,8 +3,8 @@
  * @brief 定义 SignalPipeline 运行时配置与组件装配的内部辅助函数。
  */
 
-#ifndef AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_RUNTIME_ASSEMBLY_SUPPORT_H_
-#define AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_RUNTIME_ASSEMBLY_SUPPORT_H_
+#ifndef AIRBORNE_RADAR_SRC_SIGNAL_RUNTIME_RUNTIME_ASSEMBLY_SUPPORT_H_
+#define AIRBORNE_RADAR_SRC_SIGNAL_RUNTIME_RUNTIME_ASSEMBLY_SUPPORT_H_
 
 #include <memory>
 
@@ -16,7 +16,10 @@
 
 namespace airborne_radar {
 namespace signal {
-namespace pipeline {
+namespace runtime {
+
+using pipeline::SignalPipelineConfig;
+
 namespace internal {
 
 /**
@@ -58,8 +61,8 @@ void RebuildOwnedComponentsForPipeline(const SignalPipelineConfig& base_config,
                                        OwnedComponentSlots* slots);
 
 }  // namespace internal
-}  // namespace pipeline
+}  // namespace runtime
 }  // namespace signal
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_RUNTIME_ASSEMBLY_SUPPORT_H_
+#endif  // AIRBORNE_RADAR_SRC_SIGNAL_RUNTIME_RUNTIME_ASSEMBLY_SUPPORT_H_
