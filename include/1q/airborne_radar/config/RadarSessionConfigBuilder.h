@@ -1,6 +1,8 @@
 /**
  * @file RadarSessionConfigBuilder.h
- * @brief 提供链式构造 RadarSessionConfig 的 Builder，简化深层嵌套配置的设置。
+ * @brief 提供链式构造 RadarSessionConfig 的 Builder；不可变配置（硬件/体制基线）建议在会话
+ *        初始化时通过 Builder 固化，运行期可变配置（如工作子模式与指令态波束控制）可由
+ *        每周期决策链路按需调整。
  */
 
 #ifndef AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_BUILDER_H_

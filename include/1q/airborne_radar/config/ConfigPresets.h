@@ -1,6 +1,8 @@
 /**
  * @file ConfigPresets.h
- * @brief 定义面向外部调用方的常用配置预设工厂。
+ * @brief 定义面向外部调用方的常用配置预设工厂；不可变配置建议通过本文件在会话初始化时
+ *        一次性给定（平台/体制基线），运行期可变配置（如工作子模式、驻留中心、
+ *        指令态波束宽度）可在周期执行中由决策链路覆写。
  */
 
 #ifndef AIRBORNE_RADAR_CONFIG_CONFIG_PRESETS_H_

@@ -1,6 +1,7 @@
 /**
  * @file RadarOrientationConfig.h
- * @brief 定义机载雷达方向、扫描窗口与波束指向相关配置结构。
+ * @brief 定义机载雷达方向、扫描窗口与波束指向配置；不可变配置通常包括安装角与扫描限位，
+ *        运行期可变配置包括工作子模式、扫描中心/驻留中心与指令态波束宽度。
  */
 
 #ifndef AIRBORNE_RADAR_CONFIG_RADAR_ORIENTATION_CONFIG_H_

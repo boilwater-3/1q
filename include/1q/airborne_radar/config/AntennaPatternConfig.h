@@ -1,6 +1,8 @@
 /**
  * @file AntennaPatternConfig.h
- * @brief 定义机载雷达天线方向图建模所需的公共配置结构。
+ * @brief 定义机载雷达天线方向图配置；不可变配置为 `AntennaPatternConfig`
+ *        （方向图模型与标定参数），运行期可变输入为 `AntennaPatternBeamwidthDeg`
+ *        与 `AntennaLookOffsetDeg`（按周期/按波束更新）。
  */
 
 #ifndef AIRBORNE_RADAR_CONFIG_ANTENNA_PATTERN_CONFIG_H_
