@@ -105,7 +105,6 @@ KdTreeClusterResult KdTreeClusterer::Cluster(const std::vector<ObservationFeatur
 
     std::vector<std::size_t> neighbors = RadiusSearch(index, features[i], cluster_radius);
     if (neighbors.size() < min_points) {
-      result.noise_indices.push_back(i);
       continue;
     }
 
@@ -142,6 +141,11 @@ KdTreeClusterResult KdTreeClusterer::Cluster(const std::vector<ObservationFeatur
 
   for (std::size_t i = 0; i < result.clusters.size(); ++i) {
     std::sort(result.clusters[i].begin(), result.clusters[i].end());
+  }
+  for (std::size_t i = 0; i < labels.size(); ++i) {
+    if (labels[i] == -1) {
+      result.noise_indices.push_back(i);
+    }
   }
   std::sort(result.noise_indices.begin(), result.noise_indices.end());
   return result;

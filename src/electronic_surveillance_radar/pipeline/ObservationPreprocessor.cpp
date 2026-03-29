@@ -5,6 +5,8 @@
 #include <cstddef>
 #include <vector>
 
+#include "common/geometry/GeometryTransform.h"
+
 namespace electronic_surveillance_radar {
 namespace pipeline {
 namespace internal {
@@ -52,10 +54,12 @@ bool IsDuplicateObservation(const common::EmitterObservation& lhs,
                             const common::EmitterObservation& rhs,
                             const InterceptPreprocessConfig& config) {
   const double dedup_time_window_sec = static_cast<double>(config.dedup_time_window_sec);
+  const float az_diff = std::fabs(
+      oneq::internal::geometry::ComputeAzimuthDifferenceDeg(lhs.aoa_az_deg, rhs.aoa_az_deg));
   return std::fabs(lhs.timestamp_s - rhs.timestamp_s) <= dedup_time_window_sec &&
          std::fabs(lhs.rf_hz - rhs.rf_hz) <= config.dedup_rf_window_hz &&
          std::fabs(lhs.pulse_width_s - rhs.pulse_width_s) <= config.dedup_pw_window_sec &&
-         std::fabs(lhs.aoa_az_deg - rhs.aoa_az_deg) <= config.dedup_az_window_deg &&
+         az_diff <= config.dedup_az_window_deg &&
          std::fabs(lhs.aoa_el_deg - rhs.aoa_el_deg) <= config.dedup_el_window_deg;
 }
 

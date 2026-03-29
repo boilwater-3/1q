@@ -38,6 +38,28 @@ bool IsFinite(T value) {
 }
 
 /**
+ * @brief 校验平台位姿输入字段。
+ * @param[in] platform_pose 平台位姿输入。
+ * @param[out] issues 校验问题列表。
+ */
+void ValidatePlatformPose(const common::EsrPoseState& platform_pose, EsrValidationIssueList* issues) {
+  if (issues == nullptr) {
+    return;
+  }
+  if (!IsFinite(platform_pose.position_m.x) || !IsFinite(platform_pose.position_m.y) ||
+      !IsFinite(platform_pose.position_m.z) || !IsFinite(platform_pose.velocity_mps.x) ||
+      !IsFinite(platform_pose.velocity_mps.y) || !IsFinite(platform_pose.velocity_mps.z) ||
+      !IsFinite(platform_pose.attitude_deg.yaw_deg) ||
+      !IsFinite(platform_pose.attitude_deg.pitch_deg) ||
+      !IsFinite(platform_pose.attitude_deg.roll_deg)) {
+    issues->push_back(MakeIssue(EsrValidationSeverity::kError,
+                                EsrValidationCode::kNonFinitePlatformNumericField,
+                                static_cast<std::size_t>(-1),
+                                "platform pose contains non-finite numeric field"));
+  }
+}
+
+/**
  * @brief 校验单个辐射源输入字段。
  * @param[in] emitter 单个辐射源输入。
  * @param[in] emitter_index 辐射源索引。
@@ -58,6 +80,11 @@ void ValidateEmitter(const common::EmitterTruthState& emitter, std::size_t emitt
       !IsFinite(emitter.tx_power_w) || !IsFinite(emitter.pulse_width_s) ||
       !IsFinite(emitter.pri_s) || !IsFinite(emitter.pose.position_m.x) ||
       !IsFinite(emitter.pose.position_m.y) || !IsFinite(emitter.pose.position_m.z) ||
+      !IsFinite(emitter.pose.velocity_mps.x) || !IsFinite(emitter.pose.velocity_mps.y) ||
+      !IsFinite(emitter.pose.velocity_mps.z) ||
+      !IsFinite(emitter.pose.attitude_deg.yaw_deg) ||
+      !IsFinite(emitter.pose.attitude_deg.pitch_deg) ||
+      !IsFinite(emitter.pose.attitude_deg.roll_deg) ||
       !IsFinite(emitter.beam_state.center_az_deg) || !IsFinite(emitter.beam_state.center_el_deg) ||
       !IsFinite(emitter.beam_state.az_beamwidth_deg) ||
       !IsFinite(emitter.beam_state.el_beamwidth_deg)) {
@@ -117,6 +144,7 @@ EsrValidationIssueList ValidateEsrCycleInput(const EsrCycleInput& input) {
                                EsrValidationCode::kInvalidCycleDeltaTime,
                                static_cast<std::size_t>(-1), "cycle delta time must be positive"));
   }
+  ValidatePlatformPose(input.platform_pose, &issues);
 
   for (std::size_t i = 0; i < input.scene_emitters.size(); ++i) {
     ValidateEmitter(input.scene_emitters[i], i, &issues);

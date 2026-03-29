@@ -33,6 +33,7 @@ enum class EsrValidationCode {
   kNone = 0,                     /**< 无问题占位值 */
   kInvalidCycleDeltaTime,        /**< 周期步长非法（<= 0） */
   kNonFiniteCycleDeltaTime,      /**< 周期步长非有限值 */
+  kNonFinitePlatformNumericField, /**< 平台存在非有限数值字段 */
   kEmptyEmitterId,               /**< 辐射源标识为空 */
   kInvalidEmitterFrequency,      /**< 辐射源频率非法（<= 0） */
   kInvalidEmitterBandwidth,      /**< 辐射源带宽非法（<= 0） */

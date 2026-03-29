@@ -108,6 +108,31 @@ TEST(EsrInputValidationTest, NonFiniteEmitterNumericFieldIsReported) {
   EXPECT_TRUE(HasEsrValidationError(issues));
 }
 
+TEST(EsrInputValidationTest, NonFinitePlatformNumericFieldIsReported) {
+  EsrCycleInput input;
+  input.dt_sec = 1.0f;
+  input.platform_pose.attitude_deg.yaw_deg = std::numeric_limits<float>::infinity();
+  input.scene_emitters.push_back(MakeValidEmitter());
+
+  const EsrValidationIssueList issues = ValidateEsrCycleInput(input);
+
+  EXPECT_TRUE(ContainsCode(issues, EsrValidationCode::kNonFinitePlatformNumericField));
+  EXPECT_TRUE(HasEsrValidationError(issues));
+}
+
+TEST(EsrInputValidationTest, NonFiniteEmitterAttitudeIsReported) {
+  EsrCycleInput input;
+  input.dt_sec = 1.0f;
+  common::EmitterTruthState emitter = MakeValidEmitter();
+  emitter.pose.attitude_deg.roll_deg = std::numeric_limits<float>::quiet_NaN();
+  input.scene_emitters.push_back(emitter);
+
+  const EsrValidationIssueList issues = ValidateEsrCycleInput(input);
+
+  EXPECT_TRUE(ContainsCode(issues, EsrValidationCode::kNonFiniteEmitterNumericField));
+  EXPECT_TRUE(HasEsrValidationError(issues));
+}
+
 TEST(EsrInputValidationTest, InvalidEmitterPulseWidthIsReportedAsError) {
   EsrCycleInput input;
   input.dt_sec = 1.0f;

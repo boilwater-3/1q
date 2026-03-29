@@ -120,6 +120,47 @@ TEST(EsrKdTreeClustererTest, ClustererMarksNoiseWhenMinPointsNotMet) {
   EXPECT_EQ(result.noise_indices[2], 2U);
 }
 
+TEST(EsrKdTreeClustererTest, PreprocessorDeduplicatesAcrossAzimuthWrapBoundary) {
+  std::vector<RawObservationRecord> records;
+  records.push_back(MakeRecord(20U, 1.0, 10.0e9, 1.0e-6, 179.6f, 1.0f, 11.0f));
+  records.push_back(MakeRecord(21U, 1.0 + 1.0e-6, 10.0e9, 1.0e-6, -179.8f, 1.0f, 15.0f));
+
+  ObservationPreprocessor preprocessor;
+  InterceptPreprocessConfig config;
+  config.dedup_time_window_sec = 5.0e-6f;
+  config.dedup_rf_window_hz = 1.0e6;
+  config.dedup_pw_window_sec = 2.0e-7;
+  config.dedup_az_window_deg = 1.0f;
+  config.dedup_el_window_deg = 1.0f;
+  config.normalize_quality = false;
+
+  const std::vector<RawObservationRecord> output = preprocessor.Run(records, config);
+
+  ASSERT_EQ(output.size(), 1U);
+  EXPECT_EQ(output.front().observation.observation_id, 21U);
+}
+
+TEST(EsrKdTreeClustererTest, BorderPointAbsorbedIntoClusterIsNotLeftInNoise) {
+  std::vector<ObservationFeatureVector> features(3U);
+  features[0].values =
+      std::array<float, kObservationFeatureDimension>{{0.0f, 0.0f, 0.0f, 0.0f, 0.0f}};
+  features[1].values =
+      std::array<float, kObservationFeatureDimension>{{0.9f, 0.0f, 0.0f, 0.0f, 0.0f}};
+  features[2].values =
+      std::array<float, kObservationFeatureDimension>{{1.8f, 0.0f, 0.0f, 0.0f, 0.0f}};
+
+  KdTreeClusterer clusterer;
+  InterceptClusterConfig config;
+  config.radius = 1.0f;
+  config.min_points = 3U;
+
+  const KdTreeClusterResult result = clusterer.Cluster(features, config);
+
+  ASSERT_EQ(result.clusters.size(), 1U);
+  ASSERT_EQ(result.clusters.front().size(), 3U);
+  EXPECT_TRUE(result.noise_indices.empty());
+}
+
 }  // namespace
 }  // namespace internal
 }  // namespace pipeline
