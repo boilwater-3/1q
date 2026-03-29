@@ -6,12 +6,12 @@ namespace tracking {
 
 SynchronizedTrackPool::SynchronizedTrackPool(ITrackPool& inner) : inner_(inner) {}
 
-common::TrackState* SynchronizedTrackPool::Acquire() {
+TrackState* SynchronizedTrackPool::Acquire() {
   std::lock_guard<std::mutex> lock(mutex_);
   return inner_.Acquire();
 }
 
-void SynchronizedTrackPool::Release(common::TrackState* track) {
+void SynchronizedTrackPool::Release(TrackState* track) {
   std::lock_guard<std::mutex> lock(mutex_);
   inner_.Release(track);
 }

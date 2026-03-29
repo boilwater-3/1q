@@ -29,12 +29,12 @@ class SynchronizedTrackPool : public ITrackPool {
    * @brief 申请一个可写轨迹对象（线程安全）。
    * @return 成功返回轨迹对象指针；失败返回 nullptr。
    */
-  common::TrackState* Acquire() override;
+  TrackState* Acquire() override;
   /**
    * @brief 归还轨迹对象到对象池（线程安全）。
    * @param track 待归还对象，可为空指针。
    */
-  void Release(common::TrackState* track) override;
+  void Release(TrackState* track) override;
   /**
    * @brief 返回对象池当前可见容量（线程安全）。
    * @return 对象池总容量。

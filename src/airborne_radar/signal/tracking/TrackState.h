@@ -1,10 +1,10 @@
 /**
- * @file TrackTypes.h
- * @brief 定义跟踪对象池与生命周期管理使用的公共轨迹类型。
+ * @file TrackState.h
+ * @brief 定义 tracking 子域内的轨迹状态类型。
  */
 
-#ifndef AIRBORNE_RADAR_COMMON_TRACK_TYPES_H_
-#define AIRBORNE_RADAR_COMMON_TRACK_TYPES_H_
+#ifndef AIRBORNE_RADAR_SIGNAL_TRACKING_TRACK_STATE_H_
+#define AIRBORNE_RADAR_SIGNAL_TRACKING_TRACK_STATE_H_
 
 #include <Eigen/Core>
 #include <cstdint>
@@ -13,7 +13,8 @@
 #include "airborne_radar/signal/tracking/GaussianTrackState.h"
 
 namespace airborne_radar {
-namespace common {
+namespace signal {
+namespace tracking {
 
 /**
  * @brief 表示轨迹对象在生命周期中的状态。
@@ -53,14 +54,14 @@ struct TrackState {
   Eigen::Vector3f acceleration{Eigen::Vector3f::Zero()}; /**< 目标加速度向量 `(ax, ay, az)`。 */
   float rcs{0.0f};                                       /**< 目标估计 RCS，单位为平方米。 */
   bool jamming_detected{false}; /**< 当前周期是否检测到与该轨迹相关的干扰。 */
-  JammingSemantic dominant_jamming_semantic{
-      JammingSemantic::kNone};  /**< 最近一次命中对应的主导干扰摘要语义。 */
-  float jamming_severity{0.0f}; /**< 最近一次命中对应的残余干扰强度，范围 `[0, 1]`。 */
-  signal::tracking::GaussianTrackState
-      gaussian_state; /**< 高斯状态估计，与 Kalman 滤波器共享类型定义。 */
+  common::JammingSemantic dominant_jamming_semantic{
+      common::JammingSemantic::kNone}; /**< 最近一次命中对应的主导干扰摘要语义。 */
+  float jamming_severity{0.0f};        /**< 最近一次命中对应的残余干扰强度，范围 `[0, 1]`。 */
+  GaussianTrackState gaussian_state;   /**< 高斯状态估计，与 Kalman 滤波器共享类型定义。 */
 };
 
-}  // namespace common
+}  // namespace tracking
+}  // namespace signal
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_COMMON_TRACK_TYPES_H_
+#endif  // AIRBORNE_RADAR_SIGNAL_TRACKING_TRACK_STATE_H_

@@ -33,12 +33,12 @@ class BoostTrackPool final : public ITrackPool {
    * @brief 申请轨迹对象。
    * @return 可写轨迹对象指针；失败返回 nullptr。
    */
-  common::TrackState* Acquire() override;
+  TrackState* Acquire() override;
   /**
    * @brief 归还轨迹对象。
    * @param track 待归还轨迹对象。
    */
-  void Release(common::TrackState* track) override;
+  void Release(TrackState* track) override;
   /**
    * @brief 获取对象池容量估算值（在用 + 空闲）。
    * @return 对象池总容量。
@@ -51,8 +51,8 @@ class BoostTrackPool final : public ITrackPool {
   std::size_t InUseCount() const override;
 
  private:
-  boost::object_pool<common::TrackState> pool_; /**< Boost 对象池，负责对象内存管理。 */
-  std::vector<common::TrackState*> free_list_;  /**< 空闲对象列表，用于快速复用。 */
+  boost::object_pool<TrackState> pool_; /**< Boost 对象池，负责对象内存管理。 */
+  std::vector<TrackState*> free_list_;  /**< 空闲对象列表，用于快速复用。 */
   std::size_t max_cached_objects_{4096};        /**< 空闲缓存上限，超过后将销毁对象。 */
   std::size_t in_use_count_{0};                 /**< 当前在用对象数量统计。 */
 };

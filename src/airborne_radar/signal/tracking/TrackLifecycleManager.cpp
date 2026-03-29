@@ -17,14 +17,14 @@ namespace {
  * @param status 内部轨迹状态。
  * @return 决策层可见的轨迹状态。
  */
-common::DecisionTrackStatus ToDecisionTrackStatus(common::TrackStatus status) {
+common::DecisionTrackStatus ToDecisionTrackStatus(TrackStatus status) {
   switch (status) {
-    case common::TrackStatus::kConfirmed:
+    case TrackStatus::kConfirmed:
       return common::DecisionTrackStatus::kConfirmed;
-    case common::TrackStatus::kLost:
+    case TrackStatus::kLost:
       return common::DecisionTrackStatus::kLost;
-    case common::TrackStatus::kTentative:
-    case common::TrackStatus::kRecycled:
+    case TrackStatus::kTentative:
+    case TrackStatus::kRecycled:
     default:
       return common::DecisionTrackStatus::kTentative;
   }
@@ -46,7 +46,7 @@ MeasurementVector BuildMeasurementVector(const TrackMeasurement& measurement) {
  * @param track 当前轨迹状态。
  * @return 当前轨迹可获得的额外失配容忍周期数。
  */
-std::uint32_t ResolveLocalMissToleranceBonus(const common::TrackState& track) {
+std::uint32_t ResolveLocalMissToleranceBonus(const TrackState& track) {
   if (!track.jamming_detected || track.jamming_severity < 0.35f) {
     return 0U;
   }
@@ -135,7 +135,7 @@ GaussianTrackState TrackLifecycleManager::BuildInitialGaussianState(
 }
 
 bool TrackLifecycleManager::ShouldUseImmForMeasurement(bool track_existed_before_cycle,
-                                                       common::TrackStatus status_before_update,
+                                                       TrackStatus status_before_update,
                                                        const TrackMeasurement& measurement) const {
   if (!IsImmEnabled() || !measurement.raw_measurement.has_cartesian_position) {
     return false;
@@ -145,12 +145,12 @@ bool TrackLifecycleManager::ShouldUseImmForMeasurement(bool track_existed_before
     return true;
   }
 
-  return track_existed_before_cycle && status_before_update == common::TrackStatus::kConfirmed &&
+  return track_existed_before_cycle && status_before_update == TrackStatus::kConfirmed &&
          measurement.raw_measurement.matched_existing_track;
 }
 
 bool TrackLifecycleManager::ShouldUseImmForMiss(
-    common::TrackStatus status_before_prediction) const {
+    TrackStatus status_before_prediction) const {
   if (!IsImmEnabled()) {
     return false;
   }
@@ -159,7 +159,7 @@ bool TrackLifecycleManager::ShouldUseImmForMiss(
     return true;
   }
 
-  return status_before_prediction == common::TrackStatus::kConfirmed;
+  return status_before_prediction == TrackStatus::kConfirmed;
 }
 ImmFilter* TrackLifecycleManager::GetOrCreateImmFilter(std::uint64_t association_key,
                                                        const GaussianTrackState& initial_state) {
@@ -193,7 +193,7 @@ ImmFilter* TrackLifecycleManager::FindImmFilter(std::uint64_t association_key) c
   }
   return found->second.get();
 }
-void TrackLifecycleManager::ApplyGaussianState(common::TrackState& track,
+void TrackLifecycleManager::ApplyGaussianState(TrackState& track,
                                                const GaussianTrackState& state,
                                                const Eigen::Vector3f& previous_velocity,
                                                float dt) const {
@@ -242,7 +242,7 @@ void TrackLifecycleManager::Update(const CycleContext& cycle,
 
 void TrackLifecycleManager::PreparePhase(LifecycleUpdateScratch& scratch,
                                          const std::vector<TrackMeasurement>& measurements) const {
-  for (std::unordered_map<std::uint64_t, common::TrackState*>::const_iterator it =
+  for (std::unordered_map<std::uint64_t, TrackState*>::const_iterator it =
            tracks_by_key_.begin();
        it != tracks_by_key_.end(); ++it) {
     scratch.track_snapshots[it->first] = *it->second;
@@ -272,11 +272,11 @@ void TrackLifecycleManager::EnsurePhase(LifecycleUpdateScratch& scratch,
       continue;
     }
 
-    std::unordered_map<std::uint64_t, common::TrackState*>::iterator found =
+    std::unordered_map<std::uint64_t, TrackState*>::iterator found =
         tracks_by_key_.find(association_key);
     const bool track_existed_before_cycle = found != tracks_by_key_.end();
-    common::TrackState* track = nullptr;
-    common::TrackState track_before_update;
+    TrackState* track = nullptr;
+    TrackState track_before_update;
     if (!track_existed_before_cycle) {
       track = pool_ != nullptr ? pool_->Acquire() : nullptr;
       if (track == nullptr) {
@@ -288,7 +288,7 @@ void TrackLifecycleManager::EnsurePhase(LifecycleUpdateScratch& scratch,
       ResetForReuse(*track);
       track->track_id = next_track_id_++;
       track->batch_id = cycle.batch_id;
-      track->status = common::TrackStatus::kTentative;
+      track->status = TrackStatus::kTentative;
       track->first_cycle = cycle.cycle_index;
       track->last_update_cycle = 0;
       track->hit_count = 0;
@@ -302,8 +302,8 @@ void TrackLifecycleManager::EnsurePhase(LifecycleUpdateScratch& scratch,
       ++scratch.updated_track_count;
     }
 
-    const common::TrackStatus status_before_update =
-        track_existed_before_cycle ? track_before_update.status : common::TrackStatus::kTentative;
+    const TrackStatus status_before_update =
+        track_existed_before_cycle ? track_before_update.status : TrackStatus::kTentative;
     const bool use_imm =
         ShouldUseImmForMeasurement(track_existed_before_cycle, status_before_update, measurement);
     ImmFilter* imm_filter = nullptr;
@@ -327,15 +327,15 @@ void TrackLifecycleManager::EnsurePhase(LifecycleUpdateScratch& scratch,
     scratch.work_items.push_back(work_item);
   }
 
-  for (std::unordered_map<std::uint64_t, common::TrackState*>::const_iterator it =
+  for (std::unordered_map<std::uint64_t, TrackState*>::const_iterator it =
            tracks_by_key_.begin();
        it != tracks_by_key_.end(); ++it) {
     if (scratch.hit_keys.find(it->first) != scratch.hit_keys.end()) {
       continue;
     }
 
-    const common::TrackState& track_before_update = scratch.track_snapshots[it->first];
-    const common::TrackStatus status_before_prediction = track_before_update.status;
+    const TrackState& track_before_update = scratch.track_snapshots[it->first];
+    const TrackStatus status_before_prediction = track_before_update.status;
     ImmFilter* imm_filter = nullptr;
     bool use_imm = false;
     if (ShouldUseImmForMiss(status_before_prediction)) {
@@ -367,7 +367,7 @@ void TrackLifecycleManager::ComputePhase(LifecycleUpdateScratch& scratch, const 
     result.track = work_item.track;
     result.track_after_update = work_item.track_before_update;
 
-    common::TrackState& track = result.track_after_update;
+    TrackState& track = result.track_after_update;
     if (work_item.kind == WorkItemKind::kHit) {
       const TrackMeasurement& measurement = *work_item.measurement;
       track.last_update_cycle = cycle.cycle_index;
@@ -398,7 +398,7 @@ void TrackLifecycleManager::ComputePhase(LifecycleUpdateScratch& scratch, const 
     } else {
       PromoteState(track, cycle.cycle_index, false, cycle.extra_miss_tolerance);
 
-      if (track.status == common::TrackStatus::kRecycled) {
+      if (track.status == TrackStatus::kRecycled) {
         result.should_recycle = true;
       } else {
         ApplyKalmanMissPredict(work_item, track, effective_dt_sec);
@@ -429,7 +429,7 @@ void TrackLifecycleManager::RecyclePhase(LifecycleUpdateScratch& scratch) {
        it != scratch.keys_to_recycle.end(); ++it) {
     imm_filters_by_key_.erase(*it);
 
-    std::unordered_map<std::uint64_t, common::TrackState*>::iterator found =
+    std::unordered_map<std::uint64_t, TrackState*>::iterator found =
         tracks_by_key_.find(*it);
     if (found == tracks_by_key_.end()) {
       continue;
@@ -489,15 +489,15 @@ float TrackLifecycleManager::ResolveEffectiveCycleDeltaTimeSec(const CycleContex
   return config_.nominal_cycle_dt_sec;
 }
 
-std::vector<const common::TrackState*> TrackLifecycleManager::GetActiveTracks() const {
-  std::vector<const common::TrackState*> result;
+std::vector<const TrackState*> TrackLifecycleManager::GetActiveTracks() const {
+  std::vector<const TrackState*> result;
   result.reserve(tracks_by_key_.size());
 
-  for (std::unordered_map<std::uint64_t, common::TrackState*>::const_iterator it =
+  for (std::unordered_map<std::uint64_t, TrackState*>::const_iterator it =
            tracks_by_key_.begin();
        it != tracks_by_key_.end(); ++it) {
-    const common::TrackState* track = it->second;
-    if (track->status != common::TrackStatus::kRecycled) {
+    const TrackState* track = it->second;
+    if (track->status != TrackStatus::kRecycled) {
       result.push_back(track);
     }
   }
@@ -507,10 +507,10 @@ std::vector<const common::TrackState*> TrackLifecycleManager::GetActiveTracks() 
 
 template <typename Callback>
 void TrackLifecycleManager::ForEachActiveTrack(Callback&& callback) const {
-  for (std::unordered_map<std::uint64_t, common::TrackState*>::const_iterator it =
+  for (std::unordered_map<std::uint64_t, TrackState*>::const_iterator it =
            tracks_by_key_.cbegin();
        it != tracks_by_key_.cend(); ++it) {
-    if (it->second->status != common::TrackStatus::kRecycled) {
+    if (it->second->status != TrackStatus::kRecycled) {
       callback(it->first, *it->second);
     }
   }
@@ -519,7 +519,7 @@ void TrackLifecycleManager::ForEachActiveTrack(Callback&& callback) const {
 common::TargetFeatureList TrackLifecycleManager::BuildFeatureSnapshot() const {
   common::TargetFeatureList features;
   features.reserve(tracks_by_key_.size());
-  ForEachActiveTrack([&features](std::uint64_t /*key*/, const common::TrackState& track) {
+  ForEachActiveTrack([&features](std::uint64_t /*key*/, const TrackState& track) {
     common::TargetFeature feature(track.velocity(0), track.velocity(1), track.velocity(2),
                                   track.rcs);
     feature.has_cartesian_position = true;
@@ -535,7 +535,7 @@ common::TargetFeatureList TrackLifecycleManager::BuildFeatureSnapshot() const {
 common::DecisionTrackSnapshotList TrackLifecycleManager::BuildDecisionSnapshot() const {
   common::DecisionTrackSnapshotList snapshots;
   snapshots.reserve(tracks_by_key_.size());
-  ForEachActiveTrack([&](std::uint64_t key, const common::TrackState& track) {
+  ForEachActiveTrack([&](std::uint64_t key, const TrackState& track) {
     common::DecisionTrackSnapshot snapshot(track.velocity(0), track.velocity(1), track.velocity(2),
                                            track.rcs, track.acceleration(0), track.acceleration(1),
                                            track.acceleration(2), track.jamming_detected,
@@ -574,7 +574,7 @@ common::DecisionInputFrame TrackLifecycleManager::BuildDecisionFrame(
 std::vector<AssociationTrackSeed> TrackLifecycleManager::BuildAssociationSeeds() const {
   std::vector<AssociationTrackSeed> seeds;
   seeds.reserve(tracks_by_key_.size());
-  ForEachActiveTrack([&seeds](std::uint64_t key, const common::TrackState& track) {
+  ForEachActiveTrack([&seeds](std::uint64_t key, const TrackState& track) {
     AssociationTrackSeed seed;
     seed.association_key = key;
     seed.has_position = true;
@@ -588,7 +588,7 @@ std::vector<AssociationTrackSeed> TrackLifecycleManager::BuildAssociationSeeds()
 
 void TrackLifecycleManager::ApplyKalmanHitUpdate(const TrackUpdateWorkItem& work_item,
                                                  const TrackMeasurement& measurement,
-                                                 common::TrackState& track,
+                                                 TrackState& track,
                                                  float effective_dt_sec) const {
   const Eigen::Vector3f velocity_before_filter = track.velocity;
   if (work_item.use_imm && work_item.imm_filter != nullptr) {
@@ -616,7 +616,7 @@ void TrackLifecycleManager::ApplyKalmanHitUpdate(const TrackUpdateWorkItem& work
 }
 
 void TrackLifecycleManager::ApplyKalmanMissPredict(const TrackUpdateWorkItem& work_item,
-                                                   common::TrackState& track,
+                                                   TrackState& track,
                                                    float effective_dt_sec) const {
   const Eigen::Vector3f velocity_before_filter = track.velocity;
   if (work_item.use_imm && work_item.imm_filter != nullptr) {
@@ -629,43 +629,43 @@ void TrackLifecycleManager::ApplyKalmanMissPredict(const TrackUpdateWorkItem& wo
   }
 }
 
-void TrackLifecycleManager::PromoteState(common::TrackState& track, std::uint32_t cycle_index,
+void TrackLifecycleManager::PromoteState(TrackState& track, std::uint32_t cycle_index,
                                          bool hit_this_cycle,
                                          std::uint32_t extra_miss_tolerance) const {
   if (hit_this_cycle) {
-    if (track.status == common::TrackStatus::kLost ||
-        (track.status == common::TrackStatus::kTentative &&
+    if (track.status == TrackStatus::kLost ||
+        (track.status == TrackStatus::kTentative &&
          track.hit_count >= config_.confirm_hits)) {
-      track.status = common::TrackStatus::kConfirmed;
+      track.status = TrackStatus::kConfirmed;
     }
     return;
   }
 
   track.miss_count += 1;
-  if (track.status == common::TrackStatus::kTentative ||
-      track.status == common::TrackStatus::kConfirmed) {
+  if (track.status == TrackStatus::kTentative ||
+      track.status == TrackStatus::kConfirmed) {
     const std::uint32_t max_miss_before_lost =
         config_.max_miss_before_lost + extra_miss_tolerance + ResolveLocalMissToleranceBonus(track);
     if (track.miss_count > max_miss_before_lost) {
-      track.status = common::TrackStatus::kLost;
+      track.status = TrackStatus::kLost;
     }
     return;
   }
 
-  if (track.status == common::TrackStatus::kLost) {
+  if (track.status == TrackStatus::kLost) {
     const std::uint32_t lost_cycles =
         cycle_index >= track.last_update_cycle ? (cycle_index - track.last_update_cycle) : 0;
     if (lost_cycles > config_.max_lost_cycles) {
-      track.status = common::TrackStatus::kRecycled;
+      track.status = TrackStatus::kRecycled;
       track.generation += 1;
     }
   }
 }
 
-void TrackLifecycleManager::ResetForReuse(common::TrackState& track) const {
+void TrackLifecycleManager::ResetForReuse(TrackState& track) const {
   track.batch_id = 0;
   track.external_target_id = 0;
-  track.status = common::TrackStatus::kTentative;
+  track.status = TrackStatus::kTentative;
   track.first_cycle = 0;
   track.last_update_cycle = 0;
   track.miss_count = 0;

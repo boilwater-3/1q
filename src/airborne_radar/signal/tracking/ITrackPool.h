@@ -8,7 +8,7 @@
 
 #include <cstddef>
 
-#include "airborne_radar/common/TrackTypes.h"
+#include "airborne_radar/signal/tracking/TrackState.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -24,12 +24,12 @@ class ITrackPool {
    * @brief 申请一个可写轨迹对象。
    * @return 成功返回轨迹对象指针；失败返回 nullptr。
    */
-  virtual common::TrackState* Acquire() = 0;
+  virtual TrackState* Acquire() = 0;
   /**
    * @brief 归还轨迹对象到对象池。
    * @param track 待归还对象，可为空指针。
    */
-  virtual void Release(common::TrackState* track) = 0;
+  virtual void Release(TrackState* track) = 0;
   /**
    * @brief 返回对象池当前可见容量（在用 + 空闲）。
    * @return 对象池总容量。

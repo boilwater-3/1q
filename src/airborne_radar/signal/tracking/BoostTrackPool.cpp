@@ -10,7 +10,7 @@ BoostTrackPool::BoostTrackPool(std::size_t prewarm_count, std::size_t max_cached
     : pool_(), free_list_(), max_cached_objects_(max_cached_objects) {
   free_list_.reserve(prewarm_count);
   for (std::size_t i = 0; i < prewarm_count; ++i) {
-    common::TrackState* track = pool_.construct();
+    TrackState* track = pool_.construct();
     if (track == nullptr) {
       break;
     }
@@ -18,8 +18,8 @@ BoostTrackPool::BoostTrackPool(std::size_t prewarm_count, std::size_t max_cached
   }
 }
 
-common::TrackState* BoostTrackPool::Acquire() {
-  common::TrackState* track = nullptr;
+TrackState* BoostTrackPool::Acquire() {
+  TrackState* track = nullptr;
   if (!free_list_.empty()) {
     track = free_list_.back();
     free_list_.pop_back();
@@ -33,7 +33,7 @@ common::TrackState* BoostTrackPool::Acquire() {
   return track;
 }
 
-void BoostTrackPool::Release(common::TrackState* track) {
+void BoostTrackPool::Release(TrackState* track) {
   if (track == nullptr) {
     return;
   }

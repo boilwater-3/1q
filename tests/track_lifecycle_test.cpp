@@ -8,7 +8,7 @@
 #include <cmath>
 #include <vector>
 
-#include "airborne_radar/common/TrackTypes.h"
+#include "airborne_radar/signal/tracking/TrackState.h"
 #include "airborne_radar/signal/tracking/BoostTrackPool.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
@@ -24,26 +24,26 @@ class CountingTrackPool : public signal::tracking::ITrackPool {
  public:
   explicit CountingTrackPool(std::size_t capacity) : storage_(capacity) {
     free_list_.reserve(storage_.size());
-    for (std::vector<common::TrackState>::iterator it = storage_.begin(); it != storage_.end();
+    for (std::vector<signal::tracking::TrackState>::iterator it = storage_.begin(); it != storage_.end();
          ++it) {
       free_list_.push_back(&(*it));
     }
   }
 
-  common::TrackState* Acquire() override {
+  signal::tracking::TrackState* Acquire() override {
     ++acquire_calls_;
     if (free_list_.empty()) {
       return nullptr;
     }
 
-    common::TrackState* track = free_list_.back();
+    signal::tracking::TrackState* track = free_list_.back();
     free_list_.pop_back();
-    *track = common::TrackState{};
+    *track = signal::tracking::TrackState{};
     ++in_use_count_;
     return track;
   }
 
-  void Release(common::TrackState* track) override {
+  void Release(signal::tracking::TrackState* track) override {
     ++release_calls_;
     if (track == nullptr) {
       return;
@@ -64,8 +64,8 @@ class CountingTrackPool : public signal::tracking::ITrackPool {
   std::size_t release_calls() const { return release_calls_; }
 
  private:
-  std::vector<common::TrackState> storage_;
-  std::vector<common::TrackState*> free_list_;
+  std::vector<signal::tracking::TrackState> storage_;
+  std::vector<signal::tracking::TrackState*> free_list_;
   std::size_t in_use_count_{0};
   std::size_t acquire_calls_{0};
   std::size_t release_calls_{0};
@@ -116,7 +116,7 @@ TEST(TrackLifecycleManagerTest, ConfirmsTrackAfterConfiguredHits) {
 
   auto active_tracks = manager.GetActiveTracks();
   ASSERT_EQ(active_tracks.size(), 1u);
-  EXPECT_EQ(active_tracks[0]->status, common::TrackStatus::kTentative);
+  EXPECT_EQ(active_tracks[0]->status, signal::tracking::TrackStatus::kTentative);
 
   signal::tracking::CycleContext cycle_2;
   cycle_2.cycle_index = 2;
@@ -125,7 +125,7 @@ TEST(TrackLifecycleManagerTest, ConfirmsTrackAfterConfiguredHits) {
 
   active_tracks = manager.GetActiveTracks();
   ASSERT_EQ(active_tracks.size(), 1u);
-  EXPECT_EQ(active_tracks[0]->status, common::TrackStatus::kConfirmed);
+  EXPECT_EQ(active_tracks[0]->status, signal::tracking::TrackStatus::kConfirmed);
 
   const common::TargetFeatureList snapshot = manager.BuildFeatureSnapshot();
   ASSERT_EQ(snapshot.size(), 1u);
@@ -158,7 +158,7 @@ TEST(TrackLifecycleManagerTest, RecyclesTrackAfterLostTimeout) {
 
   auto active_tracks = manager.GetActiveTracks();
   ASSERT_EQ(active_tracks.size(), 1u);
-  EXPECT_EQ(active_tracks[0]->status, common::TrackStatus::kLost);
+  EXPECT_EQ(active_tracks[0]->status, signal::tracking::TrackStatus::kLost);
 
   signal::tracking::CycleContext cycle_3;
   cycle_3.cycle_index = 3;
@@ -187,9 +187,9 @@ TEST(TrackLifecycleManagerTest, ExtraMissToleranceDelaysLostTransition) {
   manager.Update(MakeCycle(1u, 3101u), {measurement});
   manager.Update(MakeCycle(2u, 3102u, 1.0f), {});
 
-  std::vector<const common::TrackState*> active_tracks = manager.GetActiveTracks();
+  std::vector<const signal::tracking::TrackState*> active_tracks = manager.GetActiveTracks();
   ASSERT_EQ(active_tracks.size(), 1u);
-  EXPECT_EQ(active_tracks[0]->status, common::TrackStatus::kLost);
+  EXPECT_EQ(active_tracks[0]->status, signal::tracking::TrackStatus::kLost);
 
   signal::tracking::TrackLifecycleManager protected_manager(pool, config);
   protected_manager.Update(MakeCycle(1u, 3201u), {measurement});
@@ -199,7 +199,7 @@ TEST(TrackLifecycleManagerTest, ExtraMissToleranceDelaysLostTransition) {
 
   active_tracks = protected_manager.GetActiveTracks();
   ASSERT_EQ(active_tracks.size(), 1u);
-  EXPECT_EQ(active_tracks[0]->status, common::TrackStatus::kConfirmed);
+  EXPECT_EQ(active_tracks[0]->status, signal::tracking::TrackStatus::kConfirmed);
   EXPECT_EQ(active_tracks[0]->miss_count, 1u);
 }
 
@@ -221,14 +221,14 @@ TEST(TrackLifecycleManagerTest, DeceptionSummaryExtendsLocalMissToleranceOnMiss)
   deception_manager.Update(MakeCycle(1u, 4101u), {deception_measurement});
   deception_manager.Update(MakeCycle(2u, 4102u), {});
 
-  std::vector<const common::TrackState*> active_tracks = deception_manager.GetActiveTracks();
+  std::vector<const signal::tracking::TrackState*> active_tracks = deception_manager.GetActiveTracks();
   ASSERT_EQ(active_tracks.size(), 1u);
-  EXPECT_EQ(active_tracks[0]->status, common::TrackStatus::kConfirmed);
+  EXPECT_EQ(active_tracks[0]->status, signal::tracking::TrackStatus::kConfirmed);
 
   deception_manager.Update(MakeCycle(3u, 4103u), {});
   active_tracks = deception_manager.GetActiveTracks();
   ASSERT_EQ(active_tracks.size(), 1u);
-  EXPECT_EQ(active_tracks[0]->status, common::TrackStatus::kLost);
+  EXPECT_EQ(active_tracks[0]->status, signal::tracking::TrackStatus::kLost);
 
   signal::tracking::BoostTrackPool noise_pool(2, 8);
   signal::tracking::TrackLifecycleManager noise_manager(noise_pool, config);
@@ -244,7 +244,7 @@ TEST(TrackLifecycleManagerTest, DeceptionSummaryExtendsLocalMissToleranceOnMiss)
 
   active_tracks = noise_manager.GetActiveTracks();
   ASSERT_EQ(active_tracks.size(), 1u);
-  EXPECT_EQ(active_tracks[0]->status, common::TrackStatus::kLost);
+  EXPECT_EQ(active_tracks[0]->status, signal::tracking::TrackStatus::kLost);
 }
 
 TEST(TrackLifecycleManagerTest, UsesExternalDtForPredictionWhenProvided) {
@@ -281,7 +281,7 @@ TEST(TrackLifecycleManagerTest, UsesExternalDtForPredictionWhenProvided) {
   cycle_2.dt_sec = 2.0f;
   manager.Update(cycle_2, {});
 
-  const std::vector<const common::TrackState*> active_tracks = manager.GetActiveTracks();
+  const std::vector<const signal::tracking::TrackState*> active_tracks = manager.GetActiveTracks();
   ASSERT_EQ(active_tracks.size(), 1u);
   EXPECT_NEAR(active_tracks[0]->position(0), 120.0f, 1e-3f);
 }
@@ -321,7 +321,7 @@ TEST(TrackLifecycleManagerTest, FallsBackToCycleDeltaWhenExternalDtIsInvalid) {
   cycle_3.dt_sec = 0.0f;
   manager.Update(cycle_3, {});
 
-  const std::vector<const common::TrackState*> active_tracks = manager.GetActiveTracks();
+  const std::vector<const signal::tracking::TrackState*> active_tracks = manager.GetActiveTracks();
   ASSERT_EQ(active_tracks.size(), 1u);
   EXPECT_NEAR(active_tracks[0]->position(0), 120.0f, 1e-3f);
 }
@@ -361,7 +361,7 @@ TEST(TrackLifecycleManagerTest, FallsBackToUnitDtWhenExternalDtInvalidAndCycleNo
   repeated_cycle.dt_sec = 0.0f;
   manager.Update(repeated_cycle, {});
 
-  const std::vector<const common::TrackState*> active_tracks = manager.GetActiveTracks();
+  const std::vector<const signal::tracking::TrackState*> active_tracks = manager.GetActiveTracks();
   ASSERT_EQ(active_tracks.size(), 1u);
   EXPECT_NEAR(active_tracks[0]->position(0), 110.0f, 1e-3f);
 }
@@ -410,7 +410,7 @@ TEST(TrackLifecycleManagerTest, ImmPathPredictsConfirmedTrackAcrossMissedCycles)
 
   auto active_tracks = manager.GetActiveTracks();
   ASSERT_EQ(active_tracks.size(), 1u);
-  EXPECT_EQ(active_tracks[0]->status, common::TrackStatus::kConfirmed);
+  EXPECT_EQ(active_tracks[0]->status, signal::tracking::TrackStatus::kConfirmed);
   EXPECT_FLOAT_EQ(active_tracks[0]->position(0), 100.0f);
 
   measurement.raw_measurement.matched_existing_track = true;
@@ -488,7 +488,7 @@ TEST(TrackLifecycleManagerTest, ConfirmedOnlyImmFallsBackToSingleModelBeforeImmC
   cycle_2.batch_id = 5202u;
   manager.Update(cycle_2, {});
 
-  const std::vector<const common::TrackState*> active_tracks = manager.GetActiveTracks();
+  const std::vector<const signal::tracking::TrackState*> active_tracks = manager.GetActiveTracks();
   ASSERT_EQ(active_tracks.size(), 1u);
 
   signal::tracking::GaussianTrackState expected_initial;
@@ -564,9 +564,9 @@ TEST(TrackLifecycleManagerTest, ConfirmedOnlyImmCreatesAndUsesFilterOnFirstConfi
   confirmed_only_manager.Update(cycle_2, {second});
   all_tracks_manager.Update(cycle_2, {second});
 
-  const std::vector<const common::TrackState*> confirmed_only_tracks =
+  const std::vector<const signal::tracking::TrackState*> confirmed_only_tracks =
       confirmed_only_manager.GetActiveTracks();
-  const std::vector<const common::TrackState*> all_tracks = all_tracks_manager.GetActiveTracks();
+  const std::vector<const signal::tracking::TrackState*> all_tracks = all_tracks_manager.GetActiveTracks();
   ASSERT_EQ(confirmed_only_tracks.size(), 1u);
   ASSERT_EQ(all_tracks.size(), 1u);
 
@@ -615,9 +615,9 @@ TEST(TrackLifecycleManagerTest, GlobalLockTrackPoolModePreservesLifecycleResults
   single_thread_manager.Update(MakeCycle(3u, 7103u), {});
   locked_manager.Update(MakeCycle(3u, 7103u), {});
 
-  const std::vector<const common::TrackState*> single_thread_tracks =
+  const std::vector<const signal::tracking::TrackState*> single_thread_tracks =
       single_thread_manager.GetActiveTracks();
-  const std::vector<const common::TrackState*> locked_tracks = locked_manager.GetActiveTracks();
+  const std::vector<const signal::tracking::TrackState*> locked_tracks = locked_manager.GetActiveTracks();
   ASSERT_EQ(single_thread_tracks.size(), 1u);
   ASSERT_EQ(locked_tracks.size(), 1u);
 
@@ -661,7 +661,7 @@ TEST(TrackLifecycleManagerTest, MixedLifecycleCycleOnlyAcquiresNewTracksAndRecyc
   EXPECT_EQ(pool.release_calls(), 0u);
   EXPECT_EQ(pool.InUseCount(), 3u);
 
-  const std::vector<const common::TrackState*> after_mixed_cycle = manager.GetActiveTracks();
+  const std::vector<const signal::tracking::TrackState*> after_mixed_cycle = manager.GetActiveTracks();
   ASSERT_EQ(after_mixed_cycle.size(), 3u);
 
   manager.Update(MakeCycle(3u, 8103u), {});
@@ -670,7 +670,7 @@ TEST(TrackLifecycleManagerTest, MixedLifecycleCycleOnlyAcquiresNewTracksAndRecyc
   EXPECT_EQ(pool.release_calls(), 1u);
   EXPECT_EQ(pool.InUseCount(), 2u);
 
-  const std::vector<const common::TrackState*> after_recycle_cycle = manager.GetActiveTracks();
+  const std::vector<const signal::tracking::TrackState*> after_recycle_cycle = manager.GetActiveTracks();
   EXPECT_EQ(after_recycle_cycle.size(), 2u);
 }
 
@@ -780,7 +780,7 @@ TEST(TrackLifecycleManagerTest, FilterWritebackUpdatesAccelerationFromVelocityDe
   cycle_2.batch_id = 9002u;
   manager.Update(cycle_2, {second});
 
-  const std::vector<const common::TrackState*> active = manager.GetActiveTracks();
+  const std::vector<const signal::tracking::TrackState*> active = manager.GetActiveTracks();
   ASSERT_EQ(active.size(), 1u);
   EXPECT_GT(active[0]->acceleration.norm(), 0.0f);
 

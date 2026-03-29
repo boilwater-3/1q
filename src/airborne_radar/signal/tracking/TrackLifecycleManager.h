@@ -68,7 +68,7 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
    * @brief 导出当前活跃轨迹（只读指针）。
    * @return 活跃轨迹列表。
    */
-  std::vector<const common::TrackState*> GetActiveTracks() const;
+  std::vector<const TrackState*> GetActiveTracks() const;
   /**
    * @brief 导出供外围事件链路消费的轻量目标特征快照。
    * @return 可直接用于外部状态广播的目标特征列表。
@@ -106,27 +106,27 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
   struct TrackUpdateWorkItem {
     std::uint64_t association_key{0};
     WorkItemKind kind{WorkItemKind::kMiss};
-    common::TrackState* track{nullptr};
+    TrackState* track{nullptr};
     const TrackMeasurement* measurement{nullptr};
     bool track_existed_before_cycle{false};
     bool use_imm{false};
     ImmFilter* imm_filter{nullptr};
-    common::TrackStatus status_before_update{common::TrackStatus::kTentative};
-    common::TrackState track_before_update;
+    TrackStatus status_before_update{TrackStatus::kTentative};
+    TrackState track_before_update;
   };
 
   /** @brief 单条轨迹计算阶段产出的写回结果。 */
   struct TrackUpdateResult {
     std::uint64_t association_key{0};
-    common::TrackState* track{nullptr};
-    common::TrackState track_after_update;
+    TrackState* track{nullptr};
+    TrackState track_after_update;
     bool should_recycle{false};
   };
 
   /** @brief 聚合单周期生命周期更新的中间缓存。 */
   struct LifecycleUpdateScratch {
     std::unordered_map<std::uint64_t, const TrackMeasurement*> measurement_by_key;
-    std::unordered_map<std::uint64_t, common::TrackState> track_snapshots;
+    std::unordered_map<std::uint64_t, TrackState> track_snapshots;
     std::unordered_set<std::uint64_t> hit_keys;
     std::vector<TrackUpdateWorkItem> work_items;
     std::vector<TrackUpdateResult> results;
@@ -183,7 +183,7 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
    * @param effective_dt_sec 有效时间步长（秒）。
    */
   void ApplyKalmanHitUpdate(const TrackUpdateWorkItem& work_item,
-                            const TrackMeasurement& measurement, common::TrackState& track,
+                            const TrackMeasurement& measurement, TrackState& track,
                             float effective_dt_sec) const;
   /**
    * @brief 对失配工作单元应用 Kalman/IMM 预测外推。
@@ -191,7 +191,7 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
    * @param track 待更新轨迹状态（in-out）。
    * @param effective_dt_sec 有效时间步长（秒）。
    */
-  void ApplyKalmanMissPredict(const TrackUpdateWorkItem& work_item, common::TrackState& track,
+  void ApplyKalmanMissPredict(const TrackUpdateWorkItem& work_item, TrackState& track,
                               float effective_dt_sec) const;
 
   // ------------------------------------------------------------------
@@ -217,14 +217,14 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
    * @return 若应创建或使用 IMM 路径则返回 true。
    */
   bool ShouldUseImmForMeasurement(bool track_existed_before_cycle,
-                                  common::TrackStatus status_before_update,
+                                  TrackStatus status_before_update,
                                   const TrackMeasurement& measurement) const;
   /**
    * @brief 判断指定轨迹在当前失配周期是否应走 IMM 预测路径。
    * @param status_before_prediction 预测前轨迹状态。
    * @return 若应使用 IMM 预测则返回 true。
    */
-  bool ShouldUseImmForMiss(common::TrackStatus status_before_prediction) const;
+  bool ShouldUseImmForMiss(TrackStatus status_before_prediction) const;
   /**
    * @brief 获取或创建指定轨迹键对应的 IMM 运行态。
    * @param association_key 轨迹关联键。
@@ -246,7 +246,7 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
    * @param previous_velocity 回写前速度，用于估计滤波加速度。
    * @param dt 周期步长（秒）。
    */
-  void ApplyGaussianState(common::TrackState& track, const GaussianTrackState& state,
+  void ApplyGaussianState(TrackState& track, const GaussianTrackState& state,
                           const Eigen::Vector3f& previous_velocity, float dt) const;
   /**
    * @brief 根据命中结果推进单条轨迹状态。
@@ -255,13 +255,13 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
    * @param hit_this_cycle 本周期是否命中。
    * @param extra_miss_tolerance 控制平面注入的额外失配容忍周期数。
    */
-  void PromoteState(common::TrackState& track, std::uint32_t cycle_index, bool hit_this_cycle,
+  void PromoteState(TrackState& track, std::uint32_t cycle_index, bool hit_this_cycle,
                     std::uint32_t extra_miss_tolerance) const;
   /**
    * @brief 将对象重置为可复用状态，避免脏数据泄露。
    * @param track 待重置轨迹对象。
    */
-  void ResetForReuse(common::TrackState& track) const;
+  void ResetForReuse(TrackState& track) const;
   /**
    * @brief 解析本周期状态估计使用的有效时间步长。
    * @param cycle 当前周期上下文。
@@ -271,7 +271,7 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
   float ResolveEffectiveCycleDeltaTimeSec(const CycleContext& cycle, bool* dt_fallback_used) const;
   /**
    * @brief 遍历所有未回收轨迹，对每条轨迹调用 callback(key, track)。
-   * @tparam Callback 可调用类型，签名为 void(std::uint64_t, const common::TrackState&)。
+   * @tparam Callback 可调用类型，签名为 void(std::uint64_t, const TrackState&)。
    * @param callback 每条活跃轨迹的处理逻辑。
    */
   template <typename Callback>
@@ -281,7 +281,7 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
   ITrackPool* pool_{nullptr};      /**< 轨迹对象池抽象，用于对象申请与归还。 */
   LifecycleConfig config_;         /**< 生命周期阈值配置。 */
   std::uint64_t next_track_id_{1}; /**< 下一个待分配轨迹 ID。 */
-  std::unordered_map<std::uint64_t, common::TrackState*>
+  std::unordered_map<std::uint64_t, TrackState*>
       tracks_by_key_;                                   /**< 活跃轨迹表，key 为关联键。 */
   const IKalmanPredictor* kalman_predictor_{nullptr};   /**< 可选 Kalman 预测器（非拥有）。 */
   const IKalmanUpdater* kalman_updater_{nullptr};       /**< 可选 Kalman 更新器（非拥有）。 */
