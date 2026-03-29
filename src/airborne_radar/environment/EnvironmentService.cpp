@@ -47,20 +47,6 @@ JammerSourceFact ToJammerSourceFact(const JammerEmitterState& emitter_state) {
   return NormalizeEmitterState(emitter_state);
 }
 /**
- * @brief 从多源干扰事实中选取主干扰源。
- * @param sources 单周期干扰源事实列表。
- * @return 功率最大的干扰源指针；若为空则返回 nullptr。
- */
-const JammerSourceFact* SelectPrimaryJammerSource(const JammerSourceFactList& sources) {
-  if (sources.empty()) {
-    return nullptr;
-  }
-  return &(*std::max_element(sources.begin(), sources.end(),
-                             [](const JammerSourceFact& lhs, const JammerSourceFact& rhs) {
-                               return lhs.power_db < rhs.power_db;
-                             }));
-}
-/**
  * @brief 将环境模型配置适配为待生效场景状态。
  * @param config 环境模型配置。
  * @return 统一后的环境场景状态。
@@ -125,15 +111,6 @@ void EnvironmentService::RefreshFrozenSnapshotFromActiveScene() {
   frozen_snapshot_.jammer_sources.reserve(active_scene.jammer_emitters.size());
   for (std::size_t i = 0; i < active_scene.jammer_emitters.size(); ++i) {
     frozen_snapshot_.jammer_sources.push_back(ToJammerSourceFact(active_scene.jammer_emitters[i]));
-  }
-
-  const JammerSourceFact* primary_source =
-      SelectPrimaryJammerSource(frozen_snapshot_.jammer_sources);
-  if (primary_source != nullptr) {
-    frozen_snapshot_.jammer_power_db = primary_source->power_db;
-    frozen_snapshot_.jammer_frequency_overlap_ratio = primary_source->frequency_overlap_ratio;
-    frozen_snapshot_.jammer_prf_lock_risk = primary_source->prf_lock_risk;
-    frozen_snapshot_.jammer_in_sidelobe = primary_source->in_sidelobe;
   }
 
   frozen_snapshot_.jamming_detected =

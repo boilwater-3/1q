@@ -13,20 +13,19 @@ namespace {
 
 /**
  * @brief 触发频率捷变强化评分的频谱重叠分界值。
- * @note 代码行为依据：旧版事实与多源事实都在频谱重叠比例不低于该值时，才显著提高
+ * @note 代码行为依据：多源事实在频谱重叠比例不低于该值时，才显著提高
  *       `agility_frequency_score`。
  */
 const float kHighFrequencyOverlapRatio = 0.5f;
 /**
  * @brief 触发重频抖动强化评分的锁定风险分界值。
- * @note 代码行为依据：旧版事实与多源事实都在 `prf_lock_risk` 不低于该值时，才显著提高
+ * @note 代码行为依据：多源事实在 `prf_lock_risk` 不低于该值时，才显著提高
  *       `eccm_rejitter_score`。
  */
 const float kHighPrfLockRisk = 0.5f;
 /**
  * @brief 触发烧穿增益强化评分的干扰功率分界值。
- * @note 代码行为依据：旧版事实路径把该值作为 `burnthrough_gain_score` 的高功率门限，
- *       多源事实路径还会用它归一化功率权重。
+ * @note 代码行为依据：多源事实路径会用它归一化功率权重并触发高功率门限。
  */
 const float kHighJammerPowerDb = 8.0f;
 /**
@@ -124,19 +123,6 @@ common::control::ControlDirective BuildDirective(common::control::ControlDirecti
   return common::control::ControlDirective(type, common::control::ControlDirectiveSource::SURVIVABILITY);
 }
 /**
- * @brief 判断 ECCM 输入是否携带可用的细粒度干扰事实。
- * @param source_info 当前周期 ECCM 输入摘要。
- * @return 至少存在多源事实或兼容字段时返回 true。
- */
-bool HasDetailedEccmFacts(const common::model::EccmSourceInfo& source_info) {
-  if (!source_info.jammer_sources.empty()) {
-    return true;
-  }
-  return source_info.jammer_power_db > 0.0f || source_info.frequency_overlap_ratio > 0.0f ||
-         source_info.prf_lock_risk > 0.0f || source_info.jammer_in_sidelobe;
-}
-
-/**
  * @brief ECCM 提案评分与关联偏置的中间累加状态。
  */
 struct EccmProposalSelection {
@@ -188,32 +174,6 @@ void AccumulateCautiousFallback(EccmProposalSelection* selection) {
   }
   selection->adaptive_beamforming_score = std::max(selection->adaptive_beamforming_score, 1.0f);
 }
-/**
- * @brief 将兼容旧版平铺 ECCM 字段累加为提案评分。
- * @param source_info 当前周期 ECCM 输入摘要。
- * @param selection 待累加的提案选择状态。
- */
-void AccumulateLegacyEccmFacts(const common::model::EccmSourceInfo& source_info,
-                               EccmProposalSelection* selection) {
-  if (selection == nullptr) {
-    return;
-  }
-  const bool has_detailed_facts = HasDetailedEccmFacts(source_info);
-  if (!has_detailed_facts || source_info.jammer_in_sidelobe) {
-    selection->sidelobe_canceller_score = std::max(selection->sidelobe_canceller_score, 2.0f);
-  }
-  selection->adaptive_beamforming_score = std::max(selection->adaptive_beamforming_score, 1.5f);
-  if (!has_detailed_facts || source_info.frequency_overlap_ratio >= kHighFrequencyOverlapRatio) {
-    selection->agility_frequency_score = std::max(selection->agility_frequency_score, 2.0f);
-  }
-  if (!has_detailed_facts || source_info.prf_lock_risk >= kHighPrfLockRisk) {
-    selection->eccm_rejitter_score = std::max(selection->eccm_rejitter_score, 2.0f);
-  }
-  if (!has_detailed_facts || source_info.jammer_power_db >= kHighJammerPowerDb) {
-    selection->burnthrough_gain_score = std::max(selection->burnthrough_gain_score, 2.0f);
-  }
-}
-
 /**
  * @brief 把单个可信多源干扰事实累加为 ECCM 动作评分。
  * @param source 单个干扰源事实。
@@ -428,15 +388,9 @@ void AppendEccmProposals(const common::model::EccmSourceInfo& source_info,
       AccumulateCautiousFallback(&selection);
     }
   } else {
-    const bool has_detailed_facts = HasDetailedEccmFacts(source_info);
-    const bool should_use_cautious_fallback =
-        !has_detailed_facts && !environment_jamming_detected &&
-        (HasMeaningfulAssociationPressure(association_quality_info) || hold_only);
-    if (should_use_cautious_fallback) {
-      AccumulateCautiousFallback(&selection);
-    } else {
-      AccumulateLegacyEccmFacts(source_info, &selection);
-    }
+    (void)environment_jamming_detected;
+    (void)hold_only;
+    AccumulateCautiousFallback(&selection);
   }
   AccumulateAssociationDrivenBias(association_quality_info, &selection);
 

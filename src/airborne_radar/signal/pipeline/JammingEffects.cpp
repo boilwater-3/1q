@@ -40,19 +40,6 @@ constexpr float kPhysicalWeightDeception = 0.20f;
 constexpr float kPhysicalWeightRepeater = 0.40f;
 constexpr float kPhysicalWeightUnknown = 0.70f;
 
-// ---------- 单源无多源事实时经验严重度贡献系数（不开放配置，与物理量纲绑定） ----------
-constexpr float kFallbackSeverityPowerSlope = 0.03f;
-constexpr float kFallbackSeverityFreqWeight = 0.22f;
-constexpr float kFallbackSeverityPrfWeight = 0.18f;
-constexpr float kFallbackSeveritySidelobeBonus = 0.10f;
-
-// ---------- 单源无多源事实时经验惩罚 dB 贡献系数（不开放配置） ----------
-constexpr float kFallbackPenaltyBase = 1.0f;
-constexpr float kFallbackPenaltyPowerSlope = 0.35f;
-constexpr float kFallbackPenaltyFreqWeight = 2.0f;
-constexpr float kFallbackPenaltyPrfWeight = 1.5f;
-constexpr float kFallbackPenaltySidelobeBonus = 1.0f;
-
 /**
  * @brief 将干扰源置信度裁剪到配置允许的权重区间，作为后续加权计算的公共因子
  * @param[in] cfg 干扰效果配置，提供置信度下界 confidence_weight_min
@@ -203,16 +190,7 @@ float ComputeHeuristicSourcePenaltyDb(const JammingEffectsConfig& cfg,
 float ComputeHeuristicJammingPenaltyDb(
     const JammingEffectsConfig& cfg, const environment::EnvironmentSnapshot& environment_snapshot) {
   if (!HasMultiSourceJammingFacts(environment_snapshot)) {
-    return environment_snapshot.jamming_detected
-               ? (kFallbackPenaltyBase +
-                  kFallbackPenaltyPowerSlope *
-                      ClampFloat(environment_snapshot.jammer_power_db, 0.0f, 20.0f) +
-                  kFallbackPenaltyFreqWeight *
-                      ClampFloat(environment_snapshot.jammer_frequency_overlap_ratio, 0.0f, 1.0f) +
-                  kFallbackPenaltyPrfWeight *
-                      ClampFloat(environment_snapshot.jammer_prf_lock_risk, 0.0f, 1.0f) +
-                  (environment_snapshot.jammer_in_sidelobe ? kFallbackPenaltySidelobeBonus : 0.0f))
-               : 0.0f;
+    return 0.0f;
   }
 
   float penalty_db = 0.0f;
@@ -286,7 +264,7 @@ common::utils::JammingSemantic ResolveDominantJammingSemantic(
   }
 
   if (!HasMultiSourceJammingFacts(environment_snapshot)) {
-    return common::utils::JammingSemantic::kMixed;
+    return common::utils::JammingSemantic::kNone;
   }
 
   float type_scores[3] = {0.0f, 0.0f, 0.0f};
@@ -348,15 +326,7 @@ float ComputeTrackLevelJammingSeverity(
   }
 
   if (!HasMultiSourceJammingFacts(environment_snapshot)) {
-    const float severity =
-        kFallbackSeverityPowerSlope *
-            ClampFloat(environment_snapshot.jammer_power_db, 0.0f, 20.0f) +
-        kFallbackSeverityFreqWeight *
-            ClampFloat(environment_snapshot.jammer_frequency_overlap_ratio, 0.0f, 1.0f) +
-        kFallbackSeverityPrfWeight *
-            ClampFloat(environment_snapshot.jammer_prf_lock_risk, 0.0f, 1.0f) +
-        (environment_snapshot.jammer_in_sidelobe ? kFallbackSeveritySidelobeBonus : 0.0f);
-    return ClampFloat(severity, 0.0f, 1.0f);
+    return 0.0f;
   }
 
   float total_severity = 0.0f;

@@ -60,10 +60,15 @@ TEST(TacticalCoordinatorTest, HighThreatAndJamming) {
   acm::DecisionInputFrame frame = BuildSingleTrackFrame(800.0f, 2.5f, true);
   frame.environment_jamming_detected = true;
   frame.eccm_source_info.has_jamming_signal = true;
-  frame.eccm_source_info.jammer_power_db = 10.0f;
-  frame.eccm_source_info.frequency_overlap_ratio = 0.9f;
-  frame.eccm_source_info.prf_lock_risk = 0.9f;
-  frame.eccm_source_info.jammer_in_sidelobe = true;
+  acm::EccmJammerSourceInfo source;
+  source.technique = acm::JammingTechnique::kDeception;
+  source.jammer_power_db = 10.0f;
+  source.jammer_to_signal_db = 8.0f;
+  source.frequency_overlap_ratio = 0.9f;
+  source.prf_lock_risk = 0.9f;
+  source.jammer_in_sidelobe = true;
+  source.confidence = 1.0f;
+  frame.eccm_source_info.jammer_sources.push_back(source);
 
   const dp::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);

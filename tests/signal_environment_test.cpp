@@ -71,12 +71,11 @@ TEST(EnvironmentServiceTest, DetectsJammingByConfiguredThreshold) {
 
   const auto snapshot = service.SampleEnvironment();
   EXPECT_TRUE(snapshot.jamming_detected);
-  EXPECT_FLOAT_EQ(snapshot.jammer_power_db, 7.0f);
-  EXPECT_FLOAT_EQ(snapshot.jammer_frequency_overlap_ratio, 0.75f);
-  EXPECT_FLOAT_EQ(snapshot.jammer_prf_lock_risk, 0.60f);
-  EXPECT_TRUE(snapshot.jammer_in_sidelobe);
   ASSERT_EQ(snapshot.jammer_sources.size(), 1u);
   EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].power_db, 7.0f);
+  EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].frequency_overlap_ratio, 0.75f);
+  EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].prf_lock_risk, 0.60f);
+  EXPECT_TRUE(snapshot.jammer_sources[0].in_sidelobe);
 }
 
 TEST(EnvironmentServiceTest, FreezesSnapshotUntilNextCycle) {
@@ -106,10 +105,10 @@ TEST(EnvironmentServiceTest, FreezesSnapshotUntilNextCycle) {
   EXPECT_TRUE(cycle_snapshot.jamming_detected);
   EXPECT_FLOAT_EQ(cycle_snapshot.propagation_loss_db, 20.0f);
   EXPECT_FLOAT_EQ(cycle_snapshot.clutter_power_db, 9.0f);
-  EXPECT_FLOAT_EQ(cycle_snapshot.jammer_power_db, 8.0f);
   EXPECT_EQ(cycle_snapshot.jammer_sources.size(), 1U);
   EXPECT_EQ(cycle_snapshot.jammer_sources.size(), repeated_snapshot.jammer_sources.size());
-  EXPECT_FLOAT_EQ(repeated_snapshot.jammer_power_db, cycle_snapshot.jammer_power_db);
+  EXPECT_FLOAT_EQ(repeated_snapshot.jammer_sources[0].power_db,
+                  cycle_snapshot.jammer_sources[0].power_db);
   EXPECT_EQ(repeated_snapshot.jamming_detected, cycle_snapshot.jamming_detected);
 }
 
@@ -145,8 +144,8 @@ TEST(EnvironmentServiceTest, SupportsMultipleJammerSourcesInSnapshot) {
   EXPECT_TRUE(snapshot.jamming_detected);
   EXPECT_EQ(snapshot.jammer_sources[0].technique, environment::JammingTechnique::kNoiseSuppression);
   EXPECT_EQ(snapshot.jammer_sources[1].technique, environment::JammingTechnique::kDeception);
-  EXPECT_FLOAT_EQ(snapshot.jammer_power_db, 9.0f);
-  EXPECT_TRUE(snapshot.jammer_in_sidelobe);
+  EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].power_db, 9.0f);
+  EXPECT_TRUE(snapshot.jammer_sources[0].in_sidelobe);
 }
 
 TEST(EnvironmentServiceTest, AppliesPendingSceneJammerOnNextCycleOnly) {
@@ -1306,8 +1305,8 @@ TEST(EnvironmentServiceTest, JammingNotDetectedWhenPowerBelowThreshold) {
   EXPECT_FALSE(service.SampleEnvironment().jamming_detected);
 }
 
-/// @brief 多干扰源时，primary jammer 选取功率最大的来源。
-TEST(EnvironmentServiceTest, PrimaryJammerIsTheHighestPowerSource) {
+/// @brief 多干扰源输入应完整保留到快照中。
+TEST(EnvironmentServiceTest, KeepsAllJammerSourcesInSnapshot) {
   environment::EnvironmentModelConfig config;
 
   environment::JammerSourceFact low;
@@ -1327,7 +1326,9 @@ TEST(EnvironmentServiceTest, PrimaryJammerIsTheHighestPowerSource) {
   service.SetJammingDetectionThresholdDb(2.0f);
 
   const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
-  EXPECT_FLOAT_EQ(snapshot.jammer_power_db, 12.0f);
+  ASSERT_EQ(snapshot.jammer_sources.size(), 2u);
+  EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].power_db, 3.0f);
+  EXPECT_FLOAT_EQ(snapshot.jammer_sources[1].power_db, 12.0f);
   EXPECT_TRUE(snapshot.jamming_detected);
 }
 

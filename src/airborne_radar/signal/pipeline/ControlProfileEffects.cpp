@@ -179,37 +179,15 @@ float ComputeHeuristicSignalAdjustmentDb(
 float ComputeHeuristicEnvironmentReliefDb(
     const JammingEffectsConfig& cfg, const common::control::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot) {
-  if (HasMultiSourceJammingFacts(environment_snapshot)) {
-    float relief_db = 0.0f;
-    for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
-      const environment::JammerSourceFact& source = environment_snapshot.jammer_sources[i];
-      const float residual_factor = ComputeResidualJammerFactor(control_profile, source);
-      relief_db += ComputeHeuristicSourcePenaltyDb(cfg, source) * (1.0f - residual_factor);
-    }
-    return relief_db;
+  if (!HasMultiSourceJammingFacts(environment_snapshot)) {
+    return 0.0f;
   }
 
   float relief_db = 0.0f;
-  if (environment_snapshot.jamming_detected) {
-    if (control_profile.enable_sidelobe_canceller) {
-      relief_db += environment_snapshot.jammer_in_sidelobe ? 3.0f : 0.8f;
-    }
-    if (control_profile.enable_agility_frequency) {
-      relief_db +=
-          0.6f + 1.8f * ClampFloat(environment_snapshot.jammer_frequency_overlap_ratio, 0.0f, 1.0f);
-    }
-    if (control_profile.enable_eccm_rejitter) {
-      relief_db += 0.4f + 1.4f * ClampFloat(environment_snapshot.jammer_prf_lock_risk, 0.0f, 1.0f);
-    }
-  }
-  if (control_profile.enable_adaptive_beamforming) {
-    relief_db += environment_snapshot.jammer_in_sidelobe ? 1.2f : 0.8f;
-  }
-  if (control_profile.eccm_burnthrough_gain > 1.0f) {
-    const float jammer_scale =
-        0.5f + 0.06f * ClampFloat(environment_snapshot.jammer_power_db, 0.0f, 20.0f);
-    relief_db +=
-        ToDbDelta(control_profile.eccm_burnthrough_gain) * ClampFloat(jammer_scale, 0.5f, 1.7f);
+  for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
+    const environment::JammerSourceFact& source = environment_snapshot.jammer_sources[i];
+    const float residual_factor = ComputeResidualJammerFactor(control_profile, source);
+    relief_db += ComputeHeuristicSourcePenaltyDb(cfg, source) * (1.0f - residual_factor);
   }
   return relief_db;
 }

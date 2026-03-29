@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <cmath>
 
-#include "1q/airborne_radar/common/utils/MathUtils.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/MeasurementErrorModel.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
@@ -17,9 +16,6 @@ namespace pipeline {
 namespace internal {
 
 namespace {
-
-using common::utils::ClampFloat;
-using common::utils::DbToLinearPower;
 
 /**
  * @brief 根据目标几何与测量误差参数构建测量协方差矩阵
@@ -127,8 +123,13 @@ void RunPhysicalDetectionPass(const common::model::TargetFeatureList& input,
   const std::size_t count = input.size();
 
   float clutter_w = std::pow(10.0f, environment_snapshot.clutter_power_db / 10.0f);
-  if (control_profile.enable_sidelobe_canceller) {
-    clutter_w *= environment_snapshot.jammer_in_sidelobe ? 0.55f : 0.80f;
+  if (control_profile.enable_sidelobe_canceller && HasMultiSourceJammingFacts(environment_snapshot)) {
+    const bool has_sidelobe_source =
+        std::find_if(environment_snapshot.jammer_sources.begin(),
+                     environment_snapshot.jammer_sources.end(),
+                     [](const environment::JammerSourceFact& source) { return source.in_sidelobe; }) !=
+        environment_snapshot.jammer_sources.end();
+    clutter_w *= has_sidelobe_source ? 0.55f : 0.80f;
   }
 
   float jam_w = 0.0f;
@@ -137,23 +138,6 @@ void RunPhysicalDetectionPass(const common::model::TargetFeatureList& input,
       const environment::JammerSourceFact& source = environment_snapshot.jammer_sources[i];
       jam_w += ComputePhysicalSourceJamContributionW(runtime_config.jamming_effects, source) *
                ComputeResidualJammerFactor(control_profile, source);
-    }
-  } else if (environment_snapshot.jamming_detected) {
-    jam_w = DbToLinearPower(environment_snapshot.jammer_power_db);
-    if (control_profile.enable_sidelobe_canceller) {
-      jam_w *= environment_snapshot.jammer_in_sidelobe ? 0.35f : 0.80f;
-    }
-    if (control_profile.enable_agility_frequency) {
-      const float overlap_ratio =
-          ClampFloat(environment_snapshot.jammer_frequency_overlap_ratio, 0.0f, 1.0f);
-      jam_w *= ClampFloat(1.0f - 0.60f * overlap_ratio, 0.25f, 1.0f);
-    }
-    if (control_profile.enable_eccm_rejitter) {
-      const float prf_lock_risk = ClampFloat(environment_snapshot.jammer_prf_lock_risk, 0.0f, 1.0f);
-      jam_w *= ClampFloat(1.0f - 0.50f * prf_lock_risk, 0.35f, 1.0f);
-    }
-    if (control_profile.enable_adaptive_beamforming) {
-      jam_w *= environment_snapshot.jammer_in_sidelobe ? 0.85f : 0.75f;
     }
   }
 

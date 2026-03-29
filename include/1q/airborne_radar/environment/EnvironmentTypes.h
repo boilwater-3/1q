@@ -56,10 +56,6 @@ struct EnvironmentSnapshot {
   float cycle_dt_sec{0.0f};                   /**< 当前周期步长（单位：s） */
   float propagation_loss_db{0.0f};            /**< 传播损耗（单位：dB） */
   float clutter_power_db{0.0f};               /**< 杂波功率估计（单位：dB） */
-  float jammer_power_db{0.0f};                /**< 干扰功率估计（单位：dB） */
-  float jammer_frequency_overlap_ratio{0.0f}; /**< 干扰与当前工作频率的重叠度，范围 [0, 1] */
-  float jammer_prf_lock_risk{0.0f};           /**< 干扰对当前 PRF 锁定的风险度，范围 [0, 1] */
-  bool jammer_in_sidelobe{false};             /**< 干扰是否主要经由旁瓣进入 */
   JammerSourceFactList jammer_sources{};      /**< 当前周期可见的多源干扰事实 */
   bool jamming_detected{false};               /**< 是否检测到干扰 */
 };

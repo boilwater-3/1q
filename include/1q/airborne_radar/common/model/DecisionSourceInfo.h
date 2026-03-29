@@ -54,10 +54,6 @@ using EccmJammerSourceInfoList = std::vector<EccmJammerSourceInfo>;
  */
 struct EccmSourceInfo {
   bool has_jamming_signal{false};            /**< 当前周期是否检测到干扰信号 */
-  float jammer_power_db{0.0f};               /**< 干扰功率估计（单位：dB） */
-  float frequency_overlap_ratio{0.0f};       /**< 干扰与当前工作频率的重叠度，范围 [0, 1] */
-  float prf_lock_risk{0.0f};                 /**< 干扰对当前 PRF 锁定的风险度，范围 [0, 1] */
-  bool jammer_in_sidelobe{false};            /**< 干扰是否主要经由旁瓣进入 */
   EccmJammerSourceInfoList jammer_sources{}; /**< 当前周期可见的多源干扰摘要 */
 
   EccmSourceInfo() = default; /**< 默认构造函数 */

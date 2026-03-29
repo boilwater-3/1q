@@ -57,10 +57,6 @@ common::model::EccmSourceInfo BuildEccmSourceInfo(
     const environment::EnvironmentSnapshot& environment_snapshot) {
   common::model::EccmSourceInfo source_info;
   source_info.has_jamming_signal = environment_snapshot.jamming_detected;
-  source_info.jammer_power_db = environment_snapshot.jammer_power_db;
-  source_info.frequency_overlap_ratio = environment_snapshot.jammer_frequency_overlap_ratio;
-  source_info.prf_lock_risk = environment_snapshot.jammer_prf_lock_risk;
-  source_info.jammer_in_sidelobe = environment_snapshot.jammer_in_sidelobe;
   source_info.jammer_sources.reserve(environment_snapshot.jammer_sources.size());
   for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
     source_info.jammer_sources.push_back(

@@ -226,10 +226,12 @@ TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecisio
             frozen_snapshot.jamming_detected);
   EXPECT_EQ(decision_engine.last_frame.eccm_source_info.has_jamming_signal,
             frozen_snapshot.jamming_detected);
-  EXPECT_FLOAT_EQ(decision_engine.last_frame.eccm_source_info.jammer_power_db,
-                  frozen_snapshot.jammer_power_db);
   ASSERT_EQ(decision_engine.last_frame.eccm_source_info.jammer_sources.size(),
             frozen_snapshot.jammer_sources.size());
+  ASSERT_FALSE(decision_engine.last_frame.eccm_source_info.jammer_sources.empty());
+  ASSERT_FALSE(frozen_snapshot.jammer_sources.empty());
+  EXPECT_FLOAT_EQ(decision_engine.last_frame.eccm_source_info.jammer_sources.front().jammer_power_db,
+                  frozen_snapshot.jammer_sources.front().power_db);
   ASSERT_EQ(measurements.size(), 1U);
   EXPECT_EQ(measurements[0].filtered_feature.jamming_detected, frozen_snapshot.jamming_detected);
 }

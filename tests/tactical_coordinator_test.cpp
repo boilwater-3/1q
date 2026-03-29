@@ -105,6 +105,26 @@ TEST(TacticalCoordinatorTest, JammingEnvironmentGeneratesEccmProposals) {
   frame.cycle_index = 1u;
   frame.batch_id = 1u;
   frame.environment_jamming_detected = true;
+  frame.eccm_source_info.has_jamming_signal = true;
+  common::model::EccmJammerSourceInfo noise_source;
+  noise_source.technique = common::model::JammingTechnique::kNoiseSuppression;
+  noise_source.jammer_power_db = 11.0f;
+  noise_source.jammer_to_signal_db = 8.0f;
+  noise_source.frequency_overlap_ratio = 0.2f;
+  noise_source.prf_lock_risk = 0.1f;
+  noise_source.jammer_in_sidelobe = true;
+  noise_source.confidence = 1.0f;
+
+  common::model::EccmJammerSourceInfo deception_source;
+  deception_source.technique = common::model::JammingTechnique::kDeception;
+  deception_source.jammer_power_db = 5.0f;
+  deception_source.jammer_to_signal_db = 7.0f;
+  deception_source.frequency_overlap_ratio = 0.85f;
+  deception_source.prf_lock_risk = 0.9f;
+  deception_source.jammer_in_sidelobe = false;
+  deception_source.confidence = 1.0f;
+  frame.eccm_source_info.jammer_sources.push_back(noise_source);
+  frame.eccm_source_info.jammer_sources.push_back(deception_source);
   frame.tracks.push_back(
       BuildTrack(200.0f, 2.0f, common::model::DecisionTrackStatus::kConfirmed, true, true));
 
@@ -139,10 +159,15 @@ TEST(TacticalCoordinatorTest, DetailedEccmFactsSelectOnlyRelevantProposals) {
   frame.cycle_index = 1u;
   frame.batch_id = 1u;
   frame.eccm_source_info.has_jamming_signal = true;
-  frame.eccm_source_info.jammer_power_db = 5.0f;
-  frame.eccm_source_info.frequency_overlap_ratio = 0.8f;
-  frame.eccm_source_info.prf_lock_risk = 0.2f;
-  frame.eccm_source_info.jammer_in_sidelobe = false;
+  common::model::EccmJammerSourceInfo source;
+  source.technique = common::model::JammingTechnique::kUnknown;
+  source.jammer_power_db = 5.0f;
+  source.jammer_to_signal_db = 3.0f;
+  source.frequency_overlap_ratio = 0.8f;
+  source.prf_lock_risk = 0.2f;
+  source.jammer_in_sidelobe = false;
+  source.confidence = 1.0f;
+  frame.eccm_source_info.jammer_sources.push_back(source);
   frame.tracks.push_back(
       BuildTrack(200.0f, 2.0f, common::model::DecisionTrackStatus::kConfirmed, true, true));
 
@@ -288,8 +313,14 @@ TEST(TacticalCoordinatorTest, AssociationStressRaisesTypeSpecificEccmPriorityWit
   baseline_frame.cycle_index = 1u;
   baseline_frame.batch_id = 1u;
   baseline_frame.eccm_source_info.has_jamming_signal = true;
-  baseline_frame.eccm_source_info.frequency_overlap_ratio = 0.7f;
-  baseline_frame.eccm_source_info.prf_lock_risk = 0.7f;
+  common::model::EccmJammerSourceInfo baseline_source;
+  baseline_source.technique = common::model::JammingTechnique::kDeception;
+  baseline_source.jammer_power_db = 6.0f;
+  baseline_source.jammer_to_signal_db = 7.0f;
+  baseline_source.frequency_overlap_ratio = 0.7f;
+  baseline_source.prf_lock_risk = 0.7f;
+  baseline_source.confidence = 1.0f;
+  baseline_frame.eccm_source_info.jammer_sources.push_back(baseline_source);
   baseline_frame.tracks.push_back(
       BuildTrack(200.0f, 2.0f, common::model::DecisionTrackStatus::kConfirmed, true, false));
 
