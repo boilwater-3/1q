@@ -59,6 +59,9 @@ class ONEQ_API RadarController : public core::output::IRadarOutputReader {
 
   /**
    * @brief 构造函数，使用默认战术协调器。
+   * @param[in] radar_context 雷达上下文引用。
+   * @param[in] signal_pipeline 信号处理流水线引用。
+   * @param[in] environment_service 环境服务引用。
    */
   RadarController(core::context::IRadarContext& radar_context,
                   signal::pipeline::ISignalPipeline& signal_pipeline,
@@ -66,6 +69,10 @@ class ONEQ_API RadarController : public core::output::IRadarOutputReader {
 
   /**
    * @brief 构造函数，显式注入新的决策引擎。
+   * @param[in] radar_context 雷达上下文引用。
+   * @param[in] signal_pipeline 信号处理流水线引用。
+   * @param[in] decision_engine 战术决策引擎引用。
+   * @param[in] environment_service 环境服务引用。
    */
   RadarController(core::context::IRadarContext& radar_context,
                   signal::pipeline::ISignalPipeline& signal_pipeline,
@@ -75,16 +82,28 @@ class ONEQ_API RadarController : public core::output::IRadarOutputReader {
   /** @brief 执行一次雷达处理循环 */
   void RunOnce();
 
-  /** @brief 执行指定次数的处理循环（用于仿真或测试） */
+  /**
+   * @brief 执行指定次数的处理循环（用于仿真或测试）。
+   * @param[in] cycles 循环次数。
+   */
   void RunCycles(std::size_t cycles);
 
-  /** @brief 更新控制归并器配置 */
+  /**
+   * @brief 更新控制归并器配置。
+   * @param[in] config 控制归并器配置。
+   */
   void UpdateControlReducerConfig(const decision::pipeline::ControlReducerConfig& config);
 
-  /** @brief 判断当前是否已有可读取的最新轨迹输出帧 */
+  /**
+   * @brief 判断当前是否已有可读取的最新轨迹输出帧。
+   * @return 若已完成至少一次输出帧装配则返回 true。
+   */
   bool HasLatestTrackOutputFrame() const override;
 
-  /** @brief 获取最近一次已缓存的轨迹输出帧 */
+  /**
+   * @brief 获取最近一次已缓存的轨迹输出帧。
+   * @return 最近一次运行周期产生的轨迹输出帧引用。
+   */
   const common::TrackOutputFrame& GetLatestTrackOutputFrame() const override;
 
  private:

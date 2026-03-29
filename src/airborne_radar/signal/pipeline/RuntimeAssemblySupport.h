@@ -19,19 +19,40 @@ namespace signal {
 namespace pipeline {
 namespace internal {
 
+/**
+ * @brief 基于基础配置与控制真值构建运行时配置。
+ * @param[in] base_config 基础流水线配置。
+ * @param[in] control_profile 当前控制真值。
+ * @return 调整后的运行时配置。
+ */
 SignalPipelineConfig BuildRuntimeConfigFromControlProfile(
     const SignalPipelineConfig& base_config, const common::RadarControlProfile& control_profile);
 
+/**
+ * @brief 根据运行时配置自动装配生命周期管理器。
+ * @param[in] runtime_config 运行时配置。
+ * @return 生命周期管理器实例；未启用时返回空指针。
+ */
 std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManagerForRuntimeConfig(
     const SignalPipelineConfig& runtime_config);
 
+/**
+ * @brief OwnedComponentSlots 汇聚 Pipeline 自持有组件的重建槽位指针。
+ */
 struct OwnedComponentSlots {
-  std::unique_ptr<tracking::KalmanPredictor>* kalman_predictor{nullptr};
-  std::unique_ptr<tracking::KalmanUpdater>* kalman_updater{nullptr};
-  std::unique_ptr<detection::SignalDetector>* signal_detector{nullptr};
-  std::unique_ptr<tracking::ITrackLifecycleManager>* auto_lifecycle_manager{nullptr};
+  std::unique_ptr<tracking::KalmanPredictor>* kalman_predictor{nullptr}; /**< Kalman 预测器槽位 */
+  std::unique_ptr<tracking::KalmanUpdater>* kalman_updater{nullptr};     /**< Kalman 更新器槽位 */
+  std::unique_ptr<detection::SignalDetector>* signal_detector{nullptr};  /**< 物理探测器槽位 */
+  std::unique_ptr<tracking::ITrackLifecycleManager>* auto_lifecycle_manager{
+      nullptr}; /**< 生命周期管理器槽位 */
 };
 
+/**
+ * @brief 根据基础配置与控制真值重建 Pipeline 自持有组件。
+ * @param[in] base_config 基础流水线配置。
+ * @param[in] control_profile 当前控制真值。
+ * @param[in,out] slots 待重建的组件槽位。
+ */
 void RebuildOwnedComponentsForPipeline(const SignalPipelineConfig& base_config,
                                        const common::RadarControlProfile& control_profile,
                                        OwnedComponentSlots* slots);

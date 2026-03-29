@@ -82,25 +82,45 @@ class ONEQ_API RadarSession {
   RadarCycleResult StepWithResult(const context::RadarCycleInput& input,
                                   const environment::EnvironmentSceneState& scene_state);
 
-  /** @brief 获取当前周期已提交的控制指令 */
+  /** @brief 获取当前周期已提交的控制指令。
+   * @return 当前周期已提交的控制指令列表引用。
+   */
   const std::vector<common::RadarCommand>& GetSubmittedCommands() const;
 
-  /** @brief 判断是否已经保存过最新控制真值 */
+  /**
+   * @brief 判断是否已经保存过最新控制真值。
+   * @return 若已持有最近一次控制真值则返回 true。
+   */
   bool HasLatestControlProfile() const;
 
-  /** @brief 获取最近一次控制真值 */
+  /**
+   * @brief 获取最近一次控制真值。
+   * @return 最近一次控制真值引用。
+   */
   const common::RadarControlProfile& GetLatestControlProfile() const;
 
-  /** @brief 获取最近一次关联质量观测指标 */
+  /**
+   * @brief 获取最近一次关联质量观测指标。
+   * @return 最近一次关联质量观测指标。
+   */
   signal::pipeline::AssociationQualityMetrics GetLastAssociationQualityMetrics() const;
 
-  /** @brief 更新信号流水线配置 */
+  /**
+   * @brief 更新信号流水线配置。
+   * @param[in] config 信号流水线配置。
+   */
   void UpdateSignalPipelineConfig(const signal::pipeline::SignalPipelineConfig& config);
 
-  /** @brief 更新环境模型配置 */
+  /**
+   * @brief 更新环境模型配置。
+   * @param[in] config 环境模型配置。
+   */
   void UpdateEnvironmentModelConfig(const environment::EnvironmentModelConfig& config);
 
-  /** @brief 更新干扰判定阈值 */
+  /**
+   * @brief 更新干扰判定阈值。
+   * @param[in] threshold_db 干扰判定阈值（单位：dB）。
+   */
   void SetJammingDetectionThresholdDb(float threshold_db);
 
  private:

@@ -14,7 +14,7 @@ namespace common {
 
 /**
  * @brief 判断扫描限位是否合法。
- * @param limits 待校验的方位/俯仰限位。
+ * @param[in] limits 待校验的方位/俯仰限位。
  * @return 若方位和俯仰最小值均不大于最大值，则返回 true。
  */
 inline bool IsValidScanLimits(const AzimuthElevationLimitsDeg& limits) {
@@ -23,8 +23,8 @@ inline bool IsValidScanLimits(const AzimuthElevationLimitsDeg& limits) {
 
 /**
  * @brief 对方位/俯仰角执行扫描窗口限幅。
- * @param angle 待限幅角度。
- * @param limits 扫描窗口。
+ * @param[in] angle 待限幅角度。
+ * @param[in] limits 扫描窗口。
  * @return 限幅后的方位/俯仰角。
  */
 inline AzimuthElevationDeg ClampAzimuthElevation(const AzimuthElevationDeg& angle,
@@ -37,8 +37,8 @@ inline AzimuthElevationDeg ClampAzimuthElevation(const AzimuthElevationDeg& angl
 
 /**
  * @brief 计算机械扫描窗口与电子扫描窗口的交集。
- * @param mechanical_limits 机械扫描限位。
- * @param electronic_limits 电子扫描限位。
+ * @param[in] mechanical_limits 机械扫描限位。
+ * @param[in] electronic_limits 电子扫描限位。
  * @return 两者交集；若无交集，则退化为零宽限位并由调用方继续处理。
  */
 inline AzimuthElevationLimitsDeg IntersectScanLimits(
@@ -73,7 +73,7 @@ inline AzimuthElevationLimitsDeg IntersectScanLimits(
 
 /**
  * @brief 计算挂架坐标系下的实际波束指向，并按扫描窗口限幅。
- * @param config 雷达方向配置。
+ * @param[in] config 雷达方向配置。
  * @return 相对雷达安装基准轴的方位/俯仰指向。
  */
 inline AzimuthElevationDeg ComputeMountFrameBeamPointing(const RadarOrientationConfig& config) {
@@ -87,7 +87,7 @@ inline AzimuthElevationDeg ComputeMountFrameBeamPointing(const RadarOrientationC
 
 /**
  * @brief 计算机体系下的实际波束指向。
- * @param config 雷达方向配置。
+ * @param[in] config 雷达方向配置。
  * @return 机体系下的欧拉角；roll 继承安装滚转角。
  */
 inline EulerAnglesDeg ComputeBodyFrameBeamPointing(const RadarOrientationConfig& config) {
@@ -101,8 +101,8 @@ inline EulerAnglesDeg ComputeBodyFrameBeamPointing(const RadarOrientationConfig&
 
 /**
  * @brief 计算平台姿态叠加后的波束指向。
- * @param platform_attitude_deg 平台姿态角。
- * @param config 雷达方向配置。
+ * @param[in] platform_attitude_deg 平台姿态角。
+ * @param[in] config 雷达方向配置。
  * @return 平台姿态叠加后的欧拉角结果。
  * @note 该函数仅执行几何叠加，适用于机体稳定模式；
  *       若采用惯性稳定或对地稳定，调用方应先求得等效平台姿态后再使用。

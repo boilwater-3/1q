@@ -11,14 +11,19 @@ namespace internal {
 
 namespace {
 
+/**
+ * @brief 检测 CycleWorkspace 中所有必需指针是否均已挂载
+ * @param[in] workspace 待检查的周期工作空间
+ * @return 所有指针均非空时返回 true，否则返回 false
+ */
 bool HasValidCycleWorkspace(const CycleWorkspace& workspace) {
   return workspace.output_state != nullptr && workspace.decision_frame != nullptr &&
-         workspace.association_quality_metrics != nullptr && workspace.track_measurements != nullptr &&
-         workspace.signal_term_db != nullptr && workspace.speed_penalty_db != nullptr &&
-         workspace.detection_margin_db != nullptr && workspace.detection_succeeded != nullptr &&
-         workspace.association_keys != nullptr && workspace.measurement_slots != nullptr &&
-         workspace.target_geometry != nullptr && workspace.measurement_covariances != nullptr &&
-         workspace.association_result != nullptr;
+         workspace.association_quality_metrics != nullptr &&
+         workspace.track_measurements != nullptr && workspace.signal_term_db != nullptr &&
+         workspace.speed_penalty_db != nullptr && workspace.detection_margin_db != nullptr &&
+         workspace.detection_succeeded != nullptr && workspace.association_keys != nullptr &&
+         workspace.measurement_slots != nullptr && workspace.target_geometry != nullptr &&
+         workspace.measurement_covariances != nullptr && workspace.association_result != nullptr;
 }
 
 }  // namespace
@@ -53,15 +58,18 @@ void RefreshMeasurementCovariances(
   if (measurement_covariances == nullptr) {
     return;
   }
-  const float variance = std::max(0.0f, kalman_measurement_noise_std * kalman_measurement_noise_std);
-  measurement_covariances->assign(target_count, tracking::MeasurementCovariance::Identity() * variance);
+  const float variance =
+      std::max(0.0f, kalman_measurement_noise_std * kalman_measurement_noise_std);
+  measurement_covariances->assign(target_count,
+                                  tracking::MeasurementCovariance::Identity() * variance);
 }
 
 void SyncAssociationAndTrackFilterConfigs(const SignalPipelineConfig& runtime_config,
                                           association::DataAssociationEngine* association_engine,
                                           tracking::TrackFilter* track_filter) {
   if (association_engine != nullptr) {
-    association_engine->UpdateConfig(SignalComponentFactory::BuildAssociationConfig(runtime_config));
+    association_engine->UpdateConfig(
+        SignalComponentFactory::BuildAssociationConfig(runtime_config));
   }
   if (track_filter != nullptr) {
     track_filter->UpdateConfig(SignalComponentFactory::BuildTrackFilterConfig(runtime_config));

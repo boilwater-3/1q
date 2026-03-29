@@ -4,12 +4,12 @@
 #include <algorithm>
 #include <cmath>
 
+#include "1q/airborne_radar/common/MathUtils.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/MeasurementErrorModel.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/pipeline/ControlProfileEffects.h"
 #include "airborne_radar/signal/pipeline/JammingEffects.h"
-#include "1q/airborne_radar/common/MathUtils.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -21,6 +21,14 @@ namespace {
 using common::ClampFloat;
 using common::DbToLinearPower;
 
+/**
+ * @brief 根据目标几何与测量误差参数构建测量协方差矩阵
+ * @param[in] geometry 已解析的目标几何信息（距离、位置等）
+ * @param[in] range_error_std 距离测量误差标准差，单位为 m
+ * @param[in] angle_error_std 角度测量误差标准差，单位为 rad
+ * @param[in] default_measurement_noise_std 当输入误差参数无效时使用的默认测量噪声标准差
+ * @return 构建好的 MeasurementCovariance 矩阵；当输入误差参数非正时退化为各向同性默认协方差
+ */
 tracking::MeasurementCovariance BuildMeasurementCovariance(
     const detection::ResolvedTargetGeometry& geometry, float range_error_std, float angle_error_std,
     float default_measurement_noise_std) {
@@ -45,6 +53,11 @@ tracking::MeasurementCovariance BuildMeasurementCovariance(
   return tracking::MeasurementCovariance::Identity() * var_r;
 }
 
+/**
+ * @brief 从目标特征中解析速度标量
+ * @param[in] target 目标特征数据，包含航迹速度分量和标量速度
+ * @return 速度矢量的范数；当速度分量全为零时回退到 current_track_speed 字段
+ */
 float ResolveSpeedMagnitude(const common::TargetFeature& target) {
   const Eigen::Vector3f velocity(target.current_track_velocity_x, target.current_track_velocity_y,
                                  target.current_track_velocity_z);
@@ -54,6 +67,11 @@ float ResolveSpeedMagnitude(const common::TargetFeature& target) {
   return target.current_track_speed;
 }
 
+/**
+ * @brief 检测 DetectionExecutionBuffers 中所有必需指针是否均已挂载
+ * @param[in] buffers 待检查的检测执行缓冲区
+ * @return 所有指针均非空时返回 true，否则返回 false
+ */
 bool HasValidBuffers(const DetectionExecutionBuffers& buffers) {
   return buffers.target_geometry != nullptr && buffers.signal_term_db != nullptr &&
          buffers.speed_penalty_db != nullptr && buffers.detection_margin_db != nullptr &&
@@ -72,19 +90,21 @@ void RunHeuristicDetectionPass(const common::TargetFeatureList& input,
   }
 
   const std::size_t count = input.size();
-  const float signal_adjustment_db = ComputeHeuristicSignalAdjustmentDb(
-      runtime_config.control_profile_effects, control_profile);
+  const float signal_adjustment_db =
+      ComputeHeuristicSignalAdjustmentDb(runtime_config.control_profile_effects, control_profile);
   for (std::size_t i = 0; i < count; ++i) {
     (*buffers->target_geometry)[i] = detection::TargetGeometryResolver::Resolve(input[i]);
     (*buffers->signal_term_db)[i] = input[i].current_track_rcs * 6.0f + signal_adjustment_db;
     (*buffers->speed_penalty_db)[i] = ResolveSpeedMagnitude(input[i]) * 0.002f;
   }
 
-  const float jamming_penalty_db = ComputeHeuristicJammingPenaltyDb(runtime_config.jamming_effects, environment_snapshot);
-  const float environment_penalty_db =
-      std::max(0.0f, environment_snapshot.propagation_loss_db * 0.2f +
-                         environment_snapshot.clutter_power_db * 0.3f + jamming_penalty_db -
-                         ComputeHeuristicEnvironmentReliefDb(runtime_config.jamming_effects, control_profile, environment_snapshot));
+  const float jamming_penalty_db =
+      ComputeHeuristicJammingPenaltyDb(runtime_config.jamming_effects, environment_snapshot);
+  const float environment_penalty_db = std::max(
+      0.0f, environment_snapshot.propagation_loss_db * 0.2f +
+                environment_snapshot.clutter_power_db * 0.3f + jamming_penalty_db -
+                ComputeHeuristicEnvironmentReliefDb(runtime_config.jamming_effects, control_profile,
+                                                    environment_snapshot));
   for (std::size_t i = 0; i < count; ++i) {
     const float margin =
         (*buffers->signal_term_db)[i] - (*buffers->speed_penalty_db)[i] - environment_penalty_db;
@@ -151,9 +171,11 @@ void RunPhysicalDetectionPass(const common::TargetFeatureList& input,
     target.range_m = (*buffers->target_geometry)[i].range_m;
     target.swerling_type = static_cast<detection::SwerlingModel>(input[i].target_swerling_type);
 
-    const detection::ResolvedBeamState beam_state = detection::BeamControlResolver::Resolve(
-        runtime_config.detection.radar_system.antenna, runtime_config.beam_control.radar_orientation,
-        runtime_config.beam_control.platform_attitude_deg, (*buffers->target_geometry)[i].look_angles_deg);
+    const detection::ResolvedBeamState beam_state =
+        detection::BeamControlResolver::Resolve(runtime_config.detection.radar_system.antenna,
+                                                runtime_config.beam_control.radar_orientation,
+                                                runtime_config.beam_control.platform_attitude_deg,
+                                                (*buffers->target_geometry)[i].look_angles_deg);
     const detection::DetectionResult detection_result = signal_detector->Detect(
         target, env, beam_state.one_way_antenna_gain_db, runtime_config.detection.pulse_count,
         runtime_config.detection.coherent_integration);
@@ -165,12 +187,14 @@ void RunPhysicalDetectionPass(const common::TargetFeatureList& input,
     (*buffers->signal_term_db)[i] = detection_result.snr_db;
     (*buffers->speed_penalty_db)[i] = 0.0f;
     (*buffers->detection_margin_db)[i] = detection_result.snr_db;
-    (*buffers->detection_succeeded)[i] = static_cast<std::uint8_t>(detection_result.detected ? 1U : 0U);
+    (*buffers->detection_succeeded)[i] =
+        static_cast<std::uint8_t>(detection_result.detected ? 1U : 0U);
     (*buffers->measurement_covariances)[i] = BuildMeasurementCovariance(
         (*buffers->target_geometry)[i], measurement_error.range_error_std_m,
-        measurement_error.angle_error_std_rad, runtime_config.tracking.kalman_measurement_noise_std);
-    (*buffers->measurement_covariances)[i] *=
-        ComputeMeasurementCovarianceInflation(runtime_config.jamming_effects, control_profile, environment_snapshot);
+        measurement_error.angle_error_std_rad,
+        runtime_config.tracking.kalman_measurement_noise_std);
+    (*buffers->measurement_covariances)[i] *= ComputeMeasurementCovarianceInflation(
+        runtime_config.jamming_effects, control_profile, environment_snapshot);
   }
 }
 

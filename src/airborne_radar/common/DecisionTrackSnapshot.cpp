@@ -1,8 +1,3 @@
-/**
- * @file DecisionTrackSnapshot.cpp
- * @brief DecisionTrackSnapshot 构造函数实现。
- */
-
 #include "1q/airborne_radar/common/DecisionTrackSnapshot.h"
 
 #include <cmath>

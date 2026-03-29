@@ -9,6 +9,9 @@ namespace internal {
 
 namespace {
 
+/** @brief 将环境层干扰源事实转换为 ECCM 干扰源信息。
+ *  @param environment_source 环境快照中的干扰源事实。
+ *  @return 填充后的 ECCM 干扰源信息。 */
 common::EccmJammerSourceInfo BuildEccmJammerSourceInfo(
     const environment::JammerSourceFact& environment_source) {
   common::EccmJammerSourceInfo source_info;
@@ -25,6 +28,10 @@ common::EccmJammerSourceInfo BuildEccmJammerSourceInfo(
   return source_info;
 }
 
+/** @brief 从目标特征构建决策航迹快照。
+ *  @param feature 目标特征数据。
+ *  @param index 目标在列表中的索引，用于生成无外部 ID 时的关联键。
+ *  @return 构建后的决策航迹快照，状态默认为 kConfirmed。 */
 common::DecisionTrackSnapshot BuildDecisionTrackSnapshotFromFeature(
     const common::TargetFeature& feature, std::size_t index) {
   const std::uint64_t association_key = feature.external_target_id != 0U

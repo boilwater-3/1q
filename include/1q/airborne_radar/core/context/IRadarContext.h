@@ -25,7 +25,10 @@ class ONEQ_API IRadarContext {
  public:
   virtual ~IRadarContext() = default;
 
-  /** @brief 获取当前周期的目标特征列表 */
+  /**
+   * @brief 获取当前周期的目标特征列表。
+   * @return 当前周期的目标特征列表。
+   */
   virtual common::TargetFeatureList GetTargetFeatures() const = 0;
 
   /**
@@ -42,13 +45,13 @@ class ONEQ_API IRadarContext {
 
   /**
    * @brief 提交（发射）一组战术动作命令给底座硬件或协调总线执行。
-   * @param cmd 单个被执行的控制器指令。
+   * @param[in] cmd 单个被执行的控制器指令。
    */
   virtual void SubmitControlCommand(common::RadarCommand cmd) = 0;
 
   /**
    * @brief 通知最新控制真值已生成。
-   * @param profile 下一周期控制真值。
+   * @param[in] profile 下一周期控制真值。
    */
   virtual void UpdateRadarControlProfile(const common::RadarControlProfile& profile) {
     (void)profile;

@@ -20,40 +20,61 @@ class ONEQ_API EnvironmentSceneBuilder {
   /** @brief 默认构造函数，使用 EnvironmentSceneState 默认值初始化 */
   EnvironmentSceneBuilder() = default;
 
-  /** @brief 设置基础传播损耗 */
+  /**
+   * @brief 设置基础传播损耗。
+   * @param[in] base_loss_db 基础传播损耗（单位：dB）。
+   */
   EnvironmentSceneBuilder& SetBasePropagationLossDb(float base_loss_db);
 
-  /** @brief 设置大气附加衰减 */
+  /**
+   * @brief 设置大气附加衰减。
+   * @param[in] atmospheric_loss_db 大气附加衰减（单位：dB）。
+   */
   EnvironmentSceneBuilder& SetAtmosphericAttenuationDb(float atmospheric_loss_db);
 
-  /** @brief 设置地形/多径附加项 */
+  /**
+   * @brief 设置地形/多径附加项。
+   * @param[in] terrain_loss_db 地形/多径附加项（单位：dB）。
+   */
   EnvironmentSceneBuilder& SetTerrainReflectionDb(float terrain_loss_db);
 
-  /** @brief 设置杂波功率 */
+  /**
+   * @brief 设置杂波功率。
+   * @param[in] clutter_power_db 杂波功率（单位：dB）。
+   */
   EnvironmentSceneBuilder& SetClutterPowerDb(float clutter_power_db);
 
-  /** @brief 追加一个完整的干扰源状态 */
+  /**
+   * @brief 追加一个完整的干扰源状态。
+   * @param[in] emitter 干扰源状态。
+   */
   EnvironmentSceneBuilder& AddJammer(const JammerEmitterState& emitter);
 
   /**
    * @brief 追加一个压制式/噪声式干扰源。
+   * @param[in] emitter 干扰源状态。
    * @note 无论 `emitter.technique` 的原始值如何，均会被强制覆盖为 `kNoiseSuppression`。
    */
   EnvironmentSceneBuilder& AddNoiseJammer(const JammerEmitterState& emitter);
 
   /**
    * @brief 追加一个欺骗式干扰源。
+   * @param[in] emitter 干扰源状态。
    * @note 无论 `emitter.technique` 的原始值如何，均会被强制覆盖为 `kDeception`。
    */
   EnvironmentSceneBuilder& AddDeceptionJammer(const JammerEmitterState& emitter);
 
   /**
    * @brief 追加一个转发式/重复器式干扰源。
+   * @param[in] emitter 干扰源状态。
    * @note 无论 `emitter.technique` 的原始值如何，均会被强制覆盖为 `kRepeater`。
    */
   EnvironmentSceneBuilder& AddRepeaterJammer(const JammerEmitterState& emitter);
 
-  /** @brief 生成当前构造结果 */
+  /**
+   * @brief 生成当前构造结果。
+   * @return 已构造的环境场景状态。
+   */
   EnvironmentSceneState Build() const;
 
  private:

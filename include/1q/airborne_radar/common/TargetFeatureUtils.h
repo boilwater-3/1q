@@ -16,15 +16,15 @@ namespace common {
 
 /**
  * @brief 根据雷达局部笛卡尔坐标构造单个目标。
- * @param external_target_id 外部目标标识符。
- * @param position_x 目标局部 x 坐标（米）。
- * @param position_y 目标局部 y 坐标（米）。
- * @param position_z 目标局部 z 坐标（米）。
- * @param velocity_x 目标速度 x 分量（m/s）。
- * @param velocity_y 目标速度 y 分量（m/s）。
- * @param velocity_z 目标速度 z 分量（m/s）。
- * @param rcs 目标 RCS（平方米）。
- * @param swerling_type 目标起伏模型编号。
+ * @param[in] external_target_id 外部目标标识符。
+ * @param[in] position_x 目标局部 x 坐标（米）。
+ * @param[in] position_y 目标局部 y 坐标（米）。
+ * @param[in] position_z 目标局部 z 坐标（米）。
+ * @param[in] velocity_x 目标速度 x 分量（m/s）。
+ * @param[in] velocity_y 目标速度 y 分量（m/s）。
+ * @param[in] velocity_z 目标速度 z 分量（m/s）。
+ * @param[in] rcs 目标 RCS（平方米）。
+ * @param[in] swerling_type 目标起伏模型编号。
  * @return 已写入位置、速度与斜距的目标特征。
  */
 ONEQ_API TargetFeature MakeTargetFromCartesian(std::uint64_t external_target_id, float position_x,
@@ -34,13 +34,13 @@ ONEQ_API TargetFeature MakeTargetFromCartesian(std::uint64_t external_target_id,
 
 /**
  * @brief 构造地面目标。
- * @param external_target_id 外部目标标识符。
- * @param position_x 目标局部 x 坐标（米）。
- * @param position_y 目标局部 y 坐标（米）。
- * @param rcs 目标 RCS（平方米）。
- * @param velocity_x 地面目标速度 x 分量（m/s）。
- * @param velocity_y 地面目标速度 y 分量（m/s）。
- * @param swerling_type 目标起伏模型编号。
+ * @param[in] external_target_id 外部目标标识符。
+ * @param[in] position_x 目标局部 x 坐标（米）。
+ * @param[in] position_y 目标局部 y 坐标（米）。
+ * @param[in] rcs 目标 RCS（平方米）。
+ * @param[in] velocity_x 地面目标速度 x 分量（m/s）。
+ * @param[in] velocity_y 地面目标速度 y 分量（m/s）。
+ * @param[in] swerling_type 目标起伏模型编号。
  * @return `z=0` 的目标特征。
  */
 ONEQ_API TargetFeature MakeGroundTarget(std::uint64_t external_target_id, float position_x,
@@ -49,15 +49,15 @@ ONEQ_API TargetFeature MakeGroundTarget(std::uint64_t external_target_id, float 
 
 /**
  * @brief 构造空中目标。
- * @param external_target_id 外部目标标识符。
- * @param position_x 目标局部 x 坐标（米）。
- * @param position_y 目标局部 y 坐标（米）。
- * @param position_z 目标局部 z 坐标（米）。
- * @param velocity_x 目标速度 x 分量（m/s）。
- * @param velocity_y 目标速度 y 分量（m/s）。
- * @param velocity_z 目标速度 z 分量（m/s）。
- * @param rcs 目标 RCS（平方米）。
- * @param swerling_type 目标起伏模型编号。
+ * @param[in] external_target_id 外部目标标识符。
+ * @param[in] position_x 目标局部 x 坐标（米）。
+ * @param[in] position_y 目标局部 y 坐标（米）。
+ * @param[in] position_z 目标局部 z 坐标（米）。
+ * @param[in] velocity_x 目标速度 x 分量（m/s）。
+ * @param[in] velocity_y 目标速度 y 分量（m/s）。
+ * @param[in] velocity_z 目标速度 z 分量（m/s）。
+ * @param[in] rcs 目标 RCS（平方米）。
+ * @param[in] swerling_type 目标起伏模型编号。
  * @return 已写入三维位置与斜距的目标特征。
  */
 ONEQ_API TargetFeature MakeAirTarget(std::uint64_t external_target_id, float position_x,
@@ -69,13 +69,13 @@ ONEQ_API TargetFeature MakeAirTarget(std::uint64_t external_target_id, float pos
  * @brief 规范化单个目标的几何派生量。
  * @details 当 `range_m <= 0` 且存在笛卡尔位置时，会按位置范数回填斜距；
  *          当 `range_m <= 0` 且位置全零时，不做静默修复。
- * @param target 目标特征指针，可为 nullptr。
+ * @param[in,out] target 目标特征指针，可为 nullptr。
  */
 ONEQ_API void NormalizeTargetGeometry(TargetFeature* target);
 
 /**
  * @brief 批量规范化目标几何派生量。
- * @param targets 目标特征列表指针，可为 nullptr。
+ * @param[in,out] targets 目标特征列表指针，可为 nullptr。
  */
 ONEQ_API void NormalizeTargetGeometry(TargetFeatureList* targets);
 

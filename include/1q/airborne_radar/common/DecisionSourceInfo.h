@@ -61,6 +61,10 @@ struct EccmSourceInfo {
 
   EccmSourceInfo() = default; /**< 默认构造函数 */
 
+  /**
+   * @brief 带参数构造函数。
+   * @param[in] has_jamming 当前周期是否检测到干扰信号。
+   */
   explicit EccmSourceInfo(bool has_jamming) /**< 带参数构造函数 */
       : has_jamming_signal(has_jamming) {}
 };

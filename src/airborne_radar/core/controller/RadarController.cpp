@@ -135,7 +135,6 @@ struct RadarController::Impl {
       runtime_state{};
   std::uint32_t cycle_index{1};
 
-  /** @brief 构造函数（默认决策引擎路径） */
   Impl(core::context::IRadarContext& ctx, signal::pipeline::ISignalPipeline& sig,
        environment::IEnvironmentService& env)
       : radar_context(ctx),
@@ -150,7 +149,6 @@ struct RadarController::Impl {
     decision_engine = owned_decision_engine.get();
   }
 
-  /** @brief 构造函数（外部决策引擎注入路径） */
   Impl(core::context::IRadarContext& ctx, signal::pipeline::ISignalPipeline& sig,
        decision::pipeline::ITacticalDecisionEngine& ext_engine,
        environment::IEnvironmentService& env)
@@ -162,10 +160,8 @@ struct RadarController::Impl {
         control_profile(*owned_control_profile),
         tactical_state_store(new decision::pipeline::TacticalStateStore()),
         control_reducer(new decision::pipeline::ControlReducer()),
-        output_manager(new output::DataOutputManager()) {
-  }
+        output_manager(new output::DataOutputManager()) {}
 
-  /** @brief 执行控制指令列表 */
   void ExecuteCommands(const std::vector<common::ControlDirective>& directives) {
     for (std::size_t i = 0; i < directives.size(); ++i) {
       const common::RadarCommand command = ToRadarCommand(directives[i]);
@@ -240,7 +236,8 @@ void RadarController::RunOnce() {
 
       const decision::pipeline::ControlReductionResult reduction_result =
           impl->control_reducer != nullptr
-              ? impl->control_reducer->Reduce(impl->control_profile.get(), decision_result.proposals)
+              ? impl->control_reducer->Reduce(impl->control_profile.get(),
+                                              decision_result.proposals)
               : decision::pipeline::ControlReductionResult();
       impl->control_profile.get() = reduction_result.profile;
       impl->radar_context.UpdateRadarControlProfile(impl->control_profile.get());
@@ -259,7 +256,8 @@ void RadarController::RunOnce() {
           stamp.cycle_index, stamp.batch_id, input.target_features.size(),
           decision_frame.tracks.size(), reduction_result.applied_directives.size(),
           decision_frame.environment_jamming_detected ? "true" : "false",
-          impl->control_profile.get().version, decision_frame.perception_quality_info.detection_rate,
+          impl->control_profile.get().version,
+          decision_frame.perception_quality_info.detection_rate,
           decision_frame.perception_quality_info.detection_stress,
           association_metrics.prior_track_count, association_metrics.detection_count,
           association_metrics.matched_count, association_metrics.new_track_count,

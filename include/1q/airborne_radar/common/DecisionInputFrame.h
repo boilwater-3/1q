@@ -56,7 +56,9 @@ struct DecisionInputFrame {
 
   DecisionInputFrame() = default; /**< 默认构造 */
 
-  /** @brief 使用轨迹集合构造输入帧 */
+  /** @brief 使用轨迹集合构造输入帧。
+   * @param[in] track_snapshots 轨迹快照列表。
+   */
   explicit DecisionInputFrame(const DecisionTrackSnapshotList& track_snapshots)
       : tracks(track_snapshots) {}
 };

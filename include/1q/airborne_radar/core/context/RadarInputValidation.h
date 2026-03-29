@@ -54,14 +54,14 @@ struct ValidationIssue {
 
 /**
  * @brief 校验完整周期输入。
- * @param input 当前周期输入。
+ * @param[in] input 当前周期输入。
  * @return 按发现顺序返回的校验问题列表。
  */
 ONEQ_API std::vector<ValidationIssue> ValidateRadarCycleInput(const RadarCycleInput& input);
 
 /**
  * @brief 校验目标特征列表。
- * @param targets 当前周期目标列表。
+ * @param[in] targets 当前周期目标列表。
  * @return 按发现顺序返回的校验问题列表。
  */
 ONEQ_API std::vector<ValidationIssue> ValidateTargetFeatures(
@@ -69,7 +69,7 @@ ONEQ_API std::vector<ValidationIssue> ValidateTargetFeatures(
 
 /**
  * @brief 判断是否包含 error 级别问题。
- * @param issues 校验问题列表。
+ * @param[in] issues 校验问题列表。
  * @return 至少存在一个 `kError` 时返回 true。
  */
 ONEQ_API bool HasValidationError(const std::vector<ValidationIssue>& issues);

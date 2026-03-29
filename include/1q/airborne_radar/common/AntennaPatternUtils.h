@@ -18,8 +18,8 @@ namespace antenna_pattern_internal {
 
 /**
  * @brief 对浮点值执行下限保护。
- * @param value 原始值。
- * @param min_value 下限。
+ * @param[in] value 原始值。
+ * @param[in] min_value 下限。
  * @return 不小于下限的结果。
  */
 inline float ClampLowerBound(float value, float min_value) {
@@ -28,7 +28,7 @@ inline float ClampLowerBound(float value, float min_value) {
 
 /**
  * @brief 判断给定离轴角是否位于后瓣区域。
- * @param offset_deg 目标相对当前波束中心的离轴角。
+ * @param[in] offset_deg 目标相对当前波束中心的离轴角。
  * @return 若任一轴绝对离轴角超过 90 度，则视为后瓣区域。
  */
 inline bool IsInsideBackLobe(const AntennaLookOffsetDeg& offset_deg) {
@@ -39,8 +39,8 @@ inline bool IsInsideBackLobe(const AntennaLookOffsetDeg& offset_deg) {
 
 /**
  * @brief 判断目标是否位于主瓣范围内。
- * @param beamwidth_deg 用于评估的有效波束宽度。
- * @param offset_deg 目标相对当前波束中心的离轴角。
+ * @param[in] beamwidth_deg 用于评估的有效波束宽度。
+ * @param[in] offset_deg 目标相对当前波束中心的离轴角。
  * @return 若方位与俯仰离轴角均不超过对应半功率波束半宽，则返回 true。
  */
 inline bool IsInsideMainLobe(const AntennaPatternBeamwidthDeg& beamwidth_deg,
@@ -55,9 +55,9 @@ inline bool IsInsideMainLobe(const AntennaPatternBeamwidthDeg& beamwidth_deg,
 
 /**
  * @brief 计算指定离轴角下的主瓣衰减。
- * @param config 天线方向图配置。
- * @param beamwidth_deg 用于评估的有效波束宽度。
- * @param offset_deg 目标相对当前波束中心的离轴角。
+ * @param[in] config 天线方向图配置。
+ * @param[in] beamwidth_deg 用于评估的有效波束宽度。
+ * @param[in] offset_deg 目标相对当前波束中心的离轴角。
  * @return 主瓣离轴衰减（单位：dB）。
  */
 inline float ComputeMainLobeAttenuationDb(const AntennaPatternConfig& config,
@@ -102,8 +102,8 @@ inline float ComputeMainLobeAttenuationDb(const AntennaPatternConfig& config,
 
 /**
  * @brief 计算当前扫描中心下的扫描损失。
- * @param config 天线方向图配置。
- * @param scan_center_deg 当前扫描中心方向。
+ * @param[in] config 天线方向图配置。
+ * @param[in] scan_center_deg 当前扫描中心方向。
  * @return 扫描损失（单位：dB）。
  */
 inline float ComputeScanLossDb(const AntennaPatternConfig& config,
@@ -119,11 +119,11 @@ inline float ComputeScanLossDb(const AntennaPatternConfig& config,
 
 /**
  * @brief 评估指定方向上的天线方向图结果。
- * @param peak_gain_dbi 波束中心峰值增益（单位：dBi）。
- * @param config 天线方向图配置。
- * @param beamwidth_deg 用于评估的有效波束宽度。
- * @param offset_deg 目标相对当前波束中心的离轴角。
- * @param scan_center_deg 当前扫描中心方向。
+ * @param[in] peak_gain_dbi 波束中心峰值增益（单位：dBi）。
+ * @param[in] config 天线方向图配置。
+ * @param[in] beamwidth_deg 用于评估的有效波束宽度。
+ * @param[in] offset_deg 目标相对当前波束中心的离轴角。
+ * @param[in] scan_center_deg 当前扫描中心方向。
  * @return 方向图采样结果。
  * @note 主瓣内返回峰值增益扣除主瓣衰减与扫描损失；
  *       主瓣外返回固定旁瓣电平；

@@ -26,12 +26,13 @@ namespace internal {
  * @brief 探测阶段输出缓存视图。
  */
 struct DetectionExecutionBuffers {
-  std::vector<detection::ResolvedTargetGeometry>* target_geometry{nullptr};
-  std::vector<float>* signal_term_db{nullptr};
-  std::vector<float>* speed_penalty_db{nullptr};
-  std::vector<float>* detection_margin_db{nullptr};
-  std::vector<std::uint8_t>* detection_succeeded{nullptr};
-  std::vector<tracking::MeasurementCovariance>* measurement_covariances{nullptr};
+  std::vector<detection::ResolvedTargetGeometry>* target_geometry{nullptr}; /**< 各目标几何信息 */
+  std::vector<float>* signal_term_db{nullptr};             /**< 各目标信号项（dB） */
+  std::vector<float>* speed_penalty_db{nullptr};           /**< 各目标速度惩罚项（dB） */
+  std::vector<float>* detection_margin_db{nullptr};        /**< 各目标探测裕量（dB） */
+  std::vector<std::uint8_t>* detection_succeeded{nullptr}; /**< 各目标探测成功标志 */
+  std::vector<tracking::MeasurementCovariance>* measurement_covariances{
+      nullptr}; /**< 各目标量测协方差 */
 };
 
 void RunHeuristicDetectionPass(const common::TargetFeatureList& input,

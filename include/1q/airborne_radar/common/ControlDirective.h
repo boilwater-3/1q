@@ -43,7 +43,11 @@ struct ControlDirective {
 
   ControlDirective() = default; /**< 默认构造 */
 
-  /** @brief 便捷构造 */
+  /**
+   * @brief 便捷构造控制意图。
+   * @param[in] directive_type 控制意图类型。
+   * @param[in] directive_source 控制意图来源。
+   */
   ControlDirective(ControlDirectiveType directive_type, ControlDirectiveSource directive_source)
       : type(directive_type), source(directive_source) {}
 };

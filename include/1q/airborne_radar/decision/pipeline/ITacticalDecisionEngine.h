@@ -53,6 +53,12 @@ struct TacticalProposal {
 
   TacticalProposal() = default;
 
+  /**
+   * @brief 构造战术建议。
+   * @param[in] proposal_directive 控制意图。
+   * @param[in] proposal_priority 建议优先级，数值越大优先级越高。
+   * @param[in] proposal_rationale 生成原因。
+   */
   TacticalProposal(const common::ControlDirective& proposal_directive, int proposal_priority,
                    const std::string& proposal_rationale)
       : directive(proposal_directive), priority(proposal_priority), rationale(proposal_rationale) {}
@@ -76,6 +82,9 @@ class ONEQ_API ITacticalDecisionEngine {
 
   /**
    * @brief 在单周期输入帧和跨周期战术内存上执行决策。
+   * @param[in] input_frame 当前周期决策输入帧。
+   * @param[in,out] state_store 跨周期战术内存，决策执行过程中会更新。
+   * @return 当前周期决策输出结果。
    */
   virtual TacticalDecisionResult Evaluate(const common::DecisionInputFrame& input_frame,
                                           TacticalStateStore& state_store) = 0;

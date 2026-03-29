@@ -39,7 +39,7 @@ class ONEQ_API TargetFeatureBuilder {
  public:
   /**
    * @brief 构造函数，需提供外部目标标识符。
-   * @param external_target_id 外部目标标识符（0 表示未知/未提供）。
+   * @param[in] external_target_id 外部目标标识符（0 表示未知/未提供）。
    */
   explicit TargetFeatureBuilder(std::uint64_t external_target_id) {
     target_.external_target_id = external_target_id;
@@ -47,6 +47,9 @@ class ONEQ_API TargetFeatureBuilder {
 
   /**
    * @brief 设置雷达局部坐标系三维位置（单位：m）。
+   * @param[in] x x 坐标。
+   * @param[in] y y 坐标。
+   * @param[in] z z 坐标。
    */
   TargetFeatureBuilder& Position(float x, float y, float z) {
     target_.position_x = x;
@@ -58,6 +61,9 @@ class ONEQ_API TargetFeatureBuilder {
 
   /**
    * @brief 设置目标速度向量（单位：m/s）。
+   * @param[in] vx 速度 x 分量。
+   * @param[in] vy 速度 y 分量。
+   * @param[in] vz 速度 z 分量。
    */
   TargetFeatureBuilder& Velocity(float vx, float vy, float vz) {
     target_.current_track_velocity_x = vx;
@@ -68,6 +74,7 @@ class ONEQ_API TargetFeatureBuilder {
 
   /**
    * @brief 设置目标 RCS（单位：m^2）。默认 1.0f。
+   * @param[in] rcs 目标 RCS 值。
    */
   TargetFeatureBuilder& Rcs(float rcs) {
     target_.current_track_rcs = rcs;
@@ -76,6 +83,7 @@ class ONEQ_API TargetFeatureBuilder {
 
   /**
    * @brief 设置目标起伏模型编号（Swerling type）。默认 0。
+   * @param[in] swerling_type Swerling 起伏模型编号。
    */
   TargetFeatureBuilder& SwerlingType(int swerling_type) {
     target_.target_swerling_type = swerling_type;

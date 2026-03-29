@@ -44,7 +44,11 @@ struct RadarCommand {
 
   RadarCommand() = default; /**< 默认构造函数，初始化为无操作指令 */
 
-  /** @brief 构造函数，初始化指令类型和来源 */
+  /**
+   * @brief 构造指令。
+   * @param[in] cmd_type 指令类型。
+   * @param[in] cmd_source 指令来源模块。
+   */
   RadarCommand(RadarCommandType cmd_type, RadarCommandSource cmd_source)
       : type(cmd_type), source(cmd_source) {}
 };

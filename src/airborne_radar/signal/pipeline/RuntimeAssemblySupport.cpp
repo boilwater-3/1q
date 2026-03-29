@@ -44,6 +44,11 @@ class AutoConfiguredLifecycleManager final : public tracking::ITrackLifecycleMan
   LifecycleAssemblyArtifacts assembly_;
 };
 
+/**
+ * @brief 检查自有组件槽位是否全部持有有效指针。
+ * @param slots  待检查的组件槽位集合。
+ * @return 所有必需组件均非空时返回 true，否则返回 false。
+ */
 bool HasValidOwnedComponentSlots(const OwnedComponentSlots& slots) {
   return slots.kalman_predictor != nullptr && slots.kalman_updater != nullptr &&
          slots.signal_detector != nullptr && slots.auto_lifecycle_manager != nullptr;
@@ -82,8 +87,7 @@ void RebuildOwnedComponentsForPipeline(const SignalPipelineConfig& base_config,
 
   const SignalPipelineConfig runtime_config =
       BuildRuntimeConfigFromControlProfile(base_config, control_profile);
-  *slots->auto_lifecycle_manager =
-      CreateAutoLifecycleManagerForRuntimeConfig(runtime_config);
+  *slots->auto_lifecycle_manager = CreateAutoLifecycleManagerForRuntimeConfig(runtime_config);
 }
 
 }  // namespace internal

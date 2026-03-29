@@ -12,6 +12,9 @@ namespace internal {
 
 namespace {
 
+/** @brief 根据干扰语义计算关联脆弱性权重。
+ *  @param semantic 主导干扰语义类型。
+ *  @return 脆弱性权重，范围 [0, 1]，欺骗类干扰权重最高。 */
 float ResolveAssociationFragilityWeight(common::JammingSemantic semantic) {
   switch (semantic) {
     case common::JammingSemantic::kDeception:
@@ -28,6 +31,12 @@ float ResolveAssociationFragilityWeight(common::JammingSemantic semantic) {
   }
 }
 
+/** @brief 将关联域质量度量转换为流水线层关联质量度量。
+ *  @param source 关联域原始质量度量。
+ *  @param dominant_jamming_semantic 主导干扰语义类型。
+ *  @param jamming_severity 干扰严重程度，范围 [0, 1]。
+ *  @param association_unassigned_cost 未分配代价，用于归一化代价压力。
+ *  @return 包含关联压力计算的流水线层关联质量度量。 */
 AssociationQualityMetrics ToPipelineAssociationQualityMetrics(
     const association::AssociationQualityMetrics& source,
     common::JammingSemantic dominant_jamming_semantic, float jamming_severity,
@@ -61,6 +70,9 @@ AssociationQualityMetrics ToPipelineAssociationQualityMetrics(
   return metrics;
 }
 
+/** @brief 根据雷达控制配置计算生命周期额外漏检容忍次数。
+ *  @param control_profile 雷达控制配置文件。
+ *  @return 额外漏检容忍次数，ECCM 相关功能启用时累加。 */
 std::uint32_t ResolveLifecycleExtraMissTolerance(
     const common::RadarControlProfile& control_profile) {
   std::uint32_t extra_miss_tolerance = 0U;
@@ -76,17 +88,20 @@ std::uint32_t ResolveLifecycleExtraMissTolerance(
 
 }  // namespace
 
-void CollectCycleOutputs(
-    const common::RadarControlProfile& control_profile, std::uint32_t cycle_index,
-    std::uint64_t batch_id, const SignalPipelineConfig& runtime_config,
-    const environment::EnvironmentSnapshot& environment_snapshot,
-    const common::TargetFeatureList& input_state, const common::TargetFeatureList& output_state,
-    const association::AssociationResult& association_result,
-    const std::vector<tracking::TrackMeasurement>& track_measurements,
-    core::output::IDataOutputManager* output_manager,
-    tracking::ITrackLifecycleManager* auto_lifecycle_manager,
-    AssociationQualityMetrics* association_quality_metrics, common::DecisionInputFrame* decision_frame) {
-  if (output_manager == nullptr || association_quality_metrics == nullptr || decision_frame == nullptr) {
+void CollectCycleOutputs(const common::RadarControlProfile& control_profile,
+                         std::uint32_t cycle_index, std::uint64_t batch_id,
+                         const SignalPipelineConfig& runtime_config,
+                         const environment::EnvironmentSnapshot& environment_snapshot,
+                         const common::TargetFeatureList& input_state,
+                         const common::TargetFeatureList& output_state,
+                         const association::AssociationResult& association_result,
+                         const std::vector<tracking::TrackMeasurement>& track_measurements,
+                         core::output::IDataOutputManager* output_manager,
+                         tracking::ITrackLifecycleManager* auto_lifecycle_manager,
+                         AssociationQualityMetrics* association_quality_metrics,
+                         common::DecisionInputFrame* decision_frame) {
+  if (output_manager == nullptr || association_quality_metrics == nullptr ||
+      decision_frame == nullptr) {
     return;
   }
 
@@ -123,9 +138,8 @@ void CollectCycleOutputs(
 
   /* 遗留降级路径：仅当 auto_lifecycle_manager 未配置（禁用自动生命周期）时执行。
    * 生产配置下 auto_lifecycle_manager 始终非空，此路径在正常运行中不可达。 */
-  const common::TrackOutputFrame track_output_frame =
-      output_manager->BuildTrackOutputFrame(cycle_index, batch_id,
-                                            BuildDecisionSnapshotsFromFeatures(output_state));
+  const common::TrackOutputFrame track_output_frame = output_manager->BuildTrackOutputFrame(
+      cycle_index, batch_id, BuildDecisionSnapshotsFromFeatures(output_state));
   *decision_frame = output_manager->BuildDecisionInputFrame(
       track_output_frame, eccm_source_info, association_quality_info, perception_quality_info);
 }

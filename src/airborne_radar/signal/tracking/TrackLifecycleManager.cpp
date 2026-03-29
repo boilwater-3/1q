@@ -161,12 +161,6 @@ bool TrackLifecycleManager::ShouldUseImmForMiss(
 
   return status_before_prediction == common::TrackStatus::kConfirmed;
 }
-/**
- * @brief 获取或创建指定 key 的 IMM 运行态。
- * @param association_key 关联键。
- * @param initial_state 初始化状态。
- * @return IMM 运行态指针；创建失败时返回 nullptr。
- */
 ImmFilter* TrackLifecycleManager::GetOrCreateImmFilter(std::uint64_t association_key,
                                                        const GaussianTrackState& initial_state) {
   std::unordered_map<std::uint64_t, std::unique_ptr<ImmFilter>>::iterator found =
@@ -191,11 +185,6 @@ ImmFilter* TrackLifecycleManager::GetOrCreateImmFilter(std::uint64_t association
   imm_filters_by_key_[association_key] = std::move(filter);
   return filter_ptr;
 }
-/**
- * @brief 查找指定 key 的 IMM 运行态。
- * @param association_key 关联键。
- * @return 命中时返回运行态指针，否则返回 nullptr。
- */
 ImmFilter* TrackLifecycleManager::FindImmFilter(std::uint64_t association_key) const {
   std::unordered_map<std::uint64_t, std::unique_ptr<ImmFilter>>::const_iterator found =
       imm_filters_by_key_.find(association_key);
@@ -204,13 +193,6 @@ ImmFilter* TrackLifecycleManager::FindImmFilter(std::uint64_t association_key) c
   }
   return found->second.get();
 }
-/**
- * @brief 将高斯状态回写至轨迹状态。
- * @param track 轨迹对象。
- * @param state 高斯状态。
- * @param previous_velocity 回写前速度。
- * @param dt 时间步长（秒）。
- */
 void TrackLifecycleManager::ApplyGaussianState(common::TrackState& track,
                                                const GaussianTrackState& state,
                                                const Eigen::Vector3f& previous_velocity,
@@ -375,8 +357,7 @@ void TrackLifecycleManager::EnsurePhase(LifecycleUpdateScratch& scratch,
   }
 }
 
-void TrackLifecycleManager::ComputePhase(LifecycleUpdateScratch& scratch,
-                                         const CycleContext& cycle,
+void TrackLifecycleManager::ComputePhase(LifecycleUpdateScratch& scratch, const CycleContext& cycle,
                                          float effective_dt_sec) const {
   for (std::vector<TrackUpdateWorkItem>::const_iterator it = scratch.work_items.begin();
        it != scratch.work_items.end(); ++it) {
@@ -503,8 +484,7 @@ float TrackLifecycleManager::ResolveEffectiveCycleDeltaTimeSec(const CycleContex
       cycle.dt_sec);
 
   if (last_cycle_index_ > 0 && cycle.cycle_index > last_cycle_index_) {
-    return static_cast<float>(cycle.cycle_index - last_cycle_index_) *
-           config_.nominal_cycle_dt_sec;
+    return static_cast<float>(cycle.cycle_index - last_cycle_index_) * config_.nominal_cycle_dt_sec;
   }
   return config_.nominal_cycle_dt_sec;
 }
@@ -556,10 +536,10 @@ common::DecisionTrackSnapshotList TrackLifecycleManager::BuildDecisionSnapshot()
   common::DecisionTrackSnapshotList snapshots;
   snapshots.reserve(tracks_by_key_.size());
   ForEachActiveTrack([&](std::uint64_t key, const common::TrackState& track) {
-    common::DecisionTrackSnapshot snapshot(
-        track.velocity(0), track.velocity(1), track.velocity(2), track.rcs,
-        track.acceleration(0), track.acceleration(1), track.acceleration(2),
-        track.jamming_detected, track.external_target_id, key);
+    common::DecisionTrackSnapshot snapshot(track.velocity(0), track.velocity(1), track.velocity(2),
+                                           track.rcs, track.acceleration(0), track.acceleration(1),
+                                           track.acceleration(2), track.jamming_detected,
+                                           track.external_target_id, key);
     snapshot.state.status = ToDecisionTrackStatus(track.status);
     snapshot.state.position_x = track.position(0);
     snapshot.state.position_y = track.position(1);

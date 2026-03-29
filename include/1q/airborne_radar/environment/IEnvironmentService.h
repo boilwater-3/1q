@@ -19,10 +19,16 @@ class ONEQ_API IEnvironmentService {
  public:
   virtual ~IEnvironmentService() = default;
 
-  /** @brief 冻结当前周期环境事实，供后续只读采样复用 */
+  /**
+   * @brief 冻结当前周期环境事实，供后续只读采样复用。
+   * @param[in] cycle_context 当前周期的冻结上下文，包含周期号与步长。
+   */
   virtual void BeginCycle(const EnvironmentCycleContext& cycle_context) = 0;
 
-  /** @brief 采样并返回当前处理周期的环境条件 */
+  /**
+   * @brief 采样并返回当前处理周期的环境条件。
+   * @return 当前周期的环境快照，包含传播损耗、杂波/干扰功率等信息。
+   */
   virtual EnvironmentSnapshot SampleEnvironment() const = 0;
 };
 

@@ -136,17 +136,21 @@ bool HasDetailedEccmFacts(const common::EccmSourceInfo& source_info) {
          source_info.prf_lock_risk > 0.0f || source_info.jammer_in_sidelobe;
 }
 
+/**
+ * @brief ECCM 提案评分与关联偏置的中间累加状态。
+ */
 struct EccmProposalSelection {
-  float sidelobe_canceller_score{0.0f};
-  float adaptive_beamforming_score{0.0f};
-  float agility_frequency_score{0.0f};
-  float eccm_rejitter_score{0.0f};
-  float burnthrough_gain_score{0.0f};
-  bool has_credible_multisource_evidence{false};
-  bool association_supports_beam_adaptation{false};
-  bool association_supports_frequency_agility{false};
-  bool association_supports_rejitter{false};
-  common::JammingSemantic association_semantic{common::JammingSemantic::kNone};
+  float sidelobe_canceller_score{0.0f};               /**< 旁瓣对消累计评分 */
+  float adaptive_beamforming_score{0.0f};             /**< 自适应波束形成累计评分 */
+  float agility_frequency_score{0.0f};                /**< 频率捷变累计评分 */
+  float eccm_rejitter_score{0.0f};                    /**< 重频抖动累计评分 */
+  float burnthrough_gain_score{0.0f};                 /**< 烧穿增益累计评分 */
+  bool has_credible_multisource_evidence{false};      /**< 是否存在可信多源干扰证据 */
+  bool association_supports_beam_adaptation{false};   /**< 关联压力是否支持波束自适应 */
+  bool association_supports_frequency_agility{false}; /**< 关联压力是否支持频率捷变 */
+  bool association_supports_rejitter{false};          /**< 关联压力是否支持重频抖动 */
+  common::JammingSemantic association_semantic{
+      common::JammingSemantic::kNone}; /**< 关联压力对应的干扰语义 */
 };
 /**
  * @brief 根据评分增益调整控制意图优先级。

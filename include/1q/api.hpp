@@ -1,3 +1,8 @@
+/**
+ * @file api.hpp
+ * @brief 提供跨平台导出宏定义与 CMake 生成头文件的兼容回退。
+ */
+
 #ifndef ONEQ_API_HPP_
 #define ONEQ_API_HPP_
 

@@ -14,15 +14,36 @@ namespace signal {
 namespace pipeline {
 namespace internal {
 
+/**
+ * @brief 将环境快照转换为决策层 ECCM 输入摘要。
+ * @param[in] environment_snapshot 当前周期环境快照。
+ * @return 供决策层消费的 ECCM 输入摘要。
+ */
 common::EccmSourceInfo BuildEccmSourceInfo(
     const environment::EnvironmentSnapshot& environment_snapshot);
 
+/**
+ * @brief 将 Pipeline 关联质量指标转换为决策层质量摘要。
+ * @param[in] metrics Pipeline 对外关联质量指标。
+ * @return 决策层消费的关联质量摘要。
+ */
 common::AssociationQualityInfo BuildAssociationQualityInfo(
     const AssociationQualityMetrics& metrics);
 
+/**
+ * @brief 构造当前周期探测质量摘要。
+ * @param[in] input_target_count 当前周期输入目标数。
+ * @param[in] metrics 当前周期关联质量指标。
+ * @return 决策层消费的探测质量摘要。
+ */
 common::PerceptionQualityInfo BuildPerceptionQualityInfo(std::size_t input_target_count,
                                                          const AssociationQualityMetrics& metrics);
 
+/**
+ * @brief 将目标特征列表转换为决策轨迹快照列表。
+ * @param[in] features 输入目标特征列表。
+ * @return 对应的决策轨迹快照列表。
+ */
 common::DecisionTrackSnapshotList BuildDecisionSnapshotsFromFeatures(
     const common::TargetFeatureList& features);
 

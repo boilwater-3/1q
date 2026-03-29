@@ -9,6 +9,12 @@ namespace internal {
 
 namespace {
 
+/**
+ * @brief 在关联结果中查找指定目标的匹配项。
+ * @param result  关联结果，包含所有匹配记录。
+ * @param target_index  待查找的目标索引。
+ * @return 指向匹配项的指针，未找到时返回 nullptr。
+ */
 const association::AssociationMatch* FindAssociationMatch(
     const association::AssociationResult& result, std::size_t target_index) {
   for (const association::AssociationMatch& match : result.matches) {
@@ -19,6 +25,11 @@ const association::AssociationMatch* FindAssociationMatch(
   return nullptr;
 }
 
+/**
+ * @brief 解算目标的速度标量值。
+ * @param target  目标特征数据。
+ * @return 当三维速度分量非零时返回其模长，否则返回记录的速度标量。
+ */
 float ResolveSpeedMagnitude(const common::TargetFeature& target) {
   const Eigen::Vector3f velocity(target.current_track_velocity_x, target.current_track_velocity_y,
                                  target.current_track_velocity_z);
@@ -28,6 +39,11 @@ float ResolveSpeedMagnitude(const common::TargetFeature& target) {
   return target.current_track_speed;
 }
 
+/**
+ * @brief 解算目标的三维速度矢量。
+ * @param target  目标特征数据。
+ * @return 当三维速度分量非零时返回对应矢量，否则沿 X 轴方向构造矢量。
+ */
 Eigen::Vector3f ResolveVelocityVector(const common::TargetFeature& target) {
   const Eigen::Vector3f velocity(target.current_track_velocity_x, target.current_track_velocity_y,
                                  target.current_track_velocity_z);
@@ -56,7 +72,8 @@ void BuildTrackMeasurementsPass(const TrackMeasurementBuildContext& context) {
       continue;
     }
 
-    const association::AssociationMatch* match = FindAssociationMatch(*context.association_result, i);
+    const association::AssociationMatch* match =
+        FindAssociationMatch(*context.association_result, i);
     tracking::TrackMeasurement measurement;
     measurement.raw_measurement.source_index = i;
     measurement.raw_measurement.external_target_id = (*context.input)[i].external_target_id;
@@ -68,7 +85,8 @@ void BuildTrackMeasurementsPass(const TrackMeasurementBuildContext& context) {
     measurement.raw_measurement.used_external_association_seeds =
         context.association_result->used_external_association_seeds;
     measurement.raw_measurement.detection_margin_db = (*context.detection_margin_db)[i];
-    measurement.raw_measurement.has_cartesian_position = (*context.target_geometry)[i].has_cartesian_position;
+    measurement.raw_measurement.has_cartesian_position =
+        (*context.target_geometry)[i].has_cartesian_position;
     measurement.raw_measurement.position = measurement.raw_measurement.has_cartesian_position
                                                ? (*context.target_geometry)[i].position_m
                                                : Eigen::Vector3f::Zero();
@@ -83,9 +101,10 @@ void BuildTrackMeasurementsPass(const TrackMeasurementBuildContext& context) {
 }
 
 void ApplyTrackFilterPass(const TrackFilterApplyContext& context) {
-  if (context.input == nullptr || context.output == nullptr || context.detection_succeeded == nullptr ||
-      context.detection_margin_db == nullptr || context.track_filter == nullptr ||
-      context.measurement_slots == nullptr || context.track_measurements == nullptr) {
+  if (context.input == nullptr || context.output == nullptr ||
+      context.detection_succeeded == nullptr || context.detection_margin_db == nullptr ||
+      context.track_filter == nullptr || context.measurement_slots == nullptr ||
+      context.track_measurements == nullptr) {
     return;
   }
 

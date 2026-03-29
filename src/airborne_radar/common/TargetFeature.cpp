@@ -1,8 +1,3 @@
-/**
- * @file TargetFeature.cpp
- * @brief TargetFeature 构造函数实现。
- */
-
 #include "1q/airborne_radar/common/TargetFeature.h"
 
 #include <cmath>
@@ -11,7 +6,7 @@ namespace airborne_radar {
 namespace common {
 
 TargetFeature::TargetFeature(float velocity_x, float velocity_y, float velocity_z, float rcs,
-                              float range, int swerling_type, std::uint64_t ext_target_id)
+                             float range, int swerling_type, std::uint64_t ext_target_id)
     : external_target_id(ext_target_id),
       current_track_velocity_x(velocity_x),
       current_track_velocity_y(velocity_y),
