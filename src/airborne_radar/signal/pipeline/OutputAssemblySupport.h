@@ -11,7 +11,7 @@
 
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
-#include "airborne_radar/core/output/IDataOutputManager.h"
+#include "airborne_radar/signal/output/IDataOutputManager.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 
@@ -44,7 +44,7 @@ void CollectCycleOutputs(const common::RadarControlProfile& control_profile,
                          const common::TargetFeatureList& output_state,
                          const association::AssociationResult& association_result,
                          const std::vector<tracking::TrackMeasurement>& track_measurements,
-                         core::output::IDataOutputManager* output_manager,
+                         signal::output::IDataOutputManager* output_manager,
                          tracking::ITrackLifecycleManager* auto_lifecycle_manager,
                          AssociationQualityMetrics* association_quality_metrics,
                          common::DecisionInputFrame* decision_frame);

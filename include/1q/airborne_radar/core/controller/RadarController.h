@@ -10,6 +10,7 @@
 #include <memory>
 
 #include "1q/airborne_radar/common/TrackOutputFrame.h"
+#include "1q/airborne_radar/core/context/RadarInputValidation.h"
 #include "1q/airborne_radar/core/output/IRadarOutputReader.h"
 #include "1q/airborne_radar/decision/pipeline/ControlReducerTypes.h"
 #include "1q/api.hpp"
@@ -105,6 +106,18 @@ class ONEQ_API RadarController : public core::output::IRadarOutputReader {
    * @return 最近一次运行周期产生的轨迹输出帧引用。
    */
   const common::TrackOutputFrame& GetLatestTrackOutputFrame() const override;
+
+  /**
+   * @brief 获取最近一次输入校验问题列表。
+   * @return 最近一次 RunOnce 记录的校验问题。
+   */
+  const context::ValidationIssueList& GetLastValidationIssues() const;
+
+  /**
+   * @brief 判断最近一次输入校验是否存在 error 级问题。
+   * @return 若存在 error 级问题则返回 true。
+   */
+  bool HasValidationError() const;
 
  private:
   struct Impl;

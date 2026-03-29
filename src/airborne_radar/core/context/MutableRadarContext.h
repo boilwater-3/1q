@@ -76,9 +76,9 @@ class MutableRadarContext final : public IRadarContext {
 
   /**
    * @brief 获取当前周期的目标特征列表。
-   * @return 当前周期的目标特征列表副本。
+   * @return 当前周期的目标特征列表只读引用。
    */
-  common::TargetFeatureList GetTargetFeatures() const override;
+  const common::TargetFeatureList& GetTargetFeatures() const override;
 
   /**
    * @brief 获取当前平台姿态角。

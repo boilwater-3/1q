@@ -34,7 +34,7 @@ class ScenarioRadarContext : public core::context::IRadarContext {
   explicit ScenarioRadarContext(common::TargetFeatureList target_features = {})
       : target_features_(std::move(target_features)) {}
 
-  common::TargetFeatureList GetTargetFeatures() const override { return target_features_; }
+  const common::TargetFeatureList& GetTargetFeatures() const override { return target_features_; }
 
   common::PlatformAttitudeDeg GetPlatformAttitude() const override {
     return platform_attitude_deg_;

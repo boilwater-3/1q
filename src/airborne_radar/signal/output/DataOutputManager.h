@@ -3,13 +3,13 @@
  * @brief 定义默认数据输出管理服务实现。
  */
 
-#ifndef AIRBORNE_RADAR_CORE_OUTPUT_DATA_OUTPUT_MANAGER_H_
-#define AIRBORNE_RADAR_CORE_OUTPUT_DATA_OUTPUT_MANAGER_H_
+#ifndef AIRBORNE_RADAR_SIGNAL_OUTPUT_DATA_OUTPUT_MANAGER_H_
+#define AIRBORNE_RADAR_SIGNAL_OUTPUT_DATA_OUTPUT_MANAGER_H_
 
-#include "airborne_radar/core/output/IDataOutputManager.h"
+#include "airborne_radar/signal/output/IDataOutputManager.h"
 
 namespace airborne_radar {
-namespace core {
+namespace signal {
 namespace output {
 
 /**
@@ -44,7 +44,7 @@ class DataOutputManager : public IDataOutputManager {
 };
 
 }  // namespace output
-}  // namespace core
+}  // namespace signal
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_CORE_OUTPUT_DATA_OUTPUT_MANAGER_H_
+#endif  // AIRBORNE_RADAR_SIGNAL_OUTPUT_DATA_OUTPUT_MANAGER_H_

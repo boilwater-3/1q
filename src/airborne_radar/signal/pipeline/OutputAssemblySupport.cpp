@@ -96,7 +96,7 @@ void CollectCycleOutputs(const common::RadarControlProfile& control_profile,
                          const common::TargetFeatureList& output_state,
                          const association::AssociationResult& association_result,
                          const std::vector<tracking::TrackMeasurement>& track_measurements,
-                         core::output::IDataOutputManager* output_manager,
+                         signal::output::IDataOutputManager* output_manager,
                          tracking::ITrackLifecycleManager* auto_lifecycle_manager,
                          AssociationQualityMetrics* association_quality_metrics,
                          common::DecisionInputFrame* decision_frame) {

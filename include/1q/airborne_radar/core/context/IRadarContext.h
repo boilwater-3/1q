@@ -27,9 +27,9 @@ class ONEQ_API IRadarContext {
 
   /**
    * @brief 获取当前周期的目标特征列表。
-   * @return 当前周期的目标特征列表。
+   * @return 当前周期的目标特征列表只读引用。
    */
-  virtual common::TargetFeatureList GetTargetFeatures() const = 0;
+  virtual const common::TargetFeatureList& GetTargetFeatures() const = 0;
 
   /**
    * @brief 获取当前搭载平台姿态角。

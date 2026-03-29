@@ -16,7 +16,6 @@ set(PROJECT_SOURCES
     airborne_radar/core/context/MutableRadarContext.cpp
     airborne_radar/core/context/RadarInputValidation.cpp
     airborne_radar/core/controller/RadarController.cpp
-    airborne_radar/core/output/DataOutputManager.cpp
     airborne_radar/core/output/TrackOutputQueries.cpp
     airborne_radar/core/session/RadarSession.cpp
     airborne_radar/environment/EnvironmentService.cpp
@@ -30,6 +29,7 @@ set(PROJECT_SOURCES
     airborne_radar/signal/association/LapjvSolver.cpp
     airborne_radar/signal/detection/RadarEquations.cpp
     airborne_radar/signal/detection/SignalDetector.cpp
+    airborne_radar/signal/output/DataOutputManager.cpp
     airborne_radar/signal/pipeline/AssociationExecutionSupport.cpp
     airborne_radar/signal/pipeline/CycleExecutor.cpp
     airborne_radar/signal/pipeline/ContextBindingSupport.cpp

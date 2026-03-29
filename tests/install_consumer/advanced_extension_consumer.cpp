@@ -17,7 +17,10 @@ namespace {
 
 class DummyRadarContext : public core::context::IRadarContext {
  public:
-  common::TargetFeatureList GetTargetFeatures() const override { return {}; }
+  const common::TargetFeatureList& GetTargetFeatures() const override {
+    static const common::TargetFeatureList kEmptyTargets;
+    return kEmptyTargets;
+  }
 
   common::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_; }
 

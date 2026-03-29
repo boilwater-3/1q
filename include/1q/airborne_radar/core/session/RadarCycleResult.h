@@ -11,6 +11,7 @@
 #include "1q/airborne_radar/common/RadarCommand.h"
 #include "1q/airborne_radar/common/RadarControlProfile.h"
 #include "1q/airborne_radar/common/TrackOutputFrame.h"
+#include "1q/airborne_radar/core/context/RadarInputValidation.h"
 #include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
 
 namespace airborne_radar {
@@ -23,6 +24,8 @@ namespace session {
 struct RadarCycleResult {
   common::TrackOutputFrame track_output_frame{};          /**< 当前周期轨迹输出帧 */
   std::vector<common::RadarCommand> submitted_commands{}; /**< 当前周期已提交的控制指令 */
+  context::ValidationIssueList validation_issues{};       /**< 当前周期输入校验结果 */
+  bool has_validation_error{false};                       /**< 是否存在 error 级输入问题 */
   bool has_control_profile{false};                        /**< 是否已持有最近一次控制真值 */
   common::RadarControlProfile control_profile{};          /**< 最近一次控制真值 */
   signal::pipeline::AssociationQualityMetrics

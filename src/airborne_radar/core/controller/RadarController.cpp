@@ -13,10 +13,10 @@
 #include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
-#include "airborne_radar/core/output/DataOutputManager.h"
-#include "airborne_radar/core/output/IDataOutputManager.h"
 #include "airborne_radar/decision/pipeline/ControlReducer.h"
 #include "airborne_radar/decision/pipeline/TacticalCoordinator.h"
+#include "airborne_radar/signal/output/DataOutputManager.h"
+#include "airborne_radar/signal/output/IDataOutputManager.h"
 #include "common/logging/ProjectLog.h"
 #include "common/runtime/RuntimeCycleExecutor.h"
 
@@ -109,9 +109,9 @@ common::RadarCommand ToRadarCommand(const common::ControlDirective& directive) {
  * @brief AirborneRuntimeInput 描述单周期骨架执行需要的输入快照。
  */
 struct AirborneRuntimeInput {
-  common::TargetFeatureList target_features{};     /**< 当前周期目标输入。 */
-  common::PlatformAttitudeDeg platform_attitude{}; /**< 当前平台姿态。 */
-  float cycle_dt_sec{1.0f};                        /**< 当前周期步长。 */
+  const common::TargetFeatureList* target_features{nullptr}; /**< 当前周期目标输入只读视图。 */
+  common::PlatformAttitudeDeg platform_attitude{};           /**< 当前平台姿态。 */
+  float cycle_dt_sec{1.0f};                                  /**< 当前周期步长。 */
 };
 
 }  // namespace
@@ -129,9 +129,9 @@ struct RadarController::Impl {
   std::reference_wrapper<common::RadarControlProfile> control_profile;
   std::unique_ptr<decision::pipeline::TacticalStateStore> tactical_state_store;
   std::unique_ptr<decision::pipeline::ControlReducer> control_reducer;
-  std::unique_ptr<core::output::IDataOutputManager> output_manager;
+  std::unique_ptr<signal::output::IDataOutputManager> output_manager;
   oneq::internal::runtime::RuntimeCycleState<common::TrackOutputFrame,
-                                             oneq::internal::runtime::NoValidationIssues>
+                                             context::ValidationIssueList>
       runtime_state{};
   std::uint32_t cycle_index{1};
 
@@ -145,7 +145,7 @@ struct RadarController::Impl {
         control_profile(*owned_control_profile),
         tactical_state_store(new decision::pipeline::TacticalStateStore()),
         control_reducer(new decision::pipeline::ControlReducer()),
-        output_manager(new output::DataOutputManager()) {
+        output_manager(new signal::output::DataOutputManager()) {
     decision_engine = owned_decision_engine.get();
   }
 
@@ -160,7 +160,7 @@ struct RadarController::Impl {
         control_profile(*owned_control_profile),
         tactical_state_store(new decision::pipeline::TacticalStateStore()),
         control_reducer(new decision::pipeline::ControlReducer()),
-        output_manager(new output::DataOutputManager()) {}
+        output_manager(new signal::output::DataOutputManager()) {}
 
   void ExecuteCommands(const std::vector<common::ControlDirective>& directives) {
     for (std::size_t i = 0; i < directives.size(); ++i) {
@@ -188,17 +188,24 @@ RadarController::~RadarController() = default;
 
 void RadarController::RunOnce() {
   AirborneRuntimeInput runtime_input;
-  runtime_input.target_features = impl_->radar_context.GetTargetFeatures();
+  runtime_input.target_features = &impl_->radar_context.GetTargetFeatures();
   runtime_input.platform_attitude = impl_->radar_context.GetPlatformAttitude();
   runtime_input.cycle_dt_sec = impl_->radar_context.GetCycleDeltaTimeSec();
 
   struct AirborneRuntimeHooks {
     Impl* impl{nullptr};
 
-    oneq::internal::runtime::RuntimeValidationResult<oneq::internal::runtime::NoValidationIssues>
+    oneq::internal::runtime::RuntimeValidationResult<context::ValidationIssueList>
     Validate(const AirborneRuntimeInput& input) const {
-      (void)input;
-      return oneq::internal::runtime::MakePassValidationResult();
+      oneq::internal::runtime::RuntimeValidationResult<context::ValidationIssueList> result;
+      result.issues = context::ValidateRadarCycleDeltaTime(input.cycle_dt_sec);
+      if (input.target_features != nullptr) {
+        const context::ValidationIssueList target_issues =
+            context::ValidateTargetFeatures(*input.target_features);
+        result.issues.insert(result.issues.end(), target_issues.begin(), target_issues.end());
+      }
+      result.has_error = context::HasValidationError(result.issues);
+      return result;
     }
 
     void FreezeEnvironment(const AirborneRuntimeInput& input,
@@ -215,11 +222,14 @@ void RadarController::RunOnce() {
     common::TrackOutputFrame Execute(
         const AirborneRuntimeInput& input,
         const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
+      const common::TargetFeatureList kEmptyTargets;
+      const common::TargetFeatureList& target_features =
+          input.target_features != nullptr ? *input.target_features : kEmptyTargets;
       impl->signal_pipeline.SetControlProfile(impl->control_profile.get());
       impl->signal_pipeline.UpdatePlatformAttitude(input.platform_attitude);
 
       const signal::pipeline::SignalCycleResult signal_result =
-          impl->signal_pipeline.RunCycle(input.target_features, impl->environment_service);
+          impl->signal_pipeline.RunCycle(target_features, impl->environment_service);
       const signal::pipeline::AssociationQualityMetrics association_metrics =
           signal_result.association_quality_metrics;
       common::DecisionInputFrame decision_frame = signal_result.decision_frame;
@@ -253,7 +263,7 @@ void RadarController::RunOnce() {
           "assoc_missed_rate={:.3f} assoc_mean_cost={:.3f} "
           "assoc_p95_cost={:.3f} assoc_jam_semantic={} "
           "assoc_jam_severity={:.3f} assoc_stress={:.3f}",
-          stamp.cycle_index, stamp.batch_id, input.target_features.size(),
+          stamp.cycle_index, stamp.batch_id, target_features.size(),
           decision_frame.tracks.size(), reduction_result.applied_directives.size(),
           decision_frame.environment_jamming_detected ? "true" : "false",
           impl->control_profile.get().version,
@@ -319,6 +329,14 @@ bool RadarController::HasLatestTrackOutputFrame() const {
 
 const common::TrackOutputFrame& RadarController::GetLatestTrackOutputFrame() const {
   return impl_->runtime_state.latest_output;
+}
+
+const context::ValidationIssueList& RadarController::GetLastValidationIssues() const {
+  return impl_->runtime_state.last_validation_issues;
+}
+
+bool RadarController::HasValidationError() const {
+  return context::HasValidationError(impl_->runtime_state.last_validation_issues);
 }
 
 }  // namespace controller

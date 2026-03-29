@@ -36,7 +36,7 @@ const common::RadarControlProfile& MutableRadarContext::GetLatestControlProfile(
   return latest_control_profile_;
 }
 
-common::TargetFeatureList MutableRadarContext::GetTargetFeatures() const {
+const common::TargetFeatureList& MutableRadarContext::GetTargetFeatures() const {
   return target_features_;
 }
 

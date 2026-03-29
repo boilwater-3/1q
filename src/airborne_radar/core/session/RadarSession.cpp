@@ -22,6 +22,8 @@ struct RadarSession::Impl {
       result.track_output_frame = controller.GetLatestTrackOutputFrame();
     }
     result.submitted_commands = radar_context.GetSubmittedCommands();
+    result.validation_issues = controller.GetLastValidationIssues();
+    result.has_validation_error = controller.HasValidationError();
     result.has_control_profile = radar_context.HasLatestControlProfile();
     if (result.has_control_profile) {
       result.control_profile = radar_context.GetLatestControlProfile();

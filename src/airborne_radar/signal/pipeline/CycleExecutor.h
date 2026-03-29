@@ -12,7 +12,7 @@
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
-#include "airborne_radar/core/output/IDataOutputManager.h"
+#include "airborne_radar/signal/output/IDataOutputManager.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
@@ -62,7 +62,7 @@ struct CycleExecutionRuntime {
   association::DataAssociationEngine* association_engine{nullptr};
   tracking::TrackFilter* track_filter{nullptr};
   detection::SignalDetector* signal_detector{nullptr};
-  core::output::IDataOutputManager* output_manager{nullptr};
+  signal::output::IDataOutputManager* output_manager{nullptr};
   tracking::ITrackLifecycleManager* auto_lifecycle_manager{nullptr};
   const std::vector<tracking::AssociationTrackSeed>* manual_association_seeds{nullptr};
   bool has_manual_association_seeds{false};

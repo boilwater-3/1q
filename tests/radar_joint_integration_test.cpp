@@ -34,7 +34,7 @@ class ScenarioRadarContext : public core::context::IRadarContext {
   explicit ScenarioRadarContext(common::TargetFeatureList target_features = {})
       : target_features_(std::move(target_features)) {}
 
-  common::TargetFeatureList GetTargetFeatures() const override { return target_features_; }
+  const common::TargetFeatureList& GetTargetFeatures() const override { return target_features_; }
 
   common::PlatformAttitudeDeg GetPlatformAttitude() const override {
     return platform_attitude_deg_;
@@ -1434,7 +1434,7 @@ TEST(RadarJointIntegrationTest, NonPositiveRangeAndNearOriginInputsRemainFiniteA
   }
 }
 
-TEST(RadarJointIntegrationTest, MissingCartesianPositionWithNonPositiveRangeFailsFast) {
+TEST(RadarJointIntegrationTest, MissingCartesianPositionWithNonPositiveRangeSurfacesValidationError) {
   signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
@@ -1446,7 +1446,18 @@ TEST(RadarJointIntegrationTest, MissingCartesianPositionWithNonPositiveRangeFail
   targets[0].range_m = 0.0f;
   radar_context.SetTargetFeatures(targets);
 
-  EXPECT_DEATH_IF_SUPPORTED(controller.RunOnce(), "missing cartesian position");
+  controller.RunOnce();
+
+  EXPECT_TRUE(controller.HasValidationError());
+  const core::context::ValidationIssueList& issues = controller.GetLastValidationIssues();
+  EXPECT_TRUE(std::find_if(issues.begin(), issues.end(),
+                           [](const core::context::ValidationIssue& issue) {
+                             return issue.code ==
+                                    core::context::ValidationCode::kMissingRangeAndCartesianPosition;
+                           }) != issues.end());
+  EXPECT_TRUE(controller.HasLatestTrackOutputFrame());
+  EXPECT_EQ(controller.GetLatestTrackOutputFrame().published_track_count, 0U);
+  EXPECT_TRUE(radar_context.SubmittedCommands().empty());
 }
 
 TEST(RadarJointIntegrationTest, ExtremeRcsSpreadKeepsAllTracksFiniteAcrossCycles) {

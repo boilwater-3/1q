@@ -3,8 +3,8 @@
  * @brief 定义数据输出管理服务抽象接口。
  */
 
-#ifndef AIRBORNE_RADAR_CORE_OUTPUT_I_DATA_OUTPUT_MANAGER_H_
-#define AIRBORNE_RADAR_CORE_OUTPUT_I_DATA_OUTPUT_MANAGER_H_
+#ifndef AIRBORNE_RADAR_SIGNAL_OUTPUT_I_DATA_OUTPUT_MANAGER_H_
+#define AIRBORNE_RADAR_SIGNAL_OUTPUT_I_DATA_OUTPUT_MANAGER_H_
 
 #include <cstdint>
 
@@ -12,7 +12,7 @@
 #include "1q/airborne_radar/common/TrackOutputFrame.h"
 
 namespace airborne_radar {
-namespace core {
+namespace signal {
 namespace output {
 
 /**
@@ -49,7 +49,7 @@ class IDataOutputManager {
 };
 
 }  // namespace output
-}  // namespace core
+}  // namespace signal
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_CORE_OUTPUT_I_DATA_OUTPUT_MANAGER_H_
+#endif  // AIRBORNE_RADAR_SIGNAL_OUTPUT_I_DATA_OUTPUT_MANAGER_H_

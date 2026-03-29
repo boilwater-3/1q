@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <limits>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -50,7 +51,7 @@ class FakeRadarContext : public core::context::IRadarContext {
   explicit FakeRadarContext(common::TargetFeatureList state) : state_(std::move(state)) {}
 
   /// @brief 获取当前雷达状态。
-  common::TargetFeatureList GetTargetFeatures() const override { return state_; }
+  const common::TargetFeatureList& GetTargetFeatures() const override { return state_; }
 
   /// @brief 获取当前搭载平台姿态角。
   common::PlatformAttitudeDeg GetPlatformAttitude() const override {
@@ -355,6 +356,30 @@ TEST_F(CoreControllerTest, PublicOutputReaderApiExposesLatestTrackOutputFrame) {
   ASSERT_EQ(latest_track_output_frame.tracks.size(), 1U);
   EXPECT_EQ(latest_track_output_frame.tracks[0].state.status,
             common::DecisionTrackStatus::kConfirmed);
+}
+
+TEST_F(CoreControllerTest, RuntimeValidationErrorsAreExposedAndSkipCommandSubmission) {
+  const common::TargetFeatureList input_state = BuildSingleTarget(510.0f, 1.0f, false);
+  FakeRadarContext radar_context(input_state);
+  radar_context.SetCycleDeltaTimeSec(std::numeric_limits<float>::quiet_NaN());
+
+  environment::EnvironmentModelConfig env_config;
+  env_config.jammer_power_db = 0.0f;
+  environment::EnvironmentService environment_service(env_config);
+
+  signal::pipeline::SignalPipeline signal_pipeline;
+  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
+
+  controller.RunOnce();
+
+  EXPECT_TRUE(controller.HasValidationError());
+  const core::context::ValidationIssueList& issues = controller.GetLastValidationIssues();
+  EXPECT_TRUE(std::find_if(issues.begin(), issues.end(),
+                           [](const core::context::ValidationIssue& issue) {
+                             return issue.code ==
+                                    core::context::ValidationCode::kNonFiniteCycleDeltaTime;
+                           }) != issues.end());
+  EXPECT_TRUE(radar_context.SubmittedCommands().empty());
 }
 
 TEST_F(CoreControllerTest, NextCycleAppliesPendingControlProfileToSignalPipeline) {

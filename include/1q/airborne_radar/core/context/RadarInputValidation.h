@@ -52,27 +52,36 @@ struct ValidationIssue {
   std::string message{};             /**< 面向外部调用方的简短说明 */
 };
 
+/** @brief ValidationIssueList 表示输入校验问题列表。 */
+using ValidationIssueList = std::vector<ValidationIssue>;
+
+/**
+ * @brief 校验周期步长字段。
+ * @param[in] dt_sec 当前周期步长（单位：秒）。
+ * @return 校验问题列表。
+ */
+ONEQ_API ValidationIssueList ValidateRadarCycleDeltaTime(float dt_sec);
+
 /**
  * @brief 校验完整周期输入。
  * @param[in] input 当前周期输入。
  * @return 按发现顺序返回的校验问题列表。
  */
-ONEQ_API std::vector<ValidationIssue> ValidateRadarCycleInput(const RadarCycleInput& input);
+ONEQ_API ValidationIssueList ValidateRadarCycleInput(const RadarCycleInput& input);
 
 /**
  * @brief 校验目标特征列表。
  * @param[in] targets 当前周期目标列表。
  * @return 按发现顺序返回的校验问题列表。
  */
-ONEQ_API std::vector<ValidationIssue> ValidateTargetFeatures(
-    const common::TargetFeatureList& targets);
+ONEQ_API ValidationIssueList ValidateTargetFeatures(const common::TargetFeatureList& targets);
 
 /**
  * @brief 判断是否包含 error 级别问题。
  * @param[in] issues 校验问题列表。
  * @return 至少存在一个 `kError` 时返回 true。
  */
-ONEQ_API bool HasValidationError(const std::vector<ValidationIssue>& issues);
+ONEQ_API bool HasValidationError(const ValidationIssueList& issues);
 
 }  // namespace context
 }  // namespace core

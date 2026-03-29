@@ -1,11 +1,11 @@
-#include "airborne_radar/core/output/DataOutputManager.h"
+#include "airborne_radar/signal/output/DataOutputManager.h"
 
 #include <cstddef>
 
 #include "common/output/OutputFrameUtils.h"
 
 namespace airborne_radar {
-namespace core {
+namespace signal {
 namespace output {
 
 common::TrackOutputFrame DataOutputManager::BuildTrackOutputFrame(
@@ -44,5 +44,5 @@ common::DecisionInputFrame DataOutputManager::BuildDecisionInputFrame(
 }
 
 }  // namespace output
-}  // namespace core
+}  // namespace signal
 }  // namespace airborne_radar

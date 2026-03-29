@@ -49,7 +49,7 @@ bool HasCartesianPosition(const common::TargetFeature& target) {
  * @param[out] issues 输出问题列表。
  */
 void ValidateSingleTarget(const common::TargetFeature& target, std::size_t target_index,
-                          std::vector<ValidationIssue>* issues) {
+                          ValidationIssueList* issues) {
   if (issues == nullptr) {
     return;
   }
@@ -82,24 +82,28 @@ void ValidateSingleTarget(const common::TargetFeature& target, std::size_t targe
 
 }  // namespace
 
-std::vector<ValidationIssue> ValidateRadarCycleInput(const RadarCycleInput& input) {
-  std::vector<ValidationIssue> issues;
-
-  if (!IsFinite(input.dt_sec)) {
+ValidationIssueList ValidateRadarCycleDeltaTime(float dt_sec) {
+  ValidationIssueList issues;
+  if (!IsFinite(dt_sec)) {
     issues.push_back(MakeIssue(ValidationSeverity::kError, ValidationCode::kNonFiniteCycleDeltaTime,
                                static_cast<std::size_t>(-1), "cycle delta time must be finite"));
-  } else if (input.dt_sec <= 0.0f) {
+  } else if (dt_sec <= 0.0f) {
     issues.push_back(MakeIssue(ValidationSeverity::kWarning, ValidationCode::kInvalidCycleDeltaTime,
                                static_cast<std::size_t>(-1), "cycle delta time is non-positive"));
   }
+  return issues;
+}
 
-  const std::vector<ValidationIssue> target_issues = ValidateTargetFeatures(input.target_features);
+ValidationIssueList ValidateRadarCycleInput(const RadarCycleInput& input) {
+  ValidationIssueList issues = ValidateRadarCycleDeltaTime(input.dt_sec);
+
+  const ValidationIssueList target_issues = ValidateTargetFeatures(input.target_features);
   issues.insert(issues.end(), target_issues.begin(), target_issues.end());
   return issues;
 }
 
-std::vector<ValidationIssue> ValidateTargetFeatures(const common::TargetFeatureList& targets) {
-  std::vector<ValidationIssue> issues;
+ValidationIssueList ValidateTargetFeatures(const common::TargetFeatureList& targets) {
+  ValidationIssueList issues;
   std::unordered_map<std::uint64_t, std::size_t> first_seen_target_index;
 
   for (std::size_t i = 0; i < targets.size(); ++i) {
@@ -126,8 +130,8 @@ std::vector<ValidationIssue> ValidateTargetFeatures(const common::TargetFeatureL
   return issues;
 }
 
-bool HasValidationError(const std::vector<ValidationIssue>& issues) {
-  return oneq::internal::validation::HasSeverity<std::vector<ValidationIssue>, ValidationSeverity,
+bool HasValidationError(const ValidationIssueList& issues) {
+  return oneq::internal::validation::HasSeverity<ValidationIssueList, ValidationSeverity,
                                                  &ValidationIssue::severity>(
       issues, ValidationSeverity::kError);
 }

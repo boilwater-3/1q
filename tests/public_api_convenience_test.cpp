@@ -501,12 +501,33 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultAggregatesCurrentCycleO
   EXPECT_GE(result.track_output_frame.published_track_count,
             result.track_output_frame.confirmed_track_count);
   EXPECT_EQ(result.submitted_commands.size(), session.GetSubmittedCommands().size());
+  EXPECT_FALSE(result.has_validation_error);
+  EXPECT_TRUE(result.validation_issues.empty());
   EXPECT_EQ(result.has_control_profile, session.HasLatestControlProfile());
   if (result.has_control_profile) {
     ExpectEquivalentProfiles(result.control_profile, session.GetLatestControlProfile());
   }
   EXPECT_EQ(result.association_quality_metrics.detection_count,
             session.GetLastAssociationQualityMetrics().detection_count);
+}
+
+TEST(PublicApiConvenienceTest, RadarSessionStepWithResultSurfacesValidationErrors) {
+  core::session::RadarSession session(MakeConvenienceSessionConfig());
+
+  core::context::RadarCycleInput input;
+  input.dt_sec = std::numeric_limits<float>::quiet_NaN();
+  common::TargetFeature invalid_target;
+  invalid_target.external_target_id = 123U;
+  invalid_target.range_m = 0.0f;
+  input.target_features.push_back(invalid_target);
+
+  const core::session::RadarCycleResult result = session.StepWithResult(input);
+
+  EXPECT_TRUE(result.has_validation_error);
+  EXPECT_TRUE(
+      ContainsIssueCode(result.validation_issues, core::context::ValidationCode::kNonFiniteCycleDeltaTime));
+  EXPECT_TRUE(ContainsIssueCode(result.validation_issues,
+                                core::context::ValidationCode::kMissingRangeAndCartesianPosition));
 }
 
 TEST(PublicApiConvenienceTest, RadarSessionStepWithResultMatchesManualChainUnderJammedScene) {
