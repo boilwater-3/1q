@@ -15,7 +15,7 @@
 #include "1q/airborne_radar/common/TargetFeatureUtils.h"
 #include "1q/airborne_radar/core/context/RadarInputValidation.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"
-#include "1q/airborne_radar/core/output/TrackOutputQueries.h"
+#include "1q/airborne_radar/common/output/TrackOutputQueries.h"
 #include "1q/airborne_radar/core/session/RadarSession.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "airborne_radar/core/context/MutableRadarContext.h"
@@ -255,20 +255,20 @@ TEST(PublicApiConvenienceTest, TrackOutputQueriesSupportUniqueDuplicateAndJammin
   frame.tracks.push_back(
       common::DecisionTrackSnapshot(8.0f, 0.0f, 0.0f, 0.7f, 0.0f, 0.0f, 0.0f, true, 0U, 4U));
 
-  const auto track_map = core::output::BuildTrackMapByExternalTargetId(frame);
+  const auto track_map = common::output::BuildTrackMapByExternalTargetId(frame);
   EXPECT_EQ(track_map.size(), 2U);
   ASSERT_NE(track_map.count(401U), 0U);
   ASSERT_NE(track_map.count(402U), 0U);
   EXPECT_EQ(track_map.at(402U).state.association_key, 3U);
 
   const common::DecisionTrackSnapshotList duplicate_tracks =
-      core::output::CollectTracksByExternalTargetId(frame, 402U);
+      common::output::CollectTracksByExternalTargetId(frame, 402U);
   EXPECT_EQ(duplicate_tracks.size(), 2U);
-  EXPECT_TRUE(core::output::ContainsExternalTargetId(frame, 401U));
-  EXPECT_TRUE(core::output::ContainsExternalTargetId(frame, 0U));
-  EXPECT_FALSE(core::output::ContainsExternalTargetId(frame, 999U));
-  EXPECT_EQ(core::output::CountJammingTracks(frame), 2U);
-  EXPECT_EQ(core::output::CountTracksByStatus(frame, common::DecisionTrackStatus::kTentative), 4U);
+  EXPECT_TRUE(common::output::ContainsExternalTargetId(frame, 401U));
+  EXPECT_TRUE(common::output::ContainsExternalTargetId(frame, 0U));
+  EXPECT_FALSE(common::output::ContainsExternalTargetId(frame, 999U));
+  EXPECT_EQ(common::output::CountJammingTracks(frame), 2U);
+  EXPECT_EQ(common::output::CountTracksByStatus(frame, common::DecisionTrackStatus::kTentative), 4U);
 }
 
 TEST(PublicApiConvenienceTest, TrackOutputQueriesSupportAssociationKeyStatusAndJammingCollections) {
@@ -284,13 +284,13 @@ TEST(PublicApiConvenienceTest, TrackOutputQueriesSupportAssociationKeyStatusAndJ
   frame.tracks.push_back(lost);
   frame.tracks.push_back(jammed);
 
-  const auto track_map = core::output::BuildTrackMapByAssociationKey(frame);
+  const auto track_map = common::output::BuildTrackMapByAssociationKey(frame);
   ASSERT_EQ(track_map.size(), 3U);
   EXPECT_EQ(track_map.at(13U).state.external_target_id, 412U);
-  EXPECT_EQ(core::output::CollectConfirmedTracks(frame).size(), 2U);
-  EXPECT_EQ(core::output::CollectLostTracks(frame).size(), 1U);
-  EXPECT_EQ(core::output::CollectJammingTracks(frame).size(), 1U);
-  EXPECT_EQ(core::output::CountTracksByStatus(frame, common::DecisionTrackStatus::kConfirmed), 2U);
+  EXPECT_EQ(common::output::CollectConfirmedTracks(frame).size(), 2U);
+  EXPECT_EQ(common::output::CollectLostTracks(frame).size(), 1U);
+  EXPECT_EQ(common::output::CollectJammingTracks(frame).size(), 1U);
+  EXPECT_EQ(common::output::CountTracksByStatus(frame, common::DecisionTrackStatus::kConfirmed), 2U);
 }
 
 TEST(PublicApiConvenienceTest, RadarInputValidationReportsWarningsAndErrorsForCommonBoundaryCases) {
@@ -366,9 +366,9 @@ TEST(PublicApiConvenienceTest, RadarSessionStepProducesReadableOutputWithoutInte
   const common::TrackOutputFrame frame = session.Step(input);
   EXPECT_EQ(frame.published_track_count, 2U);
   EXPECT_EQ(frame.confirmed_track_count, 2U);
-  EXPECT_TRUE(core::output::ContainsExternalTargetId(frame, 501U));
-  EXPECT_TRUE(core::output::ContainsExternalTargetId(frame, 502U));
-  EXPECT_EQ(core::output::CountJammingTracks(frame), 0U);
+  EXPECT_TRUE(common::output::ContainsExternalTargetId(frame, 501U));
+  EXPECT_TRUE(common::output::ContainsExternalTargetId(frame, 502U));
+  EXPECT_EQ(common::output::CountJammingTracks(frame), 0U);
   EXPECT_TRUE(session.GetSubmittedCommands().empty());
   EXPECT_TRUE(session.HasLatestControlProfile());
 }
@@ -409,11 +409,11 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
 
   EXPECT_EQ(session_frame.published_track_count, manual_frame.published_track_count);
   EXPECT_EQ(session_frame.confirmed_track_count, manual_frame.confirmed_track_count);
-  EXPECT_EQ(core::output::CountJammingTracks(session_frame),
-            core::output::CountJammingTracks(manual_frame));
+  EXPECT_EQ(common::output::CountJammingTracks(session_frame),
+            common::output::CountJammingTracks(manual_frame));
 
-  const auto session_track_map = core::output::BuildTrackMapByExternalTargetId(session_frame);
-  const auto manual_track_map = core::output::BuildTrackMapByExternalTargetId(manual_frame);
+  const auto session_track_map = common::output::BuildTrackMapByExternalTargetId(session_frame);
+  const auto manual_track_map = common::output::BuildTrackMapByExternalTargetId(manual_frame);
   ASSERT_EQ(session_track_map.size(), manual_track_map.size());
   for (std::size_t i = 0; i < input.target_features.size(); ++i) {
     const std::uint64_t target_id = input.target_features[i].external_target_id;
@@ -452,8 +452,8 @@ TEST(PublicApiConvenienceTest,
       0.0f);
   const common::TrackOutputFrame frame_1 = session.Step(cycle_1);
   EXPECT_GT(frame_1.published_track_count, 0U);
-  EXPECT_TRUE(core::output::ContainsExternalTargetId(frame_1, 0U));
-  EXPECT_EQ(core::output::CollectTracksByExternalTargetId(frame_1, 701U).size(), 2U);
+  EXPECT_TRUE(common::output::ContainsExternalTargetId(frame_1, 0U));
+  EXPECT_EQ(common::output::CollectTracksByExternalTargetId(frame_1, 701U).size(), 2U);
 
   core::context::RadarCycleInput cycle_2 = cycle_1;
   cycle_2.dt_sec = -1.0f;
@@ -472,7 +472,7 @@ TEST(PublicApiConvenienceTest,
       cycle_2, environment::EnvironmentSceneBuilder().AddNoiseJammer(noise_emitter_3).Build());
 
   EXPECT_GT(frame_2.published_track_count, 0U);
-  EXPECT_GT(core::output::CountJammingTracks(frame_2), 0U);
+  EXPECT_GT(common::output::CountJammingTracks(frame_2), 0U);
   EXPECT_TRUE(session.HasLatestControlProfile());
 
   core::context::RadarCycleInput cycle_3 = cycle_2;
@@ -482,8 +482,8 @@ TEST(PublicApiConvenienceTest,
   const common::TrackOutputFrame frame_3 =
       session.Step(cycle_3, environment::EnvironmentSceneBuilder().Build());
   EXPECT_GT(frame_3.published_track_count, 0U);
-  EXPECT_TRUE(core::output::ContainsExternalTargetId(frame_3, 703U));
-  EXPECT_TRUE(core::output::ContainsExternalTargetId(frame_3, 704U));
+  EXPECT_TRUE(common::output::ContainsExternalTargetId(frame_3, 703U));
+  EXPECT_TRUE(common::output::ContainsExternalTargetId(frame_3, 704U));
 }
 
 TEST(PublicApiConvenienceTest, RadarSessionStepWithResultAggregatesCurrentCycleObservations) {

@@ -16,7 +16,7 @@ set(PROJECT_SOURCES
     airborne_radar/core/context/MutableRadarContext.cpp
     airborne_radar/core/context/RadarInputValidation.cpp
     airborne_radar/core/controller/RadarController.cpp
-    airborne_radar/core/output/TrackOutputQueries.cpp
+    airborne_radar/common/output/TrackOutputQueries.cpp
     airborne_radar/core/session/RadarSession.cpp
     airborne_radar/environment/EnvironmentService.cpp
     airborne_radar/environment/EnvironmentSceneBuilder.cpp
@@ -241,17 +241,17 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/TargetFeatureUtils.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/TrackOutputFrame.h
     )
+    set(PUBLIC_HEADERS_COMMON_OUTPUT
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/output/TrackOutputQueries.h
+    )
     set(PUBLIC_HEADERS_CORE_CONTEXT
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/context/IRadarContext.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/context/RadarCycleInput.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/context/RadarInputValidation.h
     )
     set(PUBLIC_HEADERS_CORE_CONTROLLER
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/controller/IRadarOutputReader.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/controller/RadarController.h
-    )
-    set(PUBLIC_HEADERS_CORE_OUTPUT
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/output/IRadarOutputReader.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/output/TrackOutputQueries.h
     )
     set(PUBLIC_HEADERS_CORE_SESSION
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/session/RadarCycleResult.h
@@ -329,14 +329,14 @@ if(ENABLE_INSTALL)
     install(FILES ${PUBLIC_HEADERS_COMMON}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/common
     )
+    install(FILES ${PUBLIC_HEADERS_COMMON_OUTPUT}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/common/output
+    )
     install(FILES ${PUBLIC_HEADERS_CORE_CONTEXT}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/core/context
     )
     install(FILES ${PUBLIC_HEADERS_CORE_CONTROLLER}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/core/controller
-    )
-    install(FILES ${PUBLIC_HEADERS_CORE_OUTPUT}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/core/output
     )
     install(FILES ${PUBLIC_HEADERS_CORE_SESSION}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/core/session

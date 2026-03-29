@@ -23,12 +23,12 @@
 #include "1q/airborne_radar/common/TargetFeature.h"
 #include "1q/airborne_radar/common/TargetFeatureUtils.h"
 #include "1q/airborne_radar/common/TrackOutputFrame.h"
+#include "1q/airborne_radar/common/output/TrackOutputQueries.h"
 #include "1q/airborne_radar/core/context/IRadarContext.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/airborne_radar/core/context/RadarInputValidation.h"
+#include "1q/airborne_radar/core/controller/IRadarOutputReader.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"
-#include "1q/airborne_radar/core/output/IRadarOutputReader.h"
-#include "1q/airborne_radar/core/output/TrackOutputQueries.h"
 #include "1q/airborne_radar/core/session/RadarCycleResult.h"
 #include "1q/airborne_radar/core/session/RadarSession.h"
 #include "1q/airborne_radar/decision/pipeline/ControlReducerTypes.h"
@@ -67,7 +67,7 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
 
   core::session::RadarSession session(session_config);
   const core::session::RadarCycleResult result = session.StepWithResult(input, scene_state);
-  const std::size_t confirmed_tracks = core::output::CountTracksByStatus(
+  const std::size_t confirmed_tracks = common::output::CountTracksByStatus(
       result.track_output_frame, common::DecisionTrackStatus::kConfirmed);
 
   EXPECT_GE(confirmed_tracks, 0U);
