@@ -32,7 +32,7 @@
 #include "1q/airborne_radar/common/model/TargetFeatureBuilder.h"
 #include "1q/airborne_radar/core/output/TrackOutputQueries.h"
 // 平台侧需要直接操控原生组件时包含
-#include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
+#include "1q/airborne_radar/signal/pipeline/SignalPipelineResultTypes.h"
 
 // ---------------------------------------------------------------------------
 // 场景 A：自定义 ITacticalDecisionEngine

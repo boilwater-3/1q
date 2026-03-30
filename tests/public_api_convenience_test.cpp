@@ -19,7 +19,6 @@
 #include "1q/airborne_radar/core/session/RadarSession.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "airborne_radar/core/context/MutableRadarContext.h"
-#include "airborne_radar/core/session/internal/SignalPipelineConfigMapper.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 
@@ -384,7 +383,7 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
 
   core::context::MutableRadarContext manual_context;
   signal::pipeline::SignalPipeline signal_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(config.signal_pipeline_config));
+      config.signal_pipeline_config);
   environment::EnvironmentService environment_service(config.environment_model_config);
   environment_service.SetJammingDetectionThresholdDb(config.jamming_detection_threshold_db);
   core::controller::RadarController controller(manual_context, signal_pipeline,
@@ -542,7 +541,7 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultMatchesManualChainUnder
 
   core::context::MutableRadarContext manual_context;
   signal::pipeline::SignalPipeline signal_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(config.signal_pipeline_config));
+      config.signal_pipeline_config);
   environment::EnvironmentService environment_service(config.environment_model_config);
   environment_service.SetJammingDetectionThresholdDb(config.jamming_detection_threshold_db);
   core::controller::RadarController controller(manual_context, signal_pipeline,

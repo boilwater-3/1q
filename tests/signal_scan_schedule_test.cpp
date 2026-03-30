@@ -11,7 +11,6 @@
 
 #include "1q/airborne_radar/common/utils/TargetFeatureUtils.h"
 #include "1q/airborne_radar/config/SignalPipelineConfig.h"
-#include "airborne_radar/core/session/internal/SignalPipelineConfigMapper.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"
@@ -294,7 +293,7 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
   orientation.scan_sequence = oneq::common::ScanSequence::kAzimuthFirst;
 
   signal::pipeline::SignalPipeline signal_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(config));
+      config);
   environment::EnvironmentModelConfig environment_config;
   environment_config.base_propagation_loss_db = 0.0f;
   environment_config.atmospheric_attenuation_db = 0.0f;
@@ -332,7 +331,7 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
   target_return.rcs_m2 = target.current_track_rcs;
   target_return.range_m = target.range_m;
   target_return.swerling_type =
-      static_cast<signal::detection::SwerlingModel>(target.target_swerling_type);
+      static_cast<common::config::SwerlingModel>(target.target_swerling_type);
   signal::detection::EnvironmentState environment_state;
   signal::detection::SignalDetector detector(config.detection.radar_system);
   const signal::detection::DetectionResult cycle_1_detection =
@@ -389,9 +388,9 @@ TEST(SignalPipelineScanScheduleTest, WorkSubModeSttReducesSweepCoverageComparedT
   stt_config.beam_control.radar_orientation.work_sub_mode = common::config::RadarWorkSubMode::kStt;
 
   signal::pipeline::SignalPipeline tws_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(tws_config));
+      tws_config);
   signal::pipeline::SignalPipeline stt_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(stt_config));
+      stt_config);
 
   environment::EnvironmentModelConfig environment_config;
   environment_config.base_propagation_loss_db = 0.0f;

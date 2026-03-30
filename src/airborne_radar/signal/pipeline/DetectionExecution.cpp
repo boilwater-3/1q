@@ -155,7 +155,8 @@ void RunPhysicalDetectionPass(const common::model::TargetFeatureList& input,
     detection::TargetReturn target;
     target.rcs_m2 = input[i].current_track_rcs;
     target.range_m = (*buffers->target_geometry)[i].range_m;
-    target.swerling_type = static_cast<detection::SwerlingModel>(input[i].target_swerling_type);
+    target.swerling_type =
+        static_cast<common::config::SwerlingModel>(input[i].target_swerling_type);
 
     const detection::ResolvedBeamState beam_state =
         detection::BeamControlResolver::Resolve(runtime_config.detection.radar_system.antenna,

@@ -3,7 +3,6 @@
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"
 #include "airborne_radar/core/context/MutableRadarContext.h"
-#include "airborne_radar/core/session/internal/SignalPipelineConfigMapper.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 
@@ -16,7 +15,7 @@ struct RadarSession::Impl {
       : runtime_signal_pipeline_config(config.signal_pipeline_config),
         runtime_environment_model_config(config.environment_model_config),
         runtime_jamming_detection_threshold_db(config.jamming_detection_threshold_db),
-        signal_pipeline(internal::ToPipelineSignalPipelineConfig(runtime_signal_pipeline_config)),
+        signal_pipeline(runtime_signal_pipeline_config),
         environment_service(runtime_environment_model_config),
         controller(radar_context, signal_pipeline, environment_service) {
     environment_service.SetJammingDetectionThresholdDb(runtime_jamming_detection_threshold_db);
@@ -91,7 +90,7 @@ void RadarSession::UpdateSignalPipelineConfig(
     const common::config::SignalPipelineConfig& config) {
   impl_->runtime_signal_pipeline_config = config;
   impl_->signal_pipeline.UpdateConfig(
-      internal::ToPipelineSignalPipelineConfig(impl_->runtime_signal_pipeline_config));
+      impl_->runtime_signal_pipeline_config);
 }
 
 void RadarSession::UpdateEnvironmentModelConfig(const environment::EnvironmentModelConfig& config) {
@@ -149,7 +148,7 @@ void RadarSession::ApplyRuntimeConfig(const common::config::RadarRuntimeConfigPa
   }
   if (should_update_signal_pipeline_config) {
     impl_->signal_pipeline.UpdateConfig(
-        internal::ToPipelineSignalPipelineConfig(impl_->runtime_signal_pipeline_config));
+        impl_->runtime_signal_pipeline_config);
   }
 
   if (patch.has_environment_model_config) {

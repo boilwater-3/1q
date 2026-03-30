@@ -17,7 +17,6 @@
 
 #include "1q/airborne_radar/common/model/TargetFeature.h"
 #include "1q/airborne_radar/config/SignalPipelineConfig.h"
-#include "airborne_radar/core/session/internal/SignalPipelineConfigMapper.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
@@ -92,7 +91,7 @@ double RunImmLifecycleScenarioMs(std::size_t target_count) {
   pipeline_config.lifecycle.enable_imm_lifecycle = true;
   pipeline_config.lifecycle.lifecycle_config.confirm_hits = 1;
   signal::pipeline::SignalPipeline signal_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
 
   environment::EnvironmentService environment_service;
 
@@ -136,7 +135,7 @@ TEST(SignalBulkDataTest, LargeBatchSingleCycleProducesConsistentMeasurements) {
   common::config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.min_detection_margin_db = -100.0f;
   signal::pipeline::SignalPipeline signal_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
 
   environment::EnvironmentService environment_service;
 
@@ -175,7 +174,7 @@ TEST(SignalBulkDataTest, LargeBatchImmAutoLifecycleMaintainsHighMatchRateOnNextC
   pipeline_config.lifecycle.enable_imm_lifecycle = true;
   pipeline_config.lifecycle.lifecycle_config.confirm_hits = 1;
   signal::pipeline::SignalPipeline signal_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
 
   environment::EnvironmentService environment_service;
 
@@ -232,7 +231,7 @@ TEST(SignalBulkDataTest, TieredBatchSingleCycleReportsP50AndP95Latency) {
   common::config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.min_detection_margin_db = -100.0f;
   signal::pipeline::SignalPipeline signal_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
 
   environment::EnvironmentService environment_service;
 
@@ -293,7 +292,7 @@ TEST(SignalBulkDataTest, ExternalTargetIdStaysConsistentAcrossImmLifecycleCycles
   pipeline_config.lifecycle.enable_imm_lifecycle = true;
   pipeline_config.lifecycle.lifecycle_config.confirm_hits = 1;
   signal::pipeline::SignalPipeline signal_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
 
   environment::EnvironmentService environment_service;
 

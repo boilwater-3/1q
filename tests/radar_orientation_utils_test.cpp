@@ -27,7 +27,7 @@ using common::utils::IntersectScanLimits;
 using common::utils::IsValidScanLimits;
 using common::config::RadarOrientationConfig;
 using common::config::StabilizationMode;
-using signal::detection::AntennaConfig;
+using common::config::AntennaConfig;
 using signal::detection::BeamControlResolver;
 using signal::detection::ResolvedBeamState;
 using signal::detection::TargetLookAnglesDeg;

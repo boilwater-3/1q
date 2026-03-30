@@ -39,7 +39,7 @@
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
-#include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
+#include "1q/airborne_radar/signal/pipeline/SignalPipelineResultTypes.h"
 #include "1q/api.hpp"
 #include "1q/common/pose_types.h"
 #include "1q/common/scan_schedule_types.h"

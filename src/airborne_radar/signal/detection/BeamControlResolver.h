@@ -7,8 +7,8 @@
 #define AIRBORNE_RADAR_SIGNAL_DETECTION_BEAM_CONTROL_RESOLVER_H_
 
 #include "1q/airborne_radar/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/config/SignalDetectionConfig.h"
 #include "1q/airborne_radar/common/utils/RadarOrientationUtils.h"
-#include "airborne_radar/signal/detection/DetectionTypes.h"
 #include "airborne_radar/signal/detection/AntennaPatternRuntime.h"
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"
 #include "airborne_radar/signal/detection/TargetLookResolver.h"
@@ -37,7 +37,7 @@ class BeamControlResolver {
    * @param target_look_angles 目标在雷达局部坐标系中的 look angle。
    * @return 当前探测使用的波束状态。
    */
-  static ResolvedBeamState Resolve(const AntennaConfig& antenna_config,
+  static ResolvedBeamState Resolve(const common::config::AntennaConfig& antenna_config,
                                    const common::config::RadarOrientationConfig& orientation_config,
                                    const common::config::PlatformAttitudeDeg& platform_attitude_deg,
                                    const TargetLookAnglesDeg& target_look_angles) {

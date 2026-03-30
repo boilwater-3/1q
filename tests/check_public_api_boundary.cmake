@@ -40,7 +40,6 @@ set(EXPECTED_PUBLIC_HEADERS
     "airborne_radar/environment/IEnvironmentService.h"
     "airborne_radar/signal/pipeline/ISignalPipeline.h"
     "airborne_radar/signal/pipeline/SignalPipelineResultTypes.h"
-    "airborne_radar/signal/pipeline/SignalPipelineTypes.h"
     "electronic_surveillance_radar/common/EmitterHypothesis.h"
     "electronic_surveillance_radar/common/EmitterObservation.h"
     "electronic_surveillance_radar/common/EmitterTruthState.h"

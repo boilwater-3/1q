@@ -29,7 +29,7 @@ struct DetectionResult {
 struct TargetReturn {
   float rcs_m2{0.0f};                      /**< 目标 RCS (m²) */
   float range_m{0.0f};                     /**< 目标到雷达斜距 (m) */
-  SwerlingModel swerling_type{kSwerling0}; /**< 目标的 Swerling 起伏模型 */
+  common::config::SwerlingModel swerling_type{common::config::kSwerling0}; /**< 目标的 Swerling 起伏模型 */
 };
 /**
  * @brief 环境噪声上下文。
@@ -54,12 +54,12 @@ class SignalDetector {
    * @brief 使用雷达系统配置构造检测器。
    * @param config 完整雷达系统参数
    */
-  explicit SignalDetector(RadarSystemConfig config);
+  explicit SignalDetector(common::config::RadarSystemConfig config);
   /**
    * @brief 更新雷达系统配置并重算热噪声底。
    * @param config 完整雷达系统参数
    */
-  void UpdateConfig(RadarSystemConfig config);
+  void UpdateConfig(common::config::RadarSystemConfig config);
   /**
    * @brief 对单个目标执行完整检测链。
    * @param target               目标回波特征上下文
@@ -78,7 +78,7 @@ class SignalDetector {
   void SetRandomSeed(unsigned int seed);
 
  private:
-  RadarSystemConfig config_; /**< 雷达系统配置 */
+  common::config::RadarSystemConfig config_; /**< 雷达系统配置 */
   float thermal_noise_w_;    /**< 预计算的接收机热噪声底 (W) */
   std::mt19937 rng_;         /**< 确定性随机数引擎 */
 };

@@ -8,7 +8,7 @@
 
 #include <random>
 
-#include "airborne_radar/signal/detection/DetectionTypes.h"
+#include "1q/airborne_radar/config/SignalDetectionConfig.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -29,8 +29,9 @@ struct RadarEquations {
    * @param propagation_loss_db 大气传播往返损耗 (dB)
    * @return 接收回波功率 (dBW)
    */
-  static float ComputeEchoPowerWithGain_dBW(const TransmitterConfig& tx, float one_way_gain_db,
-                                            float rcs_m2, float range_m, float propagation_loss_db);
+  static float ComputeEchoPowerWithGain_dBW(const common::config::TransmitterConfig& tx,
+                                            float one_way_gain_db, float rcs_m2, float range_m,
+                                            float propagation_loss_db);
   /**
    * @brief 单站雷达方程（对数域），计算接收回波功率。
    * 公式: Pr_dBW = Pt_dB + 2*Gt_dB + 2*λ_dB + σ_dB
@@ -43,8 +44,9 @@ struct RadarEquations {
    * @param propagation_loss_db 大气传播往返损耗 (dB)
    * @return 接收回波功率 (dBW)
    */
-  static float ComputeEchoPower_dBW(const TransmitterConfig& tx, const AntennaConfig& ant,
-                                    float rcs_m2, float range_m, float propagation_loss_db);
+  static float ComputeEchoPower_dBW(const common::config::TransmitterConfig& tx,
+                                    const common::config::AntennaConfig& ant, float rcs_m2,
+                                    float range_m, float propagation_loss_db);
   /**
    * @brief 接收机热噪声功率底: N₀ = k·T₀·B·F。
    * T₀ = 290K (IEEE 标准参考温度)。
@@ -52,7 +54,8 @@ struct RadarEquations {
    * @param rx 接收机参数（取噪声系数）
    * @return 热噪声功率 (W)
    */
-  static float ComputeThermalNoisePower_W(const TransmitterConfig& tx, const ReceiverConfig& rx);
+  static float ComputeThermalNoisePower_W(const common::config::TransmitterConfig& tx,
+                                          const common::config::ReceiverConfig& rx);
   /**
    * @brief 脉冲积累增益因子。
    * 当前统一采用线性脉冲积累语义: G = N。
@@ -85,8 +88,8 @@ struct RadarEquations {
    * @param num_pulses  检测脉冲数 N (N ≥ 1)
    * @return 检测概率 Pd ∈ [0, 1]
    */
-  static float ComputeDetectionProbability(float snr_db, float pfa, SwerlingModel model,
-                                           int num_pulses);
+  static float ComputeDetectionProbability(float snr_db, float pfa,
+                                           common::config::SwerlingModel model, int num_pulses);
   /**
    * @brief 计算方波检测器的检测门限 T。
    * @param pfa         虚警概率

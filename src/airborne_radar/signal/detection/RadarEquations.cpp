@@ -77,9 +77,9 @@ float ClampPd(float pd) {
 
 }  // namespace
 
-float RadarEquations::ComputeEchoPowerWithGain_dBW(const TransmitterConfig& tx,
-                                                   float one_way_gain_db, float rcs_m2,
-                                                   float range_m, float propagation_loss_db) {
+float RadarEquations::ComputeEchoPowerWithGain_dBW(
+    const common::config::TransmitterConfig& tx, float one_way_gain_db, float rcs_m2,
+    float range_m, float propagation_loss_db) {
   if (range_m <= 0.0f || rcs_m2 <= 0.0f) {
     return -300.0f;
   }
@@ -103,14 +103,15 @@ float RadarEquations::ComputeEchoPowerWithGain_dBW(const TransmitterConfig& tx,
   return pr_dbw;
 }
 
-float RadarEquations::ComputeEchoPower_dBW(const TransmitterConfig& tx, const AntennaConfig& ant,
-                                           float rcs_m2, float range_m, float propagation_loss_db) {
+float RadarEquations::ComputeEchoPower_dBW(const common::config::TransmitterConfig& tx,
+                                           const common::config::AntennaConfig& ant, float rcs_m2,
+                                           float range_m, float propagation_loss_db) {
   return ComputeEchoPowerWithGain_dBW(tx, ant.main_beam_gain_db, rcs_m2, range_m,
                                       propagation_loss_db);
 }
 
-float RadarEquations::ComputeThermalNoisePower_W(const TransmitterConfig& tx,
-                                                 const ReceiverConfig& rx) {
+float RadarEquations::ComputeThermalNoisePower_W(const common::config::TransmitterConfig& tx,
+                                                 const common::config::ReceiverConfig& rx) {
   const float noise_figure_linear = DbToLinear(rx.noise_figure_db);
   return kBoltzmann * kRefTemperature * tx.bandwidth_hz * noise_figure_linear;
 }
@@ -248,7 +249,8 @@ double RadarEquations::MarcumQ(int order, double a, double b) {
   return sum;
 }
 
-float RadarEquations::ComputeDetectionProbability(float snr_db, float pfa, SwerlingModel model,
+float RadarEquations::ComputeDetectionProbability(float snr_db, float pfa,
+                                                  common::config::SwerlingModel model,
                                                   int num_pulses) {
   if (pfa <= 0.0f || pfa >= 1.0f) {
     pfa = 1e-6f;
@@ -263,13 +265,13 @@ float RadarEquations::ComputeDetectionProbability(float snr_db, float pfa, Swerl
   double pd = 0.0;
 
   switch (model) {
-    case kSwerling0: {
+    case common::config::kSwerling0: {
       const double a = std::sqrt(2.0 * N * chi);
       const double b = std::sqrt(2.0 * T);
       pd = MarcumQ(N, a, b);
       break;
     }
-    case kSwerling1: {
+    case common::config::kSwerling1: {
       const double total_snr = N * chi;  // N 个脉冲的总 SNR
       if (N == 1) {
         pd = std::exp(-T / (1.0 + chi));
@@ -290,13 +292,13 @@ float RadarEquations::ComputeDetectionProbability(float snr_db, float pfa, Swerl
       break;
     }
 
-    case kSwerling2: {
+    case common::config::kSwerling2: {
       const double cT = T / (1.0 + chi);
       pd = boost::math::gamma_q(static_cast<double>(N), cT);
       break;
     }
 
-    case kSwerling3: {
+    case common::config::kSwerling3: {
       const double total_snr = N * chi;  // N 个脉冲的总 SNR
       if (N == 1) {
         const double u = 2.0 * T / (2.0 + chi);
@@ -323,7 +325,7 @@ float RadarEquations::ComputeDetectionProbability(float snr_db, float pfa, Swerl
       }
       break;
     }
-    case kSwerling4: {
+    case common::config::kSwerling4: {
       const double u = 2.0 * T / (2.0 + chi);
       pd = boost::math::gamma_q(2.0 * N, u);
       break;

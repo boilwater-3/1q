@@ -18,16 +18,16 @@
 namespace airborne_radar {
 namespace tests {
 
-using signal::detection::AntennaConfig;
-using signal::detection::DetectionPolicy;
+using common::config::AntennaConfig;
+using common::config::DetectionPolicy;
 using signal::detection::DetectionResult;
 using signal::detection::MeasurementErrorModel;
 using signal::detection::RadarEquations;
-using signal::detection::RadarSystemConfig;
-using signal::detection::ReceiverConfig;
+using common::config::RadarSystemConfig;
+using common::config::ReceiverConfig;
 using signal::detection::SignalDetector;
 using signal::detection::TargetLookResolver;
-using signal::detection::TransmitterConfig;
+using common::config::TransmitterConfig;
 
 // ===========================================================================
 // RadarEquations 纯函数单元测试
@@ -284,7 +284,7 @@ TEST(SignalDetectorTest, DetectionProbabilityUsesIntegratedSnr) {
   signal::detection::TargetReturn target;
   target.rcs_m2 = 0.5f;
   target.range_m = 120000.0f;
-  target.swerling_type = signal::detection::kSwerling2;
+  target.swerling_type = common::config::kSwerling2;
 
   signal::detection::EnvironmentState env;
   env.propagation_loss_db = 0.0f;
@@ -324,7 +324,7 @@ TEST(SignalDetectorTest, HigherPulseCountYieldsHigherPd) {
   signal::detection::TargetReturn target;
   target.rcs_m2 = 1.0f;
   target.range_m = 90000.0f;
-  target.swerling_type = signal::detection::kSwerling1;
+  target.swerling_type = common::config::kSwerling1;
 
   signal::detection::EnvironmentState env;
   env.propagation_loss_db = 0.0f;
@@ -545,12 +545,12 @@ TEST(BeamControlResolverTest, GroundStabilizedCurrentlyMatchesInertialStabilized
 // Swerling 0~4 检测概率单元测试
 // ===========================================================================
 
-using signal::detection::kSwerling0;
-using signal::detection::kSwerling1;
-using signal::detection::kSwerling2;
-using signal::detection::kSwerling3;
-using signal::detection::kSwerling4;
-using signal::detection::SwerlingModel;
+using common::config::kSwerling0;
+using common::config::kSwerling1;
+using common::config::kSwerling2;
+using common::config::kSwerling3;
+using common::config::kSwerling4;
+using common::config::SwerlingModel;
 
 /// @brief Swerling 1 单脉冲 ≡ Swerling 2 单脉冲（单脉冲无所谓快慢起伏）。
 TEST(SwerlingDetectionTest, Sw1_N1_Equals_Sw2_N1) {

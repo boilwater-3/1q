@@ -12,7 +12,7 @@ namespace airborne_radar {
 namespace tests {
 
 using common::config::RadarOrientationConfig;
-using signal::detection::AntennaConfig;
+using common::config::AntennaConfig;
 using signal::detection::EffectiveBeamwidthDeg;
 using signal::detection::ResolveEffectiveBeamwidth;
 

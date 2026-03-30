@@ -10,8 +10,8 @@
 
 #include "1q/airborne_radar/common/control/RadarControlProfile.h"
 #include "1q/airborne_radar/common/model/TargetFeature.h"
+#include "1q/airborne_radar/config/ConfigPresets.h"
 #include "1q/airborne_radar/config/SignalPipelineConfig.h"
-#include "airborne_radar/core/session/internal/SignalPipelineConfigMapper.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/environment/scene/SceneManager.h"
 #include "airborne_radar/environment/simulation/PropagationModel.h"
@@ -277,9 +277,9 @@ TEST(SignalPipelineTest, AutoLifecycleManagerBuildsWithDefaultInternalImmConfig)
 
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> lifecycle_manager =
   signal::runtime::internal::CreateAutoLifecycleManagerForRuntimeConfig(
-      core::session::internal::ToPipelineSignalPipelineConfig(runtime_config),
+      runtime_config,
       signal::pipeline::internal::BuildInternalSignalPipelineConfig(
-          core::session::internal::ToPipelineSignalPipelineConfig(runtime_config)));
+          runtime_config));
   ASSERT_TRUE(lifecycle_manager != nullptr);
 
   const signal::tracking::CycleContext cycle = MakeLifecycleCycle(1u, 7u);
@@ -290,6 +290,94 @@ TEST(SignalPipelineTest, AutoLifecycleManagerBuildsWithDefaultInternalImmConfig)
       lifecycle_manager->BuildDecisionFrame(1u, 7u, false);
   EXPECT_EQ(decision_frame.cycle_index, 1u);
   EXPECT_EQ(decision_frame.batch_id, 7u);
+}
+
+TEST(SignalPipelineInternalConfigTest, DetectionPresetMapsToBaselineProfile) {
+  const common::config::SignalPipelineConfig config =
+      common::config::MakeDetectionMissionSignalPipelineConfig();
+  const signal::pipeline::SignalPipelineConfig pipeline_config =
+      config;
+
+  const signal::pipeline::internal::InternalSignalPipelineConfig internal_config =
+      signal::pipeline::internal::BuildInternalSignalPipelineConfig(pipeline_config);
+
+  EXPECT_FLOAT_EQ(internal_config.association.unassigned_cost, 9.0f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.kalman_noise_diff_coeff, 1.0f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.speed_decay_ratio_on_loss, 0.90f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.rcs_decay_ratio_on_loss, 0.85f);
+}
+
+TEST(SignalPipelineInternalConfigTest, TrackingPresetMapsToTrackingProfile) {
+  const common::config::SignalPipelineConfig config =
+      common::config::MakeTrackingMissionSignalPipelineConfig();
+  const signal::pipeline::SignalPipelineConfig pipeline_config =
+      config;
+
+  const signal::pipeline::internal::InternalSignalPipelineConfig internal_config =
+      signal::pipeline::internal::BuildInternalSignalPipelineConfig(pipeline_config);
+
+  EXPECT_FLOAT_EQ(internal_config.association.unassigned_cost, 9.0f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.kalman_noise_diff_coeff, 1.0f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.speed_decay_ratio_on_loss, 0.95f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.rcs_decay_ratio_on_loss, 0.92f);
+}
+
+TEST(SignalPipelineInternalConfigTest, RobustPresetMapsToRobustProfile) {
+  const common::config::SignalPipelineConfig config =
+      common::config::MakeHighRobustnessSignalPipelineConfig();
+  const signal::pipeline::SignalPipelineConfig pipeline_config =
+      config;
+
+  const signal::pipeline::internal::InternalSignalPipelineConfig internal_config =
+      signal::pipeline::internal::BuildInternalSignalPipelineConfig(pipeline_config);
+
+  EXPECT_FLOAT_EQ(internal_config.association.unassigned_cost, 12.0f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.kalman_noise_diff_coeff, 1.0f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.speed_decay_ratio_on_loss, 0.95f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.rcs_decay_ratio_on_loss, 0.92f);
+}
+
+TEST(SignalPipelineInternalConfigTest, CustomConfigStaysBaselineEvenWithHighLifecycleThresholds) {
+  common::config::SignalPipelineConfig config =
+      common::config::MakeDetectionMissionSignalPipelineConfig();
+  config.lifecycle.lifecycle_config.confirm_hits = 2U;
+  config.lifecycle.lifecycle_config.max_miss_before_lost = 6U;
+  config.lifecycle.lifecycle_config.max_lost_cycles = 10U;
+  config.tracking.kalman_measurement_noise_std = 5.0f;
+
+  const signal::pipeline::SignalPipelineConfig pipeline_config =
+      config;
+  const signal::pipeline::internal::InternalSignalPipelineConfig internal_config =
+      signal::pipeline::internal::BuildInternalSignalPipelineConfig(pipeline_config);
+
+  EXPECT_FLOAT_EQ(internal_config.association.unassigned_cost, 9.0f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.kalman_noise_diff_coeff, 1.0f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.speed_decay_ratio_on_loss, 0.90f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.rcs_decay_ratio_on_loss, 0.85f);
+}
+
+TEST(SignalPipelineInternalConfigTest, ImmToggleOnlyControlsImmInternalDefaults) {
+  common::config::SignalPipelineConfig config =
+      common::config::MakeTrackingMissionSignalPipelineConfig();
+  const signal::pipeline::SignalPipelineConfig pipeline_config =
+      config;
+
+  const signal::pipeline::internal::InternalSignalPipelineConfig imm_disabled_internal_config =
+      signal::pipeline::internal::BuildInternalSignalPipelineConfig(pipeline_config);
+  EXPECT_TRUE(imm_disabled_internal_config.lifecycle.imm_model_noise_diff_coeffs.empty());
+  EXPECT_FLOAT_EQ(imm_disabled_internal_config.tracking.speed_decay_ratio_on_loss, 0.95f);
+  EXPECT_FLOAT_EQ(imm_disabled_internal_config.tracking.rcs_decay_ratio_on_loss, 0.92f);
+
+  config.lifecycle.enable_imm_lifecycle = true;
+  const signal::pipeline::SignalPipelineConfig imm_enabled_pipeline_config =
+      config;
+  const signal::pipeline::internal::InternalSignalPipelineConfig imm_enabled_internal_config =
+      signal::pipeline::internal::BuildInternalSignalPipelineConfig(imm_enabled_pipeline_config);
+  ASSERT_EQ(imm_enabled_internal_config.lifecycle.imm_model_noise_diff_coeffs.size(), 2U);
+  EXPECT_FLOAT_EQ(imm_enabled_internal_config.lifecycle.imm_model_noise_diff_coeffs[0], 0.5f);
+  EXPECT_FLOAT_EQ(imm_enabled_internal_config.lifecycle.imm_model_noise_diff_coeffs[1], 4.0f);
+  EXPECT_FLOAT_EQ(imm_enabled_internal_config.tracking.speed_decay_ratio_on_loss, 0.95f);
+  EXPECT_FLOAT_EQ(imm_enabled_internal_config.tracking.rcs_decay_ratio_on_loss, 0.92f);
 }
 
 TEST(SignalPipelineTest, ControlProfilePowerReductionLowersPhysicalDetectionMargin) {
@@ -304,7 +392,7 @@ TEST(SignalPipelineTest, ControlProfilePowerReductionLowersPhysicalDetectionMarg
   const common::model::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
 
   signal::pipeline::SignalPipeline baseline_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
   baseline_pipeline.RunCycle(input_state, environment_service);
   const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
@@ -312,7 +400,7 @@ TEST(SignalPipelineTest, ControlProfilePowerReductionLowersPhysicalDetectionMarg
   reduced_power_profile.enable_lpi_power_control = true;
   reduced_power_profile.lpi_power_scale = 0.20f;
   signal::pipeline::SignalPipeline reduced_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
   reduced_pipeline.SetControlProfile(reduced_power_profile);
   reduced_pipeline.RunCycle(input_state, environment_service);
   const auto reduced_measurements = reduced_pipeline.GetLastTrackMeasurements();
@@ -337,14 +425,14 @@ TEST(SignalPipelineTest, AdaptiveBeamformingProfileTightensMeasurementCovariance
   const common::model::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
 
   signal::pipeline::SignalPipeline baseline_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
   baseline_pipeline.RunCycle(input_state, environment_service);
   const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
   common::control::RadarControlProfile adaptive_profile;
   adaptive_profile.enable_adaptive_beamforming = true;
   signal::pipeline::SignalPipeline adaptive_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
   adaptive_pipeline.SetControlProfile(adaptive_profile);
   adaptive_pipeline.RunCycle(input_state, environment_service);
   const auto adaptive_measurements = adaptive_pipeline.GetLastTrackMeasurements();
@@ -380,7 +468,7 @@ TEST(SignalPipelineTest, EccmProfileRelaxesHeuristicAssociationGateForSeededTrac
   seed.gaussian_state.covariance = signal::tracking::StateCovariance::Zero();
 
   signal::pipeline::SignalPipeline baseline_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
   baseline_pipeline.SetAssociationSeeds(
       std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
   baseline_pipeline.RunCycle(input_state, environment_service);
@@ -391,7 +479,7 @@ TEST(SignalPipelineTest, EccmProfileRelaxesHeuristicAssociationGateForSeededTrac
   eccm_profile.enable_eccm_rejitter = true;
   eccm_profile.eccm_burnthrough_gain = 1.5f;
   signal::pipeline::SignalPipeline protected_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
   protected_pipeline.SetAssociationSeeds(
       std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
   protected_pipeline.SetControlProfile(eccm_profile);
@@ -446,14 +534,14 @@ TEST(SignalPipelineTest, AssociationQualityMetricsExposeTypeSpecificStressSummar
   environment::EnvironmentService deception_environment(deception_env_config);
 
   signal::pipeline::SignalPipeline noise_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
   noise_pipeline.SetAssociationSeeds(std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
   noise_pipeline.RunCycle(input_state, noise_environment);
   const signal::pipeline::AssociationQualityMetrics noise_metrics =
       noise_pipeline.GetLastAssociationQualityMetrics();
 
   signal::pipeline::SignalPipeline deception_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
   deception_pipeline.SetAssociationSeeds(
       std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
   deception_pipeline.RunCycle(input_state, deception_environment);
@@ -552,7 +640,7 @@ TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) 
   environment::EnvironmentService deception_environment(deception_env_config);
 
   signal::pipeline::SignalPipeline baseline_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
   baseline_pipeline.SetAssociationSeeds(
       std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
   baseline_pipeline.RunCycle(input_state, deception_environment);
@@ -563,7 +651,7 @@ TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) 
   protected_profile.enable_agility_frequency = true;
   protected_profile.enable_eccm_rejitter = true;
   signal::pipeline::SignalPipeline protected_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
   protected_pipeline.SetAssociationSeeds(
       std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
   protected_pipeline.SetControlProfile(protected_profile);
@@ -601,7 +689,7 @@ TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) 
   const common::model::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
 
   signal::pipeline::SignalPipeline baseline_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
   baseline_pipeline.RunCycle(input_state, environment_service);
   const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
@@ -611,7 +699,7 @@ TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) 
   eccm_profile.enable_eccm_rejitter = true;
   eccm_profile.eccm_burnthrough_gain = 1.5f;
   signal::pipeline::SignalPipeline eccm_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
   eccm_pipeline.SetControlProfile(eccm_profile);
   eccm_pipeline.RunCycle(input_state, environment_service);
   const auto eccm_measurements = eccm_pipeline.GetLastTrackMeasurements();
@@ -660,13 +748,13 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulatePhysicalEccmBenefit) {
   eccm_profile.eccm_burnthrough_gain = 1.5f;
 
   signal::pipeline::SignalPipeline favorable_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
   favorable_pipeline.SetControlProfile(eccm_profile);
   favorable_pipeline.RunCycle(input_state, favorable_environment);
   const auto favorable_measurements = favorable_pipeline.GetLastTrackMeasurements();
 
   signal::pipeline::SignalPipeline unfavorable_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
   unfavorable_pipeline.SetControlProfile(eccm_profile);
   unfavorable_pipeline.RunCycle(input_state, unfavorable_environment);
   const auto unfavorable_measurements = unfavorable_pipeline.GetLastTrackMeasurements();
@@ -698,7 +786,7 @@ TEST(SignalPipelineTest, DeceptionJammingFactsShrinkPhysicalCovarianceWhenMatche
   const common::model::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
 
   signal::pipeline::SignalPipeline baseline_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
   baseline_pipeline.RunCycle(input_state, environment_service);
   const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
@@ -706,7 +794,7 @@ TEST(SignalPipelineTest, DeceptionJammingFactsShrinkPhysicalCovarianceWhenMatche
   protected_profile.enable_agility_frequency = true;
   protected_profile.enable_eccm_rejitter = true;
   signal::pipeline::SignalPipeline protected_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
   protected_pipeline.SetControlProfile(protected_profile);
   protected_pipeline.RunCycle(input_state, environment_service);
   const auto protected_measurements = protected_pipeline.GetLastTrackMeasurements();
@@ -724,9 +812,9 @@ TEST(SignalPipelineTest, AgilityFrequencyHopPhaseControlsFrequencyDirection) {
   phase_zero_config.detection.radar_system.transmitter.frequency_hz = 1.0e9f;
   common::config::SignalPipelineConfig phase_one_config = phase_zero_config;
   signal::pipeline::SignalPipelineConfig phase_zero_pipeline_config =
-      core::session::internal::ToPipelineSignalPipelineConfig(phase_zero_config);
+      phase_zero_config;
   signal::pipeline::SignalPipelineConfig phase_one_pipeline_config =
-      core::session::internal::ToPipelineSignalPipelineConfig(phase_one_config);
+      phase_one_config;
 
   common::control::RadarControlProfile profile;
   profile.enable_agility_frequency = true;
@@ -828,13 +916,13 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
   eccm_profile.eccm_burnthrough_gain = 1.5f;
 
   signal::pipeline::SignalPipeline favorable_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
   favorable_pipeline.SetControlProfile(eccm_profile);
   favorable_pipeline.RunCycle(input_state, favorable_environment);
   const auto favorable_measurements = favorable_pipeline.GetLastTrackMeasurements();
 
   signal::pipeline::SignalPipeline unfavorable_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
   unfavorable_pipeline.SetControlProfile(eccm_profile);
   unfavorable_pipeline.RunCycle(input_state, unfavorable_environment);
   const auto unfavorable_measurements = unfavorable_pipeline.GetLastTrackMeasurements();
@@ -864,7 +952,7 @@ TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUp
   const common::model::TargetFeatureList cycle_1_input{target};
 
   signal::pipeline::SignalPipeline baseline_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> baseline_manager =
       baseline_pipeline.CreateAutoLifecycleManager();
   ASSERT_TRUE(baseline_manager != nullptr);
@@ -885,7 +973,7 @@ TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUp
   common::control::RadarControlProfile adaptive_profile;
   adaptive_profile.enable_adaptive_beamforming = true;
   signal::pipeline::SignalPipeline adaptive_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
   adaptive_pipeline.SetControlProfile(adaptive_profile);
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> adaptive_manager =
       adaptive_pipeline.CreateAutoLifecycleManager();
@@ -937,12 +1025,12 @@ TEST(SignalPipelineTest, DeceptionJammingInflatesPhysicalCovarianceMoreThanNoise
   const common::model::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
 
   signal::pipeline::SignalPipeline noise_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
   noise_pipeline.RunCycle(input_state, noise_environment);
   const auto noise_measurements = noise_pipeline.GetLastTrackMeasurements();
 
   signal::pipeline::SignalPipeline deception_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
   deception_pipeline.RunCycle(input_state, deception_environment);
   const auto deception_measurements = deception_pipeline.GetLastTrackMeasurements();
 
@@ -967,7 +1055,7 @@ TEST(SignalPipelineTest, AutoImmLifecycleAssemblyUsesControlProfileAdjustedImmPa
   const common::model::TargetFeatureList cycle_1_input{target};
 
   signal::pipeline::SignalPipeline baseline_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> baseline_manager =
       baseline_pipeline.CreateAutoLifecycleManager();
   ASSERT_TRUE(baseline_manager != nullptr);
@@ -982,7 +1070,7 @@ TEST(SignalPipelineTest, AutoImmLifecycleAssemblyUsesControlProfileAdjustedImmPa
   protected_profile.enable_eccm_rejitter = true;
   protected_profile.eccm_burnthrough_gain = 1.5f;
   signal::pipeline::SignalPipeline protected_pipeline(
-      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
+      pipeline_config);
   protected_pipeline.SetControlProfile(protected_profile);
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> protected_manager =
       protected_pipeline.CreateAutoLifecycleManager();

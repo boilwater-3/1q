@@ -366,7 +366,6 @@ if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_SIGNAL_PIPELINE
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/pipeline/ISignalPipeline.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/pipeline/SignalPipelineResultTypes.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h
     )
     set(PUBLIC_HEADERS_ESR_COMMON
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/common/EmitterHypothesis.h
