@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <vector>
 
+#include "airborne_radar/common/config/SignalPipelinePresetSemantics.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/tracking/LifecycleConfig.h"
 
@@ -160,26 +161,6 @@ inline bool MatchesProfileSignatureIgnoringImm(const SignalPipelineConfig& publi
          EqualsSignalLifecycleConfigIgnoringImm(public_config.lifecycle, signature.lifecycle);
 }
 
-inline SignalPipelineConfig BuildTrackingPresetSignature() {
-  SignalPipelineConfig config;
-  config.beam_control.radar_orientation.scan_start_position = oneq::common::ScanStartPosition::kLeftTop;
-  config.beam_control.radar_orientation.scan_sequence = oneq::common::ScanSequence::kAzimuthFirst;
-  config.beam_control.radar_orientation.work_sub_mode = common::config::RadarWorkSubMode::kTws;
-  config.detection.min_detection_margin_db = -20.0f;
-  config.lifecycle.enable_auto_lifecycle_manager = true;
-  config.lifecycle.lifecycle_config.confirm_hits = 2U;
-  config.tracking.kalman_measurement_noise_std = 5.0f;
-  return config;
-}
-
-inline SignalPipelineConfig BuildRobustPresetSignature() {
-  SignalPipelineConfig config = BuildTrackingPresetSignature();
-  config.tracking.kalman_measurement_noise_std = 3.0f;
-  config.lifecycle.lifecycle_config.max_miss_before_lost = 3U;
-  config.lifecycle.lifecycle_config.max_lost_cycles = 8U;
-  return config;
-}
-
 }  // namespace detail
 
 /**
@@ -187,12 +168,14 @@ inline SignalPipelineConfig BuildRobustPresetSignature() {
  */
 inline InternalSignalPipelineProfile ResolveInternalProfileFromPublicConfig(
     const SignalPipelineConfig& public_config) {
-  const SignalPipelineConfig robust_signature = detail::BuildRobustPresetSignature();
+  const SignalPipelineConfig robust_signature =
+      common::config::internal::BuildHighRobustnessPresetConfig();
   if (detail::MatchesProfileSignatureIgnoringImm(public_config, robust_signature)) {
     return InternalSignalPipelineProfile::kRobustPreset;
   }
 
-  const SignalPipelineConfig tracking_signature = detail::BuildTrackingPresetSignature();
+  const SignalPipelineConfig tracking_signature =
+      common::config::internal::BuildTrackingMissionPresetConfig();
   if (detail::MatchesProfileSignatureIgnoringImm(public_config, tracking_signature)) {
     return InternalSignalPipelineProfile::kTrackingPreset;
   }
