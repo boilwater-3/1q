@@ -6,12 +6,38 @@
 #ifndef AIRBORNE_RADAR_COMMON_RADAR_ORIENTATION_UTILS_H_
 #define AIRBORNE_RADAR_COMMON_RADAR_ORIENTATION_UTILS_H_
 
+#include <algorithm>
+#include <cmath>
+
 #include "1q/airborne_radar/common/utils/MathUtils.h"
 #include "1q/airborne_radar/config/RadarOrientationConfig.h"
+#include "common/geometry/GeometryTransform.h"
 
 namespace airborne_radar {
 namespace common {
 namespace utils {
+
+namespace internal {
+
+inline oneq::internal::geometry::EulerAnglesDeg ToGeometryEuler(
+    const config::EulerAnglesDeg& euler_deg) {
+  oneq::internal::geometry::EulerAnglesDeg geometry_euler;
+  geometry_euler.yaw_deg = euler_deg.yaw_deg;
+  geometry_euler.pitch_deg = euler_deg.pitch_deg;
+  geometry_euler.roll_deg = euler_deg.roll_deg;
+  return geometry_euler;
+}
+
+inline config::EulerAnglesDeg FromRotationMatrix(const Eigen::Matrix3f& rotation) {
+  config::EulerAnglesDeg euler_deg;
+  const float r20 = std::max(-1.0f, std::min(1.0f, rotation(2, 0)));
+  euler_deg.pitch_deg = std::asin(r20) * 180.0f / 3.14159265358979f;
+  euler_deg.yaw_deg = std::atan2(rotation(1, 0), rotation(0, 0)) * 180.0f / 3.14159265358979f;
+  euler_deg.roll_deg = std::atan2(rotation(2, 1), rotation(2, 2)) * 180.0f / 3.14159265358979f;
+  return euler_deg;
+}
+
+}  // namespace internal
 
 /**
  * @brief 判断扫描限位是否合法。
@@ -89,15 +115,17 @@ inline config::AzimuthElevationDeg ComputeMountFrameBeamPointing(const config::R
 /**
  * @brief 计算机体系下的实际波束指向。
  * @param[in] config 雷达方向配置。
- * @return 机体系下的欧拉角；roll 继承安装滚转角。
+ * @return 机体系下的欧拉角；由安装姿态与挂架波束指向做旋转合成得到。
  */
 inline config::EulerAnglesDeg ComputeBodyFrameBeamPointing(const config::RadarOrientationConfig& config) {
   const config::AzimuthElevationDeg mount_frame_pointing = ComputeMountFrameBeamPointing(config);
-  config::EulerAnglesDeg body_frame_pointing;
-  body_frame_pointing.yaw_deg = config.mount_angles_deg.yaw_deg + mount_frame_pointing.az_deg;
-  body_frame_pointing.pitch_deg = config.mount_angles_deg.pitch_deg + mount_frame_pointing.el_deg;
-  body_frame_pointing.roll_deg = config.mount_angles_deg.roll_deg;
-  return body_frame_pointing;
+  config::EulerAnglesDeg mount_frame_euler;
+  mount_frame_euler.yaw_deg = mount_frame_pointing.az_deg;
+  mount_frame_euler.pitch_deg = mount_frame_pointing.el_deg;
+  const Eigen::Matrix3f body_rotation =
+      oneq::internal::geometry::BuildRotationMatrix(internal::ToGeometryEuler(config.mount_angles_deg)) *
+      oneq::internal::geometry::BuildRotationMatrix(internal::ToGeometryEuler(mount_frame_euler));
+  return internal::FromRotationMatrix(body_rotation);
 }
 
 /**
@@ -110,13 +138,15 @@ inline config::EulerAnglesDeg ComputeBodyFrameBeamPointing(const config::RadarOr
  */
 inline config::EulerAnglesDeg ComputePlatformFrameBeamPointing(const config::EulerAnglesDeg& platform_attitude_deg,
                                                        const config::RadarOrientationConfig& config) {
-  const config::EulerAnglesDeg body_frame_pointing = ComputeBodyFrameBeamPointing(config);
-  config::EulerAnglesDeg platform_frame_pointing;
-  platform_frame_pointing.yaw_deg = platform_attitude_deg.yaw_deg + body_frame_pointing.yaw_deg;
-  platform_frame_pointing.pitch_deg =
-      platform_attitude_deg.pitch_deg + body_frame_pointing.pitch_deg;
-  platform_frame_pointing.roll_deg = platform_attitude_deg.roll_deg + body_frame_pointing.roll_deg;
-  return platform_frame_pointing;
+  const config::AzimuthElevationDeg mount_frame_pointing = ComputeMountFrameBeamPointing(config);
+  config::EulerAnglesDeg mount_frame_euler;
+  mount_frame_euler.yaw_deg = mount_frame_pointing.az_deg;
+  mount_frame_euler.pitch_deg = mount_frame_pointing.el_deg;
+  const Eigen::Matrix3f platform_rotation =
+      oneq::internal::geometry::BuildRotationMatrix(internal::ToGeometryEuler(platform_attitude_deg)) *
+      oneq::internal::geometry::BuildRotationMatrix(internal::ToGeometryEuler(config.mount_angles_deg)) *
+      oneq::internal::geometry::BuildRotationMatrix(internal::ToGeometryEuler(mount_frame_euler));
+  return internal::FromRotationMatrix(platform_rotation);
 }
 
 }  // namespace utils

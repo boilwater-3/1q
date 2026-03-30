@@ -6,10 +6,10 @@
 #ifndef AIRBORNE_RADAR_SIGNAL_DETECTION_BEAM_CONTROL_RESOLVER_H_
 #define AIRBORNE_RADAR_SIGNAL_DETECTION_BEAM_CONTROL_RESOLVER_H_
 
-#include "1q/airborne_radar/common/utils/AntennaPatternUtils.h"
 #include "1q/airborne_radar/config/RadarOrientationConfig.h"
 #include "1q/airborne_radar/common/utils/RadarOrientationUtils.h"
 #include "1q/airborne_radar/signal/detection/DetectionTypes.h"
+#include "airborne_radar/signal/detection/AntennaPatternRuntime.h"
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"
 #include "airborne_radar/signal/detection/TargetLookResolver.h"
 #include "common/geometry/GeometryTransform.h"
@@ -51,17 +51,17 @@ class BeamControlResolver {
       return state;
     }
 
-    common::config::AntennaPatternBeamwidthDeg pattern_beamwidth;
+    AntennaPatternBeamwidthDeg pattern_beamwidth;
     pattern_beamwidth.az_beamwidth_deg = state.effective_beamwidth_deg.az_beamwidth_deg;
     pattern_beamwidth.el_beamwidth_deg = state.effective_beamwidth_deg.el_beamwidth_deg;
 
-    common::config::AntennaLookOffsetDeg offset_deg;
+    AntennaLookOffsetDeg offset_deg;
     offset_deg.delta_az_deg = target_look_angles.look_az_deg - state.beam_pointing_deg.az_deg;
     offset_deg.delta_el_deg = target_look_angles.look_el_deg - state.beam_pointing_deg.el_deg;
 
-    const common::config::AntennaPatternSample sample = common::utils::EvaluateAntennaPattern(
+    const AntennaPatternSample sample = EvaluateAntennaPattern(
         antenna_config.main_beam_gain_db, antenna_config.pattern, pattern_beamwidth, offset_deg,
-        orientation_config.scan_center_deg);
+        state.beam_pointing_deg);
     state.one_way_antenna_gain_db = sample.gain_dbi;
     return state;
   }

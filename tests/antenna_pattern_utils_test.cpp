@@ -5,30 +5,30 @@
 
 #include <gtest/gtest.h>
 
-#include "1q/airborne_radar/common/utils/AntennaPatternUtils.h"
+#include "1q/airborne_radar/config/AntennaPatternConfig.h"
+#include "airborne_radar/signal/detection/AntennaPatternRuntime.h"
 
 namespace airborne_radar {
-namespace common {
-using namespace config;
-using namespace utils;
+namespace signal {
+namespace detection {
 namespace {
 
 TEST(AntennaPatternUtilsTest, MainLobeGainDropsWithOffset) {
-  AntennaPatternConfig config;
+  common::config::AntennaPatternConfig config;
   const float peak_gain_dbi = 30.0f;
 
   AntennaPatternBeamwidthDeg beamwidth;
   beamwidth.az_beamwidth_deg = 4.0f;
   beamwidth.el_beamwidth_deg = 4.0f;
 
-  AzimuthElevationDeg scan_center_deg;
+  common::config::AzimuthElevationDeg beam_pointing_deg;
   AntennaLookOffsetDeg boresight_offset_deg;
   AntennaLookOffsetDeg off_axis_offset_deg;
   off_axis_offset_deg.delta_az_deg = 1.0f;
   const AntennaPatternSample boresight = EvaluateAntennaPattern(
-      peak_gain_dbi, config, beamwidth, boresight_offset_deg, scan_center_deg);
+      peak_gain_dbi, config, beamwidth, boresight_offset_deg, beam_pointing_deg);
   const AntennaPatternSample off_axis = EvaluateAntennaPattern(
-      peak_gain_dbi, config, beamwidth, off_axis_offset_deg, scan_center_deg);
+      peak_gain_dbi, config, beamwidth, off_axis_offset_deg, beam_pointing_deg);
 
   EXPECT_TRUE(boresight.inside_main_lobe);
   EXPECT_TRUE(off_axis.inside_main_lobe);
@@ -36,9 +36,9 @@ TEST(AntennaPatternUtilsTest, MainLobeGainDropsWithOffset) {
 }
 
 TEST(AntennaPatternUtilsTest, WiderBeamwidthReducesSameOffsetAttenuation) {
-  AntennaPatternConfig config;
+  common::config::AntennaPatternConfig config;
   const float peak_gain_dbi = 30.0f;
-  AzimuthElevationDeg scan_center_deg;
+  common::config::AzimuthElevationDeg beam_pointing_deg;
   AntennaLookOffsetDeg offset_deg;
   offset_deg.delta_az_deg = 1.0f;
 
@@ -51,16 +51,16 @@ TEST(AntennaPatternUtilsTest, WiderBeamwidthReducesSameOffsetAttenuation) {
   wide_beamwidth.el_beamwidth_deg = 8.0f;
 
   const AntennaPatternSample narrow =
-      EvaluateAntennaPattern(peak_gain_dbi, config, narrow_beamwidth, offset_deg, scan_center_deg);
+      EvaluateAntennaPattern(peak_gain_dbi, config, narrow_beamwidth, offset_deg, beam_pointing_deg);
   const AntennaPatternSample wide =
-      EvaluateAntennaPattern(peak_gain_dbi, config, wide_beamwidth, offset_deg, scan_center_deg);
+      EvaluateAntennaPattern(peak_gain_dbi, config, wide_beamwidth, offset_deg, beam_pointing_deg);
 
   EXPECT_LT(narrow.gain_dbi, wide.gain_dbi);
   EXPECT_GT(narrow.main_lobe_attenuation_db, wide.main_lobe_attenuation_db);
 }
 
 TEST(AntennaPatternUtilsTest, ScanLossIncreasesAwayFromBoresight) {
-  AntennaPatternConfig config;
+  common::config::AntennaPatternConfig config;
   const float peak_gain_dbi = 30.0f;
   config.scan_loss_coeff_db_per_deg2 = 0.02f;
   config.max_scan_loss_db = 6.0f;
@@ -69,21 +69,53 @@ TEST(AntennaPatternUtilsTest, ScanLossIncreasesAwayFromBoresight) {
   beamwidth.az_beamwidth_deg = 4.0f;
   beamwidth.el_beamwidth_deg = 4.0f;
 
-  AzimuthElevationDeg centered_scan_deg;
-  AzimuthElevationDeg scanned_scan_deg;
-  scanned_scan_deg.az_deg = 10.0f;
+  common::config::AzimuthElevationDeg centered_beam_pointing_deg;
+  common::config::AzimuthElevationDeg scanned_beam_pointing_deg;
+  scanned_beam_pointing_deg.az_deg = 10.0f;
   AntennaLookOffsetDeg boresight_offset_deg;
   const AntennaPatternSample centered = EvaluateAntennaPattern(
-      peak_gain_dbi, config, beamwidth, boresight_offset_deg, centered_scan_deg);
+      peak_gain_dbi, config, beamwidth, boresight_offset_deg, centered_beam_pointing_deg);
   const AntennaPatternSample scanned = EvaluateAntennaPattern(
-      peak_gain_dbi, config, beamwidth, boresight_offset_deg, scanned_scan_deg);
+      peak_gain_dbi, config, beamwidth, boresight_offset_deg, scanned_beam_pointing_deg);
 
   EXPECT_LT(scanned.gain_dbi, centered.gain_dbi);
   EXPECT_GT(scanned.scan_loss_db, centered.scan_loss_db);
 }
 
+TEST(AntennaPatternUtilsTest, ScanLossChangesWithBeamPointingWhileLookOffsetIsFixed) {
+  common::config::AntennaPatternConfig config;
+  config.scan_loss_coeff_db_per_deg2 = 0.01f;
+  config.max_scan_loss_db = 20.0f;
+  config.boresight_offset_deg.az_deg = 2.0f;
+  config.boresight_offset_deg.el_deg = -1.0f;
+
+  AntennaPatternBeamwidthDeg beamwidth;
+  beamwidth.az_beamwidth_deg = 6.0f;
+  beamwidth.el_beamwidth_deg = 6.0f;
+
+  AntennaLookOffsetDeg offset_deg;
+  offset_deg.delta_az_deg = 0.5f;
+  offset_deg.delta_el_deg = 0.25f;
+
+  common::config::AzimuthElevationDeg beam_pointing_a;
+  beam_pointing_a.az_deg = 2.0f;
+  beam_pointing_a.el_deg = -1.0f;
+  common::config::AzimuthElevationDeg beam_pointing_b;
+  beam_pointing_b.az_deg = 12.0f;
+  beam_pointing_b.el_deg = -1.0f;
+
+  const AntennaPatternSample sample_a =
+      EvaluateAntennaPattern(30.0f, config, beamwidth, offset_deg, beam_pointing_a);
+  const AntennaPatternSample sample_b =
+      EvaluateAntennaPattern(30.0f, config, beamwidth, offset_deg, beam_pointing_b);
+
+  EXPECT_FLOAT_EQ(sample_a.scan_loss_db, 0.0f);
+  EXPECT_GT(sample_b.scan_loss_db, sample_a.scan_loss_db);
+  EXPECT_GT(sample_a.gain_dbi, sample_b.gain_dbi);
+}
+
 TEST(AntennaPatternUtilsTest, OutsideMainLobeUsesSidelobeFloor) {
-  AntennaPatternConfig config;
+  common::config::AntennaPatternConfig config;
   const float peak_gain_dbi = 30.0f;
   config.max_sidelobe_level_db = -18.0f;
 
@@ -93,9 +125,9 @@ TEST(AntennaPatternUtilsTest, OutsideMainLobeUsesSidelobeFloor) {
 
   AntennaLookOffsetDeg sidelobe_offset_deg;
   sidelobe_offset_deg.delta_az_deg = 10.0f;
-  AzimuthElevationDeg scan_center_deg;
+  common::config::AzimuthElevationDeg beam_pointing_deg;
   const AntennaPatternSample sample = EvaluateAntennaPattern(peak_gain_dbi, config, beamwidth,
-                                                             sidelobe_offset_deg, scan_center_deg);
+                                                             sidelobe_offset_deg, beam_pointing_deg);
 
   EXPECT_FALSE(sample.inside_main_lobe);
   EXPECT_FALSE(sample.inside_back_lobe);
@@ -103,7 +135,7 @@ TEST(AntennaPatternUtilsTest, OutsideMainLobeUsesSidelobeFloor) {
 }
 
 TEST(AntennaPatternUtilsTest, BackLobeUsesConfiguredBacklobeLevel) {
-  AntennaPatternConfig config;
+  common::config::AntennaPatternConfig config;
   const float peak_gain_dbi = 30.0f;
   config.backlobe_level_db = -40.0f;
 
@@ -113,14 +145,15 @@ TEST(AntennaPatternUtilsTest, BackLobeUsesConfiguredBacklobeLevel) {
 
   AntennaLookOffsetDeg backlobe_offset_deg;
   backlobe_offset_deg.delta_az_deg = 120.0f;
-  AzimuthElevationDeg scan_center_deg;
+  common::config::AzimuthElevationDeg beam_pointing_deg;
   const AntennaPatternSample sample = EvaluateAntennaPattern(peak_gain_dbi, config, beamwidth,
-                                                             backlobe_offset_deg, scan_center_deg);
+                                                             backlobe_offset_deg, beam_pointing_deg);
 
   EXPECT_TRUE(sample.inside_back_lobe);
   EXPECT_FLOAT_EQ(sample.gain_dbi, -10.0f);
 }
 
 }  // namespace
-}  // namespace common
+}  // namespace detection
+}  // namespace signal
 }  // namespace airborne_radar

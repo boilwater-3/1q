@@ -25,9 +25,10 @@ using pipeline::SignalPipelineConfig;
 namespace internal {
 
 /**
- * @brief 归一化扫描中心，确保输出有限值。
+ * @brief 归一化基准指向，确保输出有限值。
+ * @note 这里的 `scan_center_deg` 表示波束基准指向，不是扫描体积中心。
  * @param orientation_config 雷达方向配置。
- * @return 有限值扫描中心。
+ * @return 有限值基准指向。
  */
 inline common::config::AzimuthElevationDeg ResolveFiniteScanCenter(
     const common::config::RadarOrientationConfig& orientation_config) {
