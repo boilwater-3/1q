@@ -90,7 +90,7 @@ std::uint32_t ResolveLifecycleExtraMissTolerance(
 
 void CollectCycleOutputs(const common::control::RadarControlProfile& control_profile,
                          std::uint32_t cycle_index, std::uint64_t batch_id,
-                         const SignalPipelineConfig& runtime_config,
+                         const InternalSignalPipelineConfig& internal_runtime_config,
                          const environment::EnvironmentSnapshot& environment_snapshot,
                          const common::model::TargetFeatureList& input_state,
                          const common::model::TargetFeatureList& output_state,
@@ -111,7 +111,7 @@ void CollectCycleOutputs(const common::control::RadarControlProfile& control_pro
       ComputeTrackLevelJammingSeverity(control_profile, environment_snapshot);
   *association_quality_metrics = ToPipelineAssociationQualityMetrics(
       association_result.quality_metrics, dominant_jamming_semantic, jamming_severity,
-      runtime_config.association.unassigned_cost);
+      internal_runtime_config.association.unassigned_cost);
 
   const common::model::EccmSourceInfo eccm_source_info = BuildEccmSourceInfo(environment_snapshot);
   const common::model::AssociationQualityInfo association_quality_info =

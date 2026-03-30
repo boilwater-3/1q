@@ -20,6 +20,7 @@
 #include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/context/IRadarContext.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"
+#include "1q/airborne_radar/config/SignalPipelineConfig.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "environment_test_fixture.h"
@@ -79,8 +80,8 @@ struct CycleStats {
   float match_rate{0.0f};
 };
 
-signal::pipeline::SignalPipelineConfig MakeStressPipelineConfig() {
-  signal::pipeline::SignalPipelineConfig config;
+common::config::SignalPipelineConfig MakeStressPipelineConfig() {
+  common::config::SignalPipelineConfig config;
   config.detection.min_detection_margin_db = -100.0f;
   config.lifecycle.enable_auto_lifecycle_manager = true;
   config.lifecycle.lifecycle_config.confirm_hits = 1u;

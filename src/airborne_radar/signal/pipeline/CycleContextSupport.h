@@ -11,9 +11,10 @@
 
 #include "1q/airborne_radar/common/model/DecisionInputFrame.h"
 #include "1q/airborne_radar/common/model/TargetFeature.h"
-#include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
+#include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
+#include "airborne_radar/signal/pipeline/InternalSignalPipelineConfig.h"
 #include "airborne_radar/signal/tracking/GaussianTrackState.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
@@ -62,10 +63,13 @@ void RefreshMeasurementCovariances(
 /**
  * @brief 同步运行时配置到关联引擎与轨迹滤波器。
  * @param[in] runtime_config 当前运行时配置。
+ * @param[in] internal_runtime_config 当前内部运行时配置。
  * @param[in,out] association_engine 关联引擎。
  * @param[in,out] track_filter 轨迹滤波器。
  */
-void SyncAssociationAndTrackFilterConfigs(const SignalPipelineConfig& runtime_config,
+void SyncAssociationAndTrackFilterConfigs(
+    const SignalPipelineConfig& runtime_config,
+    const InternalSignalPipelineConfig& internal_runtime_config,
                                           association::DataAssociationEngine* association_engine,
                                           tracking::TrackFilter* track_filter);
 

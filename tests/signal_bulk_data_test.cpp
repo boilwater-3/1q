@@ -16,6 +16,8 @@
 #include <vector>
 
 #include "1q/airborne_radar/common/model/TargetFeature.h"
+#include "1q/airborne_radar/config/SignalPipelineConfig.h"
+#include "airborne_radar/core/session/internal/SignalPipelineConfigMapper.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
@@ -83,16 +85,14 @@ std::unordered_set<std::uint64_t> BuildExternalIdSet(
 }
 
 /// @brief 运行双周期 IMM 生命周期场景并返回总耗时。
-double RunImmLifecycleScenarioMs(std::size_t target_count,
-                                 signal::pipeline::ImmActivationPolicy activation_policy) {
-  signal::pipeline::SignalPipelineConfig pipeline_config;
+double RunImmLifecycleScenarioMs(std::size_t target_count) {
+  common::config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.min_detection_margin_db = -100.0f;
   pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
   pipeline_config.lifecycle.enable_imm_lifecycle = true;
   pipeline_config.lifecycle.lifecycle_config.confirm_hits = 1;
-  pipeline_config.lifecycle.lifecycle_config.imm_activation_policy = activation_policy;
-  pipeline_config.lifecycle.imm_model_noise_diff_coeffs = std::vector<float>{0.5f, 8.0f};
-  signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
+  signal::pipeline::SignalPipeline signal_pipeline(
+      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
 
   environment::EnvironmentService environment_service;
 
@@ -133,9 +133,10 @@ double RunImmLifecycleScenarioMs(std::size_t target_count,
 TEST(SignalBulkDataTest, LargeBatchSingleCycleProducesConsistentMeasurements) {
   const std::size_t kTargetCount = 5000u;
 
-  signal::pipeline::SignalPipelineConfig pipeline_config;
+  common::config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.min_detection_margin_db = -100.0f;
-  signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
+  signal::pipeline::SignalPipeline signal_pipeline(
+      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
 
   environment::EnvironmentService environment_service;
 
@@ -168,13 +169,13 @@ TEST(SignalBulkDataTest, LargeBatchSingleCycleProducesConsistentMeasurements) {
 TEST(SignalBulkDataTest, LargeBatchImmAutoLifecycleMaintainsHighMatchRateOnNextCycle) {
   const std::size_t kTargetCount = 2000u;
 
-  signal::pipeline::SignalPipelineConfig pipeline_config;
+  common::config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.min_detection_margin_db = -100.0f;
   pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
   pipeline_config.lifecycle.enable_imm_lifecycle = true;
   pipeline_config.lifecycle.lifecycle_config.confirm_hits = 1;
-  pipeline_config.lifecycle.imm_model_noise_diff_coeffs = std::vector<float>{0.5f, 8.0f};
-  signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
+  signal::pipeline::SignalPipeline signal_pipeline(
+      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
 
   environment::EnvironmentService environment_service;
 
@@ -228,9 +229,10 @@ TEST(SignalBulkDataTest, TieredBatchSingleCycleReportsP50AndP95Latency) {
   }};
   const std::size_t kRepeatsPerTier = 5u;
 
-  signal::pipeline::SignalPipelineConfig pipeline_config;
+  common::config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.min_detection_margin_db = -100.0f;
-  signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
+  signal::pipeline::SignalPipeline signal_pipeline(
+      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
 
   environment::EnvironmentService environment_service;
 
@@ -285,13 +287,13 @@ TEST(SignalBulkDataTest, TieredBatchSingleCycleReportsP50AndP95Latency) {
 TEST(SignalBulkDataTest, ExternalTargetIdStaysConsistentAcrossImmLifecycleCycles) {
   const std::size_t kTargetCount = 512u;
 
-  signal::pipeline::SignalPipelineConfig pipeline_config;
+  common::config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.min_detection_margin_db = -100.0f;
   pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
   pipeline_config.lifecycle.enable_imm_lifecycle = true;
   pipeline_config.lifecycle.lifecycle_config.confirm_hits = 1;
-  pipeline_config.lifecycle.imm_model_noise_diff_coeffs = std::vector<float>{0.5f, 8.0f};
-  signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
+  signal::pipeline::SignalPipeline signal_pipeline(
+      core::session::internal::ToPipelineSignalPipelineConfig(pipeline_config));
 
   environment::EnvironmentService environment_service;
 
@@ -351,8 +353,8 @@ TEST(SignalBulkDataTest, ExternalTargetIdStaysConsistentAcrossImmLifecycleCycles
   EXPECT_EQ(BuildExternalIdSet(snapshot_after_cycle_2), expected_ids);
 }
 
-/// @brief 比较全轨迹 IMM 与仅确认轨迹 IMM 的双周期批量耗时分布。
-TEST(SignalBulkDataTest, ImmLifecyclePoliciesReportLatencyComparison) {
+/// @brief 统计默认 IMM 生命周期在批量场景下的双周期耗时分布。
+TEST(SignalBulkDataTest, ImmLifecycleReportsLatencyDistribution) {
   struct BatchTier {
     std::size_t target_count;
     const char* label;
@@ -364,33 +366,22 @@ TEST(SignalBulkDataTest, ImmLifecyclePoliciesReportLatencyComparison) {
   const std::size_t kRepeatsPerTier = 1u;
 
   for (const BatchTier& tier : tiers) {
-    std::vector<double> all_tracks_samples;
-    std::vector<double> confirmed_only_samples;
-    all_tracks_samples.reserve(kRepeatsPerTier);
-    confirmed_only_samples.reserve(kRepeatsPerTier);
+    std::vector<double> imm_samples;
+    imm_samples.reserve(kRepeatsPerTier);
 
     for (std::size_t repeat = 0; repeat < kRepeatsPerTier; ++repeat) {
-      all_tracks_samples.push_back(RunImmLifecycleScenarioMs(
-          tier.target_count, signal::pipeline::ImmActivationPolicy::kAllTracks));
-      confirmed_only_samples.push_back(RunImmLifecycleScenarioMs(
-          tier.target_count, signal::pipeline::ImmActivationPolicy::kConfirmedTracksOnly));
+      imm_samples.push_back(RunImmLifecycleScenarioMs(tier.target_count));
     }
 
-    const double all_tracks_p50_ms = ComputePercentileMs(all_tracks_samples, 0.50);
-    const double all_tracks_p95_ms = ComputePercentileMs(all_tracks_samples, 0.95);
-    const double confirmed_only_p50_ms = ComputePercentileMs(confirmed_only_samples, 0.50);
-    const double confirmed_only_p95_ms = ComputePercentileMs(confirmed_only_samples, 0.95);
+    const double imm_p50_ms = ComputePercentileMs(imm_samples, 0.50);
+    const double imm_p95_ms = ComputePercentileMs(imm_samples, 0.95);
 
-    EXPECT_GT(all_tracks_p50_ms, 0.0);
-    EXPECT_GT(all_tracks_p95_ms, 0.0);
-    EXPECT_GT(confirmed_only_p50_ms, 0.0);
-    EXPECT_GT(confirmed_only_p95_ms, 0.0);
+    EXPECT_GT(imm_p50_ms, 0.0);
+    EXPECT_GT(imm_p95_ms, 0.0);
 
-    std::cout << "[SignalBulkDataTest] imm_policy_compare tier=" << tier.label
-              << " targets=" << tier.target_count << " all_tracks_p50_ms=" << all_tracks_p50_ms
-              << " all_tracks_p95_ms=" << all_tracks_p95_ms
-              << " confirmed_only_p50_ms=" << confirmed_only_p50_ms
-              << " confirmed_only_p95_ms=" << confirmed_only_p95_ms << std::endl;
+    std::cout << "[SignalBulkDataTest] imm_latency tier=" << tier.label
+              << " targets=" << tier.target_count << " p50_ms=" << imm_p50_ms
+              << " p95_ms=" << imm_p95_ms << std::endl;
   }
 }
 

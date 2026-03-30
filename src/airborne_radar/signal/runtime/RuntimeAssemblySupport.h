@@ -8,8 +8,10 @@
 
 #include <memory>
 
-#include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
+#include "1q/airborne_radar/common/control/RadarControlProfile.h"
+#include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
+#include "airborne_radar/signal/pipeline/InternalSignalPipelineConfig.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
@@ -22,14 +24,22 @@ using pipeline::SignalPipelineConfig;
 
 namespace internal {
 
+struct ResolvedRuntimeSignalPipelineConfig {
+  SignalPipelineConfig public_config{};
+  pipeline::internal::InternalSignalPipelineConfig internal_config{};
+};
+
 /**
  * @brief 基于基础配置与控制真值构建运行时配置。
  * @param[in] base_config 基础流水线配置。
+ * @param[in] base_internal_config 基础内部扩展配置。
  * @param[in] control_profile 当前控制真值。
  * @return 调整后的运行时配置。
  */
-SignalPipelineConfig BuildRuntimeConfigFromControlProfile(
-    const SignalPipelineConfig& base_config, const common::control::RadarControlProfile& control_profile);
+ResolvedRuntimeSignalPipelineConfig BuildRuntimeConfigFromControlProfile(
+    const SignalPipelineConfig& base_config,
+    const pipeline::internal::InternalSignalPipelineConfig& base_internal_config,
+    const common::control::RadarControlProfile& control_profile);
 
 /**
  * @brief 根据运行时配置自动装配生命周期管理器。
@@ -38,6 +48,10 @@ SignalPipelineConfig BuildRuntimeConfigFromControlProfile(
  */
 std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManagerForRuntimeConfig(
     const SignalPipelineConfig& runtime_config);
+
+std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManagerForRuntimeConfig(
+    const SignalPipelineConfig& runtime_config,
+    const pipeline::internal::InternalSignalPipelineConfig& internal_config);
 
 /**
  * @brief OwnedComponentSlots 汇聚 Pipeline 自持有组件的重建槽位指针。
@@ -53,10 +67,13 @@ struct OwnedComponentSlots {
 /**
  * @brief 根据基础配置与控制真值重建 Pipeline 自持有组件。
  * @param[in] base_config 基础流水线配置。
+ * @param[in] base_internal_config 基础内部扩展配置。
  * @param[in] control_profile 当前控制真值。
  * @param[in,out] slots 待重建的组件槽位。
  */
 void RebuildOwnedComponentsForPipeline(const SignalPipelineConfig& base_config,
+                                       const pipeline::internal::InternalSignalPipelineConfig&
+                                           base_internal_config,
                                        const common::control::RadarControlProfile& control_profile,
                                        OwnedComponentSlots* slots);
 

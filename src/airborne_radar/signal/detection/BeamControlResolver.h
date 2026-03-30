@@ -8,7 +8,7 @@
 
 #include "1q/airborne_radar/config/RadarOrientationConfig.h"
 #include "1q/airborne_radar/common/utils/RadarOrientationUtils.h"
-#include "1q/airborne_radar/signal/detection/DetectionTypes.h"
+#include "airborne_radar/signal/detection/DetectionTypes.h"
 #include "airborne_radar/signal/detection/AntennaPatternRuntime.h"
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"
 #include "airborne_radar/signal/detection/TargetLookResolver.h"

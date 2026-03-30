@@ -78,6 +78,7 @@ bool HasValidBuffers(const DetectionExecutionBuffers& buffers) {
 
 void RunHeuristicDetectionPass(const common::model::TargetFeatureList& input,
                                const SignalPipelineConfig& runtime_config,
+                               const InternalSignalPipelineConfig& internal_config,
                                const common::control::RadarControlProfile& control_profile,
                                const environment::EnvironmentSnapshot& environment_snapshot,
                                DetectionExecutionBuffers* buffers) {
@@ -87,7 +88,7 @@ void RunHeuristicDetectionPass(const common::model::TargetFeatureList& input,
 
   const std::size_t count = input.size();
   const float signal_adjustment_db =
-      ComputeHeuristicSignalAdjustmentDb(runtime_config.control_profile_effects, control_profile);
+      ComputeHeuristicSignalAdjustmentDb(internal_config.control_profile_effects, control_profile);
   for (std::size_t i = 0; i < count; ++i) {
     (*buffers->target_geometry)[i] = detection::TargetGeometryResolver::Resolve(input[i]);
     (*buffers->signal_term_db)[i] = input[i].current_track_rcs * 6.0f + signal_adjustment_db;
@@ -95,11 +96,11 @@ void RunHeuristicDetectionPass(const common::model::TargetFeatureList& input,
   }
 
   const float jamming_penalty_db =
-      ComputeHeuristicJammingPenaltyDb(runtime_config.jamming_effects, environment_snapshot);
+      ComputeHeuristicJammingPenaltyDb(internal_config.jamming_effects, environment_snapshot);
   const float environment_penalty_db = std::max(
       0.0f, environment_snapshot.propagation_loss_db * 0.2f +
                 environment_snapshot.clutter_power_db * 0.3f + jamming_penalty_db -
-                ComputeHeuristicEnvironmentReliefDb(runtime_config.jamming_effects, control_profile,
+                ComputeHeuristicEnvironmentReliefDb(internal_config.jamming_effects, control_profile,
                                                     environment_snapshot));
   for (std::size_t i = 0; i < count; ++i) {
     const float margin =
@@ -112,6 +113,7 @@ void RunHeuristicDetectionPass(const common::model::TargetFeatureList& input,
 
 void RunPhysicalDetectionPass(const common::model::TargetFeatureList& input,
                               const SignalPipelineConfig& runtime_config,
+                              const InternalSignalPipelineConfig& internal_config,
                               const common::control::RadarControlProfile& control_profile,
                               const environment::EnvironmentSnapshot& environment_snapshot,
                               detection::SignalDetector* signal_detector,
@@ -136,7 +138,7 @@ void RunPhysicalDetectionPass(const common::model::TargetFeatureList& input,
   if (HasMultiSourceJammingFacts(environment_snapshot)) {
     for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
       const environment::JammerSourceFact& source = environment_snapshot.jammer_sources[i];
-      jam_w += ComputePhysicalSourceJamContributionW(runtime_config.jamming_effects, source) *
+      jam_w += ComputePhysicalSourceJamContributionW(internal_config.jamming_effects, source) *
                ComputeResidualJammerFactor(control_profile, source);
     }
   }
@@ -177,7 +179,7 @@ void RunPhysicalDetectionPass(const common::model::TargetFeatureList& input,
         measurement_error.angle_error_std_rad,
         runtime_config.tracking.kalman_measurement_noise_std);
     (*buffers->measurement_covariances)[i] *= ComputeMeasurementCovarianceInflation(
-        runtime_config.jamming_effects, control_profile, environment_snapshot);
+        internal_config.jamming_effects, control_profile, environment_snapshot);
   }
 }
 

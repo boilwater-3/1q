@@ -11,11 +11,11 @@
 
 #include "1q/airborne_radar/common/control/RadarCommand.h"
 #include "1q/airborne_radar/common/control/RadarControlProfile.h"
+#include "1q/airborne_radar/config/SignalPipelineConfig.h"
 #include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/airborne_radar/core/session/RadarCycleResult.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
@@ -37,7 +37,7 @@ struct ONEQ_API RadarSessionConfig {
   /**
    * @brief 信号流水线基线配置（初始化固定，运行期可通过 `ApplyRuntimeConfig` 覆盖）。
    */
-  signal::pipeline::SignalPipelineConfig signal_pipeline_config{};
+  common::config::SignalPipelineConfig signal_pipeline_config{};
   /**
    * @brief 环境模型基线配置（初始化固定，运行期可通过 `ApplyRuntimeConfig` 覆盖）。
    */
@@ -126,7 +126,7 @@ class ONEQ_API RadarSession {
    * @brief 更新信号流水线配置。
    * @param[in] config 信号流水线配置。
    */
-  void UpdateSignalPipelineConfig(const signal::pipeline::SignalPipelineConfig& config);
+  void UpdateSignalPipelineConfig(const common::config::SignalPipelineConfig& config);
 
   /**
    * @brief 更新环境模型配置。

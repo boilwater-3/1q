@@ -9,9 +9,11 @@
 #include <cstdint>
 #include <vector>
 
+#include "1q/airborne_radar/common/control/RadarControlProfile.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
+#include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
+#include "airborne_radar/signal/pipeline/InternalSignalPipelineConfig.h"
 #include "airborne_radar/signal/tracking/GaussianTrackState.h"
 
 namespace airborne_radar {
@@ -37,12 +39,14 @@ struct DetectionExecutionBuffers {
 
 void RunHeuristicDetectionPass(const common::model::TargetFeatureList& input,
                                const SignalPipelineConfig& runtime_config,
+                               const InternalSignalPipelineConfig& internal_config,
                                const common::control::RadarControlProfile& control_profile,
                                const environment::EnvironmentSnapshot& environment_snapshot,
                                DetectionExecutionBuffers* buffers);
 
 void RunPhysicalDetectionPass(const common::model::TargetFeatureList& input,
                               const SignalPipelineConfig& runtime_config,
+                              const InternalSignalPipelineConfig& internal_config,
                               const common::control::RadarControlProfile& control_profile,
                               const environment::EnvironmentSnapshot& environment_snapshot,
                               detection::SignalDetector* signal_detector,

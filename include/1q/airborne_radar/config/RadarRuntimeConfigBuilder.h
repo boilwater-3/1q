@@ -7,8 +7,8 @@
 #define AIRBORNE_RADAR_CONFIG_RADAR_RUNTIME_CONFIG_BUILDER_H_
 
 #include "1q/airborne_radar/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/config/SignalPipelineConfig.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
@@ -23,7 +23,13 @@ namespace config {
  */
 struct RadarRuntimeConfigPatch {
   bool has_signal_pipeline_config{false}; /**< [补丁标志] 是否覆盖整套信号流水线配置 */
-  signal::pipeline::SignalPipelineConfig signal_pipeline_config{}; /**< [可外部调整] 整套信号流水线配置 */
+  SignalPipelineConfig signal_pipeline_config{}; /**< [可外部调整] 整套信号流水线配置 */
+
+  bool has_signal_detection_config{false}; /**< [补丁标志] 是否覆盖探测域关键配置 */
+  SignalDetectionConfig signal_detection_config{}; /**< [可外部调整] 探测域关键配置 */
+
+  bool has_signal_beam_control_config{false}; /**< [补丁标志] 是否覆盖波束控制域关键配置 */
+  SignalBeamControlConfig signal_beam_control_config{}; /**< [可外部调整] 波束控制域关键配置 */
 
   bool has_environment_model_config{false}; /**< [补丁标志] 是否覆盖整套环境模型配置 */
   environment::EnvironmentModelConfig environment_model_config{}; /**< [可外部调整] 整套环境模型配置 */
@@ -56,10 +62,23 @@ struct RadarRuntimeConfigPatch {
 class ONEQ_API RadarRuntimeConfigBuilder {
  public:
   /** @brief 覆盖整套信号流水线配置。 */
-  RadarRuntimeConfigBuilder& WithSignalPipelineConfig(
-      const signal::pipeline::SignalPipelineConfig& config) {
+  RadarRuntimeConfigBuilder& WithSignalPipelineConfig(const SignalPipelineConfig& config) {
     patch_.has_signal_pipeline_config = true;
     patch_.signal_pipeline_config = config;
+    return *this;
+  }
+
+  /** @brief 覆盖探测域关键配置。 */
+  RadarRuntimeConfigBuilder& WithSignalDetectionConfig(const SignalDetectionConfig& config) {
+    patch_.has_signal_detection_config = true;
+    patch_.signal_detection_config = config;
+    return *this;
+  }
+
+  /** @brief 覆盖波束控制域关键配置。 */
+  RadarRuntimeConfigBuilder& WithSignalBeamControlConfig(const SignalBeamControlConfig& config) {
+    patch_.has_signal_beam_control_config = true;
+    patch_.signal_beam_control_config = config;
     return *this;
   }
 

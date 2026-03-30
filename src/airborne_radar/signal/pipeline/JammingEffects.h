@@ -6,8 +6,10 @@
 #ifndef AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_JAMMING_EFFECTS_H_
 #define AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_JAMMING_EFFECTS_H_
 
+#include "1q/airborne_radar/common/control/RadarControlProfile.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
+#include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
+#include "airborne_radar/signal/pipeline/InternalSignalPipelineConfig.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -90,14 +92,15 @@ float ComputeTrackLevelJammingSeverity(
 
 /**
  * @brief 把多源干扰事实传播到关联/跟踪运行时配置。
- * @param[in] cfg 干扰效应配置。
  * @param[in] control_profile 当前控制真值。
  * @param[in] environment_snapshot 当前周期环境快照。
+ * @param[in,out] internal_runtime_config 待调整的内部运行时配置。
  * @param[in,out] runtime_config 待调整的运行时配置。
  */
 void ApplyEnvironmentJammingFactsToRuntimeConfig(
-    const JammingEffectsConfig& cfg, const common::control::RadarControlProfile& control_profile,
+    const common::control::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot,
+    InternalSignalPipelineConfig* internal_runtime_config,
     SignalPipelineConfig* runtime_config);
 
 }  // namespace internal

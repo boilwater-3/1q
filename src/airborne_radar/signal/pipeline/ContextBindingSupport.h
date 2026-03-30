@@ -11,7 +11,7 @@
 
 #include "1q/airborne_radar/common/utils/JammingSemantics.h"
 #include "1q/airborne_radar/common/model/TargetFeature.h"
-#include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
+#include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
 #include "airborne_radar/signal/pipeline/CycleContextSupport.h"

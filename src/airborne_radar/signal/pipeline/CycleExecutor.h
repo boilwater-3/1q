@@ -9,12 +9,14 @@
 #include <cstdint>
 #include <vector>
 
+#include "1q/airborne_radar/common/control/RadarControlProfile.h"
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
+#include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/assembly/IDataOutputManager.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
+#include "airborne_radar/signal/pipeline/InternalSignalPipelineConfig.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
@@ -32,6 +34,7 @@ struct CycleExecutionContext {
   const common::model::TargetFeatureList* input_state{nullptr};
   const environment::IEnvironmentService* environment{nullptr};
   SignalPipelineConfig runtime_config{};
+  InternalSignalPipelineConfig internal_runtime_config{};
   common::model::TargetFeatureList output_state;
   std::vector<tracking::TrackMeasurement> track_measurements;
   common::model::DecisionInputFrame decision_frame{};
@@ -58,6 +61,7 @@ struct CycleExecutionContext {
  */
 struct CycleExecutionRuntime {
   const SignalPipelineConfig* base_config{nullptr};
+  const InternalSignalPipelineConfig* base_internal_config{nullptr};
   const common::control::RadarControlProfile* control_profile{nullptr};
   association::DataAssociationEngine* association_engine{nullptr};
   tracking::TrackFilter* track_filter{nullptr};

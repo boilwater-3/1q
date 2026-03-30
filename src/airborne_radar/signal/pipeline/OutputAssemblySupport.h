@@ -9,10 +9,12 @@
 #include <cstdint>
 #include <vector>
 
+#include "1q/airborne_radar/common/control/RadarControlProfile.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
+#include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/assembly/IDataOutputManager.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
+#include "airborne_radar/signal/pipeline/InternalSignalPipelineConfig.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 
 namespace airborne_radar {
@@ -25,7 +27,7 @@ namespace internal {
  * @param[in] control_profile 当前控制真值。
  * @param[in] cycle_index 周期号。
  * @param[in] batch_id 批次号。
- * @param[in] runtime_config 运行时配置。
+ * @param[in] internal_runtime_config 内部运行时配置。
  * @param[in] environment_snapshot 当前周期环境快照。
  * @param[in] input_state 输入目标列表。
  * @param[in] output_state 输出目标列表。
@@ -38,7 +40,7 @@ namespace internal {
  */
 void CollectCycleOutputs(const common::control::RadarControlProfile& control_profile,
                          std::uint32_t cycle_index, std::uint64_t batch_id,
-                         const SignalPipelineConfig& runtime_config,
+                         const InternalSignalPipelineConfig& internal_runtime_config,
                          const environment::EnvironmentSnapshot& environment_snapshot,
                          const common::model::TargetFeatureList& input_state,
                          const common::model::TargetFeatureList& output_state,

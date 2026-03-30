@@ -13,7 +13,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/common/utils/RadarOrientationUtils.h"
-#include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
+#include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"
 
 namespace airborne_radar {

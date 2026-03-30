@@ -7,7 +7,7 @@
 #define AIRBORNE_RADAR_CONFIG_CONFIG_PRESETS_H_
 
 #include "1q/airborne_radar/core/session/RadarSession.h"
-#include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
+#include "1q/airborne_radar/config/SignalPipelineConfig.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
@@ -18,19 +18,19 @@ namespace config {
  * @brief 构造偏向探测任务的信号流水线配置。
  * @note 返回值属于初始化基线；运行期可通过 `RadarSession::ApplyRuntimeConfig(...)` 覆盖。
  */
-ONEQ_API signal::pipeline::SignalPipelineConfig MakeDetectionMissionSignalPipelineConfig();
+ONEQ_API SignalPipelineConfig MakeDetectionMissionSignalPipelineConfig();
 
 /**
  * @brief 构造偏向稳定跟踪任务的信号流水线配置。
  * @note 返回值属于初始化基线；运行期可通过 `RadarSession::ApplyRuntimeConfig(...)` 覆盖。
  */
-ONEQ_API signal::pipeline::SignalPipelineConfig MakeTrackingMissionSignalPipelineConfig();
+ONEQ_API SignalPipelineConfig MakeTrackingMissionSignalPipelineConfig();
 
 /**
  * @brief 构造偏向稳健性的信号流水线配置。
  * @note 返回值属于初始化基线；运行期可通过 `RadarSession::ApplyRuntimeConfig(...)` 覆盖。
  */
-ONEQ_API signal::pipeline::SignalPipelineConfig MakeHighRobustnessSignalPipelineConfig();
+ONEQ_API SignalPipelineConfig MakeHighRobustnessSignalPipelineConfig();
 
 /**
  * @brief 构造默认 RadarSession 配置。

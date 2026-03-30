@@ -19,6 +19,7 @@
 #include "1q/airborne_radar/core/session/RadarSession.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "airborne_radar/core/context/MutableRadarContext.h"
+#include "airborne_radar/core/session/internal/SignalPipelineConfigMapper.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 
@@ -27,8 +28,8 @@ namespace tests {
 
 namespace {
 
-signal::pipeline::SignalPipelineConfig MakeConveniencePipelineConfig() {
-  signal::pipeline::SignalPipelineConfig config;
+common::config::SignalPipelineConfig MakeConveniencePipelineConfig() {
+  common::config::SignalPipelineConfig config;
   config.detection.min_detection_margin_db = -100.0f;
   config.lifecycle.enable_auto_lifecycle_manager = true;
   config.lifecycle.lifecycle_config.confirm_hits = 1U;
@@ -335,21 +336,21 @@ TEST(PublicApiConvenienceTest, RadarInputValidationFlagsMissingGeometryAndNonFin
 }
 
 TEST(PublicApiConvenienceTest, ConfigPresetsProvideExpectedDetectionAndRobustnessDefaults) {
-  const signal::pipeline::SignalPipelineConfig detection_config =
+  const common::config::SignalPipelineConfig detection_config =
       common::config::MakeDetectionMissionSignalPipelineConfig();
   EXPECT_TRUE(detection_config.lifecycle.enable_auto_lifecycle_manager);
   EXPECT_EQ(detection_config.lifecycle.lifecycle_config.confirm_hits, 1U);
   EXPECT_NEAR(detection_config.detection.min_detection_margin_db, -100.0f, 1e-5f);
 
-  const signal::pipeline::SignalPipelineConfig robust_config =
+  const common::config::SignalPipelineConfig robust_config =
       common::config::MakeHighRobustnessSignalPipelineConfig();
   EXPECT_TRUE(robust_config.lifecycle.enable_auto_lifecycle_manager);
-  EXPECT_GT(robust_config.association.unassigned_cost,
-            detection_config.association.unassigned_cost);
   EXPECT_GT(robust_config.lifecycle.lifecycle_config.max_miss_before_lost,
             detection_config.lifecycle.lifecycle_config.max_miss_before_lost);
-  EXPECT_GT(robust_config.tracking.speed_decay_ratio_on_loss,
-            detection_config.tracking.speed_decay_ratio_on_loss);
+  EXPECT_GT(robust_config.lifecycle.lifecycle_config.max_lost_cycles,
+            detection_config.lifecycle.lifecycle_config.max_lost_cycles);
+  EXPECT_GT(robust_config.tracking.kalman_measurement_noise_std,
+            detection_config.tracking.kalman_measurement_noise_std);
 
   const core::session::RadarSessionConfig session_config =
       common::config::MakeDetectionMissionRadarSessionConfig();
@@ -382,7 +383,8 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
   core::session::RadarSession session(config);
 
   core::context::MutableRadarContext manual_context;
-  signal::pipeline::SignalPipeline signal_pipeline(config.signal_pipeline_config);
+  signal::pipeline::SignalPipeline signal_pipeline(
+      core::session::internal::ToPipelineSignalPipelineConfig(config.signal_pipeline_config));
   environment::EnvironmentService environment_service(config.environment_model_config);
   environment_service.SetJammingDetectionThresholdDb(config.jamming_detection_threshold_db);
   core::controller::RadarController controller(manual_context, signal_pipeline,
@@ -539,7 +541,8 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultMatchesManualChainUnder
   core::session::RadarSession session(config);
 
   core::context::MutableRadarContext manual_context;
-  signal::pipeline::SignalPipeline signal_pipeline(config.signal_pipeline_config);
+  signal::pipeline::SignalPipeline signal_pipeline(
+      core::session::internal::ToPipelineSignalPipelineConfig(config.signal_pipeline_config));
   environment::EnvironmentService environment_service(config.environment_model_config);
   environment_service.SetJammingDetectionThresholdDb(config.jamming_detection_threshold_db);
   core::controller::RadarController controller(manual_context, signal_pipeline,

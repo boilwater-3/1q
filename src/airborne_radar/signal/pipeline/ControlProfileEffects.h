@@ -6,8 +6,10 @@
 #ifndef AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_CONTROL_PROFILE_EFFECTS_H_
 #define AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_CONTROL_PROFILE_EFFECTS_H_
 
+#include "1q/airborne_radar/common/control/RadarControlProfile.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
+#include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
+#include "airborne_radar/signal/pipeline/InternalSignalPipelineConfig.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -40,7 +42,8 @@ float ComputeHeuristicEnvironmentReliefDb(
  * @param[in,out] runtime_config 待调整的运行时配置。
  */
 void ApplyControlProfileToConfig(const common::control::RadarControlProfile& control_profile,
-                                 SignalPipelineConfig* runtime_config);
+                                 SignalPipelineConfig* runtime_config,
+                                 InternalSignalPipelineConfig* internal_config);
 
 }  // namespace internal
 }  // namespace pipeline

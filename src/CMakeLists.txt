@@ -315,7 +315,6 @@ if(ENABLE_INSTALL)
     include(CMakePackageConfigHelpers)
 
     set(PUBLIC_HEADERS_COMMON
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/utils/AntennaPatternUtils.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/control/ControlDirective.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/model/DecisionInputFrame.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/model/DecisionSourceInfo.h
@@ -338,7 +337,9 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarOrientationConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarRuntimeConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarSessionConfigBuilder.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarWorkMode.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/SignalBeamControlConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/SignalDetectionConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/SignalPipelineConfig.h
     )
     set(PUBLIC_HEADERS_CORE_CONTEXT
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/context/IRadarContext.h
@@ -362,11 +363,9 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentTypes.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/IEnvironmentService.h
     )
-    set(PUBLIC_HEADERS_SIGNAL_DETECTION
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/detection/DetectionTypes.h
-    )
     set(PUBLIC_HEADERS_SIGNAL_PIPELINE
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/pipeline/ISignalPipeline.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/pipeline/SignalPipelineResultTypes.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h
     )
     set(PUBLIC_HEADERS_ESR_COMMON
@@ -445,9 +444,6 @@ if(ENABLE_INSTALL)
     )
     install(FILES ${PUBLIC_HEADERS_ENVIRONMENT}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/environment
-    )
-    install(FILES ${PUBLIC_HEADERS_SIGNAL_DETECTION}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/signal/detection
     )
     install(FILES ${PUBLIC_HEADERS_SIGNAL_PIPELINE}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/signal/pipeline

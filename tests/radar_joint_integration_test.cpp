@@ -20,6 +20,8 @@
 #include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/context/IRadarContext.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"
+#include "1q/airborne_radar/config/SignalPipelineConfig.h"
+#include "airborne_radar/core/session/internal/SignalPipelineConfigMapper.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "environment_test_fixture.h"
@@ -91,8 +93,8 @@ struct SceneScriptStep {
       : scene_state(scene_state_in), expect_jamming(expect_jamming_in) {}
 };
 
-signal::pipeline::SignalPipelineConfig MakeJointIntegrationPipelineConfig() {
-  signal::pipeline::SignalPipelineConfig config;
+common::config::SignalPipelineConfig MakeJointIntegrationPipelineConfig() {
+  common::config::SignalPipelineConfig config;
   config.detection.min_detection_margin_db = -100.0f;
   config.lifecycle.enable_auto_lifecycle_manager = true;
   config.lifecycle.lifecycle_config.confirm_hits = 1u;
@@ -358,7 +360,7 @@ std::vector<std::uint64_t> ExtractTargetIds(const common::model::TargetFeatureLi
 }  // namespace
 
 TEST(RadarJointIntegrationTest, StageOneGroundTargetsRemainStableWithoutInterference) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
@@ -390,7 +392,7 @@ TEST(RadarJointIntegrationTest, StageOneGroundTargetsRemainStableWithoutInterfer
 }
 
 TEST(RadarJointIntegrationTest, StageOneMovingAirTargetsKeepStableEnemyOutputWithoutInterference) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
@@ -442,7 +444,7 @@ TEST(RadarJointIntegrationTest, StageOneMovingAirTargetsKeepStableEnemyOutputWit
 
 TEST(RadarJointIntegrationTest,
      StageTwoNoiseSuppressionInterferenceKeepsEnemyOutputAndEnablesEccm) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
@@ -490,7 +492,7 @@ TEST(RadarJointIntegrationTest,
 
 TEST(RadarJointIntegrationTest,
      StageTwoDeceptionInterferenceImprovesAssociationAfterProfileApplies) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
@@ -537,7 +539,7 @@ TEST(RadarJointIntegrationTest,
 }
 
 TEST(RadarJointIntegrationTest, StageTwoRepeaterInterferenceKeepsTrackOutputAndSustainsRejitter) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
@@ -579,7 +581,7 @@ TEST(RadarJointIntegrationTest, StageTwoRepeaterInterferenceKeepsTrackOutputAndS
 
 TEST(RadarJointIntegrationTest,
      StageTwoMixedInterferenceStacksCountermeasuresAndPreservesEnemyInfo) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
@@ -633,7 +635,7 @@ TEST(RadarJointIntegrationTest,
 TEST(RadarJointIntegrationTest, MediumScaleStaticSearchMaintainsStableOutputAcrossTargetTiers) {
   const std::vector<std::size_t> target_tiers{10U, 50U, 100U};
   for (std::size_t tier_index = 0; tier_index < target_tiers.size(); ++tier_index) {
-    signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+    signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
     environment::EnvironmentService environment_service;
     ScenarioRadarContext radar_context;
     core::controller::RadarController controller(radar_context, signal_pipeline,
@@ -661,7 +663,7 @@ TEST(RadarJointIntegrationTest, MediumScaleDynamicSearchMaintainsStableAssociati
 
   const std::vector<DynamicTier> tiers{{10U, 20U}, {50U, 30U}};
   for (std::size_t tier_index = 0; tier_index < tiers.size(); ++tier_index) {
-    signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+    signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
     environment::EnvironmentService environment_service;
     ScenarioRadarContext radar_context;
     radar_context.SetCycleDeltaTimeSec(1.0f);
@@ -703,7 +705,7 @@ TEST(RadarJointIntegrationTest, MediumScaleDynamicSearchMaintainsStableAssociati
 
 TEST(RadarJointIntegrationTest,
      FrequentSceneSwitchingKeepsOutputReadableAndFreezesPerCycleEnvironment) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
@@ -751,7 +753,7 @@ TEST(RadarJointIntegrationTest,
 }
 
 TEST(RadarJointIntegrationTest, LongDurationMediumLoadPatrolKeepsMetricsBoundedWithoutDivergence) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
@@ -808,7 +810,7 @@ TEST(RadarJointIntegrationTest, LongDurationMediumLoadPatrolKeepsMetricsBoundedW
 }
 
 TEST(RadarJointIntegrationTest, EmptySearchAreaKeepsTrackOutputReadableWithoutSpuriousCommands) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
@@ -829,7 +831,7 @@ TEST(RadarJointIntegrationTest, EmptySearchAreaKeepsTrackOutputReadableWithoutSp
 }
 
 TEST(RadarJointIntegrationTest, DuplicateExternalTargetIdsStillProduceDistinctStableTracks) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
@@ -874,7 +876,7 @@ TEST(RadarJointIntegrationTest, DuplicateExternalTargetIdsStillProduceDistinctSt
 }
 
 TEST(RadarJointIntegrationTest, ExtremeRangeTargetsKeepFiniteStableOutputAcrossCycles) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
@@ -913,7 +915,7 @@ TEST(RadarJointIntegrationTest, ExtremeRangeTargetsKeepFiniteStableOutputAcrossC
 
 TEST(RadarJointIntegrationTest,
      StationaryAndHighSpeedTargetsRemainTrackableWithoutAssociationCollapse) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
@@ -965,7 +967,7 @@ TEST(RadarJointIntegrationTest,
 
 TEST(RadarJointIntegrationTest,
      TargetBurstGrowthAndShrinkKeepsSurvivingTargetsReadableAcrossScaleSteps) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
@@ -1013,7 +1015,7 @@ TEST(RadarJointIntegrationTest,
 
 TEST(RadarJointIntegrationTest,
      PartialDropoutThenRecoveryRestoresTrackOutputWithoutReadabilityCollapse) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
@@ -1059,7 +1061,7 @@ TEST(RadarJointIntegrationTest,
 }
 
 TEST(RadarJointIntegrationTest, InputOrderingPermutationKeepsExternalIdentityStableAcrossCycles) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
@@ -1098,7 +1100,7 @@ TEST(RadarJointIntegrationTest, InputOrderingPermutationKeepsExternalIdentitySta
 
 TEST(RadarJointIntegrationTest,
      PulsedInterferenceKeepsOutputRecoverableAcrossSingleCycleJammingBursts) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
@@ -1139,7 +1141,7 @@ TEST(RadarJointIntegrationTest,
 
 TEST(RadarJointIntegrationTest,
      MixedUnknownExternalIdsKeepKnownTargetsRecoverableAndUnknownTracksFinite) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
@@ -1195,7 +1197,7 @@ TEST(RadarJointIntegrationTest,
 }
 
 TEST(RadarJointIntegrationTest, CoLocatedTargetsWithDistinctIdsRemainSeparateAcrossCycles) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
@@ -1237,7 +1239,7 @@ TEST(RadarJointIntegrationTest, CoLocatedTargetsWithDistinctIdsRemainSeparateAcr
 }
 
 TEST(RadarJointIntegrationTest, SuddenVelocityMutationKeepsKnownTargetReadableAcrossCycles) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
@@ -1286,7 +1288,7 @@ TEST(RadarJointIntegrationTest, SuddenVelocityMutationKeepsKnownTargetReadableAc
 
 TEST(RadarJointIntegrationTest,
      FullBatchReplacementKeepsCurrentEnemySetReadableWithoutPipelineStall) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
@@ -1321,7 +1323,7 @@ TEST(RadarJointIntegrationTest,
 }
 
 TEST(RadarJointIntegrationTest, LongDurationPulsedInterferenceRecoversOnEveryClearWindow) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
@@ -1367,7 +1369,7 @@ TEST(RadarJointIntegrationTest, LongDurationPulsedInterferenceRecoversOnEveryCle
 }
 
 TEST(RadarJointIntegrationTest, InvalidCycleDeltaFallsBackWithoutBreakingTrackContinuity) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
@@ -1402,7 +1404,7 @@ TEST(RadarJointIntegrationTest, InvalidCycleDeltaFallsBackWithoutBreakingTrackCo
 }
 
 TEST(RadarJointIntegrationTest, NonPositiveRangeAndNearOriginInputsRemainFiniteAndReadable) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
@@ -1436,7 +1438,7 @@ TEST(RadarJointIntegrationTest, NonPositiveRangeAndNearOriginInputsRemainFiniteA
 }
 
 TEST(RadarJointIntegrationTest, MissingCartesianPositionWithNonPositiveRangeSurfacesValidationError) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
@@ -1463,7 +1465,7 @@ TEST(RadarJointIntegrationTest, MissingCartesianPositionWithNonPositiveRangeSurf
 }
 
 TEST(RadarJointIntegrationTest, ExtremeRcsSpreadKeepsAllTracksFiniteAcrossCycles) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
@@ -1494,7 +1496,7 @@ TEST(RadarJointIntegrationTest, ExtremeRcsSpreadKeepsAllTracksFiniteAcrossCycles
 }
 
 TEST(RadarJointIntegrationTest, UltraHighAltitudeTargetsRemainTrackableAcrossCycles) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
@@ -1528,7 +1530,7 @@ TEST(RadarJointIntegrationTest, UltraHighAltitudeTargetsRemainTrackableAcrossCyc
 }
 
 TEST(RadarJointIntegrationTest, SimultaneousTargetAndJammerVolatilityKeepsCurrentEnemySetReadable) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
@@ -1569,7 +1571,7 @@ TEST(RadarJointIntegrationTest, SimultaneousTargetAndJammerVolatilityKeepsCurren
 }
 
 TEST(RadarJointIntegrationTest, LongDurationCycleDeltaAndGeometryVolatilityKeepsOutputReadable) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
@@ -1616,7 +1618,7 @@ TEST(RadarJointIntegrationTest, LongDurationCycleDeltaAndGeometryVolatilityKeeps
 }
 
 TEST(RadarJointIntegrationTest, BatchReplacementAndPulsedInterferenceKeepCurrentEnemySetVisible) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
@@ -1658,7 +1660,7 @@ TEST(RadarJointIntegrationTest, BatchReplacementAndPulsedInterferenceKeepCurrent
 }
 
 TEST(RadarJointIntegrationTest, LongDurationExtremeRcsAndAltitudeMixKeepsMetricsControlled) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
+  signal::pipeline::SignalPipeline signal_pipeline(core::session::internal::ToPipelineSignalPipelineConfig(MakeJointIntegrationPipelineConfig()));
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);

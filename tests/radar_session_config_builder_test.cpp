@@ -279,11 +279,50 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValue
   EXPECT_FLOAT_EQ(patch.jamming_detection_threshold_db, 4.2f);
 }
 
-TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructingSession) {
-  core::session::RadarSession session(common::config::MakeDetectionMissionRadarSessionConfig());
+TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderSupportsKeySignalDomainPatches) {
+  common::config::SignalDetectionConfig detection_config;
+  detection_config.enable_physics_detection = true;
+  detection_config.min_detection_margin_db = -8.0f;
+  detection_config.pulse_count = 24;
+  detection_config.radar_system.transmitter.prf_hz = 800.0f;
+
+  common::config::SignalBeamControlConfig beam_control_config;
+  beam_control_config.radar_orientation.work_sub_mode = common::config::RadarWorkSubMode::kStt;
+  beam_control_config.platform_attitude_deg.roll_deg = 1.2f;
+
   const common::config::RadarRuntimeConfigPatch patch =
       common::config::RadarRuntimeConfigBuilder()
-          .WithRadarWorkSubMode(common::config::RadarWorkSubMode::kTas)
+          .WithSignalDetectionConfig(detection_config)
+          .WithSignalBeamControlConfig(beam_control_config)
+          .Build();
+
+  EXPECT_TRUE(patch.has_signal_detection_config);
+  EXPECT_TRUE(patch.signal_detection_config.enable_physics_detection);
+  EXPECT_FLOAT_EQ(patch.signal_detection_config.min_detection_margin_db, -8.0f);
+  EXPECT_EQ(patch.signal_detection_config.pulse_count, 24);
+  EXPECT_FLOAT_EQ(patch.signal_detection_config.radar_system.transmitter.prf_hz, 800.0f);
+
+  EXPECT_TRUE(patch.has_signal_beam_control_config);
+  EXPECT_EQ(patch.signal_beam_control_config.radar_orientation.work_sub_mode,
+            common::config::RadarWorkSubMode::kStt);
+  EXPECT_FLOAT_EQ(patch.signal_beam_control_config.platform_attitude_deg.roll_deg, 1.2f);
+}
+
+TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructingSession) {
+  core::session::RadarSession session(common::config::MakeDetectionMissionRadarSessionConfig());
+  common::config::SignalDetectionConfig detection_config;
+  detection_config.enable_physics_detection = true;
+  detection_config.min_detection_margin_db = -6.0f;
+  detection_config.pulse_count = 18;
+
+  common::config::SignalBeamControlConfig beam_control_config;
+  beam_control_config.radar_orientation.work_sub_mode = common::config::RadarWorkSubMode::kTas;
+  beam_control_config.radar_orientation.commanded_beamwidth_enabled = true;
+
+  const common::config::RadarRuntimeConfigPatch patch =
+      common::config::RadarRuntimeConfigBuilder()
+          .WithSignalDetectionConfig(detection_config)
+          .WithSignalBeamControlConfig(beam_control_config)
           .EnableCommandedBeamwidth(true)
           .WithJammingDetectionThresholdDb(4.8f)
           .Build();

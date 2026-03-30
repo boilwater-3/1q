@@ -10,7 +10,8 @@
 #include <vector>
 
 #include "1q/airborne_radar/common/utils/TargetFeatureUtils.h"
-#include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
+#include "1q/airborne_radar/config/SignalPipelineConfig.h"
+#include "airborne_radar/core/session/internal/SignalPipelineConfigMapper.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"
@@ -270,7 +271,7 @@ TEST(ScanScheduleResolverTest, TasIsDenserThanTwsAndKeepsSerpentineSemantics) {
 }
 
 TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutcome) {
-  signal::pipeline::SignalPipelineConfig config;
+  common::config::SignalPipelineConfig config;
   config.detection.enable_physics_detection = true;
   config.detection.pulse_count = 4096;
   config.detection.radar_system.detection.cfar_pfa = 0.999999f;
@@ -292,7 +293,8 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
   orientation.scan_start_position = oneq::common::ScanStartPosition::kLeftTop;
   orientation.scan_sequence = oneq::common::ScanSequence::kAzimuthFirst;
 
-  signal::pipeline::SignalPipeline signal_pipeline(config);
+  signal::pipeline::SignalPipeline signal_pipeline(
+      core::session::internal::ToPipelineSignalPipelineConfig(config));
   environment::EnvironmentModelConfig environment_config;
   environment_config.base_propagation_loss_db = 0.0f;
   environment_config.atmospheric_attenuation_db = 0.0f;
@@ -360,7 +362,7 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
 }
 
 TEST(SignalPipelineScanScheduleTest, WorkSubModeSttReducesSweepCoverageComparedToTws) {
-  signal::pipeline::SignalPipelineConfig tws_config;
+  common::config::SignalPipelineConfig tws_config;
   tws_config.detection.enable_physics_detection = true;
   tws_config.detection.pulse_count = 4096;
   tws_config.detection.radar_system.detection.cfar_pfa = 0.999999f;
@@ -383,11 +385,13 @@ TEST(SignalPipelineScanScheduleTest, WorkSubModeSttReducesSweepCoverageComparedT
   tws_orientation.scan_start_position = oneq::common::ScanStartPosition::kLeftTop;
   tws_orientation.scan_sequence = oneq::common::ScanSequence::kAzimuthFirst;
 
-  signal::pipeline::SignalPipelineConfig stt_config = tws_config;
+  common::config::SignalPipelineConfig stt_config = tws_config;
   stt_config.beam_control.radar_orientation.work_sub_mode = common::config::RadarWorkSubMode::kStt;
 
-  signal::pipeline::SignalPipeline tws_pipeline(tws_config);
-  signal::pipeline::SignalPipeline stt_pipeline(stt_config);
+  signal::pipeline::SignalPipeline tws_pipeline(
+      core::session::internal::ToPipelineSignalPipelineConfig(tws_config));
+  signal::pipeline::SignalPipeline stt_pipeline(
+      core::session::internal::ToPipelineSignalPipelineConfig(stt_config));
 
   environment::EnvironmentModelConfig environment_config;
   environment_config.base_propagation_loss_db = 0.0f;

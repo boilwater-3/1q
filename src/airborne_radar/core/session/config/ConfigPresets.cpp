@@ -4,8 +4,8 @@ namespace airborne_radar {
 namespace common {
 namespace config {
 
-signal::pipeline::SignalPipelineConfig MakeDetectionMissionSignalPipelineConfig() {
-  signal::pipeline::SignalPipelineConfig config;
+SignalPipelineConfig MakeDetectionMissionSignalPipelineConfig() {
+  SignalPipelineConfig config;
   config.beam_control.radar_orientation.scan_start_position = oneq::common::ScanStartPosition::kLeftTop;
   config.beam_control.radar_orientation.scan_sequence = oneq::common::ScanSequence::kAzimuthFirst;
   config.beam_control.radar_orientation.work_sub_mode = RadarWorkSubMode::kTws;
@@ -16,8 +16,8 @@ signal::pipeline::SignalPipelineConfig MakeDetectionMissionSignalPipelineConfig(
   return config;
 }
 
-signal::pipeline::SignalPipelineConfig MakeTrackingMissionSignalPipelineConfig() {
-  signal::pipeline::SignalPipelineConfig config;
+SignalPipelineConfig MakeTrackingMissionSignalPipelineConfig() {
+  SignalPipelineConfig config;
   config.beam_control.radar_orientation.scan_start_position = oneq::common::ScanStartPosition::kLeftTop;
   config.beam_control.radar_orientation.scan_sequence = oneq::common::ScanSequence::kAzimuthFirst;
   config.beam_control.radar_orientation.work_sub_mode = RadarWorkSubMode::kTws;
@@ -25,14 +25,11 @@ signal::pipeline::SignalPipelineConfig MakeTrackingMissionSignalPipelineConfig()
   config.lifecycle.enable_auto_lifecycle_manager = true;
   config.lifecycle.lifecycle_config.confirm_hits = 2U;
   config.tracking.kalman_measurement_noise_std = 5.0f;
-  config.tracking.speed_decay_ratio_on_loss = 0.95f;
-  config.tracking.rcs_decay_ratio_on_loss = 0.92f;
   return config;
 }
 
-signal::pipeline::SignalPipelineConfig MakeHighRobustnessSignalPipelineConfig() {
-  signal::pipeline::SignalPipelineConfig config = MakeTrackingMissionSignalPipelineConfig();
-  config.association.unassigned_cost = 12.0f;
+SignalPipelineConfig MakeHighRobustnessSignalPipelineConfig() {
+  SignalPipelineConfig config = MakeTrackingMissionSignalPipelineConfig();
   config.tracking.kalman_measurement_noise_std = 3.0f;
   config.lifecycle.lifecycle_config.max_miss_before_lost = 3U;
   config.lifecycle.lifecycle_config.max_lost_cycles = 8U;

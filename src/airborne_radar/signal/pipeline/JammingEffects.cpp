@@ -338,12 +338,15 @@ float ComputeTrackLevelJammingSeverity(
 }
 
 void ApplyEnvironmentJammingFactsToRuntimeConfig(
-    const JammingEffectsConfig& cfg, const common::control::RadarControlProfile& control_profile,
+    const common::control::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot,
+    InternalSignalPipelineConfig* internal_runtime_config,
     SignalPipelineConfig* runtime_config) {
-  if (runtime_config == nullptr || !HasMultiSourceJammingFacts(environment_snapshot)) {
+  if (runtime_config == nullptr || internal_runtime_config == nullptr ||
+      !HasMultiSourceJammingFacts(environment_snapshot)) {
     return;
   }
+  const JammingEffectsConfig& cfg = internal_runtime_config->jamming_effects;
 
   float association_scale = 1.0f;
   float tracking_noise_scale = 1.0f;
@@ -384,9 +387,9 @@ void ApplyEnvironmentJammingFactsToRuntimeConfig(
     }
   }
 
-  runtime_config->association.unassigned_cost *=
+  internal_runtime_config->association.unassigned_cost *=
       ClampFloat(association_scale, 1.0f, cfg.association_scale_max);
-  runtime_config->tracking.kalman_noise_diff_coeff *=
+  internal_runtime_config->tracking.kalman_noise_diff_coeff *=
       ClampFloat(tracking_noise_scale, 1.0f, cfg.tracking_noise_scale_max);
   runtime_config->tracking.kalman_measurement_noise_std *=
       ClampFloat(measurement_noise_scale, 1.0f, cfg.measurement_noise_scale_max);

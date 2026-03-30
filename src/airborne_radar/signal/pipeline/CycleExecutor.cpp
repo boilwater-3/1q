@@ -20,7 +20,8 @@ namespace internal {
 namespace {
 
 bool HasValidRuntime(const CycleExecutionRuntime& runtime) {
-  return runtime.base_config != nullptr && runtime.control_profile != nullptr &&
+  return runtime.base_config != nullptr && runtime.base_internal_config != nullptr &&
+         runtime.control_profile != nullptr &&
          runtime.association_engine != nullptr && runtime.track_filter != nullptr &&
          runtime.output_manager != nullptr;
 }
@@ -37,8 +38,11 @@ void ExecuteCycle(const common::model::TargetFeatureList& input_state,
 
   cycle_context->input_state = &input_state;
   cycle_context->environment = &environment;
-  cycle_context->runtime_config = runtime::internal::BuildRuntimeConfigFromControlProfile(
-      *runtime.base_config, *runtime.control_profile);
+  const runtime::internal::ResolvedRuntimeSignalPipelineConfig resolved_runtime_config =
+      runtime::internal::BuildRuntimeConfigFromControlProfile(
+          *runtime.base_config, *runtime.base_internal_config, *runtime.control_profile);
+  cycle_context->runtime_config = resolved_runtime_config.public_config;
+  cycle_context->internal_runtime_config = resolved_runtime_config.internal_config;
   runtime::internal::ApplyScanScheduleToRuntimeConfig(cycle_index, &cycle_context->runtime_config);
 
   CycleWorkspace cycle_workspace = BuildCycleWorkspaceBindings(
@@ -50,8 +54,9 @@ void ExecuteCycle(const common::model::TargetFeatureList& input_state,
       &cycle_context->target_geometry, &cycle_context->measurement_covariances,
       &cycle_context->association_result);
   ResetCycleWorkspace(input_state, cycle_context->runtime_config, &cycle_workspace);
-  SyncAssociationAndTrackFilterConfigs(cycle_context->runtime_config, runtime.association_engine,
-                                       runtime.track_filter);
+  SyncAssociationAndTrackFilterConfigs(
+      cycle_context->runtime_config, cycle_context->internal_runtime_config,
+      runtime.association_engine, runtime.track_filter);
 
   const std::vector<tracking::AssociationTrackSeed> kEmptyAssociationSeeds;
   const std::vector<tracking::AssociationTrackSeed>& association_seeds =
@@ -62,13 +67,14 @@ void ExecuteCycle(const common::model::TargetFeatureList& input_state,
 
   cycle_context->environment_snapshot = environment.SampleEnvironment();
   ApplyEnvironmentJammingFactsToRuntimeConfig(
-      cycle_context->runtime_config.jamming_effects, *runtime.control_profile,
-      cycle_context->environment_snapshot, &cycle_context->runtime_config);
+      *runtime.control_profile, cycle_context->environment_snapshot,
+      &cycle_context->internal_runtime_config, &cycle_context->runtime_config);
   RefreshMeasurementCovariances(cycle_context->target_geometry.size(),
                                 cycle_context->runtime_config.tracking.kalman_measurement_noise_std,
                                 &cycle_context->measurement_covariances);
-  SyncAssociationAndTrackFilterConfigs(cycle_context->runtime_config, runtime.association_engine,
-                                       runtime.track_filter);
+  SyncAssociationAndTrackFilterConfigs(
+      cycle_context->runtime_config, cycle_context->internal_runtime_config,
+      runtime.association_engine, runtime.track_filter);
   cycle_context->dominant_jamming_semantic = ResolveDominantJammingSemantic(
       *runtime.control_profile, cycle_context->environment_snapshot);
   cycle_context->jamming_severity =
@@ -81,12 +87,14 @@ void ExecuteCycle(const common::model::TargetFeatureList& input_state,
       &cycle_context->detection_succeeded, &cycle_context->measurement_covariances);
   if (cycle_context->runtime_config.detection.enable_physics_detection &&
       runtime.signal_detector != nullptr) {
-    RunPhysicalDetectionPass(input_state, cycle_context->runtime_config, *runtime.control_profile,
-                             cycle_context->environment_snapshot, runtime.signal_detector,
-                             &detection_buffers);
+    RunPhysicalDetectionPass(
+        input_state, cycle_context->runtime_config, cycle_context->internal_runtime_config,
+        *runtime.control_profile, cycle_context->environment_snapshot, runtime.signal_detector,
+        &detection_buffers);
   } else {
-    RunHeuristicDetectionPass(input_state, cycle_context->runtime_config, *runtime.control_profile,
-                              cycle_context->environment_snapshot, &detection_buffers);
+    RunHeuristicDetectionPass(
+        input_state, cycle_context->runtime_config, cycle_context->internal_runtime_config,
+        *runtime.control_profile, cycle_context->environment_snapshot, &detection_buffers);
   }
 
   RunAssociationPass(input_state, cycle_context->detection_succeeded,
@@ -115,7 +123,7 @@ void ExecuteCycle(const common::model::TargetFeatureList& input_state,
   ApplyTrackFilterPass(track_filter_apply_context);
 
   CollectCycleOutputs(
-      *runtime.control_profile, cycle_index, batch_id, cycle_context->runtime_config,
+      *runtime.control_profile, cycle_index, batch_id, cycle_context->internal_runtime_config,
       cycle_context->environment_snapshot, *cycle_context->input_state,
       cycle_context->output_state, cycle_context->association_result,
       cycle_context->track_measurements, runtime.output_manager,

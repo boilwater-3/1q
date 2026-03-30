@@ -14,7 +14,8 @@
 
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
-#include "1q/airborne_radar/signal/pipeline/SignalPipelineTypes.h"
+#include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
+#include "airborne_radar/signal/pipeline/InternalSignalPipelineConfig.h"
 #include "airborne_radar/signal/tracking/BoostTrackPool.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
@@ -28,9 +29,7 @@ namespace airborne_radar {
 namespace signal {
 namespace runtime {
 
-using pipeline::ImmActivationPolicy;
 using pipeline::SignalPipelineConfig;
-using pipeline::TrackPoolThreadSafetyMode;
 
 namespace internal {
 /**
@@ -70,58 +69,61 @@ class SignalComponentFactory final {
   /**
    * @brief 将公共生命周期配置映射为内部 tracking 配置。
    */
-  static tracking::LifecycleConfig BuildLifecycleConfig(const SignalPipelineConfig& config) {
+  static tracking::LifecycleConfig BuildLifecycleConfig(
+      const SignalPipelineConfig& config,
+      const pipeline::internal::InternalSignalPipelineConfig& internal_config) {
     tracking::LifecycleConfig lifecycle_config;
     lifecycle_config.confirm_hits = config.lifecycle.lifecycle_config.confirm_hits;
     lifecycle_config.max_miss_before_lost = config.lifecycle.lifecycle_config.max_miss_before_lost;
     lifecycle_config.max_lost_cycles = config.lifecycle.lifecycle_config.max_lost_cycles;
-    lifecycle_config.imm_activation_policy =
-        config.lifecycle.lifecycle_config.imm_activation_policy == ImmActivationPolicy::kAllTracks
-            ? tracking::ImmActivationPolicy::kAllTracks
-            : tracking::ImmActivationPolicy::kConfirmedTracksOnly;
+    lifecycle_config.imm_activation_policy = internal_config.lifecycle.imm_activation_policy;
     lifecycle_config.track_pool_thread_safety_mode =
-        config.lifecycle.lifecycle_config.track_pool_thread_safety_mode ==
-                TrackPoolThreadSafetyMode::kMultiThreadGlobalLock
-            ? tracking::TrackPoolThreadSafetyMode::kMultiThreadGlobalLock
-            : tracking::TrackPoolThreadSafetyMode::kSingleThreadNoLock;
+        internal_config.lifecycle.track_pool_thread_safety_mode;
     return lifecycle_config;
   }
   /**
    * @brief 从顶层配置构造轨迹滤波配置。
-   * @param config Signal 顶层配置。
+   * @param internal_config Signal 顶层配置对应的内部扩展配置。
    * @return TrackFilter 使用的配置。
    */
-  static tracking::TrackFilterConfig BuildTrackFilterConfig(const SignalPipelineConfig& config) {
+  static tracking::TrackFilterConfig BuildTrackFilterConfig(
+      const pipeline::internal::InternalSignalPipelineConfig& internal_config) {
     tracking::TrackFilterConfig filter_config;
-    filter_config.speed_decay_ratio_on_loss = config.tracking.speed_decay_ratio_on_loss;
-    filter_config.rcs_decay_ratio_on_loss = config.tracking.rcs_decay_ratio_on_loss;
+    filter_config.speed_decay_ratio_on_loss = internal_config.tracking.speed_decay_ratio_on_loss;
+    filter_config.rcs_decay_ratio_on_loss = internal_config.tracking.rcs_decay_ratio_on_loss;
     return filter_config;
   }
   /**
    * @brief 从顶层配置构造数据关联配置。
    * @param config Signal 顶层配置。
+   * @param internal_config Signal 顶层配置对应的内部扩展配置。
    * @return DataAssociationEngine 使用的配置。
    */
   static association::DataAssociationConfig BuildAssociationConfig(
-      const SignalPipelineConfig& config) {
+      const SignalPipelineConfig& config,
+      const pipeline::internal::InternalSignalPipelineConfig& internal_config) {
     association::DataAssociationConfig association_config;
-    association_config.unassigned_cost = config.association.unassigned_cost;
-    association_config.kalman_noise_diff_coeff = config.tracking.kalman_noise_diff_coeff;
+    association_config.unassigned_cost = internal_config.association.unassigned_cost;
+    association_config.kalman_noise_diff_coeff = internal_config.tracking.kalman_noise_diff_coeff;
     association_config.kalman_measurement_noise_std = config.tracking.kalman_measurement_noise_std;
     return association_config;
   }
   /**
    * @brief 构造 Pipeline 自持有组件。
    * @param config Signal 顶层配置。
+   * @param internal_config Signal 顶层配置对应的内部扩展配置。
    * @return 组件与其配置集合。
    */
-  static OwnedSignalComponents BuildOwnedPipelineComponents(const SignalPipelineConfig& config) {
+  static OwnedSignalComponents BuildOwnedPipelineComponents(
+      const SignalPipelineConfig& config,
+      const pipeline::internal::InternalSignalPipelineConfig& internal_config) {
     OwnedSignalComponents components;
-    components.association_config = BuildAssociationConfig(config);
-    components.track_filter_config = BuildTrackFilterConfig(config);
+    components.association_config = BuildAssociationConfig(config, internal_config);
+    components.track_filter_config = BuildTrackFilterConfig(internal_config);
 
     if (config.tracking.enable_kalman_filter) {
-      components.kalman_predictor = CreateKalmanPredictor(config.tracking.kalman_noise_diff_coeff);
+      components.kalman_predictor =
+          CreateKalmanPredictor(internal_config.tracking.kalman_noise_diff_coeff);
       components.kalman_updater = CreateKalmanUpdater(config.tracking.kalman_measurement_noise_std);
     }
 
@@ -137,12 +139,13 @@ class SignalComponentFactory final {
    * @return 生命周期装配结果。
    */
   static LifecycleAssemblyArtifacts BuildLifecycleAssemblyArtifacts(
-      const SignalPipelineConfig& config) {
+      const SignalPipelineConfig& config,
+      const pipeline::internal::InternalSignalPipelineConfig& internal_config) {
     LifecycleAssemblyArtifacts artifacts;
-    const tracking::LifecycleConfig lifecycle_config = BuildLifecycleConfig(config);
+    const tracking::LifecycleConfig lifecycle_config = BuildLifecycleConfig(config, internal_config);
     artifacts.pool.reset(
-        new tracking::BoostTrackPool(config.lifecycle.lifecycle_track_pool_initial_chunk,
-                                     config.lifecycle.lifecycle_track_pool_max_chunks));
+        new tracking::BoostTrackPool(internal_config.lifecycle.lifecycle_track_pool_initial_chunk,
+                                     internal_config.lifecycle.lifecycle_track_pool_max_chunks));
 
     tracking::ITrackPool* effective_pool = artifacts.pool.get();
     if (lifecycle_config.track_pool_thread_safety_mode ==
@@ -152,7 +155,7 @@ class SignalComponentFactory final {
     }
 
     if (config.lifecycle.enable_imm_lifecycle) {
-      const std::size_t model_count = config.lifecycle.imm_model_noise_diff_coeffs.size();
+      const std::size_t model_count = internal_config.lifecycle.imm_model_noise_diff_coeffs.size();
       bool imm_ready = true;
       if (model_count == 0U) {
         LogLifecycleAssemblyConfigViolation(
@@ -172,7 +175,7 @@ class SignalComponentFactory final {
         artifacts.imm_predictors.reserve(model_count);
         artifacts.imm_updaters.reserve(model_count);
         for (std::size_t i = 0; i < model_count; ++i) {
-          const float noise_diff_coeff = config.lifecycle.imm_model_noise_diff_coeffs[i];
+          const float noise_diff_coeff = internal_config.lifecycle.imm_model_noise_diff_coeffs[i];
           if (noise_diff_coeff <= 0.0f) {
             LogLifecycleAssemblyConfigViolation("IMM model noise_diff_coeff must be > 0",
                                                 noise_diff_coeff);
@@ -190,8 +193,8 @@ class SignalComponentFactory final {
 
       if (imm_ready) {
         const Eigen::MatrixXf transition_probability =
-            BuildImmTransitionProbability(config, model_count);
-        const Eigen::VectorXf initial_weights = BuildImmInitialWeights(config, model_count);
+            BuildImmTransitionProbability(internal_config, model_count);
+        const Eigen::VectorXf initial_weights = BuildImmInitialWeights(internal_config, model_count);
         if (transition_probability.rows() == static_cast<Eigen::Index>(model_count) &&
             transition_probability.cols() == static_cast<Eigen::Index>(model_count) &&
             initial_weights.size() == static_cast<Eigen::Index>(model_count)) {
@@ -211,7 +214,8 @@ class SignalComponentFactory final {
     }
 
     if (config.tracking.enable_kalman_filter) {
-      artifacts.kalman_predictor = CreateKalmanPredictor(config.tracking.kalman_noise_diff_coeff);
+      artifacts.kalman_predictor =
+          CreateKalmanPredictor(internal_config.tracking.kalman_noise_diff_coeff);
       artifacts.kalman_updater = CreateKalmanUpdater(config.tracking.kalman_measurement_noise_std);
       artifacts.lifecycle_manager.reset(new tracking::TrackLifecycleManager(
           *effective_pool, lifecycle_config, artifacts.kalman_predictor.get(),
@@ -270,9 +274,10 @@ class SignalComponentFactory final {
    * @param model_count IMM 模型数。
    * @return 转移概率矩阵。
    */
-  static Eigen::MatrixXf BuildImmTransitionProbability(const SignalPipelineConfig& config,
+  static Eigen::MatrixXf BuildImmTransitionProbability(
+      const pipeline::internal::InternalSignalPipelineConfig& internal_config,
                                                        std::size_t model_count) {
-    if (config.lifecycle.imm_transition_probability.empty()) {
+    if (internal_config.lifecycle.imm_transition_probability.empty()) {
       Eigen::MatrixXf matrix = Eigen::MatrixXf::Constant(
           static_cast<Eigen::Index>(model_count), static_cast<Eigen::Index>(model_count),
           model_count > 1U ? 0.05f / static_cast<float>(model_count - 1U) : 1.0f);
@@ -280,10 +285,10 @@ class SignalComponentFactory final {
       return matrix;
     }
 
-    if (config.lifecycle.imm_transition_probability.size() != model_count * model_count) {
+    if (internal_config.lifecycle.imm_transition_probability.size() != model_count * model_count) {
       LogLifecycleAssemblyConfigViolation(
           "imm_transition_probability size must equal model_count*model_count",
-          config.lifecycle.imm_transition_probability.size());
+          internal_config.lifecycle.imm_transition_probability.size());
       return Eigen::MatrixXf();
     }
 
@@ -292,7 +297,7 @@ class SignalComponentFactory final {
     for (std::size_t r = 0; r < model_count; ++r) {
       float row_sum = 0.0f;
       for (std::size_t c = 0; c < model_count; ++c) {
-        const float value = config.lifecycle.imm_transition_probability[r * model_count + c];
+        const float value = internal_config.lifecycle.imm_transition_probability[r * model_count + c];
         if (value < 0.0f || value > 1.0f) {
           LogLifecycleAssemblyConfigViolation("IMM transition probability must be in [0,1]", value);
           return Eigen::MatrixXf();
@@ -313,23 +318,24 @@ class SignalComponentFactory final {
    * @param model_count IMM 模型数。
    * @return 初始权重向量。
    */
-  static Eigen::VectorXf BuildImmInitialWeights(const SignalPipelineConfig& config,
+  static Eigen::VectorXf BuildImmInitialWeights(
+      const pipeline::internal::InternalSignalPipelineConfig& internal_config,
                                                 std::size_t model_count) {
-    if (config.lifecycle.imm_initial_weights.empty()) {
+    if (internal_config.lifecycle.imm_initial_weights.empty()) {
       return Eigen::VectorXf::Constant(static_cast<Eigen::Index>(model_count),
                                        1.0f / static_cast<float>(model_count));
     }
 
-    if (config.lifecycle.imm_initial_weights.size() != model_count) {
+    if (internal_config.lifecycle.imm_initial_weights.size() != model_count) {
       LogLifecycleAssemblyConfigViolation("imm_initial_weights size must equal model_count",
-                                          config.lifecycle.imm_initial_weights.size());
+                                          internal_config.lifecycle.imm_initial_weights.size());
       return Eigen::VectorXf();
     }
 
     Eigen::VectorXf weights(static_cast<Eigen::Index>(model_count));
     float sum = 0.0f;
     for (std::size_t i = 0; i < model_count; ++i) {
-      const float value = config.lifecycle.imm_initial_weights[i];
+      const float value = internal_config.lifecycle.imm_initial_weights[i];
       if (value < 0.0f || value > 1.0f) {
         LogLifecycleAssemblyConfigViolation("IMM initial weight must be in [0,1]", value);
         return Eigen::VectorXf();
