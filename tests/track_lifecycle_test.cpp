@@ -172,6 +172,33 @@ TEST(TrackLifecycleManagerTest, RecyclesTrackAfterLostTimeout) {
   EXPECT_TRUE(snapshot.empty());
 }
 
+TEST(TrackLifecycleManagerTest, ReusedTrackGetsNewTrackIdAndKeepsGenerationCounter) {
+  signal::tracking::BoostTrackPool pool(1, 1);
+  signal::tracking::LifecycleConfig config;
+  config.confirm_hits = 1;
+  config.max_miss_before_lost = 0;
+  config.max_lost_cycles = 1;
+
+  signal::tracking::TrackLifecycleManager manager(pool, config);
+
+  manager.Update(MakeCycle(1u, 2101u), {MakeCartesianMeasurement(11u, 100.0f, 5.0f)});
+  std::vector<const signal::tracking::TrackState*> active_tracks = manager.GetActiveTracks();
+  ASSERT_EQ(active_tracks.size(), 1u);
+  const std::uint64_t first_track_id = active_tracks[0]->track_id;
+  EXPECT_EQ(active_tracks[0]->generation, 0u);
+
+  manager.Update(MakeCycle(2u, 2102u), {});
+  manager.Update(MakeCycle(3u, 2103u), {});
+  EXPECT_TRUE(manager.GetActiveTracks().empty());
+
+  manager.Update(MakeCycle(4u, 2104u), {MakeCartesianMeasurement(12u, 120.0f, 6.0f)});
+  active_tracks = manager.GetActiveTracks();
+  ASSERT_EQ(active_tracks.size(), 1u);
+  EXPECT_NE(active_tracks[0]->track_id, first_track_id);
+  EXPECT_EQ(active_tracks[0]->track_id, first_track_id + 1u);
+  EXPECT_EQ(active_tracks[0]->generation, 1u);
+}
+
 TEST(TrackLifecycleManagerTest, ExtraMissToleranceDelaysLostTransition) {
   signal::tracking::BoostTrackPool pool(2, 8);
   signal::tracking::LifecycleConfig config;

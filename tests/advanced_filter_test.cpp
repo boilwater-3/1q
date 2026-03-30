@@ -333,6 +333,35 @@ TEST(ImmFilterTest, ModelWeightsSumToOne) {
   }
 }
 
+TEST(ImmFilterTest, ExtremeInnovationKeepsFiniteNormalizedWeights) {
+  signal::tracking::KalmanPredictor pred1;
+  signal::tracking::KalmanPredictor pred2;
+  signal::tracking::KalmanUpdater upd1;
+  signal::tracking::KalmanUpdater upd2;
+
+  signal::tracking::ImmConfig config;
+  config.transition_probability.resize(2, 2);
+  config.transition_probability << 0.9f, 0.1f, 0.1f, 0.9f;
+  config.initial_weights.resize(2);
+  config.initial_weights << 0.5f, 0.5f;
+
+  signal::tracking::ImmFilter imm(config, {&pred1, &pred2}, {&upd1, &upd2});
+  GaussianTrackState init(StateVector::Zero(), StateCovariance::Identity() * 1.0f);
+  signal::tracking::ImmModelState m{init, 0.5f};
+  imm.SetModelStates({m, m});
+
+  const MeasurementVector extreme_measurement(1.0e8f, -1.0e8f, 1.0e8f);
+  imm.Process(extreme_measurement, 1.0f);
+
+  const Eigen::VectorXf w = imm.GetModelWeights();
+  ASSERT_EQ(w.size(), 2);
+  EXPECT_TRUE(std::isfinite(w(0)));
+  EXPECT_TRUE(std::isfinite(w(1)));
+  EXPECT_GE(w(0), 0.0f);
+  EXPECT_GE(w(1), 0.0f);
+  EXPECT_NEAR(w.sum(), 1.0f, kTolerance);
+}
+
 TEST(ImmFilterTest, RepeatedProcessSequenceRemainsDeterministic) {
   signal::tracking::KalmanPredictorConfig cfg1;
   cfg1.noise_diff_coeff = 0.5f;

@@ -1,7 +1,9 @@
 #include "airborne_radar/signal/tracking/ImmFilter.h"
 
 #include <Eigen/Cholesky>
+#include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace airborne_radar {
 namespace signal {
@@ -17,7 +19,7 @@ ImmFilter::ImmFilter(ImmConfig config, std::vector<const IKalmanPredictor*> pred
       mixed_states_(static_cast<std::size_t>(num_models_)),
       predicted_states_(static_cast<std::size_t>(num_models_)),
       update_results_(static_cast<std::size_t>(num_models_)),
-      likelihoods_(Eigen::VectorXf::Zero(num_models_)),
+      log_likelihoods_(Eigen::VectorXf::Zero(num_models_)),
       c_bar_(Eigen::VectorXf::Zero(num_models_)),
       new_weights_(Eigen::VectorXf::Zero(num_models_)) {
   // 初始化模型权重
@@ -114,30 +116,64 @@ void ImmFilter::PredictModels(float dt) {
 
 void ImmFilter::UpdateModels(const MeasurementVector& measurement) {
   const int N = num_models_;
+  constexpr float kWeightFloor = 1e-30f;
 
   for (int j = 0; j < N; ++j) {
     const auto ju = static_cast<std::size_t>(j);
     update_results_[ju] = updaters_[ju]->Update(predicted_states_[ju], measurement);
     model_states_[ju].state = update_results_[ju].posterior;
 
-    // 模型似然
-    likelihoods_(j) = GaussianLikelihood(update_results_[ju].innovation,
-                                         update_results_[ju].innovation_covariance);
+    log_likelihoods_(j) = static_cast<float>(
+        GaussianLogLikelihood(update_results_[ju].innovation, update_results_[ju].innovation_covariance));
   }
 
-  // c_bar_ 已由 MixStates() 计算并写入，此处直接复用。
-  // 更新模型权重
-  float total = 0.0f;
+  // 1) 优先使用 log-sum-exp 归一化，避免 exp(log_likelihood) 下溢导致权重塌陷。
+  double max_log_weight = -std::numeric_limits<double>::infinity();
   for (int j = 0; j < N; ++j) {
-    new_weights_(j) = c_bar_(j) * likelihoods_(j);
-    total += new_weights_(j);
-  }
-  if (total < 1e-30f) {
-    total = 1e-30f;
+    const double c_bar = std::max(static_cast<double>(c_bar_(j)), static_cast<double>(kWeightFloor));
+    const double log_weight = std::log(c_bar) + static_cast<double>(log_likelihoods_(j));
+    new_weights_(j) = static_cast<float>(log_weight);
+    max_log_weight = std::max(max_log_weight, log_weight);
   }
 
+  double total = 0.0;
+  if (std::isfinite(max_log_weight)) {
+    for (int j = 0; j < N; ++j) {
+      const double shifted = static_cast<double>(new_weights_(j)) - max_log_weight;
+      const float scaled = shifted < -80.0 ? 0.0f : static_cast<float>(std::exp(shifted));
+      new_weights_(j) = scaled;
+      total += static_cast<double>(scaled);
+    }
+  }
+
+  if (std::isfinite(total) && total > static_cast<double>(kWeightFloor)) {
+    for (int j = 0; j < N; ++j) {
+      model_states_[static_cast<std::size_t>(j)].weight =
+          static_cast<float>(static_cast<double>(new_weights_(j)) / total);
+    }
+    return;
+  }
+
+  // 2) 若 log-sum-exp 结果异常，回退到 c_bar_ 归一化。
+  total = 0.0;
   for (int j = 0; j < N; ++j) {
-    model_states_[static_cast<std::size_t>(j)].weight = new_weights_(j) / total;
+    const float c_bar = std::max(c_bar_(j), 0.0f);
+    new_weights_(j) = c_bar;
+    total += static_cast<double>(c_bar);
+  }
+
+  if (std::isfinite(total) && total > static_cast<double>(kWeightFloor)) {
+    for (int j = 0; j < N; ++j) {
+      model_states_[static_cast<std::size_t>(j)].weight =
+          static_cast<float>(static_cast<double>(new_weights_(j)) / total);
+    }
+    return;
+  }
+
+  // 3) 仍异常时使用均匀权重兜底。
+  const float uniform_weight = (N > 0) ? (1.0f / static_cast<float>(N)) : 0.0f;
+  for (int j = 0; j < N; ++j) {
+    model_states_[static_cast<std::size_t>(j)].weight = uniform_weight;
   }
 }
 
@@ -160,9 +196,12 @@ void ImmFilter::CombineEstimates() {
   combined_state_.covariance = combined_cov;
 }
 
-float ImmFilter::GaussianLikelihood(const MeasurementVector& innovation,
-                                    const MeasurementCovariance& S) {
+double ImmFilter::GaussianLogLikelihood(const MeasurementVector& innovation,
+                                        const MeasurementCovariance& S) {
   const Eigen::LLT<MeasurementCovariance> llt(S);
+  if (llt.info() != Eigen::Success) {
+    return -std::numeric_limits<double>::infinity();
+  }
 
   // log|S| = 2 * Σ log(L_ii)：提升为 double 精度，并对对角元素加 epsilon 防 log(0)
   constexpr double kLogDetEps = 1.0e-18;
@@ -177,14 +216,15 @@ float ImmFilter::GaussianLikelihood(const MeasurementVector& innovation,
   // yᵀ S⁻¹ y
   const MeasurementVector s_inv_y = llt.solve(innovation);
   const float mahal_sq = innovation.dot(s_inv_y);
+  if (!std::isfinite(mahal_sq)) {
+    return -std::numeric_limits<double>::infinity();
+  }
 
   // log-likelihood（用 double 中间值避免精度丢失）
   constexpr double kLogTwoPi = 1.8378770664093455;  // log(2π)
-  const double log_likelihood =
+  return
       -0.5 * (static_cast<double>(kMeasurementDim) * kLogTwoPi + log_det_d +
               static_cast<double>(mahal_sq));
-
-  return static_cast<float>(std::exp(log_likelihood));
 }
 
 GaussianTrackState ImmFilter::GetCombinedState() const { return combined_state_; }

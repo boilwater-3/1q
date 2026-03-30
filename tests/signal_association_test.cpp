@@ -22,6 +22,7 @@ common::model::TargetFeature MakeTarget(float speed, float rcs) {
 
 common::model::TargetFeature MakePositionTarget(float x, float y, float z) {
   common::model::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
+  target.has_cartesian_position = true;
   target.position_x = x;
   target.position_y = y;
   target.position_z = z;
@@ -319,6 +320,38 @@ TEST(DataAssociationEngineTest, DetectedTargetMissingPositionFailsFast) {
 
   EXPECT_DEATH_IF_SUPPORTED(engine.AssociateDetections(cycle_1, detected_1),
                             "missing cartesian position");
+}
+
+TEST(DataAssociationEngineTest, DetectedTargetWithCoordinatesButMissingPositionFlagFailsFast) {
+  signal::association::DataAssociationEngine engine;
+
+  common::model::TargetFeature target = MakeTarget(100.0f, 2.0f);
+  target.position_x = 20.0f;
+  target.position_y = 1.0f;
+  target.position_z = 0.0f;
+  target.has_cartesian_position = false;
+
+  const common::model::TargetFeatureList cycle_1{target};
+  const std::vector<std::uint8_t> detected_1{1U};
+  EXPECT_DEATH_IF_SUPPORTED(engine.AssociateDetections(cycle_1, detected_1),
+                            "missing cartesian position");
+}
+
+TEST(DataAssociationEngineTest, DetectedOriginWithPositionFlagPassesValidation) {
+  signal::association::DataAssociationEngine engine;
+
+  common::model::TargetFeature target = MakeTarget(120.0f, 1.5f);
+  target.has_cartesian_position = true;
+  target.position_x = 0.0f;
+  target.position_y = 0.0f;
+  target.position_z = 0.0f;
+
+  const common::model::TargetFeatureList cycle_1{target};
+  const std::vector<std::uint8_t> detected_1{1U};
+  const signal::association::AssociationResult result =
+      engine.AssociateDetections(cycle_1, detected_1);
+  ASSERT_EQ(result.target_keys.size(), 1u);
+  EXPECT_NE(result.target_keys[0], 0u);
 }
 
 TEST(DataAssociationEngineTest, DynamicMeasurementCovarianceChangesPositionAssociationGate) {

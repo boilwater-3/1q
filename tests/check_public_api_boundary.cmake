@@ -22,6 +22,7 @@ set(EXPECTED_PUBLIC_HEADERS
     "airborne_radar/config/AntennaPatternConfig.h"
     "airborne_radar/config/ConfigPresets.h"
     "airborne_radar/config/RadarOrientationConfig.h"
+    "airborne_radar/config/RadarRuntimeConfigBuilder.h"
     "airborne_radar/config/RadarSessionConfigBuilder.h"
     "airborne_radar/config/RadarWorkMode.h"
     "airborne_radar/core/context/IRadarContext.h"

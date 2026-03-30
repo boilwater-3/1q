@@ -8,6 +8,7 @@
 #include <cstdint>
 
 #include "1q/airborne_radar/config/ConfigPresets.h"
+#include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/core/session/RadarSession.h"
 
@@ -236,6 +237,63 @@ TEST(RadarSessionConfigBuilderTest, BuiltConfigCanConstructRadarSession) {
   core::session::RadarSession session(config);
   EXPECT_TRUE(session.HasLatestControlProfile() == false ||
               session.HasLatestControlProfile() == true);
+}
+
+TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValues) {
+  common::config::AzimuthElevationDeg scan_center;
+  scan_center.az_deg = 12.0f;
+  scan_center.el_deg = -3.0f;
+
+  common::config::AzimuthElevationDeg dwell_center;
+  dwell_center.az_deg = 5.0f;
+  dwell_center.el_deg = 2.0f;
+
+  common::config::CommandedBeamwidthDeg commanded_beamwidth;
+  commanded_beamwidth.commanded_az_beamwidth_deg = 2.5f;
+  commanded_beamwidth.commanded_el_beamwidth_deg = 2.0f;
+
+  const common::config::RadarRuntimeConfigPatch patch =
+      common::config::RadarRuntimeConfigBuilder()
+          .WithRadarWorkSubMode(common::config::RadarWorkSubMode::kStt)
+          .WithScanCenterDeg(scan_center)
+          .WithDwellCenterDeg(dwell_center)
+          .WithCommandedBeamwidthDeg(commanded_beamwidth)
+          .EnableCommandedBeamwidth(true)
+          .WithJammingDetectionThresholdDb(4.2f)
+          .Build();
+
+  EXPECT_TRUE(patch.has_work_sub_mode);
+  EXPECT_EQ(patch.work_sub_mode, common::config::RadarWorkSubMode::kStt);
+  EXPECT_TRUE(patch.has_scan_center_deg);
+  EXPECT_FLOAT_EQ(patch.scan_center_deg.az_deg, 12.0f);
+  EXPECT_FLOAT_EQ(patch.scan_center_deg.el_deg, -3.0f);
+  EXPECT_TRUE(patch.has_dwell_center_deg);
+  EXPECT_FLOAT_EQ(patch.dwell_center_deg.az_deg, 5.0f);
+  EXPECT_FLOAT_EQ(patch.dwell_center_deg.el_deg, 2.0f);
+  EXPECT_TRUE(patch.has_commanded_beamwidth_deg);
+  EXPECT_FLOAT_EQ(patch.commanded_beamwidth_deg.commanded_az_beamwidth_deg, 2.5f);
+  EXPECT_FLOAT_EQ(patch.commanded_beamwidth_deg.commanded_el_beamwidth_deg, 2.0f);
+  EXPECT_TRUE(patch.has_commanded_beamwidth_enabled);
+  EXPECT_TRUE(patch.commanded_beamwidth_enabled);
+  EXPECT_TRUE(patch.has_jamming_detection_threshold_db);
+  EXPECT_FLOAT_EQ(patch.jamming_detection_threshold_db, 4.2f);
+}
+
+TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructingSession) {
+  core::session::RadarSession session(common::config::MakeDetectionMissionRadarSessionConfig());
+  const common::config::RadarRuntimeConfigPatch patch =
+      common::config::RadarRuntimeConfigBuilder()
+          .WithRadarWorkSubMode(common::config::RadarWorkSubMode::kTas)
+          .EnableCommandedBeamwidth(true)
+          .WithJammingDetectionThresholdDb(4.8f)
+          .Build();
+
+  session.ApplyRuntimeConfig(patch);
+
+  core::context::RadarCycleInput input;
+  input.dt_sec = 1.0f;
+  const core::session::RadarCycleResult result = session.StepWithResult(input);
+  EXPECT_FALSE(result.has_validation_error);
 }
 
 }  // namespace tests

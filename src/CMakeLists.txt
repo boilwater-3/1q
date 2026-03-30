@@ -40,11 +40,13 @@ set(AIRBORNE_SIGNAL_SOURCES
     airborne_radar/signal/tracking/SynchronizedTrackPool.cpp
     airborne_radar/signal/tracking/TrackFilter.cpp
     airborne_radar/signal/tracking/TrackLifecycleManager.cpp
+    airborne_radar/signal/tracking/TrackLifecycleSnapshots.cpp
 )
 
 set(AIRBORNE_DECISION_SOURCES
     airborne_radar/decision/evaluators/EmissionControlEvaluator.cpp
     airborne_radar/decision/evaluators/SurvivabilityEvaluator.cpp
+    airborne_radar/decision/evaluators/SurvivabilityEvaluatorHelpers.cpp
     airborne_radar/decision/evaluators/ThreatAssessmentEvaluator.cpp
     airborne_radar/decision/pipeline/ControlReducer.cpp
     airborne_radar/decision/pipeline/TacticalCoordinator.cpp
@@ -334,6 +336,7 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/AntennaPatternConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/ConfigPresets.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarOrientationConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarRuntimeConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarSessionConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarWorkMode.h
     )

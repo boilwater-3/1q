@@ -1,7 +1,7 @@
 /**
  * @file RadarWorkMode.h
- * @brief 定义机载雷达工作子模式枚举；本文件不包含不可变硬件配置，`RadarWorkSubMode`
- *        属于运行期可变控制量，可在周期执行中由决策链路切换。
+ * @brief 定义机载雷达工作子模式枚举。
+ * @note “可外部调整”定义：调用方可在不重建 `RadarSession` 的前提下，通过公开 API 直接提交修改。
  */
 
 #ifndef AIRBORNE_RADAR_CONFIG_RADAR_WORK_MODE_H_
@@ -13,6 +13,7 @@ namespace config {
 
 /**
  * @brief RadarWorkSubMode 表示机载雷达工作子模式。
+ * @note 该枚举对应运行期可外部调整控制量。
  */
 enum class RadarWorkSubMode {
   kStby = 0, /**< 待机：波束停泊并停止扫描 */

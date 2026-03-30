@@ -555,6 +555,65 @@ TEST(ControlReducerTest, ReducerBuildsNextControlProfileAndRejectsDuplicates) {
   EXPECT_EQ(result.rejected_directives.size(), 1u);
 }
 
+TEST(ControlReducerTest, AgilityFrequencyHopPhaseAlternatesAcrossConsecutiveEnabledCycles) {
+  decision::pipeline::ControlReducer reducer;
+  common::control::RadarControlProfile previous_profile;
+
+  const std::vector<decision::pipeline::TacticalProposal> proposals{
+      decision::pipeline::TacticalProposal{
+          common::control::ControlDirective(common::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
+                                            common::control::ControlDirectiveSource::SURVIVABILITY),
+          84, "enable agility"}};
+
+  const decision::pipeline::ControlReductionResult first = reducer.Reduce(previous_profile, proposals);
+  EXPECT_TRUE(first.profile.enable_agility_frequency);
+  EXPECT_EQ(first.profile.agility_frequency_hop_phase, 0u);
+
+  const decision::pipeline::ControlReductionResult second = reducer.Reduce(first.profile, proposals);
+  EXPECT_TRUE(second.profile.enable_agility_frequency);
+  EXPECT_EQ(second.profile.agility_frequency_hop_phase, 1u);
+  EXPECT_EQ(second.profile.version, first.profile.version);
+
+  const decision::pipeline::ControlReductionResult third = reducer.Reduce(second.profile, proposals);
+  EXPECT_TRUE(third.profile.enable_agility_frequency);
+  EXPECT_EQ(third.profile.agility_frequency_hop_phase, 0u);
+  EXPECT_EQ(third.profile.version, first.profile.version);
+
+  const decision::pipeline::ControlReductionResult released =
+      reducer.Reduce(third.profile, std::vector<decision::pipeline::TacticalProposal>());
+  EXPECT_FALSE(released.profile.enable_agility_frequency);
+  EXPECT_EQ(released.profile.agility_frequency_hop_phase, 0u);
+}
+
+TEST(ControlReducerTest, HopPhaseTogglingDuringHoldDoesNotIncreaseProfileVersion) {
+  decision::pipeline::ControlReducerConfig config;
+  config.eccm_hold_cycles_after_request = 2u;
+  decision::pipeline::ControlReducer reducer(config);
+
+  common::control::RadarControlProfile previous_profile;
+  const std::vector<decision::pipeline::TacticalProposal> proposals{
+      decision::pipeline::TacticalProposal{
+          common::control::ControlDirective(common::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
+                                            common::control::ControlDirectiveSource::SURVIVABILITY),
+          84, "enable agility"}};
+
+  const decision::pipeline::ControlReductionResult activated = reducer.Reduce(previous_profile, proposals);
+  ASSERT_TRUE(activated.profile.enable_agility_frequency);
+  EXPECT_EQ(activated.profile.agility_frequency_hop_phase, 0u);
+
+  const decision::pipeline::ControlReductionResult held_once =
+      reducer.Reduce(activated.profile, std::vector<decision::pipeline::TacticalProposal>());
+  EXPECT_TRUE(held_once.profile.enable_agility_frequency);
+  EXPECT_EQ(held_once.profile.agility_frequency_hop_phase, 1u);
+  EXPECT_EQ(held_once.profile.version, activated.profile.version);
+
+  const decision::pipeline::ControlReductionResult held_twice =
+      reducer.Reduce(held_once.profile, std::vector<decision::pipeline::TacticalProposal>());
+  EXPECT_TRUE(held_twice.profile.enable_agility_frequency);
+  EXPECT_EQ(held_twice.profile.agility_frequency_hop_phase, 0u);
+  EXPECT_EQ(held_twice.profile.version, activated.profile.version);
+}
+
 TEST(ControlReducerTest, BurnthroughGainFloorsLpiPowerReductionForSurvivability) {
   decision::pipeline::ControlReducer reducer;
   common::control::RadarControlProfile previous_profile;

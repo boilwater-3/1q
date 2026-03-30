@@ -35,6 +35,7 @@ namespace {
 common::model::TargetFeatureList BuildSingleTarget(float speed, float rcs, bool jamming) {
   (void)jamming;
   common::model::TargetFeature target(speed, 0.0f, 0.0f, rcs);
+  target.has_cartesian_position = true;
   target.position_x = 100.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;

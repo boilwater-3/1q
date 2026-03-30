@@ -259,6 +259,8 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
                     std::uint32_t extra_miss_tolerance) const;
   /**
    * @brief 将对象重置为可复用状态，避免脏数据泄露。
+   * @note `track_id` 在重置时清零，下一次建轨时重新分配；
+   *       `generation` 不在此处清零，保持对象复用代次单调递增语义。
    * @param track 待重置轨迹对象。
    */
   void ResetForReuse(TrackState& track) const;
@@ -275,7 +277,14 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
    * @param callback 每条活跃轨迹的处理逻辑。
    */
   template <typename Callback>
-  void ForEachActiveTrack(Callback&& callback) const;
+  void ForEachActiveTrack(Callback&& callback) const {
+    for (std::unordered_map<std::uint64_t, TrackState*>::const_iterator it = tracks_by_key_.cbegin();
+         it != tracks_by_key_.cend(); ++it) {
+      if (it->second->status != TrackStatus::kRecycled) {
+        callback(it->first, *it->second);
+      }
+    }
+  }
 
   // data members
   ITrackPool* pool_{nullptr};      /**< 轨迹对象池抽象，用于对象申请与归还。 */

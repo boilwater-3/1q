@@ -684,6 +684,15 @@ TEST(SwerlingDetectionTest, Threshold_MultiPulse_Consistency) {
   }
 }
 
+/// @brief MarcumQ 对负 a 输入应与 a=0 等价（内部会做非负钳位）。
+TEST(RadarEquationsTest, MarcumQ_NegativeAIsEquivalentToZeroA) {
+  const int order = 4;
+  const double b = 2.7;
+  const double q_negative_a = RadarEquations::MarcumQ(order, -3.5, b);
+  const double q_zero_a = RadarEquations::MarcumQ(order, 0.0, b);
+  EXPECT_NEAR(q_negative_a, q_zero_a, 1e-12);
+}
+
 // ===========================================================================
 // SignalDetector — 边界条件补充
 // ===========================================================================

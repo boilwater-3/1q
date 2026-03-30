@@ -19,6 +19,14 @@
 #include "1q/api.hpp"
 
 namespace airborne_radar {
+namespace common {
+namespace config {
+struct RadarRuntimeConfigPatch;
+}  // namespace config
+}  // namespace common
+}  // namespace airborne_radar
+
+namespace airborne_radar {
 namespace core {
 namespace session {
 
@@ -26,9 +34,18 @@ namespace session {
  * @brief RadarSessionConfig 描述 RadarSession 的默认装配配置。
  */
 struct ONEQ_API RadarSessionConfig {
-  signal::pipeline::SignalPipelineConfig signal_pipeline_config{}; /**< 信号流水线配置 */
-  environment::EnvironmentModelConfig environment_model_config{};  /**< 环境模型配置 */
-  float jamming_detection_threshold_db{6.0f};                      /**< 干扰判定阈值（单位：dB） */
+  /**
+   * @brief 信号流水线基线配置（初始化固定，运行期可通过 `ApplyRuntimeConfig` 覆盖）。
+   */
+  signal::pipeline::SignalPipelineConfig signal_pipeline_config{};
+  /**
+   * @brief 环境模型基线配置（初始化固定，运行期可通过 `ApplyRuntimeConfig` 覆盖）。
+   */
+  environment::EnvironmentModelConfig environment_model_config{};
+  /**
+   * @brief 干扰判定阈值（初始化值，运行期可通过 `ApplyRuntimeConfig` 覆盖）。
+   */
+  float jamming_detection_threshold_db{6.0f};
 };
 
 /**
@@ -122,6 +139,13 @@ class ONEQ_API RadarSession {
    * @param[in] threshold_db 干扰判定阈值（单位：dB）。
    */
   void SetJammingDetectionThresholdDb(float threshold_db);
+
+  /**
+   * @brief 应用运行期可变配置补丁。
+   * @param[in] patch 运行期可变配置补丁。
+   * @note 该接口作为运行期可调参数的统一入口；未设置的字段保持现值不变。
+   */
+  void ApplyRuntimeConfig(const common::config::RadarRuntimeConfigPatch& patch);
 
  private:
   struct Impl;

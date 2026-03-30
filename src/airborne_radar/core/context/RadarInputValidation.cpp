@@ -36,10 +36,10 @@ bool IsFinite(float value) { return oneq::internal::validation::IsFinite(value);
 /**
  * @brief 判断目标是否携带笛卡尔位置。
  * @param target 目标特征。
- * @return 至少存在一个非零位置分量时返回 `true`。
+ * @return `has_cartesian_position` 为 `true` 时返回 `true`。
  */
 bool HasCartesianPosition(const common::model::TargetFeature& target) {
-  return target.position_x != 0.0f || target.position_y != 0.0f || target.position_z != 0.0f;
+  return target.has_cartesian_position;
 }
 
 /**

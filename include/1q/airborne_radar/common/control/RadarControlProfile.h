@@ -22,6 +22,8 @@ struct RadarControlProfile {
   bool enable_lpi_beamforming{false};         /**< 是否启用 LPI 波束形成 */
   float lpi_dwell_scale{1.0f};                /**< LPI 驻留比例 */
   bool enable_agility_frequency{false};       /**< 是否启用频率捷变 */
+  std::uint8_t agility_frequency_hop_phase{
+      0};                                      /**< 频率捷变相位（0/1），用于解耦跳频方向与版本号 */
   bool enable_sidelobe_canceller{false};      /**< 是否启用旁瓣对消 */
   bool enable_adaptive_beamforming{false};    /**< 是否启用自适应波束形成 */
   bool enable_eccm_rejitter{false};           /**< 是否启用 ECCM 重频抖动 */

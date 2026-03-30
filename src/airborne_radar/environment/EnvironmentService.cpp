@@ -1,8 +1,10 @@
 #include "airborne_radar/environment/EnvironmentService.h"
 
 #include <algorithm>
+#include <limits>
 #include <utility>
 
+#include "1q/airborne_radar/common/utils/MathUtils.h"
 #include "airborne_radar/environment/scene/SceneManager.h"
 #include "airborne_radar/environment/simulation/PropagationModel.h"
 
@@ -12,30 +14,22 @@ namespace environment {
 namespace {
 
 /**
- * @brief 将输入值裁剪到 [0, 1] 区间。
- * @param value 输入标量。
- * @return 裁剪后的结果。
- */
-float Clamp01(float value) { return std::max(0.0f, std::min(1.0f, value)); }
-/**
- * @brief 将输入值裁剪为非负数。
- * @param value 输入标量。
- * @return 不小于 0 的结果。
- */
-float ClampNonNegative(float value) { return std::max(0.0f, value); }
-/**
  * @brief 规范化场景中的单个干扰源输入。
  * @param raw_source 原始干扰源输入。
  * @return 完成边界裁剪后的干扰源状态。
  */
 JammerEmitterState NormalizeEmitterState(const JammerEmitterState& raw_source) {
   JammerEmitterState normalized = raw_source;
-  normalized.power_db = ClampNonNegative(raw_source.power_db);
-  normalized.js_db = ClampNonNegative(raw_source.js_db);
-  normalized.frequency_overlap_ratio = Clamp01(raw_source.frequency_overlap_ratio);
-  normalized.prf_lock_risk = Clamp01(raw_source.prf_lock_risk);
-  normalized.angular_span_deg = ClampNonNegative(raw_source.angular_span_deg);
-  normalized.confidence = Clamp01(raw_source.confidence);
+  normalized.power_db = common::utils::ClampFloat(raw_source.power_db, 0.0f,
+                                                  std::numeric_limits<float>::max());
+  normalized.js_db =
+      common::utils::ClampFloat(raw_source.js_db, 0.0f, std::numeric_limits<float>::max());
+  normalized.frequency_overlap_ratio =
+      common::utils::ClampFloat(raw_source.frequency_overlap_ratio, 0.0f, 1.0f);
+  normalized.prf_lock_risk = common::utils::ClampFloat(raw_source.prf_lock_risk, 0.0f, 1.0f);
+  normalized.angular_span_deg = common::utils::ClampFloat(raw_source.angular_span_deg, 0.0f,
+                                                          std::numeric_limits<float>::max());
+  normalized.confidence = common::utils::ClampFloat(raw_source.confidence, 0.0f, 1.0f);
   return normalized;
 }
 /**

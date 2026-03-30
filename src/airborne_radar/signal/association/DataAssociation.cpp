@@ -396,8 +396,7 @@ Eigen::Vector3f DataAssociationEngine::BuildPositionVector(
 }
 
 bool DataAssociationEngine::HasPositionMeasurement(const common::model::TargetFeature& target) const {
-  return target.has_cartesian_position ||
-         target.position_x != 0.0f || target.position_y != 0.0f || target.position_z != 0.0f;
+  return target.has_cartesian_position;
 }
 
 void DataAssociationEngine::ValidateDetectedTargetsHavePosition(

@@ -20,9 +20,8 @@ Testing/
 .vscode/
 imgui.ini
 
-# Local draft docs
-doc/airborne-radar.md
-doc/reference/
+# Local docs
+doc/
 
 # project prompts
 .github/

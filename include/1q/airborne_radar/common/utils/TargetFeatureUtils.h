@@ -72,7 +72,7 @@ model::TargetFeature MakeAirTarget(std::uint64_t external_target_id, float posit
 
 /**
  * @brief 规范化单个目标的几何派生量。
- * @details 当 `range_m <= 0` 且存在笛卡尔位置时，会按位置范数回填斜距；
+ * @details 当 `range_m <= 0` 且 `has_cartesian_position=true` 时，会按位置范数回填斜距；
  *          当 `range_m <= 0` 且位置全零时，不做静默修复。
  * @param[in,out] target 目标特征指针，可为 nullptr。
  */

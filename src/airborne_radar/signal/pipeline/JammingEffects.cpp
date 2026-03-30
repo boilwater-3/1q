@@ -290,7 +290,7 @@ common::utils::JammingSemantic ResolveDominantJammingSemantic(
   }
 
   std::size_t best_index = 0U;
-  std::size_t second_index = 0U;
+  std::size_t second_index = 1U;
   for (std::size_t i = 1; i < 3U; ++i) {
     if (type_scores[i] > type_scores[best_index]) {
       second_index = best_index;

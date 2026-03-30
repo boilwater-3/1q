@@ -1,5 +1,6 @@
 #include "1q/airborne_radar/core/session/RadarSession.h"
 
+#include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"
 #include "airborne_radar/core/context/MutableRadarContext.h"
 #include "airborne_radar/environment/EnvironmentService.h"
@@ -11,10 +12,13 @@ namespace session {
 
 struct RadarSession::Impl {
   explicit Impl(const RadarSessionConfig& config)
-      : signal_pipeline(config.signal_pipeline_config),
-        environment_service(config.environment_model_config),
+      : runtime_signal_pipeline_config(config.signal_pipeline_config),
+        runtime_environment_model_config(config.environment_model_config),
+        runtime_jamming_detection_threshold_db(config.jamming_detection_threshold_db),
+        signal_pipeline(runtime_signal_pipeline_config),
+        environment_service(runtime_environment_model_config),
         controller(radar_context, signal_pipeline, environment_service) {
-    environment_service.SetJammingDetectionThresholdDb(config.jamming_detection_threshold_db);
+    environment_service.SetJammingDetectionThresholdDb(runtime_jamming_detection_threshold_db);
   }
   RadarCycleResult BuildCycleResult() const {
     RadarCycleResult result;
@@ -33,6 +37,9 @@ struct RadarSession::Impl {
   }
 
   context::MutableRadarContext radar_context{};
+  signal::pipeline::SignalPipelineConfig runtime_signal_pipeline_config{};
+  environment::EnvironmentModelConfig runtime_environment_model_config{};
+  float runtime_jamming_detection_threshold_db{6.0f};
   signal::pipeline::SignalPipeline signal_pipeline;
   environment::EnvironmentService environment_service;
   controller::RadarController controller;
@@ -81,15 +88,69 @@ signal::pipeline::AssociationQualityMetrics RadarSession::GetLastAssociationQual
 
 void RadarSession::UpdateSignalPipelineConfig(
     const signal::pipeline::SignalPipelineConfig& config) {
-  impl_->signal_pipeline.UpdateConfig(config);
+  impl_->runtime_signal_pipeline_config = config;
+  impl_->signal_pipeline.UpdateConfig(impl_->runtime_signal_pipeline_config);
 }
 
 void RadarSession::UpdateEnvironmentModelConfig(const environment::EnvironmentModelConfig& config) {
-  impl_->environment_service.UpdateModelConfig(config);
+  impl_->runtime_environment_model_config = config;
+  impl_->environment_service.UpdateModelConfig(impl_->runtime_environment_model_config);
 }
 
 void RadarSession::SetJammingDetectionThresholdDb(float threshold_db) {
-  impl_->environment_service.SetJammingDetectionThresholdDb(threshold_db);
+  impl_->runtime_jamming_detection_threshold_db = threshold_db;
+  impl_->environment_service.SetJammingDetectionThresholdDb(
+      impl_->runtime_jamming_detection_threshold_db);
+}
+
+void RadarSession::ApplyRuntimeConfig(const common::config::RadarRuntimeConfigPatch& patch) {
+  bool should_update_signal_pipeline_config = false;
+  if (patch.has_signal_pipeline_config) {
+    impl_->runtime_signal_pipeline_config = patch.signal_pipeline_config;
+    should_update_signal_pipeline_config = true;
+  }
+
+  signal::pipeline::SignalPipelineConfig* signal_config = &impl_->runtime_signal_pipeline_config;
+  if (patch.has_platform_attitude_deg) {
+    signal_config->beam_control.platform_attitude_deg = patch.platform_attitude_deg;
+    should_update_signal_pipeline_config = true;
+  }
+  if (patch.has_work_sub_mode) {
+    signal_config->beam_control.radar_orientation.work_sub_mode = patch.work_sub_mode;
+    should_update_signal_pipeline_config = true;
+  }
+  if (patch.has_scan_center_deg) {
+    signal_config->beam_control.radar_orientation.scan_center_deg = patch.scan_center_deg;
+    should_update_signal_pipeline_config = true;
+  }
+  if (patch.has_dwell_center_deg) {
+    signal_config->beam_control.radar_orientation.dwell_center_deg = patch.dwell_center_deg;
+    should_update_signal_pipeline_config = true;
+  }
+  if (patch.has_commanded_beamwidth_deg) {
+    signal_config->beam_control.radar_orientation.commanded_beamwidth_deg =
+        patch.commanded_beamwidth_deg;
+    should_update_signal_pipeline_config = true;
+  }
+  if (patch.has_commanded_beamwidth_enabled) {
+    signal_config->beam_control.radar_orientation.commanded_beamwidth_enabled =
+        patch.commanded_beamwidth_enabled;
+    should_update_signal_pipeline_config = true;
+  }
+  if (should_update_signal_pipeline_config) {
+    impl_->signal_pipeline.UpdateConfig(impl_->runtime_signal_pipeline_config);
+  }
+
+  if (patch.has_environment_model_config) {
+    impl_->runtime_environment_model_config = patch.environment_model_config;
+    impl_->environment_service.UpdateModelConfig(impl_->runtime_environment_model_config);
+  }
+
+  if (patch.has_jamming_detection_threshold_db) {
+    impl_->runtime_jamming_detection_threshold_db = patch.jamming_detection_threshold_db;
+    impl_->environment_service.SetJammingDetectionThresholdDb(
+        impl_->runtime_jamming_detection_threshold_db);
+  }
 }
 
 }  // namespace session

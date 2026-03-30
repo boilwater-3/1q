@@ -172,19 +172,17 @@ double RadarEquations::MarcumQ(int order, double a, double b) {
   if (b <= 0.0) {
     return 1.0;
   }
-  if (a < 0.0) {
-    a = 0.0;
-  }
+  const double a_clamped = (a < 0.0) ? 0.0 : a;
 
   /**
    *  极大信噪比情况（极远大于检测门限），由于 Poisson 分布的方差导致两翼截断误差会显现出数值不稳定
    *  根据渐进性，当 a >> b 时，检测概率必然趋于 1.0
    */
-  if (a > b + 20.0) {
+  if (a_clamped > b + 20.0) {
     return 1.0;
   }
 
-  const double lambda = a * a / 2.0;
+  const double lambda = a_clamped * a_clamped / 2.0;
   const double x = b * b / 2.0;
 
   const int kMaxIter = 500;

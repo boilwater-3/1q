@@ -94,7 +94,7 @@ common::model::TargetFeature SimpleTrackUpdater::Update(const PredictedTrackStat
     float rcs_decay_ratio = config_.rcs_decay_ratio_on_loss;
     if (context.jamming_detected &&
         IsAssociationFragileJamming(context.dominant_jamming_semantic)) {
-      const float relief_scale = std::min(0.10f, 0.10f * std::max(0.0f, context.jamming_severity));
+      const float relief_scale = 0.10f * std::max(0.0f, context.jamming_severity);
       speed_decay_ratio = std::min(0.995f, speed_decay_ratio + relief_scale);
       rcs_decay_ratio = std::min(0.999f, rcs_decay_ratio + 1.2f * relief_scale);
     }

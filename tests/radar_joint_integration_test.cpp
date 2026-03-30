@@ -110,6 +110,7 @@ common::model::TargetFeature BuildTarget(std::uint64_t external_target_id, float
                                   float position_y, float position_z) {
   common::model::TargetFeature target(velocity_x, velocity_y, velocity_z, rcs, 0.0f, 0,
                                external_target_id);
+  target.has_cartesian_position = true;
   target.position_x = position_x;
   target.position_y = position_y;
   target.position_z = position_z;
@@ -1443,6 +1444,7 @@ TEST(RadarJointIntegrationTest, MissingCartesianPositionWithNonPositiveRangeSurf
   common::model::TargetFeatureList targets{
       BuildGroundTarget(20011u, 0.0f, 0.0f, 0.7f),
   };
+  targets[0].has_cartesian_position = false;
   targets[0].range_m = 0.0f;
   radar_context.SetTargetFeatures(targets);
 

@@ -76,6 +76,7 @@ void ExpectEquivalentProfiles(const common::control::RadarControlProfile& expect
   EXPECT_EQ(expected.enable_lpi_beamforming, actual.enable_lpi_beamforming);
   EXPECT_NEAR(expected.lpi_dwell_scale, actual.lpi_dwell_scale, 1e-5f);
   EXPECT_EQ(expected.enable_agility_frequency, actual.enable_agility_frequency);
+  EXPECT_EQ(expected.agility_frequency_hop_phase, actual.agility_frequency_hop_phase);
   EXPECT_EQ(expected.enable_sidelobe_canceller, actual.enable_sidelobe_canceller);
   EXPECT_EQ(expected.enable_adaptive_beamforming, actual.enable_adaptive_beamforming);
   EXPECT_EQ(expected.enable_eccm_rejitter, actual.enable_eccm_rejitter);
@@ -136,17 +137,20 @@ TEST(PublicApiConvenienceTest, TargetFeatureUtilsBuildCartesianGroundAndAirTarge
   const common::model::TargetFeature cartesian_target =
       common::utils::MakeTargetFromCartesian(201U, 3.0f, 4.0f, 12.0f, 10.0f, -2.0f, 1.0f, 0.9f, 2);
   EXPECT_EQ(cartesian_target.external_target_id, 201U);
+  EXPECT_TRUE(cartesian_target.has_cartesian_position);
   EXPECT_NEAR(cartesian_target.range_m, 13.0f, 1e-5f);
   EXPECT_NEAR(cartesian_target.current_track_speed, std::sqrt(105.0f), 1e-5f);
   EXPECT_EQ(cartesian_target.target_swerling_type, 2);
 
   const common::model::TargetFeature ground_target = common::utils::MakeGroundTarget(202U, 20.0f, -15.0f, 0.8f);
+  EXPECT_TRUE(ground_target.has_cartesian_position);
   EXPECT_NEAR(ground_target.position_z, 0.0f, 1e-5f);
   EXPECT_NEAR(ground_target.current_track_velocity_z, 0.0f, 1e-5f);
   EXPECT_NEAR(ground_target.range_m, 25.0f, 1e-5f);
 
   const common::model::TargetFeature air_target =
       common::utils::MakeAirTarget(203U, 30.0f, 40.0f, 50.0f, 90.0f, -3.0f, 4.0f, 1.2f);
+  EXPECT_TRUE(air_target.has_cartesian_position);
   EXPECT_NEAR(air_target.range_m, std::sqrt(5000.0f), 1e-5f);
   EXPECT_NEAR(air_target.current_track_speed, std::sqrt(8125.0f), 1e-5f);
 }

@@ -20,11 +20,9 @@ float ComputeNorm3(float x, float y, float z) { return std::sqrt(x * x + y * y +
 /**
  * @brief 判断目标是否携带可用的笛卡尔位置分量。
  * @param target 目标特征。
- * @return 位置向量至少有一个非零分量时返回 `true`。
+ * @return `has_cartesian_position` 为 `true` 时返回 `true`。
  */
-bool HasCartesianPosition(const model::TargetFeature& target) {
-  return target.position_x != 0.0f || target.position_y != 0.0f || target.position_z != 0.0f;
-}
+bool HasCartesianPosition(const model::TargetFeature& target) { return target.has_cartesian_position; }
 
 /**
  * @brief 刷新目标中由速度向量派生出的标量字段。
@@ -51,6 +49,7 @@ model::TargetFeature MakeTargetFromCartesian(std::uint64_t external_target_id, f
   target.position_x = position_x;
   target.position_y = position_y;
   target.position_z = position_z;
+  target.has_cartesian_position = true;
   NormalizeTargetGeometry(&target);
   return target;
 }

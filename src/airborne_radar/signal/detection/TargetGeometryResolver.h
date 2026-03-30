@@ -37,8 +37,7 @@ class TargetGeometryResolver {
   static ResolvedTargetGeometry Resolve(const common::model::TargetFeature& target) {
     ResolvedTargetGeometry geometry;
     geometry.position_m = Eigen::Vector3f(target.position_x, target.position_y, target.position_z);
-    geometry.has_cartesian_position =
-        target.position_x != 0.0f || target.position_y != 0.0f || target.position_z != 0.0f;
+    geometry.has_cartesian_position = target.has_cartesian_position;
     geometry.look_angles_deg = TargetLookResolver::Resolve(target);
 
     if (target.range_m > 0.0f) {

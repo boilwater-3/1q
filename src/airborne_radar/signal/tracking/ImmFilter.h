@@ -111,13 +111,13 @@ class ImmFilter {
    */
   void CombineEstimates();
   /**
-   * @brief 计算高斯似然 N(y; 0, S)。
+   * @brief 计算高斯似然的对数值 log N(y; 0, S)。
    * @param innovation 新息向量。
    * @param S 新息协方差。
-   * @return 似然值（Likelihood）。
+   * @return 对数似然值。
    */
-  static float GaussianLikelihood(const MeasurementVector& innovation,
-                                  const MeasurementCovariance& S);
+  static double GaussianLogLikelihood(const MeasurementVector& innovation,
+                                      const MeasurementCovariance& S);
   int num_models_{0};                                /**< 模型数量。 */
   ImmConfig config_;                                 /**< IMM 配置。 */
   std::vector<const IKalmanPredictor*> predictors_;  /**< 各模型的预测器。 */
@@ -126,7 +126,7 @@ class ImmFilter {
   std::vector<GaussianTrackState> mixed_states_;     /**< 混合后的各模型状态（临时缓冲）。 */
   std::vector<GaussianTrackState> predicted_states_; /**< 预测后的各模型状态（临时缓冲）。 */
   std::vector<KalmanUpdateResult> update_results_;   /**< 各模型更新结果缓冲，避免高频重复分配。 */
-  Eigen::VectorXf likelihoods_;                      /**< 各模型似然缓冲。 */
+  Eigen::VectorXf log_likelihoods_;                  /**< 各模型对数似然缓冲。 */
   Eigen::VectorXf c_bar_;                            /**< 各模型归一化常数缓冲。 */
   Eigen::VectorXf new_weights_;                      /**< 各模型新权重缓冲。 */
   GaussianTrackState combined_state_;                /**< 组合后的最终状态。 */

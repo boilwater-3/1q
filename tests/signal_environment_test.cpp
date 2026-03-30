@@ -13,6 +13,8 @@
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/environment/scene/SceneManager.h"
 #include "airborne_radar/environment/simulation/PropagationModel.h"
+#include "airborne_radar/signal/pipeline/ControlProfileEffects.h"
+#include "airborne_radar/signal/pipeline/JammingEffects.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "airborne_radar/signal/runtime/RuntimeAssemblySupport.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
@@ -27,6 +29,7 @@ namespace {
 
 common::model::TargetFeature BuildPhysicsTarget(float range_m, float rcs) {
   common::model::TargetFeature target(220.0f, 0.0f, 0.0f, rcs, 0.0f, 0.0f, 0.0f);
+  target.has_cartesian_position = true;
   target.position_x = range_m;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
@@ -212,6 +215,7 @@ TEST(SignalPipelineTest, KeepsTrackStableWhenDetectionMarginIsEnough) {
 
   signal::pipeline::SignalPipeline signal_pipeline;
   common::model::TargetFeature target(800.0f, 0.0f, 0.0f, 2.5f, 0.0f, 0.0f, 0.0f);
+  target.has_cartesian_position = true;
   target.position_x = 100.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
@@ -352,6 +356,7 @@ TEST(SignalPipelineTest, EccmProfileRelaxesHeuristicAssociationGateForSeededTrac
   environment::EnvironmentService environment_service;
 
   common::model::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f);
+  target.has_cartesian_position = true;
   target.position_x = 4.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
@@ -394,6 +399,7 @@ TEST(SignalPipelineTest, AssociationQualityMetricsExposeTypeSpecificStressSummar
   pipeline_config.tracking.kalman_measurement_noise_std = 1.0f;
 
   common::model::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f);
+  target.has_cartesian_position = true;
   target.position_x = 4.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
@@ -451,11 +457,63 @@ TEST(SignalPipelineTest, AssociationQualityMetricsExposeTypeSpecificStressSummar
   EXPECT_GT(deception_metrics.association_stress, 0.0f);
 }
 
+TEST(SignalPipelineTest, DominantJammingSemanticReturnsMixedWhenSecondScoreCloseToNoiseBest) {
+  common::control::RadarControlProfile control_profile;
+  environment::EnvironmentSnapshot snapshot;
+  snapshot.jamming_detected = true;
+
+  environment::JammerSourceFact noise_source;
+  noise_source.technique = environment::JammingTechnique::kNoiseSuppression;
+  noise_source.power_db = 8.0f;
+  noise_source.js_db = 8.0f;
+  noise_source.in_sidelobe = false;
+  noise_source.confidence = 1.0f;
+  snapshot.jammer_sources.push_back(noise_source);
+
+  environment::JammerSourceFact deception_source;
+  deception_source.technique = environment::JammingTechnique::kDeception;
+  deception_source.power_db = 8.0f;
+  deception_source.js_db = 8.0f;
+  deception_source.frequency_overlap_ratio = 0.10f;
+  deception_source.prf_lock_risk = 0.10f;
+  deception_source.confidence = 1.0f;
+  snapshot.jammer_sources.push_back(deception_source);
+
+  EXPECT_EQ(signal::pipeline::internal::ResolveDominantJammingSemantic(control_profile, snapshot),
+            common::utils::JammingSemantic::kMixed);
+}
+
+TEST(SignalPipelineTest, DominantJammingSemanticStaysNoiseWhenSecondScoreBelowThreshold) {
+  common::control::RadarControlProfile control_profile;
+  environment::EnvironmentSnapshot snapshot;
+  snapshot.jamming_detected = true;
+
+  environment::JammerSourceFact noise_source;
+  noise_source.technique = environment::JammingTechnique::kNoiseSuppression;
+  noise_source.power_db = 8.0f;
+  noise_source.js_db = 8.0f;
+  noise_source.confidence = 1.0f;
+  snapshot.jammer_sources.push_back(noise_source);
+
+  environment::JammerSourceFact deception_source;
+  deception_source.technique = environment::JammingTechnique::kDeception;
+  deception_source.power_db = 0.0f;
+  deception_source.js_db = 0.0f;
+  deception_source.frequency_overlap_ratio = 0.0f;
+  deception_source.prf_lock_risk = 0.0f;
+  deception_source.confidence = 0.25f;
+  snapshot.jammer_sources.push_back(deception_source);
+
+  EXPECT_EQ(signal::pipeline::internal::ResolveDominantJammingSemantic(control_profile, snapshot),
+            common::utils::JammingSemantic::kNoiseSuppression);
+}
+
 TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) {
   signal::pipeline::SignalPipelineConfig pipeline_config;
   pipeline_config.tracking.kalman_measurement_noise_std = 1.0f;
 
   common::model::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f);
+  target.has_cartesian_position = true;
   target.position_x = 4.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
@@ -641,6 +699,23 @@ TEST(SignalPipelineTest, DeceptionJammingFactsShrinkPhysicalCovarianceWhenMatche
             baseline_measurements[0].raw_measurement.measurement_covariance(1, 1));
 }
 
+TEST(SignalPipelineTest, AgilityFrequencyHopPhaseControlsFrequencyDirection) {
+  signal::pipeline::SignalPipelineConfig phase_zero_config;
+  phase_zero_config.detection.radar_system.transmitter.frequency_hz = 1.0e9f;
+  signal::pipeline::SignalPipelineConfig phase_one_config = phase_zero_config;
+
+  common::control::RadarControlProfile profile;
+  profile.enable_agility_frequency = true;
+
+  profile.agility_frequency_hop_phase = 0U;
+  signal::pipeline::internal::ApplyControlProfileToConfig(profile, &phase_zero_config);
+  profile.agility_frequency_hop_phase = 1U;
+  signal::pipeline::internal::ApplyControlProfileToConfig(profile, &phase_one_config);
+
+  EXPECT_FLOAT_EQ(phase_zero_config.detection.radar_system.transmitter.frequency_hz, 1.015e9f);
+  EXPECT_FLOAT_EQ(phase_one_config.detection.radar_system.transmitter.frequency_hz, 0.985e9f);
+}
+
 TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
   environment::EnvironmentModelConfig env_config;
   env_config.base_propagation_loss_db = 80.0f;
@@ -650,6 +725,7 @@ TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
   environment::EnvironmentService environment_service(env_config);
 
   common::model::TargetFeature target(800.0f, 0.0f, 0.0f, 2.5f);
+  target.has_cartesian_position = true;
   target.position_x = 100.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
@@ -705,6 +781,7 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
   environment::EnvironmentService unfavorable_environment(unfavorable_env_config);
 
   common::model::TargetFeature target(800.0f, 0.0f, 0.0f, 2.5f, 1.0f, 0.0f, 0.0f);
+  target.has_cartesian_position = true;
   target.position_x = 100.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
@@ -745,6 +822,7 @@ TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUp
   environment::EnvironmentService environment_service;
 
   common::model::TargetFeature target(1.0f, 0.0f, 0.0f, 5.0f, 0.0f, 0.0f, 0.0f);
+  target.has_cartesian_position = true;
   target.position_x = 100.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
@@ -942,9 +1020,11 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
 
   signal::pipeline::SignalPipeline signal_pipeline;
   common::model::TargetFeature first(100.0f, 0.0f, 0.0f, 2.0f);
+  first.has_cartesian_position = true;
   first.position_x = 10.0f;
   first.range_m = 10.0f;
   common::model::TargetFeature second(220.0f, 0.0f, 0.0f, 5.0f);
+  second.has_cartesian_position = true;
   second.position_x = 100.0f;
   second.range_m = 100.0f;
   const common::model::TargetFeatureList cycle_1{first, second};
@@ -1020,12 +1100,14 @@ TEST(SignalPipelineTest, UsesPositionAssociationByDefaultWhenCartesianPositionEx
 
   signal::pipeline::SignalPipeline signal_pipeline;
   common::model::TargetFeature first(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
+  first.has_cartesian_position = true;
   first.position_x = 10.0f;
   first.position_y = 0.0f;
   first.position_z = 0.0f;
   first.range_m = 10.0f;
 
   common::model::TargetFeature second(220.0f, 0.0f, 0.0f, 5.0f, 3.0f, 0.0f, 0.0f);
+  second.has_cartesian_position = true;
   second.position_x = 100.0f;
   second.position_y = 0.0f;
   second.position_z = 0.0f;
@@ -1078,6 +1160,7 @@ TEST(SignalPipelineTest, UsesStatelessAssociationByDefaultWithoutLifecycleSeeds)
 
   signal::pipeline::SignalPipeline signal_pipeline;
   common::model::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
+  target.has_cartesian_position = true;
   target.position_x = 10.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
@@ -1120,6 +1203,7 @@ TEST(SignalPipelineTest, ResetAssociationSeedModeToStatelessClearsSideChannelSee
   signal_pipeline.ResetAssociationSeedModeToStateless();
 
   common::model::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
+  target.has_cartesian_position = true;
   target.position_x = 10.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
@@ -1255,6 +1339,25 @@ TEST(EnvironmentServiceTest, NegativeEmitterPowerIsClampedToZero) {
   EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].power_db, 0.0f);
 }
 
+/// @brief NormalizeEmitterState：负值 js_db 与 angular_span_deg 钳位到 0。
+TEST(EnvironmentServiceTest, NegativeEmitterJsAndAngularSpanAreClampedToZero) {
+  environment::EnvironmentModelConfig config;
+  environment::JammerSourceFact source;
+  source.technique = environment::JammingTechnique::kNoiseSuppression;
+  source.power_db = 3.0f;
+  source.js_db = -2.0f;
+  source.angular_span_deg = -15.0f;
+  source.confidence = 0.7f;
+  config.jammer_sources.push_back(source);
+
+  environment::EnvironmentService service(config);
+  const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
+
+  ASSERT_EQ(snapshot.jammer_sources.size(), 1u);
+  EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].js_db, 0.0f);
+  EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].angular_span_deg, 0.0f);
+}
+
 /// @brief NormalizeEmitterState：frequency_overlap_ratio > 1.0 钳位到 1.0。
 TEST(EnvironmentServiceTest, EmitterOverlapRatioAboveOneIsClampedToOne) {
   environment::EnvironmentModelConfig config;
@@ -1341,6 +1444,7 @@ TEST(TrackFilterTest, DetectionSuccessPreservesSpeedAndRcs) {
   signal::tracking::TrackFilter filter;
 
   common::model::TargetFeature input(300.0f, 0.0f, 0.0f, 2.0f);
+  input.has_cartesian_position = true;
   input.position_x = 1000.0f;
   input.range_m = 1000.0f;
 

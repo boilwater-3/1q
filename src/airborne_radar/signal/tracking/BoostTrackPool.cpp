@@ -12,6 +12,10 @@ BoostTrackPool::BoostTrackPool(std::size_t prewarm_count, std::size_t max_cached
   for (std::size_t i = 0; i < prewarm_count; ++i) {
     TrackState* track = pool_.construct();
     if (track == nullptr) {
+      PROJECT_LOG_ERROR(
+          "[BoostTrackPool] prewarm construct failed: prepared={} target_prewarm={} in_use={} "
+          "cached={}",
+          free_list_.size(), prewarm_count, in_use_count_, free_list_.size());
       break;
     }
     free_list_.push_back(track);
@@ -25,6 +29,11 @@ TrackState* BoostTrackPool::Acquire() {
     free_list_.pop_back();
   } else {
     track = pool_.construct();
+    if (track == nullptr) {
+      PROJECT_LOG_ERROR(
+          "[BoostTrackPool] acquire construct failed: in_use={} cached={} capacity={}",
+          in_use_count_, free_list_.size(), Capacity());
+    }
   }
 
   if (track != nullptr) {

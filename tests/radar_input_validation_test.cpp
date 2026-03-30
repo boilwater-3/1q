@@ -2,7 +2,7 @@
 //
 // @file radar_input_validation_test.cpp
 // @brief 验证雷达周期输入校验器的边界行为，覆盖以下缺口：
-//   - HasCartesianPosition 对原点 (0,0,0) 的语义处理
+//   - has_cartesian_position 严格语义（非零坐标不再隐式视为有效位置）
 //   - 负距离 / 零距离的错误判定
 //   - 非有限数（NaN / Inf）全字段检测
 //   - 重复外部 ID、零 ID、负 RCS 的级别判定
@@ -33,6 +33,7 @@ namespace {
 common::model::TargetFeature MakeValidTarget(std::uint64_t id = 1u) {
   common::model::TargetFeature t(100.0f, 0.0f, 0.0f, 1.0f);
   t.external_target_id = id;
+  t.has_cartesian_position = true;
   t.position_x = 1000.0f;
   t.position_y = 0.0f;
   t.position_z = 0.0f;
@@ -54,13 +55,14 @@ const core::context::ValidationIssue* FindIssue(
 }  // namespace
 
 // ===========================================================================
-// HasCartesianPosition 语义 — (0,0,0) 视为"无位置信息"
+// has_cartesian_position 严格语义
 // ===========================================================================
 
 /// @brief 目标位于原点 (0,0,0) 且 range_m <= 0 → 必须报 kMissingRangeAndCartesianPosition。
 TEST(RadarInputValidationTest, OriginWithNoRangeIsError) {
   common::model::TargetFeature target;
   target.external_target_id = 1u;
+  target.has_cartesian_position = false;
   target.position_x = 0.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
@@ -77,6 +79,7 @@ TEST(RadarInputValidationTest, OriginWithNoRangeIsError) {
 TEST(RadarInputValidationTest, OriginWithPositiveRangeIsValid) {
   common::model::TargetFeature target;
   target.external_target_id = 1u;
+  target.has_cartesian_position = false;
   target.position_x = 0.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
@@ -89,10 +92,11 @@ TEST(RadarInputValidationTest, OriginWithPositiveRangeIsValid) {
   EXPECT_FALSE(HasValidationError(issues));
 }
 
-/// @brief 目标有非零笛卡尔位置但 range_m <= 0 → 位置有效，不报位置缺失错误。
-TEST(RadarInputValidationTest, CartesianPositionWithNonPositiveRangeIsValid) {
+/// @brief 目标标记了 has_cartesian_position=true 且 range_m <= 0 → 不报位置缺失错误。
+TEST(RadarInputValidationTest, FlaggedCartesianPositionWithNonPositiveRangeIsValid) {
   common::model::TargetFeature target;
   target.external_target_id = 1u;
+  target.has_cartesian_position = true;
   target.position_x = 3000.0f;  // 有笛卡尔位置
   target.position_y = 0.0f;
   target.position_z = 0.0f;
@@ -104,10 +108,45 @@ TEST(RadarInputValidationTest, CartesianPositionWithNonPositiveRangeIsValid) {
   EXPECT_EQ(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition), nullptr);
 }
 
-/// @brief 目标 range_m 为负值且无笛卡尔位置 → 同样报错。
+/// @brief 非零坐标但 has_cartesian_position=false 且 range_m <= 0 → 仍视为缺失位置并报错。
+TEST(RadarInputValidationTest, NonZeroCoordinatesWithoutPositionFlagIsError) {
+  common::model::TargetFeature target;
+  target.external_target_id = 1u;
+  target.has_cartesian_position = false;
+  target.position_x = 3000.0f;
+  target.position_y = 0.0f;
+  target.position_z = 0.0f;
+  target.range_m = 0.0f;
+  target.current_track_rcs = 1.0f;
+  target.current_track_speed = 0.0f;
+
+  const auto issues = ValidateTargetFeatures({target});
+  EXPECT_TRUE(HasValidationError(issues));
+  EXPECT_NE(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition), nullptr);
+}
+
+/// @brief 原点 (0,0,0) 且 has_cartesian_position=true 时，即使 range_m<=0 也视为有效位置。
+TEST(RadarInputValidationTest, OriginWithPositionFlagAndNoRangeIsValid) {
+  common::model::TargetFeature target;
+  target.external_target_id = 1u;
+  target.has_cartesian_position = true;
+  target.position_x = 0.0f;
+  target.position_y = 0.0f;
+  target.position_z = 0.0f;
+  target.range_m = 0.0f;
+  target.current_track_rcs = 1.0f;
+  target.current_track_speed = 0.0f;
+
+  const auto issues = ValidateTargetFeatures({target});
+  EXPECT_EQ(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition), nullptr);
+  EXPECT_FALSE(HasValidationError(issues));
+}
+
+/// @brief 目标 range_m 为负值且无有效笛卡尔位置标志 → 同样报错。
 TEST(RadarInputValidationTest, NegativeRangeWithNoPositionIsError) {
   common::model::TargetFeature target;
   target.external_target_id = 1u;
+  target.has_cartesian_position = false;
   target.position_x = 0.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;

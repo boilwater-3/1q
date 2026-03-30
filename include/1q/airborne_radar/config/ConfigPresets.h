@@ -1,8 +1,6 @@
 /**
  * @file ConfigPresets.h
- * @brief 定义面向外部调用方的常用配置预设工厂；不可变配置建议通过本文件在会话初始化时
- *        一次性给定（平台/体制基线），运行期可变配置（如工作子模式、驻留中心、
- *        指令态波束宽度）可在周期执行中由决策链路覆写。
+ * @brief 定义面向外部调用方的常用配置预设工厂。
  */
 
 #ifndef AIRBORNE_RADAR_CONFIG_CONFIG_PRESETS_H_
@@ -18,26 +16,31 @@ namespace config {
 
 /**
  * @brief 构造偏向探测任务的信号流水线配置。
+ * @note 返回值属于初始化基线；运行期可通过 `RadarSession::ApplyRuntimeConfig(...)` 覆盖。
  */
 ONEQ_API signal::pipeline::SignalPipelineConfig MakeDetectionMissionSignalPipelineConfig();
 
 /**
  * @brief 构造偏向稳定跟踪任务的信号流水线配置。
+ * @note 返回值属于初始化基线；运行期可通过 `RadarSession::ApplyRuntimeConfig(...)` 覆盖。
  */
 ONEQ_API signal::pipeline::SignalPipelineConfig MakeTrackingMissionSignalPipelineConfig();
 
 /**
  * @brief 构造偏向稳健性的信号流水线配置。
+ * @note 返回值属于初始化基线；运行期可通过 `RadarSession::ApplyRuntimeConfig(...)` 覆盖。
  */
 ONEQ_API signal::pipeline::SignalPipelineConfig MakeHighRobustnessSignalPipelineConfig();
 
 /**
  * @brief 构造默认 RadarSession 配置。
+ * @note 返回值用于会话初始化；可外部调整项可在运行期通过 `RadarSession::ApplyRuntimeConfig(...)` 提交。
  */
 ONEQ_API core::session::RadarSessionConfig MakeDefaultRadarSessionConfig();
 
 /**
  * @brief 构造偏向探测任务的 RadarSession 配置。
+ * @note 返回值用于会话初始化；可外部调整项可在运行期通过 `RadarSession::ApplyRuntimeConfig(...)` 提交。
  */
 ONEQ_API core::session::RadarSessionConfig MakeDetectionMissionRadarSessionConfig();
 

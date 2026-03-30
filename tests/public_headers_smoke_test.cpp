@@ -11,6 +11,7 @@
 #include "1q/airborne_radar/common/utils/AntennaPatternUtils.h"
 #include "1q/airborne_radar/config/ConfigPresets.h"
 #include "1q/airborne_radar/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarWorkMode.h"
 #include "1q/airborne_radar/common/control/ControlDirective.h"
@@ -68,6 +69,12 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   scene_state.jammer_emitters.push_back(environment::JammerEmitterState{});
 
   core::session::RadarSession session(session_config);
+  const common::config::RadarRuntimeConfigPatch runtime_patch =
+      common::config::RadarRuntimeConfigBuilder()
+          .WithRadarWorkSubMode(common::config::RadarWorkSubMode::kTas)
+          .EnableCommandedBeamwidth(true)
+          .Build();
+  session.ApplyRuntimeConfig(runtime_patch);
   const core::session::RadarCycleResult result = session.StepWithResult(input, scene_state);
   const std::size_t confirmed_tracks = common::output::CountTracksByStatus(
       result.track_output_frame, common::model::DecisionTrackStatus::kConfirmed);

@@ -101,6 +101,7 @@ void ResetEccmDomain(common::control::RadarControlProfile* profile) {
     return;
   }
   profile->enable_agility_frequency = false;
+  profile->agility_frequency_hop_phase = 0U;
   profile->enable_sidelobe_canceller = false;
   profile->enable_adaptive_beamforming = false;
   profile->enable_eccm_rejitter = false;
@@ -132,10 +133,34 @@ void CopyEccmDomain(const common::control::RadarControlProfile& from, common::co
     return;
   }
   to->enable_agility_frequency = from.enable_agility_frequency;
+  to->agility_frequency_hop_phase = from.agility_frequency_hop_phase;
   to->enable_sidelobe_canceller = from.enable_sidelobe_canceller;
   to->enable_adaptive_beamforming = from.enable_adaptive_beamforming;
   to->enable_eccm_rejitter = from.enable_eccm_rejitter;
   to->eccm_burnthrough_gain = from.eccm_burnthrough_gain;
+}
+
+/**
+ * @brief 基于上一周期控制真值推进频率捷变相位。
+ * @param previous 上一周期控制真值。
+ * @param next 当前周期候选控制真值。
+ */
+void AdvanceAgilityFrequencyHopPhase(const common::control::RadarControlProfile& previous,
+                                     common::control::RadarControlProfile* next) {
+  if (next == nullptr || !next->enable_agility_frequency) {
+    if (next != nullptr) {
+      next->agility_frequency_hop_phase = 0U;
+    }
+    return;
+  }
+  if (!previous.enable_agility_frequency) {
+    next->agility_frequency_hop_phase = 0U;
+    return;
+  }
+  next->agility_frequency_hop_phase =
+      static_cast<std::uint8_t>((static_cast<unsigned int>(previous.agility_frequency_hop_phase) +
+                                 1U) &
+                                0x1U);
 }
 
 /**
@@ -380,6 +405,7 @@ ControlReductionResult ControlReducer::Reduce(
 
   ResolveEmissionSurvivabilityConflict(config_, &next_profile, &result.applied_directives,
                                        &result.rejected_directives);
+  AdvanceAgilityFrequencyHopPhase(previous_profile, &next_profile);
   next_profile.version = HasOperationalProfileChanged(previous_profile, next_profile)
                              ? previous_profile.version + 1U
                              : previous_profile.version;

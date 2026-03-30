@@ -98,6 +98,7 @@ common::model::TargetFeature BuildTarget(std::uint64_t external_target_id, float
                                   float position_y, float position_z) {
   common::model::TargetFeature target(velocity_x, velocity_y, velocity_z, rcs, 0.0f, 0.0f, 0.0f, 0.0f, 0,
                                external_target_id);
+  target.has_cartesian_position = true;
   target.position_x = position_x;
   target.position_y = position_y;
   target.position_z = position_z;

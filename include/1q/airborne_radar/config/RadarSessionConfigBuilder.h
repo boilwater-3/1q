@@ -1,8 +1,6 @@
 /**
  * @file RadarSessionConfigBuilder.h
- * @brief 提供链式构造 RadarSessionConfig 的 Builder；不可变配置（硬件/体制基线）建议在会话
- *        初始化时通过 Builder 固化，运行期可变配置（如工作子模式与指令态波束控制）可由
- *        每周期决策链路按需调整。
+ * @brief 提供链式构造 RadarSessionConfig 的 Builder（用于会话初始化基线配置）。
  */
 
 #ifndef AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_BUILDER_H_
@@ -42,6 +40,9 @@ namespace config {
  * @note
  * - 构造函数接受任意 `RadarSessionConfig`（包括预设函数返回值或默认构造），
  *   未调用的 setter 保留基础配置的原始值。
+ * - 本 Builder 的所有 setter 均作用于“初始化基线”（[初始化固定]）；运行期不应再通过本 Builder 调整。
+ * - 运行期可变参数请使用 `RadarRuntimeConfigBuilder` 并提交给
+ *   `RadarSession::ApplyRuntimeConfig(...)`。
  * - `Build()` 会校验关键物理约束（功率、载频、带宽 > 0，噪声系数 >= 0），违规时记录 WARN 日志。
  * - 未暴露于 Builder 的高级选项（天线方向图、IMM 参数、对象池大小等）
  *   仍可通过直接访问 `RadarSessionConfig` 内部嵌套字段配置。
