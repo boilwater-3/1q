@@ -1208,15 +1208,15 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
   EXPECT_TRUE(second_measurements[0].raw_measurement.used_position_association);
 }
 
-TEST(SignalPipelineTest, FailsFastWhenDetectedTargetLacksCartesianPosition) {
+TEST(SignalPipelineTest, CompletesWithoutCrashWhenDetectedTargetLacksCartesianPosition) {
   environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
   const common::model::TargetFeatureList input_state{
       common::model::TargetFeature(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f)};
 
-  EXPECT_DEATH_IF_SUPPORTED(signal_pipeline.RunCycle(input_state, environment_service),
-                            "missing cartesian position");
+  // Contract violation is logged and skipped; cycle completes without aborting
+  signal_pipeline.RunCycle(input_state, environment_service);
 }
 
 TEST(SignalPipelineTest, UsesPositionAssociationByDefaultWhenCartesianPositionExists) {

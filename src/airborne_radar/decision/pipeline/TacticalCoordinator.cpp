@@ -123,6 +123,14 @@ void PruneInactiveTrackState(
     active_keys.insert(tracks[i].state.association_key);
   }
 
+  constexpr std::size_t kMaxStateStoreEntries = 2048U;
+  if (state_store->confidence_memory.size() > kMaxStateStoreEntries) {
+    PROJECT_LOG_WARN(
+        "[TacticalCoordinator] TacticalStateStore confidence_memory size ({}) exceeds limit ({}). "
+        "This may indicate track IDs are not being properly recycled.",
+        state_store->confidence_memory.size(), kMaxStateStoreEntries);
+  }
+
   for (std::unordered_map<std::uint64_t, float>::iterator it = state_store->confidence_memory.begin();
        it != state_store->confidence_memory.end();) {
     if (active_keys.count(it->first) == 0U) {

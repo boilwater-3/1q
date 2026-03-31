@@ -1,5 +1,7 @@
 #include "airborne_radar/decision/evaluators/SurvivabilityEvaluator.h"
 
+#include <cassert>
+
 #include "airborne_radar/decision/evaluators/SurvivabilityEvaluatorHelpers.h"
 #include "common/logging/ProjectLog.h"
 
@@ -13,6 +15,8 @@ SurvivabilityEvaluator::SurvivabilityEvaluator(SurvivabilityEvaluatorConfig conf
 void SurvivabilityEvaluator::Evaluate(const common::model::DecisionInputFrame& input_frame,
                                       pipeline::TacticalStateStore& state_store,
                                       pipeline::TacticalEvaluationState& evaluation_state) const {
+  assert(evaluation_state.threat_assessment_phase_done &&
+         "SurvivabilityEvaluator must run after ThreatAssessmentEvaluator");
   bool should_enable_eccm = evaluation_state.eccm_source_info.has_jamming_signal ||
                             input_frame.environment_jamming_detected;
   const bool has_current_eccm_evidence = should_enable_eccm;

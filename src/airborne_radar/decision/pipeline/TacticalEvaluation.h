@@ -68,6 +68,11 @@ struct TacticalEvaluationState {
   /** @brief 当前周期累计的控制提案列表（由各 evaluator 依序追加）。 */
   std::vector<TacticalProposal> proposals;
 
+  /** @brief 内部顺序保护标志：ThreatAssessmentEvaluator 完成后置 true。
+   *  @note 非对外语义，仅用于 SurvivabilityEvaluator 入口断言，防止
+   *        评估器执行顺序被意外调整导致数据依赖静默失效。 */
+  bool threat_assessment_phase_done{false};
+
   TacticalEvaluationState() : eccm_source_info(false) {}
 };
 

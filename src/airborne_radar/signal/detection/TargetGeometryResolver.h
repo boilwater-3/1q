@@ -50,7 +50,7 @@ class TargetGeometryResolver {
       return geometry;
     }
 
-    geometry.range_m = 50000.0f;
+    geometry.range_m = 50000.0f;  // 无笛卡尔位置且 range_m 无效时的保守回退值（50 km）
     return geometry;
   }
 };

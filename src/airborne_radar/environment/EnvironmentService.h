@@ -24,6 +24,10 @@ class PropagationModel;
 
 /**
  * @brief 提供可配置的环境快照采样实现。
+ *
+ * @note 线程安全模型：本类假定单线程调用。BeginCycle()、UpdateSceneState()、
+ *       SampleEnvironment() 不得跨线程并发调用。建议每线程独立持有
+ *       EnvironmentService 实例，或由调用方序列化访问。
  */
 class EnvironmentService final : public IMutableEnvironmentService {
  public:

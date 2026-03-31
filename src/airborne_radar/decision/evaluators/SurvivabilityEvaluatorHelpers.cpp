@@ -183,7 +183,7 @@ void AccumulateMultiSourceEccmFacts(const common::model::EccmJammerSourceInfo& s
   if (selection == nullptr) {
     return;
   }
-  if (source.confidence < kMinimumCredibleConfidence) {
+  if (source.confidence < kMinimumCredibleConfidence - 1e-5f) {
     return;
   }
 
@@ -196,10 +196,10 @@ void AccumulateMultiSourceEccmFacts(const common::model::EccmJammerSourceInfo& s
   if (source.jammer_in_sidelobe) {
     selection->sidelobe_canceller_score += 2.0f * confidence_weight;
   }
-  if (source.frequency_overlap_ratio >= kHighFrequencyOverlapRatio) {
+  if (source.frequency_overlap_ratio >= kHighFrequencyOverlapRatio - 1e-5f) {
     selection->agility_frequency_score += source.frequency_overlap_ratio * 2.0f * confidence_weight;
   }
-  if (source.prf_lock_risk >= kHighPrfLockRisk) {
+  if (source.prf_lock_risk >= kHighPrfLockRisk - 1e-5f) {
     selection->eccm_rejitter_score += source.prf_lock_risk * 2.0f * confidence_weight;
   }
   if (source.jammer_power_db >= kHighJammerPowerDb ||
@@ -372,20 +372,25 @@ void AppendEccmProposals(const common::model::EccmSourceInfo& source_info,
                          const common::model::AssociationQualityInfo& association_quality_info,
                          bool environment_jamming_detected, bool hold_only,
                          std::vector<pipeline::TacticalProposal>* proposals) {
+  (void)environment_jamming_detected;
   EccmProposalSelection selection;
-  if (!source_info.jammer_sources.empty()) {
-    for (std::size_t i = 0; i < source_info.jammer_sources.size(); ++i) {
-      AccumulateMultiSourceEccmFacts(source_info.jammer_sources[i], &selection);
-    }
-    if (!selection.has_credible_multisource_evidence) {
+  if (hold_only) {
+    // 持有期路径：跳过多源事实积累和关联偏置，仅保留保守波束形成保底分数，
+    // 确保持有期提案权重低于新鲜证据触发的提案。
+    AccumulateCautiousFallback(&selection);
+  } else {
+    if (!source_info.jammer_sources.empty()) {
+      for (std::size_t i = 0; i < source_info.jammer_sources.size(); ++i) {
+        AccumulateMultiSourceEccmFacts(source_info.jammer_sources[i], &selection);
+      }
+      if (!selection.has_credible_multisource_evidence) {
+        AccumulateCautiousFallback(&selection);
+      }
+    } else {
       AccumulateCautiousFallback(&selection);
     }
-  } else {
-    (void)environment_jamming_detected;
-    (void)hold_only;
-    AccumulateCautiousFallback(&selection);
+    AccumulateAssociationDrivenBias(association_quality_info, &selection);
   }
-  AccumulateAssociationDrivenBias(association_quality_info, &selection);
 
   if (selection.sidelobe_canceller_score >= kThresholdSidelobeCanceller) {
     AppendProposal(common::control::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER,

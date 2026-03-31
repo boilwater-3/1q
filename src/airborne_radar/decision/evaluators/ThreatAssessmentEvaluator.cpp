@@ -46,6 +46,7 @@ void ThreatAssessmentEvaluator::Evaluate(
 
   if (input_frame.tracks.empty()) {
     PROJECT_LOG_DEBUG("[ThreatAssessmentEvaluator] Empty track snapshot list, classification reset.");
+    evaluation_state.threat_assessment_phase_done = true;
     return;
   }
 
@@ -79,6 +80,7 @@ void ThreatAssessmentEvaluator::Evaluate(
     PROJECT_LOG_INFO("[ThreatAssessmentEvaluator] Target[{}] -> Classification: {}", i,
                      category.target_type);
   }
+  evaluation_state.threat_assessment_phase_done = true;
 }
 
 common::model::TargetCategory ThreatAssessmentEvaluator::IdentifyTarget(

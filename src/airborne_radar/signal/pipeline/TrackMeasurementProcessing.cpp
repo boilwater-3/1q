@@ -2,6 +2,8 @@
 
 #include <Eigen/Core>
 
+#include "airborne_radar/signal/pipeline/PipelineTargetUtils.h"
+
 namespace airborne_radar {
 namespace signal {
 namespace pipeline {
@@ -23,20 +25,6 @@ const association::AssociationMatch* FindAssociationMatch(
     }
   }
   return nullptr;
-}
-
-/**
- * @brief 解算目标的速度标量值。
- * @param target  目标特征数据。
- * @return 当三维速度分量非零时返回其模长，否则返回记录的速度标量。
- */
-float ResolveSpeedMagnitude(const common::model::TargetFeature& target) {
-  const Eigen::Vector3f velocity(target.current_track_velocity_x, target.current_track_velocity_y,
-                                 target.current_track_velocity_z);
-  if (velocity.squaredNorm() > 0.0f) {
-    return velocity.norm();
-  }
-  return target.current_track_speed;
 }
 
 /**

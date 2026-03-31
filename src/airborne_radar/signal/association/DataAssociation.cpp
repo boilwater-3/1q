@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
-#include <cstdlib>
 #include <limits>
 
 #include "common/logging/ProjectLog.h"
@@ -23,7 +22,7 @@ constexpr std::uint64_t kUnassociatedKey = 0;
  * @param message 违例信息。
  * @param index 违例目标索引或轨迹键。
  */
-[[noreturn]] void AbortContractViolation(const char* message, std::size_t index) {
+void AbortContractViolation(const char* message, std::size_t index) {
   if (PROJECT_LOG_HAS_DEFAULT_LOGGER()) {
     PROJECT_LOG_CRITICAL("[DataAssociationEngine] Contract violation at target[{}]: {}", index,
                          message);
@@ -32,7 +31,6 @@ constexpr std::uint64_t kUnassociatedKey = 0;
   std::fprintf(stderr, "[DataAssociationEngine] Contract violation at target[%zu]: %s\n", index,
                message);
   std::fflush(stderr);
-  std::abort();
 }
 /**
  * @brief 构建位置量测矩阵 H（3x6）。
@@ -173,6 +171,7 @@ AssociationResult DataAssociationEngine::AssociateDetections(
 
   if (measurement_covariances.size() != target_count) {
     AbortContractViolation("measurement_covariances size must match targets size", target_count);
+    return result;
   }
 
   std::vector<std::size_t> measurement_indices;
@@ -329,9 +328,11 @@ void DataAssociationEngine::SetAssociationSeeds(
     const tracking::AssociationTrackSeed& seed = seeds[i];
     if (!seed.has_position) {
       AbortContractViolation("external association seed missing cartesian position", i);
+      continue;
     }
     if (!seed.has_gaussian_state) {
       AbortContractViolation("external association seed missing gaussian state", i);
+      continue;
     }
 
     ExternalSeedTrackSignature signature(seed.association_key);
@@ -340,6 +341,10 @@ void DataAssociationEngine::SetAssociationSeeds(
     signature.has_gaussian_state = seed.has_gaussian_state;
     signature.gaussian_state = seed.gaussian_state;
     external_seed_tracks_.push_back(signature);
+  }
+  if (!seeds.empty() && external_seed_tracks_.empty()) {
+    // 所有种子均因契约违例被跳过，回退到无状态模式
+    association_seed_mode_ = AssociationSeedMode::kStateless;
   }
   PROJECT_LOG_DEBUG("[DataAssociationEngine] accepted {} external association seeds",
                     external_seed_tracks_.size());
@@ -372,10 +377,12 @@ DataAssociationEngine::BuildExternalPositionAssociationPriors(
     if (!track.has_position) {
       AbortContractViolation(
           "association prior missing cartesian position under position-only mode", track.key);
+      continue;
     }
     if (!track.has_gaussian_state) {
       AbortContractViolation("association prior missing gaussian state under external-seed mode",
                              track.key);
+      continue;
     }
 
     const tracking::GaussianTrackState predicted =
@@ -408,6 +415,7 @@ void DataAssociationEngine::ValidateDetectedTargetsHavePosition(
     }
     if (!HasPositionMeasurement(targets[i])) {
       AbortContractViolation("detected target is missing cartesian position", i);
+      continue;
     }
   }
 }

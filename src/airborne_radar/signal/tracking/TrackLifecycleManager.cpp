@@ -221,6 +221,8 @@ void TrackLifecycleManager::Update(const CycleContext& cycle,
       cycle.cycle_index, measurements.size(), scratch.new_track_count, scratch.updated_track_count,
       scratch.predicted_without_hit_count, scratch.keys_to_recycle.size(), tracks_by_key_.size(),
       IsImmEnabled() ? "true" : "false", effective_dt_sec, dt_fallback_used ? "true" : "false");
+
+  snapshot_emitter_.Refresh(tracks_by_key_, latest_evidence_by_key_, last_cycle_index_);
 }
 
 void TrackLifecycleManager::PreparePhase(LifecycleUpdateScratch& scratch,

@@ -17,6 +17,7 @@
 #include "airborne_radar/signal/tracking/ITrackPool.h"
 #include "airborne_radar/signal/tracking/LifecycleConfig.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
+#include "airborne_radar/signal/tracking/TrackSnapshotEmitter.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -303,6 +304,7 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
   std::uint32_t last_cycle_index_{0}; /**< 上一周期编号，用于计算 dt。 */
   std::unordered_map<std::uint64_t, common::model::DecisionMeasurementEvidence>
       latest_evidence_by_key_; /**< 最近一次命中量测对应的证据快照。 */
+  TrackSnapshotEmitter snapshot_emitter_; /**< 快照导出器，每周期末刷新。 */
 };
 
 }  // namespace tracking

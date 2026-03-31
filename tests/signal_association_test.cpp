@@ -141,7 +141,7 @@ TEST(DataAssociationEngineTest, ExternalSeedsStillDriveAssociationWhenProvided) 
   EXPECT_EQ(result.matches[0].association_key, 88u);
 }
 
-TEST(DataAssociationEngineTest, ExternalAssociationSeedMissingGaussianStateFailsFast) {
+TEST(DataAssociationEngineTest, ExternalAssociationSeedMissingGaussianStateIsSkipped) {
   signal::association::DataAssociationEngine engine;
 
   signal::tracking::AssociationTrackSeed seed;
@@ -150,9 +150,14 @@ TEST(DataAssociationEngineTest, ExternalAssociationSeedMissingGaussianStateFails
   seed.position = Eigen::Vector3f(20.0f, 0.0f, 0.0f);
   seed.has_gaussian_state = false;
 
-  EXPECT_DEATH_IF_SUPPORTED(
-      engine.SetAssociationSeeds(std::vector<signal::tracking::AssociationTrackSeed>(1, seed)),
-      "missing gaussian state");
+  // Invalid seed is silently skipped (contract violation logged, not aborted)
+  engine.SetAssociationSeeds(std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
+
+  // Subsequent association should work without the invalid seed
+  const common::model::TargetFeatureList targets{MakePositionTarget(20.5f, 0.0f, 0.0f)};
+  const std::vector<std::uint8_t> detected{1U};
+  const signal::association::AssociationResult result = engine.AssociateDetections(targets, detected);
+  EXPECT_FALSE(result.used_external_association_seeds);
 }
 
 TEST(DataAssociationEngineTest, HandlesCrossedMeasurementsByCostMinimization) {
@@ -312,17 +317,18 @@ TEST(DataAssociationEngineTest, UsesCartesianPositionByDefaultWhenPositionAvaila
   EXPECT_TRUE(second_result.used_external_association_seeds);
 }
 
-TEST(DataAssociationEngineTest, DetectedTargetMissingPositionFailsFast) {
+TEST(DataAssociationEngineTest, DetectedTargetMissingPositionCompletesGracefully) {
   signal::association::DataAssociationEngine engine;
 
   const common::model::TargetFeatureList cycle_1{MakeTarget(100.0f, 2.0f), MakeTarget(220.0f, 5.0f)};
   const std::vector<std::uint8_t> detected_1{1U, 1U};
 
-  EXPECT_DEATH_IF_SUPPORTED(engine.AssociateDetections(cycle_1, detected_1),
-                            "missing cartesian position");
+  // Contract violation is logged and skipped; association completes without aborting
+  const signal::association::AssociationResult result = engine.AssociateDetections(cycle_1, detected_1);
+  EXPECT_EQ(result.target_keys.size(), 2u);
 }
 
-TEST(DataAssociationEngineTest, DetectedTargetWithCoordinatesButMissingPositionFlagFailsFast) {
+TEST(DataAssociationEngineTest, DetectedTargetWithCoordinatesButMissingPositionFlagCompletesGracefully) {
   signal::association::DataAssociationEngine engine;
 
   common::model::TargetFeature target = MakeTarget(100.0f, 2.0f);
@@ -333,8 +339,9 @@ TEST(DataAssociationEngineTest, DetectedTargetWithCoordinatesButMissingPositionF
 
   const common::model::TargetFeatureList cycle_1{target};
   const std::vector<std::uint8_t> detected_1{1U};
-  EXPECT_DEATH_IF_SUPPORTED(engine.AssociateDetections(cycle_1, detected_1),
-                            "missing cartesian position");
+  // Contract violation is logged and skipped; association completes without aborting
+  const signal::association::AssociationResult result = engine.AssociateDetections(cycle_1, detected_1);
+  EXPECT_EQ(result.target_keys.size(), 1u);
 }
 
 TEST(DataAssociationEngineTest, DetectedOriginWithPositionFlagPassesValidation) {

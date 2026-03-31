@@ -9,6 +9,7 @@
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/pipeline/ControlProfileEffects.h"
 #include "airborne_radar/signal/pipeline/JammingEffects.h"
+#include "airborne_radar/signal/pipeline/PipelineTargetUtils.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -47,20 +48,6 @@ tracking::MeasurementCovariance BuildMeasurementCovariance(
   }
 
   return tracking::MeasurementCovariance::Identity() * var_r;
-}
-
-/**
- * @brief 从目标特征中解析速度标量
- * @param[in] target 目标特征数据，包含航迹速度分量和标量速度
- * @return 速度矢量的范数；当速度分量全为零时回退到 current_track_speed 字段
- */
-float ResolveSpeedMagnitude(const common::model::TargetFeature& target) {
-  const Eigen::Vector3f velocity(target.current_track_velocity_x, target.current_track_velocity_y,
-                                 target.current_track_velocity_z);
-  if (velocity.squaredNorm() > 0.0f) {
-    return velocity.norm();
-  }
-  return target.current_track_speed;
 }
 
 /**
