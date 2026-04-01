@@ -31,7 +31,7 @@ struct ImmModelState {
 struct ImmConfig {
   Eigen::MatrixXf transition_probability; /**< 模型转移概率矩阵（N×N）。pi(i,j) = P(模型j在k时刻 |
                                              模型i在k-1时刻)，每行之和应为 1.0。 */
-  Eigen::VectorXf initial_weights; /**< 各模型初始权重。 */
+  Eigen::VectorXf initial_weights;        /**< 各模型初始权重。 */
 };
 /**
  * @brief 交互多模型（IMM）滤波器。

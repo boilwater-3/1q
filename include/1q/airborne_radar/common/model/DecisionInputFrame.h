@@ -27,9 +27,9 @@ struct AssociationQualityInfo {
   float mean_match_cost{0.0f};   /**< 当前周期命中关联代价均值 */
   float p95_match_cost{0.0f};    /**< 当前周期命中关联代价 P95 */
   utils::JammingSemantic dominant_jamming_semantic{
-      utils::JammingSemantic::kNone};    /**< 当前周期关联压力对应的主导干扰摘要类型 */
-  float jamming_severity{0.0f};   /**< 当前周期关联压力对应的残余干扰强度摘要，范围 [0, 1] */
-  float association_stress{0.0f}; /**< 当前周期关联压力摘要，范围 [0, 1] */
+      utils::JammingSemantic::kNone}; /**< 当前周期关联压力对应的主导干扰摘要类型 */
+  float jamming_severity{0.0f};       /**< 当前周期关联压力对应的残余干扰强度摘要，范围 [0, 1] */
+  float association_stress{0.0f};     /**< 当前周期关联压力摘要，范围 [0, 1] */
 };
 
 /**

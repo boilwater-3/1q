@@ -87,8 +87,9 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
    * @param environment_jamming_detected 环境是否检测到大面积干扰。
    * @return 填充好的决策输入数据帧。
    */
-  common::model::DecisionInputFrame BuildDecisionFrame(std::uint32_t cycle_index, std::uint64_t batch_id,
-                                                bool environment_jamming_detected) const override;
+  common::model::DecisionInputFrame BuildDecisionFrame(
+      std::uint32_t cycle_index, std::uint64_t batch_id,
+      bool environment_jamming_detected) const override;
   /**
    * @brief 导出供关联阶段消费的轨迹种子。
    * @return 由当前未回收轨迹（tentative/confirmed/lost）构成的关联种子列表。
@@ -217,8 +218,7 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
    * @param measurement 当前量测。
    * @return 若应创建或使用 IMM 路径则返回 true。
    */
-  bool ShouldUseImmForMeasurement(bool track_existed_before_cycle,
-                                  TrackStatus status_before_update,
+  bool ShouldUseImmForMeasurement(bool track_existed_before_cycle, TrackStatus status_before_update,
                                   const TrackMeasurement& measurement) const;
   /**
    * @brief 判断指定轨迹在当前失配周期是否应走 IMM 预测路径。
@@ -279,7 +279,8 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
    */
   template <typename Callback>
   void ForEachActiveTrack(Callback&& callback) const {
-    for (std::unordered_map<std::uint64_t, TrackState*>::const_iterator it = tracks_by_key_.cbegin();
+    for (std::unordered_map<std::uint64_t, TrackState*>::const_iterator it =
+             tracks_by_key_.cbegin();
          it != tracks_by_key_.cend(); ++it) {
       if (it->second->status != TrackStatus::kRecycled) {
         callback(it->first, *it->second);
@@ -291,8 +292,7 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
   ITrackPool* pool_{nullptr};      /**< 轨迹对象池抽象，用于对象申请与归还。 */
   LifecycleConfig config_;         /**< 生命周期阈值配置。 */
   std::uint64_t next_track_id_{1}; /**< 下一个待分配轨迹 ID。 */
-  std::unordered_map<std::uint64_t, TrackState*>
-      tracks_by_key_;                                   /**< 活跃轨迹表，key 为关联键。 */
+  std::unordered_map<std::uint64_t, TrackState*> tracks_by_key_; /**< 活跃轨迹表，key 为关联键。 */
   const IKalmanPredictor* kalman_predictor_{nullptr};   /**< 可选 Kalman 预测器（非拥有）。 */
   const IKalmanUpdater* kalman_updater_{nullptr};       /**< 可选 Kalman 更新器（非拥有）。 */
   std::vector<const IKalmanPredictor*> imm_predictors_; /**< IMM 各模型预测器集合（非拥有）。 */
@@ -303,7 +303,7 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
       imm_filters_by_key_;            /**< 每条轨迹对应的 IMM 运行态。 */
   std::uint32_t last_cycle_index_{0}; /**< 上一周期编号，用于计算 dt。 */
   std::unordered_map<std::uint64_t, common::model::DecisionMeasurementEvidence>
-      latest_evidence_by_key_; /**< 最近一次命中量测对应的证据快照。 */
+      latest_evidence_by_key_;            /**< 最近一次命中量测对应的证据快照。 */
   TrackSnapshotEmitter snapshot_emitter_; /**< 快照导出器，每周期末刷新。 */
 };
 

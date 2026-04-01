@@ -45,10 +45,10 @@ struct SignalLifecycleConfig {
  * @brief SignalPipelineConfig 描述信号处理流水线对外聚合配置。
  */
 struct SignalPipelineConfig {
-  SignalDetectionConfig detection{};       /**< 探测配置 */
-  SignalBeamControlConfig beam_control{};  /**< 波束控制配置 */
-  SignalTrackingConfig tracking{};         /**< 跟踪配置 */
-  SignalLifecycleConfig lifecycle{};       /**< 生命周期配置 */
+  SignalDetectionConfig detection{};      /**< 探测配置 */
+  SignalBeamControlConfig beam_control{}; /**< 波束控制配置 */
+  SignalTrackingConfig tracking{};        /**< 跟踪配置 */
+  SignalLifecycleConfig lifecycle{};      /**< 生命周期配置 */
 };
 
 }  // namespace config

@@ -37,10 +37,10 @@ struct TacticalStateStore {
   TacticalMode current_mode{TacticalMode::kBaseline};         /**< 当前战术模式 */
   std::unordered_map<std::uint64_t, float> threat_memory;     /**< 每轨威胁记忆 */
   std::unordered_map<std::uint64_t, float> confidence_memory; /**< 每轨置信度记忆 */
-  std::uint32_t lpi_hold_cycles_remaining{0};                 /**< LPI 保持计数（由 ControlReducer 运行态镜像） */
-  std::uint32_t eccm_hold_cycles_remaining{0};                /**< ECCM 保持计数（由 ControlReducer 运行态镜像） */
-  std::vector<std::string> last_classification_labels;        /**< 上一周期分类标签摘要 */
-  std::string last_decision_summary;                          /**< 上一周期决策摘要 */
+  std::uint32_t lpi_hold_cycles_remaining{0};  /**< LPI 保持计数（由 ControlReducer 运行态镜像） */
+  std::uint32_t eccm_hold_cycles_remaining{0}; /**< ECCM 保持计数（由 ControlReducer 运行态镜像） */
+  std::vector<std::string> last_classification_labels; /**< 上一周期分类标签摘要 */
+  std::string last_decision_summary;                   /**< 上一周期决策摘要 */
 };
 
 /**
@@ -48,8 +48,8 @@ struct TacticalStateStore {
  */
 struct TacticalProposal {
   common::control::ControlDirective directive; /**< 控制意图 */
-  int priority{0};                    /**< 建议优先级，数值越大优先级越高 */
-  std::string rationale;              /**< 生成原因 */
+  int priority{0};                             /**< 建议优先级，数值越大优先级越高 */
+  std::string rationale;                       /**< 生成原因 */
 
   TacticalProposal() = default;
 
@@ -59,8 +59,8 @@ struct TacticalProposal {
    * @param[in] proposal_priority 建议优先级，数值越大优先级越高。
    * @param[in] proposal_rationale 生成原因。
    */
-  TacticalProposal(const common::control::ControlDirective& proposal_directive, int proposal_priority,
-                   const std::string& proposal_rationale)
+  TacticalProposal(const common::control::ControlDirective& proposal_directive,
+                   int proposal_priority, const std::string& proposal_rationale)
       : directive(proposal_directive), priority(proposal_priority), rationale(proposal_rationale) {}
 };
 
@@ -69,8 +69,8 @@ struct TacticalProposal {
  */
 struct TacticalDecisionResult {
   common::model::TargetCategoryList target_classification_result; /**< 目标分类结果 */
-  std::vector<TacticalProposal> proposals;                 /**< 汇总后的战术建议集合 */
-  TacticalMode selected_mode{TacticalMode::kBaseline};     /**< 当前选定战术模式 */
+  std::vector<TacticalProposal> proposals;                        /**< 汇总后的战术建议集合 */
+  TacticalMode selected_mode{TacticalMode::kBaseline};            /**< 当前选定战术模式 */
 };
 
 /**

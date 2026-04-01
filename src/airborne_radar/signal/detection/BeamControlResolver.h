@@ -6,9 +6,9 @@
 #ifndef AIRBORNE_RADAR_SIGNAL_DETECTION_BEAM_CONTROL_RESOLVER_H_
 #define AIRBORNE_RADAR_SIGNAL_DETECTION_BEAM_CONTROL_RESOLVER_H_
 
+#include "1q/airborne_radar/common/utils/RadarOrientationUtils.h"
 #include "1q/airborne_radar/config/RadarOrientationConfig.h"
 #include "1q/airborne_radar/config/SignalDetectionConfig.h"
-#include "1q/airborne_radar/common/utils/RadarOrientationUtils.h"
 #include "airborne_radar/signal/detection/AntennaPatternRuntime.h"
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"
 #include "airborne_radar/signal/detection/TargetLookResolver.h"
@@ -21,9 +21,9 @@ namespace detection {
  * @brief ResolvedBeamState 表示当前探测使用的波束状态。
  */
 struct ResolvedBeamState {
-  EffectiveBeamwidthDeg effective_beamwidth_deg; /**< 生效方位/俯仰波束宽度。 */
+  EffectiveBeamwidthDeg effective_beamwidth_deg;         /**< 生效方位/俯仰波束宽度。 */
   common::config::AzimuthElevationDeg beam_pointing_deg; /**< 挂架坐标系下的当前波束中心。 */
-  float one_way_antenna_gain_db{0.0f};           /**< 当前目标方向上的单程天线增益（dB）。 */
+  float one_way_antenna_gain_db{0.0f}; /**< 当前目标方向上的单程天线增益（dB）。 */
 };
 /**
  * @brief BeamControlResolver 负责组合波束宽度、指向与方向图增益。
@@ -59,9 +59,9 @@ class BeamControlResolver {
     offset_deg.delta_az_deg = target_look_angles.look_az_deg - state.beam_pointing_deg.az_deg;
     offset_deg.delta_el_deg = target_look_angles.look_el_deg - state.beam_pointing_deg.el_deg;
 
-    const AntennaPatternSample sample = EvaluateAntennaPattern(
-        antenna_config.main_beam_gain_db, antenna_config.pattern, pattern_beamwidth, offset_deg,
-        state.beam_pointing_deg);
+    const AntennaPatternSample sample =
+        EvaluateAntennaPattern(antenna_config.main_beam_gain_db, antenna_config.pattern,
+                               pattern_beamwidth, offset_deg, state.beam_pointing_deg);
     state.one_way_antenna_gain_db = sample.gain_dbi;
     return state;
   }
@@ -79,8 +79,9 @@ class BeamControlResolver {
       const common::config::PlatformAttitudeDeg& platform_attitude_deg) {
     const common::config::AzimuthElevationLimitsDeg effective_limits =
         common::utils::IntersectScanLimits(orientation_config.mechanical_scan_limits_deg,
-                                    orientation_config.electronic_scan_limits_deg);
-    if (orientation_config.stabilization_mode == common::config::StabilizationMode::kBodyStabilized) {
+                                           orientation_config.electronic_scan_limits_deg);
+    if (orientation_config.stabilization_mode ==
+        common::config::StabilizationMode::kBodyStabilized) {
       return common::utils::ComputeMountFrameBeamPointing(orientation_config);
     }
 

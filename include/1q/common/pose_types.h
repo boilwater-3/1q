@@ -33,8 +33,8 @@ struct ONEQ_API EulerAnglesDeg {
  * @brief PoseState 表示位置、速度与姿态的组合状态。
  */
 struct ONEQ_API PoseState {
-  Vector3f position_m{};        /**< 位置（单位：m） */
-  Vector3f velocity_mps{};      /**< 速度（单位：m/s） */
+  Vector3f position_m{};         /**< 位置（单位：m） */
+  Vector3f velocity_mps{};       /**< 速度（单位：m/s） */
   EulerAnglesDeg attitude_deg{}; /**< 姿态角（单位：deg） */
 };
 

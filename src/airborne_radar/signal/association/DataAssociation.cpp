@@ -163,7 +163,8 @@ AssociationResult DataAssociationEngine::AssociateDetections(
 }
 
 AssociationResult DataAssociationEngine::AssociateDetections(
-    const common::model::TargetFeatureList& targets, const std::vector<std::uint8_t>& detection_succeeded,
+    const common::model::TargetFeatureList& targets,
+    const std::vector<std::uint8_t>& detection_succeeded,
     const std::vector<tracking::MeasurementCovariance>& measurement_covariances, float dt_sec) {
   const std::size_t target_count = targets.size();
   AssociationResult result;
@@ -225,8 +226,8 @@ AssociationResult DataAssociationEngine::AssociateDetections(
     const std::size_t rows = association_prior_count;
     const std::size_t cols = measurements.size();
     const std::size_t dim = std::max(rows, cols);
-    const float rejected_cost = std::nextafter(config_.unassigned_cost,
-                                               std::numeric_limits<float>::infinity());
+    const float rejected_cost =
+        std::nextafter(config_.unassigned_cost, std::numeric_limits<float>::infinity());
 
     Eigen::MatrixXf cost_matrix = Eigen::MatrixXf::Constant(
         static_cast<Eigen::Index>(dim), static_cast<Eigen::Index>(dim), config_.unassigned_cost);
@@ -313,7 +314,8 @@ std::vector<std::uint64_t> DataAssociationEngine::Associate(
 }
 
 std::vector<std::uint64_t> DataAssociationEngine::Associate(
-    const common::model::TargetFeatureList& targets, const std::vector<std::uint8_t>& detection_succeeded,
+    const common::model::TargetFeatureList& targets,
+    const std::vector<std::uint8_t>& detection_succeeded,
     const std::vector<tracking::MeasurementCovariance>& measurement_covariances) {
   return AssociateDetections(targets, detection_succeeded, measurement_covariances).target_keys;
 }
@@ -402,7 +404,8 @@ Eigen::Vector3f DataAssociationEngine::BuildPositionVector(
   return Eigen::Vector3f(target.position_x, target.position_y, target.position_z);
 }
 
-bool DataAssociationEngine::HasPositionMeasurement(const common::model::TargetFeature& target) const {
+bool DataAssociationEngine::HasPositionMeasurement(
+    const common::model::TargetFeature& target) const {
   return target.has_cartesian_position;
 }
 

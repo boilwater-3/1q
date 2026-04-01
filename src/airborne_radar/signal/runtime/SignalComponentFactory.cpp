@@ -61,8 +61,7 @@ OwnedSignalComponents SignalComponentFactory::BuildOwnedPipelineComponents(
   }
 
   if (config.detection.enable_physics_detection) {
-    components.signal_detector.reset(
-        new detection::SignalDetector(config.detection.radar_system));
+    components.signal_detector.reset(new detection::SignalDetector(config.detection.radar_system));
   }
   return components;
 }
@@ -87,8 +86,8 @@ LifecycleAssemblyArtifacts SignalComponentFactory::BuildLifecycleAssemblyArtifac
     const std::size_t model_count = internal_config.lifecycle.imm_model_noise_diff_coeffs.size();
     bool imm_ready = true;
     if (model_count == 0U) {
-      LogLifecycleAssemblyConfigViolation(
-          "IMM enabled but imm_model_noise_diff_coeffs is empty", model_count);
+      LogLifecycleAssemblyConfigViolation("IMM enabled but imm_model_noise_diff_coeffs is empty",
+                                          model_count);
       imm_ready = false;
     }
     if (model_count > 3U) {
@@ -158,21 +157,22 @@ LifecycleAssemblyArtifacts SignalComponentFactory::BuildLifecycleAssemblyArtifac
 }
 
 void SignalComponentFactory::LogLifecycleAssemblyConfigViolation(const char* message, float value) {
-  PROJECT_LOG_ERROR(
-      "[SignalPipeline] lifecycle auto-assembly config violation: {} (value={})", message, value);
+  PROJECT_LOG_ERROR("[SignalPipeline] lifecycle auto-assembly config violation: {} (value={})",
+                    message, value);
 }
 
 void SignalComponentFactory::LogLifecycleAssemblyConfigViolation(const char* message,
-                                                                  std::size_t value) {
-  PROJECT_LOG_ERROR(
-      "[SignalPipeline] lifecycle auto-assembly config violation: {} (value={})", message, value);
+                                                                 std::size_t value) {
+  PROJECT_LOG_ERROR("[SignalPipeline] lifecycle auto-assembly config violation: {} (value={})",
+                    message, value);
 }
 
 std::unique_ptr<tracking::KalmanPredictor> SignalComponentFactory::CreateKalmanPredictor(
     float noise_diff_coeff) {
   tracking::KalmanPredictorConfig predictor_config;
   predictor_config.noise_diff_coeff = std::max(noise_diff_coeff, 0.001f);
-  return std::unique_ptr<tracking::KalmanPredictor>(new tracking::KalmanPredictor(predictor_config));
+  return std::unique_ptr<tracking::KalmanPredictor>(
+      new tracking::KalmanPredictor(predictor_config));
 }
 
 std::unique_ptr<tracking::KalmanUpdater> SignalComponentFactory::CreateKalmanUpdater(

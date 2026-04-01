@@ -28,10 +28,11 @@ namespace utils {
  * @param[in] swerling_type 目标起伏模型编号。
  * @return 已写入位置、速度与斜距的目标特征。
  */
-ONEQ_API model::TargetFeature MakeTargetFromCartesian(std::uint64_t external_target_id, float position_x,
-                                               float position_y, float position_z, float velocity_x,
-                                               float velocity_y, float velocity_z, float rcs,
-                                               int swerling_type = 0);
+ONEQ_API model::TargetFeature MakeTargetFromCartesian(std::uint64_t external_target_id,
+                                                      float position_x, float position_y,
+                                                      float position_z, float velocity_x,
+                                                      float velocity_y, float velocity_z, float rcs,
+                                                      int swerling_type = 0);
 
 /**
  * @brief 构造地面目标。
@@ -47,8 +48,8 @@ ONEQ_API model::TargetFeature MakeTargetFromCartesian(std::uint64_t external_tar
  */
 ONEQ_API
 model::TargetFeature MakeGroundTarget(std::uint64_t external_target_id, float position_x,
-                                        float position_y, float rcs = 1.0f, float velocity_x = 0.0f,
-                                        float velocity_y = 0.0f, int swerling_type = 0);
+                                      float position_y, float rcs = 1.0f, float velocity_x = 0.0f,
+                                      float velocity_y = 0.0f, int swerling_type = 0);
 
 /**
  * @brief 构造空中目标。
@@ -66,9 +67,9 @@ model::TargetFeature MakeGroundTarget(std::uint64_t external_target_id, float po
  */
 ONEQ_API
 model::TargetFeature MakeAirTarget(std::uint64_t external_target_id, float position_x,
-                                     float position_y, float position_z, float velocity_x,
-                                     float velocity_y, float velocity_z, float rcs = 1.0f,
-                                     int swerling_type = 0);
+                                   float position_y, float position_z, float velocity_x,
+                                   float velocity_y, float velocity_z, float rcs = 1.0f,
+                                   int swerling_type = 0);
 
 /**
  * @brief 规范化单个目标的几何派生量。

@@ -102,7 +102,7 @@ class FullMahalanobisDistanceMetric final : public ICovarianceAwareDistanceMetri
 
  private:
   Eigen::LLT<Eigen::Matrix3f> llt_; /**< S 的 LLT 分解，用于高效求解 S⁻¹ Δz。 */
-  bool llt_valid_{false};            /**< 当前 LLT 分解是否成功。 */
+  bool llt_valid_{false};           /**< 当前 LLT 分解是否成功。 */
 };
 
 }  // namespace association

@@ -53,11 +53,11 @@ struct EnvironmentCycleContext {
  * @brief EnvironmentSnapshot 用于封装单个处理周期内的环境快照。
  */
 struct EnvironmentSnapshot {
-  float cycle_dt_sec{0.0f};                   /**< 当前周期步长（单位：s） */
-  float propagation_loss_db{0.0f};            /**< 传播损耗（单位：dB） */
-  float clutter_power_db{0.0f};               /**< 杂波功率估计（单位：dB） */
-  JammerSourceFactList jammer_sources{};      /**< 当前周期可见的多源干扰事实 */
-  bool jamming_detected{false};               /**< 是否检测到干扰 */
+  float cycle_dt_sec{0.0f};              /**< 当前周期步长（单位：s） */
+  float propagation_loss_db{0.0f};       /**< 传播损耗（单位：dB） */
+  float clutter_power_db{0.0f};          /**< 杂波功率估计（单位：dB） */
+  JammerSourceFactList jammer_sources{}; /**< 当前周期可见的多源干扰事实 */
+  bool jamming_detected{false};          /**< 是否检测到干扰 */
 };
 
 /**

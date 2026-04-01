@@ -30,7 +30,6 @@ const float kMaxRepositoryMatchDistance = 1.80f;
  */
 const float kHighThreatConfidenceThreshold = 0.55f;
 
-
 }  // namespace
 
 ThreatAssessmentEvaluator::ThreatAssessmentEvaluator(
@@ -45,7 +44,8 @@ void ThreatAssessmentEvaluator::Evaluate(
   evaluation_state.lpi_source_info.has_recon_platform = false;
 
   if (input_frame.tracks.empty()) {
-    PROJECT_LOG_DEBUG("[ThreatAssessmentEvaluator] Empty track snapshot list, classification reset.");
+    PROJECT_LOG_DEBUG(
+        "[ThreatAssessmentEvaluator] Empty track snapshot list, classification reset.");
     evaluation_state.threat_assessment_phase_done = true;
     return;
   }

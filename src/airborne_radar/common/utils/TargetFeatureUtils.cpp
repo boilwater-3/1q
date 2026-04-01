@@ -22,7 +22,9 @@ float ComputeNorm3(float x, float y, float z) { return std::sqrt(x * x + y * y +
  * @param target 目标特征。
  * @return `has_cartesian_position` 为 `true` 时返回 `true`。
  */
-bool HasCartesianPosition(const model::TargetFeature& target) { return target.has_cartesian_position; }
+bool HasCartesianPosition(const model::TargetFeature& target) {
+  return target.has_cartesian_position;
+}
 
 /**
  * @brief 刷新目标中由速度向量派生出的标量字段。
@@ -41,11 +43,11 @@ void RefreshDerivedKinematics(model::TargetFeature* target) {
 }  // namespace
 
 model::TargetFeature MakeTargetFromCartesian(std::uint64_t external_target_id, float position_x,
-                                      float position_y, float position_z, float velocity_x,
-                                      float velocity_y, float velocity_z, float rcs,
-                                      int swerling_type) {
+                                             float position_y, float position_z, float velocity_x,
+                                             float velocity_y, float velocity_z, float rcs,
+                                             int swerling_type) {
   model::TargetFeature target(velocity_x, velocity_y, velocity_z, rcs, 0.0f, swerling_type,
-                       external_target_id);
+                              external_target_id);
   target.position_x = position_x;
   target.position_y = position_y;
   target.position_z = position_z;
@@ -54,15 +56,17 @@ model::TargetFeature MakeTargetFromCartesian(std::uint64_t external_target_id, f
   return target;
 }
 
-model::TargetFeature MakeGroundTarget(std::uint64_t external_target_id, float position_x, float position_y,
-                               float rcs, float velocity_x, float velocity_y, int swerling_type) {
+model::TargetFeature MakeGroundTarget(std::uint64_t external_target_id, float position_x,
+                                      float position_y, float rcs, float velocity_x,
+                                      float velocity_y, int swerling_type) {
   return MakeTargetFromCartesian(external_target_id, position_x, position_y, 0.0f, velocity_x,
                                  velocity_y, 0.0f, rcs, swerling_type);
 }
 
-model::TargetFeature MakeAirTarget(std::uint64_t external_target_id, float position_x, float position_y,
-                            float position_z, float velocity_x, float velocity_y, float velocity_z,
-                            float rcs, int swerling_type) {
+model::TargetFeature MakeAirTarget(std::uint64_t external_target_id, float position_x,
+                                   float position_y, float position_z, float velocity_x,
+                                   float velocity_y, float velocity_z, float rcs,
+                                   int swerling_type) {
   return MakeTargetFromCartesian(external_target_id, position_x, position_y, position_z, velocity_x,
                                  velocity_y, velocity_z, rcs, swerling_type);
 }

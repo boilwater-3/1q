@@ -6,8 +6,8 @@
 #ifndef AIRBORNE_RADAR_CONFIG_CONFIG_PRESETS_H_
 #define AIRBORNE_RADAR_CONFIG_CONFIG_PRESETS_H_
 
-#include "1q/airborne_radar/core/session/RadarSession.h"
 #include "1q/airborne_radar/config/SignalPipelineConfig.h"
+#include "1q/airborne_radar/core/session/RadarSession.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
@@ -34,13 +34,15 @@ ONEQ_API SignalPipelineConfig MakeHighRobustnessSignalPipelineConfig();
 
 /**
  * @brief 构造默认 RadarSession 配置。
- * @note 返回值用于会话初始化；可外部调整项可在运行期通过 `RadarSession::ApplyRuntimeConfig(...)` 提交。
+ * @note 返回值用于会话初始化；可外部调整项可在运行期通过 `RadarSession::ApplyRuntimeConfig(...)`
+ * 提交。
  */
 ONEQ_API core::session::RadarSessionConfig MakeDefaultRadarSessionConfig();
 
 /**
  * @brief 构造偏向探测任务的 RadarSession 配置。
- * @note 返回值用于会话初始化；可外部调整项可在运行期通过 `RadarSession::ApplyRuntimeConfig(...)` 提交。
+ * @note 返回值用于会话初始化；可外部调整项可在运行期通过 `RadarSession::ApplyRuntimeConfig(...)`
+ * 提交。
  */
 ONEQ_API core::session::RadarSessionConfig MakeDetectionMissionRadarSessionConfig();
 

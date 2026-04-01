@@ -45,7 +45,8 @@ inline bool EqualsAzimuthElevationDeg(const common::config::AzimuthElevationDeg&
 
 inline bool EqualsAzimuthElevationLimitsDeg(const common::config::AzimuthElevationLimitsDeg& lhs,
                                             const common::config::AzimuthElevationLimitsDeg& rhs) {
-  return NearlyEqual(lhs.az_min_deg, rhs.az_min_deg) && NearlyEqual(lhs.az_max_deg, rhs.az_max_deg) &&
+  return NearlyEqual(lhs.az_min_deg, rhs.az_min_deg) &&
+         NearlyEqual(lhs.az_max_deg, rhs.az_max_deg) &&
          NearlyEqual(lhs.el_min_deg, rhs.el_min_deg) && NearlyEqual(lhs.el_max_deg, rhs.el_max_deg);
 }
 
@@ -86,8 +87,7 @@ inline bool EqualsTransmitterConfig(const common::config::TransmitterConfig& lhs
   return NearlyEqual(lhs.peak_power_w, rhs.peak_power_w) &&
          NearlyEqual(lhs.frequency_hz, rhs.frequency_hz) &&
          NearlyEqual(lhs.bandwidth_hz, rhs.bandwidth_hz) &&
-         NearlyEqual(lhs.pulse_width_s, rhs.pulse_width_s) &&
-         NearlyEqual(lhs.prf_hz, rhs.prf_hz) &&
+         NearlyEqual(lhs.pulse_width_s, rhs.pulse_width_s) && NearlyEqual(lhs.prf_hz, rhs.prf_hz) &&
          NearlyEqual(lhs.transmit_loss_db, rhs.transmit_loss_db);
 }
 
@@ -318,7 +318,8 @@ inline void ApplyInternalImmDefaults(bool enable_imm_lifecycle,
 inline InternalSignalPipelineConfig BuildInternalSignalPipelineConfig(
     const SignalPipelineConfig& public_config) {
   InternalSignalPipelineConfig internal_config = BuildBaselineInternalSignalPipelineConfig();
-  ApplyInternalProfileTuning(ResolveInternalProfileFromPublicConfig(public_config), &internal_config);
+  ApplyInternalProfileTuning(ResolveInternalProfileFromPublicConfig(public_config),
+                             &internal_config);
   ApplyInternalImmDefaults(public_config.lifecycle.enable_imm_lifecycle, &internal_config);
   return internal_config;
 }

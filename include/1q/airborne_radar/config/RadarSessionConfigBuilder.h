@@ -40,7 +40,8 @@ namespace config {
  * @note
  * - 构造函数接受任意 `RadarSessionConfig`（包括预设函数返回值或默认构造），
  *   未调用的 setter 保留基础配置的原始值。
- * - 本 Builder 的所有 setter 均作用于“初始化基线”（[初始化固定]）；运行期不应再通过本 Builder 调整。
+ * - 本 Builder 的所有 setter 均作用于“初始化基线”（[初始化固定]）；运行期不应再通过本 Builder
+ * 调整。
  * - 运行期可变参数请使用 `RadarRuntimeConfigBuilder` 并提交给
  *   `RadarSession::ApplyRuntimeConfig(...)`。
  * - `Build()` 会校验关键物理约束（功率、载频、带宽 > 0，噪声系数 >= 0），违规时记录 WARN 日志。

@@ -8,8 +8,8 @@
 
 #include "1q/airborne_radar/common/control/RadarControlProfile.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/pipeline/InternalSignalPipelineConfig.h"
+#include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -100,8 +100,7 @@ float ComputeTrackLevelJammingSeverity(
 void ApplyEnvironmentJammingFactsToRuntimeConfig(
     const common::control::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot,
-    InternalSignalPipelineConfig* internal_runtime_config,
-    SignalPipelineConfig* runtime_config);
+    InternalSignalPipelineConfig* internal_runtime_config, SignalPipelineConfig* runtime_config);
 
 }  // namespace internal
 }  // namespace pipeline

@@ -53,8 +53,8 @@ common::output::TrackOutputFrame RadarSession::Step(const context::RadarCycleInp
   return StepWithResult(input).track_output_frame;
 }
 
-common::output::TrackOutputFrame RadarSession::Step(const context::RadarCycleInput& input,
-                                            const environment::EnvironmentSceneState& scene_state) {
+common::output::TrackOutputFrame RadarSession::Step(
+    const context::RadarCycleInput& input, const environment::EnvironmentSceneState& scene_state) {
   return StepWithResult(input, scene_state).track_output_frame;
 }
 
@@ -86,11 +86,9 @@ signal::pipeline::AssociationQualityMetrics RadarSession::GetLastAssociationQual
   return impl_->signal_pipeline.GetLastAssociationQualityMetrics();
 }
 
-void RadarSession::UpdateSignalPipelineConfig(
-    const common::config::SignalPipelineConfig& config) {
+void RadarSession::UpdateSignalPipelineConfig(const common::config::SignalPipelineConfig& config) {
   impl_->runtime_signal_pipeline_config = config;
-  impl_->signal_pipeline.UpdateConfig(
-      impl_->runtime_signal_pipeline_config);
+  impl_->signal_pipeline.UpdateConfig(impl_->runtime_signal_pipeline_config);
 }
 
 void RadarSession::UpdateEnvironmentModelConfig(const environment::EnvironmentModelConfig& config) {
@@ -147,8 +145,7 @@ void RadarSession::ApplyRuntimeConfig(const common::config::RadarRuntimeConfigPa
     should_update_signal_pipeline_config = true;
   }
   if (should_update_signal_pipeline_config) {
-    impl_->signal_pipeline.UpdateConfig(
-        impl_->runtime_signal_pipeline_config);
+    impl_->signal_pipeline.UpdateConfig(impl_->runtime_signal_pipeline_config);
   }
 
   if (patch.has_environment_model_config) {

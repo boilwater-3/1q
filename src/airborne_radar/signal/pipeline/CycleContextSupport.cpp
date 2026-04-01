@@ -67,15 +67,15 @@ void RefreshMeasurementCovariances(
 void SyncAssociationAndTrackFilterConfigs(
     const SignalPipelineConfig& runtime_config,
     const InternalSignalPipelineConfig& internal_runtime_config,
-    association::DataAssociationEngine* association_engine,
-    tracking::TrackFilter* track_filter) {
+    association::DataAssociationEngine* association_engine, tracking::TrackFilter* track_filter) {
   if (association_engine != nullptr) {
-    association_engine->UpdateConfig(runtime::internal::SignalComponentFactory::BuildAssociationConfig(
-        runtime_config, internal_runtime_config));
+    association_engine->UpdateConfig(
+        runtime::internal::SignalComponentFactory::BuildAssociationConfig(runtime_config,
+                                                                          internal_runtime_config));
   }
   if (track_filter != nullptr) {
-    track_filter->UpdateConfig(runtime::internal::SignalComponentFactory::BuildTrackFilterConfig(
-        internal_runtime_config));
+    track_filter->UpdateConfig(
+        runtime::internal::SignalComponentFactory::BuildTrackFilterConfig(internal_runtime_config));
   }
 }
 

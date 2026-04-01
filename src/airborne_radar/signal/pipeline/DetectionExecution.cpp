@@ -87,8 +87,8 @@ void RunHeuristicDetectionPass(const common::model::TargetFeatureList& input,
   const float environment_penalty_db = std::max(
       0.0f, environment_snapshot.propagation_loss_db * 0.2f +
                 environment_snapshot.clutter_power_db * 0.3f + jamming_penalty_db -
-                ComputeHeuristicEnvironmentReliefDb(internal_config.jamming_effects, control_profile,
-                                                    environment_snapshot));
+                ComputeHeuristicEnvironmentReliefDb(internal_config.jamming_effects,
+                                                    control_profile, environment_snapshot));
   for (std::size_t i = 0; i < count; ++i) {
     const float margin =
         (*buffers->signal_term_db)[i] - (*buffers->speed_penalty_db)[i] - environment_penalty_db;
@@ -112,12 +112,13 @@ void RunPhysicalDetectionPass(const common::model::TargetFeatureList& input,
   const std::size_t count = input.size();
 
   float clutter_w = std::pow(10.0f, environment_snapshot.clutter_power_db / 10.0f);
-  if (control_profile.enable_sidelobe_canceller && HasMultiSourceJammingFacts(environment_snapshot)) {
-    const bool has_sidelobe_source =
-        std::find_if(environment_snapshot.jammer_sources.begin(),
-                     environment_snapshot.jammer_sources.end(),
-                     [](const environment::JammerSourceFact& source) { return source.in_sidelobe; }) !=
-        environment_snapshot.jammer_sources.end();
+  if (control_profile.enable_sidelobe_canceller &&
+      HasMultiSourceJammingFacts(environment_snapshot)) {
+    const bool has_sidelobe_source = std::find_if(environment_snapshot.jammer_sources.begin(),
+                                                  environment_snapshot.jammer_sources.end(),
+                                                  [](const environment::JammerSourceFact& source) {
+                                                    return source.in_sidelobe;
+                                                  }) != environment_snapshot.jammer_sources.end();
     clutter_w *= has_sidelobe_source ? 0.55f : 0.80f;
   }
 

@@ -74,7 +74,8 @@ ONEQ_API ValidationIssueList ValidateRadarCycleInput(const RadarCycleInput& inpu
  * @param[in] targets 当前周期目标列表。
  * @return 按发现顺序返回的校验问题列表。
  */
-ONEQ_API ValidationIssueList ValidateTargetFeatures(const common::model::TargetFeatureList& targets);
+ONEQ_API ValidationIssueList
+ValidateTargetFeatures(const common::model::TargetFeatureList& targets);
 
 /**
  * @brief 判断是否包含 error 级别问题。

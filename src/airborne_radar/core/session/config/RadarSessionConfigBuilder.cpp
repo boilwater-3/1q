@@ -7,8 +7,7 @@ namespace common {
 namespace config {
 
 core::session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
-  const auto& tx =
-      config_.signal_pipeline_config.detection.radar_system.transmitter;
+  const auto& tx = config_.signal_pipeline_config.detection.radar_system.transmitter;
   if (tx.peak_power_w <= 0.0f) {
     PROJECT_LOG_WARN(
         "[RadarSessionConfigBuilder] peak_power_w={} is non-positive; "

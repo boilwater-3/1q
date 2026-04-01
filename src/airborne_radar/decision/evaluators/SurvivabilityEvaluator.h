@@ -29,7 +29,6 @@ class SurvivabilityEvaluator final : public pipeline::ITacticalEvaluator {
   void Evaluate(const common::model::DecisionInputFrame& input_frame,
                 pipeline::TacticalStateStore& state_store,
                 pipeline::TacticalEvaluationState& evaluation_state) const override;
-
 };
 
 }  // namespace evaluators

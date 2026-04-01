@@ -9,8 +9,8 @@
 
 #include "1q/airborne_radar/common/control/RadarCommand.h"
 #include "1q/airborne_radar/common/control/RadarControlProfile.h"
-#include "1q/airborne_radar/config/RadarOrientationConfig.h"
 #include "1q/airborne_radar/common/model/TargetFeature.h"
+#include "1q/airborne_radar/config/RadarOrientationConfig.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {

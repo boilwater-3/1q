@@ -119,7 +119,8 @@ constexpr float kThresholdBurnthroughGain = 1.5f;
  * @return 返回 `type` 指定类型且 `source` 字段为 `SURVIVABILITY` 的控制意图。
  */
 common::control::ControlDirective BuildDirective(common::control::ControlDirectiveType type) {
-  return common::control::ControlDirective(type, common::control::ControlDirectiveSource::SURVIVABILITY);
+  return common::control::ControlDirective(type,
+                                           common::control::ControlDirectiveSource::SURVIVABILITY);
 }
 /**
  * @brief ECCM 提案评分与关联偏置的中间累加状态。
@@ -239,8 +240,9 @@ void AccumulateMultiSourceEccmFacts(const common::model::EccmJammerSourceInfo& s
  * @param association_quality_info 当前周期关联质量摘要。
  * @param selection 待累加的提案选择状态。
  */
-void AccumulateAssociationDrivenBias(const common::model::AssociationQualityInfo& association_quality_info,
-                                     EccmProposalSelection* selection) {
+void AccumulateAssociationDrivenBias(
+    const common::model::AssociationQualityInfo& association_quality_info,
+    EccmProposalSelection* selection) {
   if (selection == nullptr || !HasMeaningfulAssociationPressure(association_quality_info)) {
     return;
   }
@@ -360,7 +362,8 @@ std::string BuildProposalRationale(common::control::ControlDirectiveType type,
  * @param rationale 提案解释文本。
  * @param proposals 提案输出列表。
  */
-void AppendProposal(common::control::ControlDirectiveType type, int priority, const std::string& rationale,
+void AppendProposal(common::control::ControlDirectiveType type, int priority,
+                    const std::string& rationale,
                     std::vector<pipeline::TacticalProposal>* proposals) {
   if (proposals == nullptr) {
     return;
@@ -395,34 +398,37 @@ void AppendEccmProposals(const common::model::EccmSourceInfo& source_info,
   }
 
   if (selection.sidelobe_canceller_score >= kThresholdSidelobeCanceller) {
-    AppendProposal(common::control::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER,
-                   ResolvePriorityFromScore(kBasePrioritySidelobeCanceller,
-                                            selection.sidelobe_canceller_score),
-                   BuildProposalRationale(
-                       common::control::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER, selection),
-                   proposals);
+    AppendProposal(
+        common::control::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER,
+        ResolvePriorityFromScore(kBasePrioritySidelobeCanceller,
+                                 selection.sidelobe_canceller_score),
+        BuildProposalRationale(
+            common::control::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER, selection),
+        proposals);
   }
   if (selection.adaptive_beamforming_score >= kThresholdAdaptiveBeamforming) {
     AppendProposal(
         common::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
         ResolvePriorityFromScore(kBasePriorityAdaptiveBeamforming,
                                  selection.adaptive_beamforming_score),
-        BuildProposalRationale(common::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
-                               selection),
+        BuildProposalRationale(
+            common::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING, selection),
         proposals);
   }
   if (selection.agility_frequency_score >= kThresholdAgilityFrequency) {
     AppendProposal(
         common::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
         ResolvePriorityFromScore(kBasePriorityAgilityFrequency, selection.agility_frequency_score),
-        BuildProposalRationale(common::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY, selection),
+        BuildProposalRationale(common::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
+                               selection),
         proposals);
   }
   if (selection.eccm_rejitter_score >= kThresholdEccmRejitter) {
     AppendProposal(
         common::control::ControlDirectiveType::REQUEST_ECCM_REJITTER,
         ResolvePriorityFromScore(kBasePriorityEccmRejitter, selection.eccm_rejitter_score),
-        BuildProposalRationale(common::control::ControlDirectiveType::REQUEST_ECCM_REJITTER, selection),
+        BuildProposalRationale(common::control::ControlDirectiveType::REQUEST_ECCM_REJITTER,
+                               selection),
         proposals);
   }
   if (selection.burnthrough_gain_score >= kThresholdBurnthroughGain) {

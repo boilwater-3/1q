@@ -15,7 +15,7 @@ namespace pipeline {
 namespace {
 
 // ---------- ECCM 反向触发阈值 ----------
-constexpr float kAssociationDrivenEccmMinJammingSeverity   = 0.35f; /**< 触发 ECCM 的最低干扰强度 */
+constexpr float kAssociationDrivenEccmMinJammingSeverity = 0.35f;   /**< 触发 ECCM 的最低干扰强度 */
 constexpr float kAssociationDrivenEccmMinAssociationStress = 0.18f; /**< 触发 ECCM 的最低关联压力 */
 
 // ---------- 探测压力判定阈值 ----------
@@ -50,7 +50,8 @@ bool HasAssociationDrivenEccmEvidence(
  * @param perception_quality_info 当前周期探测质量摘要。
  * @return 探测压力达到阈值时返回 true。
  */
-bool HasMeaningfulDetectionPressure(const common::model::PerceptionQualityInfo& perception_quality_info) {
+bool HasMeaningfulDetectionPressure(
+    const common::model::PerceptionQualityInfo& perception_quality_info) {
   return perception_quality_info.input_target_count > 0U &&
          perception_quality_info.detection_stress >= kMeaningfulDetectionPressureThreshold;
 }
@@ -111,8 +112,8 @@ void BackfillAssociationDrivenEccmTrigger(
   eccm_source_info->has_jamming_signal = true;
 }
 
-void PruneInactiveTrackState(
-    const common::model::DecisionTrackSnapshotList& tracks, TacticalStateStore* state_store) {
+void PruneInactiveTrackState(const common::model::DecisionTrackSnapshotList& tracks,
+                             TacticalStateStore* state_store) {
   if (state_store == nullptr) {
     return;
   }
@@ -131,7 +132,8 @@ void PruneInactiveTrackState(
         state_store->confidence_memory.size(), kMaxStateStoreEntries);
   }
 
-  for (std::unordered_map<std::uint64_t, float>::iterator it = state_store->confidence_memory.begin();
+  for (std::unordered_map<std::uint64_t, float>::iterator it =
+           state_store->confidence_memory.begin();
        it != state_store->confidence_memory.end();) {
     if (active_keys.count(it->first) == 0U) {
       it = state_store->confidence_memory.erase(it);
@@ -158,8 +160,8 @@ TacticalCoordinator::TacticalCoordinator(
       emission_control_evaluator_(),
       survivability_evaluator_() {}
 
-TacticalDecisionResult TacticalCoordinator::Evaluate(const common::model::DecisionInputFrame& input_frame,
-                                                     TacticalStateStore& state_store) {
+TacticalDecisionResult TacticalCoordinator::Evaluate(
+    const common::model::DecisionInputFrame& input_frame, TacticalStateStore& state_store) {
   TacticalEvaluationState evaluation_state;
   evaluation_state.eccm_source_info = input_frame.eccm_source_info;
   if (!evaluation_state.eccm_source_info.has_jamming_signal) {
@@ -182,8 +184,8 @@ TacticalDecisionResult TacticalCoordinator::Evaluate(const common::model::Decisi
   TacticalDecisionResult result;
   result.target_classification_result.reserve(evaluation_state.target_classification_result.size());
   for (std::size_t i = 0; i < evaluation_state.target_classification_result.size(); ++i) {
-    result.target_classification_result.push_back(
-        common::model::TargetCategory(evaluation_state.target_classification_result[i].target_type));
+    result.target_classification_result.push_back(common::model::TargetCategory(
+        evaluation_state.target_classification_result[i].target_type));
   }
   result.proposals = evaluation_state.proposals;
   if (evaluation_state.should_enable_eccm) {

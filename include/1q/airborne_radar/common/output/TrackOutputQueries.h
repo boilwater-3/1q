@@ -88,7 +88,8 @@ ONEQ_API std::size_t CountJammingTracks(const TrackOutputFrame& frame);
  * @param[in] status 目标状态。
  * @return 匹配状态的轨迹数。
  */
-ONEQ_API std::size_t CountTracksByStatus(const TrackOutputFrame& frame, model::DecisionTrackStatus status);
+ONEQ_API std::size_t CountTracksByStatus(const TrackOutputFrame& frame,
+                                         model::DecisionTrackStatus status);
 
 }  // namespace output
 }  // namespace common

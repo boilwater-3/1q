@@ -79,8 +79,8 @@ common::model::AssociationQualityInfo BuildAssociationQualityInfo(
   return info;
 }
 
-common::model::PerceptionQualityInfo BuildPerceptionQualityInfo(std::size_t input_target_count,
-                                                         const AssociationQualityMetrics& metrics) {
+common::model::PerceptionQualityInfo BuildPerceptionQualityInfo(
+    std::size_t input_target_count, const AssociationQualityMetrics& metrics) {
   common::model::PerceptionQualityInfo info;
   info.input_target_count = input_target_count;
   info.detection_count = metrics.detection_count;

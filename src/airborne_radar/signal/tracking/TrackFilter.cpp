@@ -63,7 +63,8 @@ bool IsAssociationFragileJamming(common::utils::JammingSemantic semantic) {
 
 }  // namespace
 
-PredictedTrackState IdentityTrackPredictor::Predict(const common::model::TargetFeature& input) const {
+PredictedTrackState IdentityTrackPredictor::Predict(
+    const common::model::TargetFeature& input) const {
   const bool has_velocity_axis =
       HasNonZero3(input.current_track_velocity_x, input.current_track_velocity_y,
                   input.current_track_velocity_z);
@@ -82,9 +83,9 @@ PredictedTrackState IdentityTrackPredictor::Predict(const common::model::TargetF
 SimpleTrackUpdater::SimpleTrackUpdater(TrackFilterConfig config) : config_(config) {}
 
 common::model::TargetFeature SimpleTrackUpdater::Update(const PredictedTrackState& predicted,
-                                                 const TrackFilterContext& context) const {
-  common::model::TargetFeature output(predicted.velocity_x, predicted.velocity_y, predicted.velocity_z,
-                               predicted.rcs);
+                                                        const TrackFilterContext& context) const {
+  common::model::TargetFeature output(predicted.velocity_x, predicted.velocity_y,
+                                      predicted.velocity_z, predicted.rcs);
   output.current_track_velocity_x = predicted.velocity_x;
   output.current_track_velocity_y = predicted.velocity_y;
   output.current_track_velocity_z = predicted.velocity_z;
@@ -119,7 +120,7 @@ void SimpleTrackUpdater::UpdateConfig(TrackFilterConfig config) { config_ = conf
 TrackFilter::TrackFilter(TrackFilterConfig config) : updater_(config) {}
 
 common::model::TargetFeature TrackFilter::Filter(const common::model::TargetFeature& input,
-                                          const TrackFilterContext& context) const {
+                                                 const TrackFilterContext& context) const {
   const PredictedTrackState predicted = predictor_.Predict(input);
   return updater_.Update(predicted, context);
 }

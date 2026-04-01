@@ -36,8 +36,8 @@ common::model::AssociationQualityInfo BuildAssociationQualityInfo(
  * @param[in] metrics 当前周期关联质量指标。
  * @return 决策层消费的探测质量摘要。
  */
-common::model::PerceptionQualityInfo BuildPerceptionQualityInfo(std::size_t input_target_count,
-                                                         const AssociationQualityMetrics& metrics);
+common::model::PerceptionQualityInfo BuildPerceptionQualityInfo(
+    std::size_t input_target_count, const AssociationQualityMetrics& metrics);
 
 /**
  * @brief 将目标特征列表转换为决策轨迹快照列表。

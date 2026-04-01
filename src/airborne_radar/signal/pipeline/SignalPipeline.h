@@ -74,7 +74,8 @@ class SignalPipeline final : public ISignalPipeline {
    * @brief 更新平台姿态输入。
    * @param platform_attitude_deg 当前平台姿态。
    */
-  void UpdatePlatformAttitude(const common::config::PlatformAttitudeDeg& platform_attitude_deg) override;
+  void UpdatePlatformAttitude(
+      const common::config::PlatformAttitudeDeg& platform_attitude_deg) override;
 
   /**
    * @brief 获取当前缓存的平台姿态。

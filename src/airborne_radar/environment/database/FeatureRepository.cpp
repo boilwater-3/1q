@@ -1,13 +1,13 @@
 #include "airborne_radar/environment/database/FeatureRepository.h"
 
 #include <algorithm>
-#include <string>
-
-#include "common/logging/ProjectLog.h"
 #include <array>
 #include <cmath>
 #include <limits>
 #include <numeric>
+#include <string>
+
+#include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
 namespace environment {

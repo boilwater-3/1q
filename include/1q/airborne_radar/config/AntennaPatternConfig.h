@@ -28,12 +28,13 @@ enum class AntennaPatternModelType {
  * @note 该结构体为“初始化固定”，不支持仿真过程中进行修改。
  */
 struct AntennaPatternConfig {
-  AntennaPatternModelType model_type{AntennaPatternModelType::kGaussianMainLobe}; /**< 主瓣近似模型 */
-  float max_sidelobe_level_db{-20.0f}; /**< 最大旁瓣电平（相对主瓣峰值，单位：dB） */
-  float backlobe_level_db{-35.0f};     /**< 后瓣电平（相对主瓣峰值，单位：dB） */
-  float scan_loss_coeff_db_per_deg2{0.0f}; /**< 扫描损失二次项系数（单位：dB/deg²） */
-  float max_scan_loss_db{6.0f};            /**< 最大扫描损失（单位：dB） */
-  AzimuthElevationDeg boresight_offset_deg; /**< 阵面法线相对安装基准轴的零偏指向 */
+  AntennaPatternModelType model_type{
+      AntennaPatternModelType::kGaussianMainLobe}; /**< 主瓣近似模型 */
+  float max_sidelobe_level_db{-20.0f};             /**< 最大旁瓣电平（相对主瓣峰值，单位：dB） */
+  float backlobe_level_db{-35.0f};                 /**< 后瓣电平（相对主瓣峰值，单位：dB） */
+  float scan_loss_coeff_db_per_deg2{0.0f};         /**< 扫描损失二次项系数（单位：dB/deg²） */
+  float max_scan_loss_db{6.0f};                    /**< 最大扫描损失（单位：dB） */
+  AzimuthElevationDeg boresight_offset_deg;        /**< 阵面法线相对安装基准轴的零偏指向 */
 };
 
 }  // namespace config

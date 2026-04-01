@@ -11,10 +11,10 @@
 
 #include "1q/airborne_radar/common/model/DecisionInputFrame.h"
 #include "1q/airborne_radar/common/model/TargetFeature.h"
-#include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
 #include "airborne_radar/signal/pipeline/InternalSignalPipelineConfig.h"
+#include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/tracking/GaussianTrackState.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
@@ -25,8 +25,8 @@ namespace pipeline {
 namespace internal {
 
 struct CycleWorkspace {
-  common::model::TargetFeatureList* output_state{nullptr};                     /**< 输出目标列表 */
-  common::model::DecisionInputFrame* decision_frame{nullptr};                  /**< 决策输入帧 */
+  common::model::TargetFeatureList* output_state{nullptr};              /**< 输出目标列表 */
+  common::model::DecisionInputFrame* decision_frame{nullptr};           /**< 决策输入帧 */
   AssociationQualityMetrics* association_quality_metrics{nullptr};      /**< 关联质量观测指标 */
   std::vector<tracking::TrackMeasurement>* track_measurements{nullptr}; /**< 跟踪量测列表 */
   std::vector<float>* signal_term_db{nullptr};                          /**< 各目标信号项（dB） */
@@ -70,8 +70,7 @@ void RefreshMeasurementCovariances(
 void SyncAssociationAndTrackFilterConfigs(
     const SignalPipelineConfig& runtime_config,
     const InternalSignalPipelineConfig& internal_runtime_config,
-                                          association::DataAssociationEngine* association_engine,
-                                          tracking::TrackFilter* track_filter);
+    association::DataAssociationEngine* association_engine, tracking::TrackFilter* track_filter);
 
 }  // namespace internal
 }  // namespace pipeline

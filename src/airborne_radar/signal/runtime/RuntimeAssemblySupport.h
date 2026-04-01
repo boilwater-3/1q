@@ -9,9 +9,9 @@
 #include <memory>
 
 #include "1q/airborne_radar/common/control/RadarControlProfile.h"
-#include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/pipeline/InternalSignalPipelineConfig.h"
+#include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
@@ -71,11 +71,10 @@ struct OwnedComponentSlots {
  * @param[in] control_profile 当前控制真值。
  * @param[in,out] slots 待重建的组件槽位。
  */
-void RebuildOwnedComponentsForPipeline(const SignalPipelineConfig& base_config,
-                                       const pipeline::internal::InternalSignalPipelineConfig&
-                                           base_internal_config,
-                                       const common::control::RadarControlProfile& control_profile,
-                                       OwnedComponentSlots* slots);
+void RebuildOwnedComponentsForPipeline(
+    const SignalPipelineConfig& base_config,
+    const pipeline::internal::InternalSignalPipelineConfig& base_internal_config,
+    const common::control::RadarControlProfile& control_profile, OwnedComponentSlots* slots);
 
 }  // namespace internal
 }  // namespace runtime

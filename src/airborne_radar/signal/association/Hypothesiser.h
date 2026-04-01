@@ -98,9 +98,9 @@ class DenseCostHypothesiser final : public IHypothesiser {
       const std::vector<Eigen::Matrix3f>& measurement_covariances) const;
 
  private:
-  const IDistanceMetric* distance_metric_{nullptr};             /**< 距离度量器（基础路径）。 */
-  ICovarianceAwareDistanceMetric* covariance_metric_{nullptr};  /**< 协方差注入度量器（可空）。 */
-  const IGater* gater_{nullptr};                                /**< 波门裁剪器。 */
+  const IDistanceMetric* distance_metric_{nullptr};            /**< 距离度量器（基础路径）。 */
+  ICovarianceAwareDistanceMetric* covariance_metric_{nullptr}; /**< 协方差注入度量器（可空）。 */
+  const IGater* gater_{nullptr};                               /**< 波门裁剪器。 */
 };
 
 }  // namespace association

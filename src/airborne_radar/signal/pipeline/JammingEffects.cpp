@@ -58,8 +58,9 @@ float ResolveJammerConfidenceWeight(const JammingEffectsConfig& cfg,
  * @return 裁剪至 [0.0f, 1.0f] 的轨迹级干扰贡献得分
  * @note 使用固定经验系数，不依赖 cfg，以保持语义判定阶段的稳定性
  */
-float ComputeTrackLevelJammingContribution(const common::control::RadarControlProfile& control_profile,
-                                           const environment::JammerSourceFact& jammer_source) {
+float ComputeTrackLevelJammingContribution(
+    const common::control::RadarControlProfile& control_profile,
+    const environment::JammerSourceFact& jammer_source) {
   // 轨迹级贡献使用固定系数——该函数参与主导语义判定（E 组），不用 cfg。
   const float confidence_weight = ClampFloat(jammer_source.confidence, 0.25f, 1.0f);
   const float residual_factor = ComputeResidualJammerFactor(control_profile, jammer_source);
@@ -340,8 +341,7 @@ float ComputeTrackLevelJammingSeverity(
 void ApplyEnvironmentJammingFactsToRuntimeConfig(
     const common::control::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot,
-    InternalSignalPipelineConfig* internal_runtime_config,
-    SignalPipelineConfig* runtime_config) {
+    InternalSignalPipelineConfig* internal_runtime_config, SignalPipelineConfig* runtime_config) {
   if (runtime_config == nullptr || internal_runtime_config == nullptr ||
       !HasMultiSourceJammingFacts(environment_snapshot)) {
     return;

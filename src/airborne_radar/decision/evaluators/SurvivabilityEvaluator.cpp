@@ -13,7 +13,8 @@ void SurvivabilityEvaluator::Evaluate(const common::model::DecisionInputFrame& i
   (void)state_store;
   if (!evaluation_state.threat_assessment_phase_done) {
     PROJECT_LOG_ERROR(
-        "[SurvivabilityEvaluator] invalid evaluator order: ThreatAssessmentEvaluator must run first.");
+        "[SurvivabilityEvaluator] invalid evaluator order: ThreatAssessmentEvaluator must run "
+        "first.");
     evaluation_state.should_enable_eccm = false;
     return;
   }
@@ -27,10 +28,9 @@ void SurvivabilityEvaluator::Evaluate(const common::model::DecisionInputFrame& i
     return;
   }
 
-  internal::AppendEccmProposals(evaluation_state.eccm_source_info,
-                                input_frame.association_quality_info,
-                                input_frame.environment_jamming_detected,
-                                false, &evaluation_state.proposals);
+  internal::AppendEccmProposals(
+      evaluation_state.eccm_source_info, input_frame.association_quality_info,
+      input_frame.environment_jamming_detected, false, &evaluation_state.proposals);
   PROJECT_LOG_INFO("[SurvivabilityEvaluator] Active jamming detected. Appending ECCM proposals.");
 }
 

@@ -38,7 +38,7 @@ struct ControlReducerConfig {
  * @brief ControlReductionResult 表示 reducer 的单周期输出。
  */
 struct ControlReductionResult {
-  common::control::RadarControlProfile profile;                       /**< 归并后的下一周期控制真值 */
+  common::control::RadarControlProfile profile; /**< 归并后的下一周期控制真值 */
   std::vector<common::control::ControlDirective> applied_directives;  /**< 被采纳的控制意图 */
   std::vector<common::control::ControlDirective> rejected_directives; /**< 被拒绝的控制意图 */
 };

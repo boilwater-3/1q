@@ -20,8 +20,8 @@ namespace {
  */
 JammerEmitterState NormalizeEmitterState(const JammerEmitterState& raw_source) {
   JammerEmitterState normalized = raw_source;
-  normalized.power_db = common::utils::ClampFloat(raw_source.power_db, 0.0f,
-                                                  std::numeric_limits<float>::max());
+  normalized.power_db =
+      common::utils::ClampFloat(raw_source.power_db, 0.0f, std::numeric_limits<float>::max());
   normalized.js_db =
       common::utils::ClampFloat(raw_source.js_db, 0.0f, std::numeric_limits<float>::max());
   normalized.frequency_overlap_ratio =

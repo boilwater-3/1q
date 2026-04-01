@@ -38,7 +38,8 @@ common::config::AzimuthElevationDeg ResolveScheduledDwellCenter(
     const common::config::RadarOrientationConfig& orientation_config,
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg, std::uint32_t cycle_index);
 
-void ApplyScanScheduleToRuntimeConfig(std::uint32_t cycle_index, SignalPipelineConfig* runtime_config);
+void ApplyScanScheduleToRuntimeConfig(std::uint32_t cycle_index,
+                                      SignalPipelineConfig* runtime_config);
 
 }  // namespace internal
 }  // namespace runtime

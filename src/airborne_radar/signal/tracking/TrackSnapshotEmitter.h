@@ -34,11 +34,10 @@ class TrackSnapshotEmitter {
    * @param evidence_by_key 最新量测证据表（key 为关联键）。
    * @param last_cycle_index 当前已完成的周期号。
    */
-  void Refresh(
-      const std::unordered_map<std::uint64_t, TrackState*>& tracks_by_key,
-      const std::unordered_map<std::uint64_t, common::model::DecisionMeasurementEvidence>&
-          evidence_by_key,
-      std::uint32_t last_cycle_index);
+  void Refresh(const std::unordered_map<std::uint64_t, TrackState*>& tracks_by_key,
+               const std::unordered_map<std::uint64_t, common::model::DecisionMeasurementEvidence>&
+                   evidence_by_key,
+               std::uint32_t last_cycle_index);
 
   /**
    * @brief 导出供外围事件链路消费的轻量目标特征快照。

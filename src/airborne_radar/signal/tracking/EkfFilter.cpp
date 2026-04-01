@@ -55,7 +55,8 @@ KalmanUpdateResult EkfUpdater::Update(const GaussianTrackState& predicted,
   /* Kalman gain：K = P̂·Hᵀ·S⁻¹ 等价于 K = (S⁻¹·H·P̂)ᵀ，避免计算显式逆 */
   const Eigen::LLT<MeasurementCovariance> llt(result.innovation_covariance);
   if (llt.info() != Eigen::Success) {
-    PROJECT_LOG_ERROR("[EkfUpdater] Innovation covariance LLT decomposition failed; update is skipped.");
+    PROJECT_LOG_ERROR(
+        "[EkfUpdater] Innovation covariance LLT decomposition failed; update is skipped.");
     result.posterior = predicted;
     return result;
   }

@@ -91,8 +91,8 @@ enum class StabilizationMode {
  * actual_beam_pointing = platform_attitude + mount_angles_deg + scan_center_deg + dwell_center_deg
  */
 struct RadarOrientationConfig {
-  EulerAnglesDeg mount_angles_deg;                      /**< 雷达相对机体坐标系的安装偏置角 */
-  AzimuthElevationDeg scan_center_deg;                  /**< [可外部调整] 基准指向方向；不是扫描体积中心 */
+  EulerAnglesDeg mount_angles_deg;     /**< 雷达相对机体坐标系的安装偏置角 */
+  AzimuthElevationDeg scan_center_deg; /**< [可外部调整] 基准指向方向；不是扫描体积中心 */
   AzimuthElevationLimitsDeg mechanical_scan_limits_deg; /**< 机械扫描限位 */
   AzimuthElevationLimitsDeg electronic_scan_limits_deg; /**< 电子扫描限位 */
   oneq::common::ScanStartPosition scan_start_position{
@@ -100,9 +100,9 @@ struct RadarOrientationConfig {
   oneq::common::ScanSequence scan_sequence{
       oneq::common::ScanSequence::kAzimuthFirst};         /**< 二维扫描推进顺序 */
   RadarWorkSubMode work_sub_mode{RadarWorkSubMode::kTws}; /**< [可外部调整] 当前工作子模式 */
-  AzimuthElevationDeg dwell_center_deg;                   /**< 当前波束驻留中心（启用周期扫描调度时会被运行时覆盖） */
-  bool commanded_beamwidth_enabled{false};                /**< 指令态波束宽度覆盖使能 */
-  CommandedBeamwidthDeg commanded_beamwidth_deg;          /**< 当前指令态瞬时波束宽度 */
+  AzimuthElevationDeg dwell_center_deg; /**< 当前波束驻留中心（启用周期扫描调度时会被运行时覆盖） */
+  bool commanded_beamwidth_enabled{false};       /**< 指令态波束宽度覆盖使能 */
+  CommandedBeamwidthDeg commanded_beamwidth_deg; /**< 当前指令态瞬时波束宽度 */
   StabilizationMode stabilization_mode{StabilizationMode::kBodyStabilized}; /**< 波束稳定方式 */
 };
 

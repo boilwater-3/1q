@@ -27,9 +27,10 @@ struct DetectionResult {
  * @brief 目标回波特征上下文。
  */
 struct TargetReturn {
-  float rcs_m2{0.0f};                      /**< 目标 RCS (m²) */
-  float range_m{0.0f};                     /**< 目标到雷达斜距 (m) */
-  common::config::SwerlingModel swerling_type{common::config::kSwerling0}; /**< 目标的 Swerling 起伏模型 */
+  float rcs_m2{0.0f};  /**< 目标 RCS (m²) */
+  float range_m{0.0f}; /**< 目标到雷达斜距 (m) */
+  common::config::SwerlingModel swerling_type{
+      common::config::kSwerling0}; /**< 目标的 Swerling 起伏模型 */
 };
 /**
  * @brief 环境噪声上下文。
@@ -79,8 +80,8 @@ class SignalDetector {
 
  private:
   common::config::RadarSystemConfig config_; /**< 雷达系统配置 */
-  float thermal_noise_w_;    /**< 预计算的接收机热噪声底 (W) */
-  std::mt19937 rng_;         /**< 确定性随机数引擎 */
+  float thermal_noise_w_;                    /**< 预计算的接收机热噪声底 (W) */
+  std::mt19937 rng_;                         /**< 确定性随机数引擎 */
 };
 
 }  // namespace detection

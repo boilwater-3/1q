@@ -42,7 +42,8 @@ bool IsFinite(T value) {
  * @param[in] platform_pose 平台位姿输入。
  * @param[out] issues 校验问题列表。
  */
-void ValidatePlatformPose(const common::EsrPoseState& platform_pose, EsrValidationIssueList* issues) {
+void ValidatePlatformPose(const common::EsrPoseState& platform_pose,
+                          EsrValidationIssueList* issues) {
   if (issues == nullptr) {
     return;
   }
@@ -52,10 +53,9 @@ void ValidatePlatformPose(const common::EsrPoseState& platform_pose, EsrValidati
       !IsFinite(platform_pose.attitude_deg.yaw_deg) ||
       !IsFinite(platform_pose.attitude_deg.pitch_deg) ||
       !IsFinite(platform_pose.attitude_deg.roll_deg)) {
-    issues->push_back(MakeIssue(EsrValidationSeverity::kError,
-                                EsrValidationCode::kNonFinitePlatformNumericField,
-                                static_cast<std::size_t>(-1),
-                                "platform pose contains non-finite numeric field"));
+    issues->push_back(
+        MakeIssue(EsrValidationSeverity::kError, EsrValidationCode::kNonFinitePlatformNumericField,
+                  static_cast<std::size_t>(-1), "platform pose contains non-finite numeric field"));
   }
 }
 
@@ -81,8 +81,7 @@ void ValidateEmitter(const common::EmitterTruthState& emitter, std::size_t emitt
       !IsFinite(emitter.pri_s) || !IsFinite(emitter.pose.position_m.x) ||
       !IsFinite(emitter.pose.position_m.y) || !IsFinite(emitter.pose.position_m.z) ||
       !IsFinite(emitter.pose.velocity_mps.x) || !IsFinite(emitter.pose.velocity_mps.y) ||
-      !IsFinite(emitter.pose.velocity_mps.z) ||
-      !IsFinite(emitter.pose.attitude_deg.yaw_deg) ||
+      !IsFinite(emitter.pose.velocity_mps.z) || !IsFinite(emitter.pose.attitude_deg.yaw_deg) ||
       !IsFinite(emitter.pose.attitude_deg.pitch_deg) ||
       !IsFinite(emitter.pose.attitude_deg.roll_deg) ||
       !IsFinite(emitter.beam_state.center_az_deg) || !IsFinite(emitter.beam_state.center_el_deg) ||

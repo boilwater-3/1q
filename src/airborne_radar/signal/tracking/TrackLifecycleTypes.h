@@ -68,7 +68,7 @@ struct FilteredTrackFeature {
   bool jamming_detected{false};                      /**< 当前量测是否检测到干扰。 */
   common::utils::JammingSemantic dominant_jamming_semantic{
       common::utils::JammingSemantic::kNone}; /**< 当前量测对应的主导干扰摘要类型。 */
-  float jamming_severity{0.0f};        /**< 当前量测对应的残余干扰强度摘要，范围 [0, 1]。 */
+  float jamming_severity{0.0f};               /**< 当前量测对应的残余干扰强度摘要，范围 [0, 1]。 */
 };
 /**
  * @brief TrackMeasurement 描述提供给 Lifecycle 的组合输入。

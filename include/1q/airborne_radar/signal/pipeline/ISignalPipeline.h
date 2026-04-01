@@ -38,7 +38,8 @@ class ONEQ_API ISignalPipeline {
    * @brief 更新当前搭载平台姿态。
    * @param[in] platform_attitude_deg 平台姿态角（单位：度）。
    */
-  virtual void UpdatePlatformAttitude(const common::config::PlatformAttitudeDeg& platform_attitude_deg) = 0;
+  virtual void UpdatePlatformAttitude(
+      const common::config::PlatformAttitudeDeg& platform_attitude_deg) = 0;
 
   /**
    * @brief 获取当前搭载平台姿态。

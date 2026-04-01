@@ -14,8 +14,9 @@ namespace {
  *         `EMISSION_CONTROL` 的控制意图。
  */
 common::control::ControlDirective BuildLpiPowerDirective() {
-  return common::control::ControlDirective(common::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
-                                  common::control::ControlDirectiveSource::EMISSION_CONTROL);
+  return common::control::ControlDirective(
+      common::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+      common::control::ControlDirectiveSource::EMISSION_CONTROL);
 }
 
 }  // namespace

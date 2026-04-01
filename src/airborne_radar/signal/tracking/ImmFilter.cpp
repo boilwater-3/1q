@@ -123,14 +123,15 @@ void ImmFilter::UpdateModels(const MeasurementVector& measurement) {
     update_results_[ju] = updaters_[ju]->Update(predicted_states_[ju], measurement);
     model_states_[ju].state = update_results_[ju].posterior;
 
-    log_likelihoods_(j) = static_cast<float>(
-        GaussianLogLikelihood(update_results_[ju].innovation, update_results_[ju].innovation_covariance));
+    log_likelihoods_(j) = static_cast<float>(GaussianLogLikelihood(
+        update_results_[ju].innovation, update_results_[ju].innovation_covariance));
   }
 
   // 1) 优先使用 log-sum-exp 归一化，避免 exp(log_likelihood) 下溢导致权重塌陷。
   double max_log_weight = -std::numeric_limits<double>::infinity();
   for (int j = 0; j < N; ++j) {
-    const double c_bar = std::max(static_cast<double>(c_bar_(j)), static_cast<double>(kWeightFloor));
+    const double c_bar =
+        std::max(static_cast<double>(c_bar_(j)), static_cast<double>(kWeightFloor));
     const double log_weight = std::log(c_bar) + static_cast<double>(log_likelihoods_(j));
     new_weights_(j) = static_cast<float>(log_weight);
     max_log_weight = std::max(max_log_weight, log_weight);
@@ -222,9 +223,8 @@ double ImmFilter::GaussianLogLikelihood(const MeasurementVector& innovation,
 
   // log-likelihood（用 double 中间值避免精度丢失）
   constexpr double kLogTwoPi = 1.8378770664093455;  // log(2π)
-  return
-      -0.5 * (static_cast<double>(kMeasurementDim) * kLogTwoPi + log_det_d +
-              static_cast<double>(mahal_sq));
+  return -0.5 * (static_cast<double>(kMeasurementDim) * kLogTwoPi + log_det_d +
+                 static_cast<double>(mahal_sq));
 }
 
 GaussianTrackState ImmFilter::GetCombinedState() const { return combined_state_; }

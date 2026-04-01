@@ -26,7 +26,8 @@ void MutableRadarContext::SetCycleDeltaTimeSec(float dt_sec) { cycle_dt_sec_ = d
 
 void MutableRadarContext::ResetCycleOutputs() { submitted_commands_.clear(); }
 
-const std::vector<common::control::RadarCommand>& MutableRadarContext::GetSubmittedCommands() const {
+const std::vector<common::control::RadarCommand>& MutableRadarContext::GetSubmittedCommands()
+    const {
   return submitted_commands_;
 }
 
@@ -50,7 +51,8 @@ void MutableRadarContext::SubmitControlCommand(common::control::RadarCommand cmd
   submitted_commands_.push_back(std::move(cmd));
 }
 
-void MutableRadarContext::UpdateRadarControlProfile(const common::control::RadarControlProfile& profile) {
+void MutableRadarContext::UpdateRadarControlProfile(
+    const common::control::RadarControlProfile& profile) {
   latest_control_profile_ = profile;
   has_latest_control_profile_ = true;
 }

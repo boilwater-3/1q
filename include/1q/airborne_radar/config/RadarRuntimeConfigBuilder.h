@@ -22,34 +22,35 @@ namespace config {
  * 通过 `RadarSession::ApplyRuntimeConfig(...)` 直接提交修改。
  */
 struct RadarRuntimeConfigPatch {
-  bool has_signal_pipeline_config{false}; /**< [补丁标志] 是否覆盖整套信号流水线配置 */
+  bool has_signal_pipeline_config{false};        /**< [补丁标志] 是否覆盖整套信号流水线配置 */
   SignalPipelineConfig signal_pipeline_config{}; /**< [可外部调整] 整套信号流水线配置 */
 
-  bool has_signal_detection_config{false}; /**< [补丁标志] 是否覆盖探测域关键配置 */
+  bool has_signal_detection_config{false};         /**< [补丁标志] 是否覆盖探测域关键配置 */
   SignalDetectionConfig signal_detection_config{}; /**< [可外部调整] 探测域关键配置 */
 
   bool has_signal_beam_control_config{false}; /**< [补丁标志] 是否覆盖波束控制域关键配置 */
   SignalBeamControlConfig signal_beam_control_config{}; /**< [可外部调整] 波束控制域关键配置 */
 
   bool has_environment_model_config{false}; /**< [补丁标志] 是否覆盖整套环境模型配置 */
-  environment::EnvironmentModelConfig environment_model_config{}; /**< [可外部调整] 整套环境模型配置 */
+  environment::EnvironmentModelConfig
+      environment_model_config{}; /**< [可外部调整] 整套环境模型配置 */
 
   bool has_jamming_detection_threshold_db{false}; /**< [补丁标志] 是否更新干扰判定阈值 */
   float jamming_detection_threshold_db{6.0f};     /**< [可外部调整] 干扰判定阈值（单位：dB） */
 
-  bool has_platform_attitude_deg{false}; /**< [补丁标志] 是否更新平台姿态 */
+  bool has_platform_attitude_deg{false};       /**< [补丁标志] 是否更新平台姿态 */
   PlatformAttitudeDeg platform_attitude_deg{}; /**< [可外部调整] 平台姿态角（单位：deg） */
 
-  bool has_work_sub_mode{false}; /**< [补丁标志] 是否更新雷达工作子模式 */
+  bool has_work_sub_mode{false};                          /**< [补丁标志] 是否更新雷达工作子模式 */
   RadarWorkSubMode work_sub_mode{RadarWorkSubMode::kTws}; /**< [可外部调整] 雷达工作子模式 */
 
-  bool has_scan_center_deg{false}; /**< [补丁标志] 是否更新扫描中心 */
+  bool has_scan_center_deg{false};       /**< [补丁标志] 是否更新扫描中心 */
   AzimuthElevationDeg scan_center_deg{}; /**< [可外部调整] 扫描中心（单位：deg） */
 
-  bool has_dwell_center_deg{false}; /**< [补丁标志] 是否更新驻留中心 */
+  bool has_dwell_center_deg{false};       /**< [补丁标志] 是否更新驻留中心 */
   AzimuthElevationDeg dwell_center_deg{}; /**< [可外部调整] 驻留中心（单位：deg） */
 
-  bool has_commanded_beamwidth_deg{false}; /**< [补丁标志] 是否更新指令态波束宽度 */
+  bool has_commanded_beamwidth_deg{false};         /**< [补丁标志] 是否更新指令态波束宽度 */
   CommandedBeamwidthDeg commanded_beamwidth_deg{}; /**< [可外部调整] 指令态波束宽度（单位：deg） */
 
   bool has_commanded_beamwidth_enabled{false}; /**< [补丁标志] 是否更新指令态波束使能 */
@@ -98,7 +99,8 @@ class ONEQ_API RadarRuntimeConfigBuilder {
   }
 
   /** @brief 更新平台姿态。 */
-  RadarRuntimeConfigBuilder& WithPlatformAttitudeDeg(const PlatformAttitudeDeg& platform_attitude_deg) {
+  RadarRuntimeConfigBuilder& WithPlatformAttitudeDeg(
+      const PlatformAttitudeDeg& platform_attitude_deg) {
     patch_.has_platform_attitude_deg = true;
     patch_.platform_attitude_deg = platform_attitude_deg;
     return *this;

@@ -30,19 +30,19 @@ enum class EsrValidationSeverity {
  * @brief EsrValidationCode 表示结构化校验编码。
  */
 enum class EsrValidationCode {
-  kNone = 0,                     /**< 无问题占位值 */
-  kInvalidCycleDeltaTime,        /**< 周期步长非法（<= 0） */
-  kNonFiniteCycleDeltaTime,      /**< 周期步长非有限值 */
+  kNone = 0,                      /**< 无问题占位值 */
+  kInvalidCycleDeltaTime,         /**< 周期步长非法（<= 0） */
+  kNonFiniteCycleDeltaTime,       /**< 周期步长非有限值 */
   kNonFinitePlatformNumericField, /**< 平台存在非有限数值字段 */
-  kEmptyEmitterId,               /**< 辐射源标识为空 */
-  kInvalidEmitterFrequency,      /**< 辐射源频率非法（<= 0） */
-  kInvalidEmitterBandwidth,      /**< 辐射源带宽非法（<= 0） */
-  kInvalidEmitterPower,          /**< 辐射源功率非法（<= 0） */
-  kInvalidEmitterPulseWidth,     /**< 辐射源脉宽非法（<= 0） */
-  kInvalidEmitterPri,            /**< 辐射源 PRI 非法（<= 0） */
-  kEmitterPriLessThanPulseWidth, /**< 辐射源 PRI 小于脉宽 */
-  kInvalidEmitterBeamwidth,      /**< 辐射源波束宽度非法（<= 0） */
-  kNonFiniteEmitterNumericField  /**< 辐射源存在非有限数值字段 */
+  kEmptyEmitterId,                /**< 辐射源标识为空 */
+  kInvalidEmitterFrequency,       /**< 辐射源频率非法（<= 0） */
+  kInvalidEmitterBandwidth,       /**< 辐射源带宽非法（<= 0） */
+  kInvalidEmitterPower,           /**< 辐射源功率非法（<= 0） */
+  kInvalidEmitterPulseWidth,      /**< 辐射源脉宽非法（<= 0） */
+  kInvalidEmitterPri,             /**< 辐射源 PRI 非法（<= 0） */
+  kEmitterPriLessThanPulseWidth,  /**< 辐射源 PRI 小于脉宽 */
+  kInvalidEmitterBeamwidth,       /**< 辐射源波束宽度非法（<= 0） */
+  kNonFiniteEmitterNumericField   /**< 辐射源存在非有限数值字段 */
 };
 
 /**

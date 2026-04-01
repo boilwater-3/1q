@@ -108,8 +108,7 @@ std::vector<AssociationHypothesis> DenseCostHypothesiser::Generate(
   }
 
   if (covariance_metric_ == nullptr) {
-    AbortContractViolation(
-        "dynamic measurement covariance requires FullMahalanobisDistanceMetric");
+    AbortContractViolation("dynamic measurement covariance requires FullMahalanobisDistanceMetric");
   }
 
   std::vector<AssociationHypothesis> hypotheses;
@@ -119,7 +118,7 @@ std::vector<AssociationHypothesis> DenseCostHypothesiser::Generate(
     for (std::size_t measurement_index = 0; measurement_index < measurements.size();
          ++measurement_index) {
       covariance_metric_->SetInnovationCovariance(projected_measurement_covariances[track_index] +
-                                            measurement_covariances[measurement_index]);
+                                                  measurement_covariances[measurement_index]);
       const float cost =
           distance_metric_->Compute(predicted_tracks[track_index], measurements[measurement_index]);
       if (!gater_->Accept(cost)) {

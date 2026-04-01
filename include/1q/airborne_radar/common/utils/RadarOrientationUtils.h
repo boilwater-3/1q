@@ -54,8 +54,8 @@ inline bool IsValidScanLimits(const config::AzimuthElevationLimitsDeg& limits) {
  * @param[in] limits 扫描窗口。
  * @return 限幅后的方位/俯仰角。
  */
-inline config::AzimuthElevationDeg ClampAzimuthElevation(const config::AzimuthElevationDeg& angle,
-                                                 const config::AzimuthElevationLimitsDeg& limits) {
+inline config::AzimuthElevationDeg ClampAzimuthElevation(
+    const config::AzimuthElevationDeg& angle, const config::AzimuthElevationLimitsDeg& limits) {
   config::AzimuthElevationDeg clamped;
   clamped.az_deg = ClampFloat(angle.az_deg, limits.az_min_deg, limits.az_max_deg);
   clamped.el_deg = ClampFloat(angle.el_deg, limits.el_min_deg, limits.el_max_deg);
@@ -103,7 +103,8 @@ inline config::AzimuthElevationLimitsDeg IntersectScanLimits(
  * @param[in] config 雷达方向配置。
  * @return 相对雷达安装基准轴的方位/俯仰指向。
  */
-inline config::AzimuthElevationDeg ComputeMountFrameBeamPointing(const config::RadarOrientationConfig& config) {
+inline config::AzimuthElevationDeg ComputeMountFrameBeamPointing(
+    const config::RadarOrientationConfig& config) {
   config::AzimuthElevationDeg unclamped;
   unclamped.az_deg = config.scan_center_deg.az_deg + config.dwell_center_deg.az_deg;
   unclamped.el_deg = config.scan_center_deg.el_deg + config.dwell_center_deg.el_deg;
@@ -117,13 +118,15 @@ inline config::AzimuthElevationDeg ComputeMountFrameBeamPointing(const config::R
  * @param[in] config 雷达方向配置。
  * @return 机体系下的欧拉角；由安装姿态与挂架波束指向做旋转合成得到。
  */
-inline config::EulerAnglesDeg ComputeBodyFrameBeamPointing(const config::RadarOrientationConfig& config) {
+inline config::EulerAnglesDeg ComputeBodyFrameBeamPointing(
+    const config::RadarOrientationConfig& config) {
   const config::AzimuthElevationDeg mount_frame_pointing = ComputeMountFrameBeamPointing(config);
   config::EulerAnglesDeg mount_frame_euler;
   mount_frame_euler.yaw_deg = mount_frame_pointing.az_deg;
   mount_frame_euler.pitch_deg = mount_frame_pointing.el_deg;
   const Eigen::Matrix3f body_rotation =
-      oneq::internal::geometry::BuildRotationMatrix(internal::ToGeometryEuler(config.mount_angles_deg)) *
+      oneq::internal::geometry::BuildRotationMatrix(
+          internal::ToGeometryEuler(config.mount_angles_deg)) *
       oneq::internal::geometry::BuildRotationMatrix(internal::ToGeometryEuler(mount_frame_euler));
   return internal::FromRotationMatrix(body_rotation);
 }
@@ -136,15 +139,18 @@ inline config::EulerAnglesDeg ComputeBodyFrameBeamPointing(const config::RadarOr
  * @note 该函数仅执行几何叠加，适用于机体稳定模式；
  *       若采用惯性稳定或对地稳定，调用方应先求得等效平台姿态后再使用。
  */
-inline config::EulerAnglesDeg ComputePlatformFrameBeamPointing(const config::EulerAnglesDeg& platform_attitude_deg,
-                                                       const config::RadarOrientationConfig& config) {
+inline config::EulerAnglesDeg ComputePlatformFrameBeamPointing(
+    const config::EulerAnglesDeg& platform_attitude_deg,
+    const config::RadarOrientationConfig& config) {
   const config::AzimuthElevationDeg mount_frame_pointing = ComputeMountFrameBeamPointing(config);
   config::EulerAnglesDeg mount_frame_euler;
   mount_frame_euler.yaw_deg = mount_frame_pointing.az_deg;
   mount_frame_euler.pitch_deg = mount_frame_pointing.el_deg;
   const Eigen::Matrix3f platform_rotation =
-      oneq::internal::geometry::BuildRotationMatrix(internal::ToGeometryEuler(platform_attitude_deg)) *
-      oneq::internal::geometry::BuildRotationMatrix(internal::ToGeometryEuler(config.mount_angles_deg)) *
+      oneq::internal::geometry::BuildRotationMatrix(
+          internal::ToGeometryEuler(platform_attitude_deg)) *
+      oneq::internal::geometry::BuildRotationMatrix(
+          internal::ToGeometryEuler(config.mount_angles_deg)) *
       oneq::internal::geometry::BuildRotationMatrix(internal::ToGeometryEuler(mount_frame_euler));
   return internal::FromRotationMatrix(platform_rotation);
 }

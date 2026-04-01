@@ -13,7 +13,7 @@ namespace {
  * @return 匹配状态的轨迹快照拷贝列表。
  */
 model::DecisionTrackSnapshotList CollectTracksByStatus(const TrackOutputFrame& frame,
-                                                model::DecisionTrackStatus status) {
+                                                       model::DecisionTrackStatus status) {
   model::DecisionTrackSnapshotList tracks;
   for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
     if (frame.tracks[i].state.status == status) {
@@ -48,7 +48,7 @@ std::unordered_map<std::uint64_t, model::DecisionTrackSnapshot> BuildTrackMapByA
 }
 
 model::DecisionTrackSnapshotList CollectTracksByExternalTargetId(const TrackOutputFrame& frame,
-                                                          std::uint64_t external_target_id) {
+                                                                 std::uint64_t external_target_id) {
   model::DecisionTrackSnapshotList tracks;
   for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
     if (frame.tracks[i].state.external_target_id == external_target_id) {

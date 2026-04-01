@@ -58,8 +58,7 @@ inline float ClampLowerBound(float value, float min_value) {
  * @return 任一轴绝对离轴角超过 90 度时返回 true。
  */
 inline bool IsInsideBackLobe(const AntennaLookOffsetDeg& offset_deg) {
-  return std::fabs(offset_deg.delta_az_deg) > 90.0f ||
-         std::fabs(offset_deg.delta_el_deg) > 90.0f;
+  return std::fabs(offset_deg.delta_az_deg) > 90.0f || std::fabs(offset_deg.delta_el_deg) > 90.0f;
 }
 
 }  // namespace antenna_pattern_internal
@@ -163,15 +162,13 @@ inline AntennaPatternSample EvaluateAntennaPattern(
   AntennaPatternSample sample;
   sample.scan_loss_db = ComputeScanLossDb(config, beam_pointing_deg);
   sample.inside_back_lobe = antenna_pattern_internal::IsInsideBackLobe(offset_deg);
-  sample.inside_main_lobe =
-      !sample.inside_back_lobe && IsInsideMainLobe(beamwidth_deg, offset_deg);
+  sample.inside_main_lobe = !sample.inside_back_lobe && IsInsideMainLobe(beamwidth_deg, offset_deg);
   if (sample.inside_back_lobe) {
     sample.gain_dbi = peak_gain_dbi + config.backlobe_level_db - sample.scan_loss_db;
     return sample;
   }
 
-  sample.main_lobe_attenuation_db =
-      ComputeMainLobeAttenuationDb(config, beamwidth_deg, offset_deg);
+  sample.main_lobe_attenuation_db = ComputeMainLobeAttenuationDb(config, beamwidth_deg, offset_deg);
   if (sample.inside_main_lobe) {
     sample.gain_dbi = peak_gain_dbi - sample.main_lobe_attenuation_db - sample.scan_loss_db;
     return sample;

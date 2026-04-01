@@ -26,13 +26,14 @@ LifecycleAssemblyArtifacts BuildGuaranteedLifecycleAssemblyArtifacts(
   PROJECT_LOG_ERROR(
       "[SignalPipeline] lifecycle auto-assembly produced null manager; "
       "falling back to non-IMM lifecycle manager.");
-  return SignalComponentFactory::BuildLifecycleAssemblyArtifacts(
-      fallback_config.public_config, fallback_config.internal_config);
+  return SignalComponentFactory::BuildLifecycleAssemblyArtifacts(fallback_config.public_config,
+                                                                 fallback_config.internal_config);
 }
 
 class AutoConfiguredLifecycleManager final : public tracking::ITrackLifecycleManager {
  public:
-  explicit AutoConfiguredLifecycleManager(const ResolvedRuntimeSignalPipelineConfig& resolved_config)
+  explicit AutoConfiguredLifecycleManager(
+      const ResolvedRuntimeSignalPipelineConfig& resolved_config)
       : assembly_(BuildGuaranteedLifecycleAssemblyArtifacts(resolved_config)) {}
 
   void Update(const tracking::CycleContext& cycle,
@@ -57,8 +58,9 @@ class AutoConfiguredLifecycleManager final : public tracking::ITrackLifecycleMan
     return assembly_.lifecycle_manager->BuildDecisionSnapshot();
   }
 
-  common::model::DecisionInputFrame BuildDecisionFrame(std::uint32_t cycle_index, std::uint64_t batch_id,
-                                                bool environment_jamming_detected) const override {
+  common::model::DecisionInputFrame BuildDecisionFrame(
+      std::uint32_t cycle_index, std::uint64_t batch_id,
+      bool environment_jamming_detected) const override {
     if (assembly_.lifecycle_manager == nullptr) {
       common::model::DecisionInputFrame frame;
       frame.cycle_index = cycle_index;
@@ -120,15 +122,14 @@ std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManagerForR
   ResolvedRuntimeSignalPipelineConfig resolved_config;
   resolved_config.public_config = runtime_config;
   resolved_config.internal_config = internal_config;
-  return std::unique_ptr<tracking::ITrackLifecycleManager>(new AutoConfiguredLifecycleManager(
-      resolved_config));
+  return std::unique_ptr<tracking::ITrackLifecycleManager>(
+      new AutoConfiguredLifecycleManager(resolved_config));
 }
 
 void RebuildOwnedComponentsForPipeline(
     const SignalPipelineConfig& base_config,
     const pipeline::internal::InternalSignalPipelineConfig& base_internal_config,
-    const common::control::RadarControlProfile& control_profile,
-    OwnedComponentSlots* slots) {
+    const common::control::RadarControlProfile& control_profile, OwnedComponentSlots* slots) {
   if (slots == nullptr || !HasValidOwnedComponentSlots(*slots)) {
     return;
   }

@@ -11,8 +11,8 @@
 
 #include "1q/airborne_radar/common/control/RadarCommand.h"
 #include "1q/airborne_radar/common/control/RadarControlProfile.h"
-#include "1q/airborne_radar/config/SignalPipelineConfig.h"
 #include "1q/airborne_radar/common/output/TrackOutputFrame.h"
+#include "1q/airborne_radar/config/SignalPipelineConfig.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/airborne_radar/core/session/RadarCycleResult.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
@@ -80,7 +80,7 @@ class ONEQ_API RadarSession {
    *       `published_track_count` 可能为零。
    */
   common::output::TrackOutputFrame Step(const context::RadarCycleInput& input,
-                                const environment::EnvironmentSceneState& scene_state);
+                                        const environment::EnvironmentSceneState& scene_state);
 
   /**
    * @brief 执行一个不显式切场景的处理周期，并返回聚合结果。

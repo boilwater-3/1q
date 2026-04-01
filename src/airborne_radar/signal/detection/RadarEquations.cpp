@@ -77,9 +77,9 @@ float ClampPd(float pd) {
 
 }  // namespace
 
-float RadarEquations::ComputeEchoPowerWithGain_dBW(
-    const common::config::TransmitterConfig& tx, float one_way_gain_db, float rcs_m2,
-    float range_m, float propagation_loss_db) {
+float RadarEquations::ComputeEchoPowerWithGain_dBW(const common::config::TransmitterConfig& tx,
+                                                   float one_way_gain_db, float rcs_m2,
+                                                   float range_m, float propagation_loss_db) {
   if (range_m <= 0.0f || rcs_m2 <= 0.0f) {
     return -300.0f;
   }

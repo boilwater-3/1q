@@ -5,8 +5,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <deque>
-#include <unordered_set>
 #include <nanoflann.hpp>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 

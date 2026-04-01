@@ -56,8 +56,8 @@ struct TrackState {
   bool jamming_detected{false}; /**< 当前周期是否检测到与该轨迹相关的干扰。 */
   common::utils::JammingSemantic dominant_jamming_semantic{
       common::utils::JammingSemantic::kNone}; /**< 最近一次命中对应的主导干扰摘要语义。 */
-  float jamming_severity{0.0f};        /**< 最近一次命中对应的残余干扰强度，范围 `[0, 1]`。 */
-  GaussianTrackState gaussian_state;   /**< 高斯状态估计，与 Kalman 滤波器共享类型定义。 */
+  float jamming_severity{0.0f};      /**< 最近一次命中对应的残余干扰强度，范围 `[0, 1]`。 */
+  GaussianTrackState gaussian_state; /**< 高斯状态估计，与 Kalman 滤波器共享类型定义。 */
 };
 
 }  // namespace tracking

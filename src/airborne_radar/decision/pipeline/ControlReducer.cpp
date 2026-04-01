@@ -113,7 +113,8 @@ void ResetEccmDomain(common::control::RadarControlProfile* profile) {
  * @param from 源控制真值。
  * @param to 目标控制真值。
  */
-void CopyLpiDomain(const common::control::RadarControlProfile& from, common::control::RadarControlProfile* to) {
+void CopyLpiDomain(const common::control::RadarControlProfile& from,
+                   common::control::RadarControlProfile* to) {
   if (to == nullptr) {
     return;
   }
@@ -128,7 +129,8 @@ void CopyLpiDomain(const common::control::RadarControlProfile& from, common::con
  * @param from 源控制真值。
  * @param to 目标控制真值。
  */
-void CopyEccmDomain(const common::control::RadarControlProfile& from, common::control::RadarControlProfile* to) {
+void CopyEccmDomain(const common::control::RadarControlProfile& from,
+                    common::control::RadarControlProfile* to) {
   if (to == nullptr) {
     return;
   }
@@ -157,10 +159,8 @@ void AdvanceAgilityFrequencyHopPhase(const common::control::RadarControlProfile&
     next->agility_frequency_hop_phase = 0U;
     return;
   }
-  next->agility_frequency_hop_phase =
-      static_cast<std::uint8_t>((static_cast<unsigned int>(previous.agility_frequency_hop_phase) +
-                                 1U) &
-                                0x1U);
+  next->agility_frequency_hop_phase = static_cast<std::uint8_t>(
+      (static_cast<unsigned int>(previous.agility_frequency_hop_phase) + 1U) & 0x1U);
 }
 
 /**
@@ -234,8 +234,9 @@ void MoveAppliedDirectiveToRejected(common::control::ControlDirectiveType type,
     return;
   }
   std::vector<common::control::ControlDirective>::iterator found = std::find_if(
-      applied->begin(), applied->end(),
-      [type](const common::control::ControlDirective& directive) { return directive.type == type; });
+      applied->begin(), applied->end(), [type](const common::control::ControlDirective& directive) {
+        return directive.type == type;
+      });
   if (found == applied->end()) {
     return;
   }
@@ -250,10 +251,10 @@ void MoveAppliedDirectiveToRejected(common::control::ControlDirectiveType type,
  * @param applied 已接受的控制意图列表。
  * @param rejected 已拒绝的控制意图列表。
  */
-void ResolveEmissionSurvivabilityConflict(const ControlReducerConfig& config,
-                                          common::control::RadarControlProfile* profile,
-                                          std::vector<common::control::ControlDirective>* applied,
-                                          std::vector<common::control::ControlDirective>* rejected) {
+void ResolveEmissionSurvivabilityConflict(
+    const ControlReducerConfig& config, common::control::RadarControlProfile* profile,
+    std::vector<common::control::ControlDirective>* applied,
+    std::vector<common::control::ControlDirective>* rejected) {
   if (profile == nullptr) {
     return;
   }
@@ -269,12 +270,13 @@ void ResolveEmissionSurvivabilityConflict(const ControlReducerConfig& config,
   if (profile->enable_lpi_beamforming && profile->enable_adaptive_beamforming) {
     if (config.prefer_survivability_in_beam_conflict) {
       profile->enable_lpi_beamforming = false;
-      MoveAppliedDirectiveToRejected(common::control::ControlDirectiveType::REQUEST_LPI_BEAMFORMING, applied,
-                                     rejected);
+      MoveAppliedDirectiveToRejected(common::control::ControlDirectiveType::REQUEST_LPI_BEAMFORMING,
+                                     applied, rejected);
     } else {
       profile->enable_adaptive_beamforming = false;
       MoveAppliedDirectiveToRejected(
-          common::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING, applied, rejected);
+          common::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING, applied,
+          rejected);
     }
   }
 }
@@ -376,9 +378,9 @@ ControlReductionResult ControlReducer::Reduce(
   } else {
     ResetLpiDomain(&next_profile);
     lpi_hold_cycles_remaining_ = 0U;
-    lpi_cooldown_cycles_remaining_ =
-        previous_lpi_active ? config_.lpi_cooldown_cycles_after_release
-                            : (next_lpi_cooldown > 0U ? next_lpi_cooldown - 1U : 0U);
+    lpi_cooldown_cycles_remaining_ = previous_lpi_active
+                                         ? config_.lpi_cooldown_cycles_after_release
+                                         : (next_lpi_cooldown > 0U ? next_lpi_cooldown - 1U : 0U);
   }
 
   if (has_eccm_requests) {

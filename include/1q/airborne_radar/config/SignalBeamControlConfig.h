@@ -16,8 +16,8 @@ namespace config {
  * @brief SignalBeamControlConfig 描述波束控制域关键配置。
  */
 struct SignalBeamControlConfig {
-  RadarOrientationConfig radar_orientation{};          /**< 雷达方向配置 */
-  PlatformAttitudeDeg platform_attitude_deg{};         /**< 平台姿态角（单位：度） */
+  RadarOrientationConfig radar_orientation{};  /**< 雷达方向配置 */
+  PlatformAttitudeDeg platform_attitude_deg{}; /**< 平台姿态角（单位：度） */
 };
 
 }  // namespace config

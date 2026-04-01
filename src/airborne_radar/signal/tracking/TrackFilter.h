@@ -6,8 +6,8 @@
 #ifndef AIRBORNE_RADAR_SIGNAL_TRACKING_TRACK_FILTER_H_
 #define AIRBORNE_RADAR_SIGNAL_TRACKING_TRACK_FILTER_H_
 
-#include "1q/airborne_radar/common/utils/JammingSemantics.h"
 #include "1q/airborne_radar/common/model/TargetFeature.h"
+#include "1q/airborne_radar/common/utils/JammingSemantics.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -27,8 +27,8 @@ struct TrackFilterContext {
   bool jamming_detected{false};    /**< 是否探测到干扰。 */
   common::utils::JammingSemantic dominant_jamming_semantic{
       common::utils::JammingSemantic::kNone}; /**< 主要干扰语义类型。 */
-  float jamming_severity{0.0f};        /**< 干扰严重程度。 */
-  float detection_margin_db{0.0f};     /**< 检测余量（dB）。 */
+  float jamming_severity{0.0f};               /**< 干扰严重程度。 */
+  float detection_margin_db{0.0f};            /**< 检测余量（dB）。 */
 };
 /**
  * @brief 预测后的轨迹状态。
@@ -87,7 +87,7 @@ class ITrackUpdater {
    * @return 更新后的目标特征。
    */
   virtual common::model::TargetFeature Update(const PredictedTrackState& predicted,
-                                       const TrackFilterContext& context) const = 0;
+                                              const TrackFilterContext& context) const = 0;
 };
 /**
  * @brief 简单轨迹更新器实现。
@@ -106,7 +106,7 @@ class SimpleTrackUpdater final : public ITrackUpdater {
    * @return 更新后的目标特征。
    */
   common::model::TargetFeature Update(const PredictedTrackState& predicted,
-                               const TrackFilterContext& context) const override;
+                                      const TrackFilterContext& context) const override;
   /**
    * @brief 更新配置参数。
    * @param config 新配置。
@@ -133,7 +133,7 @@ class TrackFilter final {
    * @return 滤波后的平滑目标特征。
    */
   common::model::TargetFeature Filter(const common::model::TargetFeature& input,
-                               const TrackFilterContext& context) const;
+                                      const TrackFilterContext& context) const;
   /**
    * @brief 更新配置参数。
    * @param config 全新的配置结构。

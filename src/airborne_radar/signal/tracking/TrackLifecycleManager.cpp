@@ -132,8 +132,7 @@ bool TrackLifecycleManager::ShouldUseImmForMeasurement(bool track_existed_before
          measurement.raw_measurement.matched_existing_track;
 }
 
-bool TrackLifecycleManager::ShouldUseImmForMiss(
-    TrackStatus status_before_prediction) const {
+bool TrackLifecycleManager::ShouldUseImmForMiss(TrackStatus status_before_prediction) const {
   if (!IsImmEnabled()) {
     return false;
   }
@@ -176,8 +175,7 @@ ImmFilter* TrackLifecycleManager::FindImmFilter(std::uint64_t association_key) c
   }
   return found->second.get();
 }
-void TrackLifecycleManager::ApplyGaussianState(TrackState& track,
-                                               const GaussianTrackState& state,
+void TrackLifecycleManager::ApplyGaussianState(TrackState& track, const GaussianTrackState& state,
                                                const Eigen::Vector3f& previous_velocity,
                                                float dt) const {
   track.gaussian_state = state;
@@ -227,8 +225,7 @@ void TrackLifecycleManager::Update(const CycleContext& cycle,
 
 void TrackLifecycleManager::PreparePhase(LifecycleUpdateScratch& scratch,
                                          const std::vector<TrackMeasurement>& measurements) const {
-  for (std::unordered_map<std::uint64_t, TrackState*>::const_iterator it =
-           tracks_by_key_.begin();
+  for (std::unordered_map<std::uint64_t, TrackState*>::const_iterator it = tracks_by_key_.begin();
        it != tracks_by_key_.end(); ++it) {
     scratch.track_snapshots[it->first] = *it->second;
   }
@@ -312,8 +309,7 @@ void TrackLifecycleManager::EnsurePhase(LifecycleUpdateScratch& scratch,
     scratch.work_items.push_back(work_item);
   }
 
-  for (std::unordered_map<std::uint64_t, TrackState*>::const_iterator it =
-           tracks_by_key_.begin();
+  for (std::unordered_map<std::uint64_t, TrackState*>::const_iterator it = tracks_by_key_.begin();
        it != tracks_by_key_.end(); ++it) {
     if (scratch.hit_keys.find(it->first) != scratch.hit_keys.end()) {
       continue;
@@ -414,8 +410,7 @@ void TrackLifecycleManager::RecyclePhase(LifecycleUpdateScratch& scratch) {
        it != scratch.keys_to_recycle.end(); ++it) {
     imm_filters_by_key_.erase(*it);
 
-    std::unordered_map<std::uint64_t, TrackState*>::iterator found =
-        tracks_by_key_.find(*it);
+    std::unordered_map<std::uint64_t, TrackState*>::iterator found = tracks_by_key_.find(*it);
     if (found == tracks_by_key_.end()) {
       continue;
     }
@@ -476,8 +471,7 @@ float TrackLifecycleManager::ResolveEffectiveCycleDeltaTimeSec(const CycleContex
 
 void TrackLifecycleManager::ApplyKalmanHitUpdate(const TrackUpdateWorkItem& work_item,
                                                  const TrackMeasurement& measurement,
-                                                 TrackState& track,
-                                                 float effective_dt_sec) const {
+                                                 TrackState& track, float effective_dt_sec) const {
   const Eigen::Vector3f velocity_before_filter = track.velocity;
   if (work_item.use_imm && work_item.imm_filter != nullptr) {
     if (!measurement.raw_measurement.matched_existing_track) {
@@ -522,16 +516,14 @@ void TrackLifecycleManager::PromoteState(TrackState& track, std::uint32_t cycle_
                                          std::uint32_t extra_miss_tolerance) const {
   if (hit_this_cycle) {
     if (track.status == TrackStatus::kLost ||
-        (track.status == TrackStatus::kTentative &&
-         track.hit_count >= config_.confirm_hits)) {
+        (track.status == TrackStatus::kTentative && track.hit_count >= config_.confirm_hits)) {
       track.status = TrackStatus::kConfirmed;
     }
     return;
   }
 
   track.miss_count += 1;
-  if (track.status == TrackStatus::kTentative ||
-      track.status == TrackStatus::kConfirmed) {
+  if (track.status == TrackStatus::kTentative || track.status == TrackStatus::kConfirmed) {
     const std::uint32_t max_miss_before_lost =
         config_.max_miss_before_lost + extra_miss_tolerance + ResolveLocalMissToleranceBonus(track);
     if (track.miss_count > max_miss_before_lost) {

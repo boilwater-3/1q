@@ -9,13 +9,13 @@
 #include <cstdint>
 #include <vector>
 
-#include "1q/airborne_radar/common/utils/JammingSemantics.h"
 #include "1q/airborne_radar/common/model/TargetFeature.h"
-#include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
+#include "1q/airborne_radar/common/utils/JammingSemantics.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
 #include "airborne_radar/signal/pipeline/CycleContextSupport.h"
 #include "airborne_radar/signal/pipeline/DetectionExecution.h"
+#include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/pipeline/TrackMeasurementProcessing.h"
 #include "airborne_radar/signal/tracking/GaussianTrackState.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
@@ -32,7 +32,8 @@ namespace internal {
  * @param[out] workspace 待初始化的周期工作区。
  */
 CycleWorkspace BuildCycleWorkspaceBindings(
-    common::model::TargetFeatureList* output_state, common::model::DecisionInputFrame* decision_frame,
+    common::model::TargetFeatureList* output_state,
+    common::model::DecisionInputFrame* decision_frame,
     AssociationQualityMetrics* association_quality_metrics,
     std::vector<tracking::TrackMeasurement>* track_measurements, std::vector<float>* signal_term_db,
     std::vector<float>* speed_penalty_db, std::vector<float>* detection_margin_db,

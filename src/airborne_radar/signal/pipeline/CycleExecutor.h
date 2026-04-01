@@ -10,14 +10,14 @@
 #include <vector>
 
 #include "1q/airborne_radar/common/control/RadarControlProfile.h"
-#include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
+#include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "airborne_radar/signal/assembly/IDataOutputManager.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
-#include "airborne_radar/signal/pipeline/InternalSignalPipelineConfig.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
+#include "airborne_radar/signal/pipeline/InternalSignalPipelineConfig.h"
+#include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
@@ -42,7 +42,8 @@ struct CycleExecutionContext {
 
   environment::EnvironmentSnapshot environment_snapshot{};
   common::utils::JammingSemantic dominant_jamming_semantic{
-      common::utils::JammingSemantic::kNone}; /**< 当前周期主导干扰语义（SampleEnvironment 后有效） */
+      common::utils::JammingSemantic::kNone}; /**< 当前周期主导干扰语义（SampleEnvironment 后有效）
+                                               */
   float jamming_severity{0.0f}; /**< 当前周期轨迹级残余干扰强度（SampleEnvironment 后有效） */
 
   std::vector<float> signal_term_db;
@@ -82,9 +83,9 @@ struct CycleExecutionRuntime {
  * @param cycle_context 单周期缓存上下文。
  */
 void ExecuteCycle(const common::model::TargetFeatureList& input_state,
-                  const environment::IEnvironmentService& environment,
-                  std::uint32_t cycle_index, std::uint64_t batch_id,
-                  const CycleExecutionRuntime& runtime, CycleExecutionContext* cycle_context);
+                  const environment::IEnvironmentService& environment, std::uint32_t cycle_index,
+                  std::uint64_t batch_id, const CycleExecutionRuntime& runtime,
+                  CycleExecutionContext* cycle_context);
 
 }  // namespace internal
 }  // namespace pipeline

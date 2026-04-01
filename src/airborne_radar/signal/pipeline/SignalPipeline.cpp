@@ -6,12 +6,12 @@
 #include <vector>
 
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
-#include "airborne_radar/signal/association/DataAssociation.h"
-#include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/assembly/DataOutputManager.h"
 #include "airborne_radar/signal/assembly/IDataOutputManager.h"
-#include "airborne_radar/signal/pipeline/CycleExecutor.h"
+#include "airborne_radar/signal/association/DataAssociation.h"
+#include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/pipeline/CycleContextSupport.h"
+#include "airborne_radar/signal/pipeline/CycleExecutor.h"
 #include "airborne_radar/signal/runtime/RuntimeAssemblySupport.h"
 #include "airborne_radar/signal/runtime/SignalComponentFactory.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
@@ -28,8 +28,8 @@ struct RuntimeState {
         internal_config(internal::BuildInternalSignalPipelineConfig(config)),
         association_engine(runtime::internal::SignalComponentFactory::BuildAssociationConfig(
             config, internal_config)),
-        track_filter(runtime::internal::SignalComponentFactory::BuildTrackFilterConfig(
-            internal_config)),
+        track_filter(
+            runtime::internal::SignalComponentFactory::BuildTrackFilterConfig(internal_config)),
         output_manager(std::unique_ptr<signal::assembly::IDataOutputManager>(
             new signal::assembly::DataOutputManager())) {}
 
@@ -138,7 +138,9 @@ struct SignalPipeline::Impl {
   void SetControlProfile(const common::control::RadarControlProfile& control_profile) {
     runtime_.control_profile_ = control_profile;
   }
-  common::control::RadarControlProfile GetControlProfile() const { return runtime_.control_profile_; }
+  common::control::RadarControlProfile GetControlProfile() const {
+    return runtime_.control_profile_;
+  }
 
   void RebuildOwnedComponents() {
     runtime::internal::OwnedComponentSlots component_slots;
@@ -194,7 +196,8 @@ common::config::PlatformAttitudeDeg SignalPipeline::GetPlatformAttitude() const 
   return impl_->GetPlatformAttitude();
 }
 
-void SignalPipeline::SetControlProfile(const common::control::RadarControlProfile& control_profile) {
+void SignalPipeline::SetControlProfile(
+    const common::control::RadarControlProfile& control_profile) {
   impl_->SetControlProfile(control_profile);
 }
 

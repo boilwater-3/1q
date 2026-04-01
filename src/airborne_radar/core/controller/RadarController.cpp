@@ -81,7 +81,8 @@ common::control::RadarCommandType ToRadarCommandType(common::control::ControlDir
  * @param source 控制意图来源。
  * @return 对应的雷达命令来源。
  */
-common::control::RadarCommandSource ToRadarCommandSource(common::control::ControlDirectiveSource source) {
+common::control::RadarCommandSource ToRadarCommandSource(
+    common::control::ControlDirectiveSource source) {
   switch (source) {
     case common::control::ControlDirectiveSource::THREAT_ASSESSMENT:
       return common::control::RadarCommandSource::CLASSIFIER;
@@ -102,16 +103,17 @@ common::control::RadarCommandSource ToRadarCommandSource(common::control::Contro
  */
 common::control::RadarCommand ToRadarCommand(const common::control::ControlDirective& directive) {
   return common::control::RadarCommand(ToRadarCommandType(directive.type),
-                              ToRadarCommandSource(directive.source));
+                                       ToRadarCommandSource(directive.source));
 }
 
 /**
  * @brief AirborneRuntimeInput 描述单周期骨架执行需要的输入快照。
  */
 struct AirborneRuntimeInput {
-  const common::model::TargetFeatureList* target_features{nullptr}; /**< 当前周期目标输入只读视图。 */
-  common::config::PlatformAttitudeDeg platform_attitude{};           /**< 当前平台姿态。 */
-  float cycle_dt_sec{1.0f};                                  /**< 当前周期步长。 */
+  const common::model::TargetFeatureList* target_features{
+      nullptr};                                            /**< 当前周期目标输入只读视图。 */
+  common::config::PlatformAttitudeDeg platform_attitude{}; /**< 当前平台姿态。 */
+  float cycle_dt_sec{1.0f};                                /**< 当前周期步长。 */
 };
 
 }  // namespace
@@ -195,8 +197,8 @@ void RadarController::RunOnce() {
   struct AirborneRuntimeHooks {
     Impl* impl{nullptr};
 
-    oneq::internal::runtime::RuntimeValidationResult<context::ValidationIssueList>
-    Validate(const AirborneRuntimeInput& input) const {
+    oneq::internal::runtime::RuntimeValidationResult<context::ValidationIssueList> Validate(
+        const AirborneRuntimeInput& input) const {
       oneq::internal::runtime::RuntimeValidationResult<context::ValidationIssueList> result;
       result.issues = context::ValidateRadarCycleDeltaTime(input.cycle_dt_sec);
       if (input.target_features != nullptr) {
@@ -235,8 +237,9 @@ void RadarController::RunOnce() {
       common::model::DecisionInputFrame decision_frame = signal_result.decision_frame;
       decision_frame.cycle_index = stamp.cycle_index;
       decision_frame.batch_id = stamp.batch_id;
-      common::output::TrackOutputFrame track_output_frame = impl->output_manager->BuildTrackOutputFrame(
-          stamp.cycle_index, stamp.batch_id, decision_frame.tracks);
+      common::output::TrackOutputFrame track_output_frame =
+          impl->output_manager->BuildTrackOutputFrame(stamp.cycle_index, stamp.batch_id,
+                                                      decision_frame.tracks);
 
       decision::pipeline::TacticalDecisionResult decision_result;
       if (impl->decision_engine != nullptr && impl->tactical_state_store != nullptr) {
@@ -271,8 +274,8 @@ void RadarController::RunOnce() {
           "assoc_missed_rate={:.3f} assoc_mean_cost={:.3f} "
           "assoc_p95_cost={:.3f} assoc_jam_semantic={} "
           "assoc_jam_severity={:.3f} assoc_stress={:.3f}",
-          stamp.cycle_index, stamp.batch_id, target_features.size(),
-          decision_frame.tracks.size(), reduction_result.applied_directives.size(),
+          stamp.cycle_index, stamp.batch_id, target_features.size(), decision_frame.tracks.size(),
+          reduction_result.applied_directives.size(),
           decision_frame.environment_jamming_detected ? "true" : "false",
           impl->control_profile.get().version,
           decision_frame.perception_quality_info.detection_rate,

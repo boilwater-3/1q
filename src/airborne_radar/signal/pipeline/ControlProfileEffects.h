@@ -8,8 +8,8 @@
 
 #include "1q/airborne_radar/common/control/RadarControlProfile.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/pipeline/InternalSignalPipelineConfig.h"
+#include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -22,8 +22,9 @@ namespace internal {
  * @param[in] control_profile 当前控制真值。
  * @return 对经验信号项的修正量（dB）。
  */
-float ComputeHeuristicSignalAdjustmentDb(const ControlProfileEffectsConfig& cfg,
-                                         const common::control::RadarControlProfile& control_profile);
+float ComputeHeuristicSignalAdjustmentDb(
+    const ControlProfileEffectsConfig& cfg,
+    const common::control::RadarControlProfile& control_profile);
 
 /**
  * @brief 计算控制真值对经验环境惩罚项的抵消量。

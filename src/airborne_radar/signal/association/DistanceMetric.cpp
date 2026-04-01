@@ -25,8 +25,7 @@ FullMahalanobisDistanceMetric::FullMahalanobisDistanceMetric(
     const Eigen::Matrix3f& innovation_covariance)
     : llt_(innovation_covariance), llt_valid_(llt_.info() == Eigen::Success) {
   if (!llt_valid_) {
-    PROJECT_LOG_ERROR(
-        "[FullMahalanobisDistanceMetric] LLT decomposition failed in constructor.");
+    PROJECT_LOG_ERROR("[FullMahalanobisDistanceMetric] LLT decomposition failed in constructor.");
   }
 }
 

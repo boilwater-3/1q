@@ -10,8 +10,8 @@
 #include <memory>
 
 #include "1q/airborne_radar/common/output/TrackOutputFrame.h"
-#include "1q/airborne_radar/core/controller/IRadarOutputReader.h"
 #include "1q/airborne_radar/core/context/RadarInputValidation.h"
+#include "1q/airborne_radar/core/controller/IRadarOutputReader.h"
 #include "1q/airborne_radar/decision/pipeline/ControlReducerTypes.h"
 #include "1q/api.hpp"
 

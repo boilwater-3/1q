@@ -76,10 +76,10 @@ enum SwerlingModel {
  * @brief SignalDetectionConfig 描述信号探测域关键配置。
  */
 struct SignalDetectionConfig {
-  bool enable_physics_detection{false};     /**< 是否启用物理层检测 */
-  RadarSystemConfig radar_system{};         /**< 雷达系统配置 */
-  float min_detection_margin_db{-2.0f};     /**< 最小检测裕量（dB） */
-  int pulse_count{10};                      /**< 脉冲数 */
+  bool enable_physics_detection{false}; /**< 是否启用物理层检测 */
+  RadarSystemConfig radar_system{};     /**< 雷达系统配置 */
+  float min_detection_margin_db{-2.0f}; /**< 最小检测裕量（dB） */
+  int pulse_count{10};                  /**< 脉冲数 */
 };
 
 /**

@@ -215,7 +215,8 @@ void ApplyControlProfileToConfig(const common::control::RadarControlProfile& con
   }
 
   if (control_profile.enable_agility_frequency) {
-    const float hop_factor = (control_profile.agility_frequency_hop_phase % 2U == 0U) ? 1.015f : 0.985f;
+    const float hop_factor =
+        (control_profile.agility_frequency_hop_phase % 2U == 0U) ? 1.015f : 0.985f;
     runtime_config->detection.radar_system.transmitter.frequency_hz *= hop_factor;
     internal_config->association.unassigned_cost *= kAgilityFreqAssignCostScale;
     internal_config->tracking.kalman_noise_diff_coeff *= kAgilityFreqKalmanDiffScale;
@@ -289,7 +290,8 @@ void ApplyControlProfileToConfig(const common::control::RadarControlProfile& con
       imm_noise_scale *=
           ClampFloat(control_profile.eccm_burnthrough_gain, 1.0f, kBurnthroughAssignCostMax);
     }
-    for (std::size_t i = 0; i < internal_config->lifecycle.imm_model_noise_diff_coeffs.size(); ++i) {
+    for (std::size_t i = 0; i < internal_config->lifecycle.imm_model_noise_diff_coeffs.size();
+         ++i) {
       internal_config->lifecycle.imm_model_noise_diff_coeffs[i] =
           std::max(kImmNoiseCoeffMin,
                    internal_config->lifecycle.imm_model_noise_diff_coeffs[i] * imm_noise_scale);
