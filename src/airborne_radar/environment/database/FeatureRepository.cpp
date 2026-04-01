@@ -80,6 +80,7 @@ bool FeatureRepository::ReloadFromDataSource() {
 
 bool FeatureRepository::QueryBestMatch(const FeatureVector& input, MatchResult& result) const {
   if (records_.empty()) {
+    result = MatchResult();
     return false;
   }
 
@@ -103,6 +104,16 @@ bool FeatureRepository::QueryBestMatch(const FeatureVector& input, MatchResult& 
   }
 
   const float score_sum = std::accumulate(scores.begin(), scores.end(), 0.0f);
+  constexpr float kScoreSumEpsilon = 1.0e-12f;
+  if (!std::isfinite(score_sum) || score_sum <= kScoreSumEpsilon || !std::isfinite(best_score) ||
+      !std::isfinite(best_distance)) {
+    PROJECT_LOG_WARN(
+        "[FeatureRepository] Invalid score normalization detected: score_sum={}, best_score={}, "
+        "best_distance={}",
+        score_sum, best_score, best_distance);
+    result = MatchResult();
+    return false;
+  }
 
   result.target_type = records_[best_index].target_type;
   result.probability = best_score / score_sum;

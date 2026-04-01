@@ -16,6 +16,7 @@
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/detection/TargetLookResolver.h"
+#include "airborne_radar/signal/pipeline/CycleExecutor.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "airborne_radar/signal/runtime/ScanScheduleResolver.h"
 
@@ -87,6 +88,19 @@ TEST(ScanScheduleResolverTest, StartPositionControlsFirstBeamQuadrant) {
   EXPECT_FLOAT_EQ(right_bottom_pattern.front().el_deg, -5.0f);
   EXPECT_FLOAT_EQ(left_bottom_pattern.front().az_deg, -10.0f);
   EXPECT_FLOAT_EQ(left_bottom_pattern.front().el_deg, -5.0f);
+}
+
+TEST(CycleExecutorTest, InvalidRuntimeAndNullContextReturnSafely) {
+  const common::model::TargetFeatureList input_state;
+  environment::EnvironmentService environment_service;
+  signal::pipeline::internal::CycleExecutionRuntime runtime;
+
+  signal::pipeline::internal::ExecuteCycle(input_state, environment_service, 1U, 1U, runtime, nullptr);
+
+  signal::pipeline::internal::CycleExecutionContext context;
+  signal::pipeline::internal::ExecuteCycle(input_state, environment_service, 1U, 1U, runtime, &context);
+
+  SUCCEED();
 }
 
 TEST(ScanScheduleResolverTest, SequenceControlsFastScanAxisWithSerpentine) {

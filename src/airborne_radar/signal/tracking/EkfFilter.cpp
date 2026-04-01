@@ -2,6 +2,8 @@
 
 #include <Eigen/Cholesky>
 
+#include "common/logging/ProjectLog.h"
+
 namespace airborne_radar {
 namespace signal {
 namespace tracking {
@@ -51,8 +53,14 @@ KalmanUpdateResult EkfUpdater::Update(const GaussianTrackState& predicted,
   result.innovation_covariance = H * predicted.covariance * H.transpose() + dynamic_R;
 
   /* Kalman gain：K = P̂·Hᵀ·S⁻¹ 等价于 K = (S⁻¹·H·P̂)ᵀ，避免计算显式逆 */
-  const KalmanGainMatrix K =
-      result.innovation_covariance.llt().solve(H * predicted.covariance).transpose();
+  const Eigen::LLT<MeasurementCovariance> llt(result.innovation_covariance);
+  if (llt.info() != Eigen::Success) {
+    PROJECT_LOG_ERROR("[EkfUpdater] Innovation covariance LLT decomposition failed; update is skipped.");
+    result.posterior = predicted;
+    return result;
+  }
+
+  const KalmanGainMatrix K = llt.solve(H * predicted.covariance).transpose();
 
   /* Posterior mean */
   result.posterior.mean = predicted.mean + K * result.innovation;

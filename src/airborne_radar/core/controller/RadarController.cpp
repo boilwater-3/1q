@@ -249,6 +249,14 @@ void RadarController::RunOnce() {
               ? impl->control_reducer->Reduce(impl->control_profile.get(),
                                               decision_result.proposals)
               : decision::pipeline::ControlReductionResult();
+      if (impl->tactical_state_store != nullptr && impl->control_reducer != nullptr) {
+        const decision::pipeline::ControlReducerRuntimeState reducer_state =
+            impl->control_reducer->GetRuntimeState();
+        impl->tactical_state_store->lpi_hold_cycles_remaining =
+            reducer_state.lpi_hold_cycles_remaining;
+        impl->tactical_state_store->eccm_hold_cycles_remaining =
+            reducer_state.eccm_hold_cycles_remaining;
+      }
       impl->control_profile.get() = reduction_result.profile;
       impl->radar_context.UpdateRadarControlProfile(impl->control_profile.get());
       impl->ExecuteCommands(reduction_result.applied_directives);

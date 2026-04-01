@@ -199,6 +199,28 @@ TEST(TrackLifecycleManagerTest, ReusedTrackGetsNewTrackIdAndKeepsGenerationCount
   EXPECT_EQ(active_tracks[0]->generation, 1u);
 }
 
+TEST(BoostTrackPoolTest, DoubleReleaseDoesNotReissueSamePointerTwice) {
+  signal::tracking::BoostTrackPool pool(1, 8);
+  signal::tracking::TrackState* track = pool.Acquire();
+  ASSERT_NE(track, nullptr);
+
+  pool.Release(track);
+  EXPECT_EQ(pool.InUseCount(), 0u);
+
+  // Second release should be rejected.
+  pool.Release(track);
+  EXPECT_EQ(pool.InUseCount(), 0u);
+
+  signal::tracking::TrackState* first = pool.Acquire();
+  signal::tracking::TrackState* second = pool.Acquire();
+  ASSERT_NE(first, nullptr);
+  ASSERT_NE(second, nullptr);
+  EXPECT_NE(first, second);
+
+  pool.Release(first);
+  pool.Release(second);
+}
+
 TEST(TrackLifecycleManagerTest, ExtraMissToleranceDelaysLostTransition) {
   signal::tracking::BoostTrackPool pool(2, 8);
   signal::tracking::LifecycleConfig config;

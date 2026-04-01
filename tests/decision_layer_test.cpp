@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cmath>
 #include <string>
 #include <vector>
 
@@ -161,4 +162,23 @@ TEST(ThreatAssessmentEvaluatorTest, RepositoryMatchProvidesProbability) {
   EXPECT_GT(prob, 0.0f);
   EXPECT_LE(prob, 1.0f);
   EXPECT_FALSE(std::isnan(prob));
+}
+
+TEST(FeatureRepositoryTest, ExtremeDistanceReturnsFalseInsteadOfInvalidProbability) {
+  edb::FeatureRepository repository;
+  edb::FeatureVector input;
+  input.Set("speed", 1.0e12f);
+  input.Set("rcs", 1.0e12f);
+  input.Set("jamming", 1.0f);
+
+  edb::MatchResult result;
+  result.target_type = "SHOULD_BE_RESET";
+  result.probability = 1.0f;
+  result.distance = 1.0f;
+
+  const bool matched = repository.QueryBestMatch(input, result);
+  EXPECT_FALSE(matched);
+  EXPECT_EQ(result.target_type, "UNKNOWN");
+  EXPECT_FLOAT_EQ(result.probability, 0.0f);
+  EXPECT_FLOAT_EQ(result.distance, 0.0f);
 }

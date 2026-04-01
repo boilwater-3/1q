@@ -187,6 +187,35 @@ TEST(TacticalCoordinatorTest, DetailedEccmFactsSelectOnlyRelevantProposals) {
                                      common::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN));
 }
 
+TEST(TacticalCoordinatorTest, LowConfidenceEccmSourceDoesNotGetArtificialWeightBoost) {
+  decision::pipeline::TacticalCoordinator coordinator;
+  decision::pipeline::TacticalStateStore state_store;
+
+  common::model::DecisionInputFrame frame;
+  frame.cycle_index = 1u;
+  frame.batch_id = 1u;
+  frame.eccm_source_info.has_jamming_signal = true;
+
+  common::model::EccmJammerSourceInfo source;
+  source.technique = common::model::JammingTechnique::kDeception;
+  source.jammer_power_db = 4.0f;
+  source.jammer_to_signal_db = 3.0f;
+  source.frequency_overlap_ratio = 1.0f;
+  source.prf_lock_risk = 0.1f;
+  source.jammer_in_sidelobe = false;
+  source.confidence = 0.36f;
+  frame.eccm_source_info.jammer_sources.push_back(source);
+  frame.tracks.push_back(
+      BuildTrack(220.0f, 2.0f, common::model::DecisionTrackStatus::kConfirmed, true, true));
+
+  const decision::pipeline::TacticalDecisionResult result =
+      coordinator.Evaluate(frame, state_store);
+
+  EXPECT_EQ(result.selected_mode, decision::pipeline::TacticalMode::kProtectedEmission);
+  EXPECT_FALSE(ContainsDirectiveType(result.proposals,
+                                     common::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
+}
+
 TEST(TacticalCoordinatorTest, MultiSourceEccmFactsCombineTypeSpecificCountermeasures) {
   decision::pipeline::TacticalCoordinator coordinator;
   decision::pipeline::TacticalStateStore state_store;
@@ -407,7 +436,7 @@ TEST(TacticalCoordinatorTest, EnvironmentJammingAndAssociationPressureAreBothRef
             "protected-emission(environment-jamming+association-pressure+detection-pressure)");
 }
 
-TEST(TacticalCoordinatorTest, LpiHoldExpiresWithoutFreshThreatEvidence) {
+TEST(TacticalCoordinatorTest, LpiProposalStopsWithoutFreshThreatEvidence) {
   decision::pipeline::TacticalCoordinator coordinator;
   decision::pipeline::TacticalStateStore state_store;
 
@@ -421,40 +450,20 @@ TEST(TacticalCoordinatorTest, LpiHoldExpiresWithoutFreshThreatEvidence) {
   EXPECT_EQ(trigger_result.selected_mode, decision::pipeline::TacticalMode::kThreatResponse);
   EXPECT_TRUE(ContainsDirectiveType(
       trigger_result.proposals, common::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION));
-  EXPECT_EQ(state_store.lpi_hold_cycles_remaining, 2u);
-
-  common::model::DecisionInputFrame hold_frame_1;
-  hold_frame_1.cycle_index = 2u;
-  hold_frame_1.batch_id = 2u;
-  const decision::pipeline::TacticalDecisionResult hold_result_1 =
-      coordinator.Evaluate(hold_frame_1, state_store);
-  EXPECT_EQ(hold_result_1.selected_mode, decision::pipeline::TacticalMode::kThreatResponse);
-  EXPECT_TRUE(ContainsDirectiveType(
-      hold_result_1.proposals, common::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION));
-  EXPECT_EQ(state_store.lpi_hold_cycles_remaining, 1u);
-
-  common::model::DecisionInputFrame hold_frame_2;
-  hold_frame_2.cycle_index = 3u;
-  hold_frame_2.batch_id = 3u;
-  const decision::pipeline::TacticalDecisionResult hold_result_2 =
-      coordinator.Evaluate(hold_frame_2, state_store);
-  EXPECT_EQ(hold_result_2.selected_mode, decision::pipeline::TacticalMode::kThreatResponse);
-  EXPECT_TRUE(ContainsDirectiveType(
-      hold_result_2.proposals, common::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION));
   EXPECT_EQ(state_store.lpi_hold_cycles_remaining, 0u);
 
-  common::model::DecisionInputFrame release_frame;
-  release_frame.cycle_index = 4u;
-  release_frame.batch_id = 4u;
-  const decision::pipeline::TacticalDecisionResult release_result =
-      coordinator.Evaluate(release_frame, state_store);
-  EXPECT_EQ(release_result.selected_mode, decision::pipeline::TacticalMode::kBaseline);
+  common::model::DecisionInputFrame next_frame;
+  next_frame.cycle_index = 2u;
+  next_frame.batch_id = 2u;
+  const decision::pipeline::TacticalDecisionResult next_result =
+      coordinator.Evaluate(next_frame, state_store);
+  EXPECT_EQ(next_result.selected_mode, decision::pipeline::TacticalMode::kBaseline);
   EXPECT_FALSE(ContainsDirectiveType(
-      release_result.proposals, common::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION));
+      next_result.proposals, common::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION));
   EXPECT_EQ(state_store.lpi_hold_cycles_remaining, 0u);
 }
 
-TEST(TacticalCoordinatorTest, EccmHoldExpiresWithoutFreshJammingEvidence) {
+TEST(TacticalCoordinatorTest, EccmProposalStopsWithoutFreshJammingEvidence) {
   decision::pipeline::TacticalCoordinator coordinator;
   decision::pipeline::TacticalStateStore state_store;
 
@@ -467,31 +476,55 @@ TEST(TacticalCoordinatorTest, EccmHoldExpiresWithoutFreshJammingEvidence) {
   const decision::pipeline::TacticalDecisionResult trigger_result =
       coordinator.Evaluate(trigger_frame, state_store);
   EXPECT_EQ(trigger_result.selected_mode, decision::pipeline::TacticalMode::kProtectedEmission);
-  EXPECT_EQ(state_store.eccm_hold_cycles_remaining, 2u);
-
-  common::model::DecisionInputFrame hold_frame_1;
-  hold_frame_1.cycle_index = 2u;
-  hold_frame_1.batch_id = 2u;
-  const decision::pipeline::TacticalDecisionResult hold_result_1 =
-      coordinator.Evaluate(hold_frame_1, state_store);
-  EXPECT_EQ(hold_result_1.selected_mode, decision::pipeline::TacticalMode::kProtectedEmission);
-  EXPECT_EQ(state_store.eccm_hold_cycles_remaining, 1u);
-
-  common::model::DecisionInputFrame hold_frame_2;
-  hold_frame_2.cycle_index = 3u;
-  hold_frame_2.batch_id = 3u;
-  const decision::pipeline::TacticalDecisionResult hold_result_2 =
-      coordinator.Evaluate(hold_frame_2, state_store);
-  EXPECT_EQ(hold_result_2.selected_mode, decision::pipeline::TacticalMode::kProtectedEmission);
   EXPECT_EQ(state_store.eccm_hold_cycles_remaining, 0u);
 
-  common::model::DecisionInputFrame release_frame;
-  release_frame.cycle_index = 4u;
-  release_frame.batch_id = 4u;
-  const decision::pipeline::TacticalDecisionResult release_result =
-      coordinator.Evaluate(release_frame, state_store);
-  EXPECT_EQ(release_result.selected_mode, decision::pipeline::TacticalMode::kBaseline);
+  common::model::DecisionInputFrame next_frame;
+  next_frame.cycle_index = 2u;
+  next_frame.batch_id = 2u;
+  const decision::pipeline::TacticalDecisionResult next_result =
+      coordinator.Evaluate(next_frame, state_store);
+  EXPECT_EQ(next_result.selected_mode, decision::pipeline::TacticalMode::kBaseline);
   EXPECT_EQ(state_store.eccm_hold_cycles_remaining, 0u);
+}
+
+TEST(TacticalCoordinatorTest, ControlHoldIsOwnedByReducerAfterProposalStops) {
+  decision::pipeline::TacticalCoordinator coordinator;
+  decision::pipeline::ControlReducerConfig reducer_config;
+  reducer_config.lpi_hold_cycles_after_request = 2u;
+  decision::pipeline::ControlReducer reducer(reducer_config);
+  decision::pipeline::TacticalStateStore state_store;
+  common::control::RadarControlProfile profile;
+
+  common::model::DecisionInputFrame trigger_frame;
+  trigger_frame.cycle_index = 1u;
+  trigger_frame.batch_id = 1u;
+  trigger_frame.tracks.push_back(
+      BuildTrack(820.0f, 4.5f, common::model::DecisionTrackStatus::kConfirmed, true));
+
+  const decision::pipeline::TacticalDecisionResult trigger_result =
+      coordinator.Evaluate(trigger_frame, state_store);
+  ASSERT_TRUE(ContainsDirectiveType(
+      trigger_result.proposals, common::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION));
+
+  const decision::pipeline::ControlReductionResult activated =
+      reducer.Reduce(profile, trigger_result.proposals);
+  profile = activated.profile;
+  ASSERT_TRUE(profile.enable_lpi_power_control);
+  EXPECT_EQ(reducer.GetRuntimeState().lpi_hold_cycles_remaining, 2u);
+
+  common::model::DecisionInputFrame next_frame;
+  next_frame.cycle_index = 2u;
+  next_frame.batch_id = 2u;
+  const decision::pipeline::TacticalDecisionResult next_result =
+      coordinator.Evaluate(next_frame, state_store);
+  EXPECT_EQ(next_result.selected_mode, decision::pipeline::TacticalMode::kBaseline);
+  EXPECT_FALSE(ContainsDirectiveType(
+      next_result.proposals, common::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION));
+
+  const decision::pipeline::ControlReductionResult held =
+      reducer.Reduce(profile, next_result.proposals);
+  EXPECT_TRUE(held.profile.enable_lpi_power_control);
+  EXPECT_EQ(reducer.GetRuntimeState().lpi_hold_cycles_remaining, 1u);
 }
 
 TEST(TacticalCoordinatorTest, PrunesInactiveTrackStateMemoryByActiveTrackKeys) {

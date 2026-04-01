@@ -1,5 +1,10 @@
 #include "airborne_radar/signal/association/DistanceMetric.h"
 
+#include <cmath>
+#include <limits>
+
+#include "common/logging/ProjectLog.h"
+
 namespace airborne_radar {
 namespace signal {
 namespace association {
@@ -18,7 +23,12 @@ float MahalanobisDistanceMetric::Compute(const Eigen::Vector3f& predicted,
 
 FullMahalanobisDistanceMetric::FullMahalanobisDistanceMetric(
     const Eigen::Matrix3f& innovation_covariance)
-    : llt_(innovation_covariance) {}
+    : llt_(innovation_covariance), llt_valid_(llt_.info() == Eigen::Success) {
+  if (!llt_valid_) {
+    PROJECT_LOG_ERROR(
+        "[FullMahalanobisDistanceMetric] LLT decomposition failed in constructor.");
+  }
+}
 
 FullMahalanobisDistanceMetric::FullMahalanobisDistanceMetric(float sigma_0, float sigma_1,
                                                              float sigma_2) {
@@ -27,17 +37,32 @@ FullMahalanobisDistanceMetric::FullMahalanobisDistanceMetric(float sigma_0, floa
   S(1, 1) = sigma_1 * sigma_1;
   S(2, 2) = sigma_2 * sigma_2;
   llt_.compute(S);
+  llt_valid_ = llt_.info() == Eigen::Success;
+  if (!llt_valid_) {
+    PROJECT_LOG_ERROR(
+        "[FullMahalanobisDistanceMetric] LLT decomposition failed in sigma constructor.");
+  }
 }
 
 void FullMahalanobisDistanceMetric::SetInnovationCovariance(const Eigen::Matrix3f& S) {
   llt_.compute(S);
+  llt_valid_ = llt_.info() == Eigen::Success;
+  if (!llt_valid_) {
+    PROJECT_LOG_ERROR(
+        "[FullMahalanobisDistanceMetric] LLT decomposition failed in SetInnovationCovariance.");
+  }
 }
 
 float FullMahalanobisDistanceMetric::Compute(const Eigen::Vector3f& predicted,
                                              const Eigen::Vector3f& measurement) const {
+  if (!llt_valid_) {
+    return std::numeric_limits<float>::infinity();
+  }
+
   const Eigen::Vector3f innovation = measurement - predicted;
   const Eigen::Vector3f s_inv_dz = llt_.solve(innovation);
-  return innovation.dot(s_inv_dz);
+  const float distance = innovation.dot(s_inv_dz);
+  return std::isfinite(distance) ? distance : std::numeric_limits<float>::infinity();
 }
 
 }  // namespace association

@@ -8,6 +8,7 @@
 
 #include <boost/pool/object_pool.hpp>
 #include <cstddef>
+#include <unordered_set>
 #include <vector>
 
 #include "airborne_radar/signal/tracking/ITrackPool.h"
@@ -53,6 +54,7 @@ class BoostTrackPool final : public ITrackPool {
  private:
   boost::object_pool<TrackState> pool_; /**< Boost 对象池，负责对象内存管理。 */
   std::vector<TrackState*> free_list_;  /**< 空闲对象列表，用于快速复用。 */
+  std::unordered_set<TrackState*> in_use_tracks_; /**< 在用对象集合，用于防止重复归还。 */
   std::size_t max_cached_objects_{4096};        /**< 空闲缓存上限，超过后将销毁对象。 */
   std::size_t in_use_count_{0};                 /**< 当前在用对象数量统计。 */
 };

@@ -32,6 +32,7 @@ set(AIRBORNE_SIGNAL_SOURCES
     airborne_radar/signal/pipeline/SignalPipeline.cpp
     airborne_radar/signal/pipeline/TrackMeasurementProcessing.cpp
     airborne_radar/signal/runtime/RuntimeAssemblySupport.cpp
+    airborne_radar/signal/runtime/ScanScheduleResolver.cpp
     airborne_radar/signal/runtime/SignalComponentFactory.cpp
     airborne_radar/signal/tracking/BoostTrackPool.cpp
     airborne_radar/signal/tracking/EkfFilter.cpp

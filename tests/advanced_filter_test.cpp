@@ -25,6 +25,7 @@ constexpr float kTolerance = 1e-3f;
 
 using signal::tracking::GaussianTrackState;
 using signal::tracking::kStateDim;
+using signal::tracking::MeasurementCovariance;
 using signal::tracking::MeasurementVector;
 using signal::tracking::StateCovariance;
 using signal::tracking::StateVector;
@@ -97,6 +98,16 @@ TEST(FullMahalanobisTest, SetInnovationCovarianceUpdates) {
   EXPECT_NEAR(d2, 0.25f, kTolerance);
 }
 
+TEST(FullMahalanobisTest, InvalidCovarianceReturnsInfiniteDistance) {
+  signal::association::FullMahalanobisDistanceMetric metric(Eigen::Matrix3f::Identity());
+  metric.SetInnovationCovariance(Eigen::Matrix3f::Zero());
+
+  const Eigen::Vector3f predicted(0.0f, 0.0f, 0.0f);
+  const Eigen::Vector3f measured(1.0f, 0.0f, 0.0f);
+  const float distance = metric.Compute(predicted, measured);
+  EXPECT_TRUE(std::isinf(distance));
+}
+
 // ============================================================================
 // EKF 测试
 // ============================================================================
@@ -153,6 +164,29 @@ TEST(EkfUpdaterTest, LinearModelMatchesStandardKalman) {
     EXPECT_NEAR(ekf_result.posterior.mean(i), kf_result.posterior.mean(i), kTolerance)
         << "posterior mean mismatch at " << i;
   }
+}
+
+TEST(KalmanUpdaterTest, InvalidInnovationCovarianceFallsBackToPredictedState) {
+  signal::tracking::KalmanUpdater updater;
+  GaussianTrackState predicted(StateVector::Zero(), StateCovariance::Identity());
+  MeasurementVector measurement(1.0f, 2.0f, 3.0f);
+  MeasurementCovariance invalid_r = -MeasurementCovariance::Identity() * 10.0f;
+
+  const auto result = updater.Update(predicted, measurement, invalid_r);
+  EXPECT_TRUE(result.posterior.mean.isApprox(predicted.mean, 1.0e-6f));
+  EXPECT_TRUE(result.posterior.covariance.isApprox(predicted.covariance, 1.0e-6f));
+}
+
+TEST(EkfUpdaterTest, InvalidInnovationCovarianceFallsBackToPredictedState) {
+  signal::tracking::LinearPositionMeasurementModel model;
+  signal::tracking::EkfUpdater updater(&model, {});
+  GaussianTrackState predicted(StateVector::Zero(), StateCovariance::Identity());
+  MeasurementVector measurement(1.0f, 2.0f, 3.0f);
+  MeasurementCovariance invalid_r = -MeasurementCovariance::Identity() * 10.0f;
+
+  const auto result = updater.Update(predicted, measurement, invalid_r);
+  EXPECT_TRUE(result.posterior.mean.isApprox(predicted.mean, 1.0e-6f));
+  EXPECT_TRUE(result.posterior.covariance.isApprox(predicted.covariance, 1.0e-6f));
 }
 
 // ============================================================================

@@ -188,9 +188,11 @@ void AccumulateMultiSourceEccmFacts(const common::model::EccmJammerSourceInfo& s
   }
 
   selection->has_credible_multisource_evidence = true;
-  const float confidence_weight = std::max(source.confidence, 0.5f);
-  const float power_weight = std::min(source.jammer_power_db / kHighJammerPowerDb, 2.0f);
-  const float js_weight = std::min(source.jammer_to_signal_db / kHighJammerToSignalDb, 2.0f);
+  const float confidence_weight = ClampUnit(source.confidence);
+  const float power_weight =
+      std::max(0.0f, std::min(source.jammer_power_db / kHighJammerPowerDb, 2.0f));
+  const float js_weight =
+      std::max(0.0f, std::min(source.jammer_to_signal_db / kHighJammerToSignalDb, 2.0f));
 
   selection->adaptive_beamforming_score += 0.8f * confidence_weight;
   if (source.jammer_in_sidelobe) {
@@ -202,8 +204,8 @@ void AccumulateMultiSourceEccmFacts(const common::model::EccmJammerSourceInfo& s
   if (source.prf_lock_risk >= kHighPrfLockRisk - 1e-5f) {
     selection->eccm_rejitter_score += source.prf_lock_risk * 2.0f * confidence_weight;
   }
-  if (source.jammer_power_db >= kHighJammerPowerDb ||
-      source.jammer_to_signal_db >= kHighJammerToSignalDb) {
+  if (source.jammer_power_db >= kHighJammerPowerDb - 1e-5f ||
+      source.jammer_to_signal_db >= kHighJammerToSignalDb - 1e-5f) {
     selection->burnthrough_gain_score += std::max(power_weight, js_weight) * confidence_weight;
   }
 

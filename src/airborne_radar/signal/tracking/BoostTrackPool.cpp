@@ -37,6 +37,12 @@ TrackState* BoostTrackPool::Acquire() {
   }
 
   if (track != nullptr) {
+    const std::pair<std::unordered_set<TrackState*>::iterator, bool> inserted =
+        in_use_tracks_.insert(track);
+    if (!inserted.second) {
+      PROJECT_LOG_ERROR("[BoostTrackPool] Acquire detected duplicate in-use pointer: {}", static_cast<void*>(track));
+      return nullptr;
+    }
     ++in_use_count_;
   }
   return track;
@@ -47,9 +53,16 @@ void BoostTrackPool::Release(TrackState* track) {
     return;
   }
 
+  if (in_use_tracks_.erase(track) == 0U) {
+    PROJECT_LOG_ERROR("[BoostTrackPool] Release rejected unknown or double-released pointer: {}",
+                      static_cast<void*>(track));
+    return;
+  }
+
   if (in_use_count_ == 0) {
     PROJECT_LOG_ERROR("[BoostTrackPool] Release called with in_use_count_=0: "
-                      "possible double-release or non-pool pointer");
+                      "internal state mismatch");
+    in_use_tracks_.insert(track);
     return;
   }
   --in_use_count_;

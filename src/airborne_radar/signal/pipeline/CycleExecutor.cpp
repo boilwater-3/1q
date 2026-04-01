@@ -11,6 +11,7 @@
 #include "airborne_radar/signal/pipeline/TrackMeasurementProcessing.h"
 #include "airborne_radar/signal/runtime/RuntimeAssemblySupport.h"
 #include "airborne_radar/signal/runtime/ScanScheduleResolver.h"
+#include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -136,7 +137,18 @@ void ExecuteCycle(const common::model::TargetFeatureList& input_state,
                   const environment::IEnvironmentService& environment,
                   std::uint32_t cycle_index, std::uint64_t batch_id,
                   const CycleExecutionRuntime& runtime, CycleExecutionContext* cycle_context) {
-  if (cycle_context == nullptr || !HasValidRuntime(runtime)) {
+  if (cycle_context == nullptr) {
+    PROJECT_LOG_ERROR("[CycleExecutor] ExecuteCycle called with null cycle_context.");
+    return;
+  }
+  if (!HasValidRuntime(runtime)) {
+    PROJECT_LOG_ERROR(
+        "[CycleExecutor] ExecuteCycle received invalid runtime: base_config={} "
+        "base_internal_config={} control_profile={} association_engine={} track_filter={} "
+        "output_manager={}",
+        runtime.base_config != nullptr, runtime.base_internal_config != nullptr,
+        runtime.control_profile != nullptr, runtime.association_engine != nullptr,
+        runtime.track_filter != nullptr, runtime.output_manager != nullptr);
     return;
   }
   BindContextAndResolveConfig(input_state, environment, cycle_index, runtime, cycle_context);

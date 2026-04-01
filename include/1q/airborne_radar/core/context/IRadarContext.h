@@ -53,9 +53,7 @@ class ONEQ_API IRadarContext {
    * @brief 通知最新控制真值已生成。
    * @param[in] profile 下一周期控制真值。
    */
-  virtual void UpdateRadarControlProfile(const common::control::RadarControlProfile& profile) {
-    (void)profile;
-  }
+  virtual void UpdateRadarControlProfile(const common::control::RadarControlProfile& profile) = 0;
 };
 }  // namespace context
 }  // namespace core
