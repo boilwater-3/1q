@@ -1,6 +1,7 @@
 set(PUBLIC_INCLUDE_DIR "${SOURCE_DIR}/include/1q")
 
 set(EXPECTED_PUBLIC_HEADERS
+    "common/coordinate_transform.h"
     "common/pose_types.h"
     "common/scan_schedule_types.h"
     "airborne_radar/common/control/ControlDirective.h"
@@ -42,6 +43,7 @@ set(EXPECTED_PUBLIC_HEADERS
     "airborne_radar/signal/pipeline/SignalPipelineResultTypes.h"
     "electronic_surveillance_radar/common/EmitterHypothesis.h"
     "electronic_surveillance_radar/common/EmitterObservation.h"
+    "electronic_surveillance_radar/common/EsrCoordinateUtils.h"
     "electronic_surveillance_radar/common/EmitterTruthState.h"
     "electronic_surveillance_radar/common/EsrOrientationConfig.h"
     "electronic_surveillance_radar/common/EsrOutputFrame.h"
@@ -59,6 +61,7 @@ set(EXPECTED_PUBLIC_HEADERS
     "electro_optical_sensor/foundation/EosPropagation.h"
     "electro_optical_sensor/foundation/EosRadiometry.h"
     "electro_optical_sensor/core/context/EosCycleInput.h"
+    "electro_optical_sensor/core/context/EosCoordinateUtils.h"
     "electro_optical_sensor/core/context/EosInputValidation.h"
     "electro_optical_sensor/core/session/EosCycleResult.h"
     "electro_optical_sensor/core/session/EosSession.h"

@@ -2,6 +2,10 @@
 
 #include <cmath>
 
+#include <Eigen/Core>
+
+#include "common/geometry/GeometryTransform.h"
+
 namespace airborne_radar {
 namespace common {
 namespace utils {
@@ -16,6 +20,37 @@ namespace {
  * @return 三维向量模长。
  */
 float ComputeNorm3(float x, float y, float z) { return std::sqrt(x * x + y * y + z * z); }
+
+/**
+ * @brief 将公共姿态角转换为内部几何模块姿态角。
+ */
+oneq::internal::geometry::EulerAnglesDeg ToGeometryEuler(
+    const oneq::common::EulerAnglesDeg& euler_deg) {
+  oneq::internal::geometry::EulerAnglesDeg geometry_euler;
+  geometry_euler.yaw_deg = euler_deg.yaw_deg;
+  geometry_euler.pitch_deg = euler_deg.pitch_deg;
+  geometry_euler.roll_deg = euler_deg.roll_deg;
+  return geometry_euler;
+}
+
+/**
+ * @brief 将 ENU 坐标转换到雷达局部坐标。
+ */
+oneq::common::Vector3f ConvertEnuToRadarLocal(const oneq::common::EnuCoordinateM& enu_position,
+                                              const oneq::common::EulerAnglesDeg& attitude_deg) {
+  const Eigen::Vector3f enu_vector(static_cast<float>(enu_position.x_m),
+                                   static_cast<float>(enu_position.y_m),
+                                   static_cast<float>(enu_position.z_m));
+  const Eigen::Matrix3f rotation =
+      oneq::internal::geometry::BuildRotationMatrix(ToGeometryEuler(attitude_deg));
+  const Eigen::Vector3f local_vector = rotation.transpose() * enu_vector;
+
+  oneq::common::Vector3f local_position;
+  local_position.x = local_vector.x();
+  local_position.y = local_vector.y();
+  local_position.z = local_vector.z();
+  return local_position;
+}
 
 /**
  * @brief 判断目标是否携带可用的笛卡尔位置分量。
@@ -69,6 +104,76 @@ model::TargetFeature MakeAirTarget(std::uint64_t external_target_id, float posit
                                    int swerling_type) {
   return MakeTargetFromCartesian(external_target_id, position_x, position_y, position_z, velocity_x,
                                  velocity_y, velocity_z, rcs, swerling_type);
+}
+
+bool TryConvertEcefToRadarLocal(const oneq::common::EcefCoordinateM& position_ecef_m,
+                                const RadarLocalFrameReference& reference,
+                                oneq::common::Vector3f* position_local_m) {
+  if (position_local_m == nullptr) {
+    return false;
+  }
+
+  oneq::common::EnuCoordinateM enu_position;
+  if (!oneq::common::TryEcefToEnu(position_ecef_m, reference.origin_lla, &enu_position)) {
+    return false;
+  }
+  *position_local_m = ConvertEnuToRadarLocal(enu_position, reference.radar_attitude_deg);
+  return true;
+}
+
+bool TryConvertLlaToRadarLocal(const oneq::common::LlaCoordinateDegM& position_lla_deg_m,
+                               const RadarLocalFrameReference& reference,
+                               oneq::common::Vector3f* position_local_m) {
+  if (position_local_m == nullptr) {
+    return false;
+  }
+
+  oneq::common::EnuCoordinateM enu_position;
+  if (!oneq::common::TryLlaToEnu(position_lla_deg_m, reference.origin_lla, &enu_position)) {
+    return false;
+  }
+  *position_local_m = ConvertEnuToRadarLocal(enu_position, reference.radar_attitude_deg);
+  return true;
+}
+
+bool TryMakeTargetFromEcef(std::uint64_t external_target_id,
+                           const oneq::common::EcefCoordinateM& position_ecef_m,
+                           const RadarLocalFrameReference& reference, float velocity_x,
+                           float velocity_y, float velocity_z, float rcs, int swerling_type,
+                           model::TargetFeature* target) {
+  if (target == nullptr) {
+    return false;
+  }
+
+  oneq::common::Vector3f local_position;
+  if (!TryConvertEcefToRadarLocal(position_ecef_m, reference, &local_position)) {
+    return false;
+  }
+
+  *target = MakeTargetFromCartesian(external_target_id, local_position.x, local_position.y,
+                                    local_position.z, velocity_x, velocity_y, velocity_z, rcs,
+                                    swerling_type);
+  return true;
+}
+
+bool TryMakeTargetFromLla(std::uint64_t external_target_id,
+                          const oneq::common::LlaCoordinateDegM& position_lla_deg_m,
+                          const RadarLocalFrameReference& reference, float velocity_x,
+                          float velocity_y, float velocity_z, float rcs, int swerling_type,
+                          model::TargetFeature* target) {
+  if (target == nullptr) {
+    return false;
+  }
+
+  oneq::common::Vector3f local_position;
+  if (!TryConvertLlaToRadarLocal(position_lla_deg_m, reference, &local_position)) {
+    return false;
+  }
+
+  *target = MakeTargetFromCartesian(external_target_id, local_position.x, local_position.y,
+                                    local_position.z, velocity_x, velocity_y, velocity_z, rcs,
+                                    swerling_type);
+  return true;
 }
 
 void NormalizeTargetGeometry(model::TargetFeature* target) {

@@ -2,6 +2,7 @@
 # 按模块分组管理，每次添加/删除源文件时需要手动更新对应模块列表
 set(ONEQ_COMMON_SOURCES
     common/atmosphere/AtmospherePhysics.cpp
+    common/geometry/CoordinateTransform.cpp
     common/geometry/GeometryTransform.cpp
     common/rcs/RcsPhysics.cpp
     common/timing/TimingRegimeModel.cpp
@@ -72,6 +73,7 @@ set(AIRBORNE_CORE_SOURCES
 )
 
 set(ESR_SOURCES
+    electronic_surveillance_radar/core/context/EsrCoordinateUtils.cpp
     electronic_surveillance_radar/core/context/EsrInputValidation.cpp
     electronic_surveillance_radar/core/controller/EsrController.cpp
     electronic_surveillance_radar/core/output/EsrOutputManager.cpp
@@ -88,6 +90,7 @@ set(EOS_SOURCES
     electro_optical_sensor/foundation/EosOpticalCharacteristics.cpp
     electro_optical_sensor/foundation/EosPropagation.cpp
     electro_optical_sensor/foundation/EosRadiometry.cpp
+    electro_optical_sensor/core/context/EosCoordinateUtils.cpp
     electro_optical_sensor/core/context/EosInputValidation.cpp
     electro_optical_sensor/core/pipeline/EosPipeline.cpp
     electro_optical_sensor/core/session/EosSession.cpp
@@ -383,6 +386,7 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/pipeline/SignalPipelineResultTypes.h
     )
     set(PUBLIC_HEADERS_ESR_COMMON
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/common/EsrCoordinateUtils.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/common/EmitterHypothesis.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/common/EmitterObservation.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/common/EmitterTruthState.h
@@ -418,6 +422,7 @@ if(ENABLE_INSTALL)
     )
     set(PUBLIC_HEADERS_EOS_CORE_CONTEXT
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/core/context/EosCycleInput.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/core/context/EosCoordinateUtils.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/core/context/EosInputValidation.h
     )
     set(PUBLIC_HEADERS_EOS_CORE_SESSION
@@ -428,6 +433,7 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/api.hpp
     )
     set(PUBLIC_HEADERS_FOUNDATION
+        ${CMAKE_SOURCE_DIR}/include/1q/common/coordinate_transform.h
         ${CMAKE_SOURCE_DIR}/include/1q/common/pose_types.h
         ${CMAKE_SOURCE_DIR}/include/1q/common/scan_schedule_types.h
     )

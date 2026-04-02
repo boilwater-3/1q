@@ -177,6 +177,66 @@ TEST(PublicApiConvenienceTest, TargetFeatureUtilsNormalizeGeometryOnlyWhenCartes
   EXPECT_NEAR(targets[1].range_m, 0.0f, 1e-5f);
 }
 
+TEST(PublicApiConvenienceTest, TargetFeatureUtilsConvertsLlaAndEcefToRadarLocalFrame) {
+  common::utils::RadarLocalFrameReference reference;
+  reference.origin_lla.latitude_deg = 0.0;
+  reference.origin_lla.longitude_deg = 0.0;
+  reference.origin_lla.altitude_m = 0.0;
+  reference.radar_attitude_deg.yaw_deg = 0.0f;
+  reference.radar_attitude_deg.pitch_deg = 0.0f;
+  reference.radar_attitude_deg.roll_deg = 0.0f;
+
+  oneq::common::LlaCoordinateDegM target_lla;
+  target_lla.latitude_deg = 0.0;
+  target_lla.longitude_deg = 0.001;
+  target_lla.altitude_m = 0.0;
+
+  oneq::common::Vector3f local_from_lla;
+  ASSERT_TRUE(common::utils::TryConvertLlaToRadarLocal(target_lla, reference, &local_from_lla));
+  EXPECT_GT(local_from_lla.x, 100.0f);
+  EXPECT_NEAR(local_from_lla.y, 0.0f, 1.0e-2f);
+  EXPECT_NEAR(local_from_lla.z, 0.0f, 1.0e-2f);
+
+  oneq::common::EcefCoordinateM target_ecef;
+  ASSERT_TRUE(oneq::common::TryLlaToEcef(target_lla, &target_ecef));
+  oneq::common::Vector3f local_from_ecef;
+  ASSERT_TRUE(common::utils::TryConvertEcefToRadarLocal(target_ecef, reference, &local_from_ecef));
+  EXPECT_NEAR(local_from_ecef.x, local_from_lla.x, 1.0e-3f);
+  EXPECT_NEAR(local_from_ecef.y, local_from_lla.y, 1.0e-3f);
+  EXPECT_NEAR(local_from_ecef.z, local_from_lla.z, 1.0e-3f);
+}
+
+TEST(PublicApiConvenienceTest, TargetFeatureUtilsBuildsTargetFromExternalCoordinates) {
+  common::utils::RadarLocalFrameReference reference;
+  reference.origin_lla.latitude_deg = 0.0;
+  reference.origin_lla.longitude_deg = 0.0;
+  reference.origin_lla.altitude_m = 0.0;
+
+  oneq::common::LlaCoordinateDegM target_lla;
+  target_lla.latitude_deg = 0.0;
+  target_lla.longitude_deg = 0.001;
+  target_lla.altitude_m = 0.0;
+
+  common::model::TargetFeature target_from_lla;
+  ASSERT_TRUE(common::utils::TryMakeTargetFromLla(401U, target_lla, reference, 11.0f, 12.0f, 13.0f,
+                                                   2.0f, 1, &target_from_lla));
+  EXPECT_EQ(target_from_lla.external_target_id, 401U);
+  EXPECT_TRUE(target_from_lla.has_cartesian_position);
+  EXPECT_GT(target_from_lla.position_x, 100.0f);
+  EXPECT_GT(target_from_lla.range_m, 100.0f);
+  EXPECT_NEAR(target_from_lla.current_track_speed, std::sqrt(434.0f), 1.0e-5f);
+
+  oneq::common::EcefCoordinateM target_ecef;
+  ASSERT_TRUE(oneq::common::TryLlaToEcef(target_lla, &target_ecef));
+  common::model::TargetFeature target_from_ecef;
+  ASSERT_TRUE(common::utils::TryMakeTargetFromEcef(402U, target_ecef, reference, 0.0f, 0.0f, 0.0f,
+                                                    1.5f, 0, &target_from_ecef));
+  EXPECT_EQ(target_from_ecef.external_target_id, 402U);
+  EXPECT_NEAR(target_from_ecef.position_x, target_from_lla.position_x, 1.0e-3f);
+  EXPECT_NEAR(target_from_ecef.position_y, target_from_lla.position_y, 1.0e-3f);
+  EXPECT_NEAR(target_from_ecef.position_z, target_from_lla.position_z, 1.0e-3f);
+}
+
 TEST(PublicApiConvenienceTest, EnvironmentSceneBuilderDefaultsMatchEnvironmentSceneState) {
   const environment::EnvironmentSceneState built_scene =
       environment::EnvironmentSceneBuilder().Build();

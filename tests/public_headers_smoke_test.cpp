@@ -41,6 +41,7 @@
 #include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "1q/airborne_radar/signal/pipeline/SignalPipelineResultTypes.h"
 #include "1q/api.hpp"
+#include "1q/common/coordinate_transform.h"
 #include "1q/common/pose_types.h"
 #include "1q/common/scan_schedule_types.h"
 #include "1q/electro_optical_sensor/common/EosOutputFrame.h"
@@ -48,10 +49,12 @@
 #include "1q/electro_optical_sensor/foundation/EosPropagation.h"
 #include "1q/electro_optical_sensor/foundation/EosRadiometry.h"
 #include "1q/electro_optical_sensor/core/context/EosCycleInput.h"
+#include "1q/electro_optical_sensor/core/context/EosCoordinateUtils.h"
 #include "1q/electro_optical_sensor/core/context/EosInputValidation.h"
 #include "1q/electro_optical_sensor/core/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/core/session/EosSession.h"
 #include "1q/electronic_surveillance_radar/common/EmitterTruthState.h"
+#include "1q/electronic_surveillance_radar/common/EsrCoordinateUtils.h"
 #include "1q/electronic_surveillance_radar/core/context/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/core/context/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/core/session/EsrSession.h"
@@ -60,6 +63,13 @@ namespace airborne_radar {
 namespace {
 
 TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
+  oneq::common::LlaCoordinateDegM origin_lla;
+  origin_lla.latitude_deg = 0.0;
+  origin_lla.longitude_deg = 0.0;
+  origin_lla.altitude_m = 0.0;
+  oneq::common::EcefCoordinateM origin_ecef;
+  ASSERT_TRUE(oneq::common::TryLlaToEcef(origin_lla, &origin_ecef));
+
   core::session::RadarSessionConfig session_config =
       common::config::MakeDefaultRadarSessionConfig();
   session_config.environment_model_config.base_propagation_loss_db = 6.0f;
@@ -121,6 +131,14 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   emitter.pri_s = 1.0e-4;
   input.scene_emitters.push_back(emitter);
 
+  common::EsrCoordinateReference esr_reference;
+  esr_reference.origin_lla.latitude_deg = 0.0;
+  esr_reference.origin_lla.longitude_deg = 0.0;
+  esr_reference.origin_lla.altitude_m = 0.0;
+  common::EsrVector3f esr_local_position;
+  ASSERT_TRUE(common::TryConvertLlaToEsrLocal(esr_reference.origin_lla, esr_reference,
+                                               &esr_local_position));
+
   const core::context::EsrValidationIssueList issues = core::context::ValidateEsrCycleInput(input);
   EXPECT_FALSE(core::context::HasEsrValidationError(issues));
 
@@ -159,6 +177,14 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   target.reflectance = 0.4f;
   target.projected_area_m2 = 2.0f;
   input.scene_targets.push_back(target);
+
+  core::context::EosCoordinateReference eos_reference;
+  eos_reference.origin_lla.latitude_deg = 0.0;
+  eos_reference.origin_lla.longitude_deg = 0.0;
+  eos_reference.origin_lla.altitude_m = 0.0;
+  oneq::common::Vector3f eos_local_position;
+  ASSERT_TRUE(core::context::TryConvertLlaToEosLocal(eos_reference.origin_lla, eos_reference,
+                                                      &eos_local_position));
 
   const core::context::EosValidationIssueList issues = core::context::ValidateEosCycleInput(input);
   EXPECT_FALSE(core::context::HasEosValidationError(issues));

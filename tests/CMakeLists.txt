@@ -29,10 +29,12 @@ set(TEST_SOURCES
     atmosphere_physics_test.cpp
     rcs_physics_test.cpp
     geometry_transform_test.cpp
+    coordinate_transform_test.cpp
     timing_regime_model_test.cpp
     validation_utils_test.cpp
     radar_input_validation_test.cpp
     esr_input_validation_test.cpp
+    esr_coordinate_utils_test.cpp
     esr_algorithms_test.cpp
     esr_environment_service_test.cpp
     esr_kdtree_clusterer_test.cpp
@@ -41,6 +43,7 @@ set(TEST_SOURCES
     esr_session_config_resolver_test.cpp
     esr_session_integration_test.cpp
     electro_optical_sensor/eos_foundation_test.cpp
+    electro_optical_sensor/eos_coordinate_utils_test.cpp
     electro_optical_sensor/eos_input_validation_test.cpp
     electro_optical_sensor/eos_pipeline_test.cpp
     # NOTE:
