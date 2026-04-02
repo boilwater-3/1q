@@ -43,6 +43,14 @@
 #include "1q/api.hpp"
 #include "1q/common/pose_types.h"
 #include "1q/common/scan_schedule_types.h"
+#include "1q/electro_optical_sensor/common/EosOutputFrame.h"
+#include "1q/electro_optical_sensor/foundation/EosOpticalCharacteristics.h"
+#include "1q/electro_optical_sensor/foundation/EosPropagation.h"
+#include "1q/electro_optical_sensor/foundation/EosRadiometry.h"
+#include "1q/electro_optical_sensor/core/context/EosCycleInput.h"
+#include "1q/electro_optical_sensor/core/context/EosInputValidation.h"
+#include "1q/electro_optical_sensor/core/session/EosCycleResult.h"
+#include "1q/electro_optical_sensor/core/session/EosSession.h"
 #include "1q/electronic_surveillance_radar/common/EmitterTruthState.h"
 #include "1q/electronic_surveillance_radar/core/context/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/core/context/EsrInputValidation.h"
@@ -126,3 +134,48 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
 
 }  // namespace
 }  // namespace electronic_surveillance_radar
+
+namespace electro_optical_sensor {
+namespace {
+
+TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
+  core::session::EosSessionConfig session_config;
+  session_config.work_mode = core::session::EosWorkMode::kFused;
+  session_config.minimum_snr_db = 0.0f;
+  session_config.scan_start_az_deg = -20.0f;
+  session_config.scan_end_az_deg = 20.0f;
+
+  core::context::EosCycleInput input;
+  input.cycle_index = 2U;
+  input.dt_sec = 1.0f;
+  input.day_night_type = core::context::DayNightType::kDay;
+  core::context::EosTargetState target;
+  target.target_id = 7U;
+  target.range_m = 1500.0f;
+  target.azimuth_deg = 0.0f;
+  target.elevation_deg = 0.0f;
+  target.apparent_temperature_k = 320.0f;
+  target.emissivity = 0.9f;
+  target.reflectance = 0.4f;
+  target.projected_area_m2 = 2.0f;
+  input.scene_targets.push_back(target);
+
+  const core::context::EosValidationIssueList issues = core::context::ValidateEosCycleInput(input);
+  EXPECT_FALSE(core::context::HasEosValidationError(issues));
+
+  const float diffraction_rad =
+      foundation::optics::ComputeDiffractionLimitedAngularResolutionRad(4.0f, 0.2f);
+  const float transmittance =
+      foundation::propagation::ComputeAtmosphericTransmittance(2.0e-5f, 1.0e-5f, 1500.0f);
+  const float planck_radiance = foundation::radiometry::ComputePlanckRadiance(4.0f, 320.0f);
+  EXPECT_GT(diffraction_rad, 0.0f);
+  EXPECT_GT(transmittance, 0.0f);
+  EXPECT_GT(planck_radiance, 0.0f);
+
+  core::session::EosSession session(session_config);
+  const core::session::EosCycleResult result = session.StepWithResult(input);
+  EXPECT_GE(result.output_frame.detections.size(), 0U);
+}
+
+}  // namespace
+}  // namespace electro_optical_sensor

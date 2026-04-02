@@ -26,6 +26,8 @@ set(TEST_SOURCES
     signal_association_test.cpp
     signal_scan_schedule_test.cpp
     signal_detection_test.cpp
+    atmosphere_physics_test.cpp
+    rcs_physics_test.cpp
     geometry_transform_test.cpp
     timing_regime_model_test.cpp
     validation_utils_test.cpp
@@ -38,6 +40,8 @@ set(TEST_SOURCES
     esr_output_manager_test.cpp
     esr_session_config_resolver_test.cpp
     esr_session_integration_test.cpp
+    electro_optical_sensor/eos_foundation_test.cpp
+    electro_optical_sensor/eos_input_validation_test.cpp
     # NOTE:
     # signal_bulk_data_test.cpp contains long-running IMM debug workload tests.
     # Keep it disabled until IMM multi-thread optimization is implemented,

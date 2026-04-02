@@ -54,6 +54,14 @@ set(EXPECTED_PUBLIC_HEADERS
     "electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
     "electronic_surveillance_radar/pipeline/IInterceptPipeline.h"
     "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
+    "electro_optical_sensor/common/EosOutputFrame.h"
+    "electro_optical_sensor/foundation/EosOpticalCharacteristics.h"
+    "electro_optical_sensor/foundation/EosPropagation.h"
+    "electro_optical_sensor/foundation/EosRadiometry.h"
+    "electro_optical_sensor/core/context/EosCycleInput.h"
+    "electro_optical_sensor/core/context/EosInputValidation.h"
+    "electro_optical_sensor/core/session/EosCycleResult.h"
+    "electro_optical_sensor/core/session/EosSession.h"
     "api.hpp")
 
 file(GLOB_RECURSE ACTUAL_PUBLIC_HEADERS

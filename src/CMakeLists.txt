@@ -1,7 +1,9 @@
 # 显式列出源文件（推荐做法，便于版本控制和构建可靠性）
 # 按模块分组管理，每次添加/删除源文件时需要手动更新对应模块列表
 set(ONEQ_COMMON_SOURCES
+    common/atmosphere/AtmospherePhysics.cpp
     common/geometry/GeometryTransform.cpp
+    common/rcs/RcsPhysics.cpp
     common/timing/TimingRegimeModel.cpp
 )
 
@@ -82,6 +84,14 @@ set(ESR_SOURCES
     electronic_surveillance_radar/pipeline/ObservationPreprocessor.cpp
 )
 
+set(EOS_SOURCES
+    electro_optical_sensor/foundation/EosOpticalCharacteristics.cpp
+    electro_optical_sensor/foundation/EosPropagation.cpp
+    electro_optical_sensor/foundation/EosRadiometry.cpp
+    electro_optical_sensor/core/context/EosInputValidation.cpp
+    electro_optical_sensor/core/session/EosSession.cpp
+)
+
 add_library(airborne_common OBJECT ${AIRBORNE_COMMON_SOURCES})
 add_library(airborne_signal OBJECT ${AIRBORNE_SIGNAL_SOURCES})
 add_library(airborne_decision OBJECT ${AIRBORNE_DECISION_SOURCES})
@@ -90,6 +100,7 @@ add_library(airborne_core OBJECT ${AIRBORNE_CORE_SOURCES})
 set(PROJECT_SOURCES
     ${ONEQ_COMMON_SOURCES}
     ${ESR_SOURCES}
+    ${EOS_SOURCES}
     $<TARGET_OBJECTS:airborne_common>
     $<TARGET_OBJECTS:airborne_signal>
     $<TARGET_OBJECTS:airborne_decision>
@@ -396,6 +407,22 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/pipeline/IInterceptPipeline.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h
     )
+    set(PUBLIC_HEADERS_EOS_COMMON
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/common/EosOutputFrame.h
+    )
+    set(PUBLIC_HEADERS_EOS_FOUNDATION
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/foundation/EosOpticalCharacteristics.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/foundation/EosPropagation.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/foundation/EosRadiometry.h
+    )
+    set(PUBLIC_HEADERS_EOS_CORE_CONTEXT
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/core/context/EosCycleInput.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/core/context/EosInputValidation.h
+    )
+    set(PUBLIC_HEADERS_EOS_CORE_SESSION
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/core/session/EosCycleResult.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/core/session/EosSession.h
+    )
     set(PUBLIC_HEADERS_ROOT
         ${CMAKE_SOURCE_DIR}/include/1q/api.hpp
     )
@@ -467,6 +494,18 @@ if(ENABLE_INSTALL)
     )
     install(FILES ${PUBLIC_HEADERS_ESR_PIPELINE}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/pipeline
+    )
+    install(FILES ${PUBLIC_HEADERS_EOS_COMMON}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/common
+    )
+    install(FILES ${PUBLIC_HEADERS_EOS_FOUNDATION}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/foundation
+    )
+    install(FILES ${PUBLIC_HEADERS_EOS_CORE_CONTEXT}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/core/context
+    )
+    install(FILES ${PUBLIC_HEADERS_EOS_CORE_SESSION}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/core/session
     )
 
     # 安装导出的 CMake targets 文件
