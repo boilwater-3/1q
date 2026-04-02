@@ -296,6 +296,68 @@ TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
   EXPECT_LT(output_state[0].current_track_rcs, input_state[0].current_track_rcs);
 }
 
+TEST(SignalPipelineTest,
+     RcsPhysicsOverrideChangesMarginalHeuristicDetectionWhileDisabledPathStaysSame) {
+  common::config::SignalPipelineConfig baseline_config;
+  baseline_config.detection.enable_physics_detection = false;
+  baseline_config.detection.min_detection_margin_db = -2.0f;
+  baseline_config.detection.radar_system.transmitter.frequency_hz = 9.4e9f;
+
+  environment::EnvironmentModelConfig env_config;
+  env_config.base_propagation_loss_db = 24.0f;
+  env_config.atmospheric_attenuation_db = 8.0f;
+  env_config.terrain_reflection_db = 0.0f;
+  env_config.clutter_power_db = 8.0f;
+
+  const common::model::TargetFeatureList input_state{BuildPhysicsTarget(4500.0f, 0.2f)};
+
+  environment::EnvironmentService baseline_environment(env_config);
+  signal::pipeline::SignalPipeline baseline_pipeline(
+      baseline_config);
+  const signal::pipeline::SignalCycleResult baseline_result =
+      baseline_pipeline.RunCycle(input_state, baseline_environment);
+  const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
+
+  ASSERT_EQ(baseline_result.updated_features.size(), 1u);
+  EXPECT_TRUE(baseline_measurements.empty());
+
+  common::config::SignalPipelineConfig disabled_override_config = baseline_config;
+  disabled_override_config.detection.rcs_physics.enable_physical_rcs = false;
+  disabled_override_config.detection.rcs_physics.frequency_hz = 9.4e9f;
+  disabled_override_config.detection.rcs_physics.physics_mix_ratio = 1.0f;
+  disabled_override_config.detection.rcs_physics.cylinder_weight = 0.0f;
+  disabled_override_config.detection.rcs_physics.min_equivalent_radius_m = 0.2f;
+  disabled_override_config.detection.rcs_physics.max_equivalent_radius_m = 1.5f;
+  disabled_override_config.detection.rcs_physics.min_rcs_m2 = 0.01f;
+  disabled_override_config.detection.rcs_physics.max_rcs_m2 = 1000.0f;
+  disabled_override_config.detection.rcs_physics.bistatic_psi_offset_deg = 10.0f;
+
+  environment::EnvironmentService disabled_environment(env_config);
+  signal::pipeline::SignalPipeline disabled_pipeline(
+      disabled_override_config);
+  const signal::pipeline::SignalCycleResult disabled_result =
+      disabled_pipeline.RunCycle(input_state, disabled_environment);
+  const auto disabled_measurements = disabled_pipeline.GetLastTrackMeasurements();
+
+  ASSERT_EQ(disabled_result.updated_features.size(), 1u);
+  EXPECT_TRUE(disabled_measurements.empty());
+  EXPECT_FLOAT_EQ(disabled_result.updated_features[0].current_track_rcs,
+                  baseline_result.updated_features[0].current_track_rcs);
+
+  common::config::SignalPipelineConfig enabled_override_config = disabled_override_config;
+  enabled_override_config.detection.rcs_physics.enable_physical_rcs = true;
+
+  environment::EnvironmentService enabled_environment(env_config);
+  signal::pipeline::SignalPipeline enabled_pipeline(
+      enabled_override_config);
+  enabled_pipeline.RunCycle(input_state, enabled_environment);
+  const auto enabled_measurements = enabled_pipeline.GetLastTrackMeasurements();
+
+  ASSERT_EQ(enabled_measurements.size(), 1u);
+  EXPECT_GT(enabled_measurements[0].raw_measurement.detection_margin_db,
+            baseline_config.detection.min_detection_margin_db);
+}
+
 TEST(SignalPipelineTest, ExposesPublicPlatformAttitudeUpdateApi) {
   signal::pipeline::SignalPipeline signal_pipeline;
   common::config::PlatformAttitudeDeg platform_attitude_deg;
@@ -377,6 +439,24 @@ TEST(SignalPipelineInternalConfigTest, RobustPresetMapsToRobustProfile) {
   EXPECT_FLOAT_EQ(internal_config.tracking.kalman_noise_diff_coeff, 1.0f);
   EXPECT_FLOAT_EQ(internal_config.tracking.speed_decay_ratio_on_loss, 0.95f);
   EXPECT_FLOAT_EQ(internal_config.tracking.rcs_decay_ratio_on_loss, 0.92f);
+}
+
+TEST(SignalPipelineInternalConfigTest,
+     NonDefaultRcsPhysicsBreaksTrackingPresetSignatureAndFallsBackToBaseline) {
+  common::config::SignalPipelineConfig config =
+      common::config::MakeTrackingMissionSignalPipelineConfig();
+  config.detection.rcs_physics.enable_physical_rcs = true;
+  config.detection.rcs_physics.physics_mix_ratio = 0.8f;
+
+  const signal::pipeline::SignalPipelineConfig pipeline_config =
+      config;
+  const signal::pipeline::internal::InternalSignalPipelineConfig internal_config =
+      signal::pipeline::internal::BuildInternalSignalPipelineConfig(pipeline_config);
+
+  EXPECT_FLOAT_EQ(internal_config.association.unassigned_cost, 9.0f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.kalman_noise_diff_coeff, 1.0f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.speed_decay_ratio_on_loss, 0.90f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.rcs_decay_ratio_on_loss, 0.85f);
 }
 
 TEST(SignalPipelineInternalConfigTest, CustomConfigStaysBaselineEvenWithHighLifecycleThresholds) {

@@ -10,6 +10,7 @@
 #include "airborne_radar/signal/pipeline/ControlProfileEffects.h"
 #include "airborne_radar/signal/pipeline/JammingEffects.h"
 #include "airborne_radar/signal/pipeline/PipelineTargetUtils.h"
+#include "common/rcs/RcsPhysics.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -17,6 +18,83 @@ namespace pipeline {
 namespace internal {
 
 namespace {
+
+constexpr float kPi = 3.14159265358979f;
+constexpr float kLightSpeedMps = 3.0e8f;
+
+float ClampToRange(float value, float lower_bound, float upper_bound) {
+  return std::min(std::max(value, lower_bound), upper_bound);
+}
+
+float ResolveRcsPhysicsFrequencyHz(const SignalPipelineConfig& runtime_config) {
+  const float config_frequency_hz = runtime_config.detection.rcs_physics.frequency_hz;
+  if (config_frequency_hz > 0.0f) {
+    return config_frequency_hz;
+  }
+  return runtime_config.detection.radar_system.transmitter.frequency_hz;
+}
+
+float ComputeEquivalentRadiusM(float input_rcs_m2,
+                               const common::config::RcsPhysicsConfig& rcs_config) {
+  const float min_radius_m = std::max(rcs_config.min_equivalent_radius_m, 1.0e-3f);
+  const float max_radius_m = std::max(rcs_config.max_equivalent_radius_m, min_radius_m);
+  const float safe_input_rcs_m2 = std::max(input_rcs_m2, 0.0f);
+  const float equivalent_radius_m = std::sqrt(safe_input_rcs_m2 / kPi);
+  return ClampToRange(equivalent_radius_m, min_radius_m, max_radius_m);
+}
+
+float ComputeEffectiveTargetRcsM2(const common::model::TargetFeature& target,
+                                  const detection::ResolvedTargetGeometry& geometry,
+                                  const SignalPipelineConfig& runtime_config) {
+  const float input_rcs_m2 = std::max(target.current_track_rcs, 0.0f);
+  const common::config::RcsPhysicsConfig& rcs_config = runtime_config.detection.rcs_physics;
+  if (!rcs_config.enable_physical_rcs) {
+    return input_rcs_m2;
+  }
+
+  const float mix_ratio = ClampToRange(rcs_config.physics_mix_ratio, 0.0f, 1.0f);
+  if (mix_ratio <= 0.0f) {
+    return input_rcs_m2;
+  }
+
+  const float frequency_hz = ResolveRcsPhysicsFrequencyHz(runtime_config);
+  if (frequency_hz <= 0.0f) {
+    return input_rcs_m2;
+  }
+
+  const float wavenumber_k0 = 2.0f * kPi * frequency_hz / kLightSpeedMps;
+  if (wavenumber_k0 <= 0.0f) {
+    return input_rcs_m2;
+  }
+
+  const float equivalent_radius_m = ComputeEquivalentRadiusM(input_rcs_m2, rcs_config);
+  const float azimuth_deg =
+      geometry.look_angles_deg.has_look_angles ? std::fabs(geometry.look_angles_deg.look_az_deg)
+                                               : 0.0f;
+  const float elevation_deg =
+      geometry.look_angles_deg.has_look_angles ? std::fabs(geometry.look_angles_deg.look_el_deg)
+                                               : 0.0f;
+  const float psi_i_deg = ClampToRange(elevation_deg, 0.0f, 89.0f);
+  const float psi_s_deg = ClampToRange(psi_i_deg + std::fabs(rcs_config.bistatic_psi_offset_deg),
+                                       0.0f, 89.0f);
+
+  const float cylinder_rcs_m2 =
+      oneq::internal::rcs::rcs_f419_xmm4r4(equivalent_radius_m, wavenumber_k0);
+  const float bistatic_rcs_m2 = oneq::internal::rcs::rcs_f4322_xmm4r4(
+      wavenumber_k0, equivalent_radius_m, psi_i_deg, psi_s_deg, azimuth_deg);
+  const float planar_rcs_m2 =
+      oneq::internal::rcs::RCS_f743_v128b_ps(wavenumber_k0, equivalent_radius_m, elevation_deg);
+
+  const float cylinder_weight = ClampToRange(rcs_config.cylinder_weight, 0.0f, 1.0f);
+  const float physical_rcs_m2 =
+      cylinder_weight * (0.5f * (cylinder_rcs_m2 + bistatic_rcs_m2)) +
+      (1.0f - cylinder_weight) * planar_rcs_m2;
+
+  const float min_rcs_m2 = std::max(rcs_config.min_rcs_m2, 0.0f);
+  const float max_rcs_m2 = std::max(rcs_config.max_rcs_m2, min_rcs_m2);
+  const float clamped_physical_rcs_m2 = ClampToRange(physical_rcs_m2, min_rcs_m2, max_rcs_m2);
+  return input_rcs_m2 * (1.0f - mix_ratio) + clamped_physical_rcs_m2 * mix_ratio;
+}
 
 /**
  * @brief 根据目标几何与测量误差参数构建测量协方差矩阵
@@ -78,7 +156,9 @@ void RunHeuristicDetectionPass(const common::model::TargetFeatureList& input,
       ComputeHeuristicSignalAdjustmentDb(internal_config.control_profile_effects, control_profile);
   for (std::size_t i = 0; i < count; ++i) {
     (*buffers->target_geometry)[i] = detection::TargetGeometryResolver::Resolve(input[i]);
-    (*buffers->signal_term_db)[i] = input[i].current_track_rcs * 6.0f + signal_adjustment_db;
+    const float effective_rcs_m2 =
+        ComputeEffectiveTargetRcsM2(input[i], (*buffers->target_geometry)[i], runtime_config);
+    (*buffers->signal_term_db)[i] = effective_rcs_m2 * 6.0f + signal_adjustment_db;
     (*buffers->speed_penalty_db)[i] = ResolveSpeedMagnitude(input[i]) * 0.002f;
   }
 
@@ -140,8 +220,10 @@ void RunPhysicalDetectionPass(const common::model::TargetFeatureList& input,
 
   for (std::size_t i = 0; i < count; ++i) {
     (*buffers->target_geometry)[i] = detection::TargetGeometryResolver::Resolve(input[i]);
+    const float effective_rcs_m2 =
+        ComputeEffectiveTargetRcsM2(input[i], (*buffers->target_geometry)[i], runtime_config);
     detection::TargetReturn target;
-    target.rcs_m2 = input[i].current_track_rcs;
+    target.rcs_m2 = effective_rcs_m2;
     target.range_m = (*buffers->target_geometry)[i].range_m;
     target.swerling_type =
         static_cast<common::config::SwerlingModel>(input[i].target_swerling_type);
