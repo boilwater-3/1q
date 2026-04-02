@@ -44,6 +44,9 @@ struct ONEQ_API EosSessionConfig {
   float scan_start_az_deg{-60.0f};               /**< 扫描起始方位角（单位：deg） */
   float scan_end_az_deg{60.0f};                  /**< 扫描结束方位角（单位：deg） */
   float scan_center_el_deg{0.0f};                /**< 扫描中心俯仰角（单位：deg） */
+  float boresight_depression_deg{45.0f};         /**< 光轴下视角（单位：deg） */
+  float min_detection_depression_deg{1.0f};      /**< 最小有效下视角（单位：deg） */
+  float max_detection_depression_deg{89.0f};     /**< 最大有效下视角（单位：deg） */
   float visible_reference_irradiance_w_m2{800.0f}; /**< 可见光辐照度归一化参考值（单位：W/m^2） */
 };
 

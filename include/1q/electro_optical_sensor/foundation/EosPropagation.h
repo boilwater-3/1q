@@ -13,6 +13,27 @@ namespace foundation {
 namespace propagation {
 
 /**
+ * @brief NepNoiseModelInputs 描述 NEP 细化噪声模型输入。
+ */
+struct ONEQ_API NepNoiseModelInputs {
+  float detector_detectivity_cm_sqrt_hz_per_w{1.0e10f}; /**< 探测率 D*（单位：cm*sqrt(Hz)/W） */
+  float detector_area_cm2{0.25f};                       /**< 探测器面积（单位：cm^2） */
+  float electrical_bandwidth_hz{1000.0f};              /**< 电噪声带宽（单位：Hz） */
+  float optical_transmittance{0.85f};                  /**< 光学透过率，范围 [0, 1] */
+  float integration_time_sec{1.0f / 30.0f};            /**< 积分时间（单位：s） */
+  float system_noise_factor{1.0f};                     /**< 系统噪声放大系数 */
+};
+
+/**
+ * @brief SnrEvaluationResult 描述 SNR 细化评估输出。
+ */
+struct ONEQ_API SnrEvaluationResult {
+  float nep_w{0.0f};         /**< 估算 NEP（单位：W） */
+  float snr_linear{0.0f};    /**< 线性 SNR */
+  float snr_db{-120.0f};     /**< dB SNR */
+};
+
+/**
  * @brief 计算 Beer-Lambert 透过率 `exp(-alpha * L)`。
  * @param[in] attenuation_coeff_per_m 衰减系数（单位：1/m）。
  * @param[in] path_length_m 传播距离（单位：m）。
@@ -71,6 +92,22 @@ ONEQ_API float ComputeSnrLinear(float received_power_w, float nep_w);
  * @return dB SNR。
  */
 ONEQ_API float ComputeSnrDb(float snr_linear);
+
+/**
+ * @brief 基于探测率与带宽估算 NEP。
+ * @param[in] inputs NEP 噪声模型输入。
+ * @return 估算 NEP（单位：W）。
+ */
+ONEQ_API float ComputeNepW(const NepNoiseModelInputs& inputs);
+
+/**
+ * @brief 基于 NEP 细化模型评估 SNR。
+ * @param[in] received_power_w 接收功率（单位：W）。
+ * @param[in] inputs NEP 噪声模型输入。
+ * @return SNR 评估结果。
+ */
+ONEQ_API SnrEvaluationResult EvaluateSnrWithNep(float received_power_w,
+                                                const NepNoiseModelInputs& inputs);
 
 }  // namespace propagation
 }  // namespace foundation

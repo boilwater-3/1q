@@ -72,6 +72,27 @@ float ComputeSnrDb(float snr_linear) {
   return 10.0f * std::log10(safe_snr_linear);
 }
 
+float ComputeNepW(const NepNoiseModelInputs& inputs) {
+  const float safe_detectivity = SafePositive(inputs.detector_detectivity_cm_sqrt_hz_per_w, 1.0e10f);
+  const float safe_detector_area_cm2 = SafePositive(inputs.detector_area_cm2, 0.25f);
+  const float safe_bandwidth_hz = SafePositive(inputs.electrical_bandwidth_hz, 1000.0f);
+  const float safe_integration_time_sec = SafePositive(inputs.integration_time_sec, 1.0f / 30.0f);
+  const float effective_bandwidth_hz = safe_bandwidth_hz / (1.0f + safe_integration_time_sec * safe_bandwidth_hz);
+  const float optical_factor = std::max(Clamp01(inputs.optical_transmittance), 1.0e-3f);
+  const float system_noise_factor = std::max(inputs.system_noise_factor, 1.0f);
+
+  return system_noise_factor * std::sqrt(safe_detector_area_cm2 * effective_bandwidth_hz) /
+         (safe_detectivity * optical_factor);
+}
+
+SnrEvaluationResult EvaluateSnrWithNep(float received_power_w, const NepNoiseModelInputs& inputs) {
+  SnrEvaluationResult result;
+  result.nep_w = ComputeNepW(inputs);
+  result.snr_linear = ComputeSnrLinear(received_power_w, result.nep_w);
+  result.snr_db = ComputeSnrDb(result.snr_linear);
+  return result;
+}
+
 }  // namespace propagation
 }  // namespace foundation
 }  // namespace electro_optical_sensor

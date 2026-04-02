@@ -1,0 +1,78 @@
+/**
+ * @file EosPipeline.h
+ * @brief 定义 EOS 核心处理层管线（扫描递推、视场判定、探测评估）。
+ */
+
+#ifndef ELECTRO_OPTICAL_SENSOR_CORE_PIPELINE_EOS_PIPELINE_H_
+#define ELECTRO_OPTICAL_SENSOR_CORE_PIPELINE_EOS_PIPELINE_H_
+
+#include "1q/electro_optical_sensor/common/EosOutputFrame.h"
+#include "1q/electro_optical_sensor/core/context/EosCycleInput.h"
+
+namespace electro_optical_sensor {
+namespace core {
+namespace pipeline {
+
+/**
+ * @brief EosPipelineWorkMode 描述核心探测评估模式。
+ */
+enum class EosPipelineWorkMode {
+  kInfraredOnly = 0,
+  kVisibleOnly,
+  kFused
+};
+
+/**
+ * @brief EosPipelineConfig 描述核心处理层配置。
+ */
+struct EosPipelineConfig {
+  float wavelength_lower_um{3.0f};
+  float wavelength_upper_um{5.0f};
+  float optical_aperture_m{0.2f};
+  float focal_length_m{0.8f};
+  EosPipelineWorkMode work_mode{EosPipelineWorkMode::kFused};
+  float horizontal_fov_deg{6.0f};
+  float vertical_fov_deg{4.0f};
+  float scan_rate_deg_per_sec{20.0f};
+  float minimum_snr_db{6.0f};
+  float detection_sensitivity_w{1.0e-12f};
+  float scan_start_az_deg{-60.0f};
+  float scan_end_az_deg{60.0f};
+  float scan_center_el_deg{0.0f};
+  float boresight_depression_deg{45.0f};
+  float min_detection_depression_deg{1.0f};
+  float max_detection_depression_deg{89.0f};
+  float visible_reference_irradiance_w_m2{800.0f};
+};
+
+/**
+ * @brief EosPipeline 封装核心处理层执行。
+ */
+class EosPipeline {
+ public:
+  explicit EosPipeline(const EosPipelineConfig& config);
+
+  void UpdateConfig(const EosPipelineConfig& config);
+
+  /**
+   * @brief 执行单周期核心处理并输出探测结果。
+   * @param[in] input 当前周期输入。
+   * @return 探测输出帧。
+   */
+  common::EosOutputFrame Execute(const context::EosCycleInput& input);
+
+ private:
+  void AdvanceScan(float dt_sec);
+  bool IsTargetInCurrentFov(const context::EosTargetState& target) const;
+  common::EosDetectionRecord BuildDetectionRecord(const context::EosTargetState& target,
+                                                  const context::EosCycleInput& input) const;
+
+  EosPipelineConfig config_{};
+  float current_scan_azimuth_deg_{0.0f};
+};
+
+}  // namespace pipeline
+}  // namespace core
+}  // namespace electro_optical_sensor
+
+#endif  // ELECTRO_OPTICAL_SENSOR_CORE_PIPELINE_EOS_PIPELINE_H_

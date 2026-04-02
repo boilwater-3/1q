@@ -81,6 +81,19 @@ float ComputeVisibleLambertianRadiance(const VisibleRadianceInputs& inputs) {
          solar_geometry_gain * range_gain / kPi;
 }
 
+VisibleChannelResult ComputeVisibleChannelResult(const VisibleChannelInputs& inputs) {
+  VisibleChannelResult result;
+  result.target_radiance = ComputeVisibleLambertianRadiance(inputs.target);
+
+  VisibleRadianceInputs background_inputs = inputs.target;
+  background_inputs.reflectance = Clamp01(inputs.background_reflectance);
+  background_inputs.projected_area_m2 = SafePositive(inputs.background_patch_area_m2, 10.0f);
+  result.background_radiance = ComputeVisibleLambertianRadiance(background_inputs);
+  result.normalized_contrast =
+      ComputeRelativeContrast(result.target_radiance, result.background_radiance);
+  return result;
+}
+
 float ComputeRelativeContrast(float target_radiance, float background_radiance) {
   const float safe_background = std::max(std::fabs(background_radiance), 1.0e-12f);
   return (target_radiance - background_radiance) / safe_background;

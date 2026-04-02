@@ -13,6 +13,17 @@ namespace foundation {
 namespace optics {
 
 /**
+ * @brief DetectionRangeInputs 描述 Dmax/Dmin 计算输入。
+ */
+struct ONEQ_API DetectionRangeInputs {
+  float platform_altitude_m{1000.0f};     /**< 平台高度（单位：m） */
+  float boresight_depression_deg{45.0f};  /**< 光轴下视角（单位：deg） */
+  float vertical_fov_deg{4.0f};           /**< 垂直视场角（单位：deg） */
+  float min_depression_deg{1.0f};         /**< 最小有效下视角（单位：deg） */
+  float max_depression_deg{89.0f};        /**< 最大有效下视角（单位：deg） */
+};
+
+/**
  * @brief 计算焦高比（焦距/高度）。
  * @param[in] focal_length_m 焦距（单位：m）。
  * @param[in] platform_altitude_m 平台高度（单位：m）。
@@ -60,6 +71,20 @@ ONEQ_API float ComputeDiffractionLimitedAngularResolutionRad(float wavelength_um
  * @return 地面空间分辨率（单位：m）。
  */
 ONEQ_API float ComputeGroundSampleDistanceM(float range_m, float angular_resolution_rad);
+
+/**
+ * @brief 计算参数化最小探测距离 Dmin。
+ * @param[in] inputs Dmax/Dmin 计算输入。
+ * @return Dmin（单位：m）。
+ */
+ONEQ_API float ComputeMinimumDetectionRangeM(const DetectionRangeInputs& inputs);
+
+/**
+ * @brief 计算参数化最大探测距离 Dmax。
+ * @param[in] inputs Dmax/Dmin 计算输入。
+ * @return Dmax（单位：m）。
+ */
+ONEQ_API float ComputeMaximumDetectionRangeM(const DetectionRangeInputs& inputs);
 
 /**
  * @brief 计算离焦系数。

@@ -46,6 +46,24 @@ struct ONEQ_API VisibleRadianceInputs {
 };
 
 /**
+ * @brief VisibleChannelInputs 描述可见光通道完整辐射链路输入。
+ */
+struct ONEQ_API VisibleChannelInputs {
+  VisibleRadianceInputs target{};        /**< 目标辐射亮度输入 */
+  float background_reflectance{0.15f};   /**< 背景反射率，范围 [0, 1] */
+  float background_patch_area_m2{10.0f}; /**< 背景等效面积（单位：m^2） */
+};
+
+/**
+ * @brief VisibleChannelResult 描述可见光链路输出。
+ */
+struct ONEQ_API VisibleChannelResult {
+  float target_radiance{0.0f};      /**< 目标辐射亮度 */
+  float background_radiance{0.0f};  /**< 背景辐射亮度 */
+  float normalized_contrast{0.0f};  /**< 归一化对比度 */
+};
+
+/**
  * @brief 计算指定波长和温度的黑体光谱辐射亮度。
  * @param[in] wavelength_um 波长（单位：um）。
  * @param[in] temperature_k 温度（单位：K）。
@@ -66,6 +84,13 @@ ONEQ_API float ComputeInfraredRadianceDelta(const InfraredRadianceInputs& inputs
  * @return 目标可见光辐射亮度，单位 `W/(sr*m^2)`。
  */
 ONEQ_API float ComputeVisibleLambertianRadiance(const VisibleRadianceInputs& inputs);
+
+/**
+ * @brief 计算可见光完整链路输出（目标亮度、背景亮度、归一化对比度）。
+ * @param[in] inputs 可见光通道输入。
+ * @return 可见光通道计算结果。
+ */
+ONEQ_API VisibleChannelResult ComputeVisibleChannelResult(const VisibleChannelInputs& inputs);
 
 /**
  * @brief 计算相对对比度 `(target - background) / background`。

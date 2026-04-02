@@ -42,6 +42,7 @@ set(TEST_SOURCES
     esr_session_integration_test.cpp
     electro_optical_sensor/eos_foundation_test.cpp
     electro_optical_sensor/eos_input_validation_test.cpp
+    electro_optical_sensor/eos_pipeline_test.cpp
     # NOTE:
     # signal_bulk_data_test.cpp contains long-running IMM debug workload tests.
     # Keep it disabled until IMM multi-thread optimization is implemented,

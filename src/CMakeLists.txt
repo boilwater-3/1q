@@ -89,6 +89,7 @@ set(EOS_SOURCES
     electro_optical_sensor/foundation/EosPropagation.cpp
     electro_optical_sensor/foundation/EosRadiometry.cpp
     electro_optical_sensor/core/context/EosInputValidation.cpp
+    electro_optical_sensor/core/pipeline/EosPipeline.cpp
     electro_optical_sensor/core/session/EosSession.cpp
 )
 

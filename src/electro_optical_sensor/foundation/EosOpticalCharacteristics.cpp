@@ -18,6 +18,17 @@ float SafePositive(float value, float fallback) {
   return value;
 }
 
+float Clamp(float value, float lower, float upper) {
+  return std::max(lower, std::min(value, upper));
+}
+
+float ComputeSlantRangeByDepressionAngle(float platform_altitude_m, float depression_deg) {
+  const float safe_altitude_m = SafePositive(platform_altitude_m, 1.0f);
+  const float safe_depression_deg = Clamp(depression_deg, 1.0f, 89.0f);
+  const float depression_rad = safe_depression_deg * kPi / 180.0f;
+  return safe_altitude_m / std::sin(depression_rad);
+}
+
 }  // namespace
 
 float ComputeFocalHeightRatio(float focal_length_m, float platform_altitude_m) {
@@ -54,6 +65,22 @@ float ComputeGroundSampleDistanceM(float range_m, float angular_resolution_rad) 
   const float safe_range_m = SafePositive(range_m, 1.0f);
   const float safe_angular_resolution_rad = std::max(0.0f, angular_resolution_rad);
   return safe_range_m * safe_angular_resolution_rad;
+}
+
+float ComputeMinimumDetectionRangeM(const DetectionRangeInputs& inputs) {
+  const float half_fov_deg = 0.5f * std::max(0.0f, inputs.vertical_fov_deg);
+  const float near_edge_depression_deg = inputs.boresight_depression_deg + half_fov_deg;
+  const float clamped_depression_deg =
+      Clamp(near_edge_depression_deg, inputs.min_depression_deg, inputs.max_depression_deg);
+  return ComputeSlantRangeByDepressionAngle(inputs.platform_altitude_m, clamped_depression_deg);
+}
+
+float ComputeMaximumDetectionRangeM(const DetectionRangeInputs& inputs) {
+  const float half_fov_deg = 0.5f * std::max(0.0f, inputs.vertical_fov_deg);
+  const float far_edge_depression_deg = inputs.boresight_depression_deg - half_fov_deg;
+  const float clamped_depression_deg =
+      Clamp(far_edge_depression_deg, inputs.min_depression_deg, inputs.max_depression_deg);
+  return ComputeSlantRangeByDepressionAngle(inputs.platform_altitude_m, clamped_depression_deg);
 }
 
 float ComputeDefocusCoefficient(float focus_distance_m, float target_distance_m) {
