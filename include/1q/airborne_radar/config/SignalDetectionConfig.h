@@ -52,6 +52,22 @@ struct DetectionPolicy {
 };
 
 /**
+ * @brief RcsPhysicsConfig 描述可选物理 RCS 覆盖参数。
+ * @note 默认关闭，保持现有目标 RCS 使用方式不变。
+ */
+struct RcsPhysicsConfig {
+  bool enable_physical_rcs{false};  /**< 是否启用物理 RCS 覆盖 */
+  float frequency_hz{0.0f};         /**< 物理模型频率，<=0 时回退发射机频率 */
+  float physics_mix_ratio{0.0f};    /**< 物理 RCS 混合比例 [0,1]，0=纯输入RCS */
+  float cylinder_weight{0.5f};      /**< 圆柱散射权重 [0,1] */
+  float min_equivalent_radius_m{0.05f}; /**< 目标等效半径下限（m） */
+  float max_equivalent_radius_m{5.0f};  /**< 目标等效半径上限（m） */
+  float min_rcs_m2{0.01f};          /**< 物理 RCS 输出下限（m^2） */
+  float max_rcs_m2{1000.0f};        /**< 物理 RCS 输出上限（m^2） */
+  float bistatic_psi_offset_deg{5.0f}; /**< 双基地角偏移（deg） */
+};
+
+/**
  * @brief 完整雷达系统配置（组合上述子配置）。
  */
 struct RadarSystemConfig {
@@ -78,6 +94,7 @@ enum SwerlingModel {
 struct SignalDetectionConfig {
   bool enable_physics_detection{false}; /**< 是否启用物理层检测 */
   RadarSystemConfig radar_system{};     /**< 雷达系统配置 */
+  RcsPhysicsConfig rcs_physics{};       /**< 可选物理 RCS 覆盖配置 */
   float min_detection_margin_db{-2.0f}; /**< 最小检测裕量（dB） */
   int pulse_count{10};                  /**< 脉冲数 */
 };

@@ -52,6 +52,13 @@ class ONEQ_API EnvironmentSceneBuilder {
       const AtmosphericPhysicsConfig& config);
 
   /**
+   * @brief 设置可选植被散射物理参数。
+   * @param[in] config 植被散射物理参数。
+   */
+  EnvironmentSceneBuilder& SetVegetationScatterPhysicsConfig(
+      const VegetationScatterPhysicsConfig& config);
+
+  /**
    * @brief 追加一个完整的干扰源状态。
    * @param[in] emitter 干扰源状态。
    */

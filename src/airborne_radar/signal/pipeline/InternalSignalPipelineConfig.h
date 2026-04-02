@@ -119,10 +119,24 @@ inline bool EqualsRadarSystemConfig(const common::config::RadarSystemConfig& lhs
          EqualsDetectionPolicy(lhs.detection, rhs.detection);
 }
 
+inline bool EqualsRcsPhysicsConfig(const common::config::RcsPhysicsConfig& lhs,
+                                   const common::config::RcsPhysicsConfig& rhs) {
+  return lhs.enable_physical_rcs == rhs.enable_physical_rcs &&
+         NearlyEqual(lhs.frequency_hz, rhs.frequency_hz) &&
+         NearlyEqual(lhs.physics_mix_ratio, rhs.physics_mix_ratio) &&
+         NearlyEqual(lhs.cylinder_weight, rhs.cylinder_weight) &&
+         NearlyEqual(lhs.min_equivalent_radius_m, rhs.min_equivalent_radius_m) &&
+         NearlyEqual(lhs.max_equivalent_radius_m, rhs.max_equivalent_radius_m) &&
+         NearlyEqual(lhs.min_rcs_m2, rhs.min_rcs_m2) &&
+         NearlyEqual(lhs.max_rcs_m2, rhs.max_rcs_m2) &&
+         NearlyEqual(lhs.bistatic_psi_offset_deg, rhs.bistatic_psi_offset_deg);
+}
+
 inline bool EqualsSignalDetectionConfig(const common::config::SignalDetectionConfig& lhs,
                                         const common::config::SignalDetectionConfig& rhs) {
   return lhs.enable_physics_detection == rhs.enable_physics_detection &&
          EqualsRadarSystemConfig(lhs.radar_system, rhs.radar_system) &&
+         EqualsRcsPhysicsConfig(lhs.rcs_physics, rhs.rcs_physics) &&
          NearlyEqual(lhs.min_detection_margin_db, rhs.min_detection_margin_db) &&
          lhs.pulse_count == rhs.pulse_count;
 }

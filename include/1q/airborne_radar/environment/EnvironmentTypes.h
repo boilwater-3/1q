@@ -91,6 +91,24 @@ struct AtmosphericPhysicsConfig {
 };
 
 /**
+ * @brief VegetationScatterPhysicsConfig 描述可选植被散射杂波参数。
+ */
+struct VegetationScatterPhysicsConfig {
+  bool enable_physical_model{false}; /**< 是否启用植被散射物理建模 */
+  float leaf_size_m{0.05f};          /**< 叶片等效尺度（单位：m） */
+  float dielectric_constant_real{2.5f}; /**< 植被等效介电常数实部 */
+  float incidence_deg{20.0f};        /**< 入射角（单位：deg） */
+  float scatter_deg{35.0f};          /**< 散射角（单位：deg） */
+  std::uint32_t leaf_count{64U};     /**< 叶片数量 */
+  float canopy_radius_m{1.2f};       /**< 冠层半径（单位：m） */
+  float canopy_height_m{3.5f};       /**< 冠层高度（单位：m） */
+  float x_axis_scale_m{0.8f};        /**< 叶片参数方程 x 轴尺度 */
+  float y_axis_scale_m{0.5f};        /**< 叶片参数方程 y 轴尺度 */
+  float clutter_mix_ratio{0.0f};     /**< 物理散射杂波混合比例 [0,1] */
+  float max_physical_multiplier{30.0f}; /**< 物理散射杂波放大上限 */
+};
+
+/**
  * @brief EnvironmentSceneState 描述环境层待冻结的场景状态。
  */
 struct EnvironmentSceneState {
@@ -99,6 +117,7 @@ struct EnvironmentSceneState {
   float terrain_reflection_db{1.0f};        /**< 地形/多径附加项（dB） */
   float clutter_power_db{3.0f};             /**< 杂波功率（dB） */
   AtmosphericPhysicsConfig atmospheric_physics{}; /**< 可选物理传播参数 */
+  VegetationScatterPhysicsConfig vegetation_scatter_physics{}; /**< 可选植被散射参数 */
   JammerEmitterStateList jammer_emitters{}; /**< 当前场景中的干扰源输入 */
 };
 
@@ -111,6 +130,7 @@ struct EnvironmentModelConfig {
   float terrain_reflection_db{1.0f};      /**< 地形/多径附加项（dB） */
   float clutter_power_db{3.0f};           /**< 杂波功率（dB） */
   AtmosphericPhysicsConfig atmospheric_physics{}; /**< 可选物理传播参数 */
+  VegetationScatterPhysicsConfig vegetation_scatter_physics{}; /**< 可选植被散射参数 */
   JammerSourceFactList jammer_sources{};  /**< 多源干扰事实输入 */
 };
 
