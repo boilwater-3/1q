@@ -71,6 +71,26 @@ using JammerEmitterState = JammerSourceFact;
 using JammerEmitterStateList = std::vector<JammerEmitterState>;
 
 /**
+ * @brief AtmosphericPhysicsConfig 描述可选的大气传播物理参数。
+ */
+struct AtmosphericPhysicsConfig {
+  bool enable_physical_model{false}; /**< 是否启用物理传播模型 */
+  float frequency_hz{10.0e9f};       /**< 雷达频率（单位：Hz） */
+  float path_length_m{10.0e3f};      /**< 传播路径长度（单位：m） */
+  float radar_altitude_m{1.0e3f};    /**< 雷达高度（单位：m） */
+  float target_altitude_m{1.0e3f};   /**< 目标高度（单位：m） */
+  float elevation_deg{5.0f};         /**< 传播仰角（单位：deg） */
+  float pressure_hpa{1013.25f};      /**< 气压（单位：hPa） */
+  float temperature_k{288.15f};      /**< 温度（单位：K） */
+  float relative_humidity{0.5f};     /**< 相对湿度 [0, 1] */
+  float k_factor{4.0f / 3.0f};       /**< 地球有效半径因子 */
+  std::int32_t day_of_year{172};     /**< 年积日 [1, 366] */
+  float solar_flux_f107a{150.0f};    /**< 平滑太阳流量指数 */
+  float solar_flux_f107{150.0f};     /**< 当日太阳流量指数 */
+  float geomagnetic_ap{4.0f};        /**< 地磁活动指数 */
+};
+
+/**
  * @brief EnvironmentSceneState 描述环境层待冻结的场景状态。
  */
 struct EnvironmentSceneState {
@@ -78,6 +98,7 @@ struct EnvironmentSceneState {
   float atmospheric_attenuation_db{1.5f};   /**< 大气附加衰减（dB） */
   float terrain_reflection_db{1.0f};        /**< 地形/多径附加项（dB） */
   float clutter_power_db{3.0f};             /**< 杂波功率（dB） */
+  AtmosphericPhysicsConfig atmospheric_physics{}; /**< 可选物理传播参数 */
   JammerEmitterStateList jammer_emitters{}; /**< 当前场景中的干扰源输入 */
 };
 
@@ -89,6 +110,7 @@ struct EnvironmentModelConfig {
   float atmospheric_attenuation_db{1.5f}; /**< 大气附加衰减（dB） */
   float terrain_reflection_db{1.0f};      /**< 地形/多径附加项（dB） */
   float clutter_power_db{3.0f};           /**< 杂波功率（dB） */
+  AtmosphericPhysicsConfig atmospheric_physics{}; /**< 可选物理传播参数 */
   JammerSourceFactList jammer_sources{};  /**< 多源干扰事实输入 */
 };
 

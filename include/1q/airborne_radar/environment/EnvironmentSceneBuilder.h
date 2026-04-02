@@ -45,6 +45,13 @@ class ONEQ_API EnvironmentSceneBuilder {
   EnvironmentSceneBuilder& SetClutterPowerDb(float clutter_power_db);
 
   /**
+   * @brief 设置可选大气物理传播参数。
+   * @param[in] config 大气物理传播参数。
+   */
+  EnvironmentSceneBuilder& SetAtmosphericPhysicsConfig(
+      const AtmosphericPhysicsConfig& config);
+
+  /**
    * @brief 追加一个完整的干扰源状态。
    * @param[in] emitter 干扰源状态。
    */

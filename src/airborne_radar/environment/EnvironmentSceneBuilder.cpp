@@ -24,6 +24,12 @@ EnvironmentSceneBuilder& EnvironmentSceneBuilder::SetClutterPowerDb(float clutte
   return *this;
 }
 
+EnvironmentSceneBuilder& EnvironmentSceneBuilder::SetAtmosphericPhysicsConfig(
+    const AtmosphericPhysicsConfig& config) {
+  scene_state_.atmospheric_physics = config;
+  return *this;
+}
+
 EnvironmentSceneBuilder& EnvironmentSceneBuilder::AddJammer(const JammerEmitterState& emitter) {
   scene_state_.jammer_emitters.push_back(emitter);
   return *this;

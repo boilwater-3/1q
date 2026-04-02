@@ -2,6 +2,7 @@
 
 #include <cstddef>
 
+#include "common/atmosphere/AtmospherePhysics.h"
 #include "electronic_surveillance_radar/EsrSharedUtils.h"
 
 namespace electronic_surveillance_radar {
@@ -37,10 +38,35 @@ EsrEnvironmentSnapshot BuildSnapshot(const EsrEnvironmentCycleContext& cycle_con
   EsrEnvironmentSnapshot snapshot;
   snapshot.cycle_index = cycle_context.cycle_index;
   snapshot.dt_sec = cycle_context.dt_sec;
+  const EsrAtmosphericPhysicsConfig& atmospheric_physics =
+      cycle_context.scene_state.atmospheric_physics.enable_physical_model
+          ? cycle_context.scene_state.atmospheric_physics
+          : config.atmospheric_physics;
+  float physical_loss_db = 0.0f;
+  if (atmospheric_physics.enable_physical_model) {
+    oneq::internal::atmosphere::AtmosphericPropagationInputs physics_inputs;
+    physics_inputs.enable_physics = true;
+    physics_inputs.frequency_hz = atmospheric_physics.frequency_hz;
+    physics_inputs.path_length_m = atmospheric_physics.path_length_m;
+    physics_inputs.radar_altitude_m = atmospheric_physics.radar_altitude_m;
+    physics_inputs.target_altitude_m = atmospheric_physics.target_altitude_m;
+    physics_inputs.elevation_deg = atmospheric_physics.elevation_deg;
+    physics_inputs.pressure_hpa = atmospheric_physics.pressure_hpa;
+    physics_inputs.temperature_k = atmospheric_physics.temperature_k;
+    physics_inputs.relative_humidity = atmospheric_physics.relative_humidity;
+    physics_inputs.k_factor = atmospheric_physics.k_factor;
+    physics_inputs.day_of_year = atmospheric_physics.day_of_year;
+    physics_inputs.solar_flux_f107a = atmospheric_physics.solar_flux_f107a;
+    physics_inputs.solar_flux_f107 = atmospheric_physics.solar_flux_f107;
+    physics_inputs.geomagnetic_ap = atmospheric_physics.geomagnetic_ap;
+    const oneq::internal::atmosphere::AtmosphericPropagationResult physics_result =
+        oneq::internal::atmosphere::EvaluateAtmosphericPropagation(physics_inputs);
+    physical_loss_db = physics_result.total_physics_loss_db;
+  }
   snapshot.propagation_loss_db =
       ClampNonNegative(cycle_context.scene_state.base_propagation_loss_db +
                        cycle_context.scene_state.atmospheric_attenuation_db +
-                       cycle_context.scene_state.terrain_reflection_db);
+                       cycle_context.scene_state.terrain_reflection_db + physical_loss_db);
 
   const float clutter_noise = cycle_context.scene_state.clutter_noise_w > 0.0f
                                   ? cycle_context.scene_state.clutter_noise_w

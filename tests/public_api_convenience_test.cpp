@@ -187,6 +187,8 @@ TEST(PublicApiConvenienceTest, EnvironmentSceneBuilderDefaultsMatchEnvironmentSc
               1e-5f);
   EXPECT_NEAR(built_scene.terrain_reflection_db, default_scene.terrain_reflection_db, 1e-5f);
   EXPECT_NEAR(built_scene.clutter_power_db, default_scene.clutter_power_db, 1e-5f);
+  EXPECT_EQ(built_scene.atmospheric_physics.enable_physical_model,
+            default_scene.atmospheric_physics.enable_physical_model);
   EXPECT_TRUE(built_scene.jammer_emitters.empty());
 }
 

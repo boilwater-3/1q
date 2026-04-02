@@ -83,6 +83,24 @@ TEST(EnvironmentServiceTest, DetectsJammingByConfiguredThreshold) {
   EXPECT_TRUE(snapshot.jammer_sources[0].in_sidelobe);
 }
 
+TEST(EnvironmentServiceTest, ModelConfigAtmosphericPhysicsAffectsDefaultSnapshot) {
+  environment::EnvironmentModelConfig config;
+  config.base_propagation_loss_db = 4.0f;
+  config.atmospheric_attenuation_db = 1.5f;
+  config.terrain_reflection_db = 1.0f;
+  config.atmospheric_physics.enable_physical_model = true;
+  config.atmospheric_physics.frequency_hz = 9.4e9f;
+  config.atmospheric_physics.path_length_m = 60.0e3f;
+  config.atmospheric_physics.radar_altitude_m = 1200.0f;
+  config.atmospheric_physics.target_altitude_m = 900.0f;
+  config.atmospheric_physics.elevation_deg = 3.0f;
+  config.atmospheric_physics.relative_humidity = 0.7f;
+
+  environment::EnvironmentService service(config);
+  const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
+  EXPECT_GT(snapshot.propagation_loss_db, 6.5f);
+}
+
 TEST(EnvironmentServiceTest, FreezesSnapshotUntilNextCycle) {
   environment::EnvironmentService service;
 
@@ -210,6 +228,30 @@ TEST(PropagationModelTest, NegativeTerrainReflectionYieldsNetGainPassesThroughUn
   // Clutter power passes through unchanged so callers can model near-zero
   // clutter by setting large negative dBW values.
   EXPECT_FLOAT_EQ(result.clutter_power_db, -3.0f);
+}
+
+TEST(PropagationModelTest, OptionalAtmosphericPhysicsAddsExtraLossWhenEnabled) {
+  environment::EnvironmentSceneState baseline_scene;
+  baseline_scene.base_propagation_loss_db = 4.0f;
+  baseline_scene.atmospheric_attenuation_db = 1.5f;
+  baseline_scene.terrain_reflection_db = 0.5f;
+
+  environment::EnvironmentSceneState physics_scene = baseline_scene;
+  physics_scene.atmospheric_physics.enable_physical_model = true;
+  physics_scene.atmospheric_physics.frequency_hz = 9.6e9f;
+  physics_scene.atmospheric_physics.path_length_m = 80.0e3f;
+  physics_scene.atmospheric_physics.radar_altitude_m = 1200.0f;
+  physics_scene.atmospheric_physics.target_altitude_m = 900.0f;
+  physics_scene.atmospheric_physics.elevation_deg = 3.0f;
+  physics_scene.atmospheric_physics.relative_humidity = 0.75f;
+
+  environment::simulation::PropagationModel propagation_model;
+  const environment::simulation::PropagationResult baseline_result =
+      propagation_model.Evaluate(baseline_scene);
+  const environment::simulation::PropagationResult physics_result =
+      propagation_model.Evaluate(physics_scene);
+
+  EXPECT_GT(physics_result.propagation_loss_db, baseline_result.propagation_loss_db);
 }
 
 TEST(SignalPipelineTest, KeepsTrackStableWhenDetectionMarginIsEnough) {

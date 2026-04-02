@@ -41,6 +41,26 @@ struct ONEQ_API EsrJammerSource {
 using EsrJammerSourceList = std::vector<EsrJammerSource>;
 
 /**
+ * @brief EsrAtmosphericPhysicsConfig 描述可选物理传播参数。
+ */
+struct ONEQ_API EsrAtmosphericPhysicsConfig {
+  bool enable_physical_model{false}; /**< 是否启用物理传播模型 */
+  float frequency_hz{10.0e9f};       /**< 雷达频率（单位：Hz） */
+  float path_length_m{10.0e3f};      /**< 传播路径长度（单位：m） */
+  float radar_altitude_m{1.0e3f};    /**< 雷达高度（单位：m） */
+  float target_altitude_m{1.0e3f};   /**< 目标高度（单位：m） */
+  float elevation_deg{5.0f};         /**< 传播仰角（单位：deg） */
+  float pressure_hpa{1013.25f};      /**< 气压（单位：hPa） */
+  float temperature_k{288.15f};      /**< 温度（单位：K） */
+  float relative_humidity{0.5f};     /**< 相对湿度 [0, 1] */
+  float k_factor{4.0f / 3.0f};       /**< 地球有效半径因子 */
+  std::int32_t day_of_year{172};     /**< 年积日 [1, 366] */
+  float solar_flux_f107a{150.0f};    /**< 平滑太阳流量指数 */
+  float solar_flux_f107{150.0f};     /**< 当日太阳流量指数 */
+  float geomagnetic_ap{4.0f};        /**< 地磁活动指数 */
+};
+
+/**
  * @brief EsrEnvironmentSceneState 描述待冻结环境场景。
  */
 struct ONEQ_API EsrEnvironmentSceneState {
@@ -49,6 +69,7 @@ struct ONEQ_API EsrEnvironmentSceneState {
   float terrain_reflection_db{0.0f};      /**< 地形/多径附加项（单位：dB） */
   float clutter_noise_w{1.0e-12f};        /**< 杂波噪声功率（单位：W） */
   float spectrum_occupancy_ratio{0.0f};   /**< 频谱占用率，范围 [0, 1] */
+  EsrAtmosphericPhysicsConfig atmospheric_physics{}; /**< 可选物理传播参数 */
   EsrJammerSourceList jammer_sources{};   /**< 场景干扰源列表 */
 };
 
@@ -83,6 +104,7 @@ struct ONEQ_API EsrEnvironmentSnapshot {
 struct ONEQ_API EsrEnvironmentModelConfig {
   float default_clutter_noise_w{1.0e-12f};      /**< 默认杂波噪声功率（单位：W） */
   float jamming_detection_threshold_w{1.0e-9f}; /**< 干扰检测阈值（单位：W） */
+  EsrAtmosphericPhysicsConfig atmospheric_physics{}; /**< 可选物理传播参数 */
 };
 
 }  // namespace environment
