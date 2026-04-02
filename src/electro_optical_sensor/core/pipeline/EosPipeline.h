@@ -43,6 +43,7 @@ struct EosPipelineConfig {
   float horizontal_fov_deg{6.0f};
   float vertical_fov_deg{4.0f};
   float scan_rate_deg_per_sec{20.0f};
+  float frame_rate_hz{30.0f};
   float minimum_snr_db{6.0f};
   float detection_sensitivity_w{1.0e-12f};
   float scan_start_az_deg{-60.0f};

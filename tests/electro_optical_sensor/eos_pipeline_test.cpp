@@ -218,6 +218,63 @@ TEST(EosPipelineTest, PlatformVelocityDoesNotAffectEnvironmentPenaltyWhenWindFix
               high_speed_frame.detections[0].fused_snr_linear, 1.0e-8f);
 }
 
+TEST(EosPipelineTest, LowerFrameRateProducesHigherSnrWithLongerIntegrationWindow) {
+  EosPipelineConfig low_rate_config = MakePipelineConfig();
+  low_rate_config.work_mode = EosPipelineWorkMode::kInfraredOnly;
+  low_rate_config.frame_rate_hz = 5.0f;
+  low_rate_config.scan_rate_deg_per_sec = 5.0f;
+
+  EosPipelineConfig high_rate_config = low_rate_config;
+  high_rate_config.frame_rate_hz = 120.0f;
+
+  EosPipeline low_rate_pipeline(low_rate_config);
+  EosPipeline high_rate_pipeline(high_rate_config);
+
+  context::EosCycleInput input = MakeCycleInput(0.1f);
+  input.cycle_index = 10U;
+  input.background_temperature_k = 240.0f;
+  input.cloud_coverage_ratio = 0.1f;
+  context::EosTargetState target = MakeTarget(701U, -5.0f, 1000.0f, 8.0f);
+  target.apparent_temperature_k = 860.0f;
+  target.emissivity = 0.98f;
+  input.scene_targets.push_back(target);
+
+  const common::EosOutputFrame low_rate_frame = low_rate_pipeline.Execute(input);
+  const common::EosOutputFrame high_rate_frame = high_rate_pipeline.Execute(input);
+
+  ASSERT_EQ(low_rate_frame.detections.size(), 1U);
+  ASSERT_EQ(high_rate_frame.detections.size(), 1U);
+  EXPECT_GT(low_rate_frame.detections[0].fused_snr_linear,
+            high_rate_frame.detections[0].fused_snr_linear);
+}
+
+TEST(EosPipelineTest, VisibleReferenceIrradianceAffectsVisibleSnrThroughNoiseModel) {
+  EosPipelineConfig matched_reference_config = MakePipelineConfig();
+  matched_reference_config.work_mode = EosPipelineWorkMode::kVisibleOnly;
+  matched_reference_config.visible_reference_irradiance_w_m2 = 400.0f;
+
+  EosPipelineConfig mismatched_reference_config = matched_reference_config;
+  mismatched_reference_config.visible_reference_irradiance_w_m2 = 2000.0f;
+
+  EosPipeline matched_reference_pipeline(matched_reference_config);
+  EosPipeline mismatched_reference_pipeline(mismatched_reference_config);
+
+  context::EosCycleInput input = MakeCycleInput(1.0f);
+  input.cycle_index = 11U;
+  input.solar_irradiance_w_m2 = 400.0f;
+  input.cloud_coverage_ratio = 0.6f;
+  context::EosTargetState target = MakeTarget(801U, -5.0f, 1200.0f, 4.0f);
+  input.scene_targets.push_back(target);
+
+  const common::EosOutputFrame matched_frame = matched_reference_pipeline.Execute(input);
+  const common::EosOutputFrame mismatched_frame = mismatched_reference_pipeline.Execute(input);
+
+  ASSERT_EQ(matched_frame.detections.size(), 1U);
+  ASSERT_EQ(mismatched_frame.detections.size(), 1U);
+  EXPECT_GT(matched_frame.detections[0].fused_snr_linear,
+            mismatched_frame.detections[0].fused_snr_linear);
+}
+
 }  // namespace
 }  // namespace pipeline
 }  // namespace core

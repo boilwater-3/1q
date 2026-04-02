@@ -100,6 +100,29 @@ float ComputeFovSolidAngleSr(float horizontal_fov_deg, float vertical_fov_deg) {
   return std::max(0.0f, horizontal_fov_rad * vertical_fov_rad);
 }
 
+float ComputeSensorIntegrationTimeSec(const EosPipelineConfig& config,
+                                      const context::EosCycleInput& input) {
+  const float frame_period_sec =
+      1.0f / std::max(SafePositive(config.frame_rate_hz, 30.0f), 1.0f);
+  const float cycle_dt_sec = SafePositive(input.dt_sec, frame_period_sec);
+  const float base_integration_sec = std::min(cycle_dt_sec, frame_period_sec);
+  const float scan_blur_penalty =
+      1.0f + SafePositive(config.scan_rate_deg_per_sec, 20.0f) / 120.0f;
+  return std::max(1.0e-4f, base_integration_sec / scan_blur_penalty);
+}
+
+float ComputeVisiblePhotonNoiseEnhancement(const EosPipelineConfig& config,
+                                           const context::EosCycleInput& input) {
+  const float reference_irradiance =
+      SafePositive(config.visible_reference_irradiance_w_m2, 800.0f);
+  const float observed_irradiance = std::max(0.0f, input.solar_irradiance_w_m2);
+  const float irradiance_ratio =
+      std::max(observed_irradiance, 1.0e-3f) / reference_irradiance;
+  const float irradiance_mismatch = std::fabs(std::log2(std::max(irradiance_ratio, 1.0e-6f)));
+  const float cloud_factor = 1.0f + 0.5f * Clamp01(input.cloud_coverage_ratio);
+  return Clamp(1.0f + 0.12f * irradiance_mismatch * cloud_factor, 1.0f, 2.5f);
+}
+
 }  // namespace
 
 EosPipeline::EosPipeline(const EosPipelineConfig& config)
@@ -217,9 +240,12 @@ common::EosDetectionRecord EosPipeline::BuildDetectionRecord(
 
   foundation::propagation::NepNoiseModelInputs nep_inputs;
   nep_inputs.optical_transmittance = optical_transmittance;
-  nep_inputs.integration_time_sec =
-      1.0f / std::max(SafePositive(config_.scan_rate_deg_per_sec, 20.0f), 1.0f);
-  nep_inputs.electrical_bandwidth_hz = std::max(100.0f, SafePositive(config_.scan_rate_deg_per_sec, 20.0f) * 100.0f);
+  nep_inputs.integration_time_sec = ComputeSensorIntegrationTimeSec(config_, input);
+  const float scan_coupled_bandwidth_hz =
+      SafePositive(config_.scan_rate_deg_per_sec, 20.0f) * 100.0f;
+  const float frame_coupled_bandwidth_hz = 0.5f / nep_inputs.integration_time_sec;
+  nep_inputs.electrical_bandwidth_hz =
+      std::max(100.0f, std::max(scan_coupled_bandwidth_hz, frame_coupled_bandwidth_hz));
   nep_inputs.system_noise_factor = std::max(1.0f, 1.0e-12f / SafePositive(config_.detection_sensitivity_w, 1.0e-12f));
   foundation::noise::BackgroundNoiseModelInputs noise_inputs;
   noise_inputs.electrical_bandwidth_hz = nep_inputs.electrical_bandwidth_hz;
@@ -300,7 +326,8 @@ common::EosDetectionRecord EosPipeline::BuildDetectionRecord(
         optical_transmittance) * stray_light_result.background_penalty_scale *
         path_radiance_penalty_scale;
     noise_inputs.background_flux_w = visible_background_flux_w;
-    noise_inputs.photon_noise_enhancement_factor = 1.15f;
+    noise_inputs.photon_noise_enhancement_factor =
+        ComputeVisiblePhotonNoiseEnhancement(config_, input);
     const foundation::noise::BackgroundNoiseStatistics visible_noise_stats =
         foundation::noise::ComputeBackgroundNoiseStatistics(noise_inputs);
     const float visible_effective_signal_w = foundation::noise::ComputeEffectiveSignalPowerW(

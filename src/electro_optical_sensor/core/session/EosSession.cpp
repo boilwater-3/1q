@@ -37,6 +37,7 @@ pipeline::EosPipelineConfig BuildPipelineConfig(const EosSessionConfig& config) 
   pipeline_config.horizontal_fov_deg = config.horizontal_fov_deg;
   pipeline_config.vertical_fov_deg = config.vertical_fov_deg;
   pipeline_config.scan_rate_deg_per_sec = config.scan_rate_deg_per_sec;
+  pipeline_config.frame_rate_hz = config.frame_rate_hz;
   pipeline_config.minimum_snr_db = config.minimum_snr_db;
   pipeline_config.detection_sensitivity_w = config.detection_sensitivity_w;
   pipeline_config.scan_start_az_deg = config.scan_start_az_deg;
