@@ -6,6 +6,7 @@ set(ONEQ_COMMON_SOURCES
     common/geometry/GeometryTransform.cpp
     common/numerics/SpectralNumerics.cpp
     common/rcs/RcsPhysics.cpp
+    common/trace/TraceSink.cpp
     common/timing/TimingRegimeModel.cpp
 )
 
@@ -70,6 +71,7 @@ set(AIRBORNE_CORE_SOURCES
     airborne_radar/core/session/config/ConfigPresets.cpp
     airborne_radar/core/session/config/RadarSessionConfigBuilder.cpp
     airborne_radar/core/session/RadarSession.cpp
+    airborne_radar/core/session/RadarTraceSession.cpp
     airborne_radar/environment/database/FeatureRepository.cpp
     airborne_radar/environment/EnvironmentSceneBuilder.cpp
     airborne_radar/environment/EnvironmentService.cpp
@@ -78,11 +80,13 @@ set(AIRBORNE_CORE_SOURCES
 )
 
 set(ESR_SOURCES
+    electronic_surveillance_radar/core/context/EsrCoordinateUtils.cpp
     electronic_surveillance_radar/core/context/EsrInputValidation.cpp
     electronic_surveillance_radar/core/controller/EsrController.cpp
     electronic_surveillance_radar/core/output/EsrOutputManager.cpp
     electronic_surveillance_radar/core/session/EsrSessionConfigResolver.cpp
     electronic_surveillance_radar/core/session/EsrSession.cpp
+    electronic_surveillance_radar/core/session/EsrTraceSession.cpp
     electronic_surveillance_radar/environment/EsrEnvironmentService.cpp
     electronic_surveillance_radar/pipeline/HypothesisAssociator.cpp
     electronic_surveillance_radar/pipeline/InterceptPipeline.cpp
@@ -99,10 +103,11 @@ set(EOS_SOURCES
     electro_optical_sensor/foundation/EosRadiometry.cpp
     electro_optical_sensor/foundation/EosSpatialSpectrum.cpp
     electro_optical_sensor/foundation/EosStrayLight.cpp
-    electro_optical_sensor/environment/EosEnvironmentModel.cpp
+    electro_optical_sensor/core/context/EosCoordinateUtils.cpp
     electro_optical_sensor/core/context/EosInputValidation.cpp
     electro_optical_sensor/core/pipeline/EosPipeline.cpp
     electro_optical_sensor/core/session/EosSession.cpp
+    electro_optical_sensor/core/session/EosTraceSession.cpp
 )
 
 add_library(airborne_common OBJECT ${AIRBORNE_COMMON_SOURCES})
@@ -395,6 +400,7 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/pipeline/SignalPipelineResultTypes.h
     )
     set(PUBLIC_HEADERS_ESR_COMMON
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/common/EsrCoordinateUtils.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/common/EmitterHypothesis.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/common/EmitterObservation.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/common/EmitterTruthState.h
@@ -433,6 +439,7 @@ if(ENABLE_INSTALL)
     )
     set(PUBLIC_HEADERS_EOS_CORE_CONTEXT
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/core/context/EosCycleInput.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/core/context/EosCoordinateUtils.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/core/context/EosInputValidation.h
     )
     set(PUBLIC_HEADERS_EOS_CORE_SESSION

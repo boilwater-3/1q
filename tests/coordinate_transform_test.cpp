@@ -60,6 +60,7 @@ TEST(CoordinateTransformTest, LlaToEnuCapturesEastwardOffsetAtEquator) {
   origin_lla.latitude_deg = 0.0;
   origin_lla.longitude_deg = 0.0;
   origin_lla.altitude_m = 0.0;
+
   LlaCoordinateDegM east_point_lla;
   east_point_lla.latitude_deg = 0.0;
   east_point_lla.longitude_deg = 0.001;

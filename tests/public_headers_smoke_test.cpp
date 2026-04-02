@@ -5,6 +5,8 @@
 
 #include <gtest/gtest.h>
 
+#include <memory>
+
 #include "1q/airborne_radar/common/control/ControlDirective.h"
 #include "1q/airborne_radar/common/control/RadarCommand.h"
 #include "1q/airborne_radar/common/control/RadarControlProfile.h"
@@ -44,6 +46,7 @@
 #include "1q/common/coordinate_transform.h"
 #include "1q/common/pose_types.h"
 #include "1q/common/scan_schedule_types.h"
+#include "1q/common/trace/TraceSink.h"
 #include "1q/electro_optical_sensor/common/EosOutputFrame.h"
 #include "1q/electro_optical_sensor/foundation/EosNoiseModel.h"
 #include "1q/electro_optical_sensor/foundation/EosOpticalCharacteristics.h"
@@ -53,13 +56,18 @@
 #include "1q/electro_optical_sensor/foundation/EosSpatialSpectrum.h"
 #include "1q/electro_optical_sensor/foundation/EosStrayLight.h"
 #include "1q/electro_optical_sensor/core/context/EosCycleInput.h"
+#include "1q/electro_optical_sensor/core/context/EosCoordinateUtils.h"
 #include "1q/electro_optical_sensor/core/context/EosInputValidation.h"
 #include "1q/electro_optical_sensor/core/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/core/session/EosSession.h"
+#include "1q/electro_optical_sensor/tools/EosTraceSession.h"
 #include "1q/electronic_surveillance_radar/common/EmitterTruthState.h"
+#include "1q/electronic_surveillance_radar/common/EsrCoordinateUtils.h"
 #include "1q/electronic_surveillance_radar/core/context/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/core/context/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/core/session/EsrSession.h"
+#include "1q/electronic_surveillance_radar/tools/EsrTraceSession.h"
+#include "1q/airborne_radar/tools/RadarTraceSession.h"
 
 namespace airborne_radar {
 namespace {
@@ -88,6 +96,10 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   scene_state.jammer_emitters.push_back(environment::JammerEmitterState{});
 
   core::session::RadarSession session(session_config);
+  std::shared_ptr<oneq::common::trace::TraceSink> trace_sink(
+      new oneq::common::trace::JsonlFileTraceSink("/tmp/oneq-smoke-radar-trace.jsonl", false));
+  tools::RadarTraceSession trace_session(
+      session_config, tools::RadarTraceSessionOptions{trace_sink, false});
   const common::config::RadarRuntimeConfigPatch runtime_patch =
       common::config::RadarRuntimeConfigBuilder()
           .WithRadarWorkSubMode(common::config::RadarWorkSubMode::kTas)
@@ -95,11 +107,13 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
           .Build();
   session.ApplyRuntimeConfig(runtime_patch);
   const core::session::RadarCycleResult result = session.StepWithResult(input, scene_state);
+  const core::session::RadarCycleResult trace_result = trace_session.StepWithResult(input, scene_state);
   const std::size_t confirmed_tracks = common::output::CountTracksByStatus(
       result.track_output_frame, common::model::DecisionTrackStatus::kConfirmed);
 
   EXPECT_GE(confirmed_tracks, 0U);
   EXPECT_GE(result.association_quality_metrics.detection_count, 0U);
+  EXPECT_GE(trace_result.association_quality_metrics.detection_count, 0U);
 }
 
 }  // namespace
@@ -133,15 +147,26 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   emitter.pri_s = 1.0e-4;
   input.scene_emitters.push_back(emitter);
 
+  common::EsrCoordinateReference esr_reference;
+  esr_reference.origin_lla.latitude_deg = 0.0;
+  esr_reference.origin_lla.longitude_deg = 0.0;
+  esr_reference.origin_lla.altitude_m = 0.0;
+  common::EsrVector3f esr_local_position;
+  ASSERT_TRUE(common::TryConvertLlaToEsrLocal(esr_reference.origin_lla, esr_reference,
+                                               &esr_local_position));
+
   const core::context::EsrValidationIssueList issues = core::context::ValidateEsrCycleInput(input);
   EXPECT_FALSE(core::context::HasEsrValidationError(issues));
 
   core::session::EsrSession session(session_config);
   const core::session::EsrCycleResult result = session.StepWithResult(input);
+  tools::EsrTraceSession trace_session(session_config, tools::EsrTraceSessionOptions{});
+  const core::session::EsrCycleResult trace_result = trace_session.StepWithResult(input);
 
   EXPECT_GE(result.output_frame.observation_output.observations.size(), 0U);
   EXPECT_GE(result.output_frame.emitter_output.hypotheses.size(), 0U);
   EXPECT_GE(result.output_frame.truth_evaluation_output.associations.size(), 0U);
+  EXPECT_GE(trace_result.output_frame.truth_evaluation_output.associations.size(), 0U);
 }
 
 }  // namespace
@@ -189,6 +214,14 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   target.projected_area_m2 = 2.0f;
   input.scene_targets.push_back(target);
 
+  core::context::EosCoordinateReference eos_reference;
+  eos_reference.origin_lla.latitude_deg = 0.0;
+  eos_reference.origin_lla.longitude_deg = 0.0;
+  eos_reference.origin_lla.altitude_m = 0.0;
+  oneq::common::Vector3f eos_local_position;
+  ASSERT_TRUE(core::context::TryConvertLlaToEosLocal(eos_reference.origin_lla, eos_reference,
+                                                      &eos_local_position));
+
   const core::context::EosValidationIssueList issues = core::context::ValidateEosCycleInput(input);
   EXPECT_FALSE(core::context::HasEosValidationError(issues));
 
@@ -212,7 +245,10 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
 
   core::session::EosSession session(session_config);
   const core::session::EosCycleResult result = session.StepWithResult(input);
+  tools::EosTraceSession trace_session(session_config, tools::EosTraceSessionOptions{});
+  const core::session::EosCycleResult trace_result = trace_session.StepWithResult(input);
   EXPECT_GE(result.output_frame.detections.size(), 0U);
+  EXPECT_GE(trace_result.output_frame.detections.size(), 0U);
 }
 
 }  // namespace

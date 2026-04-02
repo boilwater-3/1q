@@ -11,11 +11,9 @@ constexpr double kPi = 3.14159265358979323846;
 constexpr double kWgs84SemiMajorAxisM = 6378137.0;
 constexpr double kWgs84Flattening = 1.0 / 298.257223563;
 constexpr double kWgs84SemiMinorAxisM = kWgs84SemiMajorAxisM * (1.0 - kWgs84Flattening);
-constexpr double kWgs84EccentricitySquared =
-    kWgs84Flattening * (2.0 - kWgs84Flattening);
+constexpr double kWgs84EccentricitySquared = kWgs84Flattening * (2.0 - kWgs84Flattening);
 constexpr double kWgs84SecondEccentricitySquared =
-    (kWgs84SemiMajorAxisM * kWgs84SemiMajorAxisM -
-     kWgs84SemiMinorAxisM * kWgs84SemiMinorAxisM) /
+    (kWgs84SemiMajorAxisM * kWgs84SemiMajorAxisM - kWgs84SemiMinorAxisM * kWgs84SemiMinorAxisM) /
     (kWgs84SemiMinorAxisM * kWgs84SemiMinorAxisM);
 constexpr double kNormFloor = 1.0e-9;
 
