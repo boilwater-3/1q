@@ -150,6 +150,29 @@ TEST(RadarSessionConfigBuilderTest, DetectionPolicySettersApplyCorrectly) {
   EXPECT_EQ(config.signal_pipeline_config.detection.pulse_count, 20);
 }
 
+TEST(RadarSessionConfigBuilderTest, RcsPhysicsSettersApplyCorrectly) {
+  const auto config = common::config::RadarSessionConfigBuilder()
+                          .EnablePhysicalRcsOverride(true)
+                          .WithRcsPhysicsFrequencyHz(9.6e9f)
+                          .WithRcsPhysicsMixRatio(0.75f)
+                          .WithRcsPhysicsCylinderWeight(0.3f)
+                          .WithRcsPhysicsEquivalentRadiusRangeM(0.12f, 2.4f)
+                          .WithRcsPhysicsOutputRangeM2(0.02f, 1800.0f)
+                          .WithRcsPhysicsBistaticPsiOffsetDeg(12.0f)
+                          .Build();
+
+  const auto& rcs = config.signal_pipeline_config.detection.rcs_physics;
+  EXPECT_TRUE(rcs.enable_physical_rcs);
+  EXPECT_FLOAT_EQ(rcs.frequency_hz, 9.6e9f);
+  EXPECT_FLOAT_EQ(rcs.physics_mix_ratio, 0.75f);
+  EXPECT_FLOAT_EQ(rcs.cylinder_weight, 0.3f);
+  EXPECT_FLOAT_EQ(rcs.min_equivalent_radius_m, 0.12f);
+  EXPECT_FLOAT_EQ(rcs.max_equivalent_radius_m, 2.4f);
+  EXPECT_FLOAT_EQ(rcs.min_rcs_m2, 0.02f);
+  EXPECT_FLOAT_EQ(rcs.max_rcs_m2, 1800.0f);
+  EXPECT_FLOAT_EQ(rcs.bistatic_psi_offset_deg, 12.0f);
+}
+
 // ---------------------------------------------------------------------------
 // 跟踪参数
 // ---------------------------------------------------------------------------
@@ -285,6 +308,11 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderSupportsKeySignalDomainP
   detection_config.min_detection_margin_db = -8.0f;
   detection_config.pulse_count = 24;
   detection_config.radar_system.transmitter.prf_hz = 800.0f;
+  detection_config.rcs_physics.enable_physical_rcs = true;
+  detection_config.rcs_physics.physics_mix_ratio = 0.7f;
+  detection_config.rcs_physics.cylinder_weight = 0.2f;
+  detection_config.rcs_physics.min_equivalent_radius_m = 0.1f;
+  detection_config.rcs_physics.max_equivalent_radius_m = 2.0f;
 
   common::config::SignalBeamControlConfig beam_control_config;
   beam_control_config.radar_orientation.work_sub_mode = common::config::RadarWorkSubMode::kStt;
@@ -301,11 +329,40 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderSupportsKeySignalDomainP
   EXPECT_FLOAT_EQ(patch.signal_detection_config.min_detection_margin_db, -8.0f);
   EXPECT_EQ(patch.signal_detection_config.pulse_count, 24);
   EXPECT_FLOAT_EQ(patch.signal_detection_config.radar_system.transmitter.prf_hz, 800.0f);
+  EXPECT_TRUE(patch.signal_detection_config.rcs_physics.enable_physical_rcs);
+  EXPECT_FLOAT_EQ(patch.signal_detection_config.rcs_physics.physics_mix_ratio, 0.7f);
+  EXPECT_FLOAT_EQ(patch.signal_detection_config.rcs_physics.cylinder_weight, 0.2f);
+  EXPECT_FLOAT_EQ(patch.signal_detection_config.rcs_physics.min_equivalent_radius_m, 0.1f);
+  EXPECT_FLOAT_EQ(patch.signal_detection_config.rcs_physics.max_equivalent_radius_m, 2.0f);
 
   EXPECT_TRUE(patch.has_signal_beam_control_config);
   EXPECT_EQ(patch.signal_beam_control_config.radar_orientation.work_sub_mode,
             common::config::RadarWorkSubMode::kStt);
   EXPECT_FLOAT_EQ(patch.signal_beam_control_config.platform_attitude_deg.roll_deg, 1.2f);
+}
+
+TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderSupportsRcsPhysicsConvenienceSetters) {
+  const common::config::RadarRuntimeConfigPatch patch =
+      common::config::RadarRuntimeConfigBuilder()
+          .EnablePhysicalRcsOverride(true)
+          .WithRcsPhysicsFrequencyHz(9.8e9f)
+          .WithRcsPhysicsMixRatio(0.65f)
+          .WithRcsPhysicsCylinderWeight(0.25f)
+          .WithRcsPhysicsEquivalentRadiusRangeM(0.08f, 3.0f)
+          .WithRcsPhysicsOutputRangeM2(0.02f, 1200.0f)
+          .WithRcsPhysicsBistaticPsiOffsetDeg(7.5f)
+          .Build();
+
+  EXPECT_TRUE(patch.has_signal_detection_config);
+  EXPECT_TRUE(patch.signal_detection_config.rcs_physics.enable_physical_rcs);
+  EXPECT_FLOAT_EQ(patch.signal_detection_config.rcs_physics.frequency_hz, 9.8e9f);
+  EXPECT_FLOAT_EQ(patch.signal_detection_config.rcs_physics.physics_mix_ratio, 0.65f);
+  EXPECT_FLOAT_EQ(patch.signal_detection_config.rcs_physics.cylinder_weight, 0.25f);
+  EXPECT_FLOAT_EQ(patch.signal_detection_config.rcs_physics.min_equivalent_radius_m, 0.08f);
+  EXPECT_FLOAT_EQ(patch.signal_detection_config.rcs_physics.max_equivalent_radius_m, 3.0f);
+  EXPECT_FLOAT_EQ(patch.signal_detection_config.rcs_physics.min_rcs_m2, 0.02f);
+  EXPECT_FLOAT_EQ(patch.signal_detection_config.rcs_physics.max_rcs_m2, 1200.0f);
+  EXPECT_FLOAT_EQ(patch.signal_detection_config.rcs_physics.bistatic_psi_offset_deg, 7.5f);
 }
 
 TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructingSession) {

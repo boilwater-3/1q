@@ -30,6 +30,12 @@ EnvironmentSceneBuilder& EnvironmentSceneBuilder::SetAtmosphericPhysicsConfig(
   return *this;
 }
 
+EnvironmentSceneBuilder& EnvironmentSceneBuilder::SetVegetationScatterPhysicsConfig(
+    const VegetationScatterPhysicsConfig& config) {
+  scene_state_.vegetation_scatter_physics = config;
+  return *this;
+}
+
 EnvironmentSceneBuilder& EnvironmentSceneBuilder::AddJammer(const JammerEmitterState& emitter) {
   scene_state_.jammer_emitters.push_back(emitter);
   return *this;

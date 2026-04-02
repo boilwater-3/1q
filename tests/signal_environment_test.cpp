@@ -254,6 +254,49 @@ TEST(PropagationModelTest, OptionalAtmosphericPhysicsAddsExtraLossWhenEnabled) {
   EXPECT_GT(physics_result.propagation_loss_db, baseline_result.propagation_loss_db);
 }
 
+TEST(PropagationModelTest, OptionalVegetationScatterPhysicsRaisesClutterWhenEnabled) {
+  environment::EnvironmentSceneState baseline_scene;
+  baseline_scene.clutter_power_db = 3.0f;
+
+  environment::EnvironmentSceneState physics_scene = baseline_scene;
+  physics_scene.vegetation_scatter_physics.enable_physical_model = true;
+  physics_scene.vegetation_scatter_physics.leaf_count = 96U;
+  physics_scene.vegetation_scatter_physics.leaf_size_m = 0.07f;
+  physics_scene.vegetation_scatter_physics.dielectric_constant_real = 3.1f;
+  physics_scene.vegetation_scatter_physics.incidence_deg = 18.0f;
+  physics_scene.vegetation_scatter_physics.scatter_deg = 27.0f;
+  physics_scene.vegetation_scatter_physics.clutter_mix_ratio = 0.9f;
+  physics_scene.vegetation_scatter_physics.canopy_radius_m = 1.4f;
+  physics_scene.vegetation_scatter_physics.canopy_height_m = 4.2f;
+
+  environment::simulation::PropagationModel propagation_model;
+  const environment::simulation::PropagationResult baseline_result =
+      propagation_model.Evaluate(baseline_scene);
+  const environment::simulation::PropagationResult physics_result =
+      propagation_model.Evaluate(physics_scene);
+
+  EXPECT_FLOAT_EQ(physics_result.propagation_loss_db, baseline_result.propagation_loss_db);
+  EXPECT_GT(physics_result.clutter_power_db, baseline_result.clutter_power_db);
+}
+
+TEST(EnvironmentServiceTest, ModelConfigVegetationScatterAffectsDefaultSnapshotClutter) {
+  environment::EnvironmentModelConfig baseline_config;
+  baseline_config.clutter_power_db = 2.0f;
+
+  environment::EnvironmentModelConfig physics_config = baseline_config;
+  physics_config.vegetation_scatter_physics.enable_physical_model = true;
+  physics_config.vegetation_scatter_physics.leaf_count = 128U;
+  physics_config.vegetation_scatter_physics.clutter_mix_ratio = 1.0f;
+  physics_config.vegetation_scatter_physics.max_physical_multiplier = 50.0f;
+
+  environment::EnvironmentService baseline_service(baseline_config);
+  environment::EnvironmentService physics_service(physics_config);
+
+  const environment::EnvironmentSnapshot baseline_snapshot = baseline_service.SampleEnvironment();
+  const environment::EnvironmentSnapshot physics_snapshot = physics_service.SampleEnvironment();
+  EXPECT_GT(physics_snapshot.clutter_power_db, baseline_snapshot.clutter_power_db);
+}
+
 TEST(SignalPipelineTest, KeepsTrackStableWhenDetectionMarginIsEnough) {
   environment::EnvironmentService environment_service;
 

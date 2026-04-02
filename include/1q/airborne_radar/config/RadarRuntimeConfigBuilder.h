@@ -76,6 +76,60 @@ class ONEQ_API RadarRuntimeConfigBuilder {
     return *this;
   }
 
+  /** @brief 启用或禁用物理 RCS 覆盖。 */
+  RadarRuntimeConfigBuilder& EnablePhysicalRcsOverride(bool enable = true) {
+    patch_.has_signal_detection_config = true;
+    patch_.signal_detection_config.rcs_physics.enable_physical_rcs = enable;
+    return *this;
+  }
+
+  /** @brief 设置物理 RCS 模型频率（单位：Hz，<=0 时回退发射机载频）。 */
+  RadarRuntimeConfigBuilder& WithRcsPhysicsFrequencyHz(float hz) {
+    patch_.has_signal_detection_config = true;
+    patch_.signal_detection_config.rcs_physics.frequency_hz = hz;
+    return *this;
+  }
+
+  /** @brief 设置物理 RCS 混合比例 [0,1]。 */
+  RadarRuntimeConfigBuilder& WithRcsPhysicsMixRatio(float ratio) {
+    patch_.has_signal_detection_config = true;
+    patch_.signal_detection_config.rcs_physics.physics_mix_ratio = ratio;
+    return *this;
+  }
+
+  /** @brief 设置圆柱散射权重 [0,1]。 */
+  RadarRuntimeConfigBuilder& WithRcsPhysicsCylinderWeight(float weight) {
+    patch_.has_signal_detection_config = true;
+    patch_.signal_detection_config.rcs_physics.cylinder_weight = weight;
+    return *this;
+  }
+
+  /** @brief 设置目标等效半径范围（单位：m）。 */
+  RadarRuntimeConfigBuilder& WithRcsPhysicsEquivalentRadiusRangeM(float min_radius_m,
+                                                                  float max_radius_m) {
+    patch_.has_signal_detection_config = true;
+    auto& rcs_physics = patch_.signal_detection_config.rcs_physics;
+    rcs_physics.min_equivalent_radius_m = min_radius_m;
+    rcs_physics.max_equivalent_radius_m = max_radius_m;
+    return *this;
+  }
+
+  /** @brief 设置物理 RCS 输出范围（单位：m^2）。 */
+  RadarRuntimeConfigBuilder& WithRcsPhysicsOutputRangeM2(float min_rcs_m2, float max_rcs_m2) {
+    patch_.has_signal_detection_config = true;
+    auto& rcs_physics = patch_.signal_detection_config.rcs_physics;
+    rcs_physics.min_rcs_m2 = min_rcs_m2;
+    rcs_physics.max_rcs_m2 = max_rcs_m2;
+    return *this;
+  }
+
+  /** @brief 设置双基地角偏移（单位：deg）。 */
+  RadarRuntimeConfigBuilder& WithRcsPhysicsBistaticPsiOffsetDeg(float psi_offset_deg) {
+    patch_.has_signal_detection_config = true;
+    patch_.signal_detection_config.rcs_physics.bistatic_psi_offset_deg = psi_offset_deg;
+    return *this;
+  }
+
   /** @brief 覆盖波束控制域关键配置。 */
   RadarRuntimeConfigBuilder& WithSignalBeamControlConfig(const SignalBeamControlConfig& config) {
     patch_.has_signal_beam_control_config = true;

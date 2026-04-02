@@ -52,6 +52,7 @@ EnvironmentSceneState BuildSceneStateFromModelConfig(const EnvironmentModelConfi
   scene_state.terrain_reflection_db = config.terrain_reflection_db;
   scene_state.clutter_power_db = config.clutter_power_db;
   scene_state.atmospheric_physics = config.atmospheric_physics;
+  scene_state.vegetation_scatter_physics = config.vegetation_scatter_physics;
   scene_state.jammer_emitters.reserve(config.jammer_sources.size());
   scene_state.jammer_emitters.insert(scene_state.jammer_emitters.end(),
                                      config.jammer_sources.begin(), config.jammer_sources.end());

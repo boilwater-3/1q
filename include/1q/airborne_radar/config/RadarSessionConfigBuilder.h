@@ -226,6 +226,76 @@ class ONEQ_API RadarSessionConfigBuilder {
     return *this;
   }
 
+  /**
+   * @brief 启用或禁用物理 RCS 覆盖（REOS 首批入口混合路径）。
+   * @param[in] enable 默认 `true`（启用）。
+   */
+  RadarSessionConfigBuilder& EnablePhysicalRcsOverride(bool enable = true) {
+    config_.signal_pipeline_config.detection.rcs_physics.enable_physical_rcs = enable;
+    return *this;
+  }
+
+  /**
+   * @brief 设置物理 RCS 模型频率（单位：Hz）。
+   * @param[in] hz 频率，<=0 时回退到发射机载频。
+   */
+  RadarSessionConfigBuilder& WithRcsPhysicsFrequencyHz(float hz) {
+    config_.signal_pipeline_config.detection.rcs_physics.frequency_hz = hz;
+    return *this;
+  }
+
+  /**
+   * @brief 设置物理 RCS 混合比例。
+   * @param[in] ratio 混合比例 [0,1]，0=完全沿用输入 RCS。
+   */
+  RadarSessionConfigBuilder& WithRcsPhysicsMixRatio(float ratio) {
+    config_.signal_pipeline_config.detection.rcs_physics.physics_mix_ratio = ratio;
+    return *this;
+  }
+
+  /**
+   * @brief 设置圆柱散射权重。
+   * @param[in] weight 圆柱散射权重 [0,1]，其余权重分配给平面散射入口。
+   */
+  RadarSessionConfigBuilder& WithRcsPhysicsCylinderWeight(float weight) {
+    config_.signal_pipeline_config.detection.rcs_physics.cylinder_weight = weight;
+    return *this;
+  }
+
+  /**
+   * @brief 设置目标等效半径范围（单位：m）。
+   * @param[in] min_radius_m 等效半径下限（m）。
+   * @param[in] max_radius_m 等效半径上限（m）。
+   */
+  RadarSessionConfigBuilder& WithRcsPhysicsEquivalentRadiusRangeM(float min_radius_m,
+                                                                  float max_radius_m) {
+    auto& rcs_physics = config_.signal_pipeline_config.detection.rcs_physics;
+    rcs_physics.min_equivalent_radius_m = min_radius_m;
+    rcs_physics.max_equivalent_radius_m = max_radius_m;
+    return *this;
+  }
+
+  /**
+   * @brief 设置物理 RCS 输出范围（单位：m^2）。
+   * @param[in] min_rcs_m2 物理 RCS 下限。
+   * @param[in] max_rcs_m2 物理 RCS 上限。
+   */
+  RadarSessionConfigBuilder& WithRcsPhysicsOutputRangeM2(float min_rcs_m2, float max_rcs_m2) {
+    auto& rcs_physics = config_.signal_pipeline_config.detection.rcs_physics;
+    rcs_physics.min_rcs_m2 = min_rcs_m2;
+    rcs_physics.max_rcs_m2 = max_rcs_m2;
+    return *this;
+  }
+
+  /**
+   * @brief 设置双基地角偏移（单位：deg）。
+   * @param[in] psi_offset_deg 双基地角偏移（deg）。
+   */
+  RadarSessionConfigBuilder& WithRcsPhysicsBistaticPsiOffsetDeg(float psi_offset_deg) {
+    config_.signal_pipeline_config.detection.rcs_physics.bistatic_psi_offset_deg = psi_offset_deg;
+    return *this;
+  }
+
   // -------------------------------------------------------------------------
   // 跟踪参数
   // -------------------------------------------------------------------------
