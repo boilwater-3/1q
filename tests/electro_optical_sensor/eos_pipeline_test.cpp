@@ -165,8 +165,7 @@ TEST(EosPipelineTest, AdvancedEnvironmentModelLowersSnrInHighWindScene) {
   input.cycle_index = 7U;
   input.background_temperature_k = 240.0f;
   input.cloud_coverage_ratio = 0.6f;
-  input.platform_pose.velocity_mps.x = 100.0f;
-  input.platform_pose.velocity_mps.y = 35.0f;
+  input.ambient_wind_speed_mps = 120.0f;
   context::EosTargetState target = MakeTarget(501U, -5.0f, 1200.0f, 10.0f);
   target.apparent_temperature_k = 880.0f;
   target.emissivity = 0.98f;
@@ -179,6 +178,44 @@ TEST(EosPipelineTest, AdvancedEnvironmentModelLowersSnrInHighWindScene) {
   ASSERT_EQ(advanced_frame.detections.size(), 1U);
   EXPECT_GT(simplified_frame.detections[0].fused_snr_linear,
             advanced_frame.detections[0].fused_snr_linear);
+}
+
+TEST(EosPipelineTest, PlatformVelocityDoesNotAffectEnvironmentPenaltyWhenWindFixed) {
+  EosPipelineConfig config = MakePipelineConfig();
+  config.work_mode = EosPipelineWorkMode::kInfraredOnly;
+  config.radiative_transfer_model =
+      foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance;
+  config.environment_model_type = EosPipelineEnvironmentModelType::kAdvanced;
+  config.aerosol_density_factor = 1.2f;
+  config.turbulence_factor = 1.1f;
+
+  EosPipeline low_speed_pipeline(config);
+  EosPipeline high_speed_pipeline(config);
+
+  context::EosCycleInput low_speed_input = MakeCycleInput(1.0f);
+  low_speed_input.cycle_index = 8U;
+  low_speed_input.background_temperature_k = 240.0f;
+  low_speed_input.cloud_coverage_ratio = 0.6f;
+  low_speed_input.ambient_wind_speed_mps = 35.0f;
+  low_speed_input.platform_pose.velocity_mps.x = 10.0f;
+  context::EosTargetState low_speed_target = MakeTarget(601U, -5.0f, 1200.0f, 10.0f);
+  low_speed_target.apparent_temperature_k = 880.0f;
+  low_speed_target.emissivity = 0.98f;
+  low_speed_input.scene_targets.push_back(low_speed_target);
+
+  context::EosCycleInput high_speed_input = low_speed_input;
+  high_speed_input.cycle_index = 9U;
+  high_speed_input.platform_pose.velocity_mps.x = 250.0f;
+  high_speed_input.platform_pose.velocity_mps.y = -90.0f;
+  high_speed_input.platform_pose.velocity_mps.z = 20.0f;
+
+  const common::EosOutputFrame low_speed_frame = low_speed_pipeline.Execute(low_speed_input);
+  const common::EosOutputFrame high_speed_frame = high_speed_pipeline.Execute(high_speed_input);
+
+  ASSERT_EQ(low_speed_frame.detections.size(), 1U);
+  ASSERT_EQ(high_speed_frame.detections.size(), 1U);
+  EXPECT_NEAR(low_speed_frame.detections[0].fused_snr_linear,
+              high_speed_frame.detections[0].fused_snr_linear, 1.0e-8f);
 }
 
 }  // namespace

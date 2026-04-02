@@ -84,6 +84,16 @@ TEST(EosInputValidationTest, InvalidTargetEmissivityIsReportedAsError) {
   EXPECT_TRUE(HasEosValidationError(issues));
 }
 
+TEST(EosInputValidationTest, InvalidAmbientWindSpeedIsReportedAsError) {
+  EosCycleInput input = MakeValidInput();
+  input.ambient_wind_speed_mps = -1.0f;
+
+  const EosValidationIssueList issues = ValidateEosCycleInput(input);
+
+  EXPECT_TRUE(ContainsCode(issues, EosValidationCode::kInvalidAmbientWindSpeed));
+  EXPECT_TRUE(HasEosValidationError(issues));
+}
+
 TEST(EosInputValidationTest, SessionProducesInFovDetectionsOnly) {
   session::EosSessionConfig config;
   config.work_mode = session::EosWorkMode::kFused;

@@ -86,13 +86,6 @@ foundation::radiative_transfer::RadiativeTransferResult ComputePathRadiativeTran
   return foundation::radiative_transfer::EvaluateRadiativeTransfer(transfer_inputs);
 }
 
-float ComputePlatformSpeedMps(const oneq::common::PoseState& pose) {
-  const float vx = pose.velocity_mps.x;
-  const float vy = pose.velocity_mps.y;
-  const float vz = pose.velocity_mps.z;
-  return std::sqrt(vx * vx + vy * vy + vz * vz);
-}
-
 environment::EosEnvironmentModelType ToEnvironmentModelType(
     EosPipelineEnvironmentModelType model_type) {
   if (model_type == EosPipelineEnvironmentModelType::kAdvanced) {
@@ -175,7 +168,7 @@ common::EosDetectionRecord EosPipeline::BuildDetectionRecord(
   environment_inputs.model_type = ToEnvironmentModelType(config_.environment_model_type);
   environment_inputs.platform_altitude_m = std::fabs(input.platform_pose.position_m.z);
   environment_inputs.cloud_coverage_ratio = Clamp01(input.cloud_coverage_ratio);
-  environment_inputs.wind_speed_mps = ComputePlatformSpeedMps(input.platform_pose);
+  environment_inputs.wind_speed_mps = std::max(0.0f, input.ambient_wind_speed_mps);
   environment_inputs.base_aerosol_density_factor = config_.aerosol_density_factor;
   environment_inputs.base_turbulence_factor = config_.turbulence_factor;
   const environment::EosEnvironmentModelResult environment_result =

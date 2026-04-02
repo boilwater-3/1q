@@ -54,6 +54,7 @@ struct ONEQ_API EosCycleInput {
   float solar_irradiance_w_m2{800.0f};      /**< 地表太阳辐照度（单位：W/m^2） */
   float atmospheric_transmittance{0.85f};   /**< 大气透明度，范围 [0, 1] */
   float cloud_coverage_ratio{0.2f};         /**< 云量，范围 [0, 1] */
+  float ambient_wind_speed_mps{0.0f};       /**< 环境风速（单位：m/s，范围 [0, +inf)） */
   DayNightType day_night_type{DayNightType::kDay}; /**< 昼夜环境类型 */
   float background_temperature_k{290.0f};   /**< 背景温度（单位：K） */
   EosTargetStateList scene_targets{};       /**< 当前周期候选目标列表 */

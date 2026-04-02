@@ -120,6 +120,12 @@ EosValidationIssueList ValidateEosCycleInput(const EosCycleInput& input) {
         MakeIssue(EosValidationSeverity::kError, EosValidationCode::kInvalidCloudCoverageRatio,
                   static_cast<std::size_t>(-1), "cloud coverage ratio must be in [0, 1]"));
   }
+  if (!IsFinite(input.ambient_wind_speed_mps) || input.ambient_wind_speed_mps < 0.0f) {
+    issues.push_back(MakeIssue(EosValidationSeverity::kError,
+                               EosValidationCode::kInvalidAmbientWindSpeed,
+                               static_cast<std::size_t>(-1),
+                               "ambient wind speed must be finite and non-negative"));
+  }
   if (!IsFinite(input.background_temperature_k) || input.background_temperature_k <= 0.0f) {
     issues.push_back(MakeIssue(EosValidationSeverity::kError,
                                EosValidationCode::kInvalidBackgroundTemperature,
