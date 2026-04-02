@@ -4,6 +4,7 @@ set(EXPECTED_PUBLIC_HEADERS
     "common/coordinate_transform.h"
     "common/pose_types.h"
     "common/scan_schedule_types.h"
+    "common/trace/TraceSink.h"
     "airborne_radar/common/control/ControlDirective.h"
     "airborne_radar/common/model/DecisionInputFrame.h"
     "airborne_radar/common/model/DecisionSourceInfo.h"
@@ -34,6 +35,7 @@ set(EXPECTED_PUBLIC_HEADERS
     "airborne_radar/core/controller/RadarController.h"
     "airborne_radar/core/session/RadarCycleResult.h"
     "airborne_radar/core/session/RadarSession.h"
+    "airborne_radar/tools/RadarTraceSession.h"
     "airborne_radar/decision/pipeline/ControlReducerTypes.h"
     "airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
     "airborne_radar/environment/EnvironmentSceneBuilder.h"
@@ -52,6 +54,7 @@ set(EXPECTED_PUBLIC_HEADERS
     "electronic_surveillance_radar/core/controller/EsrController.h"
     "electronic_surveillance_radar/core/session/EsrCycleResult.h"
     "electronic_surveillance_radar/core/session/EsrSession.h"
+    "electronic_surveillance_radar/tools/EsrTraceSession.h"
     "electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
     "electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
     "electronic_surveillance_radar/pipeline/IInterceptPipeline.h"
@@ -65,6 +68,7 @@ set(EXPECTED_PUBLIC_HEADERS
     "electro_optical_sensor/core/context/EosInputValidation.h"
     "electro_optical_sensor/core/session/EosCycleResult.h"
     "electro_optical_sensor/core/session/EosSession.h"
+    "electro_optical_sensor/tools/EosTraceSession.h"
     "api.hpp")
 
 file(GLOB_RECURSE ACTUAL_PUBLIC_HEADERS

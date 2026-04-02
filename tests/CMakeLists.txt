@@ -42,6 +42,7 @@ set(TEST_SOURCES
     esr_output_manager_test.cpp
     esr_session_config_resolver_test.cpp
     esr_session_integration_test.cpp
+    trace_session_adapter_test.cpp
     electro_optical_sensor/eos_foundation_test.cpp
     electro_optical_sensor/eos_coordinate_utils_test.cpp
     electro_optical_sensor/eos_input_validation_test.cpp

@@ -5,6 +5,7 @@ set(ONEQ_COMMON_SOURCES
     common/geometry/CoordinateTransform.cpp
     common/geometry/GeometryTransform.cpp
     common/rcs/RcsPhysics.cpp
+    common/trace/TraceSink.cpp
     common/timing/TimingRegimeModel.cpp
 )
 
@@ -65,6 +66,7 @@ set(AIRBORNE_CORE_SOURCES
     airborne_radar/core/session/config/ConfigPresets.cpp
     airborne_radar/core/session/config/RadarSessionConfigBuilder.cpp
     airborne_radar/core/session/RadarSession.cpp
+    airborne_radar/core/session/RadarTraceSession.cpp
     airborne_radar/environment/database/FeatureRepository.cpp
     airborne_radar/environment/EnvironmentSceneBuilder.cpp
     airborne_radar/environment/EnvironmentService.cpp
@@ -79,6 +81,7 @@ set(ESR_SOURCES
     electronic_surveillance_radar/core/output/EsrOutputManager.cpp
     electronic_surveillance_radar/core/session/EsrSessionConfigResolver.cpp
     electronic_surveillance_radar/core/session/EsrSession.cpp
+    electronic_surveillance_radar/core/session/EsrTraceSession.cpp
     electronic_surveillance_radar/environment/EsrEnvironmentService.cpp
     electronic_surveillance_radar/pipeline/HypothesisAssociator.cpp
     electronic_surveillance_radar/pipeline/InterceptPipeline.cpp
@@ -94,6 +97,7 @@ set(EOS_SOURCES
     electro_optical_sensor/core/context/EosInputValidation.cpp
     electro_optical_sensor/core/pipeline/EosPipeline.cpp
     electro_optical_sensor/core/session/EosSession.cpp
+    electro_optical_sensor/core/session/EosTraceSession.cpp
 )
 
 add_library(airborne_common OBJECT ${AIRBORNE_COMMON_SOURCES})
