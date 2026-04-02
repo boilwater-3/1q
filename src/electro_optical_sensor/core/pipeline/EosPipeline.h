@@ -6,6 +6,7 @@
 #ifndef ELECTRO_OPTICAL_SENSOR_CORE_PIPELINE_EOS_PIPELINE_H_
 #define ELECTRO_OPTICAL_SENSOR_CORE_PIPELINE_EOS_PIPELINE_H_
 
+#include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 #include "1q/electro_optical_sensor/common/EosOutputFrame.h"
 #include "1q/electro_optical_sensor/core/context/EosCycleInput.h"
 
@@ -20,6 +21,14 @@ enum class EosPipelineWorkMode {
   kInfraredOnly = 0,
   kVisibleOnly,
   kFused
+};
+
+/**
+ * @brief EosPipelineEnvironmentModelType 描述环境模型策略。
+ */
+enum class EosPipelineEnvironmentModelType {
+  kSimplified = 0,
+  kAdvanced
 };
 
 /**
@@ -43,6 +52,17 @@ struct EosPipelineConfig {
   float min_detection_depression_deg{1.0f};
   float max_detection_depression_deg{89.0f};
   float visible_reference_irradiance_w_m2{800.0f};
+  bool enable_straylight_filter{false};
+  float hood_inner_half_angle_deg{12.0f};
+  float hood_outer_half_angle_deg{75.0f};
+  float hood_min_suppression_ratio{0.20f};
+  float hood_max_suppression_ratio{0.85f};
+  foundation::radiative_transfer::RadiativeTransferModel radiative_transfer_model{
+      foundation::radiative_transfer::RadiativeTransferModel::kDerivedBeerLambert};
+  float aerosol_density_factor{1.0f};
+  float turbulence_factor{1.0f};
+  EosPipelineEnvironmentModelType environment_model_type{
+      EosPipelineEnvironmentModelType::kSimplified};
 };
 
 /**

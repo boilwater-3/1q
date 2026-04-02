@@ -19,6 +19,14 @@ pipeline::EosPipelineWorkMode ToPipelineWorkMode(EosWorkMode mode) {
   return pipeline::EosPipelineWorkMode::kFused;
 }
 
+pipeline::EosPipelineEnvironmentModelType ToPipelineEnvironmentModelType(
+    EosEnvironmentModelType model_type) {
+  if (model_type == EosEnvironmentModelType::kAdvanced) {
+    return pipeline::EosPipelineEnvironmentModelType::kAdvanced;
+  }
+  return pipeline::EosPipelineEnvironmentModelType::kSimplified;
+}
+
 pipeline::EosPipelineConfig BuildPipelineConfig(const EosSessionConfig& config) {
   pipeline::EosPipelineConfig pipeline_config;
   pipeline_config.wavelength_lower_um = config.wavelength_lower_um;
@@ -38,6 +46,16 @@ pipeline::EosPipelineConfig BuildPipelineConfig(const EosSessionConfig& config) 
   pipeline_config.min_detection_depression_deg = config.min_detection_depression_deg;
   pipeline_config.max_detection_depression_deg = config.max_detection_depression_deg;
   pipeline_config.visible_reference_irradiance_w_m2 = config.visible_reference_irradiance_w_m2;
+  pipeline_config.enable_straylight_filter = config.enable_straylight_filter;
+  pipeline_config.hood_inner_half_angle_deg = config.hood_inner_half_angle_deg;
+  pipeline_config.hood_outer_half_angle_deg = config.hood_outer_half_angle_deg;
+  pipeline_config.hood_min_suppression_ratio = config.hood_min_suppression_ratio;
+  pipeline_config.hood_max_suppression_ratio = config.hood_max_suppression_ratio;
+  pipeline_config.radiative_transfer_model = config.radiative_transfer_model;
+  pipeline_config.aerosol_density_factor = config.aerosol_density_factor;
+  pipeline_config.turbulence_factor = config.turbulence_factor;
+  pipeline_config.environment_model_type =
+      ToPipelineEnvironmentModelType(config.environment_model_type);
   return pipeline_config;
 }
 

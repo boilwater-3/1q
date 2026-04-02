@@ -2,6 +2,7 @@
 # 按模块分组管理，每次添加/删除源文件时需要手动更新对应模块列表
 set(ONEQ_COMMON_SOURCES
     common/atmosphere/AtmospherePhysics.cpp
+    common/geometry/CoordinateTransform.cpp
     common/geometry/GeometryTransform.cpp
     common/rcs/RcsPhysics.cpp
     common/timing/TimingRegimeModel.cpp
@@ -85,9 +86,15 @@ set(ESR_SOURCES
 )
 
 set(EOS_SOURCES
+    electro_optical_sensor/environment/EosEnvironmentModel.cpp
+    electro_optical_sensor/foundation/EosNoiseModel.cpp
     electro_optical_sensor/foundation/EosOpticalCharacteristics.cpp
     electro_optical_sensor/foundation/EosPropagation.cpp
+    electro_optical_sensor/foundation/EosRadiativeTransfer.cpp
     electro_optical_sensor/foundation/EosRadiometry.cpp
+    electro_optical_sensor/foundation/EosSpatialSpectrum.cpp
+    electro_optical_sensor/foundation/EosStrayLight.cpp
+    electro_optical_sensor/environment/EosEnvironmentModel.cpp
     electro_optical_sensor/core/context/EosInputValidation.cpp
     electro_optical_sensor/core/pipeline/EosPipeline.cpp
     electro_optical_sensor/core/session/EosSession.cpp
@@ -412,9 +419,12 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/common/EosOutputFrame.h
     )
     set(PUBLIC_HEADERS_EOS_FOUNDATION
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/foundation/EosNoiseModel.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/foundation/EosOpticalCharacteristics.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/foundation/EosPropagation.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/foundation/EosRadiometry.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/foundation/EosSpatialSpectrum.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/foundation/EosStrayLight.h
     )
     set(PUBLIC_HEADERS_EOS_CORE_CONTEXT
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/core/context/EosCycleInput.h
@@ -428,6 +438,7 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/api.hpp
     )
     set(PUBLIC_HEADERS_FOUNDATION
+        ${CMAKE_SOURCE_DIR}/include/1q/common/coordinate_transform.h
         ${CMAKE_SOURCE_DIR}/include/1q/common/pose_types.h
         ${CMAKE_SOURCE_DIR}/include/1q/common/scan_schedule_types.h
     )

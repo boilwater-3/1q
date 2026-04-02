@@ -3,9 +3,14 @@
 #include <algorithm>
 #include <cmath>
 
+#include "1q/electro_optical_sensor/foundation/EosNoiseModel.h"
 #include "1q/electro_optical_sensor/foundation/EosOpticalCharacteristics.h"
 #include "1q/electro_optical_sensor/foundation/EosPropagation.h"
 #include "1q/electro_optical_sensor/foundation/EosRadiometry.h"
+#include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
+#include "1q/electro_optical_sensor/foundation/EosSpatialSpectrum.h"
+#include "1q/electro_optical_sensor/foundation/EosStrayLight.h"
+#include "electro_optical_sensor/environment/EosEnvironmentModel.h"
 
 namespace electro_optical_sensor {
 namespace core {
@@ -68,13 +73,32 @@ float ComputeApertureAreaM2(float optical_aperture_m) {
   return 3.1415926f * radius_m * radius_m;
 }
 
-float ComputeDerivedAtmosphericTransmittance(const context::EosCycleInput& input, float range_m) {
-  const float base_transmittance = Clamp01(input.atmospheric_transmittance);
-  const float safe_base_transmittance = std::max(base_transmittance, 1.0e-4f);
-  const float base_extinction_coeff_per_m = -std::log(safe_base_transmittance) / 5000.0f;
-  const float humidity_absorption_coeff_per_m = 2.5e-5f * Clamp01(input.cloud_coverage_ratio);
-  return foundation::propagation::ComputeAtmosphericTransmittance(
-      base_extinction_coeff_per_m, humidity_absorption_coeff_per_m, range_m);
+foundation::radiative_transfer::RadiativeTransferResult ComputePathRadiativeTransfer(
+    const EosPipelineConfig& config, const context::EosCycleInput& input, float range_m,
+    float aerosol_density_factor, float turbulence_factor) {
+  foundation::radiative_transfer::RadiativeTransferInputs transfer_inputs;
+  transfer_inputs.model = config.radiative_transfer_model;
+  transfer_inputs.base_transmittance = Clamp01(input.atmospheric_transmittance);
+  transfer_inputs.cloud_coverage_ratio = Clamp01(input.cloud_coverage_ratio);
+  transfer_inputs.path_length_m = std::max(0.0f, range_m);
+  transfer_inputs.aerosol_density_factor = std::max(1.0f, aerosol_density_factor);
+  transfer_inputs.turbulence_factor = std::max(1.0f, turbulence_factor);
+  return foundation::radiative_transfer::EvaluateRadiativeTransfer(transfer_inputs);
+}
+
+float ComputePlatformSpeedMps(const oneq::common::PoseState& pose) {
+  const float vx = pose.velocity_mps.x;
+  const float vy = pose.velocity_mps.y;
+  const float vz = pose.velocity_mps.z;
+  return std::sqrt(vx * vx + vy * vy + vz * vz);
+}
+
+environment::EosEnvironmentModelType ToEnvironmentModelType(
+    EosPipelineEnvironmentModelType model_type) {
+  if (model_type == EosPipelineEnvironmentModelType::kAdvanced) {
+    return environment::EosEnvironmentModelType::kAdvanced;
+  }
+  return environment::EosEnvironmentModelType::kSimplified;
 }
 
 float ComputeFovSolidAngleSr(float horizontal_fov_deg, float vertical_fov_deg) {
@@ -147,8 +171,22 @@ common::EosDetectionRecord EosPipeline::BuildDetectionRecord(
   const bool infrared_enabled = WorkModeIncludesInfrared(config_.work_mode);
   const bool visible_enabled = WorkModeIncludesVisible(config_.work_mode);
   const float aperture_area_m2 = ComputeApertureAreaM2(config_.optical_aperture_m);
-  const float path_transmittance =
-      ComputeDerivedAtmosphericTransmittance(input, SafePositive(target.range_m, 1000.0f));
+  environment::EosEnvironmentModelInputs environment_inputs;
+  environment_inputs.model_type = ToEnvironmentModelType(config_.environment_model_type);
+  environment_inputs.platform_altitude_m = std::fabs(input.platform_pose.position_m.z);
+  environment_inputs.cloud_coverage_ratio = Clamp01(input.cloud_coverage_ratio);
+  environment_inputs.wind_speed_mps = ComputePlatformSpeedMps(input.platform_pose);
+  environment_inputs.base_aerosol_density_factor = config_.aerosol_density_factor;
+  environment_inputs.base_turbulence_factor = config_.turbulence_factor;
+  const environment::EosEnvironmentModelResult environment_result =
+      environment::ResolveEnvironmentFactors(environment_inputs);
+  const foundation::radiative_transfer::RadiativeTransferResult transfer_result =
+      ComputePathRadiativeTransfer(config_, input, SafePositive(target.range_m, 1000.0f),
+                                   environment_result.aerosol_density_factor,
+                                   environment_result.turbulence_factor);
+  const float path_transmittance = transfer_result.transmittance;
+  const float path_radiance_penalty_scale =
+      transfer_result.path_radiance_penalty_scale * environment_result.path_radiance_scale_bias;
   const float optical_transmittance = 0.85f;
   const float fov_solid_angle_sr =
       ComputeFovSolidAngleSr(config_.horizontal_fov_deg, config_.vertical_fov_deg);
@@ -170,7 +208,19 @@ common::EosDetectionRecord EosPipeline::BuildDetectionRecord(
   const float gsd_m =
       foundation::optics::ComputeGroundSampleDistanceM(target.range_m, diffraction_resolution_rad);
   const float target_linear_size_m = std::sqrt(SafePositive(target.projected_area_m2, 1.0f));
-  const float imaging_quality_gain = target_linear_size_m / (target_linear_size_m + gsd_m);
+  const float geometric_quality_gain = target_linear_size_m / (target_linear_size_m + gsd_m);
+  foundation::spatial_spectrum::SpatialSpectrumInputs spectrum_inputs;
+  spectrum_inputs.target_characteristic_size_m = target_linear_size_m;
+  spectrum_inputs.ground_sample_distance_m = gsd_m;
+  spectrum_inputs.optical_mtf_reference = 0.65f;
+  spectrum_inputs.sampling_efficiency = 0.9f;
+  spectrum_inputs.scene_contrast_ratio =
+      Clamp01(0.5f * (std::max(0.0f, target.reflectance) + std::max(0.0f, target.emissivity)));
+  const foundation::spatial_spectrum::SpatialSpectrumResult spectrum_result =
+      foundation::spatial_spectrum::EvaluateSpatialResolvability(spectrum_inputs);
+  const float imaging_quality_gain =
+      Clamp(0.5f * geometric_quality_gain + 0.5f * spectrum_result.spectrum_quality_gain,
+            0.05f, 1.0f);
 
   foundation::propagation::NepNoiseModelInputs nep_inputs;
   nep_inputs.optical_transmittance = optical_transmittance;
@@ -178,9 +228,29 @@ common::EosDetectionRecord EosPipeline::BuildDetectionRecord(
       1.0f / std::max(SafePositive(config_.scan_rate_deg_per_sec, 20.0f), 1.0f);
   nep_inputs.electrical_bandwidth_hz = std::max(100.0f, SafePositive(config_.scan_rate_deg_per_sec, 20.0f) * 100.0f);
   nep_inputs.system_noise_factor = std::max(1.0f, 1.0e-12f / SafePositive(config_.detection_sensitivity_w, 1.0e-12f));
+  foundation::noise::BackgroundNoiseModelInputs noise_inputs;
+  noise_inputs.electrical_bandwidth_hz = nep_inputs.electrical_bandwidth_hz;
+  noise_inputs.integration_time_sec = nep_inputs.integration_time_sec;
+  noise_inputs.cloud_coverage_ratio = input.cloud_coverage_ratio;
+  noise_inputs.detector_area_cm2 = nep_inputs.detector_area_cm2;
+  noise_inputs.scene_complexity_factor =
+      std::max(1.0f, 1.0f + 0.3f * (1.0f - imaging_quality_gain));
 
   float infrared_snr_linear = 0.0f;
   float visible_snr_linear = 0.0f;
+  foundation::stray_light::StrayLightFilterInputs stray_light_inputs;
+  stray_light_inputs.enabled = config_.enable_straylight_filter;
+  stray_light_inputs.target_azimuth_deg = target.azimuth_deg;
+  stray_light_inputs.target_elevation_deg = target.elevation_deg;
+  stray_light_inputs.sun_azimuth_deg = input.solar_azimuth_deg;
+  stray_light_inputs.sun_altitude_deg = input.solar_altitude_deg;
+  stray_light_inputs.cloud_coverage_ratio = input.cloud_coverage_ratio;
+  stray_light_inputs.hood_inner_half_angle_deg = config_.hood_inner_half_angle_deg;
+  stray_light_inputs.hood_outer_half_angle_deg = config_.hood_outer_half_angle_deg;
+  stray_light_inputs.min_suppression_ratio = config_.hood_min_suppression_ratio;
+  stray_light_inputs.max_suppression_ratio = config_.hood_max_suppression_ratio;
+  const foundation::stray_light::StrayLightFilterResult stray_light_result =
+      foundation::stray_light::EvaluateStrayLightFilter(stray_light_inputs);
 
   if (infrared_enabled) {
     foundation::radiometry::InfraredRadianceInputs infrared_inputs;
@@ -198,13 +268,18 @@ common::EosDetectionRecord EosPipeline::BuildDetectionRecord(
         std::max(0.0f, infrared_delta_radiance) * (1.0f + std::max(0.0f, infrared_contrast));
     const float infrared_received_power_w = foundation::propagation::ComputeReceivedPowerW(
         infrared_source_radiance, target.projected_area_m2, target.range_m, aperture_area_m2,
-        path_transmittance, optical_transmittance);
+        path_transmittance, optical_transmittance) * stray_light_result.signal_transmission_scale;
     const float infrared_background_flux_w = foundation::propagation::ComputeBackgroundFluxW(
         std::max(0.0f, background_radiance), aperture_area_m2, fov_solid_angle_sr,
-        optical_transmittance);
+        optical_transmittance) * stray_light_result.background_penalty_scale *
+        path_radiance_penalty_scale;
+    noise_inputs.background_flux_w = infrared_background_flux_w;
+    const foundation::noise::BackgroundNoiseStatistics infrared_noise_stats =
+        foundation::noise::ComputeBackgroundNoiseStatistics(noise_inputs);
+    const float infrared_effective_signal_w = foundation::noise::ComputeEffectiveSignalPowerW(
+        infrared_received_power_w, infrared_background_flux_w, infrared_noise_stats);
     const foundation::propagation::SnrEvaluationResult snr_result =
-        foundation::propagation::EvaluateSnrWithNep(
-            std::max(0.0f, infrared_received_power_w - 0.1f * infrared_background_flux_w), nep_inputs);
+        foundation::propagation::EvaluateSnrWithNep(infrared_effective_signal_w, nep_inputs);
     infrared_snr_linear = snr_result.snr_linear * imaging_quality_gain;
   }
 
@@ -226,12 +301,19 @@ common::EosDetectionRecord EosPipeline::BuildDetectionRecord(
         std::max(0.0f, visible_result.target_radiance) *
             (1.0f + std::max(0.0f, visible_result.normalized_contrast)),
         target.projected_area_m2, target.range_m, aperture_area_m2, path_transmittance,
-        optical_transmittance);
+        optical_transmittance) * stray_light_result.signal_transmission_scale;
     const float visible_background_flux_w = foundation::propagation::ComputeBackgroundFluxW(
-        visible_result.background_radiance, aperture_area_m2, fov_solid_angle_sr, optical_transmittance);
+        visible_result.background_radiance, aperture_area_m2, fov_solid_angle_sr,
+        optical_transmittance) * stray_light_result.background_penalty_scale *
+        path_radiance_penalty_scale;
+    noise_inputs.background_flux_w = visible_background_flux_w;
+    noise_inputs.photon_noise_enhancement_factor = 1.15f;
+    const foundation::noise::BackgroundNoiseStatistics visible_noise_stats =
+        foundation::noise::ComputeBackgroundNoiseStatistics(noise_inputs);
+    const float visible_effective_signal_w = foundation::noise::ComputeEffectiveSignalPowerW(
+        visible_received_power_w, visible_background_flux_w, visible_noise_stats);
     const foundation::propagation::SnrEvaluationResult snr_result =
-        foundation::propagation::EvaluateSnrWithNep(
-            std::max(0.0f, visible_received_power_w - 0.15f * visible_background_flux_w), nep_inputs);
+        foundation::propagation::EvaluateSnrWithNep(visible_effective_signal_w, nep_inputs);
     visible_snr_linear = snr_result.snr_linear * imaging_quality_gain;
   }
 

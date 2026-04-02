@@ -1,6 +1,7 @@
 set(PUBLIC_INCLUDE_DIR "${SOURCE_DIR}/include/1q")
 
 set(EXPECTED_PUBLIC_HEADERS
+    "common/coordinate_transform.h"
     "common/pose_types.h"
     "common/scan_schedule_types.h"
     "airborne_radar/common/control/ControlDirective.h"
@@ -55,9 +56,13 @@ set(EXPECTED_PUBLIC_HEADERS
     "electronic_surveillance_radar/pipeline/IInterceptPipeline.h"
     "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
     "electro_optical_sensor/common/EosOutputFrame.h"
+    "electro_optical_sensor/foundation/EosNoiseModel.h"
     "electro_optical_sensor/foundation/EosOpticalCharacteristics.h"
     "electro_optical_sensor/foundation/EosPropagation.h"
+    "electro_optical_sensor/foundation/EosRadiativeTransfer.h"
     "electro_optical_sensor/foundation/EosRadiometry.h"
+    "electro_optical_sensor/foundation/EosSpatialSpectrum.h"
+    "electro_optical_sensor/foundation/EosStrayLight.h"
     "electro_optical_sensor/core/context/EosCycleInput.h"
     "electro_optical_sensor/core/context/EosInputValidation.h"
     "electro_optical_sensor/core/session/EosCycleResult.h"
