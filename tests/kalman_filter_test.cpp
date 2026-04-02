@@ -12,7 +12,9 @@
 #include "airborne_radar/signal/tracking/GaussianTrackState.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
+#include "airborne_radar/signal/tracking/SrifPredictor.h"
 #include "airborne_radar/signal/tracking/SrifUpdater.h"
+#include "airborne_radar/signal/tracking/UdkfPredictor.h"
 #include "airborne_radar/signal/tracking/UdkfUpdater.h"
 
 namespace airborne_radar {
@@ -29,9 +31,11 @@ using signal::tracking::KalmanUpdateResult;
 using signal::tracking::kMeasurementDim;
 using signal::tracking::kStateDim;
 using signal::tracking::MeasurementVector;
+using signal::tracking::SrifPredictor;
 using signal::tracking::SrifUpdater;
 using signal::tracking::StateCovariance;
 using signal::tracking::StateVector;
+using signal::tracking::UdkfPredictor;
 using signal::tracking::UdkfUpdater;
 
 /// @brief 构造一个简单的先验状态用于测试。
@@ -227,6 +231,35 @@ TEST(KalmanPredictorTest, ProcessNoiseMatchesStoneSoupCV) {
   EXPECT_NEAR(predicted.covariance(2, 4), 0.0f, kTolerance);
 }
 
+TEST(KalmanPredictorBackendTest, ThreeBackendsPredictFiniteSymmetricCovariance) {
+  const GaussianTrackState prior = MakePrior(100.0f, 12.0f, 300.0f, 50.0f);
+  const float dt = 0.75f;
+
+  KalmanPredictorConfig config;
+  config.noise_diff_coeff = 2.0f;
+  KalmanPredictor standard_predictor(config);
+  UdkfPredictor udkf_predictor(config);
+  SrifPredictor srif_predictor(config);
+
+  const GaussianTrackState standard_predicted = standard_predictor.Predict(prior, dt);
+  const GaussianTrackState udkf_predicted = udkf_predictor.Predict(prior, dt);
+  const GaussianTrackState srif_predicted = srif_predictor.Predict(prior, dt);
+
+  const GaussianTrackState* predicted_states[] = {&standard_predicted, &udkf_predicted,
+                                                  &srif_predicted};
+  for (std::size_t i = 0; i < sizeof(predicted_states) / sizeof(predicted_states[0]); ++i) {
+    EXPECT_TRUE(predicted_states[i]->mean.allFinite());
+    EXPECT_TRUE(predicted_states[i]->covariance.allFinite());
+    for (int r = 0; r < kStateDim; ++r) {
+      EXPECT_GT(predicted_states[i]->covariance(r, r), 0.0f);
+      for (int c = r + 1; c < kStateDim; ++c) {
+        EXPECT_NEAR(predicted_states[i]->covariance(r, c), predicted_states[i]->covariance(c, r),
+                    1.0e-4f);
+      }
+    }
+  }
+}
+
 // ============================================================================
 // KalmanUpdater 测试
 // ============================================================================
@@ -402,6 +435,43 @@ TEST(KalmanUpdaterBackendTest, ThreeBackendsProduceFiniteStateAndCovariance) {
     EXPECT_TRUE(results[i]->posterior.covariance.allFinite());
     for (int diag = 0; diag < kStateDim; ++diag) {
       EXPECT_GT(results[i]->posterior.covariance(diag, diag), 0.0f);
+    }
+  }
+}
+
+TEST(KalmanPredictUpdateBackendTest, ThreeBackendPairsRemainFiniteAcrossSequence) {
+  KalmanPredictorConfig predictor_config;
+  predictor_config.noise_diff_coeff = 1.5f;
+  KalmanUpdaterConfig updater_config;
+  updater_config.measurement_noise_std = 3.0f;
+
+  KalmanPredictor standard_predictor(predictor_config);
+  KalmanUpdater standard_updater(updater_config);
+  UdkfPredictor udkf_predictor(predictor_config);
+  UdkfUpdater udkf_updater(updater_config);
+  SrifPredictor srif_predictor(predictor_config);
+  SrifUpdater srif_updater(updater_config);
+
+  GaussianTrackState standard_state = MakePrior(0.0f, 10.0f, 100.0f, 25.0f);
+  GaussianTrackState udkf_state = standard_state;
+  GaussianTrackState srif_state = standard_state;
+
+  for (int cycle = 1; cycle <= 12; ++cycle) {
+    const float true_x = 10.0f * static_cast<float>(cycle);
+    const MeasurementVector measurement(true_x + 0.3f, -0.2f, 0.1f);
+    standard_state = standard_updater.Update(standard_predictor.Predict(standard_state, 1.0f),
+                                             measurement)
+                         .posterior;
+    udkf_state = udkf_updater.Update(udkf_predictor.Predict(udkf_state, 1.0f), measurement).posterior;
+    srif_state = srif_updater.Update(srif_predictor.Predict(srif_state, 1.0f), measurement).posterior;
+  }
+
+  const GaussianTrackState* final_states[] = {&standard_state, &udkf_state, &srif_state};
+  for (std::size_t i = 0; i < sizeof(final_states) / sizeof(final_states[0]); ++i) {
+    EXPECT_TRUE(final_states[i]->mean.allFinite());
+    EXPECT_TRUE(final_states[i]->covariance.allFinite());
+    for (int diag = 0; diag < kStateDim; ++diag) {
+      EXPECT_GT(final_states[i]->covariance(diag, diag), 0.0f);
     }
   }
 }

@@ -55,8 +55,8 @@ OwnedSignalComponents SignalComponentFactory::BuildOwnedPipelineComponents(
   components.track_filter_config = BuildTrackFilterConfig(internal_config);
 
   if (config.tracking.enable_kalman_filter) {
-    components.kalman_predictor =
-        CreateKalmanPredictor(internal_config.tracking.kalman_noise_diff_coeff);
+    components.kalman_predictor = CreateKalmanPredictor(
+        internal_config.tracking.kalman_noise_diff_coeff, config.tracking.kalman_update_backend);
     components.kalman_updater = CreateKalmanUpdater(config.tracking.kalman_measurement_noise_std,
                                                     config.tracking.kalman_update_backend);
   }
@@ -112,7 +112,8 @@ LifecycleAssemblyArtifacts SignalComponentFactory::BuildLifecycleAssemblyArtifac
           break;
         }
 
-        artifacts.imm_predictors_owned.push_back(CreateKalmanPredictor(noise_diff_coeff));
+        artifacts.imm_predictors_owned.push_back(
+            CreateKalmanPredictor(noise_diff_coeff, config.tracking.kalman_update_backend));
         artifacts.imm_updaters_owned.push_back(CreateKalmanUpdater(
             config.tracking.kalman_measurement_noise_std, config.tracking.kalman_update_backend));
         artifacts.imm_predictors.push_back(artifacts.imm_predictors_owned.back().get());
@@ -143,8 +144,8 @@ LifecycleAssemblyArtifacts SignalComponentFactory::BuildLifecycleAssemblyArtifac
   }
 
   if (config.tracking.enable_kalman_filter) {
-    artifacts.kalman_predictor =
-        CreateKalmanPredictor(internal_config.tracking.kalman_noise_diff_coeff);
+    artifacts.kalman_predictor = CreateKalmanPredictor(
+        internal_config.tracking.kalman_noise_diff_coeff, config.tracking.kalman_update_backend);
     artifacts.kalman_updater = CreateKalmanUpdater(config.tracking.kalman_measurement_noise_std,
                                                    config.tracking.kalman_update_backend);
     artifacts.lifecycle_manager.reset(new tracking::TrackLifecycleManager(
@@ -169,12 +170,17 @@ void SignalComponentFactory::LogLifecycleAssemblyConfigViolation(const char* mes
                     message, value);
 }
 
-std::unique_ptr<tracking::KalmanPredictor> SignalComponentFactory::CreateKalmanPredictor(
-    float noise_diff_coeff) {
+std::unique_ptr<tracking::IKalmanPredictor> SignalComponentFactory::CreateKalmanPredictor(
+    float noise_diff_coeff, common::config::KalmanUpdateBackend backend) {
   tracking::KalmanPredictorConfig predictor_config;
   predictor_config.noise_diff_coeff = std::max(noise_diff_coeff, 0.001f);
-  return std::unique_ptr<tracking::KalmanPredictor>(
-      new tracking::KalmanPredictor(predictor_config));
+  if (backend == common::config::KalmanUpdateBackend::kUdKf) {
+    return std::unique_ptr<tracking::IKalmanPredictor>(new tracking::UdkfPredictor(predictor_config));
+  }
+  if (backend == common::config::KalmanUpdateBackend::kSrif) {
+    return std::unique_ptr<tracking::IKalmanPredictor>(new tracking::SrifPredictor(predictor_config));
+  }
+  return std::unique_ptr<tracking::IKalmanPredictor>(new tracking::KalmanPredictor(predictor_config));
 }
 
 std::unique_ptr<tracking::IKalmanUpdater> SignalComponentFactory::CreateKalmanUpdater(

@@ -14,6 +14,7 @@
 #include "airborne_radar/signal/pipeline/CycleExecutor.h"
 #include "airborne_radar/signal/runtime/RuntimeAssemblySupport.h"
 #include "airborne_radar/signal/runtime/SignalComponentFactory.h"
+#include "airborne_radar/signal/tracking/IKalmanPredictor.h"
 #include "airborne_radar/signal/tracking/IKalmanUpdater.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleManager.h"
@@ -40,7 +41,7 @@ struct RuntimeState {
   association::DataAssociationEngine association_engine{};
   tracking::TrackFilter track_filter{};
   std::unique_ptr<signal::assembly::IDataOutputManager> output_manager;
-  std::unique_ptr<tracking::KalmanPredictor> kalman_predictor;
+  std::unique_ptr<tracking::IKalmanPredictor> kalman_predictor;
   std::unique_ptr<tracking::IKalmanUpdater> kalman_updater;
   std::unique_ptr<detection::SignalDetector> signal_detector;
   std::unique_ptr<tracking::ITrackLifecycleManager> auto_lifecycle_manager;
