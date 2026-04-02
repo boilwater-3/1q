@@ -67,6 +67,10 @@ struct ClusterSummary {
   float deception_support_ratio{0.0f};         /**< 簇内欺骗受影响样本占比，范围 [0, 1] */
   float false_alarm_ratio{0.0f};               /**< 簇内伪观测占比，范围 [0, 1] */
   bool any_jammed{false};                      /**< 簇内是否存在受扰观测 */
+  float spectral_main_frequency_stability_hz{0.0f}; /**< 主频稳定度（单位：Hz） */
+  float spectral_peak_sparsity{0.0f};               /**< 谱峰稀疏度，范围 [0, 1] */
+  float spectral_bandwidth_occupancy{0.0f};         /**< 带宽占用度，范围 [0, 1] */
+  std::string spectral_class_label{};               /**< 频谱分类标签 */
 };
 
 }  // namespace internal

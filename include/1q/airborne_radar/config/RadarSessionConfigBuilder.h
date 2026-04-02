@@ -240,6 +240,16 @@ class ONEQ_API RadarSessionConfigBuilder {
     return *this;
   }
 
+  /**
+   * @brief 设置 Kalman 更新后端类型。
+   * @param[in] backend 更新后端。
+   */
+  RadarSessionConfigBuilder& WithKalmanUpdateBackend(
+      common::config::KalmanUpdateBackend backend) {
+    config_.signal_pipeline_config.tracking.kalman_update_backend = backend;
+    return *this;
+  }
+
   // -------------------------------------------------------------------------
   // 生命周期参数
   // -------------------------------------------------------------------------

@@ -186,6 +186,24 @@ std::size_t CountAmbiguousHypotheses(const EsrCycleResult& result) {
 }
 
 /**
+ * @brief 统计带指定频谱标签的假设数量。
+ * @param[in] result 周期结果。
+ * @param[in] label 频谱标签。
+ * @return 假设数量。
+ */
+std::size_t CountSpectralClassHypotheses(const EsrCycleResult& result, const std::string& label) {
+  std::size_t count = 0U;
+  for (std::size_t i = 0; i < result.output_frame.emitter_output.hypotheses.size(); ++i) {
+    const common::EmitterHypothesis& hypothesis = result.output_frame.emitter_output.hypotheses[i];
+    if (std::find(hypothesis.candidate_classes.begin(), hypothesis.candidate_classes.end(), label) !=
+        hypothesis.candidate_classes.end()) {
+      ++count;
+    }
+  }
+  return count;
+}
+
+/**
  * @brief 断言两个周期结果的观测/评估输出一致。
  * @param[in] lhs 左结果。
  * @param[in] rhs 右结果。
@@ -676,6 +694,39 @@ TEST(EsrSessionIntegrationTest, PriWindowCapsEffectivePulseCountAcrossStatistica
   if (std::isfinite(low_pulse_snr) && std::isfinite(high_pulse_snr)) {
     EXPECT_FLOAT_EQ(low_pulse_snr, high_pulse_snr);
   }
+}
+
+TEST(EsrSessionIntegrationTest, SpectralAnalysisAppendsInsufficientLabelWhenSequenceTooShort) {
+  EsrSessionConfig config = MakeSessionConfig();
+  config.pipeline_config.spectral_analysis.enable = true;
+  config.pipeline_config.spectral_analysis.min_sequence_length = 8U;
+  config.pipeline_config.spectral_analysis.fft_length = 16U;
+  config.pipeline_config.cluster.min_points = 1U;
+  config.pipeline_config.cluster.radius = 1.0e-6f;
+
+  EsrSession session(config);
+  context::EsrCycleInput input = MakeBaseInput();
+  const EsrCycleResult result = session.StepWithResult(input);
+
+  EXPECT_GT(CountMatchedTruthObservations(result, "target-emitter"), 0U);
+  EXPECT_GT(CountSpectralClassHypotheses(result, "SPECTRAL_INSUFFICIENT"), 0U);
+}
+
+TEST(EsrSessionIntegrationTest, DisableSpectralAnalysisKeepsCandidateClassesWithoutSpectralTags) {
+  EsrSessionConfig config = MakeSessionConfig();
+  config.pipeline_config.spectral_analysis.enable = false;
+  config.pipeline_config.cluster.min_points = 1U;
+  config.pipeline_config.cluster.radius = 1.0e-6f;
+
+  EsrSession session(config);
+  context::EsrCycleInput input = MakeBaseInput();
+  const EsrCycleResult result = session.StepWithResult(input);
+
+  EXPECT_GT(CountMatchedTruthObservations(result, "target-emitter"), 0U);
+  EXPECT_EQ(CountSpectralClassHypotheses(result, "SPECTRAL_STABLE"), 0U);
+  EXPECT_EQ(CountSpectralClassHypotheses(result, "SPECTRAL_AGILE"), 0U);
+  EXPECT_EQ(CountSpectralClassHypotheses(result, "SPECTRAL_BROADBAND"), 0U);
+  EXPECT_EQ(CountSpectralClassHypotheses(result, "SPECTRAL_INSUFFICIENT"), 0U);
 }
 
 TEST(EsrSessionIntegrationTest, ValidationFailureReturnsEmptyFrameAndStillAdvancesBatchId) {

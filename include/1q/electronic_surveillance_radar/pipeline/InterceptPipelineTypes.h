@@ -95,6 +95,19 @@ struct ONEQ_API InterceptClusterConfig {
 };
 
 /**
+ * @brief InterceptSpectralAnalysisConfig 描述频谱特征分析与标签配置。
+ */
+struct ONEQ_API InterceptSpectralAnalysisConfig {
+  bool enable{true};                             /**< 是否启用簇级频谱分析 */
+  std::uint32_t min_sequence_length{4U};         /**< 最小样本序列长度 */
+  std::uint32_t fft_length{16U};                 /**< 频谱分析 FFT 点数 */
+  float broadband_occupancy_threshold{0.45f};    /**< 宽带占用阈值 */
+  float agile_stability_threshold_hz{1.5e6f};    /**< 敏捷判定稳定度阈值（单位：Hz） */
+  float agile_peak_sparsity_threshold{0.45f};    /**< 敏捷判定谱峰稀疏度阈值 */
+  float occupancy_peak_floor_ratio{0.20f};       /**< 占用计算的谱峰底噪比例 */
+};
+
+/**
  * @brief InterceptAssociationConfig 描述假设关联与状态管理配置。
  */
 struct ONEQ_API InterceptAssociationConfig {
@@ -136,6 +149,7 @@ struct ONEQ_API InterceptPipelineConfig {
   InterceptAlgorithmConfig algorithm{};                        /**< 算法辅助配置 */
   InterceptPreprocessConfig preprocess{};                      /**< 观测预处理配置 */
   InterceptClusterConfig cluster{};                            /**< 聚类配置 */
+  InterceptSpectralAnalysisConfig spectral_analysis{};         /**< 频谱分析配置 */
   InterceptAssociationConfig association{};                    /**< 假设关联配置 */
   InterceptSuppressionModelConfig suppression_model{};         /**< 压制分量建模配置 */
   InterceptDeceptionModelConfig deception_model{};             /**< 欺骗分量建模配置 */

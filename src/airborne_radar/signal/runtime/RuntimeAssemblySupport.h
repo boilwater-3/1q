@@ -12,9 +12,9 @@
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/pipeline/InternalSignalPipelineConfig.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
+#include "airborne_radar/signal/tracking/IKalmanUpdater.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
-#include "airborne_radar/signal/tracking/KalmanUpdater.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -58,7 +58,7 @@ std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManagerForR
  */
 struct OwnedComponentSlots {
   std::unique_ptr<tracking::KalmanPredictor>* kalman_predictor{nullptr}; /**< Kalman 预测器槽位 */
-  std::unique_ptr<tracking::KalmanUpdater>* kalman_updater{nullptr};     /**< Kalman 更新器槽位 */
+  std::unique_ptr<tracking::IKalmanUpdater>* kalman_updater{nullptr};    /**< Kalman 更新器槽位 */
   std::unique_ptr<detection::SignalDetector>* signal_detector{nullptr};  /**< 物理探测器槽位 */
   std::unique_ptr<tracking::ITrackLifecycleManager>* auto_lifecycle_manager{
       nullptr}; /**< 生命周期管理器槽位 */

@@ -4,6 +4,7 @@ set(ONEQ_COMMON_SOURCES
     common/atmosphere/AtmospherePhysics.cpp
     common/geometry/CoordinateTransform.cpp
     common/geometry/GeometryTransform.cpp
+    common/numerics/SpectralNumerics.cpp
     common/rcs/RcsPhysics.cpp
     common/timing/TimingRegimeModel.cpp
 )
@@ -42,11 +43,13 @@ set(AIRBORNE_SIGNAL_SOURCES
     airborne_radar/signal/tracking/ImmFilter.cpp
     airborne_radar/signal/tracking/KalmanPredictor.cpp
     airborne_radar/signal/tracking/KalmanUpdater.cpp
+    airborne_radar/signal/tracking/SrifUpdater.cpp
     airborne_radar/signal/tracking/SynchronizedTrackPool.cpp
     airborne_radar/signal/tracking/TrackFilter.cpp
     airborne_radar/signal/tracking/TrackLifecycleManager.cpp
     airborne_radar/signal/tracking/TrackLifecycleSnapshots.cpp
     airborne_radar/signal/tracking/TrackSnapshotEmitter.cpp
+    airborne_radar/signal/tracking/UdkfUpdater.cpp
 )
 
 set(AIRBORNE_DECISION_SOURCES

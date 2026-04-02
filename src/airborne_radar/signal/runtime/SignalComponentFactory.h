@@ -15,12 +15,15 @@
 #include "airborne_radar/signal/pipeline/InternalSignalPipelineConfig.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/tracking/BoostTrackPool.h"
+#include "airborne_radar/signal/tracking/IKalmanUpdater.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
+#include "airborne_radar/signal/tracking/SrifUpdater.h"
 #include "airborne_radar/signal/tracking/SynchronizedTrackPool.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleManager.h"
+#include "airborne_radar/signal/tracking/UdkfUpdater.h"
 #include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
@@ -37,7 +40,7 @@ struct OwnedSignalComponents {
   association::DataAssociationConfig association_config{};     /**< 关联引擎配置。 */
   tracking::TrackFilterConfig track_filter_config{};           /**< 轨迹滤波配置。 */
   std::unique_ptr<tracking::KalmanPredictor> kalman_predictor; /**< 可选 Kalman 预测器。 */
-  std::unique_ptr<tracking::KalmanUpdater> kalman_updater;     /**< 可选 Kalman 更新器。 */
+  std::unique_ptr<tracking::IKalmanUpdater> kalman_updater;    /**< 可选 Kalman 更新器。 */
   std::unique_ptr<detection::SignalDetector> signal_detector;  /**< 可选物理探测器。 */
 };
 /**
@@ -47,10 +50,10 @@ struct LifecycleAssemblyArtifacts {
   std::unique_ptr<tracking::BoostTrackPool> pool;              /**< 生命周期对象池。 */
   std::unique_ptr<tracking::ITrackPool> pool_wrapper;          /**< 可选包装的线程安全对象池。 */
   std::unique_ptr<tracking::KalmanPredictor> kalman_predictor; /**< 单模型 Kalman 预测器。 */
-  std::unique_ptr<tracking::KalmanUpdater> kalman_updater;     /**< 单模型 Kalman 更新器。 */
+  std::unique_ptr<tracking::IKalmanUpdater> kalman_updater;    /**< 单模型 Kalman 更新器。 */
   std::vector<std::unique_ptr<tracking::KalmanPredictor>>
       imm_predictors_owned; /**< IMM 自持有预测器集合。 */
-  std::vector<std::unique_ptr<tracking::KalmanUpdater>>
+  std::vector<std::unique_ptr<tracking::IKalmanUpdater>>
       imm_updaters_owned; /**< IMM 自持有更新器集合。 */
   std::vector<const tracking::IKalmanPredictor*>
       imm_predictors; /**< 传递给生命周期管理器的 IMM 预测器视图。 */
@@ -129,7 +132,8 @@ class SignalComponentFactory final {
    * @param measurement_noise_std 量测噪声标准差。
    * @return 已创建的更新器。
    */
-  static std::unique_ptr<tracking::KalmanUpdater> CreateKalmanUpdater(float measurement_noise_std);
+  static std::unique_ptr<tracking::IKalmanUpdater> CreateKalmanUpdater(
+      float measurement_noise_std, common::config::KalmanUpdateBackend backend);
   /**
    * @brief 构建 IMM 转移矩阵。
    * @param internal_config 内部扩展配置。

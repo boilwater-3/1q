@@ -4,12 +4,14 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <set>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "common/geometry/GeometryTransform.h"
+#include "common/numerics/SpectralNumerics.h"
 #include "common/timing/TimingRegimeModel.h"
 #include "electronic_surveillance_radar/EsrSharedUtils.h"
 #include "electronic_surveillance_radar/intercept/AngleErrorModel.h"
@@ -331,6 +333,116 @@ float ComputeObservationConfidence(float snr_db, bool is_jammed) {
 }
 
 /**
+ * @brief 计算序列标准差。
+ * @param[in] values 输入序列。
+ * @return 标准差。
+ */
+double ComputeStandardDeviation(const std::vector<double>& values) {
+  if (values.size() < 2U) {
+    return 0.0;
+  }
+  double mean = 0.0;
+  for (std::size_t i = 0; i < values.size(); ++i) {
+    mean += values[i];
+  }
+  mean /= static_cast<double>(values.size());
+  double variance = 0.0;
+  for (std::size_t i = 0; i < values.size(); ++i) {
+    const double diff = values[i] - mean;
+    variance += diff * diff;
+  }
+  variance /= static_cast<double>(values.size() - 1U);
+  return std::sqrt(std::max(variance, 0.0));
+}
+
+/**
+ * @brief 计算并写入簇级频谱特征与标签。
+ * @param[in] cluster_indices 簇样本索引。
+ * @param[in] records 观测记录。
+ * @param[in] spectral_config 频谱配置。
+ * @param[out] summary 簇摘要。
+ */
+void PopulateClusterSpectralSummary(const std::vector<std::size_t>& cluster_indices,
+                                    const std::vector<internal::RawObservationRecord>& records,
+                                    const InterceptSpectralAnalysisConfig& spectral_config,
+                                    internal::ClusterSummary* summary) {
+  if (summary == nullptr || !spectral_config.enable) {
+    return;
+  }
+
+  if (cluster_indices.size() <
+      static_cast<std::size_t>(std::max<std::uint32_t>(spectral_config.min_sequence_length, 1U))) {
+    summary->spectral_class_label = "SPECTRAL_INSUFFICIENT";
+    return;
+  }
+
+  std::vector<std::pair<double, double>> ordered_samples;
+  ordered_samples.reserve(cluster_indices.size());
+  for (std::size_t i = 0; i < cluster_indices.size(); ++i) {
+    const std::size_t idx = cluster_indices[i];
+    ordered_samples.push_back(
+        std::make_pair(records[idx].observation.timestamp_s, records[idx].observation.rf_hz));
+  }
+  std::sort(ordered_samples.begin(), ordered_samples.end(),
+            [](const std::pair<double, double>& lhs, const std::pair<double, double>& rhs) {
+              return lhs.first < rhs.first;
+            });
+
+  std::vector<double> rf_series;
+  rf_series.reserve(ordered_samples.size());
+  for (std::size_t i = 0; i < ordered_samples.size(); ++i) {
+    rf_series.push_back(ordered_samples[i].second);
+  }
+
+  const std::size_t fft_length =
+      static_cast<std::size_t>(std::max<std::uint32_t>(spectral_config.fft_length, 4U));
+  std::vector<double> power_spectrum;
+  if (!oneq::common::numerics::marple_spect(rf_series, fft_length, &power_spectrum) ||
+      power_spectrum.empty()) {
+    summary->spectral_class_label = "SPECTRAL_INSUFFICIENT";
+    return;
+  }
+
+  double total_power = 0.0;
+  double max_power = 0.0;
+  for (std::size_t i = 0; i < power_spectrum.size(); ++i) {
+    total_power += power_spectrum[i];
+    max_power = std::max(max_power, power_spectrum[i]);
+  }
+  total_power = std::max(total_power, 1.0e-12);
+  max_power = std::max(max_power, 1.0e-12);
+
+  const double occupancy_floor =
+      static_cast<double>(Clamp01(spectral_config.occupancy_peak_floor_ratio)) * max_power;
+  std::size_t occupied_bins = 0U;
+  for (std::size_t i = 0; i < power_spectrum.size(); ++i) {
+    if (power_spectrum[i] >= occupancy_floor) {
+      ++occupied_bins;
+    }
+  }
+
+  summary->spectral_main_frequency_stability_hz =
+      static_cast<float>(ComputeStandardDeviation(rf_series));
+  summary->spectral_peak_sparsity = static_cast<float>(max_power / total_power);
+  summary->spectral_bandwidth_occupancy = static_cast<float>(
+      static_cast<double>(occupied_bins) / static_cast<double>(power_spectrum.size()));
+
+  const bool is_broadband =
+      summary->spectral_bandwidth_occupancy >= spectral_config.broadband_occupancy_threshold;
+  const bool is_agile =
+      summary->spectral_main_frequency_stability_hz >= spectral_config.agile_stability_threshold_hz ||
+      summary->spectral_peak_sparsity <= spectral_config.agile_peak_sparsity_threshold;
+
+  if (is_broadband) {
+    summary->spectral_class_label = "SPECTRAL_BROADBAND";
+  } else if (is_agile) {
+    summary->spectral_class_label = "SPECTRAL_AGILE";
+  } else {
+    summary->spectral_class_label = "SPECTRAL_STABLE";
+  }
+}
+
+/**
  * @brief 构造簇级摘要。
  * @param[in] cluster_indices 簇内观测索引。
  * @param[in] records 预处理后的观测记录。
@@ -341,7 +453,8 @@ internal::ClusterSummary BuildClusterSummary(
     const std::vector<std::size_t>& cluster_indices,
     const std::vector<internal::RawObservationRecord>& records,
     const std::vector<internal::ObservationFeatureVector>& features,
-    const InterceptDeceptionModelConfig& deception_config) {
+    const InterceptDeceptionModelConfig& deception_config,
+    const InterceptSpectralAnalysisConfig& spectral_config) {
   internal::ClusterSummary summary;
   if (cluster_indices.empty()) {
     return summary;
@@ -396,6 +509,7 @@ internal::ClusterSummary BuildClusterSummary(
                                                  summary.deception_support_ratio);
   summary.confidence_score = Clamp01(confidence_acc * inv_count * deception_penalty);
   summary.representative_index = representative;
+  PopulateClusterSpectralSummary(cluster_indices, records, spectral_config, &summary);
   return summary;
 }
 
@@ -712,8 +826,9 @@ InterceptCycleResult InterceptPipeline::RunCycle(
   std::vector<internal::ClusterSummary> cluster_summaries;
   cluster_summaries.reserve(cluster_result.clusters.size());
   for (std::size_t i = 0; i < cluster_result.clusters.size(); ++i) {
-    cluster_summaries.push_back(BuildClusterSummary(cluster_result.clusters[i], records, features,
-                                                    config_.deception_model));
+    cluster_summaries.push_back(
+        BuildClusterSummary(cluster_result.clusters[i], records, features, config_.deception_model,
+                            config_.spectral_analysis));
   }
 
   associator_.UpdateConfig(config_.association);

@@ -57,7 +57,8 @@ common::ThreatLevel InferThreatFromCluster(common::EmitterMode mode, float mean_
  * @param[in] deception_support_ratio 欺骗支持度，范围 [0, 1]。
  * @return 候选类别字符串列表。
  */
-std::vector<std::string> BuildCandidateClasses(double rf_hz, float deception_support_ratio) {
+std::vector<std::string> BuildCandidateClasses(double rf_hz, float deception_support_ratio,
+                                               const std::string& spectral_class_label) {
   const intercept::RadarBand band = intercept::BandClassifier::Classify(rf_hz);
   std::vector<std::string> classes;
   classes.push_back(std::string("RADAR_BAND_") + intercept::BandClassifier::ToString(band));
@@ -68,6 +69,9 @@ std::vector<std::string> BuildCandidateClasses(double rf_hz, float deception_sup
   }
   if (deception_ratio >= 0.3f) {
     classes.push_back("AMBIGUOUS_CLASS");
+  }
+  if (!spectral_class_label.empty()) {
+    classes.push_back(spectral_class_label);
   }
   return classes;
 }
@@ -154,7 +158,8 @@ common::EmitterHypothesisList HypothesisAssociator::Update(
     }
     track.mode = InferModeFromCluster(summary);
     track.threat_level = InferThreatFromCluster(track.mode, summary.mean_snr_db);
-    track.candidate_classes = BuildCandidateClasses(summary.mean_rf_hz, deception_ratio);
+    track.candidate_classes = BuildCandidateClasses(summary.mean_rf_hz, deception_ratio,
+                                                    summary.spectral_class_label);
     track.bearing_az_deg =
         Blend(track.bearing_az_deg, summary.mean_az_deg, config_.confidence_alpha);
     track.bearing_el_deg =
@@ -190,7 +195,8 @@ common::EmitterHypothesisList HypothesisAssociator::Update(
     track.feature = clusters[i].centroid_feature;
     track.mode = InferModeFromCluster(clusters[i]);
     track.threat_level = InferThreatFromCluster(track.mode, clusters[i].mean_snr_db);
-    track.candidate_classes = BuildCandidateClasses(clusters[i].mean_rf_hz, deception_ratio);
+    track.candidate_classes = BuildCandidateClasses(clusters[i].mean_rf_hz, deception_ratio,
+                                                    clusters[i].spectral_class_label);
     track.bearing_az_deg = clusters[i].mean_az_deg;
     track.bearing_el_deg = clusters[i].mean_el_deg;
     const float base_bearing_std_deg =

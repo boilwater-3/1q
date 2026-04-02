@@ -12,6 +12,8 @@
 #include "airborne_radar/signal/tracking/GaussianTrackState.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
+#include "airborne_radar/signal/tracking/SrifUpdater.h"
+#include "airborne_radar/signal/tracking/UdkfUpdater.h"
 
 namespace airborne_radar {
 namespace tests {
@@ -27,8 +29,10 @@ using signal::tracking::KalmanUpdateResult;
 using signal::tracking::kMeasurementDim;
 using signal::tracking::kStateDim;
 using signal::tracking::MeasurementVector;
+using signal::tracking::SrifUpdater;
 using signal::tracking::StateCovariance;
 using signal::tracking::StateVector;
+using signal::tracking::UdkfUpdater;
 
 /// @brief 构造一个简单的先验状态用于测试。
 /// @param x 初始 X 位置。
@@ -376,6 +380,30 @@ TEST(KalmanUpdaterTest, DynamicCovarianceAltersUpdateWeight) {
   EXPECT_GT(result_small_R.posterior.mean(0), result_large_R.posterior.mean(0));
   EXPECT_NEAR(result_small_R.posterior.mean(0), 150.0f, 5.0f);
   EXPECT_NEAR(result_large_R.posterior.mean(0), 100.0f, 5.0f);
+}
+
+TEST(KalmanUpdaterBackendTest, ThreeBackendsProduceFiniteStateAndCovariance) {
+  const GaussianTrackState predicted = MakePrior(100.0f, 5.0f, 250.0f, 100.0f);
+  const MeasurementVector measurement(101.5f, 4.0f, -2.5f);
+
+  KalmanUpdaterConfig config;
+  config.measurement_noise_std = 4.0f;
+  KalmanUpdater standard_updater(config);
+  UdkfUpdater udkf_updater(config);
+  SrifUpdater srif_updater(config);
+
+  const KalmanUpdateResult standard_result = standard_updater.Update(predicted, measurement);
+  const KalmanUpdateResult udkf_result = udkf_updater.Update(predicted, measurement);
+  const KalmanUpdateResult srif_result = srif_updater.Update(predicted, measurement);
+
+  const KalmanUpdateResult* results[] = {&standard_result, &udkf_result, &srif_result};
+  for (std::size_t i = 0; i < sizeof(results) / sizeof(results[0]); ++i) {
+    EXPECT_TRUE(results[i]->posterior.mean.allFinite());
+    EXPECT_TRUE(results[i]->posterior.covariance.allFinite());
+    for (int diag = 0; diag < kStateDim; ++diag) {
+      EXPECT_GT(results[i]->posterior.covariance(diag, diag), 0.0f);
+    }
+  }
 }
 
 // ============================================================================

@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include "1q/electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
@@ -30,7 +31,8 @@ namespace {
  * @return 簇摘要。
  */
 ClusterSummary MakeCluster(float x, float y, float az_deg, float el_deg, double rf_hz, float snr_db,
-                           std::size_t support_count, float deception_support_ratio = 0.0f) {
+                           std::size_t support_count, float deception_support_ratio = 0.0f,
+                           const std::string& spectral_label = std::string()) {
   ClusterSummary summary;
   summary.centroid_feature.values =
       std::array<float, kObservationFeatureDimension>{{x, y, 0.0f, 0.0f, 0.0f}};
@@ -43,6 +45,7 @@ ClusterSummary MakeCluster(float x, float y, float az_deg, float el_deg, double 
   summary.mean_pulse_width_s = 1.0e-6;
   summary.confidence_score = 0.8f;
   summary.deception_support_ratio = deception_support_ratio;
+  summary.spectral_class_label = spectral_label;
   return summary;
 }
 
@@ -162,6 +165,28 @@ TEST(EsrHypothesisAssociatorTest, HighDeceptionSupportLowersConfidenceAndAddsAmb
   EXPECT_NE(std::find(deceptive_hypothesis->candidate_classes.begin(),
                       deceptive_hypothesis->candidate_classes.end(), "AMBIGUOUS_CLASS"),
             deceptive_hypothesis->candidate_classes.end());
+}
+
+TEST(EsrHypothesisAssociatorTest, AppendsSpectralClassWithoutReplacingBandClass) {
+  InterceptAssociationConfig config;
+  config.confirm_hits = 1U;
+  config.output_tentative = true;
+  HypothesisAssociator associator(config);
+
+  std::uint64_t next_hypothesis_id = 1U;
+  std::vector<ClusterSummary> clusters;
+  clusters.push_back(
+      MakeCluster(0.0f, 0.0f, 0.0f, 0.0f, 10.0e9, 14.0f, 5U, 0.0f, "SPECTRAL_BROADBAND"));
+
+  const common::EmitterHypothesisList hypotheses =
+      associator.Update(50U, clusters, &next_hypothesis_id);
+  ASSERT_EQ(hypotheses.size(), 1U);
+  EXPECT_NE(std::find(hypotheses[0].candidate_classes.begin(), hypotheses[0].candidate_classes.end(),
+                      "RADAR_EMITTER"),
+            hypotheses[0].candidate_classes.end());
+  EXPECT_NE(std::find(hypotheses[0].candidate_classes.begin(), hypotheses[0].candidate_classes.end(),
+                      "SPECTRAL_BROADBAND"),
+            hypotheses[0].candidate_classes.end());
 }
 
 }  // namespace

@@ -31,6 +31,7 @@ set(TEST_SOURCES
     geometry_transform_test.cpp
     coordinate_transform_test.cpp
     timing_regime_model_test.cpp
+    spectral_numerics_test.cpp
     validation_utils_test.cpp
     radar_input_validation_test.cpp
     esr_input_validation_test.cpp

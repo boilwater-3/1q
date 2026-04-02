@@ -136,7 +136,8 @@ inline bool EqualsSignalBeamControlConfig(const common::config::SignalBeamContro
 inline bool EqualsSignalTrackingConfig(const common::config::SignalTrackingConfig& lhs,
                                        const common::config::SignalTrackingConfig& rhs) {
   return lhs.enable_kalman_filter == rhs.enable_kalman_filter &&
-         NearlyEqual(lhs.kalman_measurement_noise_std, rhs.kalman_measurement_noise_std);
+         NearlyEqual(lhs.kalman_measurement_noise_std, rhs.kalman_measurement_noise_std) &&
+         lhs.kalman_update_backend == rhs.kalman_update_backend;
 }
 
 inline bool EqualsLifecycleConfig(const common::config::LifecycleConfig& lhs,

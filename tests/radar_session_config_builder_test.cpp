@@ -35,6 +35,8 @@ TEST(RadarSessionConfigBuilderTest, DefaultConstructionPreservesStructDefaults) 
                   4.0f);
   EXPECT_EQ(config.signal_pipeline_config.beam_control.radar_orientation.work_sub_mode,
             common::config::RadarWorkSubMode::kTws);
+  EXPECT_EQ(config.signal_pipeline_config.tracking.kalman_update_backend,
+            common::config::KalmanUpdateBackend::kStandardKfJoseph);
 }
 
 // ---------------------------------------------------------------------------
@@ -159,6 +161,14 @@ TEST(RadarSessionConfigBuilderTest, KalmanMeasurementNoiseStdApplied) {
       common::config::RadarSessionConfigBuilder().WithKalmanMeasurementNoiseStd(3.0f).Build();
 
   EXPECT_FLOAT_EQ(config.signal_pipeline_config.tracking.kalman_measurement_noise_std, 3.0f);
+}
+
+TEST(RadarSessionConfigBuilderTest, KalmanUpdateBackendApplied) {
+  const auto config = common::config::RadarSessionConfigBuilder()
+                          .WithKalmanUpdateBackend(common::config::KalmanUpdateBackend::kUdKf)
+                          .Build();
+  EXPECT_EQ(config.signal_pipeline_config.tracking.kalman_update_backend,
+            common::config::KalmanUpdateBackend::kUdKf);
 }
 
 // ---------------------------------------------------------------------------
