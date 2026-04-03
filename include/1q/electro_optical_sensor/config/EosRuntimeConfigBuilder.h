@@ -55,6 +55,38 @@ class ONEQ_API EosRuntimeConfigBuilder {
     patch_.visible_reference_irradiance_w_m2 = value;
     return *this;
   }
+  EosRuntimeConfigBuilder& WithEnvironmentRuntimeConfigPatch(
+      const environment::EosEnvironmentRuntimeConfigPatch& patch) noexcept {
+    patch_.has_environment_runtime_config = true;
+    patch_.environment_runtime_config = patch;
+    return *this;
+  }
+  EosRuntimeConfigBuilder& WithEnvironmentModelType(
+      environment::EosEnvironmentModelType model_type) noexcept {
+    patch_.has_environment_runtime_config = true;
+    patch_.environment_runtime_config.has_model_type = true;
+    patch_.environment_runtime_config.model_type = model_type;
+    return *this;
+  }
+  EosRuntimeConfigBuilder& WithRadiativeTransferModel(
+      foundation::radiative_transfer::RadiativeTransferModel model) noexcept {
+    patch_.has_environment_runtime_config = true;
+    patch_.environment_runtime_config.has_radiative_transfer_model = true;
+    patch_.environment_runtime_config.radiative_transfer_model = model;
+    return *this;
+  }
+  EosRuntimeConfigBuilder& WithAerosolDensityFactor(float value) noexcept {
+    patch_.has_environment_runtime_config = true;
+    patch_.environment_runtime_config.has_aerosol_density_factor = true;
+    patch_.environment_runtime_config.aerosol_density_factor = value;
+    return *this;
+  }
+  EosRuntimeConfigBuilder& WithTurbulenceFactor(float value) noexcept {
+    patch_.has_environment_runtime_config = true;
+    patch_.environment_runtime_config.has_turbulence_factor = true;
+    patch_.environment_runtime_config.turbulence_factor = value;
+    return *this;
+  }
   EosRuntimeConfigPatch Build() const noexcept { return patch_; }
 
  private:

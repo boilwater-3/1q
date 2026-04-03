@@ -370,7 +370,7 @@ class ONEQ_API RadarSessionConfigBuilder {
    * @note 默认 6.0 dB；调低意味着更容易触发干扰标记。
    */
   RadarSessionConfigBuilder& WithJammingDetectionThresholdDb(float db) {
-    config_.jamming_detection_threshold_db = db;
+    config_.environment_default_config.jamming_detection_threshold_db = db;
     return *this;
   }
 

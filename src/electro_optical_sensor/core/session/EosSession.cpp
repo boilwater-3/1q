@@ -24,8 +24,8 @@ pipeline::EosPipelineWorkMode ToPipelineWorkMode(EosWorkMode mode) {
 }
 
 pipeline::EosPipelineEnvironmentModelType ToPipelineEnvironmentModelType(
-    EosEnvironmentModelType model_type) {
-  if (model_type == EosEnvironmentModelType::kAdvanced) {
+    environment::EosEnvironmentModelType model_type) {
+  if (model_type == environment::EosEnvironmentModelType::kAdvanced) {
     return pipeline::EosPipelineEnvironmentModelType::kAdvanced;
   }
   return pipeline::EosPipelineEnvironmentModelType::kSimplified;
@@ -56,11 +56,12 @@ pipeline::EosPipelineConfig BuildPipelineConfig(const EosSessionConfig& config) 
   pipeline_config.hood_outer_half_angle_deg = config.hood_outer_half_angle_deg;
   pipeline_config.hood_min_suppression_ratio = config.hood_min_suppression_ratio;
   pipeline_config.hood_max_suppression_ratio = config.hood_max_suppression_ratio;
-  pipeline_config.radiative_transfer_model = config.radiative_transfer_model;
-  pipeline_config.aerosol_density_factor = config.aerosol_density_factor;
-  pipeline_config.turbulence_factor = config.turbulence_factor;
+  pipeline_config.radiative_transfer_model =
+      config.environment_default_config.radiative_transfer_model;
+  pipeline_config.aerosol_density_factor = config.environment_default_config.aerosol_density_factor;
+  pipeline_config.turbulence_factor = config.environment_default_config.turbulence_factor;
   pipeline_config.environment_model_type =
-      ToPipelineEnvironmentModelType(config.environment_model_type);
+      ToPipelineEnvironmentModelType(config.environment_default_config.model_type);
   return pipeline_config;
 }
 
@@ -183,6 +184,47 @@ void EosSession::ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch) {
           "[EosSession] Rejecting invalid visible_reference_irradiance_w_m2={}; "
           "must be finite and positive.",
           patch.visible_reference_irradiance_w_m2);
+    }
+  }
+  if (patch.has_environment_runtime_config) {
+    const environment::EosEnvironmentRuntimeConfigPatch& environment_patch =
+        patch.environment_runtime_config;
+    if (environment_patch.has_model_type) {
+      proposed_runtime_config.environment_default_config.model_type = environment_patch.model_type;
+    }
+    if (environment_patch.has_radiative_transfer_model) {
+      proposed_runtime_config.environment_default_config.radiative_transfer_model =
+          environment_patch.radiative_transfer_model;
+    }
+    if (environment_patch.has_aerosol_density_factor) {
+      has_requested_update = true;
+      if (std::isfinite(environment_patch.aerosol_density_factor) &&
+          environment_patch.aerosol_density_factor >= 1.0f) {
+        proposed_runtime_config.environment_default_config.aerosol_density_factor =
+            environment_patch.aerosol_density_factor;
+      } else {
+        all_requested_fields_valid = false;
+        PROJECT_LOG_ERROR(
+            "[EosSession] Rejecting invalid aerosol_density_factor={}; must be finite and >= 1.",
+            environment_patch.aerosol_density_factor);
+      }
+    }
+    if (environment_patch.has_turbulence_factor) {
+      has_requested_update = true;
+      if (std::isfinite(environment_patch.turbulence_factor) &&
+          environment_patch.turbulence_factor >= 1.0f) {
+        proposed_runtime_config.environment_default_config.turbulence_factor =
+            environment_patch.turbulence_factor;
+      } else {
+        all_requested_fields_valid = false;
+        PROJECT_LOG_ERROR(
+            "[EosSession] Rejecting invalid turbulence_factor={}; must be finite and >= 1.",
+            environment_patch.turbulence_factor);
+      }
+    }
+    if (environment_patch.has_model_type || environment_patch.has_radiative_transfer_model ||
+        environment_patch.has_aerosol_density_factor || environment_patch.has_turbulence_factor) {
+      has_requested_update = true;
     }
   }
   if (!has_requested_update) {

@@ -11,7 +11,6 @@
 namespace electro_optical_sensor {
 namespace config {
 
-using core::session::EosEnvironmentModelType;
 using core::session::EosSessionConfig;
 using core::session::EosWorkMode;
 
@@ -48,6 +47,24 @@ class ONEQ_API EosSessionConfigBuilder {
   }
   EosSessionConfigBuilder& WithVisibleReferenceIrradianceWm2(float value) noexcept {
     config_.visible_reference_irradiance_w_m2 = value;
+    return *this;
+  }
+  EosSessionConfigBuilder& WithEnvironmentModelType(
+      environment::EosEnvironmentModelType model_type) noexcept {
+    config_.environment_default_config.model_type = model_type;
+    return *this;
+  }
+  EosSessionConfigBuilder& WithRadiativeTransferModel(
+      foundation::radiative_transfer::RadiativeTransferModel model) noexcept {
+    config_.environment_default_config.radiative_transfer_model = model;
+    return *this;
+  }
+  EosSessionConfigBuilder& WithAerosolDensityFactor(float value) noexcept {
+    config_.environment_default_config.aerosol_density_factor = value;
+    return *this;
+  }
+  EosSessionConfigBuilder& WithTurbulenceFactor(float value) noexcept {
+    config_.environment_default_config.turbulence_factor = value;
     return *this;
   }
   EosSessionConfig Build() const noexcept { return config_; }

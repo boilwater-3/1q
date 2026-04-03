@@ -134,6 +134,24 @@ struct EnvironmentModelConfig {
   JammerSourceFactList jammer_sources{};  /**< 多源干扰事实输入 */
 };
 
+/**
+ * @brief EnvironmentDefaultConfig 描述初始化阶段的默认环境配置。
+ */
+struct EnvironmentDefaultConfig {
+  EnvironmentModelConfig model_config{};       /**< 默认环境模型配置 */
+  float jamming_detection_threshold_db{6.0f};  /**< 默认干扰判定阈值（单位：dB） */
+};
+
+/**
+ * @brief EnvironmentRuntimeConfigPatch 描述运行期可变环境参数补丁。
+ */
+struct EnvironmentRuntimeConfigPatch {
+  bool has_model_config{false};                /**< 是否更新环境模型配置 */
+  EnvironmentModelConfig model_config{};       /**< 运行期环境模型配置 */
+  bool has_jamming_detection_threshold_db{false}; /**< 是否更新干扰判定阈值 */
+  float jamming_detection_threshold_db{6.0f};     /**< 运行期干扰判定阈值（单位：dB） */
+};
+
 }  // namespace environment
 }  // namespace airborne_radar
 

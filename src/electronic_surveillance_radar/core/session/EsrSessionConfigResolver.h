@@ -17,9 +17,10 @@ namespace internal {
  * @brief ResolvedEsrSessionConfig 描述会话装配前的统一解析结果。
  */
 struct ResolvedEsrSessionConfig {
-  pipeline::InterceptPipelineConfig pipeline_config{};         /**< 解析后的流水线配置 */
-  environment::EsrEnvironmentModelConfig environment_config{}; /**< 解析后的环境配置 */
-  pipeline::InterceptRuntimeConfig runtime_config{};           /**< 解析后的运行态配置 */
+  pipeline::InterceptPipelineConfig pipeline_config{}; /**< 解析后的流水线配置 */
+  environment::EsrEnvironmentModelConfig
+      environment_model_config{};                    /**< 解析后的环境模型配置 */
+  pipeline::InterceptRuntimeConfig runtime_config{}; /**< 解析后的运行态配置 */
 };
 
 /**

@@ -74,8 +74,15 @@ class ONEQ_API EsrRuntimeConfigBuilder {
     return *this;
   }
   EsrRuntimeConfigBuilder& WithJammingDetectionThresholdW(float value) {
-    patch_.has_jamming_detection_threshold_w = true;
-    patch_.jamming_detection_threshold_w = value;
+    patch_.has_environment_runtime_config = true;
+    patch_.environment_runtime_config.has_jamming_detection_threshold_w = true;
+    patch_.environment_runtime_config.jamming_detection_threshold_w = value;
+    return *this;
+  }
+  EsrRuntimeConfigBuilder& WithEnvironmentRuntimeConfigPatch(
+      const environment::EsrEnvironmentRuntimeConfigPatch& patch) {
+    patch_.has_environment_runtime_config = true;
+    patch_.environment_runtime_config = patch;
     return *this;
   }
   EsrRuntimeConfigBuilder& WithObservationJamMarkThresholdW(float value) {

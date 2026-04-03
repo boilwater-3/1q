@@ -51,7 +51,7 @@ class ONEQ_API EsrSessionConfigBuilder {
     return *this;
   }
   EsrSessionConfigBuilder& WithJammingDetectionThresholdW(float value) {
-    config_.environment_config.jamming_detection_threshold_w = value;
+    config_.environment_default_config.model_config.jamming_detection_threshold_w = value;
     return *this;
   }
   EsrSessionConfig Build() const { return config_; }

@@ -72,8 +72,9 @@ bool ValidatePhysicsDetectionConfig(const common::config::SignalDetectionConfig&
 struct RadarSession::Impl {
   explicit Impl(const RadarSessionConfig& config)
       : runtime_signal_pipeline_config(config.signal_pipeline_config),
-        runtime_environment_model_config(config.environment_model_config),
-        runtime_jamming_detection_threshold_db(config.jamming_detection_threshold_db),
+        runtime_environment_model_config(config.environment_default_config.model_config),
+        runtime_jamming_detection_threshold_db(
+            config.environment_default_config.jamming_detection_threshold_db),
         owned_radar_context(new context::MutableRadarContext()),
         owned_signal_pipeline(new signal::pipeline::SignalPipeline(runtime_signal_pipeline_config)),
         owned_environment_service(new environment::EnvironmentService(runtime_environment_model_config)),
@@ -88,8 +89,9 @@ struct RadarSession::Impl {
 
   Impl(const RadarSessionConfig& config, signal::pipeline::ISignalPipeline& signal_pipeline_ref)
       : runtime_signal_pipeline_config(config.signal_pipeline_config),
-        runtime_environment_model_config(config.environment_model_config),
-        runtime_jamming_detection_threshold_db(config.jamming_detection_threshold_db),
+        runtime_environment_model_config(config.environment_default_config.model_config),
+        runtime_jamming_detection_threshold_db(
+            config.environment_default_config.jamming_detection_threshold_db),
         owned_radar_context(new context::MutableRadarContext()),
         owned_environment_service(new environment::EnvironmentService(runtime_environment_model_config)),
         owned_controller(
@@ -105,8 +107,9 @@ struct RadarSession::Impl {
 
   Impl(const RadarSessionConfig& config, environment::IEnvironmentService& environment_service_ref)
       : runtime_signal_pipeline_config(config.signal_pipeline_config),
-        runtime_environment_model_config(config.environment_model_config),
-        runtime_jamming_detection_threshold_db(config.jamming_detection_threshold_db),
+        runtime_environment_model_config(config.environment_default_config.model_config),
+        runtime_jamming_detection_threshold_db(
+            config.environment_default_config.jamming_detection_threshold_db),
         owned_radar_context(new context::MutableRadarContext()),
         owned_signal_pipeline(new signal::pipeline::SignalPipeline(runtime_signal_pipeline_config)),
         owned_controller(
@@ -122,8 +125,9 @@ struct RadarSession::Impl {
 
   Impl(const RadarSessionConfig& config, controller::RadarController& controller_ref)
       : runtime_signal_pipeline_config(config.signal_pipeline_config),
-        runtime_environment_model_config(config.environment_model_config),
-        runtime_jamming_detection_threshold_db(config.jamming_detection_threshold_db),
+        runtime_environment_model_config(config.environment_default_config.model_config),
+        runtime_jamming_detection_threshold_db(
+            config.environment_default_config.jamming_detection_threshold_db),
         radar_context(controller_ref.GetRadarContext()),
         signal_pipeline(controller_ref.GetSignalPipeline()),
         environment_service(controller_ref.GetEnvironmentService()),
@@ -138,8 +142,9 @@ struct RadarSession::Impl {
        environment::IEnvironmentService& environment_service_ref,
        controller::RadarController& controller_ref)
       : runtime_signal_pipeline_config(config.signal_pipeline_config),
-        runtime_environment_model_config(config.environment_model_config),
-        runtime_jamming_detection_threshold_db(config.jamming_detection_threshold_db),
+        runtime_environment_model_config(config.environment_default_config.model_config),
+        runtime_jamming_detection_threshold_db(
+            config.environment_default_config.jamming_detection_threshold_db),
         radar_context(radar_context_ref),
         signal_pipeline(signal_pipeline_ref),
         environment_service(environment_service_ref),
@@ -356,15 +361,17 @@ void RadarSession::ApplyRuntimeConfig(const common::config::RadarRuntimeConfigPa
     impl_->signal_pipeline.UpdateConfig(impl_->runtime_signal_pipeline_config);
   }
 
-  if (patch.has_environment_model_config) {
-    impl_->runtime_environment_model_config = patch.environment_model_config;
-    impl_->environment_service.UpdateModelConfig(impl_->runtime_environment_model_config);
-  }
-
-  if (patch.has_jamming_detection_threshold_db) {
-    impl_->runtime_jamming_detection_threshold_db = patch.jamming_detection_threshold_db;
-    impl_->environment_service.SetJammingDetectionThresholdDb(
-        impl_->runtime_jamming_detection_threshold_db);
+  if (patch.has_environment_runtime_config) {
+    if (patch.environment_runtime_config.has_model_config) {
+      impl_->runtime_environment_model_config = patch.environment_runtime_config.model_config;
+      impl_->environment_service.UpdateModelConfig(impl_->runtime_environment_model_config);
+    }
+    if (patch.environment_runtime_config.has_jamming_detection_threshold_db) {
+      impl_->runtime_jamming_detection_threshold_db =
+          patch.environment_runtime_config.jamming_detection_threshold_db;
+      impl_->environment_service.SetJammingDetectionThresholdDb(
+          impl_->runtime_jamming_detection_threshold_db);
+    }
   }
 }
 

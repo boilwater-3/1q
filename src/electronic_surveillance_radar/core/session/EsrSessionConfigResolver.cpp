@@ -153,7 +153,7 @@ void ResolveScanConfigFromLayered(const EsrLayeredConfig& layered,
 ResolvedEsrSessionConfig ResolveEsrSessionConfig(const EsrSessionConfig& config) {
   ResolvedEsrSessionConfig resolved;
   resolved.pipeline_config = config.pipeline_config;
-  resolved.environment_config = config.environment_config;
+  resolved.environment_model_config = config.environment_default_config.model_config;
 
   if (!config.enable_layered_config) {
     return resolved;

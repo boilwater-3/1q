@@ -12,7 +12,7 @@
 #include "1q/electro_optical_sensor/common/EosOutputFrame.h"
 #include "1q/electro_optical_sensor/core/context/EosCycleInput.h"
 #include "1q/electro_optical_sensor/core/session/EosCycleResult.h"
-#include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
+#include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
 
 namespace electro_optical_sensor {
 namespace pipeline {
@@ -33,14 +33,6 @@ enum class ONEQ_API EosWorkMode {
   kInfraredOnly = 0, /**< 红外探测 */
   kVisibleOnly,      /**< 可见光探测 */
   kFused             /**< 红外/可见光融合探测 */
-};
-
-/**
- * @brief EosEnvironmentModelType 表示环境模型策略。
- */
-enum class ONEQ_API EosEnvironmentModelType {
-  kSimplified = 0, /**< 简化模型（固定环境参数） */
-  kAdvanced        /**< 高级模型（高度/风速/云量驱动） */
 };
 
 /**
@@ -70,12 +62,8 @@ struct ONEQ_API EosSessionConfig {
   float hood_outer_half_angle_deg{75.0f};        /**< 遮光罩外半角（单位：deg） */
   float hood_min_suppression_ratio{0.20f};       /**< 最低抑制比例，范围 [0, 1] */
   float hood_max_suppression_ratio{0.85f};       /**< 最高抑制比例，范围 [0, 1] */
-  foundation::radiative_transfer::RadiativeTransferModel radiative_transfer_model{
-      foundation::radiative_transfer::RadiativeTransferModel::kDerivedBeerLambert};
-  float aerosol_density_factor{1.0f};            /**< 气溶胶密度系数（>=1） */
-  float turbulence_factor{1.0f};                 /**< 湍流强度系数（>=1） */
-  EosEnvironmentModelType environment_model_type{
-      EosEnvironmentModelType::kSimplified};     /**< 环境模型策略 */
+  environment::EosEnvironmentDefaultConfig
+      environment_default_config{}; /**< 默认环境配置 */
 };
 
 /**
@@ -99,6 +87,9 @@ struct ONEQ_API EosRuntimeConfigPatch {
 
   bool has_visible_reference_irradiance_w_m2{false};
   float visible_reference_irradiance_w_m2{800.0f};
+
+  bool has_environment_runtime_config{false};
+  environment::EosEnvironmentRuntimeConfigPatch environment_runtime_config{};
 };
 
 /**

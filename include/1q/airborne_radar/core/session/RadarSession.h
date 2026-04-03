@@ -60,11 +60,7 @@ struct ONEQ_API RadarSessionConfig {
   /**
    * @brief 环境模型基线配置（初始化固定，运行期可通过 `ApplyRuntimeConfig` 覆盖）。
    */
-  environment::EnvironmentModelConfig environment_model_config{};
-  /**
-   * @brief 干扰判定阈值（初始化值，运行期可通过 `ApplyRuntimeConfig` 覆盖）。
-   */
-  float jamming_detection_threshold_db{6.0f};
+  environment::EnvironmentDefaultConfig environment_default_config{};
 };
 
 /**

@@ -97,8 +97,9 @@ struct ONEQ_API EsrLayeredConfig {
 struct ONEQ_API EsrSessionConfig {
   bool enable_layered_config{false};                           /**< 是否启用分层参数覆盖 */
   EsrLayeredConfig layered_config{};                           /**< 分层参数入口 */
-  pipeline::InterceptPipelineConfig pipeline_config{};         /**< 流水线配置 */
-  environment::EsrEnvironmentModelConfig environment_config{}; /**< 环境模型配置 */
+  pipeline::InterceptPipelineConfig pipeline_config{}; /**< 流水线配置 */
+  environment::EsrEnvironmentDefaultConfig
+      environment_default_config{}; /**< 默认环境配置 */
 };
 
 /**
@@ -130,8 +131,8 @@ struct ONEQ_API EsrRuntimeConfigPatch {
   bool has_detection_min_snr_db{false};
   float detection_min_snr_db{6.0f};
 
-  bool has_jamming_detection_threshold_w{false};
-  float jamming_detection_threshold_w{0.0f};
+  bool has_environment_runtime_config{false};
+  environment::EsrEnvironmentRuntimeConfigPatch environment_runtime_config{};
 
   bool has_observation_jam_mark_threshold_w{false};
   float observation_jam_mark_threshold_w{0.0f};

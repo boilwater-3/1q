@@ -30,7 +30,8 @@ struct EsrSession::Impl {
       : resolved_config(internal::ResolveEsrSessionConfig(config)),
         owned_pipeline(
             new pipeline::InterceptPipeline(resolved_config.pipeline_config, resolved_config.runtime_config)),
-        owned_environment_service(new environment::EsrEnvironmentService(resolved_config.environment_config)),
+        owned_environment_service(
+            new environment::EsrEnvironmentService(resolved_config.environment_model_config)),
         owned_controller(new controller::EsrController(*owned_pipeline, *owned_environment_service)),
         pipeline(*owned_pipeline),
         environment_service(*owned_environment_service),
@@ -38,7 +39,8 @@ struct EsrSession::Impl {
 
   Impl(const EsrSessionConfig& config, pipeline::IInterceptPipeline& pipeline_ref)
       : resolved_config(internal::ResolveEsrSessionConfig(config)),
-        owned_environment_service(new environment::EsrEnvironmentService(resolved_config.environment_config)),
+        owned_environment_service(
+            new environment::EsrEnvironmentService(resolved_config.environment_model_config)),
         owned_controller(new controller::EsrController(pipeline_ref, *owned_environment_service)),
         pipeline(pipeline_ref),
         environment_service(*owned_environment_service),
@@ -55,7 +57,7 @@ struct EsrSession::Impl {
         pipeline(*owned_pipeline),
         environment_service(environment_service_ref),
         controller(*owned_controller) {
-    environment_service.UpdateModelConfig(resolved_config.environment_config);
+    environment_service.UpdateModelConfig(resolved_config.environment_model_config);
   }
 
   Impl(const EsrSessionConfig& config, controller::EsrController& controller_ref)
@@ -65,7 +67,7 @@ struct EsrSession::Impl {
         controller(controller_ref) {
     pipeline.UpdateConfig(resolved_config.pipeline_config);
     pipeline.UpdateRuntimeConfig(resolved_config.runtime_config);
-    environment_service.UpdateModelConfig(resolved_config.environment_config);
+    environment_service.UpdateModelConfig(resolved_config.environment_model_config);
   }
 
   Impl(const EsrSessionConfig& config, pipeline::IInterceptPipeline& pipeline_ref,
@@ -77,7 +79,7 @@ struct EsrSession::Impl {
         controller(controller_ref) {
     pipeline.UpdateConfig(resolved_config.pipeline_config);
     pipeline.UpdateRuntimeConfig(resolved_config.runtime_config);
-    environment_service.UpdateModelConfig(resolved_config.environment_config);
+    environment_service.UpdateModelConfig(resolved_config.environment_model_config);
   }
 
   // 装配当前周期会话结果。
@@ -199,10 +201,20 @@ void EsrSession::ApplyRuntimeConfig(const EsrRuntimeConfigPatch& patch) {
     impl_->pipeline.UpdateConfig(impl_->resolved_config.pipeline_config);
   }
 
-  if (patch.has_jamming_detection_threshold_w && IsFinite(patch.jamming_detection_threshold_w)) {
-    impl_->resolved_config.environment_config.jamming_detection_threshold_w =
-        std::max(0.0f, patch.jamming_detection_threshold_w);
-    impl_->environment_service.UpdateModelConfig(impl_->resolved_config.environment_config);
+  if (patch.has_environment_runtime_config) {
+    const environment::EsrEnvironmentRuntimeConfigPatch& environment_patch =
+        patch.environment_runtime_config;
+    if (environment_patch.has_model_config) {
+      impl_->resolved_config.environment_model_config = environment_patch.model_config;
+    }
+    if (environment_patch.has_jamming_detection_threshold_w &&
+        IsFinite(environment_patch.jamming_detection_threshold_w)) {
+      impl_->resolved_config.environment_model_config.jamming_detection_threshold_w =
+          std::max(0.0f, environment_patch.jamming_detection_threshold_w);
+    }
+    if (environment_patch.has_model_config || environment_patch.has_jamming_detection_threshold_w) {
+      impl_->environment_service.UpdateModelConfig(impl_->resolved_config.environment_model_config);
+    }
   }
 
   if (patch.has_observation_jam_mark_threshold_w &&

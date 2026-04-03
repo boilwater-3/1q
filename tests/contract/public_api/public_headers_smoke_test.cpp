@@ -152,7 +152,7 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
 
   core::session::RadarSessionConfig session_config =
       common::config::MakeDefaultRadarSessionConfig();
-  session_config.environment_model_config.base_propagation_loss_db = 6.0f;
+  session_config.environment_default_config.model_config.base_propagation_loss_db = 6.0f;
   session_config.signal_pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
 
   core::context::RadarCycleInput input;

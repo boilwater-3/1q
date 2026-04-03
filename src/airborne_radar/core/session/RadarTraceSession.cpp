@@ -213,6 +213,15 @@ Json BuildJson(const environment::EnvironmentModelConfig& value) {
   return json;
 }
 
+Json BuildJson(const environment::EnvironmentRuntimeConfigPatch& value) {
+  Json json;
+  json["has_model_config"] = value.has_model_config;
+  json["model_config"] = BuildJson(value.model_config);
+  json["has_jamming_detection_threshold_db"] = value.has_jamming_detection_threshold_db;
+  json["jamming_detection_threshold_db"] = value.jamming_detection_threshold_db;
+  return json;
+}
+
 Json BuildJson(const environment::EnvironmentSceneState& value) {
   Json json;
   json["base_propagation_loss_db"] = value.base_propagation_loss_db;
@@ -230,8 +239,10 @@ Json BuildJson(const environment::EnvironmentSceneState& value) {
 Json BuildJson(const core::session::RadarSessionConfig& value) {
   Json json;
   json["signal_pipeline_config"] = BuildJson(value.signal_pipeline_config);
-  json["environment_model_config"] = BuildJson(value.environment_model_config);
-  json["jamming_detection_threshold_db"] = value.jamming_detection_threshold_db;
+  json["environment_default_config"] = {
+      {"model_config", BuildJson(value.environment_default_config.model_config)},
+      {"jamming_detection_threshold_db",
+       value.environment_default_config.jamming_detection_threshold_db}};
   return json;
 }
 
@@ -408,10 +419,8 @@ Json BuildJson(const common::config::RadarRuntimeConfigPatch& value) {
       BuildJson(value.signal_beam_control_config.platform_attitude_deg);
   json["signal_beam_control_config"] = signal_beam_control_config;
 
-  json["has_environment_model_config"] = value.has_environment_model_config;
-  json["environment_model_config"] = BuildJson(value.environment_model_config);
-  json["has_jamming_detection_threshold_db"] = value.has_jamming_detection_threshold_db;
-  json["jamming_detection_threshold_db"] = value.jamming_detection_threshold_db;
+  json["has_environment_runtime_config"] = value.has_environment_runtime_config;
+  json["environment_runtime_config"] = BuildJson(value.environment_runtime_config);
   json["has_platform_attitude_deg"] = value.has_platform_attitude_deg;
   json["platform_attitude_deg"] = BuildJson(value.platform_attitude_deg);
   json["has_work_sub_mode"] = value.has_work_sub_mode;

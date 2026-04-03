@@ -47,12 +47,9 @@ struct RadarRuntimeConfigPatch {
   bool has_signal_beam_control_config{false}; /**< [补丁标志] 是否覆盖波束控制域关键配置 */
   SignalBeamControlConfig signal_beam_control_config{}; /**< [可外部调整] 波束控制域关键配置 */
 
-  bool has_environment_model_config{false}; /**< [补丁标志] 是否覆盖整套环境模型配置 */
-  environment::EnvironmentModelConfig
-      environment_model_config{}; /**< [可外部调整] 整套环境模型配置 */
-
-  bool has_jamming_detection_threshold_db{false}; /**< [补丁标志] 是否更新干扰判定阈值 */
-  float jamming_detection_threshold_db{6.0f};     /**< [可外部调整] 干扰判定阈值（单位：dB） */
+  bool has_environment_runtime_config{false};  /**< [补丁标志] 是否更新环境运行期配置 */
+  environment::EnvironmentRuntimeConfigPatch
+      environment_runtime_config{}; /**< [可外部调整] 环境运行期配置补丁 */
 
   bool has_platform_attitude_deg{false};       /**< [补丁标志] 是否更新平台姿态 */
   PlatformAttitudeDeg platform_attitude_deg{}; /**< [可外部调整] 平台姿态角（单位：deg） */
@@ -154,15 +151,25 @@ class ONEQ_API RadarRuntimeConfigBuilder {
   /** @brief 覆盖整套环境模型配置。 */
   RadarRuntimeConfigBuilder& WithEnvironmentModelConfig(
       const environment::EnvironmentModelConfig& config) {
-    patch_.has_environment_model_config = true;
-    patch_.environment_model_config = config;
+    patch_.has_environment_runtime_config = true;
+    patch_.environment_runtime_config.has_model_config = true;
+    patch_.environment_runtime_config.model_config = config;
+    return *this;
+  }
+
+  /** @brief 应用环境运行期补丁。 */
+  RadarRuntimeConfigBuilder& WithEnvironmentRuntimeConfig(
+      const environment::EnvironmentRuntimeConfigPatch& patch) {
+    patch_.has_environment_runtime_config = true;
+    patch_.environment_runtime_config = patch;
     return *this;
   }
 
   /** @brief 更新干扰判定阈值（单位：dB）。 */
   RadarRuntimeConfigBuilder& WithJammingDetectionThresholdDb(float threshold_db) {
-    patch_.has_jamming_detection_threshold_db = true;
-    patch_.jamming_detection_threshold_db = threshold_db;
+    patch_.has_environment_runtime_config = true;
+    patch_.environment_runtime_config.has_jamming_detection_threshold_db = true;
+    patch_.environment_runtime_config.jamming_detection_threshold_db = threshold_db;
     return *this;
   }
 

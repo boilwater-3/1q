@@ -446,8 +446,8 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
   core::context::MutableRadarContext manual_context;
   signal::pipeline::SignalPipeline signal_pipeline(
       config.signal_pipeline_config);
-  environment::EnvironmentService environment_service(config.environment_model_config);
-  environment_service.SetJammingDetectionThresholdDb(config.jamming_detection_threshold_db);
+  environment::EnvironmentService environment_service(config.environment_default_config.model_config);
+  environment_service.SetJammingDetectionThresholdDb(config.environment_default_config.jamming_detection_threshold_db);
   core::controller::RadarController controller(manual_context, signal_pipeline,
                                                environment_service);
 
@@ -604,8 +604,8 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultMatchesManualChainUnder
   core::context::MutableRadarContext manual_context;
   signal::pipeline::SignalPipeline signal_pipeline(
       config.signal_pipeline_config);
-  environment::EnvironmentService environment_service(config.environment_model_config);
-  environment_service.SetJammingDetectionThresholdDb(config.jamming_detection_threshold_db);
+  environment::EnvironmentService environment_service(config.environment_default_config.model_config);
+  environment_service.SetJammingDetectionThresholdDb(config.environment_default_config.jamming_detection_threshold_db);
   core::controller::RadarController controller(manual_context, signal_pipeline,
                                                environment_service);
 

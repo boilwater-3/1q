@@ -333,12 +333,15 @@ Json BuildJson(const core::session::EsrSessionConfig& value) {
 
   json["pipeline_config"] = BuildJson(value.pipeline_config);
 
-  Json environment_config;
-  environment_config["default_clutter_noise_w"] = value.environment_config.default_clutter_noise_w;
-  environment_config["jamming_detection_threshold_w"] =
-      value.environment_config.jamming_detection_threshold_w;
-  environment_config["atmospheric_physics"] = BuildJson(value.environment_config.atmospheric_physics);
-  json["environment_config"] = environment_config;
+  Json environment_default_config;
+  environment_default_config["model_config"] = {
+      {"default_clutter_noise_w",
+       value.environment_default_config.model_config.default_clutter_noise_w},
+      {"jamming_detection_threshold_w",
+       value.environment_default_config.model_config.jamming_detection_threshold_w},
+      {"atmospheric_physics",
+       BuildJson(value.environment_default_config.model_config.atmospheric_physics)}};
+  json["environment_default_config"] = environment_default_config;
 
   return json;
 }
@@ -373,8 +376,22 @@ Json BuildJson(const core::session::EsrRuntimeConfigPatch& value) {
   json["enable_spectral_analysis"] = value.enable_spectral_analysis;
   json["has_detection_min_snr_db"] = value.has_detection_min_snr_db;
   json["detection_min_snr_db"] = value.detection_min_snr_db;
-  json["has_jamming_detection_threshold_w"] = value.has_jamming_detection_threshold_w;
-  json["jamming_detection_threshold_w"] = value.jamming_detection_threshold_w;
+  json["has_environment_runtime_config"] = value.has_environment_runtime_config;
+  json["environment_runtime_config"] = {
+      {"has_model_config", value.environment_runtime_config.has_model_config},
+      {"model_config",
+       {
+           {"default_clutter_noise_w",
+            value.environment_runtime_config.model_config.default_clutter_noise_w},
+           {"jamming_detection_threshold_w",
+            value.environment_runtime_config.model_config.jamming_detection_threshold_w},
+           {"atmospheric_physics",
+            BuildJson(value.environment_runtime_config.model_config.atmospheric_physics)},
+       }},
+      {"has_jamming_detection_threshold_w",
+       value.environment_runtime_config.has_jamming_detection_threshold_w},
+      {"jamming_detection_threshold_w",
+       value.environment_runtime_config.jamming_detection_threshold_w}};
   json["has_observation_jam_mark_threshold_w"] = value.has_observation_jam_mark_threshold_w;
   json["observation_jam_mark_threshold_w"] = value.observation_jam_mark_threshold_w;
   return json;

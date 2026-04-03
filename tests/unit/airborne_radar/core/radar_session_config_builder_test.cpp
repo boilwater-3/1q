@@ -22,7 +22,7 @@ namespace tests {
 TEST(RadarSessionConfigBuilderTest, DefaultConstructionPreservesStructDefaults) {
   const auto config = common::config::RadarSessionConfigBuilder().Build();
 
-  EXPECT_FLOAT_EQ(config.jamming_detection_threshold_db, 6.0f);
+  EXPECT_FLOAT_EQ(config.environment_default_config.jamming_detection_threshold_db, 6.0f);
   EXPECT_FALSE(config.signal_pipeline_config.detection.enable_physics_detection);
   EXPECT_FLOAT_EQ(config.signal_pipeline_config.detection.min_detection_margin_db, -2.0f);
   EXPECT_FLOAT_EQ(config.signal_pipeline_config.detection.radar_system.transmitter.peak_power_w,
@@ -221,7 +221,7 @@ TEST(RadarSessionConfigBuilderTest, JammingThresholdApplied) {
   const auto config =
       common::config::RadarSessionConfigBuilder().WithJammingDetectionThresholdDb(4.5f).Build();
 
-  EXPECT_FLOAT_EQ(config.jamming_detection_threshold_db, 4.5f);
+  EXPECT_FLOAT_EQ(config.environment_default_config.jamming_detection_threshold_db, 4.5f);
 }
 
 // ---------------------------------------------------------------------------
@@ -253,7 +253,7 @@ TEST(RadarSessionConfigBuilderTest, ChainedPresetPlusHardwareOverride) {
                   38.0f);
   EXPECT_FLOAT_EQ(config.signal_pipeline_config.detection.radar_system.receiver.noise_figure_db,
                   3.5f);
-  EXPECT_FLOAT_EQ(config.jamming_detection_threshold_db, 4.5f);
+  EXPECT_FLOAT_EQ(config.environment_default_config.jamming_detection_threshold_db, 4.5f);
 }
 
 // ---------------------------------------------------------------------------
@@ -308,8 +308,8 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValue
   EXPECT_FLOAT_EQ(patch.commanded_beamwidth_deg.commanded_el_beamwidth_deg, 2.0f);
   EXPECT_TRUE(patch.has_commanded_beamwidth_enabled);
   EXPECT_TRUE(patch.commanded_beamwidth_enabled);
-  EXPECT_TRUE(patch.has_jamming_detection_threshold_db);
-  EXPECT_FLOAT_EQ(patch.jamming_detection_threshold_db, 4.2f);
+  EXPECT_TRUE(patch.has_environment_runtime_config);
+  EXPECT_FLOAT_EQ(patch.environment_runtime_config.jamming_detection_threshold_db, 4.2f);
 }
 
 TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderSupportsKeySignalDomainPatches) {
