@@ -5,7 +5,7 @@
 
 #include <gtest/gtest.h>
 
-#include "1q/electro_optical_sensor/foundation/EosNoiseModel.h"
+#include "electro_optical_sensor/foundation/EosNoiseModel.h"
 
 namespace electro_optical_sensor {
 namespace foundation {

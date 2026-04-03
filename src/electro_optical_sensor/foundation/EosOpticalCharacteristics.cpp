@@ -1,4 +1,4 @@
-#include "1q/electro_optical_sensor/foundation/EosOpticalCharacteristics.h"
+#include "electro_optical_sensor/foundation/EosOpticalCharacteristics.h"
 
 #include <algorithm>
 #include <cmath>

@@ -13,7 +13,7 @@
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/core/session/EosSession.h"
-#include "1q/electro_optical_sensor/foundation/EosRadiometry.h"
+#include "electro_optical_sensor/foundation/EosRadiometry.h"
 
 namespace electro_optical_sensor {
 namespace core {

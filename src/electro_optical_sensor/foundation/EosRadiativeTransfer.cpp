@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-#include "1q/electro_optical_sensor/foundation/EosPropagation.h"
+#include "electro_optical_sensor/foundation/EosPropagation.h"
 
 namespace electro_optical_sensor {
 namespace foundation {

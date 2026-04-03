@@ -444,13 +444,7 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/common/EosOutputFrame.h
     )
     set(PUBLIC_HEADERS_EOS_FOUNDATION
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/foundation/EosNoiseModel.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/foundation/EosOpticalCharacteristics.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/foundation/EosPropagation.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/foundation/EosRadiometry.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/foundation/EosSpatialSpectrum.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/foundation/EosStrayLight.h
     )
     set(PUBLIC_HEADERS_EOS_CORE_CONTEXT
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/core/context/EosCycleInput.h

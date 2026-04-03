@@ -1,4 +1,4 @@
-#include "1q/electro_optical_sensor/foundation/EosPropagation.h"
+#include "electro_optical_sensor/foundation/EosPropagation.h"
 
 #include <algorithm>
 #include <cmath>

@@ -50,13 +50,7 @@
 #include "1q/common/scan_schedule_types.h"
 #include "1q/common/trace/TraceSink.h"
 #include "1q/electro_optical_sensor/common/EosOutputFrame.h"
-#include "1q/electro_optical_sensor/foundation/EosNoiseModel.h"
-#include "1q/electro_optical_sensor/foundation/EosOpticalCharacteristics.h"
-#include "1q/electro_optical_sensor/foundation/EosPropagation.h"
 #include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
-#include "1q/electro_optical_sensor/foundation/EosRadiometry.h"
-#include "1q/electro_optical_sensor/foundation/EosSpatialSpectrum.h"
-#include "1q/electro_optical_sensor/foundation/EosStrayLight.h"
 #include "1q/electro_optical_sensor/core/context/EosCycleInput.h"
 #include "1q/electro_optical_sensor/core/context/EosCoordinateUtils.h"
 #include "1q/electro_optical_sensor/core/context/EosInputValidation.h"
@@ -259,23 +253,6 @@ namespace electro_optical_sensor {
 namespace {
 
 TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
-  foundation::noise::BackgroundNoiseModelInputs noise_inputs;
-  noise_inputs.background_flux_w = 1.0e-12f;
-  const foundation::noise::BackgroundNoiseStatistics noise_stats =
-      foundation::noise::ComputeBackgroundNoiseStatistics(noise_inputs);
-  EXPECT_GE(noise_stats.suppression_weight, 0.0f);
-
-  foundation::stray_light::StrayLightFilterInputs stray_light_inputs;
-  stray_light_inputs.enabled = true;
-  const foundation::stray_light::StrayLightFilterResult stray_light_result =
-      foundation::stray_light::EvaluateStrayLightFilter(stray_light_inputs);
-  EXPECT_GE(stray_light_result.background_penalty_scale, 1.0f);
-
-  foundation::spatial_spectrum::SpatialSpectrumInputs spectrum_inputs;
-  const foundation::spatial_spectrum::SpatialSpectrumResult spectrum_result =
-      foundation::spatial_spectrum::EvaluateSpatialResolvability(spectrum_inputs);
-  EXPECT_GE(spectrum_result.spectrum_quality_gain, 0.0f);
-
   config::EosSessionConfig session_config = config::EosSessionConfigBuilder()
                                                        .WithWorkMode(core::session::EosWorkMode::kFused)
                                                        .WithMinimumSnrDb(0.0f)
@@ -309,10 +286,6 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   const core::context::EosValidationIssueList issues = core::context::ValidateEosCycleInput(input);
   EXPECT_FALSE(core::context::HasEosValidationError(issues));
 
-  const float diffraction_rad =
-      foundation::optics::ComputeDiffractionLimitedAngularResolutionRad(4.0f, 0.2f);
-  const float transmittance =
-      foundation::propagation::ComputeAtmosphericTransmittance(2.0e-5f, 1.0e-5f, 1500.0f);
   foundation::radiative_transfer::RadiativeTransferInputs transfer_inputs;
   transfer_inputs.model =
       foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance;
@@ -321,11 +294,7 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   transfer_inputs.path_length_m = 1500.0f;
   const foundation::radiative_transfer::RadiativeTransferResult transfer_result =
       foundation::radiative_transfer::EvaluateRadiativeTransfer(transfer_inputs);
-  const float planck_radiance = foundation::radiometry::ComputePlanckRadiance(4.0f, 320.0f);
-  EXPECT_GT(diffraction_rad, 0.0f);
-  EXPECT_GT(transmittance, 0.0f);
   EXPECT_GT(transfer_result.transmittance, 0.0f);
-  EXPECT_GT(planck_radiance, 0.0f);
 
   core::session::EosSession session(session_config);
   const config::EosRuntimeConfigPatch runtime_patch =
