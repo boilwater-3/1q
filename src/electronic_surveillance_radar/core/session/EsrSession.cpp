@@ -4,8 +4,8 @@
 #include <cmath>
 
 #include "1q/electronic_surveillance_radar/core/controller/EsrController.h"
-#include "1q/electronic_surveillance_radar/environment/IMutableEsrEnvironmentService.h"
-#include "1q/electronic_surveillance_radar/pipeline/IMutableInterceptPipeline.h"
+#include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
+#include "1q/electronic_surveillance_radar/pipeline/IInterceptPipeline.h"
 #include "common/logging/ProjectLog.h"
 #include "electronic_surveillance_radar/core/session/EsrSessionConfigResolver.h"
 #include "electronic_surveillance_radar/environment/EsrEnvironmentService.h"
@@ -36,8 +36,40 @@ struct EsrSession::Impl {
         environment_service(*owned_environment_service),
         controller(*owned_controller) {}
 
-  Impl(const EsrSessionConfig& config, pipeline::IMutableInterceptPipeline& pipeline_ref,
-       environment::IMutableEsrEnvironmentService& environment_service_ref,
+  Impl(const EsrSessionConfig& config, pipeline::IInterceptPipeline& pipeline_ref)
+      : resolved_config(internal::ResolveEsrSessionConfig(config)),
+        owned_environment_service(new environment::EsrEnvironmentService(resolved_config.environment_config)),
+        owned_controller(new controller::EsrController(pipeline_ref, *owned_environment_service)),
+        pipeline(pipeline_ref),
+        environment_service(*owned_environment_service),
+        controller(*owned_controller) {
+    pipeline.UpdateConfig(resolved_config.pipeline_config);
+    pipeline.UpdateRuntimeConfig(resolved_config.runtime_config);
+  }
+
+  Impl(const EsrSessionConfig& config, environment::IEsrEnvironmentService& environment_service_ref)
+      : resolved_config(internal::ResolveEsrSessionConfig(config)),
+        owned_pipeline(
+            new pipeline::InterceptPipeline(resolved_config.pipeline_config, resolved_config.runtime_config)),
+        owned_controller(new controller::EsrController(*owned_pipeline, environment_service_ref)),
+        pipeline(*owned_pipeline),
+        environment_service(environment_service_ref),
+        controller(*owned_controller) {
+    environment_service.UpdateModelConfig(resolved_config.environment_config);
+  }
+
+  Impl(const EsrSessionConfig& config, controller::EsrController& controller_ref)
+      : resolved_config(internal::ResolveEsrSessionConfig(config)),
+        pipeline(controller_ref.GetPipeline()),
+        environment_service(controller_ref.GetEnvironmentService()),
+        controller(controller_ref) {
+    pipeline.UpdateConfig(resolved_config.pipeline_config);
+    pipeline.UpdateRuntimeConfig(resolved_config.runtime_config);
+    environment_service.UpdateModelConfig(resolved_config.environment_config);
+  }
+
+  Impl(const EsrSessionConfig& config, pipeline::IInterceptPipeline& pipeline_ref,
+       environment::IEsrEnvironmentService& environment_service_ref,
        controller::EsrController& controller_ref)
       : resolved_config(internal::ResolveEsrSessionConfig(config)),
         pipeline(pipeline_ref),
@@ -60,17 +92,24 @@ struct EsrSession::Impl {
   }
 
   internal::ResolvedEsrSessionConfig resolved_config{};
-  std::unique_ptr<pipeline::IMutableInterceptPipeline> owned_pipeline;
-  std::unique_ptr<environment::IMutableEsrEnvironmentService> owned_environment_service;
+  std::unique_ptr<pipeline::IInterceptPipeline> owned_pipeline;
+  std::unique_ptr<environment::IEsrEnvironmentService> owned_environment_service;
   std::unique_ptr<controller::EsrController> owned_controller;
-  pipeline::IMutableInterceptPipeline& pipeline;
-  environment::IMutableEsrEnvironmentService& environment_service;
+  pipeline::IInterceptPipeline& pipeline;
+  environment::IEsrEnvironmentService& environment_service;
   controller::EsrController& controller;
 };
 
 EsrSession::EsrSession(EsrSessionConfig config) : impl_(new Impl(config)) {}
-EsrSession::EsrSession(EsrSessionConfig config, pipeline::IMutableInterceptPipeline& pipeline,
-                       environment::IMutableEsrEnvironmentService& environment_service,
+EsrSession::EsrSession(EsrSessionConfig config, pipeline::IInterceptPipeline& pipeline)
+    : impl_(new Impl(config, pipeline)) {}
+EsrSession::EsrSession(EsrSessionConfig config,
+                       environment::IEsrEnvironmentService& environment_service)
+    : impl_(new Impl(config, environment_service)) {}
+EsrSession::EsrSession(EsrSessionConfig config, controller::EsrController& controller)
+    : impl_(new Impl(config, controller)) {}
+EsrSession::EsrSession(EsrSessionConfig config, pipeline::IInterceptPipeline& pipeline,
+                       environment::IEsrEnvironmentService& environment_service,
                        controller::EsrController& controller)
     : impl_(new Impl(config, pipeline, environment_service, controller)) {}
 

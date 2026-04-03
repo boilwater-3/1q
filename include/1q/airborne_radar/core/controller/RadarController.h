@@ -119,6 +119,21 @@ class ONEQ_API RadarController : public IRadarOutputReader {
    */
   bool HasValidationError() const;
 
+  /**
+   * @brief 获取当前控制器绑定的上下文实例。
+   */
+  core::context::IRadarContext& GetRadarContext();
+
+  /**
+   * @brief 获取当前控制器绑定的信号流水线实例。
+   */
+  signal::pipeline::ISignalPipeline& GetSignalPipeline();
+
+  /**
+   * @brief 获取当前控制器绑定的环境服务实例。
+   */
+  environment::IEnvironmentService& GetEnvironmentService();
+
  private:
   struct Impl;
   std::unique_ptr<Impl> impl_;

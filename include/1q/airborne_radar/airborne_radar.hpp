@@ -14,8 +14,8 @@
 #include "1q/airborne_radar/core/controller/RadarController.h"
 #include "1q/airborne_radar/core/session/RadarCycleResult.h"
 #include "1q/airborne_radar/core/session/RadarSession.h"
-#include "1q/airborne_radar/environment/IMutableEnvironmentService.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "1q/airborne_radar/signal/pipeline/IMutableSignalPipeline.h"
+#include "1q/airborne_radar/environment/IEnvironmentService.h"
+#include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
 
 #endif  // ONEQ_AIRBORNE_RADAR_AIRBORNE_RADAR_HPP_

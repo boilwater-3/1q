@@ -403,11 +403,9 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentSceneBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentTypes.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/IEnvironmentService.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/IMutableEnvironmentService.h
     )
     set(PUBLIC_HEADERS_SIGNAL_PIPELINE
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/pipeline/ISignalPipeline.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/pipeline/IMutableSignalPipeline.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/pipeline/SignalPipelineResultTypes.h
     )
     set(PUBLIC_HEADERS_ESR_COMMON
@@ -432,11 +430,9 @@ if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_ESR_ENVIRONMENT
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/environment/IMutableEsrEnvironmentService.h
     )
     set(PUBLIC_HEADERS_ESR_PIPELINE
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/pipeline/IInterceptPipeline.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/pipeline/IMutableInterceptPipeline.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h
     )
     set(PUBLIC_HEADERS_ESR_CONFIG

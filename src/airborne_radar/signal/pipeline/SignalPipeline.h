@@ -9,7 +9,7 @@
 #include <memory>
 #include <vector>
 
-#include "1q/airborne_radar/signal/pipeline/IMutableSignalPipeline.h"
+#include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineExecutionConfig.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
@@ -20,7 +20,7 @@ namespace pipeline {
 /**
  * @brief SignalPipeline 提供可配置的信号处理默认实现。
  */
-class SignalPipeline final : public IMutableSignalPipeline {
+class SignalPipeline final : public ISignalPipeline {
  public:
   /**
    * @brief 构造信号处理流水线。

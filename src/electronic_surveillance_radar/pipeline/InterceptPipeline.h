@@ -9,7 +9,7 @@
 #include <cstdint>
 #include <random>
 
-#include "1q/electronic_surveillance_radar/pipeline/IMutableInterceptPipeline.h"
+#include "1q/electronic_surveillance_radar/pipeline/IInterceptPipeline.h"
 #include "electronic_surveillance_radar/pipeline/HypothesisAssociator.h"
 #include "electronic_surveillance_radar/pipeline/KdTreeClusterer.h"
 #include "electronic_surveillance_radar/pipeline/ObservationPipelineTypes.h"
@@ -21,7 +21,7 @@ namespace pipeline {
 /**
  * @brief InterceptPipeline 是电子侦察流水线默认实现。
  */
-class InterceptPipeline final : public IMutableInterceptPipeline {
+class InterceptPipeline final : public IInterceptPipeline {
  public:
   /**
    * @brief 构造默认流水线。

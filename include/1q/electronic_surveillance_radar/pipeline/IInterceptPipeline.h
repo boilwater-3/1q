@@ -29,6 +29,18 @@ class ONEQ_API IInterceptPipeline {
    */
   virtual InterceptCycleResult RunCycle(const core::context::EsrCycleInput& input_state,
                                         const environment::IEsrEnvironmentService& environment) = 0;
+
+  /**
+   * @brief 更新流水线配置。
+   * @param[in] config 新配置。
+   */
+  virtual void UpdateConfig(InterceptPipelineConfig config) = 0;
+
+  /**
+   * @brief 更新运行态配置。
+   * @param[in] runtime_config 新运行态配置。
+   */
+  virtual void UpdateRuntimeConfig(InterceptRuntimeConfig runtime_config) = 0;
 };
 
 }  // namespace pipeline

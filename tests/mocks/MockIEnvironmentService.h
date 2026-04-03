@@ -17,6 +17,9 @@ class MockIEnvironmentService : public IEnvironmentService {
  public:
   MOCK_METHOD(void, BeginCycle, (const EnvironmentCycleContext& cycle_context), (override));
   MOCK_METHOD(EnvironmentSnapshot, SampleEnvironment, (), (const, override));
+  MOCK_METHOD(void, UpdateSceneState, (const EnvironmentSceneState& scene_state), (override));
+  MOCK_METHOD(void, UpdateModelConfig, (const EnvironmentModelConfig& config), (override));
+  MOCK_METHOD(void, SetJammingDetectionThresholdDb, (float threshold_db), (override));
 };
 
 }  // namespace environment

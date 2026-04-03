@@ -74,6 +74,19 @@ struct EosSession::Impl {
         pipeline(*owned_pipeline),
         controller(*owned_controller) {}
 
+  Impl(const EosSessionConfig& config, ::electro_optical_sensor::pipeline::IEosPipeline& pipeline_ref)
+      : runtime_config(config),
+        owned_controller(new core::controller::EosController(pipeline_ref)),
+        pipeline(pipeline_ref),
+        controller(*owned_controller) {
+    pipeline.UpdateConfig(BuildPipelineConfig(runtime_config), true);
+  }
+
+  Impl(const EosSessionConfig& config, core::controller::EosController& controller_ref)
+      : runtime_config(config), pipeline(controller_ref.GetPipeline()), controller(controller_ref) {
+    pipeline.UpdateConfig(BuildPipelineConfig(runtime_config), true);
+  }
+
   Impl(const EosSessionConfig& config, ::electro_optical_sensor::pipeline::IEosPipeline& pipeline_ref,
        core::controller::EosController& controller_ref)
       : runtime_config(config), pipeline(pipeline_ref), controller(controller_ref) {
@@ -88,6 +101,10 @@ struct EosSession::Impl {
 };
 
 EosSession::EosSession(EosSessionConfig config) : impl_(new Impl(config)) {}
+EosSession::EosSession(EosSessionConfig config, ::electro_optical_sensor::pipeline::IEosPipeline& pipeline)
+    : impl_(new Impl(config, pipeline)) {}
+EosSession::EosSession(EosSessionConfig config, core::controller::EosController& controller)
+    : impl_(new Impl(config, controller)) {}
 EosSession::EosSession(EosSessionConfig config, ::electro_optical_sensor::pipeline::IEosPipeline& pipeline,
                        core::controller::EosController& controller)
     : impl_(new Impl(config, pipeline, controller)) {}

@@ -14,7 +14,7 @@
 #include "1q/electronic_surveillance_radar/core/session/EsrCycleResult.h"
 #include "1q/electronic_surveillance_radar/core/session/EsrSession.h"
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
-#include "1q/electronic_surveillance_radar/environment/IMutableEsrEnvironmentService.h"
-#include "1q/electronic_surveillance_radar/pipeline/IMutableInterceptPipeline.h"
+#include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
+#include "1q/electronic_surveillance_radar/pipeline/IInterceptPipeline.h"
 
 #endif  // ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_ELECTRONIC_SURVEILLANCE_RADAR_HPP_

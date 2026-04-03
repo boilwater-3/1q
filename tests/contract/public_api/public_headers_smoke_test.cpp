@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <memory>
+#include <type_traits>
 
 #include "1q/airborne_radar/common/control/ControlDirective.h"
 #include "1q/airborne_radar/common/control/RadarCommand.h"
@@ -40,9 +41,7 @@
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
-#include "1q/airborne_radar/environment/IMutableEnvironmentService.h"
 #include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
-#include "1q/airborne_radar/signal/pipeline/IMutableSignalPipeline.h"
 #include "1q/airborne_radar/signal/pipeline/SignalPipelineResultTypes.h"
 #include "1q/airborne_radar/airborne_radar.hpp"
 #include "1q/api.hpp"
@@ -81,11 +80,70 @@
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/electronic_surveillance_radar_config.hpp"
-#include "1q/electronic_surveillance_radar/environment/IMutableEsrEnvironmentService.h"
-#include "1q/electronic_surveillance_radar/pipeline/IMutableInterceptPipeline.h"
+#include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
+#include "1q/electronic_surveillance_radar/pipeline/IInterceptPipeline.h"
 #include "1q/electronic_surveillance_radar/tools/EsrTraceSession.h"
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 #include "1q/airborne_radar/tools/RadarTraceSession.h"
+
+static_assert(std::is_constructible<airborne_radar::core::session::RadarSession,
+                                    const airborne_radar::core::session::RadarSessionConfig&,
+                                    airborne_radar::signal::pipeline::ISignalPipeline&>::value,
+              "RadarSession must support pipeline-only injection");
+static_assert(std::is_constructible<airborne_radar::core::session::RadarSession,
+                                    const airborne_radar::core::session::RadarSessionConfig&,
+                                    airborne_radar::environment::IEnvironmentService&>::value,
+              "RadarSession must support environment-only injection");
+static_assert(std::is_constructible<airborne_radar::core::session::RadarSession,
+                                    const airborne_radar::core::session::RadarSessionConfig&,
+                                    airborne_radar::core::controller::RadarController&>::value,
+              "RadarSession must support controller-only injection");
+static_assert(std::is_constructible<airborne_radar::core::session::RadarSession,
+                                    const airborne_radar::core::session::RadarSessionConfig&,
+                                    airborne_radar::core::context::IRadarContext&,
+                                    airborne_radar::signal::pipeline::ISignalPipeline&,
+                                    airborne_radar::environment::IEnvironmentService&,
+                                    airborne_radar::core::controller::RadarController&>::value,
+              "RadarSession must support full-chain injection");
+
+static_assert(std::is_constructible<
+                  electronic_surveillance_radar::core::session::EsrSession,
+                  electronic_surveillance_radar::core::session::EsrSessionConfig,
+                  electronic_surveillance_radar::pipeline::IInterceptPipeline&>::value,
+              "EsrSession must support pipeline-only injection");
+static_assert(std::is_constructible<
+                  electronic_surveillance_radar::core::session::EsrSession,
+                  electronic_surveillance_radar::core::session::EsrSessionConfig,
+                  electronic_surveillance_radar::environment::IEsrEnvironmentService&>::value,
+              "EsrSession must support environment-only injection");
+static_assert(std::is_constructible<
+                  electronic_surveillance_radar::core::session::EsrSession,
+                  electronic_surveillance_radar::core::session::EsrSessionConfig,
+                  electronic_surveillance_radar::core::controller::EsrController&>::value,
+              "EsrSession must support controller-only injection");
+static_assert(std::is_constructible<
+                  electronic_surveillance_radar::core::session::EsrSession,
+                  electronic_surveillance_radar::core::session::EsrSessionConfig,
+                  electronic_surveillance_radar::pipeline::IInterceptPipeline&,
+                  electronic_surveillance_radar::environment::IEsrEnvironmentService&,
+                  electronic_surveillance_radar::core::controller::EsrController&>::value,
+              "EsrSession must support full-chain injection");
+
+static_assert(std::is_constructible<electro_optical_sensor::core::session::EosSession,
+                                    electro_optical_sensor::core::session::EosSessionConfig,
+                                    electro_optical_sensor::pipeline::IEosPipeline&>::value,
+              "EosSession must support pipeline-only injection");
+static_assert(
+    std::is_constructible<electro_optical_sensor::core::session::EosSession,
+                          electro_optical_sensor::core::session::EosSessionConfig,
+                          electro_optical_sensor::core::controller::EosController&>::value,
+    "EosSession must support controller-only injection");
+static_assert(
+    std::is_constructible<electro_optical_sensor::core::session::EosSession,
+                          electro_optical_sensor::core::session::EosSessionConfig,
+                          electro_optical_sensor::pipeline::IEosPipeline&,
+                          electro_optical_sensor::core::controller::EosController&>::value,
+    "EosSession must support full-chain injection");
 
 namespace airborne_radar {
 namespace {

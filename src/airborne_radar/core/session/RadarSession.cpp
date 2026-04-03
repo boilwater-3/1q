@@ -5,8 +5,8 @@
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"
-#include "1q/airborne_radar/environment/IMutableEnvironmentService.h"
-#include "1q/airborne_radar/signal/pipeline/IMutableSignalPipeline.h"
+#include "1q/airborne_radar/environment/IEnvironmentService.h"
+#include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "airborne_radar/core/context/MutableRadarContext.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
@@ -85,9 +85,57 @@ struct RadarSession::Impl {
         controller(*owned_controller) {
     environment_service.SetJammingDetectionThresholdDb(runtime_jamming_detection_threshold_db);
   }
+
+  Impl(const RadarSessionConfig& config, signal::pipeline::ISignalPipeline& signal_pipeline_ref)
+      : runtime_signal_pipeline_config(config.signal_pipeline_config),
+        runtime_environment_model_config(config.environment_model_config),
+        runtime_jamming_detection_threshold_db(config.jamming_detection_threshold_db),
+        owned_radar_context(new context::MutableRadarContext()),
+        owned_environment_service(new environment::EnvironmentService(runtime_environment_model_config)),
+        owned_controller(
+            new controller::RadarController(*owned_radar_context, signal_pipeline_ref,
+                                            *owned_environment_service)),
+        radar_context(*owned_radar_context),
+        signal_pipeline(signal_pipeline_ref),
+        environment_service(*owned_environment_service),
+        controller(*owned_controller) {
+    signal_pipeline.UpdateConfig(runtime_signal_pipeline_config);
+    environment_service.SetJammingDetectionThresholdDb(runtime_jamming_detection_threshold_db);
+  }
+
+  Impl(const RadarSessionConfig& config, environment::IEnvironmentService& environment_service_ref)
+      : runtime_signal_pipeline_config(config.signal_pipeline_config),
+        runtime_environment_model_config(config.environment_model_config),
+        runtime_jamming_detection_threshold_db(config.jamming_detection_threshold_db),
+        owned_radar_context(new context::MutableRadarContext()),
+        owned_signal_pipeline(new signal::pipeline::SignalPipeline(runtime_signal_pipeline_config)),
+        owned_controller(
+            new controller::RadarController(*owned_radar_context, *owned_signal_pipeline,
+                                            environment_service_ref)),
+        radar_context(*owned_radar_context),
+        signal_pipeline(*owned_signal_pipeline),
+        environment_service(environment_service_ref),
+        controller(*owned_controller) {
+    environment_service.UpdateModelConfig(runtime_environment_model_config);
+    environment_service.SetJammingDetectionThresholdDb(runtime_jamming_detection_threshold_db);
+  }
+
+  Impl(const RadarSessionConfig& config, controller::RadarController& controller_ref)
+      : runtime_signal_pipeline_config(config.signal_pipeline_config),
+        runtime_environment_model_config(config.environment_model_config),
+        runtime_jamming_detection_threshold_db(config.jamming_detection_threshold_db),
+        radar_context(controller_ref.GetRadarContext()),
+        signal_pipeline(controller_ref.GetSignalPipeline()),
+        environment_service(controller_ref.GetEnvironmentService()),
+        controller(controller_ref) {
+    signal_pipeline.UpdateConfig(runtime_signal_pipeline_config);
+    environment_service.UpdateModelConfig(runtime_environment_model_config);
+    environment_service.SetJammingDetectionThresholdDb(runtime_jamming_detection_threshold_db);
+  }
+
   Impl(const RadarSessionConfig& config, context::IRadarContext& radar_context_ref,
-       signal::pipeline::IMutableSignalPipeline& signal_pipeline_ref,
-       environment::IMutableEnvironmentService& environment_service_ref,
+       signal::pipeline::ISignalPipeline& signal_pipeline_ref,
+       environment::IEnvironmentService& environment_service_ref,
        controller::RadarController& controller_ref)
       : runtime_signal_pipeline_config(config.signal_pipeline_config),
         runtime_environment_model_config(config.environment_model_config),
@@ -120,19 +168,27 @@ struct RadarSession::Impl {
   environment::EnvironmentModelConfig runtime_environment_model_config{};
   float runtime_jamming_detection_threshold_db{6.0f};
   std::unique_ptr<context::IRadarContext> owned_radar_context;
-  std::unique_ptr<signal::pipeline::IMutableSignalPipeline> owned_signal_pipeline;
-  std::unique_ptr<environment::IMutableEnvironmentService> owned_environment_service;
+  std::unique_ptr<signal::pipeline::ISignalPipeline> owned_signal_pipeline;
+  std::unique_ptr<environment::IEnvironmentService> owned_environment_service;
   std::unique_ptr<controller::RadarController> owned_controller;
   context::IRadarContext& radar_context;
-  signal::pipeline::IMutableSignalPipeline& signal_pipeline;
-  environment::IMutableEnvironmentService& environment_service;
+  signal::pipeline::ISignalPipeline& signal_pipeline;
+  environment::IEnvironmentService& environment_service;
   controller::RadarController& controller;
 };
 
 RadarSession::RadarSession(const RadarSessionConfig& config) : impl_(new Impl(config)) {}
+RadarSession::RadarSession(const RadarSessionConfig& config,
+                           signal::pipeline::ISignalPipeline& signal_pipeline)
+    : impl_(new Impl(config, signal_pipeline)) {}
+RadarSession::RadarSession(const RadarSessionConfig& config,
+                           environment::IEnvironmentService& environment_service)
+    : impl_(new Impl(config, environment_service)) {}
+RadarSession::RadarSession(const RadarSessionConfig& config, controller::RadarController& controller)
+    : impl_(new Impl(config, controller)) {}
 RadarSession::RadarSession(const RadarSessionConfig& config, context::IRadarContext& radar_context,
-                           signal::pipeline::IMutableSignalPipeline& signal_pipeline,
-                           environment::IMutableEnvironmentService& environment_service,
+                           signal::pipeline::ISignalPipeline& signal_pipeline,
+                           environment::IEnvironmentService& environment_service,
                            controller::RadarController& controller)
     : impl_(new Impl(config, radar_context, signal_pipeline, environment_service, controller)) {}
 

@@ -23,10 +23,10 @@ class EsrController;
 }
 }  // namespace core
 namespace pipeline {
-class IMutableInterceptPipeline;
+class IInterceptPipeline;
 }
 namespace environment {
-class IMutableEsrEnvironmentService;
+class IEsrEnvironmentService;
 }
 }  // namespace electronic_surveillance_radar
 
@@ -151,8 +151,20 @@ class ONEQ_API EsrSession {
   /**
    * @brief 使用外部装配链路构造会话（引用注入，不接管生命周期）。
    */
-  EsrSession(EsrSessionConfig config, pipeline::IMutableInterceptPipeline& pipeline,
-             environment::IMutableEsrEnvironmentService& environment_service,
+  EsrSession(EsrSessionConfig config, pipeline::IInterceptPipeline& pipeline);
+  /**
+   * @brief 使用外部装配链路构造会话（引用注入，不接管生命周期）。
+   */
+  EsrSession(EsrSessionConfig config, environment::IEsrEnvironmentService& environment_service);
+  /**
+   * @brief 使用外部装配链路构造会话（引用注入，不接管生命周期）。
+   */
+  EsrSession(EsrSessionConfig config, controller::EsrController& controller);
+  /**
+   * @brief 使用外部装配链路构造会话（引用注入，不接管生命周期）。
+   */
+  EsrSession(EsrSessionConfig config, pipeline::IInterceptPipeline& pipeline,
+             environment::IEsrEnvironmentService& environment_service,
              controller::EsrController& controller);
   ~EsrSession();
 

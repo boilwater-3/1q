@@ -30,6 +30,12 @@ class ONEQ_API IEsrEnvironmentService {
    * @return 当前周期环境快照。
    */
   virtual EsrEnvironmentSnapshot SampleEnvironment() const = 0;
+
+  /**
+   * @brief 更新环境模型配置。
+   * @param[in] config 新配置。
+   */
+  virtual void UpdateModelConfig(EsrEnvironmentModelConfig config) = 0;
 };
 
 }  // namespace environment

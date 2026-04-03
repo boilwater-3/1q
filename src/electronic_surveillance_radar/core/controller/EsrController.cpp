@@ -94,6 +94,12 @@ const context::EsrValidationIssueList& EsrController::GetLastValidationIssues() 
   return impl_->runtime_state.last_validation_issues;
 }
 
+pipeline::IInterceptPipeline& EsrController::GetPipeline() { return impl_->pipeline; }
+
+environment::IEsrEnvironmentService& EsrController::GetEnvironmentService() {
+  return impl_->environment_service;
+}
+
 }  // namespace controller
 }  // namespace core
 }  // namespace electronic_surveillance_radar

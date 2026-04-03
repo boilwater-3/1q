@@ -48,6 +48,8 @@ const context::EosValidationIssueList& EosController::GetLastValidationIssues() 
 
 bool EosController::HasValidationError() const { return impl_->has_validation_error; }
 
+pipeline::IEosPipeline& EosController::GetPipeline() { return impl_->pipeline; }
+
 }  // namespace controller
 }  // namespace core
 }  // namespace electro_optical_sensor

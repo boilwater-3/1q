@@ -64,6 +64,16 @@ class ONEQ_API EsrController {
    */
   const context::EsrValidationIssueList& GetLastValidationIssues() const;
 
+  /**
+   * @brief 获取当前控制器绑定的流水线实例。
+   */
+  pipeline::IInterceptPipeline& GetPipeline();
+
+  /**
+   * @brief 获取当前控制器绑定的环境服务实例。
+   */
+  environment::IEsrEnvironmentService& GetEnvironmentService();
+
  private:
   struct Impl;
   std::unique_ptr<Impl> impl_;

@@ -30,6 +30,24 @@ class ONEQ_API IEnvironmentService {
    * @return 当前周期的环境快照，包含传播损耗、杂波/干扰功率等信息。
    */
   virtual EnvironmentSnapshot SampleEnvironment() const = 0;
+
+  /**
+   * @brief 更新待生效场景状态。
+   * @param[in] scene_state 新场景状态。
+   */
+  virtual void UpdateSceneState(const EnvironmentSceneState& scene_state) = 0;
+
+  /**
+   * @brief 更新环境模型配置。
+   * @param[in] config 新环境模型配置。
+   */
+  virtual void UpdateModelConfig(const EnvironmentModelConfig& config) = 0;
+
+  /**
+   * @brief 设置干扰判定阈值。
+   * @param[in] threshold_db 阈值（单位：dB）。
+   */
+  virtual void SetJammingDetectionThresholdDb(float threshold_db) = 0;
 };
 
 }  // namespace environment

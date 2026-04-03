@@ -117,6 +117,20 @@ class ONEQ_API EosSession {
    * @brief 构造光学传感器会话，并使用外部装配链路（引用注入，不接管生命周期）。
    * @param[in] config 会话初始化配置。
    * @param[in] pipeline 核心管线扩展实现。
+   */
+  EosSession(EosSessionConfig config, pipeline::IEosPipeline& pipeline);
+
+  /**
+   * @brief 构造光学传感器会话，并使用外部装配链路（引用注入，不接管生命周期）。
+   * @param[in] config 会话初始化配置。
+   * @param[in] controller 控制器实现。
+   */
+  EosSession(EosSessionConfig config, core::controller::EosController& controller);
+
+  /**
+   * @brief 构造光学传感器会话，并使用外部装配链路（引用注入，不接管生命周期）。
+   * @param[in] config 会话初始化配置。
+   * @param[in] pipeline 核心管线扩展实现。
    * @param[in] controller 控制器实现。
    */
   EosSession(EosSessionConfig config, pipeline::IEosPipeline& pipeline,

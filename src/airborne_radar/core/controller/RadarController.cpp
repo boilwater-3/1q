@@ -350,6 +350,16 @@ bool RadarController::HasValidationError() const {
   return context::HasValidationError(impl_->runtime_state.last_validation_issues);
 }
 
+core::context::IRadarContext& RadarController::GetRadarContext() { return impl_->radar_context; }
+
+signal::pipeline::ISignalPipeline& RadarController::GetSignalPipeline() {
+  return impl_->signal_pipeline;
+}
+
+environment::IEnvironmentService& RadarController::GetEnvironmentService() {
+  return impl_->environment_service;
+}
+
 }  // namespace controller
 }  // namespace core
 }  // namespace airborne_radar

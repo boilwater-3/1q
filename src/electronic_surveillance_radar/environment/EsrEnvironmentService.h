@@ -6,7 +6,7 @@
 #ifndef ELECTRONIC_SURVEILLANCE_RADAR_SRC_ENVIRONMENT_ESR_ENVIRONMENT_SERVICE_H_
 #define ELECTRONIC_SURVEILLANCE_RADAR_SRC_ENVIRONMENT_ESR_ENVIRONMENT_SERVICE_H_
 
-#include "1q/electronic_surveillance_radar/environment/IMutableEsrEnvironmentService.h"
+#include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
 
 namespace electronic_surveillance_radar {
 namespace environment {
@@ -14,7 +14,7 @@ namespace environment {
 /**
  * @brief EsrEnvironmentService 提供周期冻结与环境快照采样能力。
  */
-class EsrEnvironmentService final : public IMutableEsrEnvironmentService {
+class EsrEnvironmentService final : public IEsrEnvironmentService {
  public:
   /**
    * @brief 使用配置初始化环境服务。

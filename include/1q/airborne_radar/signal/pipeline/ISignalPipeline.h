@@ -7,6 +7,7 @@
 #define AIRBORNE_RADAR_SIGNAL_PIPELINE_I_SIGNAL_PIPELINE_H_
 
 #include "1q/airborne_radar/common/control/RadarControlProfile.h"
+#include "1q/airborne_radar/config/SignalPipelineConfig.h"
 #include "1q/airborne_radar/config/RadarOrientationConfig.h"
 #include "1q/airborne_radar/signal/pipeline/SignalPipelineResultTypes.h"
 #include "1q/api.hpp"
@@ -58,6 +59,18 @@ class ONEQ_API ISignalPipeline {
    * @return 当前缓存的控制真值。
    */
   virtual common::control::RadarControlProfile GetControlProfile() const = 0;
+
+  /**
+   * @brief 更新流水线运行配置。
+   * @param[in] config 新配置。
+   */
+  virtual void UpdateConfig(common::config::SignalPipelineConfig config) = 0;
+
+  /**
+   * @brief 获取上一周期关联质量指标。
+   * @return 上一周期缓存的关联质量指标。
+   */
+  virtual AssociationQualityMetrics GetLastAssociationQualityMetrics() const = 0;
 };
 
 }  // namespace pipeline

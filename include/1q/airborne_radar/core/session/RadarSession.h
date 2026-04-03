@@ -37,11 +37,11 @@ class RadarController;
 }  // namespace core
 namespace signal {
 namespace pipeline {
-class IMutableSignalPipeline;
+class ISignalPipeline;
 }
 }  // namespace signal
 namespace environment {
-class IMutableEnvironmentService;
+class IEnvironmentService;
 }
 }  // namespace airborne_radar
 
@@ -77,9 +77,21 @@ class ONEQ_API RadarSession {
   /**
    * @brief 使用外部装配链路构造会话（引用注入，不接管生命周期）。
    */
+  RadarSession(const RadarSessionConfig& config, signal::pipeline::ISignalPipeline& signal_pipeline);
+  /**
+   * @brief 使用外部装配链路构造会话（引用注入，不接管生命周期）。
+   */
+  RadarSession(const RadarSessionConfig& config, environment::IEnvironmentService& environment_service);
+  /**
+   * @brief 使用外部装配链路构造会话（引用注入，不接管生命周期）。
+   */
+  RadarSession(const RadarSessionConfig& config, core::controller::RadarController& controller);
+  /**
+   * @brief 使用外部装配链路构造会话（引用注入，不接管生命周期）。
+   */
   RadarSession(const RadarSessionConfig& config, core::context::IRadarContext& radar_context,
-               signal::pipeline::IMutableSignalPipeline& signal_pipeline,
-               environment::IMutableEnvironmentService& environment_service,
+               signal::pipeline::ISignalPipeline& signal_pipeline,
+               environment::IEnvironmentService& environment_service,
                core::controller::RadarController& controller);
   ~RadarSession();
 

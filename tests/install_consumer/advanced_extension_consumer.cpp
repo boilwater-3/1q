@@ -67,6 +67,16 @@ class DummyEnvironmentService : public environment::IEnvironmentService {
     return snapshot;
   }
 
+  void UpdateSceneState(const environment::EnvironmentSceneState& scene_state) override {
+    (void)scene_state;
+  }
+
+  void UpdateModelConfig(const environment::EnvironmentModelConfig& config) override {
+    (void)config;
+  }
+
+  void SetJammingDetectionThresholdDb(float threshold_db) override { (void)threshold_db; }
+
  private:
   environment::EnvironmentCycleContext cycle_context_{};
 };
@@ -94,9 +104,16 @@ class DummySignalPipeline : public signal::pipeline::ISignalPipeline {
 
   common::control::RadarControlProfile GetControlProfile() const override { return control_profile_; }
 
+  void UpdateConfig(common::config::SignalPipelineConfig config) override { config_ = config; }
+
+  signal::pipeline::AssociationQualityMetrics GetLastAssociationQualityMetrics() const override {
+    return {};
+  }
+
  private:
   common::config::PlatformAttitudeDeg platform_attitude_{};
   common::control::RadarControlProfile control_profile_{};
+  common::config::SignalPipelineConfig config_{};
 };
 
 class DummyDecisionEngine : public decision::pipeline::ITacticalDecisionEngine {

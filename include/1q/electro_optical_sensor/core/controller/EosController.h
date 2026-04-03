@@ -65,6 +65,11 @@ class ONEQ_API EosController {
    */
   bool HasValidationError() const;
 
+  /**
+   * @brief 获取当前控制器绑定的核心管线实例。
+   */
+  pipeline::IEosPipeline& GetPipeline();
+
  private:
   struct Impl;
   std::unique_ptr<Impl> impl_;
