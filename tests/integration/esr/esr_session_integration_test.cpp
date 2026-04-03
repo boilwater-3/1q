@@ -770,6 +770,45 @@ TEST(EsrSessionIntegrationTest, RuntimeConfigBuilderCanToggleFixedReceiverWindow
   EXPECT_GT(CountMatchedTruthObservations(recovered, "target-emitter"), 0U);
 }
 
+TEST(EsrSessionIntegrationTest, InvalidFixedReceiverWindowBoundsDoNotAutoEnableWindow) {
+  EsrSession session(MakeSessionConfig());
+  context::EsrCycleInput input = MakeBaseInput();
+
+  const EsrCycleResult baseline = session.StepWithResult(input);
+  ASSERT_FALSE(baseline.has_validation_error);
+  EXPECT_GT(CountMatchedTruthObservations(baseline, "target-emitter"), 0U);
+
+  const EsrRuntimeConfigPatch block_patch = EsrRuntimeConfigBuilder()
+                                                .WithFixedReceiverWindowHz(1.0e9, 2.0e9)
+                                                .SetFixedReceiverWindowEnabled(true)
+                                                .Build();
+  session.ApplyRuntimeConfig(block_patch);
+  const EsrCycleResult blocked = session.StepWithResult(input);
+  EXPECT_EQ(CountMatchedTruthObservations(blocked, "target-emitter"), 0U);
+
+  const EsrRuntimeConfigPatch recover_patch =
+      EsrRuntimeConfigBuilder().SetFixedReceiverWindowEnabled(false).Build();
+  session.ApplyRuntimeConfig(recover_patch);
+  const EsrCycleResult recovered = session.StepWithResult(input);
+  ASSERT_GT(CountMatchedTruthObservations(recovered, "target-emitter"), 0U);
+
+  EsrRuntimeConfigPatch invalid_order_patch;
+  invalid_order_patch.has_fixed_receiver_window_hz = true;
+  invalid_order_patch.receiver_lower_hz = 3.0e9;
+  invalid_order_patch.receiver_upper_hz = 1.0e9;
+  session.ApplyRuntimeConfig(invalid_order_patch);
+  const EsrCycleResult after_invalid_order = session.StepWithResult(input);
+  EXPECT_GT(CountMatchedTruthObservations(after_invalid_order, "target-emitter"), 0U);
+
+  EsrRuntimeConfigPatch invalid_nonfinite_patch;
+  invalid_nonfinite_patch.has_fixed_receiver_window_hz = true;
+  invalid_nonfinite_patch.receiver_lower_hz = std::numeric_limits<double>::quiet_NaN();
+  invalid_nonfinite_patch.receiver_upper_hz = std::numeric_limits<double>::infinity();
+  session.ApplyRuntimeConfig(invalid_nonfinite_patch);
+  const EsrCycleResult after_invalid_nonfinite = session.StepWithResult(input);
+  EXPECT_GT(CountMatchedTruthObservations(after_invalid_nonfinite, "target-emitter"), 0U);
+}
+
 TEST(EsrSessionIntegrationTest, ValidationFailureReturnsEmptyFrameAndStillAdvancesBatchId) {
   EsrSession session(MakeSessionConfig());
   context::EsrCycleInput invalid_input = MakeBaseInput();

@@ -49,7 +49,9 @@ bool UdkfPredictor::Cov2Ud(const StateCovariance& covariance, StateCovariance* u
       lower_l(row, col) = ldlt.matrixL()(row, col);
     }
   }
-  *upper_u = lower_l.transpose();
+  const Eigen::PermutationMatrix<kStateDim, kStateDim, Eigen::Index> permutation(
+      ldlt.transpositionsP());
+  *upper_u = lower_l.transpose() * permutation;
   *diagonal_d = ldlt.vectorD().cwiseMax(kCovarianceFloor);
   return true;
 }

@@ -73,7 +73,7 @@ class EosPipeline {
  public:
   explicit EosPipeline(const EosPipelineConfig& config);
 
-  void UpdateConfig(const EosPipelineConfig& config);
+  void UpdateConfig(const EosPipelineConfig& config, bool reset_scan_phase = true);
 
   /**
    * @brief 执行单周期核心处理并输出探测结果。

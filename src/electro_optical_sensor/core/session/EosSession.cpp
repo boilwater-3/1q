@@ -93,11 +93,13 @@ EosCycleResult EosSession::StepWithResult(const context::EosCycleInput& input) {
 
 void EosSession::ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch) {
   EosSessionConfig* runtime_config = &impl_->runtime_config;
+  bool reset_scan_phase = false;
   if (patch.has_work_mode) {
     runtime_config->work_mode = patch.work_mode;
   }
   if (patch.has_scan_rate_deg_per_sec) {
     runtime_config->scan_rate_deg_per_sec = patch.scan_rate_deg_per_sec;
+    reset_scan_phase = true;
   }
   if (patch.has_frame_rate_hz) {
     runtime_config->frame_rate_hz = patch.frame_rate_hz;
@@ -112,7 +114,7 @@ void EosSession::ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch) {
     runtime_config->visible_reference_irradiance_w_m2 =
         patch.visible_reference_irradiance_w_m2;
   }
-  impl_->pipeline.UpdateConfig(BuildPipelineConfig(*runtime_config));
+  impl_->pipeline.UpdateConfig(BuildPipelineConfig(*runtime_config), reset_scan_phase);
 }
 
 }  // namespace session

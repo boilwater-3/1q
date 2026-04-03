@@ -70,6 +70,24 @@ float ResolveFirstCycleScanAzimuthDeg(const session::EosSessionConfig& config, f
   return config.scan_start_az_deg + wrapped_offset_deg;
 }
 
+float ResolveNextScanAzimuthDeg(const session::EosSessionConfig& config, float current_azimuth_deg,
+                                float dt_sec) {
+  const float scan_width_deg = config.scan_end_az_deg - config.scan_start_az_deg;
+  if (scan_width_deg <= 0.0f) {
+    return config.scan_start_az_deg;
+  }
+
+  float wrapped_offset_deg = (current_azimuth_deg - config.scan_start_az_deg) +
+                             config.scan_rate_deg_per_sec * dt_sec;
+  while (wrapped_offset_deg >= scan_width_deg) {
+    wrapped_offset_deg -= scan_width_deg;
+  }
+  while (wrapped_offset_deg < 0.0f) {
+    wrapped_offset_deg += scan_width_deg;
+  }
+  return config.scan_start_az_deg + wrapped_offset_deg;
+}
+
 TEST(EosInputValidationTest, InvalidCycleDeltaTimeIsReportedAsError) {
   EosCycleInput input = MakeValidInput();
   input.dt_sec = 0.0f;
@@ -193,10 +211,60 @@ TEST(EosInputValidationTest, RuntimeConfigBuilderCanTightenDetectionThresholdAtR
       session::EosRuntimeConfigBuilder().WithMinimumSnrDb(tightened_threshold_db).Build();
   eos_session.ApplyRuntimeConfig(patch);
 
+  input.cycle_index += 1U;
+  input.scene_targets[0].azimuth_deg =
+      ResolveNextScanAzimuthDeg(config, baseline.output_frame.scan_azimuth_deg, input.dt_sec);
   const session::EosCycleResult updated = eos_session.StepWithResult(input);
   EXPECT_FALSE(updated.has_validation_error);
   ASSERT_EQ(updated.output_frame.detections.size(), 1U);
   EXPECT_FALSE(updated.output_frame.detections[0].detected);
+}
+
+TEST(EosInputValidationTest, RuntimePatchPreservesScanPhaseUnlessScanRateChanges) {
+  session::EosSessionConfig config;
+  config.work_mode = session::EosWorkMode::kInfraredOnly;
+  config.minimum_snr_db = -120.0f;
+  config.scan_start_az_deg = -20.0f;
+  config.scan_end_az_deg = 20.0f;
+  config.horizontal_fov_deg = 12.0f;
+  config.vertical_fov_deg = 6.0f;
+  config.scan_rate_deg_per_sec = 4.0f;
+
+  session::EosSession eos_session(config);
+  EosCycleInput input = MakeValidInput();
+  input.dt_sec = 0.5f;
+  input.scene_targets[0].azimuth_deg = ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec);
+
+  const session::EosCycleResult first = eos_session.StepWithResult(input);
+  ASSERT_FALSE(first.has_validation_error);
+  const float first_scan_azimuth_deg = first.output_frame.scan_azimuth_deg;
+
+  const session::EosRuntimeConfigPatch non_geometry_patch =
+      session::EosRuntimeConfigBuilder().WithMinimumSnrDb(-60.0f).Build();
+  eos_session.ApplyRuntimeConfig(non_geometry_patch);
+
+  input.cycle_index += 1U;
+  const session::EosCycleResult after_non_geometry_patch = eos_session.StepWithResult(input);
+  ASSERT_FALSE(after_non_geometry_patch.has_validation_error);
+  const float expected_after_non_geometry_patch =
+      ResolveNextScanAzimuthDeg(config, first_scan_azimuth_deg, input.dt_sec);
+  EXPECT_NEAR(after_non_geometry_patch.output_frame.scan_azimuth_deg,
+              expected_after_non_geometry_patch, 1.0e-5f);
+
+  const session::EosRuntimeConfigPatch scan_rate_patch =
+      session::EosRuntimeConfigBuilder().WithScanRateDegPerSec(12.0f).Build();
+  eos_session.ApplyRuntimeConfig(scan_rate_patch);
+
+  input.cycle_index += 1U;
+  const session::EosCycleResult after_scan_rate_patch = eos_session.StepWithResult(input);
+  ASSERT_FALSE(after_scan_rate_patch.has_validation_error);
+
+  session::EosSessionConfig expected_scan_rate_config = config;
+  expected_scan_rate_config.scan_rate_deg_per_sec = 12.0f;
+  const float expected_after_scan_rate_patch =
+      ResolveFirstCycleScanAzimuthDeg(expected_scan_rate_config, input.dt_sec);
+  EXPECT_NEAR(after_scan_rate_patch.output_frame.scan_azimuth_deg, expected_after_scan_rate_patch,
+              1.0e-5f);
 }
 
 }  // namespace

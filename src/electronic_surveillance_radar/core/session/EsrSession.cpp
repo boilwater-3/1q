@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "1q/electronic_surveillance_radar/core/controller/EsrController.h"
+#include "common/logging/ProjectLog.h"
 #include "electronic_surveillance_radar/core/session/EsrSessionConfigResolver.h"
 #include "electronic_surveillance_radar/environment/EsrEnvironmentService.h"
 #include "electronic_surveillance_radar/pipeline/InterceptPipeline.h"
@@ -58,6 +59,7 @@ EsrCycleResult EsrSession::StepWithResult(const context::EsrCycleInput& input) {
 
 void EsrSession::ApplyRuntimeConfig(const EsrRuntimeConfigPatch& patch) {
   bool runtime_config_changed = false;
+  bool fixed_receiver_window_bounds_valid = false;
   if (patch.has_sensor_enabled) {
     impl_->resolved_config.runtime_config.sensor_enabled = patch.sensor_enabled;
     runtime_config_changed = true;
@@ -75,13 +77,18 @@ void EsrSession::ApplyRuntimeConfig(const EsrRuntimeConfigPatch& patch) {
       IsFinite(patch.receiver_upper_hz) && patch.receiver_upper_hz > patch.receiver_lower_hz) {
     impl_->resolved_config.runtime_config.receiver_lower_hz = patch.receiver_lower_hz;
     impl_->resolved_config.runtime_config.receiver_upper_hz = patch.receiver_upper_hz;
+    fixed_receiver_window_bounds_valid = true;
     runtime_config_changed = true;
+  } else if (patch.has_fixed_receiver_window_hz) {
+    PROJECT_LOG_ERROR(
+        "[EsrSession] ignored invalid fixed receiver window patch: lower_hz={} upper_hz={}",
+        patch.receiver_lower_hz, patch.receiver_upper_hz);
   }
   if (patch.has_use_fixed_receiver_window) {
     impl_->resolved_config.runtime_config.use_fixed_receiver_window =
         patch.use_fixed_receiver_window;
     runtime_config_changed = true;
-  } else if (patch.has_fixed_receiver_window_hz) {
+  } else if (fixed_receiver_window_bounds_valid) {
     impl_->resolved_config.runtime_config.use_fixed_receiver_window = true;
     runtime_config_changed = true;
   }

@@ -123,14 +123,22 @@ float ComputeVisiblePhotonNoiseEnhancement(const EosPipelineConfig& config,
   return Clamp(1.0f + 0.12f * irradiance_mismatch * cloud_factor, 1.0f, 2.5f);
 }
 
+float ComputeSystemNoiseFactorFromSensitivity(float detection_sensitivity_w) {
+  const float kReferenceSensitivityW = 1.0e-12f;
+  const float safe_sensitivity_w = SafePositive(detection_sensitivity_w, kReferenceSensitivityW);
+  return std::max(1.0f, safe_sensitivity_w / kReferenceSensitivityW);
+}
+
 }  // namespace
 
 EosPipeline::EosPipeline(const EosPipelineConfig& config)
     : config_(config), current_scan_azimuth_deg_(config.scan_start_az_deg) {}
 
-void EosPipeline::UpdateConfig(const EosPipelineConfig& config) {
+void EosPipeline::UpdateConfig(const EosPipelineConfig& config, bool reset_scan_phase) {
   config_ = config;
-  current_scan_azimuth_deg_ = config_.scan_start_az_deg;
+  if (reset_scan_phase) {
+    current_scan_azimuth_deg_ = config_.scan_start_az_deg;
+  }
 }
 
 common::EosOutputFrame EosPipeline::Execute(const context::EosCycleInput& input) {
@@ -246,7 +254,8 @@ common::EosDetectionRecord EosPipeline::BuildDetectionRecord(
   const float frame_coupled_bandwidth_hz = 0.5f / nep_inputs.integration_time_sec;
   nep_inputs.electrical_bandwidth_hz =
       std::max(100.0f, std::max(scan_coupled_bandwidth_hz, frame_coupled_bandwidth_hz));
-  nep_inputs.system_noise_factor = std::max(1.0f, 1.0e-12f / SafePositive(config_.detection_sensitivity_w, 1.0e-12f));
+  nep_inputs.system_noise_factor =
+      ComputeSystemNoiseFactorFromSensitivity(config_.detection_sensitivity_w);
   foundation::noise::BackgroundNoiseModelInputs noise_inputs;
   noise_inputs.electrical_bandwidth_hz = nep_inputs.electrical_bandwidth_hz;
   noise_inputs.integration_time_sec = nep_inputs.integration_time_sec;

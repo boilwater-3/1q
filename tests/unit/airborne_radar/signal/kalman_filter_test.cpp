@@ -260,6 +260,48 @@ TEST(KalmanPredictorBackendTest, ThreeBackendsPredictFiniteSymmetricCovariance) 
   }
 }
 
+TEST(KalmanPredictorBackendTest, UdkfPreservesPermutationSensitiveCovarianceAtZeroDt) {
+  KalmanPredictorConfig config;
+  config.noise_diff_coeff = 0.0f;
+  UdkfPredictor udkf_predictor(config);
+
+  StateCovariance covariance = StateCovariance::Zero();
+  covariance(0, 0) = 1.0e-4f;
+  covariance(1, 1) = 50.0f;
+  covariance(0, 1) = 1.0e-2f;
+  covariance(1, 0) = covariance(0, 1);
+  covariance(2, 2) = 2.0e-4f;
+  covariance(3, 3) = 60.0f;
+  covariance(2, 3) = 2.0e-2f;
+  covariance(3, 2) = covariance(2, 3);
+  covariance(4, 4) = 3.0e-4f;
+  covariance(5, 5) = 70.0f;
+  covariance(4, 5) = 3.0e-2f;
+  covariance(5, 4) = covariance(4, 5);
+  covariance = (covariance + covariance.transpose()) * 0.5f;
+
+  const Eigen::LDLT<StateCovariance> ldlt(covariance);
+  ASSERT_EQ(ldlt.info(), Eigen::Success);
+  const Eigen::Transpositions<kStateDim, kStateDim>& transpositions = ldlt.transpositionsP();
+  bool has_non_identity_permutation = false;
+  for (int i = 0; i < kStateDim; ++i) {
+    if (transpositions.indices()(i) != i) {
+      has_non_identity_permutation = true;
+      break;
+    }
+  }
+  ASSERT_TRUE(has_non_identity_permutation);
+
+  GaussianTrackState prior(StateVector::Zero(), covariance);
+  const GaussianTrackState predicted = udkf_predictor.Predict(prior, 0.0f);
+
+  for (int row = 0; row < kStateDim; ++row) {
+    for (int col = 0; col < kStateDim; ++col) {
+      EXPECT_NEAR(predicted.covariance(row, col), covariance(row, col), 1.0e-3f);
+    }
+  }
+}
+
 // ============================================================================
 // KalmanUpdater 测试
 // ============================================================================

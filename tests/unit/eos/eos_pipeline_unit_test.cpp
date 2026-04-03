@@ -292,6 +292,35 @@ TEST(EosPipelineTest, VisibleReferenceIrradianceAffectsVisibleSnrThroughNoiseMod
             mismatched_frame.detections[0].fused_snr_linear);
 }
 
+TEST(EosPipelineTest, BetterDetectionSensitivityProducesHigherSnr) {
+  EosPipelineConfig better_sensitivity_config = MakePipelineConfig();
+  better_sensitivity_config.work_mode = EosPipelineWorkMode::kInfraredOnly;
+  better_sensitivity_config.detection_sensitivity_w = 5.0e-13f;
+
+  EosPipelineConfig worse_sensitivity_config = better_sensitivity_config;
+  worse_sensitivity_config.detection_sensitivity_w = 5.0e-12f;
+
+  EosPipeline better_sensitivity_pipeline(better_sensitivity_config);
+  EosPipeline worse_sensitivity_pipeline(worse_sensitivity_config);
+
+  context::EosCycleInput input = MakeCycleInput(0.5f);
+  input.cycle_index = 12U;
+  input.background_temperature_k = 240.0f;
+  input.cloud_coverage_ratio = 0.1f;
+  context::EosTargetState target = MakeTarget(
+      901U, ResolveFirstCycleScanAzimuthDeg(better_sensitivity_config, input.dt_sec), 900.0f, 9.0f);
+  target.apparent_temperature_k = 860.0f;
+  target.emissivity = 0.98f;
+  input.scene_targets.push_back(target);
+
+  const common::EosOutputFrame better_frame = better_sensitivity_pipeline.Execute(input);
+  const common::EosOutputFrame worse_frame = worse_sensitivity_pipeline.Execute(input);
+
+  ASSERT_EQ(better_frame.detections.size(), 1U);
+  ASSERT_EQ(worse_frame.detections.size(), 1U);
+  EXPECT_GT(better_frame.detections[0].fused_snr_linear, worse_frame.detections[0].fused_snr_linear);
+}
+
 }  // namespace
 }  // namespace pipeline
 }  // namespace core
