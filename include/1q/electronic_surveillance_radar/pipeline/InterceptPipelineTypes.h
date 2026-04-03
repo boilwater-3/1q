@@ -140,6 +140,20 @@ struct ONEQ_API InterceptDeceptionModelConfig {
 };
 
 /**
+ * @brief InterceptRuntimeConfig 描述会话层注入的运行态参数。
+ */
+struct ONEQ_API InterceptRuntimeConfig {
+  bool sensor_enabled{true};              /**< 设备是否开启 */
+  bool use_fixed_receiver_window{false};  /**< 是否启用固定接收频段窗口 */
+  double receiver_lower_hz{0.0};          /**< 固定接收频段下限（单位：Hz） */
+  double receiver_upper_hz{0.0};          /**< 固定接收频段上限（单位：Hz） */
+  float integrated_receive_loss_db{0.0f}; /**< 系统综合接收损耗（单位：dB） */
+  float antenna_mount_az_deg{0.0f};       /**< 天线方位安装角（单位：deg） */
+  float antenna_mount_el_deg{0.0f};       /**< 天线俯仰安装角（单位：deg） */
+  float scan_rate_hz{1.0f};               /**< 扫描数据率（单位：Hz） */
+};
+
+/**
  * @brief InterceptPipelineConfig 描述电子侦察流水线顶层配置。
  */
 struct ONEQ_API InterceptPipelineConfig {

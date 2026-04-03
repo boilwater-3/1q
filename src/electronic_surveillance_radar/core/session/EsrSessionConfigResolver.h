@@ -7,7 +7,6 @@
 #define ELECTRONIC_SURVEILLANCE_RADAR_SRC_CORE_SESSION_ESR_SESSION_CONFIG_RESOLVER_H_
 
 #include "1q/electronic_surveillance_radar/core/session/EsrSession.h"
-#include "electronic_surveillance_radar/pipeline/InterceptPipeline.h"
 
 namespace electronic_surveillance_radar {
 namespace core {

@@ -7,10 +7,13 @@
 #ifndef AIRBORNE_RADAR_CORE_CONTEXT_I_RADAR_CONTEXT_H_
 #define AIRBORNE_RADAR_CORE_CONTEXT_I_RADAR_CONTEXT_H_
 
+#include <vector>
+
 #include "1q/airborne_radar/common/control/RadarCommand.h"
 #include "1q/airborne_radar/common/control/RadarControlProfile.h"
 #include "1q/airborne_radar/common/model/TargetFeature.h"
 #include "1q/airborne_radar/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
@@ -24,6 +27,12 @@ namespace context {
 class ONEQ_API IRadarContext {
  public:
   virtual ~IRadarContext() = default;
+
+  /**
+   * @brief 以单周期输入刷新上下文，并清空本周期输出缓存。
+   * @param input 单周期输入载荷。
+   */
+  virtual void BeginCycle(const RadarCycleInput& input) = 0;
 
   /**
    * @brief 获取当前周期的目标特征列表。
@@ -54,6 +63,24 @@ class ONEQ_API IRadarContext {
    * @param[in] profile 下一周期控制真值。
    */
   virtual void UpdateRadarControlProfile(const common::control::RadarControlProfile& profile) = 0;
+
+  /**
+   * @brief 获取当前周期已提交的控制指令。
+   * @return 当前周期已提交的控制指令列表引用。
+   */
+  virtual const std::vector<common::control::RadarCommand>& GetSubmittedCommands() const = 0;
+
+  /**
+   * @brief 判断是否已有最近一次控制真值。
+   * @return 若已持有最近一次控制真值返回 true。
+   */
+  virtual bool HasLatestControlProfile() const = 0;
+
+  /**
+   * @brief 获取最近一次控制真值。
+   * @return 最近一次控制真值引用。
+   */
+  virtual const common::control::RadarControlProfile& GetLatestControlProfile() const = 0;
 };
 }  // namespace context
 }  // namespace core

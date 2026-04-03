@@ -30,7 +30,7 @@ class MutableRadarContext final : public IRadarContext {
    * @brief 以单周期输入刷新上下文，并清空本周期输出缓存。
    * @param input 单周期输入载荷。
    */
-  void BeginCycle(const RadarCycleInput& input);
+  void BeginCycle(const RadarCycleInput& input) override;
 
   /**
    * @brief 更新当前周期目标特征列表。
@@ -60,19 +60,19 @@ class MutableRadarContext final : public IRadarContext {
    * @brief 获取本周期已提交的控制指令。
    * @return 当前周期命令缓存。
    */
-  const std::vector<common::control::RadarCommand>& GetSubmittedCommands() const;
+  const std::vector<common::control::RadarCommand>& GetSubmittedCommands() const override;
 
   /**
    * @brief 判断是否已经收到过控制真值更新。
    * @return 若至少收到过一次 `UpdateRadarControlProfile` 则返回 `true`。
    */
-  bool HasLatestControlProfile() const;
+  bool HasLatestControlProfile() const override;
 
   /**
    * @brief 获取最近一次保存的控制真值。
    * @return 最近一次控制真值；若尚未更新则返回默认值。
    */
-  const common::control::RadarControlProfile& GetLatestControlProfile() const;
+  const common::control::RadarControlProfile& GetLatestControlProfile() const override;
 
   /**
    * @brief 获取当前周期的目标特征列表。

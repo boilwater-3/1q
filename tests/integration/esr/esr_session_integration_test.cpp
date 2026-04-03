@@ -12,6 +12,7 @@
 #include <string>
 
 #include "1q/electronic_surveillance_radar/common/EmitterTruthState.h"
+#include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/core/context/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/core/session/EsrSession.h"
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
@@ -20,6 +21,8 @@ namespace electronic_surveillance_radar {
 namespace core {
 namespace session {
 namespace {
+
+namespace esr_config = ::electronic_surveillance_radar::config;
 
 /**
  * @brief 构造可被 X 波段接收窗口截获的最小场景输入。
@@ -737,8 +740,8 @@ TEST(EsrSessionIntegrationTest, RuntimeConfigBuilderCanDisableSensorWithoutRecon
   ASSERT_FALSE(baseline.has_validation_error);
   EXPECT_GT(CountMatchedTruthObservations(baseline, "target-emitter"), 0U);
 
-  const EsrRuntimeConfigPatch patch =
-      EsrRuntimeConfigBuilder().WithSensorEnabled(false).Build();
+  const esr_config::EsrRuntimeConfigPatch patch =
+      esr_config::EsrRuntimeConfigBuilder().WithSensorEnabled(false).Build();
   session.ApplyRuntimeConfig(patch);
 
   const EsrCycleResult updated = session.StepWithResult(input);
@@ -755,16 +758,17 @@ TEST(EsrSessionIntegrationTest, RuntimeConfigBuilderCanToggleFixedReceiverWindow
   ASSERT_FALSE(baseline.has_validation_error);
   EXPECT_GT(CountMatchedTruthObservations(baseline, "target-emitter"), 0U);
 
-  const EsrRuntimeConfigPatch block_patch = EsrRuntimeConfigBuilder()
-                                                .WithFixedReceiverWindowHz(1.0e9, 2.0e9)
-                                                .SetFixedReceiverWindowEnabled(true)
-                                                .Build();
+  const esr_config::EsrRuntimeConfigPatch block_patch =
+      esr_config::EsrRuntimeConfigBuilder()
+          .WithFixedReceiverWindowHz(1.0e9, 2.0e9)
+          .SetFixedReceiverWindowEnabled(true)
+          .Build();
   session.ApplyRuntimeConfig(block_patch);
   const EsrCycleResult blocked = session.StepWithResult(input);
   EXPECT_EQ(CountMatchedTruthObservations(blocked, "target-emitter"), 0U);
 
-  const EsrRuntimeConfigPatch recover_patch =
-      EsrRuntimeConfigBuilder().SetFixedReceiverWindowEnabled(false).Build();
+  const esr_config::EsrRuntimeConfigPatch recover_patch =
+      esr_config::EsrRuntimeConfigBuilder().SetFixedReceiverWindowEnabled(false).Build();
   session.ApplyRuntimeConfig(recover_patch);
   const EsrCycleResult recovered = session.StepWithResult(input);
   EXPECT_GT(CountMatchedTruthObservations(recovered, "target-emitter"), 0U);
@@ -778,21 +782,22 @@ TEST(EsrSessionIntegrationTest, InvalidFixedReceiverWindowBoundsDoNotAutoEnableW
   ASSERT_FALSE(baseline.has_validation_error);
   EXPECT_GT(CountMatchedTruthObservations(baseline, "target-emitter"), 0U);
 
-  const EsrRuntimeConfigPatch block_patch = EsrRuntimeConfigBuilder()
-                                                .WithFixedReceiverWindowHz(1.0e9, 2.0e9)
-                                                .SetFixedReceiverWindowEnabled(true)
-                                                .Build();
+  const esr_config::EsrRuntimeConfigPatch block_patch =
+      esr_config::EsrRuntimeConfigBuilder()
+          .WithFixedReceiverWindowHz(1.0e9, 2.0e9)
+          .SetFixedReceiverWindowEnabled(true)
+          .Build();
   session.ApplyRuntimeConfig(block_patch);
   const EsrCycleResult blocked = session.StepWithResult(input);
   EXPECT_EQ(CountMatchedTruthObservations(blocked, "target-emitter"), 0U);
 
-  const EsrRuntimeConfigPatch recover_patch =
-      EsrRuntimeConfigBuilder().SetFixedReceiverWindowEnabled(false).Build();
+  const esr_config::EsrRuntimeConfigPatch recover_patch =
+      esr_config::EsrRuntimeConfigBuilder().SetFixedReceiverWindowEnabled(false).Build();
   session.ApplyRuntimeConfig(recover_patch);
   const EsrCycleResult recovered = session.StepWithResult(input);
   ASSERT_GT(CountMatchedTruthObservations(recovered, "target-emitter"), 0U);
 
-  EsrRuntimeConfigPatch invalid_order_patch;
+  esr_config::EsrRuntimeConfigPatch invalid_order_patch;
   invalid_order_patch.has_fixed_receiver_window_hz = true;
   invalid_order_patch.receiver_lower_hz = 3.0e9;
   invalid_order_patch.receiver_upper_hz = 1.0e9;
@@ -800,7 +805,7 @@ TEST(EsrSessionIntegrationTest, InvalidFixedReceiverWindowBoundsDoNotAutoEnableW
   const EsrCycleResult after_invalid_order = session.StepWithResult(input);
   EXPECT_GT(CountMatchedTruthObservations(after_invalid_order, "target-emitter"), 0U);
 
-  EsrRuntimeConfigPatch invalid_nonfinite_patch;
+  esr_config::EsrRuntimeConfigPatch invalid_nonfinite_patch;
   invalid_nonfinite_patch.has_fixed_receiver_window_hz = true;
   invalid_nonfinite_patch.receiver_lower_hz = std::numeric_limits<double>::quiet_NaN();
   invalid_nonfinite_patch.receiver_upper_hz = std::numeric_limits<double>::infinity();

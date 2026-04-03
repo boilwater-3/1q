@@ -18,7 +18,6 @@
 #include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/common/output/TrackOutputQueries.h"
 #include "1q/airborne_radar/common/utils/JammingSemantics.h"
-#include "1q/airborne_radar/common/utils/RadarOrientationUtils.h"
 #include "1q/airborne_radar/common/utils/TargetFeatureUtils.h"
 #include "1q/airborne_radar/config/AntennaPatternConfig.h"
 #include "1q/airborne_radar/config/ConfigPresets.h"
@@ -28,6 +27,7 @@
 #include "1q/airborne_radar/config/SignalBeamControlConfig.h"
 #include "1q/airborne_radar/config/SignalDetectionConfig.h"
 #include "1q/airborne_radar/config/SignalPipelineConfig.h"
+#include "1q/airborne_radar/config/airborne_radar_config.hpp"
 #include "1q/airborne_radar/core/context/IRadarContext.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/airborne_radar/core/context/RadarInputValidation.h"
@@ -40,8 +40,11 @@
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
+#include "1q/airborne_radar/environment/IMutableEnvironmentService.h"
 #include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
+#include "1q/airborne_radar/signal/pipeline/IMutableSignalPipeline.h"
 #include "1q/airborne_radar/signal/pipeline/SignalPipelineResultTypes.h"
+#include "1q/airborne_radar/airborne_radar.hpp"
 #include "1q/api.hpp"
 #include "1q/common/coordinate_transform.h"
 #include "1q/common/pose_types.h"
@@ -58,15 +61,30 @@
 #include "1q/electro_optical_sensor/core/context/EosCycleInput.h"
 #include "1q/electro_optical_sensor/core/context/EosCoordinateUtils.h"
 #include "1q/electro_optical_sensor/core/context/EosInputValidation.h"
+#include "1q/electro_optical_sensor/core/controller/EosController.h"
 #include "1q/electro_optical_sensor/core/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/core/session/EosSession.h"
+#include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
+#include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
+#include "1q/electro_optical_sensor/pipeline/EosPipelineTypes.h"
+#include "1q/electro_optical_sensor/pipeline/IEosPipeline.h"
+#include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
+#include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
+#include "1q/electro_optical_sensor/config/electro_optical_sensor_config.hpp"
 #include "1q/electro_optical_sensor/tools/EosTraceSession.h"
+#include "1q/electro_optical_sensor/electro_optical_sensor.hpp"
 #include "1q/electronic_surveillance_radar/common/EmitterTruthState.h"
 #include "1q/electronic_surveillance_radar/common/EsrCoordinateUtils.h"
 #include "1q/electronic_surveillance_radar/core/context/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/core/context/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/core/session/EsrSession.h"
+#include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
+#include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
+#include "1q/electronic_surveillance_radar/config/electronic_surveillance_radar_config.hpp"
+#include "1q/electronic_surveillance_radar/environment/IMutableEsrEnvironmentService.h"
+#include "1q/electronic_surveillance_radar/pipeline/IMutableInterceptPipeline.h"
 #include "1q/electronic_surveillance_radar/tools/EsrTraceSession.h"
+#include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 #include "1q/airborne_radar/tools/RadarTraceSession.h"
 
 namespace airborne_radar {
@@ -126,7 +144,7 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   const oneq::common::ScanStartPosition shared_start = oneq::common::ScanStartPosition::kLeftTop;
   EXPECT_EQ(static_cast<int>(shared_start), 0);
 
-  core::session::EsrSessionConfig session_config = core::session::EsrSessionConfigBuilder()
+  config::EsrSessionConfig session_config = config::EsrSessionConfigBuilder()
                                                        .EnableLayeredConfig(true)
                                                        .WithScanRateHz(1.0f)
                                                        .EnableSpectralAnalysis(true)
@@ -163,8 +181,8 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   EXPECT_FALSE(core::context::HasEsrValidationError(issues));
 
   core::session::EsrSession session(session_config);
-  const core::session::EsrRuntimeConfigPatch runtime_patch =
-      core::session::EsrRuntimeConfigBuilder().WithDetectionMinSnrDb(5.0f).Build();
+  const config::EsrRuntimeConfigPatch runtime_patch =
+      config::EsrRuntimeConfigBuilder().WithDetectionMinSnrDb(5.0f).Build();
   session.ApplyRuntimeConfig(runtime_patch);
   const core::session::EsrCycleResult result = session.StepWithResult(input);
   tools::EsrTraceSession trace_session(session_config, tools::EsrTraceSessionOptions{});
@@ -200,7 +218,7 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
       foundation::spatial_spectrum::EvaluateSpatialResolvability(spectrum_inputs);
   EXPECT_GE(spectrum_result.spectrum_quality_gain, 0.0f);
 
-  core::session::EosSessionConfig session_config = core::session::EosSessionConfigBuilder()
+  config::EosSessionConfig session_config = config::EosSessionConfigBuilder()
                                                        .WithWorkMode(core::session::EosWorkMode::kFused)
                                                        .WithMinimumSnrDb(0.0f)
                                                        .Build();
@@ -252,8 +270,8 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   EXPECT_GT(planck_radiance, 0.0f);
 
   core::session::EosSession session(session_config);
-  const core::session::EosRuntimeConfigPatch runtime_patch =
-      core::session::EosRuntimeConfigBuilder().WithFrameRateHz(15.0f).Build();
+  const config::EosRuntimeConfigPatch runtime_patch =
+      config::EosRuntimeConfigBuilder().WithFrameRateHz(15.0f).Build();
   session.ApplyRuntimeConfig(runtime_patch);
   const core::session::EosCycleResult result = session.StepWithResult(input);
   tools::EosTraceSession trace_session(session_config, tools::EosTraceSessionOptions{});

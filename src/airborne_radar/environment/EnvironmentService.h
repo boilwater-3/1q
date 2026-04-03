@@ -8,8 +8,8 @@
 
 #include <memory>
 
+#include "1q/airborne_radar/environment/IMutableEnvironmentService.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "airborne_radar/environment/IMutableEnvironmentService.h"
 
 namespace airborne_radar {
 namespace environment {

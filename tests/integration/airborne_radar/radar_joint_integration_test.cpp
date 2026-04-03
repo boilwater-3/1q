@@ -35,6 +35,13 @@ class ScenarioRadarContext : public core::context::IRadarContext {
   explicit ScenarioRadarContext(common::model::TargetFeatureList target_features = {})
       : target_features_(std::move(target_features)) {}
 
+  void BeginCycle(const core::context::RadarCycleInput& input) override {
+    target_features_ = input.target_features;
+    platform_attitude_deg_ = input.platform_attitude_deg;
+    cycle_dt_sec_ = input.dt_sec;
+    submitted_commands_.clear();
+  }
+
   const common::model::TargetFeatureList& GetTargetFeatures() const override { return target_features_; }
 
   common::config::PlatformAttitudeDeg GetPlatformAttitude() const override {
@@ -49,6 +56,17 @@ class ScenarioRadarContext : public core::context::IRadarContext {
 
   void UpdateRadarControlProfile(const common::control::RadarControlProfile& profile) override {
     latest_control_profile_ = profile;
+    has_latest_control_profile_ = true;
+  }
+
+  const std::vector<common::control::RadarCommand>& GetSubmittedCommands() const override {
+    return submitted_commands_;
+  }
+
+  bool HasLatestControlProfile() const override { return has_latest_control_profile_; }
+
+  const common::control::RadarControlProfile& GetLatestControlProfile() const override {
+    return latest_control_profile_;
   }
 
   void SetTargetFeatures(common::model::TargetFeatureList target_features) {
@@ -73,6 +91,7 @@ class ScenarioRadarContext : public core::context::IRadarContext {
   float cycle_dt_sec_{1.0f};
   std::vector<common::control::RadarCommand> submitted_commands_;
   common::control::RadarControlProfile latest_control_profile_{};
+  bool has_latest_control_profile_{false};
 };
 
 struct CycleStats {

@@ -9,9 +9,8 @@
 #include <algorithm>
 #include <cmath>
 
-#include "1q/airborne_radar/common/utils/MathUtils.h"
+#include "airborne_radar/common/utils/MathUtils.h"
 #include "1q/airborne_radar/config/RadarOrientationConfig.h"
-#include "common/geometry/GeometryTransform.h"
 
 namespace airborne_radar {
 namespace common {
@@ -19,21 +18,63 @@ namespace utils {
 
 namespace internal {
 
-inline oneq::internal::geometry::EulerAnglesDeg ToGeometryEuler(
-    const config::EulerAnglesDeg& euler_deg) {
-  oneq::internal::geometry::EulerAnglesDeg geometry_euler;
-  geometry_euler.yaw_deg = euler_deg.yaw_deg;
-  geometry_euler.pitch_deg = euler_deg.pitch_deg;
-  geometry_euler.roll_deg = euler_deg.roll_deg;
-  return geometry_euler;
+inline constexpr float kPi = 3.14159265358979f;
+
+inline float DegToRad(float angle_deg) { return angle_deg * kPi / 180.0f; }
+
+struct Matrix3f {
+  float m[3][3]{};
+};
+
+inline float At(const Matrix3f& matrix, int row, int col) { return matrix.m[row][col]; }
+
+inline Matrix3f Multiply(const Matrix3f& lhs, const Matrix3f& rhs) {
+  Matrix3f result;
+  for (int row = 0; row < 3; ++row) {
+    for (int col = 0; col < 3; ++col) {
+      result.m[row][col] = 0.0f;
+      for (int k = 0; k < 3; ++k) {
+        result.m[row][col] += lhs.m[row][k] * rhs.m[k][col];
+      }
+    }
+  }
+  return result;
 }
 
-inline config::EulerAnglesDeg FromRotationMatrix(const Eigen::Matrix3f& rotation) {
+inline Matrix3f BuildRotationMatrix(const config::EulerAnglesDeg& euler_deg) {
+  const float yaw_rad = DegToRad(euler_deg.yaw_deg);
+  // Keep the same pitch sign convention as the internal geometry module.
+  const float pitch_rad = DegToRad(-euler_deg.pitch_deg);
+  const float roll_rad = DegToRad(euler_deg.roll_deg);
+
+  const float cy = std::cos(yaw_rad);
+  const float sy = std::sin(yaw_rad);
+  const float cp = std::cos(pitch_rad);
+  const float sp = std::sin(pitch_rad);
+  const float cr = std::cos(roll_rad);
+  const float sr = std::sin(roll_rad);
+
+  Matrix3f rotation;
+  rotation.m[0][0] = cy * cp;
+  rotation.m[0][1] = cy * sp * sr - sy * cr;
+  rotation.m[0][2] = cy * sp * cr + sy * sr;
+  rotation.m[1][0] = sy * cp;
+  rotation.m[1][1] = sy * sp * sr + cy * cr;
+  rotation.m[1][2] = sy * sp * cr - cy * sr;
+  rotation.m[2][0] = -sp;
+  rotation.m[2][1] = cp * sr;
+  rotation.m[2][2] = cp * cr;
+  return rotation;
+}
+
+inline config::EulerAnglesDeg FromRotationMatrix(const Matrix3f& rotation) {
   config::EulerAnglesDeg euler_deg;
-  const float r20 = std::max(-1.0f, std::min(1.0f, rotation(2, 0)));
+  const float r20 = std::max(-1.0f, std::min(1.0f, At(rotation, 2, 0)));
   euler_deg.pitch_deg = std::asin(r20) * 180.0f / 3.14159265358979f;
-  euler_deg.yaw_deg = std::atan2(rotation(1, 0), rotation(0, 0)) * 180.0f / 3.14159265358979f;
-  euler_deg.roll_deg = std::atan2(rotation(2, 1), rotation(2, 2)) * 180.0f / 3.14159265358979f;
+  euler_deg.yaw_deg =
+      std::atan2(At(rotation, 1, 0), At(rotation, 0, 0)) * 180.0f / 3.14159265358979f;
+  euler_deg.roll_deg =
+      std::atan2(At(rotation, 2, 1), At(rotation, 2, 2)) * 180.0f / 3.14159265358979f;
   return euler_deg;
 }
 
@@ -124,10 +165,9 @@ inline config::EulerAnglesDeg ComputeBodyFrameBeamPointing(
   config::EulerAnglesDeg mount_frame_euler;
   mount_frame_euler.yaw_deg = mount_frame_pointing.az_deg;
   mount_frame_euler.pitch_deg = mount_frame_pointing.el_deg;
-  const Eigen::Matrix3f body_rotation =
-      oneq::internal::geometry::BuildRotationMatrix(
-          internal::ToGeometryEuler(config.mount_angles_deg)) *
-      oneq::internal::geometry::BuildRotationMatrix(internal::ToGeometryEuler(mount_frame_euler));
+  const internal::Matrix3f body_rotation = internal::Multiply(
+      internal::BuildRotationMatrix(config.mount_angles_deg),
+      internal::BuildRotationMatrix(mount_frame_euler));
   return internal::FromRotationMatrix(body_rotation);
 }
 
@@ -146,12 +186,11 @@ inline config::EulerAnglesDeg ComputePlatformFrameBeamPointing(
   config::EulerAnglesDeg mount_frame_euler;
   mount_frame_euler.yaw_deg = mount_frame_pointing.az_deg;
   mount_frame_euler.pitch_deg = mount_frame_pointing.el_deg;
-  const Eigen::Matrix3f platform_rotation =
-      oneq::internal::geometry::BuildRotationMatrix(
-          internal::ToGeometryEuler(platform_attitude_deg)) *
-      oneq::internal::geometry::BuildRotationMatrix(
-          internal::ToGeometryEuler(config.mount_angles_deg)) *
-      oneq::internal::geometry::BuildRotationMatrix(internal::ToGeometryEuler(mount_frame_euler));
+  const internal::Matrix3f platform_mount_rotation = internal::Multiply(
+      internal::BuildRotationMatrix(platform_attitude_deg),
+      internal::BuildRotationMatrix(config.mount_angles_deg));
+  const internal::Matrix3f platform_rotation = internal::Multiply(
+      platform_mount_rotation, internal::BuildRotationMatrix(mount_frame_euler));
   return internal::FromRotationMatrix(platform_rotation);
 }
 

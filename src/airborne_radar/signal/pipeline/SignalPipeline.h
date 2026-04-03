@@ -9,7 +9,7 @@
 #include <memory>
 #include <vector>
 
-#include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
+#include "1q/airborne_radar/signal/pipeline/IMutableSignalPipeline.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineExecutionConfig.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
@@ -20,7 +20,7 @@ namespace pipeline {
 /**
  * @brief SignalPipeline 提供可配置的信号处理默认实现。
  */
-class SignalPipeline final : public ISignalPipeline {
+class SignalPipeline final : public IMutableSignalPipeline {
  public:
   /**
    * @brief 构造信号处理流水线。
@@ -51,7 +51,7 @@ class SignalPipeline final : public ISignalPipeline {
    * @brief 获取上一周期的关联质量指标。
    * @return 上一周期缓存的关联质量指标。
    */
-  AssociationQualityMetrics GetLastAssociationQualityMetrics() const;
+  AssociationQualityMetrics GetLastAssociationQualityMetrics() const override;
 
   /**
    * @brief 注入关联阶段下一周期使用的轨迹种子。
@@ -99,7 +99,7 @@ class SignalPipeline final : public ISignalPipeline {
    * @brief 更新流水线运行配置。
    * @param config 新配置。
    */
-  void UpdateConfig(SignalPipelineConfig config);
+  void UpdateConfig(SignalPipelineConfig config) override;
 
  private:
   struct Impl;

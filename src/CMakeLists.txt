@@ -105,6 +105,7 @@ set(EOS_SOURCES
     electro_optical_sensor/foundation/EosStrayLight.cpp
     electro_optical_sensor/core/context/EosCoordinateUtils.cpp
     electro_optical_sensor/core/context/EosInputValidation.cpp
+    electro_optical_sensor/core/controller/EosController.cpp
     electro_optical_sensor/core/pipeline/EosPipeline.cpp
     electro_optical_sensor/core/session/EosSession.cpp
     electro_optical_sensor/core/session/EosTraceSession.cpp
@@ -349,21 +350,25 @@ if(ENABLE_INSTALL)
     include(GNUInstallDirs)
     include(CMakePackageConfigHelpers)
 
-    set(PUBLIC_HEADERS_COMMON
+    set(PUBLIC_HEADERS_COMMON_CONTROL
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/control/ControlDirective.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/control/RadarCommand.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/control/RadarControlProfile.h
+    )
+    set(PUBLIC_HEADERS_COMMON_MODEL
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/model/DecisionInputFrame.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/model/DecisionSourceInfo.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/model/DecisionTrackSnapshot.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/utils/JammingSemantics.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/control/RadarCommand.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/control/RadarControlProfile.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/utils/RadarOrientationUtils.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/model/TargetCategory.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/model/TargetFeature.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/model/TargetFeatureBuilder.h
+    )
+    set(PUBLIC_HEADERS_COMMON_UTILS
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/utils/JammingSemantics.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/utils/TargetFeatureUtils.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/output/TrackOutputFrame.h
     )
     set(PUBLIC_HEADERS_COMMON_OUTPUT
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/output/TrackOutputFrame.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/output/TrackOutputQueries.h
     )
     set(PUBLIC_HEADERS_CONFIG_ENTRY
@@ -375,6 +380,7 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/SignalBeamControlConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/SignalDetectionConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/SignalPipelineConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/airborne_radar_config.hpp
     )
     set(PUBLIC_HEADERS_CORE_CONTEXT
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/context/IRadarContext.h
@@ -397,9 +403,11 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentSceneBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentTypes.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/IEnvironmentService.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/IMutableEnvironmentService.h
     )
     set(PUBLIC_HEADERS_SIGNAL_PIPELINE
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/pipeline/ISignalPipeline.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/pipeline/IMutableSignalPipeline.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/pipeline/SignalPipelineResultTypes.h
     )
     set(PUBLIC_HEADERS_ESR_COMMON
@@ -424,10 +432,17 @@ if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_ESR_ENVIRONMENT
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/environment/IMutableEsrEnvironmentService.h
     )
     set(PUBLIC_HEADERS_ESR_PIPELINE
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/pipeline/IInterceptPipeline.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/pipeline/IMutableInterceptPipeline.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h
+    )
+    set(PUBLIC_HEADERS_ESR_CONFIG
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/electronic_surveillance_radar_config.hpp
     )
     set(PUBLIC_HEADERS_EOS_COMMON
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/common/EosOutputFrame.h
@@ -436,6 +451,7 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/foundation/EosNoiseModel.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/foundation/EosOpticalCharacteristics.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/foundation/EosPropagation.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/foundation/EosRadiometry.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/foundation/EosSpatialSpectrum.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/foundation/EosStrayLight.h
@@ -445,17 +461,55 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/core/context/EosCoordinateUtils.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/core/context/EosInputValidation.h
     )
+    set(PUBLIC_HEADERS_EOS_CORE_CONTROLLER
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/core/controller/EosController.h
+    )
     set(PUBLIC_HEADERS_EOS_CORE_SESSION
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/core/session/EosCycleResult.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/core/session/EosSession.h
     )
+    set(PUBLIC_HEADERS_EOS_ENVIRONMENT
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/environment/EosEnvironmentTypes.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/environment/IEosEnvironmentService.h
+    )
+    set(PUBLIC_HEADERS_EOS_PIPELINE
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/pipeline/EosPipelineTypes.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/pipeline/IEosPipeline.h
+    )
+    set(PUBLIC_HEADERS_EOS_CONFIG
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/EosSessionConfigBuilder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/electro_optical_sensor_config.hpp
+    )
     set(PUBLIC_HEADERS_ROOT
         ${CMAKE_SOURCE_DIR}/include/1q/api.hpp
+        ${CMAKE_SOURCE_DIR}/include/1q/README.md
+    )
+    set(PUBLIC_HEADERS_MODULE_ENTRY_AIRBORNE
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/airborne_radar.hpp
+    )
+    set(PUBLIC_HEADERS_MODULE_ENTRY_ESR
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp
+    )
+    set(PUBLIC_HEADERS_MODULE_ENTRY_EOS
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/electro_optical_sensor.hpp
     )
     set(PUBLIC_HEADERS_FOUNDATION
         ${CMAKE_SOURCE_DIR}/include/1q/common/coordinate_transform.h
         ${CMAKE_SOURCE_DIR}/include/1q/common/pose_types.h
         ${CMAKE_SOURCE_DIR}/include/1q/common/scan_schedule_types.h
+    )
+    set(PUBLIC_HEADERS_TRACE
+        ${CMAKE_SOURCE_DIR}/include/1q/common/trace/TraceSink.h
+    )
+    set(PUBLIC_HEADERS_AIRBORNE_TOOLS
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/tools/RadarTraceSession.h
+    )
+    set(PUBLIC_HEADERS_ESR_TOOLS
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/tools/EsrTraceSession.h
+    )
+    set(PUBLIC_HEADERS_EOS_TOOLS
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/tools/EosTraceSession.h
     )
 
     # 安装库目标
@@ -471,14 +525,32 @@ if(ENABLE_INSTALL)
     install(FILES ${PUBLIC_HEADERS_ROOT}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q
     )
+    install(FILES ${PUBLIC_HEADERS_MODULE_ENTRY_AIRBORNE}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar
+    )
+    install(FILES ${PUBLIC_HEADERS_MODULE_ENTRY_ESR}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar
+    )
+    install(FILES ${PUBLIC_HEADERS_MODULE_ENTRY_EOS}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor
+    )
     install(FILES ${PUBLIC_HEADERS_FOUNDATION}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/common
+    )
+    install(FILES ${PUBLIC_HEADERS_TRACE}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/common/trace
     )
     install(FILES "${PROJECT_GENERATED_EXPORT_HEADER}"
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q
     )
-    install(FILES ${PUBLIC_HEADERS_COMMON}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/common
+    install(FILES ${PUBLIC_HEADERS_COMMON_CONTROL}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/common/control
+    )
+    install(FILES ${PUBLIC_HEADERS_COMMON_MODEL}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/common/model
+    )
+    install(FILES ${PUBLIC_HEADERS_COMMON_UTILS}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/common/utils
     )
     install(FILES ${PUBLIC_HEADERS_COMMON_OUTPUT}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/common/output
@@ -504,6 +576,9 @@ if(ENABLE_INSTALL)
     install(FILES ${PUBLIC_HEADERS_SIGNAL_PIPELINE}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/signal/pipeline
     )
+    install(FILES ${PUBLIC_HEADERS_AIRBORNE_TOOLS}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/tools
+    )
     install(FILES ${PUBLIC_HEADERS_ESR_COMMON}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/common
     )
@@ -522,6 +597,12 @@ if(ENABLE_INSTALL)
     install(FILES ${PUBLIC_HEADERS_ESR_PIPELINE}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/pipeline
     )
+    install(FILES ${PUBLIC_HEADERS_ESR_CONFIG}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/config
+    )
+    install(FILES ${PUBLIC_HEADERS_ESR_TOOLS}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/tools
+    )
     install(FILES ${PUBLIC_HEADERS_EOS_COMMON}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/common
     )
@@ -531,8 +612,23 @@ if(ENABLE_INSTALL)
     install(FILES ${PUBLIC_HEADERS_EOS_CORE_CONTEXT}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/core/context
     )
+    install(FILES ${PUBLIC_HEADERS_EOS_CORE_CONTROLLER}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/core/controller
+    )
     install(FILES ${PUBLIC_HEADERS_EOS_CORE_SESSION}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/core/session
+    )
+    install(FILES ${PUBLIC_HEADERS_EOS_ENVIRONMENT}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/environment
+    )
+    install(FILES ${PUBLIC_HEADERS_EOS_PIPELINE}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/pipeline
+    )
+    install(FILES ${PUBLIC_HEADERS_EOS_CONFIG}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/config
+    )
+    install(FILES ${PUBLIC_HEADERS_EOS_TOOLS}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/tools
     )
 
     # 安装导出的 CMake targets 文件

@@ -1,6 +1,9 @@
 #include "1q/electro_optical_sensor/core/session/EosSession.h"
 
-#include "1q/electro_optical_sensor/core/context/EosInputValidation.h"
+#include <utility>
+
+#include "1q/electro_optical_sensor/core/controller/EosController.h"
+#include "1q/electro_optical_sensor/pipeline/IEosPipeline.h"
 #include "common/logging/ProjectLog.h"
 #include "electro_optical_sensor/core/pipeline/EosPipeline.h"
 
@@ -65,13 +68,29 @@ pipeline::EosPipelineConfig BuildPipelineConfig(const EosSessionConfig& config) 
 
 struct EosSession::Impl {
   explicit Impl(const EosSessionConfig& config)
-      : runtime_config(config), pipeline(BuildPipelineConfig(config)) {}
+      : runtime_config(config),
+        owned_pipeline(new core::pipeline::EosPipeline(BuildPipelineConfig(config))),
+        owned_controller(new core::controller::EosController(*owned_pipeline)),
+        pipeline(*owned_pipeline),
+        controller(*owned_controller) {}
+
+  Impl(const EosSessionConfig& config, ::electro_optical_sensor::pipeline::IEosPipeline& pipeline_ref,
+       core::controller::EosController& controller_ref)
+      : runtime_config(config), pipeline(pipeline_ref), controller(controller_ref) {
+    pipeline.UpdateConfig(BuildPipelineConfig(runtime_config), true);
+  }
 
   EosSessionConfig runtime_config{};
-  pipeline::EosPipeline pipeline;
+  std::unique_ptr<::electro_optical_sensor::pipeline::IEosPipeline> owned_pipeline;
+  std::unique_ptr<core::controller::EosController> owned_controller;
+  ::electro_optical_sensor::pipeline::IEosPipeline& pipeline;
+  core::controller::EosController& controller;
 };
 
 EosSession::EosSession(EosSessionConfig config) : impl_(new Impl(config)) {}
+EosSession::EosSession(EosSessionConfig config, ::electro_optical_sensor::pipeline::IEosPipeline& pipeline,
+                       core::controller::EosController& controller)
+    : impl_(new Impl(config, pipeline, controller)) {}
 
 EosSession::~EosSession() noexcept = default;
 
@@ -80,15 +99,15 @@ common::EosOutputFrame EosSession::Step(const context::EosCycleInput& input) {
 }
 
 EosCycleResult EosSession::StepWithResult(const context::EosCycleInput& input) {
+  impl_->controller.RunOnce(input);
   EosCycleResult result;
-  result.validation_issues = context::ValidateEosCycleInput(input);
-  result.has_validation_error = context::HasEosValidationError(result.validation_issues);
-  if (result.has_validation_error) {
+  result.validation_issues = impl_->controller.GetLastValidationIssues();
+  result.has_validation_error = impl_->controller.HasValidationError();
+  if (impl_->controller.HasLatestOutputFrame()) {
+    result.output_frame = impl_->controller.GetLatestOutputFrame();
+  } else {
     result.output_frame.cycle_index = input.cycle_index;
-    return result;
   }
-
-  result.output_frame = impl_->pipeline.Execute(input);
   return result;
 }
 

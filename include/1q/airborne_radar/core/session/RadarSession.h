@@ -28,6 +28,25 @@ struct RadarRuntimeConfigPatch;
 
 namespace airborne_radar {
 namespace core {
+namespace context {
+class IRadarContext;
+}
+namespace controller {
+class RadarController;
+}
+}  // namespace core
+namespace signal {
+namespace pipeline {
+class IMutableSignalPipeline;
+}
+}  // namespace signal
+namespace environment {
+class IMutableEnvironmentService;
+}
+}  // namespace airborne_radar
+
+namespace airborne_radar {
+namespace core {
 namespace session {
 
 /**
@@ -55,6 +74,13 @@ class ONEQ_API RadarSession {
  public:
   /** @brief 使用默认链路构造会话 */
   explicit RadarSession(const RadarSessionConfig& config = {});
+  /**
+   * @brief 使用外部装配链路构造会话（引用注入，不接管生命周期）。
+   */
+  RadarSession(const RadarSessionConfig& config, core::context::IRadarContext& radar_context,
+               signal::pipeline::IMutableSignalPipeline& signal_pipeline,
+               environment::IMutableEnvironmentService& environment_service,
+               core::controller::RadarController& controller);
   ~RadarSession();
 
   RadarSession(const RadarSession&) = delete;

@@ -4,6 +4,8 @@
 #include <cmath>
 
 #include "1q/electronic_surveillance_radar/core/controller/EsrController.h"
+#include "1q/electronic_surveillance_radar/environment/IMutableEsrEnvironmentService.h"
+#include "1q/electronic_surveillance_radar/pipeline/IMutableInterceptPipeline.h"
 #include "common/logging/ProjectLog.h"
 #include "electronic_surveillance_radar/core/session/EsrSessionConfigResolver.h"
 #include "electronic_surveillance_radar/environment/EsrEnvironmentService.h"
@@ -26,9 +28,25 @@ bool IsValidReceiverWindow(double lower_hz, double upper_hz) {
 struct EsrSession::Impl {
   explicit Impl(const EsrSessionConfig& config)
       : resolved_config(internal::ResolveEsrSessionConfig(config)),
-        pipeline(resolved_config.pipeline_config, resolved_config.runtime_config),
-        environment_service(resolved_config.environment_config),
-        controller(pipeline, environment_service) {}
+        owned_pipeline(
+            new pipeline::InterceptPipeline(resolved_config.pipeline_config, resolved_config.runtime_config)),
+        owned_environment_service(new environment::EsrEnvironmentService(resolved_config.environment_config)),
+        owned_controller(new controller::EsrController(*owned_pipeline, *owned_environment_service)),
+        pipeline(*owned_pipeline),
+        environment_service(*owned_environment_service),
+        controller(*owned_controller) {}
+
+  Impl(const EsrSessionConfig& config, pipeline::IMutableInterceptPipeline& pipeline_ref,
+       environment::IMutableEsrEnvironmentService& environment_service_ref,
+       controller::EsrController& controller_ref)
+      : resolved_config(internal::ResolveEsrSessionConfig(config)),
+        pipeline(pipeline_ref),
+        environment_service(environment_service_ref),
+        controller(controller_ref) {
+    pipeline.UpdateConfig(resolved_config.pipeline_config);
+    pipeline.UpdateRuntimeConfig(resolved_config.runtime_config);
+    environment_service.UpdateModelConfig(resolved_config.environment_config);
+  }
 
   // 装配当前周期会话结果。
   EsrCycleResult BuildCycleResult() const {
@@ -42,12 +60,19 @@ struct EsrSession::Impl {
   }
 
   internal::ResolvedEsrSessionConfig resolved_config{};
-  pipeline::InterceptPipeline pipeline;
-  environment::EsrEnvironmentService environment_service;
-  controller::EsrController controller;
+  std::unique_ptr<pipeline::IMutableInterceptPipeline> owned_pipeline;
+  std::unique_ptr<environment::IMutableEsrEnvironmentService> owned_environment_service;
+  std::unique_ptr<controller::EsrController> owned_controller;
+  pipeline::IMutableInterceptPipeline& pipeline;
+  environment::IMutableEsrEnvironmentService& environment_service;
+  controller::EsrController& controller;
 };
 
 EsrSession::EsrSession(EsrSessionConfig config) : impl_(new Impl(config)) {}
+EsrSession::EsrSession(EsrSessionConfig config, pipeline::IMutableInterceptPipeline& pipeline,
+                       environment::IMutableEsrEnvironmentService& environment_service,
+                       controller::EsrController& controller)
+    : impl_(new Impl(config, pipeline, environment_service, controller)) {}
 
 EsrSession::~EsrSession() = default;
 

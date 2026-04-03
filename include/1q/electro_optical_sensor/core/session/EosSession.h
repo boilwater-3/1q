@@ -15,6 +15,14 @@
 #include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 
 namespace electro_optical_sensor {
+namespace pipeline {
+class IEosPipeline;
+}
+namespace core {
+namespace controller {
+class EosController;
+}
+}  // namespace core
 namespace core {
 namespace session {
 
@@ -94,95 +102,6 @@ struct ONEQ_API EosRuntimeConfigPatch {
 };
 
 /**
- * @brief EosSessionConfigBuilder 提供初始化配置的链式构造。
- */
-class ONEQ_API EosSessionConfigBuilder {
- public:
-  explicit EosSessionConfigBuilder(const EosSessionConfig& config = {}) noexcept : config_(config) {}
-
-  EosSessionConfigBuilder& WithSessionConfig(const EosSessionConfig& config) noexcept {
-    config_ = config;
-    return *this;
-  }
-  EosSessionConfigBuilder& WithWorkMode(EosWorkMode mode) noexcept {
-    config_.work_mode = mode;
-    return *this;
-  }
-  EosSessionConfigBuilder& WithScanRateDegPerSec(float value) noexcept {
-    config_.scan_rate_deg_per_sec = value;
-    return *this;
-  }
-  EosSessionConfigBuilder& WithFrameRateHz(float value) noexcept {
-    config_.frame_rate_hz = value;
-    return *this;
-  }
-  EosSessionConfigBuilder& WithMinimumSnrDb(float value) noexcept {
-    config_.minimum_snr_db = value;
-    return *this;
-  }
-  EosSessionConfigBuilder& EnableStraylightFilter(bool enable = true) noexcept {
-    config_.enable_straylight_filter = enable;
-    return *this;
-  }
-  EosSessionConfigBuilder& WithVisibleReferenceIrradianceWm2(float value) noexcept {
-    config_.visible_reference_irradiance_w_m2 = value;
-    return *this;
-  }
-  EosSessionConfig Build() const noexcept { return config_; }
-
- private:
-  EosSessionConfig config_{};
-};
-
-/**
- * @brief EosRuntimeConfigBuilder 提供运行期补丁的链式构造。
- */
-class ONEQ_API EosRuntimeConfigBuilder {
- public:
-  explicit EosRuntimeConfigBuilder(const EosRuntimeConfigPatch& patch = {}) noexcept : patch_(patch) {}
-
-  EosRuntimeConfigBuilder& WithRuntimeConfigPatch(const EosRuntimeConfigPatch& patch) noexcept {
-    patch_ = patch;
-    return *this;
-  }
-
-  EosRuntimeConfigBuilder& WithWorkMode(EosWorkMode mode) noexcept {
-    patch_.has_work_mode = true;
-    patch_.work_mode = mode;
-    return *this;
-  }
-  EosRuntimeConfigBuilder& WithScanRateDegPerSec(float value) noexcept {
-    patch_.has_scan_rate_deg_per_sec = true;
-    patch_.scan_rate_deg_per_sec = value;
-    return *this;
-  }
-  EosRuntimeConfigBuilder& WithFrameRateHz(float value) noexcept {
-    patch_.has_frame_rate_hz = true;
-    patch_.frame_rate_hz = value;
-    return *this;
-  }
-  EosRuntimeConfigBuilder& WithMinimumSnrDb(float value) noexcept {
-    patch_.has_minimum_snr_db = true;
-    patch_.minimum_snr_db = value;
-    return *this;
-  }
-  EosRuntimeConfigBuilder& EnableStraylightFilter(bool enable = true) noexcept {
-    patch_.has_enable_straylight_filter = true;
-    patch_.enable_straylight_filter = enable;
-    return *this;
-  }
-  EosRuntimeConfigBuilder& WithVisibleReferenceIrradianceWm2(float value) noexcept {
-    patch_.has_visible_reference_irradiance_w_m2 = true;
-    patch_.visible_reference_irradiance_w_m2 = value;
-    return *this;
-  }
-  EosRuntimeConfigPatch Build() const noexcept { return patch_; }
-
- private:
-  EosRuntimeConfigPatch patch_{};
-};
-
-/**
  * @brief EosSession 提供单周期步进执行入口。
  * @note 线程模型：会话内部维护可变运行态，非线程安全；并发调用需外部串行化或加锁。
  */
@@ -193,6 +112,16 @@ class ONEQ_API EosSession {
    * @param[in] config 会话初始化配置。
    */
   explicit EosSession(EosSessionConfig config = {});
+
+  /**
+   * @brief 构造光学传感器会话，并使用外部装配链路（引用注入，不接管生命周期）。
+   * @param[in] config 会话初始化配置。
+   * @param[in] pipeline 核心管线扩展实现。
+   * @param[in] controller 控制器实现。
+   */
+  EosSession(EosSessionConfig config, pipeline::IEosPipeline& pipeline,
+             core::controller::EosController& controller);
+
   ~EosSession() noexcept;
 
   EosSession(const EosSession&) = delete;

@@ -61,6 +61,13 @@ class FakeRadarContext : public core::context::IRadarContext {
   /// @brief 获取当前雷达状态。
   const common::model::TargetFeatureList& GetTargetFeatures() const override { return state_; }
 
+  void BeginCycle(const core::context::RadarCycleInput& input) override {
+    state_ = input.target_features;
+    platform_attitude_deg_ = input.platform_attitude_deg;
+    cycle_dt_sec_ = input.dt_sec;
+    submitted_commands_.clear();
+  }
+
   /// @brief 获取当前搭载平台姿态角。
   common::config::PlatformAttitudeDeg GetPlatformAttitude() const override {
     return platform_attitude_deg_;
@@ -74,6 +81,10 @@ class FakeRadarContext : public core::context::IRadarContext {
     submitted_commands_.push_back(cmd);
   }
 
+  const std::vector<common::control::RadarCommand>& GetSubmittedCommands() const override {
+    return submitted_commands_;
+  }
+
   /// @brief 获取已提交的指令集合。
   const std::vector<common::control::RadarCommand>& SubmittedCommands() const {
     return submitted_commands_;
@@ -82,6 +93,13 @@ class FakeRadarContext : public core::context::IRadarContext {
   /// @brief 记录最新控制真值。
   void UpdateRadarControlProfile(const common::control::RadarControlProfile& profile) override {
     latest_control_profile_ = profile;
+    has_latest_control_profile_ = true;
+  }
+
+  bool HasLatestControlProfile() const override { return has_latest_control_profile_; }
+
+  const common::control::RadarControlProfile& GetLatestControlProfile() const override {
+    return latest_control_profile_;
   }
 
   /// @brief 获取最新控制真值。
@@ -103,6 +121,7 @@ class FakeRadarContext : public core::context::IRadarContext {
   float cycle_dt_sec_{1.0f};
   std::vector<common::control::RadarCommand> submitted_commands_;
   common::control::RadarControlProfile latest_control_profile_{};
+  bool has_latest_control_profile_{false};
 };
 
 class FixedDirectiveDecisionEngine : public decision::pipeline::ITacticalDecisionEngine {

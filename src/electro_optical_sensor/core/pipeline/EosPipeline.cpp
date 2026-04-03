@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <memory>
 
 #include "electro_optical_sensor/foundation/EosNoiseModel.h"
 #include "electro_optical_sensor/foundation/EosOpticalCharacteristics.h"
@@ -18,6 +19,14 @@ namespace core {
 namespace pipeline {
 
 namespace {
+
+class DefaultEosEnvironmentService final : public environment::IEosEnvironmentService {
+ public:
+  environment::EosEnvironmentModelResult ResolveFactors(
+      const environment::EosEnvironmentModelInputs& inputs) const override {
+    return environment::ResolveEnvironmentFactors(inputs);
+  }
+};
 
 float Clamp(float value, float lower, float upper) {
   if (value < lower) {
@@ -151,7 +160,8 @@ struct DetectionComputationContext {
 
 DetectionComputationContext BuildDetectionComputationContext(
     const EosPipelineConfig& config, const context::EosTargetState& target,
-    const context::EosCycleInput& input) {
+    const context::EosCycleInput& input,
+    const std::shared_ptr<environment::IEosEnvironmentService>& environment_service) {
   DetectionComputationContext context_values;
   context_values.infrared_enabled = WorkModeIncludesInfrared(config.work_mode);
   context_values.visible_enabled = WorkModeIncludesVisible(config.work_mode);
@@ -165,7 +175,7 @@ DetectionComputationContext BuildDetectionComputationContext(
   environment_inputs.base_aerosol_density_factor = config.aerosol_density_factor;
   environment_inputs.base_turbulence_factor = config.turbulence_factor;
   const environment::EosEnvironmentModelResult environment_result =
-      environment::ResolveEnvironmentFactors(environment_inputs);
+      environment_service->ResolveFactors(environment_inputs);
   const foundation::radiative_transfer::RadiativeTransferResult transfer_result =
       ComputePathRadiativeTransfer(config, input, SafePositive(target.range_m, 1000.0f),
                                    environment_result.aerosol_density_factor,
@@ -353,8 +363,15 @@ float ComputeFusedSnrLinear(EosPipelineWorkMode work_mode, context::DayNightType
 
 }  // namespace
 
-EosPipeline::EosPipeline(const EosPipelineConfig& config)
-    : config_(config), current_scan_azimuth_deg_(config.scan_start_az_deg) {}
+EosPipeline::EosPipeline(const EosPipelineConfig& config,
+                         std::shared_ptr<environment::IEosEnvironmentService> environment_service)
+    : config_(config),
+      current_scan_azimuth_deg_(config.scan_start_az_deg),
+      environment_service_(std::move(environment_service)) {
+  if (environment_service_ == nullptr) {
+    environment_service_.reset(new DefaultEosEnvironmentService());
+  }
+}
 
 void EosPipeline::UpdateConfig(const EosPipelineConfig& config, bool reset_scan_phase) {
   config_ = config;
@@ -411,7 +428,7 @@ common::EosDetectionRecord EosPipeline::BuildDetectionRecord(
   record.azimuth_deg = target.azimuth_deg;
   record.elevation_deg = target.elevation_deg;
   const DetectionComputationContext context_values =
-      BuildDetectionComputationContext(config_, target, input);
+      BuildDetectionComputationContext(config_, target, input, environment_service_);
   const float infrared_snr_linear =
       context_values.infrared_enabled
           ? ComputeInfraredSnrLinear(target, input, context_values)

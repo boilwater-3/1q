@@ -17,6 +17,11 @@ namespace {
 
 class DummyRadarContext : public core::context::IRadarContext {
  public:
+  void BeginCycle(const core::context::RadarCycleInput& input) override {
+    (void)input;
+    commands_.clear();
+  }
+
   const common::model::TargetFeatureList& GetTargetFeatures() const override {
     static const common::model::TargetFeatureList kEmptyTargets;
     return kEmptyTargets;
@@ -30,12 +35,24 @@ class DummyRadarContext : public core::context::IRadarContext {
 
   void UpdateRadarControlProfile(const common::control::RadarControlProfile& profile) override {
     control_profile_ = profile;
+    has_control_profile_ = true;
+  }
+
+  const std::vector<common::control::RadarCommand>& GetSubmittedCommands() const override {
+    return commands_;
+  }
+
+  bool HasLatestControlProfile() const override { return has_control_profile_; }
+
+  const common::control::RadarControlProfile& GetLatestControlProfile() const override {
+    return control_profile_;
   }
 
  private:
   common::config::PlatformAttitudeDeg platform_attitude_{};
   common::control::RadarControlProfile control_profile_{};
   std::vector<common::control::RadarCommand> commands_{};
+  bool has_control_profile_{false};
 };
 
 class DummyEnvironmentService : public environment::IEnvironmentService {
