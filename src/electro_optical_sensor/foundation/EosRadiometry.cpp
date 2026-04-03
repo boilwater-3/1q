@@ -3,13 +3,14 @@
 #include <algorithm>
 #include <cmath>
 
+#include "electro_optical_sensor/foundation/EosPhysicalConstants.h"
+
 namespace electro_optical_sensor {
 namespace foundation {
 namespace radiometry {
 
 namespace {
 
-constexpr float kPi = 3.14159265358979323846f;
 constexpr float kPlanckConstant = 6.62607015e-34f;
 constexpr float kLightSpeed = 2.99792458e8f;
 constexpr float kBoltzmannConstant = 1.380649e-23f;
@@ -21,7 +22,7 @@ float Clamp(float value, float lower, float upper) {
 float Clamp01(float value) { return Clamp(value, 0.0f, 1.0f); }
 
 float SafePositive(float value, float fallback) {
-  if (std::isfinite(value) == 0 || value <= 0.0f) {
+  if (!std::isfinite(value) || value <= 0.0f) {
     return fallback;
   }
   return value;
@@ -43,7 +44,7 @@ float ComputePlanckRadiance(float wavelength_um, float temperature_k) {
   const float safe_wavelength_m = SafePositive(wavelength_um * 1.0e-6f, 4.0e-6f);
   const float safe_temperature_k = SafePositive(temperature_k, 290.0f);
   const float lambda5 = std::pow(safe_wavelength_m, 5.0f);
-  if (lambda5 <= 0.0f) {
+  if (!std::isfinite(lambda5) || lambda5 <= 0.0f) {
     return 0.0f;
   }
 
@@ -52,6 +53,9 @@ float ComputePlanckRadiance(float wavelength_um, float temperature_k) {
       (kPlanckConstant * kLightSpeed) / (safe_wavelength_m * kBoltzmannConstant * safe_temperature_k);
   const float exp_value = std::exp(std::min(exponent, 80.0f));
   const float denominator = lambda5 * std::max(exp_value - 1.0f, 1.0e-12f);
+  if (!std::isfinite(denominator) || denominator <= 0.0f) {
+    return 0.0f;
+  }
   return c1 / denominator;
 }
 
@@ -76,11 +80,13 @@ float ComputeVisibleLambertianRadiance(const VisibleRadianceInputs& inputs) {
   const float cloud_coverage = Clamp01(inputs.cloud_coverage_ratio);
   const float effective_irradiance =
       std::max(0.0f, inputs.solar_irradiance_w_m2) * ComputeIlluminationScale(inputs.illumination);
-  const float solar_altitude_rad = inputs.solar_altitude_deg * kPi / 180.0f;
+  const float solar_altitude_rad =
+      inputs.solar_altitude_deg * constants::kPi / 180.0f;
   const float solar_geometry_gain = std::max(0.0f, std::sin(solar_altitude_rad));
   const float cloud_gain = 1.0f - 0.7f * cloud_coverage;
 
-  return reflectance * effective_irradiance * cloud_gain * solar_geometry_gain / kPi;
+  return reflectance * effective_irradiance * cloud_gain * solar_geometry_gain /
+         constants::kPi;
 }
 
 VisibleChannelResult ComputeVisibleChannelResult(const VisibleChannelInputs& inputs) {
@@ -89,7 +95,6 @@ VisibleChannelResult ComputeVisibleChannelResult(const VisibleChannelInputs& inp
 
   VisibleRadianceInputs background_inputs = inputs.target;
   background_inputs.reflectance = Clamp01(inputs.background_reflectance);
-  background_inputs.projected_area_m2 = SafePositive(inputs.background_patch_area_m2, 10.0f);
   result.background_radiance = ComputeVisibleLambertianRadiance(background_inputs);
   result.normalized_contrast =
       ComputeRelativeContrast(result.target_radiance, result.background_radiance);
