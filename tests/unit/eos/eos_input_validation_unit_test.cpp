@@ -119,6 +119,17 @@ TEST(EosInputValidationTest, InvalidTargetEmissivityIsReportedAsError) {
   EXPECT_TRUE(HasEosValidationError(issues));
 }
 
+TEST(EosInputValidationTest, InconsistentTargetEnergyBalanceIsReportedAsWarning) {
+  EosCycleInput input = MakeValidInput();
+  input.scene_targets[0].emissivity = 0.8f;
+  input.scene_targets[0].reflectance = 0.4f;
+
+  const EosValidationIssueList issues = ValidateEosCycleInput(input);
+
+  EXPECT_TRUE(ContainsCode(issues, EosValidationCode::kInconsistentTargetEnergyBalance));
+  EXPECT_FALSE(HasEosValidationError(issues));
+}
+
 TEST(EosInputValidationTest, InvalidAmbientWindSpeedIsReportedAsError) {
   EosCycleInput input = MakeValidInput();
   input.ambient_wind_speed_mps = -1.0f;
@@ -288,6 +299,17 @@ TEST(EosInputValidationTest, SolarAltitudeOutOfRangeIsReportedAsError) {
   EXPECT_TRUE(HasEosValidationError(issues));
 }
 
+TEST(EosInputValidationTest, InconsistentDayNightTypeIsReportedAsWarning) {
+  EosCycleInput input = MakeValidInput();
+  input.day_night_type = DayNightType::kNight;
+  input.solar_altitude_deg = 20.0f;
+
+  const EosValidationIssueList issues = ValidateEosCycleInput(input);
+
+  EXPECT_TRUE(ContainsCode(issues, EosValidationCode::kInconsistentDayNightType));
+  EXPECT_FALSE(HasEosValidationError(issues));
+}
+
 TEST(EosInputValidationTest, RuntimePatchRejectsInvalidFrameRateHz) {
   session::EosSessionConfig config;
   config.work_mode = session::EosWorkMode::kInfraredOnly;
@@ -353,6 +375,42 @@ TEST(EosInputValidationTest, RuntimePatchRejectsInvalidScanRate) {
 
   const float expected_azimuth = ResolveNextScanAzimuthDeg(config, baseline_azimuth, input.dt_sec);
   EXPECT_NEAR(after_patch.output_frame.scan_azimuth_deg, expected_azimuth, 1.0e-5f);
+}
+
+TEST(EosInputValidationTest, RuntimePatchIsAtomicWhenAnyFieldIsInvalid) {
+  session::EosSessionConfig config;
+  config.work_mode = session::EosWorkMode::kFused;
+  config.minimum_snr_db = -120.0f;
+  config.scan_start_az_deg = -20.0f;
+  config.scan_end_az_deg = 20.0f;
+  config.horizontal_fov_deg = 12.0f;
+  config.vertical_fov_deg = 6.0f;
+
+  session::EosSession eos_session(config);
+  EosCycleInput input = MakeValidInput();
+  input.platform_pose.position_m.z = 1200.0f;
+  input.scene_targets[0].range_m = 1700.0f;
+  input.scene_targets[0].azimuth_deg = ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec);
+
+  const session::EosCycleResult baseline = eos_session.StepWithResult(input);
+  ASSERT_FALSE(baseline.has_validation_error);
+  ASSERT_EQ(baseline.output_frame.detections.size(), 1U);
+  ASSERT_TRUE(baseline.output_frame.detections[0].detected);
+  const float rejected_threshold_db = baseline.output_frame.detections[0].fused_snr_db + 3.0f;
+
+  const session::EosRuntimeConfigPatch patch = session::EosRuntimeConfigBuilder()
+                                                   .WithFrameRateHz(0.0f)
+                                                   .WithMinimumSnrDb(rejected_threshold_db)
+                                                   .Build();
+  eos_session.ApplyRuntimeConfig(patch);
+
+  input.cycle_index += 1U;
+  input.scene_targets[0].azimuth_deg =
+      ResolveNextScanAzimuthDeg(config, baseline.output_frame.scan_azimuth_deg, input.dt_sec);
+  const session::EosCycleResult after_patch = eos_session.StepWithResult(input);
+  ASSERT_FALSE(after_patch.has_validation_error);
+  ASSERT_EQ(after_patch.output_frame.detections.size(), 1U);
+  EXPECT_TRUE(after_patch.output_frame.detections[0].detected);
 }
 
 }  // namespace

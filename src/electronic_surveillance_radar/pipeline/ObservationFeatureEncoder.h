@@ -29,16 +29,11 @@ class ObservationFeatureEncoder final {
   static ObservationFeatureVector Encode(const common::EmitterObservation& observation,
                                          const ObservationFeatureScales& scales) {
     ObservationFeatureVector feature;
-    const double rf_scale =
-        scales.rf_scale_hz > 0.0f ? static_cast<double>(scales.rf_scale_hz) : 1.0;
-    const double pw_scale =
-        scales.pw_scale_sec > 0.0f ? static_cast<double>(scales.pw_scale_sec) : 1.0e-6;
-    const double az_scale =
-        scales.az_scale_deg > 0.0f ? static_cast<double>(scales.az_scale_deg) : 1.0;
-    const double el_scale =
-        scales.el_scale_deg > 0.0f ? static_cast<double>(scales.el_scale_deg) : 1.0;
-    const double snr_scale =
-        scales.snr_scale_db > 0.0f ? static_cast<double>(scales.snr_scale_db) : 1.0;
+    const double rf_scale = ResolveScale(scales.rf_scale_hz, 1.0);
+    const double pw_scale = ResolveScale(scales.pw_scale_sec, 1.0e-6);
+    const double az_scale = ResolveScale(scales.az_scale_deg, 1.0);
+    const double el_scale = ResolveScale(scales.el_scale_deg, 1.0);
+    const double snr_scale = ResolveScale(scales.snr_scale_db, 1.0);
 
     feature.values[0] = static_cast<float>(observation.rf_hz / rf_scale);
     feature.values[1] = static_cast<float>(observation.pulse_width_s / pw_scale);
@@ -61,6 +56,11 @@ class ObservationFeatureEncoder final {
       sum_sq += diff * diff;
     }
     return std::sqrt(sum_sq);
+  }
+
+ private:
+  static double ResolveScale(float value, double fallback) {
+    return (std::isfinite(value) != 0 && value > 0.0f) ? static_cast<double>(value) : fallback;
   }
 };
 

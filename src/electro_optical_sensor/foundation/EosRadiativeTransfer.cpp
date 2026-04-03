@@ -11,6 +11,8 @@ namespace radiative_transfer {
 
 namespace {
 
+constexpr float kReferenceAtmosphericPathM = 5000.0f;
+
 float Clamp(float value, float lower, float upper) {
   return std::max(lower, std::min(value, upper));
 }
@@ -33,8 +35,9 @@ RadiativeTransferResult EvaluateRadiativeTransfer(const RadiativeTransferInputs&
   const float aerosol_density_factor = std::max(1.0f, inputs.aerosol_density_factor);
   const float turbulence_factor = std::max(1.0f, inputs.turbulence_factor);
 
-  const float safe_base_transmittance = std::max(base_transmittance, 1.0e-4f);
-  const float base_extinction_coeff_per_m = -std::log(safe_base_transmittance) / 5000.0f;
+  const float safe_base_transmittance = std::max(base_transmittance, 1.0e-9f);
+  const float base_extinction_coeff_per_m =
+      -std::log(safe_base_transmittance) / kReferenceAtmosphericPathM;
   const float humidity_absorption_coeff_per_m = 2.5e-5f * cloud_ratio;
   const float aerosol_coeff_per_m = 1.0e-5f * (aerosol_density_factor - 1.0f);
   const float turbulence_coeff_per_m = 8.0e-6f * (turbulence_factor - 1.0f);

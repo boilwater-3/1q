@@ -23,6 +23,25 @@ bool IsFinite(T value) {
 
 bool IsRatioValid(float value) { return IsFinite(value) && value >= 0.0f && value <= 1.0f; }
 
+void ValidateDayNightConsistency(const EosCycleInput& input, EosValidationIssueList* issues) {
+  if (issues == nullptr || !IsFinite(input.solar_altitude_deg)) {
+    return;
+  }
+  if (input.day_night_type == DayNightType::kDay && input.solar_altitude_deg < 0.0f) {
+    issues->push_back(MakeIssue(EosValidationSeverity::kWarning,
+                                EosValidationCode::kInconsistentDayNightType,
+                                static_cast<std::size_t>(-1),
+                                "day/night type is day while solar altitude is below horizon"));
+    return;
+  }
+  if (input.day_night_type == DayNightType::kNight && input.solar_altitude_deg > -6.0f) {
+    issues->push_back(MakeIssue(EosValidationSeverity::kWarning,
+                                EosValidationCode::kInconsistentDayNightType,
+                                static_cast<std::size_t>(-1),
+                                "day/night type is night while solar altitude indicates twilight/day"));
+  }
+}
+
 void ValidatePlatformPose(const oneq::common::PoseState& platform_pose,
                           EosValidationIssueList* issues) {
   if (issues == nullptr) {
@@ -82,6 +101,12 @@ void ValidateTarget(const EosTargetState& target, std::size_t target_index,
                                 EosValidationCode::kInvalidTargetReflectance, target_index,
                                 "target reflectance must be in [0, 1]"));
   }
+  if (IsFinite(target.emissivity) && IsFinite(target.reflectance) &&
+      (target.emissivity + target.reflectance > 1.0f + 1.0e-4f)) {
+    issues->push_back(MakeIssue(EosValidationSeverity::kWarning,
+                                EosValidationCode::kInconsistentTargetEnergyBalance, target_index,
+                                "target emissivity + reflectance should not exceed 1"));
+  }
   if (target.projected_area_m2 <= 0.0f) {
     issues->push_back(MakeIssue(EosValidationSeverity::kError,
                                 EosValidationCode::kInvalidTargetProjectedArea, target_index,
@@ -115,6 +140,7 @@ EosValidationIssueList ValidateEosCycleInput(const EosCycleInput& input) {
         MakeIssue(EosValidationSeverity::kError, EosValidationCode::kInvalidSolarAltitudeRange,
                   static_cast<std::size_t>(-1), "solar altitude must be in [-90, 90] degrees"));
   }
+  ValidateDayNightConsistency(input, &issues);
 
   if (!IsFinite(input.solar_irradiance_w_m2) || input.solar_irradiance_w_m2 < 0.0f) {
     issues.push_back(MakeIssue(

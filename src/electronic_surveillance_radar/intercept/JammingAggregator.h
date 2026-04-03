@@ -86,10 +86,10 @@ class JammingAggregator final {
 
       if (HasDeceptionEffect(technique)) {
         const float deception_effect = Clamp01(deception_risk * overlap_ratio * confidence);
-        deception_clear_probability *= (1.0f - deception_effect);
-        if (deception_clear_probability < 0.0f) {
-          deception_clear_probability = 0.0f;
-        }
+        const float safe_deception_effect =
+            std::isfinite(deception_effect) ? deception_effect : 0.0f;
+        deception_clear_probability *= (1.0f - safe_deception_effect);
+        deception_clear_probability = Clamp01(deception_clear_probability);
         deception_overlap_weighted_sum += overlap_ratio * deception_effect;
         deception_effect_weight_sum += deception_effect;
         ++result.deception_source_count;

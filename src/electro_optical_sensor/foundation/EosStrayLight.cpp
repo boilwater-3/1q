@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "electro_optical_sensor/foundation/EosPhysicalConstants.h"
+
 namespace electro_optical_sensor {
 namespace foundation {
 namespace stray_light {
@@ -26,7 +28,7 @@ float NormalizeAngle180(float angle_deg) {
   return normalized;
 }
 
-float DegToRad(float angle_deg) { return angle_deg * 3.1415926f / 180.0f; }
+float DegToRad(float angle_deg) { return angle_deg * constants::kPi / 180.0f; }
 
 float ComputeAngularSeparationDeg(float az0_deg, float el0_deg, float az1_deg, float el1_deg) {
   const float el0_rad = DegToRad(el0_deg);
@@ -36,7 +38,7 @@ float ComputeAngularSeparationDeg(float az0_deg, float el0_deg, float az1_deg, f
   float cosine_angle = std::sin(el0_rad) * std::sin(el1_rad) +
                        std::cos(el0_rad) * std::cos(el1_rad) * std::cos(delta_az_rad);
   cosine_angle = Clamp(cosine_angle, -1.0f, 1.0f);
-  return std::acos(cosine_angle) * 180.0f / 3.1415926f;
+  return std::acos(cosine_angle) * 180.0f / constants::kPi;
 }
 
 }  // namespace
@@ -55,7 +57,7 @@ StrayLightFilterResult EvaluateStrayLightFilter(const StrayLightFilterInputs& in
   result.sun_separation_deg = ComputeAngularSeparationDeg(
       inputs.target_azimuth_deg, inputs.target_elevation_deg, inputs.sun_azimuth_deg,
       inputs.sun_altitude_deg);
-  const float separation_span_deg = outer_half_angle_deg - inner_half_angle_deg;
+  const float separation_span_deg = std::max(outer_half_angle_deg - inner_half_angle_deg, 0.001f);
   const float normalized_separation =
       Clamp((result.sun_separation_deg - inner_half_angle_deg) / separation_span_deg, 0.0f, 1.0f);
 

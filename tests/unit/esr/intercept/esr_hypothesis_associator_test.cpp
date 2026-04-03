@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -187,6 +188,66 @@ TEST(EsrHypothesisAssociatorTest, AppendsSpectralClassWithoutReplacingBandClass)
   EXPECT_NE(std::find(hypotheses[0].candidate_classes.begin(), hypotheses[0].candidate_classes.end(),
                       "SPECTRAL_BROADBAND"),
             hypotheses[0].candidate_classes.end());
+}
+
+TEST(EsrHypothesisAssociatorTest, ZeroSupportCountDoesNotProduceInfiniteBearingStd) {
+  InterceptAssociationConfig config;
+  config.confirm_hits = 1U;
+  config.output_tentative = true;
+  HypothesisAssociator associator(config);
+
+  std::uint64_t next_hypothesis_id = 1U;
+  std::vector<ClusterSummary> clusters;
+  clusters.push_back(MakeCluster(0.0f, 0.0f, 0.0f, 0.0f, 10.0e9, 14.0f, 0U));
+
+  const common::EmitterHypothesisList hypotheses =
+      associator.Update(60U, clusters, &next_hypothesis_id);
+  ASSERT_EQ(hypotheses.size(), 1U);
+  EXPECT_TRUE(std::isfinite(hypotheses[0].bearing_std_deg));
+  EXPECT_GT(hypotheses[0].bearing_std_deg, 0.0f);
+}
+
+TEST(EsrHypothesisAssociatorTest, TieDistanceAssociationUsesStableClusterOrder) {
+  InterceptAssociationConfig config;
+  config.gate_distance = 1.0f;
+  config.confirm_hits = 1U;
+  config.max_missed_cycles = 3U;
+  config.confidence_alpha = 1.0f;
+  config.output_tentative = true;
+  HypothesisAssociator associator(config);
+
+  std::uint64_t next_hypothesis_id = 1U;
+  std::vector<ClusterSummary> cycle_1_clusters;
+  cycle_1_clusters.push_back(
+      MakeCluster(0.0f, 0.0f, 0.0f, 0.0f, 10.0e9, 12.0f, 3U, 0.0f, "SPECTRAL_A"));
+  const common::EmitterHypothesisList cycle_1 =
+      associator.Update(70U, cycle_1_clusters, &next_hypothesis_id);
+  ASSERT_EQ(cycle_1.size(), 1U);
+  const std::uint64_t stable_id = cycle_1[0].hypothesis_id;
+
+  std::vector<ClusterSummary> cycle_2_clusters;
+  cycle_2_clusters.push_back(
+      MakeCluster(0.5f, 0.0f, 1.0f, 0.0f, 10.0e9, 12.0f, 3U, 0.0f, "SPECTRAL_FIRST"));
+  cycle_2_clusters.push_back(
+      MakeCluster(-0.5f, 0.0f, -1.0f, 0.0f, 10.0e9, 12.0f, 3U, 0.0f, "SPECTRAL_SECOND"));
+  const common::EmitterHypothesisList cycle_2 =
+      associator.Update(71U, cycle_2_clusters, &next_hypothesis_id);
+  ASSERT_EQ(cycle_2.size(), 2U);
+
+  const common::EmitterHypothesis* matched_track = nullptr;
+  for (std::size_t i = 0; i < cycle_2.size(); ++i) {
+    if (cycle_2[i].hypothesis_id == stable_id) {
+      matched_track = &cycle_2[i];
+      break;
+    }
+  }
+  ASSERT_NE(matched_track, static_cast<const common::EmitterHypothesis*>(nullptr));
+  EXPECT_NE(std::find(matched_track->candidate_classes.begin(), matched_track->candidate_classes.end(),
+                      "SPECTRAL_FIRST"),
+            matched_track->candidate_classes.end());
+  EXPECT_EQ(std::find(matched_track->candidate_classes.begin(), matched_track->candidate_classes.end(),
+                      "SPECTRAL_SECOND"),
+            matched_track->candidate_classes.end());
 }
 
 }  // namespace

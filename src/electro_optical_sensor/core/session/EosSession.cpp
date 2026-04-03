@@ -73,7 +73,7 @@ struct EosSession::Impl {
 
 EosSession::EosSession(EosSessionConfig config) : impl_(new Impl(config)) {}
 
-EosSession::~EosSession() = default;
+EosSession::~EosSession() noexcept = default;
 
 common::EosOutputFrame EosSession::Step(const context::EosCycleInput& input) {
   return StepWithResult(input).output_frame;
@@ -93,19 +93,22 @@ EosCycleResult EosSession::StepWithResult(const context::EosCycleInput& input) {
 }
 
 void EosSession::ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch) {
-  EosSessionConfig* runtime_config = &impl_->runtime_config;
+  const EosSessionConfig& runtime_config = impl_->runtime_config;
+  EosSessionConfig proposed_runtime_config = runtime_config;
   bool reset_scan_phase = false;
-  bool has_valid_update = false;
+  bool has_requested_update = false;
+  bool all_requested_fields_valid = true;
   if (patch.has_work_mode) {
-    runtime_config->work_mode = patch.work_mode;
-    has_valid_update = true;
+    proposed_runtime_config.work_mode = patch.work_mode;
+    has_requested_update = true;
   }
   if (patch.has_scan_rate_deg_per_sec) {
+    has_requested_update = true;
     if (std::isfinite(patch.scan_rate_deg_per_sec) && patch.scan_rate_deg_per_sec > 0.0f) {
-      runtime_config->scan_rate_deg_per_sec = patch.scan_rate_deg_per_sec;
+      proposed_runtime_config.scan_rate_deg_per_sec = patch.scan_rate_deg_per_sec;
       reset_scan_phase = true;
-      has_valid_update = true;
     } else {
+      all_requested_fields_valid = false;
       PROJECT_LOG_ERROR(
           "[EosSession] Rejecting invalid scan_rate_deg_per_sec={}; "
           "must be finite and positive.",
@@ -113,10 +116,11 @@ void EosSession::ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch) {
     }
   }
   if (patch.has_frame_rate_hz) {
+    has_requested_update = true;
     if (std::isfinite(patch.frame_rate_hz) && patch.frame_rate_hz > 0.0f) {
-      runtime_config->frame_rate_hz = patch.frame_rate_hz;
-      has_valid_update = true;
+      proposed_runtime_config.frame_rate_hz = patch.frame_rate_hz;
     } else {
+      all_requested_fields_valid = false;
       PROJECT_LOG_ERROR(
           "[EosSession] Rejecting invalid frame_rate_hz={}; "
           "must be finite and positive.",
@@ -124,28 +128,37 @@ void EosSession::ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch) {
     }
   }
   if (patch.has_minimum_snr_db) {
-    runtime_config->minimum_snr_db = patch.minimum_snr_db;
-    has_valid_update = true;
+    proposed_runtime_config.minimum_snr_db = patch.minimum_snr_db;
+    has_requested_update = true;
   }
   if (patch.has_enable_straylight_filter) {
-    runtime_config->enable_straylight_filter = patch.enable_straylight_filter;
-    has_valid_update = true;
+    proposed_runtime_config.enable_straylight_filter = patch.enable_straylight_filter;
+    has_requested_update = true;
   }
   if (patch.has_visible_reference_irradiance_w_m2) {
+    has_requested_update = true;
     if (std::isfinite(patch.visible_reference_irradiance_w_m2) &&
         patch.visible_reference_irradiance_w_m2 > 0.0f) {
-      runtime_config->visible_reference_irradiance_w_m2 = patch.visible_reference_irradiance_w_m2;
-      has_valid_update = true;
+      proposed_runtime_config.visible_reference_irradiance_w_m2 =
+          patch.visible_reference_irradiance_w_m2;
     } else {
+      all_requested_fields_valid = false;
       PROJECT_LOG_ERROR(
           "[EosSession] Rejecting invalid visible_reference_irradiance_w_m2={}; "
           "must be finite and positive.",
           patch.visible_reference_irradiance_w_m2);
     }
   }
-  if (has_valid_update) {
-    impl_->pipeline.UpdateConfig(BuildPipelineConfig(*runtime_config), reset_scan_phase);
+  if (!has_requested_update) {
+    return;
   }
+  if (!all_requested_fields_valid) {
+    PROJECT_LOG_ERROR(
+        "[EosSession] Runtime config patch rejected due to invalid fields; no changes applied.");
+    return;
+  }
+  impl_->runtime_config = proposed_runtime_config;
+  impl_->pipeline.UpdateConfig(BuildPipelineConfig(impl_->runtime_config), reset_scan_phase);
 }
 
 }  // namespace session

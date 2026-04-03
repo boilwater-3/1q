@@ -36,26 +36,40 @@ struct ONEQ_API EosTargetAppearance {
 };
 
 /**
+ * @brief EOS 坐标适配执行状态。
+ */
+enum class ONEQ_API EosCoordinateStatus {
+  kOk = 0,                  /**< 转换或构造成功 */
+  kNullOutput,              /**< 输出指针为空 */
+  kCoordinateTransformFail, /**< 坐标转换失败 */
+  kDegenerateGeometry       /**< 几何关系退化（如目标与平台重合） */
+};
+
+/**
  * @brief 将 ECEF 坐标转换到 EOS 局部坐标。
  * @param[in] position_ecef_m 外部 ECEF 坐标（单位：m）。
  * @param[in] reference EOS 局部坐标参考系。
  * @param[out] position_local_m 输出 EOS 局部坐标（单位：m），可为 nullptr。
+ * @param[out] status 可选状态输出，可为 nullptr。
  * @return 成功返回 true；输入非法或输出为空返回 false。
  */
 ONEQ_API bool TryConvertEcefToEosLocal(const oneq::common::EcefCoordinateM& position_ecef_m,
                                        const EosCoordinateReference& reference,
-                                       oneq::common::Vector3f* position_local_m);
+                                       oneq::common::Vector3f* position_local_m,
+                                       EosCoordinateStatus* status = nullptr);
 
 /**
  * @brief 将 LLA 坐标转换到 EOS 局部坐标。
  * @param[in] position_lla_deg_m 外部 LLA 坐标（单位：deg/m）。
  * @param[in] reference EOS 局部坐标参考系。
  * @param[out] position_local_m 输出 EOS 局部坐标（单位：m），可为 nullptr。
+ * @param[out] status 可选状态输出，可为 nullptr。
  * @return 成功返回 true；输入非法或输出为空返回 false。
  */
 ONEQ_API bool TryConvertLlaToEosLocal(const oneq::common::LlaCoordinateDegM& position_lla_deg_m,
                                       const EosCoordinateReference& reference,
-                                      oneq::common::Vector3f* position_local_m);
+                                      oneq::common::Vector3f* position_local_m,
+                                      EosCoordinateStatus* status = nullptr);
 
 /**
  * @brief 根据 ECEF 坐标构造 EOS 平台位姿。
@@ -64,13 +78,15 @@ ONEQ_API bool TryConvertLlaToEosLocal(const oneq::common::LlaCoordinateDegM& pos
  * @param[in] velocity_local_mps EOS 局部坐标速度（单位：m/s）。
  * @param[in] attitude_deg 平台姿态角（单位：deg）。
  * @param[out] pose 输出平台位姿，可为 nullptr。
+ * @param[out] status 可选状态输出，可为 nullptr。
  * @return 成功返回 true；输入非法或输出为空返回 false。
  */
 ONEQ_API bool TryMakeEosPoseFromEcef(const oneq::common::EcefCoordinateM& position_ecef_m,
                                      const EosCoordinateReference& reference,
                                      const oneq::common::Vector3f& velocity_local_mps,
                                      const oneq::common::EulerAnglesDeg& attitude_deg,
-                                     oneq::common::PoseState* pose);
+                                     oneq::common::PoseState* pose,
+                                     EosCoordinateStatus* status = nullptr);
 
 /**
  * @brief 根据 LLA 坐标构造 EOS 平台位姿。
@@ -79,13 +95,15 @@ ONEQ_API bool TryMakeEosPoseFromEcef(const oneq::common::EcefCoordinateM& positi
  * @param[in] velocity_local_mps EOS 局部坐标速度（单位：m/s）。
  * @param[in] attitude_deg 平台姿态角（单位：deg）。
  * @param[out] pose 输出平台位姿，可为 nullptr。
+ * @param[out] status 可选状态输出，可为 nullptr。
  * @return 成功返回 true；输入非法或输出为空返回 false。
  */
 ONEQ_API bool TryMakeEosPoseFromLla(const oneq::common::LlaCoordinateDegM& position_lla_deg_m,
                                     const EosCoordinateReference& reference,
                                     const oneq::common::Vector3f& velocity_local_mps,
                                     const oneq::common::EulerAnglesDeg& attitude_deg,
-                                    oneq::common::PoseState* pose);
+                                    oneq::common::PoseState* pose,
+                                    EosCoordinateStatus* status = nullptr);
 
 /**
  * @brief 根据 ECEF 坐标构造 EOS 目标输入（range/az/el）。
@@ -95,6 +113,7 @@ ONEQ_API bool TryMakeEosPoseFromLla(const oneq::common::LlaCoordinateDegM& posit
  * @param[in] platform_pose EOS 平台位姿（局部坐标）。
  * @param[in] appearance 目标外观参数。
  * @param[out] target 输出目标输入，可为 nullptr。
+ * @param[out] status 可选状态输出，可为 nullptr。
  * @return 成功返回 true；输入非法、几何退化或输出为空返回 false。
  */
 ONEQ_API bool TryMakeEosTargetFromEcef(std::uint64_t target_id,
@@ -102,7 +121,8 @@ ONEQ_API bool TryMakeEosTargetFromEcef(std::uint64_t target_id,
                                        const EosCoordinateReference& reference,
                                        const oneq::common::PoseState& platform_pose,
                                        const EosTargetAppearance& appearance,
-                                       EosTargetState* target);
+                                       EosTargetState* target,
+                                       EosCoordinateStatus* status = nullptr);
 
 /**
  * @brief 根据 LLA 坐标构造 EOS 目标输入（range/az/el）。
@@ -112,6 +132,7 @@ ONEQ_API bool TryMakeEosTargetFromEcef(std::uint64_t target_id,
  * @param[in] platform_pose EOS 平台位姿（局部坐标）。
  * @param[in] appearance 目标外观参数。
  * @param[out] target 输出目标输入，可为 nullptr。
+ * @param[out] status 可选状态输出，可为 nullptr。
  * @return 成功返回 true；输入非法、几何退化或输出为空返回 false。
  */
 ONEQ_API bool TryMakeEosTargetFromLla(std::uint64_t target_id,
@@ -119,11 +140,11 @@ ONEQ_API bool TryMakeEosTargetFromLla(std::uint64_t target_id,
                                       const EosCoordinateReference& reference,
                                       const oneq::common::PoseState& platform_pose,
                                       const EosTargetAppearance& appearance,
-                                      EosTargetState* target);
+                                      EosTargetState* target,
+                                      EosCoordinateStatus* status = nullptr);
 
 }  // namespace context
 }  // namespace core
 }  // namespace electro_optical_sensor
 
 #endif  // ELECTRO_OPTICAL_SENSOR_CORE_CONTEXT_EOS_COORDINATE_UTILS_H_
-

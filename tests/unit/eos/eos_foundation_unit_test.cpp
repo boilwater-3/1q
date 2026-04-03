@@ -36,11 +36,8 @@ TEST(EosFoundationTest, VisibleRadianceDayIsHigherThanNight) {
   radiometry::VisibleRadianceInputs base;
   base.solar_irradiance_w_m2 = 900.0f;
   base.solar_altitude_deg = 50.0f;
-  base.atmospheric_transmittance = 0.8f;
   base.cloud_coverage_ratio = 0.2f;
   base.reflectance = 0.4f;
-  base.projected_area_m2 = 2.0f;
-  base.range_m = 1500.0f;
 
   base.illumination = radiometry::IlluminationCondition::kDay;
   const float day_radiance = radiometry::ComputeVisibleLambertianRadiance(base);
@@ -54,17 +51,16 @@ TEST(EosFoundationTest, VisibleRadianceIgnoresGeometryAndPathTerms) {
   radiometry::VisibleRadianceInputs near_target;
   near_target.solar_irradiance_w_m2 = 900.0f;
   near_target.solar_altitude_deg = 50.0f;
-  near_target.atmospheric_transmittance = 0.95f;
   near_target.cloud_coverage_ratio = 0.1f;
   near_target.reflectance = 0.35f;
-  near_target.projected_area_m2 = 1.0f;
-  near_target.range_m = 500.0f;
   near_target.illumination = radiometry::IlluminationCondition::kDay;
 
   radiometry::VisibleRadianceInputs far_target = near_target;
-  far_target.atmospheric_transmittance = 0.4f;
-  far_target.projected_area_m2 = 50.0f;
-  far_target.range_m = 6000.0f;
+  far_target.solar_irradiance_w_m2 = near_target.solar_irradiance_w_m2;
+  far_target.solar_altitude_deg = near_target.solar_altitude_deg;
+  far_target.cloud_coverage_ratio = near_target.cloud_coverage_ratio;
+  far_target.reflectance = near_target.reflectance;
+  far_target.illumination = near_target.illumination;
 
   const float near_radiance = radiometry::ComputeVisibleLambertianRadiance(near_target);
   const float far_radiance = radiometry::ComputeVisibleLambertianRadiance(far_target);
@@ -75,11 +71,8 @@ TEST(EosFoundationTest, VisibleChannelResultProvidesBackgroundAndContrast) {
   radiometry::VisibleChannelInputs inputs;
   inputs.target.solar_irradiance_w_m2 = 850.0f;
   inputs.target.solar_altitude_deg = 40.0f;
-  inputs.target.atmospheric_transmittance = 0.78f;
   inputs.target.cloud_coverage_ratio = 0.15f;
   inputs.target.reflectance = 0.45f;
-  inputs.target.projected_area_m2 = 1.8f;
-  inputs.target.range_m = 1700.0f;
   inputs.background_reflectance = 0.12f;
   inputs.background_patch_area_m2 = 20.0f;
 

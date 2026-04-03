@@ -65,24 +65,27 @@ class InterceptGate final {
    */
   static float ComputeFrequencyOverlapRatio(double receiver_lower_hz, double receiver_upper_hz,
                                             double signal_center_hz, double signal_bandwidth_hz) {
+    constexpr float kGateEpsilon = 1.0e-6f;
+    constexpr double kFrequencyEpsilon = 1.0e-12;
     if (!std::isfinite(receiver_lower_hz) || !std::isfinite(receiver_upper_hz) ||
         !std::isfinite(signal_center_hz) || !std::isfinite(signal_bandwidth_hz) ||
-        receiver_upper_hz <= receiver_lower_hz || signal_bandwidth_hz <= 0.0) {
+        receiver_upper_hz <= receiver_lower_hz + kFrequencyEpsilon ||
+        signal_bandwidth_hz <= kFrequencyEpsilon) {
       return 0.0f;
     }
     const double signal_lower = signal_center_hz - 0.5 * signal_bandwidth_hz;
     const double signal_upper = signal_center_hz + 0.5 * signal_bandwidth_hz;
     const double overlap_lower = std::max(receiver_lower_hz, signal_lower);
     const double overlap_upper = std::min(receiver_upper_hz, signal_upper);
-    if (overlap_upper <= overlap_lower) {
+    if (overlap_upper <= overlap_lower + kFrequencyEpsilon) {
       return 0.0f;
     }
     const double overlap = overlap_upper - overlap_lower;
     const double ratio = overlap / signal_bandwidth_hz;
-    if (ratio <= 0.0) {
+    if (ratio <= static_cast<double>(kGateEpsilon)) {
       return 0.0f;
     }
-    if (ratio >= 1.0) {
+    if (ratio >= 1.0 - static_cast<double>(kGateEpsilon)) {
       return 1.0f;
     }
     return static_cast<float>(ratio);
@@ -94,6 +97,7 @@ class InterceptGate final {
    * @return 联合门判定结果。
    */
   static InterceptGateDecision Evaluate(const InterceptGateInput& input) {
+    constexpr float kGateEpsilon = 1.0e-6f;
     InterceptGateDecision decision;
     if (!IsFinite(input.target_az_deg) || !IsFinite(input.target_el_deg) ||
         !IsFinite(input.beam_az_deg) || !IsFinite(input.beam_el_deg) ||
@@ -108,24 +112,28 @@ class InterceptGate final {
         ComputeFrequencyOverlapRatio(input.receiver_lower_hz, input.receiver_upper_hz,
                                      input.signal_center_hz, input.signal_bandwidth_hz);
     const float min_overlap_ratio = Clamp01(input.min_frequency_overlap_ratio);
-    decision.frequency_covered = decision.frequency_overlap_ratio >= min_overlap_ratio;
+    decision.frequency_covered =
+        decision.frequency_overlap_ratio + kGateEpsilon >= min_overlap_ratio;
 
     const float az_diff = std::fabs(oneq::internal::geometry::ComputeAzimuthDifferenceDeg(
         input.target_az_deg, input.beam_az_deg));
     const float el_diff = std::fabs(input.target_el_deg - input.beam_el_deg);
     const float guard_factor = std::max(0.0f, input.beam_guard_factor);
-    const float half_az_width = std::max(1.0e-6f, 0.5f * input.beam_az_width_deg * guard_factor);
-    const float half_el_width = std::max(1.0e-6f, 0.5f * input.beam_el_width_deg * guard_factor);
+    const float half_az_width =
+        std::max(kGateEpsilon, 0.5f * input.beam_az_width_deg * guard_factor);
+    const float half_el_width =
+        std::max(kGateEpsilon, 0.5f * input.beam_el_width_deg * guard_factor);
     const float normalized_az = az_diff / half_az_width;
     const float normalized_el = el_diff / half_el_width;
     const float normalized_distance =
         std::sqrt(normalized_az * normalized_az + normalized_el * normalized_el);
 
-    decision.in_beam = normalized_distance <= 1.0f;
-    decision.beam_overlap_ratio = normalized_distance >= 1.0f ? 0.0f : (1.0f - normalized_distance);
-    decision.in_range =
-        input.max_range_m > 0.0f && input.range_m >= 0.0f && input.range_m <= input.max_range_m;
-    decision.dynamic_range_ok = input.dynamic_range_margin_db >= input.min_dynamic_range_margin_db;
+    decision.in_beam = normalized_distance <= 1.0f + kGateEpsilon;
+    decision.beam_overlap_ratio = Clamp01(1.0f - normalized_distance);
+    decision.in_range = input.max_range_m > kGateEpsilon && input.range_m >= -kGateEpsilon &&
+                        input.range_m <= input.max_range_m + kGateEpsilon;
+    decision.dynamic_range_ok =
+        input.dynamic_range_margin_db + kGateEpsilon >= input.min_dynamic_range_margin_db;
     decision.passed = input.line_of_sight && decision.frequency_covered && decision.in_beam &&
                       decision.in_range && decision.dynamic_range_ok;
     return decision;

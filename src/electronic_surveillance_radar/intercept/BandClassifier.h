@@ -46,6 +46,7 @@ class BandClassifier final {
     double upper_ghz; /**< 区间上边界（单位：GHz） */
     RadarBand band;   /**< 对应频段枚举 */
   };
+  using BandTable = std::array<FrequencyBandRange, 11>;
 
   /**
    * @brief 按中心频率分类雷达波段。
@@ -53,32 +54,48 @@ class BandClassifier final {
    * @return 频段分类结果。
    */
   static RadarBand Classify(double carrier_hz) {
+    return Classify(carrier_hz, DefaultBandTable());
+  }
+
+  /**
+   * @brief 按中心频率和给定频段表分类雷达波段。
+   * @param[in] carrier_hz 中心频率（单位：Hz）。
+   * @param[in] band_table 频段区间表。
+   * @return 频段分类结果。
+   */
+  static RadarBand Classify(double carrier_hz, const BandTable& band_table) {
     if (!std::isfinite(carrier_hz) || carrier_hz <= 0.0) {
       return RadarBand::kInvalid;
     }
 
-    static const std::array<FrequencyBandRange, 11> kBandTable = {{{0.23, 1.0, RadarBand::kP},
-                                                                   {1.0, 2.0, RadarBand::kL},
-                                                                   {2.0, 4.0, RadarBand::kS},
-                                                                   {4.0, 8.0, RadarBand::kC},
-                                                                   {8.0, 12.0, RadarBand::kX},
-                                                                   {12.0, 18.0, RadarBand::kKu},
-                                                                   {18.0, 27.0, RadarBand::kK},
-                                                                   {27.0, 40.0, RadarBand::kKa},
-                                                                   {40.0, 60.0, RadarBand::kU},
-                                                                   {60.0, 80.0, RadarBand::kV},
-                                                                   {80.0, 100.0, RadarBand::kW}}};
-
     const double ghz = carrier_hz / 1.0e9;
-    if (ghz < kBandTable.front().lower_ghz) {
+    if (ghz < band_table.front().lower_ghz) {
       return RadarBand::kBelowP;
     }
-    for (std::size_t i = 0; i < kBandTable.size(); ++i) {
-      if (ghz >= kBandTable[i].lower_ghz && ghz < kBandTable[i].upper_ghz) {
-        return kBandTable[i].band;
+    for (std::size_t i = 0; i < band_table.size(); ++i) {
+      if (ghz >= band_table[i].lower_ghz && ghz < band_table[i].upper_ghz) {
+        return band_table[i].band;
       }
     }
     return RadarBand::kAboveW;
+  }
+
+  /**
+   * @brief 返回默认频段区间表。
+   */
+  static const BandTable& DefaultBandTable() {
+    static const BandTable kBandTable = {{{0.23, 1.0, RadarBand::kP},
+                                          {1.0, 2.0, RadarBand::kL},
+                                          {2.0, 4.0, RadarBand::kS},
+                                          {4.0, 8.0, RadarBand::kC},
+                                          {8.0, 12.0, RadarBand::kX},
+                                          {12.0, 18.0, RadarBand::kKu},
+                                          {18.0, 27.0, RadarBand::kK},
+                                          {27.0, 40.0, RadarBand::kKa},
+                                          {40.0, 60.0, RadarBand::kU},
+                                          {60.0, 80.0, RadarBand::kV},
+                                          {80.0, 100.0, RadarBand::kW}}};
+    return kBandTable;
   }
 
   /**

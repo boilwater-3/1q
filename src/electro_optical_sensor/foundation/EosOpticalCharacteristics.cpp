@@ -3,13 +3,13 @@
 #include <algorithm>
 #include <cmath>
 
+#include "electro_optical_sensor/foundation/EosPhysicalConstants.h"
+
 namespace electro_optical_sensor {
 namespace foundation {
 namespace optics {
 
 namespace {
-
-constexpr float kPi = 3.14159265358979323846f;
 
 float SafePositive(float value, float fallback) {
   if (std::isfinite(value) == 0 || value <= 0.0f) {
@@ -25,7 +25,7 @@ float Clamp(float value, float lower, float upper) {
 float ComputeSlantRangeByDepressionAngle(float platform_altitude_m, float depression_deg) {
   const float safe_altitude_m = SafePositive(platform_altitude_m, 1.0f);
   const float safe_depression_deg = Clamp(depression_deg, 1.0f, 89.0f);
-  const float depression_rad = safe_depression_deg * kPi / 180.0f;
+  const float depression_rad = safe_depression_deg * constants::kPi / 180.0f;
   return safe_altitude_m / std::sin(depression_rad);
 }
 
@@ -39,20 +39,21 @@ float ComputeInstantaneousFovDeg(float detector_size_m, float focal_length_m) {
   const float safe_detector_size_m = SafePositive(detector_size_m, 1.0e-3f);
   const float safe_focal_length_m = SafePositive(focal_length_m, 0.1f);
   const float fov_rad = 2.0f * std::atan(0.5f * safe_detector_size_m / safe_focal_length_m);
-  return fov_rad * 180.0f / kPi;
+  return fov_rad * 180.0f / constants::kPi;
 }
 
 float ComputeGroundScanWidthM(float platform_altitude_m, float fov_deg) {
   const float safe_altitude_m = SafePositive(platform_altitude_m, 1.0f);
   const float safe_fov_deg = std::max(0.0f, fov_deg);
-  const float half_fov_rad = 0.5f * safe_fov_deg * kPi / 180.0f;
+  const float half_fov_rad = 0.5f * safe_fov_deg * constants::kPi / 180.0f;
   return 2.0f * safe_altitude_m * std::tan(half_fov_rad);
 }
 
 float ComputeGroundProjectionDistanceM(float platform_altitude_m, float look_angle_deg) {
   const float safe_altitude_m = SafePositive(platform_altitude_m, 1.0f);
-  const float look_angle_rad = look_angle_deg * kPi / 180.0f;
-  return safe_altitude_m * std::tan(look_angle_rad);
+  const float clamped_look_angle_deg = Clamp(look_angle_deg, -89.9f, 89.9f);
+  const float look_angle_rad = clamped_look_angle_deg * constants::kPi / 180.0f;
+  return std::max(0.0f, safe_altitude_m * std::tan(look_angle_rad));
 }
 
 float ComputeDiffractionLimitedAngularResolutionRad(float wavelength_um, float aperture_diameter_m) {

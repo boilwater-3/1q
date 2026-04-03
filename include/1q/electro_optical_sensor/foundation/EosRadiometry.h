@@ -37,11 +37,8 @@ struct ONEQ_API InfraredRadianceInputs {
 struct ONEQ_API VisibleRadianceInputs {
   float solar_irradiance_w_m2{800.0f}; /**< 地表太阳辐照度（单位：W/m^2） */
   float solar_altitude_deg{45.0f};     /**< 太阳高度角（单位：deg） */
-  float atmospheric_transmittance{0.85f}; /**< 预留字段（可见链路传播阶段统一处理） */
   float cloud_coverage_ratio{0.2f};    /**< 云量，范围 [0, 1] */
   float reflectance{0.2f};             /**< 漫反射率，范围 [0, 1] */
-  float projected_area_m2{1.0f};       /**< 预留字段（可见链路传播阶段统一处理） */
-  float range_m{1000.0f};              /**< 预留字段（可见链路传播阶段统一处理） */
   IlluminationCondition illumination{IlluminationCondition::kDay}; /**< 光照条件 */
 };
 

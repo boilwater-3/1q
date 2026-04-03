@@ -242,6 +242,7 @@ class ONEQ_API EsrRuntimeConfigBuilder {
 
 /**
  * @brief EsrSession 提供单周期外部接入门面。
+ * @note 线程模型：会话对象持有可变状态，默认非线程安全；并发访问需外部同步。
  */
 class ONEQ_API EsrSession {
  public:

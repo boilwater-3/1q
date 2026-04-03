@@ -90,8 +90,30 @@ TEST(EosCoordinateUtilsTest, InvalidInputReturnsFalse) {
   EXPECT_FALSE(TryMakeEosTargetFromEcef(1U, ecef, reference, platform_pose, appearance, nullptr));
 }
 
+TEST(EosCoordinateUtilsTest, ReportsFailureStatusForNullOutputAndDegenerateGeometry) {
+  EosCoordinateReference reference;
+  reference.origin_lla.latitude_deg = 0.0;
+  reference.origin_lla.longitude_deg = 0.0;
+  reference.origin_lla.altitude_m = 0.0;
+
+  oneq::common::EcefCoordinateM ecef;
+  EosCoordinateStatus status = EosCoordinateStatus::kOk;
+  EXPECT_FALSE(TryConvertEcefToEosLocal(ecef, reference, nullptr, &status));
+  EXPECT_EQ(status, EosCoordinateStatus::kNullOutput);
+
+  oneq::common::PoseState platform_pose;
+  platform_pose.position_m.x = 0.0f;
+  platform_pose.position_m.y = 0.0f;
+  platform_pose.position_m.z = 0.0f;
+  EosTargetAppearance appearance;
+  EosTargetState target;
+  oneq::common::LlaCoordinateDegM target_lla = reference.origin_lla;
+  EXPECT_FALSE(TryMakeEosTargetFromLla(1U, target_lla, reference, platform_pose, appearance, &target,
+                                       &status));
+  EXPECT_EQ(status, EosCoordinateStatus::kDegenerateGeometry);
+}
+
 }  // namespace
 }  // namespace context
 }  // namespace core
 }  // namespace electro_optical_sensor
-

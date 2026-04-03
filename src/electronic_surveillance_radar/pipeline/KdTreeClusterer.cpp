@@ -27,6 +27,9 @@ class KdTreeDatasetAdaptor {
   inline std::size_t kdtree_get_point_count() const { return features_.size(); }
 
   inline float kdtree_get_pt(const std::size_t idx, const std::size_t dim) const {
+    if (idx >= features_.size() || dim >= kObservationFeatureDimension) {
+      return 0.0f;
+    }
     return features_[idx].values[dim];
   }
 
@@ -82,8 +85,8 @@ KdTreeClusterResult KdTreeClusterer::Cluster(const std::vector<ObservationFeatur
   }
 
   const float cluster_radius = config.radius > 0.0f ? config.radius : 1.0f;
-  const std::size_t min_points =
-      config.min_points > 0U ? static_cast<std::size_t>(config.min_points) : 1U;
+  const std::size_t min_points = std::max<std::size_t>(
+      1U, std::min<std::size_t>(static_cast<std::size_t>(config.min_points), features.size()));
 
   KdTreeDatasetAdaptor adaptor(features);
   using KdTreeIndex =

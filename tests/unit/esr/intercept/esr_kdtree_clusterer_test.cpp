@@ -161,6 +161,74 @@ TEST(EsrKdTreeClustererTest, BorderPointAbsorbedIntoClusterIsNotLeftInNoise) {
   EXPECT_TRUE(result.noise_indices.empty());
 }
 
+TEST(EsrKdTreeClustererTest, MinPointsLargerThanDatasetIsClamped) {
+  std::vector<ObservationFeatureVector> features(3U);
+  features[0].values =
+      std::array<float, kObservationFeatureDimension>{{0.0f, 0.0f, 0.0f, 0.0f, 0.0f}};
+  features[1].values =
+      std::array<float, kObservationFeatureDimension>{{0.2f, 0.1f, 0.0f, 0.0f, 0.1f}};
+  features[2].values =
+      std::array<float, kObservationFeatureDimension>{{0.1f, 0.2f, 0.0f, 0.0f, 0.2f}};
+
+  KdTreeClusterer clusterer;
+  InterceptClusterConfig config;
+  config.radius = 1.0f;
+  config.min_points = 100U;
+
+  const KdTreeClusterResult result = clusterer.Cluster(features, config);
+  ASSERT_EQ(result.clusters.size(), 1U);
+  ASSERT_EQ(result.clusters.front().size(), 3U);
+  EXPECT_TRUE(result.noise_indices.empty());
+}
+
+TEST(EsrKdTreeClustererTest, ObservationFeatureEncoderFallsBackForNonFiniteScales) {
+  common::EmitterObservation observation;
+  observation.rf_hz = 12.0e9;
+  observation.pulse_width_s = 2.0e-6;
+  observation.aoa_az_deg = 10.0f;
+  observation.aoa_el_deg = -4.0f;
+  observation.snr_db = 16.0f;
+
+  ObservationFeatureScales scales;
+  scales.rf_scale_hz = std::numeric_limits<float>::infinity();
+  scales.pw_scale_sec = std::numeric_limits<float>::quiet_NaN();
+  scales.az_scale_deg = -3.0f;
+  scales.el_scale_deg = 0.0f;
+  scales.snr_scale_db = std::numeric_limits<float>::quiet_NaN();
+
+  const ObservationFeatureVector feature = ObservationFeatureEncoder::Encode(observation, scales);
+
+  for (std::size_t i = 0; i < kObservationFeatureDimension; ++i) {
+    EXPECT_TRUE(std::isfinite(feature.values[i]));
+  }
+  EXPECT_FLOAT_EQ(feature.values[0], static_cast<float>(observation.rf_hz));
+  EXPECT_FLOAT_EQ(feature.values[1], static_cast<float>(observation.pulse_width_s / 1.0e-6));
+  EXPECT_FLOAT_EQ(feature.values[2], observation.aoa_az_deg);
+  EXPECT_FLOAT_EQ(feature.values[3], observation.aoa_el_deg);
+  EXPECT_FLOAT_EQ(feature.values[4], observation.snr_db);
+}
+
+TEST(EsrKdTreeClustererTest, PreprocessorTreatsNearBoundaryAsDuplicateWithEpsilon) {
+  std::vector<RawObservationRecord> records;
+  records.push_back(MakeRecord(30U, 1.0, 10.0e9, 1.0e-6, 10.0f, 1.0f, 9.0f));
+  records.push_back(MakeRecord(31U, 1.0 + 5.0e-6 + 5.0e-10, 10.0e9 + 1.0e6 + 5.0e-4,
+                               1.0e-6 + 2.0e-7 + 5.0e-13, 11.0f + 5.0e-7f, 2.0f + 5.0e-7f,
+                               14.0f));
+
+  ObservationPreprocessor preprocessor;
+  InterceptPreprocessConfig config;
+  config.dedup_time_window_sec = 5.0e-6f;
+  config.dedup_rf_window_hz = 1.0e6;
+  config.dedup_pw_window_sec = 2.0e-7;
+  config.dedup_az_window_deg = 1.0f;
+  config.dedup_el_window_deg = 1.0f;
+  config.normalize_quality = false;
+
+  const std::vector<RawObservationRecord> output = preprocessor.Run(records, config);
+  ASSERT_EQ(output.size(), 1U);
+  EXPECT_EQ(output.front().observation.observation_id, 31U);
+}
+
 }  // namespace
 }  // namespace internal
 }  // namespace pipeline

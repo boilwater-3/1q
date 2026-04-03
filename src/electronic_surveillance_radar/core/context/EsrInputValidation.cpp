@@ -117,10 +117,14 @@ void ValidateEmitter(const common::EmitterTruthState& emitter, std::size_t emitt
                                 EsrValidationCode::kInvalidEmitterPri, emitter_index,
                                 "emitter pri must be positive"));
   }
-  if (emitter.pri_s > 0.0 && emitter.pulse_width_s > 0.0 && emitter.pri_s < emitter.pulse_width_s) {
-    issues->push_back(MakeIssue(EsrValidationSeverity::kError,
-                                EsrValidationCode::kEmitterPriLessThanPulseWidth, emitter_index,
-                                "emitter pri must be greater than or equal to pulse width"));
+  const bool pri_valid = emitter.pri_s > 0.0;
+  const bool pulse_width_valid = emitter.pulse_width_s > 0.0;
+  if (pri_valid && pulse_width_valid) {
+    if (emitter.pri_s < emitter.pulse_width_s) {
+      issues->push_back(MakeIssue(EsrValidationSeverity::kError,
+                                  EsrValidationCode::kEmitterPriLessThanPulseWidth, emitter_index,
+                                  "emitter pri must be greater than or equal to pulse width"));
+    }
   }
   if (emitter.beam_state.az_beamwidth_deg <= 0.0f || emitter.beam_state.el_beamwidth_deg <= 0.0f) {
     issues->push_back(MakeIssue(EsrValidationSeverity::kError,

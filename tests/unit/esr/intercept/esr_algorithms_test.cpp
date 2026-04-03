@@ -35,6 +35,24 @@ TEST(EsrAlgorithmsTest, BandClassifierMapsTypicalBoundaryValues) {
   EXPECT_EQ(BandClassifier::Classify(35.00e9), RadarBand::kKa);
 }
 
+TEST(EsrAlgorithmsTest, BandClassifierSupportsCustomBandTable) {
+  BandClassifier::BandTable custom_table = BandClassifier::DefaultBandTable();
+  custom_table[0] = {0.10, 1.00, RadarBand::kL};
+  custom_table[1] = {1.00, 2.00, RadarBand::kS};
+  custom_table[2] = {2.00, 4.00, RadarBand::kC};
+  custom_table[3] = {4.00, 8.00, RadarBand::kX};
+  custom_table[4] = {8.00, 12.00, RadarBand::kKu};
+  custom_table[5] = {12.00, 18.00, RadarBand::kK};
+  custom_table[6] = {18.00, 27.00, RadarBand::kKa};
+  custom_table[7] = {27.00, 40.00, RadarBand::kU};
+  custom_table[8] = {40.00, 60.00, RadarBand::kV};
+  custom_table[9] = {60.00, 80.00, RadarBand::kW};
+  custom_table[10] = {80.00, 100.00, RadarBand::kP};
+
+  EXPECT_EQ(BandClassifier::Classify(0.20e9, custom_table), RadarBand::kL);
+  EXPECT_EQ(BandClassifier::Classify(0.20e9), RadarBand::kBelowP);
+}
+
 TEST(EsrAlgorithmsTest, ScanPatternGeneratorRespectsStartPositionAndSequence) {
   ScanPatternConfig config;
   config.start_az_deg = -10.0f;
@@ -107,6 +125,34 @@ TEST(EsrAlgorithmsTest, InterceptGateEvaluatesJointConstraints) {
   const InterceptGateDecision strict_decision = InterceptGate::Evaluate(gate_input);
   EXPECT_FALSE(strict_decision.passed);
   EXPECT_FALSE(strict_decision.frequency_covered);
+}
+
+TEST(EsrAlgorithmsTest, InterceptGateAcceptsBoundaryValuesWithinEpsilon) {
+  InterceptGateInput gate_input;
+  gate_input.line_of_sight = true;
+  gate_input.target_az_deg = 0.0f;
+  gate_input.target_el_deg = 0.0f;
+  gate_input.beam_az_deg = 0.0f;
+  gate_input.beam_el_deg = 0.0f;
+  gate_input.beam_az_width_deg = 0.0f;
+  gate_input.beam_el_width_deg = 0.0f;
+  gate_input.receiver_lower_hz = 9.5e9;
+  gate_input.receiver_upper_hz = 10.5e9;
+  gate_input.signal_center_hz = 10.0e9;
+  gate_input.signal_bandwidth_hz = 2.0e9;
+  gate_input.range_m = 100.0f + 4.0e-7f;
+  gate_input.max_range_m = 100.0f;
+  gate_input.dynamic_range_margin_db = -3.0f - 4.0e-7f;
+  gate_input.min_dynamic_range_margin_db = -3.0f;
+  gate_input.min_frequency_overlap_ratio = 0.5f + 4.0e-7f;
+  gate_input.beam_guard_factor = 0.0f;
+
+  const InterceptGateDecision decision = InterceptGate::Evaluate(gate_input);
+  EXPECT_TRUE(decision.frequency_covered);
+  EXPECT_TRUE(decision.in_beam);
+  EXPECT_TRUE(decision.in_range);
+  EXPECT_TRUE(decision.dynamic_range_ok);
+  EXPECT_TRUE(decision.passed);
 }
 
 TEST(EsrAlgorithmsTest, JammingAggregatorSeparatesSuppressionChannel) {
@@ -208,6 +254,23 @@ TEST(EsrAlgorithmsTest, AngleErrorModelSamplingIsStableWithFixedSeed) {
   const float low_snr_std = AngleErrorModel::ComputeStdDevDeg(-3.0f, 8.0f, config);
   const float high_snr_std = AngleErrorModel::ComputeStdDevDeg(20.0f, 8.0f, config);
   EXPECT_GT(low_snr_std, high_snr_std);
+}
+
+TEST(EsrAlgorithmsTest, AngleErrorModelClampsExtremeSnrDbInput) {
+  AngleErrorModelConfig config;
+  config.coefficient = 0.5f;
+  config.min_std_deg = 0.01f;
+  config.max_std_deg = 20.0f;
+
+  const float std_at_max_bound = AngleErrorModel::ComputeStdDevDeg(100.0f, 8.0f, config);
+  const float std_at_far_high = AngleErrorModel::ComputeStdDevDeg(1000.0f, 8.0f, config);
+  const float std_at_min_bound = AngleErrorModel::ComputeStdDevDeg(-100.0f, 8.0f, config);
+  const float std_at_far_low = AngleErrorModel::ComputeStdDevDeg(-1000.0f, 8.0f, config);
+
+  EXPECT_TRUE(std::isfinite(std_at_far_high));
+  EXPECT_TRUE(std::isfinite(std_at_far_low));
+  EXPECT_NEAR(std_at_far_high, std_at_max_bound, 1.0e-6f);
+  EXPECT_NEAR(std_at_far_low, std_at_min_bound, 1.0e-6f);
 }
 
 TEST(EsrAlgorithmsTest, BoundarySearchSolverConvergesForMonotonicPredicate) {

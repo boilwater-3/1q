@@ -6,6 +6,7 @@
 #ifndef ELECTRONIC_SURVEILLANCE_RADAR_SRC_INTERCEPT_ANGLE_ERROR_MODEL_H_
 #define ELECTRONIC_SURVEILLANCE_RADAR_SRC_INTERCEPT_ANGLE_ERROR_MODEL_H_
 
+#include <algorithm>
 #include <cmath>
 #include <random>
 
@@ -38,7 +39,8 @@ class AngleErrorModel final {
     if (!std::isfinite(snr_db) || !std::isfinite(beamwidth_deg) || beamwidth_deg <= 0.0f) {
       return config.max_std_deg;
     }
-    const double snr_linear = std::pow(10.0, static_cast<double>(snr_db) / 10.0);
+    const double clamped_snr_db = std::max(-100.0, std::min(static_cast<double>(snr_db), 100.0));
+    const double snr_linear = std::pow(10.0, clamped_snr_db / 10.0);
     const double effective_snr_linear = std::max(1.0e-6, snr_linear - 1.0);
     const double base_std_deg = static_cast<double>(config.coefficient) *
                                 static_cast<double>(beamwidth_deg) /

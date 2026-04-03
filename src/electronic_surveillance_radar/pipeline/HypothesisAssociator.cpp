@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstddef>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -99,6 +100,26 @@ float ComputeDistance(const ObservationFeatureVector& feature_a,
   return ObservationFeatureEncoder::Distance(feature_a, feature_b);
 }
 
+float ComputeBaseBearingStdDeg(std::size_t support_count) {
+  const std::size_t safe_support_count = std::max<std::size_t>(2U, support_count);
+  return std::max(0.1f, 3.0f / std::sqrt(static_cast<float>(safe_support_count)));
+}
+
+struct CandidatePair {
+  std::size_t cluster_index;
+  std::size_t track_index;
+  double distance;
+};
+
+/**
+ * @brief 候选对排序规则：按距离升序，其次按簇索引、轨迹索引升序。
+ * @note 显式固定并列距离的顺序，避免关联输出在边界场景抖动。
+ */
+bool LessCandidatePair(const CandidatePair& lhs, const CandidatePair& rhs) {
+  return std::tie(lhs.distance, lhs.cluster_index, lhs.track_index) <
+         std::tie(rhs.distance, rhs.cluster_index, rhs.track_index);
+}
+
 }  // namespace
 
 HypothesisAssociator::HypothesisAssociator(InterceptAssociationConfig config)
@@ -113,17 +134,13 @@ common::EmitterHypothesisList HypothesisAssociator::Update(
   std::vector<std::uint8_t> track_matched(original_track_count, 0U);
   std::vector<std::uint8_t> cluster_matched(clusters.size(), 0U);
 
-  struct CandidatePair {
-    std::size_t cluster_index;
-    std::size_t track_index;
-    float distance;
-  };
   std::vector<CandidatePair> pairs;
+  const double gate_distance = static_cast<double>(config_.gate_distance);
   for (std::size_t cluster_index = 0; cluster_index < clusters.size(); ++cluster_index) {
     for (std::size_t track_index = 0; track_index < original_track_count; ++track_index) {
-      const float distance =
-          ComputeDistance(clusters[cluster_index].centroid_feature, tracks_[track_index].feature);
-      if (distance <= config_.gate_distance) {
+      const double distance = static_cast<double>(ComputeDistance(
+          clusters[cluster_index].centroid_feature, tracks_[track_index].feature));
+      if (distance <= gate_distance) {
         CandidatePair pair;
         pair.cluster_index = cluster_index;
         pair.track_index = track_index;
@@ -132,15 +149,7 @@ common::EmitterHypothesisList HypothesisAssociator::Update(
       }
     }
   }
-  std::sort(pairs.begin(), pairs.end(), [](const CandidatePair& lhs, const CandidatePair& rhs) {
-    if (lhs.distance != rhs.distance) {
-      return lhs.distance < rhs.distance;
-    }
-    if (lhs.cluster_index != rhs.cluster_index) {
-      return lhs.cluster_index < rhs.cluster_index;
-    }
-    return lhs.track_index < rhs.track_index;
-  });
+  std::sort(pairs.begin(), pairs.end(), LessCandidatePair);
 
   for (std::size_t i = 0; i < pairs.size(); ++i) {
     const CandidatePair pair = pairs[i];
@@ -164,8 +173,7 @@ common::EmitterHypothesisList HypothesisAssociator::Update(
         Blend(track.bearing_az_deg, summary.mean_az_deg, config_.confidence_alpha);
     track.bearing_el_deg =
         Blend(track.bearing_el_deg, summary.mean_el_deg, config_.confidence_alpha);
-    const float base_bearing_std_deg =
-        std::max(0.1f, 3.0f / std::sqrt(static_cast<float>(summary.support_count)));
+    const float base_bearing_std_deg = ComputeBaseBearingStdDeg(summary.support_count);
     track.bearing_std_deg = base_bearing_std_deg * (1.0f + 0.8f * deception_ratio);
     const float confidence_measurement =
         Clamp01(summary.confidence_score * (1.0f - 0.45f * deception_ratio));
@@ -199,8 +207,7 @@ common::EmitterHypothesisList HypothesisAssociator::Update(
                                                     clusters[i].spectral_class_label);
     track.bearing_az_deg = clusters[i].mean_az_deg;
     track.bearing_el_deg = clusters[i].mean_el_deg;
-    const float base_bearing_std_deg =
-        std::max(0.1f, 3.0f / std::sqrt(static_cast<float>(clusters[i].support_count)));
+    const float base_bearing_std_deg = ComputeBaseBearingStdDeg(clusters[i].support_count);
     track.bearing_std_deg = base_bearing_std_deg * (1.0f + 0.8f * deception_ratio);
     track.confidence = Clamp01(clusters[i].confidence_score * (1.0f - 0.45f * deception_ratio));
     track.last_seen_cycle = cycle_index;

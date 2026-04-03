@@ -24,6 +24,12 @@ bool IsFinite(double value) { return std::isfinite(value) != 0; }
  */
 bool IsFinite(float value) { return std::isfinite(value) != 0; }
 
+constexpr std::uint32_t kActiveScanPulseMultiplier = 4U;
+constexpr std::uint32_t kMaxPulseCount = 4096U;
+constexpr float kMinimumThresholdScale = 0.1f;
+constexpr float kHgesmThresholdScale = 0.85f;
+constexpr float kRwrThresholdScale = 1.25f;
+
 /**
  * @brief 归一化扫描起止边界，保证起点不大于终点。
  * @param[in,out] start 扫描起点角度（单位：deg）。
@@ -54,13 +60,15 @@ void ApplyWorkModeAdjustment(EsrWorkMode mode,
                                 : 1.0f;
   switch (mode) {
     case EsrWorkMode::kHgesm:
-      config->pulse_count =
-          std::min<std::uint32_t>(config->pulse_count * 4U, static_cast<std::uint32_t>(4096U));
-      config->threshold_scale = std::max(0.1f, config->threshold_scale * 0.85f);
+      config->pulse_count = std::min<std::uint32_t>(
+          config->pulse_count * kActiveScanPulseMultiplier, kMaxPulseCount);
+      config->threshold_scale =
+          std::max(kMinimumThresholdScale, config->threshold_scale * kHgesmThresholdScale);
       break;
     case EsrWorkMode::kRwr:
       config->pulse_count = std::max<std::uint32_t>(1U, config->pulse_count / 2U);
-      config->threshold_scale = std::max(0.1f, config->threshold_scale * 1.25f);
+      config->threshold_scale =
+          std::max(kMinimumThresholdScale, config->threshold_scale * kRwrThresholdScale);
       break;
     case EsrWorkMode::kEsm:
     default:

@@ -68,17 +68,25 @@ struct EosPipelineConfig {
 
 /**
  * @brief EosPipeline 封装核心处理层执行。
+ * @note 线程模型：实例维护可变扫描相位状态，不是线程安全类型；并发访问需外部同步。
  */
 class EosPipeline {
  public:
-  explicit EosPipeline(const EosPipelineConfig& config);
+ explicit EosPipeline(const EosPipelineConfig& config);
 
+  /**
+   * @brief 更新核心处理层配置。
+   * @param[in] config 新配置。
+   * @param[in] reset_scan_phase 是否重置扫描相位。
+   * @note 非线程安全：会修改内部扫描状态；并发调用需外部同步。
+   */
   void UpdateConfig(const EosPipelineConfig& config, bool reset_scan_phase = true);
 
   /**
    * @brief 执行单周期核心处理并输出探测结果。
    * @param[in] input 当前周期输入。
    * @return 探测输出帧。
+   * @note 非线程安全：会推进内部扫描相位（`current_scan_azimuth_deg_`）。
    */
   common::EosOutputFrame Execute(const context::EosCycleInput& input);
 

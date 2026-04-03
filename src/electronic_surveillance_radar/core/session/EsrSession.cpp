@@ -17,6 +17,9 @@ namespace {
 
 bool IsFinite(float value) { return std::isfinite(value) != 0; }
 bool IsFinite(double value) { return std::isfinite(value) != 0; }
+bool IsValidReceiverWindow(double lower_hz, double upper_hz) {
+  return IsFinite(lower_hz) && IsFinite(upper_hz) && upper_hz > lower_hz;
+}
 
 }  // namespace
 
@@ -59,7 +62,10 @@ EsrCycleResult EsrSession::StepWithResult(const context::EsrCycleInput& input) {
 
 void EsrSession::ApplyRuntimeConfig(const EsrRuntimeConfigPatch& patch) {
   bool runtime_config_changed = false;
-  bool fixed_receiver_window_bounds_valid = false;
+  const bool has_fixed_receiver_window_patch = patch.has_fixed_receiver_window_hz;
+  const bool fixed_receiver_window_bounds_valid =
+      IsValidReceiverWindow(patch.receiver_lower_hz, patch.receiver_upper_hz);
+
   if (patch.has_sensor_enabled) {
     impl_->resolved_config.runtime_config.sensor_enabled = patch.sensor_enabled;
     runtime_config_changed = true;
@@ -73,21 +79,35 @@ void EsrSession::ApplyRuntimeConfig(const EsrRuntimeConfigPatch& patch) {
         std::max(0.0f, patch.integrated_receive_loss_db);
     runtime_config_changed = true;
   }
-  if (patch.has_fixed_receiver_window_hz && IsFinite(patch.receiver_lower_hz) &&
-      IsFinite(patch.receiver_upper_hz) && patch.receiver_upper_hz > patch.receiver_lower_hz) {
+  if (has_fixed_receiver_window_patch && fixed_receiver_window_bounds_valid) {
     impl_->resolved_config.runtime_config.receiver_lower_hz = patch.receiver_lower_hz;
     impl_->resolved_config.runtime_config.receiver_upper_hz = patch.receiver_upper_hz;
-    fixed_receiver_window_bounds_valid = true;
     runtime_config_changed = true;
-  } else if (patch.has_fixed_receiver_window_hz) {
+  } else if (has_fixed_receiver_window_patch) {
     PROJECT_LOG_ERROR(
         "[EsrSession] ignored invalid fixed receiver window patch: lower_hz={} upper_hz={}",
         patch.receiver_lower_hz, patch.receiver_upper_hz);
   }
+
+  const bool current_fixed_receiver_window_bounds_valid =
+      IsValidReceiverWindow(impl_->resolved_config.runtime_config.receiver_lower_hz,
+                            impl_->resolved_config.runtime_config.receiver_upper_hz);
   if (patch.has_use_fixed_receiver_window) {
-    impl_->resolved_config.runtime_config.use_fixed_receiver_window =
-        patch.use_fixed_receiver_window;
-    runtime_config_changed = true;
+    if (patch.use_fixed_receiver_window) {
+      if (fixed_receiver_window_bounds_valid || current_fixed_receiver_window_bounds_valid) {
+        impl_->resolved_config.runtime_config.use_fixed_receiver_window = true;
+        runtime_config_changed = true;
+      } else {
+        PROJECT_LOG_ERROR(
+            "[EsrSession] ignored fixed receiver window enable request due to invalid bounds: "
+            "lower_hz={} upper_hz={}",
+            impl_->resolved_config.runtime_config.receiver_lower_hz,
+            impl_->resolved_config.runtime_config.receiver_upper_hz);
+      }
+    } else {
+      impl_->resolved_config.runtime_config.use_fixed_receiver_window = false;
+      runtime_config_changed = true;
+    }
   } else if (fixed_receiver_window_bounds_valid) {
     impl_->resolved_config.runtime_config.use_fixed_receiver_window = true;
     runtime_config_changed = true;

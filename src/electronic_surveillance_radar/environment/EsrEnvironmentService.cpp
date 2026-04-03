@@ -1,5 +1,6 @@
 #include "electronic_surveillance_radar/environment/EsrEnvironmentService.h"
 
+#include <cmath>
 #include <cstddef>
 
 #include "common/atmosphere/AtmospherePhysics.h"
@@ -94,10 +95,9 @@ EsrEnvironmentSnapshot BuildSnapshot(const EsrEnvironmentCycleContext& cycle_con
     }
     if (HasDeceptionEffect(source.technique)) {
       const float source_risk = Clamp01(source.deception_risk * source.confidence);
-      deception_clear_probability *= (1.0f - source_risk);
-      if (deception_clear_probability < 0.0f) {
-        deception_clear_probability = 0.0f;
-      }
+      const float safe_source_risk = std::isfinite(source_risk) ? source_risk : 0.0f;
+      deception_clear_probability *= (1.0f - safe_source_risk);
+      deception_clear_probability = Clamp01(deception_clear_probability);
     }
   }
   snapshot.deception_risk = Clamp01(1.0f - deception_clear_probability);

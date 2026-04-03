@@ -174,6 +174,7 @@ find_package(Eigen3 CONFIG REQUIRED)
 find_package(eventpp CONFIG REQUIRED)
 find_package(Boost CONFIG REQUIRED)
 find_package(nanoflann CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 if(PROJECT_ENABLE_SPDLOG)
     find_package(spdlog CONFIG REQUIRED)
 endif()
@@ -183,6 +184,7 @@ set(ONEQ_LINK_DEPENDENCIES
     eventpp::eventpp
     Boost::boost
     nanoflann::nanoflann
+    nlohmann_json::nlohmann_json
 )
 foreach(ONEQ_BUILD_TARGET IN ITEMS
     ${PROJECT_CORE_TARGET}
@@ -203,6 +205,7 @@ foreach(_oneq_conan_include_var IN ITEMS
     eventpp_INCLUDE_DIRS_RELEASE
     boost_INCLUDE_DIRS_RELEASE
     nanoflann_INCLUDE_DIRS_RELEASE
+    nlohmann_json_INCLUDE_DIRS_RELEASE
 )
     if(DEFINED ${_oneq_conan_include_var})
         foreach(ONEQ_BUILD_TARGET IN ITEMS

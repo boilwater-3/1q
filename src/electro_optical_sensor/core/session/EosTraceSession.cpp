@@ -1,189 +1,169 @@
 #include "1q/electro_optical_sensor/tools/EosTraceSession.h"
 
-#include <sstream>
 #include <string>
+#include <vector>
 
-#include "common/trace/JsonFormatUtils.h"
+#include <nlohmann/json.hpp>
 
 namespace electro_optical_sensor {
 namespace tools {
 namespace {
 
-using oneq::common::trace::internal::BoolToJson;
+using Json = nlohmann::ordered_json;
 
-std::string ToJson(const oneq::common::Vector3f& value) {
-  std::ostringstream stream;
-  stream << "[" << value.x << "," << value.y << "," << value.z << "]";
-  return stream.str();
-}
-
-std::string ToJson(const oneq::common::EulerAnglesDeg& value) {
-  std::ostringstream stream;
-  stream << "{";
-  stream << "\"yaw_deg\":" << value.yaw_deg << ",";
-  stream << "\"pitch_deg\":" << value.pitch_deg << ",";
-  stream << "\"roll_deg\":" << value.roll_deg;
-  stream << "}";
-  return stream.str();
-}
-
-std::string ToJson(const oneq::common::PoseState& value) {
-  std::ostringstream stream;
-  stream << "{";
-  stream << "\"position_m\":" << ToJson(value.position_m) << ",";
-  stream << "\"velocity_mps\":" << ToJson(value.velocity_mps) << ",";
-  stream << "\"attitude_deg\":" << ToJson(value.attitude_deg);
-  stream << "}";
-  return stream.str();
-}
-
-std::string ToJson(const core::context::EosTargetState& value) {
-  std::ostringstream stream;
-  stream << "{";
-  stream << "\"target_id\":" << value.target_id << ",";
-  stream << "\"range_m\":" << value.range_m << ",";
-  stream << "\"azimuth_deg\":" << value.azimuth_deg << ",";
-  stream << "\"elevation_deg\":" << value.elevation_deg << ",";
-  stream << "\"apparent_temperature_k\":" << value.apparent_temperature_k << ",";
-  stream << "\"emissivity\":" << value.emissivity << ",";
-  stream << "\"reflectance\":" << value.reflectance << ",";
-  stream << "\"projected_area_m2\":" << value.projected_area_m2;
-  stream << "}";
-  return stream.str();
-}
-
-std::string ToJson(const core::context::EosCycleInput& value) {
-  std::ostringstream stream;
-  stream << "{";
-  stream << "\"cycle_index\":" << value.cycle_index << ",";
-  stream << "\"dt_sec\":" << value.dt_sec << ",";
-  stream << "\"platform_pose\":" << ToJson(value.platform_pose) << ",";
-  stream << "\"solar_altitude_deg\":" << value.solar_altitude_deg << ",";
-  stream << "\"solar_azimuth_deg\":" << value.solar_azimuth_deg << ",";
-  stream << "\"solar_irradiance_w_m2\":" << value.solar_irradiance_w_m2 << ",";
-  stream << "\"atmospheric_transmittance\":" << value.atmospheric_transmittance << ",";
-  stream << "\"cloud_coverage_ratio\":" << value.cloud_coverage_ratio << ",";
-  stream << "\"day_night_type\":" << static_cast<int>(value.day_night_type) << ",";
-  stream << "\"background_temperature_k\":" << value.background_temperature_k << ",";
-  stream << "\"scene_targets\":[";
-  for (std::size_t i = 0; i < value.scene_targets.size(); ++i) {
-    if (i > 0U) {
-      stream << ",";
-    }
-    stream << ToJson(value.scene_targets[i]);
+template <typename T, typename Serializer>
+Json SerializeArray(const std::vector<T>& values, const Serializer& serializer) {
+  Json result = Json::array();
+  for (std::size_t i = 0; i < values.size(); ++i) {
+    result.push_back(serializer(values[i]));
   }
-  stream << "]";
-  stream << "}";
-  return stream.str();
+  return result;
 }
 
-std::string ToJson(const common::EosDetectionRecord& value) {
-  std::ostringstream stream;
-  stream << "{";
-  stream << "\"target_id\":" << value.target_id << ",";
-  stream << "\"range_m\":" << value.range_m << ",";
-  stream << "\"azimuth_deg\":" << value.azimuth_deg << ",";
-  stream << "\"elevation_deg\":" << value.elevation_deg << ",";
-  stream << "\"infrared_snr_linear\":" << value.infrared_snr_linear << ",";
-  stream << "\"visible_snr_linear\":" << value.visible_snr_linear << ",";
-  stream << "\"fused_snr_linear\":" << value.fused_snr_linear << ",";
-  stream << "\"fused_snr_db\":" << value.fused_snr_db << ",";
-  stream << "\"detected\":" << BoolToJson(value.detected);
-  stream << "}";
-  return stream.str();
+Json BuildJson(const oneq::common::Vector3f& value) {
+  Json json = Json::array();
+  json.push_back(value.x);
+  json.push_back(value.y);
+  json.push_back(value.z);
+  return json;
 }
 
-std::string ToJson(const common::EosOutputFrame& value) {
-  std::ostringstream stream;
-  stream << "{";
-  stream << "\"cycle_index\":" << value.cycle_index << ",";
-  stream << "\"scan_azimuth_deg\":" << value.scan_azimuth_deg << ",";
-  stream << "\"detections\":[";
-  for (std::size_t i = 0; i < value.detections.size(); ++i) {
-    if (i > 0U) {
-      stream << ",";
-    }
-    stream << ToJson(value.detections[i]);
-  }
-  stream << "]";
-  stream << "}";
-  return stream.str();
+Json BuildJson(const oneq::common::EulerAnglesDeg& value) {
+  Json json;
+  json["yaw_deg"] = value.yaw_deg;
+  json["pitch_deg"] = value.pitch_deg;
+  json["roll_deg"] = value.roll_deg;
+  return json;
 }
 
-std::string ToJson(const core::context::EosValidationIssue& value) {
-  std::ostringstream stream;
-  stream << "{";
-  stream << "\"severity\":" << static_cast<int>(value.severity) << ",";
-  stream << "\"code\":" << static_cast<int>(value.code) << ",";
-  stream << "\"target_index\":" << value.target_index << ",";
-  stream << "\"message\":" << oneq::common::trace::internal::QuoteString(value.message);
-  stream << "}";
-  return stream.str();
+Json BuildJson(const oneq::common::PoseState& value) {
+  Json json;
+  json["position_m"] = BuildJson(value.position_m);
+  json["velocity_mps"] = BuildJson(value.velocity_mps);
+  json["attitude_deg"] = BuildJson(value.attitude_deg);
+  return json;
 }
 
-std::string ToJson(const core::session::EosCycleResult& value) {
-  std::ostringstream stream;
-  stream << "{";
-  stream << "\"output_frame\":" << ToJson(value.output_frame) << ",";
-  stream << "\"validation_issues\":[";
-  for (std::size_t i = 0; i < value.validation_issues.size(); ++i) {
-    if (i > 0U) {
-      stream << ",";
-    }
-    stream << ToJson(value.validation_issues[i]);
-  }
-  stream << "],";
-  stream << "\"has_validation_error\":" << BoolToJson(value.has_validation_error);
-  stream << "}";
-  return stream.str();
+Json BuildJson(const core::context::EosTargetState& value) {
+  Json json;
+  json["target_id"] = value.target_id;
+  json["range_m"] = value.range_m;
+  json["azimuth_deg"] = value.azimuth_deg;
+  json["elevation_deg"] = value.elevation_deg;
+  json["apparent_temperature_k"] = value.apparent_temperature_k;
+  json["emissivity"] = value.emissivity;
+  json["reflectance"] = value.reflectance;
+  json["projected_area_m2"] = value.projected_area_m2;
+  return json;
 }
 
-std::string ToJson(const core::session::EosSessionConfig& value) {
-  std::ostringstream stream;
-  stream << "{";
-  stream << "\"wavelength_lower_um\":" << value.wavelength_lower_um << ",";
-  stream << "\"wavelength_upper_um\":" << value.wavelength_upper_um << ",";
-  stream << "\"optical_aperture_m\":" << value.optical_aperture_m << ",";
-  stream << "\"focal_length_m\":" << value.focal_length_m << ",";
-  stream << "\"work_mode\":" << static_cast<int>(value.work_mode) << ",";
-  stream << "\"horizontal_fov_deg\":" << value.horizontal_fov_deg << ",";
-  stream << "\"vertical_fov_deg\":" << value.vertical_fov_deg << ",";
-  stream << "\"scan_rate_deg_per_sec\":" << value.scan_rate_deg_per_sec << ",";
-  stream << "\"frame_rate_hz\":" << value.frame_rate_hz << ",";
-  stream << "\"minimum_snr_db\":" << value.minimum_snr_db << ",";
-  stream << "\"detection_sensitivity_w\":" << value.detection_sensitivity_w << ",";
-  stream << "\"scan_start_az_deg\":" << value.scan_start_az_deg << ",";
-  stream << "\"scan_end_az_deg\":" << value.scan_end_az_deg << ",";
-  stream << "\"scan_center_el_deg\":" << value.scan_center_el_deg << ",";
-  stream << "\"boresight_depression_deg\":" << value.boresight_depression_deg << ",";
-  stream << "\"min_detection_depression_deg\":" << value.min_detection_depression_deg << ",";
-  stream << "\"max_detection_depression_deg\":" << value.max_detection_depression_deg << ",";
-  stream << "\"visible_reference_irradiance_w_m2\":" << value.visible_reference_irradiance_w_m2;
-  stream << "}";
-  return stream.str();
+Json BuildJson(const core::context::EosCycleInput& value) {
+  Json json;
+  json["cycle_index"] = value.cycle_index;
+  json["dt_sec"] = value.dt_sec;
+  json["platform_pose"] = BuildJson(value.platform_pose);
+  json["solar_altitude_deg"] = value.solar_altitude_deg;
+  json["solar_azimuth_deg"] = value.solar_azimuth_deg;
+  json["solar_irradiance_w_m2"] = value.solar_irradiance_w_m2;
+  json["atmospheric_transmittance"] = value.atmospheric_transmittance;
+  json["cloud_coverage_ratio"] = value.cloud_coverage_ratio;
+  json["day_night_type"] = static_cast<int>(value.day_night_type);
+  json["background_temperature_k"] = value.background_temperature_k;
+  json["scene_targets"] =
+      SerializeArray(value.scene_targets, [](const core::context::EosTargetState& target) {
+        return BuildJson(target);
+      });
+  return json;
 }
 
-std::string ToJson(const core::session::EosRuntimeConfigPatch& value) {
-  std::ostringstream stream;
-  stream << "{";
-  stream << "\"has_work_mode\":" << BoolToJson(value.has_work_mode) << ",";
-  stream << "\"work_mode\":" << static_cast<int>(value.work_mode) << ",";
-  stream << "\"has_scan_rate_deg_per_sec\":" << BoolToJson(value.has_scan_rate_deg_per_sec)
-         << ",";
-  stream << "\"scan_rate_deg_per_sec\":" << value.scan_rate_deg_per_sec << ",";
-  stream << "\"has_frame_rate_hz\":" << BoolToJson(value.has_frame_rate_hz) << ",";
-  stream << "\"frame_rate_hz\":" << value.frame_rate_hz << ",";
-  stream << "\"has_minimum_snr_db\":" << BoolToJson(value.has_minimum_snr_db) << ",";
-  stream << "\"minimum_snr_db\":" << value.minimum_snr_db << ",";
-  stream << "\"has_enable_straylight_filter\":"
-         << BoolToJson(value.has_enable_straylight_filter) << ",";
-  stream << "\"enable_straylight_filter\":" << BoolToJson(value.enable_straylight_filter) << ",";
-  stream << "\"has_visible_reference_irradiance_w_m2\":"
-         << BoolToJson(value.has_visible_reference_irradiance_w_m2) << ",";
-  stream << "\"visible_reference_irradiance_w_m2\":"
-         << value.visible_reference_irradiance_w_m2;
-  stream << "}";
-  return stream.str();
+Json BuildJson(const common::EosDetectionRecord& value) {
+  Json json;
+  json["target_id"] = value.target_id;
+  json["range_m"] = value.range_m;
+  json["azimuth_deg"] = value.azimuth_deg;
+  json["elevation_deg"] = value.elevation_deg;
+  json["infrared_snr_linear"] = value.infrared_snr_linear;
+  json["visible_snr_linear"] = value.visible_snr_linear;
+  json["fused_snr_linear"] = value.fused_snr_linear;
+  json["fused_snr_db"] = value.fused_snr_db;
+  json["detected"] = value.detected;
+  return json;
+}
+
+Json BuildJson(const common::EosOutputFrame& value) {
+  Json json;
+  json["cycle_index"] = value.cycle_index;
+  json["scan_azimuth_deg"] = value.scan_azimuth_deg;
+  json["detections"] =
+      SerializeArray(value.detections, [](const common::EosDetectionRecord& detection) {
+        return BuildJson(detection);
+      });
+  return json;
+}
+
+Json BuildJson(const core::context::EosValidationIssue& value) {
+  Json json;
+  json["severity"] = static_cast<int>(value.severity);
+  json["code"] = static_cast<int>(value.code);
+  json["target_index"] = value.target_index;
+  json["message"] = value.message;
+  return json;
+}
+
+Json BuildJson(const core::session::EosCycleResult& value) {
+  Json json;
+  json["output_frame"] = BuildJson(value.output_frame);
+  json["validation_issues"] =
+      SerializeArray(value.validation_issues, [](const core::context::EosValidationIssue& issue) {
+        return BuildJson(issue);
+      });
+  json["has_validation_error"] = value.has_validation_error;
+  return json;
+}
+
+Json BuildJson(const core::session::EosSessionConfig& value) {
+  Json json;
+  json["wavelength_lower_um"] = value.wavelength_lower_um;
+  json["wavelength_upper_um"] = value.wavelength_upper_um;
+  json["optical_aperture_m"] = value.optical_aperture_m;
+  json["focal_length_m"] = value.focal_length_m;
+  json["work_mode"] = static_cast<int>(value.work_mode);
+  json["horizontal_fov_deg"] = value.horizontal_fov_deg;
+  json["vertical_fov_deg"] = value.vertical_fov_deg;
+  json["scan_rate_deg_per_sec"] = value.scan_rate_deg_per_sec;
+  json["frame_rate_hz"] = value.frame_rate_hz;
+  json["minimum_snr_db"] = value.minimum_snr_db;
+  json["detection_sensitivity_w"] = value.detection_sensitivity_w;
+  json["scan_start_az_deg"] = value.scan_start_az_deg;
+  json["scan_end_az_deg"] = value.scan_end_az_deg;
+  json["scan_center_el_deg"] = value.scan_center_el_deg;
+  json["boresight_depression_deg"] = value.boresight_depression_deg;
+  json["min_detection_depression_deg"] = value.min_detection_depression_deg;
+  json["max_detection_depression_deg"] = value.max_detection_depression_deg;
+  json["visible_reference_irradiance_w_m2"] = value.visible_reference_irradiance_w_m2;
+  return json;
+}
+
+Json BuildJson(const core::session::EosRuntimeConfigPatch& value) {
+  Json json;
+  json["has_work_mode"] = value.has_work_mode;
+  json["work_mode"] = static_cast<int>(value.work_mode);
+  json["has_scan_rate_deg_per_sec"] = value.has_scan_rate_deg_per_sec;
+  json["scan_rate_deg_per_sec"] = value.scan_rate_deg_per_sec;
+  json["has_frame_rate_hz"] = value.has_frame_rate_hz;
+  json["frame_rate_hz"] = value.frame_rate_hz;
+  json["has_minimum_snr_db"] = value.has_minimum_snr_db;
+  json["minimum_snr_db"] = value.minimum_snr_db;
+  json["has_enable_straylight_filter"] = value.has_enable_straylight_filter;
+  json["enable_straylight_filter"] = value.enable_straylight_filter;
+  json["has_visible_reference_irradiance_w_m2"] = value.has_visible_reference_irradiance_w_m2;
+  json["visible_reference_irradiance_w_m2"] = value.visible_reference_irradiance_w_m2;
+  return json;
+}
+
+template <typename T>
+std::string ToJson(const T& value) {
+  return BuildJson(value).dump();
 }
 
 }  // namespace

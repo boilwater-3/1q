@@ -5,6 +5,8 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
+
 #include "electro_optical_sensor/core/pipeline/EosPipeline.h"
 
 namespace electro_optical_sensor {
@@ -371,6 +373,61 @@ TEST(EosPipelineTest, InfraredBandwidthIncreaseRaisesSnrAtFixedCenterWavelength)
   ASSERT_EQ(wide_band_frame.detections.size(), 1U);
   EXPECT_GT(wide_band_frame.detections[0].fused_snr_linear,
             narrow_band_frame.detections[0].fused_snr_linear);
+}
+
+TEST(EosPipelineTest, FusedWeightShiftsTowardVisibleInDayAndInfraredAtNight) {
+  EosPipelineConfig fused_config = MakePipelineConfig();
+  fused_config.work_mode = EosPipelineWorkMode::kFused;
+  fused_config.minimum_snr_db = -120.0f;
+  EosPipelineConfig infrared_config = fused_config;
+  infrared_config.work_mode = EosPipelineWorkMode::kInfraredOnly;
+  EosPipelineConfig visible_config = fused_config;
+  visible_config.work_mode = EosPipelineWorkMode::kVisibleOnly;
+
+  EosPipeline fused_pipeline(fused_config);
+  EosPipeline infrared_pipeline(infrared_config);
+  EosPipeline visible_pipeline(visible_config);
+
+  context::EosCycleInput day_input = MakeCycleInput(1.0f);
+  day_input.cycle_index = 12U;
+  day_input.day_night_type = context::DayNightType::kDay;
+  day_input.cloud_coverage_ratio = 0.0f;
+  day_input.background_temperature_k = 240.0f;
+  const float day_scan_azimuth = ResolveFirstCycleScanAzimuthDeg(fused_config, day_input.dt_sec);
+  day_input.scene_targets.push_back(MakeTarget(1101U, day_scan_azimuth, 800.0f, 10.0f));
+
+  const common::EosOutputFrame day_fused_frame = fused_pipeline.Execute(day_input);
+  const common::EosOutputFrame day_infrared_frame = infrared_pipeline.Execute(day_input);
+  const common::EosOutputFrame day_visible_frame = visible_pipeline.Execute(day_input);
+  ASSERT_EQ(day_fused_frame.detections.size(), 1U);
+  ASSERT_EQ(day_infrared_frame.detections.size(), 1U);
+  ASSERT_EQ(day_visible_frame.detections.size(), 1U);
+  const float day_distance_to_infrared = std::fabs(day_fused_frame.detections[0].fused_snr_linear -
+                                                   day_infrared_frame.detections[0].fused_snr_linear);
+  const float day_distance_to_visible = std::fabs(day_fused_frame.detections[0].fused_snr_linear -
+                                                  day_visible_frame.detections[0].fused_snr_linear);
+  EXPECT_LT(day_distance_to_visible, day_distance_to_infrared);
+
+  EosPipeline night_fused_pipeline(fused_config);
+  EosPipeline night_infrared_pipeline(infrared_config);
+  EosPipeline night_visible_pipeline(visible_config);
+
+  context::EosCycleInput night_input = day_input;
+  night_input.cycle_index = 13U;
+  night_input.day_night_type = context::DayNightType::kNight;
+  const common::EosOutputFrame night_fused_frame = night_fused_pipeline.Execute(night_input);
+  const common::EosOutputFrame night_infrared_frame = night_infrared_pipeline.Execute(night_input);
+  const common::EosOutputFrame night_visible_frame = night_visible_pipeline.Execute(night_input);
+  ASSERT_EQ(night_fused_frame.detections.size(), 1U);
+  ASSERT_EQ(night_infrared_frame.detections.size(), 1U);
+  ASSERT_EQ(night_visible_frame.detections.size(), 1U);
+  const float night_distance_to_infrared =
+      std::fabs(night_fused_frame.detections[0].fused_snr_linear -
+                night_infrared_frame.detections[0].fused_snr_linear);
+  const float night_distance_to_visible =
+      std::fabs(night_fused_frame.detections[0].fused_snr_linear -
+                night_visible_frame.detections[0].fused_snr_linear);
+  EXPECT_LT(night_distance_to_infrared, night_distance_to_visible);
 }
 
 }  // namespace

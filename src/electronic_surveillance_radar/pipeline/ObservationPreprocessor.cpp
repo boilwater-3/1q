@@ -12,6 +12,18 @@ namespace pipeline {
 namespace internal {
 
 namespace {
+constexpr double kTimeCompareEpsilonSec = 1.0e-9;
+constexpr double kRfCompareEpsilonHz = 1.0e-3;
+constexpr double kPwCompareEpsilonSec = 1.0e-12;
+constexpr float kAngleCompareEpsilonDeg = 1.0e-6f;
+
+bool LessOrNearEqual(double lhs, double rhs, double epsilon) {
+  return lhs <= rhs + epsilon;
+}
+
+bool LessOrNearEqual(float lhs, float rhs, float epsilon) {
+  return lhs <= rhs + epsilon;
+}
 
 /**
  * @brief 判断观测字段是否满足有限值与范围约束。
@@ -56,11 +68,15 @@ bool IsDuplicateObservation(const common::EmitterObservation& lhs,
   const double dedup_time_window_sec = static_cast<double>(config.dedup_time_window_sec);
   const float az_diff = std::fabs(
       oneq::internal::geometry::ComputeAzimuthDifferenceDeg(lhs.aoa_az_deg, rhs.aoa_az_deg));
-  return std::fabs(lhs.timestamp_s - rhs.timestamp_s) <= dedup_time_window_sec &&
-         std::fabs(lhs.rf_hz - rhs.rf_hz) <= config.dedup_rf_window_hz &&
-         std::fabs(lhs.pulse_width_s - rhs.pulse_width_s) <= config.dedup_pw_window_sec &&
-         az_diff <= config.dedup_az_window_deg &&
-         std::fabs(lhs.aoa_el_deg - rhs.aoa_el_deg) <= config.dedup_el_window_deg;
+  return LessOrNearEqual(std::fabs(lhs.timestamp_s - rhs.timestamp_s), dedup_time_window_sec,
+                         kTimeCompareEpsilonSec) &&
+         LessOrNearEqual(std::fabs(lhs.rf_hz - rhs.rf_hz), config.dedup_rf_window_hz,
+                         kRfCompareEpsilonHz) &&
+         LessOrNearEqual(std::fabs(lhs.pulse_width_s - rhs.pulse_width_s),
+                         config.dedup_pw_window_sec, kPwCompareEpsilonSec) &&
+         LessOrNearEqual(az_diff, config.dedup_az_window_deg, kAngleCompareEpsilonDeg) &&
+         LessOrNearEqual(std::fabs(lhs.aoa_el_deg - rhs.aoa_el_deg),
+                         config.dedup_el_window_deg, kAngleCompareEpsilonDeg);
 }
 
 /**
@@ -113,7 +129,7 @@ std::vector<RawObservationRecord> ObservationPreprocessor::Run(
     for (std::size_t j = output.size(); j > 0; --j) {
       RawObservationRecord& candidate = output[j - 1U];
       if (current.observation.timestamp_s - candidate.observation.timestamp_s >
-          static_cast<double>(config.dedup_time_window_sec)) {
+          static_cast<double>(config.dedup_time_window_sec) + kTimeCompareEpsilonSec) {
         break;
       }
 
