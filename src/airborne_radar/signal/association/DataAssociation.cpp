@@ -178,9 +178,16 @@ AssociationResult DataAssociationEngine::AssociateDetections(
   std::vector<std::size_t> measurement_indices;
   measurement_indices.reserve(target_count);
   for (std::size_t i = 0; i < target_count; ++i) {
-    if (i < detection_succeeded.size() && detection_succeeded[i] != 0U) {
-      measurement_indices.push_back(i);
+    if (i >= detection_succeeded.size() || detection_succeeded[i] == 0U) {
+      continue;
     }
+    if (!HasPositionMeasurement(targets[i])) {
+      AbortContractViolation("detected target is missing cartesian position; dropped before "
+                             "position association",
+                             i);
+      continue;
+    }
+    measurement_indices.push_back(i);
   }
 
   const bool using_external_seeds = UsingExternalSeeds();
@@ -205,7 +212,6 @@ AssociationResult DataAssociationEngine::AssociateDetections(
     return result;
   }
 
-  ValidateDetectedTargetsHavePosition(targets, detection_succeeded);
   result.used_position_association = true;
   result.used_external_association_seeds = using_external_seeds;
 
@@ -404,23 +410,8 @@ Eigen::Vector3f DataAssociationEngine::BuildPositionVector(
   return Eigen::Vector3f(target.position_x, target.position_y, target.position_z);
 }
 
-bool DataAssociationEngine::HasPositionMeasurement(
-    const common::model::TargetFeature& target) const {
+bool DataAssociationEngine::HasPositionMeasurement(const common::model::TargetFeature& target) const {
   return target.has_cartesian_position;
-}
-
-void DataAssociationEngine::ValidateDetectedTargetsHavePosition(
-    const common::model::TargetFeatureList& targets,
-    const std::vector<std::uint8_t>& detection_succeeded) const {
-  for (std::size_t i = 0; i < targets.size() && i < detection_succeeded.size(); ++i) {
-    if (detection_succeeded[i] == 0U) {
-      continue;
-    }
-    if (!HasPositionMeasurement(targets[i])) {
-      AbortContractViolation("detected target is missing cartesian position", i);
-      continue;
-    }
-  }
 }
 
 tracking::GaussianTrackState DataAssociationEngine::InitializeGaussianState(

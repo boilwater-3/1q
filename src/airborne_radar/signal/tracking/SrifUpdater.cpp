@@ -68,6 +68,11 @@ KalmanUpdateResult SrifUpdater::Update(const GaussianTrackState& predicted,
   return result;
 }
 
+void SrifUpdater::UpdateConfig(KalmanUpdaterConfig config) {
+  config_ = config;
+  R_ = BuildMeasurementNoise(config.measurement_noise_std);
+}
+
 MeasurementMatrix SrifUpdater::BuildMeasurementMatrix() {
   MeasurementMatrix H = MeasurementMatrix::Zero();
   H(0, 0) = 1.0f;

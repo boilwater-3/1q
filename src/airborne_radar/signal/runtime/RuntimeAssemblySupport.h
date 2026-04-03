@@ -76,6 +76,14 @@ void RebuildOwnedComponentsForPipeline(
     const pipeline::internal::InternalSignalPipelineConfig& base_internal_config,
     const common::control::RadarControlProfile& control_profile, OwnedComponentSlots* slots);
 
+/**
+ * @brief 将本周期运行时配置同步到自动生命周期管理器内部参数。
+ */
+void SyncAutoLifecycleManagerForRuntimeConfig(
+    const SignalPipelineConfig& runtime_config,
+    const pipeline::internal::InternalSignalPipelineConfig& internal_runtime_config,
+    tracking::ITrackLifecycleManager* auto_lifecycle_manager);
+
 }  // namespace internal
 }  // namespace runtime
 }  // namespace signal

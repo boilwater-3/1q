@@ -1159,6 +1159,57 @@ TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUp
             baseline_seeds[0].gaussian_state.covariance(0, 0));
 }
 
+TEST(SignalPipelineTest, AutoLifecycleManagerSyncsRuntimeTuningAcrossCycles) {
+  common::config::SignalPipelineConfig pipeline_config;
+  pipeline_config.detection.min_detection_margin_db = -100.0f;
+  pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
+  pipeline_config.lifecycle.lifecycle_config.confirm_hits = 1;
+  pipeline_config.tracking.enable_kalman_filter = true;
+
+  const signal::pipeline::internal::InternalSignalPipelineConfig base_internal_config =
+      signal::pipeline::internal::BuildInternalSignalPipelineConfig(pipeline_config);
+  std::unique_ptr<signal::tracking::ITrackLifecycleManager> unsynced_manager =
+      signal::runtime::internal::CreateAutoLifecycleManagerForRuntimeConfig(pipeline_config,
+                                                                            base_internal_config);
+  std::unique_ptr<signal::tracking::ITrackLifecycleManager> synced_manager =
+      signal::runtime::internal::CreateAutoLifecycleManagerForRuntimeConfig(pipeline_config,
+                                                                            base_internal_config);
+  ASSERT_TRUE(unsynced_manager != nullptr);
+  ASSERT_TRUE(synced_manager != nullptr);
+
+  environment::EnvironmentService environment_service;
+  signal::pipeline::SignalPipeline measurement_source_pipeline(pipeline_config);
+  const common::model::TargetFeatureList cycle_1_input{BuildPhysicsTarget(100.0f, 4.0f)};
+  measurement_source_pipeline.RunCycle(cycle_1_input, environment_service);
+  const std::vector<signal::tracking::TrackMeasurement> cycle_1_measurements =
+      measurement_source_pipeline.GetLastTrackMeasurements();
+  ASSERT_EQ(cycle_1_measurements.size(), 1u);
+
+  unsynced_manager->Update(MakeLifecycleCycle(1u, 1u), cycle_1_measurements);
+  synced_manager->Update(MakeLifecycleCycle(1u, 1u), cycle_1_measurements);
+
+  common::control::RadarControlProfile agile_profile;
+  agile_profile.enable_agility_frequency = true;
+  const signal::runtime::internal::ResolvedRuntimeSignalPipelineConfig agile_runtime_config =
+      signal::runtime::internal::BuildRuntimeConfigFromControlProfile(
+          pipeline_config, base_internal_config, agile_profile);
+  signal::runtime::internal::SyncAutoLifecycleManagerForRuntimeConfig(
+      agile_runtime_config.public_config, agile_runtime_config.internal_config,
+      synced_manager.get());
+
+  unsynced_manager->Update(MakeLifecycleCycle(2u, 2u), {});
+  synced_manager->Update(MakeLifecycleCycle(2u, 2u), {});
+
+  const std::vector<signal::tracking::AssociationTrackSeed> unsynced_seeds =
+      unsynced_manager->BuildAssociationSeeds();
+  const std::vector<signal::tracking::AssociationTrackSeed> synced_seeds =
+      synced_manager->BuildAssociationSeeds();
+  ASSERT_EQ(unsynced_seeds.size(), 1u);
+  ASSERT_EQ(synced_seeds.size(), 1u);
+  EXPECT_GT(synced_seeds[0].gaussian_state.covariance(0, 0),
+            unsynced_seeds[0].gaussian_state.covariance(0, 0));
+}
+
 TEST(SignalPipelineTest, DeceptionJammingInflatesPhysicalCovarianceMoreThanNoiseSuppression) {
   common::config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.enable_physics_detection = true;

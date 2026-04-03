@@ -16,6 +16,7 @@
 #include "airborne_radar/signal/pipeline/InternalSignalPipelineConfig.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/tracking/GaussianTrackState.h"
+#include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
 
@@ -70,7 +71,8 @@ void RefreshMeasurementCovariances(
 void SyncAssociationAndTrackFilterConfigs(
     const SignalPipelineConfig& runtime_config,
     const InternalSignalPipelineConfig& internal_runtime_config,
-    association::DataAssociationEngine* association_engine, tracking::TrackFilter* track_filter);
+    association::DataAssociationEngine* association_engine, tracking::TrackFilter* track_filter,
+    tracking::ITrackLifecycleManager* auto_lifecycle_manager = nullptr);
 
 }  // namespace internal
 }  // namespace pipeline

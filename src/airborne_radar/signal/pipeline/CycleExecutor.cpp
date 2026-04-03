@@ -49,7 +49,8 @@ void InitializeWorkspace(const CycleExecutionRuntime& runtime, CycleExecutionCon
       &ctx->association_result);
   ResetCycleWorkspace(*ctx->input_state, ctx->runtime_config, &cycle_workspace);
   SyncAssociationAndTrackFilterConfigs(ctx->runtime_config, ctx->internal_runtime_config,
-                                       runtime.association_engine, runtime.track_filter);
+                                       runtime.association_engine, runtime.track_filter,
+                                       runtime.auto_lifecycle_manager);
 }
 
 void PrepareAssociationSeeds(const CycleExecutionRuntime& runtime, CycleExecutionContext*) {
@@ -70,7 +71,8 @@ void SampleEnvironmentAndResolveJamming(const CycleExecutionRuntime& runtime,
                                 ctx->runtime_config.tracking.kalman_measurement_noise_std,
                                 &ctx->measurement_covariances);
   SyncAssociationAndTrackFilterConfigs(ctx->runtime_config, ctx->internal_runtime_config,
-                                       runtime.association_engine, runtime.track_filter);
+                                       runtime.association_engine, runtime.track_filter,
+                                       runtime.auto_lifecycle_manager);
   ctx->dominant_jamming_semantic =
       ResolveDominantJammingSemantic(*runtime.control_profile, ctx->environment_snapshot);
   ctx->jamming_severity =

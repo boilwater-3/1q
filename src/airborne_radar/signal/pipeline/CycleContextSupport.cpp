@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "airborne_radar/signal/runtime/RuntimeAssemblySupport.h"
 #include "airborne_radar/signal/runtime/SignalComponentFactory.h"
 
 namespace airborne_radar {
@@ -67,7 +68,8 @@ void RefreshMeasurementCovariances(
 void SyncAssociationAndTrackFilterConfigs(
     const SignalPipelineConfig& runtime_config,
     const InternalSignalPipelineConfig& internal_runtime_config,
-    association::DataAssociationEngine* association_engine, tracking::TrackFilter* track_filter) {
+    association::DataAssociationEngine* association_engine, tracking::TrackFilter* track_filter,
+    tracking::ITrackLifecycleManager* auto_lifecycle_manager) {
   if (association_engine != nullptr) {
     association_engine->UpdateConfig(
         runtime::internal::SignalComponentFactory::BuildAssociationConfig(runtime_config,
@@ -76,6 +78,10 @@ void SyncAssociationAndTrackFilterConfigs(
   if (track_filter != nullptr) {
     track_filter->UpdateConfig(
         runtime::internal::SignalComponentFactory::BuildTrackFilterConfig(internal_runtime_config));
+  }
+  if (auto_lifecycle_manager != nullptr) {
+    runtime::internal::SyncAutoLifecycleManagerForRuntimeConfig(
+        runtime_config, internal_runtime_config, auto_lifecycle_manager);
   }
 }
 

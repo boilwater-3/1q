@@ -1,10 +1,15 @@
 #include "airborne_radar/signal/tracking/TrackLifecycleManager.h"
 
 #include <algorithm>
+#include <cmath>
 
 #include "airborne_radar/signal/tracking/ImmFilter.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
+#include "airborne_radar/signal/tracking/SrifPredictor.h"
+#include "airborne_radar/signal/tracking/SrifUpdater.h"
+#include "airborne_radar/signal/tracking/UdkfPredictor.h"
+#include "airborne_radar/signal/tracking/UdkfUpdater.h"
 #include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
@@ -45,6 +50,85 @@ std::uint32_t ResolveLocalMissToleranceBonus(const TrackState& track) {
     default:
       return 0U;
   }
+}
+
+void UpdatePredictorConfigIfSupported(const IKalmanPredictor* predictor, float noise_diff_coeff) {
+  if (predictor == nullptr || std::isfinite(noise_diff_coeff) == 0 || noise_diff_coeff <= 0.0f) {
+    return;
+  }
+  KalmanPredictorConfig config;
+  config.noise_diff_coeff = noise_diff_coeff;
+  IKalmanPredictor* mutable_predictor = const_cast<IKalmanPredictor*>(predictor);
+  if (KalmanPredictor* concrete = dynamic_cast<KalmanPredictor*>(mutable_predictor)) {
+    concrete->UpdateConfig(config);
+    return;
+  }
+  if (SrifPredictor* concrete = dynamic_cast<SrifPredictor*>(mutable_predictor)) {
+    concrete->UpdateConfig(config);
+    return;
+  }
+  if (UdkfPredictor* concrete = dynamic_cast<UdkfPredictor*>(mutable_predictor)) {
+    concrete->UpdateConfig(config);
+    return;
+  }
+}
+
+void UpdateUpdaterConfigIfSupported(const IKalmanUpdater* updater, float measurement_noise_std) {
+  if (updater == nullptr || std::isfinite(measurement_noise_std) == 0 ||
+      measurement_noise_std <= 0.0f) {
+    return;
+  }
+  KalmanUpdaterConfig config;
+  config.measurement_noise_std = measurement_noise_std;
+  IKalmanUpdater* mutable_updater = const_cast<IKalmanUpdater*>(updater);
+  if (KalmanUpdater* concrete = dynamic_cast<KalmanUpdater*>(mutable_updater)) {
+    concrete->UpdateConfig(config);
+    return;
+  }
+  if (SrifUpdater* concrete = dynamic_cast<SrifUpdater*>(mutable_updater)) {
+    concrete->UpdateConfig(config);
+    return;
+  }
+  if (UdkfUpdater* concrete = dynamic_cast<UdkfUpdater*>(mutable_updater)) {
+    concrete->UpdateConfig(config);
+    return;
+  }
+}
+
+bool IsValidTransitionProbability(const Eigen::MatrixXf& transition_probability) {
+  if (transition_probability.rows() <= 0 ||
+      transition_probability.rows() != transition_probability.cols()) {
+    return false;
+  }
+  for (Eigen::Index r = 0; r < transition_probability.rows(); ++r) {
+    float row_sum = 0.0f;
+    for (Eigen::Index c = 0; c < transition_probability.cols(); ++c) {
+      const float value = transition_probability(r, c);
+      if (std::isfinite(value) == 0 || value < 0.0f || value > 1.0f) {
+        return false;
+      }
+      row_sum += value;
+    }
+    if (std::fabs(row_sum - 1.0f) > 1.0e-3f) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool IsValidInitialWeights(const Eigen::VectorXf& initial_weights) {
+  if (initial_weights.size() <= 0) {
+    return false;
+  }
+  float sum = 0.0f;
+  for (Eigen::Index i = 0; i < initial_weights.size(); ++i) {
+    const float value = initial_weights(i);
+    if (std::isfinite(value) == 0 || value < 0.0f || value > 1.0f) {
+      return false;
+    }
+    sum += value;
+  }
+  return std::fabs(sum - 1.0f) <= 1.0e-3f;
 }
 
 }  // namespace
@@ -97,6 +181,55 @@ TrackLifecycleManager::TrackLifecycleManager(
 }
 
 TrackLifecycleManager::~TrackLifecycleManager() = default;
+
+void TrackLifecycleManager::SyncRuntimeTuning(
+    const LifecycleConfig& lifecycle_config, float kalman_noise_diff_coeff,
+    float kalman_measurement_noise_std, const std::vector<float>& imm_model_noise_diff_coeffs,
+    const Eigen::MatrixXf& imm_transition_probability,
+    const Eigen::VectorXf& imm_initial_weights) {
+  config_.confirm_hits = lifecycle_config.confirm_hits;
+  config_.max_miss_before_lost = lifecycle_config.max_miss_before_lost;
+  config_.max_lost_cycles = lifecycle_config.max_lost_cycles;
+  config_.nominal_cycle_dt_sec = lifecycle_config.nominal_cycle_dt_sec;
+  config_.imm_activation_policy = lifecycle_config.imm_activation_policy;
+
+  UpdatePredictorConfigIfSupported(kalman_predictor_, kalman_noise_diff_coeff);
+  UpdateUpdaterConfigIfSupported(kalman_updater_, kalman_measurement_noise_std);
+
+  for (std::size_t i = 0; i < imm_predictors_.size(); ++i) {
+    const float model_noise_diff_coeff =
+        i < imm_model_noise_diff_coeffs.size() ? imm_model_noise_diff_coeffs[i]
+                                               : kalman_noise_diff_coeff;
+    UpdatePredictorConfigIfSupported(imm_predictors_[i], model_noise_diff_coeff);
+  }
+  for (std::size_t i = 0; i < imm_updaters_.size(); ++i) {
+    UpdateUpdaterConfigIfSupported(imm_updaters_[i], kalman_measurement_noise_std);
+  }
+
+  const bool transition_shape_match =
+      imm_transition_probability.rows() == static_cast<Eigen::Index>(imm_predictors_.size()) &&
+      imm_transition_probability.cols() == static_cast<Eigen::Index>(imm_predictors_.size());
+  if (transition_shape_match && IsValidTransitionProbability(imm_transition_probability)) {
+    imm_transition_probability_ = imm_transition_probability;
+  }
+  const bool weights_shape_match =
+      imm_initial_weights.size() == static_cast<Eigen::Index>(imm_predictors_.size());
+  if (weights_shape_match && IsValidInitialWeights(imm_initial_weights)) {
+    imm_initial_weights_ = imm_initial_weights;
+  }
+
+  ImmConfig imm_config;
+  imm_config.transition_probability = imm_transition_probability_;
+  imm_config.initial_weights = imm_initial_weights_;
+  for (std::unordered_map<std::uint64_t, std::unique_ptr<ImmFilter>>::iterator it =
+           imm_filters_by_key_.begin();
+       it != imm_filters_by_key_.end(); ++it) {
+    if (it->second == nullptr) {
+      continue;
+    }
+    it->second->UpdateRuntimeTuning(imm_config, imm_predictors_, imm_updaters_);
+  }
+}
 
 bool TrackLifecycleManager::IsImmEnabled() const {
   return !imm_predictors_.empty() && imm_predictors_.size() == imm_updaters_.size() &&

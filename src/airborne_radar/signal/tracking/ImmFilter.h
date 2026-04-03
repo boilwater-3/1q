@@ -89,6 +89,13 @@ class ImmFilter {
    * @param states 各模型初始状态。
    */
   void SetModelStates(const std::vector<ImmModelState>& states);
+  /**
+   * @brief 在线同步 IMM 运行参数与模型滤波器指针。
+   * @return 同步成功返回 true；模型维度不一致时返回 false。
+   */
+  bool UpdateRuntimeTuning(const ImmConfig& config,
+                           const std::vector<const IKalmanPredictor*>& predictors,
+                           const std::vector<const IKalmanUpdater*>& updaters);
 
  private:
   /**

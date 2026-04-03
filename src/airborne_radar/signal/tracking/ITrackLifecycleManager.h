@@ -11,6 +11,7 @@
 #include "1q/airborne_radar/common/model/DecisionInputFrame.h"
 #include "1q/airborne_radar/common/model/DecisionTrackSnapshot.h"
 #include "1q/airborne_radar/common/model/TargetFeature.h"
+#include "airborne_radar/signal/tracking/LifecycleConfig.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
 
 namespace airborne_radar {
@@ -54,6 +55,23 @@ class ITrackLifecycleManager {
    * @return 由当前未回收轨迹（tentative/confirmed/lost）组成的关联候选列表。
    */
   virtual std::vector<AssociationTrackSeed> BuildAssociationSeeds() const = 0;
+  /**
+   * @brief 同步运行时 lifecycle/KF/IMM 参数。
+   * @note 默认空实现，供不支持在线调参的实现安全忽略。
+   */
+  virtual void SyncRuntimeTuning(const LifecycleConfig& lifecycle_config,
+                                 float kalman_noise_diff_coeff,
+                                 float kalman_measurement_noise_std,
+                                 const std::vector<float>& imm_model_noise_diff_coeffs,
+                                 const Eigen::MatrixXf& imm_transition_probability,
+                                 const Eigen::VectorXf& imm_initial_weights) {
+    (void)lifecycle_config;
+    (void)kalman_noise_diff_coeff;
+    (void)kalman_measurement_noise_std;
+    (void)imm_model_noise_diff_coeffs;
+    (void)imm_transition_probability;
+    (void)imm_initial_weights;
+  }
 };
 
 }  // namespace tracking

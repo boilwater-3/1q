@@ -37,11 +37,11 @@ struct ONEQ_API InfraredRadianceInputs {
 struct ONEQ_API VisibleRadianceInputs {
   float solar_irradiance_w_m2{800.0f}; /**< 地表太阳辐照度（单位：W/m^2） */
   float solar_altitude_deg{45.0f};     /**< 太阳高度角（单位：deg） */
-  float atmospheric_transmittance{0.85f}; /**< 大气透明度，范围 [0, 1] */
+  float atmospheric_transmittance{0.85f}; /**< 预留字段（可见链路传播阶段统一处理） */
   float cloud_coverage_ratio{0.2f};    /**< 云量，范围 [0, 1] */
   float reflectance{0.2f};             /**< 漫反射率，范围 [0, 1] */
-  float projected_area_m2{1.0f};       /**< 投影面积（单位：m^2） */
-  float range_m{1000.0f};              /**< 斜距（单位：m） */
+  float projected_area_m2{1.0f};       /**< 预留字段（可见链路传播阶段统一处理） */
+  float range_m{1000.0f};              /**< 预留字段（可见链路传播阶段统一处理） */
   IlluminationCondition illumination{IlluminationCondition::kDay}; /**< 光照条件 */
 };
 
@@ -70,6 +70,15 @@ struct ONEQ_API VisibleChannelResult {
  * @return 光谱辐射亮度，单位 `W/(sr*m^3)`。
  */
 ONEQ_API float ComputePlanckRadiance(float wavelength_um, float temperature_k);
+
+/**
+ * @brief 将光谱辐亮度按波段宽度积分为带宽辐亮度。
+ * @param[in] spectral_radiance_w_sr_m3 光谱辐亮度（单位：W/(sr*m^3)）。
+ * @param[in] wavelength_bandwidth_um 波段宽度（单位：um）。
+ * @return 带宽辐亮度（单位：W/(sr*m^2)）。
+ */
+ONEQ_API float IntegrateSpectralRadianceOverBand(float spectral_radiance_w_sr_m3,
+                                                 float wavelength_bandwidth_um);
 
 /**
  * @brief 计算红外目标辐射亮度（目标发射亮度与背景亮度差）。

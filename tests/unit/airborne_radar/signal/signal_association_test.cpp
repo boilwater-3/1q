@@ -323,9 +323,13 @@ TEST(DataAssociationEngineTest, DetectedTargetMissingPositionCompletesGracefully
   const common::model::TargetFeatureList cycle_1{MakeTarget(100.0f, 2.0f), MakeTarget(220.0f, 5.0f)};
   const std::vector<std::uint8_t> detected_1{1U, 1U};
 
-  // Contract violation is logged and skipped; association completes without aborting
+  // Contract violation is logged and dropped before position association.
   const signal::association::AssociationResult result = engine.AssociateDetections(cycle_1, detected_1);
   EXPECT_EQ(result.target_keys.size(), 2u);
+  EXPECT_EQ(result.target_keys[0], 0u);
+  EXPECT_EQ(result.target_keys[1], 0u);
+  EXPECT_TRUE(result.matches.empty());
+  EXPECT_TRUE(result.unassociated_target_indices.empty());
 }
 
 TEST(DataAssociationEngineTest, DetectedTargetWithCoordinatesButMissingPositionFlagCompletesGracefully) {
@@ -339,9 +343,28 @@ TEST(DataAssociationEngineTest, DetectedTargetWithCoordinatesButMissingPositionF
 
   const common::model::TargetFeatureList cycle_1{target};
   const std::vector<std::uint8_t> detected_1{1U};
-  // Contract violation is logged and skipped; association completes without aborting
+  // Contract violation is logged and dropped before position association.
   const signal::association::AssociationResult result = engine.AssociateDetections(cycle_1, detected_1);
   EXPECT_EQ(result.target_keys.size(), 1u);
+  EXPECT_EQ(result.target_keys[0], 0u);
+  EXPECT_TRUE(result.matches.empty());
+  EXPECT_TRUE(result.unassociated_target_indices.empty());
+}
+
+TEST(DataAssociationEngineTest, DropsOnlyInvalidDetectedTargetsWithoutPosition) {
+  signal::association::DataAssociationEngine engine;
+
+  common::model::TargetFeature invalid_target = MakeTarget(100.0f, 2.0f);
+  common::model::TargetFeature valid_target = MakePositionTarget(30.0f, 0.0f, 0.0f);
+
+  const common::model::TargetFeatureList cycle_1{invalid_target, valid_target};
+  const std::vector<std::uint8_t> detected_1{1U, 1U};
+  const signal::association::AssociationResult result = engine.AssociateDetections(cycle_1, detected_1);
+  ASSERT_EQ(result.target_keys.size(), 2u);
+  EXPECT_EQ(result.target_keys[0], 0u);
+  EXPECT_NE(result.target_keys[1], 0u);
+  ASSERT_EQ(result.unassociated_target_indices.size(), 1u);
+  EXPECT_EQ(result.unassociated_target_indices[0], 1u);
 }
 
 TEST(DataAssociationEngineTest, DetectedOriginWithPositionFlagPassesValidation) {

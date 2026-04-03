@@ -95,6 +95,11 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
    * @return 由当前未回收轨迹（tentative/confirmed/lost）构成的关联种子列表。
    */
   std::vector<AssociationTrackSeed> BuildAssociationSeeds() const override;
+  void SyncRuntimeTuning(const LifecycleConfig& lifecycle_config,
+                         float kalman_noise_diff_coeff, float kalman_measurement_noise_std,
+                         const std::vector<float>& imm_model_noise_diff_coeffs,
+                         const Eigen::MatrixXf& imm_transition_probability,
+                         const Eigen::VectorXf& imm_initial_weights) override;
 
  private:
   // ------------------------------------------------------------------

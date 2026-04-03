@@ -50,6 +50,11 @@ KalmanUpdateResult UdkfUpdater::Update(const GaussianTrackState& predicted,
   return result;
 }
 
+void UdkfUpdater::UpdateConfig(KalmanUpdaterConfig config) {
+  config_ = config;
+  R_ = BuildMeasurementNoise(config.measurement_noise_std);
+}
+
 MeasurementMatrix UdkfUpdater::BuildMeasurementMatrix() {
   MeasurementMatrix H = MeasurementMatrix::Zero();
   H(0, 0) = 1.0f;

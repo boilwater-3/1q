@@ -128,6 +128,26 @@ TEST(EosPipelineTest, LargerTargetAreaHasHigherFusedSnrAtSameGeometry) {
   EXPECT_GT(frame.detections[1].fused_snr_linear, frame.detections[0].fused_snr_linear);
 }
 
+TEST(EosPipelineTest, VisibleChainAppliesProjectedAreaOnce) {
+  EosPipelineConfig config = MakePipelineConfig();
+  config.work_mode = EosPipelineWorkMode::kVisibleOnly;
+  config.minimum_snr_db = -120.0f;
+  EosPipeline pipeline(config);
+  context::EosCycleInput input = MakeCycleInput(1.0f);
+  input.cycle_index = 6U;
+  input.cloud_coverage_ratio = 0.0f;
+  const float scan_azimuth = ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec);
+  input.scene_targets.push_back(MakeTarget(401U, scan_azimuth, 800.0f, 4.0f));
+  input.scene_targets.push_back(MakeTarget(402U, scan_azimuth, 800.0f, 8.0f));
+
+  const common::EosOutputFrame frame = pipeline.Execute(input);
+  ASSERT_EQ(frame.detections.size(), 2U);
+  const float area_gain = frame.detections[1].fused_snr_linear /
+                          std::max(frame.detections[0].fused_snr_linear, 1.0e-12f);
+  EXPECT_GT(area_gain, 1.2f);
+  EXPECT_LT(area_gain, 3.0f);
+}
+
 TEST(EosPipelineTest, AdaptiveRadiativeTransferModelProducesLowerSnrInSameScene) {
   EosPipelineConfig baseline_config = MakePipelineConfig();
   baseline_config.work_mode = EosPipelineWorkMode::kInfraredOnly;
@@ -319,6 +339,38 @@ TEST(EosPipelineTest, BetterDetectionSensitivityProducesHigherSnr) {
   ASSERT_EQ(better_frame.detections.size(), 1U);
   ASSERT_EQ(worse_frame.detections.size(), 1U);
   EXPECT_GT(better_frame.detections[0].fused_snr_linear, worse_frame.detections[0].fused_snr_linear);
+}
+
+TEST(EosPipelineTest, InfraredBandwidthIncreaseRaisesSnrAtFixedCenterWavelength) {
+  EosPipelineConfig narrow_band_config = MakePipelineConfig();
+  narrow_band_config.work_mode = EosPipelineWorkMode::kInfraredOnly;
+  narrow_band_config.wavelength_lower_um = 3.5f;
+  narrow_band_config.wavelength_upper_um = 4.5f;
+  narrow_band_config.minimum_snr_db = -120.0f;
+
+  EosPipelineConfig wide_band_config = narrow_band_config;
+  wide_band_config.wavelength_lower_um = 2.0f;
+  wide_band_config.wavelength_upper_um = 6.0f;
+
+  EosPipeline narrow_band_pipeline(narrow_band_config);
+  EosPipeline wide_band_pipeline(wide_band_config);
+
+  context::EosCycleInput input = MakeCycleInput(1.0f);
+  input.cycle_index = 13U;
+  input.background_temperature_k = 240.0f;
+  input.cloud_coverage_ratio = 0.1f;
+  context::EosTargetState target =
+      MakeTarget(1001U, ResolveFirstCycleScanAzimuthDeg(narrow_band_config, input.dt_sec), 900.0f, 8.0f);
+  target.apparent_temperature_k = 860.0f;
+  target.emissivity = 0.98f;
+  input.scene_targets.push_back(target);
+
+  const common::EosOutputFrame narrow_band_frame = narrow_band_pipeline.Execute(input);
+  const common::EosOutputFrame wide_band_frame = wide_band_pipeline.Execute(input);
+  ASSERT_EQ(narrow_band_frame.detections.size(), 1U);
+  ASSERT_EQ(wide_band_frame.detections.size(), 1U);
+  EXPECT_GT(wide_band_frame.detections[0].fused_snr_linear,
+            narrow_band_frame.detections[0].fused_snr_linear);
 }
 
 }  // namespace

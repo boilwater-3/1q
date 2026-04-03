@@ -24,6 +24,7 @@ class UdkfUpdater final : public IKalmanUpdater {
   KalmanUpdateResult Update(const GaussianTrackState& predicted,
                             const MeasurementVector& measurement,
                             const MeasurementCovariance& dynamic_R) const override;
+  void UpdateConfig(KalmanUpdaterConfig config);
 
  private:
   static MeasurementMatrix BuildMeasurementMatrix();

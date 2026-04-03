@@ -50,6 +50,27 @@ TEST(EosFoundationTest, VisibleRadianceDayIsHigherThanNight) {
   EXPECT_GT(day_radiance, night_radiance);
 }
 
+TEST(EosFoundationTest, VisibleRadianceIgnoresGeometryAndPathTerms) {
+  radiometry::VisibleRadianceInputs near_target;
+  near_target.solar_irradiance_w_m2 = 900.0f;
+  near_target.solar_altitude_deg = 50.0f;
+  near_target.atmospheric_transmittance = 0.95f;
+  near_target.cloud_coverage_ratio = 0.1f;
+  near_target.reflectance = 0.35f;
+  near_target.projected_area_m2 = 1.0f;
+  near_target.range_m = 500.0f;
+  near_target.illumination = radiometry::IlluminationCondition::kDay;
+
+  radiometry::VisibleRadianceInputs far_target = near_target;
+  far_target.atmospheric_transmittance = 0.4f;
+  far_target.projected_area_m2 = 50.0f;
+  far_target.range_m = 6000.0f;
+
+  const float near_radiance = radiometry::ComputeVisibleLambertianRadiance(near_target);
+  const float far_radiance = radiometry::ComputeVisibleLambertianRadiance(far_target);
+  EXPECT_NEAR(near_radiance, far_radiance, 1.0e-6f);
+}
+
 TEST(EosFoundationTest, VisibleChannelResultProvidesBackgroundAndContrast) {
   radiometry::VisibleChannelInputs inputs;
   inputs.target.solar_irradiance_w_m2 = 850.0f;
@@ -118,6 +139,17 @@ TEST(EosFoundationTest, NepModelProducesReasonableSnrEvaluation) {
   EXPECT_GT(nep_w, 0.0f);
   EXPECT_GT(result.snr_linear, 0.0f);
   EXPECT_TRUE(std::isfinite(result.snr_db));
+}
+
+TEST(EosFoundationTest, BandIntegratedRadianceScalesWithBandwidth) {
+  const float spectral_radiance =
+      radiometry::ComputePlanckRadiance(4.0f, 320.0f);
+  const float narrow_band_radiance =
+      radiometry::IntegrateSpectralRadianceOverBand(spectral_radiance, 1.0f);
+  const float wide_band_radiance =
+      radiometry::IntegrateSpectralRadianceOverBand(spectral_radiance, 4.0f);
+  EXPECT_GT(wide_band_radiance, narrow_band_radiance);
+  EXPECT_NEAR(wide_band_radiance / narrow_band_radiance, 4.0f, 1.0e-3f);
 }
 
 TEST(EosFoundationTest, DetectionRangeInterfaceReturnsOrderedRange) {

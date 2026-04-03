@@ -184,14 +184,6 @@ class DataAssociationEngine {
    */
   bool HasPositionMeasurement(const common::model::TargetFeature& target) const;
   /**
-   * @brief 校验所有成功探测目标都携带笛卡尔位置量测。
-   * @param targets 当前周期输入目标。
-   * @param detection_succeeded 当前周期探测标记。
-   */
-  void ValidateDetectedTargetsHavePosition(
-      const common::model::TargetFeatureList& targets,
-      const std::vector<std::uint8_t>& detection_succeeded) const;
-  /**
    * @brief 从位置量测初始化高斯状态。
    * @param position 位置量测。
    * @return 初始化后的高斯状态。

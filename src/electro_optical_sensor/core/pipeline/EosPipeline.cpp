@@ -214,9 +214,11 @@ common::EosDetectionRecord EosPipeline::BuildDetectionRecord(
   const float optical_transmittance = 0.85f;
   const float fov_solid_angle_sr =
       ComputeFovSolidAngleSr(config_.horizontal_fov_deg, config_.vertical_fov_deg);
-  const float wavelength_center_um =
-      0.5f * (SafePositive(config_.wavelength_lower_um, 3.0f) +
-              SafePositive(config_.wavelength_upper_um, 5.0f));
+  const float wavelength_lower_um = SafePositive(config_.wavelength_lower_um, 3.0f);
+  const float wavelength_upper_um = SafePositive(config_.wavelength_upper_um, 5.0f);
+  const float wavelength_center_um = 0.5f * (wavelength_lower_um + wavelength_upper_um);
+  const float wavelength_bandwidth_um =
+      std::max(std::fabs(wavelength_upper_um - wavelength_lower_um), 0.1f);
   foundation::optics::DetectionRangeInputs range_inputs;
   range_inputs.platform_altitude_m = std::max(std::fabs(input.platform_pose.position_m.z), 1.0f);
   range_inputs.boresight_depression_deg = config_.boresight_depression_deg;
@@ -286,10 +288,14 @@ common::EosDetectionRecord EosPipeline::BuildDetectionRecord(
     infrared_inputs.target_temperature_k = target.apparent_temperature_k;
     infrared_inputs.emissivity = target.emissivity;
     infrared_inputs.background_temperature_k = input.background_temperature_k;
-    const float infrared_delta_radiance =
+    const float infrared_delta_spectral_radiance =
         foundation::radiometry::ComputeInfraredRadianceDelta(infrared_inputs);
-    const float background_radiance = foundation::radiometry::ComputePlanckRadiance(
+    const float background_spectral_radiance = foundation::radiometry::ComputePlanckRadiance(
         wavelength_center_um, input.background_temperature_k);
+    const float infrared_delta_radiance = foundation::radiometry::IntegrateSpectralRadianceOverBand(
+        infrared_delta_spectral_radiance, wavelength_bandwidth_um);
+    const float background_radiance = foundation::radiometry::IntegrateSpectralRadianceOverBand(
+        background_spectral_radiance, wavelength_bandwidth_um);
     const float infrared_contrast = foundation::radiometry::ComputeRelativeContrast(
         background_radiance + infrared_delta_radiance, background_radiance);
     const float infrared_source_radiance =

@@ -241,6 +241,34 @@ const std::vector<ImmModelState>& ImmFilter::GetModelStates() const { return mod
 
 void ImmFilter::SetModelStates(const std::vector<ImmModelState>& states) { model_states_ = states; }
 
+bool ImmFilter::UpdateRuntimeTuning(const ImmConfig& config,
+                                    const std::vector<const IKalmanPredictor*>& predictors,
+                                    const std::vector<const IKalmanUpdater*>& updaters) {
+  if (predictors.empty() || predictors.size() != updaters.size()) {
+    return false;
+  }
+  if (config.transition_probability.rows() != static_cast<Eigen::Index>(predictors.size()) ||
+      config.transition_probability.cols() != static_cast<Eigen::Index>(predictors.size()) ||
+      config.initial_weights.size() != static_cast<Eigen::Index>(predictors.size())) {
+    return false;
+  }
+
+  num_models_ = static_cast<int>(predictors.size());
+  config_ = config;
+  predictors_ = predictors;
+  updaters_ = updaters;
+  if (model_states_.size() != predictors.size()) {
+    model_states_.assign(predictors.size(), ImmModelState());
+  }
+  mixed_states_.assign(predictors.size(), GaussianTrackState());
+  predicted_states_.assign(predictors.size(), GaussianTrackState());
+  update_results_.assign(predictors.size(), KalmanUpdateResult());
+  log_likelihoods_ = Eigen::VectorXf::Zero(num_models_);
+  c_bar_ = Eigen::VectorXf::Zero(num_models_);
+  new_weights_ = Eigen::VectorXf::Zero(num_models_);
+  return true;
+}
+
 }  // namespace tracking
 }  // namespace signal
 }  // namespace airborne_radar

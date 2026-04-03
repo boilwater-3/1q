@@ -55,6 +55,13 @@ float ComputePlanckRadiance(float wavelength_um, float temperature_k) {
   return c1 / denominator;
 }
 
+float IntegrateSpectralRadianceOverBand(float spectral_radiance_w_sr_m3,
+                                        float wavelength_bandwidth_um) {
+  const float safe_spectral_radiance = std::max(0.0f, spectral_radiance_w_sr_m3);
+  const float safe_bandwidth_m = SafePositive(wavelength_bandwidth_um * 1.0e-6f, 1.0e-6f);
+  return safe_spectral_radiance * safe_bandwidth_m;
+}
+
 float ComputeInfraredRadianceDelta(const InfraredRadianceInputs& inputs) {
   const float emissivity = Clamp01(inputs.emissivity);
   const float target_radiance =
@@ -65,20 +72,15 @@ float ComputeInfraredRadianceDelta(const InfraredRadianceInputs& inputs) {
 }
 
 float ComputeVisibleLambertianRadiance(const VisibleRadianceInputs& inputs) {
-  const float range_m = SafePositive(inputs.range_m, 1000.0f);
   const float reflectance = Clamp01(inputs.reflectance);
-  const float transmittance = Clamp01(inputs.atmospheric_transmittance);
   const float cloud_coverage = Clamp01(inputs.cloud_coverage_ratio);
-  const float projected_area_m2 = SafePositive(inputs.projected_area_m2, 1.0f);
   const float effective_irradiance =
       std::max(0.0f, inputs.solar_irradiance_w_m2) * ComputeIlluminationScale(inputs.illumination);
   const float solar_altitude_rad = inputs.solar_altitude_deg * kPi / 180.0f;
   const float solar_geometry_gain = std::max(0.0f, std::sin(solar_altitude_rad));
   const float cloud_gain = 1.0f - 0.7f * cloud_coverage;
-  const float range_gain = 1.0f / (1.0f + range_m / 5000.0f);
 
-  return reflectance * projected_area_m2 * effective_irradiance * transmittance * cloud_gain *
-         solar_geometry_gain * range_gain / kPi;
+  return reflectance * effective_irradiance * cloud_gain * solar_geometry_gain / kPi;
 }
 
 VisibleChannelResult ComputeVisibleChannelResult(const VisibleChannelInputs& inputs) {
