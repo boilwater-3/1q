@@ -39,6 +39,7 @@ class ONEQ_API EsrTraceSession {
 
   common::EsrOutputFrame Step(const core::context::EsrCycleInput& input);
   core::session::EsrCycleResult StepWithResult(const core::context::EsrCycleInput& input);
+  void ApplyRuntimeConfig(const core::session::EsrRuntimeConfigPatch& patch);
 
   core::session::EsrSession& session();
   const core::session::EsrSession& session() const;

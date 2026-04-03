@@ -27,6 +27,22 @@ struct RadarRuntimeConfigPatch {
 
   bool has_signal_detection_config{false};         /**< [补丁标志] 是否覆盖探测域关键配置 */
   SignalDetectionConfig signal_detection_config{}; /**< [可外部调整] 探测域关键配置 */
+  bool has_rcs_enable_physical_override{false};    /**< [补丁标志] 是否更新 RCS 物理开关 */
+  bool rcs_enable_physical_override{false};        /**< [可外部调整] RCS 物理开关 */
+  bool has_rcs_physics_frequency_hz{false};        /**< [补丁标志] 是否更新 RCS 物理频率 */
+  float rcs_physics_frequency_hz{0.0f};            /**< [可外部调整] RCS 物理频率（单位：Hz） */
+  bool has_rcs_physics_mix_ratio{false};           /**< [补丁标志] 是否更新 RCS 物理混合比例 */
+  float rcs_physics_mix_ratio{0.0f};               /**< [可外部调整] RCS 物理混合比例 */
+  bool has_rcs_physics_cylinder_weight{false};     /**< [补丁标志] 是否更新圆柱散射权重 */
+  float rcs_physics_cylinder_weight{0.0f};         /**< [可外部调整] 圆柱散射权重 */
+  bool has_rcs_equivalent_radius_range{false};     /**< [补丁标志] 是否更新等效半径范围 */
+  float rcs_min_equivalent_radius_m{0.0f};         /**< [可外部调整] 等效半径下限（单位：m） */
+  float rcs_max_equivalent_radius_m{0.0f};         /**< [可外部调整] 等效半径上限（单位：m） */
+  bool has_rcs_output_range_m2{false};             /**< [补丁标志] 是否更新 RCS 输出范围 */
+  float rcs_min_rcs_m2{0.0f};                      /**< [可外部调整] RCS 输出下限（单位：m^2） */
+  float rcs_max_rcs_m2{0.0f};                      /**< [可外部调整] RCS 输出上限（单位：m^2） */
+  bool has_rcs_bistatic_psi_offset_deg{false};     /**< [补丁标志] 是否更新双基地角偏移 */
+  float rcs_bistatic_psi_offset_deg{0.0f};         /**< [可外部调整] 双基地角偏移（单位：deg） */
 
   bool has_signal_beam_control_config{false}; /**< [补丁标志] 是否覆盖波束控制域关键配置 */
   SignalBeamControlConfig signal_beam_control_config{}; /**< [可外部调整] 波束控制域关键配置 */
@@ -78,55 +94,53 @@ class ONEQ_API RadarRuntimeConfigBuilder {
 
   /** @brief 启用或禁用物理 RCS 覆盖。 */
   RadarRuntimeConfigBuilder& EnablePhysicalRcsOverride(bool enable = true) {
-    patch_.has_signal_detection_config = true;
-    patch_.signal_detection_config.rcs_physics.enable_physical_rcs = enable;
+    patch_.has_rcs_enable_physical_override = true;
+    patch_.rcs_enable_physical_override = enable;
     return *this;
   }
 
   /** @brief 设置物理 RCS 模型频率（单位：Hz，<=0 时回退发射机载频）。 */
   RadarRuntimeConfigBuilder& WithRcsPhysicsFrequencyHz(float hz) {
-    patch_.has_signal_detection_config = true;
-    patch_.signal_detection_config.rcs_physics.frequency_hz = hz;
+    patch_.has_rcs_physics_frequency_hz = true;
+    patch_.rcs_physics_frequency_hz = hz;
     return *this;
   }
 
   /** @brief 设置物理 RCS 混合比例 [0,1]。 */
   RadarRuntimeConfigBuilder& WithRcsPhysicsMixRatio(float ratio) {
-    patch_.has_signal_detection_config = true;
-    patch_.signal_detection_config.rcs_physics.physics_mix_ratio = ratio;
+    patch_.has_rcs_physics_mix_ratio = true;
+    patch_.rcs_physics_mix_ratio = ratio;
     return *this;
   }
 
   /** @brief 设置圆柱散射权重 [0,1]。 */
   RadarRuntimeConfigBuilder& WithRcsPhysicsCylinderWeight(float weight) {
-    patch_.has_signal_detection_config = true;
-    patch_.signal_detection_config.rcs_physics.cylinder_weight = weight;
+    patch_.has_rcs_physics_cylinder_weight = true;
+    patch_.rcs_physics_cylinder_weight = weight;
     return *this;
   }
 
   /** @brief 设置目标等效半径范围（单位：m）。 */
   RadarRuntimeConfigBuilder& WithRcsPhysicsEquivalentRadiusRangeM(float min_radius_m,
                                                                   float max_radius_m) {
-    patch_.has_signal_detection_config = true;
-    auto& rcs_physics = patch_.signal_detection_config.rcs_physics;
-    rcs_physics.min_equivalent_radius_m = min_radius_m;
-    rcs_physics.max_equivalent_radius_m = max_radius_m;
+    patch_.has_rcs_equivalent_radius_range = true;
+    patch_.rcs_min_equivalent_radius_m = min_radius_m;
+    patch_.rcs_max_equivalent_radius_m = max_radius_m;
     return *this;
   }
 
   /** @brief 设置物理 RCS 输出范围（单位：m^2）。 */
   RadarRuntimeConfigBuilder& WithRcsPhysicsOutputRangeM2(float min_rcs_m2, float max_rcs_m2) {
-    patch_.has_signal_detection_config = true;
-    auto& rcs_physics = patch_.signal_detection_config.rcs_physics;
-    rcs_physics.min_rcs_m2 = min_rcs_m2;
-    rcs_physics.max_rcs_m2 = max_rcs_m2;
+    patch_.has_rcs_output_range_m2 = true;
+    patch_.rcs_min_rcs_m2 = min_rcs_m2;
+    patch_.rcs_max_rcs_m2 = max_rcs_m2;
     return *this;
   }
 
   /** @brief 设置双基地角偏移（单位：deg）。 */
   RadarRuntimeConfigBuilder& WithRcsPhysicsBistaticPsiOffsetDeg(float psi_offset_deg) {
-    patch_.has_signal_detection_config = true;
-    patch_.signal_detection_config.rcs_physics.bistatic_psi_offset_deg = psi_offset_deg;
+    patch_.has_rcs_bistatic_psi_offset_deg = true;
+    patch_.rcs_bistatic_psi_offset_deg = psi_offset_deg;
     return *this;
   }
 

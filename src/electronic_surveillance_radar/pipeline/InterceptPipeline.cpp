@@ -604,6 +604,20 @@ InterceptPipeline::InterceptPipeline(InterceptPipelineConfig config,
   feature_scales_.snr_scale_db = config_.cluster.snr_scale_db;
 }
 
+void InterceptPipeline::UpdateConfig(InterceptPipelineConfig config) {
+  config_ = std::move(config);
+  feature_scales_.rf_scale_hz = config_.cluster.rf_scale_hz;
+  feature_scales_.pw_scale_sec = config_.cluster.pw_scale_sec;
+  feature_scales_.az_scale_deg = config_.cluster.az_scale_deg;
+  feature_scales_.el_scale_deg = config_.cluster.el_scale_deg;
+  feature_scales_.snr_scale_db = config_.cluster.snr_scale_db;
+  associator_.UpdateConfig(config_.association);
+}
+
+void InterceptPipeline::UpdateRuntimeConfig(InterceptRuntimeConfig runtime_config) {
+  runtime_config_ = std::move(runtime_config);
+}
+
 InterceptCycleResult InterceptPipeline::RunCycle(
     const core::context::EsrCycleInput& input_state,
     const environment::IEsrEnvironmentService& environment_service) {

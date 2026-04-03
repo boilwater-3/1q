@@ -163,6 +163,29 @@ std::string ToJson(const core::session::EosSessionConfig& value) {
   return stream.str();
 }
 
+std::string ToJson(const core::session::EosRuntimeConfigPatch& value) {
+  std::ostringstream stream;
+  stream << "{";
+  stream << "\"has_work_mode\":" << BoolToJson(value.has_work_mode) << ",";
+  stream << "\"work_mode\":" << static_cast<int>(value.work_mode) << ",";
+  stream << "\"has_scan_rate_deg_per_sec\":" << BoolToJson(value.has_scan_rate_deg_per_sec)
+         << ",";
+  stream << "\"scan_rate_deg_per_sec\":" << value.scan_rate_deg_per_sec << ",";
+  stream << "\"has_frame_rate_hz\":" << BoolToJson(value.has_frame_rate_hz) << ",";
+  stream << "\"frame_rate_hz\":" << value.frame_rate_hz << ",";
+  stream << "\"has_minimum_snr_db\":" << BoolToJson(value.has_minimum_snr_db) << ",";
+  stream << "\"minimum_snr_db\":" << value.minimum_snr_db << ",";
+  stream << "\"has_enable_straylight_filter\":"
+         << BoolToJson(value.has_enable_straylight_filter) << ",";
+  stream << "\"enable_straylight_filter\":" << BoolToJson(value.enable_straylight_filter) << ",";
+  stream << "\"has_visible_reference_irradiance_w_m2\":"
+         << BoolToJson(value.has_visible_reference_irradiance_w_m2) << ",";
+  stream << "\"visible_reference_irradiance_w_m2\":"
+         << value.visible_reference_irradiance_w_m2;
+  stream << "}";
+  return stream.str();
+}
+
 }  // namespace
 
 EosTraceSession::EosTraceSession(core::session::EosSessionConfig config,
@@ -193,6 +216,13 @@ core::session::EosCycleResult EosTraceSession::StepWithResult(const core::contex
     Record("output", ToJson(output));
   }
   return output;
+}
+
+void EosTraceSession::ApplyRuntimeConfig(const core::session::EosRuntimeConfigPatch& patch) {
+  session_.ApplyRuntimeConfig(patch);
+  if (sink_) {
+    Record("runtime_config_patch", ToJson(patch));
+  }
 }
 
 core::session::EosSession& EosTraceSession::session() { return session_; }

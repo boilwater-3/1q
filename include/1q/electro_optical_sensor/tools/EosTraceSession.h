@@ -39,6 +39,7 @@ class ONEQ_API EosTraceSession {
 
   common::EosOutputFrame Step(const core::context::EosCycleInput& input);
   core::session::EosCycleResult StepWithResult(const core::context::EosCycleInput& input);
+  void ApplyRuntimeConfig(const core::session::EosRuntimeConfigPatch& patch);
 
   core::session::EosSession& session();
   const core::session::EosSession& session() const;

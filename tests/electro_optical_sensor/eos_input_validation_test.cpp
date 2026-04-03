@@ -131,6 +131,52 @@ TEST(EosInputValidationTest, SessionReturnsValidationErrorsForInvalidInput) {
   EXPECT_TRUE(result.output_frame.detections.empty());
 }
 
+TEST(EosInputValidationTest, SessionConfigBuilderCanStartFromExternalConfig) {
+  session::EosSessionConfig base_config;
+  base_config.work_mode = session::EosWorkMode::kInfraredOnly;
+  base_config.scan_rate_deg_per_sec = 12.0f;
+  base_config.frame_rate_hz = 20.0f;
+  base_config.minimum_snr_db = 2.0f;
+  base_config.visible_reference_irradiance_w_m2 = 620.0f;
+
+  const session::EosSessionConfig built_config = session::EosSessionConfigBuilder(base_config)
+                                                     .WithFrameRateHz(25.0f)
+                                                     .EnableStraylightFilter(true)
+                                                     .Build();
+  EXPECT_EQ(built_config.work_mode, session::EosWorkMode::kInfraredOnly);
+  EXPECT_FLOAT_EQ(built_config.scan_rate_deg_per_sec, 12.0f);
+  EXPECT_FLOAT_EQ(built_config.frame_rate_hz, 25.0f);
+  EXPECT_FLOAT_EQ(built_config.minimum_snr_db, 2.0f);
+  EXPECT_FLOAT_EQ(built_config.visible_reference_irradiance_w_m2, 620.0f);
+  EXPECT_TRUE(built_config.enable_straylight_filter);
+}
+
+TEST(EosInputValidationTest, RuntimeConfigBuilderCanTightenDetectionThresholdAtRuntime) {
+  session::EosSessionConfig config;
+  config.work_mode = session::EosWorkMode::kFused;
+  config.minimum_snr_db = -10.0f;
+  config.scan_start_az_deg = -20.0f;
+  config.scan_end_az_deg = 20.0f;
+  config.horizontal_fov_deg = 12.0f;
+  config.vertical_fov_deg = 6.0f;
+
+  session::EosSession eos_session(config);
+  EosCycleInput input = MakeValidInput();
+  input.scene_targets[0].azimuth_deg = 0.0f;
+
+  const session::EosCycleResult baseline = eos_session.StepWithResult(input);
+  ASSERT_FALSE(baseline.has_validation_error);
+  ASSERT_FALSE(baseline.output_frame.detections.empty());
+
+  const session::EosRuntimeConfigPatch patch =
+      session::EosRuntimeConfigBuilder().WithMinimumSnrDb(120.0f).Build();
+  eos_session.ApplyRuntimeConfig(patch);
+
+  const session::EosCycleResult updated = eos_session.StepWithResult(input);
+  EXPECT_FALSE(updated.has_validation_error);
+  EXPECT_TRUE(updated.output_frame.detections.empty());
+}
+
 }  // namespace
 }  // namespace context
 }  // namespace core

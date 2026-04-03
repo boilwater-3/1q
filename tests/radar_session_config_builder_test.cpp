@@ -363,16 +363,23 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderSupportsRcsPhysicsConven
           .WithRcsPhysicsBistaticPsiOffsetDeg(7.5f)
           .Build();
 
-  EXPECT_TRUE(patch.has_signal_detection_config);
-  EXPECT_TRUE(patch.signal_detection_config.rcs_physics.enable_physical_rcs);
-  EXPECT_FLOAT_EQ(patch.signal_detection_config.rcs_physics.frequency_hz, 9.8e9f);
-  EXPECT_FLOAT_EQ(patch.signal_detection_config.rcs_physics.physics_mix_ratio, 0.65f);
-  EXPECT_FLOAT_EQ(patch.signal_detection_config.rcs_physics.cylinder_weight, 0.25f);
-  EXPECT_FLOAT_EQ(patch.signal_detection_config.rcs_physics.min_equivalent_radius_m, 0.08f);
-  EXPECT_FLOAT_EQ(patch.signal_detection_config.rcs_physics.max_equivalent_radius_m, 3.0f);
-  EXPECT_FLOAT_EQ(patch.signal_detection_config.rcs_physics.min_rcs_m2, 0.02f);
-  EXPECT_FLOAT_EQ(patch.signal_detection_config.rcs_physics.max_rcs_m2, 1200.0f);
-  EXPECT_FLOAT_EQ(patch.signal_detection_config.rcs_physics.bistatic_psi_offset_deg, 7.5f);
+  EXPECT_FALSE(patch.has_signal_detection_config);
+  EXPECT_TRUE(patch.has_rcs_enable_physical_override);
+  EXPECT_TRUE(patch.rcs_enable_physical_override);
+  EXPECT_TRUE(patch.has_rcs_physics_frequency_hz);
+  EXPECT_FLOAT_EQ(patch.rcs_physics_frequency_hz, 9.8e9f);
+  EXPECT_TRUE(patch.has_rcs_physics_mix_ratio);
+  EXPECT_FLOAT_EQ(patch.rcs_physics_mix_ratio, 0.65f);
+  EXPECT_TRUE(patch.has_rcs_physics_cylinder_weight);
+  EXPECT_FLOAT_EQ(patch.rcs_physics_cylinder_weight, 0.25f);
+  EXPECT_TRUE(patch.has_rcs_equivalent_radius_range);
+  EXPECT_FLOAT_EQ(patch.rcs_min_equivalent_radius_m, 0.08f);
+  EXPECT_FLOAT_EQ(patch.rcs_max_equivalent_radius_m, 3.0f);
+  EXPECT_TRUE(patch.has_rcs_output_range_m2);
+  EXPECT_FLOAT_EQ(patch.rcs_min_rcs_m2, 0.02f);
+  EXPECT_FLOAT_EQ(patch.rcs_max_rcs_m2, 1200.0f);
+  EXPECT_TRUE(patch.has_rcs_bistatic_psi_offset_deg);
+  EXPECT_FLOAT_EQ(patch.rcs_bistatic_psi_offset_deg, 7.5f);
 }
 
 TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructingSession) {
@@ -400,6 +407,38 @@ TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructin
   input.dt_sec = 1.0f;
   const core::session::RadarCycleResult result = session.StepWithResult(input);
   EXPECT_FALSE(result.has_validation_error);
+}
+
+TEST(RadarSessionConfigBuilderTest, RcsConveniencePatchDoesNotResetDetectionThreshold) {
+  core::session::RadarSessionConfig config = common::config::MakeDefaultRadarSessionConfig();
+  config.signal_pipeline_config.detection.enable_physics_detection = false;
+  config.signal_pipeline_config.detection.min_detection_margin_db = 8.0f;
+
+  core::session::RadarSession session(config);
+
+  core::context::RadarCycleInput input;
+  input.dt_sec = 1.0f;
+  common::model::TargetFeature target(0.0f, 0.0f, 0.0f, 0.6f, 1000.0f, 0, 1001U);
+  target.has_cartesian_position = true;
+  target.position_x = 1000.0f;
+  target.position_y = 0.0f;
+  target.position_z = 0.0f;
+  input.target_features.push_back(target);
+
+  const core::session::RadarCycleResult baseline = session.StepWithResult(input);
+  EXPECT_FALSE(baseline.has_validation_error);
+  EXPECT_EQ(baseline.association_quality_metrics.detection_count, 0U);
+
+  const common::config::RadarRuntimeConfigPatch patch =
+      common::config::RadarRuntimeConfigBuilder()
+          .WithRcsPhysicsMixRatio(0.65f)
+          .Build();
+  EXPECT_FALSE(patch.has_signal_detection_config);
+  session.ApplyRuntimeConfig(patch);
+
+  const core::session::RadarCycleResult after_patch = session.StepWithResult(input);
+  EXPECT_FALSE(after_patch.has_validation_error);
+  EXPECT_EQ(after_patch.association_quality_metrics.detection_count, 0U);
 }
 
 }  // namespace tests

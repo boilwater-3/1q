@@ -397,6 +397,40 @@ std::string ToJson(const core::session::EsrCycleResult& value) {
   return stream.str();
 }
 
+std::string ToJson(const core::session::EsrRuntimeConfigPatch& value) {
+  std::ostringstream stream;
+  stream << "{";
+  stream << "\"has_sensor_enabled\":" << BoolToJson(value.has_sensor_enabled) << ",";
+  stream << "\"sensor_enabled\":" << BoolToJson(value.sensor_enabled) << ",";
+  stream << "\"has_scan_rate_hz\":" << BoolToJson(value.has_scan_rate_hz) << ",";
+  stream << "\"scan_rate_hz\":" << value.scan_rate_hz << ",";
+  stream << "\"has_integrated_receive_loss_db\":"
+         << BoolToJson(value.has_integrated_receive_loss_db) << ",";
+  stream << "\"integrated_receive_loss_db\":" << value.integrated_receive_loss_db << ",";
+  stream << "\"has_fixed_receiver_window_hz\":"
+         << BoolToJson(value.has_fixed_receiver_window_hz) << ",";
+  stream << "\"receiver_lower_hz\":" << value.receiver_lower_hz << ",";
+  stream << "\"receiver_upper_hz\":" << value.receiver_upper_hz << ",";
+  stream << "\"has_use_fixed_receiver_window\":"
+         << BoolToJson(value.has_use_fixed_receiver_window) << ",";
+  stream << "\"use_fixed_receiver_window\":" << BoolToJson(value.use_fixed_receiver_window)
+         << ",";
+  stream << "\"has_enable_statistical_detection\":"
+         << BoolToJson(value.has_enable_statistical_detection) << ",";
+  stream << "\"enable_statistical_detection\":"
+         << BoolToJson(value.enable_statistical_detection) << ",";
+  stream << "\"has_enable_spectral_analysis\":"
+         << BoolToJson(value.has_enable_spectral_analysis) << ",";
+  stream << "\"enable_spectral_analysis\":" << BoolToJson(value.enable_spectral_analysis) << ",";
+  stream << "\"has_detection_min_snr_db\":" << BoolToJson(value.has_detection_min_snr_db) << ",";
+  stream << "\"detection_min_snr_db\":" << value.detection_min_snr_db << ",";
+  stream << "\"has_jamming_detection_threshold_w\":"
+         << BoolToJson(value.has_jamming_detection_threshold_w) << ",";
+  stream << "\"jamming_detection_threshold_w\":" << value.jamming_detection_threshold_w;
+  stream << "}";
+  return stream.str();
+}
+
 }  // namespace
 
 EsrTraceSession::EsrTraceSession(core::session::EsrSessionConfig config,
@@ -427,6 +461,13 @@ core::session::EsrCycleResult EsrTraceSession::StepWithResult(const core::contex
     Record("output", ToJson(output));
   }
   return output;
+}
+
+void EsrTraceSession::ApplyRuntimeConfig(const core::session::EsrRuntimeConfigPatch& patch) {
+  session_.ApplyRuntimeConfig(patch);
+  if (sink_) {
+    Record("runtime_config_patch", ToJson(patch));
+  }
 }
 
 core::session::EsrSession& EsrTraceSession::session() { return session_; }

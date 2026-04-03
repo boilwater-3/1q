@@ -126,7 +126,11 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   const oneq::common::ScanStartPosition shared_start = oneq::common::ScanStartPosition::kLeftTop;
   EXPECT_EQ(static_cast<int>(shared_start), 0);
 
-  core::session::EsrSessionConfig session_config;
+  core::session::EsrSessionConfig session_config = core::session::EsrSessionConfigBuilder()
+                                                       .EnableLayeredConfig(true)
+                                                       .WithScanRateHz(1.0f)
+                                                       .EnableSpectralAnalysis(true)
+                                                       .Build();
   session_config.pipeline_config.scan.scan_start_az_deg = -60.0f;
   session_config.pipeline_config.scan.scan_end_az_deg = 60.0f;
   session_config.pipeline_config.scan.scan_start_el_deg = -20.0f;
@@ -159,6 +163,9 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   EXPECT_FALSE(core::context::HasEsrValidationError(issues));
 
   core::session::EsrSession session(session_config);
+  const core::session::EsrRuntimeConfigPatch runtime_patch =
+      core::session::EsrRuntimeConfigBuilder().WithDetectionMinSnrDb(5.0f).Build();
+  session.ApplyRuntimeConfig(runtime_patch);
   const core::session::EsrCycleResult result = session.StepWithResult(input);
   tools::EsrTraceSession trace_session(session_config, tools::EsrTraceSessionOptions{});
   const core::session::EsrCycleResult trace_result = trace_session.StepWithResult(input);
@@ -193,9 +200,10 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
       foundation::spatial_spectrum::EvaluateSpatialResolvability(spectrum_inputs);
   EXPECT_GE(spectrum_result.spectrum_quality_gain, 0.0f);
 
-  core::session::EosSessionConfig session_config;
-  session_config.work_mode = core::session::EosWorkMode::kFused;
-  session_config.minimum_snr_db = 0.0f;
+  core::session::EosSessionConfig session_config = core::session::EosSessionConfigBuilder()
+                                                       .WithWorkMode(core::session::EosWorkMode::kFused)
+                                                       .WithMinimumSnrDb(0.0f)
+                                                       .Build();
   session_config.scan_start_az_deg = -20.0f;
   session_config.scan_end_az_deg = 20.0f;
 
@@ -244,6 +252,9 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   EXPECT_GT(planck_radiance, 0.0f);
 
   core::session::EosSession session(session_config);
+  const core::session::EosRuntimeConfigPatch runtime_patch =
+      core::session::EosRuntimeConfigBuilder().WithFrameRateHz(15.0f).Build();
+  session.ApplyRuntimeConfig(runtime_patch);
   const core::session::EosCycleResult result = session.StepWithResult(input);
   tools::EosTraceSession trace_session(session_config, tools::EosTraceSessionOptions{});
   const core::session::EosCycleResult trace_result = trace_session.StepWithResult(input);

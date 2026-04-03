@@ -63,8 +63,10 @@ pipeline::EosPipelineConfig BuildPipelineConfig(const EosSessionConfig& config) 
 }  // namespace
 
 struct EosSession::Impl {
-  explicit Impl(const EosSessionConfig& config) : pipeline(BuildPipelineConfig(config)) {}
+  explicit Impl(const EosSessionConfig& config)
+      : runtime_config(config), pipeline(BuildPipelineConfig(config)) {}
 
+  EosSessionConfig runtime_config{};
   pipeline::EosPipeline pipeline;
 };
 
@@ -87,6 +89,30 @@ EosCycleResult EosSession::StepWithResult(const context::EosCycleInput& input) {
 
   result.output_frame = impl_->pipeline.Execute(input);
   return result;
+}
+
+void EosSession::ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch) {
+  EosSessionConfig* runtime_config = &impl_->runtime_config;
+  if (patch.has_work_mode) {
+    runtime_config->work_mode = patch.work_mode;
+  }
+  if (patch.has_scan_rate_deg_per_sec) {
+    runtime_config->scan_rate_deg_per_sec = patch.scan_rate_deg_per_sec;
+  }
+  if (patch.has_frame_rate_hz) {
+    runtime_config->frame_rate_hz = patch.frame_rate_hz;
+  }
+  if (patch.has_minimum_snr_db) {
+    runtime_config->minimum_snr_db = patch.minimum_snr_db;
+  }
+  if (patch.has_enable_straylight_filter) {
+    runtime_config->enable_straylight_filter = patch.enable_straylight_filter;
+  }
+  if (patch.has_visible_reference_irradiance_w_m2) {
+    runtime_config->visible_reference_irradiance_w_m2 =
+        patch.visible_reference_irradiance_w_m2;
+  }
+  impl_->pipeline.UpdateConfig(BuildPipelineConfig(*runtime_config));
 }
 
 }  // namespace session

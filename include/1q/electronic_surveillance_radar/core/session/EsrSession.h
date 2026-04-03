@@ -88,6 +88,151 @@ struct ONEQ_API EsrSessionConfig {
 };
 
 /**
+ * @brief EsrRuntimeConfigPatch 描述运行期可变参数补丁。
+ */
+struct ONEQ_API EsrRuntimeConfigPatch {
+  bool has_sensor_enabled{false};
+  bool sensor_enabled{true};
+
+  bool has_scan_rate_hz{false};
+  float scan_rate_hz{1.0f};
+
+  bool has_integrated_receive_loss_db{false};
+  float integrated_receive_loss_db{0.0f};
+
+  bool has_fixed_receiver_window_hz{false};
+  double receiver_lower_hz{0.0};
+  double receiver_upper_hz{0.0};
+
+  bool has_use_fixed_receiver_window{false};
+  bool use_fixed_receiver_window{true};
+
+  bool has_enable_statistical_detection{false};
+  bool enable_statistical_detection{true};
+
+  bool has_enable_spectral_analysis{false};
+  bool enable_spectral_analysis{true};
+
+  bool has_detection_min_snr_db{false};
+  float detection_min_snr_db{6.0f};
+
+  bool has_jamming_detection_threshold_w{false};
+  float jamming_detection_threshold_w{0.0f};
+};
+
+/**
+ * @brief EsrSessionConfigBuilder 提供初始化配置链式构造。
+ */
+class ONEQ_API EsrSessionConfigBuilder {
+ public:
+  explicit EsrSessionConfigBuilder(const EsrSessionConfig& config = {}) : config_(config) {}
+
+  EsrSessionConfigBuilder& EnableLayeredConfig(bool enable = true) {
+    config_.enable_layered_config = enable;
+    return *this;
+  }
+  EsrSessionConfigBuilder& WithSessionConfig(const EsrSessionConfig& config) {
+    config_ = config;
+    return *this;
+  }
+  EsrSessionConfigBuilder& WithWorkMode(EsrWorkMode mode) {
+    config_.layered_config.mission.work_mode = mode;
+    return *this;
+  }
+  EsrSessionConfigBuilder& WithScanRateHz(float value) {
+    config_.layered_config.mission.scan_rate_hz = value;
+    return *this;
+  }
+  EsrSessionConfigBuilder& EnableSpectralAnalysis(bool enable = true) {
+    config_.pipeline_config.spectral_analysis.enable = enable;
+    return *this;
+  }
+  EsrSessionConfigBuilder& WithDetectionMinSnrDb(float value) {
+    config_.pipeline_config.detection.min_detect_snr_db = value;
+    return *this;
+  }
+  EsrSessionConfigBuilder& WithJammingDetectionThresholdW(float value) {
+    config_.environment_config.jamming_detection_threshold_w = value;
+    return *this;
+  }
+  EsrSessionConfig Build() const { return config_; }
+
+ private:
+  EsrSessionConfig config_{};
+};
+
+/**
+ * @brief EsrRuntimeConfigBuilder 提供运行期补丁链式构造。
+ */
+class ONEQ_API EsrRuntimeConfigBuilder {
+ public:
+  explicit EsrRuntimeConfigBuilder(const EsrRuntimeConfigPatch& patch = {}) : patch_(patch) {}
+
+  EsrRuntimeConfigBuilder& WithRuntimeConfigPatch(const EsrRuntimeConfigPatch& patch) {
+    patch_ = patch;
+    return *this;
+  }
+
+  EsrRuntimeConfigBuilder& WithSensorEnabled(bool enable) {
+    patch_.has_sensor_enabled = true;
+    patch_.sensor_enabled = enable;
+    return *this;
+  }
+  EsrRuntimeConfigBuilder& WithScanRateHz(float value) {
+    patch_.has_scan_rate_hz = true;
+    patch_.scan_rate_hz = value;
+    return *this;
+  }
+  EsrRuntimeConfigBuilder& WithIntegratedReceiveLossDb(float value) {
+    patch_.has_integrated_receive_loss_db = true;
+    patch_.integrated_receive_loss_db = value;
+    return *this;
+  }
+  EsrRuntimeConfigBuilder& WithFixedReceiverWindowHz(double lower_hz, double upper_hz) {
+    patch_.has_fixed_receiver_window_hz = true;
+    patch_.has_use_fixed_receiver_window = true;
+    patch_.use_fixed_receiver_window = true;
+    patch_.receiver_lower_hz = lower_hz;
+    patch_.receiver_upper_hz = upper_hz;
+    return *this;
+  }
+  EsrRuntimeConfigBuilder& SetFixedReceiverWindowEnabled(bool enable) {
+    patch_.has_use_fixed_receiver_window = true;
+    patch_.use_fixed_receiver_window = enable;
+    return *this;
+  }
+  EsrRuntimeConfigBuilder& DisableFixedReceiverWindow(bool disable = true) {
+    patch_.has_use_fixed_receiver_window = true;
+    patch_.use_fixed_receiver_window = !disable;
+    return *this;
+  }
+  EsrRuntimeConfigBuilder& EnableStatisticalDetection(bool enable = true) {
+    patch_.has_enable_statistical_detection = true;
+    patch_.enable_statistical_detection = enable;
+    return *this;
+  }
+  EsrRuntimeConfigBuilder& EnableSpectralAnalysis(bool enable = true) {
+    patch_.has_enable_spectral_analysis = true;
+    patch_.enable_spectral_analysis = enable;
+    return *this;
+  }
+  EsrRuntimeConfigBuilder& WithDetectionMinSnrDb(float value) {
+    patch_.has_detection_min_snr_db = true;
+    patch_.detection_min_snr_db = value;
+    return *this;
+  }
+  EsrRuntimeConfigBuilder& WithJammingDetectionThresholdW(float value) {
+    patch_.has_jamming_detection_threshold_w = true;
+    patch_.jamming_detection_threshold_w = value;
+    return *this;
+  }
+  EsrRuntimeConfigPatch Build() const { return patch_; }
+
+ private:
+  EsrRuntimeConfigPatch patch_{};
+};
+
+/**
  * @brief EsrSession 提供单周期外部接入门面。
  */
 class ONEQ_API EsrSession {
@@ -115,6 +260,12 @@ class ONEQ_API EsrSession {
    * @return 当前周期聚合结果。
    */
   EsrCycleResult StepWithResult(const context::EsrCycleInput& input);
+
+  /**
+   * @brief 应用运行期可变配置补丁。
+   * @param[in] patch 运行期补丁。
+   */
+  void ApplyRuntimeConfig(const EsrRuntimeConfigPatch& patch);
 
  private:
   struct Impl;

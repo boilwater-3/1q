@@ -114,6 +114,39 @@ void RadarSession::ApplyRuntimeConfig(const common::config::RadarRuntimeConfigPa
     signal_config->detection = patch.signal_detection_config;
     should_update_signal_pipeline_config = true;
   }
+  if (patch.has_rcs_enable_physical_override) {
+    signal_config->detection.rcs_physics.enable_physical_rcs = patch.rcs_enable_physical_override;
+    should_update_signal_pipeline_config = true;
+  }
+  if (patch.has_rcs_physics_frequency_hz) {
+    signal_config->detection.rcs_physics.frequency_hz = patch.rcs_physics_frequency_hz;
+    should_update_signal_pipeline_config = true;
+  }
+  if (patch.has_rcs_physics_mix_ratio) {
+    signal_config->detection.rcs_physics.physics_mix_ratio = patch.rcs_physics_mix_ratio;
+    should_update_signal_pipeline_config = true;
+  }
+  if (patch.has_rcs_physics_cylinder_weight) {
+    signal_config->detection.rcs_physics.cylinder_weight = patch.rcs_physics_cylinder_weight;
+    should_update_signal_pipeline_config = true;
+  }
+  if (patch.has_rcs_equivalent_radius_range) {
+    signal_config->detection.rcs_physics.min_equivalent_radius_m =
+        patch.rcs_min_equivalent_radius_m;
+    signal_config->detection.rcs_physics.max_equivalent_radius_m =
+        patch.rcs_max_equivalent_radius_m;
+    should_update_signal_pipeline_config = true;
+  }
+  if (patch.has_rcs_output_range_m2) {
+    signal_config->detection.rcs_physics.min_rcs_m2 = patch.rcs_min_rcs_m2;
+    signal_config->detection.rcs_physics.max_rcs_m2 = patch.rcs_max_rcs_m2;
+    should_update_signal_pipeline_config = true;
+  }
+  if (patch.has_rcs_bistatic_psi_offset_deg) {
+    signal_config->detection.rcs_physics.bistatic_psi_offset_deg =
+        patch.rcs_bistatic_psi_offset_deg;
+    should_update_signal_pipeline_config = true;
+  }
   if (patch.has_signal_beam_control_config) {
     signal_config->beam_control = patch.signal_beam_control_config;
     should_update_signal_pipeline_config = true;

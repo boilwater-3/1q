@@ -46,6 +46,18 @@ class InterceptPipeline final : public IInterceptPipeline {
                              InterceptRuntimeConfig runtime_config = {});
 
   /**
+   * @brief 更新流水线配置。
+   * @param[in] config 新配置。
+   */
+  void UpdateConfig(InterceptPipelineConfig config);
+
+  /**
+   * @brief 更新运行态配置。
+   * @param[in] runtime_config 新运行态配置。
+   */
+  void UpdateRuntimeConfig(InterceptRuntimeConfig runtime_config);
+
+  /**
    * @brief 执行单周期流水线。
    * @param[in] input_state 当前周期输入。
    * @param[in] environment 环境服务。

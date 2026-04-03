@@ -459,6 +459,29 @@ std::string ToJson(const common::config::RadarRuntimeConfigPatch& value) {
   stream << "\"has_signal_detection_config\":" << BoolToJson(value.has_signal_detection_config)
          << ",";
   stream << "\"signal_detection_config\":" << ToJson(value.signal_detection_config) << ",";
+  stream << "\"has_rcs_enable_physical_override\":"
+         << BoolToJson(value.has_rcs_enable_physical_override) << ",";
+  stream << "\"rcs_enable_physical_override\":"
+         << BoolToJson(value.rcs_enable_physical_override) << ",";
+  stream << "\"has_rcs_physics_frequency_hz\":"
+         << BoolToJson(value.has_rcs_physics_frequency_hz) << ",";
+  stream << "\"rcs_physics_frequency_hz\":" << value.rcs_physics_frequency_hz << ",";
+  stream << "\"has_rcs_physics_mix_ratio\":"
+         << BoolToJson(value.has_rcs_physics_mix_ratio) << ",";
+  stream << "\"rcs_physics_mix_ratio\":" << value.rcs_physics_mix_ratio << ",";
+  stream << "\"has_rcs_physics_cylinder_weight\":"
+         << BoolToJson(value.has_rcs_physics_cylinder_weight) << ",";
+  stream << "\"rcs_physics_cylinder_weight\":" << value.rcs_physics_cylinder_weight << ",";
+  stream << "\"has_rcs_equivalent_radius_range\":"
+         << BoolToJson(value.has_rcs_equivalent_radius_range) << ",";
+  stream << "\"rcs_min_equivalent_radius_m\":" << value.rcs_min_equivalent_radius_m << ",";
+  stream << "\"rcs_max_equivalent_radius_m\":" << value.rcs_max_equivalent_radius_m << ",";
+  stream << "\"has_rcs_output_range_m2\":" << BoolToJson(value.has_rcs_output_range_m2) << ",";
+  stream << "\"rcs_min_rcs_m2\":" << value.rcs_min_rcs_m2 << ",";
+  stream << "\"rcs_max_rcs_m2\":" << value.rcs_max_rcs_m2 << ",";
+  stream << "\"has_rcs_bistatic_psi_offset_deg\":"
+         << BoolToJson(value.has_rcs_bistatic_psi_offset_deg) << ",";
+  stream << "\"rcs_bistatic_psi_offset_deg\":" << value.rcs_bistatic_psi_offset_deg << ",";
   stream << "\"has_signal_beam_control_config\":"
          << BoolToJson(value.has_signal_beam_control_config) << ",";
   stream << "\"signal_beam_control_config\":{";

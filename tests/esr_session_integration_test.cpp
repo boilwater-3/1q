@@ -729,6 +729,47 @@ TEST(EsrSessionIntegrationTest, DisableSpectralAnalysisKeepsCandidateClassesWith
   EXPECT_EQ(CountSpectralClassHypotheses(result, "SPECTRAL_INSUFFICIENT"), 0U);
 }
 
+TEST(EsrSessionIntegrationTest, RuntimeConfigBuilderCanDisableSensorWithoutReconstructingSession) {
+  EsrSession session(MakeSessionConfig());
+  context::EsrCycleInput input = MakeBaseInput();
+
+  const EsrCycleResult baseline = session.StepWithResult(input);
+  ASSERT_FALSE(baseline.has_validation_error);
+  EXPECT_GT(CountMatchedTruthObservations(baseline, "target-emitter"), 0U);
+
+  const EsrRuntimeConfigPatch patch =
+      EsrRuntimeConfigBuilder().WithSensorEnabled(false).Build();
+  session.ApplyRuntimeConfig(patch);
+
+  const EsrCycleResult updated = session.StepWithResult(input);
+  EXPECT_FALSE(updated.has_validation_error);
+  EXPECT_EQ(updated.output_frame.observation_output.observations.size(), 0U);
+  EXPECT_EQ(updated.output_frame.emitter_output.hypotheses.size(), 0U);
+}
+
+TEST(EsrSessionIntegrationTest, RuntimeConfigBuilderCanToggleFixedReceiverWindow) {
+  EsrSession session(MakeSessionConfig());
+  context::EsrCycleInput input = MakeBaseInput();
+
+  const EsrCycleResult baseline = session.StepWithResult(input);
+  ASSERT_FALSE(baseline.has_validation_error);
+  EXPECT_GT(CountMatchedTruthObservations(baseline, "target-emitter"), 0U);
+
+  const EsrRuntimeConfigPatch block_patch = EsrRuntimeConfigBuilder()
+                                                .WithFixedReceiverWindowHz(1.0e9, 2.0e9)
+                                                .SetFixedReceiverWindowEnabled(true)
+                                                .Build();
+  session.ApplyRuntimeConfig(block_patch);
+  const EsrCycleResult blocked = session.StepWithResult(input);
+  EXPECT_EQ(CountMatchedTruthObservations(blocked, "target-emitter"), 0U);
+
+  const EsrRuntimeConfigPatch recover_patch =
+      EsrRuntimeConfigBuilder().SetFixedReceiverWindowEnabled(false).Build();
+  session.ApplyRuntimeConfig(recover_patch);
+  const EsrCycleResult recovered = session.StepWithResult(input);
+  EXPECT_GT(CountMatchedTruthObservations(recovered, "target-emitter"), 0U);
+}
+
 TEST(EsrSessionIntegrationTest, ValidationFailureReturnsEmptyFrameAndStillAdvancesBatchId) {
   EsrSession session(MakeSessionConfig());
   context::EsrCycleInput invalid_input = MakeBaseInput();

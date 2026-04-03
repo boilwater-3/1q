@@ -71,6 +71,118 @@ struct ONEQ_API EosSessionConfig {
 };
 
 /**
+ * @brief EosRuntimeConfigPatch 描述运行期可变参数补丁。
+ */
+struct ONEQ_API EosRuntimeConfigPatch {
+  bool has_work_mode{false};
+  EosWorkMode work_mode{EosWorkMode::kFused};
+
+  bool has_scan_rate_deg_per_sec{false};
+  float scan_rate_deg_per_sec{20.0f};
+
+  bool has_frame_rate_hz{false};
+  float frame_rate_hz{30.0f};
+
+  bool has_minimum_snr_db{false};
+  float minimum_snr_db{6.0f};
+
+  bool has_enable_straylight_filter{false};
+  bool enable_straylight_filter{false};
+
+  bool has_visible_reference_irradiance_w_m2{false};
+  float visible_reference_irradiance_w_m2{800.0f};
+};
+
+/**
+ * @brief EosSessionConfigBuilder 提供初始化配置的链式构造。
+ */
+class ONEQ_API EosSessionConfigBuilder {
+ public:
+  explicit EosSessionConfigBuilder(const EosSessionConfig& config = {}) : config_(config) {}
+
+  EosSessionConfigBuilder& WithSessionConfig(const EosSessionConfig& config) {
+    config_ = config;
+    return *this;
+  }
+  EosSessionConfigBuilder& WithWorkMode(EosWorkMode mode) {
+    config_.work_mode = mode;
+    return *this;
+  }
+  EosSessionConfigBuilder& WithScanRateDegPerSec(float value) {
+    config_.scan_rate_deg_per_sec = value;
+    return *this;
+  }
+  EosSessionConfigBuilder& WithFrameRateHz(float value) {
+    config_.frame_rate_hz = value;
+    return *this;
+  }
+  EosSessionConfigBuilder& WithMinimumSnrDb(float value) {
+    config_.minimum_snr_db = value;
+    return *this;
+  }
+  EosSessionConfigBuilder& EnableStraylightFilter(bool enable = true) {
+    config_.enable_straylight_filter = enable;
+    return *this;
+  }
+  EosSessionConfigBuilder& WithVisibleReferenceIrradianceWm2(float value) {
+    config_.visible_reference_irradiance_w_m2 = value;
+    return *this;
+  }
+  EosSessionConfig Build() const { return config_; }
+
+ private:
+  EosSessionConfig config_{};
+};
+
+/**
+ * @brief EosRuntimeConfigBuilder 提供运行期补丁的链式构造。
+ */
+class ONEQ_API EosRuntimeConfigBuilder {
+ public:
+  explicit EosRuntimeConfigBuilder(const EosRuntimeConfigPatch& patch = {}) : patch_(patch) {}
+
+  EosRuntimeConfigBuilder& WithRuntimeConfigPatch(const EosRuntimeConfigPatch& patch) {
+    patch_ = patch;
+    return *this;
+  }
+
+  EosRuntimeConfigBuilder& WithWorkMode(EosWorkMode mode) {
+    patch_.has_work_mode = true;
+    patch_.work_mode = mode;
+    return *this;
+  }
+  EosRuntimeConfigBuilder& WithScanRateDegPerSec(float value) {
+    patch_.has_scan_rate_deg_per_sec = true;
+    patch_.scan_rate_deg_per_sec = value;
+    return *this;
+  }
+  EosRuntimeConfigBuilder& WithFrameRateHz(float value) {
+    patch_.has_frame_rate_hz = true;
+    patch_.frame_rate_hz = value;
+    return *this;
+  }
+  EosRuntimeConfigBuilder& WithMinimumSnrDb(float value) {
+    patch_.has_minimum_snr_db = true;
+    patch_.minimum_snr_db = value;
+    return *this;
+  }
+  EosRuntimeConfigBuilder& EnableStraylightFilter(bool enable = true) {
+    patch_.has_enable_straylight_filter = true;
+    patch_.enable_straylight_filter = enable;
+    return *this;
+  }
+  EosRuntimeConfigBuilder& WithVisibleReferenceIrradianceWm2(float value) {
+    patch_.has_visible_reference_irradiance_w_m2 = true;
+    patch_.visible_reference_irradiance_w_m2 = value;
+    return *this;
+  }
+  EosRuntimeConfigPatch Build() const { return patch_; }
+
+ private:
+  EosRuntimeConfigPatch patch_{};
+};
+
+/**
  * @brief EosSession 提供单周期步进执行入口。
  */
 class ONEQ_API EosSession {
@@ -98,6 +210,12 @@ class ONEQ_API EosSession {
    * @return 当前周期聚合结果。
    */
   EosCycleResult StepWithResult(const context::EosCycleInput& input);
+
+  /**
+   * @brief 应用运行期可变配置补丁。
+   * @param[in] patch 运行期补丁。
+   */
+  void ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch);
 
  private:
   struct Impl;
