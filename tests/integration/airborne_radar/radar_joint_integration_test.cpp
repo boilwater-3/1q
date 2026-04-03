@@ -101,6 +101,16 @@ common::config::SignalPipelineConfig MakeJointIntegrationPipelineConfig() {
   return config;
 }
 
+common::config::SignalPipelineConfig MakeJointIntegrationPhysicsPipelineConfig(float pulse_width_s) {
+  common::config::SignalPipelineConfig config = MakeJointIntegrationPipelineConfig();
+  config.detection.enable_physics_detection = true;
+  config.detection.pulse_count = 64;
+  config.detection.radar_system.detection.cfar_pfa = 0.5f;
+  config.detection.radar_system.detection.min_snr_db = -50.0f;
+  config.detection.radar_system.transmitter.pulse_width_s = pulse_width_s;
+  return config;
+}
+
 float ComputeRange(const common::model::TargetFeature& target) {
   return std::sqrt(target.position_x * target.position_x + target.position_y * target.position_y +
                    target.position_z * target.position_z);
@@ -1706,6 +1716,58 @@ TEST(RadarJointIntegrationTest, LongDurationExtremeRcsAndAltitudeMixKeepsMetrics
   ExpectNoZeroPublishedCycles(stats);
   ExpectBoundedCommandBurst(stats, 6U);
   EXPECT_LE(max_association_stress, 1.0f);
+}
+
+TEST(RadarJointIntegrationTest, PhysicsPulseWidthRetuningStaysWithinBoundedWindow) {
+  const common::model::TargetFeatureList base_targets =
+      BuildMixedPatrolTargetsWithBaseId(24U, 27000u, 260.0f, -6.0f, 10.0f);
+  const std::vector<SceneScriptStep> script{
+      {MakeClearScene(), false}, {MakeNoiseScene(), true}, {MakeMixedScene(), true},
+      {MakeClearScene(), false},
+  };
+
+  auto run_metrics = [&](float pulse_width_s) {
+    signal::pipeline::SignalPipeline signal_pipeline(
+        MakeJointIntegrationPhysicsPipelineConfig(pulse_width_s));
+    environment::EnvironmentService environment_service;
+    ScenarioRadarContext radar_context;
+    radar_context.SetCycleDeltaTimeSec(1.0f);
+    core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
+
+    common::model::TargetFeatureList targets = base_targets;
+    std::vector<float> association_stress_series;
+    std::size_t published_sum = 0U;
+    for (std::size_t cycle = 0; cycle < 20U; ++cycle) {
+      const SceneScriptStep& step = script[cycle % script.size()];
+      environment_service.UpdateSceneState(step.scene_state);
+      const common::output::TrackOutputFrame frame =
+          RunScenarioCycle(&controller, &radar_context, targets);
+      const std::size_t previous_command_count = radar_context.SubmittedCommands().size();
+      const CycleStats stats =
+          CaptureCycleStats(frame, radar_context, signal_pipeline, previous_command_count);
+      published_sum += stats.published_track_count;
+      association_stress_series.push_back(stats.association_stress);
+      AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
+    }
+
+    std::sort(association_stress_series.begin(), association_stress_series.end());
+    const std::size_t p95_index =
+        static_cast<std::size_t>(0.95f * static_cast<float>(association_stress_series.size() - 1U));
+    const float p95_stress = association_stress_series[p95_index];
+    const float mean_published = static_cast<float>(published_sum) / 20.0f;
+    return std::make_pair(mean_published, p95_stress);
+  };
+
+  const std::pair<float, float> baseline_metrics = run_metrics(13.0e-6f);
+  const std::pair<float, float> retuned_metrics = run_metrics(14.3e-6f);
+
+  const float mean_published_rel_delta = std::fabs(retuned_metrics.first - baseline_metrics.first) /
+                                         std::max(baseline_metrics.first, 1.0f);
+  const float p95_rel_delta = std::fabs(retuned_metrics.second - baseline_metrics.second) /
+                              std::max(std::fabs(baseline_metrics.second), 1.0e-6f);
+
+  EXPECT_LE(mean_published_rel_delta, 0.15f);
+  EXPECT_LE(p95_rel_delta, 0.20f);
 }
 
 }  // namespace tests

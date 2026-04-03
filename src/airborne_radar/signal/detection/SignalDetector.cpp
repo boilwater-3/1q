@@ -51,14 +51,10 @@ DetectionResult SignalDetector::Detect(const TargetReturn& target, const Environ
   const float base_snr_linear = echo_power_w / total_noise_w;
   result.snr_db = 10.0f * std::log10(base_snr_linear + kNoiseFloorW);
 
-  // ④ 积累增益：相参积累 SNR ∝ N，非相参 ∝ √N；将增益折算到等效单脉冲 SNR。
-  const float integration_gain = RadarEquations::ComputeIntegrationGain(pulse_count);
-  const float integrated_snr_linear = base_snr_linear * integration_gain;
-  const float integrated_snr_db = 10.0f * std::log10(integrated_snr_linear + kNoiseFloorW);
-
-  // ⑤ 检测概率（以等效单脉冲 SNR + N=1 送入，积累已在上一步体现）
+  // ④ 检测概率：使用单脉冲 SNR + 脉冲积累数量 N 的统一语义。
+  const int effective_pulse_count = std::max(1, pulse_count);
   result.detection_prob = RadarEquations::ComputeDetectionProbability(
-      integrated_snr_db, config_.detection.cfar_pfa, target.swerling_type, 1);
+      result.snr_db, config_.detection.cfar_pfa, target.swerling_type, effective_pulse_count);
 
   // ⑥ 蒙特卡洛判决
   // 若单脉冲 SNR 低于硬截断下限，直接判为未探测。

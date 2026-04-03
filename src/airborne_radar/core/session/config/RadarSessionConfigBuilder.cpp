@@ -8,6 +8,52 @@ namespace airborne_radar {
 namespace common {
 namespace config {
 
+namespace {
+
+bool IsFinitePositive(float value) { return std::isfinite(value) && value > 0.0f; }
+
+void WarnInvalidPhysicsDetectionConfig(const common::config::SignalDetectionConfig& detection) {
+  if (!detection.enable_physics_detection) {
+    return;
+  }
+
+  const common::config::TransmitterConfig& tx = detection.radar_system.transmitter;
+  if (!IsFinitePositive(tx.peak_power_w)) {
+    PROJECT_LOG_WARN(
+        "[RadarSessionConfigBuilder] physics detection enabled but peak_power_w={} is invalid.",
+        tx.peak_power_w);
+  }
+  if (!IsFinitePositive(tx.pulse_width_s)) {
+    PROJECT_LOG_WARN(
+        "[RadarSessionConfigBuilder] physics detection enabled but pulse_width_s={} is invalid.",
+        tx.pulse_width_s);
+  }
+  if (!IsFinitePositive(tx.bandwidth_hz)) {
+    PROJECT_LOG_WARN(
+        "[RadarSessionConfigBuilder] physics detection enabled but bandwidth_hz={} is invalid.",
+        tx.bandwidth_hz);
+  }
+  if (!IsFinitePositive(tx.prf_hz)) {
+    PROJECT_LOG_WARN(
+        "[RadarSessionConfigBuilder] physics detection enabled but prf_hz={} is invalid.",
+        tx.prf_hz);
+  }
+  if (detection.pulse_count < 1) {
+    PROJECT_LOG_WARN(
+        "[RadarSessionConfigBuilder] physics detection enabled but pulse_count={} is invalid.",
+        detection.pulse_count);
+  }
+  const float duty_cycle = tx.prf_hz * tx.pulse_width_s;
+  if (!std::isfinite(duty_cycle) || duty_cycle > 1.0f) {
+    PROJECT_LOG_WARN(
+        "[RadarSessionConfigBuilder] physics detection enabled but duty_cycle(prf_hz*pulse_width_s)={} "
+        "is invalid (>1 or non-finite).",
+        duty_cycle);
+  }
+}
+
+}  // namespace
+
 core::session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
   const auto& tx = config_.signal_pipeline_config.detection.radar_system.transmitter;
   if (tx.peak_power_w <= 0.0f) {
@@ -73,6 +119,7 @@ core::session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
   }
 
   const auto& detection_policy = config_.signal_pipeline_config.detection.radar_system.detection;
+  WarnInvalidPhysicsDetectionConfig(config_.signal_pipeline_config.detection);
   if (!config_.signal_pipeline_config.detection.enable_physics_detection) {
     constexpr float kDefaultCfarPfa = 1e-6f;
     constexpr float kDefaultMinSnrDb = -10.0f;

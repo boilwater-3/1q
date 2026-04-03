@@ -22,6 +22,7 @@ struct RadarEquations {
    * @brief 单站雷达方程（对数域），按指定单程天线增益计算接收回波功率。
    * 公式: Pr_dBW = Pt_dB + 2*G_one_way_dB + 2*λ_dB + σ_dB
    *                - 30*log10(4π) - 4*R_dB - L_sys
+   * 其中 Pt 项按峰值功率与脉宽的单脉冲能量语义进行缩放。
    * @param tx 发射机参数
    * @param one_way_gain_db 当前波束指向下的单程天线增益
    * @param rcs_m2 目标雷达散射截面 (m²)

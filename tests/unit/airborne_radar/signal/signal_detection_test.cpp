@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <limits>
 
 #include "1q/airborne_radar/config/RadarOrientationConfig.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
@@ -80,6 +81,25 @@ TEST(RadarEquationsTest, NoisePower_BoltzmannFormula) {
 
   // 理论值: N = kT₀B = 1.38e-23 * 290 * 1e6 ≈ 4.002e-15 W
   EXPECT_NEAR(noise_w, 4.002e-15f, 1e-16f);
+}
+
+/// @brief 单脉冲能量语义下，脉宽翻倍应带来约 3 dB 回波功率提升。
+TEST(RadarEquationsTest, EchoPowerIncreasesWithPulseWidthByEnergyScale) {
+  TransmitterConfig tx;
+  tx.peak_power_w = 1e6f;
+  tx.frequency_hz = 3e9f;
+  tx.pulse_width_s = 13.0e-6f;
+  AntennaConfig ant;
+  ant.main_beam_gain_db = 35.0f;
+
+  const float baseline_dbw =
+      RadarEquations::ComputeEchoPower_dBW(tx, ant, 5.0f, 30000.0f, 0.0f);
+
+  tx.pulse_width_s = 26.0e-6f;
+  const float widened_dbw =
+      RadarEquations::ComputeEchoPower_dBW(tx, ant, 5.0f, 30000.0f, 0.0f);
+
+  EXPECT_NEAR(widened_dbw - baseline_dbw, 3.0103f, 0.1f);
 }
 
 /// @brief 当前统一采用线性脉冲积累：增益 = N。
@@ -274,7 +294,7 @@ TEST(SignalDetectorTest, JammingIncreasesNoise) {
   EXPECT_LT(jammed.snr_db, clean.snr_db);
 }
 
-/// @brief Detect 应直接使用“每脉冲 SNR + N”语义，避免在外部重复折算积累增益。
+/// @brief Detect 应直接使用“每脉冲 SNR + N”语义计算 Pd。
 TEST(SignalDetectorTest, DetectionProbabilityUsesIntegratedSnr) {
   RadarSystemConfig config;
   config.detection.min_snr_db = -80.0f;  // 关闭硬门限影响
@@ -296,23 +316,44 @@ TEST(SignalDetectorTest, DetectionProbabilityUsesIntegratedSnr) {
   const DetectionResult n8 =
       detector.Detect(target, env, std::numeric_limits<float>::quiet_NaN(), 8);
 
-  // Detect 内部将基础 SNR × N 后以单脉冲语义送入 Pd 计算。
-  const float gain_n1 = RadarEquations::ComputeIntegrationGain(1);
-  const float gain_n8 = RadarEquations::ComputeIntegrationGain(8);
-  const float kFloor = 1e-30f;
-  const float base_snr_linear_n1 = std::pow(10.0f, n1.snr_db / 10.0f);  // snr_db 为单脉冲 SNR
-  const float base_snr_linear_n8 = std::pow(10.0f, n8.snr_db / 10.0f);
-  const float integrated_snr_db_n1 = 10.0f * std::log10(base_snr_linear_n1 * gain_n1 + kFloor);
-  const float integrated_snr_db_n8 = 10.0f * std::log10(base_snr_linear_n8 * gain_n8 + kFloor);
-
   const float expected_pd_n1 = RadarEquations::ComputeDetectionProbability(
-      integrated_snr_db_n1, config.detection.cfar_pfa, target.swerling_type, 1);
+      n1.snr_db, config.detection.cfar_pfa, target.swerling_type, 1);
   const float expected_pd_n8 = RadarEquations::ComputeDetectionProbability(
-      integrated_snr_db_n8, config.detection.cfar_pfa, target.swerling_type, 1);
+      n8.snr_db, config.detection.cfar_pfa, target.swerling_type, 8);
 
   EXPECT_NEAR(n1.detection_prob, expected_pd_n1, 1e-6f);
   EXPECT_NEAR(n8.detection_prob, expected_pd_n8, 1e-6f);
   EXPECT_GT(n8.detection_prob, n1.detection_prob);
+}
+
+/// @brief 带宽越大热噪声越大，保持其他参数不变时单脉冲 SNR 应下降。
+TEST(SignalDetectorTest, WiderBandwidthReducesSnrWithSameEnergyInputs) {
+  RadarSystemConfig narrow_band_config;
+  narrow_band_config.transmitter.bandwidth_hz = 2.0e6f;
+  narrow_band_config.detection.min_snr_db = -80.0f;
+
+  RadarSystemConfig wide_band_config = narrow_band_config;
+  wide_band_config.transmitter.bandwidth_hz = 8.0e6f;
+
+  SignalDetector narrow_detector(narrow_band_config);
+  SignalDetector wide_detector(wide_band_config);
+
+  signal::detection::TargetReturn target;
+  target.rcs_m2 = 1.0f;
+  target.range_m = 90000.0f;
+  target.swerling_type = common::config::kSwerling1;
+
+  signal::detection::EnvironmentState env;
+  env.propagation_loss_db = 0.0f;
+  env.clutter_noise_w = 0.0f;
+  env.jam_noise_w = 0.0f;
+
+  const DetectionResult narrow_result =
+      narrow_detector.Detect(target, env, std::numeric_limits<float>::quiet_NaN(), 4);
+  const DetectionResult wide_result =
+      wide_detector.Detect(target, env, std::numeric_limits<float>::quiet_NaN(), 4);
+
+  EXPECT_GT(narrow_result.snr_db, wide_result.snr_db);
 }
 
 /// @brief 更多脉冲应带来更高的积分增益与检测概率。

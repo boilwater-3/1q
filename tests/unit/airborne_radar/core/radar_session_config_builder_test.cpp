@@ -441,5 +441,47 @@ TEST(RadarSessionConfigBuilderTest, RcsConveniencePatchDoesNotResetDetectionThre
   EXPECT_EQ(after_patch.association_quality_metrics.detection_count, 0U);
 }
 
+TEST(RadarSessionConfigBuilderTest, InvalidDutyCyclePatchIsRejectedForPhysicsDetection) {
+  core::session::RadarSessionConfig config = common::config::MakeDefaultRadarSessionConfig();
+  config.signal_pipeline_config.detection.enable_physics_detection = true;
+  config.signal_pipeline_config.detection.pulse_count = 64;
+  config.signal_pipeline_config.detection.radar_system.detection.cfar_pfa = 0.5f;
+  config.signal_pipeline_config.detection.radar_system.detection.min_snr_db = -50.0f;
+
+  core::session::RadarSession baseline_session(config);
+  core::session::RadarSession patched_session(config);
+
+  core::context::RadarCycleInput input;
+  input.dt_sec = 1.0f;
+  common::model::TargetFeature target(0.0f, 0.0f, 0.0f, 3.0f, 1000.0f, 0, 1002U);
+  target.has_cartesian_position = true;
+  target.position_x = 1000.0f;
+  target.position_y = 0.0f;
+  target.position_z = 0.0f;
+  input.target_features.push_back(target);
+
+  const core::session::RadarCycleResult baseline = baseline_session.StepWithResult(input);
+  EXPECT_FALSE(baseline.has_validation_error);
+
+  common::config::SignalDetectionConfig invalid_detection_patch =
+      config.signal_pipeline_config.detection;
+  invalid_detection_patch.radar_system.transmitter.prf_hz = 1.0e4f;
+  invalid_detection_patch.radar_system.transmitter.pulse_width_s = 2.0e-4f;  // duty cycle = 2.0
+  invalid_detection_patch.radar_system.transmitter.peak_power_w = 1.0e2f;    // 若误应用会显著降探测
+
+  const common::config::RadarRuntimeConfigPatch patch =
+      common::config::RadarRuntimeConfigBuilder()
+          .WithSignalDetectionConfig(invalid_detection_patch)
+          .Build();
+  patched_session.ApplyRuntimeConfig(patch);
+
+  const core::session::RadarCycleResult after_patch = patched_session.StepWithResult(input);
+  EXPECT_FALSE(after_patch.has_validation_error);
+  EXPECT_EQ(after_patch.track_output_frame.published_track_count,
+            baseline.track_output_frame.published_track_count);
+  EXPECT_EQ(after_patch.association_quality_metrics.detection_count,
+            baseline.association_quality_metrics.detection_count);
+}
+
 }  // namespace tests
 }  // namespace airborne_radar

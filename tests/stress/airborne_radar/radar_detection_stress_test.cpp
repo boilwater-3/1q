@@ -89,6 +89,16 @@ common::config::SignalPipelineConfig MakeStressPipelineConfig() {
   return config;
 }
 
+common::config::SignalPipelineConfig MakeStressPhysicsPipelineConfig(float pulse_width_s) {
+  common::config::SignalPipelineConfig config = MakeStressPipelineConfig();
+  config.detection.enable_physics_detection = true;
+  config.detection.pulse_count = 64;
+  config.detection.radar_system.detection.cfar_pfa = 0.5f;
+  config.detection.radar_system.detection.min_snr_db = -50.0f;
+  config.detection.radar_system.transmitter.pulse_width_s = pulse_width_s;
+  return config;
+}
+
 float ComputeRange(const common::model::TargetFeature& target) {
   return std::sqrt(target.position_x * target.position_x + target.position_y * target.position_y +
                    target.position_z * target.position_z);
@@ -97,8 +107,8 @@ float ComputeRange(const common::model::TargetFeature& target) {
 common::model::TargetFeature BuildTarget(std::uint64_t external_target_id, float velocity_x,
                                   float velocity_y, float velocity_z, float rcs, float position_x,
                                   float position_y, float position_z) {
-  common::model::TargetFeature target(velocity_x, velocity_y, velocity_z, rcs, 0.0f, 0.0f, 0.0f, 0.0f, 0,
-                               external_target_id);
+  common::model::TargetFeature target(velocity_x, velocity_y, velocity_z, rcs, 0.0f, 0,
+                                      external_target_id);
   target.has_cartesian_position = true;
   target.position_x = position_x;
   target.position_y = position_y;
@@ -389,6 +399,48 @@ TEST(RadarDetectionStressTest, LoadStaircaseRemainsStableAcrossScaleTransitions)
 
   ExpectNoZeroPublishedCycles(stats);
   ExpectBoundedCommandBurst(stats, 5U);
+}
+
+TEST(RadarDetectionStressTest, PhysicsPulseWidthRetuningRemainsWithinBoundedStressWindow) {
+  auto run_metrics = [](float pulse_width_s) {
+    signal::pipeline::SignalPipeline signal_pipeline(MakeStressPhysicsPipelineConfig(pulse_width_s));
+    environment::EnvironmentService environment_service;
+    ScenarioRadarContext radar_context;
+    radar_context.SetCycleDeltaTimeSec(1.0f);
+    core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
+
+    common::model::TargetFeatureList targets = BuildBatchTargets(300U, 850.0f, 14.0f, 4.0f);
+    std::vector<float> stress_series;
+    std::size_t published_sum = 0U;
+    for (std::size_t cycle = 0; cycle < 40U; ++cycle) {
+      if ((cycle % 8U) == 0U) {
+        environment_service.UpdateSceneState(MakeSceneForIndex(cycle / 8U));
+      }
+      const std::size_t previous_command_count = radar_context.SubmittedCommands().size();
+      CycleStats stats = RunCycleAndCaptureStats(&controller, &radar_context, &signal_pipeline,
+                                                 targets, previous_command_count, nullptr);
+      published_sum += stats.published_track_count;
+      stress_series.push_back(stats.association_stress);
+      AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
+    }
+    std::sort(stress_series.begin(), stress_series.end());
+    const std::size_t p95_index =
+        static_cast<std::size_t>(0.95f * static_cast<float>(stress_series.size() - 1U));
+    const float p95_stress = stress_series[p95_index];
+    const float mean_published = static_cast<float>(published_sum) / 40.0f;
+    return std::make_pair(mean_published, p95_stress);
+  };
+
+  const std::pair<float, float> baseline_metrics = run_metrics(13.0e-6f);
+  const std::pair<float, float> retuned_metrics = run_metrics(14.3e-6f);
+
+  const float mean_published_rel_delta = std::fabs(retuned_metrics.first - baseline_metrics.first) /
+                                         std::max(baseline_metrics.first, 1.0f);
+  const float p95_rel_delta = std::fabs(retuned_metrics.second - baseline_metrics.second) /
+                              std::max(std::fabs(baseline_metrics.second), 1.0e-6f);
+
+  EXPECT_LE(mean_published_rel_delta, 0.15f);
+  EXPECT_LE(p95_rel_delta, 0.20f);
 }
 
 }  // namespace tests

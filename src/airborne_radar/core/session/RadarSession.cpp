@@ -1,6 +1,7 @@
 #include "1q/airborne_radar/core/session/RadarSession.h"
 
 #include <cmath>
+#include <string>
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"
@@ -12,6 +13,59 @@
 namespace airborne_radar {
 namespace core {
 namespace session {
+
+namespace {
+
+bool IsFinitePositive(float value) { return std::isfinite(value) && value > 0.0f; }
+
+bool ValidatePhysicsDetectionConfig(const common::config::SignalDetectionConfig& detection,
+                                    std::string* reason) {
+  if (!detection.enable_physics_detection) {
+    return true;
+  }
+
+  const common::config::TransmitterConfig& tx = detection.radar_system.transmitter;
+  if (!IsFinitePositive(tx.peak_power_w)) {
+    if (reason != nullptr) {
+      *reason = "peak_power_w must be finite and > 0";
+    }
+    return false;
+  }
+  if (!IsFinitePositive(tx.pulse_width_s)) {
+    if (reason != nullptr) {
+      *reason = "pulse_width_s must be finite and > 0";
+    }
+    return false;
+  }
+  if (!IsFinitePositive(tx.bandwidth_hz)) {
+    if (reason != nullptr) {
+      *reason = "bandwidth_hz must be finite and > 0";
+    }
+    return false;
+  }
+  if (!IsFinitePositive(tx.prf_hz)) {
+    if (reason != nullptr) {
+      *reason = "prf_hz must be finite and > 0";
+    }
+    return false;
+  }
+  if (detection.pulse_count < 1) {
+    if (reason != nullptr) {
+      *reason = "pulse_count must be >= 1";
+    }
+    return false;
+  }
+  const float duty_cycle = tx.prf_hz * tx.pulse_width_s;
+  if (!std::isfinite(duty_cycle) || duty_cycle > 1.0f) {
+    if (reason != nullptr) {
+      *reason = "prf_hz * pulse_width_s must be finite and <= 1";
+    }
+    return false;
+  }
+  return true;
+}
+
+}  // namespace
 
 struct RadarSession::Impl {
   explicit Impl(const RadarSessionConfig& config)
@@ -108,22 +162,36 @@ void RadarSession::SetJammingDetectionThresholdDb(float threshold_db) {
 void RadarSession::ApplyRuntimeConfig(const common::config::RadarRuntimeConfigPatch& patch) {
   bool should_update_signal_pipeline_config = false;
   if (patch.has_signal_pipeline_config) {
-    impl_->runtime_signal_pipeline_config = patch.signal_pipeline_config;
-    should_update_signal_pipeline_config = true;
+    std::string reason;
+    if (ValidatePhysicsDetectionConfig(patch.signal_pipeline_config.detection, &reason)) {
+      impl_->runtime_signal_pipeline_config = patch.signal_pipeline_config;
+      should_update_signal_pipeline_config = true;
+    } else {
+      PROJECT_LOG_ERROR(
+          "[RadarSession] rejected signal_pipeline_config patch: {}",
+          reason);
+    }
   }
 
   common::config::SignalPipelineConfig* signal_config = &impl_->runtime_signal_pipeline_config;
   if (patch.has_signal_detection_config) {
-    signal_config->detection = patch.signal_detection_config;
-    should_update_signal_pipeline_config = true;
-    if (!signal_config->detection.enable_physics_detection) {
+    std::string reason;
+    if (ValidatePhysicsDetectionConfig(patch.signal_detection_config, &reason)) {
+      signal_config->detection = patch.signal_detection_config;
+      should_update_signal_pipeline_config = true;
+    } else {
+      PROJECT_LOG_ERROR(
+          "[RadarSession] rejected signal_detection_config patch: {}",
+          reason);
+    }
+    if (!patch.signal_detection_config.enable_physics_detection) {
       constexpr float kDefaultCfarPfa = 1e-6f;
       constexpr float kDefaultMinSnrDb = -10.0f;
       const bool cfar_modified =
-          std::fabs(signal_config->detection.radar_system.detection.cfar_pfa - kDefaultCfarPfa) >
+          std::fabs(patch.signal_detection_config.radar_system.detection.cfar_pfa - kDefaultCfarPfa) >
           1.0e-7f;
       const bool snr_modified =
-          std::fabs(signal_config->detection.radar_system.detection.min_snr_db - kDefaultMinSnrDb) >
+          std::fabs(patch.signal_detection_config.radar_system.detection.min_snr_db - kDefaultMinSnrDb) >
           1.0e-5f;
       if (cfar_modified || snr_modified) {
         PROJECT_LOG_WARN(

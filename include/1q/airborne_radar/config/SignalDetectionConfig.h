@@ -19,7 +19,7 @@ struct TransmitterConfig {
   float peak_power_w{1e6f};     /**< 峰值发射功率 (W) */
   float frequency_hz{3e9f};     /**< 工作载频 (Hz) */
   float bandwidth_hz{4.5e6f};   /**< 信号带宽 (Hz) */
-  float pulse_width_s{13e-6f};  /**< 脉冲宽度 (s) */
+  float pulse_width_s{13e-6f};  /**< 脉冲宽度 (s)，仅物理检测路径参与能量链路 */
   float prf_hz{300.0f};         /**< 脉冲重复频率 (Hz) */
   float transmit_loss_db{3.5f}; /**< 馈线/发射系统损耗 (dB) */
 };
@@ -96,7 +96,7 @@ struct SignalDetectionConfig {
   RadarSystemConfig radar_system{};     /**< 雷达系统配置 */
   RcsPhysicsConfig rcs_physics{};       /**< 可选物理 RCS 覆盖配置 */
   float min_detection_margin_db{-2.0f}; /**< 最小检测裕量（dB） */
-  int pulse_count{10};                  /**< 脉冲数 */
+  int pulse_count{10};                  /**< 脉冲积累数量（物理检测路径要求 >=1） */
 };
 
 /**

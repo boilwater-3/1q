@@ -38,6 +38,11 @@ const float kRefTemperature = 290.0f;
  */
 const float kPi = 3.14159265358979323846f;
 /**
+ * @brief 参考脉宽（单位：s），用于把峰值功率映射到单脉冲能量尺度。
+ * @note 取配置默认值，确保默认参数下行为连续。
+ */
+const float kReferencePulseWidthS = 13.0e-6f;
+/**
  * @brief 防止 log10(0) 的极小值保护。
  * @note 代码行为依据：当前实现把对数变换与 SNR 计算的最小输入钳制到该值，
  *       避免出现 `-inf` 或数值下溢。
@@ -53,6 +58,18 @@ float LinearToDb(float linear) {
     return 10.0f * std::log10(kEpsilon);
   }
   return 10.0f * std::log10(linear);
+}
+
+/**
+ * @brief 计算相对参考脉宽的单脉冲能量缩放。
+ * @param tx 发射机参数。
+ * @return 线性能量缩放因子，最小钳位到 `kEpsilon`。
+ */
+float ComputePulseEnergyScale(const common::config::TransmitterConfig& tx) {
+  if (!std::isfinite(tx.pulse_width_s) || tx.pulse_width_s <= 0.0f) {
+    return kEpsilon;
+  }
+  return std::max(tx.pulse_width_s / kReferencePulseWidthS, kEpsilon);
 }
 /**
  * @brief 将 dB 转为线性值。
@@ -80,7 +97,7 @@ float ClampPd(float pd) {
 float RadarEquations::ComputeEchoPowerWithGain_dBW(const common::config::TransmitterConfig& tx,
                                                    float one_way_gain_db, float rcs_m2,
                                                    float range_m, float propagation_loss_db) {
-  if (range_m <= 0.0f || rcs_m2 <= 0.0f) {
+  if (range_m <= 0.0f || rcs_m2 <= 0.0f || tx.frequency_hz <= 0.0f) {
     return -300.0f;
   }
 
@@ -88,6 +105,7 @@ float RadarEquations::ComputeEchoPowerWithGain_dBW(const common::config::Transmi
   const float wavelength_m = kLightSpeed / tx.frequency_hz;
   /* 公式中 PT 的对数域值是 10*log10(PT²) */
   const float pt_db = LinearToDb(tx.peak_power_w);
+  const float pulse_energy_scale_db = LinearToDb(ComputePulseEnergyScale(tx));
   /* 公式中 λ 的对数域值是 10*log10(λ²) = 20*log10(λ) */
   const float lambda_db = LinearToDb(wavelength_m);
   /* 公式中 R 的对数域值是 10*log10(R²) = 20*log10(R) */
@@ -97,7 +115,8 @@ float RadarEquations::ComputeEchoPowerWithGain_dBW(const common::config::Transmi
   /* 公式中总损耗 L_sys 包含发射系统损耗和传播损耗 */
   const float total_loss_db = tx.transmit_loss_db + propagation_loss_db;
 
-  const float pr_dbw = pt_db + one_way_gain_db + one_way_gain_db + 2.0f * lambda_db + rcs_db -
+  const float pr_dbw = pt_db + pulse_energy_scale_db + one_way_gain_db + one_way_gain_db +
+                       2.0f * lambda_db + rcs_db -
                        30.0f * std::log10(4.0f * kPi) - 4.0f * r_db - total_loss_db;
 
   return pr_dbw;

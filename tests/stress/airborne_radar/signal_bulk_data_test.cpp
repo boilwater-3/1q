@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
@@ -34,11 +35,14 @@ common::model::TargetFeatureList BuildBatchTargets(std::size_t count, float x_bi
 
   for (std::size_t i = 0; i < count; ++i) {
     common::model::TargetFeature target(120.0f + static_cast<float>(i % 7), 0.0f, 0.0f, 6.0f, 0.2f,
-                                        0.0f, 0.0f, 1000.0f + static_cast<float>(i) * 2.0f, 0);
+                                        0, 100000u + static_cast<std::uint64_t>(i));
     target.position_x = x_bias + static_cast<float>(i) * 15.0f;
     target.position_y = y_bias + static_cast<float>(i % 5) * 3.0f;
     target.position_z = z_bias + static_cast<float>(i % 3) * 2.0f;
-    target.external_target_id = 100000u + static_cast<std::uint64_t>(i);
+    target.has_cartesian_position = true;
+    target.range_m = std::sqrt(target.position_x * target.position_x +
+                               target.position_y * target.position_y +
+                               target.position_z * target.position_z);
     targets.push_back(target);
   }
 
