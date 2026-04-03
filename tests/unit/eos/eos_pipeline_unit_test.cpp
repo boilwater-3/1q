@@ -1,5 +1,5 @@
 /**
- * @file eos_pipeline_test.cpp
+ * @file eos_pipeline_unit_test.cpp
  * @brief 验证 EOS core/pipeline 的扫描递推与视场判定策略。
  */
 
@@ -49,6 +49,22 @@ EosPipelineConfig MakePipelineConfig() {
   config.horizontal_fov_deg = 6.0f;
   config.vertical_fov_deg = 4.0f;
   return config;
+}
+
+float ResolveFirstCycleScanAzimuthDeg(const EosPipelineConfig& config, float dt_sec) {
+  const float scan_width_deg = config.scan_end_az_deg - config.scan_start_az_deg;
+  if (scan_width_deg <= 0.0f) {
+    return config.scan_start_az_deg;
+  }
+
+  float wrapped_offset_deg = config.scan_rate_deg_per_sec * dt_sec;
+  while (wrapped_offset_deg >= scan_width_deg) {
+    wrapped_offset_deg -= scan_width_deg;
+  }
+  while (wrapped_offset_deg < 0.0f) {
+    wrapped_offset_deg += scan_width_deg;
+  }
+  return config.scan_start_az_deg + wrapped_offset_deg;
 }
 
 TEST(EosPipelineTest, ScanAngleAdvancesAndWrapsInsideRange) {
@@ -234,7 +250,8 @@ TEST(EosPipelineTest, LowerFrameRateProducesHigherSnrWithLongerIntegrationWindow
   input.cycle_index = 10U;
   input.background_temperature_k = 240.0f;
   input.cloud_coverage_ratio = 0.1f;
-  context::EosTargetState target = MakeTarget(701U, -5.0f, 1000.0f, 8.0f);
+  context::EosTargetState target =
+      MakeTarget(701U, ResolveFirstCycleScanAzimuthDeg(low_rate_config, input.dt_sec), 1000.0f, 8.0f);
   target.apparent_temperature_k = 860.0f;
   target.emissivity = 0.98f;
   input.scene_targets.push_back(target);

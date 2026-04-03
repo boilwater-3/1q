@@ -1,5 +1,5 @@
 /**
- * @file eos_input_validation_test.cpp
+ * @file eos_input_validation_unit_test.cpp
  * @brief 验证光学传感器输入契约、扫描视场和探测判决链路的最小行为。
  */
 
@@ -52,6 +52,22 @@ EosCycleInput MakeValidInput() {
   input.background_temperature_k = 287.0f;
   input.scene_targets.push_back(MakeValidTarget());
   return input;
+}
+
+float ResolveFirstCycleScanAzimuthDeg(const session::EosSessionConfig& config, float dt_sec) {
+  const float scan_width_deg = config.scan_end_az_deg - config.scan_start_az_deg;
+  if (scan_width_deg <= 0.0f) {
+    return config.scan_start_az_deg;
+  }
+
+  float wrapped_offset_deg = config.scan_rate_deg_per_sec * dt_sec;
+  while (wrapped_offset_deg >= scan_width_deg) {
+    wrapped_offset_deg -= scan_width_deg;
+  }
+  while (wrapped_offset_deg < 0.0f) {
+    wrapped_offset_deg += scan_width_deg;
+  }
+  return config.scan_start_az_deg + wrapped_offset_deg;
 }
 
 TEST(EosInputValidationTest, InvalidCycleDeltaTimeIsReportedAsError) {
@@ -154,7 +170,7 @@ TEST(EosInputValidationTest, SessionConfigBuilderCanStartFromExternalConfig) {
 TEST(EosInputValidationTest, RuntimeConfigBuilderCanTightenDetectionThresholdAtRuntime) {
   session::EosSessionConfig config;
   config.work_mode = session::EosWorkMode::kFused;
-  config.minimum_snr_db = -10.0f;
+  config.minimum_snr_db = -120.0f;
   config.scan_start_az_deg = -20.0f;
   config.scan_end_az_deg = 20.0f;
   config.horizontal_fov_deg = 12.0f;
@@ -162,19 +178,25 @@ TEST(EosInputValidationTest, RuntimeConfigBuilderCanTightenDetectionThresholdAtR
 
   session::EosSession eos_session(config);
   EosCycleInput input = MakeValidInput();
-  input.scene_targets[0].azimuth_deg = 0.0f;
+  input.platform_pose.position_m.z = 1200.0f;
+  input.scene_targets[0].range_m = 1700.0f;
+  // Keep target aligned to first-cycle scan azimuth so this test isolates threshold behavior.
+  input.scene_targets[0].azimuth_deg = ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec);
 
   const session::EosCycleResult baseline = eos_session.StepWithResult(input);
   ASSERT_FALSE(baseline.has_validation_error);
   ASSERT_FALSE(baseline.output_frame.detections.empty());
+  EXPECT_TRUE(baseline.output_frame.detections[0].detected);
+  const float tightened_threshold_db = baseline.output_frame.detections[0].fused_snr_db + 3.0f;
 
   const session::EosRuntimeConfigPatch patch =
-      session::EosRuntimeConfigBuilder().WithMinimumSnrDb(120.0f).Build();
+      session::EosRuntimeConfigBuilder().WithMinimumSnrDb(tightened_threshold_db).Build();
   eos_session.ApplyRuntimeConfig(patch);
 
   const session::EosCycleResult updated = eos_session.StepWithResult(input);
   EXPECT_FALSE(updated.has_validation_error);
-  EXPECT_TRUE(updated.output_frame.detections.empty());
+  ASSERT_EQ(updated.output_frame.detections.size(), 1U);
+  EXPECT_FALSE(updated.output_frame.detections[0].detected);
 }
 
 }  // namespace

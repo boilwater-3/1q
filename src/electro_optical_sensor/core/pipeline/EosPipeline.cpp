@@ -325,15 +325,18 @@ common::EosDetectionRecord EosPipeline::BuildDetectionRecord(
         visible_result.background_radiance, aperture_area_m2, fov_solid_angle_sr,
         optical_transmittance) * stray_light_result.background_penalty_scale *
         path_radiance_penalty_scale;
+    const float visible_noise_enhancement = ComputeVisiblePhotonNoiseEnhancement(config_, input);
     noise_inputs.background_flux_w = visible_background_flux_w;
-    noise_inputs.photon_noise_enhancement_factor =
-        ComputeVisiblePhotonNoiseEnhancement(config_, input);
+    noise_inputs.photon_noise_enhancement_factor = visible_noise_enhancement;
     const foundation::noise::BackgroundNoiseStatistics visible_noise_stats =
         foundation::noise::ComputeBackgroundNoiseStatistics(noise_inputs);
     const float visible_effective_signal_w = foundation::noise::ComputeEffectiveSignalPowerW(
         visible_received_power_w, visible_background_flux_w, visible_noise_stats);
+    foundation::propagation::NepNoiseModelInputs visible_nep_inputs = nep_inputs;
+    visible_nep_inputs.system_noise_factor *= visible_noise_enhancement;
     const foundation::propagation::SnrEvaluationResult snr_result =
-        foundation::propagation::EvaluateSnrWithNep(visible_effective_signal_w, nep_inputs);
+        foundation::propagation::EvaluateSnrWithNep(visible_effective_signal_w,
+                                                    visible_nep_inputs);
     visible_snr_linear = snr_result.snr_linear * imaging_quality_gain;
   }
 

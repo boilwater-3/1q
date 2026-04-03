@@ -1,5 +1,5 @@
 /**
- * @file eos_coordinate_utils_test.cpp
+ * @file eos_coordinate_utils_unit_test.cpp
  * @brief 验证 EOS 外部坐标适配工具（LLA/ECEF -> 平台位姿与目标角距输入）的行为。
  */
 

@@ -1,5 +1,5 @@
 /**
- * @file eos_radiative_transfer_test.cpp
+ * @file eos_radiative_transfer_unit_test.cpp
  * @brief 验证 EOS 辐射传输模型的可替换行为。
  */
 

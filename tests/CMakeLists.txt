@@ -9,164 +9,108 @@ find_package(Boost CONFIG REQUIRED)
 find_package(Eigen3 CONFIG REQUIRED)
 option(ENABLE_STRESS_TESTING "Enable long-running radar stress tests" OFF)
 
-# 定义测试源文件
+# 按测试层级自动收集，避免根目录文件平铺导致维护成本上升
+file(GLOB_RECURSE UNIT_TEST_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/*.cpp"
+)
+file(GLOB_RECURSE INTEGRATION_TEST_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/integration/*.cpp"
+)
+file(GLOB_RECURSE CONTRACT_TEST_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/contract/*.cpp"
+)
+
 set(TEST_SOURCES
-    tactical_coordinator_test.cpp
-    decision_layer_test.cpp
-    data_output_manager_test.cpp
-    output_frame_utils_test.cpp
-    core_controller_test.cpp
-    public_api_convenience_test.cpp
-    public_headers_smoke_test.cpp
-    radar_joint_integration_test.cpp
-    antenna_pattern_utils_test.cpp
-    beamwidth_resolution_test.cpp
-    radar_orientation_utils_test.cpp
-    signal_environment_test.cpp
-    signal_association_test.cpp
-    signal_component_factory_test.cpp
-    signal_scan_schedule_test.cpp
-    signal_detection_test.cpp
-    atmosphere_physics_test.cpp
-    rcs_physics_test.cpp
-    geometry_transform_test.cpp
-    coordinate_transform_test.cpp
-    timing_regime_model_test.cpp
-    spectral_numerics_test.cpp
-    validation_utils_test.cpp
-    radar_input_validation_test.cpp
-    esr_input_validation_test.cpp
-    esr_coordinate_utils_test.cpp
-    esr_algorithms_test.cpp
-    esr_environment_service_test.cpp
-    esr_kdtree_clusterer_test.cpp
-    esr_hypothesis_associator_test.cpp
-    esr_output_manager_test.cpp
-    esr_session_config_resolver_test.cpp
-    esr_session_integration_test.cpp
-    trace_session_adapter_test.cpp
-    electro_optical_sensor/eos_foundation_test.cpp
-    electro_optical_sensor/eos_coordinate_utils_test.cpp
-    electro_optical_sensor/eos_input_validation_test.cpp
-    electro_optical_sensor/eos_environment_model_test.cpp
-    electro_optical_sensor/eos_noise_model_test.cpp
-    electro_optical_sensor/eos_pipeline_test.cpp
-    electro_optical_sensor/eos_radiative_transfer_test.cpp
-    electro_optical_sensor/eos_spatial_spectrum_test.cpp
-    electro_optical_sensor/eos_straylight_test.cpp
-    # NOTE:
-    # signal_bulk_data_test.cpp contains long-running IMM debug workload tests.
-    # Keep it disabled until IMM multi-thread optimization is implemented,
-    # then restore it to validate the optimized path.
-    # signal_bulk_data_test.cpp
-    track_lifecycle_test.cpp
-    kalman_filter_test.cpp
-    advanced_filter_test.cpp
-    radar_session_config_builder_test.cpp
+    ${UNIT_TEST_SOURCES}
+    ${INTEGRATION_TEST_SOURCES}
+    ${CONTRACT_TEST_SOURCES}
 )
 
 if(NOT TEST_SOURCES)
     message(STATUS "No test sources defined in ${CMAKE_CURRENT_SOURCE_DIR}")
-    message(STATUS "  └─ Add .cpp files to TEST_SOURCES to enable testing")
+    message(STATUS "  └─ Add .cpp files to unit/integration/contract to enable testing")
     return()
-endif()
-
-# 创建测试可执行文件
-add_executable(${PROJECT_NAME}_tests ${TEST_SOURCES})
-
-# 链接测试依赖
-target_link_libraries(${PROJECT_NAME}_tests PRIVATE
-    GTest::gtest_main  # 包含 main() 函数
-    GTest::gmock       # Mock 功能（可选）
-    eventpp::eventpp
-    Boost::boost
-    Eigen3::Eigen
-    ${PROJECT_ALIAS}   # 主库
-)
-
-# 包含目录
-target_include_directories(${PROJECT_NAME}_tests PRIVATE
-    ${CMAKE_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}
-)
-
-# Windows DLL 运行时处理
-if(WIN32 AND BUILD_SHARED_LIBS)
-    # 复制主库 DLL 到测试目录
-    add_custom_command(TARGET ${PROJECT_NAME}_tests POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:${PROJECT_CORE_TARGET}>
-            $<TARGET_FILE_DIR:${PROJECT_NAME}_tests>
-        COMMENT "Copying ${PROJECT_CORE_TARGET} DLL to tests directory"
-    )
-
-    # CMake 3.21+ 自动复制第三方 DLLs
-    if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.21)
-        # 会自动复制 GTest 和其他链接的导入目标的 DLLs
-        # 无需手动配置
-    else()
-        message(STATUS "  └─ CMake < 3.21: May need manual DLL copying for third-party libraries")
-    endif()
 endif()
 
 # 注册测试用例（使用 GoogleTest 自动发现）
 include(GoogleTest)
-gtest_discover_tests(${PROJECT_NAME}_tests
-    DISCOVERY_MODE PRE_TEST
-    DISCOVERY_TIMEOUT 60
+function(add_1q_gtest target_name suite_label discovery_timeout)
+    if(NOT ARGN)
+        return()
+    endif()
+
+    add_executable(${target_name} ${ARGN})
+    target_link_libraries(${target_name} PRIVATE
+        GTest::gtest_main  # 包含 main() 函数
+        GTest::gmock       # Mock 功能（可选）
+        eventpp::eventpp
+        Boost::boost
+        Eigen3::Eigen
+        ${PROJECT_ALIAS}   # 主库
+    )
+    target_include_directories(${target_name} PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
+        ${CMAKE_CURRENT_SOURCE_DIR}/mocks
+    )
+
+    if(WIN32 AND BUILD_SHARED_LIBS)
+        add_custom_command(TARGET ${target_name} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:${PROJECT_CORE_TARGET}>
+                $<TARGET_FILE_DIR:${target_name}>
+            COMMENT "Copying ${PROJECT_CORE_TARGET} DLL to test directory"
+        )
+    endif()
+
+    gtest_discover_tests(${target_name}
+        DISCOVERY_MODE PRE_TEST
+        DISCOVERY_TIMEOUT ${discovery_timeout}
+        TEST_PREFIX "${suite_label}::"
+        PROPERTIES LABELS "${suite_label}"
+    )
+endfunction()
+
+add_1q_gtest(${PROJECT_NAME}_unit_tests unit 60 ${UNIT_TEST_SOURCES})
+add_1q_gtest(${PROJECT_NAME}_integration_tests integration 120 ${INTEGRATION_TEST_SOURCES})
+add_1q_gtest(${PROJECT_NAME}_contract_tests contract 60 ${CONTRACT_TEST_SOURCES})
+
+# 兼容既有工作流：保留聚合 target 名称
+add_custom_target(${PROJECT_NAME}_tests)
+add_dependencies(${PROJECT_NAME}_tests
+    ${PROJECT_NAME}_unit_tests
+    ${PROJECT_NAME}_integration_tests
+    ${PROJECT_NAME}_contract_tests
 )
 
 add_test(
     NAME public_api_boundary_guard
     COMMAND ${CMAKE_COMMAND}
             -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
-            -P ${CMAKE_CURRENT_SOURCE_DIR}/check_public_api_boundary.cmake
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/public_api/check_public_api_boundary.cmake
 )
 
 add_test(
     NAME airborne_include_style_guard
     COMMAND ${CMAKE_COMMAND}
             -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
-            -P ${CMAKE_CURRENT_SOURCE_DIR}/check_airborne_include_style.cmake
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/public_api/check_airborne_include_style.cmake
+)
+set_tests_properties(
+    public_api_boundary_guard
+    airborne_include_style_guard
+    PROPERTIES LABELS "contract"
 )
 
 if(ENABLE_STRESS_TESTING)
-    set(STRESS_TEST_SOURCES
-        signal_bulk_data_test.cpp
-        radar_detection_stress_test.cpp
+    file(GLOB_RECURSE STRESS_TEST_SOURCES CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/stress/*.cpp"
     )
 
-    add_executable(${PROJECT_NAME}_stress_tests ${STRESS_TEST_SOURCES})
-    target_link_libraries(${PROJECT_NAME}_stress_tests PRIVATE
-        GTest::gtest_main
-        GTest::gmock
-        eventpp::eventpp
-        Boost::boost
-        Eigen3::Eigen
-        ${PROJECT_ALIAS}
-    )
-    target_include_directories(${PROJECT_NAME}_stress_tests PRIVATE
-        ${CMAKE_SOURCE_DIR}/include
-        ${CMAKE_SOURCE_DIR}/src
-        ${CMAKE_CURRENT_SOURCE_DIR}
-    )
-
-    if(WIN32 AND BUILD_SHARED_LIBS)
-        add_custom_command(TARGET ${PROJECT_NAME}_stress_tests POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                $<TARGET_FILE:${PROJECT_CORE_TARGET}>
-                $<TARGET_FILE_DIR:${PROJECT_NAME}_stress_tests>
-            COMMENT "Copying ${PROJECT_CORE_TARGET} DLL to stress test directory"
-        )
-    endif()
-
-    gtest_discover_tests(${PROJECT_NAME}_stress_tests
-        DISCOVERY_MODE PRE_TEST
-        DISCOVERY_TIMEOUT 120
-        TEST_PREFIX "stress::"
-        PROPERTIES LABELS "stress"
-    )
+    add_1q_gtest(${PROJECT_NAME}_stress_tests stress 120 ${STRESS_TEST_SOURCES})
+    add_dependencies(${PROJECT_NAME}_tests ${PROJECT_NAME}_stress_tests)
 else()
     message(STATUS "Stress tests disabled. Configure with -DENABLE_STRESS_TESTING=ON to enable long-running suites.")
 endif()
