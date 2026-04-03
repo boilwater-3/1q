@@ -103,18 +103,18 @@ TEST(EosFoundationTest, OpticalGeometryFunctionsProducePositiveValues) {
 }
 
 TEST(EosFoundationTest, AtmosphericTransmittanceDecreasesWithDistance) {
-  const float short_path =
-      propagation::ComputeAtmosphericTransmittance(2.0e-5f, 1.0e-5f, 1000.0f);
-  const float long_path =
-      propagation::ComputeAtmosphericTransmittance(2.0e-5f, 1.0e-5f, 5000.0f);
+  const float short_path = propagation::ComputeAtmosphericTransmittance(2.0e-5f, 1.0e-5f, 1000.0f);
+  const float long_path = propagation::ComputeAtmosphericTransmittance(2.0e-5f, 1.0e-5f, 5000.0f);
   EXPECT_GT(short_path, long_path);
   EXPECT_GE(short_path, 0.0f);
   EXPECT_LE(short_path, 1.0f);
 }
 
 TEST(EosFoundationTest, ReceivedPowerAndSnrDecreaseWithRange) {
-  const float near_power = propagation::ComputeReceivedPowerW(100.0f, 2.0f, 1000.0f, 0.03f, 0.8f, 0.85f);
-  const float far_power = propagation::ComputeReceivedPowerW(100.0f, 2.0f, 3000.0f, 0.03f, 0.8f, 0.85f);
+  const float near_power =
+      propagation::ComputeReceivedPowerW(100.0f, 2.0f, 1000.0f, 0.03f, 0.8f, 0.85f);
+  const float far_power =
+      propagation::ComputeReceivedPowerW(100.0f, 2.0f, 3000.0f, 0.03f, 0.8f, 0.85f);
   EXPECT_GT(near_power, far_power);
 
   const float near_snr_linear = propagation::ComputeSnrLinear(near_power, 1.0e-12f);
@@ -142,14 +142,34 @@ TEST(EosFoundationTest, NepModelProducesReasonableSnrEvaluation) {
 }
 
 TEST(EosFoundationTest, BandIntegratedRadianceScalesWithBandwidth) {
-  const float spectral_radiance =
-      radiometry::ComputePlanckRadiance(4.0f, 320.0f);
+  const float spectral_radiance = radiometry::ComputePlanckRadiance(4.0f, 320.0f);
   const float narrow_band_radiance =
       radiometry::IntegrateSpectralRadianceOverBand(spectral_radiance, 1.0f);
   const float wide_band_radiance =
       radiometry::IntegrateSpectralRadianceOverBand(spectral_radiance, 4.0f);
   EXPECT_GT(wide_band_radiance, narrow_band_radiance);
   EXPECT_NEAR(wide_band_radiance / narrow_band_radiance, 4.0f, 1.0e-3f);
+}
+
+TEST(EosFoundationTest, ReceivedPowerScalesAsInverseSquareOfRange) {
+  const float power_1000 =
+      propagation::ComputeReceivedPowerW(100.0f, 2.0f, 1000.0f, 0.03f, 0.8f, 0.85f);
+  const float power_2000 =
+      propagation::ComputeReceivedPowerW(100.0f, 2.0f, 2000.0f, 0.03f, 0.8f, 0.85f);
+  EXPECT_GT(power_1000, 0.0f);
+  EXPECT_GT(power_2000, 0.0f);
+  const float ratio = power_1000 / power_2000;
+  EXPECT_NEAR(ratio, 4.0f, 0.5f);
+}
+
+TEST(EosFoundationTest, InfraredDeltaIsZeroWhenTargetEqualsBackground) {
+  radiometry::InfraredRadianceInputs inputs;
+  inputs.wavelength_um = 4.0f;
+  inputs.target_temperature_k = 300.0f;
+  inputs.background_temperature_k = 300.0f;
+  inputs.emissivity = 0.95f;
+  const float delta = radiometry::ComputeInfraredRadianceDelta(inputs);
+  EXPECT_NEAR(delta, -radiometry::ComputePlanckRadiance(4.0f, 300.0f) * 0.05f, 2.0e-2f);
 }
 
 TEST(EosFoundationTest, DetectionRangeInterfaceReturnsOrderedRange) {

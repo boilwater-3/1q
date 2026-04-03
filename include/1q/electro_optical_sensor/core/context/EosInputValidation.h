@@ -45,7 +45,9 @@ enum class EosValidationCode {
   kInvalidTargetTemperature,        /**< 目标温度非法（<= 0） */
   kInvalidTargetEmissivity,         /**< 目标辐射效率非法（不在 [0, 1]） */
   kInvalidTargetReflectance,        /**< 目标反射率非法（不在 [0, 1]） */
-  kInvalidTargetProjectedArea       /**< 目标投影面积非法（<= 0） */
+  kInvalidTargetProjectedArea,      /**< 目标投影面积非法（<= 0） */
+  kNonFiniteSolarAngles,            /**< 太阳角存在非有限值 */
+  kInvalidSolarAltitudeRange        /**< 太阳高度角越界（不在 [-90, 90]） */
 };
 
 /**

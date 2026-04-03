@@ -1,10 +1,13 @@
 #include "1q/airborne_radar/core/session/RadarSession.h"
 
+#include <cmath>
+
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"
 #include "airborne_radar/core/context/MutableRadarContext.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
+#include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
 namespace core {
@@ -113,6 +116,22 @@ void RadarSession::ApplyRuntimeConfig(const common::config::RadarRuntimeConfigPa
   if (patch.has_signal_detection_config) {
     signal_config->detection = patch.signal_detection_config;
     should_update_signal_pipeline_config = true;
+    if (!signal_config->detection.enable_physics_detection) {
+      constexpr float kDefaultCfarPfa = 1e-6f;
+      constexpr float kDefaultMinSnrDb = -10.0f;
+      const bool cfar_modified =
+          std::fabs(signal_config->detection.radar_system.detection.cfar_pfa - kDefaultCfarPfa) >
+          1.0e-7f;
+      const bool snr_modified =
+          std::fabs(signal_config->detection.radar_system.detection.min_snr_db - kDefaultMinSnrDb) >
+          1.0e-5f;
+      if (cfar_modified || snr_modified) {
+        PROJECT_LOG_WARN(
+            "[RadarSession] cfar_pfa/min_snr_db modified while "
+            "enable_physics_detection=false; these parameters have no effect "
+            "in the heuristic detection path.");
+      }
+    }
   }
   if (patch.has_rcs_enable_physical_override) {
     signal_config->detection.rcs_physics.enable_physical_rcs = patch.rcs_enable_physical_override;

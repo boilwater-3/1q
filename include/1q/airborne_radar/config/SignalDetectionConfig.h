@@ -47,8 +47,8 @@ struct ReceiverConfig {
  * @brief 检测策略参数。
  */
 struct DetectionPolicy {
-  float cfar_pfa{1e-6f};    /**< 恒虚警概率 */
-  float min_snr_db{-10.0f}; /**< SNR 硬截断下限 (dB) */
+  float cfar_pfa{1e-6f};    /**< 恒虚警概率（仅 enable_physics_detection=true 时生效） */
+  float min_snr_db{-10.0f}; /**< SNR 硬截断下限 (dB)（仅 enable_physics_detection=true 时生效） */
 };
 
 /**
@@ -56,15 +56,15 @@ struct DetectionPolicy {
  * @note 默认关闭，保持现有目标 RCS 使用方式不变。
  */
 struct RcsPhysicsConfig {
-  bool enable_physical_rcs{false};  /**< 是否启用物理 RCS 覆盖 */
-  float frequency_hz{0.0f};         /**< 物理模型频率，<=0 时回退发射机频率 */
-  float physics_mix_ratio{0.0f};    /**< 物理 RCS 混合比例 [0,1]，0=纯输入RCS */
-  float cylinder_weight{0.5f};      /**< 圆柱散射权重 [0,1] */
+  bool enable_physical_rcs{false};      /**< 是否启用物理 RCS 覆盖 */
+  float frequency_hz{0.0f};             /**< 物理模型频率，<=0 时回退发射机频率 */
+  float physics_mix_ratio{0.0f};        /**< 物理 RCS 混合比例 [0,1]，0=纯输入RCS */
+  float cylinder_weight{0.5f};          /**< 圆柱散射权重 [0,1] */
   float min_equivalent_radius_m{0.05f}; /**< 目标等效半径下限（m） */
   float max_equivalent_radius_m{5.0f};  /**< 目标等效半径上限（m） */
-  float min_rcs_m2{0.01f};          /**< 物理 RCS 输出下限（m^2） */
-  float max_rcs_m2{1000.0f};        /**< 物理 RCS 输出上限（m^2） */
-  float bistatic_psi_offset_deg{5.0f}; /**< 双基地角偏移（deg） */
+  float min_rcs_m2{0.01f};              /**< 物理 RCS 输出下限（m^2） */
+  float max_rcs_m2{1000.0f};            /**< 物理 RCS 输出上限（m^2） */
+  float bistatic_psi_offset_deg{5.0f};  /**< 双基地角偏移（deg） */
 };
 
 /**

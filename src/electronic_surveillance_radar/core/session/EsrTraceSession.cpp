@@ -232,8 +232,8 @@ std::string ToJson(const common::EsrOutputFrame& value) {
   stream << "\"cycle_index\":" << value.truth_evaluation_output.cycle_index << ",";
   stream << "\"batch_id\":" << value.truth_evaluation_output.batch_id << ",";
   stream << "\"matched_count\":" << value.truth_evaluation_output.matched_count << ",";
-  stream << "\"total_observation_count\":"
-         << value.truth_evaluation_output.total_observation_count << ",";
+  stream << "\"total_observation_count\":" << value.truth_evaluation_output.total_observation_count
+         << ",";
   stream << "\"associations\":[";
   for (std::size_t i = 0; i < value.truth_evaluation_output.associations.size(); ++i) {
     if (i > 0U) {
@@ -262,8 +262,8 @@ std::string ToJson(const pipeline::InterceptPipelineConfig& value) {
   stream << "\"pfa\":" << value.statistical_detection.pfa << ",";
   stream << "\"min_snr_db\":" << value.statistical_detection.min_snr_db << ",";
   stream << "\"pulse_count\":" << value.statistical_detection.pulse_count << ",";
-  stream << "\"integration_mode\":" << static_cast<int>(value.statistical_detection.integration_mode)
-         << ",";
+  stream << "\"integration_mode\":"
+         << static_cast<int>(value.statistical_detection.integration_mode) << ",";
   stream << "\"threshold_scale\":" << value.statistical_detection.threshold_scale << ",";
   stream << "\"enable_statistical_detection\":"
          << BoolToJson(value.statistical_detection.enable_statistical_detection);
@@ -315,8 +315,8 @@ std::string ToJson(const pipeline::InterceptPipelineConfig& value) {
   stream << "\"deception_model\":{";
   stream << "\"false_alarm_probability_scale\":"
          << value.deception_model.false_alarm_probability_scale << ",";
-  stream << "\"confusion_probability_scale\":"
-         << value.deception_model.confusion_probability_scale << ",";
+  stream << "\"confusion_probability_scale\":" << value.deception_model.confusion_probability_scale
+         << ",";
   stream << "\"max_false_observations_per_emitter\":"
          << value.deception_model.max_false_observations_per_emitter << ",";
   stream << "\"aoa_confusion_std_deg\":" << value.deception_model.aoa_confusion_std_deg << ",";
@@ -407,26 +407,28 @@ std::string ToJson(const core::session::EsrRuntimeConfigPatch& value) {
   stream << "\"has_integrated_receive_loss_db\":"
          << BoolToJson(value.has_integrated_receive_loss_db) << ",";
   stream << "\"integrated_receive_loss_db\":" << value.integrated_receive_loss_db << ",";
-  stream << "\"has_fixed_receiver_window_hz\":"
-         << BoolToJson(value.has_fixed_receiver_window_hz) << ",";
+  stream << "\"has_fixed_receiver_window_hz\":" << BoolToJson(value.has_fixed_receiver_window_hz)
+         << ",";
   stream << "\"receiver_lower_hz\":" << value.receiver_lower_hz << ",";
   stream << "\"receiver_upper_hz\":" << value.receiver_upper_hz << ",";
-  stream << "\"has_use_fixed_receiver_window\":"
-         << BoolToJson(value.has_use_fixed_receiver_window) << ",";
-  stream << "\"use_fixed_receiver_window\":" << BoolToJson(value.use_fixed_receiver_window)
+  stream << "\"has_use_fixed_receiver_window\":" << BoolToJson(value.has_use_fixed_receiver_window)
          << ",";
+  stream << "\"use_fixed_receiver_window\":" << BoolToJson(value.use_fixed_receiver_window) << ",";
   stream << "\"has_enable_statistical_detection\":"
          << BoolToJson(value.has_enable_statistical_detection) << ",";
-  stream << "\"enable_statistical_detection\":"
-         << BoolToJson(value.enable_statistical_detection) << ",";
-  stream << "\"has_enable_spectral_analysis\":"
-         << BoolToJson(value.has_enable_spectral_analysis) << ",";
+  stream << "\"enable_statistical_detection\":" << BoolToJson(value.enable_statistical_detection)
+         << ",";
+  stream << "\"has_enable_spectral_analysis\":" << BoolToJson(value.has_enable_spectral_analysis)
+         << ",";
   stream << "\"enable_spectral_analysis\":" << BoolToJson(value.enable_spectral_analysis) << ",";
   stream << "\"has_detection_min_snr_db\":" << BoolToJson(value.has_detection_min_snr_db) << ",";
   stream << "\"detection_min_snr_db\":" << value.detection_min_snr_db << ",";
   stream << "\"has_jamming_detection_threshold_w\":"
          << BoolToJson(value.has_jamming_detection_threshold_w) << ",";
-  stream << "\"jamming_detection_threshold_w\":" << value.jamming_detection_threshold_w;
+  stream << "\"jamming_detection_threshold_w\":" << value.jamming_detection_threshold_w << ",";
+  stream << "\"has_observation_jam_mark_threshold_w\":"
+         << BoolToJson(value.has_observation_jam_mark_threshold_w) << ",";
+  stream << "\"observation_jam_mark_threshold_w\":" << value.observation_jam_mark_threshold_w;
   stream << "}";
   return stream.str();
 }
@@ -452,7 +454,8 @@ common::EsrOutputFrame EsrTraceSession::Step(const core::context::EsrCycleInput&
   return output;
 }
 
-core::session::EsrCycleResult EsrTraceSession::StepWithResult(const core::context::EsrCycleInput& input) {
+core::session::EsrCycleResult EsrTraceSession::StepWithResult(
+    const core::context::EsrCycleInput& input) {
   if (sink_) {
     Record("input", ToJson(input));
   }

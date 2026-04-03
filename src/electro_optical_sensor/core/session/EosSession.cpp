@@ -1,6 +1,7 @@
 #include "1q/electro_optical_sensor/core/session/EosSession.h"
 
 #include "1q/electro_optical_sensor/core/context/EosInputValidation.h"
+#include "common/logging/ProjectLog.h"
 #include "electro_optical_sensor/core/pipeline/EosPipeline.h"
 
 namespace electro_optical_sensor {
@@ -94,27 +95,57 @@ EosCycleResult EosSession::StepWithResult(const context::EosCycleInput& input) {
 void EosSession::ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch) {
   EosSessionConfig* runtime_config = &impl_->runtime_config;
   bool reset_scan_phase = false;
+  bool has_valid_update = false;
   if (patch.has_work_mode) {
     runtime_config->work_mode = patch.work_mode;
+    has_valid_update = true;
   }
   if (patch.has_scan_rate_deg_per_sec) {
-    runtime_config->scan_rate_deg_per_sec = patch.scan_rate_deg_per_sec;
-    reset_scan_phase = true;
+    if (std::isfinite(patch.scan_rate_deg_per_sec) && patch.scan_rate_deg_per_sec > 0.0f) {
+      runtime_config->scan_rate_deg_per_sec = patch.scan_rate_deg_per_sec;
+      reset_scan_phase = true;
+      has_valid_update = true;
+    } else {
+      PROJECT_LOG_ERROR(
+          "[EosSession] Rejecting invalid scan_rate_deg_per_sec={}; "
+          "must be finite and positive.",
+          patch.scan_rate_deg_per_sec);
+    }
   }
   if (patch.has_frame_rate_hz) {
-    runtime_config->frame_rate_hz = patch.frame_rate_hz;
+    if (std::isfinite(patch.frame_rate_hz) && patch.frame_rate_hz > 0.0f) {
+      runtime_config->frame_rate_hz = patch.frame_rate_hz;
+      has_valid_update = true;
+    } else {
+      PROJECT_LOG_ERROR(
+          "[EosSession] Rejecting invalid frame_rate_hz={}; "
+          "must be finite and positive.",
+          patch.frame_rate_hz);
+    }
   }
   if (patch.has_minimum_snr_db) {
     runtime_config->minimum_snr_db = patch.minimum_snr_db;
+    has_valid_update = true;
   }
   if (patch.has_enable_straylight_filter) {
     runtime_config->enable_straylight_filter = patch.enable_straylight_filter;
+    has_valid_update = true;
   }
   if (patch.has_visible_reference_irradiance_w_m2) {
-    runtime_config->visible_reference_irradiance_w_m2 =
-        patch.visible_reference_irradiance_w_m2;
+    if (std::isfinite(patch.visible_reference_irradiance_w_m2) &&
+        patch.visible_reference_irradiance_w_m2 > 0.0f) {
+      runtime_config->visible_reference_irradiance_w_m2 = patch.visible_reference_irradiance_w_m2;
+      has_valid_update = true;
+    } else {
+      PROJECT_LOG_ERROR(
+          "[EosSession] Rejecting invalid visible_reference_irradiance_w_m2={}; "
+          "must be finite and positive.",
+          patch.visible_reference_irradiance_w_m2);
+    }
   }
-  impl_->pipeline.UpdateConfig(BuildPipelineConfig(*runtime_config), reset_scan_phase);
+  if (has_valid_update) {
+    impl_->pipeline.UpdateConfig(BuildPipelineConfig(*runtime_config), reset_scan_phase);
+  }
 }
 
 }  // namespace session

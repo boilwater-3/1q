@@ -118,6 +118,9 @@ struct ONEQ_API EsrRuntimeConfigPatch {
 
   bool has_jamming_detection_threshold_w{false};
   float jamming_detection_threshold_w{0.0f};
+
+  bool has_observation_jam_mark_threshold_w{false};
+  float observation_jam_mark_threshold_w{0.0f};
 };
 
 /**
@@ -224,6 +227,11 @@ class ONEQ_API EsrRuntimeConfigBuilder {
   EsrRuntimeConfigBuilder& WithJammingDetectionThresholdW(float value) {
     patch_.has_jamming_detection_threshold_w = true;
     patch_.jamming_detection_threshold_w = value;
+    return *this;
+  }
+  EsrRuntimeConfigBuilder& WithObservationJamMarkThresholdW(float value) {
+    patch_.has_observation_jam_mark_threshold_w = true;
+    patch_.observation_jam_mark_threshold_w = value;
     return *this;
   }
   EsrRuntimeConfigPatch Build() const { return patch_; }

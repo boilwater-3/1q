@@ -430,7 +430,8 @@ void PopulateClusterSpectralSummary(const std::vector<std::size_t>& cluster_indi
   const bool is_broadband =
       summary->spectral_bandwidth_occupancy >= spectral_config.broadband_occupancy_threshold;
   const bool is_agile =
-      summary->spectral_main_frequency_stability_hz >= spectral_config.agile_stability_threshold_hz ||
+      summary->spectral_main_frequency_stability_hz >=
+          spectral_config.agile_stability_threshold_hz ||
       summary->spectral_peak_sparsity <= spectral_config.agile_peak_sparsity_threshold;
 
   if (is_broadband) {
@@ -466,6 +467,7 @@ internal::ClusterSummary BuildClusterSummary(
   float confidence_acc = 0.0f;
   std::size_t deception_affected_count = 0U;
   std::size_t false_alarm_count = 0U;
+  std::size_t matched_truth_count = 0U;
 
   for (std::size_t i = 0; i < cluster_indices.size(); ++i) {
     const std::size_t index = cluster_indices[i];
@@ -477,7 +479,10 @@ internal::ClusterSummary BuildClusterSummary(
     summary.mean_el_deg += records[index].observation.aoa_el_deg;
     summary.mean_rf_hz += records[index].observation.rf_hz;
     summary.mean_pulse_width_s += records[index].observation.pulse_width_s;
-    summary.mean_pri_s += records[index].truth_pri_s;
+    if (records[index].matched_truth) {
+      summary.mean_pri_s += records[index].truth_pri_s;
+      ++matched_truth_count;
+    }
     confidence_acc += ComputeObservationConfidence(records[index].observation.snr_db,
                                                    records[index].observation.is_jammed);
     if (records[index].deception_affected) {
@@ -502,7 +507,9 @@ internal::ClusterSummary BuildClusterSummary(
   summary.mean_el_deg *= inv_count;
   summary.mean_rf_hz *= static_cast<double>(inv_count);
   summary.mean_pulse_width_s *= static_cast<double>(inv_count);
-  summary.mean_pri_s *= static_cast<double>(inv_count);
+  if (matched_truth_count > 0U) {
+    summary.mean_pri_s *= static_cast<double>(1.0f / static_cast<float>(matched_truth_count));
+  }
   summary.deception_support_ratio = static_cast<float>(deception_affected_count) * inv_count;
   summary.false_alarm_ratio = static_cast<float>(false_alarm_count) * inv_count;
   const float deception_penalty = 1.0f - Clamp01(deception_config.cluster_confidence_penalty_scale *
@@ -562,9 +569,10 @@ internal::RawObservationRecord BuildDeceptionRecord(
     record.observation.observation_id = (*next_observation_id)++;
   }
   const float strength = Clamp01(deception_strength);
+  const float rf_ratio = std::max(0.0f, config.rf_confusion_ratio);
   std::normal_distribution<float> angle_dist(
       0.0f, std::max(0.5f, config.aoa_confusion_std_deg) * (0.5f + strength));
-  std::uniform_real_distribution<float> rf_shift_dist(-(0.6f + strength), 0.6f + strength);
+  std::uniform_real_distribution<float> rf_ratio_dist(-rf_ratio, rf_ratio);
   std::uniform_real_distribution<float> pw_shift_dist(-std::max(0.0f, config.pw_confusion_ratio),
                                                       std::max(0.0f, config.pw_confusion_ratio));
   std::uniform_real_distribution<float> snr_loss_dist(4.0f, 10.0f);
@@ -572,7 +580,7 @@ internal::RawObservationRecord BuildDeceptionRecord(
     record.observation.aoa_az_deg += angle_dist(*rng);
     record.observation.aoa_el_deg += angle_dist(*rng) * 0.6f;
     record.observation.rf_hz += static_cast<double>(template_record.observation.rf_hz) *
-                                static_cast<double>(0.01f * rf_shift_dist(*rng));
+                                static_cast<double>(rf_ratio_dist(*rng) * strength);
     record.observation.pulse_width_s +=
         static_cast<double>(template_record.observation.pulse_width_s) *
         static_cast<double>(pw_shift_dist(*rng));
@@ -840,9 +848,9 @@ InterceptCycleResult InterceptPipeline::RunCycle(
   std::vector<internal::ClusterSummary> cluster_summaries;
   cluster_summaries.reserve(cluster_result.clusters.size());
   for (std::size_t i = 0; i < cluster_result.clusters.size(); ++i) {
-    cluster_summaries.push_back(
-        BuildClusterSummary(cluster_result.clusters[i], records, features, config_.deception_model,
-                            config_.spectral_analysis));
+    cluster_summaries.push_back(BuildClusterSummary(cluster_result.clusters[i], records, features,
+                                                    config_.deception_model,
+                                                    config_.spectral_analysis));
   }
 
   associator_.UpdateConfig(config_.association);

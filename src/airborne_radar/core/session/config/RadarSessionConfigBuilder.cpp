@@ -1,5 +1,7 @@
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 
+#include <cmath>
+
 #include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
@@ -69,6 +71,20 @@ core::session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
           rcs.frequency_hz, tx.frequency_hz);
     }
   }
+
+  const auto& detection_policy = config_.signal_pipeline_config.detection.radar_system.detection;
+  if (!config_.signal_pipeline_config.detection.enable_physics_detection) {
+    constexpr float kDefaultCfarPfa = 1e-6f;
+    constexpr float kDefaultMinSnrDb = -10.0f;
+    if (std::fabs(detection_policy.cfar_pfa - kDefaultCfarPfa) > 1.0e-7f ||
+        std::fabs(detection_policy.min_snr_db - kDefaultMinSnrDb) > 1.0e-5f) {
+      PROJECT_LOG_WARN(
+          "[RadarSessionConfigBuilder] cfar_pfa/min_snr_db configured while "
+          "enable_physics_detection=false; these parameters have no effect "
+          "in the heuristic detection path.");
+    }
+  }
+
   return config_;
 }
 

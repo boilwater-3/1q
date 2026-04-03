@@ -108,8 +108,7 @@ void EsrSession::ApplyRuntimeConfig(const EsrRuntimeConfigPatch& patch) {
     pipeline_config_changed = true;
   }
   if (patch.has_detection_min_snr_db && IsFinite(patch.detection_min_snr_db)) {
-    impl_->resolved_config.pipeline_config.detection.min_detect_snr_db =
-        patch.detection_min_snr_db;
+    impl_->resolved_config.pipeline_config.detection.min_detect_snr_db = patch.detection_min_snr_db;
     pipeline_config_changed = true;
   }
   if (pipeline_config_changed) {
@@ -120,6 +119,13 @@ void EsrSession::ApplyRuntimeConfig(const EsrRuntimeConfigPatch& patch) {
     impl_->resolved_config.environment_config.jamming_detection_threshold_w =
         std::max(0.0f, patch.jamming_detection_threshold_w);
     impl_->environment_service.UpdateModelConfig(impl_->resolved_config.environment_config);
+  }
+
+  if (patch.has_observation_jam_mark_threshold_w &&
+      IsFinite(patch.observation_jam_mark_threshold_w)) {
+    impl_->resolved_config.pipeline_config.suppression_model.suppression_mark_threshold_w =
+        std::max(0.0f, patch.observation_jam_mark_threshold_w);
+    impl_->pipeline.UpdateConfig(impl_->resolved_config.pipeline_config);
   }
 }
 
