@@ -1,6 +1,6 @@
 /**
- * @file advanced_extension_consumer.cpp
- * @brief 验证安装后的高级扩展接口可被外部工程实现并接入控制器。
+ * @file ar_extension_consumer.cpp
+ * @brief 验证安装后机载雷达扩展接口可被外部工程实现并接入控制器。
  */
 
 #include <vector>
@@ -27,11 +27,15 @@ class DummyRadarContext : public core::context::IRadarContext {
     return kEmptyTargets;
   }
 
-  common::model::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_; }
+  common::model::PlatformAttitudeDeg GetPlatformAttitude() const override {
+    return platform_attitude_;
+  }
 
   float GetCycleDeltaTimeSec() const override { return 1.0f; }
 
-  void SubmitControlCommand(common::control::RadarCommand cmd) override { commands_.push_back(cmd); }
+  void SubmitControlCommand(common::control::RadarCommand cmd) override {
+    commands_.push_back(cmd);
+  }
 
   void UpdateRadarControlProfile(const common::control::RadarControlProfile& profile) override {
     control_profile_ = profile;
@@ -92,17 +96,22 @@ class DummySignalPipeline : public signal::pipeline::ISignalPipeline {
     return result;
   }
 
-  void UpdatePlatformAttitude(const common::model::PlatformAttitudeDeg& platform_attitude_deg) override {
+  void UpdatePlatformAttitude(
+      const common::model::PlatformAttitudeDeg& platform_attitude_deg) override {
     platform_attitude_ = platform_attitude_deg;
   }
 
-  common::model::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_; }
+  common::model::PlatformAttitudeDeg GetPlatformAttitude() const override {
+    return platform_attitude_;
+  }
 
   void SetControlProfile(const common::control::RadarControlProfile& control_profile) override {
     control_profile_ = control_profile;
   }
 
-  common::control::RadarControlProfile GetControlProfile() const override { return control_profile_; }
+  common::control::RadarControlProfile GetControlProfile() const override {
+    return control_profile_;
+  }
 
   void UpdateConfig(signal::config::SignalPipelineConfig config) override { config_ = config; }
 

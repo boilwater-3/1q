@@ -11,8 +11,6 @@
 #include <utility>
 #include <vector>
 
-#include "1q/airborne_radar/extension/control/RadarCommand.h"
-#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/common/model/DecisionInputFrame.h"
 #include "1q/airborne_radar/common/model/DecisionTrackSnapshot.h"
 #include "1q/airborne_radar/common/model/TargetFeature.h"
@@ -21,11 +19,13 @@
 #include "1q/airborne_radar/core/controller/RadarController.h"
 #include "1q/airborne_radar/decision/pipeline/ControlReducerTypes.h"
 #include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
+#include "1q/airborne_radar/extension/control/RadarCommand.h"
+#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
-#include "environment_test_fixture.h"
 
 namespace airborne_radar {
 namespace tests {
@@ -45,8 +45,11 @@ common::model::TargetFeatureList BuildSingleTarget(float speed, float rcs, bool 
 
 environment::EnvironmentModelConfig BuildJammingEnvironmentConfig(float jammer_power_db) {
   environment::EnvironmentModelConfig config;
-  config.jammer_sources.push_back(environment_test::MakeJammerEmitter(
-      environment::JammingTechnique::kUnknown, jammer_power_db));
+  environment::JammerEmitterState jammer;
+  jammer.technique = environment::JammingTechnique::kUnknown;
+  jammer.power_db = jammer_power_db;
+  jammer.confidence = 1.0f;
+  config.jammer_sources.push_back(jammer);
   return config;
 }
 
@@ -218,17 +221,21 @@ TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecisio
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service;
-  environment::JammerEmitterState jammer_source =
-      environment_test::MakeJammerEmitter(environment::JammingTechnique::kDeception, 10.0f);
+  environment::JammerEmitterState jammer_source;
+  jammer_source.technique = environment::JammingTechnique::kDeception;
+  jammer_source.power_db = 10.0f;
+  jammer_source.confidence = 1.0f;
   jammer_source.js_db = 7.0f;
   jammer_source.frequency_overlap_ratio = 0.85f;
   jammer_source.prf_lock_risk = 0.75f;
   jammer_source.in_sidelobe = false;
-  environment_service.UpdateSceneState(environment_test::MemorySceneBuilder()
-                                           .WithPropagation(20.0f, 6.0f, 4.0f)
-                                           .WithClutter(12.0f)
+  environment_service.UpdateSceneState(environment::EnvironmentSceneBuilder()
+                                           .SetBasePropagationLossDb(20.0f)
+                                           .SetAtmosphericAttenuationDb(6.0f)
+                                           .SetTerrainReflectionDb(4.0f)
+                                           .SetClutterPowerDb(12.0f)
                                            .AddJammer(jammer_source)
-                                           .BuildSceneState());
+                                           .Build());
 
   signal::pipeline::SignalPipeline signal_pipeline;
   CapturingDecisionEngine decision_engine;
@@ -250,8 +257,9 @@ TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecisio
             frozen_snapshot.jammer_sources.size());
   ASSERT_FALSE(decision_engine.last_frame.eccm_source_info.jammer_sources.empty());
   ASSERT_FALSE(frozen_snapshot.jammer_sources.empty());
-  EXPECT_FLOAT_EQ(decision_engine.last_frame.eccm_source_info.jammer_sources.front().jammer_power_db,
-                  frozen_snapshot.jammer_sources.front().power_db);
+  EXPECT_FLOAT_EQ(
+      decision_engine.last_frame.eccm_source_info.jammer_sources.front().jammer_power_db,
+      frozen_snapshot.jammer_sources.front().power_db);
   ASSERT_EQ(measurements.size(), 1U);
   EXPECT_EQ(measurements[0].filtered_feature.jamming_detected, frozen_snapshot.jamming_detected);
 }
@@ -269,11 +277,13 @@ TEST_F(CoreControllerTest, AppliesUpdatedSceneOnNextControllerCycle) {
   controller.RunOnce();
   EXPECT_FALSE(decision_engine.last_frame.environment_jamming_detected);
 
-  environment::JammerEmitterState jammer_source =
-      environment_test::MakeJammerEmitter(environment::JammingTechnique::kNoiseSuppression, 9.0f);
+  environment::JammerEmitterState jammer_source;
+  jammer_source.technique = environment::JammingTechnique::kNoiseSuppression;
+  jammer_source.power_db = 9.0f;
+  jammer_source.confidence = 1.0f;
   jammer_source.in_sidelobe = true;
   environment_service.UpdateSceneState(
-      environment_test::MemorySceneBuilder().AddJammer(jammer_source).BuildSceneState());
+      environment::EnvironmentSceneBuilder().AddJammer(jammer_source).Build());
 
   EXPECT_FALSE(environment_service.SampleEnvironment().jamming_detected);
 

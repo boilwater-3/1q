@@ -4,15 +4,15 @@
 #include <cmath>
 #include <memory>
 
+#include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
+#include "electro_optical_sensor/environment/EosEnvironmentModel.h"
 #include "electro_optical_sensor/foundation/EosNoiseModel.h"
 #include "electro_optical_sensor/foundation/EosOpticalCharacteristics.h"
+#include "electro_optical_sensor/foundation/EosPhysicalConstants.h"
 #include "electro_optical_sensor/foundation/EosPropagation.h"
 #include "electro_optical_sensor/foundation/EosRadiometry.h"
-#include "electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 #include "electro_optical_sensor/foundation/EosSpatialSpectrum.h"
 #include "electro_optical_sensor/foundation/EosStrayLight.h"
-#include "electro_optical_sensor/environment/EosEnvironmentModel.h"
-#include "electro_optical_sensor/foundation/EosPhysicalConstants.h"
 
 namespace electro_optical_sensor {
 namespace core {
@@ -114,22 +114,18 @@ float ComputeFovSolidAngleSr(float horizontal_fov_deg, float vertical_fov_deg) {
 
 float ComputeSensorIntegrationTimeSec(const EosPipelineConfig& config,
                                       const context::EosCycleInput& input) {
-  const float frame_period_sec =
-      1.0f / std::max(SafePositive(config.frame_rate_hz, 30.0f), 1.0f);
+  const float frame_period_sec = 1.0f / std::max(SafePositive(config.frame_rate_hz, 30.0f), 1.0f);
   const float cycle_dt_sec = SafePositive(input.dt_sec, frame_period_sec);
   const float base_integration_sec = std::min(cycle_dt_sec, frame_period_sec);
-  const float scan_blur_penalty =
-      1.0f + SafePositive(config.scan_rate_deg_per_sec, 20.0f) / 120.0f;
+  const float scan_blur_penalty = 1.0f + SafePositive(config.scan_rate_deg_per_sec, 20.0f) / 120.0f;
   return std::max(1.0e-4f, base_integration_sec / scan_blur_penalty);
 }
 
 float ComputeVisiblePhotonNoiseEnhancement(const EosPipelineConfig& config,
                                            const context::EosCycleInput& input) {
-  const float reference_irradiance =
-      SafePositive(config.visible_reference_irradiance_w_m2, 800.0f);
+  const float reference_irradiance = SafePositive(config.visible_reference_irradiance_w_m2, 800.0f);
   const float observed_irradiance = std::max(0.0f, input.solar_irradiance_w_m2);
-  const float irradiance_ratio =
-      std::max(observed_irradiance, 1.0e-3f) / reference_irradiance;
+  const float irradiance_ratio = std::max(observed_irradiance, 1.0e-3f) / reference_irradiance;
   const float irradiance_mismatch = std::fabs(std::log2(std::max(irradiance_ratio, 1.0e-6f)));
   const float cloud_factor = 1.0f + 0.5f * Clamp01(input.cloud_coverage_ratio);
   return Clamp(1.0f + 0.12f * irradiance_mismatch * cloud_factor, 1.0f, 2.5f);
@@ -202,8 +198,9 @@ DetectionComputationContext BuildDetectionComputationContext(
   const float dmax_m = foundation::optics::ComputeMaximumDetectionRangeM(range_inputs);
   context_values.is_within_detection_range = target.range_m >= dmin_m && target.range_m <= dmax_m;
 
-  const float diffraction_resolution_rad = foundation::optics::ComputeDiffractionLimitedAngularResolutionRad(
-      context_values.wavelength_center_um, config.optical_aperture_m);
+  const float diffraction_resolution_rad =
+      foundation::optics::ComputeDiffractionLimitedAngularResolutionRad(
+          context_values.wavelength_center_um, config.optical_aperture_m);
   const float gsd_m =
       foundation::optics::ComputeGroundSampleDistanceM(target.range_m, diffraction_resolution_rad);
   const float target_linear_size_m = std::sqrt(SafePositive(target.projected_area_m2, 1.0f));
@@ -217,13 +214,13 @@ DetectionComputationContext BuildDetectionComputationContext(
       Clamp01(0.5f * (std::max(0.0f, target.reflectance) + std::max(0.0f, target.emissivity)));
   const foundation::spatial_spectrum::SpatialSpectrumResult spectrum_result =
       foundation::spatial_spectrum::EvaluateSpatialResolvability(spectrum_inputs);
-  context_values.imaging_quality_gain =
-      Clamp(0.5f * geometric_quality_gain + 0.5f * spectrum_result.spectrum_quality_gain,
-            0.05f, 1.0f);
+  context_values.imaging_quality_gain = Clamp(
+      0.5f * geometric_quality_gain + 0.5f * spectrum_result.spectrum_quality_gain, 0.05f, 1.0f);
 
   context_values.nep_inputs.optical_transmittance = context_values.optical_transmittance;
   context_values.nep_inputs.integration_time_sec = ComputeSensorIntegrationTimeSec(config, input);
-  const float scan_coupled_bandwidth_hz = SafePositive(config.scan_rate_deg_per_sec, 20.0f) * 100.0f;
+  const float scan_coupled_bandwidth_hz =
+      SafePositive(config.scan_rate_deg_per_sec, 20.0f) * 100.0f;
   const float frame_coupled_bandwidth_hz = 0.5f / context_values.nep_inputs.integration_time_sec;
   context_values.nep_inputs.electrical_bandwidth_hz =
       std::max(100.0f, std::max(scan_coupled_bandwidth_hz, frame_coupled_bandwidth_hz));
@@ -274,13 +271,17 @@ float ComputeInfraredSnrLinear(const context::EosTargetState& target,
       background_radiance + infrared_delta_radiance, background_radiance);
   const float infrared_source_radiance =
       std::max(0.0f, infrared_delta_radiance) * (1.0f + std::max(0.0f, infrared_contrast));
-  const float infrared_received_power_w = foundation::propagation::ComputeReceivedPowerW(
-      infrared_source_radiance, target.projected_area_m2, target.range_m, context_values.aperture_area_m2,
-      context_values.path_transmittance, context_values.optical_transmittance) *
+  const float infrared_received_power_w =
+      foundation::propagation::ComputeReceivedPowerW(
+          infrared_source_radiance, target.projected_area_m2, target.range_m,
+          context_values.aperture_area_m2, context_values.path_transmittance,
+          context_values.optical_transmittance) *
       context_values.stray_light_result.signal_transmission_scale;
-  const float infrared_background_flux_w = foundation::propagation::ComputeBackgroundFluxW(
-      std::max(0.0f, background_radiance), context_values.aperture_area_m2, context_values.fov_solid_angle_sr,
-      context_values.optical_transmittance) * context_values.stray_light_result.background_penalty_scale *
+  const float infrared_background_flux_w =
+      foundation::propagation::ComputeBackgroundFluxW(
+          std::max(0.0f, background_radiance), context_values.aperture_area_m2,
+          context_values.fov_solid_angle_sr, context_values.optical_transmittance) *
+      context_values.stray_light_result.background_penalty_scale *
       context_values.path_radiance_penalty_scale;
   foundation::noise::BackgroundNoiseModelInputs noise_inputs = context_values.noise_inputs;
   noise_inputs.background_flux_w = infrared_background_flux_w;
@@ -289,11 +290,13 @@ float ComputeInfraredSnrLinear(const context::EosTargetState& target,
   const float infrared_effective_signal_w = foundation::noise::ComputeEffectiveSignalPowerW(
       infrared_received_power_w, infrared_background_flux_w, infrared_noise_stats);
   const foundation::propagation::SnrEvaluationResult snr_result =
-      foundation::propagation::EvaluateSnrWithNep(infrared_effective_signal_w, context_values.nep_inputs);
+      foundation::propagation::EvaluateSnrWithNep(infrared_effective_signal_w,
+                                                  context_values.nep_inputs);
   return snr_result.snr_linear * context_values.imaging_quality_gain;
 }
 
-float ComputeVisibleSnrLinear(const EosPipelineConfig& config, const context::EosTargetState& target,
+float ComputeVisibleSnrLinear(const EosPipelineConfig& config,
+                              const context::EosTargetState& target,
                               const context::EosCycleInput& input,
                               const DetectionComputationContext& context_values) {
   foundation::radiometry::VisibleChannelInputs visible_inputs;
@@ -306,15 +309,18 @@ float ComputeVisibleSnrLinear(const EosPipelineConfig& config, const context::Eo
   visible_inputs.background_patch_area_m2 = 20.0f;
   const foundation::radiometry::VisibleChannelResult visible_result =
       foundation::radiometry::ComputeVisibleChannelResult(visible_inputs);
-  const float visible_received_power_w = foundation::propagation::ComputeReceivedPowerW(
-      std::max(0.0f, visible_result.target_radiance) *
-          (1.0f + std::max(0.0f, visible_result.normalized_contrast)),
-      target.projected_area_m2, target.range_m, context_values.aperture_area_m2,
-      context_values.path_transmittance, context_values.optical_transmittance) *
+  const float visible_received_power_w =
+      foundation::propagation::ComputeReceivedPowerW(
+          std::max(0.0f, visible_result.target_radiance) *
+              (1.0f + std::max(0.0f, visible_result.normalized_contrast)),
+          target.projected_area_m2, target.range_m, context_values.aperture_area_m2,
+          context_values.path_transmittance, context_values.optical_transmittance) *
       context_values.stray_light_result.signal_transmission_scale;
-  const float visible_background_flux_w = foundation::propagation::ComputeBackgroundFluxW(
-      visible_result.background_radiance, context_values.aperture_area_m2, context_values.fov_solid_angle_sr,
-      context_values.optical_transmittance) * context_values.stray_light_result.background_penalty_scale *
+  const float visible_background_flux_w =
+      foundation::propagation::ComputeBackgroundFluxW(
+          visible_result.background_radiance, context_values.aperture_area_m2,
+          context_values.fov_solid_angle_sr, context_values.optical_transmittance) *
+      context_values.stray_light_result.background_penalty_scale *
       context_values.path_radiance_penalty_scale;
   const float visible_noise_enhancement = ComputeVisiblePhotonNoiseEnhancement(config, input);
   foundation::noise::BackgroundNoiseModelInputs noise_inputs = context_values.noise_inputs;
@@ -429,10 +435,9 @@ common::EosDetectionRecord EosPipeline::BuildDetectionRecord(
   record.elevation_deg = target.elevation_deg;
   const DetectionComputationContext context_values =
       BuildDetectionComputationContext(config_, target, input, environment_service_);
-  const float infrared_snr_linear =
-      context_values.infrared_enabled
-          ? ComputeInfraredSnrLinear(target, input, context_values)
-          : 0.0f;
+  const float infrared_snr_linear = context_values.infrared_enabled
+                                        ? ComputeInfraredSnrLinear(target, input, context_values)
+                                        : 0.0f;
   const float visible_snr_linear =
       context_values.visible_enabled
           ? ComputeVisibleSnrLinear(config_, target, input, context_values)

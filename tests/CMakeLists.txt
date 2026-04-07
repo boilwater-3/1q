@@ -7,7 +7,6 @@ find_package(GTest CONFIG REQUIRED)
 find_package(eventpp CONFIG REQUIRED)
 find_package(Boost CONFIG REQUIRED)
 find_package(Eigen3 CONFIG REQUIRED)
-option(ENABLE_STRESS_TESTING "Enable long-running radar stress tests" OFF)
 
 # 按测试层级自动收集，避免根目录文件平铺导致维护成本上升
 file(GLOB_RECURSE UNIT_TEST_SOURCES CONFIGURE_DEPENDS
@@ -52,8 +51,6 @@ function(add_1q_gtest target_name suite_label discovery_timeout)
         ${CMAKE_SOURCE_DIR}/include
         ${CMAKE_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}
-        ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
-        ${CMAKE_CURRENT_SOURCE_DIR}/mocks
     )
 
     if(WIN32 AND BUILD_SHARED_LIBS)
@@ -89,28 +86,34 @@ add_test(
     NAME public_api_boundary_guard
     COMMAND ${CMAKE_COMMAND}
             -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
-            -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/public_api/check_public_api_boundary.cmake
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_public_api_boundary.cmake
 )
 
 add_test(
     NAME airborne_include_style_guard
     COMMAND ${CMAKE_COMMAND}
             -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
-            -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/public_api/check_airborne_include_style.cmake
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_airborne_include_style.cmake
 )
+add_test(
+    NAME esr_include_style_guard
+    COMMAND ${CMAKE_COMMAND}
+            -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_esr_include_style.cmake
+)
+
+add_test(
+    NAME eos_include_style_guard
+    COMMAND ${CMAKE_COMMAND}
+            -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_eos_include_style.cmake
+)
+
 set_tests_properties(
     public_api_boundary_guard
     airborne_include_style_guard
+    esr_include_style_guard
+    eos_include_style_guard
     PROPERTIES LABELS "contract"
 )
 
-if(ENABLE_STRESS_TESTING)
-    file(GLOB_RECURSE STRESS_TEST_SOURCES CONFIGURE_DEPENDS
-        "${CMAKE_CURRENT_SOURCE_DIR}/stress/*.cpp"
-    )
-
-    add_1q_gtest(${PROJECT_NAME}_stress_tests stress 120 ${STRESS_TEST_SOURCES})
-    add_dependencies(${PROJECT_NAME}_tests ${PROJECT_NAME}_stress_tests)
-else()
-    message(STATUS "Stress tests disabled. Configure with -DENABLE_STRESS_TESTING=ON to enable long-running suites.")
-endif()

@@ -42,29 +42,27 @@ RadiativeTransferResult EvaluateRadiativeTransfer(const RadiativeTransferInputs&
   const float aerosol_coeff_per_m = 1.0e-5f * (aerosol_density_factor - 1.0f);
   const float turbulence_coeff_per_m = 8.0e-6f * (turbulence_factor - 1.0f);
 
-  float total_extinction_coeff_per_m = base_extinction_coeff_per_m + humidity_absorption_coeff_per_m;
+  float total_extinction_coeff_per_m =
+      base_extinction_coeff_per_m + humidity_absorption_coeff_per_m;
   float path_radiance_penalty_scale = 1.0f;
 
   if (inputs.model == RadiativeTransferModel::kHumidityWeighted) {
-    total_extinction_coeff_per_m = base_extinction_coeff_per_m +
-                                   1.5f * humidity_absorption_coeff_per_m +
-                                   aerosol_coeff_per_m;
+    total_extinction_coeff_per_m =
+        base_extinction_coeff_per_m + 1.5f * humidity_absorption_coeff_per_m + aerosol_coeff_per_m;
     path_radiance_penalty_scale = 1.0f + 0.5f * cloud_ratio;
   } else if (inputs.model == RadiativeTransferModel::kAdaptivePathRadiance) {
     total_extinction_coeff_per_m = base_extinction_coeff_per_m +
-                                   1.2f * humidity_absorption_coeff_per_m +
-                                   aerosol_coeff_per_m + turbulence_coeff_per_m;
+                                   1.2f * humidity_absorption_coeff_per_m + aerosol_coeff_per_m +
+                                   turbulence_coeff_per_m;
     const float path_km = path_length_m / 1000.0f;
-    path_radiance_penalty_scale =
-        1.0f + 0.3f * cloud_ratio + 0.02f * path_km * turbulence_factor;
+    path_radiance_penalty_scale = 1.0f + 0.3f * cloud_ratio + 0.02f * path_km * turbulence_factor;
   }
 
   RadiativeTransferResult result;
   result.total_extinction_coeff_per_m = std::max(0.0f, total_extinction_coeff_per_m);
   result.transmittance = propagation::ComputeBeerLambertTransmittance(
       result.total_extinction_coeff_per_m, path_length_m);
-  result.path_radiance_penalty_scale =
-      SafePositive(path_radiance_penalty_scale, 1.0f);
+  result.path_radiance_penalty_scale = SafePositive(path_radiance_penalty_scale, 1.0f);
   return result;
 }
 

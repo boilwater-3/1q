@@ -9,9 +9,10 @@
 #include <initializer_list>
 #include <vector>
 
-#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/common/model/TargetFeature.h"
 #include "1q/airborne_radar/core/session/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
+#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/signal/config/SignalPipelineConfig.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/environment/scene/SceneManager.h"
@@ -23,7 +24,6 @@
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
-#include "environment_test_fixture.h"
 
 namespace airborne_radar {
 namespace tests {
@@ -52,7 +52,11 @@ signal::tracking::CycleContext MakeLifecycleCycle(std::uint32_t cycle_index,
 
 environment::JammerSourceFact MakeJammerSource(environment::JammingTechnique technique,
                                                float power_db) {
-  return environment_test::MakeJammerEmitter(technique, power_db);
+  environment::JammerSourceFact jammer;
+  jammer.technique = technique;
+  jammer.power_db = power_db;
+  jammer.confidence = 1.0f;
+  return jammer;
 }
 
 environment::EnvironmentModelConfig MakeEnvironmentConfigWithJammers(
@@ -105,16 +109,20 @@ TEST(EnvironmentServiceTest, ModelConfigAtmosphericPhysicsAffectsDefaultSnapshot
 TEST(EnvironmentServiceTest, FreezesSnapshotUntilNextCycle) {
   environment::EnvironmentService service;
 
-  environment::JammerEmitterState emitter =
-      environment_test::MakeJammerEmitter(environment::JammingTechnique::kNoiseSuppression, 8.0f);
+  environment::JammerEmitterState emitter;
+  emitter.technique = environment::JammingTechnique::kNoiseSuppression;
+  emitter.power_db = 8.0f;
+  emitter.confidence = 1.0f;
   emitter.frequency_overlap_ratio = 0.4f;
   emitter.prf_lock_risk = 0.3f;
   emitter.in_sidelobe = true;
-  const environment::EnvironmentSceneState scene_state = environment_test::MemorySceneBuilder()
-                                                             .WithPropagation(12.0f, 5.0f, 3.0f)
-                                                             .WithClutter(9.0f)
+  const environment::EnvironmentSceneState scene_state = environment::EnvironmentSceneBuilder()
+                                                             .SetBasePropagationLossDb(12.0f)
+                                                             .SetAtmosphericAttenuationDb(5.0f)
+                                                             .SetTerrainReflectionDb(3.0f)
+                                                             .SetClutterPowerDb(9.0f)
                                                              .AddJammer(emitter)
-                                                             .BuildSceneState();
+                                                             .Build();
 
   service.UpdateSceneState(scene_state);
 
@@ -122,7 +130,12 @@ TEST(EnvironmentServiceTest, FreezesSnapshotUntilNextCycle) {
   EXPECT_FALSE(pending_snapshot.jamming_detected);
   EXPECT_NEAR(pending_snapshot.propagation_loss_db, 6.5f, 1e-6f);
 
-  service.BeginCycle(environment_test::MakeEnvironmentCycle(1U));
+  {
+    environment::EnvironmentCycleContext ctx;
+    ctx.cycle_index = 1U;
+    ctx.dt_sec = 1.0f;
+    service.BeginCycle(ctx);
+  }
   const environment::EnvironmentSnapshot cycle_snapshot = service.SampleEnvironment();
   const environment::EnvironmentSnapshot repeated_snapshot = service.SampleEnvironment();
 
@@ -178,13 +191,16 @@ TEST(EnvironmentServiceTest, AppliesPendingSceneJammerOnNextCycleOnly) {
   EXPECT_FALSE(service.SampleEnvironment().jamming_detected);
 
   service.UpdateSceneState(
-      environment_test::MemorySceneBuilder()
+      environment::EnvironmentSceneBuilder()
           .AddJammer(MakeJammerSource(environment::JammingTechnique::kUnknown, 7.0f))
-          .BuildSceneState());
+          .Build());
 
   EXPECT_FALSE(service.SampleEnvironment().jamming_detected);
 
-  service.BeginCycle(environment_test::MakeEnvironmentCycle(3U));
+  environment::EnvironmentCycleContext cycle_3;
+  cycle_3.cycle_index = 3U;
+  cycle_3.dt_sec = 1.0f;
+  service.BeginCycle(cycle_3);
   const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
   EXPECT_TRUE(snapshot.jamming_detected);
   ASSERT_EQ(snapshot.jammer_sources.size(), 1U);
@@ -205,7 +221,10 @@ TEST(SceneManagerTest, CommitsPendingSceneOnlyWhenBeginCycleArrives) {
   EXPECT_FLOAT_EQ(scene_manager.GetActiveScene().base_propagation_loss_db, 1.0f);
   EXPECT_FLOAT_EQ(scene_manager.GetPendingScene().base_propagation_loss_db, 15.0f);
 
-  scene_manager.CommitPendingScene(environment_test::MakeEnvironmentCycle(9U));
+  environment::EnvironmentCycleContext cycle_9;
+  cycle_9.cycle_index = 9U;
+  cycle_9.dt_sec = 1.0f;
+  scene_manager.CommitPendingScene(cycle_9);
 
   EXPECT_FLOAT_EQ(scene_manager.GetActiveScene().base_propagation_loss_db, 15.0f);
   EXPECT_EQ(scene_manager.GetActiveCycleContext().cycle_index, 9U);
@@ -480,8 +499,7 @@ TEST(SignalPipelineInternalConfigTest, RobustPresetMapsToRobustProfile) {
 
 TEST(SignalPipelineInternalConfigTest,
      NonDefaultRcsPhysicsBreaksTrackingPresetSignatureAndFallsBackToBaseline) {
-  signal::config::SignalPipelineConfig config =
-      config::MakeTrackingMissionSignalPipelineConfig();
+  signal::config::SignalPipelineConfig config = config::MakeTrackingMissionSignalPipelineConfig();
   config.detection.rcs_physics.enable_physical_rcs = true;
   config.detection.rcs_physics.physics_mix_ratio = 0.8f;
 
@@ -496,8 +514,7 @@ TEST(SignalPipelineInternalConfigTest,
 }
 
 TEST(SignalPipelineInternalConfigTest, CustomConfigStaysBaselineEvenWithHighLifecycleThresholds) {
-  signal::config::SignalPipelineConfig config =
-      config::MakeDetectionMissionSignalPipelineConfig();
+  signal::config::SignalPipelineConfig config = config::MakeDetectionMissionSignalPipelineConfig();
   config.lifecycle.lifecycle_config.confirm_hits = 2U;
   config.lifecycle.lifecycle_config.max_miss_before_lost = 6U;
   config.lifecycle.lifecycle_config.max_lost_cycles = 10U;
@@ -514,8 +531,7 @@ TEST(SignalPipelineInternalConfigTest, CustomConfigStaysBaselineEvenWithHighLife
 }
 
 TEST(SignalPipelineInternalConfigTest, ImmToggleOnlyControlsImmInternalDefaults) {
-  signal::config::SignalPipelineConfig config =
-      config::MakeTrackingMissionSignalPipelineConfig();
+  signal::config::SignalPipelineConfig config = config::MakeTrackingMissionSignalPipelineConfig();
   const signal::pipeline::SignalPipelineConfig pipeline_config = config;
 
   const signal::pipeline::internal::InternalSignalPipelineConfig imm_disabled_internal_config =
@@ -967,10 +983,8 @@ TEST(SignalPipelineTest, AgilityFrequencyHopPhaseControlsFrequencyDirection) {
   signal::pipeline::internal::ApplyControlProfileToConfig(profile, &phase_one_pipeline_config,
                                                           &phase_one_internal_config);
 
-  EXPECT_FLOAT_EQ(phase_zero_pipeline_config.detection.transmitter.frequency_hz,
-                  1.015e9f);
-  EXPECT_FLOAT_EQ(phase_one_pipeline_config.detection.transmitter.frequency_hz,
-                  0.985e9f);
+  EXPECT_FLOAT_EQ(phase_zero_pipeline_config.detection.transmitter.frequency_hz, 1.015e9f);
+  EXPECT_FLOAT_EQ(phase_one_pipeline_config.detection.transmitter.frequency_hz, 0.985e9f);
 }
 
 TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {

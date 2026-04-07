@@ -1,5 +1,5 @@
 /**
- * @file esr_session_integration_test.cpp
+ * @file esr_session_test.cpp
  * @brief 验证 ESR Session 单周期闭环与干扰退化方向。
  */
 
@@ -198,8 +198,8 @@ std::size_t CountSpectralClassHypotheses(const EsrCycleResult& result, const std
   std::size_t count = 0U;
   for (std::size_t i = 0; i < result.output_frame.emitter_output.hypotheses.size(); ++i) {
     const common::EmitterHypothesis& hypothesis = result.output_frame.emitter_output.hypotheses[i];
-    if (std::find(hypothesis.candidate_classes.begin(), hypothesis.candidate_classes.end(), label) !=
-        hypothesis.candidate_classes.end()) {
+    if (std::find(hypothesis.candidate_classes.begin(), hypothesis.candidate_classes.end(),
+                  label) != hypothesis.candidate_classes.end()) {
       ++count;
     }
   }
@@ -758,11 +758,10 @@ TEST(EsrSessionIntegrationTest, RuntimeConfigBuilderCanToggleFixedReceiverWindow
   ASSERT_FALSE(baseline.has_validation_error);
   EXPECT_GT(CountMatchedTruthObservations(baseline, "target-emitter"), 0U);
 
-  const EsrRuntimeConfigPatch block_patch =
-      esr_config::EsrRuntimeConfigBuilder()
-          .WithFixedReceiverWindowHz(1.0e9, 2.0e9)
-          .SetFixedReceiverWindowEnabled(true)
-          .Build();
+  const EsrRuntimeConfigPatch block_patch = esr_config::EsrRuntimeConfigBuilder()
+                                                .WithFixedReceiverWindowHz(1.0e9, 2.0e9)
+                                                .SetFixedReceiverWindowEnabled(true)
+                                                .Build();
   session.ApplyRuntimeConfig(block_patch);
   const EsrCycleResult blocked = session.StepWithResult(input);
   EXPECT_EQ(CountMatchedTruthObservations(blocked, "target-emitter"), 0U);
@@ -782,11 +781,10 @@ TEST(EsrSessionIntegrationTest, InvalidFixedReceiverWindowBoundsDoNotAutoEnableW
   ASSERT_FALSE(baseline.has_validation_error);
   EXPECT_GT(CountMatchedTruthObservations(baseline, "target-emitter"), 0U);
 
-  const EsrRuntimeConfigPatch block_patch =
-      esr_config::EsrRuntimeConfigBuilder()
-          .WithFixedReceiverWindowHz(1.0e9, 2.0e9)
-          .SetFixedReceiverWindowEnabled(true)
-          .Build();
+  const EsrRuntimeConfigPatch block_patch = esr_config::EsrRuntimeConfigBuilder()
+                                                .WithFixedReceiverWindowHz(1.0e9, 2.0e9)
+                                                .SetFixedReceiverWindowEnabled(true)
+                                                .Build();
   session.ApplyRuntimeConfig(block_patch);
   const EsrCycleResult blocked = session.StepWithResult(input);
   EXPECT_EQ(CountMatchedTruthObservations(blocked, "target-emitter"), 0U);
