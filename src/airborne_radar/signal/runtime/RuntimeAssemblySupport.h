@@ -8,7 +8,7 @@
 
 #include <memory>
 
-#include "1q/airborne_radar/common/control/RadarControlProfile.h"
+#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/pipeline/InternalSignalPipelineConfig.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"

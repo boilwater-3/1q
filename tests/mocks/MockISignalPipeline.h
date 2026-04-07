@@ -21,12 +21,12 @@ class MockISignalPipeline : public ISignalPipeline {
                const environment::IEnvironmentService& environment),
               (override));
   MOCK_METHOD(void, UpdatePlatformAttitude,
-              (const common::config::PlatformAttitudeDeg& platform_attitude_deg), (override));
-  MOCK_METHOD(common::config::PlatformAttitudeDeg, GetPlatformAttitude, (), (const, override));
+              (const common::model::PlatformAttitudeDeg& platform_attitude_deg), (override));
+  MOCK_METHOD(common::model::PlatformAttitudeDeg, GetPlatformAttitude, (), (const, override));
   MOCK_METHOD(void, SetControlProfile, (const common::control::RadarControlProfile& control_profile),
               (override));
   MOCK_METHOD(common::control::RadarControlProfile, GetControlProfile, (), (const, override));
-  MOCK_METHOD(void, UpdateConfig, (common::config::SignalPipelineConfig config), (override));
+  MOCK_METHOD(void, UpdateConfig, (signal::config::SignalPipelineConfig config), (override));
   MOCK_METHOD(AssociationQualityMetrics, GetLastAssociationQualityMetrics, (), (const, override));
 };
 

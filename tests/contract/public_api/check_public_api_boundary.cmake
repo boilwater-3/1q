@@ -5,27 +5,29 @@ set(EXPECTED_PUBLIC_HEADERS
     "common/pose_types.h"
     "common/scan_schedule_types.h"
     "common/trace/TraceSink.h"
-    "airborne_radar/common/control/ControlDirective.h"
+    "airborne_radar/extension/control/ControlDirective.h"
     "airborne_radar/common/model/DecisionInputFrame.h"
     "airborne_radar/common/model/DecisionSourceInfo.h"
     "airborne_radar/common/model/DecisionTrackSnapshot.h"
     "airborne_radar/common/utils/JammingSemantics.h"
-    "airborne_radar/common/control/RadarCommand.h"
-    "airborne_radar/common/control/RadarControlProfile.h"
+    "airborne_radar/extension/control/RadarCommand.h"
+    "airborne_radar/extension/control/RadarControlProfile.h"
     "airborne_radar/common/model/TargetCategory.h"
     "airborne_radar/common/model/TargetFeature.h"
     "airborne_radar/common/model/TargetFeatureBuilder.h"
-    "airborne_radar/common/utils/TargetFeatureUtils.h"
+    "airborne_radar/common/model/TargetFeatureUtils.h"
     "airborne_radar/common/output/TrackOutputFrame.h"
     "airborne_radar/common/output/TrackOutputQueries.h"
-    "airborne_radar/config/AntennaPatternConfig.h"
-    "airborne_radar/config/ConfigPresets.h"
-    "airborne_radar/config/RadarOrientationConfig.h"
+    "airborne_radar/signal/config/AntennaPatternConfig.h"
+    "airborne_radar/core/session/RadarSessionConfigPresets.h"
+    "airborne_radar/common/model/RadarOrientationConfig.h"
     "airborne_radar/config/RadarRuntimeConfigBuilder.h"
     "airborne_radar/config/RadarSessionConfigBuilder.h"
-    "airborne_radar/config/SignalBeamControlConfig.h"
-    "airborne_radar/config/SignalDetectionConfig.h"
-    "airborne_radar/config/SignalPipelineConfig.h"
+    "airborne_radar/signal/config/SignalBeamControlConfig.h"
+    "airborne_radar/signal/config/SignalDetectionConfig.h"
+    "airborne_radar/signal/config/SignalLifecycleConfig.h"
+    "airborne_radar/signal/config/SignalPipelineConfig.h"
+    "airborne_radar/signal/config/SignalTrackingConfig.h"
     "airborne_radar/config/airborne_radar_config.hpp"
     "airborne_radar/core/context/IRadarContext.h"
     "airborne_radar/core/context/RadarCycleInput.h"
@@ -37,6 +39,7 @@ set(EXPECTED_PUBLIC_HEADERS
     "airborne_radar/tools/RadarTraceSession.h"
     "airborne_radar/decision/pipeline/ControlReducerTypes.h"
     "airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
+    "airborne_radar/environment/EnvironmentDefaultConfigBuilder.h"
     "airborne_radar/environment/EnvironmentSceneBuilder.h"
     "airborne_radar/environment/EnvironmentTypes.h"
     "airborne_radar/environment/IEnvironmentService.h"
@@ -119,5 +122,49 @@ foreach(HEADER IN LISTS ACTUAL_PUBLIC_HEADERS)
   if(HEADER_CONTENT MATCHES "#[ \t]*include[ \t]*[<\"]Eigen/")
     message(FATAL_ERROR
             "Public header must not expose Eigen: ${HEADER}")
+  endif()
+endforeach()
+
+# Guardrail: prevent legacy top-level WithXxx/EnableXxx APIs from returning to
+# RadarSessionConfigBuilder. Only grouped editors are allowed.
+set(RADAR_SESSION_BUILDER_HEADER
+    "${PUBLIC_INCLUDE_DIR}/airborne_radar/config/RadarSessionConfigBuilder.h")
+file(READ "${RADAR_SESSION_BUILDER_HEADER}" RADAR_SESSION_BUILDER_CONTENT)
+
+set(FORBIDDEN_BUILDER_METHOD_PATTERNS
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithDetection[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithBeamControl[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithTracking[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithLifecycle[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithEnvironmentDefault[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*EnablePhysicsDetection[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithMinDetectionMarginDb[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithPulseCount[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithTransmitterConfig[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithAntennaConfig[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithReceiverConfig[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithDetectionPolicy[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithPeakPowerW[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithFrequencyHz[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithBandwidthHz[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithPulseWidthS[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithPrfHz[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithMainBeamGainDb[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithNoiseFigureDb[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithRadarWorkSubMode[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithScanCenterDeg[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithDwellCenterDeg[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*EnableCommandedBeamwidth[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithCommandedBeamwidthDeg[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithLifecycleConfirmHits[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithLifecycleMaxMissBeforeLost[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithLifecycleMaxLostCycles[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithJammingDetectionThresholdDb[ \t]*\\(")
+
+foreach(FORBIDDEN_PATTERN IN LISTS FORBIDDEN_BUILDER_METHOD_PATTERNS)
+  if(RADAR_SESSION_BUILDER_CONTENT MATCHES "${FORBIDDEN_PATTERN}")
+    message(FATAL_ERROR
+            "Legacy top-level RadarSessionConfigBuilder API reintroduced: ${FORBIDDEN_PATTERN}\n"
+            "Use grouped editors only: Detection()/Beam()/Tracking()/Lifecycle()/Environment().")
   endif()
 endforeach()

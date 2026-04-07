@@ -33,10 +33,10 @@
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/config/ConfigPresets.h"
+#include "1q/airborne_radar/core/session/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/common/model/DecisionTrackSnapshot.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/common/utils/TargetFeatureUtils.h"
+#include "1q/airborne_radar/common/model/TargetFeatureUtils.h"
 #include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/airborne_radar/core/session/RadarCycleResult.h"
@@ -130,19 +130,32 @@ struct SimState {
 
 std::unique_ptr<airborne_radar::core::session::RadarSession> MakeSession() {
   namespace aq = airborne_radar::common;
+  const auto preset = airborne_radar::config::MakeDetectionMissionRadarSessionConfig();
+
+  airborne_radar::signal::config::SignalDetectionConfig detection = preset.detection;
+  detection.enable_physics_detection = true;
+  detection.transmitter.peak_power_w = 5e6f;
+  detection.transmitter.frequency_hz = 9.3e9f;
+  detection.transmitter.bandwidth_hz = 10e6f;
+  detection.transmitter.pulse_width_s = 20e-6f;
+  detection.transmitter.prf_hz = 500.0f;
+  detection.antenna.main_beam_gain_db = 38.0f;
+  detection.antenna.nominal_az_beamwidth_deg = 3.5f;
+  detection.antenna.nominal_el_beamwidth_deg = 3.5f;
+  detection.receiver.noise_figure_db = 3.5f;
+
+  airborne_radar::environment::EnvironmentDefaultConfig env = preset.environment_default_config;
+  env.jamming_detection_threshold_db = 5.0f;
+
   auto session = std::unique_ptr<airborne_radar::core::session::RadarSession>(
       new airborne_radar::core::session::RadarSession(
-          aq::RadarSessionConfigBuilder(aq::MakeDetectionMissionRadarSessionConfig())
-              .EnablePhysicsDetection()
-              .WithTransmitterPeakPowerW(5e6f)
-              .WithTransmitterFrequencyHz(9.3e9f)
-              .WithTransmitterBandwidthHz(10e6f)
-              .WithTransmitterPulseWidthS(20e-6f)
-              .WithTransmitterPrfHz(500.0f)
-              .WithAntennaMainBeamGainDb(38.0f)
-              .WithAntennaNominalBeamwidthDeg(3.5f, 3.5f)
-              .WithReceiverNoiseFigureDb(3.5f)
-              .WithJammingDetectionThresholdDb(5.0f)
+          airborne_radar::config::RadarSessionConfigBuilder(preset)
+              .Detection()
+              .WithDetection(detection)
+              .End()
+              .Environment()
+              .WithEnvironmentDefault(env)
+              .End()
               .Build()));
 
   airborne_radar::environment::EnvironmentModelConfig env_cfg;

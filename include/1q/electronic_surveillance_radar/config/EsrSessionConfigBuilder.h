@@ -11,30 +11,23 @@
 namespace electronic_surveillance_radar {
 namespace config {
 
-using core::session::EsrHardwareConfig;
-using core::session::EsrLayeredConfig;
-using core::session::EsrMissionControlConfig;
-using core::session::EsrScanSequence;
-using core::session::EsrScanStartPosition;
-using core::session::EsrSessionConfig;
-using core::session::EsrWorkMode;
-
 /**
  * @brief EsrSessionConfigBuilder 提供初始化配置链式构造。
  */
 class ONEQ_API EsrSessionConfigBuilder {
  public:
-  explicit EsrSessionConfigBuilder(const EsrSessionConfig& config = {}) : config_(config) {}
+  explicit EsrSessionConfigBuilder(
+      const core::session::EsrSessionConfig& config = {}) : config_(config) {}
 
   EsrSessionConfigBuilder& EnableLayeredConfig(bool enable = true) {
     config_.enable_layered_config = enable;
     return *this;
   }
-  EsrSessionConfigBuilder& WithSessionConfig(const EsrSessionConfig& config) {
+  EsrSessionConfigBuilder& WithSessionConfig(const core::session::EsrSessionConfig& config) {
     config_ = config;
     return *this;
   }
-  EsrSessionConfigBuilder& WithWorkMode(EsrWorkMode mode) {
+  EsrSessionConfigBuilder& WithWorkMode(core::session::EsrWorkMode mode) {
     config_.layered_config.mission.work_mode = mode;
     return *this;
   }
@@ -54,10 +47,10 @@ class ONEQ_API EsrSessionConfigBuilder {
     config_.environment_default_config.model_config.jamming_detection_threshold_w = value;
     return *this;
   }
-  EsrSessionConfig Build() const { return config_; }
+  core::session::EsrSessionConfig Build() const { return config_; }
 
  private:
-  EsrSessionConfig config_{};
+  core::session::EsrSessionConfig config_{};
 };
 
 }  // namespace config

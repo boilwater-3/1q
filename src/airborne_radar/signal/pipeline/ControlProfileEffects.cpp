@@ -123,10 +123,10 @@ float ToDbDelta(float linear_scale) {
  */
 oneq::internal::timing::ResolvedCycleTimingState ResolveDetectionTimingState(
     const common::control::RadarControlProfile& control_profile,
-    const common::config::SignalDetectionConfig& detection_config) {
+    const signal::config::SignalDetectionConfig& detection_config) {
   oneq::internal::timing::CycleTimingBaseParams base_params;
   base_params.base_pulse_count = detection_config.pulse_count;
-  base_params.base_prf_hz = detection_config.radar_system.transmitter.prf_hz;
+  base_params.base_prf_hz = detection_config.transmitter.prf_hz;
   base_params.integration_mode = oneq::internal::timing::IntegrationMode::kCoherent;
 
   oneq::internal::timing::CycleTimingControlAdjustments adjustments;
@@ -204,7 +204,7 @@ void ApplyControlProfileToConfig(const common::control::RadarControlProfile& con
   const ControlProfileEffectsConfig& cfg = internal_config->control_profile_effects;
 
   if (control_profile.enable_lpi_power_control) {
-    runtime_config->detection.radar_system.transmitter.peak_power_w *=
+    runtime_config->detection.transmitter.peak_power_w *=
         ClampProfileScale(control_profile.lpi_power_scale, 1.0f);
     runtime_config->tracking.kalman_measurement_noise_std *= kLpiPowerKalmanNoiseScale;
     internal_config->association.unassigned_cost *= kLpiPowerAssignCostScale;
@@ -217,29 +217,29 @@ void ApplyControlProfileToConfig(const common::control::RadarControlProfile& con
   if (control_profile.enable_agility_frequency) {
     const float hop_factor =
         (control_profile.agility_frequency_hop_phase % 2U == 0U) ? 1.015f : 0.985f;
-    runtime_config->detection.radar_system.transmitter.frequency_hz *= hop_factor;
+    runtime_config->detection.transmitter.frequency_hz *= hop_factor;
     internal_config->association.unassigned_cost *= kAgilityFreqAssignCostScale;
     internal_config->tracking.kalman_noise_diff_coeff *= kAgilityFreqKalmanDiffScale;
   }
 
   if (control_profile.enable_eccm_rejitter) {
-    runtime_config->detection.radar_system.transmitter.prf_hz = timing_state.effective_prf_hz;
+    runtime_config->detection.transmitter.prf_hz = timing_state.effective_prf_hz;
     internal_config->association.unassigned_cost *= kRejitterAssignCostScale;
     internal_config->tracking.kalman_noise_diff_coeff *= kRejitterKalmanDiffScale;
   }
 
   if (control_profile.eccm_burnthrough_gain > 1.0f) {
     const float gain_db = ToDbDelta(control_profile.eccm_burnthrough_gain);
-    runtime_config->detection.radar_system.receiver.noise_figure_db =
-        std::max(0.0f, runtime_config->detection.radar_system.receiver.noise_figure_db - gain_db);
+    runtime_config->detection.receiver.noise_figure_db =
+        std::max(0.0f, runtime_config->detection.receiver.noise_figure_db - gain_db);
     internal_config->association.unassigned_cost *=
         ClampFloat(control_profile.eccm_burnthrough_gain, 1.0f, kBurnthroughAssignCostMax);
     runtime_config->tracking.kalman_measurement_noise_std *= kBurnthroughKalmanNoiseScale;
   }
 
   if (control_profile.enable_sidelobe_canceller) {
-    runtime_config->detection.radar_system.antenna.enable_directional_pattern = true;
-    runtime_config->detection.radar_system.antenna.pattern.max_sidelobe_level_db -=
+    runtime_config->detection.antenna.enable_directional_pattern = true;
+    runtime_config->detection.antenna.pattern.max_sidelobe_level_db -=
         cfg.sidelobe_level_reduction_db;
     internal_config->association.unassigned_cost *= kSidelobeAssignCostScale;
   }
@@ -249,16 +249,16 @@ void ApplyControlProfileToConfig(const common::control::RadarControlProfile& con
     runtime_config->beam_control.radar_orientation.commanded_beamwidth_enabled = true;
     runtime_config->beam_control.radar_orientation.commanded_beamwidth_deg
         .commanded_az_beamwidth_deg =
-        std::max(0.5f, runtime_config->detection.radar_system.antenna.nominal_az_beamwidth_deg *
+        std::max(0.5f, runtime_config->detection.antenna.nominal_az_beamwidth_deg *
                            beamwidth_scale);
     runtime_config->beam_control.radar_orientation.commanded_beamwidth_deg
         .commanded_el_beamwidth_deg =
-        std::max(0.5f, runtime_config->detection.radar_system.antenna.nominal_el_beamwidth_deg *
+        std::max(0.5f, runtime_config->detection.antenna.nominal_el_beamwidth_deg *
                            beamwidth_scale);
   }
 
   if (control_profile.enable_adaptive_beamforming) {
-    runtime_config->detection.radar_system.antenna.main_beam_gain_db +=
+    runtime_config->detection.antenna.main_beam_gain_db +=
         cfg.adaptive_beam_gain_boost_db;
     internal_config->association.unassigned_cost *= kAdaptiveBeamAssignCostScale;
     runtime_config->tracking.kalman_measurement_noise_std *= kAdaptiveBeamKalmanNoiseScale;

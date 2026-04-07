@@ -14,13 +14,13 @@
 #include <utility>
 #include <vector>
 
-#include "1q/airborne_radar/common/control/RadarCommand.h"
-#include "1q/airborne_radar/common/control/RadarControlProfile.h"
+#include "1q/airborne_radar/extension/control/RadarCommand.h"
+#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/common/model/TargetFeature.h"
 #include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/context/IRadarContext.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"
-#include "1q/airborne_radar/config/SignalPipelineConfig.h"
+#include "1q/airborne_radar/signal/config/SignalPipelineConfig.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "environment_test_fixture.h"
@@ -44,7 +44,7 @@ class ScenarioRadarContext : public core::context::IRadarContext {
 
   const common::model::TargetFeatureList& GetTargetFeatures() const override { return target_features_; }
 
-  common::config::PlatformAttitudeDeg GetPlatformAttitude() const override {
+  common::model::PlatformAttitudeDeg GetPlatformAttitude() const override {
     return platform_attitude_deg_;
   }
 
@@ -83,7 +83,7 @@ class ScenarioRadarContext : public core::context::IRadarContext {
 
  private:
   common::model::TargetFeatureList target_features_;
-  common::config::PlatformAttitudeDeg platform_attitude_deg_{};
+  common::model::PlatformAttitudeDeg platform_attitude_deg_{};
   float cycle_dt_sec_{1.0f};
   std::vector<common::control::RadarCommand> submitted_commands_;
   common::control::RadarControlProfile latest_control_profile_{};
@@ -99,8 +99,8 @@ struct CycleStats {
   float match_rate{0.0f};
 };
 
-common::config::SignalPipelineConfig MakeStressPipelineConfig() {
-  common::config::SignalPipelineConfig config;
+signal::config::SignalPipelineConfig MakeStressPipelineConfig() {
+  signal::config::SignalPipelineConfig config;
   config.detection.min_detection_margin_db = -100.0f;
   config.lifecycle.enable_auto_lifecycle_manager = true;
   config.lifecycle.lifecycle_config.confirm_hits = 1u;
@@ -108,13 +108,13 @@ common::config::SignalPipelineConfig MakeStressPipelineConfig() {
   return config;
 }
 
-common::config::SignalPipelineConfig MakeStressPhysicsPipelineConfig(float pulse_width_s) {
-  common::config::SignalPipelineConfig config = MakeStressPipelineConfig();
+signal::config::SignalPipelineConfig MakeStressPhysicsPipelineConfig(float pulse_width_s) {
+  signal::config::SignalPipelineConfig config = MakeStressPipelineConfig();
   config.detection.enable_physics_detection = true;
   config.detection.pulse_count = 64;
-  config.detection.radar_system.detection.cfar_pfa = 0.5f;
-  config.detection.radar_system.detection.min_snr_db = -50.0f;
-  config.detection.radar_system.transmitter.pulse_width_s = pulse_width_s;
+  config.detection.detection_policy.cfar_pfa = 0.5f;
+  config.detection.detection_policy.min_snr_db = -50.0f;
+  config.detection.transmitter.pulse_width_s = pulse_width_s;
   return config;
 }
 

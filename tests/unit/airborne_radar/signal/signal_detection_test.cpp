@@ -8,7 +8,7 @@
 #include <cmath>
 #include <limits>
 
-#include "1q/airborne_radar/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/common/model/RadarOrientationConfig.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/MeasurementErrorModel.h"
 #include "airborne_radar/signal/detection/RadarEquations.h"
@@ -19,16 +19,16 @@
 namespace airborne_radar {
 namespace tests {
 
-using common::config::AntennaConfig;
-using common::config::DetectionPolicy;
+using signal::config::AntennaConfig;
+using signal::config::DetectionPolicy;
 using signal::detection::DetectionResult;
 using signal::detection::MeasurementErrorModel;
 using signal::detection::RadarEquations;
-using common::config::RadarSystemConfig;
-using common::config::ReceiverConfig;
+using signal::config::SignalDetectionConfig;
+using signal::config::ReceiverConfig;
 using signal::detection::SignalDetector;
 using signal::detection::TargetLookResolver;
-using common::config::TransmitterConfig;
+using signal::config::TransmitterConfig;
 
 // ===========================================================================
 // RadarEquations 纯函数单元测试
@@ -155,7 +155,7 @@ TEST(RadarEquationsTest, AngleStdDev_Proportional) {
 
 /// @brief 近距大 RCS 目标 → 高 SNR，必然探测成功。
 TEST(SignalDetectorTest, CloseTarget_HighSNR_Detected) {
-  RadarSystemConfig config;
+  SignalDetectionConfig config;
   // 使用默认参数（1MW, S-band, 35dB gain）
   SignalDetector detector(config);
   detector.SetRandomSeed(42u);
@@ -179,7 +179,7 @@ TEST(SignalDetectorTest, CloseTarget_HighSNR_Detected) {
 
 /// @brief 远距小 RCS 目标 → 低 SNR，大概率探测失败。
 TEST(SignalDetectorTest, FarTarget_LowSNR_NotDetected) {
-  RadarSystemConfig config;
+  SignalDetectionConfig config;
   config.transmitter.peak_power_w = 1e4f;  // 降低发射功率
   SignalDetector detector(config);
   detector.SetRandomSeed(42u);
@@ -201,7 +201,7 @@ TEST(SignalDetectorTest, FarTarget_LowSNR_NotDetected) {
 
 /// @brief 相同随机种子 → 完全确定性输出。
 TEST(SignalDetectorTest, DeterministicWithSeed) {
-  RadarSystemConfig config;
+  SignalDetectionConfig config;
 
   SignalDetector d1(config);
   d1.SetRandomSeed(123u);
@@ -228,9 +228,9 @@ TEST(SignalDetectorTest, DeterministicWithSeed) {
 
 /// @brief 共享周期级时序状态解析后的脉冲数应继续提高检测概率。
 TEST(SignalDetectorTest, SharedTimingStatePulseCountStillImprovesDetectionProbability) {
-  RadarSystemConfig config;
-  config.detection.cfar_pfa = 1.0e-6f;
-  config.detection.min_snr_db = -50.0f;
+  SignalDetectionConfig config;
+  config.detection_policy.cfar_pfa = 1.0e-6f;
+  config.detection_policy.min_snr_db = -50.0f;
   SignalDetector detector(config);
   detector.SetRandomSeed(42u);
 
@@ -271,7 +271,7 @@ TEST(SignalDetectorTest, SharedTimingStatePulseCountStillImprovesDetectionProbab
 
 /// @brief 注入干扰噪声 → SNR 下降、Pd 下降。
 TEST(SignalDetectorTest, JammingIncreasesNoise) {
-  RadarSystemConfig config;
+  SignalDetectionConfig config;
   SignalDetector detector(config);
   detector.SetRandomSeed(42u);
 
@@ -296,15 +296,15 @@ TEST(SignalDetectorTest, JammingIncreasesNoise) {
 
 /// @brief Detect 应直接使用“每脉冲 SNR + N”语义计算 Pd。
 TEST(SignalDetectorTest, DetectionProbabilityUsesIntegratedSnr) {
-  RadarSystemConfig config;
-  config.detection.min_snr_db = -80.0f;  // 关闭硬门限影响
+  SignalDetectionConfig config;
+  config.detection_policy.min_snr_db = -80.0f;  // 关闭硬门限影响
   SignalDetector detector(config);
   detector.SetRandomSeed(42u);
 
   signal::detection::TargetReturn target;
   target.rcs_m2 = 0.5f;
   target.range_m = 120000.0f;
-  target.swerling_type = common::config::kSwerling2;
+  target.swerling_type = signal::config::kSwerling2;
 
   signal::detection::EnvironmentState env;
   env.propagation_loss_db = 0.0f;
@@ -317,9 +317,9 @@ TEST(SignalDetectorTest, DetectionProbabilityUsesIntegratedSnr) {
       detector.Detect(target, env, std::numeric_limits<float>::quiet_NaN(), 8);
 
   const float expected_pd_n1 = RadarEquations::ComputeDetectionProbability(
-      n1.snr_db, config.detection.cfar_pfa, target.swerling_type, 1);
+      n1.snr_db, config.detection_policy.cfar_pfa, target.swerling_type, 1);
   const float expected_pd_n8 = RadarEquations::ComputeDetectionProbability(
-      n8.snr_db, config.detection.cfar_pfa, target.swerling_type, 8);
+      n8.snr_db, config.detection_policy.cfar_pfa, target.swerling_type, 8);
 
   EXPECT_NEAR(n1.detection_prob, expected_pd_n1, 1e-6f);
   EXPECT_NEAR(n8.detection_prob, expected_pd_n8, 1e-6f);
@@ -328,11 +328,11 @@ TEST(SignalDetectorTest, DetectionProbabilityUsesIntegratedSnr) {
 
 /// @brief 带宽越大热噪声越大，保持其他参数不变时单脉冲 SNR 应下降。
 TEST(SignalDetectorTest, WiderBandwidthReducesSnrWithSameEnergyInputs) {
-  RadarSystemConfig narrow_band_config;
+  SignalDetectionConfig narrow_band_config;
   narrow_band_config.transmitter.bandwidth_hz = 2.0e6f;
-  narrow_band_config.detection.min_snr_db = -80.0f;
+  narrow_band_config.detection_policy.min_snr_db = -80.0f;
 
-  RadarSystemConfig wide_band_config = narrow_band_config;
+  SignalDetectionConfig wide_band_config = narrow_band_config;
   wide_band_config.transmitter.bandwidth_hz = 8.0e6f;
 
   SignalDetector narrow_detector(narrow_band_config);
@@ -341,7 +341,7 @@ TEST(SignalDetectorTest, WiderBandwidthReducesSnrWithSameEnergyInputs) {
   signal::detection::TargetReturn target;
   target.rcs_m2 = 1.0f;
   target.range_m = 90000.0f;
-  target.swerling_type = common::config::kSwerling1;
+  target.swerling_type = signal::config::kSwerling1;
 
   signal::detection::EnvironmentState env;
   env.propagation_loss_db = 0.0f;
@@ -358,14 +358,14 @@ TEST(SignalDetectorTest, WiderBandwidthReducesSnrWithSameEnergyInputs) {
 
 /// @brief 更多脉冲应带来更高的积分增益与检测概率。
 TEST(SignalDetectorTest, HigherPulseCountYieldsHigherPd) {
-  RadarSystemConfig config;
-  config.detection.min_snr_db = -80.0f;
+  SignalDetectionConfig config;
+  config.detection_policy.min_snr_db = -80.0f;
   SignalDetector detector(config);
 
   signal::detection::TargetReturn target;
   target.rcs_m2 = 1.0f;
   target.range_m = 90000.0f;
-  target.swerling_type = common::config::kSwerling1;
+  target.swerling_type = signal::config::kSwerling1;
 
   signal::detection::EnvironmentState env;
   env.propagation_loss_db = 0.0f;
@@ -404,8 +404,8 @@ TEST(MeasurementErrorModelTest, ElevationBeamwidthAffectsEquivalentAngleStdDev) 
   AntennaConfig wide_el_antenna = narrow_antenna;
   wide_el_antenna.nominal_el_beamwidth_deg = 8.0f;
 
-  common::config::RadarOrientationConfig orientation;
-  common::config::PlatformAttitudeDeg platform_attitude_deg;
+  common::model::RadarOrientationConfig orientation;
+  common::model::PlatformAttitudeDeg platform_attitude_deg;
   signal::detection::TargetLookAnglesDeg look_angles;
   look_angles.has_look_angles = true;
 
@@ -430,11 +430,11 @@ TEST(MeasurementErrorModelTest, CommandedBeamwidthOverrideAffectsAngleStdDev) {
   antenna.nominal_az_beamwidth_deg = 2.0f;
   antenna.nominal_el_beamwidth_deg = 2.0f;
 
-  common::config::RadarOrientationConfig nominal_orientation;
+  common::model::RadarOrientationConfig nominal_orientation;
   nominal_orientation.commanded_beamwidth_enabled = false;
-  common::config::PlatformAttitudeDeg platform_attitude_deg;
+  common::model::PlatformAttitudeDeg platform_attitude_deg;
 
-  common::config::RadarOrientationConfig commanded_orientation;
+  common::model::RadarOrientationConfig commanded_orientation;
   commanded_orientation.commanded_beamwidth_enabled = true;
   commanded_orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg = 8.0f;
   commanded_orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg = 8.0f;
@@ -459,17 +459,17 @@ TEST(MeasurementErrorModelTest, CommandedBeamwidthOverrideAffectsAngleStdDev) {
 
 /// @brief 指令态波束展宽应通过方向图增益修正改善离轴目标的回波功率。
 TEST(BeamControlResolverTest, CommandedBeamwidthAffectsDirectionalPatternGain) {
-  RadarSystemConfig config;
+  SignalDetectionConfig config;
   config.antenna.nominal_az_beamwidth_deg = 2.0f;
   config.antenna.nominal_el_beamwidth_deg = 2.0f;
   config.antenna.enable_directional_pattern = true;
   config.antenna.pattern.max_sidelobe_level_db = -25.0f;
 
-  common::config::RadarOrientationConfig nominal_orientation;
+  common::model::RadarOrientationConfig nominal_orientation;
   nominal_orientation.commanded_beamwidth_enabled = false;
-  common::config::PlatformAttitudeDeg platform_attitude_deg;
+  common::model::PlatformAttitudeDeg platform_attitude_deg;
 
-  common::config::RadarOrientationConfig commanded_orientation;
+  common::model::RadarOrientationConfig commanded_orientation;
   commanded_orientation.commanded_beamwidth_enabled = true;
   commanded_orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg = 8.0f;
   commanded_orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg = 8.0f;
@@ -510,10 +510,10 @@ TEST(BeamControlResolverTest, CommandedBeamwidthAffectsDirectionalPatternGain) {
 /// @brief 对惯性稳定模式应补偿平台姿态变化。
 TEST(BeamControlResolverTest, InertialStabilizedCompensatesPlatformAttitude) {
   AntennaConfig antenna;
-  common::config::RadarOrientationConfig orientation;
-  orientation.stabilization_mode = common::config::StabilizationMode::kInertialStabilized;
+  common::model::RadarOrientationConfig orientation;
+  orientation.stabilization_mode = common::model::StabilizationMode::kInertialStabilized;
 
-  common::config::PlatformAttitudeDeg platform_attitude_deg;
+  common::model::PlatformAttitudeDeg platform_attitude_deg;
   platform_attitude_deg.yaw_deg = 15.0f;
   platform_attitude_deg.pitch_deg = 5.0f;
 
@@ -532,11 +532,11 @@ TEST(BeamControlResolverTest, InertialStabilizedCompensatesPlatformAttitude) {
 /// @brief 对惯性稳定模式应显式补偿平台滚转角。
 TEST(BeamControlResolverTest, InertialStabilizedAccountsForPlatformRoll) {
   AntennaConfig antenna;
-  common::config::RadarOrientationConfig orientation;
-  orientation.stabilization_mode = common::config::StabilizationMode::kInertialStabilized;
+  common::model::RadarOrientationConfig orientation;
+  orientation.stabilization_mode = common::model::StabilizationMode::kInertialStabilized;
   orientation.scan_center_deg.el_deg = 30.0f;
 
-  common::config::PlatformAttitudeDeg platform_attitude_deg;
+  common::model::PlatformAttitudeDeg platform_attitude_deg;
   platform_attitude_deg.roll_deg = 90.0f;
 
   signal::detection::TargetLookAnglesDeg look_angles;
@@ -553,15 +553,15 @@ TEST(BeamControlResolverTest, InertialStabilizedAccountsForPlatformRoll) {
 /// @brief 对地稳定当前无地理参考输入，代码上显式等同于惯性稳定。
 TEST(BeamControlResolverTest, GroundStabilizedCurrentlyMatchesInertialStabilized) {
   AntennaConfig antenna;
-  common::config::RadarOrientationConfig inertial_orientation;
-  inertial_orientation.stabilization_mode = common::config::StabilizationMode::kInertialStabilized;
+  common::model::RadarOrientationConfig inertial_orientation;
+  inertial_orientation.stabilization_mode = common::model::StabilizationMode::kInertialStabilized;
   inertial_orientation.scan_center_deg.az_deg = 5.0f;
   inertial_orientation.scan_center_deg.el_deg = 20.0f;
 
-  common::config::RadarOrientationConfig ground_orientation = inertial_orientation;
-  ground_orientation.stabilization_mode = common::config::StabilizationMode::kGroundStabilized;
+  common::model::RadarOrientationConfig ground_orientation = inertial_orientation;
+  ground_orientation.stabilization_mode = common::model::StabilizationMode::kGroundStabilized;
 
-  common::config::PlatformAttitudeDeg platform_attitude_deg;
+  common::model::PlatformAttitudeDeg platform_attitude_deg;
   platform_attitude_deg.yaw_deg = 15.0f;
   platform_attitude_deg.pitch_deg = -8.0f;
   platform_attitude_deg.roll_deg = 20.0f;
@@ -586,12 +586,12 @@ TEST(BeamControlResolverTest, GroundStabilizedCurrentlyMatchesInertialStabilized
 // Swerling 0~4 检测概率单元测试
 // ===========================================================================
 
-using common::config::kSwerling0;
-using common::config::kSwerling1;
-using common::config::kSwerling2;
-using common::config::kSwerling3;
-using common::config::kSwerling4;
-using common::config::SwerlingModel;
+using signal::config::kSwerling0;
+using signal::config::kSwerling1;
+using signal::config::kSwerling2;
+using signal::config::kSwerling3;
+using signal::config::kSwerling4;
+using signal::config::SwerlingModel;
 
 /// @brief Swerling 1 单脉冲 ≡ Swerling 2 单脉冲（单脉冲无所谓快慢起伏）。
 TEST(SwerlingDetectionTest, Sw1_N1_Equals_Sw2_N1) {
@@ -740,7 +740,7 @@ TEST(RadarEquationsTest, MarcumQ_NegativeAIsEquivalentToZeroA) {
 
 /// @brief 目标距离为零时，ComputeEchoPower 返回保护值 -300 dBW，触发硬截断，不检测。
 TEST(SignalDetectorTest, ZeroRange_TargetNotDetected) {
-  RadarSystemConfig config;
+  SignalDetectionConfig config;
   SignalDetector detector(config);
   detector.SetRandomSeed(42u);
 
@@ -761,7 +761,7 @@ TEST(SignalDetectorTest, ZeroRange_TargetNotDetected) {
 
 /// @brief 目标 RCS 为零时，回波功率为保护值，不检测。
 TEST(SignalDetectorTest, ZeroRcs_TargetNotDetected) {
-  RadarSystemConfig config;
+  SignalDetectionConfig config;
   SignalDetector detector(config);
   detector.SetRandomSeed(42u);
 
@@ -782,7 +782,7 @@ TEST(SignalDetectorTest, ZeroRcs_TargetNotDetected) {
 
 /// @brief 超大杂波噪声（远超回波功率）应压制检测。
 TEST(SignalDetectorTest, MassiveClutterSuppressesDetection) {
-  RadarSystemConfig config;
+  SignalDetectionConfig config;
   SignalDetector detector(config);
   detector.SetRandomSeed(42u);
 
@@ -805,7 +805,7 @@ TEST(SignalDetectorTest, MassiveClutterSuppressesDetection) {
 
 /// @brief 总噪声接近零时，SNR 使用噪声下限保护，结果应有限且不崩溃。
 TEST(SignalDetectorTest, NearZeroTotalNoise_GivesSafetySnr) {
-  RadarSystemConfig config;
+  SignalDetectionConfig config;
   // 将热噪声降至最低（极低带宽 + 零噪声指数）
   config.transmitter.bandwidth_hz = 1.0f;  // 1 Hz 带宽 → 极小热噪声
   config.receiver.noise_figure_db = 0.0f;  // 理想接收机
@@ -831,8 +831,8 @@ TEST(SignalDetectorTest, NearZeroTotalNoise_GivesSafetySnr) {
 
 /// @brief 非正噪声输入应被钳位为非负，不得造成虚高 SNR。
 TEST(SignalDetectorTest, NonPositiveNoiseInputDoesNotInflateSnr) {
-  RadarSystemConfig config;
-  config.detection.min_snr_db = -80.0f;
+  SignalDetectionConfig config;
+  config.detection_policy.min_snr_db = -80.0f;
   SignalDetector detector(config);
   detector.SetRandomSeed(42u);
 
@@ -861,8 +861,8 @@ TEST(SignalDetectorTest, NonPositiveNoiseInputDoesNotInflateSnr) {
 
 /// @brief snr < min_snr_db 时，detection_prob 强制为 0，detected = false。
 TEST(SignalDetectorTest, BelowMinSnrIsNeverDetected) {
-  RadarSystemConfig config;
-  config.detection.min_snr_db = 20.0f;  // 极高硬门限
+  SignalDetectionConfig config;
+  config.detection_policy.min_snr_db = 20.0f;  // 极高硬门限
   SignalDetector detector(config);
   detector.SetRandomSeed(0u);
 

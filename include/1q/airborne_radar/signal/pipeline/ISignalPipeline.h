@@ -6,9 +6,9 @@
 #ifndef AIRBORNE_RADAR_SIGNAL_PIPELINE_I_SIGNAL_PIPELINE_H_
 #define AIRBORNE_RADAR_SIGNAL_PIPELINE_I_SIGNAL_PIPELINE_H_
 
-#include "1q/airborne_radar/common/control/RadarControlProfile.h"
-#include "1q/airborne_radar/config/SignalPipelineConfig.h"
-#include "1q/airborne_radar/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
+#include "1q/airborne_radar/signal/config/SignalPipelineConfig.h"
+#include "1q/airborne_radar/common/model/RadarOrientationConfig.h"
 #include "1q/airborne_radar/signal/pipeline/SignalPipelineResultTypes.h"
 #include "1q/api.hpp"
 
@@ -40,13 +40,13 @@ class ONEQ_API ISignalPipeline {
    * @param[in] platform_attitude_deg 平台姿态角（单位：度）。
    */
   virtual void UpdatePlatformAttitude(
-      const common::config::PlatformAttitudeDeg& platform_attitude_deg) = 0;
+      const common::model::PlatformAttitudeDeg& platform_attitude_deg) = 0;
 
   /**
    * @brief 获取当前搭载平台姿态。
    * @return 平台姿态角（单位：度）。
    */
-  virtual common::config::PlatformAttitudeDeg GetPlatformAttitude() const = 0;
+  virtual common::model::PlatformAttitudeDeg GetPlatformAttitude() const = 0;
 
   /**
    * @brief 设置下一周期生效的控制真值。
@@ -64,7 +64,7 @@ class ONEQ_API ISignalPipeline {
    * @brief 更新流水线运行配置。
    * @param[in] config 新配置。
    */
-  virtual void UpdateConfig(common::config::SignalPipelineConfig config) = 0;
+  virtual void UpdateConfig(signal::config::SignalPipelineConfig config) = 0;
 
   /**
    * @brief 获取上一周期关联质量指标。

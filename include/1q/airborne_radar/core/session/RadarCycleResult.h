@@ -8,8 +8,8 @@
 
 #include <vector>
 
-#include "1q/airborne_radar/common/control/RadarCommand.h"
-#include "1q/airborne_radar/common/control/RadarControlProfile.h"
+#include "1q/airborne_radar/extension/control/RadarCommand.h"
+#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/context/RadarInputValidation.h"
 #include "1q/airborne_radar/signal/pipeline/SignalPipelineResultTypes.h"

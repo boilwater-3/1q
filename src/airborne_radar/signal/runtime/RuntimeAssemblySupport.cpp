@@ -17,8 +17,8 @@ namespace {
 
 struct LifecycleConfigSignature {
   bool enable_imm_lifecycle{false};
-  common::config::KalmanUpdateBackend kalman_update_backend{
-      common::config::KalmanUpdateBackend::kStandardKfJoseph};
+  signal::config::KalmanUpdateBackend kalman_update_backend{
+      signal::config::KalmanUpdateBackend::kStandardKfJoseph};
   std::size_t imm_model_count{0U};
   tracking::TrackPoolThreadSafetyMode track_pool_thread_safety_mode{
       tracking::TrackPoolThreadSafetyMode::kSingleThreadNoLock};

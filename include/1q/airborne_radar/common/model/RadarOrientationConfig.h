@@ -10,7 +10,7 @@
 
 namespace airborne_radar {
 namespace common {
-namespace config {
+namespace model {
 
 /**
  * @brief EulerAnglesDeg 表示欧拉角定义（单位：度）。
@@ -106,7 +106,7 @@ struct RadarOrientationConfig {
   StabilizationMode stabilization_mode{StabilizationMode::kBodyStabilized}; /**< 波束稳定方式 */
 };
 
-}  // namespace config
+}  // namespace model
 }  // namespace common
 }  // namespace airborne_radar
 

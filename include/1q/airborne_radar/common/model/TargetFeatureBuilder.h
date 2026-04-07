@@ -9,7 +9,7 @@
 #include <cstdint>
 
 #include "1q/airborne_radar/common/model/TargetFeature.h"
-#include "1q/airborne_radar/common/utils/TargetFeatureUtils.h"
+#include "1q/airborne_radar/common/model/TargetFeatureUtils.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {

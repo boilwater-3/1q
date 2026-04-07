@@ -8,9 +8,9 @@
 #include <memory>
 #include <type_traits>
 
-#include "1q/airborne_radar/common/control/ControlDirective.h"
-#include "1q/airborne_radar/common/control/RadarCommand.h"
-#include "1q/airborne_radar/common/control/RadarControlProfile.h"
+#include "1q/airborne_radar/extension/control/ControlDirective.h"
+#include "1q/airborne_radar/extension/control/RadarCommand.h"
+#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/common/model/DecisionInputFrame.h"
 #include "1q/airborne_radar/common/model/DecisionSourceInfo.h"
 #include "1q/airborne_radar/common/model/DecisionTrackSnapshot.h"
@@ -19,15 +19,17 @@
 #include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/common/output/TrackOutputQueries.h"
 #include "1q/airborne_radar/common/utils/JammingSemantics.h"
-#include "1q/airborne_radar/common/utils/TargetFeatureUtils.h"
-#include "1q/airborne_radar/config/AntennaPatternConfig.h"
-#include "1q/airborne_radar/config/ConfigPresets.h"
-#include "1q/airborne_radar/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/common/model/TargetFeatureUtils.h"
+#include "1q/airborne_radar/signal/config/AntennaPatternConfig.h"
+#include "1q/airborne_radar/core/session/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/common/model/RadarOrientationConfig.h"
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/config/SignalBeamControlConfig.h"
-#include "1q/airborne_radar/config/SignalDetectionConfig.h"
-#include "1q/airborne_radar/config/SignalPipelineConfig.h"
+#include "1q/airborne_radar/signal/config/SignalBeamControlConfig.h"
+#include "1q/airborne_radar/signal/config/SignalDetectionConfig.h"
+#include "1q/airborne_radar/signal/config/SignalLifecycleConfig.h"
+#include "1q/airborne_radar/signal/config/SignalPipelineConfig.h"
+#include "1q/airborne_radar/signal/config/SignalTrackingConfig.h"
 #include "1q/airborne_radar/config/airborne_radar_config.hpp"
 #include "1q/airborne_radar/core/context/IRadarContext.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
@@ -38,6 +40,7 @@
 #include "1q/airborne_radar/core/session/RadarSession.h"
 #include "1q/airborne_radar/decision/pipeline/ControlReducerTypes.h"
 #include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/environment/EnvironmentDefaultConfigBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
@@ -151,9 +154,9 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   ASSERT_TRUE(oneq::common::TryLlaToEcef(origin_lla, &origin_ecef));
 
   core::session::RadarSessionConfig session_config =
-      common::config::MakeDefaultRadarSessionConfig();
+      config::MakeDefaultRadarSessionConfig();
   session_config.environment_default_config.model_config.base_propagation_loss_db = 6.0f;
-  session_config.signal_pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
+  session_config.lifecycle.enable_auto_lifecycle_manager = true;
 
   core::context::RadarCycleInput input;
   input.dt_sec = 1.0f;
@@ -170,9 +173,9 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
       new oneq::common::trace::JsonlFileTraceSink("/tmp/oneq-smoke-radar-trace.jsonl", false));
   tools::RadarTraceSession trace_session(
       session_config, tools::RadarTraceSessionOptions{trace_sink, false});
-  const common::config::RadarRuntimeConfigPatch runtime_patch =
-      common::config::RadarRuntimeConfigBuilder()
-          .WithRadarWorkSubMode(common::config::RadarWorkSubMode::kTas)
+  const config::RadarRuntimeConfigPatch runtime_patch =
+      config::RadarRuntimeConfigBuilder()
+          .WithRadarWorkSubMode(common::model::RadarWorkSubMode::kTas)
           .EnableCommandedBeamwidth(true)
           .Build();
   session.ApplyRuntimeConfig(runtime_patch);
@@ -186,6 +189,52 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   EXPECT_GE(trace_result.association_quality_metrics.detection_count, 0U);
 }
 
+TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields) {
+  common::model::AzimuthElevationDeg scan_center;
+  scan_center.az_deg = -12.0f;
+  scan_center.el_deg = 6.0f;
+
+  const core::session::RadarSessionConfig config =
+      config::RadarSessionConfigBuilder()
+          .Detection()
+          .EnablePhysicsDetection(true)
+          .WithPulseCount(16)
+          .WithPeakPowerW(5e6f)
+          .WithFrequencyHz(9.3e9f)
+          .WithMainBeamGainDb(38.0f)
+          .WithNoiseFigureDb(3.5f)
+          .End()
+          .Beam()
+          .WithScanCenterDeg(scan_center)
+          .End()
+          .Lifecycle()
+          .WithLifecycleConfirmHits(2U)
+          .End()
+          .Environment()
+          .WithJammingDetectionThresholdDb(8.0f)
+          .End()
+          .Build();
+  EXPECT_TRUE(config.detection.enable_physics_detection);
+  EXPECT_EQ(config.detection.pulse_count, 16);
+  EXPECT_FLOAT_EQ(config.detection.transmitter.peak_power_w, 5e6f);
+  EXPECT_FLOAT_EQ(config.detection.transmitter.frequency_hz, 9.3e9f);
+  EXPECT_FLOAT_EQ(config.detection.antenna.main_beam_gain_db, 38.0f);
+  EXPECT_FLOAT_EQ(config.detection.receiver.noise_figure_db, 3.5f);
+  EXPECT_FLOAT_EQ(config.beam_control.radar_orientation.scan_center_deg.az_deg, -12.0f);
+  EXPECT_EQ(config.lifecycle.lifecycle_config.confirm_hits, 2U);
+  EXPECT_FLOAT_EQ(config.environment_default_config.jamming_detection_threshold_db, 8.0f);
+
+  environment::EnvironmentModelConfig model;
+  model.base_propagation_loss_db = 5.0f;
+  environment::EnvironmentDefaultConfig env =
+      environment::EnvironmentDefaultConfigBuilder()
+          .WithModelConfig(model)
+          .Build();
+  env.jamming_detection_threshold_db = 8.0f;
+  EXPECT_FLOAT_EQ(env.model_config.base_propagation_loss_db, 5.0f);
+  EXPECT_FLOAT_EQ(env.jamming_detection_threshold_db, 8.0f);
+}
+
 }  // namespace
 }  // namespace airborne_radar
 
@@ -196,7 +245,7 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   const oneq::common::ScanStartPosition shared_start = oneq::common::ScanStartPosition::kLeftTop;
   EXPECT_EQ(static_cast<int>(shared_start), 0);
 
-  config::EsrSessionConfig session_config = config::EsrSessionConfigBuilder()
+  core::session::EsrSessionConfig session_config = config::EsrSessionConfigBuilder()
                                                        .EnableLayeredConfig(true)
                                                        .WithScanRateHz(1.0f)
                                                        .EnableSpectralAnalysis(true)
@@ -233,7 +282,7 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   EXPECT_FALSE(core::context::HasEsrValidationError(issues));
 
   core::session::EsrSession session(session_config);
-  const config::EsrRuntimeConfigPatch runtime_patch =
+  const core::session::EsrRuntimeConfigPatch runtime_patch =
       config::EsrRuntimeConfigBuilder().WithDetectionMinSnrDb(5.0f).Build();
   session.ApplyRuntimeConfig(runtime_patch);
   const core::session::EsrCycleResult result = session.StepWithResult(input);
@@ -253,7 +302,7 @@ namespace electro_optical_sensor {
 namespace {
 
 TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
-  config::EosSessionConfig session_config = config::EosSessionConfigBuilder()
+  core::session::EosSessionConfig session_config = config::EosSessionConfigBuilder()
                                                        .WithWorkMode(core::session::EosWorkMode::kFused)
                                                        .WithMinimumSnrDb(0.0f)
                                                        .Build();
@@ -297,7 +346,7 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   EXPECT_GT(transfer_result.transmittance, 0.0f);
 
   core::session::EosSession session(session_config);
-  const config::EosRuntimeConfigPatch runtime_patch =
+  const core::session::EosRuntimeConfigPatch runtime_patch =
       config::EosRuntimeConfigBuilder().WithFrameRateHz(15.0f).Build();
   session.ApplyRuntimeConfig(runtime_patch);
   const core::session::EosCycleResult result = session.StepWithResult(input);

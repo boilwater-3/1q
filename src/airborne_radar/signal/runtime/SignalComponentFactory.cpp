@@ -62,7 +62,7 @@ OwnedSignalComponents SignalComponentFactory::BuildOwnedPipelineComponents(
   }
 
   if (config.detection.enable_physics_detection) {
-    components.signal_detector.reset(new detection::SignalDetector(config.detection.radar_system));
+    components.signal_detector.reset(new detection::SignalDetector(config.detection));
   }
   return components;
 }
@@ -171,26 +171,26 @@ void SignalComponentFactory::LogLifecycleAssemblyConfigViolation(const char* mes
 }
 
 std::unique_ptr<tracking::IKalmanPredictor> SignalComponentFactory::CreateKalmanPredictor(
-    float noise_diff_coeff, common::config::KalmanUpdateBackend backend) {
+    float noise_diff_coeff, signal::config::KalmanUpdateBackend backend) {
   tracking::KalmanPredictorConfig predictor_config;
   predictor_config.noise_diff_coeff = std::max(noise_diff_coeff, 0.001f);
-  if (backend == common::config::KalmanUpdateBackend::kUdKf) {
+  if (backend == signal::config::KalmanUpdateBackend::kUdKf) {
     return std::unique_ptr<tracking::IKalmanPredictor>(new tracking::UdkfPredictor(predictor_config));
   }
-  if (backend == common::config::KalmanUpdateBackend::kSrif) {
+  if (backend == signal::config::KalmanUpdateBackend::kSrif) {
     return std::unique_ptr<tracking::IKalmanPredictor>(new tracking::SrifPredictor(predictor_config));
   }
   return std::unique_ptr<tracking::IKalmanPredictor>(new tracking::KalmanPredictor(predictor_config));
 }
 
 std::unique_ptr<tracking::IKalmanUpdater> SignalComponentFactory::CreateKalmanUpdater(
-    float measurement_noise_std, common::config::KalmanUpdateBackend backend) {
+    float measurement_noise_std, signal::config::KalmanUpdateBackend backend) {
   tracking::KalmanUpdaterConfig updater_config;
   updater_config.measurement_noise_std = std::max(measurement_noise_std, 0.001f);
-  if (backend == common::config::KalmanUpdateBackend::kUdKf) {
+  if (backend == signal::config::KalmanUpdateBackend::kUdKf) {
     return std::unique_ptr<tracking::IKalmanUpdater>(new tracking::UdkfUpdater(updater_config));
   }
-  if (backend == common::config::KalmanUpdateBackend::kSrif) {
+  if (backend == signal::config::KalmanUpdateBackend::kSrif) {
     return std::unique_ptr<tracking::IKalmanUpdater>(new tracking::SrifUpdater(updater_config));
   }
   return std::unique_ptr<tracking::IKalmanUpdater>(new tracking::KalmanUpdater(updater_config));

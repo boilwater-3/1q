@@ -5,7 +5,7 @@
 
 #include <gtest/gtest.h>
 
-#include "1q/airborne_radar/config/AntennaPatternConfig.h"
+#include "1q/airborne_radar/signal/config/AntennaPatternConfig.h"
 #include "airborne_radar/signal/detection/AntennaPatternRuntime.h"
 
 namespace airborne_radar {
@@ -14,14 +14,14 @@ namespace detection {
 namespace {
 
 TEST(AntennaPatternUtilsTest, MainLobeGainDropsWithOffset) {
-  common::config::AntennaPatternConfig config;
+  signal::config::AntennaPatternConfig config;
   const float peak_gain_dbi = 30.0f;
 
   AntennaPatternBeamwidthDeg beamwidth;
   beamwidth.az_beamwidth_deg = 4.0f;
   beamwidth.el_beamwidth_deg = 4.0f;
 
-  common::config::AzimuthElevationDeg beam_pointing_deg;
+  common::model::AzimuthElevationDeg beam_pointing_deg;
   AntennaLookOffsetDeg boresight_offset_deg;
   AntennaLookOffsetDeg off_axis_offset_deg;
   off_axis_offset_deg.delta_az_deg = 1.0f;
@@ -36,9 +36,9 @@ TEST(AntennaPatternUtilsTest, MainLobeGainDropsWithOffset) {
 }
 
 TEST(AntennaPatternUtilsTest, WiderBeamwidthReducesSameOffsetAttenuation) {
-  common::config::AntennaPatternConfig config;
+  signal::config::AntennaPatternConfig config;
   const float peak_gain_dbi = 30.0f;
-  common::config::AzimuthElevationDeg beam_pointing_deg;
+  common::model::AzimuthElevationDeg beam_pointing_deg;
   AntennaLookOffsetDeg offset_deg;
   offset_deg.delta_az_deg = 1.0f;
 
@@ -60,7 +60,7 @@ TEST(AntennaPatternUtilsTest, WiderBeamwidthReducesSameOffsetAttenuation) {
 }
 
 TEST(AntennaPatternUtilsTest, ScanLossIncreasesAwayFromBoresight) {
-  common::config::AntennaPatternConfig config;
+  signal::config::AntennaPatternConfig config;
   const float peak_gain_dbi = 30.0f;
   config.scan_loss_coeff_db_per_deg2 = 0.02f;
   config.max_scan_loss_db = 6.0f;
@@ -69,8 +69,8 @@ TEST(AntennaPatternUtilsTest, ScanLossIncreasesAwayFromBoresight) {
   beamwidth.az_beamwidth_deg = 4.0f;
   beamwidth.el_beamwidth_deg = 4.0f;
 
-  common::config::AzimuthElevationDeg centered_beam_pointing_deg;
-  common::config::AzimuthElevationDeg scanned_beam_pointing_deg;
+  common::model::AzimuthElevationDeg centered_beam_pointing_deg;
+  common::model::AzimuthElevationDeg scanned_beam_pointing_deg;
   scanned_beam_pointing_deg.az_deg = 10.0f;
   AntennaLookOffsetDeg boresight_offset_deg;
   const AntennaPatternSample centered = EvaluateAntennaPattern(
@@ -83,7 +83,7 @@ TEST(AntennaPatternUtilsTest, ScanLossIncreasesAwayFromBoresight) {
 }
 
 TEST(AntennaPatternUtilsTest, ScanLossChangesWithBeamPointingWhileLookOffsetIsFixed) {
-  common::config::AntennaPatternConfig config;
+  signal::config::AntennaPatternConfig config;
   config.scan_loss_coeff_db_per_deg2 = 0.01f;
   config.max_scan_loss_db = 20.0f;
   config.boresight_offset_deg.az_deg = 2.0f;
@@ -97,10 +97,10 @@ TEST(AntennaPatternUtilsTest, ScanLossChangesWithBeamPointingWhileLookOffsetIsFi
   offset_deg.delta_az_deg = 0.5f;
   offset_deg.delta_el_deg = 0.25f;
 
-  common::config::AzimuthElevationDeg beam_pointing_a;
+  common::model::AzimuthElevationDeg beam_pointing_a;
   beam_pointing_a.az_deg = 2.0f;
   beam_pointing_a.el_deg = -1.0f;
-  common::config::AzimuthElevationDeg beam_pointing_b;
+  common::model::AzimuthElevationDeg beam_pointing_b;
   beam_pointing_b.az_deg = 12.0f;
   beam_pointing_b.el_deg = -1.0f;
 
@@ -115,7 +115,7 @@ TEST(AntennaPatternUtilsTest, ScanLossChangesWithBeamPointingWhileLookOffsetIsFi
 }
 
 TEST(AntennaPatternUtilsTest, OutsideMainLobeUsesSidelobeFloor) {
-  common::config::AntennaPatternConfig config;
+  signal::config::AntennaPatternConfig config;
   const float peak_gain_dbi = 30.0f;
   config.max_sidelobe_level_db = -18.0f;
 
@@ -125,7 +125,7 @@ TEST(AntennaPatternUtilsTest, OutsideMainLobeUsesSidelobeFloor) {
 
   AntennaLookOffsetDeg sidelobe_offset_deg;
   sidelobe_offset_deg.delta_az_deg = 10.0f;
-  common::config::AzimuthElevationDeg beam_pointing_deg;
+  common::model::AzimuthElevationDeg beam_pointing_deg;
   const AntennaPatternSample sample = EvaluateAntennaPattern(peak_gain_dbi, config, beamwidth,
                                                              sidelobe_offset_deg, beam_pointing_deg);
 
@@ -135,7 +135,7 @@ TEST(AntennaPatternUtilsTest, OutsideMainLobeUsesSidelobeFloor) {
 }
 
 TEST(AntennaPatternUtilsTest, BackLobeUsesConfiguredBacklobeLevel) {
-  common::config::AntennaPatternConfig config;
+  signal::config::AntennaPatternConfig config;
   const float peak_gain_dbi = 30.0f;
   config.backlobe_level_db = -40.0f;
 
@@ -145,7 +145,7 @@ TEST(AntennaPatternUtilsTest, BackLobeUsesConfiguredBacklobeLevel) {
 
   AntennaLookOffsetDeg backlobe_offset_deg;
   backlobe_offset_deg.delta_az_deg = 120.0f;
-  common::config::AzimuthElevationDeg beam_pointing_deg;
+  common::model::AzimuthElevationDeg beam_pointing_deg;
   const AntennaPatternSample sample = EvaluateAntennaPattern(peak_gain_dbi, config, beamwidth,
                                                              backlobe_offset_deg, beam_pointing_deg);
 

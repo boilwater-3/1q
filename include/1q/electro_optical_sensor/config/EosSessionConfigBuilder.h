@@ -11,21 +11,20 @@
 namespace electro_optical_sensor {
 namespace config {
 
-using core::session::EosSessionConfig;
-using core::session::EosWorkMode;
-
 /**
  * @brief EosSessionConfigBuilder 提供初始化配置的链式构造。
  */
 class ONEQ_API EosSessionConfigBuilder {
  public:
-  explicit EosSessionConfigBuilder(const EosSessionConfig& config = {}) noexcept : config_(config) {}
+  explicit EosSessionConfigBuilder(
+      const core::session::EosSessionConfig& config = {}) noexcept : config_(config) {}
 
-  EosSessionConfigBuilder& WithSessionConfig(const EosSessionConfig& config) noexcept {
+  EosSessionConfigBuilder& WithSessionConfig(
+      const core::session::EosSessionConfig& config) noexcept {
     config_ = config;
     return *this;
   }
-  EosSessionConfigBuilder& WithWorkMode(EosWorkMode mode) noexcept {
+  EosSessionConfigBuilder& WithWorkMode(core::session::EosWorkMode mode) noexcept {
     config_.work_mode = mode;
     return *this;
   }
@@ -67,10 +66,10 @@ class ONEQ_API EosSessionConfigBuilder {
     config_.environment_default_config.turbulence_factor = value;
     return *this;
   }
-  EosSessionConfig Build() const noexcept { return config_; }
+  core::session::EosSessionConfig Build() const noexcept { return config_; }
 
  private:
-  EosSessionConfig config_{};
+  core::session::EosSessionConfig config_{};
 };
 
 }  // namespace config

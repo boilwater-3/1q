@@ -6,8 +6,8 @@
 #ifndef AIRBORNE_RADAR_SIGNAL_DETECTION_BEAMWIDTH_RESOLUTION_H_
 #define AIRBORNE_RADAR_SIGNAL_DETECTION_BEAMWIDTH_RESOLUTION_H_
 
-#include "1q/airborne_radar/config/RadarOrientationConfig.h"
-#include "1q/airborne_radar/config/SignalDetectionConfig.h"
+#include "1q/airborne_radar/common/model/RadarOrientationConfig.h"
+#include "1q/airborne_radar/signal/config/SignalDetectionConfig.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -30,8 +30,8 @@ struct EffectiveBeamwidthDeg {
  *       后续由 SignalPipeline 将其传播到量测协方差建模。
  */
 inline EffectiveBeamwidthDeg ResolveEffectiveBeamwidth(
-    const common::config::AntennaConfig& antenna_config,
-    const common::config::RadarOrientationConfig& orientation_config) {
+    const signal::config::AntennaConfig& antenna_config,
+    const common::model::RadarOrientationConfig& orientation_config) {
   EffectiveBeamwidthDeg beamwidth;
   if (orientation_config.commanded_beamwidth_enabled) {
     beamwidth.az_beamwidth_deg =

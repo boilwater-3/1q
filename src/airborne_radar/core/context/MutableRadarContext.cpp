@@ -18,7 +18,7 @@ void MutableRadarContext::SetTargetFeatures(common::model::TargetFeatureList tar
 }
 
 void MutableRadarContext::SetPlatformAttitude(
-    const common::config::PlatformAttitudeDeg& platform_attitude_deg) {
+    const common::model::PlatformAttitudeDeg& platform_attitude_deg) {
   platform_attitude_deg_ = platform_attitude_deg;
 }
 
@@ -41,7 +41,7 @@ const common::model::TargetFeatureList& MutableRadarContext::GetTargetFeatures()
   return target_features_;
 }
 
-common::config::PlatformAttitudeDeg MutableRadarContext::GetPlatformAttitude() const {
+common::model::PlatformAttitudeDeg MutableRadarContext::GetPlatformAttitude() const {
   return platform_attitude_deg_;
 }
 

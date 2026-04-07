@@ -5,9 +5,9 @@
 #include <memory>
 #include <vector>
 
-#include "1q/airborne_radar/common/control/ControlDirective.h"
-#include "1q/airborne_radar/common/control/RadarCommand.h"
-#include "1q/airborne_radar/common/control/RadarControlProfile.h"
+#include "1q/airborne_radar/extension/control/ControlDirective.h"
+#include "1q/airborne_radar/extension/control/RadarCommand.h"
+#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/context/IRadarContext.h"
 #include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
@@ -112,7 +112,7 @@ common::control::RadarCommand ToRadarCommand(const common::control::ControlDirec
 struct AirborneRuntimeInput {
   const common::model::TargetFeatureList* target_features{
       nullptr};                                            /**< 当前周期目标输入只读视图。 */
-  common::config::PlatformAttitudeDeg platform_attitude{}; /**< 当前平台姿态。 */
+  common::model::PlatformAttitudeDeg platform_attitude{}; /**< 当前平台姿态。 */
   float cycle_dt_sec{1.0f};                                /**< 当前周期步长。 */
 };
 

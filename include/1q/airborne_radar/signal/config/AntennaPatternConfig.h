@@ -6,10 +6,10 @@
 #ifndef AIRBORNE_RADAR_CONFIG_ANTENNA_PATTERN_CONFIG_H_
 #define AIRBORNE_RADAR_CONFIG_ANTENNA_PATTERN_CONFIG_H_
 
-#include "1q/airborne_radar/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/common/model/RadarOrientationConfig.h"
 
 namespace airborne_radar {
-namespace common {
+namespace signal {
 namespace config {
 
 /**
@@ -34,11 +34,11 @@ struct AntennaPatternConfig {
   float backlobe_level_db{-35.0f};                 /**< 后瓣电平（相对主瓣峰值，单位：dB） */
   float scan_loss_coeff_db_per_deg2{0.0f};         /**< 扫描损失二次项系数（单位：dB/deg²） */
   float max_scan_loss_db{6.0f};                    /**< 最大扫描损失（单位：dB） */
-  AzimuthElevationDeg boresight_offset_deg;        /**< 阵面法线相对安装基准轴的零偏指向 */
+  common::model::AzimuthElevationDeg boresight_offset_deg; /**< 阵面法线相对安装基准轴的零偏指向 */
 };
 
 }  // namespace config
-}  // namespace common
+}  // namespace signal
 }  // namespace airborne_radar
 
 #endif  // AIRBORNE_RADAR_CONFIG_ANTENNA_PATTERN_CONFIG_H_

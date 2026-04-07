@@ -13,7 +13,7 @@
 #include <sstream>
 #include <string>
 
-#include "1q/airborne_radar/config/ConfigPresets.h"
+#include "1q/airborne_radar/core/session/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/airborne_radar/tools/RadarTraceSession.h"
 #include "1q/common/trace/TraceSink.h"
@@ -54,8 +54,8 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesConfigInputOutput) {
   std::shared_ptr<oneq::common::trace::TraceSink> sink(
       new oneq::common::trace::JsonlFileTraceSink(trace_path, false));
 
-  core::session::RadarSessionConfig config = common::config::MakeDefaultRadarSessionConfig();
-  config.signal_pipeline_config.detection.min_detection_margin_db = -100.0f;
+  core::session::RadarSessionConfig config = config::MakeDefaultRadarSessionConfig();
+  config.detection.min_detection_margin_db = -100.0f;
 
   tools::RadarTraceSession session(config, tools::RadarTraceSessionOptions{sink, true});
   core::context::RadarCycleInput input;

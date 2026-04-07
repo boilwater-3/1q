@@ -124,11 +124,11 @@ struct SignalPipeline::Impl {
     RebuildOwnedComponents();
   }
 
-  void UpdatePlatformAttitude(const common::config::PlatformAttitudeDeg& platform_attitude_deg) {
+  void UpdatePlatformAttitude(const common::model::PlatformAttitudeDeg& platform_attitude_deg) {
     runtime_.config.beam_control.platform_attitude_deg = platform_attitude_deg;
   }
 
-  common::config::PlatformAttitudeDeg GetPlatformAttitude() const {
+  common::model::PlatformAttitudeDeg GetPlatformAttitude() const {
     return runtime_.config.beam_control.platform_attitude_deg;
   }
 
@@ -190,11 +190,11 @@ std::unique_ptr<tracking::ITrackLifecycleManager> SignalPipeline::CreateAutoLife
 }
 
 void SignalPipeline::UpdatePlatformAttitude(
-    const common::config::PlatformAttitudeDeg& platform_attitude_deg) {
+    const common::model::PlatformAttitudeDeg& platform_attitude_deg) {
   impl_->UpdatePlatformAttitude(platform_attitude_deg);
 }
 
-common::config::PlatformAttitudeDeg SignalPipeline::GetPlatformAttitude() const {
+common::model::PlatformAttitudeDeg SignalPipeline::GetPlatformAttitude() const {
   return impl_->GetPlatformAttitude();
 }
 

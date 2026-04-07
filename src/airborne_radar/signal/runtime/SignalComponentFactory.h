@@ -130,14 +130,14 @@ class SignalComponentFactory final {
    * @return 已创建的预测器。
    */
   static std::unique_ptr<tracking::IKalmanPredictor> CreateKalmanPredictor(
-      float noise_diff_coeff, common::config::KalmanUpdateBackend backend);
+      float noise_diff_coeff, signal::config::KalmanUpdateBackend backend);
   /**
    * @brief 构造 Kalman 更新器。
    * @param measurement_noise_std 量测噪声标准差。
    * @return 已创建的更新器。
    */
   static std::unique_ptr<tracking::IKalmanUpdater> CreateKalmanUpdater(
-      float measurement_noise_std, common::config::KalmanUpdateBackend backend);
+      float measurement_noise_std, signal::config::KalmanUpdateBackend backend);
   /**
    * @brief 构建 IMM 转移矩阵。
    * @param internal_config 内部扩展配置。

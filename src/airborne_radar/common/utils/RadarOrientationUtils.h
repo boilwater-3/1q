@@ -10,7 +10,7 @@
 #include <cmath>
 
 #include "airborne_radar/common/utils/MathUtils.h"
-#include "1q/airborne_radar/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/common/model/RadarOrientationConfig.h"
 
 namespace airborne_radar {
 namespace common {
@@ -41,7 +41,7 @@ inline Matrix3f Multiply(const Matrix3f& lhs, const Matrix3f& rhs) {
   return result;
 }
 
-inline Matrix3f BuildRotationMatrix(const config::EulerAnglesDeg& euler_deg) {
+inline Matrix3f BuildRotationMatrix(const model::EulerAnglesDeg& euler_deg) {
   const float yaw_rad = DegToRad(euler_deg.yaw_deg);
   // Keep the same pitch sign convention as the internal geometry module.
   const float pitch_rad = DegToRad(-euler_deg.pitch_deg);
@@ -67,8 +67,8 @@ inline Matrix3f BuildRotationMatrix(const config::EulerAnglesDeg& euler_deg) {
   return rotation;
 }
 
-inline config::EulerAnglesDeg FromRotationMatrix(const Matrix3f& rotation) {
-  config::EulerAnglesDeg euler_deg;
+inline model::EulerAnglesDeg FromRotationMatrix(const Matrix3f& rotation) {
+  model::EulerAnglesDeg euler_deg;
   const float r20 = std::max(-1.0f, std::min(1.0f, At(rotation, 2, 0)));
   euler_deg.pitch_deg = std::asin(r20) * 180.0f / 3.14159265358979f;
   euler_deg.yaw_deg =
@@ -85,7 +85,7 @@ inline config::EulerAnglesDeg FromRotationMatrix(const Matrix3f& rotation) {
  * @param[in] limits 待校验的方位/俯仰限位。
  * @return 若方位和俯仰最小值均不大于最大值，则返回 true。
  */
-inline bool IsValidScanLimits(const config::AzimuthElevationLimitsDeg& limits) {
+inline bool IsValidScanLimits(const model::AzimuthElevationLimitsDeg& limits) {
   return limits.az_min_deg <= limits.az_max_deg && limits.el_min_deg <= limits.el_max_deg;
 }
 
@@ -95,9 +95,9 @@ inline bool IsValidScanLimits(const config::AzimuthElevationLimitsDeg& limits) {
  * @param[in] limits 扫描窗口。
  * @return 限幅后的方位/俯仰角。
  */
-inline config::AzimuthElevationDeg ClampAzimuthElevation(
-    const config::AzimuthElevationDeg& angle, const config::AzimuthElevationLimitsDeg& limits) {
-  config::AzimuthElevationDeg clamped;
+inline model::AzimuthElevationDeg ClampAzimuthElevation(
+    const model::AzimuthElevationDeg& angle, const model::AzimuthElevationLimitsDeg& limits) {
+  model::AzimuthElevationDeg clamped;
   clamped.az_deg = ClampFloat(angle.az_deg, limits.az_min_deg, limits.az_max_deg);
   clamped.el_deg = ClampFloat(angle.el_deg, limits.el_min_deg, limits.el_max_deg);
   return clamped;
@@ -109,10 +109,10 @@ inline config::AzimuthElevationDeg ClampAzimuthElevation(
  * @param[in] electronic_limits 电子扫描限位。
  * @return 两者交集；若无交集，则退化为零宽限位并由调用方继续处理。
  */
-inline config::AzimuthElevationLimitsDeg IntersectScanLimits(
-    const config::AzimuthElevationLimitsDeg& mechanical_limits,
-    const config::AzimuthElevationLimitsDeg& electronic_limits) {
-  config::AzimuthElevationLimitsDeg limits;
+inline model::AzimuthElevationLimitsDeg IntersectScanLimits(
+    const model::AzimuthElevationLimitsDeg& mechanical_limits,
+    const model::AzimuthElevationLimitsDeg& electronic_limits) {
+  model::AzimuthElevationLimitsDeg limits;
   limits.az_min_deg = mechanical_limits.az_min_deg > electronic_limits.az_min_deg
                           ? mechanical_limits.az_min_deg
                           : electronic_limits.az_min_deg;
@@ -144,12 +144,12 @@ inline config::AzimuthElevationLimitsDeg IntersectScanLimits(
  * @param[in] config 雷达方向配置。
  * @return 相对雷达安装基准轴的方位/俯仰指向。
  */
-inline config::AzimuthElevationDeg ComputeMountFrameBeamPointing(
-    const config::RadarOrientationConfig& config) {
-  config::AzimuthElevationDeg unclamped;
+inline model::AzimuthElevationDeg ComputeMountFrameBeamPointing(
+    const model::RadarOrientationConfig& config) {
+  model::AzimuthElevationDeg unclamped;
   unclamped.az_deg = config.scan_center_deg.az_deg + config.dwell_center_deg.az_deg;
   unclamped.el_deg = config.scan_center_deg.el_deg + config.dwell_center_deg.el_deg;
-  const config::AzimuthElevationLimitsDeg effective_limits =
+  const model::AzimuthElevationLimitsDeg effective_limits =
       IntersectScanLimits(config.mechanical_scan_limits_deg, config.electronic_scan_limits_deg);
   return ClampAzimuthElevation(unclamped, effective_limits);
 }
@@ -159,10 +159,10 @@ inline config::AzimuthElevationDeg ComputeMountFrameBeamPointing(
  * @param[in] config 雷达方向配置。
  * @return 机体系下的欧拉角；由安装姿态与挂架波束指向做旋转合成得到。
  */
-inline config::EulerAnglesDeg ComputeBodyFrameBeamPointing(
-    const config::RadarOrientationConfig& config) {
-  const config::AzimuthElevationDeg mount_frame_pointing = ComputeMountFrameBeamPointing(config);
-  config::EulerAnglesDeg mount_frame_euler;
+inline model::EulerAnglesDeg ComputeBodyFrameBeamPointing(
+    const model::RadarOrientationConfig& config) {
+  const model::AzimuthElevationDeg mount_frame_pointing = ComputeMountFrameBeamPointing(config);
+  model::EulerAnglesDeg mount_frame_euler;
   mount_frame_euler.yaw_deg = mount_frame_pointing.az_deg;
   mount_frame_euler.pitch_deg = mount_frame_pointing.el_deg;
   const internal::Matrix3f body_rotation = internal::Multiply(
@@ -179,11 +179,11 @@ inline config::EulerAnglesDeg ComputeBodyFrameBeamPointing(
  * @note 该函数仅执行几何叠加，适用于机体稳定模式；
  *       若采用惯性稳定或对地稳定，调用方应先求得等效平台姿态后再使用。
  */
-inline config::EulerAnglesDeg ComputePlatformFrameBeamPointing(
-    const config::EulerAnglesDeg& platform_attitude_deg,
-    const config::RadarOrientationConfig& config) {
-  const config::AzimuthElevationDeg mount_frame_pointing = ComputeMountFrameBeamPointing(config);
-  config::EulerAnglesDeg mount_frame_euler;
+inline model::EulerAnglesDeg ComputePlatformFrameBeamPointing(
+    const model::EulerAnglesDeg& platform_attitude_deg,
+    const model::RadarOrientationConfig& config) {
+  const model::AzimuthElevationDeg mount_frame_pointing = ComputeMountFrameBeamPointing(config);
+  model::EulerAnglesDeg mount_frame_euler;
   mount_frame_euler.yaw_deg = mount_frame_pointing.az_deg;
   mount_frame_euler.pitch_deg = mount_frame_pointing.el_deg;
   const internal::Matrix3f platform_mount_rotation = internal::Multiply(

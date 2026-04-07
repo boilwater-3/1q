@@ -6,389 +6,274 @@
 #ifndef AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_BUILDER_H_
 #define AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_BUILDER_H_
 
-#include <cstdint>
-
 #include "1q/airborne_radar/core/session/RadarSession.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
-namespace common {
 namespace config {
+
+using signal::config::AntennaConfig;
+using signal::config::DetectionPolicy;
+using signal::config::KalmanUpdateBackend;
+using signal::config::ReceiverConfig;
+using signal::config::SignalBeamControlConfig;
+using signal::config::SignalDetectionConfig;
+using signal::config::SignalLifecycleConfig;
+using signal::config::SignalTrackingConfig;
+using signal::config::TransmitterConfig;
+using common::model::AzimuthElevationDeg;
+using common::model::CommandedBeamwidthDeg;
+using common::model::RadarWorkSubMode;
 
 /**
  * @brief RadarSession 配置链式构造器。
  *
- * 将 `RadarSessionConfig` 内部五层嵌套的硬件与任务参数展平为单层方法调用，
- * 适合外部项目在已有预设基础上按平台特性微调配置。
+ * Builder 同时提供两类能力：
+ * - 粗粒度覆盖：整块替换 detection/beam_control/tracking/lifecycle/environment
+ * - 叶子字段覆盖：直接修改高频参数，Build() 后无需再手改
  *
- * 典型用法：
  * @code
- * // 以探测任务预设为基础，叠加平台雷达硬件参数
- * auto config =
- *     airborne_radar::common::config::RadarSessionConfigBuilder(
- *         airborne_radar::common::config::MakeDetectionMissionRadarSessionConfig())
- *         .EnablePhysicsDetection()
- *         .WithTransmitterPeakPowerW(5e6f)
- *         .WithTransmitterFrequencyHz(9.3e9f)
- *         .WithAntennaMainBeamGainDb(38.0f)
- *         .WithReceiverNoiseFigureDb(3.5f)
- *         .WithJammingDetectionThresholdDb(4.5f)
- *         .Build();
- * airborne_radar::core::session::RadarSession session(config);
+ * auto config = RadarSessionConfigBuilder(MakeDetectionMissionRadarSessionConfig())
+ *                   .Detection()
+ *                   .EnablePhysicsDetection(true)
+ *                   .WithPeakPowerW(5e6f)
+ *                   .WithFrequencyHz(9.3e9f)
+ *                   .End()
+ *                   .Environment()
+ *                   .WithJammingDetectionThresholdDb(5.0f)
+ *                   .End()
+ *                   .Build();
  * @endcode
- *
- * @note
- * - 构造函数接受任意 `RadarSessionConfig`（包括预设函数返回值或默认构造），
- *   未调用的 setter 保留基础配置的原始值。
- * - 本 Builder 的所有 setter 均作用于“初始化基线”（[初始化固定]）；运行期不应再通过本 Builder
- * 调整。
- * - 运行期可变参数请使用 `RadarRuntimeConfigBuilder` 并提交给
- *   `RadarSession::ApplyRuntimeConfig(...)`。
- * - `Build()` 会校验关键物理约束（功率、载频、带宽 > 0，噪声系数 >= 0），违规时记录 WARN 日志。
- * - 未暴露于 Builder 的高级选项（天线方向图、IMM 参数、对象池大小等）
- *   仍可通过直接访问 `RadarSessionConfig` 内部嵌套字段配置。
  */
 class ONEQ_API RadarSessionConfigBuilder {
  public:
-  /**
-   * @brief 以给定配置为基础构造 Builder。
-   * @param[in] config 基础配置，默认为零值构造的 RadarSessionConfig。
-   *        通常传入 `MakeDetectionMissionRadarSessionConfig()` 等预设函数返回值。
-   */
+  class DetectionEditor;
+  class BeamEditor;
+  class TrackingEditor;
+  class LifecycleEditor;
+  class EnvironmentEditor;
+
   explicit RadarSessionConfigBuilder(const core::session::RadarSessionConfig& config = {})
       : config_(config) {}
 
-  // -------------------------------------------------------------------------
-  // 发射机参数
-  // -------------------------------------------------------------------------
+  DetectionEditor Detection();
+  BeamEditor Beam();
+  TrackingEditor Tracking();
+  LifecycleEditor Lifecycle();
+  EnvironmentEditor Environment();
 
-  /**
-   * @brief 设置峰值发射功率（单位：W）。
-   * @param[in] w 峰值发射功率（单位：W）。
-   */
-  RadarSessionConfigBuilder& WithTransmitterPeakPowerW(float w) {
-    config_.signal_pipeline_config.detection.radar_system.transmitter.peak_power_w = w;
-    return *this;
-  }
-
-  /**
-   * @brief 设置工作载频（单位：Hz）。
-   * @param[in] hz 工作载频（单位：Hz）。
-   */
-  RadarSessionConfigBuilder& WithTransmitterFrequencyHz(float hz) {
-    config_.signal_pipeline_config.detection.radar_system.transmitter.frequency_hz = hz;
-    return *this;
-  }
-
-  /**
-   * @brief 设置信号带宽（单位：Hz）。
-   * @param[in] hz 信号带宽（单位：Hz）。
-   */
-  RadarSessionConfigBuilder& WithTransmitterBandwidthHz(float hz) {
-    config_.signal_pipeline_config.detection.radar_system.transmitter.bandwidth_hz = hz;
-    return *this;
-  }
-
-  /**
-   * @brief 设置脉冲宽度（单位：s）。
-   * @param[in] s 脉冲宽度（单位：s）。
-   */
-  RadarSessionConfigBuilder& WithTransmitterPulseWidthS(float s) {
-    config_.signal_pipeline_config.detection.radar_system.transmitter.pulse_width_s = s;
-    return *this;
-  }
-
-  /**
-   * @brief 设置脉冲重复频率（单位：Hz）。
-   * @param[in] hz 脉冲重复频率（单位：Hz）。
-   */
-  RadarSessionConfigBuilder& WithTransmitterPrfHz(float hz) {
-    config_.signal_pipeline_config.detection.radar_system.transmitter.prf_hz = hz;
-    return *this;
-  }
-
-  /**
-   * @brief 设置馈线/发射系统损耗（单位：dB）。
-   * @param[in] db 馈线/发射系统损耗（单位：dB）。
-   */
-  RadarSessionConfigBuilder& WithTransmitterLossDb(float db) {
-    config_.signal_pipeline_config.detection.radar_system.transmitter.transmit_loss_db = db;
-    return *this;
-  }
-
-  // -------------------------------------------------------------------------
-  // 天线参数
-  // -------------------------------------------------------------------------
-
-  /**
-   * @brief 设置波束中心名义峰值增益（单位：dB）。
-   * @param[in] db 波束中心名义峰值增益（单位：dB）。
-   */
-  RadarSessionConfigBuilder& WithAntennaMainBeamGainDb(float db) {
-    config_.signal_pipeline_config.detection.radar_system.antenna.main_beam_gain_db = db;
-    return *this;
-  }
-
-  /**
-   * @brief 设置名义波束宽度（单位：°）。
-   * @param[in] az_deg 方位波束宽度。
-   * @param[in] el_deg 俯仰波束宽度。
-   */
-  RadarSessionConfigBuilder& WithAntennaNominalBeamwidthDeg(float az_deg, float el_deg) {
-    auto& antenna = config_.signal_pipeline_config.detection.radar_system.antenna;
-    antenna.nominal_az_beamwidth_deg = az_deg;
-    antenna.nominal_el_beamwidth_deg = el_deg;
-    return *this;
-  }
-
-  // -------------------------------------------------------------------------
-  // 扫描调度参数
-  // -------------------------------------------------------------------------
-
-  /**
-   * @brief 设置扫描起始象限。
-   * @param[in] position 扫描起始象限。
-   */
-  RadarSessionConfigBuilder& WithScanStartPosition(oneq::common::ScanStartPosition position) {
-    config_.signal_pipeline_config.beam_control.radar_orientation.scan_start_position = position;
-    return *this;
-  }
-
-  /**
-   * @brief 设置二维扫描推进顺序。
-   * @param[in] sequence 二维扫描推进顺序。
-   */
-  RadarSessionConfigBuilder& WithScanSequence(oneq::common::ScanSequence sequence) {
-    config_.signal_pipeline_config.beam_control.radar_orientation.scan_sequence = sequence;
-    return *this;
-  }
-
-  /**
-   * @brief 设置雷达工作子模式。
-   * @param[in] work_sub_mode 雷达工作子模式。
-   */
-  RadarSessionConfigBuilder& WithRadarWorkSubMode(RadarWorkSubMode work_sub_mode) {
-    config_.signal_pipeline_config.beam_control.radar_orientation.work_sub_mode = work_sub_mode;
-    return *this;
-  }
-
-  // -------------------------------------------------------------------------
-  // 接收机参数
-  // -------------------------------------------------------------------------
-
-  /**
-   * @brief 设置接收机噪声系数（单位：dB）。
-   * @param[in] db 接收机噪声系数（单位：dB）。
-   */
-  RadarSessionConfigBuilder& WithReceiverNoiseFigureDb(float db) {
-    config_.signal_pipeline_config.detection.radar_system.receiver.noise_figure_db = db;
-    return *this;
-  }
-
-  /**
-   * @brief 设置接收系统损耗（单位：dB）。
-   * @param[in] db 接收系统损耗（单位：dB）。
-   */
-  RadarSessionConfigBuilder& WithReceiverLossDb(float db) {
-    config_.signal_pipeline_config.detection.radar_system.receiver.receive_loss_db = db;
-    return *this;
-  }
-
-  // -------------------------------------------------------------------------
-  // 物理探测参数
-  // -------------------------------------------------------------------------
-
-  /**
-   * @brief 启用或禁用物理层雷达方程检测。
-   * @param[in] enable 默认 `true`（启用）。启用后 `radar_system` 参数生效。
-   */
-  RadarSessionConfigBuilder& EnablePhysicsDetection(bool enable = true) {
-    config_.signal_pipeline_config.detection.enable_physics_detection = enable;
-    return *this;
-  }
-
-  /**
-   * @brief 设置最小检测裕量（单位：dB）。
-   * @param[in] db 最小检测裕量（单位：dB）。
-   * @note 此值越小，越容易通过检测门限；负值表示允许在预期 SNR 不足时仍报告检测结果。
-   */
-  RadarSessionConfigBuilder& WithMinDetectionMarginDb(float db) {
-    config_.signal_pipeline_config.detection.min_detection_margin_db = db;
-    return *this;
-  }
-
-  /**
-   * @brief 设置检测脉冲数。
-   * @param[in] count 检测脉冲数。
-   */
-  RadarSessionConfigBuilder& WithPulseCount(int count) {
-    config_.signal_pipeline_config.detection.pulse_count = count;
-    return *this;
-  }
-
-  /**
-   * @brief 启用或禁用物理 RCS 覆盖（REOS 首批入口混合路径）。
-   * @param[in] enable 默认 `true`（启用）。
-   */
-  RadarSessionConfigBuilder& EnablePhysicalRcsOverride(bool enable = true) {
-    config_.signal_pipeline_config.detection.rcs_physics.enable_physical_rcs = enable;
-    return *this;
-  }
-
-  /**
-   * @brief 设置物理 RCS 模型频率（单位：Hz）。
-   * @param[in] hz 频率，<=0 时回退到发射机载频。
-   */
-  RadarSessionConfigBuilder& WithRcsPhysicsFrequencyHz(float hz) {
-    config_.signal_pipeline_config.detection.rcs_physics.frequency_hz = hz;
-    return *this;
-  }
-
-  /**
-   * @brief 设置物理 RCS 混合比例。
-   * @param[in] ratio 混合比例 [0,1]，0=完全沿用输入 RCS。
-   */
-  RadarSessionConfigBuilder& WithRcsPhysicsMixRatio(float ratio) {
-    config_.signal_pipeline_config.detection.rcs_physics.physics_mix_ratio = ratio;
-    return *this;
-  }
-
-  /**
-   * @brief 设置圆柱散射权重。
-   * @param[in] weight 圆柱散射权重 [0,1]，其余权重分配给平面散射入口。
-   */
-  RadarSessionConfigBuilder& WithRcsPhysicsCylinderWeight(float weight) {
-    config_.signal_pipeline_config.detection.rcs_physics.cylinder_weight = weight;
-    return *this;
-  }
-
-  /**
-   * @brief 设置目标等效半径范围（单位：m）。
-   * @param[in] min_radius_m 等效半径下限（m）。
-   * @param[in] max_radius_m 等效半径上限（m）。
-   */
-  RadarSessionConfigBuilder& WithRcsPhysicsEquivalentRadiusRangeM(float min_radius_m,
-                                                                  float max_radius_m) {
-    auto& rcs_physics = config_.signal_pipeline_config.detection.rcs_physics;
-    rcs_physics.min_equivalent_radius_m = min_radius_m;
-    rcs_physics.max_equivalent_radius_m = max_radius_m;
-    return *this;
-  }
-
-  /**
-   * @brief 设置物理 RCS 输出范围（单位：m^2）。
-   * @param[in] min_rcs_m2 物理 RCS 下限。
-   * @param[in] max_rcs_m2 物理 RCS 上限。
-   */
-  RadarSessionConfigBuilder& WithRcsPhysicsOutputRangeM2(float min_rcs_m2, float max_rcs_m2) {
-    auto& rcs_physics = config_.signal_pipeline_config.detection.rcs_physics;
-    rcs_physics.min_rcs_m2 = min_rcs_m2;
-    rcs_physics.max_rcs_m2 = max_rcs_m2;
-    return *this;
-  }
-
-  /**
-   * @brief 设置双基地角偏移（单位：deg）。
-   * @param[in] psi_offset_deg 双基地角偏移（deg）。
-   */
-  RadarSessionConfigBuilder& WithRcsPhysicsBistaticPsiOffsetDeg(float psi_offset_deg) {
-    config_.signal_pipeline_config.detection.rcs_physics.bistatic_psi_offset_deg = psi_offset_deg;
-    return *this;
-  }
-
-  // -------------------------------------------------------------------------
-  // 跟踪参数
-  // -------------------------------------------------------------------------
-
-  /**
-   * @brief 设置卡尔曼测量噪声标准差。
-   * @param[in] std_dev 卡尔曼测量噪声标准差。
-   * @note 值越大，滤波器对新量测的信任度越低。
-   */
-  RadarSessionConfigBuilder& WithKalmanMeasurementNoiseStd(float std_dev) {
-    config_.signal_pipeline_config.tracking.kalman_measurement_noise_std = std_dev;
-    return *this;
-  }
-
-  /**
-   * @brief 设置 Kalman 更新后端类型。
-   * @param[in] backend 更新后端。
-   */
-  RadarSessionConfigBuilder& WithKalmanUpdateBackend(
-      common::config::KalmanUpdateBackend backend) {
-    config_.signal_pipeline_config.tracking.kalman_update_backend = backend;
-    return *this;
-  }
-
-  // -------------------------------------------------------------------------
-  // 生命周期参数
-  // -------------------------------------------------------------------------
-
-  /**
-   * @brief 启用或禁用自动生命周期管理（Kalman 跟踪路径）。
-   * @param[in] enable 默认 `true`（启用）。生产配置通常应设为 `true`。
-   */
-  RadarSessionConfigBuilder& EnableAutoLifecycleManager(bool enable = true) {
-    config_.signal_pipeline_config.lifecycle.enable_auto_lifecycle_manager = enable;
-    return *this;
-  }
-
-  /**
-   * @brief 设置候选轨迹转已确认所需最小命中次数。
-   * @param[in] hits 最小命中次数。
-   */
-  RadarSessionConfigBuilder& WithConfirmHits(std::uint32_t hits) {
-    config_.signal_pipeline_config.lifecycle.lifecycle_config.confirm_hits = hits;
-    return *this;
-  }
-
-  /**
-   * @brief 设置已确认轨迹转丢失前允许的最大连续失配次数。
-   * @param[in] misses 最大连续失配次数。
-   */
-  RadarSessionConfigBuilder& WithMaxMissBeforeLost(std::uint32_t misses) {
-    config_.signal_pipeline_config.lifecycle.lifecycle_config.max_miss_before_lost = misses;
-    return *this;
-  }
-
-  /**
-   * @brief 设置丢失轨迹可保留的最大周期数，超出则回收。
-   * @param[in] cycles 最大保留周期数。
-   */
-  RadarSessionConfigBuilder& WithMaxLostCycles(std::uint32_t cycles) {
-    config_.signal_pipeline_config.lifecycle.lifecycle_config.max_lost_cycles = cycles;
-    return *this;
-  }
-
-  // -------------------------------------------------------------------------
-  // 会话级参数
-  // -------------------------------------------------------------------------
-
-  /**
-   * @brief 设置干扰判定阈值（单位：dB）。
-   * @param[in] db 干扰判定阈值（单位：dB）。
-   * @note 默认 6.0 dB；调低意味着更容易触发干扰标记。
-   */
-  RadarSessionConfigBuilder& WithJammingDetectionThresholdDb(float db) {
-    config_.environment_default_config.jamming_detection_threshold_db = db;
-    return *this;
-  }
-
-  // -------------------------------------------------------------------------
-
-  /**
-   * @brief 生成配置对象。
-   * @note 对关键物理参数执行范围校验（功率 > 0、载频 > 0、带宽 > 0、噪声系数 >= 0）；
-   *       不满足约束时记录 WARN 日志，但仍返回原始值——调用方需自行保证合理性。
-   */
   core::session::RadarSessionConfig Build() const;
 
  private:
+  friend class DetectionEditor;
+  friend class BeamEditor;
+  friend class TrackingEditor;
+  friend class LifecycleEditor;
+  friend class EnvironmentEditor;
+
   core::session::RadarSessionConfig config_;
 };
 
+class RadarSessionConfigBuilder::DetectionEditor {
+ public:
+  explicit DetectionEditor(RadarSessionConfigBuilder* builder) : builder_(builder) {}
+
+  DetectionEditor& WithDetection(const SignalDetectionConfig& detection) {
+    builder_->config_.detection = detection;
+    return *this;
+  }
+  DetectionEditor& EnablePhysicsDetection(bool enable = true) {
+    builder_->config_.detection.enable_physics_detection = enable;
+    return *this;
+  }
+  DetectionEditor& WithMinDetectionMarginDb(float margin_db) {
+    builder_->config_.detection.min_detection_margin_db = margin_db;
+    return *this;
+  }
+  DetectionEditor& WithPulseCount(int pulse_count) {
+    builder_->config_.detection.pulse_count = pulse_count;
+    return *this;
+  }
+  DetectionEditor& WithTransmitterConfig(const TransmitterConfig& transmitter) {
+    builder_->config_.detection.transmitter = transmitter;
+    return *this;
+  }
+  DetectionEditor& WithAntennaConfig(const AntennaConfig& antenna) {
+    builder_->config_.detection.antenna = antenna;
+    return *this;
+  }
+  DetectionEditor& WithReceiverConfig(const ReceiverConfig& receiver) {
+    builder_->config_.detection.receiver = receiver;
+    return *this;
+  }
+  DetectionEditor& WithDetectionPolicy(const DetectionPolicy& detection_policy) {
+    builder_->config_.detection.detection_policy = detection_policy;
+    return *this;
+  }
+  DetectionEditor& WithPeakPowerW(float peak_power_w) {
+    builder_->config_.detection.transmitter.peak_power_w = peak_power_w;
+    return *this;
+  }
+  DetectionEditor& WithFrequencyHz(float frequency_hz) {
+    builder_->config_.detection.transmitter.frequency_hz = frequency_hz;
+    return *this;
+  }
+  DetectionEditor& WithBandwidthHz(float bandwidth_hz) {
+    builder_->config_.detection.transmitter.bandwidth_hz = bandwidth_hz;
+    return *this;
+  }
+  DetectionEditor& WithPulseWidthS(float pulse_width_s) {
+    builder_->config_.detection.transmitter.pulse_width_s = pulse_width_s;
+    return *this;
+  }
+  DetectionEditor& WithPrfHz(float prf_hz) {
+    builder_->config_.detection.transmitter.prf_hz = prf_hz;
+    return *this;
+  }
+  DetectionEditor& WithMainBeamGainDb(float main_beam_gain_db) {
+    builder_->config_.detection.antenna.main_beam_gain_db = main_beam_gain_db;
+    return *this;
+  }
+  DetectionEditor& WithNoiseFigureDb(float noise_figure_db) {
+    builder_->config_.detection.receiver.noise_figure_db = noise_figure_db;
+    return *this;
+  }
+
+  RadarSessionConfigBuilder& End() { return *builder_; }
+
+ private:
+  RadarSessionConfigBuilder* builder_;
+};
+
+class RadarSessionConfigBuilder::BeamEditor {
+ public:
+  explicit BeamEditor(RadarSessionConfigBuilder* builder) : builder_(builder) {}
+
+  BeamEditor& WithBeamControl(const SignalBeamControlConfig& beam_control) {
+    builder_->config_.beam_control = beam_control;
+    return *this;
+  }
+  BeamEditor& WithRadarWorkSubMode(RadarWorkSubMode work_sub_mode) {
+    builder_->config_.beam_control.radar_orientation.work_sub_mode = work_sub_mode;
+    return *this;
+  }
+  BeamEditor& WithScanCenterDeg(const AzimuthElevationDeg& scan_center_deg) {
+    builder_->config_.beam_control.radar_orientation.scan_center_deg = scan_center_deg;
+    return *this;
+  }
+  BeamEditor& WithDwellCenterDeg(const AzimuthElevationDeg& dwell_center_deg) {
+    builder_->config_.beam_control.radar_orientation.dwell_center_deg = dwell_center_deg;
+    return *this;
+  }
+  BeamEditor& EnableCommandedBeamwidth(bool enable = true) {
+    builder_->config_.beam_control.radar_orientation.commanded_beamwidth_enabled = enable;
+    return *this;
+  }
+  BeamEditor& WithCommandedBeamwidthDeg(const CommandedBeamwidthDeg& beamwidth_deg) {
+    builder_->config_.beam_control.radar_orientation.commanded_beamwidth_deg = beamwidth_deg;
+    return *this;
+  }
+
+  RadarSessionConfigBuilder& End() { return *builder_; }
+
+ private:
+  RadarSessionConfigBuilder* builder_;
+};
+
+class RadarSessionConfigBuilder::TrackingEditor {
+ public:
+  explicit TrackingEditor(RadarSessionConfigBuilder* builder) : builder_(builder) {}
+
+  TrackingEditor& WithTracking(const SignalTrackingConfig& tracking) {
+    builder_->config_.tracking = tracking;
+    return *this;
+  }
+  TrackingEditor& EnableKalmanFilter(bool enable = true) {
+    builder_->config_.tracking.enable_kalman_filter = enable;
+    return *this;
+  }
+  TrackingEditor& WithKalmanMeasurementNoiseStd(float stddev) {
+    builder_->config_.tracking.kalman_measurement_noise_std = stddev;
+    return *this;
+  }
+  TrackingEditor& WithKalmanUpdateBackend(KalmanUpdateBackend backend) {
+    builder_->config_.tracking.kalman_update_backend = backend;
+    return *this;
+  }
+
+  RadarSessionConfigBuilder& End() { return *builder_; }
+
+ private:
+  RadarSessionConfigBuilder* builder_;
+};
+
+class RadarSessionConfigBuilder::LifecycleEditor {
+ public:
+  explicit LifecycleEditor(RadarSessionConfigBuilder* builder) : builder_(builder) {}
+
+  LifecycleEditor& WithLifecycle(const SignalLifecycleConfig& lifecycle) {
+    builder_->config_.lifecycle = lifecycle;
+    return *this;
+  }
+  LifecycleEditor& WithLifecycleConfirmHits(std::uint32_t confirm_hits) {
+    builder_->config_.lifecycle.lifecycle_config.confirm_hits = confirm_hits;
+    return *this;
+  }
+  LifecycleEditor& WithLifecycleMaxMissBeforeLost(std::uint32_t max_miss_before_lost) {
+    builder_->config_.lifecycle.lifecycle_config.max_miss_before_lost = max_miss_before_lost;
+    return *this;
+  }
+  LifecycleEditor& WithLifecycleMaxLostCycles(std::uint32_t max_lost_cycles) {
+    builder_->config_.lifecycle.lifecycle_config.max_lost_cycles = max_lost_cycles;
+    return *this;
+  }
+
+  RadarSessionConfigBuilder& End() { return *builder_; }
+
+ private:
+  RadarSessionConfigBuilder* builder_;
+};
+
+class RadarSessionConfigBuilder::EnvironmentEditor {
+ public:
+  explicit EnvironmentEditor(RadarSessionConfigBuilder* builder) : builder_(builder) {}
+
+  EnvironmentEditor& WithEnvironmentDefault(const environment::EnvironmentDefaultConfig& env) {
+    builder_->config_.environment_default_config = env;
+    return *this;
+  }
+  EnvironmentEditor& WithJammingDetectionThresholdDb(float threshold_db) {
+    builder_->config_.environment_default_config.jamming_detection_threshold_db = threshold_db;
+    return *this;
+  }
+
+  RadarSessionConfigBuilder& End() { return *builder_; }
+
+ private:
+  RadarSessionConfigBuilder* builder_;
+};
+
+inline RadarSessionConfigBuilder::DetectionEditor RadarSessionConfigBuilder::Detection() {
+  return DetectionEditor(this);
+}
+
+inline RadarSessionConfigBuilder::BeamEditor RadarSessionConfigBuilder::Beam() {
+  return BeamEditor(this);
+}
+
+inline RadarSessionConfigBuilder::TrackingEditor RadarSessionConfigBuilder::Tracking() {
+  return TrackingEditor(this);
+}
+
+inline RadarSessionConfigBuilder::LifecycleEditor RadarSessionConfigBuilder::Lifecycle() {
+  return LifecycleEditor(this);
+}
+
+inline RadarSessionConfigBuilder::EnvironmentEditor RadarSessionConfigBuilder::Environment() {
+  return EnvironmentEditor(this);
+}
+
 }  // namespace config
-}  // namespace common
 }  // namespace airborne_radar
 
 #endif  // AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_BUILDER_H_

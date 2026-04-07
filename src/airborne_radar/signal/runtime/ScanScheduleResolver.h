@@ -21,21 +21,21 @@ using pipeline::SignalPipelineConfig;
 
 namespace internal {
 
-common::config::AzimuthElevationDeg ResolveFiniteScanCenter(
-    const common::config::RadarOrientationConfig& orientation_config);
+common::model::AzimuthElevationDeg ResolveFiniteScanCenter(
+    const common::model::RadarOrientationConfig& orientation_config);
 
-float ResolveScanStepScale(common::config::RadarWorkSubMode mode);
+float ResolveScanStepScale(common::model::RadarWorkSubMode mode);
 
-std::vector<common::config::AzimuthElevationDeg> BuildScheduledScanPattern(
-    const common::config::AzimuthElevationLimitsDeg& limits, float az_step_deg, float el_step_deg,
+std::vector<common::model::AzimuthElevationDeg> BuildScheduledScanPattern(
+    const common::model::AzimuthElevationLimitsDeg& limits, float az_step_deg, float el_step_deg,
     oneq::common::ScanStartPosition start_position, oneq::common::ScanSequence sequence);
 
-common::config::AzimuthElevationDeg ResolveScheduledBeamPointing(
-    const common::config::RadarOrientationConfig& orientation_config,
+common::model::AzimuthElevationDeg ResolveScheduledBeamPointing(
+    const common::model::RadarOrientationConfig& orientation_config,
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg, std::uint32_t cycle_index);
 
-common::config::AzimuthElevationDeg ResolveScheduledDwellCenter(
-    const common::config::RadarOrientationConfig& orientation_config,
+common::model::AzimuthElevationDeg ResolveScheduledDwellCenter(
+    const common::model::RadarOrientationConfig& orientation_config,
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg, std::uint32_t cycle_index);
 
 void ApplyScanScheduleToRuntimeConfig(std::uint32_t cycle_index,

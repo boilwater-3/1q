@@ -9,10 +9,10 @@
 
 #include <vector>
 
-#include "1q/airborne_radar/common/control/RadarCommand.h"
-#include "1q/airborne_radar/common/control/RadarControlProfile.h"
+#include "1q/airborne_radar/extension/control/RadarCommand.h"
+#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/common/model/TargetFeature.h"
-#include "1q/airborne_radar/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/common/model/RadarOrientationConfig.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/api.hpp"
 
@@ -44,7 +44,7 @@ class ONEQ_API IRadarContext {
    * @brief 获取当前搭载平台姿态角。
    * @return 当前平台姿态角（单位：度）。
    */
-  virtual common::config::PlatformAttitudeDeg GetPlatformAttitude() const = 0;
+  virtual common::model::PlatformAttitudeDeg GetPlatformAttitude() const = 0;
 
   /**
    * @brief 获取当前周期时间步长。

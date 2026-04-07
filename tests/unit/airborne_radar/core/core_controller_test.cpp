@@ -11,8 +11,8 @@
 #include <utility>
 #include <vector>
 
-#include "1q/airborne_radar/common/control/RadarCommand.h"
-#include "1q/airborne_radar/common/control/RadarControlProfile.h"
+#include "1q/airborne_radar/extension/control/RadarCommand.h"
+#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/common/model/DecisionInputFrame.h"
 #include "1q/airborne_radar/common/model/DecisionTrackSnapshot.h"
 #include "1q/airborne_radar/common/model/TargetFeature.h"
@@ -69,7 +69,7 @@ class FakeRadarContext : public core::context::IRadarContext {
   }
 
   /// @brief 获取当前搭载平台姿态角。
-  common::config::PlatformAttitudeDeg GetPlatformAttitude() const override {
+  common::model::PlatformAttitudeDeg GetPlatformAttitude() const override {
     return platform_attitude_deg_;
   }
 
@@ -108,7 +108,7 @@ class FakeRadarContext : public core::context::IRadarContext {
   }
 
   /// @brief 设置测试上下文使用的平台姿态角。
-  void SetPlatformAttitude(const common::config::PlatformAttitudeDeg& platform_attitude_deg) {
+  void SetPlatformAttitude(const common::model::PlatformAttitudeDeg& platform_attitude_deg) {
     platform_attitude_deg_ = platform_attitude_deg;
   }
 
@@ -117,7 +117,7 @@ class FakeRadarContext : public core::context::IRadarContext {
 
  private:
   common::model::TargetFeatureList state_;
-  common::config::PlatformAttitudeDeg platform_attitude_deg_{};
+  common::model::PlatformAttitudeDeg platform_attitude_deg_{};
   float cycle_dt_sec_{1.0f};
   std::vector<common::control::RadarCommand> submitted_commands_;
   common::control::RadarControlProfile latest_control_profile_{};
@@ -193,7 +193,7 @@ TEST_F(CoreControllerTest, RunOnceSubmitsCommands) {
 TEST_F(CoreControllerTest, PushesPlatformAttitudeIntoSignalPipelineBeforeRun) {
   const common::model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
-  common::config::PlatformAttitudeDeg platform_attitude_deg;
+  common::model::PlatformAttitudeDeg platform_attitude_deg;
   platform_attitude_deg.yaw_deg = 18.0f;
   platform_attitude_deg.pitch_deg = -4.0f;
   platform_attitude_deg.roll_deg = 2.0f;
@@ -206,7 +206,7 @@ TEST_F(CoreControllerTest, PushesPlatformAttitudeIntoSignalPipelineBeforeRun) {
 
   controller.RunOnce();
 
-  const common::config::PlatformAttitudeDeg cached_platform_attitude =
+  const common::model::PlatformAttitudeDeg cached_platform_attitude =
       signal_pipeline.GetPlatformAttitude();
   EXPECT_FLOAT_EQ(cached_platform_attitude.yaw_deg, 18.0f);
   EXPECT_FLOAT_EQ(cached_platform_attitude.pitch_deg, -4.0f);

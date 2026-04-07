@@ -27,7 +27,7 @@ class DummyRadarContext : public core::context::IRadarContext {
     return kEmptyTargets;
   }
 
-  common::config::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_; }
+  common::model::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_; }
 
   float GetCycleDeltaTimeSec() const override { return 1.0f; }
 
@@ -49,7 +49,7 @@ class DummyRadarContext : public core::context::IRadarContext {
   }
 
  private:
-  common::config::PlatformAttitudeDeg platform_attitude_{};
+  common::model::PlatformAttitudeDeg platform_attitude_{};
   common::control::RadarControlProfile control_profile_{};
   std::vector<common::control::RadarCommand> commands_{};
   bool has_control_profile_{false};
@@ -92,11 +92,11 @@ class DummySignalPipeline : public signal::pipeline::ISignalPipeline {
     return result;
   }
 
-  void UpdatePlatformAttitude(const common::config::PlatformAttitudeDeg& platform_attitude_deg) override {
+  void UpdatePlatformAttitude(const common::model::PlatformAttitudeDeg& platform_attitude_deg) override {
     platform_attitude_ = platform_attitude_deg;
   }
 
-  common::config::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_; }
+  common::model::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_; }
 
   void SetControlProfile(const common::control::RadarControlProfile& control_profile) override {
     control_profile_ = control_profile;
@@ -104,16 +104,16 @@ class DummySignalPipeline : public signal::pipeline::ISignalPipeline {
 
   common::control::RadarControlProfile GetControlProfile() const override { return control_profile_; }
 
-  void UpdateConfig(common::config::SignalPipelineConfig config) override { config_ = config; }
+  void UpdateConfig(signal::config::SignalPipelineConfig config) override { config_ = config; }
 
   signal::pipeline::AssociationQualityMetrics GetLastAssociationQualityMetrics() const override {
     return {};
   }
 
  private:
-  common::config::PlatformAttitudeDeg platform_attitude_{};
+  common::model::PlatformAttitudeDeg platform_attitude_{};
   common::control::RadarControlProfile control_profile_{};
-  common::config::SignalPipelineConfig config_{};
+  signal::config::SignalPipelineConfig config_{};
 };
 
 class DummyDecisionEngine : public decision::pipeline::ITacticalDecisionEngine {

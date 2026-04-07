@@ -10,9 +10,9 @@ namespace signal {
 namespace runtime {
 namespace internal {
 
-common::config::AzimuthElevationDeg ResolveFiniteScanCenter(
-    const common::config::RadarOrientationConfig& orientation_config) {
-  common::config::AzimuthElevationDeg center = orientation_config.scan_center_deg;
+common::model::AzimuthElevationDeg ResolveFiniteScanCenter(
+    const common::model::RadarOrientationConfig& orientation_config) {
+  common::model::AzimuthElevationDeg center = orientation_config.scan_center_deg;
   if (!std::isfinite(center.az_deg)) {
     center.az_deg = 0.0f;
   }
@@ -22,28 +22,28 @@ common::config::AzimuthElevationDeg ResolveFiniteScanCenter(
   return center;
 }
 
-float ResolveScanStepScale(common::config::RadarWorkSubMode mode) {
+float ResolveScanStepScale(common::model::RadarWorkSubMode mode) {
   switch (mode) {
-    case common::config::RadarWorkSubMode::kTas:
+    case common::model::RadarWorkSubMode::kTas:
       return 0.5f;
-    case common::config::RadarWorkSubMode::kTws:
+    case common::model::RadarWorkSubMode::kTws:
       return 1.0f;
-    case common::config::RadarWorkSubMode::kStby:
-    case common::config::RadarWorkSubMode::kStt:
+    case common::model::RadarWorkSubMode::kStby:
+    case common::model::RadarWorkSubMode::kStt:
     default:
       return 1.0f;
   }
 }
 
-std::vector<common::config::AzimuthElevationDeg> BuildScheduledScanPattern(
-    const common::config::AzimuthElevationLimitsDeg& limits, float az_step_deg, float el_step_deg,
+std::vector<common::model::AzimuthElevationDeg> BuildScheduledScanPattern(
+    const common::model::AzimuthElevationLimitsDeg& limits, float az_step_deg, float el_step_deg,
     oneq::common::ScanStartPosition start_position, oneq::common::ScanSequence sequence) {
   const bool finite_limits = std::isfinite(limits.az_min_deg) && std::isfinite(limits.az_max_deg) &&
                              std::isfinite(limits.el_min_deg) && std::isfinite(limits.el_max_deg);
   if (!finite_limits || limits.az_min_deg > limits.az_max_deg ||
       limits.el_min_deg > limits.el_max_deg || !std::isfinite(az_step_deg) ||
       !std::isfinite(el_step_deg) || az_step_deg <= 0.0f || el_step_deg <= 0.0f) {
-    return std::vector<common::config::AzimuthElevationDeg>();
+    return std::vector<common::model::AzimuthElevationDeg>();
   }
 
   const std::size_t kMaxAxisSamples = 4096U;
@@ -91,14 +91,14 @@ std::vector<common::config::AzimuthElevationDeg> BuildScheduledScanPattern(
     std::reverse(el_values.begin(), el_values.end());
   }
 
-  std::vector<common::config::AzimuthElevationDeg> pattern;
+  std::vector<common::model::AzimuthElevationDeg> pattern;
   pattern.reserve(az_values.size() * el_values.size());
   if (sequence == oneq::common::ScanSequence::kAzimuthFirst) {
     for (std::size_t el_index = 0; el_index < el_values.size(); ++el_index) {
       const bool reverse_row = (el_index % 2U) == 1U;
       for (std::size_t az_order = 0; az_order < az_values.size(); ++az_order) {
         const std::size_t az_index = reverse_row ? (az_values.size() - 1U - az_order) : az_order;
-        common::config::AzimuthElevationDeg pointing;
+        common::model::AzimuthElevationDeg pointing;
         pointing.az_deg = az_values[az_index];
         pointing.el_deg = el_values[el_index];
         pattern.push_back(pointing);
@@ -111,7 +111,7 @@ std::vector<common::config::AzimuthElevationDeg> BuildScheduledScanPattern(
     const bool reverse_column = (az_index % 2U) == 1U;
     for (std::size_t el_order = 0; el_order < el_values.size(); ++el_order) {
       const std::size_t el_index = reverse_column ? (el_values.size() - 1U - el_order) : el_order;
-      common::config::AzimuthElevationDeg pointing;
+      common::model::AzimuthElevationDeg pointing;
       pointing.az_deg = az_values[az_index];
       pointing.el_deg = el_values[el_index];
       pattern.push_back(pointing);
@@ -120,10 +120,10 @@ std::vector<common::config::AzimuthElevationDeg> BuildScheduledScanPattern(
   return pattern;
 }
 
-common::config::AzimuthElevationDeg ResolveScheduledBeamPointing(
-    const common::config::RadarOrientationConfig& orientation_config,
+common::model::AzimuthElevationDeg ResolveScheduledBeamPointing(
+    const common::model::RadarOrientationConfig& orientation_config,
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg, std::uint32_t cycle_index) {
-  common::config::AzimuthElevationLimitsDeg effective_limits = common::utils::IntersectScanLimits(
+  common::model::AzimuthElevationLimitsDeg effective_limits = common::utils::IntersectScanLimits(
       orientation_config.mechanical_scan_limits_deg, orientation_config.electronic_scan_limits_deg);
   const bool limits_valid =
       std::isfinite(effective_limits.az_min_deg) && std::isfinite(effective_limits.az_max_deg) &&
@@ -131,22 +131,22 @@ common::config::AzimuthElevationDeg ResolveScheduledBeamPointing(
       effective_limits.az_min_deg <= effective_limits.az_max_deg &&
       effective_limits.el_min_deg <= effective_limits.el_max_deg;
 
-  const common::config::AzimuthElevationDeg normalized_scan_center =
+  const common::model::AzimuthElevationDeg normalized_scan_center =
       ResolveFiniteScanCenter(orientation_config);
-  common::config::AzimuthElevationDeg fallback_center = normalized_scan_center;
+  common::model::AzimuthElevationDeg fallback_center = normalized_scan_center;
   if (limits_valid) {
     fallback_center = common::utils::ClampAzimuthElevation(fallback_center, effective_limits);
   }
 
-  if (orientation_config.work_sub_mode == common::config::RadarWorkSubMode::kStby) {
-    common::config::AzimuthElevationDeg boresight;
+  if (orientation_config.work_sub_mode == common::model::RadarWorkSubMode::kStby) {
+    common::model::AzimuthElevationDeg boresight;
     if (limits_valid) {
       boresight = common::utils::ClampAzimuthElevation(boresight, effective_limits);
     }
     return boresight;
   }
 
-  if (orientation_config.work_sub_mode == common::config::RadarWorkSubMode::kStt) {
+  if (orientation_config.work_sub_mode == common::model::RadarWorkSubMode::kStt) {
     return normalized_scan_center;
   }
 
@@ -158,7 +158,7 @@ common::config::AzimuthElevationDeg ResolveScheduledBeamPointing(
   }
 
   const float step_scale = ResolveScanStepScale(orientation_config.work_sub_mode);
-  const std::vector<common::config::AzimuthElevationDeg> pattern = BuildScheduledScanPattern(
+  const std::vector<common::model::AzimuthElevationDeg> pattern = BuildScheduledScanPattern(
       effective_limits, effective_beamwidth_deg.az_beamwidth_deg * step_scale,
       effective_beamwidth_deg.el_beamwidth_deg * step_scale, orientation_config.scan_start_position,
       orientation_config.scan_sequence);
@@ -172,17 +172,17 @@ common::config::AzimuthElevationDeg ResolveScheduledBeamPointing(
                                           static_cast<std::uint64_t>(pattern.size()))];
 }
 
-common::config::AzimuthElevationDeg ResolveScheduledDwellCenter(
-    const common::config::RadarOrientationConfig& orientation_config,
+common::model::AzimuthElevationDeg ResolveScheduledDwellCenter(
+    const common::model::RadarOrientationConfig& orientation_config,
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg, std::uint32_t cycle_index) {
-  if (orientation_config.work_sub_mode == common::config::RadarWorkSubMode::kStt) {
-    return common::config::AzimuthElevationDeg();
+  if (orientation_config.work_sub_mode == common::model::RadarWorkSubMode::kStt) {
+    return common::model::AzimuthElevationDeg();
   }
-  const common::config::AzimuthElevationDeg pointing =
+  const common::model::AzimuthElevationDeg pointing =
       ResolveScheduledBeamPointing(orientation_config, effective_beamwidth_deg, cycle_index);
-  const common::config::AzimuthElevationDeg normalized_scan_center =
+  const common::model::AzimuthElevationDeg normalized_scan_center =
       ResolveFiniteScanCenter(orientation_config);
-  common::config::AzimuthElevationDeg dwell;
+  common::model::AzimuthElevationDeg dwell;
   dwell.az_deg = pointing.az_deg - normalized_scan_center.az_deg;
   dwell.el_deg = pointing.el_deg - normalized_scan_center.el_deg;
   return dwell;
@@ -193,10 +193,10 @@ void ApplyScanScheduleToRuntimeConfig(std::uint32_t cycle_index,
   if (runtime_config == nullptr) {
     return;
   }
-  common::config::RadarOrientationConfig& orientation =
+  common::model::RadarOrientationConfig& orientation =
       runtime_config->beam_control.radar_orientation;
   const detection::EffectiveBeamwidthDeg effective_beamwidth = detection::ResolveEffectiveBeamwidth(
-      runtime_config->detection.radar_system.antenna, orientation);
+      runtime_config->detection.antenna, orientation);
   orientation.dwell_center_deg =
       ResolveScheduledDwellCenter(orientation, effective_beamwidth, cycle_index);
 }

@@ -42,7 +42,7 @@ class MutableRadarContext final : public IRadarContext {
    * @brief 更新当前平台姿态角。
    * @param platform_attitude_deg 平台姿态角，单位为度。
    */
-  void SetPlatformAttitude(const common::config::PlatformAttitudeDeg& platform_attitude_deg);
+  void SetPlatformAttitude(const common::model::PlatformAttitudeDeg& platform_attitude_deg);
 
   /**
    * @brief 更新当前周期时间步长。
@@ -84,7 +84,7 @@ class MutableRadarContext final : public IRadarContext {
    * @brief 获取当前平台姿态角。
    * @return 当前平台姿态角。
    */
-  common::config::PlatformAttitudeDeg GetPlatformAttitude() const override;
+  common::model::PlatformAttitudeDeg GetPlatformAttitude() const override;
 
   /**
    * @brief 获取当前周期时间步长。
@@ -106,7 +106,7 @@ class MutableRadarContext final : public IRadarContext {
 
  private:
   common::model::TargetFeatureList target_features_{};
-  common::config::PlatformAttitudeDeg platform_attitude_deg_{};
+  common::model::PlatformAttitudeDeg platform_attitude_deg_{};
   float cycle_dt_sec_{1.0f};
   std::vector<common::control::RadarCommand> submitted_commands_{};
   common::control::RadarControlProfile latest_control_profile_{};

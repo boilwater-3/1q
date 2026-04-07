@@ -11,7 +11,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "1q/airborne_radar/common/control/ControlDirective.h"
+#include "1q/airborne_radar/extension/control/ControlDirective.h"
 #include "1q/airborne_radar/common/model/DecisionInputFrame.h"
 #include "1q/airborne_radar/common/model/DecisionSourceInfo.h"
 #include "1q/airborne_radar/common/model/TargetCategory.h"

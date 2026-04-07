@@ -9,21 +9,23 @@
 #include <memory>
 #include <vector>
 
-#include "1q/airborne_radar/common/control/RadarCommand.h"
-#include "1q/airborne_radar/common/control/RadarControlProfile.h"
 #include "1q/airborne_radar/common/output/TrackOutputFrame.h"
-#include "1q/airborne_radar/config/SignalPipelineConfig.h"
+#include "1q/airborne_radar/signal/config/SignalBeamControlConfig.h"
+#include "1q/airborne_radar/signal/config/SignalDetectionConfig.h"
+#include "1q/airborne_radar/signal/config/SignalLifecycleConfig.h"
+#include "1q/airborne_radar/signal/config/SignalPipelineConfig.h"
+#include "1q/airborne_radar/signal/config/SignalTrackingConfig.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/airborne_radar/core/session/RadarCycleResult.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
+#include "1q/airborne_radar/extension/control/RadarCommand.h"
+#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
-namespace common {
 namespace config {
 struct RadarRuntimeConfigPatch;
 }  // namespace config
-}  // namespace common
 }  // namespace airborne_radar
 
 namespace airborne_radar {
@@ -53,13 +55,15 @@ namespace session {
  * @brief RadarSessionConfig 描述 RadarSession 的默认装配配置。
  */
 struct ONEQ_API RadarSessionConfig {
-  /**
-   * @brief 信号流水线基线配置（初始化固定，运行期可通过 `ApplyRuntimeConfig` 覆盖）。
-   */
-  common::config::SignalPipelineConfig signal_pipeline_config{};
-  /**
-   * @brief 环境模型基线配置（初始化固定，运行期可通过 `ApplyRuntimeConfig` 覆盖）。
-   */
+  /** @brief 信号探测基线配置（初始化固定，运行期可通过 `ApplyRuntimeConfig` 覆盖部分字段）。 */
+  signal::config::SignalDetectionConfig detection{};
+  /** @brief 波束控制基线配置。 */
+  signal::config::SignalBeamControlConfig beam_control{};
+  /** @brief 跟踪基线配置。 */
+  signal::config::SignalTrackingConfig tracking{};
+  /** @brief 生命周期基线配置。 */
+  signal::config::SignalLifecycleConfig lifecycle{};
+  /** @brief 环境模型基线配置（初始化固定，运行期可通过 `ApplyRuntimeConfig` 覆盖）。 */
   environment::EnvironmentDefaultConfig environment_default_config{};
 };
 
@@ -160,7 +164,7 @@ class ONEQ_API RadarSession {
    * @brief 更新信号流水线配置。
    * @param[in] config 信号流水线配置。
    */
-  void UpdateSignalPipelineConfig(const common::config::SignalPipelineConfig& config);
+  void UpdateSignalPipelineConfig(const signal::config::SignalPipelineConfig& config);
 
   /**
    * @brief 更新环境模型配置。
@@ -179,7 +183,7 @@ class ONEQ_API RadarSession {
    * @param[in] patch 运行期可变配置补丁。
    * @note 该接口作为运行期可调参数的统一入口；未设置的字段保持现值不变。
    */
-  void ApplyRuntimeConfig(const common::config::RadarRuntimeConfigPatch& patch);
+  void ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch);
 
  private:
   struct Impl;

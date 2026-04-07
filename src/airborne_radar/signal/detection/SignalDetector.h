@@ -29,8 +29,8 @@ struct DetectionResult {
 struct TargetReturn {
   float rcs_m2{0.0f};  /**< 目标 RCS (m²) */
   float range_m{0.0f}; /**< 目标到雷达斜距 (m) */
-  common::config::SwerlingModel swerling_type{
-      common::config::kSwerling0}; /**< 目标的 Swerling 起伏模型 */
+  signal::config::SwerlingModel swerling_type{
+      signal::config::kSwerling0}; /**< 目标的 Swerling 起伏模型 */
 };
 /**
  * @brief 环境噪声上下文。
@@ -46,21 +46,21 @@ struct EnvironmentState {
  * 它组合 RadarEquations 纯函数完成一条完整的物理检测链路：
  *   回波功率预算 → SNR 计算 → 检测概率 → 蒙特卡洛判决
  *
- * 通过构造函数注入 RadarSystemConfig 配置雷达参数，
+ * 通过构造函数注入 SignalDetectionConfig 配置雷达参数，
  * 热噪声功率底在构造时一次性预计算。
  */
 class SignalDetector {
  public:
   /**
-   * @brief 使用雷达系统配置构造检测器。
-   * @param config 完整雷达系统参数
+   * @brief 使用探测配置构造检测器。
+   * @param config 探测配置
    */
-  explicit SignalDetector(common::config::RadarSystemConfig config);
+  explicit SignalDetector(signal::config::SignalDetectionConfig config);
   /**
-   * @brief 更新雷达系统配置并重算热噪声底。
-   * @param config 完整雷达系统参数
+   * @brief 更新探测配置并重算热噪声底。
+   * @param config 探测配置
    */
-  void UpdateConfig(common::config::RadarSystemConfig config);
+  void UpdateConfig(signal::config::SignalDetectionConfig config);
   /**
    * @brief 对单个目标执行完整检测链。
    * @param target               目标回波特征上下文
@@ -79,9 +79,9 @@ class SignalDetector {
   void SetRandomSeed(unsigned int seed);
 
  private:
-  common::config::RadarSystemConfig config_; /**< 雷达系统配置 */
-  float thermal_noise_w_;                    /**< 预计算的接收机热噪声底 (W) */
-  std::mt19937 rng_;                         /**< 确定性随机数引擎 */
+  signal::config::SignalDetectionConfig config_; /**< 探测配置 */
+  float thermal_noise_w_;                        /**< 预计算的接收机热噪声底 (W) */
+  std::mt19937 rng_;                             /**< 确定性随机数引擎 */
 };
 
 }  // namespace detection

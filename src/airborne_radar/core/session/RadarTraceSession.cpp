@@ -31,7 +31,7 @@ Json NumberArray3(T first, T second, T third) {
   return json;
 }
 
-Json BuildJson(const common::config::EulerAnglesDeg& value) {
+Json BuildJson(const common::model::EulerAnglesDeg& value) {
   Json json;
   json["yaw_deg"] = value.yaw_deg;
   json["pitch_deg"] = value.pitch_deg;
@@ -39,14 +39,14 @@ Json BuildJson(const common::config::EulerAnglesDeg& value) {
   return json;
 }
 
-Json BuildJson(const common::config::AzimuthElevationDeg& value) {
+Json BuildJson(const common::model::AzimuthElevationDeg& value) {
   Json json;
   json["az_deg"] = value.az_deg;
   json["el_deg"] = value.el_deg;
   return json;
 }
 
-Json BuildJson(const common::config::AzimuthElevationLimitsDeg& value) {
+Json BuildJson(const common::model::AzimuthElevationLimitsDeg& value) {
   Json json;
   json["az_min_deg"] = value.az_min_deg;
   json["az_max_deg"] = value.az_max_deg;
@@ -55,14 +55,14 @@ Json BuildJson(const common::config::AzimuthElevationLimitsDeg& value) {
   return json;
 }
 
-Json BuildJson(const common::config::CommandedBeamwidthDeg& value) {
+Json BuildJson(const common::model::CommandedBeamwidthDeg& value) {
   Json json;
   json["commanded_az_beamwidth_deg"] = value.commanded_az_beamwidth_deg;
   json["commanded_el_beamwidth_deg"] = value.commanded_el_beamwidth_deg;
   return json;
 }
 
-Json BuildJson(const common::config::RadarOrientationConfig& value) {
+Json BuildJson(const common::model::RadarOrientationConfig& value) {
   Json json;
   json["mount_angles_deg"] = BuildJson(value.mount_angles_deg);
   json["scan_center_deg"] = BuildJson(value.scan_center_deg);
@@ -78,7 +78,7 @@ Json BuildJson(const common::config::RadarOrientationConfig& value) {
   return json;
 }
 
-Json BuildJson(const common::config::AntennaPatternConfig& value) {
+Json BuildJson(const signal::config::AntennaPatternConfig& value) {
   Json json;
   json["model_type"] = static_cast<int>(value.model_type);
   json["max_sidelobe_level_db"] = value.max_sidelobe_level_db;
@@ -89,34 +89,34 @@ Json BuildJson(const common::config::AntennaPatternConfig& value) {
   return json;
 }
 
-Json BuildJson(const common::config::SignalDetectionConfig& value) {
+Json BuildJson(const signal::config::SignalDetectionConfig& value) {
   Json json;
   json["enable_physics_detection"] = value.enable_physics_detection;
   json["min_detection_margin_db"] = value.min_detection_margin_db;
   json["pulse_count"] = value.pulse_count;
 
   Json transmitter;
-  transmitter["peak_power_w"] = value.radar_system.transmitter.peak_power_w;
-  transmitter["frequency_hz"] = value.radar_system.transmitter.frequency_hz;
-  transmitter["bandwidth_hz"] = value.radar_system.transmitter.bandwidth_hz;
-  transmitter["pulse_width_s"] = value.radar_system.transmitter.pulse_width_s;
-  transmitter["prf_hz"] = value.radar_system.transmitter.prf_hz;
-  transmitter["transmit_loss_db"] = value.radar_system.transmitter.transmit_loss_db;
+  transmitter["peak_power_w"] = value.transmitter.peak_power_w;
+  transmitter["frequency_hz"] = value.transmitter.frequency_hz;
+  transmitter["bandwidth_hz"] = value.transmitter.bandwidth_hz;
+  transmitter["pulse_width_s"] = value.transmitter.pulse_width_s;
+  transmitter["prf_hz"] = value.transmitter.prf_hz;
+  transmitter["transmit_loss_db"] = value.transmitter.transmit_loss_db;
 
   Json antenna;
-  antenna["main_beam_gain_db"] = value.radar_system.antenna.main_beam_gain_db;
-  antenna["nominal_az_beamwidth_deg"] = value.radar_system.antenna.nominal_az_beamwidth_deg;
-  antenna["nominal_el_beamwidth_deg"] = value.radar_system.antenna.nominal_el_beamwidth_deg;
-  antenna["enable_directional_pattern"] = value.radar_system.antenna.enable_directional_pattern;
-  antenna["pattern"] = BuildJson(value.radar_system.antenna.pattern);
+  antenna["main_beam_gain_db"] = value.antenna.main_beam_gain_db;
+  antenna["nominal_az_beamwidth_deg"] = value.antenna.nominal_az_beamwidth_deg;
+  antenna["nominal_el_beamwidth_deg"] = value.antenna.nominal_el_beamwidth_deg;
+  antenna["enable_directional_pattern"] = value.antenna.enable_directional_pattern;
+  antenna["pattern"] = BuildJson(value.antenna.pattern);
 
   Json receiver;
-  receiver["noise_figure_db"] = value.radar_system.receiver.noise_figure_db;
-  receiver["receive_loss_db"] = value.radar_system.receiver.receive_loss_db;
+  receiver["noise_figure_db"] = value.receiver.noise_figure_db;
+  receiver["receive_loss_db"] = value.receiver.receive_loss_db;
 
   Json detection;
-  detection["cfar_pfa"] = value.radar_system.detection.cfar_pfa;
-  detection["min_snr_db"] = value.radar_system.detection.min_snr_db;
+  detection["cfar_pfa"] = value.detection_policy.cfar_pfa;
+  detection["min_snr_db"] = value.detection_policy.min_snr_db;
 
   Json radar_system;
   radar_system["transmitter"] = transmitter;
@@ -128,14 +128,14 @@ Json BuildJson(const common::config::SignalDetectionConfig& value) {
   return json;
 }
 
-Json BuildJson(const common::config::SignalTrackingConfig& value) {
+Json BuildJson(const signal::config::SignalTrackingConfig& value) {
   Json json;
   json["enable_kalman_filter"] = value.enable_kalman_filter;
   json["kalman_measurement_noise_std"] = value.kalman_measurement_noise_std;
   return json;
 }
 
-Json BuildJson(const common::config::LifecycleConfig& value) {
+Json BuildJson(const signal::config::LifecycleConfig& value) {
   Json json;
   json["confirm_hits"] = value.confirm_hits;
   json["max_miss_before_lost"] = value.max_miss_before_lost;
@@ -143,7 +143,7 @@ Json BuildJson(const common::config::LifecycleConfig& value) {
   return json;
 }
 
-Json BuildJson(const common::config::SignalLifecycleConfig& value) {
+Json BuildJson(const signal::config::SignalLifecycleConfig& value) {
   Json json;
   json["enable_auto_lifecycle_manager"] = value.enable_auto_lifecycle_manager;
   json["lifecycle_config"] = BuildJson(value.lifecycle_config);
@@ -151,7 +151,7 @@ Json BuildJson(const common::config::SignalLifecycleConfig& value) {
   return json;
 }
 
-Json BuildJson(const common::config::SignalPipelineConfig& value) {
+Json BuildJson(const signal::config::SignalPipelineConfig& value) {
   Json json;
   json["detection"] = BuildJson(value.detection);
 
@@ -238,7 +238,12 @@ Json BuildJson(const environment::EnvironmentSceneState& value) {
 
 Json BuildJson(const core::session::RadarSessionConfig& value) {
   Json json;
-  json["signal_pipeline_config"] = BuildJson(value.signal_pipeline_config);
+  signal::config::SignalPipelineConfig pipeline_config;
+  pipeline_config.detection = value.detection;
+  pipeline_config.beam_control = value.beam_control;
+  pipeline_config.tracking = value.tracking;
+  pipeline_config.lifecycle = value.lifecycle;
+  json["signal_pipeline_config"] = BuildJson(pipeline_config);
   json["environment_default_config"] = {
       {"model_config", BuildJson(value.environment_default_config.model_config)},
       {"jamming_detection_threshold_db",
@@ -388,41 +393,10 @@ Json BuildJson(const core::session::RadarCycleResult& value) {
   return json;
 }
 
-Json BuildJson(const common::config::RadarRuntimeConfigPatch& value) {
+Json BuildJson(const config::RadarRuntimeConfigPatch& value) {
   Json json;
-  json["has_signal_pipeline_config"] = value.has_signal_pipeline_config;
-  json["signal_pipeline_config"] = BuildJson(value.signal_pipeline_config);
-  json["has_signal_detection_config"] = value.has_signal_detection_config;
-  json["signal_detection_config"] = BuildJson(value.signal_detection_config);
-  json["has_rcs_enable_physical_override"] = value.has_rcs_enable_physical_override;
-  json["rcs_enable_physical_override"] = value.rcs_enable_physical_override;
-  json["has_rcs_physics_frequency_hz"] = value.has_rcs_physics_frequency_hz;
-  json["rcs_physics_frequency_hz"] = value.rcs_physics_frequency_hz;
-  json["has_rcs_physics_mix_ratio"] = value.has_rcs_physics_mix_ratio;
-  json["rcs_physics_mix_ratio"] = value.rcs_physics_mix_ratio;
-  json["has_rcs_physics_cylinder_weight"] = value.has_rcs_physics_cylinder_weight;
-  json["rcs_physics_cylinder_weight"] = value.rcs_physics_cylinder_weight;
-  json["has_rcs_equivalent_radius_range"] = value.has_rcs_equivalent_radius_range;
-  json["rcs_min_equivalent_radius_m"] = value.rcs_min_equivalent_radius_m;
-  json["rcs_max_equivalent_radius_m"] = value.rcs_max_equivalent_radius_m;
-  json["has_rcs_output_range_m2"] = value.has_rcs_output_range_m2;
-  json["rcs_min_rcs_m2"] = value.rcs_min_rcs_m2;
-  json["rcs_max_rcs_m2"] = value.rcs_max_rcs_m2;
-  json["has_rcs_bistatic_psi_offset_deg"] = value.has_rcs_bistatic_psi_offset_deg;
-  json["rcs_bistatic_psi_offset_deg"] = value.rcs_bistatic_psi_offset_deg;
-  json["has_signal_beam_control_config"] = value.has_signal_beam_control_config;
-
-  Json signal_beam_control_config;
-  signal_beam_control_config["radar_orientation"] =
-      BuildJson(value.signal_beam_control_config.radar_orientation);
-  signal_beam_control_config["platform_attitude_deg"] =
-      BuildJson(value.signal_beam_control_config.platform_attitude_deg);
-  json["signal_beam_control_config"] = signal_beam_control_config;
-
   json["has_environment_runtime_config"] = value.has_environment_runtime_config;
   json["environment_runtime_config"] = BuildJson(value.environment_runtime_config);
-  json["has_platform_attitude_deg"] = value.has_platform_attitude_deg;
-  json["platform_attitude_deg"] = BuildJson(value.platform_attitude_deg);
   json["has_work_sub_mode"] = value.has_work_sub_mode;
   json["work_sub_mode"] = static_cast<int>(value.work_sub_mode);
   json["has_scan_center_deg"] = value.has_scan_center_deg;
@@ -504,7 +478,7 @@ core::session::RadarCycleResult RadarTraceSession::StepWithResult(
   return output;
 }
 
-void RadarTraceSession::UpdateSignalPipelineConfig(const common::config::SignalPipelineConfig& config) {
+void RadarTraceSession::UpdateSignalPipelineConfig(const signal::config::SignalPipelineConfig& config) {
   session_.UpdateSignalPipelineConfig(config);
   if (sink_) {
     Json payload;
@@ -531,7 +505,7 @@ void RadarTraceSession::SetJammingDetectionThresholdDb(float threshold_db) {
   }
 }
 
-void RadarTraceSession::ApplyRuntimeConfig(const common::config::RadarRuntimeConfigPatch& patch) {
+void RadarTraceSession::ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch) {
   session_.ApplyRuntimeConfig(patch);
   if (sink_) {
     Record("runtime_config", ToJson(patch));

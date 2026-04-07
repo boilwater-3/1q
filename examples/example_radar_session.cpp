@@ -10,9 +10,9 @@
 
 #include <iostream>
 
-#include "1q/airborne_radar/config/ConfigPresets.h"
+#include "1q/airborne_radar/core/session/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/common/utils/TargetFeatureUtils.h"
+#include "1q/airborne_radar/common/model/TargetFeatureUtils.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/airborne_radar/core/context/RadarInputValidation.h"
 #include "1q/airborne_radar/core/output/TrackOutputQueries.h"
@@ -36,26 +36,37 @@ int main() {
   // RadarSession 托管默认的 Context / Signal / Environment / Controller 链路，
   // 外部调用方只需要按周期喂输入并读取输出。
   //
-  // 使用 RadarSessionConfigBuilder 以探测任务预设为基础，叠加平台雷达硬件参数：
-  //   - EnablePhysicsDetection()：启用雷达方程 SNR/Pd 计算，使探测结果与硬件挂钩
-  //   - WithTransmitter*：填写平台实际发射机参数（功率、载频、带宽、脉宽、PRF）
-  //   - WithAntenna*：填写天线名义峰值增益与波束宽度
-  //   - WithReceiverNoiseFigureDb：填写接收机噪声系数
-  //   - WithJammingDetectionThresholdDb：调整干扰判定灵敏度（默认 6.0 dB）
+  // 使用 RadarSessionConfigBuilder 以探测任务预设为基础，叠加平台雷达硬件参数。
+  // Builder 使用分组编辑器：
+  //   - Detection()：探测域参数（发射机、天线、接收机、物理检测开关等）
+  //   - Environment()：环境默认配置（干扰判定阈值等）
   //
   // 若平台暂无硬件参数，可退回到最简形式：
-  //   RadarSession session(aq::MakeDetectionMissionRadarSessionConfig());
-  RadarSession session(aq::RadarSessionConfigBuilder(aq::MakeDetectionMissionRadarSessionConfig())
-                           .EnablePhysicsDetection()
-                           .WithTransmitterPeakPowerW(5e6f)
-                           .WithTransmitterFrequencyHz(9.3e9f)
-                           .WithTransmitterBandwidthHz(10e6f)
-                           .WithTransmitterPulseWidthS(20e-6f)
-                           .WithTransmitterPrfHz(500.0f)
-                           .WithAntennaMainBeamGainDb(38.0f)
-                           .WithAntennaNominalBeamwidthDeg(3.5f, 3.5f)
-                           .WithReceiverNoiseFigureDb(3.5f)
-                           .WithJammingDetectionThresholdDb(5.0f)
+  //   RadarSession session(airborne_radar::config::MakeDetectionMissionRadarSessionConfig());
+  const auto preset = airborne_radar::config::MakeDetectionMissionRadarSessionConfig();
+
+  airborne_radar::signal::config::SignalDetectionConfig detection = preset.detection;
+  detection.enable_physics_detection = true;
+  detection.transmitter.peak_power_w = 5e6f;
+  detection.transmitter.frequency_hz = 9.3e9f;
+  detection.transmitter.bandwidth_hz = 10e6f;
+  detection.transmitter.pulse_width_s = 20e-6f;
+  detection.transmitter.prf_hz = 500.0f;
+  detection.antenna.main_beam_gain_db = 38.0f;
+  detection.antenna.nominal_az_beamwidth_deg = 3.5f;
+  detection.antenna.nominal_el_beamwidth_deg = 3.5f;
+  detection.receiver.noise_figure_db = 3.5f;
+
+  airborne_radar::environment::EnvironmentDefaultConfig env = preset.environment_default_config;
+  env.jamming_detection_threshold_db = 5.0f;
+
+  RadarSession session(airborne_radar::config::RadarSessionConfigBuilder(preset)
+                           .Detection()
+              .WithDetection(detection)
+              .End()
+              .Environment()
+              .WithEnvironmentDefault(env)
+              .End()
                            .Build());
 
   // 周期 1：构造两批空中目标并执行一次无干扰探测。

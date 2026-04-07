@@ -7,14 +7,14 @@ namespace airborne_radar {
 namespace signal {
 namespace detection {
 
-SignalDetector::SignalDetector(common::config::RadarSystemConfig config)
+SignalDetector::SignalDetector(signal::config::SignalDetectionConfig config)
     : config_(config),
       thermal_noise_w_(
           RadarEquations::ComputeThermalNoisePower_W(config.transmitter, config.receiver)),
       rng_(42u) {  // 默认种子，可通过 SetRandomSeed 重置
 }
 
-void SignalDetector::UpdateConfig(common::config::RadarSystemConfig config) {
+void SignalDetector::UpdateConfig(signal::config::SignalDetectionConfig config) {
   config_ = config;
   thermal_noise_w_ =
       RadarEquations::ComputeThermalNoisePower_W(config_.transmitter, config_.receiver);
@@ -54,11 +54,11 @@ DetectionResult SignalDetector::Detect(const TargetReturn& target, const Environ
   // ④ 检测概率：使用单脉冲 SNR + 脉冲积累数量 N 的统一语义。
   const int effective_pulse_count = std::max(1, pulse_count);
   result.detection_prob = RadarEquations::ComputeDetectionProbability(
-      result.snr_db, config_.detection.cfar_pfa, target.swerling_type, effective_pulse_count);
+      result.snr_db, config_.detection_policy.cfar_pfa, target.swerling_type, effective_pulse_count);
 
   // ⑥ 蒙特卡洛判决
   // 若单脉冲 SNR 低于硬截断下限，直接判为未探测。
-  if (result.snr_db < config_.detection.min_snr_db) {
+  if (result.snr_db < config_.detection_policy.min_snr_db) {
     result.detected = false;
     result.detection_prob = 0.0f;
   } else {

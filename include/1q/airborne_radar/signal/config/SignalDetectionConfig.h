@@ -6,10 +6,10 @@
 #ifndef AIRBORNE_RADAR_CONFIG_SIGNAL_DETECTION_CONFIG_H_
 #define AIRBORNE_RADAR_CONFIG_SIGNAL_DETECTION_CONFIG_H_
 
-#include "1q/airborne_radar/config/AntennaPatternConfig.h"
+#include "1q/airborne_radar/signal/config/AntennaPatternConfig.h"
 
 namespace airborne_radar {
-namespace common {
+namespace signal {
 namespace config {
 
 /**
@@ -68,16 +68,6 @@ struct RcsPhysicsConfig {
 };
 
 /**
- * @brief 完整雷达系统配置（组合上述子配置）。
- */
-struct RadarSystemConfig {
-  TransmitterConfig transmitter; /**< 发射机 */
-  AntennaConfig antenna;         /**< 天线 */
-  ReceiverConfig receiver;       /**< 接收机 */
-  DetectionPolicy detection;     /**< 检测策略 */
-};
-
-/**
  * @brief Swerling RCS 起伏模型类型。
  */
 enum SwerlingModel {
@@ -93,7 +83,10 @@ enum SwerlingModel {
  */
 struct SignalDetectionConfig {
   bool enable_physics_detection{false}; /**< 是否启用物理层检测 */
-  RadarSystemConfig radar_system{};     /**< 雷达系统配置 */
+  TransmitterConfig transmitter{};      /**< 发射机配置 */
+  AntennaConfig antenna{};              /**< 天线配置 */
+  ReceiverConfig receiver{};            /**< 接收机配置 */
+  DetectionPolicy detection_policy{};   /**< 检测策略 */
   RcsPhysicsConfig rcs_physics{};       /**< 可选物理 RCS 覆盖配置 */
   float min_detection_margin_db{-2.0f}; /**< 最小检测裕量（dB） */
   int pulse_count{10};                  /**< 脉冲积累数量（物理检测路径要求 >=1） */
@@ -106,10 +99,9 @@ using SignalTransmitterConfig = TransmitterConfig;
 using SignalAntennaConfig = AntennaConfig;
 using SignalReceiverConfig = ReceiverConfig;
 using SignalDetectionPolicyConfig = DetectionPolicy;
-using SignalRadarSystemConfig = RadarSystemConfig;
 
 }  // namespace config
-}  // namespace common
+}  // namespace signal
 }  // namespace airborne_radar
 
 #endif  // AIRBORNE_RADAR_CONFIG_SIGNAL_DETECTION_CONFIG_H_

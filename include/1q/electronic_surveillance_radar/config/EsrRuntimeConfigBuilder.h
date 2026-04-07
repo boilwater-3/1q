@@ -11,16 +11,16 @@
 namespace electronic_surveillance_radar {
 namespace config {
 
-using core::session::EsrRuntimeConfigPatch;
-
 /**
  * @brief EsrRuntimeConfigBuilder 提供运行期补丁链式构造。
  */
 class ONEQ_API EsrRuntimeConfigBuilder {
  public:
-  explicit EsrRuntimeConfigBuilder(const EsrRuntimeConfigPatch& patch = {}) : patch_(patch) {}
+  explicit EsrRuntimeConfigBuilder(
+      const core::session::EsrRuntimeConfigPatch& patch = {}) : patch_(patch) {}
 
-  EsrRuntimeConfigBuilder& WithRuntimeConfigPatch(const EsrRuntimeConfigPatch& patch) {
+  EsrRuntimeConfigBuilder& WithRuntimeConfigPatch(
+      const core::session::EsrRuntimeConfigPatch& patch) {
     patch_ = patch;
     return *this;
   }
@@ -90,10 +90,10 @@ class ONEQ_API EsrRuntimeConfigBuilder {
     patch_.observation_jam_mark_threshold_w = value;
     return *this;
   }
-  EsrRuntimeConfigPatch Build() const { return patch_; }
+  core::session::EsrRuntimeConfigPatch Build() const { return patch_; }
 
  private:
-  EsrRuntimeConfigPatch patch_{};
+  core::session::EsrRuntimeConfigPatch patch_{};
 };
 
 }  // namespace config

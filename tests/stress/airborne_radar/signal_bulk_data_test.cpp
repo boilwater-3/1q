@@ -17,7 +17,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/common/model/TargetFeature.h"
-#include "1q/airborne_radar/config/SignalPipelineConfig.h"
+#include "1q/airborne_radar/signal/config/SignalPipelineConfig.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
@@ -89,7 +89,7 @@ std::unordered_set<std::uint64_t> BuildExternalIdSet(
 
 /// @brief 运行双周期 IMM 生命周期场景并返回总耗时。
 double RunImmLifecycleScenarioMs(std::size_t target_count) {
-  common::config::SignalPipelineConfig pipeline_config;
+  signal::config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.min_detection_margin_db = -100.0f;
   pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
   pipeline_config.lifecycle.enable_imm_lifecycle = true;
@@ -136,7 +136,7 @@ double RunImmLifecycleScenarioMs(std::size_t target_count) {
 TEST(SignalBulkDataTest, LargeBatchSingleCycleProducesConsistentMeasurements) {
   const std::size_t kTargetCount = 5000u;
 
-  common::config::SignalPipelineConfig pipeline_config;
+  signal::config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.min_detection_margin_db = -100.0f;
   signal::pipeline::SignalPipeline signal_pipeline(
       pipeline_config);
@@ -172,7 +172,7 @@ TEST(SignalBulkDataTest, LargeBatchSingleCycleProducesConsistentMeasurements) {
 TEST(SignalBulkDataTest, LargeBatchImmAutoLifecycleMaintainsHighMatchRateOnNextCycle) {
   const std::size_t kTargetCount = 2000u;
 
-  common::config::SignalPipelineConfig pipeline_config;
+  signal::config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.min_detection_margin_db = -100.0f;
   pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
   pipeline_config.lifecycle.enable_imm_lifecycle = true;
@@ -232,7 +232,7 @@ TEST(SignalBulkDataTest, TieredBatchSingleCycleReportsP50AndP95Latency) {
   }};
   const std::size_t kRepeatsPerTier = 5u;
 
-  common::config::SignalPipelineConfig pipeline_config;
+  signal::config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.min_detection_margin_db = -100.0f;
   signal::pipeline::SignalPipeline signal_pipeline(
       pipeline_config);
@@ -290,7 +290,7 @@ TEST(SignalBulkDataTest, TieredBatchSingleCycleReportsP50AndP95Latency) {
 TEST(SignalBulkDataTest, ExternalTargetIdStaysConsistentAcrossImmLifecycleCycles) {
   const std::size_t kTargetCount = 512u;
 
-  common::config::SignalPipelineConfig pipeline_config;
+  signal::config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.min_detection_margin_db = -100.0f;
   pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
   pipeline_config.lifecycle.enable_imm_lifecycle = true;

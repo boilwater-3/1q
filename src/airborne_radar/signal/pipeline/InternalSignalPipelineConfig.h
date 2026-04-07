@@ -32,32 +32,32 @@ namespace detail {
 
 inline bool NearlyEqual(float lhs, float rhs) { return std::fabs(lhs - rhs) <= 1e-5f; }
 
-inline bool EqualsEulerAnglesDeg(const common::config::EulerAnglesDeg& lhs,
-                                 const common::config::EulerAnglesDeg& rhs) {
+inline bool EqualsEulerAnglesDeg(const common::model::EulerAnglesDeg& lhs,
+                                 const common::model::EulerAnglesDeg& rhs) {
   return NearlyEqual(lhs.yaw_deg, rhs.yaw_deg) && NearlyEqual(lhs.pitch_deg, rhs.pitch_deg) &&
          NearlyEqual(lhs.roll_deg, rhs.roll_deg);
 }
 
-inline bool EqualsAzimuthElevationDeg(const common::config::AzimuthElevationDeg& lhs,
-                                      const common::config::AzimuthElevationDeg& rhs) {
+inline bool EqualsAzimuthElevationDeg(const common::model::AzimuthElevationDeg& lhs,
+                                      const common::model::AzimuthElevationDeg& rhs) {
   return NearlyEqual(lhs.az_deg, rhs.az_deg) && NearlyEqual(lhs.el_deg, rhs.el_deg);
 }
 
-inline bool EqualsAzimuthElevationLimitsDeg(const common::config::AzimuthElevationLimitsDeg& lhs,
-                                            const common::config::AzimuthElevationLimitsDeg& rhs) {
+inline bool EqualsAzimuthElevationLimitsDeg(const common::model::AzimuthElevationLimitsDeg& lhs,
+                                            const common::model::AzimuthElevationLimitsDeg& rhs) {
   return NearlyEqual(lhs.az_min_deg, rhs.az_min_deg) &&
          NearlyEqual(lhs.az_max_deg, rhs.az_max_deg) &&
          NearlyEqual(lhs.el_min_deg, rhs.el_min_deg) && NearlyEqual(lhs.el_max_deg, rhs.el_max_deg);
 }
 
-inline bool EqualsCommandedBeamwidthDeg(const common::config::CommandedBeamwidthDeg& lhs,
-                                        const common::config::CommandedBeamwidthDeg& rhs) {
+inline bool EqualsCommandedBeamwidthDeg(const common::model::CommandedBeamwidthDeg& lhs,
+                                        const common::model::CommandedBeamwidthDeg& rhs) {
   return NearlyEqual(lhs.commanded_az_beamwidth_deg, rhs.commanded_az_beamwidth_deg) &&
          NearlyEqual(lhs.commanded_el_beamwidth_deg, rhs.commanded_el_beamwidth_deg);
 }
 
-inline bool EqualsRadarOrientationConfig(const common::config::RadarOrientationConfig& lhs,
-                                         const common::config::RadarOrientationConfig& rhs) {
+inline bool EqualsRadarOrientationConfig(const common::model::RadarOrientationConfig& lhs,
+                                         const common::model::RadarOrientationConfig& rhs) {
   return EqualsEulerAnglesDeg(lhs.mount_angles_deg, rhs.mount_angles_deg) &&
          EqualsAzimuthElevationDeg(lhs.scan_center_deg, rhs.scan_center_deg) &&
          EqualsAzimuthElevationLimitsDeg(lhs.mechanical_scan_limits_deg,
@@ -72,8 +72,8 @@ inline bool EqualsRadarOrientationConfig(const common::config::RadarOrientationC
          lhs.stabilization_mode == rhs.stabilization_mode;
 }
 
-inline bool EqualsAntennaPatternConfig(const common::config::AntennaPatternConfig& lhs,
-                                       const common::config::AntennaPatternConfig& rhs) {
+inline bool EqualsAntennaPatternConfig(const signal::config::AntennaPatternConfig& lhs,
+                                       const signal::config::AntennaPatternConfig& rhs) {
   return lhs.model_type == rhs.model_type &&
          NearlyEqual(lhs.max_sidelobe_level_db, rhs.max_sidelobe_level_db) &&
          NearlyEqual(lhs.backlobe_level_db, rhs.backlobe_level_db) &&
@@ -82,8 +82,8 @@ inline bool EqualsAntennaPatternConfig(const common::config::AntennaPatternConfi
          EqualsAzimuthElevationDeg(lhs.boresight_offset_deg, rhs.boresight_offset_deg);
 }
 
-inline bool EqualsTransmitterConfig(const common::config::TransmitterConfig& lhs,
-                                    const common::config::TransmitterConfig& rhs) {
+inline bool EqualsTransmitterConfig(const signal::config::TransmitterConfig& lhs,
+                                    const signal::config::TransmitterConfig& rhs) {
   return NearlyEqual(lhs.peak_power_w, rhs.peak_power_w) &&
          NearlyEqual(lhs.frequency_hz, rhs.frequency_hz) &&
          NearlyEqual(lhs.bandwidth_hz, rhs.bandwidth_hz) &&
@@ -91,8 +91,8 @@ inline bool EqualsTransmitterConfig(const common::config::TransmitterConfig& lhs
          NearlyEqual(lhs.transmit_loss_db, rhs.transmit_loss_db);
 }
 
-inline bool EqualsAntennaConfig(const common::config::AntennaConfig& lhs,
-                                const common::config::AntennaConfig& rhs) {
+inline bool EqualsAntennaConfig(const signal::config::AntennaConfig& lhs,
+                                const signal::config::AntennaConfig& rhs) {
   return NearlyEqual(lhs.main_beam_gain_db, rhs.main_beam_gain_db) &&
          NearlyEqual(lhs.nominal_az_beamwidth_deg, rhs.nominal_az_beamwidth_deg) &&
          NearlyEqual(lhs.nominal_el_beamwidth_deg, rhs.nominal_el_beamwidth_deg) &&
@@ -100,27 +100,27 @@ inline bool EqualsAntennaConfig(const common::config::AntennaConfig& lhs,
          lhs.enable_directional_pattern == rhs.enable_directional_pattern;
 }
 
-inline bool EqualsReceiverConfig(const common::config::ReceiverConfig& lhs,
-                                 const common::config::ReceiverConfig& rhs) {
+inline bool EqualsReceiverConfig(const signal::config::ReceiverConfig& lhs,
+                                 const signal::config::ReceiverConfig& rhs) {
   return NearlyEqual(lhs.noise_figure_db, rhs.noise_figure_db) &&
          NearlyEqual(lhs.receive_loss_db, rhs.receive_loss_db);
 }
 
-inline bool EqualsDetectionPolicy(const common::config::DetectionPolicy& lhs,
-                                  const common::config::DetectionPolicy& rhs) {
+inline bool EqualsDetectionPolicy(const signal::config::DetectionPolicy& lhs,
+                                  const signal::config::DetectionPolicy& rhs) {
   return NearlyEqual(lhs.cfar_pfa, rhs.cfar_pfa) && NearlyEqual(lhs.min_snr_db, rhs.min_snr_db);
 }
 
-inline bool EqualsRadarSystemConfig(const common::config::RadarSystemConfig& lhs,
-                                    const common::config::RadarSystemConfig& rhs) {
+inline bool EqualsDetectionCoreConfig(const signal::config::SignalDetectionConfig& lhs,
+                                      const signal::config::SignalDetectionConfig& rhs) {
   return EqualsTransmitterConfig(lhs.transmitter, rhs.transmitter) &&
          EqualsAntennaConfig(lhs.antenna, rhs.antenna) &&
          EqualsReceiverConfig(lhs.receiver, rhs.receiver) &&
-         EqualsDetectionPolicy(lhs.detection, rhs.detection);
+         EqualsDetectionPolicy(lhs.detection_policy, rhs.detection_policy);
 }
 
-inline bool EqualsRcsPhysicsConfig(const common::config::RcsPhysicsConfig& lhs,
-                                   const common::config::RcsPhysicsConfig& rhs) {
+inline bool EqualsRcsPhysicsConfig(const signal::config::RcsPhysicsConfig& lhs,
+                                   const signal::config::RcsPhysicsConfig& rhs) {
   return lhs.enable_physical_rcs == rhs.enable_physical_rcs &&
          NearlyEqual(lhs.frequency_hz, rhs.frequency_hz) &&
          NearlyEqual(lhs.physics_mix_ratio, rhs.physics_mix_ratio) &&
@@ -132,38 +132,38 @@ inline bool EqualsRcsPhysicsConfig(const common::config::RcsPhysicsConfig& lhs,
          NearlyEqual(lhs.bistatic_psi_offset_deg, rhs.bistatic_psi_offset_deg);
 }
 
-inline bool EqualsSignalDetectionConfig(const common::config::SignalDetectionConfig& lhs,
-                                        const common::config::SignalDetectionConfig& rhs) {
+inline bool EqualsSignalDetectionConfig(const signal::config::SignalDetectionConfig& lhs,
+                                        const signal::config::SignalDetectionConfig& rhs) {
   return lhs.enable_physics_detection == rhs.enable_physics_detection &&
-         EqualsRadarSystemConfig(lhs.radar_system, rhs.radar_system) &&
+         EqualsDetectionCoreConfig(lhs, rhs) &&
          EqualsRcsPhysicsConfig(lhs.rcs_physics, rhs.rcs_physics) &&
          NearlyEqual(lhs.min_detection_margin_db, rhs.min_detection_margin_db) &&
          lhs.pulse_count == rhs.pulse_count;
 }
 
-inline bool EqualsSignalBeamControlConfig(const common::config::SignalBeamControlConfig& lhs,
-                                          const common::config::SignalBeamControlConfig& rhs) {
+inline bool EqualsSignalBeamControlConfig(const signal::config::SignalBeamControlConfig& lhs,
+                                          const signal::config::SignalBeamControlConfig& rhs) {
   return EqualsRadarOrientationConfig(lhs.radar_orientation, rhs.radar_orientation) &&
          EqualsEulerAnglesDeg(lhs.platform_attitude_deg, rhs.platform_attitude_deg);
 }
 
-inline bool EqualsSignalTrackingConfig(const common::config::SignalTrackingConfig& lhs,
-                                       const common::config::SignalTrackingConfig& rhs) {
+inline bool EqualsSignalTrackingConfig(const signal::config::SignalTrackingConfig& lhs,
+                                       const signal::config::SignalTrackingConfig& rhs) {
   return lhs.enable_kalman_filter == rhs.enable_kalman_filter &&
          NearlyEqual(lhs.kalman_measurement_noise_std, rhs.kalman_measurement_noise_std) &&
          lhs.kalman_update_backend == rhs.kalman_update_backend;
 }
 
-inline bool EqualsLifecycleConfig(const common::config::LifecycleConfig& lhs,
-                                  const common::config::LifecycleConfig& rhs) {
+inline bool EqualsLifecycleConfig(const signal::config::LifecycleConfig& lhs,
+                                  const signal::config::LifecycleConfig& rhs) {
   return lhs.confirm_hits == rhs.confirm_hits &&
          lhs.max_miss_before_lost == rhs.max_miss_before_lost &&
          lhs.max_lost_cycles == rhs.max_lost_cycles;
 }
 
 inline bool EqualsSignalLifecycleConfigIgnoringImm(
-    const common::config::SignalLifecycleConfig& lhs,
-    const common::config::SignalLifecycleConfig& rhs) {
+    const signal::config::SignalLifecycleConfig& lhs,
+    const signal::config::SignalLifecycleConfig& rhs) {
   return lhs.enable_auto_lifecycle_manager == rhs.enable_auto_lifecycle_manager &&
          EqualsLifecycleConfig(lhs.lifecycle_config, rhs.lifecycle_config);
 }
@@ -184,13 +184,13 @@ inline bool MatchesProfileSignatureIgnoringImm(const SignalPipelineConfig& publi
 inline InternalSignalPipelineProfile ResolveInternalProfileFromPublicConfig(
     const SignalPipelineConfig& public_config) {
   const SignalPipelineConfig robust_signature =
-      common::config::internal::BuildHighRobustnessPresetConfig();
+      ::airborne_radar::config::internal::BuildHighRobustnessPresetConfig();
   if (detail::MatchesProfileSignatureIgnoringImm(public_config, robust_signature)) {
     return InternalSignalPipelineProfile::kRobustPreset;
   }
 
   const SignalPipelineConfig tracking_signature =
-      common::config::internal::BuildTrackingMissionPresetConfig();
+      ::airborne_radar::config::internal::BuildTrackingMissionPresetConfig();
   if (detail::MatchesProfileSignatureIgnoringImm(public_config, tracking_signature)) {
     return InternalSignalPipelineProfile::kTrackingPreset;
   }

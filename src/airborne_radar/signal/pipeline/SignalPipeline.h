@@ -75,13 +75,13 @@ class SignalPipeline final : public ISignalPipeline {
    * @param platform_attitude_deg 当前平台姿态。
    */
   void UpdatePlatformAttitude(
-      const common::config::PlatformAttitudeDeg& platform_attitude_deg) override;
+      const common::model::PlatformAttitudeDeg& platform_attitude_deg) override;
 
   /**
    * @brief 获取当前缓存的平台姿态。
    * @return 当前平台姿态。
    */
-  common::config::PlatformAttitudeDeg GetPlatformAttitude() const override;
+  common::model::PlatformAttitudeDeg GetPlatformAttitude() const override;
 
   /**
    * @brief 更新当前生效的控制真值。

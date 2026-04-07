@@ -18,60 +18,21 @@ namespace session {
 
 namespace {
 
-bool IsFinitePositive(float value) { return std::isfinite(value) && value > 0.0f; }
-
-bool ValidatePhysicsDetectionConfig(const common::config::SignalDetectionConfig& detection,
-                                    std::string* reason) {
-  if (!detection.enable_physics_detection) {
-    return true;
-  }
-
-  const common::config::TransmitterConfig& tx = detection.radar_system.transmitter;
-  if (!IsFinitePositive(tx.peak_power_w)) {
-    if (reason != nullptr) {
-      *reason = "peak_power_w must be finite and > 0";
-    }
-    return false;
-  }
-  if (!IsFinitePositive(tx.pulse_width_s)) {
-    if (reason != nullptr) {
-      *reason = "pulse_width_s must be finite and > 0";
-    }
-    return false;
-  }
-  if (!IsFinitePositive(tx.bandwidth_hz)) {
-    if (reason != nullptr) {
-      *reason = "bandwidth_hz must be finite and > 0";
-    }
-    return false;
-  }
-  if (!IsFinitePositive(tx.prf_hz)) {
-    if (reason != nullptr) {
-      *reason = "prf_hz must be finite and > 0";
-    }
-    return false;
-  }
-  if (detection.pulse_count < 1) {
-    if (reason != nullptr) {
-      *reason = "pulse_count must be >= 1";
-    }
-    return false;
-  }
-  const float duty_cycle = tx.prf_hz * tx.pulse_width_s;
-  if (!std::isfinite(duty_cycle) || duty_cycle > 1.0f) {
-    if (reason != nullptr) {
-      *reason = "prf_hz * pulse_width_s must be finite and <= 1";
-    }
-    return false;
-  }
-  return true;
+signal::config::SignalPipelineConfig BuildSignalPipelineConfig(
+    const RadarSessionConfig& session_config) {
+  signal::config::SignalPipelineConfig pipeline_config;
+  pipeline_config.detection = session_config.detection;
+  pipeline_config.beam_control = session_config.beam_control;
+  pipeline_config.tracking = session_config.tracking;
+  pipeline_config.lifecycle = session_config.lifecycle;
+  return pipeline_config;
 }
 
 }  // namespace
 
 struct RadarSession::Impl {
   explicit Impl(const RadarSessionConfig& config)
-      : runtime_signal_pipeline_config(config.signal_pipeline_config),
+      : runtime_signal_pipeline_config(BuildSignalPipelineConfig(config)),
         runtime_environment_model_config(config.environment_default_config.model_config),
         runtime_jamming_detection_threshold_db(
             config.environment_default_config.jamming_detection_threshold_db),
@@ -88,7 +49,7 @@ struct RadarSession::Impl {
   }
 
   Impl(const RadarSessionConfig& config, signal::pipeline::ISignalPipeline& signal_pipeline_ref)
-      : runtime_signal_pipeline_config(config.signal_pipeline_config),
+      : runtime_signal_pipeline_config(BuildSignalPipelineConfig(config)),
         runtime_environment_model_config(config.environment_default_config.model_config),
         runtime_jamming_detection_threshold_db(
             config.environment_default_config.jamming_detection_threshold_db),
@@ -106,7 +67,7 @@ struct RadarSession::Impl {
   }
 
   Impl(const RadarSessionConfig& config, environment::IEnvironmentService& environment_service_ref)
-      : runtime_signal_pipeline_config(config.signal_pipeline_config),
+      : runtime_signal_pipeline_config(BuildSignalPipelineConfig(config)),
         runtime_environment_model_config(config.environment_default_config.model_config),
         runtime_jamming_detection_threshold_db(
             config.environment_default_config.jamming_detection_threshold_db),
@@ -124,7 +85,7 @@ struct RadarSession::Impl {
   }
 
   Impl(const RadarSessionConfig& config, controller::RadarController& controller_ref)
-      : runtime_signal_pipeline_config(config.signal_pipeline_config),
+      : runtime_signal_pipeline_config(BuildSignalPipelineConfig(config)),
         runtime_environment_model_config(config.environment_default_config.model_config),
         runtime_jamming_detection_threshold_db(
             config.environment_default_config.jamming_detection_threshold_db),
@@ -141,7 +102,7 @@ struct RadarSession::Impl {
        signal::pipeline::ISignalPipeline& signal_pipeline_ref,
        environment::IEnvironmentService& environment_service_ref,
        controller::RadarController& controller_ref)
-      : runtime_signal_pipeline_config(config.signal_pipeline_config),
+      : runtime_signal_pipeline_config(BuildSignalPipelineConfig(config)),
         runtime_environment_model_config(config.environment_default_config.model_config),
         runtime_jamming_detection_threshold_db(
             config.environment_default_config.jamming_detection_threshold_db),
@@ -169,7 +130,7 @@ struct RadarSession::Impl {
     return result;
   }
 
-  common::config::SignalPipelineConfig runtime_signal_pipeline_config{};
+  signal::config::SignalPipelineConfig runtime_signal_pipeline_config{};
   environment::EnvironmentModelConfig runtime_environment_model_config{};
   float runtime_jamming_detection_threshold_db{6.0f};
   std::unique_ptr<context::IRadarContext> owned_radar_context;
@@ -236,7 +197,7 @@ signal::pipeline::AssociationQualityMetrics RadarSession::GetLastAssociationQual
   return impl_->signal_pipeline.GetLastAssociationQualityMetrics();
 }
 
-void RadarSession::UpdateSignalPipelineConfig(const common::config::SignalPipelineConfig& config) {
+void RadarSession::UpdateSignalPipelineConfig(const signal::config::SignalPipelineConfig& config) {
   impl_->runtime_signal_pipeline_config = config;
   impl_->signal_pipeline.UpdateConfig(impl_->runtime_signal_pipeline_config);
 }
@@ -252,89 +213,9 @@ void RadarSession::SetJammingDetectionThresholdDb(float threshold_db) {
       impl_->runtime_jamming_detection_threshold_db);
 }
 
-void RadarSession::ApplyRuntimeConfig(const common::config::RadarRuntimeConfigPatch& patch) {
+void RadarSession::ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch) {
   bool should_update_signal_pipeline_config = false;
-  if (patch.has_signal_pipeline_config) {
-    std::string reason;
-    if (ValidatePhysicsDetectionConfig(patch.signal_pipeline_config.detection, &reason)) {
-      impl_->runtime_signal_pipeline_config = patch.signal_pipeline_config;
-      should_update_signal_pipeline_config = true;
-    } else {
-      PROJECT_LOG_ERROR(
-          "[RadarSession] rejected signal_pipeline_config patch: {}",
-          reason);
-    }
-  }
-
-  common::config::SignalPipelineConfig* signal_config = &impl_->runtime_signal_pipeline_config;
-  if (patch.has_signal_detection_config) {
-    std::string reason;
-    if (ValidatePhysicsDetectionConfig(patch.signal_detection_config, &reason)) {
-      signal_config->detection = patch.signal_detection_config;
-      should_update_signal_pipeline_config = true;
-    } else {
-      PROJECT_LOG_ERROR(
-          "[RadarSession] rejected signal_detection_config patch: {}",
-          reason);
-    }
-    if (!patch.signal_detection_config.enable_physics_detection) {
-      constexpr float kDefaultCfarPfa = 1e-6f;
-      constexpr float kDefaultMinSnrDb = -10.0f;
-      const bool cfar_modified =
-          std::fabs(patch.signal_detection_config.radar_system.detection.cfar_pfa - kDefaultCfarPfa) >
-          1.0e-7f;
-      const bool snr_modified =
-          std::fabs(patch.signal_detection_config.radar_system.detection.min_snr_db - kDefaultMinSnrDb) >
-          1.0e-5f;
-      if (cfar_modified || snr_modified) {
-        PROJECT_LOG_WARN(
-            "[RadarSession] cfar_pfa/min_snr_db modified while "
-            "enable_physics_detection=false; these parameters have no effect "
-            "in the heuristic detection path.");
-      }
-    }
-  }
-  if (patch.has_rcs_enable_physical_override) {
-    signal_config->detection.rcs_physics.enable_physical_rcs = patch.rcs_enable_physical_override;
-    should_update_signal_pipeline_config = true;
-  }
-  if (patch.has_rcs_physics_frequency_hz) {
-    signal_config->detection.rcs_physics.frequency_hz = patch.rcs_physics_frequency_hz;
-    should_update_signal_pipeline_config = true;
-  }
-  if (patch.has_rcs_physics_mix_ratio) {
-    signal_config->detection.rcs_physics.physics_mix_ratio = patch.rcs_physics_mix_ratio;
-    should_update_signal_pipeline_config = true;
-  }
-  if (patch.has_rcs_physics_cylinder_weight) {
-    signal_config->detection.rcs_physics.cylinder_weight = patch.rcs_physics_cylinder_weight;
-    should_update_signal_pipeline_config = true;
-  }
-  if (patch.has_rcs_equivalent_radius_range) {
-    signal_config->detection.rcs_physics.min_equivalent_radius_m =
-        patch.rcs_min_equivalent_radius_m;
-    signal_config->detection.rcs_physics.max_equivalent_radius_m =
-        patch.rcs_max_equivalent_radius_m;
-    should_update_signal_pipeline_config = true;
-  }
-  if (patch.has_rcs_output_range_m2) {
-    signal_config->detection.rcs_physics.min_rcs_m2 = patch.rcs_min_rcs_m2;
-    signal_config->detection.rcs_physics.max_rcs_m2 = patch.rcs_max_rcs_m2;
-    should_update_signal_pipeline_config = true;
-  }
-  if (patch.has_rcs_bistatic_psi_offset_deg) {
-    signal_config->detection.rcs_physics.bistatic_psi_offset_deg =
-        patch.rcs_bistatic_psi_offset_deg;
-    should_update_signal_pipeline_config = true;
-  }
-  if (patch.has_signal_beam_control_config) {
-    signal_config->beam_control = patch.signal_beam_control_config;
-    should_update_signal_pipeline_config = true;
-  }
-  if (patch.has_platform_attitude_deg) {
-    signal_config->beam_control.platform_attitude_deg = patch.platform_attitude_deg;
-    should_update_signal_pipeline_config = true;
-  }
+  signal::config::SignalPipelineConfig* signal_config = &impl_->runtime_signal_pipeline_config;
   if (patch.has_work_sub_mode) {
     signal_config->beam_control.radar_orientation.work_sub_mode = patch.work_sub_mode;
     should_update_signal_pipeline_config = true;

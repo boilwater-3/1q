@@ -36,12 +36,12 @@
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/config/ConfigPresets.h"
+#include "1q/airborne_radar/core/session/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/common/model/DecisionTrackSnapshot.h"
-#include "1q/airborne_radar/common/control/RadarCommand.h"
-#include "1q/airborne_radar/common/control/RadarControlProfile.h"
+#include "1q/airborne_radar/extension/control/RadarCommand.h"
+#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/common/utils/TargetFeatureUtils.h"
+#include "1q/airborne_radar/common/model/TargetFeatureUtils.h"
 #include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/airborne_radar/core/session/RadarCycleResult.h"
@@ -180,17 +180,20 @@ std::unique_ptr<airborne_radar::core::session::RadarSession> MakeSession() {
   namespace aq = airborne_radar::common;
   auto session = std::unique_ptr<airborne_radar::core::session::RadarSession>(
       new airborne_radar::core::session::RadarSession(
-          aq::RadarSessionConfigBuilder(aq::MakeDetectionMissionRadarSessionConfig())
+          airborne_radar::config::RadarSessionConfigBuilder(airborne_radar::config::MakeDetectionMissionRadarSessionConfig())
+              .Detection()
               .EnablePhysicsDetection()
-              .WithTransmitterPeakPowerW(5e6f)
-              .WithTransmitterFrequencyHz(9.3e9f)
-              .WithTransmitterBandwidthHz(10e6f)
-              .WithTransmitterPulseWidthS(20e-6f)
-              .WithTransmitterPrfHz(500.0f)
-              .WithAntennaMainBeamGainDb(38.0f)
-              .WithAntennaNominalBeamwidthDeg(3.5f, 3.5f)
-              .WithReceiverNoiseFigureDb(3.5f)
+              .WithPeakPowerW(5e6f)
+              .WithFrequencyHz(9.3e9f)
+              .WithBandwidthHz(10e6f)
+              .WithPulseWidthS(20e-6f)
+              .WithPrfHz(500.0f)
+              .WithMainBeamGainDb(38.0f)
+              .WithNoiseFigureDb(3.5f)
+              .End()
+              .Environment()
               .WithJammingDetectionThresholdDb(5.0f)
+              .End()
               .Build()));
 
   airborne_radar::environment::EnvironmentModelConfig env_cfg;

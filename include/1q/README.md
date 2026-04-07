@@ -27,7 +27,8 @@
 - `airborne_radar/environment/`：环境输入与构造辅助。
 - `airborne_radar/decision/pipeline/`：决策管线契约类型。
 - `airborne_radar/signal/pipeline/`：信号管线契约类型。
-- `airborne_radar/common/`：控制、目标、输出等公共域模型。
+- `airborne_radar/common/`：目标、输出等公共域模型（纯输入输出契约为主）。
+- `airborne_radar/extension/`：外部接管行为接口相关类型（如 control 指令/控制真值）。
 - `airborne_radar/tools/`：调试/追踪辅助封装。
 
 ## Electronic Surveillance Radar (ESR)

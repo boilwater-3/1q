@@ -9,8 +9,8 @@
 #include <cstdint>
 #include <vector>
 
-#include "1q/airborne_radar/common/control/ControlDirective.h"
-#include "1q/airborne_radar/common/control/RadarControlProfile.h"
+#include "1q/airborne_radar/extension/control/ControlDirective.h"
+#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 
 namespace airborne_radar {
 namespace decision {

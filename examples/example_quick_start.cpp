@@ -14,17 +14,17 @@
 #include <unordered_map>
 #include <vector>
 
-#include "1q/airborne_radar/config/ConfigPresets.h"
+#include "1q/airborne_radar/core/session/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/common/model/TargetFeatureBuilder.h"
-#include "1q/airborne_radar/common/utils/TargetFeatureUtils.h"
+#include "1q/airborne_radar/common/model/TargetFeatureUtils.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/airborne_radar/core/context/RadarInputValidation.h"
 #include "1q/airborne_radar/core/output/TrackOutputQueries.h"
 #include "1q/airborne_radar/core/session/RadarSession.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "1q/airborne_radar/config/SignalPipelineConfig.h"
+#include "1q/airborne_radar/signal/config/SignalPipelineConfig.h"
 
 namespace {
 
@@ -60,19 +60,23 @@ int main() {
   //    若平台有确定的雷达硬件参数（发射机功率、载频、天线增益等），
   //    推荐改用 RadarSessionConfigBuilder 在预设基础上叠加：
   //
+  //      airborne_radar::signal::config::SignalDetectionConfig detection =
+  //          preset.detection;
+  //      detection.enable_physics_detection = true;
+  //      detection.transmitter.peak_power_w = 5e6f;
+  //      detection.transmitter.frequency_hz = 9.3e9f;
+  //      detection.antenna.main_beam_gain_db = 38.0f;
+  //      detection.receiver.noise_figure_db = 3.5f;
   //      session_t session(
-  //          aq::RadarSessionConfigBuilder(
-  //              aq::MakeDetectionMissionRadarSessionConfig())
-  //              .EnablePhysicsDetection()
-  //              .WithTransmitterPeakPowerW(5e6f)
-  //              .WithTransmitterFrequencyHz(9.3e9f)
-  //              .WithAntennaMainBeamGainDb(38.0f)
-  //              .WithReceiverNoiseFigureDb(3.5f)
+  //          airborne_radar::config::RadarSessionConfigBuilder(preset)
+  //              .Detection()
+  //              .WithDetection(detection)
+  //              .End()
   //              .Build());
   //
   //    详细示例参见 example_radar_session.cpp。
   // =========================================================================
-  session_t session(aq::MakeDetectionMissionRadarSessionConfig());
+  session_t session(airborne_radar::config::MakeDetectionMissionRadarSessionConfig());
 
   // 使用 TargetFeatureBuilder 构造目标（P1-3），避免参数位置依赖错误。
   ctx::RadarCycleInput input;
@@ -167,7 +171,7 @@ int main() {
   // =========================================================================
 
   // 切换为稳健模式（更保守的跟踪参数）
-  session.UpdateSignalPipelineConfig(aq::MakeHighRobustnessSignalPipelineConfig());
+  session.UpdateSignalPipelineConfig(airborne_radar::config::MakeHighRobustnessSignalPipelineConfig());
 
   // 提高干扰判定灵敏度（默认 6.0 dB，调低意味着更容易触发干扰标记）
   session.SetJammingDetectionThresholdDb(4.5f);

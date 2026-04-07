@@ -5,19 +5,18 @@
 #include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
-namespace common {
 namespace config {
 
 namespace {
 
 bool IsFinitePositive(float value) { return std::isfinite(value) && value > 0.0f; }
 
-void WarnInvalidPhysicsDetectionConfig(const common::config::SignalDetectionConfig& detection) {
+void WarnInvalidPhysicsDetectionConfig(const signal::config::SignalDetectionConfig& detection) {
   if (!detection.enable_physics_detection) {
     return;
   }
 
-  const common::config::TransmitterConfig& tx = detection.radar_system.transmitter;
+  const signal::config::TransmitterConfig& tx = detection.transmitter;
   if (!IsFinitePositive(tx.peak_power_w)) {
     PROJECT_LOG_WARN(
         "[RadarSessionConfigBuilder] physics detection enabled but peak_power_w={} is invalid.",
@@ -55,7 +54,7 @@ void WarnInvalidPhysicsDetectionConfig(const common::config::SignalDetectionConf
 }  // namespace
 
 core::session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
-  const auto& tx = config_.signal_pipeline_config.detection.radar_system.transmitter;
+  const auto& tx = config_.detection.transmitter;
   if (tx.peak_power_w <= 0.0f) {
     PROJECT_LOG_WARN(
         "[RadarSessionConfigBuilder] peak_power_w={} is non-positive; "
@@ -74,8 +73,7 @@ core::session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
         "range resolution will be invalid.",
         tx.bandwidth_hz);
   }
-  const float nf_db =
-      config_.signal_pipeline_config.detection.radar_system.receiver.noise_figure_db;
+  const float nf_db = config_.detection.receiver.noise_figure_db;
   if (nf_db < 0.0f) {
     PROJECT_LOG_WARN(
         "[RadarSessionConfigBuilder] noise_figure_db={} is negative; "
@@ -83,7 +81,7 @@ core::session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
         nf_db);
   }
 
-  const auto& rcs = config_.signal_pipeline_config.detection.rcs_physics;
+  const auto& rcs = config_.detection.rcs_physics;
   if (rcs.enable_physical_rcs) {
     if (rcs.physics_mix_ratio < 0.0f || rcs.physics_mix_ratio > 1.0f) {
       PROJECT_LOG_WARN(
@@ -118,9 +116,9 @@ core::session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
     }
   }
 
-  const auto& detection_policy = config_.signal_pipeline_config.detection.radar_system.detection;
-  WarnInvalidPhysicsDetectionConfig(config_.signal_pipeline_config.detection);
-  if (!config_.signal_pipeline_config.detection.enable_physics_detection) {
+  const auto& detection_policy = config_.detection.detection_policy;
+  WarnInvalidPhysicsDetectionConfig(config_.detection);
+  if (!config_.detection.enable_physics_detection) {
     constexpr float kDefaultCfarPfa = 1e-6f;
     constexpr float kDefaultMinSnrDb = -10.0f;
     if (std::fabs(detection_policy.cfar_pfa - kDefaultCfarPfa) > 1.0e-7f ||
@@ -136,5 +134,4 @@ core::session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
 }
 
 }  // namespace config
-}  // namespace common
 }  // namespace airborne_radar

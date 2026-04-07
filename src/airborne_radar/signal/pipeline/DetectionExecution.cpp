@@ -31,11 +31,11 @@ float ResolveRcsPhysicsFrequencyHz(const SignalPipelineConfig& runtime_config) {
   if (config_frequency_hz > 0.0f) {
     return config_frequency_hz;
   }
-  return runtime_config.detection.radar_system.transmitter.frequency_hz;
+  return runtime_config.detection.transmitter.frequency_hz;
 }
 
 float ComputeEquivalentRadiusM(float input_rcs_m2,
-                               const common::config::RcsPhysicsConfig& rcs_config) {
+                               const signal::config::RcsPhysicsConfig& rcs_config) {
   const float min_radius_m = std::max(rcs_config.min_equivalent_radius_m, 1.0e-3f);
   const float max_radius_m = std::max(rcs_config.max_equivalent_radius_m, min_radius_m);
   const float safe_input_rcs_m2 = std::max(input_rcs_m2, 0.0f);
@@ -47,7 +47,7 @@ float ComputeEffectiveTargetRcsM2(const common::model::TargetFeature& target,
                                   const detection::ResolvedTargetGeometry& geometry,
                                   const SignalPipelineConfig& runtime_config) {
   const float input_rcs_m2 = std::max(target.current_track_rcs, 0.0f);
-  const common::config::RcsPhysicsConfig& rcs_config = runtime_config.detection.rcs_physics;
+  const signal::config::RcsPhysicsConfig& rcs_config = runtime_config.detection.rcs_physics;
   if (!rcs_config.enable_physical_rcs) {
     return input_rcs_m2;
   }
@@ -216,7 +216,7 @@ void RunPhysicalDetectionPass(const common::model::TargetFeatureList& input,
   env.clutter_noise_w = clutter_w;
   env.jam_noise_w = jam_w;
 
-  signal_detector->UpdateConfig(runtime_config.detection.radar_system);
+  signal_detector->UpdateConfig(runtime_config.detection);
 
   for (std::size_t i = 0; i < count; ++i) {
     (*buffers->target_geometry)[i] = detection::TargetGeometryResolver::Resolve(input[i]);
@@ -226,10 +226,10 @@ void RunPhysicalDetectionPass(const common::model::TargetFeatureList& input,
     target.rcs_m2 = effective_rcs_m2;
     target.range_m = (*buffers->target_geometry)[i].range_m;
     target.swerling_type =
-        static_cast<common::config::SwerlingModel>(input[i].target_swerling_type);
+        static_cast<signal::config::SwerlingModel>(input[i].target_swerling_type);
 
     const detection::ResolvedBeamState beam_state =
-        detection::BeamControlResolver::Resolve(runtime_config.detection.radar_system.antenna,
+        detection::BeamControlResolver::Resolve(runtime_config.detection.antenna,
                                                 runtime_config.beam_control.radar_orientation,
                                                 runtime_config.beam_control.platform_attitude_deg,
                                                 (*buffers->target_geometry)[i].look_angles_deg);
@@ -238,7 +238,7 @@ void RunPhysicalDetectionPass(const common::model::TargetFeatureList& input,
     const detection::MeasurementErrorState measurement_error =
         detection::MeasurementErrorModel::Compute(
             detection_result.snr_db, beam_state.effective_beamwidth_deg,
-            runtime_config.detection.radar_system.transmitter.bandwidth_hz);
+            runtime_config.detection.transmitter.bandwidth_hz);
 
     (*buffers->signal_term_db)[i] = detection_result.snr_db;
     (*buffers->speed_penalty_db)[i] = 0.0f;

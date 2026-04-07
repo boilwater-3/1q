@@ -5,14 +5,14 @@
 
 #include <gtest/gtest.h>
 
-#include "1q/airborne_radar/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/common/model/RadarOrientationConfig.h"
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"
 
 namespace airborne_radar {
 namespace tests {
 
-using common::config::RadarOrientationConfig;
-using common::config::AntennaConfig;
+using common::model::RadarOrientationConfig;
+using signal::config::AntennaConfig;
 using signal::detection::EffectiveBeamwidthDeg;
 using signal::detection::ResolveEffectiveBeamwidth;
 
