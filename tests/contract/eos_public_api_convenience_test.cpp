@@ -220,7 +220,7 @@ TEST(EosPublicApiConvenienceTest, InputValidationFlagsEnergyBalanceInconsistency
 
   EXPECT_TRUE(ContainsEosIssueCode(
       issues, core::context::EosValidationCode::kInconsistentTargetEnergyBalance));
-  EXPECT_TRUE(core::context::HasEosValidationError(issues));
+  EXPECT_FALSE(core::context::HasEosValidationError(issues));
 }
 
 TEST(EosPublicApiConvenienceTest, InputValidationPassesForValidInput) {

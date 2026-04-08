@@ -74,7 +74,7 @@ TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderOverridesLayeredAndPipelin
   EXPECT_TRUE(config.enable_layered_config);
   EXPECT_EQ(config.layered_config.mission.work_mode, core::session::EsrWorkMode::kRwr);
   EXPECT_NEAR(config.layered_config.mission.scan_rate_hz, 2.0f, 1e-5f);
-  EXPECT_FALSE(config.pipeline_config.statistical_detection.enable_statistical_detection);
+  EXPECT_FALSE(config.pipeline_config.spectral_analysis.enable);
   EXPECT_NEAR(config.pipeline_config.detection.min_detect_snr_db, 8.0f, 1e-5f);
   EXPECT_NEAR(config.environment_default_config.model_config.jamming_detection_threshold_w, 1.0e-8f,
               1e-10f);

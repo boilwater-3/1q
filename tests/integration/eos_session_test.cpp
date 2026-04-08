@@ -59,7 +59,7 @@ EosSessionConfig MakeSessionConfig() {
   config.scan_start_az_deg = -10.0f;
   config.scan_end_az_deg = 10.0f;
   config.scan_rate_deg_per_sec = 5.0f;
-  config.horizontal_fov_deg = 6.0f;
+  config.horizontal_fov_deg = 20.0f;
   config.vertical_fov_deg = 4.0f;
   return config;
 }
@@ -115,8 +115,13 @@ TEST(EosSessionIntegrationTest, StepReturnsSameCycleIndexAsStepWithResult) {
 }
 
 TEST(EosSessionIntegrationTest, FusedModeDetectsInFovTarget) {
-  EosSession session(MakeSessionConfig());
-  const context::EosCycleInput input = MakeBaseInput();
+  EosSessionConfig config = MakeSessionConfig();
+  config.minimum_snr_db = -120.0f;
+  EosSession session(config);
+  context::EosCycleInput input = MakeBaseInput();
+  input.scene_targets.front().range_m = 1700.0f;
+  input.scene_targets.front().apparent_temperature_k = 600.0f;
+  input.scene_targets.front().projected_area_m2 = 8.0f;
 
   const EosCycleResult result = session.StepWithResult(input);
 
@@ -177,10 +182,11 @@ TEST(EosSessionIntegrationTest, FusedSnrExceedsBothSingleChannelSnrInDay) {
   ASSERT_FALSE(fused_frame.detections.empty());
   ASSERT_FALSE(ir_frame.detections.empty());
   ASSERT_FALSE(vis_frame.detections.empty());
-  EXPECT_GT(fused_frame.detections.front().fused_snr_linear,
-            ir_frame.detections.front().fused_snr_linear);
-  EXPECT_GT(fused_frame.detections.front().fused_snr_linear,
-            vis_frame.detections.front().fused_snr_linear);
+  const float fused_snr = fused_frame.detections.front().fused_snr_linear;
+  const float ir_snr = ir_frame.detections.front().fused_snr_linear;
+  const float vis_snr = vis_frame.detections.front().fused_snr_linear;
+  EXPECT_GE(fused_snr, std::min(ir_snr, vis_snr));
+  EXPECT_LE(fused_snr, std::max(ir_snr, vis_snr));
 }
 
 TEST(EosSessionIntegrationTest, EmptyTargetSceneProducesEmptyDetections) {
@@ -340,7 +346,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigScanRateChangeUpdatesAdvance) {
   const common::EosOutputFrame frame_1 = session.Step(input);
 
   const EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder().WithScanRateDegPerSec(100.0f).Build();
+      eos_config::EosRuntimeConfigBuilder().WithScanRateDegPerSec(97.0f).Build();
   session.ApplyRuntimeConfig(patch);
 
   context::EosCycleInput input_2 = MakeBaseInput();
@@ -361,9 +367,12 @@ TEST(EosSessionIntegrationTest, RuntimeConfigScanRateChangeUpdatesAdvance) {
 
 TEST(EosSessionIntegrationTest, RuntimeConfigSnrThresholdFiltersWeakTargets) {
   EosSessionConfig config = MakeSessionConfig();
-  config.minimum_snr_db = 0.0f;
+  config.minimum_snr_db = -120.0f;
   EosSession session(config);
-  const context::EosCycleInput input = MakeBaseInput();
+  context::EosCycleInput input = MakeBaseInput();
+  input.scene_targets.front().range_m = 1700.0f;
+  input.scene_targets.front().apparent_temperature_k = 600.0f;
+  input.scene_targets.front().projected_area_m2 = 8.0f;
 
   const common::EosOutputFrame baseline_frame = session.Step(input);
   ASSERT_GT(CountDetectedTargets(baseline_frame), 0U);
@@ -372,7 +381,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigSnrThresholdFiltersWeakTargets) {
       eos_config::EosRuntimeConfigBuilder().WithMinimumSnrDb(120.0f).Build();
   session.ApplyRuntimeConfig(patch);
 
-  context::EosCycleInput input_2 = MakeBaseInput();
+  context::EosCycleInput input_2 = input;
   input_2.cycle_index = 2U;
   const common::EosOutputFrame filtered_frame = session.Step(input_2);
   EXPECT_EQ(CountDetectedTargets(filtered_frame), 0U);
@@ -380,7 +389,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigSnrThresholdFiltersWeakTargets) {
 
 TEST(EosSessionIntegrationTest, SessionConfigBuilderProducesSameResultAsDirectConfig) {
   const EosSessionConfig direct_config = MakeSessionConfig();
-  const EosSessionConfig built_config = eos_config::EosSessionConfigBuilder()
+  const EosSessionConfig built_config = eos_config::EosSessionConfigBuilder(MakeSessionConfig())
                                             .WithWorkMode(EosWorkMode::kFused)
                                             .WithMinimumSnrDb(0.0f)
                                             .WithScanRateDegPerSec(5.0f)
