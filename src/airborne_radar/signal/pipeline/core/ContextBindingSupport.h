@@ -74,16 +74,16 @@ DetectionExecutionBuffers BuildDetectionExecutionBuffers(
  * @param[out] track_measurements 跟踪量测输出。
  */
 TrackMeasurementBuildContext BuildTrackMeasurementBuildContextBindings(
-    const model::TargetFeatureList* input,
-    const association::AssociationResult* association_result,
-    const std::vector<std::uint8_t>* detection_succeeded,
-    const std::vector<std::uint64_t>* association_keys,
-    const std::vector<float>* detection_margin_db,
-    const std::vector<detection::ResolvedTargetGeometry>* target_geometry,
-    const std::vector<tracking::MeasurementCovariance>* measurement_covariances,
+    const model::TargetFeatureList& input,
+    const association::AssociationResult& association_result,
+    const std::vector<std::uint8_t>& detection_succeeded,
+    const std::vector<std::uint64_t>& association_keys,
+    const std::vector<float>& detection_margin_db,
+    const std::vector<detection::ResolvedTargetGeometry>& target_geometry,
+    const std::vector<tracking::MeasurementCovariance>& measurement_covariances,
     bool jamming_detected, model::JammingSemantic dominant_jamming_semantic,
-    float jamming_severity, std::vector<int>* measurement_slots,
-    std::vector<tracking::TrackMeasurement>* track_measurements);
+    float jamming_severity, std::vector<int>& measurement_slots,
+    std::vector<tracking::TrackMeasurement>& track_measurements);
 
 /**
  * @brief 构造滤波应用阶段的上下文绑定。
@@ -99,12 +99,12 @@ TrackMeasurementBuildContext BuildTrackMeasurementBuildContextBindings(
  * @param[out] track_measurements 跟踪量测输出。
  */
 TrackFilterApplyContext BuildTrackFilterApplyContextBindings(
-    const model::TargetFeatureList* input, model::TargetFeatureList* output,
-    const std::vector<std::uint8_t>* detection_succeeded,
-    const std::vector<float>* detection_margin_db, bool jamming_detected,
+    const model::TargetFeatureList& input, model::TargetFeatureList& output,
+    const std::vector<std::uint8_t>& detection_succeeded,
+    const std::vector<float>& detection_margin_db, bool jamming_detected,
     model::JammingSemantic dominant_jamming_semantic, float jamming_severity,
-    tracking::TrackFilter* track_filter, const std::vector<int>* measurement_slots,
-    std::vector<tracking::TrackMeasurement>* track_measurements);
+    tracking::TrackFilter& track_filter, const std::vector<int>& measurement_slots,
+    std::vector<tracking::TrackMeasurement>& track_measurements);
 
 }  // namespace internal
 }  // namespace pipeline

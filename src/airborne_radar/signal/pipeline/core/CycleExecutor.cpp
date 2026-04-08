@@ -123,12 +123,12 @@ MeasurementBuildPhaseOutput RunMeasurementBuildPhase(
     const DetectionPhaseOutput& detection_phase, const AssociationPhaseOutput& association_phase,
     CycleExecutionScratch* scratch) {
   TrackMeasurementBuildContext build_context = BuildTrackMeasurementBuildContextBindings(
-      &contract.input_state, &association_phase.association_result, &detection_phase.detection_succeeded,
-      &association_phase.association_keys, &detection_phase.detection_margin_db,
-      &detection_phase.target_geometry, &detection_phase.measurement_covariances,
+      contract.input_state, association_phase.association_result, detection_phase.detection_succeeded,
+      association_phase.association_keys, detection_phase.detection_margin_db,
+      detection_phase.target_geometry, detection_phase.measurement_covariances,
       environment_phase.environment_snapshot.jamming_detected,
       environment_phase.dominant_jamming_semantic, environment_phase.jamming_severity,
-      &scratch->measurement_slots, &scratch->track_measurements);
+      scratch->measurement_slots, scratch->track_measurements);
   BuildTrackMeasurementsPass(build_context);
 
   return MeasurementBuildPhaseOutput(scratch->measurement_slots, scratch->track_measurements);
@@ -141,10 +141,10 @@ void RunTrackFilterPhase(const CycleExecutionContract& contract,
                          const MeasurementBuildPhaseOutput& measurement_phase,
                          CycleExecutionScratch* scratch) {
   TrackFilterApplyContext filter_context = BuildTrackFilterApplyContextBindings(
-      &contract.input_state, &scratch->output_state, &detection_phase.detection_succeeded,
-      &detection_phase.detection_margin_db, environment_phase.environment_snapshot.jamming_detected,
+      contract.input_state, scratch->output_state, detection_phase.detection_succeeded,
+      detection_phase.detection_margin_db, environment_phase.environment_snapshot.jamming_detected,
       environment_phase.dominant_jamming_semantic, environment_phase.jamming_severity,
-      &runtime.track_filter, &measurement_phase.measurement_slots, &scratch->track_measurements);
+      runtime.track_filter, measurement_phase.measurement_slots, scratch->track_measurements);
   ApplyTrackFilterPass(filter_context);
 }
 

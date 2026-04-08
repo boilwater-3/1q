@@ -26,21 +26,43 @@ namespace internal {
  * @brief TrackMeasurementBuildContext 汇聚量测构建阶段的输入与输出绑定。
  */
 struct TrackMeasurementBuildContext {
-  const model::TargetFeatureList* input{nullptr};            /**< 输入目标列表 */
-  const association::AssociationResult* association_result{nullptr}; /**< 关联匹配结果 */
-  const std::vector<std::uint8_t>* detection_succeeded{nullptr};     /**< 各目标探测成功标志 */
-  const std::vector<std::uint64_t>* association_keys{nullptr};       /**< 各目标关联键 */
-  const std::vector<float>* detection_margin_db{nullptr};            /**< 各目标探测裕量（dB） */
-  const std::vector<detection::ResolvedTargetGeometry>* target_geometry{
-      nullptr}; /**< 各目标几何信息 */
-  const std::vector<tracking::MeasurementCovariance>* measurement_covariances{
-      nullptr};                 /**< 各目标量测协方差 */
+  TrackMeasurementBuildContext(
+      const model::TargetFeatureList& input,
+      const association::AssociationResult& association_result,
+      const std::vector<std::uint8_t>& detection_succeeded,
+      const std::vector<std::uint64_t>& association_keys,
+      const std::vector<float>& detection_margin_db,
+      const std::vector<detection::ResolvedTargetGeometry>& target_geometry,
+      const std::vector<tracking::MeasurementCovariance>& measurement_covariances,
+      bool jamming_detected, model::JammingSemantic dominant_jamming_semantic,
+      float jamming_severity, std::vector<int>& measurement_slots,
+      std::vector<tracking::TrackMeasurement>& track_measurements)
+      : input(input),
+        association_result(association_result),
+        detection_succeeded(detection_succeeded),
+        association_keys(association_keys),
+        detection_margin_db(detection_margin_db),
+        target_geometry(target_geometry),
+        measurement_covariances(measurement_covariances),
+        jamming_detected(jamming_detected),
+        dominant_jamming_semantic(dominant_jamming_semantic),
+        jamming_severity(jamming_severity),
+        measurement_slots(measurement_slots),
+        track_measurements(track_measurements) {}
+
+  const model::TargetFeatureList& input;            /**< 输入目标列表 */
+  const association::AssociationResult& association_result; /**< 关联匹配结果 */
+  const std::vector<std::uint8_t>& detection_succeeded;     /**< 各目标探测成功标志 */
+  const std::vector<std::uint64_t>& association_keys;       /**< 各目标关联键 */
+  const std::vector<float>& detection_margin_db;            /**< 各目标探测裕量（dB） */
+  const std::vector<detection::ResolvedTargetGeometry>& target_geometry; /**< 各目标几何信息 */
+  const std::vector<tracking::MeasurementCovariance>& measurement_covariances; /**< 各目标量测协方差 */
   bool jamming_detected{false}; /**< 是否检测到干扰 */
   model::JammingSemantic dominant_jamming_semantic{
       model::JammingSemantic::kNone};                           /**< 主导干扰语义 */
   float jamming_severity{0.0f};                                         /**< 干扰强度 */
-  std::vector<int>* measurement_slots{nullptr};                         /**< 各目标量测槽位 */
-  std::vector<tracking::TrackMeasurement>* track_measurements{nullptr}; /**< 跟踪量测输出 */
+  std::vector<int>& measurement_slots;                         /**< 各目标量测槽位 */
+  std::vector<tracking::TrackMeasurement>& track_measurements; /**< 跟踪量测输出 */
 };
 
 /**
@@ -53,17 +75,35 @@ void BuildTrackMeasurementsPass(const TrackMeasurementBuildContext& context);
  * @brief TrackFilterApplyContext 汇聚滤波应用阶段的输入与输出绑定。
  */
 struct TrackFilterApplyContext {
-  const model::TargetFeatureList* input{nullptr};        /**< 输入目标列表 */
-  model::TargetFeatureList* output{nullptr};             /**< 输出目标列表 */
-  const std::vector<std::uint8_t>* detection_succeeded{nullptr}; /**< 各目标探测成功标志 */
-  const std::vector<float>* detection_margin_db{nullptr};        /**< 各目标探测裕量（dB） */
+  TrackFilterApplyContext(const model::TargetFeatureList& input, model::TargetFeatureList& output,
+                          const std::vector<std::uint8_t>& detection_succeeded,
+                          const std::vector<float>& detection_margin_db, bool jamming_detected,
+                          model::JammingSemantic dominant_jamming_semantic, float jamming_severity,
+                          tracking::TrackFilter& track_filter,
+                          const std::vector<int>& measurement_slots,
+                          std::vector<tracking::TrackMeasurement>& track_measurements)
+      : input(input),
+        output(output),
+        detection_succeeded(detection_succeeded),
+        detection_margin_db(detection_margin_db),
+        jamming_detected(jamming_detected),
+        dominant_jamming_semantic(dominant_jamming_semantic),
+        jamming_severity(jamming_severity),
+        track_filter(track_filter),
+        measurement_slots(measurement_slots),
+        track_measurements(track_measurements) {}
+
+  const model::TargetFeatureList& input;        /**< 输入目标列表 */
+  model::TargetFeatureList& output;             /**< 输出目标列表 */
+  const std::vector<std::uint8_t>& detection_succeeded; /**< 各目标探测成功标志 */
+  const std::vector<float>& detection_margin_db;        /**< 各目标探测裕量（dB） */
   bool jamming_detected{false};                                  /**< 是否检测到干扰 */
   model::JammingSemantic dominant_jamming_semantic{
       model::JammingSemantic::kNone};                           /**< 主导干扰语义 */
   float jamming_severity{0.0f};                                         /**< 干扰强度 */
-  tracking::TrackFilter* track_filter{nullptr};                         /**< 轨迹滤波器 */
-  const std::vector<int>* measurement_slots{nullptr};                   /**< 各目标量测槽位 */
-  std::vector<tracking::TrackMeasurement>* track_measurements{nullptr}; /**< 跟踪量测输出 */
+  tracking::TrackFilter& track_filter;                         /**< 轨迹滤波器 */
+  const std::vector<int>& measurement_slots;                   /**< 各目标量测槽位 */
+  std::vector<tracking::TrackMeasurement>& track_measurements; /**< 跟踪量测输出 */
 };
 
 /**

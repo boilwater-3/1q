@@ -326,8 +326,13 @@ void TrackLifecycleManager::ApplyGaussianState(TrackState& track, const Gaussian
 
 void TrackLifecycleManager::Update(const CycleContext& cycle,
                                    const std::vector<TrackMeasurement>& measurements) {
-  bool dt_fallback_used = false;
-  const float effective_dt_sec = ResolveEffectiveCycleDeltaTimeSec(cycle, &dt_fallback_used);
+  float effective_dt_sec = 0.0f;
+  if (!TryResolveEffectiveCycleDeltaTimeSec(cycle, &effective_dt_sec)) {
+    PROJECT_LOG_ERROR(
+        "[TrackLifecycleManager] invalid cycle dt_sec={}, update skipped with no state changes.",
+        cycle.dt_sec);
+    return;
+  }
 
   LifecycleUpdateScratch scratch;
   scratch.measurement_by_key.reserve(measurements.size());
@@ -348,10 +353,10 @@ void TrackLifecycleManager::Update(const CycleContext& cycle,
   PROJECT_LOG_DEBUG(
       "[TrackLifecycleManager] cycle summary: cycle_index={} measurements={} new_tracks={} "
       "updated_tracks={} predicted_without_hit={} recycled_tracks={} active_tracks={} "
-      "imm_enabled={} dt_sec={:.3f} dt_fallback_used={}",
+      "imm_enabled={} dt_sec={:.3f}",
       cycle.cycle_index, measurements.size(), scratch.new_track_count, scratch.updated_track_count,
       scratch.predicted_without_hit_count, scratch.keys_to_recycle.size(), tracks_by_key_.size(),
-      IsImmEnabled() ? "true" : "false", effective_dt_sec, dt_fallback_used ? "true" : "false");
+      IsImmEnabled() ? "true" : "false", effective_dt_sec);
 
   snapshot_emitter_.Refresh(tracks_by_key_, latest_evidence_by_key_, last_cycle_index_);
 }
@@ -577,29 +582,16 @@ void TrackLifecycleManager::RecyclePhase(LifecycleUpdateScratch& scratch) {
   }
 }
 
-float TrackLifecycleManager::ResolveEffectiveCycleDeltaTimeSec(const CycleContext& cycle,
-                                                               bool* dt_fallback_used) const {
-  if (dt_fallback_used != nullptr) {
-    *dt_fallback_used = false;
+bool TrackLifecycleManager::TryResolveEffectiveCycleDeltaTimeSec(const CycleContext& cycle,
+                                                                 float* effective_dt_sec) const {
+  if (effective_dt_sec == nullptr) {
+    return false;
   }
-
-  if (cycle.dt_sec > 0.0f) {
-    return cycle.dt_sec;
+  if (std::isfinite(cycle.dt_sec) == 0 || cycle.dt_sec <= 0.0f) {
+    return false;
   }
-
-  if (dt_fallback_used != nullptr) {
-    *dt_fallback_used = true;
-  }
-
-  PROJECT_LOG_WARN(
-      "[TrackLifecycleManager] invalid external dt_sec={}, fallback to "
-      "cycle-index-derived step",
-      cycle.dt_sec);
-
-  if (last_cycle_index_ > 0 && cycle.cycle_index > last_cycle_index_) {
-    return static_cast<float>(cycle.cycle_index - last_cycle_index_) * config_.nominal_cycle_dt_sec;
-  }
-  return config_.nominal_cycle_dt_sec;
+  *effective_dt_sec = cycle.dt_sec;
+  return true;
 }
 
 void TrackLifecycleManager::ApplyKalmanHitUpdate(const TrackUpdateWorkItem& work_item,

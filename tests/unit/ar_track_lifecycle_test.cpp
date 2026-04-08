@@ -109,19 +109,13 @@ TEST(TrackLifecycleManagerTest, ConfirmsTrackAfterConfiguredHits) {
   measurement.filtered_feature.velocity = Eigen::Vector3f(3.0f, 4.0f, 0.0f);
   measurement.filtered_feature.rcs = 1.5f;
 
-  signal::tracking::CycleContext cycle_1;
-  cycle_1.cycle_index = 1;
-  cycle_1.batch_id = 1001;
-  manager.Update(cycle_1, {measurement});
+  manager.Update(MakeCycle(1u, 1001u), {measurement});
 
   auto active_tracks = manager.GetActiveTracks();
   ASSERT_EQ(active_tracks.size(), 1u);
   EXPECT_EQ(active_tracks[0]->status, signal::tracking::TrackStatus::kTentative);
 
-  signal::tracking::CycleContext cycle_2;
-  cycle_2.cycle_index = 2;
-  cycle_2.batch_id = 1002;
-  manager.Update(cycle_2, {measurement});
+  manager.Update(MakeCycle(2u, 1002u), {measurement});
 
   active_tracks = manager.GetActiveTracks();
   ASSERT_EQ(active_tracks.size(), 1u);
@@ -146,24 +140,15 @@ TEST(TrackLifecycleManagerTest, RecyclesTrackAfterLostTimeout) {
   measurement.raw_measurement.association_key = 3;
   measurement.filtered_feature.velocity = Eigen::Vector3f(1.0f, 0.0f, 0.0f);
 
-  signal::tracking::CycleContext cycle_1;
-  cycle_1.cycle_index = 1;
-  cycle_1.batch_id = 2001;
-  manager.Update(cycle_1, {measurement});
+  manager.Update(MakeCycle(1u, 2001u), {measurement});
 
-  signal::tracking::CycleContext cycle_2;
-  cycle_2.cycle_index = 2;
-  cycle_2.batch_id = 2002;
-  manager.Update(cycle_2, {});
+  manager.Update(MakeCycle(2u, 2002u), {});
 
   auto active_tracks = manager.GetActiveTracks();
   ASSERT_EQ(active_tracks.size(), 1u);
   EXPECT_EQ(active_tracks[0]->status, signal::tracking::TrackStatus::kLost);
 
-  signal::tracking::CycleContext cycle_3;
-  cycle_3.cycle_index = 3;
-  cycle_3.batch_id = 2003;
-  manager.Update(cycle_3, {});
+  manager.Update(MakeCycle(3u, 2003u), {});
 
   active_tracks = manager.GetActiveTracks();
   EXPECT_TRUE(active_tracks.empty());
@@ -335,12 +320,11 @@ TEST(TrackLifecycleManagerTest, UsesExternalDtForPredictionWhenProvided) {
   EXPECT_NEAR(active_tracks[0]->position(0), 120.0f, 1e-3f);
 }
 
-TEST(TrackLifecycleManagerTest, FallsBackToCycleDeltaWhenExternalDtIsInvalid) {
+TEST(TrackLifecycleManagerTest, InvalidExternalDtSkipsUpdateWithoutStateChanges) {
   signal::tracking::BoostTrackPool pool(2, 8);
   signal::tracking::LifecycleConfig config;
   config.confirm_hits = 1;
   config.max_miss_before_lost = 5;
-  config.nominal_cycle_dt_sec = 1.0f;  // 每周期 1 秒，使回退路径与期望值一致
 
   signal::tracking::KalmanPredictorConfig pred_cfg;
   pred_cfg.noise_diff_coeff = 1.0f;
@@ -372,15 +356,15 @@ TEST(TrackLifecycleManagerTest, FallsBackToCycleDeltaWhenExternalDtIsInvalid) {
 
   const std::vector<const signal::tracking::TrackState*> active_tracks = manager.GetActiveTracks();
   ASSERT_EQ(active_tracks.size(), 1u);
-  EXPECT_NEAR(active_tracks[0]->position(0), 120.0f, 1e-3f);
+  EXPECT_NEAR(active_tracks[0]->position(0), 100.0f, 1e-3f);
+  EXPECT_EQ(active_tracks[0]->last_update_cycle, 1u);
 }
 
-TEST(TrackLifecycleManagerTest, FallsBackToUnitDtWhenExternalDtInvalidAndCycleNotIncreasing) {
+TEST(TrackLifecycleManagerTest, InvalidExternalDtWithNonIncreasingCycleAlsoSkipsUpdate) {
   signal::tracking::BoostTrackPool pool(2, 8);
   signal::tracking::LifecycleConfig config;
   config.confirm_hits = 1;
   config.max_miss_before_lost = 5;
-  config.nominal_cycle_dt_sec = 1.0f;  // 每周期 1 秒，使回退路径与期望值一致
 
   signal::tracking::KalmanPredictorConfig pred_cfg;
   pred_cfg.noise_diff_coeff = 1.0f;
@@ -412,7 +396,8 @@ TEST(TrackLifecycleManagerTest, FallsBackToUnitDtWhenExternalDtInvalidAndCycleNo
 
   const std::vector<const signal::tracking::TrackState*> active_tracks = manager.GetActiveTracks();
   ASSERT_EQ(active_tracks.size(), 1u);
-  EXPECT_NEAR(active_tracks[0]->position(0), 110.0f, 1e-3f);
+  EXPECT_NEAR(active_tracks[0]->position(0), 100.0f, 1e-3f);
+  EXPECT_EQ(active_tracks[0]->last_update_cycle, 1u);
 }
 
 TEST(TrackLifecycleManagerTest, ImmPathPredictsConfirmedTrackAcrossMissedCycles) {
@@ -452,10 +437,7 @@ TEST(TrackLifecycleManagerTest, ImmPathPredictsConfirmedTrackAcrossMissedCycles)
   measurement.filtered_feature.velocity = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
   measurement.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
 
-  signal::tracking::CycleContext cycle_1;
-  cycle_1.cycle_index = 1;
-  cycle_1.batch_id = 3001;
-  manager.Update(cycle_1, {measurement});
+  manager.Update(MakeCycle(1u, 3001u), {measurement});
 
   auto active_tracks = manager.GetActiveTracks();
   ASSERT_EQ(active_tracks.size(), 1u);
@@ -465,20 +447,14 @@ TEST(TrackLifecycleManagerTest, ImmPathPredictsConfirmedTrackAcrossMissedCycles)
   measurement.raw_measurement.matched_existing_track = true;
   measurement.raw_measurement.position = Eigen::Vector3f(110.0f, 0.0f, 0.0f);
 
-  signal::tracking::CycleContext cycle_2;
-  cycle_2.cycle_index = 2;
-  cycle_2.batch_id = 3002;
-  manager.Update(cycle_2, {measurement});
+  manager.Update(MakeCycle(2u, 3002u), {measurement});
 
   active_tracks = manager.GetActiveTracks();
   ASSERT_EQ(active_tracks.size(), 1u);
   EXPECT_NEAR(active_tracks[0]->position(0), 110.0f, 2.0f);
   const float covariance_before_miss = active_tracks[0]->gaussian_state.covariance(0, 0);
 
-  signal::tracking::CycleContext cycle_3;
-  cycle_3.cycle_index = 3;
-  cycle_3.batch_id = 3003;
-  manager.Update(cycle_3, {});
+  manager.Update(MakeCycle(3u, 3003u), {});
 
   active_tracks = manager.GetActiveTracks();
   ASSERT_EQ(active_tracks.size(), 1u);
@@ -527,15 +503,9 @@ TEST(TrackLifecycleManagerTest, ConfirmedOnlyImmFallsBackToSingleModelBeforeImmC
   measurement.filtered_feature.velocity = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
   measurement.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
 
-  signal::tracking::CycleContext cycle_1;
-  cycle_1.cycle_index = 1u;
-  cycle_1.batch_id = 5201u;
-  manager.Update(cycle_1, {measurement});
+  manager.Update(MakeCycle(1u, 5201u), {measurement});
 
-  signal::tracking::CycleContext cycle_2;
-  cycle_2.cycle_index = 2u;
-  cycle_2.batch_id = 5202u;
-  manager.Update(cycle_2, {});
+  manager.Update(MakeCycle(2u, 5202u), {});
 
   const std::vector<const signal::tracking::TrackState*> active_tracks = manager.GetActiveTracks();
   ASSERT_EQ(active_tracks.size(), 1u);
@@ -597,9 +567,7 @@ TEST(TrackLifecycleManagerTest, ConfirmedOnlyImmCreatesAndUsesFilterOnFirstConfi
   first.filtered_feature.velocity = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
   first.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
 
-  signal::tracking::CycleContext cycle_1;
-  cycle_1.cycle_index = 1u;
-  cycle_1.batch_id = 6201u;
+  const signal::tracking::CycleContext cycle_1 = MakeCycle(1u, 6201u);
   confirmed_only_manager.Update(cycle_1, {first});
   all_tracks_manager.Update(cycle_1, {first});
 
@@ -607,9 +575,7 @@ TEST(TrackLifecycleManagerTest, ConfirmedOnlyImmCreatesAndUsesFilterOnFirstConfi
   second.raw_measurement.matched_existing_track = true;
   second.raw_measurement.position = Eigen::Vector3f(150.0f, 0.0f, 0.0f);
 
-  signal::tracking::CycleContext cycle_2;
-  cycle_2.cycle_index = 2u;
-  cycle_2.batch_id = 6202u;
+  const signal::tracking::CycleContext cycle_2 = MakeCycle(2u, 6202u);
   confirmed_only_manager.Update(cycle_2, {second});
   all_tracks_manager.Update(cycle_2, {second});
 
@@ -774,10 +740,7 @@ TEST(TrackLifecycleManagerTest, BuildAssociationSeedsExportsPositionAndGaussianS
   measurement.filtered_feature.velocity = Eigen::Vector3f(5.0f, 0.0f, 0.0f);
   measurement.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
 
-  signal::tracking::CycleContext cycle;
-  cycle.cycle_index = 1;
-  cycle.batch_id = 4001;
-  manager.Update(cycle, {measurement});
+  manager.Update(MakeCycle(1u, 4001u), {measurement});
 
   const std::vector<signal::tracking::AssociationTrackSeed> seeds = manager.BuildAssociationSeeds();
   ASSERT_EQ(seeds.size(), 1u);
@@ -814,20 +777,14 @@ TEST(TrackLifecycleManagerTest, FilterWritebackUpdatesAccelerationFromVelocityDe
   first.filtered_feature.velocity = Eigen::Vector3f(1.0f, 2.0f, 0.0f);
   first.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
 
-  signal::tracking::CycleContext cycle_1;
-  cycle_1.cycle_index = 1u;
-  cycle_1.batch_id = 9001u;
-  manager.Update(cycle_1, {first});
+  manager.Update(MakeCycle(1u, 9001u), {first});
 
   signal::tracking::TrackMeasurement second = first;
   second.raw_measurement.matched_existing_track = true;
   second.raw_measurement.position = Eigen::Vector3f(1.0f, 2.0f, 0.0f);
   second.filtered_feature.velocity = Eigen::Vector3f(3.0f, 5.0f, 0.0f);
 
-  signal::tracking::CycleContext cycle_2;
-  cycle_2.cycle_index = 2u;
-  cycle_2.batch_id = 9002u;
-  manager.Update(cycle_2, {second});
+  manager.Update(MakeCycle(2u, 9002u), {second});
 
   const std::vector<const signal::tracking::TrackState*> active = manager.GetActiveTracks();
   ASSERT_EQ(active.size(), 1u);

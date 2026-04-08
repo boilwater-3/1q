@@ -79,15 +79,17 @@ void RebuildOwnedComponentsForPipeline(
 
 /**
  * @brief 仅根据已解析的运行时配置同步自动生命周期管理器参数。
+ * @return 同步成功时返回 true；若 topology 重建失败并保留旧装配则返回 false。
  */
-void SyncAutoLifecycleManagerForResolvedRuntimeConfig(
+bool SyncAutoLifecycleManagerForResolvedRuntimeConfig(
     const ResolvedRuntimeSignalPipelineConfig& resolved_runtime_config,
     tracking::ITrackLifecycleManager* auto_lifecycle_manager);
 
 /**
  * @brief 将本周期运行时配置同步到自动生命周期管理器内部参数。
+ * @return 同步成功时返回 true；若 topology 重建失败并保留旧装配则返回 false。
  */
-void SyncAutoLifecycleManagerForRuntimeConfig(
+bool SyncAutoLifecycleManagerForRuntimeConfig(
     const SignalPipelineConfig& runtime_config,
     const pipeline::internal::InternalSignalPipelineConfig& internal_runtime_config,
     tracking::ITrackLifecycleManager* auto_lifecycle_manager);

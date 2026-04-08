@@ -204,17 +204,25 @@ class AutoConfiguredLifecycleManager final : public tracking::ITrackLifecycleMan
                                         imm_transition_probability, imm_initial_weights);
   }
 
-  void SyncRuntimeConfig(const ResolvedRuntimeSignalPipelineConfig& resolved_config) {
+  bool SyncRuntimeConfig(const ResolvedRuntimeSignalPipelineConfig& resolved_config) {
     const LifecycleConfigSignature incoming_signature =
         BuildLifecycleConfigSignature(resolved_config);
     if (ShouldRebuildLifecycleAssembly(signature_, incoming_signature)) {
       PROJECT_LOG_WARN(
           "[SignalPipeline] lifecycle config topology changed during runtime; rebuilding "
           "auto-lifecycle assembly and resetting lifecycle state.");
+      LifecycleAssemblyArtifacts rebuilt_assembly =
+          BuildLifecycleAssemblyArtifactsOrLogFailure(resolved_config);
+      if (rebuilt_assembly.lifecycle_manager == nullptr) {
+        PROJECT_LOG_ERROR(
+            "[SignalPipeline] lifecycle topology rebuild failed; keeping previous "
+            "lifecycle assembly.");
+        return false;
+      }
       resolved_config_ = resolved_config;
       AssignLifecycleSignature(incoming_signature, &signature_);
-      assembly_ = BuildLifecycleAssemblyArtifactsOrLogFailure(resolved_config_);
-      return;
+      assembly_ = std::move(rebuilt_assembly);
+      return true;
     }
 
     resolved_config_ = resolved_config;
@@ -235,6 +243,7 @@ class AutoConfiguredLifecycleManager final : public tracking::ITrackLifecycleMan
                                         imm_model_noise_diff_coeffs.size());
     SyncRuntimeTuning(lifecycle_config, kalman_noise_diff_coeff, kalman_measurement_noise_std,
                       imm_model_noise_diff_coeffs, imm_transition_probability, imm_initial_weights);
+    return true;
   }
 
  private:
@@ -307,25 +316,25 @@ void RebuildOwnedComponentsForPipeline(
       resolved_runtime_config.public_config, resolved_runtime_config.internal_config);
 }
 
-void SyncAutoLifecycleManagerForResolvedRuntimeConfig(
+bool SyncAutoLifecycleManagerForResolvedRuntimeConfig(
     const ResolvedRuntimeSignalPipelineConfig& resolved_runtime_config,
     tracking::ITrackLifecycleManager* auto_lifecycle_manager) {
   AutoConfiguredLifecycleManager* auto_configured_manager =
       dynamic_cast<AutoConfiguredLifecycleManager*>(auto_lifecycle_manager);
   if (auto_configured_manager == nullptr) {
-    return;
+    return false;
   }
-  auto_configured_manager->SyncRuntimeConfig(resolved_runtime_config);
+  return auto_configured_manager->SyncRuntimeConfig(resolved_runtime_config);
 }
 
-void SyncAutoLifecycleManagerForRuntimeConfig(
+bool SyncAutoLifecycleManagerForRuntimeConfig(
     const SignalPipelineConfig& runtime_config,
     const pipeline::internal::InternalSignalPipelineConfig& internal_runtime_config,
     tracking::ITrackLifecycleManager* auto_lifecycle_manager) {
   ResolvedRuntimeSignalPipelineConfig resolved;
   resolved.public_config = runtime_config;
   resolved.internal_config = internal_runtime_config;
-  SyncAutoLifecycleManagerForResolvedRuntimeConfig(resolved, auto_lifecycle_manager);
+  return SyncAutoLifecycleManagerForResolvedRuntimeConfig(resolved, auto_lifecycle_manager);
 }
 
 }  // namespace internal

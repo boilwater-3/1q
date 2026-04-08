@@ -49,51 +49,33 @@ DetectionExecutionBuffers BuildDetectionExecutionBuffers(
 }
 
 TrackMeasurementBuildContext BuildTrackMeasurementBuildContextBindings(
-    const model::TargetFeatureList* input,
-    const association::AssociationResult* association_result,
-    const std::vector<std::uint8_t>* detection_succeeded,
-    const std::vector<std::uint64_t>* association_keys,
-    const std::vector<float>* detection_margin_db,
-    const std::vector<detection::ResolvedTargetGeometry>* target_geometry,
-    const std::vector<tracking::MeasurementCovariance>* measurement_covariances,
+    const model::TargetFeatureList& input,
+    const association::AssociationResult& association_result,
+    const std::vector<std::uint8_t>& detection_succeeded,
+    const std::vector<std::uint64_t>& association_keys,
+    const std::vector<float>& detection_margin_db,
+    const std::vector<detection::ResolvedTargetGeometry>& target_geometry,
+    const std::vector<tracking::MeasurementCovariance>& measurement_covariances,
     bool jamming_detected, model::JammingSemantic dominant_jamming_semantic,
-    float jamming_severity, std::vector<int>* measurement_slots,
-    std::vector<tracking::TrackMeasurement>* track_measurements) {
-  TrackMeasurementBuildContext context;
-  context.input = input;
-  context.association_result = association_result;
-  context.detection_succeeded = detection_succeeded;
-  context.association_keys = association_keys;
-  context.detection_margin_db = detection_margin_db;
-  context.target_geometry = target_geometry;
-  context.measurement_covariances = measurement_covariances;
-  context.jamming_detected = jamming_detected;
-  context.dominant_jamming_semantic = dominant_jamming_semantic;
-  context.jamming_severity = jamming_severity;
-  context.measurement_slots = measurement_slots;
-  context.track_measurements = track_measurements;
-  return context;
+    float jamming_severity, std::vector<int>& measurement_slots,
+    std::vector<tracking::TrackMeasurement>& track_measurements) {
+  return TrackMeasurementBuildContext(
+      input, association_result, detection_succeeded, association_keys, detection_margin_db,
+      target_geometry, measurement_covariances, jamming_detected, dominant_jamming_semantic,
+      jamming_severity, measurement_slots, track_measurements);
 }
 
 TrackFilterApplyContext BuildTrackFilterApplyContextBindings(
-    const model::TargetFeatureList* input, model::TargetFeatureList* output,
-    const std::vector<std::uint8_t>* detection_succeeded,
-    const std::vector<float>* detection_margin_db, bool jamming_detected,
+    const model::TargetFeatureList& input, model::TargetFeatureList& output,
+    const std::vector<std::uint8_t>& detection_succeeded,
+    const std::vector<float>& detection_margin_db, bool jamming_detected,
     model::JammingSemantic dominant_jamming_semantic, float jamming_severity,
-    tracking::TrackFilter* track_filter, const std::vector<int>* measurement_slots,
-    std::vector<tracking::TrackMeasurement>* track_measurements) {
-  TrackFilterApplyContext context;
-  context.input = input;
-  context.output = output;
-  context.detection_succeeded = detection_succeeded;
-  context.detection_margin_db = detection_margin_db;
-  context.jamming_detected = jamming_detected;
-  context.dominant_jamming_semantic = dominant_jamming_semantic;
-  context.jamming_severity = jamming_severity;
-  context.track_filter = track_filter;
-  context.measurement_slots = measurement_slots;
-  context.track_measurements = track_measurements;
-  return context;
+    tracking::TrackFilter& track_filter, const std::vector<int>& measurement_slots,
+    std::vector<tracking::TrackMeasurement>& track_measurements) {
+  return TrackFilterApplyContext(
+      input, output, detection_succeeded, detection_margin_db, jamming_detected,
+      dominant_jamming_semantic, jamming_severity, track_filter, measurement_slots,
+      track_measurements);
 }
 
 }  // namespace internal

@@ -271,12 +271,12 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
    */
   void ResetForReuse(TrackState& track) const;
   /**
-   * @brief 解析本周期状态估计使用的有效时间步长。
+   * @brief 校验并解析本周期状态估计使用的时间步长。
    * @param cycle 当前周期上下文。
-   * @param dt_fallback_used [out] 输出是否触发内部兜底。
-   * @return 有效时间步长（秒）。
+   * @param effective_dt_sec [out] 解析得到的有效时间步长（秒）。
+   * @return 输入 `dt_sec` 有效时返回 true，否则返回 false。
    */
-  float ResolveEffectiveCycleDeltaTimeSec(const CycleContext& cycle, bool* dt_fallback_used) const;
+  bool TryResolveEffectiveCycleDeltaTimeSec(const CycleContext& cycle, float* effective_dt_sec) const;
   /**
    * @brief 遍历所有未回收轨迹，对每条轨迹调用 callback(key, track)。
    * @tparam Callback 可调用类型，签名为 void(std::uint64_t, const TrackState&)。

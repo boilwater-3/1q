@@ -50,6 +50,13 @@ signal::tracking::CycleContext MakeLifecycleCycle(std::uint32_t cycle_index,
   return cycle;
 }
 
+environment::EnvironmentCycleContext MakeEnvironmentCycle(std::uint32_t cycle_index) {
+  environment::EnvironmentCycleContext cycle;
+  cycle.cycle_index = cycle_index;
+  cycle.dt_sec = 1.0f;
+  return cycle;
+}
+
 environment::JammerSourceFact MakeJammerSource(environment::JammingTechnique technique,
                                                float power_db) {
   environment::JammerSourceFact jammer;
@@ -1206,6 +1213,53 @@ TEST(SignalPipelineTest, AutoLifecycleManagerSyncsRuntimeTuningAcrossCycles) {
             unsynced_seeds[0].gaussian_state.covariance(0, 0));
 }
 
+TEST(SignalPipelineTest, InvalidTopologyRebuildKeepsPreviousLifecycleAssemblyOperational) {
+  config::SignalPipelineConfig pipeline_config;
+  pipeline_config.detection.min_detection_margin_db = -100.0f;
+  pipeline_config.lifecycle.lifecycle_config.confirm_hits = 1;
+  pipeline_config.tracking.enable_kalman_filter = true;
+
+  const signal::pipeline::internal::InternalSignalPipelineConfig base_internal_config =
+      signal::pipeline::internal::BuildInternalSignalPipelineConfig(pipeline_config);
+  std::unique_ptr<signal::tracking::ITrackLifecycleManager> lifecycle_manager =
+      signal::pipeline::assembly::internal::CreateAutoLifecycleManagerForRuntimeConfig(
+          pipeline_config, base_internal_config);
+  ASSERT_TRUE(lifecycle_manager != nullptr);
+
+  environment::EnvironmentService environment_service;
+  signal::pipeline::SignalPipeline measurement_source_pipeline(pipeline_config);
+  const model::TargetFeatureList cycle_1_input{BuildPhysicsTarget(100.0f, 4.0f)};
+  measurement_source_pipeline.RunCycle(cycle_1_input, environment_service);
+  const std::vector<signal::tracking::TrackMeasurement> cycle_1_measurements =
+      measurement_source_pipeline.GetLastTrackMeasurements();
+  ASSERT_EQ(cycle_1_measurements.size(), 1u);
+
+  lifecycle_manager->Update(MakeLifecycleCycle(1u, 1u), cycle_1_measurements);
+  const std::vector<signal::tracking::AssociationTrackSeed> previous_seeds =
+      lifecycle_manager->BuildAssociationSeeds();
+  ASSERT_EQ(previous_seeds.size(), 1u);
+
+  signal::pipeline::assembly::internal::ResolvedRuntimeSignalPipelineConfig invalid_runtime_config;
+  invalid_runtime_config.public_config = pipeline_config;
+  invalid_runtime_config.public_config.lifecycle.enable_imm_lifecycle = true;
+  invalid_runtime_config.internal_config =
+      signal::pipeline::internal::BuildInternalSignalPipelineConfig(
+          invalid_runtime_config.public_config);
+  invalid_runtime_config.internal_config.lifecycle.imm_model_noise_diff_coeffs = {0.5f, 2.0f};
+  invalid_runtime_config.internal_config.lifecycle.imm_initial_weights = {1.0f};
+
+  const bool sync_succeeded =
+      signal::pipeline::assembly::internal::SyncAutoLifecycleManagerForResolvedRuntimeConfig(
+          invalid_runtime_config, lifecycle_manager.get());
+  EXPECT_FALSE(sync_succeeded);
+
+  lifecycle_manager->Update(MakeLifecycleCycle(2u, 2u), {});
+  const std::vector<signal::tracking::AssociationTrackSeed> retained_seeds =
+      lifecycle_manager->BuildAssociationSeeds();
+  ASSERT_EQ(retained_seeds.size(), 1u);
+  EXPECT_EQ(retained_seeds[0].association_key, previous_seeds[0].association_key);
+}
+
 TEST(SignalPipelineTest, DeceptionJammingInflatesPhysicalCovarianceMoreThanNoiseSuppression) {
   config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.enable_physics_detection = true;
@@ -1488,9 +1542,10 @@ TEST(SignalPipelineTest, UsesPositionAssociationByDefaultWhenCartesianPositionEx
 
 TEST(SignalPipelineTest, UsesLifecycleAssociationSeedsByDefault) {
   environment::EnvironmentService environment_service;
+  environment_service.BeginCycle(MakeEnvironmentCycle(1u));
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  model::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
+  model::TargetFeature target(0.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
   target.has_cartesian_position = true;
   target.position_x = 10.0f;
   target.position_y = 0.0f;
@@ -1518,6 +1573,7 @@ TEST(SignalPipelineTest, UsesLifecycleAssociationSeedsByDefault) {
 TEST(SignalPipelineTest,
      ResetAssociationSeedModeToStatelessClearsManualSideChannelSeedsButKeepsLifecycleSeeds) {
   environment::EnvironmentService environment_service;
+  environment_service.BeginCycle(MakeEnvironmentCycle(1u));
 
   signal::pipeline::SignalPipeline signal_pipeline;
 
@@ -1534,7 +1590,7 @@ TEST(SignalPipelineTest,
       std::vector<signal::tracking::AssociationTrackSeed>(1, side_channel_seed));
   signal_pipeline.ResetAssociationSeedModeToStateless();
 
-  model::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
+  model::TargetFeature target(0.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
   target.has_cartesian_position = true;
   target.position_x = 10.0f;
   target.position_y = 0.0f;
