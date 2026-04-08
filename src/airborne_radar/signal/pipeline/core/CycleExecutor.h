@@ -169,8 +169,9 @@ struct MeasurementBuildPhaseOutput {
  * @param batch_id 当前批次号。
  * @param runtime 运行时依赖视图。
  * @param cycle_scratch 单周期可复用缓冲区。
+ * @return 周期准备与执行全部成功时返回 true；若运行时同步失败则返回 false。
  */
-void ExecuteCycle(const model::TargetFeatureList& input_state,
+bool ExecuteCycle(const model::TargetFeatureList& input_state,
                   const extension::IEnvironmentService& environment, std::uint32_t cycle_index,
                   std::uint64_t batch_id, const CycleExecutionRuntime& runtime,
                   CycleExecutionScratch& cycle_scratch);

@@ -62,13 +62,13 @@ void RefreshMeasurementCovariances(
     std::vector<tracking::MeasurementCovariance>* measurement_covariances);
 
 /**
- * @brief 同步运行时配置到关联引擎与轨迹滤波器。
+ * @brief 同步运行时配置到关联引擎、轨迹滤波器和生命周期管理器。
  * @param[in] runtime_config 当前运行时配置。
  * @param[in] internal_runtime_config 当前内部运行时配置。
  * @param[in,out] association_engine 关联引擎。
  * @param[in,out] track_filter 轨迹滤波器。
  */
-void SyncAssociationAndTrackFilterConfigs(
+bool SyncAssociationAndTrackFilterConfigs(
     const SignalPipelineConfig& runtime_config,
     const InternalSignalPipelineConfig& internal_runtime_config,
     association::DataAssociationEngine* association_engine, tracking::TrackFilter* track_filter,

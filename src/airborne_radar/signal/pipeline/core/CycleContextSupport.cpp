@@ -65,11 +65,20 @@ void RefreshMeasurementCovariances(
                                   tracking::MeasurementCovariance::Identity() * variance);
 }
 
-void SyncAssociationAndTrackFilterConfigs(
+bool SyncAssociationAndTrackFilterConfigs(
     const SignalPipelineConfig& runtime_config,
     const InternalSignalPipelineConfig& internal_runtime_config,
     association::DataAssociationEngine* association_engine, tracking::TrackFilter* track_filter,
     tracking::ITrackLifecycleManager* auto_lifecycle_manager) {
+  if (auto_lifecycle_manager != nullptr) {
+    assembly::internal::ResolvedRuntimeSignalPipelineConfig resolved_runtime_config;
+    resolved_runtime_config.public_config = runtime_config;
+    resolved_runtime_config.internal_config = internal_runtime_config;
+    if (!assembly::internal::SyncAutoLifecycleManagerForResolvedRuntimeConfig(
+            resolved_runtime_config, auto_lifecycle_manager)) {
+      return false;
+    }
+  }
   if (association_engine != nullptr) {
     association_engine->UpdateConfig(
         assembly::internal::SignalComponentFactory::BuildAssociationConfig(runtime_config,
@@ -79,13 +88,7 @@ void SyncAssociationAndTrackFilterConfigs(
     track_filter->UpdateConfig(
         assembly::internal::SignalComponentFactory::BuildTrackFilterConfig(internal_runtime_config));
   }
-  if (auto_lifecycle_manager != nullptr) {
-    assembly::internal::ResolvedRuntimeSignalPipelineConfig resolved_runtime_config;
-    resolved_runtime_config.public_config = runtime_config;
-    resolved_runtime_config.internal_config = internal_runtime_config;
-    assembly::internal::SyncAutoLifecycleManagerForResolvedRuntimeConfig(
-        resolved_runtime_config, auto_lifecycle_manager);
-  }
+  return true;
 }
 
 }  // namespace internal

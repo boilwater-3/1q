@@ -35,7 +35,7 @@ CycleExecutionContract BuildCycleExecutionContract(const model::TargetFeatureLis
   return output;
 }
 
-void PrepareExecutionState(const CycleExecutionContract& contract,
+bool PrepareExecutionState(const CycleExecutionContract& contract,
                            const CycleExecutionRuntime& runtime, CycleExecutionScratch* scratch) {
   CycleWorkspace cycle_workspace = BuildCycleWorkspaceBindings(
       &scratch->output_state, &scratch->decision_frame, &scratch->association_quality_metrics,
@@ -44,9 +44,14 @@ void PrepareExecutionState(const CycleExecutionContract& contract,
       &scratch->measurement_slots, &scratch->target_geometry, &scratch->measurement_covariances,
       &scratch->association_result);
   ResetCycleWorkspace(contract.input_state, contract.runtime_config, &cycle_workspace);
-  SyncAssociationAndTrackFilterConfigs(contract.runtime_config, contract.internal_runtime_config,
-                                       &runtime.association_engine, &runtime.track_filter,
-                                       &runtime.auto_lifecycle_manager);
+  if (!SyncAssociationAndTrackFilterConfigs(contract.runtime_config, contract.internal_runtime_config,
+                                            &runtime.association_engine, &runtime.track_filter,
+                                            &runtime.auto_lifecycle_manager)) {
+    PROJECT_LOG_ERROR(
+        "[SignalPipeline] cycle preparation aborted because runtime config sync failed.");
+    return false;
+  }
+  return true;
 }
 
 void PrepareAssociationSeeds(const CycleExecutionRuntime& runtime) {
@@ -55,27 +60,30 @@ void PrepareAssociationSeeds(const CycleExecutionRuntime& runtime) {
                                   &runtime.association_engine);
 }
 
-EnvironmentPhaseOutput RunEnvironmentPhase(CycleExecutionContract* contract,
-                                           const CycleExecutionRuntime& runtime,
-                                           CycleExecutionScratch* scratch) {
-  EnvironmentPhaseOutput output;
-  output.environment_snapshot = contract->environment.SampleEnvironment();
+bool RunEnvironmentPhase(CycleExecutionContract* contract, const CycleExecutionRuntime& runtime,
+                         CycleExecutionScratch* scratch, EnvironmentPhaseOutput* output) {
+  output->environment_snapshot = contract->environment.SampleEnvironment();
 
-  ApplyEnvironmentJammingFactsToRuntimeConfig(runtime.control_profile, output.environment_snapshot,
+  ApplyEnvironmentJammingFactsToRuntimeConfig(runtime.control_profile, output->environment_snapshot,
                                               &contract->internal_runtime_config,
                                               &contract->runtime_config);
   RefreshMeasurementCovariances(scratch->target_geometry.size(),
                                 contract->runtime_config.tracking.kalman_measurement_noise_std,
                                 &scratch->measurement_covariances);
-  SyncAssociationAndTrackFilterConfigs(contract->runtime_config, contract->internal_runtime_config,
-                                       &runtime.association_engine, &runtime.track_filter,
-                                       &runtime.auto_lifecycle_manager);
+  if (!SyncAssociationAndTrackFilterConfigs(contract->runtime_config,
+                                            contract->internal_runtime_config,
+                                            &runtime.association_engine, &runtime.track_filter,
+                                            &runtime.auto_lifecycle_manager)) {
+    PROJECT_LOG_ERROR(
+        "[SignalPipeline] environment phase aborted because runtime config sync failed.");
+    return false;
+  }
 
-  output.dominant_jamming_semantic =
-      ResolveDominantJammingSemantic(runtime.control_profile, output.environment_snapshot);
-  output.jamming_severity =
-      ComputeTrackLevelJammingSeverity(runtime.control_profile, output.environment_snapshot);
-  return output;
+  output->dominant_jamming_semantic =
+      ResolveDominantJammingSemantic(runtime.control_profile, output->environment_snapshot);
+  output->jamming_severity =
+      ComputeTrackLevelJammingSeverity(runtime.control_profile, output->environment_snapshot);
+  return true;
 }
 
 DetectionPhaseOutput RunDetectionPhase(const CycleExecutionContract& contract,
@@ -165,17 +173,21 @@ void AssembleOutputs(std::uint32_t cycle_index, std::uint64_t batch_id,
 
 }  // namespace
 
-void ExecuteCycle(const model::TargetFeatureList& input_state,
+bool ExecuteCycle(const model::TargetFeatureList& input_state,
                   const extension::IEnvironmentService& environment, std::uint32_t cycle_index,
                   std::uint64_t batch_id, const CycleExecutionRuntime& runtime,
                   CycleExecutionScratch& cycle_scratch) {
   CycleExecutionContract contract =
       BuildCycleExecutionContract(input_state, environment, cycle_index, batch_id, runtime);
-  PrepareExecutionState(contract, runtime, &cycle_scratch);
+  if (!PrepareExecutionState(contract, runtime, &cycle_scratch)) {
+    return false;
+  }
   PrepareAssociationSeeds(runtime);
 
-  const EnvironmentPhaseOutput environment_phase =
-      RunEnvironmentPhase(&contract, runtime, &cycle_scratch);
+  EnvironmentPhaseOutput environment_phase;
+  if (!RunEnvironmentPhase(&contract, runtime, &cycle_scratch, &environment_phase)) {
+    return false;
+  }
   const DetectionPhaseOutput detection_phase =
       RunDetectionPhase(contract, runtime, environment_phase, &cycle_scratch);
   const AssociationPhaseOutput association_phase =
@@ -188,6 +200,7 @@ void ExecuteCycle(const model::TargetFeatureList& input_state,
   AssembleOutputs(contract.cycle_index, contract.batch_id, contract, environment_phase, runtime,
                   association_phase,
                   measurement_phase, &cycle_scratch);
+  return true;
 }
 
 }  // namespace internal

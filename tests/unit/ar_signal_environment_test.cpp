@@ -57,6 +57,15 @@ environment::EnvironmentCycleContext MakeEnvironmentCycle(std::uint32_t cycle_in
   return cycle;
 }
 
+template <typename PipelineType>
+extension::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
+                                              const model::TargetFeatureList& input_state,
+                                              environment::EnvironmentService* environment_service,
+                                              std::uint32_t cycle_index = 1u) {
+  environment_service->BeginCycle(MakeEnvironmentCycle(cycle_index));
+  return pipeline->RunCycle(input_state, *environment_service);
+}
+
 environment::JammerSourceFact MakeJammerSource(environment::JammingTechnique technique,
                                                float power_db) {
   environment::JammerSourceFact jammer;
@@ -337,7 +346,7 @@ TEST(SignalPipelineTest, KeepsTrackStableWhenDetectionMarginIsEnough) {
   const model::TargetFeatureList input_state{target};
 
   const auto output_state =
-      signal_pipeline.RunCycle(input_state, environment_service).updated_features;
+      RunPipelineCycle(&signal_pipeline, input_state, &environment_service).updated_features;
 
   ASSERT_EQ(output_state.size(), 1u);
   EXPECT_FLOAT_EQ(output_state[0].current_track_speed, input_state[0].current_track_speed);
@@ -359,7 +368,7 @@ TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
       model::TargetFeature(800.0f, 0.0f, 0.0f, 2.5f)};
 
   const auto output_state =
-      signal_pipeline.RunCycle(input_state, environment_service).updated_features;
+      RunPipelineCycle(&signal_pipeline, input_state, &environment_service).updated_features;
 
   ASSERT_EQ(output_state.size(), 1u);
   EXPECT_LT(output_state[0].current_track_speed, input_state[0].current_track_speed);
@@ -384,7 +393,7 @@ TEST(SignalPipelineTest,
   environment::EnvironmentService baseline_environment(env_config);
   signal::pipeline::SignalPipeline baseline_pipeline(baseline_config);
   const extension::SignalCycleResult baseline_result =
-      baseline_pipeline.RunCycle(input_state, baseline_environment);
+      RunPipelineCycle(&baseline_pipeline, input_state, &baseline_environment);
   const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
   ASSERT_EQ(baseline_result.updated_features.size(), 1u);
@@ -404,7 +413,7 @@ TEST(SignalPipelineTest,
   environment::EnvironmentService disabled_environment(env_config);
   signal::pipeline::SignalPipeline disabled_pipeline(disabled_override_config);
   const extension::SignalCycleResult disabled_result =
-      disabled_pipeline.RunCycle(input_state, disabled_environment);
+      RunPipelineCycle(&disabled_pipeline, input_state, &disabled_environment);
   const auto disabled_measurements = disabled_pipeline.GetLastTrackMeasurements();
 
   ASSERT_EQ(disabled_result.updated_features.size(), 1u);
@@ -417,7 +426,7 @@ TEST(SignalPipelineTest,
 
   environment::EnvironmentService enabled_environment(env_config);
   signal::pipeline::SignalPipeline enabled_pipeline(enabled_override_config);
-  enabled_pipeline.RunCycle(input_state, enabled_environment);
+  RunPipelineCycle(&enabled_pipeline, input_state, &enabled_environment);
   const auto enabled_measurements = enabled_pipeline.GetLastTrackMeasurements();
 
   ASSERT_EQ(enabled_measurements.size(), 1u);
@@ -586,7 +595,7 @@ TEST(SignalPipelineTest, ControlProfilePowerReductionLowersPhysicalDetectionMarg
   const model::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
 
   signal::pipeline::SignalPipeline baseline_pipeline(pipeline_config);
-  baseline_pipeline.RunCycle(input_state, environment_service);
+  RunPipelineCycle(&baseline_pipeline, input_state, &environment_service);
   const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
   extension::control::RadarControlProfile reduced_power_profile;
@@ -594,7 +603,7 @@ TEST(SignalPipelineTest, ControlProfilePowerReductionLowersPhysicalDetectionMarg
   reduced_power_profile.lpi_power_scale = 0.20f;
   signal::pipeline::SignalPipeline reduced_pipeline(pipeline_config);
   reduced_pipeline.SetControlProfile(reduced_power_profile);
-  reduced_pipeline.RunCycle(input_state, environment_service);
+  RunPipelineCycle(&reduced_pipeline, input_state, &environment_service);
   const auto reduced_measurements = reduced_pipeline.GetLastTrackMeasurements();
 
   ASSERT_EQ(baseline_measurements.size(), 1u);
@@ -617,14 +626,14 @@ TEST(SignalPipelineTest, AdaptiveBeamformingProfileTightensMeasurementCovariance
   const model::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
 
   signal::pipeline::SignalPipeline baseline_pipeline(pipeline_config);
-  baseline_pipeline.RunCycle(input_state, environment_service);
+  RunPipelineCycle(&baseline_pipeline, input_state, &environment_service);
   const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
   extension::control::RadarControlProfile adaptive_profile;
   adaptive_profile.enable_adaptive_beamforming = true;
   signal::pipeline::SignalPipeline adaptive_pipeline(pipeline_config);
   adaptive_pipeline.SetControlProfile(adaptive_profile);
-  adaptive_pipeline.RunCycle(input_state, environment_service);
+  RunPipelineCycle(&adaptive_pipeline, input_state, &environment_service);
   const auto adaptive_measurements = adaptive_pipeline.GetLastTrackMeasurements();
 
   ASSERT_EQ(baseline_measurements.size(), 1u);
@@ -660,7 +669,7 @@ TEST(SignalPipelineTest, EccmProfileRelaxesHeuristicAssociationGateForSeededTrac
   signal::pipeline::SignalPipeline baseline_pipeline(pipeline_config);
   baseline_pipeline.SetAssociationSeeds(
       std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
-  baseline_pipeline.RunCycle(input_state, environment_service);
+  RunPipelineCycle(&baseline_pipeline, input_state, &environment_service);
   const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
   extension::control::RadarControlProfile eccm_profile;
@@ -671,7 +680,7 @@ TEST(SignalPipelineTest, EccmProfileRelaxesHeuristicAssociationGateForSeededTrac
   protected_pipeline.SetAssociationSeeds(
       std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
   protected_pipeline.SetControlProfile(eccm_profile);
-  protected_pipeline.RunCycle(input_state, environment_service);
+  RunPipelineCycle(&protected_pipeline, input_state, &environment_service);
   const auto protected_measurements = protected_pipeline.GetLastTrackMeasurements();
 
   ASSERT_EQ(baseline_measurements.size(), 1u);
@@ -723,14 +732,14 @@ TEST(SignalPipelineTest, AssociationQualityMetricsExposeTypeSpecificStressSummar
 
   signal::pipeline::SignalPipeline noise_pipeline(pipeline_config);
   noise_pipeline.SetAssociationSeeds(std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
-  noise_pipeline.RunCycle(input_state, noise_environment);
+  RunPipelineCycle(&noise_pipeline, input_state, &noise_environment);
   const extension::AssociationQualityMetrics noise_metrics =
       noise_pipeline.GetLastAssociationQualityMetrics();
 
   signal::pipeline::SignalPipeline deception_pipeline(pipeline_config);
   deception_pipeline.SetAssociationSeeds(
       std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
-  deception_pipeline.RunCycle(input_state, deception_environment);
+  RunPipelineCycle(&deception_pipeline, input_state, &deception_environment);
   const extension::AssociationQualityMetrics deception_metrics =
       deception_pipeline.GetLastAssociationQualityMetrics();
 
@@ -828,7 +837,7 @@ TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) 
   signal::pipeline::SignalPipeline baseline_pipeline(pipeline_config);
   baseline_pipeline.SetAssociationSeeds(
       std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
-  baseline_pipeline.RunCycle(input_state, deception_environment);
+  RunPipelineCycle(&baseline_pipeline, input_state, &deception_environment);
   const extension::AssociationQualityMetrics baseline_metrics =
       baseline_pipeline.GetLastAssociationQualityMetrics();
 
@@ -839,7 +848,7 @@ TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) 
   protected_pipeline.SetAssociationSeeds(
       std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
   protected_pipeline.SetControlProfile(protected_profile);
-  protected_pipeline.RunCycle(input_state, deception_environment);
+  RunPipelineCycle(&protected_pipeline, input_state, &deception_environment);
   const extension::AssociationQualityMetrics protected_metrics =
       protected_pipeline.GetLastAssociationQualityMetrics();
 
@@ -873,7 +882,7 @@ TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) 
   const model::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
 
   signal::pipeline::SignalPipeline baseline_pipeline(pipeline_config);
-  baseline_pipeline.RunCycle(input_state, environment_service);
+  RunPipelineCycle(&baseline_pipeline, input_state, &environment_service);
   const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
   extension::control::RadarControlProfile eccm_profile;
@@ -883,7 +892,7 @@ TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) 
   eccm_profile.eccm_burnthrough_gain = 1.5f;
   signal::pipeline::SignalPipeline eccm_pipeline(pipeline_config);
   eccm_pipeline.SetControlProfile(eccm_profile);
-  eccm_pipeline.RunCycle(input_state, environment_service);
+  RunPipelineCycle(&eccm_pipeline, input_state, &environment_service);
   const auto eccm_measurements = eccm_pipeline.GetLastTrackMeasurements();
 
   ASSERT_EQ(baseline_measurements.size(), 1u);
@@ -931,12 +940,12 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulatePhysicalEccmBenefit) {
 
   signal::pipeline::SignalPipeline favorable_pipeline(pipeline_config);
   favorable_pipeline.SetControlProfile(eccm_profile);
-  favorable_pipeline.RunCycle(input_state, favorable_environment);
+  RunPipelineCycle(&favorable_pipeline, input_state, &favorable_environment);
   const auto favorable_measurements = favorable_pipeline.GetLastTrackMeasurements();
 
   signal::pipeline::SignalPipeline unfavorable_pipeline(pipeline_config);
   unfavorable_pipeline.SetControlProfile(eccm_profile);
-  unfavorable_pipeline.RunCycle(input_state, unfavorable_environment);
+  RunPipelineCycle(&unfavorable_pipeline, input_state, &unfavorable_environment);
   const auto unfavorable_measurements = unfavorable_pipeline.GetLastTrackMeasurements();
 
   ASSERT_EQ(favorable_measurements.size(), 1u);
@@ -966,7 +975,7 @@ TEST(SignalPipelineTest, DeceptionJammingFactsShrinkPhysicalCovarianceWhenMatche
   const model::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
 
   signal::pipeline::SignalPipeline baseline_pipeline(pipeline_config);
-  baseline_pipeline.RunCycle(input_state, environment_service);
+  RunPipelineCycle(&baseline_pipeline, input_state, &environment_service);
   const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
   extension::control::RadarControlProfile protected_profile;
@@ -974,7 +983,7 @@ TEST(SignalPipelineTest, DeceptionJammingFactsShrinkPhysicalCovarianceWhenMatche
   protected_profile.enable_eccm_rejitter = true;
   signal::pipeline::SignalPipeline protected_pipeline(pipeline_config);
   protected_pipeline.SetControlProfile(protected_profile);
-  protected_pipeline.RunCycle(input_state, environment_service);
+  RunPipelineCycle(&protected_pipeline, input_state, &environment_service);
   const auto protected_measurements = protected_pipeline.GetLastTrackMeasurements();
 
   ASSERT_EQ(baseline_measurements.size(), 1u);
@@ -1028,7 +1037,7 @@ TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
 
   signal::pipeline::SignalPipeline baseline_pipeline;
   const auto baseline_output =
-      baseline_pipeline.RunCycle(input_state, environment_service).updated_features;
+      RunPipelineCycle(&baseline_pipeline, input_state, &environment_service).updated_features;
 
   extension::control::RadarControlProfile eccm_profile;
   eccm_profile.enable_sidelobe_canceller = true;
@@ -1037,7 +1046,7 @@ TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
   signal::pipeline::SignalPipeline protected_pipeline;
   protected_pipeline.SetControlProfile(eccm_profile);
   const auto protected_output =
-      protected_pipeline.RunCycle(input_state, environment_service).updated_features;
+      RunPipelineCycle(&protected_pipeline, input_state, &environment_service).updated_features;
 
   ASSERT_EQ(baseline_output.size(), 1u);
   ASSERT_EQ(protected_output.size(), 1u);
@@ -1091,12 +1100,12 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
 
   signal::pipeline::SignalPipeline favorable_pipeline(pipeline_config);
   favorable_pipeline.SetControlProfile(eccm_profile);
-  favorable_pipeline.RunCycle(input_state, favorable_environment);
+  RunPipelineCycle(&favorable_pipeline, input_state, &favorable_environment);
   const auto favorable_measurements = favorable_pipeline.GetLastTrackMeasurements();
 
   signal::pipeline::SignalPipeline unfavorable_pipeline(pipeline_config);
   unfavorable_pipeline.SetControlProfile(eccm_profile);
-  unfavorable_pipeline.RunCycle(input_state, unfavorable_environment);
+  RunPipelineCycle(&unfavorable_pipeline, input_state, &unfavorable_environment);
   const auto unfavorable_measurements = unfavorable_pipeline.GetLastTrackMeasurements();
 
   ASSERT_EQ(favorable_measurements.size(), 1u);
@@ -1126,7 +1135,7 @@ TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUp
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> baseline_manager =
       baseline_pipeline.CreateAutoLifecycleManager();
   ASSERT_TRUE(baseline_manager != nullptr);
-  baseline_pipeline.RunCycle(cycle_1_input, environment_service);
+  RunPipelineCycle(&baseline_pipeline, cycle_1_input, &environment_service, 1u);
   baseline_manager->Update(MakeLifecycleCycle(1u, 1u),
                            baseline_pipeline.GetLastTrackMeasurements());
 
@@ -1134,7 +1143,7 @@ TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUp
   target.range_m = 101.0f;
   const model::TargetFeatureList cycle_2_input{target};
   baseline_pipeline.SetAssociationSeeds(baseline_manager->BuildAssociationSeeds());
-  baseline_pipeline.RunCycle(cycle_2_input, environment_service);
+  RunPipelineCycle(&baseline_pipeline, cycle_2_input, &environment_service, 2u);
   baseline_manager->Update(MakeLifecycleCycle(2u, 2u),
                            baseline_pipeline.GetLastTrackMeasurements());
   const std::vector<signal::tracking::AssociationTrackSeed> baseline_seeds =
@@ -1147,11 +1156,11 @@ TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUp
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> adaptive_manager =
       adaptive_pipeline.CreateAutoLifecycleManager();
   ASSERT_TRUE(adaptive_manager != nullptr);
-  adaptive_pipeline.RunCycle(cycle_1_input, environment_service);
+  RunPipelineCycle(&adaptive_pipeline, cycle_1_input, &environment_service, 1u);
   adaptive_manager->Update(MakeLifecycleCycle(1u, 1u),
                            adaptive_pipeline.GetLastTrackMeasurements());
   adaptive_pipeline.SetAssociationSeeds(adaptive_manager->BuildAssociationSeeds());
-  adaptive_pipeline.RunCycle(cycle_2_input, environment_service);
+  RunPipelineCycle(&adaptive_pipeline, cycle_2_input, &environment_service, 2u);
   adaptive_manager->Update(MakeLifecycleCycle(2u, 2u),
                            adaptive_pipeline.GetLastTrackMeasurements());
   const std::vector<signal::tracking::AssociationTrackSeed> adaptive_seeds =
@@ -1183,7 +1192,7 @@ TEST(SignalPipelineTest, AutoLifecycleManagerSyncsRuntimeTuningAcrossCycles) {
   environment::EnvironmentService environment_service;
   signal::pipeline::SignalPipeline measurement_source_pipeline(pipeline_config);
   const model::TargetFeatureList cycle_1_input{BuildPhysicsTarget(100.0f, 4.0f)};
-  measurement_source_pipeline.RunCycle(cycle_1_input, environment_service);
+  RunPipelineCycle(&measurement_source_pipeline, cycle_1_input, &environment_service, 1u);
   const std::vector<signal::tracking::TrackMeasurement> cycle_1_measurements =
       measurement_source_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(cycle_1_measurements.size(), 1u);
@@ -1229,7 +1238,7 @@ TEST(SignalPipelineTest, InvalidTopologyRebuildKeepsPreviousLifecycleAssemblyOpe
   environment::EnvironmentService environment_service;
   signal::pipeline::SignalPipeline measurement_source_pipeline(pipeline_config);
   const model::TargetFeatureList cycle_1_input{BuildPhysicsTarget(100.0f, 4.0f)};
-  measurement_source_pipeline.RunCycle(cycle_1_input, environment_service);
+  RunPipelineCycle(&measurement_source_pipeline, cycle_1_input, &environment_service, 1u);
   const std::vector<signal::tracking::TrackMeasurement> cycle_1_measurements =
       measurement_source_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(cycle_1_measurements.size(), 1u);
@@ -1291,11 +1300,11 @@ TEST(SignalPipelineTest, DeceptionJammingInflatesPhysicalCovarianceMoreThanNoise
   const model::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
 
   signal::pipeline::SignalPipeline noise_pipeline(pipeline_config);
-  noise_pipeline.RunCycle(input_state, noise_environment);
+  RunPipelineCycle(&noise_pipeline, input_state, &noise_environment);
   const auto noise_measurements = noise_pipeline.GetLastTrackMeasurements();
 
   signal::pipeline::SignalPipeline deception_pipeline(pipeline_config);
-  deception_pipeline.RunCycle(input_state, deception_environment);
+  RunPipelineCycle(&deception_pipeline, input_state, &deception_environment);
   const auto deception_measurements = deception_pipeline.GetLastTrackMeasurements();
 
   ASSERT_EQ(noise_measurements.size(), 1u);
@@ -1321,7 +1330,7 @@ TEST(SignalPipelineTest, AutoImmLifecycleAssemblyUsesControlProfileAdjustedImmPa
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> baseline_manager =
       baseline_pipeline.CreateAutoLifecycleManager();
   ASSERT_TRUE(baseline_manager != nullptr);
-  baseline_pipeline.RunCycle(cycle_1_input, environment_service);
+  RunPipelineCycle(&baseline_pipeline, cycle_1_input, &environment_service, 1u);
   baseline_manager->Update(MakeLifecycleCycle(1u, 1u),
                            baseline_pipeline.GetLastTrackMeasurements());
   baseline_manager->Update(MakeLifecycleCycle(2u, 2u), {});
@@ -1336,7 +1345,7 @@ TEST(SignalPipelineTest, AutoImmLifecycleAssemblyUsesControlProfileAdjustedImmPa
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> protected_manager =
       protected_pipeline.CreateAutoLifecycleManager();
   ASSERT_TRUE(protected_manager != nullptr);
-  protected_pipeline.RunCycle(cycle_1_input, environment_service);
+  RunPipelineCycle(&protected_pipeline, cycle_1_input, &environment_service, 1u);
   protected_manager->Update(MakeLifecycleCycle(1u, 1u),
                             protected_pipeline.GetLastTrackMeasurements());
   protected_manager->Update(MakeLifecycleCycle(2u, 2u), {});
@@ -1414,7 +1423,7 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
   second.range_m = 100.0f;
   const model::TargetFeatureList cycle_1{first, second};
 
-  signal_pipeline.RunCycle(cycle_1, environment_service);
+  RunPipelineCycle(&signal_pipeline, cycle_1, &environment_service, 1u);
   const std::vector<signal::tracking::TrackMeasurement> first_measurements =
       signal_pipeline.GetLastTrackMeasurements();
 
@@ -1457,7 +1466,7 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
   signal_pipeline.SetAssociationSeeds(
       std::vector<signal::tracking::AssociationTrackSeed>{first_seed, second_seed});
   const model::TargetFeatureList cycle_2{first, second};
-  signal_pipeline.RunCycle(cycle_2, environment_service);
+  RunPipelineCycle(&signal_pipeline, cycle_2, &environment_service, 2u);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
 
@@ -1477,7 +1486,7 @@ TEST(SignalPipelineTest, CompletesWithoutCrashWhenDetectedTargetLacksCartesianPo
       model::TargetFeature(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f)};
 
   // Contract violation is logged and skipped; cycle completes without aborting
-  signal_pipeline.RunCycle(input_state, environment_service);
+  RunPipelineCycle(&signal_pipeline, input_state, &environment_service);
 }
 
 TEST(SignalPipelineTest, UsesPositionAssociationByDefaultWhenCartesianPositionExists) {
@@ -1498,7 +1507,7 @@ TEST(SignalPipelineTest, UsesPositionAssociationByDefaultWhenCartesianPositionEx
   second.position_z = 0.0f;
   second.range_m = 100.0f;
 
-  signal_pipeline.RunCycle(model::TargetFeatureList{first, second}, environment_service);
+  RunPipelineCycle(&signal_pipeline, model::TargetFeatureList{first, second}, &environment_service, 1u);
   const std::vector<signal::tracking::TrackMeasurement> first_measurements =
       signal_pipeline.GetLastTrackMeasurements();
 
@@ -1530,7 +1539,7 @@ TEST(SignalPipelineTest, UsesPositionAssociationByDefaultWhenCartesianPositionEx
 
   first.position_x = 11.0f;
   second.position_x = 101.0f;
-  signal_pipeline.RunCycle(model::TargetFeatureList{second, first}, environment_service);
+  RunPipelineCycle(&signal_pipeline, model::TargetFeatureList{second, first}, &environment_service, 2u);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
 
@@ -1552,7 +1561,7 @@ TEST(SignalPipelineTest, UsesLifecycleAssociationSeedsByDefault) {
   target.position_z = 0.0f;
   target.range_m = 10.0f;
 
-  signal_pipeline.RunCycle(model::TargetFeatureList{target}, environment_service);
+  RunPipelineCycle(&signal_pipeline, model::TargetFeatureList{target}, &environment_service, 1u);
   const std::vector<signal::tracking::TrackMeasurement> first_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(first_measurements.size(), 1u);
@@ -1562,7 +1571,7 @@ TEST(SignalPipelineTest, UsesLifecycleAssociationSeedsByDefault) {
 
   target.position_x = 10.2f;
   target.range_m = 10.2f;
-  signal_pipeline.RunCycle(model::TargetFeatureList{target}, environment_service);
+  RunPipelineCycle(&signal_pipeline, model::TargetFeatureList{target}, &environment_service, 2u);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(second_measurements.size(), 1u);
@@ -1570,8 +1579,7 @@ TEST(SignalPipelineTest, UsesLifecycleAssociationSeedsByDefault) {
   EXPECT_EQ(second_measurements[0].raw_measurement.association_key, first_key);
 }
 
-TEST(SignalPipelineTest,
-     ResetAssociationSeedModeToStatelessClearsManualSideChannelSeedsButKeepsLifecycleSeeds) {
+TEST(SignalPipelineTest, ClearManualAssociationSeedsKeepsLifecycleSeedsActive) {
   environment::EnvironmentService environment_service;
   environment_service.BeginCycle(MakeEnvironmentCycle(1u));
 
@@ -1588,7 +1596,7 @@ TEST(SignalPipelineTest,
       signal::tracking::StateCovariance::Identity() * 25.0f;
   signal_pipeline.SetAssociationSeeds(
       std::vector<signal::tracking::AssociationTrackSeed>(1, side_channel_seed));
-  signal_pipeline.ResetAssociationSeedModeToStateless();
+  signal_pipeline.ClearManualAssociationSeeds();
 
   model::TargetFeature target(0.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
   target.has_cartesian_position = true;
@@ -1597,7 +1605,7 @@ TEST(SignalPipelineTest,
   target.position_z = 0.0f;
   target.range_m = 10.0f;
 
-  signal_pipeline.RunCycle(model::TargetFeatureList{target}, environment_service);
+  RunPipelineCycle(&signal_pipeline, model::TargetFeatureList{target}, &environment_service, 1u);
   const std::vector<signal::tracking::TrackMeasurement> first_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(first_measurements.size(), 1u);
@@ -1607,12 +1615,35 @@ TEST(SignalPipelineTest,
 
   target.position_x = 10.1f;
   target.range_m = 10.1f;
-  signal_pipeline.RunCycle(model::TargetFeatureList{target}, environment_service);
+  RunPipelineCycle(&signal_pipeline, model::TargetFeatureList{target}, &environment_service, 2u);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(second_measurements.size(), 1u);
   EXPECT_TRUE(second_measurements[0].raw_measurement.matched_existing_track);
   EXPECT_EQ(second_measurements[0].raw_measurement.association_key, first_key);
+}
+
+TEST(SignalPipelineTest, InvalidEnvironmentCycleAbortsAndClearsLastCycleCache) {
+  signal::pipeline::SignalPipeline signal_pipeline;
+  environment::EnvironmentService valid_environment;
+  environment::EnvironmentService invalid_environment;
+
+  model::TargetFeature target(0.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
+  target.has_cartesian_position = true;
+  target.position_x = 10.0f;
+  target.range_m = 10.0f;
+
+  const extension::SignalCycleResult valid_result =
+      RunPipelineCycle(&signal_pipeline, model::TargetFeatureList{target}, &valid_environment, 1u);
+  ASSERT_EQ(valid_result.updated_features.size(), 1u);
+  ASSERT_EQ(signal_pipeline.GetLastTrackMeasurements().size(), 1u);
+
+  const extension::SignalCycleResult invalid_result =
+      signal_pipeline.RunCycle(model::TargetFeatureList{target}, invalid_environment);
+  EXPECT_TRUE(invalid_result.updated_features.empty());
+  EXPECT_TRUE(invalid_result.decision_frame.tracks.empty());
+  EXPECT_TRUE(signal_pipeline.GetLastTrackMeasurements().empty());
+  EXPECT_EQ(signal_pipeline.GetLastAssociationQualityMetrics().detection_count, 0u);
 }
 
 // ============================================================================
@@ -1967,7 +1998,7 @@ TEST(SignalPipelineTest, SameInstanceControlProfileSwitchAcrossCyclesSyncsLifecy
       pipeline.CreateAutoLifecycleManager();
   ASSERT_TRUE(manager != nullptr);
 
-  pipeline.RunCycle(input, environment_service);
+  RunPipelineCycle(&pipeline, input, &environment_service, 1u);
   manager->Update(MakeLifecycleCycle(1u, 1u), pipeline.GetLastTrackMeasurements());
 
   extension::control::RadarControlProfile baseline_profile;
@@ -1977,7 +2008,7 @@ TEST(SignalPipelineTest, SameInstanceControlProfileSwitchAcrossCyclesSyncsLifecy
   target.range_m = 101.0f;
   const model::TargetFeatureList input2{target};
   pipeline.SetAssociationSeeds(manager->BuildAssociationSeeds());
-  pipeline.RunCycle(input2, environment_service);
+  RunPipelineCycle(&pipeline, input2, &environment_service, 2u);
   manager->Update(MakeLifecycleCycle(2u, 2u), pipeline.GetLastTrackMeasurements());
   const std::vector<signal::tracking::AssociationTrackSeed> baseline_seeds =
       manager->BuildAssociationSeeds();
@@ -1992,7 +2023,7 @@ TEST(SignalPipelineTest, SameInstanceControlProfileSwitchAcrossCyclesSyncsLifecy
   target.range_m = 102.0f;
   const model::TargetFeatureList input3{target};
   pipeline.SetAssociationSeeds(manager->BuildAssociationSeeds());
-  pipeline.RunCycle(input3, environment_service);
+  RunPipelineCycle(&pipeline, input3, &environment_service, 3u);
   manager->Update(MakeLifecycleCycle(3u, 3u), pipeline.GetLastTrackMeasurements());
   const std::vector<signal::tracking::AssociationTrackSeed> agile_seeds =
       manager->BuildAssociationSeeds();

@@ -23,7 +23,7 @@ struct CycleContext {
   std::uint32_t cycle_index{0}; /**< 当前周期号。 */
   std::uint64_t batch_id{0};    /**< 当前探测批号。 */
   float dt_sec{0.0f}; /**< 当前周期时间步长（秒）。由外部平台模型提供；当值 <= 0 时，Lifecycle
-                         会按内部兜底规则回退。 */
+                         update 会拒绝本周期输入。 */
   std::uint32_t extra_miss_tolerance{
       0}; /**< 额外失配容忍周期数。由控制平面按周期注入，用于在保护模式下延长 confirmed->lost
              的阈值。 */

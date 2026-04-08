@@ -61,9 +61,9 @@ class SignalPipeline final : public extension::ISignalPipeline {
   void SetAssociationSeeds(const std::vector<tracking::AssociationTrackSeed>& seeds);
 
   /**
-   * @brief 清空外部注入的关联种子并回到无先验模式。
+   * @brief 清空外部注入的关联种子并恢复默认 lifecycle seed 模式。
    */
-  void ResetAssociationSeedModeToStateless();
+  void ClearManualAssociationSeeds();
 
   /**
    * @brief 按当前配置构造默认生命周期管理器。

@@ -1,5 +1,6 @@
 #include "airborne_radar/signal/pipeline/core/SignalPipeline.h"
 
+#include <cmath>
 #include <cstdint>
 #include <memory>
 #include <utility>
@@ -23,6 +24,17 @@ namespace signal {
 namespace pipeline {
 
 namespace {
+void ResetCycleScratch(internal::CycleExecutionScratch* scratch) {
+  if (scratch == nullptr) {
+    return;
+  }
+  *scratch = internal::CycleExecutionScratch();
+}
+
+bool HasValidEnvironmentCycle(const environment::EnvironmentSnapshot& snapshot) {
+  return std::isfinite(snapshot.cycle_dt_sec) != 0 && snapshot.cycle_dt_sec > 0.0f;
+}
+
 struct RuntimeConfigState {
   explicit RuntimeConfigState(SignalPipelineConfig initial_config)
       : base_config(std::move(initial_config)),
@@ -96,12 +108,25 @@ struct SignalPipeline::Impl {
     if (runtime_.owned.auto_lifecycle_manager == nullptr) {
       PROJECT_LOG_ERROR(
           "[SignalPipeline] RunCycle aborted because auto_lifecycle_manager is unavailable.");
+      ResetCycleScratch(&cycle_.scratch);
+      return extension::SignalCycleResult();
+    }
+
+    const environment::EnvironmentSnapshot environment_snapshot = environment.SampleEnvironment();
+    if (!HasValidEnvironmentCycle(environment_snapshot)) {
+      PROJECT_LOG_ERROR(
+          "[SignalPipeline] RunCycle aborted because environment cycle is not initialized with a "
+          "positive dt_sec.");
+      ResetCycleScratch(&cycle_.scratch);
       return extension::SignalCycleResult();
     }
     const internal::CycleExecutionRuntime runtime_execution = BuildExecutionRuntimeView();
 
-    internal::ExecuteCycle(input_state, environment, cycle_.cycle_index, cycle_.batch_id,
-                           runtime_execution, cycle_.scratch);
+    if (!internal::ExecuteCycle(input_state, environment, cycle_.cycle_index, cycle_.batch_id,
+                                runtime_execution, cycle_.scratch)) {
+      ResetCycleScratch(&cycle_.scratch);
+      return extension::SignalCycleResult();
+    }
 
     extension::SignalCycleResult result;
     result.updated_features = cycle_.scratch.output_state;
@@ -127,7 +152,7 @@ struct SignalPipeline::Impl {
         runtime_.association_seeds.manual_association_seeds);
   }
 
-  void ResetAssociationSeedModeToStateless() {
+  void ClearManualAssociationSeeds() {
     runtime_.association_seeds.has_manual_association_seeds = false;
     runtime_.association_seeds.manual_association_seeds.clear();
     runtime_.owned.association_engine.ResetAssociationSeedModeToStateless();
@@ -204,8 +229,8 @@ void SignalPipeline::SetAssociationSeeds(const std::vector<tracking::Association
   impl_->SetAssociationSeeds(seeds);
 }
 
-void SignalPipeline::ResetAssociationSeedModeToStateless() {
-  impl_->ResetAssociationSeedModeToStateless();
+void SignalPipeline::ClearManualAssociationSeeds() {
+  impl_->ClearManualAssociationSeeds();
 }
 
 std::unique_ptr<tracking::ITrackLifecycleManager> SignalPipeline::CreateAutoLifecycleManager()

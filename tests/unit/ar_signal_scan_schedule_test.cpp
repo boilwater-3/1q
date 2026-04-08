@@ -53,6 +53,43 @@ std::size_t CountUniqueScheduledPoints(const model::RadarOrientationConfig& orie
   return unique_points.size();
 }
 
+environment::EnvironmentCycleContext MakeEnvironmentCycle(std::uint32_t cycle_index) {
+  environment::EnvironmentCycleContext cycle;
+  cycle.cycle_index = cycle_index;
+  cycle.dt_sec = 1.0f;
+  return cycle;
+}
+
+template <typename PipelineType>
+extension::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
+                                              const model::TargetFeatureList& input_state,
+                                              environment::EnvironmentService* environment_service,
+                                              std::uint32_t cycle_index) {
+  environment_service->BeginCycle(MakeEnvironmentCycle(cycle_index));
+  return pipeline->RunCycle(input_state, *environment_service);
+}
+
+class NonAutoLifecycleManager final : public signal::tracking::ITrackLifecycleManager {
+ public:
+  void Update(const signal::tracking::CycleContext&,
+              const std::vector<signal::tracking::TrackMeasurement>&) override {}
+
+  model::TargetFeatureList BuildFeatureSnapshot() const override { return model::TargetFeatureList(); }
+
+  model::DecisionTrackSnapshotList BuildDecisionSnapshot() const override {
+    return model::DecisionTrackSnapshotList();
+  }
+
+  model::DecisionInputFrame BuildDecisionFrame(std::uint32_t, std::uint64_t,
+                                               bool) const override {
+    return model::DecisionInputFrame();
+  }
+
+  std::vector<signal::tracking::AssociationTrackSeed> BuildAssociationSeeds() const override {
+    return std::vector<signal::tracking::AssociationTrackSeed>();
+  }
+};
+
 signal::pipeline::internal::CycleExecutionRuntime BuildMinimalValidRuntime(
     const config::SignalPipelineConfig& base_config,
     const signal::pipeline::internal::InternalSignalPipelineConfig& internal_config,
@@ -134,8 +171,8 @@ TEST(CycleExecutorTest, ValidRuntimeProducesInputAlignedStageBuffers) {
 
   environment::EnvironmentService environment_service;
   signal::pipeline::internal::CycleExecutionScratch scratch;
-  signal::pipeline::internal::ExecuteCycle(input_state, environment_service, 3U, 9U, runtime,
-                                           scratch);
+  EXPECT_TRUE(signal::pipeline::internal::ExecuteCycle(input_state, environment_service, 3U, 9U, runtime,
+                                                       scratch));
 
   EXPECT_EQ(scratch.output_state.size(), input_state.size());
   EXPECT_EQ(scratch.signal_term_db.size(), input_state.size());
@@ -169,14 +206,40 @@ TEST(CycleExecutorTest, EmptyInputKeepsWorkspaceOutputsEmpty) {
   const model::TargetFeatureList input_state;
   environment::EnvironmentService environment_service;
   signal::pipeline::internal::CycleExecutionScratch scratch;
-  signal::pipeline::internal::ExecuteCycle(input_state, environment_service, 1U, 1U, runtime,
-                                           scratch);
+  EXPECT_TRUE(signal::pipeline::internal::ExecuteCycle(input_state, environment_service, 1U, 1U, runtime,
+                                                       scratch));
 
   EXPECT_TRUE(scratch.output_state.empty());
   EXPECT_TRUE(scratch.track_measurements.empty());
   EXPECT_TRUE(scratch.detection_succeeded.empty());
   EXPECT_TRUE(scratch.association_keys.empty());
   EXPECT_TRUE(scratch.measurement_covariances.empty());
+}
+
+TEST(CycleExecutorTest, NonAutoLifecycleManagerCausesRuntimeSyncFailure) {
+  config::SignalPipelineConfig base_config;
+  const signal::pipeline::internal::InternalSignalPipelineConfig internal_config =
+      signal::pipeline::internal::BuildInternalSignalPipelineConfig(base_config);
+  const extension::control::RadarControlProfile control_profile{};
+
+  signal::association::DataAssociationEngine association_engine;
+  signal::tracking::TrackFilter track_filter;
+  NonAutoLifecycleManager lifecycle_manager;
+  const signal::pipeline::internal::CycleExecutionRuntime runtime = BuildMinimalValidRuntime(
+      base_config, internal_config, control_profile, &association_engine, &track_filter,
+      &lifecycle_manager);
+
+  model::TargetFeature target(1000.0f, 0.0f, 0.0f, 2.0f);
+  target.has_cartesian_position = true;
+  target.position_x = 1000.0f;
+  target.range_m = 1000.0f;
+
+  environment::EnvironmentService environment_service;
+  signal::pipeline::internal::CycleExecutionScratch scratch;
+  EXPECT_FALSE(signal::pipeline::internal::ExecuteCycle(
+      model::TargetFeatureList{target}, environment_service, 1U, 1U, runtime, scratch));
+  EXPECT_TRUE(scratch.track_measurements.empty());
+  EXPECT_EQ(scratch.decision_frame.cycle_index, 0U);
 }
 
 TEST(ScanScheduleResolverTest, SequenceControlsFastScanAxisWithSerpentine) {
@@ -438,7 +501,8 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
   const std::size_t kCycleCount = 64U;
   for (std::size_t i = 0; i < kCycleCount; ++i) {
     const extension::SignalCycleResult cycle_result =
-        signal_pipeline.RunCycle(targets, environment_service);
+        RunPipelineCycle(&signal_pipeline, targets, &environment_service,
+                         static_cast<std::uint32_t>(i + 1U));
     if ((i % 2U) == 0U) {
       misaligned_detected += cycle_result.association_quality_metrics.detection_count;
     } else {
@@ -497,9 +561,11 @@ TEST(SignalPipelineScanScheduleTest, WorkSubModeSttReducesSweepCoverageComparedT
   std::size_t stt_detected = 0U;
   const std::size_t kCycleCount = 64U;
   for (std::size_t i = 0; i < kCycleCount; ++i) {
-    tws_detected += tws_pipeline.RunCycle(targets, environment_service)
+    tws_detected += RunPipelineCycle(&tws_pipeline, targets, &environment_service,
+                                     static_cast<std::uint32_t>(i + 1U))
                         .association_quality_metrics.detection_count;
-    stt_detected += stt_pipeline.RunCycle(targets, environment_service)
+    stt_detected += RunPipelineCycle(&stt_pipeline, targets, &environment_service,
+                                     static_cast<std::uint32_t>(i + 1U))
                         .association_quality_metrics.detection_count;
   }
 

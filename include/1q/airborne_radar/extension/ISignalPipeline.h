@@ -26,7 +26,8 @@ class ONEQ_API ISignalPipeline {
   /**
    * @brief 执行一次信号处理循环。
    * @param[in] input_state 当前周期目标特征列表。
-   * @param[in] environment 环境服务只读接口。
+   * @param[in] environment 环境服务只读接口。调用前必须已对该环境服务执行有效的
+   *                        `BeginCycle(...)`，并确保其冻结快照携带正的 `cycle_dt_sec`。
    * @return 当前周期信号流水线输出结果。
    */
   virtual SignalCycleResult RunCycle(const model::TargetFeatureList& input_state,
