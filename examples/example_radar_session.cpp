@@ -16,6 +16,7 @@
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/airborne_radar/core/context/RadarInputValidation.h"
 #include "1q/airborne_radar/core/output/TrackOutputQueries.h"
+#include "1q/airborne_radar/core/session/RadarSessionFactory.h"
 #include "1q/airborne_radar/core/session/RadarSession.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
@@ -28,6 +29,7 @@ int main() {
   using airborne_radar::core::output::CollectConfirmedTracks;
   using airborne_radar::core::output::CollectJammingTracks;
   using airborne_radar::core::session::RadarCycleResult;
+  using airborne_radar::core::session::RadarSessionFactory;
   using airborne_radar::core::session::RadarSession;
   using airborne_radar::environment::EnvironmentSceneBuilder;
   using airborne_radar::environment::JammerEmitterState;
@@ -42,7 +44,8 @@ int main() {
   //   - Environment()：环境默认配置（干扰判定阈值等）
   //
   // 若平台暂无硬件参数，可退回到最简形式：
-  //   RadarSession session(airborne_radar::config::MakeDetectionMissionRadarSessionConfig());
+  //   RadarSession session =
+  //       RadarSessionFactory::Create(airborne_radar::config::MakeDetectionMissionRadarSessionConfig());
   const auto preset = airborne_radar::config::MakeDetectionMissionRadarSessionConfig();
 
   airborne_radar::signal::config::SignalDetectionConfig detection = preset.detection;
@@ -60,14 +63,15 @@ int main() {
   airborne_radar::environment::EnvironmentDefaultConfig env = preset.environment_default_config;
   env.jamming_detection_threshold_db = 5.0f;
 
-  RadarSession session(airborne_radar::config::RadarSessionConfigBuilder(preset)
-                           .Detection()
-              .WithDetection(detection)
-              .End()
-              .Environment()
-              .WithEnvironmentDefault(env)
-              .End()
-                           .Build());
+  RadarSession session = RadarSessionFactory::Create(
+      airborne_radar::config::RadarSessionConfigBuilder(preset)
+          .Detection()
+          .WithDetection(detection)
+          .End()
+          .Environment()
+          .WithEnvironmentDefault(env)
+          .End()
+          .Build());
 
   // 周期 1：构造两批空中目标并执行一次无干扰探测。
   RadarCycleInput cycle_1;

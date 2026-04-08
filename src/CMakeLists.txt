@@ -71,6 +71,7 @@ set(AIRBORNE_CORE_SOURCES
     airborne_radar/core/controller/CycleTelemetryLogger.cpp
     airborne_radar/core/controller/RadarCycleOrchestrator.cpp
     airborne_radar/core/controller/RadarController.cpp
+    airborne_radar/core/session/RadarSessionCompositionRoot.cpp
     airborne_radar/core/session/config/ConfigPresets.cpp
     airborne_radar/core/session/config/RadarSessionConfigBuilder.cpp
     airborne_radar/core/session/RadarSession.cpp
@@ -398,6 +399,7 @@ if(ENABLE_INSTALL)
     )
     set(PUBLIC_HEADERS_CORE_SESSION
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/session/RadarCycleResult.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/session/RadarSessionFactory.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/session/RadarSession.h
     )
     set(PUBLIC_HEADERS_DECISION

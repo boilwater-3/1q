@@ -20,6 +20,7 @@
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/airborne_radar/core/context/RadarInputValidation.h"
 #include "1q/airborne_radar/core/session/RadarCycleResult.h"
+#include "1q/airborne_radar/core/session/RadarSessionFactory.h"
 #include "1q/airborne_radar/core/session/RadarSession.h"
 #include "1q/airborne_radar/core/session/RadarSessionConfigPresets.h"
 
@@ -50,7 +51,8 @@ int main() {
           .Build();
 
   // 3. Session construction from builder config
-  airborne_radar::core::session::RadarSession session(built_config);
+  airborne_radar::core::session::RadarSession session =
+      airborne_radar::core::session::RadarSessionFactory::Create(built_config);
 
   // 4. Input construction + validation
   airborne_radar::core::context::RadarCycleInput input;

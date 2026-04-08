@@ -1,119 +1,33 @@
 #include "1q/airborne_radar/core/session/RadarSession.h"
 
-#include <cmath>
-#include <string>
+#include <utility>
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
+#include "1q/airborne_radar/core/context/IRadarContext.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"
+#include "1q/airborne_radar/core/session/RadarSessionFactory.h"
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
-#include "airborne_radar/core/context/MutableRadarContext.h"
-#include "airborne_radar/environment/EnvironmentService.h"
-#include "airborne_radar/signal/pipeline/SignalPipeline.h"
-#include "common/logging/ProjectLog.h"
+#include "airborne_radar/core/session/RadarSessionCompositionRoot.h"
 
 namespace airborne_radar {
 namespace core {
 namespace session {
 
-namespace {
-
-signal::config::SignalPipelineConfig BuildSignalPipelineConfig(
-    const RadarSessionConfig& session_config) {
-  signal::config::SignalPipelineConfig pipeline_config;
-  pipeline_config.detection = session_config.detection;
-  pipeline_config.beam_control = session_config.beam_control;
-  pipeline_config.tracking = session_config.tracking;
-  pipeline_config.lifecycle = session_config.lifecycle;
-  return pipeline_config;
-}
-
-}  // namespace
-
 struct RadarSession::Impl {
-  explicit Impl(const RadarSessionConfig& config)
-      : runtime_signal_pipeline_config(BuildSignalPipelineConfig(config)),
-        runtime_environment_model_config(config.environment_default_config.model_config),
-        runtime_jamming_detection_threshold_db(
-            config.environment_default_config.jamming_detection_threshold_db),
-        owned_radar_context(new context::MutableRadarContext()),
-        owned_signal_pipeline(new signal::pipeline::SignalPipeline(runtime_signal_pipeline_config)),
-        owned_environment_service(new environment::EnvironmentService(runtime_environment_model_config)),
-        owned_controller(new controller::RadarController(*owned_radar_context, *owned_signal_pipeline,
-                                                         *owned_environment_service)),
-        radar_context(*owned_radar_context),
-        signal_pipeline(*owned_signal_pipeline),
-        environment_service(*owned_environment_service),
-        controller(*owned_controller) {
-    environment_service.SetJammingDetectionThresholdDb(runtime_jamming_detection_threshold_db);
-  }
+  explicit Impl(internal::RadarSessionComposition composition)
+      : runtime_signal_pipeline_config(composition.runtime_signal_pipeline_config),
+        runtime_environment_model_config(composition.runtime_environment_model_config),
+        runtime_jamming_detection_threshold_db(composition.runtime_jamming_detection_threshold_db),
+        owned_radar_context(std::move(composition.owned_radar_context)),
+        owned_signal_pipeline(std::move(composition.owned_signal_pipeline)),
+        owned_environment_service(std::move(composition.owned_environment_service)),
+        owned_controller(std::move(composition.owned_controller)),
+        radar_context(*composition.radar_context),
+        signal_pipeline(*composition.signal_pipeline),
+        environment_service(*composition.environment_service),
+        controller(*composition.controller) {}
 
-  Impl(const RadarSessionConfig& config, signal::pipeline::ISignalPipeline& signal_pipeline_ref)
-      : runtime_signal_pipeline_config(BuildSignalPipelineConfig(config)),
-        runtime_environment_model_config(config.environment_default_config.model_config),
-        runtime_jamming_detection_threshold_db(
-            config.environment_default_config.jamming_detection_threshold_db),
-        owned_radar_context(new context::MutableRadarContext()),
-        owned_environment_service(new environment::EnvironmentService(runtime_environment_model_config)),
-        owned_controller(
-            new controller::RadarController(*owned_radar_context, signal_pipeline_ref,
-                                            *owned_environment_service)),
-        radar_context(*owned_radar_context),
-        signal_pipeline(signal_pipeline_ref),
-        environment_service(*owned_environment_service),
-        controller(*owned_controller) {
-    signal_pipeline.UpdateConfig(runtime_signal_pipeline_config);
-    environment_service.SetJammingDetectionThresholdDb(runtime_jamming_detection_threshold_db);
-  }
-
-  Impl(const RadarSessionConfig& config, environment::IEnvironmentService& environment_service_ref)
-      : runtime_signal_pipeline_config(BuildSignalPipelineConfig(config)),
-        runtime_environment_model_config(config.environment_default_config.model_config),
-        runtime_jamming_detection_threshold_db(
-            config.environment_default_config.jamming_detection_threshold_db),
-        owned_radar_context(new context::MutableRadarContext()),
-        owned_signal_pipeline(new signal::pipeline::SignalPipeline(runtime_signal_pipeline_config)),
-        owned_controller(
-            new controller::RadarController(*owned_radar_context, *owned_signal_pipeline,
-                                            environment_service_ref)),
-        radar_context(*owned_radar_context),
-        signal_pipeline(*owned_signal_pipeline),
-        environment_service(environment_service_ref),
-        controller(*owned_controller) {
-    environment_service.UpdateModelConfig(runtime_environment_model_config);
-    environment_service.SetJammingDetectionThresholdDb(runtime_jamming_detection_threshold_db);
-  }
-
-  Impl(const RadarSessionConfig& config, controller::RadarController& controller_ref)
-      : runtime_signal_pipeline_config(BuildSignalPipelineConfig(config)),
-        runtime_environment_model_config(config.environment_default_config.model_config),
-        runtime_jamming_detection_threshold_db(
-            config.environment_default_config.jamming_detection_threshold_db),
-        radar_context(controller_ref.GetRadarContext()),
-        signal_pipeline(controller_ref.GetSignalPipeline()),
-        environment_service(controller_ref.GetEnvironmentService()),
-        controller(controller_ref) {
-    signal_pipeline.UpdateConfig(runtime_signal_pipeline_config);
-    environment_service.UpdateModelConfig(runtime_environment_model_config);
-    environment_service.SetJammingDetectionThresholdDb(runtime_jamming_detection_threshold_db);
-  }
-
-  Impl(const RadarSessionConfig& config, context::IRadarContext& radar_context_ref,
-       signal::pipeline::ISignalPipeline& signal_pipeline_ref,
-       environment::IEnvironmentService& environment_service_ref,
-       controller::RadarController& controller_ref)
-      : runtime_signal_pipeline_config(BuildSignalPipelineConfig(config)),
-        runtime_environment_model_config(config.environment_default_config.model_config),
-        runtime_jamming_detection_threshold_db(
-            config.environment_default_config.jamming_detection_threshold_db),
-        radar_context(radar_context_ref),
-        signal_pipeline(signal_pipeline_ref),
-        environment_service(environment_service_ref),
-        controller(controller_ref) {
-    signal_pipeline.UpdateConfig(runtime_signal_pipeline_config);
-    environment_service.UpdateModelConfig(runtime_environment_model_config);
-    environment_service.SetJammingDetectionThresholdDb(runtime_jamming_detection_threshold_db);
-  }
   RadarCycleResult BuildCycleResult() const {
     RadarCycleResult result;
     if (controller.HasLatestTrackOutputFrame()) {
@@ -143,22 +57,46 @@ struct RadarSession::Impl {
   controller::RadarController& controller;
 };
 
-RadarSession::RadarSession(const RadarSessionConfig& config) : impl_(new Impl(config)) {}
-RadarSession::RadarSession(const RadarSessionConfig& config,
-                           signal::pipeline::ISignalPipeline& signal_pipeline)
-    : impl_(new Impl(config, signal_pipeline)) {}
-RadarSession::RadarSession(const RadarSessionConfig& config,
-                           environment::IEnvironmentService& environment_service)
-    : impl_(new Impl(config, environment_service)) {}
-RadarSession::RadarSession(const RadarSessionConfig& config, controller::RadarController& controller)
-    : impl_(new Impl(config, controller)) {}
-RadarSession::RadarSession(const RadarSessionConfig& config, context::IRadarContext& radar_context,
-                           signal::pipeline::ISignalPipeline& signal_pipeline,
-                           environment::IEnvironmentService& environment_service,
-                           controller::RadarController& controller)
-    : impl_(new Impl(config, radar_context, signal_pipeline, environment_service, controller)) {}
+RadarSession::RadarSession(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
 
 RadarSession::~RadarSession() = default;
+RadarSession::RadarSession(RadarSession&&) noexcept = default;
+RadarSession& RadarSession::operator=(RadarSession&&) noexcept = default;
+
+RadarSession RadarSessionFactory::Create(const RadarSessionConfig& config) {
+  return RadarSession(
+      std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(
+          internal::RadarSessionCompositionRoot::ComposeDefault(config))));
+}
+
+RadarSession RadarSessionFactory::CreateWithSignalPipeline(
+    const RadarSessionConfig& config, signal::pipeline::ISignalPipeline& signal_pipeline) {
+  return RadarSession(std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(
+      internal::RadarSessionCompositionRoot::ComposeWithSignalPipeline(config, signal_pipeline))));
+}
+
+RadarSession RadarSessionFactory::CreateWithEnvironmentService(
+    const RadarSessionConfig& config, environment::IEnvironmentService& environment_service) {
+  return RadarSession(std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(
+      internal::RadarSessionCompositionRoot::ComposeWithEnvironmentService(config,
+                                                                           environment_service))));
+}
+
+RadarSession RadarSessionFactory::CreateWithController(const RadarSessionConfig& config,
+                                                       controller::RadarController& controller) {
+  return RadarSession(std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(
+      internal::RadarSessionCompositionRoot::ComposeWithController(config, controller))));
+}
+
+RadarSession RadarSessionFactory::CreateWithExternalChain(
+    const RadarSessionConfig& config, context::IRadarContext& radar_context,
+    signal::pipeline::ISignalPipeline& signal_pipeline,
+    environment::IEnvironmentService& environment_service,
+    controller::RadarController& controller) {
+  return RadarSession(std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(
+      internal::RadarSessionCompositionRoot::ComposeWithExternalChain(
+          config, radar_context, signal_pipeline, environment_service, controller))));
+}
 
 common::output::TrackOutputFrame RadarSession::Step(const context::RadarCycleInput& input) {
   return StepWithResult(input).track_output_frame;

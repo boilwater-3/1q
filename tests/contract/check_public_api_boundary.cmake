@@ -36,6 +36,7 @@ set(EXPECTED_PUBLIC_HEADERS
     "airborne_radar/core/controller/RadarController.h"
     "airborne_radar/core/session/RadarCycleResult.h"
     "airborne_radar/core/session/RadarSession.h"
+    "airborne_radar/core/session/RadarSessionFactory.h"
     "airborne_radar/tools/RadarTraceSession.h"
     "airborne_radar/decision/pipeline/ControlReducerTypes.h"
     "airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"

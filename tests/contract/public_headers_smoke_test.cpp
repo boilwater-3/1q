@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <type_traits>
+#include <utility>
 
 #include "1q/airborne_radar/extension/control/ControlDirective.h"
 #include "1q/airborne_radar/extension/control/RadarCommand.h"
@@ -37,6 +38,7 @@
 #include "1q/airborne_radar/core/controller/IRadarOutputReader.h"
 #include "1q/airborne_radar/core/controller/RadarController.h"
 #include "1q/airborne_radar/core/session/RadarCycleResult.h"
+#include "1q/airborne_radar/core/session/RadarSessionFactory.h"
 #include "1q/airborne_radar/core/session/RadarSession.h"
 #include "1q/airborne_radar/decision/pipeline/ControlReducerTypes.h"
 #include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
@@ -83,25 +85,59 @@
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 #include "1q/airborne_radar/tools/RadarTraceSession.h"
 
-static_assert(std::is_constructible<airborne_radar::core::session::RadarSession,
-                                    const airborne_radar::core::session::RadarSessionConfig&,
-                                    airborne_radar::signal::pipeline::ISignalPipeline&>::value,
-              "RadarSession must support pipeline-only injection");
-static_assert(std::is_constructible<airborne_radar::core::session::RadarSession,
-                                    const airborne_radar::core::session::RadarSessionConfig&,
-                                    airborne_radar::environment::IEnvironmentService&>::value,
-              "RadarSession must support environment-only injection");
-static_assert(std::is_constructible<airborne_radar::core::session::RadarSession,
-                                    const airborne_radar::core::session::RadarSessionConfig&,
-                                    airborne_radar::core::controller::RadarController&>::value,
-              "RadarSession must support controller-only injection");
-static_assert(std::is_constructible<airborne_radar::core::session::RadarSession,
-                                    const airborne_radar::core::session::RadarSessionConfig&,
-                                    airborne_radar::core::context::IRadarContext&,
-                                    airborne_radar::signal::pipeline::ISignalPipeline&,
-                                    airborne_radar::environment::IEnvironmentService&,
-                                    airborne_radar::core::controller::RadarController&>::value,
-              "RadarSession must support full-chain injection");
+using ArSession = airborne_radar::core::session::RadarSession;
+using ArConfig = airborne_radar::core::session::RadarSessionConfig;
+static_assert(!std::is_constructible<ArSession, const ArConfig&>::value,
+              "RadarSession direct construction must be disabled");
+static_assert(
+    !std::is_constructible<ArSession, const ArConfig&,
+                           airborne_radar::signal::pipeline::ISignalPipeline&>::value,
+    "RadarSession direct pipeline injection construction must be disabled");
+static_assert(
+    !std::is_constructible<ArSession, const ArConfig&,
+                           airborne_radar::environment::IEnvironmentService&>::value,
+    "RadarSession direct environment injection construction must be disabled");
+static_assert(!std::is_constructible<ArSession, const ArConfig&,
+                                     airborne_radar::core::controller::RadarController&>::value,
+              "RadarSession direct controller injection construction must be disabled");
+static_assert(
+    !std::is_constructible<ArSession, const ArConfig&, airborne_radar::core::context::IRadarContext&,
+                           airborne_radar::signal::pipeline::ISignalPipeline&,
+                           airborne_radar::environment::IEnvironmentService&,
+                           airborne_radar::core::controller::RadarController&>::value,
+    "RadarSession direct full-chain injection construction must be disabled");
+static_assert(std::is_same<ArSession, decltype(airborne_radar::core::session::RadarSessionFactory::Create(
+                                         std::declval<const ArConfig&>()))>::value,
+              "RadarSessionFactory::Create must return RadarSession");
+static_assert(
+    std::is_same<ArSession, decltype(airborne_radar::core::session::RadarSessionFactory::
+                                         CreateWithSignalPipeline(
+                                             std::declval<const ArConfig&>(),
+                                             std::declval<airborne_radar::signal::pipeline::
+                                                              ISignalPipeline&>()))>::value,
+    "RadarSessionFactory::CreateWithSignalPipeline must return RadarSession");
+static_assert(
+    std::is_same<ArSession, decltype(airborne_radar::core::session::RadarSessionFactory::
+                                         CreateWithEnvironmentService(
+                                             std::declval<const ArConfig&>(),
+                                             std::declval<airborne_radar::environment::
+                                                              IEnvironmentService&>()))>::value,
+    "RadarSessionFactory::CreateWithEnvironmentService must return RadarSession");
+static_assert(
+    std::is_same<ArSession,
+                 decltype(airborne_radar::core::session::RadarSessionFactory::CreateWithController(
+                     std::declval<const ArConfig&>(),
+                     std::declval<airborne_radar::core::controller::RadarController&>()))>::value,
+    "RadarSessionFactory::CreateWithController must return RadarSession");
+static_assert(
+    std::is_same<ArSession,
+                 decltype(airborne_radar::core::session::RadarSessionFactory::CreateWithExternalChain(
+                     std::declval<const ArConfig&>(),
+                     std::declval<airborne_radar::core::context::IRadarContext&>(),
+                     std::declval<airborne_radar::signal::pipeline::ISignalPipeline&>(),
+                     std::declval<airborne_radar::environment::IEnvironmentService&>(),
+                     std::declval<airborne_radar::core::controller::RadarController&>()))>::value,
+    "RadarSessionFactory::CreateWithExternalChain must return RadarSession");
 
 static_assert(std::is_constructible<
                   electronic_surveillance_radar::core::session::EsrSession,
@@ -168,7 +204,7 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   environment::EnvironmentSceneState scene_state;
   scene_state.jammer_emitters.push_back(environment::JammerEmitterState{});
 
-  core::session::RadarSession session(session_config);
+  core::session::RadarSession session = core::session::RadarSessionFactory::Create(session_config);
   std::shared_ptr<oneq::common::trace::TraceSink> trace_sink(
       new oneq::common::trace::JsonlFileTraceSink("/tmp/oneq-smoke-radar-trace.jsonl", false));
   tools::RadarTraceSession trace_session(

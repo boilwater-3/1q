@@ -34,6 +34,7 @@
 #include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/airborne_radar/core/session/RadarCycleResult.h"
+#include "1q/airborne_radar/core/session/RadarSessionFactory.h"
 #include "1q/airborne_radar/core/session/RadarSession.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
@@ -134,7 +135,7 @@ std::unique_ptr<airborne_radar::core::session::RadarSession> MakeSession() {
   env.jamming_detection_threshold_db = 5.0f;
 
   auto session = std::unique_ptr<airborne_radar::core::session::RadarSession>(
-      new airborne_radar::core::session::RadarSession(
+      new airborne_radar::core::session::RadarSession(airborne_radar::core::session::RadarSessionFactory::Create(
           airborne_radar::config::RadarSessionConfigBuilder(preset)
               .Detection()
               .WithDetection(detection)

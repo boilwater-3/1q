@@ -10,6 +10,7 @@
 #include "1q/airborne_radar/core/session/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
+#include "1q/airborne_radar/core/session/RadarSessionFactory.h"
 #include "1q/airborne_radar/core/session/RadarSession.h"
 
 namespace airborne_radar {
@@ -232,7 +233,7 @@ TEST(RadarSessionConfigBuilderTest, BuiltConfigCanConstructRadarSession) {
                           .Build();
 
   // 能正常构造 RadarSession 即通过（构造函数不应抛出）
-  core::session::RadarSession session(config);
+  core::session::RadarSession session = core::session::RadarSessionFactory::Create(config);
   EXPECT_TRUE(session.HasLatestControlProfile() == false ||
               session.HasLatestControlProfile() == true);
 }
@@ -278,7 +279,8 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValue
 }
 
 TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructingSession) {
-  core::session::RadarSession session(config::MakeDetectionMissionRadarSessionConfig());
+  core::session::RadarSession session = core::session::RadarSessionFactory::Create(
+      config::MakeDetectionMissionRadarSessionConfig());
 
   const config::RadarRuntimeConfigPatch patch =
       config::RadarRuntimeConfigBuilder()

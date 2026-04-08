@@ -50,6 +50,14 @@ class IEnvironmentService;
 namespace airborne_radar {
 namespace core {
 namespace session {
+class RadarSessionFactory;
+}
+}  // namespace core
+}  // namespace airborne_radar
+
+namespace airborne_radar {
+namespace core {
+namespace session {
 
 /**
  * @brief RadarSessionConfig 描述 RadarSession 的默认装配配置。
@@ -72,31 +80,12 @@ struct ONEQ_API RadarSessionConfig {
  */
 class ONEQ_API RadarSession {
  public:
-  /** @brief 使用默认链路构造会话 */
-  explicit RadarSession(const RadarSessionConfig& config = {});
-  /**
-   * @brief 使用外部装配链路构造会话（引用注入，不接管生命周期）。
-   */
-  RadarSession(const RadarSessionConfig& config, signal::pipeline::ISignalPipeline& signal_pipeline);
-  /**
-   * @brief 使用外部装配链路构造会话（引用注入，不接管生命周期）。
-   */
-  RadarSession(const RadarSessionConfig& config, environment::IEnvironmentService& environment_service);
-  /**
-   * @brief 使用外部装配链路构造会话（引用注入，不接管生命周期）。
-   */
-  RadarSession(const RadarSessionConfig& config, core::controller::RadarController& controller);
-  /**
-   * @brief 使用外部装配链路构造会话（引用注入，不接管生命周期）。
-   */
-  RadarSession(const RadarSessionConfig& config, core::context::IRadarContext& radar_context,
-               signal::pipeline::ISignalPipeline& signal_pipeline,
-               environment::IEnvironmentService& environment_service,
-               core::controller::RadarController& controller);
   ~RadarSession();
 
   RadarSession(const RadarSession&) = delete;
   RadarSession& operator=(const RadarSession&) = delete;
+  RadarSession(RadarSession&&) noexcept;
+  RadarSession& operator=(RadarSession&&) noexcept;
 
   /**
    * @brief 执行一个不显式切场景的处理周期。
@@ -186,7 +175,10 @@ class ONEQ_API RadarSession {
   void ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch);
 
  private:
+  friend class RadarSessionFactory;
+
   struct Impl;
+  explicit RadarSession(std::unique_ptr<Impl> impl);
   std::unique_ptr<Impl> impl_;
 };
 

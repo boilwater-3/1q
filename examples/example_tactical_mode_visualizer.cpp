@@ -45,6 +45,7 @@
 #include "1q/airborne_radar/common/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/core/context/RadarCycleInput.h"
 #include "1q/airborne_radar/core/session/RadarCycleResult.h"
+#include "1q/airborne_radar/core/session/RadarSessionFactory.h"
 #include "1q/airborne_radar/core/session/RadarSession.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
@@ -166,7 +167,7 @@ struct SimState {
 std::unique_ptr<airborne_radar::core::session::RadarSession> MakeSession() {
   namespace aq = airborne_radar::common;
   auto session = std::unique_ptr<airborne_radar::core::session::RadarSession>(
-      new airborne_radar::core::session::RadarSession(
+      new airborne_radar::core::session::RadarSession(airborne_radar::core::session::RadarSessionFactory::Create(
           airborne_radar::config::RadarSessionConfigBuilder(airborne_radar::config::MakeDetectionMissionRadarSessionConfig())
               .Detection()
               .EnablePhysicsDetection()

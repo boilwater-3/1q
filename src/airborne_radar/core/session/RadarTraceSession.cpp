@@ -6,6 +6,7 @@
 #include <nlohmann/json.hpp>
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
+#include "1q/airborne_radar/core/session/RadarSessionFactory.h"
 
 namespace airborne_radar {
 namespace tools {
@@ -419,7 +420,7 @@ std::string ToJson(const T& value) {
 
 RadarTraceSession::RadarTraceSession(const core::session::RadarSessionConfig& config,
                                      RadarTraceSessionOptions options)
-    : session_(config), sink_(std::move(options.sink)) {
+    : session_(core::session::RadarSessionFactory::Create(config)), sink_(std::move(options.sink)) {
   if (sink_ && options.trace_config_on_construct) {
     Record("config", ToJson(config));
   }
