@@ -687,14 +687,13 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
 }
 
 TEST(PublicApiConvenienceTest,
-     RadarSessionHandlesInvalidDeltaUnknownAndDuplicateIdsAcrossSceneSwitches) {
+     RadarSessionRejectsDuplicateIdsAndRetainsPreviousOutputAcrossInvalidCycles) {
   session::RadarSession session = session::RadarSessionFactory::Create(MakeConvenienceSessionConfig());
 
   session::RadarCycleInput cycle_1 = MakeCycleInput(
       model::TargetFeatureList{
           model::MakeAirTarget(0U, 120.0f, 0.0f, 10.0f, 55.0f, 0.0f, 0.0f, 1.0f),
           model::MakeAirTarget(701U, 150.0f, -2.0f, 12.0f, 62.0f, 0.2f, 0.0f, 1.0f),
-          model::MakeAirTarget(701U, 155.0f, 2.0f, 12.0f, 63.0f, -0.2f, 0.0f, 1.1f),
           model::MakeGroundTarget(702U, 40.0f, -6.0f, 0.8f),
       },
       1.0f);
@@ -702,10 +701,28 @@ TEST(PublicApiConvenienceTest,
   const output::TrackOutputFrame& frame_1 = result_1.track_output_frame;
   EXPECT_GT(frame_1.published_track_count, 0U);
   EXPECT_TRUE(output::ContainsExternalTargetId(frame_1, 0U));
-  EXPECT_EQ(output::CollectTracksByExternalTargetId(frame_1, 701U).size(), 2U);
+  EXPECT_EQ(output::CollectTracksByExternalTargetId(frame_1, 701U).size(), 1U);
   EXPECT_FALSE(result_1.has_validation_error);
   EXPECT_TRUE(result_1.executed_this_cycle);
   EXPECT_FALSE(result_1.reused_previous_track_output);
+
+  session::RadarCycleInput duplicate_cycle = MakeCycleInput(
+      model::TargetFeatureList{
+          model::MakeAirTarget(0U, 120.0f, 0.0f, 10.0f, 55.0f, 0.0f, 0.0f, 1.0f),
+          model::MakeAirTarget(701U, 150.0f, -2.0f, 12.0f, 62.0f, 0.2f, 0.0f, 1.0f),
+          model::MakeAirTarget(701U, 155.0f, 2.0f, 12.0f, 63.0f, -0.2f, 0.0f, 1.1f),
+          model::MakeGroundTarget(702U, 40.0f, -6.0f, 0.8f),
+      },
+      1.0f);
+  const session::RadarCycleResult duplicate_result = session.StepWithResult(duplicate_cycle);
+  EXPECT_TRUE(
+      ContainsIssueCode(duplicate_result.validation_issues, session::ValidationCode::kDuplicateExternalTargetId));
+  EXPECT_TRUE(duplicate_result.has_validation_error);
+  EXPECT_FALSE(duplicate_result.executed_this_cycle);
+  EXPECT_TRUE(duplicate_result.reused_previous_track_output);
+  EXPECT_EQ(duplicate_result.track_output_frame.cycle_index, frame_1.cycle_index);
+  EXPECT_EQ(duplicate_result.track_output_frame.batch_id, frame_1.batch_id);
+  EXPECT_EQ(duplicate_result.track_output_frame.published_track_count, frame_1.published_track_count);
 
   session::RadarCycleInput cycle_2 = cycle_1;
   cycle_2.dt_sec = -1.0f;

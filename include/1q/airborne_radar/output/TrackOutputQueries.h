@@ -18,7 +18,8 @@ namespace output {
 
 /**
  * @brief 按外部目标 ID 构造轨迹映射。
- * @details 仅适用于外部 ID 唯一场景；若存在重复 ID，则后出现的轨迹覆盖先前值。
+ * @details 面向手工构造或历史兼容输出帧的宽容查询工具。会话/控制器主路径会对非零
+ *          `external_target_id` 执行唯一性校验；若传入帧仍存在重复 ID，则后出现的轨迹覆盖先前值。
  *          `external_target_id == 0` 的 unknown 轨迹不会进入该映射。
  * @param[in] frame 待查询的输出帧。
  * @return `external_target_id -> track snapshot` 的拷贝映射。

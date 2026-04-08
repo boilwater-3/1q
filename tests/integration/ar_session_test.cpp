@@ -880,50 +880,41 @@ TEST(RadarJointIntegrationTest, EmptySearchAreaKeepsTrackOutputReadableWithoutSp
                                    extension::control::RadarCommandType::ENABLE_SIDELOBE_CANCELLER));
 }
 
-TEST(RadarJointIntegrationTest, DuplicateExternalTargetIdsStillProduceDistinctStableTracks) {
+TEST(RadarJointIntegrationTest, DuplicateExternalTargetIdsAreRejectedAndPreviousFrameIsRetained) {
   signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationPipelineConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-  model::TargetFeatureList targets{
+  model::TargetFeatureList valid_targets{
+      BuildAirTarget(9001u, 42.0f, 0.4f, 0.0f, 0.9f, 120.0f, -6.0f, 12.0f),
+      BuildAirTarget(9002u, 71.0f, 0.1f, 0.0f, 1.1f, 240.0f, 1.0f, 18.0f),
+  };
+  const output::TrackOutputFrame previous_frame =
+      RunScenarioCycle(&controller, &radar_context, valid_targets);
+  ASSERT_EQ(previous_frame.published_track_count, valid_targets.size());
+  ASSERT_FALSE(controller.HasValidationError());
+
+  model::TargetFeatureList duplicate_targets{
       BuildAirTarget(9001u, 42.0f, 0.4f, 0.0f, 0.9f, 120.0f, -6.0f, 12.0f),
       BuildAirTarget(9001u, 58.0f, -0.2f, 0.0f, 1.0f, 175.0f, 9.0f, 15.0f),
       BuildAirTarget(9002u, 71.0f, 0.1f, 0.0f, 1.1f, 240.0f, 1.0f, 18.0f),
   };
+  radar_context.SetTargetFeatures(duplicate_targets);
+  controller.RunOnce();
 
-  std::vector<std::uint64_t> previous_duplicate_keys;
-  for (std::size_t cycle = 0; cycle < 3U; ++cycle) {
-    const output::TrackOutputFrame frame =
-        RunScenarioCycle(&controller, &radar_context, targets);
-    ASSERT_EQ(frame.published_track_count, targets.size());
-    ASSERT_EQ(frame.confirmed_track_count, targets.size());
-    EXPECT_FALSE(frame.contains_lost_tracks);
-
-    const auto duplicate_tracks = CollectTracksByExternalId(frame, 9001u);
-    ASSERT_EQ(duplicate_tracks.size(), 2U);
-    std::vector<std::uint64_t> duplicate_keys;
-    duplicate_keys.reserve(duplicate_tracks.size());
-    for (std::size_t i = 0; i < duplicate_tracks.size(); ++i) {
-      ExpectFiniteTrackState(*duplicate_tracks[i]);
-      EXPECT_FALSE(duplicate_tracks[i]->state.jamming_detected);
-      EXPECT_NE(duplicate_tracks[i]->state.association_key, 0U);
-      duplicate_keys.push_back(duplicate_tracks[i]->state.association_key);
-    }
-    EXPECT_NE(duplicate_keys[0], duplicate_keys[1]);
-    std::sort(duplicate_keys.begin(), duplicate_keys.end());
-    if (!previous_duplicate_keys.empty()) {
-      EXPECT_EQ(duplicate_keys, previous_duplicate_keys);
-    }
-    previous_duplicate_keys = duplicate_keys;
-
-    const auto unique_track = CollectTracksByExternalId(frame, 9002u);
-    ASSERT_EQ(unique_track.size(), 1U);
-    EXPECT_FALSE(unique_track[0]->state.jamming_detected);
-    ExpectFiniteTrackState(*unique_track[0]);
-    AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
-  }
+  EXPECT_TRUE(controller.HasValidationError());
+  const session::ValidationIssueList& issues = controller.GetLastValidationIssues();
+  EXPECT_TRUE(std::find_if(issues.begin(), issues.end(), [](const session::ValidationIssue& issue) {
+                return issue.code == session::ValidationCode::kDuplicateExternalTargetId;
+              }) != issues.end());
+  ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
+  const output::TrackOutputFrame& retained_frame = controller.GetLatestTrackOutputFrame();
+  EXPECT_EQ(retained_frame.cycle_index, previous_frame.cycle_index);
+  EXPECT_EQ(retained_frame.batch_id, previous_frame.batch_id);
+  EXPECT_EQ(retained_frame.published_track_count, previous_frame.published_track_count);
+  EXPECT_EQ(retained_frame.confirmed_track_count, previous_frame.confirmed_track_count);
 }
 
 TEST(RadarJointIntegrationTest, ExtremeRangeTargetsKeepFiniteStableOutputAcrossCycles) {

@@ -219,8 +219,8 @@ TEST(RadarInputValidationTest, ZeroExternalIdIsInfo) {
   EXPECT_FALSE(HasValidationError(issues));
 }
 
-/// @brief 同一 external_target_id 出现两次 → Warning 级别。
-TEST(RadarInputValidationTest, DuplicateExternalIdIsWarning) {
+/// @brief 同一 external_target_id 出现两次 → Error 级别。
+TEST(RadarInputValidationTest, DuplicateExternalIdIsError) {
   model::TargetFeature t1 = MakeValidTarget(42u);
   model::TargetFeature t2 = MakeValidTarget(42u);
   t2.position_x = 2000.0f;
@@ -230,8 +230,8 @@ TEST(RadarInputValidationTest, DuplicateExternalIdIsWarning) {
   const session::ValidationIssue* issue =
       FindIssue(issues, ValidationCode::kDuplicateExternalTargetId);
   ASSERT_NE(issue, nullptr);
-  EXPECT_EQ(issue->severity, ValidationSeverity::kWarning);
-  EXPECT_FALSE(HasValidationError(issues));
+  EXPECT_EQ(issue->severity, ValidationSeverity::kError);
+  EXPECT_TRUE(HasValidationError(issues));
 }
 
 /// @brief 负 RCS → Warning 级别（不阻断执行）。

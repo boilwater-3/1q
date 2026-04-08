@@ -118,6 +118,9 @@ class FakeRadarContext : public extension::IRadarContext {
   /// @brief 设置当前周期时间步长。
   void SetCycleDeltaTimeSec(float cycle_dt_sec) { cycle_dt_sec_ = cycle_dt_sec; }
 
+  /// @brief 设置当前周期目标列表。
+  void SetTargetFeatures(model::TargetFeatureList state) { state_ = std::move(state); }
+
  private:
   model::TargetFeatureList state_;
   model::PlatformAttitudeDeg platform_attitude_deg_{};
@@ -441,6 +444,54 @@ TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {
   EXPECT_TRUE(
       std::find_if(issues.begin(), issues.end(), [](const session::ValidationIssue& issue) {
         return issue.code == session::ValidationCode::kInvalidCycleDeltaTime;
+      }) != issues.end());
+  ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
+  const output::TrackOutputFrame& retained_frame = controller.GetLatestTrackOutputFrame();
+  EXPECT_EQ(retained_frame.cycle_index, previous_frame.cycle_index);
+  EXPECT_EQ(retained_frame.batch_id, previous_frame.batch_id);
+  EXPECT_EQ(retained_frame.published_track_count, previous_frame.published_track_count);
+  EXPECT_EQ(retained_frame.confirmed_track_count, previous_frame.confirmed_track_count);
+  ASSERT_EQ(radar_context.SubmittedCommands().size(), previous_commands.size());
+  for (std::size_t i = 0; i < previous_commands.size(); ++i) {
+    EXPECT_EQ(radar_context.SubmittedCommands()[i].type, previous_commands[i].type);
+    EXPECT_EQ(radar_context.SubmittedCommands()[i].source, previous_commands[i].source);
+  }
+}
+
+TEST_F(CoreControllerTest, DuplicateExternalTargetIdRetainsPreviousValidOutputFrame) {
+  const model::TargetFeatureList input_state = BuildSingleTarget(510.0f, 1.0f, false);
+  FakeRadarContext radar_context(input_state);
+
+  environment::EnvironmentService environment_service;
+
+  config::SignalPipelineConfig pipeline_config;
+  pipeline_config.detection.min_detection_margin_db = -100.0f;
+  pipeline_config.lifecycle.lifecycle_config.confirm_hits = 1U;
+  pipeline_config.tracking.kalman_measurement_noise_std = 1.0f;
+  signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
+  extension::RadarController controller(radar_context, signal_pipeline, environment_service);
+
+  controller.RunOnce();
+  ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
+  const output::TrackOutputFrame previous_frame = controller.GetLatestTrackOutputFrame();
+  ASSERT_GT(previous_frame.published_track_count, 0U);
+  const std::vector<extension::control::RadarCommand> previous_commands =
+      radar_context.SubmittedCommands();
+
+  model::TargetFeature duplicate_a = input_state.front();
+  duplicate_a.external_target_id = 42U;
+  model::TargetFeature duplicate_b = duplicate_a;
+  duplicate_b.position_x += 50.0f;
+  duplicate_b.range_m += 50.0f;
+  radar_context.SetTargetFeatures(model::TargetFeatureList{duplicate_a, duplicate_b});
+
+  controller.RunOnce();
+
+  EXPECT_TRUE(controller.HasValidationError());
+  const session::ValidationIssueList& issues = controller.GetLastValidationIssues();
+  EXPECT_TRUE(
+      std::find_if(issues.begin(), issues.end(), [](const session::ValidationIssue& issue) {
+        return issue.code == session::ValidationCode::kDuplicateExternalTargetId;
       }) != issues.end());
   ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
   const output::TrackOutputFrame& retained_frame = controller.GetLatestTrackOutputFrame();

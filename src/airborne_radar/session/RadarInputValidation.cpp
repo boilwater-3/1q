@@ -122,7 +122,7 @@ ValidationIssueList ValidateTargetFeatures(const model::TargetFeatureList& targe
     std::ostringstream stream;
     stream << "duplicate external target id " << external_target_id << " first seen at index "
            << it->second;
-    issues.push_back(MakeIssue(ValidationSeverity::kWarning,
+    issues.push_back(MakeIssue(ValidationSeverity::kError,
                                ValidationCode::kDuplicateExternalTargetId, i, stream.str()));
   }
 
