@@ -29,6 +29,7 @@ struct RadarSession::Impl {
     runtime_state.environment_model_config = composition.runtime_environment_model_config;
     runtime_state.jamming_detection_threshold_db =
         composition.runtime_jamming_detection_threshold_db;
+    pending_runtime_state = runtime_state;
   }
 
   RadarCycleResult BuildCycleResult() const {
@@ -47,7 +48,44 @@ struct RadarSession::Impl {
     return result;
   }
 
+  ValidationIssueList ValidateInput(const RadarCycleInput& input) const {
+    ValidationIssueList issues = ValidateRadarCycleDeltaTime(input.dt_sec);
+    const ValidationIssueList target_issues = ValidateTargetFeatures(input.target_features);
+    issues.insert(issues.end(), target_issues.begin(), target_issues.end());
+    return issues;
+  }
+
+  RadarCycleResult BuildValidationErrorResult(const ValidationIssueList& issues) const {
+    RadarCycleResult result;
+    if (controller.HasLatestTrackOutputFrame()) {
+      result.track_output_frame = controller.GetLatestTrackOutputFrame();
+    }
+    result.validation_issues = issues;
+    result.has_validation_error = HasValidationError(issues);
+    result.has_control_profile = radar_context.HasLatestControlProfile();
+    if (result.has_control_profile) {
+      result.control_profile = radar_context.GetLatestControlProfile();
+    }
+    result.association_quality_metrics = signal_pipeline.GetLastAssociationQualityMetrics();
+    return result;
+  }
+
+  void CommitPendingRuntimeConfig() {
+    if (!has_pending_runtime_update) {
+      return;
+    }
+
+    signal_pipeline.UpdateConfig(pending_runtime_state.signal_pipeline_config);
+    environment_service.UpdateModelConfig(pending_runtime_state.environment_model_config);
+    environment_service.SetJammingDetectionThresholdDb(
+        pending_runtime_state.jamming_detection_threshold_db);
+    runtime_state = pending_runtime_state;
+    has_pending_runtime_update = false;
+  }
+
   internal::RuntimeConfigState runtime_state{};
+  internal::RuntimeConfigState pending_runtime_state{};
+  bool has_pending_runtime_update{false};
   std::unique_ptr<extension::IRadarContext> owned_radar_context;
   std::unique_ptr<extension::ISignalPipeline> owned_signal_pipeline;
   std::unique_ptr<extension::IEnvironmentService> owned_environment_service;
@@ -99,6 +137,12 @@ output::TrackOutputFrame RadarSession::Step(
 }
 
 RadarCycleResult RadarSession::StepWithResult(const RadarCycleInput& input) {
+  const ValidationIssueList issues = impl_->ValidateInput(input);
+  if (HasValidationError(issues)) {
+    return impl_->BuildValidationErrorResult(issues);
+  }
+
+  impl_->CommitPendingRuntimeConfig();
   impl_->radar_context.BeginCycle(input);
   impl_->controller.RunOnce();
   return impl_->BuildCycleResult();
@@ -106,14 +150,16 @@ RadarCycleResult RadarSession::StepWithResult(const RadarCycleInput& input) {
 
 RadarCycleResult RadarSession::StepWithResult(
     const RadarCycleInput& input, const environment::EnvironmentSceneState& scene_state) {
-  const environment::EnvironmentSceneState previous_pending_scene =
-      impl_->environment_service.GetPendingSceneState();
-  impl_->environment_service.UpdateSceneState(scene_state);
-  const RadarCycleResult result = StepWithResult(input);
-  if (result.has_validation_error) {
-    impl_->environment_service.UpdateSceneState(previous_pending_scene);
+  const ValidationIssueList issues = impl_->ValidateInput(input);
+  if (HasValidationError(issues)) {
+    return impl_->BuildValidationErrorResult(issues);
   }
-  return result;
+
+  impl_->CommitPendingRuntimeConfig();
+  impl_->environment_service.UpdateSceneState(scene_state);
+  impl_->radar_context.BeginCycle(input);
+  impl_->controller.RunOnce();
+  return impl_->BuildCycleResult();
 }
 
 const std::vector<extension::control::RadarCommand>& RadarSession::GetSubmittedCommands() const {
@@ -133,23 +179,15 @@ extension::AssociationQualityMetrics RadarSession::GetLastAssociationQualityMetr
 }
 
 void RadarSession::ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch) {
+  const internal::RuntimeConfigState& patch_base_state =
+      impl_->has_pending_runtime_update ? impl_->pending_runtime_state : impl_->runtime_state;
   const internal::RuntimeConfigResolveResult resolved =
-      internal::ResolveRuntimeConfigPatch(impl_->runtime_state, patch);
+      internal::ResolveRuntimeConfigPatch(patch_base_state, patch);
   if (!resolved.has_requested_update || !resolved.is_valid) {
     return;
   }
-  impl_->runtime_state = resolved.next_state;
-
-  if (resolved.signal_pipeline_config_changed) {
-    impl_->signal_pipeline.UpdateConfig(impl_->runtime_state.signal_pipeline_config);
-  }
-  if (resolved.environment_model_config_changed) {
-    impl_->environment_service.UpdateModelConfig(impl_->runtime_state.environment_model_config);
-  }
-  if (resolved.jamming_detection_threshold_changed) {
-    impl_->environment_service.SetJammingDetectionThresholdDb(
-        impl_->runtime_state.jamming_detection_threshold_db);
-  }
+  impl_->pending_runtime_state = resolved.next_state;
+  impl_->has_pending_runtime_update = true;
 }
 
 }  // namespace session

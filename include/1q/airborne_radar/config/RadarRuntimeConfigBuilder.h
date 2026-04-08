@@ -22,7 +22,8 @@ using model::RadarWorkSubMode;
  * @brief RadarRuntimeConfigPatch 描述运行期可变参数补丁。
  *
  * @note "可外部调整"定义：调用方可在不重建 `RadarSession` 的前提下，
- * 通过 `RadarSession::ApplyRuntimeConfig(...)` 直接提交修改。
+ * 通过 `RadarSession::ApplyRuntimeConfig(...)` 暂存修改，并在下一次成功周期
+ * 提交前统一生效。
  *
  * 支持两类运行期更新：
  * 1) 整域覆盖：`signal_pipeline_config` 与 `environment_runtime_config`；

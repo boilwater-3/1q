@@ -12,9 +12,11 @@
 #include <vector>
 
 #include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/model/TargetFeatureUtils.h"
 #include "1q/airborne_radar/session/RadarInputValidation.h"
 #include "1q/airborne_radar/extension/RadarController.h"
+#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/output/TrackOutputQueries.h"
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
 #include "1q/airborne_radar/session/RadarSession.h"
@@ -100,6 +102,165 @@ bool ContainsIssueCode(const std::vector<session::ValidationIssue>& issues,
   }
   return false;
 }
+
+class RecordingRadarContext : public extension::IRadarContext {
+ public:
+  void BeginCycle(const session::RadarCycleInput& input) override {
+    ++begin_cycle_count_;
+    target_features_ = input.target_features;
+    platform_attitude_deg_ = input.platform_attitude_deg;
+    cycle_dt_sec_ = input.dt_sec;
+    submitted_commands_.clear();
+  }
+
+  const model::TargetFeatureList& GetTargetFeatures() const override { return target_features_; }
+
+  model::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_deg_; }
+
+  float GetCycleDeltaTimeSec() const override { return cycle_dt_sec_; }
+
+  void SubmitControlCommand(extension::control::RadarCommand cmd) override {
+    submitted_commands_.push_back(std::move(cmd));
+  }
+
+  void UpdateRadarControlProfile(const extension::control::RadarControlProfile& profile) override {
+    latest_control_profile_ = profile;
+    has_latest_control_profile_ = true;
+  }
+
+  const std::vector<extension::control::RadarCommand>& GetSubmittedCommands() const override {
+    return submitted_commands_;
+  }
+
+  bool HasLatestControlProfile() const override { return has_latest_control_profile_; }
+
+  const extension::control::RadarControlProfile& GetLatestControlProfile() const override {
+    return latest_control_profile_;
+  }
+
+  std::size_t begin_cycle_count() const { return begin_cycle_count_; }
+
+ private:
+  model::TargetFeatureList target_features_{};
+  model::PlatformAttitudeDeg platform_attitude_deg_{};
+  float cycle_dt_sec_{1.0f};
+  std::vector<extension::control::RadarCommand> submitted_commands_{};
+  extension::control::RadarControlProfile latest_control_profile_{};
+  bool has_latest_control_profile_{false};
+  std::size_t begin_cycle_count_{0U};
+};
+
+class RecordingEnvironmentService : public extension::IEnvironmentService {
+ public:
+  void BeginCycle(const environment::EnvironmentCycleContext& cycle_context) override {
+    ++begin_cycle_count_;
+    cycle_context_ = cycle_context;
+  }
+
+  environment::EnvironmentSnapshot SampleEnvironment() const override {
+    environment::EnvironmentSnapshot snapshot;
+    snapshot.cycle_dt_sec = cycle_context_.dt_sec;
+    snapshot.jammer_sources.reserve(pending_scene_state_.jammer_emitters.size());
+    for (std::size_t i = 0; i < pending_scene_state_.jammer_emitters.size(); ++i) {
+      snapshot.jammer_sources.push_back(pending_scene_state_.jammer_emitters[i]);
+    }
+    snapshot.jamming_detected = !snapshot.jammer_sources.empty();
+    return snapshot;
+  }
+
+  void UpdateSceneState(const environment::EnvironmentSceneState& scene_state) override {
+    ++update_scene_state_count_;
+    pending_scene_state_ = scene_state;
+  }
+
+  environment::EnvironmentSceneState GetPendingSceneState() const override {
+    return pending_scene_state_;
+  }
+
+  void UpdateModelConfig(const environment::EnvironmentModelConfig& config) override {
+    ++update_model_config_count_;
+    model_config_ = config;
+  }
+
+  void SetJammingDetectionThresholdDb(float threshold_db) override {
+    ++set_threshold_count_;
+    jamming_detection_threshold_db_ = threshold_db;
+  }
+
+  std::size_t begin_cycle_count() const { return begin_cycle_count_; }
+  std::size_t update_scene_state_count() const { return update_scene_state_count_; }
+  std::size_t update_model_config_count() const { return update_model_config_count_; }
+  std::size_t set_threshold_count() const { return set_threshold_count_; }
+  float jamming_detection_threshold_db() const { return jamming_detection_threshold_db_; }
+
+ private:
+  environment::EnvironmentSceneState pending_scene_state_{};
+  environment::EnvironmentModelConfig model_config_{};
+  environment::EnvironmentCycleContext cycle_context_{};
+  float jamming_detection_threshold_db_{6.0f};
+  std::size_t begin_cycle_count_{0U};
+  std::size_t update_scene_state_count_{0U};
+  std::size_t update_model_config_count_{0U};
+  std::size_t set_threshold_count_{0U};
+};
+
+class RecordingSignalPipeline : public extension::ISignalPipeline {
+ public:
+  extension::SignalCycleResult RunCycle(const model::TargetFeatureList& input_state,
+                                        const extension::IEnvironmentService& environment) override {
+    (void)input_state;
+    (void)environment;
+    ++run_cycle_count_;
+    return {};
+  }
+
+  void UpdatePlatformAttitude(const model::PlatformAttitudeDeg& platform_attitude_deg) override {
+    platform_attitude_deg_ = platform_attitude_deg;
+  }
+
+  model::PlatformAttitudeDeg GetPlatformAttitude() const override {
+    return platform_attitude_deg_;
+  }
+
+  void SetControlProfile(const extension::control::RadarControlProfile& control_profile) override {
+    control_profile_ = control_profile;
+  }
+
+  extension::control::RadarControlProfile GetControlProfile() const override {
+    return control_profile_;
+  }
+
+  void UpdateConfig(config::SignalPipelineConfig config) override {
+    ++update_config_count_;
+    config_ = std::move(config);
+  }
+
+  extension::AssociationQualityMetrics GetLastAssociationQualityMetrics() const override {
+    return {};
+  }
+
+  std::size_t run_cycle_count() const { return run_cycle_count_; }
+  std::size_t update_config_count() const { return update_config_count_; }
+  const config::SignalPipelineConfig& config() const { return config_; }
+
+ private:
+  model::PlatformAttitudeDeg platform_attitude_deg_{};
+  extension::control::RadarControlProfile control_profile_{};
+  config::SignalPipelineConfig config_{};
+  std::size_t run_cycle_count_{0U};
+  std::size_t update_config_count_{0U};
+};
+
+class NoopDecisionEngine : public extension::ITacticalDecisionEngine {
+ public:
+  extension::TacticalDecisionResult Evaluate(
+      const model::DecisionInputFrame& input_frame,
+      extension::TacticalStateStore& state_store) override {
+    (void)input_frame;
+    (void)state_store;
+    return {};
+  }
+};
 
 }  // namespace
 
@@ -580,6 +741,91 @@ TEST(PublicApiConvenienceTest,
   EXPECT_EQ(output::CountJammingTracks(frame_3), 0U);
   EXPECT_TRUE(output::ContainsExternalTargetId(frame_3, 703U));
   EXPECT_TRUE(output::ContainsExternalTargetId(frame_3, 704U));
+}
+
+TEST(PublicApiConvenienceTest,
+     RadarSessionStagesRuntimePatchAndCommitsSceneOnlyAfterSuccessfulValidation) {
+  RecordingRadarContext radar_context;
+  RecordingSignalPipeline signal_pipeline;
+  RecordingEnvironmentService environment_service;
+  NoopDecisionEngine decision_engine;
+  extension::RadarController controller(radar_context, signal_pipeline, decision_engine,
+                                        environment_service);
+  session::RadarSession session =
+      session::RadarSessionFactory::CreateWithController(MakeConvenienceSessionConfig(), controller);
+
+  session::RadarCycleInput baseline_input = MakeCycleInput(
+      model::TargetFeatureList{
+          model::MakeAirTarget(810U, 120.0f, 1.0f, 10.0f, 55.0f, 0.0f, 0.0f, 1.0f),
+      },
+      1.0f);
+  const session::RadarCycleResult baseline = session.StepWithResult(baseline_input);
+  EXPECT_FALSE(baseline.has_validation_error);
+  ASSERT_EQ(radar_context.GetTargetFeatures().size(), 1U);
+  EXPECT_EQ(radar_context.GetTargetFeatures()[0].external_target_id, 810U);
+  EXPECT_FLOAT_EQ(radar_context.GetCycleDeltaTimeSec(), 1.0f);
+
+  const std::size_t committed_begin_cycles = radar_context.begin_cycle_count();
+  const std::size_t committed_signal_runs = signal_pipeline.run_cycle_count();
+  const std::size_t committed_update_config_count = signal_pipeline.update_config_count();
+  const std::size_t committed_update_scene_count = environment_service.update_scene_state_count();
+  const std::size_t committed_update_model_count =
+      environment_service.update_model_config_count();
+  const std::size_t committed_threshold_count = environment_service.set_threshold_count();
+
+  const config::RadarRuntimeConfigPatch patch =
+      config::RadarRuntimeConfigBuilder()
+          .WithRadarWorkSubMode(model::RadarWorkSubMode::kTas)
+          .WithJammingDetectionThresholdDb(4.2f)
+          .Build();
+  session.ApplyRuntimeConfig(patch);
+
+  EXPECT_EQ(signal_pipeline.update_config_count(), committed_update_config_count);
+  EXPECT_EQ(environment_service.update_model_config_count(), committed_update_model_count);
+  EXPECT_EQ(environment_service.set_threshold_count(), committed_threshold_count);
+
+  environment::JammerEmitterState jammer;
+  jammer.technique = environment::JammingTechnique::kNoiseSuppression;
+  jammer.power_db = 12.0f;
+  jammer.js_db = 8.0f;
+  jammer.frequency_overlap_ratio = 0.3f;
+  jammer.prf_lock_risk = 0.1f;
+
+  environment::EnvironmentSceneState jammed_scene;
+  jammed_scene.jammer_emitters.push_back(jammer);
+
+  session::RadarCycleInput invalid_input = MakeCycleInput(
+      model::TargetFeatureList{
+          model::MakeAirTarget(811U, 140.0f, -2.0f, 12.0f, 60.0f, 0.0f, 0.0f, 1.0f),
+      },
+      -1.0f);
+  const session::RadarCycleResult invalid_result = session.StepWithResult(invalid_input, jammed_scene);
+  EXPECT_TRUE(invalid_result.has_validation_error);
+  EXPECT_TRUE(ContainsIssueCode(invalid_result.validation_issues,
+                                session::ValidationCode::kInvalidCycleDeltaTime));
+  EXPECT_EQ(radar_context.begin_cycle_count(), committed_begin_cycles);
+  EXPECT_EQ(signal_pipeline.run_cycle_count(), committed_signal_runs);
+  EXPECT_EQ(signal_pipeline.update_config_count(), committed_update_config_count);
+  EXPECT_EQ(environment_service.update_scene_state_count(), committed_update_scene_count);
+  EXPECT_EQ(environment_service.update_model_config_count(), committed_update_model_count);
+  EXPECT_EQ(environment_service.set_threshold_count(), committed_threshold_count);
+  ASSERT_EQ(radar_context.GetTargetFeatures().size(), 1U);
+  EXPECT_EQ(radar_context.GetTargetFeatures()[0].external_target_id, 810U);
+  EXPECT_FLOAT_EQ(radar_context.GetCycleDeltaTimeSec(), 1.0f);
+  EXPECT_TRUE(environment_service.GetPendingSceneState().jammer_emitters.empty());
+
+  const session::RadarCycleResult committed_result = session.StepWithResult(baseline_input, jammed_scene);
+  EXPECT_FALSE(committed_result.has_validation_error);
+  EXPECT_EQ(radar_context.begin_cycle_count(), committed_begin_cycles + 1U);
+  EXPECT_EQ(signal_pipeline.run_cycle_count(), committed_signal_runs + 1U);
+  EXPECT_EQ(signal_pipeline.update_config_count(), committed_update_config_count + 1U);
+  EXPECT_EQ(environment_service.update_scene_state_count(), committed_update_scene_count + 1U);
+  EXPECT_EQ(environment_service.update_model_config_count(), committed_update_model_count + 1U);
+  EXPECT_EQ(environment_service.set_threshold_count(), committed_threshold_count + 1U);
+  EXPECT_EQ(signal_pipeline.config().beam_control.radar_orientation.work_sub_mode,
+            model::RadarWorkSubMode::kTas);
+  EXPECT_FLOAT_EQ(environment_service.jamming_detection_threshold_db(), 4.2f);
+  EXPECT_EQ(environment_service.GetPendingSceneState().jammer_emitters.size(), 1U);
 }
 
 TEST(PublicApiConvenienceTest, RadarSessionStepWithResultAggregatesCurrentCycleObservations) {
