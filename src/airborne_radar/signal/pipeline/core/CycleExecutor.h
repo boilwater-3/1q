@@ -12,7 +12,6 @@
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/extension/IEnvironmentService.h"
-#include "airborne_radar/signal/assembly/IDataOutputManager.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
@@ -49,6 +48,8 @@ struct CycleExecutionScratch {
 
 /**
  * @brief 单周期执行器所需的运行时依赖视图。
+ * @note 所有字段均为非 owning 引用视图；其中 association/track_filter/lifecycle_manager
+ *       持有跨周期状态，signal_detector 仅表示当前配置下的执行组件。
  */
 struct CycleExecutionRuntime {
   const SignalPipelineConfig* base_config{nullptr};
@@ -57,18 +58,21 @@ struct CycleExecutionRuntime {
   association::DataAssociationEngine* association_engine{nullptr};
   tracking::TrackFilter* track_filter{nullptr};
   detection::SignalDetector* signal_detector{nullptr};
-  signal::assembly::IDataOutputManager* output_manager{nullptr};
   tracking::ITrackLifecycleManager* auto_lifecycle_manager{nullptr};
   const std::vector<tracking::AssociationTrackSeed>* manual_association_seeds{nullptr};
   bool has_manual_association_seeds{false};
 };
 
 /**
- * @brief 周期准备阶段输出（后续 phase 的稳定输入）。
+ * @brief 周期主链路各 phase 共享的稳定输入契约。
+ * @details 该结构在 setup 阶段一次构造，之后仅由 environment phase 对
+ *          runtime_config/internal_runtime_config 做显式更新。
  */
-struct CycleSetupPhaseOutput {
+struct CycleExecutionContract {
   const model::TargetFeatureList* input_state{nullptr};
   const extension::IEnvironmentService* environment{nullptr};
+  std::uint32_t cycle_index{0U};
+  std::uint64_t batch_id{0U};
   SignalPipelineConfig runtime_config{};
   InternalSignalPipelineConfig internal_runtime_config{};
 };

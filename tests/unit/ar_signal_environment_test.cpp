@@ -1170,10 +1170,10 @@ TEST(SignalPipelineTest, AutoLifecycleManagerSyncsRuntimeTuningAcrossCycles) {
   extension::control::RadarControlProfile agile_profile;
   agile_profile.enable_agility_frequency = true;
   const signal::pipeline::assembly::internal::ResolvedRuntimeSignalPipelineConfig agile_runtime_config =
-      signal::pipeline::assembly::internal::BuildRuntimeConfigFromControlProfile(
+      signal::pipeline::assembly::internal::ResolveRuntimeSignalPipelineConfig(
           pipeline_config, base_internal_config, agile_profile);
-  signal::pipeline::assembly::internal::SyncAutoLifecycleManagerForRuntimeConfig(
-      agile_runtime_config.public_config, agile_runtime_config.internal_config,
+  signal::pipeline::assembly::internal::SyncAutoLifecycleManagerForResolvedRuntimeConfig(
+      agile_runtime_config,
       synced_manager.get());
 
   unsynced_manager->Update(MakeLifecycleCycle(2u, 2u), {});

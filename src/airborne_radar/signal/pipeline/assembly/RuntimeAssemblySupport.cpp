@@ -259,7 +259,7 @@ bool HasValidOwnedComponentSlots(const OwnedComponentSlots& slots) {
 
 }  // namespace
 
-ResolvedRuntimeSignalPipelineConfig BuildRuntimeConfigFromControlProfile(
+ResolvedRuntimeSignalPipelineConfig ResolveRuntimeSignalPipelineConfig(
     const SignalPipelineConfig& base_config,
     const pipeline::internal::InternalSignalPipelineConfig& base_internal_config,
     const extension::control::RadarControlProfile& control_profile) {
@@ -302,24 +302,30 @@ void RebuildOwnedComponentsForPipeline(
   *slots->signal_detector = std::move(components.signal_detector);
 
   const ResolvedRuntimeSignalPipelineConfig resolved_runtime_config =
-      BuildRuntimeConfigFromControlProfile(base_config, base_internal_config, control_profile);
+      ResolveRuntimeSignalPipelineConfig(base_config, base_internal_config, control_profile);
   *slots->auto_lifecycle_manager = CreateAutoLifecycleManagerForRuntimeConfig(
       resolved_runtime_config.public_config, resolved_runtime_config.internal_config);
 }
 
-void SyncAutoLifecycleManagerForRuntimeConfig(
-    const SignalPipelineConfig& runtime_config,
-    const pipeline::internal::InternalSignalPipelineConfig& internal_runtime_config,
+void SyncAutoLifecycleManagerForResolvedRuntimeConfig(
+    const ResolvedRuntimeSignalPipelineConfig& resolved_runtime_config,
     tracking::ITrackLifecycleManager* auto_lifecycle_manager) {
   AutoConfiguredLifecycleManager* auto_configured_manager =
       dynamic_cast<AutoConfiguredLifecycleManager*>(auto_lifecycle_manager);
   if (auto_configured_manager == nullptr) {
     return;
   }
+  auto_configured_manager->SyncRuntimeConfig(resolved_runtime_config);
+}
+
+void SyncAutoLifecycleManagerForRuntimeConfig(
+    const SignalPipelineConfig& runtime_config,
+    const pipeline::internal::InternalSignalPipelineConfig& internal_runtime_config,
+    tracking::ITrackLifecycleManager* auto_lifecycle_manager) {
   ResolvedRuntimeSignalPipelineConfig resolved;
   resolved.public_config = runtime_config;
   resolved.internal_config = internal_runtime_config;
-  auto_configured_manager->SyncRuntimeConfig(resolved);
+  SyncAutoLifecycleManagerForResolvedRuntimeConfig(resolved, auto_lifecycle_manager);
 }
 
 }  // namespace internal

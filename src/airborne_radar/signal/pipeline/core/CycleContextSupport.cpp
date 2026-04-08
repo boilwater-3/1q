@@ -80,8 +80,11 @@ void SyncAssociationAndTrackFilterConfigs(
         assembly::internal::SignalComponentFactory::BuildTrackFilterConfig(internal_runtime_config));
   }
   if (auto_lifecycle_manager != nullptr) {
-    assembly::internal::SyncAutoLifecycleManagerForRuntimeConfig(
-        runtime_config, internal_runtime_config, auto_lifecycle_manager);
+    assembly::internal::ResolvedRuntimeSignalPipelineConfig resolved_runtime_config;
+    resolved_runtime_config.public_config = runtime_config;
+    resolved_runtime_config.internal_config = internal_runtime_config;
+    assembly::internal::SyncAutoLifecycleManagerForResolvedRuntimeConfig(
+        resolved_runtime_config, auto_lifecycle_manager);
   }
 }
 

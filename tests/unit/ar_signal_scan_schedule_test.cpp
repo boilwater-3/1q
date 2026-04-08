@@ -12,7 +12,6 @@
 #include "1q/airborne_radar/model/TargetFeatureUtils.h"
 #include "1q/airborne_radar/config/SignalPipelineConfig.h"
 #include "airborne_radar/environment/EnvironmentService.h"
-#include "airborne_radar/signal/assembly/DataOutputManager.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
@@ -57,14 +56,13 @@ signal::pipeline::internal::CycleExecutionRuntime BuildMinimalValidRuntime(
     const signal::pipeline::internal::InternalSignalPipelineConfig& internal_config,
     const extension::control::RadarControlProfile& control_profile,
     signal::association::DataAssociationEngine* association_engine,
-    signal::tracking::TrackFilter* track_filter, signal::assembly::IDataOutputManager* output_manager) {
+    signal::tracking::TrackFilter* track_filter) {
   signal::pipeline::internal::CycleExecutionRuntime runtime;
   runtime.base_config = &base_config;
   runtime.base_internal_config = &internal_config;
   runtime.control_profile = &control_profile;
   runtime.association_engine = association_engine;
   runtime.track_filter = track_filter;
-  runtime.output_manager = output_manager;
   runtime.signal_detector = nullptr;
   runtime.auto_lifecycle_manager = nullptr;
   runtime.manual_association_seeds = nullptr;
@@ -134,10 +132,8 @@ TEST(CycleExecutorTest, ValidRuntimeProducesInputAlignedStageBuffers) {
 
   signal::association::DataAssociationEngine association_engine;
   signal::tracking::TrackFilter track_filter;
-  signal::assembly::DataOutputManager output_manager;
   const signal::pipeline::internal::CycleExecutionRuntime runtime = BuildMinimalValidRuntime(
-      base_config, internal_config, control_profile, &association_engine, &track_filter,
-      &output_manager);
+      base_config, internal_config, control_profile, &association_engine, &track_filter);
 
   model::TargetFeature target_a(1000.0f, 0.0f, 0.0f, 2.0f);
   target_a.has_cartesian_position = true;
@@ -175,10 +171,8 @@ TEST(CycleExecutorTest, EmptyInputKeepsWorkspaceOutputsEmpty) {
 
   signal::association::DataAssociationEngine association_engine;
   signal::tracking::TrackFilter track_filter;
-  signal::assembly::DataOutputManager output_manager;
   const signal::pipeline::internal::CycleExecutionRuntime runtime = BuildMinimalValidRuntime(
-      base_config, internal_config, control_profile, &association_engine, &track_filter,
-      &output_manager);
+      base_config, internal_config, control_profile, &association_engine, &track_filter);
 
   const model::TargetFeatureList input_state;
   environment::EnvironmentService environment_service;

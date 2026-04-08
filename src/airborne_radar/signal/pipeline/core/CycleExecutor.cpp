@@ -23,19 +23,22 @@ namespace {
 bool HasValidRuntime(const CycleExecutionRuntime& runtime) {
   return runtime.base_config != nullptr && runtime.base_internal_config != nullptr &&
          runtime.control_profile != nullptr && runtime.association_engine != nullptr &&
-         runtime.track_filter != nullptr && runtime.output_manager != nullptr;
+         runtime.track_filter != nullptr;
 }
 
-CycleSetupPhaseOutput BuildSetupPhaseOutput(const model::TargetFeatureList& input_state,
-                                            const extension::IEnvironmentService& environment,
-                                            std::uint32_t cycle_index,
-                                            const CycleExecutionRuntime& runtime) {
-  CycleSetupPhaseOutput output;
+CycleExecutionContract BuildCycleExecutionContract(const model::TargetFeatureList& input_state,
+                                                   const extension::IEnvironmentService& environment,
+                                                   std::uint32_t cycle_index,
+                                                   std::uint64_t batch_id,
+                                                   const CycleExecutionRuntime& runtime) {
+  CycleExecutionContract output;
   output.input_state = &input_state;
   output.environment = &environment;
+  output.cycle_index = cycle_index;
+  output.batch_id = batch_id;
 
   const assembly::internal::ResolvedRuntimeSignalPipelineConfig resolved =
-      assembly::internal::BuildRuntimeConfigFromControlProfile(
+      assembly::internal::ResolveRuntimeSignalPipelineConfig(
           *runtime.base_config, *runtime.base_internal_config, *runtime.control_profile);
   output.runtime_config = resolved.public_config;
   output.internal_runtime_config = resolved.internal_config;
@@ -43,16 +46,16 @@ CycleSetupPhaseOutput BuildSetupPhaseOutput(const model::TargetFeatureList& inpu
   return output;
 }
 
-void InitializeWorkspace(const CycleSetupPhaseOutput& setup, const CycleExecutionRuntime& runtime,
-                         CycleExecutionScratch* scratch) {
+void PrepareExecutionState(const CycleExecutionContract& contract,
+                           const CycleExecutionRuntime& runtime, CycleExecutionScratch* scratch) {
   CycleWorkspace cycle_workspace = BuildCycleWorkspaceBindings(
       &scratch->output_state, &scratch->decision_frame, &scratch->association_quality_metrics,
       &scratch->track_measurements, &scratch->signal_term_db, &scratch->speed_penalty_db,
       &scratch->detection_margin_db, &scratch->detection_succeeded, &scratch->association_keys,
       &scratch->measurement_slots, &scratch->target_geometry, &scratch->measurement_covariances,
       &scratch->association_result);
-  ResetCycleWorkspace(*setup.input_state, setup.runtime_config, &cycle_workspace);
-  SyncAssociationAndTrackFilterConfigs(setup.runtime_config, setup.internal_runtime_config,
+  ResetCycleWorkspace(*contract.input_state, contract.runtime_config, &cycle_workspace);
+  SyncAssociationAndTrackFilterConfigs(contract.runtime_config, contract.internal_runtime_config,
                                        runtime.association_engine, runtime.track_filter,
                                        runtime.auto_lifecycle_manager);
 }
@@ -66,19 +69,19 @@ void PrepareAssociationSeeds(const CycleExecutionRuntime& runtime) {
                                   runtime.auto_lifecycle_manager, runtime.association_engine);
 }
 
-EnvironmentPhaseOutput RunEnvironmentPhase(CycleSetupPhaseOutput* setup,
+EnvironmentPhaseOutput RunEnvironmentPhase(CycleExecutionContract* contract,
                                            const CycleExecutionRuntime& runtime,
                                            CycleExecutionScratch* scratch) {
   EnvironmentPhaseOutput output;
-  output.environment_snapshot = setup->environment->SampleEnvironment();
+  output.environment_snapshot = contract->environment->SampleEnvironment();
 
   ApplyEnvironmentJammingFactsToRuntimeConfig(*runtime.control_profile, output.environment_snapshot,
-                                              &setup->internal_runtime_config,
-                                              &setup->runtime_config);
+                                              &contract->internal_runtime_config,
+                                              &contract->runtime_config);
   RefreshMeasurementCovariances(scratch->target_geometry.size(),
-                                setup->runtime_config.tracking.kalman_measurement_noise_std,
+                                contract->runtime_config.tracking.kalman_measurement_noise_std,
                                 &scratch->measurement_covariances);
-  SyncAssociationAndTrackFilterConfigs(setup->runtime_config, setup->internal_runtime_config,
+  SyncAssociationAndTrackFilterConfigs(contract->runtime_config, contract->internal_runtime_config,
                                        runtime.association_engine, runtime.track_filter,
                                        runtime.auto_lifecycle_manager);
 
@@ -89,7 +92,7 @@ EnvironmentPhaseOutput RunEnvironmentPhase(CycleSetupPhaseOutput* setup,
   return output;
 }
 
-DetectionPhaseOutput RunDetectionPhase(const CycleSetupPhaseOutput& setup,
+DetectionPhaseOutput RunDetectionPhase(const CycleExecutionContract& contract,
                                        const CycleExecutionRuntime& runtime,
                                        const EnvironmentPhaseOutput& environment_phase,
                                        CycleExecutionScratch* scratch) {
@@ -98,12 +101,15 @@ DetectionPhaseOutput RunDetectionPhase(const CycleSetupPhaseOutput& setup,
       &scratch->detection_margin_db, &scratch->detection_succeeded,
       &scratch->measurement_covariances);
 
-  if (setup.runtime_config.detection.enable_physics_detection && runtime.signal_detector != nullptr) {
-    RunPhysicalDetectionPass(*setup.input_state, setup.runtime_config, setup.internal_runtime_config,
+  if (contract.runtime_config.detection.enable_physics_detection &&
+      runtime.signal_detector != nullptr) {
+    RunPhysicalDetectionPass(*contract.input_state, contract.runtime_config,
+                             contract.internal_runtime_config,
                              *runtime.control_profile, environment_phase.environment_snapshot,
                              runtime.signal_detector, &detection_buffers);
   } else {
-    RunHeuristicDetectionPass(*setup.input_state, setup.runtime_config, setup.internal_runtime_config,
+    RunHeuristicDetectionPass(*contract.input_state, contract.runtime_config,
+                              contract.internal_runtime_config,
                               *runtime.control_profile, environment_phase.environment_snapshot,
                               &detection_buffers);
   }
@@ -116,12 +122,12 @@ DetectionPhaseOutput RunDetectionPhase(const CycleSetupPhaseOutput& setup,
   return output;
 }
 
-AssociationPhaseOutput RunAssociationPhase(const CycleSetupPhaseOutput& setup,
+AssociationPhaseOutput RunAssociationPhase(const CycleExecutionContract& contract,
                                            const CycleExecutionRuntime& runtime,
                                            const EnvironmentPhaseOutput& environment_phase,
                                            const DetectionPhaseOutput& detection_phase,
                                            CycleExecutionScratch* scratch) {
-  RunAssociationPass(*setup.input_state, *detection_phase.detection_succeeded,
+  RunAssociationPass(*contract.input_state, *detection_phase.detection_succeeded,
                      *detection_phase.measurement_covariances,
                      environment_phase.environment_snapshot.cycle_dt_sec,
                      runtime.association_engine, &scratch->association_result,
@@ -134,11 +140,12 @@ AssociationPhaseOutput RunAssociationPhase(const CycleSetupPhaseOutput& setup,
 }
 
 MeasurementBuildPhaseOutput RunMeasurementBuildPhase(
-    const CycleSetupPhaseOutput& setup, const EnvironmentPhaseOutput& environment_phase,
+    const CycleExecutionContract& contract, const EnvironmentPhaseOutput& environment_phase,
     const DetectionPhaseOutput& detection_phase, const AssociationPhaseOutput& association_phase,
     CycleExecutionScratch* scratch) {
   TrackMeasurementBuildContext build_context = BuildTrackMeasurementBuildContextBindings(
-      setup.input_state, association_phase.association_result, detection_phase.detection_succeeded,
+      contract.input_state, association_phase.association_result,
+      detection_phase.detection_succeeded,
       association_phase.association_keys, detection_phase.detection_margin_db,
       detection_phase.target_geometry, detection_phase.measurement_covariances,
       environment_phase.environment_snapshot.jamming_detected,
@@ -152,13 +159,14 @@ MeasurementBuildPhaseOutput RunMeasurementBuildPhase(
   return output;
 }
 
-void RunTrackFilterPhase(const CycleSetupPhaseOutput& setup, const CycleExecutionRuntime& runtime,
+void RunTrackFilterPhase(const CycleExecutionContract& contract,
+                         const CycleExecutionRuntime& runtime,
                          const EnvironmentPhaseOutput& environment_phase,
                          const DetectionPhaseOutput& detection_phase,
                          const MeasurementBuildPhaseOutput& measurement_phase,
                          CycleExecutionScratch* scratch) {
   TrackFilterApplyContext filter_context = BuildTrackFilterApplyContextBindings(
-      setup.input_state, &scratch->output_state, detection_phase.detection_succeeded,
+      contract.input_state, &scratch->output_state, detection_phase.detection_succeeded,
       detection_phase.detection_margin_db, environment_phase.environment_snapshot.jamming_detected,
       environment_phase.dominant_jamming_semantic, environment_phase.jamming_severity,
       runtime.track_filter, measurement_phase.measurement_slots, &scratch->track_measurements);
@@ -166,14 +174,15 @@ void RunTrackFilterPhase(const CycleSetupPhaseOutput& setup, const CycleExecutio
 }
 
 void AssembleOutputs(std::uint32_t cycle_index, std::uint64_t batch_id,
-                     const CycleSetupPhaseOutput& setup,
+                     const CycleExecutionContract& contract,
                      const EnvironmentPhaseOutput& environment_phase,
                      const CycleExecutionRuntime& runtime,
                      const AssociationPhaseOutput& association_phase,
                      const MeasurementBuildPhaseOutput& measurement_phase,
                      CycleExecutionScratch* scratch) {
-  CollectCycleOutputs(*runtime.control_profile, cycle_index, batch_id, setup.internal_runtime_config,
-                      environment_phase.environment_snapshot, *setup.input_state,
+  CollectCycleOutputs(*runtime.control_profile, cycle_index, batch_id,
+                      contract.internal_runtime_config,
+                      environment_phase.environment_snapshot, *contract.input_state,
                       *association_phase.association_result, *measurement_phase.track_measurements,
                       runtime.auto_lifecycle_manager, &scratch->association_quality_metrics,
                       &scratch->decision_frame);
@@ -192,31 +201,31 @@ void ExecuteCycle(const model::TargetFeatureList& input_state,
   if (!HasValidRuntime(runtime)) {
     PROJECT_LOG_ERROR(
         "[CycleExecutor] ExecuteCycle received invalid runtime: base_config={} "
-        "base_internal_config={} control_profile={} association_engine={} track_filter={} "
-        "output_manager={}",
+        "base_internal_config={} control_profile={} association_engine={} track_filter={}",
         runtime.base_config != nullptr, runtime.base_internal_config != nullptr,
         runtime.control_profile != nullptr, runtime.association_engine != nullptr,
-        runtime.track_filter != nullptr, runtime.output_manager != nullptr);
+        runtime.track_filter != nullptr);
     return;
   }
 
-  CycleSetupPhaseOutput setup =
-      BuildSetupPhaseOutput(input_state, environment, cycle_index, runtime);
-  InitializeWorkspace(setup, runtime, cycle_scratch);
+  CycleExecutionContract contract =
+      BuildCycleExecutionContract(input_state, environment, cycle_index, batch_id, runtime);
+  PrepareExecutionState(contract, runtime, cycle_scratch);
   PrepareAssociationSeeds(runtime);
 
   const EnvironmentPhaseOutput environment_phase =
-      RunEnvironmentPhase(&setup, runtime, cycle_scratch);
+      RunEnvironmentPhase(&contract, runtime, cycle_scratch);
   const DetectionPhaseOutput detection_phase =
-      RunDetectionPhase(setup, runtime, environment_phase, cycle_scratch);
+      RunDetectionPhase(contract, runtime, environment_phase, cycle_scratch);
   const AssociationPhaseOutput association_phase =
-      RunAssociationPhase(setup, runtime, environment_phase, detection_phase, cycle_scratch);
+      RunAssociationPhase(contract, runtime, environment_phase, detection_phase, cycle_scratch);
   const MeasurementBuildPhaseOutput measurement_phase =
-      RunMeasurementBuildPhase(setup, environment_phase, detection_phase, association_phase,
+      RunMeasurementBuildPhase(contract, environment_phase, detection_phase, association_phase,
                                cycle_scratch);
-  RunTrackFilterPhase(setup, runtime, environment_phase, detection_phase, measurement_phase,
+  RunTrackFilterPhase(contract, runtime, environment_phase, detection_phase, measurement_phase,
                       cycle_scratch);
-  AssembleOutputs(cycle_index, batch_id, setup, environment_phase, runtime, association_phase,
+  AssembleOutputs(contract.cycle_index, contract.batch_id, contract, environment_phase, runtime,
+                  association_phase,
                   measurement_phase, cycle_scratch);
 }
 

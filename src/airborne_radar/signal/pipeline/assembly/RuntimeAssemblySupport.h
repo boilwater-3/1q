@@ -37,7 +37,7 @@ struct ResolvedRuntimeSignalPipelineConfig {
  * @param[in] control_profile 当前控制真值。
  * @return 调整后的运行时配置。
  */
-ResolvedRuntimeSignalPipelineConfig BuildRuntimeConfigFromControlProfile(
+ResolvedRuntimeSignalPipelineConfig ResolveRuntimeSignalPipelineConfig(
     const SignalPipelineConfig& base_config,
     const pipeline::internal::InternalSignalPipelineConfig& base_internal_config,
     const extension::control::RadarControlProfile& control_profile);
@@ -76,6 +76,13 @@ void RebuildOwnedComponentsForPipeline(
     const SignalPipelineConfig& base_config,
     const pipeline::internal::InternalSignalPipelineConfig& base_internal_config,
     const extension::control::RadarControlProfile& control_profile, OwnedComponentSlots* slots);
+
+/**
+ * @brief 仅根据已解析的运行时配置同步自动生命周期管理器参数。
+ */
+void SyncAutoLifecycleManagerForResolvedRuntimeConfig(
+    const ResolvedRuntimeSignalPipelineConfig& resolved_runtime_config,
+    tracking::ITrackLifecycleManager* auto_lifecycle_manager);
 
 /**
  * @brief 将本周期运行时配置同步到自动生命周期管理器内部参数。
