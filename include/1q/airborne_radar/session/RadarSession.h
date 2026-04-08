@@ -118,24 +118,6 @@ class ONEQ_API RadarSession {
   extension::AssociationQualityMetrics GetLastAssociationQualityMetrics() const;
 
   /**
-   * @brief 更新信号流水线配置。
-   * @param[in] config 信号流水线配置。
-   */
-  void UpdateSignalPipelineConfig(const config::SignalPipelineConfig& config);
-
-  /**
-   * @brief 更新环境模型配置。
-   * @param[in] config 环境模型配置。
-   */
-  void UpdateEnvironmentModelConfig(const environment::EnvironmentModelConfig& config);
-
-  /**
-   * @brief 更新干扰判定阈值。
-   * @param[in] threshold_db 干扰判定阈值（单位：dB）。
-   */
-  void SetJammingDetectionThresholdDb(float threshold_db);
-
-  /**
    * @brief 应用运行期可变配置补丁。
    * @param[in] patch 运行期可变配置补丁。
    * @note 该接口作为运行期可调参数的统一入口；未设置的字段保持现值不变。

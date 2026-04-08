@@ -46,9 +46,6 @@ class ONEQ_API RadarTraceSession {
       const RadarCycleInput& input,
       const environment::EnvironmentSceneState& scene_state);
 
-  void UpdateSignalPipelineConfig(const config::SignalPipelineConfig& config);
-  void UpdateEnvironmentModelConfig(const environment::EnvironmentModelConfig& config);
-  void SetJammingDetectionThresholdDb(float threshold_db);
   void ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch);
 
   const std::vector<extension::control::RadarCommand>& GetSubmittedCommands() const;

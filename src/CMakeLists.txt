@@ -73,6 +73,7 @@ set(AIRBORNE_CORE_SOURCES
     airborne_radar/session/RadarSessionCompositionRoot.cpp
     airborne_radar/session/RadarSessionConfigPresets.cpp
     airborne_radar/session/RadarSessionConfigBuilder.cpp
+    airborne_radar/session/RuntimeConfigResolver.cpp
     airborne_radar/session/RadarSession.cpp
     airborne_radar/session/RadarTraceSession.cpp
     airborne_radar/environment/FeatureRepository.cpp
@@ -88,6 +89,7 @@ set(ESR_SOURCES
     electronic_surveillance_radar/core/controller/EsrController.cpp
     electronic_surveillance_radar/core/output/EsrOutputManager.cpp
     electronic_surveillance_radar/core/session/EsrSessionConfigResolver.cpp
+    electronic_surveillance_radar/core/session/EsrRuntimeConfigResolver.cpp
     electronic_surveillance_radar/core/session/EsrSession.cpp
     electronic_surveillance_radar/core/session/EsrTraceSession.cpp
     electronic_surveillance_radar/environment/EsrEnvironmentService.cpp
@@ -110,6 +112,7 @@ set(EOS_SOURCES
     electro_optical_sensor/core/context/EosInputValidation.cpp
     electro_optical_sensor/core/controller/EosController.cpp
     electro_optical_sensor/core/pipeline/EosPipeline.cpp
+    electro_optical_sensor/core/session/EosRuntimeConfigResolver.cpp
     electro_optical_sensor/core/session/EosSession.cpp
     electro_optical_sensor/core/session/EosTraceSession.cpp
 )

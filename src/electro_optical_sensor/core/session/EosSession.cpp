@@ -4,8 +4,8 @@
 
 #include "1q/electro_optical_sensor/core/controller/EosController.h"
 #include "1q/electro_optical_sensor/pipeline/IEosPipeline.h"
-#include "common/logging/ProjectLog.h"
 #include "electro_optical_sensor/core/pipeline/EosPipeline.h"
+#include "electro_optical_sensor/core/session/EosRuntimeConfigResolver.h"
 
 namespace electro_optical_sensor {
 namespace core {
@@ -130,113 +130,13 @@ EosCycleResult EosSession::StepWithResult(const context::EosCycleInput& input) {
 }
 
 void EosSession::ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch) {
-  const EosSessionConfig& runtime_config = impl_->runtime_config;
-  EosSessionConfig proposed_runtime_config = runtime_config;
-  bool reset_scan_phase = false;
-  bool has_requested_update = false;
-  bool all_requested_fields_valid = true;
-  if (patch.has_work_mode) {
-    proposed_runtime_config.work_mode = patch.work_mode;
-    has_requested_update = true;
-  }
-  if (patch.has_scan_rate_deg_per_sec) {
-    has_requested_update = true;
-    if (std::isfinite(patch.scan_rate_deg_per_sec) && patch.scan_rate_deg_per_sec > 0.0f) {
-      proposed_runtime_config.scan_rate_deg_per_sec = patch.scan_rate_deg_per_sec;
-      reset_scan_phase = true;
-    } else {
-      all_requested_fields_valid = false;
-      PROJECT_LOG_ERROR(
-          "[EosSession] Rejecting invalid scan_rate_deg_per_sec={}; "
-          "must be finite and positive.",
-          patch.scan_rate_deg_per_sec);
-    }
-  }
-  if (patch.has_frame_rate_hz) {
-    has_requested_update = true;
-    if (std::isfinite(patch.frame_rate_hz) && patch.frame_rate_hz > 0.0f) {
-      proposed_runtime_config.frame_rate_hz = patch.frame_rate_hz;
-    } else {
-      all_requested_fields_valid = false;
-      PROJECT_LOG_ERROR(
-          "[EosSession] Rejecting invalid frame_rate_hz={}; "
-          "must be finite and positive.",
-          patch.frame_rate_hz);
-    }
-  }
-  if (patch.has_minimum_snr_db) {
-    proposed_runtime_config.minimum_snr_db = patch.minimum_snr_db;
-    has_requested_update = true;
-  }
-  if (patch.has_enable_straylight_filter) {
-    proposed_runtime_config.enable_straylight_filter = patch.enable_straylight_filter;
-    has_requested_update = true;
-  }
-  if (patch.has_visible_reference_irradiance_w_m2) {
-    has_requested_update = true;
-    if (std::isfinite(patch.visible_reference_irradiance_w_m2) &&
-        patch.visible_reference_irradiance_w_m2 > 0.0f) {
-      proposed_runtime_config.visible_reference_irradiance_w_m2 =
-          patch.visible_reference_irradiance_w_m2;
-    } else {
-      all_requested_fields_valid = false;
-      PROJECT_LOG_ERROR(
-          "[EosSession] Rejecting invalid visible_reference_irradiance_w_m2={}; "
-          "must be finite and positive.",
-          patch.visible_reference_irradiance_w_m2);
-    }
-  }
-  if (patch.has_environment_runtime_config) {
-    const environment::EosEnvironmentRuntimeConfigPatch& environment_patch =
-        patch.environment_runtime_config;
-    if (environment_patch.has_model_type) {
-      proposed_runtime_config.environment_default_config.model_type = environment_patch.model_type;
-    }
-    if (environment_patch.has_radiative_transfer_model) {
-      proposed_runtime_config.environment_default_config.radiative_transfer_model =
-          environment_patch.radiative_transfer_model;
-    }
-    if (environment_patch.has_aerosol_density_factor) {
-      has_requested_update = true;
-      if (std::isfinite(environment_patch.aerosol_density_factor) &&
-          environment_patch.aerosol_density_factor >= 1.0f) {
-        proposed_runtime_config.environment_default_config.aerosol_density_factor =
-            environment_patch.aerosol_density_factor;
-      } else {
-        all_requested_fields_valid = false;
-        PROJECT_LOG_ERROR(
-            "[EosSession] Rejecting invalid aerosol_density_factor={}; must be finite and >= 1.",
-            environment_patch.aerosol_density_factor);
-      }
-    }
-    if (environment_patch.has_turbulence_factor) {
-      has_requested_update = true;
-      if (std::isfinite(environment_patch.turbulence_factor) &&
-          environment_patch.turbulence_factor >= 1.0f) {
-        proposed_runtime_config.environment_default_config.turbulence_factor =
-            environment_patch.turbulence_factor;
-      } else {
-        all_requested_fields_valid = false;
-        PROJECT_LOG_ERROR(
-            "[EosSession] Rejecting invalid turbulence_factor={}; must be finite and >= 1.",
-            environment_patch.turbulence_factor);
-      }
-    }
-    if (environment_patch.has_model_type || environment_patch.has_radiative_transfer_model ||
-        environment_patch.has_aerosol_density_factor || environment_patch.has_turbulence_factor) {
-      has_requested_update = true;
-    }
-  }
-  if (!has_requested_update) {
+  const internal::EosRuntimeConfigResolveResult resolved =
+      internal::ResolveEosRuntimeConfigPatch(impl_->runtime_config, patch);
+  if (!resolved.has_requested_update || !resolved.is_valid) {
     return;
   }
-  if (!all_requested_fields_valid) {
-    PROJECT_LOG_ERROR(
-        "[EosSession] Runtime config patch rejected due to invalid fields; no changes applied.");
-    return;
-  }
-  impl_->runtime_config = proposed_runtime_config;
-  impl_->pipeline.UpdateConfig(BuildPipelineConfig(impl_->runtime_config), reset_scan_phase);
+  impl_->runtime_config = resolved.next_config;
+  impl_->pipeline.UpdateConfig(BuildPipelineConfig(impl_->runtime_config), resolved.reset_scan_phase);
 }
 
 }  // namespace session

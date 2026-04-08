@@ -396,6 +396,8 @@ Json BuildJson(const RadarCycleResult& value) {
 
 Json BuildJson(const config::RadarRuntimeConfigPatch& value) {
   Json json;
+  json["has_signal_pipeline_config"] = value.has_signal_pipeline_config;
+  json["signal_pipeline_config"] = BuildJson(value.signal_pipeline_config);
   json["has_environment_runtime_config"] = value.has_environment_runtime_config;
   json["environment_runtime_config"] = BuildJson(value.environment_runtime_config);
   json["has_work_sub_mode"] = value.has_work_sub_mode;
@@ -476,33 +478,6 @@ RadarCycleResult RadarTraceSession::StepWithResult(
     Record("output", ToJson(output));
   }
   return output;
-}
-
-void RadarTraceSession::UpdateSignalPipelineConfig(const config::SignalPipelineConfig& config) {
-  session_.UpdateSignalPipelineConfig(config);
-  if (sink_) {
-    Json payload;
-    payload["signal_pipeline_config"] = BuildJson(config);
-    Record("runtime_config", payload.dump());
-  }
-}
-
-void RadarTraceSession::UpdateEnvironmentModelConfig(const environment::EnvironmentModelConfig& config) {
-  session_.UpdateEnvironmentModelConfig(config);
-  if (sink_) {
-    Json payload;
-    payload["environment_model_config"] = BuildJson(config);
-    Record("runtime_config", payload.dump());
-  }
-}
-
-void RadarTraceSession::SetJammingDetectionThresholdDb(float threshold_db) {
-  session_.SetJammingDetectionThresholdDb(threshold_db);
-  if (sink_) {
-    Json payload;
-    payload["jamming_detection_threshold_db"] = threshold_db;
-    Record("runtime_config", payload.dump());
-  }
 }
 
 void RadarTraceSession::ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch) {

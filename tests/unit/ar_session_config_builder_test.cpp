@@ -278,6 +278,20 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValue
   EXPECT_FLOAT_EQ(patch.environment_runtime_config.jamming_detection_threshold_db, 4.2f);
 }
 
+TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderSupportsFullSignalPipelineConfig) {
+  config::SignalPipelineConfig pipeline_config;
+  pipeline_config.detection.min_detection_margin_db = -15.0f;
+  pipeline_config.beam_control.radar_orientation.work_sub_mode = model::RadarWorkSubMode::kStt;
+
+  const config::RadarRuntimeConfigPatch patch =
+      config::RadarRuntimeConfigBuilder().WithSignalPipelineConfig(pipeline_config).Build();
+
+  EXPECT_TRUE(patch.has_signal_pipeline_config);
+  EXPECT_FLOAT_EQ(patch.signal_pipeline_config.detection.min_detection_margin_db, -15.0f);
+  EXPECT_EQ(patch.signal_pipeline_config.beam_control.radar_orientation.work_sub_mode,
+            model::RadarWorkSubMode::kStt);
+}
+
 TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructingSession) {
   session::RadarSession session = session::RadarSessionFactory::Create(
       config::MakeDetectionMissionRadarSessionConfig());
