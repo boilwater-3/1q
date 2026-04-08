@@ -4,7 +4,7 @@
 #include <cmath>
 #include <vector>
 
-#include "airborne_radar/internal/utils/MathUtils.h"
+#include "airborne_radar/utils/MathUtils.h"
 #include "airborne_radar/signal/pipeline/effects/JammingEffects.h"
 #include "common/timing/TimingRegimeModel.h"
 
@@ -62,7 +62,6 @@ float ClampProfileScale(float scale, float fallback) {
   return scale;
 }
 
-using model::ClampFloat;
 
 /**
  * @brief 将 IMM 初始权重向量归一化为概率分布。
@@ -79,7 +78,7 @@ void NormalizeImmInitialWeights(std::vector<float>* weights) {
 
   float sum = 0.0f;
   for (std::size_t i = 0; i < weights->size(); ++i) {
-    (*weights)[i] = ClampFloat((*weights)[i], 0.0f, 1.0f);
+    (*weights)[i] = utils::ClampFloat((*weights)[i], 0.0f, 1.0f);
     sum += (*weights)[i];
   }
 
@@ -233,7 +232,7 @@ void ApplyControlProfileToConfig(const extension::control::RadarControlProfile& 
     runtime_config->detection.receiver.noise_figure_db =
         std::max(0.0f, runtime_config->detection.receiver.noise_figure_db - gain_db);
     internal_config->association.unassigned_cost *=
-        ClampFloat(control_profile.eccm_burnthrough_gain, 1.0f, kBurnthroughAssignCostMax);
+        utils::ClampFloat(control_profile.eccm_burnthrough_gain, 1.0f, kBurnthroughAssignCostMax);
     runtime_config->tracking.kalman_measurement_noise_std *= kBurnthroughKalmanNoiseScale;
   }
 
@@ -271,10 +270,10 @@ void ApplyControlProfileToConfig(const extension::control::RadarControlProfile& 
   if (control_profile.enable_sidelobe_canceller || control_profile.enable_agility_frequency ||
       control_profile.enable_eccm_rejitter || control_profile.eccm_burnthrough_gain > 1.0f) {
     internal_config->tracking.speed_decay_ratio_on_loss =
-        ClampFloat(internal_config->tracking.speed_decay_ratio_on_loss + cfg.eccm_speed_decay_bonus,
+        utils::ClampFloat(internal_config->tracking.speed_decay_ratio_on_loss + cfg.eccm_speed_decay_bonus,
                    0.0f, kSpeedDecayRatioMax);
     internal_config->tracking.rcs_decay_ratio_on_loss =
-        ClampFloat(internal_config->tracking.rcs_decay_ratio_on_loss + cfg.eccm_rcs_decay_bonus,
+        utils::ClampFloat(internal_config->tracking.rcs_decay_ratio_on_loss + cfg.eccm_rcs_decay_bonus,
                    0.0f, kRcsDecayRatioMax);
   }
 
@@ -288,7 +287,7 @@ void ApplyControlProfileToConfig(const extension::control::RadarControlProfile& 
     }
     if (control_profile.eccm_burnthrough_gain > 1.0f) {
       imm_noise_scale *=
-          ClampFloat(control_profile.eccm_burnthrough_gain, 1.0f, kBurnthroughAssignCostMax);
+          utils::ClampFloat(control_profile.eccm_burnthrough_gain, 1.0f, kBurnthroughAssignCostMax);
     }
     for (std::size_t i = 0; i < internal_config->lifecycle.imm_model_noise_diff_coeffs.size();
          ++i) {

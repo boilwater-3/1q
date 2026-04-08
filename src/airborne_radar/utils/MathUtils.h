@@ -3,12 +3,14 @@
  * @brief 提供通用数学辅助内联函数。
  */
 
-#ifndef AIRBORNE_RADAR_INTERNAL_UTILS_MATH_UTILS_H_
-#define AIRBORNE_RADAR_INTERNAL_UTILS_MATH_UTILS_H_
+#ifndef AIRBORNE_RADAR_UTILS_MATH_UTILS_H_
+#define AIRBORNE_RADAR_UTILS_MATH_UTILS_H_
 
 #include <cmath>
+
+#include "common/numerics/ClampUtils.h"
+
 namespace airborne_radar {
-namespace internal {
 namespace utils {
 
 /**
@@ -19,13 +21,7 @@ namespace utils {
  * @return 限幅后的结果：[min_value, max_value]。
  */
 inline float ClampFloat(float value, float min_value, float max_value) {
-  if (value < min_value) {
-    return min_value;
-  }
-  if (value > max_value) {
-    return max_value;
-  }
-  return value;
+  return oneq::internal::numerics::Clamp(value, min_value, max_value);
 }
 
 /**
@@ -36,12 +32,6 @@ inline float ClampFloat(float value, float min_value, float max_value) {
 inline float DbToLinearPower(float power_db) { return std::pow(10.0f, power_db / 10.0f); }
 
 }  // namespace utils
-}  // namespace internal
-
-namespace model {
-using internal::utils::ClampFloat;
-using internal::utils::DbToLinearPower;
-}  // namespace model
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_INTERNAL_UTILS_MATH_UTILS_H_
+#endif  // AIRBORNE_RADAR_UTILS_MATH_UTILS_H_

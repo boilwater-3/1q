@@ -4,7 +4,7 @@
 #include <limits>
 #include <utility>
 
-#include "airborne_radar/internal/utils/MathUtils.h"
+#include "airborne_radar/utils/MathUtils.h"
 #include "airborne_radar/environment/SceneManager.h"
 #include "airborne_radar/environment/PropagationModel.h"
 
@@ -21,15 +21,15 @@ namespace {
 JammerEmitterState NormalizeEmitterState(const JammerEmitterState& raw_source) {
   JammerEmitterState normalized = raw_source;
   normalized.power_db =
-      model::ClampFloat(raw_source.power_db, 0.0f, std::numeric_limits<float>::max());
+      utils::ClampFloat(raw_source.power_db, 0.0f, std::numeric_limits<float>::max());
   normalized.js_db =
-      model::ClampFloat(raw_source.js_db, 0.0f, std::numeric_limits<float>::max());
+      utils::ClampFloat(raw_source.js_db, 0.0f, std::numeric_limits<float>::max());
   normalized.frequency_overlap_ratio =
-      model::ClampFloat(raw_source.frequency_overlap_ratio, 0.0f, 1.0f);
-  normalized.prf_lock_risk = model::ClampFloat(raw_source.prf_lock_risk, 0.0f, 1.0f);
-  normalized.angular_span_deg = model::ClampFloat(raw_source.angular_span_deg, 0.0f,
+      utils::ClampFloat(raw_source.frequency_overlap_ratio, 0.0f, 1.0f);
+  normalized.prf_lock_risk = utils::ClampFloat(raw_source.prf_lock_risk, 0.0f, 1.0f);
+  normalized.angular_span_deg = utils::ClampFloat(raw_source.angular_span_deg, 0.0f,
                                                           std::numeric_limits<float>::max());
-  normalized.confidence = model::ClampFloat(raw_source.confidence, 0.0f, 1.0f);
+  normalized.confidence = utils::ClampFloat(raw_source.confidence, 0.0f, 1.0f);
   return normalized;
 }
 /**

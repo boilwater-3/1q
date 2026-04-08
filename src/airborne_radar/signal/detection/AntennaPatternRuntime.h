@@ -9,7 +9,7 @@
 
 #include <cmath>
 
-#include "airborne_radar/internal/utils/MathUtils.h"
+#include "airborne_radar/utils/MathUtils.h"
 #include "1q/airborne_radar/config/AntennaPatternConfig.h"
 
 namespace airborne_radar {
@@ -103,9 +103,9 @@ inline float ComputeMainLobeAttenuationDb(const config::AntennaPatternConfig& co
     case config::AntennaPatternModelType::kCosinePower: {
       const float kDeg2Rad = 3.14159265358979f / 180.0f;
       const float az_offset_rad =
-          model::ClampFloat(offset_deg.delta_az_deg, -89.9f, 89.9f) * kDeg2Rad;
+          utils::ClampFloat(offset_deg.delta_az_deg, -89.9f, 89.9f) * kDeg2Rad;
       const float el_offset_rad =
-          model::ClampFloat(offset_deg.delta_el_deg, -89.9f, 89.9f) * kDeg2Rad;
+          utils::ClampFloat(offset_deg.delta_el_deg, -89.9f, 89.9f) * kDeg2Rad;
       const float az_half_bw_rad = half_az_beamwidth_deg * kDeg2Rad;
       const float el_half_bw_rad = half_el_beamwidth_deg * kDeg2Rad;
       const float az_denominator =
@@ -141,7 +141,7 @@ inline float ComputeScanLossDb(const config::AntennaPatternConfig& config,
   const float raw_scan_loss_db =
       config.scan_loss_coeff_db_per_deg2 *
       (delta_scan_az_deg * delta_scan_az_deg + delta_scan_el_deg * delta_scan_el_deg);
-  return model::ClampFloat(
+  return utils::ClampFloat(
       raw_scan_loss_db, 0.0f,
       antenna_pattern_internal::ClampLowerBound(config.max_scan_loss_db, 0.0f));
 }

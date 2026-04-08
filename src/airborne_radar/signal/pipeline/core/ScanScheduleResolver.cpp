@@ -124,7 +124,7 @@ std::vector<model::AzimuthElevationDeg> BuildScheduledScanPattern(
 model::AzimuthElevationDeg ResolveScheduledBeamPointing(
     const model::RadarOrientationConfig& orientation_config,
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg, std::uint32_t cycle_index) {
-  model::AzimuthElevationLimitsDeg effective_limits = model::IntersectScanLimits(
+  model::AzimuthElevationLimitsDeg effective_limits = utils::IntersectScanLimits(
       orientation_config.mechanical_scan_limits_deg, orientation_config.electronic_scan_limits_deg);
   const bool limits_valid =
       std::isfinite(effective_limits.az_min_deg) && std::isfinite(effective_limits.az_max_deg) &&
@@ -136,13 +136,13 @@ model::AzimuthElevationDeg ResolveScheduledBeamPointing(
       ResolveFiniteScanCenter(orientation_config);
   model::AzimuthElevationDeg fallback_center = normalized_scan_center;
   if (limits_valid) {
-    fallback_center = model::ClampAzimuthElevation(fallback_center, effective_limits);
+    fallback_center = utils::ClampAzimuthElevation(fallback_center, effective_limits);
   }
 
   if (orientation_config.work_sub_mode == model::RadarWorkSubMode::kStby) {
     model::AzimuthElevationDeg boresight;
     if (limits_valid) {
-      boresight = model::ClampAzimuthElevation(boresight, effective_limits);
+      boresight = utils::ClampAzimuthElevation(boresight, effective_limits);
     }
     return boresight;
   }

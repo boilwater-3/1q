@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-#include "airborne_radar/internal/utils/MathUtils.h"
+#include "airborne_radar/utils/MathUtils.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -12,8 +12,6 @@ namespace internal {
 
 namespace {
 
-using model::ClampFloat;
-using model::DbToLinearPower;
 
 // ---------- A. ECCM 物理抑制系数（不开放配置，属于雷达对抗物理模型） ----------
 constexpr float kSidelobeCancellerResidual = 0.55f;    /**< 旁瓣对消主链残余因子 */
@@ -48,7 +46,7 @@ constexpr float kPhysicalWeightUnknown = 0.70f;
  */
 float ResolveJammerConfidenceWeight(const JammingEffectsConfig& cfg,
                                     const environment::JammerSourceFact& jammer_source) {
-  return ClampFloat(jammer_source.confidence, cfg.confidence_weight_min, 1.0f);
+  return utils::ClampFloat(jammer_source.confidence, cfg.confidence_weight_min, 1.0f);
 }
 
 /**
@@ -62,31 +60,31 @@ float ComputeTrackLevelJammingContribution(
     const extension::control::RadarControlProfile& control_profile,
     const environment::JammerSourceFact& jammer_source) {
   // 轨迹级贡献使用固定系数——该函数参与主导语义判定（E 组），不用 cfg。
-  const float confidence_weight = ClampFloat(jammer_source.confidence, 0.25f, 1.0f);
+  const float confidence_weight = utils::ClampFloat(jammer_source.confidence, 0.25f, 1.0f);
   const float residual_factor = ComputeResidualJammerFactor(control_profile, jammer_source);
-  float contribution = 0.10f + 0.020f * ClampFloat(jammer_source.power_db, 0.0f, 20.0f) +
-                       0.015f * ClampFloat(jammer_source.js_db, 0.0f, 12.0f);
+  float contribution = 0.10f + 0.020f * utils::ClampFloat(jammer_source.power_db, 0.0f, 20.0f) +
+                       0.015f * utils::ClampFloat(jammer_source.js_db, 0.0f, 12.0f);
 
   switch (jammer_source.technique) {
     case environment::JammingTechnique::kNoiseSuppression:
       contribution += jammer_source.in_sidelobe ? 0.14f : 0.08f;
       break;
     case environment::JammingTechnique::kDeception:
-      contribution += 0.25f * ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
-      contribution += 0.22f * ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
+      contribution += 0.25f * utils::ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
+      contribution += 0.22f * utils::ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
       break;
     case environment::JammingTechnique::kRepeater:
-      contribution += 0.18f * ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
-      contribution += 0.14f * ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
+      contribution += 0.18f * utils::ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
+      contribution += 0.14f * utils::ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
       break;
     case environment::JammingTechnique::kUnknown:
     default:
-      contribution += 0.15f * ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
-      contribution += 0.12f * ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
+      contribution += 0.15f * utils::ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
+      contribution += 0.12f * utils::ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
       break;
   }
 
-  return ClampFloat(contribution * confidence_weight * residual_factor, 0.0f, 1.0f);
+  return utils::ClampFloat(contribution * confidence_weight * residual_factor, 0.0f, 1.0f);
 }
 
 }  // namespace
@@ -109,16 +107,16 @@ float ComputeResidualJammerFactor(const extension::control::RadarControlProfile&
                                              : kAdaptiveBeamWideResidual);
   }
   if (control_profile.enable_agility_frequency && jammer_source.frequency_overlap_ratio > 0.0f) {
-    residual_factor *= ClampFloat(1.0f - 0.50f * jammer_source.frequency_overlap_ratio,
+    residual_factor *= utils::ClampFloat(1.0f - 0.50f * jammer_source.frequency_overlap_ratio,
                                   kAgilityFreqResidualMin, 1.0f);
   }
   if (control_profile.enable_eccm_rejitter && jammer_source.prf_lock_risk > 0.0f) {
     residual_factor *=
-        ClampFloat(1.0f - 0.55f * jammer_source.prf_lock_risk, kEccmRejitterResidualMin, 1.0f);
+        utils::ClampFloat(1.0f - 0.55f * jammer_source.prf_lock_risk, kEccmRejitterResidualMin, 1.0f);
   }
   if (control_profile.eccm_burnthrough_gain > 1.0f) {
     residual_factor *=
-        ClampFloat(1.0f / control_profile.eccm_burnthrough_gain, kBurnthroughResidualMin, 1.0f);
+        utils::ClampFloat(1.0f / control_profile.eccm_burnthrough_gain, kBurnthroughResidualMin, 1.0f);
   }
 
   switch (jammer_source.technique) {
@@ -145,7 +143,7 @@ float ComputeResidualJammerFactor(const extension::control::RadarControlProfile&
       break;
   }
 
-  return ClampFloat(residual_factor, kResidualFactorMin, 1.0f);
+  return utils::ClampFloat(residual_factor, kResidualFactorMin, 1.0f);
 }
 
 float ComputeHeuristicSourcePenaltyDb(const JammingEffectsConfig& cfg,
@@ -153,33 +151,33 @@ float ComputeHeuristicSourcePenaltyDb(const JammingEffectsConfig& cfg,
   const float confidence_weight = ResolveJammerConfidenceWeight(cfg, jammer_source);
   float penalty_db =
       cfg.heuristic_base_penalty_db +
-      cfg.heuristic_power_penalty_slope * ClampFloat(jammer_source.power_db, 0.0f, 20.0f);
+      cfg.heuristic_power_penalty_slope * utils::ClampFloat(jammer_source.power_db, 0.0f, 20.0f);
 
   switch (jammer_source.technique) {
     case environment::JammingTechnique::kNoiseSuppression:
       penalty_db += cfg.heuristic_noise_sidelobe_penalty *
                     (jammer_source.in_sidelobe ? 1.0f : cfg.heuristic_noise_frontlobe_ratio);
       penalty_db +=
-          cfg.heuristic_noise_js_slope * ClampFloat(jammer_source.js_db, 0.0f, 12.0f) / 6.0f;
+          cfg.heuristic_noise_js_slope * utils::ClampFloat(jammer_source.js_db, 0.0f, 12.0f) / 6.0f;
       break;
     case environment::JammingTechnique::kDeception:
       penalty_db += cfg.heuristic_deception_freq_penalty *
-                    ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
+                    utils::ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
       penalty_db +=
-          cfg.heuristic_deception_prf_penalty * ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
+          cfg.heuristic_deception_prf_penalty * utils::ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
       break;
     case environment::JammingTechnique::kRepeater:
       penalty_db +=
-          cfg.heuristic_repeater_prf_penalty * ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
+          cfg.heuristic_repeater_prf_penalty * utils::ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
       penalty_db += cfg.heuristic_repeater_freq_penalty *
-                    ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
+                    utils::ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
       break;
     case environment::JammingTechnique::kUnknown:
     default:
       penalty_db += cfg.heuristic_unknown_freq_penalty *
-                    ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
+                    utils::ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
       penalty_db +=
-          cfg.heuristic_unknown_prf_penalty * ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
+          cfg.heuristic_unknown_prf_penalty * utils::ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
       penalty_db += jammer_source.in_sidelobe ? cfg.heuristic_unknown_sidelobe_penalty
                                               : cfg.heuristic_unknown_frontlobe_penalty;
       break;
@@ -219,7 +217,7 @@ float ComputePhysicalSourceJamContributionW(const JammingEffectsConfig& cfg,
       source_weight = kPhysicalWeightUnknown;
       break;
   }
-  return DbToLinearPower(jammer_source.power_db) * source_weight *
+  return utils::DbToLinearPower(jammer_source.power_db) * source_weight *
          ResolveJammerConfidenceWeight(cfg, jammer_source);
 }
 
@@ -254,7 +252,7 @@ float ComputeMeasurementCovarianceInflation(
         break;
     }
   }
-  return ClampFloat(inflation, 1.0f, cfg.covariance_inflation_max);
+  return utils::ClampFloat(inflation, 1.0f, cfg.covariance_inflation_max);
 }
 
 model::JammingSemantic ResolveDominantJammingSemantic(
@@ -335,7 +333,7 @@ float ComputeTrackLevelJammingSeverity(
     total_severity += ComputeTrackLevelJammingContribution(control_profile,
                                                            environment_snapshot.jammer_sources[i]);
   }
-  return ClampFloat(total_severity, 0.0f, 1.0f);
+  return utils::ClampFloat(total_severity, 0.0f, 1.0f);
 }
 
 void ApplyEnvironmentJammingFactsToRuntimeConfig(
@@ -388,11 +386,11 @@ void ApplyEnvironmentJammingFactsToRuntimeConfig(
   }
 
   internal_runtime_config->association.unassigned_cost *=
-      ClampFloat(association_scale, 1.0f, cfg.association_scale_max);
+      utils::ClampFloat(association_scale, 1.0f, cfg.association_scale_max);
   internal_runtime_config->tracking.kalman_noise_diff_coeff *=
-      ClampFloat(tracking_noise_scale, 1.0f, cfg.tracking_noise_scale_max);
+      utils::ClampFloat(tracking_noise_scale, 1.0f, cfg.tracking_noise_scale_max);
   runtime_config->tracking.kalman_measurement_noise_std *=
-      ClampFloat(measurement_noise_scale, 1.0f, cfg.measurement_noise_scale_max);
+      utils::ClampFloat(measurement_noise_scale, 1.0f, cfg.measurement_noise_scale_max);
 }
 
 }  // namespace internal

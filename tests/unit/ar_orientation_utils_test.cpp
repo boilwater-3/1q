@@ -7,32 +7,18 @@
 
 #include <cmath>
 
-#include "1q/airborne_radar/model/RadarOrientationConfig.h"
-#include "airborne_radar/internal/utils/RadarOrientationUtils.h"
 #include "1q/airborne_radar/config/SignalDetectionConfig.h"
-#include "common/geometry/GeometryTransform.h"
+#include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/TargetLookResolver.h"
+#include "airborne_radar/utils/RadarOrientationUtils.h"
+#include "common/geometry/GeometryTransform.h"
 
 namespace airborne_radar {
 namespace tests {
 
-using model::AzimuthElevationDeg;
-using model::AzimuthElevationLimitsDeg;
-using model::ComputeBodyFrameBeamPointing;
-using model::ComputeMountFrameBeamPointing;
-using model::ComputePlatformFrameBeamPointing;
-using model::EulerAnglesDeg;
-using model::IntersectScanLimits;
-using model::IsValidScanLimits;
-using model::RadarOrientationConfig;
-using model::StabilizationMode;
-using config::AntennaConfig;
-using signal::detection::BeamControlResolver;
-using signal::detection::ResolvedBeamState;
-using signal::detection::TargetLookAnglesDeg;
-
-oneq::internal::geometry::EulerAnglesDeg ToGeometryEuler(const EulerAnglesDeg& euler_deg) {
+oneq::internal::geometry::EulerAnglesDeg ToGeometryEuler(
+    const model::EulerAnglesDeg& euler_deg) {
   oneq::internal::geometry::EulerAnglesDeg geometry_euler;
   geometry_euler.yaw_deg = euler_deg.yaw_deg;
   geometry_euler.pitch_deg = euler_deg.pitch_deg;
@@ -50,37 +36,38 @@ void ExpectMatricesNear(const Eigen::Matrix3f& expected, const Eigen::Matrix3f& 
 }
 
 TEST(RadarOrientationUtilsTest, IsValidScanLimitsAcceptsOrderedBounds) {
-  AzimuthElevationLimitsDeg limits;
+  model::AzimuthElevationLimitsDeg limits;
   limits.az_min_deg = -60.0f;
   limits.az_max_deg = 60.0f;
   limits.el_min_deg = -20.0f;
   limits.el_max_deg = 20.0f;
-  EXPECT_TRUE(IsValidScanLimits(limits));
+  EXPECT_TRUE(utils::IsValidScanLimits(limits));
 }
 
 TEST(RadarOrientationUtilsTest, IsValidScanLimitsRejectsReversedBounds) {
-  AzimuthElevationLimitsDeg limits;
+  model::AzimuthElevationLimitsDeg limits;
   limits.az_min_deg = 30.0f;
   limits.az_max_deg = -30.0f;
   limits.el_min_deg = -20.0f;
   limits.el_max_deg = 20.0f;
-  EXPECT_FALSE(IsValidScanLimits(limits));
+  EXPECT_FALSE(utils::IsValidScanLimits(limits));
 }
 
 TEST(RadarOrientationUtilsTest, IntersectScanLimitsReturnsOverlapWindow) {
-  AzimuthElevationLimitsDeg mechanical;
+  model::AzimuthElevationLimitsDeg mechanical;
   mechanical.az_min_deg = -60.0f;
   mechanical.az_max_deg = 60.0f;
   mechanical.el_min_deg = -30.0f;
   mechanical.el_max_deg = 30.0f;
 
-  AzimuthElevationLimitsDeg electronic;
+  model::AzimuthElevationLimitsDeg electronic;
   electronic.az_min_deg = -45.0f;
   electronic.az_max_deg = 50.0f;
   electronic.el_min_deg = -10.0f;
   electronic.el_max_deg = 20.0f;
 
-  const AzimuthElevationLimitsDeg limits = IntersectScanLimits(mechanical, electronic);
+  const model::AzimuthElevationLimitsDeg limits =
+      utils::IntersectScanLimits(mechanical, electronic);
 
   EXPECT_FLOAT_EQ(limits.az_min_deg, -45.0f);
   EXPECT_FLOAT_EQ(limits.az_max_deg, 50.0f);
@@ -89,7 +76,7 @@ TEST(RadarOrientationUtilsTest, IntersectScanLimitsReturnsOverlapWindow) {
 }
 
 TEST(RadarOrientationUtilsTest, ComputeMountFrameBeamPointingClampsToOverlap) {
-  RadarOrientationConfig config;
+  model::RadarOrientationConfig config;
   config.scan_center_deg.az_deg = 30.0f;
   config.scan_center_deg.el_deg = 5.0f;
   config.dwell_center_deg.az_deg = 25.0f;
@@ -103,14 +90,14 @@ TEST(RadarOrientationUtilsTest, ComputeMountFrameBeamPointingClampsToOverlap) {
   config.electronic_scan_limits_deg.el_min_deg = -15.0f;
   config.electronic_scan_limits_deg.el_max_deg = 15.0f;
 
-  const AzimuthElevationDeg pointing = ComputeMountFrameBeamPointing(config);
+  const model::AzimuthElevationDeg pointing = utils::ComputeMountFrameBeamPointing(config);
 
   EXPECT_FLOAT_EQ(pointing.az_deg, 45.0f);
   EXPECT_FLOAT_EQ(pointing.el_deg, -15.0f);
 }
 
 TEST(RadarOrientationUtilsTest, ComputeBodyFrameBeamPointingUsesRotationComposition) {
-  RadarOrientationConfig config;
+  model::RadarOrientationConfig config;
   config.mount_angles_deg.yaw_deg = 10.0f;
   config.mount_angles_deg.pitch_deg = 5.0f;
   config.mount_angles_deg.roll_deg = 2.0f;
@@ -127,9 +114,10 @@ TEST(RadarOrientationUtilsTest, ComputeBodyFrameBeamPointingUsesRotationComposit
   config.electronic_scan_limits_deg.el_min_deg = -30.0f;
   config.electronic_scan_limits_deg.el_max_deg = 30.0f;
 
-  const EulerAnglesDeg pointing = ComputeBodyFrameBeamPointing(config);
-  const AzimuthElevationDeg mount_frame_pointing = ComputeMountFrameBeamPointing(config);
-  EulerAnglesDeg mount_frame_euler;
+  const model::EulerAnglesDeg pointing = utils::ComputeBodyFrameBeamPointing(config);
+  const model::AzimuthElevationDeg mount_frame_pointing =
+      utils::ComputeMountFrameBeamPointing(config);
+  model::EulerAnglesDeg mount_frame_euler;
   mount_frame_euler.yaw_deg = mount_frame_pointing.az_deg;
   mount_frame_euler.pitch_deg = mount_frame_pointing.el_deg;
   const Eigen::Matrix3f expected_rotation =
@@ -145,7 +133,7 @@ TEST(RadarOrientationUtilsTest, ComputeBodyFrameBeamPointingUsesRotationComposit
 }
 
 TEST(RadarOrientationUtilsTest, ComputePlatformFrameBeamPointingUsesRotationComposition) {
-  RadarOrientationConfig config;
+  model::RadarOrientationConfig config;
   config.mount_angles_deg.yaw_deg = 10.0f;
   config.mount_angles_deg.pitch_deg = 5.0f;
   config.mount_angles_deg.roll_deg = 2.0f;
@@ -162,13 +150,15 @@ TEST(RadarOrientationUtilsTest, ComputePlatformFrameBeamPointingUsesRotationComp
   config.electronic_scan_limits_deg.el_min_deg = -30.0f;
   config.electronic_scan_limits_deg.el_max_deg = 30.0f;
 
-  EulerAnglesDeg platform_attitude;
+  model::EulerAnglesDeg platform_attitude;
   platform_attitude.yaw_deg = 90.0f;
   platform_attitude.pitch_deg = 3.0f;
   platform_attitude.roll_deg = 1.0f;
-  const EulerAnglesDeg pointing = ComputePlatformFrameBeamPointing(platform_attitude, config);
-  const AzimuthElevationDeg mount_frame_pointing = ComputeMountFrameBeamPointing(config);
-  EulerAnglesDeg mount_frame_euler;
+  const model::EulerAnglesDeg pointing =
+      utils::ComputePlatformFrameBeamPointing(platform_attitude, config);
+  const model::AzimuthElevationDeg mount_frame_pointing =
+      utils::ComputeMountFrameBeamPointing(config);
+  model::EulerAnglesDeg mount_frame_euler;
   mount_frame_euler.yaw_deg = mount_frame_pointing.az_deg;
   mount_frame_euler.pitch_deg = mount_frame_pointing.el_deg;
   const Eigen::Matrix3f expected_rotation =
@@ -185,7 +175,7 @@ TEST(RadarOrientationUtilsTest, ComputePlatformFrameBeamPointingUsesRotationComp
 }
 
 TEST(RadarOrientationUtilsTest, ComputePlatformFrameBeamPointingCapturesLargeAttitudeCoupling) {
-  RadarOrientationConfig config;
+  model::RadarOrientationConfig config;
   config.mount_angles_deg.yaw_deg = 35.0f;
   config.mount_angles_deg.pitch_deg = 20.0f;
   config.mount_angles_deg.roll_deg = 15.0f;
@@ -199,13 +189,15 @@ TEST(RadarOrientationUtilsTest, ComputePlatformFrameBeamPointingCapturesLargeAtt
   config.mechanical_scan_limits_deg.el_max_deg = 30.0f;
   config.electronic_scan_limits_deg = config.mechanical_scan_limits_deg;
 
-  EulerAnglesDeg platform_attitude;
+  model::EulerAnglesDeg platform_attitude;
   platform_attitude.yaw_deg = 80.0f;
   platform_attitude.pitch_deg = -30.0f;
   platform_attitude.roll_deg = 25.0f;
-  const EulerAnglesDeg pointing = ComputePlatformFrameBeamPointing(platform_attitude, config);
-  const AzimuthElevationDeg mount_frame_pointing = ComputeMountFrameBeamPointing(config);
-  EulerAnglesDeg mount_frame_euler;
+  const model::EulerAnglesDeg pointing =
+      utils::ComputePlatformFrameBeamPointing(platform_attitude, config);
+  const model::AzimuthElevationDeg mount_frame_pointing =
+      utils::ComputeMountFrameBeamPointing(config);
+  model::EulerAnglesDeg mount_frame_euler;
   mount_frame_euler.yaw_deg = mount_frame_pointing.az_deg;
   mount_frame_euler.pitch_deg = mount_frame_pointing.el_deg;
   const Eigen::Matrix3f expected_rotation =
@@ -223,17 +215,19 @@ TEST(RadarOrientationUtilsTest, ComputePlatformFrameBeamPointingCapturesLargeAtt
 }
 
 TEST(RadarOrientationUtilsTest, BeamControlResolverPreservesInertialStabilizedPointing) {
-  RadarOrientationConfig config;
-  config.stabilization_mode = StabilizationMode::kInertialStabilized;
+  model::RadarOrientationConfig config;
+  config.stabilization_mode = model::StabilizationMode::kInertialStabilized;
   config.mechanical_scan_limits_deg.az_min_deg = -120.0f;
   config.mechanical_scan_limits_deg.az_max_deg = 120.0f;
   config.electronic_scan_limits_deg.az_min_deg = -120.0f;
   config.electronic_scan_limits_deg.az_max_deg = 120.0f;
 
-  EulerAnglesDeg platform_attitude;
+  model::EulerAnglesDeg platform_attitude;
   platform_attitude.yaw_deg = 90.0f;
-  const ResolvedBeamState beam_state = BeamControlResolver::Resolve(
-      AntennaConfig(), config, platform_attitude, TargetLookAnglesDeg());
+  const signal::detection::ResolvedBeamState beam_state =
+      signal::detection::BeamControlResolver::Resolve(
+          config::AntennaConfig(), config, platform_attitude,
+          signal::detection::TargetLookAnglesDeg());
 
   EXPECT_NEAR(beam_state.beam_pointing_deg.az_deg, -90.0f, 1.0e-5f);
   EXPECT_NEAR(beam_state.beam_pointing_deg.el_deg, 0.0f, 1.0e-5f);

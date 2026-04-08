@@ -6,7 +6,7 @@
 #ifndef AIRBORNE_RADAR_SIGNAL_DETECTION_BEAM_CONTROL_RESOLVER_H_
 #define AIRBORNE_RADAR_SIGNAL_DETECTION_BEAM_CONTROL_RESOLVER_H_
 
-#include "airborne_radar/internal/utils/RadarOrientationUtils.h"
+#include "airborne_radar/utils/RadarOrientationUtils.h"
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "1q/airborne_radar/config/SignalDetectionConfig.h"
 #include "airborne_radar/signal/detection/AntennaPatternRuntime.h"
@@ -78,11 +78,11 @@ class BeamControlResolver {
       const model::RadarOrientationConfig& orientation_config,
       const model::PlatformAttitudeDeg& platform_attitude_deg) {
     const model::AzimuthElevationLimitsDeg effective_limits =
-        model::IntersectScanLimits(orientation_config.mechanical_scan_limits_deg,
+        utils::IntersectScanLimits(orientation_config.mechanical_scan_limits_deg,
                                            orientation_config.electronic_scan_limits_deg);
     if (orientation_config.stabilization_mode ==
         model::StabilizationMode::kBodyStabilized) {
-      return model::ComputeMountFrameBeamPointing(orientation_config);
+      return utils::ComputeMountFrameBeamPointing(orientation_config);
     }
 
     model::AzimuthElevationDeg desired_platform_pointing_deg;
@@ -108,7 +108,7 @@ class BeamControlResolver {
     model::AzimuthElevationDeg stabilized_mount_frame_pointing;
     stabilized_mount_frame_pointing.az_deg = stabilized_mount_pointing.az_deg;
     stabilized_mount_frame_pointing.el_deg = stabilized_mount_pointing.el_deg;
-    return model::ClampAzimuthElevation(stabilized_mount_frame_pointing, effective_limits);
+    return utils::ClampAzimuthElevation(stabilized_mount_frame_pointing, effective_limits);
   }
 };
 
