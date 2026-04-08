@@ -146,7 +146,6 @@ Json BuildJson(const config::LifecycleConfig& value) {
 
 Json BuildJson(const config::SignalLifecycleConfig& value) {
   Json json;
-  json["enable_auto_lifecycle_manager"] = value.enable_auto_lifecycle_manager;
   json["lifecycle_config"] = BuildJson(value.lifecycle_config);
   json["enable_imm_lifecycle"] = value.enable_imm_lifecycle;
   return json;

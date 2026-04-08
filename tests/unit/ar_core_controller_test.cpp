@@ -341,7 +341,7 @@ TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
   EXPECT_FLOAT_EQ(decision_engine.last_frame.perception_quality_info.detection_stress, 0.0f);
 }
 
-TEST_F(CoreControllerTest, NoLifecycleFallbackBuildsDecisionFrameFromSyntheticTrackOutput) {
+TEST_F(CoreControllerTest, DefaultLifecyclePathBuildsTentativeDecisionFrameOnFirstCycle) {
   const model::TargetFeatureList input_state = BuildSingleTarget(640.0f, 1.5f, false);
   FakeRadarContext radar_context(input_state);
 
@@ -359,11 +359,11 @@ TEST_F(CoreControllerTest, NoLifecycleFallbackBuildsDecisionFrameFromSyntheticTr
   const output::TrackOutputFrame& latest_track_output_frame =
       controller.GetLatestTrackOutputFrame();
   EXPECT_EQ(latest_track_output_frame.published_track_count, 1U);
-  EXPECT_EQ(latest_track_output_frame.confirmed_track_count, 1U);
+  EXPECT_EQ(latest_track_output_frame.confirmed_track_count, 0U);
   EXPECT_FALSE(latest_track_output_frame.contains_lost_tracks);
   ASSERT_EQ(decision_engine.last_frame.tracks.size(), 1U);
   EXPECT_EQ(decision_engine.last_frame.tracks[0].state.status,
-            model::DecisionTrackStatus::kConfirmed);
+            model::DecisionTrackStatus::kTentative);
   EXPECT_EQ(decision_engine.last_frame.tracks[0].state.association_key,
             latest_track_output_frame.tracks[0].state.association_key);
 }
@@ -389,7 +389,7 @@ TEST_F(CoreControllerTest, PublicOutputReaderApiExposesLatestTrackOutputFrame) {
   EXPECT_EQ(latest_track_output_frame.published_track_count, 1U);
   ASSERT_EQ(latest_track_output_frame.tracks.size(), 1U);
   EXPECT_EQ(latest_track_output_frame.tracks[0].state.status,
-            model::DecisionTrackStatus::kConfirmed);
+            model::DecisionTrackStatus::kTentative);
 }
 
 TEST_F(CoreControllerTest, RuntimeValidationErrorsAreExposedAndSkipCommandSubmission) {
@@ -421,7 +421,6 @@ TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {
 
   config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.min_detection_margin_db = -100.0f;
-  pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
   pipeline_config.lifecycle.lifecycle_config.confirm_hits = 1U;
   pipeline_config.tracking.kalman_measurement_noise_std = 1.0f;
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);

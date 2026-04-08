@@ -28,29 +28,6 @@ model::EccmJammerSourceInfo BuildEccmJammerSourceInfo(
   return source_info;
 }
 
-/** @brief 从目标特征构建决策航迹快照。
- *  @param feature 目标特征数据。
- *  @param index 目标在列表中的索引，用于生成无外部 ID 时的关联键。
- *  @return 构建后的决策航迹快照，状态默认为 kConfirmed。 */
-model::DecisionTrackSnapshot BuildDecisionTrackSnapshotFromFeature(
-    const model::TargetFeature& feature, std::size_t index) {
-  const std::uint64_t association_key = feature.external_target_id != 0U
-                                            ? feature.external_target_id
-                                            : static_cast<std::uint64_t>(index + 1U);
-  model::DecisionTrackSnapshot snapshot(
-      feature.current_track_velocity_x, feature.current_track_velocity_y,
-      feature.current_track_velocity_z, feature.current_track_rcs, 0.0f, 0.0f, 0.0f, false,
-      feature.external_target_id, association_key);
-  snapshot.state.status = model::DecisionTrackStatus::kConfirmed;
-  snapshot.state.position_x = feature.position_x;
-  snapshot.state.position_y = feature.position_y;
-  snapshot.state.position_z = feature.position_z;
-  snapshot.evidence.has_measurement_evidence = true;
-  snapshot.evidence.updated_this_cycle = true;
-  snapshot.evidence.predicted_only_this_cycle = false;
-  return snapshot;
-}
-
 }  // namespace
 
 model::EccmSourceInfo BuildEccmSourceInfo(
@@ -94,16 +71,6 @@ model::PerceptionQualityInfo BuildPerceptionQualityInfo(
       1.0f, static_cast<float>(metrics.detection_count) / static_cast<float>(input_target_count));
   info.detection_stress = std::max(0.0f, 1.0f - info.detection_rate);
   return info;
-}
-
-model::DecisionTrackSnapshotList BuildDecisionSnapshotsFromFeatures(
-    const model::TargetFeatureList& features) {
-  model::DecisionTrackSnapshotList track_snapshots;
-  track_snapshots.reserve(features.size());
-  for (std::size_t i = 0; i < features.size(); ++i) {
-    track_snapshots.push_back(BuildDecisionTrackSnapshotFromFeature(features[i], i));
-  }
-  return track_snapshots;
 }
 
 }  // namespace internal

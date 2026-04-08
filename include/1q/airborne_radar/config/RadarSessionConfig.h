@@ -20,8 +20,6 @@ namespace session {
  * @brief RadarSessionConfig 描述 RadarSession 的默认装配配置。
  */
 struct ONEQ_API RadarSessionConfig {
-  RadarSessionConfig() { lifecycle.enable_auto_lifecycle_manager = true; }
-
   /** @brief 信号探测基线配置（初始化固定，运行期可通过 `ApplyRuntimeConfig` 覆盖部分字段）。 */
   config::SignalDetectionConfig detection{};
   /** @brief 波束控制基线配置。 */

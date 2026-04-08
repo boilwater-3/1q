@@ -174,8 +174,7 @@ void AssembleOutputs(std::uint32_t cycle_index, std::uint64_t batch_id,
                      CycleExecutionScratch* scratch) {
   CollectCycleOutputs(*runtime.control_profile, cycle_index, batch_id, setup.internal_runtime_config,
                       environment_phase.environment_snapshot, *setup.input_state,
-                      scratch->output_state, *association_phase.association_result,
-                      *measurement_phase.track_measurements, runtime.output_manager,
+                      *association_phase.association_result, *measurement_phase.track_measurements,
                       runtime.auto_lifecycle_manager, &scratch->association_quality_metrics,
                       &scratch->decision_frame);
 }

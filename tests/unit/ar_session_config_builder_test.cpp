@@ -51,8 +51,6 @@ TEST(RadarSessionConfigBuilderTest, PresetBasePreservesPresetValues) {
 
   // 探测任务预设设置了 min_detection_margin_db = -100.0f
   EXPECT_FLOAT_EQ(config.detection.min_detection_margin_db, -100.0f);
-  // lifecycle 已启用
-  EXPECT_TRUE(config.lifecycle.enable_auto_lifecycle_manager);
   // confirm_hits = 1
   EXPECT_EQ(config.lifecycle.lifecycle_config.confirm_hits, 1U);
 }
@@ -141,7 +139,6 @@ TEST(RadarSessionConfigBuilderTest, TrackingConfigAppliesCorrectly) {
 
 TEST(RadarSessionConfigBuilderTest, LifecycleConfigAppliesCorrectly) {
   config::SignalLifecycleConfig lifecycle;
-  lifecycle.enable_auto_lifecycle_manager = true;
   lifecycle.lifecycle_config.confirm_hits = 2U;
   lifecycle.lifecycle_config.max_miss_before_lost = 4U;
   lifecycle.lifecycle_config.max_lost_cycles = 10U;
@@ -150,7 +147,6 @@ TEST(RadarSessionConfigBuilderTest, LifecycleConfigAppliesCorrectly) {
       config::RadarSessionConfigBuilder().Lifecycle().WithLifecycle(lifecycle).End().Build();
 
   const auto& lc = config.lifecycle;
-  EXPECT_TRUE(lc.enable_auto_lifecycle_manager);
   EXPECT_EQ(lc.lifecycle_config.confirm_hits, 2U);
   EXPECT_EQ(lc.lifecycle_config.max_miss_before_lost, 4U);
   EXPECT_EQ(lc.lifecycle_config.max_lost_cycles, 10U);

@@ -185,7 +185,6 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   session::RadarSessionConfig session_config =
       config::MakeDefaultRadarSessionConfig();
   session_config.environment_default_config.model_config.base_propagation_loss_db = 6.0f;
-  session_config.lifecycle.enable_auto_lifecycle_manager = true;
 
   session::RadarCycleInput input;
   input.dt_sec = 1.0f;

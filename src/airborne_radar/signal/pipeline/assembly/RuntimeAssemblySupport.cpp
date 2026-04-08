@@ -280,9 +280,6 @@ std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManagerForR
 std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManagerForRuntimeConfig(
     const SignalPipelineConfig& runtime_config,
     const pipeline::internal::InternalSignalPipelineConfig& internal_config) {
-  if (!runtime_config.lifecycle.enable_auto_lifecycle_manager) {
-    return std::unique_ptr<tracking::ITrackLifecycleManager>();
-  }
   ResolvedRuntimeSignalPipelineConfig resolved_config;
   resolved_config.public_config = runtime_config;
   resolved_config.internal_config = internal_config;

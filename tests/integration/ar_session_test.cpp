@@ -118,7 +118,6 @@ struct SceneScriptStep {
 config::SignalPipelineConfig MakeJointIntegrationPipelineConfig() {
   config::SignalPipelineConfig config;
   config.detection.min_detection_margin_db = -100.0f;
-  config.lifecycle.enable_auto_lifecycle_manager = true;
   config.lifecycle.lifecycle_config.confirm_hits = 1u;
   config.tracking.kalman_measurement_noise_std = 1.0f;
   return config;

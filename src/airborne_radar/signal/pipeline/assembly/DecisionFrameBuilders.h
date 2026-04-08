@@ -39,14 +39,6 @@ model::AssociationQualityInfo BuildAssociationQualityInfo(
 model::PerceptionQualityInfo BuildPerceptionQualityInfo(
     std::size_t input_target_count, const AssociationQualityMetrics& metrics);
 
-/**
- * @brief 将目标特征列表转换为决策轨迹快照列表。
- * @param[in] features 输入目标特征列表。
- * @return 对应的决策轨迹快照列表。
- */
-model::DecisionTrackSnapshotList BuildDecisionSnapshotsFromFeatures(
-    const model::TargetFeatureList& features);
-
 }  // namespace internal
 }  // namespace pipeline
 }  // namespace signal

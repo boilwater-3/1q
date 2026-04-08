@@ -31,7 +31,6 @@ namespace {
 config::SignalPipelineConfig MakeConveniencePipelineConfig() {
   config::SignalPipelineConfig config;
   config.detection.min_detection_margin_db = -100.0f;
-  config.lifecycle.enable_auto_lifecycle_manager = true;
   config.lifecycle.lifecycle_config.confirm_hits = 1U;
   config.tracking.kalman_measurement_noise_std = 1.0f;
   return config;
@@ -404,13 +403,11 @@ TEST(PublicApiConvenienceTest, RadarInputValidationFlagsMissingGeometryAndNonFin
 TEST(PublicApiConvenienceTest, ConfigPresetsProvideExpectedDetectionAndRobustnessDefaults) {
   const config::SignalPipelineConfig detection_config =
       config::MakeDetectionMissionSignalPipelineConfig();
-  EXPECT_TRUE(detection_config.lifecycle.enable_auto_lifecycle_manager);
   EXPECT_EQ(detection_config.lifecycle.lifecycle_config.confirm_hits, 1U);
   EXPECT_NEAR(detection_config.detection.min_detection_margin_db, -100.0f, 1e-5f);
 
   const config::SignalPipelineConfig robust_config =
       config::MakeHighRobustnessSignalPipelineConfig();
-  EXPECT_TRUE(robust_config.lifecycle.enable_auto_lifecycle_manager);
   EXPECT_GT(robust_config.lifecycle.lifecycle_config.max_miss_before_lost,
             detection_config.lifecycle.lifecycle_config.max_miss_before_lost);
   EXPECT_GT(robust_config.lifecycle.lifecycle_config.max_lost_cycles,
@@ -429,7 +426,6 @@ TEST(PublicApiConvenienceTest, ConfigPresetsProvideExpectedDetectionAndRobustnes
 
 TEST(PublicApiConvenienceTest, DefaultSessionConfigUsesLifecycleManagedTracks) {
   const session::RadarSessionConfig default_config = config::MakeDefaultRadarSessionConfig();
-  EXPECT_TRUE(default_config.lifecycle.enable_auto_lifecycle_manager);
 
   session::RadarSession session = session::RadarSessionFactory::Create();
   const output::TrackOutputFrame frame = session.Step(MakeCycleInput(model::TargetFeatureList{

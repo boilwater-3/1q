@@ -24,9 +24,8 @@ struct LifecycleConfig {
  * @brief SignalLifecycleConfig 描述生命周期域配置。
  */
 struct SignalLifecycleConfig {
-  bool enable_auto_lifecycle_manager{false}; /**< 是否启用自动生命周期管理 */
-  LifecycleConfig lifecycle_config{};        /**< 生命周期配置 */
-  bool enable_imm_lifecycle{false};          /**< 是否启用 IMM 生命周期管理 */
+  LifecycleConfig lifecycle_config{}; /**< 生命周期配置 */
+  bool enable_imm_lifecycle{false};   /**< 是否启用 IMM 生命周期管理 */
 };
 
 }  // namespace config

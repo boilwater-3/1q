@@ -11,7 +11,6 @@
 
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "airborne_radar/signal/assembly/IDataOutputManager.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/pipeline/config/InternalSignalPipelineConfig.h"
 #include "airborne_radar/signal/pipeline/config/SignalPipelineRuntimeTypes.h"
@@ -30,11 +29,9 @@ namespace internal {
  * @param[in] internal_runtime_config 内部运行时配置。
  * @param[in] environment_snapshot 当前周期环境快照。
  * @param[in] input_state 输入目标列表。
- * @param[in] output_state 输出目标列表。
  * @param[in] association_result 关联匹配结果。
  * @param[in] track_measurements 跟踪量测列表。
- * @param[in] output_manager 数据输出管理器（可为 nullptr）。
- * @param[in] auto_lifecycle_manager 自动生命周期管理器（可为 nullptr）。
+ * @param[in] auto_lifecycle_manager 自动生命周期管理器。
  * @param[out] association_quality_metrics 关联质量观测指标。
  * @param[out] decision_frame 决策输入帧。
  */
@@ -43,10 +40,8 @@ void CollectCycleOutputs(const extension::control::RadarControlProfile& control_
                          const InternalSignalPipelineConfig& internal_runtime_config,
                          const environment::EnvironmentSnapshot& environment_snapshot,
                          const model::TargetFeatureList& input_state,
-                         const model::TargetFeatureList& output_state,
                          const association::AssociationResult& association_result,
                          const std::vector<tracking::TrackMeasurement>& track_measurements,
-                         signal::assembly::IDataOutputManager* output_manager,
                          tracking::ITrackLifecycleManager* auto_lifecycle_manager,
                          AssociationQualityMetrics* association_quality_metrics,
                          model::DecisionInputFrame* decision_frame);

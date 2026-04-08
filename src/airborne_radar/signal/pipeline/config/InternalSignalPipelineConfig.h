@@ -164,8 +164,7 @@ inline bool EqualsLifecycleConfig(const config::LifecycleConfig& lhs,
 inline bool EqualsSignalLifecycleConfigIgnoringImm(
     const config::SignalLifecycleConfig& lhs,
     const config::SignalLifecycleConfig& rhs) {
-  return lhs.enable_auto_lifecycle_manager == rhs.enable_auto_lifecycle_manager &&
-         EqualsLifecycleConfig(lhs.lifecycle_config, rhs.lifecycle_config);
+  return EqualsLifecycleConfig(lhs.lifecycle_config, rhs.lifecycle_config);
 }
 
 inline bool MatchesProfileSignatureIgnoringImm(const SignalPipelineConfig& public_config,

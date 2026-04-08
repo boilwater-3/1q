@@ -4,6 +4,7 @@
 
 #include "airborne_radar/signal/pipeline/assembly/DecisionFrameBuilders.h"
 #include "airborne_radar/signal/pipeline/effects/JammingEffects.h"
+#include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -93,15 +94,12 @@ void CollectCycleOutputs(const extension::control::RadarControlProfile& control_
                          const InternalSignalPipelineConfig& internal_runtime_config,
                          const environment::EnvironmentSnapshot& environment_snapshot,
                          const model::TargetFeatureList& input_state,
-                         const model::TargetFeatureList& output_state,
                          const association::AssociationResult& association_result,
                          const std::vector<tracking::TrackMeasurement>& track_measurements,
-                         signal::assembly::IDataOutputManager* output_manager,
                          tracking::ITrackLifecycleManager* auto_lifecycle_manager,
                          AssociationQualityMetrics* association_quality_metrics,
                          model::DecisionInputFrame* decision_frame) {
-  if (output_manager == nullptr || association_quality_metrics == nullptr ||
-      decision_frame == nullptr) {
+  if (association_quality_metrics == nullptr || decision_frame == nullptr) {
     return;
   }
 
@@ -119,29 +117,24 @@ void CollectCycleOutputs(const extension::control::RadarControlProfile& control_
   const model::PerceptionQualityInfo perception_quality_info =
       BuildPerceptionQualityInfo(input_state.size(), *association_quality_metrics);
 
-  if (auto_lifecycle_manager != nullptr) {
-    /* 生产路径：auto-lifecycle 管理器负责状态机更新与决策帧构建。 */
-    tracking::CycleContext cycle;
-    cycle.cycle_index = cycle_index;
-    cycle.batch_id = batch_id;
-    cycle.dt_sec = environment_snapshot.cycle_dt_sec;
-    cycle.extra_miss_tolerance = ResolveLifecycleExtraMissTolerance(control_profile);
-    auto_lifecycle_manager->Update(cycle, track_measurements);
-    *decision_frame = auto_lifecycle_manager->BuildDecisionFrame(
-        cycle_index, batch_id, eccm_source_info.has_jamming_signal);
-    decision_frame->environment_jamming_detected = eccm_source_info.has_jamming_signal;
-    decision_frame->eccm_source_info = eccm_source_info;
-    decision_frame->association_quality_info = association_quality_info;
-    decision_frame->perception_quality_info = perception_quality_info;
+  if (auto_lifecycle_manager == nullptr) {
+    PROJECT_LOG_ERROR(
+        "[OutputAssemblySupport] auto_lifecycle_manager is null; decision frame assembly aborted.");
     return;
   }
 
-  /* 遗留降级路径：仅当 auto_lifecycle_manager 未配置（禁用自动生命周期）时执行。
-   * 生产配置下 auto_lifecycle_manager 始终非空，此路径在正常运行中不可达。 */
-  const output::TrackOutputFrame track_output_frame = output_manager->BuildTrackOutputFrame(
-      cycle_index, batch_id, BuildDecisionSnapshotsFromFeatures(output_state));
-  *decision_frame = output_manager->BuildDecisionInputFrame(
-      track_output_frame, eccm_source_info, association_quality_info, perception_quality_info);
+  tracking::CycleContext cycle;
+  cycle.cycle_index = cycle_index;
+  cycle.batch_id = batch_id;
+  cycle.dt_sec = environment_snapshot.cycle_dt_sec;
+  cycle.extra_miss_tolerance = ResolveLifecycleExtraMissTolerance(control_profile);
+  auto_lifecycle_manager->Update(cycle, track_measurements);
+  *decision_frame = auto_lifecycle_manager->BuildDecisionFrame(
+      cycle_index, batch_id, eccm_source_info.has_jamming_signal);
+  decision_frame->environment_jamming_detected = eccm_source_info.has_jamming_signal;
+  decision_frame->eccm_source_info = eccm_source_info;
+  decision_frame->association_quality_info = association_quality_info;
+  decision_frame->perception_quality_info = perception_quality_info;
 }
 
 }  // namespace internal

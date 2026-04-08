@@ -436,7 +436,6 @@ TEST(SignalPipelineTest, ExposesPublicPlatformAttitudeUpdateApi) {
 
 TEST(SignalPipelineTest, AutoLifecycleManagerBuildsWithDefaultInternalImmConfig) {
   config::SignalPipelineConfig runtime_config;
-  runtime_config.lifecycle.enable_auto_lifecycle_manager = true;
   runtime_config.lifecycle.enable_imm_lifecycle = true;
 
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> lifecycle_manager =
@@ -1085,7 +1084,6 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
 TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUpdater) {
   config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.min_detection_margin_db = -100.0f;
-  pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
   pipeline_config.lifecycle.lifecycle_config.confirm_hits = 1;
   pipeline_config.tracking.enable_kalman_filter = true;
   pipeline_config.tracking.kalman_measurement_noise_std = 4.0f;
@@ -1144,7 +1142,6 @@ TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUp
 TEST(SignalPipelineTest, AutoLifecycleManagerSyncsRuntimeTuningAcrossCycles) {
   config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.min_detection_margin_db = -100.0f;
-  pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
   pipeline_config.lifecycle.lifecycle_config.confirm_hits = 1;
   pipeline_config.tracking.enable_kalman_filter = true;
 
@@ -1241,7 +1238,6 @@ TEST(SignalPipelineTest, DeceptionJammingInflatesPhysicalCovarianceMoreThanNoise
 TEST(SignalPipelineTest, AutoImmLifecycleAssemblyUsesControlProfileAdjustedImmParameters) {
   config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.min_detection_margin_db = -100.0f;
-  pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
   pipeline_config.lifecycle.enable_imm_lifecycle = true;
   pipeline_config.lifecycle.lifecycle_config.confirm_hits = 1;
 
@@ -1473,7 +1469,7 @@ TEST(SignalPipelineTest, UsesPositionAssociationByDefaultWhenCartesianPositionEx
   EXPECT_TRUE(second_measurements[1].raw_measurement.matched_existing_track);
 }
 
-TEST(SignalPipelineTest, UsesStatelessAssociationByDefaultWithoutLifecycleSeeds) {
+TEST(SignalPipelineTest, UsesLifecycleAssociationSeedsByDefault) {
   environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
@@ -1498,11 +1494,12 @@ TEST(SignalPipelineTest, UsesStatelessAssociationByDefaultWithoutLifecycleSeeds)
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(second_measurements.size(), 1u);
-  EXPECT_FALSE(second_measurements[0].raw_measurement.matched_existing_track);
-  EXPECT_NE(second_measurements[0].raw_measurement.association_key, first_key);
+  EXPECT_TRUE(second_measurements[0].raw_measurement.matched_existing_track);
+  EXPECT_EQ(second_measurements[0].raw_measurement.association_key, first_key);
 }
 
-TEST(SignalPipelineTest, ResetAssociationSeedModeToStatelessClearsSideChannelSeeds) {
+TEST(SignalPipelineTest,
+     ResetAssociationSeedModeToStatelessClearsManualSideChannelSeedsButKeepsLifecycleSeeds) {
   environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
@@ -1541,8 +1538,8 @@ TEST(SignalPipelineTest, ResetAssociationSeedModeToStatelessClearsSideChannelSee
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(second_measurements.size(), 1u);
-  EXPECT_FALSE(second_measurements[0].raw_measurement.matched_existing_track);
-  EXPECT_NE(second_measurements[0].raw_measurement.association_key, first_key);
+  EXPECT_TRUE(second_measurements[0].raw_measurement.matched_existing_track);
+  EXPECT_EQ(second_measurements[0].raw_measurement.association_key, first_key);
 }
 
 // ============================================================================
@@ -1878,7 +1875,6 @@ TEST(TrackFilterTest, RcsNeverGoesBelowMinimumOnMiss) {
 TEST(SignalPipelineTest, SameInstanceControlProfileSwitchAcrossCyclesSyncsLifecycleCovariance) {
   config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.min_detection_margin_db = -100.0f;
-  pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
   pipeline_config.lifecycle.lifecycle_config.confirm_hits = 1;
   pipeline_config.tracking.enable_kalman_filter = true;
   pipeline_config.tracking.kalman_measurement_noise_std = 4.0f;
