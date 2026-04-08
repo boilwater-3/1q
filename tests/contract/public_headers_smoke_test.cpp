@@ -132,16 +132,6 @@ static_assert(
                      std::declval<const ArConfig&>(),
                      std::declval<airborne_radar::extension::RadarController&>()))>::value,
     "RadarSessionFactory::CreateWithController must return RadarSession");
-static_assert(
-    std::is_same<ArSession,
-                 decltype(airborne_radar::session::RadarSessionFactory::CreateWithExternalChain(
-                     std::declval<const ArConfig&>(),
-                     std::declval<airborne_radar::extension::IRadarContext&>(),
-                     std::declval<airborne_radar::extension::ISignalPipeline&>(),
-                     std::declval<airborne_radar::extension::IEnvironmentService&>(),
-                     std::declval<airborne_radar::extension::RadarController&>()))>::value,
-    "RadarSessionFactory::CreateWithExternalChain must return RadarSession");
-
 static_assert(std::is_constructible<
                   electronic_surveillance_radar::core::session::EsrSession,
                   electronic_surveillance_radar::core::session::EsrSessionConfig,

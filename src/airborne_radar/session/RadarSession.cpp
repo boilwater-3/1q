@@ -89,16 +89,6 @@ RadarSession RadarSessionFactory::CreateWithController(const RadarSessionConfig&
       internal::RadarSessionCompositionRoot::ComposeWithController(config, controller))));
 }
 
-RadarSession RadarSessionFactory::CreateWithExternalChain(
-    const RadarSessionConfig& config, extension::IRadarContext& radar_context,
-    extension::ISignalPipeline& signal_pipeline,
-    extension::IEnvironmentService& environment_service,
-    extension::RadarController& controller) {
-  return RadarSession(std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(
-      internal::RadarSessionCompositionRoot::ComposeWithExternalChain(
-          config, radar_context, signal_pipeline, environment_service, controller))));
-}
-
 output::TrackOutputFrame RadarSession::Step(const RadarCycleInput& input) {
   return StepWithResult(input).track_output_frame;
 }

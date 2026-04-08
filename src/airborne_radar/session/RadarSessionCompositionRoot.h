@@ -37,12 +37,6 @@ class RadarSessionCompositionRoot {
 
   static RadarSessionComposition ComposeWithController(
       const RadarSessionConfig& config, extension::RadarController& controller);
-
-  static RadarSessionComposition ComposeWithExternalChain(
-      const RadarSessionConfig& config, extension::IRadarContext& radar_context,
-      extension::ISignalPipeline& signal_pipeline,
-      extension::IEnvironmentService& environment_service,
-      extension::RadarController& controller);
 };
 
 }  // namespace internal

@@ -11,7 +11,6 @@
 
 namespace airborne_radar {
 namespace extension {
-class IRadarContext;
 class RadarController;
 class ISignalPipeline;
 class IEnvironmentService;
@@ -36,12 +35,6 @@ class ONEQ_API RadarSessionFactory {
 
   static RadarSession CreateWithController(const RadarSessionConfig& config,
                                            extension::RadarController& controller);
-
-  static RadarSession CreateWithExternalChain(
-      const RadarSessionConfig& config, extension::IRadarContext& radar_context,
-      extension::ISignalPipeline& signal_pipeline,
-      extension::IEnvironmentService& environment_service,
-      extension::RadarController& controller);
 };
 
 }  // namespace session

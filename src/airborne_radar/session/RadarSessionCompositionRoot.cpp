@@ -121,22 +121,6 @@ RadarSessionComposition RadarSessionCompositionRoot::ComposeWithController(
   return composition;
 }
 
-RadarSessionComposition RadarSessionCompositionRoot::ComposeWithExternalChain(
-    const RadarSessionConfig& config, extension::IRadarContext& radar_context,
-    extension::ISignalPipeline& signal_pipeline,
-    extension::IEnvironmentService& environment_service,
-    extension::RadarController& controller) {
-  RadarSessionComposition composition = BuildCompositionBase(config);
-  composition.radar_context = &radar_context;
-  composition.signal_pipeline = &signal_pipeline;
-  composition.environment_service = &environment_service;
-  composition.controller = &controller;
-  SyncSignalPipelineConfig(&composition);
-  SyncEnvironmentModelConfig(&composition);
-  SyncEnvironmentJammingThreshold(&composition);
-  return composition;
-}
-
 }  // namespace internal
 }  // namespace session
 }  // namespace airborne_radar
