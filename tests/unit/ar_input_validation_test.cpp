@@ -262,8 +262,8 @@ TEST(RadarInputValidationTest, PositiveDtIsValid) {
   EXPECT_EQ(FindIssue(issues, ValidationCode::kNonFiniteCycleDeltaTime), nullptr);
 }
 
-/// @brief dt == 0 → Warning 级别（kInvalidCycleDeltaTime）。
-TEST(RadarInputValidationTest, ZeroDtIsWarning) {
+/// @brief dt == 0 → Error 级别（kInvalidCycleDeltaTime）。
+TEST(RadarInputValidationTest, ZeroDtIsError) {
   session::RadarCycleInput input;
   input.dt_sec = 0.0f;
   input.target_features.push_back(MakeValidTarget());
@@ -272,12 +272,12 @@ TEST(RadarInputValidationTest, ZeroDtIsWarning) {
   const session::ValidationIssue* issue =
       FindIssue(issues, ValidationCode::kInvalidCycleDeltaTime);
   ASSERT_NE(issue, nullptr);
-  EXPECT_EQ(issue->severity, ValidationSeverity::kWarning);
-  EXPECT_FALSE(HasValidationError(issues));
+  EXPECT_EQ(issue->severity, ValidationSeverity::kError);
+  EXPECT_TRUE(HasValidationError(issues));
 }
 
-/// @brief dt < 0 → Warning 级别（kInvalidCycleDeltaTime）。
-TEST(RadarInputValidationTest, NegativeDtIsWarning) {
+/// @brief dt < 0 → Error 级别（kInvalidCycleDeltaTime）。
+TEST(RadarInputValidationTest, NegativeDtIsError) {
   session::RadarCycleInput input;
   input.dt_sec = -1.0f;
   input.target_features.push_back(MakeValidTarget());
@@ -286,7 +286,8 @@ TEST(RadarInputValidationTest, NegativeDtIsWarning) {
   const session::ValidationIssue* issue =
       FindIssue(issues, ValidationCode::kInvalidCycleDeltaTime);
   ASSERT_NE(issue, nullptr);
-  EXPECT_EQ(issue->severity, ValidationSeverity::kWarning);
+  EXPECT_EQ(issue->severity, ValidationSeverity::kError);
+  EXPECT_TRUE(HasValidationError(issues));
 }
 
 /// @brief dt 为 NaN → Error 级别（kNonFiniteCycleDeltaTime）。

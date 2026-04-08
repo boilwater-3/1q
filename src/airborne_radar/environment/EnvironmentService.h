@@ -52,6 +52,12 @@ class EnvironmentService final : public extension::IEnvironmentService {
   void UpdateSceneState(const EnvironmentSceneState& scene_state) override;
 
   /**
+   * @brief 获取当前待生效场景状态。
+   * @return 当前 pending 场景状态拷贝。
+   */
+  EnvironmentSceneState GetPendingSceneState() const override;
+
+  /**
    * @brief 更新环境模型配置。
    * @param config 新的环境模型配置。
    */

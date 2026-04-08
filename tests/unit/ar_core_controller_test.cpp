@@ -413,6 +413,49 @@ TEST_F(CoreControllerTest, RuntimeValidationErrorsAreExposedAndSkipCommandSubmis
   EXPECT_TRUE(radar_context.SubmittedCommands().empty());
 }
 
+TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {
+  const model::TargetFeatureList input_state = BuildSingleTarget(510.0f, 1.0f, false);
+  FakeRadarContext radar_context(input_state);
+
+  environment::EnvironmentService environment_service;
+
+  config::SignalPipelineConfig pipeline_config;
+  pipeline_config.detection.min_detection_margin_db = -100.0f;
+  pipeline_config.lifecycle.enable_auto_lifecycle_manager = true;
+  pipeline_config.lifecycle.lifecycle_config.confirm_hits = 1U;
+  pipeline_config.tracking.kalman_measurement_noise_std = 1.0f;
+  signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
+  extension::RadarController controller(radar_context, signal_pipeline, environment_service);
+
+  controller.RunOnce();
+  ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
+  const output::TrackOutputFrame previous_frame = controller.GetLatestTrackOutputFrame();
+  ASSERT_GT(previous_frame.published_track_count, 0U);
+  const std::vector<extension::control::RadarCommand> previous_commands =
+      radar_context.SubmittedCommands();
+
+  radar_context.SetCycleDeltaTimeSec(0.0f);
+  controller.RunOnce();
+
+  EXPECT_TRUE(controller.HasValidationError());
+  const session::ValidationIssueList& issues = controller.GetLastValidationIssues();
+  EXPECT_TRUE(
+      std::find_if(issues.begin(), issues.end(), [](const session::ValidationIssue& issue) {
+        return issue.code == session::ValidationCode::kInvalidCycleDeltaTime;
+      }) != issues.end());
+  ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
+  const output::TrackOutputFrame& retained_frame = controller.GetLatestTrackOutputFrame();
+  EXPECT_EQ(retained_frame.cycle_index, previous_frame.cycle_index);
+  EXPECT_EQ(retained_frame.batch_id, previous_frame.batch_id);
+  EXPECT_EQ(retained_frame.published_track_count, previous_frame.published_track_count);
+  EXPECT_EQ(retained_frame.confirmed_track_count, previous_frame.confirmed_track_count);
+  ASSERT_EQ(radar_context.SubmittedCommands().size(), previous_commands.size());
+  for (std::size_t i = 0; i < previous_commands.size(); ++i) {
+    EXPECT_EQ(radar_context.SubmittedCommands()[i].type, previous_commands[i].type);
+    EXPECT_EQ(radar_context.SubmittedCommands()[i].source, previous_commands[i].source);
+  }
+}
+
 TEST_F(CoreControllerTest, NextCycleAppliesPendingControlProfileToSignalPipeline) {
   const model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);

@@ -75,6 +75,10 @@ class DummyEnvironmentService : public extension::IEnvironmentService {
     (void)scene_state;
   }
 
+  environment::EnvironmentSceneState GetPendingSceneState() const override {
+    return environment::EnvironmentSceneState();
+  }
+
   void UpdateModelConfig(const environment::EnvironmentModelConfig& config) override {
     (void)config;
   }

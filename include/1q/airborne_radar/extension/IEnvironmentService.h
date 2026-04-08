@@ -1,6 +1,6 @@
 /**
  * @file IEnvironmentService.h
- * @brief 定义环境建模层对外暴露的只读服务接口。
+ * @brief 定义环境建模层对外暴露的环境服务接口。
  */
 
 #ifndef AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_
@@ -13,7 +13,7 @@ namespace airborne_radar {
 namespace extension {
 
 /**
- * @brief IEnvironmentService 为信号处理与决策层提供只读环境查询接口。
+ * @brief IEnvironmentService 为信号处理与决策层提供环境查询与运行态更新能力。
  */
 class ONEQ_API IEnvironmentService {
  public:
@@ -36,6 +36,12 @@ class ONEQ_API IEnvironmentService {
    * @param[in] scene_state 新场景状态。
    */
   virtual void UpdateSceneState(const environment::EnvironmentSceneState& scene_state) = 0;
+
+  /**
+   * @brief 获取当前待生效场景状态。
+   * @return 当前 pending 场景状态拷贝。
+   */
+  virtual environment::EnvironmentSceneState GetPendingSceneState() const = 0;
 
   /**
    * @brief 更新环境模型配置。

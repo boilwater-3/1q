@@ -427,6 +427,21 @@ TEST(PublicApiConvenienceTest, ConfigPresetsProvideExpectedDetectionAndRobustnes
   EXPECT_EQ(frame.confirmed_track_count, 1U);
 }
 
+TEST(PublicApiConvenienceTest, DefaultSessionConfigUsesLifecycleManagedTracks) {
+  const session::RadarSessionConfig default_config = config::MakeDefaultRadarSessionConfig();
+  EXPECT_TRUE(default_config.lifecycle.enable_auto_lifecycle_manager);
+
+  session::RadarSession session = session::RadarSessionFactory::Create();
+  const output::TrackOutputFrame frame = session.Step(MakeCycleInput(model::TargetFeatureList{
+      model::MakeGroundTarget(902U, 15.0f, -3.0f, 0.8f),
+  }));
+
+  ASSERT_EQ(frame.tracks.size(), 1U);
+  EXPECT_EQ(frame.published_track_count, 1U);
+  EXPECT_EQ(frame.confirmed_track_count, 0U);
+  EXPECT_EQ(frame.tracks[0].state.status, model::DecisionTrackStatus::kTentative);
+}
+
 TEST(PublicApiConvenienceTest, RadarSessionStepProducesReadableOutputWithoutInterference) {
   session::RadarSession session = session::RadarSessionFactory::Create(MakeConvenienceSessionConfig());
   const session::RadarCycleInput input = MakeCycleInput(model::TargetFeatureList{
@@ -525,11 +540,13 @@ TEST(PublicApiConvenienceTest,
           model::MakeAirTarget(701U, 155.0f, 2.0f, 12.0f, 63.0f, -0.2f, 0.0f, 1.1f),
           model::MakeGroundTarget(702U, 40.0f, -6.0f, 0.8f),
       },
-      0.0f);
-  const output::TrackOutputFrame frame_1 = session.Step(cycle_1);
+      1.0f);
+  const session::RadarCycleResult result_1 = session.StepWithResult(cycle_1);
+  const output::TrackOutputFrame& frame_1 = result_1.track_output_frame;
   EXPECT_GT(frame_1.published_track_count, 0U);
   EXPECT_TRUE(output::ContainsExternalTargetId(frame_1, 0U));
   EXPECT_EQ(output::CollectTracksByExternalTargetId(frame_1, 701U).size(), 2U);
+  EXPECT_FALSE(result_1.has_validation_error);
 
   session::RadarCycleInput cycle_2 = cycle_1;
   cycle_2.dt_sec = -1.0f;
@@ -544,11 +561,17 @@ TEST(PublicApiConvenienceTest,
   noise_emitter_3.prf_lock_risk = 0.1f;
   noise_emitter_3.in_sidelobe = true;
 
-  const output::TrackOutputFrame frame_2 = session.Step(
+  const session::RadarCycleResult result_2 = session.StepWithResult(
       cycle_2, environment::EnvironmentSceneBuilder().AddNoiseJammer(noise_emitter_3).Build());
+  const output::TrackOutputFrame& frame_2 = result_2.track_output_frame;
 
-  EXPECT_GT(frame_2.published_track_count, 0U);
-  EXPECT_GT(output::CountJammingTracks(frame_2), 0U);
+  EXPECT_TRUE(result_2.has_validation_error);
+  EXPECT_TRUE(
+      ContainsIssueCode(result_2.validation_issues, session::ValidationCode::kInvalidCycleDeltaTime));
+  EXPECT_EQ(frame_2.cycle_index, frame_1.cycle_index);
+  EXPECT_EQ(frame_2.batch_id, frame_1.batch_id);
+  EXPECT_EQ(frame_2.published_track_count, frame_1.published_track_count);
+  EXPECT_EQ(output::CountJammingTracks(frame_2), output::CountJammingTracks(frame_1));
   EXPECT_TRUE(session.HasLatestControlProfile());
 
   session::RadarCycleInput cycle_3 = cycle_2;
@@ -558,6 +581,7 @@ TEST(PublicApiConvenienceTest,
   const output::TrackOutputFrame frame_3 =
       session.Step(cycle_3, environment::EnvironmentSceneBuilder().Build());
   EXPECT_GT(frame_3.published_track_count, 0U);
+  EXPECT_EQ(output::CountJammingTracks(frame_3), 0U);
   EXPECT_TRUE(output::ContainsExternalTargetId(frame_3, 703U));
   EXPECT_TRUE(output::ContainsExternalTargetId(frame_3, 704U));
 }

@@ -81,6 +81,13 @@ void EnvironmentService::UpdateSceneState(const EnvironmentSceneState& scene_sta
   scene_manager_->UpdatePendingScene(scene_state);
 }
 
+EnvironmentSceneState EnvironmentService::GetPendingSceneState() const {
+  if (scene_manager_ == nullptr) {
+    return EnvironmentSceneState();
+  }
+  return scene_manager_->GetPendingScene();
+}
+
 void EnvironmentService::UpdateModelConfig(const EnvironmentModelConfig& config) {
   scene_manager_->UpdatePendingScene(BuildSceneStateFromModelConfig(config));
 }

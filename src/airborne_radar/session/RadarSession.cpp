@@ -106,8 +106,14 @@ RadarCycleResult RadarSession::StepWithResult(const RadarCycleInput& input) {
 
 RadarCycleResult RadarSession::StepWithResult(
     const RadarCycleInput& input, const environment::EnvironmentSceneState& scene_state) {
+  const environment::EnvironmentSceneState previous_pending_scene =
+      impl_->environment_service.GetPendingSceneState();
   impl_->environment_service.UpdateSceneState(scene_state);
-  return StepWithResult(input);
+  const RadarCycleResult result = StepWithResult(input);
+  if (result.has_validation_error) {
+    impl_->environment_service.UpdateSceneState(previous_pending_scene);
+  }
+  return result;
 }
 
 const std::vector<extension::control::RadarCommand>& RadarSession::GetSubmittedCommands() const {

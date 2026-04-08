@@ -164,6 +164,9 @@ void RadarController::RunOnce() {
         const AirborneRuntimeInput& input,
         const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
       (void)input;
+      if (impl != nullptr && impl->runtime_state.has_latest_output) {
+        return impl->runtime_state.latest_output;
+      }
       output::TrackOutputFrame frame;
       frame.cycle_index = stamp.cycle_index;
       frame.batch_id = stamp.batch_id;

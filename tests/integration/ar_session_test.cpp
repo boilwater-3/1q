@@ -1439,15 +1439,31 @@ TEST(RadarJointIntegrationTest, InvalidCycleDeltaFallsBackWithoutBreakingTrackCo
   model::TargetFeatureList targets =
       BuildMixedPatrolTargetsWithBaseId(6U, 19000u, 180.0f, -5.0f, 8.0f);
 
+  radar_context.SetCycleDeltaTimeSec(1.0f);
+  const output::TrackOutputFrame initial_frame =
+      RunScenarioCycle(&controller, &radar_context, targets);
+  ASSERT_GE(initial_frame.published_track_count, targets.size());
+  ASSERT_GE(initial_frame.confirmed_track_count, targets.size());
+  ExpectFrameContainsTargetIds(initial_frame, ExtractTargetIds(targets));
+
   std::unordered_map<std::uint64_t, std::uint64_t> previous_keys;
   std::unordered_map<std::uint64_t, float> previous_x;
+  const auto initial_track_map = BuildTrackMapByExternalId(initial_frame);
+  for (std::size_t i = 0; i < targets.size(); ++i) {
+    const std::uint64_t target_id = targets[i].external_target_id;
+    previous_keys[target_id] = initial_track_map.at(target_id)->state.association_key;
+    previous_x[target_id] = initial_track_map.at(target_id)->state.position_x;
+  }
+
   const std::vector<float> invalid_dts{0.0f, -1.0f, 0.0f, -3.0f};
   for (std::size_t cycle = 0; cycle < invalid_dts.size(); ++cycle) {
     radar_context.SetCycleDeltaTimeSec(invalid_dts[cycle]);
     const output::TrackOutputFrame frame =
         RunScenarioCycle(&controller, &radar_context, targets);
-    ASSERT_GE(frame.published_track_count, targets.size());
-    ASSERT_GE(frame.confirmed_track_count, targets.size());
+    ASSERT_EQ(frame.cycle_index, initial_frame.cycle_index);
+    ASSERT_EQ(frame.batch_id, initial_frame.batch_id);
+    ASSERT_EQ(frame.published_track_count, initial_frame.published_track_count);
+    ASSERT_EQ(frame.confirmed_track_count, initial_frame.confirmed_track_count);
     ExpectFrameContainsTargetIds(frame, ExtractTargetIds(targets));
 
     const auto track_map = BuildTrackMapByExternalId(frame);
@@ -1456,12 +1472,8 @@ TEST(RadarJointIntegrationTest, InvalidCycleDeltaFallsBackWithoutBreakingTrackCo
       const model::DecisionTrackSnapshot& track = *track_map.at(target_id);
       ExpectFiniteTrackState(track);
       EXPECT_NE(track.state.association_key, 0U);
-      if (cycle > 0U) {
-        EXPECT_EQ(track.state.association_key, previous_keys[target_id]);
-        EXPECT_GE(track.state.position_x, previous_x[target_id]);
-      }
-      previous_keys[target_id] = track.state.association_key;
-      previous_x[target_id] = track.state.position_x;
+      EXPECT_EQ(track.state.association_key, previous_keys[target_id]);
+      EXPECT_FLOAT_EQ(track.state.position_x, previous_x[target_id]);
     }
     AdvanceTargets(1.0f, &targets);
   }

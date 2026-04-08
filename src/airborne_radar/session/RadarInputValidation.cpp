@@ -87,7 +87,7 @@ ValidationIssueList ValidateRadarCycleDeltaTime(float dt_sec) {
     issues.push_back(MakeIssue(ValidationSeverity::kError, ValidationCode::kNonFiniteCycleDeltaTime,
                                static_cast<std::size_t>(-1), "cycle delta time must be finite"));
   } else if (dt_sec <= 0.0f) {
-    issues.push_back(MakeIssue(ValidationSeverity::kWarning, ValidationCode::kInvalidCycleDeltaTime,
+    issues.push_back(MakeIssue(ValidationSeverity::kError, ValidationCode::kInvalidCycleDeltaTime,
                                static_cast<std::size_t>(-1), "cycle delta time is non-positive"));
   }
   return issues;
