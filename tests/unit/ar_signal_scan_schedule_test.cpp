@@ -7,6 +7,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 #include "1q/airborne_radar/model/TargetFeatureUtils.h"
@@ -16,6 +17,7 @@
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/detection/TargetLookResolver.h"
+#include "airborne_radar/signal/pipeline/assembly/RuntimeAssemblySupport.h"
 #include "airborne_radar/signal/pipeline/core/CycleExecutor.h"
 #include "airborne_radar/signal/pipeline/core/SignalPipeline.h"
 #include "airborne_radar/signal/pipeline/core/ScanScheduleResolver.h"
@@ -56,18 +58,12 @@ signal::pipeline::internal::CycleExecutionRuntime BuildMinimalValidRuntime(
     const signal::pipeline::internal::InternalSignalPipelineConfig& internal_config,
     const extension::control::RadarControlProfile& control_profile,
     signal::association::DataAssociationEngine* association_engine,
-    signal::tracking::TrackFilter* track_filter) {
-  signal::pipeline::internal::CycleExecutionRuntime runtime;
-  runtime.base_config = &base_config;
-  runtime.base_internal_config = &internal_config;
-  runtime.control_profile = &control_profile;
-  runtime.association_engine = association_engine;
-  runtime.track_filter = track_filter;
-  runtime.signal_detector = nullptr;
-  runtime.auto_lifecycle_manager = nullptr;
-  runtime.manual_association_seeds = nullptr;
-  runtime.has_manual_association_seeds = false;
-  return runtime;
+    signal::tracking::TrackFilter* track_filter,
+    signal::tracking::ITrackLifecycleManager* lifecycle_manager) {
+  static const std::vector<signal::tracking::AssociationTrackSeed> kEmptyAssociationSeeds;
+  return signal::pipeline::internal::CycleExecutionRuntime(
+      base_config, internal_config, control_profile, *association_engine, *track_filter,
+      *lifecycle_manager, nullptr, kEmptyAssociationSeeds, false);
 }
 
 TEST(ScanScheduleResolverTest, StartPositionControlsFirstBeamQuadrant) {
@@ -109,20 +105,6 @@ TEST(ScanScheduleResolverTest, StartPositionControlsFirstBeamQuadrant) {
   EXPECT_FLOAT_EQ(left_bottom_pattern.front().el_deg, -5.0f);
 }
 
-TEST(CycleExecutorTest, InvalidRuntimeAndNullScratchReturnSafely) {
-  const model::TargetFeatureList input_state;
-  environment::EnvironmentService environment_service;
-  signal::pipeline::internal::CycleExecutionRuntime runtime;
-
-  signal::pipeline::internal::ExecuteCycle(input_state, environment_service, 1U, 1U, runtime, nullptr);
-
-  signal::pipeline::internal::CycleExecutionScratch scratch;
-  signal::pipeline::internal::ExecuteCycle(input_state, environment_service, 1U, 1U, runtime,
-                                           &scratch);
-
-  SUCCEED();
-}
-
 TEST(CycleExecutorTest, ValidRuntimeProducesInputAlignedStageBuffers) {
   config::SignalPipelineConfig base_config;
   base_config.detection.min_detection_margin_db = -100.0f;
@@ -132,8 +114,13 @@ TEST(CycleExecutorTest, ValidRuntimeProducesInputAlignedStageBuffers) {
 
   signal::association::DataAssociationEngine association_engine;
   signal::tracking::TrackFilter track_filter;
+  std::unique_ptr<signal::tracking::ITrackLifecycleManager> lifecycle_manager =
+      signal::pipeline::assembly::internal::CreateAutoLifecycleManagerForRuntimeConfig(
+          base_config, internal_config);
+  ASSERT_TRUE(lifecycle_manager != nullptr);
   const signal::pipeline::internal::CycleExecutionRuntime runtime = BuildMinimalValidRuntime(
-      base_config, internal_config, control_profile, &association_engine, &track_filter);
+      base_config, internal_config, control_profile, &association_engine, &track_filter,
+      lifecycle_manager.get());
 
   model::TargetFeature target_a(1000.0f, 0.0f, 0.0f, 2.0f);
   target_a.has_cartesian_position = true;
@@ -148,7 +135,7 @@ TEST(CycleExecutorTest, ValidRuntimeProducesInputAlignedStageBuffers) {
   environment::EnvironmentService environment_service;
   signal::pipeline::internal::CycleExecutionScratch scratch;
   signal::pipeline::internal::ExecuteCycle(input_state, environment_service, 3U, 9U, runtime,
-                                           &scratch);
+                                           scratch);
 
   EXPECT_EQ(scratch.output_state.size(), input_state.size());
   EXPECT_EQ(scratch.signal_term_db.size(), input_state.size());
@@ -171,14 +158,19 @@ TEST(CycleExecutorTest, EmptyInputKeepsWorkspaceOutputsEmpty) {
 
   signal::association::DataAssociationEngine association_engine;
   signal::tracking::TrackFilter track_filter;
+  std::unique_ptr<signal::tracking::ITrackLifecycleManager> lifecycle_manager =
+      signal::pipeline::assembly::internal::CreateAutoLifecycleManagerForRuntimeConfig(
+          base_config, internal_config);
+  ASSERT_TRUE(lifecycle_manager != nullptr);
   const signal::pipeline::internal::CycleExecutionRuntime runtime = BuildMinimalValidRuntime(
-      base_config, internal_config, control_profile, &association_engine, &track_filter);
+      base_config, internal_config, control_profile, &association_engine, &track_filter,
+      lifecycle_manager.get());
 
   const model::TargetFeatureList input_state;
   environment::EnvironmentService environment_service;
   signal::pipeline::internal::CycleExecutionScratch scratch;
   signal::pipeline::internal::ExecuteCycle(input_state, environment_service, 1U, 1U, runtime,
-                                           &scratch);
+                                           scratch);
 
   EXPECT_TRUE(scratch.output_state.empty());
   EXPECT_TRUE(scratch.track_measurements.empty());

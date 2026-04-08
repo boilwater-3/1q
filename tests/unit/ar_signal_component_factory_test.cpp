@@ -78,5 +78,24 @@ TEST(SignalComponentFactoryTest, ImmAssemblyUsesSamePredictorUpdaterBackendFamil
             nullptr);
 }
 
+TEST(SignalComponentFactoryTest, InvalidImmAssemblyDoesNotFallbackToNonImmManager) {
+  config::SignalPipelineConfig config;
+  config.tracking.enable_kalman_filter = true;
+  config.lifecycle.enable_imm_lifecycle = true;
+
+  signal::pipeline::internal::InternalSignalPipelineConfig internal_config =
+      signal::pipeline::internal::BuildInternalSignalPipelineConfig(config);
+  internal_config.lifecycle.imm_model_noise_diff_coeffs = {0.5f, 2.0f};
+  internal_config.lifecycle.imm_transition_probability = {1.0f, 0.0f, 0.0f};
+
+  signal::pipeline::assembly::internal::LifecycleAssemblyArtifacts artifacts =
+      signal::pipeline::assembly::internal::SignalComponentFactory::BuildLifecycleAssemblyArtifacts(
+          config, internal_config);
+
+  EXPECT_EQ(artifacts.lifecycle_manager, nullptr);
+  EXPECT_TRUE(artifacts.kalman_predictor == nullptr);
+  EXPECT_TRUE(artifacts.kalman_updater == nullptr);
+}
+
 }  // namespace tests
 }  // namespace airborne_radar

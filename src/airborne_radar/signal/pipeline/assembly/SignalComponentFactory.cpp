@@ -135,13 +135,13 @@ LifecycleAssemblyArtifacts SignalComponentFactory::BuildLifecycleAssemblyArtifac
         return artifacts;
       }
       PROJECT_LOG_ERROR(
-          "[SignalPipeline] IMM lifecycle matrix/weights validation failed; fallback to "
-          "non-IMM lifecycle manager (model_count={})",
+          "[SignalPipeline] IMM lifecycle matrix/weights validation failed; lifecycle "
+          "assembly aborted (model_count={})",
           model_count);
     }
 
-    PROJECT_LOG_WARN(
-        "[SignalPipeline] IMM lifecycle assembly failed; fallback to non-IMM lifecycle manager.");
+    PROJECT_LOG_ERROR("[SignalPipeline] IMM lifecycle assembly failed; no fallback manager created.");
+    return artifacts;
   }
 
   if (config.tracking.enable_kalman_filter) {

@@ -122,30 +122,26 @@ void AssignLifecycleSignature(const LifecycleConfigSignature& source,
   destination->track_pool_thread_safety_mode = source.track_pool_thread_safety_mode;
 }
 
-LifecycleAssemblyArtifacts BuildGuaranteedLifecycleAssemblyArtifacts(
+LifecycleAssemblyArtifacts BuildLifecycleAssemblyArtifactsOrLogFailure(
     const ResolvedRuntimeSignalPipelineConfig& resolved_config) {
   LifecycleAssemblyArtifacts artifacts = SignalComponentFactory::BuildLifecycleAssemblyArtifacts(
       resolved_config.public_config, resolved_config.internal_config);
-  if (artifacts.lifecycle_manager != nullptr) {
-    return artifacts;
+  if (artifacts.lifecycle_manager == nullptr) {
+    PROJECT_LOG_ERROR(
+        "[SignalPipeline] lifecycle auto-assembly failed for current runtime config; "
+        "no lifecycle manager created.");
   }
-
-  ResolvedRuntimeSignalPipelineConfig fallback_config = resolved_config;
-  fallback_config.public_config.lifecycle.enable_imm_lifecycle = false;
-  PROJECT_LOG_ERROR(
-      "[SignalPipeline] lifecycle auto-assembly produced null manager; "
-      "falling back to non-IMM lifecycle manager.");
-  return SignalComponentFactory::BuildLifecycleAssemblyArtifacts(fallback_config.public_config,
-                                                                 fallback_config.internal_config);
+  return artifacts;
 }
 
 class AutoConfiguredLifecycleManager final : public tracking::ITrackLifecycleManager {
  public:
   explicit AutoConfiguredLifecycleManager(
-      const ResolvedRuntimeSignalPipelineConfig& resolved_config)
+      const ResolvedRuntimeSignalPipelineConfig& resolved_config,
+      LifecycleAssemblyArtifacts assembly)
       : resolved_config_(resolved_config),
         signature_(BuildLifecycleConfigSignature(resolved_config_)),
-        assembly_(BuildGuaranteedLifecycleAssemblyArtifacts(resolved_config_)) {}
+        assembly_(std::move(assembly)) {}
 
   void Update(const tracking::CycleContext& cycle,
               const std::vector<tracking::TrackMeasurement>& measurements) override {
@@ -217,7 +213,7 @@ class AutoConfiguredLifecycleManager final : public tracking::ITrackLifecycleMan
           "auto-lifecycle assembly and resetting lifecycle state.");
       resolved_config_ = resolved_config;
       AssignLifecycleSignature(incoming_signature, &signature_);
-      assembly_ = BuildGuaranteedLifecycleAssemblyArtifacts(resolved_config_);
+      assembly_ = BuildLifecycleAssemblyArtifactsOrLogFailure(resolved_config_);
       return;
     }
 
@@ -283,8 +279,12 @@ std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManagerForR
   ResolvedRuntimeSignalPipelineConfig resolved_config;
   resolved_config.public_config = runtime_config;
   resolved_config.internal_config = internal_config;
+  LifecycleAssemblyArtifacts assembly = BuildLifecycleAssemblyArtifactsOrLogFailure(resolved_config);
+  if (assembly.lifecycle_manager == nullptr) {
+    return std::unique_ptr<tracking::ITrackLifecycleManager>();
+  }
   return std::unique_ptr<tracking::ITrackLifecycleManager>(
-      new AutoConfiguredLifecycleManager(resolved_config));
+      new AutoConfiguredLifecycleManager(resolved_config, std::move(assembly)));
 }
 
 void RebuildOwnedComponentsForPipeline(

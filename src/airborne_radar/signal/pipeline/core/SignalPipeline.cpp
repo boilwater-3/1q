@@ -16,6 +16,7 @@
 #include "airborne_radar/signal/tracking/IKalmanUpdater.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleManager.h"
+#include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -75,18 +76,12 @@ struct SignalPipeline::Impl {
   }
 
   internal::CycleExecutionRuntime BuildExecutionRuntimeView() {
-    internal::CycleExecutionRuntime runtime_execution;
-    runtime_execution.base_config = &runtime_.config.base_config;
-    runtime_execution.base_internal_config = &runtime_.config.base_internal_config;
-    runtime_execution.control_profile = &runtime_.config.control_profile_;
-    runtime_execution.association_engine = &runtime_.owned.association_engine;
-    runtime_execution.track_filter = &runtime_.owned.track_filter;
-    runtime_execution.signal_detector = runtime_.owned.signal_detector.get();
-    runtime_execution.auto_lifecycle_manager = runtime_.owned.auto_lifecycle_manager.get();
-    runtime_execution.manual_association_seeds = &runtime_.association_seeds.manual_association_seeds;
-    runtime_execution.has_manual_association_seeds =
-        runtime_.association_seeds.has_manual_association_seeds;
-    return runtime_execution;
+    return internal::CycleExecutionRuntime(
+        runtime_.config.base_config, runtime_.config.base_internal_config,
+        runtime_.config.control_profile_, runtime_.owned.association_engine,
+        runtime_.owned.track_filter, *runtime_.owned.auto_lifecycle_manager,
+        runtime_.owned.signal_detector.get(), runtime_.association_seeds.manual_association_seeds,
+        runtime_.association_seeds.has_manual_association_seeds);
   }
 
   assembly::internal::ResolvedRuntimeSignalPipelineConfig ResolveRuntimeConfig() const {
@@ -98,10 +93,15 @@ struct SignalPipeline::Impl {
   extension::SignalCycleResult RunCycle(
       const model::TargetFeatureList& input_state,
       const extension::IEnvironmentService& environment) {
+    if (runtime_.owned.auto_lifecycle_manager == nullptr) {
+      PROJECT_LOG_ERROR(
+          "[SignalPipeline] RunCycle aborted because auto_lifecycle_manager is unavailable.");
+      return extension::SignalCycleResult();
+    }
     const internal::CycleExecutionRuntime runtime_execution = BuildExecutionRuntimeView();
 
     internal::ExecuteCycle(input_state, environment, cycle_.cycle_index, cycle_.batch_id,
-                           runtime_execution, &cycle_.scratch);
+                           runtime_execution, cycle_.scratch);
 
     extension::SignalCycleResult result;
     result.updated_features = cycle_.scratch.output_state;

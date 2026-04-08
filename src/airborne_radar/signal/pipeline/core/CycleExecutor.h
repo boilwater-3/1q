@@ -7,6 +7,7 @@
 #define AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_CYCLE_EXECUTOR_H_
 
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
@@ -52,14 +53,33 @@ struct CycleExecutionScratch {
  *       持有跨周期状态，signal_detector 仅表示当前配置下的执行组件。
  */
 struct CycleExecutionRuntime {
-  const SignalPipelineConfig* base_config{nullptr};
-  const InternalSignalPipelineConfig* base_internal_config{nullptr};
-  const extension::control::RadarControlProfile* control_profile{nullptr};
-  association::DataAssociationEngine* association_engine{nullptr};
-  tracking::TrackFilter* track_filter{nullptr};
-  detection::SignalDetector* signal_detector{nullptr};
-  tracking::ITrackLifecycleManager* auto_lifecycle_manager{nullptr};
-  const std::vector<tracking::AssociationTrackSeed>* manual_association_seeds{nullptr};
+  CycleExecutionRuntime(const SignalPipelineConfig& base_config,
+                        const InternalSignalPipelineConfig& base_internal_config,
+                        const extension::control::RadarControlProfile& control_profile,
+                        association::DataAssociationEngine& association_engine,
+                        tracking::TrackFilter& track_filter,
+                        tracking::ITrackLifecycleManager& auto_lifecycle_manager,
+                        detection::SignalDetector* signal_detector,
+                        const std::vector<tracking::AssociationTrackSeed>& manual_association_seeds,
+                        bool has_manual_association_seeds)
+      : base_config(base_config),
+        base_internal_config(base_internal_config),
+        control_profile(control_profile),
+        association_engine(association_engine),
+        track_filter(track_filter),
+        signal_detector(signal_detector),
+        auto_lifecycle_manager(auto_lifecycle_manager),
+        manual_association_seeds(manual_association_seeds),
+        has_manual_association_seeds(has_manual_association_seeds) {}
+
+  const SignalPipelineConfig& base_config;
+  const InternalSignalPipelineConfig& base_internal_config;
+  const extension::control::RadarControlProfile& control_profile;
+  association::DataAssociationEngine& association_engine;
+  tracking::TrackFilter& track_filter;
+  detection::SignalDetector* signal_detector;
+  tracking::ITrackLifecycleManager& auto_lifecycle_manager;
+  const std::vector<tracking::AssociationTrackSeed>& manual_association_seeds;
   bool has_manual_association_seeds{false};
 };
 
@@ -69,8 +89,20 @@ struct CycleExecutionRuntime {
  *          runtime_config/internal_runtime_config 做显式更新。
  */
 struct CycleExecutionContract {
-  const model::TargetFeatureList* input_state{nullptr};
-  const extension::IEnvironmentService* environment{nullptr};
+  CycleExecutionContract(const model::TargetFeatureList& input_state,
+                         const extension::IEnvironmentService& environment,
+                         std::uint32_t cycle_index, std::uint64_t batch_id,
+                         SignalPipelineConfig runtime_config,
+                         InternalSignalPipelineConfig internal_runtime_config)
+      : input_state(input_state),
+        environment(environment),
+        cycle_index(cycle_index),
+        batch_id(batch_id),
+        runtime_config(std::move(runtime_config)),
+        internal_runtime_config(std::move(internal_runtime_config)) {}
+
+  const model::TargetFeatureList& input_state;
+  const extension::IEnvironmentService& environment;
   std::uint32_t cycle_index{0U};
   std::uint64_t batch_id{0U};
   SignalPipelineConfig runtime_config{};
@@ -90,26 +122,43 @@ struct EnvironmentPhaseOutput {
  * @brief 探测阶段输出视图。
  */
 struct DetectionPhaseOutput {
-  const std::vector<std::uint8_t>* detection_succeeded{nullptr};
-  const std::vector<float>* detection_margin_db{nullptr};
-  const std::vector<tracking::MeasurementCovariance>* measurement_covariances{nullptr};
-  const std::vector<detection::ResolvedTargetGeometry>* target_geometry{nullptr};
+  DetectionPhaseOutput(const std::vector<std::uint8_t>& detection_succeeded,
+                       const std::vector<float>& detection_margin_db,
+                       const std::vector<tracking::MeasurementCovariance>& measurement_covariances,
+                       const std::vector<detection::ResolvedTargetGeometry>& target_geometry)
+      : detection_succeeded(detection_succeeded),
+        detection_margin_db(detection_margin_db),
+        measurement_covariances(measurement_covariances),
+        target_geometry(target_geometry) {}
+
+  const std::vector<std::uint8_t>& detection_succeeded;
+  const std::vector<float>& detection_margin_db;
+  const std::vector<tracking::MeasurementCovariance>& measurement_covariances;
+  const std::vector<detection::ResolvedTargetGeometry>& target_geometry;
 };
 
 /**
  * @brief 关联阶段输出视图。
  */
 struct AssociationPhaseOutput {
-  const association::AssociationResult* association_result{nullptr};
-  const std::vector<std::uint64_t>* association_keys{nullptr};
+  AssociationPhaseOutput(const association::AssociationResult& association_result,
+                         const std::vector<std::uint64_t>& association_keys)
+      : association_result(association_result), association_keys(association_keys) {}
+
+  const association::AssociationResult& association_result;
+  const std::vector<std::uint64_t>& association_keys;
 };
 
 /**
  * @brief 量测构建阶段输出视图。
  */
 struct MeasurementBuildPhaseOutput {
-  const std::vector<int>* measurement_slots{nullptr};
-  const std::vector<tracking::TrackMeasurement>* track_measurements{nullptr};
+  MeasurementBuildPhaseOutput(const std::vector<int>& measurement_slots,
+                              const std::vector<tracking::TrackMeasurement>& track_measurements)
+      : measurement_slots(measurement_slots), track_measurements(track_measurements) {}
+
+  const std::vector<int>& measurement_slots;
+  const std::vector<tracking::TrackMeasurement>& track_measurements;
 };
 
 /**
@@ -124,7 +173,7 @@ struct MeasurementBuildPhaseOutput {
 void ExecuteCycle(const model::TargetFeatureList& input_state,
                   const extension::IEnvironmentService& environment, std::uint32_t cycle_index,
                   std::uint64_t batch_id, const CycleExecutionRuntime& runtime,
-                  CycleExecutionScratch* cycle_scratch);
+                  CycleExecutionScratch& cycle_scratch);
 
 }  // namespace internal
 }  // namespace pipeline

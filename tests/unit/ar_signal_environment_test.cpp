@@ -454,6 +454,23 @@ TEST(SignalPipelineTest, AutoLifecycleManagerBuildsWithDefaultInternalImmConfig)
   EXPECT_EQ(decision_frame.batch_id, 7u);
 }
 
+TEST(SignalPipelineTest, AutoLifecycleManagerCreationFailsWhenImmAssemblyIsInvalid) {
+  config::SignalPipelineConfig runtime_config;
+  runtime_config.tracking.enable_kalman_filter = true;
+  runtime_config.lifecycle.enable_imm_lifecycle = true;
+
+  signal::pipeline::internal::InternalSignalPipelineConfig internal_config =
+      signal::pipeline::internal::BuildInternalSignalPipelineConfig(runtime_config);
+  internal_config.lifecycle.imm_model_noise_diff_coeffs = {0.5f, 2.0f};
+  internal_config.lifecycle.imm_initial_weights = {1.0f};
+
+  std::unique_ptr<signal::tracking::ITrackLifecycleManager> lifecycle_manager =
+      signal::pipeline::assembly::internal::CreateAutoLifecycleManagerForRuntimeConfig(
+          runtime_config, internal_config);
+
+  EXPECT_EQ(lifecycle_manager, nullptr);
+}
+
 TEST(SignalPipelineInternalConfigTest, DetectionPresetMapsToBaselineProfile) {
   const config::SignalPipelineConfig config =
       config::MakeDetectionMissionSignalPipelineConfig();

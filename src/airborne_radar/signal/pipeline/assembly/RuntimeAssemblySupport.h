@@ -45,7 +45,7 @@ ResolvedRuntimeSignalPipelineConfig ResolveRuntimeSignalPipelineConfig(
 /**
  * @brief 根据运行时配置自动装配生命周期管理器。
  * @param[in] runtime_config 运行时配置。
- * @return 生命周期管理器实例。
+ * @return 生命周期管理器实例；当装配失败时返回空指针。
  */
 std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManagerForRuntimeConfig(
     const SignalPipelineConfig& runtime_config);
