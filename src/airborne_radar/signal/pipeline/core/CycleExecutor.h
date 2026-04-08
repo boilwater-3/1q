@@ -28,23 +28,13 @@ namespace pipeline {
 namespace internal {
 
 /**
- * @brief 单周期执行上下文缓存。
+ * @brief 单周期执行的可复用缓冲区（仅存放可变工作数据）。
  */
-struct CycleExecutionContext {
-  const model::TargetFeatureList* input_state{nullptr};
-  const extension::IEnvironmentService* environment{nullptr};
-  SignalPipelineConfig runtime_config{};
-  InternalSignalPipelineConfig internal_runtime_config{};
+struct CycleExecutionScratch {
   model::TargetFeatureList output_state;
   std::vector<tracking::TrackMeasurement> track_measurements;
   model::DecisionInputFrame decision_frame{};
   AssociationQualityMetrics association_quality_metrics{};
-
-  environment::EnvironmentSnapshot environment_snapshot{};
-  model::JammingSemantic dominant_jamming_semantic{
-      model::JammingSemantic::kNone}; /**< 当前周期主导干扰语义（SampleEnvironment 后有效）
-                                               */
-  float jamming_severity{0.0f}; /**< 当前周期轨迹级残余干扰强度（SampleEnvironment 后有效） */
 
   std::vector<float> signal_term_db;
   std::vector<float> speed_penalty_db;
@@ -74,18 +64,63 @@ struct CycleExecutionRuntime {
 };
 
 /**
+ * @brief 周期准备阶段输出（后续 phase 的稳定输入）。
+ */
+struct CycleSetupPhaseOutput {
+  const model::TargetFeatureList* input_state{nullptr};
+  const extension::IEnvironmentService* environment{nullptr};
+  SignalPipelineConfig runtime_config{};
+  InternalSignalPipelineConfig internal_runtime_config{};
+};
+
+/**
+ * @brief 环境采样阶段输出。
+ */
+struct EnvironmentPhaseOutput {
+  environment::EnvironmentSnapshot environment_snapshot{};
+  model::JammingSemantic dominant_jamming_semantic{model::JammingSemantic::kNone};
+  float jamming_severity{0.0f};
+};
+
+/**
+ * @brief 探测阶段输出视图。
+ */
+struct DetectionPhaseOutput {
+  const std::vector<std::uint8_t>* detection_succeeded{nullptr};
+  const std::vector<float>* detection_margin_db{nullptr};
+  const std::vector<tracking::MeasurementCovariance>* measurement_covariances{nullptr};
+  const std::vector<detection::ResolvedTargetGeometry>* target_geometry{nullptr};
+};
+
+/**
+ * @brief 关联阶段输出视图。
+ */
+struct AssociationPhaseOutput {
+  const association::AssociationResult* association_result{nullptr};
+  const std::vector<std::uint64_t>* association_keys{nullptr};
+};
+
+/**
+ * @brief 量测构建阶段输出视图。
+ */
+struct MeasurementBuildPhaseOutput {
+  const std::vector<int>* measurement_slots{nullptr};
+  const std::vector<tracking::TrackMeasurement>* track_measurements{nullptr};
+};
+
+/**
  * @brief 执行 SignalPipeline 单周期全流程。
  * @param input_state 当前周期输入目标状态。
  * @param environment 当前环境服务。
  * @param cycle_index 当前周期号。
  * @param batch_id 当前批次号。
  * @param runtime 运行时依赖视图。
- * @param cycle_context 单周期缓存上下文。
+ * @param cycle_scratch 单周期可复用缓冲区。
  */
 void ExecuteCycle(const model::TargetFeatureList& input_state,
                   const extension::IEnvironmentService& environment, std::uint32_t cycle_index,
                   std::uint64_t batch_id, const CycleExecutionRuntime& runtime,
-                  CycleExecutionContext* cycle_context);
+                  CycleExecutionScratch* cycle_scratch);
 
 }  // namespace internal
 }  // namespace pipeline

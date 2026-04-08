@@ -12,6 +12,7 @@
 #include "1q/airborne_radar/model/TargetFeatureUtils.h"
 #include "1q/airborne_radar/config/SignalPipelineConfig.h"
 #include "airborne_radar/environment/EnvironmentService.h"
+#include "airborne_radar/signal/assembly/DataOutputManager.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
@@ -49,6 +50,26 @@ std::size_t CountUniqueScheduledPoints(const model::RadarOrientationConfig& orie
     }
   }
   return unique_points.size();
+}
+
+signal::pipeline::internal::CycleExecutionRuntime BuildMinimalValidRuntime(
+    const config::SignalPipelineConfig& base_config,
+    const signal::pipeline::internal::InternalSignalPipelineConfig& internal_config,
+    const extension::control::RadarControlProfile& control_profile,
+    signal::association::DataAssociationEngine* association_engine,
+    signal::tracking::TrackFilter* track_filter, signal::assembly::IDataOutputManager* output_manager) {
+  signal::pipeline::internal::CycleExecutionRuntime runtime;
+  runtime.base_config = &base_config;
+  runtime.base_internal_config = &internal_config;
+  runtime.control_profile = &control_profile;
+  runtime.association_engine = association_engine;
+  runtime.track_filter = track_filter;
+  runtime.output_manager = output_manager;
+  runtime.signal_detector = nullptr;
+  runtime.auto_lifecycle_manager = nullptr;
+  runtime.manual_association_seeds = nullptr;
+  runtime.has_manual_association_seeds = false;
+  return runtime;
 }
 
 TEST(ScanScheduleResolverTest, StartPositionControlsFirstBeamQuadrant) {
@@ -90,17 +111,86 @@ TEST(ScanScheduleResolverTest, StartPositionControlsFirstBeamQuadrant) {
   EXPECT_FLOAT_EQ(left_bottom_pattern.front().el_deg, -5.0f);
 }
 
-TEST(CycleExecutorTest, InvalidRuntimeAndNullContextReturnSafely) {
+TEST(CycleExecutorTest, InvalidRuntimeAndNullScratchReturnSafely) {
   const model::TargetFeatureList input_state;
   environment::EnvironmentService environment_service;
   signal::pipeline::internal::CycleExecutionRuntime runtime;
 
   signal::pipeline::internal::ExecuteCycle(input_state, environment_service, 1U, 1U, runtime, nullptr);
 
-  signal::pipeline::internal::CycleExecutionContext context;
-  signal::pipeline::internal::ExecuteCycle(input_state, environment_service, 1U, 1U, runtime, &context);
+  signal::pipeline::internal::CycleExecutionScratch scratch;
+  signal::pipeline::internal::ExecuteCycle(input_state, environment_service, 1U, 1U, runtime,
+                                           &scratch);
 
   SUCCEED();
+}
+
+TEST(CycleExecutorTest, ValidRuntimeProducesInputAlignedStageBuffers) {
+  config::SignalPipelineConfig base_config;
+  base_config.detection.min_detection_margin_db = -100.0f;
+  const signal::pipeline::internal::InternalSignalPipelineConfig internal_config =
+      signal::pipeline::internal::BuildInternalSignalPipelineConfig(base_config);
+  const extension::control::RadarControlProfile control_profile{};
+
+  signal::association::DataAssociationEngine association_engine;
+  signal::tracking::TrackFilter track_filter;
+  signal::assembly::DataOutputManager output_manager;
+  const signal::pipeline::internal::CycleExecutionRuntime runtime = BuildMinimalValidRuntime(
+      base_config, internal_config, control_profile, &association_engine, &track_filter,
+      &output_manager);
+
+  model::TargetFeature target_a(1000.0f, 0.0f, 0.0f, 2.0f);
+  target_a.has_cartesian_position = true;
+  target_a.position_x = 1000.0f;
+  target_a.range_m = 1000.0f;
+  model::TargetFeature target_b(1500.0f, 0.0f, 0.0f, 3.0f);
+  target_b.has_cartesian_position = true;
+  target_b.position_x = 1500.0f;
+  target_b.range_m = 1500.0f;
+  const model::TargetFeatureList input_state{target_a, target_b};
+
+  environment::EnvironmentService environment_service;
+  signal::pipeline::internal::CycleExecutionScratch scratch;
+  signal::pipeline::internal::ExecuteCycle(input_state, environment_service, 3U, 9U, runtime,
+                                           &scratch);
+
+  EXPECT_EQ(scratch.output_state.size(), input_state.size());
+  EXPECT_EQ(scratch.signal_term_db.size(), input_state.size());
+  EXPECT_EQ(scratch.speed_penalty_db.size(), input_state.size());
+  EXPECT_EQ(scratch.detection_margin_db.size(), input_state.size());
+  EXPECT_EQ(scratch.detection_succeeded.size(), input_state.size());
+  EXPECT_EQ(scratch.association_keys.size(), input_state.size());
+  EXPECT_EQ(scratch.measurement_covariances.size(), input_state.size());
+  EXPECT_EQ(scratch.measurement_slots.size(), input_state.size());
+  EXPECT_EQ(scratch.target_geometry.size(), input_state.size());
+  EXPECT_EQ(scratch.decision_frame.cycle_index, 3U);
+  EXPECT_EQ(scratch.decision_frame.batch_id, 9U);
+}
+
+TEST(CycleExecutorTest, EmptyInputKeepsWorkspaceOutputsEmpty) {
+  config::SignalPipelineConfig base_config;
+  const signal::pipeline::internal::InternalSignalPipelineConfig internal_config =
+      signal::pipeline::internal::BuildInternalSignalPipelineConfig(base_config);
+  const extension::control::RadarControlProfile control_profile{};
+
+  signal::association::DataAssociationEngine association_engine;
+  signal::tracking::TrackFilter track_filter;
+  signal::assembly::DataOutputManager output_manager;
+  const signal::pipeline::internal::CycleExecutionRuntime runtime = BuildMinimalValidRuntime(
+      base_config, internal_config, control_profile, &association_engine, &track_filter,
+      &output_manager);
+
+  const model::TargetFeatureList input_state;
+  environment::EnvironmentService environment_service;
+  signal::pipeline::internal::CycleExecutionScratch scratch;
+  signal::pipeline::internal::ExecuteCycle(input_state, environment_service, 1U, 1U, runtime,
+                                           &scratch);
+
+  EXPECT_TRUE(scratch.output_state.empty());
+  EXPECT_TRUE(scratch.track_measurements.empty());
+  EXPECT_TRUE(scratch.detection_succeeded.empty());
+  EXPECT_TRUE(scratch.association_keys.empty());
+  EXPECT_TRUE(scratch.measurement_covariances.empty());
 }
 
 TEST(ScanScheduleResolverTest, SequenceControlsFastScanAxisWithSerpentine) {

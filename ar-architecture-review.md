@@ -115,6 +115,11 @@ CMake 把 `airborne_common/signal/decision/core` 做成对象库，最终合进�
 6. 把运行期配置更新集中化：引入 `RuntimeConfigResolver` 或每模块 `ApplyPatch`，避免 `RadarSession::ApplyRuntimeConfig` 持续知道 signal/environment 的深层结构。
 7. 补一份架构文档：重点写清楚周期时序、控制 profile 生效延迟、线程安全模型、公共 API 稳定性级别。
 
+第 4 条在当前目录重排后的执行口径（可执行版）：
+- `core` 映射为 `runtime + session`（当前 `src/airborne_radar/core/` 目录已不存在）。
+- 组合根豁免：`session/RadarSessionCompositionRoot.cpp` 允许依赖具体实现用于默认装配。
+- 灰区清单单列告警：`runtime/session` 对部分 `signal` 私有头依赖先 warning，不立即阻断。
+
 ## 风险判断
 
 短期风险：中等。当前结构有足够测试和契约守护，常规功能迭代不至于失控。

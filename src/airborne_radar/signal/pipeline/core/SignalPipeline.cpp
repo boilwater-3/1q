@@ -52,7 +52,7 @@ struct RuntimeState {
 struct CycleState {
   std::uint32_t cycle_index{1};
   std::uint64_t batch_id{1};
-  internal::CycleExecutionContext context{};
+  internal::CycleExecutionScratch scratch{};
 };
 
 }  // namespace
@@ -78,23 +78,23 @@ struct SignalPipeline::Impl {
     runtime_execution.has_manual_association_seeds = runtime_.has_manual_association_seeds;
 
     internal::ExecuteCycle(input_state, environment, cycle_.cycle_index, cycle_.batch_id,
-                           runtime_execution, &cycle_.context);
+                           runtime_execution, &cycle_.scratch);
 
     extension::SignalCycleResult result;
-    result.updated_features = cycle_.context.output_state;
-    result.decision_frame = cycle_.context.decision_frame;
-    result.association_quality_metrics = cycle_.context.association_quality_metrics;
+    result.updated_features = cycle_.scratch.output_state;
+    result.decision_frame = cycle_.scratch.decision_frame;
+    result.association_quality_metrics = cycle_.scratch.association_quality_metrics;
     ++cycle_.cycle_index;
     ++cycle_.batch_id;
     return result;
   }
 
   std::vector<tracking::TrackMeasurement> GetLastTrackMeasurements() const {
-    return cycle_.context.track_measurements;
+    return cycle_.scratch.track_measurements;
   }
 
   extension::AssociationQualityMetrics GetLastAssociationQualityMetrics() const {
-    return cycle_.context.association_quality_metrics;
+    return cycle_.scratch.association_quality_metrics;
   }
 
   void SetAssociationSeeds(const std::vector<tracking::AssociationTrackSeed>& seeds) {

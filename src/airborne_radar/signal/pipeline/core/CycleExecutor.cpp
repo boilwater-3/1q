@@ -26,34 +26,38 @@ bool HasValidRuntime(const CycleExecutionRuntime& runtime) {
          runtime.track_filter != nullptr && runtime.output_manager != nullptr;
 }
 
-void BindContextAndResolveConfig(const model::TargetFeatureList& input_state,
-                                 const extension::IEnvironmentService& environment,
-                                 std::uint32_t cycle_index, const CycleExecutionRuntime& runtime,
-                                 CycleExecutionContext* ctx) {
-  ctx->input_state = &input_state;
-  ctx->environment = &environment;
+CycleSetupPhaseOutput BuildSetupPhaseOutput(const model::TargetFeatureList& input_state,
+                                            const extension::IEnvironmentService& environment,
+                                            std::uint32_t cycle_index,
+                                            const CycleExecutionRuntime& runtime) {
+  CycleSetupPhaseOutput output;
+  output.input_state = &input_state;
+  output.environment = &environment;
+
   const assembly::internal::ResolvedRuntimeSignalPipelineConfig resolved =
       assembly::internal::BuildRuntimeConfigFromControlProfile(
           *runtime.base_config, *runtime.base_internal_config, *runtime.control_profile);
-  ctx->runtime_config = resolved.public_config;
-  ctx->internal_runtime_config = resolved.internal_config;
-  core::internal::ApplyScanScheduleToRuntimeConfig(cycle_index, &ctx->runtime_config);
+  output.runtime_config = resolved.public_config;
+  output.internal_runtime_config = resolved.internal_config;
+  core::internal::ApplyScanScheduleToRuntimeConfig(cycle_index, &output.runtime_config);
+  return output;
 }
 
-void InitializeWorkspace(const CycleExecutionRuntime& runtime, CycleExecutionContext* ctx) {
+void InitializeWorkspace(const CycleSetupPhaseOutput& setup, const CycleExecutionRuntime& runtime,
+                         CycleExecutionScratch* scratch) {
   CycleWorkspace cycle_workspace = BuildCycleWorkspaceBindings(
-      &ctx->output_state, &ctx->decision_frame, &ctx->association_quality_metrics,
-      &ctx->track_measurements, &ctx->signal_term_db, &ctx->speed_penalty_db,
-      &ctx->detection_margin_db, &ctx->detection_succeeded, &ctx->association_keys,
-      &ctx->measurement_slots, &ctx->target_geometry, &ctx->measurement_covariances,
-      &ctx->association_result);
-  ResetCycleWorkspace(*ctx->input_state, ctx->runtime_config, &cycle_workspace);
-  SyncAssociationAndTrackFilterConfigs(ctx->runtime_config, ctx->internal_runtime_config,
+      &scratch->output_state, &scratch->decision_frame, &scratch->association_quality_metrics,
+      &scratch->track_measurements, &scratch->signal_term_db, &scratch->speed_penalty_db,
+      &scratch->detection_margin_db, &scratch->detection_succeeded, &scratch->association_keys,
+      &scratch->measurement_slots, &scratch->target_geometry, &scratch->measurement_covariances,
+      &scratch->association_result);
+  ResetCycleWorkspace(*setup.input_state, setup.runtime_config, &cycle_workspace);
+  SyncAssociationAndTrackFilterConfigs(setup.runtime_config, setup.internal_runtime_config,
                                        runtime.association_engine, runtime.track_filter,
                                        runtime.auto_lifecycle_manager);
 }
 
-void PrepareAssociationSeeds(const CycleExecutionRuntime& runtime, CycleExecutionContext*) {
+void PrepareAssociationSeeds(const CycleExecutionRuntime& runtime) {
   const std::vector<tracking::AssociationTrackSeed> kEmptyAssociationSeeds;
   const std::vector<tracking::AssociationTrackSeed>& association_seeds =
       runtime.manual_association_seeds != nullptr ? *runtime.manual_association_seeds
@@ -62,70 +66,118 @@ void PrepareAssociationSeeds(const CycleExecutionRuntime& runtime, CycleExecutio
                                   runtime.auto_lifecycle_manager, runtime.association_engine);
 }
 
-void SampleEnvironmentAndResolveJamming(const CycleExecutionRuntime& runtime,
-                                        CycleExecutionContext* ctx) {
-  ctx->environment_snapshot = ctx->environment->SampleEnvironment();
-  ApplyEnvironmentJammingFactsToRuntimeConfig(*runtime.control_profile, ctx->environment_snapshot,
-                                              &ctx->internal_runtime_config, &ctx->runtime_config);
-  RefreshMeasurementCovariances(ctx->target_geometry.size(),
-                                ctx->runtime_config.tracking.kalman_measurement_noise_std,
-                                &ctx->measurement_covariances);
-  SyncAssociationAndTrackFilterConfigs(ctx->runtime_config, ctx->internal_runtime_config,
+EnvironmentPhaseOutput RunEnvironmentPhase(CycleSetupPhaseOutput* setup,
+                                           const CycleExecutionRuntime& runtime,
+                                           CycleExecutionScratch* scratch) {
+  EnvironmentPhaseOutput output;
+  output.environment_snapshot = setup->environment->SampleEnvironment();
+
+  ApplyEnvironmentJammingFactsToRuntimeConfig(*runtime.control_profile, output.environment_snapshot,
+                                              &setup->internal_runtime_config,
+                                              &setup->runtime_config);
+  RefreshMeasurementCovariances(scratch->target_geometry.size(),
+                                setup->runtime_config.tracking.kalman_measurement_noise_std,
+                                &scratch->measurement_covariances);
+  SyncAssociationAndTrackFilterConfigs(setup->runtime_config, setup->internal_runtime_config,
                                        runtime.association_engine, runtime.track_filter,
                                        runtime.auto_lifecycle_manager);
-  ctx->dominant_jamming_semantic =
-      ResolveDominantJammingSemantic(*runtime.control_profile, ctx->environment_snapshot);
-  ctx->jamming_severity =
-      ComputeTrackLevelJammingSeverity(*runtime.control_profile, ctx->environment_snapshot);
+
+  output.dominant_jamming_semantic =
+      ResolveDominantJammingSemantic(*runtime.control_profile, output.environment_snapshot);
+  output.jamming_severity =
+      ComputeTrackLevelJammingSeverity(*runtime.control_profile, output.environment_snapshot);
+  return output;
 }
 
-void RunDetectionPhase(const CycleExecutionRuntime& runtime, CycleExecutionContext* ctx) {
+DetectionPhaseOutput RunDetectionPhase(const CycleSetupPhaseOutput& setup,
+                                       const CycleExecutionRuntime& runtime,
+                                       const EnvironmentPhaseOutput& environment_phase,
+                                       CycleExecutionScratch* scratch) {
   DetectionExecutionBuffers detection_buffers = BuildDetectionExecutionBuffers(
-      &ctx->target_geometry, &ctx->signal_term_db, &ctx->speed_penalty_db,
-      &ctx->detection_margin_db, &ctx->detection_succeeded, &ctx->measurement_covariances);
-  if (ctx->runtime_config.detection.enable_physics_detection &&
-      runtime.signal_detector != nullptr) {
-    RunPhysicalDetectionPass(*ctx->input_state, ctx->runtime_config, ctx->internal_runtime_config,
-                             *runtime.control_profile, ctx->environment_snapshot,
+      &scratch->target_geometry, &scratch->signal_term_db, &scratch->speed_penalty_db,
+      &scratch->detection_margin_db, &scratch->detection_succeeded,
+      &scratch->measurement_covariances);
+
+  if (setup.runtime_config.detection.enable_physics_detection && runtime.signal_detector != nullptr) {
+    RunPhysicalDetectionPass(*setup.input_state, setup.runtime_config, setup.internal_runtime_config,
+                             *runtime.control_profile, environment_phase.environment_snapshot,
                              runtime.signal_detector, &detection_buffers);
   } else {
-    RunHeuristicDetectionPass(*ctx->input_state, ctx->runtime_config, ctx->internal_runtime_config,
-                              *runtime.control_profile, ctx->environment_snapshot,
+    RunHeuristicDetectionPass(*setup.input_state, setup.runtime_config, setup.internal_runtime_config,
+                              *runtime.control_profile, environment_phase.environment_snapshot,
                               &detection_buffers);
   }
+
+  DetectionPhaseOutput output;
+  output.detection_succeeded = &scratch->detection_succeeded;
+  output.detection_margin_db = &scratch->detection_margin_db;
+  output.measurement_covariances = &scratch->measurement_covariances;
+  output.target_geometry = &scratch->target_geometry;
+  return output;
 }
 
-void RunAssociationPhase(const CycleExecutionRuntime& runtime, CycleExecutionContext* ctx) {
-  RunAssociationPass(*ctx->input_state, ctx->detection_succeeded, ctx->measurement_covariances,
-                     ctx->environment_snapshot.cycle_dt_sec, runtime.association_engine,
-                     &ctx->association_result, &ctx->association_keys);
+AssociationPhaseOutput RunAssociationPhase(const CycleSetupPhaseOutput& setup,
+                                           const CycleExecutionRuntime& runtime,
+                                           const EnvironmentPhaseOutput& environment_phase,
+                                           const DetectionPhaseOutput& detection_phase,
+                                           CycleExecutionScratch* scratch) {
+  RunAssociationPass(*setup.input_state, *detection_phase.detection_succeeded,
+                     *detection_phase.measurement_covariances,
+                     environment_phase.environment_snapshot.cycle_dt_sec,
+                     runtime.association_engine, &scratch->association_result,
+                     &scratch->association_keys);
+
+  AssociationPhaseOutput output;
+  output.association_result = &scratch->association_result;
+  output.association_keys = &scratch->association_keys;
+  return output;
 }
 
-void BuildTrackMeasurementsPhase(CycleExecutionContext* ctx) {
+MeasurementBuildPhaseOutput RunMeasurementBuildPhase(
+    const CycleSetupPhaseOutput& setup, const EnvironmentPhaseOutput& environment_phase,
+    const DetectionPhaseOutput& detection_phase, const AssociationPhaseOutput& association_phase,
+    CycleExecutionScratch* scratch) {
   TrackMeasurementBuildContext build_context = BuildTrackMeasurementBuildContextBindings(
-      ctx->input_state, &ctx->association_result, &ctx->detection_succeeded, &ctx->association_keys,
-      &ctx->detection_margin_db, &ctx->target_geometry, &ctx->measurement_covariances,
-      ctx->environment_snapshot.jamming_detected, ctx->dominant_jamming_semantic,
-      ctx->jamming_severity, &ctx->measurement_slots, &ctx->track_measurements);
+      setup.input_state, association_phase.association_result, detection_phase.detection_succeeded,
+      association_phase.association_keys, detection_phase.detection_margin_db,
+      detection_phase.target_geometry, detection_phase.measurement_covariances,
+      environment_phase.environment_snapshot.jamming_detected,
+      environment_phase.dominant_jamming_semantic, environment_phase.jamming_severity,
+      &scratch->measurement_slots, &scratch->track_measurements);
   BuildTrackMeasurementsPass(build_context);
+
+  MeasurementBuildPhaseOutput output;
+  output.measurement_slots = &scratch->measurement_slots;
+  output.track_measurements = &scratch->track_measurements;
+  return output;
 }
 
-void ApplyTrackFilterPhase(const CycleExecutionRuntime& runtime, CycleExecutionContext* ctx) {
+void RunTrackFilterPhase(const CycleSetupPhaseOutput& setup, const CycleExecutionRuntime& runtime,
+                         const EnvironmentPhaseOutput& environment_phase,
+                         const DetectionPhaseOutput& detection_phase,
+                         const MeasurementBuildPhaseOutput& measurement_phase,
+                         CycleExecutionScratch* scratch) {
   TrackFilterApplyContext filter_context = BuildTrackFilterApplyContextBindings(
-      ctx->input_state, &ctx->output_state, &ctx->detection_succeeded, &ctx->detection_margin_db,
-      ctx->environment_snapshot.jamming_detected, ctx->dominant_jamming_semantic,
-      ctx->jamming_severity, runtime.track_filter, &ctx->measurement_slots,
-      &ctx->track_measurements);
+      setup.input_state, &scratch->output_state, detection_phase.detection_succeeded,
+      detection_phase.detection_margin_db, environment_phase.environment_snapshot.jamming_detected,
+      environment_phase.dominant_jamming_semantic, environment_phase.jamming_severity,
+      runtime.track_filter, measurement_phase.measurement_slots, &scratch->track_measurements);
   ApplyTrackFilterPass(filter_context);
 }
 
 void AssembleOutputs(std::uint32_t cycle_index, std::uint64_t batch_id,
-                     const CycleExecutionRuntime& runtime, CycleExecutionContext* ctx) {
-  CollectCycleOutputs(*runtime.control_profile, cycle_index, batch_id, ctx->internal_runtime_config,
-                      ctx->environment_snapshot, *ctx->input_state, ctx->output_state,
-                      ctx->association_result, ctx->track_measurements, runtime.output_manager,
-                      runtime.auto_lifecycle_manager, &ctx->association_quality_metrics,
-                      &ctx->decision_frame);
+                     const CycleSetupPhaseOutput& setup,
+                     const EnvironmentPhaseOutput& environment_phase,
+                     const CycleExecutionRuntime& runtime,
+                     const AssociationPhaseOutput& association_phase,
+                     const MeasurementBuildPhaseOutput& measurement_phase,
+                     CycleExecutionScratch* scratch) {
+  CollectCycleOutputs(*runtime.control_profile, cycle_index, batch_id, setup.internal_runtime_config,
+                      environment_phase.environment_snapshot, *setup.input_state,
+                      scratch->output_state, *association_phase.association_result,
+                      *measurement_phase.track_measurements, runtime.output_manager,
+                      runtime.auto_lifecycle_manager, &scratch->association_quality_metrics,
+                      &scratch->decision_frame);
 }
 
 }  // namespace
@@ -133,9 +185,9 @@ void AssembleOutputs(std::uint32_t cycle_index, std::uint64_t batch_id,
 void ExecuteCycle(const model::TargetFeatureList& input_state,
                   const extension::IEnvironmentService& environment, std::uint32_t cycle_index,
                   std::uint64_t batch_id, const CycleExecutionRuntime& runtime,
-                  CycleExecutionContext* cycle_context) {
-  if (cycle_context == nullptr) {
-    PROJECT_LOG_ERROR("[CycleExecutor] ExecuteCycle called with null cycle_context.");
+                  CycleExecutionScratch* cycle_scratch) {
+  if (cycle_scratch == nullptr) {
+    PROJECT_LOG_ERROR("[CycleExecutor] ExecuteCycle called with null cycle_scratch.");
     return;
   }
   if (!HasValidRuntime(runtime)) {
@@ -148,15 +200,25 @@ void ExecuteCycle(const model::TargetFeatureList& input_state,
         runtime.track_filter != nullptr, runtime.output_manager != nullptr);
     return;
   }
-  BindContextAndResolveConfig(input_state, environment, cycle_index, runtime, cycle_context);
-  InitializeWorkspace(runtime, cycle_context);
-  PrepareAssociationSeeds(runtime, cycle_context);
-  SampleEnvironmentAndResolveJamming(runtime, cycle_context);
-  RunDetectionPhase(runtime, cycle_context);
-  RunAssociationPhase(runtime, cycle_context);
-  BuildTrackMeasurementsPhase(cycle_context);
-  ApplyTrackFilterPhase(runtime, cycle_context);
-  AssembleOutputs(cycle_index, batch_id, runtime, cycle_context);
+
+  CycleSetupPhaseOutput setup =
+      BuildSetupPhaseOutput(input_state, environment, cycle_index, runtime);
+  InitializeWorkspace(setup, runtime, cycle_scratch);
+  PrepareAssociationSeeds(runtime);
+
+  const EnvironmentPhaseOutput environment_phase =
+      RunEnvironmentPhase(&setup, runtime, cycle_scratch);
+  const DetectionPhaseOutput detection_phase =
+      RunDetectionPhase(setup, runtime, environment_phase, cycle_scratch);
+  const AssociationPhaseOutput association_phase =
+      RunAssociationPhase(setup, runtime, environment_phase, detection_phase, cycle_scratch);
+  const MeasurementBuildPhaseOutput measurement_phase =
+      RunMeasurementBuildPhase(setup, environment_phase, detection_phase, association_phase,
+                               cycle_scratch);
+  RunTrackFilterPhase(setup, runtime, environment_phase, detection_phase, measurement_phase,
+                      cycle_scratch);
+  AssembleOutputs(cycle_index, batch_id, setup, environment_phase, runtime, association_phase,
+                  measurement_phase, cycle_scratch);
 }
 
 }  // namespace internal
