@@ -83,6 +83,10 @@ int main() {
   (void)has_profile;
   const std::size_t command_count = result.submitted_commands.size();
   (void)command_count;
+  const bool executed_this_cycle = result.executed_this_cycle;
+  (void)executed_this_cycle;
+  const bool reused_previous_track_output = result.reused_previous_track_output;
+  (void)reused_previous_track_output;
 
   // 8. RuntimeConfigBuilder hot-switch
   const airborne_radar::config::RadarRuntimeConfigPatch runtime_patch =

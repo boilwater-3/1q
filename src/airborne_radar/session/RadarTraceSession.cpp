@@ -387,6 +387,8 @@ Json BuildJson(const RadarCycleResult& value) {
         return BuildJson(issue);
       });
   json["has_validation_error"] = value.has_validation_error;
+  json["executed_this_cycle"] = value.executed_this_cycle;
+  json["reused_previous_track_output"] = value.reused_previous_track_output;
   json["has_control_profile"] = value.has_control_profile;
   json["control_profile"] = BuildJson(value.control_profile);
   json["association_quality_metrics"] = BuildJson(value.association_quality_metrics);

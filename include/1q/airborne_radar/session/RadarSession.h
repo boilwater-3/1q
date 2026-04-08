@@ -81,7 +81,9 @@ class ONEQ_API RadarSession {
    * @brief 执行一个不显式切场景的处理周期，并返回聚合结果。
    * @param input 当前周期输入。
    * @return 当前周期聚合结果。
-   * @note 输入容错：行为与 `Step()` 一致。
+   * @note 输入容错：行为与 `Step()` 一致；可通过结果中的
+   *       `executed_this_cycle` / `reused_previous_track_output`
+   *       区分“本周期实际执行”与“仅回退上一有效输出”。
    */
   RadarCycleResult StepWithResult(const RadarCycleInput& input);
 
@@ -90,30 +92,33 @@ class ONEQ_API RadarSession {
    * @param input 当前周期输入。
    * @param scene_state 当前 step 之前要提交的待生效场景。
    * @return 当前周期聚合结果。
+   * @note 输入校验失败时，不会提交 `scene_state`，并可通过结果中的
+   *       `executed_this_cycle` / `reused_previous_track_output`
+   *       判断是否发生了上一有效输出回退。
    */
   RadarCycleResult StepWithResult(const RadarCycleInput& input,
                                   const environment::EnvironmentSceneState& scene_state);
 
   /** @brief 获取当前周期已提交的控制指令。
-   * @return 当前周期已提交的控制指令列表引用。
+   * @return 最近一次成功执行周期提交的控制指令列表引用。
    */
   const std::vector<extension::control::RadarCommand>& GetSubmittedCommands() const;
 
   /**
    * @brief 判断是否已经保存过最新控制真值。
-   * @return 若已持有最近一次控制真值则返回 true。
+   * @return 若已持有最近一次成功执行周期留下的控制真值则返回 true。
    */
   bool HasLatestControlProfile() const;
 
   /**
    * @brief 获取最近一次控制真值。
-   * @return 最近一次控制真值引用。
+   * @return 最近一次成功执行周期留下的控制真值引用。
    */
   const extension::control::RadarControlProfile& GetLatestControlProfile() const;
 
   /**
    * @brief 获取最近一次关联质量观测指标。
-   * @return 最近一次关联质量观测指标。
+   * @return 最近一次成功执行周期留下的关联质量观测指标。
    */
   extension::AssociationQualityMetrics GetLastAssociationQualityMetrics() const;
 

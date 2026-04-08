@@ -21,14 +21,18 @@ namespace session {
  * @brief RadarCycleResult 描述单周期执行后的聚合观测结果。
  */
 struct RadarCycleResult {
-  output::TrackOutputFrame track_output_frame{};           /**< 当前周期轨迹输出帧 */
-  std::vector<extension::control::RadarCommand> submitted_commands{}; /**< 当前周期已提交的控制指令 */
-  ValidationIssueList validation_issues{};                         /**< 当前周期输入校验结果 */
-  bool has_validation_error{false};                                /**< 是否存在 error 级输入问题 */
-  bool has_control_profile{false};                        /**< 是否已持有最近一次控制真值 */
-  extension::control::RadarControlProfile control_profile{}; /**< 最近一次控制真值 */
+  output::TrackOutputFrame track_output_frame{}; /**< 当前调用返回的轨迹输出帧；非法周期时可复用上一有效帧 */
+  std::vector<extension::control::RadarCommand>
+      submitted_commands{}; /**< 当前周期已提交的控制指令；若未执行则为空 */
+  ValidationIssueList validation_issues{}; /**< 当前周期输入校验结果 */
+  bool has_validation_error{false}; /**< 是否存在 error 级输入问题 */
+  bool executed_this_cycle{false}; /**< 当前调用是否真正执行了 signal/decision/control 链路 */
+  bool reused_previous_track_output{
+      false}; /**< 当前 `track_output_frame` 是否复用了上一有效周期输出 */
+  bool has_control_profile{false}; /**< 当前周期是否产出了可归属到本周期的控制真值 */
+  extension::control::RadarControlProfile control_profile{}; /**< 当前周期控制真值；若未执行则保持默认值 */
   extension::AssociationQualityMetrics
-      association_quality_metrics{}; /**< 最近一次关联质量观测指标 */
+      association_quality_metrics{}; /**< 当前周期关联质量观测指标；若未执行则保持默认值 */
 };
 
 }  // namespace session

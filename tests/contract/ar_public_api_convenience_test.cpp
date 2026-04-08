@@ -704,6 +704,8 @@ TEST(PublicApiConvenienceTest,
   EXPECT_TRUE(output::ContainsExternalTargetId(frame_1, 0U));
   EXPECT_EQ(output::CollectTracksByExternalTargetId(frame_1, 701U).size(), 2U);
   EXPECT_FALSE(result_1.has_validation_error);
+  EXPECT_TRUE(result_1.executed_this_cycle);
+  EXPECT_FALSE(result_1.reused_previous_track_output);
 
   session::RadarCycleInput cycle_2 = cycle_1;
   cycle_2.dt_sec = -1.0f;
@@ -723,12 +725,17 @@ TEST(PublicApiConvenienceTest,
   const output::TrackOutputFrame& frame_2 = result_2.track_output_frame;
 
   EXPECT_TRUE(result_2.has_validation_error);
+  EXPECT_FALSE(result_2.executed_this_cycle);
+  EXPECT_TRUE(result_2.reused_previous_track_output);
   EXPECT_TRUE(
       ContainsIssueCode(result_2.validation_issues, session::ValidationCode::kInvalidCycleDeltaTime));
   EXPECT_EQ(frame_2.cycle_index, frame_1.cycle_index);
   EXPECT_EQ(frame_2.batch_id, frame_1.batch_id);
   EXPECT_EQ(frame_2.published_track_count, frame_1.published_track_count);
   EXPECT_EQ(output::CountJammingTracks(frame_2), output::CountJammingTracks(frame_1));
+  EXPECT_TRUE(result_2.submitted_commands.empty());
+  EXPECT_FALSE(result_2.has_control_profile);
+  EXPECT_EQ(result_2.association_quality_metrics.detection_count, 0U);
   EXPECT_TRUE(session.HasLatestControlProfile());
 
   session::RadarCycleInput cycle_3 = cycle_2;
@@ -761,6 +768,8 @@ TEST(PublicApiConvenienceTest,
       1.0f);
   const session::RadarCycleResult baseline = session.StepWithResult(baseline_input);
   EXPECT_FALSE(baseline.has_validation_error);
+  EXPECT_TRUE(baseline.executed_this_cycle);
+  EXPECT_FALSE(baseline.reused_previous_track_output);
   ASSERT_EQ(radar_context.GetTargetFeatures().size(), 1U);
   EXPECT_EQ(radar_context.GetTargetFeatures()[0].external_target_id, 810U);
   EXPECT_FLOAT_EQ(radar_context.GetCycleDeltaTimeSec(), 1.0f);
@@ -801,6 +810,8 @@ TEST(PublicApiConvenienceTest,
       -1.0f);
   const session::RadarCycleResult invalid_result = session.StepWithResult(invalid_input, jammed_scene);
   EXPECT_TRUE(invalid_result.has_validation_error);
+  EXPECT_FALSE(invalid_result.executed_this_cycle);
+  EXPECT_TRUE(invalid_result.reused_previous_track_output);
   EXPECT_TRUE(ContainsIssueCode(invalid_result.validation_issues,
                                 session::ValidationCode::kInvalidCycleDeltaTime));
   EXPECT_EQ(radar_context.begin_cycle_count(), committed_begin_cycles);
@@ -816,6 +827,8 @@ TEST(PublicApiConvenienceTest,
 
   const session::RadarCycleResult committed_result = session.StepWithResult(baseline_input, jammed_scene);
   EXPECT_FALSE(committed_result.has_validation_error);
+  EXPECT_TRUE(committed_result.executed_this_cycle);
+  EXPECT_FALSE(committed_result.reused_previous_track_output);
   EXPECT_EQ(radar_context.begin_cycle_count(), committed_begin_cycles + 1U);
   EXPECT_EQ(signal_pipeline.run_cycle_count(), committed_signal_runs + 1U);
   EXPECT_EQ(signal_pipeline.update_config_count(), committed_update_config_count + 1U);
@@ -842,6 +855,8 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultAggregatesCurrentCycleO
   EXPECT_GT(result.track_output_frame.published_track_count, 0U);
   EXPECT_GE(result.track_output_frame.published_track_count,
             result.track_output_frame.confirmed_track_count);
+  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_FALSE(result.reused_previous_track_output);
   EXPECT_EQ(result.submitted_commands.size(), session.GetSubmittedCommands().size());
   EXPECT_FALSE(result.has_validation_error);
   EXPECT_TRUE(result.validation_issues.empty());
@@ -866,6 +881,11 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultSurfacesValidationError
   const session::RadarCycleResult result = session.StepWithResult(input);
 
   EXPECT_TRUE(result.has_validation_error);
+  EXPECT_FALSE(result.executed_this_cycle);
+  EXPECT_FALSE(result.reused_previous_track_output);
+  EXPECT_TRUE(result.submitted_commands.empty());
+  EXPECT_FALSE(result.has_control_profile);
+  EXPECT_EQ(result.association_quality_metrics.detection_count, 0U);
   EXPECT_TRUE(
       ContainsIssueCode(result.validation_issues, session::ValidationCode::kNonFiniteCycleDeltaTime));
   EXPECT_TRUE(ContainsIssueCode(result.validation_issues,
