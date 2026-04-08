@@ -16,13 +16,13 @@
 #include "airborne_radar/decision/evaluators/ThreatAssessmentEvaluator.h"
 #include "airborne_radar/decision/pipeline/TacticalCoordinator.h"
 #include "airborne_radar/decision/pipeline/TacticalEvaluation.h"
-#include "airborne_radar/environment/database/FeatureRepository.h"
+#include "airborne_radar/environment/FeatureRepository.h"
 
 namespace dp = airborne_radar::decision::pipeline;
 namespace de = airborne_radar::decision::evaluators;
 namespace acc = airborne_radar::extension::control;
 namespace acm = airborne_radar::model;
-namespace edb = airborne_radar::environment::database;
+namespace edb = airborne_radar::environment;
 
 namespace {
 

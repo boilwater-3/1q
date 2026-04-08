@@ -11,7 +11,7 @@
 #include "airborne_radar/decision/evaluators/SurvivabilityEvaluator.h"
 #include "airborne_radar/decision/evaluators/ThreatAssessmentEvaluator.h"
 #include "airborne_radar/decision/pipeline/TacticalEvaluation.h"
-#include "airborne_radar/environment/database/IFeatureRepository.h"
+#include "airborne_radar/environment/IFeatureRepository.h"
 
 namespace airborne_radar {
 namespace decision {
@@ -27,7 +27,7 @@ class TacticalCoordinator final : public ITacticalDecisionEngine {
    * @param feature_repository 供威胁识别使用的特征仓储；可为空。
    */
   explicit TacticalCoordinator(
-      const environment::database::IFeatureRepository* feature_repository = nullptr);
+      const environment::IFeatureRepository* feature_repository = nullptr);
 
   /**
    * @brief 评估单周期输入并输出战术建议。

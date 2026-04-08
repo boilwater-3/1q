@@ -23,7 +23,7 @@
 #include "1q/airborne_radar/extension/control/RadarCommand.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "airborne_radar/environment/EnvironmentService.h"
-#include "airborne_radar/signal/pipeline/SignalPipeline.h"
+#include "airborne_radar/signal/pipeline/core/SignalPipeline.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
 

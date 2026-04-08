@@ -6,8 +6,8 @@
 #include <gtest/gtest.h>
 
 #include "1q/airborne_radar/config/SignalPipelineConfig.h"
-#include "airborne_radar/signal/pipeline/InternalSignalPipelineConfig.h"
-#include "airborne_radar/signal/runtime/SignalComponentFactory.h"
+#include "airborne_radar/signal/pipeline/config/InternalSignalPipelineConfig.h"
+#include "airborne_radar/signal/pipeline/assembly/SignalComponentFactory.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
 #include "airborne_radar/signal/tracking/SrifPredictor.h"
@@ -27,8 +27,8 @@ TEST(SignalComponentFactoryTest, BuildOwnedComponentsSelectsPredictorUpdaterFami
       signal::pipeline::internal::BuildInternalSignalPipelineConfig(config);
 
   config.tracking.kalman_update_backend = config::KalmanUpdateBackend::kUdKf;
-  signal::runtime::internal::OwnedSignalComponents ud_components =
-      signal::runtime::internal::SignalComponentFactory::BuildOwnedPipelineComponents(
+  signal::pipeline::assembly::internal::OwnedSignalComponents ud_components =
+      signal::pipeline::assembly::internal::SignalComponentFactory::BuildOwnedPipelineComponents(
           config, internal_config);
   EXPECT_NE(dynamic_cast<signal::tracking::UdkfPredictor*>(ud_components.kalman_predictor.get()),
             nullptr);
@@ -36,8 +36,8 @@ TEST(SignalComponentFactoryTest, BuildOwnedComponentsSelectsPredictorUpdaterFami
             nullptr);
 
   config.tracking.kalman_update_backend = config::KalmanUpdateBackend::kSrif;
-  signal::runtime::internal::OwnedSignalComponents srif_components =
-      signal::runtime::internal::SignalComponentFactory::BuildOwnedPipelineComponents(
+  signal::pipeline::assembly::internal::OwnedSignalComponents srif_components =
+      signal::pipeline::assembly::internal::SignalComponentFactory::BuildOwnedPipelineComponents(
           config, internal_config);
   EXPECT_NE(dynamic_cast<signal::tracking::SrifPredictor*>(srif_components.kalman_predictor.get()),
             nullptr);
@@ -45,8 +45,8 @@ TEST(SignalComponentFactoryTest, BuildOwnedComponentsSelectsPredictorUpdaterFami
             nullptr);
 
   config.tracking.kalman_update_backend = config::KalmanUpdateBackend::kStandardKfJoseph;
-  signal::runtime::internal::OwnedSignalComponents standard_components =
-      signal::runtime::internal::SignalComponentFactory::BuildOwnedPipelineComponents(
+  signal::pipeline::assembly::internal::OwnedSignalComponents standard_components =
+      signal::pipeline::assembly::internal::SignalComponentFactory::BuildOwnedPipelineComponents(
           config, internal_config);
   EXPECT_NE(dynamic_cast<signal::tracking::KalmanPredictor*>(
                 standard_components.kalman_predictor.get()),
@@ -65,8 +65,8 @@ TEST(SignalComponentFactoryTest, ImmAssemblyUsesSamePredictorUpdaterBackendFamil
       signal::pipeline::internal::BuildInternalSignalPipelineConfig(config);
   internal_config.lifecycle.imm_model_noise_diff_coeffs = {0.5f, 2.0f};
 
-  signal::runtime::internal::LifecycleAssemblyArtifacts artifacts =
-      signal::runtime::internal::SignalComponentFactory::BuildLifecycleAssemblyArtifacts(
+  signal::pipeline::assembly::internal::LifecycleAssemblyArtifacts artifacts =
+      signal::pipeline::assembly::internal::SignalComponentFactory::BuildLifecycleAssemblyArtifacts(
           config, internal_config);
 
   ASSERT_EQ(artifacts.imm_predictors_owned.size(), 2U);

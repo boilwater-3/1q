@@ -14,13 +14,8 @@
 namespace airborne_radar {
 namespace environment {
 
-namespace scene {
 class SceneManager;
-}
-
-namespace simulation {
 class PropagationModel;
-}
 
 /**
  * @brief 提供可配置的环境快照采样实现。
@@ -71,8 +66,8 @@ class EnvironmentService final : public extension::IEnvironmentService {
  private:
   void RefreshFrozenSnapshotFromActiveScene();
 
-  std::unique_ptr<scene::SceneManager> scene_manager_;
-  std::unique_ptr<simulation::PropagationModel> propagation_model_;
+  std::unique_ptr<SceneManager> scene_manager_;
+  std::unique_ptr<PropagationModel> propagation_model_;
   EnvironmentSnapshot frozen_snapshot_{};
   EnvironmentCycleContext current_cycle_context_{};
   float jamming_detection_threshold_db_{6.0f};

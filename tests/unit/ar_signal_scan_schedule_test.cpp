@@ -16,9 +16,9 @@
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/detection/TargetLookResolver.h"
-#include "airborne_radar/signal/pipeline/CycleExecutor.h"
-#include "airborne_radar/signal/pipeline/SignalPipeline.h"
-#include "airborne_radar/signal/runtime/ScanScheduleResolver.h"
+#include "airborne_radar/signal/pipeline/core/CycleExecutor.h"
+#include "airborne_radar/signal/pipeline/core/SignalPipeline.h"
+#include "airborne_radar/signal/pipeline/core/ScanScheduleResolver.h"
 
 namespace airborne_radar {
 namespace tests {
@@ -36,7 +36,7 @@ std::size_t CountUniqueScheduledPoints(const model::RadarOrientationConfig& orie
   std::vector<model::AzimuthElevationDeg> unique_points;
   for (std::uint32_t cycle = 1U; cycle <= cycle_count; ++cycle) {
     const model::AzimuthElevationDeg pointing =
-        signal::runtime::internal::ResolveScheduledBeamPointing(orientation, beamwidth, cycle);
+        signal::pipeline::core::internal::ResolveScheduledBeamPointing(orientation, beamwidth, cycle);
     bool exists = false;
     for (std::size_t i = 0; i < unique_points.size(); ++i) {
       if (AlmostSamePoint(unique_points[i], pointing)) {
@@ -59,19 +59,19 @@ TEST(ScanScheduleResolverTest, StartPositionControlsFirstBeamQuadrant) {
   limits.el_max_deg = 5.0f;
 
   const std::vector<model::AzimuthElevationDeg> left_top_pattern =
-      signal::runtime::internal::BuildScheduledScanPattern(
+      signal::pipeline::core::internal::BuildScheduledScanPattern(
           limits, 10.0f, 5.0f, oneq::common::ScanStartPosition::kLeftTop,
           oneq::common::ScanSequence::kAzimuthFirst);
   const std::vector<model::AzimuthElevationDeg> right_top_pattern =
-      signal::runtime::internal::BuildScheduledScanPattern(
+      signal::pipeline::core::internal::BuildScheduledScanPattern(
           limits, 10.0f, 5.0f, oneq::common::ScanStartPosition::kRightTop,
           oneq::common::ScanSequence::kAzimuthFirst);
   const std::vector<model::AzimuthElevationDeg> right_bottom_pattern =
-      signal::runtime::internal::BuildScheduledScanPattern(
+      signal::pipeline::core::internal::BuildScheduledScanPattern(
           limits, 10.0f, 5.0f, oneq::common::ScanStartPosition::kRightBottom,
           oneq::common::ScanSequence::kAzimuthFirst);
   const std::vector<model::AzimuthElevationDeg> left_bottom_pattern =
-      signal::runtime::internal::BuildScheduledScanPattern(
+      signal::pipeline::core::internal::BuildScheduledScanPattern(
           limits, 10.0f, 5.0f, oneq::common::ScanStartPosition::kLeftBottom,
           oneq::common::ScanSequence::kAzimuthFirst);
 
@@ -111,11 +111,11 @@ TEST(ScanScheduleResolverTest, SequenceControlsFastScanAxisWithSerpentine) {
   limits.el_max_deg = 5.0f;
 
   const std::vector<model::AzimuthElevationDeg> azimuth_first_pattern =
-      signal::runtime::internal::BuildScheduledScanPattern(
+      signal::pipeline::core::internal::BuildScheduledScanPattern(
           limits, 10.0f, 5.0f, oneq::common::ScanStartPosition::kLeftTop,
           oneq::common::ScanSequence::kAzimuthFirst);
   const std::vector<model::AzimuthElevationDeg> elevation_first_pattern =
-      signal::runtime::internal::BuildScheduledScanPattern(
+      signal::pipeline::core::internal::BuildScheduledScanPattern(
           limits, 10.0f, 5.0f, oneq::common::ScanStartPosition::kLeftTop,
           oneq::common::ScanSequence::kElevationFirst);
 
@@ -152,12 +152,12 @@ TEST(ScanScheduleResolverTest, InvalidStepFallsBackToClampedScanCenter) {
   invalid_beamwidth.el_beamwidth_deg = 5.0f;
 
   const model::AzimuthElevationDeg pointing =
-      signal::runtime::internal::ResolveScheduledBeamPointing(orientation, invalid_beamwidth, 3U);
+      signal::pipeline::core::internal::ResolveScheduledBeamPointing(orientation, invalid_beamwidth, 3U);
   EXPECT_FLOAT_EQ(pointing.az_deg, 30.0f);
   EXPECT_FLOAT_EQ(pointing.el_deg, 10.0f);
 
   const model::AzimuthElevationDeg dwell_center =
-      signal::runtime::internal::ResolveScheduledDwellCenter(orientation, invalid_beamwidth, 3U);
+      signal::pipeline::core::internal::ResolveScheduledDwellCenter(orientation, invalid_beamwidth, 3U);
   EXPECT_FLOAT_EQ(dwell_center.az_deg, -50.0f);
   EXPECT_FLOAT_EQ(dwell_center.el_deg, -30.0f);
 }
@@ -179,9 +179,9 @@ TEST(ScanScheduleResolverTest, FirstCycleMapsToFirstBeamIndex) {
   beamwidth.el_beamwidth_deg = 10.0f;
 
   const model::AzimuthElevationDeg cycle_1 =
-      signal::runtime::internal::ResolveScheduledBeamPointing(orientation, beamwidth, 1U);
+      signal::pipeline::core::internal::ResolveScheduledBeamPointing(orientation, beamwidth, 1U);
   const model::AzimuthElevationDeg cycle_2 =
-      signal::runtime::internal::ResolveScheduledBeamPointing(orientation, beamwidth, 2U);
+      signal::pipeline::core::internal::ResolveScheduledBeamPointing(orientation, beamwidth, 2U);
   EXPECT_FLOAT_EQ(cycle_1.az_deg, -60.0f);
   EXPECT_FLOAT_EQ(cycle_2.az_deg, 60.0f);
 }
@@ -202,15 +202,15 @@ TEST(ScanScheduleResolverTest, StbyParksAtClampedBoresightWithoutCycleAdvance) {
   beamwidth.el_beamwidth_deg = 6.0f;
 
   const model::AzimuthElevationDeg cycle_1 =
-      signal::runtime::internal::ResolveScheduledBeamPointing(orientation, beamwidth, 1U);
+      signal::pipeline::core::internal::ResolveScheduledBeamPointing(orientation, beamwidth, 1U);
   const model::AzimuthElevationDeg cycle_9 =
-      signal::runtime::internal::ResolveScheduledBeamPointing(orientation, beamwidth, 9U);
+      signal::pipeline::core::internal::ResolveScheduledBeamPointing(orientation, beamwidth, 9U);
   EXPECT_TRUE(AlmostSamePoint(cycle_1, cycle_9));
   EXPECT_FLOAT_EQ(cycle_1.az_deg, 5.0f);
   EXPECT_FLOAT_EQ(cycle_1.el_deg, 0.0f);
 
   const model::AzimuthElevationDeg dwell =
-      signal::runtime::internal::ResolveScheduledDwellCenter(orientation, beamwidth, 5U);
+      signal::pipeline::core::internal::ResolveScheduledDwellCenter(orientation, beamwidth, 5U);
   EXPECT_FLOAT_EQ(dwell.az_deg, cycle_1.az_deg - orientation.scan_center_deg.az_deg);
   EXPECT_FLOAT_EQ(dwell.el_deg, cycle_1.el_deg - orientation.scan_center_deg.el_deg);
 }
@@ -231,15 +231,15 @@ TEST(ScanScheduleResolverTest, SttFixesAtScanCenterAndKeepsZeroDwell) {
   beamwidth.el_beamwidth_deg = 10.0f;
 
   const model::AzimuthElevationDeg cycle_1 =
-      signal::runtime::internal::ResolveScheduledBeamPointing(orientation, beamwidth, 1U);
+      signal::pipeline::core::internal::ResolveScheduledBeamPointing(orientation, beamwidth, 1U);
   const model::AzimuthElevationDeg cycle_7 =
-      signal::runtime::internal::ResolveScheduledBeamPointing(orientation, beamwidth, 7U);
+      signal::pipeline::core::internal::ResolveScheduledBeamPointing(orientation, beamwidth, 7U);
   EXPECT_TRUE(AlmostSamePoint(cycle_1, cycle_7));
   EXPECT_FLOAT_EQ(cycle_1.az_deg, orientation.scan_center_deg.az_deg);
   EXPECT_FLOAT_EQ(cycle_1.el_deg, orientation.scan_center_deg.el_deg);
 
   const model::AzimuthElevationDeg dwell =
-      signal::runtime::internal::ResolveScheduledDwellCenter(orientation, beamwidth, 7U);
+      signal::pipeline::core::internal::ResolveScheduledDwellCenter(orientation, beamwidth, 7U);
   EXPECT_FLOAT_EQ(dwell.az_deg, 0.0f);
   EXPECT_FLOAT_EQ(dwell.el_deg, 0.0f);
 }
@@ -262,13 +262,13 @@ TEST(ScanScheduleResolverTest, TasIsDenserThanTwsAndKeepsSerpentineSemantics) {
   beamwidth.el_beamwidth_deg = 10.0f;
 
   const model::AzimuthElevationDeg tws_first =
-      signal::runtime::internal::ResolveScheduledBeamPointing(tws_orientation, beamwidth, 1U);
+      signal::pipeline::core::internal::ResolveScheduledBeamPointing(tws_orientation, beamwidth, 1U);
   const model::AzimuthElevationDeg tws_second =
-      signal::runtime::internal::ResolveScheduledBeamPointing(tws_orientation, beamwidth, 2U);
+      signal::pipeline::core::internal::ResolveScheduledBeamPointing(tws_orientation, beamwidth, 2U);
   const model::AzimuthElevationDeg tas_first =
-      signal::runtime::internal::ResolveScheduledBeamPointing(tas_orientation, beamwidth, 1U);
+      signal::pipeline::core::internal::ResolveScheduledBeamPointing(tas_orientation, beamwidth, 1U);
   const model::AzimuthElevationDeg tas_second =
-      signal::runtime::internal::ResolveScheduledBeamPointing(tas_orientation, beamwidth, 2U);
+      signal::pipeline::core::internal::ResolveScheduledBeamPointing(tas_orientation, beamwidth, 2U);
   EXPECT_FLOAT_EQ(tws_first.az_deg, -20.0f);
   EXPECT_FLOAT_EQ(tws_first.el_deg, 10.0f);
   EXPECT_FLOAT_EQ(tas_first.az_deg, -20.0f);
@@ -328,9 +328,9 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
 
   model::RadarOrientationConfig cycle_1_orientation = orientation;
   model::RadarOrientationConfig cycle_2_orientation = orientation;
-  cycle_1_orientation.dwell_center_deg = signal::runtime::internal::ResolveScheduledDwellCenter(
+  cycle_1_orientation.dwell_center_deg = signal::pipeline::core::internal::ResolveScheduledDwellCenter(
       cycle_1_orientation, effective_beamwidth, 1U);
-  cycle_2_orientation.dwell_center_deg = signal::runtime::internal::ResolveScheduledDwellCenter(
+  cycle_2_orientation.dwell_center_deg = signal::pipeline::core::internal::ResolveScheduledDwellCenter(
       cycle_2_orientation, effective_beamwidth, 2U);
   const signal::detection::ResolvedBeamState cycle_1_beam =
       signal::detection::BeamControlResolver::Resolve(

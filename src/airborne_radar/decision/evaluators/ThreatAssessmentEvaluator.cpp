@@ -33,7 +33,7 @@ const float kHighThreatConfidenceThreshold = 0.55f;
 }  // namespace
 
 ThreatAssessmentEvaluator::ThreatAssessmentEvaluator(
-    const environment::database::IFeatureRepository* feature_repository)
+    const environment::IFeatureRepository* feature_repository)
     : feature_repository_(feature_repository) {}
 
 void ThreatAssessmentEvaluator::Evaluate(
@@ -86,12 +86,12 @@ void ThreatAssessmentEvaluator::Evaluate(
 model::TargetCategory ThreatAssessmentEvaluator::IdentifyTarget(
     const model::DecisionTrackSnapshot& track_snapshot) const {
   if (feature_repository_ != nullptr) {
-    environment::database::FeatureVector input;
+    environment::FeatureVector input;
     input.Set("speed", track_snapshot.state.speed);
     input.Set("rcs", track_snapshot.state.rcs);
     input.Set("jamming", track_snapshot.state.jamming_detected ? 1.0f : 0.0f);
 
-    environment::database::MatchResult match_result;
+    environment::MatchResult match_result;
     if (feature_repository_->QueryBestMatch(input, match_result)) {
       if (ShouldAcceptRepositoryMatch(match_result)) {
         model::TargetCategory result(match_result.target_type);
@@ -157,7 +157,7 @@ void ThreatAssessmentEvaluator::UpdateLpiSourceInfo(model::LpiSourceInfo* source
 }
 
 bool ThreatAssessmentEvaluator::ShouldAcceptRepositoryMatch(
-    const environment::database::MatchResult& match_result) const {
+    const environment::MatchResult& match_result) const {
   if (match_result.target_type == "UNKNOWN") {
     return false;
   }

@@ -12,7 +12,7 @@
 #include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
 #include "1q/airborne_radar/model/TargetCategory.h"
 #include "airborne_radar/decision/pipeline/TacticalEvaluation.h"
-#include "airborne_radar/environment/database/IFeatureRepository.h"
+#include "airborne_radar/environment/IFeatureRepository.h"
 
 namespace airborne_radar {
 namespace decision {
@@ -28,7 +28,7 @@ class ThreatAssessmentEvaluator final : public pipeline::ITacticalEvaluator {
    * @param feature_repository 用于目标特征匹配的仓储接口；可为空。
    */
   explicit ThreatAssessmentEvaluator(
-      const environment::database::IFeatureRepository* feature_repository = nullptr);
+      const environment::IFeatureRepository* feature_repository = nullptr);
 
   /**
    * @brief 评估单周期输入并更新分类与威胁状态。
@@ -69,7 +69,7 @@ class ThreatAssessmentEvaluator final : public pipeline::ITacticalEvaluator {
    * @param match_result 仓储匹配结果。
    * @return 结果足够可靠时返回 `true`。
    */
-  bool ShouldAcceptRepositoryMatch(const environment::database::MatchResult& match_result) const;
+  bool ShouldAcceptRepositoryMatch(const environment::MatchResult& match_result) const;
 
   /**
    * @brief 更新跨周期置信度。
@@ -87,7 +87,7 @@ class ThreatAssessmentEvaluator final : public pipeline::ITacticalEvaluator {
    */
   bool IsHighThreatCategory(const std::string& category) const;
 
-  const environment::database::IFeatureRepository* feature_repository_;
+  const environment::IFeatureRepository* feature_repository_;
 };
 
 }  // namespace evaluators

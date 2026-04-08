@@ -155,7 +155,7 @@ void PruneInactiveTrackState(const model::DecisionTrackSnapshotList& tracks,
 }  // namespace
 
 TacticalCoordinator::TacticalCoordinator(
-    const environment::database::IFeatureRepository* feature_repository)
+    const environment::IFeatureRepository* feature_repository)
     : threat_assessment_evaluator_(feature_repository),
       emission_control_evaluator_(),
       survivability_evaluator_() {}

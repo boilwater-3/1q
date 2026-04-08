@@ -19,9 +19,9 @@
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
 #include "1q/airborne_radar/session/RadarSession.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
-#include "airborne_radar/core/context/MutableRadarContext.h"
+#include "airborne_radar/session/MutableRadarContext.h"
 #include "airborne_radar/environment/EnvironmentService.h"
-#include "airborne_radar/signal/pipeline/SignalPipeline.h"
+#include "airborne_radar/signal/pipeline/core/SignalPipeline.h"
 
 namespace airborne_radar {
 namespace tests {

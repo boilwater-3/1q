@@ -15,12 +15,12 @@
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/config/SignalPipelineConfig.h"
 #include "airborne_radar/environment/EnvironmentService.h"
-#include "airborne_radar/environment/scene/SceneManager.h"
-#include "airborne_radar/environment/simulation/PropagationModel.h"
-#include "airborne_radar/signal/pipeline/ControlProfileEffects.h"
-#include "airborne_radar/signal/pipeline/JammingEffects.h"
-#include "airborne_radar/signal/pipeline/SignalPipeline.h"
-#include "airborne_radar/signal/runtime/RuntimeAssemblySupport.h"
+#include "airborne_radar/environment/SceneManager.h"
+#include "airborne_radar/environment/PropagationModel.h"
+#include "airborne_radar/signal/pipeline/effects/ControlProfileEffects.h"
+#include "airborne_radar/signal/pipeline/effects/JammingEffects.h"
+#include "airborne_radar/signal/pipeline/core/SignalPipeline.h"
+#include "airborne_radar/signal/pipeline/assembly/RuntimeAssemblySupport.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
@@ -212,7 +212,7 @@ TEST(SceneManagerTest, CommitsPendingSceneOnlyWhenBeginCycleArrives) {
   environment::EnvironmentSceneState initial_scene;
   initial_scene.base_propagation_loss_db = 1.0f;
 
-  environment::scene::SceneManager scene_manager(initial_scene);
+  environment::SceneManager scene_manager(initial_scene);
 
   environment::EnvironmentSceneState pending_scene = initial_scene;
   pending_scene.base_propagation_loss_db = 15.0f;
@@ -240,8 +240,8 @@ TEST(PropagationModelTest, NegativeTerrainReflectionYieldsNetGainPassesThroughUn
   // low-clutter environments and must not be clamped.
   scene_state.clutter_power_db = -3.0f;
 
-  environment::simulation::PropagationModel propagation_model;
-  const environment::simulation::PropagationResult result = propagation_model.Evaluate(scene_state);
+  environment::PropagationModel propagation_model;
+  const environment::PropagationResult result = propagation_model.Evaluate(scene_state);
 
   // No clamp: -10 + 2 + (-4) = -12 dB (net multipath gain is physically valid).
   EXPECT_FLOAT_EQ(result.propagation_loss_db, -12.0f);
@@ -265,10 +265,10 @@ TEST(PropagationModelTest, OptionalAtmosphericPhysicsAddsExtraLossWhenEnabled) {
   physics_scene.atmospheric_physics.elevation_deg = 3.0f;
   physics_scene.atmospheric_physics.relative_humidity = 0.75f;
 
-  environment::simulation::PropagationModel propagation_model;
-  const environment::simulation::PropagationResult baseline_result =
+  environment::PropagationModel propagation_model;
+  const environment::PropagationResult baseline_result =
       propagation_model.Evaluate(baseline_scene);
-  const environment::simulation::PropagationResult physics_result =
+  const environment::PropagationResult physics_result =
       propagation_model.Evaluate(physics_scene);
 
   EXPECT_GT(physics_result.propagation_loss_db, baseline_result.propagation_loss_db);
@@ -289,10 +289,10 @@ TEST(PropagationModelTest, OptionalVegetationScatterPhysicsRaisesClutterWhenEnab
   physics_scene.vegetation_scatter_physics.canopy_radius_m = 1.4f;
   physics_scene.vegetation_scatter_physics.canopy_height_m = 4.2f;
 
-  environment::simulation::PropagationModel propagation_model;
-  const environment::simulation::PropagationResult baseline_result =
+  environment::PropagationModel propagation_model;
+  const environment::PropagationResult baseline_result =
       propagation_model.Evaluate(baseline_scene);
-  const environment::simulation::PropagationResult physics_result =
+  const environment::PropagationResult physics_result =
       propagation_model.Evaluate(physics_scene);
 
   EXPECT_FLOAT_EQ(physics_result.propagation_loss_db, baseline_result.propagation_loss_db);
@@ -440,7 +440,7 @@ TEST(SignalPipelineTest, AutoLifecycleManagerBuildsWithDefaultInternalImmConfig)
   runtime_config.lifecycle.enable_imm_lifecycle = true;
 
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> lifecycle_manager =
-      signal::runtime::internal::CreateAutoLifecycleManagerForRuntimeConfig(
+      signal::pipeline::assembly::internal::CreateAutoLifecycleManagerForRuntimeConfig(
           runtime_config,
           signal::pipeline::internal::BuildInternalSignalPipelineConfig(runtime_config));
   ASSERT_TRUE(lifecycle_manager != nullptr);
@@ -1151,10 +1151,10 @@ TEST(SignalPipelineTest, AutoLifecycleManagerSyncsRuntimeTuningAcrossCycles) {
   const signal::pipeline::internal::InternalSignalPipelineConfig base_internal_config =
       signal::pipeline::internal::BuildInternalSignalPipelineConfig(pipeline_config);
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> unsynced_manager =
-      signal::runtime::internal::CreateAutoLifecycleManagerForRuntimeConfig(pipeline_config,
+      signal::pipeline::assembly::internal::CreateAutoLifecycleManagerForRuntimeConfig(pipeline_config,
                                                                             base_internal_config);
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> synced_manager =
-      signal::runtime::internal::CreateAutoLifecycleManagerForRuntimeConfig(pipeline_config,
+      signal::pipeline::assembly::internal::CreateAutoLifecycleManagerForRuntimeConfig(pipeline_config,
                                                                             base_internal_config);
   ASSERT_TRUE(unsynced_manager != nullptr);
   ASSERT_TRUE(synced_manager != nullptr);
@@ -1172,10 +1172,10 @@ TEST(SignalPipelineTest, AutoLifecycleManagerSyncsRuntimeTuningAcrossCycles) {
 
   extension::control::RadarControlProfile agile_profile;
   agile_profile.enable_agility_frequency = true;
-  const signal::runtime::internal::ResolvedRuntimeSignalPipelineConfig agile_runtime_config =
-      signal::runtime::internal::BuildRuntimeConfigFromControlProfile(
+  const signal::pipeline::assembly::internal::ResolvedRuntimeSignalPipelineConfig agile_runtime_config =
+      signal::pipeline::assembly::internal::BuildRuntimeConfigFromControlProfile(
           pipeline_config, base_internal_config, agile_profile);
-  signal::runtime::internal::SyncAutoLifecycleManagerForRuntimeConfig(
+  signal::pipeline::assembly::internal::SyncAutoLifecycleManagerForRuntimeConfig(
       agile_runtime_config.public_config, agile_runtime_config.internal_config,
       synced_manager.get());
 
@@ -1557,8 +1557,8 @@ TEST(PropagationModelTest, LargeNegativeClutterPassesThroughUnchanged) {
   scene_state.terrain_reflection_db = 0.0f;
   scene_state.clutter_power_db = -200.0f;
 
-  environment::simulation::PropagationModel model;
-  const environment::simulation::PropagationResult result = model.Evaluate(scene_state);
+  environment::PropagationModel model;
+  const environment::PropagationResult result = model.Evaluate(scene_state);
 
   EXPECT_FLOAT_EQ(result.propagation_loss_db, 5.0f);
   EXPECT_FLOAT_EQ(result.clutter_power_db, -200.0f);
@@ -1569,7 +1569,7 @@ TEST(PropagationModelTest, ZeroClutterPassesThroughUnchanged) {
   environment::EnvironmentSceneState scene_state;
   scene_state.clutter_power_db = 0.0f;
 
-  environment::simulation::PropagationModel model;
+  environment::PropagationModel model;
   EXPECT_FLOAT_EQ(model.Evaluate(scene_state).clutter_power_db, 0.0f);
 }
 
@@ -1578,7 +1578,7 @@ TEST(PropagationModelTest, PositiveClutterPassesThroughUnchanged) {
   environment::EnvironmentSceneState scene_state;
   scene_state.clutter_power_db = 15.0f;
 
-  environment::simulation::PropagationModel model;
+  environment::PropagationModel model;
   EXPECT_FLOAT_EQ(model.Evaluate(scene_state).clutter_power_db, 15.0f);
 }
 
@@ -1590,8 +1590,8 @@ TEST(PropagationModelTest, PositivePropagationLossIsRetained) {
   scene_state.terrain_reflection_db = 2.0f;
   scene_state.clutter_power_db = 0.0f;
 
-  environment::simulation::PropagationModel model;
-  const environment::simulation::PropagationResult result = model.Evaluate(scene_state);
+  environment::PropagationModel model;
+  const environment::PropagationResult result = model.Evaluate(scene_state);
 
   EXPECT_FLOAT_EQ(result.propagation_loss_db, 15.0f);
 }
@@ -1604,8 +1604,8 @@ TEST(PropagationModelTest, AllZeroComponentsProduceZeroResults) {
   scene_state.terrain_reflection_db = 0.0f;
   scene_state.clutter_power_db = 0.0f;
 
-  environment::simulation::PropagationModel model;
-  const environment::simulation::PropagationResult result = model.Evaluate(scene_state);
+  environment::PropagationModel model;
+  const environment::PropagationResult result = model.Evaluate(scene_state);
 
   EXPECT_FLOAT_EQ(result.propagation_loss_db, 0.0f);
   EXPECT_FLOAT_EQ(result.clutter_power_db, 0.0f);

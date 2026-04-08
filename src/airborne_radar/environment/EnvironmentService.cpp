@@ -5,8 +5,8 @@
 #include <utility>
 
 #include "airborne_radar/common/utils/MathUtils.h"
-#include "airborne_radar/environment/scene/SceneManager.h"
-#include "airborne_radar/environment/simulation/PropagationModel.h"
+#include "airborne_radar/environment/SceneManager.h"
+#include "airborne_radar/environment/PropagationModel.h"
 
 namespace airborne_radar {
 namespace environment {
@@ -62,8 +62,8 @@ EnvironmentSceneState BuildSceneStateFromModelConfig(const EnvironmentModelConfi
 }  // namespace
 
 EnvironmentService::EnvironmentService(const EnvironmentModelConfig& config)
-    : scene_manager_(new scene::SceneManager(BuildSceneStateFromModelConfig(config))),
-      propagation_model_(new simulation::PropagationModel()) {
+    : scene_manager_(new SceneManager(BuildSceneStateFromModelConfig(config))),
+      propagation_model_(new PropagationModel()) {
   RefreshFrozenSnapshotFromActiveScene();
 }
 
@@ -96,7 +96,7 @@ void EnvironmentService::RefreshFrozenSnapshotFromActiveScene() {
     return;
   }
 
-  const simulation::PropagationResult propagation_result =
+  const PropagationResult propagation_result =
       propagation_model_->Evaluate(scene_manager_->GetActiveScene());
   frozen_snapshot_.cycle_dt_sec = current_cycle_context_.dt_sec;
   frozen_snapshot_.propagation_loss_db = propagation_result.propagation_loss_db;
