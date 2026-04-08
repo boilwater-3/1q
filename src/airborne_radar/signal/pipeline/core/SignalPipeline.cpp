@@ -129,6 +129,7 @@ struct SignalPipeline::Impl {
     }
 
     extension::SignalCycleResult result;
+    result.executed_this_cycle = true;
     result.updated_features = cycle_.scratch.output_state;
     result.decision_frame = cycle_.scratch.decision_frame;
     result.association_quality_metrics = cycle_.scratch.association_quality_metrics;
@@ -146,10 +147,16 @@ struct SignalPipeline::Impl {
   }
 
   void SetAssociationSeeds(const std::vector<tracking::AssociationTrackSeed>& seeds) {
+    if (seeds.empty()) {
+      ClearManualAssociationSeeds();
+      return;
+    }
+    if (!runtime_.owned.association_engine.SetAssociationSeeds(seeds)) {
+      ClearManualAssociationSeeds();
+      return;
+    }
     runtime_.association_seeds.has_manual_association_seeds = true;
     runtime_.association_seeds.manual_association_seeds = seeds;
-    runtime_.owned.association_engine.SetAssociationSeeds(
-        runtime_.association_seeds.manual_association_seeds);
   }
 
   void ClearManualAssociationSeeds() {

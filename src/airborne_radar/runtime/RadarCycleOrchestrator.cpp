@@ -42,6 +42,9 @@ CycleExecutionResult RadarCycleOrchestrator::Execute(
 
   CycleExecutionResult result;
   result.signal_result = signal_pipeline_.RunCycle(features, environment_service_);
+  if (!result.signal_result.executed_this_cycle) {
+    return result;
+  }
 
   model::DecisionInputFrame decision_frame = result.signal_result.decision_frame;
   decision_frame.cycle_index = stamp.cycle_index;

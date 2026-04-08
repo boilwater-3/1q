@@ -55,8 +55,9 @@ class SignalPipeline final : public extension::ISignalPipeline {
   extension::AssociationQualityMetrics GetLastAssociationQualityMetrics() const override;
 
   /**
-   * @brief 注入关联阶段下一周期使用的轨迹种子。
-   * @param seeds 由生命周期阶段导出的轨迹种子。
+   * @brief 进入 manual association seed override 模式。
+   * @param seeds 由调用方显式注入的轨迹种子；空输入或非法输入会清除 override 并恢复
+   *              默认 lifecycle seed 模式。
    */
   void SetAssociationSeeds(const std::vector<tracking::AssociationTrackSeed>& seeds);
 

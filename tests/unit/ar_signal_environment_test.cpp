@@ -1623,6 +1623,53 @@ TEST(SignalPipelineTest, ClearManualAssociationSeedsKeepsLifecycleSeedsActive) {
   EXPECT_EQ(second_measurements[0].raw_measurement.association_key, first_key);
 }
 
+TEST(SignalPipelineTest, InvalidManualAssociationSeedsDoNotDisableLifecycleSeeds) {
+  environment::EnvironmentService environment_service;
+  environment_service.BeginCycle(MakeEnvironmentCycle(1u));
+
+  signal::pipeline::SignalPipeline signal_pipeline;
+
+  signal::tracking::AssociationTrackSeed invalid_seed;
+  invalid_seed.association_key = 0u;
+  invalid_seed.has_position = true;
+  invalid_seed.position = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
+  invalid_seed.has_gaussian_state = true;
+  invalid_seed.gaussian_state.mean = signal::tracking::StateVector::Zero();
+  invalid_seed.gaussian_state.mean(0) = 10.0f;
+  invalid_seed.gaussian_state.covariance =
+      signal::tracking::StateCovariance::Identity() * 25.0f;
+  signal_pipeline.SetAssociationSeeds(
+      std::vector<signal::tracking::AssociationTrackSeed>(1, invalid_seed));
+
+  model::TargetFeature target(0.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
+  target.has_cartesian_position = true;
+  target.position_x = 10.0f;
+  target.position_y = 0.0f;
+  target.position_z = 0.0f;
+  target.range_m = 10.0f;
+
+  const extension::SignalCycleResult first_result =
+      RunPipelineCycle(&signal_pipeline, model::TargetFeatureList{target}, &environment_service, 1u);
+  EXPECT_TRUE(first_result.executed_this_cycle);
+  const std::vector<signal::tracking::TrackMeasurement> first_measurements =
+      signal_pipeline.GetLastTrackMeasurements();
+  ASSERT_EQ(first_measurements.size(), 1u);
+  const std::uint64_t first_key = first_measurements[0].raw_measurement.association_key;
+  EXPECT_NE(first_key, 0u);
+  EXPECT_FALSE(first_measurements[0].raw_measurement.matched_existing_track);
+
+  target.position_x = 10.1f;
+  target.range_m = 10.1f;
+  const extension::SignalCycleResult second_result =
+      RunPipelineCycle(&signal_pipeline, model::TargetFeatureList{target}, &environment_service, 2u);
+  EXPECT_TRUE(second_result.executed_this_cycle);
+  const std::vector<signal::tracking::TrackMeasurement> second_measurements =
+      signal_pipeline.GetLastTrackMeasurements();
+  ASSERT_EQ(second_measurements.size(), 1u);
+  EXPECT_TRUE(second_measurements[0].raw_measurement.matched_existing_track);
+  EXPECT_EQ(second_measurements[0].raw_measurement.association_key, first_key);
+}
+
 TEST(SignalPipelineTest, InvalidEnvironmentCycleAbortsAndClearsLastCycleCache) {
   signal::pipeline::SignalPipeline signal_pipeline;
   environment::EnvironmentService valid_environment;
@@ -1635,11 +1682,13 @@ TEST(SignalPipelineTest, InvalidEnvironmentCycleAbortsAndClearsLastCycleCache) {
 
   const extension::SignalCycleResult valid_result =
       RunPipelineCycle(&signal_pipeline, model::TargetFeatureList{target}, &valid_environment, 1u);
+  EXPECT_TRUE(valid_result.executed_this_cycle);
   ASSERT_EQ(valid_result.updated_features.size(), 1u);
   ASSERT_EQ(signal_pipeline.GetLastTrackMeasurements().size(), 1u);
 
   const extension::SignalCycleResult invalid_result =
       signal_pipeline.RunCycle(model::TargetFeatureList{target}, invalid_environment);
+  EXPECT_FALSE(invalid_result.executed_this_cycle);
   EXPECT_TRUE(invalid_result.updated_features.empty());
   EXPECT_TRUE(invalid_result.decision_frame.tracks.empty());
   EXPECT_TRUE(signal_pipeline.GetLastTrackMeasurements().empty());

@@ -98,6 +98,18 @@ class ONEQ_API RadarController : public IRadarOutputReader {
   bool HasValidationError() const;
 
   /**
+   * @brief 最近一次 RunOnce 是否真正执行了 signal/decision/control 主链路。
+   * @return 若最近一次周期完成主链路执行则返回 true。
+   */
+  bool ExecutedLatestCycle() const;
+
+  /**
+   * @brief 最近一次 RunOnce 是否复用了上一有效轨迹输出。
+   * @return 若最近一次周期未完成执行且复用了上一有效输出则返回 true。
+   */
+  bool ReusedPreviousTrackOutputLatestCycle() const;
+
+  /**
    * @brief 获取当前控制器绑定的上下文实例。
    */
   extension::IRadarContext& GetRadarContext();

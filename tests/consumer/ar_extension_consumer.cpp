@@ -96,6 +96,7 @@ class DummySignalPipeline : public extension::ISignalPipeline {
       const extension::IEnvironmentService& environment) override {
     (void)environment;
     extension::SignalCycleResult result;
+    result.executed_this_cycle = true;
     result.updated_features = input_state;
     return result;
   }

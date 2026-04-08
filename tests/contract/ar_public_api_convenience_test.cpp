@@ -211,7 +211,9 @@ class RecordingSignalPipeline : public extension::ISignalPipeline {
     (void)input_state;
     (void)environment;
     ++run_cycle_count_;
-    return {};
+    extension::SignalCycleResult result;
+    result.executed_this_cycle = should_execute_;
+    return result;
   }
 
   void UpdatePlatformAttitude(const model::PlatformAttitudeDeg& platform_attitude_deg) override {
@@ -239,6 +241,7 @@ class RecordingSignalPipeline : public extension::ISignalPipeline {
     return {};
   }
 
+  void SetShouldExecute(bool should_execute) { should_execute_ = should_execute; }
   std::size_t run_cycle_count() const { return run_cycle_count_; }
   std::size_t update_config_count() const { return update_config_count_; }
   const config::SignalPipelineConfig& config() const { return config_; }
@@ -247,6 +250,7 @@ class RecordingSignalPipeline : public extension::ISignalPipeline {
   model::PlatformAttitudeDeg platform_attitude_deg_{};
   extension::control::RadarControlProfile control_profile_{};
   config::SignalPipelineConfig config_{};
+  bool should_execute_{true};
   std::size_t run_cycle_count_{0U};
   std::size_t update_config_count_{0U};
 };
@@ -883,6 +887,36 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultAggregatesCurrentCycleO
   }
   EXPECT_EQ(result.association_quality_metrics.detection_count,
             session.GetLastAssociationQualityMetrics().detection_count);
+}
+
+TEST(PublicApiConvenienceTest, RadarSessionReusesPreviousOutputWhenSignalPipelineAborts) {
+  RecordingRadarContext radar_context;
+  RecordingSignalPipeline signal_pipeline;
+  RecordingEnvironmentService environment_service;
+  NoopDecisionEngine decision_engine;
+  extension::RadarController controller(radar_context, signal_pipeline, decision_engine,
+                                        environment_service);
+  session::RadarSession session =
+      session::RadarSessionFactory::CreateWithController(MakeConvenienceSessionConfig(), controller);
+
+  const session::RadarCycleInput input = MakeCycleInput(model::TargetFeatureList{
+      model::MakeAirTarget(952U, 200.0f, -3.0f, 15.0f, 70.0f, 0.0f, 0.0f, 1.0f),
+  });
+
+  const session::RadarCycleResult baseline = session.StepWithResult(input);
+  EXPECT_TRUE(baseline.executed_this_cycle);
+  EXPECT_FALSE(baseline.reused_previous_track_output);
+
+  signal_pipeline.SetShouldExecute(false);
+  const session::RadarCycleResult failed = session.StepWithResult(input);
+  EXPECT_FALSE(failed.has_validation_error);
+  EXPECT_FALSE(failed.executed_this_cycle);
+  EXPECT_TRUE(failed.reused_previous_track_output);
+  EXPECT_TRUE(failed.submitted_commands.empty());
+  EXPECT_FALSE(failed.has_control_profile);
+  EXPECT_EQ(failed.association_quality_metrics.detection_count, 0U);
+  EXPECT_EQ(failed.track_output_frame.cycle_index, baseline.track_output_frame.cycle_index);
+  EXPECT_EQ(failed.track_output_frame.batch_id, baseline.track_output_frame.batch_id);
 }
 
 TEST(PublicApiConvenienceTest, RadarSessionStepWithResultSurfacesValidationErrors) {

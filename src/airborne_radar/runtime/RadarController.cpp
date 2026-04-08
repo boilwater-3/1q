@@ -58,6 +58,8 @@ struct RadarController::Impl {
                                              session::ValidationIssueList>
       runtime_state{};
   std::uint32_t cycle_index{1};
+  bool last_cycle_executed{false};
+  bool last_cycle_reused_previous_output{false};
 
   Impl(extension::IRadarContext& ctx, extension::ISignalPipeline& sig,
        extension::IEnvironmentService& env)
@@ -141,6 +143,12 @@ void RadarController::RunOnce() {
         const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
       const CycleExecutionResult exec_result = impl->cycle_orchestrator->Execute(
           input.target_features, input.platform_attitude, impl->control_profile.get(), stamp);
+      impl->last_cycle_executed = exec_result.signal_result.executed_this_cycle;
+      impl->last_cycle_reused_previous_output =
+          !impl->last_cycle_executed && impl->runtime_state.has_latest_output;
+      if (!impl->last_cycle_executed) {
+        return BuildErrorOutput(input, stamp);
+      }
 
       const extension::ControlReductionResult reduction_result =
           impl->command_mapper->Apply(&impl->control_profile.get(),
@@ -164,6 +172,10 @@ void RadarController::RunOnce() {
         const AirborneRuntimeInput& input,
         const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
       (void)input;
+      if (impl != nullptr) {
+        impl->last_cycle_executed = false;
+        impl->last_cycle_reused_previous_output = impl->runtime_state.has_latest_output;
+      }
       if (impl != nullptr && impl->runtime_state.has_latest_output) {
         return impl->runtime_state.latest_output;
       }
@@ -221,6 +233,12 @@ const session::ValidationIssueList& RadarController::GetLastValidationIssues() c
 
 bool RadarController::HasValidationError() const {
   return session::HasValidationError(impl_->runtime_state.last_validation_issues);
+}
+
+bool RadarController::ExecutedLatestCycle() const { return impl_->last_cycle_executed; }
+
+bool RadarController::ReusedPreviousTrackOutputLatestCycle() const {
+  return impl_->last_cycle_reused_previous_output;
 }
 
 extension::IRadarContext& RadarController::GetRadarContext() { return impl_->radar_context; }

@@ -160,6 +160,22 @@ TEST(DataAssociationEngineTest, ExternalAssociationSeedMissingGaussianStateIsSki
   EXPECT_FALSE(result.used_external_association_seeds);
 }
 
+TEST(DataAssociationEngineTest, ExternalAssociationSeedWithReservedKeyIsRejected) {
+  signal::association::DataAssociationEngine engine;
+
+  signal::tracking::AssociationTrackSeed seed = MakeExternalSeed(0u, Eigen::Vector3f(20.0f, 0.0f, 0.0f));
+
+  EXPECT_FALSE(engine.SetAssociationSeeds(std::vector<signal::tracking::AssociationTrackSeed>(1, seed)));
+
+  const model::TargetFeatureList targets{MakePositionTarget(20.5f, 0.0f, 0.0f)};
+  const std::vector<std::uint8_t> detected{1U};
+  const signal::association::AssociationResult result = engine.AssociateDetections(targets, detected);
+  ASSERT_EQ(result.target_keys.size(), 1u);
+  EXPECT_FALSE(result.used_external_association_seeds);
+  EXPECT_TRUE(result.matches.empty());
+  EXPECT_NE(result.target_keys[0], 0u);
+}
+
 TEST(DataAssociationEngineTest, HandlesCrossedMeasurementsByCostMinimization) {
   signal::association::DataAssociationEngine engine;
 
@@ -479,7 +495,7 @@ TEST(DataAssociationEngineTest, EmptyExternalSeedsKeepsAssociationStateless) {
       engine.AssociateDetections(cycle_2, detected_2);
 
   ASSERT_EQ(result.target_keys.size(), 1u);
-  EXPECT_TRUE(result.used_external_association_seeds);
+  EXPECT_FALSE(result.used_external_association_seeds);
   EXPECT_NE(result.target_keys[0], warmup_key);
   EXPECT_TRUE(result.matches.empty());
   ASSERT_EQ(result.unassociated_target_indices.size(), 1u);

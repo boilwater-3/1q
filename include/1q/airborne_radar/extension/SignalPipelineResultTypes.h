@@ -39,6 +39,7 @@ struct AssociationQualityMetrics {
  * @brief SignalCycleResult 描述信号流水线单周期的稳定输出。
  */
 struct SignalCycleResult {
+  bool executed_this_cycle{false};                  /**< 当前调用是否真正完成了 signal pipeline 主链路 */
   model::TargetFeatureList updated_features{};     /**< 当前周期更新后的目标特征列表 */
   model::DecisionInputFrame decision_frame{};      /**< 当前周期决策输入帧 */
   AssociationQualityMetrics association_quality_metrics{}; /**< 当前周期关联质量观测指标 */

@@ -326,21 +326,35 @@ std::vector<std::uint64_t> DataAssociationEngine::Associate(
   return AssociateDetections(targets, detection_succeeded, measurement_covariances).target_keys;
 }
 
-void DataAssociationEngine::SetAssociationSeeds(
+bool DataAssociationEngine::SetAssociationSeeds(
     const std::vector<tracking::AssociationTrackSeed>& seeds) {
   external_seed_tracks_.clear();
-  external_seed_tracks_.reserve(seeds.size());
-  association_seed_mode_ = AssociationSeedMode::kExternalSeeds;
+  association_seed_mode_ = AssociationSeedMode::kStateless;
+  if (seeds.empty()) {
+    PROJECT_LOG_DEBUG(
+        "[DataAssociationEngine] cleared external association seeds and returned to stateless "
+        "mode");
+    return false;
+  }
 
+  std::vector<ExternalSeedTrackSignature> accepted_seeds;
+  accepted_seeds.reserve(seeds.size());
   for (std::size_t i = 0; i < seeds.size(); ++i) {
     const tracking::AssociationTrackSeed& seed = seeds[i];
+    if (seed.association_key == kUnassociatedKey) {
+      AbortContractViolation("external association seed uses reserved association_key=0", i);
+      external_seed_tracks_.clear();
+      return false;
+    }
     if (!seed.has_position) {
       AbortContractViolation("external association seed missing cartesian position", i);
-      continue;
+      external_seed_tracks_.clear();
+      return false;
     }
     if (!seed.has_gaussian_state) {
       AbortContractViolation("external association seed missing gaussian state", i);
-      continue;
+      external_seed_tracks_.clear();
+      return false;
     }
 
     ExternalSeedTrackSignature signature(seed.association_key);
@@ -348,14 +362,14 @@ void DataAssociationEngine::SetAssociationSeeds(
     signature.position = seed.position;
     signature.has_gaussian_state = seed.has_gaussian_state;
     signature.gaussian_state = seed.gaussian_state;
-    external_seed_tracks_.push_back(signature);
+    accepted_seeds.push_back(signature);
   }
-  if (!seeds.empty() && external_seed_tracks_.empty()) {
-    // 所有种子均因契约违例被跳过，回退到无状态模式
-    association_seed_mode_ = AssociationSeedMode::kStateless;
-  }
+
+  external_seed_tracks_ = accepted_seeds;
+  association_seed_mode_ = AssociationSeedMode::kExternalSeeds;
   PROJECT_LOG_DEBUG("[DataAssociationEngine] accepted {} external association seeds",
                     external_seed_tracks_.size());
+  return true;
 }
 
 void DataAssociationEngine::ResetAssociationSeedModeToStateless() {

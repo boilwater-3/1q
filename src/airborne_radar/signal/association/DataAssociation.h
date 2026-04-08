@@ -134,8 +134,10 @@ class DataAssociationEngine {
   /**
    * @brief 使用生命周期侧导出的轨迹种子覆盖关联引擎历史状态。
    * @param seeds 上一周期轨迹种子列表。
+   * @return 若成功进入 external-seed 模式则返回 true；空输入或非法输入会回退 stateless 并返回
+   *         false。
    */
-  void SetAssociationSeeds(const std::vector<tracking::AssociationTrackSeed>& seeds);
+  bool SetAssociationSeeds(const std::vector<tracking::AssociationTrackSeed>& seeds);
   /**
    * @brief 重置外部 seeds 注入状态并回归无先验（stateless）模式。
    * @details 用于收敛 external seeds 单一入口，清理旁路注入的临时外部 seeds。

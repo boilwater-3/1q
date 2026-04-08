@@ -37,16 +37,19 @@ struct RadarSession::Impl {
     if (controller.HasLatestTrackOutputFrame()) {
       result.track_output_frame = controller.GetLatestTrackOutputFrame();
     }
-    result.executed_this_cycle = true;
-    result.reused_previous_track_output = false;
+    result.executed_this_cycle = controller.ExecutedLatestCycle();
+    result.reused_previous_track_output = controller.ReusedPreviousTrackOutputLatestCycle();
     result.submitted_commands = radar_context.GetSubmittedCommands();
     result.validation_issues = controller.GetLastValidationIssues();
     result.has_validation_error = controller.HasValidationError();
-    result.has_control_profile = radar_context.HasLatestControlProfile();
+    result.has_control_profile =
+        result.executed_this_cycle && radar_context.HasLatestControlProfile();
     if (result.has_control_profile) {
       result.control_profile = radar_context.GetLatestControlProfile();
     }
-    result.association_quality_metrics = signal_pipeline.GetLastAssociationQualityMetrics();
+    if (result.executed_this_cycle) {
+      result.association_quality_metrics = signal_pipeline.GetLastAssociationQualityMetrics();
+    }
     return result;
   }
 
