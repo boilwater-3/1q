@@ -12,7 +12,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "1q/airborne_radar/common/model/TargetFeature.h"
+#include "1q/airborne_radar/model/TargetFeature.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/ITrackPool.h"
 #include "airborne_radar/signal/tracking/LifecycleConfig.h"
@@ -74,12 +74,12 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
    * @brief 导出供外围事件链路消费的轻量目标特征快照。
    * @return 可直接用于外部状态广播的目标特征列表。
    */
-  common::model::TargetFeatureList BuildFeatureSnapshot() const override;
+  model::TargetFeatureList BuildFeatureSnapshot() const override;
   /**
    * @brief 导出供决策层消费的活跃轨迹快照。
    * @return 包含 tentative/confirmed/lost 状态且未回收的决策快照列表。
    */
-  common::model::DecisionTrackSnapshotList BuildDecisionSnapshot() const override;
+  model::DecisionTrackSnapshotList BuildDecisionSnapshot() const override;
   /**
    * @brief 导出完整的决策输入帧。
    * @param cycle_index 当前处理周期索引。
@@ -87,7 +87,7 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
    * @param environment_jamming_detected 环境是否检测到大面积干扰。
    * @return 填充好的决策输入数据帧。
    */
-  common::model::DecisionInputFrame BuildDecisionFrame(
+  model::DecisionInputFrame BuildDecisionFrame(
       std::uint32_t cycle_index, std::uint64_t batch_id,
       bool environment_jamming_detected) const override;
   /**
@@ -307,7 +307,7 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
   std::unordered_map<std::uint64_t, std::unique_ptr<ImmFilter>>
       imm_filters_by_key_;            /**< 每条轨迹对应的 IMM 运行态。 */
   std::uint32_t last_cycle_index_{0}; /**< 上一周期编号，用于计算 dt。 */
-  std::unordered_map<std::uint64_t, common::model::DecisionMeasurementEvidence>
+  std::unordered_map<std::uint64_t, model::DecisionMeasurementEvidence>
       latest_evidence_by_key_;            /**< 最近一次命中量测对应的证据快照。 */
   TrackSnapshotEmitter snapshot_emitter_; /**< 快照导出器，每周期末刷新。 */
 };

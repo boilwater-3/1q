@@ -8,8 +8,8 @@
 
 #include <cstdint>
 
-#include "1q/airborne_radar/decision/pipeline/ControlReducerTypes.h"
-#include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/extension/ControlReducerTypes.h"
+#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 
 namespace airborne_radar {
 namespace decision {
@@ -35,19 +35,19 @@ class ControlReducer {
    * @brief 使用配置构造 reducer。
    * @param config reducer 配置。
    */
-  explicit ControlReducer(ControlReducerConfig config = {});
+  explicit ControlReducer(extension::ControlReducerConfig config = {});
 
   /**
    * @brief 更新 reducer 配置。
    * @param config 新的 reducer 配置。
    */
-  void UpdateConfig(ControlReducerConfig config);
+  void UpdateConfig(extension::ControlReducerConfig config);
 
   /**
    * @brief 获取当前 reducer 配置。
    * @return 当前 reducer 配置副本。
    */
-  ControlReducerConfig GetConfig() const;
+  extension::ControlReducerConfig GetConfig() const;
 
   /**
    * @brief 使用上一版 profile 和 proposal 列表生成下一版 profile。
@@ -55,8 +55,9 @@ class ControlReducer {
    * @param proposals 当前周期候选控制意图列表。
    * @return 归并后的控制真值与采纳结果。
    */
-  ControlReductionResult Reduce(const common::control::RadarControlProfile& previous_profile,
-                                const std::vector<TacticalProposal>& proposals);
+  extension::ControlReductionResult Reduce(
+      const extension::control::RadarControlProfile& previous_profile,
+      const std::vector<extension::TacticalProposal>& proposals);
 
   /**
    * @brief 获取 reducer 当前内部运行态（供调试/测试使用）。
@@ -64,7 +65,7 @@ class ControlReducer {
   ControlReducerRuntimeState GetRuntimeState() const;
 
  private:
-  ControlReducerConfig config_{};
+  extension::ControlReducerConfig config_{};
 
   /** @brief LPI 域剩余保持周期（reducer 内部运行态）。 */
   std::uint32_t lpi_hold_cycles_remaining_{0};

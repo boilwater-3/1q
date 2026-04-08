@@ -11,7 +11,7 @@
 
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "1q/airborne_radar/environment/IEnvironmentService.h"
+#include "1q/airborne_radar/extension/IEnvironmentService.h"
 #include "airborne_radar/signal/assembly/IDataOutputManager.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
@@ -31,18 +31,18 @@ namespace internal {
  * @brief 单周期执行上下文缓存。
  */
 struct CycleExecutionContext {
-  const common::model::TargetFeatureList* input_state{nullptr};
-  const environment::IEnvironmentService* environment{nullptr};
+  const model::TargetFeatureList* input_state{nullptr};
+  const extension::IEnvironmentService* environment{nullptr};
   SignalPipelineConfig runtime_config{};
   InternalSignalPipelineConfig internal_runtime_config{};
-  common::model::TargetFeatureList output_state;
+  model::TargetFeatureList output_state;
   std::vector<tracking::TrackMeasurement> track_measurements;
-  common::model::DecisionInputFrame decision_frame{};
+  model::DecisionInputFrame decision_frame{};
   AssociationQualityMetrics association_quality_metrics{};
 
   environment::EnvironmentSnapshot environment_snapshot{};
-  common::utils::JammingSemantic dominant_jamming_semantic{
-      common::utils::JammingSemantic::kNone}; /**< 当前周期主导干扰语义（SampleEnvironment 后有效）
+  model::JammingSemantic dominant_jamming_semantic{
+      model::JammingSemantic::kNone}; /**< 当前周期主导干扰语义（SampleEnvironment 后有效）
                                                */
   float jamming_severity{0.0f}; /**< 当前周期轨迹级残余干扰强度（SampleEnvironment 后有效） */
 
@@ -63,7 +63,7 @@ struct CycleExecutionContext {
 struct CycleExecutionRuntime {
   const SignalPipelineConfig* base_config{nullptr};
   const InternalSignalPipelineConfig* base_internal_config{nullptr};
-  const common::control::RadarControlProfile* control_profile{nullptr};
+  const extension::control::RadarControlProfile* control_profile{nullptr};
   association::DataAssociationEngine* association_engine{nullptr};
   tracking::TrackFilter* track_filter{nullptr};
   detection::SignalDetector* signal_detector{nullptr};
@@ -82,8 +82,8 @@ struct CycleExecutionRuntime {
  * @param runtime 运行时依赖视图。
  * @param cycle_context 单周期缓存上下文。
  */
-void ExecuteCycle(const common::model::TargetFeatureList& input_state,
-                  const environment::IEnvironmentService& environment, std::uint32_t cycle_index,
+void ExecuteCycle(const model::TargetFeatureList& input_state,
+                  const extension::IEnvironmentService& environment, std::uint32_t cycle_index,
                   std::uint64_t batch_id, const CycleExecutionRuntime& runtime,
                   CycleExecutionContext* cycle_context);
 

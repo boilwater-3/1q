@@ -36,17 +36,17 @@
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/core/session/RadarSessionConfigPresets.h"
-#include "1q/airborne_radar/common/model/DecisionTrackSnapshot.h"
+#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
 #include "1q/airborne_radar/extension/control/RadarCommand.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/common/model/TargetFeatureUtils.h"
-#include "1q/airborne_radar/common/output/TrackOutputFrame.h"
-#include "1q/airborne_radar/core/context/RadarCycleInput.h"
-#include "1q/airborne_radar/core/session/RadarCycleResult.h"
-#include "1q/airborne_radar/core/session/RadarSessionFactory.h"
-#include "1q/airborne_radar/core/session/RadarSession.h"
+#include "1q/airborne_radar/model/TargetFeatureUtils.h"
+#include "1q/airborne_radar/output/TrackOutputFrame.h"
+#include "1q/airborne_radar/session/RadarCycleInput.h"
+#include "1q/airborne_radar/session/RadarCycleResult.h"
+#include "1q/airborne_radar/session/RadarSessionFactory.h"
+#include "1q/airborne_radar/session/RadarSession.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 
@@ -89,8 +89,8 @@ ImVec4 TrackColor(std::uint64_t association_key) {
 
 // ── 指令名称映射 ────────────────────────────────────────────────────────────
 
-const char* CommandTypeName(airborne_radar::common::control::RadarCommandType t) {
-  using T = airborne_radar::common::control::RadarCommandType;
+const char* CommandTypeName(airborne_radar::extension::control::RadarCommandType t) {
+  using T = airborne_radar::extension::control::RadarCommandType;
   switch (t) {
     case T::NONE:
       return "NONE";
@@ -146,13 +146,13 @@ struct SimState {
   std::map<std::uint64_t, std::vector<float>> hist_y;
 
   // 最近一帧轨迹
-  std::vector<airborne_radar::common::model::DecisionTrackSnapshot> latest_tracks;
+  std::vector<airborne_radar::model::DecisionTrackSnapshot> latest_tracks;
 
   // 指令历史（每个 cycle 的指令列表）
-  std::vector<std::vector<airborne_radar::common::control::RadarCommand>> command_history;
+  std::vector<std::vector<airborne_radar::extension::control::RadarCommand>> command_history;
 
   // 控制 Profile 历史
-  std::vector<airborne_radar::common::control::RadarControlProfile> profile_history;
+  std::vector<airborne_radar::extension::control::RadarControlProfile> profile_history;
 
   // 关联质量历史
   std::vector<float> jamming_severity_history;
@@ -177,10 +177,10 @@ struct SimState {
 
 // ── 构造 RadarSession ─────────────────────────────────────────────────────────
 
-std::unique_ptr<airborne_radar::core::session::RadarSession> MakeSession() {
+std::unique_ptr<airborne_radar::session::RadarSession> MakeSession() {
   namespace aq = airborne_radar::common;
-  auto session = std::unique_ptr<airborne_radar::core::session::RadarSession>(
-      new airborne_radar::core::session::RadarSession(airborne_radar::core::session::RadarSessionFactory::Create(
+  auto session = std::unique_ptr<airborne_radar::session::RadarSession>(
+      new airborne_radar::session::RadarSession(airborne_radar::session::RadarSessionFactory::Create(
           airborne_radar::config::RadarSessionConfigBuilder(airborne_radar::config::MakeDetectionMissionRadarSessionConfig())
               .Detection()
               .EnablePhysicsDetection()
@@ -267,14 +267,14 @@ airborne_radar::environment::EnvironmentSceneState BuildScene(int cycle) {
 
 // ── 推进一个 cycle ────────────────────────────────────────────────────────────
 
-void StepOnce(airborne_radar::core::session::RadarSession& session, SimState& sim) {
+void StepOnce(airborne_radar::session::RadarSession& session, SimState& sim) {
   if (sim.finished || sim.current_cycle >= kMaxCycles) {
     sim.finished = true;
     return;
   }
 
   namespace aq = airborne_radar::common;
-  using airborne_radar::core::context::RadarCycleInput;
+  using airborne_radar::session::RadarCycleInput;
 
   RadarCycleInput input;
   input.dt_sec = kDtSec;
@@ -285,7 +285,7 @@ void StepOnce(airborne_radar::core::session::RadarSession& session, SimState& si
   }
 
   // 根据当前 cycle 构造环境场景
-  airborne_radar::core::session::RadarCycleResult result;
+  airborne_radar::session::RadarCycleResult result;
   if (sim.current_cycle >= kPhaseNoise && sim.current_cycle < kPhaseRecovery) {
     auto scene = BuildScene(sim.current_cycle);
     result = session.StepWithResult(input, scene);
@@ -329,25 +329,25 @@ void StepOnce(airborne_radar::core::session::RadarSession& session, SimState& si
 
 // ── 状态字符串 ────────────────────────────────────────────────────────────────
 
-const char* StatusStr(airborne_radar::common::model::DecisionTrackStatus s) {
+const char* StatusStr(airborne_radar::model::DecisionTrackStatus s) {
   switch (s) {
-    case airborne_radar::common::model::DecisionTrackStatus::kTentative:
+    case airborne_radar::model::DecisionTrackStatus::kTentative:
       return "Tentative";
-    case airborne_radar::common::model::DecisionTrackStatus::kConfirmed:
+    case airborne_radar::model::DecisionTrackStatus::kConfirmed:
       return "Confirmed";
-    case airborne_radar::common::model::DecisionTrackStatus::kLost:
+    case airborne_radar::model::DecisionTrackStatus::kLost:
       return "Lost";
   }
   return "Unknown";
 }
 
-ImPlotMarker StatusMarker(airborne_radar::common::model::DecisionTrackStatus s) {
+ImPlotMarker StatusMarker(airborne_radar::model::DecisionTrackStatus s) {
   switch (s) {
-    case airborne_radar::common::model::DecisionTrackStatus::kTentative:
+    case airborne_radar::model::DecisionTrackStatus::kTentative:
       return ImPlotMarker_Circle;
-    case airborne_radar::common::model::DecisionTrackStatus::kConfirmed:
+    case airborne_radar::model::DecisionTrackStatus::kConfirmed:
       return ImPlotMarker_Square;
-    case airborne_radar::common::model::DecisionTrackStatus::kLost:
+    case airborne_radar::model::DecisionTrackStatus::kLost:
       return ImPlotMarker_Cross;
   }
   return ImPlotMarker_Circle;
@@ -442,7 +442,7 @@ void RenderCommandTimeline(const SimState& sim) {
   ImPlot::SetupAxisLimits(ImAxis_X1, 0, kMaxCycles);
 
   // 为每种指令类型绘制散点标记
-  using CmdType = airborne_radar::common::control::RadarCommandType;
+  using CmdType = airborne_radar::extension::control::RadarCommandType;
   struct CmdRow {
     CmdType type;
     float y_pos;

@@ -127,7 +127,7 @@ TEST(TrackLifecycleManagerTest, ConfirmsTrackAfterConfiguredHits) {
   ASSERT_EQ(active_tracks.size(), 1u);
   EXPECT_EQ(active_tracks[0]->status, signal::tracking::TrackStatus::kConfirmed);
 
-  const common::model::TargetFeatureList snapshot = manager.BuildFeatureSnapshot();
+  const model::TargetFeatureList snapshot = manager.BuildFeatureSnapshot();
   ASSERT_EQ(snapshot.size(), 1u);
   EXPECT_FLOAT_EQ(snapshot[0].current_track_speed, 5.0f);
   EXPECT_FLOAT_EQ(snapshot[0].current_track_rcs, 1.5f);
@@ -168,7 +168,7 @@ TEST(TrackLifecycleManagerTest, RecyclesTrackAfterLostTimeout) {
   active_tracks = manager.GetActiveTracks();
   EXPECT_TRUE(active_tracks.empty());
 
-  const common::model::TargetFeatureList snapshot = manager.BuildFeatureSnapshot();
+  const model::TargetFeatureList snapshot = manager.BuildFeatureSnapshot();
   EXPECT_TRUE(snapshot.empty());
 }
 
@@ -264,7 +264,7 @@ TEST(TrackLifecycleManagerTest, DeceptionSummaryExtendsLocalMissToleranceOnMiss)
       MakeCartesianMeasurement(41u, 100.0f, 10.0f);
   deception_measurement.filtered_feature.jamming_detected = true;
   deception_measurement.filtered_feature.dominant_jamming_semantic =
-      common::utils::JammingSemantic::kDeception;
+      model::JammingSemantic::kDeception;
   deception_measurement.filtered_feature.jamming_severity = 0.8f;
 
   deception_manager.Update(MakeCycle(1u, 4101u), {deception_measurement});
@@ -285,7 +285,7 @@ TEST(TrackLifecycleManagerTest, DeceptionSummaryExtendsLocalMissToleranceOnMiss)
       MakeCartesianMeasurement(42u, 100.0f, 10.0f);
   noise_measurement.filtered_feature.jamming_detected = true;
   noise_measurement.filtered_feature.dominant_jamming_semantic =
-      common::utils::JammingSemantic::kNoiseSuppression;
+      model::JammingSemantic::kNoiseSuppression;
   noise_measurement.filtered_feature.jamming_severity = 0.8f;
 
   noise_manager.Update(MakeCycle(1u, 4201u), {noise_measurement});
@@ -485,7 +485,7 @@ TEST(TrackLifecycleManagerTest, ImmPathPredictsConfirmedTrackAcrossMissedCycles)
   EXPECT_GE(active_tracks[0]->position(0), 109.0f);
   EXPECT_GT(active_tracks[0]->gaussian_state.covariance(0, 0), covariance_before_miss);
 
-  const common::model::TargetFeatureList snapshot = manager.BuildFeatureSnapshot();
+  const model::TargetFeatureList snapshot = manager.BuildFeatureSnapshot();
   ASSERT_EQ(snapshot.size(), 1u);
   EXPECT_FLOAT_EQ(snapshot[0].position_x, active_tracks[0]->position(0));
 }
@@ -833,7 +833,7 @@ TEST(TrackLifecycleManagerTest, FilterWritebackUpdatesAccelerationFromVelocityDe
   ASSERT_EQ(active.size(), 1u);
   EXPECT_GT(active[0]->acceleration.norm(), 0.0f);
 
-  const common::model::TargetFeatureList snapshot = manager.BuildFeatureSnapshot();
+  const model::TargetFeatureList snapshot = manager.BuildFeatureSnapshot();
   ASSERT_EQ(snapshot.size(), 1u);
   EXPECT_NEAR(
       snapshot[0].current_track_speed,

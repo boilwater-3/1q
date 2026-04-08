@@ -8,7 +8,7 @@
 
 #include <random>
 
-#include "1q/airborne_radar/signal/config/SignalDetectionConfig.h"
+#include "1q/airborne_radar/config/SignalDetectionConfig.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -30,7 +30,7 @@ struct RadarEquations {
    * @param propagation_loss_db 大气传播往返损耗 (dB)
    * @return 接收回波功率 (dBW)
    */
-  static float ComputeEchoPowerWithGain_dBW(const signal::config::TransmitterConfig& tx,
+  static float ComputeEchoPowerWithGain_dBW(const config::TransmitterConfig& tx,
                                             float one_way_gain_db, float rcs_m2, float range_m,
                                             float propagation_loss_db);
   /**
@@ -45,8 +45,8 @@ struct RadarEquations {
    * @param propagation_loss_db 大气传播往返损耗 (dB)
    * @return 接收回波功率 (dBW)
    */
-  static float ComputeEchoPower_dBW(const signal::config::TransmitterConfig& tx,
-                                    const signal::config::AntennaConfig& ant, float rcs_m2,
+  static float ComputeEchoPower_dBW(const config::TransmitterConfig& tx,
+                                    const config::AntennaConfig& ant, float rcs_m2,
                                     float range_m, float propagation_loss_db);
   /**
    * @brief 接收机热噪声功率底: N₀ = k·T₀·B·F。
@@ -55,8 +55,8 @@ struct RadarEquations {
    * @param rx 接收机参数（取噪声系数）
    * @return 热噪声功率 (W)
    */
-  static float ComputeThermalNoisePower_W(const signal::config::TransmitterConfig& tx,
-                                          const signal::config::ReceiverConfig& rx);
+  static float ComputeThermalNoisePower_W(const config::TransmitterConfig& tx,
+                                          const config::ReceiverConfig& rx);
   /**
    * @brief 脉冲积累增益因子。
    * 当前统一采用线性脉冲积累语义: G = N。
@@ -90,7 +90,7 @@ struct RadarEquations {
    * @return 检测概率 Pd ∈ [0, 1]
    */
   static float ComputeDetectionProbability(float snr_db, float pfa,
-                                           signal::config::SwerlingModel model, int num_pulses);
+                                           config::SwerlingModel model, int num_pulses);
   /**
    * @brief 计算方波检测器的检测门限 T。
    * @param pfa         虚警概率

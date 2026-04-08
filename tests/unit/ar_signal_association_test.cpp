@@ -5,7 +5,7 @@
 
 #include <gtest/gtest.h>
 
-#include "1q/airborne_radar/common/model/TargetFeature.h"
+#include "1q/airborne_radar/model/TargetFeature.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/association/DistanceMetric.h"
 #include "airborne_radar/signal/association/Gater.h"
@@ -16,12 +16,12 @@ namespace tests {
 
 namespace {
 
-common::model::TargetFeature MakeTarget(float speed, float rcs) {
-  return common::model::TargetFeature(speed, 0.0f, 0.0f, rcs);
+model::TargetFeature MakeTarget(float speed, float rcs) {
+  return model::TargetFeature(speed, 0.0f, 0.0f, rcs);
 }
 
-common::model::TargetFeature MakePositionTarget(float x, float y, float z) {
-  common::model::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
+model::TargetFeature MakePositionTarget(float x, float y, float z) {
+  model::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
   target.has_cartesian_position = true;
   target.position_x = x;
   target.position_y = y;
@@ -49,7 +49,7 @@ signal::tracking::AssociationTrackSeed MakeExternalSeed(std::uint64_t key,
 TEST(DataAssociationEngineTest, KeepsStableAssociationAcrossCycles) {
   signal::association::DataAssociationEngine engine;
 
-  const common::model::TargetFeatureList cycle_1{MakePositionTarget(10.0f, 0.0f, 0.0f),
+  const model::TargetFeatureList cycle_1{MakePositionTarget(10.0f, 0.0f, 0.0f),
                                           MakePositionTarget(100.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_1{1U, 1U};
 
@@ -64,7 +64,7 @@ TEST(DataAssociationEngineTest, KeepsStableAssociationAcrossCycles) {
       MakeExternalSeed(keys_1[1], Eigen::Vector3f(100.0f, 0.0f, 0.0f))};
   engine.SetAssociationSeeds(seeds);
 
-  const common::model::TargetFeatureList cycle_2{MakePositionTarget(11.0f, 0.0f, 0.0f),
+  const model::TargetFeatureList cycle_2{MakePositionTarget(11.0f, 0.0f, 0.0f),
                                           MakePositionTarget(101.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_2{1U, 1U};
 
@@ -77,7 +77,7 @@ TEST(DataAssociationEngineTest, KeepsStableAssociationAcrossCycles) {
 TEST(DataAssociationEngineTest, StatelessWithoutSeedsMakesAssociationAcrossCyclesIndependent) {
   signal::association::DataAssociationEngine engine;
 
-  const common::model::TargetFeatureList cycle_1{MakePositionTarget(10.0f, 0.0f, 0.0f)};
+  const model::TargetFeatureList cycle_1{MakePositionTarget(10.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_1{1U};
 
   const signal::association::AssociationResult first_result =
@@ -85,7 +85,7 @@ TEST(DataAssociationEngineTest, StatelessWithoutSeedsMakesAssociationAcrossCycle
   ASSERT_EQ(first_result.target_keys.size(), 1u);
   ASSERT_NE(first_result.target_keys[0], 0u);
 
-  const common::model::TargetFeatureList cycle_2{MakePositionTarget(10.5f, 0.0f, 0.0f)};
+  const model::TargetFeatureList cycle_2{MakePositionTarget(10.5f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_2{1U};
   const signal::association::AssociationResult second_result =
       engine.AssociateDetections(cycle_2, detected_2);
@@ -101,7 +101,7 @@ TEST(DataAssociationEngineTest, StatelessWithoutSeedsMakesAssociationAcrossCycle
 TEST(DataAssociationEngineTest, StatelessModeDoesNotReusePreviousCycleAssociations) {
   signal::association::DataAssociationEngine engine;
 
-  const common::model::TargetFeatureList warmup_cycle{MakePositionTarget(50.0f, 0.0f, 0.0f)};
+  const model::TargetFeatureList warmup_cycle{MakePositionTarget(50.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected{1U};
   const signal::association::AssociationResult first_result =
       engine.AssociateDetections(warmup_cycle, detected);
@@ -129,7 +129,7 @@ TEST(DataAssociationEngineTest, ExternalSeedsStillDriveAssociationWhenProvided) 
   seed.gaussian_state.covariance = signal::tracking::StateCovariance::Identity() * 4.0f;
   engine.SetAssociationSeeds(std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
 
-  const common::model::TargetFeatureList targets{MakePositionTarget(20.5f, 0.0f, 0.0f)};
+  const model::TargetFeatureList targets{MakePositionTarget(20.5f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected{1U};
   const signal::association::AssociationResult result =
       engine.AssociateDetections(targets, detected);
@@ -154,7 +154,7 @@ TEST(DataAssociationEngineTest, ExternalAssociationSeedMissingGaussianStateIsSki
   engine.SetAssociationSeeds(std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
 
   // Subsequent association should work without the invalid seed
-  const common::model::TargetFeatureList targets{MakePositionTarget(20.5f, 0.0f, 0.0f)};
+  const model::TargetFeatureList targets{MakePositionTarget(20.5f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected{1U};
   const signal::association::AssociationResult result = engine.AssociateDetections(targets, detected);
   EXPECT_FALSE(result.used_external_association_seeds);
@@ -163,7 +163,7 @@ TEST(DataAssociationEngineTest, ExternalAssociationSeedMissingGaussianStateIsSki
 TEST(DataAssociationEngineTest, HandlesCrossedMeasurementsByCostMinimization) {
   signal::association::DataAssociationEngine engine;
 
-  const common::model::TargetFeatureList cycle_1{MakePositionTarget(20.0f, 0.0f, 0.0f),
+  const model::TargetFeatureList cycle_1{MakePositionTarget(20.0f, 0.0f, 0.0f),
                                           MakePositionTarget(200.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_1{1U, 1U};
 
@@ -175,7 +175,7 @@ TEST(DataAssociationEngineTest, HandlesCrossedMeasurementsByCostMinimization) {
       MakeExternalSeed(keys_1[1], Eigen::Vector3f(200.0f, 0.0f, 0.0f))});
 
   // The measurement order is swapped, but position-space cost should preserve identity.
-  const common::model::TargetFeatureList cycle_2{MakePositionTarget(201.0f, 0.0f, 0.0f),
+  const model::TargetFeatureList cycle_2{MakePositionTarget(201.0f, 0.0f, 0.0f),
                                           MakePositionTarget(19.5f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_2{1U, 1U};
 
@@ -190,14 +190,14 @@ TEST(DataAssociationEngineTest, AssignsNewKeysForNewMeasurements) {
   config.unassigned_cost = 9.0f;
   signal::association::DataAssociationEngine engine(config);
 
-  const common::model::TargetFeatureList cycle_1{MakePositionTarget(10.0f, 0.0f, 0.0f)};
+  const model::TargetFeatureList cycle_1{MakePositionTarget(10.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_1{1U};
   const std::vector<std::uint64_t> keys_1 = engine.Associate(cycle_1, detected_1);
   ASSERT_EQ(keys_1.size(), 1u);
   ASSERT_NE(keys_1[0], 0u);
 
   // Very far position should exceed gating threshold and receive a new key.
-  const common::model::TargetFeatureList cycle_2{MakePositionTarget(200.0f, 0.0f, 0.0f)};
+  const model::TargetFeatureList cycle_2{MakePositionTarget(200.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_2{1U};
   const std::vector<std::uint64_t> keys_2 = engine.Associate(cycle_2, detected_2);
   ASSERT_EQ(keys_2.size(), 1u);
@@ -208,7 +208,7 @@ TEST(DataAssociationEngineTest, AssignsNewKeysForNewMeasurements) {
 TEST(DataAssociationEngineTest, ReportsMatchesMissesAndUnassociatedTargets) {
   signal::association::DataAssociationEngine engine;
 
-  const common::model::TargetFeatureList cycle_1{MakePositionTarget(10.0f, 0.0f, 0.0f)};
+  const model::TargetFeatureList cycle_1{MakePositionTarget(10.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_1{1U};
   const std::vector<std::uint64_t> keys_1 = engine.Associate(cycle_1, detected_1);
   ASSERT_EQ(keys_1.size(), 1u);
@@ -217,7 +217,7 @@ TEST(DataAssociationEngineTest, ReportsMatchesMissesAndUnassociatedTargets) {
   engine.SetAssociationSeeds(std::vector<signal::tracking::AssociationTrackSeed>{
       MakeExternalSeed(keys_1[0], Eigen::Vector3f(10.0f, 0.0f, 0.0f))});
 
-  const common::model::TargetFeatureList cycle_2{MakePositionTarget(11.0f, 0.0f, 0.0f),
+  const model::TargetFeatureList cycle_2{MakePositionTarget(11.0f, 0.0f, 0.0f),
                                           MakePositionTarget(200.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_2{1U, 1U};
 
@@ -250,7 +250,7 @@ TEST(DataAssociationEngineTest, ReportsMatchesMissesAndUnassociatedTargets) {
 TEST(DataAssociationEngineTest, ReportsMissedTrackKeysWhenNoDetectionArrives) {
   signal::association::DataAssociationEngine engine;
 
-  const common::model::TargetFeatureList cycle_1{MakePositionTarget(10.0f, 0.0f, 0.0f)};
+  const model::TargetFeatureList cycle_1{MakePositionTarget(10.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_1{1U};
   const std::vector<std::uint64_t> keys_1 = engine.Associate(cycle_1, detected_1);
   ASSERT_EQ(keys_1.size(), 1u);
@@ -258,7 +258,7 @@ TEST(DataAssociationEngineTest, ReportsMissedTrackKeysWhenNoDetectionArrives) {
   engine.SetAssociationSeeds(std::vector<signal::tracking::AssociationTrackSeed>{
       MakeExternalSeed(keys_1[0], Eigen::Vector3f(10.0f, 0.0f, 0.0f))});
 
-  const common::model::TargetFeatureList cycle_2{MakePositionTarget(10.0f, 0.0f, 0.0f)};
+  const model::TargetFeatureList cycle_2{MakePositionTarget(10.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_2{0U};
   const signal::association::AssociationResult result =
       engine.AssociateDetections(cycle_2, detected_2);
@@ -287,7 +287,7 @@ TEST(DataAssociationEngineTest, UsesCartesianPositionByDefaultWhenPositionAvaila
   config.kalman_measurement_noise_std = 2.0f;
   signal::association::DataAssociationEngine engine(config);
 
-  const common::model::TargetFeatureList cycle_1{MakePositionTarget(10.0f, 0.0f, 0.0f),
+  const model::TargetFeatureList cycle_1{MakePositionTarget(10.0f, 0.0f, 0.0f),
                                           MakePositionTarget(100.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_1{1U, 1U};
 
@@ -299,7 +299,7 @@ TEST(DataAssociationEngineTest, UsesCartesianPositionByDefaultWhenPositionAvaila
   ASSERT_NE(keys_1[1], 0u);
   EXPECT_TRUE(first_result.used_position_association);
 
-  const common::model::TargetFeatureList cycle_2{MakePositionTarget(101.0f, 0.0f, 0.0f),
+  const model::TargetFeatureList cycle_2{MakePositionTarget(101.0f, 0.0f, 0.0f),
                                           MakePositionTarget(11.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_2{1U, 1U};
 
@@ -320,7 +320,7 @@ TEST(DataAssociationEngineTest, UsesCartesianPositionByDefaultWhenPositionAvaila
 TEST(DataAssociationEngineTest, DetectedTargetMissingPositionCompletesGracefully) {
   signal::association::DataAssociationEngine engine;
 
-  const common::model::TargetFeatureList cycle_1{MakeTarget(100.0f, 2.0f), MakeTarget(220.0f, 5.0f)};
+  const model::TargetFeatureList cycle_1{MakeTarget(100.0f, 2.0f), MakeTarget(220.0f, 5.0f)};
   const std::vector<std::uint8_t> detected_1{1U, 1U};
 
   // Contract violation is logged and dropped before position association.
@@ -335,13 +335,13 @@ TEST(DataAssociationEngineTest, DetectedTargetMissingPositionCompletesGracefully
 TEST(DataAssociationEngineTest, DetectedTargetWithCoordinatesButMissingPositionFlagCompletesGracefully) {
   signal::association::DataAssociationEngine engine;
 
-  common::model::TargetFeature target = MakeTarget(100.0f, 2.0f);
+  model::TargetFeature target = MakeTarget(100.0f, 2.0f);
   target.position_x = 20.0f;
   target.position_y = 1.0f;
   target.position_z = 0.0f;
   target.has_cartesian_position = false;
 
-  const common::model::TargetFeatureList cycle_1{target};
+  const model::TargetFeatureList cycle_1{target};
   const std::vector<std::uint8_t> detected_1{1U};
   // Contract violation is logged and dropped before position association.
   const signal::association::AssociationResult result = engine.AssociateDetections(cycle_1, detected_1);
@@ -354,10 +354,10 @@ TEST(DataAssociationEngineTest, DetectedTargetWithCoordinatesButMissingPositionF
 TEST(DataAssociationEngineTest, DropsOnlyInvalidDetectedTargetsWithoutPosition) {
   signal::association::DataAssociationEngine engine;
 
-  common::model::TargetFeature invalid_target = MakeTarget(100.0f, 2.0f);
-  common::model::TargetFeature valid_target = MakePositionTarget(30.0f, 0.0f, 0.0f);
+  model::TargetFeature invalid_target = MakeTarget(100.0f, 2.0f);
+  model::TargetFeature valid_target = MakePositionTarget(30.0f, 0.0f, 0.0f);
 
-  const common::model::TargetFeatureList cycle_1{invalid_target, valid_target};
+  const model::TargetFeatureList cycle_1{invalid_target, valid_target};
   const std::vector<std::uint8_t> detected_1{1U, 1U};
   const signal::association::AssociationResult result = engine.AssociateDetections(cycle_1, detected_1);
   ASSERT_EQ(result.target_keys.size(), 2u);
@@ -370,13 +370,13 @@ TEST(DataAssociationEngineTest, DropsOnlyInvalidDetectedTargetsWithoutPosition) 
 TEST(DataAssociationEngineTest, DetectedOriginWithPositionFlagPassesValidation) {
   signal::association::DataAssociationEngine engine;
 
-  common::model::TargetFeature target = MakeTarget(120.0f, 1.5f);
+  model::TargetFeature target = MakeTarget(120.0f, 1.5f);
   target.has_cartesian_position = true;
   target.position_x = 0.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
 
-  const common::model::TargetFeatureList cycle_1{target};
+  const model::TargetFeatureList cycle_1{target};
   const std::vector<std::uint8_t> detected_1{1U};
   const signal::association::AssociationResult result =
       engine.AssociateDetections(cycle_1, detected_1);
@@ -396,7 +396,7 @@ TEST(DataAssociationEngineTest, DynamicMeasurementCovarianceChangesPositionAssoc
   seed.gaussian_state.mean = signal::tracking::StateVector::Zero();
   seed.gaussian_state.covariance = signal::tracking::StateCovariance::Zero();
 
-  const common::model::TargetFeatureList targets{MakePositionTarget(4.0f, 0.0f, 0.0f)};
+  const model::TargetFeatureList targets{MakePositionTarget(4.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected{1U};
 
   signal::association::DataAssociationEngine tight_engine(config);
@@ -436,7 +436,7 @@ TEST(DataAssociationEngineTest, ExternalAssociationSeedsAffectOnlyCurrentCycle) 
 
   engine.SetAssociationSeeds(std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
 
-  const common::model::TargetFeatureList cycle_1{MakePositionTarget(101.0f, 0.0f, 0.0f)};
+  const model::TargetFeatureList cycle_1{MakePositionTarget(101.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_1{1U};
   const signal::association::AssociationResult first_result =
       engine.AssociateDetections(cycle_1, detected_1);
@@ -446,7 +446,7 @@ TEST(DataAssociationEngineTest, ExternalAssociationSeedsAffectOnlyCurrentCycle) 
   EXPECT_TRUE(first_result.used_position_association);
   EXPECT_TRUE(first_result.used_external_association_seeds);
 
-  const common::model::TargetFeatureList cycle_2{MakePositionTarget(102.0f, 0.0f, 0.0f)};
+  const model::TargetFeatureList cycle_2{MakePositionTarget(102.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_2{1U};
   const signal::association::AssociationResult second_result =
       engine.AssociateDetections(cycle_2, detected_2);
@@ -462,7 +462,7 @@ TEST(DataAssociationEngineTest, ExternalAssociationSeedsAffectOnlyCurrentCycle) 
 TEST(DataAssociationEngineTest, EmptyExternalSeedsKeepsAssociationStateless) {
   signal::association::DataAssociationEngine engine;
 
-  const common::model::TargetFeatureList warmup_cycle{MakePositionTarget(50.0f, 0.0f, 0.0f)};
+  const model::TargetFeatureList warmup_cycle{MakePositionTarget(50.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> warmup_detected{1U};
   const signal::association::AssociationResult warmup_result =
       engine.AssociateDetections(warmup_cycle, warmup_detected);
@@ -473,7 +473,7 @@ TEST(DataAssociationEngineTest, EmptyExternalSeedsKeepsAssociationStateless) {
 
   engine.SetAssociationSeeds(std::vector<signal::tracking::AssociationTrackSeed>());
 
-  const common::model::TargetFeatureList cycle_2{MakePositionTarget(51.0f, 0.0f, 0.0f)};
+  const model::TargetFeatureList cycle_2{MakePositionTarget(51.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_2{1U};
   const signal::association::AssociationResult result =
       engine.AssociateDetections(cycle_2, detected_2);

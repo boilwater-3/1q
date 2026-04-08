@@ -8,7 +8,7 @@
 #include <limits>
 #include <vector>
 
-#include "1q/airborne_radar/core/context/RadarInputValidation.h"
+#include "1q/airborne_radar/session/RadarInputValidation.h"
 #include "1q/electronic_surveillance_radar/core/context/EsrInputValidation.h"
 #include "common/validation/ValidationUtils.h"
 
@@ -25,16 +25,16 @@ TEST(ValidationUtilsTest, IsFiniteDistinguishesFiniteNanAndInfinity) {
 }
 
 TEST(ValidationUtilsTest, MakeIndexedIssueSupportsTargetIndexField) {
-  const airborne_radar::core::context::ValidationIssue issue =
-      MakeIndexedIssue<airborne_radar::core::context::ValidationIssue,
-                       airborne_radar::core::context::ValidationSeverity,
-                       airborne_radar::core::context::ValidationCode,
-                       &airborne_radar::core::context::ValidationIssue::target_index>(
-          airborne_radar::core::context::ValidationSeverity::kWarning,
-          airborne_radar::core::context::ValidationCode::kNegativeRcs, 3U, "negative rcs");
+  const airborne_radar::session::ValidationIssue issue =
+      MakeIndexedIssue<airborne_radar::session::ValidationIssue,
+                       airborne_radar::session::ValidationSeverity,
+                       airborne_radar::session::ValidationCode,
+                       &airborne_radar::session::ValidationIssue::target_index>(
+          airborne_radar::session::ValidationSeverity::kWarning,
+          airborne_radar::session::ValidationCode::kNegativeRcs, 3U, "negative rcs");
 
-  EXPECT_EQ(issue.severity, airborne_radar::core::context::ValidationSeverity::kWarning);
-  EXPECT_EQ(issue.code, airborne_radar::core::context::ValidationCode::kNegativeRcs);
+  EXPECT_EQ(issue.severity, airborne_radar::session::ValidationSeverity::kWarning);
+  EXPECT_EQ(issue.code, airborne_radar::session::ValidationCode::kNegativeRcs);
   EXPECT_EQ(issue.target_index, 3U);
   EXPECT_EQ(issue.message, "negative rcs");
 }
@@ -59,33 +59,33 @@ TEST(ValidationUtilsTest, MakeIndexedIssueSupportsEmitterIndexField) {
 }
 
 TEST(ValidationUtilsTest, HasSeverityReturnsFalseForEmptyList) {
-  const std::vector<airborne_radar::core::context::ValidationIssue> issues;
-  const bool has_error = HasSeverity<std::vector<airborne_radar::core::context::ValidationIssue>,
-                                     airborne_radar::core::context::ValidationSeverity,
-                                     &airborne_radar::core::context::ValidationIssue::severity>(
-      issues, airborne_radar::core::context::ValidationSeverity::kError);
+  const std::vector<airborne_radar::session::ValidationIssue> issues;
+  const bool has_error = HasSeverity<std::vector<airborne_radar::session::ValidationIssue>,
+                                     airborne_radar::session::ValidationSeverity,
+                                     &airborne_radar::session::ValidationIssue::severity>(
+      issues, airborne_radar::session::ValidationSeverity::kError);
   EXPECT_FALSE(has_error);
 }
 
 TEST(ValidationUtilsTest, HasSeverityReturnsFalseWhenNoExpectedSeverity) {
-  std::vector<airborne_radar::core::context::ValidationIssue> issues;
-  issues.push_back(MakeIndexedIssue<airborne_radar::core::context::ValidationIssue,
-                                    airborne_radar::core::context::ValidationSeverity,
-                                    airborne_radar::core::context::ValidationCode,
-                                    &airborne_radar::core::context::ValidationIssue::target_index>(
-      airborne_radar::core::context::ValidationSeverity::kInfo,
-      airborne_radar::core::context::ValidationCode::kUnknownExternalTargetId, 1U, "unknown id"));
-  issues.push_back(MakeIndexedIssue<airborne_radar::core::context::ValidationIssue,
-                                    airborne_radar::core::context::ValidationSeverity,
-                                    airborne_radar::core::context::ValidationCode,
-                                    &airborne_radar::core::context::ValidationIssue::target_index>(
-      airborne_radar::core::context::ValidationSeverity::kWarning,
-      airborne_radar::core::context::ValidationCode::kNegativeRcs, 2U, "negative rcs"));
+  std::vector<airborne_radar::session::ValidationIssue> issues;
+  issues.push_back(MakeIndexedIssue<airborne_radar::session::ValidationIssue,
+                                    airborne_radar::session::ValidationSeverity,
+                                    airborne_radar::session::ValidationCode,
+                                    &airborne_radar::session::ValidationIssue::target_index>(
+      airborne_radar::session::ValidationSeverity::kInfo,
+      airborne_radar::session::ValidationCode::kUnknownExternalTargetId, 1U, "unknown id"));
+  issues.push_back(MakeIndexedIssue<airborne_radar::session::ValidationIssue,
+                                    airborne_radar::session::ValidationSeverity,
+                                    airborne_radar::session::ValidationCode,
+                                    &airborne_radar::session::ValidationIssue::target_index>(
+      airborne_radar::session::ValidationSeverity::kWarning,
+      airborne_radar::session::ValidationCode::kNegativeRcs, 2U, "negative rcs"));
 
-  const bool has_error = HasSeverity<std::vector<airborne_radar::core::context::ValidationIssue>,
-                                     airborne_radar::core::context::ValidationSeverity,
-                                     &airborne_radar::core::context::ValidationIssue::severity>(
-      issues, airborne_radar::core::context::ValidationSeverity::kError);
+  const bool has_error = HasSeverity<std::vector<airborne_radar::session::ValidationIssue>,
+                                     airborne_radar::session::ValidationSeverity,
+                                     &airborne_radar::session::ValidationIssue::severity>(
+      issues, airborne_radar::session::ValidationSeverity::kError);
   EXPECT_FALSE(has_error);
 }
 

@@ -39,7 +39,7 @@ struct ResolvedRuntimeSignalPipelineConfig {
 ResolvedRuntimeSignalPipelineConfig BuildRuntimeConfigFromControlProfile(
     const SignalPipelineConfig& base_config,
     const pipeline::internal::InternalSignalPipelineConfig& base_internal_config,
-    const common::control::RadarControlProfile& control_profile);
+    const extension::control::RadarControlProfile& control_profile);
 
 /**
  * @brief 根据运行时配置自动装配生命周期管理器。
@@ -74,7 +74,7 @@ struct OwnedComponentSlots {
 void RebuildOwnedComponentsForPipeline(
     const SignalPipelineConfig& base_config,
     const pipeline::internal::InternalSignalPipelineConfig& base_internal_config,
-    const common::control::RadarControlProfile& control_profile, OwnedComponentSlots* slots);
+    const extension::control::RadarControlProfile& control_profile, OwnedComponentSlots* slots);
 
 /**
  * @brief 将本周期运行时配置同步到自动生命周期管理器内部参数。

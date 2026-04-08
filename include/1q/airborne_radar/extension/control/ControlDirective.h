@@ -7,7 +7,7 @@
 #define AIRBORNE_RADAR_COMMON_CONTROL_DIRECTIVE_H_
 
 namespace airborne_radar {
-namespace common {
+namespace extension {
 namespace control {
 
 /**
@@ -54,7 +54,7 @@ struct ControlDirective {
 };
 
 }  // namespace control
-}  // namespace common
+}  // namespace extension
 }  // namespace airborne_radar
 
 #endif  // AIRBORNE_RADAR_COMMON_CONTROL_DIRECTIVE_H_

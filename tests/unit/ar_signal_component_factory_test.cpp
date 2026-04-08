@@ -5,7 +5,7 @@
 
 #include <gtest/gtest.h>
 
-#include "1q/airborne_radar/signal/config/SignalPipelineConfig.h"
+#include "1q/airborne_radar/config/SignalPipelineConfig.h"
 #include "airborne_radar/signal/pipeline/InternalSignalPipelineConfig.h"
 #include "airborne_radar/signal/runtime/SignalComponentFactory.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
@@ -19,14 +19,14 @@ namespace airborne_radar {
 namespace tests {
 
 TEST(SignalComponentFactoryTest, BuildOwnedComponentsSelectsPredictorUpdaterFamilyByBackend) {
-  signal::config::SignalPipelineConfig config;
+  config::SignalPipelineConfig config;
   config.tracking.enable_kalman_filter = true;
   config.tracking.kalman_measurement_noise_std = 5.0f;
 
   signal::pipeline::internal::InternalSignalPipelineConfig internal_config =
       signal::pipeline::internal::BuildInternalSignalPipelineConfig(config);
 
-  config.tracking.kalman_update_backend = signal::config::KalmanUpdateBackend::kUdKf;
+  config.tracking.kalman_update_backend = config::KalmanUpdateBackend::kUdKf;
   signal::runtime::internal::OwnedSignalComponents ud_components =
       signal::runtime::internal::SignalComponentFactory::BuildOwnedPipelineComponents(
           config, internal_config);
@@ -35,7 +35,7 @@ TEST(SignalComponentFactoryTest, BuildOwnedComponentsSelectsPredictorUpdaterFami
   EXPECT_NE(dynamic_cast<signal::tracking::UdkfUpdater*>(ud_components.kalman_updater.get()),
             nullptr);
 
-  config.tracking.kalman_update_backend = signal::config::KalmanUpdateBackend::kSrif;
+  config.tracking.kalman_update_backend = config::KalmanUpdateBackend::kSrif;
   signal::runtime::internal::OwnedSignalComponents srif_components =
       signal::runtime::internal::SignalComponentFactory::BuildOwnedPipelineComponents(
           config, internal_config);
@@ -44,7 +44,7 @@ TEST(SignalComponentFactoryTest, BuildOwnedComponentsSelectsPredictorUpdaterFami
   EXPECT_NE(dynamic_cast<signal::tracking::SrifUpdater*>(srif_components.kalman_updater.get()),
             nullptr);
 
-  config.tracking.kalman_update_backend = signal::config::KalmanUpdateBackend::kStandardKfJoseph;
+  config.tracking.kalman_update_backend = config::KalmanUpdateBackend::kStandardKfJoseph;
   signal::runtime::internal::OwnedSignalComponents standard_components =
       signal::runtime::internal::SignalComponentFactory::BuildOwnedPipelineComponents(
           config, internal_config);
@@ -56,9 +56,9 @@ TEST(SignalComponentFactoryTest, BuildOwnedComponentsSelectsPredictorUpdaterFami
 }
 
 TEST(SignalComponentFactoryTest, ImmAssemblyUsesSamePredictorUpdaterBackendFamily) {
-  signal::config::SignalPipelineConfig config;
+  config::SignalPipelineConfig config;
   config.tracking.enable_kalman_filter = true;
-  config.tracking.kalman_update_backend = signal::config::KalmanUpdateBackend::kUdKf;
+  config.tracking.kalman_update_backend = config::KalmanUpdateBackend::kUdKf;
   config.lifecycle.enable_imm_lifecycle = true;
 
   signal::pipeline::internal::InternalSignalPipelineConfig internal_config =

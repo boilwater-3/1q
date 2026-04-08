@@ -9,13 +9,12 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "1q/airborne_radar/common/model/DecisionInputFrame.h"
-#include "1q/airborne_radar/signal/pipeline/SignalPipelineResultTypes.h"
+#include "1q/airborne_radar/model/DecisionInputFrame.h"
+#include "1q/airborne_radar/extension/SignalPipelineResultTypes.h"
 #include "common/runtime/RuntimeCycleExecutor.h"
 
 namespace airborne_radar {
-namespace core {
-namespace controller {
+namespace extension {
 
 /**
  * @brief CycleTelemetryPayload 聚合单周期日志所需的全部字段。
@@ -27,8 +26,8 @@ struct CycleTelemetryPayload {
   std::size_t applied_directive_count;
   bool environment_jamming_detected;
   std::uint64_t profile_version;
-  const common::model::PerceptionQualityInfo& perception_quality_info;
-  const signal::pipeline::AssociationQualityMetrics& association_metrics;
+  const model::PerceptionQualityInfo& perception_quality_info;
+  const extension::AssociationQualityMetrics& association_metrics;
 
   CycleTelemetryPayload(const oneq::internal::runtime::RuntimeCycleStamp& stamp_,
                         std::size_t input_target_count_,
@@ -36,8 +35,8 @@ struct CycleTelemetryPayload {
                         std::size_t applied_directive_count_,
                         bool environment_jamming_detected_,
                         std::uint64_t profile_version_,
-                        const common::model::PerceptionQualityInfo& perception_quality_info_,
-                        const signal::pipeline::AssociationQualityMetrics& association_metrics_)
+                        const model::PerceptionQualityInfo& perception_quality_info_,
+                        const extension::AssociationQualityMetrics& association_metrics_)
       : stamp(stamp_),
         input_target_count(input_target_count_),
         decision_track_count(decision_track_count_),
@@ -60,8 +59,7 @@ class CycleTelemetryLogger {
   static void LogCycleSummary(const CycleTelemetryPayload& payload);
 };
 
-}  // namespace controller
-}  // namespace core
+}  // namespace extension
 }  // namespace airborne_radar
 
 #endif  // AIRBORNE_RADAR_CORE_CONTROLLER_CYCLE_TELEMETRY_LOGGER_H_

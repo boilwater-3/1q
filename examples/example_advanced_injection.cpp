@@ -20,19 +20,19 @@
 #include <vector>
 
 // Layer 2 头文件
-#include "1q/airborne_radar/core/context/IRadarContext.h"
-#include "1q/airborne_radar/core/context/RadarCycleInput.h"
-#include "1q/airborne_radar/core/controller/RadarController.h"
-#include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/extension/IRadarContext.h"
+#include "1q/airborne_radar/session/RadarCycleInput.h"
+#include "1q/airborne_radar/extension/RadarController.h"
+#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "1q/airborne_radar/environment/IEnvironmentService.h"
+#include "1q/airborne_radar/extension/IEnvironmentService.h"
 // 便捷辅助
-#include "1q/airborne_radar/core/session/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/common/model/TargetFeatureBuilder.h"
-#include "1q/airborne_radar/core/output/TrackOutputQueries.h"
+#include "1q/airborne_radar/model/TargetFeatureBuilder.h"
+#include "1q/airborne_radar/output/TrackOutputQueries.h"
 // 平台侧需要直接操控原生组件时包含
-#include "1q/airborne_radar/signal/pipeline/SignalPipelineResultTypes.h"
+#include "1q/airborne_radar/extension/SignalPipelineResultTypes.h"
 
 // ---------------------------------------------------------------------------
 // 场景 A：自定义 ITacticalDecisionEngine
@@ -44,16 +44,16 @@
 namespace {
 
 class PlatformSpecificDecisionEngine
-    : public airborne_radar::decision::pipeline::ITacticalDecisionEngine {
+    : public airborne_radar::extension::ITacticalDecisionEngine {
  public:
-  using DecisionInputFrame = airborne_radar::common::model::DecisionInputFrame;
-  using TacticalDecisionResult = airborne_radar::decision::pipeline::TacticalDecisionResult;
-  using TacticalStateStore = airborne_radar::decision::pipeline::TacticalStateStore;
-  using TacticalProposal = airborne_radar::decision::pipeline::TacticalProposal;
-  using TacticalMode = airborne_radar::decision::pipeline::TacticalMode;
-  using ControlDirective = airborne_radar::common::control::ControlDirective;
-  using ControlDirectiveType = airborne_radar::common::control::ControlDirectiveType;
-  using ControlDirectiveSource = airborne_radar::common::control::ControlDirectiveSource;
+  using DecisionInputFrame = airborne_radar::model::DecisionInputFrame;
+  using TacticalDecisionResult = airborne_radar::extension::TacticalDecisionResult;
+  using TacticalStateStore = airborne_radar::extension::TacticalStateStore;
+  using TacticalProposal = airborne_radar::extension::TacticalProposal;
+  using TacticalMode = airborne_radar::extension::TacticalMode;
+  using ControlDirective = airborne_radar::extension::control::ControlDirective;
+  using ControlDirectiveType = airborne_radar::extension::control::ControlDirectiveType;
+  using ControlDirectiveSource = airborne_radar::extension::control::ControlDirectiveSource;
 
   explicit PlatformSpecificDecisionEngine(float custom_threat_threshold)
       : custom_threat_threshold_(custom_threat_threshold) {}
@@ -113,7 +113,7 @@ class PlatformSpecificDecisionEngine
 //   - 仿真环境需要精确控制每周期的电磁参数
 //   - 平台已有电磁环境评估子系统，数据直接来自硬件
 // ---------------------------------------------------------------------------
-class SimulatedEnvironmentService : public airborne_radar::environment::IEnvironmentService {
+class SimulatedEnvironmentService : public airborne_radar::extension::IEnvironmentService {
  public:
   using EnvironmentCycleContext = airborne_radar::environment::EnvironmentCycleContext;
   using EnvironmentSnapshot = airborne_radar::environment::EnvironmentSnapshot;
@@ -165,7 +165,7 @@ class SimulatedEnvironmentService : public airborne_radar::environment::IEnviron
 // 目标接口即可。
 
 int main() {
-  namespace aq = airborne_radar::common;
+  namespace aq = airborne_radar::model;
 
   // ------------------------------------------------------------------
   // 设计要点说明（可在此运行并修改为完整注入代码）
@@ -210,7 +210,7 @@ int main() {
             << "  MyRadarContext my_context(...);\n"
             << "\n"
             << "  // 2. 构造信号流水线配置（推荐使用 RadarSessionConfigBuilder）\n"
-            << "  //    airborne_radar::signal::config::SignalDetectionConfig detection =\n"
+            << "  //    airborne_radar::config::SignalDetectionConfig detection =\n"
             << "  //        preset.detection;\n"
             << "  //    detection.enable_physics_detection = true;\n"
             << "  //    detection.transmitter.peak_power_w = 5e6f;\n"
@@ -221,7 +221,7 @@ int main() {
             << "  //            .WithDetection(detection)\n"
             << "  //            .End()\n"
             << "  //            .Build();\n"
-            << "  //    airborne_radar::signal::config::SignalPipelineConfig pipeline_cfg;\n"
+            << "  //    airborne_radar::config::SignalPipelineConfig pipeline_cfg;\n"
             << "  //    pipeline_cfg.detection = session_cfg.detection;\n"
             << "  //    pipeline_cfg.beam_control = session_cfg.beam_control;\n"
             << "  //    pipeline_cfg.tracking = session_cfg.tracking;\n"

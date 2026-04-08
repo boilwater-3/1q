@@ -35,7 +35,7 @@ float ResolveRcsPhysicsFrequencyHz(const SignalPipelineConfig& runtime_config) {
 }
 
 float ComputeEquivalentRadiusM(float input_rcs_m2,
-                               const signal::config::RcsPhysicsConfig& rcs_config) {
+                               const config::RcsPhysicsConfig& rcs_config) {
   const float min_radius_m = std::max(rcs_config.min_equivalent_radius_m, 1.0e-3f);
   const float max_radius_m = std::max(rcs_config.max_equivalent_radius_m, min_radius_m);
   const float safe_input_rcs_m2 = std::max(input_rcs_m2, 0.0f);
@@ -43,11 +43,11 @@ float ComputeEquivalentRadiusM(float input_rcs_m2,
   return ClampToRange(equivalent_radius_m, min_radius_m, max_radius_m);
 }
 
-float ComputeEffectiveTargetRcsM2(const common::model::TargetFeature& target,
+float ComputeEffectiveTargetRcsM2(const model::TargetFeature& target,
                                   const detection::ResolvedTargetGeometry& geometry,
                                   const SignalPipelineConfig& runtime_config) {
   const float input_rcs_m2 = std::max(target.current_track_rcs, 0.0f);
-  const signal::config::RcsPhysicsConfig& rcs_config = runtime_config.detection.rcs_physics;
+  const config::RcsPhysicsConfig& rcs_config = runtime_config.detection.rcs_physics;
   if (!rcs_config.enable_physical_rcs) {
     return input_rcs_m2;
   }
@@ -141,10 +141,10 @@ bool HasValidBuffers(const DetectionExecutionBuffers& buffers) {
 
 }  // namespace
 
-void RunHeuristicDetectionPass(const common::model::TargetFeatureList& input,
+void RunHeuristicDetectionPass(const model::TargetFeatureList& input,
                                const SignalPipelineConfig& runtime_config,
                                const InternalSignalPipelineConfig& internal_config,
-                               const common::control::RadarControlProfile& control_profile,
+                               const extension::control::RadarControlProfile& control_profile,
                                const environment::EnvironmentSnapshot& environment_snapshot,
                                DetectionExecutionBuffers* buffers) {
   if (buffers == nullptr || !HasValidBuffers(*buffers)) {
@@ -178,10 +178,10 @@ void RunHeuristicDetectionPass(const common::model::TargetFeatureList& input,
   }
 }
 
-void RunPhysicalDetectionPass(const common::model::TargetFeatureList& input,
+void RunPhysicalDetectionPass(const model::TargetFeatureList& input,
                               const SignalPipelineConfig& runtime_config,
                               const InternalSignalPipelineConfig& internal_config,
-                              const common::control::RadarControlProfile& control_profile,
+                              const extension::control::RadarControlProfile& control_profile,
                               const environment::EnvironmentSnapshot& environment_snapshot,
                               detection::SignalDetector* signal_detector,
                               DetectionExecutionBuffers* buffers) {
@@ -226,7 +226,7 @@ void RunPhysicalDetectionPass(const common::model::TargetFeatureList& input,
     target.rcs_m2 = effective_rcs_m2;
     target.range_m = (*buffers->target_geometry)[i].range_m;
     target.swerling_type =
-        static_cast<signal::config::SwerlingModel>(input[i].target_swerling_type);
+        static_cast<config::SwerlingModel>(input[i].target_swerling_type);
 
     const detection::ResolvedBeamState beam_state =
         detection::BeamControlResolver::Resolve(runtime_config.detection.antenna,

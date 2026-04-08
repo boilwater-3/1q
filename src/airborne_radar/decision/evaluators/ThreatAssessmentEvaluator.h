@@ -8,9 +8,9 @@
 
 #include <string>
 
-#include "1q/airborne_radar/common/model/DecisionSourceInfo.h"
-#include "1q/airborne_radar/common/model/DecisionTrackSnapshot.h"
-#include "1q/airborne_radar/common/model/TargetCategory.h"
+#include "1q/airborne_radar/model/DecisionSourceInfo.h"
+#include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
+#include "1q/airborne_radar/model/TargetCategory.h"
 #include "airborne_radar/decision/pipeline/TacticalEvaluation.h"
 #include "airborne_radar/environment/database/IFeatureRepository.h"
 
@@ -36,7 +36,7 @@ class ThreatAssessmentEvaluator final : public pipeline::ITacticalEvaluator {
    * @param[in,out] state_store 跨周期决策状态存储。
    * @param[in,out] evaluation_state evaluator 间共享的中间结果。
    */
-  void Evaluate(const common::model::DecisionInputFrame& input_frame,
+  void Evaluate(const model::DecisionInputFrame& input_frame,
                 pipeline::TacticalStateStore& state_store,
                 pipeline::TacticalEvaluationState& evaluation_state) const override;
 
@@ -46,22 +46,22 @@ class ThreatAssessmentEvaluator final : public pipeline::ITacticalEvaluator {
    * @param track_snapshot 单条轨迹快照。
    * @return 含类型标签及归一化概率的 TargetCategory；启发式路径时 probability 为 0。
    */
-  common::model::TargetCategory IdentifyTarget(
-      const common::model::DecisionTrackSnapshot& track_snapshot) const;
+  model::TargetCategory IdentifyTarget(
+      const model::DecisionTrackSnapshot& track_snapshot) const;
 
   /**
    * @brief 计算威胁评分。
    * @param track_snapshot 单条轨迹快照。
    * @return 轨迹的威胁评分。
    */
-  float ComputeThreatScore(const common::model::DecisionTrackSnapshot& track_snapshot) const;
+  float ComputeThreatScore(const model::DecisionTrackSnapshot& track_snapshot) const;
 
   /**
    * @brief 更新供 LPI 使用的来源信息。
    * @param[in,out] source_info 待更新的 LPI 来源信息。
    * @param classification 当前识别出的分类标签。
    */
-  void UpdateLpiSourceInfo(common::model::LpiSourceInfo* source_info,
+  void UpdateLpiSourceInfo(model::LpiSourceInfo* source_info,
                            const std::string& classification) const;
 
   /**
@@ -77,7 +77,7 @@ class ThreatAssessmentEvaluator final : public pipeline::ITacticalEvaluator {
    * @param previous_confidence 上一周期保留的置信度。
    * @return 更新后的置信度。
    */
-  float UpdateConfidence(const common::model::DecisionTrackSnapshot& track_snapshot,
+  float UpdateConfidence(const model::DecisionTrackSnapshot& track_snapshot,
                          float previous_confidence) const;
 
   /**

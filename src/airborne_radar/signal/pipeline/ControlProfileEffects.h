@@ -24,7 +24,7 @@ namespace internal {
  */
 float ComputeHeuristicSignalAdjustmentDb(
     const ControlProfileEffectsConfig& cfg,
-    const common::control::RadarControlProfile& control_profile);
+    const extension::control::RadarControlProfile& control_profile);
 
 /**
  * @brief 计算控制真值对经验环境惩罚项的抵消量。
@@ -34,7 +34,7 @@ float ComputeHeuristicSignalAdjustmentDb(
  * @return 对经验环境惩罚项的抵消量（dB）。
  */
 float ComputeHeuristicEnvironmentReliefDb(
-    const JammingEffectsConfig& cfg, const common::control::RadarControlProfile& control_profile,
+    const JammingEffectsConfig& cfg, const extension::control::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot);
 
 /**
@@ -42,7 +42,7 @@ float ComputeHeuristicEnvironmentReliefDb(
  * @param[in] control_profile 当前控制真值。
  * @param[in,out] runtime_config 待调整的运行时配置。
  */
-void ApplyControlProfileToConfig(const common::control::RadarControlProfile& control_profile,
+void ApplyControlProfileToConfig(const extension::control::RadarControlProfile& control_profile,
                                  SignalPipelineConfig* runtime_config,
                                  InternalSignalPipelineConfig* internal_config);
 

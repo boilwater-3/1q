@@ -6,24 +6,15 @@
 #ifndef AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_BUILDER_H_
 #define AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_BUILDER_H_
 
-#include "1q/airborne_radar/core/session/RadarSession.h"
+#include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
 namespace config {
 
-using signal::config::AntennaConfig;
-using signal::config::DetectionPolicy;
-using signal::config::KalmanUpdateBackend;
-using signal::config::ReceiverConfig;
-using signal::config::SignalBeamControlConfig;
-using signal::config::SignalDetectionConfig;
-using signal::config::SignalLifecycleConfig;
-using signal::config::SignalTrackingConfig;
-using signal::config::TransmitterConfig;
-using common::model::AzimuthElevationDeg;
-using common::model::CommandedBeamwidthDeg;
-using common::model::RadarWorkSubMode;
+using model::AzimuthElevationDeg;
+using model::CommandedBeamwidthDeg;
+using model::RadarWorkSubMode;
 
 /**
  * @brief RadarSession 配置链式构造器。
@@ -53,7 +44,7 @@ class ONEQ_API RadarSessionConfigBuilder {
   class LifecycleEditor;
   class EnvironmentEditor;
 
-  explicit RadarSessionConfigBuilder(const core::session::RadarSessionConfig& config = {})
+  explicit RadarSessionConfigBuilder(const session::RadarSessionConfig& config = {})
       : config_(config) {}
 
   DetectionEditor Detection();
@@ -62,7 +53,7 @@ class ONEQ_API RadarSessionConfigBuilder {
   LifecycleEditor Lifecycle();
   EnvironmentEditor Environment();
 
-  core::session::RadarSessionConfig Build() const;
+  session::RadarSessionConfig Build() const;
 
  private:
   friend class DetectionEditor;
@@ -71,7 +62,7 @@ class ONEQ_API RadarSessionConfigBuilder {
   friend class LifecycleEditor;
   friend class EnvironmentEditor;
 
-  core::session::RadarSessionConfig config_;
+  session::RadarSessionConfig config_;
 };
 
 class RadarSessionConfigBuilder::DetectionEditor {

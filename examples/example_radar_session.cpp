@@ -10,27 +10,27 @@
 
 #include <iostream>
 
-#include "1q/airborne_radar/core/session/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/common/model/TargetFeatureUtils.h"
-#include "1q/airborne_radar/core/context/RadarCycleInput.h"
-#include "1q/airborne_radar/core/context/RadarInputValidation.h"
-#include "1q/airborne_radar/core/output/TrackOutputQueries.h"
-#include "1q/airborne_radar/core/session/RadarSessionFactory.h"
-#include "1q/airborne_radar/core/session/RadarSession.h"
+#include "1q/airborne_radar/model/TargetFeatureUtils.h"
+#include "1q/airborne_radar/session/RadarCycleInput.h"
+#include "1q/airborne_radar/session/RadarInputValidation.h"
+#include "1q/airborne_radar/output/TrackOutputQueries.h"
+#include "1q/airborne_radar/session/RadarSessionFactory.h"
+#include "1q/airborne_radar/session/RadarSession.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 
 int main() {
-  namespace aq = airborne_radar::common;
-  using airborne_radar::core::context::HasValidationError;
-  using airborne_radar::core::context::RadarCycleInput;
-  using airborne_radar::core::context::ValidateRadarCycleInput;
-  using airborne_radar::core::output::CollectConfirmedTracks;
-  using airborne_radar::core::output::CollectJammingTracks;
-  using airborne_radar::core::session::RadarCycleResult;
-  using airborne_radar::core::session::RadarSessionFactory;
-  using airborne_radar::core::session::RadarSession;
+  namespace aq = airborne_radar::model;
+  using airborne_radar::session::HasValidationError;
+  using airborne_radar::session::RadarCycleInput;
+  using airborne_radar::session::ValidateRadarCycleInput;
+  using airborne_radar::output::CollectConfirmedTracks;
+  using airborne_radar::output::CollectJammingTracks;
+  using airborne_radar::session::RadarCycleResult;
+  using airborne_radar::session::RadarSessionFactory;
+  using airborne_radar::session::RadarSession;
   using airborne_radar::environment::EnvironmentSceneBuilder;
   using airborne_radar::environment::JammerEmitterState;
   using airborne_radar::environment::JammingTechnique;
@@ -48,7 +48,7 @@ int main() {
   //       RadarSessionFactory::Create(airborne_radar::config::MakeDetectionMissionRadarSessionConfig());
   const auto preset = airborne_radar::config::MakeDetectionMissionRadarSessionConfig();
 
-  airborne_radar::signal::config::SignalDetectionConfig detection = preset.detection;
+  airborne_radar::config::SignalDetectionConfig detection = preset.detection;
   detection.enable_physics_detection = true;
   detection.transmitter.peak_power_w = 5e6f;
   detection.transmitter.frequency_hz = 9.3e9f;
@@ -81,7 +81,7 @@ int main() {
   cycle_1.target_features.push_back(
       aq::MakeTargetFromCartesian(1002U, 260.0f, 8.0f, 22.0f, 82.0f, 1.0f, 0.0f, 1.1f));
 
-  const std::vector<airborne_radar::core::context::ValidationIssue> cycle_1_issues =
+  const std::vector<airborne_radar::session::ValidationIssue> cycle_1_issues =
       ValidateRadarCycleInput(cycle_1);
   if (HasValidationError(cycle_1_issues)) {
     std::cerr << "cycle_1 input validation failed" << std::endl;

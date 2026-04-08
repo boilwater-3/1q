@@ -21,7 +21,7 @@
 ## Airborne Radar
 
 - `airborne_radar/config/`：初始化与运行期配置入口（Builder、预设、扫描/姿态配置）。
-- `airborne_radar/core/session/`：会话门面与周期结果。
+- `airborne_radar/session/`：会话门面与周期结果。
 - `airborne_radar/core/context/`：单周期输入与输入校验。
 - `airborne_radar/core/controller/`：控制器门面与输出读取接口。
 - `airborne_radar/environment/`：环境输入与构造辅助。

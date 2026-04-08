@@ -7,7 +7,7 @@
 #define AIRBORNE_RADAR_COMMON_RADAR_COMMAND_H_
 
 namespace airborne_radar {
-namespace common {
+namespace extension {
 namespace control {
 
 /**
@@ -54,7 +54,7 @@ struct RadarCommand {
       : type(cmd_type), source(cmd_source) {}
 };
 }  // namespace control
-}  // namespace common
+}  // namespace extension
 }  // namespace airborne_radar
 
 #endif  // AIRBORNE_RADAR_COMMON_RADAR_COMMAND_H_

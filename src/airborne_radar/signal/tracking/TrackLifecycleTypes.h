@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "1q/airborne_radar/common/utils/JammingSemantics.h"
+#include "1q/airborne_radar/model/JammingSemantics.h"
 #include "airborne_radar/signal/tracking/GaussianTrackState.h"
 
 namespace airborne_radar {
@@ -66,8 +66,8 @@ struct FilteredTrackFeature {
   Eigen::Vector3f velocity{Eigen::Vector3f::Zero()}; /**< 当前量测速度向量（vx, vy, vz）。 */
   float rcs{0.0f};                                   /**< 当前量测估计 RCS。 */
   bool jamming_detected{false};                      /**< 当前量测是否检测到干扰。 */
-  common::utils::JammingSemantic dominant_jamming_semantic{
-      common::utils::JammingSemantic::kNone}; /**< 当前量测对应的主导干扰摘要类型。 */
+  model::JammingSemantic dominant_jamming_semantic{
+      model::JammingSemantic::kNone}; /**< 当前量测对应的主导干扰摘要类型。 */
   float jamming_severity{0.0f};               /**< 当前量测对应的残余干扰强度摘要，范围 [0, 1]。 */
 };
 /**

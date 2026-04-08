@@ -6,7 +6,7 @@
 #ifndef AIRBORNE_RADAR_DECISION_EVALUATORS_EMISSION_CONTROL_EVALUATOR_H_
 #define AIRBORNE_RADAR_DECISION_EVALUATORS_EMISSION_CONTROL_EVALUATOR_H_
 
-#include "1q/airborne_radar/common/model/DecisionSourceInfo.h"
+#include "1q/airborne_radar/model/DecisionSourceInfo.h"
 #include "airborne_radar/decision/pipeline/TacticalEvaluation.h"
 
 namespace airborne_radar {
@@ -24,7 +24,7 @@ class EmissionControlEvaluator final : public pipeline::ITacticalEvaluator {
    * @param[in,out] state_store 跨周期决策状态存储。
    * @param[in,out] evaluation_state evaluator 间共享的中间结果。
    */
-  void Evaluate(const common::model::DecisionInputFrame& input_frame,
+  void Evaluate(const model::DecisionInputFrame& input_frame,
                 pipeline::TacticalStateStore& state_store,
                 pipeline::TacticalEvaluationState& evaluation_state) const override;
 };

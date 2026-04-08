@@ -7,9 +7,9 @@
 
 #include <cmath>
 
-#include "1q/airborne_radar/common/model/RadarOrientationConfig.h"
+#include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "airborne_radar/common/utils/RadarOrientationUtils.h"
-#include "1q/airborne_radar/signal/config/SignalDetectionConfig.h"
+#include "1q/airborne_radar/config/SignalDetectionConfig.h"
 #include "common/geometry/GeometryTransform.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/TargetLookResolver.h"
@@ -17,17 +17,17 @@
 namespace airborne_radar {
 namespace tests {
 
-using common::model::AzimuthElevationDeg;
-using common::model::AzimuthElevationLimitsDeg;
-using common::utils::ComputeBodyFrameBeamPointing;
-using common::utils::ComputeMountFrameBeamPointing;
-using common::utils::ComputePlatformFrameBeamPointing;
-using common::model::EulerAnglesDeg;
-using common::utils::IntersectScanLimits;
-using common::utils::IsValidScanLimits;
-using common::model::RadarOrientationConfig;
-using common::model::StabilizationMode;
-using signal::config::AntennaConfig;
+using model::AzimuthElevationDeg;
+using model::AzimuthElevationLimitsDeg;
+using model::ComputeBodyFrameBeamPointing;
+using model::ComputeMountFrameBeamPointing;
+using model::ComputePlatformFrameBeamPointing;
+using model::EulerAnglesDeg;
+using model::IntersectScanLimits;
+using model::IsValidScanLimits;
+using model::RadarOrientationConfig;
+using model::StabilizationMode;
+using config::AntennaConfig;
 using signal::detection::BeamControlResolver;
 using signal::detection::ResolvedBeamState;
 using signal::detection::TargetLookAnglesDeg;

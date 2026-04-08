@@ -14,17 +14,17 @@
 #include <unordered_map>
 #include <vector>
 
-#include "1q/airborne_radar/core/session/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/common/model/TargetFeatureBuilder.h"
-#include "1q/airborne_radar/common/model/TargetFeatureUtils.h"
-#include "1q/airborne_radar/core/context/RadarCycleInput.h"
-#include "1q/airborne_radar/core/context/RadarInputValidation.h"
-#include "1q/airborne_radar/core/output/TrackOutputQueries.h"
-#include "1q/airborne_radar/core/session/RadarSession.h"
+#include "1q/airborne_radar/model/TargetFeatureBuilder.h"
+#include "1q/airborne_radar/model/TargetFeatureUtils.h"
+#include "1q/airborne_radar/session/RadarCycleInput.h"
+#include "1q/airborne_radar/session/RadarInputValidation.h"
+#include "1q/airborne_radar/output/TrackOutputQueries.h"
+#include "1q/airborne_radar/session/RadarSession.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "1q/airborne_radar/signal/config/SignalPipelineConfig.h"
+#include "1q/airborne_radar/config/SignalPipelineConfig.h"
 
 namespace {
 
@@ -32,8 +32,8 @@ namespace {
 // 辅助：打印单帧输出摘要
 // ---------------------------------------------------------------------------
 void PrintFrameSummary(const char* label,
-                       const airborne_radar::core::session::RadarCycleResult& result) {
-  using namespace airborne_radar::core::output;
+                       const airborne_radar::session::RadarCycleResult& result) {
+  using namespace airborne_radar::output;
   std::cout << "[" << label << "]"
             << " published=" << result.track_output_frame.published_track_count
             << " confirmed=" << CollectConfirmedTracks(result.track_output_frame).size()
@@ -46,12 +46,12 @@ void PrintFrameSummary(const char* label,
 }  // namespace
 
 int main() {
-  namespace aq = airborne_radar::common;
-  namespace ctx = airborne_radar::core::context;
+  namespace aq = airborne_radar::model;
+  namespace ctx = airborne_radar::session;
   namespace env = airborne_radar::environment;
   namespace sig = airborne_radar::signal::pipeline;
-  namespace out = airborne_radar::core::output;
-  using session_t = airborne_radar::core::session::RadarSession;
+  namespace out = airborne_radar::output;
+  using session_t = airborne_radar::session::RadarSession;
 
   // =========================================================================
   // 1. 最简路径
@@ -60,7 +60,7 @@ int main() {
   //    若平台有确定的雷达硬件参数（发射机功率、载频、天线增益等），
   //    推荐改用 RadarSessionConfigBuilder 在预设基础上叠加：
   //
-  //      airborne_radar::signal::config::SignalDetectionConfig detection =
+  //      airborne_radar::config::SignalDetectionConfig detection =
   //          preset.detection;
   //      detection.enable_physics_detection = true;
   //      detection.transmitter.peak_power_w = 5e6f;

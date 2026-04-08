@@ -17,8 +17,8 @@ namespace {
 
 struct LifecycleConfigSignature {
   bool enable_imm_lifecycle{false};
-  signal::config::KalmanUpdateBackend kalman_update_backend{
-      signal::config::KalmanUpdateBackend::kStandardKfJoseph};
+  config::KalmanUpdateBackend kalman_update_backend{
+      config::KalmanUpdateBackend::kStandardKfJoseph};
   std::size_t imm_model_count{0U};
   tracking::TrackPoolThreadSafetyMode track_pool_thread_safety_mode{
       tracking::TrackPoolThreadSafetyMode::kSingleThreadNoLock};
@@ -154,25 +154,25 @@ class AutoConfiguredLifecycleManager final : public tracking::ITrackLifecycleMan
     assembly_.lifecycle_manager->Update(cycle, measurements);
   }
 
-  common::model::TargetFeatureList BuildFeatureSnapshot() const override {
+  model::TargetFeatureList BuildFeatureSnapshot() const override {
     if (assembly_.lifecycle_manager == nullptr) {
-      return common::model::TargetFeatureList();
+      return model::TargetFeatureList();
     }
     return assembly_.lifecycle_manager->BuildFeatureSnapshot();
   }
 
-  common::model::DecisionTrackSnapshotList BuildDecisionSnapshot() const override {
+  model::DecisionTrackSnapshotList BuildDecisionSnapshot() const override {
     if (assembly_.lifecycle_manager == nullptr) {
-      return common::model::DecisionTrackSnapshotList();
+      return model::DecisionTrackSnapshotList();
     }
     return assembly_.lifecycle_manager->BuildDecisionSnapshot();
   }
 
-  common::model::DecisionInputFrame BuildDecisionFrame(
+  model::DecisionInputFrame BuildDecisionFrame(
       std::uint32_t cycle_index, std::uint64_t batch_id,
       bool environment_jamming_detected) const override {
     if (assembly_.lifecycle_manager == nullptr) {
-      common::model::DecisionInputFrame frame;
+      model::DecisionInputFrame frame;
       frame.cycle_index = cycle_index;
       frame.batch_id = batch_id;
       frame.environment_jamming_detected = environment_jamming_detected;
@@ -261,7 +261,7 @@ bool HasValidOwnedComponentSlots(const OwnedComponentSlots& slots) {
 ResolvedRuntimeSignalPipelineConfig BuildRuntimeConfigFromControlProfile(
     const SignalPipelineConfig& base_config,
     const pipeline::internal::InternalSignalPipelineConfig& base_internal_config,
-    const common::control::RadarControlProfile& control_profile) {
+    const extension::control::RadarControlProfile& control_profile) {
   ResolvedRuntimeSignalPipelineConfig resolved_config;
   resolved_config.public_config = base_config;
   resolved_config.internal_config = base_internal_config;
@@ -292,7 +292,7 @@ std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManagerForR
 void RebuildOwnedComponentsForPipeline(
     const SignalPipelineConfig& base_config,
     const pipeline::internal::InternalSignalPipelineConfig& base_internal_config,
-    const common::control::RadarControlProfile& control_profile, OwnedComponentSlots* slots) {
+    const extension::control::RadarControlProfile& control_profile, OwnedComponentSlots* slots) {
   if (slots == nullptr || !HasValidOwnedComponentSlots(*slots)) {
     return;
   }

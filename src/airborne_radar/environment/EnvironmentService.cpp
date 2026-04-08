@@ -21,15 +21,15 @@ namespace {
 JammerEmitterState NormalizeEmitterState(const JammerEmitterState& raw_source) {
   JammerEmitterState normalized = raw_source;
   normalized.power_db =
-      common::utils::ClampFloat(raw_source.power_db, 0.0f, std::numeric_limits<float>::max());
+      model::ClampFloat(raw_source.power_db, 0.0f, std::numeric_limits<float>::max());
   normalized.js_db =
-      common::utils::ClampFloat(raw_source.js_db, 0.0f, std::numeric_limits<float>::max());
+      model::ClampFloat(raw_source.js_db, 0.0f, std::numeric_limits<float>::max());
   normalized.frequency_overlap_ratio =
-      common::utils::ClampFloat(raw_source.frequency_overlap_ratio, 0.0f, 1.0f);
-  normalized.prf_lock_risk = common::utils::ClampFloat(raw_source.prf_lock_risk, 0.0f, 1.0f);
-  normalized.angular_span_deg = common::utils::ClampFloat(raw_source.angular_span_deg, 0.0f,
+      model::ClampFloat(raw_source.frequency_overlap_ratio, 0.0f, 1.0f);
+  normalized.prf_lock_risk = model::ClampFloat(raw_source.prf_lock_risk, 0.0f, 1.0f);
+  normalized.angular_span_deg = model::ClampFloat(raw_source.angular_span_deg, 0.0f,
                                                           std::numeric_limits<float>::max());
-  normalized.confidence = common::utils::ClampFloat(raw_source.confidence, 0.0f, 1.0f);
+  normalized.confidence = model::ClampFloat(raw_source.confidence, 0.0f, 1.0f);
   return normalized;
 }
 /**

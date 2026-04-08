@@ -13,9 +13,9 @@
 #include <sstream>
 #include <string>
 
-#include "1q/airborne_radar/core/session/RadarSessionConfigPresets.h"
-#include "1q/airborne_radar/core/context/RadarCycleInput.h"
-#include "1q/airborne_radar/tools/RadarTraceSession.h"
+#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/session/RadarCycleInput.h"
+#include "1q/airborne_radar/session/RadarTraceSession.h"
 #include "1q/common/trace/TraceSink.h"
 #include "1q/electro_optical_sensor/core/context/EosCycleInput.h"
 #include "1q/electro_optical_sensor/tools/EosTraceSession.h"
@@ -54,14 +54,14 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesConfigInputOutput) {
   std::shared_ptr<oneq::common::trace::TraceSink> sink(
       new oneq::common::trace::JsonlFileTraceSink(trace_path, false));
 
-  core::session::RadarSessionConfig config = config::MakeDefaultRadarSessionConfig();
+  session::RadarSessionConfig config = config::MakeDefaultRadarSessionConfig();
   config.detection.min_detection_margin_db = -100.0f;
 
-  tools::RadarTraceSession session(config, tools::RadarTraceSessionOptions{sink, true});
-  core::context::RadarCycleInput input;
+  session::RadarTraceSession session(config, session::RadarTraceSessionOptions{sink, true});
+  session::RadarCycleInput input;
   input.dt_sec = 1.0f;
 
-  const core::session::RadarCycleResult result = session.StepWithResult(input);
+  const session::RadarCycleResult result = session.StepWithResult(input);
   EXPECT_GE(result.track_output_frame.published_track_count, 0U);
 
   const std::string content = ReadFile(trace_path);

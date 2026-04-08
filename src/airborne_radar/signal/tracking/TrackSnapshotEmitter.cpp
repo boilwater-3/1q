@@ -16,16 +16,16 @@ namespace {
  * @param status 内部轨迹状态。
  * @return 决策层可见的轨迹状态。
  */
-common::model::DecisionTrackStatus ToDecisionTrackStatus(TrackStatus status) {
+model::DecisionTrackStatus ToDecisionTrackStatus(TrackStatus status) {
   switch (status) {
     case TrackStatus::kConfirmed:
-      return common::model::DecisionTrackStatus::kConfirmed;
+      return model::DecisionTrackStatus::kConfirmed;
     case TrackStatus::kLost:
-      return common::model::DecisionTrackStatus::kLost;
+      return model::DecisionTrackStatus::kLost;
     case TrackStatus::kTentative:
     case TrackStatus::kRecycled:
     default:
-      return common::model::DecisionTrackStatus::kTentative;
+      return model::DecisionTrackStatus::kTentative;
   }
 }
 
@@ -33,7 +33,7 @@ common::model::DecisionTrackStatus ToDecisionTrackStatus(TrackStatus status) {
 
 void TrackSnapshotEmitter::Refresh(
     const std::unordered_map<std::uint64_t, TrackState*>& tracks_by_key,
-    const std::unordered_map<std::uint64_t, common::model::DecisionMeasurementEvidence>&
+    const std::unordered_map<std::uint64_t, model::DecisionMeasurementEvidence>&
         evidence_by_key,
     std::uint32_t last_cycle_index) {
   active_tracks_.clear();
@@ -51,13 +51,13 @@ void TrackSnapshotEmitter::Refresh(
   last_cycle_index_ = last_cycle_index;
 }
 
-common::model::TargetFeatureList TrackSnapshotEmitter::BuildFeatureSnapshot() const {
-  common::model::TargetFeatureList features;
+model::TargetFeatureList TrackSnapshotEmitter::BuildFeatureSnapshot() const {
+  model::TargetFeatureList features;
   features.reserve(active_tracks_.size());
   for (std::vector<ActiveTrackEntry>::const_iterator it = active_tracks_.begin();
        it != active_tracks_.end(); ++it) {
     const TrackState& track = *it->track;
-    common::model::TargetFeature feature(track.velocity(0), track.velocity(1), track.velocity(2),
+    model::TargetFeature feature(track.velocity(0), track.velocity(1), track.velocity(2),
                                          track.rcs);
     feature.has_cartesian_position = true;
     feature.position_x = track.position(0);
@@ -69,14 +69,14 @@ common::model::TargetFeatureList TrackSnapshotEmitter::BuildFeatureSnapshot() co
   return features;
 }
 
-common::model::DecisionTrackSnapshotList TrackSnapshotEmitter::BuildDecisionSnapshot() const {
-  common::model::DecisionTrackSnapshotList snapshots;
+model::DecisionTrackSnapshotList TrackSnapshotEmitter::BuildDecisionSnapshot() const {
+  model::DecisionTrackSnapshotList snapshots;
   snapshots.reserve(active_tracks_.size());
   for (std::vector<ActiveTrackEntry>::const_iterator it = active_tracks_.begin();
        it != active_tracks_.end(); ++it) {
     const std::uint64_t key = it->key;
     const TrackState& track = *it->track;
-    common::model::DecisionTrackSnapshot snapshot(
+    model::DecisionTrackSnapshot snapshot(
         track.velocity(0), track.velocity(1), track.velocity(2), track.rcs, track.acceleration(0),
         track.acceleration(1), track.acceleration(2), track.jamming_detected,
         track.external_target_id, key);
@@ -87,7 +87,7 @@ common::model::DecisionTrackSnapshotList TrackSnapshotEmitter::BuildDecisionSnap
     snapshot.state.hit_count = track.hit_count;
     snapshot.state.miss_count = track.miss_count;
 
-    std::unordered_map<std::uint64_t, common::model::DecisionMeasurementEvidence>::const_iterator
+    std::unordered_map<std::uint64_t, model::DecisionMeasurementEvidence>::const_iterator
         evidence_found = evidence_by_key_.find(key);
     if (evidence_found != evidence_by_key_.end()) {
       snapshot.evidence = evidence_found->second;
@@ -101,9 +101,9 @@ common::model::DecisionTrackSnapshotList TrackSnapshotEmitter::BuildDecisionSnap
   return snapshots;
 }
 
-common::model::DecisionInputFrame TrackSnapshotEmitter::BuildDecisionFrame(
+model::DecisionInputFrame TrackSnapshotEmitter::BuildDecisionFrame(
     std::uint32_t cycle_index, std::uint64_t batch_id, bool environment_jamming_detected) const {
-  common::model::DecisionInputFrame frame;
+  model::DecisionInputFrame frame;
   frame.cycle_index = cycle_index;
   frame.batch_id = batch_id;
   frame.environment_jamming_detected = environment_jamming_detected;

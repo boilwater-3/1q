@@ -11,14 +11,14 @@
 #include <utility>
 #include <vector>
 
-#include "1q/airborne_radar/common/model/DecisionInputFrame.h"
-#include "1q/airborne_radar/common/model/DecisionTrackSnapshot.h"
-#include "1q/airborne_radar/common/model/TargetFeature.h"
-#include "1q/airborne_radar/common/output/TrackOutputFrame.h"
-#include "1q/airborne_radar/core/context/IRadarContext.h"
-#include "1q/airborne_radar/core/controller/RadarController.h"
-#include "1q/airborne_radar/decision/pipeline/ControlReducerTypes.h"
-#include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/model/DecisionInputFrame.h"
+#include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
+#include "1q/airborne_radar/model/TargetFeature.h"
+#include "1q/airborne_radar/output/TrackOutputFrame.h"
+#include "1q/airborne_radar/extension/IRadarContext.h"
+#include "1q/airborne_radar/extension/RadarController.h"
+#include "1q/airborne_radar/extension/ControlReducerTypes.h"
+#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/extension/control/RadarCommand.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
@@ -32,15 +32,15 @@ namespace tests {
 
 namespace {
 
-common::model::TargetFeatureList BuildSingleTarget(float speed, float rcs, bool jamming) {
+model::TargetFeatureList BuildSingleTarget(float speed, float rcs, bool jamming) {
   (void)jamming;
-  common::model::TargetFeature target(speed, 0.0f, 0.0f, rcs);
+  model::TargetFeature target(speed, 0.0f, 0.0f, rcs);
   target.has_cartesian_position = true;
   target.position_x = 100.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 100.0f;
-  return common::model::TargetFeatureList{target};
+  return model::TargetFeatureList{target};
 }
 
 environment::EnvironmentModelConfig BuildJammingEnvironmentConfig(float jammer_power_db) {
@@ -56,15 +56,15 @@ environment::EnvironmentModelConfig BuildJammingEnvironmentConfig(float jammer_p
 }  // namespace
 
 /// @brief FakeRadarContext 提供最小化的雷达上下文实现。
-class FakeRadarContext : public core::context::IRadarContext {
+class FakeRadarContext : public extension::IRadarContext {
  public:
   /// @brief 构造函数，注入固定的输入状态。
-  explicit FakeRadarContext(common::model::TargetFeatureList state) : state_(std::move(state)) {}
+  explicit FakeRadarContext(model::TargetFeatureList state) : state_(std::move(state)) {}
 
   /// @brief 获取当前雷达状态。
-  const common::model::TargetFeatureList& GetTargetFeatures() const override { return state_; }
+  const model::TargetFeatureList& GetTargetFeatures() const override { return state_; }
 
-  void BeginCycle(const core::context::RadarCycleInput& input) override {
+  void BeginCycle(const session::RadarCycleInput& input) override {
     state_ = input.target_features;
     platform_attitude_deg_ = input.platform_attitude_deg;
     cycle_dt_sec_ = input.dt_sec;
@@ -72,7 +72,7 @@ class FakeRadarContext : public core::context::IRadarContext {
   }
 
   /// @brief 获取当前搭载平台姿态角。
-  common::model::PlatformAttitudeDeg GetPlatformAttitude() const override {
+  model::PlatformAttitudeDeg GetPlatformAttitude() const override {
     return platform_attitude_deg_;
   }
 
@@ -80,38 +80,38 @@ class FakeRadarContext : public core::context::IRadarContext {
   float GetCycleDeltaTimeSec() const override { return cycle_dt_sec_; }
 
   /// @brief 收集控制指令。
-  void SubmitControlCommand(common::control::RadarCommand cmd) override {
+  void SubmitControlCommand(extension::control::RadarCommand cmd) override {
     submitted_commands_.push_back(cmd);
   }
 
-  const std::vector<common::control::RadarCommand>& GetSubmittedCommands() const override {
+  const std::vector<extension::control::RadarCommand>& GetSubmittedCommands() const override {
     return submitted_commands_;
   }
 
   /// @brief 获取已提交的指令集合。
-  const std::vector<common::control::RadarCommand>& SubmittedCommands() const {
+  const std::vector<extension::control::RadarCommand>& SubmittedCommands() const {
     return submitted_commands_;
   }
 
   /// @brief 记录最新控制真值。
-  void UpdateRadarControlProfile(const common::control::RadarControlProfile& profile) override {
+  void UpdateRadarControlProfile(const extension::control::RadarControlProfile& profile) override {
     latest_control_profile_ = profile;
     has_latest_control_profile_ = true;
   }
 
   bool HasLatestControlProfile() const override { return has_latest_control_profile_; }
 
-  const common::control::RadarControlProfile& GetLatestControlProfile() const override {
+  const extension::control::RadarControlProfile& GetLatestControlProfile() const override {
     return latest_control_profile_;
   }
 
   /// @brief 获取最新控制真值。
-  const common::control::RadarControlProfile& LatestControlProfile() const {
+  const extension::control::RadarControlProfile& LatestControlProfile() const {
     return latest_control_profile_;
   }
 
   /// @brief 设置测试上下文使用的平台姿态角。
-  void SetPlatformAttitude(const common::model::PlatformAttitudeDeg& platform_attitude_deg) {
+  void SetPlatformAttitude(const model::PlatformAttitudeDeg& platform_attitude_deg) {
     platform_attitude_deg_ = platform_attitude_deg;
   }
 
@@ -119,58 +119,58 @@ class FakeRadarContext : public core::context::IRadarContext {
   void SetCycleDeltaTimeSec(float cycle_dt_sec) { cycle_dt_sec_ = cycle_dt_sec; }
 
  private:
-  common::model::TargetFeatureList state_;
-  common::model::PlatformAttitudeDeg platform_attitude_deg_{};
+  model::TargetFeatureList state_;
+  model::PlatformAttitudeDeg platform_attitude_deg_{};
   float cycle_dt_sec_{1.0f};
-  std::vector<common::control::RadarCommand> submitted_commands_;
-  common::control::RadarControlProfile latest_control_profile_{};
+  std::vector<extension::control::RadarCommand> submitted_commands_;
+  extension::control::RadarControlProfile latest_control_profile_{};
   bool has_latest_control_profile_{false};
 };
 
-class FixedDirectiveDecisionEngine : public decision::pipeline::ITacticalDecisionEngine {
+class FixedDirectiveDecisionEngine : public extension::ITacticalDecisionEngine {
  public:
-  explicit FixedDirectiveDecisionEngine(common::control::ControlDirective directive)
+  explicit FixedDirectiveDecisionEngine(extension::control::ControlDirective directive)
       : directive_(std::move(directive)) {}
 
-  decision::pipeline::TacticalDecisionResult Evaluate(
-      const common::model::DecisionInputFrame&, decision::pipeline::TacticalStateStore&) override {
-    decision::pipeline::TacticalDecisionResult result;
+  extension::TacticalDecisionResult Evaluate(
+      const model::DecisionInputFrame&, extension::TacticalStateStore&) override {
+    extension::TacticalDecisionResult result;
     result.proposals.push_back(
-        decision::pipeline::TacticalProposal(directive_, 10, "test directive"));
+        extension::TacticalProposal(directive_, 10, "test directive"));
     return result;
   }
 
  private:
-  common::control::ControlDirective directive_;
+  extension::control::ControlDirective directive_;
 };
 
-class FixedProposalDecisionEngine : public decision::pipeline::ITacticalDecisionEngine {
+class FixedProposalDecisionEngine : public extension::ITacticalDecisionEngine {
  public:
-  explicit FixedProposalDecisionEngine(std::vector<decision::pipeline::TacticalProposal> proposals)
+  explicit FixedProposalDecisionEngine(std::vector<extension::TacticalProposal> proposals)
       : proposals_(std::move(proposals)) {}
 
-  decision::pipeline::TacticalDecisionResult Evaluate(
-      const common::model::DecisionInputFrame&, decision::pipeline::TacticalStateStore&) override {
-    decision::pipeline::TacticalDecisionResult result;
+  extension::TacticalDecisionResult Evaluate(
+      const model::DecisionInputFrame&, extension::TacticalStateStore&) override {
+    extension::TacticalDecisionResult result;
     result.proposals = proposals_;
     return result;
   }
 
  private:
-  std::vector<decision::pipeline::TacticalProposal> proposals_;
+  std::vector<extension::TacticalProposal> proposals_;
 };
 
-class CapturingDecisionEngine : public decision::pipeline::ITacticalDecisionEngine {
+class CapturingDecisionEngine : public extension::ITacticalDecisionEngine {
  public:
-  decision::pipeline::TacticalDecisionResult Evaluate(
-      const common::model::DecisionInputFrame& frame,
-      decision::pipeline::TacticalStateStore&) override {
+  extension::TacticalDecisionResult Evaluate(
+      const model::DecisionInputFrame& frame,
+      extension::TacticalStateStore&) override {
     last_frame = frame;
     ++evaluate_count;
-    return decision::pipeline::TacticalDecisionResult();
+    return extension::TacticalDecisionResult();
   }
 
-  common::model::DecisionInputFrame last_frame{};
+  model::DecisionInputFrame last_frame{};
   std::size_t evaluate_count{0U};
 };
 
@@ -178,14 +178,14 @@ class CapturingDecisionEngine : public decision::pipeline::ITacticalDecisionEngi
 class CoreControllerTest : public ::testing::Test {};
 
 TEST_F(CoreControllerTest, RunOnceSubmitsCommands) {
-  const common::model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
+  const model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service(BuildJammingEnvironmentConfig(12.0f));
 
   signal::pipeline::SignalPipeline signal_pipeline;
 
-  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
+  extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   controller.RunOnce();
 
@@ -194,9 +194,9 @@ TEST_F(CoreControllerTest, RunOnceSubmitsCommands) {
 }
 
 TEST_F(CoreControllerTest, PushesPlatformAttitudeIntoSignalPipelineBeforeRun) {
-  const common::model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
+  const model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
-  common::model::PlatformAttitudeDeg platform_attitude_deg;
+  model::PlatformAttitudeDeg platform_attitude_deg;
   platform_attitude_deg.yaw_deg = 18.0f;
   platform_attitude_deg.pitch_deg = -4.0f;
   platform_attitude_deg.roll_deg = 2.0f;
@@ -205,11 +205,11 @@ TEST_F(CoreControllerTest, PushesPlatformAttitudeIntoSignalPipelineBeforeRun) {
   environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
+  extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   controller.RunOnce();
 
-  const common::model::PlatformAttitudeDeg cached_platform_attitude =
+  const model::PlatformAttitudeDeg cached_platform_attitude =
       signal_pipeline.GetPlatformAttitude();
   EXPECT_FLOAT_EQ(cached_platform_attitude.yaw_deg, 18.0f);
   EXPECT_FLOAT_EQ(cached_platform_attitude.pitch_deg, -4.0f);
@@ -217,7 +217,7 @@ TEST_F(CoreControllerTest, PushesPlatformAttitudeIntoSignalPipelineBeforeRun) {
 }
 
 TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecision) {
-  const common::model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
+  const model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service;
@@ -239,7 +239,7 @@ TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecisio
 
   signal::pipeline::SignalPipeline signal_pipeline;
   CapturingDecisionEngine decision_engine;
-  core::controller::RadarController controller(radar_context, signal_pipeline, decision_engine,
+  extension::RadarController controller(radar_context, signal_pipeline, decision_engine,
                                                environment_service);
 
   controller.RunOnce();
@@ -265,13 +265,13 @@ TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecisio
 }
 
 TEST_F(CoreControllerTest, AppliesUpdatedSceneOnNextControllerCycle) {
-  const common::model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
+  const model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service;
   signal::pipeline::SignalPipeline signal_pipeline;
   CapturingDecisionEngine decision_engine;
-  core::controller::RadarController controller(radar_context, signal_pipeline, decision_engine,
+  extension::RadarController controller(radar_context, signal_pipeline, decision_engine,
                                                environment_service);
 
   controller.RunOnce();
@@ -294,7 +294,7 @@ TEST_F(CoreControllerTest, AppliesUpdatedSceneOnNextControllerCycle) {
 }
 
 TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
-  const common::model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
+  const model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentModelConfig env_config;
@@ -314,7 +314,7 @@ TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
 
   signal::pipeline::SignalPipeline signal_pipeline;
   CapturingDecisionEngine decision_engine;
-  core::controller::RadarController controller(radar_context, signal_pipeline, decision_engine,
+  extension::RadarController controller(radar_context, signal_pipeline, decision_engine,
                                                environment_service);
 
   controller.RunOnce();
@@ -322,9 +322,9 @@ TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
   ASSERT_EQ(decision_engine.evaluate_count, 1u);
   EXPECT_TRUE(decision_engine.last_frame.environment_jamming_detected);
   ASSERT_EQ(decision_engine.last_frame.eccm_source_info.jammer_sources.size(), 1u);
-  const common::model::EccmJammerSourceInfo& mapped_source =
+  const model::EccmJammerSourceInfo& mapped_source =
       decision_engine.last_frame.eccm_source_info.jammer_sources.front();
-  EXPECT_EQ(mapped_source.technique, common::model::JammingTechnique::kDeception);
+  EXPECT_EQ(mapped_source.technique, model::JammingTechnique::kDeception);
   EXPECT_FLOAT_EQ(mapped_source.jammer_power_db, 9.0f);
   EXPECT_FLOAT_EQ(mapped_source.jammer_to_signal_db, 7.5f);
   EXPECT_FLOAT_EQ(mapped_source.frequency_overlap_ratio, 0.85f);
@@ -332,7 +332,7 @@ TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
   EXPECT_FLOAT_EQ(mapped_source.azimuth_deg, 30.0f);
   EXPECT_FLOAT_EQ(mapped_source.angular_span_deg, 8.0f);
   EXPECT_EQ(decision_engine.last_frame.association_quality_info.dominant_jamming_semantic,
-            common::utils::JammingSemantic::kDeception);
+            model::JammingSemantic::kDeception);
   EXPECT_GT(decision_engine.last_frame.association_quality_info.jamming_severity, 0.0f);
   EXPECT_GT(decision_engine.last_frame.association_quality_info.association_stress, 0.0f);
   EXPECT_EQ(decision_engine.last_frame.perception_quality_info.input_target_count, 1u);
@@ -342,7 +342,7 @@ TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
 }
 
 TEST_F(CoreControllerTest, NoLifecycleFallbackBuildsDecisionFrameFromSyntheticTrackOutput) {
-  const common::model::TargetFeatureList input_state = BuildSingleTarget(640.0f, 1.5f, false);
+  const model::TargetFeatureList input_state = BuildSingleTarget(640.0f, 1.5f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service;
@@ -350,78 +350,78 @@ TEST_F(CoreControllerTest, NoLifecycleFallbackBuildsDecisionFrameFromSyntheticTr
   signal::pipeline::SignalPipeline signal_pipeline;
   CapturingDecisionEngine decision_engine;
 
-  core::controller::RadarController controller(radar_context, signal_pipeline, decision_engine,
+  extension::RadarController controller(radar_context, signal_pipeline, decision_engine,
                                                environment_service);
 
   controller.RunOnce();
 
   EXPECT_TRUE(controller.HasLatestTrackOutputFrame());
-  const common::output::TrackOutputFrame& latest_track_output_frame =
+  const output::TrackOutputFrame& latest_track_output_frame =
       controller.GetLatestTrackOutputFrame();
   EXPECT_EQ(latest_track_output_frame.published_track_count, 1U);
   EXPECT_EQ(latest_track_output_frame.confirmed_track_count, 1U);
   EXPECT_FALSE(latest_track_output_frame.contains_lost_tracks);
   ASSERT_EQ(decision_engine.last_frame.tracks.size(), 1U);
   EXPECT_EQ(decision_engine.last_frame.tracks[0].state.status,
-            common::model::DecisionTrackStatus::kConfirmed);
+            model::DecisionTrackStatus::kConfirmed);
   EXPECT_EQ(decision_engine.last_frame.tracks[0].state.association_key,
             latest_track_output_frame.tracks[0].state.association_key);
 }
 
 TEST_F(CoreControllerTest, PublicOutputReaderApiExposesLatestTrackOutputFrame) {
-  const common::model::TargetFeatureList input_state = BuildSingleTarget(510.0f, 1.0f, false);
+  const model::TargetFeatureList input_state = BuildSingleTarget(510.0f, 1.0f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
+  extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   EXPECT_FALSE(controller.HasLatestTrackOutputFrame());
 
   controller.RunOnce();
 
   EXPECT_TRUE(controller.HasLatestTrackOutputFrame());
-  const common::output::TrackOutputFrame& latest_track_output_frame =
+  const output::TrackOutputFrame& latest_track_output_frame =
       controller.GetLatestTrackOutputFrame();
   EXPECT_EQ(latest_track_output_frame.cycle_index, 1U);
   EXPECT_EQ(latest_track_output_frame.batch_id, 1U);
   EXPECT_EQ(latest_track_output_frame.published_track_count, 1U);
   ASSERT_EQ(latest_track_output_frame.tracks.size(), 1U);
   EXPECT_EQ(latest_track_output_frame.tracks[0].state.status,
-            common::model::DecisionTrackStatus::kConfirmed);
+            model::DecisionTrackStatus::kConfirmed);
 }
 
 TEST_F(CoreControllerTest, RuntimeValidationErrorsAreExposedAndSkipCommandSubmission) {
-  const common::model::TargetFeatureList input_state = BuildSingleTarget(510.0f, 1.0f, false);
+  const model::TargetFeatureList input_state = BuildSingleTarget(510.0f, 1.0f, false);
   FakeRadarContext radar_context(input_state);
   radar_context.SetCycleDeltaTimeSec(std::numeric_limits<float>::quiet_NaN());
 
   environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
+  extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   controller.RunOnce();
 
   EXPECT_TRUE(controller.HasValidationError());
-  const core::context::ValidationIssueList& issues = controller.GetLastValidationIssues();
+  const session::ValidationIssueList& issues = controller.GetLastValidationIssues();
   EXPECT_TRUE(
-      std::find_if(issues.begin(), issues.end(), [](const core::context::ValidationIssue& issue) {
-        return issue.code == core::context::ValidationCode::kNonFiniteCycleDeltaTime;
+      std::find_if(issues.begin(), issues.end(), [](const session::ValidationIssue& issue) {
+        return issue.code == session::ValidationCode::kNonFiniteCycleDeltaTime;
       }) != issues.end());
   EXPECT_TRUE(radar_context.SubmittedCommands().empty());
 }
 
 TEST_F(CoreControllerTest, NextCycleAppliesPendingControlProfileToSignalPipeline) {
-  const common::model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
+  const model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service(BuildJammingEnvironmentConfig(12.0f));
 
   signal::pipeline::SignalPipeline signal_pipeline;
 
-  core::controller::RadarController controller(radar_context, signal_pipeline, environment_service);
+  extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   controller.RunOnce();
   EXPECT_EQ(signal_pipeline.GetControlProfile().version, 0u);
@@ -433,29 +433,29 @@ TEST_F(CoreControllerTest, NextCycleAppliesPendingControlProfileToSignalPipeline
 }
 
 TEST_F(CoreControllerTest, CustomReducerConfigChangesPendingControlProfile) {
-  const common::model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
+  const model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  std::vector<decision::pipeline::TacticalProposal> proposals;
-  proposals.push_back(decision::pipeline::TacticalProposal{
-      common::control::ControlDirective(
-          common::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
-          common::control::ControlDirectiveSource::EMISSION_CONTROL),
+  std::vector<extension::TacticalProposal> proposals;
+  proposals.push_back(extension::TacticalProposal{
+      extension::control::ControlDirective(
+          extension::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+          extension::control::ControlDirectiveSource::EMISSION_CONTROL),
       60, "reduce power"});
-  proposals.push_back(decision::pipeline::TacticalProposal{
-      common::control::ControlDirective(
-          common::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
-          common::control::ControlDirectiveSource::SURVIVABILITY),
+  proposals.push_back(extension::TacticalProposal{
+      extension::control::ControlDirective(
+          extension::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
+          extension::control::ControlDirectiveSource::SURVIVABILITY),
       82, "burnthrough"});
   FixedProposalDecisionEngine decision_engine(proposals);
 
-  core::controller::RadarController controller(radar_context, signal_pipeline, decision_engine,
+  extension::RadarController controller(radar_context, signal_pipeline, decision_engine,
                                                environment_service);
 
-  decision::pipeline::ControlReducerConfig reducer_config;
+  extension::ControlReducerConfig reducer_config;
   reducer_config.lpi_power_scale_on_reduction = 0.60f;
   reducer_config.eccm_burnthrough_gain = 1.8f;
   reducer_config.burnthrough_lpi_power_floor = 0.95f;

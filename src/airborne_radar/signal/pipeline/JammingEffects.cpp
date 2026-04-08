@@ -12,8 +12,8 @@ namespace internal {
 
 namespace {
 
-using common::utils::ClampFloat;
-using common::utils::DbToLinearPower;
+using model::ClampFloat;
+using model::DbToLinearPower;
 
 // ---------- A. ECCM 物理抑制系数（不开放配置，属于雷达对抗物理模型） ----------
 constexpr float kSidelobeCancellerResidual = 0.55f;    /**< 旁瓣对消主链残余因子 */
@@ -59,7 +59,7 @@ float ResolveJammerConfidenceWeight(const JammingEffectsConfig& cfg,
  * @note 使用固定经验系数，不依赖 cfg，以保持语义判定阶段的稳定性
  */
 float ComputeTrackLevelJammingContribution(
-    const common::control::RadarControlProfile& control_profile,
+    const extension::control::RadarControlProfile& control_profile,
     const environment::JammerSourceFact& jammer_source) {
   // 轨迹级贡献使用固定系数——该函数参与主导语义判定（E 组），不用 cfg。
   const float confidence_weight = ClampFloat(jammer_source.confidence, 0.25f, 1.0f);
@@ -95,7 +95,7 @@ bool HasMultiSourceJammingFacts(const environment::EnvironmentSnapshot& environm
   return !environment_snapshot.jammer_sources.empty();
 }
 
-float ComputeResidualJammerFactor(const common::control::RadarControlProfile& control_profile,
+float ComputeResidualJammerFactor(const extension::control::RadarControlProfile& control_profile,
                                   const environment::JammerSourceFact& jammer_source) {
   float residual_factor = 1.0f;
 
@@ -224,7 +224,7 @@ float ComputePhysicalSourceJamContributionW(const JammingEffectsConfig& cfg,
 }
 
 float ComputeMeasurementCovarianceInflation(
-    const JammingEffectsConfig& cfg, const common::control::RadarControlProfile& control_profile,
+    const JammingEffectsConfig& cfg, const extension::control::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot) {
   if (!HasMultiSourceJammingFacts(environment_snapshot)) {
     return 1.0f;
@@ -257,15 +257,15 @@ float ComputeMeasurementCovarianceInflation(
   return ClampFloat(inflation, 1.0f, cfg.covariance_inflation_max);
 }
 
-common::utils::JammingSemantic ResolveDominantJammingSemantic(
-    const common::control::RadarControlProfile& control_profile,
+model::JammingSemantic ResolveDominantJammingSemantic(
+    const extension::control::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot) {
   if (!environment_snapshot.jamming_detected) {
-    return common::utils::JammingSemantic::kNone;
+    return model::JammingSemantic::kNone;
   }
 
   if (!HasMultiSourceJammingFacts(environment_snapshot)) {
-    return common::utils::JammingSemantic::kNone;
+    return model::JammingSemantic::kNone;
   }
 
   float type_scores[3] = {0.0f, 0.0f, 0.0f};
@@ -302,25 +302,25 @@ common::utils::JammingSemantic ResolveDominantJammingSemantic(
   }
 
   if (type_scores[best_index] <= 1e-6f) {
-    return common::utils::JammingSemantic::kNone;
+    return model::JammingSemantic::kNone;
   }
   if (second_index != best_index &&
       type_scores[second_index] >= kMixedSemanticDominanceRatio * type_scores[best_index] &&
       type_scores[second_index] > kMixedSemanticMinScore) {
-    return common::utils::JammingSemantic::kMixed;
+    return model::JammingSemantic::kMixed;
   }
 
   if (best_index == 0U) {
-    return common::utils::JammingSemantic::kNoiseSuppression;
+    return model::JammingSemantic::kNoiseSuppression;
   }
   if (best_index == 1U) {
-    return common::utils::JammingSemantic::kDeception;
+    return model::JammingSemantic::kDeception;
   }
-  return common::utils::JammingSemantic::kRepeater;
+  return model::JammingSemantic::kRepeater;
 }
 
 float ComputeTrackLevelJammingSeverity(
-    const common::control::RadarControlProfile& control_profile,
+    const extension::control::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot) {
   if (!environment_snapshot.jamming_detected) {
     return 0.0f;
@@ -339,7 +339,7 @@ float ComputeTrackLevelJammingSeverity(
 }
 
 void ApplyEnvironmentJammingFactsToRuntimeConfig(
-    const common::control::RadarControlProfile& control_profile,
+    const extension::control::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot,
     InternalSignalPipelineConfig* internal_runtime_config, SignalPipelineConfig* runtime_config) {
   if (runtime_config == nullptr || internal_runtime_config == nullptr ||

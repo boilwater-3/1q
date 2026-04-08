@@ -26,8 +26,8 @@ bool HasValidRuntime(const CycleExecutionRuntime& runtime) {
          runtime.track_filter != nullptr && runtime.output_manager != nullptr;
 }
 
-void BindContextAndResolveConfig(const common::model::TargetFeatureList& input_state,
-                                 const environment::IEnvironmentService& environment,
+void BindContextAndResolveConfig(const model::TargetFeatureList& input_state,
+                                 const extension::IEnvironmentService& environment,
                                  std::uint32_t cycle_index, const CycleExecutionRuntime& runtime,
                                  CycleExecutionContext* ctx) {
   ctx->input_state = &input_state;
@@ -130,8 +130,8 @@ void AssembleOutputs(std::uint32_t cycle_index, std::uint64_t batch_id,
 
 }  // namespace
 
-void ExecuteCycle(const common::model::TargetFeatureList& input_state,
-                  const environment::IEnvironmentService& environment, std::uint32_t cycle_index,
+void ExecuteCycle(const model::TargetFeatureList& input_state,
+                  const extension::IEnvironmentService& environment, std::uint32_t cycle_index,
                   std::uint64_t batch_id, const CycleExecutionRuntime& runtime,
                   CycleExecutionContext* cycle_context) {
   if (cycle_context == nullptr) {

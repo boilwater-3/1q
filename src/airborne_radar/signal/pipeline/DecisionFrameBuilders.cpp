@@ -12,9 +12,9 @@ namespace {
 /** @brief 将环境层干扰源事实转换为 ECCM 干扰源信息。
  *  @param environment_source 环境快照中的干扰源事实。
  *  @return 填充后的 ECCM 干扰源信息。 */
-common::model::EccmJammerSourceInfo BuildEccmJammerSourceInfo(
+model::EccmJammerSourceInfo BuildEccmJammerSourceInfo(
     const environment::JammerSourceFact& environment_source) {
-  common::model::EccmJammerSourceInfo source_info;
+  model::EccmJammerSourceInfo source_info;
   source_info.technique = environment_source.technique;
   source_info.jammer_power_db = environment_source.power_db;
   source_info.jammer_to_signal_db = environment_source.js_db;
@@ -32,16 +32,16 @@ common::model::EccmJammerSourceInfo BuildEccmJammerSourceInfo(
  *  @param feature 目标特征数据。
  *  @param index 目标在列表中的索引，用于生成无外部 ID 时的关联键。
  *  @return 构建后的决策航迹快照，状态默认为 kConfirmed。 */
-common::model::DecisionTrackSnapshot BuildDecisionTrackSnapshotFromFeature(
-    const common::model::TargetFeature& feature, std::size_t index) {
+model::DecisionTrackSnapshot BuildDecisionTrackSnapshotFromFeature(
+    const model::TargetFeature& feature, std::size_t index) {
   const std::uint64_t association_key = feature.external_target_id != 0U
                                             ? feature.external_target_id
                                             : static_cast<std::uint64_t>(index + 1U);
-  common::model::DecisionTrackSnapshot snapshot(
+  model::DecisionTrackSnapshot snapshot(
       feature.current_track_velocity_x, feature.current_track_velocity_y,
       feature.current_track_velocity_z, feature.current_track_rcs, 0.0f, 0.0f, 0.0f, false,
       feature.external_target_id, association_key);
-  snapshot.state.status = common::model::DecisionTrackStatus::kConfirmed;
+  snapshot.state.status = model::DecisionTrackStatus::kConfirmed;
   snapshot.state.position_x = feature.position_x;
   snapshot.state.position_y = feature.position_y;
   snapshot.state.position_z = feature.position_z;
@@ -53,9 +53,9 @@ common::model::DecisionTrackSnapshot BuildDecisionTrackSnapshotFromFeature(
 
 }  // namespace
 
-common::model::EccmSourceInfo BuildEccmSourceInfo(
+model::EccmSourceInfo BuildEccmSourceInfo(
     const environment::EnvironmentSnapshot& environment_snapshot) {
-  common::model::EccmSourceInfo source_info;
+  model::EccmSourceInfo source_info;
   source_info.has_jamming_signal = environment_snapshot.jamming_detected;
   source_info.jammer_sources.reserve(environment_snapshot.jammer_sources.size());
   for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
@@ -65,9 +65,9 @@ common::model::EccmSourceInfo BuildEccmSourceInfo(
   return source_info;
 }
 
-common::model::AssociationQualityInfo BuildAssociationQualityInfo(
+model::AssociationQualityInfo BuildAssociationQualityInfo(
     const AssociationQualityMetrics& metrics) {
-  common::model::AssociationQualityInfo info;
+  model::AssociationQualityInfo info;
   info.match_rate = metrics.match_rate;
   info.new_track_rate = metrics.new_track_rate;
   info.missed_track_rate = metrics.missed_track_rate;
@@ -79,9 +79,9 @@ common::model::AssociationQualityInfo BuildAssociationQualityInfo(
   return info;
 }
 
-common::model::PerceptionQualityInfo BuildPerceptionQualityInfo(
+model::PerceptionQualityInfo BuildPerceptionQualityInfo(
     std::size_t input_target_count, const AssociationQualityMetrics& metrics) {
-  common::model::PerceptionQualityInfo info;
+  model::PerceptionQualityInfo info;
   info.input_target_count = input_target_count;
   info.detection_count = metrics.detection_count;
   if (input_target_count == 0U) {
@@ -96,9 +96,9 @@ common::model::PerceptionQualityInfo BuildPerceptionQualityInfo(
   return info;
 }
 
-common::model::DecisionTrackSnapshotList BuildDecisionSnapshotsFromFeatures(
-    const common::model::TargetFeatureList& features) {
-  common::model::DecisionTrackSnapshotList track_snapshots;
+model::DecisionTrackSnapshotList BuildDecisionSnapshotsFromFeatures(
+    const model::TargetFeatureList& features) {
+  model::DecisionTrackSnapshotList track_snapshots;
   track_snapshots.reserve(features.size());
   for (std::size_t i = 0; i < features.size(); ++i) {
     track_snapshots.push_back(BuildDecisionTrackSnapshotFromFeature(features[i], i));

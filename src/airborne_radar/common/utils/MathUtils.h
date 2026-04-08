@@ -37,6 +37,11 @@ inline float DbToLinearPower(float power_db) { return std::pow(10.0f, power_db /
 
 }  // namespace utils
 }  // namespace common
+
+namespace model {
+using common::utils::ClampFloat;
+using common::utils::DbToLinearPower;
+}  // namespace model
 }  // namespace airborne_radar
 
 #endif  // AIRBORNE_RADAR_COMMON_MATH_UTILS_H_

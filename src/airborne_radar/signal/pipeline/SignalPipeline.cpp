@@ -5,7 +5,7 @@
 #include <utility>
 #include <vector>
 
-#include "1q/airborne_radar/environment/IEnvironmentService.h"
+#include "1q/airborne_radar/extension/IEnvironmentService.h"
 #include "airborne_radar/signal/assembly/DataOutputManager.h"
 #include "airborne_radar/signal/assembly/IDataOutputManager.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
@@ -37,7 +37,7 @@ struct RuntimeState {
 
   SignalPipelineConfig config{};
   internal::InternalSignalPipelineConfig internal_config{};
-  common::control::RadarControlProfile control_profile_{};
+  extension::control::RadarControlProfile control_profile_{};
   association::DataAssociationEngine association_engine{};
   tracking::TrackFilter track_filter{};
   std::unique_ptr<signal::assembly::IDataOutputManager> output_manager;
@@ -62,8 +62,9 @@ struct SignalPipeline::Impl {
     RebuildOwnedComponents();
   }
 
-  SignalCycleResult RunCycle(const common::model::TargetFeatureList& input_state,
-                             const environment::IEnvironmentService& environment) {
+  extension::SignalCycleResult RunCycle(
+      const model::TargetFeatureList& input_state,
+      const extension::IEnvironmentService& environment) {
     internal::CycleExecutionRuntime runtime_execution;
     runtime_execution.base_config = &runtime_.config;
     runtime_execution.base_internal_config = &runtime_.internal_config;
@@ -79,7 +80,7 @@ struct SignalPipeline::Impl {
     internal::ExecuteCycle(input_state, environment, cycle_.cycle_index, cycle_.batch_id,
                            runtime_execution, &cycle_.context);
 
-    SignalCycleResult result;
+    extension::SignalCycleResult result;
     result.updated_features = cycle_.context.output_state;
     result.decision_frame = cycle_.context.decision_frame;
     result.association_quality_metrics = cycle_.context.association_quality_metrics;
@@ -92,7 +93,7 @@ struct SignalPipeline::Impl {
     return cycle_.context.track_measurements;
   }
 
-  AssociationQualityMetrics GetLastAssociationQualityMetrics() const {
+  extension::AssociationQualityMetrics GetLastAssociationQualityMetrics() const {
     return cycle_.context.association_quality_metrics;
   }
 
@@ -124,11 +125,11 @@ struct SignalPipeline::Impl {
     RebuildOwnedComponents();
   }
 
-  void UpdatePlatformAttitude(const common::model::PlatformAttitudeDeg& platform_attitude_deg) {
+  void UpdatePlatformAttitude(const model::PlatformAttitudeDeg& platform_attitude_deg) {
     runtime_.config.beam_control.platform_attitude_deg = platform_attitude_deg;
   }
 
-  common::model::PlatformAttitudeDeg GetPlatformAttitude() const {
+  model::PlatformAttitudeDeg GetPlatformAttitude() const {
     return runtime_.config.beam_control.platform_attitude_deg;
   }
 
@@ -137,10 +138,10 @@ struct SignalPipeline::Impl {
         runtime_.config, runtime_.internal_config, runtime_.control_profile_);
   }
 
-  void SetControlProfile(const common::control::RadarControlProfile& control_profile) {
+  void SetControlProfile(const extension::control::RadarControlProfile& control_profile) {
     runtime_.control_profile_ = control_profile;
   }
-  common::control::RadarControlProfile GetControlProfile() const {
+  extension::control::RadarControlProfile GetControlProfile() const {
     return runtime_.control_profile_;
   }
 
@@ -163,8 +164,9 @@ SignalPipeline::SignalPipeline(SignalPipelineConfig config)
 
 SignalPipeline::~SignalPipeline() = default;
 
-SignalCycleResult SignalPipeline::RunCycle(const common::model::TargetFeatureList& input_state,
-                                           const environment::IEnvironmentService& environment) {
+extension::SignalCycleResult SignalPipeline::RunCycle(
+    const model::TargetFeatureList& input_state,
+    const extension::IEnvironmentService& environment) {
   return impl_->RunCycle(input_state, environment);
 }
 
@@ -172,7 +174,7 @@ std::vector<tracking::TrackMeasurement> SignalPipeline::GetLastTrackMeasurements
   return impl_->GetLastTrackMeasurements();
 }
 
-AssociationQualityMetrics SignalPipeline::GetLastAssociationQualityMetrics() const {
+extension::AssociationQualityMetrics SignalPipeline::GetLastAssociationQualityMetrics() const {
   return impl_->GetLastAssociationQualityMetrics();
 }
 
@@ -190,20 +192,20 @@ std::unique_ptr<tracking::ITrackLifecycleManager> SignalPipeline::CreateAutoLife
 }
 
 void SignalPipeline::UpdatePlatformAttitude(
-    const common::model::PlatformAttitudeDeg& platform_attitude_deg) {
+    const model::PlatformAttitudeDeg& platform_attitude_deg) {
   impl_->UpdatePlatformAttitude(platform_attitude_deg);
 }
 
-common::model::PlatformAttitudeDeg SignalPipeline::GetPlatformAttitude() const {
+model::PlatformAttitudeDeg SignalPipeline::GetPlatformAttitude() const {
   return impl_->GetPlatformAttitude();
 }
 
 void SignalPipeline::SetControlProfile(
-    const common::control::RadarControlProfile& control_profile) {
+    const extension::control::RadarControlProfile& control_profile) {
   impl_->SetControlProfile(control_profile);
 }
 
-common::control::RadarControlProfile SignalPipeline::GetControlProfile() const {
+extension::control::RadarControlProfile SignalPipeline::GetControlProfile() const {
   return impl_->GetControlProfile();
 }
 

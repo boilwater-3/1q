@@ -6,7 +6,7 @@
 #ifndef AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_DEFAULT_CONFIG_BUILDER_H_
 #define AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_DEFAULT_CONFIG_BUILDER_H_
 
-#include "1q/airborne_radar/environment/EnvironmentTypes.h"
+#include "1q/airborne_radar/environment/EnvironmentConfig.h"
 
 namespace airborne_radar {
 namespace environment {

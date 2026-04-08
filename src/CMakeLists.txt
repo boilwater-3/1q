@@ -360,61 +360,68 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/control/RadarControlProfile.h
     )
     set(PUBLIC_HEADERS_COMMON_MODEL
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/model/DecisionInputFrame.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/model/DecisionSourceInfo.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/model/DecisionTrackSnapshot.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/model/TargetCategory.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/model/TargetFeature.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/model/TargetFeatureBuilder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/DecisionInputFrame.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/DecisionSourceInfo.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/DecisionTrackSnapshot.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/RadarOrientationConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/TargetCategory.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/TargetFeature.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/TargetFeatureBuilder.h
     )
     set(PUBLIC_HEADERS_COMMON_UTILS
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/utils/JammingSemantics.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/model/TargetFeatureUtils.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/JammingSemantics.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/TargetFeatureUtils.h
     )
     set(PUBLIC_HEADERS_COMMON_OUTPUT
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/output/TrackOutputFrame.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/output/TrackOutputQueries.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/output/TrackOutputFrame.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/output/TrackOutputQueries.h
     )
     set(PUBLIC_HEADERS_CONFIG_ENTRY
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/config/AntennaPatternConfig.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/session/RadarSessionConfigPresets.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/common/model/RadarOrientationConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarSessionConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarSessionConfigPresets.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarRuntimeConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarSessionConfigBuilder.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/config/SignalBeamControlConfig.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/config/SignalDetectionConfig.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/config/SignalLifecycleConfig.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/config/SignalPipelineConfig.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/config/SignalTrackingConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/airborne_radar_config.hpp
     )
+    set(PUBLIC_HEADERS_SIGNAL_CONFIG
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/AntennaPatternConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/SignalBeamControlConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/SignalDetectionConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/SignalLifecycleConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/SignalPipelineConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/SignalTrackingConfig.h
+    )
     set(PUBLIC_HEADERS_CORE_CONTEXT
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/context/IRadarContext.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/context/RadarCycleInput.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/context/RadarInputValidation.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarCycleInput.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarInputValidation.h
     )
     set(PUBLIC_HEADERS_CORE_CONTROLLER
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/controller/IRadarOutputReader.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/controller/RadarController.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/IRadarContext.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/IRadarOutputReader.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/RadarController.h
     )
     set(PUBLIC_HEADERS_CORE_SESSION
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/session/RadarCycleResult.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/session/RadarSessionFactory.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/core/session/RadarSession.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarCycleResult.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarSessionFactory.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarSession.h
     )
     set(PUBLIC_HEADERS_DECISION
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/decision/pipeline/ControlReducerTypes.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/ControlReducerTypes.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/ITacticalDecisionEngine.h
     )
     set(PUBLIC_HEADERS_ENVIRONMENT
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentDefaultConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentSceneBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentTypes.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/IEnvironmentService.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/IEnvironmentService.h
     )
     set(PUBLIC_HEADERS_SIGNAL_PIPELINE
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/pipeline/ISignalPipeline.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/signal/pipeline/SignalPipelineResultTypes.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/ISignalPipeline.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/SignalPipelineResultTypes.h
+    )
+    set(PUBLIC_HEADERS_EXTENSION_ENTRY
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/airborne_radar_extension.hpp
     )
     set(PUBLIC_HEADERS_ESR_COMMON
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/common/EsrCoordinateUtils.h
@@ -501,7 +508,7 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/common/trace/TraceSink.h
     )
     set(PUBLIC_HEADERS_AIRBORNE_TOOLS
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/tools/RadarTraceSession.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarTraceSession.h
     )
     set(PUBLIC_HEADERS_ESR_TOOLS
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/tools/EsrTraceSession.h
@@ -545,37 +552,43 @@ if(ENABLE_INSTALL)
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/extension/control
     )
     install(FILES ${PUBLIC_HEADERS_COMMON_MODEL}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/common/model
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/model
     )
     install(FILES ${PUBLIC_HEADERS_COMMON_UTILS}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/common/utils
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/model
     )
     install(FILES ${PUBLIC_HEADERS_COMMON_OUTPUT}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/common/output
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/output
     )
     install(FILES ${PUBLIC_HEADERS_CONFIG_ENTRY}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/config
     )
+    install(FILES ${PUBLIC_HEADERS_SIGNAL_CONFIG}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/config
+    )
     install(FILES ${PUBLIC_HEADERS_CORE_CONTEXT}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/core/context
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/session
     )
     install(FILES ${PUBLIC_HEADERS_CORE_CONTROLLER}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/core/controller
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/extension
     )
     install(FILES ${PUBLIC_HEADERS_CORE_SESSION}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/core/session
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/session
     )
     install(FILES ${PUBLIC_HEADERS_DECISION}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/decision/pipeline
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/extension
     )
     install(FILES ${PUBLIC_HEADERS_ENVIRONMENT}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/environment
     )
     install(FILES ${PUBLIC_HEADERS_SIGNAL_PIPELINE}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/signal/pipeline
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/extension
     )
     install(FILES ${PUBLIC_HEADERS_AIRBORNE_TOOLS}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/tools
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/session
+    )
+    install(FILES ${PUBLIC_HEADERS_EXTENSION_ENTRY}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/extension
     )
     install(FILES ${PUBLIC_HEADERS_ESR_COMMON}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/common

@@ -1,25 +1,24 @@
 #include "airborne_radar/core/controller/CycleTelemetryLogger.h"
 
-#include "1q/airborne_radar/common/utils/JammingSemantics.h"
+#include "1q/airborne_radar/model/JammingSemantics.h"
 #include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
-namespace core {
-namespace controller {
+namespace extension {
 
 namespace {
 
-const char* JammingSemanticName(common::utils::JammingSemantic semantic) {
+const char* JammingSemanticName(model::JammingSemantic semantic) {
   switch (semantic) {
-    case common::utils::JammingSemantic::kNoiseSuppression:
+    case model::JammingSemantic::kNoiseSuppression:
       return "noise";
-    case common::utils::JammingSemantic::kDeception:
+    case model::JammingSemantic::kDeception:
       return "deception";
-    case common::utils::JammingSemantic::kRepeater:
+    case model::JammingSemantic::kRepeater:
       return "repeater";
-    case common::utils::JammingSemantic::kMixed:
+    case model::JammingSemantic::kMixed:
       return "mixed";
-    case common::utils::JammingSemantic::kNone:
+    case model::JammingSemantic::kNone:
     default:
       return "none";
   }
@@ -52,6 +51,5 @@ void CycleTelemetryLogger::LogCycleSummary(const CycleTelemetryPayload& payload)
       payload.association_metrics.jamming_severity, payload.association_metrics.association_stress);
 }
 
-}  // namespace controller
-}  // namespace core
+}  // namespace extension
 }  // namespace airborne_radar

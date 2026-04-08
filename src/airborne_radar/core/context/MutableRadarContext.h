@@ -8,17 +8,16 @@
 
 #include <vector>
 
-#include "1q/airborne_radar/core/context/IRadarContext.h"
-#include "1q/airborne_radar/core/context/RadarCycleInput.h"
+#include "1q/airborne_radar/extension/IRadarContext.h"
+#include "1q/airborne_radar/session/RadarCycleInput.h"
 
 namespace airborne_radar {
-namespace core {
-namespace context {
+namespace session {
 
 /**
  * @brief 提供一个可直接驱动控制器的默认雷达上下文实现。
  */
-class MutableRadarContext final : public IRadarContext {
+class MutableRadarContext final : public extension::IRadarContext {
  public:
   /**
    * @brief 默认构造函数。
@@ -36,13 +35,13 @@ class MutableRadarContext final : public IRadarContext {
    * @brief 更新当前周期目标特征列表。
    * @param target_features 新的目标特征列表。
    */
-  void SetTargetFeatures(common::model::TargetFeatureList target_features);
+  void SetTargetFeatures(model::TargetFeatureList target_features);
 
   /**
    * @brief 更新当前平台姿态角。
    * @param platform_attitude_deg 平台姿态角，单位为度。
    */
-  void SetPlatformAttitude(const common::model::PlatformAttitudeDeg& platform_attitude_deg);
+  void SetPlatformAttitude(const model::PlatformAttitudeDeg& platform_attitude_deg);
 
   /**
    * @brief 更新当前周期时间步长。
@@ -60,7 +59,7 @@ class MutableRadarContext final : public IRadarContext {
    * @brief 获取本周期已提交的控制指令。
    * @return 当前周期命令缓存。
    */
-  const std::vector<common::control::RadarCommand>& GetSubmittedCommands() const override;
+  const std::vector<extension::control::RadarCommand>& GetSubmittedCommands() const override;
 
   /**
    * @brief 判断是否已经收到过控制真值更新。
@@ -72,19 +71,19 @@ class MutableRadarContext final : public IRadarContext {
    * @brief 获取最近一次保存的控制真值。
    * @return 最近一次控制真值；若尚未更新则返回默认值。
    */
-  const common::control::RadarControlProfile& GetLatestControlProfile() const override;
+  const extension::control::RadarControlProfile& GetLatestControlProfile() const override;
 
   /**
    * @brief 获取当前周期的目标特征列表。
    * @return 当前周期的目标特征列表只读引用。
    */
-  const common::model::TargetFeatureList& GetTargetFeatures() const override;
+  const model::TargetFeatureList& GetTargetFeatures() const override;
 
   /**
    * @brief 获取当前平台姿态角。
    * @return 当前平台姿态角。
    */
-  common::model::PlatformAttitudeDeg GetPlatformAttitude() const override;
+  model::PlatformAttitudeDeg GetPlatformAttitude() const override;
 
   /**
    * @brief 获取当前周期时间步长。
@@ -96,25 +95,24 @@ class MutableRadarContext final : public IRadarContext {
    * @brief 记录控制器提交的单条控制指令。
    * @param cmd 控制指令。
    */
-  void SubmitControlCommand(common::control::RadarCommand cmd) override;
+  void SubmitControlCommand(extension::control::RadarCommand cmd) override;
 
   /**
    * @brief 保存最近一次控制真值。
    * @param profile 下一周期控制真值。
    */
-  void UpdateRadarControlProfile(const common::control::RadarControlProfile& profile) override;
+  void UpdateRadarControlProfile(const extension::control::RadarControlProfile& profile) override;
 
  private:
-  common::model::TargetFeatureList target_features_{};
-  common::model::PlatformAttitudeDeg platform_attitude_deg_{};
+  model::TargetFeatureList target_features_{};
+  model::PlatformAttitudeDeg platform_attitude_deg_{};
   float cycle_dt_sec_{1.0f};
-  std::vector<common::control::RadarCommand> submitted_commands_{};
-  common::control::RadarControlProfile latest_control_profile_{};
+  std::vector<extension::control::RadarCommand> submitted_commands_{};
+  extension::control::RadarControlProfile latest_control_profile_{};
   bool has_latest_control_profile_{false};
 };
 
-}  // namespace context
-}  // namespace core
+}  // namespace session
 }  // namespace airborne_radar
 
 #endif  // AIRBORNE_RADAR_CORE_CONTEXT_MUTABLE_RADAR_CONTEXT_H_

@@ -19,15 +19,15 @@ std::vector<const TrackState*> TrackLifecycleManager::GetActiveTracks() const {
   return result;
 }
 
-common::model::TargetFeatureList TrackLifecycleManager::BuildFeatureSnapshot() const {
+model::TargetFeatureList TrackLifecycleManager::BuildFeatureSnapshot() const {
   return snapshot_emitter_.BuildFeatureSnapshot();
 }
 
-common::model::DecisionTrackSnapshotList TrackLifecycleManager::BuildDecisionSnapshot() const {
+model::DecisionTrackSnapshotList TrackLifecycleManager::BuildDecisionSnapshot() const {
   return snapshot_emitter_.BuildDecisionSnapshot();
 }
 
-common::model::DecisionInputFrame TrackLifecycleManager::BuildDecisionFrame(
+model::DecisionInputFrame TrackLifecycleManager::BuildDecisionFrame(
     std::uint32_t cycle_index, std::uint64_t batch_id, bool environment_jamming_detected) const {
   return snapshot_emitter_.BuildDecisionFrame(cycle_index, batch_id, environment_jamming_detected);
 }

@@ -8,7 +8,7 @@
 #include <cmath>
 #include <limits>
 
-#include "1q/airborne_radar/common/model/RadarOrientationConfig.h"
+#include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/MeasurementErrorModel.h"
 #include "airborne_radar/signal/detection/RadarEquations.h"
@@ -19,16 +19,16 @@
 namespace airborne_radar {
 namespace tests {
 
-using signal::config::AntennaConfig;
-using signal::config::DetectionPolicy;
+using config::AntennaConfig;
+using config::DetectionPolicy;
 using signal::detection::DetectionResult;
 using signal::detection::MeasurementErrorModel;
 using signal::detection::RadarEquations;
-using signal::config::SignalDetectionConfig;
-using signal::config::ReceiverConfig;
+using config::SignalDetectionConfig;
+using config::ReceiverConfig;
 using signal::detection::SignalDetector;
 using signal::detection::TargetLookResolver;
-using signal::config::TransmitterConfig;
+using config::TransmitterConfig;
 
 // ===========================================================================
 // RadarEquations 纯函数单元测试
@@ -304,7 +304,7 @@ TEST(SignalDetectorTest, DetectionProbabilityUsesIntegratedSnr) {
   signal::detection::TargetReturn target;
   target.rcs_m2 = 0.5f;
   target.range_m = 120000.0f;
-  target.swerling_type = signal::config::kSwerling2;
+  target.swerling_type = config::kSwerling2;
 
   signal::detection::EnvironmentState env;
   env.propagation_loss_db = 0.0f;
@@ -341,7 +341,7 @@ TEST(SignalDetectorTest, WiderBandwidthReducesSnrWithSameEnergyInputs) {
   signal::detection::TargetReturn target;
   target.rcs_m2 = 1.0f;
   target.range_m = 90000.0f;
-  target.swerling_type = signal::config::kSwerling1;
+  target.swerling_type = config::kSwerling1;
 
   signal::detection::EnvironmentState env;
   env.propagation_loss_db = 0.0f;
@@ -365,7 +365,7 @@ TEST(SignalDetectorTest, HigherPulseCountYieldsHigherPd) {
   signal::detection::TargetReturn target;
   target.rcs_m2 = 1.0f;
   target.range_m = 90000.0f;
-  target.swerling_type = signal::config::kSwerling1;
+  target.swerling_type = config::kSwerling1;
 
   signal::detection::EnvironmentState env;
   env.propagation_loss_db = 0.0f;
@@ -384,7 +384,7 @@ TEST(SignalDetectorTest, HigherPulseCountYieldsHigherPd) {
 
 /// @brief 雷达局部坐标应能解析出稳定的目标方位/俯仰角。
 TEST(TargetLookResolverTest, ResolvesRadarLocalLookAngles) {
-  common::model::TargetFeature target;
+  model::TargetFeature target;
   target.position_x = 10.0f;
   target.position_y = 10.0f;
   target.position_z = 10.0f;
@@ -404,8 +404,8 @@ TEST(MeasurementErrorModelTest, ElevationBeamwidthAffectsEquivalentAngleStdDev) 
   AntennaConfig wide_el_antenna = narrow_antenna;
   wide_el_antenna.nominal_el_beamwidth_deg = 8.0f;
 
-  common::model::RadarOrientationConfig orientation;
-  common::model::PlatformAttitudeDeg platform_attitude_deg;
+  model::RadarOrientationConfig orientation;
+  model::PlatformAttitudeDeg platform_attitude_deg;
   signal::detection::TargetLookAnglesDeg look_angles;
   look_angles.has_look_angles = true;
 
@@ -430,11 +430,11 @@ TEST(MeasurementErrorModelTest, CommandedBeamwidthOverrideAffectsAngleStdDev) {
   antenna.nominal_az_beamwidth_deg = 2.0f;
   antenna.nominal_el_beamwidth_deg = 2.0f;
 
-  common::model::RadarOrientationConfig nominal_orientation;
+  model::RadarOrientationConfig nominal_orientation;
   nominal_orientation.commanded_beamwidth_enabled = false;
-  common::model::PlatformAttitudeDeg platform_attitude_deg;
+  model::PlatformAttitudeDeg platform_attitude_deg;
 
-  common::model::RadarOrientationConfig commanded_orientation;
+  model::RadarOrientationConfig commanded_orientation;
   commanded_orientation.commanded_beamwidth_enabled = true;
   commanded_orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg = 8.0f;
   commanded_orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg = 8.0f;
@@ -465,11 +465,11 @@ TEST(BeamControlResolverTest, CommandedBeamwidthAffectsDirectionalPatternGain) {
   config.antenna.enable_directional_pattern = true;
   config.antenna.pattern.max_sidelobe_level_db = -25.0f;
 
-  common::model::RadarOrientationConfig nominal_orientation;
+  model::RadarOrientationConfig nominal_orientation;
   nominal_orientation.commanded_beamwidth_enabled = false;
-  common::model::PlatformAttitudeDeg platform_attitude_deg;
+  model::PlatformAttitudeDeg platform_attitude_deg;
 
-  common::model::RadarOrientationConfig commanded_orientation;
+  model::RadarOrientationConfig commanded_orientation;
   commanded_orientation.commanded_beamwidth_enabled = true;
   commanded_orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg = 8.0f;
   commanded_orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg = 8.0f;
@@ -510,10 +510,10 @@ TEST(BeamControlResolverTest, CommandedBeamwidthAffectsDirectionalPatternGain) {
 /// @brief 对惯性稳定模式应补偿平台姿态变化。
 TEST(BeamControlResolverTest, InertialStabilizedCompensatesPlatformAttitude) {
   AntennaConfig antenna;
-  common::model::RadarOrientationConfig orientation;
-  orientation.stabilization_mode = common::model::StabilizationMode::kInertialStabilized;
+  model::RadarOrientationConfig orientation;
+  orientation.stabilization_mode = model::StabilizationMode::kInertialStabilized;
 
-  common::model::PlatformAttitudeDeg platform_attitude_deg;
+  model::PlatformAttitudeDeg platform_attitude_deg;
   platform_attitude_deg.yaw_deg = 15.0f;
   platform_attitude_deg.pitch_deg = 5.0f;
 
@@ -532,11 +532,11 @@ TEST(BeamControlResolverTest, InertialStabilizedCompensatesPlatformAttitude) {
 /// @brief 对惯性稳定模式应显式补偿平台滚转角。
 TEST(BeamControlResolverTest, InertialStabilizedAccountsForPlatformRoll) {
   AntennaConfig antenna;
-  common::model::RadarOrientationConfig orientation;
-  orientation.stabilization_mode = common::model::StabilizationMode::kInertialStabilized;
+  model::RadarOrientationConfig orientation;
+  orientation.stabilization_mode = model::StabilizationMode::kInertialStabilized;
   orientation.scan_center_deg.el_deg = 30.0f;
 
-  common::model::PlatformAttitudeDeg platform_attitude_deg;
+  model::PlatformAttitudeDeg platform_attitude_deg;
   platform_attitude_deg.roll_deg = 90.0f;
 
   signal::detection::TargetLookAnglesDeg look_angles;
@@ -553,15 +553,15 @@ TEST(BeamControlResolverTest, InertialStabilizedAccountsForPlatformRoll) {
 /// @brief 对地稳定当前无地理参考输入，代码上显式等同于惯性稳定。
 TEST(BeamControlResolverTest, GroundStabilizedCurrentlyMatchesInertialStabilized) {
   AntennaConfig antenna;
-  common::model::RadarOrientationConfig inertial_orientation;
-  inertial_orientation.stabilization_mode = common::model::StabilizationMode::kInertialStabilized;
+  model::RadarOrientationConfig inertial_orientation;
+  inertial_orientation.stabilization_mode = model::StabilizationMode::kInertialStabilized;
   inertial_orientation.scan_center_deg.az_deg = 5.0f;
   inertial_orientation.scan_center_deg.el_deg = 20.0f;
 
-  common::model::RadarOrientationConfig ground_orientation = inertial_orientation;
-  ground_orientation.stabilization_mode = common::model::StabilizationMode::kGroundStabilized;
+  model::RadarOrientationConfig ground_orientation = inertial_orientation;
+  ground_orientation.stabilization_mode = model::StabilizationMode::kGroundStabilized;
 
-  common::model::PlatformAttitudeDeg platform_attitude_deg;
+  model::PlatformAttitudeDeg platform_attitude_deg;
   platform_attitude_deg.yaw_deg = 15.0f;
   platform_attitude_deg.pitch_deg = -8.0f;
   platform_attitude_deg.roll_deg = 20.0f;
@@ -586,12 +586,12 @@ TEST(BeamControlResolverTest, GroundStabilizedCurrentlyMatchesInertialStabilized
 // Swerling 0~4 检测概率单元测试
 // ===========================================================================
 
-using signal::config::kSwerling0;
-using signal::config::kSwerling1;
-using signal::config::kSwerling2;
-using signal::config::kSwerling3;
-using signal::config::kSwerling4;
-using signal::config::SwerlingModel;
+using config::kSwerling0;
+using config::kSwerling1;
+using config::kSwerling2;
+using config::kSwerling3;
+using config::kSwerling4;
+using config::SwerlingModel;
 
 /// @brief Swerling 1 单脉冲 ≡ Swerling 2 单脉冲（单脉冲无所谓快慢起伏）。
 TEST(SwerlingDetectionTest, Sw1_N1_Equals_Sw2_N1) {

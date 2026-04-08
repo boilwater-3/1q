@@ -11,8 +11,8 @@
 #include <vector>
 
 #include "1q/airborne_radar/extension/control/ControlDirective.h"
-#include "1q/airborne_radar/common/model/DecisionInputFrame.h"
-#include "1q/airborne_radar/common/model/DecisionTrackSnapshot.h"
+#include "1q/airborne_radar/model/DecisionInputFrame.h"
+#include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
 #include "airborne_radar/decision/evaluators/ThreatAssessmentEvaluator.h"
 #include "airborne_radar/decision/pipeline/TacticalCoordinator.h"
 #include "airborne_radar/decision/pipeline/TacticalEvaluation.h"
@@ -20,9 +20,8 @@
 
 namespace dp = airborne_radar::decision::pipeline;
 namespace de = airborne_radar::decision::evaluators;
-namespace ac = airborne_radar::common;
-namespace acc = airborne_radar::common::control;
-namespace acm = airborne_radar::common::model;
+namespace acc = airborne_radar::extension::control;
+namespace acm = airborne_radar::model;
 namespace edb = airborne_radar::environment::database;
 
 namespace {

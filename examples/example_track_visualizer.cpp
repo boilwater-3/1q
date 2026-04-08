@@ -27,15 +27,15 @@
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/core/session/RadarSessionConfigPresets.h"
-#include "1q/airborne_radar/common/model/DecisionTrackSnapshot.h"
+#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/common/model/TargetFeatureUtils.h"
-#include "1q/airborne_radar/common/output/TrackOutputFrame.h"
-#include "1q/airborne_radar/core/context/RadarCycleInput.h"
-#include "1q/airborne_radar/core/session/RadarCycleResult.h"
-#include "1q/airborne_radar/core/session/RadarSessionFactory.h"
-#include "1q/airborne_radar/core/session/RadarSession.h"
+#include "1q/airborne_radar/model/TargetFeatureUtils.h"
+#include "1q/airborne_radar/output/TrackOutputFrame.h"
+#include "1q/airborne_radar/session/RadarCycleInput.h"
+#include "1q/airborne_radar/session/RadarCycleResult.h"
+#include "1q/airborne_radar/session/RadarSessionFactory.h"
+#include "1q/airborne_radar/session/RadarSession.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 
@@ -94,7 +94,7 @@ struct SimState {
   std::map<std::uint64_t, std::vector<float>> hist_speed;
 
   // 最近一帧各轨迹快照（用于状态表格和散点）
-  std::vector<airborne_radar::common::model::DecisionTrackSnapshot> latest_tracks;
+  std::vector<airborne_radar::model::DecisionTrackSnapshot> latest_tracks;
 
   // 仿真是否已完成
   bool finished{false};
@@ -115,11 +115,11 @@ struct SimState {
 
 // ── 构造 RadarSession ─────────────────────────────────────────────────────────
 
-std::unique_ptr<airborne_radar::core::session::RadarSession> MakeSession() {
+std::unique_ptr<airborne_radar::session::RadarSession> MakeSession() {
   namespace aq = airborne_radar::common;
   const auto preset = airborne_radar::config::MakeDetectionMissionRadarSessionConfig();
 
-  airborne_radar::signal::config::SignalDetectionConfig detection = preset.detection;
+  airborne_radar::config::SignalDetectionConfig detection = preset.detection;
   detection.enable_physics_detection = true;
   detection.transmitter.peak_power_w = 5e6f;
   detection.transmitter.frequency_hz = 9.3e9f;
@@ -134,8 +134,8 @@ std::unique_ptr<airborne_radar::core::session::RadarSession> MakeSession() {
   airborne_radar::environment::EnvironmentDefaultConfig env = preset.environment_default_config;
   env.jamming_detection_threshold_db = 5.0f;
 
-  auto session = std::unique_ptr<airborne_radar::core::session::RadarSession>(
-      new airborne_radar::core::session::RadarSession(airborne_radar::core::session::RadarSessionFactory::Create(
+  auto session = std::unique_ptr<airborne_radar::session::RadarSession>(
+      new airborne_radar::session::RadarSession(airborne_radar::session::RadarSessionFactory::Create(
           airborne_radar::config::RadarSessionConfigBuilder(preset)
               .Detection()
               .WithDetection(detection)
@@ -158,14 +158,14 @@ std::unique_ptr<airborne_radar::core::session::RadarSession> MakeSession() {
 
 // ── 推进一个 cycle ────────────────────────────────────────────────────────────
 
-void StepOnce(airborne_radar::core::session::RadarSession& session, SimState& sim) {
+void StepOnce(airborne_radar::session::RadarSession& session, SimState& sim) {
   if (sim.finished || sim.current_cycle >= kMaxCycles) {
     sim.finished = true;
     return;
   }
 
   namespace aq = airborne_radar::common;
-  using airborne_radar::core::context::RadarCycleInput;
+  using airborne_radar::session::RadarCycleInput;
   using airborne_radar::environment::EnvironmentSceneBuilder;
   using airborne_radar::environment::JammerEmitterState;
   using airborne_radar::environment::JammingTechnique;
@@ -180,7 +180,7 @@ void StepOnce(airborne_radar::core::session::RadarSession& session, SimState& si
   }
 
   // cycle 12+ 注入噪声干扰
-  airborne_radar::core::session::RadarCycleResult result;
+  airborne_radar::session::RadarCycleResult result;
   if (sim.current_cycle >= kJamStartCycle) {
     JammerEmitterState jammer;
     jammer.technique = JammingTechnique::kNoiseSuppression;
@@ -226,25 +226,25 @@ void StepOnce(airborne_radar::core::session::RadarSession& session, SimState& si
 
 // ── 状态字符串 ────────────────────────────────────────────────────────────────
 
-const char* StatusStr(airborne_radar::common::model::DecisionTrackStatus s) {
+const char* StatusStr(airborne_radar::model::DecisionTrackStatus s) {
   switch (s) {
-    case airborne_radar::common::model::DecisionTrackStatus::kTentative:
+    case airborne_radar::model::DecisionTrackStatus::kTentative:
       return "Tentative";
-    case airborne_radar::common::model::DecisionTrackStatus::kConfirmed:
+    case airborne_radar::model::DecisionTrackStatus::kConfirmed:
       return "Confirmed";
-    case airborne_radar::common::model::DecisionTrackStatus::kLost:
+    case airborne_radar::model::DecisionTrackStatus::kLost:
       return "Lost";
   }
   return "Unknown";
 }
 
-ImPlotMarker StatusMarker(airborne_radar::common::model::DecisionTrackStatus s) {
+ImPlotMarker StatusMarker(airborne_radar::model::DecisionTrackStatus s) {
   switch (s) {
-    case airborne_radar::common::model::DecisionTrackStatus::kTentative:
+    case airborne_radar::model::DecisionTrackStatus::kTentative:
       return ImPlotMarker_Circle;
-    case airborne_radar::common::model::DecisionTrackStatus::kConfirmed:
+    case airborne_radar::model::DecisionTrackStatus::kConfirmed:
       return ImPlotMarker_Square;
-    case airborne_radar::common::model::DecisionTrackStatus::kLost:
+    case airborne_radar::model::DecisionTrackStatus::kLost:
       return ImPlotMarker_Cross;
   }
   return ImPlotMarker_Circle;

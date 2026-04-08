@@ -10,9 +10,9 @@
 #include <unordered_map>
 #include <vector>
 
-#include "1q/airborne_radar/common/model/DecisionInputFrame.h"
-#include "1q/airborne_radar/common/model/DecisionTrackSnapshot.h"
-#include "1q/airborne_radar/common/model/TargetFeature.h"
+#include "1q/airborne_radar/model/DecisionInputFrame.h"
+#include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
+#include "1q/airborne_radar/model/TargetFeature.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
 #include "airborne_radar/signal/tracking/TrackState.h"
 
@@ -35,7 +35,7 @@ class TrackSnapshotEmitter {
    * @param last_cycle_index 当前已完成的周期号。
    */
   void Refresh(const std::unordered_map<std::uint64_t, TrackState*>& tracks_by_key,
-               const std::unordered_map<std::uint64_t, common::model::DecisionMeasurementEvidence>&
+               const std::unordered_map<std::uint64_t, model::DecisionMeasurementEvidence>&
                    evidence_by_key,
                std::uint32_t last_cycle_index);
 
@@ -43,13 +43,13 @@ class TrackSnapshotEmitter {
    * @brief 导出供外围事件链路消费的轻量目标特征快照。
    * @return 可直接用于外部状态广播的目标特征列表。
    */
-  common::model::TargetFeatureList BuildFeatureSnapshot() const;
+  model::TargetFeatureList BuildFeatureSnapshot() const;
 
   /**
    * @brief 导出供决策层消费的活跃轨迹快照。
    * @return 包含 tentative/confirmed/lost 状态且未回收的决策快照列表。
    */
-  common::model::DecisionTrackSnapshotList BuildDecisionSnapshot() const;
+  model::DecisionTrackSnapshotList BuildDecisionSnapshot() const;
 
   /**
    * @brief 导出完整的决策输入帧。
@@ -58,7 +58,7 @@ class TrackSnapshotEmitter {
    * @param environment_jamming_detected 环境是否检测到大面积干扰。
    * @return 填充好的决策输入数据帧。
    */
-  common::model::DecisionInputFrame BuildDecisionFrame(std::uint32_t cycle_index,
+  model::DecisionInputFrame BuildDecisionFrame(std::uint32_t cycle_index,
                                                        std::uint64_t batch_id,
                                                        bool environment_jamming_detected) const;
 
@@ -76,7 +76,7 @@ class TrackSnapshotEmitter {
   };
 
   std::vector<ActiveTrackEntry> active_tracks_;
-  std::unordered_map<std::uint64_t, common::model::DecisionMeasurementEvidence> evidence_by_key_;
+  std::unordered_map<std::uint64_t, model::DecisionMeasurementEvidence> evidence_by_key_;
   std::uint32_t last_cycle_index_{0};
 };
 

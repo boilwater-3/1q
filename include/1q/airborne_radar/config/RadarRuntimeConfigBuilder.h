@@ -6,16 +6,16 @@
 #ifndef AIRBORNE_RADAR_CONFIG_RADAR_RUNTIME_CONFIG_BUILDER_H_
 #define AIRBORNE_RADAR_CONFIG_RADAR_RUNTIME_CONFIG_BUILDER_H_
 
-#include "1q/airborne_radar/common/model/RadarOrientationConfig.h"
-#include "1q/airborne_radar/environment/EnvironmentTypes.h"
+#include "1q/airborne_radar/model/RadarOrientationConfig.h"
+#include "1q/airborne_radar/environment/EnvironmentConfig.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
 namespace config {
 
-using common::model::AzimuthElevationDeg;
-using common::model::CommandedBeamwidthDeg;
-using common::model::RadarWorkSubMode;
+using model::AzimuthElevationDeg;
+using model::CommandedBeamwidthDeg;
+using model::RadarWorkSubMode;
 
 /**
  * @brief RadarRuntimeConfigPatch 描述运行期可变参数补丁。

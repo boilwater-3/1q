@@ -11,12 +11,12 @@ namespace {
 
 bool IsFinitePositive(float value) { return std::isfinite(value) && value > 0.0f; }
 
-void WarnInvalidPhysicsDetectionConfig(const signal::config::SignalDetectionConfig& detection) {
+void WarnInvalidPhysicsDetectionConfig(const config::SignalDetectionConfig& detection) {
   if (!detection.enable_physics_detection) {
     return;
   }
 
-  const signal::config::TransmitterConfig& tx = detection.transmitter;
+  const config::TransmitterConfig& tx = detection.transmitter;
   if (!IsFinitePositive(tx.peak_power_w)) {
     PROJECT_LOG_WARN(
         "[RadarSessionConfigBuilder] physics detection enabled but peak_power_w={} is invalid.",
@@ -53,7 +53,7 @@ void WarnInvalidPhysicsDetectionConfig(const signal::config::SignalDetectionConf
 
 }  // namespace
 
-core::session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
+session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
   const auto& tx = config_.detection.transmitter;
   if (tx.peak_power_w <= 0.0f) {
     PROJECT_LOG_WARN(

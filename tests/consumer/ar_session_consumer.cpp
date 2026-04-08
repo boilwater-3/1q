@@ -13,24 +13,24 @@
 
 #include <cstddef>
 
-#include "1q/airborne_radar/common/output/TrackOutputFrame.h"
-#include "1q/airborne_radar/common/output/TrackOutputQueries.h"
+#include "1q/airborne_radar/output/TrackOutputFrame.h"
+#include "1q/airborne_radar/output/TrackOutputQueries.h"
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/core/context/RadarCycleInput.h"
-#include "1q/airborne_radar/core/context/RadarInputValidation.h"
-#include "1q/airborne_radar/core/session/RadarCycleResult.h"
-#include "1q/airborne_radar/core/session/RadarSessionFactory.h"
-#include "1q/airborne_radar/core/session/RadarSession.h"
-#include "1q/airborne_radar/core/session/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/session/RadarCycleInput.h"
+#include "1q/airborne_radar/session/RadarInputValidation.h"
+#include "1q/airborne_radar/session/RadarCycleResult.h"
+#include "1q/airborne_radar/session/RadarSessionFactory.h"
+#include "1q/airborne_radar/session/RadarSession.h"
+#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 
 int main() {
   // 1. Preset config construction
-  airborne_radar::core::session::RadarSessionConfig preset_config =
-      airborne_radar::common::config::MakeDefaultRadarSessionConfig();
+  airborne_radar::session::RadarSessionConfig preset_config =
+      airborne_radar::config::MakeDefaultRadarSessionConfig();
 
   // 2. Builder config construction
-  airborne_radar::core::session::RadarSessionConfig built_config =
+  airborne_radar::session::RadarSessionConfig built_config =
       airborne_radar::config::RadarSessionConfigBuilder(preset_config)
           .Detection()
           .WithPeakPowerW(5.0e6f)
@@ -51,30 +51,30 @@ int main() {
           .Build();
 
   // 3. Session construction from builder config
-  airborne_radar::core::session::RadarSession session =
-      airborne_radar::core::session::RadarSessionFactory::Create(built_config);
+  airborne_radar::session::RadarSession session =
+      airborne_radar::session::RadarSessionFactory::Create(built_config);
 
   // 4. Input construction + validation
-  airborne_radar::core::context::RadarCycleInput input;
+  airborne_radar::session::RadarCycleInput input;
   input.dt_sec = 1.0f;
-  const std::vector<airborne_radar::core::context::ValidationIssue> issues =
-      airborne_radar::core::context::ValidateRadarCycleInput(input);
-  if (airborne_radar::core::context::HasValidationError(issues)) {
+  const std::vector<airborne_radar::session::ValidationIssue> issues =
+      airborne_radar::session::ValidateRadarCycleInput(input);
+  if (airborne_radar::session::HasValidationError(issues)) {
     return 1;
   }
 
   // 5. StepWithResult
-  const airborne_radar::core::session::RadarCycleResult result = session.StepWithResult(input);
+  const airborne_radar::session::RadarCycleResult result = session.StepWithResult(input);
   if (result.has_validation_error) {
     return 2;
   }
 
   // 6. Step (output-only)
-  const airborne_radar::common::output::TrackOutputFrame step_frame = session.Step(input);
+  const airborne_radar::output::TrackOutputFrame step_frame = session.Step(input);
 
   // 7. Access result fields
-  const std::size_t confirmed_tracks = airborne_radar::common::output::CountTracksByStatus(
-      result.track_output_frame, airborne_radar::common::model::DecisionTrackStatus::kConfirmed);
+  const std::size_t confirmed_tracks = airborne_radar::output::CountTracksByStatus(
+      result.track_output_frame, airborne_radar::model::DecisionTrackStatus::kConfirmed);
   if (confirmed_tracks > result.track_output_frame.tracks.size()) {
     return 3;
   }
@@ -87,7 +87,7 @@ int main() {
   // 8. RuntimeConfigBuilder hot-switch
   const airborne_radar::config::RadarRuntimeConfigPatch runtime_patch =
       airborne_radar::config::RadarRuntimeConfigBuilder()
-          .WithRadarWorkSubMode(airborne_radar::common::model::RadarWorkSubMode::kTas)
+          .WithRadarWorkSubMode(airborne_radar::model::RadarWorkSubMode::kTas)
           .WithScanCenterDeg({15.0f, -5.0f})
           .WithJammingDetectionThresholdDb(8.0f)
           .EnableCommandedBeamwidth(true)
@@ -95,9 +95,9 @@ int main() {
   session.ApplyRuntimeConfig(runtime_patch);
 
   // 9. Second cycle after runtime config change
-  airborne_radar::core::context::RadarCycleInput input_2;
+  airborne_radar::session::RadarCycleInput input_2;
   input_2.dt_sec = 1.0f;
-  const airborne_radar::core::session::RadarCycleResult result_2 = session.StepWithResult(input_2);
+  const airborne_radar::session::RadarCycleResult result_2 = session.StepWithResult(input_2);
   if (result_2.has_validation_error) {
     return 4;
   }

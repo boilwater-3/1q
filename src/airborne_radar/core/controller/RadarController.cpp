@@ -1,4 +1,4 @@
-#include "1q/airborne_radar/core/controller/RadarController.h"
+#include "1q/airborne_radar/extension/RadarController.h"
 
 #include <cstdint>
 #include <functional>
@@ -6,11 +6,11 @@
 #include <vector>
 
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
-#include "1q/airborne_radar/common/output/TrackOutputFrame.h"
-#include "1q/airborne_radar/core/context/IRadarContext.h"
-#include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
-#include "1q/airborne_radar/environment/IEnvironmentService.h"
-#include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
+#include "1q/airborne_radar/output/TrackOutputFrame.h"
+#include "1q/airborne_radar/extension/IRadarContext.h"
+#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/extension/IEnvironmentService.h"
+#include "1q/airborne_radar/extension/ISignalPipeline.h"
 #include "airborne_radar/core/controller/ControlCommandMapper.h"
 #include "airborne_radar/core/controller/CycleTelemetryLogger.h"
 #include "airborne_radar/core/controller/RadarCycleOrchestrator.h"
@@ -22,8 +22,7 @@
 #include "common/runtime/RuntimeCycleExecutor.h"
 
 namespace airborne_radar {
-namespace core {
-namespace controller {
+namespace extension {
 
 namespace {
 
@@ -31,9 +30,9 @@ namespace {
  * @brief AirborneRuntimeInput 描述单周期骨架执行需要的输入快照。
  */
 struct AirborneRuntimeInput {
-  const common::model::TargetFeatureList* target_features{
+  const model::TargetFeatureList* target_features{
       nullptr};                                            /**< 当前周期目标输入只读视图。 */
-  common::model::PlatformAttitudeDeg platform_attitude{}; /**< 当前平台姿态。 */
+  model::PlatformAttitudeDeg platform_attitude{}; /**< 当前平台姿态。 */
   float cycle_dt_sec{1.0f};                                /**< 当前周期步长。 */
 };
 
@@ -43,68 +42,68 @@ struct AirborneRuntimeInput {
  * @brief RadarController 内部实现体，持有所有运行时状态。
  */
 struct RadarController::Impl {
-  core::context::IRadarContext& radar_context;
-  signal::pipeline::ISignalPipeline& signal_pipeline;
-  decision::pipeline::ITacticalDecisionEngine* decision_engine{nullptr};
-  std::unique_ptr<decision::pipeline::ITacticalDecisionEngine> owned_decision_engine;
-  environment::IEnvironmentService& environment_service;
-  std::unique_ptr<common::control::RadarControlProfile> owned_control_profile;
-  std::reference_wrapper<common::control::RadarControlProfile> control_profile;
-  std::unique_ptr<decision::pipeline::TacticalStateStore> tactical_state_store;
+  extension::IRadarContext& radar_context;
+  extension::ISignalPipeline& signal_pipeline;
+  extension::ITacticalDecisionEngine* decision_engine{nullptr};
+  std::unique_ptr<extension::ITacticalDecisionEngine> owned_decision_engine;
+  extension::IEnvironmentService& environment_service;
+  std::unique_ptr<extension::control::RadarControlProfile> owned_control_profile;
+  std::reference_wrapper<extension::control::RadarControlProfile> control_profile;
+  std::unique_ptr<extension::TacticalStateStore> tactical_state_store;
   std::unique_ptr<decision::pipeline::ControlReducer> control_reducer;
   std::unique_ptr<signal::assembly::IDataOutputManager> output_manager;
-  std::unique_ptr<controller::ControlCommandMapper> command_mapper;
-  std::unique_ptr<controller::RadarCycleOrchestrator> cycle_orchestrator;
-  oneq::internal::runtime::RuntimeCycleState<common::output::TrackOutputFrame,
-                                             context::ValidationIssueList>
+  std::unique_ptr<extension::ControlCommandMapper> command_mapper;
+  std::unique_ptr<extension::RadarCycleOrchestrator> cycle_orchestrator;
+  oneq::internal::runtime::RuntimeCycleState<output::TrackOutputFrame,
+                                             session::ValidationIssueList>
       runtime_state{};
   std::uint32_t cycle_index{1};
 
-  Impl(core::context::IRadarContext& ctx, signal::pipeline::ISignalPipeline& sig,
-       environment::IEnvironmentService& env)
+  Impl(extension::IRadarContext& ctx, extension::ISignalPipeline& sig,
+       extension::IEnvironmentService& env)
       : radar_context(ctx),
         signal_pipeline(sig),
         owned_decision_engine(new decision::pipeline::TacticalCoordinator()),
         environment_service(env),
-        owned_control_profile(new common::control::RadarControlProfile()),
+        owned_control_profile(new extension::control::RadarControlProfile()),
         control_profile(*owned_control_profile),
-        tactical_state_store(new decision::pipeline::TacticalStateStore()),
+        tactical_state_store(new extension::TacticalStateStore()),
         control_reducer(new decision::pipeline::ControlReducer()),
         output_manager(new signal::assembly::DataOutputManager()),
-        command_mapper(new controller::ControlCommandMapper(
+        command_mapper(new extension::ControlCommandMapper(
             *control_reducer, tactical_state_store.get(), ctx)) {
     decision_engine = owned_decision_engine.get();
-    cycle_orchestrator.reset(new controller::RadarCycleOrchestrator(
+    cycle_orchestrator.reset(new extension::RadarCycleOrchestrator(
         sig, decision_engine, tactical_state_store.get(), env, *output_manager));
   }
 
-  Impl(core::context::IRadarContext& ctx, signal::pipeline::ISignalPipeline& sig,
-       decision::pipeline::ITacticalDecisionEngine& ext_engine,
-       environment::IEnvironmentService& env)
+  Impl(extension::IRadarContext& ctx, extension::ISignalPipeline& sig,
+       extension::ITacticalDecisionEngine& ext_engine,
+       extension::IEnvironmentService& env)
       : radar_context(ctx),
         signal_pipeline(sig),
         decision_engine(&ext_engine),
         environment_service(env),
-        owned_control_profile(new common::control::RadarControlProfile()),
+        owned_control_profile(new extension::control::RadarControlProfile()),
         control_profile(*owned_control_profile),
-        tactical_state_store(new decision::pipeline::TacticalStateStore()),
+        tactical_state_store(new extension::TacticalStateStore()),
         control_reducer(new decision::pipeline::ControlReducer()),
         output_manager(new signal::assembly::DataOutputManager()),
-        command_mapper(new controller::ControlCommandMapper(
+        command_mapper(new extension::ControlCommandMapper(
             *control_reducer, tactical_state_store.get(), ctx)),
-        cycle_orchestrator(new controller::RadarCycleOrchestrator(
+        cycle_orchestrator(new extension::RadarCycleOrchestrator(
             sig, &ext_engine, tactical_state_store.get(), env, *output_manager)) {}
 };
 
-RadarController::RadarController(core::context::IRadarContext& radar_context,
-                                 signal::pipeline::ISignalPipeline& signal_pipeline,
-                                 environment::IEnvironmentService& environment_service)
+RadarController::RadarController(extension::IRadarContext& radar_context,
+                                 extension::ISignalPipeline& signal_pipeline,
+                                 extension::IEnvironmentService& environment_service)
     : impl_(new Impl(radar_context, signal_pipeline, environment_service)) {}
 
-RadarController::RadarController(core::context::IRadarContext& radar_context,
-                                 signal::pipeline::ISignalPipeline& signal_pipeline,
-                                 decision::pipeline::ITacticalDecisionEngine& decision_engine,
-                                 environment::IEnvironmentService& environment_service)
+RadarController::RadarController(extension::IRadarContext& radar_context,
+                                 extension::ISignalPipeline& signal_pipeline,
+                                 extension::ITacticalDecisionEngine& decision_engine,
+                                 extension::IEnvironmentService& environment_service)
     : impl_(new Impl(radar_context, signal_pipeline, decision_engine, environment_service)) {}
 
 RadarController::~RadarController() = default;
@@ -118,16 +117,16 @@ void RadarController::RunOnce() {
   struct AirborneRuntimeHooks {
     Impl* impl{nullptr};
 
-    oneq::internal::runtime::RuntimeValidationResult<context::ValidationIssueList> Validate(
+    oneq::internal::runtime::RuntimeValidationResult<session::ValidationIssueList> Validate(
         const AirborneRuntimeInput& input) const {
-      oneq::internal::runtime::RuntimeValidationResult<context::ValidationIssueList> result;
-      result.issues = context::ValidateRadarCycleDeltaTime(input.cycle_dt_sec);
+      oneq::internal::runtime::RuntimeValidationResult<session::ValidationIssueList> result;
+      result.issues = session::ValidateRadarCycleDeltaTime(input.cycle_dt_sec);
       if (input.target_features != nullptr) {
-        const context::ValidationIssueList target_issues =
-            context::ValidateTargetFeatures(*input.target_features);
+        const session::ValidationIssueList target_issues =
+            session::ValidateTargetFeatures(*input.target_features);
         result.issues.insert(result.issues.end(), target_issues.begin(), target_issues.end());
       }
-      result.has_error = context::HasValidationError(result.issues);
+      result.has_error = session::HasValidationError(result.issues);
       return result;
     }
 
@@ -139,13 +138,13 @@ void RadarController::RunOnce() {
       impl->cycle_orchestrator->FreezeEnvironment(input.cycle_dt_sec, stamp);
     }
 
-    common::output::TrackOutputFrame Execute(
+    output::TrackOutputFrame Execute(
         const AirborneRuntimeInput& input,
         const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
       const CycleExecutionResult exec_result = impl->cycle_orchestrator->Execute(
           input.target_features, input.platform_attitude, impl->control_profile.get(), stamp);
 
-      const decision::pipeline::ControlReductionResult reduction_result =
+      const extension::ControlReductionResult reduction_result =
           impl->command_mapper->Apply(&impl->control_profile.get(),
                                       exec_result.decision_result.proposals);
 
@@ -163,11 +162,11 @@ void RadarController::RunOnce() {
       return exec_result.track_output_frame;
     }
 
-    common::output::TrackOutputFrame BuildErrorOutput(
+    output::TrackOutputFrame BuildErrorOutput(
         const AirborneRuntimeInput& input,
         const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
       (void)input;
-      common::output::TrackOutputFrame frame;
+      output::TrackOutputFrame frame;
       frame.cycle_index = stamp.cycle_index;
       frame.batch_id = stamp.batch_id;
       return frame;
@@ -188,7 +187,7 @@ void RadarController::RunCycles(std::size_t cycles) {
 }
 
 void RadarController::UpdateControlReducerConfig(
-    const decision::pipeline::ControlReducerConfig& config) {
+    const extension::ControlReducerConfig& config) {
   if (impl_->control_reducer == nullptr) {
     return;
   }
@@ -211,28 +210,27 @@ bool RadarController::HasLatestTrackOutputFrame() const {
   return impl_->runtime_state.has_latest_output;
 }
 
-const common::output::TrackOutputFrame& RadarController::GetLatestTrackOutputFrame() const {
+const output::TrackOutputFrame& RadarController::GetLatestTrackOutputFrame() const {
   return impl_->runtime_state.latest_output;
 }
 
-const context::ValidationIssueList& RadarController::GetLastValidationIssues() const {
+const session::ValidationIssueList& RadarController::GetLastValidationIssues() const {
   return impl_->runtime_state.last_validation_issues;
 }
 
 bool RadarController::HasValidationError() const {
-  return context::HasValidationError(impl_->runtime_state.last_validation_issues);
+  return session::HasValidationError(impl_->runtime_state.last_validation_issues);
 }
 
-core::context::IRadarContext& RadarController::GetRadarContext() { return impl_->radar_context; }
+extension::IRadarContext& RadarController::GetRadarContext() { return impl_->radar_context; }
 
-signal::pipeline::ISignalPipeline& RadarController::GetSignalPipeline() {
+extension::ISignalPipeline& RadarController::GetSignalPipeline() {
   return impl_->signal_pipeline;
 }
 
-environment::IEnvironmentService& RadarController::GetEnvironmentService() {
+extension::IEnvironmentService& RadarController::GetEnvironmentService() {
   return impl_->environment_service;
 }
 
-}  // namespace controller
-}  // namespace core
+}  // namespace extension
 }  // namespace airborne_radar

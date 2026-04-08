@@ -7,7 +7,7 @@ namespace airborne_radar {
 namespace decision {
 namespace evaluators {
 
-void SurvivabilityEvaluator::Evaluate(const common::model::DecisionInputFrame& input_frame,
+void SurvivabilityEvaluator::Evaluate(const model::DecisionInputFrame& input_frame,
                                       pipeline::TacticalStateStore& state_store,
                                       pipeline::TacticalEvaluationState& evaluation_state) const {
   (void)state_store;

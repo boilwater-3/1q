@@ -8,31 +8,18 @@
 
 #include <vector>
 
-#include "1q/airborne_radar/decision/pipeline/ControlReducerTypes.h"
-#include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/extension/ControlReducerTypes.h"
+#include "1q/airborne_radar/extension/IRadarContext.h"
+#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 
 namespace airborne_radar {
-namespace core {
-namespace context {
-class IRadarContext;
-}  // namespace context
-}  // namespace core
-
-namespace common {
-namespace control {
-struct RadarControlProfile;
-}  // namespace control
-}  // namespace common
-
 namespace decision {
 namespace pipeline {
 class ControlReducer;
-struct TacticalStateStore;
 }  // namespace pipeline
 }  // namespace decision
 
-namespace core {
-namespace controller {
+namespace extension {
 
 /**
  * @brief 负责将战术 proposal 归并为控制真值并提交命令。
@@ -51,8 +38,8 @@ class ControlCommandMapper {
    * @param radar_context    雷达上下文，用于提交命令和更新 profile。
    */
   ControlCommandMapper(decision::pipeline::ControlReducer& control_reducer,
-                       decision::pipeline::TacticalStateStore* tactical_state_store,
-                       core::context::IRadarContext& radar_context);
+                       extension::TacticalStateStore* tactical_state_store,
+                       extension::IRadarContext& radar_context);
 
   /**
    * @brief 执行归并、状态镜像和命令提交。
@@ -63,18 +50,17 @@ class ControlCommandMapper {
    * @param proposals       本周期战术 proposal 列表。
    * @return 归并结果（包含新 profile、采纳与拒绝的 directives）。
    */
-  decision::pipeline::ControlReductionResult Apply(
-      common::control::RadarControlProfile* current_profile,
-      const std::vector<decision::pipeline::TacticalProposal>& proposals);
+  extension::ControlReductionResult Apply(
+      extension::control::RadarControlProfile* current_profile,
+      const std::vector<extension::TacticalProposal>& proposals);
 
  private:
   decision::pipeline::ControlReducer& control_reducer_;
-  decision::pipeline::TacticalStateStore* tactical_state_store_{nullptr};
-  core::context::IRadarContext& radar_context_;
+  extension::TacticalStateStore* tactical_state_store_{nullptr};
+  extension::IRadarContext& radar_context_;
 };
 
-}  // namespace controller
-}  // namespace core
+}  // namespace extension
 }  // namespace airborne_radar
 
 #endif  // AIRBORNE_RADAR_CORE_CONTROLLER_CONTROL_COMMAND_MAPPER_H_

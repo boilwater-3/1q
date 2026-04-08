@@ -12,42 +12,45 @@
 #include "1q/airborne_radar/extension/control/ControlDirective.h"
 #include "1q/airborne_radar/extension/control/RadarCommand.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
-#include "1q/airborne_radar/common/model/DecisionInputFrame.h"
-#include "1q/airborne_radar/common/model/DecisionSourceInfo.h"
-#include "1q/airborne_radar/common/model/DecisionTrackSnapshot.h"
-#include "1q/airborne_radar/common/model/TargetCategory.h"
-#include "1q/airborne_radar/common/model/TargetFeature.h"
-#include "1q/airborne_radar/common/output/TrackOutputFrame.h"
-#include "1q/airborne_radar/common/output/TrackOutputQueries.h"
-#include "1q/airborne_radar/common/utils/JammingSemantics.h"
-#include "1q/airborne_radar/common/model/TargetFeatureUtils.h"
-#include "1q/airborne_radar/signal/config/AntennaPatternConfig.h"
-#include "1q/airborne_radar/core/session/RadarSessionConfigPresets.h"
-#include "1q/airborne_radar/common/model/RadarOrientationConfig.h"
+#include "1q/airborne_radar/model/DecisionInputFrame.h"
+#include "1q/airborne_radar/model/DecisionSourceInfo.h"
+#include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
+#include "1q/airborne_radar/model/TargetCategory.h"
+#include "1q/airborne_radar/model/TargetFeature.h"
+#include "1q/airborne_radar/output/TrackOutputFrame.h"
+#include "1q/airborne_radar/output/TrackOutputQueries.h"
+#include "1q/airborne_radar/model/JammingSemantics.h"
+#include "1q/airborne_radar/model/TargetFeatureUtils.h"
+#include "1q/airborne_radar/config/AntennaPatternConfig.h"
+#include "1q/airborne_radar/config/RadarSessionConfig.h"
+#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/signal/config/SignalBeamControlConfig.h"
-#include "1q/airborne_radar/signal/config/SignalDetectionConfig.h"
-#include "1q/airborne_radar/signal/config/SignalLifecycleConfig.h"
-#include "1q/airborne_radar/signal/config/SignalPipelineConfig.h"
-#include "1q/airborne_radar/signal/config/SignalTrackingConfig.h"
+#include "1q/airborne_radar/config/SignalBeamControlConfig.h"
+#include "1q/airborne_radar/config/SignalDetectionConfig.h"
+#include "1q/airborne_radar/config/SignalLifecycleConfig.h"
+#include "1q/airborne_radar/config/SignalPipelineConfig.h"
+#include "1q/airborne_radar/config/SignalTrackingConfig.h"
 #include "1q/airborne_radar/config/airborne_radar_config.hpp"
-#include "1q/airborne_radar/core/context/IRadarContext.h"
-#include "1q/airborne_radar/core/context/RadarCycleInput.h"
-#include "1q/airborne_radar/core/context/RadarInputValidation.h"
-#include "1q/airborne_radar/core/controller/IRadarOutputReader.h"
-#include "1q/airborne_radar/core/controller/RadarController.h"
-#include "1q/airborne_radar/core/session/RadarCycleResult.h"
-#include "1q/airborne_radar/core/session/RadarSessionFactory.h"
-#include "1q/airborne_radar/core/session/RadarSession.h"
-#include "1q/airborne_radar/decision/pipeline/ControlReducerTypes.h"
-#include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/extension/IRadarContext.h"
+#include "1q/airborne_radar/session/RadarCycleInput.h"
+#include "1q/airborne_radar/session/RadarInputValidation.h"
+#include "1q/airborne_radar/extension/IRadarOutputReader.h"
+#include "1q/airborne_radar/extension/RadarController.h"
+#include "1q/airborne_radar/session/RadarCycleResult.h"
+#include "1q/airborne_radar/session/RadarSessionFactory.h"
+#include "1q/airborne_radar/session/RadarSession.h"
+#include "1q/airborne_radar/extension/ControlReducerTypes.h"
+#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/extension/airborne_radar_extension.hpp"
+#include "1q/airborne_radar/environment/EnvironmentConfig.h"
 #include "1q/airborne_radar/environment/EnvironmentDefaultConfigBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "1q/airborne_radar/environment/IEnvironmentService.h"
-#include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
-#include "1q/airborne_radar/signal/pipeline/SignalPipelineResultTypes.h"
+#include "1q/airborne_radar/extension/IEnvironmentService.h"
+#include "1q/airborne_radar/extension/ISignalPipeline.h"
+#include "1q/airborne_radar/extension/SignalPipelineResultTypes.h"
 #include "1q/airborne_radar/airborne_radar.hpp"
 #include "1q/api.hpp"
 #include "1q/common/coordinate_transform.h"
@@ -83,60 +86,60 @@
 #include "1q/electronic_surveillance_radar/pipeline/IInterceptPipeline.h"
 #include "1q/electronic_surveillance_radar/tools/EsrTraceSession.h"
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
-#include "1q/airborne_radar/tools/RadarTraceSession.h"
+#include "1q/airborne_radar/session/RadarTraceSession.h"
 
-using ArSession = airborne_radar::core::session::RadarSession;
-using ArConfig = airborne_radar::core::session::RadarSessionConfig;
+using ArSession = airborne_radar::session::RadarSession;
+using ArConfig = airborne_radar::session::RadarSessionConfig;
 static_assert(!std::is_constructible<ArSession, const ArConfig&>::value,
               "RadarSession direct construction must be disabled");
 static_assert(
     !std::is_constructible<ArSession, const ArConfig&,
-                           airborne_radar::signal::pipeline::ISignalPipeline&>::value,
+                           airborne_radar::extension::ISignalPipeline&>::value,
     "RadarSession direct pipeline injection construction must be disabled");
 static_assert(
     !std::is_constructible<ArSession, const ArConfig&,
-                           airborne_radar::environment::IEnvironmentService&>::value,
+                           airborne_radar::extension::IEnvironmentService&>::value,
     "RadarSession direct environment injection construction must be disabled");
 static_assert(!std::is_constructible<ArSession, const ArConfig&,
-                                     airborne_radar::core::controller::RadarController&>::value,
+                                     airborne_radar::extension::RadarController&>::value,
               "RadarSession direct controller injection construction must be disabled");
 static_assert(
-    !std::is_constructible<ArSession, const ArConfig&, airborne_radar::core::context::IRadarContext&,
-                           airborne_radar::signal::pipeline::ISignalPipeline&,
-                           airborne_radar::environment::IEnvironmentService&,
-                           airborne_radar::core::controller::RadarController&>::value,
+    !std::is_constructible<ArSession, const ArConfig&, airborne_radar::extension::IRadarContext&,
+                           airborne_radar::extension::ISignalPipeline&,
+                           airborne_radar::extension::IEnvironmentService&,
+                           airborne_radar::extension::RadarController&>::value,
     "RadarSession direct full-chain injection construction must be disabled");
-static_assert(std::is_same<ArSession, decltype(airborne_radar::core::session::RadarSessionFactory::Create(
+static_assert(std::is_same<ArSession, decltype(airborne_radar::session::RadarSessionFactory::Create(
                                          std::declval<const ArConfig&>()))>::value,
               "RadarSessionFactory::Create must return RadarSession");
 static_assert(
-    std::is_same<ArSession, decltype(airborne_radar::core::session::RadarSessionFactory::
+    std::is_same<ArSession, decltype(airborne_radar::session::RadarSessionFactory::
                                          CreateWithSignalPipeline(
                                              std::declval<const ArConfig&>(),
-                                             std::declval<airborne_radar::signal::pipeline::
+                                             std::declval<airborne_radar::extension::
                                                               ISignalPipeline&>()))>::value,
     "RadarSessionFactory::CreateWithSignalPipeline must return RadarSession");
 static_assert(
-    std::is_same<ArSession, decltype(airborne_radar::core::session::RadarSessionFactory::
+    std::is_same<ArSession, decltype(airborne_radar::session::RadarSessionFactory::
                                          CreateWithEnvironmentService(
                                              std::declval<const ArConfig&>(),
-                                             std::declval<airborne_radar::environment::
+                                             std::declval<airborne_radar::extension::
                                                               IEnvironmentService&>()))>::value,
     "RadarSessionFactory::CreateWithEnvironmentService must return RadarSession");
 static_assert(
     std::is_same<ArSession,
-                 decltype(airborne_radar::core::session::RadarSessionFactory::CreateWithController(
+                 decltype(airborne_radar::session::RadarSessionFactory::CreateWithController(
                      std::declval<const ArConfig&>(),
-                     std::declval<airborne_radar::core::controller::RadarController&>()))>::value,
+                     std::declval<airborne_radar::extension::RadarController&>()))>::value,
     "RadarSessionFactory::CreateWithController must return RadarSession");
 static_assert(
     std::is_same<ArSession,
-                 decltype(airborne_radar::core::session::RadarSessionFactory::CreateWithExternalChain(
+                 decltype(airborne_radar::session::RadarSessionFactory::CreateWithExternalChain(
                      std::declval<const ArConfig&>(),
-                     std::declval<airborne_radar::core::context::IRadarContext&>(),
-                     std::declval<airborne_radar::signal::pipeline::ISignalPipeline&>(),
-                     std::declval<airborne_radar::environment::IEnvironmentService&>(),
-                     std::declval<airborne_radar::core::controller::RadarController&>()))>::value,
+                     std::declval<airborne_radar::extension::IRadarContext&>(),
+                     std::declval<airborne_radar::extension::ISignalPipeline&>(),
+                     std::declval<airborne_radar::extension::IEnvironmentService&>(),
+                     std::declval<airborne_radar::extension::RadarController&>()))>::value,
     "RadarSessionFactory::CreateWithExternalChain must return RadarSession");
 
 static_assert(std::is_constructible<
@@ -189,36 +192,36 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   oneq::common::EcefCoordinateM origin_ecef;
   ASSERT_TRUE(oneq::common::TryLlaToEcef(origin_lla, &origin_ecef));
 
-  core::session::RadarSessionConfig session_config =
+  session::RadarSessionConfig session_config =
       config::MakeDefaultRadarSessionConfig();
   session_config.environment_default_config.model_config.base_propagation_loss_db = 6.0f;
   session_config.lifecycle.enable_auto_lifecycle_manager = true;
 
-  core::context::RadarCycleInput input;
+  session::RadarCycleInput input;
   input.dt_sec = 1.0f;
-  const std::vector<core::context::ValidationIssue> issues =
-      core::context::ValidateRadarCycleInput(input);
+  const std::vector<session::ValidationIssue> issues =
+      session::ValidateRadarCycleInput(input);
 
-  EXPECT_FALSE(core::context::HasValidationError(issues));
+  EXPECT_FALSE(session::HasValidationError(issues));
 
   environment::EnvironmentSceneState scene_state;
   scene_state.jammer_emitters.push_back(environment::JammerEmitterState{});
 
-  core::session::RadarSession session = core::session::RadarSessionFactory::Create(session_config);
+  session::RadarSession session = session::RadarSessionFactory::Create(session_config);
   std::shared_ptr<oneq::common::trace::TraceSink> trace_sink(
       new oneq::common::trace::JsonlFileTraceSink("/tmp/oneq-smoke-radar-trace.jsonl", false));
-  tools::RadarTraceSession trace_session(
-      session_config, tools::RadarTraceSessionOptions{trace_sink, false});
+  session::RadarTraceSession trace_session(
+      session_config, session::RadarTraceSessionOptions{trace_sink, false});
   const config::RadarRuntimeConfigPatch runtime_patch =
       config::RadarRuntimeConfigBuilder()
-          .WithRadarWorkSubMode(common::model::RadarWorkSubMode::kTas)
+          .WithRadarWorkSubMode(model::RadarWorkSubMode::kTas)
           .EnableCommandedBeamwidth(true)
           .Build();
   session.ApplyRuntimeConfig(runtime_patch);
-  const core::session::RadarCycleResult result = session.StepWithResult(input, scene_state);
-  const core::session::RadarCycleResult trace_result = trace_session.StepWithResult(input, scene_state);
-  const std::size_t confirmed_tracks = common::output::CountTracksByStatus(
-      result.track_output_frame, common::model::DecisionTrackStatus::kConfirmed);
+  const session::RadarCycleResult result = session.StepWithResult(input, scene_state);
+  const session::RadarCycleResult trace_result = trace_session.StepWithResult(input, scene_state);
+  const std::size_t confirmed_tracks = output::CountTracksByStatus(
+      result.track_output_frame, model::DecisionTrackStatus::kConfirmed);
 
   EXPECT_GE(confirmed_tracks, 0U);
   EXPECT_GE(result.association_quality_metrics.detection_count, 0U);
@@ -226,11 +229,11 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
 }
 
 TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields) {
-  common::model::AzimuthElevationDeg scan_center;
+  model::AzimuthElevationDeg scan_center;
   scan_center.az_deg = -12.0f;
   scan_center.el_deg = 6.0f;
 
-  const core::session::RadarSessionConfig config =
+  const session::RadarSessionConfig config =
       config::RadarSessionConfigBuilder()
           .Detection()
           .EnablePhysicsDetection(true)

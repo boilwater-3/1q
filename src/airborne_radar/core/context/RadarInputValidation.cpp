@@ -1,4 +1,4 @@
-#include "1q/airborne_radar/core/context/RadarInputValidation.h"
+#include "1q/airborne_radar/session/RadarInputValidation.h"
 
 #include <sstream>
 #include <unordered_map>
@@ -6,8 +6,7 @@
 #include "common/validation/ValidationUtils.h"
 
 namespace airborne_radar {
-namespace core {
-namespace context {
+namespace session {
 
 namespace {
 
@@ -38,7 +37,7 @@ bool IsFinite(float value) { return oneq::internal::validation::IsFinite(value);
  * @param target 目标特征。
  * @return `has_cartesian_position` 为 `true` 时返回 `true`。
  */
-bool HasCartesianPosition(const common::model::TargetFeature& target) {
+bool HasCartesianPosition(const model::TargetFeature& target) {
   return target.has_cartesian_position;
 }
 
@@ -48,7 +47,7 @@ bool HasCartesianPosition(const common::model::TargetFeature& target) {
  * @param target_index 目标索引。
  * @param[out] issues 输出问题列表。
  */
-void ValidateSingleTarget(const common::model::TargetFeature& target, std::size_t target_index,
+void ValidateSingleTarget(const model::TargetFeature& target, std::size_t target_index,
                           ValidationIssueList* issues) {
   if (issues == nullptr) {
     return;
@@ -102,7 +101,7 @@ ValidationIssueList ValidateRadarCycleInput(const RadarCycleInput& input) {
   return issues;
 }
 
-ValidationIssueList ValidateTargetFeatures(const common::model::TargetFeatureList& targets) {
+ValidationIssueList ValidateTargetFeatures(const model::TargetFeatureList& targets) {
   ValidationIssueList issues;
   std::unordered_map<std::uint64_t, std::size_t> first_seen_target_index;
 
@@ -136,6 +135,5 @@ bool HasValidationError(const ValidationIssueList& issues) {
       issues, ValidationSeverity::kError);
 }
 
-}  // namespace context
-}  // namespace core
+}  // namespace session
 }  // namespace airborne_radar

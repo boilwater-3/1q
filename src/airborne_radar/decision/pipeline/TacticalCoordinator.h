@@ -6,7 +6,7 @@
 #ifndef AIRBORNE_RADAR_DECISION_TACTICAL_COORDINATOR_H_
 #define AIRBORNE_RADAR_DECISION_TACTICAL_COORDINATOR_H_
 
-#include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "airborne_radar/decision/evaluators/EmissionControlEvaluator.h"
 #include "airborne_radar/decision/evaluators/SurvivabilityEvaluator.h"
 #include "airborne_radar/decision/evaluators/ThreatAssessmentEvaluator.h"
@@ -35,7 +35,7 @@ class TacticalCoordinator final : public ITacticalDecisionEngine {
    * @param[in,out] state_store 跨周期战术状态存储。
    * @return 本周期的战术决策结果。
    */
-  TacticalDecisionResult Evaluate(const common::model::DecisionInputFrame& input_frame,
+  TacticalDecisionResult Evaluate(const model::DecisionInputFrame& input_frame,
                                   TacticalStateStore& state_store) override;
 
  private:

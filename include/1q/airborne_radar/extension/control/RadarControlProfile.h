@@ -9,7 +9,7 @@
 #include <cstdint>
 
 namespace airborne_radar {
-namespace common {
+namespace extension {
 namespace control {
 
 /**
@@ -30,7 +30,7 @@ struct RadarControlProfile {
 };
 
 }  // namespace control
-}  // namespace common
+}  // namespace extension
 }  // namespace airborne_radar
 
 #endif  // AIRBORNE_RADAR_COMMON_RADAR_CONTROL_PROFILE_H_

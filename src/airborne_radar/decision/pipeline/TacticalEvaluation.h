@@ -8,12 +8,18 @@
 
 #include <vector>
 
-#include "1q/airborne_radar/common/model/DecisionInputFrame.h"
-#include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/model/DecisionInputFrame.h"
+#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 
 namespace airborne_radar {
 namespace decision {
 namespace pipeline {
+
+using ITacticalDecisionEngine = extension::ITacticalDecisionEngine;
+using TacticalDecisionResult = extension::TacticalDecisionResult;
+using TacticalMode = extension::TacticalMode;
+using TacticalProposal = extension::TacticalProposal;
+using TacticalStateStore = extension::TacticalStateStore;
 
 /**
  * @brief 表示 evaluator 间共享的中间结果。
@@ -53,14 +59,14 @@ struct TacticalEvaluationState {
   /** @brief 供各 evaluator 使用的 ECCM 来源信息。
    *  @note 由 TacticalCoordinator 预填充，ThreatAssessmentEvaluator 可补写
    *        `has_jamming_signal`（基于 track 干扰事实）；SurvivabilityEvaluator 只读。 */
-  common::model::EccmSourceInfo eccm_source_info;
+  model::EccmSourceInfo eccm_source_info;
 
   // ---------- 输出字段（evaluator 写入，后续 evaluator 或 Coordinator 读取） ----------
 
   /** @brief 当前周期的目标分类结果（由 ThreatAssessmentEvaluator 写入）。 */
-  common::model::TargetCategoryList target_classification_result;
+  model::TargetCategoryList target_classification_result;
   /** @brief LPI 来源信息（由 ThreatAssessmentEvaluator 写入，EmissionControlEvaluator 读取）。 */
-  common::model::LpiSourceInfo lpi_source_info;
+  model::LpiSourceInfo lpi_source_info;
   /** @brief 是否应触发降功率路径（由 ThreatAssessmentEvaluator 写入）。 */
   bool should_reduce_power{false};
   /** @brief 是否应触发 ECCM 保护发射路径（由 SurvivabilityEvaluator 写入）。 */
@@ -89,7 +95,7 @@ class ITacticalEvaluator {
    * @param[in,out] state_store 跨周期战术状态存储。
    * @param[in,out] evaluation_state evaluator 间共享的中间结果。
    */
-  virtual void Evaluate(const common::model::DecisionInputFrame& input_frame,
+  virtual void Evaluate(const model::DecisionInputFrame& input_frame,
                         TacticalStateStore& state_store,
                         TacticalEvaluationState& evaluation_state) const = 0;
 };

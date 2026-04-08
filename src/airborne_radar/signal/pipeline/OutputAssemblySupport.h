@@ -38,18 +38,18 @@ namespace internal {
  * @param[out] association_quality_metrics 关联质量观测指标。
  * @param[out] decision_frame 决策输入帧。
  */
-void CollectCycleOutputs(const common::control::RadarControlProfile& control_profile,
+void CollectCycleOutputs(const extension::control::RadarControlProfile& control_profile,
                          std::uint32_t cycle_index, std::uint64_t batch_id,
                          const InternalSignalPipelineConfig& internal_runtime_config,
                          const environment::EnvironmentSnapshot& environment_snapshot,
-                         const common::model::TargetFeatureList& input_state,
-                         const common::model::TargetFeatureList& output_state,
+                         const model::TargetFeatureList& input_state,
+                         const model::TargetFeatureList& output_state,
                          const association::AssociationResult& association_result,
                          const std::vector<tracking::TrackMeasurement>& track_measurements,
                          signal::assembly::IDataOutputManager* output_manager,
                          tracking::ITrackLifecycleManager* auto_lifecycle_manager,
                          AssociationQualityMetrics* association_quality_metrics,
-                         common::model::DecisionInputFrame* decision_frame);
+                         model::DecisionInputFrame* decision_frame);
 
 }  // namespace internal
 }  // namespace pipeline

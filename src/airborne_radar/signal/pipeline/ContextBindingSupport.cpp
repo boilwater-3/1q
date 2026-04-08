@@ -6,8 +6,8 @@ namespace pipeline {
 namespace internal {
 
 CycleWorkspace BuildCycleWorkspaceBindings(
-    common::model::TargetFeatureList* output_state,
-    common::model::DecisionInputFrame* decision_frame,
+    model::TargetFeatureList* output_state,
+    model::DecisionInputFrame* decision_frame,
     AssociationQualityMetrics* association_quality_metrics,
     std::vector<tracking::TrackMeasurement>* track_measurements, std::vector<float>* signal_term_db,
     std::vector<float>* speed_penalty_db, std::vector<float>* detection_margin_db,
@@ -49,14 +49,14 @@ DetectionExecutionBuffers BuildDetectionExecutionBuffers(
 }
 
 TrackMeasurementBuildContext BuildTrackMeasurementBuildContextBindings(
-    const common::model::TargetFeatureList* input,
+    const model::TargetFeatureList* input,
     const association::AssociationResult* association_result,
     const std::vector<std::uint8_t>* detection_succeeded,
     const std::vector<std::uint64_t>* association_keys,
     const std::vector<float>* detection_margin_db,
     const std::vector<detection::ResolvedTargetGeometry>* target_geometry,
     const std::vector<tracking::MeasurementCovariance>* measurement_covariances,
-    bool jamming_detected, common::utils::JammingSemantic dominant_jamming_semantic,
+    bool jamming_detected, model::JammingSemantic dominant_jamming_semantic,
     float jamming_severity, std::vector<int>* measurement_slots,
     std::vector<tracking::TrackMeasurement>* track_measurements) {
   TrackMeasurementBuildContext context;
@@ -76,10 +76,10 @@ TrackMeasurementBuildContext BuildTrackMeasurementBuildContextBindings(
 }
 
 TrackFilterApplyContext BuildTrackFilterApplyContextBindings(
-    const common::model::TargetFeatureList* input, common::model::TargetFeatureList* output,
+    const model::TargetFeatureList* input, model::TargetFeatureList* output,
     const std::vector<std::uint8_t>* detection_succeeded,
     const std::vector<float>* detection_margin_db, bool jamming_detected,
-    common::utils::JammingSemantic dominant_jamming_semantic, float jamming_severity,
+    model::JammingSemantic dominant_jamming_semantic, float jamming_severity,
     tracking::TrackFilter* track_filter, const std::vector<int>* measurement_slots,
     std::vector<tracking::TrackMeasurement>* track_measurements) {
   TrackFilterApplyContext context;

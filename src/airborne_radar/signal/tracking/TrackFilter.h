@@ -6,8 +6,8 @@
 #ifndef AIRBORNE_RADAR_SIGNAL_TRACKING_TRACK_FILTER_H_
 #define AIRBORNE_RADAR_SIGNAL_TRACKING_TRACK_FILTER_H_
 
-#include "1q/airborne_radar/common/model/TargetFeature.h"
-#include "1q/airborne_radar/common/utils/JammingSemantics.h"
+#include "1q/airborne_radar/model/TargetFeature.h"
+#include "1q/airborne_radar/model/JammingSemantics.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -25,8 +25,8 @@ struct TrackFilterConfig {
 struct TrackFilterContext {
   bool detection_succeeded{false}; /**< 本周期是否检测成功。 */
   bool jamming_detected{false};    /**< 是否探测到干扰。 */
-  common::utils::JammingSemantic dominant_jamming_semantic{
-      common::utils::JammingSemantic::kNone}; /**< 主要干扰语义类型。 */
+  model::JammingSemantic dominant_jamming_semantic{
+      model::JammingSemantic::kNone}; /**< 主要干扰语义类型。 */
   float jamming_severity{0.0f};               /**< 干扰严重程度。 */
   float detection_margin_db{0.0f};            /**< 检测余量（dB）。 */
 };
@@ -58,7 +58,7 @@ class ITrackPredictor {
    * @param input 输入目标特征。
    * @return 预测后的轨迹状态。
    */
-  virtual PredictedTrackState Predict(const common::model::TargetFeature& input) const = 0;
+  virtual PredictedTrackState Predict(const model::TargetFeature& input) const = 0;
 };
 /**
  * @brief 轻量轨迹预测器。
@@ -72,7 +72,7 @@ class IdentityTrackPredictor final : public ITrackPredictor {
    * @param input 输入目标特征。
    * @return 预测后的轨迹状态。
    */
-  PredictedTrackState Predict(const common::model::TargetFeature& input) const override;
+  PredictedTrackState Predict(const model::TargetFeature& input) const override;
 };
 /**
  * @brief 轨迹更新器抽象接口。
@@ -86,7 +86,7 @@ class ITrackUpdater {
    * @param context 处理上下文。
    * @return 更新后的目标特征。
    */
-  virtual common::model::TargetFeature Update(const PredictedTrackState& predicted,
+  virtual model::TargetFeature Update(const PredictedTrackState& predicted,
                                               const TrackFilterContext& context) const = 0;
 };
 /**
@@ -105,7 +105,7 @@ class SimpleTrackUpdater final : public ITrackUpdater {
    * @param context 处理上下文。
    * @return 更新后的目标特征。
    */
-  common::model::TargetFeature Update(const PredictedTrackState& predicted,
+  model::TargetFeature Update(const PredictedTrackState& predicted,
                                       const TrackFilterContext& context) const override;
   /**
    * @brief 更新配置参数。
@@ -132,7 +132,7 @@ class TrackFilter final {
    * @param context 当前周期的传感器处理上下文。
    * @return 滤波后的平滑目标特征。
    */
-  common::model::TargetFeature Filter(const common::model::TargetFeature& input,
+  model::TargetFeature Filter(const model::TargetFeature& input,
                                       const TrackFilterContext& context) const;
   /**
    * @brief 更新配置参数。

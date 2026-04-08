@@ -37,7 +37,7 @@ ThreatAssessmentEvaluator::ThreatAssessmentEvaluator(
     : feature_repository_(feature_repository) {}
 
 void ThreatAssessmentEvaluator::Evaluate(
-    const common::model::DecisionInputFrame& input_frame, pipeline::TacticalStateStore& state_store,
+    const model::DecisionInputFrame& input_frame, pipeline::TacticalStateStore& state_store,
     pipeline::TacticalEvaluationState& evaluation_state) const {
   evaluation_state.target_classification_result.clear();
   evaluation_state.target_classification_result.reserve(input_frame.tracks.size());
@@ -51,8 +51,8 @@ void ThreatAssessmentEvaluator::Evaluate(
   }
 
   for (std::size_t i = 0; i < input_frame.tracks.size(); ++i) {
-    const common::model::DecisionTrackSnapshot& track_snapshot = input_frame.tracks[i];
-    const common::model::TargetCategory category = IdentifyTarget(track_snapshot);
+    const model::DecisionTrackSnapshot& track_snapshot = input_frame.tracks[i];
+    const model::TargetCategory category = IdentifyTarget(track_snapshot);
     evaluation_state.target_classification_result.push_back(category);
     UpdateLpiSourceInfo(&evaluation_state.lpi_source_info, category.target_type);
 
@@ -65,10 +65,10 @@ void ThreatAssessmentEvaluator::Evaluate(
     state_store.threat_memory[track_key] = ComputeThreatScore(track_snapshot);
 
     const bool can_trigger_aggressive_controls =
-        track_snapshot.state.status != common::model::DecisionTrackStatus::kLost &&
+        track_snapshot.state.status != model::DecisionTrackStatus::kLost &&
         confidence >= kHighThreatConfidenceThreshold &&
         (track_snapshot.evidence.has_measurement_evidence ||
-         track_snapshot.state.status == common::model::DecisionTrackStatus::kConfirmed);
+         track_snapshot.state.status == model::DecisionTrackStatus::kConfirmed);
 
     if (IsHighThreatCategory(category.target_type) && can_trigger_aggressive_controls) {
       evaluation_state.should_reduce_power = true;
@@ -83,8 +83,8 @@ void ThreatAssessmentEvaluator::Evaluate(
   evaluation_state.threat_assessment_phase_done = true;
 }
 
-common::model::TargetCategory ThreatAssessmentEvaluator::IdentifyTarget(
-    const common::model::DecisionTrackSnapshot& track_snapshot) const {
+model::TargetCategory ThreatAssessmentEvaluator::IdentifyTarget(
+    const model::DecisionTrackSnapshot& track_snapshot) const {
   if (feature_repository_ != nullptr) {
     environment::database::FeatureVector input;
     input.Set("speed", track_snapshot.state.speed);
@@ -94,7 +94,7 @@ common::model::TargetCategory ThreatAssessmentEvaluator::IdentifyTarget(
     environment::database::MatchResult match_result;
     if (feature_repository_->QueryBestMatch(input, match_result)) {
       if (ShouldAcceptRepositoryMatch(match_result)) {
-        common::model::TargetCategory result(match_result.target_type);
+        model::TargetCategory result(match_result.target_type);
         result.probability = match_result.probability;
         return result;
       }
@@ -107,16 +107,16 @@ common::model::TargetCategory ThreatAssessmentEvaluator::IdentifyTarget(
 
   const float threat_score = ComputeThreatScore(track_snapshot);
   if (threat_score >= 2.0f) {
-    return common::model::TargetCategory("HIGH_THREAT_FIGHTER");
+    return model::TargetCategory("HIGH_THREAT_FIGHTER");
   }
   if (threat_score >= 0.8f) {
-    return common::model::TargetCategory("LOW_THREAT_TARGET");
+    return model::TargetCategory("LOW_THREAT_TARGET");
   }
-  return common::model::TargetCategory("UNKNOWN");
+  return model::TargetCategory("UNKNOWN");
 }
 
 float ThreatAssessmentEvaluator::ComputeThreatScore(
-    const common::model::DecisionTrackSnapshot& track_snapshot) const {
+    const model::DecisionTrackSnapshot& track_snapshot) const {
   float threat_score = 0.0f;
   const float track_speed = track_snapshot.state.speed;
   const float track_rcs = track_snapshot.state.rcs;
@@ -138,14 +138,14 @@ float ThreatAssessmentEvaluator::ComputeThreatScore(
     threat_score += 1.0f;
   }
 
-  if (track_snapshot.state.status == common::model::DecisionTrackStatus::kConfirmed) {
+  if (track_snapshot.state.status == model::DecisionTrackStatus::kConfirmed) {
     threat_score += 0.25f;
   }
 
   return threat_score;
 }
 
-void ThreatAssessmentEvaluator::UpdateLpiSourceInfo(common::model::LpiSourceInfo* source_info,
+void ThreatAssessmentEvaluator::UpdateLpiSourceInfo(model::LpiSourceInfo* source_info,
                                                     const std::string& classification) const {
   if (source_info == nullptr || source_info->has_recon_platform) {
     return;
@@ -169,7 +169,7 @@ bool ThreatAssessmentEvaluator::ShouldAcceptRepositoryMatch(
 }
 
 float ThreatAssessmentEvaluator::UpdateConfidence(
-    const common::model::DecisionTrackSnapshot& track_snapshot, float previous_confidence) const {
+    const model::DecisionTrackSnapshot& track_snapshot, float previous_confidence) const {
   float confidence = previous_confidence;
   if (track_snapshot.evidence.has_measurement_evidence) {
     confidence = std::min(1.0f, confidence + 0.35f);
@@ -177,16 +177,16 @@ float ThreatAssessmentEvaluator::UpdateConfidence(
     confidence *= 0.60f;
   }
 
-  if (track_snapshot.state.status == common::model::DecisionTrackStatus::kConfirmed) {
+  if (track_snapshot.state.status == model::DecisionTrackStatus::kConfirmed) {
     confidence = std::max(confidence, 0.70f);
   }
 
-  if (track_snapshot.state.status == common::model::DecisionTrackStatus::kTentative &&
+  if (track_snapshot.state.status == model::DecisionTrackStatus::kTentative &&
       !track_snapshot.evidence.has_measurement_evidence) {
     confidence = std::min(confidence, 0.30f);
   }
 
-  if (track_snapshot.state.status == common::model::DecisionTrackStatus::kLost) {
+  if (track_snapshot.state.status == model::DecisionTrackStatus::kLost) {
     confidence *= 0.50f;
   }
 

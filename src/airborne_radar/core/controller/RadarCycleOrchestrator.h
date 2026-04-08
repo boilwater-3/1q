@@ -6,43 +6,32 @@
 #ifndef AIRBORNE_RADAR_CORE_CONTROLLER_RADAR_CYCLE_ORCHESTRATOR_H_
 #define AIRBORNE_RADAR_CORE_CONTROLLER_RADAR_CYCLE_ORCHESTRATOR_H_
 
-#include "1q/airborne_radar/common/model/RadarOrientationConfig.h"
-#include "1q/airborne_radar/common/model/TargetFeature.h"
-#include "1q/airborne_radar/common/output/TrackOutputFrame.h"
-#include "1q/airborne_radar/decision/pipeline/ITacticalDecisionEngine.h"
-#include "1q/airborne_radar/signal/pipeline/SignalPipelineResultTypes.h"
+#include "1q/airborne_radar/model/RadarOrientationConfig.h"
+#include "1q/airborne_radar/model/TargetFeature.h"
+#include "1q/airborne_radar/extension/IEnvironmentService.h"
+#include "1q/airborne_radar/extension/ISignalPipeline.h"
+#include "1q/airborne_radar/output/TrackOutputFrame.h"
+#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/extension/SignalPipelineResultTypes.h"
+#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "common/runtime/RuntimeCycleExecutor.h"
 
 namespace airborne_radar {
-namespace environment {
-class IEnvironmentService;
-}  // namespace environment
-
-namespace common {
-namespace control {
-struct RadarControlProfile;
-}  // namespace control
-}  // namespace common
-
 namespace signal {
 namespace assembly {
 class IDataOutputManager;
 }  // namespace assembly
-namespace pipeline {
-class ISignalPipeline;
-}  // namespace pipeline
 }  // namespace signal
 
-namespace core {
-namespace controller {
+namespace extension {
 
 /**
  * @brief CycleExecutionResult 聚合信号+决策主链路的单周期输出。
  */
 struct CycleExecutionResult {
-  signal::pipeline::SignalCycleResult signal_result;     /**< 信号流水线原始结果。 */
-  common::output::TrackOutputFrame track_output_frame;  /**< 装配后的中性输出帧。 */
-  decision::pipeline::TacticalDecisionResult decision_result; /**< 决策引擎输出。 */
+  extension::SignalCycleResult signal_result;     /**< 信号流水线原始结果。 */
+  output::TrackOutputFrame track_output_frame;  /**< 装配后的中性输出帧。 */
+  extension::TacticalDecisionResult decision_result; /**< 决策引擎输出。 */
 };
 
 /**
@@ -61,10 +50,10 @@ class RadarCycleOrchestrator {
    * @param output_manager    数据输出装配接口引用。
    */
   RadarCycleOrchestrator(
-      signal::pipeline::ISignalPipeline& signal_pipeline,
-      decision::pipeline::ITacticalDecisionEngine* decision_engine,
-      decision::pipeline::TacticalStateStore* tactical_state_store,
-      environment::IEnvironmentService& environment_service,
+      extension::ISignalPipeline& signal_pipeline,
+      extension::ITacticalDecisionEngine* decision_engine,
+      extension::TacticalStateStore* tactical_state_store,
+      extension::IEnvironmentService& environment_service,
       signal::assembly::IDataOutputManager& output_manager);
 
   /**
@@ -84,21 +73,20 @@ class RadarCycleOrchestrator {
    * @return 信号+决策的聚合结果。
    */
   CycleExecutionResult Execute(
-      const common::model::TargetFeatureList* target_features,
-      const common::model::PlatformAttitudeDeg& platform_attitude,
-      const common::control::RadarControlProfile& current_profile,
+      const model::TargetFeatureList* target_features,
+      const model::PlatformAttitudeDeg& platform_attitude,
+      const extension::control::RadarControlProfile& current_profile,
       const oneq::internal::runtime::RuntimeCycleStamp& stamp);
 
  private:
-  signal::pipeline::ISignalPipeline& signal_pipeline_;
-  decision::pipeline::ITacticalDecisionEngine* decision_engine_{nullptr};
-  decision::pipeline::TacticalStateStore* tactical_state_store_{nullptr};
-  environment::IEnvironmentService& environment_service_;
+  extension::ISignalPipeline& signal_pipeline_;
+  extension::ITacticalDecisionEngine* decision_engine_{nullptr};
+  extension::TacticalStateStore* tactical_state_store_{nullptr};
+  extension::IEnvironmentService& environment_service_;
   signal::assembly::IDataOutputManager& output_manager_;
 };
 
-}  // namespace controller
-}  // namespace core
+}  // namespace extension
 }  // namespace airborne_radar
 
 #endif  // AIRBORNE_RADAR_CORE_CONTROLLER_RADAR_CYCLE_ORCHESTRATOR_H_

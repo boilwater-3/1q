@@ -1,19 +1,18 @@
 #include "airborne_radar/core/controller/RadarCycleOrchestrator.h"
 
-#include "1q/airborne_radar/environment/IEnvironmentService.h"
+#include "1q/airborne_radar/extension/IEnvironmentService.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
-#include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
+#include "1q/airborne_radar/extension/ISignalPipeline.h"
 #include "airborne_radar/signal/assembly/IDataOutputManager.h"
 
 namespace airborne_radar {
-namespace core {
-namespace controller {
+namespace extension {
 
 RadarCycleOrchestrator::RadarCycleOrchestrator(
-    signal::pipeline::ISignalPipeline& signal_pipeline,
-    decision::pipeline::ITacticalDecisionEngine* decision_engine,
-    decision::pipeline::TacticalStateStore* tactical_state_store,
-    environment::IEnvironmentService& environment_service,
+    extension::ISignalPipeline& signal_pipeline,
+    extension::ITacticalDecisionEngine* decision_engine,
+    extension::TacticalStateStore* tactical_state_store,
+    extension::IEnvironmentService& environment_service,
     signal::assembly::IDataOutputManager& output_manager)
     : signal_pipeline_(signal_pipeline),
       decision_engine_(decision_engine),
@@ -30,12 +29,12 @@ void RadarCycleOrchestrator::FreezeEnvironment(
 }
 
 CycleExecutionResult RadarCycleOrchestrator::Execute(
-    const common::model::TargetFeatureList* target_features,
-    const common::model::PlatformAttitudeDeg& platform_attitude,
-    const common::control::RadarControlProfile& current_profile,
+    const model::TargetFeatureList* target_features,
+    const model::PlatformAttitudeDeg& platform_attitude,
+    const extension::control::RadarControlProfile& current_profile,
     const oneq::internal::runtime::RuntimeCycleStamp& stamp) {
-  const common::model::TargetFeatureList kEmptyTargets;
-  const common::model::TargetFeatureList& features =
+  const model::TargetFeatureList kEmptyTargets;
+  const model::TargetFeatureList& features =
       target_features != nullptr ? *target_features : kEmptyTargets;
 
   signal_pipeline_.SetControlProfile(current_profile);
@@ -44,7 +43,7 @@ CycleExecutionResult RadarCycleOrchestrator::Execute(
   CycleExecutionResult result;
   result.signal_result = signal_pipeline_.RunCycle(features, environment_service_);
 
-  common::model::DecisionInputFrame decision_frame = result.signal_result.decision_frame;
+  model::DecisionInputFrame decision_frame = result.signal_result.decision_frame;
   decision_frame.cycle_index = stamp.cycle_index;
   decision_frame.batch_id = stamp.batch_id;
 
@@ -60,6 +59,5 @@ CycleExecutionResult RadarCycleOrchestrator::Execute(
   return result;
 }
 
-}  // namespace controller
-}  // namespace core
+}  // namespace extension
 }  // namespace airborne_radar

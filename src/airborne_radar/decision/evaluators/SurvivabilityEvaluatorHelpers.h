@@ -8,7 +8,7 @@
 
 #include <vector>
 
-#include "1q/airborne_radar/common/model/DecisionSourceInfo.h"
+#include "1q/airborne_radar/model/DecisionSourceInfo.h"
 #include "airborne_radar/decision/pipeline/TacticalEvaluation.h"
 
 namespace airborne_radar {
@@ -16,8 +16,8 @@ namespace decision {
 namespace evaluators {
 namespace internal {
 
-void AppendEccmProposals(const common::model::EccmSourceInfo& source_info,
-                         const common::model::AssociationQualityInfo& association_quality_info,
+void AppendEccmProposals(const model::EccmSourceInfo& source_info,
+                         const model::AssociationQualityInfo& association_quality_info,
                          bool environment_jamming_detected, bool hold_only,
                          std::vector<pipeline::TacticalProposal>* proposals);
 

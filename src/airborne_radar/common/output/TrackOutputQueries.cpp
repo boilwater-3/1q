@@ -1,7 +1,6 @@
-#include "1q/airborne_radar/common/output/TrackOutputQueries.h"
+#include "1q/airborne_radar/output/TrackOutputQueries.h"
 
 namespace airborne_radar {
-namespace common {
 namespace output {
 
 namespace {
@@ -106,5 +105,4 @@ std::size_t CountTracksByStatus(const TrackOutputFrame& frame, model::DecisionTr
 }
 
 }  // namespace output
-}  // namespace common
 }  // namespace airborne_radar

@@ -1,4 +1,4 @@
-#include "1q/airborne_radar/common/model/TargetFeatureUtils.h"
+#include "1q/airborne_radar/model/TargetFeatureUtils.h"
 
 #include <cmath>
 
@@ -7,8 +7,7 @@
 #include "common/geometry/GeometryTransform.h"
 
 namespace airborne_radar {
-namespace common {
-namespace utils {
+namespace model {
 
 namespace {
 
@@ -199,6 +198,5 @@ void NormalizeTargetGeometry(model::TargetFeatureList* targets) {
   }
 }
 
-}  // namespace utils
-}  // namespace common
+}  // namespace model
 }  // namespace airborne_radar

@@ -29,14 +29,14 @@ bool HasValidCycleWorkspace(const CycleWorkspace& workspace) {
 
 }  // namespace
 
-void ResetCycleWorkspace(const common::model::TargetFeatureList& input_state,
+void ResetCycleWorkspace(const model::TargetFeatureList& input_state,
                          const SignalPipelineConfig& runtime_config, CycleWorkspace* workspace) {
   if (workspace == nullptr || !HasValidCycleWorkspace(*workspace)) {
     return;
   }
 
   *workspace->output_state = input_state;
-  *workspace->decision_frame = common::model::DecisionInputFrame();
+  *workspace->decision_frame = model::DecisionInputFrame();
   *workspace->association_quality_metrics = AssociationQualityMetrics();
 
   const std::size_t target_count = input_state.size();

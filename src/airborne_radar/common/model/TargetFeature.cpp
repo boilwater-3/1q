@@ -1,9 +1,8 @@
-#include "1q/airborne_radar/common/model/TargetFeature.h"
+#include "1q/airborne_radar/model/TargetFeature.h"
 
 #include <cmath>
 
 namespace airborne_radar {
-namespace common {
 namespace model {
 
 TargetFeature::TargetFeature(float velocity_x, float velocity_y, float velocity_z, float rcs,
@@ -19,5 +18,4 @@ TargetFeature::TargetFeature(float velocity_x, float velocity_y, float velocity_
       target_swerling_type(swerling_type) {}
 
 }  // namespace model
-}  // namespace common
 }  // namespace airborne_radar

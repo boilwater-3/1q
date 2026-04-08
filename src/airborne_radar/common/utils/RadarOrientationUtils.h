@@ -10,7 +10,7 @@
 #include <cmath>
 
 #include "airborne_radar/common/utils/MathUtils.h"
-#include "1q/airborne_radar/common/model/RadarOrientationConfig.h"
+#include "1q/airborne_radar/model/RadarOrientationConfig.h"
 
 namespace airborne_radar {
 namespace common {
@@ -196,6 +196,15 @@ inline model::EulerAnglesDeg ComputePlatformFrameBeamPointing(
 
 }  // namespace utils
 }  // namespace common
+
+namespace model {
+using common::utils::ClampAzimuthElevation;
+using common::utils::ComputeBodyFrameBeamPointing;
+using common::utils::ComputeMountFrameBeamPointing;
+using common::utils::ComputePlatformFrameBeamPointing;
+using common::utils::IntersectScanLimits;
+using common::utils::IsValidScanLimits;
+}  // namespace model
 }  // namespace airborne_radar
 
 #endif  // AIRBORNE_RADAR_COMMON_RADAR_ORIENTATION_UTILS_H_

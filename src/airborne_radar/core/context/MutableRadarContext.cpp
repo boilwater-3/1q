@@ -3,8 +3,7 @@
 #include <utility>
 
 namespace airborne_radar {
-namespace core {
-namespace context {
+namespace session {
 
 void MutableRadarContext::BeginCycle(const RadarCycleInput& input) {
   SetTargetFeatures(input.target_features);
@@ -13,12 +12,12 @@ void MutableRadarContext::BeginCycle(const RadarCycleInput& input) {
   ResetCycleOutputs();
 }
 
-void MutableRadarContext::SetTargetFeatures(common::model::TargetFeatureList target_features) {
+void MutableRadarContext::SetTargetFeatures(model::TargetFeatureList target_features) {
   target_features_ = std::move(target_features);
 }
 
 void MutableRadarContext::SetPlatformAttitude(
-    const common::model::PlatformAttitudeDeg& platform_attitude_deg) {
+    const model::PlatformAttitudeDeg& platform_attitude_deg) {
   platform_attitude_deg_ = platform_attitude_deg;
 }
 
@@ -26,37 +25,36 @@ void MutableRadarContext::SetCycleDeltaTimeSec(float dt_sec) { cycle_dt_sec_ = d
 
 void MutableRadarContext::ResetCycleOutputs() { submitted_commands_.clear(); }
 
-const std::vector<common::control::RadarCommand>& MutableRadarContext::GetSubmittedCommands()
+const std::vector<extension::control::RadarCommand>& MutableRadarContext::GetSubmittedCommands()
     const {
   return submitted_commands_;
 }
 
 bool MutableRadarContext::HasLatestControlProfile() const { return has_latest_control_profile_; }
 
-const common::control::RadarControlProfile& MutableRadarContext::GetLatestControlProfile() const {
+const extension::control::RadarControlProfile& MutableRadarContext::GetLatestControlProfile() const {
   return latest_control_profile_;
 }
 
-const common::model::TargetFeatureList& MutableRadarContext::GetTargetFeatures() const {
+const model::TargetFeatureList& MutableRadarContext::GetTargetFeatures() const {
   return target_features_;
 }
 
-common::model::PlatformAttitudeDeg MutableRadarContext::GetPlatformAttitude() const {
+model::PlatformAttitudeDeg MutableRadarContext::GetPlatformAttitude() const {
   return platform_attitude_deg_;
 }
 
 float MutableRadarContext::GetCycleDeltaTimeSec() const { return cycle_dt_sec_; }
 
-void MutableRadarContext::SubmitControlCommand(common::control::RadarCommand cmd) {
+void MutableRadarContext::SubmitControlCommand(extension::control::RadarCommand cmd) {
   submitted_commands_.push_back(std::move(cmd));
 }
 
 void MutableRadarContext::UpdateRadarControlProfile(
-    const common::control::RadarControlProfile& profile) {
+    const extension::control::RadarControlProfile& profile) {
   latest_control_profile_ = profile;
   has_latest_control_profile_ = true;
 }
 
-}  // namespace context
-}  // namespace core
+}  // namespace session
 }  // namespace airborne_radar

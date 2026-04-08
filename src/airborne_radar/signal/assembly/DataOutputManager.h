@@ -24,9 +24,9 @@ class DataOutputManager : public IDataOutputManager {
    * @param track_snapshots 当前周期导出的轨迹快照列表。
    * @return 填充完成的中性输出帧。
    */
-  common::output::TrackOutputFrame BuildTrackOutputFrame(
+  output::TrackOutputFrame BuildTrackOutputFrame(
       std::uint32_t cycle_index, std::uint64_t batch_id,
-      const common::model::DecisionTrackSnapshotList& track_snapshots) const override;
+      const model::DecisionTrackSnapshotList& track_snapshots) const override;
 
   /**
    * @brief 使用中性输出帧和周期摘要装配决策输入帧。
@@ -36,11 +36,11 @@ class DataOutputManager : public IDataOutputManager {
    * @param perception_quality_info 供决策层消费的探测质量摘要。
    * @return 填充完成的决策输入帧。
    */
-  common::model::DecisionInputFrame BuildDecisionInputFrame(
-      const common::output::TrackOutputFrame& track_output_frame,
-      const common::model::EccmSourceInfo& eccm_source_info,
-      const common::model::AssociationQualityInfo& association_quality_info,
-      const common::model::PerceptionQualityInfo& perception_quality_info) const override;
+  model::DecisionInputFrame BuildDecisionInputFrame(
+      const output::TrackOutputFrame& track_output_frame,
+      const model::EccmSourceInfo& eccm_source_info,
+      const model::AssociationQualityInfo& association_quality_info,
+      const model::PerceptionQualityInfo& perception_quality_info) const override;
 };
 
 }  // namespace assembly

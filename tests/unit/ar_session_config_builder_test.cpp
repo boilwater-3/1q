@@ -7,11 +7,11 @@
 
 #include <cstdint>
 
-#include "1q/airborne_radar/core/session/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/core/session/RadarSessionFactory.h"
-#include "1q/airborne_radar/core/session/RadarSession.h"
+#include "1q/airborne_radar/session/RadarSessionFactory.h"
+#include "1q/airborne_radar/session/RadarSession.h"
 
 namespace airborne_radar {
 namespace tests {
@@ -35,9 +35,9 @@ TEST(RadarSessionConfigBuilderTest, DefaultConstructionPreservesStructDefaults) 
   EXPECT_FLOAT_EQ(config.detection.receiver.noise_figure_db,
                   4.0f);
   EXPECT_EQ(config.beam_control.radar_orientation.work_sub_mode,
-            common::model::RadarWorkSubMode::kTws);
+            model::RadarWorkSubMode::kTws);
   EXPECT_EQ(config.tracking.kalman_update_backend,
-            signal::config::KalmanUpdateBackend::kStandardKfJoseph);
+            config::KalmanUpdateBackend::kStandardKfJoseph);
 }
 
 // ---------------------------------------------------------------------------
@@ -62,7 +62,7 @@ TEST(RadarSessionConfigBuilderTest, PresetBasePreservesPresetValues) {
 // ---------------------------------------------------------------------------
 
 TEST(RadarSessionConfigBuilderTest, DetectionConfigAppliesCorrectly) {
-  signal::config::SignalDetectionConfig detection;
+  config::SignalDetectionConfig detection;
   detection.enable_physics_detection = true;
   detection.min_detection_margin_db = -15.0f;
   detection.pulse_count = 20;
@@ -103,11 +103,11 @@ TEST(RadarSessionConfigBuilderTest, DetectionConfigAppliesCorrectly) {
 // ---------------------------------------------------------------------------
 
 TEST(RadarSessionConfigBuilderTest, BeamControlConfigAppliesCorrectly) {
-  signal::config::SignalBeamControlConfig beam_control;
+  config::SignalBeamControlConfig beam_control;
   beam_control.radar_orientation.scan_start_position =
       oneq::common::ScanStartPosition::kRightBottom;
   beam_control.radar_orientation.scan_sequence = oneq::common::ScanSequence::kElevationFirst;
-  beam_control.radar_orientation.work_sub_mode = common::model::RadarWorkSubMode::kTas;
+  beam_control.radar_orientation.work_sub_mode = model::RadarWorkSubMode::kTas;
 
   const auto config =
       config::RadarSessionConfigBuilder().Beam().WithBeamControl(beam_control).End().Build();
@@ -115,7 +115,7 @@ TEST(RadarSessionConfigBuilderTest, BeamControlConfigAppliesCorrectly) {
   const auto& orientation = config.beam_control.radar_orientation;
   EXPECT_EQ(orientation.scan_start_position, oneq::common::ScanStartPosition::kRightBottom);
   EXPECT_EQ(orientation.scan_sequence, oneq::common::ScanSequence::kElevationFirst);
-  EXPECT_EQ(orientation.work_sub_mode, common::model::RadarWorkSubMode::kTas);
+  EXPECT_EQ(orientation.work_sub_mode, model::RadarWorkSubMode::kTas);
 }
 
 // ---------------------------------------------------------------------------
@@ -123,16 +123,16 @@ TEST(RadarSessionConfigBuilderTest, BeamControlConfigAppliesCorrectly) {
 // ---------------------------------------------------------------------------
 
 TEST(RadarSessionConfigBuilderTest, TrackingConfigAppliesCorrectly) {
-  signal::config::SignalTrackingConfig tracking;
+  config::SignalTrackingConfig tracking;
   tracking.kalman_measurement_noise_std = 3.0f;
-  tracking.kalman_update_backend = signal::config::KalmanUpdateBackend::kUdKf;
+  tracking.kalman_update_backend = config::KalmanUpdateBackend::kUdKf;
 
   const auto config =
       config::RadarSessionConfigBuilder().Tracking().WithTracking(tracking).End().Build();
 
   EXPECT_FLOAT_EQ(config.tracking.kalman_measurement_noise_std, 3.0f);
   EXPECT_EQ(config.tracking.kalman_update_backend,
-            signal::config::KalmanUpdateBackend::kUdKf);
+            config::KalmanUpdateBackend::kUdKf);
 }
 
 // ---------------------------------------------------------------------------
@@ -140,7 +140,7 @@ TEST(RadarSessionConfigBuilderTest, TrackingConfigAppliesCorrectly) {
 // ---------------------------------------------------------------------------
 
 TEST(RadarSessionConfigBuilderTest, LifecycleConfigAppliesCorrectly) {
-  signal::config::SignalLifecycleConfig lifecycle;
+  config::SignalLifecycleConfig lifecycle;
   lifecycle.enable_auto_lifecycle_manager = true;
   lifecycle.lifecycle_config.confirm_hits = 2U;
   lifecycle.lifecycle_config.max_miss_before_lost = 4U;
@@ -181,7 +181,7 @@ TEST(RadarSessionConfigBuilderTest, EnvironmentDefaultConfigAppliesCorrectly) {
 TEST(RadarSessionConfigBuilderTest, ChainedPresetPlusDetectionOverride) {
   const auto preset = config::MakeDetectionMissionRadarSessionConfig();
 
-  signal::config::SignalDetectionConfig detection = preset.detection;
+  config::SignalDetectionConfig detection = preset.detection;
   detection.enable_physics_detection = true;
   detection.transmitter.peak_power_w = 5e6f;
   detection.transmitter.frequency_hz = 9.3e9f;
@@ -233,27 +233,27 @@ TEST(RadarSessionConfigBuilderTest, BuiltConfigCanConstructRadarSession) {
                           .Build();
 
   // 能正常构造 RadarSession 即通过（构造函数不应抛出）
-  core::session::RadarSession session = core::session::RadarSessionFactory::Create(config);
+  session::RadarSession session = session::RadarSessionFactory::Create(config);
   EXPECT_TRUE(session.HasLatestControlProfile() == false ||
               session.HasLatestControlProfile() == true);
 }
 
 TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValues) {
-  common::model::AzimuthElevationDeg scan_center;
+  model::AzimuthElevationDeg scan_center;
   scan_center.az_deg = 12.0f;
   scan_center.el_deg = -3.0f;
 
-  common::model::AzimuthElevationDeg dwell_center;
+  model::AzimuthElevationDeg dwell_center;
   dwell_center.az_deg = 5.0f;
   dwell_center.el_deg = 2.0f;
 
-  common::model::CommandedBeamwidthDeg commanded_beamwidth;
+  model::CommandedBeamwidthDeg commanded_beamwidth;
   commanded_beamwidth.commanded_az_beamwidth_deg = 2.5f;
   commanded_beamwidth.commanded_el_beamwidth_deg = 2.0f;
 
   const config::RadarRuntimeConfigPatch patch =
       config::RadarRuntimeConfigBuilder()
-          .WithRadarWorkSubMode(common::model::RadarWorkSubMode::kStt)
+          .WithRadarWorkSubMode(model::RadarWorkSubMode::kStt)
           .WithScanCenterDeg(scan_center)
           .WithDwellCenterDeg(dwell_center)
           .WithCommandedBeamwidthDeg(commanded_beamwidth)
@@ -262,7 +262,7 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValue
           .Build();
 
   EXPECT_TRUE(patch.has_work_sub_mode);
-  EXPECT_EQ(patch.work_sub_mode, common::model::RadarWorkSubMode::kStt);
+  EXPECT_EQ(patch.work_sub_mode, model::RadarWorkSubMode::kStt);
   EXPECT_TRUE(patch.has_scan_center_deg);
   EXPECT_FLOAT_EQ(patch.scan_center_deg.az_deg, 12.0f);
   EXPECT_FLOAT_EQ(patch.scan_center_deg.el_deg, -3.0f);
@@ -279,26 +279,26 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValue
 }
 
 TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructingSession) {
-  core::session::RadarSession session = core::session::RadarSessionFactory::Create(
+  session::RadarSession session = session::RadarSessionFactory::Create(
       config::MakeDetectionMissionRadarSessionConfig());
 
   const config::RadarRuntimeConfigPatch patch =
       config::RadarRuntimeConfigBuilder()
-          .WithRadarWorkSubMode(common::model::RadarWorkSubMode::kTas)
+          .WithRadarWorkSubMode(model::RadarWorkSubMode::kTas)
           .EnableCommandedBeamwidth(true)
           .WithJammingDetectionThresholdDb(4.8f)
           .Build();
 
   session.ApplyRuntimeConfig(patch);
 
-  core::context::RadarCycleInput input;
+  session::RadarCycleInput input;
   input.dt_sec = 1.0f;
-  const core::session::RadarCycleResult result = session.StepWithResult(input);
+  const session::RadarCycleResult result = session.StepWithResult(input);
   EXPECT_FALSE(result.has_validation_error);
 }
 
 TEST(RadarSessionConfigBuilderTest, LeafAndDomainSettersUseLastWriteWins) {
-  signal::config::SignalDetectionConfig detection;
+  config::SignalDetectionConfig detection;
   detection.transmitter.peak_power_w = 2e6f;
 
   const auto config_leaf_then_domain =
@@ -321,7 +321,7 @@ TEST(RadarSessionConfigBuilderTest, LeafAndDomainSettersUseLastWriteWins) {
 }
 
 TEST(RadarSessionConfigBuilderTest, GroupEditorsCanBuildClosedConfig) {
-  common::model::AzimuthElevationDeg scan_center;
+  model::AzimuthElevationDeg scan_center;
   scan_center.az_deg = 8.0f;
   scan_center.el_deg = -2.0f;
 

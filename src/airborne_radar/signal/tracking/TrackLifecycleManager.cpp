@@ -40,13 +40,13 @@ std::uint32_t ResolveLocalMissToleranceBonus(const TrackState& track) {
   }
 
   switch (track.dominant_jamming_semantic) {
-    case common::utils::JammingSemantic::kDeception:
-    case common::utils::JammingSemantic::kRepeater:
+    case model::JammingSemantic::kDeception:
+    case model::JammingSemantic::kRepeater:
       return 1U;
-    case common::utils::JammingSemantic::kMixed:
+    case model::JammingSemantic::kMixed:
       return track.jamming_severity >= 0.55f ? 1U : 0U;
-    case common::utils::JammingSemantic::kNoiseSuppression:
-    case common::utils::JammingSemantic::kNone:
+    case model::JammingSemantic::kNoiseSuppression:
+    case model::JammingSemantic::kNone:
     default:
       return 0U;
   }
@@ -563,7 +563,7 @@ void TrackLifecycleManager::RecyclePhase(LifecycleUpdateScratch& scratch) {
       continue;
     }
     const TrackMeasurement& measurement = *(it->second);
-    common::model::DecisionMeasurementEvidence evidence;
+    model::DecisionMeasurementEvidence evidence;
     evidence.has_measurement_evidence = true;
     evidence.updated_this_cycle = true;
     evidence.predicted_only_this_cycle = false;
@@ -689,7 +689,7 @@ void TrackLifecycleManager::ResetForReuse(TrackState& track) const {
   track.acceleration.setZero();
   track.rcs = 0.0f;
   track.jamming_detected = false;
-  track.dominant_jamming_semantic = common::utils::JammingSemantic::kNone;
+  track.dominant_jamming_semantic = model::JammingSemantic::kNone;
   track.jamming_severity = 0.0f;
   track.gaussian_state = GaussianTrackState();
 }
