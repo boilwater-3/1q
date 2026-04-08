@@ -10,6 +10,7 @@
 #include <cmath>
 
 #include "common/geometry/GeometryTransform.h"
+#include "common/numerics/ClampUtils.h"
 
 namespace electronic_surveillance_radar {
 namespace intercept {
@@ -111,7 +112,8 @@ class InterceptGate final {
     decision.frequency_overlap_ratio =
         ComputeFrequencyOverlapRatio(input.receiver_lower_hz, input.receiver_upper_hz,
                                      input.signal_center_hz, input.signal_bandwidth_hz);
-    const float min_overlap_ratio = Clamp01(input.min_frequency_overlap_ratio);
+    const float min_overlap_ratio =
+        oneq::internal::numerics::Clamp01(input.min_frequency_overlap_ratio);
     decision.frequency_covered =
         decision.frequency_overlap_ratio + kGateEpsilon >= min_overlap_ratio;
 
@@ -129,7 +131,7 @@ class InterceptGate final {
         std::sqrt(normalized_az * normalized_az + normalized_el * normalized_el);
 
     decision.in_beam = normalized_distance <= 1.0f + kGateEpsilon;
-    decision.beam_overlap_ratio = Clamp01(1.0f - normalized_distance);
+    decision.beam_overlap_ratio = oneq::internal::numerics::Clamp01(1.0f - normalized_distance);
     decision.in_range = input.max_range_m > kGateEpsilon && input.range_m >= -kGateEpsilon &&
                         input.range_m <= input.max_range_m + kGateEpsilon;
     decision.dynamic_range_ok =
@@ -140,21 +142,6 @@ class InterceptGate final {
   }
 
  private:
-  /**
-   * @brief 将输入裁剪到 [0, 1] 区间。
-   * @param[in] value 输入标量。
-   * @return 裁剪后的结果。
-   */
-  static float Clamp01(float value) {
-    if (value <= 0.0f) {
-      return 0.0f;
-    }
-    if (value >= 1.0f) {
-      return 1.0f;
-    }
-    return value;
-  }
-
   /**
    * @brief 判断输入浮点值是否为有限数。
    * @param[in] value 输入值。

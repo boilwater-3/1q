@@ -6,21 +6,22 @@
 #ifndef ELECTRONIC_SURVEILLANCE_RADAR_ESR_SHARED_UTILS_H_
 #define ELECTRONIC_SURVEILLANCE_RADAR_ESR_SHARED_UTILS_H_
 
-#include <algorithm>
-
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
+#include "common/numerics/ClampUtils.h"
 
 namespace electronic_surveillance_radar {
 
 /**
  * @brief 将输入裁剪到 [0, 1]。
  */
-inline float Clamp01(float value) { return std::max(0.0f, std::min(1.0f, value)); }
+inline float Clamp01(float value) { return oneq::internal::numerics::Clamp01(value); }
 
 /**
  * @brief 将输入裁剪到非负区间。
  */
-inline float ClampNonNegative(float value) { return std::max(0.0f, value); }
+inline float ClampNonNegative(float value) {
+  return oneq::internal::numerics::ClampNonNegative(value);
+}
 
 /**
  * @brief 解析干扰技术类型并应用兼容推断。

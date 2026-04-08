@@ -3,16 +3,12 @@
 #include <algorithm>
 #include <cmath>
 
+#include "common/numerics/ClampUtils.h"
+
 namespace electro_optical_sensor {
 namespace environment {
 
 namespace {
-
-float Clamp(float value, float lower, float upper) {
-  return std::max(lower, std::min(value, upper));
-}
-
-float Clamp01(float value) { return Clamp(value, 0.0f, 1.0f); }
 
 float SafePositive(float value, float fallback) {
   if (std::isfinite(value) == 0 || value <= 0.0f) {
@@ -24,7 +20,7 @@ float SafePositive(float value, float fallback) {
 }  // namespace
 
 EosEnvironmentModelResult ResolveEnvironmentFactors(const EosEnvironmentModelInputs& inputs) {
-  const float cloud_ratio = Clamp01(inputs.cloud_coverage_ratio);
+  const float cloud_ratio = oneq::internal::numerics::Clamp01(inputs.cloud_coverage_ratio);
   const float altitude_km = std::max(0.0f, std::fabs(inputs.platform_altitude_m) / 1000.0f);
   const float wind_speed_mps = std::max(0.0f, inputs.wind_speed_mps);
   const float base_aerosol = std::max(1.0f, inputs.base_aerosol_density_factor);

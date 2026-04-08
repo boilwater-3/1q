@@ -3,17 +3,13 @@
 #include <algorithm>
 #include <cmath>
 
+#include "common/numerics/ClampUtils.h"
+
 namespace electro_optical_sensor {
 namespace foundation {
 namespace noise {
 
 namespace {
-
-float Clamp(float value, float lower, float upper) {
-  return std::max(lower, std::min(value, upper));
-}
-
-float Clamp01(float value) { return Clamp(value, 0.0f, 1.0f); }
 
 float SafePositive(float value, float fallback) {
   if (std::isfinite(value) == 0 || value <= 0.0f) {
@@ -37,7 +33,7 @@ constexpr float kSuppressionUpperBound = 0.60f;
 BackgroundNoiseStatistics ComputeBackgroundNoiseStatistics(
     const BackgroundNoiseModelInputs& inputs) {
   const float background_flux_w = std::max(0.0f, inputs.background_flux_w);
-  const float cloud_ratio = Clamp01(inputs.cloud_coverage_ratio);
+  const float cloud_ratio = oneq::internal::numerics::Clamp01(inputs.cloud_coverage_ratio);
   const float scene_complexity = std::max(1.0f, inputs.scene_complexity_factor);
   const float photon_noise_factor = std::max(1.0f, inputs.photon_noise_enhancement_factor);
   const float detector_area_cm2 = SafePositive(inputs.detector_area_cm2, 0.25f);
@@ -62,9 +58,9 @@ BackgroundNoiseStatistics ComputeBackgroundNoiseStatistics(
 
   const float suppression_reference = background_flux_w + kEquivalentNoiseGuardW;
   const float adaptive_term = stats.equivalent_noise_power_w / suppression_reference;
-  stats.suppression_weight =
-      Clamp(kSuppressionBase + kSuppressionAdaptiveGain * adaptive_term, kSuppressionLowerBound,
-            kSuppressionUpperBound);
+  stats.suppression_weight = oneq::internal::numerics::Clamp(
+      kSuppressionBase + kSuppressionAdaptiveGain * adaptive_term, kSuppressionLowerBound,
+      kSuppressionUpperBound);
   return stats;
 }
 
@@ -73,7 +69,8 @@ float ComputeEffectiveSignalPowerW(float received_power_w, float background_flux
   const float safe_received_power_w = std::max(0.0f, received_power_w);
   const float safe_background_flux_w = std::max(0.0f, background_flux_w);
   const float suppression_weight =
-      Clamp(stats.suppression_weight, kSuppressionLowerBound, kSuppressionUpperBound);
+      oneq::internal::numerics::Clamp(stats.suppression_weight, kSuppressionLowerBound,
+                                      kSuppressionUpperBound);
 
   const float suppressed_background_budget_w = suppression_weight * safe_background_flux_w;
   const float suppressed_background_w =

@@ -4,7 +4,7 @@
 #include <limits>
 #include <utility>
 
-#include "airborne_radar/common/utils/MathUtils.h"
+#include "airborne_radar/internal/utils/MathUtils.h"
 #include "airborne_radar/environment/SceneManager.h"
 #include "airborne_radar/environment/PropagationModel.h"
 

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "common/numerics/ClampUtils.h"
 #include "electro_optical_sensor/foundation/EosPropagation.h"
 
 namespace electro_optical_sensor {
@@ -12,12 +13,6 @@ namespace radiative_transfer {
 namespace {
 
 constexpr float kReferenceAtmosphericPathM = 5000.0f;
-
-float Clamp(float value, float lower, float upper) {
-  return std::max(lower, std::min(value, upper));
-}
-
-float Clamp01(float value) { return Clamp(value, 0.0f, 1.0f); }
 
 float SafePositive(float value, float fallback) {
   if (std::isfinite(value) == 0 || value <= 0.0f) {
@@ -29,8 +24,8 @@ float SafePositive(float value, float fallback) {
 }  // namespace
 
 RadiativeTransferResult EvaluateRadiativeTransfer(const RadiativeTransferInputs& inputs) {
-  const float base_transmittance = Clamp01(inputs.base_transmittance);
-  const float cloud_ratio = Clamp01(inputs.cloud_coverage_ratio);
+  const float base_transmittance = oneq::internal::numerics::Clamp01(inputs.base_transmittance);
+  const float cloud_ratio = oneq::internal::numerics::Clamp01(inputs.cloud_coverage_ratio);
   const float path_length_m = std::max(0.0f, inputs.path_length_m);
   const float aerosol_density_factor = std::max(1.0f, inputs.aerosol_density_factor);
   const float turbulence_factor = std::max(1.0f, inputs.turbulence_factor);

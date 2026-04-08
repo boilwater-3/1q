@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
+#include "common/numerics/ClampUtils.h"
 #include "electro_optical_sensor/environment/EosEnvironmentModel.h"
 #include "electro_optical_sensor/foundation/EosNoiseModel.h"
 #include "electro_optical_sensor/foundation/EosOpticalCharacteristics.h"
@@ -27,18 +28,6 @@ class DefaultEosEnvironmentService final : public environment::IEosEnvironmentSe
     return environment::ResolveEnvironmentFactors(inputs);
   }
 };
-
-float Clamp(float value, float lower, float upper) {
-  if (value < lower) {
-    return lower;
-  }
-  if (value > upper) {
-    return upper;
-  }
-  return value;
-}
-
-float Clamp01(float value) { return Clamp(value, 0.0f, 1.0f); }
 
 float SafePositive(float value, float fallback) {
   if (std::isfinite(value) == 0 || value <= 0.0f) {
@@ -88,8 +77,10 @@ foundation::radiative_transfer::RadiativeTransferResult ComputePathRadiativeTran
     float aerosol_density_factor, float turbulence_factor) {
   foundation::radiative_transfer::RadiativeTransferInputs transfer_inputs;
   transfer_inputs.model = config.radiative_transfer_model;
-  transfer_inputs.base_transmittance = Clamp01(input.atmospheric_transmittance);
-  transfer_inputs.cloud_coverage_ratio = Clamp01(input.cloud_coverage_ratio);
+  transfer_inputs.base_transmittance =
+      oneq::internal::numerics::Clamp01(input.atmospheric_transmittance);
+  transfer_inputs.cloud_coverage_ratio =
+      oneq::internal::numerics::Clamp01(input.cloud_coverage_ratio);
   transfer_inputs.path_length_m = std::max(0.0f, range_m);
   transfer_inputs.aerosol_density_factor = std::max(1.0f, aerosol_density_factor);
   transfer_inputs.turbulence_factor = std::max(1.0f, turbulence_factor);
@@ -127,8 +118,10 @@ float ComputeVisiblePhotonNoiseEnhancement(const EosPipelineConfig& config,
   const float observed_irradiance = std::max(0.0f, input.solar_irradiance_w_m2);
   const float irradiance_ratio = std::max(observed_irradiance, 1.0e-3f) / reference_irradiance;
   const float irradiance_mismatch = std::fabs(std::log2(std::max(irradiance_ratio, 1.0e-6f)));
-  const float cloud_factor = 1.0f + 0.5f * Clamp01(input.cloud_coverage_ratio);
-  return Clamp(1.0f + 0.12f * irradiance_mismatch * cloud_factor, 1.0f, 2.5f);
+  const float cloud_factor =
+      1.0f + 0.5f * oneq::internal::numerics::Clamp01(input.cloud_coverage_ratio);
+  return oneq::internal::numerics::Clamp(
+      1.0f + 0.12f * irradiance_mismatch * cloud_factor, 1.0f, 2.5f);
 }
 
 float ComputeSystemNoiseFactorFromSensitivity(float detection_sensitivity_w) {
@@ -166,7 +159,8 @@ DetectionComputationContext BuildDetectionComputationContext(
   environment::EosEnvironmentModelInputs environment_inputs;
   environment_inputs.model_type = ToEnvironmentModelType(config.environment_model_type);
   environment_inputs.platform_altitude_m = std::fabs(input.platform_pose.position_m.z);
-  environment_inputs.cloud_coverage_ratio = Clamp01(input.cloud_coverage_ratio);
+  environment_inputs.cloud_coverage_ratio =
+      oneq::internal::numerics::Clamp01(input.cloud_coverage_ratio);
   environment_inputs.wind_speed_mps = std::max(0.0f, input.ambient_wind_speed_mps);
   environment_inputs.base_aerosol_density_factor = config.aerosol_density_factor;
   environment_inputs.base_turbulence_factor = config.turbulence_factor;
@@ -210,11 +204,11 @@ DetectionComputationContext BuildDetectionComputationContext(
   spectrum_inputs.ground_sample_distance_m = gsd_m;
   spectrum_inputs.optical_mtf_reference = 0.65f;
   spectrum_inputs.sampling_efficiency = 0.9f;
-  spectrum_inputs.scene_contrast_ratio =
-      Clamp01(0.5f * (std::max(0.0f, target.reflectance) + std::max(0.0f, target.emissivity)));
+  spectrum_inputs.scene_contrast_ratio = oneq::internal::numerics::Clamp01(
+      0.5f * (std::max(0.0f, target.reflectance) + std::max(0.0f, target.emissivity)));
   const foundation::spatial_spectrum::SpatialSpectrumResult spectrum_result =
       foundation::spatial_spectrum::EvaluateSpatialResolvability(spectrum_inputs);
-  context_values.imaging_quality_gain = Clamp(
+  context_values.imaging_quality_gain = oneq::internal::numerics::Clamp(
       0.5f * geometric_quality_gain + 0.5f * spectrum_result.spectrum_quality_gain, 0.05f, 1.0f);
 
   context_values.nep_inputs.optical_transmittance = context_values.optical_transmittance;

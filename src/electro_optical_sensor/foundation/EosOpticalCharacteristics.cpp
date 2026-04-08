@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "common/numerics/ClampUtils.h"
 #include "electro_optical_sensor/foundation/EosPhysicalConstants.h"
 
 namespace electro_optical_sensor {
@@ -18,13 +19,10 @@ float SafePositive(float value, float fallback) {
   return value;
 }
 
-float Clamp(float value, float lower, float upper) {
-  return std::max(lower, std::min(value, upper));
-}
-
 float ComputeSlantRangeByDepressionAngle(float platform_altitude_m, float depression_deg) {
   const float safe_altitude_m = SafePositive(platform_altitude_m, 1.0f);
-  const float safe_depression_deg = Clamp(depression_deg, 1.0f, 89.0f);
+  const float safe_depression_deg =
+      oneq::internal::numerics::Clamp(depression_deg, 1.0f, 89.0f);
   const float depression_rad = safe_depression_deg * constants::kPi / 180.0f;
   return safe_altitude_m / std::sin(depression_rad);
 }
@@ -51,7 +49,8 @@ float ComputeGroundScanWidthM(float platform_altitude_m, float fov_deg) {
 
 float ComputeGroundProjectionDistanceM(float platform_altitude_m, float look_angle_deg) {
   const float safe_altitude_m = SafePositive(platform_altitude_m, 1.0f);
-  const float clamped_look_angle_deg = Clamp(look_angle_deg, -89.9f, 89.9f);
+  const float clamped_look_angle_deg =
+      oneq::internal::numerics::Clamp(look_angle_deg, -89.9f, 89.9f);
   const float look_angle_rad = clamped_look_angle_deg * constants::kPi / 180.0f;
   return std::max(0.0f, safe_altitude_m * std::tan(look_angle_rad));
 }
@@ -71,16 +70,16 @@ float ComputeGroundSampleDistanceM(float range_m, float angular_resolution_rad) 
 float ComputeMinimumDetectionRangeM(const DetectionRangeInputs& inputs) {
   const float half_fov_deg = 0.5f * std::max(0.0f, inputs.vertical_fov_deg);
   const float near_edge_depression_deg = inputs.boresight_depression_deg + half_fov_deg;
-  const float clamped_depression_deg =
-      Clamp(near_edge_depression_deg, inputs.min_depression_deg, inputs.max_depression_deg);
+  const float clamped_depression_deg = oneq::internal::numerics::Clamp(
+      near_edge_depression_deg, inputs.min_depression_deg, inputs.max_depression_deg);
   return ComputeSlantRangeByDepressionAngle(inputs.platform_altitude_m, clamped_depression_deg);
 }
 
 float ComputeMaximumDetectionRangeM(const DetectionRangeInputs& inputs) {
   const float half_fov_deg = 0.5f * std::max(0.0f, inputs.vertical_fov_deg);
   const float far_edge_depression_deg = inputs.boresight_depression_deg - half_fov_deg;
-  const float clamped_depression_deg =
-      Clamp(far_edge_depression_deg, inputs.min_depression_deg, inputs.max_depression_deg);
+  const float clamped_depression_deg = oneq::internal::numerics::Clamp(
+      far_edge_depression_deg, inputs.min_depression_deg, inputs.max_depression_deg);
   return ComputeSlantRangeByDepressionAngle(inputs.platform_altitude_m, clamped_depression_deg);
 }
 

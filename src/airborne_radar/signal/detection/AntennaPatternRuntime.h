@@ -9,7 +9,7 @@
 
 #include <cmath>
 
-#include "airborne_radar/common/utils/MathUtils.h"
+#include "airborne_radar/internal/utils/MathUtils.h"
 #include "1q/airborne_radar/config/AntennaPatternConfig.h"
 
 namespace airborne_radar {

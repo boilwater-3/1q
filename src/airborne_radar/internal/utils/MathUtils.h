@@ -3,12 +3,12 @@
  * @brief 提供通用数学辅助内联函数。
  */
 
-#ifndef AIRBORNE_RADAR_COMMON_MATH_UTILS_H_
-#define AIRBORNE_RADAR_COMMON_MATH_UTILS_H_
+#ifndef AIRBORNE_RADAR_INTERNAL_UTILS_MATH_UTILS_H_
+#define AIRBORNE_RADAR_INTERNAL_UTILS_MATH_UTILS_H_
 
 #include <cmath>
 namespace airborne_radar {
-namespace common {
+namespace internal {
 namespace utils {
 
 /**
@@ -36,12 +36,12 @@ inline float ClampFloat(float value, float min_value, float max_value) {
 inline float DbToLinearPower(float power_db) { return std::pow(10.0f, power_db / 10.0f); }
 
 }  // namespace utils
-}  // namespace common
+}  // namespace internal
 
 namespace model {
-using common::utils::ClampFloat;
-using common::utils::DbToLinearPower;
+using internal::utils::ClampFloat;
+using internal::utils::DbToLinearPower;
 }  // namespace model
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_COMMON_MATH_UTILS_H_
+#endif  // AIRBORNE_RADAR_INTERNAL_UTILS_MATH_UTILS_H_

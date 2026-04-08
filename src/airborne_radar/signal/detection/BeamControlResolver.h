@@ -6,7 +6,7 @@
 #ifndef AIRBORNE_RADAR_SIGNAL_DETECTION_BEAM_CONTROL_RESOLVER_H_
 #define AIRBORNE_RADAR_SIGNAL_DETECTION_BEAM_CONTROL_RESOLVER_H_
 
-#include "airborne_radar/common/utils/RadarOrientationUtils.h"
+#include "airborne_radar/internal/utils/RadarOrientationUtils.h"
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "1q/airborne_radar/config/SignalDetectionConfig.h"
 #include "airborne_radar/signal/detection/AntennaPatternRuntime.h"

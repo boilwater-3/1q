@@ -11,10 +11,9 @@ set(ONEQ_COMMON_SOURCES
 )
 
 set(AIRBORNE_COMMON_SOURCES
-    airborne_radar/common/model/DecisionTrackSnapshot.cpp
-    airborne_radar/common/model/TargetFeature.cpp
-    airborne_radar/common/output/TrackOutputQueries.cpp
-    airborne_radar/common/utils/TargetFeatureUtils.cpp
+    airborne_radar/model/DecisionTrackSnapshot.cpp
+    airborne_radar/output/TrackOutputQueries.cpp
+    airborne_radar/model/TargetFeatureUtils.cpp
 )
 
 set(AIRBORNE_SIGNAL_SOURCES
@@ -72,7 +71,7 @@ set(AIRBORNE_CORE_SOURCES
     airborne_radar/runtime/RadarCycleOrchestrator.cpp
     airborne_radar/runtime/RadarController.cpp
     airborne_radar/session/RadarSessionCompositionRoot.cpp
-    airborne_radar/session/ConfigPresets.cpp
+    airborne_radar/session/RadarSessionConfigPresets.cpp
     airborne_radar/session/RadarSessionConfigBuilder.cpp
     airborne_radar/session/RadarSession.cpp
     airborne_radar/session/RadarTraceSession.cpp

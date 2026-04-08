@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "common/numerics/ClampUtils.h"
+
 namespace electro_optical_sensor {
 namespace foundation {
 namespace propagation {
@@ -10,12 +12,6 @@ namespace propagation {
 namespace {
 
 constexpr float kFourPi = 12.56637061435917295f;
-
-float Clamp(float value, float lower, float upper) {
-  return std::max(lower, std::min(value, upper));
-}
-
-float Clamp01(float value) { return Clamp(value, 0.0f, 1.0f); }
 
 float SafePositive(float value, float fallback) {
   if (std::isfinite(value) == 0 || value <= 0.0f) {
@@ -46,7 +42,7 @@ float ComputeBackgroundFluxW(float background_radiance_w_sr_m2, float aperture_a
   const float safe_aperture_area_m2 = SafePositive(aperture_area_m2, 1.0e-4f);
   const float safe_fov_solid_angle_sr = std::max(0.0f, fov_solid_angle_sr);
   return safe_radiance * safe_aperture_area_m2 * safe_fov_solid_angle_sr *
-         Clamp01(optical_transmittance);
+         oneq::internal::numerics::Clamp01(optical_transmittance);
 }
 
 float ComputeReceivedPowerW(float source_radiance_w_sr_m2, float projected_area_m2, float range_m,
@@ -58,7 +54,8 @@ float ComputeReceivedPowerW(float source_radiance_w_sr_m2, float projected_area_
   const float safe_aperture_area_m2 = SafePositive(aperture_area_m2, 1.0e-4f);
   const float geometric_loss = kFourPi * safe_range_m * safe_range_m;
   return safe_source_radiance * safe_projected_area_m2 * safe_aperture_area_m2 *
-         Clamp01(atmospheric_transmittance) * Clamp01(optical_transmittance) / geometric_loss;
+         oneq::internal::numerics::Clamp01(atmospheric_transmittance) *
+         oneq::internal::numerics::Clamp01(optical_transmittance) / geometric_loss;
 }
 
 float ComputeSnrLinear(float received_power_w, float nep_w) {
@@ -78,7 +75,8 @@ float ComputeNepW(const NepNoiseModelInputs& inputs) {
   const float safe_bandwidth_hz = SafePositive(inputs.electrical_bandwidth_hz, 1000.0f);
   const float safe_integration_time_sec = SafePositive(inputs.integration_time_sec, 1.0f / 30.0f);
   const float effective_bandwidth_hz = safe_bandwidth_hz / (1.0f + safe_integration_time_sec * safe_bandwidth_hz);
-  const float optical_factor = std::max(Clamp01(inputs.optical_transmittance), 1.0e-3f);
+  const float optical_factor =
+      std::max(oneq::internal::numerics::Clamp01(inputs.optical_transmittance), 1.0e-3f);
   const float system_noise_factor = std::max(inputs.system_noise_factor, 1.0f);
 
   return system_noise_factor * std::sqrt(safe_detector_area_cm2 * effective_bandwidth_hz) /

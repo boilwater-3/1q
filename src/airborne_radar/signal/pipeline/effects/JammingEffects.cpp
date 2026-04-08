@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-#include "airborne_radar/common/utils/MathUtils.h"
+#include "airborne_radar/internal/utils/MathUtils.h"
 
 namespace airborne_radar {
 namespace signal {

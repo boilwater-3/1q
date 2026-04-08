@@ -6,11 +6,11 @@
 #ifndef ELECTRONIC_SURVEILLANCE_RADAR_SRC_INTERCEPT_JAMMING_AGGREGATOR_H_
 #define ELECTRONIC_SURVEILLANCE_RADAR_SRC_INTERCEPT_JAMMING_AGGREGATOR_H_
 
-#include <algorithm>
 #include <cmath>
 #include <cstddef>
 
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
+#include "common/numerics/ClampUtils.h"
 #include "electronic_surveillance_radar/intercept/InterceptGate.h"
 
 namespace electronic_surveillance_radar {
@@ -70,8 +70,10 @@ class JammingAggregator final {
       if (overlap_ratio <= 0.0f) {
         continue;
       }
-      const float confidence = Clamp01(jammer_sources[i].confidence);
-      const float deception_risk = Clamp01(jammer_sources[i].deception_risk);
+      const float confidence =
+          oneq::internal::numerics::Clamp01(jammer_sources[i].confidence);
+      const float deception_risk =
+          oneq::internal::numerics::Clamp01(jammer_sources[i].deception_risk);
       const environment::EsrJammingTechnique technique = ResolveTechnique(jammer_sources[i]);
 
       bool contributed = false;
@@ -85,11 +87,13 @@ class JammingAggregator final {
       }
 
       if (HasDeceptionEffect(technique)) {
-        const float deception_effect = Clamp01(deception_risk * overlap_ratio * confidence);
+        const float deception_effect =
+            oneq::internal::numerics::Clamp01(deception_risk * overlap_ratio * confidence);
         const float safe_deception_effect =
             std::isfinite(deception_effect) ? deception_effect : 0.0f;
         deception_clear_probability *= (1.0f - safe_deception_effect);
-        deception_clear_probability = Clamp01(deception_clear_probability);
+        deception_clear_probability =
+            oneq::internal::numerics::Clamp01(deception_clear_probability);
         deception_overlap_weighted_sum += overlap_ratio * deception_effect;
         deception_effect_weight_sum += deception_effect;
         ++result.deception_source_count;
@@ -109,7 +113,8 @@ class JammingAggregator final {
       result.deception_weighted_overlap_ratio =
           deception_overlap_weighted_sum / deception_effect_weight_sum;
     }
-    result.deception_risk = Clamp01(1.0f - deception_clear_probability);
+    result.deception_risk =
+        oneq::internal::numerics::Clamp01(1.0f - deception_clear_probability);
     return result;
   }
 
@@ -150,12 +155,6 @@ class JammingAggregator final {
            technique == environment::EsrJammingTechnique::kMixed;
   }
 
-  /**
-   * @brief 将输入裁剪到 [0, 1]。
-   * @param[in] value 输入值。
-   * @return 裁剪结果。
-   */
-  static float Clamp01(float value) { return std::max(0.0f, std::min(1.0f, value)); }
 };
 
 }  // namespace intercept

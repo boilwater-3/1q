@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "common/numerics/ClampUtils.h"
 #include "electro_optical_sensor/foundation/EosPhysicalConstants.h"
 
 namespace electro_optical_sensor {
@@ -14,12 +15,6 @@ namespace {
 constexpr float kPlanckConstant = 6.62607015e-34f;
 constexpr float kLightSpeed = 2.99792458e8f;
 constexpr float kBoltzmannConstant = 1.380649e-23f;
-
-float Clamp(float value, float lower, float upper) {
-  return std::max(lower, std::min(value, upper));
-}
-
-float Clamp01(float value) { return Clamp(value, 0.0f, 1.0f); }
 
 float SafePositive(float value, float fallback) {
   if (!std::isfinite(value) || value <= 0.0f) {
@@ -67,7 +62,7 @@ float IntegrateSpectralRadianceOverBand(float spectral_radiance_w_sr_m3,
 }
 
 float ComputeInfraredRadianceDelta(const InfraredRadianceInputs& inputs) {
-  const float emissivity = Clamp01(inputs.emissivity);
+  const float emissivity = oneq::internal::numerics::Clamp01(inputs.emissivity);
   const float target_radiance =
       emissivity * ComputePlanckRadiance(inputs.wavelength_um, inputs.target_temperature_k);
   const float background_radiance =
@@ -76,8 +71,8 @@ float ComputeInfraredRadianceDelta(const InfraredRadianceInputs& inputs) {
 }
 
 float ComputeVisibleLambertianRadiance(const VisibleRadianceInputs& inputs) {
-  const float reflectance = Clamp01(inputs.reflectance);
-  const float cloud_coverage = Clamp01(inputs.cloud_coverage_ratio);
+  const float reflectance = oneq::internal::numerics::Clamp01(inputs.reflectance);
+  const float cloud_coverage = oneq::internal::numerics::Clamp01(inputs.cloud_coverage_ratio);
   const float effective_irradiance =
       std::max(0.0f, inputs.solar_irradiance_w_m2) * ComputeIlluminationScale(inputs.illumination);
   const float solar_altitude_rad =
@@ -94,7 +89,8 @@ VisibleChannelResult ComputeVisibleChannelResult(const VisibleChannelInputs& inp
   result.target_radiance = ComputeVisibleLambertianRadiance(inputs.target);
 
   VisibleRadianceInputs background_inputs = inputs.target;
-  background_inputs.reflectance = Clamp01(inputs.background_reflectance);
+  background_inputs.reflectance =
+      oneq::internal::numerics::Clamp01(inputs.background_reflectance);
   result.background_radiance = ComputeVisibleLambertianRadiance(background_inputs);
   result.normalized_contrast =
       ComputeRelativeContrast(result.target_radiance, result.background_radiance);

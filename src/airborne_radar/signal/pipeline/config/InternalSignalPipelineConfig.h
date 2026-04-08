@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <vector>
 
-#include "airborne_radar/common/config/SignalPipelinePresetSemantics.h"
+#include "airborne_radar/signal/pipeline/config/SignalPipelinePresetSemantics.h"
 #include "airborne_radar/signal/pipeline/config/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/tracking/LifecycleConfig.h"
 

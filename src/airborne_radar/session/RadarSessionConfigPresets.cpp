@@ -1,6 +1,6 @@
 #include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 
-#include "airborne_radar/common/config/SignalPipelinePresetSemantics.h"
+#include "airborne_radar/signal/pipeline/config/SignalPipelinePresetSemantics.h"
 
 namespace airborne_radar {
 namespace config {

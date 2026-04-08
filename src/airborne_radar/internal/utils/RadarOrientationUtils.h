@@ -3,17 +3,17 @@
  * @brief 定义机载雷达方向配置的组合、限幅与校验工具函数。
  */
 
-#ifndef AIRBORNE_RADAR_COMMON_RADAR_ORIENTATION_UTILS_H_
-#define AIRBORNE_RADAR_COMMON_RADAR_ORIENTATION_UTILS_H_
+#ifndef AIRBORNE_RADAR_INTERNAL_UTILS_RADAR_ORIENTATION_UTILS_H_
+#define AIRBORNE_RADAR_INTERNAL_UTILS_RADAR_ORIENTATION_UTILS_H_
 
 #include <algorithm>
 #include <cmath>
 
-#include "airborne_radar/common/utils/MathUtils.h"
+#include "airborne_radar/internal/utils/MathUtils.h"
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
 
 namespace airborne_radar {
-namespace common {
+namespace internal {
 namespace utils {
 
 namespace internal {
@@ -195,16 +195,16 @@ inline model::EulerAnglesDeg ComputePlatformFrameBeamPointing(
 }
 
 }  // namespace utils
-}  // namespace common
+}  // namespace internal
 
 namespace model {
-using common::utils::ClampAzimuthElevation;
-using common::utils::ComputeBodyFrameBeamPointing;
-using common::utils::ComputeMountFrameBeamPointing;
-using common::utils::ComputePlatformFrameBeamPointing;
-using common::utils::IntersectScanLimits;
-using common::utils::IsValidScanLimits;
+using internal::utils::ClampAzimuthElevation;
+using internal::utils::ComputeBodyFrameBeamPointing;
+using internal::utils::ComputeMountFrameBeamPointing;
+using internal::utils::ComputePlatformFrameBeamPointing;
+using internal::utils::IntersectScanLimits;
+using internal::utils::IsValidScanLimits;
 }  // namespace model
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_COMMON_RADAR_ORIENTATION_UTILS_H_
+#endif  // AIRBORNE_RADAR_INTERNAL_UTILS_RADAR_ORIENTATION_UTILS_H_
