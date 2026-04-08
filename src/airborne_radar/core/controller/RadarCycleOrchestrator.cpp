@@ -1,0 +1,65 @@
+#include "airborne_radar/core/controller/RadarCycleOrchestrator.h"
+
+#include "1q/airborne_radar/environment/IEnvironmentService.h"
+#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
+#include "1q/airborne_radar/signal/pipeline/ISignalPipeline.h"
+#include "airborne_radar/signal/assembly/IDataOutputManager.h"
+
+namespace airborne_radar {
+namespace core {
+namespace controller {
+
+RadarCycleOrchestrator::RadarCycleOrchestrator(
+    signal::pipeline::ISignalPipeline& signal_pipeline,
+    decision::pipeline::ITacticalDecisionEngine* decision_engine,
+    decision::pipeline::TacticalStateStore* tactical_state_store,
+    environment::IEnvironmentService& environment_service,
+    signal::assembly::IDataOutputManager& output_manager)
+    : signal_pipeline_(signal_pipeline),
+      decision_engine_(decision_engine),
+      tactical_state_store_(tactical_state_store),
+      environment_service_(environment_service),
+      output_manager_(output_manager) {}
+
+void RadarCycleOrchestrator::FreezeEnvironment(
+    float cycle_dt_sec, const oneq::internal::runtime::RuntimeCycleStamp& stamp) {
+  environment::EnvironmentCycleContext environment_cycle_context;
+  environment_cycle_context.cycle_index = stamp.cycle_index;
+  environment_cycle_context.dt_sec = cycle_dt_sec;
+  environment_service_.BeginCycle(environment_cycle_context);
+}
+
+CycleExecutionResult RadarCycleOrchestrator::Execute(
+    const common::model::TargetFeatureList* target_features,
+    const common::model::PlatformAttitudeDeg& platform_attitude,
+    const common::control::RadarControlProfile& current_profile,
+    const oneq::internal::runtime::RuntimeCycleStamp& stamp) {
+  const common::model::TargetFeatureList kEmptyTargets;
+  const common::model::TargetFeatureList& features =
+      target_features != nullptr ? *target_features : kEmptyTargets;
+
+  signal_pipeline_.SetControlProfile(current_profile);
+  signal_pipeline_.UpdatePlatformAttitude(platform_attitude);
+
+  CycleExecutionResult result;
+  result.signal_result = signal_pipeline_.RunCycle(features, environment_service_);
+
+  common::model::DecisionInputFrame decision_frame = result.signal_result.decision_frame;
+  decision_frame.cycle_index = stamp.cycle_index;
+  decision_frame.batch_id = stamp.batch_id;
+
+  result.track_output_frame = output_manager_.BuildTrackOutputFrame(
+      stamp.cycle_index, stamp.batch_id, decision_frame.tracks);
+
+  if (decision_engine_ != nullptr && tactical_state_store_ != nullptr) {
+    result.decision_result =
+        decision_engine_->Evaluate(decision_frame, *tactical_state_store_);
+  }
+
+  result.signal_result.decision_frame = decision_frame;
+  return result;
+}
+
+}  // namespace controller
+}  // namespace core
+}  // namespace airborne_radar

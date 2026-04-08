@@ -67,6 +67,9 @@ set(AIRBORNE_DECISION_SOURCES
 set(AIRBORNE_CORE_SOURCES
     airborne_radar/core/context/MutableRadarContext.cpp
     airborne_radar/core/context/RadarInputValidation.cpp
+    airborne_radar/core/controller/ControlCommandMapper.cpp
+    airborne_radar/core/controller/CycleTelemetryLogger.cpp
+    airborne_radar/core/controller/RadarCycleOrchestrator.cpp
     airborne_radar/core/controller/RadarController.cpp
     airborne_radar/core/session/config/ConfigPresets.cpp
     airborne_radar/core/session/config/RadarSessionConfigBuilder.cpp
