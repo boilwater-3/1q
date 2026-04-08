@@ -70,8 +70,7 @@ struct RadarController::Impl {
         tactical_state_store(new extension::TacticalStateStore()),
         control_reducer(new decision::pipeline::ControlReducer()),
         output_manager(new signal::assembly::DataOutputManager()),
-        command_mapper(new extension::ControlCommandMapper(
-            *control_reducer, tactical_state_store.get(), ctx)) {
+        command_mapper(new extension::ControlCommandMapper(*control_reducer, ctx)) {
     decision_engine = owned_decision_engine.get();
     cycle_orchestrator.reset(new extension::RadarCycleOrchestrator(
         sig, decision_engine, tactical_state_store.get(), env, *output_manager));
@@ -89,8 +88,7 @@ struct RadarController::Impl {
         tactical_state_store(new extension::TacticalStateStore()),
         control_reducer(new decision::pipeline::ControlReducer()),
         output_manager(new signal::assembly::DataOutputManager()),
-        command_mapper(new extension::ControlCommandMapper(
-            *control_reducer, tactical_state_store.get(), ctx)),
+        command_mapper(new extension::ControlCommandMapper(*control_reducer, ctx)),
         cycle_orchestrator(new extension::RadarCycleOrchestrator(
             sig, &ext_engine, tactical_state_store.get(), env, *output_manager)) {}
 };

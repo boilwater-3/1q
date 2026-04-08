@@ -60,10 +60,8 @@ extension::control::RadarCommand ToRadarCommand(
 
 ControlCommandMapper::ControlCommandMapper(
     decision::pipeline::ControlReducer& control_reducer,
-    extension::TacticalStateStore* tactical_state_store,
     extension::IRadarContext& radar_context)
     : control_reducer_(control_reducer),
-      tactical_state_store_(tactical_state_store),
       radar_context_(radar_context) {}
 
 extension::ControlReductionResult ControlCommandMapper::Apply(
@@ -71,15 +69,6 @@ extension::ControlReductionResult ControlCommandMapper::Apply(
     const std::vector<extension::TacticalProposal>& proposals) {
   const extension::ControlReductionResult reduction_result =
       control_reducer_.Reduce(*current_profile, proposals);
-
-  if (tactical_state_store_ != nullptr) {
-    const decision::pipeline::ControlReducerRuntimeState reducer_state =
-        control_reducer_.GetRuntimeState();
-    tactical_state_store_->lpi_hold_cycles_remaining =
-        reducer_state.lpi_hold_cycles_remaining;
-    tactical_state_store_->eccm_hold_cycles_remaining =
-        reducer_state.eccm_hold_cycles_remaining;
-  }
 
   *current_profile = reduction_result.profile;
   radar_context_.UpdateRadarControlProfile(*current_profile);

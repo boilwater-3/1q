@@ -24,25 +24,22 @@ namespace extension {
 /**
  * @brief 负责将战术 proposal 归并为控制真值并提交命令。
  *
- * 封装三个内聚职责：
+ * 封装两个内聚职责：
  *   1. 调用 ControlReducer 归并 proposals -> profile；
- *   2. 将 reducer 运行态镜像回 TacticalStateStore；
- *   3. 将被采纳的 directives 转换为 RadarCommand 并提交到 IRadarContext。
+ *   2. 将被采纳的 directives 转换为 RadarCommand 并提交到 IRadarContext。
  */
 class ControlCommandMapper {
  public:
   /**
    * @brief 构造 mapper，所有依赖均为外部生命周期管理。
    * @param control_reducer  控制归并器引用。
-   * @param tactical_state_store 跨周期战术内存指针（可为 nullptr）。
    * @param radar_context    雷达上下文，用于提交命令和更新 profile。
    */
   ControlCommandMapper(decision::pipeline::ControlReducer& control_reducer,
-                       extension::TacticalStateStore* tactical_state_store,
                        extension::IRadarContext& radar_context);
 
   /**
-   * @brief 执行归并、状态镜像和命令提交。
+   * @brief 执行归并和命令提交。
    *
    * 调用后 *current_profile 更新为归并结果，IRadarContext 已收到新 profile 和所有命令。
    *
@@ -56,7 +53,6 @@ class ControlCommandMapper {
 
  private:
   decision::pipeline::ControlReducer& control_reducer_;
-  extension::TacticalStateStore* tactical_state_store_{nullptr};
   extension::IRadarContext& radar_context_;
 };
 

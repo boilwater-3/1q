@@ -450,7 +450,6 @@ TEST(TacticalCoordinatorTest, LpiProposalStopsWithoutFreshThreatEvidence) {
   EXPECT_EQ(trigger_result.selected_mode, extension::TacticalMode::kThreatResponse);
   EXPECT_TRUE(ContainsDirectiveType(
       trigger_result.proposals, extension::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION));
-  EXPECT_EQ(state_store.lpi_hold_cycles_remaining, 0u);
 
   model::DecisionInputFrame next_frame;
   next_frame.cycle_index = 2u;
@@ -460,7 +459,6 @@ TEST(TacticalCoordinatorTest, LpiProposalStopsWithoutFreshThreatEvidence) {
   EXPECT_EQ(next_result.selected_mode, extension::TacticalMode::kBaseline);
   EXPECT_FALSE(ContainsDirectiveType(
       next_result.proposals, extension::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION));
-  EXPECT_EQ(state_store.lpi_hold_cycles_remaining, 0u);
 }
 
 TEST(TacticalCoordinatorTest, EccmProposalStopsWithoutFreshJammingEvidence) {
@@ -476,7 +474,6 @@ TEST(TacticalCoordinatorTest, EccmProposalStopsWithoutFreshJammingEvidence) {
   const extension::TacticalDecisionResult trigger_result =
       coordinator.Evaluate(trigger_frame, state_store);
   EXPECT_EQ(trigger_result.selected_mode, extension::TacticalMode::kProtectedEmission);
-  EXPECT_EQ(state_store.eccm_hold_cycles_remaining, 0u);
 
   model::DecisionInputFrame next_frame;
   next_frame.cycle_index = 2u;
@@ -484,7 +481,6 @@ TEST(TacticalCoordinatorTest, EccmProposalStopsWithoutFreshJammingEvidence) {
   const extension::TacticalDecisionResult next_result =
       coordinator.Evaluate(next_frame, state_store);
   EXPECT_EQ(next_result.selected_mode, extension::TacticalMode::kBaseline);
-  EXPECT_EQ(state_store.eccm_hold_cycles_remaining, 0u);
 }
 
 TEST(TacticalCoordinatorTest, ControlHoldIsOwnedByReducerAfterProposalStops) {

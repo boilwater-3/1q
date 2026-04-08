@@ -31,13 +31,14 @@ enum class TacticalMode {
 
 /**
  * @brief TacticalStateStore 表示跨周期战术内存。
+ *
+ * 该结构仅承载决策引擎自身需要跨周期保留的战术语义状态。
+ * ControlReducer 的 hold/cooldown 等内部运行态不属于此契约的一部分。
  */
 struct TacticalStateStore {
   TacticalMode current_mode{TacticalMode::kBaseline};         /**< 当前战术模式 */
   std::unordered_map<std::uint64_t, float> threat_memory;     /**< 每轨威胁记忆 */
   std::unordered_map<std::uint64_t, float> confidence_memory; /**< 每轨置信度记忆 */
-  std::uint32_t lpi_hold_cycles_remaining{0};  /**< LPI 保持计数（由 ControlReducer 运行态镜像） */
-  std::uint32_t eccm_hold_cycles_remaining{0}; /**< ECCM 保持计数（由 ControlReducer 运行态镜像） */
   std::vector<std::string> last_classification_labels; /**< 上一周期分类标签摘要 */
   std::string last_decision_summary;                   /**< 上一周期决策摘要 */
 };
