@@ -229,7 +229,34 @@ class AbortingSignalPipeline : public extension::ISignalPipeline {
     return {};
   }
 
+  extension::SignalPipelineRuntimeState CaptureRuntimeState() const override {
+    std::shared_ptr<RuntimeState> state(new RuntimeState());
+    state->platform_attitude_deg = platform_attitude_deg_;
+    state->control_profile = control_profile_;
+    state->config = config_;
+    extension::SignalPipelineRuntimeState runtime_state;
+    runtime_state.opaque = state;
+    return runtime_state;
+  }
+
+  void RestoreRuntimeState(const extension::SignalPipelineRuntimeState& state) override {
+    const std::shared_ptr<RuntimeState> snapshot =
+        std::static_pointer_cast<RuntimeState>(state.opaque);
+    if (snapshot == nullptr) {
+      return;
+    }
+    platform_attitude_deg_ = snapshot->platform_attitude_deg;
+    control_profile_ = snapshot->control_profile;
+    config_ = snapshot->config;
+  }
+
  private:
+  struct RuntimeState {
+    model::PlatformAttitudeDeg platform_attitude_deg{};
+    extension::control::RadarControlProfile control_profile{};
+    config::SignalPipelineConfig config{};
+  };
+
   model::PlatformAttitudeDeg platform_attitude_deg_{};
   extension::control::RadarControlProfile control_profile_{};
   config::SignalPipelineConfig config_{};

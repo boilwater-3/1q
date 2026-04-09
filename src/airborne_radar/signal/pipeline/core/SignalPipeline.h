@@ -54,6 +54,10 @@ class SignalPipeline final : public extension::ISignalPipeline {
    */
   extension::AssociationQualityMetrics GetLastAssociationQualityMetrics() const override;
 
+  extension::SignalPipelineRuntimeState CaptureRuntimeState() const override;
+
+  void RestoreRuntimeState(const extension::SignalPipelineRuntimeState& state) override;
+
   /**
    * @brief 进入 manual association seed override 模式。
    * @param seeds 由调用方显式注入的轨迹种子；空输入或非法输入会清除 override 并恢复

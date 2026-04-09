@@ -385,6 +385,41 @@ void DataAssociationEngine::ResetAssociationSeedModeToStateless() {
   association_seed_mode_ = AssociationSeedMode::kStateless;
 }
 
+DataAssociationRuntimeState DataAssociationEngine::CaptureRuntimeState() const {
+  DataAssociationRuntimeState state;
+  state.next_key = next_key_;
+  state.using_external_seeds = association_seed_mode_ == AssociationSeedMode::kExternalSeeds;
+  state.external_seeds.reserve(external_seed_tracks_.size());
+  for (std::size_t i = 0; i < external_seed_tracks_.size(); ++i) {
+    const ExternalSeedTrackSignature& signature = external_seed_tracks_[i];
+    tracking::AssociationTrackSeed seed;
+    seed.association_key = signature.key;
+    seed.has_position = signature.has_position;
+    seed.position = signature.position;
+    seed.has_gaussian_state = signature.has_gaussian_state;
+    seed.gaussian_state = signature.gaussian_state;
+    state.external_seeds.push_back(seed);
+  }
+  return state;
+}
+
+void DataAssociationEngine::RestoreRuntimeState(const DataAssociationRuntimeState& state) {
+  next_key_ = state.next_key;
+  external_seed_tracks_.clear();
+  external_seed_tracks_.reserve(state.external_seeds.size());
+  for (std::size_t i = 0; i < state.external_seeds.size(); ++i) {
+    const tracking::AssociationTrackSeed& seed = state.external_seeds[i];
+    ExternalSeedTrackSignature signature(seed.association_key);
+    signature.has_position = seed.has_position;
+    signature.position = seed.position;
+    signature.has_gaussian_state = seed.has_gaussian_state;
+    signature.gaussian_state = seed.gaussian_state;
+    external_seed_tracks_.push_back(signature);
+  }
+  association_seed_mode_ =
+      state.using_external_seeds ? AssociationSeedMode::kExternalSeeds : AssociationSeedMode::kStateless;
+}
+
 bool DataAssociationEngine::UsingExternalSeeds() const {
   return association_seed_mode_ == AssociationSeedMode::kExternalSeeds;
 }

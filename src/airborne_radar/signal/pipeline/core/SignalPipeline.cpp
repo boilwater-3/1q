@@ -65,6 +65,16 @@ struct AssociationSeedState {
   bool has_manual_association_seeds{false};
 };
 
+struct SignalPipelineSnapshot {
+  SignalPipelineConfig base_config{};
+  extension::control::RadarControlProfile control_profile{};
+  AssociationSeedState association_seeds{};
+  internal::CycleExecutionScratch scratch{};
+  std::uint32_t cycle_index{1U};
+  std::uint64_t batch_id{1U};
+  association::DataAssociationRuntimeState association_runtime{};
+};
+
 struct RuntimeState {
   explicit RuntimeState(SignalPipelineConfig initial_config)
       : config(std::move(initial_config)), owned(config) {}
@@ -144,6 +154,40 @@ struct SignalPipeline::Impl {
 
   extension::AssociationQualityMetrics GetLastAssociationQualityMetrics() const {
     return cycle_.scratch.association_quality_metrics;
+  }
+
+  extension::SignalPipelineRuntimeState CaptureRuntimeState() const {
+    std::shared_ptr<SignalPipelineSnapshot> snapshot(new SignalPipelineSnapshot());
+    snapshot->base_config = runtime_.config.base_config;
+    snapshot->control_profile = runtime_.config.control_profile_;
+    snapshot->association_seeds = runtime_.association_seeds;
+    snapshot->scratch = cycle_.scratch;
+    snapshot->cycle_index = cycle_.cycle_index;
+    snapshot->batch_id = cycle_.batch_id;
+    snapshot->association_runtime = runtime_.owned.association_engine.CaptureRuntimeState();
+
+    extension::SignalPipelineRuntimeState state;
+    state.opaque = snapshot;
+    return state;
+  }
+
+  void RestoreRuntimeState(const extension::SignalPipelineRuntimeState& state) {
+    const std::shared_ptr<SignalPipelineSnapshot> snapshot =
+        std::static_pointer_cast<SignalPipelineSnapshot>(state.opaque);
+    if (snapshot == nullptr) {
+      return;
+    }
+
+    runtime_.config.base_config = snapshot->base_config;
+    runtime_.config.base_internal_config =
+        internal::BuildInternalSignalPipelineConfig(runtime_.config.base_config);
+    runtime_.config.control_profile_ = snapshot->control_profile;
+    RebuildOwnedComponents();
+    runtime_.association_seeds = snapshot->association_seeds;
+    runtime_.owned.association_engine.RestoreRuntimeState(snapshot->association_runtime);
+    cycle_.scratch = snapshot->scratch;
+    cycle_.cycle_index = snapshot->cycle_index;
+    cycle_.batch_id = snapshot->batch_id;
   }
 
   void SetAssociationSeeds(const std::vector<tracking::AssociationTrackSeed>& seeds) {
@@ -230,6 +274,14 @@ std::vector<tracking::TrackMeasurement> SignalPipeline::GetLastTrackMeasurements
 
 extension::AssociationQualityMetrics SignalPipeline::GetLastAssociationQualityMetrics() const {
   return impl_->GetLastAssociationQualityMetrics();
+}
+
+extension::SignalPipelineRuntimeState SignalPipeline::CaptureRuntimeState() const {
+  return impl_->CaptureRuntimeState();
+}
+
+void SignalPipeline::RestoreRuntimeState(const extension::SignalPipelineRuntimeState& state) {
+  impl_->RestoreRuntimeState(state);
 }
 
 void SignalPipeline::SetAssociationSeeds(const std::vector<tracking::AssociationTrackSeed>& seeds) {

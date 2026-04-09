@@ -6,6 +6,8 @@
 #ifndef AIRBORNE_RADAR_SIGNAL_PIPELINE_I_SIGNAL_PIPELINE_H_
 #define AIRBORNE_RADAR_SIGNAL_PIPELINE_I_SIGNAL_PIPELINE_H_
 
+#include <memory>
+
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/config/SignalPipelineConfig.h"
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
@@ -15,6 +17,10 @@
 namespace airborne_radar {
 namespace extension {
 class IEnvironmentService;
+
+struct SignalPipelineRuntimeState {
+  std::shared_ptr<void> opaque{}; /**< 由具体 pipeline 实现解释的运行态快照 */
+};
 
 /**
  * @brief ISignalPipeline 定义单周期内的探测与跟踪处理流程。
@@ -69,6 +75,18 @@ class ONEQ_API ISignalPipeline {
    * @return 上一周期缓存的关联质量指标。
    */
   virtual AssociationQualityMetrics GetLastAssociationQualityMetrics() const = 0;
+
+  /**
+   * @brief 捕获当前 pipeline 运行态快照。
+   * @return 可用于失败回滚的 pipeline 运行态快照。
+   */
+  virtual SignalPipelineRuntimeState CaptureRuntimeState() const = 0;
+
+  /**
+   * @brief 恢复此前捕获的 pipeline 运行态快照。
+   * @param state 待恢复的 pipeline 运行态快照。
+   */
+  virtual void RestoreRuntimeState(const SignalPipelineRuntimeState& state) = 0;
 };
 
 }  // namespace extension

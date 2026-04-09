@@ -73,6 +73,15 @@ struct RadarSession::Impl {
     return result;
   }
 
+  RadarCycleResult BuildExecutionAbortResult() const {
+    RadarCycleResult result;
+    if (controller.HasLatestTrackOutputFrame()) {
+      result.track_output_frame = controller.GetLatestTrackOutputFrame();
+      result.reused_previous_track_output = true;
+    }
+    return result;
+  }
+
   void CommitPendingRuntimeConfig() {
     if (!has_pending_runtime_update) {
       return;
@@ -93,10 +102,11 @@ struct RadarSession::Impl {
   }
 
   void RollbackFailedCycle(const extension::RadarContextRuntimeState& radar_context_state,
-                           const extension::EnvironmentServiceRuntimeState& environment_state) {
+                           const extension::EnvironmentServiceRuntimeState& environment_state,
+                           const extension::RadarControllerRuntimeState& controller_state) {
     radar_context.RestoreRuntimeState(radar_context_state);
     environment_service.RestoreRuntimeState(environment_state);
-    signal_pipeline.UpdateConfig(runtime_state.signal_pipeline_config);
+    controller.RestoreRuntimeState(controller_state);
   }
 
   internal::RuntimeConfigState runtime_state{};
@@ -162,12 +172,14 @@ RadarCycleResult RadarSession::StepWithResult(const RadarCycleInput& input) {
       impl_->radar_context.CaptureRuntimeState();
   const extension::EnvironmentServiceRuntimeState environment_state =
       impl_->environment_service.CaptureRuntimeState();
+  const extension::RadarControllerRuntimeState controller_state =
+      impl_->controller.CaptureRuntimeState();
   impl_->CommitPendingRuntimeConfig();
   impl_->radar_context.BeginCycle(input);
   impl_->controller.RunOnce();
   if (!impl_->controller.ExecutedLatestCycle()) {
-    impl_->RollbackFailedCycle(radar_context_state, environment_state);
-    return impl_->BuildCycleResult();
+    impl_->RollbackFailedCycle(radar_context_state, environment_state, controller_state);
+    return impl_->BuildExecutionAbortResult();
   }
   impl_->FinalizePendingRuntimeConfig();
   return impl_->BuildCycleResult();
@@ -184,13 +196,15 @@ RadarCycleResult RadarSession::StepWithResult(
       impl_->radar_context.CaptureRuntimeState();
   const extension::EnvironmentServiceRuntimeState environment_state =
       impl_->environment_service.CaptureRuntimeState();
+  const extension::RadarControllerRuntimeState controller_state =
+      impl_->controller.CaptureRuntimeState();
   impl_->CommitPendingRuntimeConfig();
   impl_->environment_service.UpdateSceneState(scene_state);
   impl_->radar_context.BeginCycle(input);
   impl_->controller.RunOnce();
   if (!impl_->controller.ExecutedLatestCycle()) {
-    impl_->RollbackFailedCycle(radar_context_state, environment_state);
-    return impl_->BuildCycleResult();
+    impl_->RollbackFailedCycle(radar_context_state, environment_state, controller_state);
+    return impl_->BuildExecutionAbortResult();
   }
   impl_->FinalizePendingRuntimeConfig();
   return impl_->BuildCycleResult();

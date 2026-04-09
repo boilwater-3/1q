@@ -73,6 +73,12 @@ struct AssociationResult {
       false}; /**< 本周期是否使用了外部注入的轨迹种子作为关联先验。 */
   AssociationQualityMetrics quality_metrics; /**< 本周期关联质量观测指标。 */
 };
+
+struct DataAssociationRuntimeState {
+  std::uint64_t next_key{1U};
+  bool using_external_seeds{false};
+  std::vector<tracking::AssociationTrackSeed> external_seeds{};
+};
 /**
  * @brief 数据关联引擎。
  * @details 仅消费外部注入的 Lifecycle 轨迹种子作为关联先验；无外部 seeds 时按无先验模式执行。
@@ -143,6 +149,10 @@ class DataAssociationEngine {
    * @details 用于收敛 external seeds 单一入口，清理旁路注入的临时外部 seeds。
    */
   void ResetAssociationSeedModeToStateless();
+
+  DataAssociationRuntimeState CaptureRuntimeState() const;
+
+  void RestoreRuntimeState(const DataAssociationRuntimeState& state);
 
  private:
   enum class AssociationSeedMode {

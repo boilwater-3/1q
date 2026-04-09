@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <memory>
 
+#include "1q/airborne_radar/extension/ISignalPipeline.h"
 #include "1q/airborne_radar/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/session/RadarInputValidation.h"
 #include "1q/airborne_radar/extension/IRadarOutputReader.h"
@@ -20,7 +21,17 @@ namespace extension {
 class IRadarContext;
 class ITacticalDecisionEngine;
 class IEnvironmentService;
-class ISignalPipeline;
+
+struct RadarControllerRuntimeState {
+  output::TrackOutputFrame latest_output{};
+  bool has_latest_output{false};
+  session::ValidationIssueList last_validation_issues{};
+  std::uint64_t next_batch_id{1U};
+  std::uint32_t cycle_index{1U};
+  bool last_cycle_executed{false};
+  bool last_cycle_reused_previous_output{false};
+  SignalPipelineRuntimeState signal_pipeline_state{};
+};
 }  // namespace extension
 }  // namespace airborne_radar
 
@@ -108,6 +119,18 @@ class ONEQ_API RadarController : public IRadarOutputReader {
    * @return 若最近一次周期未完成执行且复用了上一有效输出则返回 true。
    */
   bool ReusedPreviousTrackOutputLatestCycle() const;
+
+  /**
+   * @brief 捕获当前控制器运行态快照。
+   * @return 可用于失败回滚的控制器运行态快照。
+   */
+  RadarControllerRuntimeState CaptureRuntimeState() const;
+
+  /**
+   * @brief 恢复此前捕获的控制器运行态快照。
+   * @param state 待恢复的控制器运行态快照。
+   */
+  void RestoreRuntimeState(const RadarControllerRuntimeState& state);
 
   /**
    * @brief 获取当前控制器绑定的上下文实例。

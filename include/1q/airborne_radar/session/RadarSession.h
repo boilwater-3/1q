@@ -126,8 +126,9 @@ class ONEQ_API RadarSession {
    * @brief 应用运行期可变配置补丁。
    * @param[in] patch 运行期可变配置补丁。
    * @note 该接口作为运行期可调参数的统一入口；未设置的字段保持现值不变。
-   *       补丁会先进入 session 内部暂存区，并在下一次成功通过输入校验的
-   *       `Step()/StepWithResult()` 调用前统一提交。
+   *       补丁会先进入 session 内部暂存区，并在下一次成功执行主链路的
+   *       `Step()/StepWithResult()` 调用中最终提交；若本次调用在下游执行阶段失败，
+   *       补丁仍保持 staged 状态。
    */
   void ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch);
 

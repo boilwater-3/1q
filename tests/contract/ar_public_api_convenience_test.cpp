@@ -279,12 +279,48 @@ class RecordingSignalPipeline : public extension::ISignalPipeline {
     return {};
   }
 
+  extension::SignalPipelineRuntimeState CaptureRuntimeState() const override {
+    std::shared_ptr<RuntimeState> state(new RuntimeState());
+    state->platform_attitude_deg = platform_attitude_deg_;
+    state->control_profile = control_profile_;
+    state->config = config_;
+    state->should_execute = should_execute_;
+    state->run_cycle_count = run_cycle_count_;
+    state->update_config_count = update_config_count_;
+    extension::SignalPipelineRuntimeState runtime_state;
+    runtime_state.opaque = state;
+    return runtime_state;
+  }
+
+  void RestoreRuntimeState(const extension::SignalPipelineRuntimeState& state) override {
+    const std::shared_ptr<RuntimeState> snapshot =
+        std::static_pointer_cast<RuntimeState>(state.opaque);
+    if (snapshot == nullptr) {
+      return;
+    }
+    platform_attitude_deg_ = snapshot->platform_attitude_deg;
+    control_profile_ = snapshot->control_profile;
+    config_ = snapshot->config;
+    should_execute_ = snapshot->should_execute;
+    run_cycle_count_ = snapshot->run_cycle_count;
+    update_config_count_ = snapshot->update_config_count;
+  }
+
   void SetShouldExecute(bool should_execute) { should_execute_ = should_execute; }
   std::size_t run_cycle_count() const { return run_cycle_count_; }
   std::size_t update_config_count() const { return update_config_count_; }
   const config::SignalPipelineConfig& config() const { return config_; }
 
  private:
+  struct RuntimeState {
+    model::PlatformAttitudeDeg platform_attitude_deg{};
+    extension::control::RadarControlProfile control_profile{};
+    config::SignalPipelineConfig config{};
+    bool should_execute{true};
+    std::size_t run_cycle_count{0U};
+    std::size_t update_config_count{0U};
+  };
+
   model::PlatformAttitudeDeg platform_attitude_deg_{};
   extension::control::RadarControlProfile control_profile_{};
   config::SignalPipelineConfig config_{};
@@ -1013,6 +1049,8 @@ TEST(PublicApiConvenienceTest,
             model::RadarWorkSubMode::kTas);
   EXPECT_FLOAT_EQ(environment_service.jamming_detection_threshold_db(), 4.2f);
   EXPECT_EQ(environment_service.GetPendingSceneState().jammer_emitters.size(), 1U);
+  EXPECT_EQ(committed.track_output_frame.cycle_index, baseline.track_output_frame.cycle_index + 1U);
+  EXPECT_EQ(committed.track_output_frame.batch_id, baseline.track_output_frame.batch_id + 1U);
 }
 
 TEST(PublicApiConvenienceTest, RadarSessionStepWithResultSurfacesValidationErrors) {

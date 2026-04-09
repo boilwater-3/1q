@@ -246,6 +246,30 @@ bool RadarController::ReusedPreviousTrackOutputLatestCycle() const {
   return impl_->last_cycle_reused_previous_output;
 }
 
+extension::RadarControllerRuntimeState RadarController::CaptureRuntimeState() const {
+  extension::RadarControllerRuntimeState state;
+  state.latest_output = impl_->runtime_state.latest_output;
+  state.has_latest_output = impl_->runtime_state.has_latest_output;
+  state.last_validation_issues = impl_->runtime_state.last_validation_issues;
+  state.next_batch_id = impl_->runtime_state.next_batch_id;
+  state.cycle_index = impl_->cycle_index;
+  state.last_cycle_executed = impl_->last_cycle_executed;
+  state.last_cycle_reused_previous_output = impl_->last_cycle_reused_previous_output;
+  state.signal_pipeline_state = impl_->signal_pipeline.CaptureRuntimeState();
+  return state;
+}
+
+void RadarController::RestoreRuntimeState(const extension::RadarControllerRuntimeState& state) {
+  impl_->runtime_state.latest_output = state.latest_output;
+  impl_->runtime_state.has_latest_output = state.has_latest_output;
+  impl_->runtime_state.last_validation_issues = state.last_validation_issues;
+  impl_->runtime_state.next_batch_id = state.next_batch_id;
+  impl_->cycle_index = state.cycle_index;
+  impl_->last_cycle_executed = state.last_cycle_executed;
+  impl_->last_cycle_reused_previous_output = state.last_cycle_reused_previous_output;
+  impl_->signal_pipeline.RestoreRuntimeState(state.signal_pipeline_state);
+}
+
 extension::IRadarContext& RadarController::GetRadarContext() { return impl_->radar_context; }
 
 extension::ISignalPipeline& RadarController::GetSignalPipeline() {
