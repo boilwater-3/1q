@@ -1,7 +1,5 @@
 #include "1q/electronic_surveillance_radar/common/EsrCoordinateUtils.h"
 
-#include <Eigen/Core>
-
 #include "common/geometry/GeometryTransform.h"
 
 namespace electronic_surveillance_radar {
@@ -19,16 +17,18 @@ oneq::internal::geometry::EulerAnglesDeg ToGeometryEuler(const EsrEulerAngleDeg&
 
 EsrVector3f ConvertEnuToEsrLocal(const oneq::common::EnuCoordinateM& enu,
                                  const EsrEulerAngleDeg& frame_attitude_deg) {
-  const Eigen::Vector3f enu_vector(static_cast<float>(enu.x_m), static_cast<float>(enu.y_m),
-                                   static_cast<float>(enu.z_m));
-  const Eigen::Matrix3f rotation =
-      oneq::internal::geometry::BuildRotationMatrix(ToGeometryEuler(frame_attitude_deg));
-  const Eigen::Vector3f local_vector = rotation.transpose() * enu_vector;
+  oneq::internal::geometry::Vector3f enu_vector;
+  enu_vector.x = static_cast<float>(enu.x_m);
+  enu_vector.y = static_cast<float>(enu.y_m);
+  enu_vector.z = static_cast<float>(enu.z_m);
+  const oneq::internal::geometry::Vector3f local_vector =
+      oneq::internal::geometry::RotateVectorToLocalFrame(enu_vector,
+                                                         ToGeometryEuler(frame_attitude_deg));
 
   EsrVector3f local;
-  local.x = local_vector.x();
-  local.y = local_vector.y();
-  local.z = local_vector.z();
+  local.x = local_vector.x;
+  local.y = local_vector.y;
+  local.z = local_vector.z;
   return local;
 }
 

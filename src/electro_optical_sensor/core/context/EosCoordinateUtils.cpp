@@ -2,8 +2,6 @@
 
 #include <cmath>
 
-#include <Eigen/Core>
-
 #include "common/geometry/GeometryTransform.h"
 #include "electro_optical_sensor/foundation/EosPhysicalConstants.h"
 
@@ -30,18 +28,21 @@ oneq::internal::geometry::EulerAnglesDeg ToGeometryEuler(
   return geometry_euler;
 }
 
-oneq::common::Vector3f ConvertEnuToEosLocal(const oneq::common::EnuCoordinateM& enu,
-                                            const oneq::common::EulerAnglesDeg& frame_attitude_deg) {
-  const Eigen::Vector3f enu_vector(static_cast<float>(enu.x_m), static_cast<float>(enu.y_m),
-                                   static_cast<float>(enu.z_m));
-  const Eigen::Matrix3f rotation =
-      oneq::internal::geometry::BuildRotationMatrix(ToGeometryEuler(frame_attitude_deg));
-  const Eigen::Vector3f local_vector = rotation.transpose() * enu_vector;
+oneq::common::Vector3f ConvertEnuToEosLocal(
+    const oneq::common::EnuCoordinateM& enu,
+    const oneq::common::EulerAnglesDeg& frame_attitude_deg) {
+  oneq::internal::geometry::Vector3f enu_vector;
+  enu_vector.x = static_cast<float>(enu.x_m);
+  enu_vector.y = static_cast<float>(enu.y_m);
+  enu_vector.z = static_cast<float>(enu.z_m);
+  const oneq::internal::geometry::Vector3f local_vector =
+      oneq::internal::geometry::RotateVectorToLocalFrame(enu_vector,
+                                                         ToGeometryEuler(frame_attitude_deg));
 
   oneq::common::Vector3f local;
-  local.x = local_vector.x();
-  local.y = local_vector.y();
-  local.z = local_vector.z();
+  local.x = local_vector.x;
+  local.y = local_vector.y;
+  local.z = local_vector.z;
   return local;
 }
 
@@ -51,26 +52,31 @@ bool ResolveTargetLookAngles(const oneq::common::Vector3f& relative_local,
   if (azimuth_deg == nullptr || elevation_deg == nullptr) {
     return false;
   }
-  const Eigen::Vector3f relative_vector(relative_local.x, relative_local.y, relative_local.z);
-  const float range_m = relative_vector.norm();
+  const float range_m =
+      std::sqrt(relative_local.x * relative_local.x + relative_local.y * relative_local.y +
+                relative_local.z * relative_local.z);
   if (range_m <= kNormFloor) {
     return false;
   }
 
-  const Eigen::Matrix3f platform_rotation =
-      oneq::internal::geometry::BuildRotationMatrix(ToGeometryEuler(platform_attitude_deg));
-  const Eigen::Vector3f platform_frame_vector = platform_rotation.transpose() * relative_vector;
-  const float horizontal_norm =
-      std::sqrt(platform_frame_vector.x() * platform_frame_vector.x() +
-                platform_frame_vector.y() * platform_frame_vector.y());
-  *azimuth_deg = std::atan2(platform_frame_vector.y(), platform_frame_vector.x()) * 180.0f /
+  oneq::internal::geometry::Vector3f relative_vector;
+  relative_vector.x = relative_local.x;
+  relative_vector.y = relative_local.y;
+  relative_vector.z = relative_local.z;
+  const oneq::internal::geometry::Vector3f platform_frame_vector =
+      oneq::internal::geometry::RotateVectorToLocalFrame(relative_vector,
+                                                         ToGeometryEuler(platform_attitude_deg));
+  const float horizontal_norm = std::sqrt(platform_frame_vector.x * platform_frame_vector.x +
+                                          platform_frame_vector.y * platform_frame_vector.y);
+  *azimuth_deg = std::atan2(platform_frame_vector.y, platform_frame_vector.x) * 180.0f /
                  foundation::constants::kPi;
-  *elevation_deg = std::atan2(platform_frame_vector.z(), horizontal_norm) * 180.0f /
-                   foundation::constants::kPi;
+  *elevation_deg =
+      std::atan2(platform_frame_vector.z, horizontal_norm) * 180.0f / foundation::constants::kPi;
   return true;
 }
 
-bool FillTargetFromLocalPosition(std::uint64_t target_id, const oneq::common::Vector3f& target_local,
+bool FillTargetFromLocalPosition(std::uint64_t target_id,
+                                 const oneq::common::Vector3f& target_local,
                                  const oneq::common::PoseState& platform_pose,
                                  const EosTargetAppearance& appearance, EosTargetState* target,
                                  EosCoordinateStatus* status) {
@@ -83,9 +89,9 @@ bool FillTargetFromLocalPosition(std::uint64_t target_id, const oneq::common::Ve
   relative_local.x = target_local.x - platform_pose.position_m.x;
   relative_local.y = target_local.y - platform_pose.position_m.y;
   relative_local.z = target_local.z - platform_pose.position_m.z;
-  const float range_m = std::sqrt(relative_local.x * relative_local.x +
-                                  relative_local.y * relative_local.y +
-                                  relative_local.z * relative_local.z);
+  const float range_m =
+      std::sqrt(relative_local.x * relative_local.x + relative_local.y * relative_local.y +
+                relative_local.z * relative_local.z);
   if (range_m <= kNormFloor) {
     SetStatus(EosCoordinateStatus::kDegenerateGeometry, status);
     return false;

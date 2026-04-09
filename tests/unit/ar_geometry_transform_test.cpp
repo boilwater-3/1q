@@ -26,6 +26,21 @@ TEST(GeometryTransformTest, BuildRotationMatrixRotatesBodyXAxisByYaw) {
   EXPECT_NEAR(rotated.z(), 0.0f, 1.0e-5f);
 }
 
+TEST(GeometryTransformTest, RotateVectorToLocalFrameUsesInverseFrameRotation) {
+  Vector3f world_vector;
+  world_vector.x = 0.0f;
+  world_vector.y = 10.0f;
+  world_vector.z = 0.0f;
+  EulerAnglesDeg local_attitude_deg;
+  local_attitude_deg.yaw_deg = 90.0f;
+
+  const Vector3f local_vector = RotateVectorToLocalFrame(world_vector, local_attitude_deg);
+
+  EXPECT_NEAR(local_vector.x, 10.0f, 1.0e-5f);
+  EXPECT_NEAR(local_vector.y, 0.0f, 1.0e-5f);
+  EXPECT_NEAR(local_vector.z, 0.0f, 1.0e-5f);
+}
+
 TEST(GeometryTransformTest, AzimuthElevationRoundTripPreservesAngles) {
   AzimuthElevationDeg input;
   input.az_deg = 35.0f;

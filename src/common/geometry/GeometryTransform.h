@@ -96,6 +96,15 @@ AzimuthElevationDeg UnitVectorToAzimuthElevation(const Eigen::Vector3f& vector);
 Eigen::Matrix3f BuildRotationMatrix(const EulerAnglesDeg& euler_deg);
 
 /**
+ * @brief 将稳定参考系下的向量旋转到局部坐标系。
+ * @param[in] world_vector 稳定参考系向量。
+ * @param[in] local_attitude_deg 局部坐标相对稳定参考系的姿态角。
+ * @return 局部坐标系下的向量。
+ */
+Vector3f RotateVectorToLocalFrame(const Vector3f& world_vector,
+                                  const EulerAnglesDeg& local_attitude_deg);
+
+/**
  * @brief 计算目标相对观测平台在观测机体系下的方位/俯仰角。
  * @param[in] observer_position_m 观测平台位置（单位：m）。
  * @param[in] observer_attitude_deg 观测平台姿态角（单位：deg）。

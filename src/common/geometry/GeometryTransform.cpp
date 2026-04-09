@@ -113,6 +113,19 @@ Eigen::Matrix3f BuildRotationMatrix(const EulerAnglesDeg& euler_deg) {
   return rotation;
 }
 
+Vector3f RotateVectorToLocalFrame(const Vector3f& world_vector,
+                                  const EulerAnglesDeg& local_attitude_deg) {
+  const Eigen::Matrix3f rotation = BuildRotationMatrix(local_attitude_deg);
+  const Eigen::Vector3f input_vector(world_vector.x, world_vector.y, world_vector.z);
+  const Eigen::Vector3f local_vector = rotation.transpose() * input_vector;
+
+  Vector3f rotated;
+  rotated.x = local_vector.x();
+  rotated.y = local_vector.y();
+  rotated.z = local_vector.z();
+  return rotated;
+}
+
 AzimuthElevationDeg ComputeRelativeLineOfSightAzEl(const Vector3f& observer_position_m,
                                                    const EulerAnglesDeg& observer_attitude_deg,
                                                    const Vector3f& target_position_m) {
@@ -125,9 +138,14 @@ AzimuthElevationDeg ComputeRelativeLineOfSightAzEl(const Vector3f& observer_posi
   }
   line_of_sight_world /= norm;
 
-  const Eigen::Matrix3f observer_rotation = BuildRotationMatrix(observer_attitude_deg);
-  const Eigen::Vector3f observer_frame_vector = observer_rotation.transpose() * line_of_sight_world;
-  return UnitVectorToAzimuthElevation(observer_frame_vector);
+  Vector3f normalized_world_vector;
+  normalized_world_vector.x = line_of_sight_world.x();
+  normalized_world_vector.y = line_of_sight_world.y();
+  normalized_world_vector.z = line_of_sight_world.z();
+  const Vector3f observer_frame_vector =
+      RotateVectorToLocalFrame(normalized_world_vector, observer_attitude_deg);
+  return UnitVectorToAzimuthElevation(
+      Eigen::Vector3f(observer_frame_vector.x, observer_frame_vector.y, observer_frame_vector.z));
 }
 
 AzimuthElevationDeg ResolveStabilizedMountFramePointing(

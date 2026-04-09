@@ -2,8 +2,6 @@
 
 #include <cmath>
 
-#include <Eigen/Core>
-
 #include "common/geometry/GeometryTransform.h"
 
 namespace airborne_radar {
@@ -37,17 +35,17 @@ oneq::internal::geometry::EulerAnglesDeg ToGeometryEuler(
  */
 oneq::common::Vector3f ConvertEnuToRadarLocal(const oneq::common::EnuCoordinateM& enu_position,
                                               const oneq::common::EulerAnglesDeg& attitude_deg) {
-  const Eigen::Vector3f enu_vector(static_cast<float>(enu_position.x_m),
-                                   static_cast<float>(enu_position.y_m),
-                                   static_cast<float>(enu_position.z_m));
-  const Eigen::Matrix3f rotation =
-      oneq::internal::geometry::BuildRotationMatrix(ToGeometryEuler(attitude_deg));
-  const Eigen::Vector3f local_vector = rotation.transpose() * enu_vector;
+  oneq::internal::geometry::Vector3f enu_vector;
+  enu_vector.x = static_cast<float>(enu_position.x_m);
+  enu_vector.y = static_cast<float>(enu_position.y_m);
+  enu_vector.z = static_cast<float>(enu_position.z_m);
+  const oneq::internal::geometry::Vector3f local_vector =
+      oneq::internal::geometry::RotateVectorToLocalFrame(enu_vector, ToGeometryEuler(attitude_deg));
 
   oneq::common::Vector3f local_position;
-  local_position.x = local_vector.x();
-  local_position.y = local_vector.y();
-  local_position.z = local_vector.z();
+  local_position.x = local_vector.x;
+  local_position.y = local_vector.y;
+  local_position.z = local_vector.z;
   return local_position;
 }
 
