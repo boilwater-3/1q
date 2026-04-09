@@ -5,6 +5,15 @@
 namespace airborne_radar {
 namespace session {
 
+struct MutableRadarContext::RuntimeSnapshot {
+  std::shared_ptr<model::TargetFeatureList> target_features;
+  model::PlatformAttitudeDeg platform_attitude_deg{};
+  float cycle_dt_sec{1.0f};
+  std::vector<extension::control::RadarCommand> submitted_commands{};
+  extension::control::RadarControlProfile latest_control_profile{};
+  bool has_latest_control_profile{false};
+};
+
 void MutableRadarContext::BeginCycle(const RadarCycleInput& input) {
   SetTargetFeatures(input.target_features);
   SetPlatformAttitude(input.platform_attitude_deg);
@@ -13,7 +22,7 @@ void MutableRadarContext::BeginCycle(const RadarCycleInput& input) {
 }
 
 void MutableRadarContext::SetTargetFeatures(model::TargetFeatureList target_features) {
-  target_features_ = std::move(target_features);
+  target_features_.reset(new model::TargetFeatureList(std::move(target_features)));
 }
 
 void MutableRadarContext::SetPlatformAttitude(
@@ -38,17 +47,35 @@ const extension::control::RadarControlProfile& MutableRadarContext::GetLatestCon
 
 extension::RadarContextRuntimeState MutableRadarContext::CaptureRuntimeState() const {
   extension::RadarContextRuntimeState state;
-  state.target_features = target_features_;
-  state.platform_attitude_deg = platform_attitude_deg_;
-  state.cycle_dt_sec = cycle_dt_sec_;
-  state.submitted_commands = submitted_commands_;
-  state.latest_control_profile = latest_control_profile_;
-  state.has_latest_control_profile = has_latest_control_profile_;
+  std::shared_ptr<RuntimeSnapshot> snapshot(new RuntimeSnapshot());
+  snapshot->target_features = target_features_;
+  snapshot->platform_attitude_deg = platform_attitude_deg_;
+  snapshot->cycle_dt_sec = cycle_dt_sec_;
+  snapshot->submitted_commands = submitted_commands_;
+  snapshot->latest_control_profile = latest_control_profile_;
+  snapshot->has_latest_control_profile = has_latest_control_profile_;
+  state.owner_identity = this;
+  state.schema_version = 1U;
+  state.opaque = snapshot;
   return state;
 }
 
 void MutableRadarContext::RestoreRuntimeState(const extension::RadarContextRuntimeState& state) {
-  target_features_ = state.target_features;
+  if (state.owner_identity == this && state.schema_version == 1U) {
+    const std::shared_ptr<RuntimeSnapshot> snapshot =
+        std::static_pointer_cast<RuntimeSnapshot>(state.opaque);
+    if (snapshot != nullptr) {
+      target_features_ = snapshot->target_features;
+      platform_attitude_deg_ = snapshot->platform_attitude_deg;
+      cycle_dt_sec_ = snapshot->cycle_dt_sec;
+      submitted_commands_ = snapshot->submitted_commands;
+      latest_control_profile_ = snapshot->latest_control_profile;
+      has_latest_control_profile_ = snapshot->has_latest_control_profile;
+      return;
+    }
+  }
+
+  target_features_.reset(new model::TargetFeatureList(state.target_features));
   platform_attitude_deg_ = state.platform_attitude_deg;
   cycle_dt_sec_ = state.cycle_dt_sec;
   submitted_commands_ = state.submitted_commands;
@@ -57,7 +84,8 @@ void MutableRadarContext::RestoreRuntimeState(const extension::RadarContextRunti
 }
 
 const model::TargetFeatureList& MutableRadarContext::GetTargetFeatures() const {
-  return target_features_;
+  static const model::TargetFeatureList kEmptyTargetFeatures;
+  return target_features_ != nullptr ? *target_features_ : kEmptyTargetFeatures;
 }
 
 model::PlatformAttitudeDeg MutableRadarContext::GetPlatformAttitude() const {

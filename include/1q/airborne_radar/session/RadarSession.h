@@ -83,7 +83,8 @@ class ONEQ_API RadarSession {
    * @return 当前周期聚合结果。
    * @note 输入容错：行为与 `Step()` 一致；可通过结果中的
    *       `executed_this_cycle` / `reused_previous_track_output`
-   *       区分“本周期实际执行”与“仅回退上一有效输出”。
+   *       区分“本周期实际执行”与“仅回退上一有效输出”；若下游主链路 abort，
+   *       可进一步通过 `signal_cycle_abort_reason` 区分具体原因。
    */
   RadarCycleResult StepWithResult(const RadarCycleInput& input);
 
@@ -94,7 +95,8 @@ class ONEQ_API RadarSession {
    * @return 当前周期聚合结果。
    * @note 输入校验失败时，不会提交 `scene_state`，并可通过结果中的
    *       `executed_this_cycle` / `reused_previous_track_output`
-   *       判断是否发生了上一有效输出回退。
+   *       判断是否发生了上一有效输出回退；若下游主链路 abort，
+   *       可通过 `signal_cycle_abort_reason` 获取结构化原因。
    */
   RadarCycleResult StepWithResult(const RadarCycleInput& input,
                                   const environment::EnvironmentSceneState& scene_state);

@@ -46,6 +46,9 @@ Eigen::Vector3f ResolveVelocityVector(const model::TargetFeature& target) {
 void BuildTrackMeasurementsPass(const TrackMeasurementBuildContext& context) {
   const std::size_t count = context.input.size();
   context.track_measurements.clear();
+  if (context.track_measurements.capacity() < count) {
+    context.track_measurements.reserve(count);
+  }
 
   for (std::size_t i = 0; i < count; ++i) {
     if (context.detection_succeeded[i] == 0U) {

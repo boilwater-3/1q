@@ -60,6 +60,12 @@ environment::EnvironmentCycleContext MakeEnvironmentCycle(std::uint32_t cycle_in
   return cycle;
 }
 
+environment::EnvironmentSnapshot MakeEnvironmentSnapshot(std::uint32_t cycle_index) {
+  environment::EnvironmentSnapshot snapshot;
+  snapshot.cycle_dt_sec = MakeEnvironmentCycle(cycle_index).dt_sec;
+  return snapshot;
+}
+
 template <typename PipelineType>
 extension::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
                                               const model::TargetFeatureList& input_state,
@@ -171,8 +177,8 @@ TEST(CycleExecutorTest, ValidRuntimeProducesInputAlignedStageBuffers) {
 
   environment::EnvironmentService environment_service;
   signal::pipeline::internal::CycleExecutionScratch scratch;
-  EXPECT_TRUE(signal::pipeline::internal::ExecuteCycle(input_state, environment_service, 3U, 9U, runtime,
-                                                       scratch));
+  EXPECT_TRUE(signal::pipeline::internal::ExecuteCycle(input_state, MakeEnvironmentSnapshot(3U),
+                                                       3U, 9U, runtime, scratch));
 
   EXPECT_EQ(scratch.output_state.size(), input_state.size());
   EXPECT_EQ(scratch.signal_term_db.size(), input_state.size());
@@ -204,10 +210,9 @@ TEST(CycleExecutorTest, EmptyInputKeepsWorkspaceOutputsEmpty) {
       lifecycle_manager.get());
 
   const model::TargetFeatureList input_state;
-  environment::EnvironmentService environment_service;
   signal::pipeline::internal::CycleExecutionScratch scratch;
-  EXPECT_TRUE(signal::pipeline::internal::ExecuteCycle(input_state, environment_service, 1U, 1U, runtime,
-                                                       scratch));
+  EXPECT_TRUE(signal::pipeline::internal::ExecuteCycle(input_state, MakeEnvironmentSnapshot(1U),
+                                                       1U, 1U, runtime, scratch));
 
   EXPECT_TRUE(scratch.output_state.empty());
   EXPECT_TRUE(scratch.track_measurements.empty());
@@ -234,10 +239,9 @@ TEST(CycleExecutorTest, NonAutoLifecycleManagerCausesRuntimeSyncFailure) {
   target.position_x = 1000.0f;
   target.range_m = 1000.0f;
 
-  environment::EnvironmentService environment_service;
   signal::pipeline::internal::CycleExecutionScratch scratch;
   EXPECT_FALSE(signal::pipeline::internal::ExecuteCycle(
-      model::TargetFeatureList{target}, environment_service, 1U, 1U, runtime, scratch));
+      model::TargetFeatureList{target}, MakeEnvironmentSnapshot(1U), 1U, 1U, runtime, scratch));
   EXPECT_TRUE(scratch.track_measurements.empty());
   EXPECT_EQ(scratch.decision_frame.cycle_index, 0U);
 }

@@ -35,17 +35,16 @@ void ResetCycleWorkspace(const model::TargetFeatureList& input_state,
     return;
   }
 
-  *workspace->output_state = input_state;
+  const std::size_t target_count = input_state.size();
+  workspace->output_state->resize(target_count);
   *workspace->decision_frame = model::DecisionInputFrame();
   *workspace->association_quality_metrics = AssociationQualityMetrics();
-
-  const std::size_t target_count = input_state.size();
   workspace->track_measurements->clear();
-  workspace->signal_term_db->assign(target_count, 0.0f);
-  workspace->speed_penalty_db->assign(target_count, 0.0f);
-  workspace->detection_margin_db->assign(target_count, 0.0f);
-  workspace->detection_succeeded->assign(target_count, 0U);
-  workspace->association_keys->assign(target_count, 0U);
+  workspace->signal_term_db->resize(target_count);
+  workspace->speed_penalty_db->resize(target_count);
+  workspace->detection_margin_db->resize(target_count);
+  workspace->detection_succeeded->resize(target_count);
+  workspace->association_keys->resize(target_count);
   workspace->measurement_slots->assign(target_count, -1);
   workspace->target_geometry->resize(target_count);
   RefreshMeasurementCovariances(target_count, runtime_config.tracking.kalman_measurement_noise_std,

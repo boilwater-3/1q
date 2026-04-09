@@ -137,8 +137,8 @@ struct SignalPipeline::Impl {
     }
     const internal::CycleExecutionRuntime runtime_execution = BuildExecutionRuntimeView();
 
-    if (!internal::ExecuteCycle(input_state, environment, cycle_.cycle_index, cycle_.batch_id,
-                                runtime_execution, cycle_.scratch)) {
+    if (!internal::ExecuteCycle(input_state, environment_snapshot, cycle_.cycle_index,
+                                cycle_.batch_id, runtime_execution, cycle_.scratch)) {
       ResetCycleScratch(&cycle_.scratch);
       extension::SignalCycleResult result;
       result.abort_reason = extension::SignalCycleAbortReason::kRuntimePreparationFailed;

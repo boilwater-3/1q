@@ -7,6 +7,8 @@
 #ifndef AIRBORNE_RADAR_CORE_CONTEXT_I_RADAR_CONTEXT_H_
 #define AIRBORNE_RADAR_CORE_CONTEXT_I_RADAR_CONTEXT_H_
 
+#include <cstdint>
+#include <memory>
 #include <vector>
 
 #include "1q/airborne_radar/extension/control/RadarCommand.h"
@@ -20,6 +22,9 @@ namespace airborne_radar {
 namespace extension {
 
 struct RadarContextRuntimeState {
+  const void* owner_identity{nullptr}; /**< 生成该快照的上下文实例地址 */
+  std::uint32_t schema_version{0U};    /**< 快照 schema 版本 */
+  std::shared_ptr<void> opaque{};      /**< 可选的实现私有快照负载；用于高效回滚 */
   model::TargetFeatureList target_features{};
   model::PlatformAttitudeDeg platform_attitude_deg{};
   float cycle_dt_sec{1.0f};
@@ -93,12 +98,18 @@ class ONEQ_API IRadarContext {
   /**
    * @brief 捕获当前上下文运行态快照。
    * @return 可用于失败回滚的上下文快照。
+   * @note 默认回退字段为 `target_features/platform_attitude_deg/cycle_dt_sec/`
+   *       `submitted_commands/latest_control_profile/has_latest_control_profile`。
+   *       若实现需要降低快照开销，可在 `opaque` 中存放私有快照，并使用
+   *       `owner_identity/schema_version` 防止跨实例或跨 schema 误用。
    */
   virtual RadarContextRuntimeState CaptureRuntimeState() const = 0;
 
   /**
    * @brief 恢复此前捕获的上下文运行态快照。
    * @param state 待恢复的运行态快照。
+   * @note 若 `owner_identity/schema_version` 与当前实现匹配，优先恢复 `opaque` 中的
+   *       私有快照；否则至少应正确回退公开字段，保证失败周期不遗留上下文副作用。
    */
   virtual void RestoreRuntimeState(const RadarContextRuntimeState& state) = 0;
 };

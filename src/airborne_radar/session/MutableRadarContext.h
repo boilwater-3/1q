@@ -6,6 +6,7 @@
 #ifndef AIRBORNE_RADAR_CORE_CONTEXT_MUTABLE_RADAR_CONTEXT_H_
 #define AIRBORNE_RADAR_CORE_CONTEXT_MUTABLE_RADAR_CONTEXT_H_
 
+#include <memory>
 #include <vector>
 
 #include "1q/airborne_radar/extension/IRadarContext.h"
@@ -108,7 +109,9 @@ class MutableRadarContext final : public extension::IRadarContext {
   void UpdateRadarControlProfile(const extension::control::RadarControlProfile& profile) override;
 
  private:
-  model::TargetFeatureList target_features_{};
+  struct RuntimeSnapshot;
+
+  std::shared_ptr<model::TargetFeatureList> target_features_{new model::TargetFeatureList()};
   model::PlatformAttitudeDeg platform_attitude_deg_{};
   float cycle_dt_sec_{1.0f};
   std::vector<extension::control::RadarCommand> submitted_commands_{};

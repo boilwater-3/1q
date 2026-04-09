@@ -26,6 +26,11 @@ namespace extension {
 
 namespace {
 
+bool IsCompatibleSignalPipelineRuntimeState(const extension::SignalPipelineRuntimeState& state,
+                                            const extension::ISignalPipeline& pipeline) {
+  return state.owner_identity == &pipeline && state.schema_version == 1U;
+}
+
 /**
  * @brief AirborneRuntimeInput 描述单周期骨架执行需要的输入快照。
  */
@@ -284,6 +289,12 @@ extension::RadarControllerRuntimeState RadarController::CaptureRuntimeState() co
 }
 
 void RadarController::RestoreRuntimeState(const extension::RadarControllerRuntimeState& state) {
+  if (!IsCompatibleSignalPipelineRuntimeState(state.signal_pipeline_state,
+                                              impl_->signal_pipeline)) {
+    PROJECT_LOG_ERROR("[RadarController] signal pipeline runtime state restore rejected because "
+                      "snapshot owner or schema does not match the bound pipeline instance.");
+    return;
+  }
   impl_->runtime_state.latest_output = state.latest_output;
   impl_->runtime_state.has_latest_output = state.has_latest_output;
   impl_->runtime_state.last_validation_issues = state.last_validation_issues;

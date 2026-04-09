@@ -56,6 +56,21 @@ Json BuildJson(const model::AzimuthElevationLimitsDeg& value) {
   return json;
 }
 
+const char* ToString(const extension::SignalCycleAbortReason value) {
+  switch (value) {
+    case extension::SignalCycleAbortReason::kNone:
+      return "none";
+    case extension::SignalCycleAbortReason::kLifecycleUnavailable:
+      return "lifecycle_unavailable";
+    case extension::SignalCycleAbortReason::kInvalidEnvironmentCycle:
+      return "invalid_environment_cycle";
+    case extension::SignalCycleAbortReason::kRuntimePreparationFailed:
+      return "runtime_preparation_failed";
+    default:
+      return "unknown";
+  }
+}
+
 Json BuildJson(const model::CommandedBeamwidthDeg& value) {
   Json json;
   json["commanded_az_beamwidth_deg"] = value.commanded_az_beamwidth_deg;
@@ -388,7 +403,7 @@ Json BuildJson(const RadarCycleResult& value) {
       });
   json["has_validation_error"] = value.has_validation_error;
   json["executed_this_cycle"] = value.executed_this_cycle;
-  json["signal_cycle_abort_reason"] = static_cast<int>(value.signal_cycle_abort_reason);
+  json["signal_cycle_abort_reason"] = ToString(value.signal_cycle_abort_reason);
   json["reused_previous_track_output"] = value.reused_previous_track_output;
   json["has_control_profile"] = value.has_control_profile;
   json["control_profile"] = BuildJson(value.control_profile);

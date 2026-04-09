@@ -12,7 +12,6 @@
 
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "1q/airborne_radar/extension/IEnvironmentService.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
@@ -90,19 +89,19 @@ struct CycleExecutionRuntime {
  */
 struct CycleExecutionContract {
   CycleExecutionContract(const model::TargetFeatureList& input_state,
-                         const extension::IEnvironmentService& environment,
+                         const environment::EnvironmentSnapshot& environment_snapshot,
                          std::uint32_t cycle_index, std::uint64_t batch_id,
                          SignalPipelineConfig runtime_config,
                          InternalSignalPipelineConfig internal_runtime_config)
       : input_state(input_state),
-        environment(environment),
+        environment_snapshot(environment_snapshot),
         cycle_index(cycle_index),
         batch_id(batch_id),
         runtime_config(std::move(runtime_config)),
         internal_runtime_config(std::move(internal_runtime_config)) {}
 
   const model::TargetFeatureList& input_state;
-  const extension::IEnvironmentService& environment;
+  const environment::EnvironmentSnapshot& environment_snapshot;
   std::uint32_t cycle_index{0U};
   std::uint64_t batch_id{0U};
   SignalPipelineConfig runtime_config{};
@@ -113,7 +112,6 @@ struct CycleExecutionContract {
  * @brief 环境采样阶段输出。
  */
 struct EnvironmentPhaseOutput {
-  environment::EnvironmentSnapshot environment_snapshot{};
   model::JammingSemantic dominant_jamming_semantic{model::JammingSemantic::kNone};
   float jamming_severity{0.0f};
 };
@@ -164,7 +162,7 @@ struct MeasurementBuildPhaseOutput {
 /**
  * @brief 执行 SignalPipeline 单周期全流程。
  * @param input_state 当前周期输入目标状态。
- * @param environment 当前环境服务。
+ * @param environment_snapshot 当前周期已冻结的环境快照。
  * @param cycle_index 当前周期号。
  * @param batch_id 当前批次号。
  * @param runtime 运行时依赖视图。
@@ -172,7 +170,8 @@ struct MeasurementBuildPhaseOutput {
  * @return 周期准备与执行全部成功时返回 true；若运行时同步失败则返回 false。
  */
 bool ExecuteCycle(const model::TargetFeatureList& input_state,
-                  const extension::IEnvironmentService& environment, std::uint32_t cycle_index,
+                  const environment::EnvironmentSnapshot& environment_snapshot,
+                  std::uint32_t cycle_index,
                   std::uint64_t batch_id, const CycleExecutionRuntime& runtime,
                   CycleExecutionScratch& cycle_scratch);
 
