@@ -109,6 +109,8 @@ RadarController::RadarController(extension::IRadarContext& radar_context,
 RadarController::~RadarController() = default;
 
 void RadarController::RunOnce() {
+  impl_->last_cycle_executed = false;
+  impl_->last_cycle_reused_previous_output = false;
   AirborneRuntimeInput runtime_input;
   runtime_input.target_features = &impl_->radar_context.GetTargetFeatures();
   runtime_input.platform_attitude = impl_->radar_context.GetPlatformAttitude();
@@ -190,6 +192,9 @@ void RadarController::RunOnce() {
   hooks.impl = impl_.get();
   oneq::internal::runtime::ExecuteRuntimeCycle(runtime_input, impl_->cycle_index,
                                                &impl_->runtime_state, &hooks);
+  if (!impl_->last_cycle_executed && !impl_->last_cycle_reused_previous_output) {
+    impl_->runtime_state.has_latest_output = false;
+  }
   ++impl_->cycle_index;
 }
 

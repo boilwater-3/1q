@@ -138,6 +138,26 @@ class RecordingRadarContext : public extension::IRadarContext {
     return latest_control_profile_;
   }
 
+  extension::RadarContextRuntimeState CaptureRuntimeState() const override {
+    extension::RadarContextRuntimeState state;
+    state.target_features = target_features_;
+    state.platform_attitude_deg = platform_attitude_deg_;
+    state.cycle_dt_sec = cycle_dt_sec_;
+    state.submitted_commands = submitted_commands_;
+    state.latest_control_profile = latest_control_profile_;
+    state.has_latest_control_profile = has_latest_control_profile_;
+    return state;
+  }
+
+  void RestoreRuntimeState(const extension::RadarContextRuntimeState& state) override {
+    target_features_ = state.target_features;
+    platform_attitude_deg_ = state.platform_attitude_deg;
+    cycle_dt_sec_ = state.cycle_dt_sec;
+    submitted_commands_ = state.submitted_commands;
+    latest_control_profile_ = state.latest_control_profile;
+    has_latest_control_profile_ = state.has_latest_control_profile;
+  }
+
   std::size_t begin_cycle_count() const { return begin_cycle_count_; }
 
  private:
@@ -155,14 +175,15 @@ class RecordingEnvironmentService : public extension::IEnvironmentService {
   void BeginCycle(const environment::EnvironmentCycleContext& cycle_context) override {
     ++begin_cycle_count_;
     cycle_context_ = cycle_context;
+    active_scene_state_ = pending_scene_state_;
   }
 
   environment::EnvironmentSnapshot SampleEnvironment() const override {
     environment::EnvironmentSnapshot snapshot;
     snapshot.cycle_dt_sec = cycle_context_.dt_sec;
-    snapshot.jammer_sources.reserve(pending_scene_state_.jammer_emitters.size());
-    for (std::size_t i = 0; i < pending_scene_state_.jammer_emitters.size(); ++i) {
-      snapshot.jammer_sources.push_back(pending_scene_state_.jammer_emitters[i]);
+    snapshot.jammer_sources.reserve(active_scene_state_.jammer_emitters.size());
+    for (std::size_t i = 0; i < active_scene_state_.jammer_emitters.size(); ++i) {
+      snapshot.jammer_sources.push_back(active_scene_state_.jammer_emitters[i]);
     }
     snapshot.jamming_detected = !snapshot.jammer_sources.empty();
     return snapshot;
@@ -187,6 +208,22 @@ class RecordingEnvironmentService : public extension::IEnvironmentService {
     jamming_detection_threshold_db_ = threshold_db;
   }
 
+  extension::EnvironmentServiceRuntimeState CaptureRuntimeState() const override {
+    extension::EnvironmentServiceRuntimeState state;
+    state.active_scene_state = active_scene_state_;
+    state.pending_scene_state = pending_scene_state_;
+    state.active_cycle_context = cycle_context_;
+    state.jamming_detection_threshold_db = jamming_detection_threshold_db_;
+    return state;
+  }
+
+  void RestoreRuntimeState(const extension::EnvironmentServiceRuntimeState& state) override {
+    active_scene_state_ = state.active_scene_state;
+    pending_scene_state_ = state.pending_scene_state;
+    cycle_context_ = state.active_cycle_context;
+    jamming_detection_threshold_db_ = state.jamming_detection_threshold_db;
+  }
+
   std::size_t begin_cycle_count() const { return begin_cycle_count_; }
   std::size_t update_scene_state_count() const { return update_scene_state_count_; }
   std::size_t update_model_config_count() const { return update_model_config_count_; }
@@ -194,6 +231,7 @@ class RecordingEnvironmentService : public extension::IEnvironmentService {
   float jamming_detection_threshold_db() const { return jamming_detection_threshold_db_; }
 
  private:
+  environment::EnvironmentSceneState active_scene_state_{};
   environment::EnvironmentSceneState pending_scene_state_{};
   environment::EnvironmentModelConfig model_config_{};
   environment::EnvironmentCycleContext cycle_context_{};
@@ -917,6 +955,64 @@ TEST(PublicApiConvenienceTest, RadarSessionReusesPreviousOutputWhenSignalPipelin
   EXPECT_EQ(failed.association_quality_metrics.detection_count, 0U);
   EXPECT_EQ(failed.track_output_frame.cycle_index, baseline.track_output_frame.cycle_index);
   EXPECT_EQ(failed.track_output_frame.batch_id, baseline.track_output_frame.batch_id);
+}
+
+TEST(PublicApiConvenienceTest,
+     RadarSessionRollsBackSceneRuntimePatchAndContextWhenSignalPipelineAborts) {
+  RecordingRadarContext radar_context;
+  RecordingSignalPipeline signal_pipeline;
+  RecordingEnvironmentService environment_service;
+  NoopDecisionEngine decision_engine;
+  extension::RadarController controller(radar_context, signal_pipeline, decision_engine,
+                                        environment_service);
+  session::RadarSession session =
+      session::RadarSessionFactory::CreateWithController(MakeConvenienceSessionConfig(), controller);
+
+  const session::RadarCycleInput baseline_input = MakeCycleInput(model::TargetFeatureList{
+      model::MakeAirTarget(960U, 200.0f, -3.0f, 15.0f, 70.0f, 0.0f, 0.0f, 1.0f),
+  });
+  const session::RadarCycleResult baseline = session.StepWithResult(baseline_input);
+  ASSERT_TRUE(baseline.executed_this_cycle);
+
+  const config::RadarRuntimeConfigPatch patch =
+      config::RadarRuntimeConfigBuilder()
+          .WithRadarWorkSubMode(model::RadarWorkSubMode::kTas)
+          .WithJammingDetectionThresholdDb(4.2f)
+          .Build();
+  session.ApplyRuntimeConfig(patch);
+
+  environment::JammerEmitterState jammer;
+  jammer.technique = environment::JammingTechnique::kNoiseSuppression;
+  jammer.power_db = 12.0f;
+  jammer.js_db = 8.0f;
+  jammer.frequency_overlap_ratio = 0.3f;
+  jammer.prf_lock_risk = 0.1f;
+
+  environment::EnvironmentSceneState jammed_scene;
+  jammed_scene.jammer_emitters.push_back(jammer);
+
+  signal_pipeline.SetShouldExecute(false);
+  const session::RadarCycleInput failed_input = MakeCycleInput(model::TargetFeatureList{
+      model::MakeAirTarget(961U, 140.0f, -2.0f, 12.0f, 60.0f, 0.0f, 0.0f, 1.0f),
+  });
+  const session::RadarCycleResult failed = session.StepWithResult(failed_input, jammed_scene);
+  EXPECT_FALSE(failed.executed_this_cycle);
+  EXPECT_TRUE(failed.reused_previous_track_output);
+  ASSERT_EQ(radar_context.GetTargetFeatures().size(), 1U);
+  EXPECT_EQ(radar_context.GetTargetFeatures()[0].external_target_id, 960U);
+  EXPECT_FLOAT_EQ(radar_context.GetCycleDeltaTimeSec(), 1.0f);
+  EXPECT_EQ(signal_pipeline.config().beam_control.radar_orientation.work_sub_mode,
+            model::RadarWorkSubMode::kTws);
+  EXPECT_FLOAT_EQ(environment_service.jamming_detection_threshold_db(), 6.0f);
+  EXPECT_TRUE(environment_service.GetPendingSceneState().jammer_emitters.empty());
+
+  signal_pipeline.SetShouldExecute(true);
+  const session::RadarCycleResult committed = session.StepWithResult(baseline_input, jammed_scene);
+  EXPECT_TRUE(committed.executed_this_cycle);
+  EXPECT_EQ(signal_pipeline.config().beam_control.radar_orientation.work_sub_mode,
+            model::RadarWorkSubMode::kTas);
+  EXPECT_FLOAT_EQ(environment_service.jamming_detection_threshold_db(), 4.2f);
+  EXPECT_EQ(environment_service.GetPendingSceneState().jammer_emitters.size(), 1U);
 }
 
 TEST(PublicApiConvenienceTest, RadarSessionStepWithResultSurfacesValidationErrors) {

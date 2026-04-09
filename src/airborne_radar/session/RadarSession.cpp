@@ -39,7 +39,9 @@ struct RadarSession::Impl {
     }
     result.executed_this_cycle = controller.ExecutedLatestCycle();
     result.reused_previous_track_output = controller.ReusedPreviousTrackOutputLatestCycle();
-    result.submitted_commands = radar_context.GetSubmittedCommands();
+    if (result.executed_this_cycle) {
+      result.submitted_commands = radar_context.GetSubmittedCommands();
+    }
     result.validation_issues = controller.GetLastValidationIssues();
     result.has_validation_error = controller.HasValidationError();
     result.has_control_profile =
@@ -80,8 +82,21 @@ struct RadarSession::Impl {
     environment_service.UpdateModelConfig(pending_runtime_state.environment_model_config);
     environment_service.SetJammingDetectionThresholdDb(
         pending_runtime_state.jamming_detection_threshold_db);
+  }
+
+  void FinalizePendingRuntimeConfig() {
+    if (!has_pending_runtime_update) {
+      return;
+    }
     runtime_state = pending_runtime_state;
     has_pending_runtime_update = false;
+  }
+
+  void RollbackFailedCycle(const extension::RadarContextRuntimeState& radar_context_state,
+                           const extension::EnvironmentServiceRuntimeState& environment_state) {
+    radar_context.RestoreRuntimeState(radar_context_state);
+    environment_service.RestoreRuntimeState(environment_state);
+    signal_pipeline.UpdateConfig(runtime_state.signal_pipeline_config);
   }
 
   internal::RuntimeConfigState runtime_state{};
@@ -143,9 +158,18 @@ RadarCycleResult RadarSession::StepWithResult(const RadarCycleInput& input) {
     return impl_->BuildValidationErrorResult(issues);
   }
 
+  const extension::RadarContextRuntimeState radar_context_state =
+      impl_->radar_context.CaptureRuntimeState();
+  const extension::EnvironmentServiceRuntimeState environment_state =
+      impl_->environment_service.CaptureRuntimeState();
   impl_->CommitPendingRuntimeConfig();
   impl_->radar_context.BeginCycle(input);
   impl_->controller.RunOnce();
+  if (!impl_->controller.ExecutedLatestCycle()) {
+    impl_->RollbackFailedCycle(radar_context_state, environment_state);
+    return impl_->BuildCycleResult();
+  }
+  impl_->FinalizePendingRuntimeConfig();
   return impl_->BuildCycleResult();
 }
 
@@ -156,10 +180,19 @@ RadarCycleResult RadarSession::StepWithResult(
     return impl_->BuildValidationErrorResult(issues);
   }
 
+  const extension::RadarContextRuntimeState radar_context_state =
+      impl_->radar_context.CaptureRuntimeState();
+  const extension::EnvironmentServiceRuntimeState environment_state =
+      impl_->environment_service.CaptureRuntimeState();
   impl_->CommitPendingRuntimeConfig();
   impl_->environment_service.UpdateSceneState(scene_state);
   impl_->radar_context.BeginCycle(input);
   impl_->controller.RunOnce();
+  if (!impl_->controller.ExecutedLatestCycle()) {
+    impl_->RollbackFailedCycle(radar_context_state, environment_state);
+    return impl_->BuildCycleResult();
+  }
+  impl_->FinalizePendingRuntimeConfig();
   return impl_->BuildCycleResult();
 }
 

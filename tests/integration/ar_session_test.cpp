@@ -71,6 +71,26 @@ class ScenarioRadarContext : public extension::IRadarContext {
     return latest_control_profile_;
   }
 
+  extension::RadarContextRuntimeState CaptureRuntimeState() const override {
+    extension::RadarContextRuntimeState state;
+    state.target_features = target_features_;
+    state.platform_attitude_deg = platform_attitude_deg_;
+    state.cycle_dt_sec = cycle_dt_sec_;
+    state.submitted_commands = submitted_commands_;
+    state.latest_control_profile = latest_control_profile_;
+    state.has_latest_control_profile = has_latest_control_profile_;
+    return state;
+  }
+
+  void RestoreRuntimeState(const extension::RadarContextRuntimeState& state) override {
+    target_features_ = state.target_features;
+    platform_attitude_deg_ = state.platform_attitude_deg;
+    cycle_dt_sec_ = state.cycle_dt_sec;
+    submitted_commands_ = state.submitted_commands;
+    latest_control_profile_ = state.latest_control_profile;
+    has_latest_control_profile_ = state.has_latest_control_profile;
+  }
+
   void SetTargetFeatures(model::TargetFeatureList target_features) {
     target_features_ = std::move(target_features);
   }
@@ -1527,8 +1547,7 @@ TEST(RadarJointIntegrationTest,
       std::find_if(issues.begin(), issues.end(), [](const session::ValidationIssue& issue) {
         return issue.code == session::ValidationCode::kMissingRangeAndCartesianPosition;
       }) != issues.end());
-  EXPECT_TRUE(controller.HasLatestTrackOutputFrame());
-  EXPECT_EQ(controller.GetLatestTrackOutputFrame().published_track_count, 0U);
+  EXPECT_FALSE(controller.HasLatestTrackOutputFrame());
   EXPECT_TRUE(radar_context.SubmittedCommands().empty());
 }
 

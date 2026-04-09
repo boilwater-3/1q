@@ -176,6 +176,26 @@ TEST(DataAssociationEngineTest, ExternalAssociationSeedWithReservedKeyIsRejected
   EXPECT_NE(result.target_keys[0], 0u);
 }
 
+TEST(DataAssociationEngineTest, DuplicateExternalAssociationSeedKeysAreRejected) {
+  signal::association::DataAssociationEngine engine;
+
+  const signal::tracking::AssociationTrackSeed first =
+      MakeExternalSeed(91u, Eigen::Vector3f(20.0f, 0.0f, 0.0f));
+  const signal::tracking::AssociationTrackSeed second =
+      MakeExternalSeed(91u, Eigen::Vector3f(30.0f, 0.0f, 0.0f));
+
+  EXPECT_FALSE(engine.SetAssociationSeeds(
+      std::vector<signal::tracking::AssociationTrackSeed>{first, second}));
+
+  const model::TargetFeatureList targets{MakePositionTarget(20.5f, 0.0f, 0.0f)};
+  const std::vector<std::uint8_t> detected{1U};
+  const signal::association::AssociationResult result = engine.AssociateDetections(targets, detected);
+  ASSERT_EQ(result.target_keys.size(), 1u);
+  EXPECT_FALSE(result.used_external_association_seeds);
+  EXPECT_TRUE(result.matches.empty());
+  EXPECT_NE(result.target_keys[0], 0u);
+}
+
 TEST(DataAssociationEngineTest, HandlesCrossedMeasurementsByCostMinimization) {
   signal::association::DataAssociationEngine engine;
 

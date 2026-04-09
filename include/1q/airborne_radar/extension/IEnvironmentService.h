@@ -12,6 +12,13 @@
 namespace airborne_radar {
 namespace extension {
 
+struct EnvironmentServiceRuntimeState {
+  environment::EnvironmentSceneState active_scene_state{};
+  environment::EnvironmentSceneState pending_scene_state{};
+  environment::EnvironmentCycleContext active_cycle_context{};
+  float jamming_detection_threshold_db{6.0f};
+};
+
 /**
  * @brief IEnvironmentService 为信号处理与决策层提供环境查询与运行态更新能力。
  */
@@ -54,6 +61,18 @@ class ONEQ_API IEnvironmentService {
    * @param[in] threshold_db 阈值（单位：dB）。
    */
   virtual void SetJammingDetectionThresholdDb(float threshold_db) = 0;
+
+  /**
+   * @brief 捕获当前环境服务运行态快照。
+   * @return 可用于失败回滚的环境运行态快照。
+   */
+  virtual EnvironmentServiceRuntimeState CaptureRuntimeState() const = 0;
+
+  /**
+   * @brief 恢复此前捕获的环境服务运行态快照。
+   * @param state 待恢复的环境运行态快照。
+   */
+  virtual void RestoreRuntimeState(const EnvironmentServiceRuntimeState& state) = 0;
 };
 
 }  // namespace extension

@@ -19,6 +19,15 @@
 namespace airborne_radar {
 namespace extension {
 
+struct RadarContextRuntimeState {
+  model::TargetFeatureList target_features{};
+  model::PlatformAttitudeDeg platform_attitude_deg{};
+  float cycle_dt_sec{1.0f};
+  std::vector<extension::control::RadarCommand> submitted_commands{};
+  extension::control::RadarControlProfile latest_control_profile{};
+  bool has_latest_control_profile{false};
+};
+
 /**
  * @brief IRadarContext 抽象了系统的当前战术态势操作。
  * 通过该接口，控制器不再依赖具体的处理层类，实现依赖倒置。
@@ -80,6 +89,18 @@ class ONEQ_API IRadarContext {
    * @return 最近一次控制真值引用。
    */
   virtual const extension::control::RadarControlProfile& GetLatestControlProfile() const = 0;
+
+  /**
+   * @brief 捕获当前上下文运行态快照。
+   * @return 可用于失败回滚的上下文快照。
+   */
+  virtual RadarContextRuntimeState CaptureRuntimeState() const = 0;
+
+  /**
+   * @brief 恢复此前捕获的上下文运行态快照。
+   * @param state 待恢复的运行态快照。
+   */
+  virtual void RestoreRuntimeState(const RadarContextRuntimeState& state) = 0;
 };
 }  // namespace extension
 }  // namespace airborne_radar

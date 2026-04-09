@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdio>
 #include <limits>
+#include <unordered_set>
 
 #include "common/logging/ProjectLog.h"
 
@@ -338,7 +339,9 @@ bool DataAssociationEngine::SetAssociationSeeds(
   }
 
   std::vector<ExternalSeedTrackSignature> accepted_seeds;
+  std::unordered_set<std::uint64_t> accepted_keys;
   accepted_seeds.reserve(seeds.size());
+  accepted_keys.reserve(seeds.size());
   for (std::size_t i = 0; i < seeds.size(); ++i) {
     const tracking::AssociationTrackSeed& seed = seeds[i];
     if (seed.association_key == kUnassociatedKey) {
@@ -353,6 +356,11 @@ bool DataAssociationEngine::SetAssociationSeeds(
     }
     if (!seed.has_gaussian_state) {
       AbortContractViolation("external association seed missing gaussian state", i);
+      external_seed_tracks_.clear();
+      return false;
+    }
+    if (!accepted_keys.insert(seed.association_key).second) {
+      AbortContractViolation("external association seed has duplicate association_key", i);
       external_seed_tracks_.clear();
       return false;
     }

@@ -58,6 +58,16 @@ class SceneManager {
    */
   const EnvironmentCycleContext& GetActiveCycleContext() const;
 
+  /**
+   * @brief 恢复 active/pending 场景与 active 周期上下文。
+   * @param active_scene 目标 active 场景。
+   * @param pending_scene 目标 pending 场景。
+   * @param cycle_context 目标 active 周期上下文。
+   */
+  void RestoreState(const EnvironmentSceneState& active_scene,
+                    const EnvironmentSceneState& pending_scene,
+                    const EnvironmentCycleContext& cycle_context);
+
  private:
   EnvironmentSceneState active_scene_{};
   EnvironmentSceneState pending_scene_{};

@@ -52,6 +52,22 @@ class DummyRadarContext : public extension::IRadarContext {
     return control_profile_;
   }
 
+  extension::RadarContextRuntimeState CaptureRuntimeState() const override {
+    extension::RadarContextRuntimeState state;
+    state.platform_attitude_deg = platform_attitude_;
+    state.submitted_commands = commands_;
+    state.latest_control_profile = control_profile_;
+    state.has_latest_control_profile = has_control_profile_;
+    return state;
+  }
+
+  void RestoreRuntimeState(const extension::RadarContextRuntimeState& state) override {
+    platform_attitude_ = state.platform_attitude_deg;
+    commands_ = state.submitted_commands;
+    control_profile_ = state.latest_control_profile;
+    has_control_profile_ = state.has_latest_control_profile;
+  }
+
  private:
   model::PlatformAttitudeDeg platform_attitude_{};
   extension::control::RadarControlProfile control_profile_{};
@@ -84,6 +100,16 @@ class DummyEnvironmentService : public extension::IEnvironmentService {
   }
 
   void SetJammingDetectionThresholdDb(float threshold_db) override { (void)threshold_db; }
+
+  extension::EnvironmentServiceRuntimeState CaptureRuntimeState() const override {
+    extension::EnvironmentServiceRuntimeState state;
+    state.active_cycle_context = cycle_context_;
+    return state;
+  }
+
+  void RestoreRuntimeState(const extension::EnvironmentServiceRuntimeState& state) override {
+    cycle_context_ = state.active_cycle_context;
+  }
 
  private:
   environment::EnvironmentCycleContext cycle_context_{};

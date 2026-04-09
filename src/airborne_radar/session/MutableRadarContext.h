@@ -73,6 +73,10 @@ class MutableRadarContext final : public extension::IRadarContext {
    */
   const extension::control::RadarControlProfile& GetLatestControlProfile() const override;
 
+  extension::RadarContextRuntimeState CaptureRuntimeState() const override;
+
+  void RestoreRuntimeState(const extension::RadarContextRuntimeState& state) override;
+
   /**
    * @brief 获取当前周期的目标特征列表。
    * @return 当前周期的目标特征列表只读引用。

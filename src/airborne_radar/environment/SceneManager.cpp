@@ -25,5 +25,13 @@ const EnvironmentCycleContext& SceneManager::GetActiveCycleContext() const {
   return active_cycle_context_;
 }
 
+void SceneManager::RestoreState(const EnvironmentSceneState& active_scene,
+                                const EnvironmentSceneState& pending_scene,
+                                const EnvironmentCycleContext& cycle_context) {
+  active_scene_ = active_scene;
+  pending_scene_ = pending_scene;
+  active_cycle_context_ = cycle_context;
+}
+
 }  // namespace environment
 }  // namespace airborne_radar

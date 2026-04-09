@@ -105,6 +105,26 @@ class FakeRadarContext : public extension::IRadarContext {
     return latest_control_profile_;
   }
 
+  extension::RadarContextRuntimeState CaptureRuntimeState() const override {
+    extension::RadarContextRuntimeState state;
+    state.target_features = state_;
+    state.platform_attitude_deg = platform_attitude_deg_;
+    state.cycle_dt_sec = cycle_dt_sec_;
+    state.submitted_commands = submitted_commands_;
+    state.latest_control_profile = latest_control_profile_;
+    state.has_latest_control_profile = has_latest_control_profile_;
+    return state;
+  }
+
+  void RestoreRuntimeState(const extension::RadarContextRuntimeState& state) override {
+    state_ = state.target_features;
+    platform_attitude_deg_ = state.platform_attitude_deg;
+    cycle_dt_sec_ = state.cycle_dt_sec;
+    submitted_commands_ = state.submitted_commands;
+    latest_control_profile_ = state.latest_control_profile;
+    has_latest_control_profile_ = state.has_latest_control_profile;
+  }
+
   /// @brief 获取最新控制真值。
   const extension::control::RadarControlProfile& LatestControlProfile() const {
     return latest_control_profile_;
@@ -179,6 +199,41 @@ class CapturingDecisionEngine : public extension::ITacticalDecisionEngine {
 
 /// @brief CoreControllerTest 覆盖核心调度与指令下发路径。
 class CoreControllerTest : public ::testing::Test {};
+
+class AbortingSignalPipeline : public extension::ISignalPipeline {
+ public:
+  extension::SignalCycleResult RunCycle(const model::TargetFeatureList&,
+                                        const extension::IEnvironmentService&) override {
+    return extension::SignalCycleResult();
+  }
+
+  void UpdatePlatformAttitude(const model::PlatformAttitudeDeg& platform_attitude_deg) override {
+    platform_attitude_deg_ = platform_attitude_deg;
+  }
+
+  model::PlatformAttitudeDeg GetPlatformAttitude() const override {
+    return platform_attitude_deg_;
+  }
+
+  void SetControlProfile(const extension::control::RadarControlProfile& control_profile) override {
+    control_profile_ = control_profile;
+  }
+
+  extension::control::RadarControlProfile GetControlProfile() const override {
+    return control_profile_;
+  }
+
+  void UpdateConfig(config::SignalPipelineConfig config) override { config_ = config; }
+
+  extension::AssociationQualityMetrics GetLastAssociationQualityMetrics() const override {
+    return {};
+  }
+
+ private:
+  model::PlatformAttitudeDeg platform_attitude_deg_{};
+  extension::control::RadarControlProfile control_profile_{};
+  config::SignalPipelineConfig config_{};
+};
 
 TEST_F(CoreControllerTest, RunOnceSubmitsCommands) {
   const model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
@@ -414,6 +469,20 @@ TEST_F(CoreControllerTest, RuntimeValidationErrorsAreExposedAndSkipCommandSubmis
         return issue.code == session::ValidationCode::kNonFiniteCycleDeltaTime;
       }) != issues.end());
   EXPECT_TRUE(radar_context.SubmittedCommands().empty());
+  EXPECT_FALSE(controller.HasLatestTrackOutputFrame());
+}
+
+TEST_F(CoreControllerTest, FirstCycleSignalPipelineAbortDoesNotPublishSyntheticLatestFrame) {
+  const model::TargetFeatureList input_state = BuildSingleTarget(510.0f, 1.0f, false);
+  FakeRadarContext radar_context(input_state);
+  environment::EnvironmentService environment_service;
+  AbortingSignalPipeline signal_pipeline;
+  extension::RadarController controller(radar_context, signal_pipeline, environment_service);
+
+  controller.RunOnce();
+
+  EXPECT_FALSE(controller.HasValidationError());
+  EXPECT_FALSE(controller.HasLatestTrackOutputFrame());
 }
 
 TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {

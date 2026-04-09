@@ -69,6 +69,10 @@ class EnvironmentService final : public extension::IEnvironmentService {
    */
   void SetJammingDetectionThresholdDb(float threshold_db) override;
 
+  extension::EnvironmentServiceRuntimeState CaptureRuntimeState() const override;
+
+  void RestoreRuntimeState(const extension::EnvironmentServiceRuntimeState& state) override;
+
  private:
   void RefreshFrozenSnapshotFromActiveScene();
 
