@@ -1683,12 +1683,15 @@ TEST(SignalPipelineTest, InvalidEnvironmentCycleAbortsAndClearsLastCycleCache) {
   const extension::SignalCycleResult valid_result =
       RunPipelineCycle(&signal_pipeline, model::TargetFeatureList{target}, &valid_environment, 1u);
   EXPECT_TRUE(valid_result.executed_this_cycle);
+  EXPECT_EQ(valid_result.abort_reason, extension::SignalCycleAbortReason::kNone);
   ASSERT_EQ(valid_result.updated_features.size(), 1u);
   ASSERT_EQ(signal_pipeline.GetLastTrackMeasurements().size(), 1u);
 
   const extension::SignalCycleResult invalid_result =
       signal_pipeline.RunCycle(model::TargetFeatureList{target}, invalid_environment);
   EXPECT_FALSE(invalid_result.executed_this_cycle);
+  EXPECT_EQ(invalid_result.abort_reason,
+            extension::SignalCycleAbortReason::kInvalidEnvironmentCycle);
   EXPECT_TRUE(invalid_result.updated_features.empty());
   EXPECT_TRUE(invalid_result.decision_frame.tracks.empty());
   EXPECT_TRUE(signal_pipeline.GetLastTrackMeasurements().empty());

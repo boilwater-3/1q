@@ -204,7 +204,11 @@ class AbortingSignalPipeline : public extension::ISignalPipeline {
  public:
   extension::SignalCycleResult RunCycle(const model::TargetFeatureList&,
                                         const extension::IEnvironmentService&) override {
-    return extension::SignalCycleResult();
+    extension::SignalCycleResult result;
+    result.executed_this_cycle = should_execute_;
+    result.abort_reason = should_execute_ ? extension::SignalCycleAbortReason::kNone
+                                          : extension::SignalCycleAbortReason::kRuntimePreparationFailed;
+    return result;
   }
 
   void UpdatePlatformAttitude(const model::PlatformAttitudeDeg& platform_attitude_deg) override {
@@ -229,17 +233,25 @@ class AbortingSignalPipeline : public extension::ISignalPipeline {
     return {};
   }
 
+  void SetShouldExecute(bool should_execute) { should_execute_ = should_execute; }
+
   extension::SignalPipelineRuntimeState CaptureRuntimeState() const override {
     std::shared_ptr<RuntimeState> state(new RuntimeState());
     state->platform_attitude_deg = platform_attitude_deg_;
     state->control_profile = control_profile_;
     state->config = config_;
+    state->should_execute = should_execute_;
     extension::SignalPipelineRuntimeState runtime_state;
+    runtime_state.owner_identity = this;
+    runtime_state.schema_version = 1U;
     runtime_state.opaque = state;
     return runtime_state;
   }
 
   void RestoreRuntimeState(const extension::SignalPipelineRuntimeState& state) override {
+    if (state.owner_identity != this || state.schema_version != 1U) {
+      return;
+    }
     const std::shared_ptr<RuntimeState> snapshot =
         std::static_pointer_cast<RuntimeState>(state.opaque);
     if (snapshot == nullptr) {
@@ -248,6 +260,7 @@ class AbortingSignalPipeline : public extension::ISignalPipeline {
     platform_attitude_deg_ = snapshot->platform_attitude_deg;
     control_profile_ = snapshot->control_profile;
     config_ = snapshot->config;
+    should_execute_ = snapshot->should_execute;
   }
 
  private:
@@ -255,11 +268,13 @@ class AbortingSignalPipeline : public extension::ISignalPipeline {
     model::PlatformAttitudeDeg platform_attitude_deg{};
     extension::control::RadarControlProfile control_profile{};
     config::SignalPipelineConfig config{};
+    bool should_execute{false};
   };
 
   model::PlatformAttitudeDeg platform_attitude_deg_{};
   extension::control::RadarControlProfile control_profile_{};
   config::SignalPipelineConfig config_{};
+  bool should_execute_{false};
 };
 
 TEST_F(CoreControllerTest, RunOnceSubmitsCommands) {
@@ -510,6 +525,32 @@ TEST_F(CoreControllerTest, FirstCycleSignalPipelineAbortDoesNotPublishSyntheticL
 
   EXPECT_FALSE(controller.HasValidationError());
   EXPECT_FALSE(controller.HasLatestTrackOutputFrame());
+}
+
+TEST_F(CoreControllerTest, FailedCycleDoesNotAdvanceEnvironmentStampOrOutputSequence) {
+  const model::TargetFeatureList input_state = BuildSingleTarget(510.0f, 1.0f, false);
+  FakeRadarContext radar_context(input_state);
+  environment::EnvironmentService environment_service;
+  AbortingSignalPipeline signal_pipeline;
+  extension::RadarController controller(radar_context, signal_pipeline, environment_service);
+
+  EXPECT_FLOAT_EQ(environment_service.SampleEnvironment().cycle_dt_sec, 0.0f);
+
+  controller.RunOnce();
+
+  EXPECT_FALSE(controller.ExecutedLatestCycle());
+  EXPECT_FALSE(controller.HasLatestTrackOutputFrame());
+  EXPECT_FLOAT_EQ(environment_service.SampleEnvironment().cycle_dt_sec, 0.0f);
+
+  signal_pipeline.SetShouldExecute(true);
+  controller.RunOnce();
+
+  EXPECT_TRUE(controller.ExecutedLatestCycle());
+  ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
+  const output::TrackOutputFrame& latest_track_output_frame =
+      controller.GetLatestTrackOutputFrame();
+  EXPECT_EQ(latest_track_output_frame.cycle_index, 1U);
+  EXPECT_EQ(latest_track_output_frame.batch_id, 1U);
 }
 
 TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {

@@ -60,6 +60,8 @@ struct RadarController::Impl {
   std::uint32_t cycle_index{1};
   bool last_cycle_executed{false};
   bool last_cycle_reused_previous_output{false};
+  extension::SignalCycleAbortReason last_signal_abort_reason{
+      extension::SignalCycleAbortReason::kNone};
 
   Impl(extension::IRadarContext& ctx, extension::ISignalPipeline& sig,
        extension::IEnvironmentService& env)
@@ -109,8 +111,18 @@ RadarController::RadarController(extension::IRadarContext& radar_context,
 RadarController::~RadarController() = default;
 
 void RadarController::RunOnce() {
+  const extension::EnvironmentServiceRuntimeState environment_state =
+      impl_->environment_service.CaptureRuntimeState();
+  const output::TrackOutputFrame previous_output = impl_->runtime_state.latest_output;
+  const bool had_previous_output = impl_->runtime_state.has_latest_output;
+  const std::uint64_t previous_batch_id = impl_->runtime_state.next_batch_id;
+  const std::uint32_t previous_cycle_index = impl_->cycle_index;
+  const extension::SignalPipelineRuntimeState pipeline_state =
+      impl_->signal_pipeline.CaptureRuntimeState();
+
   impl_->last_cycle_executed = false;
   impl_->last_cycle_reused_previous_output = false;
+  impl_->last_signal_abort_reason = extension::SignalCycleAbortReason::kNone;
   AirborneRuntimeInput runtime_input;
   runtime_input.target_features = &impl_->radar_context.GetTargetFeatures();
   runtime_input.platform_attitude = impl_->radar_context.GetPlatformAttitude();
@@ -146,6 +158,7 @@ void RadarController::RunOnce() {
       const CycleExecutionResult exec_result = impl->cycle_orchestrator->Execute(
           input.target_features, input.platform_attitude, impl->control_profile.get(), stamp);
       impl->last_cycle_executed = exec_result.signal_result.executed_this_cycle;
+      impl->last_signal_abort_reason = exec_result.signal_result.abort_reason;
       impl->last_cycle_reused_previous_output =
           !impl->last_cycle_executed && impl->runtime_state.has_latest_output;
       if (!impl->last_cycle_executed) {
@@ -192,8 +205,14 @@ void RadarController::RunOnce() {
   hooks.impl = impl_.get();
   oneq::internal::runtime::ExecuteRuntimeCycle(runtime_input, impl_->cycle_index,
                                                &impl_->runtime_state, &hooks);
-  if (!impl_->last_cycle_executed && !impl_->last_cycle_reused_previous_output) {
-    impl_->runtime_state.has_latest_output = false;
+  if (!impl_->last_cycle_executed) {
+    impl_->environment_service.RestoreRuntimeState(environment_state);
+    impl_->signal_pipeline.RestoreRuntimeState(pipeline_state);
+    impl_->runtime_state.latest_output = previous_output;
+    impl_->runtime_state.has_latest_output = had_previous_output;
+    impl_->runtime_state.next_batch_id = previous_batch_id;
+    impl_->cycle_index = previous_cycle_index;
+    return;
   }
   ++impl_->cycle_index;
 }
@@ -246,6 +265,10 @@ bool RadarController::ReusedPreviousTrackOutputLatestCycle() const {
   return impl_->last_cycle_reused_previous_output;
 }
 
+extension::SignalCycleAbortReason RadarController::GetLastSignalCycleAbortReason() const {
+  return impl_->last_signal_abort_reason;
+}
+
 extension::RadarControllerRuntimeState RadarController::CaptureRuntimeState() const {
   extension::RadarControllerRuntimeState state;
   state.latest_output = impl_->runtime_state.latest_output;
@@ -255,6 +278,7 @@ extension::RadarControllerRuntimeState RadarController::CaptureRuntimeState() co
   state.cycle_index = impl_->cycle_index;
   state.last_cycle_executed = impl_->last_cycle_executed;
   state.last_cycle_reused_previous_output = impl_->last_cycle_reused_previous_output;
+  state.last_signal_abort_reason = impl_->last_signal_abort_reason;
   state.signal_pipeline_state = impl_->signal_pipeline.CaptureRuntimeState();
   return state;
 }
@@ -267,6 +291,7 @@ void RadarController::RestoreRuntimeState(const extension::RadarControllerRuntim
   impl_->cycle_index = state.cycle_index;
   impl_->last_cycle_executed = state.last_cycle_executed;
   impl_->last_cycle_reused_previous_output = state.last_cycle_reused_previous_output;
+  impl_->last_signal_abort_reason = state.last_signal_abort_reason;
   impl_->signal_pipeline.RestoreRuntimeState(state.signal_pipeline_state);
 }
 

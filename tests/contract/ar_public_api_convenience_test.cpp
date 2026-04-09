@@ -251,6 +251,8 @@ class RecordingSignalPipeline : public extension::ISignalPipeline {
     ++run_cycle_count_;
     extension::SignalCycleResult result;
     result.executed_this_cycle = should_execute_;
+    result.abort_reason = should_execute_ ? extension::SignalCycleAbortReason::kNone
+                                          : extension::SignalCycleAbortReason::kRuntimePreparationFailed;
     return result;
   }
 
@@ -288,11 +290,16 @@ class RecordingSignalPipeline : public extension::ISignalPipeline {
     state->run_cycle_count = run_cycle_count_;
     state->update_config_count = update_config_count_;
     extension::SignalPipelineRuntimeState runtime_state;
+    runtime_state.owner_identity = this;
+    runtime_state.schema_version = 1U;
     runtime_state.opaque = state;
     return runtime_state;
   }
 
   void RestoreRuntimeState(const extension::SignalPipelineRuntimeState& state) override {
+    if (state.owner_identity != this || state.schema_version != 1U) {
+      return;
+    }
     const std::shared_ptr<RuntimeState> snapshot =
         std::static_pointer_cast<RuntimeState>(state.opaque);
     if (snapshot == nullptr) {
@@ -979,12 +986,15 @@ TEST(PublicApiConvenienceTest, RadarSessionReusesPreviousOutputWhenSignalPipelin
 
   const session::RadarCycleResult baseline = session.StepWithResult(input);
   EXPECT_TRUE(baseline.executed_this_cycle);
+  EXPECT_EQ(baseline.signal_cycle_abort_reason, extension::SignalCycleAbortReason::kNone);
   EXPECT_FALSE(baseline.reused_previous_track_output);
 
   signal_pipeline.SetShouldExecute(false);
   const session::RadarCycleResult failed = session.StepWithResult(input);
   EXPECT_FALSE(failed.has_validation_error);
   EXPECT_FALSE(failed.executed_this_cycle);
+  EXPECT_EQ(failed.signal_cycle_abort_reason,
+            extension::SignalCycleAbortReason::kRuntimePreparationFailed);
   EXPECT_TRUE(failed.reused_previous_track_output);
   EXPECT_TRUE(failed.submitted_commands.empty());
   EXPECT_FALSE(failed.has_control_profile);
@@ -1033,6 +1043,8 @@ TEST(PublicApiConvenienceTest,
   });
   const session::RadarCycleResult failed = session.StepWithResult(failed_input, jammed_scene);
   EXPECT_FALSE(failed.executed_this_cycle);
+  EXPECT_EQ(failed.signal_cycle_abort_reason,
+            extension::SignalCycleAbortReason::kRuntimePreparationFailed);
   EXPECT_TRUE(failed.reused_previous_track_output);
   ASSERT_EQ(radar_context.GetTargetFeatures().size(), 1U);
   EXPECT_EQ(radar_context.GetTargetFeatures()[0].external_target_id, 960U);

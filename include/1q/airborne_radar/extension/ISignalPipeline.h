@@ -6,6 +6,7 @@
 #ifndef AIRBORNE_RADAR_SIGNAL_PIPELINE_I_SIGNAL_PIPELINE_H_
 #define AIRBORNE_RADAR_SIGNAL_PIPELINE_I_SIGNAL_PIPELINE_H_
 
+#include <cstdint>
 #include <memory>
 
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
@@ -19,6 +20,8 @@ namespace extension {
 class IEnvironmentService;
 
 struct SignalPipelineRuntimeState {
+  const void* owner_identity{nullptr}; /**< 生成该快照的 pipeline 实例地址 */
+  std::uint32_t schema_version{0U};    /**< 运行态快照 schema 版本 */
   std::shared_ptr<void> opaque{}; /**< 由具体 pipeline 实现解释的运行态快照 */
 };
 
@@ -79,12 +82,16 @@ class ONEQ_API ISignalPipeline {
   /**
    * @brief 捕获当前 pipeline 运行态快照。
    * @return 可用于失败回滚的 pipeline 运行态快照。
+   * @note 当该接口被注入 `RadarSession` / `RadarController` 使用时，快照必须完整覆盖会影响
+   *       后续周期行为的运行态；失败周期会依赖该快照执行无损回滚。
    */
   virtual SignalPipelineRuntimeState CaptureRuntimeState() const = 0;
 
   /**
    * @brief 恢复此前捕获的 pipeline 运行态快照。
    * @param state 待恢复的 pipeline 运行态快照。
+   * @note 恢复语义必须与 `CaptureRuntimeState()` 成对，确保失败周期不会留下内部游标、
+   *       缓存或拓扑状态副作用。
    */
   virtual void RestoreRuntimeState(const SignalPipelineRuntimeState& state) = 0;
 };

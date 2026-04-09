@@ -15,6 +15,13 @@
 namespace airborne_radar {
 namespace extension {
 
+enum class SignalCycleAbortReason {
+  kNone = 0,
+  kLifecycleUnavailable,
+  kInvalidEnvironmentCycle,
+  kRuntimePreparationFailed,
+};
+
 /**
  * @brief 关联质量观测指标（Pipeline 对外公开版本）。
  */
@@ -40,6 +47,8 @@ struct AssociationQualityMetrics {
  */
 struct SignalCycleResult {
   bool executed_this_cycle{false};                  /**< 当前调用是否真正完成了 signal pipeline 主链路 */
+  SignalCycleAbortReason abort_reason{
+      SignalCycleAbortReason::kNone}; /**< 若当前调用未执行成功，给出结构化 abort 原因 */
   model::TargetFeatureList updated_features{};     /**< 当前周期更新后的目标特征列表 */
   model::DecisionInputFrame decision_frame{};      /**< 当前周期决策输入帧 */
   AssociationQualityMetrics association_quality_metrics{}; /**< 当前周期关联质量观测指标 */

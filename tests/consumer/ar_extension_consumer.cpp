@@ -156,11 +156,16 @@ class DummySignalPipeline : public extension::ISignalPipeline {
     state->control_profile = control_profile_;
     state->config = config_;
     extension::SignalPipelineRuntimeState runtime_state;
+    runtime_state.owner_identity = this;
+    runtime_state.schema_version = 1U;
     runtime_state.opaque = state;
     return runtime_state;
   }
 
   void RestoreRuntimeState(const extension::SignalPipelineRuntimeState& state) override {
+    if (state.owner_identity != this || state.schema_version != 1U) {
+      return;
+    }
     const std::shared_ptr<RuntimeState> snapshot =
         std::static_pointer_cast<RuntimeState>(state.opaque);
     if (snapshot == nullptr) {

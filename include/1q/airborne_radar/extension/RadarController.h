@@ -30,6 +30,7 @@ struct RadarControllerRuntimeState {
   std::uint32_t cycle_index{1U};
   bool last_cycle_executed{false};
   bool last_cycle_reused_previous_output{false};
+  SignalCycleAbortReason last_signal_abort_reason{SignalCycleAbortReason::kNone};
   SignalPipelineRuntimeState signal_pipeline_state{};
 };
 }  // namespace extension
@@ -119,6 +120,11 @@ class ONEQ_API RadarController : public IRadarOutputReader {
    * @return 若最近一次周期未完成执行且复用了上一有效输出则返回 true。
    */
   bool ReusedPreviousTrackOutputLatestCycle() const;
+
+  /**
+   * @brief 最近一次 RunOnce 若未执行成功，返回 signal pipeline 的 abort 原因。
+   */
+  SignalCycleAbortReason GetLastSignalCycleAbortReason() const;
 
   /**
    * @brief 捕获当前控制器运行态快照。

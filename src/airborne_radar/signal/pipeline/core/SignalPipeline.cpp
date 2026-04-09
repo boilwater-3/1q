@@ -69,7 +69,8 @@ struct SignalPipelineSnapshot {
   SignalPipelineConfig base_config{};
   extension::control::RadarControlProfile control_profile{};
   AssociationSeedState association_seeds{};
-  internal::CycleExecutionScratch scratch{};
+  std::vector<tracking::TrackMeasurement> track_measurements{};
+  extension::AssociationQualityMetrics association_quality_metrics{};
   std::uint32_t cycle_index{1U};
   std::uint64_t batch_id{1U};
   association::DataAssociationRuntimeState association_runtime{};
@@ -119,7 +120,9 @@ struct SignalPipeline::Impl {
       PROJECT_LOG_ERROR(
           "[SignalPipeline] RunCycle aborted because auto_lifecycle_manager is unavailable.");
       ResetCycleScratch(&cycle_.scratch);
-      return extension::SignalCycleResult();
+      extension::SignalCycleResult result;
+      result.abort_reason = extension::SignalCycleAbortReason::kLifecycleUnavailable;
+      return result;
     }
 
     const environment::EnvironmentSnapshot environment_snapshot = environment.SampleEnvironment();
@@ -128,18 +131,23 @@ struct SignalPipeline::Impl {
           "[SignalPipeline] RunCycle aborted because environment cycle is not initialized with a "
           "positive dt_sec.");
       ResetCycleScratch(&cycle_.scratch);
-      return extension::SignalCycleResult();
+      extension::SignalCycleResult result;
+      result.abort_reason = extension::SignalCycleAbortReason::kInvalidEnvironmentCycle;
+      return result;
     }
     const internal::CycleExecutionRuntime runtime_execution = BuildExecutionRuntimeView();
 
     if (!internal::ExecuteCycle(input_state, environment, cycle_.cycle_index, cycle_.batch_id,
                                 runtime_execution, cycle_.scratch)) {
       ResetCycleScratch(&cycle_.scratch);
-      return extension::SignalCycleResult();
+      extension::SignalCycleResult result;
+      result.abort_reason = extension::SignalCycleAbortReason::kRuntimePreparationFailed;
+      return result;
     }
 
     extension::SignalCycleResult result;
     result.executed_this_cycle = true;
+    result.abort_reason = extension::SignalCycleAbortReason::kNone;
     result.updated_features = cycle_.scratch.output_state;
     result.decision_frame = cycle_.scratch.decision_frame;
     result.association_quality_metrics = cycle_.scratch.association_quality_metrics;
@@ -161,17 +169,25 @@ struct SignalPipeline::Impl {
     snapshot->base_config = runtime_.config.base_config;
     snapshot->control_profile = runtime_.config.control_profile_;
     snapshot->association_seeds = runtime_.association_seeds;
-    snapshot->scratch = cycle_.scratch;
+    snapshot->track_measurements = cycle_.scratch.track_measurements;
+    snapshot->association_quality_metrics = cycle_.scratch.association_quality_metrics;
     snapshot->cycle_index = cycle_.cycle_index;
     snapshot->batch_id = cycle_.batch_id;
     snapshot->association_runtime = runtime_.owned.association_engine.CaptureRuntimeState();
 
     extension::SignalPipelineRuntimeState state;
+    state.owner_identity = this;
+    state.schema_version = 1U;
     state.opaque = snapshot;
     return state;
   }
 
   void RestoreRuntimeState(const extension::SignalPipelineRuntimeState& state) {
+    if (state.owner_identity != this || state.schema_version != 1U) {
+      PROJECT_LOG_ERROR("[SignalPipeline] runtime state restore rejected because snapshot owner "
+                        "or schema does not match this instance.");
+      return;
+    }
     const std::shared_ptr<SignalPipelineSnapshot> snapshot =
         std::static_pointer_cast<SignalPipelineSnapshot>(state.opaque);
     if (snapshot == nullptr) {
@@ -185,7 +201,9 @@ struct SignalPipeline::Impl {
     RebuildOwnedComponents();
     runtime_.association_seeds = snapshot->association_seeds;
     runtime_.owned.association_engine.RestoreRuntimeState(snapshot->association_runtime);
-    cycle_.scratch = snapshot->scratch;
+    cycle_.scratch = internal::CycleExecutionScratch();
+    cycle_.scratch.track_measurements = snapshot->track_measurements;
+    cycle_.scratch.association_quality_metrics = snapshot->association_quality_metrics;
     cycle_.cycle_index = snapshot->cycle_index;
     cycle_.batch_id = snapshot->batch_id;
   }

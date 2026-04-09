@@ -388,6 +388,7 @@ Json BuildJson(const RadarCycleResult& value) {
       });
   json["has_validation_error"] = value.has_validation_error;
   json["executed_this_cycle"] = value.executed_this_cycle;
+  json["signal_cycle_abort_reason"] = static_cast<int>(value.signal_cycle_abort_reason);
   json["reused_previous_track_output"] = value.reused_previous_track_output;
   json["has_control_profile"] = value.has_control_profile;
   json["control_profile"] = BuildJson(value.control_profile);

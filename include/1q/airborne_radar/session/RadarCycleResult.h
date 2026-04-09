@@ -27,6 +27,8 @@ struct RadarCycleResult {
   ValidationIssueList validation_issues{}; /**< 当前周期输入校验结果 */
   bool has_validation_error{false}; /**< 是否存在 error 级输入问题 */
   bool executed_this_cycle{false}; /**< 当前调用是否真正执行了 signal/decision/control 链路 */
+  extension::SignalCycleAbortReason signal_cycle_abort_reason{
+      extension::SignalCycleAbortReason::kNone}; /**< 若下游主链路 abort，给出结构化原因 */
   bool reused_previous_track_output{
       false}; /**< 当前 `track_output_frame` 是否复用了上一有效周期输出 */
   bool has_control_profile{false}; /**< 当前周期是否产出了可归属到本周期的控制真值 */
