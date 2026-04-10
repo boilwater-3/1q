@@ -127,6 +127,65 @@ TEST(EosSessionFactoryTest, CreateWithEnvironmentServiceUsesInjectedService) {
   EXPECT_EQ(result.output_frame.cycle_index, 9U);
 }
 
+TEST(EosSessionFactoryTest, CreateUsesDefaultPipelineAndProducesResult) {
+  EosSession session = EosSessionFactory::Create(MakeSessionConfig());
+
+  EosCycleInput input = MakeValidInput(10U);
+  input.scene_targets.clear();
+
+  const EosCycleResult result = session.StepWithResult(input);
+
+  EXPECT_FALSE(result.has_validation_error);
+  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_EQ(result.output_frame.cycle_index, 10U);
+  EXPECT_TRUE(result.output_frame.detections.empty());
+}
+
+TEST(EosSessionFactoryTest, CreateWithControllerReusesProvidedController) {
+  CountingPipeline pipeline;
+  extension::EosController controller(pipeline);
+  EosSession session = EosSessionFactory::CreateWithController(MakeSessionConfig(), controller);
+
+  const EosCycleResult result = session.StepWithResult(MakeValidInput(11U));
+
+  EXPECT_EQ(pipeline.update_count, 1U);
+  EXPECT_EQ(pipeline.execute_count, 1U);
+  EXPECT_TRUE(controller.ExecutedLatestCycle());
+  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_EQ(result.output_frame.cycle_index, 11U);
+}
+
+TEST(EosSessionFactoryTest, ApplyRuntimeConfigUpdatesInjectedControllerPipeline) {
+  CountingPipeline pipeline;
+  extension::EosController controller(pipeline);
+  EosSession session = EosSessionFactory::CreateWithController(MakeSessionConfig(), controller);
+
+  EXPECT_EQ(pipeline.update_count, 1U);
+
+  EosRuntimeConfigPatch patch;
+  patch.has_scan_rate_deg_per_sec = true;
+  patch.scan_rate_deg_per_sec = 9.0f;
+  session.ApplyRuntimeConfig(patch);
+
+  EXPECT_EQ(pipeline.update_count, 2U);
+  EXPECT_TRUE(pipeline.last_reset_scan_phase);
+}
+
+TEST(EosSessionFactoryTest, InvalidRuntimeConfigDoesNotUpdateInjectedControllerPipeline) {
+  CountingPipeline pipeline;
+  extension::EosController controller(pipeline);
+  EosSession session = EosSessionFactory::CreateWithController(MakeSessionConfig(), controller);
+
+  EXPECT_EQ(pipeline.update_count, 1U);
+
+  EosRuntimeConfigPatch patch;
+  patch.has_frame_rate_hz = true;
+  patch.frame_rate_hz = 0.0f;
+  session.ApplyRuntimeConfig(patch);
+
+  EXPECT_EQ(pipeline.update_count, 1U);
+}
+
 }  // namespace
 }  // namespace session
 }  // namespace electro_optical_sensor
