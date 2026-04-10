@@ -108,7 +108,7 @@ TEST(EosControllerRuntimeStateTest, ExecuteAbortRestoresPipelineStateAndReusesPr
   controller.RunOnce(MakeValidInput(10U));
   ASSERT_TRUE(controller.ExecutedLatestCycle());
   const float baseline_scan_azimuth = pipeline.scan_azimuth_deg;
-  const common::EosOutputFrame baseline_output = controller.GetLatestOutputFrame();
+  const output::EosOutputFrame baseline_output = controller.GetLatestOutputFrame();
 
   pipeline.force_abort = true;
   controller.RunOnce(MakeValidInput(11U));
@@ -174,7 +174,7 @@ TEST(EosControllerRuntimeStateTest, FirstValidationRejectDoesNotSynthesizeLatest
   session::EosCycleInput invalid_input = MakeValidInput(45U);
   invalid_input.dt_sec = 0.0f;
   controller.RunOnce(invalid_input);
-  const session::EosCycleResult result = controller.BuildCycleResult(invalid_input);
+  const model::EosCycleResult result = controller.BuildCycleResult(invalid_input);
 
   EXPECT_FALSE(controller.HasLatestOutputFrame());
   EXPECT_FALSE(result.executed_this_cycle);
@@ -191,7 +191,7 @@ TEST(EosControllerRuntimeStateTest,
   pipeline.force_abort = true;
   const session::EosCycleInput input = MakeValidInput(50U);
   controller.RunOnce(input);
-  const session::EosCycleResult result = controller.BuildCycleResult(input);
+  const model::EosCycleResult result = controller.BuildCycleResult(input);
 
   EXPECT_FALSE(result.executed_this_cycle);
   EXPECT_FALSE(result.reused_previous_output);
@@ -226,7 +226,7 @@ TEST(EosControllerRuntimeStateTest, RestoreRejectDuringRollbackReturnsHardFailur
   pipeline.force_abort = true;
   pipeline.force_restore_reject = true;
   controller.RunOnce(MakeValidInput(71U));
-  const session::EosCycleResult result = controller.BuildCycleResult(MakeValidInput(71U));
+  const model::EosCycleResult result = controller.BuildCycleResult(MakeValidInput(71U));
 
   EXPECT_FALSE(controller.HasLatestOutputFrame());
   EXPECT_FALSE(result.executed_this_cycle);

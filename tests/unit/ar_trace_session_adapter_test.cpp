@@ -111,16 +111,17 @@ TEST(TraceSessionAdapterTest, EosTraceSessionWritesConfigInputOutput) {
   std::shared_ptr<oneq::common::trace::TraceSink> sink(
       new oneq::common::trace::JsonlFileTraceSink(trace_path, false));
 
-  core::session::EosSessionConfig config;
+  session::EosSessionConfig config;
   config.minimum_snr_db = 0.0f;
 
-  tools::EosTraceSession session(config, tools::EosTraceSessionOptions{sink, true});
+  ::electro_optical_sensor::session::EosTraceSession session(
+      config, ::electro_optical_sensor::session::EosTraceSessionOptions{sink, true});
 
-  core::model::EosCycleInput input;
+  session::EosCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
 
-  const core::session::EosCycleResult result = session.StepWithResult(input);
+  const ::electro_optical_sensor::model::EosCycleResult result = session.StepWithResult(input);
   EXPECT_GE(result.output_frame.detections.size(), 0U);
 
   const std::string content = ReadFile(trace_path);

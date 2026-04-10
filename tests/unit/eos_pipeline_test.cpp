@@ -10,13 +10,16 @@
 #include "electro_optical_sensor/signal/pipeline/EosPipeline.h"
 
 namespace electro_optical_sensor {
-namespace core {
+namespace signal {
 namespace pipeline {
 namespace {
 
-context::EosTargetState MakeTarget(std::uint64_t id, float azimuth_deg, float range_m = 1800.0f,
+namespace context = ::electro_optical_sensor::session;
+namespace output = ::electro_optical_sensor::output;
+
+session::EosTargetState MakeTarget(std::uint64_t id, float azimuth_deg, float range_m = 1800.0f,
                                    float projected_area_m2 = 2.0f) {
-  context::EosTargetState target;
+  session::EosTargetState target;
   target.target_id = id;
   target.range_m = range_m;
   target.azimuth_deg = azimuth_deg;
@@ -28,21 +31,21 @@ context::EosTargetState MakeTarget(std::uint64_t id, float azimuth_deg, float ra
   return target;
 }
 
-context::EosCycleInput MakeCycleInput(float dt_sec = 1.0f) {
-  context::EosCycleInput input;
+session::EosCycleInput MakeCycleInput(float dt_sec = 1.0f) {
+  session::EosCycleInput input;
   input.dt_sec = dt_sec;
   input.solar_irradiance_w_m2 = 850.0f;
   input.solar_altitude_deg = 45.0f;
   input.atmospheric_transmittance = 0.8f;
   input.cloud_coverage_ratio = 0.2f;
   input.background_temperature_k = 289.0f;
-  input.day_night_type = context::DayNightType::kDay;
+  input.day_night_type = session::DayNightType::kDay;
   input.platform_pose.position_m.z = 1200.0f;
   return input;
 }
 
-EosPipelineConfig MakePipelineConfig() {
-  EosPipelineConfig config;
+extension::EosPipelineConfig MakePipelineConfig() {
+  extension::EosPipelineConfig config;
   config.work_mode = EosPipelineWorkMode::kFused;
   config.minimum_snr_db = 0.0f;
   config.scan_start_az_deg = -10.0f;
@@ -53,7 +56,7 @@ EosPipelineConfig MakePipelineConfig() {
   return config;
 }
 
-float ResolveFirstCycleScanAzimuthDeg(const EosPipelineConfig& config, float dt_sec) {
+float ResolveFirstCycleScanAzimuthDeg(const extension::EosPipelineConfig& config, float dt_sec) {
   const float scan_width_deg = config.scan_end_az_deg - config.scan_start_az_deg;
   if (scan_width_deg <= 0.0f) {
     return config.scan_start_az_deg;
@@ -71,11 +74,11 @@ float ResolveFirstCycleScanAzimuthDeg(const EosPipelineConfig& config, float dt_
 
 TEST(EosPipelineTest, ScanAngleAdvancesAndWrapsInsideRange) {
   EosPipeline pipeline(MakePipelineConfig());
-  context::EosCycleInput input = MakeCycleInput(5.0f);  // advance by 25 deg, wrap inside [-10, 10]
+  session::EosCycleInput input = MakeCycleInput(5.0f);  // advance by 25 deg, wrap inside [-10, 10]
   input.cycle_index = 1U;
   input.scene_targets.push_back(MakeTarget(1U, -5.0f));
 
-  const common::EosOutputFrame frame = pipeline.Execute(input).output_frame;
+  const output::EosOutputFrame frame = pipeline.Execute(input).output_frame;
 
   EXPECT_GE(frame.scan_azimuth_deg, -10.0f);
   EXPECT_LE(frame.scan_azimuth_deg, 10.0f);
@@ -83,12 +86,12 @@ TEST(EosPipelineTest, ScanAngleAdvancesAndWrapsInsideRange) {
 
 TEST(EosPipelineTest, InFovTargetIsDetectedAndOutOfFovTargetIsFiltered) {
   EosPipeline pipeline(MakePipelineConfig());
-  context::EosCycleInput input = MakeCycleInput(1.0f);
+  session::EosCycleInput input = MakeCycleInput(1.0f);
   input.cycle_index = 3U;
   input.scene_targets.push_back(MakeTarget(101U, -5.0f));   // in fov after first advance
   input.scene_targets.push_back(MakeTarget(102U, 35.0f));   // out of fov
 
-  const common::EosOutputFrame frame = pipeline.Execute(input).output_frame;
+  const output::EosOutputFrame frame = pipeline.Execute(input).output_frame;
 
   ASSERT_EQ(frame.detections.size(), 1U);
   EXPECT_EQ(frame.detections[0].target_id, 101U);
@@ -96,34 +99,34 @@ TEST(EosPipelineTest, InFovTargetIsDetectedAndOutOfFovTargetIsFiltered) {
 
 TEST(EosPipelineTest, OutOfRangeTargetIsMarkedUndetected) {
   EosPipeline pipeline(MakePipelineConfig());
-  context::EosCycleInput input = MakeCycleInput(1.0f);
+  session::EosCycleInput input = MakeCycleInput(1.0f);
   input.cycle_index = 4U;
   input.scene_targets.push_back(MakeTarget(201U, -5.0f, 8000.0f));
 
-  const common::EosOutputFrame frame = pipeline.Execute(input).output_frame;
+  const output::EosOutputFrame frame = pipeline.Execute(input).output_frame;
 
   ASSERT_EQ(frame.detections.size(), 1U);
   EXPECT_FALSE(frame.detections[0].detected);
 }
 
 TEST(EosPipelineTest, LargerTargetAreaHasHigherFusedSnrAtSameGeometry) {
-  EosPipelineConfig config = MakePipelineConfig();
+  extension::EosPipelineConfig config = MakePipelineConfig();
   config.work_mode = EosPipelineWorkMode::kInfraredOnly;
   EosPipeline pipeline(config);
-  context::EosCycleInput input = MakeCycleInput(1.0f);
+  session::EosCycleInput input = MakeCycleInput(1.0f);
   input.cycle_index = 5U;
   input.background_temperature_k = 240.0f;
   input.cloud_coverage_ratio = 0.0f;
-  context::EosTargetState small_target = MakeTarget(301U, -5.0f, 600.0f, 1.0f);
+  session::EosTargetState small_target = MakeTarget(301U, -5.0f, 600.0f, 1.0f);
   small_target.apparent_temperature_k = 900.0f;
   small_target.emissivity = 0.98f;
-  context::EosTargetState large_target = MakeTarget(302U, -5.0f, 600.0f, 36.0f);
+  session::EosTargetState large_target = MakeTarget(302U, -5.0f, 600.0f, 36.0f);
   large_target.apparent_temperature_k = 900.0f;
   large_target.emissivity = 0.98f;
   input.scene_targets.push_back(small_target);
   input.scene_targets.push_back(large_target);
 
-  const common::EosOutputFrame frame = pipeline.Execute(input).output_frame;
+  const output::EosOutputFrame frame = pipeline.Execute(input).output_frame;
 
   ASSERT_EQ(frame.detections.size(), 2U);
   EXPECT_GT(frame.detections[0].fused_snr_linear, 0.0f);
@@ -131,18 +134,18 @@ TEST(EosPipelineTest, LargerTargetAreaHasHigherFusedSnrAtSameGeometry) {
 }
 
 TEST(EosPipelineTest, VisibleChainAppliesProjectedAreaOnce) {
-  EosPipelineConfig config = MakePipelineConfig();
+  extension::EosPipelineConfig config = MakePipelineConfig();
   config.work_mode = EosPipelineWorkMode::kVisibleOnly;
   config.minimum_snr_db = -120.0f;
   EosPipeline pipeline(config);
-  context::EosCycleInput input = MakeCycleInput(1.0f);
+  session::EosCycleInput input = MakeCycleInput(1.0f);
   input.cycle_index = 6U;
   input.cloud_coverage_ratio = 0.0f;
   const float scan_azimuth = ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec);
   input.scene_targets.push_back(MakeTarget(401U, scan_azimuth, 800.0f, 4.0f));
   input.scene_targets.push_back(MakeTarget(402U, scan_azimuth, 800.0f, 8.0f));
 
-  const common::EosOutputFrame frame = pipeline.Execute(input).output_frame;
+  const output::EosOutputFrame frame = pipeline.Execute(input).output_frame;
   ASSERT_EQ(frame.detections.size(), 2U);
   const float area_gain = frame.detections[1].fused_snr_linear /
                           std::max(frame.detections[0].fused_snr_linear, 1.0e-12f);
@@ -151,12 +154,12 @@ TEST(EosPipelineTest, VisibleChainAppliesProjectedAreaOnce) {
 }
 
 TEST(EosPipelineTest, AdaptiveRadiativeTransferModelProducesLowerSnrInSameScene) {
-  EosPipelineConfig baseline_config = MakePipelineConfig();
+  extension::EosPipelineConfig baseline_config = MakePipelineConfig();
   baseline_config.work_mode = EosPipelineWorkMode::kInfraredOnly;
   baseline_config.radiative_transfer_model =
       foundation::radiative_transfer::RadiativeTransferModel::kDerivedBeerLambert;
 
-  EosPipelineConfig adaptive_config = baseline_config;
+  extension::EosPipelineConfig adaptive_config = baseline_config;
   adaptive_config.radiative_transfer_model =
       foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance;
   adaptive_config.aerosol_density_factor = 1.6f;
@@ -165,17 +168,17 @@ TEST(EosPipelineTest, AdaptiveRadiativeTransferModelProducesLowerSnrInSameScene)
   EosPipeline baseline_pipeline(baseline_config);
   EosPipeline adaptive_pipeline(adaptive_config);
 
-  context::EosCycleInput input = MakeCycleInput(1.0f);
+  session::EosCycleInput input = MakeCycleInput(1.0f);
   input.cycle_index = 6U;
   input.background_temperature_k = 240.0f;
   input.cloud_coverage_ratio = 0.5f;
-  context::EosTargetState target = MakeTarget(401U, -5.0f, 1200.0f, 12.0f);
+  session::EosTargetState target = MakeTarget(401U, -5.0f, 1200.0f, 12.0f);
   target.apparent_temperature_k = 850.0f;
   target.emissivity = 0.98f;
   input.scene_targets.push_back(target);
 
-  const common::EosOutputFrame baseline_frame = baseline_pipeline.Execute(input).output_frame;
-  const common::EosOutputFrame adaptive_frame = adaptive_pipeline.Execute(input).output_frame;
+  const output::EosOutputFrame baseline_frame = baseline_pipeline.Execute(input).output_frame;
+  const output::EosOutputFrame adaptive_frame = adaptive_pipeline.Execute(input).output_frame;
 
   ASSERT_EQ(baseline_frame.detections.size(), 1U);
   ASSERT_EQ(adaptive_frame.detections.size(), 1U);
@@ -185,7 +188,7 @@ TEST(EosPipelineTest, AdaptiveRadiativeTransferModelProducesLowerSnrInSameScene)
 }
 
 TEST(EosPipelineTest, AdvancedEnvironmentModelLowersSnrInHighWindScene) {
-  EosPipelineConfig simplified_config = MakePipelineConfig();
+  extension::EosPipelineConfig simplified_config = MakePipelineConfig();
   simplified_config.work_mode = EosPipelineWorkMode::kInfraredOnly;
   simplified_config.radiative_transfer_model =
       foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance;
@@ -193,24 +196,24 @@ TEST(EosPipelineTest, AdvancedEnvironmentModelLowersSnrInHighWindScene) {
   simplified_config.aerosol_density_factor = 1.2f;
   simplified_config.turbulence_factor = 1.1f;
 
-  EosPipelineConfig advanced_config = simplified_config;
+  extension::EosPipelineConfig advanced_config = simplified_config;
   advanced_config.environment_model_type = EosPipelineEnvironmentModelType::kAdvanced;
 
   EosPipeline simplified_pipeline(simplified_config);
   EosPipeline advanced_pipeline(advanced_config);
 
-  context::EosCycleInput input = MakeCycleInput(1.0f);
+  session::EosCycleInput input = MakeCycleInput(1.0f);
   input.cycle_index = 7U;
   input.background_temperature_k = 240.0f;
   input.cloud_coverage_ratio = 0.6f;
   input.ambient_wind_speed_mps = 120.0f;
-  context::EosTargetState target = MakeTarget(501U, -5.0f, 1200.0f, 10.0f);
+  session::EosTargetState target = MakeTarget(501U, -5.0f, 1200.0f, 10.0f);
   target.apparent_temperature_k = 880.0f;
   target.emissivity = 0.98f;
   input.scene_targets.push_back(target);
 
-  const common::EosOutputFrame simplified_frame = simplified_pipeline.Execute(input).output_frame;
-  const common::EosOutputFrame advanced_frame = advanced_pipeline.Execute(input).output_frame;
+  const output::EosOutputFrame simplified_frame = simplified_pipeline.Execute(input).output_frame;
+  const output::EosOutputFrame advanced_frame = advanced_pipeline.Execute(input).output_frame;
 
   ASSERT_EQ(simplified_frame.detections.size(), 1U);
   ASSERT_EQ(advanced_frame.detections.size(), 1U);
@@ -219,7 +222,7 @@ TEST(EosPipelineTest, AdvancedEnvironmentModelLowersSnrInHighWindScene) {
 }
 
 TEST(EosPipelineTest, PlatformVelocityDoesNotAffectEnvironmentPenaltyWhenWindFixed) {
-  EosPipelineConfig config = MakePipelineConfig();
+  extension::EosPipelineConfig config = MakePipelineConfig();
   config.work_mode = EosPipelineWorkMode::kInfraredOnly;
   config.radiative_transfer_model =
       foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance;
@@ -230,26 +233,26 @@ TEST(EosPipelineTest, PlatformVelocityDoesNotAffectEnvironmentPenaltyWhenWindFix
   EosPipeline low_speed_pipeline(config);
   EosPipeline high_speed_pipeline(config);
 
-  context::EosCycleInput low_speed_input = MakeCycleInput(1.0f);
+  session::EosCycleInput low_speed_input = MakeCycleInput(1.0f);
   low_speed_input.cycle_index = 8U;
   low_speed_input.background_temperature_k = 240.0f;
   low_speed_input.cloud_coverage_ratio = 0.6f;
   low_speed_input.ambient_wind_speed_mps = 35.0f;
   low_speed_input.platform_pose.velocity_mps.x = 10.0f;
-  context::EosTargetState low_speed_target = MakeTarget(601U, -5.0f, 1200.0f, 10.0f);
+  session::EosTargetState low_speed_target = MakeTarget(601U, -5.0f, 1200.0f, 10.0f);
   low_speed_target.apparent_temperature_k = 880.0f;
   low_speed_target.emissivity = 0.98f;
   low_speed_input.scene_targets.push_back(low_speed_target);
 
-  context::EosCycleInput high_speed_input = low_speed_input;
+  session::EosCycleInput high_speed_input = low_speed_input;
   high_speed_input.cycle_index = 9U;
   high_speed_input.platform_pose.velocity_mps.x = 250.0f;
   high_speed_input.platform_pose.velocity_mps.y = -90.0f;
   high_speed_input.platform_pose.velocity_mps.z = 20.0f;
 
-    const common::EosOutputFrame low_speed_frame =
+    const output::EosOutputFrame low_speed_frame =
       low_speed_pipeline.Execute(low_speed_input).output_frame;
-    const common::EosOutputFrame high_speed_frame =
+    const output::EosOutputFrame high_speed_frame =
       high_speed_pipeline.Execute(high_speed_input).output_frame;
 
   ASSERT_EQ(low_speed_frame.detections.size(), 1U);
@@ -259,29 +262,29 @@ TEST(EosPipelineTest, PlatformVelocityDoesNotAffectEnvironmentPenaltyWhenWindFix
 }
 
 TEST(EosPipelineTest, LowerFrameRateProducesHigherSnrWithLongerIntegrationWindow) {
-  EosPipelineConfig low_rate_config = MakePipelineConfig();
+  extension::EosPipelineConfig low_rate_config = MakePipelineConfig();
   low_rate_config.work_mode = EosPipelineWorkMode::kInfraredOnly;
   low_rate_config.frame_rate_hz = 5.0f;
   low_rate_config.scan_rate_deg_per_sec = 5.0f;
 
-  EosPipelineConfig high_rate_config = low_rate_config;
+  extension::EosPipelineConfig high_rate_config = low_rate_config;
   high_rate_config.frame_rate_hz = 120.0f;
 
   EosPipeline low_rate_pipeline(low_rate_config);
   EosPipeline high_rate_pipeline(high_rate_config);
 
-  context::EosCycleInput input = MakeCycleInput(0.1f);
+  session::EosCycleInput input = MakeCycleInput(0.1f);
   input.cycle_index = 10U;
   input.background_temperature_k = 240.0f;
   input.cloud_coverage_ratio = 0.1f;
-  context::EosTargetState target =
+  session::EosTargetState target =
       MakeTarget(701U, ResolveFirstCycleScanAzimuthDeg(low_rate_config, input.dt_sec), 1000.0f, 8.0f);
   target.apparent_temperature_k = 860.0f;
   target.emissivity = 0.98f;
   input.scene_targets.push_back(target);
 
-  const common::EosOutputFrame low_rate_frame = low_rate_pipeline.Execute(input).output_frame;
-  const common::EosOutputFrame high_rate_frame = high_rate_pipeline.Execute(input).output_frame;
+  const output::EosOutputFrame low_rate_frame = low_rate_pipeline.Execute(input).output_frame;
+  const output::EosOutputFrame high_rate_frame = high_rate_pipeline.Execute(input).output_frame;
 
   ASSERT_EQ(low_rate_frame.detections.size(), 1U);
   ASSERT_EQ(high_rate_frame.detections.size(), 1U);
@@ -290,26 +293,26 @@ TEST(EosPipelineTest, LowerFrameRateProducesHigherSnrWithLongerIntegrationWindow
 }
 
 TEST(EosPipelineTest, VisibleReferenceIrradianceAffectsVisibleSnrThroughNoiseModel) {
-  EosPipelineConfig matched_reference_config = MakePipelineConfig();
+  extension::EosPipelineConfig matched_reference_config = MakePipelineConfig();
   matched_reference_config.work_mode = EosPipelineWorkMode::kVisibleOnly;
   matched_reference_config.visible_reference_irradiance_w_m2 = 400.0f;
 
-  EosPipelineConfig mismatched_reference_config = matched_reference_config;
+  extension::EosPipelineConfig mismatched_reference_config = matched_reference_config;
   mismatched_reference_config.visible_reference_irradiance_w_m2 = 2000.0f;
 
   EosPipeline matched_reference_pipeline(matched_reference_config);
   EosPipeline mismatched_reference_pipeline(mismatched_reference_config);
 
-  context::EosCycleInput input = MakeCycleInput(1.0f);
+  session::EosCycleInput input = MakeCycleInput(1.0f);
   input.cycle_index = 11U;
   input.solar_irradiance_w_m2 = 400.0f;
   input.cloud_coverage_ratio = 0.6f;
-  context::EosTargetState target = MakeTarget(801U, -5.0f, 1200.0f, 4.0f);
+  session::EosTargetState target = MakeTarget(801U, -5.0f, 1200.0f, 4.0f);
   input.scene_targets.push_back(target);
 
-    const common::EosOutputFrame matched_frame =
+    const output::EosOutputFrame matched_frame =
       matched_reference_pipeline.Execute(input).output_frame;
-    const common::EosOutputFrame mismatched_frame =
+    const output::EosOutputFrame mismatched_frame =
       mismatched_reference_pipeline.Execute(input).output_frame;
 
   ASSERT_EQ(matched_frame.detections.size(), 1U);
@@ -319,29 +322,29 @@ TEST(EosPipelineTest, VisibleReferenceIrradianceAffectsVisibleSnrThroughNoiseMod
 }
 
 TEST(EosPipelineTest, BetterDetectionSensitivityProducesHigherSnr) {
-  EosPipelineConfig better_sensitivity_config = MakePipelineConfig();
+  extension::EosPipelineConfig better_sensitivity_config = MakePipelineConfig();
   better_sensitivity_config.work_mode = EosPipelineWorkMode::kInfraredOnly;
   better_sensitivity_config.detection_sensitivity_w = 5.0e-13f;
 
-  EosPipelineConfig worse_sensitivity_config = better_sensitivity_config;
+  extension::EosPipelineConfig worse_sensitivity_config = better_sensitivity_config;
   worse_sensitivity_config.detection_sensitivity_w = 5.0e-12f;
 
   EosPipeline better_sensitivity_pipeline(better_sensitivity_config);
   EosPipeline worse_sensitivity_pipeline(worse_sensitivity_config);
 
-  context::EosCycleInput input = MakeCycleInput(0.5f);
+  session::EosCycleInput input = MakeCycleInput(0.5f);
   input.cycle_index = 12U;
   input.background_temperature_k = 240.0f;
   input.cloud_coverage_ratio = 0.1f;
-  context::EosTargetState target = MakeTarget(
+  session::EosTargetState target = MakeTarget(
       901U, ResolveFirstCycleScanAzimuthDeg(better_sensitivity_config, input.dt_sec), 900.0f, 9.0f);
   target.apparent_temperature_k = 860.0f;
   target.emissivity = 0.98f;
   input.scene_targets.push_back(target);
 
-    const common::EosOutputFrame better_frame =
+    const output::EosOutputFrame better_frame =
       better_sensitivity_pipeline.Execute(input).output_frame;
-    const common::EosOutputFrame worse_frame =
+    const output::EosOutputFrame worse_frame =
       worse_sensitivity_pipeline.Execute(input).output_frame;
 
   ASSERT_EQ(better_frame.detections.size(), 1U);
@@ -350,32 +353,32 @@ TEST(EosPipelineTest, BetterDetectionSensitivityProducesHigherSnr) {
 }
 
 TEST(EosPipelineTest, InfraredBandwidthIncreaseRaisesSnrAtFixedCenterWavelength) {
-  EosPipelineConfig narrow_band_config = MakePipelineConfig();
+  extension::EosPipelineConfig narrow_band_config = MakePipelineConfig();
   narrow_band_config.work_mode = EosPipelineWorkMode::kInfraredOnly;
   narrow_band_config.wavelength_lower_um = 3.5f;
   narrow_band_config.wavelength_upper_um = 4.5f;
   narrow_band_config.minimum_snr_db = -120.0f;
 
-  EosPipelineConfig wide_band_config = narrow_band_config;
+  extension::EosPipelineConfig wide_band_config = narrow_band_config;
   wide_band_config.wavelength_lower_um = 2.0f;
   wide_band_config.wavelength_upper_um = 6.0f;
 
   EosPipeline narrow_band_pipeline(narrow_band_config);
   EosPipeline wide_band_pipeline(wide_band_config);
 
-  context::EosCycleInput input = MakeCycleInput(1.0f);
+  session::EosCycleInput input = MakeCycleInput(1.0f);
   input.cycle_index = 13U;
   input.background_temperature_k = 240.0f;
   input.cloud_coverage_ratio = 0.1f;
-  context::EosTargetState target =
+  session::EosTargetState target =
       MakeTarget(1001U, ResolveFirstCycleScanAzimuthDeg(narrow_band_config, input.dt_sec), 900.0f, 8.0f);
   target.apparent_temperature_k = 860.0f;
   target.emissivity = 0.98f;
   input.scene_targets.push_back(target);
 
-    const common::EosOutputFrame narrow_band_frame =
+    const output::EosOutputFrame narrow_band_frame =
       narrow_band_pipeline.Execute(input).output_frame;
-    const common::EosOutputFrame wide_band_frame =
+    const output::EosOutputFrame wide_band_frame =
       wide_band_pipeline.Execute(input).output_frame;
   ASSERT_EQ(narrow_band_frame.detections.size(), 1U);
   ASSERT_EQ(wide_band_frame.detections.size(), 1U);
@@ -384,30 +387,30 @@ TEST(EosPipelineTest, InfraredBandwidthIncreaseRaisesSnrAtFixedCenterWavelength)
 }
 
 TEST(EosPipelineTest, FusedWeightShiftsTowardVisibleInDayAndInfraredAtNight) {
-  EosPipelineConfig fused_config = MakePipelineConfig();
+  extension::EosPipelineConfig fused_config = MakePipelineConfig();
   fused_config.work_mode = EosPipelineWorkMode::kFused;
   fused_config.minimum_snr_db = -120.0f;
-  EosPipelineConfig infrared_config = fused_config;
+  extension::EosPipelineConfig infrared_config = fused_config;
   infrared_config.work_mode = EosPipelineWorkMode::kInfraredOnly;
-  EosPipelineConfig visible_config = fused_config;
+  extension::EosPipelineConfig visible_config = fused_config;
   visible_config.work_mode = EosPipelineWorkMode::kVisibleOnly;
 
   EosPipeline fused_pipeline(fused_config);
   EosPipeline infrared_pipeline(infrared_config);
   EosPipeline visible_pipeline(visible_config);
 
-  context::EosCycleInput day_input = MakeCycleInput(1.0f);
+  session::EosCycleInput day_input = MakeCycleInput(1.0f);
   day_input.cycle_index = 12U;
-  day_input.day_night_type = context::DayNightType::kDay;
+  day_input.day_night_type = session::DayNightType::kDay;
   day_input.cloud_coverage_ratio = 0.0f;
   day_input.background_temperature_k = 240.0f;
   const float day_scan_azimuth = ResolveFirstCycleScanAzimuthDeg(fused_config, day_input.dt_sec);
   day_input.scene_targets.push_back(MakeTarget(1101U, day_scan_azimuth, 800.0f, 10.0f));
 
-    const common::EosOutputFrame day_fused_frame = fused_pipeline.Execute(day_input).output_frame;
-    const common::EosOutputFrame day_infrared_frame =
+    const output::EosOutputFrame day_fused_frame = fused_pipeline.Execute(day_input).output_frame;
+    const output::EosOutputFrame day_infrared_frame =
       infrared_pipeline.Execute(day_input).output_frame;
-    const common::EosOutputFrame day_visible_frame =
+    const output::EosOutputFrame day_visible_frame =
       visible_pipeline.Execute(day_input).output_frame;
   ASSERT_EQ(day_fused_frame.detections.size(), 1U);
   ASSERT_EQ(day_infrared_frame.detections.size(), 1U);
@@ -422,14 +425,14 @@ TEST(EosPipelineTest, FusedWeightShiftsTowardVisibleInDayAndInfraredAtNight) {
   EosPipeline night_infrared_pipeline(infrared_config);
   EosPipeline night_visible_pipeline(visible_config);
 
-  context::EosCycleInput night_input = day_input;
+  session::EosCycleInput night_input = day_input;
   night_input.cycle_index = 13U;
-  night_input.day_night_type = context::DayNightType::kNight;
-    const common::EosOutputFrame night_fused_frame =
+  night_input.day_night_type = session::DayNightType::kNight;
+    const output::EosOutputFrame night_fused_frame =
       night_fused_pipeline.Execute(night_input).output_frame;
-    const common::EosOutputFrame night_infrared_frame =
+    const output::EosOutputFrame night_infrared_frame =
       night_infrared_pipeline.Execute(night_input).output_frame;
-    const common::EosOutputFrame night_visible_frame =
+    const output::EosOutputFrame night_visible_frame =
       night_visible_pipeline.Execute(night_input).output_frame;
   ASSERT_EQ(night_fused_frame.detections.size(), 1U);
   ASSERT_EQ(night_infrared_frame.detections.size(), 1U);
@@ -445,5 +448,5 @@ TEST(EosPipelineTest, FusedWeightShiftsTowardVisibleInDayAndInfraredAtNight) {
 
 }  // namespace
 }  // namespace pipeline
-}  // namespace core
+}  // namespace signal
 }  // namespace electro_optical_sensor

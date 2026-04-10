@@ -30,9 +30,9 @@ class DummyEosPipeline : public extension::IEosPipeline {
 
   extension::EosPipelineExecuteResult Execute(const session::EosCycleInput& input) override {
     extension::EosPipelineExecuteResult result;
-    common::EosOutputFrame& frame = result.output_frame;
+    output::EosOutputFrame& frame = result.output_frame;
     frame.cycle_index = input.cycle_index;
-    common::EosDetectionRecord record;
+    output::EosDetectionRecord record;
     record.target_id = 1U;
     record.range_m = 1500.0f;
     record.infrared_snr_linear = 10.0f;
@@ -100,7 +100,7 @@ int main() {
     return 1;
   }
 
-  const electro_optical_sensor::common::EosOutputFrame& frame = controller.GetLatestOutputFrame();
+  const electro_optical_sensor::output::EosOutputFrame& frame = controller.GetLatestOutputFrame();
   (void)frame.cycle_index;
   (void)frame.detections.size();
 
@@ -124,7 +124,7 @@ int main() {
   electro_optical_sensor::session::EosSession session =
       electro_optical_sensor::session::EosSessionFactory::CreateWithEnvironmentService(
           {}, environment_service);
-  const electro_optical_sensor::common::EosOutputFrame session_frame = session.Step(input);
+  const electro_optical_sensor::output::EosOutputFrame session_frame = session.Step(input);
   (void)session_frame.cycle_index;
 
   return 0;

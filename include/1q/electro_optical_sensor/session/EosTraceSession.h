@@ -42,13 +42,13 @@ class ONEQ_API EosTraceSession {
    * @note 若需要区分本周期是否执行或是否复用上一输出，请使用
    *       `StepWithResult()` 读取结构化状态字段。
    */
-  common::EosOutputFrame Step(const EosCycleInput& input);
+  output::EosOutputFrame Step(const EosCycleInput& input);
 
   /**
    * @brief 执行单周期并返回聚合结果。
    * @note 返回值包含 `executed_this_cycle` / `reused_previous_output` 等状态语义。
    */
-  EosCycleResult StepWithResult(const EosCycleInput& input);
+  model::EosCycleResult StepWithResult(const EosCycleInput& input);
   void ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch);
 
   EosSession& session();
@@ -62,18 +62,6 @@ class ONEQ_API EosTraceSession {
 };
 
 }  // namespace session
-
-namespace core {
-namespace session {
-using ::electro_optical_sensor::session::EosTraceSessionOptions;
-using ::electro_optical_sensor::session::EosTraceSession;
-}  // namespace session
-}  // namespace core
-
-namespace tools {
-using ::electro_optical_sensor::session::EosTraceSessionOptions;
-using ::electro_optical_sensor::session::EosTraceSession;
-}  // namespace tools
 
 }  // namespace electro_optical_sensor
 

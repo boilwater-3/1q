@@ -22,16 +22,15 @@ foreach(IMPL_FILE IN LISTS EOS_IMPL_FILES)
            INCLUDE_PATH "${INCLUDE_LINE}")
 
     if(INCLUDE_PATH MATCHES "^1q/electro_optical_sensor/")
-      string(REGEX REPLACE "^1q/" "" MAYBE_PRIVATE_RELATIVE "${INCLUDE_PATH}")
-      if(EXISTS "${PRIVATE_INCLUDE_ROOT}/${MAYBE_PRIVATE_RELATIVE}")
+      string(REGEX REPLACE "^1q/" "" RELATIVE_PATH "${INCLUDE_PATH}")
+      if(EXISTS "${PRIVATE_INCLUDE_ROOT}/${RELATIVE_PATH}")
         list(APPEND VIOLATIONS
-             "${IMPL_FILE}: private header uses public prefix '${INCLUDE_PATH}'")
+             "${IMPL_FILE}: private header should use 'electro_optical_sensor/' for '${INCLUDE_PATH}'")
       endif()
     elseif(INCLUDE_PATH MATCHES "^electro_optical_sensor/")
-      if(EXISTS "${PUBLIC_INCLUDE_ROOT}/${INCLUDE_PATH}"
-         AND NOT EXISTS "${PRIVATE_INCLUDE_ROOT}/${INCLUDE_PATH}")
+      if(EXISTS "${PUBLIC_INCLUDE_ROOT}/${INCLUDE_PATH}")
         list(APPEND VIOLATIONS
-             "${IMPL_FILE}: public header should use '1q/' prefix for '${INCLUDE_PATH}'")
+             "${IMPL_FILE}: public header should use '1q/electro_optical_sensor/' for '${INCLUDE_PATH}'")
       endif()
     endif()
   endforeach()

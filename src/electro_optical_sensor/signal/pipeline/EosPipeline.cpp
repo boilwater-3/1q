@@ -17,7 +17,7 @@
 #include "common/logging/ProjectLog.h"
 
 namespace electro_optical_sensor {
-namespace core {
+namespace signal {
 namespace pipeline {
 
 namespace {
@@ -415,7 +415,7 @@ bool EosPipeline::RestoreRuntimeState(const extension::EosPipelineRuntimeState& 
 extension::EosPipelineExecuteResult EosPipeline::Execute(
 		const ::electro_optical_sensor::session::EosCycleInput& input) {
 	extension::EosPipelineExecuteResult result;
-	common::EosOutputFrame& output = result.output_frame;
+	output::EosOutputFrame& output = result.output_frame;
 	output.cycle_index = input.cycle_index;
 	AdvanceScan(input.dt_sec);
 	output.scan_azimuth_deg = current_scan_azimuth_deg_;
@@ -457,10 +457,10 @@ bool EosPipeline::IsTargetInCurrentFov(
 				 elevation_delta_deg <= 0.5f * config_.vertical_fov_deg;
 }
 
-common::EosDetectionRecord EosPipeline::BuildDetectionRecord(
+output::EosDetectionRecord EosPipeline::BuildDetectionRecord(
 		const ::electro_optical_sensor::session::EosTargetState& target,
 		const ::electro_optical_sensor::session::EosCycleInput& input) const {
-	common::EosDetectionRecord record;
+	output::EosDetectionRecord record;
 	record.target_id = target.target_id;
 	record.range_m = target.range_m;
 	record.azimuth_deg = target.azimuth_deg;
@@ -486,5 +486,5 @@ common::EosDetectionRecord EosPipeline::BuildDetectionRecord(
 }
 
 }  // namespace pipeline
-}  // namespace core
+}  // namespace signal
 }  // namespace electro_optical_sensor

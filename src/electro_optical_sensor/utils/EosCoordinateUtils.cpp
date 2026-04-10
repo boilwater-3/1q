@@ -6,7 +6,7 @@
 #include "electro_optical_sensor/foundation/EosPhysicalConstants.h"
 
 namespace electro_optical_sensor {
-namespace common {
+namespace utils {
 
 namespace {
 
@@ -231,5 +231,5 @@ bool TryMakeEosTargetFromLla(std::uint64_t target_id,
                                      status);
 }
 
-}  // namespace common
+}  // namespace utils
 }  // namespace electro_optical_sensor

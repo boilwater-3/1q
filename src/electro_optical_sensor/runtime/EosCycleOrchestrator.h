@@ -10,11 +10,7 @@
 #include "1q/electro_optical_sensor/session/EosSession.h"
 
 namespace electro_optical_sensor {
-namespace extension {
-class IEosPipeline;
-class EosController;
-}  // namespace extension
-
+namespace runtime {
 namespace session {
 namespace internal {
 
@@ -23,7 +19,7 @@ namespace internal {
  */
 class EosCycleOrchestrator {
  public:
-  EosCycleOrchestrator(const EosSessionConfig& config,
+  EosCycleOrchestrator(const ::electro_optical_sensor::session::EosSessionConfig& config,
                        const ::electro_optical_sensor::extension::EosPipelineConfig& pipeline_config,
                        bool initial_reset_scan_phase,
                        ::electro_optical_sensor::extension::IEosPipeline& pipeline,
@@ -34,22 +30,23 @@ class EosCycleOrchestrator {
    * @param[in] input 当前周期输入。
    * @return 当前周期聚合结果。
    */
-  EosCycleResult Step(const EosCycleInput& input);
+  model::EosCycleResult Step(const ::electro_optical_sensor::session::EosCycleInput& input);
 
   /**
    * @brief 应用运行期可变配置补丁。
    * @param[in] patch 运行期补丁。
    */
-  void ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch);
+  void ApplyRuntimeConfig(const ::electro_optical_sensor::session::EosRuntimeConfigPatch& patch);
 
  private:
-  EosSessionConfig runtime_config_{};
+  ::electro_optical_sensor::session::EosSessionConfig runtime_config_{};
   ::electro_optical_sensor::extension::IEosPipeline& pipeline_;
   ::electro_optical_sensor::extension::EosController& controller_;
 };
 
 }  // namespace internal
 }  // namespace session
+}  // namespace runtime
 }  // namespace electro_optical_sensor
 
 #endif  // ELECTRO_OPTICAL_SENSOR_RUNTIME_EOS_CYCLE_ORCHESTRATOR_H_

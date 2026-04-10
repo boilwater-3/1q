@@ -113,7 +113,7 @@ class ONEQ_API EosSession {
    *       "本周期实际执行" 与 "复用上一有效输出"，请使用 `StepWithResult()`。
    * @note 非线程安全：会读写会话内部状态；并发调用需外部同步。
    */
-  common::EosOutputFrame Step(const EosCycleInput& input);
+  output::EosOutputFrame Step(const EosCycleInput& input);
 
   /**
    * @brief 执行单周期并返回聚合结果。
@@ -123,7 +123,7 @@ class ONEQ_API EosSession {
    *       提供结构化周期状态语义。
    * @note 非线程安全：会读写会话内部状态；并发调用需外部同步。
    */
-  EosCycleResult StepWithResult(const EosCycleInput& input);
+  model::EosCycleResult StepWithResult(const EosCycleInput& input);
 
   /**
    * @brief 应用运行期可变配置补丁。
@@ -159,16 +159,6 @@ class ONEQ_API EosSessionFactory {
 };
 
 }  // namespace session
-
-namespace core {
-namespace session {
-using ::electro_optical_sensor::session::EosWorkMode;
-using ::electro_optical_sensor::session::EosSessionConfig;
-using ::electro_optical_sensor::session::EosRuntimeConfigPatch;
-using ::electro_optical_sensor::session::EosSession;
-using ::electro_optical_sensor::session::EosSessionFactory;
-}  // namespace session
-}  // namespace core
 
 }  // namespace electro_optical_sensor
 

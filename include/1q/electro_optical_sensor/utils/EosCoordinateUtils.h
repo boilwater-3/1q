@@ -13,7 +13,7 @@
 #include "1q/electro_optical_sensor/model/EosCycleInput.h"
 
 namespace electro_optical_sensor {
-namespace common {
+namespace utils {
 
 /**
  * @brief EOS 局部坐标参考系定义。
@@ -142,21 +142,7 @@ ONEQ_API bool TryMakeEosTargetFromLla(std::uint64_t target_id,
                                       session::EosTargetState* target,
                                       EosCoordinateStatus* status = nullptr);
 
-}  // namespace common
-
-namespace core {
-namespace context {
-using ::electro_optical_sensor::common::EosCoordinateReference;
-using ::electro_optical_sensor::common::EosTargetAppearance;
-using ::electro_optical_sensor::common::EosCoordinateStatus;
-using ::electro_optical_sensor::common::TryConvertEcefToEosLocal;
-using ::electro_optical_sensor::common::TryConvertLlaToEosLocal;
-using ::electro_optical_sensor::common::TryMakeEosPoseFromEcef;
-using ::electro_optical_sensor::common::TryMakeEosPoseFromLla;
-using ::electro_optical_sensor::common::TryMakeEosTargetFromEcef;
-using ::electro_optical_sensor::common::TryMakeEosTargetFromLla;
-}  // namespace context
-}  // namespace core
+}  // namespace utils
 
 }  // namespace electro_optical_sensor
 

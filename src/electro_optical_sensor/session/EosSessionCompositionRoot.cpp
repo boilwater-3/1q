@@ -13,6 +13,7 @@
 #include "1q/electro_optical_sensor/extension/IEosEnvironmentService.h"
 #include "common/logging/ProjectLog.h"
 #include "electro_optical_sensor/runtime/EosPipelineConfigMapper.h"
+#include "electro_optical_sensor/runtime/EosRuntimeConfigResolver.h"
 #include "electro_optical_sensor/signal/pipeline/EosPipeline.h"
 
 namespace electro_optical_sensor {
@@ -24,7 +25,7 @@ namespace {
 EosSessionComposition BuildInitialCompositionRuntime(const EosSessionConfig& config,
                                                      EosSessionComposition composition) {
   composition.runtime_config = config;
-  composition.pipeline_config = BuildEosPipelineConfig(config);
+  composition.pipeline_config = runtime::session::internal::BuildEosPipelineConfig(config);
   composition.initial_reset_scan_phase = true;
   return composition;
 }
@@ -100,8 +101,10 @@ EosSessionComposition ComposeWithExternalPipeline(extension::IEosPipeline& pipel
 }  // namespace
 
 EosSessionComposition EosSessionCompositionRoot::ComposeDefault(const EosSessionConfig& config) {
-  return ComposeWithOwnedPipeline(std::unique_ptr<extension::IEosPipeline>(
-  new core::pipeline::EosPipeline(BuildEosPipelineConfig(config))),
+  return ComposeWithOwnedPipeline(
+      std::unique_ptr<extension::IEosPipeline>(
+          new signal::pipeline::EosPipeline(runtime::session::internal::BuildEosPipelineConfig(
+              config))),
       config);
 }
 
@@ -114,10 +117,10 @@ EosSessionComposition EosSessionCompositionRoot::ComposeWithPipeline(
 EosSessionComposition EosSessionCompositionRoot::ComposeWithEnvironmentService(
     const EosSessionConfig& config,
     extension::IEosEnvironmentService& environment_service) {
-  return ComposeWithOwnedPipeline(std::unique_ptr<extension::IEosPipeline>(
-    new core::pipeline::EosPipeline(BuildEosPipelineConfig(config),
-                                       MakeNonOwningEnvironmentServiceHandle(
-                                           environment_service))),
+  return ComposeWithOwnedPipeline(
+      std::unique_ptr<extension::IEosPipeline>(new signal::pipeline::EosPipeline(
+          runtime::session::internal::BuildEosPipelineConfig(config),
+          MakeNonOwningEnvironmentServiceHandle(environment_service))),
       config);
 }
 

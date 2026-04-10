@@ -28,7 +28,7 @@ namespace extension {
 struct ONEQ_API EosControllerRuntimeState {
   const void* owner_identity{nullptr};
   std::uint32_t schema_version{0U};
-  common::EosOutputFrame latest_output{};
+  output::EosOutputFrame latest_output{};
   model::EosValidationIssueList last_validation_issues{};
   bool has_latest_output{false};
   bool has_validation_error{false};
@@ -69,7 +69,7 @@ class ONEQ_API EosController {
    * @brief 获取最新输出帧。
    * @return 最新输出帧。
    */
-  const common::EosOutputFrame& GetLatestOutputFrame() const;
+  const output::EosOutputFrame& GetLatestOutputFrame() const;
 
   /**
    * @brief 获取最近一次输入校验结果。
@@ -106,7 +106,7 @@ class ONEQ_API EosController {
    * @param[in] input 当前周期输入，仅在无可复用输出时用于回填 cycle_index。
    * @return 当前周期聚合结果。
    */
-  session::EosCycleResult BuildCycleResult(const session::EosCycleInput& input) const;
+  model::EosCycleResult BuildCycleResult(const session::EosCycleInput& input) const;
 
   /**
    * @brief 获取当前控制器绑定的核心管线实例。
@@ -131,12 +131,6 @@ class ONEQ_API EosController {
 };
 
 }  // namespace extension
-
-namespace core {
-namespace controller {
-using ::electro_optical_sensor::extension::EosController;
-}  // namespace controller
-}  // namespace core
 
 }  // namespace electro_optical_sensor
 

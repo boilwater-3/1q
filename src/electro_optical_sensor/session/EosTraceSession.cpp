@@ -76,7 +76,7 @@ Json BuildJson(const EosCycleInput& value) {
   return json;
 }
 
-Json BuildJson(const common::EosDetectionRecord& value) {
+Json BuildJson(const output::EosDetectionRecord& value) {
   Json json;
   json["target_id"] = value.target_id;
   json["range_m"] = value.range_m;
@@ -90,12 +90,12 @@ Json BuildJson(const common::EosDetectionRecord& value) {
   return json;
 }
 
-Json BuildJson(const common::EosOutputFrame& value) {
+Json BuildJson(const output::EosOutputFrame& value) {
   Json json;
   json["cycle_index"] = value.cycle_index;
   json["scan_azimuth_deg"] = value.scan_azimuth_deg;
   json["detections"] =
-      SerializeArray(value.detections, [](const common::EosDetectionRecord& detection) {
+      SerializeArray(value.detections, [](const output::EosDetectionRecord& detection) {
         return BuildJson(detection);
       });
   return json;
@@ -110,7 +110,7 @@ Json BuildJson(const model::EosValidationIssue& value) {
   return json;
 }
 
-Json BuildJson(const EosCycleResult& value) {
+Json BuildJson(const model::EosCycleResult& value) {
   Json json;
   json["output_frame"] = BuildJson(value.output_frame);
   json["validation_issues"] =
@@ -180,22 +180,22 @@ EosTraceSession::EosTraceSession(EosSessionConfig config,
   }
 }
 
-common::EosOutputFrame EosTraceSession::Step(const EosCycleInput& input) {
+output::EosOutputFrame EosTraceSession::Step(const EosCycleInput& input) {
   if (sink_) {
     Record("input", ToJson(input));
   }
-  const common::EosOutputFrame output = session_.Step(input);
+  const output::EosOutputFrame output = session_.Step(input);
   if (sink_) {
     Record("output", ToJson(output));
   }
   return output;
 }
 
-EosCycleResult EosTraceSession::StepWithResult(const EosCycleInput& input) {
+model::EosCycleResult EosTraceSession::StepWithResult(const EosCycleInput& input) {
   if (sink_) {
     Record("input", ToJson(input));
   }
-  const EosCycleResult output = session_.StepWithResult(input);
+  const model::EosCycleResult output = session_.StepWithResult(input);
   if (sink_) {
     Record("output", ToJson(output));
   }

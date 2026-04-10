@@ -12,7 +12,7 @@
 #include "1q/api.hpp"
 
 namespace electro_optical_sensor {
-namespace common {
+namespace output {
 
 /**
  * @brief EosDetectionRecord 表示单目标探测输出条目。
@@ -41,7 +41,8 @@ struct ONEQ_API EosOutputFrame {
   EosDetectionRecordList detections{};     /**< 当前周期探测结果 */
 };
 
-}  // namespace common
+}  // namespace output
+
 }  // namespace electro_optical_sensor
 
 #endif  // ELECTRO_OPTICAL_SENSOR_COMMON_EOS_OUTPUT_FRAME_H_

@@ -10,6 +10,7 @@
 #include "1q/electro_optical_sensor/session/EosSession.h"
 
 namespace electro_optical_sensor {
+namespace runtime {
 namespace session {
 namespace internal {
 
@@ -19,10 +20,11 @@ namespace internal {
  * @return 对应的 pipeline 配置。
  */
 ::electro_optical_sensor::extension::EosPipelineConfig BuildEosPipelineConfig(
-    const EosSessionConfig& config);
+    const ::electro_optical_sensor::session::EosSessionConfig& config);
 
 }  // namespace internal
 }  // namespace session
+}  // namespace runtime
 }  // namespace electro_optical_sensor
 
 #endif  // ELECTRO_OPTICAL_SENSOR_SESSION_EOS_PIPELINE_CONFIG_MAPPER_H_

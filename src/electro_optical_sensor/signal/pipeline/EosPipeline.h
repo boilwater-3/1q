@@ -14,7 +14,7 @@
 #include "1q/electro_optical_sensor/model/EosCycleInput.h"
 
 namespace electro_optical_sensor {
-namespace core {
+namespace signal {
 namespace pipeline {
 
 using ::electro_optical_sensor::extension::EosPipelineConfig;
@@ -64,7 +64,7 @@ class EosPipeline : public ::electro_optical_sensor::extension::IEosPipeline {
   void AdvanceScan(float dt_sec);
   bool IsTargetInCurrentFov(
 	  const ::electro_optical_sensor::session::EosTargetState& target) const;
-  common::EosDetectionRecord BuildDetectionRecord(
+  output::EosDetectionRecord BuildDetectionRecord(
 	  const ::electro_optical_sensor::session::EosTargetState& target,
 	  const ::electro_optical_sensor::session::EosCycleInput& input) const;
 
@@ -74,7 +74,7 @@ class EosPipeline : public ::electro_optical_sensor::extension::IEosPipeline {
 };
 
 }  // namespace pipeline
-}  // namespace core
+}  // namespace signal
 }  // namespace electro_optical_sensor
 
 #endif  // ELECTRO_OPTICAL_SENSOR_SIGNAL_PIPELINE_EOS_PIPELINE_H_

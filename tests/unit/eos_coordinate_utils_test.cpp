@@ -9,12 +9,11 @@
 #include "1q/electro_optical_sensor/utils/EosCoordinateUtils.h"
 
 namespace electro_optical_sensor {
-namespace core {
-namespace context {
+namespace utils {
 namespace {
 
 TEST(EosCoordinateUtilsTest, MakePoseFromLlaPopulatesPlatformPose) {
-  EosCoordinateReference reference;
+  ::electro_optical_sensor::utils::EosCoordinateReference reference;
   reference.origin_lla.latitude_deg = 0.0;
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;
@@ -39,7 +38,7 @@ TEST(EosCoordinateUtilsTest, MakePoseFromLlaPopulatesPlatformPose) {
 }
 
 TEST(EosCoordinateUtilsTest, MakeTargetFromLlaAndEcefAreConsistent) {
-  EosCoordinateReference reference;
+  ::electro_optical_sensor::utils::EosCoordinateReference reference;
   reference.origin_lla.latitude_deg = 0.0;
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;
@@ -54,13 +53,13 @@ TEST(EosCoordinateUtilsTest, MakeTargetFromLlaAndEcefAreConsistent) {
   target_lla.longitude_deg = 0.001;
   target_lla.altitude_m = 0.0;
 
-  EosTargetAppearance appearance;
+  ::electro_optical_sensor::utils::EosTargetAppearance appearance;
   appearance.apparent_temperature_k = 320.0f;
   appearance.emissivity = 0.85f;
   appearance.reflectance = 0.3f;
   appearance.projected_area_m2 = 2.5f;
 
-  EosTargetState target_from_lla;
+  ::electro_optical_sensor::session::EosTargetState target_from_lla;
   ASSERT_TRUE(TryMakeEosTargetFromLla(11U, target_lla, reference, platform_pose, appearance,
                                       &target_from_lla));
   EXPECT_EQ(target_from_lla.target_id, 11U);
@@ -70,7 +69,7 @@ TEST(EosCoordinateUtilsTest, MakeTargetFromLlaAndEcefAreConsistent) {
 
   oneq::common::EcefCoordinateM target_ecef;
   ASSERT_TRUE(oneq::common::TryLlaToEcef(target_lla, &target_ecef));
-  EosTargetState target_from_ecef;
+  ::electro_optical_sensor::session::EosTargetState target_from_ecef;
   ASSERT_TRUE(TryMakeEosTargetFromEcef(12U, target_ecef, reference, platform_pose, appearance,
                                        &target_from_ecef));
   EXPECT_NEAR(target_from_ecef.range_m, target_from_lla.range_m, 1.0e-3f);
@@ -79,9 +78,9 @@ TEST(EosCoordinateUtilsTest, MakeTargetFromLlaAndEcefAreConsistent) {
 }
 
 TEST(EosCoordinateUtilsTest, InvalidInputReturnsFalse) {
-  EosCoordinateReference reference;
+  ::electro_optical_sensor::utils::EosCoordinateReference reference;
   oneq::common::PoseState platform_pose;
-  EosTargetAppearance appearance;
+  ::electro_optical_sensor::utils::EosTargetAppearance appearance;
 
   oneq::common::EcefCoordinateM ecef;
   EXPECT_FALSE(TryConvertEcefToEosLocal(ecef, reference, nullptr));
@@ -91,29 +90,29 @@ TEST(EosCoordinateUtilsTest, InvalidInputReturnsFalse) {
 }
 
 TEST(EosCoordinateUtilsTest, ReportsFailureStatusForNullOutputAndDegenerateGeometry) {
-  EosCoordinateReference reference;
+  ::electro_optical_sensor::utils::EosCoordinateReference reference;
   reference.origin_lla.latitude_deg = 0.0;
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;
 
   oneq::common::EcefCoordinateM ecef;
-  EosCoordinateStatus status = EosCoordinateStatus::kOk;
+  ::electro_optical_sensor::utils::EosCoordinateStatus status =
+      ::electro_optical_sensor::utils::EosCoordinateStatus::kOk;
   EXPECT_FALSE(TryConvertEcefToEosLocal(ecef, reference, nullptr, &status));
-  EXPECT_EQ(status, EosCoordinateStatus::kNullOutput);
+  EXPECT_EQ(status, ::electro_optical_sensor::utils::EosCoordinateStatus::kNullOutput);
 
   oneq::common::PoseState platform_pose;
   platform_pose.position_m.x = 0.0f;
   platform_pose.position_m.y = 0.0f;
   platform_pose.position_m.z = 0.0f;
-  EosTargetAppearance appearance;
-  EosTargetState target;
+  ::electro_optical_sensor::utils::EosTargetAppearance appearance;
+  ::electro_optical_sensor::session::EosTargetState target;
   oneq::common::LlaCoordinateDegM target_lla = reference.origin_lla;
   EXPECT_FALSE(TryMakeEosTargetFromLla(1U, target_lla, reference, platform_pose, appearance, &target,
                                        &status));
-  EXPECT_EQ(status, EosCoordinateStatus::kDegenerateGeometry);
+  EXPECT_EQ(status, ::electro_optical_sensor::utils::EosCoordinateStatus::kDegenerateGeometry);
 }
 
 }  // namespace
-}  // namespace context
-}  // namespace core
+}  // namespace utils
 }  // namespace electro_optical_sensor

@@ -47,7 +47,7 @@ struct EosSession::Impl {
   std::unique_ptr<extension::EosController> owned_controller;
   ::electro_optical_sensor::extension::IEosPipeline& pipeline;
   extension::EosController& controller;
-  internal::EosCycleOrchestrator cycle_orchestrator;
+  runtime::session::internal::EosCycleOrchestrator cycle_orchestrator;
 };
 
 EosSession::EosSession(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
@@ -84,11 +84,11 @@ EosSession EosSessionFactory::CreateWithController(
           internal::EosSessionCompositionRoot::ComposeWithController(config, controller))));
 }
 
-common::EosOutputFrame EosSession::Step(const EosCycleInput& input) {
+output::EosOutputFrame EosSession::Step(const EosCycleInput& input) {
   return StepWithResult(input).output_frame;
 }
 
-EosCycleResult EosSession::StepWithResult(const EosCycleInput& input) {
+model::EosCycleResult EosSession::StepWithResult(const EosCycleInput& input) {
   return impl_->cycle_orchestrator.Step(input);
 }
 

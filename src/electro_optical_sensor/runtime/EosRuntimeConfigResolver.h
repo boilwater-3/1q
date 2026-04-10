@@ -4,6 +4,7 @@
 #include "1q/electro_optical_sensor/session/EosSession.h"
 
 namespace electro_optical_sensor {
+namespace runtime {
 namespace session {
 namespace internal {
 
@@ -11,7 +12,7 @@ namespace internal {
  * @brief EosRuntimeConfigResolveResult 描述 EOS 运行期补丁解析结果。
  */
 struct EosRuntimeConfigResolveResult {
-  EosSessionConfig next_config{};
+  ::electro_optical_sensor::session::EosSessionConfig next_config{};
   bool has_requested_update{false};
   bool is_valid{true};
   bool reset_scan_phase{false};
@@ -23,20 +24,13 @@ struct EosRuntimeConfigResolveResult {
  * @param[in] patch 运行期补丁。
  * @return 解析结果。
  */
-EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(const EosSessionConfig& current_config,
-                                                           const EosRuntimeConfigPatch& patch);
+EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(
+    const ::electro_optical_sensor::session::EosSessionConfig& current_config,
+    const ::electro_optical_sensor::session::EosRuntimeConfigPatch& patch);
 
 }  // namespace internal
 }  // namespace session
-
-namespace core {
-namespace session {
-namespace internal {
-using ::electro_optical_sensor::session::internal::EosRuntimeConfigResolveResult;
-using ::electro_optical_sensor::session::internal::ResolveEosRuntimeConfigPatch;
-}  // namespace internal
-}  // namespace session
-}  // namespace core
+}  // namespace runtime
 
 }  // namespace electro_optical_sensor
 

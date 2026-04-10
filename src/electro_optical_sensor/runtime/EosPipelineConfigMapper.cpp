@@ -6,15 +6,17 @@
 #include "electro_optical_sensor/runtime/EosPipelineConfigMapper.h"
 
 namespace electro_optical_sensor {
+namespace runtime {
 namespace session {
 namespace internal {
 namespace {
 
-::electro_optical_sensor::extension::EosPipelineWorkMode ToPipelineWorkMode(EosWorkMode mode) {
-  if (mode == EosWorkMode::kInfraredOnly) {
+::electro_optical_sensor::extension::EosPipelineWorkMode ToPipelineWorkMode(
+    ::electro_optical_sensor::session::EosWorkMode mode) {
+  if (mode == ::electro_optical_sensor::session::EosWorkMode::kInfraredOnly) {
     return ::electro_optical_sensor::extension::EosPipelineWorkMode::kInfraredOnly;
   }
-  if (mode == EosWorkMode::kVisibleOnly) {
+  if (mode == ::electro_optical_sensor::session::EosWorkMode::kVisibleOnly) {
     return ::electro_optical_sensor::extension::EosPipelineWorkMode::kVisibleOnly;
   }
   return ::electro_optical_sensor::extension::EosPipelineWorkMode::kFused;
@@ -31,7 +33,7 @@ namespace {
 }  // namespace
 
 ::electro_optical_sensor::extension::EosPipelineConfig BuildEosPipelineConfig(
-    const EosSessionConfig& config) {
+    const ::electro_optical_sensor::session::EosSessionConfig& config) {
   ::electro_optical_sensor::extension::EosPipelineConfig pipeline_config;
   pipeline_config.wavelength_lower_um = config.wavelength_lower_um;
   pipeline_config.wavelength_upper_um = config.wavelength_upper_um;
@@ -68,4 +70,5 @@ namespace {
 
 }  // namespace internal
 }  // namespace session
+}  // namespace runtime
 }  // namespace electro_optical_sensor

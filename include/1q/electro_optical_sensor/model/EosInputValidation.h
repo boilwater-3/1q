@@ -83,25 +83,6 @@ ONEQ_API bool HasEosValidationError(const EosValidationIssueList& issues);
 
 }  // namespace model
 
-namespace core {
-namespace model {
-using ::electro_optical_sensor::model::EosValidationSeverity;
-using ::electro_optical_sensor::model::EosValidationCode;
-using ::electro_optical_sensor::model::EosValidationIssue;
-using ::electro_optical_sensor::model::EosValidationIssueList;
-using ::electro_optical_sensor::model::ValidateEosCycleInput;
-using ::electro_optical_sensor::model::HasEosValidationError;
-}  // namespace model
-namespace context {
-using ::electro_optical_sensor::core::model::EosValidationSeverity;
-using ::electro_optical_sensor::core::model::EosValidationCode;
-using ::electro_optical_sensor::core::model::EosValidationIssue;
-using ::electro_optical_sensor::core::model::EosValidationIssueList;
-using ::electro_optical_sensor::core::model::ValidateEosCycleInput;
-using ::electro_optical_sensor::core::model::HasEosValidationError;
-}  // namespace context
-}  // namespace core
-
 }  // namespace electro_optical_sensor
 
 #endif  // ELECTRO_OPTICAL_SENSOR_CORE_CONTEXT_EOS_INPUT_VALIDATION_H_

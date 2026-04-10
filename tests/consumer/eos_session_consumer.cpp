@@ -71,13 +71,13 @@ int main() {
   }
 
   // 5. StepWithResult
-  const eos::session::EosCycleResult result = session.StepWithResult(input);
+  const eos::model::EosCycleResult result = session.StepWithResult(input);
   if (result.has_validation_error) {
     return 2;
   }
 
   // 6. Step (output-only)
-  const eos::common::EosOutputFrame step_frame = session.Step(input);
+  const eos::output::EosOutputFrame step_frame = session.Step(input);
 
   // 7. Access detection output
   const std::size_t det_count = result.output_frame.detections.size();
@@ -88,7 +88,7 @@ int main() {
   (void)scan_az;
 
   if (det_count > 0) {
-    const eos::common::EosDetectionRecord& rec = result.output_frame.detections.front();
+    const eos::output::EosDetectionRecord& rec = result.output_frame.detections.front();
     const float ir_snr = rec.infrared_snr_linear;
     const float vis_snr = rec.visible_snr_linear;
     const float fused_snr = rec.fused_snr_linear;
@@ -111,7 +111,7 @@ int main() {
   // 9. Step after mode switch
   eos::session::EosCycleInput input_2 = input;
   input_2.cycle_index = 2U;
-  const eos::common::EosOutputFrame ir_frame = session.Step(input_2);
+  const eos::output::EosOutputFrame ir_frame = session.Step(input_2);
 
   // 10. RuntimeConfigBuilder: change scan rate + SNR threshold
   const eos::session::EosRuntimeConfigPatch tune_patch =
@@ -151,7 +151,7 @@ int main() {
   // 15. Final cycle
   eos::session::EosCycleInput input_3 = input;
   input_3.cycle_index = 3U;
-  const eos::session::EosCycleResult result_3 = session.StepWithResult(input_3);
+  const eos::model::EosCycleResult result_3 = session.StepWithResult(input_3);
   if (result_3.has_validation_error) {
     return 3;
   }

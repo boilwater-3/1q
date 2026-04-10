@@ -29,7 +29,7 @@ class CountingPipeline final : public extension::IEosPipeline {
 
   extension::EosPipelineExecuteResult Execute(const EosCycleInput& input) override {
     extension::EosPipelineExecuteResult result;
-    common::EosOutputFrame& frame = result.output_frame;
+    output::EosOutputFrame& frame = result.output_frame;
     frame.cycle_index = input.cycle_index;
     result.executed_this_cycle = true;
     result.abort_reason = extension::EosPipelineAbortReason::kNone;

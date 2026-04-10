@@ -93,7 +93,7 @@ enum class ONEQ_API EosPipelineAbortReason {
  * @brief EosPipelineExecuteResult 描述核心管线单周期执行结果。
  */
 struct ONEQ_API EosPipelineExecuteResult {
-  common::EosOutputFrame output_frame{};
+  output::EosOutputFrame output_frame{};
   bool executed_this_cycle{false};
   EosPipelineAbortReason abort_reason{EosPipelineAbortReason::kNone};
 };

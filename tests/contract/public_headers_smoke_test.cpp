@@ -161,52 +161,52 @@ static_assert(std::is_constructible<
               "EsrSession must support full-chain injection");
 
 static_assert(
-    !std::is_constructible<electro_optical_sensor::core::session::EosSession,
-                           electro_optical_sensor::core::session::EosSessionConfig>::value,
+    !std::is_constructible<electro_optical_sensor::session::EosSession,
+                           electro_optical_sensor::session::EosSessionConfig>::value,
     "EosSession direct construction must be disabled");
 static_assert(
-    !std::is_constructible<electro_optical_sensor::core::session::EosSession,
-                           electro_optical_sensor::core::session::EosSessionConfig,
+    !std::is_constructible<electro_optical_sensor::session::EosSession,
+                           electro_optical_sensor::session::EosSessionConfig,
                            electro_optical_sensor::pipeline::IEosPipeline&>::value,
     "EosSession direct pipeline injection construction must be disabled");
 static_assert(
-    !std::is_constructible<electro_optical_sensor::core::session::EosSession,
-                           electro_optical_sensor::core::session::EosSessionConfig,
+    !std::is_constructible<electro_optical_sensor::session::EosSession,
+                           electro_optical_sensor::session::EosSessionConfig,
                            electro_optical_sensor::environment::IEosEnvironmentService&>::value,
     "EosSession direct environment injection construction must be disabled");
 static_assert(
-    !std::is_constructible<electro_optical_sensor::core::session::EosSession,
-                           electro_optical_sensor::core::session::EosSessionConfig,
-                           electro_optical_sensor::core::controller::EosController&>::value,
+    !std::is_constructible<electro_optical_sensor::session::EosSession,
+                           electro_optical_sensor::session::EosSessionConfig,
+                           electro_optical_sensor::extension::EosController&>::value,
     "EosSession direct controller injection construction must be disabled");
 static_assert(
     std::is_same<
-        electro_optical_sensor::core::session::EosSession,
-        decltype(electro_optical_sensor::core::session::EosSessionFactory::Create(
-            std::declval<const electro_optical_sensor::core::session::EosSessionConfig&>()))>::value,
+        electro_optical_sensor::session::EosSession,
+        decltype(electro_optical_sensor::session::EosSessionFactory::Create(
+            std::declval<const electro_optical_sensor::session::EosSessionConfig&>()))>::value,
     "EosSessionFactory::Create must return EosSession");
 static_assert(
     std::is_same<
-        electro_optical_sensor::core::session::EosSession,
-        decltype(electro_optical_sensor::core::session::EosSessionFactory::CreateWithPipeline(
-            std::declval<const electro_optical_sensor::core::session::EosSessionConfig&>(),
+        electro_optical_sensor::session::EosSession,
+        decltype(electro_optical_sensor::session::EosSessionFactory::CreateWithPipeline(
+            std::declval<const electro_optical_sensor::session::EosSessionConfig&>(),
             std::declval<electro_optical_sensor::pipeline::IEosPipeline&>()))>::value,
     "EosSessionFactory::CreateWithPipeline must return EosSession");
 static_assert(
     std::is_same<
-        electro_optical_sensor::core::session::EosSession,
-        decltype(electro_optical_sensor::core::session::EosSessionFactory::
+        electro_optical_sensor::session::EosSession,
+        decltype(electro_optical_sensor::session::EosSessionFactory::
                      CreateWithEnvironmentService(
-                         std::declval<const electro_optical_sensor::core::session::EosSessionConfig&>(),
+                         std::declval<const electro_optical_sensor::session::EosSessionConfig&>(),
                          std::declval<electro_optical_sensor::environment::
                                           IEosEnvironmentService&>()))>::value,
     "EosSessionFactory::CreateWithEnvironmentService must return EosSession");
 static_assert(
     std::is_same<
-        electro_optical_sensor::core::session::EosSession,
-        decltype(electro_optical_sensor::core::session::EosSessionFactory::CreateWithController(
-            std::declval<const electro_optical_sensor::core::session::EosSessionConfig&>(),
-            std::declval<electro_optical_sensor::core::controller::EosController&>()))>::value,
+        electro_optical_sensor::session::EosSession,
+        decltype(electro_optical_sensor::session::EosSessionFactory::CreateWithController(
+            std::declval<const electro_optical_sensor::session::EosSessionConfig&>(),
+            std::declval<electro_optical_sensor::extension::EosController&>()))>::value,
     "EosSessionFactory::CreateWithController must return EosSession");
 
 namespace airborne_radar {
@@ -368,18 +368,18 @@ namespace electro_optical_sensor {
 namespace {
 
 TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
-  core::session::EosSessionConfig session_config = config::EosSessionConfigBuilder()
-                                                       .WithWorkMode(core::session::EosWorkMode::kFused)
+  session::EosSessionConfig session_config = config::EosSessionConfigBuilder()
+                                                       .WithWorkMode(session::EosWorkMode::kFused)
                                                        .WithMinimumSnrDb(0.0f)
                                                        .Build();
   session_config.scan_start_az_deg = -20.0f;
   session_config.scan_end_az_deg = 20.0f;
 
-  core::model::EosCycleInput input;
+  session::EosCycleInput input;
   input.cycle_index = 2U;
   input.dt_sec = 1.0f;
-  input.day_night_type = core::context::DayNightType::kDay;
-  core::model::EosTargetState target;
+  input.day_night_type = session::DayNightType::kDay;
+  session::EosTargetState target;
   target.target_id = 7U;
   target.range_m = 1500.0f;
   target.azimuth_deg = 0.0f;
@@ -390,16 +390,16 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   target.projected_area_m2 = 2.0f;
   input.scene_targets.push_back(target);
 
-  core::context::EosCoordinateReference eos_reference;
+  utils::EosCoordinateReference eos_reference;
   eos_reference.origin_lla.latitude_deg = 0.0;
   eos_reference.origin_lla.longitude_deg = 0.0;
   eos_reference.origin_lla.altitude_m = 0.0;
   oneq::common::Vector3f eos_local_position;
-  ASSERT_TRUE(core::context::TryConvertLlaToEosLocal(eos_reference.origin_lla, eos_reference,
+  ASSERT_TRUE(utils::TryConvertLlaToEosLocal(eos_reference.origin_lla, eos_reference,
                                                       &eos_local_position));
 
-  const core::model::EosValidationIssueList issues = core::model::ValidateEosCycleInput(input);
-  EXPECT_FALSE(core::model::HasEosValidationError(issues));
+  const model::EosValidationIssueList issues = model::ValidateEosCycleInput(input);
+  EXPECT_FALSE(model::HasEosValidationError(issues));
 
   foundation::radiative_transfer::RadiativeTransferInputs transfer_inputs;
   transfer_inputs.model =
@@ -411,13 +411,13 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
       foundation::radiative_transfer::EvaluateRadiativeTransfer(transfer_inputs);
   EXPECT_GT(transfer_result.transmittance, 0.0f);
 
-  core::session::EosSession session = core::session::EosSessionFactory::Create(session_config);
-  const core::session::EosRuntimeConfigPatch runtime_patch =
+  session::EosSession session = session::EosSessionFactory::Create(session_config);
+  const session::EosRuntimeConfigPatch runtime_patch =
       config::EosRuntimeConfigBuilder().WithFrameRateHz(15.0f).Build();
   session.ApplyRuntimeConfig(runtime_patch);
-  const core::session::EosCycleResult result = session.StepWithResult(input);
-  tools::EosTraceSession trace_session(session_config, tools::EosTraceSessionOptions{});
-  const core::session::EosCycleResult trace_result = trace_session.StepWithResult(input);
+  const model::EosCycleResult result = session.StepWithResult(input);
+  session::EosTraceSession trace_session(session_config, session::EosTraceSessionOptions{});
+  const model::EosCycleResult trace_result = trace_session.StepWithResult(input);
   EXPECT_TRUE(result.executed_this_cycle);
   EXPECT_FALSE(result.reused_previous_output);
   EXPECT_TRUE(trace_result.executed_this_cycle);

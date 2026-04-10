@@ -40,7 +40,7 @@ struct EosController::Impl {
 	explicit Impl(extension::IEosPipeline& pipeline_ref) : pipeline(pipeline_ref) {}
 
 	extension::IEosPipeline& pipeline;
-	common::EosOutputFrame latest_output{};
+	output::EosOutputFrame latest_output{};
 	model::EosValidationIssueList last_validation_issues{};
 	bool has_latest_output{false};
 	bool has_validation_error{false};
@@ -54,7 +54,7 @@ EosController::EosController(extension::IEosPipeline& pipeline) : impl_(new Impl
 EosController::~EosController() = default;
 
 void EosController::RunOnce(const session::EosCycleInput& input) {
-	const common::EosOutputFrame previous_output = impl_->latest_output;
+	const output::EosOutputFrame previous_output = impl_->latest_output;
 	const bool had_previous_output = impl_->has_latest_output;
 	const extension::EosPipelineRuntimeState previous_pipeline_state =
 			impl_->pipeline.CaptureRuntimeState();
@@ -76,7 +76,7 @@ void EosController::RunOnce(const session::EosCycleInput& input) {
 	if (!IsExecuteResultContractValid(execute_result, input)) {
 		const bool restore_ok = impl_->pipeline.RestoreRuntimeState(previous_pipeline_state);
 		if (!restore_ok) {
-			impl_->latest_output = common::EosOutputFrame{};
+			impl_->latest_output = output::EosOutputFrame{};
 			impl_->has_latest_output = false;
 			impl_->last_cycle_executed = false;
 			impl_->last_cycle_reused_previous_output = false;
@@ -97,7 +97,7 @@ void EosController::RunOnce(const session::EosCycleInput& input) {
 
 bool EosController::HasLatestOutputFrame() const { return impl_->has_latest_output; }
 
-const common::EosOutputFrame& EosController::GetLatestOutputFrame() const {
+const output::EosOutputFrame& EosController::GetLatestOutputFrame() const {
 	return impl_->latest_output;
 }
 
@@ -117,9 +117,9 @@ extension::EosPipelineAbortReason EosController::GetLastAbortReason() const {
 	return impl_->last_abort_reason;
 }
 
-session::EosCycleResult EosController::BuildCycleResult(
+model::EosCycleResult EosController::BuildCycleResult(
 		const session::EosCycleInput& input) const {
-	session::EosCycleResult result;
+	model::EosCycleResult result;
 	result.validation_issues = impl_->last_validation_issues;
 	result.has_validation_error = impl_->has_validation_error;
 	result.executed_this_cycle = impl_->last_cycle_executed;

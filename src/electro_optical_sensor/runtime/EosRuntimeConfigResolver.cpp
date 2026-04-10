@@ -5,13 +5,15 @@
 #include "common/logging/ProjectLog.h"
 
 namespace electro_optical_sensor {
+namespace runtime {
 namespace session {
 namespace internal {
 namespace {
 
 bool IsFinite(float value) { return std::isfinite(value) != 0; }
 
-EosRuntimeConfigResolveResult RejectPatch(const EosSessionConfig& current_config,
+EosRuntimeConfigResolveResult RejectPatch(
+    const ::electro_optical_sensor::session::EosSessionConfig& current_config,
                                           bool has_requested_update) {
   EosRuntimeConfigResolveResult rejected;
   rejected.next_config = current_config;
@@ -24,8 +26,9 @@ EosRuntimeConfigResolveResult RejectPatch(const EosSessionConfig& current_config
 
 }  // namespace
 
-EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(const EosSessionConfig& current_config,
-                                                           const EosRuntimeConfigPatch& patch) {
+EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(
+    const ::electro_optical_sensor::session::EosSessionConfig& current_config,
+    const ::electro_optical_sensor::session::EosRuntimeConfigPatch& patch) {
   EosRuntimeConfigResolveResult resolved;
   resolved.next_config = current_config;
   bool has_requested_update = false;
@@ -119,4 +122,5 @@ EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(const EosSessionConfi
 
 }  // namespace internal
 }  // namespace session
+}  // namespace runtime
 }  // namespace electro_optical_sensor

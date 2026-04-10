@@ -14,15 +14,17 @@
 #include "electro_optical_sensor/signal/pipeline/EosPipeline.h"
 
 namespace electro_optical_sensor {
+namespace runtime {
 namespace session {
 namespace internal {
 namespace {
 
 namespace eos_config = ::electro_optical_sensor::config;
+namespace eos_session = ::electro_optical_sensor::session;
 
-EosSessionConfig MakeSessionConfig() {
-  EosSessionConfig config;
-  config.work_mode = EosWorkMode::kInfraredOnly;
+eos_session::EosSessionConfig MakeSessionConfig() {
+  eos_session::EosSessionConfig config;
+  config.work_mode = eos_session::EosWorkMode::kInfraredOnly;
   config.minimum_snr_db = -120.0f;
   config.scan_start_az_deg = -10.0f;
   config.scan_end_az_deg = 10.0f;
@@ -32,8 +34,8 @@ EosSessionConfig MakeSessionConfig() {
   return config;
 }
 
-EosCycleInput MakeCycleInput(std::uint32_t cycle_index, float dt_sec) {
-  EosCycleInput input;
+eos_session::EosCycleInput MakeCycleInput(std::uint32_t cycle_index, float dt_sec) {
+  eos_session::EosCycleInput input;
   input.cycle_index = cycle_index;
   input.dt_sec = dt_sec;
   input.solar_irradiance_w_m2 = 850.0f;
@@ -41,12 +43,12 @@ EosCycleInput MakeCycleInput(std::uint32_t cycle_index, float dt_sec) {
   input.atmospheric_transmittance = 0.8f;
   input.cloud_coverage_ratio = 0.2f;
   input.background_temperature_k = 289.0f;
-  input.day_night_type = DayNightType::kDay;
+  input.day_night_type = eos_session::DayNightType::kDay;
   return input;
 }
 
 ::electro_optical_sensor::extension::EosPipelineConfig BuildPipelineConfig(
-    const EosSessionConfig& config) {
+    const eos_session::EosSessionConfig& config) {
   ::electro_optical_sensor::extension::EosPipelineConfig pipeline_config;
   pipeline_config.wavelength_lower_um = config.wavelength_lower_um;
   pipeline_config.wavelength_upper_um = config.wavelength_upper_um;
@@ -83,14 +85,14 @@ EosCycleInput MakeCycleInput(std::uint32_t cycle_index, float dt_sec) {
 }
 
 TEST(EosCycleOrchestratorTest, StepProducesOutputAndPreservesCycleIndex) {
-  const EosSessionConfig config = MakeSessionConfig();
+  const eos_session::EosSessionConfig config = MakeSessionConfig();
   const ::electro_optical_sensor::extension::EosPipelineConfig pipeline_config =
       BuildPipelineConfig(config);
-  core::pipeline::EosPipeline pipeline(pipeline_config);
+  signal::pipeline::EosPipeline pipeline(pipeline_config);
   extension::EosController controller(pipeline);
   EosCycleOrchestrator orchestrator(config, pipeline_config, true, pipeline, controller);
 
-  const EosCycleResult result = orchestrator.Step(MakeCycleInput(7U, 1.0f));
+  const ::electro_optical_sensor::model::EosCycleResult result = orchestrator.Step(MakeCycleInput(7U, 1.0f));
 
   EXPECT_FALSE(result.has_validation_error);
   EXPECT_TRUE(result.executed_this_cycle);
@@ -98,20 +100,20 @@ TEST(EosCycleOrchestratorTest, StepProducesOutputAndPreservesCycleIndex) {
 }
 
 TEST(EosCycleOrchestratorTest, ValidRuntimePatchTakesEffectOnNextStep) {
-  const EosSessionConfig config = MakeSessionConfig();
+  const eos_session::EosSessionConfig config = MakeSessionConfig();
   const ::electro_optical_sensor::extension::EosPipelineConfig pipeline_config =
       BuildPipelineConfig(config);
-  core::pipeline::EosPipeline pipeline(pipeline_config);
+  signal::pipeline::EosPipeline pipeline(pipeline_config);
   extension::EosController controller(pipeline);
   EosCycleOrchestrator orchestrator(config, pipeline_config, true, pipeline, controller);
 
-  const EosCycleResult baseline = orchestrator.Step(MakeCycleInput(1U, 1.0f));
+  const ::electro_optical_sensor::model::EosCycleResult baseline = orchestrator.Step(MakeCycleInput(1U, 1.0f));
   const float baseline_scan_azimuth = baseline.output_frame.scan_azimuth_deg;
 
   orchestrator.ApplyRuntimeConfig(
       eos_config::EosRuntimeConfigBuilder().WithScanRateDegPerSec(9.0f).Build());
 
-  const EosCycleResult patched = orchestrator.Step(MakeCycleInput(2U, 1.0f));
+  const ::electro_optical_sensor::model::EosCycleResult patched = orchestrator.Step(MakeCycleInput(2U, 1.0f));
   EXPECT_FALSE(patched.has_validation_error);
   EXPECT_TRUE(patched.executed_this_cycle);
   EXPECT_NEAR(patched.output_frame.scan_azimuth_deg, -1.0f, 1.0e-6f);
@@ -119,17 +121,17 @@ TEST(EosCycleOrchestratorTest, ValidRuntimePatchTakesEffectOnNextStep) {
 }
 
 TEST(EosCycleOrchestratorTest, InvalidRuntimePatchDoesNotChangeUpdateBehavior) {
-  const EosSessionConfig config = MakeSessionConfig();
+  const eos_session::EosSessionConfig config = MakeSessionConfig();
   const ::electro_optical_sensor::extension::EosPipelineConfig pipeline_config =
       BuildPipelineConfig(config);
-  core::pipeline::EosPipeline pipeline(pipeline_config);
+  signal::pipeline::EosPipeline pipeline(pipeline_config);
   extension::EosController controller(pipeline);
   EosCycleOrchestrator orchestrator(config, pipeline_config, true, pipeline, controller);
 
   orchestrator.ApplyRuntimeConfig(
       eos_config::EosRuntimeConfigBuilder().WithFrameRateHz(0.0f).Build());
 
-  const EosCycleResult result = orchestrator.Step(MakeCycleInput(3U, 1.0f));
+  const ::electro_optical_sensor::model::EosCycleResult result = orchestrator.Step(MakeCycleInput(3U, 1.0f));
   EXPECT_FALSE(result.has_validation_error);
   EXPECT_TRUE(result.executed_this_cycle);
   EXPECT_NEAR(result.output_frame.scan_azimuth_deg, -5.0f, 1.0e-6f);
@@ -138,4 +140,5 @@ TEST(EosCycleOrchestratorTest, InvalidRuntimePatchDoesNotChangeUpdateBehavior) {
 }  // namespace
 }  // namespace internal
 }  // namespace session
+}  // namespace runtime
 }  // namespace electro_optical_sensor

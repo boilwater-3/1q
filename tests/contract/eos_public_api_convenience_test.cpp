@@ -248,7 +248,7 @@ TEST(EosPublicApiConvenienceTest, InputValidationPassesForValidInput) {
 }
 
 TEST(EosPublicApiConvenienceTest, CoordinateUtilsConvertsLlaAndEcefToEosLocal) {
-  common::EosCoordinateReference reference;
+  utils::EosCoordinateReference reference;
   reference.origin_lla.latitude_deg = 0.0;
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;
@@ -262,7 +262,7 @@ TEST(EosPublicApiConvenienceTest, CoordinateUtilsConvertsLlaAndEcefToEosLocal) {
   target_lla.altitude_m = 0.0;
 
   oneq::common::Vector3f local_from_lla;
-  ASSERT_TRUE(common::TryConvertLlaToEosLocal(target_lla, reference, &local_from_lla));
+  ASSERT_TRUE(utils::TryConvertLlaToEosLocal(target_lla, reference, &local_from_lla));
   EXPECT_GT(local_from_lla.x, 100.0f);
   EXPECT_NEAR(local_from_lla.y, 0.0f, 1.0e-2f);
   EXPECT_NEAR(local_from_lla.z, 0.0f, 1.0e-2f);
@@ -270,14 +270,14 @@ TEST(EosPublicApiConvenienceTest, CoordinateUtilsConvertsLlaAndEcefToEosLocal) {
   oneq::common::EcefCoordinateM target_ecef;
   ASSERT_TRUE(oneq::common::TryLlaToEcef(target_lla, &target_ecef));
   oneq::common::Vector3f local_from_ecef;
-  ASSERT_TRUE(common::TryConvertEcefToEosLocal(target_ecef, reference, &local_from_ecef));
+  ASSERT_TRUE(utils::TryConvertEcefToEosLocal(target_ecef, reference, &local_from_ecef));
   EXPECT_NEAR(local_from_ecef.x, local_from_lla.x, 1.0e-3f);
   EXPECT_NEAR(local_from_ecef.y, local_from_lla.y, 1.0e-3f);
   EXPECT_NEAR(local_from_ecef.z, local_from_lla.z, 1.0e-3f);
 }
 
 TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsTargetFromEcefAndLla) {
-  common::EosCoordinateReference reference;
+  utils::EosCoordinateReference reference;
   reference.origin_lla.latitude_deg = 0.0;
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;
@@ -287,7 +287,7 @@ TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsTargetFromEcefAndLla) {
   platform_pose.position_m.y = 0.0f;
   platform_pose.position_m.z = 1000.0f;
 
-  common::EosTargetAppearance appearance;
+  utils::EosTargetAppearance appearance;
   appearance.apparent_temperature_k = 320.0f;
   appearance.emissivity = 0.9f;
   appearance.reflectance = 0.1f;
@@ -299,7 +299,7 @@ TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsTargetFromEcefAndLla) {
   target_lla.altitude_m = 0.0;
 
   session::EosTargetState target_from_lla;
-  ASSERT_TRUE(common::TryMakeEosTargetFromLla(401U, target_lla, reference, platform_pose,
+  ASSERT_TRUE(utils::TryMakeEosTargetFromLla(401U, target_lla, reference, platform_pose,
                                                      appearance, &target_from_lla));
   EXPECT_EQ(target_from_lla.target_id, 401U);
   EXPECT_GT(target_from_lla.range_m, 0.0f);
@@ -308,7 +308,7 @@ TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsTargetFromEcefAndLla) {
   oneq::common::EcefCoordinateM target_ecef;
   ASSERT_TRUE(oneq::common::TryLlaToEcef(target_lla, &target_ecef));
   session::EosTargetState target_from_ecef;
-  ASSERT_TRUE(common::TryMakeEosTargetFromEcef(402U, target_ecef, reference, platform_pose,
+  ASSERT_TRUE(utils::TryMakeEosTargetFromEcef(402U, target_ecef, reference, platform_pose,
                                                       appearance, &target_from_ecef));
   EXPECT_NEAR(target_from_ecef.range_m, target_from_lla.range_m, 1.0f);
 }
@@ -348,7 +348,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionStepProducesDetectionOutput) {
   input.dt_sec = 1.0f;
   input.scene_targets.push_back(MakeTarget(501U, 1500.0f, 0.0f, 0.0f, 350.0f, 0.9f, 0.1f, 3.0f));
 
-  const common::EosOutputFrame frame = session.Step(input);
+  const output::EosOutputFrame frame = session.Step(input);
   EXPECT_EQ(frame.cycle_index, 0U);
 }
 
@@ -365,7 +365,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionStepWithResultAggregatesOutputAndVal
   input.dt_sec = 1.0f;
   input.scene_targets.push_back(MakeTarget(502U, 2000.0f, 5.0f, -3.0f, 330.0f, 0.85f, 0.15f, 2.5f));
 
-  const session::EosCycleResult result = session.StepWithResult(input);
+  const model::EosCycleResult result = session.StepWithResult(input);
 
   EXPECT_FALSE(result.has_validation_error);
   EXPECT_TRUE(result.executed_this_cycle);
@@ -385,7 +385,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionStepWithResultSurfacesValidationErro
   invalid_target.target_id = 0U;
   input.scene_targets.push_back(invalid_target);
 
-  const session::EosCycleResult result = session.StepWithResult(input);
+  const model::EosCycleResult result = session.StepWithResult(input);
 
   EXPECT_TRUE(result.has_validation_error);
   EXPECT_FALSE(result.executed_this_cycle);
@@ -411,7 +411,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionAppliesRuntimeConfigPatch) {
   input.dt_sec = 1.0f;
   input.scene_targets.push_back(MakeTarget(600U, 1000.0f, 0.0f, 0.0f, 310.0f, 0.9f, 0.1f, 1.5f));
 
-  const session::EosCycleResult result = session.StepWithResult(input);
+  const model::EosCycleResult result = session.StepWithResult(input);
   EXPECT_TRUE(result.executed_this_cycle);
   EXPECT_FALSE(result.reused_previous_output);
   EXPECT_EQ(result.output_frame.cycle_index, 0U);
@@ -428,7 +428,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionFactoryCanInjectEnvironmentService) 
   input.dt_sec = 1.0f;
   input.scene_targets.push_back(MakeTarget(601U, 1000.0f, 0.0f, 0.0f, 310.0f, 0.9f, 0.1f, 1.5f));
 
-  const session::EosCycleResult result = session.StepWithResult(input);
+  const model::EosCycleResult result = session.StepWithResult(input);
   EXPECT_FALSE(result.has_validation_error);
   EXPECT_TRUE(result.executed_this_cycle);
   EXPECT_FALSE(result.reused_previous_output);
@@ -450,7 +450,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionMultiCycleProducesProgressiveCycleIn
     input.scene_targets.push_back(
         MakeTarget(700U + i, 1500.0f, 0.0f, 0.0f, 320.0f, 0.9f, 0.1f, 2.0f));
 
-    const common::EosOutputFrame frame = session.Step(input);
+    const output::EosOutputFrame frame = session.Step(input);
     EXPECT_EQ(frame.cycle_index, i);
   }
 }

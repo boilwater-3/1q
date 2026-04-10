@@ -9,20 +9,21 @@
 #include "electro_optical_sensor/runtime/EosRuntimeConfigResolver.h"
 
 namespace electro_optical_sensor {
-namespace core {
+namespace runtime {
 namespace session {
 namespace internal {
 namespace {
 
 namespace eos_config = ::electro_optical_sensor::config;
+namespace eos_session = ::electro_optical_sensor::session;
 
 TEST(EosRuntimeConfigResolverTest, ValidPatchBuildsRuntimeUpdateAndScanResetFlag) {
-  EosSessionConfig current_config;
+  eos_session::EosSessionConfig current_config;
   current_config.scan_rate_deg_per_sec = 20.0f;
   current_config.minimum_snr_db = 6.0f;
   current_config.environment_default_config.aerosol_density_factor = 1.0f;
 
-  const EosRuntimeConfigPatch patch =
+  const eos_session::EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder()
           .WithScanRateDegPerSec(60.0f)
           .WithMinimumSnrDb(12.0f)
@@ -41,11 +42,11 @@ TEST(EosRuntimeConfigResolverTest, ValidPatchBuildsRuntimeUpdateAndScanResetFlag
 }
 
 TEST(EosRuntimeConfigResolverTest, InvalidFieldRejectsWholePatch) {
-  EosSessionConfig current_config;
+  eos_session::EosSessionConfig current_config;
   current_config.scan_rate_deg_per_sec = 20.0f;
   current_config.minimum_snr_db = 6.0f;
 
-  const EosRuntimeConfigPatch patch =
+  const eos_session::EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder()
           .WithScanRateDegPerSec(60.0f)
           .WithMinimumSnrDb(12.0f)
@@ -65,5 +66,5 @@ TEST(EosRuntimeConfigResolverTest, InvalidFieldRejectsWholePatch) {
 }  // namespace
 }  // namespace internal
 }  // namespace session
-}  // namespace core
+}  // namespace runtime
 }  // namespace electro_optical_sensor

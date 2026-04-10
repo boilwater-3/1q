@@ -8,13 +8,15 @@
 #include "common/logging/ProjectLog.h"
 #include "electro_optical_sensor/runtime/EosPipelineConfigMapper.h"
 #include "electro_optical_sensor/runtime/EosRuntimeConfigResolver.h"
+#include "1q/electro_optical_sensor/model/EosCycleResult.h"
 
 namespace electro_optical_sensor {
+namespace runtime {
 namespace session {
 namespace internal {
 
 EosCycleOrchestrator::EosCycleOrchestrator(
-    const EosSessionConfig& config,
+    const ::electro_optical_sensor::session::EosSessionConfig& config,
     const ::electro_optical_sensor::extension::EosPipelineConfig& pipeline_config,
     bool initial_reset_scan_phase,
     ::electro_optical_sensor::extension::IEosPipeline& pipeline,
@@ -23,13 +25,15 @@ EosCycleOrchestrator::EosCycleOrchestrator(
   pipeline_.UpdateConfig(pipeline_config, initial_reset_scan_phase);
 }
 
-EosCycleResult EosCycleOrchestrator::Step(const EosCycleInput& input) {
+model::EosCycleResult EosCycleOrchestrator::Step(
+    const ::electro_optical_sensor::session::EosCycleInput& input) {
   controller_.RunOnce(input);
   return controller_.BuildCycleResult(input);
 }
 
-void EosCycleOrchestrator::ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch) {
-  const ::electro_optical_sensor::session::internal::EosRuntimeConfigResolveResult resolved =
+void EosCycleOrchestrator::ApplyRuntimeConfig(
+    const ::electro_optical_sensor::session::EosRuntimeConfigPatch& patch) {
+  const EosRuntimeConfigResolveResult resolved =
       ResolveEosRuntimeConfigPatch(runtime_config_, patch);
   if (!resolved.has_requested_update || !resolved.is_valid) {
     return;
@@ -40,4 +44,5 @@ void EosCycleOrchestrator::ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch
 
 }  // namespace internal
 }  // namespace session
+}  // namespace runtime
 }  // namespace electro_optical_sensor

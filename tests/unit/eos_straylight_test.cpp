@@ -13,6 +13,8 @@ namespace foundation {
 namespace stray_light {
 namespace {
 
+namespace context = ::electro_optical_sensor::session;
+
 TEST(EosStrayLightTest, ContaminationReducesWhenSunTargetSeparationIncreases) {
   StrayLightFilterInputs near_sun_inputs;
   near_sun_inputs.enabled = true;
@@ -41,12 +43,13 @@ TEST(EosStrayLightTest, ContaminationReducesWhenSunTargetSeparationIncreases) {
 }  // namespace electro_optical_sensor
 
 namespace electro_optical_sensor {
-namespace core {
+namespace signal {
 namespace pipeline {
+namespace context = ::electro_optical_sensor::session;
 namespace {
 
-context::EosTargetState MakeTarget(float azimuth_deg, float elevation_deg) {
-  context::EosTargetState target;
+session::EosTargetState MakeTarget(float azimuth_deg, float elevation_deg) {
+  session::EosTargetState target;
   target.target_id = 1U;
   target.range_m = 500.0f;
   target.azimuth_deg = azimuth_deg;
@@ -58,8 +61,8 @@ context::EosTargetState MakeTarget(float azimuth_deg, float elevation_deg) {
   return target;
 }
 
-context::EosCycleInput MakeInput() {
-  context::EosCycleInput input;
+session::EosCycleInput MakeInput() {
+  session::EosCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
   input.solar_azimuth_deg = 180.0f;
@@ -68,7 +71,7 @@ context::EosCycleInput MakeInput() {
   input.atmospheric_transmittance = 0.95f;
   input.cloud_coverage_ratio = 0.0f;
   input.background_temperature_k = 220.0f;
-  input.day_night_type = context::DayNightType::kDay;
+  input.day_night_type = session::DayNightType::kDay;
   input.platform_pose.position_m.z = 1200.0f;
   input.scene_targets.push_back(MakeTarget(180.0f, 45.0f));
   return input;
@@ -95,11 +98,11 @@ EosPipelineConfig MakeConfig(bool enable_straylight_filter) {
 TEST(EosStrayLightPipelineTest, EnablingHoodFilterImprovesNearSunSnr) {
   EosPipeline pipeline_without_filter(MakeConfig(false));
   EosPipeline pipeline_with_filter(MakeConfig(true));
-  const context::EosCycleInput input = MakeInput();
+  const session::EosCycleInput input = MakeInput();
 
-    const common::EosOutputFrame frame_without_filter =
+    const output::EosOutputFrame frame_without_filter =
       pipeline_without_filter.Execute(input).output_frame;
-    const common::EosOutputFrame frame_with_filter =
+    const output::EosOutputFrame frame_with_filter =
       pipeline_with_filter.Execute(input).output_frame;
 
   ASSERT_EQ(frame_without_filter.detections.size(), 1U);
@@ -110,5 +113,5 @@ TEST(EosStrayLightPipelineTest, EnablingHoodFilterImprovesNearSunSnr) {
 
 }  // namespace
 }  // namespace pipeline
-}  // namespace core
+}  // namespace signal
 }  // namespace electro_optical_sensor
