@@ -28,8 +28,9 @@ class DummyEosPipeline : public extension::IEosPipeline {
     (void)reset_scan_phase;
   }
 
-  common::EosOutputFrame Execute(const session::EosCycleInput& input) override {
-    common::EosOutputFrame frame;
+  extension::EosPipelineExecuteResult Execute(const session::EosCycleInput& input) override {
+    extension::EosPipelineExecuteResult result;
+    common::EosOutputFrame& frame = result.output_frame;
     frame.cycle_index = input.cycle_index;
     common::EosDetectionRecord record;
     record.target_id = 1U;
@@ -40,7 +41,25 @@ class DummyEosPipeline : public extension::IEosPipeline {
     record.fused_snr_db = 10.79f;
     record.detected = true;
     frame.detections.push_back(record);
-    return frame;
+    result.executed_this_cycle = true;
+    result.abort_reason = extension::EosPipelineAbortReason::kNone;
+    return result;
+  }
+
+  extension::EosPipelineRuntimeState CaptureRuntimeState() const override {
+    extension::EosPipelineRuntimeState state;
+    state.owner_identity = this;
+    state.schema_version = 1U;
+    state.current_scan_azimuth_deg = 0.0f;
+    state.scan_start_az_deg = config_.scan_start_az_deg;
+    state.scan_end_az_deg = config_.scan_end_az_deg;
+    state.scan_rate_deg_per_sec = config_.scan_rate_deg_per_sec;
+    return state;
+  }
+
+  bool RestoreRuntimeState(const extension::EosPipelineRuntimeState& state) override {
+    (void)state;
+    return true;
   }
 
  private:

@@ -113,6 +113,7 @@ set(EOS_SOURCES
     electro_optical_sensor/runtime/EosController.cpp
     electro_optical_sensor/runtime/EosCycleOrchestrator.cpp
     electro_optical_sensor/signal/pipeline/EosPipeline.cpp
+    electro_optical_sensor/session/EosPipelineConfigMapper.cpp
     electro_optical_sensor/session/EosRuntimeConfigResolver.cpp
     electro_optical_sensor/session/EosSessionCompositionRoot.cpp
     electro_optical_sensor/session/EosSession.cpp

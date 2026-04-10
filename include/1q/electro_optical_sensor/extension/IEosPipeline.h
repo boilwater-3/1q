@@ -29,11 +29,25 @@ class ONEQ_API IEosPipeline {
   virtual void UpdateConfig(const EosPipelineConfig& config, bool reset_scan_phase = true) = 0;
 
   /**
+   * @brief 捕获核心处理层运行态快照。
+   * @return 当前管线运行态快照。
+   */
+  virtual EosPipelineRuntimeState CaptureRuntimeState() const = 0;
+
+  /**
+   * @brief 恢复核心处理层运行态快照。
+   * @param[in] state 待恢复运行态快照。
+   * @return 恢复成功返回 true；快照不兼容或恢复拒绝返回 false。
+   * @note 建议校验 owner_identity/schema_version，拒绝跨实例或跨 schema 快照恢复。
+   */
+  virtual bool RestoreRuntimeState(const EosPipelineRuntimeState& state) = 0;
+
+  /**
    * @brief 执行单周期核心处理并输出探测结果。
    * @param[in] input 当前周期输入。
-   * @return 探测输出帧。
+   * @return 单周期执行结果。
    */
-  virtual common::EosOutputFrame Execute(const session::EosCycleInput& input) = 0;
+  virtual EosPipelineExecuteResult Execute(const session::EosCycleInput& input) = 0;
 };
 
 }  // namespace extension

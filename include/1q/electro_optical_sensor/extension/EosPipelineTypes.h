@@ -6,7 +6,10 @@
 #ifndef ELECTRO_OPTICAL_SENSOR_PIPELINE_EOS_PIPELINE_TYPES_H_
 #define ELECTRO_OPTICAL_SENSOR_PIPELINE_EOS_PIPELINE_TYPES_H_
 
+#include <cstdint>
+
 #include "1q/api.hpp"
+#include "1q/electro_optical_sensor/common/EosOutputFrame.h"
 #include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 
 namespace electro_optical_sensor {
@@ -62,6 +65,37 @@ struct ONEQ_API EosPipelineConfig {
   float turbulence_factor{1.0f};
   EosPipelineEnvironmentModelType environment_model_type{
       EosPipelineEnvironmentModelType::kSimplified};
+};
+
+/**
+ * @brief EosPipelineRuntimeState 描述 EOS 管线运行态快照。
+ */
+struct ONEQ_API EosPipelineRuntimeState {
+  const void* owner_identity{nullptr};
+  std::uint32_t schema_version{0U};
+  float current_scan_azimuth_deg{0.0f};
+  float scan_start_az_deg{0.0f};
+  float scan_end_az_deg{0.0f};
+  float scan_rate_deg_per_sec{0.0f};
+};
+
+/**
+ * @brief EosPipelineAbortReason 描述核心管线周期终止原因。
+ */
+enum class ONEQ_API EosPipelineAbortReason {
+  kNone = 0,
+  kValidationRejected,
+  kOutputContractViolation,
+  kRuntimeStateRestoreRejected
+};
+
+/**
+ * @brief EosPipelineExecuteResult 描述核心管线单周期执行结果。
+ */
+struct ONEQ_API EosPipelineExecuteResult {
+  common::EosOutputFrame output_frame{};
+  bool executed_this_cycle{false};
+  EosPipelineAbortReason abort_reason{EosPipelineAbortReason::kNone};
 };
 
 }  // namespace extension

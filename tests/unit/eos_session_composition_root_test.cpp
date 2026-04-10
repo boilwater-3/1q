@@ -27,10 +27,26 @@ class CountingPipeline final : public extension::IEosPipeline {
     last_reset_scan_phase = reset_scan_phase;
   }
 
-  common::EosOutputFrame Execute(const EosCycleInput& input) override {
-    common::EosOutputFrame frame;
+  extension::EosPipelineExecuteResult Execute(const EosCycleInput& input) override {
+    extension::EosPipelineExecuteResult result;
+    common::EosOutputFrame& frame = result.output_frame;
     frame.cycle_index = input.cycle_index;
-    return frame;
+    result.executed_this_cycle = true;
+    result.abort_reason = extension::EosPipelineAbortReason::kNone;
+    return result;
+  }
+
+  extension::EosPipelineRuntimeState CaptureRuntimeState() const override {
+    extension::EosPipelineRuntimeState state;
+    state.owner_identity = this;
+    state.schema_version = 1U;
+    state.current_scan_azimuth_deg = 0.0f;
+    return state;
+  }
+
+  bool RestoreRuntimeState(const extension::EosPipelineRuntimeState& state) override {
+    (void)state;
+    return true;
   }
 
   std::size_t update_count{0U};

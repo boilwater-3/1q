@@ -14,6 +14,7 @@
 #include "electro_optical_sensor/foundation/EosRadiometry.h"
 #include "electro_optical_sensor/foundation/EosSpatialSpectrum.h"
 #include "electro_optical_sensor/foundation/EosStrayLight.h"
+#include "common/logging/ProjectLog.h"
 
 namespace electro_optical_sensor {
 namespace core {
@@ -362,6 +363,15 @@ float ComputeFusedSnrLinear(EosPipelineWorkMode work_mode,
 	return infrared_weight * safe_infrared_snr_linear + visible_weight * safe_visible_snr_linear;
 }
 
+bool IsCompatiblePipelineRuntimeState(const extension::EosPipelineRuntimeState& state,
+																const EosPipeline* pipeline,
+																const EosPipelineConfig& config) {
+	return state.owner_identity == pipeline && state.schema_version == 1U &&
+				 state.scan_start_az_deg == config.scan_start_az_deg &&
+				 state.scan_end_az_deg == config.scan_end_az_deg &&
+				 state.scan_rate_deg_per_sec == config.scan_rate_deg_per_sec;
+}
+
 }  // namespace
 
 EosPipeline::EosPipeline(const EosPipelineConfig& config,
@@ -381,9 +391,31 @@ void EosPipeline::UpdateConfig(const EosPipelineConfig& config, bool reset_scan_
 	}
 }
 
-common::EosOutputFrame EosPipeline::Execute(
+extension::EosPipelineRuntimeState EosPipeline::CaptureRuntimeState() const {
+	extension::EosPipelineRuntimeState state;
+	state.owner_identity = this;
+	state.schema_version = 1U;
+	state.current_scan_azimuth_deg = current_scan_azimuth_deg_;
+	state.scan_start_az_deg = config_.scan_start_az_deg;
+	state.scan_end_az_deg = config_.scan_end_az_deg;
+	state.scan_rate_deg_per_sec = config_.scan_rate_deg_per_sec;
+	return state;
+}
+
+bool EosPipeline::RestoreRuntimeState(const extension::EosPipelineRuntimeState& state) {
+	if (!IsCompatiblePipelineRuntimeState(state, this, config_)) {
+		PROJECT_LOG_ERROR(
+				"[EosPipeline] runtime state restore rejected: owner/schema/config mismatch.");
+		return false;
+	}
+	current_scan_azimuth_deg_ = state.current_scan_azimuth_deg;
+	return true;
+}
+
+extension::EosPipelineExecuteResult EosPipeline::Execute(
 		const ::electro_optical_sensor::session::EosCycleInput& input) {
-	common::EosOutputFrame output;
+	extension::EosPipelineExecuteResult result;
+	common::EosOutputFrame& output = result.output_frame;
 	output.cycle_index = input.cycle_index;
 	AdvanceScan(input.dt_sec);
 	output.scan_azimuth_deg = current_scan_azimuth_deg_;
@@ -396,7 +428,9 @@ common::EosOutputFrame EosPipeline::Execute(
 		output.detections.push_back(BuildDetectionRecord(target, input));
 	}
 
-	return output;
+	result.executed_this_cycle = true;
+	result.abort_reason = extension::EosPipelineAbortReason::kNone;
+	return result;
 }
 
 void EosPipeline::AdvanceScan(float dt_sec) {

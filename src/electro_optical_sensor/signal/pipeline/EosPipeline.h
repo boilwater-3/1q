@@ -40,12 +40,24 @@ class EosPipeline : public ::electro_optical_sensor::extension::IEosPipeline {
   void UpdateConfig(const EosPipelineConfig& config, bool reset_scan_phase = true) override;
 
   /**
+   * @brief 捕获核心处理层运行态快照。
+   * @return 当前运行态快照。
+   */
+  extension::EosPipelineRuntimeState CaptureRuntimeState() const override;
+
+  /**
+   * @brief 恢复核心处理层运行态快照。
+   * @param[in] state 待恢复运行态快照。
+   */
+  bool RestoreRuntimeState(const extension::EosPipelineRuntimeState& state) override;
+
+  /**
    * @brief 执行单周期核心处理并输出探测结果。
    * @param[in] input 当前周期输入。
-   * @return 探测输出帧。
+    * @return 探测执行结果。
    * @note 非线程安全：会推进内部扫描相位（`current_scan_azimuth_deg_`）。
    */
-  common::EosOutputFrame Execute(
+    extension::EosPipelineExecuteResult Execute(
 	  const ::electro_optical_sensor::session::EosCycleInput& input) override;
 
  private:

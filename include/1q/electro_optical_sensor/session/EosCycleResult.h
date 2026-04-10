@@ -6,6 +6,7 @@
 #ifndef ELECTRO_OPTICAL_SENSOR_CORE_SESSION_EOS_CYCLE_RESULT_H_
 #define ELECTRO_OPTICAL_SENSOR_CORE_SESSION_EOS_CYCLE_RESULT_H_
 
+#include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
 #include "1q/electro_optical_sensor/common/EosOutputFrame.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 
@@ -21,6 +22,8 @@ struct ONEQ_API EosCycleResult {
   bool has_validation_error{false};                    /**< 是否存在 error 级输入问题 */
   bool executed_this_cycle{false}; /**< 当前周期是否实际执行了核心 pipeline */
   bool reused_previous_output{false}; /**< 当前周期是否复用了上一有效输出 */
+  extension::EosPipelineAbortReason abort_reason{
+      extension::EosPipelineAbortReason::kNone}; /**< 当前周期终止原因 */
 };
 
 }  // namespace session

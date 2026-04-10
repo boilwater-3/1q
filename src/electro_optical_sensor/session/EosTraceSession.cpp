@@ -120,6 +120,7 @@ Json BuildJson(const EosCycleResult& value) {
   json["has_validation_error"] = value.has_validation_error;
   json["executed_this_cycle"] = value.executed_this_cycle;
   json["reused_previous_output"] = value.reused_previous_output;
+  json["abort_reason"] = static_cast<int>(value.abort_reason);
   return json;
 }
 

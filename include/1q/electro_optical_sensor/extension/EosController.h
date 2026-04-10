@@ -6,10 +6,13 @@
 #ifndef ELECTRO_OPTICAL_SENSOR_CORE_CONTROLLER_EOS_CONTROLLER_H_
 #define ELECTRO_OPTICAL_SENSOR_CORE_CONTROLLER_EOS_CONTROLLER_H_
 
+#include <cstdint>
 #include <memory>
 
 #include "1q/api.hpp"
 #include "1q/electro_optical_sensor/common/EosOutputFrame.h"
+#include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
+#include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 
@@ -18,6 +21,22 @@ namespace extension {
 class IEosPipeline;
 }
 namespace extension {
+
+/**
+ * @brief EosControllerRuntimeState 描述控制器运行态快照。
+ */
+struct ONEQ_API EosControllerRuntimeState {
+  const void* owner_identity{nullptr};
+  std::uint32_t schema_version{0U};
+  common::EosOutputFrame latest_output{};
+  session::EosValidationIssueList last_validation_issues{};
+  bool has_latest_output{false};
+  bool has_validation_error{false};
+  bool last_cycle_executed{false};
+  bool last_cycle_reused_previous_output{false};
+  EosPipelineAbortReason last_abort_reason{EosPipelineAbortReason::kNone};
+  EosPipelineRuntimeState pipeline_state{};
+};
 
 /**
  * @brief EosController 负责调度输入校验、核心管线执行与输出缓存。
@@ -77,9 +96,34 @@ class ONEQ_API EosController {
   bool ReusedPreviousOutputLatestCycle() const;
 
   /**
+   * @brief 最近一次 RunOnce 的周期终止原因。
+   * @return 周期终止原因。
+   */
+  EosPipelineAbortReason GetLastAbortReason() const;
+
+  /**
+   * @brief 基于最近一次 RunOnce 状态构建单周期聚合结果。
+   * @param[in] input 当前周期输入，仅在无可复用输出时用于回填 cycle_index。
+   * @return 当前周期聚合结果。
+   */
+  session::EosCycleResult BuildCycleResult(const session::EosCycleInput& input) const;
+
+  /**
    * @brief 获取当前控制器绑定的核心管线实例。
    */
   extension::IEosPipeline& GetPipeline();
+
+  /**
+   * @brief 捕获控制器运行态快照。
+   * @return 控制器运行态快照。
+   */
+  EosControllerRuntimeState CaptureRuntimeState() const;
+
+  /**
+   * @brief 恢复控制器运行态快照。
+   * @param[in] state 待恢复运行态快照。
+   */
+  void RestoreRuntimeState(const EosControllerRuntimeState& state);
 
  private:
   struct Impl;

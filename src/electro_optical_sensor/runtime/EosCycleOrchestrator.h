@@ -43,8 +43,6 @@ class EosCycleOrchestrator {
   void ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch);
 
  private:
-  EosCycleResult BuildResult(const EosCycleInput& input) const;
-
   EosSessionConfig runtime_config_{};
   ::electro_optical_sensor::extension::IEosPipeline& pipeline_;
   ::electro_optical_sensor::extension::EosController& controller_;
