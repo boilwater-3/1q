@@ -69,6 +69,11 @@
 #include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
 #include "1q/electro_optical_sensor/pipeline/EosPipelineTypes.h"
 #include "1q/electro_optical_sensor/pipeline/IEosPipeline.h"
+#include "1q/electro_optical_sensor/extension/EosController.h"
+#include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
+#include "1q/electro_optical_sensor/extension/IEosEnvironmentService.h"
+#include "1q/electro_optical_sensor/extension/IEosPipeline.h"
+#include "1q/electro_optical_sensor/extension/electro_optical_sensor_extension.hpp"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/electro_optical_sensor_config.hpp"
@@ -155,21 +160,54 @@ static_assert(std::is_constructible<
                   electronic_surveillance_radar::core::controller::EsrController&>::value,
               "EsrSession must support full-chain injection");
 
-static_assert(std::is_constructible<electro_optical_sensor::core::session::EosSession,
-                                    electro_optical_sensor::core::session::EosSessionConfig,
-                                    electro_optical_sensor::pipeline::IEosPipeline&>::value,
-              "EosSession must support pipeline-only injection");
 static_assert(
-    std::is_constructible<electro_optical_sensor::core::session::EosSession,
-                          electro_optical_sensor::core::session::EosSessionConfig,
-                          electro_optical_sensor::core::controller::EosController&>::value,
-    "EosSession must support controller-only injection");
+    !std::is_constructible<electro_optical_sensor::core::session::EosSession,
+                           electro_optical_sensor::core::session::EosSessionConfig>::value,
+    "EosSession direct construction must be disabled");
 static_assert(
-    std::is_constructible<electro_optical_sensor::core::session::EosSession,
-                          electro_optical_sensor::core::session::EosSessionConfig,
-                          electro_optical_sensor::pipeline::IEosPipeline&,
-                          electro_optical_sensor::core::controller::EosController&>::value,
-    "EosSession must support full-chain injection");
+    !std::is_constructible<electro_optical_sensor::core::session::EosSession,
+                           electro_optical_sensor::core::session::EosSessionConfig,
+                           electro_optical_sensor::pipeline::IEosPipeline&>::value,
+    "EosSession direct pipeline injection construction must be disabled");
+static_assert(
+    !std::is_constructible<electro_optical_sensor::core::session::EosSession,
+                           electro_optical_sensor::core::session::EosSessionConfig,
+                           electro_optical_sensor::environment::IEosEnvironmentService&>::value,
+    "EosSession direct environment injection construction must be disabled");
+static_assert(
+    !std::is_constructible<electro_optical_sensor::core::session::EosSession,
+                           electro_optical_sensor::core::session::EosSessionConfig,
+                           electro_optical_sensor::core::controller::EosController&>::value,
+    "EosSession direct controller injection construction must be disabled");
+static_assert(
+    std::is_same<
+        electro_optical_sensor::core::session::EosSession,
+        decltype(electro_optical_sensor::core::session::EosSessionFactory::Create(
+            std::declval<const electro_optical_sensor::core::session::EosSessionConfig&>()))>::value,
+    "EosSessionFactory::Create must return EosSession");
+static_assert(
+    std::is_same<
+        electro_optical_sensor::core::session::EosSession,
+        decltype(electro_optical_sensor::core::session::EosSessionFactory::CreateWithPipeline(
+            std::declval<const electro_optical_sensor::core::session::EosSessionConfig&>(),
+            std::declval<electro_optical_sensor::pipeline::IEosPipeline&>()))>::value,
+    "EosSessionFactory::CreateWithPipeline must return EosSession");
+static_assert(
+    std::is_same<
+        electro_optical_sensor::core::session::EosSession,
+        decltype(electro_optical_sensor::core::session::EosSessionFactory::
+                     CreateWithEnvironmentService(
+                         std::declval<const electro_optical_sensor::core::session::EosSessionConfig&>(),
+                         std::declval<electro_optical_sensor::environment::
+                                          IEosEnvironmentService&>()))>::value,
+    "EosSessionFactory::CreateWithEnvironmentService must return EosSession");
+static_assert(
+    std::is_same<
+        electro_optical_sensor::core::session::EosSession,
+        decltype(electro_optical_sensor::core::session::EosSessionFactory::CreateWithController(
+            std::declval<const electro_optical_sensor::core::session::EosSessionConfig&>(),
+            std::declval<electro_optical_sensor::core::controller::EosController&>()))>::value,
+    "EosSessionFactory::CreateWithController must return EosSession");
 
 namespace airborne_radar {
 namespace {
@@ -373,13 +411,17 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
       foundation::radiative_transfer::EvaluateRadiativeTransfer(transfer_inputs);
   EXPECT_GT(transfer_result.transmittance, 0.0f);
 
-  core::session::EosSession session(session_config);
+  core::session::EosSession session = core::session::EosSessionFactory::Create(session_config);
   const core::session::EosRuntimeConfigPatch runtime_patch =
       config::EosRuntimeConfigBuilder().WithFrameRateHz(15.0f).Build();
   session.ApplyRuntimeConfig(runtime_patch);
   const core::session::EosCycleResult result = session.StepWithResult(input);
   tools::EosTraceSession trace_session(session_config, tools::EosTraceSessionOptions{});
   const core::session::EosCycleResult trace_result = trace_session.StepWithResult(input);
+  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_FALSE(result.reused_previous_output);
+  EXPECT_TRUE(trace_result.executed_this_cycle);
+  EXPECT_FALSE(trace_result.reused_previous_output);
   EXPECT_GE(result.output_frame.detections.size(), 0U);
   EXPECT_GE(trace_result.output_frame.detections.size(), 0U);
 }

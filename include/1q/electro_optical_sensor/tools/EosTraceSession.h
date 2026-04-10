@@ -37,7 +37,17 @@ class ONEQ_API EosTraceSession {
   explicit EosTraceSession(core::session::EosSessionConfig config = {},
                            EosTraceSessionOptions options = {});
 
+  /**
+   * @brief 执行单周期并返回输出帧（输出便捷入口）。
+   * @note 若需要区分本周期是否执行或是否复用上一输出，请使用
+   *       `StepWithResult()` 读取结构化状态字段。
+   */
   common::EosOutputFrame Step(const core::context::EosCycleInput& input);
+
+  /**
+   * @brief 执行单周期并返回聚合结果。
+   * @note 返回值包含 `executed_this_cycle` / `reused_previous_output` 等状态语义。
+   */
   core::session::EosCycleResult StepWithResult(const core::context::EosCycleInput& input);
   void ApplyRuntimeConfig(const core::session::EosRuntimeConfigPatch& patch);
 

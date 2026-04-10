@@ -4,7 +4,7 @@
  *
  * 覆盖要点：
  *   - IEosPipeline 自定义实现并注入 EosController
- *   - IEosEnvironmentService 自定义实现（EosController 仅需 pipeline）
+ *   - IEosEnvironmentService 自定义实现，并通过 EosSessionFactory 注入默认管线
  *   - EosController 构造、RunOnce、HasLatestOutputFrame、GetLatestOutputFrame
  *   - HasValidationError、GetLastValidationIssues 字段可访问
  */
@@ -12,11 +12,11 @@
 #include "1q/electro_optical_sensor/common/EosOutputFrame.h"
 #include "1q/electro_optical_sensor/core/context/EosCycleInput.h"
 #include "1q/electro_optical_sensor/core/context/EosInputValidation.h"
-#include "1q/electro_optical_sensor/core/controller/EosController.h"
+#include "1q/electro_optical_sensor/core/session/EosSession.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
-#include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
-#include "1q/electro_optical_sensor/pipeline/EosPipelineTypes.h"
-#include "1q/electro_optical_sensor/pipeline/IEosPipeline.h"
+#include "1q/electro_optical_sensor/extension/EosController.h"
+#include "1q/electro_optical_sensor/extension/IEosEnvironmentService.h"
+#include "1q/electro_optical_sensor/extension/IEosPipeline.h"
 
 namespace electro_optical_sensor {
 namespace {
@@ -100,6 +100,13 @@ int main() {
   input_2.cycle_index = 2U;
   input_2.dt_sec = 1.0f;
   controller.RunOnce(input_2);
+
+  electro_optical_sensor::DummyEosEnvironmentService environment_service;
+  electro_optical_sensor::core::session::EosSession session =
+      electro_optical_sensor::core::session::EosSessionFactory::CreateWithEnvironmentService(
+          {}, environment_service);
+  const electro_optical_sensor::common::EosOutputFrame session_frame = session.Step(input);
+  (void)session_frame.cycle_index;
 
   return 0;
 }

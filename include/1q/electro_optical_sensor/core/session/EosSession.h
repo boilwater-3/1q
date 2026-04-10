@@ -18,6 +18,9 @@ namespace electro_optical_sensor {
 namespace pipeline {
 class IEosPipeline;
 }
+namespace environment {
+class IEosEnvironmentService;
+}
 namespace core {
 namespace controller {
 class EosController;
@@ -25,6 +28,8 @@ class EosController;
 }  // namespace core
 namespace core {
 namespace session {
+
+class EosSessionFactory;
 
 /**
  * @brief EosWorkMode 表示传感器工作模式。
@@ -94,48 +99,25 @@ struct ONEQ_API EosRuntimeConfigPatch {
 
 /**
  * @brief EosSession 提供单周期步进执行入口。
+ * @note 通过 `EosSessionFactory` 创建，避免外部直接拼装不一致依赖图。
  * @note 线程模型：会话内部维护可变运行态，非线程安全；并发调用需外部串行化或加锁。
  */
 class ONEQ_API EosSession {
  public:
-  /**
-   * @brief 构造光学传感器会话。
-   * @param[in] config 会话初始化配置。
-   */
-  explicit EosSession(EosSessionConfig config = {});
-
-  /**
-   * @brief 构造光学传感器会话，并使用外部装配链路（引用注入，不接管生命周期）。
-   * @param[in] config 会话初始化配置。
-   * @param[in] pipeline 核心管线扩展实现。
-   */
-  EosSession(EosSessionConfig config, pipeline::IEosPipeline& pipeline);
-
-  /**
-   * @brief 构造光学传感器会话，并使用外部装配链路（引用注入，不接管生命周期）。
-   * @param[in] config 会话初始化配置。
-   * @param[in] controller 控制器实现。
-   */
-  EosSession(EosSessionConfig config, core::controller::EosController& controller);
-
-  /**
-   * @brief 构造光学传感器会话，并使用外部装配链路（引用注入，不接管生命周期）。
-   * @param[in] config 会话初始化配置。
-   * @param[in] pipeline 核心管线扩展实现。
-   * @param[in] controller 控制器实现。
-   */
-  EosSession(EosSessionConfig config, pipeline::IEosPipeline& pipeline,
-             core::controller::EosController& controller);
-
   ~EosSession() noexcept;
 
   EosSession(const EosSession&) = delete;
   EosSession& operator=(const EosSession&) = delete;
+  EosSession(EosSession&&) noexcept;
+  EosSession& operator=(EosSession&&) noexcept;
 
   /**
-   * @brief 执行单周期并返回输出帧。
+   * @brief 执行单周期并返回输出帧（输出便捷入口）。
    * @param[in] input 当前周期输入。
    * @return 当前周期输出帧。
+   * @note 该接口仅返回输出帧，不携带 `executed_this_cycle` /
+   *       `reused_previous_output` 等状态语义；若调用方需要区分
+   *       "本周期实际执行" 与 "复用上一有效输出"，请使用 `StepWithResult()`。
    * @note 非线程安全：会读写会话内部状态；并发调用需外部同步。
    */
   common::EosOutputFrame Step(const context::EosCycleInput& input);
@@ -144,6 +126,8 @@ class ONEQ_API EosSession {
    * @brief 执行单周期并返回聚合结果。
    * @param[in] input 当前周期输入。
    * @return 当前周期聚合结果。
+   * @note 结果中的 `executed_this_cycle` / `reused_previous_output`
+   *       提供结构化周期状态语义。
    * @note 非线程安全：会读写会话内部状态；并发调用需外部同步。
    */
   EosCycleResult StepWithResult(const context::EosCycleInput& input);
@@ -156,8 +140,29 @@ class ONEQ_API EosSession {
   void ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch);
 
  private:
+  friend class EosSessionFactory;
+
   struct Impl;
+  explicit EosSession(std::unique_ptr<Impl> impl);
   std::unique_ptr<Impl> impl_;
+};
+
+/**
+ * @brief EosSessionFactory 负责 EOS 会话装配与创建。
+ */
+class ONEQ_API EosSessionFactory {
+ public:
+  static EosSession Create(const EosSessionConfig& config = {});
+
+  static EosSession CreateWithPipeline(const EosSessionConfig& config,
+                                       pipeline::IEosPipeline& pipeline);
+
+  static EosSession CreateWithEnvironmentService(
+      const EosSessionConfig& config,
+      environment::IEosEnvironmentService& environment_service);
+
+  static EosSession CreateWithController(const EosSessionConfig& config,
+                                         core::controller::EosController& controller);
 };
 
 }  // namespace session

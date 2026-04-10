@@ -118,6 +118,8 @@ Json BuildJson(const core::session::EosCycleResult& value) {
         return BuildJson(issue);
       });
   json["has_validation_error"] = value.has_validation_error;
+  json["executed_this_cycle"] = value.executed_this_cycle;
+  json["reused_previous_output"] = value.reused_previous_output;
   return json;
 }
 
@@ -170,7 +172,8 @@ std::string ToJson(const T& value) {
 
 EosTraceSession::EosTraceSession(core::session::EosSessionConfig config,
                                  EosTraceSessionOptions options)
-    : session_(config), sink_(std::move(options.sink)) {
+    : session_(core::session::EosSessionFactory::Create(config)),
+      sink_(std::move(options.sink)) {
   if (sink_ && options.trace_config_on_construct) {
     Record("config", ToJson(config));
   }

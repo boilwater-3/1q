@@ -1,6 +1,8 @@
 /**
  * @file electro_optical_sensor.hpp
- * @brief 光电传感器模块对外统一入口。
+ * @brief 光电传感器模块稳定会话入口。
+ * @note 扩展接口（controller/pipeline/environment seam）请使用
+ *       `electro_optical_sensor/extension/electro_optical_sensor_extension.hpp`。
  */
 
 #ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_ELECTRO_OPTICAL_SENSOR_HPP_
@@ -10,10 +12,10 @@
 #include "1q/electro_optical_sensor/config/electro_optical_sensor_config.hpp"
 #include "1q/electro_optical_sensor/core/context/EosCycleInput.h"
 #include "1q/electro_optical_sensor/core/context/EosInputValidation.h"
-#include "1q/electro_optical_sensor/core/controller/EosController.h"
 #include "1q/electro_optical_sensor/core/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/core/session/EosSession.h"
-#include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
-#include "1q/electro_optical_sensor/pipeline/IEosPipeline.h"
+#include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
+#include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
+#include "1q/electro_optical_sensor/tools/EosTraceSession.h"
 
 #endif  // ONEQ_ELECTRO_OPTICAL_SENSOR_ELECTRO_OPTICAL_SENSOR_HPP_

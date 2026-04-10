@@ -66,6 +66,18 @@ class ONEQ_API EosController {
   bool HasValidationError() const;
 
   /**
+   * @brief 最近一次 RunOnce 是否执行了核心 pipeline。
+   * @return 若执行了核心 pipeline 则返回 true。
+   */
+  bool ExecutedLatestCycle() const;
+
+  /**
+   * @brief 最近一次 RunOnce 是否复用了上一有效输出。
+   * @return 若复用了上一有效输出则返回 true。
+   */
+  bool ReusedPreviousOutputLatestCycle() const;
+
+  /**
    * @brief 获取当前控制器绑定的核心管线实例。
    */
   pipeline::IEosPipeline& GetPipeline();

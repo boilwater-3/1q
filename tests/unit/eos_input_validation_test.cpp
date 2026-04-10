@@ -155,7 +155,7 @@ TEST(EosInputValidationTest, SessionProducesInFovDetectionsOnly) {
   config.vertical_fov_deg = 4.0f;
   config.scan_rate_deg_per_sec = 2.0f;
 
-  session::EosSession eos_session(config);
+  session::EosSession eos_session = session::EosSessionFactory::Create(config);
   EosCycleInput input = MakeValidInput();
   input.scene_targets[0].azimuth_deg = -3.0f;
   EosTargetState out_of_fov_target = MakeValidTarget();
@@ -171,13 +171,15 @@ TEST(EosInputValidationTest, SessionProducesInFovDetectionsOnly) {
 }
 
 TEST(EosInputValidationTest, SessionReturnsValidationErrorsForInvalidInput) {
-  session::EosSession eos_session;
+  session::EosSession eos_session = session::EosSessionFactory::Create();
   EosCycleInput input = MakeValidInput();
   input.scene_targets[0].range_m = 0.0f;
 
   const session::EosCycleResult result = eos_session.StepWithResult(input);
 
   EXPECT_TRUE(result.has_validation_error);
+  EXPECT_FALSE(result.executed_this_cycle);
+  EXPECT_FALSE(result.reused_previous_output);
   EXPECT_TRUE(ContainsCode(result.validation_issues, EosValidationCode::kInvalidTargetRange));
   EXPECT_TRUE(result.output_frame.detections.empty());
 }
@@ -211,7 +213,7 @@ TEST(EosInputValidationTest, RuntimeConfigBuilderCanTightenDetectionThresholdAtR
   config.horizontal_fov_deg = 12.0f;
   config.vertical_fov_deg = 6.0f;
 
-  session::EosSession eos_session(config);
+  session::EosSession eos_session = session::EosSessionFactory::Create(config);
   EosCycleInput input = MakeValidInput();
   input.platform_pose.position_m.z = 1200.0f;
   input.scene_targets[0].range_m = 1700.0f;
@@ -247,7 +249,7 @@ TEST(EosInputValidationTest, RuntimePatchPreservesScanPhaseUnlessScanRateChanges
   config.vertical_fov_deg = 6.0f;
   config.scan_rate_deg_per_sec = 4.0f;
 
-  session::EosSession eos_session(config);
+  session::EosSession eos_session = session::EosSessionFactory::Create(config);
   EosCycleInput input = MakeValidInput();
   input.dt_sec = 0.5f;
   input.scene_targets[0].azimuth_deg = ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec);
@@ -324,7 +326,7 @@ TEST(EosInputValidationTest, RuntimePatchRejectsInvalidFrameRateHz) {
   config.horizontal_fov_deg = 12.0f;
   config.vertical_fov_deg = 6.0f;
 
-  session::EosSession eos_session(config);
+  session::EosSession eos_session = session::EosSessionFactory::Create(config);
   EosCycleInput input = MakeValidInput();
   input.scene_targets[0].azimuth_deg = ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec);
 
@@ -362,7 +364,7 @@ TEST(EosInputValidationTest, RuntimePatchRejectsInvalidScanRate) {
   config.vertical_fov_deg = 6.0f;
   config.scan_rate_deg_per_sec = 4.0f;
 
-  session::EosSession eos_session(config);
+  session::EosSession eos_session = session::EosSessionFactory::Create(config);
   EosCycleInput input = MakeValidInput();
   input.scene_targets[0].azimuth_deg = ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec);
 
@@ -393,7 +395,7 @@ TEST(EosInputValidationTest, RuntimePatchIsAtomicWhenAnyFieldIsInvalid) {
   config.horizontal_fov_deg = 12.0f;
   config.vertical_fov_deg = 6.0f;
 
-  session::EosSession eos_session(config);
+  session::EosSession eos_session = session::EosSessionFactory::Create(config);
   EosCycleInput input = MakeValidInput();
   input.platform_pose.position_m.z = 1200.0f;
   input.scene_targets[0].range_m = 1700.0f;

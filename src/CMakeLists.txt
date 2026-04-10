@@ -113,6 +113,7 @@ set(EOS_SOURCES
     electro_optical_sensor/core/controller/EosController.cpp
     electro_optical_sensor/core/pipeline/EosPipeline.cpp
     electro_optical_sensor/core/session/EosRuntimeConfigResolver.cpp
+    electro_optical_sensor/core/session/EosSessionCompositionRoot.cpp
     electro_optical_sensor/core/session/EosSession.cpp
     electro_optical_sensor/core/session/EosTraceSession.cpp
 )
@@ -483,6 +484,13 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/pipeline/EosPipelineTypes.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/pipeline/IEosPipeline.h
     )
+    set(PUBLIC_HEADERS_EOS_EXTENSION
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/extension/EosController.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/extension/EosPipelineTypes.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/extension/IEosEnvironmentService.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/extension/IEosPipeline.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/extension/electro_optical_sensor_extension.hpp
+    )
     set(PUBLIC_HEADERS_EOS_CONFIG
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/EosSessionConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h
@@ -636,6 +644,9 @@ if(ENABLE_INSTALL)
     )
     install(FILES ${PUBLIC_HEADERS_EOS_PIPELINE}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/pipeline
+    )
+    install(FILES ${PUBLIC_HEADERS_EOS_EXTENSION}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/extension
     )
     install(FILES ${PUBLIC_HEADERS_EOS_CONFIG}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/config

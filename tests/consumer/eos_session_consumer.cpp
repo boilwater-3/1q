@@ -6,7 +6,7 @@
  *   - EosSessionConfigBuilder 构造会话配置
  *   - EosCycleInput + EosTargetState 构造场景输入
  *   - EosInputValidation 输入校验
- *   - EosSession 构造、Step、StepWithResult 调用
+ *   - EosSessionFactory 创建会话，Step、StepWithResult 调用
  *   - EosOutputFrame 探测输出字段可访问
  *   - EosRuntimeConfigBuilder 热切换（工作模式、扫描率、SNR 门限、杂散光滤波、环境模型）
  */
@@ -37,7 +37,8 @@ int main() {
           .Build();
 
   // 2. Session construction
-  eos::core::session::EosSession session(config);
+  eos::core::session::EosSession session =
+      eos::core::session::EosSessionFactory::Create(config);
 
   // 3. CycleInput with a target
   eos::core::context::EosCycleInput input;

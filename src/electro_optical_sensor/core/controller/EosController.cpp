@@ -16,6 +16,8 @@ struct EosController::Impl {
   context::EosValidationIssueList last_validation_issues{};
   bool has_latest_output{false};
   bool has_validation_error{false};
+  bool last_cycle_executed{false};
+  bool last_cycle_reused_previous_output{false};
 };
 
 EosController::EosController(pipeline::IEosPipeline& pipeline) : impl_(new Impl(pipeline)) {}
@@ -23,17 +25,25 @@ EosController::EosController(pipeline::IEosPipeline& pipeline) : impl_(new Impl(
 EosController::~EosController() = default;
 
 void EosController::RunOnce(const context::EosCycleInput& input) {
+  impl_->last_cycle_executed = false;
+  impl_->last_cycle_reused_previous_output = false;
   impl_->last_validation_issues = context::ValidateEosCycleInput(input);
   impl_->has_validation_error = context::HasEosValidationError(impl_->last_validation_issues);
   if (impl_->has_validation_error) {
-    impl_->latest_output = common::EosOutputFrame{};
-    impl_->latest_output.cycle_index = input.cycle_index;
+    if (!impl_->has_latest_output) {
+      impl_->latest_output = common::EosOutputFrame{};
+      impl_->latest_output.cycle_index = input.cycle_index;
+      impl_->has_latest_output = true;
+      return;
+    }
+    impl_->last_cycle_reused_previous_output = true;
     impl_->has_latest_output = true;
     return;
   }
 
   impl_->latest_output = impl_->pipeline.Execute(input);
   impl_->has_latest_output = true;
+  impl_->last_cycle_executed = true;
 }
 
 bool EosController::HasLatestOutputFrame() const { return impl_->has_latest_output; }
@@ -47,6 +57,12 @@ const context::EosValidationIssueList& EosController::GetLastValidationIssues() 
 }
 
 bool EosController::HasValidationError() const { return impl_->has_validation_error; }
+
+bool EosController::ExecutedLatestCycle() const { return impl_->last_cycle_executed; }
+
+bool EosController::ReusedPreviousOutputLatestCycle() const {
+  return impl_->last_cycle_reused_previous_output;
+}
 
 pipeline::IEosPipeline& EosController::GetPipeline() { return impl_->pipeline; }
 

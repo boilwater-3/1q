@@ -20,6 +20,8 @@ struct ONEQ_API EosCycleResult {
   common::EosOutputFrame output_frame{};               /**< 当前周期输出帧 */
   context::EosValidationIssueList validation_issues{}; /**< 当前周期输入校验结果 */
   bool has_validation_error{false};                    /**< 是否存在 error 级输入问题 */
+  bool executed_this_cycle{false}; /**< 当前周期是否实际执行了核心 pipeline */
+  bool reused_previous_output{false}; /**< 当前周期是否复用了上一有效输出 */
 };
 
 }  // namespace session

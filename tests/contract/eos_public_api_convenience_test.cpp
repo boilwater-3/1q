@@ -17,6 +17,7 @@
 #include "1q/electro_optical_sensor/core/context/EosCoordinateUtils.h"
 #include "1q/electro_optical_sensor/core/context/EosInputValidation.h"
 #include "1q/electro_optical_sensor/core/session/EosSession.h"
+#include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
 #include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 
 namespace electro_optical_sensor {
@@ -48,6 +49,19 @@ core::context::EosTargetState MakeTarget(std::uint64_t id, float range_m, float 
   target.projected_area_m2 = area_m2;
   return target;
 }
+
+class FixedEnvironmentService final : public environment::IEosEnvironmentService {
+ public:
+  environment::EosEnvironmentModelResult ResolveFactors(
+      const environment::EosEnvironmentModelInputs& inputs) const override {
+    (void)inputs;
+    environment::EosEnvironmentModelResult result;
+    result.aerosol_density_factor = 1.0f;
+    result.turbulence_factor = 1.0f;
+    result.path_radiance_scale_bias = 1.0f;
+    return result;
+  }
+};
 
 }  // namespace
 
@@ -327,7 +341,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionStepProducesDetectionOutput) {
   config.scan_end_az_deg = 20.0f;
   config.minimum_snr_db = 0.0f;
 
-  core::session::EosSession session(config);
+  core::session::EosSession session = core::session::EosSessionFactory::Create(config);
 
   core::context::EosCycleInput input;
   input.cycle_index = 0U;
@@ -344,7 +358,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionStepWithResultAggregatesOutputAndVal
   config.scan_end_az_deg = 20.0f;
   config.minimum_snr_db = 0.0f;
 
-  core::session::EosSession session(config);
+  core::session::EosSession session = core::session::EosSessionFactory::Create(config);
 
   core::context::EosCycleInput input;
   input.cycle_index = 1U;
@@ -354,13 +368,16 @@ TEST(EosPublicApiConvenienceTest, EosSessionStepWithResultAggregatesOutputAndVal
   const core::session::EosCycleResult result = session.StepWithResult(input);
 
   EXPECT_FALSE(result.has_validation_error);
+  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_FALSE(result.reused_previous_output);
   EXPECT_TRUE(result.validation_issues.empty());
   EXPECT_EQ(result.output_frame.cycle_index, 1U);
 }
 
 TEST(EosPublicApiConvenienceTest, EosSessionStepWithResultSurfacesValidationErrors) {
   core::session::EosSessionConfig session_config;
-  core::session::EosSession session(session_config);
+  core::session::EosSession session =
+      core::session::EosSessionFactory::Create(session_config);
 
   core::context::EosCycleInput input;
   input.dt_sec = std::numeric_limits<float>::quiet_NaN();
@@ -371,13 +388,16 @@ TEST(EosPublicApiConvenienceTest, EosSessionStepWithResultSurfacesValidationErro
   const core::session::EosCycleResult result = session.StepWithResult(input);
 
   EXPECT_TRUE(result.has_validation_error);
+  EXPECT_FALSE(result.executed_this_cycle);
+  EXPECT_FALSE(result.reused_previous_output);
   EXPECT_TRUE(ContainsEosIssueCode(result.validation_issues,
                                    core::context::EosValidationCode::kNonFiniteCycleDeltaTime));
 }
 
 TEST(EosPublicApiConvenienceTest, EosSessionAppliesRuntimeConfigPatch) {
   core::session::EosSessionConfig session_config;
-  core::session::EosSession session(session_config);
+  core::session::EosSession session =
+      core::session::EosSessionFactory::Create(session_config);
 
   const core::session::EosRuntimeConfigPatch patch =
       config::EosRuntimeConfigBuilder()
@@ -392,7 +412,27 @@ TEST(EosPublicApiConvenienceTest, EosSessionAppliesRuntimeConfigPatch) {
   input.scene_targets.push_back(MakeTarget(600U, 1000.0f, 0.0f, 0.0f, 310.0f, 0.9f, 0.1f, 1.5f));
 
   const core::session::EosCycleResult result = session.StepWithResult(input);
+  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_FALSE(result.reused_previous_output);
   EXPECT_EQ(result.output_frame.cycle_index, 0U);
+}
+
+TEST(EosPublicApiConvenienceTest, EosSessionFactoryCanInjectEnvironmentService) {
+  FixedEnvironmentService environment_service;
+  core::session::EosSession session =
+      core::session::EosSessionFactory::CreateWithEnvironmentService(
+          core::session::EosSessionConfig{}, environment_service);
+
+  core::context::EosCycleInput input;
+  input.cycle_index = 7U;
+  input.dt_sec = 1.0f;
+  input.scene_targets.push_back(MakeTarget(601U, 1000.0f, 0.0f, 0.0f, 310.0f, 0.9f, 0.1f, 1.5f));
+
+  const core::session::EosCycleResult result = session.StepWithResult(input);
+  EXPECT_FALSE(result.has_validation_error);
+  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_FALSE(result.reused_previous_output);
+  EXPECT_EQ(result.output_frame.cycle_index, 7U);
 }
 
 TEST(EosPublicApiConvenienceTest, EosSessionMultiCycleProducesProgressiveCycleIndices) {
@@ -401,7 +441,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionMultiCycleProducesProgressiveCycleIn
   config.scan_end_az_deg = 20.0f;
   config.minimum_snr_db = 0.0f;
 
-  core::session::EosSession session(config);
+  core::session::EosSession session = core::session::EosSessionFactory::Create(config);
 
   for (std::uint32_t i = 0U; i < 3U; ++i) {
     core::context::EosCycleInput input;
