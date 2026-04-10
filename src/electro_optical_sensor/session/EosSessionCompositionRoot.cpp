@@ -72,24 +72,33 @@ EosSessionComposition MakeCompositionWithExternalPipeline(
   return composition;
 }
 
+EosSessionComposition ComposeWithOwnedPipeline(
+    std::unique_ptr<extension::IEosPipeline> owned_pipeline) {
+  return FinalizeComposition(MakeCompositionWithOwnedPipeline(std::move(owned_pipeline)));
+}
+
+EosSessionComposition ComposeWithExternalPipeline(extension::IEosPipeline& pipeline) {
+  return FinalizeComposition(MakeCompositionWithExternalPipeline(pipeline));
+}
+
 }  // namespace
 
 EosSessionComposition EosSessionCompositionRoot::ComposeDefault() {
-  return FinalizeComposition(MakeCompositionWithOwnedPipeline(std::unique_ptr<extension::IEosPipeline>(
-  new core::pipeline::EosPipeline(::electro_optical_sensor::extension::EosPipelineConfig{}))));
+  return ComposeWithOwnedPipeline(std::unique_ptr<extension::IEosPipeline>(
+      new core::pipeline::EosPipeline(::electro_optical_sensor::extension::EosPipelineConfig{})));
 }
 
 EosSessionComposition EosSessionCompositionRoot::ComposeWithPipeline(
     ::electro_optical_sensor::extension::IEosPipeline& pipeline) {
-  return FinalizeComposition(MakeCompositionWithExternalPipeline(pipeline));
+  return ComposeWithExternalPipeline(pipeline);
 }
 
 EosSessionComposition EosSessionCompositionRoot::ComposeWithEnvironmentService(
     extension::IEosEnvironmentService& environment_service) {
-  return FinalizeComposition(MakeCompositionWithOwnedPipeline(std::unique_ptr<extension::IEosPipeline>(
+  return ComposeWithOwnedPipeline(std::unique_ptr<extension::IEosPipeline>(
       new core::pipeline::EosPipeline(::electro_optical_sensor::extension::EosPipelineConfig{},
                                        MakeNonOwningEnvironmentServiceHandle(
-                                           environment_service)))));
+                                           environment_service))));
 }
 
 EosSessionComposition EosSessionCompositionRoot::ComposeWithController(

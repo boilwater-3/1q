@@ -12,6 +12,9 @@
 
 #include "1q/electro_optical_sensor/common/EosOutputFrame.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
+#include "1q/electro_optical_sensor/extension/EosController.h"
+#include "1q/electro_optical_sensor/extension/IEosEnvironmentService.h"
+#include "1q/electro_optical_sensor/extension/IEosPipeline.h"
 #include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 
@@ -111,7 +114,7 @@ TEST(EosSessionFactoryTest, CreateWithEnvironmentServiceUsesInjectedService) {
   EosTargetState target;
   target.target_id = 7U;
   target.range_m = 1000.0f;
-  target.azimuth_deg = 0.0f;
+  target.azimuth_deg = -55.0f;
   target.elevation_deg = 0.0f;
   target.apparent_temperature_k = 500.0f;
   target.emissivity = 0.9f;
