@@ -17,8 +17,8 @@
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarTraceSession.h"
 #include "1q/common/trace/TraceSink.h"
-#include "1q/electro_optical_sensor/core/context/EosCycleInput.h"
-#include "1q/electro_optical_sensor/tools/EosTraceSession.h"
+#include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "1q/electro_optical_sensor/session/EosTraceSession.h"
 #include "1q/electronic_surveillance_radar/core/context/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/tools/EsrTraceSession.h"
 

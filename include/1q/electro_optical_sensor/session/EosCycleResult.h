@@ -7,10 +7,9 @@
 #define ELECTRO_OPTICAL_SENSOR_CORE_SESSION_EOS_CYCLE_RESULT_H_
 
 #include "1q/electro_optical_sensor/common/EosOutputFrame.h"
-#include "1q/electro_optical_sensor/core/context/EosInputValidation.h"
+#include "1q/electro_optical_sensor/session/EosInputValidation.h"
 
 namespace electro_optical_sensor {
-namespace core {
 namespace session {
 
 /**
@@ -18,14 +17,20 @@ namespace session {
  */
 struct ONEQ_API EosCycleResult {
   common::EosOutputFrame output_frame{};               /**< 当前周期输出帧 */
-  context::EosValidationIssueList validation_issues{}; /**< 当前周期输入校验结果 */
+  session::EosValidationIssueList validation_issues{}; /**< 当前周期输入校验结果 */
   bool has_validation_error{false};                    /**< 是否存在 error 级输入问题 */
   bool executed_this_cycle{false}; /**< 当前周期是否实际执行了核心 pipeline */
   bool reused_previous_output{false}; /**< 当前周期是否复用了上一有效输出 */
 };
 
 }  // namespace session
+
+namespace core {
+namespace session {
+using ::electro_optical_sensor::session::EosCycleResult;
+}  // namespace session
 }  // namespace core
+
 }  // namespace electro_optical_sensor
 
 #endif  // ELECTRO_OPTICAL_SENSOR_CORE_SESSION_EOS_CYCLE_RESULT_H_

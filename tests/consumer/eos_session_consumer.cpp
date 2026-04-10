@@ -17,10 +17,10 @@
 #include "1q/electro_optical_sensor/common/EosOutputFrame.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
-#include "1q/electro_optical_sensor/core/context/EosCycleInput.h"
-#include "1q/electro_optical_sensor/core/context/EosInputValidation.h"
-#include "1q/electro_optical_sensor/core/session/EosCycleResult.h"
-#include "1q/electro_optical_sensor/core/session/EosSession.h"
+#include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "1q/electro_optical_sensor/session/EosInputValidation.h"
+#include "1q/electro_optical_sensor/session/EosCycleResult.h"
+#include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
 #include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 
@@ -28,20 +28,20 @@ namespace eos = electro_optical_sensor;
 
 int main() {
   // 1. SessionConfigBuilder
-  eos::core::session::EosSessionConfig config =
+  eos::session::EosSessionConfig config =
       eos::config::EosSessionConfigBuilder()
-          .WithWorkMode(eos::core::session::EosWorkMode::kFused)
+          .WithWorkMode(eos::session::EosWorkMode::kFused)
           .WithScanRateDegPerSec(5.0f)
           .WithMinimumSnrDb(0.0f)
           .WithEnvironmentModelType(eos::environment::EosEnvironmentModelType::kSimplified)
           .Build();
 
   // 2. Session construction
-  eos::core::session::EosSession session =
-      eos::core::session::EosSessionFactory::Create(config);
+  eos::session::EosSession session =
+      eos::session::EosSessionFactory::Create(config);
 
   // 3. CycleInput with a target
-  eos::core::context::EosCycleInput input;
+  eos::session::EosCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
   input.solar_irradiance_w_m2 = 850.0f;
@@ -49,10 +49,10 @@ int main() {
   input.atmospheric_transmittance = 0.8f;
   input.cloud_coverage_ratio = 0.2f;
   input.background_temperature_k = 289.0f;
-  input.day_night_type = eos::core::context::DayNightType::kDay;
+  input.day_night_type = eos::session::DayNightType::kDay;
   input.platform_pose.position_m.z = 1200.0f;
 
-  eos::core::context::EosTargetState target;
+  eos::session::EosTargetState target;
   target.target_id = 1U;
   target.range_m = 1500.0f;
   target.azimuth_deg = 0.0f;
@@ -64,14 +64,14 @@ int main() {
   input.scene_targets.push_back(target);
 
   // 4. Input validation
-  const eos::core::context::EosValidationIssueList issues =
-      eos::core::context::ValidateEosCycleInput(input);
-  if (eos::core::context::HasEosValidationError(issues)) {
+  const eos::session::EosValidationIssueList issues =
+      eos::session::ValidateEosCycleInput(input);
+  if (eos::session::HasEosValidationError(issues)) {
     return 1;
   }
 
   // 5. StepWithResult
-  const eos::core::session::EosCycleResult result = session.StepWithResult(input);
+  const eos::session::EosCycleResult result = session.StepWithResult(input);
   if (result.has_validation_error) {
     return 2;
   }
@@ -102,19 +102,19 @@ int main() {
   }
 
   // 8. RuntimeConfigBuilder: switch to infrared-only mode
-  const eos::core::session::EosRuntimeConfigPatch ir_patch =
+  const eos::session::EosRuntimeConfigPatch ir_patch =
       eos::config::EosRuntimeConfigBuilder()
-          .WithWorkMode(eos::core::session::EosWorkMode::kInfraredOnly)
+          .WithWorkMode(eos::session::EosWorkMode::kInfraredOnly)
           .Build();
   session.ApplyRuntimeConfig(ir_patch);
 
   // 9. Step after mode switch
-  eos::core::context::EosCycleInput input_2 = input;
+  eos::session::EosCycleInput input_2 = input;
   input_2.cycle_index = 2U;
   const eos::common::EosOutputFrame ir_frame = session.Step(input_2);
 
   // 10. RuntimeConfigBuilder: change scan rate + SNR threshold
-  const eos::core::session::EosRuntimeConfigPatch tune_patch =
+  const eos::session::EosRuntimeConfigPatch tune_patch =
       eos::config::EosRuntimeConfigBuilder()
           .WithScanRateDegPerSec(100.0f)
           .WithMinimumSnrDb(120.0f)
@@ -122,12 +122,12 @@ int main() {
   session.ApplyRuntimeConfig(tune_patch);
 
   // 11. RuntimeConfigBuilder: enable straylight filter
-  const eos::core::session::EosRuntimeConfigPatch straylight_patch =
+  const eos::session::EosRuntimeConfigPatch straylight_patch =
       eos::config::EosRuntimeConfigBuilder().EnableStraylightFilter(true).Build();
   session.ApplyRuntimeConfig(straylight_patch);
 
   // 12. RuntimeConfigBuilder: switch environment model to advanced
-  const eos::core::session::EosRuntimeConfigPatch env_patch =
+  const eos::session::EosRuntimeConfigPatch env_patch =
       eos::config::EosRuntimeConfigBuilder()
           .WithEnvironmentModelType(eos::environment::EosEnvironmentModelType::kAdvanced)
           .WithAerosolDensityFactor(1.5f)
@@ -136,7 +136,7 @@ int main() {
   session.ApplyRuntimeConfig(env_patch);
 
   // 13. RuntimeConfigBuilder: switch radiative transfer model
-  const eos::core::session::EosRuntimeConfigPatch rt_patch =
+  const eos::session::EosRuntimeConfigPatch rt_patch =
       eos::config::EosRuntimeConfigBuilder()
           .WithRadiativeTransferModel(
               eos::foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance)
@@ -144,14 +144,14 @@ int main() {
   session.ApplyRuntimeConfig(rt_patch);
 
   // 14. RuntimeConfigBuilder: change visible reference irradiance
-  const eos::core::session::EosRuntimeConfigPatch vis_ref_patch =
+  const eos::session::EosRuntimeConfigPatch vis_ref_patch =
       eos::config::EosRuntimeConfigBuilder().WithVisibleReferenceIrradianceWm2(1200.0f).Build();
   session.ApplyRuntimeConfig(vis_ref_patch);
 
   // 15. Final cycle
-  eos::core::context::EosCycleInput input_3 = input;
+  eos::session::EosCycleInput input_3 = input;
   input_3.cycle_index = 3U;
-  const eos::core::session::EosCycleResult result_3 = session.StepWithResult(input_3);
+  const eos::session::EosCycleResult result_3 = session.StepWithResult(input_3);
   if (result_3.has_validation_error) {
     return 3;
   }

@@ -10,12 +10,12 @@
 
 #include "1q/electro_optical_sensor/common/EosOutputFrame.h"
 #include "1q/electro_optical_sensor/config/electro_optical_sensor_config.hpp"
-#include "1q/electro_optical_sensor/core/context/EosCycleInput.h"
-#include "1q/electro_optical_sensor/core/context/EosInputValidation.h"
-#include "1q/electro_optical_sensor/core/session/EosCycleResult.h"
-#include "1q/electro_optical_sensor/core/session/EosSession.h"
+#include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "1q/electro_optical_sensor/session/EosInputValidation.h"
+#include "1q/electro_optical_sensor/session/EosCycleResult.h"
+#include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
 #include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
-#include "1q/electro_optical_sensor/tools/EosTraceSession.h"
+#include "1q/electro_optical_sensor/session/EosTraceSession.h"
 
 #endif  // ONEQ_ELECTRO_OPTICAL_SENSOR_ELECTRO_OPTICAL_SENSOR_HPP_

@@ -10,23 +10,16 @@
 
 #include "1q/api.hpp"
 #include "1q/electro_optical_sensor/common/EosOutputFrame.h"
-#include "1q/electro_optical_sensor/core/context/EosCycleInput.h"
-#include "1q/electro_optical_sensor/core/session/EosCycleResult.h"
+#include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
 
 namespace electro_optical_sensor {
-namespace pipeline {
+namespace extension {
 class IEosPipeline;
-}
-namespace environment {
 class IEosEnvironmentService;
-}
-namespace core {
-namespace controller {
 class EosController;
-}
-}  // namespace core
-namespace core {
+}  // namespace extension
 namespace session {
 
 class EosSessionFactory;
@@ -120,7 +113,7 @@ class ONEQ_API EosSession {
    *       "本周期实际执行" 与 "复用上一有效输出"，请使用 `StepWithResult()`。
    * @note 非线程安全：会读写会话内部状态；并发调用需外部同步。
    */
-  common::EosOutputFrame Step(const context::EosCycleInput& input);
+  common::EosOutputFrame Step(const EosCycleInput& input);
 
   /**
    * @brief 执行单周期并返回聚合结果。
@@ -130,7 +123,7 @@ class ONEQ_API EosSession {
    *       提供结构化周期状态语义。
    * @note 非线程安全：会读写会话内部状态；并发调用需外部同步。
    */
-  EosCycleResult StepWithResult(const context::EosCycleInput& input);
+  EosCycleResult StepWithResult(const EosCycleInput& input);
 
   /**
    * @brief 应用运行期可变配置补丁。
@@ -155,18 +148,28 @@ class ONEQ_API EosSessionFactory {
   static EosSession Create(const EosSessionConfig& config = {});
 
   static EosSession CreateWithPipeline(const EosSessionConfig& config,
-                                       pipeline::IEosPipeline& pipeline);
+                                       extension::IEosPipeline& pipeline);
 
   static EosSession CreateWithEnvironmentService(
       const EosSessionConfig& config,
-      environment::IEosEnvironmentService& environment_service);
+      extension::IEosEnvironmentService& environment_service);
 
   static EosSession CreateWithController(const EosSessionConfig& config,
-                                         core::controller::EosController& controller);
+                                         extension::EosController& controller);
 };
 
 }  // namespace session
+
+namespace core {
+namespace session {
+using ::electro_optical_sensor::session::EosWorkMode;
+using ::electro_optical_sensor::session::EosSessionConfig;
+using ::electro_optical_sensor::session::EosRuntimeConfigPatch;
+using ::electro_optical_sensor::session::EosSession;
+using ::electro_optical_sensor::session::EosSessionFactory;
+}  // namespace session
 }  // namespace core
+
 }  // namespace electro_optical_sensor
 
 #endif  // ELECTRO_OPTICAL_SENSOR_CORE_SESSION_EOS_SESSION_H_

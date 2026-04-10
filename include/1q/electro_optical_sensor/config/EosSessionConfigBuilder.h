@@ -6,7 +6,7 @@
 #ifndef ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_SESSION_CONFIG_BUILDER_H_
 #define ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_SESSION_CONFIG_BUILDER_H_
 
-#include "1q/electro_optical_sensor/core/session/EosSession.h"
+#include "1q/electro_optical_sensor/session/EosSession.h"
 
 namespace electro_optical_sensor {
 namespace config {
@@ -17,14 +17,14 @@ namespace config {
 class ONEQ_API EosSessionConfigBuilder {
  public:
   explicit EosSessionConfigBuilder(
-      const core::session::EosSessionConfig& config = {}) noexcept : config_(config) {}
+      const session::EosSessionConfig& config = {}) noexcept : config_(config) {}
 
   EosSessionConfigBuilder& WithSessionConfig(
-      const core::session::EosSessionConfig& config) noexcept {
+      const session::EosSessionConfig& config) noexcept {
     config_ = config;
     return *this;
   }
-  EosSessionConfigBuilder& WithWorkMode(core::session::EosWorkMode mode) noexcept {
+  EosSessionConfigBuilder& WithWorkMode(session::EosWorkMode mode) noexcept {
     config_.work_mode = mode;
     return *this;
   }
@@ -66,10 +66,10 @@ class ONEQ_API EosSessionConfigBuilder {
     config_.environment_default_config.turbulence_factor = value;
     return *this;
   }
-  core::session::EosSessionConfig Build() const noexcept { return config_; }
+  session::EosSessionConfig Build() const noexcept { return config_; }
 
  private:
-  core::session::EosSessionConfig config_{};
+  session::EosSessionConfig config_{};
 };
 
 }  // namespace config

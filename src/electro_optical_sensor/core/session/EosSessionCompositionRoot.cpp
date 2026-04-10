@@ -2,21 +2,20 @@
 
 #include <memory>
 
-#include "1q/electro_optical_sensor/core/controller/EosController.h"
-#include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
+#include "1q/electro_optical_sensor/extension/EosController.h"
+#include "1q/electro_optical_sensor/extension/IEosEnvironmentService.h"
 #include "electro_optical_sensor/core/pipeline/EosPipeline.h"
 
 namespace electro_optical_sensor {
-namespace core {
 namespace session {
 namespace internal {
 
 namespace {
 
-std::shared_ptr<environment::IEosEnvironmentService> MakeNonOwningEnvironmentServiceHandle(
-    environment::IEosEnvironmentService& environment_service) {
-  return std::shared_ptr<environment::IEosEnvironmentService>(
-      &environment_service, [](environment::IEosEnvironmentService*) {});
+std::shared_ptr<extension::IEosEnvironmentService> MakeNonOwningEnvironmentServiceHandle(
+    extension::IEosEnvironmentService& environment_service) {
+  return std::shared_ptr<extension::IEosEnvironmentService>(
+      &environment_service, [](extension::IEosEnvironmentService*) {});
 }
 
 }  // namespace
@@ -24,36 +23,36 @@ std::shared_ptr<environment::IEosEnvironmentService> MakeNonOwningEnvironmentSer
 EosSessionComposition EosSessionCompositionRoot::ComposeDefault() {
   EosSessionComposition composition;
   composition.owned_pipeline.reset(
-      new core::pipeline::EosPipeline(::electro_optical_sensor::pipeline::EosPipelineConfig{}));
-  composition.owned_controller.reset(new controller::EosController(*composition.owned_pipeline));
+      new core::pipeline::EosPipeline(::electro_optical_sensor::extension::EosPipelineConfig{}));
+  composition.owned_controller.reset(new extension::EosController(*composition.owned_pipeline));
   composition.pipeline = composition.owned_pipeline.get();
   composition.controller = composition.owned_controller.get();
   return composition;
 }
 
 EosSessionComposition EosSessionCompositionRoot::ComposeWithPipeline(
-    ::electro_optical_sensor::pipeline::IEosPipeline& pipeline) {
+    ::electro_optical_sensor::extension::IEosPipeline& pipeline) {
   EosSessionComposition composition;
-  composition.owned_controller.reset(new controller::EosController(pipeline));
+  composition.owned_controller.reset(new extension::EosController(pipeline));
   composition.pipeline = &pipeline;
   composition.controller = composition.owned_controller.get();
   return composition;
 }
 
 EosSessionComposition EosSessionCompositionRoot::ComposeWithEnvironmentService(
-    environment::IEosEnvironmentService& environment_service) {
+    extension::IEosEnvironmentService& environment_service) {
   EosSessionComposition composition;
   composition.owned_pipeline.reset(new core::pipeline::EosPipeline(
-      ::electro_optical_sensor::pipeline::EosPipelineConfig{},
+      ::electro_optical_sensor::extension::EosPipelineConfig{},
       MakeNonOwningEnvironmentServiceHandle(environment_service)));
-  composition.owned_controller.reset(new controller::EosController(*composition.owned_pipeline));
+  composition.owned_controller.reset(new extension::EosController(*composition.owned_pipeline));
   composition.pipeline = composition.owned_pipeline.get();
   composition.controller = composition.owned_controller.get();
   return composition;
 }
 
 EosSessionComposition EosSessionCompositionRoot::ComposeWithController(
-    controller::EosController& controller) {
+    extension::EosController& controller) {
   EosSessionComposition composition;
   composition.pipeline = &controller.GetPipeline();
   composition.controller = &controller;
@@ -62,5 +61,4 @@ EosSessionComposition EosSessionCompositionRoot::ComposeWithController(
 
 }  // namespace internal
 }  // namespace session
-}  // namespace core
 }  // namespace electro_optical_sensor

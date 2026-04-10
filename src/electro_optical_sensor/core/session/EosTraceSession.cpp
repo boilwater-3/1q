@@ -1,4 +1,4 @@
-#include "1q/electro_optical_sensor/tools/EosTraceSession.h"
+#include "1q/electro_optical_sensor/session/EosTraceSession.h"
 
 #include <string>
 #include <vector>
@@ -6,7 +6,7 @@
 #include <nlohmann/json.hpp>
 
 namespace electro_optical_sensor {
-namespace tools {
+namespace session {
 namespace {
 
 using Json = nlohmann::ordered_json;
@@ -44,7 +44,7 @@ Json BuildJson(const oneq::common::PoseState& value) {
   return json;
 }
 
-Json BuildJson(const core::context::EosTargetState& value) {
+Json BuildJson(const EosTargetState& value) {
   Json json;
   json["target_id"] = value.target_id;
   json["range_m"] = value.range_m;
@@ -57,7 +57,7 @@ Json BuildJson(const core::context::EosTargetState& value) {
   return json;
 }
 
-Json BuildJson(const core::context::EosCycleInput& value) {
+Json BuildJson(const EosCycleInput& value) {
   Json json;
   json["cycle_index"] = value.cycle_index;
   json["dt_sec"] = value.dt_sec;
@@ -70,7 +70,7 @@ Json BuildJson(const core::context::EosCycleInput& value) {
   json["day_night_type"] = static_cast<int>(value.day_night_type);
   json["background_temperature_k"] = value.background_temperature_k;
   json["scene_targets"] =
-      SerializeArray(value.scene_targets, [](const core::context::EosTargetState& target) {
+      SerializeArray(value.scene_targets, [](const EosTargetState& target) {
         return BuildJson(target);
       });
   return json;
@@ -101,7 +101,7 @@ Json BuildJson(const common::EosOutputFrame& value) {
   return json;
 }
 
-Json BuildJson(const core::context::EosValidationIssue& value) {
+Json BuildJson(const EosValidationIssue& value) {
   Json json;
   json["severity"] = static_cast<int>(value.severity);
   json["code"] = static_cast<int>(value.code);
@@ -110,11 +110,11 @@ Json BuildJson(const core::context::EosValidationIssue& value) {
   return json;
 }
 
-Json BuildJson(const core::session::EosCycleResult& value) {
+Json BuildJson(const EosCycleResult& value) {
   Json json;
   json["output_frame"] = BuildJson(value.output_frame);
   json["validation_issues"] =
-      SerializeArray(value.validation_issues, [](const core::context::EosValidationIssue& issue) {
+      SerializeArray(value.validation_issues, [](const EosValidationIssue& issue) {
         return BuildJson(issue);
       });
   json["has_validation_error"] = value.has_validation_error;
@@ -123,7 +123,7 @@ Json BuildJson(const core::session::EosCycleResult& value) {
   return json;
 }
 
-Json BuildJson(const core::session::EosSessionConfig& value) {
+Json BuildJson(const EosSessionConfig& value) {
   Json json;
   json["wavelength_lower_um"] = value.wavelength_lower_um;
   json["wavelength_upper_um"] = value.wavelength_upper_um;
@@ -146,7 +146,7 @@ Json BuildJson(const core::session::EosSessionConfig& value) {
   return json;
 }
 
-Json BuildJson(const core::session::EosRuntimeConfigPatch& value) {
+Json BuildJson(const EosRuntimeConfigPatch& value) {
   Json json;
   json["has_work_mode"] = value.has_work_mode;
   json["work_mode"] = static_cast<int>(value.work_mode);
@@ -170,16 +170,16 @@ std::string ToJson(const T& value) {
 
 }  // namespace
 
-EosTraceSession::EosTraceSession(core::session::EosSessionConfig config,
+EosTraceSession::EosTraceSession(EosSessionConfig config,
                                  EosTraceSessionOptions options)
-    : session_(core::session::EosSessionFactory::Create(config)),
+    : session_(EosSessionFactory::Create(config)),
       sink_(std::move(options.sink)) {
   if (sink_ && options.trace_config_on_construct) {
     Record("config", ToJson(config));
   }
 }
 
-common::EosOutputFrame EosTraceSession::Step(const core::context::EosCycleInput& input) {
+common::EosOutputFrame EosTraceSession::Step(const EosCycleInput& input) {
   if (sink_) {
     Record("input", ToJson(input));
   }
@@ -190,31 +190,31 @@ common::EosOutputFrame EosTraceSession::Step(const core::context::EosCycleInput&
   return output;
 }
 
-core::session::EosCycleResult EosTraceSession::StepWithResult(const core::context::EosCycleInput& input) {
+EosCycleResult EosTraceSession::StepWithResult(const EosCycleInput& input) {
   if (sink_) {
     Record("input", ToJson(input));
   }
-  const core::session::EosCycleResult output = session_.StepWithResult(input);
+  const EosCycleResult output = session_.StepWithResult(input);
   if (sink_) {
     Record("output", ToJson(output));
   }
   return output;
 }
 
-void EosTraceSession::ApplyRuntimeConfig(const core::session::EosRuntimeConfigPatch& patch) {
+void EosTraceSession::ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch) {
   session_.ApplyRuntimeConfig(patch);
   if (sink_) {
     Record("runtime_config_patch", ToJson(patch));
   }
 }
 
-core::session::EosSession& EosTraceSession::session() { return session_; }
+EosSession& EosTraceSession::session() { return session_; }
 
-const core::session::EosSession& EosTraceSession::session() const { return session_; }
+const EosSession& EosTraceSession::session() const { return session_; }
 
 void EosTraceSession::Record(const std::string& phase, const std::string& payload_json) const {
   sink_->Record("electro_optical_sensor", phase, payload_json);
 }
 
-}  // namespace tools
+}  // namespace session
 }  // namespace electro_optical_sensor

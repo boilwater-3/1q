@@ -45,21 +45,19 @@
 ## Electro Optical Sensor (EOS)
 
 - `electro_optical_sensor/config/`：配置与 Builder 入口（推荐从这里拿配置类型与 Builder）。
-- `electro_optical_sensor/core/session/`：会话门面与结果对象。
-- `electro_optical_sensor/core/context/`：周期输入与校验。
-- `electro_optical_sensor/environment/`：环境建模扩展接口与环境契约类型。
-- `electro_optical_sensor/pipeline/`：核心探测管线扩展接口与契约类型。
+- `electro_optical_sensor/session/`：会话门面、周期输入/校验、结果对象与 trace 包装器。
+- `electro_optical_sensor/extension/`：控制器、pipeline、environment service 等扩展接口契约。
+- `electro_optical_sensor/environment/`：环境契约类型（不含扩展接口）。
 - `electro_optical_sensor/foundation/`：辐射传输、噪声、光学等基础模型。
-- `electro_optical_sensor/common/`：输出帧等公共域模型。
-- `electro_optical_sensor/tools/`：调试/追踪辅助封装。
+- `electro_optical_sensor/common/`：输出帧与坐标工具等公共域模型。
 
 ## Recommended Include Strategy
 
 - 业务代码优先依赖：
   - `*/<module>.hpp`（模块统一入口，优先）
   - `*/config/*_config.hpp`（模块配置统一入口，优先）
-  - `*/core/session/`（会话生命周期）
-  - `*/core/context/`（输入校验）
+  - `*/session/`（会话生命周期与输入校验）
+  - `*/extension/`（可替换扩展 seam）
 - 避免无目的直接包含 `common/utils` 等细粒度头，除非确实需要对应工具能力。
 
 ## Minimal Integration Checklist

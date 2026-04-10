@@ -11,10 +11,10 @@
 #include <utility>
 
 #include "1q/common/trace/TraceSink.h"
-#include "1q/electro_optical_sensor/core/session/EosSession.h"
+#include "1q/electro_optical_sensor/session/EosSession.h"
 
 namespace electro_optical_sensor {
-namespace tools {
+namespace session {
 
 /**
  * @brief EosTraceSessionOptions 描述记录包装器配置。
@@ -34,7 +34,7 @@ struct ONEQ_API EosTraceSessionOptions {
  */
 class ONEQ_API EosTraceSession {
  public:
-  explicit EosTraceSession(core::session::EosSessionConfig config = {},
+  explicit EosTraceSession(EosSessionConfig config = {},
                            EosTraceSessionOptions options = {});
 
   /**
@@ -42,26 +42,39 @@ class ONEQ_API EosTraceSession {
    * @note 若需要区分本周期是否执行或是否复用上一输出，请使用
    *       `StepWithResult()` 读取结构化状态字段。
    */
-  common::EosOutputFrame Step(const core::context::EosCycleInput& input);
+  common::EosOutputFrame Step(const EosCycleInput& input);
 
   /**
    * @brief 执行单周期并返回聚合结果。
    * @note 返回值包含 `executed_this_cycle` / `reused_previous_output` 等状态语义。
    */
-  core::session::EosCycleResult StepWithResult(const core::context::EosCycleInput& input);
-  void ApplyRuntimeConfig(const core::session::EosRuntimeConfigPatch& patch);
+  EosCycleResult StepWithResult(const EosCycleInput& input);
+  void ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch);
 
-  core::session::EosSession& session();
-  const core::session::EosSession& session() const;
+  EosSession& session();
+  const EosSession& session() const;
 
  private:
   void Record(const std::string& phase, const std::string& payload_json) const;
 
-  core::session::EosSession session_;
+  EosSession session_;
   std::shared_ptr<oneq::common::trace::TraceSink> sink_;
 };
 
+}  // namespace session
+
+namespace core {
+namespace session {
+using ::electro_optical_sensor::session::EosTraceSessionOptions;
+using ::electro_optical_sensor::session::EosTraceSession;
+}  // namespace session
+}  // namespace core
+
+namespace tools {
+using ::electro_optical_sensor::session::EosTraceSessionOptions;
+using ::electro_optical_sensor::session::EosTraceSession;
 }  // namespace tools
+
 }  // namespace electro_optical_sensor
 
 #endif  // ELECTRO_OPTICAL_SENSOR_TOOLS_EOS_TRACE_SESSION_H_

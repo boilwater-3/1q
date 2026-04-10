@@ -10,11 +10,10 @@
 
 #include "1q/api.hpp"
 #include "1q/common/coordinate_transform.h"
-#include "1q/electro_optical_sensor/core/context/EosCycleInput.h"
+#include "1q/electro_optical_sensor/session/EosCycleInput.h"
 
 namespace electro_optical_sensor {
-namespace core {
-namespace context {
+namespace common {
 
 /**
  * @brief EOS 局部坐标参考系定义。
@@ -121,7 +120,7 @@ ONEQ_API bool TryMakeEosTargetFromEcef(std::uint64_t target_id,
                                        const EosCoordinateReference& reference,
                                        const oneq::common::PoseState& platform_pose,
                                        const EosTargetAppearance& appearance,
-                                       EosTargetState* target,
+                                       session::EosTargetState* target,
                                        EosCoordinateStatus* status = nullptr);
 
 /**
@@ -140,11 +139,25 @@ ONEQ_API bool TryMakeEosTargetFromLla(std::uint64_t target_id,
                                       const EosCoordinateReference& reference,
                                       const oneq::common::PoseState& platform_pose,
                                       const EosTargetAppearance& appearance,
-                                      EosTargetState* target,
+                                      session::EosTargetState* target,
                                       EosCoordinateStatus* status = nullptr);
 
+}  // namespace common
+
+namespace core {
+namespace context {
+using ::electro_optical_sensor::common::EosCoordinateReference;
+using ::electro_optical_sensor::common::EosTargetAppearance;
+using ::electro_optical_sensor::common::EosCoordinateStatus;
+using ::electro_optical_sensor::common::TryConvertEcefToEosLocal;
+using ::electro_optical_sensor::common::TryConvertLlaToEosLocal;
+using ::electro_optical_sensor::common::TryMakeEosPoseFromEcef;
+using ::electro_optical_sensor::common::TryMakeEosPoseFromLla;
+using ::electro_optical_sensor::common::TryMakeEosTargetFromEcef;
+using ::electro_optical_sensor::common::TryMakeEosTargetFromLla;
 }  // namespace context
 }  // namespace core
+
 }  // namespace electro_optical_sensor
 
 #endif  // ELECTRO_OPTICAL_SENSOR_CORE_CONTEXT_EOS_COORDINATE_UTILS_H_

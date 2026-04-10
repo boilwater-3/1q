@@ -5,7 +5,6 @@
 #include "common/logging/ProjectLog.h"
 
 namespace electro_optical_sensor {
-namespace core {
 namespace session {
 namespace internal {
 namespace {
@@ -120,5 +119,4 @@ EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(const EosSessionConfi
 
 }  // namespace internal
 }  // namespace session
-}  // namespace core
 }  // namespace electro_optical_sensor

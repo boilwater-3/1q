@@ -10,9 +10,9 @@
  */
 
 #include "1q/electro_optical_sensor/common/EosOutputFrame.h"
-#include "1q/electro_optical_sensor/core/context/EosCycleInput.h"
-#include "1q/electro_optical_sensor/core/context/EosInputValidation.h"
-#include "1q/electro_optical_sensor/core/session/EosSession.h"
+#include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "1q/electro_optical_sensor/session/EosInputValidation.h"
+#include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
 #include "1q/electro_optical_sensor/extension/EosController.h"
 #include "1q/electro_optical_sensor/extension/IEosEnvironmentService.h"
@@ -21,14 +21,14 @@
 namespace electro_optical_sensor {
 namespace {
 
-class DummyEosPipeline : public pipeline::IEosPipeline {
+class DummyEosPipeline : public extension::IEosPipeline {
  public:
-  void UpdateConfig(const pipeline::EosPipelineConfig& config, bool reset_scan_phase) override {
+  void UpdateConfig(const extension::EosPipelineConfig& config, bool reset_scan_phase) override {
     config_ = config;
     (void)reset_scan_phase;
   }
 
-  common::EosOutputFrame Execute(const core::context::EosCycleInput& input) override {
+  common::EosOutputFrame Execute(const session::EosCycleInput& input) override {
     common::EosOutputFrame frame;
     frame.cycle_index = input.cycle_index;
     common::EosDetectionRecord record;
@@ -44,10 +44,10 @@ class DummyEosPipeline : public pipeline::IEosPipeline {
   }
 
  private:
-  pipeline::EosPipelineConfig config_{};
+  extension::EosPipelineConfig config_{};
 };
 
-class DummyEosEnvironmentService : public environment::IEosEnvironmentService {
+class DummyEosEnvironmentService : public extension::IEosEnvironmentService {
  public:
   environment::EosEnvironmentModelResult ResolveFactors(
       const environment::EosEnvironmentModelInputs& inputs) const override {
@@ -66,9 +66,9 @@ class DummyEosEnvironmentService : public environment::IEosEnvironmentService {
 int main() {
   electro_optical_sensor::DummyEosPipeline pipeline;
 
-  electro_optical_sensor::core::controller::EosController controller(pipeline);
+  electro_optical_sensor::extension::EosController controller(pipeline);
 
-  electro_optical_sensor::core::context::EosCycleInput input;
+  electro_optical_sensor::session::EosCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
   input.solar_irradiance_w_m2 = 850.0f;
@@ -89,21 +89,21 @@ int main() {
     return 2;
   }
 
-  const electro_optical_sensor::core::context::EosValidationIssueList& issues =
+  const electro_optical_sensor::session::EosValidationIssueList& issues =
       controller.GetLastValidationIssues();
   (void)issues.size();
 
-  electro_optical_sensor::pipeline::IEosPipeline& pipeline_ref = controller.GetPipeline();
+  electro_optical_sensor::extension::IEosPipeline& pipeline_ref = controller.GetPipeline();
   (void)pipeline_ref;
 
-  electro_optical_sensor::core::context::EosCycleInput input_2;
+  electro_optical_sensor::session::EosCycleInput input_2;
   input_2.cycle_index = 2U;
   input_2.dt_sec = 1.0f;
   controller.RunOnce(input_2);
 
   electro_optical_sensor::DummyEosEnvironmentService environment_service;
-  electro_optical_sensor::core::session::EosSession session =
-      electro_optical_sensor::core::session::EosSessionFactory::CreateWithEnvironmentService(
+  electro_optical_sensor::session::EosSession session =
+      electro_optical_sensor::session::EosSessionFactory::CreateWithEnvironmentService(
           {}, environment_service);
   const electro_optical_sensor::common::EosOutputFrame session_frame = session.Step(input);
   (void)session_frame.cycle_index;

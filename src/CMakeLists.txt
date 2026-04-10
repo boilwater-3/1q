@@ -460,29 +460,20 @@ if(ENABLE_INSTALL)
     )
     set(PUBLIC_HEADERS_EOS_COMMON
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/common/EosOutputFrame.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/common/EosCoordinateUtils.h
     )
     set(PUBLIC_HEADERS_EOS_FOUNDATION
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h
     )
-    set(PUBLIC_HEADERS_EOS_CORE_CONTEXT
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/core/context/EosCycleInput.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/core/context/EosCoordinateUtils.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/core/context/EosInputValidation.h
-    )
-    set(PUBLIC_HEADERS_EOS_CORE_CONTROLLER
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/core/controller/EosController.h
-    )
-    set(PUBLIC_HEADERS_EOS_CORE_SESSION
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/core/session/EosCycleResult.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/core/session/EosSession.h
+    set(PUBLIC_HEADERS_EOS_SESSION
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosCycleInput.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosInputValidation.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosCycleResult.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosSession.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosTraceSession.h
     )
     set(PUBLIC_HEADERS_EOS_ENVIRONMENT
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/environment/EosEnvironmentTypes.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/environment/IEosEnvironmentService.h
-    )
-    set(PUBLIC_HEADERS_EOS_PIPELINE
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/pipeline/EosPipelineTypes.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/pipeline/IEosPipeline.h
     )
     set(PUBLIC_HEADERS_EOS_EXTENSION
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/extension/EosController.h
@@ -522,9 +513,6 @@ if(ENABLE_INSTALL)
     )
     set(PUBLIC_HEADERS_ESR_TOOLS
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/tools/EsrTraceSession.h
-    )
-    set(PUBLIC_HEADERS_EOS_TOOLS
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/tools/EosTraceSession.h
     )
 
     # 安装库目标
@@ -630,29 +618,17 @@ if(ENABLE_INSTALL)
     install(FILES ${PUBLIC_HEADERS_EOS_FOUNDATION}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/foundation
     )
-    install(FILES ${PUBLIC_HEADERS_EOS_CORE_CONTEXT}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/core/context
-    )
-    install(FILES ${PUBLIC_HEADERS_EOS_CORE_CONTROLLER}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/core/controller
-    )
-    install(FILES ${PUBLIC_HEADERS_EOS_CORE_SESSION}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/core/session
+    install(FILES ${PUBLIC_HEADERS_EOS_SESSION}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/session
     )
     install(FILES ${PUBLIC_HEADERS_EOS_ENVIRONMENT}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/environment
-    )
-    install(FILES ${PUBLIC_HEADERS_EOS_PIPELINE}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/pipeline
     )
     install(FILES ${PUBLIC_HEADERS_EOS_EXTENSION}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/extension
     )
     install(FILES ${PUBLIC_HEADERS_EOS_CONFIG}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/config
-    )
-    install(FILES ${PUBLIC_HEADERS_EOS_TOOLS}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/tools
     )
 
     # 安装导出的 CMake targets 文件

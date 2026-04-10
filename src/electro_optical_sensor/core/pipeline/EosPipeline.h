@@ -9,27 +9,27 @@
 #include <memory>
 
 #include "1q/electro_optical_sensor/common/EosOutputFrame.h"
-#include "1q/electro_optical_sensor/core/context/EosCycleInput.h"
-#include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
-#include "1q/electro_optical_sensor/pipeline/IEosPipeline.h"
+#include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "1q/electro_optical_sensor/extension/IEosEnvironmentService.h"
+#include "1q/electro_optical_sensor/extension/IEosPipeline.h"
 
 namespace electro_optical_sensor {
 namespace core {
 namespace pipeline {
 
-using ::electro_optical_sensor::pipeline::EosPipelineConfig;
-using ::electro_optical_sensor::pipeline::EosPipelineEnvironmentModelType;
-using ::electro_optical_sensor::pipeline::EosPipelineWorkMode;
+using ::electro_optical_sensor::extension::EosPipelineConfig;
+using ::electro_optical_sensor::extension::EosPipelineEnvironmentModelType;
+using ::electro_optical_sensor::extension::EosPipelineWorkMode;
 
 /**
  * @brief EosPipeline 封装核心处理层执行。
  * @note 线程模型：实例维护可变扫描相位状态，不是线程安全类型；并发访问需外部同步。
  */
-class EosPipeline : public ::electro_optical_sensor::pipeline::IEosPipeline {
+class EosPipeline : public ::electro_optical_sensor::extension::IEosPipeline {
  public:
   explicit EosPipeline(
       const EosPipelineConfig& config,
-      std::shared_ptr<environment::IEosEnvironmentService> environment_service = nullptr);
+      std::shared_ptr<extension::IEosEnvironmentService> environment_service = nullptr);
 
   /**
    * @brief 更新核心处理层配置。
@@ -45,17 +45,17 @@ class EosPipeline : public ::electro_optical_sensor::pipeline::IEosPipeline {
    * @return 探测输出帧。
    * @note 非线程安全：会推进内部扫描相位（`current_scan_azimuth_deg_`）。
    */
-  common::EosOutputFrame Execute(const context::EosCycleInput& input) override;
+  common::EosOutputFrame Execute(const ::electro_optical_sensor::session::EosCycleInput& input) override;
 
  private:
   void AdvanceScan(float dt_sec);
-  bool IsTargetInCurrentFov(const context::EosTargetState& target) const;
-  common::EosDetectionRecord BuildDetectionRecord(const context::EosTargetState& target,
-                                                  const context::EosCycleInput& input) const;
+  bool IsTargetInCurrentFov(const ::electro_optical_sensor::session::EosTargetState& target) const;
+  common::EosDetectionRecord BuildDetectionRecord(const ::electro_optical_sensor::session::EosTargetState& target,
+                                                  const ::electro_optical_sensor::session::EosCycleInput& input) const;
 
   EosPipelineConfig config_{};
   float current_scan_azimuth_deg_{0.0f};
-  std::shared_ptr<environment::IEosEnvironmentService> environment_service_;
+  std::shared_ptr<extension::IEosEnvironmentService> environment_service_;
 };
 
 }  // namespace pipeline

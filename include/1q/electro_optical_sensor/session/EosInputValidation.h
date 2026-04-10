@@ -11,11 +11,10 @@
 #include <vector>
 
 #include "1q/api.hpp"
-#include "1q/electro_optical_sensor/core/context/EosCycleInput.h"
+#include "1q/electro_optical_sensor/session/EosCycleInput.h"
 
 namespace electro_optical_sensor {
-namespace core {
-namespace context {
+namespace session {
 
 /**
  * @brief EosValidationSeverity 表示输入校验问题严重级别。
@@ -81,8 +80,19 @@ ONEQ_API EosValidationIssueList ValidateEosCycleInput(const EosCycleInput& input
  */
 ONEQ_API bool HasEosValidationError(const EosValidationIssueList& issues);
 
+}  // namespace session
+
+namespace core {
+namespace context {
+using ::electro_optical_sensor::session::EosValidationSeverity;
+using ::electro_optical_sensor::session::EosValidationCode;
+using ::electro_optical_sensor::session::EosValidationIssue;
+using ::electro_optical_sensor::session::EosValidationIssueList;
+using ::electro_optical_sensor::session::ValidateEosCycleInput;
+using ::electro_optical_sensor::session::HasEosValidationError;
 }  // namespace context
 }  // namespace core
+
 }  // namespace electro_optical_sensor
 
 #endif  // ELECTRO_OPTICAL_SENSOR_CORE_CONTEXT_EOS_INPUT_VALIDATION_H_

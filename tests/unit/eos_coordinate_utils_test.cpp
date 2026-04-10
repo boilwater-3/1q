@@ -6,7 +6,7 @@
 #include <gtest/gtest.h>
 
 #include "1q/common/coordinate_transform.h"
-#include "1q/electro_optical_sensor/core/context/EosCoordinateUtils.h"
+#include "1q/electro_optical_sensor/common/EosCoordinateUtils.h"
 
 namespace electro_optical_sensor {
 namespace core {

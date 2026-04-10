@@ -1,4 +1,4 @@
-#include "1q/electro_optical_sensor/core/context/EosCoordinateUtils.h"
+#include "1q/electro_optical_sensor/common/EosCoordinateUtils.h"
 
 #include <cmath>
 
@@ -6,8 +6,7 @@
 #include "electro_optical_sensor/foundation/EosPhysicalConstants.h"
 
 namespace electro_optical_sensor {
-namespace core {
-namespace context {
+namespace common {
 
 namespace {
 
@@ -78,7 +77,8 @@ bool ResolveTargetLookAngles(const oneq::common::Vector3f& relative_local,
 bool FillTargetFromLocalPosition(std::uint64_t target_id,
                                  const oneq::common::Vector3f& target_local,
                                  const oneq::common::PoseState& platform_pose,
-                                 const EosTargetAppearance& appearance, EosTargetState* target,
+                                 const EosTargetAppearance& appearance,
+                                 session::EosTargetState* target,
                                  EosCoordinateStatus* status) {
   if (target == nullptr) {
     SetStatus(EosCoordinateStatus::kNullOutput, status);
@@ -205,7 +205,8 @@ bool TryMakeEosTargetFromEcef(std::uint64_t target_id,
                               const oneq::common::EcefCoordinateM& target_ecef_m,
                               const EosCoordinateReference& reference,
                               const oneq::common::PoseState& platform_pose,
-                              const EosTargetAppearance& appearance, EosTargetState* target,
+                              const EosTargetAppearance& appearance,
+                              session::EosTargetState* target,
                               EosCoordinateStatus* status) {
   oneq::common::Vector3f target_local;
   if (!TryConvertEcefToEosLocal(target_ecef_m, reference, &target_local, status)) {
@@ -219,7 +220,8 @@ bool TryMakeEosTargetFromLla(std::uint64_t target_id,
                              const oneq::common::LlaCoordinateDegM& target_lla_deg_m,
                              const EosCoordinateReference& reference,
                              const oneq::common::PoseState& platform_pose,
-                             const EosTargetAppearance& appearance, EosTargetState* target,
+                             const EosTargetAppearance& appearance,
+                             session::EosTargetState* target,
                              EosCoordinateStatus* status) {
   oneq::common::Vector3f target_local;
   if (!TryConvertLlaToEosLocal(target_lla_deg_m, reference, &target_local, status)) {
@@ -229,6 +231,5 @@ bool TryMakeEosTargetFromLla(std::uint64_t target_id,
                                      status);
 }
 
-}  // namespace context
-}  // namespace core
+}  // namespace common
 }  // namespace electro_optical_sensor

@@ -8,11 +8,11 @@
 #include <cstddef>
 #include <limits>
 
-#include "1q/electro_optical_sensor/core/context/EosCycleInput.h"
-#include "1q/electro_optical_sensor/core/context/EosInputValidation.h"
+#include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
-#include "1q/electro_optical_sensor/core/session/EosSession.h"
+#include "1q/electro_optical_sensor/session/EosSession.h"
 #include "electro_optical_sensor/foundation/EosRadiometry.h"
 
 namespace electro_optical_sensor {

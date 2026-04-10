@@ -21,7 +21,7 @@ namespace pipeline {
 
 namespace {
 
-class DefaultEosEnvironmentService final : public environment::IEosEnvironmentService {
+class DefaultEosEnvironmentService final : public extension::IEosEnvironmentService {
  public:
   environment::EosEnvironmentModelResult ResolveFactors(
       const environment::EosEnvironmentModelInputs& inputs) const override {
@@ -56,11 +56,11 @@ bool WorkModeIncludesVisible(EosPipelineWorkMode mode) {
 }
 
 foundation::radiometry::IlluminationCondition ToIlluminationCondition(
-    context::DayNightType day_night_type) {
-  if (day_night_type == context::DayNightType::kNight) {
+    ::electro_optical_sensor::session::DayNightType day_night_type) {
+  if (day_night_type == ::electro_optical_sensor::session::DayNightType::kNight) {
     return foundation::radiometry::IlluminationCondition::kNight;
   }
-  if (day_night_type == context::DayNightType::kTwilight) {
+  if (day_night_type == ::electro_optical_sensor::session::DayNightType::kTwilight) {
     return foundation::radiometry::IlluminationCondition::kTwilight;
   }
   return foundation::radiometry::IlluminationCondition::kDay;
@@ -73,7 +73,7 @@ float ComputeApertureAreaM2(float optical_aperture_m) {
 }
 
 foundation::radiative_transfer::RadiativeTransferResult ComputePathRadiativeTransfer(
-    const EosPipelineConfig& config, const context::EosCycleInput& input, float range_m,
+    const EosPipelineConfig& config, const ::electro_optical_sensor::session::EosCycleInput& input, float range_m,
     float aerosol_density_factor, float turbulence_factor) {
   foundation::radiative_transfer::RadiativeTransferInputs transfer_inputs;
   transfer_inputs.model = config.radiative_transfer_model;
@@ -104,7 +104,7 @@ float ComputeFovSolidAngleSr(float horizontal_fov_deg, float vertical_fov_deg) {
 }
 
 float ComputeSensorIntegrationTimeSec(const EosPipelineConfig& config,
-                                      const context::EosCycleInput& input) {
+                                      const ::electro_optical_sensor::session::EosCycleInput& input) {
   const float frame_period_sec = 1.0f / std::max(SafePositive(config.frame_rate_hz, 30.0f), 1.0f);
   const float cycle_dt_sec = SafePositive(input.dt_sec, frame_period_sec);
   const float base_integration_sec = std::min(cycle_dt_sec, frame_period_sec);
@@ -113,7 +113,7 @@ float ComputeSensorIntegrationTimeSec(const EosPipelineConfig& config,
 }
 
 float ComputeVisiblePhotonNoiseEnhancement(const EosPipelineConfig& config,
-                                           const context::EosCycleInput& input) {
+                                           const ::electro_optical_sensor::session::EosCycleInput& input) {
   const float reference_irradiance = SafePositive(config.visible_reference_irradiance_w_m2, 800.0f);
   const float observed_irradiance = std::max(0.0f, input.solar_irradiance_w_m2);
   const float irradiance_ratio = std::max(observed_irradiance, 1.0e-3f) / reference_irradiance;
@@ -148,9 +148,9 @@ struct DetectionComputationContext {
 };
 
 DetectionComputationContext BuildDetectionComputationContext(
-    const EosPipelineConfig& config, const context::EosTargetState& target,
-    const context::EosCycleInput& input,
-    const std::shared_ptr<environment::IEosEnvironmentService>& environment_service) {
+    const EosPipelineConfig& config, const ::electro_optical_sensor::session::EosTargetState& target,
+    const ::electro_optical_sensor::session::EosCycleInput& input,
+    const std::shared_ptr<extension::IEosEnvironmentService>& environment_service) {
   DetectionComputationContext context_values;
   context_values.infrared_enabled = WorkModeIncludesInfrared(config.work_mode);
   context_values.visible_enabled = WorkModeIncludesVisible(config.work_mode);
@@ -245,8 +245,8 @@ DetectionComputationContext BuildDetectionComputationContext(
   return context_values;
 }
 
-float ComputeInfraredSnrLinear(const context::EosTargetState& target,
-                               const context::EosCycleInput& input,
+float ComputeInfraredSnrLinear(const ::electro_optical_sensor::session::EosTargetState& target,
+                               const ::electro_optical_sensor::session::EosCycleInput& input,
                                const DetectionComputationContext& context_values) {
   foundation::radiometry::InfraredRadianceInputs infrared_inputs;
   infrared_inputs.wavelength_um = context_values.wavelength_center_um;
@@ -290,8 +290,8 @@ float ComputeInfraredSnrLinear(const context::EosTargetState& target,
 }
 
 float ComputeVisibleSnrLinear(const EosPipelineConfig& config,
-                              const context::EosTargetState& target,
-                              const context::EosCycleInput& input,
+                              const ::electro_optical_sensor::session::EosTargetState& target,
+                              const ::electro_optical_sensor::session::EosCycleInput& input,
                               const DetectionComputationContext& context_values) {
   foundation::radiometry::VisibleChannelInputs visible_inputs;
   visible_inputs.target.solar_irradiance_w_m2 = input.solar_irradiance_w_m2;
@@ -331,7 +331,7 @@ float ComputeVisibleSnrLinear(const EosPipelineConfig& config,
   return snr_result.snr_linear * context_values.imaging_quality_gain;
 }
 
-float ComputeFusedSnrLinear(EosPipelineWorkMode work_mode, context::DayNightType day_night_type,
+float ComputeFusedSnrLinear(EosPipelineWorkMode work_mode, ::electro_optical_sensor::session::DayNightType day_night_type,
                             float infrared_snr_linear, float visible_snr_linear) {
   if (work_mode == EosPipelineWorkMode::kInfraredOnly) {
     return infrared_snr_linear;
@@ -351,10 +351,10 @@ float ComputeFusedSnrLinear(EosPipelineWorkMode work_mode, context::DayNightType
 
   float infrared_weight = 0.5f;
   float visible_weight = 0.5f;
-  if (day_night_type == context::DayNightType::kDay) {
+  if (day_night_type == ::electro_optical_sensor::session::DayNightType::kDay) {
     infrared_weight = 0.35f;
     visible_weight = 0.65f;
-  } else if (day_night_type == context::DayNightType::kNight) {
+  } else if (day_night_type == ::electro_optical_sensor::session::DayNightType::kNight) {
     infrared_weight = 0.80f;
     visible_weight = 0.20f;
   }
@@ -364,7 +364,7 @@ float ComputeFusedSnrLinear(EosPipelineWorkMode work_mode, context::DayNightType
 }  // namespace
 
 EosPipeline::EosPipeline(const EosPipelineConfig& config,
-                         std::shared_ptr<environment::IEosEnvironmentService> environment_service)
+                         std::shared_ptr<extension::IEosEnvironmentService> environment_service)
     : config_(config),
       current_scan_azimuth_deg_(config.scan_start_az_deg),
       environment_service_(std::move(environment_service)) {
@@ -380,14 +380,14 @@ void EosPipeline::UpdateConfig(const EosPipelineConfig& config, bool reset_scan_
   }
 }
 
-common::EosOutputFrame EosPipeline::Execute(const context::EosCycleInput& input) {
+common::EosOutputFrame EosPipeline::Execute(const ::electro_optical_sensor::session::EosCycleInput& input) {
   common::EosOutputFrame output;
   output.cycle_index = input.cycle_index;
   AdvanceScan(input.dt_sec);
   output.scan_azimuth_deg = current_scan_azimuth_deg_;
 
   for (std::size_t i = 0; i < input.scene_targets.size(); ++i) {
-    const context::EosTargetState& target = input.scene_targets[i];
+    const ::electro_optical_sensor::session::EosTargetState& target = input.scene_targets[i];
     if (!IsTargetInCurrentFov(target)) {
       continue;
     }
@@ -412,7 +412,7 @@ void EosPipeline::AdvanceScan(float dt_sec) {
   current_scan_azimuth_deg_ = config_.scan_start_az_deg + wrapped_offset_deg;
 }
 
-bool EosPipeline::IsTargetInCurrentFov(const context::EosTargetState& target) const {
+bool EosPipeline::IsTargetInCurrentFov(const ::electro_optical_sensor::session::EosTargetState& target) const {
   const float azimuth_delta_deg =
       std::fabs(NormalizeAngle180(target.azimuth_deg - current_scan_azimuth_deg_));
   const float elevation_delta_deg = std::fabs(target.elevation_deg - config_.scan_center_el_deg);
@@ -421,7 +421,7 @@ bool EosPipeline::IsTargetInCurrentFov(const context::EosTargetState& target) co
 }
 
 common::EosDetectionRecord EosPipeline::BuildDetectionRecord(
-    const context::EosTargetState& target, const context::EosCycleInput& input) const {
+    const ::electro_optical_sensor::session::EosTargetState& target, const ::electro_optical_sensor::session::EosCycleInput& input) const {
   common::EosDetectionRecord record;
   record.target_id = target.target_id;
   record.range_m = target.range_m;

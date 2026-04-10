@@ -1,39 +1,38 @@
-#include "1q/electro_optical_sensor/core/session/EosSession.h"
+#include "1q/electro_optical_sensor/session/EosSession.h"
 
 #include <utility>
 
-#include "1q/electro_optical_sensor/core/controller/EosController.h"
-#include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
-#include "1q/electro_optical_sensor/pipeline/IEosPipeline.h"
+#include "1q/electro_optical_sensor/extension/EosController.h"
+#include "1q/electro_optical_sensor/extension/IEosEnvironmentService.h"
+#include "1q/electro_optical_sensor/extension/IEosPipeline.h"
 #include "electro_optical_sensor/core/session/EosRuntimeConfigResolver.h"
 #include "electro_optical_sensor/core/session/EosSessionCompositionRoot.h"
 
 namespace electro_optical_sensor {
-namespace core {
 namespace session {
 
 namespace {
 
-pipeline::EosPipelineWorkMode ToPipelineWorkMode(EosWorkMode mode) {
+extension::EosPipelineWorkMode ToPipelineWorkMode(EosWorkMode mode) {
   if (mode == EosWorkMode::kInfraredOnly) {
-    return pipeline::EosPipelineWorkMode::kInfraredOnly;
+    return extension::EosPipelineWorkMode::kInfraredOnly;
   }
   if (mode == EosWorkMode::kVisibleOnly) {
-    return pipeline::EosPipelineWorkMode::kVisibleOnly;
+    return extension::EosPipelineWorkMode::kVisibleOnly;
   }
-  return pipeline::EosPipelineWorkMode::kFused;
+  return extension::EosPipelineWorkMode::kFused;
 }
 
-pipeline::EosPipelineEnvironmentModelType ToPipelineEnvironmentModelType(
+extension::EosPipelineEnvironmentModelType ToPipelineEnvironmentModelType(
     environment::EosEnvironmentModelType model_type) {
   if (model_type == environment::EosEnvironmentModelType::kAdvanced) {
-    return pipeline::EosPipelineEnvironmentModelType::kAdvanced;
+    return extension::EosPipelineEnvironmentModelType::kAdvanced;
   }
-  return pipeline::EosPipelineEnvironmentModelType::kSimplified;
+  return extension::EosPipelineEnvironmentModelType::kSimplified;
 }
 
-pipeline::EosPipelineConfig BuildPipelineConfig(const EosSessionConfig& config) {
-  pipeline::EosPipelineConfig pipeline_config;
+extension::EosPipelineConfig BuildPipelineConfig(const EosSessionConfig& config) {
+  extension::EosPipelineConfig pipeline_config;
   pipeline_config.wavelength_lower_um = config.wavelength_lower_um;
   pipeline_config.wavelength_upper_um = config.wavelength_upper_um;
   pipeline_config.optical_aperture_m = config.optical_aperture_m;
@@ -79,10 +78,10 @@ struct EosSession::Impl {
   }
 
   EosSessionConfig runtime_config{};
-  std::unique_ptr<::electro_optical_sensor::pipeline::IEosPipeline> owned_pipeline;
-  std::unique_ptr<core::controller::EosController> owned_controller;
-  ::electro_optical_sensor::pipeline::IEosPipeline& pipeline;
-  core::controller::EosController& controller;
+  std::unique_ptr<::electro_optical_sensor::extension::IEosPipeline> owned_pipeline;
+  std::unique_ptr<extension::EosController> owned_controller;
+  ::electro_optical_sensor::extension::IEosPipeline& pipeline;
+  extension::EosController& controller;
 };
 
 EosSession::EosSession(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
@@ -98,7 +97,7 @@ EosSession EosSessionFactory::Create(const EosSessionConfig& config) {
 }
 
 EosSession EosSessionFactory::CreateWithPipeline(
-    const EosSessionConfig& config, ::electro_optical_sensor::pipeline::IEosPipeline& pipeline) {
+    const EosSessionConfig& config, ::electro_optical_sensor::extension::IEosPipeline& pipeline) {
   return EosSession(
       std::unique_ptr<EosSession::Impl>(new EosSession::Impl(
           internal::EosSessionCompositionRoot::ComposeWithPipeline(pipeline), config)));
@@ -106,24 +105,24 @@ EosSession EosSessionFactory::CreateWithPipeline(
 
 EosSession EosSessionFactory::CreateWithEnvironmentService(
     const EosSessionConfig& config,
-    environment::IEosEnvironmentService& environment_service) {
+    extension::IEosEnvironmentService& environment_service) {
   return EosSession(std::unique_ptr<EosSession::Impl>(new EosSession::Impl(
       internal::EosSessionCompositionRoot::ComposeWithEnvironmentService(environment_service),
       config)));
 }
 
 EosSession EosSessionFactory::CreateWithController(
-    const EosSessionConfig& config, core::controller::EosController& controller) {
+    const EosSessionConfig& config, extension::EosController& controller) {
   return EosSession(
       std::unique_ptr<EosSession::Impl>(new EosSession::Impl(
           internal::EosSessionCompositionRoot::ComposeWithController(controller), config)));
 }
 
-common::EosOutputFrame EosSession::Step(const context::EosCycleInput& input) {
+common::EosOutputFrame EosSession::Step(const EosCycleInput& input) {
   return StepWithResult(input).output_frame;
 }
 
-EosCycleResult EosSession::StepWithResult(const context::EosCycleInput& input) {
+EosCycleResult EosSession::StepWithResult(const EosCycleInput& input) {
   impl_->controller.RunOnce(input);
   EosCycleResult result;
   result.validation_issues = impl_->controller.GetLastValidationIssues();
@@ -149,5 +148,4 @@ void EosSession::ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch) {
 }
 
 }  // namespace session
-}  // namespace core
 }  // namespace electro_optical_sensor

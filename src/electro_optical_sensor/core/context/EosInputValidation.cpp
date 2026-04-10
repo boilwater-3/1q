@@ -1,10 +1,9 @@
-#include "1q/electro_optical_sensor/core/context/EosInputValidation.h"
+#include "1q/electro_optical_sensor/session/EosInputValidation.h"
 
 #include "common/validation/ValidationUtils.h"
 
 namespace electro_optical_sensor {
-namespace core {
-namespace context {
+namespace session {
 
 namespace {
 
@@ -181,6 +180,5 @@ bool HasEosValidationError(const EosValidationIssueList& issues) {
       issues, EosValidationSeverity::kError);
 }
 
-}  // namespace context
-}  // namespace core
+}  // namespace session
 }  // namespace electro_optical_sensor

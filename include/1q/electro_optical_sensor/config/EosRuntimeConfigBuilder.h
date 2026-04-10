@@ -17,15 +17,15 @@ namespace config {
 class ONEQ_API EosRuntimeConfigBuilder {
  public:
   explicit EosRuntimeConfigBuilder(
-      const core::session::EosRuntimeConfigPatch& patch = {}) noexcept : patch_(patch) {}
+      const session::EosRuntimeConfigPatch& patch = {}) noexcept : patch_(patch) {}
 
   EosRuntimeConfigBuilder& WithRuntimeConfigPatch(
-      const core::session::EosRuntimeConfigPatch& patch) noexcept {
+      const session::EosRuntimeConfigPatch& patch) noexcept {
     patch_ = patch;
     return *this;
   }
 
-  EosRuntimeConfigBuilder& WithWorkMode(core::session::EosWorkMode mode) noexcept {
+  EosRuntimeConfigBuilder& WithWorkMode(session::EosWorkMode mode) noexcept {
     patch_.has_work_mode = true;
     patch_.work_mode = mode;
     return *this;
@@ -87,10 +87,10 @@ class ONEQ_API EosRuntimeConfigBuilder {
     patch_.environment_runtime_config.turbulence_factor = value;
     return *this;
   }
-  core::session::EosRuntimeConfigPatch Build() const noexcept { return patch_; }
+  session::EosRuntimeConfigPatch Build() const noexcept { return patch_; }
 
  private:
-  core::session::EosRuntimeConfigPatch patch_{};
+  session::EosRuntimeConfigPatch patch_{};
 };
 
 }  // namespace config

@@ -13,8 +13,7 @@
 #include "1q/common/pose_types.h"
 
 namespace electro_optical_sensor {
-namespace core {
-namespace context {
+namespace session {
 
 /**
  * @brief DayNightType 表示昼夜环境类型。
@@ -60,8 +59,17 @@ struct ONEQ_API EosCycleInput {
   EosTargetStateList scene_targets{};       /**< 当前周期候选目标列表 */
 };
 
+}  // namespace session
+
+namespace core {
+namespace context {
+using ::electro_optical_sensor::session::DayNightType;
+using ::electro_optical_sensor::session::EosTargetState;
+using ::electro_optical_sensor::session::EosTargetStateList;
+using ::electro_optical_sensor::session::EosCycleInput;
 }  // namespace context
 }  // namespace core
+
 }  // namespace electro_optical_sensor
 
 #endif  // ELECTRO_OPTICAL_SENSOR_CORE_CONTEXT_EOS_CYCLE_INPUT_H_

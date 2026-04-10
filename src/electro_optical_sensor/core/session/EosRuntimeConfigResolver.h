@@ -1,10 +1,9 @@
 #ifndef ELECTRO_OPTICAL_SENSOR_SRC_CORE_SESSION_EOS_RUNTIME_CONFIG_RESOLVER_H_
 #define ELECTRO_OPTICAL_SENSOR_SRC_CORE_SESSION_EOS_RUNTIME_CONFIG_RESOLVER_H_
 
-#include "1q/electro_optical_sensor/core/session/EosSession.h"
+#include "1q/electro_optical_sensor/session/EosSession.h"
 
 namespace electro_optical_sensor {
-namespace core {
 namespace session {
 namespace internal {
 
@@ -29,7 +28,16 @@ EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(const EosSessionConfi
 
 }  // namespace internal
 }  // namespace session
+
+namespace core {
+namespace session {
+namespace internal {
+using ::electro_optical_sensor::session::internal::EosRuntimeConfigResolveResult;
+using ::electro_optical_sensor::session::internal::ResolveEosRuntimeConfigPatch;
+}  // namespace internal
+}  // namespace session
 }  // namespace core
+
 }  // namespace electro_optical_sensor
 
 #endif  // ELECTRO_OPTICAL_SENSOR_SRC_CORE_SESSION_EOS_RUNTIME_CONFIG_RESOLVER_H_
