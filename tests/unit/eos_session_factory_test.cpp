@@ -96,7 +96,7 @@ TEST(EosSessionFactoryTest, CreateWithPipelineUsesInjectedPipeline) {
 
   const EosCycleResult result = session.StepWithResult(MakeValidInput(8U));
 
-  EXPECT_EQ(pipeline.update_count, 1U);
+  EXPECT_EQ(pipeline.update_count, 2U);
   EXPECT_EQ(pipeline.execute_count, 1U);
   EXPECT_TRUE(result.executed_this_cycle);
   EXPECT_EQ(result.output_frame.cycle_index, 8U);
@@ -151,7 +151,7 @@ TEST(EosSessionFactoryTest, CreateWithControllerReusesProvidedController) {
 
   const EosCycleResult result = session.StepWithResult(MakeValidInput(11U));
 
-  EXPECT_EQ(pipeline.update_count, 1U);
+  EXPECT_EQ(pipeline.update_count, 2U);
   EXPECT_EQ(pipeline.execute_count, 1U);
   EXPECT_TRUE(controller.ExecutedLatestCycle());
   EXPECT_TRUE(result.executed_this_cycle);
@@ -166,7 +166,7 @@ TEST(EosSessionFactoryTest, CreateWithControllerSessionMoveKeepsExternalControll
   EosSession moved_session(std::move(session));
   const EosCycleResult result = moved_session.StepWithResult(MakeValidInput(12U));
 
-  EXPECT_EQ(pipeline.update_count, 1U);
+  EXPECT_EQ(pipeline.update_count, 2U);
   EXPECT_EQ(pipeline.execute_count, 1U);
   EXPECT_TRUE(controller.ExecutedLatestCycle());
   EXPECT_TRUE(result.executed_this_cycle);
@@ -178,14 +178,14 @@ TEST(EosSessionFactoryTest, ApplyRuntimeConfigUpdatesInjectedControllerPipeline)
   extension::EosController controller(pipeline);
   EosSession session = EosSessionFactory::CreateWithController(MakeSessionConfig(), controller);
 
-  EXPECT_EQ(pipeline.update_count, 1U);
+  EXPECT_EQ(pipeline.update_count, 2U);
 
   EosRuntimeConfigPatch patch;
   patch.has_scan_rate_deg_per_sec = true;
   patch.scan_rate_deg_per_sec = 9.0f;
   session.ApplyRuntimeConfig(patch);
 
-  EXPECT_EQ(pipeline.update_count, 2U);
+  EXPECT_EQ(pipeline.update_count, 3U);
   EXPECT_TRUE(pipeline.last_reset_scan_phase);
 }
 
@@ -194,14 +194,14 @@ TEST(EosSessionFactoryTest, InvalidRuntimeConfigDoesNotUpdateInjectedControllerP
   extension::EosController controller(pipeline);
   EosSession session = EosSessionFactory::CreateWithController(MakeSessionConfig(), controller);
 
-  EXPECT_EQ(pipeline.update_count, 1U);
+  EXPECT_EQ(pipeline.update_count, 2U);
 
   EosRuntimeConfigPatch patch;
   patch.has_frame_rate_hz = true;
   patch.frame_rate_hz = 0.0f;
   session.ApplyRuntimeConfig(patch);
 
-  EXPECT_EQ(pipeline.update_count, 1U);
+  EXPECT_EQ(pipeline.update_count, 2U);
 }
 
 }  // namespace

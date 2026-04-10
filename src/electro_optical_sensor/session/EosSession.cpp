@@ -34,12 +34,13 @@ T& RequireCompositionDependency(T* ptr, const char* dependency_name) {
 }  // namespace
 
 struct EosSession::Impl {
-  Impl(internal::EosSessionComposition composition, const EosSessionConfig& config)
+  explicit Impl(internal::EosSessionComposition composition)
       : owned_pipeline(std::move(composition.owned_pipeline)),
         owned_controller(std::move(composition.owned_controller)),
         pipeline(RequireCompositionDependency(composition.pipeline, "pipeline")),
         controller(RequireCompositionDependency(composition.controller, "controller")),
-        cycle_orchestrator(config, pipeline, controller) {
+        cycle_orchestrator(composition.runtime_config, composition.pipeline_config,
+                           composition.initial_reset_scan_phase, pipeline, controller) {
   }
 
   std::unique_ptr<::electro_optical_sensor::extension::IEosPipeline> owned_pipeline;
@@ -58,29 +59,29 @@ EosSession& EosSession::operator=(EosSession&&) noexcept = default;
 EosSession EosSessionFactory::Create(const EosSessionConfig& config) {
   return EosSession(
       std::unique_ptr<EosSession::Impl>(new EosSession::Impl(
-          internal::EosSessionCompositionRoot::ComposeDefault(), config)));
+          internal::EosSessionCompositionRoot::ComposeDefault(config))));
 }
 
 EosSession EosSessionFactory::CreateWithPipeline(
     const EosSessionConfig& config, ::electro_optical_sensor::extension::IEosPipeline& pipeline) {
   return EosSession(
       std::unique_ptr<EosSession::Impl>(new EosSession::Impl(
-          internal::EosSessionCompositionRoot::ComposeWithPipeline(pipeline), config)));
+          internal::EosSessionCompositionRoot::ComposeWithPipeline(config, pipeline))));
 }
 
 EosSession EosSessionFactory::CreateWithEnvironmentService(
     const EosSessionConfig& config,
     extension::IEosEnvironmentService& environment_service) {
   return EosSession(std::unique_ptr<EosSession::Impl>(new EosSession::Impl(
-      internal::EosSessionCompositionRoot::ComposeWithEnvironmentService(environment_service),
-      config)));
+      internal::EosSessionCompositionRoot::ComposeWithEnvironmentService(config,
+                                                                         environment_service))));
 }
 
 EosSession EosSessionFactory::CreateWithController(
     const EosSessionConfig& config, extension::EosController& controller) {
   return EosSession(
       std::unique_ptr<EosSession::Impl>(new EosSession::Impl(
-          internal::EosSessionCompositionRoot::ComposeWithController(controller), config)));
+          internal::EosSessionCompositionRoot::ComposeWithController(config, controller))));
 }
 
 common::EosOutputFrame EosSession::Step(const EosCycleInput& input) {

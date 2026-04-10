@@ -70,10 +70,12 @@ namespace {
 
 EosCycleOrchestrator::EosCycleOrchestrator(
     const EosSessionConfig& config,
+    const ::electro_optical_sensor::extension::EosPipelineConfig& pipeline_config,
+    bool initial_reset_scan_phase,
     ::electro_optical_sensor::extension::IEosPipeline& pipeline,
     ::electro_optical_sensor::extension::EosController& controller)
     : runtime_config_(config), pipeline_(pipeline), controller_(controller) {
-  pipeline_.UpdateConfig(BuildPipelineConfig(runtime_config_), true);
+  pipeline_.UpdateConfig(pipeline_config, initial_reset_scan_phase);
 }
 
 EosCycleResult EosCycleOrchestrator::BuildResult(const EosCycleInput& input) const {

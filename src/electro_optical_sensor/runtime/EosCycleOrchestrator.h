@@ -6,6 +6,7 @@
 #ifndef ELECTRO_OPTICAL_SENSOR_RUNTIME_EOS_CYCLE_ORCHESTRATOR_H_
 #define ELECTRO_OPTICAL_SENSOR_RUNTIME_EOS_CYCLE_ORCHESTRATOR_H_
 
+#include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 
 namespace electro_optical_sensor {
@@ -23,6 +24,8 @@ namespace internal {
 class EosCycleOrchestrator {
  public:
   EosCycleOrchestrator(const EosSessionConfig& config,
+                       const ::electro_optical_sensor::extension::EosPipelineConfig& pipeline_config,
+                       bool initial_reset_scan_phase,
                        ::electro_optical_sensor::extension::IEosPipeline& pipeline,
                        ::electro_optical_sensor::extension::EosController& controller);
 
