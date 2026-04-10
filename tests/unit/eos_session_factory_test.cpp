@@ -155,6 +155,21 @@ TEST(EosSessionFactoryTest, CreateWithControllerReusesProvidedController) {
   EXPECT_EQ(result.output_frame.cycle_index, 11U);
 }
 
+TEST(EosSessionFactoryTest, CreateWithControllerSessionMoveKeepsExternalControllerPath) {
+  CountingPipeline pipeline;
+  extension::EosController controller(pipeline);
+  EosSession session = EosSessionFactory::CreateWithController(MakeSessionConfig(), controller);
+
+  EosSession moved_session(std::move(session));
+  const EosCycleResult result = moved_session.StepWithResult(MakeValidInput(12U));
+
+  EXPECT_EQ(pipeline.update_count, 1U);
+  EXPECT_EQ(pipeline.execute_count, 1U);
+  EXPECT_TRUE(controller.ExecutedLatestCycle());
+  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_EQ(result.output_frame.cycle_index, 12U);
+}
+
 TEST(EosSessionFactoryTest, ApplyRuntimeConfigUpdatesInjectedControllerPipeline) {
   CountingPipeline pipeline;
   extension::EosController controller(pipeline);

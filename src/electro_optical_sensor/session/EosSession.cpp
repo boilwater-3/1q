@@ -1,25 +1,51 @@
 #include "1q/electro_optical_sensor/session/EosSession.h"
 
+#include <cstdlib>
 #include <utility>
 
 #include "1q/electro_optical_sensor/extension/EosController.h"
 #include "1q/electro_optical_sensor/extension/IEosEnvironmentService.h"
 #include "1q/electro_optical_sensor/extension/IEosPipeline.h"
+#include "common/logging/ProjectLog.h"
 #include "electro_optical_sensor/session/EosSessionCompositionRoot.h"
 #include "electro_optical_sensor/runtime/EosCycleOrchestrator.h"
 
 namespace electro_optical_sensor {
 namespace session {
 
+namespace {
+
+/**
+ * @brief 校验组合根输出的依赖指针非空并返回引用。
+ * @param[in] ptr 待校验指针。
+ * @param[in] dependency_name 依赖名称，用于日志与故障定位。
+ * @return 非空依赖引用。
+ * @warning 若组合结果违反约束且传入空指针，将终止进程以避免未定义行为。
+ */
+template <typename T>
+T& RequireCompositionDependency(T* ptr, const char* dependency_name) {
+  if (ptr != nullptr) {
+    return *ptr;
+  }
+  PROJECT_LOG_ERROR("[EosSession] Composition dependency '{}' is null.", dependency_name);
+  std::abort();
+}
+
+}  // namespace
+
 struct EosSession::Impl {
   Impl(internal::EosSessionComposition composition, const EosSessionConfig& config)
       : owned_pipeline(std::move(composition.owned_pipeline)),
         owned_controller(std::move(composition.owned_controller)),
-        cycle_orchestrator(config, *owned_pipeline, *owned_controller) {
+        pipeline(RequireCompositionDependency(composition.pipeline, "pipeline")),
+        controller(RequireCompositionDependency(composition.controller, "controller")),
+        cycle_orchestrator(config, pipeline, controller) {
   }
 
   std::unique_ptr<::electro_optical_sensor::extension::IEosPipeline> owned_pipeline;
   std::unique_ptr<extension::EosController> owned_controller;
+  ::electro_optical_sensor::extension::IEosPipeline& pipeline;
+  extension::EosController& controller;
   internal::EosCycleOrchestrator cycle_orchestrator;
 };
 
