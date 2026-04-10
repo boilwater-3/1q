@@ -3,15 +3,15 @@
  * @brief 定义 EOS 核心处理层管线（扫描递推、视场判定、探测评估）。
  */
 
-#ifndef ELECTRO_OPTICAL_SENSOR_CORE_PIPELINE_EOS_PIPELINE_H_
-#define ELECTRO_OPTICAL_SENSOR_CORE_PIPELINE_EOS_PIPELINE_H_
+#ifndef ELECTRO_OPTICAL_SENSOR_SIGNAL_PIPELINE_EOS_PIPELINE_H_
+#define ELECTRO_OPTICAL_SENSOR_SIGNAL_PIPELINE_EOS_PIPELINE_H_
 
 #include <memory>
 
 #include "1q/electro_optical_sensor/common/EosOutputFrame.h"
-#include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/extension/IEosEnvironmentService.h"
 #include "1q/electro_optical_sensor/extension/IEosPipeline.h"
+#include "1q/electro_optical_sensor/session/EosCycleInput.h"
 
 namespace electro_optical_sensor {
 namespace core {
@@ -28,8 +28,8 @@ using ::electro_optical_sensor::extension::EosPipelineWorkMode;
 class EosPipeline : public ::electro_optical_sensor::extension::IEosPipeline {
  public:
   explicit EosPipeline(
-      const EosPipelineConfig& config,
-      std::shared_ptr<extension::IEosEnvironmentService> environment_service = nullptr);
+	  const EosPipelineConfig& config,
+	  std::shared_ptr<extension::IEosEnvironmentService> environment_service = nullptr);
 
   /**
    * @brief 更新核心处理层配置。
@@ -45,13 +45,16 @@ class EosPipeline : public ::electro_optical_sensor::extension::IEosPipeline {
    * @return 探测输出帧。
    * @note 非线程安全：会推进内部扫描相位（`current_scan_azimuth_deg_`）。
    */
-  common::EosOutputFrame Execute(const ::electro_optical_sensor::session::EosCycleInput& input) override;
+  common::EosOutputFrame Execute(
+	  const ::electro_optical_sensor::session::EosCycleInput& input) override;
 
  private:
   void AdvanceScan(float dt_sec);
-  bool IsTargetInCurrentFov(const ::electro_optical_sensor::session::EosTargetState& target) const;
-  common::EosDetectionRecord BuildDetectionRecord(const ::electro_optical_sensor::session::EosTargetState& target,
-                                                  const ::electro_optical_sensor::session::EosCycleInput& input) const;
+  bool IsTargetInCurrentFov(
+	  const ::electro_optical_sensor::session::EosTargetState& target) const;
+  common::EosDetectionRecord BuildDetectionRecord(
+	  const ::electro_optical_sensor::session::EosTargetState& target,
+	  const ::electro_optical_sensor::session::EosCycleInput& input) const;
 
   EosPipelineConfig config_{};
   float current_scan_azimuth_deg_{0.0f};
@@ -62,4 +65,4 @@ class EosPipeline : public ::electro_optical_sensor::extension::IEosPipeline {
 }  // namespace core
 }  // namespace electro_optical_sensor
 
-#endif  // ELECTRO_OPTICAL_SENSOR_CORE_PIPELINE_EOS_PIPELINE_H_
+#endif  // ELECTRO_OPTICAL_SENSOR_SIGNAL_PIPELINE_EOS_PIPELINE_H_

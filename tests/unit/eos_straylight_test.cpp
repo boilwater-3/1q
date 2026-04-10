@@ -6,7 +6,7 @@
 #include <gtest/gtest.h>
 
 #include "electro_optical_sensor/foundation/EosStrayLight.h"
-#include "electro_optical_sensor/core/pipeline/EosPipeline.h"
+#include "electro_optical_sensor/signal/pipeline/EosPipeline.h"
 
 namespace electro_optical_sensor {
 namespace foundation {

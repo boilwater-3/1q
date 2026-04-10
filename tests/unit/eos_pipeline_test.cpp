@@ -7,7 +7,7 @@
 
 #include <cmath>
 
-#include "electro_optical_sensor/core/pipeline/EosPipeline.h"
+#include "electro_optical_sensor/signal/pipeline/EosPipeline.h"
 
 namespace electro_optical_sensor {
 namespace core {

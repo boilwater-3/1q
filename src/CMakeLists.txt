@@ -108,14 +108,15 @@ set(EOS_SOURCES
     electro_optical_sensor/foundation/EosRadiometry.cpp
     electro_optical_sensor/foundation/EosSpatialSpectrum.cpp
     electro_optical_sensor/foundation/EosStrayLight.cpp
-    electro_optical_sensor/core/context/EosCoordinateUtils.cpp
-    electro_optical_sensor/core/context/EosInputValidation.cpp
-    electro_optical_sensor/core/controller/EosController.cpp
-    electro_optical_sensor/core/pipeline/EosPipeline.cpp
-    electro_optical_sensor/core/session/EosRuntimeConfigResolver.cpp
-    electro_optical_sensor/core/session/EosSessionCompositionRoot.cpp
-    electro_optical_sensor/core/session/EosSession.cpp
-    electro_optical_sensor/core/session/EosTraceSession.cpp
+    electro_optical_sensor/context/EosCoordinateUtils.cpp
+    electro_optical_sensor/context/EosInputValidation.cpp
+    electro_optical_sensor/runtime/EosController.cpp
+    electro_optical_sensor/runtime/EosCycleOrchestrator.cpp
+    electro_optical_sensor/signal/pipeline/EosPipeline.cpp
+    electro_optical_sensor/session/EosRuntimeConfigResolver.cpp
+    electro_optical_sensor/session/EosSessionCompositionRoot.cpp
+    electro_optical_sensor/session/EosSession.cpp
+    electro_optical_sensor/session/EosTraceSession.cpp
 )
 
 add_library(airborne_common OBJECT ${AIRBORNE_COMMON_SOURCES})

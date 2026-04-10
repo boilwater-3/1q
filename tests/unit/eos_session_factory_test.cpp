@@ -1,0 +1,132 @@
+/**
+ * @file eos_session_factory_test.cpp
+ * @brief 验证 EOS 会话工厂的外部注入与装配路径契约。
+ */
+
+#include <gtest/gtest.h>
+
+#include <cstdint>
+#include <memory>
+#include <utility>
+#include <vector>
+
+#include "1q/electro_optical_sensor/common/EosOutputFrame.h"
+#include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
+#include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
+#include "1q/electro_optical_sensor/session/EosSession.h"
+
+namespace electro_optical_sensor {
+namespace session {
+namespace {
+
+class CountingPipeline final : public extension::IEosPipeline {
+ public:
+  void UpdateConfig(const extension::EosPipelineConfig& config,
+                    bool reset_scan_phase) override {
+    ++update_count;
+    last_config = config;
+    last_reset_scan_phase = reset_scan_phase;
+  }
+
+  common::EosOutputFrame Execute(const EosCycleInput& input) override {
+    ++execute_count;
+    common::EosOutputFrame frame;
+    frame.cycle_index = input.cycle_index;
+    frame.scan_azimuth_deg = 42.0f;
+    common::EosDetectionRecord detection;
+    detection.target_id = 99U;
+    detection.detected = true;
+    detection.fused_snr_linear = 12.5f;
+    frame.detections.push_back(detection);
+    return frame;
+  }
+
+  std::size_t update_count{0U};
+  std::size_t execute_count{0U};
+  bool last_reset_scan_phase{false};
+  extension::EosPipelineConfig last_config{};
+};
+
+class CountingEnvironmentService final : public extension::IEosEnvironmentService {
+ public:
+  environment::EosEnvironmentModelResult ResolveFactors(
+      const environment::EosEnvironmentModelInputs& inputs) const override {
+    ++resolve_count;
+    last_inputs = inputs;
+    environment::EosEnvironmentModelResult result;
+    result.aerosol_density_factor = inputs.base_aerosol_density_factor + 0.5f;
+    result.turbulence_factor = inputs.base_turbulence_factor + 0.25f;
+    result.path_radiance_scale_bias = 1.0f;
+    return result;
+  }
+
+  mutable std::size_t resolve_count{0U};
+  mutable environment::EosEnvironmentModelInputs last_inputs{};
+};
+
+EosSessionConfig MakeSessionConfig() {
+  EosSessionConfig config;
+  config.work_mode = EosWorkMode::kInfraredOnly;
+  config.minimum_snr_db = -120.0f;
+  config.scan_rate_deg_per_sec = 5.0f;
+  config.horizontal_fov_deg = 20.0f;
+  config.vertical_fov_deg = 4.0f;
+  return config;
+}
+
+EosCycleInput MakeValidInput(std::uint32_t cycle_index) {
+  EosCycleInput input;
+  input.cycle_index = cycle_index;
+  input.dt_sec = 1.0f;
+  input.solar_irradiance_w_m2 = 800.0f;
+  input.solar_altitude_deg = 45.0f;
+  input.atmospheric_transmittance = 0.8f;
+  input.cloud_coverage_ratio = 0.2f;
+  input.background_temperature_k = 289.0f;
+  input.day_night_type = DayNightType::kDay;
+  return input;
+}
+
+TEST(EosSessionFactoryTest, CreateWithPipelineUsesInjectedPipeline) {
+  CountingPipeline pipeline;
+  EosSession session = EosSessionFactory::CreateWithPipeline(MakeSessionConfig(), pipeline);
+
+  const EosCycleResult result = session.StepWithResult(MakeValidInput(8U));
+
+  EXPECT_EQ(pipeline.update_count, 1U);
+  EXPECT_EQ(pipeline.execute_count, 1U);
+  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_EQ(result.output_frame.cycle_index, 8U);
+  EXPECT_EQ(result.output_frame.detections.size(), 1U);
+  EXPECT_EQ(result.output_frame.detections.front().target_id, 99U);
+}
+
+TEST(EosSessionFactoryTest, CreateWithEnvironmentServiceUsesInjectedService) {
+  CountingEnvironmentService environment_service;
+  EosSession session = EosSessionFactory::CreateWithEnvironmentService(MakeSessionConfig(),
+                                                                       environment_service);
+
+  EosCycleInput input = MakeValidInput(9U);
+  input.scene_targets.clear();
+  EosTargetState target;
+  target.target_id = 7U;
+  target.range_m = 1000.0f;
+  target.azimuth_deg = 0.0f;
+  target.elevation_deg = 0.0f;
+  target.apparent_temperature_k = 500.0f;
+  target.emissivity = 0.9f;
+  target.reflectance = 0.2f;
+  target.projected_area_m2 = 4.0f;
+  input.scene_targets.push_back(target);
+
+  const EosCycleResult result = session.StepWithResult(input);
+
+  EXPECT_EQ(environment_service.resolve_count, 1U);
+  EXPECT_TRUE(environment_service.last_inputs.base_aerosol_density_factor >= 1.0f);
+  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_EQ(result.output_frame.cycle_index, 9U);
+}
+
+}  // namespace
+}  // namespace session
+}  // namespace electro_optical_sensor
