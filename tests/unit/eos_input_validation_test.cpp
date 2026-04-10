@@ -8,8 +8,8 @@
 #include <cstddef>
 #include <limits>
 
-#include "1q/electro_optical_sensor/session/EosCycleInput.h"
-#include "1q/electro_optical_sensor/session/EosInputValidation.h"
+#include "1q/electro_optical_sensor/model/EosCycleInput.h"
+#include "1q/electro_optical_sensor/model/EosInputValidation.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
@@ -17,7 +17,7 @@
 
 namespace electro_optical_sensor {
 namespace core {
-namespace context {
+namespace model {
 namespace {
 
 namespace eos_config = ::electro_optical_sensor::config;
@@ -423,6 +423,6 @@ TEST(EosInputValidationTest, RuntimePatchIsAtomicWhenAnyFieldIsInvalid) {
 }
 
 }  // namespace
-}  // namespace context
+}  // namespace model
 }  // namespace core
 }  // namespace electro_optical_sensor

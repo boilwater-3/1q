@@ -10,11 +10,11 @@
 #include <memory>
 
 #include "1q/api.hpp"
-#include "1q/electro_optical_sensor/common/EosOutputFrame.h"
+#include "1q/electro_optical_sensor/output/EosOutputFrame.h"
 #include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
-#include "1q/electro_optical_sensor/session/EosCycleResult.h"
-#include "1q/electro_optical_sensor/session/EosCycleInput.h"
-#include "1q/electro_optical_sensor/session/EosInputValidation.h"
+#include "1q/electro_optical_sensor/model/EosCycleResult.h"
+#include "1q/electro_optical_sensor/model/EosCycleInput.h"
+#include "1q/electro_optical_sensor/model/EosInputValidation.h"
 
 namespace electro_optical_sensor {
 namespace extension {
@@ -29,7 +29,7 @@ struct ONEQ_API EosControllerRuntimeState {
   const void* owner_identity{nullptr};
   std::uint32_t schema_version{0U};
   common::EosOutputFrame latest_output{};
-  session::EosValidationIssueList last_validation_issues{};
+  model::EosValidationIssueList last_validation_issues{};
   bool has_latest_output{false};
   bool has_validation_error{false};
   bool last_cycle_executed{false};
@@ -75,7 +75,7 @@ class ONEQ_API EosController {
    * @brief 获取最近一次输入校验结果。
    * @return 最近一次输入校验问题列表。
    */
-  const session::EosValidationIssueList& GetLastValidationIssues() const;
+  const model::EosValidationIssueList& GetLastValidationIssues() const;
 
   /**
    * @brief 判断最近一次输入校验是否存在 error 级问题。

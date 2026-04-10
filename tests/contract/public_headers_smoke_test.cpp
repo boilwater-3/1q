@@ -57,13 +57,13 @@
 #include "1q/common/pose_types.h"
 #include "1q/common/scan_schedule_types.h"
 #include "1q/common/trace/TraceSink.h"
-#include "1q/electro_optical_sensor/common/EosOutputFrame.h"
+#include "1q/electro_optical_sensor/output/EosOutputFrame.h"
 #include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
-#include "1q/electro_optical_sensor/session/EosCycleInput.h"
-#include "1q/electro_optical_sensor/common/EosCoordinateUtils.h"
-#include "1q/electro_optical_sensor/session/EosInputValidation.h"
+#include "1q/electro_optical_sensor/model/EosCycleInput.h"
+#include "1q/electro_optical_sensor/utils/EosCoordinateUtils.h"
+#include "1q/electro_optical_sensor/model/EosInputValidation.h"
 #include "1q/electro_optical_sensor/extension/EosController.h"
-#include "1q/electro_optical_sensor/session/EosCycleResult.h"
+#include "1q/electro_optical_sensor/model/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
 #include "1q/electro_optical_sensor/extension/IEosEnvironmentService.h"
@@ -375,11 +375,11 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   session_config.scan_start_az_deg = -20.0f;
   session_config.scan_end_az_deg = 20.0f;
 
-  core::context::EosCycleInput input;
+  core::model::EosCycleInput input;
   input.cycle_index = 2U;
   input.dt_sec = 1.0f;
   input.day_night_type = core::context::DayNightType::kDay;
-  core::context::EosTargetState target;
+  core::model::EosTargetState target;
   target.target_id = 7U;
   target.range_m = 1500.0f;
   target.azimuth_deg = 0.0f;
@@ -398,8 +398,8 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   ASSERT_TRUE(core::context::TryConvertLlaToEosLocal(eos_reference.origin_lla, eos_reference,
                                                       &eos_local_position));
 
-  const core::context::EosValidationIssueList issues = core::context::ValidateEosCycleInput(input);
-  EXPECT_FALSE(core::context::HasEosValidationError(issues));
+  const core::model::EosValidationIssueList issues = core::model::ValidateEosCycleInput(input);
+  EXPECT_FALSE(core::model::HasEosValidationError(issues));
 
   foundation::radiative_transfer::RadiativeTransferInputs transfer_inputs;
   transfer_inputs.model =

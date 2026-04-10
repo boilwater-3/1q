@@ -1,4 +1,4 @@
-#include "electro_optical_sensor/session/EosRuntimeConfigResolver.h"
+#include "electro_optical_sensor/runtime/EosRuntimeConfigResolver.h"
 
 #include <cmath>
 

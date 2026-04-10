@@ -6,8 +6,8 @@
 #include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
 #include "1q/electro_optical_sensor/extension/IEosPipeline.h"
 #include "common/logging/ProjectLog.h"
-#include "electro_optical_sensor/session/EosPipelineConfigMapper.h"
-#include "electro_optical_sensor/session/EosRuntimeConfigResolver.h"
+#include "electro_optical_sensor/runtime/EosPipelineConfigMapper.h"
+#include "electro_optical_sensor/runtime/EosRuntimeConfigResolver.h"
 
 namespace electro_optical_sensor {
 namespace session {

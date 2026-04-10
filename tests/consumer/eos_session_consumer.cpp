@@ -14,12 +14,12 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "1q/electro_optical_sensor/common/EosOutputFrame.h"
+#include "1q/electro_optical_sensor/output/EosOutputFrame.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
-#include "1q/electro_optical_sensor/session/EosCycleInput.h"
-#include "1q/electro_optical_sensor/session/EosInputValidation.h"
-#include "1q/electro_optical_sensor/session/EosCycleResult.h"
+#include "1q/electro_optical_sensor/model/EosCycleInput.h"
+#include "1q/electro_optical_sensor/model/EosInputValidation.h"
+#include "1q/electro_optical_sensor/model/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
 #include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
@@ -64,9 +64,9 @@ int main() {
   input.scene_targets.push_back(target);
 
   // 4. Input validation
-  const eos::session::EosValidationIssueList issues =
-      eos::session::ValidateEosCycleInput(input);
-  if (eos::session::HasEosValidationError(issues)) {
+  const eos::model::EosValidationIssueList issues =
+      eos::model::ValidateEosCycleInput(input);
+  if (eos::model::HasEosValidationError(issues)) {
     return 1;
   }
 

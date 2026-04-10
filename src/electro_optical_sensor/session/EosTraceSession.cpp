@@ -101,7 +101,7 @@ Json BuildJson(const common::EosOutputFrame& value) {
   return json;
 }
 
-Json BuildJson(const EosValidationIssue& value) {
+Json BuildJson(const model::EosValidationIssue& value) {
   Json json;
   json["severity"] = static_cast<int>(value.severity);
   json["code"] = static_cast<int>(value.code);
@@ -114,7 +114,7 @@ Json BuildJson(const EosCycleResult& value) {
   Json json;
   json["output_frame"] = BuildJson(value.output_frame);
   json["validation_issues"] =
-      SerializeArray(value.validation_issues, [](const EosValidationIssue& issue) {
+      SerializeArray(value.validation_issues, [](const model::EosValidationIssue& issue) {
         return BuildJson(issue);
       });
   json["has_validation_error"] = value.has_validation_error;

@@ -45,11 +45,13 @@
 ## Electro Optical Sensor (EOS)
 
 - `electro_optical_sensor/config/`：配置与 Builder 入口（推荐从这里拿配置类型与 Builder）。
-- `electro_optical_sensor/session/`：会话门面、周期输入/校验、结果对象与 trace 包装器。
+- `electro_optical_sensor/session/`：会话门面与 trace 包装器。
+- `electro_optical_sensor/model/`：周期输入、输入校验、周期结果等核心数据模型。
 - `electro_optical_sensor/extension/`：控制器、pipeline、environment service 等扩展接口契约。
 - `electro_optical_sensor/environment/`：环境契约类型（不含扩展接口）。
 - `electro_optical_sensor/foundation/`：辐射传输、噪声、光学等基础模型。
-- `electro_optical_sensor/common/`：输出帧与坐标工具等公共域模型。
+- `electro_optical_sensor/output/`：输出帧模型。
+- `electro_optical_sensor/utils/`：坐标工具等通用工具能力。
 
 ## Recommended Include Strategy
 

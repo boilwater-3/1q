@@ -6,7 +6,7 @@
 #include <gtest/gtest.h>
 
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
-#include "electro_optical_sensor/session/EosRuntimeConfigResolver.h"
+#include "electro_optical_sensor/runtime/EosRuntimeConfigResolver.h"
 
 namespace electro_optical_sensor {
 namespace core {

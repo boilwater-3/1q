@@ -1,9 +1,13 @@
-#include "1q/electro_optical_sensor/session/EosInputValidation.h"
+#include "1q/electro_optical_sensor/model/EosInputValidation.h"
 
 #include "common/validation/ValidationUtils.h"
 
 namespace electro_optical_sensor {
-namespace session {
+namespace model {
+
+using ::electro_optical_sensor::session::DayNightType;
+using ::electro_optical_sensor::session::EosCycleInput;
+using ::electro_optical_sensor::session::EosTargetState;
 
 namespace {
 
@@ -115,7 +119,8 @@ void ValidateTarget(const EosTargetState& target, std::size_t target_index,
 
 }  // namespace
 
-EosValidationIssueList ValidateEosCycleInput(const EosCycleInput& input) {
+EosValidationIssueList ValidateEosCycleInput(
+    const ::electro_optical_sensor::session::EosCycleInput& input) {
   EosValidationIssueList issues;
 
   if (!IsFinite(input.dt_sec)) {
@@ -180,5 +185,5 @@ bool HasEosValidationError(const EosValidationIssueList& issues) {
       issues, EosValidationSeverity::kError);
 }
 
-}  // namespace session
+}  // namespace model
 }  // namespace electro_optical_sensor

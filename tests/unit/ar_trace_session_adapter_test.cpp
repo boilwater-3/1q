@@ -17,7 +17,7 @@
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarTraceSession.h"
 #include "1q/common/trace/TraceSink.h"
-#include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "1q/electro_optical_sensor/model/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosTraceSession.h"
 #include "1q/electronic_surveillance_radar/core/context/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/tools/EsrTraceSession.h"
@@ -116,7 +116,7 @@ TEST(TraceSessionAdapterTest, EosTraceSessionWritesConfigInputOutput) {
 
   tools::EosTraceSession session(config, tools::EosTraceSessionOptions{sink, true});
 
-  core::context::EosCycleInput input;
+  core::model::EosCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
 

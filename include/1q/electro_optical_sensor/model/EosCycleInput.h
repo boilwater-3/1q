@@ -62,11 +62,17 @@ struct ONEQ_API EosCycleInput {
 }  // namespace session
 
 namespace core {
-namespace context {
+namespace model {
 using ::electro_optical_sensor::session::DayNightType;
 using ::electro_optical_sensor::session::EosTargetState;
 using ::electro_optical_sensor::session::EosTargetStateList;
 using ::electro_optical_sensor::session::EosCycleInput;
+}  // namespace model
+namespace context {
+using ::electro_optical_sensor::core::model::DayNightType;
+using ::electro_optical_sensor::core::model::EosTargetState;
+using ::electro_optical_sensor::core::model::EosTargetStateList;
+using ::electro_optical_sensor::core::model::EosCycleInput;
 }  // namespace context
 }  // namespace core
 

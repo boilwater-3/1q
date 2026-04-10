@@ -11,10 +11,10 @@
 #include <vector>
 
 #include "1q/api.hpp"
-#include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "1q/electro_optical_sensor/model/EosCycleInput.h"
 
 namespace electro_optical_sensor {
-namespace session {
+namespace model {
 
 /**
  * @brief EosValidationSeverity 表示输入校验问题严重级别。
@@ -71,7 +71,8 @@ using EosValidationIssueList = std::vector<EosValidationIssue>;
  * @param[in] input 单周期输入。
  * @return 校验问题列表。
  */
-ONEQ_API EosValidationIssueList ValidateEosCycleInput(const EosCycleInput& input);
+ONEQ_API EosValidationIssueList ValidateEosCycleInput(
+    const ::electro_optical_sensor::session::EosCycleInput& input);
 
 /**
  * @brief 判断校验列表中是否存在 error 级问题。
@@ -80,16 +81,24 @@ ONEQ_API EosValidationIssueList ValidateEosCycleInput(const EosCycleInput& input
  */
 ONEQ_API bool HasEosValidationError(const EosValidationIssueList& issues);
 
-}  // namespace session
+}  // namespace model
 
 namespace core {
+namespace model {
+using ::electro_optical_sensor::model::EosValidationSeverity;
+using ::electro_optical_sensor::model::EosValidationCode;
+using ::electro_optical_sensor::model::EosValidationIssue;
+using ::electro_optical_sensor::model::EosValidationIssueList;
+using ::electro_optical_sensor::model::ValidateEosCycleInput;
+using ::electro_optical_sensor::model::HasEosValidationError;
+}  // namespace model
 namespace context {
-using ::electro_optical_sensor::session::EosValidationSeverity;
-using ::electro_optical_sensor::session::EosValidationCode;
-using ::electro_optical_sensor::session::EosValidationIssue;
-using ::electro_optical_sensor::session::EosValidationIssueList;
-using ::electro_optical_sensor::session::ValidateEosCycleInput;
-using ::electro_optical_sensor::session::HasEosValidationError;
+using ::electro_optical_sensor::core::model::EosValidationSeverity;
+using ::electro_optical_sensor::core::model::EosValidationCode;
+using ::electro_optical_sensor::core::model::EosValidationIssue;
+using ::electro_optical_sensor::core::model::EosValidationIssueList;
+using ::electro_optical_sensor::core::model::ValidateEosCycleInput;
+using ::electro_optical_sensor::core::model::HasEosValidationError;
 }  // namespace context
 }  // namespace core
 

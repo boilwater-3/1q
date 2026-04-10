@@ -12,7 +12,7 @@
 #include "1q/electro_optical_sensor/extension/EosController.h"
 #include "1q/electro_optical_sensor/extension/IEosEnvironmentService.h"
 #include "common/logging/ProjectLog.h"
-#include "electro_optical_sensor/session/EosPipelineConfigMapper.h"
+#include "electro_optical_sensor/runtime/EosPipelineConfigMapper.h"
 #include "electro_optical_sensor/signal/pipeline/EosPipeline.h"
 
 namespace electro_optical_sensor {

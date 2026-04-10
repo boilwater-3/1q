@@ -1,4 +1,4 @@
-#include "1q/electro_optical_sensor/common/EosCoordinateUtils.h"
+#include "1q/electro_optical_sensor/utils/EosCoordinateUtils.h"
 
 #include <cmath>
 

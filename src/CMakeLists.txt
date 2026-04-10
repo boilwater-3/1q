@@ -108,13 +108,13 @@ set(EOS_SOURCES
     electro_optical_sensor/foundation/EosRadiometry.cpp
     electro_optical_sensor/foundation/EosSpatialSpectrum.cpp
     electro_optical_sensor/foundation/EosStrayLight.cpp
-    electro_optical_sensor/context/EosCoordinateUtils.cpp
-    electro_optical_sensor/context/EosInputValidation.cpp
+    electro_optical_sensor/utils/EosCoordinateUtils.cpp
+    electro_optical_sensor/model/EosInputValidation.cpp
     electro_optical_sensor/runtime/EosController.cpp
     electro_optical_sensor/runtime/EosCycleOrchestrator.cpp
     electro_optical_sensor/signal/pipeline/EosPipeline.cpp
-    electro_optical_sensor/session/EosPipelineConfigMapper.cpp
-    electro_optical_sensor/session/EosRuntimeConfigResolver.cpp
+    electro_optical_sensor/runtime/EosPipelineConfigMapper.cpp
+    electro_optical_sensor/runtime/EosRuntimeConfigResolver.cpp
     electro_optical_sensor/session/EosSessionCompositionRoot.cpp
     electro_optical_sensor/session/EosSession.cpp
     electro_optical_sensor/session/EosTraceSession.cpp
@@ -461,16 +461,20 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/electronic_surveillance_radar_config.hpp
     )
     set(PUBLIC_HEADERS_EOS_COMMON
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/common/EosOutputFrame.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/common/EosCoordinateUtils.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/utils/EosCoordinateUtils.h
+    )
+    set(PUBLIC_HEADERS_EOS_OUTPUT
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/output/EosOutputFrame.h
     )
     set(PUBLIC_HEADERS_EOS_FOUNDATION
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h
     )
+    set(PUBLIC_HEADERS_EOS_MODEL
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/model/EosCycleInput.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/model/EosInputValidation.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/model/EosCycleResult.h
+    )
     set(PUBLIC_HEADERS_EOS_SESSION
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosCycleInput.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosInputValidation.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosCycleResult.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosSession.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosTraceSession.h
     )
@@ -615,7 +619,13 @@ if(ENABLE_INSTALL)
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/tools
     )
     install(FILES ${PUBLIC_HEADERS_EOS_COMMON}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/common
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/utils
+    )
+    install(FILES ${PUBLIC_HEADERS_EOS_OUTPUT}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/output
+    )
+    install(FILES ${PUBLIC_HEADERS_EOS_MODEL}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/model
     )
     install(FILES ${PUBLIC_HEADERS_EOS_FOUNDATION}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/foundation

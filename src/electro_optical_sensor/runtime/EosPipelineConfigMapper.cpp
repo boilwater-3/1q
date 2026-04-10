@@ -3,7 +3,7 @@
  * @brief 实现 EOS 会话配置到 pipeline 配置的内部映射。
  */
 
-#include "electro_optical_sensor/session/EosPipelineConfigMapper.h"
+#include "electro_optical_sensor/runtime/EosPipelineConfigMapper.h"
 
 namespace electro_optical_sensor {
 namespace session {

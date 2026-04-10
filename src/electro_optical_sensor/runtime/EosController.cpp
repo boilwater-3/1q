@@ -41,7 +41,7 @@ struct EosController::Impl {
 
 	extension::IEosPipeline& pipeline;
 	common::EosOutputFrame latest_output{};
-	session::EosValidationIssueList last_validation_issues{};
+	model::EosValidationIssueList last_validation_issues{};
 	bool has_latest_output{false};
 	bool has_validation_error{false};
 	bool last_cycle_executed{false};
@@ -62,8 +62,8 @@ void EosController::RunOnce(const session::EosCycleInput& input) {
 	impl_->last_cycle_executed = false;
 	impl_->last_cycle_reused_previous_output = false;
 	impl_->last_abort_reason = extension::EosPipelineAbortReason::kNone;
-	impl_->last_validation_issues = session::ValidateEosCycleInput(input);
-	impl_->has_validation_error = session::HasEosValidationError(impl_->last_validation_issues);
+	impl_->last_validation_issues = model::ValidateEosCycleInput(input);
+	impl_->has_validation_error = model::HasEosValidationError(impl_->last_validation_issues);
 	if (impl_->has_validation_error) {
 		impl_->last_abort_reason = extension::EosPipelineAbortReason::kValidationRejected;
 		impl_->last_cycle_reused_previous_output = had_previous_output;
@@ -101,7 +101,7 @@ const common::EosOutputFrame& EosController::GetLatestOutputFrame() const {
 	return impl_->latest_output;
 }
 
-const session::EosValidationIssueList& EosController::GetLastValidationIssues() const {
+const model::EosValidationIssueList& EosController::GetLastValidationIssues() const {
 	return impl_->last_validation_issues;
 }
 

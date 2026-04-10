@@ -10,7 +10,7 @@
 
 #include "1q/api.hpp"
 #include "1q/common/coordinate_transform.h"
-#include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "1q/electro_optical_sensor/model/EosCycleInput.h"
 
 namespace electro_optical_sensor {
 namespace common {
