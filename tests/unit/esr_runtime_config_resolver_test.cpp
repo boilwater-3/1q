@@ -8,10 +8,9 @@
 #include <limits>
 
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
-#include "electronic_surveillance_radar/core/session/EsrRuntimeConfigResolver.h"
+#include "electronic_surveillance_radar/session/EsrRuntimeConfigResolver.h"
 
 namespace electronic_surveillance_radar {
-namespace core {
 namespace session {
 namespace internal {
 namespace {
@@ -71,5 +70,5 @@ TEST(EsrRuntimeConfigResolverTest, InvalidFieldRejectsWholePatch) {
 }  // namespace
 }  // namespace internal
 }  // namespace session
-}  // namespace core
+
 }  // namespace electronic_surveillance_radar

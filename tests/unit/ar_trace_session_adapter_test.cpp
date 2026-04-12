@@ -19,8 +19,8 @@
 #include "1q/common/trace/TraceSink.h"
 #include "1q/electro_optical_sensor/model/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosTraceSession.h"
-#include "1q/electronic_surveillance_radar/core/context/EsrCycleInput.h"
-#include "1q/electronic_surveillance_radar/tools/EsrTraceSession.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
+#include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
 
 namespace {
 
@@ -81,17 +81,17 @@ TEST(TraceSessionAdapterTest, EsrTraceSessionWritesConfigInputOutput) {
   std::shared_ptr<oneq::common::trace::TraceSink> sink(
       new oneq::common::trace::JsonlFileTraceSink(trace_path, false));
 
-  core::session::EsrSessionConfig config;
+  session::EsrSessionConfig config;
   config.pipeline_config.scan.az_step_deg = 120.0f;
   config.pipeline_config.scan.el_step_deg = 40.0f;
 
-  tools::EsrTraceSession session(config, tools::EsrTraceSessionOptions{sink, true});
+  session::EsrTraceSession session(config, session::EsrTraceSessionOptions{sink, true});
 
-  core::context::EsrCycleInput input;
+  session::EsrCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
 
-  const core::session::EsrCycleResult result = session.StepWithResult(input);
+  const session::EsrCycleResult result = session.StepWithResult(input);
   EXPECT_GE(result.output_frame.observation_output.observations.size(), 0U);
 
   const std::string content = ReadFile(trace_path);

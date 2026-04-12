@@ -11,14 +11,13 @@
 #include <limits>
 #include <string>
 
-#include "1q/electronic_surveillance_radar/common/EmitterTruthState.h"
+#include "1q/electronic_surveillance_radar/model/EmitterTruthState.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
-#include "1q/electronic_surveillance_radar/core/context/EsrCycleInput.h"
-#include "1q/electronic_surveillance_radar/core/session/EsrSession.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
+#include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
 
 namespace electronic_surveillance_radar {
-namespace core {
 namespace session {
 namespace {
 
@@ -28,8 +27,8 @@ namespace esr_config = ::electronic_surveillance_radar::config;
  * @brief 构造可被 X 波段接收窗口截获的最小场景输入。
  * @return 最小可运行输入。
  */
-context::EsrCycleInput MakeBaseInput() {
-  context::EsrCycleInput input;
+session::EsrCycleInput MakeBaseInput() {
+  session::EsrCycleInput input;
   input.cycle_index = 4U;
   input.dt_sec = 1.0f;
   input.platform_pose.position_m.x = 0.0f;
@@ -40,7 +39,7 @@ context::EsrCycleInput MakeBaseInput() {
   input.environment_scene_state.terrain_reflection_db = 0.0f;
   input.environment_scene_state.clutter_noise_w = 1.0e-12f;
 
-  common::EmitterTruthState emitter;
+  model::EmitterTruthState emitter;
   emitter.emitter_id = "target-emitter";
   emitter.pose.position_m.x = 1200.0f;
   emitter.pose.position_m.y = 0.0f;
@@ -78,7 +77,7 @@ EsrSessionConfig MakeSessionConfig() {
   config.pipeline_config.statistical_detection.min_snr_db = 6.0f;
   config.pipeline_config.statistical_detection.pulse_count = 8U;
   config.pipeline_config.statistical_detection.integration_mode =
-      pipeline::InterceptIntegrationMode::kNonCoherent;
+      extension::InterceptIntegrationMode::kNonCoherent;
   config.pipeline_config.statistical_detection.threshold_scale = 1.0f;
   config.pipeline_config.algorithm.random_seed = 20260323U;
   config.pipeline_config.deception_model.false_alarm_probability_scale = 1.0f;
@@ -95,7 +94,7 @@ std::size_t CountFalseAlarms(const EsrCycleResult& result) {
   std::size_t false_alarm_count = 0U;
   for (std::size_t i = 0; i < result.output_frame.truth_evaluation_output.associations.size();
        ++i) {
-    const common::TruthAssociationRecord& association =
+    const output::TruthAssociationRecord& association =
         result.output_frame.truth_evaluation_output.associations[i];
     if (!association.matched && association.truth_emitter_id == "UNASSOCIATED") {
       ++false_alarm_count;
@@ -115,7 +114,7 @@ std::size_t CountMatchedTruthObservations(const EsrCycleResult& result,
   std::size_t matched_count = 0U;
   for (std::size_t i = 0; i < result.output_frame.truth_evaluation_output.associations.size();
        ++i) {
-    const common::TruthAssociationRecord& association =
+    const output::TruthAssociationRecord& association =
         result.output_frame.truth_evaluation_output.associations[i];
     if (association.matched && association.truth_emitter_id == truth_id) {
       ++matched_count;
@@ -134,7 +133,7 @@ float FindMatchedTruthSnr(const EsrCycleResult& result, const std::string& truth
   std::uint64_t observation_id = 0U;
   for (std::size_t i = 0; i < result.output_frame.truth_evaluation_output.associations.size();
        ++i) {
-    const common::TruthAssociationRecord& association =
+    const output::TruthAssociationRecord& association =
         result.output_frame.truth_evaluation_output.associations[i];
     if (association.matched && association.truth_emitter_id == truth_id) {
       observation_id = association.observation_id;
@@ -145,7 +144,7 @@ float FindMatchedTruthSnr(const EsrCycleResult& result, const std::string& truth
     return std::numeric_limits<float>::quiet_NaN();
   }
   for (std::size_t i = 0; i < result.output_frame.observation_output.observations.size(); ++i) {
-    const common::EmitterObservation& observation =
+    const model::EmitterObservation& observation =
         result.output_frame.observation_output.observations[i];
     if (observation.observation_id == observation_id) {
       return observation.snr_db;
@@ -179,7 +178,7 @@ float AverageHypothesisConfidence(const EsrCycleResult& result) {
 std::size_t CountAmbiguousHypotheses(const EsrCycleResult& result) {
   std::size_t ambiguous_count = 0U;
   for (std::size_t i = 0; i < result.output_frame.emitter_output.hypotheses.size(); ++i) {
-    const common::EmitterHypothesis& hypothesis = result.output_frame.emitter_output.hypotheses[i];
+    const model::EmitterHypothesis& hypothesis = result.output_frame.emitter_output.hypotheses[i];
     if (std::find(hypothesis.candidate_classes.begin(), hypothesis.candidate_classes.end(),
                   "AMBIGUOUS_CLASS") != hypothesis.candidate_classes.end()) {
       ++ambiguous_count;
@@ -197,7 +196,7 @@ std::size_t CountAmbiguousHypotheses(const EsrCycleResult& result) {
 std::size_t CountSpectralClassHypotheses(const EsrCycleResult& result, const std::string& label) {
   std::size_t count = 0U;
   for (std::size_t i = 0; i < result.output_frame.emitter_output.hypotheses.size(); ++i) {
-    const common::EmitterHypothesis& hypothesis = result.output_frame.emitter_output.hypotheses[i];
+    const model::EmitterHypothesis& hypothesis = result.output_frame.emitter_output.hypotheses[i];
     if (std::find(hypothesis.candidate_classes.begin(), hypothesis.candidate_classes.end(),
                   label) != hypothesis.candidate_classes.end()) {
       ++count;
@@ -215,8 +214,8 @@ void ExpectDeterministicResult(const EsrCycleResult& lhs, const EsrCycleResult& 
   ASSERT_EQ(lhs.output_frame.observation_output.observations.size(),
             rhs.output_frame.observation_output.observations.size());
   for (std::size_t i = 0; i < lhs.output_frame.observation_output.observations.size(); ++i) {
-    const common::EmitterObservation& lhs_obs = lhs.output_frame.observation_output.observations[i];
-    const common::EmitterObservation& rhs_obs = rhs.output_frame.observation_output.observations[i];
+    const model::EmitterObservation& lhs_obs = lhs.output_frame.observation_output.observations[i];
+    const model::EmitterObservation& rhs_obs = rhs.output_frame.observation_output.observations[i];
     EXPECT_EQ(lhs_obs.observation_id, rhs_obs.observation_id);
     EXPECT_DOUBLE_EQ(lhs_obs.timestamp_s, rhs_obs.timestamp_s);
     EXPECT_DOUBLE_EQ(lhs_obs.rf_hz, rhs_obs.rf_hz);
@@ -231,9 +230,9 @@ void ExpectDeterministicResult(const EsrCycleResult& lhs, const EsrCycleResult& 
   ASSERT_EQ(lhs.output_frame.truth_evaluation_output.associations.size(),
             rhs.output_frame.truth_evaluation_output.associations.size());
   for (std::size_t i = 0; i < lhs.output_frame.truth_evaluation_output.associations.size(); ++i) {
-    const common::TruthAssociationRecord& lhs_assoc =
+    const output::TruthAssociationRecord& lhs_assoc =
         lhs.output_frame.truth_evaluation_output.associations[i];
-    const common::TruthAssociationRecord& rhs_assoc =
+    const output::TruthAssociationRecord& rhs_assoc =
         rhs.output_frame.truth_evaluation_output.associations[i];
     EXPECT_EQ(lhs_assoc.observation_id, rhs_assoc.observation_id);
     EXPECT_EQ(lhs_assoc.truth_emitter_id, rhs_assoc.truth_emitter_id);
@@ -251,7 +250,7 @@ void ExpectDeterministicResult(const EsrCycleResult& lhs, const EsrCycleResult& 
 bool HasMissedTruth(const EsrCycleResult& result, const std::string& truth_id) {
   for (std::size_t i = 0; i < result.output_frame.truth_evaluation_output.associations.size();
        ++i) {
-    const common::TruthAssociationRecord& association =
+    const output::TruthAssociationRecord& association =
         result.output_frame.truth_evaluation_output.associations[i];
     if (!association.matched && association.truth_emitter_id == truth_id) {
       return true;
@@ -268,14 +267,14 @@ bool HasMissedTruth(const EsrCycleResult& result, const std::string& truth_id) {
  * @param[in] cycle_count 统计周期数。
  * @return 累计匹配次数。
  */
-std::size_t CountMatchedAcrossCycles(EsrSession* session, const context::EsrCycleInput& base_input,
+std::size_t CountMatchedAcrossCycles(EsrSession* session, const session::EsrCycleInput& base_input,
                                      const std::string& truth_id, std::size_t cycle_count) {
   if (session == nullptr) {
     return 0U;
   }
   std::size_t matched_total = 0U;
   for (std::size_t i = 0; i < cycle_count; ++i) {
-    context::EsrCycleInput input = base_input;
+    session::EsrCycleInput input = base_input;
     input.cycle_index = base_input.cycle_index + static_cast<std::uint32_t>(i);
     const EsrCycleResult result = session->StepWithResult(input);
     matched_total += CountMatchedTruthObservations(result, truth_id);
@@ -285,7 +284,7 @@ std::size_t CountMatchedAcrossCycles(EsrSession* session, const context::EsrCycl
 
 TEST(EsrSessionIntegrationTest, StepWithResultProducesThreeChannelOutput) {
   EsrSession session(MakeSessionConfig());
-  const context::EsrCycleInput input = MakeBaseInput();
+  const session::EsrCycleInput input = MakeBaseInput();
 
   const EsrCycleResult result = session.StepWithResult(input);
 
@@ -312,7 +311,7 @@ TEST(EsrSessionIntegrationTest, LayeredDisabledKeepsLegacyExecutionPath) {
   layered_config.layered_config.mission.work_mode = EsrWorkMode::kRwr;
   layered_config.layered_config.mission.scan_rate_hz = 8.0f;
 
-  const context::EsrCycleInput input = MakeBaseInput();
+  const session::EsrCycleInput input = MakeBaseInput();
   EsrSession baseline_session(baseline_config);
   EsrSession layered_session(layered_config);
   const EsrCycleResult baseline_result = baseline_session.StepWithResult(input);
@@ -328,7 +327,7 @@ TEST(EsrSessionIntegrationTest, LayeredFixedBandFiltersOutOfBandEmitters) {
   config.layered_config.hardware.receiver_band_upper_hz = 9.0e9;
   config.layered_config.mission.power_on = true;
 
-  context::EsrCycleInput input = MakeBaseInput();
+  session::EsrCycleInput input = MakeBaseInput();
   input.scene_emitters.front().carrier_hz = 10.0e9;
 
   EsrSession session(config);
@@ -347,7 +346,7 @@ TEST(EsrSessionIntegrationTest, LayeredReceiveLossReducesMatchedObservationSnr) 
   high_loss_config.layered_config.hardware.integrated_receive_loss_db = 20.0f;
   high_loss_config.layered_config.mission.power_on = true;
 
-  context::EsrCycleInput input = MakeBaseInput();
+  session::EsrCycleInput input = MakeBaseInput();
   EsrSession baseline_session(baseline_config);
   EsrSession high_loss_session(high_loss_config);
 
@@ -383,7 +382,7 @@ TEST(EsrSessionIntegrationTest, LayeredModeMappingMakesHgesmMoreDetectableThanRw
   const double kPowerSweepW[] = {20.0, 30.0, 40.0, 60.0};
   bool has_strict_advantage = false;
   for (std::size_t i = 0; i < sizeof(kPowerSweepW) / sizeof(kPowerSweepW[0]); ++i) {
-    context::EsrCycleInput input = MakeBaseInput();
+    session::EsrCycleInput input = MakeBaseInput();
     input.scene_emitters.front().tx_power_w = kPowerSweepW[i];
 
     EsrSession hgesm_session(hgesm_config);
@@ -415,8 +414,8 @@ TEST(EsrSessionIntegrationTest, LayeredPowerOffReturnsEmptyChannels) {
 
 TEST(EsrSessionIntegrationTest, SuppressionJammingDegradesSnrWithoutRaisingFalseAlarms) {
   EsrSession session(MakeSessionConfig());
-  context::EsrCycleInput no_jam_input = MakeBaseInput();
-  context::EsrCycleInput jam_input = no_jam_input;
+  session::EsrCycleInput no_jam_input = MakeBaseInput();
+  session::EsrCycleInput jam_input = no_jam_input;
   jam_input.cycle_index = no_jam_input.cycle_index;
 
   environment::EsrJammerSource jammer;
@@ -454,8 +453,8 @@ TEST(EsrSessionIntegrationTest, SuppressionJammingDegradesSnrWithoutRaisingFalse
 
 TEST(EsrSessionIntegrationTest, DeceptionJammingRaisesFalseAlarmsWithoutSnrDrop) {
   EsrSession session(MakeSessionConfig());
-  context::EsrCycleInput no_jam_input = MakeBaseInput();
-  context::EsrCycleInput deception_input = no_jam_input;
+  session::EsrCycleInput no_jam_input = MakeBaseInput();
+  session::EsrCycleInput deception_input = no_jam_input;
 
   environment::EsrJammerSource jammer;
   jammer.technique = environment::EsrJammingTechnique::kDeception;
@@ -494,8 +493,8 @@ TEST(EsrSessionIntegrationTest, DeceptionJammingRaisesFalseAlarmsWithoutSnrDrop)
 
 TEST(EsrSessionIntegrationTest, MixedJammingCombinesSuppressionAndDeceptionEffects) {
   EsrSession session(MakeSessionConfig());
-  context::EsrCycleInput base_input = MakeBaseInput();
-  context::EsrCycleInput mixed_input = base_input;
+  session::EsrCycleInput base_input = MakeBaseInput();
+  session::EsrCycleInput mixed_input = base_input;
 
   environment::EsrJammerSource jammer;
   jammer.technique = environment::EsrJammingTechnique::kMixed;
@@ -526,7 +525,7 @@ TEST(EsrSessionIntegrationTest, MixedJammingCombinesSuppressionAndDeceptionEffec
 
 TEST(EsrSessionIntegrationTest, DeceptionCanInjectFalseAlarmsWhenGateFails) {
   EsrSession session(MakeSessionConfig());
-  context::EsrCycleInput input = MakeBaseInput();
+  session::EsrCycleInput input = MakeBaseInput();
   input.scene_emitters.front().pose.position_m.x = -200.0f;
   input.scene_emitters.front().pose.position_m.y = 1200.0f;
 
@@ -551,7 +550,7 @@ TEST(EsrSessionIntegrationTest, DeceptionRiskAndSeedProduceDeterministicOutput) 
   config.pipeline_config.algorithm.random_seed = 424242U;
   config.pipeline_config.deception_model.max_false_observations_per_emitter = 3U;
 
-  context::EsrCycleInput risk_zero_input = MakeBaseInput();
+  session::EsrCycleInput risk_zero_input = MakeBaseInput();
   environment::EsrJammerSource risk_zero_jammer;
   risk_zero_jammer.technique = environment::EsrJammingTechnique::kDeception;
   risk_zero_jammer.active = true;
@@ -562,7 +561,7 @@ TEST(EsrSessionIntegrationTest, DeceptionRiskAndSeedProduceDeterministicOutput) 
   risk_zero_jammer.deception_risk = 0.0f;
   risk_zero_input.environment_scene_state.jammer_sources.push_back(risk_zero_jammer);
 
-  context::EsrCycleInput risk_one_input = MakeBaseInput();
+  session::EsrCycleInput risk_one_input = MakeBaseInput();
   environment::EsrJammerSource risk_one_jammer = risk_zero_jammer;
   risk_one_jammer.deception_risk = 1.0f;
   risk_one_input.environment_scene_state.jammer_sources.push_back(risk_one_jammer);
@@ -583,7 +582,7 @@ TEST(EsrSessionIntegrationTest, DeceptionRiskAndSeedProduceDeterministicOutput) 
 
 TEST(EsrSessionIntegrationTest, EmptyEmitterSceneReturnsEmptyObservation) {
   EsrSession session(MakeSessionConfig());
-  context::EsrCycleInput input = MakeBaseInput();
+  session::EsrCycleInput input = MakeBaseInput();
   input.scene_emitters.clear();
 
   const EsrCycleResult result = session.StepWithResult(input);
@@ -596,9 +595,9 @@ TEST(EsrSessionIntegrationTest, EmptyEmitterSceneReturnsEmptyObservation) {
 
 TEST(EsrSessionIntegrationTest, MultiEmitterSceneProducesClusteredHypotheses) {
   EsrSession session(MakeSessionConfig());
-  context::EsrCycleInput input = MakeBaseInput();
+  session::EsrCycleInput input = MakeBaseInput();
 
-  common::EmitterTruthState emitter_2 = input.scene_emitters.front();
+  model::EmitterTruthState emitter_2 = input.scene_emitters.front();
   emitter_2.emitter_id = "target-emitter-2";
   emitter_2.pose.position_m.y = 200.0f;
   emitter_2.carrier_hz = 10.2e9;
@@ -624,7 +623,7 @@ TEST(EsrSessionIntegrationTest, PlatformAttitudeChangesInterceptGateGeometry) {
   config.pipeline_config.scan.az_step_deg = 10.0f;
   config.pipeline_config.scan.el_step_deg = 10.0f;
 
-  context::EsrCycleInput input = MakeBaseInput();
+  session::EsrCycleInput input = MakeBaseInput();
   input.scene_emitters.front().pose.position_m.x = 0.0f;
   input.scene_emitters.front().pose.position_m.y = 1200.0f;
   input.scene_emitters.front().pose.position_m.z = 5000.0f;
@@ -645,14 +644,14 @@ TEST(EsrSessionIntegrationTest, PlatformAttitudeChangesInterceptGateGeometry) {
 
 TEST(EsrSessionIntegrationTest, EmitterBeamStateControlsWhetherTrueObservationCanBeIntercepted) {
   EsrSession session(MakeSessionConfig());
-  context::EsrCycleInput blocked_input = MakeBaseInput();
+  session::EsrCycleInput blocked_input = MakeBaseInput();
   blocked_input.scene_emitters.front().beam_state.beam_state_valid = true;
   blocked_input.scene_emitters.front().beam_state.center_az_deg = 0.0f;
   blocked_input.scene_emitters.front().beam_state.center_el_deg = 0.0f;
   blocked_input.scene_emitters.front().beam_state.az_beamwidth_deg = 8.0f;
   blocked_input.scene_emitters.front().beam_state.el_beamwidth_deg = 8.0f;
 
-  context::EsrCycleInput covered_input = blocked_input;
+  session::EsrCycleInput covered_input = blocked_input;
   covered_input.scene_emitters.front().beam_state.center_az_deg = 180.0f;
   covered_input.scene_emitters.front().beam_state.center_el_deg = -10.0f;
 
@@ -665,8 +664,8 @@ TEST(EsrSessionIntegrationTest, EmitterBeamStateControlsWhetherTrueObservationCa
 
 TEST(EsrSessionIntegrationTest, PriLongerThanCycleSuppressesTrueDetection) {
   EsrSession session(MakeSessionConfig());
-  context::EsrCycleInput low_pri_input = MakeBaseInput();
-  context::EsrCycleInput high_pri_input = MakeBaseInput();
+  session::EsrCycleInput low_pri_input = MakeBaseInput();
+  session::EsrCycleInput high_pri_input = MakeBaseInput();
   high_pri_input.scene_emitters.front().pri_s = 10.0;
 
   const EsrCycleResult low_pri_result = session.StepWithResult(low_pri_input);
@@ -682,7 +681,7 @@ TEST(EsrSessionIntegrationTest, PriWindowCapsEffectivePulseCountAcrossStatistica
   EsrSessionConfig high_pulse_config = low_pulse_config;
   high_pulse_config.pipeline_config.statistical_detection.pulse_count = 32U;
 
-  context::EsrCycleInput input = MakeBaseInput();
+  session::EsrCycleInput input = MakeBaseInput();
   input.scene_emitters.front().pri_s = 0.25;
 
   EsrSession low_pulse_session(low_pulse_config);
@@ -708,7 +707,7 @@ TEST(EsrSessionIntegrationTest, SpectralAnalysisAppendsInsufficientLabelWhenSequ
   config.pipeline_config.cluster.radius = 1.0e-6f;
 
   EsrSession session(config);
-  context::EsrCycleInput input = MakeBaseInput();
+  session::EsrCycleInput input = MakeBaseInput();
   const EsrCycleResult result = session.StepWithResult(input);
 
   EXPECT_GT(CountMatchedTruthObservations(result, "target-emitter"), 0U);
@@ -722,7 +721,7 @@ TEST(EsrSessionIntegrationTest, DisableSpectralAnalysisKeepsCandidateClassesWith
   config.pipeline_config.cluster.radius = 1.0e-6f;
 
   EsrSession session(config);
-  context::EsrCycleInput input = MakeBaseInput();
+  session::EsrCycleInput input = MakeBaseInput();
   const EsrCycleResult result = session.StepWithResult(input);
 
   EXPECT_GT(CountMatchedTruthObservations(result, "target-emitter"), 0U);
@@ -734,7 +733,7 @@ TEST(EsrSessionIntegrationTest, DisableSpectralAnalysisKeepsCandidateClassesWith
 
 TEST(EsrSessionIntegrationTest, RuntimeConfigBuilderCanDisableSensorWithoutReconstructingSession) {
   EsrSession session(MakeSessionConfig());
-  context::EsrCycleInput input = MakeBaseInput();
+  session::EsrCycleInput input = MakeBaseInput();
 
   const EsrCycleResult baseline = session.StepWithResult(input);
   ASSERT_FALSE(baseline.has_validation_error);
@@ -752,7 +751,7 @@ TEST(EsrSessionIntegrationTest, RuntimeConfigBuilderCanDisableSensorWithoutRecon
 
 TEST(EsrSessionIntegrationTest, RuntimeConfigBuilderCanToggleFixedReceiverWindow) {
   EsrSession session(MakeSessionConfig());
-  context::EsrCycleInput input = MakeBaseInput();
+  session::EsrCycleInput input = MakeBaseInput();
 
   const EsrCycleResult baseline = session.StepWithResult(input);
   ASSERT_FALSE(baseline.has_validation_error);
@@ -775,7 +774,7 @@ TEST(EsrSessionIntegrationTest, RuntimeConfigBuilderCanToggleFixedReceiverWindow
 
 TEST(EsrSessionIntegrationTest, InvalidFixedReceiverWindowBoundsDoNotAutoEnableWindow) {
   EsrSession session(MakeSessionConfig());
-  context::EsrCycleInput input = MakeBaseInput();
+  session::EsrCycleInput input = MakeBaseInput();
 
   const EsrCycleResult baseline = session.StepWithResult(input);
   ASSERT_FALSE(baseline.has_validation_error);
@@ -814,7 +813,7 @@ TEST(EsrSessionIntegrationTest, InvalidFixedReceiverWindowBoundsDoNotAutoEnableW
 
 TEST(EsrSessionIntegrationTest, ValidationFailureReturnsEmptyFrameAndStillAdvancesBatchId) {
   EsrSession session(MakeSessionConfig());
-  context::EsrCycleInput invalid_input = MakeBaseInput();
+  session::EsrCycleInput invalid_input = MakeBaseInput();
   invalid_input.dt_sec = 0.0f;
 
   const EsrCycleResult invalid_result = session.StepWithResult(invalid_input);
@@ -824,7 +823,7 @@ TEST(EsrSessionIntegrationTest, ValidationFailureReturnsEmptyFrameAndStillAdvanc
   EXPECT_TRUE(invalid_result.output_frame.truth_evaluation_output.associations.empty());
   EXPECT_EQ(invalid_result.output_frame.observation_output.batch_id, 1U);
 
-  context::EsrCycleInput valid_input = MakeBaseInput();
+  session::EsrCycleInput valid_input = MakeBaseInput();
   valid_input.cycle_index = invalid_input.cycle_index + 1U;
   const EsrCycleResult valid_result = session.StepWithResult(valid_input);
   EXPECT_FALSE(valid_result.has_validation_error);
@@ -833,5 +832,5 @@ TEST(EsrSessionIntegrationTest, ValidationFailureReturnsEmptyFrameAndStillAdvanc
 
 }  // namespace
 }  // namespace session
-}  // namespace core
+
 }  // namespace electronic_surveillance_radar

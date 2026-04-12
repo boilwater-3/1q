@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/session/RadarInputValidation.h"
-#include "1q/electronic_surveillance_radar/core/context/EsrInputValidation.h"
+#include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "common/validation/ValidationUtils.h"
 
 namespace oneq {
@@ -40,20 +40,20 @@ TEST(ValidationUtilsTest, MakeIndexedIssueSupportsTargetIndexField) {
 }
 
 TEST(ValidationUtilsTest, MakeIndexedIssueSupportsEmitterIndexField) {
-  const electronic_surveillance_radar::core::context::EsrValidationIssue issue = MakeIndexedIssue<
-      electronic_surveillance_radar::core::context::EsrValidationIssue,
-      electronic_surveillance_radar::core::context::EsrValidationSeverity,
-      electronic_surveillance_radar::core::context::EsrValidationCode,
-      &electronic_surveillance_radar::core::context::EsrValidationIssue::emitter_index>(
-      electronic_surveillance_radar::core::context::EsrValidationSeverity::kError,
-      electronic_surveillance_radar::core::context::EsrValidationCode::kInvalidEmitterFrequency, 5U,
+  const electronic_surveillance_radar::session::EsrValidationIssue issue = MakeIndexedIssue<
+      electronic_surveillance_radar::session::EsrValidationIssue,
+      electronic_surveillance_radar::session::EsrValidationSeverity,
+      electronic_surveillance_radar::session::EsrValidationCode,
+      &electronic_surveillance_radar::session::EsrValidationIssue::emitter_index>(
+      electronic_surveillance_radar::session::EsrValidationSeverity::kError,
+      electronic_surveillance_radar::session::EsrValidationCode::kInvalidEmitterFrequency, 5U,
       "invalid emitter frequency");
 
   EXPECT_EQ(issue.severity,
-            electronic_surveillance_radar::core::context::EsrValidationSeverity::kError);
+            electronic_surveillance_radar::session::EsrValidationSeverity::kError);
   EXPECT_EQ(
       issue.code,
-      electronic_surveillance_radar::core::context::EsrValidationCode::kInvalidEmitterFrequency);
+      electronic_surveillance_radar::session::EsrValidationCode::kInvalidEmitterFrequency);
   EXPECT_EQ(issue.emitter_index, 5U);
   EXPECT_EQ(issue.message, "invalid emitter frequency");
 }
@@ -90,31 +90,31 @@ TEST(ValidationUtilsTest, HasSeverityReturnsFalseWhenNoExpectedSeverity) {
 }
 
 TEST(ValidationUtilsTest, HasSeverityReturnsTrueWhenExpectedSeverityExists) {
-  std::vector<electronic_surveillance_radar::core::context::EsrValidationIssue> issues;
+  std::vector<electronic_surveillance_radar::session::EsrValidationIssue> issues;
   issues.push_back(
       MakeIndexedIssue<
-          electronic_surveillance_radar::core::context::EsrValidationIssue,
-          electronic_surveillance_radar::core::context::EsrValidationSeverity,
-          electronic_surveillance_radar::core::context::EsrValidationCode,
-          &electronic_surveillance_radar::core::context::EsrValidationIssue::emitter_index>(
-          electronic_surveillance_radar::core::context::EsrValidationSeverity::kInfo,
-          electronic_surveillance_radar::core::context::EsrValidationCode::kNone,
+          electronic_surveillance_radar::session::EsrValidationIssue,
+          electronic_surveillance_radar::session::EsrValidationSeverity,
+          electronic_surveillance_radar::session::EsrValidationCode,
+          &electronic_surveillance_radar::session::EsrValidationIssue::emitter_index>(
+          electronic_surveillance_radar::session::EsrValidationSeverity::kInfo,
+          electronic_surveillance_radar::session::EsrValidationCode::kNone,
           static_cast<std::size_t>(-1), "info"));
   issues.push_back(
       MakeIndexedIssue<
-          electronic_surveillance_radar::core::context::EsrValidationIssue,
-          electronic_surveillance_radar::core::context::EsrValidationSeverity,
-          electronic_surveillance_radar::core::context::EsrValidationCode,
-          &electronic_surveillance_radar::core::context::EsrValidationIssue::emitter_index>(
-          electronic_surveillance_radar::core::context::EsrValidationSeverity::kError,
-          electronic_surveillance_radar::core::context::EsrValidationCode::kInvalidEmitterPri, 4U,
+          electronic_surveillance_radar::session::EsrValidationIssue,
+          electronic_surveillance_radar::session::EsrValidationSeverity,
+          electronic_surveillance_radar::session::EsrValidationCode,
+          &electronic_surveillance_radar::session::EsrValidationIssue::emitter_index>(
+          electronic_surveillance_radar::session::EsrValidationSeverity::kError,
+          electronic_surveillance_radar::session::EsrValidationCode::kInvalidEmitterPri, 4U,
           "invalid pri"));
 
   const bool has_error =
-      HasSeverity<std::vector<electronic_surveillance_radar::core::context::EsrValidationIssue>,
-                  electronic_surveillance_radar::core::context::EsrValidationSeverity,
-                  &electronic_surveillance_radar::core::context::EsrValidationIssue::severity>(
-          issues, electronic_surveillance_radar::core::context::EsrValidationSeverity::kError);
+      HasSeverity<std::vector<electronic_surveillance_radar::session::EsrValidationIssue>,
+                  electronic_surveillance_radar::session::EsrValidationSeverity,
+                  &electronic_surveillance_radar::session::EsrValidationIssue::severity>(
+          issues, electronic_surveillance_radar::session::EsrValidationSeverity::kError);
   EXPECT_TRUE(has_error);
 }
 

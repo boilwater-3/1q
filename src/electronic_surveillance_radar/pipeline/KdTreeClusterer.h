@@ -9,7 +9,7 @@
 #include <cstddef>
 #include <vector>
 
-#include "1q/electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
+#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
 #include "electronic_surveillance_radar/pipeline/ObservationPipelineTypes.h"
 
 namespace electronic_surveillance_radar {
@@ -36,7 +36,7 @@ class KdTreeClusterer final {
    * @return 聚类结果。
    */
   KdTreeClusterResult Cluster(const std::vector<ObservationFeatureVector>& features,
-                              const InterceptClusterConfig& config) const;
+                              const extension::InterceptClusterConfig& config) const;
 };
 
 }  // namespace internal

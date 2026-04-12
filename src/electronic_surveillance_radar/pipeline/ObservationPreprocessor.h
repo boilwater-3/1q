@@ -8,7 +8,7 @@
 
 #include <vector>
 
-#include "1q/electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
+#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
 #include "electronic_surveillance_radar/pipeline/ObservationPipelineTypes.h"
 
 namespace electronic_surveillance_radar {
@@ -27,7 +27,7 @@ class ObservationPreprocessor final {
    * @return 预处理后的观测记录列表。
    */
   std::vector<RawObservationRecord> Run(const std::vector<RawObservationRecord>& records,
-                                        const InterceptPreprocessConfig& config) const;
+                                        const extension::InterceptPreprocessConfig& config) const;
 };
 
 }  // namespace internal

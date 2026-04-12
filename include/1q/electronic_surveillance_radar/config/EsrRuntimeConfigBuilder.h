@@ -17,10 +17,10 @@ namespace config {
 class ONEQ_API EsrRuntimeConfigBuilder {
  public:
   explicit EsrRuntimeConfigBuilder(
-      const core::session::EsrRuntimeConfigPatch& patch = {}) : patch_(patch) {}
+      const session::EsrRuntimeConfigPatch& patch = {}) : patch_(patch) {}
 
   EsrRuntimeConfigBuilder& WithRuntimeConfigPatch(
-      const core::session::EsrRuntimeConfigPatch& patch) {
+      const session::EsrRuntimeConfigPatch& patch) {
     patch_ = patch;
     return *this;
   }
@@ -90,10 +90,10 @@ class ONEQ_API EsrRuntimeConfigBuilder {
     patch_.observation_jam_mark_threshold_w = value;
     return *this;
   }
-  core::session::EsrRuntimeConfigPatch Build() const { return patch_; }
+  session::EsrRuntimeConfigPatch Build() const { return patch_; }
 
  private:
-  core::session::EsrRuntimeConfigPatch patch_{};
+  session::EsrRuntimeConfigPatch patch_{};
 };
 
 }  // namespace config

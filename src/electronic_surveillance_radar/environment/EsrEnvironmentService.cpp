@@ -4,7 +4,7 @@
 #include <cstddef>
 
 #include "common/atmosphere/AtmospherePhysics.h"
-#include "electronic_surveillance_radar/EsrSharedUtils.h"
+#include "electronic_surveillance_radar/utils/EsrSharedUtils.h"
 
 namespace electronic_surveillance_radar {
 namespace environment {
@@ -18,11 +18,11 @@ namespace {
  */
 EsrJammerSource NormalizeJammerSource(const EsrJammerSource& raw_source) {
   EsrJammerSource normalized = raw_source;
-  normalized.power_w = ClampNonNegative(raw_source.power_w);
+  normalized.power_w = utils::ClampNonNegative(raw_source.power_w);
   normalized.bandwidth_hz = std::max(0.0, raw_source.bandwidth_hz);
-  normalized.deception_risk = Clamp01(raw_source.deception_risk);
-  normalized.confidence = Clamp01(raw_source.confidence);
-  normalized.technique = ResolveTechnique(normalized);
+  normalized.deception_risk = utils::Clamp01(raw_source.deception_risk);
+  normalized.confidence = utils::Clamp01(raw_source.confidence);
+  normalized.technique = utils::ResolveTechnique(normalized);
   normalized.active =
       raw_source.active && normalized.power_w > 0.0f && normalized.bandwidth_hz > 0.0;
   return normalized;
@@ -65,15 +65,15 @@ EsrEnvironmentSnapshot BuildSnapshot(const EsrEnvironmentCycleContext& cycle_con
     physical_loss_db = physics_result.total_physics_loss_db;
   }
   snapshot.propagation_loss_db =
-      ClampNonNegative(cycle_context.scene_state.base_propagation_loss_db +
+      utils::ClampNonNegative(cycle_context.scene_state.base_propagation_loss_db +
                        cycle_context.scene_state.atmospheric_attenuation_db +
                        cycle_context.scene_state.terrain_reflection_db + physical_loss_db);
 
   const float clutter_noise = cycle_context.scene_state.clutter_noise_w > 0.0f
                                   ? cycle_context.scene_state.clutter_noise_w
                                   : config.default_clutter_noise_w;
-  snapshot.clutter_noise_w = ClampNonNegative(clutter_noise);
-  snapshot.spectrum_occupancy_ratio = Clamp01(cycle_context.scene_state.spectrum_occupancy_ratio);
+  snapshot.clutter_noise_w = utils::ClampNonNegative(clutter_noise);
+  snapshot.spectrum_occupancy_ratio = utils::Clamp01(cycle_context.scene_state.spectrum_occupancy_ratio);
 
   snapshot.jammer_sources.clear();
   snapshot.jammer_sources.reserve(cycle_context.scene_state.jammer_sources.size());
@@ -90,17 +90,17 @@ EsrEnvironmentSnapshot BuildSnapshot(const EsrEnvironmentCycleContext& cycle_con
     }
 
     const float weighted_power = source.power_w * source.confidence;
-    if (HasSuppressionEffect(source.technique)) {
+    if (utils::HasSuppressionEffect(source.technique)) {
       snapshot.suppression_power_w += weighted_power;
     }
-    if (HasDeceptionEffect(source.technique)) {
-      const float source_risk = Clamp01(source.deception_risk * source.confidence);
+    if (utils::HasDeceptionEffect(source.technique)) {
+      const float source_risk = utils::Clamp01(source.deception_risk * source.confidence);
       const float safe_source_risk = std::isfinite(source_risk) ? source_risk : 0.0f;
       deception_clear_probability *= (1.0f - safe_source_risk);
-      deception_clear_probability = Clamp01(deception_clear_probability);
+      deception_clear_probability = utils::Clamp01(deception_clear_probability);
     }
   }
-  snapshot.deception_risk = Clamp01(1.0f - deception_clear_probability);
+  snapshot.deception_risk = utils::Clamp01(1.0f - deception_clear_probability);
   snapshot.jammer_power_w = snapshot.suppression_power_w;
 
   snapshot.jamming_detected = snapshot.suppression_power_w >= config.jamming_detection_threshold_w;

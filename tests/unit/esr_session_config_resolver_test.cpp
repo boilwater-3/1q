@@ -8,11 +8,10 @@
 #include <cmath>
 #include <limits>
 
-#include "1q/electronic_surveillance_radar/core/session/EsrSession.h"
-#include "electronic_surveillance_radar/core/session/EsrSessionConfigResolver.h"
+#include "1q/electronic_surveillance_radar/session/EsrSession.h"
+#include "electronic_surveillance_radar/session/EsrSessionConfigResolver.h"
 
 namespace electronic_surveillance_radar {
-namespace core {
 namespace session {
 namespace internal {
 namespace {
@@ -144,5 +143,5 @@ TEST(EsrSessionConfigResolverTest, InvalidLayeredValuesFallbackToLegacyOrSafeDef
 }  // namespace
 }  // namespace internal
 }  // namespace session
-}  // namespace core
+
 }  // namespace electronic_surveillance_radar

@@ -10,8 +10,8 @@
 #include <string>
 #include <vector>
 
-#include "1q/electronic_surveillance_radar/common/EmitterHypothesis.h"
-#include "1q/electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
+#include "1q/electronic_surveillance_radar/model/EmitterHypothesis.h"
+#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
 #include "electronic_surveillance_radar/pipeline/ObservationPipelineTypes.h"
 
 namespace electronic_surveillance_radar {
@@ -27,13 +27,13 @@ class HypothesisAssociator final {
    * @brief 使用配置构造关联器。
    * @param[in] config 假设关联配置。
    */
-  explicit HypothesisAssociator(InterceptAssociationConfig config = {});
+  explicit HypothesisAssociator(extension::InterceptAssociationConfig config = {});
 
   /**
    * @brief 更新配置。
    * @param[in] config 新关联配置。
    */
-  void UpdateConfig(InterceptAssociationConfig config);
+  void UpdateConfig(extension::InterceptAssociationConfig config);
 
   /**
    * @brief 基于当前周期簇摘要更新并导出假设列表。
@@ -42,7 +42,7 @@ class HypothesisAssociator final {
    * @param[in,out] next_hypothesis_id 假设 ID 分配器。
    * @return 当前周期对外导出的假设列表。
    */
-  common::EmitterHypothesisList Update(std::uint32_t cycle_index,
+  model::EmitterHypothesisList Update(std::uint32_t cycle_index,
                                        const std::vector<ClusterSummary>& clusters,
                                        std::uint64_t* next_hypothesis_id);
 
@@ -56,8 +56,8 @@ class HypothesisAssociator final {
     std::uint64_t hypothesis_id{0U};
     ObservationFeatureVector feature{};
     std::vector<std::string> candidate_classes{};
-    common::EmitterMode mode{common::EmitterMode::kUnknown};
-    common::ThreatLevel threat_level{common::ThreatLevel::kLow};
+    model::EmitterMode mode{model::EmitterMode::kUnknown};
+    model::ThreatLevel threat_level{model::ThreatLevel::kLow};
     float bearing_az_deg{0.0f};
     float bearing_el_deg{0.0f};
     float bearing_std_deg{8.0f};
@@ -70,7 +70,7 @@ class HypothesisAssociator final {
     bool confirmed{false};
   };
 
-  InterceptAssociationConfig config_{};
+  extension::InterceptAssociationConfig config_{};
   std::vector<TrackState> tracks_{};
 };
 

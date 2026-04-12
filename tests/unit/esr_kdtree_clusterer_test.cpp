@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-#include "1q/electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
+#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
 #include "electronic_surveillance_radar/pipeline/KdTreeClusterer.h"
 #include "electronic_surveillance_radar/pipeline/ObservationFeatureEncoder.h"
 #include "electronic_surveillance_radar/pipeline/ObservationPreprocessor.h"
@@ -59,7 +59,7 @@ TEST(EsrKdTreeClustererTest, PreprocessorSortsFiltersAndDeduplicates) {
   records.push_back(invalid_nan);
 
   ObservationPreprocessor preprocessor;
-  InterceptPreprocessConfig config;
+  extension::InterceptPreprocessConfig config;
   config.dedup_time_window_sec = 5.0e-6f;
   config.dedup_rf_window_hz = 1.0e6;
   config.dedup_pw_window_sec = 2.0e-7;
@@ -72,7 +72,7 @@ TEST(EsrKdTreeClustererTest, PreprocessorSortsFiltersAndDeduplicates) {
   ASSERT_EQ(output.size(), 2U);
   EXPECT_LT(output[0].observation.timestamp_s, output[1].observation.timestamp_s);
   EXPECT_EQ(output[1].observation.observation_id, 11U);
-  EXPECT_EQ(output[1].observation.quality, common::ObservationQuality::kMedium);
+  EXPECT_EQ(output[1].observation.quality, model::ObservationQuality::kMedium);
 }
 
 TEST(EsrKdTreeClustererTest, ClustererGroupsNearbyFeatures) {
@@ -85,7 +85,7 @@ TEST(EsrKdTreeClustererTest, ClustererGroupsNearbyFeatures) {
       std::array<float, kObservationFeatureDimension>{{4.0f, 4.0f, 0.0f, 0.0f, 0.0f}};
 
   KdTreeClusterer clusterer;
-  InterceptClusterConfig config;
+  extension::InterceptClusterConfig config;
   config.radius = 0.6f;
   config.min_points = 1U;
 
@@ -107,7 +107,7 @@ TEST(EsrKdTreeClustererTest, ClustererMarksNoiseWhenMinPointsNotMet) {
       std::array<float, kObservationFeatureDimension>{{6.0f, 0.0f, 0.0f, 0.0f, 0.0f}};
 
   KdTreeClusterer clusterer;
-  InterceptClusterConfig config;
+  extension::InterceptClusterConfig config;
   config.radius = 0.5f;
   config.min_points = 2U;
 
@@ -126,7 +126,7 @@ TEST(EsrKdTreeClustererTest, PreprocessorDeduplicatesAcrossAzimuthWrapBoundary) 
   records.push_back(MakeRecord(21U, 1.0 + 1.0e-6, 10.0e9, 1.0e-6, -179.8f, 1.0f, 15.0f));
 
   ObservationPreprocessor preprocessor;
-  InterceptPreprocessConfig config;
+  extension::InterceptPreprocessConfig config;
   config.dedup_time_window_sec = 5.0e-6f;
   config.dedup_rf_window_hz = 1.0e6;
   config.dedup_pw_window_sec = 2.0e-7;
@@ -150,7 +150,7 @@ TEST(EsrKdTreeClustererTest, BorderPointAbsorbedIntoClusterIsNotLeftInNoise) {
       std::array<float, kObservationFeatureDimension>{{1.8f, 0.0f, 0.0f, 0.0f, 0.0f}};
 
   KdTreeClusterer clusterer;
-  InterceptClusterConfig config;
+  extension::InterceptClusterConfig config;
   config.radius = 1.0f;
   config.min_points = 3U;
 
@@ -171,7 +171,7 @@ TEST(EsrKdTreeClustererTest, MinPointsLargerThanDatasetIsClamped) {
       std::array<float, kObservationFeatureDimension>{{0.1f, 0.2f, 0.0f, 0.0f, 0.2f}};
 
   KdTreeClusterer clusterer;
-  InterceptClusterConfig config;
+  extension::InterceptClusterConfig config;
   config.radius = 1.0f;
   config.min_points = 100U;
 
@@ -182,7 +182,7 @@ TEST(EsrKdTreeClustererTest, MinPointsLargerThanDatasetIsClamped) {
 }
 
 TEST(EsrKdTreeClustererTest, ObservationFeatureEncoderFallsBackForNonFiniteScales) {
-  common::EmitterObservation observation;
+  model::EmitterObservation observation;
   observation.rf_hz = 12.0e9;
   observation.pulse_width_s = 2.0e-6;
   observation.aoa_az_deg = 10.0f;
@@ -216,7 +216,7 @@ TEST(EsrKdTreeClustererTest, PreprocessorTreatsNearBoundaryAsDuplicateWithEpsilo
                                14.0f));
 
   ObservationPreprocessor preprocessor;
-  InterceptPreprocessConfig config;
+  extension::InterceptPreprocessConfig config;
   config.dedup_time_window_sec = 5.0e-6f;
   config.dedup_rf_window_hz = 1.0e6;
   config.dedup_pw_window_sec = 2.0e-7;

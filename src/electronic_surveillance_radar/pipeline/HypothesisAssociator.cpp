@@ -7,7 +7,7 @@
 #include <utility>
 #include <vector>
 
-#include "electronic_surveillance_radar/EsrSharedUtils.h"
+#include "electronic_surveillance_radar/utils/EsrSharedUtils.h"
 #include "electronic_surveillance_radar/intercept/BandClassifier.h"
 #include "electronic_surveillance_radar/pipeline/ObservationFeatureEncoder.h"
 
@@ -22,18 +22,18 @@ namespace {
  * @param[in] summary 簇摘要。
  * @return 工作模式。
  */
-common::EmitterMode InferModeFromCluster(const ClusterSummary& summary) {
+model::EmitterMode InferModeFromCluster(const ClusterSummary& summary) {
   const bool has_valid_pri = std::isfinite(summary.mean_pri_s) && summary.mean_pri_s > 0.0;
   if (summary.mean_pulse_width_s < 1.5e-6 && (!has_valid_pri || summary.mean_pri_s >= 1.5e-4)) {
-    return common::EmitterMode::kSearch;
+    return model::EmitterMode::kSearch;
   }
   if (has_valid_pri && summary.mean_pri_s <= 8.0e-5) {
-    return common::EmitterMode::kGuidance;
+    return model::EmitterMode::kGuidance;
   }
   if (summary.mean_pulse_width_s < 3.0e-6 || (has_valid_pri && summary.mean_pri_s <= 3.0e-4)) {
-    return common::EmitterMode::kTracking;
+    return model::EmitterMode::kTracking;
   }
-  return common::EmitterMode::kGuidance;
+  return model::EmitterMode::kGuidance;
 }
 
 /**
@@ -42,14 +42,14 @@ common::EmitterMode InferModeFromCluster(const ClusterSummary& summary) {
  * @param[in] mean_snr_db 簇均值信噪比。
  * @return 威胁等级。
  */
-common::ThreatLevel InferThreatFromCluster(common::EmitterMode mode, float mean_snr_db) {
-  if (mode == common::EmitterMode::kGuidance || mean_snr_db >= 20.0f) {
-    return common::ThreatLevel::kHigh;
+model::ThreatLevel InferThreatFromCluster(model::EmitterMode mode, float mean_snr_db) {
+  if (mode == model::EmitterMode::kGuidance || mean_snr_db >= 20.0f) {
+    return model::ThreatLevel::kHigh;
   }
-  if (mode == common::EmitterMode::kTracking || mean_snr_db >= 10.0f) {
-    return common::ThreatLevel::kMedium;
+  if (mode == model::EmitterMode::kTracking || mean_snr_db >= 10.0f) {
+    return model::ThreatLevel::kMedium;
   }
-  return common::ThreatLevel::kLow;
+  return model::ThreatLevel::kLow;
 }
 
 /**
@@ -64,7 +64,7 @@ std::vector<std::string> BuildCandidateClasses(double rf_hz, float deception_sup
   std::vector<std::string> classes;
   classes.push_back(std::string("RADAR_BAND_") + intercept::BandClassifier::ToString(band));
   classes.push_back("RADAR_EMITTER");
-  const float deception_ratio = Clamp01(deception_support_ratio);
+  const float deception_ratio = utils::Clamp01(deception_support_ratio);
   if (deception_ratio >= 0.6f) {
     classes.push_back("POSSIBLE_DECEPTION");
   }
@@ -85,7 +85,7 @@ std::vector<std::string> BuildCandidateClasses(double rf_hz, float deception_sup
  * @return 更新结果。
  */
 float Blend(float previous, float current, float alpha) {
-  const float a = Clamp01(alpha);
+  const float a = utils::Clamp01(alpha);
   return (1.0f - a) * previous + a * current;
 }
 
@@ -122,12 +122,12 @@ bool LessCandidatePair(const CandidatePair& lhs, const CandidatePair& rhs) {
 
 }  // namespace
 
-HypothesisAssociator::HypothesisAssociator(InterceptAssociationConfig config)
+HypothesisAssociator::HypothesisAssociator(extension::InterceptAssociationConfig config)
     : config_(std::move(config)) {}
 
-void HypothesisAssociator::UpdateConfig(InterceptAssociationConfig config) { config_ = config; }
+void HypothesisAssociator::UpdateConfig(extension::InterceptAssociationConfig config) { config_ = config; }
 
-common::EmitterHypothesisList HypothesisAssociator::Update(
+model::EmitterHypothesisList HypothesisAssociator::Update(
     std::uint32_t cycle_index, const std::vector<ClusterSummary>& clusters,
     std::uint64_t* next_hypothesis_id) {
   const std::size_t original_track_count = tracks_.size();
@@ -158,7 +158,7 @@ common::EmitterHypothesisList HypothesisAssociator::Update(
     }
     TrackState& track = tracks_[pair.track_index];
     const ClusterSummary& summary = clusters[pair.cluster_index];
-    const float deception_ratio = Clamp01(summary.deception_support_ratio);
+    const float deception_ratio = utils::Clamp01(summary.deception_support_ratio);
 
     for (std::size_t dim = 0; dim < kObservationFeatureDimension; ++dim) {
       track.feature.values[dim] =
@@ -176,7 +176,7 @@ common::EmitterHypothesisList HypothesisAssociator::Update(
     const float base_bearing_std_deg = ComputeBaseBearingStdDeg(summary.support_count);
     track.bearing_std_deg = base_bearing_std_deg * (1.0f + 0.8f * deception_ratio);
     const float confidence_measurement =
-        Clamp01(summary.confidence_score * (1.0f - 0.45f * deception_ratio));
+        utils::Clamp01(summary.confidence_score * (1.0f - 0.45f * deception_ratio));
     track.confidence = Blend(track.confidence, confidence_measurement, config_.confidence_alpha);
     track.last_seen_cycle = cycle_index;
     ++track.hit_streak;
@@ -199,7 +199,7 @@ common::EmitterHypothesisList HypothesisAssociator::Update(
     if (next_hypothesis_id != nullptr) {
       track.hypothesis_id = (*next_hypothesis_id)++;
     }
-    const float deception_ratio = Clamp01(clusters[i].deception_support_ratio);
+    const float deception_ratio = utils::Clamp01(clusters[i].deception_support_ratio);
     track.feature = clusters[i].centroid_feature;
     track.mode = InferModeFromCluster(clusters[i]);
     track.threat_level = InferThreatFromCluster(track.mode, clusters[i].mean_snr_db);
@@ -209,7 +209,7 @@ common::EmitterHypothesisList HypothesisAssociator::Update(
     track.bearing_el_deg = clusters[i].mean_el_deg;
     const float base_bearing_std_deg = ComputeBaseBearingStdDeg(clusters[i].support_count);
     track.bearing_std_deg = base_bearing_std_deg * (1.0f + 0.8f * deception_ratio);
-    track.confidence = Clamp01(clusters[i].confidence_score * (1.0f - 0.45f * deception_ratio));
+    track.confidence = utils::Clamp01(clusters[i].confidence_score * (1.0f - 0.45f * deception_ratio));
     track.last_seen_cycle = cycle_index;
     track.hit_streak = 1U;
     track.missed_cycles = 0U;
@@ -227,7 +227,7 @@ common::EmitterHypothesisList HypothesisAssociator::Update(
     ++tracks_[i].age_cycles;
     tracks_[i].hit_streak = 0U;
     tracks_[i].confirmed = false;
-    tracks_[i].confidence = Clamp01(tracks_[i].confidence * 0.92f);
+    tracks_[i].confidence = utils::Clamp01(tracks_[i].confidence * 0.92f);
   }
 
   tracks_.erase(std::remove_if(tracks_.begin(), tracks_.end(),
@@ -240,13 +240,13 @@ common::EmitterHypothesisList HypothesisAssociator::Update(
     return lhs.hypothesis_id < rhs.hypothesis_id;
   });
 
-  common::EmitterHypothesisList hypotheses;
+  model::EmitterHypothesisList hypotheses;
   hypotheses.reserve(tracks_.size());
   for (std::size_t i = 0; i < tracks_.size(); ++i) {
     if (!tracks_[i].confirmed && !config_.output_tentative) {
       continue;
     }
-    common::EmitterHypothesis hypothesis;
+    model::EmitterHypothesis hypothesis;
     hypothesis.hypothesis_id = tracks_[i].hypothesis_id;
     hypothesis.candidate_classes = tracks_[i].candidate_classes;
     hypothesis.mode = tracks_[i].mode;

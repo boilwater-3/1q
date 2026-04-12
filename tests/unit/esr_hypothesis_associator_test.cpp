@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-#include "1q/electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
+#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
 #include "electronic_surveillance_radar/pipeline/HypothesisAssociator.h"
 
 namespace electronic_surveillance_radar {
@@ -51,7 +51,7 @@ ClusterSummary MakeCluster(float x, float y, float az_deg, float el_deg, double 
 }
 
 TEST(EsrHypothesisAssociatorTest, MaintainsStableIdsAcrossMatchedCycles) {
-  InterceptAssociationConfig config;
+  extension::InterceptAssociationConfig config;
   config.gate_distance = 1.0f;
   config.confirm_hits = 2U;
   config.max_missed_cycles = 4U;
@@ -63,14 +63,14 @@ TEST(EsrHypothesisAssociatorTest, MaintainsStableIdsAcrossMatchedCycles) {
   std::vector<ClusterSummary> clusters_cycle_1;
   clusters_cycle_1.push_back(MakeCluster(0.0f, 0.0f, 10.0f, 1.0f, 10.0e9, 15.0f, 3U));
   clusters_cycle_1.push_back(MakeCluster(3.0f, 3.0f, -20.0f, 0.0f, 5.0e9, 12.0f, 2U));
-  const common::EmitterHypothesisList cycle_1 =
+  const model::EmitterHypothesisList cycle_1 =
       associator.Update(10U, clusters_cycle_1, &next_hypothesis_id);
   ASSERT_EQ(cycle_1.size(), 2U);
 
   std::vector<ClusterSummary> clusters_cycle_2;
   clusters_cycle_2.push_back(MakeCluster(0.1f, 0.1f, 11.0f, 1.2f, 10.1e9, 16.0f, 4U));
   clusters_cycle_2.push_back(MakeCluster(3.1f, 2.9f, -19.0f, 0.1f, 5.1e9, 13.0f, 3U));
-  const common::EmitterHypothesisList cycle_2 =
+  const model::EmitterHypothesisList cycle_2 =
       associator.Update(11U, clusters_cycle_2, &next_hypothesis_id);
   ASSERT_EQ(cycle_2.size(), 2U);
 
@@ -81,7 +81,7 @@ TEST(EsrHypothesisAssociatorTest, MaintainsStableIdsAcrossMatchedCycles) {
 }
 
 TEST(EsrHypothesisAssociatorTest, CreatesNewTrackWhenTwoClustersCompeteOneTrack) {
-  InterceptAssociationConfig config;
+  extension::InterceptAssociationConfig config;
   config.gate_distance = 0.8f;
   config.confirm_hits = 1U;
   config.max_missed_cycles = 4U;
@@ -92,7 +92,7 @@ TEST(EsrHypothesisAssociatorTest, CreatesNewTrackWhenTwoClustersCompeteOneTrack)
   std::uint64_t next_hypothesis_id = 1U;
   std::vector<ClusterSummary> clusters_cycle_1;
   clusters_cycle_1.push_back(MakeCluster(0.0f, 0.0f, 10.0f, 1.0f, 10.0e9, 15.0f, 3U));
-  const common::EmitterHypothesisList cycle_1 =
+  const model::EmitterHypothesisList cycle_1 =
       associator.Update(20U, clusters_cycle_1, &next_hypothesis_id);
   ASSERT_EQ(cycle_1.size(), 1U);
   const std::uint64_t stable_id = cycle_1[0].hypothesis_id;
@@ -100,7 +100,7 @@ TEST(EsrHypothesisAssociatorTest, CreatesNewTrackWhenTwoClustersCompeteOneTrack)
   std::vector<ClusterSummary> clusters_cycle_2;
   clusters_cycle_2.push_back(MakeCluster(0.1f, 0.1f, 10.5f, 1.1f, 10.0e9, 14.5f, 2U));
   clusters_cycle_2.push_back(MakeCluster(0.6f, 0.6f, 15.0f, 2.0f, 9.0e9, 8.0f, 2U));
-  const common::EmitterHypothesisList cycle_2 =
+  const model::EmitterHypothesisList cycle_2 =
       associator.Update(21U, clusters_cycle_2, &next_hypothesis_id);
   ASSERT_EQ(cycle_2.size(), 2U);
 
@@ -109,7 +109,7 @@ TEST(EsrHypothesisAssociatorTest, CreatesNewTrackWhenTwoClustersCompeteOneTrack)
 }
 
 TEST(EsrHypothesisAssociatorTest, RecyclesTrackAfterConfiguredMissedCycles) {
-  InterceptAssociationConfig config;
+  extension::InterceptAssociationConfig config;
   config.gate_distance = 1.0f;
   config.confirm_hits = 1U;
   config.max_missed_cycles = 2U;
@@ -120,21 +120,21 @@ TEST(EsrHypothesisAssociatorTest, RecyclesTrackAfterConfiguredMissedCycles) {
   std::uint64_t next_hypothesis_id = 1U;
   std::vector<ClusterSummary> clusters_cycle_1;
   clusters_cycle_1.push_back(MakeCluster(0.0f, 0.0f, 0.0f, 0.0f, 10.0e9, 10.0f, 1U));
-  const common::EmitterHypothesisList cycle_1 =
+  const model::EmitterHypothesisList cycle_1 =
       associator.Update(30U, clusters_cycle_1, &next_hypothesis_id);
   ASSERT_EQ(cycle_1.size(), 1U);
 
   const std::vector<ClusterSummary> empty_clusters;
-  const common::EmitterHypothesisList cycle_2 =
+  const model::EmitterHypothesisList cycle_2 =
       associator.Update(31U, empty_clusters, &next_hypothesis_id);
   EXPECT_EQ(cycle_2.size(), 1U);
-  const common::EmitterHypothesisList cycle_3 =
+  const model::EmitterHypothesisList cycle_3 =
       associator.Update(32U, empty_clusters, &next_hypothesis_id);
   EXPECT_TRUE(cycle_3.empty());
 }
 
 TEST(EsrHypothesisAssociatorTest, HighDeceptionSupportLowersConfidenceAndAddsAmbiguousClass) {
-  InterceptAssociationConfig config;
+  extension::InterceptAssociationConfig config;
   config.gate_distance = 1.0f;
   config.confirm_hits = 1U;
   config.max_missed_cycles = 2U;
@@ -147,12 +147,12 @@ TEST(EsrHypothesisAssociatorTest, HighDeceptionSupportLowersConfidenceAndAddsAmb
   clusters.push_back(MakeCluster(0.0f, 0.0f, 1.0f, 0.1f, 10.0e9, 14.0f, 3U, 0.0f));
   clusters.push_back(MakeCluster(5.0f, 5.0f, 2.0f, 0.2f, 12.0e9, 14.0f, 3U, 0.8f));
 
-  const common::EmitterHypothesisList hypotheses =
+  const model::EmitterHypothesisList hypotheses =
       associator.Update(40U, clusters, &next_hypothesis_id);
   ASSERT_EQ(hypotheses.size(), 2U);
 
-  const common::EmitterHypothesis* clean_hypothesis = nullptr;
-  const common::EmitterHypothesis* deceptive_hypothesis = nullptr;
+  const model::EmitterHypothesis* clean_hypothesis = nullptr;
+  const model::EmitterHypothesis* deceptive_hypothesis = nullptr;
   for (std::size_t i = 0; i < hypotheses.size(); ++i) {
     if (hypotheses[i].bearing_az_deg < 1.5f) {
       clean_hypothesis = &hypotheses[i];
@@ -160,8 +160,8 @@ TEST(EsrHypothesisAssociatorTest, HighDeceptionSupportLowersConfidenceAndAddsAmb
       deceptive_hypothesis = &hypotheses[i];
     }
   }
-  ASSERT_NE(clean_hypothesis, static_cast<const common::EmitterHypothesis*>(nullptr));
-  ASSERT_NE(deceptive_hypothesis, static_cast<const common::EmitterHypothesis*>(nullptr));
+  ASSERT_NE(clean_hypothesis, static_cast<const model::EmitterHypothesis*>(nullptr));
+  ASSERT_NE(deceptive_hypothesis, static_cast<const model::EmitterHypothesis*>(nullptr));
   EXPECT_LT(deceptive_hypothesis->confidence, clean_hypothesis->confidence);
   EXPECT_NE(std::find(deceptive_hypothesis->candidate_classes.begin(),
                       deceptive_hypothesis->candidate_classes.end(), "AMBIGUOUS_CLASS"),
@@ -169,7 +169,7 @@ TEST(EsrHypothesisAssociatorTest, HighDeceptionSupportLowersConfidenceAndAddsAmb
 }
 
 TEST(EsrHypothesisAssociatorTest, AppendsSpectralClassWithoutReplacingBandClass) {
-  InterceptAssociationConfig config;
+  extension::InterceptAssociationConfig config;
   config.confirm_hits = 1U;
   config.output_tentative = true;
   HypothesisAssociator associator(config);
@@ -179,7 +179,7 @@ TEST(EsrHypothesisAssociatorTest, AppendsSpectralClassWithoutReplacingBandClass)
   clusters.push_back(
       MakeCluster(0.0f, 0.0f, 0.0f, 0.0f, 10.0e9, 14.0f, 5U, 0.0f, "SPECTRAL_BROADBAND"));
 
-  const common::EmitterHypothesisList hypotheses =
+  const model::EmitterHypothesisList hypotheses =
       associator.Update(50U, clusters, &next_hypothesis_id);
   ASSERT_EQ(hypotheses.size(), 1U);
   EXPECT_NE(std::find(hypotheses[0].candidate_classes.begin(), hypotheses[0].candidate_classes.end(),
@@ -191,7 +191,7 @@ TEST(EsrHypothesisAssociatorTest, AppendsSpectralClassWithoutReplacingBandClass)
 }
 
 TEST(EsrHypothesisAssociatorTest, ZeroSupportCountDoesNotProduceInfiniteBearingStd) {
-  InterceptAssociationConfig config;
+  extension::InterceptAssociationConfig config;
   config.confirm_hits = 1U;
   config.output_tentative = true;
   HypothesisAssociator associator(config);
@@ -200,7 +200,7 @@ TEST(EsrHypothesisAssociatorTest, ZeroSupportCountDoesNotProduceInfiniteBearingS
   std::vector<ClusterSummary> clusters;
   clusters.push_back(MakeCluster(0.0f, 0.0f, 0.0f, 0.0f, 10.0e9, 14.0f, 0U));
 
-  const common::EmitterHypothesisList hypotheses =
+  const model::EmitterHypothesisList hypotheses =
       associator.Update(60U, clusters, &next_hypothesis_id);
   ASSERT_EQ(hypotheses.size(), 1U);
   EXPECT_TRUE(std::isfinite(hypotheses[0].bearing_std_deg));
@@ -208,7 +208,7 @@ TEST(EsrHypothesisAssociatorTest, ZeroSupportCountDoesNotProduceInfiniteBearingS
 }
 
 TEST(EsrHypothesisAssociatorTest, TieDistanceAssociationUsesStableClusterOrder) {
-  InterceptAssociationConfig config;
+  extension::InterceptAssociationConfig config;
   config.gate_distance = 1.0f;
   config.confirm_hits = 1U;
   config.max_missed_cycles = 3U;
@@ -220,7 +220,7 @@ TEST(EsrHypothesisAssociatorTest, TieDistanceAssociationUsesStableClusterOrder) 
   std::vector<ClusterSummary> cycle_1_clusters;
   cycle_1_clusters.push_back(
       MakeCluster(0.0f, 0.0f, 0.0f, 0.0f, 10.0e9, 12.0f, 3U, 0.0f, "SPECTRAL_A"));
-  const common::EmitterHypothesisList cycle_1 =
+  const model::EmitterHypothesisList cycle_1 =
       associator.Update(70U, cycle_1_clusters, &next_hypothesis_id);
   ASSERT_EQ(cycle_1.size(), 1U);
   const std::uint64_t stable_id = cycle_1[0].hypothesis_id;
@@ -230,18 +230,18 @@ TEST(EsrHypothesisAssociatorTest, TieDistanceAssociationUsesStableClusterOrder) 
       MakeCluster(0.5f, 0.0f, 1.0f, 0.0f, 10.0e9, 12.0f, 3U, 0.0f, "SPECTRAL_FIRST"));
   cycle_2_clusters.push_back(
       MakeCluster(-0.5f, 0.0f, -1.0f, 0.0f, 10.0e9, 12.0f, 3U, 0.0f, "SPECTRAL_SECOND"));
-  const common::EmitterHypothesisList cycle_2 =
+  const model::EmitterHypothesisList cycle_2 =
       associator.Update(71U, cycle_2_clusters, &next_hypothesis_id);
   ASSERT_EQ(cycle_2.size(), 2U);
 
-  const common::EmitterHypothesis* matched_track = nullptr;
+  const model::EmitterHypothesis* matched_track = nullptr;
   for (std::size_t i = 0; i < cycle_2.size(); ++i) {
     if (cycle_2[i].hypothesis_id == stable_id) {
       matched_track = &cycle_2[i];
       break;
     }
   }
-  ASSERT_NE(matched_track, static_cast<const common::EmitterHypothesis*>(nullptr));
+  ASSERT_NE(matched_track, static_cast<const model::EmitterHypothesis*>(nullptr));
   EXPECT_NE(std::find(matched_track->candidate_classes.begin(), matched_track->candidate_classes.end(),
                       "SPECTRAL_FIRST"),
             matched_track->candidate_classes.end());

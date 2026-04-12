@@ -9,8 +9,10 @@
 #include <cstdint>
 #include <random>
 
-#include "1q/electronic_surveillance_radar/pipeline/IInterceptPipeline.h"
+#include "1q/electronic_surveillance_radar/extension/IInterceptPipeline.h"
 #include "electronic_surveillance_radar/pipeline/HypothesisAssociator.h"
+#include "electronic_surveillance_radar/pipeline/InterceptDetectionExecutor.h"
+#include "electronic_surveillance_radar/pipeline/InterceptPostProcessingExecutor.h"
 #include "electronic_surveillance_radar/pipeline/KdTreeClusterer.h"
 #include "electronic_surveillance_radar/pipeline/ObservationPipelineTypes.h"
 #include "electronic_surveillance_radar/pipeline/ObservationPreprocessor.h"
@@ -20,28 +22,32 @@ namespace pipeline {
 
 /**
  * @brief InterceptPipeline 是电子侦察流水线默认实现。
+ *
+ * 流水线分为两个阶段：
+ *   1. 截获检测阶段（InterceptDetectionExecutor）——扫描图生成 + 逐辐射源截获判定
+ *   2. 后处理阶段（InterceptPostProcessingExecutor）——预处理 + 编码 + 聚类 + 摘要 + 关联 + 真值评估
  */
-class InterceptPipeline final : public IInterceptPipeline {
+class InterceptPipeline final : public extension::IInterceptPipeline {
  public:
   /**
    * @brief 构造默认流水线。
    * @param[in] config 流水线配置。
    * @param[in] runtime_config 会话运行态参数。
    */
-  explicit InterceptPipeline(InterceptPipelineConfig config = {},
-                             InterceptRuntimeConfig runtime_config = {});
+  explicit InterceptPipeline(extension::InterceptPipelineConfig config = {},
+                             extension::InterceptRuntimeConfig runtime_config = {});
 
   /**
    * @brief 更新流水线配置。
    * @param[in] config 新配置。
    */
-  void UpdateConfig(InterceptPipelineConfig config) override;
+  void UpdateConfig(extension::InterceptPipelineConfig config) override;
 
   /**
    * @brief 更新运行态配置。
    * @param[in] runtime_config 新运行态配置。
    */
-  void UpdateRuntimeConfig(InterceptRuntimeConfig runtime_config) override;
+  void UpdateRuntimeConfig(extension::InterceptRuntimeConfig runtime_config) override;
 
   /**
    * @brief 执行单周期流水线。
@@ -49,16 +55,19 @@ class InterceptPipeline final : public IInterceptPipeline {
    * @param[in] environment 环境服务。
    * @return 单周期输出。
    */
-  InterceptCycleResult RunCycle(const core::context::EsrCycleInput& input_state,
-                                const environment::IEsrEnvironmentService& environment) override;
+  extension::InterceptCycleResult RunCycle(
+      const session::EsrCycleInput& input_state,
+      const environment::IEsrEnvironmentService& environment) override;
 
  private:
-  InterceptPipelineConfig config_{};
-  InterceptRuntimeConfig runtime_config_{};
+  extension::InterceptPipelineConfig config_{};
+  extension::InterceptRuntimeConfig runtime_config_{};
   internal::ObservationFeatureScales feature_scales_{};
   internal::ObservationPreprocessor preprocessor_{};
   internal::KdTreeClusterer clusterer_{};
   internal::HypothesisAssociator associator_{};
+  internal::InterceptDetectionExecutor detection_executor_{};
+  internal::InterceptPostProcessingExecutor post_processing_executor_{};
   std::mt19937 rng_{};
   std::uint64_t next_observation_id_{1U};
   std::uint64_t next_hypothesis_id_{1U};

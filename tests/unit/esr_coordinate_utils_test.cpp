@@ -6,10 +6,10 @@
 #include <gtest/gtest.h>
 
 #include "1q/common/coordinate_transform.h"
-#include "1q/electronic_surveillance_radar/common/EsrCoordinateUtils.h"
+#include "1q/electronic_surveillance_radar/model/EsrCoordinateUtils.h"
 
 namespace electronic_surveillance_radar {
-namespace common {
+namespace model {
 namespace {
 
 TEST(EsrCoordinateUtilsTest, LlaAndEcefConversionAreConsistent) {
@@ -86,6 +86,6 @@ TEST(EsrCoordinateUtilsTest, InvalidInputReturnsFalse) {
 }
 
 }  // namespace
-}  // namespace common
+}  // namespace model
 }  // namespace electronic_surveillance_radar
 

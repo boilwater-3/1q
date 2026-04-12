@@ -6,7 +6,7 @@
 #ifndef ELECTRONIC_SURVEILLANCE_RADAR_SRC_PIPELINE_INTERCEPT_COMPONENT_FACTORY_H_
 #define ELECTRONIC_SURVEILLANCE_RADAR_SRC_PIPELINE_INTERCEPT_COMPONENT_FACTORY_H_
 
-#include "1q/electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
+#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
 #include "electronic_surveillance_radar/intercept/AngleErrorModel.h"
 #include "electronic_surveillance_radar/intercept/ScanPatternGenerator.h"
 
@@ -25,7 +25,7 @@ class InterceptComponentFactory final {
    * @return 扫描排布配置。
    */
   static intercept::ScanPatternConfig BuildScanPatternConfig(
-      const InterceptPipelineConfig& config) {
+      const extension::InterceptPipelineConfig& config) {
     intercept::ScanPatternConfig scan_config;
     scan_config.start_az_deg = config.scan.scan_start_az_deg;
     scan_config.end_az_deg = config.scan.scan_end_az_deg;
@@ -44,7 +44,7 @@ class InterceptComponentFactory final {
    * @return 测角误差模型配置。
    */
   static intercept::AngleErrorModelConfig BuildAngleErrorModelConfig(
-      const InterceptPipelineConfig& config) {
+      const extension::InterceptPipelineConfig& config) {
     intercept::AngleErrorModelConfig error_config;
     error_config.coefficient = config.algorithm.angle_error_coefficient;
     return error_config;

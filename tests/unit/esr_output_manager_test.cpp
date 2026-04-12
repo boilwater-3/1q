@@ -7,15 +7,14 @@
 
 #include <string>
 
-#include "electronic_surveillance_radar/core/output/EsrOutputManager.h"
+#include "electronic_surveillance_radar/output/EsrOutputManager.h"
 
 namespace electronic_surveillance_radar {
-namespace core {
 namespace output {
 namespace {
 
-common::EmitterObservation MakeObservation(std::uint64_t observation_id, float snr_db) {
-  common::EmitterObservation observation;
+model::EmitterObservation MakeObservation(std::uint64_t observation_id, float snr_db) {
+  model::EmitterObservation observation;
   observation.observation_id = observation_id;
   observation.timestamp_s = 12.0;
   observation.aoa_az_deg = 5.0f;
@@ -24,16 +23,16 @@ common::EmitterObservation MakeObservation(std::uint64_t observation_id, float s
   observation.pulse_width_s = 2.0e-6;
   observation.amplitude_db = 18.0f;
   observation.snr_db = snr_db;
-  observation.quality = common::ObservationQuality::kHigh;
+  observation.quality = model::ObservationQuality::kHigh;
   return observation;
 }
 
-common::EmitterHypothesis MakeHypothesis(std::uint64_t hypothesis_id, float confidence) {
-  common::EmitterHypothesis hypothesis;
+model::EmitterHypothesis MakeHypothesis(std::uint64_t hypothesis_id, float confidence) {
+  model::EmitterHypothesis hypothesis;
   hypothesis.hypothesis_id = hypothesis_id;
   hypothesis.candidate_classes.push_back("SAM");
-  hypothesis.mode = common::EmitterMode::kTracking;
-  hypothesis.threat_level = common::ThreatLevel::kHigh;
+  hypothesis.mode = model::EmitterMode::kTracking;
+  hypothesis.threat_level = model::ThreatLevel::kHigh;
   hypothesis.bearing_az_deg = 11.0f;
   hypothesis.bearing_el_deg = 2.5f;
   hypothesis.bearing_std_deg = 0.8f;
@@ -42,9 +41,9 @@ common::EmitterHypothesis MakeHypothesis(std::uint64_t hypothesis_id, float conf
   return hypothesis;
 }
 
-common::TruthAssociationRecord MakeAssociation(std::uint64_t observation_id,
+output::TruthAssociationRecord MakeAssociation(std::uint64_t observation_id,
                                                const std::string& truth_emitter_id, bool matched) {
-  common::TruthAssociationRecord association;
+  output::TruthAssociationRecord association;
   association.observation_id = observation_id;
   association.truth_emitter_id = truth_emitter_id;
   association.matched = matched;
@@ -55,7 +54,7 @@ common::TruthAssociationRecord MakeAssociation(std::uint64_t observation_id,
 TEST(EsrOutputManagerTest, BuildEmptyFrameSetsHeaderForThreeChannelsAndZeroCounts) {
   EsrOutputManager manager;
 
-  const common::EsrOutputFrame frame = manager.BuildEmptyFrame(7U, 103U);
+  const output::EsrOutputFrame frame = manager.BuildEmptyFrame(7U, 103U);
 
   EXPECT_EQ(frame.observation_output.cycle_index, 7U);
   EXPECT_EQ(frame.observation_output.batch_id, 103U);
@@ -72,14 +71,14 @@ TEST(EsrOutputManagerTest, BuildEmptyFrameSetsHeaderForThreeChannelsAndZeroCount
 
 TEST(EsrOutputManagerTest, BuildOutputFrameMovesCycleResultsAndCountsMatchedAssociations) {
   EsrOutputManager manager;
-  pipeline::InterceptCycleResult cycle_result;
+  extension::InterceptCycleResult cycle_result;
   cycle_result.observations.push_back(MakeObservation(1001U, 18.5f));
   cycle_result.observations.push_back(MakeObservation(1002U, 7.5f));
   cycle_result.emitter_hypotheses.push_back(MakeHypothesis(3001U, 0.82f));
   cycle_result.truth_associations.push_back(MakeAssociation(1001U, "truth-a", true));
   cycle_result.truth_associations.push_back(MakeAssociation(1002U, "UNASSOCIATED", false));
 
-  const common::EsrOutputFrame frame = manager.BuildOutputFrame(8U, 104U, cycle_result);
+  const output::EsrOutputFrame frame = manager.BuildOutputFrame(8U, 104U, cycle_result);
 
   ASSERT_EQ(frame.observation_output.observations.size(), 2U);
   EXPECT_EQ(frame.observation_output.observations[0].observation_id, 1001U);
@@ -95,5 +94,5 @@ TEST(EsrOutputManagerTest, BuildOutputFrameMovesCycleResultsAndCountsMatchedAsso
 
 }  // namespace
 }  // namespace output
-}  // namespace core
+
 }  // namespace electronic_surveillance_radar

@@ -13,21 +13,21 @@
 #include <vector>
 
 #include "1q/common/coordinate_transform.h"
-#include "1q/electronic_surveillance_radar/common/EmitterTruthState.h"
-#include "1q/electronic_surveillance_radar/common/EsrCoordinateUtils.h"
-#include "1q/electronic_surveillance_radar/common/EsrOutputFrame.h"
+#include "1q/electronic_surveillance_radar/model/EmitterTruthState.h"
+#include "1q/electronic_surveillance_radar/model/EsrCoordinateUtils.h"
+#include "1q/electronic_surveillance_radar/output/EsrOutputFrame.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
-#include "1q/electronic_surveillance_radar/core/context/EsrInputValidation.h"
-#include "1q/electronic_surveillance_radar/core/session/EsrSession.h"
+#include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
+#include "1q/electronic_surveillance_radar/session/EsrSession.h"
 
 namespace electronic_surveillance_radar {
 namespace tests {
 
 namespace {
 
-bool ContainsEsrIssueCode(const std::vector<core::context::EsrValidationIssue>& issues,
-                          core::context::EsrValidationCode code) {
+bool ContainsEsrIssueCode(const std::vector<session::EsrValidationIssue>& issues,
+                          session::EsrValidationCode code) {
   for (std::size_t i = 0; i < issues.size(); ++i) {
     if (issues[i].code == code) {
       return true;
@@ -36,10 +36,10 @@ bool ContainsEsrIssueCode(const std::vector<core::context::EsrValidationIssue>& 
   return false;
 }
 
-common::EmitterTruthState MakeEmitter(const std::string& id, float pos_x, double carrier_hz,
+model::EmitterTruthState MakeEmitter(const std::string& id, float pos_x, double carrier_hz,
                                       double bandwidth_hz, double tx_power_w, double pulse_width_s,
                                       double pri_s) {
-  common::EmitterTruthState emitter;
+  model::EmitterTruthState emitter;
   emitter.emitter_id = id;
   emitter.pose.position_m.x = pos_x;
   emitter.carrier_hz = carrier_hz;
@@ -53,8 +53,8 @@ common::EmitterTruthState MakeEmitter(const std::string& id, float pos_x, double
 }  // namespace
 
 TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderDefaultsMatchEsrSessionConfig) {
-  const core::session::EsrSessionConfig built = config::EsrSessionConfigBuilder().Build();
-  const core::session::EsrSessionConfig default_config;
+  const session::EsrSessionConfig built = config::EsrSessionConfigBuilder().Build();
+  const session::EsrSessionConfig default_config;
 
   EXPECT_EQ(built.enable_layered_config, default_config.enable_layered_config);
   EXPECT_NEAR(built.pipeline_config.detection.min_detect_snr_db,
@@ -62,9 +62,9 @@ TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderDefaultsMatchEsrSessionCon
 }
 
 TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderOverridesLayeredAndPipelineFields) {
-  const core::session::EsrSessionConfig config = config::EsrSessionConfigBuilder()
+  const session::EsrSessionConfig config = config::EsrSessionConfigBuilder()
                                                      .EnableLayeredConfig(true)
-                                                     .WithWorkMode(core::session::EsrWorkMode::kRwr)
+                                                     .WithWorkMode(session::EsrWorkMode::kRwr)
                                                      .WithScanRateHz(2.0f)
                                                      .EnableSpectralAnalysis(false)
                                                      .WithDetectionMinSnrDb(8.0f)
@@ -72,7 +72,7 @@ TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderOverridesLayeredAndPipelin
                                                      .Build();
 
   EXPECT_TRUE(config.enable_layered_config);
-  EXPECT_EQ(config.layered_config.mission.work_mode, core::session::EsrWorkMode::kRwr);
+  EXPECT_EQ(config.layered_config.mission.work_mode, session::EsrWorkMode::kRwr);
   EXPECT_NEAR(config.layered_config.mission.scan_rate_hz, 2.0f, 1e-5f);
   EXPECT_FALSE(config.pipeline_config.spectral_analysis.enable);
   EXPECT_NEAR(config.pipeline_config.detection.min_detect_snr_db, 8.0f, 1e-5f);
@@ -81,11 +81,11 @@ TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderOverridesLayeredAndPipelin
 }
 
 TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderPreservesPreconfiguredSessionConfig) {
-  core::session::EsrSessionConfig base;
+  session::EsrSessionConfig base;
   base.enable_layered_config = true;
   base.layered_config.hardware.receiver_band_lower_hz = 1.0e9;
 
-  const core::session::EsrSessionConfig config =
+  const session::EsrSessionConfig config =
       config::EsrSessionConfigBuilder(base).WithScanRateHz(5.0f).Build();
 
   EXPECT_TRUE(config.enable_layered_config);
@@ -94,7 +94,7 @@ TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderPreservesPreconfiguredSess
 }
 
 TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderDefaultsAreUnset) {
-  const core::session::EsrRuntimeConfigPatch patch = config::EsrRuntimeConfigBuilder().Build();
+  const session::EsrRuntimeConfigPatch patch = config::EsrRuntimeConfigBuilder().Build();
 
   EXPECT_FALSE(patch.has_sensor_enabled);
   EXPECT_FALSE(patch.has_scan_rate_hz);
@@ -109,7 +109,7 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderDefaultsAreUnset) {
 }
 
 TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSetsAllFields) {
-  const core::session::EsrRuntimeConfigPatch patch = config::EsrRuntimeConfigBuilder()
+  const session::EsrRuntimeConfigPatch patch = config::EsrRuntimeConfigBuilder()
                                                          .WithSensorEnabled(false)
                                                          .WithScanRateHz(3.0f)
                                                          .WithIntegratedReceiveLossDb(2.5f)
@@ -143,7 +143,7 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSetsAllFields) {
 }
 
 TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderDisableFixedReceiverWindow) {
-  const core::session::EsrRuntimeConfigPatch patch =
+  const session::EsrRuntimeConfigPatch patch =
       config::EsrRuntimeConfigBuilder().DisableFixedReceiverWindow().Build();
 
   EXPECT_TRUE(patch.has_use_fixed_receiver_window);
@@ -151,11 +151,11 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderDisableFixedReceiverWindow
 }
 
 TEST(EsrPublicApiConvenienceTest, InputValidationReportsErrorsForCommonBoundaryCases) {
-  core::context::EsrCycleInput input;
+  session::EsrCycleInput input;
   input.dt_sec = 0.0f;
   input.platform_pose.position_m.x = std::numeric_limits<float>::infinity();
 
-  common::EmitterTruthState invalid_emitter;
+  model::EmitterTruthState invalid_emitter;
   invalid_emitter.emitter_id = "";
   invalid_emitter.carrier_hz = -1.0;
   invalid_emitter.bandwidth_hz = -1.0;
@@ -164,7 +164,7 @@ TEST(EsrPublicApiConvenienceTest, InputValidationReportsErrorsForCommonBoundaryC
   invalid_emitter.pri_s = -1.0;
   input.scene_emitters.push_back(invalid_emitter);
 
-  common::EmitterTruthState pri_less_emitter;
+  model::EmitterTruthState pri_less_emitter;
   pri_less_emitter.emitter_id = "pri-test";
   pri_less_emitter.carrier_hz = 10.0e9;
   pri_less_emitter.bandwidth_hz = 1.0e6;
@@ -173,52 +173,52 @@ TEST(EsrPublicApiConvenienceTest, InputValidationReportsErrorsForCommonBoundaryC
   pri_less_emitter.pri_s = 0.5e-6;
   input.scene_emitters.push_back(pri_less_emitter);
 
-  const core::context::EsrValidationIssueList issues = core::context::ValidateEsrCycleInput(input);
+  const session::EsrValidationIssueList issues = session::ValidateEsrCycleInput(input);
 
   EXPECT_TRUE(
-      ContainsEsrIssueCode(issues, core::context::EsrValidationCode::kInvalidCycleDeltaTime));
+      ContainsEsrIssueCode(issues, session::EsrValidationCode::kInvalidCycleDeltaTime));
   EXPECT_TRUE(ContainsEsrIssueCode(
-      issues, core::context::EsrValidationCode::kNonFinitePlatformNumericField));
-  EXPECT_TRUE(ContainsEsrIssueCode(issues, core::context::EsrValidationCode::kEmptyEmitterId));
+      issues, session::EsrValidationCode::kNonFinitePlatformNumericField));
+  EXPECT_TRUE(ContainsEsrIssueCode(issues, session::EsrValidationCode::kEmptyEmitterId));
   EXPECT_TRUE(
-      ContainsEsrIssueCode(issues, core::context::EsrValidationCode::kInvalidEmitterFrequency));
-  EXPECT_TRUE(ContainsEsrIssueCode(issues, core::context::EsrValidationCode::kInvalidEmitterPower));
+      ContainsEsrIssueCode(issues, session::EsrValidationCode::kInvalidEmitterFrequency));
+  EXPECT_TRUE(ContainsEsrIssueCode(issues, session::EsrValidationCode::kInvalidEmitterPower));
   EXPECT_TRUE(ContainsEsrIssueCode(
-      issues, core::context::EsrValidationCode::kEmitterPriLessThanPulseWidth));
-  EXPECT_TRUE(core::context::HasEsrValidationError(issues));
+      issues, session::EsrValidationCode::kEmitterPriLessThanPulseWidth));
+  EXPECT_TRUE(session::HasEsrValidationError(issues));
 }
 
 TEST(EsrPublicApiConvenienceTest, InputValidationFlagsNonFiniteDtAndEmitterFields) {
-  core::context::EsrCycleInput input;
+  session::EsrCycleInput input;
   input.dt_sec = std::numeric_limits<float>::quiet_NaN();
 
-  common::EmitterTruthState emitter;
+  model::EmitterTruthState emitter;
   emitter.emitter_id = "finite-test";
   emitter.carrier_hz = std::numeric_limits<double>::infinity();
   input.scene_emitters.push_back(emitter);
 
-  const core::context::EsrValidationIssueList issues = core::context::ValidateEsrCycleInput(input);
+  const session::EsrValidationIssueList issues = session::ValidateEsrCycleInput(input);
 
   EXPECT_TRUE(
-      ContainsEsrIssueCode(issues, core::context::EsrValidationCode::kNonFiniteCycleDeltaTime));
+      ContainsEsrIssueCode(issues, session::EsrValidationCode::kNonFiniteCycleDeltaTime));
   EXPECT_TRUE(ContainsEsrIssueCode(
-      issues, core::context::EsrValidationCode::kNonFiniteEmitterNumericField));
-  EXPECT_TRUE(core::context::HasEsrValidationError(issues));
+      issues, session::EsrValidationCode::kNonFiniteEmitterNumericField));
+  EXPECT_TRUE(session::HasEsrValidationError(issues));
 }
 
 TEST(EsrPublicApiConvenienceTest, InputValidationPassesForValidInput) {
-  core::context::EsrCycleInput input;
+  session::EsrCycleInput input;
   input.dt_sec = 1.0f;
   input.scene_emitters.push_back(
       MakeEmitter("valid-1", 1200.0f, 10.0e9, 2.0e6, 5.0e7, 1.0e-6, 1.0e-4));
 
-  const core::context::EsrValidationIssueList issues = core::context::ValidateEsrCycleInput(input);
+  const session::EsrValidationIssueList issues = session::ValidateEsrCycleInput(input);
 
-  EXPECT_FALSE(core::context::HasEsrValidationError(issues));
+  EXPECT_FALSE(session::HasEsrValidationError(issues));
 }
 
 TEST(EsrPublicApiConvenienceTest, CoordinateUtilsConvertsLlaAndEcefToEsrLocal) {
-  common::EsrCoordinateReference reference;
+  model::EsrCoordinateReference reference;
   reference.origin_lla.latitude_deg = 0.0;
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;
@@ -231,23 +231,23 @@ TEST(EsrPublicApiConvenienceTest, CoordinateUtilsConvertsLlaAndEcefToEsrLocal) {
   target_lla.longitude_deg = 0.001;
   target_lla.altitude_m = 0.0;
 
-  common::EsrVector3f local_from_lla;
-  ASSERT_TRUE(common::TryConvertLlaToEsrLocal(target_lla, reference, &local_from_lla));
+  model::EsrVector3f local_from_lla;
+  ASSERT_TRUE(model::TryConvertLlaToEsrLocal(target_lla, reference, &local_from_lla));
   EXPECT_GT(local_from_lla.x, 100.0f);
   EXPECT_NEAR(local_from_lla.y, 0.0f, 1.0e-2f);
   EXPECT_NEAR(local_from_lla.z, 0.0f, 1.0e-2f);
 
   oneq::common::EcefCoordinateM target_ecef;
   ASSERT_TRUE(oneq::common::TryLlaToEcef(target_lla, &target_ecef));
-  common::EsrVector3f local_from_ecef;
-  ASSERT_TRUE(common::TryConvertEcefToEsrLocal(target_ecef, reference, &local_from_ecef));
+  model::EsrVector3f local_from_ecef;
+  ASSERT_TRUE(model::TryConvertEcefToEsrLocal(target_ecef, reference, &local_from_ecef));
   EXPECT_NEAR(local_from_ecef.x, local_from_lla.x, 1.0e-3f);
   EXPECT_NEAR(local_from_ecef.y, local_from_lla.y, 1.0e-3f);
   EXPECT_NEAR(local_from_ecef.z, local_from_lla.z, 1.0e-3f);
 }
 
 TEST(EsrPublicApiConvenienceTest, CoordinateUtilsBuildsPoseFromEcefAndLla) {
-  common::EsrCoordinateReference reference;
+  model::EsrCoordinateReference reference;
   reference.origin_lla.latitude_deg = 0.0;
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;
@@ -257,32 +257,32 @@ TEST(EsrPublicApiConvenienceTest, CoordinateUtilsBuildsPoseFromEcefAndLla) {
   target_lla.longitude_deg = 0.001;
   target_lla.altitude_m = 100.0;
 
-  common::EsrVector3f velocity;
+  model::EsrVector3f velocity;
   velocity.x = 10.0f;
   velocity.y = 0.0f;
   velocity.z = 0.0f;
-  common::EsrEulerAngleDeg attitude;
+  model::EsrEulerAngleDeg attitude;
   attitude.yaw_deg = 5.0f;
   attitude.pitch_deg = -1.0f;
   attitude.roll_deg = 0.0f;
 
-  common::EsrPoseState pose_from_lla;
+  model::EsrPoseState pose_from_lla;
   ASSERT_TRUE(
-      common::TryMakeEsrPoseFromLla(target_lla, reference, velocity, attitude, &pose_from_lla));
+      model::TryMakeEsrPoseFromLla(target_lla, reference, velocity, attitude, &pose_from_lla));
   EXPECT_GT(pose_from_lla.position_m.x, 100.0f);
   EXPECT_NEAR(pose_from_lla.velocity_mps.x, 10.0f, 1e-5f);
   EXPECT_NEAR(pose_from_lla.attitude_deg.yaw_deg, 5.0f, 1e-5f);
 
   oneq::common::EcefCoordinateM target_ecef;
   ASSERT_TRUE(oneq::common::TryLlaToEcef(target_lla, &target_ecef));
-  common::EsrPoseState pose_from_ecef;
+  model::EsrPoseState pose_from_ecef;
   ASSERT_TRUE(
-      common::TryMakeEsrPoseFromEcef(target_ecef, reference, velocity, attitude, &pose_from_ecef));
+      model::TryMakeEsrPoseFromEcef(target_ecef, reference, velocity, attitude, &pose_from_ecef));
   EXPECT_NEAR(pose_from_ecef.position_m.x, pose_from_lla.position_m.x, 1.0e-3f);
 }
 
 TEST(EsrPublicApiConvenienceTest, EsrSessionStepProducesThreeChannelOutput) {
-  core::session::EsrSessionConfig config;
+  session::EsrSessionConfig config;
   config.pipeline_config.scan.scan_start_az_deg = -60.0f;
   config.pipeline_config.scan.scan_end_az_deg = 60.0f;
   config.pipeline_config.scan.scan_start_el_deg = -20.0f;
@@ -290,15 +290,15 @@ TEST(EsrPublicApiConvenienceTest, EsrSessionStepProducesThreeChannelOutput) {
   config.pipeline_config.scan.az_step_deg = 120.0f;
   config.pipeline_config.scan.el_step_deg = 40.0f;
 
-  core::session::EsrSession session(config);
+  session::EsrSession session(config);
 
-  core::context::EsrCycleInput input;
+  session::EsrCycleInput input;
   input.cycle_index = 0U;
   input.dt_sec = 1.0f;
   input.scene_emitters.push_back(
       MakeEmitter("emitter-1", 1200.0f, 10.0e9, 2.0e6, 5.0e7, 1.0e-6, 1.0e-4));
 
-  const common::EsrOutputFrame frame = session.Step(input);
+  const output::EsrOutputFrame frame = session.Step(input);
 
   EXPECT_EQ(frame.observation_output.cycle_index, 0U);
   EXPECT_EQ(frame.emitter_output.cycle_index, 0U);
@@ -306,21 +306,21 @@ TEST(EsrPublicApiConvenienceTest, EsrSessionStepProducesThreeChannelOutput) {
 }
 
 TEST(EsrPublicApiConvenienceTest, EsrSessionStepWithResultAggregatesOutputAndValidation) {
-  core::session::EsrSessionConfig config;
+  session::EsrSessionConfig config;
   config.pipeline_config.scan.scan_start_az_deg = -60.0f;
   config.pipeline_config.scan.scan_end_az_deg = 60.0f;
   config.pipeline_config.scan.az_step_deg = 120.0f;
   config.pipeline_config.scan.el_step_deg = 40.0f;
 
-  core::session::EsrSession session(config);
+  session::EsrSession session(config);
 
-  core::context::EsrCycleInput input;
+  session::EsrCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
   input.scene_emitters.push_back(
       MakeEmitter("emitter-2", 5000.0f, 8.0e9, 5.0e6, 1.0e8, 2.0e-6, 5.0e-4));
 
-  const core::session::EsrCycleResult result = session.StepWithResult(input);
+  const session::EsrCycleResult result = session.StepWithResult(input);
 
   EXPECT_FALSE(result.has_validation_error);
   EXPECT_TRUE(result.validation_issues.empty());
@@ -328,58 +328,58 @@ TEST(EsrPublicApiConvenienceTest, EsrSessionStepWithResultAggregatesOutputAndVal
 }
 
 TEST(EsrPublicApiConvenienceTest, EsrSessionStepWithResultSurfacesValidationErrors) {
-  core::session::EsrSessionConfig session_config;
-  core::session::EsrSession session(session_config);
+  session::EsrSessionConfig session_config;
+  session::EsrSession session(session_config);
 
-  core::context::EsrCycleInput input;
+  session::EsrCycleInput input;
   input.dt_sec = std::numeric_limits<float>::quiet_NaN();
-  common::EmitterTruthState invalid_emitter;
+  model::EmitterTruthState invalid_emitter;
   invalid_emitter.emitter_id = "";
   input.scene_emitters.push_back(invalid_emitter);
 
-  const core::session::EsrCycleResult result = session.StepWithResult(input);
+  const session::EsrCycleResult result = session.StepWithResult(input);
 
   EXPECT_TRUE(result.has_validation_error);
   EXPECT_TRUE(ContainsEsrIssueCode(result.validation_issues,
-                                   core::context::EsrValidationCode::kNonFiniteCycleDeltaTime));
+                                   session::EsrValidationCode::kNonFiniteCycleDeltaTime));
   EXPECT_TRUE(ContainsEsrIssueCode(result.validation_issues,
-                                   core::context::EsrValidationCode::kEmptyEmitterId));
+                                   session::EsrValidationCode::kEmptyEmitterId));
 }
 
 TEST(EsrPublicApiConvenienceTest, EsrSessionAppliesRuntimeConfigPatch) {
-  core::session::EsrSessionConfig session_config;
-  core::session::EsrSession session(session_config);
+  session::EsrSessionConfig session_config;
+  session::EsrSession session(session_config);
 
-  const core::session::EsrRuntimeConfigPatch patch =
+  const session::EsrRuntimeConfigPatch patch =
       config::EsrRuntimeConfigBuilder().WithScanRateHz(10.0f).WithDetectionMinSnrDb(12.0f).Build();
   session.ApplyRuntimeConfig(patch);
 
-  core::context::EsrCycleInput input;
+  session::EsrCycleInput input;
   input.dt_sec = 1.0f;
   input.scene_emitters.push_back(
       MakeEmitter("rt-emitter", 3000.0f, 9.0e9, 1.0e6, 1.0e7, 1.0e-6, 1.0e-4));
 
-  const core::session::EsrCycleResult result = session.StepWithResult(input);
+  const session::EsrCycleResult result = session.StepWithResult(input);
   EXPECT_EQ(result.output_frame.observation_output.cycle_index, 0U);
 }
 
 TEST(EsrPublicApiConvenienceTest, EsrSessionMultiCycleProducesProgressiveCycleIndices) {
-  core::session::EsrSessionConfig config;
+  session::EsrSessionConfig config;
   config.pipeline_config.scan.scan_start_az_deg = -60.0f;
   config.pipeline_config.scan.scan_end_az_deg = 60.0f;
   config.pipeline_config.scan.az_step_deg = 120.0f;
   config.pipeline_config.scan.el_step_deg = 40.0f;
 
-  core::session::EsrSession session(config);
+  session::EsrSession session(config);
 
   for (std::uint32_t i = 0U; i < 3U; ++i) {
-    core::context::EsrCycleInput input;
+    session::EsrCycleInput input;
     input.cycle_index = i;
     input.dt_sec = 1.0f;
     input.scene_emitters.push_back(
         MakeEmitter("multi-emitter", 2000.0f, 10.0e9, 2.0e6, 5.0e7, 1.0e-6, 1.0e-4));
 
-    const common::EsrOutputFrame frame = session.Step(input);
+    const output::EsrOutputFrame frame = session.Step(input);
     EXPECT_EQ(frame.observation_output.cycle_index, i);
   }
 }

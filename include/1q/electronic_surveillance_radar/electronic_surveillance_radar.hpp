@@ -6,15 +6,16 @@
 #ifndef ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_ELECTRONIC_SURVEILLANCE_RADAR_HPP_
 #define ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_ELECTRONIC_SURVEILLANCE_RADAR_HPP_
 
-#include "1q/electronic_surveillance_radar/common/EsrOutputFrame.h"
+#include "1q/electronic_surveillance_radar/output/EsrOutputFrame.h"
 #include "1q/electronic_surveillance_radar/config/electronic_surveillance_radar_config.hpp"
-#include "1q/electronic_surveillance_radar/core/context/EsrCycleInput.h"
-#include "1q/electronic_surveillance_radar/core/context/EsrInputValidation.h"
-#include "1q/electronic_surveillance_radar/core/controller/EsrController.h"
-#include "1q/electronic_surveillance_radar/core/session/EsrCycleResult.h"
-#include "1q/electronic_surveillance_radar/core/session/EsrSession.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
+#include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
+#include "1q/electronic_surveillance_radar/extension/EsrController.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
+#include "1q/electronic_surveillance_radar/session/EsrSession.h"
+#include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
 #include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
-#include "1q/electronic_surveillance_radar/pipeline/IInterceptPipeline.h"
+#include "1q/electronic_surveillance_radar/extension/IInterceptPipeline.h"
 
 #endif  // ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_ELECTRONIC_SURVEILLANCE_RADAR_HPP_

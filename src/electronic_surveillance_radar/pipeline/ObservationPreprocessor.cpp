@@ -30,7 +30,7 @@ bool LessOrNearEqual(float lhs, float rhs, float epsilon) {
  * @param[in] observation 输入观测。
  * @return 合法时返回 `true`。
  */
-bool IsValidObservation(const common::EmitterObservation& observation) {
+bool IsValidObservation(const model::EmitterObservation& observation) {
   if (!std::isfinite(observation.timestamp_s) || !std::isfinite(observation.aoa_az_deg) ||
       !std::isfinite(observation.aoa_el_deg) || !std::isfinite(observation.rf_hz) ||
       !std::isfinite(observation.pulse_width_s) || !std::isfinite(observation.amplitude_db) ||
@@ -45,14 +45,14 @@ bool IsValidObservation(const common::EmitterObservation& observation) {
  * @param[in] snr_db 观测信噪比（单位：dB）。
  * @return 重标定后的质量等级。
  */
-common::ObservationQuality NormalizeQuality(float snr_db) {
+model::ObservationQuality NormalizeQuality(float snr_db) {
   if (snr_db >= 18.0f) {
-    return common::ObservationQuality::kHigh;
+    return model::ObservationQuality::kHigh;
   }
   if (snr_db >= 10.0f) {
-    return common::ObservationQuality::kMedium;
+    return model::ObservationQuality::kMedium;
   }
-  return common::ObservationQuality::kLow;
+  return model::ObservationQuality::kLow;
 }
 
 /**
@@ -62,9 +62,9 @@ common::ObservationQuality NormalizeQuality(float snr_db) {
  * @param[in] config 预处理配置。
  * @return 满足去重条件时返回 `true`。
  */
-bool IsDuplicateObservation(const common::EmitterObservation& lhs,
-                            const common::EmitterObservation& rhs,
-                            const InterceptPreprocessConfig& config) {
+bool IsDuplicateObservation(const model::EmitterObservation& lhs,
+                            const model::EmitterObservation& rhs,
+                            const extension::InterceptPreprocessConfig& config) {
   const double dedup_time_window_sec = static_cast<double>(config.dedup_time_window_sec);
   const float az_diff = std::fabs(
       oneq::internal::geometry::ComputeAzimuthDifferenceDeg(lhs.aoa_az_deg, rhs.aoa_az_deg));
@@ -109,7 +109,7 @@ bool CompareRecordByTime(const RawObservationRecord& lhs, const RawObservationRe
 
 std::vector<RawObservationRecord> ObservationPreprocessor::Run(
     const std::vector<RawObservationRecord>& records,
-    const InterceptPreprocessConfig& config) const {
+    const extension::InterceptPreprocessConfig& config) const {
   std::vector<RawObservationRecord> sorted_records = records;
   std::sort(sorted_records.begin(), sorted_records.end(), CompareRecordByTime);
 

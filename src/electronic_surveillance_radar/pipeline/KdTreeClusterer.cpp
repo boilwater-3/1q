@@ -78,7 +78,7 @@ std::vector<std::size_t> RadiusSearch(const IndexType& index,
 }  // namespace
 
 KdTreeClusterResult KdTreeClusterer::Cluster(const std::vector<ObservationFeatureVector>& features,
-                                             const InterceptClusterConfig& config) const {
+                                             const extension::InterceptClusterConfig& config) const {
   KdTreeClusterResult result;
   if (features.empty()) {
     return result;
