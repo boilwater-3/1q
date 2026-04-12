@@ -83,20 +83,37 @@ set(AIRBORNE_CORE_SOURCES
     airborne_radar/environment/PropagationModel.cpp
 )
 
-set(ESR_SOURCES
-    electronic_surveillance_radar/core/context/EsrCoordinateUtils.cpp
-    electronic_surveillance_radar/core/context/EsrInputValidation.cpp
-    electronic_surveillance_radar/core/controller/EsrController.cpp
-    electronic_surveillance_radar/core/output/EsrOutputManager.cpp
-    electronic_surveillance_radar/core/session/EsrSessionConfigResolver.cpp
-    electronic_surveillance_radar/core/session/EsrRuntimeConfigResolver.cpp
-    electronic_surveillance_radar/core/session/EsrSession.cpp
-    electronic_surveillance_radar/core/session/EsrTraceSession.cpp
+set(ESR_MODEL_SOURCES
+    electronic_surveillance_radar/model/EsrCoordinateUtils.cpp
+)
+
+set(ESR_ENVIRONMENT_SOURCES
     electronic_surveillance_radar/environment/EsrEnvironmentService.cpp
+)
+
+set(ESR_PIPELINE_SOURCES
+    electronic_surveillance_radar/pipeline/MutableEsrContext.cpp
     electronic_surveillance_radar/pipeline/HypothesisAssociator.cpp
+    electronic_surveillance_radar/pipeline/InterceptDetectionExecutor.cpp
+    electronic_surveillance_radar/pipeline/InterceptPostProcessingExecutor.cpp
     electronic_surveillance_radar/pipeline/InterceptPipeline.cpp
     electronic_surveillance_radar/pipeline/KdTreeClusterer.cpp
     electronic_surveillance_radar/pipeline/ObservationPreprocessor.cpp
+)
+
+set(ESR_RUNTIME_SOURCES
+    electronic_surveillance_radar/runtime/EsrController.cpp
+    electronic_surveillance_radar/runtime/EsrCycleTelemetryLogger.cpp
+    electronic_surveillance_radar/output/EsrOutputManager.cpp
+)
+
+set(ESR_SESSION_SOURCES
+    electronic_surveillance_radar/session/EsrInputValidation.cpp
+    electronic_surveillance_radar/session/EsrSessionCompositionRoot.cpp
+    electronic_surveillance_radar/session/EsrSessionConfigResolver.cpp
+    electronic_surveillance_radar/session/EsrRuntimeConfigResolver.cpp
+    electronic_surveillance_radar/session/EsrSession.cpp
+    electronic_surveillance_radar/session/EsrTraceSession.cpp
 )
 
 set(EOS_SOURCES
@@ -124,15 +141,36 @@ add_library(airborne_common OBJECT ${AIRBORNE_COMMON_SOURCES})
 add_library(airborne_signal OBJECT ${AIRBORNE_SIGNAL_SOURCES})
 add_library(airborne_decision OBJECT ${AIRBORNE_DECISION_SOURCES})
 add_library(airborne_core OBJECT ${AIRBORNE_CORE_SOURCES})
+add_library(esr_model OBJECT ${ESR_MODEL_SOURCES})
+add_library(esr_environment OBJECT ${ESR_ENVIRONMENT_SOURCES})
+add_library(esr_pipeline OBJECT ${ESR_PIPELINE_SOURCES})
+add_library(esr_runtime OBJECT ${ESR_RUNTIME_SOURCES})
+add_library(esr_session OBJECT ${ESR_SESSION_SOURCES})
+
+set(ONEQ_OBJECT_TARGETS
+    airborne_common
+    airborne_signal
+    airborne_decision
+    airborne_core
+    esr_model
+    esr_environment
+    esr_pipeline
+    esr_runtime
+    esr_session
+)
 
 set(PROJECT_SOURCES
     ${ONEQ_COMMON_SOURCES}
-    ${ESR_SOURCES}
     ${EOS_SOURCES}
     $<TARGET_OBJECTS:airborne_common>
     $<TARGET_OBJECTS:airborne_signal>
     $<TARGET_OBJECTS:airborne_decision>
     $<TARGET_OBJECTS:airborne_core>
+    $<TARGET_OBJECTS:esr_model>
+    $<TARGET_OBJECTS:esr_environment>
+    $<TARGET_OBJECTS:esr_pipeline>
+    $<TARGET_OBJECTS:esr_runtime>
+    $<TARGET_OBJECTS:esr_session>
 )
 
 # 创建库目标及其别名（名称由顶层变量驱动）
@@ -160,15 +198,15 @@ target_include_directories(${PROJECT_CORE_TARGET}
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
 )
-foreach(AIRBORNE_SUBTARGET IN ITEMS airborne_common airborne_signal airborne_decision airborne_core)
-    target_include_directories(${AIRBORNE_SUBTARGET}
+foreach(ONEQ_OBJECT_TARGET IN LISTS ONEQ_OBJECT_TARGETS)
+    target_include_directories(${ONEQ_OBJECT_TARGET}
         PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}
             ${PROJECT_GENERATED_INCLUDE_DIR}
             ${CMAKE_SOURCE_DIR}/include
     )
 endforeach()
-unset(AIRBORNE_SUBTARGET)
+unset(ONEQ_OBJECT_TARGET)
 
 # 第三方依赖由包管理器模块处理
 # 如需添加依赖，请编辑对应的包管理器配置文件：
@@ -198,10 +236,7 @@ set(ONEQ_LINK_DEPENDENCIES
 )
 foreach(ONEQ_BUILD_TARGET IN ITEMS
     ${PROJECT_CORE_TARGET}
-    airborne_common
-    airborne_signal
-    airborne_decision
-    airborne_core
+    ${ONEQ_OBJECT_TARGETS}
 )
     target_link_libraries(${ONEQ_BUILD_TARGET} PRIVATE ${ONEQ_LINK_DEPENDENCIES})
 endforeach()
@@ -220,10 +255,7 @@ foreach(_oneq_conan_include_var IN ITEMS
     if(DEFINED ${_oneq_conan_include_var})
         foreach(ONEQ_BUILD_TARGET IN ITEMS
             ${PROJECT_CORE_TARGET}
-            airborne_common
-            airborne_signal
-            airborne_decision
-            airborne_core
+            ${ONEQ_OBJECT_TARGETS}
         )
             target_include_directories(${ONEQ_BUILD_TARGET} PRIVATE ${${_oneq_conan_include_var}})
         endforeach()
@@ -242,10 +274,7 @@ if(PROJECT_ENABLE_SPDLOG)
     endif()
     foreach(ONEQ_BUILD_TARGET IN ITEMS
         ${PROJECT_CORE_TARGET}
-        airborne_common
-        airborne_signal
-        airborne_decision
-        airborne_core
+        ${ONEQ_OBJECT_TARGETS}
     )
         target_link_libraries(${ONEQ_BUILD_TARGET} PRIVATE ${PROJECT_SPDLOG_TARGET})
     endforeach()
@@ -254,10 +283,7 @@ endif()
 
 foreach(ONEQ_BUILD_TARGET IN ITEMS
     ${PROJECT_CORE_TARGET}
-    airborne_common
-    airborne_signal
-    airborne_decision
-    airborne_core
+    ${ONEQ_OBJECT_TARGETS}
 )
     target_compile_definitions(${ONEQ_BUILD_TARGET}
         PRIVATE PROJECT_LOG_BACKEND_SPDLOG=$<BOOL:${PROJECT_ENABLE_SPDLOG}>
@@ -270,10 +296,7 @@ set(ONEQ_MSVC_RUNTIME_LIBRARY "" CACHE STRING
 if(MSVC AND NOT ONEQ_MSVC_RUNTIME_LIBRARY STREQUAL "")
     foreach(ONEQ_BUILD_TARGET IN ITEMS
         ${PROJECT_CORE_TARGET}
-        airborne_common
-        airborne_signal
-        airborne_decision
-        airborne_core
+        ${ONEQ_OBJECT_TARGETS}
     )
         set_property(TARGET ${ONEQ_BUILD_TARGET} PROPERTY
             MSVC_RUNTIME_LIBRARY "${ONEQ_MSVC_RUNTIME_LIBRARY}")
@@ -285,12 +308,12 @@ if(NOT BUILD_SHARED_LIBS)
     target_compile_definitions(${PROJECT_CORE_TARGET}
         PUBLIC ONEQ_STATIC_DEFINE
     )
-    foreach(AIRBORNE_SUBTARGET IN ITEMS airborne_common airborne_signal airborne_decision airborne_core)
-        target_compile_definitions(${AIRBORNE_SUBTARGET}
+    foreach(ONEQ_OBJECT_TARGET IN LISTS ONEQ_OBJECT_TARGETS)
+        target_compile_definitions(${ONEQ_OBJECT_TARGET}
             PRIVATE ONEQ_STATIC_DEFINE
         )
     endforeach()
-    unset(AIRBORNE_SUBTARGET)
+    unset(ONEQ_OBJECT_TARGET)
 endif()
 
 # 设置目标属性
@@ -428,32 +451,33 @@ if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_EXTENSION_ENTRY
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/airborne_radar_extension.hpp
     )
-    set(PUBLIC_HEADERS_ESR_COMMON
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/common/EsrCoordinateUtils.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/common/EmitterHypothesis.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/common/EmitterObservation.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/common/EmitterTruthState.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/common/EsrOrientationConfig.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/common/EsrOutputFrame.h
+    set(PUBLIC_HEADERS_ESR_MODEL
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/model/EsrCoordinateUtils.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/model/EmitterHypothesis.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/model/EmitterObservation.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/model/EmitterTruthState.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/model/EsrOrientationConfig.h
     )
-    set(PUBLIC_HEADERS_ESR_CORE_CONTEXT
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/core/context/EsrCycleInput.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/core/context/EsrInputValidation.h
+    set(PUBLIC_HEADERS_ESR_OUTPUT
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/output/EsrOutputFrame.h
     )
-    set(PUBLIC_HEADERS_ESR_CORE_CONTROLLER
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/core/controller/EsrController.h
+    set(PUBLIC_HEADERS_ESR_EXTENSION
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/extension/EsrController.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/extension/IEsrContext.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/extension/IInterceptPipeline.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h
     )
-    set(PUBLIC_HEADERS_ESR_CORE_SESSION
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/core/session/EsrCycleResult.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/core/session/EsrSession.h
+    set(PUBLIC_HEADERS_ESR_SESSION
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrCycleInput.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrCycleResult.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrInputValidation.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrSession.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrSessionFactory.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrTraceSession.h
     )
     set(PUBLIC_HEADERS_ESR_ENVIRONMENT
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h
-    )
-    set(PUBLIC_HEADERS_ESR_PIPELINE
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/pipeline/IInterceptPipeline.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h
     )
     set(PUBLIC_HEADERS_ESR_CONFIG
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h
@@ -517,9 +541,7 @@ if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_AIRBORNE_TOOLS
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarTraceSession.h
     )
-    set(PUBLIC_HEADERS_ESR_TOOLS
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/tools/EsrTraceSession.h
-    )
+
 
     # 安装库目标
     install(TARGETS ${PROJECT_CORE_TARGET}
@@ -594,29 +616,23 @@ if(ENABLE_INSTALL)
     install(FILES ${PUBLIC_HEADERS_EXTENSION_ENTRY}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/extension
     )
-    install(FILES ${PUBLIC_HEADERS_ESR_COMMON}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/common
+    install(FILES ${PUBLIC_HEADERS_ESR_MODEL}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/model
     )
-    install(FILES ${PUBLIC_HEADERS_ESR_CORE_CONTEXT}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/core/context
+    install(FILES ${PUBLIC_HEADERS_ESR_OUTPUT}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/output
     )
-    install(FILES ${PUBLIC_HEADERS_ESR_CORE_CONTROLLER}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/core/controller
+    install(FILES ${PUBLIC_HEADERS_ESR_EXTENSION}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/extension
     )
-    install(FILES ${PUBLIC_HEADERS_ESR_CORE_SESSION}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/core/session
+    install(FILES ${PUBLIC_HEADERS_ESR_SESSION}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/session
     )
     install(FILES ${PUBLIC_HEADERS_ESR_ENVIRONMENT}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/environment
     )
-    install(FILES ${PUBLIC_HEADERS_ESR_PIPELINE}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/pipeline
-    )
     install(FILES ${PUBLIC_HEADERS_ESR_CONFIG}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/config
-    )
-    install(FILES ${PUBLIC_HEADERS_ESR_TOOLS}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/tools
     )
     install(FILES ${PUBLIC_HEADERS_EOS_COMMON}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/utils

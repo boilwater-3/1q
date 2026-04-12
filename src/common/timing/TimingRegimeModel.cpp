@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "common/numerics/ClampUtils.h"
+
 namespace oneq {
 namespace internal {
 namespace timing {
@@ -42,13 +44,6 @@ constexpr float kScaleFallback = 1.0f;
  * @brief 重频抖动缩放因子。
  */
 constexpr float kPrfRejitterScale = 1.10f;
-
-/**
- * @brief 将输入裁剪到 [0, 1]。
- * @param[in] value 输入值。
- * @return 裁剪后的结果。
- */
-float Clamp01(float value) { return std::max(0.0f, std::min(1.0f, value)); }
 
 /**
  * @brief 约束控制比例，避免非法值污染运行时配置。
@@ -191,7 +186,7 @@ float ComputeStatisticalDetectionProbability(float snr_db, float threshold_snr_d
   const double normalized_metric =
       (snr_linear / std::max(threshold_linear, kNumericFloor)) * ComputeIntegrationGain(params);
   const double pd = 1.0 - std::exp(-std::max(normalized_metric, 0.0));
-  return Clamp01(static_cast<float>(pd));
+  return oneq::internal::numerics::Clamp01(static_cast<float>(pd));
 }
 
 }  // namespace timing

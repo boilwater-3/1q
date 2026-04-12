@@ -79,17 +79,17 @@
 #include "1q/electro_optical_sensor/config/electro_optical_sensor_config.hpp"
 #include "1q/electro_optical_sensor/session/EosTraceSession.h"
 #include "1q/electro_optical_sensor/electro_optical_sensor.hpp"
-#include "1q/electronic_surveillance_radar/common/EmitterTruthState.h"
-#include "1q/electronic_surveillance_radar/common/EsrCoordinateUtils.h"
-#include "1q/electronic_surveillance_radar/core/context/EsrCycleInput.h"
-#include "1q/electronic_surveillance_radar/core/context/EsrInputValidation.h"
-#include "1q/electronic_surveillance_radar/core/session/EsrSession.h"
+#include "1q/electronic_surveillance_radar/model/EmitterTruthState.h"
+#include "1q/electronic_surveillance_radar/model/EsrCoordinateUtils.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
+#include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
+#include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/electronic_surveillance_radar_config.hpp"
 #include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
-#include "1q/electronic_surveillance_radar/pipeline/IInterceptPipeline.h"
-#include "1q/electronic_surveillance_radar/tools/EsrTraceSession.h"
+#include "1q/electronic_surveillance_radar/extension/IInterceptPipeline.h"
+#include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 #include "1q/airborne_radar/session/RadarTraceSession.h"
 
@@ -138,26 +138,26 @@ static_assert(
                      std::declval<airborne_radar::extension::RadarController&>()))>::value,
     "RadarSessionFactory::CreateWithController must return RadarSession");
 static_assert(std::is_constructible<
-                  electronic_surveillance_radar::core::session::EsrSession,
-                  electronic_surveillance_radar::core::session::EsrSessionConfig,
-                  electronic_surveillance_radar::pipeline::IInterceptPipeline&>::value,
+                  electronic_surveillance_radar::session::EsrSession,
+                  electronic_surveillance_radar::session::EsrSessionConfig,
+                  electronic_surveillance_radar::extension::IInterceptPipeline&>::value,
               "EsrSession must support pipeline-only injection");
 static_assert(std::is_constructible<
-                  electronic_surveillance_radar::core::session::EsrSession,
-                  electronic_surveillance_radar::core::session::EsrSessionConfig,
+                  electronic_surveillance_radar::session::EsrSession,
+                  electronic_surveillance_radar::session::EsrSessionConfig,
                   electronic_surveillance_radar::environment::IEsrEnvironmentService&>::value,
               "EsrSession must support environment-only injection");
 static_assert(std::is_constructible<
-                  electronic_surveillance_radar::core::session::EsrSession,
-                  electronic_surveillance_radar::core::session::EsrSessionConfig,
-                  electronic_surveillance_radar::core::controller::EsrController&>::value,
+                  electronic_surveillance_radar::session::EsrSession,
+                  electronic_surveillance_radar::session::EsrSessionConfig,
+                  electronic_surveillance_radar::extension::EsrController&>::value,
               "EsrSession must support controller-only injection");
 static_assert(std::is_constructible<
-                  electronic_surveillance_radar::core::session::EsrSession,
-                  electronic_surveillance_radar::core::session::EsrSessionConfig,
-                  electronic_surveillance_radar::pipeline::IInterceptPipeline&,
+                  electronic_surveillance_radar::session::EsrSession,
+                  electronic_surveillance_radar::session::EsrSessionConfig,
+                  electronic_surveillance_radar::extension::IInterceptPipeline&,
                   electronic_surveillance_radar::environment::IEsrEnvironmentService&,
-                  electronic_surveillance_radar::core::controller::EsrController&>::value,
+                  electronic_surveillance_radar::extension::EsrController&>::value,
               "EsrSession must support full-chain injection");
 
 static_assert(
@@ -311,7 +311,7 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   const oneq::common::ScanStartPosition shared_start = oneq::common::ScanStartPosition::kLeftTop;
   EXPECT_EQ(static_cast<int>(shared_start), 0);
 
-  core::session::EsrSessionConfig session_config = config::EsrSessionConfigBuilder()
+  session::EsrSessionConfig session_config = config::EsrSessionConfigBuilder()
                                                        .EnableLayeredConfig(true)
                                                        .WithScanRateHz(1.0f)
                                                        .EnableSpectralAnalysis(true)
@@ -323,10 +323,10 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   session_config.pipeline_config.scan.az_step_deg = 120.0f;
   session_config.pipeline_config.scan.el_step_deg = 40.0f;
 
-  core::context::EsrCycleInput input;
+  session::EsrCycleInput input;
   input.cycle_index = 4U;
   input.dt_sec = 1.0f;
-  common::EmitterTruthState emitter;
+  model::EmitterTruthState emitter;
   emitter.emitter_id = "smoke-emitter";
   emitter.pose.position_m.x = 1200.0f;
   emitter.carrier_hz = 10.0e9;
@@ -336,24 +336,24 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   emitter.pri_s = 1.0e-4;
   input.scene_emitters.push_back(emitter);
 
-  common::EsrCoordinateReference esr_reference;
+  model::EsrCoordinateReference esr_reference;
   esr_reference.origin_lla.latitude_deg = 0.0;
   esr_reference.origin_lla.longitude_deg = 0.0;
   esr_reference.origin_lla.altitude_m = 0.0;
-  common::EsrVector3f esr_local_position;
-  ASSERT_TRUE(common::TryConvertLlaToEsrLocal(esr_reference.origin_lla, esr_reference,
+  model::EsrVector3f esr_local_position;
+  ASSERT_TRUE(model::TryConvertLlaToEsrLocal(esr_reference.origin_lla, esr_reference,
                                                &esr_local_position));
 
-  const core::context::EsrValidationIssueList issues = core::context::ValidateEsrCycleInput(input);
-  EXPECT_FALSE(core::context::HasEsrValidationError(issues));
+  const session::EsrValidationIssueList issues = session::ValidateEsrCycleInput(input);
+  EXPECT_FALSE(session::HasEsrValidationError(issues));
 
-  core::session::EsrSession session(session_config);
-  const core::session::EsrRuntimeConfigPatch runtime_patch =
+  session::EsrSession session(session_config);
+  const session::EsrRuntimeConfigPatch runtime_patch =
       config::EsrRuntimeConfigBuilder().WithDetectionMinSnrDb(5.0f).Build();
   session.ApplyRuntimeConfig(runtime_patch);
-  const core::session::EsrCycleResult result = session.StepWithResult(input);
-  tools::EsrTraceSession trace_session(session_config, tools::EsrTraceSessionOptions{});
-  const core::session::EsrCycleResult trace_result = trace_session.StepWithResult(input);
+  const session::EsrCycleResult result = session.StepWithResult(input);
+  session::EsrTraceSession trace_session(session_config, session::EsrTraceSessionOptions{});
+  const session::EsrCycleResult trace_result = trace_session.StepWithResult(input);
 
   EXPECT_GE(result.output_frame.observation_output.observations.size(), 0U);
   EXPECT_GE(result.output_frame.emitter_output.hypotheses.size(), 0U);
