@@ -1,4 +1,4 @@
-#include "1q/common/trace/TraceSink.h"
+#include "1q/trace/TraceSink.h"
 
 #include <chrono>
 #include <cstdint>
@@ -9,7 +9,6 @@
 #include "common/trace/JsonFormatUtils.h"
 
 namespace oneq {
-namespace common {
 namespace trace {
 
 TraceSink::~TraceSink() = default;
@@ -53,5 +52,4 @@ void JsonlFileTraceSink::Record(const std::string& module, const std::string& ph
 const std::string& JsonlFileTraceSink::file_path() const { return impl_->file_path; }
 
 }  // namespace trace
-}  // namespace common
 }  // namespace oneq

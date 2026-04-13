@@ -3,8 +3,8 @@
  * @brief 定义用于会话中间层记录的通用 sink 接口与文件实现。
  */
 
-#ifndef ONEQ_COMMON_TRACE_TRACE_SINK_H_
-#define ONEQ_COMMON_TRACE_TRACE_SINK_H_
+#ifndef ONEQ_TRACE_TRACE_SINK_H_
+#define ONEQ_TRACE_TRACE_SINK_H_
 
 #include <memory>
 #include <string>
@@ -12,7 +12,6 @@
 #include "1q/api.hpp"
 
 namespace oneq {
-namespace common {
 namespace trace {
 
 /**
@@ -51,7 +50,6 @@ class ONEQ_API JsonlFileTraceSink final : public TraceSink {
 };
 
 }  // namespace trace
-}  // namespace common
 }  // namespace oneq
 
-#endif  // ONEQ_COMMON_TRACE_TRACE_SINK_H_
+#endif  // ONEQ_TRACE_TRACE_SINK_H_

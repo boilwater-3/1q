@@ -7,7 +7,7 @@
 #define ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_MISSION_CONTROL_CONFIG_H_
 
 #include "1q/api.hpp"
-#include "1q/common/scan_schedule_types.h"
+#include "1q/foundation/scan_schedule_types.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
@@ -22,10 +22,10 @@ enum class ONEQ_API EsrWorkMode {
 };
 
 /** @brief ESR 兼容别名：扫描起始象限。 */
-using EsrScanStartPosition = oneq::common::ScanStartPosition;
+using EsrScanStartPosition = oneq::foundation::ScanStartPosition;
 
 /** @brief ESR 兼容别名：二维扫描推进顺序。 */
-using EsrScanSequence = oneq::common::ScanSequence;
+using EsrScanSequence = oneq::foundation::ScanSequence;
 
 /**
  * @brief EsrMissionControlConfig 描述 ESR 任务运行态控制参数。

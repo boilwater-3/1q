@@ -20,7 +20,7 @@ Json SerializeArray(const Container& values, const Serializer& serializer) {
   return result;
 }
 
-Json BuildJson(const oneq::common::Vector3f& value) {
+Json BuildJson(const oneq::foundation::Vector3f& value) {
   Json json = Json::array();
   json.push_back(value.x);
   json.push_back(value.y);
@@ -28,7 +28,7 @@ Json BuildJson(const oneq::common::Vector3f& value) {
   return json;
 }
 
-Json BuildJson(const oneq::common::EulerAnglesDeg& value) {
+Json BuildJson(const oneq::foundation::EulerAnglesDeg& value) {
   Json json;
   json["yaw_deg"] = value.yaw_deg;
   json["pitch_deg"] = value.pitch_deg;

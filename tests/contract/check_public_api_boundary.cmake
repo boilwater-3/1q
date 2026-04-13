@@ -1,10 +1,10 @@
 set(PUBLIC_INCLUDE_DIR "${SOURCE_DIR}/include/1q")
 
 set(EXPECTED_PUBLIC_HEADERS
-    "common/coordinate_transform.h"
-    "common/pose_types.h"
-    "common/scan_schedule_types.h"
-    "common/trace/TraceSink.h"
+    "foundation/coordinate_transform.h"
+    "foundation/pose_types.h"
+    "foundation/scan_schedule_types.h"
+    "trace/TraceSink.h"
     "airborne_radar/extension/control/ControlDirective.h"
     "airborne_radar/model/DecisionInputFrame.h"
     "airborne_radar/model/DecisionSourceInfo.h"

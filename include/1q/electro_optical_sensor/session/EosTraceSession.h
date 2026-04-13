@@ -10,7 +10,7 @@
 #include <string>
 #include <utility>
 
-#include "1q/common/trace/TraceSink.h"
+#include "1q/trace/TraceSink.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 
 namespace electro_optical_sensor {
@@ -20,11 +20,11 @@ namespace session {
  * @brief EosTraceSessionOptions 描述记录包装器配置。
  */
 struct ONEQ_API EosTraceSessionOptions {
-  std::shared_ptr<oneq::common::trace::TraceSink> sink{}; /**< 记录输出 sink */
+  std::shared_ptr<oneq::trace::TraceSink> sink{}; /**< 记录输出 sink */
   bool trace_config_on_construct{true};                   /**< 构造时是否记录配置 */
 
   EosTraceSessionOptions() = default;
-  EosTraceSessionOptions(std::shared_ptr<oneq::common::trace::TraceSink> trace_sink,
+  EosTraceSessionOptions(std::shared_ptr<oneq::trace::TraceSink> trace_sink,
                          bool trace_config)
       : sink(std::move(trace_sink)), trace_config_on_construct(trace_config) {}
 };
@@ -58,7 +58,7 @@ class ONEQ_API EosTraceSession {
   void Record(const std::string& phase, const std::string& payload_json) const;
 
   EosSession session_;
-  std::shared_ptr<oneq::common::trace::TraceSink> sink_;
+  std::shared_ptr<oneq::trace::TraceSink> sink_;
 };
 
 }  // namespace session

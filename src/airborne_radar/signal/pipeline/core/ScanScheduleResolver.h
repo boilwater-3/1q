@@ -27,7 +27,7 @@ float ResolveScanStepScale(model::RadarWorkSubMode mode);
 
 std::vector<model::AzimuthElevationDeg> BuildScheduledScanPattern(
     const model::AzimuthElevationLimitsDeg& limits, float az_step_deg, float el_step_deg,
-    oneq::common::ScanStartPosition start_position, oneq::common::ScanSequence sequence);
+    oneq::foundation::ScanStartPosition start_position, oneq::foundation::ScanSequence sequence);
 
 model::AzimuthElevationDeg ResolveScheduledBeamPointing(
     const model::RadarOrientationConfig& orientation_config,

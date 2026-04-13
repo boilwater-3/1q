@@ -20,9 +20,9 @@ SignalPipelineConfig MakeHighRobustnessSignalPipelineConfig() {
 session::RadarSessionConfig MakeDefaultRadarSessionConfig() {
   session::RadarSessionConfig config;
   config.beam_control.radar_orientation.scan_start_position =
-      oneq::common::ScanStartPosition::kLeftTop;
+      oneq::foundation::ScanStartPosition::kLeftTop;
   config.beam_control.radar_orientation.scan_sequence =
-      oneq::common::ScanSequence::kAzimuthFirst;
+      oneq::foundation::ScanSequence::kAzimuthFirst;
   config.beam_control.radar_orientation.work_sub_mode =
       model::RadarWorkSubMode::kTws;
   return config;

@@ -5,7 +5,7 @@
 
 #include <gtest/gtest.h>
 
-#include "1q/common/coordinate_transform.h"
+#include "1q/foundation/coordinate_transform.h"
 #include "1q/electro_optical_sensor/utils/EosCoordinateUtils.h"
 
 namespace electro_optical_sensor {
@@ -18,19 +18,19 @@ TEST(EosCoordinateUtilsTest, MakePoseFromLlaPopulatesPlatformPose) {
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;
 
-  oneq::common::LlaCoordinateDegM pose_lla;
+  oneq::foundation::LlaCoordinateDegM pose_lla;
   pose_lla.latitude_deg = 0.0;
   pose_lla.longitude_deg = 0.001;
   pose_lla.altitude_m = 0.0;
 
-  oneq::common::Vector3f velocity;
+  oneq::foundation::Vector3f velocity;
   velocity.x = 1.0f;
   velocity.y = 2.0f;
   velocity.z = 3.0f;
-  oneq::common::EulerAnglesDeg attitude;
+  oneq::foundation::EulerAnglesDeg attitude;
   attitude.yaw_deg = 10.0f;
 
-  oneq::common::PoseState pose;
+  oneq::foundation::PoseState pose;
   ASSERT_TRUE(TryMakeEosPoseFromLla(pose_lla, reference, velocity, attitude, &pose));
   EXPECT_GT(pose.position_m.x, 100.0f);
   EXPECT_FLOAT_EQ(pose.velocity_mps.y, 2.0f);
@@ -43,12 +43,12 @@ TEST(EosCoordinateUtilsTest, MakeTargetFromLlaAndEcefAreConsistent) {
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;
 
-  oneq::common::PoseState platform_pose;
+  oneq::foundation::PoseState platform_pose;
   platform_pose.position_m.x = 0.0f;
   platform_pose.position_m.y = 0.0f;
   platform_pose.position_m.z = 0.0f;
 
-  oneq::common::LlaCoordinateDegM target_lla;
+  oneq::foundation::LlaCoordinateDegM target_lla;
   target_lla.latitude_deg = 0.0;
   target_lla.longitude_deg = 0.001;
   target_lla.altitude_m = 0.0;
@@ -67,8 +67,8 @@ TEST(EosCoordinateUtilsTest, MakeTargetFromLlaAndEcefAreConsistent) {
   EXPECT_NEAR(target_from_lla.azimuth_deg, 0.0f, 1.0e-2f);
   EXPECT_NEAR(target_from_lla.elevation_deg, 0.0f, 1.0e-2f);
 
-  oneq::common::EcefCoordinateM target_ecef;
-  ASSERT_TRUE(oneq::common::TryLlaToEcef(target_lla, &target_ecef));
+  oneq::foundation::EcefCoordinateM target_ecef;
+  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));
   ::electro_optical_sensor::session::EosTargetState target_from_ecef;
   ASSERT_TRUE(TryMakeEosTargetFromEcef(12U, target_ecef, reference, platform_pose, appearance,
                                        &target_from_ecef));
@@ -79,13 +79,13 @@ TEST(EosCoordinateUtilsTest, MakeTargetFromLlaAndEcefAreConsistent) {
 
 TEST(EosCoordinateUtilsTest, InvalidInputReturnsFalse) {
   ::electro_optical_sensor::utils::EosCoordinateReference reference;
-  oneq::common::PoseState platform_pose;
+  oneq::foundation::PoseState platform_pose;
   ::electro_optical_sensor::utils::EosTargetAppearance appearance;
 
-  oneq::common::EcefCoordinateM ecef;
+  oneq::foundation::EcefCoordinateM ecef;
   EXPECT_FALSE(TryConvertEcefToEosLocal(ecef, reference, nullptr));
-  EXPECT_FALSE(TryMakeEosPoseFromEcef(ecef, reference, oneq::common::Vector3f(),
-                                      oneq::common::EulerAnglesDeg(), nullptr));
+  EXPECT_FALSE(TryMakeEosPoseFromEcef(ecef, reference, oneq::foundation::Vector3f(),
+                                      oneq::foundation::EulerAnglesDeg(), nullptr));
   EXPECT_FALSE(TryMakeEosTargetFromEcef(1U, ecef, reference, platform_pose, appearance, nullptr));
 }
 
@@ -95,19 +95,19 @@ TEST(EosCoordinateUtilsTest, ReportsFailureStatusForNullOutputAndDegenerateGeome
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;
 
-  oneq::common::EcefCoordinateM ecef;
+  oneq::foundation::EcefCoordinateM ecef;
   ::electro_optical_sensor::utils::EosCoordinateStatus status =
       ::electro_optical_sensor::utils::EosCoordinateStatus::kOk;
   EXPECT_FALSE(TryConvertEcefToEosLocal(ecef, reference, nullptr, &status));
   EXPECT_EQ(status, ::electro_optical_sensor::utils::EosCoordinateStatus::kNullOutput);
 
-  oneq::common::PoseState platform_pose;
+  oneq::foundation::PoseState platform_pose;
   platform_pose.position_m.x = 0.0f;
   platform_pose.position_m.y = 0.0f;
   platform_pose.position_m.z = 0.0f;
   ::electro_optical_sensor::utils::EosTargetAppearance appearance;
   ::electro_optical_sensor::session::EosTargetState target;
-  oneq::common::LlaCoordinateDegM target_lla = reference.origin_lla;
+  oneq::foundation::LlaCoordinateDegM target_lla = reference.origin_lla;
   EXPECT_FALSE(TryMakeEosTargetFromLla(1U, target_lla, reference, platform_pose, appearance, &target,
                                        &status));
   EXPECT_EQ(status, ::electro_optical_sensor::utils::EosCoordinateStatus::kDegenerateGeometry);

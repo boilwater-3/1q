@@ -11,7 +11,7 @@
 #include <limits>
 #include <vector>
 
-#include "1q/common/coordinate_transform.h"
+#include "1q/foundation/coordinate_transform.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/utils/EosCoordinateUtils.h"
@@ -256,20 +256,20 @@ TEST(EosPublicApiConvenienceTest, CoordinateUtilsConvertsLlaAndEcefToEosLocal) {
   reference.frame_attitude_deg.pitch_deg = 0.0f;
   reference.frame_attitude_deg.roll_deg = 0.0f;
 
-  oneq::common::LlaCoordinateDegM target_lla;
+  oneq::foundation::LlaCoordinateDegM target_lla;
   target_lla.latitude_deg = 0.0;
   target_lla.longitude_deg = 0.001;
   target_lla.altitude_m = 0.0;
 
-  oneq::common::Vector3f local_from_lla;
+  oneq::foundation::Vector3f local_from_lla;
   ASSERT_TRUE(utils::TryConvertLlaToEosLocal(target_lla, reference, &local_from_lla));
   EXPECT_GT(local_from_lla.x, 100.0f);
   EXPECT_NEAR(local_from_lla.y, 0.0f, 1.0e-2f);
   EXPECT_NEAR(local_from_lla.z, 0.0f, 1.0e-2f);
 
-  oneq::common::EcefCoordinateM target_ecef;
-  ASSERT_TRUE(oneq::common::TryLlaToEcef(target_lla, &target_ecef));
-  oneq::common::Vector3f local_from_ecef;
+  oneq::foundation::EcefCoordinateM target_ecef;
+  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));
+  oneq::foundation::Vector3f local_from_ecef;
   ASSERT_TRUE(utils::TryConvertEcefToEosLocal(target_ecef, reference, &local_from_ecef));
   EXPECT_NEAR(local_from_ecef.x, local_from_lla.x, 1.0e-3f);
   EXPECT_NEAR(local_from_ecef.y, local_from_lla.y, 1.0e-3f);
@@ -282,7 +282,7 @@ TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsTargetFromEcefAndLla) {
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;
 
-  oneq::common::PoseState platform_pose;
+  oneq::foundation::PoseState platform_pose;
   platform_pose.position_m.x = 0.0f;
   platform_pose.position_m.y = 0.0f;
   platform_pose.position_m.z = 1000.0f;
@@ -293,7 +293,7 @@ TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsTargetFromEcefAndLla) {
   appearance.reflectance = 0.1f;
   appearance.projected_area_m2 = 2.0f;
 
-  oneq::common::LlaCoordinateDegM target_lla;
+  oneq::foundation::LlaCoordinateDegM target_lla;
   target_lla.latitude_deg = 0.0;
   target_lla.longitude_deg = 0.001;
   target_lla.altitude_m = 0.0;
@@ -305,8 +305,8 @@ TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsTargetFromEcefAndLla) {
   EXPECT_GT(target_from_lla.range_m, 0.0f);
   EXPECT_NEAR(target_from_lla.apparent_temperature_k, 320.0f, 1e-5f);
 
-  oneq::common::EcefCoordinateM target_ecef;
-  ASSERT_TRUE(oneq::common::TryLlaToEcef(target_lla, &target_ecef));
+  oneq::foundation::EcefCoordinateM target_ecef;
+  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));
   session::EosTargetState target_from_ecef;
   ASSERT_TRUE(utils::TryMakeEosTargetFromEcef(402U, target_ecef, reference, platform_pose,
                                                       appearance, &target_from_ecef));

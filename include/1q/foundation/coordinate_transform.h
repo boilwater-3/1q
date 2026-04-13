@@ -3,14 +3,14 @@
  * @brief 定义 WGS84 下 LLA/ECEF/ENU 之间的轻量坐标转换工具。
  */
 
-#ifndef ONEQ_COMMON_COORDINATE_TRANSFORM_H_
-#define ONEQ_COMMON_COORDINATE_TRANSFORM_H_
+#ifndef ONEQ_FOUNDATION_COORDINATE_TRANSFORM_H_
+#define ONEQ_FOUNDATION_COORDINATE_TRANSFORM_H_
 
 #include "1q/api.hpp"
-#include "1q/common/pose_types.h"
+#include "1q/foundation/pose_types.h"
 
 namespace oneq {
-namespace common {
+namespace foundation {
 
 /**
  * @brief LlaCoordinateDegM 表示大地坐标（纬度/经度/高程）。
@@ -90,7 +90,7 @@ ONEQ_API bool TryLlaToEnu(const LlaCoordinateDegM& lla, const LlaCoordinateDegM&
  */
 ONEQ_API Vector3f ToVector3f(const EnuCoordinateM& enu);
 
-}  // namespace common
+}  // namespace foundation
 }  // namespace oneq
 
-#endif  // ONEQ_COMMON_COORDINATE_TRANSFORM_H_
+#endif  // ONEQ_FOUNDATION_COORDINATE_TRANSFORM_H_

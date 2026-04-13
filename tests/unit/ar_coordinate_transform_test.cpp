@@ -5,10 +5,10 @@
 
 #include <gtest/gtest.h>
 
-#include "1q/common/coordinate_transform.h"
+#include "1q/foundation/coordinate_transform.h"
 
 namespace oneq {
-namespace common {
+namespace foundation {
 namespace {
 
 TEST(CoordinateTransformTest, LlaToEcefAtEquatorPrimeMeridianMatchesWgs84Axis) {
@@ -102,5 +102,5 @@ TEST(CoordinateTransformTest, ToVector3fPreservesEnuAxisMapping) {
 }
 
 }  // namespace
-}  // namespace common
+}  // namespace foundation
 }  // namespace oneq

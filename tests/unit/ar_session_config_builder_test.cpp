@@ -103,16 +103,16 @@ TEST(RadarSessionConfigBuilderTest, DetectionConfigAppliesCorrectly) {
 TEST(RadarSessionConfigBuilderTest, BeamControlConfigAppliesCorrectly) {
   config::SignalBeamControlConfig beam_control;
   beam_control.radar_orientation.scan_start_position =
-      oneq::common::ScanStartPosition::kRightBottom;
-  beam_control.radar_orientation.scan_sequence = oneq::common::ScanSequence::kElevationFirst;
+      oneq::foundation::ScanStartPosition::kRightBottom;
+  beam_control.radar_orientation.scan_sequence = oneq::foundation::ScanSequence::kElevationFirst;
   beam_control.radar_orientation.work_sub_mode = model::RadarWorkSubMode::kTas;
 
   const auto config =
       config::RadarSessionConfigBuilder().Beam().WithBeamControl(beam_control).End().Build();
 
   const auto& orientation = config.beam_control.radar_orientation;
-  EXPECT_EQ(orientation.scan_start_position, oneq::common::ScanStartPosition::kRightBottom);
-  EXPECT_EQ(orientation.scan_sequence, oneq::common::ScanSequence::kElevationFirst);
+  EXPECT_EQ(orientation.scan_start_position, oneq::foundation::ScanStartPosition::kRightBottom);
+  EXPECT_EQ(orientation.scan_sequence, oneq::foundation::ScanSequence::kElevationFirst);
   EXPECT_EQ(orientation.work_sub_mode, model::RadarWorkSubMode::kTas);
 }
 

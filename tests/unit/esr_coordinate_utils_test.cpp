@@ -5,7 +5,7 @@
 
 #include <gtest/gtest.h>
 
-#include "1q/common/coordinate_transform.h"
+#include "1q/foundation/coordinate_transform.h"
 #include "1q/electronic_surveillance_radar/model/EsrCoordinateUtils.h"
 
 namespace electronic_surveillance_radar {
@@ -18,7 +18,7 @@ TEST(EsrCoordinateUtilsTest, LlaAndEcefConversionAreConsistent) {
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;
 
-  oneq::common::LlaCoordinateDegM target_lla;
+  oneq::foundation::LlaCoordinateDegM target_lla;
   target_lla.latitude_deg = 0.0;
   target_lla.longitude_deg = 0.001;
   target_lla.altitude_m = 0.0;
@@ -29,8 +29,8 @@ TEST(EsrCoordinateUtilsTest, LlaAndEcefConversionAreConsistent) {
   EXPECT_NEAR(local_from_lla.y, 0.0f, 1.0e-2f);
   EXPECT_NEAR(local_from_lla.z, 0.0f, 1.0e-2f);
 
-  oneq::common::EcefCoordinateM target_ecef;
-  ASSERT_TRUE(oneq::common::TryLlaToEcef(target_lla, &target_ecef));
+  oneq::foundation::EcefCoordinateM target_ecef;
+  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));
   EsrVector3f local_from_ecef;
   ASSERT_TRUE(TryConvertEcefToEsrLocal(target_ecef, reference, &local_from_ecef));
   EXPECT_NEAR(local_from_ecef.x, local_from_lla.x, 1.0e-3f);
@@ -44,7 +44,7 @@ TEST(EsrCoordinateUtilsTest, MakePoseFromLlaPopulatesPoseState) {
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;
 
-  oneq::common::LlaCoordinateDegM pose_lla;
+  oneq::foundation::LlaCoordinateDegM pose_lla;
   pose_lla.latitude_deg = 0.0;
   pose_lla.longitude_deg = 0.001;
   pose_lla.altitude_m = 0.0;
@@ -71,12 +71,12 @@ TEST(EsrCoordinateUtilsTest, MakePoseFromLlaPopulatesPoseState) {
 
 TEST(EsrCoordinateUtilsTest, InvalidInputReturnsFalse) {
   EsrCoordinateReference reference;
-  oneq::common::EcefCoordinateM ecef;
+  oneq::foundation::EcefCoordinateM ecef;
   EXPECT_FALSE(TryConvertEcefToEsrLocal(ecef, reference, nullptr));
   EXPECT_FALSE(TryMakeEsrPoseFromEcef(ecef, reference, EsrVector3f(), EsrEulerAngleDeg(),
                                       nullptr));
 
-  oneq::common::LlaCoordinateDegM invalid_lla;
+  oneq::foundation::LlaCoordinateDegM invalid_lla;
   invalid_lla.latitude_deg = 95.0;
   invalid_lla.longitude_deg = 0.0;
   invalid_lla.altitude_m = 0.0;

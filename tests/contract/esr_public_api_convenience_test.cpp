@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-#include "1q/common/coordinate_transform.h"
+#include "1q/foundation/coordinate_transform.h"
 #include "1q/electronic_surveillance_radar/model/EmitterTruthState.h"
 #include "1q/electronic_surveillance_radar/model/EsrCoordinateUtils.h"
 #include "1q/electronic_surveillance_radar/output/EsrOutputFrame.h"
@@ -226,7 +226,7 @@ TEST(EsrPublicApiConvenienceTest, CoordinateUtilsConvertsLlaAndEcefToEsrLocal) {
   reference.frame_attitude_deg.pitch_deg = 0.0f;
   reference.frame_attitude_deg.roll_deg = 0.0f;
 
-  oneq::common::LlaCoordinateDegM target_lla;
+  oneq::foundation::LlaCoordinateDegM target_lla;
   target_lla.latitude_deg = 0.0;
   target_lla.longitude_deg = 0.001;
   target_lla.altitude_m = 0.0;
@@ -237,8 +237,8 @@ TEST(EsrPublicApiConvenienceTest, CoordinateUtilsConvertsLlaAndEcefToEsrLocal) {
   EXPECT_NEAR(local_from_lla.y, 0.0f, 1.0e-2f);
   EXPECT_NEAR(local_from_lla.z, 0.0f, 1.0e-2f);
 
-  oneq::common::EcefCoordinateM target_ecef;
-  ASSERT_TRUE(oneq::common::TryLlaToEcef(target_lla, &target_ecef));
+  oneq::foundation::EcefCoordinateM target_ecef;
+  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));
   model::EsrVector3f local_from_ecef;
   ASSERT_TRUE(model::TryConvertEcefToEsrLocal(target_ecef, reference, &local_from_ecef));
   EXPECT_NEAR(local_from_ecef.x, local_from_lla.x, 1.0e-3f);
@@ -252,7 +252,7 @@ TEST(EsrPublicApiConvenienceTest, CoordinateUtilsBuildsPoseFromEcefAndLla) {
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;
 
-  oneq::common::LlaCoordinateDegM target_lla;
+  oneq::foundation::LlaCoordinateDegM target_lla;
   target_lla.latitude_deg = 0.0;
   target_lla.longitude_deg = 0.001;
   target_lla.altitude_m = 100.0;
@@ -273,8 +273,8 @@ TEST(EsrPublicApiConvenienceTest, CoordinateUtilsBuildsPoseFromEcefAndLla) {
   EXPECT_NEAR(pose_from_lla.velocity_mps.x, 10.0f, 1e-5f);
   EXPECT_NEAR(pose_from_lla.attitude_deg.yaw_deg, 5.0f, 1e-5f);
 
-  oneq::common::EcefCoordinateM target_ecef;
-  ASSERT_TRUE(oneq::common::TryLlaToEcef(target_lla, &target_ecef));
+  oneq::foundation::EcefCoordinateM target_ecef;
+  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));
   model::EsrPoseState pose_from_ecef;
   ASSERT_TRUE(
       model::TryMakeEsrPoseFromEcef(target_ecef, reference, velocity, attitude, &pose_from_ecef));

@@ -38,7 +38,7 @@ float ResolveScanStepScale(model::RadarWorkSubMode mode) {
 
 std::vector<model::AzimuthElevationDeg> BuildScheduledScanPattern(
     const model::AzimuthElevationLimitsDeg& limits, float az_step_deg, float el_step_deg,
-    oneq::common::ScanStartPosition start_position, oneq::common::ScanSequence sequence) {
+    oneq::foundation::ScanStartPosition start_position, oneq::foundation::ScanSequence sequence) {
   const bool finite_limits = std::isfinite(limits.az_min_deg) && std::isfinite(limits.az_max_deg) &&
                              std::isfinite(limits.el_min_deg) && std::isfinite(limits.el_max_deg);
   if (!finite_limits || limits.az_min_deg > limits.az_max_deg ||
@@ -81,10 +81,10 @@ std::vector<model::AzimuthElevationDeg> BuildScheduledScanPattern(
     el_values.push_back(limits.el_max_deg);
   }
 
-  const bool start_from_right = start_position == oneq::common::ScanStartPosition::kRightTop ||
-                                start_position == oneq::common::ScanStartPosition::kRightBottom;
-  const bool start_from_bottom = start_position == oneq::common::ScanStartPosition::kRightBottom ||
-                                 start_position == oneq::common::ScanStartPosition::kLeftBottom;
+  const bool start_from_right = start_position == oneq::foundation::ScanStartPosition::kRightTop ||
+                                start_position == oneq::foundation::ScanStartPosition::kRightBottom;
+  const bool start_from_bottom = start_position == oneq::foundation::ScanStartPosition::kRightBottom ||
+                                 start_position == oneq::foundation::ScanStartPosition::kLeftBottom;
   if (start_from_right) {
     std::reverse(az_values.begin(), az_values.end());
   }
@@ -94,7 +94,7 @@ std::vector<model::AzimuthElevationDeg> BuildScheduledScanPattern(
 
   std::vector<model::AzimuthElevationDeg> pattern;
   pattern.reserve(az_values.size() * el_values.size());
-  if (sequence == oneq::common::ScanSequence::kAzimuthFirst) {
+  if (sequence == oneq::foundation::ScanSequence::kAzimuthFirst) {
     for (std::size_t el_index = 0; el_index < el_values.size(); ++el_index) {
       const bool reverse_row = (el_index % 2U) == 1U;
       for (std::size_t az_order = 0; az_order < az_values.size(); ++az_order) {

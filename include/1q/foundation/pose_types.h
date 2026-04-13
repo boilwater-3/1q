@@ -3,13 +3,13 @@
  * @brief 定义跨雷达模块复用的位姿轻量原语。
  */
 
-#ifndef ONEQ_COMMON_POSE_TYPES_H_
-#define ONEQ_COMMON_POSE_TYPES_H_
+#ifndef ONEQ_FOUNDATION_POSE_TYPES_H_
+#define ONEQ_FOUNDATION_POSE_TYPES_H_
 
 #include "1q/api.hpp"
 
 namespace oneq {
-namespace common {
+namespace foundation {
 
 /**
  * @brief Vector3f 表示三维向量。
@@ -38,7 +38,7 @@ struct ONEQ_API PoseState {
   EulerAnglesDeg attitude_deg{}; /**< 姿态角（单位：deg） */
 };
 
-}  // namespace common
+}  // namespace foundation
 }  // namespace oneq
 
-#endif  // ONEQ_COMMON_POSE_TYPES_H_
+#endif  // ONEQ_FOUNDATION_POSE_TYPES_H_

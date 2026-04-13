@@ -10,7 +10,7 @@
 
 #include "1q/airborne_radar/model/TargetFeature.h"
 #include "1q/api.hpp"
-#include "1q/common/coordinate_transform.h"
+#include "1q/foundation/coordinate_transform.h"
 
 namespace airborne_radar {
 namespace model {
@@ -20,8 +20,8 @@ namespace model {
  * @note `origin_lla` 定义局部 ENU 原点，`radar_attitude_deg` 定义雷达局部坐标相对 ENU 的姿态。
  */
 struct ONEQ_API RadarLocalFrameReference {
-  oneq::common::LlaCoordinateDegM origin_lla{};       /**< 雷达参考原点（WGS84 LLA） */
-  oneq::common::EulerAnglesDeg radar_attitude_deg{};  /**< 雷达局部坐标相对 ENU 的姿态角 */
+  oneq::foundation::LlaCoordinateDegM origin_lla{};       /**< 雷达参考原点（WGS84 LLA） */
+  oneq::foundation::EulerAnglesDeg radar_attitude_deg{};  /**< 雷达局部坐标相对 ENU 的姿态角 */
 };
 
 /**
@@ -87,9 +87,9 @@ model::TargetFeature MakeAirTarget(std::uint64_t external_target_id, float posit
  * @param[out] position_local_m 输出雷达局部坐标（单位：m），可为 nullptr。
  * @return 成功返回 true，输入非法或输出为空返回 false。
  */
-ONEQ_API bool TryConvertEcefToRadarLocal(const oneq::common::EcefCoordinateM& position_ecef_m,
+ONEQ_API bool TryConvertEcefToRadarLocal(const oneq::foundation::EcefCoordinateM& position_ecef_m,
                                          const RadarLocalFrameReference& reference,
-                                         oneq::common::Vector3f* position_local_m);
+                                         oneq::foundation::Vector3f* position_local_m);
 
 /**
  * @brief 将 LLA 坐标转换为雷达局部笛卡尔坐标。
@@ -98,9 +98,9 @@ ONEQ_API bool TryConvertEcefToRadarLocal(const oneq::common::EcefCoordinateM& po
  * @param[out] position_local_m 输出雷达局部坐标（单位：m），可为 nullptr。
  * @return 成功返回 true，输入非法或输出为空返回 false。
  */
-ONEQ_API bool TryConvertLlaToRadarLocal(const oneq::common::LlaCoordinateDegM& position_lla_deg_m,
+ONEQ_API bool TryConvertLlaToRadarLocal(const oneq::foundation::LlaCoordinateDegM& position_lla_deg_m,
                                         const RadarLocalFrameReference& reference,
-                                        oneq::common::Vector3f* position_local_m);
+                                        oneq::foundation::Vector3f* position_local_m);
 
 /**
  * @brief 根据 ECEF 坐标直接构造雷达局部 TargetFeature。
@@ -116,7 +116,7 @@ ONEQ_API bool TryConvertLlaToRadarLocal(const oneq::common::LlaCoordinateDegM& p
  * @return 成功返回 true，输入非法或输出为空返回 false。
  */
 ONEQ_API bool TryMakeTargetFromEcef(std::uint64_t external_target_id,
-                                    const oneq::common::EcefCoordinateM& position_ecef_m,
+                                    const oneq::foundation::EcefCoordinateM& position_ecef_m,
                                     const RadarLocalFrameReference& reference,
                                     float velocity_x, float velocity_y, float velocity_z, float rcs,
                                     int swerling_type, model::TargetFeature* target);
@@ -135,7 +135,7 @@ ONEQ_API bool TryMakeTargetFromEcef(std::uint64_t external_target_id,
  * @return 成功返回 true，输入非法或输出为空返回 false。
  */
 ONEQ_API bool TryMakeTargetFromLla(std::uint64_t external_target_id,
-                                   const oneq::common::LlaCoordinateDegM& position_lla_deg_m,
+                                   const oneq::foundation::LlaCoordinateDegM& position_lla_deg_m,
                                    const RadarLocalFrameReference& reference, float velocity_x,
                                    float velocity_y, float velocity_z, float rcs,
                                    int swerling_type, model::TargetFeature* target);

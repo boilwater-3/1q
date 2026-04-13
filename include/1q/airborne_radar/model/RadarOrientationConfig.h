@@ -6,7 +6,7 @@
 #ifndef AIRBORNE_RADAR_CONFIG_RADAR_ORIENTATION_CONFIG_H_
 #define AIRBORNE_RADAR_CONFIG_RADAR_ORIENTATION_CONFIG_H_
 
-#include "1q/common/scan_schedule_types.h"
+#include "1q/foundation/scan_schedule_types.h"
 
 namespace airborne_radar {
 namespace model {
@@ -94,10 +94,10 @@ struct RadarOrientationConfig {
   AzimuthElevationDeg scan_center_deg; /**< [可外部调整] 基准指向方向；不是扫描体积中心 */
   AzimuthElevationLimitsDeg mechanical_scan_limits_deg; /**< 机械扫描限位 */
   AzimuthElevationLimitsDeg electronic_scan_limits_deg; /**< 电子扫描限位 */
-  oneq::common::ScanStartPosition scan_start_position{
-      oneq::common::ScanStartPosition::kLeftTop}; /**< 扫描起始象限 */
-  oneq::common::ScanSequence scan_sequence{
-      oneq::common::ScanSequence::kAzimuthFirst};         /**< 二维扫描推进顺序 */
+  oneq::foundation::ScanStartPosition scan_start_position{
+      oneq::foundation::ScanStartPosition::kLeftTop}; /**< 扫描起始象限 */
+  oneq::foundation::ScanSequence scan_sequence{
+      oneq::foundation::ScanSequence::kAzimuthFirst};         /**< 二维扫描推进顺序 */
   RadarWorkSubMode work_sub_mode{RadarWorkSubMode::kTws}; /**< [可外部调整] 当前工作子模式 */
   AzimuthElevationDeg dwell_center_deg; /**< 当前波束驻留中心（启用周期扫描调度时会被运行时覆盖） */
   bool commanded_beamwidth_enabled{false};       /**< 指令态波束宽度覆盖使能 */

@@ -118,20 +118,20 @@ TEST(ScanScheduleResolverTest, StartPositionControlsFirstBeamQuadrant) {
 
   const std::vector<model::AzimuthElevationDeg> left_top_pattern =
       signal::pipeline::core::internal::BuildScheduledScanPattern(
-          limits, 10.0f, 5.0f, oneq::common::ScanStartPosition::kLeftTop,
-          oneq::common::ScanSequence::kAzimuthFirst);
+          limits, 10.0f, 5.0f, oneq::foundation::ScanStartPosition::kLeftTop,
+          oneq::foundation::ScanSequence::kAzimuthFirst);
   const std::vector<model::AzimuthElevationDeg> right_top_pattern =
       signal::pipeline::core::internal::BuildScheduledScanPattern(
-          limits, 10.0f, 5.0f, oneq::common::ScanStartPosition::kRightTop,
-          oneq::common::ScanSequence::kAzimuthFirst);
+          limits, 10.0f, 5.0f, oneq::foundation::ScanStartPosition::kRightTop,
+          oneq::foundation::ScanSequence::kAzimuthFirst);
   const std::vector<model::AzimuthElevationDeg> right_bottom_pattern =
       signal::pipeline::core::internal::BuildScheduledScanPattern(
-          limits, 10.0f, 5.0f, oneq::common::ScanStartPosition::kRightBottom,
-          oneq::common::ScanSequence::kAzimuthFirst);
+          limits, 10.0f, 5.0f, oneq::foundation::ScanStartPosition::kRightBottom,
+          oneq::foundation::ScanSequence::kAzimuthFirst);
   const std::vector<model::AzimuthElevationDeg> left_bottom_pattern =
       signal::pipeline::core::internal::BuildScheduledScanPattern(
-          limits, 10.0f, 5.0f, oneq::common::ScanStartPosition::kLeftBottom,
-          oneq::common::ScanSequence::kAzimuthFirst);
+          limits, 10.0f, 5.0f, oneq::foundation::ScanStartPosition::kLeftBottom,
+          oneq::foundation::ScanSequence::kAzimuthFirst);
 
   ASSERT_FALSE(left_top_pattern.empty());
   ASSERT_FALSE(right_top_pattern.empty());
@@ -255,12 +255,12 @@ TEST(ScanScheduleResolverTest, SequenceControlsFastScanAxisWithSerpentine) {
 
   const std::vector<model::AzimuthElevationDeg> azimuth_first_pattern =
       signal::pipeline::core::internal::BuildScheduledScanPattern(
-          limits, 10.0f, 5.0f, oneq::common::ScanStartPosition::kLeftTop,
-          oneq::common::ScanSequence::kAzimuthFirst);
+          limits, 10.0f, 5.0f, oneq::foundation::ScanStartPosition::kLeftTop,
+          oneq::foundation::ScanSequence::kAzimuthFirst);
   const std::vector<model::AzimuthElevationDeg> elevation_first_pattern =
       signal::pipeline::core::internal::BuildScheduledScanPattern(
-          limits, 10.0f, 5.0f, oneq::common::ScanStartPosition::kLeftTop,
-          oneq::common::ScanSequence::kElevationFirst);
+          limits, 10.0f, 5.0f, oneq::foundation::ScanStartPosition::kLeftTop,
+          oneq::foundation::ScanSequence::kElevationFirst);
 
   ASSERT_GE(azimuth_first_pattern.size(), 4U);
   ASSERT_GE(elevation_first_pattern.size(), 4U);
@@ -314,8 +314,8 @@ TEST(ScanScheduleResolverTest, FirstCycleMapsToFirstBeamIndex) {
   orientation.mechanical_scan_limits_deg.el_min_deg = 0.0f;
   orientation.mechanical_scan_limits_deg.el_max_deg = 0.0f;
   orientation.electronic_scan_limits_deg = orientation.mechanical_scan_limits_deg;
-  orientation.scan_start_position = oneq::common::ScanStartPosition::kLeftTop;
-  orientation.scan_sequence = oneq::common::ScanSequence::kAzimuthFirst;
+  orientation.scan_start_position = oneq::foundation::ScanStartPosition::kLeftTop;
+  orientation.scan_sequence = oneq::foundation::ScanSequence::kAzimuthFirst;
 
   signal::detection::EffectiveBeamwidthDeg beamwidth;
   beamwidth.az_beamwidth_deg = 120.0f;
@@ -390,8 +390,8 @@ TEST(ScanScheduleResolverTest, SttFixesAtScanCenterAndKeepsZeroDwell) {
 TEST(ScanScheduleResolverTest, TasIsDenserThanTwsAndKeepsSerpentineSemantics) {
   model::RadarOrientationConfig tws_orientation;
   tws_orientation.work_sub_mode = model::RadarWorkSubMode::kTws;
-  tws_orientation.scan_start_position = oneq::common::ScanStartPosition::kLeftTop;
-  tws_orientation.scan_sequence = oneq::common::ScanSequence::kAzimuthFirst;
+  tws_orientation.scan_start_position = oneq::foundation::ScanStartPosition::kLeftTop;
+  tws_orientation.scan_sequence = oneq::foundation::ScanSequence::kAzimuthFirst;
   tws_orientation.mechanical_scan_limits_deg.az_min_deg = -20.0f;
   tws_orientation.mechanical_scan_limits_deg.az_max_deg = 20.0f;
   tws_orientation.mechanical_scan_limits_deg.el_min_deg = -10.0f;
@@ -446,8 +446,8 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
   orientation.mechanical_scan_limits_deg.el_min_deg = 0.0f;
   orientation.mechanical_scan_limits_deg.el_max_deg = 0.0f;
   orientation.electronic_scan_limits_deg = orientation.mechanical_scan_limits_deg;
-  orientation.scan_start_position = oneq::common::ScanStartPosition::kLeftTop;
-  orientation.scan_sequence = oneq::common::ScanSequence::kAzimuthFirst;
+  orientation.scan_start_position = oneq::foundation::ScanStartPosition::kLeftTop;
+  orientation.scan_sequence = oneq::foundation::ScanSequence::kAzimuthFirst;
 
   signal::pipeline::SignalPipeline signal_pipeline(
       config);
@@ -539,8 +539,8 @@ TEST(SignalPipelineScanScheduleTest, WorkSubModeSttReducesSweepCoverageComparedT
   tws_orientation.mechanical_scan_limits_deg.el_min_deg = 0.0f;
   tws_orientation.mechanical_scan_limits_deg.el_max_deg = 0.0f;
   tws_orientation.electronic_scan_limits_deg = tws_orientation.mechanical_scan_limits_deg;
-  tws_orientation.scan_start_position = oneq::common::ScanStartPosition::kLeftTop;
-  tws_orientation.scan_sequence = oneq::common::ScanSequence::kAzimuthFirst;
+  tws_orientation.scan_start_position = oneq::foundation::ScanStartPosition::kLeftTop;
+  tws_orientation.scan_sequence = oneq::foundation::ScanSequence::kAzimuthFirst;
 
   config::SignalPipelineConfig stt_config = tws_config;
   stt_config.beam_control.radar_orientation.work_sub_mode = model::RadarWorkSubMode::kStt;

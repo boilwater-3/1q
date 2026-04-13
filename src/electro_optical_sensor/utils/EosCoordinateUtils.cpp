@@ -19,7 +19,7 @@ void SetStatus(EosCoordinateStatus value, EosCoordinateStatus* status) {
 }
 
 oneq::internal::geometry::EulerAnglesDeg ToGeometryEuler(
-    const oneq::common::EulerAnglesDeg& euler_deg) {
+    const oneq::foundation::EulerAnglesDeg& euler_deg) {
   oneq::internal::geometry::EulerAnglesDeg geometry_euler;
   geometry_euler.yaw_deg = euler_deg.yaw_deg;
   geometry_euler.pitch_deg = euler_deg.pitch_deg;
@@ -27,9 +27,9 @@ oneq::internal::geometry::EulerAnglesDeg ToGeometryEuler(
   return geometry_euler;
 }
 
-oneq::common::Vector3f ConvertEnuToEosLocal(
-    const oneq::common::EnuCoordinateM& enu,
-    const oneq::common::EulerAnglesDeg& frame_attitude_deg) {
+oneq::foundation::Vector3f ConvertEnuToEosLocal(
+    const oneq::foundation::EnuCoordinateM& enu,
+    const oneq::foundation::EulerAnglesDeg& frame_attitude_deg) {
   oneq::internal::geometry::Vector3f enu_vector;
   enu_vector.x = static_cast<float>(enu.x_m);
   enu_vector.y = static_cast<float>(enu.y_m);
@@ -38,15 +38,15 @@ oneq::common::Vector3f ConvertEnuToEosLocal(
       oneq::internal::geometry::RotateVectorToLocalFrame(enu_vector,
                                                          ToGeometryEuler(frame_attitude_deg));
 
-  oneq::common::Vector3f local;
+  oneq::foundation::Vector3f local;
   local.x = local_vector.x;
   local.y = local_vector.y;
   local.z = local_vector.z;
   return local;
 }
 
-bool ResolveTargetLookAngles(const oneq::common::Vector3f& relative_local,
-                             const oneq::common::EulerAnglesDeg& platform_attitude_deg,
+bool ResolveTargetLookAngles(const oneq::foundation::Vector3f& relative_local,
+                             const oneq::foundation::EulerAnglesDeg& platform_attitude_deg,
                              float* azimuth_deg, float* elevation_deg) {
   if (azimuth_deg == nullptr || elevation_deg == nullptr) {
     return false;
@@ -75,8 +75,8 @@ bool ResolveTargetLookAngles(const oneq::common::Vector3f& relative_local,
 }
 
 bool FillTargetFromLocalPosition(std::uint64_t target_id,
-                                 const oneq::common::Vector3f& target_local,
-                                 const oneq::common::PoseState& platform_pose,
+                                 const oneq::foundation::Vector3f& target_local,
+                                 const oneq::foundation::PoseState& platform_pose,
                                  const EosTargetAppearance& appearance,
                                  session::EosTargetState* target,
                                  EosCoordinateStatus* status) {
@@ -85,7 +85,7 @@ bool FillTargetFromLocalPosition(std::uint64_t target_id,
     return false;
   }
 
-  oneq::common::Vector3f relative_local;
+  oneq::foundation::Vector3f relative_local;
   relative_local.x = target_local.x - platform_pose.position_m.x;
   relative_local.y = target_local.y - platform_pose.position_m.y;
   relative_local.z = target_local.z - platform_pose.position_m.z;
@@ -119,17 +119,17 @@ bool FillTargetFromLocalPosition(std::uint64_t target_id,
 
 }  // namespace
 
-bool TryConvertEcefToEosLocal(const oneq::common::EcefCoordinateM& position_ecef_m,
+bool TryConvertEcefToEosLocal(const oneq::foundation::EcefCoordinateM& position_ecef_m,
                               const EosCoordinateReference& reference,
-                              oneq::common::Vector3f* position_local_m,
+                              oneq::foundation::Vector3f* position_local_m,
                               EosCoordinateStatus* status) {
   if (position_local_m == nullptr) {
     SetStatus(EosCoordinateStatus::kNullOutput, status);
     return false;
   }
 
-  oneq::common::EnuCoordinateM enu;
-  if (!oneq::common::TryEcefToEnu(position_ecef_m, reference.origin_lla, &enu)) {
+  oneq::foundation::EnuCoordinateM enu;
+  if (!oneq::foundation::TryEcefToEnu(position_ecef_m, reference.origin_lla, &enu)) {
     SetStatus(EosCoordinateStatus::kCoordinateTransformFail, status);
     return false;
   }
@@ -138,17 +138,17 @@ bool TryConvertEcefToEosLocal(const oneq::common::EcefCoordinateM& position_ecef
   return true;
 }
 
-bool TryConvertLlaToEosLocal(const oneq::common::LlaCoordinateDegM& position_lla_deg_m,
+bool TryConvertLlaToEosLocal(const oneq::foundation::LlaCoordinateDegM& position_lla_deg_m,
                              const EosCoordinateReference& reference,
-                             oneq::common::Vector3f* position_local_m,
+                             oneq::foundation::Vector3f* position_local_m,
                              EosCoordinateStatus* status) {
   if (position_local_m == nullptr) {
     SetStatus(EosCoordinateStatus::kNullOutput, status);
     return false;
   }
 
-  oneq::common::EnuCoordinateM enu;
-  if (!oneq::common::TryLlaToEnu(position_lla_deg_m, reference.origin_lla, &enu)) {
+  oneq::foundation::EnuCoordinateM enu;
+  if (!oneq::foundation::TryLlaToEnu(position_lla_deg_m, reference.origin_lla, &enu)) {
     SetStatus(EosCoordinateStatus::kCoordinateTransformFail, status);
     return false;
   }
@@ -157,17 +157,17 @@ bool TryConvertLlaToEosLocal(const oneq::common::LlaCoordinateDegM& position_lla
   return true;
 }
 
-bool TryMakeEosPoseFromEcef(const oneq::common::EcefCoordinateM& position_ecef_m,
+bool TryMakeEosPoseFromEcef(const oneq::foundation::EcefCoordinateM& position_ecef_m,
                             const EosCoordinateReference& reference,
-                            const oneq::common::Vector3f& velocity_local_mps,
-                            const oneq::common::EulerAnglesDeg& attitude_deg,
-                            oneq::common::PoseState* pose, EosCoordinateStatus* status) {
+                            const oneq::foundation::Vector3f& velocity_local_mps,
+                            const oneq::foundation::EulerAnglesDeg& attitude_deg,
+                            oneq::foundation::PoseState* pose, EosCoordinateStatus* status) {
   if (pose == nullptr) {
     SetStatus(EosCoordinateStatus::kNullOutput, status);
     return false;
   }
 
-  oneq::common::Vector3f local_position;
+  oneq::foundation::Vector3f local_position;
   if (!TryConvertEcefToEosLocal(position_ecef_m, reference, &local_position, status)) {
     return false;
   }
@@ -179,17 +179,17 @@ bool TryMakeEosPoseFromEcef(const oneq::common::EcefCoordinateM& position_ecef_m
   return true;
 }
 
-bool TryMakeEosPoseFromLla(const oneq::common::LlaCoordinateDegM& position_lla_deg_m,
+bool TryMakeEosPoseFromLla(const oneq::foundation::LlaCoordinateDegM& position_lla_deg_m,
                            const EosCoordinateReference& reference,
-                           const oneq::common::Vector3f& velocity_local_mps,
-                           const oneq::common::EulerAnglesDeg& attitude_deg,
-                           oneq::common::PoseState* pose, EosCoordinateStatus* status) {
+                           const oneq::foundation::Vector3f& velocity_local_mps,
+                           const oneq::foundation::EulerAnglesDeg& attitude_deg,
+                           oneq::foundation::PoseState* pose, EosCoordinateStatus* status) {
   if (pose == nullptr) {
     SetStatus(EosCoordinateStatus::kNullOutput, status);
     return false;
   }
 
-  oneq::common::Vector3f local_position;
+  oneq::foundation::Vector3f local_position;
   if (!TryConvertLlaToEosLocal(position_lla_deg_m, reference, &local_position, status)) {
     return false;
   }
@@ -202,13 +202,13 @@ bool TryMakeEosPoseFromLla(const oneq::common::LlaCoordinateDegM& position_lla_d
 }
 
 bool TryMakeEosTargetFromEcef(std::uint64_t target_id,
-                              const oneq::common::EcefCoordinateM& target_ecef_m,
+                              const oneq::foundation::EcefCoordinateM& target_ecef_m,
                               const EosCoordinateReference& reference,
-                              const oneq::common::PoseState& platform_pose,
+                              const oneq::foundation::PoseState& platform_pose,
                               const EosTargetAppearance& appearance,
                               session::EosTargetState* target,
                               EosCoordinateStatus* status) {
-  oneq::common::Vector3f target_local;
+  oneq::foundation::Vector3f target_local;
   if (!TryConvertEcefToEosLocal(target_ecef_m, reference, &target_local, status)) {
     return false;
   }
@@ -217,13 +217,13 @@ bool TryMakeEosTargetFromEcef(std::uint64_t target_id,
 }
 
 bool TryMakeEosTargetFromLla(std::uint64_t target_id,
-                             const oneq::common::LlaCoordinateDegM& target_lla_deg_m,
+                             const oneq::foundation::LlaCoordinateDegM& target_lla_deg_m,
                              const EosCoordinateReference& reference,
-                             const oneq::common::PoseState& platform_pose,
+                             const oneq::foundation::PoseState& platform_pose,
                              const EosTargetAppearance& appearance,
                              session::EosTargetState* target,
                              EosCoordinateStatus* status) {
-  oneq::common::Vector3f target_local;
+  oneq::foundation::Vector3f target_local;
   if (!TryConvertLlaToEosLocal(target_lla_deg_m, reference, &target_local, status)) {
     return false;
   }

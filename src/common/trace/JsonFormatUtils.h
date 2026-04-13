@@ -1,11 +1,10 @@
-#ifndef ONEQ_COMMON_TRACE_JSON_FORMAT_UTILS_H_
-#define ONEQ_COMMON_TRACE_JSON_FORMAT_UTILS_H_
+#ifndef ONEQ_TRACE_JSON_FORMAT_UTILS_H_
+#define ONEQ_TRACE_JSON_FORMAT_UTILS_H_
 
 #include <sstream>
 #include <string>
 
 namespace oneq {
-namespace common {
 namespace trace {
 namespace internal {
 
@@ -49,7 +48,6 @@ inline std::string BoolToJson(bool value) { return value ? "true" : "false"; }
 
 }  // namespace internal
 }  // namespace trace
-}  // namespace common
 }  // namespace oneq
 
-#endif  // ONEQ_COMMON_TRACE_JSON_FORMAT_UTILS_H_
+#endif  // ONEQ_TRACE_JSON_FORMAT_UTILS_H_

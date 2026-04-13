@@ -16,7 +16,7 @@
 #include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarTraceSession.h"
-#include "1q/common/trace/TraceSink.h"
+#include "1q/trace/TraceSink.h"
 #include "1q/electro_optical_sensor/model/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosTraceSession.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
@@ -51,8 +51,8 @@ namespace tests {
 
 TEST(TraceSessionAdapterTest, RadarTraceSessionWritesConfigInputOutput) {
   const std::string trace_path = MakeTempTracePath("oneq-radar-trace");
-  std::shared_ptr<oneq::common::trace::TraceSink> sink(
-      new oneq::common::trace::JsonlFileTraceSink(trace_path, false));
+  std::shared_ptr<oneq::trace::TraceSink> sink(
+      new oneq::trace::JsonlFileTraceSink(trace_path, false));
 
   session::RadarSessionConfig config = config::MakeDefaultRadarSessionConfig();
   config.detection.min_detection_margin_db = -100.0f;
@@ -78,8 +78,8 @@ namespace tests {
 
 TEST(TraceSessionAdapterTest, EsrTraceSessionWritesConfigInputOutput) {
   const std::string trace_path = MakeTempTracePath("oneq-esr-trace");
-  std::shared_ptr<oneq::common::trace::TraceSink> sink(
-      new oneq::common::trace::JsonlFileTraceSink(trace_path, false));
+  std::shared_ptr<oneq::trace::TraceSink> sink(
+      new oneq::trace::JsonlFileTraceSink(trace_path, false));
 
   session::EsrSessionConfig config;
   config.pipeline_config.scan.az_step_deg = 120.0f;
@@ -108,8 +108,8 @@ namespace tests {
 
 TEST(TraceSessionAdapterTest, EosTraceSessionWritesConfigInputOutput) {
   const std::string trace_path = MakeTempTracePath("oneq-eos-trace");
-  std::shared_ptr<oneq::common::trace::TraceSink> sink(
-      new oneq::common::trace::JsonlFileTraceSink(trace_path, false));
+  std::shared_ptr<oneq::trace::TraceSink> sink(
+      new oneq::trace::JsonlFileTraceSink(trace_path, false));
 
   session::EosSessionConfig config;
   config.minimum_snr_db = 0.0f;

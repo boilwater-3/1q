@@ -436,20 +436,20 @@ TEST(PublicApiConvenienceTest, TargetFeatureUtilsConvertsLlaAndEcefToRadarLocalF
   reference.radar_attitude_deg.pitch_deg = 0.0f;
   reference.radar_attitude_deg.roll_deg = 0.0f;
 
-  oneq::common::LlaCoordinateDegM target_lla;
+  oneq::foundation::LlaCoordinateDegM target_lla;
   target_lla.latitude_deg = 0.0;
   target_lla.longitude_deg = 0.001;
   target_lla.altitude_m = 0.0;
 
-  oneq::common::Vector3f local_from_lla;
+  oneq::foundation::Vector3f local_from_lla;
   ASSERT_TRUE(model::TryConvertLlaToRadarLocal(target_lla, reference, &local_from_lla));
   EXPECT_GT(local_from_lla.x, 100.0f);
   EXPECT_NEAR(local_from_lla.y, 0.0f, 1.0e-2f);
   EXPECT_NEAR(local_from_lla.z, 0.0f, 1.0e-2f);
 
-  oneq::common::EcefCoordinateM target_ecef;
-  ASSERT_TRUE(oneq::common::TryLlaToEcef(target_lla, &target_ecef));
-  oneq::common::Vector3f local_from_ecef;
+  oneq::foundation::EcefCoordinateM target_ecef;
+  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));
+  oneq::foundation::Vector3f local_from_ecef;
   ASSERT_TRUE(model::TryConvertEcefToRadarLocal(target_ecef, reference, &local_from_ecef));
   EXPECT_NEAR(local_from_ecef.x, local_from_lla.x, 1.0e-3f);
   EXPECT_NEAR(local_from_ecef.y, local_from_lla.y, 1.0e-3f);
@@ -462,7 +462,7 @@ TEST(PublicApiConvenienceTest, TargetFeatureUtilsBuildsTargetFromExternalCoordin
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;
 
-  oneq::common::LlaCoordinateDegM target_lla;
+  oneq::foundation::LlaCoordinateDegM target_lla;
   target_lla.latitude_deg = 0.0;
   target_lla.longitude_deg = 0.001;
   target_lla.altitude_m = 0.0;
@@ -476,8 +476,8 @@ TEST(PublicApiConvenienceTest, TargetFeatureUtilsBuildsTargetFromExternalCoordin
   EXPECT_GT(target_from_lla.range_m, 100.0f);
   EXPECT_NEAR(target_from_lla.current_track_speed, std::sqrt(434.0f), 1.0e-5f);
 
-  oneq::common::EcefCoordinateM target_ecef;
-  ASSERT_TRUE(oneq::common::TryLlaToEcef(target_lla, &target_ecef));
+  oneq::foundation::EcefCoordinateM target_ecef;
+  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));
   model::TargetFeature target_from_ecef;
   ASSERT_TRUE(model::TryMakeTargetFromEcef(402U, target_ecef, reference, 0.0f, 0.0f, 0.0f,
                                                     1.5f, 0, &target_from_ecef));

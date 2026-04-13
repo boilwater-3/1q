@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "1q/api.hpp"
-#include "1q/common/pose_types.h"
+#include "1q/foundation/pose_types.h"
 
 namespace electro_optical_sensor {
 namespace session {
@@ -47,7 +47,7 @@ using EosTargetStateList = std::vector<EosTargetState>;
 struct ONEQ_API EosCycleInput {
   std::uint32_t cycle_index{0U};            /**< 当前周期号 */
   float dt_sec{1.0f};                       /**< 当前周期步长（单位：s） */
-  oneq::common::PoseState platform_pose{};  /**< 平台位姿状态 */
+  oneq::foundation::PoseState platform_pose{};  /**< 平台位姿状态 */
   float solar_altitude_deg{45.0f};          /**< 太阳高度角（单位：deg） */
   float solar_azimuth_deg{180.0f};          /**< 太阳方位角（单位：deg） */
   float solar_irradiance_w_m2{800.0f};      /**< 地表太阳辐照度（单位：W/m^2） */

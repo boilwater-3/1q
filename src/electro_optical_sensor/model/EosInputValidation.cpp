@@ -45,7 +45,7 @@ void ValidateDayNightConsistency(const EosCycleInput& input, EosValidationIssueL
   }
 }
 
-void ValidatePlatformPose(const oneq::common::PoseState& platform_pose,
+void ValidatePlatformPose(const oneq::foundation::PoseState& platform_pose,
                           EosValidationIssueList* issues) {
   if (issues == nullptr) {
     return;

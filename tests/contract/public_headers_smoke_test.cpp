@@ -57,10 +57,10 @@
 #include "1q/airborne_radar/extension/SignalPipelineResultTypes.h"
 #include "1q/airborne_radar/airborne_radar.hpp"
 #include "1q/api.hpp"
-#include "1q/common/coordinate_transform.h"
-#include "1q/common/pose_types.h"
-#include "1q/common/scan_schedule_types.h"
-#include "1q/common/trace/TraceSink.h"
+#include "1q/foundation/coordinate_transform.h"
+#include "1q/foundation/pose_types.h"
+#include "1q/foundation/scan_schedule_types.h"
+#include "1q/trace/TraceSink.h"
 #include "1q/electro_optical_sensor/output/EosOutputFrame.h"
 #include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 #include "1q/electro_optical_sensor/model/EosCycleInput.h"
@@ -246,12 +246,12 @@ namespace airborne_radar {
 namespace {
 
 TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
-  oneq::common::LlaCoordinateDegM origin_lla;
+  oneq::foundation::LlaCoordinateDegM origin_lla;
   origin_lla.latitude_deg = 0.0;
   origin_lla.longitude_deg = 0.0;
   origin_lla.altitude_m = 0.0;
-  oneq::common::EcefCoordinateM origin_ecef;
-  ASSERT_TRUE(oneq::common::TryLlaToEcef(origin_lla, &origin_ecef));
+  oneq::foundation::EcefCoordinateM origin_ecef;
+  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(origin_lla, &origin_ecef));
 
   session::RadarSessionConfig session_config =
       config::MakeDefaultRadarSessionConfig();
@@ -268,8 +268,8 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   scene_state.jammer_emitters.push_back(environment::JammerEmitterState{});
 
   session::RadarSession session = session::RadarSessionFactory::Create(session_config);
-  std::shared_ptr<oneq::common::trace::TraceSink> trace_sink(
-      new oneq::common::trace::JsonlFileTraceSink("/tmp/oneq-smoke-radar-trace.jsonl", false));
+  std::shared_ptr<oneq::trace::TraceSink> trace_sink(
+      new oneq::trace::JsonlFileTraceSink("/tmp/oneq-smoke-radar-trace.jsonl", false));
   session::RadarTraceSession trace_session(
       session_config, session::RadarTraceSessionOptions{trace_sink, false});
   const config::RadarRuntimeConfigPatch runtime_patch =
@@ -341,7 +341,7 @@ namespace electronic_surveillance_radar {
 namespace {
 
 TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
-  const oneq::common::ScanStartPosition shared_start = oneq::common::ScanStartPosition::kLeftTop;
+  const oneq::foundation::ScanStartPosition shared_start = oneq::foundation::ScanStartPosition::kLeftTop;
   EXPECT_EQ(static_cast<int>(shared_start), 0);
 
   session::EsrSessionConfig session_config = config::EsrSessionConfigBuilder()
@@ -427,7 +427,7 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   eos_reference.origin_lla.latitude_deg = 0.0;
   eos_reference.origin_lla.longitude_deg = 0.0;
   eos_reference.origin_lla.altitude_m = 0.0;
-  oneq::common::Vector3f eos_local_position;
+  oneq::foundation::Vector3f eos_local_position;
   ASSERT_TRUE(utils::TryConvertLlaToEosLocal(eos_reference.origin_lla, eos_reference,
                                                       &eos_local_position));
 

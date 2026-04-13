@@ -9,7 +9,7 @@
 #include <cstdint>
 
 #include "1q/api.hpp"
-#include "1q/common/coordinate_transform.h"
+#include "1q/foundation/coordinate_transform.h"
 #include "1q/electro_optical_sensor/model/EosCycleInput.h"
 
 namespace electro_optical_sensor {
@@ -20,8 +20,8 @@ namespace utils {
  * @note origin_lla 定义 ENU 原点；frame_attitude_deg 定义 EOS 局部坐标相对 ENU 的姿态。
  */
 struct ONEQ_API EosCoordinateReference {
-  oneq::common::LlaCoordinateDegM origin_lla{};      /**< 参考原点（WGS84 LLA） */
-  oneq::common::EulerAnglesDeg frame_attitude_deg{}; /**< EOS 局部坐标相对 ENU 的姿态角 */
+  oneq::foundation::LlaCoordinateDegM origin_lla{};      /**< 参考原点（WGS84 LLA） */
+  oneq::foundation::EulerAnglesDeg frame_attitude_deg{}; /**< EOS 局部坐标相对 ENU 的姿态角 */
 };
 
 /**
@@ -52,9 +52,9 @@ enum class ONEQ_API EosCoordinateStatus {
  * @param[out] status 可选状态输出，可为 nullptr。
  * @return 成功返回 true；输入非法或输出为空返回 false。
  */
-ONEQ_API bool TryConvertEcefToEosLocal(const oneq::common::EcefCoordinateM& position_ecef_m,
+ONEQ_API bool TryConvertEcefToEosLocal(const oneq::foundation::EcefCoordinateM& position_ecef_m,
                                        const EosCoordinateReference& reference,
-                                       oneq::common::Vector3f* position_local_m,
+                                       oneq::foundation::Vector3f* position_local_m,
                                        EosCoordinateStatus* status = nullptr);
 
 /**
@@ -65,9 +65,9 @@ ONEQ_API bool TryConvertEcefToEosLocal(const oneq::common::EcefCoordinateM& posi
  * @param[out] status 可选状态输出，可为 nullptr。
  * @return 成功返回 true；输入非法或输出为空返回 false。
  */
-ONEQ_API bool TryConvertLlaToEosLocal(const oneq::common::LlaCoordinateDegM& position_lla_deg_m,
+ONEQ_API bool TryConvertLlaToEosLocal(const oneq::foundation::LlaCoordinateDegM& position_lla_deg_m,
                                       const EosCoordinateReference& reference,
-                                      oneq::common::Vector3f* position_local_m,
+                                      oneq::foundation::Vector3f* position_local_m,
                                       EosCoordinateStatus* status = nullptr);
 
 /**
@@ -80,11 +80,11 @@ ONEQ_API bool TryConvertLlaToEosLocal(const oneq::common::LlaCoordinateDegM& pos
  * @param[out] status 可选状态输出，可为 nullptr。
  * @return 成功返回 true；输入非法或输出为空返回 false。
  */
-ONEQ_API bool TryMakeEosPoseFromEcef(const oneq::common::EcefCoordinateM& position_ecef_m,
+ONEQ_API bool TryMakeEosPoseFromEcef(const oneq::foundation::EcefCoordinateM& position_ecef_m,
                                      const EosCoordinateReference& reference,
-                                     const oneq::common::Vector3f& velocity_local_mps,
-                                     const oneq::common::EulerAnglesDeg& attitude_deg,
-                                     oneq::common::PoseState* pose,
+                                     const oneq::foundation::Vector3f& velocity_local_mps,
+                                     const oneq::foundation::EulerAnglesDeg& attitude_deg,
+                                     oneq::foundation::PoseState* pose,
                                      EosCoordinateStatus* status = nullptr);
 
 /**
@@ -97,11 +97,11 @@ ONEQ_API bool TryMakeEosPoseFromEcef(const oneq::common::EcefCoordinateM& positi
  * @param[out] status 可选状态输出，可为 nullptr。
  * @return 成功返回 true；输入非法或输出为空返回 false。
  */
-ONEQ_API bool TryMakeEosPoseFromLla(const oneq::common::LlaCoordinateDegM& position_lla_deg_m,
+ONEQ_API bool TryMakeEosPoseFromLla(const oneq::foundation::LlaCoordinateDegM& position_lla_deg_m,
                                     const EosCoordinateReference& reference,
-                                    const oneq::common::Vector3f& velocity_local_mps,
-                                    const oneq::common::EulerAnglesDeg& attitude_deg,
-                                    oneq::common::PoseState* pose,
+                                    const oneq::foundation::Vector3f& velocity_local_mps,
+                                    const oneq::foundation::EulerAnglesDeg& attitude_deg,
+                                    oneq::foundation::PoseState* pose,
                                     EosCoordinateStatus* status = nullptr);
 
 /**
@@ -116,9 +116,9 @@ ONEQ_API bool TryMakeEosPoseFromLla(const oneq::common::LlaCoordinateDegM& posit
  * @return 成功返回 true；输入非法、几何退化或输出为空返回 false。
  */
 ONEQ_API bool TryMakeEosTargetFromEcef(std::uint64_t target_id,
-                                       const oneq::common::EcefCoordinateM& target_ecef_m,
+                                       const oneq::foundation::EcefCoordinateM& target_ecef_m,
                                        const EosCoordinateReference& reference,
-                                       const oneq::common::PoseState& platform_pose,
+                                       const oneq::foundation::PoseState& platform_pose,
                                        const EosTargetAppearance& appearance,
                                        session::EosTargetState* target,
                                        EosCoordinateStatus* status = nullptr);
@@ -135,9 +135,9 @@ ONEQ_API bool TryMakeEosTargetFromEcef(std::uint64_t target_id,
  * @return 成功返回 true；输入非法、几何退化或输出为空返回 false。
  */
 ONEQ_API bool TryMakeEosTargetFromLla(std::uint64_t target_id,
-                                      const oneq::common::LlaCoordinateDegM& target_lla_deg_m,
+                                      const oneq::foundation::LlaCoordinateDegM& target_lla_deg_m,
                                       const EosCoordinateReference& reference,
-                                      const oneq::common::PoseState& platform_pose,
+                                      const oneq::foundation::PoseState& platform_pose,
                                       const EosTargetAppearance& appearance,
                                       session::EosTargetState* target,
                                       EosCoordinateStatus* status = nullptr);

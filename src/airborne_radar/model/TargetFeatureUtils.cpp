@@ -22,7 +22,7 @@ float ComputeNorm3(float x, float y, float z) { return std::sqrt(x * x + y * y +
  * @brief 将公共姿态角转换为内部几何模块姿态角。
  */
 oneq::internal::geometry::EulerAnglesDeg ToGeometryEuler(
-    const oneq::common::EulerAnglesDeg& euler_deg) {
+    const oneq::foundation::EulerAnglesDeg& euler_deg) {
   oneq::internal::geometry::EulerAnglesDeg geometry_euler;
   geometry_euler.yaw_deg = euler_deg.yaw_deg;
   geometry_euler.pitch_deg = euler_deg.pitch_deg;
@@ -33,8 +33,8 @@ oneq::internal::geometry::EulerAnglesDeg ToGeometryEuler(
 /**
  * @brief 将 ENU 坐标转换到雷达局部坐标。
  */
-oneq::common::Vector3f ConvertEnuToRadarLocal(const oneq::common::EnuCoordinateM& enu_position,
-                                              const oneq::common::EulerAnglesDeg& attitude_deg) {
+oneq::foundation::Vector3f ConvertEnuToRadarLocal(const oneq::foundation::EnuCoordinateM& enu_position,
+                                              const oneq::foundation::EulerAnglesDeg& attitude_deg) {
   oneq::internal::geometry::Vector3f enu_vector;
   enu_vector.x = static_cast<float>(enu_position.x_m);
   enu_vector.y = static_cast<float>(enu_position.y_m);
@@ -42,7 +42,7 @@ oneq::common::Vector3f ConvertEnuToRadarLocal(const oneq::common::EnuCoordinateM
   const oneq::internal::geometry::Vector3f local_vector =
       oneq::internal::geometry::RotateVectorToLocalFrame(enu_vector, ToGeometryEuler(attitude_deg));
 
-  oneq::common::Vector3f local_position;
+  oneq::foundation::Vector3f local_position;
   local_position.x = local_vector.x;
   local_position.y = local_vector.y;
   local_position.z = local_vector.z;
@@ -103,30 +103,30 @@ model::TargetFeature MakeAirTarget(std::uint64_t external_target_id, float posit
                                  velocity_y, velocity_z, rcs, swerling_type);
 }
 
-bool TryConvertEcefToRadarLocal(const oneq::common::EcefCoordinateM& position_ecef_m,
+bool TryConvertEcefToRadarLocal(const oneq::foundation::EcefCoordinateM& position_ecef_m,
                                 const RadarLocalFrameReference& reference,
-                                oneq::common::Vector3f* position_local_m) {
+                                oneq::foundation::Vector3f* position_local_m) {
   if (position_local_m == nullptr) {
     return false;
   }
 
-  oneq::common::EnuCoordinateM enu_position;
-  if (!oneq::common::TryEcefToEnu(position_ecef_m, reference.origin_lla, &enu_position)) {
+  oneq::foundation::EnuCoordinateM enu_position;
+  if (!oneq::foundation::TryEcefToEnu(position_ecef_m, reference.origin_lla, &enu_position)) {
     return false;
   }
   *position_local_m = ConvertEnuToRadarLocal(enu_position, reference.radar_attitude_deg);
   return true;
 }
 
-bool TryConvertLlaToRadarLocal(const oneq::common::LlaCoordinateDegM& position_lla_deg_m,
+bool TryConvertLlaToRadarLocal(const oneq::foundation::LlaCoordinateDegM& position_lla_deg_m,
                                const RadarLocalFrameReference& reference,
-                               oneq::common::Vector3f* position_local_m) {
+                               oneq::foundation::Vector3f* position_local_m) {
   if (position_local_m == nullptr) {
     return false;
   }
 
-  oneq::common::EnuCoordinateM enu_position;
-  if (!oneq::common::TryLlaToEnu(position_lla_deg_m, reference.origin_lla, &enu_position)) {
+  oneq::foundation::EnuCoordinateM enu_position;
+  if (!oneq::foundation::TryLlaToEnu(position_lla_deg_m, reference.origin_lla, &enu_position)) {
     return false;
   }
   *position_local_m = ConvertEnuToRadarLocal(enu_position, reference.radar_attitude_deg);
@@ -134,7 +134,7 @@ bool TryConvertLlaToRadarLocal(const oneq::common::LlaCoordinateDegM& position_l
 }
 
 bool TryMakeTargetFromEcef(std::uint64_t external_target_id,
-                           const oneq::common::EcefCoordinateM& position_ecef_m,
+                           const oneq::foundation::EcefCoordinateM& position_ecef_m,
                            const RadarLocalFrameReference& reference, float velocity_x,
                            float velocity_y, float velocity_z, float rcs, int swerling_type,
                            model::TargetFeature* target) {
@@ -142,7 +142,7 @@ bool TryMakeTargetFromEcef(std::uint64_t external_target_id,
     return false;
   }
 
-  oneq::common::Vector3f local_position;
+  oneq::foundation::Vector3f local_position;
   if (!TryConvertEcefToRadarLocal(position_ecef_m, reference, &local_position)) {
     return false;
   }
@@ -154,7 +154,7 @@ bool TryMakeTargetFromEcef(std::uint64_t external_target_id,
 }
 
 bool TryMakeTargetFromLla(std::uint64_t external_target_id,
-                          const oneq::common::LlaCoordinateDegM& position_lla_deg_m,
+                          const oneq::foundation::LlaCoordinateDegM& position_lla_deg_m,
                           const RadarLocalFrameReference& reference, float velocity_x,
                           float velocity_y, float velocity_z, float rcs, int swerling_type,
                           model::TargetFeature* target) {
@@ -162,7 +162,7 @@ bool TryMakeTargetFromLla(std::uint64_t external_target_id,
     return false;
   }
 
-  oneq::common::Vector3f local_position;
+  oneq::foundation::Vector3f local_position;
   if (!TryConvertLlaToRadarLocal(position_lla_deg_m, reference, &local_position)) {
     return false;
   }

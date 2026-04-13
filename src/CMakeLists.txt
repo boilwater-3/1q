@@ -554,12 +554,12 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/electro_optical_sensor.hpp
     )
     set(PUBLIC_HEADERS_FOUNDATION
-        ${CMAKE_SOURCE_DIR}/include/1q/common/coordinate_transform.h
-        ${CMAKE_SOURCE_DIR}/include/1q/common/pose_types.h
-        ${CMAKE_SOURCE_DIR}/include/1q/common/scan_schedule_types.h
+        ${CMAKE_SOURCE_DIR}/include/1q/foundation/coordinate_transform.h
+        ${CMAKE_SOURCE_DIR}/include/1q/foundation/pose_types.h
+        ${CMAKE_SOURCE_DIR}/include/1q/foundation/scan_schedule_types.h
     )
     set(PUBLIC_HEADERS_TRACE
-        ${CMAKE_SOURCE_DIR}/include/1q/common/trace/TraceSink.h
+        ${CMAKE_SOURCE_DIR}/include/1q/trace/TraceSink.h
     )
     set(PUBLIC_HEADERS_AIRBORNE_TOOLS
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarTraceSession.h
@@ -589,10 +589,10 @@ if(ENABLE_INSTALL)
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor
     )
     install(FILES ${PUBLIC_HEADERS_FOUNDATION}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/common
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/foundation
     )
     install(FILES ${PUBLIC_HEADERS_TRACE}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/common/trace
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/trace
     )
     install(FILES "${PROJECT_GENERATED_EXPORT_HEADER}"
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q

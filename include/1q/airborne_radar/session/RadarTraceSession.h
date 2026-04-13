@@ -12,7 +12,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/session/RadarSession.h"
-#include "1q/common/trace/TraceSink.h"
+#include "1q/trace/TraceSink.h"
 
 namespace airborne_radar {
 namespace session {
@@ -21,11 +21,11 @@ namespace session {
  * @brief RadarTraceSessionOptions 描述记录包装器配置。
  */
 struct ONEQ_API RadarTraceSessionOptions {
-  std::shared_ptr<oneq::common::trace::TraceSink> sink{}; /**< 记录输出 sink */
+  std::shared_ptr<oneq::trace::TraceSink> sink{}; /**< 记录输出 sink */
   bool trace_config_on_construct{true};                   /**< 构造时是否记录配置 */
 
   RadarTraceSessionOptions() = default;
-  RadarTraceSessionOptions(std::shared_ptr<oneq::common::trace::TraceSink> trace_sink,
+  RadarTraceSessionOptions(std::shared_ptr<oneq::trace::TraceSink> trace_sink,
                            bool trace_config)
       : sink(std::move(trace_sink)), trace_config_on_construct(trace_config) {}
 };
@@ -60,7 +60,7 @@ class ONEQ_API RadarTraceSession {
   void Record(const std::string& phase, const std::string& payload_json) const;
 
   RadarSession session_;
-  std::shared_ptr<oneq::common::trace::TraceSink> sink_;
+  std::shared_ptr<oneq::trace::TraceSink> sink_;
 };
 
 }  // namespace session

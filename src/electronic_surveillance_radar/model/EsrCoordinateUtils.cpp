@@ -15,7 +15,7 @@ oneq::internal::geometry::EulerAnglesDeg ToGeometryEuler(const EsrEulerAngleDeg&
   return geometry_euler;
 }
 
-EsrVector3f ConvertEnuToEsrLocal(const oneq::common::EnuCoordinateM& enu,
+EsrVector3f ConvertEnuToEsrLocal(const oneq::foundation::EnuCoordinateM& enu,
                                  const EsrEulerAngleDeg& frame_attitude_deg) {
   oneq::internal::geometry::Vector3f enu_vector;
   enu_vector.x = static_cast<float>(enu.x_m);
@@ -34,15 +34,15 @@ EsrVector3f ConvertEnuToEsrLocal(const oneq::common::EnuCoordinateM& enu,
 
 }  // namespace
 
-bool TryConvertEcefToEsrLocal(const oneq::common::EcefCoordinateM& position_ecef_m,
+bool TryConvertEcefToEsrLocal(const oneq::foundation::EcefCoordinateM& position_ecef_m,
                               const EsrCoordinateReference& reference,
                               EsrVector3f* position_local_m) {
   if (position_local_m == nullptr) {
     return false;
   }
 
-  oneq::common::EnuCoordinateM enu;
-  if (!oneq::common::TryEcefToEnu(position_ecef_m, reference.origin_lla, &enu)) {
+  oneq::foundation::EnuCoordinateM enu;
+  if (!oneq::foundation::TryEcefToEnu(position_ecef_m, reference.origin_lla, &enu)) {
     return false;
   }
 
@@ -50,15 +50,15 @@ bool TryConvertEcefToEsrLocal(const oneq::common::EcefCoordinateM& position_ecef
   return true;
 }
 
-bool TryConvertLlaToEsrLocal(const oneq::common::LlaCoordinateDegM& position_lla_deg_m,
+bool TryConvertLlaToEsrLocal(const oneq::foundation::LlaCoordinateDegM& position_lla_deg_m,
                              const EsrCoordinateReference& reference,
                              EsrVector3f* position_local_m) {
   if (position_local_m == nullptr) {
     return false;
   }
 
-  oneq::common::EnuCoordinateM enu;
-  if (!oneq::common::TryLlaToEnu(position_lla_deg_m, reference.origin_lla, &enu)) {
+  oneq::foundation::EnuCoordinateM enu;
+  if (!oneq::foundation::TryLlaToEnu(position_lla_deg_m, reference.origin_lla, &enu)) {
     return false;
   }
 
@@ -66,7 +66,7 @@ bool TryConvertLlaToEsrLocal(const oneq::common::LlaCoordinateDegM& position_lla
   return true;
 }
 
-bool TryMakeEsrPoseFromEcef(const oneq::common::EcefCoordinateM& position_ecef_m,
+bool TryMakeEsrPoseFromEcef(const oneq::foundation::EcefCoordinateM& position_ecef_m,
                             const EsrCoordinateReference& reference,
                             const EsrVector3f& velocity_local_mps,
                             const EsrEulerAngleDeg& attitude_deg, EsrPoseState* pose) {
@@ -85,7 +85,7 @@ bool TryMakeEsrPoseFromEcef(const oneq::common::EcefCoordinateM& position_ecef_m
   return true;
 }
 
-bool TryMakeEsrPoseFromLla(const oneq::common::LlaCoordinateDegM& position_lla_deg_m,
+bool TryMakeEsrPoseFromLla(const oneq::foundation::LlaCoordinateDegM& position_lla_deg_m,
                            const EsrCoordinateReference& reference,
                            const EsrVector3f& velocity_local_mps,
                            const EsrEulerAngleDeg& attitude_deg, EsrPoseState* pose) {

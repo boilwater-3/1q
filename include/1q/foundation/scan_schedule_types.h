@@ -3,13 +3,13 @@
  * @brief 定义跨雷达模块复用的扫描调度轻量原语。
  */
 
-#ifndef ONEQ_COMMON_SCAN_SCHEDULE_TYPES_H_
-#define ONEQ_COMMON_SCAN_SCHEDULE_TYPES_H_
+#ifndef ONEQ_FOUNDATION_SCAN_SCHEDULE_TYPES_H_
+#define ONEQ_FOUNDATION_SCAN_SCHEDULE_TYPES_H_
 
 #include "1q/api.hpp"
 
 namespace oneq {
-namespace common {
+namespace foundation {
 
 /**
  * @brief ScanStartPosition 描述二维扫描的起始象限。
@@ -29,7 +29,7 @@ enum class ONEQ_API ScanSequence {
   kElevationFirst    /**< 先俯仰后方位 */
 };
 
-}  // namespace common
+}  // namespace foundation
 }  // namespace oneq
 
-#endif  // ONEQ_COMMON_SCAN_SCHEDULE_TYPES_H_
+#endif  // ONEQ_FOUNDATION_SCAN_SCHEDULE_TYPES_H_

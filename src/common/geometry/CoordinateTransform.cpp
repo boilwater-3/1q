@@ -1,9 +1,9 @@
-#include "1q/common/coordinate_transform.h"
+#include "1q/foundation/coordinate_transform.h"
 
 #include <cmath>
 
 namespace oneq {
-namespace common {
+namespace foundation {
 
 namespace {
 
@@ -147,5 +147,5 @@ Vector3f ToVector3f(const EnuCoordinateM& enu) {
   return vector;
 }
 
-}  // namespace common
+}  // namespace foundation
 }  // namespace oneq

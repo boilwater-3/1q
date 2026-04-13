@@ -7,7 +7,7 @@
 #define ELECTRONIC_SURVEILLANCE_RADAR_MODEL_ESR_COORDINATE_UTILS_H_
 
 #include "1q/api.hpp"
-#include "1q/common/coordinate_transform.h"
+#include "1q/foundation/coordinate_transform.h"
 #include "1q/electronic_surveillance_radar/model/EsrOrientationConfig.h"
 
 namespace electronic_surveillance_radar {
@@ -18,8 +18,8 @@ namespace model {
  * @note origin_lla 定义 ENU 原点；frame_attitude_deg 定义 ESR 局部坐标相对 ENU 的姿态。
  */
 struct ONEQ_API EsrCoordinateReference {
-  oneq::common::LlaCoordinateDegM origin_lla{};     /**< 参考原点（WGS84 LLA） */
-  oneq::common::EulerAnglesDeg frame_attitude_deg{}; /**< ESR 局部坐标相对 ENU 的姿态角 */
+  oneq::foundation::LlaCoordinateDegM origin_lla{};     /**< 参考原点（WGS84 LLA） */
+  oneq::foundation::EulerAnglesDeg frame_attitude_deg{}; /**< ESR 局部坐标相对 ENU 的姿态角 */
 };
 
 /**
@@ -29,7 +29,7 @@ struct ONEQ_API EsrCoordinateReference {
  * @param[out] position_local_m 输出 ESR 局部坐标（单位：m），可为 nullptr。
  * @return 成功返回 true；输入非法或输出为空返回 false。
  */
-ONEQ_API bool TryConvertEcefToEsrLocal(const oneq::common::EcefCoordinateM& position_ecef_m,
+ONEQ_API bool TryConvertEcefToEsrLocal(const oneq::foundation::EcefCoordinateM& position_ecef_m,
                                        const EsrCoordinateReference& reference,
                                        EsrVector3f* position_local_m);
 
@@ -40,7 +40,7 @@ ONEQ_API bool TryConvertEcefToEsrLocal(const oneq::common::EcefCoordinateM& posi
  * @param[out] position_local_m 输出 ESR 局部坐标（单位：m），可为 nullptr。
  * @return 成功返回 true；输入非法或输出为空返回 false。
  */
-ONEQ_API bool TryConvertLlaToEsrLocal(const oneq::common::LlaCoordinateDegM& position_lla_deg_m,
+ONEQ_API bool TryConvertLlaToEsrLocal(const oneq::foundation::LlaCoordinateDegM& position_lla_deg_m,
                                       const EsrCoordinateReference& reference,
                                       EsrVector3f* position_local_m);
 
@@ -53,7 +53,7 @@ ONEQ_API bool TryConvertLlaToEsrLocal(const oneq::common::LlaCoordinateDegM& pos
  * @param[out] pose 输出位姿状态，可为 nullptr。
  * @return 成功返回 true；输入非法或输出为空返回 false。
  */
-ONEQ_API bool TryMakeEsrPoseFromEcef(const oneq::common::EcefCoordinateM& position_ecef_m,
+ONEQ_API bool TryMakeEsrPoseFromEcef(const oneq::foundation::EcefCoordinateM& position_ecef_m,
                                      const EsrCoordinateReference& reference,
                                      const EsrVector3f& velocity_local_mps,
                                      const EsrEulerAngleDeg& attitude_deg, EsrPoseState* pose);
@@ -67,7 +67,7 @@ ONEQ_API bool TryMakeEsrPoseFromEcef(const oneq::common::EcefCoordinateM& positi
  * @param[out] pose 输出位姿状态，可为 nullptr。
  * @return 成功返回 true；输入非法或输出为空返回 false。
  */
-ONEQ_API bool TryMakeEsrPoseFromLla(const oneq::common::LlaCoordinateDegM& position_lla_deg_m,
+ONEQ_API bool TryMakeEsrPoseFromLla(const oneq::foundation::LlaCoordinateDegM& position_lla_deg_m,
                                     const EsrCoordinateReference& reference,
                                     const EsrVector3f& velocity_local_mps,
                                     const EsrEulerAngleDeg& attitude_deg, EsrPoseState* pose);
