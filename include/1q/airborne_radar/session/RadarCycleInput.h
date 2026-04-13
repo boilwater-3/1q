@@ -7,19 +7,18 @@
 #define AIRBORNE_RADAR_CORE_CONTEXT_RADAR_CYCLE_INPUT_H_
 
 #include "1q/airborne_radar/model/TargetFeature.h"
-#include "1q/airborne_radar/model/RadarOrientationConfig.h"
+#include "1q/foundation/pose_types.h"
 
 namespace airborne_radar {
 namespace session {
 
 /**
- * @brief RadarCycleInput 描述单周期输入的目标、姿态与步长。
+ * @brief RadarCycleInput 描述单周期输入的目标、平台位姿与步长。
  */
 struct RadarCycleInput {
   model::TargetFeatureList target_features{}; /**< 当前周期的目标特征列表 */
-  model::PlatformAttitudeDeg
-      platform_attitude_deg{}; /**< 当前周期的搭载平台姿态角（单位：度） */
-  float dt_sec{1.0f};          /**< 当前周期步长（单位：秒） */
+  oneq::foundation::PoseState platform_pose{}; /**< 当前周期平台位姿状态 */
+  float dt_sec{1.0f};                           /**< 当前周期步长（单位：秒） */
 };
 
 }  // namespace session

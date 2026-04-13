@@ -37,7 +37,9 @@ class ScenarioRadarContext : public extension::IRadarContext {
 
   void BeginCycle(const session::RadarCycleInput& input) override {
     target_features_ = input.target_features;
-    platform_attitude_deg_ = input.platform_attitude_deg;
+    platform_attitude_deg_.yaw_deg = input.platform_pose.attitude_deg.yaw_deg;
+    platform_attitude_deg_.pitch_deg = input.platform_pose.attitude_deg.pitch_deg;
+    platform_attitude_deg_.roll_deg = input.platform_pose.attitude_deg.roll_deg;
     cycle_dt_sec_ = input.dt_sec;
     submitted_commands_.clear();
   }

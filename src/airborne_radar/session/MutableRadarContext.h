@@ -11,6 +11,7 @@
 
 #include "1q/airborne_radar/extension/IRadarContext.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
+#include "1q/foundation/pose_types.h"
 
 namespace airborne_radar {
 namespace session {
@@ -112,6 +113,7 @@ class MutableRadarContext final : public extension::IRadarContext {
   struct RuntimeSnapshot;
 
   std::shared_ptr<model::TargetFeatureList> target_features_{new model::TargetFeatureList()};
+  oneq::foundation::PoseState platform_pose_{};
   model::PlatformAttitudeDeg platform_attitude_deg_{};
   float cycle_dt_sec_{1.0f};
   std::vector<extension::control::RadarCommand> submitted_commands_{};

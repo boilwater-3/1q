@@ -14,30 +14,48 @@ int main() {
   namespace aq = airborne_radar;
   namespace geo = oneq::foundation;
 
-  // 1) 用预设配置创建会话（推荐入口）。
+  // 1) 创建会话。
   const aq::session::RadarSessionConfig session_config =
       aq::config::MakeDetectionMissionRadarSessionConfig();
   aq::session::RadarSession session = aq::session::RadarSessionFactory::Create(session_config);
 
-  // 2) 外部已知：雷达位置与目标位置均为 ECEF（m）。
-  geo::EcefCoordinateM radar_ecef;
-  radar_ecef.x_m = -2180214.6;
-  radar_ecef.y_m = 4380183.2;
-  radar_ecef.z_m = 4071245.9;
-  geo::EcefCoordinateM target_ecef;
-  target_ecef.x_m = -2180030.0;
-  target_ecef.y_m = 4380270.0;
-  target_ecef.z_m = 4071530.0;
+  // 2) 外部平台信息（位置、速度）。
+  //    这里先用 LLA 构造样例，再统一转换为 ECEF，模拟外部系统直接给出地固坐标。
+  geo::LlaCoordinateDegM platform_lla;
+  platform_lla.latitude_deg = 31.0;
+  platform_lla.longitude_deg = 121.0;
+  platform_lla.altitude_m = 1200.0;
+  geo::EcefCoordinateM platform_ecef;
+  if (!geo::TryLlaToEcef(platform_lla, &platform_ecef)) {
+    std::cerr << "invalid platform lla" << std::endl;
+    return 1;
+  }
+  geo::Vector3f platform_velocity_ecef_mps;
+  platform_velocity_ecef_mps.x = 80.0f;
+  platform_velocity_ecef_mps.y = 0.0f;
+  platform_velocity_ecef_mps.z = 0.0f;
 
-  // 3) 外部也可直接提供目标 ECEF 速度（m/s）。
+  // 3) 目标信息（位置、速度、RCS）。
+  //    AR 的目标速度按外部绝对速度输入，适配器内部会换算为相对雷达速度。
+  geo::LlaCoordinateDegM target_lla = platform_lla;
+  target_lla.longitude_deg += 0.003;
+  target_lla.altitude_m = 1500.0;
+  geo::EcefCoordinateM target_ecef;
+  if (!geo::TryLlaToEcef(target_lla, &target_ecef)) {
+    std::cerr << "invalid target lla" << std::endl;
+    return 1;
+  }
   geo::Vector3f target_velocity_ecef_mps;
   target_velocity_ecef_mps.x = 120.0f;
   target_velocity_ecef_mps.y = -70.0f;
   target_velocity_ecef_mps.z = 30.0f;
 
-  // 4) 统一入口：雷达 ECEF 位置 + 目标 ECEF 位置 + 指定速度参考系 -> TargetFeature。
+  // 4) 组装外部输入并执行单周期。
+  //    先把外部平台与目标信息合成统一输入，再由适配器生成目标特征。
   aq::session::TargetExternalKinematicsInput external_input;
-  external_input.radar_position_ecef_m = radar_ecef;
+  external_input.radar_position_ecef_m = platform_ecef;
+  external_input.has_radar_velocity_ecef_mps = true;
+  external_input.radar_velocity_ecef_mps = platform_velocity_ecef_mps;
   external_input.target_position_ecef_m = target_ecef;
   external_input.target_velocity_mps = target_velocity_ecef_mps;
   external_input.target_velocity_frame = aq::session::VelocityFrame::kEcef;
@@ -53,19 +71,23 @@ int main() {
     return 1;
   }
 
-  // 5) 准备一个周期输入。
+  //    将单个目标特征放入当前周期输入，完成一次雷达循环。
   aq::session::RadarCycleInput input;
   input.dt_sec = 1.0f;
+  input.platform_pose.attitude_deg.yaw_deg =
+      session_config.beam_control.platform_attitude_deg.yaw_deg;
+  input.platform_pose.attitude_deg.pitch_deg =
+      session_config.beam_control.platform_attitude_deg.pitch_deg;
+  input.platform_pose.attitude_deg.roll_deg =
+      session_config.beam_control.platform_attitude_deg.roll_deg;
   input.target_features.push_back(target);
 
-  // 6) 接入层建议先做输入校验。
   const auto issues = aq::session::ValidateRadarCycleInput(input);
   if (aq::session::HasValidationError(issues)) {
     std::cerr << "invalid radar input" << std::endl;
     return 1;
   }
 
-  // 7) 执行一个周期并读取结果。
   const aq::session::RadarCycleResult result = session.StepWithResult(input);
   const std::size_t confirmed =
       aq::output::CollectConfirmedTracks(result.track_output_frame).size();

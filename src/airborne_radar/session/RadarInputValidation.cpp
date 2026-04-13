@@ -32,6 +32,23 @@ ValidationIssue MakeIssue(ValidationSeverity severity, ValidationCode code,
  */
 bool IsFinite(float value) { return oneq::internal::validation::IsFinite(value); }
 
+void ValidatePlatformPose(const oneq::foundation::PoseState& platform_pose,
+                          ValidationIssueList* issues) {
+  if (issues == nullptr) {
+    return;
+  }
+  if (!IsFinite(platform_pose.position_m.x) || !IsFinite(platform_pose.position_m.y) ||
+      !IsFinite(platform_pose.position_m.z) || !IsFinite(platform_pose.velocity_mps.x) ||
+      !IsFinite(platform_pose.velocity_mps.y) || !IsFinite(platform_pose.velocity_mps.z) ||
+      !IsFinite(platform_pose.attitude_deg.yaw_deg) ||
+      !IsFinite(platform_pose.attitude_deg.pitch_deg) ||
+      !IsFinite(platform_pose.attitude_deg.roll_deg)) {
+    issues->push_back(
+        MakeIssue(ValidationSeverity::kError, ValidationCode::kNonFinitePlatformNumericField,
+                  static_cast<std::size_t>(-1), "platform pose contains non-finite numeric field"));
+  }
+}
+
 /**
  * @brief 判断目标是否携带笛卡尔位置。
  * @param target 目标特征。
@@ -95,6 +112,7 @@ ValidationIssueList ValidateRadarCycleDeltaTime(float dt_sec) {
 
 ValidationIssueList ValidateRadarCycleInput(const RadarCycleInput& input) {
   ValidationIssueList issues = ValidateRadarCycleDeltaTime(input.dt_sec);
+  ValidatePlatformPose(input.platform_pose, &issues);
 
   const ValidationIssueList target_issues = ValidateTargetFeatures(input.target_features);
   issues.insert(issues.end(), target_issues.begin(), target_issues.end());

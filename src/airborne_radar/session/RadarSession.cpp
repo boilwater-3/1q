@@ -57,10 +57,7 @@ struct RadarSession::Impl {
   }
 
   ValidationIssueList ValidateInput(const RadarCycleInput& input) const {
-    ValidationIssueList issues = ValidateRadarCycleDeltaTime(input.dt_sec);
-    const ValidationIssueList target_issues = ValidateTargetFeatures(input.target_features);
-    issues.insert(issues.end(), target_issues.begin(), target_issues.end());
-    return issues;
+    return ValidateRadarCycleInput(input);
   }
 
   RadarCycleResult BuildValidationErrorResult(const ValidationIssueList& issues) const {

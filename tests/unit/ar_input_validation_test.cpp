@@ -312,6 +312,18 @@ TEST(RadarInputValidationTest, InfDtIsError) {
   EXPECT_NE(FindIssue(issues, ValidationCode::kNonFiniteCycleDeltaTime), nullptr);
 }
 
+/// @brief platform_pose 任意字段为非有限数时应报 kNonFinitePlatformNumericField。
+TEST(RadarInputValidationTest, NonFinitePlatformPoseIsError) {
+  session::RadarCycleInput input;
+  input.dt_sec = 1.0f;
+  input.platform_pose.attitude_deg.yaw_deg = std::numeric_limits<float>::quiet_NaN();
+  input.target_features.push_back(MakeValidTarget());
+
+  const auto issues = ValidateRadarCycleInput(input);
+  EXPECT_TRUE(HasValidationError(issues));
+  EXPECT_NE(FindIssue(issues, ValidationCode::kNonFinitePlatformNumericField), nullptr);
+}
+
 // ===========================================================================
 // 完全有效输入 — 基线 Smoke Test
 // ===========================================================================

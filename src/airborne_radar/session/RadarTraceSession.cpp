@@ -40,6 +40,30 @@ Json BuildJson(const model::EulerAnglesDeg& value) {
   return json;
 }
 
+Json BuildJson(const oneq::foundation::EulerAnglesDeg& value) {
+  Json json;
+  json["yaw_deg"] = value.yaw_deg;
+  json["pitch_deg"] = value.pitch_deg;
+  json["roll_deg"] = value.roll_deg;
+  return json;
+}
+
+Json BuildJson(const oneq::foundation::Vector3f& value) {
+  Json json;
+  json["x"] = value.x;
+  json["y"] = value.y;
+  json["z"] = value.z;
+  return json;
+}
+
+Json BuildJson(const oneq::foundation::PoseState& value) {
+  Json json;
+  json["position_m"] = BuildJson(value.position_m);
+  json["velocity_mps"] = BuildJson(value.velocity_mps);
+  json["attitude_deg"] = BuildJson(value.attitude_deg);
+  return json;
+}
+
 Json BuildJson(const model::AzimuthElevationDeg& value) {
   Json json;
   json["az_deg"] = value.az_deg;
@@ -283,7 +307,7 @@ Json BuildJson(const model::TargetFeature& value) {
 Json BuildJson(const RadarCycleInput& value) {
   Json json;
   json["dt_sec"] = value.dt_sec;
-  json["platform_attitude_deg"] = BuildJson(value.platform_attitude_deg);
+  json["platform_pose"] = BuildJson(value.platform_pose);
   json["target_features"] =
       SerializeArray(value.target_features, [](const model::TargetFeature& target) {
         return BuildJson(target);

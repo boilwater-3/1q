@@ -54,9 +54,9 @@ session::RadarCycleInput MakeCycleInput(model::TargetFeatureList targets, float 
   session::RadarCycleInput input;
   input.target_features = std::move(targets);
   input.dt_sec = dt_sec;
-  input.platform_attitude_deg.yaw_deg = 5.0f;
-  input.platform_attitude_deg.pitch_deg = -1.0f;
-  input.platform_attitude_deg.roll_deg = 2.0f;
+  input.platform_pose.attitude_deg.yaw_deg = 5.0f;
+  input.platform_pose.attitude_deg.pitch_deg = -1.0f;
+  input.platform_pose.attitude_deg.roll_deg = 2.0f;
   return input;
 }
 
@@ -109,7 +109,9 @@ class RecordingRadarContext : public extension::IRadarContext {
   void BeginCycle(const session::RadarCycleInput& input) override {
     ++begin_cycle_count_;
     target_features_ = input.target_features;
-    platform_attitude_deg_ = input.platform_attitude_deg;
+    platform_attitude_deg_.yaw_deg = input.platform_pose.attitude_deg.yaw_deg;
+    platform_attitude_deg_.pitch_deg = input.platform_pose.attitude_deg.pitch_deg;
+    platform_attitude_deg_.roll_deg = input.platform_pose.attitude_deg.roll_deg;
     cycle_dt_sec_ = input.dt_sec;
     submitted_commands_.clear();
   }

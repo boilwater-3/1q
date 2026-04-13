@@ -33,6 +33,7 @@ enum class ValidationCode {
   kNone = 0,                         /**< 无问题占位值 */
   kInvalidCycleDeltaTime,            /**< 周期步长非法（<= 0） */
   kNonFiniteCycleDeltaTime,          /**< 周期步长不是有限值 */
+  kNonFinitePlatformNumericField,    /**< 平台位姿字段存在非有限值 */
   kNonFiniteTargetField,             /**< 目标字段存在非有限值 */
   kMissingRangeAndCartesianPosition, /**< 目标既没有有效斜距，也没有有效笛卡尔位置 */
   kUnknownExternalTargetId,          /**< 目标外部标识符未知 */

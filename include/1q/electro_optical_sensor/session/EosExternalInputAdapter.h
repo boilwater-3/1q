@@ -64,11 +64,30 @@ enum class ONEQ_API EosCoordinateStatus {
   kDegenerateGeometry
 };
 
+/**
+ * @brief 将外部平台运动学输入转换为 EOS 平台位姿。
+ * @param input 外部平台输入，位置固定为 ECEF，速度可由 platform_velocity_frame 指定参考系。
+ * @param reference EOS 局部坐标参考系，决定 ECEF/ENU 到 EOS 局部坐标的转换基准。
+ * @param pose 输出平台位姿。
+ * @param status 可选输出状态，nullptr 表示不关心失败原因。
+ * @return 转换成功返回 true；输入非法、坐标变换失败或输出为空返回 false。
+ */
 ONEQ_API bool TryMakeEosPoseFromExternalKinematics(const EosExternalPoseInput& input,
                                                    const EosCoordinateReference& reference,
                                                    oneq::foundation::PoseState* pose,
                                                    EosCoordinateStatus* status = nullptr);
 
+/**
+ * @brief 将外部 ECEF 目标坐标转换为 EOS 目标状态。
+ * @param target_id 目标标识。
+ * @param target_ecef_m 目标 ECEF 坐标。
+ * @param reference EOS 局部坐标参考系。
+ * @param platform_pose 平台位姿，用于计算目标相对平台的几何关系。
+ * @param appearance 目标辐射与外观参数。
+ * @param target 输出目标状态。
+ * @param status 可选输出状态，nullptr 表示不关心失败原因。
+ * @return 转换成功返回 true；输入非法、坐标变换失败或输出为空返回 false。
+ */
 ONEQ_API bool TryMakeEosTargetFromEcef(std::uint64_t target_id,
                                        const oneq::foundation::EcefCoordinateM& target_ecef_m,
                                        const EosCoordinateReference& reference,
@@ -77,6 +96,17 @@ ONEQ_API bool TryMakeEosTargetFromEcef(std::uint64_t target_id,
                                        EosTargetState* target,
                                        EosCoordinateStatus* status = nullptr);
 
+/**
+ * @brief 将外部 LLA 目标坐标转换为 EOS 目标状态。
+ * @param target_id 目标标识。
+ * @param target_lla_deg_m 目标 WGS84 LLA 坐标。
+ * @param reference EOS 局部坐标参考系。
+ * @param platform_pose 平台位姿，用于计算目标相对平台的几何关系。
+ * @param appearance 目标辐射与外观参数。
+ * @param target 输出目标状态。
+ * @param status 可选输出状态，nullptr 表示不关心失败原因。
+ * @return 转换成功返回 true；输入非法、坐标变换失败或输出为空返回 false。
+ */
 ONEQ_API bool TryMakeEosTargetFromLla(std::uint64_t target_id,
                                       const oneq::foundation::LlaCoordinateDegM& target_lla_deg_m,
                                       const EosCoordinateReference& reference,
