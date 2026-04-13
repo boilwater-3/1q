@@ -16,9 +16,10 @@
 #include "1q/api.hpp"
 
 namespace airborne_radar {
-namespace extension {
+namespace environment {
 class IEnvironmentService;
-
+}
+namespace extension {
 struct SignalPipelineRuntimeState {
   const void* owner_identity{nullptr}; /**< 生成该快照的 pipeline 实例地址 */
   std::uint32_t schema_version{0U};    /**< 运行态快照 schema 版本 */
@@ -40,7 +41,7 @@ class ONEQ_API ISignalPipeline {
    * @return 当前周期信号流水线输出结果。
    */
   virtual SignalCycleResult RunCycle(const model::TargetFeatureList& input_state,
-                                     const extension::IEnvironmentService& environment) = 0;
+                                     const environment::IEnvironmentService& environment) = 0;
 
   /**
    * @brief 更新当前搭载平台姿态。

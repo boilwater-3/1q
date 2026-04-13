@@ -48,7 +48,7 @@
 #include "1q/airborne_radar/environment/EnvironmentDefaultConfigBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "1q/airborne_radar/extension/IEnvironmentService.h"
+#include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/extension/ISignalPipeline.h"
 #include "1q/airborne_radar/extension/SignalPipelineResultTypes.h"
 #include "1q/airborne_radar/airborne_radar.hpp"
@@ -66,12 +66,12 @@
 #include "1q/electro_optical_sensor/model/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
-#include "1q/electro_optical_sensor/extension/IEosEnvironmentService.h"
+#include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
 #include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
 #include "1q/electro_optical_sensor/extension/IEosPipeline.h"
 #include "1q/electro_optical_sensor/extension/EosController.h"
 #include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
-#include "1q/electro_optical_sensor/extension/IEosEnvironmentService.h"
+#include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
 #include "1q/electro_optical_sensor/extension/IEosPipeline.h"
 #include "1q/electro_optical_sensor/extension/electro_optical_sensor_extension.hpp"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
@@ -103,7 +103,7 @@ static_assert(
     "RadarSession direct pipeline injection construction must be disabled");
 static_assert(
     !std::is_constructible<ArSession, const ArConfig&,
-                           airborne_radar::extension::IEnvironmentService&>::value,
+                           airborne_radar::environment::IEnvironmentService&>::value,
     "RadarSession direct environment injection construction must be disabled");
 static_assert(!std::is_constructible<ArSession, const ArConfig&,
                                      airborne_radar::extension::RadarController&>::value,
@@ -111,7 +111,7 @@ static_assert(!std::is_constructible<ArSession, const ArConfig&,
 static_assert(
     !std::is_constructible<ArSession, const ArConfig&, airborne_radar::extension::IRadarContext&,
                            airborne_radar::extension::ISignalPipeline&,
-                           airborne_radar::extension::IEnvironmentService&,
+                           airborne_radar::environment::IEnvironmentService&,
                            airborne_radar::extension::RadarController&>::value,
     "RadarSession direct full-chain injection construction must be disabled");
 static_assert(std::is_same<ArSession, decltype(airborne_radar::session::RadarSessionFactory::Create(
@@ -128,7 +128,7 @@ static_assert(
     std::is_same<ArSession, decltype(airborne_radar::session::RadarSessionFactory::
                                          CreateWithEnvironmentService(
                                              std::declval<const ArConfig&>(),
-                                             std::declval<airborne_radar::extension::
+                                             std::declval<airborne_radar::environment::
                                                               IEnvironmentService&>()))>::value,
     "RadarSessionFactory::CreateWithEnvironmentService must return RadarSession");
 static_assert(

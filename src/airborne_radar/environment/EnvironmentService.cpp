@@ -97,8 +97,8 @@ void EnvironmentService::SetJammingDetectionThresholdDb(float threshold_db) {
   RefreshFrozenSnapshotFromActiveScene();
 }
 
-extension::EnvironmentServiceRuntimeState EnvironmentService::CaptureRuntimeState() const {
-  extension::EnvironmentServiceRuntimeState state;
+environment::EnvironmentServiceRuntimeState EnvironmentService::CaptureRuntimeState() const {
+  environment::EnvironmentServiceRuntimeState state;
   if (scene_manager_ != nullptr) {
     state.active_scene_state = scene_manager_->GetActiveScene();
     state.pending_scene_state = scene_manager_->GetPendingScene();
@@ -109,7 +109,7 @@ extension::EnvironmentServiceRuntimeState EnvironmentService::CaptureRuntimeStat
 }
 
 void EnvironmentService::RestoreRuntimeState(
-    const extension::EnvironmentServiceRuntimeState& state) {
+    const environment::EnvironmentServiceRuntimeState& state) {
   if (scene_manager_ != nullptr) {
     scene_manager_->RestoreState(state.active_scene_state, state.pending_scene_state,
                                  state.active_cycle_context);

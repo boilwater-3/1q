@@ -1,7 +1,7 @@
 #include "airborne_radar/session/RadarSessionCompositionRoot.h"
 
 #include "1q/airborne_radar/extension/RadarController.h"
-#include "1q/airborne_radar/extension/IEnvironmentService.h"
+#include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/extension/ISignalPipeline.h"
 #include "airborne_radar/session/MutableRadarContext.h"
 #include "airborne_radar/environment/EnvironmentService.h"
@@ -92,7 +92,7 @@ RadarSessionComposition RadarSessionCompositionRoot::ComposeWithSignalPipeline(
 }
 
 RadarSessionComposition RadarSessionCompositionRoot::ComposeWithEnvironmentService(
-    const RadarSessionConfig& config, extension::IEnvironmentService& environment_service) {
+    const RadarSessionConfig& config, environment::IEnvironmentService& environment_service) {
   RadarSessionComposition composition = BuildCompositionBase(config);
   composition.owned_radar_context.reset(new MutableRadarContext());
   composition.owned_signal_pipeline.reset(

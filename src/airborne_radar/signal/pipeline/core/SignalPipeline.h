@@ -40,7 +40,7 @@ class SignalPipeline final : public extension::ISignalPipeline {
    */
   extension::SignalCycleResult RunCycle(
       const model::TargetFeatureList& input_state,
-      const extension::IEnvironmentService& environment) override;
+      const environment::IEnvironmentService& environment) override;
 
   /**
    * @brief 获取上一周期生成的跟踪量测列表。

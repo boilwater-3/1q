@@ -9,7 +9,7 @@
 #include <memory>
 
 #include "1q/electro_optical_sensor/output/EosOutputFrame.h"
-#include "1q/electro_optical_sensor/extension/IEosEnvironmentService.h"
+#include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
 #include "1q/electro_optical_sensor/extension/IEosPipeline.h"
 #include "1q/electro_optical_sensor/model/EosCycleInput.h"
 
@@ -29,7 +29,7 @@ class EosPipeline : public ::electro_optical_sensor::extension::IEosPipeline {
  public:
   explicit EosPipeline(
 	  const EosPipelineConfig& config,
-	  std::shared_ptr<extension::IEosEnvironmentService> environment_service = nullptr);
+	  std::shared_ptr<environment::IEosEnvironmentService> environment_service = nullptr);
 
   /**
    * @brief 更新核心处理层配置。
@@ -70,7 +70,7 @@ class EosPipeline : public ::electro_optical_sensor::extension::IEosPipeline {
 
   EosPipelineConfig config_{};
   float current_scan_azimuth_deg_{0.0f};
-  std::shared_ptr<extension::IEosEnvironmentService> environment_service_;
+  std::shared_ptr<environment::IEosEnvironmentService> environment_service_;
 };
 
 }  // namespace pipeline

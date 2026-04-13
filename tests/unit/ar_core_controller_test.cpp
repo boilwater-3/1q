@@ -203,7 +203,7 @@ class CoreControllerTest : public ::testing::Test {};
 class AbortingSignalPipeline : public extension::ISignalPipeline {
  public:
   extension::SignalCycleResult RunCycle(const model::TargetFeatureList&,
-                                        const extension::IEnvironmentService&) override {
+                                        const environment::IEnvironmentService&) override {
     extension::SignalCycleResult result;
     result.executed_this_cycle = should_execute_;
     result.abort_reason = should_execute_ ? extension::SignalCycleAbortReason::kNone

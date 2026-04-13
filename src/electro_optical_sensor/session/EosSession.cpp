@@ -4,7 +4,7 @@
 #include <utility>
 
 #include "1q/electro_optical_sensor/extension/EosController.h"
-#include "1q/electro_optical_sensor/extension/IEosEnvironmentService.h"
+#include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
 #include "1q/electro_optical_sensor/extension/IEosPipeline.h"
 #include "common/logging/ProjectLog.h"
 #include "electro_optical_sensor/session/EosSessionCompositionRoot.h"
@@ -71,7 +71,7 @@ EosSession EosSessionFactory::CreateWithPipeline(
 
 EosSession EosSessionFactory::CreateWithEnvironmentService(
     const EosSessionConfig& config,
-    extension::IEosEnvironmentService& environment_service) {
+    environment::IEosEnvironmentService& environment_service) {
   return EosSession(std::unique_ptr<EosSession::Impl>(new EosSession::Impl(
       internal::EosSessionCompositionRoot::ComposeWithEnvironmentService(config,
                                                                          environment_service))));

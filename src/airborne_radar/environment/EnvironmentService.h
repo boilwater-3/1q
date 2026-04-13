@@ -9,7 +9,7 @@
 #include <memory>
 
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "1q/airborne_radar/extension/IEnvironmentService.h"
+#include "1q/airborne_radar/environment/IEnvironmentService.h"
 
 namespace airborne_radar {
 namespace environment {
@@ -24,7 +24,7 @@ class PropagationModel;
  *       SampleEnvironment() 不得跨线程并发调用。建议每线程独立持有
  *       EnvironmentService 实例，或由调用方序列化访问。
  */
-class EnvironmentService final : public extension::IEnvironmentService {
+class EnvironmentService final : public environment::IEnvironmentService {
  public:
   /**
    * @brief 使用配置构造环境模型。
@@ -69,9 +69,9 @@ class EnvironmentService final : public extension::IEnvironmentService {
    */
   void SetJammingDetectionThresholdDb(float threshold_db) override;
 
-  extension::EnvironmentServiceRuntimeState CaptureRuntimeState() const override;
+  environment::EnvironmentServiceRuntimeState CaptureRuntimeState() const override;
 
-  void RestoreRuntimeState(const extension::EnvironmentServiceRuntimeState& state) override;
+  void RestoreRuntimeState(const environment::EnvironmentServiceRuntimeState& state) override;
 
  private:
   void RefreshFrozenSnapshotFromActiveScene();

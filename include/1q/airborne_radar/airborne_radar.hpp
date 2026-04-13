@@ -11,6 +11,7 @@
 #include "1q/airborne_radar/environment/EnvironmentDefaultConfigBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
+#include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/model/DecisionInputFrame.h"
 #include "1q/airborne_radar/model/DecisionSourceInfo.h"
 #include "1q/airborne_radar/model/DecisionTrackSnapshot.h"

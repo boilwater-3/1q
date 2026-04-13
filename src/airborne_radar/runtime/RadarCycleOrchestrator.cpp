@@ -1,6 +1,6 @@
 #include "airborne_radar/runtime/RadarCycleOrchestrator.h"
 
-#include "1q/airborne_radar/extension/IEnvironmentService.h"
+#include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/extension/ISignalPipeline.h"
 #include "airborne_radar/signal/assembly/IDataOutputManager.h"
@@ -12,7 +12,7 @@ RadarCycleOrchestrator::RadarCycleOrchestrator(
     extension::ISignalPipeline& signal_pipeline,
     extension::ITacticalDecisionEngine* decision_engine,
     extension::TacticalStateStore* tactical_state_store,
-    extension::IEnvironmentService& environment_service,
+    environment::IEnvironmentService& environment_service,
     signal::assembly::IDataOutputManager& output_manager)
     : signal_pipeline_(signal_pipeline),
       decision_engine_(decision_engine),

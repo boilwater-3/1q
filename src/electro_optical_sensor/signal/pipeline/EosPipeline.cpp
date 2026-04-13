@@ -22,7 +22,7 @@ namespace pipeline {
 
 namespace {
 
-class DefaultEosEnvironmentService final : public extension::IEosEnvironmentService {
+class DefaultEosEnvironmentService final : public environment::IEosEnvironmentService {
  public:
 	environment::EosEnvironmentModelResult ResolveFactors(
 			const environment::EosEnvironmentModelInputs& inputs) const override {
@@ -151,7 +151,7 @@ struct DetectionComputationContext {
 DetectionComputationContext BuildDetectionComputationContext(
 		const EosPipelineConfig& config, const ::electro_optical_sensor::session::EosTargetState& target,
 		const ::electro_optical_sensor::session::EosCycleInput& input,
-		const std::shared_ptr<extension::IEosEnvironmentService>& environment_service) {
+		const std::shared_ptr<environment::IEosEnvironmentService>& environment_service) {
 	DetectionComputationContext context_values;
 	context_values.infrared_enabled = WorkModeIncludesInfrared(config.work_mode);
 	context_values.visible_enabled = WorkModeIncludesVisible(config.work_mode);
@@ -375,7 +375,7 @@ bool IsCompatiblePipelineRuntimeState(const extension::EosPipelineRuntimeState& 
 }  // namespace
 
 EosPipeline::EosPipeline(const EosPipelineConfig& config,
-												 std::shared_ptr<extension::IEosEnvironmentService> environment_service)
+												 std::shared_ptr<environment::IEosEnvironmentService> environment_service)
 		: config_(config),
 			current_scan_azimuth_deg_(config.scan_start_az_deg),
 			environment_service_(std::move(environment_service)) {

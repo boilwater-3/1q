@@ -17,7 +17,7 @@
 #include "1q/electro_optical_sensor/utils/EosCoordinateUtils.h"
 #include "1q/electro_optical_sensor/model/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
-#include "1q/electro_optical_sensor/extension/IEosEnvironmentService.h"
+#include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
 #include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 
 namespace electro_optical_sensor {
@@ -50,7 +50,7 @@ session::EosTargetState MakeTarget(std::uint64_t id, float range_m, float az_deg
   return target;
 }
 
-class FixedEnvironmentService final : public extension::IEosEnvironmentService {
+class FixedEnvironmentService final : public environment::IEosEnvironmentService {
  public:
   environment::EosEnvironmentModelResult ResolveFactors(
       const environment::EosEnvironmentModelInputs& inputs) const override {

@@ -3,14 +3,14 @@
  * @brief EOS 环境扩展接口，允许外部接管环境因子建模。
  */
 
-#ifndef ELECTRO_OPTICAL_SENSOR_ENVIRONMENT_IEOS_ENVIRONMENT_SERVICE_H_
-#define ELECTRO_OPTICAL_SENSOR_ENVIRONMENT_IEOS_ENVIRONMENT_SERVICE_H_
+#ifndef ELECTRO_OPTICAL_SENSOR_ENVIRONMENT_I_EOS_ENVIRONMENT_SERVICE_H_
+#define ELECTRO_OPTICAL_SENSOR_ENVIRONMENT_I_EOS_ENVIRONMENT_SERVICE_H_
 
 #include "1q/api.hpp"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
 
 namespace electro_optical_sensor {
-namespace extension {
+namespace environment {
 
 /**
  * @brief IEosEnvironmentService 定义 EOS 环境建模扩展点。
@@ -24,16 +24,11 @@ class ONEQ_API IEosEnvironmentService {
    * @param[in] inputs 当前目标相关环境输入。
    * @return 环境因子输出。
    */
-  virtual environment::EosEnvironmentModelResult ResolveFactors(
-      const environment::EosEnvironmentModelInputs& inputs) const = 0;
+  virtual EosEnvironmentModelResult ResolveFactors(
+      const EosEnvironmentModelInputs& inputs) const = 0;
 };
 
-}  // namespace extension
-
-namespace environment {
-using ::electro_optical_sensor::extension::IEosEnvironmentService;
 }  // namespace environment
-
 }  // namespace electro_optical_sensor
 
-#endif  // ELECTRO_OPTICAL_SENSOR_ENVIRONMENT_IEOS_ENVIRONMENT_SERVICE_H_
+#endif  // ELECTRO_OPTICAL_SENSOR_ENVIRONMENT_I_EOS_ENVIRONMENT_SERVICE_H_

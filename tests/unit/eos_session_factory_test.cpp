@@ -13,7 +13,7 @@
 #include "1q/electro_optical_sensor/output/EosOutputFrame.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
 #include "1q/electro_optical_sensor/extension/EosController.h"
-#include "1q/electro_optical_sensor/extension/IEosEnvironmentService.h"
+#include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
 #include "1q/electro_optical_sensor/extension/IEosPipeline.h"
 #include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
@@ -66,7 +66,7 @@ class CountingPipeline final : public extension::IEosPipeline {
   extension::EosPipelineConfig last_config{};
 };
 
-class CountingEnvironmentService final : public extension::IEosEnvironmentService {
+class CountingEnvironmentService final : public environment::IEosEnvironmentService {
  public:
   environment::EosEnvironmentModelResult ResolveFactors(
       const environment::EosEnvironmentModelInputs& inputs) const override {

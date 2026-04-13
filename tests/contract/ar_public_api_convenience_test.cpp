@@ -170,7 +170,7 @@ class RecordingRadarContext : public extension::IRadarContext {
   std::size_t begin_cycle_count_{0U};
 };
 
-class RecordingEnvironmentService : public extension::IEnvironmentService {
+class RecordingEnvironmentService : public environment::IEnvironmentService {
  public:
   void BeginCycle(const environment::EnvironmentCycleContext& cycle_context) override {
     ++begin_cycle_count_;
@@ -208,8 +208,8 @@ class RecordingEnvironmentService : public extension::IEnvironmentService {
     jamming_detection_threshold_db_ = threshold_db;
   }
 
-  extension::EnvironmentServiceRuntimeState CaptureRuntimeState() const override {
-    extension::EnvironmentServiceRuntimeState state;
+  environment::EnvironmentServiceRuntimeState CaptureRuntimeState() const override {
+    environment::EnvironmentServiceRuntimeState state;
     state.active_scene_state = active_scene_state_;
     state.pending_scene_state = pending_scene_state_;
     state.active_cycle_context = cycle_context_;
@@ -217,7 +217,7 @@ class RecordingEnvironmentService : public extension::IEnvironmentService {
     return state;
   }
 
-  void RestoreRuntimeState(const extension::EnvironmentServiceRuntimeState& state) override {
+  void RestoreRuntimeState(const environment::EnvironmentServiceRuntimeState& state) override {
     active_scene_state_ = state.active_scene_state;
     pending_scene_state_ = state.pending_scene_state;
     cycle_context_ = state.active_cycle_context;
@@ -245,7 +245,7 @@ class RecordingEnvironmentService : public extension::IEnvironmentService {
 class RecordingSignalPipeline : public extension::ISignalPipeline {
  public:
   extension::SignalCycleResult RunCycle(const model::TargetFeatureList& input_state,
-                                        const extension::IEnvironmentService& environment) override {
+                                        const environment::IEnvironmentService& environment) override {
     (void)input_state;
     (void)environment;
     ++run_cycle_count_;

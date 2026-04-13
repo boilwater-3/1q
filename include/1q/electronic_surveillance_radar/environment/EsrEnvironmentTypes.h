@@ -1,6 +1,6 @@
 /**
  * @file EsrEnvironmentTypes.h
- * @brief 定义电子侦察环境层公共输入、快照与配置类型。
+ * @brief 定义电子侦察环境层公共输入与快照类型。
  */
 
 #ifndef ELECTRONIC_SURVEILLANCE_RADAR_ENVIRONMENT_ESR_ENVIRONMENT_TYPES_H_
@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "1q/api.hpp"
+#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentConfig.h"
 
 namespace electronic_surveillance_radar {
 namespace environment {
@@ -39,26 +40,6 @@ struct ONEQ_API EsrJammerSource {
 
 /** @brief EsrJammerSourceList 表示干扰源列表。 */
 using EsrJammerSourceList = std::vector<EsrJammerSource>;
-
-/**
- * @brief EsrAtmosphericPhysicsConfig 描述可选物理传播参数。
- */
-struct ONEQ_API EsrAtmosphericPhysicsConfig {
-  bool enable_physical_model{false}; /**< 是否启用物理传播模型 */
-  float frequency_hz{10.0e9f};       /**< 雷达频率（单位：Hz） */
-  float path_length_m{10.0e3f};      /**< 传播路径长度（单位：m） */
-  float radar_altitude_m{1.0e3f};    /**< 雷达高度（单位：m） */
-  float target_altitude_m{1.0e3f};   /**< 目标高度（单位：m） */
-  float elevation_deg{5.0f};         /**< 传播仰角（单位：deg） */
-  float pressure_hpa{1013.25f};      /**< 气压（单位：hPa） */
-  float temperature_k{288.15f};      /**< 温度（单位：K） */
-  float relative_humidity{0.5f};     /**< 相对湿度 [0, 1] */
-  float k_factor{4.0f / 3.0f};       /**< 地球有效半径因子 */
-  std::int32_t day_of_year{172};     /**< 年积日 [1, 366] */
-  float solar_flux_f107a{150.0f};    /**< 平滑太阳流量指数 */
-  float solar_flux_f107{150.0f};     /**< 当日太阳流量指数 */
-  float geomagnetic_ap{4.0f};        /**< 地磁活动指数 */
-};
 
 /**
  * @brief EsrEnvironmentSceneState 描述待冻结环境场景。
@@ -96,32 +77,6 @@ struct ONEQ_API EsrEnvironmentSnapshot {
   float spectrum_occupancy_ratio{0.0f}; /**< 频谱占用率，范围 [0, 1] */
   bool jamming_detected{false};         /**< 是否检测到显著干扰 */
   EsrJammerSourceList jammer_sources{}; /**< 当前周期可见干扰源 */
-};
-
-/**
- * @brief EsrEnvironmentModelConfig 描述环境模型配置。
- */
-struct ONEQ_API EsrEnvironmentModelConfig {
-  float default_clutter_noise_w{1.0e-12f};      /**< 默认杂波噪声功率（单位：W） */
-  float jamming_detection_threshold_w{1.0e-9f}; /**< 干扰检测阈值（单位：W） */
-  EsrAtmosphericPhysicsConfig atmospheric_physics{}; /**< 可选物理传播参数 */
-};
-
-/**
- * @brief EsrEnvironmentDefaultConfig 描述初始化阶段默认环境配置。
- */
-struct ONEQ_API EsrEnvironmentDefaultConfig {
-  EsrEnvironmentModelConfig model_config{}; /**< 默认环境模型配置 */
-};
-
-/**
- * @brief EsrEnvironmentRuntimeConfigPatch 描述运行期可变环境补丁。
- */
-struct ONEQ_API EsrEnvironmentRuntimeConfigPatch {
-  bool has_model_config{false};                  /**< 是否更新环境模型配置 */
-  EsrEnvironmentModelConfig model_config{};      /**< 运行期环境模型配置 */
-  bool has_jamming_detection_threshold_w{false}; /**< 是否更新干扰检测阈值 */
-  float jamming_detection_threshold_w{1.0e-9f};  /**< 干扰检测阈值（单位：W） */
 };
 
 }  // namespace environment

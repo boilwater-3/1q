@@ -13,8 +13,10 @@ namespace airborne_radar {
 namespace extension {
 class RadarController;
 class ISignalPipeline;
-class IEnvironmentService;
 }  // namespace extension
+namespace environment {
+class IEnvironmentService;
+}
 }  // namespace airborne_radar
 
 namespace airborne_radar {
@@ -38,7 +40,7 @@ class ONEQ_API RadarSessionFactory {
       const RadarSessionConfig& config, extension::ISignalPipeline& signal_pipeline);
 
   static RadarSession CreateWithEnvironmentService(
-      const RadarSessionConfig& config, extension::IEnvironmentService& environment_service);
+      const RadarSessionConfig& config, environment::IEnvironmentService& environment_service);
 
   static RadarSession CreateWithController(const RadarSessionConfig& config,
                                            extension::RadarController& controller);

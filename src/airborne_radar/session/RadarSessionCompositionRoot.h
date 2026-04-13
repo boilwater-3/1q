@@ -16,12 +16,12 @@ struct RadarSessionComposition {
 
   std::unique_ptr<extension::IRadarContext> owned_radar_context;
   std::unique_ptr<extension::ISignalPipeline> owned_signal_pipeline;
-  std::unique_ptr<extension::IEnvironmentService> owned_environment_service;
+  std::unique_ptr<environment::IEnvironmentService> owned_environment_service;
   std::unique_ptr<extension::RadarController> owned_controller;
 
   extension::IRadarContext* radar_context{nullptr};
   extension::ISignalPipeline* signal_pipeline{nullptr};
-  extension::IEnvironmentService* environment_service{nullptr};
+  environment::IEnvironmentService* environment_service{nullptr};
   extension::RadarController* controller{nullptr};
 };
 
@@ -33,7 +33,7 @@ class RadarSessionCompositionRoot {
       const RadarSessionConfig& config, extension::ISignalPipeline& signal_pipeline);
 
   static RadarSessionComposition ComposeWithEnvironmentService(
-      const RadarSessionConfig& config, extension::IEnvironmentService& environment_service);
+      const RadarSessionConfig& config, environment::IEnvironmentService& environment_service);
 
   static RadarSessionComposition ComposeWithController(
       const RadarSessionConfig& config, extension::RadarController& controller);

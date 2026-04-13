@@ -6,7 +6,7 @@
 #include <utility>
 #include <vector>
 
-#include "1q/airborne_radar/extension/IEnvironmentService.h"
+#include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/pipeline/core/CycleContextSupport.h"
@@ -115,7 +115,7 @@ struct SignalPipeline::Impl {
 
   extension::SignalCycleResult RunCycle(
       const model::TargetFeatureList& input_state,
-      const extension::IEnvironmentService& environment) {
+      const environment::IEnvironmentService& environment) {
     if (runtime_.owned.auto_lifecycle_manager == nullptr) {
       PROJECT_LOG_ERROR(
           "[SignalPipeline] RunCycle aborted because auto_lifecycle_manager is unavailable.");
@@ -282,7 +282,7 @@ SignalPipeline::~SignalPipeline() = default;
 
 extension::SignalCycleResult SignalPipeline::RunCycle(
     const model::TargetFeatureList& input_state,
-    const extension::IEnvironmentService& environment) {
+    const environment::IEnvironmentService& environment) {
   return impl_->RunCycle(input_state, environment);
 }
 

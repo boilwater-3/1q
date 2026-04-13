@@ -9,7 +9,7 @@
 #include "1q/airborne_radar/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/extension/IRadarContext.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
-#include "1q/airborne_radar/extension/IEnvironmentService.h"
+#include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/extension/ISignalPipeline.h"
 #include "airborne_radar/runtime/ControlCommandMapper.h"
 #include "airborne_radar/runtime/CycleTelemetryLogger.h"
@@ -51,7 +51,7 @@ struct RadarController::Impl {
   extension::ISignalPipeline& signal_pipeline;
   extension::ITacticalDecisionEngine* decision_engine{nullptr};
   std::unique_ptr<extension::ITacticalDecisionEngine> owned_decision_engine;
-  extension::IEnvironmentService& environment_service;
+  environment::IEnvironmentService& environment_service;
   std::unique_ptr<extension::control::RadarControlProfile> owned_control_profile;
   std::reference_wrapper<extension::control::RadarControlProfile> control_profile;
   std::unique_ptr<extension::TacticalStateStore> tactical_state_store;
@@ -69,7 +69,7 @@ struct RadarController::Impl {
       extension::SignalCycleAbortReason::kNone};
 
   Impl(extension::IRadarContext& ctx, extension::ISignalPipeline& sig,
-       extension::IEnvironmentService& env)
+       environment::IEnvironmentService& env)
       : radar_context(ctx),
         signal_pipeline(sig),
         owned_decision_engine(new decision::pipeline::TacticalCoordinator()),
@@ -87,7 +87,7 @@ struct RadarController::Impl {
 
   Impl(extension::IRadarContext& ctx, extension::ISignalPipeline& sig,
        extension::ITacticalDecisionEngine& ext_engine,
-       extension::IEnvironmentService& env)
+       environment::IEnvironmentService& env)
       : radar_context(ctx),
         signal_pipeline(sig),
         decision_engine(&ext_engine),
@@ -104,19 +104,19 @@ struct RadarController::Impl {
 
 RadarController::RadarController(extension::IRadarContext& radar_context,
                                  extension::ISignalPipeline& signal_pipeline,
-                                 extension::IEnvironmentService& environment_service)
+                                 environment::IEnvironmentService& environment_service)
     : impl_(new Impl(radar_context, signal_pipeline, environment_service)) {}
 
 RadarController::RadarController(extension::IRadarContext& radar_context,
                                  extension::ISignalPipeline& signal_pipeline,
                                  extension::ITacticalDecisionEngine& decision_engine,
-                                 extension::IEnvironmentService& environment_service)
+                                 environment::IEnvironmentService& environment_service)
     : impl_(new Impl(radar_context, signal_pipeline, decision_engine, environment_service)) {}
 
 RadarController::~RadarController() = default;
 
 void RadarController::RunOnce() {
-  const extension::EnvironmentServiceRuntimeState environment_state =
+  const environment::EnvironmentServiceRuntimeState environment_state =
       impl_->environment_service.CaptureRuntimeState();
   const output::TrackOutputFrame previous_output = impl_->runtime_state.latest_output;
   const bool had_previous_output = impl_->runtime_state.has_latest_output;
@@ -312,7 +312,7 @@ extension::ISignalPipeline& RadarController::GetSignalPipeline() {
   return impl_->signal_pipeline;
 }
 
-extension::IEnvironmentService& RadarController::GetEnvironmentService() {
+environment::IEnvironmentService& RadarController::GetEnvironmentService() {
   return impl_->environment_service;
 }
 

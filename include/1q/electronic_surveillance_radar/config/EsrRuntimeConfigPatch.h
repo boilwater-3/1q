@@ -6,7 +6,8 @@
 #ifndef ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_RUNTIME_CONFIG_PATCH_H_
 #define ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_RUNTIME_CONFIG_PATCH_H_
 
-#include "1q/electronic_surveillance_radar/config/EsrSessionConfig.h"
+#include "1q/api.hpp"
+#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentRuntimeConfigPatch.h"
 
 namespace electronic_surveillance_radar {
 namespace session {

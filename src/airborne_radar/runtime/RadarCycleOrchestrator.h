@@ -8,7 +8,7 @@
 
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "1q/airborne_radar/model/TargetFeature.h"
-#include "1q/airborne_radar/extension/IEnvironmentService.h"
+#include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/extension/ISignalPipeline.h"
 #include "1q/airborne_radar/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
@@ -53,7 +53,7 @@ class RadarCycleOrchestrator {
       extension::ISignalPipeline& signal_pipeline,
       extension::ITacticalDecisionEngine* decision_engine,
       extension::TacticalStateStore* tactical_state_store,
-      extension::IEnvironmentService& environment_service,
+      environment::IEnvironmentService& environment_service,
       signal::assembly::IDataOutputManager& output_manager);
 
   /**
@@ -82,7 +82,7 @@ class RadarCycleOrchestrator {
   extension::ISignalPipeline& signal_pipeline_;
   extension::ITacticalDecisionEngine* decision_engine_{nullptr};
   extension::TacticalStateStore* tactical_state_store_{nullptr};
-  extension::IEnvironmentService& environment_service_;
+  environment::IEnvironmentService& environment_service_;
   signal::assembly::IDataOutputManager& output_manager_;
 };
 

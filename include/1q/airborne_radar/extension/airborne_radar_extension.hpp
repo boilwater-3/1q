@@ -7,7 +7,6 @@
 #define ONEQ_AIRBORNE_RADAR_EXTENSION_AIRBORNE_RADAR_EXTENSION_HPP_
 
 #include "1q/airborne_radar/extension/ControlReducerTypes.h"
-#include "1q/airborne_radar/extension/IEnvironmentService.h"
 #include "1q/airborne_radar/extension/IRadarContext.h"
 #include "1q/airborne_radar/extension/IRadarOutputReader.h"
 #include "1q/airborne_radar/extension/ISignalPipeline.h"

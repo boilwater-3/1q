@@ -10,12 +10,12 @@
 #include "1q/api.hpp"
 
 namespace airborne_radar {
-namespace extension {
+namespace environment {
 
 struct EnvironmentServiceRuntimeState {
-  environment::EnvironmentSceneState active_scene_state{};
-  environment::EnvironmentSceneState pending_scene_state{};
-  environment::EnvironmentCycleContext active_cycle_context{};
+  EnvironmentSceneState active_scene_state{};
+  EnvironmentSceneState pending_scene_state{};
+  EnvironmentCycleContext active_cycle_context{};
   float jamming_detection_threshold_db{6.0f};
 };
 
@@ -30,31 +30,31 @@ class ONEQ_API IEnvironmentService {
    * @brief 冻结当前周期环境事实，供后续只读采样复用。
    * @param[in] cycle_context 当前周期的冻结上下文，包含周期号与步长。
    */
-  virtual void BeginCycle(const environment::EnvironmentCycleContext& cycle_context) = 0;
+  virtual void BeginCycle(const EnvironmentCycleContext& cycle_context) = 0;
 
   /**
    * @brief 采样并返回当前处理周期的环境条件。
    * @return 当前周期的环境快照，包含传播损耗、杂波/干扰功率等信息。
    */
-  virtual environment::EnvironmentSnapshot SampleEnvironment() const = 0;
+  virtual EnvironmentSnapshot SampleEnvironment() const = 0;
 
   /**
    * @brief 更新待生效场景状态。
    * @param[in] scene_state 新场景状态。
    */
-  virtual void UpdateSceneState(const environment::EnvironmentSceneState& scene_state) = 0;
+  virtual void UpdateSceneState(const EnvironmentSceneState& scene_state) = 0;
 
   /**
    * @brief 获取当前待生效场景状态。
    * @return 当前 pending 场景状态拷贝。
    */
-  virtual environment::EnvironmentSceneState GetPendingSceneState() const = 0;
+  virtual EnvironmentSceneState GetPendingSceneState() const = 0;
 
   /**
    * @brief 更新环境模型配置。
    * @param[in] config 新环境模型配置。
    */
-  virtual void UpdateModelConfig(const environment::EnvironmentModelConfig& config) = 0;
+  virtual void UpdateModelConfig(const EnvironmentModelConfig& config) = 0;
 
   /**
    * @brief 设置干扰判定阈值。
@@ -75,7 +75,7 @@ class ONEQ_API IEnvironmentService {
   virtual void RestoreRuntimeState(const EnvironmentServiceRuntimeState& state) = 0;
 };
 
-}  // namespace extension
+}  // namespace environment
 }  // namespace airborne_radar
 
 #endif  // AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_

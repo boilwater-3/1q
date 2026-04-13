@@ -6,7 +6,7 @@
 #include "1q/airborne_radar/extension/IRadarContext.h"
 #include "1q/airborne_radar/extension/RadarController.h"
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
-#include "1q/airborne_radar/extension/IEnvironmentService.h"
+#include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/extension/ISignalPipeline.h"
 #include "airborne_radar/session/RadarSessionCompositionRoot.h"
 #include "airborne_radar/session/RuntimeConfigResolver.h"
@@ -106,7 +106,7 @@ struct RadarSession::Impl {
 
   void RollbackFailedCycle(
       const extension::RadarContextRuntimeState& radar_context_state,
-      const extension::EnvironmentServiceRuntimeState* environment_state,
+      const environment::EnvironmentServiceRuntimeState* environment_state,
       const extension::RadarControllerRuntimeState* controller_state) {
     radar_context.RestoreRuntimeState(radar_context_state);
     if (environment_state != nullptr) {
@@ -122,11 +122,11 @@ struct RadarSession::Impl {
   bool has_pending_runtime_update{false};
   std::unique_ptr<extension::IRadarContext> owned_radar_context;
   std::unique_ptr<extension::ISignalPipeline> owned_signal_pipeline;
-  std::unique_ptr<extension::IEnvironmentService> owned_environment_service;
+  std::unique_ptr<environment::IEnvironmentService> owned_environment_service;
   std::unique_ptr<extension::RadarController> owned_controller;
   extension::IRadarContext& radar_context;
   extension::ISignalPipeline& signal_pipeline;
-  extension::IEnvironmentService& environment_service;
+  environment::IEnvironmentService& environment_service;
   extension::RadarController& controller;
 };
 
@@ -149,7 +149,7 @@ RadarSession RadarSessionFactory::CreateWithSignalPipeline(
 }
 
 RadarSession RadarSessionFactory::CreateWithEnvironmentService(
-    const RadarSessionConfig& config, extension::IEnvironmentService& environment_service) {
+    const RadarSessionConfig& config, environment::IEnvironmentService& environment_service) {
   return RadarSession(std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(
       internal::RadarSessionCompositionRoot::ComposeWithEnvironmentService(config,
                                                                            environment_service))));
@@ -180,9 +180,9 @@ RadarCycleResult RadarSession::StepWithResult(const RadarCycleInput& input) {
       impl_->radar_context.CaptureRuntimeState();
   const bool needs_environment_snapshot = impl_->has_pending_runtime_update;
   const bool needs_controller_snapshot = impl_->has_pending_runtime_update;
-  const extension::EnvironmentServiceRuntimeState environment_state =
+  const environment::EnvironmentServiceRuntimeState environment_state =
       needs_environment_snapshot ? impl_->environment_service.CaptureRuntimeState()
-                                 : extension::EnvironmentServiceRuntimeState();
+                                 : environment::EnvironmentServiceRuntimeState();
   const extension::RadarControllerRuntimeState controller_state =
       needs_controller_snapshot ? impl_->controller.CaptureRuntimeState()
                                 : extension::RadarControllerRuntimeState();
@@ -212,7 +212,7 @@ RadarCycleResult RadarSession::StepWithResult(
       impl_->radar_context.CaptureRuntimeState();
   const bool needs_environment_snapshot = true;
   const bool needs_controller_snapshot = impl_->has_pending_runtime_update;
-  const extension::EnvironmentServiceRuntimeState environment_state =
+  const environment::EnvironmentServiceRuntimeState environment_state =
       impl_->environment_service.CaptureRuntimeState();
   const extension::RadarControllerRuntimeState controller_state =
       needs_controller_snapshot ? impl_->controller.CaptureRuntimeState()

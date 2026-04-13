@@ -18,9 +18,11 @@
 namespace electro_optical_sensor {
 namespace extension {
 class IEosPipeline;
-class IEosEnvironmentService;
 class EosController;
 }  // namespace extension
+namespace environment {
+class IEosEnvironmentService;
+}
 namespace session {
 
 class EosSessionFactory;
@@ -87,7 +89,7 @@ class ONEQ_API EosSessionFactory {
 
   static EosSession CreateWithEnvironmentService(
       const EosSessionConfig& config,
-      extension::IEosEnvironmentService& environment_service);
+      environment::IEosEnvironmentService& environment_service);
 
   static EosSession CreateWithController(const EosSessionConfig& config,
                                          extension::EosController& controller);

@@ -15,7 +15,7 @@
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
 #include "1q/electro_optical_sensor/extension/EosController.h"
-#include "1q/electro_optical_sensor/extension/IEosEnvironmentService.h"
+#include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
 #include "1q/electro_optical_sensor/extension/IEosPipeline.h"
 
 namespace electro_optical_sensor {
@@ -66,7 +66,7 @@ class DummyEosPipeline : public extension::IEosPipeline {
   extension::EosPipelineConfig config_{};
 };
 
-class DummyEosEnvironmentService : public extension::IEosEnvironmentService {
+class DummyEosEnvironmentService : public environment::IEosEnvironmentService {
  public:
   environment::EosEnvironmentModelResult ResolveFactors(
       const environment::EosEnvironmentModelInputs& inputs) const override {

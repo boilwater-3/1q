@@ -61,7 +61,7 @@ class EosSessionCompositionRoot {
    */
   static EosSessionComposition ComposeWithEnvironmentService(
       const EosSessionConfig& config,
-      extension::IEosEnvironmentService& environment_service);
+      environment::IEosEnvironmentService& environment_service);
 
   /**
    * @brief 使用外部注入控制器装配会话。

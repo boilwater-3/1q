@@ -9,7 +9,7 @@
 #include "1q/airborne_radar/extension/IRadarContext.h"
 #include "1q/airborne_radar/extension/RadarController.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
-#include "1q/airborne_radar/extension/IEnvironmentService.h"
+#include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/extension/ISignalPipeline.h"
 
 namespace airborne_radar {
@@ -75,7 +75,7 @@ class DummyRadarContext : public extension::IRadarContext {
   bool has_control_profile_{false};
 };
 
-class DummyEnvironmentService : public extension::IEnvironmentService {
+class DummyEnvironmentService : public environment::IEnvironmentService {
  public:
   void BeginCycle(const environment::EnvironmentCycleContext& cycle_context) override {
     cycle_context_ = cycle_context;
@@ -101,13 +101,13 @@ class DummyEnvironmentService : public extension::IEnvironmentService {
 
   void SetJammingDetectionThresholdDb(float threshold_db) override { (void)threshold_db; }
 
-  extension::EnvironmentServiceRuntimeState CaptureRuntimeState() const override {
-    extension::EnvironmentServiceRuntimeState state;
+  environment::EnvironmentServiceRuntimeState CaptureRuntimeState() const override {
+    environment::EnvironmentServiceRuntimeState state;
     state.active_cycle_context = cycle_context_;
     return state;
   }
 
-  void RestoreRuntimeState(const extension::EnvironmentServiceRuntimeState& state) override {
+  void RestoreRuntimeState(const environment::EnvironmentServiceRuntimeState& state) override {
     cycle_context_ = state.active_cycle_context;
   }
 
@@ -119,7 +119,7 @@ class DummySignalPipeline : public extension::ISignalPipeline {
  public:
   extension::SignalCycleResult RunCycle(
       const model::TargetFeatureList& input_state,
-      const extension::IEnvironmentService& environment) override {
+      const environment::IEnvironmentService& environment) override {
     (void)environment;
     extension::SignalCycleResult result;
     result.executed_this_cycle = true;

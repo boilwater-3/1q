@@ -17,10 +17,12 @@
 #include "1q/api.hpp"
 
 namespace airborne_radar {
+namespace environment {
+class IEnvironmentService;
+}
 namespace extension {
 class IRadarContext;
 class ITacticalDecisionEngine;
-class IEnvironmentService;
 
 struct RadarControllerRuntimeState {
   output::TrackOutputFrame latest_output{};
@@ -56,7 +58,7 @@ class ONEQ_API RadarController : public IRadarOutputReader {
    */
   RadarController(extension::IRadarContext& radar_context,
                   extension::ISignalPipeline& signal_pipeline,
-                  extension::IEnvironmentService& environment_service);
+                  environment::IEnvironmentService& environment_service);
 
   /**
    * @brief 构造函数，显式注入新的决策引擎。
@@ -68,7 +70,7 @@ class ONEQ_API RadarController : public IRadarOutputReader {
   RadarController(extension::IRadarContext& radar_context,
                   extension::ISignalPipeline& signal_pipeline,
                   extension::ITacticalDecisionEngine& decision_engine,
-                  extension::IEnvironmentService& environment_service);
+                  environment::IEnvironmentService& environment_service);
 
   /** @brief 执行一次雷达处理循环 */
   void RunOnce();
@@ -151,7 +153,7 @@ class ONEQ_API RadarController : public IRadarOutputReader {
   /**
    * @brief 获取当前控制器绑定的环境服务实例。
    */
-  extension::IEnvironmentService& GetEnvironmentService();
+  environment::IEnvironmentService& GetEnvironmentService();
 
  private:
   struct Impl;

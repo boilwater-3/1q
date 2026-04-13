@@ -30,8 +30,10 @@ namespace extension {
 class IRadarContext;
 class RadarController;
 class ISignalPipeline;
-class IEnvironmentService;
 }  // namespace extension
+namespace environment {
+class IEnvironmentService;
+}
 }  // namespace airborne_radar
 
 namespace airborne_radar {

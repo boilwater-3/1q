@@ -10,7 +10,7 @@
 #include <utility>
 
 #include "1q/electro_optical_sensor/extension/EosController.h"
-#include "1q/electro_optical_sensor/extension/IEosEnvironmentService.h"
+#include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
 #include "common/logging/ProjectLog.h"
 #include "electro_optical_sensor/runtime/EosPipelineConfigMapper.h"
 #include "electro_optical_sensor/runtime/EosRuntimeConfigResolver.h"
@@ -57,10 +57,10 @@ EosSessionComposition FinalizeComposition(EosSessionComposition composition) {
   return composition;
 }
 
-std::shared_ptr<extension::IEosEnvironmentService> MakeNonOwningEnvironmentServiceHandle(
-    extension::IEosEnvironmentService& environment_service) {
-  return std::shared_ptr<extension::IEosEnvironmentService>(
-      &environment_service, [](extension::IEosEnvironmentService*) {});
+std::shared_ptr<environment::IEosEnvironmentService> MakeNonOwningEnvironmentServiceHandle(
+    environment::IEosEnvironmentService& environment_service) {
+  return std::shared_ptr<environment::IEosEnvironmentService>(
+      &environment_service, [](environment::IEosEnvironmentService*) {});
 }
 
 EosSessionComposition MakeCompositionWithOwnedPipeline(
@@ -116,7 +116,7 @@ EosSessionComposition EosSessionCompositionRoot::ComposeWithPipeline(
 
 EosSessionComposition EosSessionCompositionRoot::ComposeWithEnvironmentService(
     const EosSessionConfig& config,
-    extension::IEosEnvironmentService& environment_service) {
+    environment::IEosEnvironmentService& environment_service) {
   return ComposeWithOwnedPipeline(
       std::unique_ptr<extension::IEosPipeline>(new signal::pipeline::EosPipeline(
           runtime::session::internal::BuildEosPipelineConfig(config),

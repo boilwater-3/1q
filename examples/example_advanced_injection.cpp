@@ -25,7 +25,7 @@
 #include "1q/airborne_radar/extension/RadarController.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "1q/airborne_radar/extension/IEnvironmentService.h"
+#include "1q/airborne_radar/environment/IEnvironmentService.h"
 // 便捷辅助
 #include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
@@ -113,7 +113,7 @@ class PlatformSpecificDecisionEngine
 //   - 仿真环境需要精确控制每周期的电磁参数
 //   - 平台已有电磁环境评估子系统，数据直接来自硬件
 // ---------------------------------------------------------------------------
-class SimulatedEnvironmentService : public airborne_radar::extension::IEnvironmentService {
+class SimulatedEnvironmentService : public airborne_radar::environment::IEnvironmentService {
  public:
   using EnvironmentCycleContext = airborne_radar::environment::EnvironmentCycleContext;
   using EnvironmentSnapshot = airborne_radar::environment::EnvironmentSnapshot;
