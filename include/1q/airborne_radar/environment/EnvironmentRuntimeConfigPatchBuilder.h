@@ -6,7 +6,7 @@
 #ifndef AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_RUNTIME_CONFIG_PATCH_BUILDER_H_
 #define AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_RUNTIME_CONFIG_PATCH_BUILDER_H_
 
-#include "1q/airborne_radar/environment/EnvironmentConfig.h"
+#include "1q/airborne_radar/environment/EnvironmentRuntimeConfigPatch.h"
 
 namespace airborne_radar {
 namespace environment {

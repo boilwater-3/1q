@@ -45,6 +45,7 @@ set(EXPECTED_PUBLIC_HEADERS
     "airborne_radar/environment/EnvironmentConfig.h"
     "airborne_radar/environment/EnvironmentDefaultConfigBuilder.h"
     "airborne_radar/environment/EnvironmentModelConfigBuilder.h"
+    "airborne_radar/environment/EnvironmentRuntimeConfigPatch.h"
     "airborne_radar/environment/EnvironmentRuntimeConfigPatchBuilder.h"
     "airborne_radar/environment/EnvironmentSceneBuilder.h"
     "airborne_radar/environment/EnvironmentTypes.h"

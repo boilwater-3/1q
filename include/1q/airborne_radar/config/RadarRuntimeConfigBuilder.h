@@ -8,6 +8,7 @@
 
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "1q/airborne_radar/environment/EnvironmentConfig.h"
+#include "1q/airborne_radar/environment/EnvironmentRuntimeConfigPatch.h"
 #include "1q/airborne_radar/config/SignalPipelineConfig.h"
 #include "1q/api.hpp"
 
