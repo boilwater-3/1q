@@ -1,6 +1,6 @@
 // Copyright 2026. All Rights Reserved.
 //
-// @file example_ecm_scenario_visualizer.cpp
+// @file ar_ecm_scenario_visualizer.cpp
 // @brief ImGui + ImPlot 电子对抗场景可视化 Demo。
 //
 // 仿真场景：

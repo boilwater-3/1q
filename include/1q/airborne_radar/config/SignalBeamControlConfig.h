@@ -16,7 +16,13 @@ namespace config {
  */
 struct SignalBeamControlConfig {
   model::RadarOrientationConfig radar_orientation{}; /**< 雷达方向配置 */
-  model::PlatformAttitudeDeg platform_attitude_deg{}; /**< 平台姿态角（单位：度） */
+  /**
+   * @brief 平台姿态角（单位：deg，参考系：局部 ENU）。
+   * @note 语义为“ENU -> Body”的 yaw/pitch/roll，不使用 NED 约定。
+   *       与 `radar_orientation.mount_angles_deg`（Body -> Radar）复合后，
+   *       可得到“ENU -> Radar”的等效姿态。
+   */
+  model::PlatformAttitudeDeg platform_attitude_deg{};
 };
 
 }  // namespace config

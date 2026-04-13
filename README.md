@@ -45,10 +45,10 @@ ctest --preset llvm-ninja-debug-local --output-on-failure
 
 示例代码位于 `examples/`：
 
-- `example_quick_start.cpp`: 最小接入示例。
-- `example_radar_session.cpp`: 会话接口与一帧驱动示例。
-- `example_advanced_injection.cpp`: 高级注入与定制装配示例。
-- `example_*_visualizer.cpp`: 检测距离、战术模式、多目标、航迹和 ECM 场景可视化示例。
+- `ar/ar_quick_start.cpp`: 最小接入示例。
+- `ar/ar_radar_session.cpp`: 会话接口与一帧驱动示例。
+- `ar/ar_advanced_injection.cpp`: 高级注入与定制装配示例。
+- `ar/ar_*_visualizer.cpp`: 检测距离、战术模式、多目标、航迹和 ECM 场景可视化示例。
 
 ## 文档
 

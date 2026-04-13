@@ -12,14 +12,14 @@
 #include <string>
 #include <vector>
 
-#include "1q/foundation/coordinate_transform.h"
-#include "1q/electronic_surveillance_radar/model/EmitterTruthState.h"
-#include "1q/electronic_surveillance_radar/model/EsrCoordinateUtils.h"
-#include "1q/electronic_surveillance_radar/output/EsrOutputFrame.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
+#include "1q/electronic_surveillance_radar/model/EmitterTruthState.h"
+#include "1q/electronic_surveillance_radar/output/EsrOutputFrame.h"
+#include "1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
+#include "1q/foundation/coordinate_transform.h"
 
 namespace electronic_surveillance_radar {
 namespace tests {
@@ -37,8 +37,8 @@ bool ContainsEsrIssueCode(const std::vector<session::EsrValidationIssue>& issues
 }
 
 model::EmitterTruthState MakeEmitter(const std::string& id, float pos_x, double carrier_hz,
-                                      double bandwidth_hz, double tx_power_w, double pulse_width_s,
-                                      double pri_s) {
+                                     double bandwidth_hz, double tx_power_w, double pulse_width_s,
+                                     double pri_s) {
   model::EmitterTruthState emitter;
   emitter.emitter_id = id;
   emitter.pose.position_m.x = pos_x;
@@ -63,13 +63,13 @@ TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderDefaultsMatchEsrSessionCon
 
 TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderOverridesLayeredAndPipelineFields) {
   const session::EsrSessionConfig config = config::EsrSessionConfigBuilder()
-                                                     .EnableLayeredConfig(true)
-                                                     .WithWorkMode(session::EsrWorkMode::kRwr)
-                                                     .WithScanRateHz(2.0f)
-                                                     .EnableSpectralAnalysis(false)
-                                                     .WithDetectionMinSnrDb(8.0f)
-                                                     .WithJammingDetectionThresholdW(1.0e-8f)
-                                                     .Build();
+                                               .EnableLayeredConfig(true)
+                                               .WithWorkMode(session::EsrWorkMode::kRwr)
+                                               .WithScanRateHz(2.0f)
+                                               .EnableSpectralAnalysis(false)
+                                               .WithDetectionMinSnrDb(8.0f)
+                                               .WithJammingDetectionThresholdW(1.0e-8f)
+                                               .Build();
 
   EXPECT_TRUE(config.enable_layered_config);
   EXPECT_EQ(config.layered_config.mission.work_mode, session::EsrWorkMode::kRwr);
@@ -110,16 +110,16 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderDefaultsAreUnset) {
 
 TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSetsAllFields) {
   const session::EsrRuntimeConfigPatch patch = config::EsrRuntimeConfigBuilder()
-                                                         .WithSensorEnabled(false)
-                                                         .WithScanRateHz(3.0f)
-                                                         .WithIntegratedReceiveLossDb(2.5f)
-                                                         .WithFixedReceiverWindowHz(1.0e9, 2.0e9)
-                                                         .SetFixedReceiverWindowEnabled(true)
-                                                         .EnableStatisticalDetection(false)
-                                                         .EnableSpectralAnalysis(false)
-                                                         .WithDetectionMinSnrDb(10.0f)
-                                                         .WithObservationJamMarkThresholdW(5.0e-10f)
-                                                         .Build();
+                                                   .WithSensorEnabled(false)
+                                                   .WithScanRateHz(3.0f)
+                                                   .WithIntegratedReceiveLossDb(2.5f)
+                                                   .WithFixedReceiverWindowHz(1.0e9, 2.0e9)
+                                                   .SetFixedReceiverWindowEnabled(true)
+                                                   .EnableStatisticalDetection(false)
+                                                   .EnableSpectralAnalysis(false)
+                                                   .WithDetectionMinSnrDb(10.0f)
+                                                   .WithObservationJamMarkThresholdW(5.0e-10f)
+                                                   .Build();
 
   EXPECT_TRUE(patch.has_sensor_enabled);
   EXPECT_FALSE(patch.sensor_enabled);
@@ -175,16 +175,14 @@ TEST(EsrPublicApiConvenienceTest, InputValidationReportsErrorsForCommonBoundaryC
 
   const session::EsrValidationIssueList issues = session::ValidateEsrCycleInput(input);
 
+  EXPECT_TRUE(ContainsEsrIssueCode(issues, session::EsrValidationCode::kInvalidCycleDeltaTime));
   EXPECT_TRUE(
-      ContainsEsrIssueCode(issues, session::EsrValidationCode::kInvalidCycleDeltaTime));
-  EXPECT_TRUE(ContainsEsrIssueCode(
-      issues, session::EsrValidationCode::kNonFinitePlatformNumericField));
+      ContainsEsrIssueCode(issues, session::EsrValidationCode::kNonFinitePlatformNumericField));
   EXPECT_TRUE(ContainsEsrIssueCode(issues, session::EsrValidationCode::kEmptyEmitterId));
-  EXPECT_TRUE(
-      ContainsEsrIssueCode(issues, session::EsrValidationCode::kInvalidEmitterFrequency));
+  EXPECT_TRUE(ContainsEsrIssueCode(issues, session::EsrValidationCode::kInvalidEmitterFrequency));
   EXPECT_TRUE(ContainsEsrIssueCode(issues, session::EsrValidationCode::kInvalidEmitterPower));
-  EXPECT_TRUE(ContainsEsrIssueCode(
-      issues, session::EsrValidationCode::kEmitterPriLessThanPulseWidth));
+  EXPECT_TRUE(
+      ContainsEsrIssueCode(issues, session::EsrValidationCode::kEmitterPriLessThanPulseWidth));
   EXPECT_TRUE(session::HasEsrValidationError(issues));
 }
 
@@ -199,10 +197,9 @@ TEST(EsrPublicApiConvenienceTest, InputValidationFlagsNonFiniteDtAndEmitterField
 
   const session::EsrValidationIssueList issues = session::ValidateEsrCycleInput(input);
 
+  EXPECT_TRUE(ContainsEsrIssueCode(issues, session::EsrValidationCode::kNonFiniteCycleDeltaTime));
   EXPECT_TRUE(
-      ContainsEsrIssueCode(issues, session::EsrValidationCode::kNonFiniteCycleDeltaTime));
-  EXPECT_TRUE(ContainsEsrIssueCode(
-      issues, session::EsrValidationCode::kNonFiniteEmitterNumericField));
+      ContainsEsrIssueCode(issues, session::EsrValidationCode::kNonFiniteEmitterNumericField));
   EXPECT_TRUE(session::HasEsrValidationError(issues));
 }
 
@@ -217,8 +214,8 @@ TEST(EsrPublicApiConvenienceTest, InputValidationPassesForValidInput) {
   EXPECT_FALSE(session::HasEsrValidationError(issues));
 }
 
-TEST(EsrPublicApiConvenienceTest, CoordinateUtilsConvertsLlaAndEcefToEsrLocal) {
-  model::EsrCoordinateReference reference;
+TEST(EsrPublicApiConvenienceTest, CoordinateUtilsBuildsPoseFromExternalKinematics) {
+  session::EsrCoordinateReference reference;
   reference.origin_lla.latitude_deg = 0.0;
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;
@@ -231,31 +228,8 @@ TEST(EsrPublicApiConvenienceTest, CoordinateUtilsConvertsLlaAndEcefToEsrLocal) {
   target_lla.longitude_deg = 0.001;
   target_lla.altitude_m = 0.0;
 
-  model::EsrVector3f local_from_lla;
-  ASSERT_TRUE(model::TryConvertLlaToEsrLocal(target_lla, reference, &local_from_lla));
-  EXPECT_GT(local_from_lla.x, 100.0f);
-  EXPECT_NEAR(local_from_lla.y, 0.0f, 1.0e-2f);
-  EXPECT_NEAR(local_from_lla.z, 0.0f, 1.0e-2f);
-
   oneq::foundation::EcefCoordinateM target_ecef;
   ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));
-  model::EsrVector3f local_from_ecef;
-  ASSERT_TRUE(model::TryConvertEcefToEsrLocal(target_ecef, reference, &local_from_ecef));
-  EXPECT_NEAR(local_from_ecef.x, local_from_lla.x, 1.0e-3f);
-  EXPECT_NEAR(local_from_ecef.y, local_from_lla.y, 1.0e-3f);
-  EXPECT_NEAR(local_from_ecef.z, local_from_lla.z, 1.0e-3f);
-}
-
-TEST(EsrPublicApiConvenienceTest, CoordinateUtilsBuildsPoseFromEcefAndLla) {
-  model::EsrCoordinateReference reference;
-  reference.origin_lla.latitude_deg = 0.0;
-  reference.origin_lla.longitude_deg = 0.0;
-  reference.origin_lla.altitude_m = 0.0;
-
-  oneq::foundation::LlaCoordinateDegM target_lla;
-  target_lla.latitude_deg = 0.0;
-  target_lla.longitude_deg = 0.001;
-  target_lla.altitude_m = 100.0;
 
   model::EsrVector3f velocity;
   velocity.x = 10.0f;
@@ -266,19 +240,32 @@ TEST(EsrPublicApiConvenienceTest, CoordinateUtilsBuildsPoseFromEcefAndLla) {
   attitude.pitch_deg = -1.0f;
   attitude.roll_deg = 0.0f;
 
-  model::EsrPoseState pose_from_lla;
-  ASSERT_TRUE(
-      model::TryMakeEsrPoseFromLla(target_lla, reference, velocity, attitude, &pose_from_lla));
-  EXPECT_GT(pose_from_lla.position_m.x, 100.0f);
-  EXPECT_NEAR(pose_from_lla.velocity_mps.x, 10.0f, 1e-5f);
-  EXPECT_NEAR(pose_from_lla.attitude_deg.yaw_deg, 5.0f, 1e-5f);
+  session::EsrExternalPoseInput input_enu;
+  input_enu.platform_position_ecef_m = target_ecef;
+  input_enu.platform_velocity_mps = velocity;
+  input_enu.platform_velocity_frame = session::EsrVelocityFrame::kEnu;
+  input_enu.platform_attitude_deg = attitude;
 
-  oneq::foundation::EcefCoordinateM target_ecef;
-  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));
   model::EsrPoseState pose_from_ecef;
-  ASSERT_TRUE(
-      model::TryMakeEsrPoseFromEcef(target_ecef, reference, velocity, attitude, &pose_from_ecef));
-  EXPECT_NEAR(pose_from_ecef.position_m.x, pose_from_lla.position_m.x, 1.0e-3f);
+  ASSERT_TRUE(session::TryMakeEsrPoseFromExternalKinematics(input_enu, reference, &pose_from_ecef));
+  EXPECT_GT(pose_from_ecef.position_m.x, 100.0f);
+  EXPECT_NEAR(pose_from_ecef.velocity_mps.x, 10.0f, 1e-5f);
+  EXPECT_NEAR(pose_from_ecef.attitude_deg.yaw_deg, 5.0f, 1e-5f);
+
+  session::EsrExternalPoseInput input_ecef = input_enu;
+  input_ecef.platform_velocity_frame = session::EsrVelocityFrame::kEcef;
+  input_ecef.platform_velocity_mps.x = 0.0f;
+  input_ecef.platform_velocity_mps.y = 10.0f;
+  input_ecef.platform_velocity_mps.z = 0.0f;
+  model::EsrPoseState pose_from_ecef_velocity;
+  ASSERT_TRUE(session::TryMakeEsrPoseFromExternalKinematics(input_ecef, reference,
+                                                            &pose_from_ecef_velocity));
+  EXPECT_NEAR(pose_from_ecef_velocity.position_m.x, pose_from_ecef.position_m.x, 1.0e-3f);
+  EXPECT_NEAR(pose_from_ecef_velocity.position_m.y, pose_from_ecef.position_m.y, 1.0e-3f);
+  EXPECT_NEAR(pose_from_ecef_velocity.position_m.z, pose_from_ecef.position_m.z, 1.0e-3f);
+  EXPECT_NEAR(pose_from_ecef_velocity.velocity_mps.x, pose_from_ecef.velocity_mps.x, 1.0e-3f);
+  EXPECT_NEAR(pose_from_ecef_velocity.velocity_mps.y, pose_from_ecef.velocity_mps.y, 1.0e-3f);
+  EXPECT_NEAR(pose_from_ecef_velocity.velocity_mps.z, pose_from_ecef.velocity_mps.z, 1.0e-3f);
 }
 
 TEST(EsrPublicApiConvenienceTest, EsrSessionStepProducesThreeChannelOutput) {
@@ -342,8 +329,8 @@ TEST(EsrPublicApiConvenienceTest, EsrSessionStepWithResultSurfacesValidationErro
   EXPECT_TRUE(result.has_validation_error);
   EXPECT_TRUE(ContainsEsrIssueCode(result.validation_issues,
                                    session::EsrValidationCode::kNonFiniteCycleDeltaTime));
-  EXPECT_TRUE(ContainsEsrIssueCode(result.validation_issues,
-                                   session::EsrValidationCode::kEmptyEmitterId));
+  EXPECT_TRUE(
+      ContainsEsrIssueCode(result.validation_issues, session::EsrValidationCode::kEmptyEmitterId));
 }
 
 TEST(EsrPublicApiConvenienceTest, EsrSessionAppliesRuntimeConfigPatch) {

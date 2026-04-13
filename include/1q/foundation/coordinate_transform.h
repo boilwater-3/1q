@@ -1,6 +1,6 @@
 /**
  * @file coordinate_transform.h
- * @brief 定义 WGS84 下 LLA/ECEF/ENU 之间的轻量坐标转换工具。
+ * @brief 定义 WGS84 下 LLA/ECEF/ENU/NUE 之间的轻量坐标转换工具。
  */
 
 #ifndef ONEQ_FOUNDATION_COORDINATE_TRANSFORM_H_
@@ -38,6 +38,16 @@ struct ONEQ_API EnuCoordinateM {
   double x_m{0.0}; /**< East 方向分量（单位：m） */
   double y_m{0.0}; /**< North 方向分量（单位：m） */
   double z_m{0.0}; /**< Up 方向分量（单位：m） */
+};
+
+/**
+ * @brief NueCoordinateM 表示局部北-天-东坐标（单位：m）。
+ * @note 字段含义固定为 x=north, y=up, z=east。
+ */
+struct ONEQ_API NueCoordinateM {
+  double x_m{0.0}; /**< North 方向分量（单位：m） */
+  double y_m{0.0}; /**< Up 方向分量（单位：m） */
+  double z_m{0.0}; /**< East 方向分量（单位：m） */
 };
 
 /**
@@ -84,11 +94,40 @@ ONEQ_API bool TryLlaToEnu(const LlaCoordinateDegM& lla, const LlaCoordinateDegM&
                           EnuCoordinateM* enu);
 
 /**
+ * @brief 将 ECEF 坐标转换到以 origin_lla 为参考点的 NUE 坐标。
+ * @param[in] ecef ECEF 输入。
+ * @param[in] origin_lla NUE 参考原点（LLA）。
+ * @param[out] nue 输出 NUE；允许为 nullptr。
+ * @return 成功返回 true；输入非法或输出为空返回 false。
+ * @note NUE 与 ENU 轴重排关系：NUE.x=ENU.y，NUE.y=ENU.z，NUE.z=ENU.x。
+ */
+ONEQ_API bool TryEcefToNue(const EcefCoordinateM& ecef, const LlaCoordinateDegM& origin_lla,
+                           NueCoordinateM* nue);
+
+/**
+ * @brief 将 LLA 坐标转换到以 origin_lla 为参考点的 NUE 坐标。
+ * @param[in] lla LLA 输入。
+ * @param[in] origin_lla NUE 参考原点（LLA）。
+ * @param[out] nue 输出 NUE；允许为 nullptr。
+ * @return 成功返回 true；输入非法或输出为空返回 false。
+ * @note NUE 与 ENU 轴重排关系：NUE.x=ENU.y，NUE.y=ENU.z，NUE.z=ENU.x。
+ */
+ONEQ_API bool TryLlaToNue(const LlaCoordinateDegM& lla, const LlaCoordinateDegM& origin_lla,
+                          NueCoordinateM* nue);
+
+/**
  * @brief 将 ENU 坐标转换为通用 Vector3f。
  * @param[in] enu ENU 输入。
  * @return `x=east, y=north, z=up` 的三维向量。
  */
 ONEQ_API Vector3f ToVector3f(const EnuCoordinateM& enu);
+
+/**
+ * @brief 将 NUE 坐标转换为通用 Vector3f。
+ * @param[in] nue NUE 输入。
+ * @return `x=north, y=up, z=east` 的三维向量。
+ */
+ONEQ_API Vector3f ToVector3f(const NueCoordinateM& nue);
 
 }  // namespace foundation
 }  // namespace oneq

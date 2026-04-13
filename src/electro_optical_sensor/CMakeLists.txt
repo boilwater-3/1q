@@ -9,7 +9,7 @@ set(EOS_SOURCES
     electro_optical_sensor/foundation/EosRadiometry.cpp
     electro_optical_sensor/foundation/EosSpatialSpectrum.cpp
     electro_optical_sensor/foundation/EosStrayLight.cpp
-    electro_optical_sensor/utils/EosCoordinateUtils.cpp
+    electro_optical_sensor/session/EosExternalInputAdapter.cpp
     electro_optical_sensor/model/EosInputValidation.cpp
     electro_optical_sensor/runtime/EosController.cpp
     electro_optical_sensor/runtime/EosCycleOrchestrator.cpp
@@ -25,9 +25,6 @@ if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_MODULE_ENTRY_EOS
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/electro_optical_sensor.hpp
     )
-    set(PUBLIC_HEADERS_EOS_COMMON
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/utils/EosCoordinateUtils.h
-    )
     set(PUBLIC_HEADERS_EOS_OUTPUT
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/output/EosOutputFrame.h
     )
@@ -40,6 +37,7 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/model/EosCycleResult.h
     )
     set(PUBLIC_HEADERS_EOS_SESSION
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosExternalInputAdapter.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosSession.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosTraceSession.h
     )
@@ -69,9 +67,6 @@ if(ENABLE_INSTALL)
 
     install(FILES ${PUBLIC_HEADERS_MODULE_ENTRY_EOS}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor
-    )
-    install(FILES ${PUBLIC_HEADERS_EOS_COMMON}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/utils
     )
     install(FILES ${PUBLIC_HEADERS_EOS_OUTPUT}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/output

@@ -1,6 +1,6 @@
 // Copyright 2026. All Rights Reserved.
 //
-// @file example_radar_session.cpp
+// @file ar_radar_session.cpp
 // @brief 演示如何使用 RadarSession 驱动三周期机载雷达探测流程。
 //
 // 本文件同时展示使用 RadarSessionConfigBuilder 按平台硬件参数定制会话配置：

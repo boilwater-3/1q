@@ -22,7 +22,12 @@ namespace session {
 struct ONEQ_API RadarSessionConfig {
   /** @brief 信号探测基线配置（初始化固定，运行期可通过 `ApplyRuntimeConfig` 覆盖部分字段）。 */
   config::SignalDetectionConfig detection{};
-  /** @brief 波束控制基线配置。 */
+  /**
+   * @brief 波束控制基线配置。
+   * @note 坐标系约定见 `SignalBeamControlConfig`：
+   *       `platform_attitude_deg` 为 ENU -> Body，
+   *       `radar_orientation.mount_angles_deg` 为 Body -> Radar。
+   */
   config::SignalBeamControlConfig beam_control{};
   /** @brief 跟踪基线配置。 */
   config::SignalTrackingConfig tracking{};

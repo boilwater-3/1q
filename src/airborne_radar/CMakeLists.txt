@@ -61,6 +61,7 @@ set(AIRBORNE_CORE_SOURCES
     airborne_radar/runtime/RadarCycleOrchestrator.cpp
     airborne_radar/runtime/RadarController.cpp
     airborne_radar/session/RadarSessionCompositionRoot.cpp
+    airborne_radar/session/RadarExternalInputAdapter.cpp
     airborne_radar/session/RadarSessionConfigPresets.cpp
     airborne_radar/session/RadarSessionConfigBuilder.cpp
     airborne_radar/session/RuntimeConfigResolver.cpp
@@ -114,6 +115,7 @@ if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_CORE_CONTEXT
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarCycleInput.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarInputValidation.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarExternalInputAdapter.h
     )
     set(PUBLIC_HEADERS_CORE_CONTROLLER
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/IRadarContext.h

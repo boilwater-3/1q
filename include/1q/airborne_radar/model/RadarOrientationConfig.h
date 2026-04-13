@@ -90,7 +90,13 @@ enum class StabilizationMode {
  * actual_beam_pointing = platform_attitude + mount_angles_deg + scan_center_deg + dwell_center_deg
  */
 struct RadarOrientationConfig {
-  EulerAnglesDeg mount_angles_deg;     /**< 雷达相对机体坐标系的安装偏置角 */
+  /**
+   * @brief 雷达安装偏置角（单位：deg，参考系：Body -> Radar）。
+   * @note 该角度定义在机体坐标系下，描述雷达坐标系相对机体系的固定安装偏置；
+   *       与 `SignalBeamControlConfig::platform_attitude_deg`（ENU -> Body）复合后，
+   *       可得到“ENU -> Radar”的等效姿态。
+   */
+  EulerAnglesDeg mount_angles_deg;
   AzimuthElevationDeg scan_center_deg; /**< [可外部调整] 基准指向方向；不是扫描体积中心 */
   AzimuthElevationLimitsDeg mechanical_scan_limits_deg; /**< 机械扫描限位 */
   AzimuthElevationLimitsDeg electronic_scan_limits_deg; /**< 电子扫描限位 */

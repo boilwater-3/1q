@@ -101,6 +101,39 @@ TEST(CoordinateTransformTest, ToVector3fPreservesEnuAxisMapping) {
   EXPECT_FLOAT_EQ(vector.z, 99.0f);
 }
 
+TEST(CoordinateTransformTest, NueMappingMatchesEnuAxisReorder) {
+  LlaCoordinateDegM origin_lla;
+  origin_lla.latitude_deg = 0.0;
+  origin_lla.longitude_deg = 0.0;
+  origin_lla.altitude_m = 0.0;
+
+  LlaCoordinateDegM east_point_lla;
+  east_point_lla.latitude_deg = 0.0;
+  east_point_lla.longitude_deg = 0.001;
+  east_point_lla.altitude_m = 0.0;
+
+  EnuCoordinateM enu;
+  ASSERT_TRUE(TryLlaToEnu(east_point_lla, origin_lla, &enu));
+  NueCoordinateM nue;
+  ASSERT_TRUE(TryLlaToNue(east_point_lla, origin_lla, &nue));
+
+  EXPECT_NEAR(nue.x_m, enu.y_m, 1.0e-6);
+  EXPECT_NEAR(nue.y_m, enu.z_m, 1.0e-6);
+  EXPECT_NEAR(nue.z_m, enu.x_m, 1.0e-6);
+}
+
+TEST(CoordinateTransformTest, ToVector3fPreservesNueAxisMapping) {
+  NueCoordinateM nue;
+  nue.x_m = -4.5;
+  nue.y_m = 99.0;
+  nue.z_m = 12.25;
+
+  const Vector3f vector = ToVector3f(nue);
+  EXPECT_FLOAT_EQ(vector.x, -4.5f);
+  EXPECT_FLOAT_EQ(vector.y, 99.0f);
+  EXPECT_FLOAT_EQ(vector.z, 12.25f);
+}
+
 }  // namespace
 }  // namespace foundation
 }  // namespace oneq

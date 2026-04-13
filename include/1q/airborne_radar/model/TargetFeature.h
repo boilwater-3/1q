@@ -22,9 +22,11 @@ namespace model {
  * - <b>position_x/y/z</b>：必须提供。雷达局部笛卡尔坐标系下的目标位置（单位：m），
  *   用于 Kalman 滤波更新和轨迹初始化。若未提供，轨迹关联和滤波将无法正常工作。
  * - <b>current_track_velocity_x/y/z</b>：强烈建议提供。目标速度向量（单位：m/s），
+ *   坐标系与 `position_x/y/z` 完全一致，均为雷达局部笛卡尔坐标分量。
  *   初始化 Kalman 状态时直接填入状态向量的速度分量。若不提供（默认为零），
  *   轨迹将退化为纯位置跟踪，第一个预测周期内位置不会外推，
  *   且多维运动的速度估算精度会严重下降。
+ *   若外部系统提供的是 ECEF 速度，请先转换到雷达局部坐标后再写入该字段。
  * - <b>current_track_rcs</b>：可选。雷达散射截面积（单位：m^2），默认 0。
  *
  * @note
@@ -34,9 +36,9 @@ namespace model {
 struct TargetFeature {
   std::uint64_t external_target_id{0}; /**< 外部输入原始目标标识符（0 表示未知/未提供） */
 
-  float current_track_velocity_x{0.0f}; /**< 目标速度向量 x 分量（单位：m/s） */
-  float current_track_velocity_y{0.0f}; /**< 目标速度向量 y 分量（单位：m/s） */
-  float current_track_velocity_z{0.0f}; /**< 目标速度向量 z 分量（单位：m/s） */
+  float current_track_velocity_x{0.0f}; /**< 雷达局部坐标系速度 x 分量（单位：m/s） */
+  float current_track_velocity_y{0.0f}; /**< 雷达局部坐标系速度 y 分量（单位：m/s） */
+  float current_track_velocity_z{0.0f}; /**< 雷达局部坐标系速度 z 分量（单位：m/s） */
 
   /**
    * @brief 当前被跟踪主要目标速度模长（单位：m/s）。
@@ -57,7 +59,8 @@ struct TargetFeature {
 
   /**
    * @brief 雷达局部笛卡尔坐标位置（单位：m），[x, y, z]。
-   * @note 该坐标系以当前雷达为原点，仅接受雷达局部坐标输入。
+   * @note 该坐标系以当前雷达为原点，仅接受雷达局部坐标输入；
+   *       速度字段 `current_track_velocity_*` 与本坐标轴定义一致。
    *       注：不使用 Eigen 以保持 POD 布局，Pipeline 内部按需转换。
    */
   float position_x{0.0f};

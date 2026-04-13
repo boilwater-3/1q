@@ -1,6 +1,6 @@
 // Copyright 2026. All Rights Reserved.
 //
-// @file example_track_visualizer.cpp
+// @file ar_track_visualizer.cpp
 // @brief ImGui + ImPlot 轨迹可视化 Demo。
 //
 // 仿真场景：

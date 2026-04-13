@@ -139,11 +139,47 @@ bool TryLlaToEnu(const LlaCoordinateDegM& lla, const LlaCoordinateDegM& origin_l
   return TryEcefToEnu(ecef, origin_lla, enu);
 }
 
+bool TryEcefToNue(const EcefCoordinateM& ecef, const LlaCoordinateDegM& origin_lla,
+                  NueCoordinateM* nue) {
+  if (nue == nullptr) {
+    return false;
+  }
+  EnuCoordinateM enu;
+  if (!TryEcefToEnu(ecef, origin_lla, &enu)) {
+    return false;
+  }
+  nue->x_m = enu.y_m;
+  nue->y_m = enu.z_m;
+  nue->z_m = enu.x_m;
+  return true;
+}
+
+bool TryLlaToNue(const LlaCoordinateDegM& lla, const LlaCoordinateDegM& origin_lla,
+                 NueCoordinateM* nue) {
+  if (nue == nullptr || !IsValidLla(lla)) {
+    return false;
+  }
+
+  EcefCoordinateM ecef;
+  if (!TryLlaToEcef(lla, &ecef)) {
+    return false;
+  }
+  return TryEcefToNue(ecef, origin_lla, nue);
+}
+
 Vector3f ToVector3f(const EnuCoordinateM& enu) {
   Vector3f vector;
   vector.x = static_cast<float>(enu.x_m);
   vector.y = static_cast<float>(enu.y_m);
   vector.z = static_cast<float>(enu.z_m);
+  return vector;
+}
+
+Vector3f ToVector3f(const NueCoordinateM& nue) {
+  Vector3f vector;
+  vector.x = static_cast<float>(nue.x_m);
+  vector.y = static_cast<float>(nue.y_m);
+  vector.z = static_cast<float>(nue.z_m);
   return vector;
 }
 

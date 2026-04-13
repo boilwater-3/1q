@@ -1,23 +1,34 @@
 // Copyright 2026. All Rights Reserved.
 //
-// @file example_detection_range_visualizer.cpp
-// @brief ImGui + ImPlot 探测距离与 SNR 场景可视化 Demo。
+// @file ar_multi_target_visualizer.cpp
+// @brief ImGui + ImPlot 多目标密集跟踪场景可视化 Demo。
 //
-// 仿真场景（4 个目标从远处径向逼近雷达）：
+// 仿真场景（6 个目标，4 种典型航迹模式）：
 //
-//   目标 A (ID=4001)：大型目标，RCS 10.0 m²，起始距离 20km
-//   目标 B (ID=4002)：中型目标，RCS 2.0 m²，起始距离 18km
-//   目标 C (ID=4003)：小型目标，RCS 0.5 m²，起始距离 16km
-//   目标 D (ID=4004)：隐身目标，RCS 0.05 m²，起始距离 14km
+//   编队飞行（Formation）：
+//     目标 A (ID=3001)：(8km, 1km, 5km)，速度 (-220, -10, 0) m/s，RCS 1.5 m²
+//     目标 B (ID=3002)：(8km, 1.3km, 5km)，速度 (-220, -10, 0) m/s，RCS 1.5 m²
+//       — 间距 300m 的紧密编队，考验关联器的分辨能力
 //
-//   所有目标以 -250 m/s 径向速度逼近，共 40 cycle，dt=0.5s。
-//   无干扰，纯物理检测场景，用于观察不同 RCS 目标的探测门限差异。
+//   交叉航迹（Crossing）：
+//     目标 C (ID=3003)：(10km, -2km, 4km)，速度 (-200, 80, 0) m/s，RCS 2.0 m²
+//     目标 D (ID=3004)：(10km, 2km, 4km)，速度 (-200, -80, 0) m/s，RCS 2.0 m²
+//       — 两条航迹在约 cycle 12 处交叉，考验航迹交换抑制
+//
+//   高速机动（Maneuver）：
+//     目标 E (ID=3005)：(6km, 0, 3km)，速度 (-300, 0, 0) m/s，RCS 1.0 m²
+//       — cycle 10 起开始横向机动（vy 从 0 变至 ±150），考验 Kalman/IMM
+//
+//   远距微弱（Weak）：
+//     目标 F (ID=3006)：(15km, -1km, 8km)，速度 (-150, 20, -3) m/s，RCS 0.3 m²
+//       — 小 RCS，远距离，探测断续，考验生命周期管理
+//
+//   共 25 个 cycle，dt=0.5s，无干扰。
 //
 // 可视化面板：
-//   左上 — 距离-时间图（4 条距离曲线 + 检测成功标记）
-//   左下 — 轨迹生命周期时序（Tentative/Confirmed/Lost 散点）
-//   右上 — 轨迹状态表格（含距离、RCS、命中/失配）
-//   右下 — 关联质量指标面板
+//   左上 — 轨迹 XY 俯视图（颜色按 association_key）
+//   左下 — 轨迹状态时序图（Tentative/Confirmed/Lost 散点）
+//   右   — 轨迹状态表格 + 关联质量指标
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -49,33 +60,33 @@ namespace {
 
 // ── 仿真参数 ──────────────────────────────────────────────────────────────────
 
-constexpr int kMaxCycles = 40;
+constexpr int kMaxCycles = 25;
 constexpr float kDtSec = 0.5f;
+constexpr int kManeuverStartCycle = 10;
 
 struct TargetInit {
   std::uint64_t id;
-  float start_range_m;
+  float px, py, pz;
+  float vx, vy, vz;
   float rcs;
-  float radial_speed;  // m/s，负值表示接近
-  const char* label;
+  const char* group;
 };
 
 const TargetInit kTargets[] = {
-    {4001, 20000.0f, 10.0f, -250.0f, "Large (10m2)"},
-    {4002, 18000.0f, 2.0f, -250.0f, "Medium (2m2)"},
-    {4003, 16000.0f, 0.5f, -250.0f, "Small (0.5m2)"},
-    {4004, 14000.0f, 0.05f, -250.0f, "Stealth (0.05m2)"},
+    // 编队 A/B
+    {3001, 8000.0f, 1000.0f, 5000.0f, -220.0f, -10.0f, 0.0f, 1.5f, "Formation"},
+    {3002, 8000.0f, 1300.0f, 5000.0f, -220.0f, -10.0f, 0.0f, 1.5f, "Formation"},
+    // 交叉 C/D
+    {3003, 10000.0f, -2000.0f, 4000.0f, -200.0f, 80.0f, 0.0f, 2.0f, "Crossing"},
+    {3004, 10000.0f, 2000.0f, 4000.0f, -200.0f, -80.0f, 0.0f, 2.0f, "Crossing"},
+    // 机动 E
+    {3005, 6000.0f, 0.0f, 3000.0f, -300.0f, 0.0f, 0.0f, 1.0f, "Maneuver"},
+    // 远距微弱 F
+    {3006, 15000.0f, -1000.0f, 8000.0f, -150.0f, 20.0f, -3.0f, 0.3f, "Weak"},
 };
 constexpr int kTargetCount = sizeof(kTargets) / sizeof(kTargets[0]);
 
-// ── 颜色 ──────────────────────────────────────────────────────────────────────
-
-const ImVec4 kTargetColors[] = {
-    {0.12f, 0.47f, 0.71f, 1.0f},  // 蓝
-    {0.17f, 0.63f, 0.17f, 1.0f},  // 绿
-    {1.00f, 0.50f, 0.05f, 1.0f},  // 橙
-    {0.84f, 0.15f, 0.16f, 1.0f},  // 红
-};
+// ── 颜色辅助 ──────────────────────────────────────────────────────────────────
 
 ImVec4 TrackColor(std::uint64_t association_key) {
   static const ImVec4 kPalette[] = {
@@ -89,40 +100,41 @@ ImVec4 TrackColor(std::uint64_t association_key) {
 // ── 仿真状态 ──────────────────────────────────────────────────────────────────
 
 struct SimState {
+  struct TargetPos {
+    float px, py, pz;
+    float vx, vy, vz;
+    float rcs;
+  };
+  std::map<std::uint64_t, TargetPos> target_pos;
   int current_cycle{0};
-  bool finished{false};
 
-  // 各输入目标的真实距离历史（按 target ID 索引）
-  std::map<std::uint64_t, std::vector<float>> true_range_km;
+  // 轨迹历史
+  std::map<std::uint64_t, std::vector<float>> hist_x;
+  std::map<std::uint64_t, std::vector<float>> hist_y;
 
-  // 各输出轨迹的距离历史（按 association_key）
-  std::map<std::uint64_t, std::vector<float>> track_range_km;
-  std::map<std::uint64_t, std::vector<float>> track_cycle;
-
-  // 轨迹状态历史
+  // 轨迹状态历史（cycle → {association_key → status}）
   std::vector<std::map<std::uint64_t, int>> status_history;
 
-  // 最近一帧
+  // 最近一帧轨迹
   std::vector<airborne_radar::model::DecisionTrackSnapshot> latest_tracks;
 
-  // 关联质量
+  // 关联质量历史
   std::vector<airborne_radar::extension::AssociationQualityMetrics> quality_history;
 
-  // 当前各目标距离
-  std::map<std::uint64_t, float> current_range;
+  bool finished{false};
 
   void Reset() {
     current_cycle = 0;
-    finished = false;
-    true_range_km.clear();
-    track_range_km.clear();
-    track_cycle.clear();
+    hist_x.clear();
+    hist_y.clear();
     status_history.clear();
     latest_tracks.clear();
     quality_history.clear();
-    current_range.clear();
+    finished = false;
+    target_pos.clear();
     for (int i = 0; i < kTargetCount; ++i) {
-      current_range[kTargets[i].id] = kTargets[i].start_range_m;
+      const auto& t = kTargets[i];
+      target_pos[t.id] = {t.px, t.py, t.pz, t.vx, t.vy, t.vz, t.rcs};
     }
   }
 };
@@ -180,41 +192,44 @@ void StepOnce(airborne_radar::session::RadarSession& session, SimState& sim) {
   namespace aq = airborne_radar::common;
   using airborne_radar::session::RadarCycleInput;
 
+  // 机动目标 E：cycle 10 起加横向加速
+  auto it = sim.target_pos.find(3005);
+  if (it != sim.target_pos.end() && sim.current_cycle >= kManeuverStartCycle) {
+    int phase = (sim.current_cycle - kManeuverStartCycle) % 10;
+    if (phase < 5) {
+      it->second.vy += 30.0f * kDtSec;  // 向正 Y 加速
+    } else {
+      it->second.vy -= 30.0f * kDtSec;  // 反转向负 Y
+    }
+  }
+
   RadarCycleInput input;
   input.dt_sec = kDtSec;
-
-  // 所有目标沿 X 轴径向逼近（简化为一维距离问题）
-  for (int i = 0; i < kTargetCount; ++i) {
-    float range = sim.current_range[kTargets[i].id];
-    // 目标在 X 轴正方向，Y/Z 略有偏移以区分
-    float py = static_cast<float>(i - 1) * 200.0f;
-    input.target_features.push_back(aq::MakeTargetFromCartesian(
-        kTargets[i].id, range, py, 3000.0f, kTargets[i].radial_speed, 0.0f, 0.0f, kTargets[i].rcs));
-    sim.true_range_km[kTargets[i].id].push_back(range / 1000.0f);
+  for (const auto& kv : sim.target_pos) {
+    const auto& p = kv.second;
+    input.target_features.push_back(
+        aq::MakeTargetFromCartesian(kv.first, p.px, p.py, p.pz, p.vx, p.vy, p.vz, p.rcs));
   }
 
   auto result = session.StepWithResult(input);
 
-  // 记录输出轨迹
+  // 追加轨迹历史
   std::map<std::uint64_t, int> cycle_status;
   for (const auto& snap : result.track_output_frame.tracks) {
     const auto key = snap.state.association_key;
-    float range = std::sqrt(snap.state.position_x * snap.state.position_x +
-                            snap.state.position_y * snap.state.position_y +
-                            snap.state.position_z * snap.state.position_z);
-    sim.track_range_km[key].push_back(range / 1000.0f);
-    sim.track_cycle[key].push_back(static_cast<float>(sim.current_cycle));
+    sim.hist_x[key].push_back(snap.state.position_x / 1000.0f);
+    sim.hist_y[key].push_back(snap.state.position_y / 1000.0f);
     cycle_status[key] = static_cast<int>(snap.state.status);
   }
   sim.status_history.push_back(cycle_status);
   sim.latest_tracks = result.track_output_frame.tracks;
   sim.quality_history.push_back(result.association_quality_metrics);
 
-  // 推进距离
-  for (int i = 0; i < kTargetCount; ++i) {
-    float& range = sim.current_range[kTargets[i].id];
-    range += kTargets[i].radial_speed * kDtSec;
-    if (range < 500.0f) range = 500.0f;
+  // 推进目标位置
+  for (auto& kv : sim.target_pos) {
+    kv.second.px += kv.second.vx * kDtSec;
+    kv.second.py += kv.second.vy * kDtSec;
+    kv.second.pz += kv.second.vz * kDtSec;
   }
 
   sim.current_cycle++;
@@ -237,45 +252,50 @@ const char* StatusStr(airborne_radar::model::DecisionTrackStatus s) {
   return "Unknown";
 }
 
-// ── 渲染距离-时间图 ────────────────────────────────────────────────────────
+ImPlotMarker StatusMarker(airborne_radar::model::DecisionTrackStatus s) {
+  switch (s) {
+    case airborne_radar::model::DecisionTrackStatus::kTentative:
+      return ImPlotMarker_Circle;
+    case airborne_radar::model::DecisionTrackStatus::kConfirmed:
+      return ImPlotMarker_Square;
+    case airborne_radar::model::DecisionTrackStatus::kLost:
+      return ImPlotMarker_Cross;
+  }
+  return ImPlotMarker_Circle;
+}
 
-void RenderRangeTimePlot(const SimState& sim) {
-  if (!ImPlot::BeginPlot("Range vs Cycle (True + Tracked)", ImVec2(-1, -1))) {
+// ── 渲染 XY 俯视图 ──────────────────────────────────────────────────────────
+
+void RenderXYPlot(const SimState& sim) {
+  if (!ImPlot::BeginPlot("XY Top-Down View (Multi-Target)", ImVec2(-1, -1), ImPlotFlags_Equal)) {
     return;
   }
-  ImPlot::SetupAxes("Cycle", "Range (km)");
-  ImPlot::SetupAxisLimits(ImAxis_X1, 0, kMaxCycles);
+  ImPlot::SetupAxes("X (km)", "Y (km)");
 
-  // 真实距离曲线（虚线）
-  for (int i = 0; i < kTargetCount; ++i) {
-    auto it = sim.true_range_km.find(kTargets[i].id);
-    if (it == sim.true_range_km.end() || it->second.empty()) continue;
-
-    std::vector<float> cycles(it->second.size());
-    for (std::size_t c = 0; c < cycles.size(); ++c) {
-      cycles[c] = static_cast<float>(c);
-    }
-
-    const auto& col = kTargetColors[i];
-    ImPlot::SetNextLineStyle({col.x, col.y, col.z, 0.4f}, 1.0f);
-    char label[64];
-    std::snprintf(label, sizeof(label), "%s (true)", kTargets[i].label);
-    ImPlot::PlotLine(label, cycles.data(), it->second.data(), static_cast<int>(it->second.size()));
-  }
-
-  // 跟踪距离（实线 + 标记）
-  for (const auto& kv : sim.track_range_km) {
+  for (const auto& kv : sim.hist_x) {
     const auto key = kv.first;
-    const auto& ranges = kv.second;
-    const auto& cycles = sim.track_cycle.at(key);
-    if (ranges.empty()) continue;
+    const auto& xs = kv.second;
+    const auto& ys = sim.hist_y.at(key);
+    if (xs.empty()) continue;
 
     ImVec4 col = TrackColor(key);
-    ImPlot::SetNextLineStyle({col.x, col.y, col.z, col.w}, 2.0f);
-    ImPlot::SetNextMarkerStyle(ImPlotMarker_Circle, 3.0f, {col.x, col.y, col.z, col.w});
+    ImPlot::SetNextLineStyle({col.x, col.y, col.z, col.w}, 1.5f);
     char label[32];
-    std::snprintf(label, sizeof(label), "Track %llu", static_cast<unsigned long long>(key));
-    ImPlot::PlotLine(label, cycles.data(), ranges.data(), static_cast<int>(ranges.size()));
+    std::snprintf(label, sizeof(label), "T%llu", static_cast<unsigned long long>(key));
+    ImPlot::PlotLine(label, xs.data(), ys.data(), static_cast<int>(xs.size()));
+
+    // 当前位置标记
+    ImPlotMarker marker = ImPlotMarker_Circle;
+    for (const auto& snap : sim.latest_tracks) {
+      if (snap.state.association_key == key) {
+        marker = StatusMarker(snap.state.status);
+        break;
+      }
+    }
+    ImPlot::SetNextMarkerStyle(marker, 8.0f, {col.x, col.y, col.z, col.w});
+    char slabel[48];
+    std::snprintf(slabel, sizeof(slabel), "P%llu", static_cast<unsigned long long>(key));
+    ImPlot::PlotScatter(slabel, &xs.back(), &ys.back(), 1);
   }
 
   ImPlot::EndPlot();
@@ -284,17 +304,19 @@ void RenderRangeTimePlot(const SimState& sim) {
 // ── 渲染轨迹状态时序图 ──────────────────────────────────────────────────────
 
 void RenderStatusTimeline(const SimState& sim) {
-  if (!ImPlot::BeginPlot("Track Lifecycle Timeline", ImVec2(-1, -1))) {
+  if (!ImPlot::BeginPlot("Track Status Timeline", ImVec2(-1, -1))) {
     return;
   }
   ImPlot::SetupAxes("Cycle", "Track");
   ImPlot::SetupAxisLimits(ImAxis_X1, 0, kMaxCycles);
 
+  // 收集所有出现过的 association_key
   std::vector<std::uint64_t> all_keys;
-  for (const auto& kv : sim.track_range_km) {
+  for (const auto& kv : sim.hist_x) {
     all_keys.push_back(kv.first);
   }
 
+  // Tentative = 绿色圆点, Confirmed = 蓝色方块, Lost = 红色叉
   struct StatusStyle {
     int status_val;
     ImPlotMarker marker;
@@ -329,10 +351,13 @@ void RenderStatusTimeline(const SimState& sim) {
   ImPlot::EndPlot();
 }
 
-// ── 渲染轨迹状态表格 ────────────────────────────────────────────────────────
+// ── 渲染轨迹状态表格 ──────────────────────────────────────────────────────────
 
 void RenderTrackTable(const SimState& sim) {
-  ImGui::Text("Detection Range Test  Cycle %d / %d", sim.current_cycle, kMaxCycles);
+  ImGui::Text("Track Status  Cycle %d / %d", sim.current_cycle, kMaxCycles);
+  if (sim.current_cycle >= kManeuverStartCycle) {
+    ImGui::TextColored({1.0f, 0.8f, 0.2f, 1.0f}, "Target E maneuvering");
+  }
   ImGui::Separator();
 
   if (ImGui::BeginTable(
@@ -341,16 +366,14 @@ void RenderTrackTable(const SimState& sim) {
     ImGui::TableSetupColumn("Key");
     ImGui::TableSetupColumn("ExtID");
     ImGui::TableSetupColumn("Status");
-    ImGui::TableSetupColumn("Range(km)");
     ImGui::TableSetupColumn("Speed");
     ImGui::TableSetupColumn("Hit");
     ImGui::TableSetupColumn("Miss");
+    ImGui::TableSetupColumn("Pos(km)");
     ImGui::TableHeadersRow();
 
     for (const auto& snap : sim.latest_tracks) {
       const auto& st = snap.state;
-      float range = std::sqrt(st.position_x * st.position_x + st.position_y * st.position_y +
-                              st.position_z * st.position_z);
       ImGui::TableNextRow();
       ImGui::TableSetColumnIndex(0);
       ImGui::TextColored(TrackColor(st.association_key), "%llu",
@@ -360,32 +383,23 @@ void RenderTrackTable(const SimState& sim) {
       ImGui::TableSetColumnIndex(2);
       ImGui::TextUnformatted(StatusStr(st.status));
       ImGui::TableSetColumnIndex(3);
-      ImGui::Text("%.2f", static_cast<double>(range / 1000.0f));
-      ImGui::TableSetColumnIndex(4);
       ImGui::Text("%.0f", static_cast<double>(st.speed));
-      ImGui::TableSetColumnIndex(5);
+      ImGui::TableSetColumnIndex(4);
       ImGui::Text("%u", st.hit_count);
-      ImGui::TableSetColumnIndex(6);
+      ImGui::TableSetColumnIndex(5);
       ImGui::Text("%u", st.miss_count);
+      ImGui::TableSetColumnIndex(6);
+      ImGui::Text("(%.1f, %.1f)", static_cast<double>(st.position_x / 1000.0f),
+                  static_cast<double>(st.position_y / 1000.0f));
     }
     ImGui::EndTable();
-  }
-
-  // 输入目标真实距离参考
-  ImGui::Spacing();
-  ImGui::Text("Input Target Reference:");
-  for (int i = 0; i < kTargetCount; ++i) {
-    auto it = sim.current_range.find(kTargets[i].id);
-    float r = (it != sim.current_range.end()) ? it->second : 0.0f;
-    ImGui::TextColored(kTargetColors[i], "  %s: %.2f km", kTargets[i].label,
-                       static_cast<double>(r / 1000.0f));
   }
 }
 
 // ── 渲染关联质量指标 ────────────────────────────────────────────────────────
 
 void RenderQualityMetrics(const SimState& sim) {
-  ImGui::Text("Association Quality");
+  ImGui::Text("Association Quality Metrics");
   ImGui::Separator();
 
   if (sim.quality_history.empty()) {
@@ -394,18 +408,26 @@ void RenderQualityMetrics(const SimState& sim) {
   }
 
   const auto& q = sim.quality_history.back();
-  ImGui::Text("Detections:   %zu / %d targets", q.detection_count, kTargetCount);
-  ImGui::Text("Matched:      %zu", q.matched_count);
-  ImGui::Text("New Tracks:   %zu", q.new_track_count);
-  ImGui::Text("Missed:       %zu", q.missed_track_count);
-  ImGui::Spacing();
+  ImGui::Text("Prior Tracks:  %zu", q.prior_track_count);
+  ImGui::Text("Detections:    %zu", q.detection_count);
+  ImGui::Text("Matched:       %zu", q.matched_count);
+  ImGui::Text("New Tracks:    %zu", q.new_track_count);
+  ImGui::Text("Missed Tracks: %zu", q.missed_track_count);
 
+  ImGui::Spacing();
+  // 用颜色条表示 match_rate
   float mr = q.match_rate;
   ImVec4 mr_col = (mr > 0.8f)   ? ImVec4{0.2f, 1.0f, 0.2f, 1.0f}
                   : (mr > 0.5f) ? ImVec4{1.0f, 0.8f, 0.2f, 1.0f}
                                 : ImVec4{1.0f, 0.3f, 0.3f, 1.0f};
-  ImGui::TextColored(mr_col, "Match Rate:   %.1f%%", static_cast<double>(mr * 100.0f));
-  ImGui::Text("Assoc Stress: %.3f", static_cast<double>(q.association_stress));
+  ImGui::TextColored(mr_col, "Match Rate:    %.1f%%", static_cast<double>(mr * 100.0f));
+  ImGui::Text("New Track Rate:  %.1f%%", static_cast<double>(q.new_track_rate * 100.0f));
+  ImGui::Text("Miss Rate:       %.1f%%", static_cast<double>(q.missed_track_rate * 100.0f));
+
+  ImGui::Spacing();
+  ImGui::Text("Mean Cost:     %.2f", static_cast<double>(q.mean_match_cost));
+  ImGui::Text("P95 Cost:      %.2f", static_cast<double>(q.p95_match_cost));
+  ImGui::Text("Assoc Stress:  %.3f", static_cast<double>(q.association_stress));
 }
 
 }  // namespace
@@ -425,7 +447,7 @@ int main() {
 #endif
 
   GLFWwindow* window =
-      glfwCreateWindow(1400, 900, "Airborne Radar - Detection Range Test", nullptr, nullptr);
+      glfwCreateWindow(1400, 900, "Airborne Radar - Multi-Target Tracking", nullptr, nullptr);
   if (!window) {
     std::fprintf(stderr, "GLFW window creation failed\n");
     glfwTerminate();
@@ -476,7 +498,7 @@ int main() {
       sim.Reset();
     }
     ImGui::SameLine();
-    ImGui::Text("4 targets approaching: RCS 10/2/0.5/0.05 m2");
+    ImGui::Text("6 targets: Formation(2) + Crossing(2) + Maneuver(1) + Weak(1)");
     if (sim.finished) {
       ImGui::SameLine();
       ImGui::TextColored({0.4f, 1.0f, 0.4f, 1.0f}, "Complete.");
@@ -491,8 +513,8 @@ int main() {
     // 左侧面板
     ImGui::BeginChild("left", {left_w, 0.0f}, false);
     {
-      ImGui::BeginChild("range_plot", {0.0f, total_h * 0.6f}, false);
-      RenderRangeTimePlot(sim);
+      ImGui::BeginChild("xy", {0.0f, total_h * 0.6f}, false);
+      RenderXYPlot(sim);
       ImGui::EndChild();
 
       ImGui::BeginChild("timeline", {0.0f, 0.0f}, false);
@@ -506,7 +528,7 @@ int main() {
     // 右侧面板
     ImGui::BeginChild("right", {0.0f, 0.0f}, false);
     {
-      ImGui::BeginChild("table", {0.0f, total_h * 0.6f}, true);
+      ImGui::BeginChild("table", {0.0f, total_h * 0.55f}, true);
       RenderTrackTable(sim);
       ImGui::EndChild();
 

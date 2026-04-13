@@ -1,6 +1,6 @@
 // Copyright 2026. All Rights Reserved.
 //
-// @file example_tactical_mode_visualizer.cpp
+// @file ar_tactical_mode_visualizer.cpp
 // @brief ImGui + ImPlot 战术模式切换场景可视化 Demo。
 //
 // 仿真场景：

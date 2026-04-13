@@ -1,7 +1,7 @@
 # electronic_surveillance_radar 模块源文件与安装清单
 
 set(ESR_MODEL_SOURCES
-    electronic_surveillance_radar/model/EsrCoordinateUtils.cpp
+    electronic_surveillance_radar/session/EsrExternalInputAdapter.cpp
 )
 
 set(ESR_ENVIRONMENT_SOURCES
@@ -38,7 +38,6 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp
     )
     set(PUBLIC_HEADERS_ESR_MODEL
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/model/EsrCoordinateUtils.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/model/EmitterHypothesis.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/model/EmitterObservation.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/model/EmitterTruthState.h
@@ -56,6 +55,7 @@ if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_ESR_SESSION
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrCycleInput.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrCycleResult.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrInputValidation.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrSession.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrSessionFactory.h

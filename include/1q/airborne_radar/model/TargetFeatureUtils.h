@@ -8,21 +8,13 @@
 
 #include <cstdint>
 
+#include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "1q/airborne_radar/model/TargetFeature.h"
 #include "1q/api.hpp"
 #include "1q/foundation/coordinate_transform.h"
 
 namespace airborne_radar {
 namespace model {
-
-/**
- * @brief 描述外部坐标转换为雷达局部坐标所需的参考系信息。
- * @note `origin_lla` 定义局部 ENU 原点，`radar_attitude_deg` 定义雷达局部坐标相对 ENU 的姿态。
- */
-struct ONEQ_API RadarLocalFrameReference {
-  oneq::foundation::LlaCoordinateDegM origin_lla{};       /**< 雷达参考原点（WGS84 LLA） */
-  oneq::foundation::EulerAnglesDeg radar_attitude_deg{};  /**< 雷达局部坐标相对 ENU 的姿态角 */
-};
 
 /**
  * @brief 根据雷达局部笛卡尔坐标构造单个目标。
@@ -79,66 +71,6 @@ model::TargetFeature MakeAirTarget(std::uint64_t external_target_id, float posit
                                    float position_y, float position_z, float velocity_x,
                                    float velocity_y, float velocity_z, float rcs = 1.0f,
                                    int swerling_type = 0);
-
-/**
- * @brief 将 ECEF 坐标转换为雷达局部笛卡尔坐标。
- * @param[in] position_ecef_m 外部输入 ECEF 坐标（单位：m）。
- * @param[in] reference 雷达参考系定义。
- * @param[out] position_local_m 输出雷达局部坐标（单位：m），可为 nullptr。
- * @return 成功返回 true，输入非法或输出为空返回 false。
- */
-ONEQ_API bool TryConvertEcefToRadarLocal(const oneq::foundation::EcefCoordinateM& position_ecef_m,
-                                         const RadarLocalFrameReference& reference,
-                                         oneq::foundation::Vector3f* position_local_m);
-
-/**
- * @brief 将 LLA 坐标转换为雷达局部笛卡尔坐标。
- * @param[in] position_lla_deg_m 外部输入 LLA 坐标（单位：deg/m）。
- * @param[in] reference 雷达参考系定义。
- * @param[out] position_local_m 输出雷达局部坐标（单位：m），可为 nullptr。
- * @return 成功返回 true，输入非法或输出为空返回 false。
- */
-ONEQ_API bool TryConvertLlaToRadarLocal(const oneq::foundation::LlaCoordinateDegM& position_lla_deg_m,
-                                        const RadarLocalFrameReference& reference,
-                                        oneq::foundation::Vector3f* position_local_m);
-
-/**
- * @brief 根据 ECEF 坐标直接构造雷达局部 TargetFeature。
- * @param[in] external_target_id 外部目标标识符。
- * @param[in] position_ecef_m 外部输入 ECEF 坐标（单位：m）。
- * @param[in] reference 雷达参考系定义。
- * @param[in] velocity_x 目标局部速度 x 分量（m/s）。
- * @param[in] velocity_y 目标局部速度 y 分量（m/s）。
- * @param[in] velocity_z 目标局部速度 z 分量（m/s）。
- * @param[in] rcs 目标 RCS（平方米）。
- * @param[in] swerling_type 目标起伏模型编号。
- * @param[out] target 输出目标特征，可为 nullptr。
- * @return 成功返回 true，输入非法或输出为空返回 false。
- */
-ONEQ_API bool TryMakeTargetFromEcef(std::uint64_t external_target_id,
-                                    const oneq::foundation::EcefCoordinateM& position_ecef_m,
-                                    const RadarLocalFrameReference& reference,
-                                    float velocity_x, float velocity_y, float velocity_z, float rcs,
-                                    int swerling_type, model::TargetFeature* target);
-
-/**
- * @brief 根据 LLA 坐标直接构造雷达局部 TargetFeature。
- * @param[in] external_target_id 外部目标标识符。
- * @param[in] position_lla_deg_m 外部输入 LLA 坐标（单位：deg/m）。
- * @param[in] reference 雷达参考系定义。
- * @param[in] velocity_x 目标局部速度 x 分量（m/s）。
- * @param[in] velocity_y 目标局部速度 y 分量（m/s）。
- * @param[in] velocity_z 目标局部速度 z 分量（m/s）。
- * @param[in] rcs 目标 RCS（平方米）。
- * @param[in] swerling_type 目标起伏模型编号。
- * @param[out] target 输出目标特征，可为 nullptr。
- * @return 成功返回 true，输入非法或输出为空返回 false。
- */
-ONEQ_API bool TryMakeTargetFromLla(std::uint64_t external_target_id,
-                                   const oneq::foundation::LlaCoordinateDegM& position_lla_deg_m,
-                                   const RadarLocalFrameReference& reference, float velocity_x,
-                                   float velocity_y, float velocity_z, float rcs,
-                                   int swerling_type, model::TargetFeature* target);
 
 /**
  * @brief 规范化单个目标的几何派生量。

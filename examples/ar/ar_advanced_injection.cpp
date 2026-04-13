@@ -1,6 +1,6 @@
 // Copyright 2026. All Rights Reserved.
 //
-// @file example_advanced_injection.cpp
+// @file ar_advanced_injection.cpp
 // @brief Layer 2 高级扩展示例：通过接口注入自定义组件替换内部实现。
 //
 // 本文件展示两种高级适配场景：
