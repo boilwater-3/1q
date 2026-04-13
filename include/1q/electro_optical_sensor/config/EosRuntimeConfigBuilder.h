@@ -6,7 +6,7 @@
 #ifndef ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_RUNTIME_CONFIG_BUILDER_H_
 #define ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_RUNTIME_CONFIG_BUILDER_H_
 
-#include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
+#include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
 
 namespace electro_optical_sensor {
 namespace config {

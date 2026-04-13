@@ -6,7 +6,7 @@
 #ifndef ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_SESSION_CONFIG_BUILDER_H_
 #define ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_SESSION_CONFIG_BUILDER_H_
 
-#include "1q/electro_optical_sensor/session/EosSession.h"
+#include "1q/electro_optical_sensor/config/EosSessionConfig.h"
 
 namespace electro_optical_sensor {
 namespace config {

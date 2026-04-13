@@ -480,6 +480,11 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h
     )
     set(PUBLIC_HEADERS_ESR_CONFIG
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrHardwareConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrMissionControlConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrLayeredConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrSessionConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/electronic_surveillance_radar_config.hpp
@@ -513,6 +518,9 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/extension/electro_optical_sensor_extension.hpp
     )
     set(PUBLIC_HEADERS_EOS_CONFIG
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/EosWorkMode.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/EosSessionConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/EosSessionConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/electro_optical_sensor_config.hpp
