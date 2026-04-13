@@ -1,0 +1,29 @@
+# common 模块源文件与安装清单
+
+set(ONEQ_COMMON_SOURCES
+    common/atmosphere/AtmospherePhysics.cpp
+    common/geometry/CoordinateTransform.cpp
+    common/geometry/GeometryTransform.cpp
+    common/numerics/SpectralNumerics.cpp
+    common/rcs/RcsPhysics.cpp
+    common/trace/TraceSink.cpp
+    common/timing/TimingRegimeModel.cpp
+)
+
+if(ENABLE_INSTALL)
+    set(PUBLIC_HEADERS_FOUNDATION
+        ${CMAKE_SOURCE_DIR}/include/1q/foundation/coordinate_transform.h
+        ${CMAKE_SOURCE_DIR}/include/1q/foundation/pose_types.h
+        ${CMAKE_SOURCE_DIR}/include/1q/foundation/scan_schedule_types.h
+    )
+    set(PUBLIC_HEADERS_TRACE
+        ${CMAKE_SOURCE_DIR}/include/1q/trace/TraceSink.h
+    )
+
+    install(FILES ${PUBLIC_HEADERS_FOUNDATION}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/foundation
+    )
+    install(FILES ${PUBLIC_HEADERS_TRACE}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/trace
+    )
+endif()

@@ -4,7 +4,6 @@ endif()
 
 # 查找测试框架（测试专用依赖，不污染主库）
 find_package(GTest CONFIG REQUIRED)
-find_package(eventpp CONFIG REQUIRED)
 find_package(Boost CONFIG REQUIRED)
 find_package(Eigen3 CONFIG REQUIRED)
 
@@ -42,7 +41,6 @@ function(add_1q_gtest target_name suite_label discovery_timeout)
     target_link_libraries(${target_name} PRIVATE
         GTest::gtest_main  # 包含 main() 函数
         GTest::gmock       # Mock 功能（可选）
-        eventpp::eventpp
         Boost::boost
         Eigen3::Eigen
         ${PROJECT_ALIAS}   # 主库
