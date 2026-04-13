@@ -440,9 +440,12 @@ if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_ENVIRONMENT
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentDefaultConfigBuilder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentModelConfigBuilder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentRuntimeConfigPatchBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentSceneBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentTypes.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/IEnvironmentService.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/airborne_radar_environment.hpp
     )
     set(PUBLIC_HEADERS_SIGNAL_PIPELINE
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/ISignalPipeline.h
@@ -483,6 +486,7 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/environment/EsrEnvironmentSceneBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/environment/electronic_surveillance_radar_environment.hpp
     )
     set(PUBLIC_HEADERS_ESR_CONFIG
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrHardwareConfig.h
@@ -519,6 +523,7 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/environment/EosEnvironmentRuntimeConfigPatchBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/environment/EosEnvironmentTypes.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/environment/IEosEnvironmentService.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/environment/electro_optical_sensor_environment.hpp
     )
     set(PUBLIC_HEADERS_EOS_EXTENSION
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/extension/EosController.h

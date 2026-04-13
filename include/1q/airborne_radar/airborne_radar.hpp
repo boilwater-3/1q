@@ -7,11 +7,7 @@
 #define ONEQ_AIRBORNE_RADAR_AIRBORNE_RADAR_HPP_
 
 #include "1q/airborne_radar/config/airborne_radar_config.hpp"
-#include "1q/airborne_radar/environment/EnvironmentConfig.h"
-#include "1q/airborne_radar/environment/EnvironmentDefaultConfigBuilder.h"
-#include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
-#include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "1q/airborne_radar/environment/IEnvironmentService.h"
+#include "1q/airborne_radar/environment/airborne_radar_environment.hpp"
 #include "1q/airborne_radar/model/DecisionInputFrame.h"
 #include "1q/airborne_radar/model/DecisionSourceInfo.h"
 #include "1q/airborne_radar/model/DecisionTrackSnapshot.h"

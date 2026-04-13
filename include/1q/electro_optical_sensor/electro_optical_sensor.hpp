@@ -1,7 +1,7 @@
 /**
  * @file electro_optical_sensor.hpp
  * @brief 光电传感器模块稳定会话入口。
- * @note 扩展接口（controller/pipeline/environment seam）请使用
+ * @note 扩展接口（controller/pipeline seam）请使用
  *       `electro_optical_sensor/extension/electro_optical_sensor_extension.hpp`。
  */
 
@@ -14,12 +14,7 @@
 #include "1q/electro_optical_sensor/model/EosInputValidation.h"
 #include "1q/electro_optical_sensor/model/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
-#include "1q/electro_optical_sensor/environment/EosEnvironmentConfig.h"
-#include "1q/electro_optical_sensor/environment/EosEnvironmentConfigBuilder.h"
-#include "1q/electro_optical_sensor/environment/EosEnvironmentRuntimeConfigPatch.h"
-#include "1q/electro_optical_sensor/environment/EosEnvironmentRuntimeConfigPatchBuilder.h"
-#include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
-#include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
+#include "1q/electro_optical_sensor/environment/electro_optical_sensor_environment.hpp"
 #include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 #include "1q/electro_optical_sensor/session/EosTraceSession.h"
 

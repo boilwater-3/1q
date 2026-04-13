@@ -46,9 +46,12 @@
 #include "1q/airborne_radar/extension/airborne_radar_extension.hpp"
 #include "1q/airborne_radar/environment/EnvironmentConfig.h"
 #include "1q/airborne_radar/environment/EnvironmentDefaultConfigBuilder.h"
+#include "1q/airborne_radar/environment/EnvironmentModelConfigBuilder.h"
+#include "1q/airborne_radar/environment/EnvironmentRuntimeConfigPatchBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
+#include "1q/airborne_radar/environment/airborne_radar_environment.hpp"
 #include "1q/airborne_radar/extension/ISignalPipeline.h"
 #include "1q/airborne_radar/extension/SignalPipelineResultTypes.h"
 #include "1q/airborne_radar/airborne_radar.hpp"
@@ -65,13 +68,14 @@
 #include "1q/electro_optical_sensor/extension/EosController.h"
 #include "1q/electro_optical_sensor/model/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
+#include "1q/electro_optical_sensor/environment/EosEnvironmentConfig.h"
+#include "1q/electro_optical_sensor/environment/EosEnvironmentConfigBuilder.h"
+#include "1q/electro_optical_sensor/environment/EosEnvironmentRuntimeConfigPatch.h"
+#include "1q/electro_optical_sensor/environment/EosEnvironmentRuntimeConfigPatchBuilder.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
 #include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
+#include "1q/electro_optical_sensor/environment/electro_optical_sensor_environment.hpp"
 #include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
-#include "1q/electro_optical_sensor/extension/IEosPipeline.h"
-#include "1q/electro_optical_sensor/extension/EosController.h"
-#include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
-#include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
 #include "1q/electro_optical_sensor/extension/IEosPipeline.h"
 #include "1q/electro_optical_sensor/extension/electro_optical_sensor_extension.hpp"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
@@ -87,7 +91,14 @@
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/electronic_surveillance_radar_config.hpp"
+#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentConfig.h"
+#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentConfigBuilder.h"
+#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentRuntimeConfigPatch.h"
+#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentRuntimeConfigPatchBuilder.h"
+#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentSceneBuilder.h"
+#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
 #include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
+#include "1q/electronic_surveillance_radar/environment/electronic_surveillance_radar_environment.hpp"
 #include "1q/electronic_surveillance_radar/extension/IInterceptPipeline.h"
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
@@ -208,6 +219,27 @@ static_assert(
             std::declval<const electro_optical_sensor::session::EosSessionConfig&>(),
             std::declval<electro_optical_sensor::extension::EosController&>()))>::value,
     "EosSessionFactory::CreateWithController must return EosSession");
+static_assert(
+    std::is_same<airborne_radar::environment::EnvironmentRuntimeConfigPatch,
+                 decltype(airborne_radar::environment::EnvironmentRuntimeConfigPatchBuilder()
+                              .WithJammingDetectionThresholdDb(7.0f)
+                              .Build())>::value,
+    "EnvironmentRuntimeConfigPatchBuilder::Build must return EnvironmentRuntimeConfigPatch");
+static_assert(
+    std::is_same<electro_optical_sensor::environment::EosEnvironmentRuntimeConfigPatch,
+                 decltype(
+                     electro_optical_sensor::environment::EosEnvironmentRuntimeConfigPatchBuilder()
+                         .WithTurbulenceFactor(1.2f)
+                         .Build())>::value,
+    "EosEnvironmentRuntimeConfigPatchBuilder::Build must return EosEnvironmentRuntimeConfigPatch");
+static_assert(
+    std::is_same<
+        electronic_surveillance_radar::environment::EsrEnvironmentRuntimeConfigPatch,
+        decltype(electronic_surveillance_radar::environment::
+                     EsrEnvironmentRuntimeConfigPatchBuilder()
+                         .WithJammingDetectionThresholdW(1.0e-8f)
+                         .Build())>::value,
+    "EsrEnvironmentRuntimeConfigPatchBuilder::Build must return EsrEnvironmentRuntimeConfigPatch");
 
 namespace airborne_radar {
 namespace {
