@@ -19,26 +19,6 @@ class EnvironmentModelConfigBuilder {
   explicit EnvironmentModelConfigBuilder(const EnvironmentModelConfig& config = {})
       : config_(config) {}
 
-  EnvironmentModelConfigBuilder& WithBasePropagationLossDb(float value) {
-    config_.base_propagation_loss_db = value;
-    return *this;
-  }
-
-  EnvironmentModelConfigBuilder& WithAtmosphericAttenuationDb(float value) {
-    config_.atmospheric_attenuation_db = value;
-    return *this;
-  }
-
-  EnvironmentModelConfigBuilder& WithTerrainReflectionDb(float value) {
-    config_.terrain_reflection_db = value;
-    return *this;
-  }
-
-  EnvironmentModelConfigBuilder& WithClutterPowerDb(float value) {
-    config_.clutter_power_db = value;
-    return *this;
-  }
-
   EnvironmentModelConfigBuilder& WithAtmosphericPhysicsConfig(
       const AtmosphericPhysicsConfig& config) {
     config_.atmospheric_physics = config;

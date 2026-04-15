@@ -147,10 +147,6 @@ std::unique_ptr<airborne_radar::session::RadarSession> MakeSession() {
 
   // 空对空场景：关闭地面杂波，仅保留热噪声底
   airborne_radar::environment::EnvironmentModelConfig env_cfg;
-  env_cfg.clutter_power_db = -200.0f;         // 杂波清零
-  env_cfg.base_propagation_loss_db = 0.0f;    // 无额外传播损耗
-  env_cfg.atmospheric_attenuation_db = 0.0f;  // 无大气衰减
-  env_cfg.terrain_reflection_db = 0.0f;       // 无地形多径
   session->UpdateEnvironmentModelConfig(env_cfg);
 
   return session;
@@ -191,10 +187,6 @@ void StepOnce(airborne_radar::session::RadarSession& session, SimState& sim) {
     jammer.in_sidelobe = true;
     // 使用空对空低杂波场景，仅叠加干扰源
     airborne_radar::environment::EnvironmentSceneState scene_st;
-    scene_st.clutter_power_db = -200.0f;
-    scene_st.base_propagation_loss_db = 0.0f;
-    scene_st.atmospheric_attenuation_db = 0.0f;
-    scene_st.terrain_reflection_db = 0.0f;
     scene_st.jammer_emitters.push_back(jammer);
     const auto scene = scene_st;
     result = session.StepWithResult(input, scene);

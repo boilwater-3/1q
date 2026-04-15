@@ -160,10 +160,6 @@ std::unique_ptr<airborne_radar::session::RadarSession> MakeSession() {
               .Build()));
 
   airborne_radar::environment::EnvironmentModelConfig env_cfg;
-  env_cfg.clutter_power_db = -200.0f;
-  env_cfg.base_propagation_loss_db = 0.0f;
-  env_cfg.atmospheric_attenuation_db = 0.0f;
-  env_cfg.terrain_reflection_db = 0.0f;
   session->UpdateEnvironmentModelConfig(env_cfg);
 
   return session;

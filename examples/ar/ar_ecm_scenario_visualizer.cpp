@@ -198,10 +198,6 @@ std::unique_ptr<airborne_radar::session::RadarSession> MakeSession() {
               .Build()));
 
   airborne_radar::environment::EnvironmentModelConfig env_cfg;
-  env_cfg.clutter_power_db = -200.0f;
-  env_cfg.base_propagation_loss_db = 0.0f;
-  env_cfg.atmospheric_attenuation_db = 0.0f;
-  env_cfg.terrain_reflection_db = 0.0f;
   session->UpdateEnvironmentModelConfig(env_cfg);
 
   return session;
@@ -215,10 +211,6 @@ airborne_radar::environment::EnvironmentSceneState BuildScene(int cycle) {
   using airborne_radar::environment::JammingTechnique;
 
   EnvironmentSceneBuilder builder;
-  builder.SetClutterPowerDb(-200.0f)
-      .SetBasePropagationLossDb(0.0f)
-      .SetAtmosphericAttenuationDb(0.0f)
-      .SetTerrainReflectionDb(0.0f);
 
   // 噪声压制干扰（cycle 10~24）
   if (cycle >= kPhaseNoise && cycle < kPhaseRecovery) {

@@ -11,7 +11,7 @@ namespace internal {
 
 struct RadarSessionComposition {
   config::SignalPipelineConfig runtime_signal_pipeline_config{};
-  environment::EnvironmentModelConfig runtime_environment_model_config{};
+  environment::EnvironmentScenarioConfig runtime_environment_scenario_config{};
   float runtime_jamming_detection_threshold_db{6.0f};
 
   std::unique_ptr<extension::IRadarContext> owned_radar_context;

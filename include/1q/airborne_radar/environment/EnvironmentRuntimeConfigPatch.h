@@ -15,8 +15,8 @@ namespace environment {
  * @brief EnvironmentRuntimeConfigPatch 描述运行期可变环境参数补丁。
  */
 struct EnvironmentRuntimeConfigPatch {
-  bool has_model_config{false};                   /**< 是否更新环境模型配置 */
-  EnvironmentModelConfig model_config{};          /**< 运行期环境模型配置 */
+  bool has_scenario_config{false};                /**< 是否更新环境场景输入 */
+  EnvironmentScenarioConfig scenario_config{};    /**< 运行期环境场景输入 */
   bool has_jamming_detection_threshold_db{false}; /**< 是否更新干扰判定阈值 */
   float jamming_detection_threshold_db{6.0f};     /**< 运行期干扰判定阈值（单位：dB） */
 };

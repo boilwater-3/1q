@@ -190,11 +190,6 @@ ar::config::SignalBeamControlConfig ParseBeamControl(const Json& json) {
 ar::environment::AtmosphericPhysicsConfig ParseAtmosphericPhysics(const Json& json) {
   ar::environment::AtmosphericPhysicsConfig value;
   value.enable_physical_model = GetBool(json, "enable_physical_model", value.enable_physical_model);
-  value.frequency_hz = GetFloat(json, "frequency_hz", value.frequency_hz);
-  value.path_length_m = GetFloat(json, "path_length_m", value.path_length_m);
-  value.radar_altitude_m = GetFloat(json, "radar_altitude_m", value.radar_altitude_m);
-  value.target_altitude_m = GetFloat(json, "target_altitude_m", value.target_altitude_m);
-  value.elevation_deg = GetFloat(json, "elevation_deg", value.elevation_deg);
   value.pressure_hpa = GetFloat(json, "pressure_hpa", value.pressure_hpa);
   value.temperature_k = GetFloat(json, "temperature_k", value.temperature_k);
   value.relative_humidity = GetFloat(json, "relative_humidity", value.relative_humidity);
@@ -221,23 +216,47 @@ ar::environment::JammerSourceFact ParseJammer(const Json& json) {
   return value;
 }
 
-ar::environment::EnvironmentModelConfig ParseEnvironmentModel(const Json& json) {
-  ar::environment::EnvironmentModelConfig model;
-  model.base_propagation_loss_db = GetFloat(json, "base_propagation_loss_db", model.base_propagation_loss_db);
-  model.atmospheric_attenuation_db =
-      GetFloat(json, "atmospheric_attenuation_db", model.atmospheric_attenuation_db);
-  model.terrain_reflection_db = GetFloat(json, "terrain_reflection_db", model.terrain_reflection_db);
-  model.clutter_power_db = GetFloat(json, "clutter_power_db", model.clutter_power_db);
+ar::environment::EnvironmentScenarioConfig ParseEnvironmentScenario(const Json& json) {
+  ar::environment::EnvironmentScenarioConfig scenario;
   if (json.contains("atmospheric_physics")) {
-    model.atmospheric_physics = ParseAtmosphericPhysics(json["atmospheric_physics"]);
+    scenario.atmospheric_physics = ParseAtmosphericPhysics(json["atmospheric_physics"]);
+  }
+  if (json.contains("vegetation_scatter_physics")) {
+    const Json& veg = json["vegetation_scatter_physics"];
+    scenario.vegetation_scatter_physics.enable_physical_model =
+        GetBool(veg, "enable_physical_model", scenario.vegetation_scatter_physics.enable_physical_model);
+    scenario.vegetation_scatter_physics.leaf_size_m =
+        GetFloat(veg, "leaf_size_m", scenario.vegetation_scatter_physics.leaf_size_m);
+    scenario.vegetation_scatter_physics.dielectric_constant_real =
+        GetFloat(veg, "dielectric_constant_real",
+                 scenario.vegetation_scatter_physics.dielectric_constant_real);
+    scenario.vegetation_scatter_physics.incidence_deg =
+        GetFloat(veg, "incidence_deg", scenario.vegetation_scatter_physics.incidence_deg);
+    scenario.vegetation_scatter_physics.scatter_deg =
+        GetFloat(veg, "scatter_deg", scenario.vegetation_scatter_physics.scatter_deg);
+    scenario.vegetation_scatter_physics.leaf_count = static_cast<std::uint32_t>(
+        GetInt(veg, "leaf_count", static_cast<int>(scenario.vegetation_scatter_physics.leaf_count)));
+    scenario.vegetation_scatter_physics.canopy_radius_m =
+        GetFloat(veg, "canopy_radius_m", scenario.vegetation_scatter_physics.canopy_radius_m);
+    scenario.vegetation_scatter_physics.canopy_height_m =
+        GetFloat(veg, "canopy_height_m", scenario.vegetation_scatter_physics.canopy_height_m);
+    scenario.vegetation_scatter_physics.x_axis_scale_m =
+        GetFloat(veg, "x_axis_scale_m", scenario.vegetation_scatter_physics.x_axis_scale_m);
+    scenario.vegetation_scatter_physics.y_axis_scale_m =
+        GetFloat(veg, "y_axis_scale_m", scenario.vegetation_scatter_physics.y_axis_scale_m);
+    scenario.vegetation_scatter_physics.clutter_mix_ratio =
+        GetFloat(veg, "clutter_mix_ratio", scenario.vegetation_scatter_physics.clutter_mix_ratio);
+    scenario.vegetation_scatter_physics.max_physical_multiplier = GetFloat(
+        veg, "max_physical_multiplier",
+        scenario.vegetation_scatter_physics.max_physical_multiplier);
   }
   if (json.contains("jammer_sources") && json["jammer_sources"].is_array()) {
-    model.jammer_sources.clear();
+    scenario.jammer_sources.clear();
     for (std::size_t i = 0; i < json["jammer_sources"].size(); ++i) {
-      model.jammer_sources.push_back(ParseJammer(json["jammer_sources"][i]));
+      scenario.jammer_sources.push_back(ParseJammer(json["jammer_sources"][i]));
     }
   }
-  return model;
+  return scenario;
 }
 
 ar::session::RadarSessionConfig ParseSessionConfig(const Json& payload) {
@@ -277,8 +296,9 @@ ar::session::RadarSessionConfig ParseSessionConfig(const Json& payload) {
     const Json& env = payload["environment_default_config"];
     config.environment_default_config.jamming_detection_threshold_db =
         GetFloat(env, "jamming_detection_threshold_db", config.environment_default_config.jamming_detection_threshold_db);
-    if (env.contains("model_config")) {
-      config.environment_default_config.model_config = ParseEnvironmentModel(env["model_config"]);
+    if (env.contains("scenario_config")) {
+      config.environment_default_config.scenario_config =
+          ParseEnvironmentScenario(env["scenario_config"]);
     }
   }
   return config;
@@ -322,11 +342,6 @@ ar::session::RadarCycleInput ParseCycleInput(const Json& payload) {
 
 ar::environment::EnvironmentSceneState ParseSceneState(const Json& payload) {
   ar::environment::EnvironmentSceneState scene;
-  scene.base_propagation_loss_db = GetFloat(payload, "base_propagation_loss_db", scene.base_propagation_loss_db);
-  scene.atmospheric_attenuation_db =
-      GetFloat(payload, "atmospheric_attenuation_db", scene.atmospheric_attenuation_db);
-  scene.terrain_reflection_db = GetFloat(payload, "terrain_reflection_db", scene.terrain_reflection_db);
-  scene.clutter_power_db = GetFloat(payload, "clutter_power_db", scene.clutter_power_db);
   if (payload.contains("atmospheric_physics")) {
     scene.atmospheric_physics = ParseAtmosphericPhysics(payload["atmospheric_physics"]);
   }
@@ -376,9 +391,11 @@ ar::config::RadarRuntimeConfigPatch ParseRuntimePatch(const Json& payload) {
   patch.has_environment_runtime_config = GetBool(payload, "has_environment_runtime_config", false);
   if (patch.has_environment_runtime_config && payload.contains("environment_runtime_config")) {
     const Json& env = payload["environment_runtime_config"];
-    patch.environment_runtime_config.has_model_config = GetBool(env, "has_model_config", false);
-    if (patch.environment_runtime_config.has_model_config && env.contains("model_config")) {
-      patch.environment_runtime_config.model_config = ParseEnvironmentModel(env["model_config"]);
+    patch.environment_runtime_config.has_scenario_config =
+        GetBool(env, "has_scenario_config", false);
+    if (patch.environment_runtime_config.has_scenario_config && env.contains("scenario_config")) {
+      patch.environment_runtime_config.scenario_config =
+          ParseEnvironmentScenario(env["scenario_config"]);
     }
     patch.environment_runtime_config.has_jamming_detection_threshold_db =
         GetBool(env, "has_jamming_detection_threshold_db", false);

@@ -19,6 +19,10 @@ struct PropagationResult {
    */
   float propagation_loss_db{0.0f};
   /**
+   * @brief 传播损耗中的大气物理附加项（单位：dB）。
+   */
+  float atmospheric_physics_loss_db{0.0f};
+  /**
    * @brief 杂波功率（单位：dB）。
    */
   float clutter_power_db{0.0f};

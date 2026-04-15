@@ -21,30 +21,6 @@ class ONEQ_API EnvironmentSceneBuilder {
   EnvironmentSceneBuilder() = default;
 
   /**
-   * @brief 设置基础传播损耗。
-   * @param[in] base_loss_db 基础传播损耗（单位：dB）。
-   */
-  EnvironmentSceneBuilder& SetBasePropagationLossDb(float base_loss_db);
-
-  /**
-   * @brief 设置大气附加衰减。
-   * @param[in] atmospheric_loss_db 大气附加衰减（单位：dB）。
-   */
-  EnvironmentSceneBuilder& SetAtmosphericAttenuationDb(float atmospheric_loss_db);
-
-  /**
-   * @brief 设置地形/多径附加项。
-   * @param[in] terrain_loss_db 地形/多径附加项（单位：dB）。
-   */
-  EnvironmentSceneBuilder& SetTerrainReflectionDb(float terrain_loss_db);
-
-  /**
-   * @brief 设置杂波功率。
-   * @param[in] clutter_power_db 杂波功率（单位：dB）。
-   */
-  EnvironmentSceneBuilder& SetClutterPowerDb(float clutter_power_db);
-
-  /**
    * @brief 设置可选大气物理传播参数。
    * @param[in] config 大气物理传播参数。
    */

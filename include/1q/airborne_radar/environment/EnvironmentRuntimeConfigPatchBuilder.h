@@ -19,9 +19,10 @@ class EnvironmentRuntimeConfigPatchBuilder {
   explicit EnvironmentRuntimeConfigPatchBuilder(const EnvironmentRuntimeConfigPatch& patch = {})
       : patch_(patch) {}
 
-  EnvironmentRuntimeConfigPatchBuilder& WithModelConfig(const EnvironmentModelConfig& model_config) {
-    patch_.has_model_config = true;
-    patch_.model_config = model_config;
+  EnvironmentRuntimeConfigPatchBuilder& WithScenarioConfig(
+      const EnvironmentScenarioConfig& scenario_config) {
+    patch_.has_scenario_config = true;
+    patch_.scenario_config = scenario_config;
     return *this;
   }
 

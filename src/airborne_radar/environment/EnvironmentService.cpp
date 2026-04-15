@@ -47,10 +47,6 @@ JammerSourceFact ToJammerSourceFact(const JammerEmitterState& emitter_state) {
  */
 EnvironmentSceneState BuildSceneStateFromModelConfig(const EnvironmentModelConfig& config) {
   EnvironmentSceneState scene_state;
-  scene_state.base_propagation_loss_db = config.base_propagation_loss_db;
-  scene_state.atmospheric_attenuation_db = config.atmospheric_attenuation_db;
-  scene_state.terrain_reflection_db = config.terrain_reflection_db;
-  scene_state.clutter_power_db = config.clutter_power_db;
   scene_state.atmospheric_physics = config.atmospheric_physics;
   scene_state.vegetation_scatter_physics = config.vegetation_scatter_physics;
   scene_state.jammer_emitters.reserve(config.jammer_sources.size());
@@ -127,11 +123,12 @@ void EnvironmentService::RefreshFrozenSnapshotFromActiveScene() {
 
   const PropagationResult propagation_result =
       propagation_model_->Evaluate(scene_manager_->GetActiveScene());
+  const EnvironmentSceneState& active_scene = scene_manager_->GetActiveScene();
   frozen_snapshot_.cycle_dt_sec = current_cycle_context_.dt_sec;
   frozen_snapshot_.propagation_loss_db = propagation_result.propagation_loss_db;
+  frozen_snapshot_.atmospheric_physics_loss_db = propagation_result.atmospheric_physics_loss_db;
   frozen_snapshot_.clutter_power_db = propagation_result.clutter_power_db;
-
-  const EnvironmentSceneState& active_scene = scene_manager_->GetActiveScene();
+  frozen_snapshot_.atmospheric_physics = active_scene.atmospheric_physics;
   frozen_snapshot_.jammer_sources.clear();
   frozen_snapshot_.jammer_sources.reserve(active_scene.jammer_emitters.size());
   for (std::size_t i = 0; i < active_scene.jammer_emitters.size(); ++i) {

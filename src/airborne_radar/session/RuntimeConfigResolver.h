@@ -12,7 +12,7 @@ namespace internal {
  */
 struct RuntimeConfigState {
   config::SignalPipelineConfig signal_pipeline_config{};
-  environment::EnvironmentModelConfig environment_model_config{};
+  environment::EnvironmentScenarioConfig environment_scenario_config{};
   float jamming_detection_threshold_db{6.0f};
 };
 
@@ -24,7 +24,7 @@ struct RuntimeConfigResolveResult {
   bool has_requested_update{false};
   bool is_valid{true};
   bool signal_pipeline_config_changed{false};
-  bool environment_model_config_changed{false};
+  bool environment_scenario_config_changed{false};
   bool jamming_detection_threshold_changed{false};
 };
 

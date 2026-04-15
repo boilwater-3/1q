@@ -51,11 +51,6 @@ using JammerEmitterStateList = std::vector<JammerEmitterState>;
  */
 struct AtmosphericPhysicsConfig {
   bool enable_physical_model{false}; /**< 是否启用物理传播模型 */
-  float frequency_hz{10.0e9f};       /**< 雷达频率（单位：Hz） */
-  float path_length_m{10.0e3f};      /**< 传播路径长度（单位：m） */
-  float radar_altitude_m{1.0e3f};    /**< 雷达高度（单位：m） */
-  float target_altitude_m{1.0e3f};   /**< 目标高度（单位：m） */
-  float elevation_deg{5.0f};         /**< 传播仰角（单位：deg） */
   float pressure_hpa{1013.25f};      /**< 气压（单位：hPa） */
   float temperature_k{288.15f};      /**< 温度（单位：K） */
   float relative_humidity{0.5f};     /**< 相对湿度 [0, 1] */
@@ -88,22 +83,39 @@ struct VegetationScatterPhysicsConfig {
  * @brief EnvironmentModelConfig 描述环境模型参数。
  */
 struct EnvironmentModelConfig {
-  float base_propagation_loss_db{4.0f};   /**< 基础传播损耗（dB） */
-  float atmospheric_attenuation_db{1.5f}; /**< 大气附加衰减（dB） */
-  float terrain_reflection_db{1.0f};      /**< 地形/多径附加项（dB） */
-  float clutter_power_db{3.0f};           /**< 杂波功率（dB） */
   AtmosphericPhysicsConfig atmospheric_physics{}; /**< 可选物理传播参数 */
   VegetationScatterPhysicsConfig vegetation_scatter_physics{}; /**< 可选植被散射参数 */
   JammerSourceFactList jammer_sources{};  /**< 多源干扰事实输入 */
 };
 
 /**
+ * @brief EnvironmentScenarioConfig 描述对外场景输入（不暴露内部传播/杂波调参项）。
+ */
+struct EnvironmentScenarioConfig {
+  AtmosphericPhysicsConfig atmospheric_physics{}; /**< 场景气象/电离层输入 */
+  VegetationScatterPhysicsConfig vegetation_scatter_physics{}; /**< 场景植被散射输入 */
+  JammerSourceFactList jammer_sources{}; /**< 场景干扰事实输入 */
+};
+
+/**
  * @brief EnvironmentDefaultConfig 描述初始化阶段的默认环境配置。
  */
 struct EnvironmentDefaultConfig {
-  EnvironmentModelConfig model_config{};       /**< 默认环境模型配置 */
+  EnvironmentScenarioConfig scenario_config{};  /**< 默认环境场景输入 */
   float jamming_detection_threshold_db{6.0f};  /**< 默认干扰判定阈值（单位：dB） */
 };
+
+/**
+ * @brief 将对外场景输入映射为内部环境模型配置。
+ */
+inline EnvironmentModelConfig BuildModelConfigFromScenario(
+    const EnvironmentScenarioConfig& scenario_config) {
+  EnvironmentModelConfig model_config;
+  model_config.atmospheric_physics = scenario_config.atmospheric_physics;
+  model_config.vegetation_scatter_physics = scenario_config.vegetation_scatter_physics;
+  model_config.jammer_sources = scenario_config.jammer_sources;
+  return model_config;
+}
 
 }  // namespace environment
 }  // namespace airborne_radar

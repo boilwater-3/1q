@@ -452,10 +452,6 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
   signal::pipeline::SignalPipeline signal_pipeline(
       config);
   environment::EnvironmentModelConfig environment_config;
-  environment_config.base_propagation_loss_db = 0.0f;
-  environment_config.atmospheric_attenuation_db = 0.0f;
-  environment_config.terrain_reflection_db = 0.0f;
-  environment_config.clutter_power_db = 0.0f;
   environment::EnvironmentService environment_service(environment_config);
 
   model::TargetFeature target =
@@ -551,10 +547,6 @@ TEST(SignalPipelineScanScheduleTest, WorkSubModeSttReducesSweepCoverageComparedT
       stt_config);
 
   environment::EnvironmentModelConfig environment_config;
-  environment_config.base_propagation_loss_db = 0.0f;
-  environment_config.atmospheric_attenuation_db = 0.0f;
-  environment_config.terrain_reflection_db = 0.0f;
-  environment_config.clutter_power_db = 0.0f;
   environment::EnvironmentService environment_service(environment_config);
 
   model::TargetFeature target =

@@ -51,23 +51,24 @@ TEST(ArRuntimeConfigResolverTest, FullSignalConfigAppliedBeforeLeafPatch) {
 
 TEST(ArRuntimeConfigResolverTest, EnvironmentPatchUpdatesModelAndThreshold) {
   RuntimeConfigState current_state;
-  current_state.environment_model_config.base_propagation_loss_db = 3.0f;
+  current_state.environment_scenario_config.atmospheric_physics.enable_physical_model = false;
   current_state.jamming_detection_threshold_db = 6.0f;
 
   config::RadarRuntimeConfigPatch patch =
       config::RadarRuntimeConfigBuilder()
-          .WithEnvironmentModelConfig(environment::EnvironmentModelConfig{})
+          .WithEnvironmentScenarioConfig(environment::EnvironmentScenarioConfig{})
           .WithJammingDetectionThresholdDb(4.5f)
           .Build();
-  patch.environment_runtime_config.model_config.base_propagation_loss_db = 8.0f;
+  patch.environment_runtime_config.scenario_config.atmospheric_physics.enable_physical_model = true;
 
   const RuntimeConfigResolveResult resolved = ResolveRuntimeConfigPatch(current_state, patch);
 
   EXPECT_TRUE(resolved.has_requested_update);
   EXPECT_TRUE(resolved.is_valid);
-  EXPECT_TRUE(resolved.environment_model_config_changed);
+  EXPECT_TRUE(resolved.environment_scenario_config_changed);
   EXPECT_TRUE(resolved.jamming_detection_threshold_changed);
-  EXPECT_FLOAT_EQ(resolved.next_state.environment_model_config.base_propagation_loss_db, 8.0f);
+  EXPECT_TRUE(
+      resolved.next_state.environment_scenario_config.atmospheric_physics.enable_physical_model);
   EXPECT_FLOAT_EQ(resolved.next_state.jamming_detection_threshold_db, 4.5f);
 }
 
@@ -88,7 +89,7 @@ TEST(ArRuntimeConfigResolverTest, InvalidPatchIsRejectedAtomically) {
   EXPECT_TRUE(resolved.has_requested_update);
   EXPECT_FALSE(resolved.is_valid);
   EXPECT_FALSE(resolved.signal_pipeline_config_changed);
-  EXPECT_FALSE(resolved.environment_model_config_changed);
+  EXPECT_FALSE(resolved.environment_scenario_config_changed);
   EXPECT_FALSE(resolved.jamming_detection_threshold_changed);
   EXPECT_FLOAT_EQ(
       resolved.next_state.signal_pipeline_config.beam_control.radar_orientation.scan_center_deg.az_deg,

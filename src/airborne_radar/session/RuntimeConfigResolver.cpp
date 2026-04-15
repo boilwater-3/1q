@@ -88,9 +88,10 @@ RuntimeConfigResolveResult ResolveRuntimeConfigPatch(const RuntimeConfigState& c
 
   if (patch.has_environment_runtime_config) {
     has_requested_update = true;
-    if (patch.environment_runtime_config.has_model_config) {
-      resolved.next_state.environment_model_config = patch.environment_runtime_config.model_config;
-      resolved.environment_model_config_changed = true;
+    if (patch.environment_runtime_config.has_scenario_config) {
+      resolved.next_state.environment_scenario_config =
+          patch.environment_runtime_config.scenario_config;
+      resolved.environment_scenario_config_changed = true;
     }
     if (patch.environment_runtime_config.has_jamming_detection_threshold_db) {
       if (!IsFinite(patch.environment_runtime_config.jamming_detection_threshold_db)) {

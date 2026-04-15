@@ -10,6 +10,7 @@
 #include "airborne_radar/signal/pipeline/effects/ControlProfileEffects.h"
 #include "airborne_radar/signal/pipeline/effects/JammingEffects.h"
 #include "airborne_radar/signal/pipeline/core/PipelineTargetUtils.h"
+#include "common/atmosphere/AtmospherePhysics.h"
 #include "common/rcs/RcsPhysics.h"
 
 namespace airborne_radar {
@@ -32,6 +33,32 @@ float ResolveRcsPhysicsFrequencyHz(const SignalPipelineConfig& runtime_config) {
     return config_frequency_hz;
   }
   return runtime_config.detection.transmitter.frequency_hz;
+}
+
+float ComputeTargetSpecificAtmosphericLossDb(
+    const SignalPipelineConfig& runtime_config,
+    const environment::EnvironmentSnapshot& environment_snapshot,
+    const detection::ResolvedTargetGeometry& geometry) {
+  if (!environment_snapshot.atmospheric_physics.enable_physical_model) {
+    return 0.0f;
+  }
+
+  oneq::internal::atmosphere::AtmosphericPropagationInputs inputs;
+  inputs.enable_physics = true;
+  inputs.frequency_hz = runtime_config.detection.transmitter.frequency_hz;
+  inputs.path_length_m = std::max(geometry.range_m, 0.1f);
+  inputs.radar_altitude_m = 0.0f;
+  inputs.target_altitude_m = std::max(geometry.position_m.z(), 0.0f);
+  inputs.elevation_deg = geometry.look_angles_deg.has_look_angles ? geometry.look_angles_deg.look_el_deg : 0.0f;
+  inputs.pressure_hpa = environment_snapshot.atmospheric_physics.pressure_hpa;
+  inputs.temperature_k = environment_snapshot.atmospheric_physics.temperature_k;
+  inputs.relative_humidity = environment_snapshot.atmospheric_physics.relative_humidity;
+  inputs.k_factor = environment_snapshot.atmospheric_physics.k_factor;
+  inputs.day_of_year = environment_snapshot.atmospheric_physics.day_of_year;
+  inputs.solar_flux_f107a = environment_snapshot.atmospheric_physics.solar_flux_f107a;
+  inputs.solar_flux_f107 = environment_snapshot.atmospheric_physics.solar_flux_f107;
+  inputs.geomagnetic_ap = environment_snapshot.atmospheric_physics.geomagnetic_ap;
+  return oneq::internal::atmosphere::EvaluateAtmosphericPropagation(inputs).total_physics_loss_db;
 }
 
 float ComputeEquivalentRadiusM(float input_rcs_m2,
@@ -212,7 +239,8 @@ void RunPhysicalDetectionPass(const model::TargetFeatureList& input,
   }
 
   detection::EnvironmentState env;
-  env.propagation_loss_db = environment_snapshot.propagation_loss_db;
+  env.propagation_loss_db =
+      environment_snapshot.propagation_loss_db - environment_snapshot.atmospheric_physics_loss_db;
   env.clutter_noise_w = clutter_w;
   env.jam_noise_w = jam_w;
 
@@ -220,6 +248,10 @@ void RunPhysicalDetectionPass(const model::TargetFeatureList& input,
 
   for (std::size_t i = 0; i < count; ++i) {
     (*buffers->target_geometry)[i] = detection::TargetGeometryResolver::Resolve(input[i]);
+    env.propagation_loss_db = environment_snapshot.propagation_loss_db -
+                              environment_snapshot.atmospheric_physics_loss_db +
+                              ComputeTargetSpecificAtmosphericLossDb(
+                                  runtime_config, environment_snapshot, (*buffers->target_geometry)[i]);
     const float effective_rcs_m2 =
         ComputeEffectiveTargetRcsM2(input[i], (*buffers->target_geometry)[i], runtime_config);
     detection::TargetReturn target;

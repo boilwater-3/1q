@@ -68,12 +68,12 @@ class ONEQ_API RadarRuntimeConfigBuilder {
     return *this;
   }
 
-  /** @brief 覆盖整套环境模型配置。 */
-  RadarRuntimeConfigBuilder& WithEnvironmentModelConfig(
-      const environment::EnvironmentModelConfig& config) {
+  /** @brief 覆盖整套环境场景输入。 */
+  RadarRuntimeConfigBuilder& WithEnvironmentScenarioConfig(
+      const environment::EnvironmentScenarioConfig& config) {
     patch_.has_environment_runtime_config = true;
-    patch_.environment_runtime_config.has_model_config = true;
-    patch_.environment_runtime_config.model_config = config;
+    patch_.environment_runtime_config.has_scenario_config = true;
+    patch_.environment_runtime_config.scenario_config = config;
     return *this;
   }
 

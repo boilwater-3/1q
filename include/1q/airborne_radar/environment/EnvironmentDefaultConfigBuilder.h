@@ -18,12 +18,11 @@ namespace environment {
  * 分别对应默认环境模型配置和干扰判定阈值：
  *
  * @code
- * EnvironmentModelConfig model;
- * model.base_propagation_loss_db = 5.0f;
- * model.clutter_power_db         = 3.0f;
+ * EnvironmentScenarioConfig scenario;
+ * scenario.atmospheric_physics.enable_physical_model = true;
  *
  * EnvironmentDefaultConfig env = EnvironmentDefaultConfigBuilder()
- *     .WithModelConfig(model)
+ *     .WithScenarioConfig(scenario)
  *     .Build();
  * env.jamming_detection_threshold_db = 8.0f;
  * @endcode
@@ -37,9 +36,10 @@ class EnvironmentDefaultConfigBuilder {
   explicit EnvironmentDefaultConfigBuilder(const EnvironmentDefaultConfig& config = {})
       : config_(config) {}
 
-  /** @brief 覆盖默认环境模型配置（传播损耗、杂波功率、物理参数等）。 */
-  EnvironmentDefaultConfigBuilder& WithModelConfig(const EnvironmentModelConfig& model_config) {
-    config_.model_config = model_config;
+  /** @brief 覆盖默认环境场景输入（气象、植被、干扰事实等）。 */
+  EnvironmentDefaultConfigBuilder& WithScenarioConfig(
+      const EnvironmentScenarioConfig& scenario_config) {
+    config_.scenario_config = scenario_config;
     return *this;
   }
 

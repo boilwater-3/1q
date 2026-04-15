@@ -243,7 +243,8 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   ASSERT_TRUE(oneq::foundation::TryLlaToEcef(origin_lla, &origin_ecef));
 
   session::RadarSessionConfig session_config = config::MakeDefaultRadarSessionConfig();
-  session_config.environment_default_config.model_config.base_propagation_loss_db = 6.0f;
+  session_config.environment_default_config.scenario_config.atmospheric_physics.enable_physical_model =
+      true;
 
   session::RadarCycleInput input;
   input.dt_sec = 1.0f;
@@ -309,12 +310,12 @@ TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields)
   EXPECT_EQ(config.lifecycle.lifecycle_config.confirm_hits, 2U);
   EXPECT_FLOAT_EQ(config.environment_default_config.jamming_detection_threshold_db, 8.0f);
 
-  environment::EnvironmentModelConfig model;
-  model.base_propagation_loss_db = 5.0f;
+  environment::EnvironmentScenarioConfig scenario;
+  scenario.atmospheric_physics.enable_physical_model = true;
   environment::EnvironmentDefaultConfig env =
-      environment::EnvironmentDefaultConfigBuilder().WithModelConfig(model).Build();
+      environment::EnvironmentDefaultConfigBuilder().WithScenarioConfig(scenario).Build();
   env.jamming_detection_threshold_db = 8.0f;
-  EXPECT_FLOAT_EQ(env.model_config.base_propagation_loss_db, 5.0f);
+  EXPECT_TRUE(env.scenario_config.atmospheric_physics.enable_physical_model);
   EXPECT_FLOAT_EQ(env.jamming_detection_threshold_db, 8.0f);
 }
 

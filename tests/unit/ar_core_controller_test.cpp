@@ -332,10 +332,6 @@ TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecisio
   jammer_source.prf_lock_risk = 0.75f;
   jammer_source.in_sidelobe = false;
   environment_service.UpdateSceneState(environment::EnvironmentSceneBuilder()
-                                           .SetBasePropagationLossDb(20.0f)
-                                           .SetAtmosphericAttenuationDb(6.0f)
-                                           .SetTerrainReflectionDb(4.0f)
-                                           .SetClutterPowerDb(12.0f)
                                            .AddJammer(jammer_source)
                                            .Build());
 

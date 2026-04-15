@@ -12,6 +12,11 @@ namespace environment {
 
 namespace {
 
+constexpr float kInternalBasePropagationLossDb = 4.0f;
+constexpr float kInternalAtmosphericAttenuationDb = 1.5f;
+constexpr float kInternalTerrainReflectionDb = 1.0f;
+constexpr float kInternalBaselineClutterPowerDb = 3.0f;
+
 float ClampFloat(float value, float lower_bound, float upper_bound) {
   return std::min(std::max(value, lower_bound), upper_bound);
 }
@@ -70,11 +75,6 @@ PropagationResult PropagationModel::Evaluate(const EnvironmentSceneState& scene_
   if (scene_state.atmospheric_physics.enable_physical_model) {
     oneq::internal::atmosphere::AtmosphericPropagationInputs inputs;
     inputs.enable_physics = true;
-    inputs.frequency_hz = scene_state.atmospheric_physics.frequency_hz;
-    inputs.path_length_m = scene_state.atmospheric_physics.path_length_m;
-    inputs.radar_altitude_m = scene_state.atmospheric_physics.radar_altitude_m;
-    inputs.target_altitude_m = scene_state.atmospheric_physics.target_altitude_m;
-    inputs.elevation_deg = scene_state.atmospheric_physics.elevation_deg;
     inputs.pressure_hpa = scene_state.atmospheric_physics.pressure_hpa;
     inputs.temperature_k = scene_state.atmospheric_physics.temperature_k;
     inputs.relative_humidity = scene_state.atmospheric_physics.relative_humidity;
@@ -87,11 +87,11 @@ PropagationResult PropagationModel::Evaluate(const EnvironmentSceneState& scene_
         oneq::internal::atmosphere::EvaluateAtmosphericPropagation(inputs);
     physical_loss_db = physics_result.total_physics_loss_db;
   }
-  // terrain_reflection_db 可为负值（多径增益），不对总传播损耗做下限钳位。
-  result.propagation_loss_db = scene_state.base_propagation_loss_db +
-                               scene_state.atmospheric_attenuation_db +
-                               scene_state.terrain_reflection_db + physical_loss_db;
-  float clutter_power_db = scene_state.clutter_power_db;
+  result.atmospheric_physics_loss_db = physical_loss_db;
+  result.propagation_loss_db = kInternalBasePropagationLossDb +
+                               kInternalAtmosphericAttenuationDb +
+                               kInternalTerrainReflectionDb + physical_loss_db;
+  float clutter_power_db = kInternalBaselineClutterPowerDb;
   if (scene_state.vegetation_scatter_physics.enable_physical_model) {
     const float mix_ratio =
         ClampFloat(scene_state.vegetation_scatter_physics.clutter_mix_ratio, 0.0f, 1.0f);

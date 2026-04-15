@@ -573,11 +573,6 @@ TEST(PublicApiConvenienceTest, EnvironmentSceneBuilderDefaultsMatchEnvironmentSc
       environment::EnvironmentSceneBuilder().Build();
   const environment::EnvironmentSceneState default_scene;
 
-  EXPECT_NEAR(built_scene.base_propagation_loss_db, default_scene.base_propagation_loss_db, 1e-5f);
-  EXPECT_NEAR(built_scene.atmospheric_attenuation_db, default_scene.atmospheric_attenuation_db,
-              1e-5f);
-  EXPECT_NEAR(built_scene.terrain_reflection_db, default_scene.terrain_reflection_db, 1e-5f);
-  EXPECT_NEAR(built_scene.clutter_power_db, default_scene.clutter_power_db, 1e-5f);
   EXPECT_EQ(built_scene.atmospheric_physics.enable_physical_model,
             default_scene.atmospheric_physics.enable_physical_model);
   EXPECT_TRUE(built_scene.jammer_emitters.empty());
@@ -621,10 +616,6 @@ TEST(PublicApiConvenienceTest, EnvironmentSceneBuilderJammerHelpersPopulateTyped
   repeater_emitter.confidence = 0.7f;
 
   const environment::EnvironmentSceneState scene = environment::EnvironmentSceneBuilder()
-                                                       .SetBasePropagationLossDb(5.5f)
-                                                       .SetAtmosphericAttenuationDb(2.0f)
-                                                       .SetTerrainReflectionDb(1.2f)
-                                                       .SetClutterPowerDb(4.5f)
                                                        .AddNoiseJammer(noise_emitter_1)
                                                        .AddDeceptionJammer(deception_emitter)
                                                        .AddRepeaterJammer(repeater_emitter)
@@ -637,8 +628,6 @@ TEST(PublicApiConvenienceTest, EnvironmentSceneBuilderJammerHelpersPopulateTyped
   EXPECT_NEAR(scene.jammer_emitters[1].frequency_overlap_ratio, 0.9f, 1e-5f);
   EXPECT_EQ(scene.jammer_emitters[2].technique, environment::JammingTechnique::kRepeater);
   EXPECT_NEAR(scene.jammer_emitters[2].prf_lock_risk, 0.95f, 1e-5f);
-  EXPECT_NEAR(scene.base_propagation_loss_db, 5.5f, 1e-5f);
-  EXPECT_NEAR(scene.clutter_power_db, 4.5f, 1e-5f);
 }
 
 TEST(PublicApiConvenienceTest, TrackOutputQueriesSupportUniqueDuplicateAndJammingSearch) {
@@ -793,7 +782,7 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
   pipeline_config.lifecycle = config.lifecycle;
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
   environment::EnvironmentService environment_service(
-      config.environment_default_config.model_config);
+      environment::BuildModelConfigFromScenario(config.environment_default_config.scenario_config));
   environment_service.SetJammingDetectionThresholdDb(
       config.environment_default_config.jamming_detection_threshold_db);
   extension::RadarController controller(manual_context, signal_pipeline, environment_service);
@@ -1185,7 +1174,7 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultMatchesManualChainUnder
   pipeline_config.lifecycle = config.lifecycle;
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
   environment::EnvironmentService environment_service(
-      config.environment_default_config.model_config);
+      environment::BuildModelConfigFromScenario(config.environment_default_config.scenario_config));
   environment_service.SetJammingDetectionThresholdDb(
       config.environment_default_config.jamming_detection_threshold_db);
   extension::RadarController controller(manual_context, signal_pipeline, environment_service);

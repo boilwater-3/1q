@@ -207,11 +207,6 @@ Json BuildJson(const config::SignalPipelineConfig& value) {
 Json BuildJson(const environment::AtmosphericPhysicsConfig& value) {
   Json json;
   json["enable_physical_model"] = value.enable_physical_model;
-  json["frequency_hz"] = value.frequency_hz;
-  json["path_length_m"] = value.path_length_m;
-  json["radar_altitude_m"] = value.radar_altitude_m;
-  json["target_altitude_m"] = value.target_altitude_m;
-  json["elevation_deg"] = value.elevation_deg;
   json["pressure_hpa"] = value.pressure_hpa;
   json["temperature_k"] = value.temperature_k;
   json["relative_humidity"] = value.relative_humidity;
@@ -238,13 +233,22 @@ Json BuildJson(const environment::JammerSourceFact& value) {
   return json;
 }
 
-Json BuildJson(const environment::EnvironmentModelConfig& value) {
+Json BuildJson(const environment::EnvironmentScenarioConfig& value) {
   Json json;
-  json["base_propagation_loss_db"] = value.base_propagation_loss_db;
-  json["atmospheric_attenuation_db"] = value.atmospheric_attenuation_db;
-  json["terrain_reflection_db"] = value.terrain_reflection_db;
-  json["clutter_power_db"] = value.clutter_power_db;
   json["atmospheric_physics"] = BuildJson(value.atmospheric_physics);
+  json["vegetation_scatter_physics"] = {
+      {"enable_physical_model", value.vegetation_scatter_physics.enable_physical_model},
+      {"leaf_size_m", value.vegetation_scatter_physics.leaf_size_m},
+      {"dielectric_constant_real", value.vegetation_scatter_physics.dielectric_constant_real},
+      {"incidence_deg", value.vegetation_scatter_physics.incidence_deg},
+      {"scatter_deg", value.vegetation_scatter_physics.scatter_deg},
+      {"leaf_count", value.vegetation_scatter_physics.leaf_count},
+      {"canopy_radius_m", value.vegetation_scatter_physics.canopy_radius_m},
+      {"canopy_height_m", value.vegetation_scatter_physics.canopy_height_m},
+      {"x_axis_scale_m", value.vegetation_scatter_physics.x_axis_scale_m},
+      {"y_axis_scale_m", value.vegetation_scatter_physics.y_axis_scale_m},
+      {"clutter_mix_ratio", value.vegetation_scatter_physics.clutter_mix_ratio},
+      {"max_physical_multiplier", value.vegetation_scatter_physics.max_physical_multiplier}};
   json["jammer_sources"] =
       SerializeArray(value.jammer_sources, [](const environment::JammerSourceFact& source) {
         return BuildJson(source);
@@ -254,8 +258,8 @@ Json BuildJson(const environment::EnvironmentModelConfig& value) {
 
 Json BuildJson(const environment::EnvironmentRuntimeConfigPatch& value) {
   Json json;
-  json["has_model_config"] = value.has_model_config;
-  json["model_config"] = BuildJson(value.model_config);
+  json["has_scenario_config"] = value.has_scenario_config;
+  json["scenario_config"] = BuildJson(value.scenario_config);
   json["has_jamming_detection_threshold_db"] = value.has_jamming_detection_threshold_db;
   json["jamming_detection_threshold_db"] = value.jamming_detection_threshold_db;
   return json;
@@ -263,10 +267,6 @@ Json BuildJson(const environment::EnvironmentRuntimeConfigPatch& value) {
 
 Json BuildJson(const environment::EnvironmentSceneState& value) {
   Json json;
-  json["base_propagation_loss_db"] = value.base_propagation_loss_db;
-  json["atmospheric_attenuation_db"] = value.atmospheric_attenuation_db;
-  json["terrain_reflection_db"] = value.terrain_reflection_db;
-  json["clutter_power_db"] = value.clutter_power_db;
   json["atmospheric_physics"] = BuildJson(value.atmospheric_physics);
   json["jammer_emitters"] =
       SerializeArray(value.jammer_emitters, [](const environment::JammerSourceFact& source) {
@@ -284,7 +284,7 @@ Json BuildJson(const RadarSessionConfig& value) {
   pipeline_config.lifecycle = value.lifecycle;
   json["signal_pipeline_config"] = BuildJson(pipeline_config);
   json["environment_default_config"] = {
-      {"model_config", BuildJson(value.environment_default_config.model_config)},
+      {"scenario_config", BuildJson(value.environment_default_config.scenario_config)},
       {"jamming_detection_threshold_db",
        value.environment_default_config.jamming_detection_threshold_db}};
   return json;
