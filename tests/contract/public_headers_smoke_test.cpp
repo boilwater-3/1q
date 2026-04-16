@@ -393,10 +393,11 @@ namespace {
 TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   session::EosSessionConfig session_config = config::EosSessionConfigBuilder()
                                                  .WithWorkMode(session::EosWorkMode::kFused)
-                                                 .WithMinimumSnrDb(0.0f)
+                                                 .WithDetectionProfile(
+                                                     config::EosDetectionProfile::kAggressive)
                                                  .Build();
-  session_config.scan_start_az_deg = -20.0f;
-  session_config.scan_end_az_deg = 20.0f;
+  session_config.pointing.scan_start_az_deg = -20.0f;
+  session_config.pointing.scan_end_az_deg = 20.0f;
 
   session::EosCycleInput input;
   input.cycle_index = 2U;

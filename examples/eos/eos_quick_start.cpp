@@ -17,7 +17,9 @@ int main() {
 
   // 1) 创建会话。
   const eos::session::EosSessionConfig session_config =
-      eos::config::EosSessionConfigBuilder().WithMinimumSnrDb(0.0f).Build();
+      eos::config::EosSessionConfigBuilder()
+          .WithDetectionProfile(eos::config::EosDetectionProfile::kAggressive)
+          .Build();
   eos::session::EosSession session = eos::session::EosSessionFactory::Create(session_config);
 
   // 2) 外部平台信息（位置、速度）。

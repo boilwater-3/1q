@@ -66,28 +66,37 @@ oneq::foundation::PoseState ParsePose(const Json& json) {
 
 eos::session::EosSessionConfig ParseSessionConfig(const Json& payload) {
   eos::session::EosSessionConfig config;
-  config.wavelength_lower_um = GetFloat(payload, "wavelength_lower_um", config.wavelength_lower_um);
-  config.wavelength_upper_um = GetFloat(payload, "wavelength_upper_um", config.wavelength_upper_um);
-  config.optical_aperture_m = GetFloat(payload, "optical_aperture_m", config.optical_aperture_m);
-  config.focal_length_m = GetFloat(payload, "focal_length_m", config.focal_length_m);
-  config.work_mode =
-      static_cast<eos::session::EosWorkMode>(GetInt(payload, "work_mode", static_cast<int>(config.work_mode)));
-  config.horizontal_fov_deg = GetFloat(payload, "horizontal_fov_deg", config.horizontal_fov_deg);
-  config.vertical_fov_deg = GetFloat(payload, "vertical_fov_deg", config.vertical_fov_deg);
-  config.scan_rate_deg_per_sec = GetFloat(payload, "scan_rate_deg_per_sec", config.scan_rate_deg_per_sec);
-  config.frame_rate_hz = GetFloat(payload, "frame_rate_hz", config.frame_rate_hz);
-  config.minimum_snr_db = GetFloat(payload, "minimum_snr_db", config.minimum_snr_db);
-  config.detection_sensitivity_w = GetFloat(payload, "detection_sensitivity_w", config.detection_sensitivity_w);
-  config.scan_start_az_deg = GetFloat(payload, "scan_start_az_deg", config.scan_start_az_deg);
-  config.scan_end_az_deg = GetFloat(payload, "scan_end_az_deg", config.scan_end_az_deg);
-  config.scan_center_el_deg = GetFloat(payload, "scan_center_el_deg", config.scan_center_el_deg);
-  config.boresight_depression_deg = GetFloat(payload, "boresight_depression_deg", config.boresight_depression_deg);
-  config.min_detection_depression_deg =
-      GetFloat(payload, "min_detection_depression_deg", config.min_detection_depression_deg);
-  config.max_detection_depression_deg =
-      GetFloat(payload, "max_detection_depression_deg", config.max_detection_depression_deg);
-  config.visible_reference_irradiance_w_m2 =
-      GetFloat(payload, "visible_reference_irradiance_w_m2", config.visible_reference_irradiance_w_m2);
+  config.optical.wavelength_lower_um =
+      GetFloat(payload, "wavelength_lower_um", config.optical.wavelength_lower_um);
+  config.optical.wavelength_upper_um =
+      GetFloat(payload, "wavelength_upper_um", config.optical.wavelength_upper_um);
+  config.optical.optical_aperture_m =
+      GetFloat(payload, "optical_aperture_m", config.optical.optical_aperture_m);
+  config.optical.focal_length_m = GetFloat(payload, "focal_length_m", config.optical.focal_length_m);
+  config.scan.work_mode = static_cast<eos::session::EosWorkMode>(
+      GetInt(payload, "work_mode", static_cast<int>(config.scan.work_mode)));
+  config.scan.horizontal_fov_deg =
+      GetFloat(payload, "horizontal_fov_deg", config.scan.horizontal_fov_deg);
+  config.scan.vertical_fov_deg = GetFloat(payload, "vertical_fov_deg", config.scan.vertical_fov_deg);
+  config.scan.scan_rate_deg_per_sec =
+      GetFloat(payload, "scan_rate_deg_per_sec", config.scan.scan_rate_deg_per_sec);
+  config.scan.frame_rate_hz = GetFloat(payload, "frame_rate_hz", config.scan.frame_rate_hz);
+  config.pointing.scan_start_az_deg =
+      GetFloat(payload, "scan_start_az_deg", config.pointing.scan_start_az_deg);
+  config.pointing.scan_end_az_deg =
+      GetFloat(payload, "scan_end_az_deg", config.pointing.scan_end_az_deg);
+  config.pointing.scan_center_el_deg =
+      GetFloat(payload, "scan_center_el_deg", config.pointing.scan_center_el_deg);
+  config.pointing.boresight_depression_deg =
+      GetFloat(payload, "boresight_depression_deg", config.pointing.boresight_depression_deg);
+  config.detection.profile = static_cast<eos::config::EosDetectionProfile>(
+      GetInt(payload, "detection_profile", static_cast<int>(config.detection.profile)));
+  config.stray_light.profile = static_cast<eos::config::EosStrayLightProfile>(
+      GetInt(payload, "stray_light_profile", static_cast<int>(config.stray_light.profile)));
+  config.environment.model_type = static_cast<eos::environment::EosEnvironmentModelType>(
+      GetInt(payload, "environment_model_type", static_cast<int>(config.environment.model_type)));
+  config.environment.preset = static_cast<eos::config::EosEnvironmentPreset>(
+      GetInt(payload, "environment_preset", static_cast<int>(config.environment.preset)));
   return config;
 }
 
@@ -138,14 +147,18 @@ eos::session::EosRuntimeConfigPatch ParseRuntimePatch(const Json& payload) {
   patch.scan_rate_deg_per_sec = GetFloat(payload, "scan_rate_deg_per_sec", patch.scan_rate_deg_per_sec);
   patch.has_frame_rate_hz = GetBool(payload, "has_frame_rate_hz", false);
   patch.frame_rate_hz = GetFloat(payload, "frame_rate_hz", patch.frame_rate_hz);
-  patch.has_minimum_snr_db = GetBool(payload, "has_minimum_snr_db", false);
-  patch.minimum_snr_db = GetFloat(payload, "minimum_snr_db", patch.minimum_snr_db);
-  patch.has_enable_straylight_filter = GetBool(payload, "has_enable_straylight_filter", false);
-  patch.enable_straylight_filter = GetBool(payload, "enable_straylight_filter", patch.enable_straylight_filter);
-  patch.has_visible_reference_irradiance_w_m2 =
-      GetBool(payload, "has_visible_reference_irradiance_w_m2", false);
-  patch.visible_reference_irradiance_w_m2 =
-      GetFloat(payload, "visible_reference_irradiance_w_m2", patch.visible_reference_irradiance_w_m2);
+  patch.has_detection_profile = GetBool(payload, "has_detection_profile", false);
+  patch.detection_profile = static_cast<eos::config::EosDetectionProfile>(
+      GetInt(payload, "detection_profile", static_cast<int>(patch.detection_profile)));
+  patch.has_stray_light_profile = GetBool(payload, "has_stray_light_profile", false);
+  patch.stray_light_profile = static_cast<eos::config::EosStrayLightProfile>(
+      GetInt(payload, "stray_light_profile", static_cast<int>(patch.stray_light_profile)));
+  patch.has_environment_model_type = GetBool(payload, "has_environment_model_type", false);
+  patch.environment_model_type = static_cast<eos::environment::EosEnvironmentModelType>(
+      GetInt(payload, "environment_model_type", static_cast<int>(patch.environment_model_type)));
+  patch.has_environment_preset = GetBool(payload, "has_environment_preset", false);
+  patch.environment_preset = static_cast<eos::config::EosEnvironmentPreset>(
+      GetInt(payload, "environment_preset", static_cast<int>(patch.environment_preset)));
   return patch;
 }
 

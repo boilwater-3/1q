@@ -112,7 +112,7 @@ TEST(TraceSessionAdapterTest, EosTraceSessionWritesConfigInputOutput) {
       new oneq::trace::JsonlFileTraceSink(trace_path, false));
 
   session::EosSessionConfig config;
-  config.minimum_snr_db = 0.0f;
+  config.detection.profile = ::electro_optical_sensor::config::EosDetectionProfile::kAggressive;
 
   ::electro_optical_sensor::session::EosTraceSession session(
       config, ::electro_optical_sensor::session::EosTraceSessionOptions{sink, true});

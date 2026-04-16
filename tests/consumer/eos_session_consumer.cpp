@@ -8,7 +8,7 @@
  *   - EosInputValidation 输入校验
  *   - EosSessionFactory 创建会话，Step、StepWithResult 调用
  *   - EosOutputFrame 探测输出字段可访问
- *   - EosRuntimeConfigBuilder 热切换（工作模式、扫描率、SNR 门限、杂散光滤波、环境模型）
+ *   - EosRuntimeConfigBuilder 热切换（工作模式、扫描率、探测/杂散光/环境策略）
  */
 
 #include <cstddef>
@@ -22,7 +22,6 @@
 #include "1q/electro_optical_sensor/model/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
-#include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 
 namespace eos = electro_optical_sensor;
 
@@ -32,7 +31,7 @@ int main() {
       eos::config::EosSessionConfigBuilder()
           .WithWorkMode(eos::session::EosWorkMode::kFused)
           .WithScanRateDegPerSec(5.0f)
-          .WithMinimumSnrDb(0.0f)
+          .WithDetectionProfile(eos::config::EosDetectionProfile::kAggressive)
           .WithEnvironmentModelType(eos::environment::EosEnvironmentModelType::kSimplified)
           .Build();
 
@@ -117,35 +116,32 @@ int main() {
   const eos::session::EosRuntimeConfigPatch tune_patch =
       eos::config::EosRuntimeConfigBuilder()
           .WithScanRateDegPerSec(100.0f)
-          .WithMinimumSnrDb(120.0f)
+          .WithDetectionProfile(eos::config::EosDetectionProfile::kAggressive)
           .Build();
   session.ApplyRuntimeConfig(tune_patch);
 
   // 11. RuntimeConfigBuilder: enable straylight filter
   const eos::session::EosRuntimeConfigPatch straylight_patch =
-      eos::config::EosRuntimeConfigBuilder().EnableStraylightFilter(true).Build();
+      eos::config::EosRuntimeConfigBuilder().WithStrayLightProfile(eos::config::EosStrayLightProfile::kEnhancedHood).Build();
   session.ApplyRuntimeConfig(straylight_patch);
 
   // 12. RuntimeConfigBuilder: switch environment model to advanced
   const eos::session::EosRuntimeConfigPatch env_patch =
       eos::config::EosRuntimeConfigBuilder()
           .WithEnvironmentModelType(eos::environment::EosEnvironmentModelType::kAdvanced)
-          .WithAerosolDensityFactor(1.5f)
-          .WithTurbulenceFactor(1.4f)
+          .WithEnvironmentPreset(eos::config::EosEnvironmentPreset::kTurbulent)
           .Build();
   session.ApplyRuntimeConfig(env_patch);
 
-  // 13. RuntimeConfigBuilder: switch radiative transfer model
+  // 13. RuntimeConfigBuilder: switch environment preset
   const eos::session::EosRuntimeConfigPatch rt_patch =
-      eos::config::EosRuntimeConfigBuilder()
-          .WithRadiativeTransferModel(
-              eos::foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance)
-          .Build();
+      eos::config::EosRuntimeConfigBuilder().WithEnvironmentPreset(
+          eos::config::EosEnvironmentPreset::kDusty).Build();
   session.ApplyRuntimeConfig(rt_patch);
 
   // 14. RuntimeConfigBuilder: change visible reference irradiance
   const eos::session::EosRuntimeConfigPatch vis_ref_patch =
-      eos::config::EosRuntimeConfigBuilder().WithVisibleReferenceIrradianceWm2(1200.0f).Build();
+      eos::config::EosRuntimeConfigBuilder().WithEnvironmentPreset(eos::config::EosEnvironmentPreset::kHumid).Build();
   session.ApplyRuntimeConfig(vis_ref_patch);
 
   // 15. Final cycle

@@ -73,13 +73,12 @@ class CountingEnvironmentService final : public environment::IEosEnvironmentServ
 
 EosSessionConfig MakeSessionConfig() {
   EosSessionConfig config;
-  config.work_mode = EosWorkMode::kVisibleOnly;
-  config.scan_rate_deg_per_sec = 9.0f;
-  config.frame_rate_hz = 15.0f;
-  config.minimum_snr_db = 3.0f;
-  config.environment_default_config.model_type = environment::EosEnvironmentModelType::kAdvanced;
-  config.environment_default_config.aerosol_density_factor = 1.8f;
-  config.environment_default_config.turbulence_factor = 1.4f;
+  config.scan.work_mode = EosWorkMode::kVisibleOnly;
+  config.scan.scan_rate_deg_per_sec = 9.0f;
+  config.scan.frame_rate_hz = 15.0f;
+  config.detection.profile = config::EosDetectionProfile::kConservative;
+  config.environment.model_type = environment::EosEnvironmentModelType::kAdvanced;
+  config.environment.preset = config::EosEnvironmentPreset::kDusty;
   return config;
 }
 
@@ -96,8 +95,8 @@ TEST(EosSessionCompositionRootTest, ComposeWithPipelineSyncsInjectedPipelineAndC
   EXPECT_NE(composition.owned_controller, nullptr);
   EXPECT_EQ(pipeline.update_count, 1U);
   EXPECT_TRUE(pipeline.last_reset_scan_phase);
-  EXPECT_FLOAT_EQ(pipeline.last_config.scan_rate_deg_per_sec, config.scan_rate_deg_per_sec);
-  EXPECT_EQ(composition.runtime_config.work_mode, config.work_mode);
+  EXPECT_FLOAT_EQ(pipeline.last_config.scan_rate_deg_per_sec, config.scan.scan_rate_deg_per_sec);
+  EXPECT_EQ(composition.runtime_config.scan.work_mode, config.scan.work_mode);
 }
 
 TEST(EosSessionCompositionRootTest, ComposeWithControllerSyncsProvidedControllerPipeline) {
@@ -114,7 +113,7 @@ TEST(EosSessionCompositionRootTest, ComposeWithControllerSyncsProvidedController
   EXPECT_EQ(composition.owned_controller, nullptr);
   EXPECT_EQ(pipeline.update_count, 1U);
   EXPECT_TRUE(pipeline.last_reset_scan_phase);
-  EXPECT_FLOAT_EQ(pipeline.last_config.frame_rate_hz, config.frame_rate_hz);
+  EXPECT_FLOAT_EQ(pipeline.last_config.frame_rate_hz, config.scan.frame_rate_hz);
 }
 
 TEST(EosSessionCompositionRootTest, ComposeDefaultBuildsOwnedGraphAndRuntimeAssembly) {
@@ -126,8 +125,8 @@ TEST(EosSessionCompositionRootTest, ComposeDefaultBuildsOwnedGraphAndRuntimeAsse
   ASSERT_NE(composition.owned_controller, nullptr);
   EXPECT_EQ(composition.pipeline, composition.owned_pipeline.get());
   EXPECT_EQ(composition.controller, composition.owned_controller.get());
-  EXPECT_EQ(composition.runtime_config.work_mode, config.work_mode);
-  EXPECT_FLOAT_EQ(composition.pipeline_config.minimum_snr_db, config.minimum_snr_db);
+  EXPECT_EQ(composition.runtime_config.scan.work_mode, config.scan.work_mode);
+  EXPECT_FLOAT_EQ(composition.pipeline_config.minimum_snr_db, 8.0f);
 }
 
 TEST(EosSessionCompositionRootTest, ComposeWithEnvironmentServiceBuildsOwnedPipeline) {
@@ -141,8 +140,7 @@ TEST(EosSessionCompositionRootTest, ComposeWithEnvironmentServiceBuildsOwnedPipe
   ASSERT_NE(composition.owned_controller, nullptr);
   EXPECT_EQ(composition.pipeline, composition.owned_pipeline.get());
   EXPECT_EQ(composition.controller, composition.owned_controller.get());
-  EXPECT_FLOAT_EQ(composition.pipeline_config.aerosol_density_factor,
-                  config.environment_default_config.aerosol_density_factor);
+  EXPECT_FLOAT_EQ(composition.pipeline_config.aerosol_density_factor, 2.0f);
 }
 
 }  // namespace

@@ -11,6 +11,7 @@
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/extension/EosController.h"
 #include "electro_optical_sensor/runtime/EosCycleOrchestrator.h"
+#include "electro_optical_sensor/runtime/EosPipelineConfigMapper.h"
 #include "electro_optical_sensor/signal/pipeline/EosPipeline.h"
 
 namespace electro_optical_sensor {
@@ -24,13 +25,13 @@ namespace eos_session = ::electro_optical_sensor::session;
 
 eos_session::EosSessionConfig MakeSessionConfig() {
   eos_session::EosSessionConfig config;
-  config.work_mode = eos_session::EosWorkMode::kInfraredOnly;
-  config.minimum_snr_db = -120.0f;
-  config.scan_start_az_deg = -10.0f;
-  config.scan_end_az_deg = 10.0f;
-  config.scan_rate_deg_per_sec = 5.0f;
-  config.horizontal_fov_deg = 20.0f;
-  config.vertical_fov_deg = 4.0f;
+  config.scan.work_mode = eos_session::EosWorkMode::kInfraredOnly;
+  config.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  config.pointing.scan_start_az_deg = -10.0f;
+  config.pointing.scan_end_az_deg = 10.0f;
+  config.scan.scan_rate_deg_per_sec = 5.0f;
+  config.scan.horizontal_fov_deg = 20.0f;
+  config.scan.vertical_fov_deg = 4.0f;
   return config;
 }
 
@@ -47,47 +48,10 @@ eos_session::EosCycleInput MakeCycleInput(std::uint32_t cycle_index, float dt_se
   return input;
 }
 
-::electro_optical_sensor::extension::EosPipelineConfig BuildPipelineConfig(
-    const eos_session::EosSessionConfig& config) {
-  ::electro_optical_sensor::extension::EosPipelineConfig pipeline_config;
-  pipeline_config.wavelength_lower_um = config.wavelength_lower_um;
-  pipeline_config.wavelength_upper_um = config.wavelength_upper_um;
-  pipeline_config.optical_aperture_m = config.optical_aperture_m;
-  pipeline_config.focal_length_m = config.focal_length_m;
-  pipeline_config.work_mode =
-      ::electro_optical_sensor::extension::EosPipelineWorkMode::kInfraredOnly;
-  pipeline_config.horizontal_fov_deg = config.horizontal_fov_deg;
-  pipeline_config.vertical_fov_deg = config.vertical_fov_deg;
-  pipeline_config.scan_rate_deg_per_sec = config.scan_rate_deg_per_sec;
-  pipeline_config.frame_rate_hz = config.frame_rate_hz;
-  pipeline_config.minimum_snr_db = config.minimum_snr_db;
-  pipeline_config.detection_sensitivity_w = config.detection_sensitivity_w;
-  pipeline_config.scan_start_az_deg = config.scan_start_az_deg;
-  pipeline_config.scan_end_az_deg = config.scan_end_az_deg;
-  pipeline_config.scan_center_el_deg = config.scan_center_el_deg;
-  pipeline_config.boresight_depression_deg = config.boresight_depression_deg;
-  pipeline_config.min_detection_depression_deg = config.min_detection_depression_deg;
-  pipeline_config.max_detection_depression_deg = config.max_detection_depression_deg;
-  pipeline_config.visible_reference_irradiance_w_m2 = config.visible_reference_irradiance_w_m2;
-  pipeline_config.enable_straylight_filter = config.enable_straylight_filter;
-  pipeline_config.hood_inner_half_angle_deg = config.hood_inner_half_angle_deg;
-  pipeline_config.hood_outer_half_angle_deg = config.hood_outer_half_angle_deg;
-  pipeline_config.hood_min_suppression_ratio = config.hood_min_suppression_ratio;
-  pipeline_config.hood_max_suppression_ratio = config.hood_max_suppression_ratio;
-  pipeline_config.radiative_transfer_model =
-      config.environment_default_config.radiative_transfer_model;
-  pipeline_config.aerosol_density_factor =
-      config.environment_default_config.aerosol_density_factor;
-  pipeline_config.turbulence_factor = config.environment_default_config.turbulence_factor;
-  pipeline_config.environment_model_type =
-      ::electro_optical_sensor::extension::EosPipelineEnvironmentModelType::kSimplified;
-  return pipeline_config;
-}
-
 TEST(EosCycleOrchestratorTest, StepProducesOutputAndPreservesCycleIndex) {
   const eos_session::EosSessionConfig config = MakeSessionConfig();
   const ::electro_optical_sensor::extension::EosPipelineConfig pipeline_config =
-      BuildPipelineConfig(config);
+      BuildEosPipelineConfig(config);
   signal::pipeline::EosPipeline pipeline(pipeline_config);
   extension::EosController controller(pipeline);
   EosCycleOrchestrator orchestrator(config, pipeline_config, true, pipeline, controller);
@@ -102,7 +66,7 @@ TEST(EosCycleOrchestratorTest, StepProducesOutputAndPreservesCycleIndex) {
 TEST(EosCycleOrchestratorTest, ValidRuntimePatchTakesEffectOnNextStep) {
   const eos_session::EosSessionConfig config = MakeSessionConfig();
   const ::electro_optical_sensor::extension::EosPipelineConfig pipeline_config =
-      BuildPipelineConfig(config);
+      BuildEosPipelineConfig(config);
   signal::pipeline::EosPipeline pipeline(pipeline_config);
   extension::EosController controller(pipeline);
   EosCycleOrchestrator orchestrator(config, pipeline_config, true, pipeline, controller);
@@ -123,7 +87,7 @@ TEST(EosCycleOrchestratorTest, ValidRuntimePatchTakesEffectOnNextStep) {
 TEST(EosCycleOrchestratorTest, InvalidRuntimePatchDoesNotChangeUpdateBehavior) {
   const eos_session::EosSessionConfig config = MakeSessionConfig();
   const ::electro_optical_sensor::extension::EosPipelineConfig pipeline_config =
-      BuildPipelineConfig(config);
+      BuildEosPipelineConfig(config);
   signal::pipeline::EosPipeline pipeline(pipeline_config);
   extension::EosController controller(pipeline);
   EosCycleOrchestrator orchestrator(config, pipeline_config, true, pipeline, controller);

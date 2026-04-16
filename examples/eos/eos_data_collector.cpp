@@ -20,7 +20,9 @@ int main() {
       new oneq::trace::JsonlFileTraceSink(trace_path, false));
 
   const eos::session::EosSessionConfig config =
-      eos::config::EosSessionConfigBuilder().WithMinimumSnrDb(0.0f).Build();
+      eos::config::EosSessionConfigBuilder()
+          .WithDetectionProfile(eos::config::EosDetectionProfile::kAggressive)
+          .Build();
   eos::session::EosTraceSession session(config, eos::session::EosTraceSessionOptions{sink, true});
 
   eos::session::EosCycleInput input;
@@ -34,4 +36,3 @@ int main() {
             << " detections=" << result.output_frame.detections.size() << std::endl;
   return 0;
 }
-
