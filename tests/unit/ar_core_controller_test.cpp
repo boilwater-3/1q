@@ -328,9 +328,10 @@ TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecisio
   jammer_source.power_db = 10.0f;
   jammer_source.confidence = 1.0f;
   jammer_source.js_db = 7.0f;
-  jammer_source.frequency_overlap_ratio = 0.85f;
-  jammer_source.prf_lock_risk = 0.75f;
-  jammer_source.in_sidelobe = false;
+  jammer_source.has_direction_deg = true;
+  jammer_source.azimuth_deg = 0.0f;
+  jammer_source.elevation_deg = 1.0f;
+  jammer_source.angular_span_deg = 5.0f;
   environment_service.UpdateSceneState(environment::EnvironmentSceneBuilder()
                                            .AddJammer(jammer_source)
                                            .Build());
@@ -379,7 +380,10 @@ TEST_F(CoreControllerTest, AppliesUpdatedSceneOnNextControllerCycle) {
   jammer_source.technique = environment::JammingTechnique::kNoiseSuppression;
   jammer_source.power_db = 9.0f;
   jammer_source.confidence = 1.0f;
-  jammer_source.in_sidelobe = true;
+  jammer_source.has_direction_deg = true;
+  jammer_source.azimuth_deg = 22.0f;
+  jammer_source.elevation_deg = 0.0f;
+  jammer_source.angular_span_deg = 12.0f;
   environment_service.UpdateSceneState(
       environment::EnvironmentSceneBuilder().AddJammer(jammer_source).Build());
 
@@ -396,18 +400,16 @@ TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentModelConfig env_config;
-  environment::JammerSourceFact deception_source;
-  deception_source.technique = environment::JammingTechnique::kDeception;
-  deception_source.power_db = 9.0f;
-  deception_source.js_db = 7.5f;
-  deception_source.frequency_overlap_ratio = 0.85f;
-  deception_source.prf_lock_risk = 0.90f;
-  deception_source.azimuth_deg = 30.0f;
-  deception_source.elevation_deg = 5.0f;
-  deception_source.angular_span_deg = 8.0f;
-  deception_source.in_sidelobe = false;
-  deception_source.confidence = 0.95f;
-  env_config.jammer_sources.push_back(deception_source);
+  environment::JammerEmitterState deception_emitter;
+  deception_emitter.technique = environment::JammingTechnique::kDeception;
+  deception_emitter.power_db = 9.0f;
+  deception_emitter.js_db = 7.5f;
+  deception_emitter.has_direction_deg = true;
+  deception_emitter.azimuth_deg = 30.0f;
+  deception_emitter.elevation_deg = 5.0f;
+  deception_emitter.angular_span_deg = 8.0f;
+  deception_emitter.confidence = 0.95f;
+  env_config.jammer_sources.push_back(deception_emitter);
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
@@ -417,16 +419,19 @@ TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
 
   controller.RunOnce();
 
+  const environment::EnvironmentSnapshot frozen_snapshot = environment_service.SampleEnvironment();
   ASSERT_EQ(decision_engine.evaluate_count, 1u);
   EXPECT_TRUE(decision_engine.last_frame.environment_jamming_detected);
   ASSERT_EQ(decision_engine.last_frame.eccm_source_info.jammer_sources.size(), 1u);
+  ASSERT_EQ(frozen_snapshot.jammer_sources.size(), 1u);
   const model::EccmJammerSourceInfo& mapped_source =
       decision_engine.last_frame.eccm_source_info.jammer_sources.front();
+  const environment::JammerSourceFact& frozen_source = frozen_snapshot.jammer_sources.front();
   EXPECT_EQ(mapped_source.technique, model::JammingTechnique::kDeception);
   EXPECT_FLOAT_EQ(mapped_source.jammer_power_db, 9.0f);
   EXPECT_FLOAT_EQ(mapped_source.jammer_to_signal_db, 7.5f);
-  EXPECT_FLOAT_EQ(mapped_source.frequency_overlap_ratio, 0.85f);
-  EXPECT_FLOAT_EQ(mapped_source.prf_lock_risk, 0.90f);
+  EXPECT_FLOAT_EQ(mapped_source.frequency_overlap_ratio, frozen_source.frequency_overlap_ratio);
+  EXPECT_FLOAT_EQ(mapped_source.prf_lock_risk, frozen_source.prf_lock_risk);
   EXPECT_FLOAT_EQ(mapped_source.azimuth_deg, 30.0f);
   EXPECT_FLOAT_EQ(mapped_source.angular_span_deg, 8.0f);
   EXPECT_EQ(decision_engine.last_frame.association_quality_info.dominant_jamming_semantic,

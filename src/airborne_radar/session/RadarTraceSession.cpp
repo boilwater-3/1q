@@ -210,6 +210,11 @@ Json BuildJson(const environment::AtmosphericPhysicsConfig& value) {
   json["pressure_hpa"] = value.pressure_hpa;
   json["temperature_k"] = value.temperature_k;
   json["relative_humidity"] = value.relative_humidity;
+  return json;
+}
+
+Json BuildJson(const environment::AtmosphericDerivedContext& value) {
+  Json json;
   json["k_factor"] = value.k_factor;
   json["day_of_year"] = value.day_of_year;
   json["solar_flux_f107a"] = value.solar_flux_f107a;
@@ -225,6 +230,7 @@ Json BuildJson(const environment::JammerSourceFact& value) {
   json["js_db"] = value.js_db;
   json["frequency_overlap_ratio"] = value.frequency_overlap_ratio;
   json["prf_lock_risk"] = value.prf_lock_risk;
+  json["has_direction_deg"] = value.has_direction_deg;
   json["azimuth_deg"] = value.azimuth_deg;
   json["elevation_deg"] = value.elevation_deg;
   json["angular_span_deg"] = value.angular_span_deg;
@@ -233,24 +239,32 @@ Json BuildJson(const environment::JammerSourceFact& value) {
   return json;
 }
 
+Json BuildJson(const environment::JammerEmitterState& value) {
+  Json json;
+  json["technique"] = static_cast<int>(value.technique);
+  json["power_db"] = value.power_db;
+  json["js_db"] = value.js_db;
+  json["has_direction_deg"] = value.has_direction_deg;
+  json["azimuth_deg"] = value.azimuth_deg;
+  json["elevation_deg"] = value.elevation_deg;
+  json["angular_span_deg"] = value.angular_span_deg;
+  json["confidence"] = value.confidence;
+  return json;
+}
+
 Json BuildJson(const environment::EnvironmentScenarioConfig& value) {
   Json json;
   json["atmospheric_physics"] = BuildJson(value.atmospheric_physics);
+  json["atmospheric_context"] = BuildJson(value.atmospheric_context);
   json["vegetation_scatter_physics"] = {
       {"enable_physical_model", value.vegetation_scatter_physics.enable_physical_model},
       {"leaf_size_m", value.vegetation_scatter_physics.leaf_size_m},
       {"dielectric_constant_real", value.vegetation_scatter_physics.dielectric_constant_real},
-      {"incidence_deg", value.vegetation_scatter_physics.incidence_deg},
-      {"scatter_deg", value.vegetation_scatter_physics.scatter_deg},
       {"leaf_count", value.vegetation_scatter_physics.leaf_count},
       {"canopy_radius_m", value.vegetation_scatter_physics.canopy_radius_m},
-      {"canopy_height_m", value.vegetation_scatter_physics.canopy_height_m},
-      {"x_axis_scale_m", value.vegetation_scatter_physics.x_axis_scale_m},
-      {"y_axis_scale_m", value.vegetation_scatter_physics.y_axis_scale_m},
-      {"clutter_mix_ratio", value.vegetation_scatter_physics.clutter_mix_ratio},
-      {"max_physical_multiplier", value.vegetation_scatter_physics.max_physical_multiplier}};
+      {"canopy_height_m", value.vegetation_scatter_physics.canopy_height_m}};
   json["jammer_sources"] =
-      SerializeArray(value.jammer_sources, [](const environment::JammerSourceFact& source) {
+      SerializeArray(value.jammer_sources, [](const environment::JammerEmitterState& source) {
         return BuildJson(source);
       });
   return json;
@@ -268,8 +282,9 @@ Json BuildJson(const environment::EnvironmentRuntimeConfigPatch& value) {
 Json BuildJson(const environment::EnvironmentSceneState& value) {
   Json json;
   json["atmospheric_physics"] = BuildJson(value.atmospheric_physics);
+  json["atmospheric_context"] = BuildJson(value.atmospheric_context);
   json["jammer_emitters"] =
-      SerializeArray(value.jammer_emitters, [](const environment::JammerSourceFact& source) {
+      SerializeArray(value.jammer_emitters, [](const environment::JammerEmitterState& source) {
         return BuildJson(source);
       });
   return json;

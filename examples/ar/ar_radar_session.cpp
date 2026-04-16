@@ -115,9 +115,10 @@ int main() {
   noise_jammer.technique = JammingTechnique::kNoiseSuppression;
   noise_jammer.power_db = 12.0f;
   noise_jammer.js_db = 8.0f;
-  noise_jammer.frequency_overlap_ratio = 0.25f;
-  noise_jammer.prf_lock_risk = 0.10f;
-  noise_jammer.in_sidelobe = true;
+  noise_jammer.has_direction_deg = true;
+  noise_jammer.azimuth_deg = 20.0f;
+  noise_jammer.elevation_deg = 1.0f;
+  noise_jammer.angular_span_deg = 10.0f;
 
   const airborne_radar::environment::EnvironmentSceneState jammed_scene =
       EnvironmentSceneBuilder().AddNoiseJammer(noise_jammer).Build();

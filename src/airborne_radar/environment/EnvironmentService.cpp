@@ -1,6 +1,7 @@
 #include "airborne_radar/environment/EnvironmentService.h"
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <utility>
 
@@ -13,23 +14,132 @@ namespace environment {
 
 namespace {
 
+float WrapAzimuthDeg(float azimuth_deg) {
+  float wrapped = std::fmod(azimuth_deg + 180.0f, 360.0f);
+  if (wrapped < 0.0f) {
+    wrapped += 360.0f;
+  }
+  return wrapped - 180.0f;
+}
+
+bool HasExternalDirection(const JammerEmitterState& source) {
+  return source.has_direction_deg;
+}
+
+void EstimateDirectionDeg(const JammerEmitterState& source, float* azimuth_deg, float* elevation_deg) {
+  float technique_bias_deg = 0.0f;
+  switch (source.technique) {
+    case JammingTechnique::kNoiseSuppression:
+      technique_bias_deg = 18.0f;
+      break;
+    case JammingTechnique::kDeception:
+      technique_bias_deg = -6.0f;
+      break;
+    case JammingTechnique::kRepeater:
+      technique_bias_deg = 3.0f;
+      break;
+    default:
+      technique_bias_deg = 0.0f;
+      break;
+  }
+
+  const float js_ratio = utils::ClampFloat(source.js_db / 12.0f, 0.0f, 1.0f);
+  const float power_ratio = utils::ClampFloat(source.power_db / 60.0f, 0.0f, 1.0f);
+  const float confidence = utils::ClampFloat(source.confidence, 0.0f, 1.0f);
+  const float power_term_deg = (0.5f - power_ratio) * 20.0f;
+  const float js_term_deg = (js_ratio - 0.5f) * 10.0f;
+  const float confidence_term_deg = (0.5f - confidence) * 8.0f;
+  const float estimated_el_deg = -2.0f + js_ratio * 8.0f;
+
+  *azimuth_deg = WrapAzimuthDeg(technique_bias_deg + power_term_deg + js_term_deg + confidence_term_deg);
+  *elevation_deg = utils::ClampFloat(estimated_el_deg, -20.0f, 80.0f);
+}
+
+bool DeriveInSidelobe(const JammerSourceFact& source) {
+  const float abs_azimuth_deg = std::fabs(source.azimuth_deg);
+  const float abs_elevation_deg = std::fabs(source.elevation_deg);
+  const bool inside_frontlobe =
+      abs_azimuth_deg <= 12.0f && abs_elevation_deg <= 6.0f && source.angular_span_deg <= 24.0f;
+  return !inside_frontlobe;
+}
+
+float DeriveFrequencyOverlapRatio(const JammerSourceFact& source) {
+  float technique_bias = 0.35f;
+  switch (source.technique) {
+    case JammingTechnique::kNoiseSuppression:
+      technique_bias = 0.55f;
+      break;
+    case JammingTechnique::kDeception:
+      technique_bias = 0.78f;
+      break;
+    case JammingTechnique::kRepeater:
+      technique_bias = 0.66f;
+      break;
+    default:
+      technique_bias = 0.35f;
+      break;
+  }
+
+  const float js_ratio = utils::ClampFloat(source.js_db / 12.0f, 0.0f, 1.0f);
+  const float confidence = utils::ClampFloat(source.confidence, 0.0f, 1.0f);
+  const float directional_focus =
+      utils::ClampFloat(1.0f - source.angular_span_deg / 120.0f, 0.0f, 1.0f);
+  const float sidelobe_penalty = source.in_sidelobe ? 0.12f : 0.0f;
+  const float overlap = technique_bias + 0.22f * js_ratio + 0.18f * confidence +
+                        0.14f * directional_focus - sidelobe_penalty;
+  return utils::ClampFloat(overlap, 0.0f, 1.0f);
+}
+
+float DerivePrfLockRisk(const JammerSourceFact& source) {
+  float technique_bias = 0.26f;
+  switch (source.technique) {
+    case JammingTechnique::kNoiseSuppression:
+      technique_bias = 0.24f;
+      break;
+    case JammingTechnique::kDeception:
+      technique_bias = 0.72f;
+      break;
+    case JammingTechnique::kRepeater:
+      technique_bias = 0.82f;
+      break;
+    default:
+      technique_bias = 0.26f;
+      break;
+  }
+
+  const float power_ratio = utils::ClampFloat(source.power_db / 60.0f, 0.0f, 1.0f);
+  const float confidence = utils::ClampFloat(source.confidence, 0.0f, 1.0f);
+  const float frontlobe_bonus = source.in_sidelobe ? -0.08f : 0.08f;
+  const float risk = technique_bias + 0.26f * power_ratio + 0.18f * confidence + frontlobe_bonus;
+  return utils::ClampFloat(risk, 0.0f, 1.0f);
+}
+
 /**
  * @brief 规范化场景中的单个干扰源输入。
  * @param raw_source 原始干扰源输入。
  * @return 完成边界裁剪后的干扰源状态。
  */
-JammerEmitterState NormalizeEmitterState(const JammerEmitterState& raw_source) {
-  JammerEmitterState normalized = raw_source;
+JammerSourceFact NormalizeEmitterState(const JammerEmitterState& raw_source) {
+  JammerSourceFact normalized;
+  normalized.technique = raw_source.technique;
   normalized.power_db =
       utils::ClampFloat(raw_source.power_db, 0.0f, std::numeric_limits<float>::max());
   normalized.js_db =
       utils::ClampFloat(raw_source.js_db, 0.0f, std::numeric_limits<float>::max());
-  normalized.frequency_overlap_ratio =
-      utils::ClampFloat(raw_source.frequency_overlap_ratio, 0.0f, 1.0f);
-  normalized.prf_lock_risk = utils::ClampFloat(raw_source.prf_lock_risk, 0.0f, 1.0f);
   normalized.angular_span_deg = utils::ClampFloat(raw_source.angular_span_deg, 0.0f,
-                                                          std::numeric_limits<float>::max());
+                                                  std::numeric_limits<float>::max());
   normalized.confidence = utils::ClampFloat(raw_source.confidence, 0.0f, 1.0f);
+  if (HasExternalDirection(raw_source)) {
+    normalized.has_direction_deg = true;
+    normalized.azimuth_deg = WrapAzimuthDeg(raw_source.azimuth_deg);
+    normalized.elevation_deg = utils::ClampFloat(raw_source.elevation_deg, -20.0f, 80.0f);
+  } else {
+    normalized.has_direction_deg = false;
+    EstimateDirectionDeg(raw_source, &normalized.azimuth_deg, &normalized.elevation_deg);
+  }
+  normalized.in_sidelobe = DeriveInSidelobe(normalized);
+  normalized.frequency_overlap_ratio = DeriveFrequencyOverlapRatio(normalized);
+  normalized.prf_lock_risk = DerivePrfLockRisk(normalized);
   return normalized;
 }
 /**
@@ -48,6 +158,7 @@ JammerSourceFact ToJammerSourceFact(const JammerEmitterState& emitter_state) {
 EnvironmentSceneState BuildSceneStateFromModelConfig(const EnvironmentModelConfig& config) {
   EnvironmentSceneState scene_state;
   scene_state.atmospheric_physics = config.atmospheric_physics;
+  scene_state.atmospheric_context = config.atmospheric_context;
   scene_state.vegetation_scatter_physics = config.vegetation_scatter_physics;
   scene_state.jammer_emitters.reserve(config.jammer_sources.size());
   scene_state.jammer_emitters.insert(scene_state.jammer_emitters.end(),
@@ -129,6 +240,7 @@ void EnvironmentService::RefreshFrozenSnapshotFromActiveScene() {
   frozen_snapshot_.atmospheric_physics_loss_db = propagation_result.atmospheric_physics_loss_db;
   frozen_snapshot_.clutter_power_db = propagation_result.clutter_power_db;
   frozen_snapshot_.atmospheric_physics = active_scene.atmospheric_physics;
+  frozen_snapshot_.atmospheric_context = active_scene.atmospheric_context;
   frozen_snapshot_.jammer_sources.clear();
   frozen_snapshot_.jammer_sources.reserve(active_scene.jammer_emitters.size());
   for (std::size_t i = 0; i < active_scene.jammer_emitters.size(); ++i) {

@@ -296,9 +296,10 @@ environment::JammerEmitterState BuildJammerEmitter(environment::JammingTechnique
   emitter.power_db = power_db;
   emitter.confidence = 1.0f;
   emitter.js_db = js_db;
-  emitter.frequency_overlap_ratio = frequency_overlap_ratio;
-  emitter.prf_lock_risk = prf_lock_risk;
-  emitter.in_sidelobe = in_sidelobe;
+  emitter.has_direction_deg = true;
+  emitter.azimuth_deg = in_sidelobe ? 20.0f : 0.0f;
+  emitter.elevation_deg = 0.0f;
+  emitter.angular_span_deg = 6.0f + 16.0f * frequency_overlap_ratio + 8.0f * prf_lock_risk;
   return emitter;
 }
 

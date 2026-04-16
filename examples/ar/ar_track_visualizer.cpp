@@ -182,9 +182,10 @@ void StepOnce(airborne_radar::session::RadarSession& session, SimState& sim) {
     jammer.technique = JammingTechnique::kNoiseSuppression;
     jammer.power_db = 12.0f;
     jammer.js_db = 8.0f;
-    jammer.frequency_overlap_ratio = 0.25f;
-    jammer.prf_lock_risk = 0.10f;
-    jammer.in_sidelobe = true;
+    jammer.has_direction_deg = true;
+    jammer.azimuth_deg = 18.0f;
+    jammer.elevation_deg = 1.0f;
+    jammer.angular_span_deg = 10.0f;
     // 使用空对空低杂波场景，仅叠加干扰源
     airborne_radar::environment::EnvironmentSceneState scene_st;
     scene_st.jammer_emitters.push_back(jammer);

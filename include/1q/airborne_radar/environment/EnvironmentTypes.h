@@ -30,6 +30,7 @@ struct EnvironmentSnapshot {
   float atmospheric_physics_loss_db{0.0f}; /**< 传播损耗中的大气物理附加项（单位：dB） */
   float clutter_power_db{0.0f};           /**< 杂波功率估计（单位：dB） */
   AtmosphericPhysicsConfig atmospheric_physics{}; /**< 当前周期启用的大气物理参数 */
+  AtmosphericDerivedContext atmospheric_context{}; /**< 当前周期时间/空间天气上下文 */
   JammerSourceFactList jammer_sources{};  /**< 当前周期可见的多源干扰事实 */
   bool jamming_detected{false};           /**< 是否检测到干扰 */
 };
@@ -39,6 +40,7 @@ struct EnvironmentSnapshot {
  */
 struct EnvironmentSceneState {
   AtmosphericPhysicsConfig atmospheric_physics{}; /**< 可选物理传播参数 */
+  AtmosphericDerivedContext atmospheric_context{}; /**< 可选时间/空间天气上下文 */
   VegetationScatterPhysicsConfig vegetation_scatter_physics{}; /**< 可选植被散射参数 */
   JammerEmitterStateList jammer_emitters{};     /**< 当前场景中的干扰源输入 */
 };

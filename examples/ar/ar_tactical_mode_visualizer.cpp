@@ -205,10 +205,10 @@ airborne_radar::environment::EnvironmentSceneState BuildScene(int cycle) {
     noise.technique = JammingTechnique::kNoiseSuppression;
     noise.power_db = 12.0f + static_cast<float>(std::min(cycle - kPhase1End, 10)) * 0.5f;
     noise.js_db = 8.0f;
-    noise.frequency_overlap_ratio = 0.30f;
-    noise.prf_lock_risk = 0.15f;
+    noise.has_direction_deg = true;
     noise.azimuth_deg = 20.0f;
-    noise.in_sidelobe = true;
+    noise.elevation_deg = 1.5f;
+    noise.angular_span_deg = 12.0f;
     noise.confidence = 0.9f;
     builder.AddNoiseJammer(noise);
   }
@@ -219,10 +219,10 @@ airborne_radar::environment::EnvironmentSceneState BuildScene(int cycle) {
     deception.technique = JammingTechnique::kDeception;
     deception.power_db = 10.0f + static_cast<float>(std::min(cycle - kPhase2End, 7)) * 0.8f;
     deception.js_db = 7.0f;
-    deception.frequency_overlap_ratio = 0.85f;
-    deception.prf_lock_risk = 0.50f;
+    deception.has_direction_deg = true;
     deception.azimuth_deg = -2.0f;
-    deception.in_sidelobe = false;
+    deception.elevation_deg = 0.5f;
+    deception.angular_span_deg = 4.0f;
     deception.confidence = 0.85f;
     builder.AddDeceptionJammer(deception);
   }
@@ -233,10 +233,10 @@ airborne_radar::environment::EnvironmentSceneState BuildScene(int cycle) {
     repeater.technique = JammingTechnique::kRepeater;
     repeater.power_db = 15.0f;
     repeater.js_db = 12.0f;
-    repeater.frequency_overlap_ratio = 0.95f;
-    repeater.prf_lock_risk = 0.70f;
+    repeater.has_direction_deg = true;
     repeater.azimuth_deg = 0.0f;
-    repeater.in_sidelobe = false;
+    repeater.elevation_deg = 0.0f;
+    repeater.angular_span_deg = 5.0f;
     repeater.confidence = 0.80f;
     builder.AddRepeaterJammer(repeater);
   }

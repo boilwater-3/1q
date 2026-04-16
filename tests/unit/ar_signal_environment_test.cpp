@@ -66,9 +66,9 @@ extension::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
   return pipeline->RunCycle(input_state, *environment_service);
 }
 
-environment::JammerSourceFact MakeJammerSource(environment::JammingTechnique technique,
-                                               float power_db) {
-  environment::JammerSourceFact jammer;
+environment::JammerEmitterState MakeJammerEmitter(environment::JammingTechnique technique,
+                                                  float power_db) {
+  environment::JammerEmitterState jammer;
   jammer.technique = technique;
   jammer.power_db = power_db;
   jammer.confidence = 1.0f;
@@ -76,7 +76,7 @@ environment::JammerSourceFact MakeJammerSource(environment::JammingTechnique tec
 }
 
 environment::EnvironmentModelConfig MakeEnvironmentConfigWithJammers(
-    std::initializer_list<environment::JammerSourceFact> jammer_sources) {
+    std::initializer_list<environment::JammerEmitterState> jammer_sources) {
   environment::EnvironmentModelConfig config;
   config.jammer_sources.insert(config.jammer_sources.end(), jammer_sources.begin(),
                                jammer_sources.end());
@@ -86,11 +86,8 @@ environment::EnvironmentModelConfig MakeEnvironmentConfigWithJammers(
 }  // namespace
 
 TEST(EnvironmentServiceTest, DetectsJammingByConfiguredThreshold) {
-  environment::JammerSourceFact jammer_source =
-      MakeJammerSource(environment::JammingTechnique::kUnknown, 7.0f);
-  jammer_source.frequency_overlap_ratio = 0.75f;
-  jammer_source.prf_lock_risk = 0.60f;
-  jammer_source.in_sidelobe = true;
+  environment::JammerEmitterState jammer_source =
+      MakeJammerEmitter(environment::JammingTechnique::kUnknown, 7.0f);
 
   environment::EnvironmentService service(MakeEnvironmentConfigWithJammers({jammer_source}));
   service.SetJammingDetectionThresholdDb(6.0f);
@@ -99,9 +96,10 @@ TEST(EnvironmentServiceTest, DetectsJammingByConfiguredThreshold) {
   EXPECT_TRUE(snapshot.jamming_detected);
   ASSERT_EQ(snapshot.jammer_sources.size(), 1u);
   EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].power_db, 7.0f);
-  EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].frequency_overlap_ratio, 0.75f);
-  EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].prf_lock_risk, 0.60f);
-  EXPECT_TRUE(snapshot.jammer_sources[0].in_sidelobe);
+  EXPECT_GE(snapshot.jammer_sources[0].frequency_overlap_ratio, 0.0f);
+  EXPECT_LE(snapshot.jammer_sources[0].frequency_overlap_ratio, 1.0f);
+  EXPECT_GE(snapshot.jammer_sources[0].prf_lock_risk, 0.0f);
+  EXPECT_LE(snapshot.jammer_sources[0].prf_lock_risk, 1.0f);
 }
 
 TEST(EnvironmentServiceTest, ModelConfigAtmosphericPhysicsAffectsDefaultSnapshot) {
@@ -121,9 +119,10 @@ TEST(EnvironmentServiceTest, FreezesSnapshotUntilNextCycle) {
   emitter.technique = environment::JammingTechnique::kNoiseSuppression;
   emitter.power_db = 8.0f;
   emitter.confidence = 1.0f;
-  emitter.frequency_overlap_ratio = 0.4f;
-  emitter.prf_lock_risk = 0.3f;
-  emitter.in_sidelobe = true;
+  emitter.has_direction_deg = true;
+  emitter.azimuth_deg = 18.0f;
+  emitter.elevation_deg = 1.0f;
+  emitter.angular_span_deg = 10.0f;
   const environment::EnvironmentSceneState scene_state = environment::EnvironmentSceneBuilder()
                                                              .AddJammer(emitter)
                                                              .Build();
@@ -156,22 +155,24 @@ TEST(EnvironmentServiceTest, FreezesSnapshotUntilNextCycle) {
 TEST(EnvironmentServiceTest, SupportsMultipleJammerSourcesInSnapshot) {
   environment::EnvironmentModelConfig config;
 
-  environment::JammerSourceFact noise_source;
+  environment::JammerEmitterState noise_source;
   noise_source.technique = environment::JammingTechnique::kNoiseSuppression;
   noise_source.power_db = 9.0f;
   noise_source.js_db = 7.0f;
-  noise_source.frequency_overlap_ratio = 0.2f;
-  noise_source.prf_lock_risk = 0.1f;
-  noise_source.in_sidelobe = true;
+  noise_source.has_direction_deg = true;
+  noise_source.azimuth_deg = 24.0f;
+  noise_source.elevation_deg = 7.0f;
+  noise_source.angular_span_deg = 30.0f;
   noise_source.confidence = 0.9f;
 
-  environment::JammerSourceFact deception_source;
+  environment::JammerEmitterState deception_source;
   deception_source.technique = environment::JammingTechnique::kDeception;
   deception_source.power_db = 4.0f;
   deception_source.js_db = 5.0f;
-  deception_source.frequency_overlap_ratio = 0.85f;
-  deception_source.prf_lock_risk = 0.80f;
-  deception_source.in_sidelobe = false;
+  deception_source.has_direction_deg = true;
+  deception_source.azimuth_deg = 2.0f;
+  deception_source.elevation_deg = 1.0f;
+  deception_source.angular_span_deg = 8.0f;
   deception_source.confidence = 0.8f;
 
   config.jammer_sources.push_back(noise_source);
@@ -196,7 +197,7 @@ TEST(EnvironmentServiceTest, AppliesPendingSceneJammerOnNextCycleOnly) {
 
   service.UpdateSceneState(
       environment::EnvironmentSceneBuilder()
-          .AddJammer(MakeJammerSource(environment::JammingTechnique::kUnknown, 7.0f))
+          .AddJammer(MakeJammerEmitter(environment::JammingTechnique::kUnknown, 7.0f))
           .Build());
 
   EXPECT_FALSE(service.SampleEnvironment().jamming_detected);
@@ -215,7 +216,7 @@ TEST(EnvironmentServiceTest, AppliesPendingSceneJammerOnNextCycleOnly) {
 TEST(SceneManagerTest, CommitsPendingSceneOnlyWhenBeginCycleArrives) {
   environment::EnvironmentSceneState initial_scene;
   initial_scene.jammer_emitters.push_back(
-      MakeJammerSource(environment::JammingTechnique::kUnknown, 2.0f));
+      MakeJammerEmitter(environment::JammingTechnique::kUnknown, 2.0f));
 
   environment::SceneManager scene_manager(initial_scene);
 
@@ -272,9 +273,6 @@ TEST(PropagationModelTest, OptionalVegetationScatterPhysicsRaisesClutterWhenEnab
   physics_scene.vegetation_scatter_physics.leaf_count = 96U;
   physics_scene.vegetation_scatter_physics.leaf_size_m = 0.07f;
   physics_scene.vegetation_scatter_physics.dielectric_constant_real = 3.1f;
-  physics_scene.vegetation_scatter_physics.incidence_deg = 18.0f;
-  physics_scene.vegetation_scatter_physics.scatter_deg = 27.0f;
-  physics_scene.vegetation_scatter_physics.clutter_mix_ratio = 0.9f;
   physics_scene.vegetation_scatter_physics.canopy_radius_m = 1.4f;
   physics_scene.vegetation_scatter_physics.canopy_height_m = 4.2f;
 
@@ -294,8 +292,6 @@ TEST(EnvironmentServiceTest, ModelConfigVegetationScatterAffectsDefaultSnapshotC
   environment::EnvironmentModelConfig physics_config = baseline_config;
   physics_config.vegetation_scatter_physics.enable_physical_model = true;
   physics_config.vegetation_scatter_physics.leaf_count = 128U;
-  physics_config.vegetation_scatter_physics.clutter_mix_ratio = 1.0f;
-  physics_config.vegetation_scatter_physics.max_physical_multiplier = 50.0f;
 
   environment::EnvironmentService baseline_service(baseline_config);
   environment::EnvironmentService physics_service(physics_config);
@@ -328,7 +324,7 @@ TEST(SignalPipelineTest, KeepsTrackStableWhenDetectionMarginIsEnough) {
 TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
   environment::EnvironmentModelConfig env_config;
   env_config.jammer_sources.push_back(
-      MakeJammerSource(environment::JammingTechnique::kUnknown, 40.0f));
+      MakeJammerEmitter(environment::JammingTechnique::kUnknown, 40.0f));
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
@@ -674,22 +670,27 @@ TEST(SignalPipelineTest, AssociationQualityMetricsExposeTypeSpecificStressSummar
   seed.gaussian_state.covariance = signal::tracking::StateCovariance::Zero();
 
   environment::EnvironmentModelConfig noise_env_config;
-  environment::JammerSourceFact noise_source;
+  environment::JammerEmitterState noise_source;
   noise_source.technique = environment::JammingTechnique::kNoiseSuppression;
   noise_source.power_db = 8.0f;
   noise_source.js_db = 8.0f;
-  noise_source.in_sidelobe = true;
+  noise_source.has_direction_deg = true;
+  noise_source.azimuth_deg = 24.0f;
+  noise_source.elevation_deg = 7.0f;
+  noise_source.angular_span_deg = 30.0f;
   noise_source.confidence = 1.0f;
   noise_env_config.jammer_sources.push_back(noise_source);
   environment::EnvironmentService noise_environment(noise_env_config);
 
   environment::EnvironmentModelConfig deception_env_config;
-  environment::JammerSourceFact deception_source;
+  environment::JammerEmitterState deception_source;
   deception_source.technique = environment::JammingTechnique::kDeception;
   deception_source.power_db = 8.0f;
   deception_source.js_db = 8.0f;
-  deception_source.frequency_overlap_ratio = 0.9f;
-  deception_source.prf_lock_risk = 0.9f;
+  deception_source.has_direction_deg = true;
+  deception_source.azimuth_deg = 2.0f;
+  deception_source.elevation_deg = 1.0f;
+  deception_source.angular_span_deg = 8.0f;
   deception_source.confidence = 1.0f;
   deception_env_config.jammer_sources.push_back(deception_source);
   environment::EnvironmentService deception_environment(deception_env_config);
@@ -788,12 +789,14 @@ TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) 
   seed.gaussian_state.covariance = signal::tracking::StateCovariance::Zero();
 
   environment::EnvironmentModelConfig deception_env_config;
-  environment::JammerSourceFact deception_source;
+  environment::JammerEmitterState deception_source;
   deception_source.technique = environment::JammingTechnique::kDeception;
   deception_source.power_db = 8.0f;
   deception_source.js_db = 8.0f;
-  deception_source.frequency_overlap_ratio = 0.9f;
-  deception_source.prf_lock_risk = 0.9f;
+  deception_source.has_direction_deg = true;
+  deception_source.azimuth_deg = 3.0f;
+  deception_source.elevation_deg = 1.0f;
+  deception_source.angular_span_deg = 8.0f;
   deception_source.confidence = 1.0f;
   deception_env_config.jammer_sources.push_back(deception_source);
   environment::EnvironmentService deception_environment(deception_env_config);
@@ -840,7 +843,7 @@ TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) 
 
   environment::EnvironmentModelConfig env_config;
   env_config.jammer_sources.push_back(
-      MakeJammerSource(environment::JammingTechnique::kUnknown, 12.0f));
+      MakeJammerEmitter(environment::JammingTechnique::kUnknown, 12.0f));
   environment::EnvironmentService environment_service(env_config);
 
   const model::TargetFeatureList input_state{BuildPhysicsTarget(1000.0f, 1000.0f)};
@@ -880,16 +883,21 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulatePhysicalEccmBenefit) {
   pipeline_config.beam_control.radar_orientation.electronic_scan_limits_deg =
       pipeline_config.beam_control.radar_orientation.mechanical_scan_limits_deg;
 
-  environment::JammerSourceFact favorable_source =
-      MakeJammerSource(environment::JammingTechnique::kUnknown, 12.0f);
-  favorable_source.frequency_overlap_ratio = 0.9f;
-  favorable_source.prf_lock_risk = 0.9f;
-  favorable_source.in_sidelobe = true;
+  environment::JammerEmitterState favorable_source =
+      MakeJammerEmitter(environment::JammingTechnique::kUnknown, 12.0f);
+  favorable_source.has_direction_deg = true;
+  favorable_source.azimuth_deg = 28.0f;
+  favorable_source.elevation_deg = 9.0f;
+  favorable_source.angular_span_deg = 30.0f;
   environment::EnvironmentService favorable_environment(
       MakeEnvironmentConfigWithJammers({favorable_source}));
 
-  environment::JammerSourceFact unfavorable_source =
-      MakeJammerSource(environment::JammingTechnique::kUnknown, 12.0f);
+  environment::JammerEmitterState unfavorable_source =
+      MakeJammerEmitter(environment::JammingTechnique::kUnknown, 12.0f);
+  unfavorable_source.has_direction_deg = true;
+  unfavorable_source.azimuth_deg = 0.0f;
+  unfavorable_source.elevation_deg = 0.0f;
+  unfavorable_source.angular_span_deg = 5.0f;
   environment::EnvironmentService unfavorable_environment(
       MakeEnvironmentConfigWithJammers({unfavorable_source}));
 
@@ -926,12 +934,14 @@ TEST(SignalPipelineTest, DeceptionJammingFactsShrinkPhysicalCovarianceWhenMatche
   pipeline_config.detection.detection_policy.min_snr_db = -50.0f;
 
   environment::EnvironmentModelConfig env_config;
-  environment::JammerSourceFact deception_source;
+  environment::JammerEmitterState deception_source;
   deception_source.technique = environment::JammingTechnique::kDeception;
   deception_source.power_db = -20.0f;
   deception_source.js_db = 8.0f;
-  deception_source.frequency_overlap_ratio = 0.9f;
-  deception_source.prf_lock_risk = 0.9f;
+  deception_source.has_direction_deg = true;
+  deception_source.azimuth_deg = 3.0f;
+  deception_source.elevation_deg = 1.0f;
+  deception_source.angular_span_deg = 8.0f;
   deception_source.confidence = 1.0f;
   env_config.jammer_sources.push_back(deception_source);
   environment::EnvironmentService environment_service(env_config);
@@ -986,7 +996,7 @@ TEST(SignalPipelineTest, AgilityFrequencyHopPhaseControlsFrequencyDirection) {
 TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
   environment::EnvironmentModelConfig env_config;
   env_config.jammer_sources.push_back(
-      MakeJammerSource(environment::JammingTechnique::kUnknown, 45.0f));
+      MakeJammerEmitter(environment::JammingTechnique::kUnknown, 45.0f));
   environment::EnvironmentService environment_service(env_config);
 
   model::TargetFeature target(800.0f, 0.0f, 0.0f, 2.5f);
@@ -1020,18 +1030,23 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
   config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.min_detection_margin_db = -6.0f;
 
-  environment::JammerSourceFact favorable_source =
-      MakeJammerSource(environment::JammingTechnique::kUnknown, 12.0f);
-  favorable_source.frequency_overlap_ratio = 0.9f;
-  favorable_source.prf_lock_risk = 0.9f;
-  favorable_source.in_sidelobe = true;
+  environment::JammerEmitterState favorable_source =
+      MakeJammerEmitter(environment::JammingTechnique::kUnknown, 12.0f);
+  favorable_source.has_direction_deg = true;
+  favorable_source.azimuth_deg = 30.0f;
+  favorable_source.elevation_deg = 10.0f;
+  favorable_source.angular_span_deg = 32.0f;
 
   environment::EnvironmentModelConfig favorable_env_config =
       MakeEnvironmentConfigWithJammers({favorable_source});
   environment::EnvironmentService favorable_environment(favorable_env_config);
 
-  environment::JammerSourceFact unfavorable_source =
-      MakeJammerSource(environment::JammingTechnique::kUnknown, 12.0f);
+  environment::JammerEmitterState unfavorable_source =
+      MakeJammerEmitter(environment::JammingTechnique::kUnknown, 12.0f);
+  unfavorable_source.has_direction_deg = true;
+  unfavorable_source.azimuth_deg = 1.0f;
+  unfavorable_source.elevation_deg = 0.0f;
+  unfavorable_source.angular_span_deg = 6.0f;
   environment::EnvironmentModelConfig unfavorable_env_config =
       MakeEnvironmentConfigWithJammers({unfavorable_source});
   environment::EnvironmentService unfavorable_environment(unfavorable_env_config);
@@ -1230,22 +1245,27 @@ TEST(SignalPipelineTest, DeceptionJammingInflatesPhysicalCovarianceMoreThanNoise
   pipeline_config.detection.detection_policy.min_snr_db = -50.0f;
 
   environment::EnvironmentModelConfig noise_env_config;
-  environment::JammerSourceFact noise_source;
+  environment::JammerEmitterState noise_source;
   noise_source.technique = environment::JammingTechnique::kNoiseSuppression;
   noise_source.power_db = -20.0f;
   noise_source.js_db = 8.0f;
-  noise_source.in_sidelobe = true;
+  noise_source.has_direction_deg = true;
+  noise_source.azimuth_deg = 20.0f;
+  noise_source.elevation_deg = 7.0f;
+  noise_source.angular_span_deg = 30.0f;
   noise_source.confidence = 1.0f;
   noise_env_config.jammer_sources.push_back(noise_source);
   environment::EnvironmentService noise_environment(noise_env_config);
 
   environment::EnvironmentModelConfig deception_env_config;
-  environment::JammerSourceFact deception_source;
+  environment::JammerEmitterState deception_source;
   deception_source.technique = environment::JammingTechnique::kDeception;
   deception_source.power_db = -20.0f;
   deception_source.js_db = 8.0f;
-  deception_source.frequency_overlap_ratio = 0.9f;
-  deception_source.prf_lock_risk = 0.9f;
+  deception_source.has_direction_deg = true;
+  deception_source.azimuth_deg = 3.0f;
+  deception_source.elevation_deg = 1.0f;
+  deception_source.angular_span_deg = 8.0f;
   deception_source.confidence = 1.0f;
   deception_env_config.jammer_sources.push_back(deception_source);
   environment::EnvironmentService deception_environment(deception_env_config);
@@ -1678,7 +1698,6 @@ TEST(PropagationModelTest, BaselineClutterRemainsStableAcrossDefaultScenes) {
 TEST(PropagationModelTest, VegetationScatterRaisesClutterFromInternalBaseline) {
   environment::EnvironmentSceneState scene_state;
   scene_state.vegetation_scatter_physics.enable_physical_model = true;
-  scene_state.vegetation_scatter_physics.clutter_mix_ratio = 1.0f;
   scene_state.vegetation_scatter_physics.leaf_count = 64U;
 
   environment::PropagationModel model;
@@ -1722,9 +1741,12 @@ TEST(EnvironmentServiceTest, EmptyJammerSourcesProduceNoJammingFacts) {
 
 /// @brief 仅旁瓣属性为真且功率为零的结构化输入应被保留，但不应触发干扰探测。
 TEST(EnvironmentServiceTest, StructuredSidelobeFactIsPreservedWithoutDetection) {
-  environment::JammerSourceFact source =
-      MakeJammerSource(environment::JammingTechnique::kUnknown, 0.0f);
-  source.in_sidelobe = true;
+  environment::JammerEmitterState source =
+      MakeJammerEmitter(environment::JammingTechnique::kUnknown, 0.0f);
+  source.has_direction_deg = true;
+  source.azimuth_deg = 35.0f;
+  source.elevation_deg = 8.0f;
+  source.angular_span_deg = 30.0f;
 
   environment::EnvironmentService service(MakeEnvironmentConfigWithJammers({source}));
   service.SetJammingDetectionThresholdDb(0.001f);
@@ -1738,7 +1760,7 @@ TEST(EnvironmentServiceTest, StructuredSidelobeFactIsPreservedWithoutDetection) 
 /// @brief NormalizeEmitterState：负值 power_db 钳位到 0。
 TEST(EnvironmentServiceTest, NegativeEmitterPowerIsClampedToZero) {
   environment::EnvironmentModelConfig config;
-  environment::JammerSourceFact source;
+  environment::JammerEmitterState source;
   source.technique = environment::JammingTechnique::kNoiseSuppression;
   source.power_db = -10.0f;  // 负值应被钳位
   source.js_db = 3.0f;
@@ -1755,7 +1777,7 @@ TEST(EnvironmentServiceTest, NegativeEmitterPowerIsClampedToZero) {
 /// @brief NormalizeEmitterState：负值 js_db 与 angular_span_deg 钳位到 0。
 TEST(EnvironmentServiceTest, NegativeEmitterJsAndAngularSpanAreClampedToZero) {
   environment::EnvironmentModelConfig config;
-  environment::JammerSourceFact source;
+  environment::JammerEmitterState source;
   source.technique = environment::JammingTechnique::kNoiseSuppression;
   source.power_db = 3.0f;
   source.js_db = -2.0f;
@@ -1771,13 +1793,17 @@ TEST(EnvironmentServiceTest, NegativeEmitterJsAndAngularSpanAreClampedToZero) {
   EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].angular_span_deg, 0.0f);
 }
 
-/// @brief NormalizeEmitterState：frequency_overlap_ratio > 1.0 钳位到 1.0。
+/// @brief NormalizeEmitterState：派生 frequency_overlap_ratio 超过上限时钳位到 1.0。
 TEST(EnvironmentServiceTest, EmitterOverlapRatioAboveOneIsClampedToOne) {
   environment::EnvironmentModelConfig config;
-  environment::JammerSourceFact source;
+  environment::JammerEmitterState source;
   source.technique = environment::JammingTechnique::kDeception;
   source.power_db = 5.0f;
-  source.frequency_overlap_ratio = 1.5f;  // 超出范围
+  source.js_db = 12.0f;
+  source.has_direction_deg = true;
+  source.azimuth_deg = 0.0f;
+  source.elevation_deg = 0.0f;
+  source.angular_span_deg = 0.0f;
   source.confidence = 0.8f;
   config.jammer_sources.push_back(source);
 
@@ -1791,7 +1817,7 @@ TEST(EnvironmentServiceTest, EmitterOverlapRatioAboveOneIsClampedToOne) {
 /// @brief NormalizeEmitterState：confidence > 1.0 钳位到 1.0。
 TEST(EnvironmentServiceTest, EmitterConfidenceAboveOneIsClampedToOne) {
   environment::EnvironmentModelConfig config;
-  environment::JammerSourceFact source;
+  environment::JammerEmitterState source;
   source.power_db = 5.0f;
   source.confidence = 2.5f;  // 超出范围
   config.jammer_sources.push_back(source);
@@ -1806,7 +1832,7 @@ TEST(EnvironmentServiceTest, EmitterConfidenceAboveOneIsClampedToOne) {
 /// @brief 干扰功率恰好等于检测门限时，应判定为探测到干扰（>= 门限）。
 TEST(EnvironmentServiceTest, JammingDetectedWhenPowerEqualsThreshold) {
   environment::EnvironmentService service(MakeEnvironmentConfigWithJammers(
-      {MakeJammerSource(environment::JammingTechnique::kUnknown, 5.0f)}));
+      {MakeJammerEmitter(environment::JammingTechnique::kUnknown, 5.0f)}));
   service.SetJammingDetectionThresholdDb(5.0f);  // 恰好等于
 
   EXPECT_TRUE(service.SampleEnvironment().jamming_detected);
@@ -1815,7 +1841,7 @@ TEST(EnvironmentServiceTest, JammingDetectedWhenPowerEqualsThreshold) {
 /// @brief 干扰功率低于检测门限时，不判定为探测到干扰。
 TEST(EnvironmentServiceTest, JammingNotDetectedWhenPowerBelowThreshold) {
   environment::EnvironmentService service(MakeEnvironmentConfigWithJammers(
-      {MakeJammerSource(environment::JammingTechnique::kUnknown, 4.9f)}));
+      {MakeJammerEmitter(environment::JammingTechnique::kUnknown, 4.9f)}));
   service.SetJammingDetectionThresholdDb(5.0f);
 
   EXPECT_FALSE(service.SampleEnvironment().jamming_detected);
@@ -1825,12 +1851,12 @@ TEST(EnvironmentServiceTest, JammingNotDetectedWhenPowerBelowThreshold) {
 TEST(EnvironmentServiceTest, KeepsAllJammerSourcesInSnapshot) {
   environment::EnvironmentModelConfig config;
 
-  environment::JammerSourceFact low;
+  environment::JammerEmitterState low;
   low.power_db = 3.0f;
   low.technique = environment::JammingTechnique::kNoiseSuppression;
   low.confidence = 1.0f;
 
-  environment::JammerSourceFact high;
+  environment::JammerEmitterState high;
   high.power_db = 12.0f;
   high.technique = environment::JammingTechnique::kDeception;
   high.confidence = 1.0f;

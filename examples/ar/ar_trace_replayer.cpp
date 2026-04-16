@@ -193,6 +193,11 @@ ar::environment::AtmosphericPhysicsConfig ParseAtmosphericPhysics(const Json& js
   value.pressure_hpa = GetFloat(json, "pressure_hpa", value.pressure_hpa);
   value.temperature_k = GetFloat(json, "temperature_k", value.temperature_k);
   value.relative_humidity = GetFloat(json, "relative_humidity", value.relative_humidity);
+  return value;
+}
+
+ar::environment::AtmosphericDerivedContext ParseAtmosphericContext(const Json& json) {
+  ar::environment::AtmosphericDerivedContext value;
   value.k_factor = GetFloat(json, "k_factor", value.k_factor);
   value.day_of_year = GetInt(json, "day_of_year", value.day_of_year);
   value.solar_flux_f107a = GetFloat(json, "solar_flux_f107a", value.solar_flux_f107a);
@@ -201,17 +206,15 @@ ar::environment::AtmosphericPhysicsConfig ParseAtmosphericPhysics(const Json& js
   return value;
 }
 
-ar::environment::JammerSourceFact ParseJammer(const Json& json) {
-  ar::environment::JammerSourceFact value;
+ar::environment::JammerEmitterState ParseJammerEmitter(const Json& json) {
+  ar::environment::JammerEmitterState value;
   value.technique = static_cast<ar::environment::JammingTechnique>(GetInt(json, "technique", 0));
   value.power_db = GetFloat(json, "power_db", value.power_db);
   value.js_db = GetFloat(json, "js_db", value.js_db);
-  value.frequency_overlap_ratio = GetFloat(json, "frequency_overlap_ratio", value.frequency_overlap_ratio);
-  value.prf_lock_risk = GetFloat(json, "prf_lock_risk", value.prf_lock_risk);
+  value.has_direction_deg = GetBool(json, "has_direction_deg", value.has_direction_deg);
   value.azimuth_deg = GetFloat(json, "azimuth_deg", value.azimuth_deg);
   value.elevation_deg = GetFloat(json, "elevation_deg", value.elevation_deg);
   value.angular_span_deg = GetFloat(json, "angular_span_deg", value.angular_span_deg);
-  value.in_sidelobe = GetBool(json, "in_sidelobe", value.in_sidelobe);
   value.confidence = GetFloat(json, "confidence", value.confidence);
   return value;
 }
@@ -220,6 +223,12 @@ ar::environment::EnvironmentScenarioConfig ParseEnvironmentScenario(const Json& 
   ar::environment::EnvironmentScenarioConfig scenario;
   if (json.contains("atmospheric_physics")) {
     scenario.atmospheric_physics = ParseAtmosphericPhysics(json["atmospheric_physics"]);
+  }
+  if (json.contains("atmospheric_context")) {
+    scenario.atmospheric_context = ParseAtmosphericContext(json["atmospheric_context"]);
+  } else if (json.contains("atmospheric_physics")) {
+    // Backward compatibility: older traces stored derived context together with atmospheric_physics.
+    scenario.atmospheric_context = ParseAtmosphericContext(json["atmospheric_physics"]);
   }
   if (json.contains("vegetation_scatter_physics")) {
     const Json& veg = json["vegetation_scatter_physics"];
@@ -230,30 +239,17 @@ ar::environment::EnvironmentScenarioConfig ParseEnvironmentScenario(const Json& 
     scenario.vegetation_scatter_physics.dielectric_constant_real =
         GetFloat(veg, "dielectric_constant_real",
                  scenario.vegetation_scatter_physics.dielectric_constant_real);
-    scenario.vegetation_scatter_physics.incidence_deg =
-        GetFloat(veg, "incidence_deg", scenario.vegetation_scatter_physics.incidence_deg);
-    scenario.vegetation_scatter_physics.scatter_deg =
-        GetFloat(veg, "scatter_deg", scenario.vegetation_scatter_physics.scatter_deg);
     scenario.vegetation_scatter_physics.leaf_count = static_cast<std::uint32_t>(
         GetInt(veg, "leaf_count", static_cast<int>(scenario.vegetation_scatter_physics.leaf_count)));
     scenario.vegetation_scatter_physics.canopy_radius_m =
         GetFloat(veg, "canopy_radius_m", scenario.vegetation_scatter_physics.canopy_radius_m);
     scenario.vegetation_scatter_physics.canopy_height_m =
         GetFloat(veg, "canopy_height_m", scenario.vegetation_scatter_physics.canopy_height_m);
-    scenario.vegetation_scatter_physics.x_axis_scale_m =
-        GetFloat(veg, "x_axis_scale_m", scenario.vegetation_scatter_physics.x_axis_scale_m);
-    scenario.vegetation_scatter_physics.y_axis_scale_m =
-        GetFloat(veg, "y_axis_scale_m", scenario.vegetation_scatter_physics.y_axis_scale_m);
-    scenario.vegetation_scatter_physics.clutter_mix_ratio =
-        GetFloat(veg, "clutter_mix_ratio", scenario.vegetation_scatter_physics.clutter_mix_ratio);
-    scenario.vegetation_scatter_physics.max_physical_multiplier = GetFloat(
-        veg, "max_physical_multiplier",
-        scenario.vegetation_scatter_physics.max_physical_multiplier);
   }
   if (json.contains("jammer_sources") && json["jammer_sources"].is_array()) {
     scenario.jammer_sources.clear();
     for (std::size_t i = 0; i < json["jammer_sources"].size(); ++i) {
-      scenario.jammer_sources.push_back(ParseJammer(json["jammer_sources"][i]));
+      scenario.jammer_sources.push_back(ParseJammerEmitter(json["jammer_sources"][i]));
     }
   }
   return scenario;
@@ -345,10 +341,16 @@ ar::environment::EnvironmentSceneState ParseSceneState(const Json& payload) {
   if (payload.contains("atmospheric_physics")) {
     scene.atmospheric_physics = ParseAtmosphericPhysics(payload["atmospheric_physics"]);
   }
+  if (payload.contains("atmospheric_context")) {
+    scene.atmospheric_context = ParseAtmosphericContext(payload["atmospheric_context"]);
+  } else if (payload.contains("atmospheric_physics")) {
+    // Backward compatibility: older traces stored derived context together with atmospheric_physics.
+    scene.atmospheric_context = ParseAtmosphericContext(payload["atmospheric_physics"]);
+  }
   if (payload.contains("jammer_emitters") && payload["jammer_emitters"].is_array()) {
     scene.jammer_emitters.clear();
     for (std::size_t i = 0; i < payload["jammer_emitters"].size(); ++i) {
-      scene.jammer_emitters.push_back(ParseJammer(payload["jammer_emitters"][i]));
+      scene.jammer_emitters.push_back(ParseJammerEmitter(payload["jammer_emitters"][i]));
     }
   }
   return scene;

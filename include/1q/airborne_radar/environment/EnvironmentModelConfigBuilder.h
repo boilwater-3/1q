@@ -31,7 +31,7 @@ class EnvironmentModelConfigBuilder {
     return *this;
   }
 
-  EnvironmentModelConfigBuilder& WithJammerSources(const JammerSourceFactList& sources) {
+  EnvironmentModelConfigBuilder& WithJammerSources(const JammerEmitterStateList& sources) {
     config_.jammer_sources = sources;
     return *this;
   }
