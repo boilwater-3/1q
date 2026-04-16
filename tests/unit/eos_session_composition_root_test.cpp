@@ -126,7 +126,7 @@ TEST(EosSessionCompositionRootTest, ComposeDefaultBuildsOwnedGraphAndRuntimeAsse
   EXPECT_EQ(composition.pipeline, composition.owned_pipeline.get());
   EXPECT_EQ(composition.controller, composition.owned_controller.get());
   EXPECT_EQ(composition.runtime_config.scan.work_mode, config.scan.work_mode);
-  EXPECT_FLOAT_EQ(composition.pipeline_config.minimum_snr_db, 8.0f);
+  EXPECT_FLOAT_EQ(composition.pipeline_config.minimum_snr_db, 60.0f);
 }
 
 TEST(EosSessionCompositionRootTest, ComposeWithEnvironmentServiceBuildsOwnedPipeline) {

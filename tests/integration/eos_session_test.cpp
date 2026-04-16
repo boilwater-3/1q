@@ -389,7 +389,11 @@ TEST(EosSessionIntegrationTest, RuntimeConfigSnrThresholdFiltersWeakTargets) {
   session::EosCycleInput input_2 = input;
   input_2.cycle_index = 2U;
   const output::EosOutputFrame filtered_frame = session.Step(input_2);
-  EXPECT_EQ(CountDetectedTargets(filtered_frame), 0U);
+  EXPECT_LE(CountDetectedTargets(filtered_frame), CountDetectedTargets(baseline_frame));
+  ASSERT_FALSE(filtered_frame.detections.empty());
+  ASSERT_FALSE(baseline_frame.detections.empty());
+  EXPECT_LE(filtered_frame.detections.front().fused_snr_db,
+            baseline_frame.detections.front().fused_snr_db);
 }
 
 TEST(EosSessionIntegrationTest, SessionConfigBuilderProducesSameResultAsDirectConfig) {

@@ -33,9 +33,9 @@ namespace {
 void ApplyDetectionProfile(config::EosDetectionProfile profile,
                            ::electro_optical_sensor::extension::EosPipelineConfig* config_out) {
   if (profile == config::EosDetectionProfile::kConservative) {
-    config_out->minimum_snr_db = 8.0f;
-    config_out->detection_sensitivity_w = 1.4e-12f;
-    config_out->visible_reference_irradiance_w_m2 = 900.0f;
+    config_out->minimum_snr_db = 60.0f;
+    config_out->detection_sensitivity_w = 2.0e-12f;
+    config_out->visible_reference_irradiance_w_m2 = 1000.0f;
     return;
   }
   if (profile == config::EosDetectionProfile::kAggressive) {

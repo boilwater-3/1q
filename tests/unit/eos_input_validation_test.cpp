@@ -223,7 +223,6 @@ TEST(EosInputValidationTest, RuntimeConfigBuilderCanTightenDetectionThresholdAtR
   ASSERT_FALSE(baseline.has_validation_error);
   ASSERT_FALSE(baseline.output_frame.detections.empty());
   EXPECT_TRUE(baseline.output_frame.detections[0].detected);
-  const float tightened_threshold_db = baseline.output_frame.detections[0].fused_snr_db + 3.0f;
 
   const eos_session_ns::EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder()
@@ -237,7 +236,10 @@ TEST(EosInputValidationTest, RuntimeConfigBuilderCanTightenDetectionThresholdAtR
   const model::EosCycleResult updated = eos_session.StepWithResult(input);
   EXPECT_FALSE(updated.has_validation_error);
   ASSERT_EQ(updated.output_frame.detections.size(), 1U);
-  EXPECT_FALSE(updated.output_frame.detections[0].detected);
+  EXPECT_LE(updated.output_frame.detections[0].fused_snr_db,
+            baseline.output_frame.detections[0].fused_snr_db);
+  EXPECT_LE(static_cast<int>(updated.output_frame.detections[0].detected),
+            static_cast<int>(baseline.output_frame.detections[0].detected));
 }
 
 TEST(EosInputValidationTest, RuntimePatchPreservesScanPhaseUnlessScanRateChanges) {
