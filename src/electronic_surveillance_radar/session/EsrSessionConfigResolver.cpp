@@ -28,6 +28,8 @@ constexpr std::uint32_t kMaxPulseCount = 4096U;
 constexpr float kMinimumThresholdScale = 0.1f;
 constexpr float kHgesmThresholdScale = 0.85f;
 constexpr float kRwrThresholdScale = 1.25f;
+constexpr float kConservativeDetectSnrDb = 10.0f;
+constexpr float kSensitiveDetectSnrDb = 3.0f;
 
 /**
  * @brief 归一化扫描起止边界，保证起点不大于终点。
@@ -81,20 +83,18 @@ void ApplyWorkModeAdjustment(EsrWorkMode mode,
  * @param[in] runtime_config 运行态参数。
  * @param[in,out] scan_config 扫描配置。
  */
-void ResolveScanConfigFromLayered(const EsrLayeredConfig& layered,
-                                  const extension::InterceptRuntimeConfig& runtime_config,
-                                  extension::InterceptScanConfig* scan_config) {
+void ResolveScanPolicy(const config::EsrHardwareConfig& hardware,
+                       const config::EsrScanPolicyConfig& scan_policy,
+                       const extension::InterceptRuntimeConfig& runtime_config,
+                       extension::InterceptScanConfig* scan_config) {
   if (scan_config == nullptr) {
     return;
   }
 
   const float mount_az = runtime_config.antenna_mount_az_deg;
   const float mount_el = runtime_config.antenna_mount_el_deg;
-  const EsrMissionControlConfig& mission = layered.mission;
-  const EsrHardwareConfig& hardware = layered.hardware;
-
-  scan_config->scan_start_pos = static_cast<int>(mission.scan_start_position);
-  scan_config->scan_sequence = static_cast<int>(mission.scan_sequence);
+  scan_config->scan_start_pos = static_cast<int>(scan_policy.scan_start_position);
+  scan_config->scan_sequence = static_cast<int>(scan_policy.scan_sequence);
 
   if (IsFinite(hardware.beam_az_width_deg) && hardware.beam_az_width_deg > 0.0f) {
     scan_config->az_step_deg = hardware.beam_az_width_deg;
@@ -104,14 +104,14 @@ void ResolveScanConfigFromLayered(const EsrLayeredConfig& layered,
   }
 
   const bool explicit_bounds_valid =
-      mission.use_explicit_scan_bounds && IsFinite(mission.scan_start_az_deg) &&
-      IsFinite(mission.scan_end_az_deg) && IsFinite(mission.scan_start_el_deg) &&
-      IsFinite(mission.scan_end_el_deg);
+      scan_policy.use_explicit_scan_bounds && IsFinite(scan_policy.scan_start_az_deg) &&
+      IsFinite(scan_policy.scan_end_az_deg) && IsFinite(scan_policy.scan_start_el_deg) &&
+      IsFinite(scan_policy.scan_end_el_deg);
   if (explicit_bounds_valid) {
-    float start_az = mission.scan_start_az_deg - mount_az;
-    float end_az = mission.scan_end_az_deg - mount_az;
-    float start_el = mission.scan_start_el_deg - mount_el;
-    float end_el = mission.scan_end_el_deg - mount_el;
+    float start_az = scan_policy.scan_start_az_deg - mount_az;
+    float end_az = scan_policy.scan_end_az_deg - mount_az;
+    float start_el = scan_policy.scan_start_el_deg - mount_el;
+    float end_el = scan_policy.scan_end_el_deg - mount_el;
     NormalizeScanBounds(&start_az, &end_az);
     NormalizeScanBounds(&start_el, &end_el);
     scan_config->scan_start_az_deg = start_az;
@@ -121,15 +121,15 @@ void ResolveScanConfigFromLayered(const EsrLayeredConfig& layered,
     return;
   }
 
-  const bool has_center_az = IsFinite(mission.scan_center_az_deg);
-  const bool has_center_el = IsFinite(mission.scan_center_el_deg);
+  const bool has_center_az = IsFinite(scan_policy.scan_center_az_deg);
+  const bool has_center_el = IsFinite(scan_policy.scan_center_el_deg);
   if (has_center_az) {
     float half_az_span =
         0.5f * std::fabs(scan_config->scan_end_az_deg - scan_config->scan_start_az_deg);
     if (IsFinite(hardware.az_scan_range_deg) && hardware.az_scan_range_deg > 0.0f) {
       half_az_span = 0.5f * hardware.az_scan_range_deg;
     }
-    const float center_az = mission.scan_center_az_deg - mount_az;
+    const float center_az = scan_policy.scan_center_az_deg - mount_az;
     scan_config->scan_start_az_deg = center_az - half_az_span;
     scan_config->scan_end_az_deg = center_az + half_az_span;
   }
@@ -139,7 +139,7 @@ void ResolveScanConfigFromLayered(const EsrLayeredConfig& layered,
     if (IsFinite(hardware.el_scan_range_deg) && hardware.el_scan_range_deg > 0.0f) {
       half_el_span = 0.5f * hardware.el_scan_range_deg;
     }
-    const float center_el = mission.scan_center_el_deg - mount_el;
+    const float center_el = scan_policy.scan_center_el_deg - mount_el;
     scan_config->scan_start_el_deg = center_el - half_el_span;
     scan_config->scan_end_el_deg = center_el + half_el_span;
   }
@@ -147,20 +147,55 @@ void ResolveScanConfigFromLayered(const EsrLayeredConfig& layered,
   NormalizeScanBounds(&scan_config->scan_start_el_deg, &scan_config->scan_end_el_deg);
 }
 
+void ApplyDetectionPolicy(config::EsrDetectionProfile profile,
+                          extension::InterceptPipelineConfig* pipeline_config) {
+  if (pipeline_config == nullptr) {
+    return;
+  }
+  switch (profile) {
+    case config::EsrDetectionProfile::kConservative:
+      pipeline_config->detection.min_detect_snr_db = kConservativeDetectSnrDb;
+      break;
+    case config::EsrDetectionProfile::kSensitive:
+      pipeline_config->detection.min_detect_snr_db = kSensitiveDetectSnrDb;
+      break;
+    case config::EsrDetectionProfile::kBalanced:
+    default:
+      break;
+  }
+}
+
+void ApplyEnvironmentPolicy(config::EsrEnvironmentPreset preset,
+                            environment::EsrEnvironmentModelConfig* model_config) {
+  if (model_config == nullptr) {
+    return;
+  }
+  switch (preset) {
+    case config::EsrEnvironmentPreset::kLowClutter:
+      model_config->default_clutter_noise_w = 5.0e-13f;
+      model_config->jamming_detection_threshold_w = 8.0e-10f;
+      break;
+    case config::EsrEnvironmentPreset::kDenseClutter:
+      model_config->default_clutter_noise_w = 5.0e-12f;
+      model_config->jamming_detection_threshold_w = 2.0e-9f;
+      break;
+    case config::EsrEnvironmentPreset::kJammed:
+      model_config->default_clutter_noise_w = 1.0e-11f;
+      model_config->jamming_detection_threshold_w = 5.0e-9f;
+      break;
+    case config::EsrEnvironmentPreset::kStandard:
+    default:
+      break;
+  }
+}
+
 }  // namespace
 
-ResolvedEsrSessionConfig ResolveEsrSessionConfig(const EsrSessionConfig& config) {
+ResolvedEsrSessionConfig ResolveEsrSessionConfig(const EsrSessionConfig& session_config) {
   ResolvedEsrSessionConfig resolved;
-  resolved.pipeline_config = config.pipeline_config;
-  resolved.environment_model_config = config.environment_default_config.model_config;
-
-  if (!config.enable_layered_config) {
-    return resolved;
-  }
-
-  const EsrLayeredConfig& layered = config.layered_config;
-  const EsrHardwareConfig& hardware = layered.hardware;
-  const EsrMissionControlConfig& mission = layered.mission;
+  const config::EsrHardwareConfig& hardware = session_config.hardware;
+  const config::EsrMissionControlConfig& mission = session_config.mission;
+  const config::EsrScanPolicyConfig& scan_policy = session_config.mission.scan;
 
   resolved.runtime_config.sensor_enabled = mission.power_on;
   resolved.runtime_config.antenna_mount_az_deg =
@@ -172,7 +207,9 @@ ResolvedEsrSessionConfig ResolveEsrSessionConfig(const EsrSessionConfig& config)
           ? hardware.integrated_receive_loss_db
           : 0.0f;
   resolved.runtime_config.scan_rate_hz =
-      (IsFinite(mission.scan_rate_hz) && mission.scan_rate_hz > 0.0f) ? mission.scan_rate_hz : 1.0f;
+      (IsFinite(scan_policy.scan_rate_hz) && scan_policy.scan_rate_hz > 0.0f)
+          ? scan_policy.scan_rate_hz
+          : 1.0f;
 
   if (IsFinite(hardware.receiver_band_lower_hz) && IsFinite(hardware.receiver_band_upper_hz) &&
       hardware.receiver_band_upper_hz > hardware.receiver_band_lower_hz) {
@@ -185,7 +222,9 @@ ResolvedEsrSessionConfig ResolveEsrSessionConfig(const EsrSessionConfig& config)
     resolved.pipeline_config.detection.receiver_noise_floor_w = hardware.receiver_sensitivity_w;
   }
 
-  ResolveScanConfigFromLayered(layered, resolved.runtime_config, &resolved.pipeline_config.scan);
+  ApplyDetectionPolicy(session_config.detection.profile, &resolved.pipeline_config);
+  ApplyEnvironmentPolicy(session_config.environment.preset, &resolved.environment_model_config);
+  ResolveScanPolicy(hardware, scan_policy, resolved.runtime_config, &resolved.pipeline_config.scan);
   ApplyWorkModeAdjustment(mission.work_mode, &resolved.pipeline_config.statistical_detection);
   return resolved;
 }

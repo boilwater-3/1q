@@ -27,8 +27,8 @@ namespace esr = electronic_surveillance_radar;
 
 int main() {
   // 1. SessionConfigBuilder
-  esr::session::EsrSessionConfig config = esr::config::EsrSessionConfigBuilder()
-                                                    .WithDetectionMinSnrDb(6.0f)
+ esr::session::EsrSessionConfig config = esr::config::EsrSessionConfigBuilder()
+                                                    .WithDetectionProfile(esr::config::EsrDetectionProfile::kBalanced)
                                                     .WithScanRateHz(1.0f)
                                                     .Build();
 
@@ -101,23 +101,22 @@ int main() {
       esr::config::EsrRuntimeConfigBuilder().WithSensorEnabled(true).Build();
   session.ApplyRuntimeConfig(enable_patch);
 
-  // 11. RuntimeConfigBuilder: scan rate + receive loss + detection threshold
+  // 11. RuntimeConfigBuilder: scan rate + work mode
   const esr::session::EsrRuntimeConfigPatch tune_patch =
       esr::config::EsrRuntimeConfigBuilder()
           .WithScanRateHz(2.0f)
-          .WithIntegratedReceiveLossDb(3.0f)
-          .WithDetectionMinSnrDb(12.0f)
+          .WithWorkMode(esr::config::EsrWorkMode::kHgesm)
           .Build();
   session.ApplyRuntimeConfig(tune_patch);
 
-  // 12. RuntimeConfigBuilder: fixed receiver window
+  // 12. RuntimeConfigBuilder: explicit scan bounds
   const esr::session::EsrRuntimeConfigPatch window_patch =
-      esr::config::EsrRuntimeConfigBuilder().WithFixedReceiverWindowHz(8.0e9, 12.0e9).Build();
+      esr::config::EsrRuntimeConfigBuilder().WithExplicitScanBoundsDeg(-45.0f, 45.0f, -15.0f, 15.0f).Build();
   session.ApplyRuntimeConfig(window_patch);
 
-  // 13. RuntimeConfigBuilder: disable fixed window
+  // 13. RuntimeConfigBuilder: reset to center-driven scan
   const esr::session::EsrRuntimeConfigPatch clear_window_patch =
-      esr::config::EsrRuntimeConfigBuilder().SetFixedReceiverWindowEnabled(false).Build();
+      esr::config::EsrRuntimeConfigBuilder().SetUseExplicitScanBounds(false).Build();
   session.ApplyRuntimeConfig(clear_window_patch);
 
   // 14. Final cycle

@@ -5,6 +5,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
+
 namespace electronic_surveillance_radar {
 namespace session {
 namespace {
@@ -297,51 +299,38 @@ Json BuildJson(const extension::InterceptPipelineConfig& value) {
 
 Json BuildJson(const session::EsrSessionConfig& value) {
   Json json;
-  json["enable_layered_config"] = value.enable_layered_config;
 
   Json hardware;
-  hardware["receiver_band_lower_hz"] = value.layered_config.hardware.receiver_band_lower_hz;
-  hardware["receiver_band_upper_hz"] = value.layered_config.hardware.receiver_band_upper_hz;
-  hardware["receiver_sensitivity_w"] = value.layered_config.hardware.receiver_sensitivity_w;
-  hardware["integrated_receive_loss_db"] = value.layered_config.hardware.integrated_receive_loss_db;
-  hardware["beam_az_width_deg"] = value.layered_config.hardware.beam_az_width_deg;
-  hardware["beam_el_width_deg"] = value.layered_config.hardware.beam_el_width_deg;
-  hardware["az_scan_range_deg"] = value.layered_config.hardware.az_scan_range_deg;
-  hardware["el_scan_range_deg"] = value.layered_config.hardware.el_scan_range_deg;
-  hardware["antenna_mount_az_deg"] = value.layered_config.hardware.antenna_mount_az_deg;
-  hardware["antenna_mount_el_deg"] = value.layered_config.hardware.antenna_mount_el_deg;
+  hardware["receiver_band_lower_hz"] = value.hardware.receiver_band_lower_hz;
+  hardware["receiver_band_upper_hz"] = value.hardware.receiver_band_upper_hz;
+  hardware["receiver_sensitivity_w"] = value.hardware.receiver_sensitivity_w;
+  hardware["integrated_receive_loss_db"] = value.hardware.integrated_receive_loss_db;
+  hardware["beam_az_width_deg"] = value.hardware.beam_az_width_deg;
+  hardware["beam_el_width_deg"] = value.hardware.beam_el_width_deg;
+  hardware["az_scan_range_deg"] = value.hardware.az_scan_range_deg;
+  hardware["el_scan_range_deg"] = value.hardware.el_scan_range_deg;
+  hardware["antenna_mount_az_deg"] = value.hardware.antenna_mount_az_deg;
+  hardware["antenna_mount_el_deg"] = value.hardware.antenna_mount_el_deg;
 
   Json mission;
-  mission["power_on"] = value.layered_config.mission.power_on;
-  mission["work_mode"] = static_cast<int>(value.layered_config.mission.work_mode);
-  mission["scan_center_az_deg"] = value.layered_config.mission.scan_center_az_deg;
-  mission["scan_center_el_deg"] = value.layered_config.mission.scan_center_el_deg;
-  mission["scan_rate_hz"] = value.layered_config.mission.scan_rate_hz;
+  mission["power_on"] = value.mission.power_on;
+  mission["work_mode"] = static_cast<int>(value.mission.work_mode);
+  mission["scan_center_az_deg"] = value.mission.scan.scan_center_az_deg;
+  mission["scan_center_el_deg"] = value.mission.scan.scan_center_el_deg;
+  mission["scan_rate_hz"] = value.mission.scan.scan_rate_hz;
   mission["scan_start_position"] =
-      static_cast<int>(value.layered_config.mission.scan_start_position);
-  mission["scan_sequence"] = static_cast<int>(value.layered_config.mission.scan_sequence);
-  mission["use_explicit_scan_bounds"] = value.layered_config.mission.use_explicit_scan_bounds;
-  mission["scan_start_az_deg"] = value.layered_config.mission.scan_start_az_deg;
-  mission["scan_end_az_deg"] = value.layered_config.mission.scan_end_az_deg;
-  mission["scan_start_el_deg"] = value.layered_config.mission.scan_start_el_deg;
-  mission["scan_end_el_deg"] = value.layered_config.mission.scan_end_el_deg;
+      static_cast<int>(value.mission.scan.scan_start_position);
+  mission["scan_sequence"] = static_cast<int>(value.mission.scan.scan_sequence);
+  mission["use_explicit_scan_bounds"] = value.mission.scan.use_explicit_scan_bounds;
+  mission["scan_start_az_deg"] = value.mission.scan.scan_start_az_deg;
+  mission["scan_end_az_deg"] = value.mission.scan.scan_end_az_deg;
+  mission["scan_start_el_deg"] = value.mission.scan.scan_start_el_deg;
+  mission["scan_end_el_deg"] = value.mission.scan.scan_end_el_deg;
 
-  Json layered;
-  layered["hardware"] = hardware;
-  layered["mission"] = mission;
-  json["layered_config"] = layered;
-
-  json["pipeline_config"] = BuildJson(value.pipeline_config);
-
-  Json environment_default_config;
-  environment_default_config["model_config"] = {
-      {"default_clutter_noise_w",
-       value.environment_default_config.model_config.default_clutter_noise_w},
-      {"jamming_detection_threshold_w",
-       value.environment_default_config.model_config.jamming_detection_threshold_w},
-      {"atmospheric_physics",
-       BuildJson(value.environment_default_config.model_config.atmospheric_physics)}};
-  json["environment_default_config"] = environment_default_config;
+  json["hardware"] = hardware;
+  json["mission"] = mission;
+  json["detection_profile"] = static_cast<int>(value.detection.profile);
+  json["environment_preset"] = static_cast<int>(value.environment.preset);
 
   return json;
 }
@@ -361,39 +350,30 @@ Json BuildJson(const session::EsrRuntimeConfigPatch& value) {
   Json json;
   json["has_sensor_enabled"] = value.has_sensor_enabled;
   json["sensor_enabled"] = value.sensor_enabled;
+  json["has_work_mode"] = value.has_work_mode;
+  json["work_mode"] = static_cast<int>(value.work_mode);
   json["has_scan_rate_hz"] = value.has_scan_rate_hz;
   json["scan_rate_hz"] = value.scan_rate_hz;
-  json["has_integrated_receive_loss_db"] = value.has_integrated_receive_loss_db;
-  json["integrated_receive_loss_db"] = value.integrated_receive_loss_db;
-  json["has_fixed_receiver_window_hz"] = value.has_fixed_receiver_window_hz;
-  json["receiver_lower_hz"] = value.receiver_lower_hz;
-  json["receiver_upper_hz"] = value.receiver_upper_hz;
-  json["has_use_fixed_receiver_window"] = value.has_use_fixed_receiver_window;
-  json["use_fixed_receiver_window"] = value.use_fixed_receiver_window;
-  json["has_enable_statistical_detection"] = value.has_enable_statistical_detection;
-  json["enable_statistical_detection"] = value.enable_statistical_detection;
-  json["has_enable_spectral_analysis"] = value.has_enable_spectral_analysis;
-  json["enable_spectral_analysis"] = value.enable_spectral_analysis;
-  json["has_detection_min_snr_db"] = value.has_detection_min_snr_db;
-  json["detection_min_snr_db"] = value.detection_min_snr_db;
-  json["has_environment_runtime_config"] = value.has_environment_runtime_config;
-  json["environment_runtime_config"] = {
-      {"has_model_config", value.environment_runtime_config.has_model_config},
-      {"model_config",
-       {
-           {"default_clutter_noise_w",
-            value.environment_runtime_config.model_config.default_clutter_noise_w},
-           {"jamming_detection_threshold_w",
-            value.environment_runtime_config.model_config.jamming_detection_threshold_w},
-           {"atmospheric_physics",
-            BuildJson(value.environment_runtime_config.model_config.atmospheric_physics)},
-       }},
-      {"has_jamming_detection_threshold_w",
-       value.environment_runtime_config.has_jamming_detection_threshold_w},
-      {"jamming_detection_threshold_w",
-       value.environment_runtime_config.jamming_detection_threshold_w}};
-  json["has_observation_jam_mark_threshold_w"] = value.has_observation_jam_mark_threshold_w;
-  json["observation_jam_mark_threshold_w"] = value.observation_jam_mark_threshold_w;
+  json["has_scan_start_position"] = value.has_scan_start_position;
+  json["scan_start_position"] = static_cast<int>(value.scan_start_position);
+  json["has_scan_sequence"] = value.has_scan_sequence;
+  json["scan_sequence"] = static_cast<int>(value.scan_sequence);
+  json["has_scan_center_az_deg"] = value.has_scan_center_az_deg;
+  json["scan_center_az_deg"] = value.scan_center_az_deg;
+  json["has_scan_center_el_deg"] = value.has_scan_center_el_deg;
+  json["scan_center_el_deg"] = value.scan_center_el_deg;
+  json["has_use_explicit_scan_bounds"] = value.has_use_explicit_scan_bounds;
+  json["use_explicit_scan_bounds"] = value.use_explicit_scan_bounds;
+  json["has_scan_start_az_deg"] = value.has_scan_start_az_deg;
+  json["scan_start_az_deg"] = value.scan_start_az_deg;
+  json["has_scan_end_az_deg"] = value.has_scan_end_az_deg;
+  json["scan_end_az_deg"] = value.scan_end_az_deg;
+  json["has_scan_start_el_deg"] = value.has_scan_start_el_deg;
+  json["scan_start_el_deg"] = value.scan_start_el_deg;
+  json["has_scan_end_el_deg"] = value.has_scan_end_el_deg;
+  json["scan_end_el_deg"] = value.scan_end_el_deg;
+  json["has_environment_preset"] = value.has_environment_preset;
+  json["environment_preset"] = static_cast<int>(value.environment_preset);
   return json;
 }
 

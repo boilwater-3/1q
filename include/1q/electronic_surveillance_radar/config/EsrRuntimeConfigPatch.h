@@ -7,7 +7,9 @@
 #define ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_RUNTIME_CONFIG_PATCH_H_
 
 #include "1q/api.hpp"
-#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentRuntimeConfigPatch.h"
+#include "1q/electronic_surveillance_radar/config/EsrEnvironmentPolicyConfig.h"
+#include "1q/electronic_surveillance_radar/config/EsrScanPolicyConfig.h"
+#include "1q/electronic_surveillance_radar/config/EsrWorkMode.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
@@ -19,33 +21,38 @@ struct ONEQ_API EsrRuntimeConfigPatch {
   bool has_sensor_enabled{false};
   bool sensor_enabled{true};
 
+  bool has_work_mode{false};
+  config::EsrWorkMode work_mode{config::EsrWorkMode::kEsm};
+
   bool has_scan_rate_hz{false};
   float scan_rate_hz{1.0f};
 
-  bool has_integrated_receive_loss_db{false};
-  float integrated_receive_loss_db{0.0f};
+  bool has_scan_start_position{false};
+  config::EsrScanStartPosition scan_start_position{config::EsrScanStartPosition::kLeftTop};
 
-  bool has_fixed_receiver_window_hz{false};
-  double receiver_lower_hz{0.0};
-  double receiver_upper_hz{0.0};
+  bool has_scan_sequence{false};
+  config::EsrScanSequence scan_sequence{config::EsrScanSequence::kAzimuthFirst};
 
-  bool has_use_fixed_receiver_window{false};
-  bool use_fixed_receiver_window{true};
+  bool has_scan_center_az_deg{false};
+  float scan_center_az_deg{0.0f};
 
-  bool has_enable_statistical_detection{false};
-  bool enable_statistical_detection{true};
+  bool has_scan_center_el_deg{false};
+  float scan_center_el_deg{0.0f};
 
-  bool has_enable_spectral_analysis{false};
-  bool enable_spectral_analysis{true};
+  bool has_use_explicit_scan_bounds{false};
+  bool use_explicit_scan_bounds{false};
 
-  bool has_detection_min_snr_db{false};
-  float detection_min_snr_db{6.0f};
+  bool has_scan_start_az_deg{false};
+  float scan_start_az_deg{-60.0f};
+  bool has_scan_end_az_deg{false};
+  float scan_end_az_deg{60.0f};
+  bool has_scan_start_el_deg{false};
+  float scan_start_el_deg{-10.0f};
+  bool has_scan_end_el_deg{false};
+  float scan_end_el_deg{10.0f};
 
-  bool has_environment_runtime_config{false};
-  environment::EsrEnvironmentRuntimeConfigPatch environment_runtime_config{};
-
-  bool has_observation_jam_mark_threshold_w{false};
-  float observation_jam_mark_threshold_w{0.0f};
+  bool has_environment_preset{false};
+  config::EsrEnvironmentPreset environment_preset{config::EsrEnvironmentPreset::kStandard};
 };
 
 }  // namespace session

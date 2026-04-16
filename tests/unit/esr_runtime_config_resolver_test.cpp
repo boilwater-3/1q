@@ -1,6 +1,6 @@
 /**
  * @file esr_runtime_config_resolver_test.cpp
- * @brief 验证 ESR 运行期补丁解析器的原子更新语义。
+ * @brief ESR 运行期补丁解析器测试（高层语义补丁）。
  */
 
 #include <gtest/gtest.h>
@@ -17,18 +17,15 @@ namespace {
 
 namespace esr_config = ::electronic_surveillance_radar::config;
 
-TEST(EsrRuntimeConfigResolverTest, ValidPatchBuildsRuntimePipelineAndEnvironmentUpdates) {
+TEST(EsrRuntimeConfigResolverTest, ValidPatchUpdatesRuntimePipelineAndEnvironment) {
   ResolvedEsrSessionConfig current_config;
   current_config.runtime_config.scan_rate_hz = 1.0f;
-  current_config.pipeline_config.detection.min_detect_snr_db = 6.0f;
-  current_config.environment_model_config.jamming_detection_threshold_w = 1.0e-9f;
 
-  const EsrRuntimeConfigPatch patch =
-      esr_config::EsrRuntimeConfigBuilder()
-          .WithScanRateHz(4.0f)
-          .WithDetectionMinSnrDb(12.0f)
-          .WithJammingDetectionThresholdW(2.0e-9f)
-          .Build();
+  const EsrRuntimeConfigPatch patch = esr_config::EsrRuntimeConfigBuilder()
+                                          .WithScanRateHz(4.0f)
+                                          .WithWorkMode(esr_config::EsrWorkMode::kRwr)
+                                          .WithEnvironmentPreset(esr_config::EsrEnvironmentPreset::kDenseClutter)
+                                          .Build();
 
   const EsrRuntimeConfigResolveResult resolved =
       ResolveEsrRuntimeConfigPatch(current_config, patch);
@@ -39,21 +36,24 @@ TEST(EsrRuntimeConfigResolverTest, ValidPatchBuildsRuntimePipelineAndEnvironment
   EXPECT_TRUE(resolved.pipeline_config_changed);
   EXPECT_TRUE(resolved.environment_model_config_changed);
   EXPECT_FLOAT_EQ(resolved.next_config.runtime_config.scan_rate_hz, 4.0f);
-  EXPECT_FLOAT_EQ(resolved.next_config.pipeline_config.detection.min_detect_snr_db, 12.0f);
-  EXPECT_FLOAT_EQ(resolved.next_config.environment_model_config.jamming_detection_threshold_w,
-                  2.0e-9f);
+  EXPECT_FLOAT_EQ(resolved.next_config.environment_model_config.default_clutter_noise_w, 5.0e-12f);
 }
 
-TEST(EsrRuntimeConfigResolverTest, InvalidFieldRejectsWholePatch) {
+TEST(EsrRuntimeConfigResolverTest, InvalidExplicitBoundsRejectWholePatch) {
   ResolvedEsrSessionConfig current_config;
   current_config.runtime_config.scan_rate_hz = 1.0f;
-  current_config.pipeline_config.detection.min_detect_snr_db = 6.0f;
 
-  EsrRuntimeConfigPatch patch =
-      esr_config::EsrRuntimeConfigBuilder().WithScanRateHz(3.0f).WithDetectionMinSnrDb(9.0f).Build();
-  patch.has_fixed_receiver_window_hz = true;
-  patch.receiver_lower_hz = 3.0e9;
-  patch.receiver_upper_hz = std::numeric_limits<double>::quiet_NaN();
+  EsrRuntimeConfigPatch patch = esr_config::EsrRuntimeConfigBuilder().WithScanRateHz(3.0f).Build();
+  patch.has_use_explicit_scan_bounds = true;
+  patch.use_explicit_scan_bounds = true;
+  patch.has_scan_start_az_deg = true;
+  patch.has_scan_end_az_deg = true;
+  patch.has_scan_start_el_deg = true;
+  patch.has_scan_end_el_deg = true;
+  patch.scan_start_az_deg = std::numeric_limits<float>::quiet_NaN();
+  patch.scan_end_az_deg = 10.0f;
+  patch.scan_start_el_deg = -10.0f;
+  patch.scan_end_el_deg = 10.0f;
 
   const EsrRuntimeConfigResolveResult resolved =
       ResolveEsrRuntimeConfigPatch(current_config, patch);
@@ -64,11 +64,9 @@ TEST(EsrRuntimeConfigResolverTest, InvalidFieldRejectsWholePatch) {
   EXPECT_FALSE(resolved.pipeline_config_changed);
   EXPECT_FALSE(resolved.environment_model_config_changed);
   EXPECT_FLOAT_EQ(resolved.next_config.runtime_config.scan_rate_hz, 1.0f);
-  EXPECT_FLOAT_EQ(resolved.next_config.pipeline_config.detection.min_detect_snr_db, 6.0f);
 }
 
 }  // namespace
 }  // namespace internal
 }  // namespace session
-
 }  // namespace electronic_surveillance_radar

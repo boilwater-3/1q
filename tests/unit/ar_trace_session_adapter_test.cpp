@@ -82,8 +82,8 @@ TEST(TraceSessionAdapterTest, EsrTraceSessionWritesConfigInputOutput) {
       new oneq::trace::JsonlFileTraceSink(trace_path, false));
 
   session::EsrSessionConfig config;
-  config.pipeline_config.scan.az_step_deg = 120.0f;
-  config.pipeline_config.scan.el_step_deg = 40.0f;
+  config.hardware.beam_az_width_deg = 120.0f;
+  config.hardware.beam_el_width_deg = 40.0f;
 
   session::EsrTraceSession session(config, session::EsrTraceSessionOptions{sink, true});
 

@@ -9,7 +9,7 @@
 #include "1q/api.hpp"
 
 namespace electronic_surveillance_radar {
-namespace session {
+namespace config {
 
 /**
  * @brief EsrHardwareConfig 描述 ESR 装备固有参数。
@@ -27,7 +27,7 @@ struct ONEQ_API EsrHardwareConfig {
   float antenna_mount_el_deg{0.0f};       /**< 天线中心俯仰相对角（单位：deg） */
 };
 
-}  // namespace session
+}  // namespace config
 }  // namespace electronic_surveillance_radar
 
 #endif  // ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_HARDWARE_CONFIG_H_

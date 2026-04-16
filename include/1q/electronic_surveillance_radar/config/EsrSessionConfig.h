@@ -7,21 +7,28 @@
 #define ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_SESSION_CONFIG_H_
 
 #include "1q/api.hpp"
-#include "1q/electronic_surveillance_radar/config/EsrLayeredConfig.h"
-#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentConfig.h"
-#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
+#include "1q/electronic_surveillance_radar/config/EsrDetectionPolicyConfig.h"
+#include "1q/electronic_surveillance_radar/config/EsrEnvironmentPolicyConfig.h"
+#include "1q/electronic_surveillance_radar/config/EsrHardwareConfig.h"
+#include "1q/electronic_surveillance_radar/config/EsrMissionControlConfig.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
 
+using EsrWorkMode = config::EsrWorkMode;
+using EsrScanStartPosition = config::EsrScanStartPosition;
+using EsrScanSequence = config::EsrScanSequence;
+using EsrHardwareConfig = config::EsrHardwareConfig;
+using EsrMissionControlConfig = config::EsrMissionControlConfig;
+
 /**
- * @brief EsrSessionConfig 描述电子侦察会话默认装配配置。
+ * @brief EsrSessionConfig 描述电子侦察会话初始化高层输入。
  */
 struct ONEQ_API EsrSessionConfig {
-  bool enable_layered_config{false};                    /**< 是否启用分层参数覆盖 */
-  EsrLayeredConfig layered_config{};                    /**< 分层参数入口 */
-  extension::InterceptPipelineConfig pipeline_config{}; /**< 流水线配置 */
-  environment::EsrEnvironmentDefaultConfig environment_default_config{}; /**< 默认环境配置 */
+  config::EsrHardwareConfig hardware{};          /**< 装备固有能力输入 */
+  config::EsrMissionControlConfig mission{};     /**< 任务控制语义输入 */
+  config::EsrDetectionPolicyConfig detection{};  /**< 探测策略语义输入 */
+  config::EsrEnvironmentPolicyConfig environment{}; /**< 环境策略语义输入 */
 };
 
 }  // namespace session

@@ -20,7 +20,9 @@ int main() {
       new oneq::trace::JsonlFileTraceSink(trace_path, false));
 
   const esr::session::EsrSessionConfig config =
-      esr::config::EsrSessionConfigBuilder().WithDetectionMinSnrDb(0.0f).Build();
+      esr::config::EsrSessionConfigBuilder()
+          .WithDetectionProfile(esr::config::EsrDetectionProfile::kSensitive)
+          .Build();
   esr::session::EsrTraceSession session(config, esr::session::EsrTraceSessionOptions{sink, true});
 
   esr::session::EsrCycleInput input;
@@ -35,4 +37,3 @@ int main() {
             << std::endl;
   return 0;
 }
-

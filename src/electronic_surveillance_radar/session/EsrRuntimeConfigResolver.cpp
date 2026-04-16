@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 
+#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
 #include "common/logging/ProjectLog.h"
 
 namespace electronic_surveillance_radar {
@@ -11,11 +13,11 @@ namespace internal {
 namespace {
 
 bool IsFinite(float value) { return std::isfinite(value) != 0; }
-bool IsFinite(double value) { return std::isfinite(value) != 0; }
-
-bool IsValidReceiverWindow(double lower_hz, double upper_hz) {
-  return IsFinite(lower_hz) && IsFinite(upper_hz) && upper_hz > lower_hz;
-}
+constexpr std::uint32_t kActiveScanPulseMultiplier = 4U;
+constexpr std::uint32_t kMaxPulseCount = 4096U;
+constexpr float kMinimumThresholdScale = 0.1f;
+constexpr float kHgesmThresholdScale = 0.85f;
+constexpr float kRwrThresholdScale = 1.25f;
 
 EsrRuntimeConfigResolveResult RejectPatch(const ResolvedEsrSessionConfig& current_config,
                                           bool has_requested_update) {
@@ -26,6 +28,67 @@ EsrRuntimeConfigResolveResult RejectPatch(const ResolvedEsrSessionConfig& curren
   return rejected;
 }
 
+void NormalizeScanBounds(float* start, float* end) {
+  if (start == nullptr || end == nullptr) {
+    return;
+  }
+  if (*start > *end) {
+    std::swap(*start, *end);
+  }
+}
+
+void ApplyWorkModeAdjustment(config::EsrWorkMode mode,
+                             extension::InterceptStatisticalDetectionConfig* config_value) {
+  if (config_value == nullptr) {
+    return;
+  }
+  config_value->pulse_count = std::max<std::uint32_t>(1U, config_value->pulse_count);
+  config_value->threshold_scale =
+      IsFinite(config_value->threshold_scale) && config_value->threshold_scale > 0.0f
+          ? config_value->threshold_scale
+          : 1.0f;
+  switch (mode) {
+    case config::EsrWorkMode::kHgesm:
+      config_value->pulse_count = std::min<std::uint32_t>(
+          config_value->pulse_count * kActiveScanPulseMultiplier, kMaxPulseCount);
+      config_value->threshold_scale =
+          std::max(kMinimumThresholdScale, config_value->threshold_scale * kHgesmThresholdScale);
+      break;
+    case config::EsrWorkMode::kRwr:
+      config_value->pulse_count = std::max<std::uint32_t>(1U, config_value->pulse_count / 2U);
+      config_value->threshold_scale =
+          std::max(kMinimumThresholdScale, config_value->threshold_scale * kRwrThresholdScale);
+      break;
+    case config::EsrWorkMode::kEsm:
+    default:
+      break;
+  }
+}
+
+void ApplyEnvironmentPreset(config::EsrEnvironmentPreset preset,
+                            environment::EsrEnvironmentModelConfig* model_config) {
+  if (model_config == nullptr) {
+    return;
+  }
+  switch (preset) {
+    case config::EsrEnvironmentPreset::kLowClutter:
+      model_config->default_clutter_noise_w = 5.0e-13f;
+      model_config->jamming_detection_threshold_w = 8.0e-10f;
+      break;
+    case config::EsrEnvironmentPreset::kDenseClutter:
+      model_config->default_clutter_noise_w = 5.0e-12f;
+      model_config->jamming_detection_threshold_w = 2.0e-9f;
+      break;
+    case config::EsrEnvironmentPreset::kJammed:
+      model_config->default_clutter_noise_w = 1.0e-11f;
+      model_config->jamming_detection_threshold_w = 5.0e-9f;
+      break;
+    case config::EsrEnvironmentPreset::kStandard:
+    default:
+      break;
+  }
+}
+
 }  // namespace
 
 EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
@@ -34,29 +97,18 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
   resolved.next_config = current_config;
   bool has_requested_update = false;
 
-  const bool has_fixed_receiver_window_patch = patch.has_fixed_receiver_window_hz;
-  bool fixed_receiver_window_bounds_valid = false;
-  if (has_fixed_receiver_window_patch) {
-    has_requested_update = true;
-    fixed_receiver_window_bounds_valid =
-        IsValidReceiverWindow(patch.receiver_lower_hz, patch.receiver_upper_hz);
-    if (!fixed_receiver_window_bounds_valid) {
-      PROJECT_LOG_ERROR(
-          "[EsrSession] Rejecting runtime config patch due to invalid fixed receiver window "
-          "bounds: lower_hz={} upper_hz={}.",
-          patch.receiver_lower_hz, patch.receiver_upper_hz);
-      return RejectPatch(current_config, true);
-    }
-    resolved.next_config.runtime_config.receiver_lower_hz = patch.receiver_lower_hz;
-    resolved.next_config.runtime_config.receiver_upper_hz = patch.receiver_upper_hz;
-    resolved.runtime_config_changed = true;
-  }
-
   if (patch.has_sensor_enabled) {
     resolved.next_config.runtime_config.sensor_enabled = patch.sensor_enabled;
     resolved.runtime_config_changed = true;
     has_requested_update = true;
   }
+
+  if (patch.has_work_mode) {
+    ApplyWorkModeAdjustment(patch.work_mode, &resolved.next_config.pipeline_config.statistical_detection);
+    resolved.pipeline_config_changed = true;
+    has_requested_update = true;
+  }
+
   if (patch.has_scan_rate_hz) {
     has_requested_update = true;
     if (!IsFinite(patch.scan_rate_hz) || patch.scan_rate_hz <= 0.0f) {
@@ -69,97 +121,72 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
     resolved.next_config.runtime_config.scan_rate_hz = patch.scan_rate_hz;
     resolved.runtime_config_changed = true;
   }
-  if (patch.has_integrated_receive_loss_db) {
-    has_requested_update = true;
-    if (!IsFinite(patch.integrated_receive_loss_db)) {
-      PROJECT_LOG_ERROR(
-          "[EsrSession] Rejecting runtime config patch due to non-finite "
-          "integrated_receive_loss_db={}.",
-          patch.integrated_receive_loss_db);
-      return RejectPatch(current_config, true);
-    }
-    resolved.next_config.runtime_config.integrated_receive_loss_db =
-        std::max(0.0f, patch.integrated_receive_loss_db);
-    resolved.runtime_config_changed = true;
-  }
 
-  const bool current_fixed_receiver_window_bounds_valid =
-      IsValidReceiverWindow(resolved.next_config.runtime_config.receiver_lower_hz,
-                            resolved.next_config.runtime_config.receiver_upper_hz);
-  if (patch.has_use_fixed_receiver_window) {
-    has_requested_update = true;
-    if (patch.use_fixed_receiver_window && !current_fixed_receiver_window_bounds_valid) {
-      PROJECT_LOG_ERROR(
-          "[EsrSession] Rejecting runtime config patch because fixed receiver window is enabled "
-          "without valid bounds: lower_hz={} upper_hz={}.",
-          resolved.next_config.runtime_config.receiver_lower_hz,
-          resolved.next_config.runtime_config.receiver_upper_hz);
-      return RejectPatch(current_config, true);
-    }
-    resolved.next_config.runtime_config.use_fixed_receiver_window = patch.use_fixed_receiver_window;
-    resolved.runtime_config_changed = true;
-  } else if (has_fixed_receiver_window_patch) {
-    resolved.next_config.runtime_config.use_fixed_receiver_window = true;
-    resolved.runtime_config_changed = true;
-  }
-
-  if (patch.has_enable_statistical_detection) {
-    resolved.next_config.pipeline_config.statistical_detection.enable_statistical_detection =
-        patch.enable_statistical_detection;
+  if (patch.has_scan_start_position) {
+    resolved.next_config.pipeline_config.scan.scan_start_pos =
+        static_cast<int>(patch.scan_start_position);
     resolved.pipeline_config_changed = true;
     has_requested_update = true;
   }
-  if (patch.has_enable_spectral_analysis) {
-    resolved.next_config.pipeline_config.spectral_analysis.enable = patch.enable_spectral_analysis;
+  if (patch.has_scan_sequence) {
+    resolved.next_config.pipeline_config.scan.scan_sequence = static_cast<int>(patch.scan_sequence);
     resolved.pipeline_config_changed = true;
     has_requested_update = true;
   }
-  if (patch.has_detection_min_snr_db) {
+  if (patch.has_scan_center_az_deg) {
     has_requested_update = true;
-    if (!IsFinite(patch.detection_min_snr_db)) {
-      PROJECT_LOG_ERROR(
-          "[EsrSession] Rejecting runtime config patch due to non-finite detection_min_snr_db={}.",
-          patch.detection_min_snr_db);
+    if (!IsFinite(patch.scan_center_az_deg)) {
+      PROJECT_LOG_ERROR("[EsrSession] Rejecting runtime config patch due to non-finite scan_center_az_deg={} .",
+                        patch.scan_center_az_deg);
       return RejectPatch(current_config, true);
     }
-    resolved.next_config.pipeline_config.detection.min_detect_snr_db = patch.detection_min_snr_db;
+    const float half_az_span = 0.5f * std::fabs(resolved.next_config.pipeline_config.scan.scan_end_az_deg -
+                                                resolved.next_config.pipeline_config.scan.scan_start_az_deg);
+    resolved.next_config.pipeline_config.scan.scan_start_az_deg = patch.scan_center_az_deg - half_az_span;
+    resolved.next_config.pipeline_config.scan.scan_end_az_deg = patch.scan_center_az_deg + half_az_span;
     resolved.pipeline_config_changed = true;
   }
-
-  if (patch.has_environment_runtime_config) {
+  if (patch.has_scan_center_el_deg) {
     has_requested_update = true;
-    const environment::EsrEnvironmentRuntimeConfigPatch& environment_patch =
-        patch.environment_runtime_config;
-    if (environment_patch.has_model_config) {
-      resolved.next_config.environment_model_config = environment_patch.model_config;
-      resolved.environment_model_config_changed = true;
+    if (!IsFinite(patch.scan_center_el_deg)) {
+      PROJECT_LOG_ERROR("[EsrSession] Rejecting runtime config patch due to non-finite scan_center_el_deg={} .",
+                        patch.scan_center_el_deg);
+      return RejectPatch(current_config, true);
     }
-    if (environment_patch.has_jamming_detection_threshold_w) {
-      if (!IsFinite(environment_patch.jamming_detection_threshold_w)) {
+    const float half_el_span = 0.5f * std::fabs(resolved.next_config.pipeline_config.scan.scan_end_el_deg -
+                                                resolved.next_config.pipeline_config.scan.scan_start_el_deg);
+    resolved.next_config.pipeline_config.scan.scan_start_el_deg = patch.scan_center_el_deg - half_el_span;
+    resolved.next_config.pipeline_config.scan.scan_end_el_deg = patch.scan_center_el_deg + half_el_span;
+    resolved.pipeline_config_changed = true;
+  }
+  if (patch.has_use_explicit_scan_bounds) {
+    has_requested_update = true;
+    if (patch.use_explicit_scan_bounds) {
+      if (!patch.has_scan_start_az_deg || !patch.has_scan_end_az_deg || !patch.has_scan_start_el_deg ||
+          !patch.has_scan_end_el_deg || !IsFinite(patch.scan_start_az_deg) ||
+          !IsFinite(patch.scan_end_az_deg) || !IsFinite(patch.scan_start_el_deg) ||
+          !IsFinite(patch.scan_end_el_deg)) {
         PROJECT_LOG_ERROR(
-            "[EsrSession] Rejecting runtime config patch due to non-finite "
-            "jamming_detection_threshold_w={}.",
-            environment_patch.jamming_detection_threshold_w);
+            "[EsrSession] Rejecting runtime config patch due to invalid explicit scan bounds payload.");
         return RejectPatch(current_config, true);
       }
-      resolved.next_config.environment_model_config.jamming_detection_threshold_w =
-          std::max(0.0f, environment_patch.jamming_detection_threshold_w);
-      resolved.environment_model_config_changed = true;
+      float start_az = patch.scan_start_az_deg;
+      float end_az = patch.scan_end_az_deg;
+      float start_el = patch.scan_start_el_deg;
+      float end_el = patch.scan_end_el_deg;
+      NormalizeScanBounds(&start_az, &end_az);
+      NormalizeScanBounds(&start_el, &end_el);
+      resolved.next_config.pipeline_config.scan.scan_start_az_deg = start_az;
+      resolved.next_config.pipeline_config.scan.scan_end_az_deg = end_az;
+      resolved.next_config.pipeline_config.scan.scan_start_el_deg = start_el;
+      resolved.next_config.pipeline_config.scan.scan_end_el_deg = end_el;
+      resolved.pipeline_config_changed = true;
     }
   }
-
-  if (patch.has_observation_jam_mark_threshold_w) {
+  if (patch.has_environment_preset) {
+    ApplyEnvironmentPreset(patch.environment_preset, &resolved.next_config.environment_model_config);
+    resolved.environment_model_config_changed = true;
     has_requested_update = true;
-    if (!IsFinite(patch.observation_jam_mark_threshold_w)) {
-      PROJECT_LOG_ERROR(
-          "[EsrSession] Rejecting runtime config patch due to non-finite "
-          "observation_jam_mark_threshold_w={}.",
-          patch.observation_jam_mark_threshold_w);
-      return RejectPatch(current_config, true);
-    }
-    resolved.next_config.pipeline_config.suppression_model.suppression_mark_threshold_w =
-        std::max(0.0f, patch.observation_jam_mark_threshold_w);
-    resolved.pipeline_config_changed = true;
   }
 
   resolved.has_requested_update = has_requested_update;

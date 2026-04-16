@@ -19,32 +19,47 @@ class ONEQ_API EsrSessionConfigBuilder {
   explicit EsrSessionConfigBuilder(
       const session::EsrSessionConfig& config = {}) : config_(config) {}
 
-  EsrSessionConfigBuilder& EnableLayeredConfig(bool enable = true) {
-    config_.enable_layered_config = enable;
-    return *this;
-  }
   EsrSessionConfigBuilder& WithSessionConfig(const session::EsrSessionConfig& config) {
     config_ = config;
     return *this;
   }
-  EsrSessionConfigBuilder& WithWorkMode(session::EsrWorkMode mode) {
-    config_.layered_config.mission.work_mode = mode;
+  EsrSessionConfigBuilder& WithWorkMode(config::EsrWorkMode mode) {
+    config_.mission.work_mode = mode;
+    return *this;
+  }
+  EsrSessionConfigBuilder& WithPowerOn(bool power_on) {
+    config_.mission.power_on = power_on;
     return *this;
   }
   EsrSessionConfigBuilder& WithScanRateHz(float value) {
-    config_.layered_config.mission.scan_rate_hz = value;
+    config_.mission.scan.scan_rate_hz = value;
     return *this;
   }
-  EsrSessionConfigBuilder& EnableSpectralAnalysis(bool enable = true) {
-    config_.pipeline_config.spectral_analysis.enable = enable;
+  EsrSessionConfigBuilder& WithDetectionProfile(config::EsrDetectionProfile profile) {
+    config_.detection.profile = profile;
     return *this;
   }
-  EsrSessionConfigBuilder& WithDetectionMinSnrDb(float value) {
-    config_.pipeline_config.detection.min_detect_snr_db = value;
+  EsrSessionConfigBuilder& WithEnvironmentPreset(config::EsrEnvironmentPreset preset) {
+    config_.environment.preset = preset;
     return *this;
   }
-  EsrSessionConfigBuilder& WithJammingDetectionThresholdW(float value) {
-    config_.environment_default_config.model_config.jamming_detection_threshold_w = value;
+  EsrSessionConfigBuilder& WithHardwareConfig(const config::EsrHardwareConfig& hardware) {
+    config_.hardware = hardware;
+    return *this;
+  }
+  EsrSessionConfigBuilder& WithMissionControlConfig(
+      const config::EsrMissionControlConfig& mission) {
+    config_.mission = mission;
+    return *this;
+  }
+  EsrSessionConfigBuilder& WithDetectionPolicyConfig(
+      const config::EsrDetectionPolicyConfig& detection) {
+    config_.detection = detection;
+    return *this;
+  }
+  EsrSessionConfigBuilder& WithEnvironmentPolicyConfig(
+      const config::EsrEnvironmentPolicyConfig& environment) {
+    config_.environment = environment;
     return *this;
   }
   session::EsrSessionConfig Build() const { return config_; }

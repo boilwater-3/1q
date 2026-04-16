@@ -8,6 +8,7 @@
 
 #include <memory>
 
+#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 
 namespace electronic_surveillance_radar {

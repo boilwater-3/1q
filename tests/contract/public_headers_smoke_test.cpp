@@ -331,16 +331,16 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   EXPECT_EQ(static_cast<int>(shared_start), 0);
 
   session::EsrSessionConfig session_config = config::EsrSessionConfigBuilder()
-                                                 .EnableLayeredConfig(true)
                                                  .WithScanRateHz(1.0f)
-                                                 .EnableSpectralAnalysis(true)
+                                                 .WithDetectionProfile(config::EsrDetectionProfile::kBalanced)
                                                  .Build();
-  session_config.pipeline_config.scan.scan_start_az_deg = -60.0f;
-  session_config.pipeline_config.scan.scan_end_az_deg = 60.0f;
-  session_config.pipeline_config.scan.scan_start_el_deg = -20.0f;
-  session_config.pipeline_config.scan.scan_end_el_deg = 20.0f;
-  session_config.pipeline_config.scan.az_step_deg = 120.0f;
-  session_config.pipeline_config.scan.el_step_deg = 40.0f;
+  session_config.mission.scan.use_explicit_scan_bounds = true;
+  session_config.mission.scan.scan_start_az_deg = -60.0f;
+  session_config.mission.scan.scan_end_az_deg = 60.0f;
+  session_config.mission.scan.scan_start_el_deg = -20.0f;
+  session_config.mission.scan.scan_end_el_deg = 20.0f;
+  session_config.hardware.beam_az_width_deg = 120.0f;
+  session_config.hardware.beam_el_width_deg = 40.0f;
 
   session::EsrCycleInput input;
   input.cycle_index = 4U;
@@ -372,7 +372,7 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
 
   session::EsrSession session(session_config);
   const session::EsrRuntimeConfigPatch runtime_patch =
-      config::EsrRuntimeConfigBuilder().WithDetectionMinSnrDb(5.0f).Build();
+      config::EsrRuntimeConfigBuilder().WithWorkMode(config::EsrWorkMode::kRwr).Build();
   session.ApplyRuntimeConfig(runtime_patch);
   const session::EsrCycleResult result = session.StepWithResult(input);
   session::EsrTraceSession trace_session(session_config, session::EsrTraceSessionOptions{});

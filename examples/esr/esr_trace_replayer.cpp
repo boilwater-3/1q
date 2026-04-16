@@ -75,197 +75,62 @@ esr::environment::EsrAtmosphericPhysicsConfig ParseAtmosphericPhysics(const Json
 
 esr::session::EsrSessionConfig ParseSessionConfig(const Json& payload) {
   esr::session::EsrSessionConfig config;
-  config.enable_layered_config = GetBool(payload, "enable_layered_config", config.enable_layered_config);
-
-  if (payload.contains("layered_config")) {
-    const Json& layered = payload["layered_config"];
-    if (layered.contains("hardware")) {
-      const Json& h = layered["hardware"];
-      config.layered_config.hardware.receiver_band_lower_hz =
-          GetDouble(h, "receiver_band_lower_hz", config.layered_config.hardware.receiver_band_lower_hz);
-      config.layered_config.hardware.receiver_band_upper_hz =
-          GetDouble(h, "receiver_band_upper_hz", config.layered_config.hardware.receiver_band_upper_hz);
-      config.layered_config.hardware.receiver_sensitivity_w =
-          GetFloat(h, "receiver_sensitivity_w", config.layered_config.hardware.receiver_sensitivity_w);
-      config.layered_config.hardware.integrated_receive_loss_db =
-          GetFloat(h, "integrated_receive_loss_db", config.layered_config.hardware.integrated_receive_loss_db);
-      config.layered_config.hardware.beam_az_width_deg =
-          GetFloat(h, "beam_az_width_deg", config.layered_config.hardware.beam_az_width_deg);
-      config.layered_config.hardware.beam_el_width_deg =
-          GetFloat(h, "beam_el_width_deg", config.layered_config.hardware.beam_el_width_deg);
-      config.layered_config.hardware.az_scan_range_deg =
-          GetFloat(h, "az_scan_range_deg", config.layered_config.hardware.az_scan_range_deg);
-      config.layered_config.hardware.el_scan_range_deg =
-          GetFloat(h, "el_scan_range_deg", config.layered_config.hardware.el_scan_range_deg);
-      config.layered_config.hardware.antenna_mount_az_deg =
-          GetFloat(h, "antenna_mount_az_deg", config.layered_config.hardware.antenna_mount_az_deg);
-      config.layered_config.hardware.antenna_mount_el_deg =
-          GetFloat(h, "antenna_mount_el_deg", config.layered_config.hardware.antenna_mount_el_deg);
-    }
-    if (layered.contains("mission")) {
-      const Json& m = layered["mission"];
-      config.layered_config.mission.power_on = GetBool(m, "power_on", config.layered_config.mission.power_on);
-      config.layered_config.mission.work_mode =
-          static_cast<esr::session::EsrWorkMode>(GetInt(m, "work_mode", static_cast<int>(config.layered_config.mission.work_mode)));
-      config.layered_config.mission.scan_center_az_deg =
-          GetFloat(m, "scan_center_az_deg", config.layered_config.mission.scan_center_az_deg);
-      config.layered_config.mission.scan_center_el_deg =
-          GetFloat(m, "scan_center_el_deg", config.layered_config.mission.scan_center_el_deg);
-      config.layered_config.mission.scan_rate_hz =
-          GetFloat(m, "scan_rate_hz", config.layered_config.mission.scan_rate_hz);
-      config.layered_config.mission.scan_start_position =
-          static_cast<esr::session::EsrScanStartPosition>(GetInt(m, "scan_start_position", static_cast<int>(config.layered_config.mission.scan_start_position)));
-      config.layered_config.mission.scan_sequence =
-          static_cast<esr::session::EsrScanSequence>(GetInt(m, "scan_sequence", static_cast<int>(config.layered_config.mission.scan_sequence)));
-      config.layered_config.mission.use_explicit_scan_bounds =
-          GetBool(m, "use_explicit_scan_bounds", config.layered_config.mission.use_explicit_scan_bounds);
-      config.layered_config.mission.scan_start_az_deg =
-          GetFloat(m, "scan_start_az_deg", config.layered_config.mission.scan_start_az_deg);
-      config.layered_config.mission.scan_end_az_deg =
-          GetFloat(m, "scan_end_az_deg", config.layered_config.mission.scan_end_az_deg);
-      config.layered_config.mission.scan_start_el_deg =
-          GetFloat(m, "scan_start_el_deg", config.layered_config.mission.scan_start_el_deg);
-      config.layered_config.mission.scan_end_el_deg =
-          GetFloat(m, "scan_end_el_deg", config.layered_config.mission.scan_end_el_deg);
-    }
+  if (payload.contains("hardware")) {
+    const Json& h = payload["hardware"];
+    config.hardware.receiver_band_lower_hz =
+        GetDouble(h, "receiver_band_lower_hz", config.hardware.receiver_band_lower_hz);
+    config.hardware.receiver_band_upper_hz =
+        GetDouble(h, "receiver_band_upper_hz", config.hardware.receiver_band_upper_hz);
+    config.hardware.receiver_sensitivity_w =
+        GetFloat(h, "receiver_sensitivity_w", config.hardware.receiver_sensitivity_w);
+    config.hardware.integrated_receive_loss_db =
+        GetFloat(h, "integrated_receive_loss_db", config.hardware.integrated_receive_loss_db);
+    config.hardware.beam_az_width_deg =
+        GetFloat(h, "beam_az_width_deg", config.hardware.beam_az_width_deg);
+    config.hardware.beam_el_width_deg =
+        GetFloat(h, "beam_el_width_deg", config.hardware.beam_el_width_deg);
+    config.hardware.az_scan_range_deg =
+        GetFloat(h, "az_scan_range_deg", config.hardware.az_scan_range_deg);
+    config.hardware.el_scan_range_deg =
+        GetFloat(h, "el_scan_range_deg", config.hardware.el_scan_range_deg);
+    config.hardware.antenna_mount_az_deg =
+        GetFloat(h, "antenna_mount_az_deg", config.hardware.antenna_mount_az_deg);
+    config.hardware.antenna_mount_el_deg =
+        GetFloat(h, "antenna_mount_el_deg", config.hardware.antenna_mount_el_deg);
   }
-
-  if (payload.contains("pipeline_config")) {
-    const Json& p = payload["pipeline_config"];
-    if (p.contains("detection")) {
-      const Json& d = p["detection"];
-      config.pipeline_config.detection.receiver_noise_floor_w =
-          GetFloat(d, "receiver_noise_floor_w", config.pipeline_config.detection.receiver_noise_floor_w);
-      config.pipeline_config.detection.min_detect_snr_db =
-          GetFloat(d, "min_detect_snr_db", config.pipeline_config.detection.min_detect_snr_db);
-      config.pipeline_config.detection.max_detect_range_m =
-          GetFloat(d, "max_detect_range_m", config.pipeline_config.detection.max_detect_range_m);
-      config.pipeline_config.detection.min_dynamic_range_margin_db =
-          GetFloat(d, "min_dynamic_range_margin_db", config.pipeline_config.detection.min_dynamic_range_margin_db);
-      config.pipeline_config.detection.boundary_resolution_m =
-          GetFloat(d, "boundary_resolution_m", config.pipeline_config.detection.boundary_resolution_m);
-      config.pipeline_config.detection.boundary_max_iterations =
-          GetInt(d, "boundary_max_iterations", config.pipeline_config.detection.boundary_max_iterations);
-    }
-    if (p.contains("statistical_detection")) {
-      const Json& d = p["statistical_detection"];
-      config.pipeline_config.statistical_detection.pfa =
-          GetFloat(d, "pfa", config.pipeline_config.statistical_detection.pfa);
-      config.pipeline_config.statistical_detection.min_snr_db =
-          GetFloat(d, "min_snr_db", config.pipeline_config.statistical_detection.min_snr_db);
-      config.pipeline_config.statistical_detection.pulse_count =
-          static_cast<std::uint32_t>(GetInt(d, "pulse_count", static_cast<int>(config.pipeline_config.statistical_detection.pulse_count)));
-      config.pipeline_config.statistical_detection.integration_mode =
-          static_cast<esr::extension::InterceptIntegrationMode>(GetInt(d, "integration_mode", static_cast<int>(config.pipeline_config.statistical_detection.integration_mode)));
-      config.pipeline_config.statistical_detection.threshold_scale =
-          GetFloat(d, "threshold_scale", config.pipeline_config.statistical_detection.threshold_scale);
-      config.pipeline_config.statistical_detection.enable_statistical_detection =
-          GetBool(d, "enable_statistical_detection", config.pipeline_config.statistical_detection.enable_statistical_detection);
-    }
-    if (p.contains("scan")) {
-      const Json& s = p["scan"];
-      config.pipeline_config.scan.scan_start_az_deg =
-          GetFloat(s, "scan_start_az_deg", config.pipeline_config.scan.scan_start_az_deg);
-      config.pipeline_config.scan.scan_end_az_deg =
-          GetFloat(s, "scan_end_az_deg", config.pipeline_config.scan.scan_end_az_deg);
-      config.pipeline_config.scan.scan_start_el_deg =
-          GetFloat(s, "scan_start_el_deg", config.pipeline_config.scan.scan_start_el_deg);
-      config.pipeline_config.scan.scan_end_el_deg =
-          GetFloat(s, "scan_end_el_deg", config.pipeline_config.scan.scan_end_el_deg);
-      config.pipeline_config.scan.az_step_deg =
-          GetFloat(s, "az_step_deg", config.pipeline_config.scan.az_step_deg);
-      config.pipeline_config.scan.el_step_deg =
-          GetFloat(s, "el_step_deg", config.pipeline_config.scan.el_step_deg);
-      config.pipeline_config.scan.scan_start_pos =
-          GetInt(s, "scan_start_pos", config.pipeline_config.scan.scan_start_pos);
-      config.pipeline_config.scan.scan_sequence =
-          GetInt(s, "scan_sequence", config.pipeline_config.scan.scan_sequence);
-    }
-    if (p.contains("algorithm")) {
-      const Json& a = p["algorithm"];
-      config.pipeline_config.algorithm.random_seed =
-          static_cast<unsigned int>(GetInt(a, "random_seed", static_cast<int>(config.pipeline_config.algorithm.random_seed)));
-      config.pipeline_config.algorithm.angle_error_coefficient =
-          GetFloat(a, "angle_error_coefficient", config.pipeline_config.algorithm.angle_error_coefficient);
-    }
-    if (p.contains("preprocess")) {
-      const Json& pr = p["preprocess"];
-      config.pipeline_config.preprocess.dedup_time_window_sec =
-          GetFloat(pr, "dedup_time_window_sec", config.pipeline_config.preprocess.dedup_time_window_sec);
-      config.pipeline_config.preprocess.dedup_rf_window_hz =
-          GetDouble(pr, "dedup_rf_window_hz", config.pipeline_config.preprocess.dedup_rf_window_hz);
-      config.pipeline_config.preprocess.dedup_pw_window_sec =
-          GetDouble(pr, "dedup_pw_window_sec", config.pipeline_config.preprocess.dedup_pw_window_sec);
-      config.pipeline_config.preprocess.dedup_az_window_deg =
-          GetFloat(pr, "dedup_az_window_deg", config.pipeline_config.preprocess.dedup_az_window_deg);
-      config.pipeline_config.preprocess.dedup_el_window_deg =
-          GetFloat(pr, "dedup_el_window_deg", config.pipeline_config.preprocess.dedup_el_window_deg);
-      config.pipeline_config.preprocess.normalize_quality =
-          GetBool(pr, "normalize_quality", config.pipeline_config.preprocess.normalize_quality);
-    }
-    if (p.contains("cluster")) {
-      const Json& c = p["cluster"];
-      config.pipeline_config.cluster.radius = GetFloat(c, "radius", config.pipeline_config.cluster.radius);
-      config.pipeline_config.cluster.min_points =
-          static_cast<std::uint32_t>(GetInt(c, "min_points", static_cast<int>(config.pipeline_config.cluster.min_points)));
-      config.pipeline_config.cluster.rf_scale_hz = GetFloat(c, "rf_scale_hz", config.pipeline_config.cluster.rf_scale_hz);
-      config.pipeline_config.cluster.pw_scale_sec = GetFloat(c, "pw_scale_sec", config.pipeline_config.cluster.pw_scale_sec);
-      config.pipeline_config.cluster.az_scale_deg = GetFloat(c, "az_scale_deg", config.pipeline_config.cluster.az_scale_deg);
-      config.pipeline_config.cluster.el_scale_deg = GetFloat(c, "el_scale_deg", config.pipeline_config.cluster.el_scale_deg);
-      config.pipeline_config.cluster.snr_scale_db = GetFloat(c, "snr_scale_db", config.pipeline_config.cluster.snr_scale_db);
-    }
-    if (p.contains("association")) {
-      const Json& a = p["association"];
-      config.pipeline_config.association.gate_distance =
-          GetFloat(a, "gate_distance", config.pipeline_config.association.gate_distance);
-      config.pipeline_config.association.confirm_hits =
-          static_cast<std::uint32_t>(GetInt(a, "confirm_hits", static_cast<int>(config.pipeline_config.association.confirm_hits)));
-      config.pipeline_config.association.max_missed_cycles =
-          static_cast<std::uint32_t>(GetInt(a, "max_missed_cycles", static_cast<int>(config.pipeline_config.association.max_missed_cycles)));
-      config.pipeline_config.association.confidence_alpha =
-          GetFloat(a, "confidence_alpha", config.pipeline_config.association.confidence_alpha);
-      config.pipeline_config.association.output_tentative =
-          GetBool(a, "output_tentative", config.pipeline_config.association.output_tentative);
-    }
-    if (p.contains("suppression_model")) {
-      const Json& s = p["suppression_model"];
-      config.pipeline_config.suppression_model.suppression_noise_scale =
-          GetFloat(s, "suppression_noise_scale", config.pipeline_config.suppression_model.suppression_noise_scale);
-      config.pipeline_config.suppression_model.suppression_mark_threshold_w =
-          GetFloat(s, "suppression_mark_threshold_w", config.pipeline_config.suppression_model.suppression_mark_threshold_w);
-    }
-    if (p.contains("deception_model")) {
-      const Json& d = p["deception_model"];
-      config.pipeline_config.deception_model.false_alarm_probability_scale =
-          GetFloat(d, "false_alarm_probability_scale", config.pipeline_config.deception_model.false_alarm_probability_scale);
-      config.pipeline_config.deception_model.confusion_probability_scale =
-          GetFloat(d, "confusion_probability_scale", config.pipeline_config.deception_model.confusion_probability_scale);
-      config.pipeline_config.deception_model.max_false_observations_per_emitter =
-          static_cast<std::uint32_t>(GetInt(d, "max_false_observations_per_emitter", static_cast<int>(config.pipeline_config.deception_model.max_false_observations_per_emitter)));
-      config.pipeline_config.deception_model.aoa_confusion_std_deg =
-          GetFloat(d, "aoa_confusion_std_deg", config.pipeline_config.deception_model.aoa_confusion_std_deg);
-      config.pipeline_config.deception_model.rf_confusion_ratio =
-          GetFloat(d, "rf_confusion_ratio", config.pipeline_config.deception_model.rf_confusion_ratio);
-      config.pipeline_config.deception_model.pw_confusion_ratio =
-          GetFloat(d, "pw_confusion_ratio", config.pipeline_config.deception_model.pw_confusion_ratio);
-      config.pipeline_config.deception_model.cluster_confidence_penalty_scale =
-          GetFloat(d, "cluster_confidence_penalty_scale", config.pipeline_config.deception_model.cluster_confidence_penalty_scale);
-    }
+  if (payload.contains("mission")) {
+    const Json& m = payload["mission"];
+    config.mission.power_on = GetBool(m, "power_on", config.mission.power_on);
+    config.mission.work_mode = static_cast<esr::session::EsrWorkMode>(
+        GetInt(m, "work_mode", static_cast<int>(config.mission.work_mode)));
+    config.mission.scan.scan_center_az_deg =
+        GetFloat(m, "scan_center_az_deg", config.mission.scan.scan_center_az_deg);
+    config.mission.scan.scan_center_el_deg =
+        GetFloat(m, "scan_center_el_deg", config.mission.scan.scan_center_el_deg);
+    config.mission.scan.scan_rate_hz =
+        GetFloat(m, "scan_rate_hz", config.mission.scan.scan_rate_hz);
+    config.mission.scan.scan_start_position = static_cast<esr::session::EsrScanStartPosition>(
+        GetInt(m, "scan_start_position", static_cast<int>(config.mission.scan.scan_start_position)));
+    config.mission.scan.scan_sequence = static_cast<esr::session::EsrScanSequence>(
+        GetInt(m, "scan_sequence", static_cast<int>(config.mission.scan.scan_sequence)));
+    config.mission.scan.use_explicit_scan_bounds =
+        GetBool(m, "use_explicit_scan_bounds", config.mission.scan.use_explicit_scan_bounds);
+    config.mission.scan.scan_start_az_deg =
+        GetFloat(m, "scan_start_az_deg", config.mission.scan.scan_start_az_deg);
+    config.mission.scan.scan_end_az_deg =
+        GetFloat(m, "scan_end_az_deg", config.mission.scan.scan_end_az_deg);
+    config.mission.scan.scan_start_el_deg =
+        GetFloat(m, "scan_start_el_deg", config.mission.scan.scan_start_el_deg);
+    config.mission.scan.scan_end_el_deg =
+        GetFloat(m, "scan_end_el_deg", config.mission.scan.scan_end_el_deg);
   }
-
-  if (payload.contains("environment_default_config")) {
-    const Json& env = payload["environment_default_config"];
-    if (env.contains("model_config")) {
-      const Json& m = env["model_config"];
-      config.environment_default_config.model_config.default_clutter_noise_w =
-          GetFloat(m, "default_clutter_noise_w", config.environment_default_config.model_config.default_clutter_noise_w);
-      config.environment_default_config.model_config.jamming_detection_threshold_w =
-          GetFloat(m, "jamming_detection_threshold_w", config.environment_default_config.model_config.jamming_detection_threshold_w);
-      if (m.contains("atmospheric_physics")) {
-        config.environment_default_config.model_config.atmospheric_physics =
-            ParseAtmosphericPhysics(m["atmospheric_physics"]);
-      }
-    }
+  if (payload.contains("detection_profile")) {
+    config.detection.profile = static_cast<esr::config::EsrDetectionProfile>(
+        GetInt(payload, "detection_profile", static_cast<int>(config.detection.profile)));
+  }
+  if (payload.contains("environment_preset")) {
+    config.environment.preset = static_cast<esr::config::EsrEnvironmentPreset>(
+        GetInt(payload, "environment_preset", static_cast<int>(config.environment.preset)));
   }
 
   return config;
@@ -368,50 +233,35 @@ esr::session::EsrRuntimeConfigPatch ParseRuntimePatch(const Json& payload) {
   esr::session::EsrRuntimeConfigPatch patch;
   patch.has_sensor_enabled = GetBool(payload, "has_sensor_enabled", false);
   patch.sensor_enabled = GetBool(payload, "sensor_enabled", patch.sensor_enabled);
+  patch.has_work_mode = GetBool(payload, "has_work_mode", false);
+  patch.work_mode =
+      static_cast<esr::config::EsrWorkMode>(GetInt(payload, "work_mode", static_cast<int>(patch.work_mode)));
   patch.has_scan_rate_hz = GetBool(payload, "has_scan_rate_hz", false);
   patch.scan_rate_hz = GetFloat(payload, "scan_rate_hz", patch.scan_rate_hz);
-  patch.has_integrated_receive_loss_db = GetBool(payload, "has_integrated_receive_loss_db", false);
-  patch.integrated_receive_loss_db =
-      GetFloat(payload, "integrated_receive_loss_db", patch.integrated_receive_loss_db);
-  patch.has_fixed_receiver_window_hz = GetBool(payload, "has_fixed_receiver_window_hz", false);
-  patch.receiver_lower_hz = GetDouble(payload, "receiver_lower_hz", patch.receiver_lower_hz);
-  patch.receiver_upper_hz = GetDouble(payload, "receiver_upper_hz", patch.receiver_upper_hz);
-  patch.has_use_fixed_receiver_window = GetBool(payload, "has_use_fixed_receiver_window", false);
-  patch.use_fixed_receiver_window =
-      GetBool(payload, "use_fixed_receiver_window", patch.use_fixed_receiver_window);
-  patch.has_enable_statistical_detection = GetBool(payload, "has_enable_statistical_detection", false);
-  patch.enable_statistical_detection =
-      GetBool(payload, "enable_statistical_detection", patch.enable_statistical_detection);
-  patch.has_enable_spectral_analysis = GetBool(payload, "has_enable_spectral_analysis", false);
-  patch.enable_spectral_analysis =
-      GetBool(payload, "enable_spectral_analysis", patch.enable_spectral_analysis);
-  patch.has_detection_min_snr_db = GetBool(payload, "has_detection_min_snr_db", false);
-  patch.detection_min_snr_db = GetFloat(payload, "detection_min_snr_db", patch.detection_min_snr_db);
-  patch.has_observation_jam_mark_threshold_w =
-      GetBool(payload, "has_observation_jam_mark_threshold_w", false);
-  patch.observation_jam_mark_threshold_w =
-      GetFloat(payload, "observation_jam_mark_threshold_w", patch.observation_jam_mark_threshold_w);
-
-  patch.has_environment_runtime_config = GetBool(payload, "has_environment_runtime_config", false);
-  if (patch.has_environment_runtime_config && payload.contains("environment_runtime_config")) {
-    const Json& env = payload["environment_runtime_config"];
-    patch.environment_runtime_config.has_model_config = GetBool(env, "has_model_config", false);
-    if (patch.environment_runtime_config.has_model_config && env.contains("model_config")) {
-      const Json& m = env["model_config"];
-      patch.environment_runtime_config.model_config.default_clutter_noise_w =
-          GetFloat(m, "default_clutter_noise_w", patch.environment_runtime_config.model_config.default_clutter_noise_w);
-      patch.environment_runtime_config.model_config.jamming_detection_threshold_w =
-          GetFloat(m, "jamming_detection_threshold_w", patch.environment_runtime_config.model_config.jamming_detection_threshold_w);
-      if (m.contains("atmospheric_physics")) {
-        patch.environment_runtime_config.model_config.atmospheric_physics =
-            ParseAtmosphericPhysics(m["atmospheric_physics"]);
-      }
-    }
-    patch.environment_runtime_config.has_jamming_detection_threshold_w =
-        GetBool(env, "has_jamming_detection_threshold_w", false);
-    patch.environment_runtime_config.jamming_detection_threshold_w =
-        GetFloat(env, "jamming_detection_threshold_w", patch.environment_runtime_config.jamming_detection_threshold_w);
-  }
+  patch.has_scan_start_position = GetBool(payload, "has_scan_start_position", false);
+  patch.scan_start_position = static_cast<esr::config::EsrScanStartPosition>(
+      GetInt(payload, "scan_start_position", static_cast<int>(patch.scan_start_position)));
+  patch.has_scan_sequence = GetBool(payload, "has_scan_sequence", false);
+  patch.scan_sequence = static_cast<esr::config::EsrScanSequence>(
+      GetInt(payload, "scan_sequence", static_cast<int>(patch.scan_sequence)));
+  patch.has_scan_center_az_deg = GetBool(payload, "has_scan_center_az_deg", false);
+  patch.scan_center_az_deg = GetFloat(payload, "scan_center_az_deg", patch.scan_center_az_deg);
+  patch.has_scan_center_el_deg = GetBool(payload, "has_scan_center_el_deg", false);
+  patch.scan_center_el_deg = GetFloat(payload, "scan_center_el_deg", patch.scan_center_el_deg);
+  patch.has_use_explicit_scan_bounds = GetBool(payload, "has_use_explicit_scan_bounds", false);
+  patch.use_explicit_scan_bounds =
+      GetBool(payload, "use_explicit_scan_bounds", patch.use_explicit_scan_bounds);
+  patch.has_scan_start_az_deg = GetBool(payload, "has_scan_start_az_deg", false);
+  patch.scan_start_az_deg = GetFloat(payload, "scan_start_az_deg", patch.scan_start_az_deg);
+  patch.has_scan_end_az_deg = GetBool(payload, "has_scan_end_az_deg", false);
+  patch.scan_end_az_deg = GetFloat(payload, "scan_end_az_deg", patch.scan_end_az_deg);
+  patch.has_scan_start_el_deg = GetBool(payload, "has_scan_start_el_deg", false);
+  patch.scan_start_el_deg = GetFloat(payload, "scan_start_el_deg", patch.scan_start_el_deg);
+  patch.has_scan_end_el_deg = GetBool(payload, "has_scan_end_el_deg", false);
+  patch.scan_end_el_deg = GetFloat(payload, "scan_end_el_deg", patch.scan_end_el_deg);
+  patch.has_environment_preset = GetBool(payload, "has_environment_preset", false);
+  patch.environment_preset = static_cast<esr::config::EsrEnvironmentPreset>(
+      GetInt(payload, "environment_preset", static_cast<int>(patch.environment_preset)));
   return patch;
 }
 

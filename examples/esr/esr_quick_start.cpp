@@ -18,13 +18,16 @@ int main() {
 
   // 1) 创建会话。
   esr::session::EsrSessionConfig session_config =
-      esr::config::EsrSessionConfigBuilder().WithDetectionMinSnrDb(0.0f).Build();
-  session_config.pipeline_config.scan.scan_start_az_deg = -60.0f;
-  session_config.pipeline_config.scan.scan_end_az_deg = 60.0f;
-  session_config.pipeline_config.scan.scan_start_el_deg = -20.0f;
-  session_config.pipeline_config.scan.scan_end_el_deg = 20.0f;
-  session_config.pipeline_config.scan.az_step_deg = 120.0f;
-  session_config.pipeline_config.scan.el_step_deg = 40.0f;
+      esr::config::EsrSessionConfigBuilder()
+          .WithDetectionProfile(esr::config::EsrDetectionProfile::kSensitive)
+          .Build();
+  session_config.mission.scan.scan_start_az_deg = -60.0f;
+  session_config.mission.scan.scan_end_az_deg = 60.0f;
+  session_config.mission.scan.scan_start_el_deg = -20.0f;
+  session_config.mission.scan.scan_end_el_deg = 20.0f;
+  session_config.mission.scan.use_explicit_scan_bounds = true;
+  session_config.hardware.beam_az_width_deg = 120.0f;
+  session_config.hardware.beam_el_width_deg = 40.0f;
   esr::session::EsrSession session = esr::session::EsrSessionFactory::Create(session_config);
 
   // 2) 外部平台信息（位置、速度）。
