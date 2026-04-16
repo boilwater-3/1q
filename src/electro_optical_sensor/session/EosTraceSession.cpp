@@ -126,24 +126,23 @@ Json BuildJson(const model::EosCycleResult& value) {
 
 Json BuildJson(const EosSessionConfig& value) {
   Json json;
-  json["wavelength_lower_um"] = value.wavelength_lower_um;
-  json["wavelength_upper_um"] = value.wavelength_upper_um;
-  json["optical_aperture_m"] = value.optical_aperture_m;
-  json["focal_length_m"] = value.focal_length_m;
-  json["work_mode"] = static_cast<int>(value.work_mode);
-  json["horizontal_fov_deg"] = value.horizontal_fov_deg;
-  json["vertical_fov_deg"] = value.vertical_fov_deg;
-  json["scan_rate_deg_per_sec"] = value.scan_rate_deg_per_sec;
-  json["frame_rate_hz"] = value.frame_rate_hz;
-  json["minimum_snr_db"] = value.minimum_snr_db;
-  json["detection_sensitivity_w"] = value.detection_sensitivity_w;
-  json["scan_start_az_deg"] = value.scan_start_az_deg;
-  json["scan_end_az_deg"] = value.scan_end_az_deg;
-  json["scan_center_el_deg"] = value.scan_center_el_deg;
-  json["boresight_depression_deg"] = value.boresight_depression_deg;
-  json["min_detection_depression_deg"] = value.min_detection_depression_deg;
-  json["max_detection_depression_deg"] = value.max_detection_depression_deg;
-  json["visible_reference_irradiance_w_m2"] = value.visible_reference_irradiance_w_m2;
+  json["wavelength_lower_um"] = value.optical.wavelength_lower_um;
+  json["wavelength_upper_um"] = value.optical.wavelength_upper_um;
+  json["optical_aperture_m"] = value.optical.optical_aperture_m;
+  json["focal_length_m"] = value.optical.focal_length_m;
+  json["work_mode"] = static_cast<int>(value.scan.work_mode);
+  json["horizontal_fov_deg"] = value.scan.horizontal_fov_deg;
+  json["vertical_fov_deg"] = value.scan.vertical_fov_deg;
+  json["scan_rate_deg_per_sec"] = value.scan.scan_rate_deg_per_sec;
+  json["frame_rate_hz"] = value.scan.frame_rate_hz;
+  json["scan_start_az_deg"] = value.pointing.scan_start_az_deg;
+  json["scan_end_az_deg"] = value.pointing.scan_end_az_deg;
+  json["scan_center_el_deg"] = value.pointing.scan_center_el_deg;
+  json["boresight_depression_deg"] = value.pointing.boresight_depression_deg;
+  json["detection_profile"] = static_cast<int>(value.detection.profile);
+  json["stray_light_profile"] = static_cast<int>(value.stray_light.profile);
+  json["environment_model_type"] = static_cast<int>(value.environment.model_type);
+  json["environment_preset"] = static_cast<int>(value.environment.preset);
   return json;
 }
 
@@ -155,12 +154,14 @@ Json BuildJson(const EosRuntimeConfigPatch& value) {
   json["scan_rate_deg_per_sec"] = value.scan_rate_deg_per_sec;
   json["has_frame_rate_hz"] = value.has_frame_rate_hz;
   json["frame_rate_hz"] = value.frame_rate_hz;
-  json["has_minimum_snr_db"] = value.has_minimum_snr_db;
-  json["minimum_snr_db"] = value.minimum_snr_db;
-  json["has_enable_straylight_filter"] = value.has_enable_straylight_filter;
-  json["enable_straylight_filter"] = value.enable_straylight_filter;
-  json["has_visible_reference_irradiance_w_m2"] = value.has_visible_reference_irradiance_w_m2;
-  json["visible_reference_irradiance_w_m2"] = value.visible_reference_irradiance_w_m2;
+  json["has_detection_profile"] = value.has_detection_profile;
+  json["detection_profile"] = static_cast<int>(value.detection_profile);
+  json["has_stray_light_profile"] = value.has_stray_light_profile;
+  json["stray_light_profile"] = static_cast<int>(value.stray_light_profile);
+  json["has_environment_model_type"] = value.has_environment_model_type;
+  json["environment_model_type"] = static_cast<int>(value.environment_model_type);
+  json["has_environment_preset"] = value.has_environment_preset;
+  json["environment_preset"] = static_cast<int>(value.environment_preset);
   return json;
 }
 

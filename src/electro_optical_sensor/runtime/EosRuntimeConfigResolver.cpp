@@ -14,7 +14,7 @@ bool IsFinite(float value) { return std::isfinite(value) != 0; }
 
 EosRuntimeConfigResolveResult RejectPatch(
     const ::electro_optical_sensor::session::EosSessionConfig& current_config,
-                                          bool has_requested_update) {
+    bool has_requested_update) {
   EosRuntimeConfigResolveResult rejected;
   rejected.next_config = current_config;
   rejected.has_requested_update = has_requested_update;
@@ -34,9 +34,10 @@ EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(
   bool has_requested_update = false;
 
   if (patch.has_work_mode) {
-    resolved.next_config.work_mode = patch.work_mode;
+    resolved.next_config.scan.work_mode = patch.work_mode;
     has_requested_update = true;
   }
+
   if (patch.has_scan_rate_deg_per_sec) {
     has_requested_update = true;
     if (!IsFinite(patch.scan_rate_deg_per_sec) || patch.scan_rate_deg_per_sec <= 0.0f) {
@@ -46,9 +47,10 @@ EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(
           patch.scan_rate_deg_per_sec);
       return RejectPatch(current_config, true);
     }
-    resolved.next_config.scan_rate_deg_per_sec = patch.scan_rate_deg_per_sec;
+    resolved.next_config.scan.scan_rate_deg_per_sec = patch.scan_rate_deg_per_sec;
     resolved.reset_scan_phase = true;
   }
+
   if (patch.has_frame_rate_hz) {
     has_requested_update = true;
     if (!IsFinite(patch.frame_rate_hz) || patch.frame_rate_hz <= 0.0f) {
@@ -58,62 +60,27 @@ EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(
           patch.frame_rate_hz);
       return RejectPatch(current_config, true);
     }
-    resolved.next_config.frame_rate_hz = patch.frame_rate_hz;
+    resolved.next_config.scan.frame_rate_hz = patch.frame_rate_hz;
   }
-  if (patch.has_minimum_snr_db) {
-    resolved.next_config.minimum_snr_db = patch.minimum_snr_db;
+
+  if (patch.has_detection_profile) {
+    resolved.next_config.detection.profile = patch.detection_profile;
     has_requested_update = true;
   }
-  if (patch.has_enable_straylight_filter) {
-    resolved.next_config.enable_straylight_filter = patch.enable_straylight_filter;
+
+  if (patch.has_stray_light_profile) {
+    resolved.next_config.stray_light.profile = patch.stray_light_profile;
     has_requested_update = true;
   }
-  if (patch.has_visible_reference_irradiance_w_m2) {
+
+  if (patch.has_environment_model_type) {
+    resolved.next_config.environment.model_type = patch.environment_model_type;
     has_requested_update = true;
-    if (!IsFinite(patch.visible_reference_irradiance_w_m2) ||
-        patch.visible_reference_irradiance_w_m2 <= 0.0f) {
-      PROJECT_LOG_ERROR(
-          "[EosSession] Rejecting invalid visible_reference_irradiance_w_m2={}; "
-          "must be finite and positive.",
-          patch.visible_reference_irradiance_w_m2);
-      return RejectPatch(current_config, true);
-    }
-    resolved.next_config.visible_reference_irradiance_w_m2 =
-        patch.visible_reference_irradiance_w_m2;
   }
-  if (patch.has_environment_runtime_config) {
+
+  if (patch.has_environment_preset) {
+    resolved.next_config.environment.preset = patch.environment_preset;
     has_requested_update = true;
-    const environment::EosEnvironmentRuntimeConfigPatch& environment_patch =
-        patch.environment_runtime_config;
-    if (environment_patch.has_model_type) {
-      resolved.next_config.environment_default_config.model_type = environment_patch.model_type;
-    }
-    if (environment_patch.has_radiative_transfer_model) {
-      resolved.next_config.environment_default_config.radiative_transfer_model =
-          environment_patch.radiative_transfer_model;
-    }
-    if (environment_patch.has_aerosol_density_factor) {
-      if (!IsFinite(environment_patch.aerosol_density_factor) ||
-          environment_patch.aerosol_density_factor < 1.0f) {
-        PROJECT_LOG_ERROR(
-            "[EosSession] Rejecting invalid aerosol_density_factor={}; must be finite and >= 1.",
-            environment_patch.aerosol_density_factor);
-        return RejectPatch(current_config, true);
-      }
-      resolved.next_config.environment_default_config.aerosol_density_factor =
-          environment_patch.aerosol_density_factor;
-    }
-    if (environment_patch.has_turbulence_factor) {
-      if (!IsFinite(environment_patch.turbulence_factor) ||
-          environment_patch.turbulence_factor < 1.0f) {
-        PROJECT_LOG_ERROR(
-            "[EosSession] Rejecting invalid turbulence_factor={}; must be finite and >= 1.",
-            environment_patch.turbulence_factor);
-        return RejectPatch(current_config, true);
-      }
-      resolved.next_config.environment_default_config.turbulence_factor =
-          environment_patch.turbulence_factor;
-    }
   }
 
   resolved.has_requested_update = has_requested_update;

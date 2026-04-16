@@ -7,14 +7,17 @@
 #define ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_RUNTIME_CONFIG_PATCH_H_
 
 #include "1q/api.hpp"
+#include "1q/electro_optical_sensor/config/EosDetectionPolicyConfig.h"
+#include "1q/electro_optical_sensor/config/EosEnvironmentPolicyConfig.h"
+#include "1q/electro_optical_sensor/config/EosStrayLightPolicyConfig.h"
 #include "1q/electro_optical_sensor/config/EosWorkMode.h"
-#include "1q/electro_optical_sensor/environment/EosEnvironmentRuntimeConfigPatch.h"
+#include "1q/electro_optical_sensor/environment/EosEnvironmentConfig.h"
 
 namespace electro_optical_sensor {
 namespace session {
 
 /**
- * @brief EosRuntimeConfigPatch 描述运行期可变参数补丁。
+ * @brief EosRuntimeConfigPatch 描述运行期可变高层策略补丁。
  */
 struct ONEQ_API EosRuntimeConfigPatch {
   bool has_work_mode{false};
@@ -26,17 +29,18 @@ struct ONEQ_API EosRuntimeConfigPatch {
   bool has_frame_rate_hz{false};
   float frame_rate_hz{30.0f};
 
-  bool has_minimum_snr_db{false};
-  float minimum_snr_db{6.0f};
+  bool has_detection_profile{false};
+  config::EosDetectionProfile detection_profile{config::EosDetectionProfile::kBalanced};
 
-  bool has_enable_straylight_filter{false};
-  bool enable_straylight_filter{false};
+  bool has_stray_light_profile{false};
+  config::EosStrayLightProfile stray_light_profile{config::EosStrayLightProfile::kDisabled};
 
-  bool has_visible_reference_irradiance_w_m2{false};
-  float visible_reference_irradiance_w_m2{800.0f};
+  bool has_environment_model_type{false};
+  environment::EosEnvironmentModelType environment_model_type{
+      environment::EosEnvironmentModelType::kSimplified};
 
-  bool has_environment_runtime_config{false};
-  environment::EosEnvironmentRuntimeConfigPatch environment_runtime_config{};
+  bool has_environment_preset{false};
+  config::EosEnvironmentPreset environment_preset{config::EosEnvironmentPreset::kStandard};
 };
 
 }  // namespace session

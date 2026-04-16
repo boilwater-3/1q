@@ -24,48 +24,65 @@ class ONEQ_API EosSessionConfigBuilder {
     config_ = config;
     return *this;
   }
+
+  EosSessionConfigBuilder& WithOpticalHardware(
+      const EosOpticalHardwareConfig& optical) noexcept {
+    config_.optical = optical;
+    return *this;
+  }
+
+  EosSessionConfigBuilder& WithScanPolicy(const EosScanPolicyConfig& scan) noexcept {
+    config_.scan = scan;
+    return *this;
+  }
+
+  EosSessionConfigBuilder& WithPointing(const EosPointingConfig& pointing) noexcept {
+    config_.pointing = pointing;
+    return *this;
+  }
+
+  EosSessionConfigBuilder& WithDetectionProfile(EosDetectionProfile profile) noexcept {
+    config_.detection.profile = profile;
+    return *this;
+  }
+
+  EosSessionConfigBuilder& WithStrayLightProfile(EosStrayLightProfile profile) noexcept {
+    config_.stray_light.profile = profile;
+    return *this;
+  }
+
+  EosSessionConfigBuilder& WithEnvironmentPolicy(
+      const EosEnvironmentPolicyConfig& environment) noexcept {
+    config_.environment = environment;
+    return *this;
+  }
+
   EosSessionConfigBuilder& WithWorkMode(session::EosWorkMode mode) noexcept {
-    config_.work_mode = mode;
+    config_.scan.work_mode = mode;
     return *this;
   }
+
   EosSessionConfigBuilder& WithScanRateDegPerSec(float value) noexcept {
-    config_.scan_rate_deg_per_sec = value;
+    config_.scan.scan_rate_deg_per_sec = value;
     return *this;
   }
+
   EosSessionConfigBuilder& WithFrameRateHz(float value) noexcept {
-    config_.frame_rate_hz = value;
+    config_.scan.frame_rate_hz = value;
     return *this;
   }
-  EosSessionConfigBuilder& WithMinimumSnrDb(float value) noexcept {
-    config_.minimum_snr_db = value;
-    return *this;
-  }
-  EosSessionConfigBuilder& EnableStraylightFilter(bool enable = true) noexcept {
-    config_.enable_straylight_filter = enable;
-    return *this;
-  }
-  EosSessionConfigBuilder& WithVisibleReferenceIrradianceWm2(float value) noexcept {
-    config_.visible_reference_irradiance_w_m2 = value;
-    return *this;
-  }
+
   EosSessionConfigBuilder& WithEnvironmentModelType(
       environment::EosEnvironmentModelType model_type) noexcept {
-    config_.environment_default_config.model_type = model_type;
+    config_.environment.model_type = model_type;
     return *this;
   }
-  EosSessionConfigBuilder& WithRadiativeTransferModel(
-      foundation::radiative_transfer::RadiativeTransferModel model) noexcept {
-    config_.environment_default_config.radiative_transfer_model = model;
+
+  EosSessionConfigBuilder& WithEnvironmentPreset(EosEnvironmentPreset preset) noexcept {
+    config_.environment.preset = preset;
     return *this;
   }
-  EosSessionConfigBuilder& WithAerosolDensityFactor(float value) noexcept {
-    config_.environment_default_config.aerosol_density_factor = value;
-    return *this;
-  }
-  EosSessionConfigBuilder& WithTurbulenceFactor(float value) noexcept {
-    config_.environment_default_config.turbulence_factor = value;
-    return *this;
-  }
+
   session::EosSessionConfig Build() const noexcept { return config_; }
 
  private:

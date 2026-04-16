@@ -30,63 +30,44 @@ class ONEQ_API EosRuntimeConfigBuilder {
     patch_.work_mode = mode;
     return *this;
   }
+
   EosRuntimeConfigBuilder& WithScanRateDegPerSec(float value) noexcept {
     patch_.has_scan_rate_deg_per_sec = true;
     patch_.scan_rate_deg_per_sec = value;
     return *this;
   }
+
   EosRuntimeConfigBuilder& WithFrameRateHz(float value) noexcept {
     patch_.has_frame_rate_hz = true;
     patch_.frame_rate_hz = value;
     return *this;
   }
-  EosRuntimeConfigBuilder& WithMinimumSnrDb(float value) noexcept {
-    patch_.has_minimum_snr_db = true;
-    patch_.minimum_snr_db = value;
+
+  EosRuntimeConfigBuilder& WithDetectionProfile(EosDetectionProfile profile) noexcept {
+    patch_.has_detection_profile = true;
+    patch_.detection_profile = profile;
     return *this;
   }
-  EosRuntimeConfigBuilder& EnableStraylightFilter(bool enable = true) noexcept {
-    patch_.has_enable_straylight_filter = true;
-    patch_.enable_straylight_filter = enable;
+
+  EosRuntimeConfigBuilder& WithStrayLightProfile(EosStrayLightProfile profile) noexcept {
+    patch_.has_stray_light_profile = true;
+    patch_.stray_light_profile = profile;
     return *this;
   }
-  EosRuntimeConfigBuilder& WithVisibleReferenceIrradianceWm2(float value) noexcept {
-    patch_.has_visible_reference_irradiance_w_m2 = true;
-    patch_.visible_reference_irradiance_w_m2 = value;
-    return *this;
-  }
-  EosRuntimeConfigBuilder& WithEnvironmentRuntimeConfigPatch(
-      const environment::EosEnvironmentRuntimeConfigPatch& patch) noexcept {
-    patch_.has_environment_runtime_config = true;
-    patch_.environment_runtime_config = patch;
-    return *this;
-  }
+
   EosRuntimeConfigBuilder& WithEnvironmentModelType(
       environment::EosEnvironmentModelType model_type) noexcept {
-    patch_.has_environment_runtime_config = true;
-    patch_.environment_runtime_config.has_model_type = true;
-    patch_.environment_runtime_config.model_type = model_type;
+    patch_.has_environment_model_type = true;
+    patch_.environment_model_type = model_type;
     return *this;
   }
-  EosRuntimeConfigBuilder& WithRadiativeTransferModel(
-      foundation::radiative_transfer::RadiativeTransferModel model) noexcept {
-    patch_.has_environment_runtime_config = true;
-    patch_.environment_runtime_config.has_radiative_transfer_model = true;
-    patch_.environment_runtime_config.radiative_transfer_model = model;
+
+  EosRuntimeConfigBuilder& WithEnvironmentPreset(EosEnvironmentPreset preset) noexcept {
+    patch_.has_environment_preset = true;
+    patch_.environment_preset = preset;
     return *this;
   }
-  EosRuntimeConfigBuilder& WithAerosolDensityFactor(float value) noexcept {
-    patch_.has_environment_runtime_config = true;
-    patch_.environment_runtime_config.has_aerosol_density_factor = true;
-    patch_.environment_runtime_config.aerosol_density_factor = value;
-    return *this;
-  }
-  EosRuntimeConfigBuilder& WithTurbulenceFactor(float value) noexcept {
-    patch_.has_environment_runtime_config = true;
-    patch_.environment_runtime_config.has_turbulence_factor = true;
-    patch_.environment_runtime_config.turbulence_factor = value;
-    return *this;
-  }
+
   session::EosRuntimeConfigPatch Build() const noexcept { return patch_; }
 
  private:
