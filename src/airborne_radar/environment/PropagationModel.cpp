@@ -29,6 +29,51 @@ float LinearToDb(float linear_value) {
   return 10.0f * std::log10(safe_linear_value);
 }
 
+VegetationScatterPhysicsConfig ResolveVegetationScatterConfig(
+    const VegetationScatterPhysicsConfig& config) {
+  VegetationScatterPhysicsConfig resolved = config;
+  switch (config.cover_profile) {
+    case VegetationCoverProfile::kDisabled:
+      break;
+    case VegetationCoverProfile::kOpenGrassland:
+      resolved.leaf_size_m = 0.02f;
+      resolved.dielectric_constant_real = 1.8f;
+      resolved.leaf_count = 24U;
+      resolved.canopy_radius_m = 1.5f;
+      resolved.canopy_height_m = 0.8f;
+      break;
+    case VegetationCoverProfile::kSparseWoodland:
+      resolved.leaf_size_m = 0.04f;
+      resolved.dielectric_constant_real = 2.2f;
+      resolved.leaf_count = 56U;
+      resolved.canopy_radius_m = 2.8f;
+      resolved.canopy_height_m = 3.0f;
+      break;
+    case VegetationCoverProfile::kDeciduousForest:
+      resolved.leaf_size_m = 0.05f;
+      resolved.dielectric_constant_real = 2.6f;
+      resolved.leaf_count = 96U;
+      resolved.canopy_radius_m = 4.0f;
+      resolved.canopy_height_m = 6.0f;
+      break;
+    case VegetationCoverProfile::kConiferousForest:
+      resolved.leaf_size_m = 0.035f;
+      resolved.dielectric_constant_real = 2.4f;
+      resolved.leaf_count = 120U;
+      resolved.canopy_radius_m = 3.2f;
+      resolved.canopy_height_m = 8.0f;
+      break;
+    case VegetationCoverProfile::kTropicalDense:
+      resolved.leaf_size_m = 0.065f;
+      resolved.dielectric_constant_real = 3.1f;
+      resolved.leaf_count = 180U;
+      resolved.canopy_radius_m = 4.8f;
+      resolved.canopy_height_m = 9.0f;
+      break;
+  }
+  return resolved;
+}
+
 float ResolveVegetationIncidenceDeg(const VegetationScatterPhysicsConfig& config) {
   const float canopy_slope_rad = std::atan2(std::max(config.canopy_height_m, 0.1f),
                                             std::max(config.canopy_radius_m, 0.1f));
@@ -97,8 +142,9 @@ PropagationResult PropagationModel::Evaluate(const EnvironmentSceneState& scene_
     inputs.pressure_hpa = scene_state.atmospheric_physics.pressure_hpa;
     inputs.temperature_k = scene_state.atmospheric_physics.temperature_k;
     inputs.relative_humidity = scene_state.atmospheric_physics.relative_humidity;
-    inputs.k_factor = scene_state.atmospheric_context.k_factor;
-    inputs.day_of_year = scene_state.atmospheric_context.day_of_year;
+    inputs.k_factor = ResolveEffectiveKFactor(scene_state.atmospheric_context,
+                                              scene_state.atmospheric_physics);
+    inputs.day_of_year = ResolveEffectiveDayOfYear(scene_state.atmospheric_context);
     inputs.solar_flux_f107a = scene_state.atmospheric_context.solar_flux_f107a;
     inputs.solar_flux_f107 = scene_state.atmospheric_context.solar_flux_f107;
     inputs.geomagnetic_ap = scene_state.atmospheric_context.geomagnetic_ap;
@@ -111,12 +157,14 @@ PropagationResult PropagationModel::Evaluate(const EnvironmentSceneState& scene_
                                kInternalAtmosphericAttenuationDb +
                                kInternalTerrainReflectionDb + physical_loss_db;
   float clutter_power_db = kInternalBaselineClutterPowerDb;
-  if (scene_state.vegetation_scatter_physics.enable_physical_model) {
+  const VegetationScatterPhysicsConfig vegetation_config =
+      ResolveVegetationScatterConfig(scene_state.vegetation_scatter_physics);
+  if (vegetation_config.enable_physical_model) {
     const float mix_ratio = 0.7f;
     if (mix_ratio > 0.0f) {
       const float baseline_clutter_w = DbToLinear(clutter_power_db);
       const float physical_multiplier =
-          ComputeVegetationClutterMultiplier(scene_state.vegetation_scatter_physics);
+          ComputeVegetationClutterMultiplier(vegetation_config);
       const float physical_clutter_w = baseline_clutter_w * physical_multiplier;
       const float mixed_clutter_w =
           baseline_clutter_w * (1.0f - mix_ratio) + physical_clutter_w * mix_ratio;

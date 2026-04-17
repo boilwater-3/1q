@@ -120,7 +120,9 @@ struct AtmosphericPhysicsConfig {
  * @note 这些量依然来源于库边界外部输入，但不与基础气象量混放，避免普通用户误填。
  */
 struct AtmosphericDerivedContext {
+  bool has_k_factor{false};        /**< 是否显式提供地球有效半径因子 */
   float k_factor{4.0f / 3.0f};    /**< 地球有效半径因子 */
+  bool has_day_of_year{false};     /**< 是否显式提供年积日 */
   std::int32_t day_of_year{172};  /**< 年积日 [1, 366] */
   float solar_flux_f107a{150.0f}; /**< 平滑太阳流量指数 */
   float solar_flux_f107{150.0f};  /**< 当日太阳流量指数 */
@@ -132,9 +134,44 @@ struct AtmosphericDerivedContext {
 };
 
 /**
+ * @brief 推导环境上下文中的有效 k_factor（优先显式输入，否则使用默认近似）。
+ */
+inline float ResolveEffectiveKFactor(const AtmosphericDerivedContext& context,
+                                     const AtmosphericPhysicsConfig& physics) {
+  if (context.has_k_factor) {
+    return context.k_factor;
+  }
+  (void)physics;
+  return 4.0f / 3.0f;
+}
+
+/**
+ * @brief 推导环境上下文中的有效 day_of_year（优先显式输入，否则使用默认近似）。
+ */
+inline std::int32_t ResolveEffectiveDayOfYear(const AtmosphericDerivedContext& context) {
+  if (context.has_day_of_year) {
+    return context.day_of_year;
+  }
+  return 172;
+}
+
+/**
+ * @brief VegetationCoverProfile 描述植被覆盖语义档位。
+ */
+enum class VegetationCoverProfile {
+  kDisabled = 0,      /**< 无植被散射 */
+  kOpenGrassland,     /**< 开阔草地 */
+  kSparseWoodland,    /**< 稀疏林地 */
+  kDeciduousForest,   /**< 落叶林 */
+  kConiferousForest,  /**< 针叶林 */
+  kTropicalDense      /**< 热带密林 */
+};
+
+/**
  * @brief VegetationScatterPhysicsConfig 描述可选植被散射杂波参数。
  */
 struct VegetationScatterPhysicsConfig {
+  VegetationCoverProfile cover_profile{VegetationCoverProfile::kDisabled}; /**< 植被覆盖语义档位 */
   bool enable_physical_model{false}; /**< 是否启用植被散射物理建模 */
   float leaf_size_m{0.05f};          /**< 叶片等效尺度（单位：m） */
   float dielectric_constant_real{2.5f}; /**< 植被等效介电常数实部 */
@@ -142,16 +179,6 @@ struct VegetationScatterPhysicsConfig {
   float canopy_radius_m{1.2f};       /**< 冠层半径（单位：m） */
   float canopy_height_m{3.5f};       /**< 冠层高度（单位：m） */
   /** @note 植被散射内部标定项仍保留在库实现中，不作为公开输入。 */
-};
-
-/**
- * @brief EnvironmentModelConfig 描述环境模型参数。
- */
-struct EnvironmentModelConfig {
-  AtmosphericPhysicsConfig atmospheric_physics{}; /**< 可选物理传播参数 */
-  AtmosphericDerivedContext atmospheric_context{}; /**< 高层时间/空间天气上下文 */
-  VegetationScatterPhysicsConfig vegetation_scatter_physics{}; /**< 可选植被散射参数 */
-  JammerEmitterStateList jammer_sources{};  /**< 多源干扰事实输入 */
 };
 
 /**
@@ -163,6 +190,9 @@ struct EnvironmentScenarioConfig {
   VegetationScatterPhysicsConfig vegetation_scatter_physics{}; /**< 场景植被散射输入 */
   JammerEmitterStateList jammer_sources{}; /**< 场景干扰事实输入 */
 };
+
+/** @brief EnvironmentModelConfig 与 EnvironmentScenarioConfig 统一。 */
+using EnvironmentModelConfig = EnvironmentScenarioConfig;
 
 /**
  * @brief EnvironmentDefaultConfig 描述初始化阶段的默认环境配置。
@@ -180,12 +210,7 @@ struct EnvironmentDefaultConfig {
  */
 inline EnvironmentModelConfig BuildModelConfigFromScenario(
     const EnvironmentScenarioConfig& scenario_config) {
-  EnvironmentModelConfig model_config;
-  model_config.atmospheric_physics = scenario_config.atmospheric_physics;
-  model_config.atmospheric_context = scenario_config.atmospheric_context;
-  model_config.vegetation_scatter_physics = scenario_config.vegetation_scatter_physics;
-  model_config.jammer_sources = scenario_config.jammer_sources;
-  return model_config;
+  return scenario_config;
 }
 
 }  // namespace environment

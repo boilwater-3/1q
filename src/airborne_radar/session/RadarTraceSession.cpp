@@ -174,7 +174,9 @@ Json BuildJson(const environment::AtmosphericPhysicsConfig& value) {
 
 Json BuildJson(const environment::AtmosphericDerivedContext& value) {
   Json json;
+  json["has_k_factor"] = value.has_k_factor;
   json["k_factor"] = value.k_factor;
+  json["has_day_of_year"] = value.has_day_of_year;
   json["day_of_year"] = value.day_of_year;
   json["solar_flux_f107a"] = value.solar_flux_f107a;
   json["solar_flux_f107"] = value.solar_flux_f107;
@@ -220,6 +222,7 @@ Json BuildJson(const environment::EnvironmentScenarioConfig& value) {
   json["atmospheric_physics"] = BuildJson(value.atmospheric_physics);
   json["atmospheric_context"] = BuildJson(value.atmospheric_context);
   json["vegetation_scatter_physics"] = {
+      {"cover_profile", static_cast<int>(value.vegetation_scatter_physics.cover_profile)},
       {"enable_physical_model", value.vegetation_scatter_physics.enable_physical_model},
       {"leaf_size_m", value.vegetation_scatter_physics.leaf_size_m},
       {"dielectric_constant_real", value.vegetation_scatter_physics.dielectric_constant_real},
