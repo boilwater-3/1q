@@ -158,7 +158,6 @@ TEST(EosPublicApiConvenienceTest, InputValidationReportsErrorsForCommonBoundaryC
   session::EosCycleInput input;
   input.dt_sec = 0.0f;
   input.solar_irradiance_w_m2 = -1.0f;
-  input.atmospheric_transmittance = 1.5f;
   input.cloud_coverage_ratio = -0.1f;
   input.ambient_wind_speed_mps = -5.0f;
   input.background_temperature_k = 0.0f;
@@ -177,8 +176,6 @@ TEST(EosPublicApiConvenienceTest, InputValidationReportsErrorsForCommonBoundaryC
 
   EXPECT_TRUE(ContainsEosIssueCode(issues, model::EosValidationCode::kInvalidCycleDeltaTime));
   EXPECT_TRUE(ContainsEosIssueCode(issues, model::EosValidationCode::kInvalidSolarIrradiance));
-  EXPECT_TRUE(
-      ContainsEosIssueCode(issues, model::EosValidationCode::kInvalidAtmosphericTransmittance));
   EXPECT_TRUE(ContainsEosIssueCode(issues, model::EosValidationCode::kInvalidCloudCoverageRatio));
   EXPECT_TRUE(ContainsEosIssueCode(issues, model::EosValidationCode::kInvalidAmbientWindSpeed));
   EXPECT_TRUE(
@@ -470,8 +467,6 @@ TEST(EosPublicApiConvenienceTest, EosSessionMultiCycleProducesProgressiveCycleIn
 TEST(EosPublicApiConvenienceTest, EosEnvironmentDefaultConfigHasReasonableDefaults) {
   const environment::EosEnvironmentDefaultConfig default_config;
   EXPECT_EQ(default_config.model_type, environment::EosEnvironmentModelType::kSimplified);
-  EXPECT_NEAR(default_config.aerosol_density_factor, 1.0f, 1e-5f);
-  EXPECT_NEAR(default_config.turbulence_factor, 1.0f, 1e-5f);
 }
 
 TEST(EosPublicApiConvenienceTest, EosRuntimeConfigBuilderWithEnvironmentPolicies) {

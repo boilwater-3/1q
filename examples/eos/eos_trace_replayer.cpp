@@ -110,9 +110,8 @@ eos::session::EosCycleInput ParseCycleInput(const Json& payload) {
   input.solar_altitude_deg = GetFloat(payload, "solar_altitude_deg", input.solar_altitude_deg);
   input.solar_azimuth_deg = GetFloat(payload, "solar_azimuth_deg", input.solar_azimuth_deg);
   input.solar_irradiance_w_m2 = GetFloat(payload, "solar_irradiance_w_m2", input.solar_irradiance_w_m2);
-  input.atmospheric_transmittance =
-      GetFloat(payload, "atmospheric_transmittance", input.atmospheric_transmittance);
   input.cloud_coverage_ratio = GetFloat(payload, "cloud_coverage_ratio", input.cloud_coverage_ratio);
+  input.ambient_wind_speed_mps = GetFloat(payload, "ambient_wind_speed_mps", input.ambient_wind_speed_mps);
   input.day_night_type = static_cast<eos::session::DayNightType>(
       GetInt(payload, "day_night_type", static_cast<int>(input.day_night_type)));
   input.background_temperature_k =

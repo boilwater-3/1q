@@ -25,25 +25,6 @@ class ONEQ_API EosEnvironmentRuntimeConfigPatchBuilder {
     return *this;
   }
 
-  EosEnvironmentRuntimeConfigPatchBuilder& WithRadiativeTransferModel(
-      foundation::radiative_transfer::RadiativeTransferModel model) {
-    patch_.has_radiative_transfer_model = true;
-    patch_.radiative_transfer_model = model;
-    return *this;
-  }
-
-  EosEnvironmentRuntimeConfigPatchBuilder& WithAerosolDensityFactor(float value) {
-    patch_.has_aerosol_density_factor = true;
-    patch_.aerosol_density_factor = value;
-    return *this;
-  }
-
-  EosEnvironmentRuntimeConfigPatchBuilder& WithTurbulenceFactor(float value) {
-    patch_.has_turbulence_factor = true;
-    patch_.turbulence_factor = value;
-    return *this;
-  }
-
   EosEnvironmentRuntimeConfigPatch Build() const { return patch_; }
 
  private:

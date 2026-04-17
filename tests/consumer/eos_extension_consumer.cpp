@@ -91,7 +91,6 @@ int main() {
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
   input.solar_irradiance_w_m2 = 850.0f;
-  input.atmospheric_transmittance = 0.8f;
   input.background_temperature_k = 289.0f;
 
   controller.RunOnce(input);

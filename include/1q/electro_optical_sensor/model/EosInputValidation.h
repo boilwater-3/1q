@@ -34,7 +34,6 @@ enum class EosValidationCode {
   kNonFiniteCycleDeltaTime,         /**< 周期步长非有限值 */
   kNonFinitePlatformNumericField,   /**< 平台位姿存在非有限值 */
   kInvalidSolarIrradiance,          /**< 太阳辐照度非法（< 0） */
-  kInvalidAtmosphericTransmittance, /**< 大气透明度非法（不在 [0, 1]） */
   kInvalidCloudCoverageRatio,       /**< 云量非法（不在 [0, 1]） */
   kInvalidAmbientWindSpeed,         /**< 环境风速非法（非有限值或 < 0） */
   kInvalidBackgroundTemperature,    /**< 背景温度非法（<= 0） */

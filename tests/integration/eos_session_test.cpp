@@ -46,7 +46,6 @@ session::EosCycleInput MakeBaseInput() {
   input.dt_sec = 1.0f;
   input.solar_irradiance_w_m2 = 850.0f;
   input.solar_altitude_deg = 45.0f;
-  input.atmospheric_transmittance = 0.8f;
   input.cloud_coverage_ratio = 0.2f;
   input.background_temperature_k = 289.0f;
   input.day_night_type = session::DayNightType::kDay;
@@ -237,7 +236,7 @@ TEST(EosSessionIntegrationTest, HigherCloudCoverageReducesVisibleSnr) {
             cloudy_frame.detections.front().fused_snr_linear);
 }
 
-TEST(EosSessionIntegrationTest, LowerTransmittanceReducesInfraredSnr) {
+TEST(EosSessionIntegrationTest, WorseAtmosphereObservationReducesInfraredSnr) {
   EosSessionConfig config = MakeSessionConfig();
   config.scan.work_mode = EosWorkMode::kInfraredOnly;
   config.detection.profile = eos_config::EosDetectionProfile::kAggressive;
@@ -246,10 +245,12 @@ TEST(EosSessionIntegrationTest, LowerTransmittanceReducesInfraredSnr) {
   EosSession poor_atm_session = EosSessionFactory::Create(config);
 
   session::EosCycleInput good_input = MakeBaseInput();
-  good_input.atmospheric_transmittance = 0.95f;
+  good_input.cloud_coverage_ratio = 0.1f;
+  good_input.ambient_wind_speed_mps = 3.0f;
 
   session::EosCycleInput poor_input = MakeBaseInput();
-  poor_input.atmospheric_transmittance = 0.3f;
+  poor_input.cloud_coverage_ratio = 0.9f;
+  poor_input.ambient_wind_speed_mps = 70.0f;
 
   const output::EosOutputFrame good_frame = good_atm_session.Step(good_input);
   const output::EosOutputFrame poor_frame = poor_atm_session.Step(poor_input);

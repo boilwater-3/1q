@@ -45,7 +45,6 @@ int main() {
   input.dt_sec = 1.0f;
   input.solar_irradiance_w_m2 = 850.0f;
   input.solar_altitude_deg = 45.0f;
-  input.atmospheric_transmittance = 0.8f;
   input.cloud_coverage_ratio = 0.2f;
   input.background_temperature_k = 289.0f;
   input.day_night_type = eos::session::DayNightType::kDay;

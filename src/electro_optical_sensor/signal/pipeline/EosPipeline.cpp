@@ -75,16 +75,31 @@ float ComputeApertureAreaM2(float optical_aperture_m) {
 
 foundation::radiative_transfer::RadiativeTransferResult ComputePathRadiativeTransfer(
 		const EosPipelineConfig& config, const ::electro_optical_sensor::session::EosCycleInput& input,
-		float range_m, float aerosol_density_factor, float turbulence_factor) {
+		float range_m, const environment::EosEnvironmentModelResult& environment_result) {
+	const float cloud_ratio = oneq::internal::numerics::Clamp01(input.cloud_coverage_ratio);
+	const float aerosol_excess = std::max(0.0f, environment_result.aerosol_density_factor - 1.0f);
+	const float turbulence_excess =
+			std::max(0.0f, environment_result.turbulence_factor - 1.0f);
+	const float path_km = std::max(0.0f, range_m) * 1.0e-3f;
+	const float altitude_km =
+			std::max(0.0f, std::fabs(input.platform_pose.position_m.z)) * 1.0e-3f;
+	const float attenuation_per_km =
+			0.03f + 0.02f * cloud_ratio + 0.035f * aerosol_excess + 0.015f * turbulence_excess;
+	const float altitude_relief_scale =
+			oneq::internal::numerics::Clamp(1.0f + 0.04f * altitude_km, 1.0f, 1.12f);
+	const float derived_base_transmittance = oneq::internal::numerics::Clamp(
+			std::exp(-attenuation_per_km * path_km) * altitude_relief_scale, 0.05f, 0.98f);
+
 	foundation::radiative_transfer::RadiativeTransferInputs transfer_inputs;
 	transfer_inputs.model = config.radiative_transfer_model;
-	transfer_inputs.base_transmittance =
-			oneq::internal::numerics::Clamp01(input.atmospheric_transmittance);
+	transfer_inputs.base_transmittance = derived_base_transmittance;
 	transfer_inputs.cloud_coverage_ratio =
 			oneq::internal::numerics::Clamp01(input.cloud_coverage_ratio);
 	transfer_inputs.path_length_m = std::max(0.0f, range_m);
-	transfer_inputs.aerosol_density_factor = std::max(1.0f, aerosol_density_factor);
-	transfer_inputs.turbulence_factor = std::max(1.0f, turbulence_factor);
+	transfer_inputs.aerosol_density_factor =
+			std::max(1.0f, environment_result.aerosol_density_factor);
+	transfer_inputs.turbulence_factor =
+			std::max(1.0f, environment_result.turbulence_factor);
 	return foundation::radiative_transfer::EvaluateRadiativeTransfer(transfer_inputs);
 }
 
@@ -168,9 +183,8 @@ DetectionComputationContext BuildDetectionComputationContext(
 	const environment::EosEnvironmentModelResult environment_result =
 			environment_service->ResolveFactors(environment_inputs);
 	const foundation::radiative_transfer::RadiativeTransferResult transfer_result =
-			ComputePathRadiativeTransfer(config, input, SafePositive(target.range_m, 1000.0f),
-																	 environment_result.aerosol_density_factor,
-																	 environment_result.turbulence_factor);
+			ComputePathRadiativeTransfer(
+					config, input, SafePositive(target.range_m, 1000.0f), environment_result);
 	context_values.path_transmittance = transfer_result.transmittance;
 	context_values.path_radiance_penalty_scale =
 			transfer_result.path_radiance_penalty_scale * environment_result.path_radiance_scale_bias;

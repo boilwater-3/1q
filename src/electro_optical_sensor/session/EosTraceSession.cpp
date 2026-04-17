@@ -65,8 +65,8 @@ Json BuildJson(const EosCycleInput& value) {
   json["solar_altitude_deg"] = value.solar_altitude_deg;
   json["solar_azimuth_deg"] = value.solar_azimuth_deg;
   json["solar_irradiance_w_m2"] = value.solar_irradiance_w_m2;
-  json["atmospheric_transmittance"] = value.atmospheric_transmittance;
   json["cloud_coverage_ratio"] = value.cloud_coverage_ratio;
+  json["ambient_wind_speed_mps"] = value.ambient_wind_speed_mps;
   json["day_night_type"] = static_cast<int>(value.day_night_type);
   json["background_temperature_k"] = value.background_temperature_k;
   json["scene_targets"] =

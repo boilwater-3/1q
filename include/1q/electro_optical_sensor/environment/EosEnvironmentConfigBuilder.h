@@ -24,22 +24,6 @@ class ONEQ_API EosEnvironmentConfigBuilder {
     return *this;
   }
 
-  EosEnvironmentConfigBuilder& WithRadiativeTransferModel(
-      foundation::radiative_transfer::RadiativeTransferModel model) {
-    config_.radiative_transfer_model = model;
-    return *this;
-  }
-
-  EosEnvironmentConfigBuilder& WithAerosolDensityFactor(float value) {
-    config_.aerosol_density_factor = value;
-    return *this;
-  }
-
-  EosEnvironmentConfigBuilder& WithTurbulenceFactor(float value) {
-    config_.turbulence_factor = value;
-    return *this;
-  }
-
   EosEnvironmentDefaultConfig Build() const { return config_; }
 
  private:

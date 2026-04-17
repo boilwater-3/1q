@@ -54,7 +54,6 @@ EosCycleInput MakeValidInput() {
   input.solar_altitude_deg = 42.0f;
   input.solar_azimuth_deg = 165.0f;
   input.solar_irradiance_w_m2 = 900.0f;
-  input.atmospheric_transmittance = 0.8f;
   input.cloud_coverage_ratio = 0.25f;
   input.day_night_type = DayNightType::kDay;
   input.background_temperature_k = 287.0f;

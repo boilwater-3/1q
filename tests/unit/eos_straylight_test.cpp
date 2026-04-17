@@ -68,7 +68,6 @@ session::EosCycleInput MakeInput() {
   input.solar_azimuth_deg = 180.0f;
   input.solar_altitude_deg = 45.0f;
   input.solar_irradiance_w_m2 = 900.0f;
-  input.atmospheric_transmittance = 0.95f;
   input.cloud_coverage_ratio = 0.0f;
   input.background_temperature_k = 220.0f;
   input.day_night_type = session::DayNightType::kDay;

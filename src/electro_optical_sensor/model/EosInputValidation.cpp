@@ -151,11 +151,6 @@ EosValidationIssueList ValidateEosCycleInput(
         EosValidationSeverity::kError, EosValidationCode::kInvalidSolarIrradiance,
         static_cast<std::size_t>(-1), "solar irradiance must be finite and non-negative"));
   }
-  if (!IsRatioValid(input.atmospheric_transmittance)) {
-    issues.push_back(MakeIssue(
-        EosValidationSeverity::kError, EosValidationCode::kInvalidAtmosphericTransmittance,
-        static_cast<std::size_t>(-1), "atmospheric transmittance must be in [0, 1]"));
-  }
   if (!IsRatioValid(input.cloud_coverage_ratio)) {
     issues.push_back(
         MakeIssue(EosValidationSeverity::kError, EosValidationCode::kInvalidCloudCoverageRatio,

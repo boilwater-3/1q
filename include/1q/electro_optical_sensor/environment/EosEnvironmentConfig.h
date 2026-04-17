@@ -7,8 +7,6 @@
 #define ELECTRO_OPTICAL_SENSOR_ENVIRONMENT_EOS_ENVIRONMENT_CONFIG_H_
 
 #include "1q/api.hpp"
-#include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
-
 namespace electro_optical_sensor {
 namespace environment {
 
@@ -25,10 +23,6 @@ enum class ONEQ_API EosEnvironmentModelType {
  */
 struct ONEQ_API EosEnvironmentDefaultConfig {
   EosEnvironmentModelType model_type{EosEnvironmentModelType::kSimplified};
-  foundation::radiative_transfer::RadiativeTransferModel radiative_transfer_model{
-      foundation::radiative_transfer::RadiativeTransferModel::kDerivedBeerLambert};
-  float aerosol_density_factor{1.0f};
-  float turbulence_factor{1.0f};
 };
 
 }  // namespace environment
