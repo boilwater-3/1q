@@ -82,33 +82,20 @@ Json BuildJson(const environment::EsrJammerSource& value) {
   return json;
 }
 
-Json BuildJson(const environment::EsrAtmosphericPhysicsConfig& value) {
+Json BuildJson(const environment::EsrAtmosphericObservation& value) {
   Json json;
-  json["enable_physical_model"] = value.enable_physical_model;
-  json["frequency_hz"] = value.frequency_hz;
-  json["path_length_m"] = value.path_length_m;
-  json["radar_altitude_m"] = value.radar_altitude_m;
-  json["target_altitude_m"] = value.target_altitude_m;
-  json["elevation_deg"] = value.elevation_deg;
-  json["pressure_hpa"] = value.pressure_hpa;
-  json["temperature_k"] = value.temperature_k;
-  json["relative_humidity"] = value.relative_humidity;
-  json["k_factor"] = value.k_factor;
-  json["day_of_year"] = value.day_of_year;
-  json["solar_flux_f107a"] = value.solar_flux_f107a;
-  json["solar_flux_f107"] = value.solar_flux_f107;
-  json["geomagnetic_ap"] = value.geomagnetic_ap;
+  json["relative_humidity_ratio"] = value.relative_humidity_ratio;
+  json["precipitation_rate_mmph"] = value.precipitation_rate_mmph;
+  json["visibility_km"] = value.visibility_km;
   return json;
 }
 
-Json BuildJson(const environment::EsrEnvironmentSceneState& value) {
+Json BuildJson(const environment::EsrEnvironmentObservation& value) {
   Json json;
-  json["base_propagation_loss_db"] = value.base_propagation_loss_db;
-  json["atmospheric_attenuation_db"] = value.atmospheric_attenuation_db;
-  json["terrain_reflection_db"] = value.terrain_reflection_db;
-  json["clutter_noise_w"] = value.clutter_noise_w;
+  json["propagation_profile"] = static_cast<int>(value.propagation_profile);
+  json["clutter_density"] = static_cast<int>(value.clutter_density);
   json["spectrum_occupancy_ratio"] = value.spectrum_occupancy_ratio;
-  json["atmospheric_physics"] = BuildJson(value.atmospheric_physics);
+  json["atmospheric_observation"] = BuildJson(value.atmospheric_observation);
   json["jammer_sources"] =
       SerializeArray(value.jammer_sources, [](const environment::EsrJammerSource& source) {
         return BuildJson(source);
@@ -125,7 +112,7 @@ Json BuildJson(const session::EsrCycleInput& value) {
       SerializeArray(value.scene_emitters, [](const model::EmitterTruthState& emitter) {
         return BuildJson(emitter);
       });
-  json["environment_scene_state"] = BuildJson(value.environment_scene_state);
+  json["environment_observation"] = BuildJson(value.environment_observation);
   return json;
 }
 

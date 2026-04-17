@@ -51,7 +51,7 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
       environment::EsrEnvironmentCycleContext environment_context;
       environment_context.cycle_index = stamp.cycle_index;
       environment_context.dt_sec = cycle_input.dt_sec;
-      environment_context.scene_state = cycle_input.environment_scene_state;
+      environment_context.observation = cycle_input.environment_observation;
       impl->environment_service.BeginCycle(environment_context);
     }
 

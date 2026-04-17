@@ -54,22 +54,13 @@ oneq::foundation::EulerAnglesDeg ParseEuler(const Json& json) {
   return value;
 }
 
-esr::environment::EsrAtmosphericPhysicsConfig ParseAtmosphericPhysics(const Json& json) {
-  esr::environment::EsrAtmosphericPhysicsConfig value;
-  value.enable_physical_model = GetBool(json, "enable_physical_model", value.enable_physical_model);
-  value.frequency_hz = GetFloat(json, "frequency_hz", value.frequency_hz);
-  value.path_length_m = GetFloat(json, "path_length_m", value.path_length_m);
-  value.radar_altitude_m = GetFloat(json, "radar_altitude_m", value.radar_altitude_m);
-  value.target_altitude_m = GetFloat(json, "target_altitude_m", value.target_altitude_m);
-  value.elevation_deg = GetFloat(json, "elevation_deg", value.elevation_deg);
-  value.pressure_hpa = GetFloat(json, "pressure_hpa", value.pressure_hpa);
-  value.temperature_k = GetFloat(json, "temperature_k", value.temperature_k);
-  value.relative_humidity = GetFloat(json, "relative_humidity", value.relative_humidity);
-  value.k_factor = GetFloat(json, "k_factor", value.k_factor);
-  value.day_of_year = GetInt(json, "day_of_year", value.day_of_year);
-  value.solar_flux_f107a = GetFloat(json, "solar_flux_f107a", value.solar_flux_f107a);
-  value.solar_flux_f107 = GetFloat(json, "solar_flux_f107", value.solar_flux_f107);
-  value.geomagnetic_ap = GetFloat(json, "geomagnetic_ap", value.geomagnetic_ap);
+esr::environment::EsrAtmosphericObservation ParseAtmosphericObservation(const Json& json) {
+  esr::environment::EsrAtmosphericObservation value;
+  value.relative_humidity_ratio =
+      GetFloat(json, "relative_humidity_ratio", value.relative_humidity_ratio);
+  value.precipitation_rate_mmph =
+      GetFloat(json, "precipitation_rate_mmph", value.precipitation_rate_mmph);
+  value.visibility_km = GetFloat(json, "visibility_km", value.visibility_km);
   return value;
 }
 
@@ -193,23 +184,23 @@ esr::session::EsrCycleInput ParseCycleInput(const Json& payload) {
     }
   }
 
-  if (payload.contains("environment_scene_state")) {
-    const Json& env = payload["environment_scene_state"];
-    input.environment_scene_state.base_propagation_loss_db =
-        GetFloat(env, "base_propagation_loss_db", input.environment_scene_state.base_propagation_loss_db);
-    input.environment_scene_state.atmospheric_attenuation_db =
-        GetFloat(env, "atmospheric_attenuation_db", input.environment_scene_state.atmospheric_attenuation_db);
-    input.environment_scene_state.terrain_reflection_db =
-        GetFloat(env, "terrain_reflection_db", input.environment_scene_state.terrain_reflection_db);
-    input.environment_scene_state.clutter_noise_w =
-        GetFloat(env, "clutter_noise_w", input.environment_scene_state.clutter_noise_w);
-    input.environment_scene_state.spectrum_occupancy_ratio =
-        GetFloat(env, "spectrum_occupancy_ratio", input.environment_scene_state.spectrum_occupancy_ratio);
-    if (env.contains("atmospheric_physics")) {
-      input.environment_scene_state.atmospheric_physics = ParseAtmosphericPhysics(env["atmospheric_physics"]);
+  if (payload.contains("environment_observation")) {
+    const Json& env = payload["environment_observation"];
+    input.environment_observation.propagation_profile =
+        static_cast<esr::environment::EsrPropagationEnvironmentProfile>(
+            GetInt(env, "propagation_profile",
+                   static_cast<int>(input.environment_observation.propagation_profile)));
+    input.environment_observation.clutter_density =
+        static_cast<esr::environment::EsrClutterDensityLevel>(
+            GetInt(env, "clutter_density", static_cast<int>(input.environment_observation.clutter_density)));
+    input.environment_observation.spectrum_occupancy_ratio =
+        GetFloat(env, "spectrum_occupancy_ratio", input.environment_observation.spectrum_occupancy_ratio);
+    if (env.contains("atmospheric_observation")) {
+      input.environment_observation.atmospheric_observation =
+          ParseAtmosphericObservation(env["atmospheric_observation"]);
     }
     if (env.contains("jammer_sources") && env["jammer_sources"].is_array()) {
-      input.environment_scene_state.jammer_sources.clear();
+      input.environment_observation.jammer_sources.clear();
       for (std::size_t i = 0; i < env["jammer_sources"].size(); ++i) {
         const Json& j = env["jammer_sources"][i];
         esr::environment::EsrJammerSource jammer;
@@ -221,7 +212,7 @@ esr::session::EsrCycleInput ParseCycleInput(const Json& payload) {
         jammer.power_w = GetFloat(j, "power_w", jammer.power_w);
         jammer.deception_risk = GetFloat(j, "deception_risk", jammer.deception_risk);
         jammer.confidence = GetFloat(j, "confidence", jammer.confidence);
-        input.environment_scene_state.jammer_sources.push_back(jammer);
+        input.environment_observation.jammer_sources.push_back(jammer);
       }
     }
   }

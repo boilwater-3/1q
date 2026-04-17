@@ -26,12 +26,6 @@ class ONEQ_API EsrEnvironmentRuntimeConfigPatchBuilder {
     return *this;
   }
 
-  EsrEnvironmentRuntimeConfigPatchBuilder& WithJammingDetectionThresholdW(float value) {
-    patch_.has_jamming_detection_threshold_w = true;
-    patch_.jamming_detection_threshold_w = value;
-    return *this;
-  }
-
   EsrEnvironmentRuntimeConfigPatch Build() const { return patch_; }
 
  private:

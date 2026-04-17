@@ -11,6 +11,66 @@ namespace environment {
 
 namespace {
 
+float ResolvePropagationProfileLossDb(EsrPropagationEnvironmentProfile profile) {
+  switch (profile) {
+    case EsrPropagationEnvironmentProfile::kOpen:
+      return 2.0f;
+    case EsrPropagationEnvironmentProfile::kComplex:
+      return 7.0f;
+    case EsrPropagationEnvironmentProfile::kTypical:
+    default:
+      return 4.0f;
+  }
+}
+
+float ResolveWeatherLossDb(const EsrAtmosphericObservation& observation) {
+  const float humidity = utils::Clamp01(observation.relative_humidity_ratio);
+  const float precipitation = utils::ClampNonNegative(observation.precipitation_rate_mmph);
+  const float visibility_km = std::max(0.5f, observation.visibility_km);
+  const float humidity_loss_db = 1.5f * humidity;
+  const float precipitation_loss_db = 0.12f * precipitation;
+  const float visibility_loss_db = visibility_km < 20.0f ? (20.0f - visibility_km) * 0.08f : 0.0f;
+  return utils::ClampNonNegative(humidity_loss_db + precipitation_loss_db + visibility_loss_db);
+}
+
+float ResolveClutterNoiseW(const EsrEnvironmentObservation& observation,
+                           const EsrEnvironmentModelConfig& config) {
+  float reference_noise = 1.0e-12f;
+  switch (config.clutter_baseline_policy) {
+    case EsrClutterBaselinePolicy::kLow:
+      reference_noise = 5.0e-13f;
+      break;
+    case EsrClutterBaselinePolicy::kHigh:
+      reference_noise = 5.0e-12f;
+      break;
+    case EsrClutterBaselinePolicy::kStandard:
+    default:
+      reference_noise = 1.0e-12f;
+      break;
+  }
+  switch (observation.clutter_density) {
+    case EsrClutterDensityLevel::kLow:
+      return reference_noise * 0.6f;
+    case EsrClutterDensityLevel::kHigh:
+      return reference_noise * 2.0f;
+    case EsrClutterDensityLevel::kMedium:
+    default:
+      return reference_noise;
+  }
+}
+
+float ResolveJammingDetectionThresholdW(const EsrEnvironmentModelConfig& config) {
+  switch (config.jamming_sensitivity_policy) {
+    case EsrJammingSensitivityPolicy::kStrict:
+      return 8.0e-10f;
+    case EsrJammingSensitivityPolicy::kRelaxed:
+      return 5.0e-9f;
+    case EsrJammingSensitivityPolicy::kBalanced:
+    default:
+      return 2.0e-9f;
+  }
+}
+
 /**
  * @brief 规范化单个干扰源输入。
  * @param[in] raw_source 原始输入。
@@ -39,10 +99,9 @@ EsrEnvironmentSnapshot BuildSnapshot(const EsrEnvironmentCycleContext& cycle_con
   EsrEnvironmentSnapshot snapshot;
   snapshot.cycle_index = cycle_context.cycle_index;
   snapshot.dt_sec = cycle_context.dt_sec;
+  const EsrEnvironmentObservation& observation = cycle_context.observation;
   const EsrAtmosphericPhysicsConfig& atmospheric_physics =
-      cycle_context.scene_state.atmospheric_physics.enable_physical_model
-          ? cycle_context.scene_state.atmospheric_physics
-          : config.atmospheric_physics;
+      config.atmospheric_physics;
   float physical_loss_db = 0.0f;
   if (atmospheric_physics.enable_physical_model) {
     oneq::internal::atmosphere::AtmosphericPropagationInputs physics_inputs;
@@ -64,26 +123,19 @@ EsrEnvironmentSnapshot BuildSnapshot(const EsrEnvironmentCycleContext& cycle_con
         oneq::internal::atmosphere::EvaluateAtmosphericPropagation(physics_inputs);
     physical_loss_db = physics_result.total_physics_loss_db;
   }
-  snapshot.propagation_loss_db =
-      utils::ClampNonNegative(cycle_context.scene_state.base_propagation_loss_db +
-                       cycle_context.scene_state.atmospheric_attenuation_db +
-                       cycle_context.scene_state.terrain_reflection_db + physical_loss_db);
-
-  const float clutter_noise = cycle_context.scene_state.clutter_noise_w > 0.0f
-                                  ? cycle_context.scene_state.clutter_noise_w
-                                  : config.default_clutter_noise_w;
-  snapshot.clutter_noise_w = utils::ClampNonNegative(clutter_noise);
-  snapshot.spectrum_occupancy_ratio = utils::Clamp01(cycle_context.scene_state.spectrum_occupancy_ratio);
+  const float semantic_loss_db = ResolvePropagationProfileLossDb(observation.propagation_profile) +
+                                 ResolveWeatherLossDb(observation.atmospheric_observation);
+  snapshot.propagation_loss_db = utils::ClampNonNegative(semantic_loss_db + physical_loss_db);
+  snapshot.clutter_noise_w = ResolveClutterNoiseW(observation, config);
+  snapshot.spectrum_occupancy_ratio = utils::Clamp01(observation.spectrum_occupancy_ratio);
 
   snapshot.jammer_sources.clear();
-  snapshot.jammer_sources.reserve(cycle_context.scene_state.jammer_sources.size());
+  snapshot.jammer_sources.reserve(observation.jammer_sources.size());
   snapshot.suppression_power_w = 0.0f;
-  snapshot.jammer_power_w = 0.0f;
   snapshot.deception_risk = 0.0f;
   float deception_clear_probability = 1.0f;
-  for (std::size_t i = 0; i < cycle_context.scene_state.jammer_sources.size(); ++i) {
-    const EsrJammerSource source =
-        NormalizeJammerSource(cycle_context.scene_state.jammer_sources[i]);
+  for (std::size_t i = 0; i < observation.jammer_sources.size(); ++i) {
+    const EsrJammerSource source = NormalizeJammerSource(observation.jammer_sources[i]);
     snapshot.jammer_sources.push_back(source);
     if (!source.active) {
       continue;
@@ -101,9 +153,9 @@ EsrEnvironmentSnapshot BuildSnapshot(const EsrEnvironmentCycleContext& cycle_con
     }
   }
   snapshot.deception_risk = utils::Clamp01(1.0f - deception_clear_probability);
-  snapshot.jammer_power_w = snapshot.suppression_power_w;
 
-  snapshot.jamming_detected = snapshot.suppression_power_w >= config.jamming_detection_threshold_w;
+  snapshot.jamming_detected =
+      snapshot.suppression_power_w >= ResolveJammingDetectionThresholdW(config);
   return snapshot;
 }
 

@@ -72,16 +72,16 @@ void ApplyEnvironmentPreset(config::EsrEnvironmentPreset preset,
   }
   switch (preset) {
     case config::EsrEnvironmentPreset::kLowClutter:
-      model_config->default_clutter_noise_w = 5.0e-13f;
-      model_config->jamming_detection_threshold_w = 8.0e-10f;
+      model_config->clutter_baseline_policy = environment::EsrClutterBaselinePolicy::kLow;
+      model_config->jamming_sensitivity_policy = environment::EsrJammingSensitivityPolicy::kStrict;
       break;
     case config::EsrEnvironmentPreset::kDenseClutter:
-      model_config->default_clutter_noise_w = 5.0e-12f;
-      model_config->jamming_detection_threshold_w = 2.0e-9f;
+      model_config->clutter_baseline_policy = environment::EsrClutterBaselinePolicy::kHigh;
+      model_config->jamming_sensitivity_policy = environment::EsrJammingSensitivityPolicy::kBalanced;
       break;
     case config::EsrEnvironmentPreset::kJammed:
-      model_config->default_clutter_noise_w = 1.0e-11f;
-      model_config->jamming_detection_threshold_w = 5.0e-9f;
+      model_config->clutter_baseline_policy = environment::EsrClutterBaselinePolicy::kHigh;
+      model_config->jamming_sensitivity_policy = environment::EsrJammingSensitivityPolicy::kRelaxed;
       break;
     case config::EsrEnvironmentPreset::kStandard:
     default:

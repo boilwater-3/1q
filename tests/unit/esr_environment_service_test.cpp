@@ -26,7 +26,7 @@ TEST(EsrEnvironmentServiceTest, UnknownTechniqueWithPositiveRiskInfersMixedAndKe
   jammer.power_w = 10.0f;
   jammer.deception_risk = 0.4f;
   jammer.confidence = 0.5f;
-  context.scene_state.jammer_sources.push_back(jammer);
+  context.observation.jammer_sources.push_back(jammer);
 
   service.BeginCycle(context);
   const EsrEnvironmentSnapshot snapshot = service.SampleEnvironment();
@@ -34,7 +34,6 @@ TEST(EsrEnvironmentServiceTest, UnknownTechniqueWithPositiveRiskInfersMixedAndKe
   ASSERT_EQ(snapshot.jammer_sources.size(), 1U);
   EXPECT_EQ(snapshot.jammer_sources.front().technique, EsrJammingTechnique::kMixed);
   EXPECT_NEAR(snapshot.suppression_power_w, 5.0f, 1.0e-6f);
-  EXPECT_NEAR(snapshot.jammer_power_w, snapshot.suppression_power_w, 1.0e-6f);
   EXPECT_NEAR(snapshot.deception_risk, 0.2f, 1.0e-6f);
   EXPECT_TRUE(snapshot.jamming_detected);
 }
@@ -53,7 +52,7 @@ TEST(EsrEnvironmentServiceTest, UnknownTechniqueWithZeroRiskInfersSuppressionOnl
   jammer.power_w = 6.0f;
   jammer.deception_risk = 0.0f;
   jammer.confidence = 0.25f;
-  context.scene_state.jammer_sources.push_back(jammer);
+  context.observation.jammer_sources.push_back(jammer);
 
   service.BeginCycle(context);
   const EsrEnvironmentSnapshot snapshot = service.SampleEnvironment();
@@ -67,7 +66,7 @@ TEST(EsrEnvironmentServiceTest, UnknownTechniqueWithZeroRiskInfersSuppressionOnl
 
 TEST(EsrEnvironmentServiceTest, DeceptionOnlySourceDoesNotTriggerSuppressionDetection) {
   EsrEnvironmentModelConfig config;
-  config.jamming_detection_threshold_w = 1.0e-8f;
+  config.jamming_sensitivity_policy = EsrJammingSensitivityPolicy::kRelaxed;
   EsrEnvironmentService service(config);
 
   EsrEnvironmentCycleContext context;
@@ -81,13 +80,12 @@ TEST(EsrEnvironmentServiceTest, DeceptionOnlySourceDoesNotTriggerSuppressionDete
   jammer.power_w = 100.0f;
   jammer.deception_risk = 0.8f;
   jammer.confidence = 1.0f;
-  context.scene_state.jammer_sources.push_back(jammer);
+  context.observation.jammer_sources.push_back(jammer);
 
   service.BeginCycle(context);
   const EsrEnvironmentSnapshot snapshot = service.SampleEnvironment();
 
   EXPECT_NEAR(snapshot.suppression_power_w, 0.0f, 1.0e-6f);
-  EXPECT_NEAR(snapshot.jammer_power_w, 0.0f, 1.0e-6f);
   EXPECT_NEAR(snapshot.deception_risk, 0.8f, 1.0e-6f);
   EXPECT_FALSE(snapshot.jamming_detected);
 }
@@ -98,22 +96,19 @@ TEST(EsrEnvironmentServiceTest, AtmosphericPhysicsCanIncreasePropagationLoss) {
   EsrEnvironmentCycleContext baseline_context;
   baseline_context.cycle_index = 5U;
   baseline_context.dt_sec = 1.0f;
-  baseline_context.scene_state.base_propagation_loss_db = 3.0f;
-  baseline_context.scene_state.atmospheric_attenuation_db = 1.0f;
-  baseline_context.scene_state.terrain_reflection_db = 0.0f;
+  baseline_context.observation.propagation_profile =
+      EsrPropagationEnvironmentProfile::kOpen;
+  baseline_context.observation.atmospheric_observation.relative_humidity_ratio = 0.3f;
+  baseline_context.observation.atmospheric_observation.precipitation_rate_mmph = 0.0f;
 
   service.BeginCycle(baseline_context);
   const EsrEnvironmentSnapshot baseline_snapshot = service.SampleEnvironment();
 
   EsrEnvironmentCycleContext physics_context = baseline_context;
   physics_context.cycle_index = 6U;
-  physics_context.scene_state.atmospheric_physics.enable_physical_model = true;
-  physics_context.scene_state.atmospheric_physics.frequency_hz = 10.0e9f;
-  physics_context.scene_state.atmospheric_physics.path_length_m = 120.0e3f;
-  physics_context.scene_state.atmospheric_physics.radar_altitude_m = 1500.0f;
-  physics_context.scene_state.atmospheric_physics.target_altitude_m = 1000.0f;
-  physics_context.scene_state.atmospheric_physics.elevation_deg = 2.0f;
-  physics_context.scene_state.atmospheric_physics.relative_humidity = 0.8f;
+  physics_context.observation.atmospheric_observation.relative_humidity_ratio = 0.9f;
+  physics_context.observation.atmospheric_observation.precipitation_rate_mmph = 20.0f;
+  physics_context.observation.atmospheric_observation.visibility_km = 4.0f;
 
   service.BeginCycle(physics_context);
   const EsrEnvironmentSnapshot physics_snapshot = service.SampleEnvironment();
@@ -134,14 +129,13 @@ TEST(EsrEnvironmentServiceTest, ConfigAtmosphericPhysicsAppliesWhenSceneDoesNotO
   EsrEnvironmentCycleContext context;
   context.cycle_index = 7U;
   context.dt_sec = 1.0f;
-  context.scene_state.base_propagation_loss_db = 3.0f;
-  context.scene_state.atmospheric_attenuation_db = 1.0f;
-  context.scene_state.terrain_reflection_db = 0.0f;
-  context.scene_state.atmospheric_physics.enable_physical_model = false;
+  context.observation.propagation_profile = EsrPropagationEnvironmentProfile::kOpen;
+  context.observation.atmospheric_observation.relative_humidity_ratio = 0.75f;
+  context.observation.atmospheric_observation.precipitation_rate_mmph = 10.0f;
 
   service.BeginCycle(context);
   const EsrEnvironmentSnapshot snapshot = service.SampleEnvironment();
-  EXPECT_GT(snapshot.propagation_loss_db, 4.0f);
+  EXPECT_GT(snapshot.propagation_loss_db, 2.0f);
 }
 
 }  // namespace

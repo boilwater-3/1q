@@ -34,11 +34,31 @@ struct ONEQ_API EsrAtmosphericPhysicsConfig {
 };
 
 /**
- * @brief EsrEnvironmentModelConfig 描述环境模型配置。
+ * @brief EsrClutterBaselinePolicy 描述内部杂波基线策略。
+ */
+enum class ONEQ_API EsrClutterBaselinePolicy {
+  kLow = 0,      /**< 低杂波基线 */
+  kStandard = 1, /**< 标准杂波基线 */
+  kHigh = 2      /**< 高杂波基线 */
+};
+
+/**
+ * @brief EsrJammingSensitivityPolicy 描述干扰检测敏感性策略。
+ */
+enum class ONEQ_API EsrJammingSensitivityPolicy {
+  kRelaxed = 0,  /**< 更保守，不易判定为干扰 */
+  kBalanced = 1, /**< 平衡策略 */
+  kStrict = 2    /**< 更敏感，容易判定为干扰 */
+};
+
+/**
+ * @brief EsrEnvironmentModelConfig 描述环境策略配置。
  */
 struct ONEQ_API EsrEnvironmentModelConfig {
-  float default_clutter_noise_w{1.0e-12f};      /**< 默认杂波噪声功率（单位：W） */
-  float jamming_detection_threshold_w{1.0e-9f}; /**< 干扰检测阈值（单位：W） */
+  EsrClutterBaselinePolicy clutter_baseline_policy{
+      EsrClutterBaselinePolicy::kStandard}; /**< 杂波基线策略 */
+  EsrJammingSensitivityPolicy jamming_sensitivity_policy{
+      EsrJammingSensitivityPolicy::kBalanced}; /**< 干扰检测敏感性策略 */
   EsrAtmosphericPhysicsConfig atmospheric_physics{}; /**< 可选物理传播参数 */
 };
 

@@ -24,13 +24,13 @@ class ONEQ_API EsrEnvironmentConfigBuilder {
     return *this;
   }
 
-  EsrEnvironmentConfigBuilder& WithDefaultClutterNoiseW(float value) {
-    config_.model_config.default_clutter_noise_w = value;
+  EsrEnvironmentConfigBuilder& WithClutterBaselinePolicy(EsrClutterBaselinePolicy value) {
+    config_.model_config.clutter_baseline_policy = value;
     return *this;
   }
 
-  EsrEnvironmentConfigBuilder& WithJammingDetectionThresholdW(float value) {
-    config_.model_config.jamming_detection_threshold_w = value;
+  EsrEnvironmentConfigBuilder& WithJammingSensitivityPolicy(EsrJammingSensitivityPolicy value) {
+    config_.model_config.jamming_sensitivity_policy = value;
     return *this;
   }
 

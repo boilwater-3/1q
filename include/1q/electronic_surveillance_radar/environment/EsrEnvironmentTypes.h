@@ -34,7 +34,7 @@ struct ONEQ_API EsrJammerSource {
   double center_hz{0.0};                                        /**< 干扰中心频率（单位：Hz） */
   double bandwidth_hz{0.0};                                     /**< 干扰带宽（单位：Hz） */
   float power_w{0.0f};                                          /**< 干扰功率（单位：W） */
-  float deception_risk{0.0f};                                   /**< 欺骗风险度，范围 [0, 1] */
+  float deception_risk{0.0f}; /**< 外部情报给出的欺骗可能性提示，范围 [0, 1] */
   float confidence{1.0f};                                       /**< 干扰置信度，范围 [0, 1] */
 };
 
@@ -42,25 +42,51 @@ struct ONEQ_API EsrJammerSource {
 using EsrJammerSourceList = std::vector<EsrJammerSource>;
 
 /**
- * @brief EsrEnvironmentSceneState 描述待冻结环境场景。
+ * @brief EsrPropagationEnvironmentProfile 描述高层传播环境类型。
  */
-struct ONEQ_API EsrEnvironmentSceneState {
-  float base_propagation_loss_db{3.0f};   /**< 基础传播损耗（单位：dB） */
-  float atmospheric_attenuation_db{1.0f}; /**< 大气附加衰减（单位：dB） */
-  float terrain_reflection_db{0.0f};      /**< 地形/多径附加项（单位：dB） */
-  float clutter_noise_w{1.0e-12f};        /**< 杂波噪声功率（单位：W） */
+enum class ONEQ_API EsrPropagationEnvironmentProfile {
+  kOpen = 0,      /**< 开阔环境 */
+  kTypical = 1,   /**< 常规环境 */
+  kComplex = 2    /**< 复杂地形/城市环境 */
+};
+
+/**
+ * @brief EsrClutterDensityLevel 描述高层杂波密度级别。
+ */
+enum class ONEQ_API EsrClutterDensityLevel {
+  kLow = 0,     /**< 低杂波 */
+  kMedium = 1,  /**< 中等杂波 */
+  kHigh = 2     /**< 高杂波 */
+};
+
+/**
+ * @brief EsrAtmosphericObservation 描述外部可观测天气事实。
+ */
+struct ONEQ_API EsrAtmosphericObservation {
+  float relative_humidity_ratio{0.5f}; /**< 相对湿度，范围 [0, 1] */
+  float precipitation_rate_mmph{0.0f}; /**< 降水强度（单位：mm/h） */
+  float visibility_km{20.0f};          /**< 能见度（单位：km） */
+};
+
+/**
+ * @brief EsrEnvironmentObservation 描述待冻结环境高层观测输入。
+ */
+struct ONEQ_API EsrEnvironmentObservation {
+  EsrPropagationEnvironmentProfile propagation_profile{
+      EsrPropagationEnvironmentProfile::kTypical}; /**< 高层传播环境类型 */
+  EsrClutterDensityLevel clutter_density{EsrClutterDensityLevel::kMedium}; /**< 杂波密度级别 */
   float spectrum_occupancy_ratio{0.0f};   /**< 频谱占用率，范围 [0, 1] */
-  EsrAtmosphericPhysicsConfig atmospheric_physics{}; /**< 可选物理传播参数 */
-  EsrJammerSourceList jammer_sources{};   /**< 场景干扰源列表 */
+  EsrAtmosphericObservation atmospheric_observation{}; /**< 外部天气观测输入 */
+  EsrJammerSourceList jammer_sources{};                /**< 场景干扰源列表 */
 };
 
 /**
  * @brief EsrEnvironmentCycleContext 描述单周期冻结上下文。
  */
 struct ONEQ_API EsrEnvironmentCycleContext {
-  std::uint32_t cycle_index{0U};          /**< 当前周期号 */
-  float dt_sec{0.0f};                     /**< 当前周期步长（单位：s） */
-  EsrEnvironmentSceneState scene_state{}; /**< 当前周期待冻结场景 */
+  std::uint32_t cycle_index{0U};                       /**< 当前周期号 */
+  float dt_sec{0.0f};                                  /**< 当前周期步长（单位：s） */
+  EsrEnvironmentObservation observation{}; /**< 当前周期待冻结环境观测 */
 };
 
 /**
@@ -72,7 +98,6 @@ struct ONEQ_API EsrEnvironmentSnapshot {
   float propagation_loss_db{0.0f};      /**< 聚合传播损耗（单位：dB） */
   float clutter_noise_w{0.0f};          /**< 杂波噪声功率（单位：W） */
   float suppression_power_w{0.0f};      /**< 聚合压制干扰功率（单位：W） */
-  float jammer_power_w{0.0f};           /**< 兼容字段：等价于 suppression_power_w（单位：W） */
   float deception_risk{0.0f};           /**< 聚合欺骗风险度，范围 [0, 1] */
   float spectrum_occupancy_ratio{0.0f}; /**< 频谱占用率，范围 [0, 1] */
   bool jamming_detected{false};         /**< 是否检测到显著干扰 */
