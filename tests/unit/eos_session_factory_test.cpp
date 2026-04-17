@@ -73,8 +73,8 @@ class CountingEnvironmentService final : public environment::IEosEnvironmentServ
     ++resolve_count;
     last_inputs = inputs;
     environment::EosEnvironmentModelResult result;
-    result.aerosol_density_factor = inputs.base_aerosol_density_factor + 0.5f;
-    result.turbulence_factor = inputs.base_turbulence_factor + 0.25f;
+    result.aerosol_density_factor = 1.0f + 0.2f * inputs.cloud_coverage_ratio;
+    result.turbulence_factor = 1.0f + 0.01f * inputs.wind_speed_mps;
     result.path_radiance_scale_bias = 1.0f;
     return result;
   }
@@ -140,7 +140,7 @@ TEST(EosSessionFactoryTest, CreateWithEnvironmentServiceUsesInjectedService) {
   const ::electro_optical_sensor::model::EosCycleResult result = session.StepWithResult(input);
 
   EXPECT_EQ(environment_service.resolve_count, 1U);
-  EXPECT_TRUE(environment_service.last_inputs.base_aerosol_density_factor >= 1.0f);
+  EXPECT_FLOAT_EQ(environment_service.last_inputs.cloud_coverage_ratio, 0.2f);
   EXPECT_TRUE(result.executed_this_cycle);
   EXPECT_EQ(result.output_frame.cycle_index, 9U);
 }

@@ -61,8 +61,8 @@ class CountingEnvironmentService final : public environment::IEosEnvironmentServ
     ++resolve_count;
     last_inputs = inputs;
     environment::EosEnvironmentModelResult result;
-    result.aerosol_density_factor = inputs.base_aerosol_density_factor;
-    result.turbulence_factor = inputs.base_turbulence_factor;
+    result.aerosol_density_factor = 1.0f + 0.1f * inputs.cloud_coverage_ratio;
+    result.turbulence_factor = 1.0f + 0.02f * inputs.wind_speed_mps;
     result.path_radiance_scale_bias = 1.0f;
     return result;
   }

@@ -178,8 +178,6 @@ DetectionComputationContext BuildDetectionComputationContext(
 	environment_inputs.cloud_coverage_ratio =
 			oneq::internal::numerics::Clamp01(input.cloud_coverage_ratio);
 	environment_inputs.wind_speed_mps = std::max(0.0f, input.ambient_wind_speed_mps);
-	environment_inputs.base_aerosol_density_factor = config.aerosol_density_factor;
-	environment_inputs.base_turbulence_factor = config.turbulence_factor;
 	const environment::EosEnvironmentModelResult environment_result =
 			environment_service->ResolveFactors(environment_inputs);
 	const foundation::radiative_transfer::RadiativeTransferResult transfer_result =

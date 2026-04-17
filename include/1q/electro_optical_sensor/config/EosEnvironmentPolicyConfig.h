@@ -29,6 +29,7 @@ struct EosEnvironmentPolicyConfig {
   environment::EosEnvironmentModelType model_type{
       environment::EosEnvironmentModelType::kSimplified}; /**< 环境模型类型 */
   EosEnvironmentPreset preset{EosEnvironmentPreset::kStandard}; /**< 环境预设 */
+  bool enable_optical_countermeasure_extension{false}; /**< 预留：是否启用光学对抗场景扩展通道 */
 };
 
 }  // namespace config

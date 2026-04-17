@@ -17,8 +17,6 @@ TEST(EosEnvironmentModelTest, AdvancedModelAmplifiesAerosolAndTurbulenceFactors)
   simplified_inputs.platform_altitude_m = 5000.0f;
   simplified_inputs.cloud_coverage_ratio = 0.7f;
   simplified_inputs.wind_speed_mps = 25.0f;
-  simplified_inputs.base_aerosol_density_factor = 1.2f;
-  simplified_inputs.base_turbulence_factor = 1.1f;
 
   EosEnvironmentModelInputs advanced_inputs = simplified_inputs;
   advanced_inputs.model_type = EosEnvironmentModelType::kAdvanced;
@@ -41,8 +39,6 @@ TEST(EosEnvironmentModelTest, InvalidOrNegativeInputsAreClampedToSafeRange) {
   inputs.platform_altitude_m = -1000.0f;
   inputs.cloud_coverage_ratio = 5.0f;
   inputs.wind_speed_mps = -15.0f;
-  inputs.base_aerosol_density_factor = 0.0f;
-  inputs.base_turbulence_factor = -1.0f;
 
   const EosEnvironmentModelResult result = ResolveEnvironmentFactors(inputs);
 
