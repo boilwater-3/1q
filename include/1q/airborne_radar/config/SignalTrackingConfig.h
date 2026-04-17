@@ -27,23 +27,6 @@ struct SignalTrackingConfig {
       TrackingPolicyProfile::kBalanced}; /**< 跟踪策略档位 */
 };
 
-namespace engineering {
-
-enum class KalmanUpdateBackend {
-  kStandardKfJoseph = 0,
-  kUdKf,
-  kSrif
-};
-
-struct TrackingConfig {
-  bool enable_kalman_filter{true};
-  float kalman_measurement_noise_std{10.0f};
-  KalmanUpdateBackend kalman_update_backend{
-      KalmanUpdateBackend::kStandardKfJoseph};
-};
-
-}  // namespace engineering
-
 }  // namespace config
 }  // namespace airborne_radar
 

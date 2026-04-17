@@ -9,6 +9,7 @@
 
 #include <cmath>
 
+#include "airborne_radar/config/engineering/SignalEngineeringConfig.h"
 #include "airborne_radar/utils/MathUtils.h"
 #include "1q/airborne_radar/config/AntennaPatternConfig.h"
 

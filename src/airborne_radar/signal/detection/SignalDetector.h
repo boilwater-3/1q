@@ -9,6 +9,7 @@
 #include <limits>
 #include <random>
 
+#include "airborne_radar/config/engineering/SignalEngineeringConfig.h"
 #include "airborne_radar/signal/detection/RadarEquations.h"
 
 namespace airborne_radar {

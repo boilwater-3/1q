@@ -4,6 +4,7 @@
 #include <cmath>
 #include <vector>
 
+#include "airborne_radar/config/engineering/SignalEngineeringConfig.h"
 #include "airborne_radar/utils/MathUtils.h"
 #include "airborne_radar/signal/pipeline/effects/JammingEffects.h"
 #include "common/timing/TimingRegimeModel.h"

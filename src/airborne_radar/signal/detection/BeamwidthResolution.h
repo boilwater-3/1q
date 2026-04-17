@@ -6,6 +6,7 @@
 #ifndef AIRBORNE_RADAR_SIGNAL_DETECTION_BEAMWIDTH_RESOLUTION_H_
 #define AIRBORNE_RADAR_SIGNAL_DETECTION_BEAMWIDTH_RESOLUTION_H_
 
+#include "airborne_radar/config/engineering/SignalEngineeringConfig.h"
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "1q/airborne_radar/config/SignalDetectionConfig.h"
 

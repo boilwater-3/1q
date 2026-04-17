@@ -10,6 +10,7 @@
 #include <memory>
 #include <vector>
 
+#include "airborne_radar/config/engineering/SignalEngineeringConfig.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/pipeline/config/InternalSignalPipelineConfig.h"

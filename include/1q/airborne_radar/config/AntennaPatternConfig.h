@@ -28,32 +28,6 @@ struct AntennaPatternConfig {
   model::AzimuthElevationDeg boresight_offset_deg{};               /**< 外部标定零偏 */
 };
 
-namespace engineering {
-
-/**
- * @brief AntennaPatternModelType 表示内部方向图主瓣近似模型类型。
- */
-enum class AntennaPatternModelType {
-  kGaussianMainLobe = 0,
-  kParabolicMainLobe = 1,
-  kCosinePower = 2
-};
-
-/**
- * @brief AntennaPatternConfig 表示内部工程方向图参数。
- */
-struct AntennaPatternConfig {
-  AntennaPatternModelType model_type{
-      AntennaPatternModelType::kGaussianMainLobe};
-  float max_sidelobe_level_db{-20.0f};
-  float backlobe_level_db{-35.0f};
-  float scan_loss_coeff_db_per_deg2{0.0f};
-  float max_scan_loss_db{6.0f};
-  model::AzimuthElevationDeg boresight_offset_deg{};
-};
-
-}  // namespace engineering
-
 }  // namespace config
 }  // namespace airborne_radar
 

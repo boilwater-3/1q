@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 
+#include "airborne_radar/config/engineering/SignalEngineeringConfig.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/MeasurementErrorModel.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"

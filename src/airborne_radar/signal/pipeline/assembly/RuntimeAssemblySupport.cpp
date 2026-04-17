@@ -3,6 +3,7 @@
 #include <cmath>
 #include <utility>
 
+#include "airborne_radar/config/engineering/SignalEngineeringConfig.h"
 #include "airborne_radar/signal/pipeline/effects/ControlProfileEffects.h"
 #include "airborne_radar/signal/pipeline/assembly/SignalComponentFactory.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleManager.h"
