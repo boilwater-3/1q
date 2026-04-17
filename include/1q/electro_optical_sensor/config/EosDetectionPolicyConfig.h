@@ -22,7 +22,7 @@ enum class EosDetectionProfile {
  * @brief EosDetectionPolicyConfig 描述对外可配的探测语义。
  */
 struct EosDetectionPolicyConfig {
-  EosDetectionProfile profile{EosDetectionProfile::kBalanced};
+  EosDetectionProfile profile{EosDetectionProfile::kBalanced}; /**< 探测策略档位 */
 };
 
 }  // namespace config

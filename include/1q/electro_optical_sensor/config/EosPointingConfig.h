@@ -13,10 +13,10 @@ namespace config {
  * @brief EosPointingConfig 描述对外可配置的几何指向语义。
  */
 struct EosPointingConfig {
-  float scan_start_az_deg{-60.0f};
-  float scan_end_az_deg{60.0f};
-  float scan_center_el_deg{0.0f};
-  float boresight_depression_deg{45.0f};
+  float scan_start_az_deg{-60.0f};       /**< 扫描起始方位角（单位：deg） */
+  float scan_end_az_deg{60.0f};          /**< 扫描结束方位角（单位：deg） */
+  float scan_center_el_deg{0.0f};        /**< 扫描中心俯仰角（单位：deg） */
+  float boresight_depression_deg{45.0f}; /**< 视轴下俯角（单位：deg） */
 };
 
 }  // namespace config

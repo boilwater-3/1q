@@ -25,7 +25,7 @@ enum class ONEQ_API EsrEnvironmentPreset {
  * @brief EsrEnvironmentPolicyConfig 描述环境策略语义输入。
  */
 struct ONEQ_API EsrEnvironmentPolicyConfig {
-  EsrEnvironmentPreset preset{EsrEnvironmentPreset::kStandard};
+  EsrEnvironmentPreset preset{EsrEnvironmentPreset::kStandard}; /**< 环境预设 */
 };
 
 }  // namespace config

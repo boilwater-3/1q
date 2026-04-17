@@ -26,8 +26,9 @@ enum class EosEnvironmentPreset {
  * @brief EosEnvironmentPolicyConfig 描述环境策略输入。
  */
 struct EosEnvironmentPolicyConfig {
-  environment::EosEnvironmentModelType model_type{environment::EosEnvironmentModelType::kSimplified};
-  EosEnvironmentPreset preset{EosEnvironmentPreset::kStandard};
+  environment::EosEnvironmentModelType model_type{
+      environment::EosEnvironmentModelType::kSimplified}; /**< 环境模型类型 */
+  EosEnvironmentPreset preset{EosEnvironmentPreset::kStandard}; /**< 环境预设 */
 };
 
 }  // namespace config

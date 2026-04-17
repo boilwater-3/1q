@@ -15,11 +15,11 @@ namespace config {
  * @brief EosScanPolicyConfig 描述任务级扫描策略。
  */
 struct EosScanPolicyConfig {
-  session::EosWorkMode work_mode{session::EosWorkMode::kFused};
-  float horizontal_fov_deg{6.0f};
-  float vertical_fov_deg{4.0f};
-  float scan_rate_deg_per_sec{20.0f};
-  float frame_rate_hz{30.0f};
+  session::EosWorkMode work_mode{session::EosWorkMode::kFused}; /**< 工作模式 */
+  float horizontal_fov_deg{6.0f};                               /**< 水平视场角（单位：deg） */
+  float vertical_fov_deg{4.0f};                                 /**< 垂直视场角（单位：deg） */
+  float scan_rate_deg_per_sec{20.0f};                           /**< 扫描角速度（单位：deg/s） */
+  float frame_rate_hz{30.0f};                                   /**< 帧率（单位：Hz） */
 };
 
 }  // namespace config

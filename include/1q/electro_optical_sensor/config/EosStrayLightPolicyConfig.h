@@ -22,7 +22,7 @@ enum class EosStrayLightProfile {
  * @brief EosStrayLightPolicyConfig 描述对外可配的杂散光策略。
  */
 struct EosStrayLightPolicyConfig {
-  EosStrayLightProfile profile{EosStrayLightProfile::kDisabled};
+  EosStrayLightProfile profile{EosStrayLightProfile::kDisabled}; /**< 杂散光防护档位 */
 };
 
 }  // namespace config

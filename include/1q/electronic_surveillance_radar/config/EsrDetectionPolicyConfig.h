@@ -24,7 +24,7 @@ enum class ONEQ_API EsrDetectionProfile {
  * @brief EsrDetectionPolicyConfig 描述对外探测策略语义。
  */
 struct ONEQ_API EsrDetectionPolicyConfig {
-  EsrDetectionProfile profile{EsrDetectionProfile::kBalanced};
+  EsrDetectionProfile profile{EsrDetectionProfile::kBalanced}; /**< 探测策略档位 */
 };
 
 }  // namespace config
