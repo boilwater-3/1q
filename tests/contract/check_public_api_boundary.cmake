@@ -1,6 +1,7 @@
 set(PUBLIC_INCLUDE_DIR "${SOURCE_DIR}/include/1q")
 
 set(EXPECTED_PUBLIC_HEADERS
+    "foundation/atmospheric_types.h"
     "foundation/coordinate_transform.h"
     "foundation/pose_types.h"
     "foundation/scan_schedule_types.h"

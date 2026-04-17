@@ -28,6 +28,27 @@ graph LR
 > [!IMPORTANT]
 > 近期 `fa46ae4` (semantic config api migration) 已完成了一轮大幅度的语义化提升——将 `TransmitterConfig`/`AntennaConfig`/`ReceiverConfig`/`DetectionPolicy` 等工程参数从顶层 config 下沉至 `engineering` 命名空间，引入 `RadarHardwareProfile`/`DetectionIntentProfile`/`TrackingPolicyProfile`/`LifecyclePolicyProfile` 等语义档位。本报告在该基础上识别**残留问题**。
 
+## 复审结论（2026-04-18）
+
+> [!SUCCESS]
+> 本轮 API 面整备可判定为**实质性收官**。当前 Config 对外输入以业务语义和客观事实为主，残留问题不阻塞功能闭环。
+> 下文历史问题条目用于保留审查上下文；若与复审状态不一致，以本节状态为准。
+
+### 已处理状态（P2/P3）
+
+| 级别 | 问题 / 行动项 | 最新状况 | 验证结果 |
+| :--- | :--- | :--- | :--- |
+| **P2** | **AR 环境模型双重结构体去重** | 使用 `using EnvironmentModelConfig = EnvironmentScenarioConfig;` 强绑定。 | ✅ **已低成本解决** |
+| **P2** | **AR 补齐 `Swerling` 模型缺失** | `SignalDetectionConfig` 已新增 `SwerlingModel swerling_model{kSwerling0};`。 | ✅ **已补齐输入通道** |
+| **P3** | **EOS 物理调参项下沉映射** | `base_aerosol_density_factor` 与 `base_turbulence_factor` 已从公开输入面移除。 | ✅ **已完成** |
+| **P3** | **EOS 预留光学对抗场景输入扩展位** | 暂未引入 AR/ESR 同级扩展位。 | ⏳ **暂不影响功能** |
+
+### 遗留跟踪项（P2 Backlog）
+
+| 级别 | 问题 / 行动项 | 当前判断 |
+| :--- | :--- | :--- |
+| **P2** | **跨模块统一气象输入类型到 `foundation/`** | 作为长线架构一致性优化保留；建议后续独立立项，不作为当前收官阻塞条件。 |
+
 ---
 
 ## 一、Airborne Radar (AR)
@@ -43,7 +64,7 @@ graph LR
 | `antenna_pattern.boresight_offset_deg` | ✅ 保留 | 外部标定零偏，外部事实 |
 | `rcs_fusion_profile` | ✅ 保留 | RCS 融合策略，外部语义 |
 | `min_detection_margin_db` | ⚠️ **应下沉** | 这是一个 dB 级调参门限。`intent_profile` 已承载「探测优先/跟踪优先/平衡」语义，该裕量应由 `intent_profile` → 内部映射自动推导。若保留，至少应改名为 `detection_sensitivity_bias_db` 并明确文档说在何种场景下需要手动覆盖 |
-| `SwerlingModel` enum | ⚠️ **缺输入通道** | 枚举已定义在公开头文件中，但 `SignalDetectionConfig` 无对应字段。如果用户需要指定目标 RCS 起伏模型（对检测概率有重大影响），当前无语义入口 |
+| `SwerlingModel` enum | ✅ 保留 | 已通过 `SignalDetectionConfig.swerling_model` 提供输入通道，默认值为 `kSwerling0` |
 
 > [!WARNING]
 > **`engineering` 子命名空间仍留在公开 include**  
@@ -119,13 +140,13 @@ graph LR
 | `EnvironmentDefaultConfig.jamming_detection_threshold_db` | ⚠️ **应下沉** | dB 级阈值调参项。建议引入 `JammingSensitivityProfile { kRelaxed, kBalanced, kStrict }` 语义档位，由库内映射到具体 dB 值 |
 
 > [!NOTE]
-> **结构冗余**: `EnvironmentModelConfig` 与 `EnvironmentScenarioConfig` 字段完全相同，且 `BuildModelConfigFromScenario()` 是逐字段 trivial copy。建议删除其中一个，减少公开头文件的认知负担。
+> **结构冗余已处理**: `EnvironmentModelConfig` 与 `EnvironmentScenarioConfig` 已通过类型别名强绑定（`using EnvironmentModelConfig = EnvironmentScenarioConfig;`），避免双结构体长期漂移。
 
 ### 1.7 AR 缺失的输入通道
 
 | 缺失项 | 建议 |
 |--------|------|
-| `SwerlingModel` 无字段承接 | 在 `SignalDetectionConfig` 中新增 `swerling_model` 字段，或纳入 `hardware_profile` → swerling 映射 |
+| `SwerlingModel` 输入承接 | ✅ 已在 `SignalDetectionConfig` 中补齐 `swerling_model` 字段 |
 | 植被散射无高层语义入口 | 新增 `VegetationCoverProfile { kOpen, kGrassland, kDeciduousForest, kConiferousForest }` 语义枚举，取代 5 个裸物理参数 |
 | 大气高级上下文无 optional 语义 | `AtmosphericDerivedContext` 各字段加 `has_` 标志或改为 `std::optional`（C++17）/ 哨兵值模式，避免用户必须填写空间天气数据 |
 
@@ -160,8 +181,8 @@ graph LR
 | `EosEnvironmentModelInputs.platform_altitude_m` | ✅ 保留 | 运行期平台状态 |
 | `EosEnvironmentModelInputs.cloud_coverage_ratio` | ✅ 保留 | 外部气象观测 |
 | `EosEnvironmentModelInputs.wind_speed_mps` | ✅ 保留 | 外部气象观测 |
-| `EosEnvironmentModelInputs.base_aerosol_density_factor` | ⚠️ **应下沉** | 气溶胶密度因子是物理模型中间参数，应由 `EosEnvironmentPreset`（kStandard/kHumid/kDusty/kMaritime）自动映射 |
-| `EosEnvironmentModelInputs.base_turbulence_factor` | ⚠️ **应下沉** | 湍流因子是物理模型中间参数，应由 `EosEnvironmentPreset.kTurbulent` 自动映射 |
+| `EosEnvironmentModelInputs.base_aerosol_density_factor` | ✅ 已下沉 | 已从公开输入面移除，改由 preset/内部映射承担 |
+| `EosEnvironmentModelInputs.base_turbulence_factor` | ✅ 已下沉 | 已从公开输入面移除，改由 preset/内部映射承担 |
 
 ### 2.3 EOS 缺失的输入通道
 
@@ -304,10 +325,10 @@ AR 的 `jamming_detection_threshold_db` 和 ESR 的 `EsrJammingSensitivityPolicy
 | **P1** | AR `jamming_detection_threshold_db` → `JammingSensitivityProfile` 对齐 | 跨模块一致性 |
 | **P1** | AR `AtmosphericDerivedContext.k_factor` / `day_of_year` 下沉为可自动推导 | 减少用户必填项 |
 | **P2** | 跨模块统一气象输入类型到 `foundation/` | 长远架构一致性 |
-| **P2** | AR `EnvironmentModelConfig` / `EnvironmentScenarioConfig` 去重 | 减少公开头文件认知负担 |
-| **P2** | AR `SwerlingModel` 为 `SignalDetectionConfig` 新增字段 | 补全缺失的外部输入通道 |
+| **P2** | AR `EnvironmentModelConfig` / `EnvironmentScenarioConfig` 去重 | ✅ 已完成（2026-04-18） |
+| **P2** | AR `SwerlingModel` 为 `SignalDetectionConfig` 新增字段 | ✅ 已完成（2026-04-18） |
 | **P3** | EOS 预留光学对抗场景输入扩展位 | 前瞻性 |
-| **P3** | EOS `base_aerosol_density_factor` / `base_turbulence_factor` 下沉到 preset 映射 | 保持 EOS 层的语义纯度 |
+| **P3** | EOS `base_aerosol_density_factor` / `base_turbulence_factor` 下沉到 preset 映射 | ✅ 已完成（2026-04-18） |
 
 ---
 

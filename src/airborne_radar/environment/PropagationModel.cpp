@@ -158,9 +158,10 @@ PropagationResult PropagationModel::Evaluate(const EnvironmentSceneState& scene_
     inputs.pressure_hpa = scene_state.atmospheric_physics.pressure_hpa;
     inputs.temperature_k = scene_state.atmospheric_physics.temperature_k;
     inputs.relative_humidity = scene_state.atmospheric_physics.relative_humidity;
-    inputs.k_factor = ResolveEffectiveKFactor(scene_state.atmospheric_context,
-                                              scene_state.atmospheric_physics);
-    inputs.day_of_year = ResolveEffectiveDayOfYear(scene_state.atmospheric_context);
+    inputs.k_factor = ::airborne_radar::environment::ResolveEffectiveKFactor(
+        scene_state.atmospheric_context, scene_state.atmospheric_physics);
+    inputs.day_of_year = ::airborne_radar::environment::ResolveEffectiveDayOfYear(
+        scene_state.atmospheric_context);
     inputs.solar_flux_f107a = scene_state.atmospheric_context.solar_flux_f107a;
     inputs.solar_flux_f107 = scene_state.atmospheric_context.solar_flux_f107;
     inputs.geomagnetic_ap = scene_state.atmospheric_context.geomagnetic_ap;

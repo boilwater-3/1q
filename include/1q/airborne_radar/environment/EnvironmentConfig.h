@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/model/DecisionSourceInfo.h"
+#include "1q/foundation/atmospheric_types.h"
 
 namespace airborne_radar {
 namespace environment {
@@ -104,55 +105,26 @@ struct JammerSourceFact {
 /** @brief 单周期内可见的干扰源列表 */
 using JammerSourceFactList = std::vector<JammerSourceFact>;
 
-/**
- * @brief AtmosphericPhysicsConfig 描述可选的大气传播物理参数。
- */
-struct AtmosphericPhysicsConfig {
-  bool enable_physical_model{false}; /**< 是否启用物理传播模型 */
-  float pressure_hpa{1013.25f};      /**< 气压（单位：hPa） */
-  float temperature_k{288.15f};      /**< 温度（单位：K） */
-  float relative_humidity{0.5f};     /**< 相对湿度 [0, 1] */
-  /** @note 该结构仅承载基础气象量；时间/空间天气高级量见 AtmosphericDerivedContext。 */
-};
+/** @brief AtmosphericPhysicsConfig 复用 foundation 层统一基础气象观测类型。 */
+using AtmosphericPhysicsConfig = oneq::foundation::AtmosphericObservation;
 
-/**
- * @brief AtmosphericDerivedContext 描述由高层时间/空间天气输入解析得到的大气高级上下文。
- * @note 这些量依然来源于库边界外部输入，但不与基础气象量混放，避免普通用户误填。
- */
-struct AtmosphericDerivedContext {
-  bool has_k_factor{false};        /**< 是否显式提供地球有效半径因子 */
-  float k_factor{4.0f / 3.0f};    /**< 地球有效半径因子 */
-  bool has_day_of_year{false};     /**< 是否显式提供年积日 */
-  std::int32_t day_of_year{172};  /**< 年积日 [1, 366] */
-  float solar_flux_f107a{150.0f}; /**< 平滑太阳流量指数 */
-  float solar_flux_f107{150.0f};  /**< 当日太阳流量指数 */
-  float geomagnetic_ap{4.0f};     /**< 地磁活动指数 */
-  /**
-   * @note 这些量仍然由库边界外部输入提供，但作为高层时间/空间天气上下文进入，
-   * 不与普通用户直接填写的基础气象量混在同一个配置组里。
-   */
-};
+/** @brief AtmosphericDerivedContext 复用 foundation 层统一空间天气上下文类型。 */
+using AtmosphericDerivedContext = oneq::foundation::SpaceWeatherContext;
 
 /**
  * @brief 推导环境上下文中的有效 k_factor（优先显式输入，否则使用默认近似）。
  */
 inline float ResolveEffectiveKFactor(const AtmosphericDerivedContext& context,
                                      const AtmosphericPhysicsConfig& physics) {
-  if (context.has_k_factor) {
-    return context.k_factor;
-  }
   (void)physics;
-  return 4.0f / 3.0f;
+  return oneq::foundation::ResolveEffectiveKFactor(context);
 }
 
 /**
  * @brief 推导环境上下文中的有效 day_of_year（优先显式输入，否则使用默认近似）。
  */
 inline std::int32_t ResolveEffectiveDayOfYear(const AtmosphericDerivedContext& context) {
-  if (context.has_day_of_year) {
-    return context.day_of_year;
-  }
-  return 172;
+  return oneq::foundation::ResolveEffectiveDayOfYear(context);
 }
 
 /**

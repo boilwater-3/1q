@@ -110,6 +110,8 @@ EsrEnvironmentSnapshot BuildSnapshot(const EsrEnvironmentCycleContext& cycle_con
   const EsrEnvironmentObservation& observation = cycle_context.observation;
   const EsrAtmosphericPhysicsConfig& atmospheric_physics =
       config.atmospheric_physics;
+  const EsrAtmosphericDerivedContext& atmospheric_context =
+      config.atmospheric_context;
   float physical_loss_db = 0.0f;
   if (atmospheric_physics.enable_physical_model) {
     oneq::internal::atmosphere::AtmosphericPropagationInputs physics_inputs;
@@ -122,11 +124,14 @@ EsrEnvironmentSnapshot BuildSnapshot(const EsrEnvironmentCycleContext& cycle_con
     physics_inputs.pressure_hpa = atmospheric_physics.pressure_hpa;
     physics_inputs.temperature_k = atmospheric_physics.temperature_k;
     physics_inputs.relative_humidity = atmospheric_physics.relative_humidity;
-    physics_inputs.k_factor = ResolveEffectiveKFactor(atmospheric_physics);
-    physics_inputs.day_of_year = ResolveEffectiveDayOfYear(atmospheric_physics);
-    physics_inputs.solar_flux_f107a = atmospheric_physics.solar_flux_f107a;
-    physics_inputs.solar_flux_f107 = atmospheric_physics.solar_flux_f107;
-    physics_inputs.geomagnetic_ap = atmospheric_physics.geomagnetic_ap;
+    physics_inputs.k_factor = ::electronic_surveillance_radar::environment::ResolveEffectiveKFactor(
+        atmospheric_context);
+    physics_inputs.day_of_year =
+        ::electronic_surveillance_radar::environment::ResolveEffectiveDayOfYear(
+            atmospheric_context);
+    physics_inputs.solar_flux_f107a = atmospheric_context.solar_flux_f107a;
+    physics_inputs.solar_flux_f107 = atmospheric_context.solar_flux_f107;
+    physics_inputs.geomagnetic_ap = atmospheric_context.geomagnetic_ap;
     const oneq::internal::atmosphere::AtmosphericPropagationResult physics_result =
         oneq::internal::atmosphere::EvaluateAtmosphericPropagation(physics_inputs);
     physical_loss_db = physics_result.total_physics_loss_db;

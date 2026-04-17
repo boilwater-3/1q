@@ -99,6 +99,7 @@
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
+#include "1q/foundation/atmospheric_types.h"
 #include "1q/foundation/coordinate_transform.h"
 #include "1q/foundation/pose_types.h"
 #include "1q/foundation/scan_schedule_types.h"

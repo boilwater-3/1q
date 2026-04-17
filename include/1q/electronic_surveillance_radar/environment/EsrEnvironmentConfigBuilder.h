@@ -35,6 +35,12 @@ class ONEQ_API EsrEnvironmentConfigBuilder {
     return *this;
   }
 
+  EsrEnvironmentConfigBuilder& WithAtmosphericContext(
+      const EsrAtmosphericDerivedContext& context) {
+    config_.model_config.atmospheric_context = context;
+    return *this;
+  }
+
   EsrEnvironmentDefaultConfig Build() const { return config_; }
 
  private:

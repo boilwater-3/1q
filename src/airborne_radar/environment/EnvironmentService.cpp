@@ -201,11 +201,14 @@ void EnvironmentService::UpdateModelConfig(const EnvironmentModelConfig& config)
 
 void EnvironmentService::SetJammingSensitivityProfile(JammingSensitivityProfile profile) {
   jamming_sensitivity_profile_ = profile;
+  jamming_detection_threshold_db_ = ResolveJammingDetectionThresholdDb(profile);
   RefreshFrozenSnapshotFromActiveScene();
 }
 
 void EnvironmentService::SetJammingDetectionThresholdDb(float threshold_db) {
-  SetJammingSensitivityProfile(ResolveJammingSensitivityProfile(threshold_db));
+  jamming_detection_threshold_db_ = threshold_db;
+  jamming_sensitivity_profile_ = ResolveJammingSensitivityProfile(threshold_db);
+  RefreshFrozenSnapshotFromActiveScene();
 }
 
 environment::EnvironmentServiceRuntimeState EnvironmentService::CaptureRuntimeState() const {
@@ -216,8 +219,7 @@ environment::EnvironmentServiceRuntimeState EnvironmentService::CaptureRuntimeSt
     state.active_cycle_context = scene_manager_->GetActiveCycleContext();
   }
   state.jamming_sensitivity_profile = jamming_sensitivity_profile_;
-  state.jamming_detection_threshold_db =
-      ResolveJammingDetectionThresholdDb(jamming_sensitivity_profile_);
+  state.jamming_detection_threshold_db = jamming_detection_threshold_db_;
   return state;
 }
 
@@ -228,12 +230,13 @@ void EnvironmentService::RestoreRuntimeState(
                                  state.active_cycle_context);
   }
   current_cycle_context_ = state.active_cycle_context;
-  if (state.jamming_detection_threshold_db !=
+  jamming_detection_threshold_db_ = state.jamming_detection_threshold_db;
+  if (state.jamming_detection_threshold_db ==
       ResolveJammingDetectionThresholdDb(state.jamming_sensitivity_profile)) {
+    jamming_sensitivity_profile_ = state.jamming_sensitivity_profile;
+  } else {
     jamming_sensitivity_profile_ =
         ResolveJammingSensitivityProfile(state.jamming_detection_threshold_db);
-  } else {
-    jamming_sensitivity_profile_ = state.jamming_sensitivity_profile;
   }
   RefreshFrozenSnapshotFromActiveScene();
 }
@@ -263,7 +266,7 @@ void EnvironmentService::RefreshFrozenSnapshotFromActiveScene() {
       std::find_if(frozen_snapshot_.jammer_sources.begin(), frozen_snapshot_.jammer_sources.end(),
                    [this](const JammerSourceFact& source) {
                      return source.power_db >=
-                            ResolveJammingDetectionThresholdDb(jamming_sensitivity_profile_);
+                            jamming_detection_threshold_db_;
                    }) != frozen_snapshot_.jammer_sources.end();
 }
 
