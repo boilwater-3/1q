@@ -19,16 +19,16 @@
 namespace airborne_radar {
 namespace tests {
 
-using config::AntennaConfig;
-using config::DetectionPolicy;
+using config::engineering::AntennaConfig;
+using config::engineering::DetectionPolicy;
 using signal::detection::DetectionResult;
 using signal::detection::MeasurementErrorModel;
 using signal::detection::RadarEquations;
-using config::SignalDetectionConfig;
-using config::ReceiverConfig;
+using config::engineering::DetectionConfig;
+using config::engineering::ReceiverConfig;
 using signal::detection::SignalDetector;
 using signal::detection::TargetLookResolver;
-using config::TransmitterConfig;
+using config::engineering::TransmitterConfig;
 
 // ===========================================================================
 // RadarEquations 纯函数单元测试
@@ -155,7 +155,7 @@ TEST(RadarEquationsTest, AngleStdDev_Proportional) {
 
 /// @brief 近距大 RCS 目标 → 高 SNR，必然探测成功。
 TEST(SignalDetectorTest, CloseTarget_HighSNR_Detected) {
-  SignalDetectionConfig config;
+  DetectionConfig config;
   // 使用默认参数（1MW, S-band, 35dB gain）
   SignalDetector detector(config);
   detector.SetRandomSeed(42u);
@@ -179,7 +179,7 @@ TEST(SignalDetectorTest, CloseTarget_HighSNR_Detected) {
 
 /// @brief 远距小 RCS 目标 → 低 SNR，大概率探测失败。
 TEST(SignalDetectorTest, FarTarget_LowSNR_NotDetected) {
-  SignalDetectionConfig config;
+  DetectionConfig config;
   config.transmitter.peak_power_w = 1e4f;  // 降低发射功率
   SignalDetector detector(config);
   detector.SetRandomSeed(42u);
@@ -201,7 +201,7 @@ TEST(SignalDetectorTest, FarTarget_LowSNR_NotDetected) {
 
 /// @brief 相同随机种子 → 完全确定性输出。
 TEST(SignalDetectorTest, DeterministicWithSeed) {
-  SignalDetectionConfig config;
+  DetectionConfig config;
 
   SignalDetector d1(config);
   d1.SetRandomSeed(123u);
@@ -228,7 +228,7 @@ TEST(SignalDetectorTest, DeterministicWithSeed) {
 
 /// @brief 共享周期级时序状态解析后的脉冲数应继续提高检测概率。
 TEST(SignalDetectorTest, SharedTimingStatePulseCountStillImprovesDetectionProbability) {
-  SignalDetectionConfig config;
+  DetectionConfig config;
   config.detection_policy.cfar_pfa = 1.0e-6f;
   config.detection_policy.min_snr_db = -50.0f;
   SignalDetector detector(config);
@@ -271,7 +271,7 @@ TEST(SignalDetectorTest, SharedTimingStatePulseCountStillImprovesDetectionProbab
 
 /// @brief 注入干扰噪声 → SNR 下降、Pd 下降。
 TEST(SignalDetectorTest, JammingIncreasesNoise) {
-  SignalDetectionConfig config;
+  DetectionConfig config;
   SignalDetector detector(config);
   detector.SetRandomSeed(42u);
 
@@ -296,7 +296,7 @@ TEST(SignalDetectorTest, JammingIncreasesNoise) {
 
 /// @brief Detect 应直接使用“每脉冲 SNR + N”语义计算 Pd。
 TEST(SignalDetectorTest, DetectionProbabilityUsesIntegratedSnr) {
-  SignalDetectionConfig config;
+  DetectionConfig config;
   config.detection_policy.min_snr_db = -80.0f;  // 关闭硬门限影响
   SignalDetector detector(config);
   detector.SetRandomSeed(42u);
@@ -328,11 +328,11 @@ TEST(SignalDetectorTest, DetectionProbabilityUsesIntegratedSnr) {
 
 /// @brief 带宽越大热噪声越大，保持其他参数不变时单脉冲 SNR 应下降。
 TEST(SignalDetectorTest, WiderBandwidthReducesSnrWithSameEnergyInputs) {
-  SignalDetectionConfig narrow_band_config;
+  DetectionConfig narrow_band_config;
   narrow_band_config.transmitter.bandwidth_hz = 2.0e6f;
   narrow_band_config.detection_policy.min_snr_db = -80.0f;
 
-  SignalDetectionConfig wide_band_config = narrow_band_config;
+  DetectionConfig wide_band_config = narrow_band_config;
   wide_band_config.transmitter.bandwidth_hz = 8.0e6f;
 
   SignalDetector narrow_detector(narrow_band_config);
@@ -358,7 +358,7 @@ TEST(SignalDetectorTest, WiderBandwidthReducesSnrWithSameEnergyInputs) {
 
 /// @brief 更多脉冲应带来更高的积分增益与检测概率。
 TEST(SignalDetectorTest, HigherPulseCountYieldsHigherPd) {
-  SignalDetectionConfig config;
+  DetectionConfig config;
   config.detection_policy.min_snr_db = -80.0f;
   SignalDetector detector(config);
 
@@ -459,7 +459,7 @@ TEST(MeasurementErrorModelTest, CommandedBeamwidthOverrideAffectsAngleStdDev) {
 
 /// @brief 指令态波束展宽应通过方向图增益修正改善离轴目标的回波功率。
 TEST(BeamControlResolverTest, CommandedBeamwidthAffectsDirectionalPatternGain) {
-  SignalDetectionConfig config;
+  DetectionConfig config;
   config.antenna.nominal_az_beamwidth_deg = 2.0f;
   config.antenna.nominal_el_beamwidth_deg = 2.0f;
   config.antenna.enable_directional_pattern = true;
@@ -740,7 +740,7 @@ TEST(RadarEquationsTest, MarcumQ_NegativeAIsEquivalentToZeroA) {
 
 /// @brief 目标距离为零时，ComputeEchoPower 返回保护值 -300 dBW，触发硬截断，不检测。
 TEST(SignalDetectorTest, ZeroRange_TargetNotDetected) {
-  SignalDetectionConfig config;
+  DetectionConfig config;
   SignalDetector detector(config);
   detector.SetRandomSeed(42u);
 
@@ -761,7 +761,7 @@ TEST(SignalDetectorTest, ZeroRange_TargetNotDetected) {
 
 /// @brief 目标 RCS 为零时，回波功率为保护值，不检测。
 TEST(SignalDetectorTest, ZeroRcs_TargetNotDetected) {
-  SignalDetectionConfig config;
+  DetectionConfig config;
   SignalDetector detector(config);
   detector.SetRandomSeed(42u);
 
@@ -782,7 +782,7 @@ TEST(SignalDetectorTest, ZeroRcs_TargetNotDetected) {
 
 /// @brief 超大杂波噪声（远超回波功率）应压制检测。
 TEST(SignalDetectorTest, MassiveClutterSuppressesDetection) {
-  SignalDetectionConfig config;
+  DetectionConfig config;
   SignalDetector detector(config);
   detector.SetRandomSeed(42u);
 
@@ -805,7 +805,7 @@ TEST(SignalDetectorTest, MassiveClutterSuppressesDetection) {
 
 /// @brief 总噪声接近零时，SNR 使用噪声下限保护，结果应有限且不崩溃。
 TEST(SignalDetectorTest, NearZeroTotalNoise_GivesSafetySnr) {
-  SignalDetectionConfig config;
+  DetectionConfig config;
   // 将热噪声降至最低（极低带宽 + 零噪声指数）
   config.transmitter.bandwidth_hz = 1.0f;  // 1 Hz 带宽 → 极小热噪声
   config.receiver.noise_figure_db = 0.0f;  // 理想接收机
@@ -831,7 +831,7 @@ TEST(SignalDetectorTest, NearZeroTotalNoise_GivesSafetySnr) {
 
 /// @brief 非正噪声输入应被钳位为非负，不得造成虚高 SNR。
 TEST(SignalDetectorTest, NonPositiveNoiseInputDoesNotInflateSnr) {
-  SignalDetectionConfig config;
+  DetectionConfig config;
   config.detection_policy.min_snr_db = -80.0f;
   SignalDetector detector(config);
   detector.SetRandomSeed(42u);
@@ -861,7 +861,7 @@ TEST(SignalDetectorTest, NonPositiveNoiseInputDoesNotInflateSnr) {
 
 /// @brief snr < min_snr_db 时，detection_prob 强制为 0，detected = false。
 TEST(SignalDetectorTest, BelowMinSnrIsNeverDetected) {
-  SignalDetectionConfig config;
+  DetectionConfig config;
   config.detection_policy.min_snr_db = 20.0f;  // 极高硬门限
   SignalDetector detector(config);
   detector.SetRandomSeed(0u);

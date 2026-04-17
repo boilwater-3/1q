@@ -65,7 +65,7 @@ float LinearToDb(float linear) {
  * @param tx 发射机参数。
  * @return 线性能量缩放因子，最小钳位到 `kEpsilon`。
  */
-float ComputePulseEnergyScale(const config::TransmitterConfig& tx) {
+float ComputePulseEnergyScale(const config::engineering::TransmitterConfig& tx) {
   if (!std::isfinite(tx.pulse_width_s) || tx.pulse_width_s <= 0.0f) {
     return kEpsilon;
   }
@@ -94,7 +94,7 @@ float ClampPd(float pd) {
 
 }  // namespace
 
-float RadarEquations::ComputeEchoPowerWithGain_dBW(const config::TransmitterConfig& tx,
+float RadarEquations::ComputeEchoPowerWithGain_dBW(const config::engineering::TransmitterConfig& tx,
                                                    float one_way_gain_db, float rcs_m2,
                                                    float range_m, float propagation_loss_db) {
   if (range_m <= 0.0f || rcs_m2 <= 0.0f || tx.frequency_hz <= 0.0f) {
@@ -122,15 +122,15 @@ float RadarEquations::ComputeEchoPowerWithGain_dBW(const config::TransmitterConf
   return pr_dbw;
 }
 
-float RadarEquations::ComputeEchoPower_dBW(const config::TransmitterConfig& tx,
-                                           const config::AntennaConfig& ant, float rcs_m2,
+float RadarEquations::ComputeEchoPower_dBW(const config::engineering::TransmitterConfig& tx,
+                                           const config::engineering::AntennaConfig& ant, float rcs_m2,
                                            float range_m, float propagation_loss_db) {
   return ComputeEchoPowerWithGain_dBW(tx, ant.main_beam_gain_db, rcs_m2, range_m,
                                       propagation_loss_db);
 }
 
-float RadarEquations::ComputeThermalNoisePower_W(const config::TransmitterConfig& tx,
-                                                 const config::ReceiverConfig& rx) {
+float RadarEquations::ComputeThermalNoisePower_W(const config::engineering::TransmitterConfig& tx,
+                                                 const config::engineering::ReceiverConfig& rx) {
   const float noise_figure_linear = DbToLinear(rx.noise_figure_db);
   return kBoltzmann * kRefTemperature * tx.bandwidth_hz * noise_figure_linear;
 }

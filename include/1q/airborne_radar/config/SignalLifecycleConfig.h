@@ -12,21 +12,37 @@ namespace airborne_radar {
 namespace config {
 
 /**
- * @brief LifecycleConfig 定义轨迹状态机阈值配置。
+ * @brief LifecyclePolicyProfile 表示对外生命周期策略档位。
  */
-struct LifecycleConfig {
-  std::uint32_t confirm_hits{3};         /**< 候选轨迹转已确认所需最小命中次数 */
-  std::uint32_t max_miss_before_lost{2}; /**< 已确认轨迹转丢失前允许的最大连续失配次数 */
-  std::uint32_t max_lost_cycles{5};      /**< 丢失轨迹可保留的最大周期数，超出则回收 */
+enum class LifecyclePolicyProfile {
+  kBalanced = 0,        /**< 平衡策略 */
+  kFastConfirm = 1,     /**< 快速确认策略 */
+  kHighPersistence = 2  /**< 高留存策略 */
 };
 
 /**
- * @brief SignalLifecycleConfig 描述生命周期域配置。
+ * @brief SignalLifecycleConfig 描述对外语义化生命周期输入。
  */
 struct SignalLifecycleConfig {
-  LifecycleConfig lifecycle_config{}; /**< 生命周期配置 */
-  bool enable_imm_lifecycle{false};   /**< 是否启用 IMM 生命周期管理 */
+  LifecyclePolicyProfile policy_profile{
+      LifecyclePolicyProfile::kBalanced}; /**< 生命周期策略档位 */
+  bool enable_imm_fusion{false};          /**< 是否启用 IMM 融合策略 */
 };
+
+namespace engineering {
+
+struct LifecycleConfig {
+  std::uint32_t confirm_hits{3};
+  std::uint32_t max_miss_before_lost{2};
+  std::uint32_t max_lost_cycles{5};
+};
+
+struct LifecycleRuntimeConfig {
+  LifecycleConfig lifecycle_config{};
+  bool enable_imm_lifecycle{false};
+};
+
+}  // namespace engineering
 
 }  // namespace config
 }  // namespace airborne_radar

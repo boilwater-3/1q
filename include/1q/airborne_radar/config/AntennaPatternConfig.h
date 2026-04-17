@@ -12,29 +12,47 @@ namespace airborne_radar {
 namespace config {
 
 /**
- * @brief AntennaPatternModelType 表示天线方向图主瓣近似模型类型。
- * @note 该枚举作为 `AntennaPatternConfig::model_type` 的取值域，
- *       对应的 `AntennaPatternConfig` 结构体为“初始化固定”，不支持仿真过程中进行修改。
+ * @brief AntennaPatternProfile 表示对外方向图能力档位。
  */
-enum class AntennaPatternModelType {
-  kGaussianMainLobe = 0,  /**< 主瓣采用高斯型工程近似 */
-  kParabolicMainLobe = 1, /**< 主瓣采用抛物型工程近似 */
-  kCosinePower = 2        /**< 主瓣采用余弦幂工程近似 */
+enum class AntennaPatternProfile {
+  kStandard = 0,    /**< 通用阵面能力 */
+  kLowSidelobe = 1, /**< 低旁瓣能力 */
+  kWideCoverage = 2 /**< 广覆盖能力 */
 };
 
 /**
- * @brief AntennaPatternConfig 表示天线方向图公共配置。
- * @note 该结构体为“初始化固定”，不支持仿真过程中进行修改。
+ * @brief AntennaPatternConfig 表示对外语义化方向图输入。
+ */
+struct AntennaPatternConfig {
+  AntennaPatternProfile profile{AntennaPatternProfile::kStandard}; /**< 方向图能力档位 */
+  model::AzimuthElevationDeg boresight_offset_deg{};               /**< 外部标定零偏 */
+};
+
+namespace engineering {
+
+/**
+ * @brief AntennaPatternModelType 表示内部方向图主瓣近似模型类型。
+ */
+enum class AntennaPatternModelType {
+  kGaussianMainLobe = 0,
+  kParabolicMainLobe = 1,
+  kCosinePower = 2
+};
+
+/**
+ * @brief AntennaPatternConfig 表示内部工程方向图参数。
  */
 struct AntennaPatternConfig {
   AntennaPatternModelType model_type{
-      AntennaPatternModelType::kGaussianMainLobe}; /**< 主瓣近似模型 */
-  float max_sidelobe_level_db{-20.0f};             /**< 最大旁瓣电平（相对主瓣峰值，单位：dB） */
-  float backlobe_level_db{-35.0f};                 /**< 后瓣电平（相对主瓣峰值，单位：dB） */
-  float scan_loss_coeff_db_per_deg2{0.0f};         /**< 扫描损失二次项系数（单位：dB/deg²） */
-  float max_scan_loss_db{6.0f};                    /**< 最大扫描损失（单位：dB） */
-  model::AzimuthElevationDeg boresight_offset_deg; /**< 阵面法线相对安装基准轴的零偏指向 */
+      AntennaPatternModelType::kGaussianMainLobe};
+  float max_sidelobe_level_db{-20.0f};
+  float backlobe_level_db{-35.0f};
+  float scan_loss_coeff_db_per_deg2{0.0f};
+  float max_scan_loss_db{6.0f};
+  model::AzimuthElevationDeg boresight_offset_deg{};
 };
+
+}  // namespace engineering
 
 }  // namespace config
 }  // namespace airborne_radar

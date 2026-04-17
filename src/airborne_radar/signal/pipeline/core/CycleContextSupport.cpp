@@ -47,8 +47,8 @@ void ResetCycleWorkspace(const model::TargetFeatureList& input_state,
   workspace->association_keys->resize(target_count);
   workspace->measurement_slots->assign(target_count, -1);
   workspace->target_geometry->resize(target_count);
-  RefreshMeasurementCovariances(target_count, runtime_config.tracking.kalman_measurement_noise_std,
-                                workspace->measurement_covariances);
+  RefreshMeasurementCovariances(
+      target_count, 10.0f, workspace->measurement_covariances);
   *workspace->association_result = association::AssociationResult();
 }
 

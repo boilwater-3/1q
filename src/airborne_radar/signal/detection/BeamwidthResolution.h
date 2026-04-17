@@ -30,7 +30,7 @@ struct EffectiveBeamwidthDeg {
  *       后续由 SignalPipeline 将其传播到量测协方差建模。
  */
 inline EffectiveBeamwidthDeg ResolveEffectiveBeamwidth(
-    const config::AntennaConfig& antenna_config,
+    const config::engineering::AntennaConfig& antenna_config,
     const model::RadarOrientationConfig& orientation_config) {
   EffectiveBeamwidthDeg beamwidth;
   if (orientation_config.commanded_beamwidth_enabled) {

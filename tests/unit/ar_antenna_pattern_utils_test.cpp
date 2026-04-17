@@ -14,7 +14,7 @@ namespace detection {
 namespace {
 
 TEST(AntennaPatternUtilsTest, MainLobeGainDropsWithOffset) {
-  config::AntennaPatternConfig config;
+  config::engineering::AntennaPatternConfig config;
   const float peak_gain_dbi = 30.0f;
 
   AntennaPatternBeamwidthDeg beamwidth;
@@ -36,7 +36,7 @@ TEST(AntennaPatternUtilsTest, MainLobeGainDropsWithOffset) {
 }
 
 TEST(AntennaPatternUtilsTest, WiderBeamwidthReducesSameOffsetAttenuation) {
-  config::AntennaPatternConfig config;
+  config::engineering::AntennaPatternConfig config;
   const float peak_gain_dbi = 30.0f;
   model::AzimuthElevationDeg beam_pointing_deg;
   AntennaLookOffsetDeg offset_deg;
@@ -60,7 +60,7 @@ TEST(AntennaPatternUtilsTest, WiderBeamwidthReducesSameOffsetAttenuation) {
 }
 
 TEST(AntennaPatternUtilsTest, ScanLossIncreasesAwayFromBoresight) {
-  config::AntennaPatternConfig config;
+  config::engineering::AntennaPatternConfig config;
   const float peak_gain_dbi = 30.0f;
   config.scan_loss_coeff_db_per_deg2 = 0.02f;
   config.max_scan_loss_db = 6.0f;
@@ -83,7 +83,7 @@ TEST(AntennaPatternUtilsTest, ScanLossIncreasesAwayFromBoresight) {
 }
 
 TEST(AntennaPatternUtilsTest, ScanLossChangesWithBeamPointingWhileLookOffsetIsFixed) {
-  config::AntennaPatternConfig config;
+  config::engineering::AntennaPatternConfig config;
   config.scan_loss_coeff_db_per_deg2 = 0.01f;
   config.max_scan_loss_db = 20.0f;
   config.boresight_offset_deg.az_deg = 2.0f;
@@ -115,7 +115,7 @@ TEST(AntennaPatternUtilsTest, ScanLossChangesWithBeamPointingWhileLookOffsetIsFi
 }
 
 TEST(AntennaPatternUtilsTest, OutsideMainLobeUsesSidelobeFloor) {
-  config::AntennaPatternConfig config;
+  config::engineering::AntennaPatternConfig config;
   const float peak_gain_dbi = 30.0f;
   config.max_sidelobe_level_db = -18.0f;
 
@@ -135,7 +135,7 @@ TEST(AntennaPatternUtilsTest, OutsideMainLobeUsesSidelobeFloor) {
 }
 
 TEST(AntennaPatternUtilsTest, BackLobeUsesConfiguredBacklobeLevel) {
-  config::AntennaPatternConfig config;
+  config::engineering::AntennaPatternConfig config;
   const float peak_gain_dbi = 30.0f;
   config.backlobe_level_db = -40.0f;
 

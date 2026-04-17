@@ -284,30 +284,30 @@ TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields)
   const session::RadarSessionConfig config = config::RadarSessionConfigBuilder()
                                                  .Detection()
                                                  .EnablePhysicsDetection(true)
-                                                 .WithPulseCount(16)
-                                                 .WithPeakPowerW(5e6f)
-                                                 .WithFrequencyHz(9.3e9f)
-                                                 .WithMainBeamGainDb(38.0f)
-                                                 .WithNoiseFigureDb(3.5f)
+                                                 .WithDetectionIntentProfile(
+                                                     config::DetectionIntentProfile::kDetectionPriority)
+                                                 .WithHardwareProfile(
+                                                     config::RadarHardwareProfile::kLongRangeHighPower)
+                                                 .WithAntennaPatternProfile(
+                                                     config::AntennaPatternProfile::kLowSidelobe)
                                                  .End()
                                                  .Beam()
                                                  .WithScanCenterDeg(scan_center)
                                                  .End()
                                                  .Lifecycle()
-                                                 .WithLifecycleConfirmHits(2U)
+                                                 .WithLifecyclePolicyProfile(
+                                                     config::LifecyclePolicyProfile::kFastConfirm)
                                                  .End()
                                                  .Environment()
                                                  .WithJammingDetectionThresholdDb(8.0f)
                                                  .End()
                                                  .Build();
   EXPECT_TRUE(config.detection.enable_physics_detection);
-  EXPECT_EQ(config.detection.pulse_count, 16);
-  EXPECT_FLOAT_EQ(config.detection.transmitter.peak_power_w, 5e6f);
-  EXPECT_FLOAT_EQ(config.detection.transmitter.frequency_hz, 9.3e9f);
-  EXPECT_FLOAT_EQ(config.detection.antenna.main_beam_gain_db, 38.0f);
-  EXPECT_FLOAT_EQ(config.detection.receiver.noise_figure_db, 3.5f);
+  EXPECT_EQ(config.detection.intent_profile, config::DetectionIntentProfile::kDetectionPriority);
+  EXPECT_EQ(config.detection.hardware_profile, config::RadarHardwareProfile::kLongRangeHighPower);
+  EXPECT_EQ(config.detection.antenna_pattern.profile, config::AntennaPatternProfile::kLowSidelobe);
   EXPECT_FLOAT_EQ(config.beam_control.radar_orientation.scan_center_deg.az_deg, -12.0f);
-  EXPECT_EQ(config.lifecycle.lifecycle_config.confirm_hits, 2U);
+  EXPECT_EQ(config.lifecycle.policy_profile, config::LifecyclePolicyProfile::kFastConfirm);
   EXPECT_FLOAT_EQ(config.environment_default_config.jamming_detection_threshold_db, 8.0f);
 
   environment::EnvironmentScenarioConfig scenario;

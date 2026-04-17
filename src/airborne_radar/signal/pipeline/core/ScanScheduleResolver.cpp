@@ -11,6 +11,29 @@ namespace pipeline {
 namespace core {
 namespace internal {
 
+namespace {
+
+config::engineering::AntennaConfig ResolveSchedulingAntennaConfig(
+    const config::SignalDetectionConfig& detection_config) {
+  config::engineering::AntennaConfig antenna;
+  switch (detection_config.hardware_profile) {
+    case config::RadarHardwareProfile::kLongRangeHighPower:
+      antenna.nominal_az_beamwidth_deg = 3.0f;
+      antenna.nominal_el_beamwidth_deg = 3.0f;
+      break;
+    case config::RadarHardwareProfile::kLightweightLpi:
+      antenna.nominal_az_beamwidth_deg = 5.0f;
+      antenna.nominal_el_beamwidth_deg = 5.0f;
+      break;
+    case config::RadarHardwareProfile::kGenericAirborneXBand:
+    default:
+      break;
+  }
+  return antenna;
+}
+
+}  // namespace
+
 model::AzimuthElevationDeg ResolveFiniteScanCenter(
     const model::RadarOrientationConfig& orientation_config) {
   model::AzimuthElevationDeg center = orientation_config.scan_center_deg;
@@ -196,8 +219,10 @@ void ApplyScanScheduleToRuntimeConfig(std::uint32_t cycle_index,
   }
   model::RadarOrientationConfig& orientation =
       runtime_config->beam_control.radar_orientation;
+  const config::engineering::AntennaConfig antenna_config =
+      ResolveSchedulingAntennaConfig(runtime_config->detection);
   const detection::EffectiveBeamwidthDeg effective_beamwidth = detection::ResolveEffectiveBeamwidth(
-      runtime_config->detection.antenna, orientation);
+      antenna_config, orientation);
   orientation.dwell_center_deg =
       ResolveScheduledDwellCenter(orientation, effective_beamwidth, cycle_index);
 }

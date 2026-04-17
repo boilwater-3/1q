@@ -31,9 +31,9 @@ int main(int argc, char* argv[]) {
 
   ar::session::RadarCycleInput input;
   input.dt_sec = 1.0f;
-  input.platform_pose.attitude_deg.yaw_deg = config.beam_control.platform_attitude_deg.yaw_deg;
-  input.platform_pose.attitude_deg.pitch_deg = config.beam_control.platform_attitude_deg.pitch_deg;
-  input.platform_pose.attitude_deg.roll_deg = config.beam_control.platform_attitude_deg.roll_deg;
+  input.platform_pose.attitude_deg.yaw_deg = 0.0f;
+  input.platform_pose.attitude_deg.pitch_deg = 0.0f;
+  input.platform_pose.attitude_deg.roll_deg = 0.0f;
   input.target_features.push_back(
       ar::model::MakeTargetFromCartesian(2001U, 1500.0f, 50.0f, 100.0f, 220.0f, 0.0f, 0.0f, 1.5f));
 

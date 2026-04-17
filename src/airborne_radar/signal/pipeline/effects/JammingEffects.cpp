@@ -389,7 +389,7 @@ void ApplyEnvironmentJammingFactsToRuntimeConfig(
       utils::ClampFloat(association_scale, 1.0f, cfg.association_scale_max);
   internal_runtime_config->tracking.kalman_noise_diff_coeff *=
       utils::ClampFloat(tracking_noise_scale, 1.0f, cfg.tracking_noise_scale_max);
-  runtime_config->tracking.kalman_measurement_noise_std *=
+  internal_runtime_config->tracking_runtime.engineering.kalman_measurement_noise_std *=
       utils::ClampFloat(measurement_noise_scale, 1.0f, cfg.measurement_noise_scale_max);
 }
 

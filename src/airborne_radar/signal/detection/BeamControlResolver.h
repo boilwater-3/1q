@@ -37,7 +37,7 @@ class BeamControlResolver {
    * @param target_look_angles 目标在雷达局部坐标系中的 look angle。
    * @return 当前探测使用的波束状态。
    */
-  static ResolvedBeamState Resolve(const config::AntennaConfig& antenna_config,
+  static ResolvedBeamState Resolve(const config::engineering::AntennaConfig& antenna_config,
                                    const model::RadarOrientationConfig& orientation_config,
                                    const model::PlatformAttitudeDeg& platform_attitude_deg,
                                    const TargetLookAnglesDeg& target_look_angles) {

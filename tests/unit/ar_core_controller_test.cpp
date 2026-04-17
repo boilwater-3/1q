@@ -564,8 +564,8 @@ TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {
 
   config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.min_detection_margin_db = -100.0f;
-  pipeline_config.lifecycle.lifecycle_config.confirm_hits = 1U;
-  pipeline_config.tracking.kalman_measurement_noise_std = 1.0f;
+  pipeline_config.lifecycle.policy_profile = config::LifecyclePolicyProfile::kFastConfirm;
+  pipeline_config.tracking.policy_profile = config::TrackingPolicyProfile::kFastAssociation;
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
@@ -606,8 +606,8 @@ TEST_F(CoreControllerTest, DuplicateExternalTargetIdRetainsPreviousValidOutputFr
 
   config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.min_detection_margin_db = -100.0f;
-  pipeline_config.lifecycle.lifecycle_config.confirm_hits = 1U;
-  pipeline_config.tracking.kalman_measurement_noise_std = 1.0f;
+  pipeline_config.lifecycle.policy_profile = config::LifecyclePolicyProfile::kFastConfirm;
+  pipeline_config.tracking.policy_profile = config::TrackingPolicyProfile::kFastAssociation;
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 

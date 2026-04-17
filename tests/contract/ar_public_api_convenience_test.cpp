@@ -35,8 +35,8 @@ namespace {
 config::SignalPipelineConfig MakeConveniencePipelineConfig() {
   config::SignalPipelineConfig config;
   config.detection.min_detection_margin_db = -100.0f;
-  config.lifecycle.lifecycle_config.confirm_hits = 1U;
-  config.tracking.kalman_measurement_noise_std = 1.0f;
+  config.lifecycle.policy_profile = config::LifecyclePolicyProfile::kFastConfirm;
+  config.tracking.policy_profile = config::TrackingPolicyProfile::kFastAssociation;
   return config;
 }
 
@@ -721,17 +721,13 @@ TEST(PublicApiConvenienceTest, RadarInputValidationFlagsMissingGeometryAndNonFin
 TEST(PublicApiConvenienceTest, ConfigPresetsProvideExpectedDetectionAndRobustnessDefaults) {
   const config::SignalPipelineConfig detection_config =
       config::MakeDetectionMissionSignalPipelineConfig();
-  EXPECT_EQ(detection_config.lifecycle.lifecycle_config.confirm_hits, 1U);
+  EXPECT_EQ(detection_config.lifecycle.policy_profile, config::LifecyclePolicyProfile::kFastConfirm);
   EXPECT_NEAR(detection_config.detection.min_detection_margin_db, -100.0f, 1e-5f);
 
   const config::SignalPipelineConfig robust_config =
       config::MakeHighRobustnessSignalPipelineConfig();
-  EXPECT_GT(robust_config.lifecycle.lifecycle_config.max_miss_before_lost,
-            detection_config.lifecycle.lifecycle_config.max_miss_before_lost);
-  EXPECT_GT(robust_config.lifecycle.lifecycle_config.max_lost_cycles,
-            detection_config.lifecycle.lifecycle_config.max_lost_cycles);
-  EXPECT_GT(robust_config.tracking.kalman_measurement_noise_std,
-            detection_config.tracking.kalman_measurement_noise_std);
+  EXPECT_EQ(robust_config.lifecycle.policy_profile, config::LifecyclePolicyProfile::kHighPersistence);
+  EXPECT_EQ(robust_config.tracking.policy_profile, config::TrackingPolicyProfile::kRobustAntiJamming);
 
   const session::RadarSessionConfig session_config =
       config::MakeDetectionMissionRadarSessionConfig();

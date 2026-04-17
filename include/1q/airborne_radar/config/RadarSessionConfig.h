@@ -24,9 +24,8 @@ struct ONEQ_API RadarSessionConfig {
   config::SignalDetectionConfig detection{};
   /**
    * @brief 波束控制基线配置。
-   * @note 坐标系约定见 `SignalBeamControlConfig`：
-   *       `platform_attitude_deg` 为 ENU -> Body，
-   *       `radar_orientation.mount_angles_deg` 为 Body -> Radar。
+   * @note `radar_orientation.mount_angles_deg` 语义为 Body -> Radar。
+   *       平台姿态属于运行期外部输入，不在 session baseline config 中静态持有。
    */
   config::SignalBeamControlConfig beam_control{};
   /** @brief 跟踪基线配置。 */

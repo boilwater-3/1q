@@ -6,11 +6,9 @@
 #ifndef AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_INTERNAL_SIGNAL_PIPELINE_CONFIG_H_
 #define AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_INTERNAL_SIGNAL_PIPELINE_CONFIG_H_
 
-#include <cmath>
 #include <cstddef>
 #include <vector>
 
-#include "airborne_radar/signal/pipeline/config/SignalPipelinePresetSemantics.h"
 #include "airborne_radar/signal/pipeline/config/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/tracking/LifecycleConfig.h"
 
@@ -19,190 +17,27 @@ namespace signal {
 namespace pipeline {
 namespace internal {
 
-/**
- * @brief InternalSignalPipelineProfile 描述 internal tuning 的预设语义档位。
- */
 enum class InternalSignalPipelineProfile {
   kBaseline = 0,
   kTrackingPreset,
   kRobustPreset,
 };
 
-namespace detail {
-
-inline bool NearlyEqual(float lhs, float rhs) { return std::fabs(lhs - rhs) <= 1e-5f; }
-
-inline bool EqualsEulerAnglesDeg(const model::EulerAnglesDeg& lhs,
-                                 const model::EulerAnglesDeg& rhs) {
-  return NearlyEqual(lhs.yaw_deg, rhs.yaw_deg) && NearlyEqual(lhs.pitch_deg, rhs.pitch_deg) &&
-         NearlyEqual(lhs.roll_deg, rhs.roll_deg);
-}
-
-inline bool EqualsAzimuthElevationDeg(const model::AzimuthElevationDeg& lhs,
-                                      const model::AzimuthElevationDeg& rhs) {
-  return NearlyEqual(lhs.az_deg, rhs.az_deg) && NearlyEqual(lhs.el_deg, rhs.el_deg);
-}
-
-inline bool EqualsAzimuthElevationLimitsDeg(const model::AzimuthElevationLimitsDeg& lhs,
-                                            const model::AzimuthElevationLimitsDeg& rhs) {
-  return NearlyEqual(lhs.az_min_deg, rhs.az_min_deg) &&
-         NearlyEqual(lhs.az_max_deg, rhs.az_max_deg) &&
-         NearlyEqual(lhs.el_min_deg, rhs.el_min_deg) && NearlyEqual(lhs.el_max_deg, rhs.el_max_deg);
-}
-
-inline bool EqualsCommandedBeamwidthDeg(const model::CommandedBeamwidthDeg& lhs,
-                                        const model::CommandedBeamwidthDeg& rhs) {
-  return NearlyEqual(lhs.commanded_az_beamwidth_deg, rhs.commanded_az_beamwidth_deg) &&
-         NearlyEqual(lhs.commanded_el_beamwidth_deg, rhs.commanded_el_beamwidth_deg);
-}
-
-inline bool EqualsRadarOrientationConfig(const model::RadarOrientationConfig& lhs,
-                                         const model::RadarOrientationConfig& rhs) {
-  return EqualsEulerAnglesDeg(lhs.mount_angles_deg, rhs.mount_angles_deg) &&
-         EqualsAzimuthElevationDeg(lhs.scan_center_deg, rhs.scan_center_deg) &&
-         EqualsAzimuthElevationLimitsDeg(lhs.mechanical_scan_limits_deg,
-                                         rhs.mechanical_scan_limits_deg) &&
-         EqualsAzimuthElevationLimitsDeg(lhs.electronic_scan_limits_deg,
-                                         rhs.electronic_scan_limits_deg) &&
-         lhs.scan_start_position == rhs.scan_start_position &&
-         lhs.scan_sequence == rhs.scan_sequence && lhs.work_sub_mode == rhs.work_sub_mode &&
-         EqualsAzimuthElevationDeg(lhs.dwell_center_deg, rhs.dwell_center_deg) &&
-         lhs.commanded_beamwidth_enabled == rhs.commanded_beamwidth_enabled &&
-         EqualsCommandedBeamwidthDeg(lhs.commanded_beamwidth_deg, rhs.commanded_beamwidth_deg) &&
-         lhs.stabilization_mode == rhs.stabilization_mode;
-}
-
-inline bool EqualsAntennaPatternConfig(const config::AntennaPatternConfig& lhs,
-                                       const config::AntennaPatternConfig& rhs) {
-  return lhs.model_type == rhs.model_type &&
-         NearlyEqual(lhs.max_sidelobe_level_db, rhs.max_sidelobe_level_db) &&
-         NearlyEqual(lhs.backlobe_level_db, rhs.backlobe_level_db) &&
-         NearlyEqual(lhs.scan_loss_coeff_db_per_deg2, rhs.scan_loss_coeff_db_per_deg2) &&
-         NearlyEqual(lhs.max_scan_loss_db, rhs.max_scan_loss_db) &&
-         EqualsAzimuthElevationDeg(lhs.boresight_offset_deg, rhs.boresight_offset_deg);
-}
-
-inline bool EqualsTransmitterConfig(const config::TransmitterConfig& lhs,
-                                    const config::TransmitterConfig& rhs) {
-  return NearlyEqual(lhs.peak_power_w, rhs.peak_power_w) &&
-         NearlyEqual(lhs.frequency_hz, rhs.frequency_hz) &&
-         NearlyEqual(lhs.bandwidth_hz, rhs.bandwidth_hz) &&
-         NearlyEqual(lhs.pulse_width_s, rhs.pulse_width_s) && NearlyEqual(lhs.prf_hz, rhs.prf_hz) &&
-         NearlyEqual(lhs.transmit_loss_db, rhs.transmit_loss_db);
-}
-
-inline bool EqualsAntennaConfig(const config::AntennaConfig& lhs,
-                                const config::AntennaConfig& rhs) {
-  return NearlyEqual(lhs.main_beam_gain_db, rhs.main_beam_gain_db) &&
-         NearlyEqual(lhs.nominal_az_beamwidth_deg, rhs.nominal_az_beamwidth_deg) &&
-         NearlyEqual(lhs.nominal_el_beamwidth_deg, rhs.nominal_el_beamwidth_deg) &&
-         EqualsAntennaPatternConfig(lhs.pattern, rhs.pattern) &&
-         lhs.enable_directional_pattern == rhs.enable_directional_pattern;
-}
-
-inline bool EqualsReceiverConfig(const config::ReceiverConfig& lhs,
-                                 const config::ReceiverConfig& rhs) {
-  return NearlyEqual(lhs.noise_figure_db, rhs.noise_figure_db) &&
-         NearlyEqual(lhs.receive_loss_db, rhs.receive_loss_db);
-}
-
-inline bool EqualsDetectionPolicy(const config::DetectionPolicy& lhs,
-                                  const config::DetectionPolicy& rhs) {
-  return NearlyEqual(lhs.cfar_pfa, rhs.cfar_pfa) && NearlyEqual(lhs.min_snr_db, rhs.min_snr_db);
-}
-
-inline bool EqualsDetectionCoreConfig(const config::SignalDetectionConfig& lhs,
-                                      const config::SignalDetectionConfig& rhs) {
-  return EqualsTransmitterConfig(lhs.transmitter, rhs.transmitter) &&
-         EqualsAntennaConfig(lhs.antenna, rhs.antenna) &&
-         EqualsReceiverConfig(lhs.receiver, rhs.receiver) &&
-         EqualsDetectionPolicy(lhs.detection_policy, rhs.detection_policy);
-}
-
-inline bool EqualsRcsPhysicsConfig(const config::RcsPhysicsConfig& lhs,
-                                   const config::RcsPhysicsConfig& rhs) {
-  return lhs.enable_physical_rcs == rhs.enable_physical_rcs &&
-         NearlyEqual(lhs.frequency_hz, rhs.frequency_hz) &&
-         NearlyEqual(lhs.physics_mix_ratio, rhs.physics_mix_ratio) &&
-         NearlyEqual(lhs.cylinder_weight, rhs.cylinder_weight) &&
-         NearlyEqual(lhs.min_equivalent_radius_m, rhs.min_equivalent_radius_m) &&
-         NearlyEqual(lhs.max_equivalent_radius_m, rhs.max_equivalent_radius_m) &&
-         NearlyEqual(lhs.min_rcs_m2, rhs.min_rcs_m2) &&
-         NearlyEqual(lhs.max_rcs_m2, rhs.max_rcs_m2) &&
-         NearlyEqual(lhs.bistatic_psi_offset_deg, rhs.bistatic_psi_offset_deg);
-}
-
-inline bool EqualsSignalDetectionConfig(const config::SignalDetectionConfig& lhs,
-                                        const config::SignalDetectionConfig& rhs) {
-  return lhs.enable_physics_detection == rhs.enable_physics_detection &&
-         EqualsDetectionCoreConfig(lhs, rhs) &&
-         EqualsRcsPhysicsConfig(lhs.rcs_physics, rhs.rcs_physics) &&
-         NearlyEqual(lhs.min_detection_margin_db, rhs.min_detection_margin_db) &&
-         lhs.pulse_count == rhs.pulse_count;
-}
-
-inline bool EqualsSignalBeamControlConfig(const config::SignalBeamControlConfig& lhs,
-                                          const config::SignalBeamControlConfig& rhs) {
-  return EqualsRadarOrientationConfig(lhs.radar_orientation, rhs.radar_orientation) &&
-         EqualsEulerAnglesDeg(lhs.platform_attitude_deg, rhs.platform_attitude_deg);
-}
-
-inline bool EqualsSignalTrackingConfig(const config::SignalTrackingConfig& lhs,
-                                       const config::SignalTrackingConfig& rhs) {
-  return lhs.enable_kalman_filter == rhs.enable_kalman_filter &&
-         NearlyEqual(lhs.kalman_measurement_noise_std, rhs.kalman_measurement_noise_std) &&
-         lhs.kalman_update_backend == rhs.kalman_update_backend;
-}
-
-inline bool EqualsLifecycleConfig(const config::LifecycleConfig& lhs,
-                                  const config::LifecycleConfig& rhs) {
-  return lhs.confirm_hits == rhs.confirm_hits &&
-         lhs.max_miss_before_lost == rhs.max_miss_before_lost &&
-         lhs.max_lost_cycles == rhs.max_lost_cycles;
-}
-
-inline bool EqualsSignalLifecycleConfigIgnoringImm(
-    const config::SignalLifecycleConfig& lhs,
-    const config::SignalLifecycleConfig& rhs) {
-  return EqualsLifecycleConfig(lhs.lifecycle_config, rhs.lifecycle_config);
-}
-
-inline bool MatchesProfileSignatureIgnoringImm(const SignalPipelineConfig& public_config,
-                                               const SignalPipelineConfig& signature) {
-  return EqualsSignalDetectionConfig(public_config.detection, signature.detection) &&
-         EqualsSignalBeamControlConfig(public_config.beam_control, signature.beam_control) &&
-         EqualsSignalTrackingConfig(public_config.tracking, signature.tracking) &&
-         EqualsSignalLifecycleConfigIgnoringImm(public_config.lifecycle, signature.lifecycle);
-}
-
-}  // namespace detail
-
-/**
- * @brief 解析 public 配置对应的 internal preset profile。
- */
 inline InternalSignalPipelineProfile ResolveInternalProfileFromPublicConfig(
     const SignalPipelineConfig& public_config) {
-  const SignalPipelineConfig robust_signature =
-      ::airborne_radar::config::internal::BuildHighRobustnessPresetConfig();
-  if (detail::MatchesProfileSignatureIgnoringImm(public_config, robust_signature)) {
+  if (public_config.lifecycle.policy_profile == config::LifecyclePolicyProfile::kHighPersistence ||
+      public_config.tracking.policy_profile == config::TrackingPolicyProfile::kRobustAntiJamming) {
     return InternalSignalPipelineProfile::kRobustPreset;
   }
-
-  const SignalPipelineConfig tracking_signature =
-      ::airborne_radar::config::internal::BuildTrackingMissionPresetConfig();
-  if (detail::MatchesProfileSignatureIgnoringImm(public_config, tracking_signature)) {
+  if (public_config.tracking.policy_profile == config::TrackingPolicyProfile::kFastAssociation ||
+      public_config.detection.intent_profile == config::DetectionIntentProfile::kDetectionPriority) {
     return InternalSignalPipelineProfile::kTrackingPreset;
   }
-
   return InternalSignalPipelineProfile::kBaseline;
 }
 
-/**
- * @brief JammingEffectsConfig 描述干扰效应建模的内部整定参数。
- */
 struct JammingEffectsConfig {
   float confidence_weight_min{0.25f};
-
   float heuristic_base_penalty_db{0.8f};
   float heuristic_power_penalty_slope{0.18f};
   float heuristic_noise_sidelobe_penalty{0.9f};
@@ -216,11 +51,9 @@ struct JammingEffectsConfig {
   float heuristic_unknown_prf_penalty{0.9f};
   float heuristic_unknown_sidelobe_penalty{0.6f};
   float heuristic_unknown_frontlobe_penalty{0.2f};
-
   float association_scale_max{2.5f};
   float tracking_noise_scale_max{2.0f};
   float measurement_noise_scale_max{1.8f};
-
   float deception_association_step{0.18f};
   float deception_tracking_step{0.12f};
   float deception_measurement_step{0.10f};
@@ -231,7 +64,6 @@ struct JammingEffectsConfig {
   float unknown_association_step{0.08f};
   float unknown_tracking_step{0.08f};
   float unknown_measurement_step{0.05f};
-
   float covariance_inflation_max{2.5f};
   float covariance_deception_inflation_step{0.20f};
   float covariance_repeater_inflation_step{0.16f};
@@ -239,9 +71,6 @@ struct JammingEffectsConfig {
   float covariance_unknown_inflation_step{0.10f};
 };
 
-/**
- * @brief ControlProfileEffectsConfig 描述控制轮廓对运行时配置的内部修正参数。
- */
 struct ControlProfileEffectsConfig {
   float sidelobe_level_reduction_db{6.0f};
   float adaptive_beam_gain_boost_db{2.0f};
@@ -253,9 +82,6 @@ struct ControlProfileEffectsConfig {
   float eccm_rcs_decay_bonus{0.08f};
 };
 
-/**
- * @brief SignalLifecycleInternalConfig 描述生命周期装配的内部参数。
- */
 struct SignalLifecycleInternalConfig {
   tracking::ImmActivationPolicy imm_activation_policy{
       tracking::ImmActivationPolicy::kConfirmedTracksOnly};
@@ -268,35 +94,176 @@ struct SignalLifecycleInternalConfig {
   std::size_t lifecycle_track_pool_max_chunks{256};
 };
 
-/**
- * @brief SignalAssociationInternalConfig 描述关联域内部整定参数。
- */
 struct SignalAssociationInternalConfig {
   float unassigned_cost{9.0f};
 };
 
-/**
- * @brief SignalTrackingInternalConfig 描述跟踪域内部整定参数。
- */
 struct SignalTrackingInternalConfig {
   float kalman_noise_diff_coeff{1.0f};
   float speed_decay_ratio_on_loss{0.90f};
   float rcs_decay_ratio_on_loss{0.85f};
 };
 
-/**
- * @brief InternalSignalPipelineConfig 汇聚 public config 之外的内部整定参数。
- */
+struct ResolvedDetectionConfig {
+  config::engineering::DetectionConfig engineering{};
+};
+
+struct ResolvedTrackingConfig {
+  config::engineering::TrackingConfig engineering{};
+};
+
+struct ResolvedLifecycleConfig {
+  config::engineering::LifecycleRuntimeConfig engineering{};
+};
+
+struct ResolvedBeamControlConfig {
+  model::PlatformAttitudeDeg platform_attitude_deg{};
+};
+
 struct InternalSignalPipelineConfig {
   SignalAssociationInternalConfig association{};
   SignalTrackingInternalConfig tracking{};
   SignalLifecycleInternalConfig lifecycle{};
   JammingEffectsConfig jamming_effects{};
   ControlProfileEffectsConfig control_profile_effects{};
+  ResolvedDetectionConfig detection{};
+  ResolvedTrackingConfig tracking_runtime{};
+  ResolvedLifecycleConfig lifecycle_runtime{};
+  ResolvedBeamControlConfig beam_control{};
 };
 
-inline InternalSignalPipelineConfig BuildBaselineInternalSignalPipelineConfig() {
-  return InternalSignalPipelineConfig();
+inline config::engineering::AntennaPatternConfig ResolveAntennaPatternEngineering(
+    const config::AntennaPatternConfig& semantic_pattern) {
+  config::engineering::AntennaPatternConfig pattern;
+  pattern.boresight_offset_deg = semantic_pattern.boresight_offset_deg;
+  if (semantic_pattern.profile == config::AntennaPatternProfile::kLowSidelobe) {
+    pattern.max_sidelobe_level_db = -30.0f;
+    pattern.backlobe_level_db = -42.0f;
+    return pattern;
+  }
+  if (semantic_pattern.profile == config::AntennaPatternProfile::kWideCoverage) {
+    pattern.model_type = config::engineering::AntennaPatternModelType::kParabolicMainLobe;
+    pattern.max_sidelobe_level_db = -18.0f;
+    pattern.max_scan_loss_db = 8.0f;
+  }
+  return pattern;
+}
+
+inline config::engineering::DetectionConfig ResolveDetectionEngineering(
+    const config::SignalDetectionConfig& semantic_detection) {
+  config::engineering::DetectionConfig resolved;
+  resolved.enable_physics_detection = semantic_detection.enable_physics_detection;
+  resolved.min_detection_margin_db = semantic_detection.min_detection_margin_db;
+  resolved.antenna.pattern = ResolveAntennaPatternEngineering(semantic_detection.antenna_pattern);
+
+  switch (semantic_detection.hardware_profile) {
+    case config::RadarHardwareProfile::kLongRangeHighPower:
+      resolved.transmitter.peak_power_w = 5.0e6f;
+      resolved.transmitter.frequency_hz = 9.3e9f;
+      resolved.transmitter.bandwidth_hz = 3.0e6f;
+      resolved.transmitter.pulse_width_s = 18e-6f;
+      resolved.transmitter.prf_hz = 220.0f;
+      resolved.antenna.main_beam_gain_db = 38.0f;
+      resolved.receiver.noise_figure_db = 3.0f;
+      break;
+    case config::RadarHardwareProfile::kLightweightLpi:
+      resolved.transmitter.peak_power_w = 3.5e5f;
+      resolved.transmitter.frequency_hz = 10.0e9f;
+      resolved.transmitter.bandwidth_hz = 8.0e6f;
+      resolved.transmitter.pulse_width_s = 8e-6f;
+      resolved.transmitter.prf_hz = 600.0f;
+      resolved.antenna.main_beam_gain_db = 31.0f;
+      resolved.antenna.nominal_az_beamwidth_deg = 5.0f;
+      resolved.antenna.nominal_el_beamwidth_deg = 5.0f;
+      resolved.receiver.noise_figure_db = 5.0f;
+      break;
+    case config::RadarHardwareProfile::kGenericAirborneXBand:
+    default:
+      break;
+  }
+
+  switch (semantic_detection.intent_profile) {
+    case config::DetectionIntentProfile::kDetectionPriority:
+      resolved.pulse_count = 16;
+      resolved.detection_policy.cfar_pfa = 2e-6f;
+      resolved.detection_policy.min_snr_db = -12.0f;
+      break;
+    case config::DetectionIntentProfile::kTrackStabilityPriority:
+      resolved.pulse_count = 8;
+      resolved.detection_policy.cfar_pfa = 5e-7f;
+      resolved.detection_policy.min_snr_db = -8.0f;
+      break;
+    case config::DetectionIntentProfile::kBalanced:
+    default:
+      break;
+  }
+
+  switch (semantic_detection.rcs_fusion_profile) {
+    case config::RcsFusionProfile::kConservative:
+      resolved.rcs_physics.enable_physical_rcs = true;
+      resolved.rcs_physics.physics_mix_ratio = 0.25f;
+      break;
+    case config::RcsFusionProfile::kEnhanced:
+      resolved.rcs_physics.enable_physical_rcs = true;
+      resolved.rcs_physics.physics_mix_ratio = 0.60f;
+      resolved.rcs_physics.cylinder_weight = 0.65f;
+      break;
+    case config::RcsFusionProfile::kDisabled:
+    default:
+      break;
+  }
+  return resolved;
+}
+
+inline config::engineering::TrackingConfig ResolveTrackingEngineering(
+    const config::SignalTrackingConfig& semantic_tracking) {
+  config::engineering::TrackingConfig resolved;
+  resolved.enable_kalman_filter = semantic_tracking.enable_tracking_filter;
+  switch (semantic_tracking.policy_profile) {
+    case config::TrackingPolicyProfile::kFastAssociation:
+      resolved.kalman_measurement_noise_std = 6.0f;
+      resolved.kalman_update_backend = config::engineering::KalmanUpdateBackend::kStandardKfJoseph;
+      break;
+    case config::TrackingPolicyProfile::kRobustAntiJamming:
+      resolved.kalman_measurement_noise_std = 12.0f;
+      resolved.kalman_update_backend = config::engineering::KalmanUpdateBackend::kUdKf;
+      break;
+    case config::TrackingPolicyProfile::kBalanced:
+    default:
+      break;
+  }
+  return resolved;
+}
+
+inline config::engineering::LifecycleRuntimeConfig ResolveLifecycleEngineering(
+    const config::SignalLifecycleConfig& semantic_lifecycle) {
+  config::engineering::LifecycleRuntimeConfig resolved;
+  resolved.enable_imm_lifecycle = semantic_lifecycle.enable_imm_fusion;
+  switch (semantic_lifecycle.policy_profile) {
+    case config::LifecyclePolicyProfile::kFastConfirm:
+      resolved.lifecycle_config.confirm_hits = 1U;
+      resolved.lifecycle_config.max_miss_before_lost = 1U;
+      resolved.lifecycle_config.max_lost_cycles = 3U;
+      break;
+    case config::LifecyclePolicyProfile::kHighPersistence:
+      resolved.lifecycle_config.confirm_hits = 3U;
+      resolved.lifecycle_config.max_miss_before_lost = 3U;
+      resolved.lifecycle_config.max_lost_cycles = 8U;
+      break;
+    case config::LifecyclePolicyProfile::kBalanced:
+    default:
+      break;
+  }
+  return resolved;
+}
+
+inline InternalSignalPipelineConfig BuildBaselineInternalSignalPipelineConfig(
+    const SignalPipelineConfig& public_config) {
+  InternalSignalPipelineConfig internal;
+  internal.detection.engineering = ResolveDetectionEngineering(public_config.detection);
+  internal.tracking_runtime.engineering = ResolveTrackingEngineering(public_config.tracking);
+  internal.lifecycle_runtime.engineering = ResolveLifecycleEngineering(public_config.lifecycle);
+  return internal;
 }
 
 inline void ApplyInternalProfileTuning(InternalSignalPipelineProfile profile,
@@ -304,7 +271,6 @@ inline void ApplyInternalProfileTuning(InternalSignalPipelineProfile profile,
   if (internal_config == nullptr) {
     return;
   }
-
   if (profile == InternalSignalPipelineProfile::kTrackingPreset ||
       profile == InternalSignalPipelineProfile::kRobustPreset) {
     internal_config->tracking.speed_decay_ratio_on_loss = 0.95f;
@@ -317,24 +283,19 @@ inline void ApplyInternalProfileTuning(InternalSignalPipelineProfile profile,
 
 inline void ApplyInternalImmDefaults(bool enable_imm_lifecycle,
                                      InternalSignalPipelineConfig* internal_config) {
-  if (internal_config == nullptr) {
-    return;
-  }
-  if (!enable_imm_lifecycle) {
+  if (internal_config == nullptr || !enable_imm_lifecycle) {
     return;
   }
   internal_config->lifecycle.imm_model_noise_diff_coeffs = std::vector<float>{0.5f, 4.0f};
 }
 
-/**
- * @brief 根据 public SignalPipelineConfig 构建默认内部扩展配置。
- */
 inline InternalSignalPipelineConfig BuildInternalSignalPipelineConfig(
     const SignalPipelineConfig& public_config) {
-  InternalSignalPipelineConfig internal_config = BuildBaselineInternalSignalPipelineConfig();
-  ApplyInternalProfileTuning(ResolveInternalProfileFromPublicConfig(public_config),
-                             &internal_config);
-  ApplyInternalImmDefaults(public_config.lifecycle.enable_imm_lifecycle, &internal_config);
+  InternalSignalPipelineConfig internal_config =
+      BuildBaselineInternalSignalPipelineConfig(public_config);
+  ApplyInternalProfileTuning(ResolveInternalProfileFromPublicConfig(public_config), &internal_config);
+  ApplyInternalImmDefaults(internal_config.lifecycle_runtime.engineering.enable_imm_lifecycle,
+                           &internal_config);
   return internal_config;
 }
 

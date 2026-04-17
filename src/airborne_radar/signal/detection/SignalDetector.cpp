@@ -7,14 +7,14 @@ namespace airborne_radar {
 namespace signal {
 namespace detection {
 
-SignalDetector::SignalDetector(config::SignalDetectionConfig config)
+SignalDetector::SignalDetector(config::engineering::DetectionConfig config)
     : config_(config),
       thermal_noise_w_(
           RadarEquations::ComputeThermalNoisePower_W(config.transmitter, config.receiver)),
       rng_(42u) {  // 默认种子，可通过 SetRandomSeed 重置
 }
 
-void SignalDetector::UpdateConfig(config::SignalDetectionConfig config) {
+void SignalDetector::UpdateConfig(config::engineering::DetectionConfig config) {
   config_ = config;
   thermal_noise_w_ =
       RadarEquations::ComputeThermalNoisePower_W(config_.transmitter, config_.receiver);

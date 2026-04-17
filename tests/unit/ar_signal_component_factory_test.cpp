@@ -20,13 +20,14 @@ namespace tests {
 
 TEST(SignalComponentFactoryTest, BuildOwnedComponentsSelectsPredictorUpdaterFamilyByBackend) {
   config::SignalPipelineConfig config;
-  config.tracking.enable_kalman_filter = true;
-  config.tracking.kalman_measurement_noise_std = 5.0f;
+  config.tracking.enable_tracking_filter = true;
 
   signal::pipeline::internal::InternalSignalPipelineConfig internal_config =
       signal::pipeline::internal::BuildInternalSignalPipelineConfig(config);
+  internal_config.tracking_runtime.engineering.kalman_measurement_noise_std = 5.0f;
 
-  config.tracking.kalman_update_backend = config::KalmanUpdateBackend::kUdKf;
+  internal_config.tracking_runtime.engineering.kalman_update_backend =
+      config::engineering::KalmanUpdateBackend::kUdKf;
   signal::pipeline::assembly::internal::OwnedSignalComponents ud_components =
       signal::pipeline::assembly::internal::SignalComponentFactory::BuildOwnedPipelineComponents(
           config, internal_config);
@@ -35,7 +36,8 @@ TEST(SignalComponentFactoryTest, BuildOwnedComponentsSelectsPredictorUpdaterFami
   EXPECT_NE(dynamic_cast<signal::tracking::UdkfUpdater*>(ud_components.kalman_updater.get()),
             nullptr);
 
-  config.tracking.kalman_update_backend = config::KalmanUpdateBackend::kSrif;
+  internal_config.tracking_runtime.engineering.kalman_update_backend =
+      config::engineering::KalmanUpdateBackend::kSrif;
   signal::pipeline::assembly::internal::OwnedSignalComponents srif_components =
       signal::pipeline::assembly::internal::SignalComponentFactory::BuildOwnedPipelineComponents(
           config, internal_config);
@@ -44,7 +46,8 @@ TEST(SignalComponentFactoryTest, BuildOwnedComponentsSelectsPredictorUpdaterFami
   EXPECT_NE(dynamic_cast<signal::tracking::SrifUpdater*>(srif_components.kalman_updater.get()),
             nullptr);
 
-  config.tracking.kalman_update_backend = config::KalmanUpdateBackend::kStandardKfJoseph;
+  internal_config.tracking_runtime.engineering.kalman_update_backend =
+      config::engineering::KalmanUpdateBackend::kStandardKfJoseph;
   signal::pipeline::assembly::internal::OwnedSignalComponents standard_components =
       signal::pipeline::assembly::internal::SignalComponentFactory::BuildOwnedPipelineComponents(
           config, internal_config);
@@ -57,12 +60,13 @@ TEST(SignalComponentFactoryTest, BuildOwnedComponentsSelectsPredictorUpdaterFami
 
 TEST(SignalComponentFactoryTest, ImmAssemblyUsesSamePredictorUpdaterBackendFamily) {
   config::SignalPipelineConfig config;
-  config.tracking.enable_kalman_filter = true;
-  config.tracking.kalman_update_backend = config::KalmanUpdateBackend::kUdKf;
-  config.lifecycle.enable_imm_lifecycle = true;
+  config.tracking.enable_tracking_filter = true;
+  config.lifecycle.enable_imm_fusion = true;
 
   signal::pipeline::internal::InternalSignalPipelineConfig internal_config =
       signal::pipeline::internal::BuildInternalSignalPipelineConfig(config);
+  internal_config.tracking_runtime.engineering.kalman_update_backend =
+      config::engineering::KalmanUpdateBackend::kUdKf;
   internal_config.lifecycle.imm_model_noise_diff_coeffs = {0.5f, 2.0f};
 
   signal::pipeline::assembly::internal::LifecycleAssemblyArtifacts artifacts =
@@ -80,8 +84,8 @@ TEST(SignalComponentFactoryTest, ImmAssemblyUsesSamePredictorUpdaterBackendFamil
 
 TEST(SignalComponentFactoryTest, InvalidImmAssemblyDoesNotFallbackToNonImmManager) {
   config::SignalPipelineConfig config;
-  config.tracking.enable_kalman_filter = true;
-  config.lifecycle.enable_imm_lifecycle = true;
+  config.tracking.enable_tracking_filter = true;
+  config.lifecycle.enable_imm_fusion = true;
 
   signal::pipeline::internal::InternalSignalPipelineConfig internal_config =
       signal::pipeline::internal::BuildInternalSignalPipelineConfig(config);

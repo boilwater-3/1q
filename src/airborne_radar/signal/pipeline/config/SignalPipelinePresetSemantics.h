@@ -19,8 +19,9 @@ inline config::SignalPipelineConfig BuildDetectionMissionPresetConfig() {
   config.beam_control.radar_orientation.scan_sequence = oneq::foundation::ScanSequence::kAzimuthFirst;
   config.beam_control.radar_orientation.work_sub_mode = model::RadarWorkSubMode::kTws;
   config.detection.min_detection_margin_db = -100.0f;
-  config.lifecycle.lifecycle_config.confirm_hits = 1U;
-  config.tracking.kalman_measurement_noise_std = 1.0f;
+  config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
+  config.tracking.policy_profile = config::TrackingPolicyProfile::kFastAssociation;
+  config.lifecycle.policy_profile = config::LifecyclePolicyProfile::kFastConfirm;
   return config;
 }
 
@@ -31,16 +32,16 @@ inline config::SignalPipelineConfig BuildTrackingMissionPresetConfig() {
   config.beam_control.radar_orientation.scan_sequence = oneq::foundation::ScanSequence::kAzimuthFirst;
   config.beam_control.radar_orientation.work_sub_mode = model::RadarWorkSubMode::kTws;
   config.detection.min_detection_margin_db = -20.0f;
-  config.lifecycle.lifecycle_config.confirm_hits = 2U;
-  config.tracking.kalman_measurement_noise_std = 5.0f;
+  config.detection.intent_profile = config::DetectionIntentProfile::kTrackStabilityPriority;
+  config.tracking.policy_profile = config::TrackingPolicyProfile::kBalanced;
+  config.lifecycle.policy_profile = config::LifecyclePolicyProfile::kBalanced;
   return config;
 }
 
 inline config::SignalPipelineConfig BuildHighRobustnessPresetConfig() {
   config::SignalPipelineConfig config = BuildTrackingMissionPresetConfig();
-  config.tracking.kalman_measurement_noise_std = 3.0f;
-  config.lifecycle.lifecycle_config.max_miss_before_lost = 3U;
-  config.lifecycle.lifecycle_config.max_lost_cycles = 8U;
+  config.tracking.policy_profile = config::TrackingPolicyProfile::kRobustAntiJamming;
+  config.lifecycle.policy_profile = config::LifecyclePolicyProfile::kHighPersistence;
   return config;
 }
 

@@ -89,56 +89,28 @@ oneq::foundation::PoseState ParsePose(const Json& json) {
 
 ar::config::SignalDetectionConfig ParseDetection(const Json& json) {
   ar::config::SignalDetectionConfig config;
-  config.enable_physics_detection = GetBool(json, "enable_physics_detection", config.enable_physics_detection);
-  config.min_detection_margin_db = GetFloat(json, "min_detection_margin_db", config.min_detection_margin_db);
-  config.pulse_count = GetInt(json, "pulse_count", config.pulse_count);
-
-  if (json.contains("radar_system")) {
-    const Json& radar_system = json["radar_system"];
-    if (radar_system.contains("transmitter")) {
-      const Json& t = radar_system["transmitter"];
-      config.transmitter.peak_power_w = GetFloat(t, "peak_power_w", config.transmitter.peak_power_w);
-      config.transmitter.frequency_hz = GetFloat(t, "frequency_hz", config.transmitter.frequency_hz);
-      config.transmitter.bandwidth_hz = GetFloat(t, "bandwidth_hz", config.transmitter.bandwidth_hz);
-      config.transmitter.pulse_width_s = GetFloat(t, "pulse_width_s", config.transmitter.pulse_width_s);
-      config.transmitter.prf_hz = GetFloat(t, "prf_hz", config.transmitter.prf_hz);
-      config.transmitter.transmit_loss_db = GetFloat(t, "transmit_loss_db", config.transmitter.transmit_loss_db);
-    }
-    if (radar_system.contains("antenna")) {
-      const Json& a = radar_system["antenna"];
-      config.antenna.main_beam_gain_db = GetFloat(a, "main_beam_gain_db", config.antenna.main_beam_gain_db);
-      config.antenna.nominal_az_beamwidth_deg =
-          GetFloat(a, "nominal_az_beamwidth_deg", config.antenna.nominal_az_beamwidth_deg);
-      config.antenna.nominal_el_beamwidth_deg =
-          GetFloat(a, "nominal_el_beamwidth_deg", config.antenna.nominal_el_beamwidth_deg);
-      config.antenna.enable_directional_pattern =
-          GetBool(a, "enable_directional_pattern", config.antenna.enable_directional_pattern);
-      if (a.contains("pattern")) {
-        const Json& p = a["pattern"];
-        config.antenna.pattern.model_type =
-            static_cast<ar::config::AntennaPatternModelType>(GetInt(p, "model_type", static_cast<int>(config.antenna.pattern.model_type)));
-        config.antenna.pattern.max_sidelobe_level_db =
-            GetFloat(p, "max_sidelobe_level_db", config.antenna.pattern.max_sidelobe_level_db);
-        config.antenna.pattern.backlobe_level_db =
-            GetFloat(p, "backlobe_level_db", config.antenna.pattern.backlobe_level_db);
-        config.antenna.pattern.scan_loss_coeff_db_per_deg2 =
-            GetFloat(p, "scan_loss_coeff_db_per_deg2", config.antenna.pattern.scan_loss_coeff_db_per_deg2);
-        config.antenna.pattern.max_scan_loss_db =
-            GetFloat(p, "max_scan_loss_db", config.antenna.pattern.max_scan_loss_db);
-        if (p.contains("boresight_offset_deg")) {
-          config.antenna.pattern.boresight_offset_deg = ParseAzEl(p["boresight_offset_deg"]);
-        }
-      }
-    }
-    if (radar_system.contains("receiver")) {
-      const Json& r = radar_system["receiver"];
-      config.receiver.noise_figure_db = GetFloat(r, "noise_figure_db", config.receiver.noise_figure_db);
-      config.receiver.receive_loss_db = GetFloat(r, "receive_loss_db", config.receiver.receive_loss_db);
-    }
-    if (radar_system.contains("detection")) {
-      const Json& d = radar_system["detection"];
-      config.detection_policy.cfar_pfa = GetFloat(d, "cfar_pfa", config.detection_policy.cfar_pfa);
-      config.detection_policy.min_snr_db = GetFloat(d, "min_snr_db", config.detection_policy.min_snr_db);
+  config.enable_physics_detection =
+      GetBool(json, "enable_physics_detection", config.enable_physics_detection);
+  config.min_detection_margin_db =
+      GetFloat(json, "min_detection_margin_db", config.min_detection_margin_db);
+  if (json.contains("intent_profile")) {
+    config.intent_profile = static_cast<ar::config::DetectionIntentProfile>(
+        GetInt(json, "intent_profile", static_cast<int>(config.intent_profile)));
+  }
+  if (json.contains("hardware_profile")) {
+    config.hardware_profile = static_cast<ar::config::RadarHardwareProfile>(
+        GetInt(json, "hardware_profile", static_cast<int>(config.hardware_profile)));
+  }
+  if (json.contains("rcs_fusion_profile")) {
+    config.rcs_fusion_profile = static_cast<ar::config::RcsFusionProfile>(
+        GetInt(json, "rcs_fusion_profile", static_cast<int>(config.rcs_fusion_profile)));
+  }
+  if (json.contains("antenna_pattern")) {
+    const Json& pattern = json["antenna_pattern"];
+    config.antenna_pattern.profile = static_cast<ar::config::AntennaPatternProfile>(
+        GetInt(pattern, "profile", static_cast<int>(config.antenna_pattern.profile)));
+    if (pattern.contains("boresight_offset_deg")) {
+      config.antenna_pattern.boresight_offset_deg = ParseAzEl(pattern["boresight_offset_deg"]);
     }
   }
   return config;
@@ -146,9 +118,6 @@ ar::config::SignalDetectionConfig ParseDetection(const Json& json) {
 
 ar::config::SignalBeamControlConfig ParseBeamControl(const Json& json) {
   ar::config::SignalBeamControlConfig config;
-  if (json.contains("platform_attitude_deg")) {
-    config.platform_attitude_deg = ParseEuler(json["platform_attitude_deg"]);
-  }
   if (json.contains("radar_orientation")) {
     const Json& r = json["radar_orientation"];
     if (r.contains("mount_angles_deg")) {
@@ -267,24 +236,17 @@ ar::session::RadarSessionConfig ParseSessionConfig(const Json& payload) {
     }
     if (pipeline.contains("tracking")) {
       const Json& t = pipeline["tracking"];
-      config.tracking.enable_kalman_filter =
-          GetBool(t, "enable_kalman_filter", config.tracking.enable_kalman_filter);
-      config.tracking.kalman_measurement_noise_std =
-          GetFloat(t, "kalman_measurement_noise_std", config.tracking.kalman_measurement_noise_std);
+      config.tracking.enable_tracking_filter =
+          GetBool(t, "enable_tracking_filter", config.tracking.enable_tracking_filter);
+      config.tracking.policy_profile = static_cast<ar::config::TrackingPolicyProfile>(
+          GetInt(t, "policy_profile", static_cast<int>(config.tracking.policy_profile)));
     }
     if (pipeline.contains("lifecycle")) {
       const Json& l = pipeline["lifecycle"];
-      if (l.contains("lifecycle_config")) {
-        const Json& lc = l["lifecycle_config"];
-        config.lifecycle.lifecycle_config.confirm_hits =
-            static_cast<std::uint32_t>(GetInt(lc, "confirm_hits", static_cast<int>(config.lifecycle.lifecycle_config.confirm_hits)));
-        config.lifecycle.lifecycle_config.max_miss_before_lost =
-            static_cast<std::uint32_t>(GetInt(lc, "max_miss_before_lost", static_cast<int>(config.lifecycle.lifecycle_config.max_miss_before_lost)));
-        config.lifecycle.lifecycle_config.max_lost_cycles =
-            static_cast<std::uint32_t>(GetInt(lc, "max_lost_cycles", static_cast<int>(config.lifecycle.lifecycle_config.max_lost_cycles)));
-      }
-      config.lifecycle.enable_imm_lifecycle =
-          GetBool(l, "enable_imm_lifecycle", config.lifecycle.enable_imm_lifecycle);
+      config.lifecycle.policy_profile = static_cast<ar::config::LifecyclePolicyProfile>(
+          GetInt(l, "policy_profile", static_cast<int>(config.lifecycle.policy_profile)));
+      config.lifecycle.enable_imm_fusion =
+          GetBool(l, "enable_imm_fusion", config.lifecycle.enable_imm_fusion);
     }
   }
 
@@ -369,24 +331,21 @@ ar::config::RadarRuntimeConfigPatch ParseRuntimePatch(const Json& payload) {
     }
     if (pipeline.contains("tracking")) {
       const Json& t = pipeline["tracking"];
-      patch.signal_pipeline_config.tracking.enable_kalman_filter =
-          GetBool(t, "enable_kalman_filter", patch.signal_pipeline_config.tracking.enable_kalman_filter);
-      patch.signal_pipeline_config.tracking.kalman_measurement_noise_std =
-          GetFloat(t, "kalman_measurement_noise_std", patch.signal_pipeline_config.tracking.kalman_measurement_noise_std);
+      patch.signal_pipeline_config.tracking.enable_tracking_filter = GetBool(
+          t, "enable_tracking_filter", patch.signal_pipeline_config.tracking.enable_tracking_filter);
+      patch.signal_pipeline_config.tracking.policy_profile =
+          static_cast<ar::config::TrackingPolicyProfile>(
+              GetInt(t, "policy_profile",
+                     static_cast<int>(patch.signal_pipeline_config.tracking.policy_profile)));
     }
     if (pipeline.contains("lifecycle")) {
       const Json& l = pipeline["lifecycle"];
-      if (l.contains("lifecycle_config")) {
-        const Json& lc = l["lifecycle_config"];
-        patch.signal_pipeline_config.lifecycle.lifecycle_config.confirm_hits =
-            static_cast<std::uint32_t>(GetInt(lc, "confirm_hits", static_cast<int>(patch.signal_pipeline_config.lifecycle.lifecycle_config.confirm_hits)));
-        patch.signal_pipeline_config.lifecycle.lifecycle_config.max_miss_before_lost =
-            static_cast<std::uint32_t>(GetInt(lc, "max_miss_before_lost", static_cast<int>(patch.signal_pipeline_config.lifecycle.lifecycle_config.max_miss_before_lost)));
-        patch.signal_pipeline_config.lifecycle.lifecycle_config.max_lost_cycles =
-            static_cast<std::uint32_t>(GetInt(lc, "max_lost_cycles", static_cast<int>(patch.signal_pipeline_config.lifecycle.lifecycle_config.max_lost_cycles)));
-      }
-      patch.signal_pipeline_config.lifecycle.enable_imm_lifecycle =
-          GetBool(l, "enable_imm_lifecycle", patch.signal_pipeline_config.lifecycle.enable_imm_lifecycle);
+      patch.signal_pipeline_config.lifecycle.policy_profile =
+          static_cast<ar::config::LifecyclePolicyProfile>(
+              GetInt(l, "policy_profile",
+                     static_cast<int>(patch.signal_pipeline_config.lifecycle.policy_profile)));
+      patch.signal_pipeline_config.lifecycle.enable_imm_fusion = GetBool(
+          l, "enable_imm_fusion", patch.signal_pipeline_config.lifecycle.enable_imm_fusion);
     }
   }
 

@@ -67,6 +67,7 @@ struct AssociationSeedState {
 
 struct SignalPipelineSnapshot {
   SignalPipelineConfig base_config{};
+  model::PlatformAttitudeDeg platform_attitude_deg{};
   extension::control::RadarControlProfile control_profile{};
   AssociationSeedState association_seeds{};
   std::vector<tracking::TrackMeasurement> track_measurements{};
@@ -167,6 +168,7 @@ struct SignalPipeline::Impl {
   extension::SignalPipelineRuntimeState CaptureRuntimeState() const {
     std::shared_ptr<SignalPipelineSnapshot> snapshot(new SignalPipelineSnapshot());
     snapshot->base_config = runtime_.config.base_config;
+    snapshot->platform_attitude_deg = runtime_.config.base_internal_config.beam_control.platform_attitude_deg;
     snapshot->control_profile = runtime_.config.control_profile_;
     snapshot->association_seeds = runtime_.association_seeds;
     snapshot->track_measurements = cycle_.scratch.track_measurements;
@@ -197,6 +199,8 @@ struct SignalPipeline::Impl {
     runtime_.config.base_config = snapshot->base_config;
     runtime_.config.base_internal_config =
         internal::BuildInternalSignalPipelineConfig(runtime_.config.base_config);
+    runtime_.config.base_internal_config.beam_control.platform_attitude_deg =
+        snapshot->platform_attitude_deg;
     runtime_.config.control_profile_ = snapshot->control_profile;
     RebuildOwnedComponents();
     runtime_.association_seeds = snapshot->association_seeds;
@@ -246,11 +250,11 @@ struct SignalPipeline::Impl {
   }
 
   void UpdatePlatformAttitude(const model::PlatformAttitudeDeg& platform_attitude_deg) {
-    runtime_.config.base_config.beam_control.platform_attitude_deg = platform_attitude_deg;
+    runtime_.config.base_internal_config.beam_control.platform_attitude_deg = platform_attitude_deg;
   }
 
   model::PlatformAttitudeDeg GetPlatformAttitude() const {
-    return runtime_.config.base_config.beam_control.platform_attitude_deg;
+    return runtime_.config.base_internal_config.beam_control.platform_attitude_deg;
   }
 
   void SetControlProfile(const extension::control::RadarControlProfile& control_profile) {

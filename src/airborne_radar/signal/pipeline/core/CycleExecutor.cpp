@@ -57,7 +57,8 @@ bool RunEnvironmentPhase(CycleExecutionContract* contract, const CycleExecutionR
                                               &contract->internal_runtime_config,
                                               &contract->runtime_config);
   RefreshMeasurementCovariances(scratch->target_geometry.size(),
-                                contract->runtime_config.tracking.kalman_measurement_noise_std,
+                                contract->internal_runtime_config
+                                    .tracking_runtime.engineering.kalman_measurement_noise_std,
                                 &scratch->measurement_covariances);
   if (!SyncAssociationAndTrackFilterConfigs(contract->runtime_config,
                                             contract->internal_runtime_config,
@@ -84,7 +85,7 @@ DetectionPhaseOutput RunDetectionPhase(const CycleExecutionContract& contract,
       &scratch->detection_margin_db, &scratch->detection_succeeded,
       &scratch->measurement_covariances);
 
-  if (contract.runtime_config.detection.enable_physics_detection &&
+  if (contract.internal_runtime_config.detection.engineering.enable_physics_detection &&
       runtime.signal_detector != nullptr) {
     RunPhysicalDetectionPass(contract.input_state, contract.runtime_config,
                              contract.internal_runtime_config,

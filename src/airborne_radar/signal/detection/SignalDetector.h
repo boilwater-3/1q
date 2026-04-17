@@ -46,7 +46,7 @@ struct EnvironmentState {
  * 它组合 RadarEquations 纯函数完成一条完整的物理检测链路：
  *   回波功率预算 → SNR 计算 → 检测概率 → 蒙特卡洛判决
  *
- * 通过构造函数注入 SignalDetectionConfig 配置雷达参数，
+ * 通过构造函数注入内部工程探测配置雷达参数，
  * 热噪声功率底在构造时一次性预计算。
  */
 class SignalDetector {
@@ -55,12 +55,12 @@ class SignalDetector {
    * @brief 使用探测配置构造检测器。
    * @param config 探测配置
    */
-  explicit SignalDetector(config::SignalDetectionConfig config);
+  explicit SignalDetector(config::engineering::DetectionConfig config);
   /**
    * @brief 更新探测配置并重算热噪声底。
    * @param config 探测配置
    */
-  void UpdateConfig(config::SignalDetectionConfig config);
+  void UpdateConfig(config::engineering::DetectionConfig config);
   /**
    * @brief 对单个目标执行完整检测链。
    * @param target               目标回波特征上下文
@@ -79,9 +79,9 @@ class SignalDetector {
   void SetRandomSeed(unsigned int seed);
 
  private:
-  config::SignalDetectionConfig config_; /**< 探测配置 */
-  float thermal_noise_w_;                        /**< 预计算的接收机热噪声底 (W) */
-  std::mt19937 rng_;                             /**< 确定性随机数引擎 */
+  config::engineering::DetectionConfig config_; /**< 探测配置 */
+  float thermal_noise_w_;                       /**< 预计算的接收机热噪声底 (W) */
+  std::mt19937 rng_;                            /**< 确定性随机数引擎 */
 };
 
 }  // namespace detection

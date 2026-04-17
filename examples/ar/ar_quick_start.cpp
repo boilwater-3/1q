@@ -59,7 +59,7 @@ int main() {
   external_input.target_position_ecef_m = target_ecef;
   external_input.target_velocity_mps = target_velocity_ecef_mps;
   external_input.target_velocity_frame = aq::session::VelocityFrame::kEcef;
-  external_input.platform_attitude_deg = session_config.beam_control.platform_attitude_deg;
+  external_input.platform_attitude_deg = aq::model::PlatformAttitudeDeg{};
   external_input.radar_mount_angles_deg =
       session_config.beam_control.radar_orientation.mount_angles_deg;
   external_input.rcs = 1.8f;
@@ -74,12 +74,9 @@ int main() {
   //    将单个目标特征放入当前周期输入，完成一次雷达循环。
   aq::session::RadarCycleInput input;
   input.dt_sec = 1.0f;
-  input.platform_pose.attitude_deg.yaw_deg =
-      session_config.beam_control.platform_attitude_deg.yaw_deg;
-  input.platform_pose.attitude_deg.pitch_deg =
-      session_config.beam_control.platform_attitude_deg.pitch_deg;
-  input.platform_pose.attitude_deg.roll_deg =
-      session_config.beam_control.platform_attitude_deg.roll_deg;
+  input.platform_pose.attitude_deg.yaw_deg = 0.0f;
+  input.platform_pose.attitude_deg.pitch_deg = 0.0f;
+  input.platform_pose.attitude_deg.roll_deg = 0.0f;
   input.target_features.push_back(target);
 
   const auto issues = aq::session::ValidateRadarCycleInput(input);

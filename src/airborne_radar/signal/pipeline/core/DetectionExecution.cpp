@@ -28,16 +28,16 @@ float ClampToRange(float value, float lower_bound, float upper_bound) {
   return std::min(std::max(value, lower_bound), upper_bound);
 }
 
-float ResolveRcsPhysicsFrequencyHz(const SignalPipelineConfig& runtime_config) {
-  const float config_frequency_hz = runtime_config.detection.rcs_physics.frequency_hz;
+float ResolveRcsPhysicsFrequencyHz(const InternalSignalPipelineConfig& internal_config) {
+  const float config_frequency_hz = internal_config.detection.engineering.rcs_physics.frequency_hz;
   if (config_frequency_hz > 0.0f) {
     return config_frequency_hz;
   }
-  return runtime_config.detection.transmitter.frequency_hz;
+  return internal_config.detection.engineering.transmitter.frequency_hz;
 }
 
 float ComputeTargetSpecificAtmosphericLossDb(
-    const SignalPipelineConfig& runtime_config,
+    const InternalSignalPipelineConfig& internal_config,
     const environment::EnvironmentSnapshot& environment_snapshot,
     const detection::ResolvedTargetGeometry& geometry) {
   if (!environment_snapshot.atmospheric_physics.enable_physical_model) {
@@ -46,7 +46,7 @@ float ComputeTargetSpecificAtmosphericLossDb(
 
   oneq::internal::atmosphere::AtmosphericPropagationInputs inputs;
   inputs.enable_physics = true;
-  inputs.frequency_hz = runtime_config.detection.transmitter.frequency_hz;
+  inputs.frequency_hz = internal_config.detection.engineering.transmitter.frequency_hz;
   inputs.path_length_m = std::max(geometry.range_m, 0.1f);
   inputs.radar_altitude_m = 0.0f;
   inputs.target_altitude_m = std::max(geometry.position_m.z(), 0.0f);
@@ -63,7 +63,7 @@ float ComputeTargetSpecificAtmosphericLossDb(
 }
 
 float ComputeEquivalentRadiusM(float input_rcs_m2,
-                               const config::RcsPhysicsConfig& rcs_config) {
+                               const config::engineering::RcsPhysicsConfig& rcs_config) {
   const float min_radius_m = std::max(rcs_config.min_equivalent_radius_m, 1.0e-3f);
   const float max_radius_m = std::max(rcs_config.max_equivalent_radius_m, min_radius_m);
   const float safe_input_rcs_m2 = std::max(input_rcs_m2, 0.0f);
@@ -73,9 +73,9 @@ float ComputeEquivalentRadiusM(float input_rcs_m2,
 
 float ComputeEffectiveTargetRcsM2(const model::TargetFeature& target,
                                   const detection::ResolvedTargetGeometry& geometry,
-                                  const SignalPipelineConfig& runtime_config) {
+                                  const InternalSignalPipelineConfig& internal_config) {
   const float input_rcs_m2 = std::max(target.current_track_rcs, 0.0f);
-  const config::RcsPhysicsConfig& rcs_config = runtime_config.detection.rcs_physics;
+  const config::engineering::RcsPhysicsConfig& rcs_config = internal_config.detection.engineering.rcs_physics;
   if (!rcs_config.enable_physical_rcs) {
     return input_rcs_m2;
   }
@@ -85,7 +85,7 @@ float ComputeEffectiveTargetRcsM2(const model::TargetFeature& target,
     return input_rcs_m2;
   }
 
-  const float frequency_hz = ResolveRcsPhysicsFrequencyHz(runtime_config);
+  const float frequency_hz = ResolveRcsPhysicsFrequencyHz(internal_config);
   if (frequency_hz <= 0.0f) {
     return input_rcs_m2;
   }
@@ -185,7 +185,7 @@ void RunHeuristicDetectionPass(const model::TargetFeatureList& input,
   for (std::size_t i = 0; i < count; ++i) {
     (*buffers->target_geometry)[i] = detection::TargetGeometryResolver::Resolve(input[i]);
     const float effective_rcs_m2 =
-        ComputeEffectiveTargetRcsM2(input[i], (*buffers->target_geometry)[i], runtime_config);
+        ComputeEffectiveTargetRcsM2(input[i], (*buffers->target_geometry)[i], internal_config);
     (*buffers->signal_term_db)[i] = effective_rcs_m2 * 6.0f + signal_adjustment_db;
     (*buffers->speed_penalty_db)[i] = ResolveSpeedMagnitude(input[i]) * 0.002f;
   }
@@ -245,16 +245,17 @@ void RunPhysicalDetectionPass(const model::TargetFeatureList& input,
   env.clutter_noise_w = clutter_w;
   env.jam_noise_w = jam_w;
 
-  signal_detector->UpdateConfig(runtime_config.detection);
+  signal_detector->UpdateConfig(internal_config.detection.engineering);
 
   for (std::size_t i = 0; i < count; ++i) {
     (*buffers->target_geometry)[i] = detection::TargetGeometryResolver::Resolve(input[i]);
     env.propagation_loss_db = environment_snapshot.propagation_loss_db -
                               environment_snapshot.atmospheric_physics_loss_db +
                               ComputeTargetSpecificAtmosphericLossDb(
-                                  runtime_config, environment_snapshot, (*buffers->target_geometry)[i]);
+                                  internal_config, environment_snapshot,
+                                  (*buffers->target_geometry)[i]);
     const float effective_rcs_m2 =
-        ComputeEffectiveTargetRcsM2(input[i], (*buffers->target_geometry)[i], runtime_config);
+        ComputeEffectiveTargetRcsM2(input[i], (*buffers->target_geometry)[i], internal_config);
     detection::TargetReturn target;
     target.rcs_m2 = effective_rcs_m2;
     target.range_m = (*buffers->target_geometry)[i].range_m;
@@ -262,16 +263,16 @@ void RunPhysicalDetectionPass(const model::TargetFeatureList& input,
         static_cast<config::SwerlingModel>(input[i].target_swerling_type);
 
     const detection::ResolvedBeamState beam_state =
-        detection::BeamControlResolver::Resolve(runtime_config.detection.antenna,
+        detection::BeamControlResolver::Resolve(internal_config.detection.engineering.antenna,
                                                 runtime_config.beam_control.radar_orientation,
-                                                runtime_config.beam_control.platform_attitude_deg,
+                                                internal_config.beam_control.platform_attitude_deg,
                                                 (*buffers->target_geometry)[i].look_angles_deg);
     const detection::DetectionResult detection_result = signal_detector->Detect(
-        target, env, beam_state.one_way_antenna_gain_db, runtime_config.detection.pulse_count);
+        target, env, beam_state.one_way_antenna_gain_db, internal_config.detection.engineering.pulse_count);
     const detection::MeasurementErrorState measurement_error =
         detection::MeasurementErrorModel::Compute(
             detection_result.snr_db, beam_state.effective_beamwidth_deg,
-            runtime_config.detection.transmitter.bandwidth_hz);
+            internal_config.detection.engineering.transmitter.bandwidth_hz);
 
     (*buffers->signal_term_db)[i] = detection_result.snr_db;
     (*buffers->speed_penalty_db)[i] = 0.0f;
@@ -281,7 +282,7 @@ void RunPhysicalDetectionPass(const model::TargetFeatureList& input,
     (*buffers->measurement_covariances)[i] = BuildMeasurementCovariance(
         (*buffers->target_geometry)[i], measurement_error.range_error_std_m,
         measurement_error.angle_error_std_rad,
-        runtime_config.tracking.kalman_measurement_noise_std);
+        internal_config.tracking_runtime.engineering.kalman_measurement_noise_std);
     (*buffers->measurement_covariances)[i] *= ComputeMeasurementCovarianceInflation(
         internal_config.jamming_effects, control_profile, environment_snapshot);
   }

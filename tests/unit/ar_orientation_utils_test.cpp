@@ -226,7 +226,7 @@ TEST(RadarOrientationUtilsTest, BeamControlResolverPreservesInertialStabilizedPo
   platform_attitude.yaw_deg = 90.0f;
   const signal::detection::ResolvedBeamState beam_state =
       signal::detection::BeamControlResolver::Resolve(
-          config::AntennaConfig(), config, platform_attitude,
+          config::engineering::AntennaConfig(), config, platform_attitude,
           signal::detection::TargetLookAnglesDeg());
 
   EXPECT_NEAR(beam_state.beam_pointing_deg.az_deg, -90.0f, 1.0e-5f);

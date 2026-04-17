@@ -18,12 +18,15 @@ namespace assembly {
 namespace internal {
 
 tracking::LifecycleConfig SignalComponentFactory::BuildLifecycleConfig(
-    const SignalPipelineConfig& config,
+    const SignalPipelineConfig& pipeline_config,
     const pipeline::internal::InternalSignalPipelineConfig& internal_config) {
+  (void)pipeline_config;
   tracking::LifecycleConfig lifecycle_config;
-  lifecycle_config.confirm_hits = config.lifecycle.lifecycle_config.confirm_hits;
-  lifecycle_config.max_miss_before_lost = config.lifecycle.lifecycle_config.max_miss_before_lost;
-  lifecycle_config.max_lost_cycles = config.lifecycle.lifecycle_config.max_lost_cycles;
+  const ::airborne_radar::config::engineering::LifecycleConfig& lifecycle_runtime =
+      internal_config.lifecycle_runtime.engineering.lifecycle_config;
+  lifecycle_config.confirm_hits = lifecycle_runtime.confirm_hits;
+  lifecycle_config.max_miss_before_lost = lifecycle_runtime.max_miss_before_lost;
+  lifecycle_config.max_lost_cycles = lifecycle_runtime.max_lost_cycles;
   lifecycle_config.imm_activation_policy = internal_config.lifecycle.imm_activation_policy;
   lifecycle_config.track_pool_thread_safety_mode =
       internal_config.lifecycle.track_pool_thread_safety_mode;
@@ -39,12 +42,14 @@ tracking::TrackFilterConfig SignalComponentFactory::BuildTrackFilterConfig(
 }
 
 association::DataAssociationConfig SignalComponentFactory::BuildAssociationConfig(
-    const SignalPipelineConfig& config,
+    const SignalPipelineConfig& pipeline_config,
     const pipeline::internal::InternalSignalPipelineConfig& internal_config) {
+  (void)pipeline_config;
   association::DataAssociationConfig association_config;
   association_config.unassigned_cost = internal_config.association.unassigned_cost;
   association_config.kalman_noise_diff_coeff = internal_config.tracking.kalman_noise_diff_coeff;
-  association_config.kalman_measurement_noise_std = config.tracking.kalman_measurement_noise_std;
+  association_config.kalman_measurement_noise_std =
+      internal_config.tracking_runtime.engineering.kalman_measurement_noise_std;
   return association_config;
 }
 
@@ -55,15 +60,18 @@ OwnedSignalComponents SignalComponentFactory::BuildOwnedPipelineComponents(
   components.association_config = BuildAssociationConfig(config, internal_config);
   components.track_filter_config = BuildTrackFilterConfig(internal_config);
 
-  if (config.tracking.enable_kalman_filter) {
+  if (internal_config.tracking_runtime.engineering.enable_kalman_filter) {
     components.kalman_predictor = CreateKalmanPredictor(
-        internal_config.tracking.kalman_noise_diff_coeff, config.tracking.kalman_update_backend);
-    components.kalman_updater = CreateKalmanUpdater(config.tracking.kalman_measurement_noise_std,
-                                                    config.tracking.kalman_update_backend);
+        internal_config.tracking.kalman_noise_diff_coeff,
+        internal_config.tracking_runtime.engineering.kalman_update_backend);
+    components.kalman_updater = CreateKalmanUpdater(
+        internal_config.tracking_runtime.engineering.kalman_measurement_noise_std,
+        internal_config.tracking_runtime.engineering.kalman_update_backend);
   }
 
-  if (config.detection.enable_physics_detection) {
-    components.signal_detector.reset(new detection::SignalDetector(config.detection));
+  if (internal_config.detection.engineering.enable_physics_detection) {
+    components.signal_detector.reset(
+        new detection::SignalDetector(internal_config.detection.engineering));
   }
   return components;
 }
@@ -84,7 +92,7 @@ LifecycleAssemblyArtifacts SignalComponentFactory::BuildLifecycleAssemblyArtifac
     effective_pool = artifacts.pool_wrapper.get();
   }
 
-  if (config.lifecycle.enable_imm_lifecycle) {
+  if (internal_config.lifecycle_runtime.engineering.enable_imm_lifecycle) {
     const std::size_t model_count = internal_config.lifecycle.imm_model_noise_diff_coeffs.size();
     bool imm_ready = true;
     if (model_count == 0U) {
@@ -114,9 +122,11 @@ LifecycleAssemblyArtifacts SignalComponentFactory::BuildLifecycleAssemblyArtifac
         }
 
         artifacts.imm_predictors_owned.push_back(
-            CreateKalmanPredictor(noise_diff_coeff, config.tracking.kalman_update_backend));
+            CreateKalmanPredictor(noise_diff_coeff,
+                                  internal_config.tracking_runtime.engineering.kalman_update_backend));
         artifacts.imm_updaters_owned.push_back(CreateKalmanUpdater(
-            config.tracking.kalman_measurement_noise_std, config.tracking.kalman_update_backend));
+            internal_config.tracking_runtime.engineering.kalman_measurement_noise_std,
+            internal_config.tracking_runtime.engineering.kalman_update_backend));
         artifacts.imm_predictors.push_back(artifacts.imm_predictors_owned.back().get());
         artifacts.imm_updaters.push_back(artifacts.imm_updaters_owned.back().get());
       }
@@ -144,11 +154,13 @@ LifecycleAssemblyArtifacts SignalComponentFactory::BuildLifecycleAssemblyArtifac
     return artifacts;
   }
 
-  if (config.tracking.enable_kalman_filter) {
+  if (internal_config.tracking_runtime.engineering.enable_kalman_filter) {
     artifacts.kalman_predictor = CreateKalmanPredictor(
-        internal_config.tracking.kalman_noise_diff_coeff, config.tracking.kalman_update_backend);
-    artifacts.kalman_updater = CreateKalmanUpdater(config.tracking.kalman_measurement_noise_std,
-                                                   config.tracking.kalman_update_backend);
+        internal_config.tracking.kalman_noise_diff_coeff,
+        internal_config.tracking_runtime.engineering.kalman_update_backend);
+    artifacts.kalman_updater = CreateKalmanUpdater(
+        internal_config.tracking_runtime.engineering.kalman_measurement_noise_std,
+        internal_config.tracking_runtime.engineering.kalman_update_backend);
     artifacts.lifecycle_manager.reset(new tracking::TrackLifecycleManager(
         *effective_pool, lifecycle_config, artifacts.kalman_predictor.get(),
         artifacts.kalman_updater.get()));
@@ -172,26 +184,26 @@ void SignalComponentFactory::LogLifecycleAssemblyConfigViolation(const char* mes
 }
 
 std::unique_ptr<tracking::IKalmanPredictor> SignalComponentFactory::CreateKalmanPredictor(
-    float noise_diff_coeff, config::KalmanUpdateBackend backend) {
+    float noise_diff_coeff, config::engineering::KalmanUpdateBackend backend) {
   tracking::KalmanPredictorConfig predictor_config;
   predictor_config.noise_diff_coeff = std::max(noise_diff_coeff, 0.001f);
-  if (backend == config::KalmanUpdateBackend::kUdKf) {
+  if (backend == config::engineering::KalmanUpdateBackend::kUdKf) {
     return std::unique_ptr<tracking::IKalmanPredictor>(new tracking::UdkfPredictor(predictor_config));
   }
-  if (backend == config::KalmanUpdateBackend::kSrif) {
+  if (backend == config::engineering::KalmanUpdateBackend::kSrif) {
     return std::unique_ptr<tracking::IKalmanPredictor>(new tracking::SrifPredictor(predictor_config));
   }
   return std::unique_ptr<tracking::IKalmanPredictor>(new tracking::KalmanPredictor(predictor_config));
 }
 
 std::unique_ptr<tracking::IKalmanUpdater> SignalComponentFactory::CreateKalmanUpdater(
-    float measurement_noise_std, config::KalmanUpdateBackend backend) {
+    float measurement_noise_std, config::engineering::KalmanUpdateBackend backend) {
   tracking::KalmanUpdaterConfig updater_config;
   updater_config.measurement_noise_std = std::max(measurement_noise_std, 0.001f);
-  if (backend == config::KalmanUpdateBackend::kUdKf) {
+  if (backend == config::engineering::KalmanUpdateBackend::kUdKf) {
     return std::unique_ptr<tracking::IKalmanUpdater>(new tracking::UdkfUpdater(updater_config));
   }
-  if (backend == config::KalmanUpdateBackend::kSrif) {
+  if (backend == config::engineering::KalmanUpdateBackend::kSrif) {
     return std::unique_ptr<tracking::IKalmanUpdater>(new tracking::SrifUpdater(updater_config));
   }
   return std::unique_ptr<tracking::IKalmanUpdater>(new tracking::KalmanUpdater(updater_config));

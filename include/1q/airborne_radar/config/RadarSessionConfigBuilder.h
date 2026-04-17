@@ -77,56 +77,24 @@ class RadarSessionConfigBuilder::DetectionEditor {
     builder_->config_.detection.enable_physics_detection = enable;
     return *this;
   }
+  DetectionEditor& WithHardwareProfile(RadarHardwareProfile profile) {
+    builder_->config_.detection.hardware_profile = profile;
+    return *this;
+  }
+  DetectionEditor& WithDetectionIntentProfile(DetectionIntentProfile profile) {
+    builder_->config_.detection.intent_profile = profile;
+    return *this;
+  }
+  DetectionEditor& WithAntennaPatternProfile(AntennaPatternProfile profile) {
+    builder_->config_.detection.antenna_pattern.profile = profile;
+    return *this;
+  }
+  DetectionEditor& WithRcsFusionProfile(RcsFusionProfile profile) {
+    builder_->config_.detection.rcs_fusion_profile = profile;
+    return *this;
+  }
   DetectionEditor& WithMinDetectionMarginDb(float margin_db) {
     builder_->config_.detection.min_detection_margin_db = margin_db;
-    return *this;
-  }
-  DetectionEditor& WithPulseCount(int pulse_count) {
-    builder_->config_.detection.pulse_count = pulse_count;
-    return *this;
-  }
-  DetectionEditor& WithTransmitterConfig(const TransmitterConfig& transmitter) {
-    builder_->config_.detection.transmitter = transmitter;
-    return *this;
-  }
-  DetectionEditor& WithAntennaConfig(const AntennaConfig& antenna) {
-    builder_->config_.detection.antenna = antenna;
-    return *this;
-  }
-  DetectionEditor& WithReceiverConfig(const ReceiverConfig& receiver) {
-    builder_->config_.detection.receiver = receiver;
-    return *this;
-  }
-  DetectionEditor& WithDetectionPolicy(const DetectionPolicy& detection_policy) {
-    builder_->config_.detection.detection_policy = detection_policy;
-    return *this;
-  }
-  DetectionEditor& WithPeakPowerW(float peak_power_w) {
-    builder_->config_.detection.transmitter.peak_power_w = peak_power_w;
-    return *this;
-  }
-  DetectionEditor& WithFrequencyHz(float frequency_hz) {
-    builder_->config_.detection.transmitter.frequency_hz = frequency_hz;
-    return *this;
-  }
-  DetectionEditor& WithBandwidthHz(float bandwidth_hz) {
-    builder_->config_.detection.transmitter.bandwidth_hz = bandwidth_hz;
-    return *this;
-  }
-  DetectionEditor& WithPulseWidthS(float pulse_width_s) {
-    builder_->config_.detection.transmitter.pulse_width_s = pulse_width_s;
-    return *this;
-  }
-  DetectionEditor& WithPrfHz(float prf_hz) {
-    builder_->config_.detection.transmitter.prf_hz = prf_hz;
-    return *this;
-  }
-  DetectionEditor& WithMainBeamGainDb(float main_beam_gain_db) {
-    builder_->config_.detection.antenna.main_beam_gain_db = main_beam_gain_db;
-    return *this;
-  }
-  DetectionEditor& WithNoiseFigureDb(float noise_figure_db) {
-    builder_->config_.detection.receiver.noise_figure_db = noise_figure_db;
     return *this;
   }
 
@@ -179,16 +147,12 @@ class RadarSessionConfigBuilder::TrackingEditor {
     builder_->config_.tracking = tracking;
     return *this;
   }
-  TrackingEditor& EnableKalmanFilter(bool enable = true) {
-    builder_->config_.tracking.enable_kalman_filter = enable;
+  TrackingEditor& EnableTrackingFilter(bool enable = true) {
+    builder_->config_.tracking.enable_tracking_filter = enable;
     return *this;
   }
-  TrackingEditor& WithKalmanMeasurementNoiseStd(float stddev) {
-    builder_->config_.tracking.kalman_measurement_noise_std = stddev;
-    return *this;
-  }
-  TrackingEditor& WithKalmanUpdateBackend(KalmanUpdateBackend backend) {
-    builder_->config_.tracking.kalman_update_backend = backend;
+  TrackingEditor& WithTrackingPolicyProfile(TrackingPolicyProfile profile) {
+    builder_->config_.tracking.policy_profile = profile;
     return *this;
   }
 
@@ -206,16 +170,12 @@ class RadarSessionConfigBuilder::LifecycleEditor {
     builder_->config_.lifecycle = lifecycle;
     return *this;
   }
-  LifecycleEditor& WithLifecycleConfirmHits(std::uint32_t confirm_hits) {
-    builder_->config_.lifecycle.lifecycle_config.confirm_hits = confirm_hits;
+  LifecycleEditor& EnableImmFusion(bool enable = true) {
+    builder_->config_.lifecycle.enable_imm_fusion = enable;
     return *this;
   }
-  LifecycleEditor& WithLifecycleMaxMissBeforeLost(std::uint32_t max_miss_before_lost) {
-    builder_->config_.lifecycle.lifecycle_config.max_miss_before_lost = max_miss_before_lost;
-    return *this;
-  }
-  LifecycleEditor& WithLifecycleMaxLostCycles(std::uint32_t max_lost_cycles) {
-    builder_->config_.lifecycle.lifecycle_config.max_lost_cycles = max_lost_cycles;
+  LifecycleEditor& WithLifecyclePolicyProfile(LifecyclePolicyProfile profile) {
+    builder_->config_.lifecycle.policy_profile = profile;
     return *this;
   }
 

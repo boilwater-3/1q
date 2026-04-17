@@ -18,8 +18,8 @@ namespace {
 
 struct LifecycleConfigSignature {
   bool enable_imm_lifecycle{false};
-  config::KalmanUpdateBackend kalman_update_backend{
-      config::KalmanUpdateBackend::kStandardKfJoseph};
+  config::engineering::KalmanUpdateBackend kalman_update_backend{
+      config::engineering::KalmanUpdateBackend::kStandardKfJoseph};
   std::size_t imm_model_count{0U};
   tracking::TrackPoolThreadSafetyMode track_pool_thread_safety_mode{
       tracking::TrackPoolThreadSafetyMode::kSingleThreadNoLock};
@@ -94,8 +94,10 @@ Eigen::VectorXf BuildImmInitialWeightsOrDefault(
 LifecycleConfigSignature BuildLifecycleConfigSignature(
     const ResolvedRuntimeSignalPipelineConfig& resolved_config) {
   LifecycleConfigSignature signature;
-  signature.enable_imm_lifecycle = resolved_config.public_config.lifecycle.enable_imm_lifecycle;
-  signature.kalman_update_backend = resolved_config.public_config.tracking.kalman_update_backend;
+  signature.enable_imm_lifecycle =
+      resolved_config.internal_config.lifecycle_runtime.engineering.enable_imm_lifecycle;
+  signature.kalman_update_backend =
+      resolved_config.internal_config.tracking_runtime.engineering.kalman_update_backend;
   signature.imm_model_count =
       resolved_config.internal_config.lifecycle.imm_model_noise_diff_coeffs.size();
   signature.track_pool_thread_safety_mode =
@@ -233,7 +235,7 @@ class AutoConfiguredLifecycleManager final : public tracking::ITrackLifecycleMan
     const float kalman_noise_diff_coeff =
         resolved_config_.internal_config.tracking.kalman_noise_diff_coeff;
     const float kalman_measurement_noise_std =
-        resolved_config_.public_config.tracking.kalman_measurement_noise_std;
+        resolved_config_.internal_config.tracking_runtime.engineering.kalman_measurement_noise_std;
     const std::vector<float>& imm_model_noise_diff_coeffs =
         resolved_config_.internal_config.lifecycle.imm_model_noise_diff_coeffs;
     const Eigen::MatrixXf imm_transition_probability = BuildImmTransitionProbabilityOrDefault(
