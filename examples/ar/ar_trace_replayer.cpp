@@ -195,9 +195,6 @@ ar::environment::EnvironmentScenarioConfig ParseEnvironmentScenario(const Json& 
   }
   if (json.contains("atmospheric_context")) {
     scenario.atmospheric_context = ParseAtmosphericContext(json["atmospheric_context"]);
-  } else if (json.contains("atmospheric_physics")) {
-    // Backward compatibility: older traces stored derived context together with atmospheric_physics.
-    scenario.atmospheric_context = ParseAtmosphericContext(json["atmospheric_physics"]);
   }
   if (json.contains("vegetation_scatter_physics")) {
     const Json& veg = json["vegetation_scatter_physics"];
@@ -305,9 +302,6 @@ ar::environment::EnvironmentSceneState ParseSceneState(const Json& payload) {
   }
   if (payload.contains("atmospheric_context")) {
     scene.atmospheric_context = ParseAtmosphericContext(payload["atmospheric_context"]);
-  } else if (payload.contains("atmospheric_physics")) {
-    // Backward compatibility: older traces stored derived context together with atmospheric_physics.
-    scene.atmospheric_context = ParseAtmosphericContext(payload["atmospheric_physics"]);
   }
   if (payload.contains("jammer_emitters") && payload["jammer_emitters"].is_array()) {
     scene.jammer_emitters.clear();

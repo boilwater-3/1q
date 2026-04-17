@@ -20,8 +20,11 @@ model::EccmJammerSourceInfo BuildEccmJammerSourceInfo(
   source_info.jammer_to_signal_db = environment_source.js_db;
   source_info.frequency_overlap_ratio = environment_source.frequency_overlap_ratio;
   source_info.prf_lock_risk = environment_source.prf_lock_risk;
-  source_info.azimuth_deg = environment_source.azimuth_deg;
-  source_info.elevation_deg = environment_source.elevation_deg;
+  source_info.has_direction_deg = environment_source.has_direction_deg;
+  if (environment_source.has_direction_deg) {
+    source_info.direction_deg.azimuth_deg = environment_source.direction_deg.azimuth_deg;
+    source_info.direction_deg.elevation_deg = environment_source.direction_deg.elevation_deg;
+  }
   source_info.angular_span_deg = environment_source.angular_span_deg;
   source_info.jammer_in_sidelobe = environment_source.in_sidelobe;
   source_info.confidence = environment_source.confidence;

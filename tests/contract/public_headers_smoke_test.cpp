@@ -23,7 +23,6 @@
 #include "1q/airborne_radar/config/airborne_radar_config.hpp"
 #include "1q/airborne_radar/environment/EnvironmentConfig.h"
 #include "1q/airborne_radar/environment/EnvironmentDefaultConfigBuilder.h"
-#include "1q/airborne_radar/environment/EnvironmentModelConfigBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentRuntimeConfigPatch.h"
 #include "1q/airborne_radar/environment/EnvironmentRuntimeConfigPatchBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
@@ -220,14 +219,16 @@ static_assert(
     std::is_same<
         electro_optical_sensor::environment::EosEnvironmentRuntimeConfigPatch,
         decltype(electro_optical_sensor::environment::EosEnvironmentRuntimeConfigPatchBuilder()
-                     .WithTurbulenceFactor(1.2f)
+                     .WithModelType(
+                         electro_optical_sensor::environment::EosEnvironmentModelType::kAdvanced)
                      .Build())>::value,
     "EosEnvironmentRuntimeConfigPatchBuilder::Build must return EosEnvironmentRuntimeConfigPatch");
 static_assert(
     std::is_same<electronic_surveillance_radar::environment::EsrEnvironmentRuntimeConfigPatch,
                  decltype(electronic_surveillance_radar::environment::
                               EsrEnvironmentRuntimeConfigPatchBuilder()
-                                  .WithJammingDetectionThresholdW(1.0e-8f)
+                                  .WithModelConfig(
+                                      electronic_surveillance_radar::environment::EsrEnvironmentModelConfig{})
                                   .Build())>::value,
     "EsrEnvironmentRuntimeConfigPatchBuilder::Build must return EsrEnvironmentRuntimeConfigPatch");
 

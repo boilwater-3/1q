@@ -30,6 +30,14 @@ enum class JammingTechnique {
 };
 
 /**
+ * @brief EccmJammerDirectionDeg 表示干扰来向角。
+ */
+struct EccmJammerDirectionDeg {
+  float azimuth_deg{0.0f};   /**< 干扰来向方位角（单位：deg） */
+  float elevation_deg{0.0f}; /**< 干扰来向俯仰角（单位：deg） */
+};
+
+/**
  * @brief EccmJammerSourceInfo 表示单个干扰源的摘要事实。
  */
 struct EccmJammerSourceInfo {
@@ -38,8 +46,8 @@ struct EccmJammerSourceInfo {
   float jammer_to_signal_db{0.0f};                        /**< 干扰与信号比估计（单位：dB） */
   float frequency_overlap_ratio{0.0f}; /**< 干扰与当前工作频率的重叠度，范围 [0, 1] */
   float prf_lock_risk{0.0f};           /**< 干扰对当前 PRF 锁定的风险度，范围 [0, 1] */
-  float azimuth_deg{0.0f};             /**< 干扰来向方位角（单位：deg） */
-  float elevation_deg{0.0f};           /**< 干扰来向俯仰角（单位：deg） */
+  bool has_direction_deg{false};       /**< 是否具有可用干扰来向 */
+  EccmJammerDirectionDeg direction_deg{}; /**< 干扰来向角（仅在 has_direction_deg=true 时有效） */
   float angular_span_deg{0.0f};        /**< 干扰角域宽度（单位：deg） */
   bool jammer_in_sidelobe{false};      /**< 干扰是否主要经由旁瓣进入 */
   float confidence{1.0f};              /**< 干扰事实置信度，范围 [0, 1] */

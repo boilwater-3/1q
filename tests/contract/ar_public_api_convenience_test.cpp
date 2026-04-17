@@ -192,8 +192,10 @@ class RecordingEnvironmentService : public environment::IEnvironmentService {
       source.power_db = emitter.power_db;
       source.js_db = emitter.js_db;
       source.has_direction_deg = emitter.has_direction_deg;
-      source.azimuth_deg = emitter.azimuth_deg;
-      source.elevation_deg = emitter.elevation_deg;
+      if (source.has_direction_deg) {
+        source.direction_deg.azimuth_deg = emitter.azimuth_deg;
+        source.direction_deg.elevation_deg = emitter.elevation_deg;
+      }
       source.angular_span_deg = emitter.angular_span_deg;
       source.confidence = emitter.confidence;
       snapshot.jammer_sources.push_back(source);

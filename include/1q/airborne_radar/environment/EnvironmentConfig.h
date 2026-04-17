@@ -40,6 +40,14 @@ struct JammerEmitterState {
 using JammerEmitterStateList = std::vector<JammerEmitterState>;
 
 /**
+ * @brief JammerDirectionDeg 表示干扰来向角。
+ */
+struct JammerDirectionDeg {
+  float azimuth_deg{0.0f};   /**< 干扰来向方位角（单位：deg） */
+  float elevation_deg{0.0f}; /**< 干扰来向俯仰角（单位：deg） */
+};
+
+/**
  * @brief JammerSourceFact 表示单周期冻结后的干扰事实输出。
  * @note 其中 overlap/prf/sidelobe 等量由库内基于场景事实与运行状态派生。
  */
@@ -50,8 +58,7 @@ struct JammerSourceFact {
   float frequency_overlap_ratio{0.0f}; /**< 干扰与当前工作频率的重叠度，范围 [0, 1] */
   float prf_lock_risk{0.0f};           /**< 干扰对当前 PRF 锁定的风险度，范围 [0, 1] */
   bool has_direction_deg{false};       /**< 是否具有可用的干扰来向方位/俯仰角 */
-  float azimuth_deg{0.0f};             /**< 干扰来向方位角（单位：deg） */
-  float elevation_deg{0.0f};           /**< 干扰来向俯仰角（单位：deg） */
+  JammerDirectionDeg direction_deg{};  /**< 干扰来向角（仅在 has_direction_deg=true 时有效） */
   float angular_span_deg{0.0f};        /**< 干扰角域宽度（单位：deg） */
   bool in_sidelobe{false};             /**< 干扰是否主要经由旁瓣进入 */
   float confidence{1.0f};              /**< 干扰事实置信度，范围 [0, 1] */

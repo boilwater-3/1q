@@ -102,6 +102,24 @@ TEST(EnvironmentServiceTest, DetectsJammingByConfiguredThreshold) {
   EXPECT_LE(snapshot.jammer_sources[0].prf_lock_risk, 1.0f);
 }
 
+TEST(EnvironmentServiceTest, KeepsDirectionUnknownWhenExternalDirectionIsMissing) {
+  environment::JammerEmitterState jammer_source =
+      MakeJammerEmitter(environment::JammingTechnique::kDeception, 10.0f);
+  jammer_source.js_db = 6.0f;
+  jammer_source.angular_span_deg = 15.0f;
+  jammer_source.has_direction_deg = false;
+
+  environment::EnvironmentService service(MakeEnvironmentConfigWithJammers({jammer_source}));
+  const auto snapshot = service.SampleEnvironment();
+
+  ASSERT_EQ(snapshot.jammer_sources.size(), 1u);
+  EXPECT_FALSE(snapshot.jammer_sources[0].has_direction_deg);
+  EXPECT_GE(snapshot.jammer_sources[0].frequency_overlap_ratio, 0.0f);
+  EXPECT_LE(snapshot.jammer_sources[0].frequency_overlap_ratio, 1.0f);
+  EXPECT_GE(snapshot.jammer_sources[0].prf_lock_risk, 0.0f);
+  EXPECT_LE(snapshot.jammer_sources[0].prf_lock_risk, 1.0f);
+}
+
 TEST(EnvironmentServiceTest, ModelConfigAtmosphericPhysicsAffectsDefaultSnapshot) {
   environment::EnvironmentModelConfig config;
   config.atmospheric_physics.enable_physical_model = true;

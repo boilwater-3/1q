@@ -190,8 +190,10 @@ Json BuildJson(const environment::JammerSourceFact& value) {
   json["frequency_overlap_ratio"] = value.frequency_overlap_ratio;
   json["prf_lock_risk"] = value.prf_lock_risk;
   json["has_direction_deg"] = value.has_direction_deg;
-  json["azimuth_deg"] = value.azimuth_deg;
-  json["elevation_deg"] = value.elevation_deg;
+  if (value.has_direction_deg) {
+    json["azimuth_deg"] = value.direction_deg.azimuth_deg;
+    json["elevation_deg"] = value.direction_deg.elevation_deg;
+  }
   json["angular_span_deg"] = value.angular_span_deg;
   json["in_sidelobe"] = value.in_sidelobe;
   json["confidence"] = value.confidence;
@@ -204,8 +206,10 @@ Json BuildJson(const environment::JammerEmitterState& value) {
   json["power_db"] = value.power_db;
   json["js_db"] = value.js_db;
   json["has_direction_deg"] = value.has_direction_deg;
-  json["azimuth_deg"] = value.azimuth_deg;
-  json["elevation_deg"] = value.elevation_deg;
+  if (value.has_direction_deg) {
+    json["azimuth_deg"] = value.azimuth_deg;
+    json["elevation_deg"] = value.elevation_deg;
+  }
   json["angular_span_deg"] = value.angular_span_deg;
   json["confidence"] = value.confidence;
   return json;

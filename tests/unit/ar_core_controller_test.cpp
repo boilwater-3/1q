@@ -432,7 +432,7 @@ TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
   EXPECT_FLOAT_EQ(mapped_source.jammer_to_signal_db, 7.5f);
   EXPECT_FLOAT_EQ(mapped_source.frequency_overlap_ratio, frozen_source.frequency_overlap_ratio);
   EXPECT_FLOAT_EQ(mapped_source.prf_lock_risk, frozen_source.prf_lock_risk);
-  EXPECT_FLOAT_EQ(mapped_source.azimuth_deg, 30.0f);
+  EXPECT_FLOAT_EQ(mapped_source.direction_deg.azimuth_deg, 30.0f);
   EXPECT_FLOAT_EQ(mapped_source.angular_span_deg, 8.0f);
   EXPECT_EQ(decision_engine.last_frame.association_quality_info.dominant_jamming_semantic,
             model::JammingSemantic::kDeception);

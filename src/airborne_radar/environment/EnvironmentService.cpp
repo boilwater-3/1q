@@ -26,38 +26,38 @@ bool HasExternalDirection(const JammerEmitterState& source) {
   return source.has_direction_deg;
 }
 
-void EstimateDirectionDeg(const JammerEmitterState& source, float* azimuth_deg, float* elevation_deg) {
-  float technique_bias_deg = 0.0f;
+bool DeriveInSidelobeWithoutDirection(const JammerSourceFact& source) {
+  float technique_bias = 0.40f;
   switch (source.technique) {
     case JammingTechnique::kNoiseSuppression:
-      technique_bias_deg = 18.0f;
+      technique_bias = 0.58f;
       break;
     case JammingTechnique::kDeception:
-      technique_bias_deg = -6.0f;
+      technique_bias = 0.36f;
       break;
     case JammingTechnique::kRepeater:
-      technique_bias_deg = 3.0f;
+      technique_bias = 0.44f;
       break;
     default:
-      technique_bias_deg = 0.0f;
+      technique_bias = 0.40f;
       break;
   }
 
-  const float js_ratio = utils::ClampFloat(source.js_db / 12.0f, 0.0f, 1.0f);
-  const float power_ratio = utils::ClampFloat(source.power_db / 60.0f, 0.0f, 1.0f);
+  const float angular_focus = utils::ClampFloat(1.0f - source.angular_span_deg / 120.0f, 0.0f, 1.0f);
   const float confidence = utils::ClampFloat(source.confidence, 0.0f, 1.0f);
-  const float power_term_deg = (0.5f - power_ratio) * 20.0f;
-  const float js_term_deg = (js_ratio - 0.5f) * 10.0f;
-  const float confidence_term_deg = (0.5f - confidence) * 8.0f;
-  const float estimated_el_deg = -2.0f + js_ratio * 8.0f;
-
-  *azimuth_deg = WrapAzimuthDeg(technique_bias_deg + power_term_deg + js_term_deg + confidence_term_deg);
-  *elevation_deg = utils::ClampFloat(estimated_el_deg, -20.0f, 80.0f);
+  const float js_ratio = utils::ClampFloat(source.js_db / 12.0f, 0.0f, 1.0f);
+  const float sidelobe_score =
+      technique_bias + 0.24f * angular_focus + 0.20f * confidence - 0.18f * js_ratio;
+  return sidelobe_score >= 0.50f;
 }
 
 bool DeriveInSidelobe(const JammerSourceFact& source) {
-  const float abs_azimuth_deg = std::fabs(source.azimuth_deg);
-  const float abs_elevation_deg = std::fabs(source.elevation_deg);
+  if (!source.has_direction_deg) {
+    return DeriveInSidelobeWithoutDirection(source);
+  }
+
+  const float abs_azimuth_deg = std::fabs(source.direction_deg.azimuth_deg);
+  const float abs_elevation_deg = std::fabs(source.direction_deg.elevation_deg);
   const bool inside_frontlobe =
       abs_azimuth_deg <= 12.0f && abs_elevation_deg <= 6.0f && source.angular_span_deg <= 24.0f;
   return !inside_frontlobe;
@@ -131,11 +131,11 @@ JammerSourceFact NormalizeEmitterState(const JammerEmitterState& raw_source) {
   normalized.confidence = utils::ClampFloat(raw_source.confidence, 0.0f, 1.0f);
   if (HasExternalDirection(raw_source)) {
     normalized.has_direction_deg = true;
-    normalized.azimuth_deg = WrapAzimuthDeg(raw_source.azimuth_deg);
-    normalized.elevation_deg = utils::ClampFloat(raw_source.elevation_deg, -20.0f, 80.0f);
+    normalized.direction_deg.azimuth_deg = WrapAzimuthDeg(raw_source.azimuth_deg);
+    normalized.direction_deg.elevation_deg =
+        utils::ClampFloat(raw_source.elevation_deg, -20.0f, 80.0f);
   } else {
     normalized.has_direction_deg = false;
-    EstimateDirectionDeg(raw_source, &normalized.azimuth_deg, &normalized.elevation_deg);
   }
   normalized.in_sidelobe = DeriveInSidelobe(normalized);
   normalized.frequency_overlap_ratio = DeriveFrequencyOverlapRatio(normalized);
