@@ -260,8 +260,13 @@ void RunPhysicalDetectionPass(const model::TargetFeatureList& input,
     detection::TargetReturn target;
     target.rcs_m2 = effective_rcs_m2;
     target.range_m = (*buffers->target_geometry)[i].range_m;
-    target.swerling_type =
-        static_cast<config::SwerlingModel>(input[i].target_swerling_type);
+    if (input[i].target_swerling_type >= static_cast<int>(config::kSwerling0) &&
+        input[i].target_swerling_type <= static_cast<int>(config::kSwerling4)) {
+      target.swerling_type =
+          static_cast<config::SwerlingModel>(input[i].target_swerling_type);
+    } else {
+      target.swerling_type = runtime_config.detection.swerling_model;
+    }
 
     const detection::ResolvedBeamState beam_state =
         detection::BeamControlResolver::Resolve(internal_config.detection.engineering.antenna,

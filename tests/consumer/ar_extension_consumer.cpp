@@ -98,6 +98,10 @@ class DummyEnvironmentService : public environment::IEnvironmentService {
   void UpdateModelConfig(const environment::EnvironmentModelConfig& config) override {
     (void)config;
   }
+ 
+    void SetJammingSensitivityProfile(environment::JammingSensitivityProfile profile) override {
+      (void)profile;
+    }
 
   void SetJammingDetectionThresholdDb(float threshold_db) override { (void)threshold_db; }
 

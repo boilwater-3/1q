@@ -52,7 +52,7 @@ TEST(ArRuntimeConfigResolverTest, FullSignalConfigAppliedBeforeLeafPatch) {
 TEST(ArRuntimeConfigResolverTest, EnvironmentPatchUpdatesModelAndThreshold) {
   RuntimeConfigState current_state;
   current_state.environment_scenario_config.atmospheric_physics.enable_physical_model = false;
-  current_state.jamming_detection_threshold_db = 6.0f;
+    current_state.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kBalanced;
 
   config::RadarRuntimeConfigPatch patch =
       config::RadarRuntimeConfigBuilder()
@@ -69,14 +69,15 @@ TEST(ArRuntimeConfigResolverTest, EnvironmentPatchUpdatesModelAndThreshold) {
   EXPECT_TRUE(resolved.jamming_detection_threshold_changed);
   EXPECT_TRUE(
       resolved.next_state.environment_scenario_config.atmospheric_physics.enable_physical_model);
-  EXPECT_FLOAT_EQ(resolved.next_state.jamming_detection_threshold_db, 4.5f);
+    EXPECT_EQ(resolved.next_state.jamming_sensitivity_profile,
+                        environment::JammingSensitivityProfile::kStrict);
 }
 
 TEST(ArRuntimeConfigResolverTest, InvalidPatchIsRejectedAtomically) {
   RuntimeConfigState current_state;
   current_state.signal_pipeline_config.beam_control.radar_orientation.scan_center_deg.az_deg = 1.0f;
   current_state.signal_pipeline_config.beam_control.radar_orientation.scan_center_deg.el_deg = 2.0f;
-  current_state.jamming_detection_threshold_db = 6.0f;
+    current_state.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kBalanced;
 
   config::RadarRuntimeConfigPatch patch =
       config::RadarRuntimeConfigBuilder().WithJammingDetectionThresholdDb(3.5f).Build();
@@ -94,7 +95,8 @@ TEST(ArRuntimeConfigResolverTest, InvalidPatchIsRejectedAtomically) {
   EXPECT_FLOAT_EQ(
       resolved.next_state.signal_pipeline_config.beam_control.radar_orientation.scan_center_deg.az_deg,
       1.0f);
-  EXPECT_FLOAT_EQ(resolved.next_state.jamming_detection_threshold_db, 6.0f);
+    EXPECT_EQ(resolved.next_state.jamming_sensitivity_profile,
+                        environment::JammingSensitivityProfile::kBalanced);
 }
 
 }  // namespace

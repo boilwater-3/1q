@@ -93,6 +93,14 @@ RuntimeConfigResolveResult ResolveRuntimeConfigPatch(const RuntimeConfigState& c
           patch.environment_runtime_config.scenario_config;
       resolved.environment_scenario_config_changed = true;
     }
+    if (patch.environment_runtime_config.has_jamming_sensitivity_profile) {
+      resolved.next_state.jamming_sensitivity_profile =
+          patch.environment_runtime_config.jamming_sensitivity_profile;
+      resolved.next_state.jamming_detection_threshold_db =
+          environment::ResolveJammingDetectionThresholdDb(
+              patch.environment_runtime_config.jamming_sensitivity_profile);
+      resolved.jamming_detection_threshold_changed = true;
+    }
     if (patch.environment_runtime_config.has_jamming_detection_threshold_db) {
       if (!IsFinite(patch.environment_runtime_config.jamming_detection_threshold_db)) {
         PROJECT_LOG_ERROR(
@@ -101,6 +109,9 @@ RuntimeConfigResolveResult ResolveRuntimeConfigPatch(const RuntimeConfigState& c
             patch.environment_runtime_config.jamming_detection_threshold_db);
         return RejectPatch(current_state, true);
       }
+      resolved.next_state.jamming_sensitivity_profile =
+          environment::ResolveJammingSensitivityProfile(
+              patch.environment_runtime_config.jamming_detection_threshold_db);
       resolved.next_state.jamming_detection_threshold_db =
           patch.environment_runtime_config.jamming_detection_threshold_db;
       resolved.jamming_detection_threshold_changed = true;

@@ -15,6 +15,43 @@ namespace airborne_radar {
 namespace environment {
 
 /**
+ * @brief JammingSensitivityProfile 描述干扰判定灵敏度语义档位。
+ */
+enum class JammingSensitivityProfile {
+  kRelaxed = 0,  /**< 更保守，不易判定为干扰 */
+  kBalanced = 1, /**< 平衡策略 */
+  kStrict = 2    /**< 更敏感，容易判定为干扰 */
+};
+
+/**
+ * @brief 将语义化干扰灵敏度档位映射为内部 dB 阈值。
+ */
+inline float ResolveJammingDetectionThresholdDb(JammingSensitivityProfile profile) {
+  switch (profile) {
+    case JammingSensitivityProfile::kRelaxed:
+      return 8.0f;
+    case JammingSensitivityProfile::kStrict:
+      return 4.0f;
+    case JammingSensitivityProfile::kBalanced:
+    default:
+      return 6.0f;
+  }
+}
+
+/**
+ * @brief 将 dB 阈值近似映射为语义化干扰灵敏度档位。
+ */
+inline JammingSensitivityProfile ResolveJammingSensitivityProfile(float threshold_db) {
+  if (threshold_db <= 5.0f) {
+    return JammingSensitivityProfile::kStrict;
+  }
+  if (threshold_db >= 7.0f) {
+    return JammingSensitivityProfile::kRelaxed;
+  }
+  return JammingSensitivityProfile::kBalanced;
+}
+
+/**
  * @brief JammingTechnique 与 `model::JammingTechnique` 保持统一的别名。
  */
 using JammingTechnique = model::JammingTechnique;
@@ -132,7 +169,10 @@ struct EnvironmentScenarioConfig {
  */
 struct EnvironmentDefaultConfig {
   EnvironmentScenarioConfig scenario_config{};  /**< 默认环境场景输入 */
-  float jamming_detection_threshold_db{6.0f};  /**< 默认干扰判定阈值（单位：dB） */
+  JammingSensitivityProfile jamming_sensitivity_profile{
+      JammingSensitivityProfile::kBalanced}; /**< 默认干扰判定灵敏度语义档位 */
+  float jamming_detection_threshold_db{
+      ResolveJammingDetectionThresholdDb(JammingSensitivityProfile::kBalanced)}; /**< 兼容字段：默认干扰判定阈值（单位：dB） */
 };
 
 /**

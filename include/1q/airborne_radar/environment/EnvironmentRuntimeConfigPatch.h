@@ -17,8 +17,12 @@ namespace environment {
 struct EnvironmentRuntimeConfigPatch {
   bool has_scenario_config{false};                /**< 是否更新环境场景输入 */
   EnvironmentScenarioConfig scenario_config{};    /**< 运行期环境场景输入 */
+  bool has_jamming_sensitivity_profile{false};    /**< 是否更新干扰判定灵敏度语义档位 */
+  JammingSensitivityProfile jamming_sensitivity_profile{
+      JammingSensitivityProfile::kBalanced};      /**< 运行期干扰判定灵敏度语义档位 */
   bool has_jamming_detection_threshold_db{false}; /**< 是否更新干扰判定阈值 */
-  float jamming_detection_threshold_db{6.0f};     /**< 运行期干扰判定阈值（单位：dB） */
+  float jamming_detection_threshold_db{
+      ResolveJammingDetectionThresholdDb(JammingSensitivityProfile::kBalanced)}; /**< 兼容字段：运行期干扰判定阈值（单位：dB） */
 };
 
 }  // namespace environment

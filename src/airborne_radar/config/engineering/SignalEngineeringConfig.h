@@ -6,6 +6,8 @@
 #ifndef AIRBORNE_RADAR_SRC_CONFIG_ENGINEERING_SIGNAL_ENGINEERING_CONFIG_H_
 #define AIRBORNE_RADAR_SRC_CONFIG_ENGINEERING_SIGNAL_ENGINEERING_CONFIG_H_
 
+#include <cstdint>
+
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
 
 namespace airborne_radar {
@@ -89,6 +91,17 @@ struct TrackingConfig {
   float kalman_measurement_noise_std{10.0f};
   KalmanUpdateBackend kalman_update_backend{
       KalmanUpdateBackend::kStandardKfJoseph};
+};
+
+struct LifecycleConfig {
+  std::uint32_t confirm_hits{3};
+  std::uint32_t max_miss_before_lost{2};
+  std::uint32_t max_lost_cycles{5};
+};
+
+struct LifecycleRuntimeConfig {
+  LifecycleConfig lifecycle_config{};
+  bool enable_imm_lifecycle{false};
 };
 
 }  // namespace engineering

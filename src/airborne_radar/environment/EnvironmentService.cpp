@@ -199,9 +199,13 @@ void EnvironmentService::UpdateModelConfig(const EnvironmentModelConfig& config)
   scene_manager_->UpdatePendingScene(BuildSceneStateFromModelConfig(config));
 }
 
-void EnvironmentService::SetJammingDetectionThresholdDb(float threshold_db) {
-  jamming_detection_threshold_db_ = threshold_db;
+void EnvironmentService::SetJammingSensitivityProfile(JammingSensitivityProfile profile) {
+  jamming_sensitivity_profile_ = profile;
   RefreshFrozenSnapshotFromActiveScene();
+}
+
+void EnvironmentService::SetJammingDetectionThresholdDb(float threshold_db) {
+  SetJammingSensitivityProfile(ResolveJammingSensitivityProfile(threshold_db));
 }
 
 environment::EnvironmentServiceRuntimeState EnvironmentService::CaptureRuntimeState() const {
@@ -211,7 +215,9 @@ environment::EnvironmentServiceRuntimeState EnvironmentService::CaptureRuntimeSt
     state.pending_scene_state = scene_manager_->GetPendingScene();
     state.active_cycle_context = scene_manager_->GetActiveCycleContext();
   }
-  state.jamming_detection_threshold_db = jamming_detection_threshold_db_;
+  state.jamming_sensitivity_profile = jamming_sensitivity_profile_;
+  state.jamming_detection_threshold_db =
+      ResolveJammingDetectionThresholdDb(jamming_sensitivity_profile_);
   return state;
 }
 
@@ -222,7 +228,13 @@ void EnvironmentService::RestoreRuntimeState(
                                  state.active_cycle_context);
   }
   current_cycle_context_ = state.active_cycle_context;
-  jamming_detection_threshold_db_ = state.jamming_detection_threshold_db;
+  if (state.jamming_detection_threshold_db !=
+      ResolveJammingDetectionThresholdDb(state.jamming_sensitivity_profile)) {
+    jamming_sensitivity_profile_ =
+        ResolveJammingSensitivityProfile(state.jamming_detection_threshold_db);
+  } else {
+    jamming_sensitivity_profile_ = state.jamming_sensitivity_profile;
+  }
   RefreshFrozenSnapshotFromActiveScene();
 }
 
@@ -250,7 +262,8 @@ void EnvironmentService::RefreshFrozenSnapshotFromActiveScene() {
   frozen_snapshot_.jamming_detected =
       std::find_if(frozen_snapshot_.jammer_sources.begin(), frozen_snapshot_.jammer_sources.end(),
                    [this](const JammerSourceFact& source) {
-                     return source.power_db >= jamming_detection_threshold_db_;
+                     return source.power_db >=
+                            ResolveJammingDetectionThresholdDb(jamming_sensitivity_profile_);
                    }) != frozen_snapshot_.jammer_sources.end();
 }
 

@@ -222,6 +222,12 @@ class RecordingEnvironmentService : public environment::IEnvironmentService {
     ++set_threshold_count_;
     jamming_detection_threshold_db_ = threshold_db;
   }
+  
+  void SetJammingSensitivityProfile(
+      environment::JammingSensitivityProfile profile) override {
+    jamming_detection_threshold_db_ =
+        environment::ResolveJammingDetectionThresholdDb(profile);
+  }
 
   environment::EnvironmentServiceRuntimeState CaptureRuntimeState() const override {
     environment::EnvironmentServiceRuntimeState state;

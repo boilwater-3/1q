@@ -29,21 +29,6 @@ struct SignalLifecycleConfig {
   bool enable_imm_fusion{false};          /**< 是否启用 IMM 融合策略 */
 };
 
-namespace engineering {
-
-struct LifecycleConfig {
-  std::uint32_t confirm_hits{3};
-  std::uint32_t max_miss_before_lost{2};
-  std::uint32_t max_lost_cycles{5};
-};
-
-struct LifecycleRuntimeConfig {
-  LifecycleConfig lifecycle_config{};
-  bool enable_imm_lifecycle{false};
-};
-
-}  // namespace engineering
-
 }  // namespace config
 }  // namespace airborne_radar
 

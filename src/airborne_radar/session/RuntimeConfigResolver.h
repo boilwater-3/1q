@@ -13,7 +13,11 @@ namespace internal {
 struct RuntimeConfigState {
   config::SignalPipelineConfig signal_pipeline_config{};
   environment::EnvironmentScenarioConfig environment_scenario_config{};
-  float jamming_detection_threshold_db{6.0f};
+  environment::JammingSensitivityProfile jamming_sensitivity_profile{
+      environment::JammingSensitivityProfile::kBalanced};
+  float jamming_detection_threshold_db{
+      environment::ResolveJammingDetectionThresholdDb(
+          environment::JammingSensitivityProfile::kBalanced)};
 };
 
 /**

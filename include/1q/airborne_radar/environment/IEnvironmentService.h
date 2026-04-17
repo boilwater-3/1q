@@ -16,7 +16,9 @@ struct EnvironmentServiceRuntimeState {
   EnvironmentSceneState active_scene_state{};
   EnvironmentSceneState pending_scene_state{};
   EnvironmentCycleContext active_cycle_context{};
-  float jamming_detection_threshold_db{6.0f};
+  JammingSensitivityProfile jamming_sensitivity_profile{JammingSensitivityProfile::kBalanced};
+  float jamming_detection_threshold_db{
+      ResolveJammingDetectionThresholdDb(JammingSensitivityProfile::kBalanced)};
 };
 
 /**
@@ -57,8 +59,15 @@ class ONEQ_API IEnvironmentService {
   virtual void UpdateModelConfig(const EnvironmentModelConfig& config) = 0;
 
   /**
+    * @brief 设置干扰判定灵敏度语义档位。
+    * @param[in] profile 灵敏度语义档位。
+    */
+    virtual void SetJammingSensitivityProfile(JammingSensitivityProfile profile) = 0;
+
+    /**
    * @brief 设置干扰判定阈值。
-   * @param[in] threshold_db 阈值（单位：dB）。
+    * @param[in] threshold_db 阈值（单位：dB）。
+    * @note 兼容旧 API，会映射为对应语义档位并调用 SetJammingSensitivityProfile。
    */
   virtual void SetJammingDetectionThresholdDb(float threshold_db) = 0;
 

@@ -58,6 +58,7 @@ struct SignalDetectionConfig {
       RadarHardwareProfile::kGenericAirborneXBand}; /**< 雷达硬件能力档位 */
   DetectionIntentProfile intent_profile{
       DetectionIntentProfile::kBalanced}; /**< 探测意图档位 */
+  SwerlingModel swerling_model{kSwerling0}; /**< 默认 Swerling 起伏模型 */
   AntennaPatternConfig antenna_pattern{}; /**< 天线方向图语义输入 */
   RcsFusionProfile rcs_fusion_profile{
       RcsFusionProfile::kDisabled}; /**< RCS 融合语义档位 */
