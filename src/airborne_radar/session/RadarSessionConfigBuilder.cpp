@@ -8,12 +8,6 @@ namespace airborne_radar {
 namespace config {
 
 session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
-  if (!std::isfinite(config_.detection.min_detection_margin_db)) {
-    PROJECT_LOG_WARN(
-        "[RadarSessionConfigBuilder] min_detection_margin_db={} is non-finite; fallback defaults "
-        "may apply in internal resolver.",
-        config_.detection.min_detection_margin_db);
-  }
   if (config_.tracking.policy_profile == TrackingPolicyProfile::kRobustAntiJamming &&
       !config_.lifecycle.enable_imm_fusion) {
     PROJECT_LOG_WARN(

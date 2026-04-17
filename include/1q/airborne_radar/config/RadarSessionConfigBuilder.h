@@ -93,10 +93,6 @@ class RadarSessionConfigBuilder::DetectionEditor {
     builder_->config_.detection.rcs_fusion_profile = profile;
     return *this;
   }
-  DetectionEditor& WithMinDetectionMarginDb(float margin_db) {
-    builder_->config_.detection.min_detection_margin_db = margin_db;
-    return *this;
-  }
 
   RadarSessionConfigBuilder& End() { return *builder_; }
 
@@ -118,10 +114,6 @@ class RadarSessionConfigBuilder::BeamEditor {
   }
   BeamEditor& WithScanCenterDeg(const AzimuthElevationDeg& scan_center_deg) {
     builder_->config_.beam_control.radar_orientation.scan_center_deg = scan_center_deg;
-    return *this;
-  }
-  BeamEditor& WithDwellCenterDeg(const AzimuthElevationDeg& dwell_center_deg) {
-    builder_->config_.beam_control.radar_orientation.dwell_center_deg = dwell_center_deg;
     return *this;
   }
   BeamEditor& EnableCommandedBeamwidth(bool enable = true) {

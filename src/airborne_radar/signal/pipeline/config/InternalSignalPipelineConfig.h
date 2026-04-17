@@ -154,7 +154,6 @@ inline config::engineering::DetectionConfig ResolveDetectionEngineering(
     const config::SignalDetectionConfig& semantic_detection) {
   config::engineering::DetectionConfig resolved;
   resolved.enable_physics_detection = semantic_detection.enable_physics_detection;
-  resolved.min_detection_margin_db = semantic_detection.min_detection_margin_db;
   resolved.antenna.pattern = ResolveAntennaPatternEngineering(semantic_detection.antenna_pattern);
 
   switch (semantic_detection.hardware_profile) {
@@ -211,6 +210,19 @@ inline config::engineering::DetectionConfig ResolveDetectionEngineering(
       break;
     case config::RcsFusionProfile::kDisabled:
     default:
+      break;
+  }
+
+  switch (semantic_detection.intent_profile) {
+    case config::DetectionIntentProfile::kDetectionPriority:
+      resolved.min_detection_margin_db = -100.0f;
+      break;
+    case config::DetectionIntentProfile::kTrackStabilityPriority:
+      resolved.min_detection_margin_db = -20.0f;
+      break;
+    case config::DetectionIntentProfile::kBalanced:
+    default:
+      resolved.min_detection_margin_db = -2.0f;
       break;
   }
   return resolved;

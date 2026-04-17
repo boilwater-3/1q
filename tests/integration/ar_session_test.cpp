@@ -139,7 +139,7 @@ struct SceneScriptStep {
 
 config::SignalPipelineConfig MakeJointIntegrationPipelineConfig() {
   config::SignalPipelineConfig config;
-  config.detection.min_detection_margin_db = -100.0f;
+  config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
   config.lifecycle.policy_profile = config::LifecyclePolicyProfile::kFastConfirm;
   config.tracking.policy_profile = config::TrackingPolicyProfile::kFastAssociation;
   return config;
@@ -153,7 +153,6 @@ config::SignalPipelineConfig MakeJointIntegrationPhysicsPipelineConfig(
   config.detection.hardware_profile = pulse_width_s > 15e-6f
                                           ? config::RadarHardwareProfile::kLongRangeHighPower
                                           : config::RadarHardwareProfile::kGenericAirborneXBand;
-  config.detection.min_detection_margin_db = -50.0f;
   return config;
 }
 

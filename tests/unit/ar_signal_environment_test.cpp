@@ -288,11 +288,8 @@ TEST(PropagationModelTest, OptionalVegetationScatterPhysicsRaisesClutterWhenEnab
 
   environment::EnvironmentSceneState physics_scene = baseline_scene;
   physics_scene.vegetation_scatter_physics.enable_physical_model = true;
-  physics_scene.vegetation_scatter_physics.leaf_count = 96U;
-  physics_scene.vegetation_scatter_physics.leaf_size_m = 0.07f;
-  physics_scene.vegetation_scatter_physics.dielectric_constant_real = 3.1f;
-  physics_scene.vegetation_scatter_physics.canopy_radius_m = 1.4f;
-  physics_scene.vegetation_scatter_physics.canopy_height_m = 4.2f;
+  physics_scene.vegetation_scatter_physics.cover_profile =
+      environment::VegetationCoverProfile::kTropicalDense;
 
   environment::PropagationModel propagation_model;
   const environment::PropagationResult baseline_result =
@@ -309,7 +306,8 @@ TEST(EnvironmentServiceTest, ModelConfigVegetationScatterAffectsDefaultSnapshotC
 
   environment::EnvironmentModelConfig physics_config = baseline_config;
   physics_config.vegetation_scatter_physics.enable_physical_model = true;
-  physics_config.vegetation_scatter_physics.leaf_count = 128U;
+  physics_config.vegetation_scatter_physics.cover_profile =
+      environment::VegetationCoverProfile::kConiferousForest;
 
   environment::EnvironmentService baseline_service(baseline_config);
   environment::EnvironmentService physics_service(physics_config);
@@ -361,7 +359,7 @@ TEST(SignalPipelineTest,
      RcsPhysicsOverrideChangesMarginalHeuristicDetectionWhileDisabledPathStaysSame) {
   config::SignalPipelineConfig baseline_config;
   baseline_config.detection.enable_physics_detection = false;
-  baseline_config.detection.min_detection_margin_db = -2.0f;
+  baseline_config.detection.intent_profile = config::DetectionIntentProfile::kBalanced;
   baseline_config.detection.hardware_profile = config::RadarHardwareProfile::kLongRangeHighPower;
 
   environment::EnvironmentModelConfig env_config;
@@ -401,7 +399,7 @@ TEST(SignalPipelineTest,
 
   ASSERT_EQ(enabled_measurements.size(), 1u);
   EXPECT_GT(enabled_measurements[0].raw_measurement.detection_margin_db,
-            baseline_config.detection.min_detection_margin_db);
+            -2.0f);
 }
 
 TEST(SignalPipelineTest, ExposesPublicPlatformAttitudeUpdateApi) {
@@ -555,7 +553,6 @@ TEST(SignalPipelineTest, ControlProfilePowerReductionLowersPhysicalDetectionMarg
   config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.enable_physics_detection = true;
   pipeline_config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
-  pipeline_config.detection.min_detection_margin_db = -50.0f;
 
   environment::EnvironmentService environment_service;
 
@@ -583,7 +580,6 @@ TEST(SignalPipelineTest, AdaptiveBeamformingProfileTightensMeasurementCovariance
   config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.enable_physics_detection = true;
   pipeline_config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
-  pipeline_config.detection.min_detection_margin_db = -50.0f;
   pipeline_config.detection.antenna_pattern.profile = config::AntennaPatternProfile::kWideCoverage;
 
   environment::EnvironmentService environment_service;
@@ -835,7 +831,6 @@ TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) 
   config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.enable_physics_detection = true;
   pipeline_config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
-  pipeline_config.detection.min_detection_margin_db = -50.0f;
   pipeline_config.beam_control.radar_orientation.scan_center_deg.az_deg = 0.0f;
   pipeline_config.beam_control.radar_orientation.scan_center_deg.el_deg = 0.0f;
   pipeline_config.beam_control.radar_orientation.mechanical_scan_limits_deg.az_min_deg = 0.0f;
@@ -876,7 +871,6 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulatePhysicalEccmBenefit) {
   config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.enable_physics_detection = true;
   pipeline_config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
-  pipeline_config.detection.min_detection_margin_db = -50.0f;
   pipeline_config.beam_control.radar_orientation.scan_center_deg.az_deg = 0.0f;
   pipeline_config.beam_control.radar_orientation.scan_center_deg.el_deg = 0.0f;
   pipeline_config.beam_control.radar_orientation.mechanical_scan_limits_deg.az_min_deg = 0.0f;
@@ -933,7 +927,6 @@ TEST(SignalPipelineTest, DeceptionJammingFactsShrinkPhysicalCovarianceWhenMatche
   config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.enable_physics_detection = true;
   pipeline_config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
-  pipeline_config.detection.min_detection_margin_db = -50.0f;
 
   environment::EnvironmentModelConfig env_config;
   environment::JammerEmitterState deception_source;
@@ -1032,7 +1025,7 @@ TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
 
 TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
   config::SignalPipelineConfig pipeline_config;
-  pipeline_config.detection.min_detection_margin_db = -6.0f;
+  pipeline_config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
 
   environment::JammerEmitterState favorable_source =
       MakeJammerEmitter(environment::JammingTechnique::kUnknown, 12.0f);
@@ -1088,7 +1081,7 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
 
 TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUpdater) {
   config::SignalPipelineConfig pipeline_config;
-  pipeline_config.detection.min_detection_margin_db = -100.0f;
+  pipeline_config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
   pipeline_config.lifecycle.policy_profile = config::LifecyclePolicyProfile::kFastConfirm;
   pipeline_config.tracking.enable_tracking_filter = true;
 
@@ -1145,7 +1138,7 @@ TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUp
 
 TEST(SignalPipelineTest, AutoLifecycleManagerSyncsRuntimeTuningAcrossCycles) {
   config::SignalPipelineConfig pipeline_config;
-  pipeline_config.detection.min_detection_margin_db = -100.0f;
+  pipeline_config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
   pipeline_config.lifecycle.policy_profile = config::LifecyclePolicyProfile::kFastConfirm;
   pipeline_config.tracking.enable_tracking_filter = true;
 
@@ -1195,7 +1188,7 @@ TEST(SignalPipelineTest, AutoLifecycleManagerSyncsRuntimeTuningAcrossCycles) {
 
 TEST(SignalPipelineTest, InvalidTopologyRebuildKeepsPreviousLifecycleAssemblyOperational) {
   config::SignalPipelineConfig pipeline_config;
-  pipeline_config.detection.min_detection_margin_db = -100.0f;
+  pipeline_config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
   pipeline_config.lifecycle.policy_profile = config::LifecyclePolicyProfile::kFastConfirm;
   pipeline_config.tracking.enable_tracking_filter = true;
 
@@ -1244,7 +1237,6 @@ TEST(SignalPipelineTest, DeceptionJammingInflatesPhysicalCovarianceMoreThanNoise
   config::SignalPipelineConfig pipeline_config;
   pipeline_config.detection.enable_physics_detection = true;
   pipeline_config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
-  pipeline_config.detection.min_detection_margin_db = -50.0f;
 
   environment::EnvironmentModelConfig noise_env_config;
   environment::JammerEmitterState noise_source;
@@ -1292,7 +1284,7 @@ TEST(SignalPipelineTest, DeceptionJammingInflatesPhysicalCovarianceMoreThanNoise
 
 TEST(SignalPipelineTest, AutoImmLifecycleAssemblyUsesControlProfileAdjustedImmParameters) {
   config::SignalPipelineConfig pipeline_config;
-  pipeline_config.detection.min_detection_margin_db = -100.0f;
+  pipeline_config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
   pipeline_config.lifecycle.enable_imm_fusion = true;
   pipeline_config.lifecycle.policy_profile = config::LifecyclePolicyProfile::kFastConfirm;
 
@@ -1700,7 +1692,8 @@ TEST(PropagationModelTest, BaselineClutterRemainsStableAcrossDefaultScenes) {
 TEST(PropagationModelTest, VegetationScatterRaisesClutterFromInternalBaseline) {
   environment::EnvironmentSceneState scene_state;
   scene_state.vegetation_scatter_physics.enable_physical_model = true;
-  scene_state.vegetation_scatter_physics.leaf_count = 64U;
+  scene_state.vegetation_scatter_physics.cover_profile =
+      environment::VegetationCoverProfile::kSparseWoodland;
 
   environment::PropagationModel model;
   EXPECT_GT(model.Evaluate(scene_state).clutter_power_db, 3.0f);
@@ -2000,7 +1993,7 @@ TEST(TrackFilterTest, RcsNeverGoesBelowMinimumOnMiss) {
 
 TEST(SignalPipelineTest, SameInstanceControlProfileSwitchAcrossCyclesSyncsLifecycleCovariance) {
   config::SignalPipelineConfig pipeline_config;
-  pipeline_config.detection.min_detection_margin_db = -100.0f;
+  pipeline_config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
   pipeline_config.lifecycle.policy_profile = config::LifecyclePolicyProfile::kFastConfirm;
   pipeline_config.tracking.enable_tracking_filter = true;
 

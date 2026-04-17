@@ -62,7 +62,6 @@ struct SignalDetectionConfig {
   AntennaPatternConfig antenna_pattern{}; /**< 天线方向图语义输入 */
   RcsFusionProfile rcs_fusion_profile{
       RcsFusionProfile::kDisabled}; /**< RCS 融合语义档位 */
-  float min_detection_margin_db{-2.0f};   /**< 启发式检测最小裕量门限（语义层） */
 };
 
 }  // namespace config

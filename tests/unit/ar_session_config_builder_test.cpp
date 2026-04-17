@@ -31,7 +31,6 @@ TEST(RadarSessionConfigBuilderTest, PresetBasePreservesPresetSemanticValues) {
   const auto config =
       config::RadarSessionConfigBuilder(config::MakeDetectionMissionRadarSessionConfig()).Build();
 
-  EXPECT_FLOAT_EQ(config.detection.min_detection_margin_db, -100.0f);
   EXPECT_EQ(config.detection.intent_profile, config::DetectionIntentProfile::kDetectionPriority);
   EXPECT_EQ(config.tracking.policy_profile, config::TrackingPolicyProfile::kFastAssociation);
   EXPECT_EQ(config.lifecycle.policy_profile, config::LifecyclePolicyProfile::kFastConfirm);
@@ -46,7 +45,6 @@ TEST(RadarSessionConfigBuilderTest, DetectionSemanticEditorsApplyCorrectly) {
                               config::DetectionIntentProfile::kTrackStabilityPriority)
                           .WithAntennaPatternProfile(config::AntennaPatternProfile::kLowSidelobe)
                           .WithRcsFusionProfile(config::RcsFusionProfile::kEnhanced)
-                          .WithMinDetectionMarginDb(-15.0f)
                           .End()
                           .Build();
 
@@ -56,7 +54,6 @@ TEST(RadarSessionConfigBuilderTest, DetectionSemanticEditorsApplyCorrectly) {
             config::DetectionIntentProfile::kTrackStabilityPriority);
   EXPECT_EQ(config.detection.antenna_pattern.profile, config::AntennaPatternProfile::kLowSidelobe);
   EXPECT_EQ(config.detection.rcs_fusion_profile, config::RcsFusionProfile::kEnhanced);
-  EXPECT_FLOAT_EQ(config.detection.min_detection_margin_db, -15.0f);
 }
 
 TEST(RadarSessionConfigBuilderTest, TrackingAndLifecycleSemanticEditorsApplyCorrectly) {

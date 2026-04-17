@@ -219,14 +219,8 @@ void ApplyScanScheduleToRuntimeConfig(std::uint32_t cycle_index,
   if (runtime_config == nullptr) {
     return;
   }
-  model::RadarOrientationConfig& orientation =
-      runtime_config->beam_control.radar_orientation;
-  const config::engineering::AntennaConfig antenna_config =
-      ResolveSchedulingAntennaConfig(runtime_config->detection);
-  const detection::EffectiveBeamwidthDeg effective_beamwidth = detection::ResolveEffectiveBeamwidth(
-      antenna_config, orientation);
-  orientation.dwell_center_deg =
-      ResolveScheduledDwellCenter(orientation, effective_beamwidth, cycle_index);
+  (void)cycle_index;
+  (void)runtime_config;
 }
 
 }  // namespace internal

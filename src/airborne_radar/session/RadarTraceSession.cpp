@@ -111,7 +111,6 @@ Json BuildJson(const model::RadarOrientationConfig& value) {
   json["scan_start_position"] = static_cast<int>(value.scan_start_position);
   json["scan_sequence"] = static_cast<int>(value.scan_sequence);
   json["work_sub_mode"] = static_cast<int>(value.work_sub_mode);
-  json["dwell_center_deg"] = BuildJson(value.dwell_center_deg);
   json["commanded_beamwidth_enabled"] = value.commanded_beamwidth_enabled;
   json["commanded_beamwidth_deg"] = BuildJson(value.commanded_beamwidth_deg);
   json["stabilization_mode"] = static_cast<int>(value.stabilization_mode);
@@ -132,7 +131,6 @@ Json BuildJson(const config::SignalDetectionConfig& value) {
   json["intent_profile"] = static_cast<int>(value.intent_profile);
   json["antenna_pattern"] = BuildJson(value.antenna_pattern);
   json["rcs_fusion_profile"] = static_cast<int>(value.rcs_fusion_profile);
-  json["min_detection_margin_db"] = value.min_detection_margin_db;
   return json;
 }
 
@@ -223,12 +221,7 @@ Json BuildJson(const environment::EnvironmentScenarioConfig& value) {
   json["atmospheric_context"] = BuildJson(value.atmospheric_context);
   json["vegetation_scatter_physics"] = {
       {"cover_profile", static_cast<int>(value.vegetation_scatter_physics.cover_profile)},
-      {"enable_physical_model", value.vegetation_scatter_physics.enable_physical_model},
-      {"leaf_size_m", value.vegetation_scatter_physics.leaf_size_m},
-      {"dielectric_constant_real", value.vegetation_scatter_physics.dielectric_constant_real},
-      {"leaf_count", value.vegetation_scatter_physics.leaf_count},
-      {"canopy_radius_m", value.vegetation_scatter_physics.canopy_radius_m},
-      {"canopy_height_m", value.vegetation_scatter_physics.canopy_height_m}};
+      {"enable_physical_model", value.vegetation_scatter_physics.enable_physical_model}};
   json["jammer_sources"] =
       SerializeArray(value.jammer_sources, [](const environment::JammerEmitterState& source) {
         return BuildJson(source);

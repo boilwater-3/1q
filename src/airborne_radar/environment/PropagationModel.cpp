@@ -31,60 +31,74 @@ float LinearToDb(float linear_value) {
 
 VegetationScatterPhysicsConfig ResolveVegetationScatterConfig(
     const VegetationScatterPhysicsConfig& config) {
-  VegetationScatterPhysicsConfig resolved = config;
-  switch (config.cover_profile) {
-    case VegetationCoverProfile::kDisabled:
-      break;
-    case VegetationCoverProfile::kOpenGrassland:
-      resolved.leaf_size_m = 0.02f;
-      resolved.dielectric_constant_real = 1.8f;
-      resolved.leaf_count = 24U;
-      resolved.canopy_radius_m = 1.5f;
-      resolved.canopy_height_m = 0.8f;
-      break;
-    case VegetationCoverProfile::kSparseWoodland:
-      resolved.leaf_size_m = 0.04f;
-      resolved.dielectric_constant_real = 2.2f;
-      resolved.leaf_count = 56U;
-      resolved.canopy_radius_m = 2.8f;
-      resolved.canopy_height_m = 3.0f;
-      break;
-    case VegetationCoverProfile::kDeciduousForest:
-      resolved.leaf_size_m = 0.05f;
-      resolved.dielectric_constant_real = 2.6f;
-      resolved.leaf_count = 96U;
-      resolved.canopy_radius_m = 4.0f;
-      resolved.canopy_height_m = 6.0f;
-      break;
-    case VegetationCoverProfile::kConiferousForest:
-      resolved.leaf_size_m = 0.035f;
-      resolved.dielectric_constant_real = 2.4f;
-      resolved.leaf_count = 120U;
-      resolved.canopy_radius_m = 3.2f;
-      resolved.canopy_height_m = 8.0f;
-      break;
-    case VegetationCoverProfile::kTropicalDense:
-      resolved.leaf_size_m = 0.065f;
-      resolved.dielectric_constant_real = 3.1f;
-      resolved.leaf_count = 180U;
-      resolved.canopy_radius_m = 4.8f;
-      resolved.canopy_height_m = 9.0f;
-      break;
-  }
-  return resolved;
+  return config;
 }
 
-float ResolveVegetationIncidenceDeg(const VegetationScatterPhysicsConfig& config) {
-  const float canopy_slope_rad = std::atan2(std::max(config.canopy_height_m, 0.1f),
-                                            std::max(config.canopy_radius_m, 0.1f));
+struct VegetationPhysicsParameters {
+  float leaf_size_m{0.0f};
+  float dielectric_constant_real{1.0f};
+  std::size_t leaf_count{0U};
+  float canopy_radius_m{1.0f};
+  float canopy_height_m{1.0f};
+};
+
+VegetationPhysicsParameters ResolveVegetationPhysicsParameters(VegetationCoverProfile profile) {
+  VegetationPhysicsParameters parameters;
+  switch (profile) {
+    case VegetationCoverProfile::kOpenGrassland:
+      parameters.leaf_size_m = 0.02f;
+      parameters.dielectric_constant_real = 1.8f;
+      parameters.leaf_count = 24U;
+      parameters.canopy_radius_m = 1.5f;
+      parameters.canopy_height_m = 0.8f;
+      break;
+    case VegetationCoverProfile::kSparseWoodland:
+      parameters.leaf_size_m = 0.04f;
+      parameters.dielectric_constant_real = 2.2f;
+      parameters.leaf_count = 56U;
+      parameters.canopy_radius_m = 2.8f;
+      parameters.canopy_height_m = 3.0f;
+      break;
+    case VegetationCoverProfile::kDeciduousForest:
+      parameters.leaf_size_m = 0.05f;
+      parameters.dielectric_constant_real = 2.6f;
+      parameters.leaf_count = 96U;
+      parameters.canopy_radius_m = 4.0f;
+      parameters.canopy_height_m = 6.0f;
+      break;
+    case VegetationCoverProfile::kConiferousForest:
+      parameters.leaf_size_m = 0.035f;
+      parameters.dielectric_constant_real = 2.4f;
+      parameters.leaf_count = 120U;
+      parameters.canopy_radius_m = 3.2f;
+      parameters.canopy_height_m = 8.0f;
+      break;
+    case VegetationCoverProfile::kTropicalDense:
+      parameters.leaf_size_m = 0.065f;
+      parameters.dielectric_constant_real = 3.1f;
+      parameters.leaf_count = 180U;
+      parameters.canopy_radius_m = 4.8f;
+      parameters.canopy_height_m = 9.0f;
+      break;
+    case VegetationCoverProfile::kDisabled:
+    default:
+      break;
+  }
+  return parameters;
+}
+
+float ResolveVegetationIncidenceDeg(const VegetationPhysicsParameters& parameters) {
+  const float canopy_slope_rad =
+      std::atan2(std::max(parameters.canopy_height_m, 0.1f),
+                 std::max(parameters.canopy_radius_m, 0.1f));
   const float incidence_deg = 8.0f + canopy_slope_rad * kRadToDeg * 0.5f;
   return ClampFloat(incidence_deg, 8.0f, 75.0f);
 }
 
-float ResolveVegetationScatterDeg(const VegetationScatterPhysicsConfig& config,
+float ResolveVegetationScatterDeg(const VegetationPhysicsParameters& parameters,
                                   float incidence_deg) {
-  const float canopy_aspect_ratio = std::max(config.canopy_height_m, 0.1f) /
-                                    std::max(config.canopy_radius_m, 0.1f);
+  const float canopy_aspect_ratio = std::max(parameters.canopy_height_m, 0.1f) /
+                                    std::max(parameters.canopy_radius_m, 0.1f);
   const float anisotropy = std::fabs(canopy_aspect_ratio - 1.0f);
   const float scatter_deg = incidence_deg + 12.0f + 6.0f * ClampFloat(anisotropy, 0.0f, 2.0f);
   return ClampFloat(scatter_deg, 15.0f, 85.0f);
@@ -92,10 +106,11 @@ float ResolveVegetationScatterDeg(const VegetationScatterPhysicsConfig& config,
 
 float ComputeVegetationClutterMultiplier(
     const VegetationScatterPhysicsConfig& config) {
+  const VegetationPhysicsParameters parameters = ResolveVegetationPhysicsParameters(config.cover_profile);
   oneq::internal::rcs::TreeScattererConfig scatterer_config;
-  scatterer_config.leaf_count = static_cast<std::size_t>(std::max(config.leaf_count, 1U));
-  scatterer_config.canopy_radius_m = std::max(config.canopy_radius_m, 0.1f);
-  scatterer_config.canopy_height_m = std::max(config.canopy_height_m, 0.1f);
+  scatterer_config.leaf_count = std::max(parameters.leaf_count, std::size_t(1U));
+  scatterer_config.canopy_radius_m = std::max(parameters.canopy_radius_m, 0.1f);
+  scatterer_config.canopy_height_m = std::max(parameters.canopy_height_m, 0.1f);
   const oneq::internal::rcs::TreeScattererState scatterer_state =
       oneq::internal::rcs::InitTreeScatterer_AVX(scatterer_config);
 
@@ -105,11 +120,12 @@ float ComputeVegetationClutterMultiplier(
       scatterer_state, 0.8f, 0.5f,
       &x_param, &y_param);
 
-  const float incidence_deg = ResolveVegetationIncidenceDeg(config);
-  const float scatter_deg = ResolveVegetationScatterDeg(config, incidence_deg);
+  const float incidence_deg = ResolveVegetationIncidenceDeg(parameters);
+  const float scatter_deg = ResolveVegetationScatterDeg(parameters, incidence_deg);
   const oneq::internal::rcs::LeafPhaseMatrices phase_matrices =
       oneq::internal::rcs::compute_leaf_phase_matrices(
-          std::max(config.leaf_size_m, 0.0f), std::max(config.dielectric_constant_real, 1.0f),
+          std::max(parameters.leaf_size_m, 0.0f),
+          std::max(parameters.dielectric_constant_real, 1.0f),
           incidence_deg, scatter_deg);
 
   float average_extent = 0.0f;

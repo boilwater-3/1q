@@ -18,6 +18,7 @@ struct RuntimeConfigState {
   float jamming_detection_threshold_db{
       environment::ResolveJammingDetectionThresholdDb(
           environment::JammingSensitivityProfile::kBalanced)};
+  model::AzimuthElevationDeg dwell_center_deg{};
 };
 
 /**

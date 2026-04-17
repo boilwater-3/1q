@@ -77,10 +77,8 @@ TEST(RadarOrientationUtilsTest, IntersectScanLimitsReturnsOverlapWindow) {
 
 TEST(RadarOrientationUtilsTest, ComputeMountFrameBeamPointingClampsToOverlap) {
   model::RadarOrientationConfig config;
-  config.scan_center_deg.az_deg = 30.0f;
-  config.scan_center_deg.el_deg = 5.0f;
-  config.dwell_center_deg.az_deg = 25.0f;
-  config.dwell_center_deg.el_deg = -25.0f;
+  config.scan_center_deg.az_deg = 55.0f;
+  config.scan_center_deg.el_deg = -20.0f;
   config.mechanical_scan_limits_deg.az_min_deg = -60.0f;
   config.mechanical_scan_limits_deg.az_max_deg = 60.0f;
   config.mechanical_scan_limits_deg.el_min_deg = -30.0f;
@@ -101,10 +99,8 @@ TEST(RadarOrientationUtilsTest, ComputeBodyFrameBeamPointingUsesRotationComposit
   config.mount_angles_deg.yaw_deg = 10.0f;
   config.mount_angles_deg.pitch_deg = 5.0f;
   config.mount_angles_deg.roll_deg = 2.0f;
-  config.scan_center_deg.az_deg = 20.0f;
-  config.scan_center_deg.el_deg = -10.0f;
-  config.dwell_center_deg.az_deg = 15.0f;
-  config.dwell_center_deg.el_deg = 5.0f;
+  config.scan_center_deg.az_deg = 35.0f;
+  config.scan_center_deg.el_deg = -5.0f;
   config.mechanical_scan_limits_deg.az_min_deg = -60.0f;
   config.mechanical_scan_limits_deg.az_max_deg = 60.0f;
   config.mechanical_scan_limits_deg.el_min_deg = -30.0f;
@@ -137,10 +133,8 @@ TEST(RadarOrientationUtilsTest, ComputePlatformFrameBeamPointingUsesRotationComp
   config.mount_angles_deg.yaw_deg = 10.0f;
   config.mount_angles_deg.pitch_deg = 5.0f;
   config.mount_angles_deg.roll_deg = 2.0f;
-  config.scan_center_deg.az_deg = 20.0f;
-  config.scan_center_deg.el_deg = -10.0f;
-  config.dwell_center_deg.az_deg = 15.0f;
-  config.dwell_center_deg.el_deg = 5.0f;
+  config.scan_center_deg.az_deg = 35.0f;
+  config.scan_center_deg.el_deg = -5.0f;
   config.mechanical_scan_limits_deg.az_min_deg = -60.0f;
   config.mechanical_scan_limits_deg.az_max_deg = 60.0f;
   config.mechanical_scan_limits_deg.el_min_deg = -30.0f;
@@ -179,10 +173,8 @@ TEST(RadarOrientationUtilsTest, ComputePlatformFrameBeamPointingCapturesLargeAtt
   config.mount_angles_deg.yaw_deg = 35.0f;
   config.mount_angles_deg.pitch_deg = 20.0f;
   config.mount_angles_deg.roll_deg = 15.0f;
-  config.scan_center_deg.az_deg = 15.0f;
-  config.scan_center_deg.el_deg = 10.0f;
-  config.dwell_center_deg.az_deg = 25.0f;
-  config.dwell_center_deg.el_deg = 15.0f;
+  config.scan_center_deg.az_deg = 40.0f;
+  config.scan_center_deg.el_deg = 25.0f;
   config.mechanical_scan_limits_deg.az_min_deg = -60.0f;
   config.mechanical_scan_limits_deg.az_max_deg = 60.0f;
   config.mechanical_scan_limits_deg.el_min_deg = -30.0f;

@@ -202,8 +202,8 @@ void RunHeuristicDetectionPass(const model::TargetFeatureList& input,
     const float margin =
         (*buffers->signal_term_db)[i] - (*buffers->speed_penalty_db)[i] - environment_penalty_db;
     (*buffers->detection_margin_db)[i] = margin;
-    (*buffers->detection_succeeded)[i] =
-        static_cast<std::uint8_t>(margin >= runtime_config.detection.min_detection_margin_db);
+    (*buffers->detection_succeeded)[i] = static_cast<std::uint8_t>(
+      margin >= internal_config.detection.engineering.min_detection_margin_db);
   }
 }
 

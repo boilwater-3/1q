@@ -55,7 +55,6 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesConfigInputOutput) {
       new oneq::trace::JsonlFileTraceSink(trace_path, false));
 
   session::RadarSessionConfig config = config::MakeDefaultRadarSessionConfig();
-  config.detection.min_detection_margin_db = -100.0f;
 
   session::RadarTraceSession session(config, session::RadarTraceSessionOptions{sink, true});
   session::RadarCycleInput input;

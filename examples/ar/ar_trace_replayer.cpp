@@ -91,8 +91,6 @@ ar::config::SignalDetectionConfig ParseDetection(const Json& json) {
   ar::config::SignalDetectionConfig config;
   config.enable_physics_detection =
       GetBool(json, "enable_physics_detection", config.enable_physics_detection);
-  config.min_detection_margin_db =
-      GetFloat(json, "min_detection_margin_db", config.min_detection_margin_db);
   if (json.contains("intent_profile")) {
     config.intent_profile = static_cast<ar::config::DetectionIntentProfile>(
         GetInt(json, "intent_profile", static_cast<int>(config.intent_profile)));
@@ -138,9 +136,6 @@ ar::config::SignalBeamControlConfig ParseBeamControl(const Json& json) {
         static_cast<oneq::foundation::ScanSequence>(GetInt(r, "scan_sequence", static_cast<int>(config.radar_orientation.scan_sequence)));
     config.radar_orientation.work_sub_mode =
         static_cast<ar::model::RadarWorkSubMode>(GetInt(r, "work_sub_mode", static_cast<int>(config.radar_orientation.work_sub_mode)));
-    if (r.contains("dwell_center_deg")) {
-      config.radar_orientation.dwell_center_deg = ParseAzEl(r["dwell_center_deg"]);
-    }
     config.radar_orientation.commanded_beamwidth_enabled =
         GetBool(r, "commanded_beamwidth_enabled", config.radar_orientation.commanded_beamwidth_enabled);
     if (r.contains("commanded_beamwidth_deg")) {
@@ -200,17 +195,12 @@ ar::environment::EnvironmentScenarioConfig ParseEnvironmentScenario(const Json& 
     const Json& veg = json["vegetation_scatter_physics"];
     scenario.vegetation_scatter_physics.enable_physical_model =
         GetBool(veg, "enable_physical_model", scenario.vegetation_scatter_physics.enable_physical_model);
-    scenario.vegetation_scatter_physics.leaf_size_m =
-        GetFloat(veg, "leaf_size_m", scenario.vegetation_scatter_physics.leaf_size_m);
-    scenario.vegetation_scatter_physics.dielectric_constant_real =
-        GetFloat(veg, "dielectric_constant_real",
-                 scenario.vegetation_scatter_physics.dielectric_constant_real);
-    scenario.vegetation_scatter_physics.leaf_count = static_cast<std::uint32_t>(
-        GetInt(veg, "leaf_count", static_cast<int>(scenario.vegetation_scatter_physics.leaf_count)));
-    scenario.vegetation_scatter_physics.canopy_radius_m =
-        GetFloat(veg, "canopy_radius_m", scenario.vegetation_scatter_physics.canopy_radius_m);
-    scenario.vegetation_scatter_physics.canopy_height_m =
-        GetFloat(veg, "canopy_height_m", scenario.vegetation_scatter_physics.canopy_height_m);
+    if (veg.contains("cover_profile")) {
+      scenario.vegetation_scatter_physics.cover_profile =
+        static_cast<ar::environment::VegetationCoverProfile>(
+          GetInt(veg, "cover_profile",
+             static_cast<int>(scenario.vegetation_scatter_physics.cover_profile)));
+    }
   }
   if (json.contains("jammer_sources") && json["jammer_sources"].is_array()) {
     scenario.jammer_sources.clear();

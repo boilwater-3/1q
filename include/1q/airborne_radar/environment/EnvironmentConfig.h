@@ -173,12 +173,6 @@ enum class VegetationCoverProfile {
 struct VegetationScatterPhysicsConfig {
   VegetationCoverProfile cover_profile{VegetationCoverProfile::kDisabled}; /**< 植被覆盖语义档位 */
   bool enable_physical_model{false}; /**< 是否启用植被散射物理建模 */
-  float leaf_size_m{0.05f};          /**< 叶片等效尺度（单位：m） */
-  float dielectric_constant_real{2.5f}; /**< 植被等效介电常数实部 */
-  std::uint32_t leaf_count{64U};     /**< 叶片数量 */
-  float canopy_radius_m{1.2f};       /**< 冠层半径（单位：m） */
-  float canopy_height_m{3.5f};       /**< 冠层高度（单位：m） */
-  /** @note 植被散射内部标定项仍保留在库实现中，不作为公开输入。 */
 };
 
 /**

@@ -86,8 +86,10 @@ enum class StabilizationMode {
 
 /**
  * @brief RadarOrientationConfig 表示机载雷达方向与扫描相关配置。
- * 建议组合关系如下:
- * actual_beam_pointing = platform_attitude + mount_angles_deg + scan_center_deg + dwell_center_deg
+ * @note 本结构描述初始化/静态配置项，不包含运行期驻留偏移。
+ * @note 静态基准组合关系:
+ *       actual_beam_pointing_base = platform_attitude + mount_angles_deg + scan_center_deg
+ * @note 运行期若存在驻留偏移（dwell center），由运行态控制链路在上述基准上追加叠加。
  */
 struct RadarOrientationConfig {
   /**
@@ -105,7 +107,6 @@ struct RadarOrientationConfig {
   oneq::foundation::ScanSequence scan_sequence{
       oneq::foundation::ScanSequence::kAzimuthFirst};         /**< 二维扫描推进顺序 */
   RadarWorkSubMode work_sub_mode{RadarWorkSubMode::kTws}; /**< [可外部调整] 当前工作子模式 */
-  AzimuthElevationDeg dwell_center_deg; /**< 当前波束驻留中心（启用周期扫描调度时会被运行时覆盖） */
   bool commanded_beamwidth_enabled{false};       /**< 指令态波束宽度覆盖使能 */
   CommandedBeamwidthDeg commanded_beamwidth_deg; /**< 当前指令态瞬时波束宽度 */
   StabilizationMode stabilization_mode{StabilizationMode::kBodyStabilized}; /**< 波束稳定方式 */

@@ -1,5 +1,6 @@
 #include "1q/airborne_radar/session/RadarSession.h"
 
+#include <cmath>
 #include <utility>
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
@@ -93,8 +94,16 @@ struct RadarSession::Impl {
     signal_pipeline.UpdateConfig(pending_runtime_state.signal_pipeline_config);
     environment_service.UpdateModelConfig(environment::BuildModelConfigFromScenario(
         pending_runtime_state.environment_scenario_config));
-    environment_service.SetJammingSensitivityProfile(
-      pending_runtime_state.jamming_sensitivity_profile);
+    const float derived_threshold = environment::ResolveJammingDetectionThresholdDb(
+        pending_runtime_state.jamming_sensitivity_profile);
+    if (std::fabs(pending_runtime_state.jamming_detection_threshold_db - derived_threshold) >
+        1.0e-5f) {
+      environment_service.SetJammingDetectionThresholdDb(
+          pending_runtime_state.jamming_detection_threshold_db);
+    } else {
+      environment_service.SetJammingSensitivityProfile(
+          pending_runtime_state.jamming_sensitivity_profile);
+    }
   }
 
   void FinalizePendingRuntimeConfig() {

@@ -141,26 +141,43 @@ inline model::AzimuthElevationLimitsDeg IntersectScanLimits(
 /**
  * @brief 计算挂架坐标系下的实际波束指向，并按扫描窗口限幅。
  * @param[in] config 雷达方向配置。
+ * @param[in] dwell_center_deg 运行期驻留偏移；该偏移不属于 RadarOrientationConfig 的静态字段。
  * @return 相对雷达安装基准轴的方位/俯仰指向。
+ * @note 当 dwell_center_deg 为零时，该函数对应静态基准关系；
+ *       非零时表示在静态基准上叠加运行期偏移。
  */
 inline model::AzimuthElevationDeg ComputeMountFrameBeamPointing(
-    const model::RadarOrientationConfig& config) {
+    const model::RadarOrientationConfig& config,
+    const model::AzimuthElevationDeg& dwell_center_deg) {
   model::AzimuthElevationDeg unclamped;
-  unclamped.az_deg = config.scan_center_deg.az_deg + config.dwell_center_deg.az_deg;
-  unclamped.el_deg = config.scan_center_deg.el_deg + config.dwell_center_deg.el_deg;
+  unclamped.az_deg = config.scan_center_deg.az_deg + dwell_center_deg.az_deg;
+  unclamped.el_deg = config.scan_center_deg.el_deg + dwell_center_deg.el_deg;
   const model::AzimuthElevationLimitsDeg effective_limits =
       IntersectScanLimits(config.mechanical_scan_limits_deg, config.electronic_scan_limits_deg);
   return ClampAzimuthElevation(unclamped, effective_limits);
 }
 
 /**
+ * @brief 计算未显式给出驻留偏移时的挂架坐标系波束指向。
+ * @param[in] config 雷达方向配置。
+ * @return 相对雷达安装基准轴的方位/俯仰指向。
+ */
+inline model::AzimuthElevationDeg ComputeMountFrameBeamPointing(
+    const model::RadarOrientationConfig& config) {
+  return ComputeMountFrameBeamPointing(config, model::AzimuthElevationDeg());
+}
+
+/**
  * @brief 计算机体系下的实际波束指向。
  * @param[in] config 雷达方向配置。
+ * @param[in] dwell_center_deg 运行期驻留偏移。
  * @return 机体系下的欧拉角；由安装姿态与挂架波束指向做旋转合成得到。
  */
 inline model::EulerAnglesDeg ComputeBodyFrameBeamPointing(
-    const model::RadarOrientationConfig& config) {
-  const model::AzimuthElevationDeg mount_frame_pointing = ComputeMountFrameBeamPointing(config);
+    const model::RadarOrientationConfig& config,
+    const model::AzimuthElevationDeg& dwell_center_deg) {
+  const model::AzimuthElevationDeg mount_frame_pointing =
+      ComputeMountFrameBeamPointing(config, dwell_center_deg);
   model::EulerAnglesDeg mount_frame_euler;
   mount_frame_euler.yaw_deg = mount_frame_pointing.az_deg;
   mount_frame_euler.pitch_deg = mount_frame_pointing.el_deg;
@@ -171,17 +188,30 @@ inline model::EulerAnglesDeg ComputeBodyFrameBeamPointing(
 }
 
 /**
+ * @brief 计算未显式给出驻留偏移时的机体系波束指向。
+ * @param[in] config 雷达方向配置。
+ * @return 机体系下的欧拉角；由安装姿态与挂架波束指向做旋转合成得到。
+ */
+inline model::EulerAnglesDeg ComputeBodyFrameBeamPointing(
+    const model::RadarOrientationConfig& config) {
+  return ComputeBodyFrameBeamPointing(config, model::AzimuthElevationDeg());
+}
+
+/**
  * @brief 计算平台姿态叠加后的波束指向。
  * @param[in] platform_attitude_deg 平台姿态角。
  * @param[in] config 雷达方向配置。
+ * @param[in] dwell_center_deg 运行期驻留偏移。
  * @return 平台姿态叠加后的欧拉角结果。
  * @note 该函数仅执行几何叠加，适用于机体稳定模式；
  *       若采用惯性稳定或对地稳定，调用方应先求得等效平台姿态后再使用。
  */
 inline model::EulerAnglesDeg ComputePlatformFrameBeamPointing(
     const model::EulerAnglesDeg& platform_attitude_deg,
-    const model::RadarOrientationConfig& config) {
-  const model::AzimuthElevationDeg mount_frame_pointing = ComputeMountFrameBeamPointing(config);
+    const model::RadarOrientationConfig& config,
+    const model::AzimuthElevationDeg& dwell_center_deg) {
+  const model::AzimuthElevationDeg mount_frame_pointing =
+      ComputeMountFrameBeamPointing(config, dwell_center_deg);
   model::EulerAnglesDeg mount_frame_euler;
   mount_frame_euler.yaw_deg = mount_frame_pointing.az_deg;
   mount_frame_euler.pitch_deg = mount_frame_pointing.el_deg;
@@ -191,6 +221,19 @@ inline model::EulerAnglesDeg ComputePlatformFrameBeamPointing(
   const internal::Matrix3f platform_rotation = internal::Multiply(
       platform_mount_rotation, internal::BuildRotationMatrix(mount_frame_euler));
   return internal::FromRotationMatrix(platform_rotation);
+}
+
+/**
+ * @brief 计算未显式给出驻留偏移时的平台姿态叠加波束指向。
+ * @param[in] platform_attitude_deg 平台姿态角。
+ * @param[in] config 雷达方向配置。
+ * @return 平台姿态叠加后的欧拉角结果。
+ */
+inline model::EulerAnglesDeg ComputePlatformFrameBeamPointing(
+    const model::EulerAnglesDeg& platform_attitude_deg,
+    const model::RadarOrientationConfig& config) {
+  return ComputePlatformFrameBeamPointing(platform_attitude_deg, config,
+                                          model::AzimuthElevationDeg());
 }
 
 }  // namespace utils

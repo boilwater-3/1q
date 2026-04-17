@@ -18,7 +18,6 @@ inline config::SignalPipelineConfig BuildDetectionMissionPresetConfig() {
       oneq::foundation::ScanStartPosition::kLeftTop;
   config.beam_control.radar_orientation.scan_sequence = oneq::foundation::ScanSequence::kAzimuthFirst;
   config.beam_control.radar_orientation.work_sub_mode = model::RadarWorkSubMode::kTws;
-  config.detection.min_detection_margin_db = -100.0f;
   config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
   config.tracking.policy_profile = config::TrackingPolicyProfile::kFastAssociation;
   config.lifecycle.policy_profile = config::LifecyclePolicyProfile::kFastConfirm;
@@ -31,7 +30,6 @@ inline config::SignalPipelineConfig BuildTrackingMissionPresetConfig() {
       oneq::foundation::ScanStartPosition::kLeftTop;
   config.beam_control.radar_orientation.scan_sequence = oneq::foundation::ScanSequence::kAzimuthFirst;
   config.beam_control.radar_orientation.work_sub_mode = model::RadarWorkSubMode::kTws;
-  config.detection.min_detection_margin_db = -20.0f;
   config.detection.intent_profile = config::DetectionIntentProfile::kTrackStabilityPriority;
   config.tracking.policy_profile = config::TrackingPolicyProfile::kBalanced;
   config.lifecycle.policy_profile = config::LifecyclePolicyProfile::kBalanced;

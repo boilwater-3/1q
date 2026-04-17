@@ -34,7 +34,7 @@ namespace {
 
 config::SignalPipelineConfig MakeConveniencePipelineConfig() {
   config::SignalPipelineConfig config;
-  config.detection.min_detection_margin_db = -100.0f;
+  config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
   config.lifecycle.policy_profile = config::LifecyclePolicyProfile::kFastConfirm;
   config.tracking.policy_profile = config::TrackingPolicyProfile::kFastAssociation;
   return config;
@@ -730,7 +730,8 @@ TEST(PublicApiConvenienceTest, ConfigPresetsProvideExpectedDetectionAndRobustnes
   const config::SignalPipelineConfig detection_config =
       config::MakeDetectionMissionSignalPipelineConfig();
   EXPECT_EQ(detection_config.lifecycle.policy_profile, config::LifecyclePolicyProfile::kFastConfirm);
-  EXPECT_NEAR(detection_config.detection.min_detection_margin_db, -100.0f, 1e-5f);
+  EXPECT_EQ(detection_config.detection.intent_profile,
+            config::DetectionIntentProfile::kDetectionPriority);
 
   const config::SignalPipelineConfig robust_config =
       config::MakeHighRobustnessSignalPipelineConfig();

@@ -563,7 +563,7 @@ TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {
   environment::EnvironmentService environment_service;
 
   config::SignalPipelineConfig pipeline_config;
-  pipeline_config.detection.min_detection_margin_db = -100.0f;
+  pipeline_config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
   pipeline_config.lifecycle.policy_profile = config::LifecyclePolicyProfile::kFastConfirm;
   pipeline_config.tracking.policy_profile = config::TrackingPolicyProfile::kFastAssociation;
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
@@ -605,7 +605,7 @@ TEST_F(CoreControllerTest, DuplicateExternalTargetIdRetainsPreviousValidOutputFr
   environment::EnvironmentService environment_service;
 
   config::SignalPipelineConfig pipeline_config;
-  pipeline_config.detection.min_detection_margin_db = -100.0f;
+  pipeline_config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
   pipeline_config.lifecycle.policy_profile = config::LifecyclePolicyProfile::kFastConfirm;
   pipeline_config.tracking.policy_profile = config::TrackingPolicyProfile::kFastAssociation;
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);

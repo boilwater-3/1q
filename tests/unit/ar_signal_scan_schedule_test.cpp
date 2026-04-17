@@ -151,7 +151,7 @@ TEST(ScanScheduleResolverTest, StartPositionControlsFirstBeamQuadrant) {
 
 TEST(CycleExecutorTest, ValidRuntimeProducesInputAlignedStageBuffers) {
   config::SignalPipelineConfig base_config;
-  base_config.detection.min_detection_margin_db = -100.0f;
+  base_config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
   const signal::pipeline::internal::InternalSignalPipelineConfig internal_config =
       signal::pipeline::internal::BuildInternalSignalPipelineConfig(base_config);
   const extension::control::RadarControlProfile control_profile{};
@@ -471,19 +471,21 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
       signal::detection::ResolveEffectiveBeamwidth(engineering_detection.antenna,
                                                    orientation);
 
-  model::RadarOrientationConfig cycle_1_orientation = orientation;
-  model::RadarOrientationConfig cycle_2_orientation = orientation;
-  cycle_1_orientation.dwell_center_deg = signal::pipeline::core::internal::ResolveScheduledDwellCenter(
-      cycle_1_orientation, effective_beamwidth, 1U);
-  cycle_2_orientation.dwell_center_deg = signal::pipeline::core::internal::ResolveScheduledDwellCenter(
-      cycle_2_orientation, effective_beamwidth, 2U);
+    const model::AzimuthElevationDeg cycle_1_dwell_center =
+      signal::pipeline::core::internal::ResolveScheduledDwellCenter(orientation,
+                                     effective_beamwidth, 1U);
+    const model::AzimuthElevationDeg cycle_2_dwell_center =
+      signal::pipeline::core::internal::ResolveScheduledDwellCenter(orientation,
+                                     effective_beamwidth, 2U);
   const model::PlatformAttitudeDeg platform_attitude_deg{};
   const signal::detection::ResolvedBeamState cycle_1_beam =
       signal::detection::BeamControlResolver::Resolve(
-          engineering_detection.antenna, cycle_1_orientation, platform_attitude_deg, look_angles);
+        engineering_detection.antenna, orientation, platform_attitude_deg, look_angles,
+        cycle_1_dwell_center);
   const signal::detection::ResolvedBeamState cycle_2_beam =
       signal::detection::BeamControlResolver::Resolve(
-          engineering_detection.antenna, cycle_2_orientation, platform_attitude_deg, look_angles);
+        engineering_detection.antenna, orientation, platform_attitude_deg, look_angles,
+        cycle_2_dwell_center);
 
   signal::detection::TargetReturn target_return;
   target_return.rcs_m2 = target.current_track_rcs;

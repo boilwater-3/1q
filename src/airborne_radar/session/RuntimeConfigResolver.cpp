@@ -60,7 +60,7 @@ RuntimeConfigResolveResult ResolveRuntimeConfigPatch(const RuntimeConfigState& c
           patch.dwell_center_deg.az_deg, patch.dwell_center_deg.el_deg);
       return RejectPatch(current_state, true);
     }
-    signal_pipeline_config->beam_control.radar_orientation.dwell_center_deg = patch.dwell_center_deg;
+    resolved.next_state.dwell_center_deg = patch.dwell_center_deg;
     resolved.signal_pipeline_config_changed = true;
     has_requested_update = true;
   }
