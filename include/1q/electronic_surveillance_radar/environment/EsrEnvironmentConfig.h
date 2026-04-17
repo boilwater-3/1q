@@ -9,6 +9,7 @@
 #include <cstdint>
 
 #include "1q/api.hpp"
+#include "1q/electronic_surveillance_radar/config/EsrEnvironmentPolicyConfig.h"
 
 namespace electronic_surveillance_radar {
 namespace environment {
@@ -18,15 +19,12 @@ namespace environment {
  */
 struct ONEQ_API EsrAtmosphericPhysicsConfig {
   bool enable_physical_model{false}; /**< 是否启用物理传播模型 */
-  float frequency_hz{10.0e9f};       /**< 雷达频率（单位：Hz） */
-  float path_length_m{10.0e3f};      /**< 传播路径长度（单位：m） */
-  float radar_altitude_m{1.0e3f};    /**< 雷达高度（单位：m） */
-  float target_altitude_m{1.0e3f};   /**< 目标高度（单位：m） */
-  float elevation_deg{5.0f};         /**< 传播仰角（单位：deg） */
   float pressure_hpa{1013.25f};      /**< 气压（单位：hPa） */
   float temperature_k{288.15f};      /**< 温度（单位：K） */
   float relative_humidity{0.5f};     /**< 相对湿度 [0, 1] */
+  bool has_k_factor{false};          /**< 是否显式提供地球有效半径因子 */
   float k_factor{4.0f / 3.0f};       /**< 地球有效半径因子 */
+  bool has_day_of_year{false};       /**< 是否显式提供年积日 */
   std::int32_t day_of_year{172};     /**< 年积日 [1, 366] */
   float solar_flux_f107a{150.0f};    /**< 平滑太阳流量指数 */
   float solar_flux_f107{150.0f};     /**< 当日太阳流量指数 */
@@ -34,31 +32,30 @@ struct ONEQ_API EsrAtmosphericPhysicsConfig {
 };
 
 /**
- * @brief EsrClutterBaselinePolicy 描述内部杂波基线策略。
+ * @brief 推导有效 k_factor（优先显式输入，否则使用默认近似）。
  */
-enum class ONEQ_API EsrClutterBaselinePolicy {
-  kLow = 0,      /**< 低杂波基线 */
-  kStandard = 1, /**< 标准杂波基线 */
-  kHigh = 2      /**< 高杂波基线 */
-};
+inline float ResolveEffectiveKFactor(const EsrAtmosphericPhysicsConfig& config) {
+  if (config.has_k_factor) {
+    return config.k_factor;
+  }
+  return 4.0f / 3.0f;
+}
 
 /**
- * @brief EsrJammingSensitivityPolicy 描述干扰检测敏感性策略。
+ * @brief 推导有效 day_of_year（优先显式输入，否则使用默认近似）。
  */
-enum class ONEQ_API EsrJammingSensitivityPolicy {
-  kRelaxed = 0,  /**< 更保守，不易判定为干扰 */
-  kBalanced = 1, /**< 平衡策略 */
-  kStrict = 2    /**< 更敏感，容易判定为干扰 */
-};
+inline std::int32_t ResolveEffectiveDayOfYear(const EsrAtmosphericPhysicsConfig& config) {
+  if (config.has_day_of_year) {
+    return config.day_of_year;
+  }
+  return 172;
+}
 
 /**
  * @brief EsrEnvironmentModelConfig 描述环境策略配置。
  */
 struct ONEQ_API EsrEnvironmentModelConfig {
-  EsrClutterBaselinePolicy clutter_baseline_policy{
-      EsrClutterBaselinePolicy::kStandard}; /**< 杂波基线策略 */
-  EsrJammingSensitivityPolicy jamming_sensitivity_policy{
-      EsrJammingSensitivityPolicy::kBalanced}; /**< 干扰检测敏感性策略 */
+  config::EsrEnvironmentPreset preset{config::EsrEnvironmentPreset::kStandard}; /**< 环境预设语义 */
   EsrAtmosphericPhysicsConfig atmospheric_physics{}; /**< 可选物理传播参数 */
 };
 

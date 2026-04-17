@@ -36,8 +36,8 @@ TEST(EsrRuntimeConfigResolverTest, ValidPatchUpdatesRuntimePipelineAndEnvironmen
   EXPECT_TRUE(resolved.pipeline_config_changed);
   EXPECT_TRUE(resolved.environment_model_config_changed);
   EXPECT_FLOAT_EQ(resolved.next_config.runtime_config.scan_rate_hz, 4.0f);
-  EXPECT_EQ(resolved.next_config.environment_model_config.clutter_baseline_policy,
-            environment::EsrClutterBaselinePolicy::kHigh);
+  EXPECT_EQ(resolved.next_config.environment_model_config.preset,
+            config::EsrEnvironmentPreset::kDenseClutter);
 }
 
 TEST(EsrRuntimeConfigResolverTest, InvalidExplicitBoundsRejectWholePatch) {

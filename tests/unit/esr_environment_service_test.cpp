@@ -66,7 +66,7 @@ TEST(EsrEnvironmentServiceTest, UnknownTechniqueWithZeroRiskInfersSuppressionOnl
 
 TEST(EsrEnvironmentServiceTest, DeceptionOnlySourceDoesNotTriggerSuppressionDetection) {
   EsrEnvironmentModelConfig config;
-  config.jamming_sensitivity_policy = EsrJammingSensitivityPolicy::kRelaxed;
+  config.preset = config::EsrEnvironmentPreset::kJammed;
   EsrEnvironmentService service(config);
 
   EsrEnvironmentCycleContext context;
@@ -118,11 +118,6 @@ TEST(EsrEnvironmentServiceTest, AtmosphericPhysicsCanIncreasePropagationLoss) {
 TEST(EsrEnvironmentServiceTest, ConfigAtmosphericPhysicsAppliesWhenSceneDoesNotOverride) {
   EsrEnvironmentModelConfig config;
   config.atmospheric_physics.enable_physical_model = true;
-  config.atmospheric_physics.frequency_hz = 10.0e9f;
-  config.atmospheric_physics.path_length_m = 100.0e3f;
-  config.atmospheric_physics.radar_altitude_m = 2000.0f;
-  config.atmospheric_physics.target_altitude_m = 1200.0f;
-  config.atmospheric_physics.elevation_deg = 2.0f;
   config.atmospheric_physics.relative_humidity = 0.75f;
   EsrEnvironmentService service(config);
 

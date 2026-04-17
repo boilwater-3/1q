@@ -170,23 +170,7 @@ void ApplyEnvironmentPolicy(config::EsrEnvironmentPreset preset,
   if (model_config == nullptr) {
     return;
   }
-  switch (preset) {
-    case config::EsrEnvironmentPreset::kLowClutter:
-      model_config->clutter_baseline_policy = environment::EsrClutterBaselinePolicy::kLow;
-      model_config->jamming_sensitivity_policy = environment::EsrJammingSensitivityPolicy::kStrict;
-      break;
-    case config::EsrEnvironmentPreset::kDenseClutter:
-      model_config->clutter_baseline_policy = environment::EsrClutterBaselinePolicy::kHigh;
-      model_config->jamming_sensitivity_policy = environment::EsrJammingSensitivityPolicy::kBalanced;
-      break;
-    case config::EsrEnvironmentPreset::kJammed:
-      model_config->clutter_baseline_policy = environment::EsrClutterBaselinePolicy::kHigh;
-      model_config->jamming_sensitivity_policy = environment::EsrJammingSensitivityPolicy::kRelaxed;
-      break;
-    case config::EsrEnvironmentPreset::kStandard:
-    default:
-      break;
-  }
+  model_config->preset = preset;
 }
 
 }  // namespace

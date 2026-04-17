@@ -56,10 +56,7 @@ TEST(EsrSessionConfigResolverTest, DetectionAndEnvironmentPoliciesMapToInternalD
   const ResolvedEsrSessionConfig resolved = ResolveEsrSessionConfig(config);
 
   EXPECT_FLOAT_EQ(resolved.pipeline_config.detection.min_detect_snr_db, 3.0f);
-  EXPECT_EQ(resolved.environment_model_config.clutter_baseline_policy,
-            environment::EsrClutterBaselinePolicy::kHigh);
-  EXPECT_EQ(resolved.environment_model_config.jamming_sensitivity_policy,
-            environment::EsrJammingSensitivityPolicy::kRelaxed);
+  EXPECT_EQ(resolved.environment_model_config.preset, config::EsrEnvironmentPreset::kJammed);
 }
 
 TEST(EsrSessionConfigResolverTest, InvalidInputsFallBackToSafeDefaults) {

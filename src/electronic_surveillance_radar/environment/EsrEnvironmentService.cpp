@@ -11,6 +11,12 @@ namespace environment {
 
 namespace {
 
+constexpr float kDefaultAtmosphereFrequencyHz = 10.0e9f;
+constexpr float kDefaultAtmospherePathLengthM = 10.0e3f;
+constexpr float kDefaultAtmosphereRadarAltitudeM = 1.0e3f;
+constexpr float kDefaultAtmosphereTargetAltitudeM = 1.0e3f;
+constexpr float kDefaultAtmosphereElevationDeg = 5.0f;
+
 float ResolvePropagationProfileLossDb(EsrPropagationEnvironmentProfile profile) {
   switch (profile) {
     case EsrPropagationEnvironmentProfile::kOpen:
@@ -36,14 +42,15 @@ float ResolveWeatherLossDb(const EsrAtmosphericObservation& observation) {
 float ResolveClutterNoiseW(const EsrEnvironmentObservation& observation,
                            const EsrEnvironmentModelConfig& config) {
   float reference_noise = 1.0e-12f;
-  switch (config.clutter_baseline_policy) {
-    case EsrClutterBaselinePolicy::kLow:
+  switch (config.preset) {
+    case config::EsrEnvironmentPreset::kLowClutter:
       reference_noise = 5.0e-13f;
       break;
-    case EsrClutterBaselinePolicy::kHigh:
+    case config::EsrEnvironmentPreset::kDenseClutter:
+    case config::EsrEnvironmentPreset::kJammed:
       reference_noise = 5.0e-12f;
       break;
-    case EsrClutterBaselinePolicy::kStandard:
+    case config::EsrEnvironmentPreset::kStandard:
     default:
       reference_noise = 1.0e-12f;
       break;
@@ -60,12 +67,13 @@ float ResolveClutterNoiseW(const EsrEnvironmentObservation& observation,
 }
 
 float ResolveJammingDetectionThresholdW(const EsrEnvironmentModelConfig& config) {
-  switch (config.jamming_sensitivity_policy) {
-    case EsrJammingSensitivityPolicy::kStrict:
+  switch (config.preset) {
+    case config::EsrEnvironmentPreset::kLowClutter:
       return 8.0e-10f;
-    case EsrJammingSensitivityPolicy::kRelaxed:
+    case config::EsrEnvironmentPreset::kJammed:
       return 5.0e-9f;
-    case EsrJammingSensitivityPolicy::kBalanced:
+    case config::EsrEnvironmentPreset::kDenseClutter:
+    case config::EsrEnvironmentPreset::kStandard:
     default:
       return 2.0e-9f;
   }
@@ -106,16 +114,16 @@ EsrEnvironmentSnapshot BuildSnapshot(const EsrEnvironmentCycleContext& cycle_con
   if (atmospheric_physics.enable_physical_model) {
     oneq::internal::atmosphere::AtmosphericPropagationInputs physics_inputs;
     physics_inputs.enable_physics = true;
-    physics_inputs.frequency_hz = atmospheric_physics.frequency_hz;
-    physics_inputs.path_length_m = atmospheric_physics.path_length_m;
-    physics_inputs.radar_altitude_m = atmospheric_physics.radar_altitude_m;
-    physics_inputs.target_altitude_m = atmospheric_physics.target_altitude_m;
-    physics_inputs.elevation_deg = atmospheric_physics.elevation_deg;
+    physics_inputs.frequency_hz = kDefaultAtmosphereFrequencyHz;
+    physics_inputs.path_length_m = kDefaultAtmospherePathLengthM;
+    physics_inputs.radar_altitude_m = kDefaultAtmosphereRadarAltitudeM;
+    physics_inputs.target_altitude_m = kDefaultAtmosphereTargetAltitudeM;
+    physics_inputs.elevation_deg = kDefaultAtmosphereElevationDeg;
     physics_inputs.pressure_hpa = atmospheric_physics.pressure_hpa;
     physics_inputs.temperature_k = atmospheric_physics.temperature_k;
     physics_inputs.relative_humidity = atmospheric_physics.relative_humidity;
-    physics_inputs.k_factor = atmospheric_physics.k_factor;
-    physics_inputs.day_of_year = atmospheric_physics.day_of_year;
+    physics_inputs.k_factor = ResolveEffectiveKFactor(atmospheric_physics);
+    physics_inputs.day_of_year = ResolveEffectiveDayOfYear(atmospheric_physics);
     physics_inputs.solar_flux_f107a = atmospheric_physics.solar_flux_f107a;
     physics_inputs.solar_flux_f107 = atmospheric_physics.solar_flux_f107;
     physics_inputs.geomagnetic_ap = atmospheric_physics.geomagnetic_ap;

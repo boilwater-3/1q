@@ -24,13 +24,8 @@ class ONEQ_API EsrEnvironmentConfigBuilder {
     return *this;
   }
 
-  EsrEnvironmentConfigBuilder& WithClutterBaselinePolicy(EsrClutterBaselinePolicy value) {
-    config_.model_config.clutter_baseline_policy = value;
-    return *this;
-  }
-
-  EsrEnvironmentConfigBuilder& WithJammingSensitivityPolicy(EsrJammingSensitivityPolicy value) {
-    config_.model_config.jamming_sensitivity_policy = value;
+  EsrEnvironmentConfigBuilder& WithEnvironmentPreset(config::EsrEnvironmentPreset value) {
+    config_.model_config.preset = value;
     return *this;
   }
 
