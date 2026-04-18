@@ -1043,7 +1043,7 @@ include/1q/airborne_radar/config/
 
 ### 阶段 6：清理旧公开入口与历史桥接残留
 
-- 已启动（`codex/ar-config-m6-legacy-cleanup`）：
+- 当前分支状态（`codex/ar-config-m6-legacy-cleanup`）：公开入口清理已完成。
   - 新增 `src/airborne_radar/config/legacy/*` 内部过渡头，作为 legacy 配置的内部引用入口。
   - `src/` 与相关 `tests/unit` 已切换到内部过渡头，不再直接 include 公开 legacy 头路径
     （`1q/airborne_radar/config/PipelineConfig.h`、`1q/airborne_radar/config/expert/*`）。
@@ -1059,6 +1059,11 @@ include/1q/airborne_radar/config/
 - 删除旧公开注释、示例、README 中对 `pipeline/expert` 的主路径描述。
 - 移除所有只为兼容旧外部接口而保留的桥接层。
 - 如果内部仍保留历史 `PipelineConfig`，则限制其只存在于内部装配实现，不能继续作为“事实上的对外模型”回渗到公共头文件和 consumer 示例。
+
+阶段 6 结论：
+
+- 公开 include 树不再包含 `PipelineConfig.h` 与 `config/expert/*`。
+- 旧模型仅保留在 `src/airborne_radar/config/legacy/*` 内部装配路径。
 
 完成判据：
 
