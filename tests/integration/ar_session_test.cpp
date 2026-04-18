@@ -22,6 +22,7 @@
 #include "1q/airborne_radar/extension/control/RadarCommand.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/config/PipelineConfig.h"
+#include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/core/SignalPipeline.h"
 
@@ -138,21 +139,34 @@ struct SceneScriptStep {
 };
 
 config::PipelineConfig MakeJointIntegrationPipelineConfig() {
-  config::PipelineConfig config;
-  config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
-  config.lifecycle.policy_profile = config::semantic::LifecyclePolicyProfile::kFastConfirm;
-  config.tracking.policy_profile = config::semantic::TrackingPolicyProfile::kFastAssociation;
-  return config;
+  return config::RadarSessionConfigBuilder()
+      .Detection()
+      .WithDetectionIntentProfile(config::semantic::DetectionIntentProfile::kDetectionPriority)
+      .End()
+      .Tracking()
+      .EnableTrackingFilter(true)
+      .WithTrackingPolicyProfile(config::semantic::TrackingPolicyProfile::kFastAssociation)
+      .End()
+      .Lifecycle()
+      .WithLifecyclePolicyProfile(config::semantic::LifecyclePolicyProfile::kFastConfirm)
+      .End()
+      .Build()
+      .pipeline_config;
 }
 
 config::PipelineConfig MakeJointIntegrationPhysicsPipelineConfig(
     float pulse_width_s) {
   config::PipelineConfig config = MakeJointIntegrationPipelineConfig();
-  config.detection.enable_physics_detection = true;
-  config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
-  config.detection.hardware_profile = pulse_width_s > 15e-6f
-                                          ? config::semantic::RadarHardwareProfile::kLongRangeHighPower
-                                          : config::semantic::RadarHardwareProfile::kGenericAirborneXBand;
+  config.expert.detection.enable_physics_detection = true;
+  config.expert.detection.transmitter.pulse_width_s = pulse_width_s;
+  if (pulse_width_s > 15e-6f) {
+    config.expert.detection.transmitter.peak_power_w = 5.0e6f;
+    config.expert.detection.transmitter.frequency_hz = 9.3e9f;
+    config.expert.detection.transmitter.bandwidth_hz = 3.0e6f;
+    config.expert.detection.transmitter.prf_hz = 220.0f;
+    config.expert.detection.antenna.main_beam_gain_db = 38.0f;
+    config.expert.detection.receiver.noise_figure_db = 3.0f;
+  }
   return config;
 }
 

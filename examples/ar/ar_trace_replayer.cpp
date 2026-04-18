@@ -93,68 +93,292 @@ oneq::foundation::PoseState ParsePose(const Json& json) {
   return pose;
 }
 
-ar::config::semantic::DetectionConfig ParseDetection(const Json& json) {
-  ar::config::semantic::DetectionConfig config;
+void ApplyLegacyDetectionIntentProfile(int profile,
+                                       ar::config::expert::DetectionConfig* config) {
+  if (config == nullptr) {
+    return;
+  }
+  switch (profile) {
+    case 1:  // kDetectionPriority
+      config->pulse_count = 16;
+      config->detection_policy.cfar_pfa = 2e-6f;
+      config->detection_policy.min_snr_db = -12.0f;
+      config->min_detection_margin_db = -100.0f;
+      break;
+    case 2:  // kTrackStabilityPriority
+      config->pulse_count = 8;
+      config->detection_policy.cfar_pfa = 5e-7f;
+      config->detection_policy.min_snr_db = -8.0f;
+      config->min_detection_margin_db = -20.0f;
+      break;
+    default:
+      config->min_detection_margin_db = -2.0f;
+      break;
+  }
+}
+
+void ApplyLegacyHardwareProfile(int profile, ar::config::expert::DetectionConfig* config) {
+  if (config == nullptr) {
+    return;
+  }
+  switch (profile) {
+    case 1:  // kLongRangeHighPower
+      config->transmitter.peak_power_w = 5.0e6f;
+      config->transmitter.frequency_hz = 9.3e9f;
+      config->transmitter.bandwidth_hz = 3.0e6f;
+      config->transmitter.pulse_width_s = 18e-6f;
+      config->transmitter.prf_hz = 220.0f;
+      config->antenna.main_beam_gain_db = 38.0f;
+      config->receiver.noise_figure_db = 3.0f;
+      break;
+    case 2:  // kLightweightLpi
+      config->transmitter.peak_power_w = 3.5e5f;
+      config->transmitter.frequency_hz = 10.0e9f;
+      config->transmitter.bandwidth_hz = 8.0e6f;
+      config->transmitter.pulse_width_s = 8e-6f;
+      config->transmitter.prf_hz = 600.0f;
+      config->antenna.main_beam_gain_db = 31.0f;
+      config->antenna.nominal_az_beamwidth_deg = 5.0f;
+      config->antenna.nominal_el_beamwidth_deg = 5.0f;
+      config->receiver.noise_figure_db = 5.0f;
+      break;
+    default:
+      break;
+  }
+}
+
+void ApplyLegacyRcsFusionProfile(int profile, ar::config::expert::DetectionConfig* config) {
+  if (config == nullptr) {
+    return;
+  }
+  switch (profile) {
+    case 1:  // kConservative
+      config->rcs_physics.enable_physical_rcs = true;
+      config->rcs_physics.physics_mix_ratio = 0.25f;
+      break;
+    case 2:  // kEnhanced
+      config->rcs_physics.enable_physical_rcs = true;
+      config->rcs_physics.physics_mix_ratio = 0.60f;
+      config->rcs_physics.cylinder_weight = 0.65f;
+      break;
+    default:
+      break;
+  }
+}
+
+void ApplyLegacyAntennaPatternProfile(int profile,
+                                      ar::config::expert::DetectionConfig* config) {
+  if (config == nullptr) {
+    return;
+  }
+  switch (profile) {
+    case 1:  // kLowSidelobe
+      config->antenna.pattern.max_sidelobe_level_db = -30.0f;
+      config->antenna.pattern.backlobe_level_db = -42.0f;
+      break;
+    case 2:  // kWideCoverage
+      config->antenna.pattern.model_type =
+          ar::config::expert::AntennaPatternModelType::kParabolicMainLobe;
+      config->antenna.pattern.max_sidelobe_level_db = -18.0f;
+      config->antenna.pattern.max_scan_loss_db = 8.0f;
+      break;
+    default:
+      break;
+  }
+}
+
+ar::config::expert::DetectionConfig ParseDetection(const Json& json) {
+  ar::config::expert::DetectionConfig config;
   config.enable_physics_detection =
       GetBool(json, "enable_physics_detection", config.enable_physics_detection);
+
+  if (json.contains("swerling_model")) {
+    config.swerling_model = static_cast<ar::config::semantic::SwerlingModel>(
+        GetInt(json, "swerling_model", static_cast<int>(config.swerling_model)));
+  }
   if (json.contains("intent_profile")) {
-    config.intent_profile = static_cast<ar::config::semantic::DetectionIntentProfile>(
-        GetInt(json, "intent_profile", static_cast<int>(config.intent_profile)));
+    ApplyLegacyDetectionIntentProfile(GetInt(json, "intent_profile", 0), &config);
   }
   if (json.contains("hardware_profile")) {
-    config.hardware_profile = static_cast<ar::config::semantic::RadarHardwareProfile>(
-        GetInt(json, "hardware_profile", static_cast<int>(config.hardware_profile)));
+    ApplyLegacyHardwareProfile(GetInt(json, "hardware_profile", 0), &config);
   }
   if (json.contains("rcs_fusion_profile")) {
-    config.rcs_fusion_profile = static_cast<ar::config::semantic::RcsFusionProfile>(
-        GetInt(json, "rcs_fusion_profile", static_cast<int>(config.rcs_fusion_profile)));
+    ApplyLegacyRcsFusionProfile(GetInt(json, "rcs_fusion_profile", 0), &config);
+  }
+
+  if (json.contains("transmitter")) {
+    const Json& t = json["transmitter"];
+    config.transmitter.peak_power_w = GetFloat(t, "peak_power_w", config.transmitter.peak_power_w);
+    config.transmitter.frequency_hz = GetFloat(t, "frequency_hz", config.transmitter.frequency_hz);
+    config.transmitter.bandwidth_hz = GetFloat(t, "bandwidth_hz", config.transmitter.bandwidth_hz);
+    config.transmitter.pulse_width_s = GetFloat(t, "pulse_width_s", config.transmitter.pulse_width_s);
+    config.transmitter.prf_hz = GetFloat(t, "prf_hz", config.transmitter.prf_hz);
+    config.transmitter.transmit_loss_db =
+        GetFloat(t, "transmit_loss_db", config.transmitter.transmit_loss_db);
+  }
+  if (json.contains("antenna")) {
+    const Json& a = json["antenna"];
+    config.antenna.main_beam_gain_db =
+        GetFloat(a, "main_beam_gain_db", config.antenna.main_beam_gain_db);
+    config.antenna.nominal_az_beamwidth_deg =
+        GetFloat(a, "nominal_az_beamwidth_deg", config.antenna.nominal_az_beamwidth_deg);
+    config.antenna.nominal_el_beamwidth_deg =
+        GetFloat(a, "nominal_el_beamwidth_deg", config.antenna.nominal_el_beamwidth_deg);
+    config.antenna.enable_directional_pattern =
+        GetBool(a, "enable_directional_pattern", config.antenna.enable_directional_pattern);
+    if (a.contains("pattern")) {
+      const Json& p = a["pattern"];
+      config.antenna.pattern.model_type = static_cast<ar::config::expert::AntennaPatternModelType>(
+          GetInt(p, "model_type", static_cast<int>(config.antenna.pattern.model_type)));
+      config.antenna.pattern.max_sidelobe_level_db =
+          GetFloat(p, "max_sidelobe_level_db", config.antenna.pattern.max_sidelobe_level_db);
+      config.antenna.pattern.backlobe_level_db =
+          GetFloat(p, "backlobe_level_db", config.antenna.pattern.backlobe_level_db);
+      config.antenna.pattern.scan_loss_coeff_db_per_deg2 = GetFloat(
+          p, "scan_loss_coeff_db_per_deg2", config.antenna.pattern.scan_loss_coeff_db_per_deg2);
+      config.antenna.pattern.max_scan_loss_db =
+          GetFloat(p, "max_scan_loss_db", config.antenna.pattern.max_scan_loss_db);
+      if (p.contains("boresight_offset_deg")) {
+        config.antenna.pattern.boresight_offset_deg = ParseAzEl(p["boresight_offset_deg"]);
+      }
+    }
   }
   if (json.contains("antenna_pattern")) {
-    const Json& pattern = json["antenna_pattern"];
-    config.antenna_pattern.profile = static_cast<ar::config::semantic::AntennaPatternProfile>(
-        GetInt(pattern, "profile", static_cast<int>(config.antenna_pattern.profile)));
-    if (pattern.contains("boresight_offset_deg")) {
-      config.antenna_pattern.boresight_offset_deg = ParseAzEl(pattern["boresight_offset_deg"]);
+    const Json& p = json["antenna_pattern"];
+    ApplyLegacyAntennaPatternProfile(GetInt(p, "profile", 0), &config);
+    if (p.contains("boresight_offset_deg")) {
+      config.antenna.pattern.boresight_offset_deg = ParseAzEl(p["boresight_offset_deg"]);
+    }
+  }
+  if (json.contains("receiver")) {
+    const Json& r = json["receiver"];
+    config.receiver.noise_figure_db =
+        GetFloat(r, "noise_figure_db", config.receiver.noise_figure_db);
+    config.receiver.receive_loss_db =
+        GetFloat(r, "receive_loss_db", config.receiver.receive_loss_db);
+  }
+  if (json.contains("detection_policy")) {
+    const Json& p = json["detection_policy"];
+    config.detection_policy.cfar_pfa =
+        GetFloat(p, "cfar_pfa", config.detection_policy.cfar_pfa);
+    config.detection_policy.min_snr_db =
+        GetFloat(p, "min_snr_db", config.detection_policy.min_snr_db);
+  }
+  if (json.contains("rcs_physics")) {
+    const Json& r = json["rcs_physics"];
+    config.rcs_physics.enable_physical_rcs =
+        GetBool(r, "enable_physical_rcs", config.rcs_physics.enable_physical_rcs);
+    config.rcs_physics.frequency_hz = GetFloat(r, "frequency_hz", config.rcs_physics.frequency_hz);
+    config.rcs_physics.physics_mix_ratio =
+        GetFloat(r, "physics_mix_ratio", config.rcs_physics.physics_mix_ratio);
+    config.rcs_physics.cylinder_weight =
+        GetFloat(r, "cylinder_weight", config.rcs_physics.cylinder_weight);
+    config.rcs_physics.min_equivalent_radius_m =
+        GetFloat(r, "min_equivalent_radius_m", config.rcs_physics.min_equivalent_radius_m);
+    config.rcs_physics.max_equivalent_radius_m =
+        GetFloat(r, "max_equivalent_radius_m", config.rcs_physics.max_equivalent_radius_m);
+    config.rcs_physics.min_rcs_m2 = GetFloat(r, "min_rcs_m2", config.rcs_physics.min_rcs_m2);
+    config.rcs_physics.max_rcs_m2 = GetFloat(r, "max_rcs_m2", config.rcs_physics.max_rcs_m2);
+    config.rcs_physics.bistatic_psi_offset_deg =
+        GetFloat(r, "bistatic_psi_offset_deg", config.rcs_physics.bistatic_psi_offset_deg);
+  }
+  config.min_detection_margin_db =
+      GetFloat(json, "min_detection_margin_db", config.min_detection_margin_db);
+  config.pulse_count = GetInt(json, "pulse_count", config.pulse_count);
+  return config;
+}
+
+ar::config::expert::TrackingConfig ParseTracking(const Json& json) {
+  ar::config::expert::TrackingConfig config;
+  config.enable_kalman_filter =
+      GetBool(json, "enable_kalman_filter", config.enable_kalman_filter);
+  config.enable_kalman_filter =
+      GetBool(json, "enable_tracking_filter", config.enable_kalman_filter);
+  config.kalman_measurement_noise_std =
+      GetFloat(json, "kalman_measurement_noise_std", config.kalman_measurement_noise_std);
+  if (json.contains("kalman_update_backend")) {
+    config.kalman_update_backend = static_cast<ar::config::expert::KalmanUpdateBackend>(
+        GetInt(json, "kalman_update_backend", static_cast<int>(config.kalman_update_backend)));
+  }
+  if (json.contains("policy_profile")) {
+    const int profile = GetInt(json, "policy_profile", 0);
+    if (profile == 1) {
+      config.kalman_measurement_noise_std = 6.0f;
+      config.kalman_update_backend = ar::config::expert::KalmanUpdateBackend::kStandardKfJoseph;
+      config.speed_decay_ratio_on_loss = 0.95f;
+      config.rcs_decay_ratio_on_loss = 0.92f;
+    } else if (profile == 2) {
+      config.kalman_measurement_noise_std = 12.0f;
+      config.kalman_update_backend = ar::config::expert::KalmanUpdateBackend::kUdKf;
+      config.speed_decay_ratio_on_loss = 0.95f;
+      config.rcs_decay_ratio_on_loss = 0.92f;
     }
   }
   return config;
 }
 
-ar::config::semantic::BeamControlConfig ParseBeamControl(const Json& json) {
-  ar::config::semantic::BeamControlConfig config;
-  if (json.contains("radar_orientation")) {
-    const Json& r = json["radar_orientation"];
-    if (r.contains("mount_angles_deg")) {
-      config.radar_orientation.mount_angles_deg = ParseEuler(r["mount_angles_deg"]);
+ar::config::expert::LifecycleConfig ParseLifecycle(const Json& json) {
+  ar::config::expert::LifecycleConfig config;
+  config.confirm_hits =
+      static_cast<std::uint32_t>(GetInt(json, "confirm_hits", static_cast<int>(config.confirm_hits)));
+  config.max_miss_before_lost = static_cast<std::uint32_t>(
+      GetInt(json, "max_miss_before_lost", static_cast<int>(config.max_miss_before_lost)));
+  config.max_lost_cycles =
+      static_cast<std::uint32_t>(GetInt(json, "max_lost_cycles", static_cast<int>(config.max_lost_cycles)));
+  config.enable_imm_lifecycle =
+      GetBool(json, "enable_imm_lifecycle", config.enable_imm_lifecycle);
+  config.enable_imm_lifecycle =
+      GetBool(json, "enable_imm_fusion", config.enable_imm_lifecycle);
+  if (json.contains("policy_profile")) {
+    const int profile = GetInt(json, "policy_profile", 0);
+    if (profile == 1) {
+      config.confirm_hits = 1U;
+      config.max_miss_before_lost = 1U;
+      config.max_lost_cycles = 3U;
+    } else if (profile == 2) {
+      config.confirm_hits = 3U;
+      config.max_miss_before_lost = 3U;
+      config.max_lost_cycles = 8U;
     }
-    if (r.contains("scan_center_deg")) {
-      config.radar_orientation.scan_center_deg = ParseAzEl(r["scan_center_deg"]);
-    }
-    if (r.contains("mechanical_scan_limits_deg")) {
-      config.radar_orientation.mechanical_scan_limits_deg = ParseAzElLimits(r["mechanical_scan_limits_deg"]);
-    }
-    if (r.contains("electronic_scan_limits_deg")) {
-      config.radar_orientation.electronic_scan_limits_deg = ParseAzElLimits(r["electronic_scan_limits_deg"]);
-    }
-    config.radar_orientation.scan_start_position =
-        static_cast<oneq::foundation::ScanStartPosition>(GetInt(r, "scan_start_position", static_cast<int>(config.radar_orientation.scan_start_position)));
-    config.radar_orientation.scan_sequence =
-        static_cast<oneq::foundation::ScanSequence>(GetInt(r, "scan_sequence", static_cast<int>(config.radar_orientation.scan_sequence)));
-    config.radar_orientation.work_sub_mode =
-        static_cast<ar::model::RadarWorkSubMode>(GetInt(r, "work_sub_mode", static_cast<int>(config.radar_orientation.work_sub_mode)));
-    config.radar_orientation.commanded_beamwidth_enabled =
-        GetBool(r, "commanded_beamwidth_enabled", config.radar_orientation.commanded_beamwidth_enabled);
-    if (r.contains("commanded_beamwidth_deg")) {
-      const Json& c = r["commanded_beamwidth_deg"];
-      config.radar_orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg =
-          GetFloat(c, "commanded_az_beamwidth_deg", config.radar_orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg);
-      config.radar_orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg =
-          GetFloat(c, "commanded_el_beamwidth_deg", config.radar_orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg);
-    }
-    config.radar_orientation.stabilization_mode =
-        static_cast<ar::model::StabilizationMode>(GetInt(r, "stabilization_mode", static_cast<int>(config.radar_orientation.stabilization_mode)));
   }
   return config;
+}
+
+ar::model::RadarOrientationConfig ParseOrientation(const Json& json) {
+  ar::model::RadarOrientationConfig orientation;
+  const Json& r = json.contains("radar_orientation") ? json["radar_orientation"] : json;
+  if (r.contains("mount_angles_deg")) {
+    orientation.mount_angles_deg = ParseEuler(r["mount_angles_deg"]);
+  }
+  if (r.contains("scan_center_deg")) {
+    orientation.scan_center_deg = ParseAzEl(r["scan_center_deg"]);
+  }
+  if (r.contains("mechanical_scan_limits_deg")) {
+    orientation.mechanical_scan_limits_deg = ParseAzElLimits(r["mechanical_scan_limits_deg"]);
+  }
+  if (r.contains("electronic_scan_limits_deg")) {
+    orientation.electronic_scan_limits_deg = ParseAzElLimits(r["electronic_scan_limits_deg"]);
+  }
+  orientation.scan_start_position = static_cast<oneq::foundation::ScanStartPosition>(
+      GetInt(r, "scan_start_position", static_cast<int>(orientation.scan_start_position)));
+  orientation.scan_sequence = static_cast<oneq::foundation::ScanSequence>(
+      GetInt(r, "scan_sequence", static_cast<int>(orientation.scan_sequence)));
+  orientation.work_sub_mode = static_cast<ar::model::RadarWorkSubMode>(
+      GetInt(r, "work_sub_mode", static_cast<int>(orientation.work_sub_mode)));
+  orientation.commanded_beamwidth_enabled = GetBool(
+      r, "commanded_beamwidth_enabled", orientation.commanded_beamwidth_enabled);
+  if (r.contains("commanded_beamwidth_deg")) {
+    const Json& c = r["commanded_beamwidth_deg"];
+    orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg = GetFloat(
+        c, "commanded_az_beamwidth_deg",
+        orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg);
+    orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg = GetFloat(
+        c, "commanded_el_beamwidth_deg",
+        orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg);
+  }
+  orientation.stabilization_mode = static_cast<ar::model::StabilizationMode>(
+      GetInt(r, "stabilization_mode", static_cast<int>(orientation.stabilization_mode)));
+  return orientation;
 }
 
 ar::environment::AtmosphericPhysicsConfig ParseAtmosphericPhysics(const Json& json) {
@@ -230,25 +454,32 @@ ar::session::RadarSessionConfig ParseSessionConfig(const Json& payload) {
   ar::session::RadarSessionConfig config;
   if (payload.contains("pipeline_config")) {
     const Json& pipeline = payload["pipeline_config"];
-    if (pipeline.contains("detection")) {
-      config.detection = ParseDetection(pipeline["detection"]);
+    if (pipeline.contains("orientation")) {
+      config.pipeline_config.orientation = ParseOrientation(pipeline["orientation"]);
     }
     if (pipeline.contains("beam_control")) {
-      config.beam_control = ParseBeamControl(pipeline["beam_control"]);
+      config.pipeline_config.orientation = ParseOrientation(pipeline["beam_control"]);
+    }
+    if (pipeline.contains("expert")) {
+      const Json& expert = pipeline["expert"];
+      if (expert.contains("detection")) {
+        config.pipeline_config.expert.detection = ParseDetection(expert["detection"]);
+      }
+      if (expert.contains("tracking")) {
+        config.pipeline_config.expert.tracking = ParseTracking(expert["tracking"]);
+      }
+      if (expert.contains("lifecycle")) {
+        config.pipeline_config.expert.lifecycle = ParseLifecycle(expert["lifecycle"]);
+      }
+    }
+    if (pipeline.contains("detection")) {
+      config.pipeline_config.expert.detection = ParseDetection(pipeline["detection"]);
     }
     if (pipeline.contains("tracking")) {
-      const Json& t = pipeline["tracking"];
-      config.tracking.enable_tracking_filter =
-          GetBool(t, "enable_tracking_filter", config.tracking.enable_tracking_filter);
-      config.tracking.policy_profile = static_cast<ar::config::semantic::TrackingPolicyProfile>(
-          GetInt(t, "policy_profile", static_cast<int>(config.tracking.policy_profile)));
+      config.pipeline_config.expert.tracking = ParseTracking(pipeline["tracking"]);
     }
     if (pipeline.contains("lifecycle")) {
-      const Json& l = pipeline["lifecycle"];
-      config.lifecycle.policy_profile = static_cast<ar::config::semantic::LifecyclePolicyProfile>(
-          GetInt(l, "policy_profile", static_cast<int>(config.lifecycle.policy_profile)));
-      config.lifecycle.enable_imm_fusion =
-          GetBool(l, "enable_imm_fusion", config.lifecycle.enable_imm_fusion);
+      config.pipeline_config.expert.lifecycle = ParseLifecycle(pipeline["lifecycle"]);
     }
   }
 
@@ -326,29 +557,32 @@ ar::config::RadarRuntimeConfigPatch ParseRuntimePatch(const Json& payload) {
   patch.has_pipeline_config = GetBool(payload, "has_pipeline_config", false);
   if (patch.has_pipeline_config && payload.contains("pipeline_config")) {
     const Json& pipeline = payload["pipeline_config"];
-    if (pipeline.contains("detection")) {
-      patch.pipeline_config.detection = ParseDetection(pipeline["detection"]);
+    if (pipeline.contains("orientation")) {
+      patch.pipeline_config.orientation = ParseOrientation(pipeline["orientation"]);
     }
     if (pipeline.contains("beam_control")) {
-      patch.pipeline_config.beam_control = ParseBeamControl(pipeline["beam_control"]);
+      patch.pipeline_config.orientation = ParseOrientation(pipeline["beam_control"]);
+    }
+    if (pipeline.contains("expert")) {
+      const Json& expert = pipeline["expert"];
+      if (expert.contains("detection")) {
+        patch.pipeline_config.expert.detection = ParseDetection(expert["detection"]);
+      }
+      if (expert.contains("tracking")) {
+        patch.pipeline_config.expert.tracking = ParseTracking(expert["tracking"]);
+      }
+      if (expert.contains("lifecycle")) {
+        patch.pipeline_config.expert.lifecycle = ParseLifecycle(expert["lifecycle"]);
+      }
+    }
+    if (pipeline.contains("detection")) {
+      patch.pipeline_config.expert.detection = ParseDetection(pipeline["detection"]);
     }
     if (pipeline.contains("tracking")) {
-      const Json& t = pipeline["tracking"];
-      patch.pipeline_config.tracking.enable_tracking_filter = GetBool(
-          t, "enable_tracking_filter", patch.pipeline_config.tracking.enable_tracking_filter);
-      patch.pipeline_config.tracking.policy_profile =
-          static_cast<ar::config::semantic::TrackingPolicyProfile>(
-              GetInt(t, "policy_profile",
-                     static_cast<int>(patch.pipeline_config.tracking.policy_profile)));
+      patch.pipeline_config.expert.tracking = ParseTracking(pipeline["tracking"]);
     }
     if (pipeline.contains("lifecycle")) {
-      const Json& l = pipeline["lifecycle"];
-      patch.pipeline_config.lifecycle.policy_profile =
-          static_cast<ar::config::semantic::LifecyclePolicyProfile>(
-              GetInt(l, "policy_profile",
-                     static_cast<int>(patch.pipeline_config.lifecycle.policy_profile)));
-      patch.pipeline_config.lifecycle.enable_imm_fusion = GetBool(
-          l, "enable_imm_fusion", patch.pipeline_config.lifecycle.enable_imm_fusion);
+      patch.pipeline_config.expert.lifecycle = ParseLifecycle(pipeline["lifecycle"]);
     }
   }
 

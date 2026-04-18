@@ -10,16 +10,15 @@
 #include <utility>
 
 #include "1q/airborne_radar/airborne_radar.hpp"
-#include "1q/airborne_radar/config/semantic/AntennaPatternConfig.h"
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/config/presets/RadarSessionConfigPresets.h"
-#include "1q/airborne_radar/config/semantic/BeamControlConfig.h"
-#include "1q/airborne_radar/config/semantic/DetectionConfig.h"
-#include "1q/airborne_radar/config/semantic/LifecycleConfig.h"
 #include "1q/airborne_radar/config/PipelineConfig.h"
-#include "1q/airborne_radar/config/semantic/TrackingConfig.h"
+#include "1q/airborne_radar/config/semantic/AntennaProfiles.h"
+#include "1q/airborne_radar/config/semantic/DetectionProfiles.h"
+#include "1q/airborne_radar/config/semantic/LifecycleProfiles.h"
+#include "1q/airborne_radar/config/semantic/TrackingProfiles.h"
 #include "1q/airborne_radar/config/airborne_radar_config.hpp"
 #include "1q/airborne_radar/environment/EnvironmentConfig.h"
 #include "1q/airborne_radar/environment/EnvironmentDefaultConfigBuilder.h"
@@ -306,12 +305,13 @@ TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields)
                                                      environment::JammingSensitivityProfile::kRelaxed)
                                                  .End()
                                                  .Build();
-  EXPECT_TRUE(config.detection.enable_physics_detection);
-  EXPECT_EQ(config.detection.intent_profile, config::semantic::DetectionIntentProfile::kDetectionPriority);
-  EXPECT_EQ(config.detection.hardware_profile, config::semantic::RadarHardwareProfile::kLongRangeHighPower);
-  EXPECT_EQ(config.detection.antenna_pattern.profile, config::semantic::AntennaPatternProfile::kLowSidelobe);
-  EXPECT_FLOAT_EQ(config.beam_control.radar_orientation.scan_center_deg.az_deg, -12.0f);
-  EXPECT_EQ(config.lifecycle.policy_profile, config::semantic::LifecyclePolicyProfile::kFastConfirm);
+    EXPECT_TRUE(config.pipeline_config.expert.detection.enable_physics_detection);
+    EXPECT_EQ(config.pipeline_config.expert.detection.pulse_count, 16);
+    EXPECT_FLOAT_EQ(config.pipeline_config.expert.detection.transmitter.peak_power_w, 5.0e6f);
+    EXPECT_FLOAT_EQ(config.pipeline_config.expert.detection.antenna.pattern.max_sidelobe_level_db,
+                                    -30.0f);
+    EXPECT_FLOAT_EQ(config.pipeline_config.orientation.scan_center_deg.az_deg, -12.0f);
+    EXPECT_EQ(config.pipeline_config.expert.lifecycle.confirm_hits, 1U);
   EXPECT_EQ(config.environment_default_config.jamming_sensitivity_profile,
             environment::JammingSensitivityProfile::kRelaxed);
 

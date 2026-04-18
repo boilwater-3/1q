@@ -11,6 +11,9 @@
 
 #include "1q/airborne_radar/model/TargetFeature.h"
 #include "1q/airborne_radar/config/presets/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/config/semantic/DetectionProfiles.h"
+#include "1q/airborne_radar/config/semantic/LifecycleProfiles.h"
+#include "1q/airborne_radar/config/semantic/TrackingProfiles.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/config/PipelineConfig.h"
@@ -83,6 +86,138 @@ environment::EnvironmentModelConfig MakeEnvironmentConfigWithJammers(
   return config;
 }
 
+void ApplyHardwareProfile(config::PipelineConfig* config,
+                         config::semantic::RadarHardwareProfile profile) {
+  if (config == nullptr) {
+    return;
+  }
+  auto& d = config->expert.detection;
+  switch (profile) {
+    case config::semantic::RadarHardwareProfile::kLongRangeHighPower:
+      d.transmitter.peak_power_w = 5.0e6f;
+      d.transmitter.frequency_hz = 9.3e9f;
+      d.transmitter.bandwidth_hz = 3.0e6f;
+      d.transmitter.pulse_width_s = 18e-6f;
+      d.transmitter.prf_hz = 220.0f;
+      d.antenna.main_beam_gain_db = 38.0f;
+      d.receiver.noise_figure_db = 3.0f;
+      break;
+    case config::semantic::RadarHardwareProfile::kLightweightLpi:
+      d.transmitter.peak_power_w = 3.5e5f;
+      d.transmitter.frequency_hz = 10.0e9f;
+      d.transmitter.bandwidth_hz = 8.0e6f;
+      d.transmitter.pulse_width_s = 8e-6f;
+      d.transmitter.prf_hz = 600.0f;
+      d.antenna.main_beam_gain_db = 31.0f;
+      d.antenna.nominal_az_beamwidth_deg = 5.0f;
+      d.antenna.nominal_el_beamwidth_deg = 5.0f;
+      d.receiver.noise_figure_db = 5.0f;
+      break;
+    case config::semantic::RadarHardwareProfile::kGenericAirborneXBand:
+    default:
+      break;
+  }
+}
+
+void ApplyDetectionIntentProfile(config::PipelineConfig* config,
+                                 config::semantic::DetectionIntentProfile profile) {
+  if (config == nullptr) {
+    return;
+  }
+  auto& d = config->expert.detection;
+  switch (profile) {
+    case config::semantic::DetectionIntentProfile::kDetectionPriority:
+      d.pulse_count = 16;
+      d.detection_policy.cfar_pfa = 2e-6f;
+      d.detection_policy.min_snr_db = -12.0f;
+      d.min_detection_margin_db = -100.0f;
+      break;
+    case config::semantic::DetectionIntentProfile::kTrackStabilityPriority:
+      d.pulse_count = 8;
+      d.detection_policy.cfar_pfa = 5e-7f;
+      d.detection_policy.min_snr_db = -8.0f;
+      d.min_detection_margin_db = -20.0f;
+      break;
+    case config::semantic::DetectionIntentProfile::kBalanced:
+    default:
+      d.min_detection_margin_db = -2.0f;
+      break;
+  }
+}
+
+void ApplyRcsFusionProfile(config::PipelineConfig* config,
+                           config::semantic::RcsFusionProfile profile) {
+  if (config == nullptr) {
+    return;
+  }
+  auto& rcs = config->expert.detection.rcs_physics;
+  switch (profile) {
+    case config::semantic::RcsFusionProfile::kConservative:
+      rcs.enable_physical_rcs = true;
+      rcs.physics_mix_ratio = 0.25f;
+      break;
+    case config::semantic::RcsFusionProfile::kEnhanced:
+      rcs.enable_physical_rcs = true;
+      rcs.physics_mix_ratio = 0.60f;
+      rcs.cylinder_weight = 0.65f;
+      break;
+    case config::semantic::RcsFusionProfile::kDisabled:
+    default:
+      rcs.enable_physical_rcs = false;
+      rcs.physics_mix_ratio = 0.0f;
+      break;
+  }
+}
+
+void ApplyTrackingPolicyProfile(config::PipelineConfig* config,
+                                config::semantic::TrackingPolicyProfile profile) {
+  if (config == nullptr) {
+    return;
+  }
+  auto& t = config->expert.tracking;
+  switch (profile) {
+    case config::semantic::TrackingPolicyProfile::kFastAssociation:
+      t.kalman_measurement_noise_std = 6.0f;
+      t.kalman_update_backend = config::expert::KalmanUpdateBackend::kStandardKfJoseph;
+      t.speed_decay_ratio_on_loss = 0.95f;
+      t.rcs_decay_ratio_on_loss = 0.92f;
+      break;
+    case config::semantic::TrackingPolicyProfile::kRobustAntiJamming:
+      t.kalman_measurement_noise_std = 12.0f;
+      t.kalman_update_backend = config::expert::KalmanUpdateBackend::kUdKf;
+      t.speed_decay_ratio_on_loss = 0.95f;
+      t.rcs_decay_ratio_on_loss = 0.92f;
+      config->expert.association.unassigned_cost = 12.0f;
+      break;
+    case config::semantic::TrackingPolicyProfile::kBalanced:
+    default:
+      break;
+  }
+}
+
+void ApplyLifecyclePolicyProfile(config::PipelineConfig* config,
+                                 config::semantic::LifecyclePolicyProfile profile) {
+  if (config == nullptr) {
+    return;
+  }
+  auto& lc = config->expert.lifecycle;
+  switch (profile) {
+    case config::semantic::LifecyclePolicyProfile::kFastConfirm:
+      lc.confirm_hits = 1U;
+      lc.max_miss_before_lost = 1U;
+      lc.max_lost_cycles = 3U;
+      break;
+    case config::semantic::LifecyclePolicyProfile::kHighPersistence:
+      lc.confirm_hits = 3U;
+      lc.max_miss_before_lost = 3U;
+      lc.max_lost_cycles = 8U;
+      break;
+    case config::semantic::LifecyclePolicyProfile::kBalanced:
+    default:
+      break;
+  }
+}
+
 }  // namespace
 
 TEST(EnvironmentServiceTest, DetectsJammingByConfiguredThreshold) {
@@ -90,7 +225,7 @@ TEST(EnvironmentServiceTest, DetectsJammingByConfiguredThreshold) {
       MakeJammerEmitter(environment::JammingTechnique::kUnknown, 7.0f);
 
   environment::EnvironmentService service(MakeEnvironmentConfigWithJammers({jammer_source}));
-  service.SetJammingSensitivityProfile(environment::ResolveJammingSensitivityProfile(6.0f));
+  service.SetJammingSensitivityProfile(environment::internal::ResolveJammingSensitivityProfile(6.0f));
 
   const auto snapshot = service.SampleEnvironment();
   EXPECT_TRUE(snapshot.jamming_detected);
@@ -226,7 +361,7 @@ TEST(EnvironmentServiceTest, SupportsMultipleJammerSourcesInSnapshot) {
   config.jammer_sources.push_back(deception_source);
 
   environment::EnvironmentService service(config);
-  service.SetJammingSensitivityProfile(environment::ResolveJammingSensitivityProfile(6.0f));
+  service.SetJammingSensitivityProfile(environment::internal::ResolveJammingSensitivityProfile(6.0f));
 
   const auto snapshot = service.SampleEnvironment();
   ASSERT_EQ(snapshot.jammer_sources.size(), 2u);
@@ -387,9 +522,9 @@ TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
 TEST(SignalPipelineTest,
      RcsPhysicsOverrideChangesMarginalHeuristicDetectionWhileDisabledPathStaysSame) {
   config::PipelineConfig baseline_config;
-  baseline_config.detection.enable_physics_detection = false;
-  baseline_config.detection.intent_profile = config::semantic::DetectionIntentProfile::kBalanced;
-  baseline_config.detection.hardware_profile = config::semantic::RadarHardwareProfile::kLongRangeHighPower;
+  baseline_config.expert.detection.enable_physics_detection = false;
+  ApplyDetectionIntentProfile(&baseline_config, config::semantic::DetectionIntentProfile::kBalanced);
+  ApplyHardwareProfile(&baseline_config, config::semantic::RadarHardwareProfile::kLongRangeHighPower);
 
   environment::EnvironmentModelConfig env_config;
 
@@ -405,7 +540,7 @@ TEST(SignalPipelineTest,
   EXPECT_FALSE(baseline_measurements.empty());
 
   config::PipelineConfig disabled_override_config = baseline_config;
-  disabled_override_config.detection.rcs_fusion_profile = config::semantic::RcsFusionProfile::kDisabled;
+  ApplyRcsFusionProfile(&disabled_override_config, config::semantic::RcsFusionProfile::kDisabled);
 
   environment::EnvironmentService disabled_environment(env_config);
   signal::pipeline::SignalPipeline disabled_pipeline(disabled_override_config);
@@ -419,7 +554,7 @@ TEST(SignalPipelineTest,
                   baseline_result.updated_features[0].current_track_rcs);
 
   config::PipelineConfig enabled_override_config = disabled_override_config;
-  enabled_override_config.detection.rcs_fusion_profile = config::semantic::RcsFusionProfile::kEnhanced;
+  ApplyRcsFusionProfile(&enabled_override_config, config::semantic::RcsFusionProfile::kEnhanced);
 
   environment::EnvironmentService enabled_environment(env_config);
   signal::pipeline::SignalPipeline enabled_pipeline(enabled_override_config);
@@ -449,7 +584,7 @@ TEST(SignalPipelineTest, ExposesPublicPlatformAttitudeUpdateApi) {
 
 TEST(SignalPipelineTest, AutoLifecycleManagerBuildsWithDefaultInternalImmConfig) {
   config::PipelineConfig runtime_config;
-  runtime_config.lifecycle.enable_imm_fusion = true;
+  runtime_config.expert.lifecycle.enable_imm_lifecycle = true;
 
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> lifecycle_manager =
       signal::pipeline::assembly::internal::CreateAutoLifecycleManagerForRuntimeConfig(
@@ -469,8 +604,8 @@ TEST(SignalPipelineTest, AutoLifecycleManagerBuildsWithDefaultInternalImmConfig)
 
 TEST(SignalPipelineTest, AutoLifecycleManagerCreationFailsWhenImmAssemblyIsInvalid) {
   config::PipelineConfig runtime_config;
-  runtime_config.tracking.enable_tracking_filter = true;
-  runtime_config.lifecycle.enable_imm_fusion = true;
+  runtime_config.expert.tracking.enable_kalman_filter = true;
+  runtime_config.expert.lifecycle.enable_imm_lifecycle = true;
 
   signal::pipeline::internal::InternalPipelineConfig internal_config =
       signal::pipeline::internal::BuildInternalPipelineConfig(runtime_config);
@@ -508,8 +643,8 @@ TEST(SignalPipelineInternalConfigTest, TrackingPresetMapsToTrackingProfile) {
 
   EXPECT_FLOAT_EQ(internal_config.association.unassigned_cost, 9.0f);
   EXPECT_FLOAT_EQ(internal_config.tracking.kalman_noise_diff_coeff, 1.0f);
-  EXPECT_FLOAT_EQ(internal_config.tracking.speed_decay_ratio_on_loss, 0.90f);
-  EXPECT_FLOAT_EQ(internal_config.tracking.rcs_decay_ratio_on_loss, 0.85f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.speed_decay_ratio_on_loss, 1.0f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.rcs_decay_ratio_on_loss, 1.0f);
 }
 
 TEST(SignalPipelineInternalConfigTest, RobustPresetMapsToRobustProfile) {
@@ -529,7 +664,7 @@ TEST(SignalPipelineInternalConfigTest, RobustPresetMapsToRobustProfile) {
 TEST(SignalPipelineInternalConfigTest,
      NonDefaultRcsPhysicsBreaksTrackingPresetSignatureAndFallsBackToBaseline) {
   config::PipelineConfig config = config::presets::MakeTrackingMissionPipelineConfig();
-  config.detection.rcs_fusion_profile = config::semantic::RcsFusionProfile::kEnhanced;
+  ApplyRcsFusionProfile(&config, config::semantic::RcsFusionProfile::kEnhanced);
 
   const signal::pipeline::PipelineConfig pipeline_config = config;
   const signal::pipeline::internal::InternalPipelineConfig internal_config =
@@ -537,15 +672,15 @@ TEST(SignalPipelineInternalConfigTest,
 
   EXPECT_FLOAT_EQ(internal_config.association.unassigned_cost, 9.0f);
   EXPECT_FLOAT_EQ(internal_config.tracking.kalman_noise_diff_coeff, 1.0f);
-  EXPECT_FLOAT_EQ(internal_config.tracking.speed_decay_ratio_on_loss, 0.90f);
-  EXPECT_FLOAT_EQ(internal_config.tracking.rcs_decay_ratio_on_loss, 0.85f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.speed_decay_ratio_on_loss, 1.0f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.rcs_decay_ratio_on_loss, 1.0f);
 }
 
 TEST(SignalPipelineInternalConfigTest, CustomConfigStaysBaselineEvenWithHighLifecycleThresholds) {
   config::PipelineConfig config = config::presets::MakeDetectionMissionPipelineConfig();
-  config.detection.intent_profile = config::semantic::DetectionIntentProfile::kBalanced;
-  config.lifecycle.policy_profile = config::semantic::LifecyclePolicyProfile::kBalanced;
-  config.tracking.policy_profile = config::semantic::TrackingPolicyProfile::kBalanced;
+  ApplyDetectionIntentProfile(&config, config::semantic::DetectionIntentProfile::kBalanced);
+  ApplyLifecyclePolicyProfile(&config, config::semantic::LifecyclePolicyProfile::kBalanced);
+  ApplyTrackingPolicyProfile(&config, config::semantic::TrackingPolicyProfile::kBalanced);
 
   const signal::pipeline::PipelineConfig pipeline_config = config;
   const signal::pipeline::internal::InternalPipelineConfig internal_config =
@@ -553,8 +688,8 @@ TEST(SignalPipelineInternalConfigTest, CustomConfigStaysBaselineEvenWithHighLife
 
   EXPECT_FLOAT_EQ(internal_config.association.unassigned_cost, 9.0f);
   EXPECT_FLOAT_EQ(internal_config.tracking.kalman_noise_diff_coeff, 1.0f);
-  EXPECT_FLOAT_EQ(internal_config.tracking.speed_decay_ratio_on_loss, 0.90f);
-  EXPECT_FLOAT_EQ(internal_config.tracking.rcs_decay_ratio_on_loss, 0.85f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.speed_decay_ratio_on_loss, 0.95f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.rcs_decay_ratio_on_loss, 0.92f);
 }
 
 TEST(SignalPipelineInternalConfigTest, ImmToggleOnlyControlsImmInternalDefaults) {
@@ -564,24 +699,25 @@ TEST(SignalPipelineInternalConfigTest, ImmToggleOnlyControlsImmInternalDefaults)
   const signal::pipeline::internal::InternalPipelineConfig imm_disabled_internal_config =
       signal::pipeline::internal::BuildInternalPipelineConfig(pipeline_config);
   EXPECT_TRUE(imm_disabled_internal_config.lifecycle.imm_model_noise_diff_coeffs.empty());
-  EXPECT_FLOAT_EQ(imm_disabled_internal_config.tracking.speed_decay_ratio_on_loss, 0.90f);
-  EXPECT_FLOAT_EQ(imm_disabled_internal_config.tracking.rcs_decay_ratio_on_loss, 0.85f);
+  EXPECT_FLOAT_EQ(imm_disabled_internal_config.tracking.speed_decay_ratio_on_loss, 1.0f);
+  EXPECT_FLOAT_EQ(imm_disabled_internal_config.tracking.rcs_decay_ratio_on_loss, 1.0f);
 
-  config.lifecycle.enable_imm_fusion = true;
+  config.expert.lifecycle.enable_imm_lifecycle = true;
   const signal::pipeline::PipelineConfig imm_enabled_pipeline_config = config;
   const signal::pipeline::internal::InternalPipelineConfig imm_enabled_internal_config =
       signal::pipeline::internal::BuildInternalPipelineConfig(imm_enabled_pipeline_config);
   ASSERT_EQ(imm_enabled_internal_config.lifecycle.imm_model_noise_diff_coeffs.size(), 2U);
   EXPECT_FLOAT_EQ(imm_enabled_internal_config.lifecycle.imm_model_noise_diff_coeffs[0], 0.5f);
   EXPECT_FLOAT_EQ(imm_enabled_internal_config.lifecycle.imm_model_noise_diff_coeffs[1], 4.0f);
-  EXPECT_FLOAT_EQ(imm_enabled_internal_config.tracking.speed_decay_ratio_on_loss, 0.90f);
-  EXPECT_FLOAT_EQ(imm_enabled_internal_config.tracking.rcs_decay_ratio_on_loss, 0.85f);
+  EXPECT_FLOAT_EQ(imm_enabled_internal_config.tracking.speed_decay_ratio_on_loss, 1.0f);
+  EXPECT_FLOAT_EQ(imm_enabled_internal_config.tracking.rcs_decay_ratio_on_loss, 1.0f);
 }
 
 TEST(SignalPipelineTest, ControlProfilePowerReductionLowersPhysicalDetectionMargin) {
   config::PipelineConfig pipeline_config;
-  pipeline_config.detection.enable_physics_detection = true;
-  pipeline_config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
+  pipeline_config.expert.detection.enable_physics_detection = true;
+  ApplyDetectionIntentProfile(&pipeline_config,
+                              config::semantic::DetectionIntentProfile::kDetectionPriority);
 
   environment::EnvironmentService environment_service;
 
@@ -607,9 +743,13 @@ TEST(SignalPipelineTest, ControlProfilePowerReductionLowersPhysicalDetectionMarg
 
 TEST(SignalPipelineTest, AdaptiveBeamformingProfileTightensMeasurementCovariance) {
   config::PipelineConfig pipeline_config;
-  pipeline_config.detection.enable_physics_detection = true;
-  pipeline_config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
-  pipeline_config.detection.antenna_pattern.profile = config::semantic::AntennaPatternProfile::kWideCoverage;
+  pipeline_config.expert.detection.enable_physics_detection = true;
+  ApplyDetectionIntentProfile(&pipeline_config,
+                              config::semantic::DetectionIntentProfile::kDetectionPriority);
+  pipeline_config.expert.detection.antenna.pattern.model_type =
+      config::expert::AntennaPatternModelType::kParabolicMainLobe;
+  pipeline_config.expert.detection.antenna.pattern.max_sidelobe_level_db = -18.0f;
+  pipeline_config.expert.detection.antenna.pattern.max_scan_loss_db = 8.0f;
 
   environment::EnvironmentService environment_service;
 
@@ -636,7 +776,8 @@ TEST(SignalPipelineTest, AdaptiveBeamformingProfileTightensMeasurementCovariance
 
 TEST(SignalPipelineTest, EccmProfileRelaxesHeuristicAssociationGateForSeededTracks) {
   config::PipelineConfig pipeline_config;
-  pipeline_config.tracking.policy_profile = config::semantic::TrackingPolicyProfile::kFastAssociation;
+  ApplyTrackingPolicyProfile(&pipeline_config,
+                             config::semantic::TrackingPolicyProfile::kFastAssociation);
 
   environment::EnvironmentService environment_service;
 
@@ -681,7 +822,8 @@ TEST(SignalPipelineTest, EccmProfileRelaxesHeuristicAssociationGateForSeededTrac
 
 TEST(SignalPipelineTest, AssociationQualityMetricsExposeTypeSpecificStressSummary) {
   config::PipelineConfig pipeline_config;
-  pipeline_config.tracking.policy_profile = config::semantic::TrackingPolicyProfile::kFastAssociation;
+  ApplyTrackingPolicyProfile(&pipeline_config,
+                             config::semantic::TrackingPolicyProfile::kFastAssociation);
 
   model::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f);
   target.has_cartesian_position = true;
@@ -800,7 +942,8 @@ TEST(SignalPipelineTest, DominantJammingSemanticStaysNoiseWhenSecondScoreBelowTh
 
 TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) {
   config::PipelineConfig pipeline_config;
-  pipeline_config.tracking.policy_profile = config::semantic::TrackingPolicyProfile::kFastAssociation;
+  ApplyTrackingPolicyProfile(&pipeline_config,
+                             config::semantic::TrackingPolicyProfile::kFastAssociation);
 
   model::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f);
   target.has_cartesian_position = true;
@@ -858,16 +1001,17 @@ TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) 
 
 TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) {
   config::PipelineConfig pipeline_config;
-  pipeline_config.detection.enable_physics_detection = true;
-  pipeline_config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
-  pipeline_config.beam_control.radar_orientation.scan_center_deg.az_deg = 0.0f;
-  pipeline_config.beam_control.radar_orientation.scan_center_deg.el_deg = 0.0f;
-  pipeline_config.beam_control.radar_orientation.mechanical_scan_limits_deg.az_min_deg = 0.0f;
-  pipeline_config.beam_control.radar_orientation.mechanical_scan_limits_deg.az_max_deg = 0.0f;
-  pipeline_config.beam_control.radar_orientation.mechanical_scan_limits_deg.el_min_deg = 0.0f;
-  pipeline_config.beam_control.radar_orientation.mechanical_scan_limits_deg.el_max_deg = 0.0f;
-  pipeline_config.beam_control.radar_orientation.electronic_scan_limits_deg =
-      pipeline_config.beam_control.radar_orientation.mechanical_scan_limits_deg;
+  pipeline_config.expert.detection.enable_physics_detection = true;
+  ApplyDetectionIntentProfile(&pipeline_config,
+                              config::semantic::DetectionIntentProfile::kDetectionPriority);
+  pipeline_config.orientation.scan_center_deg.az_deg = 0.0f;
+  pipeline_config.orientation.scan_center_deg.el_deg = 0.0f;
+  pipeline_config.orientation.mechanical_scan_limits_deg.az_min_deg = 0.0f;
+  pipeline_config.orientation.mechanical_scan_limits_deg.az_max_deg = 0.0f;
+  pipeline_config.orientation.mechanical_scan_limits_deg.el_min_deg = 0.0f;
+  pipeline_config.orientation.mechanical_scan_limits_deg.el_max_deg = 0.0f;
+  pipeline_config.orientation.electronic_scan_limits_deg =
+      pipeline_config.orientation.mechanical_scan_limits_deg;
 
   environment::EnvironmentModelConfig env_config;
   env_config.jammer_sources.push_back(
@@ -898,16 +1042,17 @@ TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) 
 
 TEST(SignalPipelineTest, DetailedJammingFactsModulatePhysicalEccmBenefit) {
   config::PipelineConfig pipeline_config;
-  pipeline_config.detection.enable_physics_detection = true;
-  pipeline_config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
-  pipeline_config.beam_control.radar_orientation.scan_center_deg.az_deg = 0.0f;
-  pipeline_config.beam_control.radar_orientation.scan_center_deg.el_deg = 0.0f;
-  pipeline_config.beam_control.radar_orientation.mechanical_scan_limits_deg.az_min_deg = 0.0f;
-  pipeline_config.beam_control.radar_orientation.mechanical_scan_limits_deg.az_max_deg = 0.0f;
-  pipeline_config.beam_control.radar_orientation.mechanical_scan_limits_deg.el_min_deg = 0.0f;
-  pipeline_config.beam_control.radar_orientation.mechanical_scan_limits_deg.el_max_deg = 0.0f;
-  pipeline_config.beam_control.radar_orientation.electronic_scan_limits_deg =
-      pipeline_config.beam_control.radar_orientation.mechanical_scan_limits_deg;
+  pipeline_config.expert.detection.enable_physics_detection = true;
+  ApplyDetectionIntentProfile(&pipeline_config,
+                              config::semantic::DetectionIntentProfile::kDetectionPriority);
+  pipeline_config.orientation.scan_center_deg.az_deg = 0.0f;
+  pipeline_config.orientation.scan_center_deg.el_deg = 0.0f;
+  pipeline_config.orientation.mechanical_scan_limits_deg.az_min_deg = 0.0f;
+  pipeline_config.orientation.mechanical_scan_limits_deg.az_max_deg = 0.0f;
+  pipeline_config.orientation.mechanical_scan_limits_deg.el_min_deg = 0.0f;
+  pipeline_config.orientation.mechanical_scan_limits_deg.el_max_deg = 0.0f;
+  pipeline_config.orientation.electronic_scan_limits_deg =
+      pipeline_config.orientation.mechanical_scan_limits_deg;
 
   environment::JammerEmitterState favorable_source =
       MakeJammerEmitter(environment::JammingTechnique::kUnknown, 12.0f);
@@ -954,8 +1099,9 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulatePhysicalEccmBenefit) {
 
 TEST(SignalPipelineTest, DeceptionJammingFactsShrinkPhysicalCovarianceWhenMatchedEccmEnabled) {
   config::PipelineConfig pipeline_config;
-  pipeline_config.detection.enable_physics_detection = true;
-  pipeline_config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
+  pipeline_config.expert.detection.enable_physics_detection = true;
+  ApplyDetectionIntentProfile(&pipeline_config,
+                              config::semantic::DetectionIntentProfile::kDetectionPriority);
 
   environment::EnvironmentModelConfig env_config;
   environment::JammerEmitterState deception_source;
@@ -994,7 +1140,8 @@ TEST(SignalPipelineTest, DeceptionJammingFactsShrinkPhysicalCovarianceWhenMatche
 
 TEST(SignalPipelineTest, AgilityFrequencyHopPhaseControlsFrequencyDirection) {
   config::PipelineConfig phase_zero_config;
-  phase_zero_config.detection.hardware_profile = config::semantic::RadarHardwareProfile::kGenericAirborneXBand;
+  ApplyHardwareProfile(&phase_zero_config,
+                       config::semantic::RadarHardwareProfile::kGenericAirborneXBand);
   config::PipelineConfig phase_one_config = phase_zero_config;
   signal::pipeline::PipelineConfig phase_zero_pipeline_config = phase_zero_config;
   signal::pipeline::PipelineConfig phase_one_pipeline_config = phase_one_config;
@@ -1054,7 +1201,8 @@ TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
 
 TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
   config::PipelineConfig pipeline_config;
-  pipeline_config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
+  ApplyDetectionIntentProfile(&pipeline_config,
+                              config::semantic::DetectionIntentProfile::kDetectionPriority);
 
   environment::JammerEmitterState favorable_source =
       MakeJammerEmitter(environment::JammingTechnique::kUnknown, 12.0f);
@@ -1110,9 +1258,11 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
 
 TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUpdater) {
   config::PipelineConfig pipeline_config;
-  pipeline_config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
-  pipeline_config.lifecycle.policy_profile = config::semantic::LifecyclePolicyProfile::kFastConfirm;
-  pipeline_config.tracking.enable_tracking_filter = true;
+  ApplyDetectionIntentProfile(&pipeline_config,
+                              config::semantic::DetectionIntentProfile::kDetectionPriority);
+  ApplyLifecyclePolicyProfile(&pipeline_config,
+                              config::semantic::LifecyclePolicyProfile::kFastConfirm);
+  pipeline_config.expert.tracking.enable_kalman_filter = true;
 
   environment::EnvironmentService environment_service;
 
@@ -1167,9 +1317,11 @@ TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUp
 
 TEST(SignalPipelineTest, AutoLifecycleManagerSyncsRuntimeTuningAcrossCycles) {
   config::PipelineConfig pipeline_config;
-  pipeline_config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
-  pipeline_config.lifecycle.policy_profile = config::semantic::LifecyclePolicyProfile::kFastConfirm;
-  pipeline_config.tracking.enable_tracking_filter = true;
+  ApplyDetectionIntentProfile(&pipeline_config,
+                              config::semantic::DetectionIntentProfile::kDetectionPriority);
+  ApplyLifecyclePolicyProfile(&pipeline_config,
+                              config::semantic::LifecyclePolicyProfile::kFastConfirm);
+  pipeline_config.expert.tracking.enable_kalman_filter = true;
 
   const signal::pipeline::internal::InternalPipelineConfig base_internal_config =
       signal::pipeline::internal::BuildInternalPipelineConfig(pipeline_config);
@@ -1217,9 +1369,11 @@ TEST(SignalPipelineTest, AutoLifecycleManagerSyncsRuntimeTuningAcrossCycles) {
 
 TEST(SignalPipelineTest, InvalidTopologyRebuildKeepsPreviousLifecycleAssemblyOperational) {
   config::PipelineConfig pipeline_config;
-  pipeline_config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
-  pipeline_config.lifecycle.policy_profile = config::semantic::LifecyclePolicyProfile::kFastConfirm;
-  pipeline_config.tracking.enable_tracking_filter = true;
+  ApplyDetectionIntentProfile(&pipeline_config,
+                              config::semantic::DetectionIntentProfile::kDetectionPriority);
+  ApplyLifecyclePolicyProfile(&pipeline_config,
+                              config::semantic::LifecyclePolicyProfile::kFastConfirm);
+  pipeline_config.expert.tracking.enable_kalman_filter = true;
 
   const signal::pipeline::internal::InternalPipelineConfig base_internal_config =
       signal::pipeline::internal::BuildInternalPipelineConfig(pipeline_config);
@@ -1243,7 +1397,7 @@ TEST(SignalPipelineTest, InvalidTopologyRebuildKeepsPreviousLifecycleAssemblyOpe
 
   signal::pipeline::assembly::internal::ResolvedRuntimePipelineConfig invalid_runtime_config;
   invalid_runtime_config.public_config = pipeline_config;
-  invalid_runtime_config.public_config.lifecycle.enable_imm_fusion = true;
+  invalid_runtime_config.public_config.expert.lifecycle.enable_imm_lifecycle = true;
   invalid_runtime_config.internal_config =
       signal::pipeline::internal::BuildInternalPipelineConfig(
           invalid_runtime_config.public_config);
@@ -1264,8 +1418,9 @@ TEST(SignalPipelineTest, InvalidTopologyRebuildKeepsPreviousLifecycleAssemblyOpe
 
 TEST(SignalPipelineTest, DeceptionJammingInflatesPhysicalCovarianceMoreThanNoiseSuppression) {
   config::PipelineConfig pipeline_config;
-  pipeline_config.detection.enable_physics_detection = true;
-  pipeline_config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
+  pipeline_config.expert.detection.enable_physics_detection = true;
+  ApplyDetectionIntentProfile(&pipeline_config,
+                              config::semantic::DetectionIntentProfile::kDetectionPriority);
 
   environment::EnvironmentModelConfig noise_env_config;
   environment::JammerEmitterState noise_source;
@@ -1313,9 +1468,11 @@ TEST(SignalPipelineTest, DeceptionJammingInflatesPhysicalCovarianceMoreThanNoise
 
 TEST(SignalPipelineTest, AutoImmLifecycleAssemblyUsesControlProfileAdjustedImmParameters) {
   config::PipelineConfig pipeline_config;
-  pipeline_config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
-  pipeline_config.lifecycle.enable_imm_fusion = true;
-  pipeline_config.lifecycle.policy_profile = config::semantic::LifecyclePolicyProfile::kFastConfirm;
+  ApplyDetectionIntentProfile(&pipeline_config,
+                              config::semantic::DetectionIntentProfile::kDetectionPriority);
+  pipeline_config.expert.lifecycle.enable_imm_lifecycle = true;
+  ApplyLifecyclePolicyProfile(&pipeline_config,
+                              config::semantic::LifecyclePolicyProfile::kFastConfirm);
 
   environment::EnvironmentService environment_service;
 
@@ -1756,7 +1913,7 @@ TEST(PropagationModelTest, ZeroAtmosphericAttenuationKeepsInternalPropagationBas
 /// @brief 默认配置下不生成干扰源，也不会误判为探测到干扰。
 TEST(EnvironmentServiceTest, EmptyJammerSourcesProduceNoJammingFacts) {
   environment::EnvironmentService service;
-  service.SetJammingSensitivityProfile(environment::ResolveJammingSensitivityProfile(0.001f));
+  service.SetJammingSensitivityProfile(environment::internal::ResolveJammingSensitivityProfile(0.001f));
 
   const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
   EXPECT_TRUE(snapshot.jammer_sources.empty());
@@ -1773,7 +1930,7 @@ TEST(EnvironmentServiceTest, StructuredSidelobeFactIsPreservedWithoutDetection) 
   source.angular_span_deg = 30.0f;
 
   environment::EnvironmentService service(MakeEnvironmentConfigWithJammers({source}));
-  service.SetJammingSensitivityProfile(environment::ResolveJammingSensitivityProfile(0.001f));
+  service.SetJammingSensitivityProfile(environment::internal::ResolveJammingSensitivityProfile(0.001f));
 
   const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
   ASSERT_EQ(snapshot.jammer_sources.size(), 1u);
@@ -1889,7 +2046,7 @@ TEST(EnvironmentServiceTest, KeepsAllJammerSourcesInSnapshot) {
   config.jammer_sources.push_back(high);
 
   environment::EnvironmentService service(config);
-  service.SetJammingSensitivityProfile(environment::ResolveJammingSensitivityProfile(2.0f));
+  service.SetJammingSensitivityProfile(environment::internal::ResolveJammingSensitivityProfile(2.0f));
 
   const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
   ASSERT_EQ(snapshot.jammer_sources.size(), 2u);
@@ -2022,9 +2179,11 @@ TEST(TrackFilterTest, RcsNeverGoesBelowMinimumOnMiss) {
 
 TEST(SignalPipelineTest, SameInstanceControlProfileSwitchAcrossCyclesSyncsLifecycleCovariance) {
   config::PipelineConfig pipeline_config;
-  pipeline_config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
-  pipeline_config.lifecycle.policy_profile = config::semantic::LifecyclePolicyProfile::kFastConfirm;
-  pipeline_config.tracking.enable_tracking_filter = true;
+  ApplyDetectionIntentProfile(&pipeline_config,
+                              config::semantic::DetectionIntentProfile::kDetectionPriority);
+  ApplyLifecyclePolicyProfile(&pipeline_config,
+                              config::semantic::LifecyclePolicyProfile::kFastConfirm);
+  pipeline_config.expert.tracking.enable_kalman_filter = true;
 
   environment::EnvironmentService environment_service;
 

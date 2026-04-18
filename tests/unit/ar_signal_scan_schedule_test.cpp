@@ -12,6 +12,7 @@
 
 #include "1q/airborne_radar/model/TargetFeatureUtils.h"
 #include "1q/airborne_radar/config/PipelineConfig.h"
+#include "1q/airborne_radar/config/presets/PipelineConfigPresets.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"
@@ -151,7 +152,7 @@ TEST(ScanScheduleResolverTest, StartPositionControlsFirstBeamQuadrant) {
 
 TEST(CycleExecutorTest, ValidRuntimeProducesInputAlignedStageBuffers) {
   config::PipelineConfig base_config;
-  base_config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
+  base_config = config::presets::MakeDetectionMissionPipelineConfig();
   const signal::pipeline::internal::InternalPipelineConfig internal_config =
       signal::pipeline::internal::BuildInternalPipelineConfig(base_config);
   const extension::control::RadarControlProfile control_profile{};
@@ -429,12 +430,18 @@ TEST(ScanScheduleResolverTest, TasIsDenserThanTwsAndKeepsSerpentineSemantics) {
 
 TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutcome) {
   config::PipelineConfig config;
-  config.detection.enable_physics_detection = true;
-  config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
-  config.detection.antenna_pattern.profile = config::semantic::AntennaPatternProfile::kWideCoverage;
+  config.expert.detection.enable_physics_detection = true;
+  config.expert.detection.pulse_count = 16;
+  config.expert.detection.detection_policy.cfar_pfa = 2.0e-6f;
+  config.expert.detection.detection_policy.min_snr_db = -12.0f;
+  config.expert.detection.min_detection_margin_db = -100.0f;
+  config.expert.detection.antenna.pattern.model_type =
+      config::expert::AntennaPatternModelType::kParabolicMainLobe;
+  config.expert.detection.antenna.pattern.max_sidelobe_level_db = -18.0f;
+  config.expert.detection.antenna.pattern.max_scan_loss_db = 8.0f;
 
-  config::engineering::DetectionConfig engineering_detection =
-      signal::pipeline::internal::ResolveDetectionEngineering(config.detection);
+    config::engineering::DetectionConfig engineering_detection =
+      config::internal::ResolveDetectionEngineering(config.expert.detection);
   engineering_detection.pulse_count = 4096;
   engineering_detection.detection_policy.cfar_pfa = 0.999999f;
   engineering_detection.detection_policy.min_snr_db = -50.0f;
@@ -444,7 +451,7 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
   engineering_detection.antenna.pattern.max_sidelobe_level_db = -80.0f;
   engineering_detection.antenna.pattern.backlobe_level_db = -80.0f;
 
-  model::RadarOrientationConfig& orientation = config.beam_control.radar_orientation;
+  model::RadarOrientationConfig& orientation = config.orientation;
   orientation.scan_center_deg.az_deg = 0.0f;
   orientation.scan_center_deg.el_deg = 0.0f;
   orientation.mechanical_scan_limits_deg.az_min_deg = -60.0f;
@@ -522,11 +529,16 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
 
 TEST(SignalPipelineScanScheduleTest, WorkSubModeSttReducesSweepCoverageComparedToTws) {
   config::PipelineConfig tws_config;
-  tws_config.detection.enable_physics_detection = true;
-  tws_config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
-  tws_config.detection.antenna_pattern.profile = config::semantic::AntennaPatternProfile::kWideCoverage;
-  model::RadarOrientationConfig& tws_orientation =
-      tws_config.beam_control.radar_orientation;
+  tws_config.expert.detection.enable_physics_detection = true;
+  tws_config.expert.detection.pulse_count = 16;
+  tws_config.expert.detection.detection_policy.cfar_pfa = 2.0e-6f;
+  tws_config.expert.detection.detection_policy.min_snr_db = -12.0f;
+  tws_config.expert.detection.min_detection_margin_db = -100.0f;
+  tws_config.expert.detection.antenna.pattern.model_type =
+      config::expert::AntennaPatternModelType::kParabolicMainLobe;
+  tws_config.expert.detection.antenna.pattern.max_sidelobe_level_db = -18.0f;
+  tws_config.expert.detection.antenna.pattern.max_scan_loss_db = 8.0f;
+  model::RadarOrientationConfig& tws_orientation = tws_config.orientation;
   tws_orientation.work_sub_mode = model::RadarWorkSubMode::kTws;
   tws_orientation.scan_center_deg.az_deg = -60.0f;
   tws_orientation.scan_center_deg.el_deg = 0.0f;
@@ -539,7 +551,7 @@ TEST(SignalPipelineScanScheduleTest, WorkSubModeSttReducesSweepCoverageComparedT
   tws_orientation.scan_sequence = oneq::foundation::ScanSequence::kAzimuthFirst;
 
   config::PipelineConfig stt_config = tws_config;
-  stt_config.beam_control.radar_orientation.work_sub_mode = model::RadarWorkSubMode::kStt;
+  stt_config.orientation.work_sub_mode = model::RadarWorkSubMode::kStt;
 
   signal::pipeline::SignalPipeline tws_pipeline(
       tws_config);

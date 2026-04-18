@@ -25,8 +25,11 @@ enum class JammingSensitivityProfile {
   kStrict = 2    /**< 更敏感，容易判定为干扰 */
 };
 
+namespace internal {
+
 /**
  * @brief 将语义化干扰灵敏度档位映射为内部 dB 阈值。
+ * @note 仅供内部实现使用，不构成公开 API。
  */
 inline float ResolveJammingDetectionThresholdDb(JammingSensitivityProfile profile) {
   switch (profile) {
@@ -42,6 +45,7 @@ inline float ResolveJammingDetectionThresholdDb(JammingSensitivityProfile profil
 
 /**
  * @brief 将 dB 阈值近似映射为语义化干扰灵敏度档位。
+ * @note 仅供内部实现使用，不构成公开 API。
  */
 inline JammingSensitivityProfile ResolveJammingSensitivityProfile(float threshold_db) {
   if (threshold_db <= 5.0f) {
@@ -52,6 +56,8 @@ inline JammingSensitivityProfile ResolveJammingSensitivityProfile(float threshol
   }
   return JammingSensitivityProfile::kBalanced;
 }
+
+}  // namespace internal
 
 /**
  * @brief JammingTechnique 与 `model::JammingTechnique` 保持统一的别名。

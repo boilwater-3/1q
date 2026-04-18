@@ -260,17 +260,19 @@ void RunPhysicalDetectionPass(const model::TargetFeatureList& input,
     detection::TargetReturn target;
     target.rcs_m2 = effective_rcs_m2;
     target.range_m = (*buffers->target_geometry)[i].range_m;
-    if (input[i].target_swerling_type >= static_cast<int>(config::semantic::kSwerling0) &&
-        input[i].target_swerling_type <= static_cast<int>(config::semantic::kSwerling4)) {
+    if (input[i].target_swerling_type >=
+            static_cast<int>(config::semantic::SwerlingModel::kSwerling0) &&
+        input[i].target_swerling_type <=
+            static_cast<int>(config::semantic::SwerlingModel::kSwerling4)) {
       target.swerling_type =
           static_cast<config::semantic::SwerlingModel>(input[i].target_swerling_type);
     } else {
-      target.swerling_type = runtime_config.detection.swerling_model;
+      target.swerling_type = runtime_config.expert.detection.swerling_model;
     }
 
     const detection::ResolvedBeamState beam_state =
         detection::BeamControlResolver::Resolve(internal_config.detection.engineering.antenna,
-                                                runtime_config.beam_control.radar_orientation,
+                                                runtime_config.orientation,
                                                 internal_config.beam_control.platform_attitude_deg,
                                                 (*buffers->target_geometry)[i].look_angles_deg);
     const detection::DetectionResult detection_result = signal_detector->Detect(

@@ -11,7 +11,6 @@
 
 #include "airborne_radar/config/engineering/SignalEngineeringConfig.h"
 #include "airborne_radar/utils/MathUtils.h"
-#include "1q/airborne_radar/config/semantic/AntennaPatternConfig.h"
 
 namespace airborne_radar {
 namespace signal {

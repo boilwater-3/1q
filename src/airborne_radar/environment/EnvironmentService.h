@@ -82,7 +82,7 @@ class EnvironmentService final : public environment::IEnvironmentService {
   EnvironmentCycleContext current_cycle_context_{};
   JammingSensitivityProfile jamming_sensitivity_profile_{JammingSensitivityProfile::kBalanced};
   float effective_jamming_detection_threshold_db_{
-      ResolveJammingDetectionThresholdDb(JammingSensitivityProfile::kBalanced)};
+      internal::ResolveJammingDetectionThresholdDb(JammingSensitivityProfile::kBalanced)};
 };
 
 }  // namespace environment

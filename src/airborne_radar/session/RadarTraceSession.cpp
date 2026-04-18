@@ -117,24 +117,6 @@ Json BuildJson(const model::RadarOrientationConfig& value) {
   return json;
 }
 
-Json BuildJson(const config::semantic::AntennaPatternConfig& value) {
-  Json json;
-  json["profile"] = static_cast<int>(value.profile);
-  json["boresight_offset_deg"] = BuildJson(value.boresight_offset_deg);
-  return json;
-}
-
-Json BuildJson(const config::semantic::DetectionConfig& value) {
-  Json json;
-  json["enable_physics_detection"] = value.enable_physics_detection;
-  json["hardware_profile"] = static_cast<int>(value.hardware_profile);
-  json["intent_profile"] = static_cast<int>(value.intent_profile);
-  json["swerling_model"] = static_cast<int>(value.swerling_model);
-  json["antenna_pattern"] = BuildJson(value.antenna_pattern);
-  json["rcs_fusion_profile"] = static_cast<int>(value.rcs_fusion_profile);
-  return json;
-}
-
 Json BuildJson(const config::expert::DetectionConfig& value) {
   Json json;
   json["enable_physics_detection"] = value.enable_physics_detection;
@@ -176,25 +158,11 @@ Json BuildJson(const config::expert::DetectionConfig& value) {
   return json;
 }
 
-Json BuildJson(const config::semantic::TrackingConfig& value) {
-  Json json;
-  json["enable_tracking_filter"] = value.enable_tracking_filter;
-  json["policy_profile"] = static_cast<int>(value.policy_profile);
-  return json;
-}
-
 Json BuildJson(const config::expert::TrackingConfig& value) {
   Json json;
   json["enable_kalman_filter"] = value.enable_kalman_filter;
   json["kalman_measurement_noise_std"] = value.kalman_measurement_noise_std;
   json["kalman_update_backend"] = static_cast<int>(value.kalman_update_backend);
-  return json;
-}
-
-Json BuildJson(const config::semantic::LifecycleConfig& value) {
-  Json json;
-  json["policy_profile"] = static_cast<int>(value.policy_profile);
-  json["enable_imm_fusion"] = value.enable_imm_fusion;
   return json;
 }
 
@@ -209,15 +177,10 @@ Json BuildJson(const config::expert::LifecycleConfig& value) {
 
 Json BuildJson(const config::PipelineConfig& value) {
   Json json;
-  json["model"] = static_cast<int>(value.model);
-  json["detection"] = BuildJson(value.detection);
-
-  Json beam_control;
-  beam_control["radar_orientation"] = BuildJson(value.beam_control.radar_orientation);
-  json["beam_control"] = beam_control;
-
-  json["tracking"] = BuildJson(value.tracking);
-  json["lifecycle"] = BuildJson(value.lifecycle);
+  json["orientation"] = BuildJson(value.orientation);
+  json["detection"] = BuildJson(value.expert.detection);
+  json["tracking"] = BuildJson(value.expert.tracking);
+  json["lifecycle"] = BuildJson(value.expert.lifecycle);
   json["expert"] = {{"detection", BuildJson(value.expert.detection)},
                     {"tracking", BuildJson(value.expert.tracking)},
                     {"lifecycle", BuildJson(value.expert.lifecycle)}};
@@ -313,14 +276,7 @@ Json BuildJson(const environment::EnvironmentSceneState& value) {
 
 Json BuildJson(const RadarSessionConfig& value) {
   Json json;
-  config::PipelineConfig pipeline_config;
-  pipeline_config.model = value.pipeline_config_model;
-  pipeline_config.detection = value.detection;
-  pipeline_config.beam_control = value.beam_control;
-  pipeline_config.tracking = value.tracking;
-  pipeline_config.lifecycle = value.lifecycle;
-  pipeline_config.expert = value.expert_pipeline_config;
-  json["pipeline_config"] = BuildJson(pipeline_config);
+  json["pipeline_config"] = BuildJson(value.pipeline_config);
   json["environment_default_config"] = {
       {"scenario_config", BuildJson(value.environment_default_config.scenario_config)},
       {"jamming_sensitivity_profile",

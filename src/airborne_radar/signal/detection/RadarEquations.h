@@ -8,7 +8,7 @@
 
 #include <random>
 
-#include "1q/airborne_radar/config/semantic/profiles/DetectionProfiles.h"
+#include "1q/airborne_radar/config/semantic/DetectionProfiles.h"
 #include "airborne_radar/config/engineering/SignalEngineeringConfig.h"
 
 namespace airborne_radar {

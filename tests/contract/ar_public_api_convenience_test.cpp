@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
+#include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/config/presets/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
@@ -33,20 +34,23 @@ namespace tests {
 namespace {
 
 config::PipelineConfig MakeConveniencePipelineConfig() {
-  config::PipelineConfig config;
-  config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
-  config.lifecycle.policy_profile = config::semantic::LifecyclePolicyProfile::kFastConfirm;
-  config.tracking.policy_profile = config::semantic::TrackingPolicyProfile::kFastAssociation;
-  return config;
+  return config::RadarSessionConfigBuilder()
+      .Detection()
+      .WithDetectionIntentProfile(config::semantic::DetectionIntentProfile::kDetectionPriority)
+      .End()
+      .Tracking()
+      .WithTrackingPolicyProfile(config::semantic::TrackingPolicyProfile::kFastAssociation)
+      .End()
+      .Lifecycle()
+      .WithLifecyclePolicyProfile(config::semantic::LifecyclePolicyProfile::kFastConfirm)
+      .End()
+      .Build()
+      .pipeline_config;
 }
 
 session::RadarSessionConfig MakeConvenienceSessionConfig() {
   session::RadarSessionConfig config;
-  const auto pipeline_config = MakeConveniencePipelineConfig();
-  config.detection = pipeline_config.detection;
-  config.beam_control = pipeline_config.beam_control;
-  config.tracking = pipeline_config.tracking;
-  config.lifecycle = pipeline_config.lifecycle;
+  config.pipeline_config = MakeConveniencePipelineConfig();
   return config;
 }
 
@@ -727,14 +731,18 @@ TEST(PublicApiConvenienceTest, RadarInputValidationFlagsMissingGeometryAndNonFin
 TEST(PublicApiConvenienceTest, ConfigPresetsProvideExpectedDetectionAndRobustnessDefaults) {
   const config::PipelineConfig detection_config =
       config::presets::MakeDetectionMissionPipelineConfig();
-  EXPECT_EQ(detection_config.lifecycle.policy_profile, config::semantic::LifecyclePolicyProfile::kFastConfirm);
-  EXPECT_EQ(detection_config.detection.intent_profile,
-            config::semantic::DetectionIntentProfile::kDetectionPriority);
+  EXPECT_EQ(detection_config.expert.lifecycle.confirm_hits, 1U);
+  EXPECT_EQ(detection_config.expert.lifecycle.max_miss_before_lost, 1U);
+  EXPECT_EQ(detection_config.expert.detection.pulse_count, 16);
+  EXPECT_FLOAT_EQ(detection_config.expert.detection.detection_policy.min_snr_db, -12.0f);
 
   const config::PipelineConfig robust_config =
       config::presets::MakeHighRobustnessPipelineConfig();
-  EXPECT_EQ(robust_config.lifecycle.policy_profile, config::semantic::LifecyclePolicyProfile::kHighPersistence);
-  EXPECT_EQ(robust_config.tracking.policy_profile, config::semantic::TrackingPolicyProfile::kRobustAntiJamming);
+  EXPECT_EQ(robust_config.expert.lifecycle.confirm_hits, 3U);
+  EXPECT_EQ(robust_config.expert.lifecycle.max_miss_before_lost, 3U);
+  EXPECT_EQ(robust_config.expert.tracking.kalman_update_backend,
+            config::expert::KalmanUpdateBackend::kUdKf);
+  EXPECT_FLOAT_EQ(robust_config.expert.association.unassigned_cost, 12.0f);
 
   const session::RadarSessionConfig session_config =
       config::presets::MakeDetectionMissionRadarSessionConfig();
@@ -782,11 +790,7 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
   session::RadarSession session = session::RadarSessionFactory::Create(config);
 
   session::MutableRadarContext manual_context;
-  config::PipelineConfig pipeline_config;
-  pipeline_config.detection = config.detection;
-  pipeline_config.beam_control = config.beam_control;
-  pipeline_config.tracking = config.tracking;
-  pipeline_config.lifecycle = config.lifecycle;
+  config::PipelineConfig pipeline_config = config.pipeline_config;
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
   environment::EnvironmentService environment_service(
       environment::BuildModelConfigFromScenario(config.environment_default_config.scenario_config));
@@ -1020,7 +1024,7 @@ TEST(PublicApiConvenienceTest,
   EXPECT_EQ(environment_service.update_scene_state_count(), committed_update_scene_count + 1U);
   EXPECT_EQ(environment_service.update_model_config_count(), committed_update_model_count + 1U);
   EXPECT_EQ(environment_service.set_sensitivity_count(), committed_threshold_count + 1U);
-  EXPECT_EQ(signal_pipeline.config().beam_control.radar_orientation.work_sub_mode,
+  EXPECT_EQ(signal_pipeline.config().orientation.work_sub_mode,
             model::RadarWorkSubMode::kTas);
   EXPECT_EQ(environment_service.jamming_sensitivity_profile(),
             environment::JammingSensitivityProfile::kStrict);
@@ -1135,7 +1139,7 @@ TEST(PublicApiConvenienceTest,
   ASSERT_EQ(radar_context.GetTargetFeatures().size(), 1U);
   EXPECT_EQ(radar_context.GetTargetFeatures()[0].external_target_id, 960U);
   EXPECT_FLOAT_EQ(radar_context.GetCycleDeltaTimeSec(), 1.0f);
-  EXPECT_EQ(signal_pipeline.config().beam_control.radar_orientation.work_sub_mode,
+  EXPECT_EQ(signal_pipeline.config().orientation.work_sub_mode,
             model::RadarWorkSubMode::kTws);
   EXPECT_EQ(environment_service.jamming_sensitivity_profile(),
             environment::JammingSensitivityProfile::kBalanced);
@@ -1144,7 +1148,7 @@ TEST(PublicApiConvenienceTest,
   signal_pipeline.SetShouldExecute(true);
   const session::RadarCycleResult committed = session.StepWithResult(baseline_input, jammed_scene);
   EXPECT_TRUE(committed.executed_this_cycle);
-  EXPECT_EQ(signal_pipeline.config().beam_control.radar_orientation.work_sub_mode,
+  EXPECT_EQ(signal_pipeline.config().orientation.work_sub_mode,
             model::RadarWorkSubMode::kTas);
   EXPECT_EQ(environment_service.jamming_sensitivity_profile(),
             environment::JammingSensitivityProfile::kStrict);
@@ -1183,11 +1187,7 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultMatchesManualChainUnder
   session::RadarSession session = session::RadarSessionFactory::Create(config);
 
   session::MutableRadarContext manual_context;
-  config::PipelineConfig pipeline_config;
-  pipeline_config.detection = config.detection;
-  pipeline_config.beam_control = config.beam_control;
-  pipeline_config.tracking = config.tracking;
-  pipeline_config.lifecycle = config.lifecycle;
+  config::PipelineConfig pipeline_config = config.pipeline_config;
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
   environment::EnvironmentService environment_service(
       environment::BuildModelConfigFromScenario(config.environment_default_config.scenario_config));

@@ -201,7 +201,7 @@ void EnvironmentService::UpdateModelConfig(const EnvironmentModelConfig& config)
 
 void EnvironmentService::SetJammingSensitivityProfile(JammingSensitivityProfile profile) {
   jamming_sensitivity_profile_ = profile;
-  effective_jamming_detection_threshold_db_ = ResolveJammingDetectionThresholdDb(profile);
+  effective_jamming_detection_threshold_db_ = internal::ResolveJammingDetectionThresholdDb(profile);
   RefreshFrozenSnapshotFromActiveScene();
 }
 
@@ -225,7 +225,7 @@ void EnvironmentService::RestoreRuntimeState(
   current_cycle_context_ = state.active_cycle_context;
   jamming_sensitivity_profile_ = state.jamming_sensitivity_profile;
   effective_jamming_detection_threshold_db_ =
-      ResolveJammingDetectionThresholdDb(jamming_sensitivity_profile_);
+      internal::ResolveJammingDetectionThresholdDb(jamming_sensitivity_profile_);
   RefreshFrozenSnapshotFromActiveScene();
 }
 

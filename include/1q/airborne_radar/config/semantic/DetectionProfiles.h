@@ -3,8 +3,8 @@
  * @brief 定义 semantic 探测域使用的 profile 枚举。
  */
 
-#ifndef AIRBORNE_RADAR_CONFIG_SEMANTIC_PROFILES_DETECTION_PROFILES_H_
-#define AIRBORNE_RADAR_CONFIG_SEMANTIC_PROFILES_DETECTION_PROFILES_H_
+#ifndef AIRBORNE_RADAR_CONFIG_SEMANTIC_DETECTION_PROFILES_H_
+#define AIRBORNE_RADAR_CONFIG_SEMANTIC_DETECTION_PROFILES_H_
 
 namespace airborne_radar {
 namespace config {
@@ -13,7 +13,7 @@ namespace semantic {
 /**
  * @brief 目标起伏模型枚举。
  */
-enum SwerlingModel {
+enum class SwerlingModel {
   kSwerling0 = 0, /**< 无起伏基线模型。 */
   kSwerling1 = 1, /**< 慢起伏目标模型 1。 */
   kSwerling2 = 2, /**< 快起伏目标模型 2。 */
@@ -52,4 +52,4 @@ enum class RcsFusionProfile {
 }  // namespace config
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_CONFIG_SEMANTIC_PROFILES_DETECTION_PROFILES_H_
+#endif  // AIRBORNE_RADAR_CONFIG_SEMANTIC_DETECTION_PROFILES_H_

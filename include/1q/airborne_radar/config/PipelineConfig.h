@@ -6,27 +6,22 @@
 #ifndef AIRBORNE_RADAR_CONFIG_PIPELINE_CONFIG_H_
 #define AIRBORNE_RADAR_CONFIG_PIPELINE_CONFIG_H_
 
-#include "1q/airborne_radar/config/ConfigModel.h"
 #include "1q/airborne_radar/config/expert/ExpertPipelineConfig.h"
-#include "1q/airborne_radar/config/semantic/BeamControlConfig.h"
-#include "1q/airborne_radar/config/semantic/DetectionConfig.h"
-#include "1q/airborne_radar/config/semantic/LifecycleConfig.h"
-#include "1q/airborne_radar/config/semantic/TrackingConfig.h"
+#include "1q/airborne_radar/model/RadarOrientationConfig.h"
 
 namespace airborne_radar {
 namespace config {
 
 /**
  * @brief 公开信号流水线聚合配置壳。
- * @note `model` 决定流水线读取 semantic 还是 expert 子配置。
+ *
+ * 所有流水线物理参数均通过 `expert` 字段表示。
+ * `orientation` 字段承载运行期可热更新的波束指向与扫描状态，
+ * 运行时补丁（RadarRuntimeConfigPatch）会在不重建会话的前提下修改此字段。
  */
 struct PipelineConfig {
-  PipelineConfigModel model{PipelineConfigModel::kSemantic}; /**< 当前配置模型。 */
-  semantic::DetectionConfig detection{}; /**< semantic 探测配置。 */
-  semantic::BeamControlConfig beam_control{}; /**< semantic 波束控制配置。 */
-  semantic::TrackingConfig tracking{}; /**< semantic 跟踪配置。 */
-  semantic::LifecycleConfig lifecycle{}; /**< semantic 航迹生命周期配置。 */
-  expert::ExpertPipelineConfig expert{}; /**< expert 流水线配置。 */
+  expert::ExpertPipelineConfig expert{}; /**< 物理参数配置（探测/跟踪/生命周期/波束调度）。 */
+  model::RadarOrientationConfig orientation{}; /**< 波束指向与扫描运行态（支持运行时热更新）。 */
 };
 
 }  // namespace config

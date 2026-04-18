@@ -5,36 +5,11 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "airborne_radar/config/engineering/SignalEngineeringConfig.h"
-
 namespace airborne_radar {
 namespace signal {
 namespace pipeline {
 namespace core {
 namespace internal {
-
-namespace {
-
-config::engineering::AntennaConfig ResolveSchedulingAntennaConfig(
-    const config::semantic::DetectionConfig& detection_config) {
-  config::engineering::AntennaConfig antenna;
-  switch (detection_config.hardware_profile) {
-    case config::semantic::RadarHardwareProfile::kLongRangeHighPower:
-      antenna.nominal_az_beamwidth_deg = 3.0f;
-      antenna.nominal_el_beamwidth_deg = 3.0f;
-      break;
-    case config::semantic::RadarHardwareProfile::kLightweightLpi:
-      antenna.nominal_az_beamwidth_deg = 5.0f;
-      antenna.nominal_el_beamwidth_deg = 5.0f;
-      break;
-    case config::semantic::RadarHardwareProfile::kGenericAirborneXBand:
-    default:
-      break;
-  }
-  return antenna;
-}
-
-}  // namespace
 
 model::AzimuthElevationDeg ResolveFiniteScanCenter(
     const model::RadarOrientationConfig& orientation_config) {

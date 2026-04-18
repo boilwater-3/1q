@@ -304,7 +304,7 @@ TEST(SignalDetectorTest, DetectionProbabilityUsesIntegratedSnr) {
   signal::detection::TargetReturn target;
   target.rcs_m2 = 0.5f;
   target.range_m = 120000.0f;
-  target.swerling_type = config::semantic::kSwerling2;
+  target.swerling_type = config::semantic::SwerlingModel::kSwerling2;
 
   signal::detection::EnvironmentState env;
   env.propagation_loss_db = 0.0f;
@@ -341,7 +341,7 @@ TEST(SignalDetectorTest, WiderBandwidthReducesSnrWithSameEnergyInputs) {
   signal::detection::TargetReturn target;
   target.rcs_m2 = 1.0f;
   target.range_m = 90000.0f;
-  target.swerling_type = config::semantic::kSwerling1;
+  target.swerling_type = config::semantic::SwerlingModel::kSwerling1;
 
   signal::detection::EnvironmentState env;
   env.propagation_loss_db = 0.0f;
@@ -365,7 +365,7 @@ TEST(SignalDetectorTest, HigherPulseCountYieldsHigherPd) {
   signal::detection::TargetReturn target;
   target.rcs_m2 = 1.0f;
   target.range_m = 90000.0f;
-  target.swerling_type = config::semantic::kSwerling1;
+  target.swerling_type = config::semantic::SwerlingModel::kSwerling1;
 
   signal::detection::EnvironmentState env;
   env.propagation_loss_db = 0.0f;
@@ -586,19 +586,19 @@ TEST(BeamControlResolverTest, GroundStabilizedCurrentlyMatchesInertialStabilized
 // Swerling 0~4 检测概率单元测试
 // ===========================================================================
 
-using config::semantic::kSwerling0;
-using config::semantic::kSwerling1;
-using config::semantic::kSwerling2;
-using config::semantic::kSwerling3;
-using config::semantic::kSwerling4;
+
+
+
+
+
 using config::semantic::SwerlingModel;
 
 /// @brief Swerling 1 单脉冲 ≡ Swerling 2 单脉冲（单脉冲无所谓快慢起伏）。
 TEST(SwerlingDetectionTest, Sw1_N1_Equals_Sw2_N1) {
   const float pfa = 1e-6f;
   for (float snr_db = -5.0f; snr_db <= 25.0f; snr_db += 5.0f) {
-    const float pd1 = RadarEquations::ComputeDetectionProbability(snr_db, pfa, kSwerling1, 1);
-    const float pd2 = RadarEquations::ComputeDetectionProbability(snr_db, pfa, kSwerling2, 1);
+    const float pd1 = RadarEquations::ComputeDetectionProbability(snr_db, pfa, SwerlingModel::kSwerling1, 1);
+    const float pd2 = RadarEquations::ComputeDetectionProbability(snr_db, pfa, SwerlingModel::kSwerling2, 1);
     EXPECT_NEAR(pd1, pd2, 1e-6f) << "SNR=" << snr_db << " dB: Sw1(N=1) should equal Sw2(N=1)";
   }
 }
@@ -607,8 +607,8 @@ TEST(SwerlingDetectionTest, Sw1_N1_Equals_Sw2_N1) {
 TEST(SwerlingDetectionTest, Sw3_N1_Equals_Sw4_N1) {
   const float pfa = 1e-6f;
   for (float snr_db = -5.0f; snr_db <= 25.0f; snr_db += 5.0f) {
-    const float pd3 = RadarEquations::ComputeDetectionProbability(snr_db, pfa, kSwerling3, 1);
-    const float pd4 = RadarEquations::ComputeDetectionProbability(snr_db, pfa, kSwerling4, 1);
+    const float pd3 = RadarEquations::ComputeDetectionProbability(snr_db, pfa, SwerlingModel::kSwerling3, 1);
+    const float pd4 = RadarEquations::ComputeDetectionProbability(snr_db, pfa, SwerlingModel::kSwerling4, 1);
     EXPECT_NEAR(pd3, pd4, 1e-6f) << "SNR=" << snr_db << " dB: Sw3(N=1) should equal Sw4(N=1)";
   }
 }
@@ -617,10 +617,10 @@ TEST(SwerlingDetectionTest, Sw3_N1_Equals_Sw4_N1) {
 TEST(SwerlingDetectionTest, HighSNR_AllModels_PdNearOne) {
   const float pfa = 1e-6f;
   const float high_snr = 35.0f;
-  const SwerlingModel models[] = {kSwerling0, kSwerling1, kSwerling2, kSwerling3, kSwerling4};
+  const SwerlingModel models[] = {SwerlingModel::kSwerling0, SwerlingModel::kSwerling1, SwerlingModel::kSwerling2, SwerlingModel::kSwerling3, SwerlingModel::kSwerling4};
   for (auto model : models) {
     const float pd = RadarEquations::ComputeDetectionProbability(high_snr, pfa, model, 1);
-    EXPECT_GT(pd, 0.95f) << "Model=" << model << ": Pd should be > 0.95 at 35 dB";
+    EXPECT_GT(pd, 0.95f) << "Model=" << static_cast<int>(model) << ": Pd should be > 0.95 at 35 dB";
   }
 }
 
@@ -628,23 +628,23 @@ TEST(SwerlingDetectionTest, HighSNR_AllModels_PdNearOne) {
 TEST(SwerlingDetectionTest, LowSNR_AllModels_PdNearZero) {
   const float pfa = 1e-6f;
   const float low_snr = -20.0f;
-  const SwerlingModel models[] = {kSwerling0, kSwerling1, kSwerling2, kSwerling3, kSwerling4};
+  const SwerlingModel models[] = {SwerlingModel::kSwerling0, SwerlingModel::kSwerling1, SwerlingModel::kSwerling2, SwerlingModel::kSwerling3, SwerlingModel::kSwerling4};
   for (auto model : models) {
     const float pd = RadarEquations::ComputeDetectionProbability(low_snr, pfa, model, 1);
-    EXPECT_LT(pd, 0.01f) << "Model=" << model << ": Pd should be near 0 at -20 dB";
+    EXPECT_LT(pd, 0.01f) << "Model=" << static_cast<int>(model) << ": Pd should be near 0 at -20 dB";
   }
 }
 
 /// @brief 所有模型：Pd 随 SNR 单调递增。
 TEST(SwerlingDetectionTest, Monotone_Pd_Increases_With_SNR) {
   const float pfa = 1e-6f;
-  const SwerlingModel models[] = {kSwerling0, kSwerling1, kSwerling2, kSwerling3, kSwerling4};
+  const SwerlingModel models[] = {SwerlingModel::kSwerling0, SwerlingModel::kSwerling1, SwerlingModel::kSwerling2, SwerlingModel::kSwerling3, SwerlingModel::kSwerling4};
   for (auto model : models) {
     float prev_pd = 0.0f;
     for (float snr_db = -10.0f; snr_db <= 25.0f; snr_db += 1.0f) {
       const float pd = RadarEquations::ComputeDetectionProbability(snr_db, pfa, model, 1);
       EXPECT_GE(pd, prev_pd - 1e-6f)
-          << "Model=" << model << " SNR=" << snr_db << ": Pd must be monotonically non-decreasing";
+          << "Model=" << static_cast<int>(model) << " SNR=" << snr_db << ": Pd must be monotonically non-decreasing";
       prev_pd = pd;
     }
   }
@@ -654,11 +654,11 @@ TEST(SwerlingDetectionTest, Monotone_Pd_Increases_With_SNR) {
 TEST(SwerlingDetectionTest, MultiPulse_Improves_Pd) {
   const float pfa = 1e-6f;
   const float snr_db = 8.0f;
-  const SwerlingModel models[] = {kSwerling0, kSwerling1, kSwerling2, kSwerling3, kSwerling4};
+  const SwerlingModel models[] = {SwerlingModel::kSwerling0, SwerlingModel::kSwerling1, SwerlingModel::kSwerling2, SwerlingModel::kSwerling3, SwerlingModel::kSwerling4};
   for (auto model : models) {
     const float pd_1 = RadarEquations::ComputeDetectionProbability(snr_db, pfa, model, 1);
     const float pd_10 = RadarEquations::ComputeDetectionProbability(snr_db, pfa, model, 10);
-    EXPECT_GT(pd_10, pd_1) << "Model=" << model << ": 10 pulses should improve Pd over 1 pulse";
+    EXPECT_GT(pd_10, pd_1) << "Model=" << static_cast<int>(model) << ": 10 pulses should improve Pd over 1 pulse";
   }
 }
 
@@ -668,8 +668,8 @@ TEST(SwerlingDetectionTest, Sw1_Sw2_MultiPulse_BothReasonable) {
   const float pfa = 1e-6f;
   const float snr_db = 3.0f;
   const int N = 10;
-  const float pd1 = RadarEquations::ComputeDetectionProbability(snr_db, pfa, kSwerling1, N);
-  const float pd2 = RadarEquations::ComputeDetectionProbability(snr_db, pfa, kSwerling2, N);
+  const float pd1 = RadarEquations::ComputeDetectionProbability(snr_db, pfa, SwerlingModel::kSwerling1, N);
+  const float pd2 = RadarEquations::ComputeDetectionProbability(snr_db, pfa, SwerlingModel::kSwerling2, N);
   // 两者均应在合理范围内
   EXPECT_GT(pd1, 0.01f) << "Sw1 multi-pulse should give measurable Pd";
   EXPECT_GT(pd2, 0.01f) << "Sw2 multi-pulse should give measurable Pd";
@@ -684,8 +684,8 @@ TEST(SwerlingDetectionTest, Sw3_Sw4_MultiPulse_BothReasonable) {
   const float pfa = 1e-6f;
   const float snr_db = 1.0f;  // SW3 慢起伏在较高 SNR 下易饱和
   const int N = 10;
-  const float pd3 = RadarEquations::ComputeDetectionProbability(snr_db, pfa, kSwerling3, N);
-  const float pd4 = RadarEquations::ComputeDetectionProbability(snr_db, pfa, kSwerling4, N);
+  const float pd3 = RadarEquations::ComputeDetectionProbability(snr_db, pfa, SwerlingModel::kSwerling3, N);
+  const float pd4 = RadarEquations::ComputeDetectionProbability(snr_db, pfa, SwerlingModel::kSwerling4, N);
   EXPECT_GT(pd3, 0.01f) << "Sw3 multi-pulse should give measurable Pd";
   EXPECT_GT(pd4, 0.01f) << "Sw4 multi-pulse should give measurable Pd";
   EXPECT_LT(pd3, 1.0f) << "Sw3 should not saturate at low SNR";
@@ -697,7 +697,7 @@ TEST(SwerlingDetectionTest, Sw3_Sw4_MultiPulse_BothReasonable) {
 TEST(SwerlingDetectionTest, Sw1_SinglePulse_ExactFormula) {
   const float pfa = 1e-6f;
   const float snr_db = 15.0f;
-  const float pd = RadarEquations::ComputeDetectionProbability(snr_db, pfa, kSwerling1, 1);
+  const float pd = RadarEquations::ComputeDetectionProbability(snr_db, pfa, SwerlingModel::kSwerling1, 1);
   // 手工计算: T = -ln(1e-6) ≈ 13.8155, χ = 10^1.5 ≈ 31.623
   // Pd = exp(-13.8155 / (1+31.623)) = exp(-0.4237) ≈ 0.6550
   EXPECT_NEAR(pd, 0.655f, 0.01f);
@@ -839,7 +839,7 @@ TEST(SignalDetectorTest, NonPositiveNoiseInputDoesNotInflateSnr) {
   signal::detection::TargetReturn target;
   target.rcs_m2 = 1.0f;
   target.range_m = 100000.0f;
-  target.swerling_type = kSwerling0;
+  target.swerling_type = SwerlingModel::kSwerling0;
 
   signal::detection::EnvironmentState baseline_env;
   baseline_env.propagation_loss_db = 0.0f;

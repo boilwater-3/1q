@@ -20,7 +20,7 @@ namespace tests {
 
 TEST(SignalComponentFactoryTest, BuildOwnedComponentsSelectsPredictorUpdaterFamilyByBackend) {
   config::PipelineConfig config;
-  config.tracking.enable_tracking_filter = true;
+    config.expert.tracking.enable_kalman_filter = true;
 
   signal::pipeline::internal::InternalPipelineConfig internal_config =
       signal::pipeline::internal::BuildInternalPipelineConfig(config);
@@ -60,8 +60,8 @@ TEST(SignalComponentFactoryTest, BuildOwnedComponentsSelectsPredictorUpdaterFami
 
 TEST(SignalComponentFactoryTest, ImmAssemblyUsesSamePredictorUpdaterBackendFamily) {
   config::PipelineConfig config;
-  config.tracking.enable_tracking_filter = true;
-  config.lifecycle.enable_imm_fusion = true;
+    config.expert.tracking.enable_kalman_filter = true;
+    config.expert.lifecycle.enable_imm_lifecycle = true;
 
   signal::pipeline::internal::InternalPipelineConfig internal_config =
       signal::pipeline::internal::BuildInternalPipelineConfig(config);
@@ -84,8 +84,8 @@ TEST(SignalComponentFactoryTest, ImmAssemblyUsesSamePredictorUpdaterBackendFamil
 
 TEST(SignalComponentFactoryTest, InvalidImmAssemblyDoesNotFallbackToNonImmManager) {
   config::PipelineConfig config;
-  config.tracking.enable_tracking_filter = true;
-  config.lifecycle.enable_imm_fusion = true;
+    config.expert.tracking.enable_kalman_filter = true;
+    config.expert.lifecycle.enable_imm_lifecycle = true;
 
   signal::pipeline::internal::InternalPipelineConfig internal_config =
       signal::pipeline::internal::BuildInternalPipelineConfig(config);

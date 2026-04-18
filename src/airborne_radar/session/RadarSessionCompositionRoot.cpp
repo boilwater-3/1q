@@ -14,14 +14,7 @@ namespace {
 
 config::PipelineConfig BuildPipelineConfig(
     const RadarSessionConfig& session_config) {
-  config::PipelineConfig pipeline_config;
-  pipeline_config.model = session_config.pipeline_config_model;
-  pipeline_config.detection = session_config.detection;
-  pipeline_config.beam_control = session_config.beam_control;
-  pipeline_config.tracking = session_config.tracking;
-  pipeline_config.lifecycle = session_config.lifecycle;
-  pipeline_config.expert = session_config.expert_pipeline_config;
-  return pipeline_config;
+  return session_config.pipeline_config;
 }
 
 RadarSessionComposition BuildCompositionBase(const RadarSessionConfig& config) {

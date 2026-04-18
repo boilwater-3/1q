@@ -249,12 +249,12 @@ void ApplyControlProfileToConfig(const extension::control::RadarControlProfile& 
 
   const float beamwidth_scale = ResolveBeamwidthScale(cfg, control_profile);
   if (beamwidth_scale < 0.999f) {
-    runtime_config->beam_control.radar_orientation.commanded_beamwidth_enabled = true;
-    runtime_config->beam_control.radar_orientation.commanded_beamwidth_deg
+    runtime_config->orientation.commanded_beamwidth_enabled = true;
+    runtime_config->orientation.commanded_beamwidth_deg
         .commanded_az_beamwidth_deg =
         std::max(0.5f, internal_config->detection.engineering.antenna.nominal_az_beamwidth_deg *
                            beamwidth_scale);
-    runtime_config->beam_control.radar_orientation.commanded_beamwidth_deg
+    runtime_config->orientation.commanded_beamwidth_deg
         .commanded_el_beamwidth_deg =
         std::max(0.5f, internal_config->detection.engineering.antenna.nominal_el_beamwidth_deg *
                            beamwidth_scale);

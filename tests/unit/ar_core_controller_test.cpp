@@ -22,6 +22,7 @@
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/extension/control/RadarCommand.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
+#include "1q/airborne_radar/config/presets/RadarSessionConfigPresets.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/core/SignalPipeline.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
@@ -562,10 +563,7 @@ TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {
 
   environment::EnvironmentService environment_service;
 
-  config::PipelineConfig pipeline_config;
-  pipeline_config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
-  pipeline_config.lifecycle.policy_profile = config::semantic::LifecyclePolicyProfile::kFastConfirm;
-  pipeline_config.tracking.policy_profile = config::semantic::TrackingPolicyProfile::kFastAssociation;
+  config::PipelineConfig pipeline_config = config::presets::MakeDetectionMissionPipelineConfig();
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
@@ -604,10 +602,7 @@ TEST_F(CoreControllerTest, DuplicateExternalTargetIdRetainsPreviousValidOutputFr
 
   environment::EnvironmentService environment_service;
 
-  config::PipelineConfig pipeline_config;
-  pipeline_config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
-  pipeline_config.lifecycle.policy_profile = config::semantic::LifecyclePolicyProfile::kFastConfirm;
-  pipeline_config.tracking.policy_profile = config::semantic::TrackingPolicyProfile::kFastAssociation;
+  config::PipelineConfig pipeline_config = config::presets::MakeDetectionMissionPipelineConfig();
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
