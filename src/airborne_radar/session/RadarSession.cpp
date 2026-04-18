@@ -3,13 +3,14 @@
 #include <utility>
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
+#include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/extension/IRadarContext.h"
+#include "1q/airborne_radar/extension/ISignalPipeline.h"
 #include "1q/airborne_radar/extension/RadarController.h"
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
-#include "1q/airborne_radar/environment/IEnvironmentService.h"
-#include "1q/airborne_radar/extension/ISignalPipeline.h"
 #include "airborne_radar/session/RadarSessionCompositionRoot.h"
 #include "airborne_radar/session/RuntimeConfigResolver.h"
+#include "airborne_radar/session/SessionConfigBridge.h"
 
 namespace airborne_radar {
 namespace session {
@@ -25,10 +26,11 @@ struct RadarSession::Impl {
         signal_pipeline(*composition.signal_pipeline),
         environment_service(*composition.environment_service),
         controller(*composition.controller) {
-    runtime_state.pipeline_config = composition.runtime_pipeline_config;
+    runtime_state.hardware = composition.runtime_hardware;
+    runtime_state.mission = composition.runtime_mission;
+    runtime_state.policy = composition.runtime_policy;
     runtime_state.environment_scenario_config = composition.runtime_environment_scenario_config;
-    runtime_state.jamming_sensitivity_profile =
-      composition.runtime_jamming_sensitivity_profile;
+    runtime_state.jamming_sensitivity_profile = composition.runtime_jamming_sensitivity_profile;
     pending_runtime_state = runtime_state;
   }
 
@@ -71,8 +73,7 @@ struct RadarSession::Impl {
     return result;
   }
 
-  RadarCycleResult BuildExecutionAbortResult(
-      extension::SignalCycleAbortReason abort_reason) const {
+  RadarCycleResult BuildExecutionAbortResult(extension::SignalCycleAbortReason abort_reason) const {
     RadarCycleResult result;
     if (controller.HasLatestTrackOutputFrame()) {
       result.track_output_frame = controller.GetLatestTrackOutputFrame();
@@ -87,7 +88,11 @@ struct RadarSession::Impl {
       return true;
     }
 
-    if (!signal_pipeline.UpdateConfig(pending_runtime_state.pipeline_config)) {
+    const session::RadarSessionConfig pipeline_config =
+        internal::BuildSessionConfigFromRuntimeState(pending_runtime_state.hardware,
+                                                     pending_runtime_state.mission,
+                                                     pending_runtime_state.policy);
+    if (!signal_pipeline.UpdateConfig(pipeline_config)) {
       return false;
     }
     environment_service.UpdateModelConfig(environment::BuildModelConfigFromScenario(
@@ -105,10 +110,9 @@ struct RadarSession::Impl {
     has_pending_runtime_update = false;
   }
 
-  void RollbackFailedCycle(
-      const extension::RadarContextRuntimeState& radar_context_state,
-      const environment::EnvironmentServiceRuntimeState* environment_state,
-      const extension::RadarControllerRuntimeState* controller_state) {
+  void RollbackFailedCycle(const extension::RadarContextRuntimeState& radar_context_state,
+                           const environment::EnvironmentServiceRuntimeState* environment_state,
+                           const extension::RadarControllerRuntimeState* controller_state) {
     radar_context.RestoreRuntimeState(radar_context_state);
     if (environment_state != nullptr) {
       environment_service.RestoreRuntimeState(*environment_state);
@@ -138,9 +142,8 @@ RadarSession::RadarSession(RadarSession&&) noexcept = default;
 RadarSession& RadarSession::operator=(RadarSession&&) noexcept = default;
 
 RadarSession RadarSessionFactory::Create(const RadarSessionConfig& config) {
-  return RadarSession(
-      std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(
-          internal::RadarSessionCompositionRoot::ComposeDefault(config))));
+  return RadarSession(std::unique_ptr<RadarSession::Impl>(
+      new RadarSession::Impl(internal::RadarSessionCompositionRoot::ComposeDefault(config))));
 }
 
 RadarSession RadarSessionFactory::CreateWithSignalPipeline(
@@ -151,9 +154,9 @@ RadarSession RadarSessionFactory::CreateWithSignalPipeline(
 
 RadarSession RadarSessionFactory::CreateWithEnvironmentService(
     const RadarSessionConfig& config, environment::IEnvironmentService& environment_service) {
-  return RadarSession(std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(
-      internal::RadarSessionCompositionRoot::ComposeWithEnvironmentService(config,
-                                                                           environment_service))));
+  return RadarSession(std::unique_ptr<RadarSession::Impl>(
+      new RadarSession::Impl(internal::RadarSessionCompositionRoot::ComposeWithEnvironmentService(
+          config, environment_service))));
 }
 
 RadarSession RadarSessionFactory::CreateWithController(const RadarSessionConfig& config,
@@ -166,8 +169,8 @@ output::TrackOutputFrame RadarSession::Step(const RadarCycleInput& input) {
   return StepWithResult(input).track_output_frame;
 }
 
-output::TrackOutputFrame RadarSession::Step(
-    const RadarCycleInput& input, const environment::EnvironmentSceneState& scene_state) {
+output::TrackOutputFrame RadarSession::Step(const RadarCycleInput& input,
+                                            const environment::EnvironmentSceneState& scene_state) {
   return StepWithResult(input, scene_state).track_output_frame;
 }
 

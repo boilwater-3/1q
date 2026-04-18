@@ -226,7 +226,7 @@ class AbortingSignalPipeline : public extension::ISignalPipeline {
     return control_profile_;
   }
 
-  bool UpdateConfig(config::PipelineConfig config) override {
+  bool UpdateConfig(const session::RadarSessionConfig& config) override {
     config_ = config;
     return true;
   }
@@ -269,13 +269,13 @@ class AbortingSignalPipeline : public extension::ISignalPipeline {
   struct RuntimeState {
     model::PlatformAttitudeDeg platform_attitude_deg{};
     extension::control::RadarControlProfile control_profile{};
-    config::PipelineConfig config{};
+    session::RadarSessionConfig config{};
     bool should_execute{false};
   };
 
   model::PlatformAttitudeDeg platform_attitude_deg_{};
   extension::control::RadarControlProfile control_profile_{};
-  config::PipelineConfig config_{};
+  session::RadarSessionConfig config_{};
   bool should_execute_{false};
 };
 
@@ -560,7 +560,15 @@ TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {
   environment::EnvironmentService environment_service;
 
   config::PipelineConfig pipeline_config = config::presets::MakeDetectionMissionPipelineConfig();
-  signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
+  session::RadarSessionConfig session_config;
+  session_config.hardware.detection = pipeline_config.expert.detection;
+  session_config.policy.beam_control = pipeline_config.expert.beam_control;
+  session_config.policy.association = pipeline_config.expert.association;
+  session_config.policy.tracking = pipeline_config.expert.tracking;
+  session_config.policy.lifecycle = pipeline_config.expert.lifecycle;
+  session_config.policy.imm = pipeline_config.expert.imm;
+  session_config.mission.orientation = pipeline_config.orientation;
+  signal::pipeline::SignalPipeline signal_pipeline(session_config);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   controller.RunOnce();
@@ -598,7 +606,15 @@ TEST_F(CoreControllerTest, DuplicateExternalTargetIdRetainsPreviousValidOutputFr
   environment::EnvironmentService environment_service;
 
   config::PipelineConfig pipeline_config = config::presets::MakeDetectionMissionPipelineConfig();
-  signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
+  session::RadarSessionConfig session_config;
+  session_config.hardware.detection = pipeline_config.expert.detection;
+  session_config.policy.beam_control = pipeline_config.expert.beam_control;
+  session_config.policy.association = pipeline_config.expert.association;
+  session_config.policy.tracking = pipeline_config.expert.tracking;
+  session_config.policy.lifecycle = pipeline_config.expert.lifecycle;
+  session_config.policy.imm = pipeline_config.expert.imm;
+  session_config.mission.orientation = pipeline_config.orientation;
+  signal::pipeline::SignalPipeline signal_pipeline(session_config);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
   controller.RunOnce();

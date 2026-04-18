@@ -24,9 +24,9 @@ class SignalPipeline final : public extension::ISignalPipeline {
  public:
   /**
    * @brief 构造信号处理流水线。
-   * @param config 流水线运行配置。
+   * @param config 四域会话配置。
    */
-  explicit SignalPipeline(PipelineConfig config = {});
+  explicit SignalPipeline(const session::RadarSessionConfig& config = {});
   /**
    * @brief 析构信号处理流水线。
    */
@@ -80,8 +80,7 @@ class SignalPipeline final : public extension::ISignalPipeline {
    * @brief 更新平台姿态输入。
    * @param platform_attitude_deg 当前平台姿态。
    */
-  void UpdatePlatformAttitude(
-      const model::PlatformAttitudeDeg& platform_attitude_deg) override;
+  void UpdatePlatformAttitude(const model::PlatformAttitudeDeg& platform_attitude_deg) override;
 
   /**
    * @brief 获取当前缓存的平台姿态。
@@ -103,9 +102,9 @@ class SignalPipeline final : public extension::ISignalPipeline {
 
   /**
    * @brief 更新流水线运行配置。
-   * @param config 新配置。
+   * @param config 四域会话配置。
    */
-  bool UpdateConfig(PipelineConfig config) override;
+  bool UpdateConfig(const session::RadarSessionConfig& config) override;
 
  private:
   struct Impl;

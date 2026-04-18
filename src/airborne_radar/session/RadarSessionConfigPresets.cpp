@@ -6,7 +6,6 @@
 #include "1q/airborne_radar/config/presets/RadarSessionConfigPresets.h"
 
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/config/presets/PipelineConfigPresets.h"
 #include "airborne_radar/session/SessionConfigBridge.h"
 
 namespace airborne_radar {
@@ -14,15 +13,45 @@ namespace config {
 namespace presets {
 
 PipelineConfig MakeDetectionMissionPipelineConfig() {
-  return session::internal::BuildDetectionMissionPresetConfig();
+  const session::RadarSessionConfig session_config =
+      config::RadarSessionConfigBuilder()
+          .Detection()
+          .WithDetectionIntentProfile(semantic::DetectionIntentProfile::kDetectionPriority)
+          .End()
+          .Tracking()
+          .WithTrackingPolicyProfile(semantic::TrackingPolicyProfile::kFastAssociation)
+          .End()
+          .Lifecycle()
+          .WithLifecyclePolicyProfile(semantic::LifecyclePolicyProfile::kFastConfirm)
+          .End()
+          .Build();
+  return session::internal::BuildPipelineConfigFromSessionConfig(session_config);
 }
 
 PipelineConfig MakeTrackingMissionPipelineConfig() {
-  return session::internal::BuildTrackingMissionPresetConfig();
+  const session::RadarSessionConfig session_config =
+      config::RadarSessionConfigBuilder()
+          .Detection()
+          .WithDetectionIntentProfile(semantic::DetectionIntentProfile::kTrackStabilityPriority)
+          .End()
+          .Build();
+  return session::internal::BuildPipelineConfigFromSessionConfig(session_config);
 }
 
 PipelineConfig MakeHighRobustnessPipelineConfig() {
-  return session::internal::BuildHighRobustnessPresetConfig();
+  const session::RadarSessionConfig session_config =
+      config::RadarSessionConfigBuilder()
+          .Detection()
+          .WithDetectionIntentProfile(semantic::DetectionIntentProfile::kTrackStabilityPriority)
+          .End()
+          .Tracking()
+          .WithTrackingPolicyProfile(semantic::TrackingPolicyProfile::kRobustAntiJamming)
+          .End()
+          .Lifecycle()
+          .WithLifecyclePolicyProfile(semantic::LifecyclePolicyProfile::kHighPersistence)
+          .End()
+          .Build();
+  return session::internal::BuildPipelineConfigFromSessionConfig(session_config);
 }
 
 session::RadarSessionConfig MakeDefaultRadarSessionConfig() {

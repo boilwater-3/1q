@@ -17,9 +17,9 @@ namespace {
 
 TEST(ArRuntimeConfigResolverTest, MissionDomainAppliedBeforeLeafPatch) {
   RuntimeConfigState current_state;
-  current_state.pipeline_config.orientation.scan_center_deg.az_deg = 1.0f;
-  current_state.pipeline_config.orientation.scan_center_deg.el_deg = 2.0f;
-  current_state.pipeline_config.orientation.work_sub_mode = model::RadarWorkSubMode::kTws;
+  current_state.mission.orientation.scan_center_deg.az_deg = 1.0f;
+  current_state.mission.orientation.scan_center_deg.el_deg = 2.0f;
+  current_state.mission.orientation.work_sub_mode = model::RadarWorkSubMode::kTws;
 
   config::RadarMissionConfig mission_patch;
   mission_patch.orientation.scan_center_deg.az_deg = 10.0f;
@@ -38,10 +38,9 @@ TEST(ArRuntimeConfigResolverTest, MissionDomainAppliedBeforeLeafPatch) {
   EXPECT_TRUE(resolved.has_requested_update);
   EXPECT_TRUE(resolved.is_valid);
   EXPECT_TRUE(resolved.pipeline_config_changed);
-  EXPECT_EQ(resolved.next_state.pipeline_config.orientation.work_sub_mode,
-            model::RadarWorkSubMode::kTas);
-  EXPECT_FLOAT_EQ(resolved.next_state.pipeline_config.orientation.scan_center_deg.az_deg, 30.0f);
-  EXPECT_FLOAT_EQ(resolved.next_state.pipeline_config.orientation.scan_center_deg.el_deg, 40.0f);
+  EXPECT_EQ(resolved.next_state.mission.orientation.work_sub_mode, model::RadarWorkSubMode::kTas);
+  EXPECT_FLOAT_EQ(resolved.next_state.mission.orientation.scan_center_deg.az_deg, 30.0f);
+  EXPECT_FLOAT_EQ(resolved.next_state.mission.orientation.scan_center_deg.el_deg, 40.0f);
 }
 
 TEST(ArRuntimeConfigResolverTest, EnvironmentPatchUpdatesModelAndThreshold) {
@@ -70,8 +69,8 @@ TEST(ArRuntimeConfigResolverTest, EnvironmentPatchUpdatesModelAndThreshold) {
 
 TEST(ArRuntimeConfigResolverTest, InvalidPatchIsRejectedAtomically) {
   RuntimeConfigState current_state;
-  current_state.pipeline_config.orientation.scan_center_deg.az_deg = 1.0f;
-  current_state.pipeline_config.orientation.scan_center_deg.el_deg = 2.0f;
+  current_state.mission.orientation.scan_center_deg.az_deg = 1.0f;
+  current_state.mission.orientation.scan_center_deg.el_deg = 2.0f;
   current_state.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kBalanced;
 
   config::RadarRuntimeConfigPatch patch =
@@ -89,7 +88,7 @@ TEST(ArRuntimeConfigResolverTest, InvalidPatchIsRejectedAtomically) {
   EXPECT_FALSE(resolved.pipeline_config_changed);
   EXPECT_FALSE(resolved.environment_scenario_config_changed);
   EXPECT_FALSE(resolved.jamming_sensitivity_profile_changed);
-  EXPECT_FLOAT_EQ(resolved.next_state.pipeline_config.orientation.scan_center_deg.az_deg, 1.0f);
+  EXPECT_FLOAT_EQ(resolved.next_state.mission.orientation.scan_center_deg.az_deg, 1.0f);
   EXPECT_EQ(resolved.next_state.jamming_sensitivity_profile,
             environment::JammingSensitivityProfile::kBalanced);
 }

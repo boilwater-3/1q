@@ -10,10 +10,12 @@
 #include <memory>
 #include <vector>
 
-#include "1q/airborne_radar/model/TargetFeatureUtils.h"
 #include "1q/airborne_radar/config/PipelineConfig.h"
+#include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/airborne_radar/config/presets/PipelineConfigPresets.h"
+#include "1q/airborne_radar/model/TargetFeatureUtils.h"
 #include "airborne_radar/environment/EnvironmentService.h"
+#include "airborne_radar/session/SessionConfigBridge.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
@@ -21,15 +23,14 @@
 #include "airborne_radar/signal/pipeline/assembly/RuntimeAssemblySupport.h"
 #include "airborne_radar/signal/pipeline/config/InternalPipelineConfig.h"
 #include "airborne_radar/signal/pipeline/core/CycleExecutor.h"
-#include "airborne_radar/signal/pipeline/core/SignalPipeline.h"
 #include "airborne_radar/signal/pipeline/core/ScanScheduleResolver.h"
+#include "airborne_radar/signal/pipeline/core/SignalPipeline.h"
 
 namespace airborne_radar {
 namespace tests {
 namespace {
 
-bool AlmostSamePoint(const model::AzimuthElevationDeg& lhs,
-                     const model::AzimuthElevationDeg& rhs) {
+bool AlmostSamePoint(const model::AzimuthElevationDeg& lhs, const model::AzimuthElevationDeg& rhs) {
   return std::fabs(lhs.az_deg - rhs.az_deg) <= 1.0e-4f &&
          std::fabs(lhs.el_deg - rhs.el_deg) <= 1.0e-4f;
 }
@@ -40,7 +41,8 @@ std::size_t CountUniqueScheduledPoints(const model::RadarOrientationConfig& orie
   std::vector<model::AzimuthElevationDeg> unique_points;
   for (std::uint32_t cycle = 1U; cycle <= cycle_count; ++cycle) {
     const model::AzimuthElevationDeg pointing =
-        signal::pipeline::core::internal::ResolveScheduledBeamPointing(orientation, beamwidth, cycle);
+        signal::pipeline::core::internal::ResolveScheduledBeamPointing(orientation, beamwidth,
+                                                                       cycle);
     bool exists = false;
     for (std::size_t i = 0; i < unique_points.size(); ++i) {
       if (AlmostSamePoint(unique_points[i], pointing)) {
@@ -82,14 +84,15 @@ class NonAutoLifecycleManager final : public signal::tracking::ITrackLifecycleMa
   void Update(const signal::tracking::CycleContext&,
               const std::vector<signal::tracking::TrackMeasurement>&) override {}
 
-  model::TargetFeatureList BuildFeatureSnapshot() const override { return model::TargetFeatureList(); }
+  model::TargetFeatureList BuildFeatureSnapshot() const override {
+    return model::TargetFeatureList();
+  }
 
   model::DecisionTrackSnapshotList BuildDecisionSnapshot() const override {
     return model::DecisionTrackSnapshotList();
   }
 
-  model::DecisionInputFrame BuildDecisionFrame(std::uint32_t, std::uint64_t,
-                                               bool) const override {
+  model::DecisionInputFrame BuildDecisionFrame(std::uint32_t, std::uint64_t, bool) const override {
     return model::DecisionInputFrame();
   }
 
@@ -188,9 +191,9 @@ TEST(CycleExecutorTest, ValidRuntimeProducesInputAlignedStageBuffers) {
       signal::pipeline::assembly::internal::CreateAutoLifecycleManagerForRuntimeConfig(
           base_config, internal_config);
   ASSERT_TRUE(lifecycle_manager != nullptr);
-  const signal::pipeline::internal::CycleExecutionRuntime runtime = BuildMinimalValidRuntime(
-      base_config, internal_config, control_profile, &association_engine, &track_filter,
-      lifecycle_manager.get());
+  const signal::pipeline::internal::CycleExecutionRuntime runtime =
+      BuildMinimalValidRuntime(base_config, internal_config, control_profile, &association_engine,
+                               &track_filter, lifecycle_manager.get());
 
   model::TargetFeature target_a(1000.0f, 0.0f, 0.0f, 2.0f);
   target_a.has_cartesian_position = true;
@@ -204,8 +207,8 @@ TEST(CycleExecutorTest, ValidRuntimeProducesInputAlignedStageBuffers) {
 
   environment::EnvironmentService environment_service;
   signal::pipeline::internal::CycleExecutionScratch scratch;
-  EXPECT_TRUE(signal::pipeline::internal::ExecuteCycle(input_state, MakeEnvironmentSnapshot(3U),
-                                                       3U, 9U, runtime, scratch));
+  EXPECT_TRUE(signal::pipeline::internal::ExecuteCycle(input_state, MakeEnvironmentSnapshot(3U), 3U,
+                                                       9U, runtime, scratch));
 
   EXPECT_EQ(scratch.output_state.size(), input_state.size());
   EXPECT_EQ(scratch.signal_term_db.size(), input_state.size());
@@ -232,14 +235,14 @@ TEST(CycleExecutorTest, EmptyInputKeepsWorkspaceOutputsEmpty) {
       signal::pipeline::assembly::internal::CreateAutoLifecycleManagerForRuntimeConfig(
           base_config, internal_config);
   ASSERT_TRUE(lifecycle_manager != nullptr);
-  const signal::pipeline::internal::CycleExecutionRuntime runtime = BuildMinimalValidRuntime(
-      base_config, internal_config, control_profile, &association_engine, &track_filter,
-      lifecycle_manager.get());
+  const signal::pipeline::internal::CycleExecutionRuntime runtime =
+      BuildMinimalValidRuntime(base_config, internal_config, control_profile, &association_engine,
+                               &track_filter, lifecycle_manager.get());
 
   const model::TargetFeatureList input_state;
   signal::pipeline::internal::CycleExecutionScratch scratch;
-  EXPECT_TRUE(signal::pipeline::internal::ExecuteCycle(input_state, MakeEnvironmentSnapshot(1U),
-                                                       1U, 1U, runtime, scratch));
+  EXPECT_TRUE(signal::pipeline::internal::ExecuteCycle(input_state, MakeEnvironmentSnapshot(1U), 1U,
+                                                       1U, runtime, scratch));
 
   EXPECT_TRUE(scratch.output_state.empty());
   EXPECT_TRUE(scratch.track_measurements.empty());
@@ -257,9 +260,9 @@ TEST(CycleExecutorTest, NonAutoLifecycleManagerCausesRuntimeSyncFailure) {
   signal::association::DataAssociationEngine association_engine;
   signal::tracking::TrackFilter track_filter;
   NonAutoLifecycleManager lifecycle_manager;
-  const signal::pipeline::internal::CycleExecutionRuntime runtime = BuildMinimalValidRuntime(
-      base_config, internal_config, control_profile, &association_engine, &track_filter,
-      &lifecycle_manager);
+  const signal::pipeline::internal::CycleExecutionRuntime runtime =
+      BuildMinimalValidRuntime(base_config, internal_config, control_profile, &association_engine,
+                               &track_filter, &lifecycle_manager);
 
   model::TargetFeature target(1000.0f, 0.0f, 0.0f, 2.0f);
   target.has_cartesian_position = true;
@@ -322,12 +325,14 @@ TEST(ScanScheduleResolverTest, InvalidStepFallsBackToClampedScanCenter) {
   invalid_beamwidth.el_beamwidth_deg = 5.0f;
 
   const model::AzimuthElevationDeg pointing =
-      signal::pipeline::core::internal::ResolveScheduledBeamPointing(orientation, invalid_beamwidth, 3U);
+      signal::pipeline::core::internal::ResolveScheduledBeamPointing(orientation, invalid_beamwidth,
+                                                                     3U);
   EXPECT_FLOAT_EQ(pointing.az_deg, 30.0f);
   EXPECT_FLOAT_EQ(pointing.el_deg, 10.0f);
 
   const model::AzimuthElevationDeg dwell_center =
-      signal::pipeline::core::internal::ResolveScheduledDwellCenter(orientation, invalid_beamwidth, 3U);
+      signal::pipeline::core::internal::ResolveScheduledDwellCenter(orientation, invalid_beamwidth,
+                                                                    3U);
   EXPECT_FLOAT_EQ(dwell_center.az_deg, -50.0f);
   EXPECT_FLOAT_EQ(dwell_center.el_deg, -30.0f);
 }
@@ -432,13 +437,17 @@ TEST(ScanScheduleResolverTest, TasIsDenserThanTwsAndKeepsSerpentineSemantics) {
   beamwidth.el_beamwidth_deg = 10.0f;
 
   const model::AzimuthElevationDeg tws_first =
-      signal::pipeline::core::internal::ResolveScheduledBeamPointing(tws_orientation, beamwidth, 1U);
+      signal::pipeline::core::internal::ResolveScheduledBeamPointing(tws_orientation, beamwidth,
+                                                                     1U);
   const model::AzimuthElevationDeg tws_second =
-      signal::pipeline::core::internal::ResolveScheduledBeamPointing(tws_orientation, beamwidth, 2U);
+      signal::pipeline::core::internal::ResolveScheduledBeamPointing(tws_orientation, beamwidth,
+                                                                     2U);
   const model::AzimuthElevationDeg tas_first =
-      signal::pipeline::core::internal::ResolveScheduledBeamPointing(tas_orientation, beamwidth, 1U);
+      signal::pipeline::core::internal::ResolveScheduledBeamPointing(tas_orientation, beamwidth,
+                                                                     1U);
   const model::AzimuthElevationDeg tas_second =
-      signal::pipeline::core::internal::ResolveScheduledBeamPointing(tas_orientation, beamwidth, 2U);
+      signal::pipeline::core::internal::ResolveScheduledBeamPointing(tas_orientation, beamwidth,
+                                                                     2U);
   EXPECT_FLOAT_EQ(tws_first.az_deg, -20.0f);
   EXPECT_FLOAT_EQ(tws_first.el_deg, 10.0f);
   EXPECT_FLOAT_EQ(tas_first.az_deg, -20.0f);
@@ -465,7 +474,7 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
   config.expert.detection.antenna.pattern.max_sidelobe_level_db = -18.0f;
   config.expert.detection.antenna.pattern.max_scan_loss_db = 8.0f;
 
-    config::engineering::DetectionConfig engineering_detection =
+  config::engineering::DetectionConfig engineering_detection =
       config::internal::ResolveDetectionEngineering(config.expert.detection);
   engineering_detection.pulse_count = 4096;
   engineering_detection.detection_policy.cfar_pfa = 0.999999f;
@@ -487,8 +496,15 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
   orientation.scan_start_position = oneq::foundation::ScanStartPosition::kLeftTop;
   orientation.scan_sequence = oneq::foundation::ScanSequence::kAzimuthFirst;
 
-  signal::pipeline::SignalPipeline signal_pipeline(
-      config);
+  session::RadarSessionConfig session_config;
+  session_config.hardware.detection = config.expert.detection;
+  session_config.policy.beam_control = config.expert.beam_control;
+  session_config.policy.association = config.expert.association;
+  session_config.policy.tracking = config.expert.tracking;
+  session_config.policy.lifecycle = config.expert.lifecycle;
+  session_config.policy.imm = config.expert.imm;
+  session_config.mission.orientation = config.orientation;
+  signal::pipeline::SignalPipeline signal_pipeline(session_config);
   environment::EnvironmentModelConfig environment_config;
   environment::EnvironmentService environment_service(environment_config);
 
@@ -500,24 +516,23 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
       signal::detection::TargetLookResolver::Resolve(target);
   ASSERT_TRUE(look_angles.has_look_angles);
   const signal::detection::EffectiveBeamwidthDeg effective_beamwidth =
-      signal::detection::ResolveEffectiveBeamwidth(engineering_detection.antenna,
-                                                   orientation);
+      signal::detection::ResolveEffectiveBeamwidth(engineering_detection.antenna, orientation);
 
-    const model::AzimuthElevationDeg cycle_1_dwell_center =
+  const model::AzimuthElevationDeg cycle_1_dwell_center =
       signal::pipeline::core::internal::ResolveScheduledDwellCenter(orientation,
-                                     effective_beamwidth, 1U);
-    const model::AzimuthElevationDeg cycle_2_dwell_center =
+                                                                    effective_beamwidth, 1U);
+  const model::AzimuthElevationDeg cycle_2_dwell_center =
       signal::pipeline::core::internal::ResolveScheduledDwellCenter(orientation,
-                                     effective_beamwidth, 2U);
+                                                                    effective_beamwidth, 2U);
   const model::PlatformAttitudeDeg platform_attitude_deg{};
   const signal::detection::ResolvedBeamState cycle_1_beam =
-      signal::detection::BeamControlResolver::Resolve(
-        engineering_detection.antenna, orientation, platform_attitude_deg, look_angles,
-        cycle_1_dwell_center);
+      signal::detection::BeamControlResolver::Resolve(engineering_detection.antenna, orientation,
+                                                      platform_attitude_deg, look_angles,
+                                                      cycle_1_dwell_center);
   const signal::detection::ResolvedBeamState cycle_2_beam =
-      signal::detection::BeamControlResolver::Resolve(
-        engineering_detection.antenna, orientation, platform_attitude_deg, look_angles,
-        cycle_2_dwell_center);
+      signal::detection::BeamControlResolver::Resolve(engineering_detection.antenna, orientation,
+                                                      platform_attitude_deg, look_angles,
+                                                      cycle_2_dwell_center);
 
   signal::detection::TargetReturn target_return;
   target_return.rcs_m2 = target.current_track_rcs;
@@ -539,9 +554,8 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
   std::size_t misaligned_detected = 0U;
   const std::size_t kCycleCount = 64U;
   for (std::size_t i = 0; i < kCycleCount; ++i) {
-    const extension::SignalCycleResult cycle_result =
-        RunPipelineCycle(&signal_pipeline, targets, &environment_service,
-                         static_cast<std::uint32_t>(i + 1U));
+    const extension::SignalCycleResult cycle_result = RunPipelineCycle(
+        &signal_pipeline, targets, &environment_service, static_cast<std::uint32_t>(i + 1U));
     if ((i % 2U) == 0U) {
       misaligned_detected += cycle_result.association_quality_metrics.detection_count;
     } else {
@@ -578,10 +592,26 @@ TEST(SignalPipelineScanScheduleTest, WorkSubModeSttReducesSweepCoverageComparedT
   config::PipelineConfig stt_config = tws_config;
   stt_config.orientation.work_sub_mode = model::RadarWorkSubMode::kStt;
 
-  signal::pipeline::SignalPipeline tws_pipeline(
-      tws_config);
-  signal::pipeline::SignalPipeline stt_pipeline(
-      stt_config);
+  session::RadarSessionConfig tws_session;
+  tws_session.hardware.detection = tws_config.expert.detection;
+  tws_session.policy.beam_control = tws_config.expert.beam_control;
+  tws_session.policy.association = tws_config.expert.association;
+  tws_session.policy.tracking = tws_config.expert.tracking;
+  tws_session.policy.lifecycle = tws_config.expert.lifecycle;
+  tws_session.policy.imm = tws_config.expert.imm;
+  tws_session.mission.orientation = tws_config.orientation;
+
+  session::RadarSessionConfig stt_session;
+  stt_session.hardware.detection = stt_config.expert.detection;
+  stt_session.policy.beam_control = stt_config.expert.beam_control;
+  stt_session.policy.association = stt_config.expert.association;
+  stt_session.policy.tracking = stt_config.expert.tracking;
+  stt_session.policy.lifecycle = stt_config.expert.lifecycle;
+  stt_session.policy.imm = stt_config.expert.imm;
+  stt_session.mission.orientation = stt_config.orientation;
+
+  signal::pipeline::SignalPipeline tws_pipeline(tws_session);
+  signal::pipeline::SignalPipeline stt_pipeline(stt_session);
 
   environment::EnvironmentModelConfig environment_config;
   environment::EnvironmentService environment_service(environment_config);

@@ -5,13 +5,12 @@
 
 #include <vector>
 
-#include "1q/airborne_radar/output/TrackOutputFrame.h"
-#include "1q/airborne_radar/extension/IRadarContext.h"
-#include "1q/airborne_radar/extension/RadarController.h"
-#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
+#include "1q/airborne_radar/extension/IRadarContext.h"
 #include "1q/airborne_radar/extension/ISignalPipeline.h"
-
+#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/extension/RadarController.h"
+#include "1q/airborne_radar/output/TrackOutputFrame.h"
 namespace airborne_radar {
 namespace {
 
@@ -27,9 +26,7 @@ class DummyRadarContext : public extension::IRadarContext {
     return kEmptyTargets;
   }
 
-  model::PlatformAttitudeDeg GetPlatformAttitude() const override {
-    return platform_attitude_;
-  }
+  model::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_; }
 
   float GetCycleDeltaTimeSec() const override { return 1.0f; }
 
@@ -129,14 +126,11 @@ class DummySignalPipeline : public extension::ISignalPipeline {
     return result;
   }
 
-  void UpdatePlatformAttitude(
-      const model::PlatformAttitudeDeg& platform_attitude_deg) override {
+  void UpdatePlatformAttitude(const model::PlatformAttitudeDeg& platform_attitude_deg) override {
     platform_attitude_ = platform_attitude_deg;
   }
 
-  model::PlatformAttitudeDeg GetPlatformAttitude() const override {
-    return platform_attitude_;
-  }
+  model::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_; }
 
   void SetControlProfile(const extension::control::RadarControlProfile& control_profile) override {
     control_profile_ = control_profile;
@@ -146,7 +140,7 @@ class DummySignalPipeline : public extension::ISignalPipeline {
     return control_profile_;
   }
 
-  bool UpdateConfig(config::PipelineConfig config) override {
+  bool UpdateConfig(const session::RadarSessionConfig& config) override {
     config_ = config;
     return true;
   }
@@ -185,19 +179,18 @@ class DummySignalPipeline : public extension::ISignalPipeline {
   struct RuntimeState {
     model::PlatformAttitudeDeg platform_attitude{};
     extension::control::RadarControlProfile control_profile{};
-    config::PipelineConfig config{};
+    session::RadarSessionConfig config{};
   };
 
   model::PlatformAttitudeDeg platform_attitude_{};
   extension::control::RadarControlProfile control_profile_{};
-  config::PipelineConfig config_{};
+  session::RadarSessionConfig config_{};
 };
 
 class DummyDecisionEngine : public extension::ITacticalDecisionEngine {
  public:
-  extension::TacticalDecisionResult Evaluate(
-      const model::DecisionInputFrame& input_frame,
-      extension::TacticalStateStore& state_store) override {
+  extension::TacticalDecisionResult Evaluate(const model::DecisionInputFrame& input_frame,
+                                             extension::TacticalStateStore& state_store) override {
     (void)input_frame;
     (void)state_store;
     return {};
@@ -213,8 +206,8 @@ int main() {
   airborne_radar::DummySignalPipeline signal_pipeline;
   airborne_radar::DummyDecisionEngine decision_engine;
 
-  airborne_radar::extension::RadarController controller(
-      radar_context, signal_pipeline, decision_engine, environment_service);
+  airborne_radar::extension::RadarController controller(radar_context, signal_pipeline,
+                                                        decision_engine, environment_service);
   controller.UpdateControlReducerConfig({});
   controller.RunOnce();
 

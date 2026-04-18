@@ -1,8 +1,10 @@
 #ifndef AIRBORNE_RADAR_SESSION_RUNTIME_CONFIG_RESOLVER_H_
 #define AIRBORNE_RADAR_SESSION_RUNTIME_CONFIG_RESOLVER_H_
 
+#include "1q/airborne_radar/config/RadarHardwareConfig.h"
+#include "1q/airborne_radar/config/RadarMissionConfig.h"
+#include "1q/airborne_radar/config/RadarPolicyConfig.h"
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
-#include "airborne_radar/session/SessionConfigBridge.h"
 
 namespace airborne_radar {
 namespace session {
@@ -12,7 +14,9 @@ namespace internal {
  * @brief RuntimeConfigState 描述会话持有的运行期配置唯一真值。
  */
 struct RuntimeConfigState {
-  config::PipelineConfig pipeline_config{};
+  config::RadarHardwareConfig hardware{};
+  config::RadarMissionConfig mission{};
+  config::RadarPolicyConfig policy{};
   environment::EnvironmentScenarioConfig environment_scenario_config{};
   environment::JammingSensitivityProfile jamming_sensitivity_profile{
       environment::JammingSensitivityProfile::kBalanced};

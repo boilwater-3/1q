@@ -3,7 +3,6 @@
 
 #include "1q/airborne_radar/config/PipelineConfig.h"
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
-#include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 
 namespace airborne_radar {
 namespace session {
@@ -22,48 +21,14 @@ inline config::PipelineConfig BuildPipelineConfigFromSessionConfig(
   return pipeline_config;
 }
 
-inline config::PipelineConfig BuildDetectionMissionPresetConfig() {
-  const session::RadarSessionConfig session_config =
-      config::RadarSessionConfigBuilder()
-          .Detection()
-          .WithDetectionIntentProfile(config::semantic::DetectionIntentProfile::kDetectionPriority)
-          .End()
-          .Tracking()
-          .WithTrackingPolicyProfile(config::semantic::TrackingPolicyProfile::kFastAssociation)
-          .End()
-          .Lifecycle()
-          .WithLifecyclePolicyProfile(config::semantic::LifecyclePolicyProfile::kFastConfirm)
-          .End()
-          .Build();
-  return BuildPipelineConfigFromSessionConfig(session_config);
-}
-
-inline config::PipelineConfig BuildTrackingMissionPresetConfig() {
-  const session::RadarSessionConfig session_config =
-      config::RadarSessionConfigBuilder()
-          .Detection()
-          .WithDetectionIntentProfile(
-              config::semantic::DetectionIntentProfile::kTrackStabilityPriority)
-          .End()
-          .Build();
-  return BuildPipelineConfigFromSessionConfig(session_config);
-}
-
-inline config::PipelineConfig BuildHighRobustnessPresetConfig() {
-  const session::RadarSessionConfig session_config =
-      config::RadarSessionConfigBuilder()
-          .Detection()
-          .WithDetectionIntentProfile(
-              config::semantic::DetectionIntentProfile::kTrackStabilityPriority)
-          .End()
-          .Tracking()
-          .WithTrackingPolicyProfile(config::semantic::TrackingPolicyProfile::kRobustAntiJamming)
-          .End()
-          .Lifecycle()
-          .WithLifecyclePolicyProfile(config::semantic::LifecyclePolicyProfile::kHighPersistence)
-          .End()
-          .Build();
-  return BuildPipelineConfigFromSessionConfig(session_config);
+inline RadarSessionConfig BuildSessionConfigFromRuntimeState(
+    const config::RadarHardwareConfig& hardware, const config::RadarMissionConfig& mission,
+    const config::RadarPolicyConfig& policy) {
+  RadarSessionConfig config;
+  config.hardware = hardware;
+  config.mission = mission;
+  config.policy = policy;
+  return config;
 }
 
 }  // namespace internal

@@ -3,7 +3,7 @@
 
 #include <memory>
 
-#include "1q/airborne_radar/config/PipelineConfig.h"
+#include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/airborne_radar/session/RadarSession.h"
 
 namespace airborne_radar {
@@ -11,7 +11,9 @@ namespace session {
 namespace internal {
 
 struct RadarSessionComposition {
-  config::PipelineConfig runtime_pipeline_config{};
+  config::RadarHardwareConfig runtime_hardware{};
+  config::RadarMissionConfig runtime_mission{};
+  config::RadarPolicyConfig runtime_policy{};
   environment::EnvironmentScenarioConfig runtime_environment_scenario_config{};
   environment::JammingSensitivityProfile runtime_jamming_sensitivity_profile{
       environment::JammingSensitivityProfile::kBalanced};

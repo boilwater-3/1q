@@ -29,24 +29,19 @@ RuntimeConfigResolveResult ResolveRuntimeConfigPatch(const RuntimeConfigState& c
   bool has_requested_update = false;
 
   if (patch.has_mission) {
-    resolved.next_state.pipeline_config.orientation = patch.mission.orientation;
+    resolved.next_state.mission = patch.mission;
     resolved.pipeline_config_changed = true;
     has_requested_update = true;
   }
 
   if (patch.has_policy) {
-    resolved.next_state.pipeline_config.expert.beam_control = patch.policy.beam_control;
-    resolved.next_state.pipeline_config.expert.association = patch.policy.association;
-    resolved.next_state.pipeline_config.expert.tracking = patch.policy.tracking;
-    resolved.next_state.pipeline_config.expert.lifecycle = patch.policy.lifecycle;
-    resolved.next_state.pipeline_config.expert.imm = patch.policy.imm;
+    resolved.next_state.policy = patch.policy;
     resolved.pipeline_config_changed = true;
     has_requested_update = true;
   }
 
-  config::PipelineConfig* pipeline_config = &resolved.next_state.pipeline_config;
   if (patch.has_work_sub_mode) {
-    pipeline_config->orientation.work_sub_mode = patch.work_sub_mode;
+    resolved.next_state.mission.orientation.work_sub_mode = patch.work_sub_mode;
     resolved.pipeline_config_changed = true;
     has_requested_update = true;
   }
@@ -58,7 +53,7 @@ RuntimeConfigResolveResult ResolveRuntimeConfigPatch(const RuntimeConfigState& c
           patch.scan_center_deg.az_deg, patch.scan_center_deg.el_deg);
       return RejectPatch(current_state, true);
     }
-    pipeline_config->orientation.scan_center_deg = patch.scan_center_deg;
+    resolved.next_state.mission.orientation.scan_center_deg = patch.scan_center_deg;
     resolved.pipeline_config_changed = true;
     has_requested_update = true;
   }
@@ -84,12 +79,13 @@ RuntimeConfigResolveResult ResolveRuntimeConfigPatch(const RuntimeConfigState& c
           patch.commanded_beamwidth_deg.commanded_el_beamwidth_deg);
       return RejectPatch(current_state, true);
     }
-    pipeline_config->orientation.commanded_beamwidth_deg = patch.commanded_beamwidth_deg;
+    resolved.next_state.mission.orientation.commanded_beamwidth_deg = patch.commanded_beamwidth_deg;
     resolved.pipeline_config_changed = true;
     has_requested_update = true;
   }
   if (patch.has_commanded_beamwidth_enabled) {
-    pipeline_config->orientation.commanded_beamwidth_enabled = patch.commanded_beamwidth_enabled;
+    resolved.next_state.mission.orientation.commanded_beamwidth_enabled =
+        patch.commanded_beamwidth_enabled;
     resolved.pipeline_config_changed = true;
     has_requested_update = true;
   }
