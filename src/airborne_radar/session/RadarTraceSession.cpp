@@ -1,9 +1,8 @@
 #include "1q/airborne_radar/session/RadarTraceSession.h"
 
 #include <cstddef>
-#include <string>
-
 #include <nlohmann/json.hpp>
+#include <string>
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
@@ -127,19 +126,18 @@ Json BuildJson(const config::expert::DetectionConfig& value) {
                          {"pulse_width_s", value.transmitter.pulse_width_s},
                          {"prf_hz", value.transmitter.prf_hz},
                          {"transmit_loss_db", value.transmitter.transmit_loss_db}};
-  json["antenna"] = {{"main_beam_gain_db", value.antenna.main_beam_gain_db},
-                     {"nominal_az_beamwidth_deg", value.antenna.nominal_az_beamwidth_deg},
-                     {"nominal_el_beamwidth_deg", value.antenna.nominal_el_beamwidth_deg},
-                     {"enable_directional_pattern", value.antenna.enable_directional_pattern},
-                     {"pattern",
-                      {{"model_type", static_cast<int>(value.antenna.pattern.model_type)},
-                       {"max_sidelobe_level_db", value.antenna.pattern.max_sidelobe_level_db},
-                       {"backlobe_level_db", value.antenna.pattern.backlobe_level_db},
-                       {"scan_loss_coeff_db_per_deg2",
-                        value.antenna.pattern.scan_loss_coeff_db_per_deg2},
-                       {"max_scan_loss_db", value.antenna.pattern.max_scan_loss_db},
-                       {"boresight_offset_deg",
-                        BuildJson(value.antenna.pattern.boresight_offset_deg)}}}};
+  json["antenna"] = {
+      {"main_beam_gain_db", value.antenna.main_beam_gain_db},
+      {"nominal_az_beamwidth_deg", value.antenna.nominal_az_beamwidth_deg},
+      {"nominal_el_beamwidth_deg", value.antenna.nominal_el_beamwidth_deg},
+      {"enable_directional_pattern", value.antenna.enable_directional_pattern},
+      {"pattern",
+       {{"model_type", static_cast<int>(value.antenna.pattern.model_type)},
+        {"max_sidelobe_level_db", value.antenna.pattern.max_sidelobe_level_db},
+        {"backlobe_level_db", value.antenna.pattern.backlobe_level_db},
+        {"scan_loss_coeff_db_per_deg2", value.antenna.pattern.scan_loss_coeff_db_per_deg2},
+        {"max_scan_loss_db", value.antenna.pattern.max_scan_loss_db},
+        {"boresight_offset_deg", BuildJson(value.antenna.pattern.boresight_offset_deg)}}}};
   json["receiver"] = {{"noise_figure_db", value.receiver.noise_figure_db},
                       {"receive_loss_db", value.receiver.receive_loss_db}};
   json["detection_policy"] = {{"cfar_pfa", value.detection_policy.cfar_pfa},
@@ -175,18 +173,6 @@ Json BuildJson(const config::expert::LifecycleConfig& value) {
   return json;
 }
 
-Json BuildJson(const config::PipelineConfig& value) {
-  Json json;
-  json["orientation"] = BuildJson(value.orientation);
-  json["detection"] = BuildJson(value.expert.detection);
-  json["tracking"] = BuildJson(value.expert.tracking);
-  json["lifecycle"] = BuildJson(value.expert.lifecycle);
-  json["expert"] = {{"detection", BuildJson(value.expert.detection)},
-                    {"tracking", BuildJson(value.expert.tracking)},
-                    {"lifecycle", BuildJson(value.expert.lifecycle)}};
-  return json;
-}
-
 Json BuildJson(const environment::AtmosphericPhysicsConfig& value) {
   Json json;
   json["enable_physical_model"] = value.enable_physical_model;
@@ -204,24 +190,6 @@ Json BuildJson(const environment::AtmosphericDerivedContext& value) {
   json["solar_flux_f107a"] = value.solar_flux_f107a;
   json["solar_flux_f107"] = value.solar_flux_f107;
   json["geomagnetic_ap"] = value.geomagnetic_ap;
-  return json;
-}
-
-Json BuildJson(const environment::JammerSourceFact& value) {
-  Json json;
-  json["technique"] = static_cast<int>(value.technique);
-  json["power_db"] = value.power_db;
-  json["js_db"] = value.js_db;
-  json["frequency_overlap_ratio"] = value.frequency_overlap_ratio;
-  json["prf_lock_risk"] = value.prf_lock_risk;
-  json["has_direction_deg"] = value.has_direction_deg;
-  if (value.has_direction_deg) {
-    json["azimuth_deg"] = value.direction_deg.azimuth_deg;
-    json["elevation_deg"] = value.direction_deg.elevation_deg;
-  }
-  json["angular_span_deg"] = value.angular_span_deg;
-  json["in_sidelobe"] = value.in_sidelobe;
-  json["confidence"] = value.confidence;
   return json;
 }
 
@@ -247,10 +215,9 @@ Json BuildJson(const environment::EnvironmentScenarioConfig& value) {
   json["vegetation_scatter_physics"] = {
       {"cover_profile", static_cast<int>(value.vegetation_scatter_physics.cover_profile)},
       {"enable_physical_model", value.vegetation_scatter_physics.enable_physical_model}};
-  json["jammer_sources"] =
-      SerializeArray(value.jammer_sources, [](const environment::JammerEmitterState& source) {
-        return BuildJson(source);
-      });
+  json["jammer_sources"] = SerializeArray(
+      value.jammer_sources,
+      [](const environment::JammerEmitterState& source) { return BuildJson(source); });
   return json;
 }
 
@@ -267,32 +234,30 @@ Json BuildJson(const environment::EnvironmentSceneState& value) {
   Json json;
   json["atmospheric_physics"] = BuildJson(value.atmospheric_physics);
   json["atmospheric_context"] = BuildJson(value.atmospheric_context);
-  json["jammer_emitters"] =
-      SerializeArray(value.jammer_emitters, [](const environment::JammerEmitterState& source) {
-        return BuildJson(source);
-      });
+  json["jammer_emitters"] = SerializeArray(
+      value.jammer_emitters,
+      [](const environment::JammerEmitterState& source) { return BuildJson(source); });
   return json;
 }
 
 Json BuildJson(const RadarSessionConfig& value) {
   Json json;
-  json["pipeline_config"] = BuildJson(BuildLegacyPipelineConfig(value));
   json["hardware"] = {{"detection", BuildJson(value.hardware.detection)}};
   json["mission"] = {{"orientation", BuildJson(value.mission.orientation)}};
-  json["policy"] = {
-      {"tracking", BuildJson(value.policy.tracking)},
-      {"lifecycle", BuildJson(value.policy.lifecycle)}};
-  json["environment"] = {
-      {"scenario_config", BuildJson(value.environment.scenario_config)},
-      {"jamming_sensitivity_profile", static_cast<int>(value.environment.jamming_sensitivity_profile)}};
+  json["policy"] = {{"tracking", BuildJson(value.policy.tracking)},
+                    {"lifecycle", BuildJson(value.policy.lifecycle)}};
+  json["environment"] = {{"scenario_config", BuildJson(value.environment.scenario_config)},
+                         {"jamming_sensitivity_profile",
+                          static_cast<int>(value.environment.jamming_sensitivity_profile)}};
   return json;
 }
 
 Json BuildJson(const model::TargetFeature& value) {
   Json json;
   json["external_target_id"] = value.external_target_id;
-  json["velocity_mps"] = NumberArray3(value.current_track_velocity_x, value.current_track_velocity_y,
-                                        value.current_track_velocity_z);
+  json["velocity_mps"] =
+      NumberArray3(value.current_track_velocity_x, value.current_track_velocity_y,
+                   value.current_track_velocity_z);
   json["current_track_speed"] = value.current_track_speed;
   json["current_track_rcs"] = value.current_track_rcs;
   json["range_m"] = value.range_m;
@@ -306,10 +271,8 @@ Json BuildJson(const RadarCycleInput& value) {
   Json json;
   json["dt_sec"] = value.dt_sec;
   json["platform_pose"] = BuildJson(value.platform_pose);
-  json["target_features"] =
-      SerializeArray(value.target_features, [](const model::TargetFeature& target) {
-        return BuildJson(target);
-      });
+  json["target_features"] = SerializeArray(
+      value.target_features, [](const model::TargetFeature& target) { return BuildJson(target); });
   return json;
 }
 
@@ -337,7 +300,8 @@ Json BuildJson(const extension::control::RadarControlProfile& value) {
   json["enable_lpi_beamforming"] = value.enable_lpi_beamforming;
   json["lpi_dwell_scale"] = value.lpi_dwell_scale;
   json["enable_agility_frequency"] = value.enable_agility_frequency;
-  json["agility_frequency_hop_phase"] = static_cast<unsigned int>(value.agility_frequency_hop_phase);
+  json["agility_frequency_hop_phase"] =
+      static_cast<unsigned int>(value.agility_frequency_hop_phase);
   json["enable_sidelobe_canceller"] = value.enable_sidelobe_canceller;
   json["enable_adaptive_beamforming"] = value.enable_adaptive_beamforming;
   json["enable_eccm_rejitter"] = value.enable_eccm_rejitter;
@@ -368,14 +332,13 @@ Json BuildJson(const model::DecisionTrackSnapshot& value) {
   state["association_key"] = value.state.association_key;
   state["external_target_id"] = value.state.external_target_id;
   state["status"] = static_cast<int>(value.state.status);
-  state["position_m"] = NumberArray3(value.state.position_x, value.state.position_y,
-                                      value.state.position_z);
-  state["velocity_mps"] = NumberArray3(value.state.velocity_x, value.state.velocity_y,
-                                        value.state.velocity_z);
+  state["position_m"] =
+      NumberArray3(value.state.position_x, value.state.position_y, value.state.position_z);
+  state["velocity_mps"] =
+      NumberArray3(value.state.velocity_x, value.state.velocity_y, value.state.velocity_z);
   state["speed"] = value.state.speed;
-  state["acceleration_mps2"] = NumberArray3(value.state.acceleration_x,
-                                             value.state.acceleration_y,
-                                             value.state.acceleration_z);
+  state["acceleration_mps2"] = NumberArray3(value.state.acceleration_x, value.state.acceleration_y,
+                                            value.state.acceleration_z);
   state["acceleration"] = value.state.acceleration;
   state["rcs"] = value.state.rcs;
   state["jamming_detected"] = value.state.jamming_detected;
@@ -405,24 +368,19 @@ Json BuildJson(const output::TrackOutputFrame& value) {
   json["published_track_count"] = value.published_track_count;
   json["confirmed_track_count"] = value.confirmed_track_count;
   json["contains_lost_tracks"] = value.contains_lost_tracks;
-  json["tracks"] =
-      SerializeArray(value.tracks, [](const model::DecisionTrackSnapshot& track) {
-        return BuildJson(track);
-      });
+  json["tracks"] = SerializeArray(
+      value.tracks, [](const model::DecisionTrackSnapshot& track) { return BuildJson(track); });
   return json;
 }
 
 Json BuildJson(const RadarCycleResult& value) {
   Json json;
   json["track_output_frame"] = BuildJson(value.track_output_frame);
-  json["submitted_commands"] =
-      SerializeArray(value.submitted_commands, [](const extension::control::RadarCommand& command) {
-        return BuildJson(command);
-      });
-  json["validation_issues"] =
-      SerializeArray(value.validation_issues, [](const ValidationIssue& issue) {
-        return BuildJson(issue);
-      });
+  json["submitted_commands"] = SerializeArray(
+      value.submitted_commands,
+      [](const extension::control::RadarCommand& command) { return BuildJson(command); });
+  json["validation_issues"] = SerializeArray(
+      value.validation_issues, [](const ValidationIssue& issue) { return BuildJson(issue); });
   json["has_validation_error"] = value.has_validation_error;
   json["executed_this_cycle"] = value.executed_this_cycle;
   json["signal_cycle_abort_reason"] = ToString(value.signal_cycle_abort_reason);
@@ -435,8 +393,8 @@ Json BuildJson(const RadarCycleResult& value) {
 
 Json BuildJson(const config::RadarRuntimeConfigPatch& value) {
   Json json;
-  json["has_pipeline_config"] = value.has_pipeline_config;
-  json["pipeline_config"] = BuildJson(value.pipeline_config);
+  json["has_mission"] = value.has_mission;
+  json["has_policy"] = value.has_policy;
   json["has_environment_runtime_config"] = value.has_environment_runtime_config;
   json["environment_runtime_config"] = BuildJson(value.environment_runtime_config);
   json["has_work_sub_mode"] = value.has_work_sub_mode;
@@ -526,11 +484,14 @@ void RadarTraceSession::ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch
   }
 }
 
-const std::vector<extension::control::RadarCommand>& RadarTraceSession::GetSubmittedCommands() const {
+const std::vector<extension::control::RadarCommand>& RadarTraceSession::GetSubmittedCommands()
+    const {
   return session_.GetSubmittedCommands();
 }
 
-bool RadarTraceSession::HasLatestControlProfile() const { return session_.HasLatestControlProfile(); }
+bool RadarTraceSession::HasLatestControlProfile() const {
+  return session_.HasLatestControlProfile();
+}
 
 const extension::control::RadarControlProfile& RadarTraceSession::GetLatestControlProfile() const {
   return session_.GetLatestControlProfile();

@@ -2,6 +2,7 @@
 #define AIRBORNE_RADAR_SESSION_RUNTIME_CONFIG_RESOLVER_H_
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
+#include "airborne_radar/session/SessionConfigBridge.h"
 
 namespace airborne_radar {
 namespace session {

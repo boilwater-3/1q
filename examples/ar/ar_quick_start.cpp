@@ -60,8 +60,7 @@ int main() {
   external_input.target_velocity_mps = target_velocity_ecef_mps;
   external_input.target_velocity_frame = aq::session::VelocityFrame::kEcef;
   external_input.platform_attitude_deg = aq::model::PlatformAttitudeDeg{};
-  external_input.radar_mount_angles_deg =
-      session_config.pipeline_config.orientation.mount_angles_deg;
+  external_input.radar_mount_angles_deg = session_config.mission.orientation.mount_angles_deg;
   external_input.rcs = 1.8f;
   external_input.swerling_type = 0;
 

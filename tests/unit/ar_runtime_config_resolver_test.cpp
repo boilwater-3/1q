@@ -15,21 +15,20 @@ namespace session {
 namespace internal {
 namespace {
 
-TEST(ArRuntimeConfigResolverTest, FullSignalConfigAppliedBeforeLeafPatch) {
+TEST(ArRuntimeConfigResolverTest, MissionDomainAppliedBeforeLeafPatch) {
   RuntimeConfigState current_state;
   current_state.pipeline_config.orientation.scan_center_deg.az_deg = 1.0f;
   current_state.pipeline_config.orientation.scan_center_deg.el_deg = 2.0f;
-  current_state.pipeline_config.orientation.work_sub_mode =
-      model::RadarWorkSubMode::kTws;
+  current_state.pipeline_config.orientation.work_sub_mode = model::RadarWorkSubMode::kTws;
 
-  config::PipelineConfig full_signal_config = current_state.pipeline_config;
-  full_signal_config.orientation.scan_center_deg.az_deg = 10.0f;
-  full_signal_config.orientation.scan_center_deg.el_deg = 20.0f;
-  full_signal_config.orientation.work_sub_mode = model::RadarWorkSubMode::kTas;
+  config::RadarMissionConfig mission_patch;
+  mission_patch.orientation.scan_center_deg.az_deg = 10.0f;
+  mission_patch.orientation.scan_center_deg.el_deg = 20.0f;
+  mission_patch.orientation.work_sub_mode = model::RadarWorkSubMode::kTas;
 
   config::RadarRuntimeConfigPatch patch;
-  patch.has_pipeline_config = true;
-  patch.pipeline_config = full_signal_config;
+  patch.has_mission = true;
+  patch.mission = mission_patch;
   patch.has_scan_center_deg = true;
   patch.scan_center_deg.az_deg = 30.0f;
   patch.scan_center_deg.el_deg = 40.0f;
@@ -39,20 +38,16 @@ TEST(ArRuntimeConfigResolverTest, FullSignalConfigAppliedBeforeLeafPatch) {
   EXPECT_TRUE(resolved.has_requested_update);
   EXPECT_TRUE(resolved.is_valid);
   EXPECT_TRUE(resolved.pipeline_config_changed);
-    EXPECT_EQ(resolved.next_state.pipeline_config.orientation.work_sub_mode,
+  EXPECT_EQ(resolved.next_state.pipeline_config.orientation.work_sub_mode,
             model::RadarWorkSubMode::kTas);
-  EXPECT_FLOAT_EQ(
-      resolved.next_state.pipeline_config.orientation.scan_center_deg.az_deg,
-      30.0f);
-  EXPECT_FLOAT_EQ(
-      resolved.next_state.pipeline_config.orientation.scan_center_deg.el_deg,
-      40.0f);
+  EXPECT_FLOAT_EQ(resolved.next_state.pipeline_config.orientation.scan_center_deg.az_deg, 30.0f);
+  EXPECT_FLOAT_EQ(resolved.next_state.pipeline_config.orientation.scan_center_deg.el_deg, 40.0f);
 }
 
 TEST(ArRuntimeConfigResolverTest, EnvironmentPatchUpdatesModelAndThreshold) {
   RuntimeConfigState current_state;
   current_state.environment_scenario_config.atmospheric_physics.enable_physical_model = false;
-    current_state.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kBalanced;
+  current_state.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kBalanced;
 
   config::RadarRuntimeConfigPatch patch =
       config::RadarRuntimeConfigBuilder()
@@ -69,15 +64,15 @@ TEST(ArRuntimeConfigResolverTest, EnvironmentPatchUpdatesModelAndThreshold) {
   EXPECT_TRUE(resolved.jamming_sensitivity_profile_changed);
   EXPECT_TRUE(
       resolved.next_state.environment_scenario_config.atmospheric_physics.enable_physical_model);
-    EXPECT_EQ(resolved.next_state.jamming_sensitivity_profile,
-                        environment::JammingSensitivityProfile::kStrict);
+  EXPECT_EQ(resolved.next_state.jamming_sensitivity_profile,
+            environment::JammingSensitivityProfile::kStrict);
 }
 
 TEST(ArRuntimeConfigResolverTest, InvalidPatchIsRejectedAtomically) {
   RuntimeConfigState current_state;
   current_state.pipeline_config.orientation.scan_center_deg.az_deg = 1.0f;
   current_state.pipeline_config.orientation.scan_center_deg.el_deg = 2.0f;
-    current_state.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kBalanced;
+  current_state.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kBalanced;
 
   config::RadarRuntimeConfigPatch patch =
       config::RadarRuntimeConfigBuilder()
@@ -94,11 +89,9 @@ TEST(ArRuntimeConfigResolverTest, InvalidPatchIsRejectedAtomically) {
   EXPECT_FALSE(resolved.pipeline_config_changed);
   EXPECT_FALSE(resolved.environment_scenario_config_changed);
   EXPECT_FALSE(resolved.jamming_sensitivity_profile_changed);
-  EXPECT_FLOAT_EQ(
-      resolved.next_state.pipeline_config.orientation.scan_center_deg.az_deg,
-      1.0f);
-    EXPECT_EQ(resolved.next_state.jamming_sensitivity_profile,
-                        environment::JammingSensitivityProfile::kBalanced);
+  EXPECT_FLOAT_EQ(resolved.next_state.pipeline_config.orientation.scan_center_deg.az_deg, 1.0f);
+  EXPECT_EQ(resolved.next_state.jamming_sensitivity_profile,
+            environment::JammingSensitivityProfile::kBalanced);
 }
 
 }  // namespace

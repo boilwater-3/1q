@@ -28,8 +28,18 @@ RuntimeConfigResolveResult ResolveRuntimeConfigPatch(const RuntimeConfigState& c
   resolved.next_state = current_state;
   bool has_requested_update = false;
 
-  if (patch.has_pipeline_config) {
-    resolved.next_state.pipeline_config = patch.pipeline_config;
+  if (patch.has_mission) {
+    resolved.next_state.pipeline_config.orientation = patch.mission.orientation;
+    resolved.pipeline_config_changed = true;
+    has_requested_update = true;
+  }
+
+  if (patch.has_policy) {
+    resolved.next_state.pipeline_config.expert.beam_control = patch.policy.beam_control;
+    resolved.next_state.pipeline_config.expert.association = patch.policy.association;
+    resolved.next_state.pipeline_config.expert.tracking = patch.policy.tracking;
+    resolved.next_state.pipeline_config.expert.lifecycle = patch.policy.lifecycle;
+    resolved.next_state.pipeline_config.expert.imm = patch.policy.imm;
     resolved.pipeline_config_changed = true;
     has_requested_update = true;
   }

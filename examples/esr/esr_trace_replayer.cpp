@@ -3,13 +3,12 @@
 // @file esr_trace_replayer.cpp
 // @brief ESR Trace 回放示例：读取 JSONL，驱动 EsrTraceSession 重放并校验一致性。
 
-#include <iostream>
 #include <cstdint>
+#include <iostream>
 #include <memory>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
-
-#include <nlohmann/json.hpp>
 
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
 #include "1q/trace/TraceSink.h"
@@ -67,8 +66,7 @@ esr::environment::EsrAtmosphericObservation ParseAtmosphericObservation(const Js
 
 esr::environment::EsrAtmosphericPhysicsConfig ParseAtmosphericPhysicsConfig(const Json& json) {
   esr::environment::EsrAtmosphericPhysicsConfig value;
-  value.enable_physical_model =
-      GetBool(json, "enable_physical_model", value.enable_physical_model);
+  value.enable_physical_model = GetBool(json, "enable_physical_model", value.enable_physical_model);
   value.pressure_hpa = GetFloat(json, "pressure_hpa", value.pressure_hpa);
   value.temperature_k = GetFloat(json, "temperature_k", value.temperature_k);
   value.relative_humidity = GetFloat(json, "relative_humidity", value.relative_humidity);
@@ -80,8 +78,7 @@ esr::environment::EsrAtmosphericDerivedContext ParseAtmosphericDerivedContext(co
   value.has_k_factor = GetBool(json, "has_k_factor", value.has_k_factor);
   value.k_factor = GetFloat(json, "k_factor", value.k_factor);
   value.has_day_of_year = GetBool(json, "has_day_of_year", value.has_day_of_year);
-  value.day_of_year =
-      static_cast<std::int32_t>(GetInt(json, "day_of_year", value.day_of_year));
+  value.day_of_year = static_cast<std::int32_t>(GetInt(json, "day_of_year", value.day_of_year));
   value.solar_flux_f107a = GetFloat(json, "solar_flux_f107a", value.solar_flux_f107a);
   value.solar_flux_f107 = GetFloat(json, "solar_flux_f107", value.solar_flux_f107);
   value.geomagnetic_ap = GetFloat(json, "geomagnetic_ap", value.geomagnetic_ap);
@@ -124,8 +121,9 @@ esr::session::EsrSessionConfig ParseSessionConfig(const Json& payload) {
         GetFloat(m, "scan_center_el_deg", config.mission.scan.scan_center_el_deg);
     config.mission.scan.scan_rate_hz =
         GetFloat(m, "scan_rate_hz", config.mission.scan.scan_rate_hz);
-    config.mission.scan.scan_start_position = static_cast<esr::session::EsrScanStartPosition>(
-        GetInt(m, "scan_start_position", static_cast<int>(config.mission.scan.scan_start_position)));
+    config.mission.scan.scan_start_position =
+        static_cast<esr::session::EsrScanStartPosition>(GetInt(
+            m, "scan_start_position", static_cast<int>(config.mission.scan.scan_start_position)));
     config.mission.scan.scan_sequence = static_cast<esr::session::EsrScanSequence>(
         GetInt(m, "scan_sequence", static_cast<int>(config.mission.scan.scan_sequence)));
     config.mission.scan.use_explicit_scan_bounds =
@@ -140,8 +138,8 @@ esr::session::EsrSessionConfig ParseSessionConfig(const Json& payload) {
         GetFloat(m, "scan_end_el_deg", config.mission.scan.scan_end_el_deg);
   }
   if (payload.contains("detection_profile")) {
-    config.detection.profile = static_cast<esr::config::EsrDetectionProfile>(
-        GetInt(payload, "detection_profile", static_cast<int>(config.detection.profile)));
+    config.policy.detection.profile = static_cast<esr::config::EsrDetectionProfile>(
+        GetInt(payload, "detection_profile", static_cast<int>(config.policy.detection.profile)));
   }
   if (payload.contains("environment_preset")) {
     config.environment.preset = static_cast<esr::config::EsrEnvironmentPreset>(
@@ -194,8 +192,10 @@ esr::session::EsrCycleInput ParseCycleInput(const Json& payload) {
       emitter.pri_s = GetDouble(e, "pri_s", emitter.pri_s);
       if (e.contains("beam_state")) {
         const Json& b = e["beam_state"];
-        emitter.beam_state.center_az_deg = GetFloat(b, "center_az_deg", emitter.beam_state.center_az_deg);
-        emitter.beam_state.center_el_deg = GetFloat(b, "center_el_deg", emitter.beam_state.center_el_deg);
+        emitter.beam_state.center_az_deg =
+            GetFloat(b, "center_az_deg", emitter.beam_state.center_az_deg);
+        emitter.beam_state.center_el_deg =
+            GetFloat(b, "center_el_deg", emitter.beam_state.center_el_deg);
         emitter.beam_state.az_beamwidth_deg =
             GetFloat(b, "az_beamwidth_deg", emitter.beam_state.az_beamwidth_deg);
         emitter.beam_state.el_beamwidth_deg =
@@ -216,9 +216,10 @@ esr::session::EsrCycleInput ParseCycleInput(const Json& payload) {
                    static_cast<int>(input.environment_observation.propagation_profile)));
     input.environment_observation.clutter_density =
         static_cast<esr::environment::EsrClutterDensityLevel>(
-            GetInt(env, "clutter_density", static_cast<int>(input.environment_observation.clutter_density)));
-    input.environment_observation.spectrum_occupancy_ratio =
-        GetFloat(env, "spectrum_occupancy_ratio", input.environment_observation.spectrum_occupancy_ratio);
+            GetInt(env, "clutter_density",
+                   static_cast<int>(input.environment_observation.clutter_density)));
+    input.environment_observation.spectrum_occupancy_ratio = GetFloat(
+        env, "spectrum_occupancy_ratio", input.environment_observation.spectrum_occupancy_ratio);
     if (env.contains("atmospheric_observation")) {
       input.environment_observation.atmospheric_observation =
           ParseAtmosphericObservation(env["atmospheric_observation"]);
@@ -228,8 +229,8 @@ esr::session::EsrCycleInput ParseCycleInput(const Json& payload) {
       for (std::size_t i = 0; i < env["jammer_sources"].size(); ++i) {
         const Json& j = env["jammer_sources"][i];
         esr::environment::EsrJammerSource jammer;
-        jammer.technique =
-            static_cast<esr::environment::EsrJammingTechnique>(GetInt(j, "technique", static_cast<int>(jammer.technique)));
+        jammer.technique = static_cast<esr::environment::EsrJammingTechnique>(
+            GetInt(j, "technique", static_cast<int>(jammer.technique)));
         jammer.active = GetBool(j, "active", jammer.active);
         jammer.center_hz = GetDouble(j, "center_hz", jammer.center_hz);
         jammer.bandwidth_hz = GetDouble(j, "bandwidth_hz", jammer.bandwidth_hz);
@@ -249,8 +250,8 @@ esr::session::EsrRuntimeConfigPatch ParseRuntimePatch(const Json& payload) {
   patch.has_sensor_enabled = GetBool(payload, "has_sensor_enabled", false);
   patch.sensor_enabled = GetBool(payload, "sensor_enabled", patch.sensor_enabled);
   patch.has_work_mode = GetBool(payload, "has_work_mode", false);
-  patch.work_mode =
-      static_cast<esr::config::EsrWorkMode>(GetInt(payload, "work_mode", static_cast<int>(patch.work_mode)));
+  patch.work_mode = static_cast<esr::config::EsrWorkMode>(
+      GetInt(payload, "work_mode", static_cast<int>(patch.work_mode)));
   patch.has_scan_rate_hz = GetBool(payload, "has_scan_rate_hz", false);
   patch.scan_rate_hz = GetFloat(payload, "scan_rate_hz", patch.scan_rate_hz);
   patch.has_scan_start_position = GetBool(payload, "has_scan_start_position", false);
@@ -274,18 +275,15 @@ esr::session::EsrRuntimeConfigPatch ParseRuntimePatch(const Json& payload) {
   patch.scan_start_el_deg = GetFloat(payload, "scan_start_el_deg", patch.scan_start_el_deg);
   patch.has_scan_end_el_deg = GetBool(payload, "has_scan_end_el_deg", false);
   patch.scan_end_el_deg = GetFloat(payload, "scan_end_el_deg", patch.scan_end_el_deg);
-  patch.has_preset = GetBool(payload, "has_preset",
-                             GetBool(payload, "has_environment_preset", false));
-  patch.preset = static_cast<esr::config::EsrEnvironmentPreset>(
-      GetInt(payload, "preset",
-             GetInt(payload, "environment_preset", static_cast<int>(patch.preset))));
-  patch.has_atmospheric_physics =
-      GetBool(payload, "has_atmospheric_physics", false);
+  patch.has_preset =
+      GetBool(payload, "has_preset", GetBool(payload, "has_environment_preset", false));
+  patch.preset = static_cast<esr::config::EsrEnvironmentPreset>(GetInt(
+      payload, "preset", GetInt(payload, "environment_preset", static_cast<int>(patch.preset))));
+  patch.has_atmospheric_physics = GetBool(payload, "has_atmospheric_physics", false);
   if (payload.contains("atmospheric_physics") && payload["atmospheric_physics"].is_object()) {
     patch.atmospheric_physics = ParseAtmosphericPhysicsConfig(payload["atmospheric_physics"]);
   }
-  patch.has_atmospheric_context =
-      GetBool(payload, "has_atmospheric_context", false);
+  patch.has_atmospheric_context = GetBool(payload, "has_atmospheric_context", false);
   if (payload.contains("atmospheric_context") && payload["atmospheric_context"].is_object()) {
     patch.atmospheric_context = ParseAtmosphericDerivedContext(payload["atmospheric_context"]);
   }
@@ -313,8 +311,8 @@ int main(int argc, char* argv[]) {
 
   std::vector<TraceRecord> expected;
   std::string error_message;
-  if (!oneq::examples::replay::LoadTraceRecords(trace_path, "electronic_surveillance_radar", &expected,
-                                                 &error_message)) {
+  if (!oneq::examples::replay::LoadTraceRecords(trace_path, "electronic_surveillance_radar",
+                                                &expected, &error_message)) {
     std::cerr << "load trace failed: " << error_message << std::endl;
     return 1;
   }
@@ -353,8 +351,8 @@ int main(int argc, char* argv[]) {
   }
 
   std::vector<TraceRecord> actual;
-  if (!oneq::examples::replay::LoadTraceRecords(replay_path, "electronic_surveillance_radar", &actual,
-                                                 &error_message)) {
+  if (!oneq::examples::replay::LoadTraceRecords(replay_path, "electronic_surveillance_radar",
+                                                &actual, &error_message)) {
     std::cerr << "load replay trace failed: " << error_message << std::endl;
     return 1;
   }

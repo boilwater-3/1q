@@ -1,5 +1,6 @@
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 
+#include "1q/airborne_radar/config/PipelineConfig.h"
 #include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
@@ -74,8 +75,7 @@ void ApplyDetectionSemanticConfig(bool enable_physics_detection,
       d.antenna.pattern.backlobe_level_db = -42.0f;
       break;
     case semantic::AntennaPatternProfile::kWideCoverage:
-      d.antenna.pattern.model_type =
-          expert::AntennaPatternModelType::kParabolicMainLobe;
+      d.antenna.pattern.model_type = expert::AntennaPatternModelType::kParabolicMainLobe;
       d.antenna.pattern.max_sidelobe_level_db = -18.0f;
       d.antenna.pattern.max_scan_loss_db = 8.0f;
       break;
@@ -164,11 +164,9 @@ expert::ExpertPipelineConfig BuildDefaultSemanticExpertConfig() {
   ApplyDetectionSemanticConfig(false, semantic::RadarHardwareProfile::kGenericAirborneXBand,
                                semantic::DetectionIntentProfile::kBalanced,
                                semantic::AntennaPatternProfile::kStandard,
-                               model::AzimuthElevationDeg(),
-                               semantic::RcsFusionProfile::kDisabled,
+                               model::AzimuthElevationDeg(), semantic::RcsFusionProfile::kDisabled,
                                &expert_config.detection);
-  ApplyTrackingSemanticConfig(false, semantic::TrackingPolicyProfile::kBalanced,
-                              &expert_config);
+  ApplyTrackingSemanticConfig(false, semantic::TrackingPolicyProfile::kBalanced, &expert_config);
   ApplyLifecycleSemanticConfig(false, semantic::LifecyclePolicyProfile::kBalanced,
                                &expert_config.lifecycle);
   return expert_config;
@@ -180,9 +178,14 @@ RadarSessionConfigBuilder::RadarSessionConfigBuilder()
     : base_expert_config_(BuildDefaultSemanticExpertConfig()) {}
 
 RadarSessionConfigBuilder::RadarSessionConfigBuilder(const session::RadarSessionConfig& config)
-    : base_expert_config_(session::BuildLegacyPipelineConfig(config).expert),
-      orientation_(config.mission.orientation),
-      env_(config.environment) {}
+    : orientation_(config.mission.orientation), env_(config.environment) {
+  base_expert_config_.detection = config.hardware.detection;
+  base_expert_config_.beam_control = config.policy.beam_control;
+  base_expert_config_.association = config.policy.association;
+  base_expert_config_.tracking = config.policy.tracking;
+  base_expert_config_.lifecycle = config.policy.lifecycle;
+  base_expert_config_.imm = config.policy.imm;
+}
 
 session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
   session::RadarSessionConfig result;
@@ -219,8 +222,7 @@ session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
 
   if (lifecycle_dirty_) {
     merged_expert.lifecycle = default_semantic_expert.lifecycle;
-    ApplyLifecycleSemanticConfig(enable_imm_fusion_, lifecycle_profile_,
-                                 &merged_expert.lifecycle);
+    ApplyLifecycleSemanticConfig(enable_imm_fusion_, lifecycle_profile_, &merged_expert.lifecycle);
   }
 
   result.hardware.detection = merged_expert.detection;
@@ -230,8 +232,7 @@ session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
   result.policy.lifecycle = merged_expert.lifecycle;
   result.policy.imm = merged_expert.imm;
 
-  if (tracking_dirty_ &&
-      tracking_profile_ == semantic::TrackingPolicyProfile::kRobustAntiJamming &&
+  if (tracking_dirty_ && tracking_profile_ == semantic::TrackingPolicyProfile::kRobustAntiJamming &&
       !enable_imm_fusion_) {
     PROJECT_LOG_WARN(
         "[RadarSessionConfigBuilder] robust tracking policy is set while IMM fusion is disabled; "
