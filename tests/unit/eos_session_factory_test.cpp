@@ -85,11 +85,11 @@ class CountingEnvironmentService final : public environment::IEosEnvironmentServ
 
 EosSessionConfig MakeSessionConfig() {
   EosSessionConfig config;
-  config.scan.work_mode = EosWorkMode::kInfraredOnly;
-  config.detection.profile = config::EosDetectionProfile::kAggressive;
-  config.scan.scan_rate_deg_per_sec = 5.0f;
-  config.scan.horizontal_fov_deg = 20.0f;
-  config.scan.vertical_fov_deg = 4.0f;
+  config.mission.work_mode = EosWorkMode::kInfraredOnly;
+  config.policy.detection.profile = config::EosDetectionProfile::kAggressive;
+  config.mission.scan_rate_deg_per_sec = 5.0f;
+  config.mission.horizontal_fov_deg = 20.0f;
+  config.mission.vertical_fov_deg = 4.0f;
   return config;
 }
 

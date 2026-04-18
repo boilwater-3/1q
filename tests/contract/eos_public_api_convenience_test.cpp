@@ -11,6 +11,7 @@
 #include <limits>
 #include <vector>
 
+#include "1q/electro_optical_sensor/config/EosDetailedSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
@@ -69,15 +70,32 @@ TEST(EosPublicApiConvenienceTest, SessionConfigBuilderDefaultsMatchEosSessionCon
   const session::EosSessionConfig built = config::EosSessionConfigBuilder().Build();
   const session::EosSessionConfig default_config;
 
-  EXPECT_EQ(built.scan.work_mode, default_config.scan.work_mode);
-  EXPECT_NEAR(built.optical.wavelength_lower_um, default_config.optical.wavelength_lower_um, 1e-5f);
-  EXPECT_NEAR(built.optical.wavelength_upper_um, default_config.optical.wavelength_upper_um, 1e-5f);
-  EXPECT_EQ(built.detection.profile, default_config.detection.profile);
+  EXPECT_EQ(built.mission.work_mode, default_config.mission.work_mode);
+  EXPECT_NEAR(built.hardware.wavelength_lower_um, default_config.hardware.wavelength_lower_um, 1e-5f);
+  EXPECT_NEAR(built.hardware.wavelength_upper_um, default_config.hardware.wavelength_upper_um, 1e-5f);
+  EXPECT_EQ(built.policy.detection.profile, default_config.policy.detection.profile);
 }
 
-TEST(EosPublicApiConvenienceTest, SessionConfigBuilderOverridesAllFields) {
+TEST(EosPublicApiConvenienceTest, SessionConfigBuilderOverridesSemanticFields) {
   const session::EosSessionConfig config =
       config::EosSessionConfigBuilder()
+          .WithWorkMode(session::EosWorkMode::kInfraredOnly)
+          .WithDetectionProfile(config::EosDetectionProfile::kConservative)
+          .WithStrayLightProfile(config::EosStrayLightProfile::kEnhancedHood)
+          .WithEnvironmentModelType(environment::EosEnvironmentModelType::kAdvanced)
+          .WithEnvironmentPreset(config::EosEnvironmentPreset::kDusty)
+          .Build();
+
+  EXPECT_EQ(config.mission.work_mode, session::EosWorkMode::kInfraredOnly);
+  EXPECT_EQ(config.policy.detection.profile, config::EosDetectionProfile::kConservative);
+  EXPECT_EQ(config.policy.stray_light.profile, config::EosStrayLightProfile::kEnhancedHood);
+  EXPECT_EQ(config.environment.model_type, environment::EosEnvironmentModelType::kAdvanced);
+  EXPECT_EQ(config.environment.preset, config::EosEnvironmentPreset::kDusty);
+}
+
+TEST(EosPublicApiConvenienceTest, DetailedSessionConfigBuilderOverridesDomainAndLeafFields) {
+  const session::EosSessionConfig config =
+      config::EosDetailedSessionConfigBuilder()
           .WithWorkMode(session::EosWorkMode::kInfraredOnly)
           .WithScanRateDegPerSec(40.0f)
           .WithFrameRateHz(60.0f)
@@ -87,40 +105,39 @@ TEST(EosPublicApiConvenienceTest, SessionConfigBuilderOverridesAllFields) {
           .WithEnvironmentPreset(config::EosEnvironmentPreset::kDusty)
           .Build();
 
-  EXPECT_EQ(config.scan.work_mode, session::EosWorkMode::kInfraredOnly);
-  EXPECT_NEAR(config.scan.scan_rate_deg_per_sec, 40.0f, 1e-5f);
-  EXPECT_NEAR(config.scan.frame_rate_hz, 60.0f, 1e-5f);
-  EXPECT_EQ(config.detection.profile, config::EosDetectionProfile::kConservative);
-  EXPECT_EQ(config.stray_light.profile, config::EosStrayLightProfile::kEnhancedHood);
+  EXPECT_EQ(config.mission.work_mode, session::EosWorkMode::kInfraredOnly);
+  EXPECT_NEAR(config.mission.scan_rate_deg_per_sec, 40.0f, 1e-5f);
+  EXPECT_NEAR(config.mission.frame_rate_hz, 60.0f, 1e-5f);
+  EXPECT_EQ(config.policy.detection.profile, config::EosDetectionProfile::kConservative);
+  EXPECT_EQ(config.policy.stray_light.profile, config::EosStrayLightProfile::kEnhancedHood);
   EXPECT_EQ(config.environment.model_type, environment::EosEnvironmentModelType::kAdvanced);
   EXPECT_EQ(config.environment.preset, config::EosEnvironmentPreset::kDusty);
 }
 
 TEST(EosPublicApiConvenienceTest, SessionConfigBuilderPreservesPreconfiguredSessionConfig) {
   session::EosSessionConfig base;
-  base.optical.wavelength_lower_um = 8.0f;
-  base.optical.wavelength_upper_um = 12.0f;
+  base.hardware.wavelength_lower_um = 8.0f;
+  base.hardware.wavelength_upper_um = 12.0f;
 
   const session::EosSessionConfig config =
       config::EosSessionConfigBuilder(base)
           .WithDetectionProfile(config::EosDetectionProfile::kAggressive)
           .Build();
 
-  EXPECT_NEAR(config.optical.wavelength_lower_um, 8.0f, 1e-5f);
-  EXPECT_NEAR(config.optical.wavelength_upper_um, 12.0f, 1e-5f);
-  EXPECT_EQ(config.detection.profile, config::EosDetectionProfile::kAggressive);
+  EXPECT_NEAR(config.hardware.wavelength_lower_um, 8.0f, 1e-5f);
+  EXPECT_NEAR(config.hardware.wavelength_upper_um, 12.0f, 1e-5f);
+  EXPECT_EQ(config.policy.detection.profile, config::EosDetectionProfile::kAggressive);
 }
 
 TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderDefaultsAreUnset) {
   const session::EosRuntimeConfigPatch patch = config::EosRuntimeConfigBuilder().Build();
 
+  EXPECT_FALSE(patch.has_mission);
+  EXPECT_FALSE(patch.has_policy);
+  EXPECT_FALSE(patch.has_environment);
   EXPECT_FALSE(patch.has_work_mode);
   EXPECT_FALSE(patch.has_scan_rate_deg_per_sec);
   EXPECT_FALSE(patch.has_frame_rate_hz);
-  EXPECT_FALSE(patch.has_detection_profile);
-  EXPECT_FALSE(patch.has_stray_light_profile);
-  EXPECT_FALSE(patch.has_environment_model_type);
-  EXPECT_FALSE(patch.has_environment_preset);
 }
 
 TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderSetsAllFields) {
@@ -144,14 +161,12 @@ TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderSetsAllFields) {
   EXPECT_NEAR(patch.scan_rate_deg_per_sec, 50.0f, 1e-5f);
   EXPECT_TRUE(patch.has_frame_rate_hz);
   EXPECT_NEAR(patch.frame_rate_hz, 120.0f, 1e-5f);
-  EXPECT_TRUE(patch.has_detection_profile);
-  EXPECT_EQ(patch.detection_profile, config::EosDetectionProfile::kConservative);
-  EXPECT_TRUE(patch.has_stray_light_profile);
-  EXPECT_EQ(patch.stray_light_profile, config::EosStrayLightProfile::kEnhancedHood);
-  EXPECT_TRUE(patch.has_environment_model_type);
-  EXPECT_EQ(patch.environment_model_type, environment::EosEnvironmentModelType::kAdvanced);
-  EXPECT_TRUE(patch.has_environment_preset);
-  EXPECT_EQ(patch.environment_preset, config::EosEnvironmentPreset::kTurbulent);
+  EXPECT_TRUE(patch.has_policy);
+  EXPECT_EQ(patch.policy.detection.profile, config::EosDetectionProfile::kConservative);
+  EXPECT_EQ(patch.policy.stray_light.profile, config::EosStrayLightProfile::kEnhancedHood);
+  EXPECT_TRUE(patch.has_environment);
+  EXPECT_EQ(patch.environment.model_type, environment::EosEnvironmentModelType::kAdvanced);
+  EXPECT_EQ(patch.environment.preset, config::EosEnvironmentPreset::kTurbulent);
 }
 
 TEST(EosPublicApiConvenienceTest, InputValidationReportsErrorsForCommonBoundaryCases) {
@@ -349,9 +364,9 @@ TEST(EosPublicApiConvenienceTest, RadiativeTransferEvaluatesModels) {
 
 TEST(EosPublicApiConvenienceTest, EosSessionStepProducesDetectionOutput) {
   session::EosSessionConfig config;
-  config.pointing.scan_start_az_deg = -20.0f;
-  config.pointing.scan_end_az_deg = 20.0f;
-  config.detection.profile = config::EosDetectionProfile::kAggressive;
+  config.mission.scan_start_az_deg = -20.0f;
+  config.mission.scan_end_az_deg = 20.0f;
+  config.policy.detection.profile = config::EosDetectionProfile::kAggressive;
 
   session::EosSession session = session::EosSessionFactory::Create(config);
 
@@ -366,9 +381,9 @@ TEST(EosPublicApiConvenienceTest, EosSessionStepProducesDetectionOutput) {
 
 TEST(EosPublicApiConvenienceTest, EosSessionStepWithResultAggregatesOutputAndValidation) {
   session::EosSessionConfig config;
-  config.pointing.scan_start_az_deg = -20.0f;
-  config.pointing.scan_end_az_deg = 20.0f;
-  config.detection.profile = config::EosDetectionProfile::kAggressive;
+  config.mission.scan_start_az_deg = -20.0f;
+  config.mission.scan_end_az_deg = 20.0f;
+  config.policy.detection.profile = config::EosDetectionProfile::kAggressive;
 
   session::EosSession session = session::EosSessionFactory::Create(config);
 
@@ -446,9 +461,9 @@ TEST(EosPublicApiConvenienceTest, EosSessionFactoryCanInjectEnvironmentService) 
 
 TEST(EosPublicApiConvenienceTest, EosSessionMultiCycleProducesProgressiveCycleIndices) {
   session::EosSessionConfig config;
-  config.pointing.scan_start_az_deg = -20.0f;
-  config.pointing.scan_end_az_deg = 20.0f;
-  config.detection.profile = config::EosDetectionProfile::kAggressive;
+  config.mission.scan_start_az_deg = -20.0f;
+  config.mission.scan_end_az_deg = 20.0f;
+  config.policy.detection.profile = config::EosDetectionProfile::kAggressive;
 
   session::EosSession session = session::EosSessionFactory::Create(config);
 
@@ -477,10 +492,9 @@ TEST(EosPublicApiConvenienceTest, EosRuntimeConfigBuilderWithEnvironmentPolicies
                                                        config::EosEnvironmentPreset::kTurbulent)
                                                    .Build();
 
-  EXPECT_TRUE(patch.has_environment_model_type);
-  EXPECT_EQ(patch.environment_model_type, environment::EosEnvironmentModelType::kAdvanced);
-  EXPECT_TRUE(patch.has_environment_preset);
-  EXPECT_EQ(patch.environment_preset, config::EosEnvironmentPreset::kTurbulent);
+  EXPECT_TRUE(patch.has_environment);
+  EXPECT_EQ(patch.environment.model_type, environment::EosEnvironmentModelType::kAdvanced);
+  EXPECT_EQ(patch.environment.preset, config::EosEnvironmentPreset::kTurbulent);
 }
 
 }  // namespace tests

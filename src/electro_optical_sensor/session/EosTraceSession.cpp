@@ -124,44 +124,77 @@ Json BuildJson(const model::EosCycleResult& value) {
   return json;
 }
 
+Json BuildJson(const config::EosMissionConfig& value) {
+  Json json;
+  json["work_mode"] = static_cast<int>(value.work_mode);
+  json["horizontal_fov_deg"] = value.horizontal_fov_deg;
+  json["vertical_fov_deg"] = value.vertical_fov_deg;
+  json["scan_rate_deg_per_sec"] = value.scan_rate_deg_per_sec;
+  json["frame_rate_hz"] = value.frame_rate_hz;
+  json["scan_start_az_deg"] = value.scan_start_az_deg;
+  json["scan_end_az_deg"] = value.scan_end_az_deg;
+  json["scan_center_el_deg"] = value.scan_center_el_deg;
+  json["boresight_depression_deg"] = value.boresight_depression_deg;
+  return json;
+}
+
+Json BuildJson(const config::EosPolicyConfig& value) {
+  Json json;
+  json["detection_profile"] = static_cast<int>(value.detection.profile);
+  json["detection_use_profile_defaults"] = value.detection.use_profile_defaults;
+  json["minimum_snr_db"] = value.detection.minimum_snr_db;
+  json["detection_sensitivity_w"] = value.detection.detection_sensitivity_w;
+  json["visible_reference_irradiance_w_m2"] =
+      value.detection.visible_reference_irradiance_w_m2;
+  json["stray_light_profile"] = static_cast<int>(value.stray_light.profile);
+  json["stray_light_use_profile_defaults"] = value.stray_light.use_profile_defaults;
+  json["enable_straylight_filter"] = value.stray_light.enable_straylight_filter;
+  json["hood_inner_half_angle_deg"] = value.stray_light.hood_inner_half_angle_deg;
+  json["hood_outer_half_angle_deg"] = value.stray_light.hood_outer_half_angle_deg;
+  json["hood_min_suppression_ratio"] = value.stray_light.hood_min_suppression_ratio;
+  json["hood_max_suppression_ratio"] = value.stray_light.hood_max_suppression_ratio;
+  return json;
+}
+
+Json BuildJson(const config::EosEnvironmentConfig& value) {
+  Json json;
+  json["environment_model_type"] = static_cast<int>(value.model_type);
+  json["environment_preset"] = static_cast<int>(value.preset);
+  json["use_preset_defaults"] = value.use_preset_defaults;
+  json["radiative_transfer_model"] = static_cast<int>(value.radiative_transfer_model);
+  json["aerosol_density_factor"] = value.aerosol_density_factor;
+  json["turbulence_factor"] = value.turbulence_factor;
+  json["enable_optical_countermeasure_extension"] =
+      value.enable_optical_countermeasure_extension;
+  return json;
+}
+
 Json BuildJson(const EosSessionConfig& value) {
   Json json;
-  json["wavelength_lower_um"] = value.optical.wavelength_lower_um;
-  json["wavelength_upper_um"] = value.optical.wavelength_upper_um;
-  json["optical_aperture_m"] = value.optical.optical_aperture_m;
-  json["focal_length_m"] = value.optical.focal_length_m;
-  json["work_mode"] = static_cast<int>(value.scan.work_mode);
-  json["horizontal_fov_deg"] = value.scan.horizontal_fov_deg;
-  json["vertical_fov_deg"] = value.scan.vertical_fov_deg;
-  json["scan_rate_deg_per_sec"] = value.scan.scan_rate_deg_per_sec;
-  json["frame_rate_hz"] = value.scan.frame_rate_hz;
-  json["scan_start_az_deg"] = value.pointing.scan_start_az_deg;
-  json["scan_end_az_deg"] = value.pointing.scan_end_az_deg;
-  json["scan_center_el_deg"] = value.pointing.scan_center_el_deg;
-  json["boresight_depression_deg"] = value.pointing.boresight_depression_deg;
-  json["detection_profile"] = static_cast<int>(value.detection.profile);
-  json["stray_light_profile"] = static_cast<int>(value.stray_light.profile);
-  json["environment_model_type"] = static_cast<int>(value.environment.model_type);
-  json["environment_preset"] = static_cast<int>(value.environment.preset);
+  json["wavelength_lower_um"] = value.hardware.wavelength_lower_um;
+  json["wavelength_upper_um"] = value.hardware.wavelength_upper_um;
+  json["optical_aperture_m"] = value.hardware.optical_aperture_m;
+  json["focal_length_m"] = value.hardware.focal_length_m;
+  json["mission"] = BuildJson(value.mission);
+  json["policy"] = BuildJson(value.policy);
+  json["environment"] = BuildJson(value.environment);
   return json;
 }
 
 Json BuildJson(const EosRuntimeConfigPatch& value) {
   Json json;
+  json["has_mission"] = value.has_mission;
+  json["mission"] = BuildJson(value.mission);
+  json["has_policy"] = value.has_policy;
+  json["policy"] = BuildJson(value.policy);
+  json["has_environment"] = value.has_environment;
+  json["environment"] = BuildJson(value.environment);
   json["has_work_mode"] = value.has_work_mode;
   json["work_mode"] = static_cast<int>(value.work_mode);
   json["has_scan_rate_deg_per_sec"] = value.has_scan_rate_deg_per_sec;
   json["scan_rate_deg_per_sec"] = value.scan_rate_deg_per_sec;
   json["has_frame_rate_hz"] = value.has_frame_rate_hz;
   json["frame_rate_hz"] = value.frame_rate_hz;
-  json["has_detection_profile"] = value.has_detection_profile;
-  json["detection_profile"] = static_cast<int>(value.detection_profile);
-  json["has_stray_light_profile"] = value.has_stray_light_profile;
-  json["stray_light_profile"] = static_cast<int>(value.stray_light_profile);
-  json["has_environment_model_type"] = value.has_environment_model_type;
-  json["environment_model_type"] = static_cast<int>(value.environment_model_type);
-  json["has_environment_preset"] = value.has_environment_preset;
-  json["environment_preset"] = static_cast<int>(value.environment_preset);
   return json;
 }
 

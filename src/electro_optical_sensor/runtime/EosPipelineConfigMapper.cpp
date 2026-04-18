@@ -49,8 +49,21 @@ void ApplyDetectionProfile(config::EosDetectionProfile profile,
   config_out->visible_reference_irradiance_w_m2 = 800.0f;
 }
 
-void ApplyStrayLightProfile(config::EosStrayLightProfile profile,
-                            ::electro_optical_sensor::extension::EosPipelineConfig* config_out) {
+void ApplyDetectionPolicy(
+    const config::EosDetectionPolicyConfig& detection,
+    ::electro_optical_sensor::extension::EosPipelineConfig* config_out) {
+  if (detection.use_profile_defaults) {
+    ApplyDetectionProfile(detection.profile, config_out);
+    return;
+  }
+  config_out->minimum_snr_db = detection.minimum_snr_db;
+  config_out->detection_sensitivity_w = detection.detection_sensitivity_w;
+  config_out->visible_reference_irradiance_w_m2 = detection.visible_reference_irradiance_w_m2;
+}
+
+void ApplyStrayLightProfile(
+    config::EosStrayLightProfile profile,
+    ::electro_optical_sensor::extension::EosPipelineConfig* config_out) {
   if (profile == config::EosStrayLightProfile::kEnhancedHood) {
     config_out->enable_straylight_filter = true;
     config_out->hood_inner_half_angle_deg = 8.0f;
@@ -72,6 +85,20 @@ void ApplyStrayLightProfile(config::EosStrayLightProfile profile,
   config_out->hood_outer_half_angle_deg = 75.0f;
   config_out->hood_min_suppression_ratio = 0.20f;
   config_out->hood_max_suppression_ratio = 0.85f;
+}
+
+void ApplyStrayLightPolicy(
+    const config::EosStrayLightPolicyConfig& stray_light,
+    ::electro_optical_sensor::extension::EosPipelineConfig* config_out) {
+  if (stray_light.use_profile_defaults) {
+    ApplyStrayLightProfile(stray_light.profile, config_out);
+    return;
+  }
+  config_out->enable_straylight_filter = stray_light.enable_straylight_filter;
+  config_out->hood_inner_half_angle_deg = stray_light.hood_inner_half_angle_deg;
+  config_out->hood_outer_half_angle_deg = stray_light.hood_outer_half_angle_deg;
+  config_out->hood_min_suppression_ratio = stray_light.hood_min_suppression_ratio;
+  config_out->hood_max_suppression_ratio = stray_light.hood_max_suppression_ratio;
 }
 
 void ApplyEnvironmentPreset(config::EosEnvironmentPreset preset,
@@ -106,30 +133,42 @@ void ApplyEnvironmentPreset(config::EosEnvironmentPreset preset,
   config_out->turbulence_factor = 1.0f;
 }
 
+void ApplyEnvironmentConfig(
+    const config::EosEnvironmentConfig& environment,
+    ::electro_optical_sensor::extension::EosPipelineConfig* config_out) {
+  if (environment.use_preset_defaults) {
+    ApplyEnvironmentPreset(environment.preset, config_out);
+    return;
+  }
+  config_out->radiative_transfer_model = environment.radiative_transfer_model;
+  config_out->aerosol_density_factor = environment.aerosol_density_factor;
+  config_out->turbulence_factor = environment.turbulence_factor;
+}
+
 }  // namespace
 
 ::electro_optical_sensor::extension::EosPipelineConfig BuildEosPipelineConfig(
     const ::electro_optical_sensor::session::EosSessionConfig& config) {
   ::electro_optical_sensor::extension::EosPipelineConfig pipeline_config;
-  pipeline_config.wavelength_lower_um = config.optical.wavelength_lower_um;
-  pipeline_config.wavelength_upper_um = config.optical.wavelength_upper_um;
-  pipeline_config.optical_aperture_m = config.optical.optical_aperture_m;
-  pipeline_config.focal_length_m = config.optical.focal_length_m;
-  pipeline_config.work_mode = ToPipelineWorkMode(config.scan.work_mode);
-  pipeline_config.horizontal_fov_deg = config.scan.horizontal_fov_deg;
-  pipeline_config.vertical_fov_deg = config.scan.vertical_fov_deg;
-  pipeline_config.scan_rate_deg_per_sec = config.scan.scan_rate_deg_per_sec;
-  pipeline_config.frame_rate_hz = config.scan.frame_rate_hz;
-  pipeline_config.scan_start_az_deg = config.pointing.scan_start_az_deg;
-  pipeline_config.scan_end_az_deg = config.pointing.scan_end_az_deg;
-  pipeline_config.scan_center_el_deg = config.pointing.scan_center_el_deg;
-  pipeline_config.boresight_depression_deg = config.pointing.boresight_depression_deg;
+  pipeline_config.wavelength_lower_um = config.hardware.wavelength_lower_um;
+  pipeline_config.wavelength_upper_um = config.hardware.wavelength_upper_um;
+  pipeline_config.optical_aperture_m = config.hardware.optical_aperture_m;
+  pipeline_config.focal_length_m = config.hardware.focal_length_m;
+  pipeline_config.work_mode = ToPipelineWorkMode(config.mission.work_mode);
+  pipeline_config.horizontal_fov_deg = config.mission.horizontal_fov_deg;
+  pipeline_config.vertical_fov_deg = config.mission.vertical_fov_deg;
+  pipeline_config.scan_rate_deg_per_sec = config.mission.scan_rate_deg_per_sec;
+  pipeline_config.frame_rate_hz = config.mission.frame_rate_hz;
+  pipeline_config.scan_start_az_deg = config.mission.scan_start_az_deg;
+  pipeline_config.scan_end_az_deg = config.mission.scan_end_az_deg;
+  pipeline_config.scan_center_el_deg = config.mission.scan_center_el_deg;
+  pipeline_config.boresight_depression_deg = config.mission.boresight_depression_deg;
   pipeline_config.min_detection_depression_deg = 1.0f;
   pipeline_config.max_detection_depression_deg = 89.0f;
 
-  ApplyDetectionProfile(config.detection.profile, &pipeline_config);
-  ApplyStrayLightProfile(config.stray_light.profile, &pipeline_config);
-  ApplyEnvironmentPreset(config.environment.preset, &pipeline_config);
+  ApplyDetectionPolicy(config.policy.detection, &pipeline_config);
+  ApplyStrayLightPolicy(config.policy.stray_light, &pipeline_config);
+  ApplyEnvironmentConfig(config.environment, &pipeline_config);
 
   pipeline_config.environment_model_type =
       ToPipelineEnvironmentModelType(config.environment.model_type);

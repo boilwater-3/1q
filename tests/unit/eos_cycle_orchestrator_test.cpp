@@ -25,13 +25,13 @@ namespace eos_session = ::electro_optical_sensor::session;
 
 eos_session::EosSessionConfig MakeSessionConfig() {
   eos_session::EosSessionConfig config;
-  config.scan.work_mode = eos_session::EosWorkMode::kInfraredOnly;
-  config.detection.profile = eos_config::EosDetectionProfile::kAggressive;
-  config.pointing.scan_start_az_deg = -10.0f;
-  config.pointing.scan_end_az_deg = 10.0f;
-  config.scan.scan_rate_deg_per_sec = 5.0f;
-  config.scan.horizontal_fov_deg = 20.0f;
-  config.scan.vertical_fov_deg = 4.0f;
+  config.mission.work_mode = eos_session::EosWorkMode::kInfraredOnly;
+  config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  config.mission.scan_start_az_deg = -10.0f;
+  config.mission.scan_end_az_deg = 10.0f;
+  config.mission.scan_rate_deg_per_sec = 5.0f;
+  config.mission.horizontal_fov_deg = 20.0f;
+  config.mission.vertical_fov_deg = 4.0f;
   return config;
 }
 

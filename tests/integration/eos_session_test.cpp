@@ -56,13 +56,13 @@ session::EosCycleInput MakeBaseInput() {
 
 EosSessionConfig MakeSessionConfig() {
   EosSessionConfig config;
-  config.scan.work_mode = EosWorkMode::kFused;
-  config.detection.profile = eos_config::EosDetectionProfile::kAggressive;
-  config.pointing.scan_start_az_deg = -10.0f;
-  config.pointing.scan_end_az_deg = 10.0f;
-  config.scan.scan_rate_deg_per_sec = 5.0f;
-  config.scan.horizontal_fov_deg = 20.0f;
-  config.scan.vertical_fov_deg = 4.0f;
+  config.mission.work_mode = EosWorkMode::kFused;
+  config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  config.mission.scan_start_az_deg = -10.0f;
+  config.mission.scan_end_az_deg = 10.0f;
+  config.mission.scan_rate_deg_per_sec = 5.0f;
+  config.mission.horizontal_fov_deg = 20.0f;
+  config.mission.vertical_fov_deg = 4.0f;
   return config;
 }
 
@@ -118,7 +118,7 @@ TEST(EosSessionIntegrationTest, StepReturnsSameCycleIndexAsStepWithResult) {
 
 TEST(EosSessionIntegrationTest, FusedModeDetectsInFovTarget) {
   EosSessionConfig config = MakeSessionConfig();
-  config.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
   EosSession session = EosSessionFactory::Create(config);
   session::EosCycleInput input = MakeBaseInput();
   input.scene_targets.front().range_m = 1700.0f;
@@ -134,7 +134,7 @@ TEST(EosSessionIntegrationTest, FusedModeDetectsInFovTarget) {
 
 TEST(EosSessionIntegrationTest, InfraredOnlyModeProducesInfraredSnr) {
   EosSessionConfig config = MakeSessionConfig();
-  config.scan.work_mode = EosWorkMode::kInfraredOnly;
+  config.mission.work_mode = EosWorkMode::kInfraredOnly;
   EosSession session = EosSessionFactory::Create(config);
   const session::EosCycleInput input = MakeBaseInput();
 
@@ -148,7 +148,7 @@ TEST(EosSessionIntegrationTest, InfraredOnlyModeProducesInfraredSnr) {
 
 TEST(EosSessionIntegrationTest, VisibleOnlyModeProducesVisibleSnr) {
   EosSessionConfig config = MakeSessionConfig();
-  config.scan.work_mode = EosWorkMode::kVisibleOnly;
+  config.mission.work_mode = EosWorkMode::kVisibleOnly;
   EosSession session = EosSessionFactory::Create(config);
   const session::EosCycleInput input = MakeBaseInput();
 
@@ -162,14 +162,14 @@ TEST(EosSessionIntegrationTest, VisibleOnlyModeProducesVisibleSnr) {
 
 TEST(EosSessionIntegrationTest, FusedSnrExceedsBothSingleChannelSnrInDay) {
   EosSessionConfig fused_config = MakeSessionConfig();
-  fused_config.scan.work_mode = EosWorkMode::kFused;
-  fused_config.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  fused_config.mission.work_mode = EosWorkMode::kFused;
+  fused_config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
 
   EosSessionConfig ir_config = fused_config;
-  ir_config.scan.work_mode = EosWorkMode::kInfraredOnly;
+  ir_config.mission.work_mode = EosWorkMode::kInfraredOnly;
 
   EosSessionConfig vis_config = fused_config;
-  vis_config.scan.work_mode = EosWorkMode::kVisibleOnly;
+  vis_config.mission.work_mode = EosWorkMode::kVisibleOnly;
 
   EosSession fused_session = EosSessionFactory::Create(fused_config);
   EosSession ir_session = EosSessionFactory::Create(ir_config);
@@ -215,8 +215,8 @@ TEST(EosSessionIntegrationTest, OutOfFovTargetIsFiltered) {
 
 TEST(EosSessionIntegrationTest, HigherCloudCoverageReducesVisibleSnr) {
   EosSessionConfig config = MakeSessionConfig();
-  config.scan.work_mode = EosWorkMode::kVisibleOnly;
-  config.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  config.mission.work_mode = EosWorkMode::kVisibleOnly;
+  config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
 
   EosSession clear_session = EosSessionFactory::Create(config);
   EosSession cloudy_session = EosSessionFactory::Create(config);
@@ -238,8 +238,8 @@ TEST(EosSessionIntegrationTest, HigherCloudCoverageReducesVisibleSnr) {
 
 TEST(EosSessionIntegrationTest, WorseAtmosphereObservationReducesInfraredSnr) {
   EosSessionConfig config = MakeSessionConfig();
-  config.scan.work_mode = EosWorkMode::kInfraredOnly;
-  config.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  config.mission.work_mode = EosWorkMode::kInfraredOnly;
+  config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
 
   EosSession good_atm_session = EosSessionFactory::Create(config);
   EosSession poor_atm_session = EosSessionFactory::Create(config);
@@ -263,12 +263,12 @@ TEST(EosSessionIntegrationTest, WorseAtmosphereObservationReducesInfraredSnr) {
 
 TEST(EosSessionIntegrationTest, NightShiftsFusedWeightTowardInfrared) {
   EosSessionConfig fused_config = MakeSessionConfig();
-  fused_config.scan.work_mode = EosWorkMode::kFused;
-  fused_config.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  fused_config.mission.work_mode = EosWorkMode::kFused;
+  fused_config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
   EosSessionConfig ir_config = fused_config;
-  ir_config.scan.work_mode = EosWorkMode::kInfraredOnly;
+  ir_config.mission.work_mode = EosWorkMode::kInfraredOnly;
   EosSessionConfig vis_config = fused_config;
-  vis_config.scan.work_mode = EosWorkMode::kVisibleOnly;
+  vis_config.mission.work_mode = EosWorkMode::kVisibleOnly;
 
   EosSession day_fused = EosSessionFactory::Create(fused_config);
   EosSession day_ir = EosSessionFactory::Create(ir_config);
@@ -371,7 +371,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigScanRateChangeUpdatesAdvance) {
 
 TEST(EosSessionIntegrationTest, RuntimeConfigSnrThresholdFiltersWeakTargets) {
   EosSessionConfig config = MakeSessionConfig();
-  config.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
   EosSession session = EosSessionFactory::Create(config);
   session::EosCycleInput input = MakeBaseInput();
   input.scene_targets.front().range_m = 1700.0f;
@@ -403,7 +403,6 @@ TEST(EosSessionIntegrationTest, SessionConfigBuilderProducesSameResultAsDirectCo
                                             .WithWorkMode(EosWorkMode::kFused)
                                             .WithDetectionProfile(
                                                 eos_config::EosDetectionProfile::kAggressive)
-                                            .WithScanRateDegPerSec(5.0f)
                                             .Build();
 
   EosSession direct_session = EosSessionFactory::Create(direct_config);
@@ -477,12 +476,12 @@ TEST(EosSessionIntegrationTest, StepReusesPreviousOutputWhenValidationFailsAfter
 
 TEST(EosSessionIntegrationTest, StraylightFilterReducesOffAxisTargetSnr) {
   EosSessionConfig no_filter_config = MakeSessionConfig();
-  no_filter_config.scan.work_mode = EosWorkMode::kInfraredOnly;
-  no_filter_config.detection.profile = eos_config::EosDetectionProfile::kAggressive;
-  no_filter_config.stray_light.profile = eos_config::EosStrayLightProfile::kDisabled;
+  no_filter_config.mission.work_mode = EosWorkMode::kInfraredOnly;
+  no_filter_config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  no_filter_config.policy.stray_light.profile = eos_config::EosStrayLightProfile::kDisabled;
 
   EosSessionConfig filter_config = no_filter_config;
-  filter_config.stray_light.profile = eos_config::EosStrayLightProfile::kEnhancedHood;
+  filter_config.policy.stray_light.profile = eos_config::EosStrayLightProfile::kEnhancedHood;
         
   EosSession no_filter_session = EosSessionFactory::Create(no_filter_config);
   EosSession filter_session = EosSessionFactory::Create(filter_config);
@@ -522,8 +521,8 @@ TEST(EosSessionIntegrationTest, MultipleTargetsInFovAllDetected) {
 
 TEST(EosSessionIntegrationTest, CloserTargetHasHigherSnrAtSameTemperature) {
   EosSessionConfig config = MakeSessionConfig();
-  config.scan.work_mode = EosWorkMode::kInfraredOnly;
-  config.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  config.mission.work_mode = EosWorkMode::kInfraredOnly;
+  config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
   EosSession session = EosSessionFactory::Create(config);
 
   session::EosCycleInput input = MakeBaseInput();
@@ -546,9 +545,9 @@ TEST(EosSessionIntegrationTest, CloserTargetHasHigherSnrAtSameTemperature) {
 
 TEST(EosSessionIntegrationTest, RuntimeConfigStraylightToggleWorks) {
   EosSessionConfig config = MakeSessionConfig();
-  config.scan.work_mode = EosWorkMode::kInfraredOnly;
-  config.detection.profile = eos_config::EosDetectionProfile::kAggressive;
-  config.stray_light.profile = eos_config::EosStrayLightProfile::kDisabled;
+  config.mission.work_mode = EosWorkMode::kInfraredOnly;
+  config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  config.policy.stray_light.profile = eos_config::EosStrayLightProfile::kDisabled;
   EosSession session = EosSessionFactory::Create(config);
 
   session::EosCycleInput input = MakeBaseInput();
@@ -584,8 +583,8 @@ TEST(EosSessionIntegrationTest, RuntimeConfigStraylightToggleWorks) {
 
 TEST(EosSessionIntegrationTest, RuntimeEnvironmentModelChangeTakesEffect) {
   EosSessionConfig config = MakeSessionConfig();
-  config.scan.work_mode = EosWorkMode::kInfraredOnly;
-  config.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  config.mission.work_mode = EosWorkMode::kInfraredOnly;
+  config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
   EosSession session = EosSessionFactory::Create(config);
 
   session::EosCycleInput input = MakeBaseInput();

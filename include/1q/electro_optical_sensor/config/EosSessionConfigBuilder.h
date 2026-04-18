@@ -1,6 +1,6 @@
 /**
  * @file EosSessionConfigBuilder.h
- * @brief EOS 对外配置入口：初始化配置类型与 SessionConfig Builder。
+ * @brief EOS 语义式会话配置构造器。
  */
 
 #ifndef ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_SESSION_CONFIG_BUILDER_H_
@@ -12,7 +12,10 @@ namespace electro_optical_sensor {
 namespace config {
 
 /**
- * @brief EosSessionConfigBuilder 提供初始化配置的链式构造。
+ * @brief EosSessionConfigBuilder 提供语义化会话配置构造入口。
+ * @note 该构造器用于 work mode/profile/preset 等高层语义输入。
+ *       如需直接编辑 hardware/mission/policy/environment 四域详细参数，
+ *       请使用 EosDetailedSessionConfigBuilder。
  */
 class ONEQ_API EosSessionConfigBuilder {
  public:
@@ -25,50 +28,20 @@ class ONEQ_API EosSessionConfigBuilder {
     return *this;
   }
 
-  EosSessionConfigBuilder& WithOpticalHardware(
-      const EosOpticalHardwareConfig& optical) noexcept {
-    config_.optical = optical;
-    return *this;
-  }
-
-  EosSessionConfigBuilder& WithScanPolicy(const EosScanPolicyConfig& scan) noexcept {
-    config_.scan = scan;
-    return *this;
-  }
-
-  EosSessionConfigBuilder& WithPointing(const EosPointingConfig& pointing) noexcept {
-    config_.pointing = pointing;
+  EosSessionConfigBuilder& WithWorkMode(session::EosWorkMode mode) noexcept {
+    config_.mission.work_mode = mode;
     return *this;
   }
 
   EosSessionConfigBuilder& WithDetectionProfile(EosDetectionProfile profile) noexcept {
-    config_.detection.profile = profile;
+    config_.policy.detection.profile = profile;
+    config_.policy.detection.use_profile_defaults = true;
     return *this;
   }
 
   EosSessionConfigBuilder& WithStrayLightProfile(EosStrayLightProfile profile) noexcept {
-    config_.stray_light.profile = profile;
-    return *this;
-  }
-
-  EosSessionConfigBuilder& WithEnvironmentPolicy(
-      const EosEnvironmentPolicyConfig& environment) noexcept {
-    config_.environment = environment;
-    return *this;
-  }
-
-  EosSessionConfigBuilder& WithWorkMode(session::EosWorkMode mode) noexcept {
-    config_.scan.work_mode = mode;
-    return *this;
-  }
-
-  EosSessionConfigBuilder& WithScanRateDegPerSec(float value) noexcept {
-    config_.scan.scan_rate_deg_per_sec = value;
-    return *this;
-  }
-
-  EosSessionConfigBuilder& WithFrameRateHz(float value) noexcept {
-    config_.scan.frame_rate_hz = value;
+    config_.policy.stray_light.profile = profile;
+    config_.policy.stray_light.use_profile_defaults = true;
     return *this;
   }
 
@@ -80,6 +53,7 @@ class ONEQ_API EosSessionConfigBuilder {
 
   EosSessionConfigBuilder& WithEnvironmentPreset(EosEnvironmentPreset preset) noexcept {
     config_.environment.preset = preset;
+    config_.environment.use_preset_defaults = true;
     return *this;
   }
 

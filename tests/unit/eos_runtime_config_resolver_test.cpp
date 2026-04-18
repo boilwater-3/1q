@@ -19,8 +19,8 @@ namespace eos_session = ::electro_optical_sensor::session;
 
 TEST(EosRuntimeConfigResolverTest, ValidPatchBuildsRuntimeUpdateAndScanResetFlag) {
   eos_session::EosSessionConfig current_config;
-  current_config.scan.scan_rate_deg_per_sec = 20.0f;
-  current_config.detection.profile = eos_config::EosDetectionProfile::kBalanced;
+  current_config.mission.scan_rate_deg_per_sec = 20.0f;
+  current_config.policy.detection.profile = eos_config::EosDetectionProfile::kBalanced;
   current_config.environment.preset = eos_config::EosEnvironmentPreset::kStandard;
 
   const eos_session::EosRuntimeConfigPatch patch =
@@ -36,15 +36,15 @@ TEST(EosRuntimeConfigResolverTest, ValidPatchBuildsRuntimeUpdateAndScanResetFlag
   EXPECT_TRUE(resolved.has_requested_update);
   EXPECT_TRUE(resolved.is_valid);
   EXPECT_TRUE(resolved.reset_scan_phase);
-  EXPECT_FLOAT_EQ(resolved.next_config.scan.scan_rate_deg_per_sec, 60.0f);
-  EXPECT_EQ(resolved.next_config.detection.profile, eos_config::EosDetectionProfile::kConservative);
+  EXPECT_FLOAT_EQ(resolved.next_config.mission.scan_rate_deg_per_sec, 60.0f);
+  EXPECT_EQ(resolved.next_config.policy.detection.profile, eos_config::EosDetectionProfile::kConservative);
   EXPECT_EQ(resolved.next_config.environment.preset, eos_config::EosEnvironmentPreset::kDusty);
 }
 
 TEST(EosRuntimeConfigResolverTest, InvalidFieldRejectsWholePatch) {
   eos_session::EosSessionConfig current_config;
-  current_config.scan.scan_rate_deg_per_sec = 20.0f;
-  current_config.detection.profile = eos_config::EosDetectionProfile::kBalanced;
+  current_config.mission.scan_rate_deg_per_sec = 20.0f;
+  current_config.policy.detection.profile = eos_config::EosDetectionProfile::kBalanced;
 
   const eos_session::EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder()
@@ -59,8 +59,8 @@ TEST(EosRuntimeConfigResolverTest, InvalidFieldRejectsWholePatch) {
   EXPECT_TRUE(resolved.has_requested_update);
   EXPECT_FALSE(resolved.is_valid);
   EXPECT_FALSE(resolved.reset_scan_phase);
-  EXPECT_FLOAT_EQ(resolved.next_config.scan.scan_rate_deg_per_sec, 20.0f);
-  EXPECT_EQ(resolved.next_config.detection.profile, eos_config::EosDetectionProfile::kBalanced);
+  EXPECT_FLOAT_EQ(resolved.next_config.mission.scan_rate_deg_per_sec, 20.0f);
+  EXPECT_EQ(resolved.next_config.policy.detection.profile, eos_config::EosDetectionProfile::kBalanced);
 }
 
 }  // namespace

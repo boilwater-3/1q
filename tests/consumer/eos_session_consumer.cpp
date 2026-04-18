@@ -3,7 +3,8 @@
  * @brief 验证安装后 EOS 公共 API 路径可被外部工程编译链接。
  *
  * 覆盖要点：
- *   - EosSessionConfigBuilder 构造会话配置
+ *   - EosSessionConfigBuilder 语义化会话配置构造
+ *   - EosDetailedSessionConfigBuilder 四域详细参数构造（hardware/mission/policy/environment）
  *   - EosCycleInput + EosTargetState 构造场景输入
  *   - EosInputValidation 输入校验
  *   - EosSessionFactory 创建会话，Step、StepWithResult 调用
@@ -15,6 +16,7 @@
 #include <cstdint>
 
 #include "1q/electro_optical_sensor/output/EosOutputFrame.h"
+#include "1q/electro_optical_sensor/config/EosDetailedSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/model/EosCycleInput.h"
@@ -26,20 +28,25 @@
 namespace eos = electro_optical_sensor;
 
 int main() {
-  // 1. SessionConfigBuilder
-  eos::session::EosSessionConfig config =
+  // 1. 语义 Builder：work mode / profile / preset
+  const eos::session::EosSessionConfig semantic_config =
       eos::config::EosSessionConfigBuilder()
           .WithWorkMode(eos::session::EosWorkMode::kFused)
-          .WithScanRateDegPerSec(5.0f)
           .WithDetectionProfile(eos::config::EosDetectionProfile::kAggressive)
           .WithEnvironmentModelType(eos::environment::EosEnvironmentModelType::kSimplified)
           .Build();
+  // 2. 详细 Builder：直接编辑四域及详细参数
+  const eos::session::EosSessionConfig config =
+      eos::config::EosDetailedSessionConfigBuilder(semantic_config)
+          .WithScanRateDegPerSec(5.0f)
+          .WithDetectionDetails(4.5f, 0.9e-12f, 720.0f)
+          .Build();
 
-  // 2. Session construction
+  // 3. Session construction
   eos::session::EosSession session =
       eos::session::EosSessionFactory::Create(config);
 
-  // 3. CycleInput with a target
+  // 4. CycleInput with a target
   eos::session::EosCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
@@ -61,23 +68,23 @@ int main() {
   target.projected_area_m2 = 4.0f;
   input.scene_targets.push_back(target);
 
-  // 4. Input validation
+  // 5. Input validation
   const eos::model::EosValidationIssueList issues =
       eos::model::ValidateEosCycleInput(input);
   if (eos::model::HasEosValidationError(issues)) {
     return 1;
   }
 
-  // 5. StepWithResult
+  // 6. StepWithResult
   const eos::model::EosCycleResult result = session.StepWithResult(input);
   if (result.has_validation_error) {
     return 2;
   }
 
-  // 6. Step (output-only)
+  // 7. Step (output-only)
   const eos::output::EosOutputFrame step_frame = session.Step(input);
 
-  // 7. Access detection output
+  // 8. Access detection output
   const std::size_t det_count = result.output_frame.detections.size();
   const std::uint32_t cycle_index = result.output_frame.cycle_index;
   const float scan_az = result.output_frame.scan_azimuth_deg;
@@ -99,19 +106,19 @@ int main() {
     (void)detected;
   }
 
-  // 8. RuntimeConfigBuilder: switch to infrared-only mode
+  // 9. RuntimeConfigBuilder: switch to infrared-only mode
   const eos::session::EosRuntimeConfigPatch ir_patch =
       eos::config::EosRuntimeConfigBuilder()
           .WithWorkMode(eos::session::EosWorkMode::kInfraredOnly)
           .Build();
   session.ApplyRuntimeConfig(ir_patch);
 
-  // 9. Step after mode switch
+  // 10. Step after mode switch
   eos::session::EosCycleInput input_2 = input;
   input_2.cycle_index = 2U;
   const eos::output::EosOutputFrame ir_frame = session.Step(input_2);
 
-  // 10. RuntimeConfigBuilder: change scan rate + SNR threshold
+  // 11. RuntimeConfigBuilder: change scan rate + SNR threshold
   const eos::session::EosRuntimeConfigPatch tune_patch =
       eos::config::EosRuntimeConfigBuilder()
           .WithScanRateDegPerSec(100.0f)
@@ -119,12 +126,12 @@ int main() {
           .Build();
   session.ApplyRuntimeConfig(tune_patch);
 
-  // 11. RuntimeConfigBuilder: enable straylight filter
+  // 12. RuntimeConfigBuilder: enable straylight filter
   const eos::session::EosRuntimeConfigPatch straylight_patch =
       eos::config::EosRuntimeConfigBuilder().WithStrayLightProfile(eos::config::EosStrayLightProfile::kEnhancedHood).Build();
   session.ApplyRuntimeConfig(straylight_patch);
 
-  // 12. RuntimeConfigBuilder: switch environment model to advanced
+  // 13. RuntimeConfigBuilder: switch environment model to advanced
   const eos::session::EosRuntimeConfigPatch env_patch =
       eos::config::EosRuntimeConfigBuilder()
           .WithEnvironmentModelType(eos::environment::EosEnvironmentModelType::kAdvanced)
@@ -132,18 +139,18 @@ int main() {
           .Build();
   session.ApplyRuntimeConfig(env_patch);
 
-  // 13. RuntimeConfigBuilder: switch environment preset
+  // 14. RuntimeConfigBuilder: switch environment preset
   const eos::session::EosRuntimeConfigPatch rt_patch =
       eos::config::EosRuntimeConfigBuilder().WithEnvironmentPreset(
           eos::config::EosEnvironmentPreset::kDusty).Build();
   session.ApplyRuntimeConfig(rt_patch);
 
-  // 14. RuntimeConfigBuilder: change visible reference irradiance
+  // 15. RuntimeConfigBuilder: change visible reference irradiance
   const eos::session::EosRuntimeConfigPatch vis_ref_patch =
       eos::config::EosRuntimeConfigBuilder().WithEnvironmentPreset(eos::config::EosEnvironmentPreset::kHumid).Build();
   session.ApplyRuntimeConfig(vis_ref_patch);
 
-  // 15. Final cycle
+  // 16. Final cycle
   eos::session::EosCycleInput input_3 = input;
   input_3.cycle_index = 3U;
   const eos::model::EosCycleResult result_3 = session.StepWithResult(input_3);

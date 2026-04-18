@@ -73,10 +73,10 @@ class CountingEnvironmentService final : public environment::IEosEnvironmentServ
 
 EosSessionConfig MakeSessionConfig() {
   EosSessionConfig config;
-  config.scan.work_mode = EosWorkMode::kVisibleOnly;
-  config.scan.scan_rate_deg_per_sec = 9.0f;
-  config.scan.frame_rate_hz = 15.0f;
-  config.detection.profile = config::EosDetectionProfile::kConservative;
+  config.mission.work_mode = EosWorkMode::kVisibleOnly;
+  config.mission.scan_rate_deg_per_sec = 9.0f;
+  config.mission.frame_rate_hz = 15.0f;
+  config.policy.detection.profile = config::EosDetectionProfile::kConservative;
   config.environment.model_type = environment::EosEnvironmentModelType::kAdvanced;
   config.environment.preset = config::EosEnvironmentPreset::kDusty;
   return config;
@@ -95,8 +95,8 @@ TEST(EosSessionCompositionRootTest, ComposeWithPipelineSyncsInjectedPipelineAndC
   EXPECT_NE(composition.owned_controller, nullptr);
   EXPECT_EQ(pipeline.update_count, 1U);
   EXPECT_TRUE(pipeline.last_reset_scan_phase);
-  EXPECT_FLOAT_EQ(pipeline.last_config.scan_rate_deg_per_sec, config.scan.scan_rate_deg_per_sec);
-  EXPECT_EQ(composition.runtime_config.scan.work_mode, config.scan.work_mode);
+  EXPECT_FLOAT_EQ(pipeline.last_config.scan_rate_deg_per_sec, config.mission.scan_rate_deg_per_sec);
+  EXPECT_EQ(composition.runtime_config.mission.work_mode, config.mission.work_mode);
 }
 
 TEST(EosSessionCompositionRootTest, ComposeWithControllerSyncsProvidedControllerPipeline) {
@@ -113,7 +113,7 @@ TEST(EosSessionCompositionRootTest, ComposeWithControllerSyncsProvidedController
   EXPECT_EQ(composition.owned_controller, nullptr);
   EXPECT_EQ(pipeline.update_count, 1U);
   EXPECT_TRUE(pipeline.last_reset_scan_phase);
-  EXPECT_FLOAT_EQ(pipeline.last_config.frame_rate_hz, config.scan.frame_rate_hz);
+  EXPECT_FLOAT_EQ(pipeline.last_config.frame_rate_hz, config.mission.frame_rate_hz);
 }
 
 TEST(EosSessionCompositionRootTest, ComposeDefaultBuildsOwnedGraphAndRuntimeAssembly) {
@@ -125,7 +125,7 @@ TEST(EosSessionCompositionRootTest, ComposeDefaultBuildsOwnedGraphAndRuntimeAsse
   ASSERT_NE(composition.owned_controller, nullptr);
   EXPECT_EQ(composition.pipeline, composition.owned_pipeline.get());
   EXPECT_EQ(composition.controller, composition.owned_controller.get());
-  EXPECT_EQ(composition.runtime_config.scan.work_mode, config.scan.work_mode);
+  EXPECT_EQ(composition.runtime_config.mission.work_mode, config.mission.work_mode);
   EXPECT_FLOAT_EQ(composition.pipeline_config.minimum_snr_db, 60.0f);
 }
 

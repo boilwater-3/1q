@@ -10,6 +10,7 @@
 
 #include "1q/electro_optical_sensor/model/EosCycleInput.h"
 #include "1q/electro_optical_sensor/model/EosInputValidation.h"
+#include "1q/electro_optical_sensor/config/EosDetailedSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
@@ -62,37 +63,37 @@ EosCycleInput MakeValidInput() {
 }
 
 float ResolveFirstCycleScanAzimuthDeg(const session::EosSessionConfig& config, float dt_sec) {
-  const float scan_width_deg = config.pointing.scan_end_az_deg - config.pointing.scan_start_az_deg;
+  const float scan_width_deg = config.mission.scan_end_az_deg - config.mission.scan_start_az_deg;
   if (scan_width_deg <= 0.0f) {
-    return config.pointing.scan_start_az_deg;
+    return config.mission.scan_start_az_deg;
   }
 
-  float wrapped_offset_deg = config.scan.scan_rate_deg_per_sec * dt_sec;
+  float wrapped_offset_deg = config.mission.scan_rate_deg_per_sec * dt_sec;
   while (wrapped_offset_deg >= scan_width_deg) {
     wrapped_offset_deg -= scan_width_deg;
   }
   while (wrapped_offset_deg < 0.0f) {
     wrapped_offset_deg += scan_width_deg;
   }
-  return config.pointing.scan_start_az_deg + wrapped_offset_deg;
+  return config.mission.scan_start_az_deg + wrapped_offset_deg;
 }
 
 float ResolveNextScanAzimuthDeg(const session::EosSessionConfig& config, float current_azimuth_deg,
                                 float dt_sec) {
-  const float scan_width_deg = config.pointing.scan_end_az_deg - config.pointing.scan_start_az_deg;
+  const float scan_width_deg = config.mission.scan_end_az_deg - config.mission.scan_start_az_deg;
   if (scan_width_deg <= 0.0f) {
-    return config.pointing.scan_start_az_deg;
+    return config.mission.scan_start_az_deg;
   }
 
   float wrapped_offset_deg =
-      (current_azimuth_deg - config.pointing.scan_start_az_deg) + config.scan.scan_rate_deg_per_sec * dt_sec;
+      (current_azimuth_deg - config.mission.scan_start_az_deg) + config.mission.scan_rate_deg_per_sec * dt_sec;
   while (wrapped_offset_deg >= scan_width_deg) {
     wrapped_offset_deg -= scan_width_deg;
   }
   while (wrapped_offset_deg < 0.0f) {
     wrapped_offset_deg += scan_width_deg;
   }
-  return config.pointing.scan_start_az_deg + wrapped_offset_deg;
+  return config.mission.scan_start_az_deg + wrapped_offset_deg;
 }
 
 TEST(EosInputValidationTest, InvalidCycleDeltaTimeIsReportedAsError) {
@@ -148,13 +149,13 @@ TEST(EosInputValidationTest, InvalidAmbientWindSpeedIsReportedAsError) {
 
 TEST(EosInputValidationTest, SessionProducesInFovDetectionsOnly) {
   session::EosSessionConfig config;
-  config.scan.work_mode = session::EosWorkMode::kFused;
-  config.detection.profile = eos_config::EosDetectionProfile::kAggressive;
-  config.pointing.scan_start_az_deg = -5.0f;
-  config.pointing.scan_end_az_deg = 5.0f;
-  config.scan.horizontal_fov_deg = 6.0f;
-  config.scan.vertical_fov_deg = 4.0f;
-  config.scan.scan_rate_deg_per_sec = 2.0f;
+  config.mission.work_mode = session::EosWorkMode::kFused;
+  config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  config.mission.scan_start_az_deg = -5.0f;
+  config.mission.scan_end_az_deg = 5.0f;
+  config.mission.horizontal_fov_deg = 6.0f;
+  config.mission.vertical_fov_deg = 4.0f;
+  config.mission.scan_rate_deg_per_sec = 2.0f;
 
   session::EosSession eos_session = session::EosSessionFactory::Create(config);
   EosCycleInput input = MakeValidInput();
@@ -187,29 +188,30 @@ TEST(EosInputValidationTest, SessionReturnsValidationErrorsForInvalidInput) {
 
 TEST(EosInputValidationTest, SessionConfigBuilderCanStartFromExternalConfig) {
   session::EosSessionConfig base_config;
-  base_config.scan.work_mode = session::EosWorkMode::kInfraredOnly;
-  base_config.scan.scan_rate_deg_per_sec = 12.0f;
-  base_config.scan.frame_rate_hz = 20.0f;
-  base_config.detection.profile = eos_config::EosDetectionProfile::kAggressive;
-  const session::EosSessionConfig built_config = eos_config::EosSessionConfigBuilder(base_config)
+  base_config.mission.work_mode = session::EosWorkMode::kInfraredOnly;
+  base_config.mission.scan_rate_deg_per_sec = 12.0f;
+  base_config.mission.frame_rate_hz = 20.0f;
+  base_config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  const session::EosSessionConfig built_config =
+      eos_config::EosDetailedSessionConfigBuilder(base_config)
                                                      .WithFrameRateHz(25.0f)
                                                      .WithStrayLightProfile(eos_config::EosStrayLightProfile::kEnhancedHood)
                                                      .Build();
-  EXPECT_EQ(built_config.scan.work_mode, session::EosWorkMode::kInfraredOnly);
-  EXPECT_FLOAT_EQ(built_config.scan.scan_rate_deg_per_sec, 12.0f);
-  EXPECT_FLOAT_EQ(built_config.scan.frame_rate_hz, 25.0f);
-  EXPECT_EQ(built_config.detection.profile, eos_config::EosDetectionProfile::kAggressive);
-  EXPECT_EQ(built_config.stray_light.profile, eos_config::EosStrayLightProfile::kEnhancedHood);
+  EXPECT_EQ(built_config.mission.work_mode, session::EosWorkMode::kInfraredOnly);
+  EXPECT_FLOAT_EQ(built_config.mission.scan_rate_deg_per_sec, 12.0f);
+  EXPECT_FLOAT_EQ(built_config.mission.frame_rate_hz, 25.0f);
+  EXPECT_EQ(built_config.policy.detection.profile, eos_config::EosDetectionProfile::kAggressive);
+  EXPECT_EQ(built_config.policy.stray_light.profile, eos_config::EosStrayLightProfile::kEnhancedHood);
 }
 
 TEST(EosInputValidationTest, RuntimeConfigBuilderCanTightenDetectionThresholdAtRuntime) {
   session::EosSessionConfig config;
-  config.scan.work_mode = session::EosWorkMode::kFused;
-  config.detection.profile = eos_config::EosDetectionProfile::kAggressive;
-  config.pointing.scan_start_az_deg = -20.0f;
-  config.pointing.scan_end_az_deg = 20.0f;
-  config.scan.horizontal_fov_deg = 12.0f;
-  config.scan.vertical_fov_deg = 6.0f;
+  config.mission.work_mode = session::EosWorkMode::kFused;
+  config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  config.mission.scan_start_az_deg = -20.0f;
+  config.mission.scan_end_az_deg = 20.0f;
+  config.mission.horizontal_fov_deg = 12.0f;
+  config.mission.vertical_fov_deg = 6.0f;
 
   session::EosSession eos_session = session::EosSessionFactory::Create(config);
   EosCycleInput input = MakeValidInput();
@@ -243,13 +245,13 @@ TEST(EosInputValidationTest, RuntimeConfigBuilderCanTightenDetectionThresholdAtR
 
 TEST(EosInputValidationTest, RuntimePatchPreservesScanPhaseUnlessScanRateChanges) {
   session::EosSessionConfig config;
-  config.scan.work_mode = session::EosWorkMode::kInfraredOnly;
-  config.detection.profile = eos_config::EosDetectionProfile::kAggressive;
-  config.pointing.scan_start_az_deg = -20.0f;
-  config.pointing.scan_end_az_deg = 20.0f;
-  config.scan.horizontal_fov_deg = 12.0f;
-  config.scan.vertical_fov_deg = 6.0f;
-  config.scan.scan_rate_deg_per_sec = 4.0f;
+  config.mission.work_mode = session::EosWorkMode::kInfraredOnly;
+  config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  config.mission.scan_start_az_deg = -20.0f;
+  config.mission.scan_end_az_deg = 20.0f;
+  config.mission.horizontal_fov_deg = 12.0f;
+  config.mission.vertical_fov_deg = 6.0f;
+  config.mission.scan_rate_deg_per_sec = 4.0f;
 
   session::EosSession eos_session = session::EosSessionFactory::Create(config);
   EosCycleInput input = MakeValidInput();
@@ -281,7 +283,7 @@ TEST(EosInputValidationTest, RuntimePatchPreservesScanPhaseUnlessScanRateChanges
   ASSERT_FALSE(after_scan_rate_patch.has_validation_error);
 
   session::EosSessionConfig expected_scan_rate_config = config;
-  expected_scan_rate_config.scan.scan_rate_deg_per_sec = 12.0f;
+  expected_scan_rate_config.mission.scan_rate_deg_per_sec = 12.0f;
   const float expected_after_scan_rate_patch =
       ResolveFirstCycleScanAzimuthDeg(expected_scan_rate_config, input.dt_sec);
   EXPECT_NEAR(after_scan_rate_patch.output_frame.scan_azimuth_deg, expected_after_scan_rate_patch,
@@ -321,12 +323,12 @@ TEST(EosInputValidationTest, InconsistentDayNightTypeIsReportedAsWarning) {
 
 TEST(EosInputValidationTest, RuntimePatchRejectsInvalidFrameRateHz) {
   session::EosSessionConfig config;
-  config.scan.work_mode = session::EosWorkMode::kInfraredOnly;
-  config.detection.profile = eos_config::EosDetectionProfile::kAggressive;
-  config.pointing.scan_start_az_deg = -20.0f;
-  config.pointing.scan_end_az_deg = 20.0f;
-  config.scan.horizontal_fov_deg = 12.0f;
-  config.scan.vertical_fov_deg = 6.0f;
+  config.mission.work_mode = session::EosWorkMode::kInfraredOnly;
+  config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  config.mission.scan_start_az_deg = -20.0f;
+  config.mission.scan_end_az_deg = 20.0f;
+  config.mission.horizontal_fov_deg = 12.0f;
+  config.mission.vertical_fov_deg = 6.0f;
 
   session::EosSession eos_session = session::EosSessionFactory::Create(config);
   EosCycleInput input = MakeValidInput();
@@ -358,13 +360,13 @@ TEST(EosInputValidationTest, RuntimePatchRejectsInvalidFrameRateHz) {
 
 TEST(EosInputValidationTest, RuntimePatchRejectsInvalidScanRate) {
   session::EosSessionConfig config;
-  config.scan.work_mode = session::EosWorkMode::kInfraredOnly;
-  config.detection.profile = eos_config::EosDetectionProfile::kAggressive;
-  config.pointing.scan_start_az_deg = -20.0f;
-  config.pointing.scan_end_az_deg = 20.0f;
-  config.scan.horizontal_fov_deg = 12.0f;
-  config.scan.vertical_fov_deg = 6.0f;
-  config.scan.scan_rate_deg_per_sec = 4.0f;
+  config.mission.work_mode = session::EosWorkMode::kInfraredOnly;
+  config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  config.mission.scan_start_az_deg = -20.0f;
+  config.mission.scan_end_az_deg = 20.0f;
+  config.mission.horizontal_fov_deg = 12.0f;
+  config.mission.vertical_fov_deg = 6.0f;
+  config.mission.scan_rate_deg_per_sec = 4.0f;
 
   session::EosSession eos_session = session::EosSessionFactory::Create(config);
   EosCycleInput input = MakeValidInput();
@@ -390,12 +392,12 @@ TEST(EosInputValidationTest, RuntimePatchRejectsInvalidScanRate) {
 
 TEST(EosInputValidationTest, RuntimePatchIsAtomicWhenAnyFieldIsInvalid) {
   session::EosSessionConfig config;
-  config.scan.work_mode = session::EosWorkMode::kFused;
-  config.detection.profile = eos_config::EosDetectionProfile::kAggressive;
-  config.pointing.scan_start_az_deg = -20.0f;
-  config.pointing.scan_end_az_deg = 20.0f;
-  config.scan.horizontal_fov_deg = 12.0f;
-  config.scan.vertical_fov_deg = 6.0f;
+  config.mission.work_mode = session::EosWorkMode::kFused;
+  config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  config.mission.scan_start_az_deg = -20.0f;
+  config.mission.scan_end_az_deg = 20.0f;
+  config.mission.horizontal_fov_deg = 12.0f;
+  config.mission.vertical_fov_deg = 6.0f;
 
   session::EosSession eos_session = session::EosSessionFactory::Create(config);
   EosCycleInput input = MakeValidInput();
@@ -407,7 +409,6 @@ TEST(EosInputValidationTest, RuntimePatchIsAtomicWhenAnyFieldIsInvalid) {
   ASSERT_FALSE(baseline.has_validation_error);
   ASSERT_EQ(baseline.output_frame.detections.size(), 1U);
   ASSERT_TRUE(baseline.output_frame.detections[0].detected);
-  const float rejected_threshold_db = baseline.output_frame.detections[0].fused_snr_db + 3.0f;
 
   const eos_session_ns::EosRuntimeConfigPatch patch = eos_config::EosRuntimeConfigBuilder()
                                                       .WithFrameRateHz(0.0f)

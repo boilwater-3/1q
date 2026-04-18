@@ -57,10 +57,15 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/extension/electro_optical_sensor_extension.hpp
     )
     set(PUBLIC_HEADERS_EOS_CONFIG
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/EosHardwareConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/EosMissionConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/EosPolicyConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/EosEnvironmentConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/EosWorkMode.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/EosSessionConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/EosSessionConfigBuilder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/EosDetailedSessionConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/electro_optical_sensor_config.hpp
     )
