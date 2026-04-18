@@ -7,7 +7,7 @@
 #include <memory>
 #include <string>
 
-#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/config/presets/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/model/TargetFeatureUtils.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarTraceSession.h"
@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
       new oneq::trace::JsonlFileTraceSink(trace_path, false));
 
   const ar::session::RadarSessionConfig config =
-      ar::config::MakeDetectionMissionRadarSessionConfig();
+      ar::config::presets::MakeDetectionMissionRadarSessionConfig();
   ar::session::RadarTraceSession session(config, ar::session::RadarTraceSessionOptions{sink, true});
 
   ar::session::RadarCycleInput input;

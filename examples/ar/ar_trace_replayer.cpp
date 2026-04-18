@@ -93,25 +93,25 @@ oneq::foundation::PoseState ParsePose(const Json& json) {
   return pose;
 }
 
-ar::config::SignalDetectionConfig ParseDetection(const Json& json) {
-  ar::config::SignalDetectionConfig config;
+ar::config::semantic::DetectionConfig ParseDetection(const Json& json) {
+  ar::config::semantic::DetectionConfig config;
   config.enable_physics_detection =
       GetBool(json, "enable_physics_detection", config.enable_physics_detection);
   if (json.contains("intent_profile")) {
-    config.intent_profile = static_cast<ar::config::DetectionIntentProfile>(
+    config.intent_profile = static_cast<ar::config::semantic::DetectionIntentProfile>(
         GetInt(json, "intent_profile", static_cast<int>(config.intent_profile)));
   }
   if (json.contains("hardware_profile")) {
-    config.hardware_profile = static_cast<ar::config::RadarHardwareProfile>(
+    config.hardware_profile = static_cast<ar::config::semantic::RadarHardwareProfile>(
         GetInt(json, "hardware_profile", static_cast<int>(config.hardware_profile)));
   }
   if (json.contains("rcs_fusion_profile")) {
-    config.rcs_fusion_profile = static_cast<ar::config::RcsFusionProfile>(
+    config.rcs_fusion_profile = static_cast<ar::config::semantic::RcsFusionProfile>(
         GetInt(json, "rcs_fusion_profile", static_cast<int>(config.rcs_fusion_profile)));
   }
   if (json.contains("antenna_pattern")) {
     const Json& pattern = json["antenna_pattern"];
-    config.antenna_pattern.profile = static_cast<ar::config::AntennaPatternProfile>(
+    config.antenna_pattern.profile = static_cast<ar::config::semantic::AntennaPatternProfile>(
         GetInt(pattern, "profile", static_cast<int>(config.antenna_pattern.profile)));
     if (pattern.contains("boresight_offset_deg")) {
       config.antenna_pattern.boresight_offset_deg = ParseAzEl(pattern["boresight_offset_deg"]);
@@ -120,8 +120,8 @@ ar::config::SignalDetectionConfig ParseDetection(const Json& json) {
   return config;
 }
 
-ar::config::SignalBeamControlConfig ParseBeamControl(const Json& json) {
-  ar::config::SignalBeamControlConfig config;
+ar::config::semantic::BeamControlConfig ParseBeamControl(const Json& json) {
+  ar::config::semantic::BeamControlConfig config;
   if (json.contains("radar_orientation")) {
     const Json& r = json["radar_orientation"];
     if (r.contains("mount_angles_deg")) {
@@ -228,8 +228,8 @@ ar::environment::EnvironmentScenarioConfig ParseEnvironmentScenario(const Json& 
 
 ar::session::RadarSessionConfig ParseSessionConfig(const Json& payload) {
   ar::session::RadarSessionConfig config;
-  if (payload.contains("signal_pipeline_config")) {
-    const Json& pipeline = payload["signal_pipeline_config"];
+  if (payload.contains("pipeline_config")) {
+    const Json& pipeline = payload["pipeline_config"];
     if (pipeline.contains("detection")) {
       config.detection = ParseDetection(pipeline["detection"]);
     }
@@ -240,12 +240,12 @@ ar::session::RadarSessionConfig ParseSessionConfig(const Json& payload) {
       const Json& t = pipeline["tracking"];
       config.tracking.enable_tracking_filter =
           GetBool(t, "enable_tracking_filter", config.tracking.enable_tracking_filter);
-      config.tracking.policy_profile = static_cast<ar::config::TrackingPolicyProfile>(
+      config.tracking.policy_profile = static_cast<ar::config::semantic::TrackingPolicyProfile>(
           GetInt(t, "policy_profile", static_cast<int>(config.tracking.policy_profile)));
     }
     if (pipeline.contains("lifecycle")) {
       const Json& l = pipeline["lifecycle"];
-      config.lifecycle.policy_profile = static_cast<ar::config::LifecyclePolicyProfile>(
+      config.lifecycle.policy_profile = static_cast<ar::config::semantic::LifecyclePolicyProfile>(
           GetInt(l, "policy_profile", static_cast<int>(config.lifecycle.policy_profile)));
       config.lifecycle.enable_imm_fusion =
           GetBool(l, "enable_imm_fusion", config.lifecycle.enable_imm_fusion);
@@ -323,32 +323,32 @@ ar::environment::EnvironmentSceneState ParseSceneState(const Json& payload) {
 
 ar::config::RadarRuntimeConfigPatch ParseRuntimePatch(const Json& payload) {
   ar::config::RadarRuntimeConfigPatch patch;
-  patch.has_signal_pipeline_config = GetBool(payload, "has_signal_pipeline_config", false);
-  if (patch.has_signal_pipeline_config && payload.contains("signal_pipeline_config")) {
-    const Json& pipeline = payload["signal_pipeline_config"];
+  patch.has_pipeline_config = GetBool(payload, "has_pipeline_config", false);
+  if (patch.has_pipeline_config && payload.contains("pipeline_config")) {
+    const Json& pipeline = payload["pipeline_config"];
     if (pipeline.contains("detection")) {
-      patch.signal_pipeline_config.detection = ParseDetection(pipeline["detection"]);
+      patch.pipeline_config.detection = ParseDetection(pipeline["detection"]);
     }
     if (pipeline.contains("beam_control")) {
-      patch.signal_pipeline_config.beam_control = ParseBeamControl(pipeline["beam_control"]);
+      patch.pipeline_config.beam_control = ParseBeamControl(pipeline["beam_control"]);
     }
     if (pipeline.contains("tracking")) {
       const Json& t = pipeline["tracking"];
-      patch.signal_pipeline_config.tracking.enable_tracking_filter = GetBool(
-          t, "enable_tracking_filter", patch.signal_pipeline_config.tracking.enable_tracking_filter);
-      patch.signal_pipeline_config.tracking.policy_profile =
-          static_cast<ar::config::TrackingPolicyProfile>(
+      patch.pipeline_config.tracking.enable_tracking_filter = GetBool(
+          t, "enable_tracking_filter", patch.pipeline_config.tracking.enable_tracking_filter);
+      patch.pipeline_config.tracking.policy_profile =
+          static_cast<ar::config::semantic::TrackingPolicyProfile>(
               GetInt(t, "policy_profile",
-                     static_cast<int>(patch.signal_pipeline_config.tracking.policy_profile)));
+                     static_cast<int>(patch.pipeline_config.tracking.policy_profile)));
     }
     if (pipeline.contains("lifecycle")) {
       const Json& l = pipeline["lifecycle"];
-      patch.signal_pipeline_config.lifecycle.policy_profile =
-          static_cast<ar::config::LifecyclePolicyProfile>(
+      patch.pipeline_config.lifecycle.policy_profile =
+          static_cast<ar::config::semantic::LifecyclePolicyProfile>(
               GetInt(l, "policy_profile",
-                     static_cast<int>(patch.signal_pipeline_config.lifecycle.policy_profile)));
-      patch.signal_pipeline_config.lifecycle.enable_imm_fusion = GetBool(
-          l, "enable_imm_fusion", patch.signal_pipeline_config.lifecycle.enable_imm_fusion);
+                     static_cast<int>(patch.pipeline_config.lifecycle.policy_profile)));
+      patch.pipeline_config.lifecycle.enable_imm_fusion = GetBool(
+          l, "enable_imm_fusion", patch.pipeline_config.lifecycle.enable_imm_fusion);
     }
   }
 

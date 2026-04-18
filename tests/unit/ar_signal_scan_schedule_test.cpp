@@ -11,14 +11,14 @@
 #include <vector>
 
 #include "1q/airborne_radar/model/TargetFeatureUtils.h"
-#include "1q/airborne_radar/config/SignalPipelineConfig.h"
+#include "1q/airborne_radar/config/PipelineConfig.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/detection/TargetLookResolver.h"
 #include "airborne_radar/signal/pipeline/assembly/RuntimeAssemblySupport.h"
-#include "airborne_radar/signal/pipeline/config/InternalSignalPipelineConfig.h"
+#include "airborne_radar/signal/pipeline/config/InternalPipelineConfig.h"
 #include "airborne_radar/signal/pipeline/core/CycleExecutor.h"
 #include "airborne_radar/signal/pipeline/core/SignalPipeline.h"
 #include "airborne_radar/signal/pipeline/core/ScanScheduleResolver.h"
@@ -98,8 +98,8 @@ class NonAutoLifecycleManager final : public signal::tracking::ITrackLifecycleMa
 };
 
 signal::pipeline::internal::CycleExecutionRuntime BuildMinimalValidRuntime(
-    const config::SignalPipelineConfig& base_config,
-    const signal::pipeline::internal::InternalSignalPipelineConfig& internal_config,
+    const config::PipelineConfig& base_config,
+    const signal::pipeline::internal::InternalPipelineConfig& internal_config,
     const extension::control::RadarControlProfile& control_profile,
     signal::association::DataAssociationEngine* association_engine,
     signal::tracking::TrackFilter* track_filter,
@@ -150,10 +150,10 @@ TEST(ScanScheduleResolverTest, StartPositionControlsFirstBeamQuadrant) {
 }
 
 TEST(CycleExecutorTest, ValidRuntimeProducesInputAlignedStageBuffers) {
-  config::SignalPipelineConfig base_config;
-  base_config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
-  const signal::pipeline::internal::InternalSignalPipelineConfig internal_config =
-      signal::pipeline::internal::BuildInternalSignalPipelineConfig(base_config);
+  config::PipelineConfig base_config;
+  base_config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
+  const signal::pipeline::internal::InternalPipelineConfig internal_config =
+      signal::pipeline::internal::BuildInternalPipelineConfig(base_config);
   const extension::control::RadarControlProfile control_profile{};
 
   signal::association::DataAssociationEngine association_engine;
@@ -195,9 +195,9 @@ TEST(CycleExecutorTest, ValidRuntimeProducesInputAlignedStageBuffers) {
 }
 
 TEST(CycleExecutorTest, EmptyInputKeepsWorkspaceOutputsEmpty) {
-  config::SignalPipelineConfig base_config;
-  const signal::pipeline::internal::InternalSignalPipelineConfig internal_config =
-      signal::pipeline::internal::BuildInternalSignalPipelineConfig(base_config);
+  config::PipelineConfig base_config;
+  const signal::pipeline::internal::InternalPipelineConfig internal_config =
+      signal::pipeline::internal::BuildInternalPipelineConfig(base_config);
   const extension::control::RadarControlProfile control_profile{};
 
   signal::association::DataAssociationEngine association_engine;
@@ -223,9 +223,9 @@ TEST(CycleExecutorTest, EmptyInputKeepsWorkspaceOutputsEmpty) {
 }
 
 TEST(CycleExecutorTest, NonAutoLifecycleManagerCausesRuntimeSyncFailure) {
-  config::SignalPipelineConfig base_config;
-  const signal::pipeline::internal::InternalSignalPipelineConfig internal_config =
-      signal::pipeline::internal::BuildInternalSignalPipelineConfig(base_config);
+  config::PipelineConfig base_config;
+  const signal::pipeline::internal::InternalPipelineConfig internal_config =
+      signal::pipeline::internal::BuildInternalPipelineConfig(base_config);
   const extension::control::RadarControlProfile control_profile{};
 
   signal::association::DataAssociationEngine association_engine;
@@ -428,10 +428,10 @@ TEST(ScanScheduleResolverTest, TasIsDenserThanTwsAndKeepsSerpentineSemantics) {
 }
 
 TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutcome) {
-  config::SignalPipelineConfig config;
+  config::PipelineConfig config;
   config.detection.enable_physics_detection = true;
-  config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
-  config.detection.antenna_pattern.profile = config::AntennaPatternProfile::kWideCoverage;
+  config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
+  config.detection.antenna_pattern.profile = config::semantic::AntennaPatternProfile::kWideCoverage;
 
   config::engineering::DetectionConfig engineering_detection =
       signal::pipeline::internal::ResolveDetectionEngineering(config.detection);
@@ -491,7 +491,7 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
   target_return.rcs_m2 = target.current_track_rcs;
   target_return.range_m = target.range_m;
   target_return.swerling_type =
-      static_cast<config::SwerlingModel>(target.target_swerling_type);
+      static_cast<config::semantic::SwerlingModel>(target.target_swerling_type);
   signal::detection::EnvironmentState environment_state;
   signal::detection::SignalDetector detector(engineering_detection);
   const signal::detection::DetectionResult cycle_1_detection =
@@ -521,10 +521,10 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
 }
 
 TEST(SignalPipelineScanScheduleTest, WorkSubModeSttReducesSweepCoverageComparedToTws) {
-  config::SignalPipelineConfig tws_config;
+  config::PipelineConfig tws_config;
   tws_config.detection.enable_physics_detection = true;
-  tws_config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
-  tws_config.detection.antenna_pattern.profile = config::AntennaPatternProfile::kWideCoverage;
+  tws_config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
+  tws_config.detection.antenna_pattern.profile = config::semantic::AntennaPatternProfile::kWideCoverage;
   model::RadarOrientationConfig& tws_orientation =
       tws_config.beam_control.radar_orientation;
   tws_orientation.work_sub_mode = model::RadarWorkSubMode::kTws;
@@ -538,7 +538,7 @@ TEST(SignalPipelineScanScheduleTest, WorkSubModeSttReducesSweepCoverageComparedT
   tws_orientation.scan_start_position = oneq::foundation::ScanStartPosition::kLeftTop;
   tws_orientation.scan_sequence = oneq::foundation::ScanSequence::kAzimuthFirst;
 
-  config::SignalPipelineConfig stt_config = tws_config;
+  config::PipelineConfig stt_config = tws_config;
   stt_config.beam_control.radar_orientation.work_sub_mode = model::RadarWorkSubMode::kStt;
 
   signal::pipeline::SignalPipeline tws_pipeline(

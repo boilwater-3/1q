@@ -8,7 +8,7 @@
 
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "airborne_radar/signal/pipeline/config/InternalSignalPipelineConfig.h"
+#include "airborne_radar/signal/pipeline/config/InternalPipelineConfig.h"
 #include "airborne_radar/signal/pipeline/config/SignalPipelineRuntimeTypes.h"
 
 namespace airborne_radar {
@@ -43,8 +43,8 @@ float ComputeHeuristicEnvironmentReliefDb(
  * @param[in,out] runtime_config 待调整的运行时配置。
  */
 void ApplyControlProfileToConfig(const extension::control::RadarControlProfile& control_profile,
-                                 SignalPipelineConfig* runtime_config,
-                                 InternalSignalPipelineConfig* internal_config);
+                                 PipelineConfig* runtime_config,
+                                 InternalPipelineConfig* internal_config);
 
 }  // namespace internal
 }  // namespace pipeline

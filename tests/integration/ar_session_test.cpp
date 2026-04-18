@@ -21,7 +21,7 @@
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/extension/control/RadarCommand.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
-#include "1q/airborne_radar/config/SignalPipelineConfig.h"
+#include "1q/airborne_radar/config/PipelineConfig.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/core/SignalPipeline.h"
 
@@ -137,22 +137,22 @@ struct SceneScriptStep {
       : scene_state(scene_state_in), expect_jamming(expect_jamming_in) {}
 };
 
-config::SignalPipelineConfig MakeJointIntegrationPipelineConfig() {
-  config::SignalPipelineConfig config;
-  config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
-  config.lifecycle.policy_profile = config::LifecyclePolicyProfile::kFastConfirm;
-  config.tracking.policy_profile = config::TrackingPolicyProfile::kFastAssociation;
+config::PipelineConfig MakeJointIntegrationPipelineConfig() {
+  config::PipelineConfig config;
+  config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
+  config.lifecycle.policy_profile = config::semantic::LifecyclePolicyProfile::kFastConfirm;
+  config.tracking.policy_profile = config::semantic::TrackingPolicyProfile::kFastAssociation;
   return config;
 }
 
-config::SignalPipelineConfig MakeJointIntegrationPhysicsPipelineConfig(
+config::PipelineConfig MakeJointIntegrationPhysicsPipelineConfig(
     float pulse_width_s) {
-  config::SignalPipelineConfig config = MakeJointIntegrationPipelineConfig();
+  config::PipelineConfig config = MakeJointIntegrationPipelineConfig();
   config.detection.enable_physics_detection = true;
-  config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
+  config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
   config.detection.hardware_profile = pulse_width_s > 15e-6f
-                                          ? config::RadarHardwareProfile::kLongRangeHighPower
-                                          : config::RadarHardwareProfile::kGenericAirborneXBand;
+                                          ? config::semantic::RadarHardwareProfile::kLongRangeHighPower
+                                          : config::semantic::RadarHardwareProfile::kGenericAirborneXBand;
   return config;
 }
 

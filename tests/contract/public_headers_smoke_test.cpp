@@ -10,16 +10,16 @@
 #include <utility>
 
 #include "1q/airborne_radar/airborne_radar.hpp"
-#include "1q/airborne_radar/config/AntennaPatternConfig.h"
+#include "1q/airborne_radar/config/semantic/AntennaPatternConfig.h"
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
-#include "1q/airborne_radar/config/SignalBeamControlConfig.h"
-#include "1q/airborne_radar/config/SignalDetectionConfig.h"
-#include "1q/airborne_radar/config/SignalLifecycleConfig.h"
-#include "1q/airborne_radar/config/SignalPipelineConfig.h"
-#include "1q/airborne_radar/config/SignalTrackingConfig.h"
+#include "1q/airborne_radar/config/presets/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/config/semantic/BeamControlConfig.h"
+#include "1q/airborne_radar/config/semantic/DetectionConfig.h"
+#include "1q/airborne_radar/config/semantic/LifecycleConfig.h"
+#include "1q/airborne_radar/config/PipelineConfig.h"
+#include "1q/airborne_radar/config/semantic/TrackingConfig.h"
 #include "1q/airborne_radar/config/airborne_radar_config.hpp"
 #include "1q/airborne_radar/environment/EnvironmentConfig.h"
 #include "1q/airborne_radar/environment/EnvironmentDefaultConfigBuilder.h"
@@ -245,7 +245,7 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   oneq::foundation::EcefCoordinateM origin_ecef;
   ASSERT_TRUE(oneq::foundation::TryLlaToEcef(origin_lla, &origin_ecef));
 
-  session::RadarSessionConfig session_config = config::MakeDefaultRadarSessionConfig();
+  session::RadarSessionConfig session_config = config::presets::MakeDefaultRadarSessionConfig();
   session_config.environment_default_config.scenario_config.atmospheric_physics.enable_physical_model =
       true;
 
@@ -288,18 +288,18 @@ TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields)
                                                  .Detection()
                                                  .EnablePhysicsDetection(true)
                                                  .WithDetectionIntentProfile(
-                                                     config::DetectionIntentProfile::kDetectionPriority)
+                                                     config::semantic::DetectionIntentProfile::kDetectionPriority)
                                                  .WithHardwareProfile(
-                                                     config::RadarHardwareProfile::kLongRangeHighPower)
+                                                     config::semantic::RadarHardwareProfile::kLongRangeHighPower)
                                                  .WithAntennaPatternProfile(
-                                                     config::AntennaPatternProfile::kLowSidelobe)
+                                                     config::semantic::AntennaPatternProfile::kLowSidelobe)
                                                  .End()
                                                  .Beam()
                                                  .WithScanCenterDeg(scan_center)
                                                  .End()
                                                  .Lifecycle()
                                                  .WithLifecyclePolicyProfile(
-                                                     config::LifecyclePolicyProfile::kFastConfirm)
+                                                     config::semantic::LifecyclePolicyProfile::kFastConfirm)
                                                  .End()
                                                  .Environment()
                                                  .WithJammingSensitivityProfile(
@@ -307,11 +307,11 @@ TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields)
                                                  .End()
                                                  .Build();
   EXPECT_TRUE(config.detection.enable_physics_detection);
-  EXPECT_EQ(config.detection.intent_profile, config::DetectionIntentProfile::kDetectionPriority);
-  EXPECT_EQ(config.detection.hardware_profile, config::RadarHardwareProfile::kLongRangeHighPower);
-  EXPECT_EQ(config.detection.antenna_pattern.profile, config::AntennaPatternProfile::kLowSidelobe);
+  EXPECT_EQ(config.detection.intent_profile, config::semantic::DetectionIntentProfile::kDetectionPriority);
+  EXPECT_EQ(config.detection.hardware_profile, config::semantic::RadarHardwareProfile::kLongRangeHighPower);
+  EXPECT_EQ(config.detection.antenna_pattern.profile, config::semantic::AntennaPatternProfile::kLowSidelobe);
   EXPECT_FLOAT_EQ(config.beam_control.radar_orientation.scan_center_deg.az_deg, -12.0f);
-  EXPECT_EQ(config.lifecycle.policy_profile, config::LifecyclePolicyProfile::kFastConfirm);
+  EXPECT_EQ(config.lifecycle.policy_profile, config::semantic::LifecyclePolicyProfile::kFastConfirm);
   EXPECT_EQ(config.environment_default_config.jamming_sensitivity_profile,
             environment::JammingSensitivityProfile::kRelaxed);
 

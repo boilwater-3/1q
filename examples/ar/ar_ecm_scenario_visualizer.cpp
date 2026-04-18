@@ -36,11 +36,11 @@
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/config/presets/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/config/RadarExpertSessionConfigBuilder.h"
 #include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
 #include "1q/airborne_radar/extension/control/RadarCommand.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
-#include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/model/TargetFeatureUtils.h"
 #include "1q/airborne_radar/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
@@ -181,7 +181,8 @@ std::unique_ptr<airborne_radar::session::RadarSession> MakeSession() {
   namespace aq = airborne_radar::common;
   auto session = std::unique_ptr<airborne_radar::session::RadarSession>(
       new airborne_radar::session::RadarSession(airborne_radar::session::RadarSessionFactory::Create(
-          airborne_radar::config::RadarSessionConfigBuilder(airborne_radar::config::MakeDetectionMissionRadarSessionConfig())
+          airborne_radar::config::RadarExpertSessionConfigBuilder(
+              airborne_radar::config::presets::MakeDetectionMissionRadarSessionConfig())
               .Detection()
               .EnablePhysicsDetection()
               .WithPeakPowerW(5e6f)

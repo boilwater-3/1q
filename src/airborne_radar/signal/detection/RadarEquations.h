@@ -8,7 +8,7 @@
 
 #include <random>
 
-#include "1q/airborne_radar/config/SignalDetectionConfig.h"
+#include "1q/airborne_radar/config/semantic/profiles/DetectionProfiles.h"
 #include "airborne_radar/config/engineering/SignalEngineeringConfig.h"
 
 namespace airborne_radar {
@@ -91,7 +91,8 @@ struct RadarEquations {
    * @return 检测概率 Pd ∈ [0, 1]
    */
   static float ComputeDetectionProbability(float snr_db, float pfa,
-                                           config::SwerlingModel model, int num_pulses);
+                                           config::semantic::SwerlingModel model,
+                                           int num_pulses);
   /**
    * @brief 计算方波检测器的检测门限 T。
    * @param pfa         虚警概率

@@ -18,8 +18,8 @@ namespace assembly {
 namespace internal {
 
 tracking::LifecycleConfig SignalComponentFactory::BuildLifecycleConfig(
-    const SignalPipelineConfig& pipeline_config,
-    const pipeline::internal::InternalSignalPipelineConfig& internal_config) {
+    const PipelineConfig& pipeline_config,
+    const pipeline::internal::InternalPipelineConfig& internal_config) {
   (void)pipeline_config;
   tracking::LifecycleConfig lifecycle_config;
   const ::airborne_radar::config::engineering::LifecycleConfig& lifecycle_runtime =
@@ -34,7 +34,7 @@ tracking::LifecycleConfig SignalComponentFactory::BuildLifecycleConfig(
 }
 
 tracking::TrackFilterConfig SignalComponentFactory::BuildTrackFilterConfig(
-    const pipeline::internal::InternalSignalPipelineConfig& internal_config) {
+    const pipeline::internal::InternalPipelineConfig& internal_config) {
   tracking::TrackFilterConfig filter_config;
   filter_config.speed_decay_ratio_on_loss = internal_config.tracking.speed_decay_ratio_on_loss;
   filter_config.rcs_decay_ratio_on_loss = internal_config.tracking.rcs_decay_ratio_on_loss;
@@ -42,8 +42,8 @@ tracking::TrackFilterConfig SignalComponentFactory::BuildTrackFilterConfig(
 }
 
 association::DataAssociationConfig SignalComponentFactory::BuildAssociationConfig(
-    const SignalPipelineConfig& pipeline_config,
-    const pipeline::internal::InternalSignalPipelineConfig& internal_config) {
+    const PipelineConfig& pipeline_config,
+    const pipeline::internal::InternalPipelineConfig& internal_config) {
   (void)pipeline_config;
   association::DataAssociationConfig association_config;
   association_config.unassigned_cost = internal_config.association.unassigned_cost;
@@ -54,8 +54,8 @@ association::DataAssociationConfig SignalComponentFactory::BuildAssociationConfi
 }
 
 OwnedSignalComponents SignalComponentFactory::BuildOwnedPipelineComponents(
-    const SignalPipelineConfig& config,
-    const pipeline::internal::InternalSignalPipelineConfig& internal_config) {
+    const PipelineConfig& config,
+    const pipeline::internal::InternalPipelineConfig& internal_config) {
   OwnedSignalComponents components;
   components.association_config = BuildAssociationConfig(config, internal_config);
   components.track_filter_config = BuildTrackFilterConfig(internal_config);
@@ -77,8 +77,8 @@ OwnedSignalComponents SignalComponentFactory::BuildOwnedPipelineComponents(
 }
 
 LifecycleAssemblyArtifacts SignalComponentFactory::BuildLifecycleAssemblyArtifacts(
-    const SignalPipelineConfig& config,
-    const pipeline::internal::InternalSignalPipelineConfig& internal_config) {
+    const PipelineConfig& config,
+    const pipeline::internal::InternalPipelineConfig& internal_config) {
   LifecycleAssemblyArtifacts artifacts;
   const tracking::LifecycleConfig lifecycle_config = BuildLifecycleConfig(config, internal_config);
   artifacts.pool.reset(
@@ -210,7 +210,7 @@ std::unique_ptr<tracking::IKalmanUpdater> SignalComponentFactory::CreateKalmanUp
 }
 
 Eigen::MatrixXf SignalComponentFactory::BuildImmTransitionProbability(
-    const pipeline::internal::InternalSignalPipelineConfig& internal_config,
+    const pipeline::internal::InternalPipelineConfig& internal_config,
     std::size_t model_count) {
   if (internal_config.lifecycle.imm_transition_probability.empty()) {
     Eigen::MatrixXf matrix = Eigen::MatrixXf::Constant(
@@ -249,7 +249,7 @@ Eigen::MatrixXf SignalComponentFactory::BuildImmTransitionProbability(
 }
 
 Eigen::VectorXf SignalComponentFactory::BuildImmInitialWeights(
-    const pipeline::internal::InternalSignalPipelineConfig& internal_config,
+    const pipeline::internal::InternalPipelineConfig& internal_config,
     std::size_t model_count) {
   if (internal_config.lifecycle.imm_initial_weights.empty()) {
     return Eigen::VectorXf::Constant(static_cast<Eigen::Index>(model_count),

@@ -29,7 +29,7 @@ struct LifecycleConfigSignature {
 bool IsNearOne(float value) { return std::fabs(value - 1.0f) <= 1.0e-3f; }
 
 Eigen::MatrixXf BuildImmTransitionProbabilityOrDefault(
-    const pipeline::internal::InternalSignalPipelineConfig& internal_config,
+    const pipeline::internal::InternalPipelineConfig& internal_config,
     std::size_t model_count) {
   if (model_count == 0U) {
     return Eigen::MatrixXf();
@@ -64,7 +64,7 @@ Eigen::MatrixXf BuildImmTransitionProbabilityOrDefault(
 }
 
 Eigen::VectorXf BuildImmInitialWeightsOrDefault(
-    const pipeline::internal::InternalSignalPipelineConfig& internal_config,
+    const pipeline::internal::InternalPipelineConfig& internal_config,
     std::size_t model_count) {
   if (model_count == 0U) {
     return Eigen::VectorXf();
@@ -93,7 +93,7 @@ Eigen::VectorXf BuildImmInitialWeightsOrDefault(
 }
 
 LifecycleConfigSignature BuildLifecycleConfigSignature(
-    const ResolvedRuntimeSignalPipelineConfig& resolved_config) {
+    const ResolvedRuntimePipelineConfig& resolved_config) {
   LifecycleConfigSignature signature;
   signature.enable_imm_lifecycle =
       resolved_config.internal_config.lifecycle_runtime.engineering.enable_imm_lifecycle;
@@ -126,7 +126,7 @@ void AssignLifecycleSignature(const LifecycleConfigSignature& source,
 }
 
 LifecycleAssemblyArtifacts BuildLifecycleAssemblyArtifactsOrLogFailure(
-    const ResolvedRuntimeSignalPipelineConfig& resolved_config) {
+    const ResolvedRuntimePipelineConfig& resolved_config) {
   LifecycleAssemblyArtifacts artifacts = SignalComponentFactory::BuildLifecycleAssemblyArtifacts(
       resolved_config.public_config, resolved_config.internal_config);
   if (artifacts.lifecycle_manager == nullptr) {
@@ -140,7 +140,7 @@ LifecycleAssemblyArtifacts BuildLifecycleAssemblyArtifactsOrLogFailure(
 class AutoConfiguredLifecycleManager final : public tracking::ITrackLifecycleManager {
  public:
   explicit AutoConfiguredLifecycleManager(
-      const ResolvedRuntimeSignalPipelineConfig& resolved_config,
+      const ResolvedRuntimePipelineConfig& resolved_config,
       LifecycleAssemblyArtifacts assembly)
       : resolved_config_(resolved_config),
         signature_(BuildLifecycleConfigSignature(resolved_config_)),
@@ -207,7 +207,7 @@ class AutoConfiguredLifecycleManager final : public tracking::ITrackLifecycleMan
                                         imm_transition_probability, imm_initial_weights);
   }
 
-  bool SyncRuntimeConfig(const ResolvedRuntimeSignalPipelineConfig& resolved_config) {
+  bool SyncRuntimeConfig(const ResolvedRuntimePipelineConfig& resolved_config) {
     const LifecycleConfigSignature incoming_signature =
         BuildLifecycleConfigSignature(resolved_config);
     if (ShouldRebuildLifecycleAssembly(signature_, incoming_signature)) {
@@ -250,7 +250,7 @@ class AutoConfiguredLifecycleManager final : public tracking::ITrackLifecycleMan
   }
 
  private:
-  ResolvedRuntimeSignalPipelineConfig resolved_config_;
+  ResolvedRuntimePipelineConfig resolved_config_;
   LifecycleConfigSignature signature_;
   LifecycleAssemblyArtifacts assembly_;
 };
@@ -267,11 +267,11 @@ bool HasValidOwnedComponentSlots(const OwnedComponentSlots& slots) {
 
 }  // namespace
 
-ResolvedRuntimeSignalPipelineConfig ResolveRuntimeSignalPipelineConfig(
-    const SignalPipelineConfig& base_config,
-    const pipeline::internal::InternalSignalPipelineConfig& base_internal_config,
+ResolvedRuntimePipelineConfig ResolveRuntimePipelineConfig(
+    const PipelineConfig& base_config,
+    const pipeline::internal::InternalPipelineConfig& base_internal_config,
     const extension::control::RadarControlProfile& control_profile) {
-  ResolvedRuntimeSignalPipelineConfig resolved_config;
+  ResolvedRuntimePipelineConfig resolved_config;
   resolved_config.public_config = base_config;
   resolved_config.internal_config = base_internal_config;
   pipeline::internal::ApplyControlProfileToConfig(control_profile, &resolved_config.public_config,
@@ -280,15 +280,15 @@ ResolvedRuntimeSignalPipelineConfig ResolveRuntimeSignalPipelineConfig(
 }
 
 std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManagerForRuntimeConfig(
-    const SignalPipelineConfig& runtime_config) {
+    const PipelineConfig& runtime_config) {
   return CreateAutoLifecycleManagerForRuntimeConfig(
-      runtime_config, pipeline::internal::BuildInternalSignalPipelineConfig(runtime_config));
+      runtime_config, pipeline::internal::BuildInternalPipelineConfig(runtime_config));
 }
 
 std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManagerForRuntimeConfig(
-    const SignalPipelineConfig& runtime_config,
-    const pipeline::internal::InternalSignalPipelineConfig& internal_config) {
-  ResolvedRuntimeSignalPipelineConfig resolved_config;
+    const PipelineConfig& runtime_config,
+    const pipeline::internal::InternalPipelineConfig& internal_config) {
+  ResolvedRuntimePipelineConfig resolved_config;
   resolved_config.public_config = runtime_config;
   resolved_config.internal_config = internal_config;
   LifecycleAssemblyArtifacts assembly = BuildLifecycleAssemblyArtifactsOrLogFailure(resolved_config);
@@ -300,8 +300,8 @@ std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManagerForR
 }
 
 void RebuildOwnedComponentsForPipeline(
-    const SignalPipelineConfig& base_config,
-    const pipeline::internal::InternalSignalPipelineConfig& base_internal_config,
+    const PipelineConfig& base_config,
+    const pipeline::internal::InternalPipelineConfig& base_internal_config,
     const extension::control::RadarControlProfile& control_profile, OwnedComponentSlots* slots) {
   if (slots == nullptr || !HasValidOwnedComponentSlots(*slots)) {
     return;
@@ -313,14 +313,14 @@ void RebuildOwnedComponentsForPipeline(
   *slots->kalman_updater = std::move(components.kalman_updater);
   *slots->signal_detector = std::move(components.signal_detector);
 
-  const ResolvedRuntimeSignalPipelineConfig resolved_runtime_config =
-      ResolveRuntimeSignalPipelineConfig(base_config, base_internal_config, control_profile);
+  const ResolvedRuntimePipelineConfig resolved_runtime_config =
+      ResolveRuntimePipelineConfig(base_config, base_internal_config, control_profile);
   *slots->auto_lifecycle_manager = CreateAutoLifecycleManagerForRuntimeConfig(
       resolved_runtime_config.public_config, resolved_runtime_config.internal_config);
 }
 
 bool SyncAutoLifecycleManagerForResolvedRuntimeConfig(
-    const ResolvedRuntimeSignalPipelineConfig& resolved_runtime_config,
+    const ResolvedRuntimePipelineConfig& resolved_runtime_config,
     tracking::ITrackLifecycleManager* auto_lifecycle_manager) {
   AutoConfiguredLifecycleManager* auto_configured_manager =
       dynamic_cast<AutoConfiguredLifecycleManager*>(auto_lifecycle_manager);
@@ -331,10 +331,10 @@ bool SyncAutoLifecycleManagerForResolvedRuntimeConfig(
 }
 
 bool SyncAutoLifecycleManagerForRuntimeConfig(
-    const SignalPipelineConfig& runtime_config,
-    const pipeline::internal::InternalSignalPipelineConfig& internal_runtime_config,
+    const PipelineConfig& runtime_config,
+    const pipeline::internal::InternalPipelineConfig& internal_runtime_config,
     tracking::ITrackLifecycleManager* auto_lifecycle_manager) {
-  ResolvedRuntimeSignalPipelineConfig resolved;
+  ResolvedRuntimePipelineConfig resolved;
   resolved.public_config = runtime_config;
   resolved.internal_config = internal_runtime_config;
   return SyncAutoLifecycleManagerForResolvedRuntimeConfig(resolved, auto_lifecycle_manager);

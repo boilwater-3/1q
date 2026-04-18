@@ -36,12 +36,12 @@ bool HasValidEnvironmentCycle(const environment::EnvironmentSnapshot& snapshot) 
 }
 
 struct RuntimeConfigState {
-  explicit RuntimeConfigState(SignalPipelineConfig initial_config)
+  explicit RuntimeConfigState(PipelineConfig initial_config)
       : base_config(std::move(initial_config)),
-        base_internal_config(internal::BuildInternalSignalPipelineConfig(base_config)) {}
+        base_internal_config(internal::BuildInternalPipelineConfig(base_config)) {}
 
-  SignalPipelineConfig base_config{};
-  internal::InternalSignalPipelineConfig base_internal_config{};
+  PipelineConfig base_config{};
+  internal::InternalPipelineConfig base_internal_config{};
   extension::control::RadarControlProfile control_profile_{};
 };
 
@@ -66,7 +66,7 @@ struct AssociationSeedState {
 };
 
 struct SignalPipelineSnapshot {
-  SignalPipelineConfig base_config{};
+  PipelineConfig base_config{};
   model::PlatformAttitudeDeg platform_attitude_deg{};
   extension::control::RadarControlProfile control_profile{};
   AssociationSeedState association_seeds{};
@@ -78,7 +78,7 @@ struct SignalPipelineSnapshot {
 };
 
 struct RuntimeState {
-  explicit RuntimeState(SignalPipelineConfig initial_config)
+  explicit RuntimeState(PipelineConfig initial_config)
       : config(std::move(initial_config)), owned(config) {}
 
   RuntimeConfigState config;
@@ -95,7 +95,7 @@ struct CycleState {
 }  // namespace
 
 struct SignalPipeline::Impl {
-  explicit Impl(SignalPipelineConfig initial_config) : runtime_(std::move(initial_config)) {
+  explicit Impl(PipelineConfig initial_config) : runtime_(std::move(initial_config)) {
     RebuildOwnedComponents();
   }
 
@@ -108,8 +108,8 @@ struct SignalPipeline::Impl {
         runtime_.association_seeds.has_manual_association_seeds);
   }
 
-  assembly::internal::ResolvedRuntimeSignalPipelineConfig ResolveRuntimeConfig() const {
-    return assembly::internal::ResolveRuntimeSignalPipelineConfig(
+  assembly::internal::ResolvedRuntimePipelineConfig ResolveRuntimeConfig() const {
+    return assembly::internal::ResolveRuntimePipelineConfig(
         runtime_.config.base_config, runtime_.config.base_internal_config,
         runtime_.config.control_profile_);
   }
@@ -198,7 +198,7 @@ struct SignalPipeline::Impl {
 
     runtime_.config.base_config = snapshot->base_config;
     runtime_.config.base_internal_config =
-        internal::BuildInternalSignalPipelineConfig(runtime_.config.base_config);
+        internal::BuildInternalPipelineConfig(runtime_.config.base_config);
     runtime_.config.base_internal_config.beam_control.platform_attitude_deg =
         snapshot->platform_attitude_deg;
     runtime_.config.control_profile_ = snapshot->control_profile;
@@ -232,16 +232,16 @@ struct SignalPipeline::Impl {
   }
 
   std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManager() const {
-    const assembly::internal::ResolvedRuntimeSignalPipelineConfig runtime_config =
+    const assembly::internal::ResolvedRuntimePipelineConfig runtime_config =
         ResolveRuntimeConfig();
     return assembly::internal::CreateAutoLifecycleManagerForRuntimeConfig(
         runtime_config.public_config, runtime_config.internal_config);
   }
 
-  void UpdateConfig(SignalPipelineConfig new_config) {
+  void UpdateConfig(PipelineConfig new_config) {
     runtime_.config.base_config = std::move(new_config);
     runtime_.config.base_internal_config =
-        internal::BuildInternalSignalPipelineConfig(runtime_.config.base_config);
+        internal::BuildInternalPipelineConfig(runtime_.config.base_config);
     internal::SyncAssociationAndTrackFilterConfigs(runtime_.config.base_config,
                                                    runtime_.config.base_internal_config,
                                                    &runtime_.owned.association_engine,
@@ -279,7 +279,7 @@ struct SignalPipeline::Impl {
   CycleState cycle_;
 };
 
-SignalPipeline::SignalPipeline(SignalPipelineConfig config)
+SignalPipeline::SignalPipeline(PipelineConfig config)
     : impl_(std::unique_ptr<Impl>(new Impl(std::move(config)))) {}
 
 SignalPipeline::~SignalPipeline() = default;
@@ -337,7 +337,7 @@ extension::control::RadarControlProfile SignalPipeline::GetControlProfile() cons
   return impl_->GetControlProfile();
 }
 
-void SignalPipeline::UpdateConfig(SignalPipelineConfig config) {
+void SignalPipeline::UpdateConfig(PipelineConfig config) {
   impl_->UpdateConfig(std::move(config));
 }
 

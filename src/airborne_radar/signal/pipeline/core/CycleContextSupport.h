@@ -13,7 +13,7 @@
 #include "1q/airborne_radar/model/TargetFeature.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
-#include "airborne_radar/signal/pipeline/config/InternalSignalPipelineConfig.h"
+#include "airborne_radar/signal/pipeline/config/InternalPipelineConfig.h"
 #include "airborne_radar/signal/pipeline/config/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/tracking/GaussianTrackState.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
@@ -49,7 +49,7 @@ struct CycleWorkspace {
  * @param[out] workspace 待重置的周期工作区。
  */
 void ResetCycleWorkspace(const model::TargetFeatureList& input_state,
-                         const SignalPipelineConfig& runtime_config, CycleWorkspace* workspace);
+                         const PipelineConfig& runtime_config, CycleWorkspace* workspace);
 
 /**
  * @brief 重置量测协方差为默认值。
@@ -69,8 +69,8 @@ void RefreshMeasurementCovariances(
  * @param[in,out] track_filter 轨迹滤波器。
  */
 bool SyncAssociationAndTrackFilterConfigs(
-    const SignalPipelineConfig& runtime_config,
-    const InternalSignalPipelineConfig& internal_runtime_config,
+    const PipelineConfig& runtime_config,
+    const InternalPipelineConfig& internal_runtime_config,
     association::DataAssociationEngine* association_engine, tracking::TrackFilter* track_filter,
     tracking::ITrackLifecycleManager* auto_lifecycle_manager = nullptr);
 

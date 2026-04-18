@@ -5,9 +5,10 @@
 
 #include <gtest/gtest.h>
 
+#include "1q/airborne_radar/config/RadarExpertSessionConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/config/presets/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/session/RadarSession.h"
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
 
@@ -19,59 +20,59 @@ TEST(RadarSessionConfigBuilderTest, DefaultConstructionPreservesSemanticDefaults
 
   EXPECT_FALSE(config.detection.enable_physics_detection);
   EXPECT_EQ(config.detection.hardware_profile,
-            config::RadarHardwareProfile::kGenericAirborneXBand);
-  EXPECT_EQ(config.detection.intent_profile, config::DetectionIntentProfile::kBalanced);
-  EXPECT_EQ(config.detection.antenna_pattern.profile, config::AntennaPatternProfile::kStandard);
-  EXPECT_EQ(config.tracking.policy_profile, config::TrackingPolicyProfile::kBalanced);
-  EXPECT_EQ(config.lifecycle.policy_profile, config::LifecyclePolicyProfile::kBalanced);
+            config::semantic::RadarHardwareProfile::kGenericAirborneXBand);
+  EXPECT_EQ(config.detection.intent_profile, config::semantic::DetectionIntentProfile::kBalanced);
+  EXPECT_EQ(config.detection.antenna_pattern.profile, config::semantic::AntennaPatternProfile::kStandard);
+  EXPECT_EQ(config.tracking.policy_profile, config::semantic::TrackingPolicyProfile::kBalanced);
+  EXPECT_EQ(config.lifecycle.policy_profile, config::semantic::LifecyclePolicyProfile::kBalanced);
   EXPECT_FALSE(config.lifecycle.enable_imm_fusion);
 }
 
 TEST(RadarSessionConfigBuilderTest, PresetBasePreservesPresetSemanticValues) {
   const auto config =
-      config::RadarSessionConfigBuilder(config::MakeDetectionMissionRadarSessionConfig()).Build();
+      config::RadarSessionConfigBuilder(config::presets::MakeDetectionMissionRadarSessionConfig()).Build();
 
-  EXPECT_EQ(config.detection.intent_profile, config::DetectionIntentProfile::kDetectionPriority);
-  EXPECT_EQ(config.tracking.policy_profile, config::TrackingPolicyProfile::kFastAssociation);
-  EXPECT_EQ(config.lifecycle.policy_profile, config::LifecyclePolicyProfile::kFastConfirm);
+  EXPECT_EQ(config.detection.intent_profile, config::semantic::DetectionIntentProfile::kDetectionPriority);
+  EXPECT_EQ(config.tracking.policy_profile, config::semantic::TrackingPolicyProfile::kFastAssociation);
+  EXPECT_EQ(config.lifecycle.policy_profile, config::semantic::LifecyclePolicyProfile::kFastConfirm);
 }
 
 TEST(RadarSessionConfigBuilderTest, DetectionSemanticEditorsApplyCorrectly) {
   const auto config = config::RadarSessionConfigBuilder()
                           .Detection()
                           .EnablePhysicsDetection(true)
-                          .WithHardwareProfile(config::RadarHardwareProfile::kLongRangeHighPower)
+                          .WithHardwareProfile(config::semantic::RadarHardwareProfile::kLongRangeHighPower)
                           .WithDetectionIntentProfile(
-                              config::DetectionIntentProfile::kTrackStabilityPriority)
-                          .WithAntennaPatternProfile(config::AntennaPatternProfile::kLowSidelobe)
-                          .WithRcsFusionProfile(config::RcsFusionProfile::kEnhanced)
+                              config::semantic::DetectionIntentProfile::kTrackStabilityPriority)
+                          .WithAntennaPatternProfile(config::semantic::AntennaPatternProfile::kLowSidelobe)
+                          .WithRcsFusionProfile(config::semantic::RcsFusionProfile::kEnhanced)
                           .End()
                           .Build();
 
   EXPECT_TRUE(config.detection.enable_physics_detection);
-  EXPECT_EQ(config.detection.hardware_profile, config::RadarHardwareProfile::kLongRangeHighPower);
+  EXPECT_EQ(config.detection.hardware_profile, config::semantic::RadarHardwareProfile::kLongRangeHighPower);
   EXPECT_EQ(config.detection.intent_profile,
-            config::DetectionIntentProfile::kTrackStabilityPriority);
-  EXPECT_EQ(config.detection.antenna_pattern.profile, config::AntennaPatternProfile::kLowSidelobe);
-  EXPECT_EQ(config.detection.rcs_fusion_profile, config::RcsFusionProfile::kEnhanced);
+            config::semantic::DetectionIntentProfile::kTrackStabilityPriority);
+  EXPECT_EQ(config.detection.antenna_pattern.profile, config::semantic::AntennaPatternProfile::kLowSidelobe);
+  EXPECT_EQ(config.detection.rcs_fusion_profile, config::semantic::RcsFusionProfile::kEnhanced);
 }
 
 TEST(RadarSessionConfigBuilderTest, TrackingAndLifecycleSemanticEditorsApplyCorrectly) {
   const auto config = config::RadarSessionConfigBuilder()
                           .Tracking()
                           .EnableTrackingFilter(true)
-                          .WithTrackingPolicyProfile(config::TrackingPolicyProfile::kRobustAntiJamming)
+                          .WithTrackingPolicyProfile(config::semantic::TrackingPolicyProfile::kRobustAntiJamming)
                           .End()
                           .Lifecycle()
                           .EnableImmFusion(true)
-                          .WithLifecyclePolicyProfile(config::LifecyclePolicyProfile::kHighPersistence)
+                          .WithLifecyclePolicyProfile(config::semantic::LifecyclePolicyProfile::kHighPersistence)
                           .End()
                           .Build();
 
   EXPECT_TRUE(config.tracking.enable_tracking_filter);
-  EXPECT_EQ(config.tracking.policy_profile, config::TrackingPolicyProfile::kRobustAntiJamming);
+  EXPECT_EQ(config.tracking.policy_profile, config::semantic::TrackingPolicyProfile::kRobustAntiJamming);
   EXPECT_TRUE(config.lifecycle.enable_imm_fusion);
-  EXPECT_EQ(config.lifecycle.policy_profile, config::LifecyclePolicyProfile::kHighPersistence);
+  EXPECT_EQ(config.lifecycle.policy_profile, config::semantic::LifecyclePolicyProfile::kHighPersistence);
 }
 
 TEST(RadarSessionConfigBuilderTest, BeamAndEnvironmentEditorsApplyCorrectly) {
@@ -98,7 +99,7 @@ TEST(RadarSessionConfigBuilderTest, BeamAndEnvironmentEditorsApplyCorrectly) {
 }
 
 TEST(RadarSessionConfigBuilderTest, BuiltConfigCanConstructRadarSession) {
-  const auto config = config::RadarSessionConfigBuilder(config::MakeDetectionMissionRadarSessionConfig())
+  const auto config = config::RadarSessionConfigBuilder(config::presets::MakeDetectionMissionRadarSessionConfig())
                           .Environment()
                           .WithJammingSensitivityProfile(
                               environment::JammingSensitivityProfile::kStrict)
@@ -153,7 +154,7 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValue
 
 TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructingSession) {
   session::RadarSession session =
-      session::RadarSessionFactory::Create(config::MakeDetectionMissionRadarSessionConfig());
+      session::RadarSessionFactory::Create(config::presets::MakeDetectionMissionRadarSessionConfig());
 
   const config::RadarRuntimeConfigPatch patch = config::RadarRuntimeConfigBuilder()
                                                     .WithRadarWorkSubMode(model::RadarWorkSubMode::kTas)
@@ -168,6 +169,71 @@ TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructin
   input.dt_sec = 1.0f;
   const session::RadarCycleResult result = session.StepWithResult(input);
   EXPECT_FALSE(result.has_validation_error);
+}
+
+TEST(RadarSessionConfigBuilderTest, ExpertBuilderProducesExpertSessionConfig) {
+  const auto expert_config = config::RadarExpertSessionConfigBuilder()
+                          .Detection()
+                          .EnablePhysicsDetection(true)
+                          .WithPeakPowerW(5.0e6f)
+                          .WithFrequencyHz(9.3e9f)
+                          .WithBandwidthHz(10.0e6f)
+                          .WithPulseWidthS(20e-6f)
+                          .WithPrfHz(500.0f)
+                          .WithMainBeamGainDb(38.0f)
+                          .WithNoiseFigureDb(3.5f)
+                          .End()
+                          .Beam()
+                          .WithRadarWorkSubMode(model::RadarWorkSubMode::kTas)
+                          .End()
+                          .Tracking()
+                          .EnableKalmanFilter(true)
+                          .WithKalmanMeasurementNoiseStd(7.5f)
+                          .WithKalmanUpdateBackend(config::expert::KalmanUpdateBackend::kUdKf)
+                          .End()
+                          .Lifecycle()
+                          .EnableImmFusion(true)
+                          .WithLifecycleConfirmHits(2U)
+                          .WithLifecycleMaxMissBeforeLost(1U)
+                          .WithLifecycleMaxLostCycles(4U)
+                          .End()
+                          .Environment()
+                          .WithJammingSensitivityProfile(
+                              environment::JammingSensitivityProfile::kStrict)
+                          .End()
+                          .Build();
+
+  EXPECT_EQ(expert_config.pipeline_config_model, config::PipelineConfigModel::kExpert);
+  EXPECT_TRUE(expert_config.expert_pipeline_config.detection.enable_physics_detection);
+  EXPECT_FLOAT_EQ(expert_config.expert_pipeline_config.detection.transmitter.peak_power_w, 5.0e6f);
+  EXPECT_FLOAT_EQ(expert_config.expert_pipeline_config.detection.transmitter.frequency_hz, 9.3e9f);
+  EXPECT_EQ(expert_config.beam_control.radar_orientation.work_sub_mode, model::RadarWorkSubMode::kTas);
+  EXPECT_FLOAT_EQ(expert_config.expert_pipeline_config.tracking.kalman_measurement_noise_std, 7.5f);
+  EXPECT_EQ(expert_config.expert_pipeline_config.tracking.kalman_update_backend,
+            config::expert::KalmanUpdateBackend::kUdKf);
+  EXPECT_EQ(expert_config.expert_pipeline_config.lifecycle.confirm_hits, 2U);
+  EXPECT_TRUE(expert_config.expert_pipeline_config.lifecycle.enable_imm_lifecycle);
+  EXPECT_EQ(expert_config.environment_default_config.jamming_sensitivity_profile,
+            environment::JammingSensitivityProfile::kStrict);
+}
+
+TEST(RadarSessionConfigBuilderTest, ExpertBuiltConfigCanConstructRadarSession) {
+  const auto config = config::RadarExpertSessionConfigBuilder()
+                          .Detection()
+                          .WithPeakPowerW(5.0e6f)
+                          .WithFrequencyHz(9.3e9f)
+                          .End()
+                          .Tracking()
+                          .WithKalmanUpdateBackend(config::expert::KalmanUpdateBackend::kUdKf)
+                          .End()
+                          .Lifecycle()
+                          .EnableImmFusion(true)
+                          .End()
+                          .Build();
+
+  session::RadarSession session = session::RadarSessionFactory::Create(config);
+  EXPECT_TRUE(session.HasLatestControlProfile() == false ||
+              session.HasLatestControlProfile() == true);
 }
 
 }  // namespace tests

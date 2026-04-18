@@ -91,7 +91,7 @@ std::uint32_t ResolveLifecycleExtraMissTolerance(
 
 void CollectCycleOutputs(const extension::control::RadarControlProfile& control_profile,
                          std::uint32_t cycle_index, std::uint64_t batch_id,
-                         const InternalSignalPipelineConfig& internal_runtime_config,
+                         const InternalPipelineConfig& internal_runtime_config,
                          const environment::EnvironmentSnapshot& environment_snapshot,
                          const model::TargetFeatureList& input_state,
                          const association::AssociationResult& association_result,

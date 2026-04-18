@@ -1,12 +1,13 @@
 /**
  * @file airborne_radar.hpp
  * @brief 机载雷达模块对外统一入口。
+ * @note 当调用方需要会话、输入输出与配置的完整公开 API 时，优先包含本头。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_AIRBORNE_RADAR_HPP_
 #define ONEQ_AIRBORNE_RADAR_AIRBORNE_RADAR_HPP_
 
-#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/config/presets/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/config/airborne_radar_config.hpp"
 #include "1q/airborne_radar/environment/airborne_radar_environment.hpp"
 #include "1q/airborne_radar/model/DecisionInputFrame.h"

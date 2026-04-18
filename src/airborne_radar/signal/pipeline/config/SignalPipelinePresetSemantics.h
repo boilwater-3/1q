@@ -6,40 +6,41 @@
 #ifndef AIRBORNE_RADAR_SIGNAL_PIPELINE_CONFIG_SIGNAL_PIPELINE_PRESET_SEMANTICS_H_
 #define AIRBORNE_RADAR_SIGNAL_PIPELINE_CONFIG_SIGNAL_PIPELINE_PRESET_SEMANTICS_H_
 
-#include "1q/airborne_radar/config/SignalPipelineConfig.h"
+#include "1q/airborne_radar/config/PipelineConfig.h"
 
 namespace airborne_radar {
 namespace config {
 namespace internal {
 
-inline config::SignalPipelineConfig BuildDetectionMissionPresetConfig() {
-  config::SignalPipelineConfig config;
+inline config::PipelineConfig BuildDetectionMissionPresetConfig() {
+  config::PipelineConfig config;
   config.beam_control.radar_orientation.scan_start_position =
       oneq::foundation::ScanStartPosition::kLeftTop;
   config.beam_control.radar_orientation.scan_sequence = oneq::foundation::ScanSequence::kAzimuthFirst;
   config.beam_control.radar_orientation.work_sub_mode = model::RadarWorkSubMode::kTws;
-  config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
-  config.tracking.policy_profile = config::TrackingPolicyProfile::kFastAssociation;
-  config.lifecycle.policy_profile = config::LifecyclePolicyProfile::kFastConfirm;
+  config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
+  config.tracking.policy_profile = config::semantic::TrackingPolicyProfile::kFastAssociation;
+  config.lifecycle.policy_profile = config::semantic::LifecyclePolicyProfile::kFastConfirm;
   return config;
 }
 
-inline config::SignalPipelineConfig BuildTrackingMissionPresetConfig() {
-  config::SignalPipelineConfig config;
+inline config::PipelineConfig BuildTrackingMissionPresetConfig() {
+  config::PipelineConfig config;
   config.beam_control.radar_orientation.scan_start_position =
       oneq::foundation::ScanStartPosition::kLeftTop;
   config.beam_control.radar_orientation.scan_sequence = oneq::foundation::ScanSequence::kAzimuthFirst;
   config.beam_control.radar_orientation.work_sub_mode = model::RadarWorkSubMode::kTws;
-  config.detection.intent_profile = config::DetectionIntentProfile::kTrackStabilityPriority;
-  config.tracking.policy_profile = config::TrackingPolicyProfile::kBalanced;
-  config.lifecycle.policy_profile = config::LifecyclePolicyProfile::kBalanced;
+  config.detection.intent_profile =
+      config::semantic::DetectionIntentProfile::kTrackStabilityPriority;
+  config.tracking.policy_profile = config::semantic::TrackingPolicyProfile::kBalanced;
+  config.lifecycle.policy_profile = config::semantic::LifecyclePolicyProfile::kBalanced;
   return config;
 }
 
-inline config::SignalPipelineConfig BuildHighRobustnessPresetConfig() {
-  config::SignalPipelineConfig config = BuildTrackingMissionPresetConfig();
-  config.tracking.policy_profile = config::TrackingPolicyProfile::kRobustAntiJamming;
-  config.lifecycle.policy_profile = config::LifecyclePolicyProfile::kHighPersistence;
+inline config::PipelineConfig BuildHighRobustnessPresetConfig() {
+  config::PipelineConfig config = BuildTrackingMissionPresetConfig();
+  config.tracking.policy_profile = config::semantic::TrackingPolicyProfile::kRobustAntiJamming;
+  config.lifecycle.policy_profile = config::semantic::LifecyclePolicyProfile::kHighPersistence;
   return config;
 }
 

@@ -5,8 +5,8 @@
 
 #include <gtest/gtest.h>
 
-#include "1q/airborne_radar/config/SignalPipelineConfig.h"
-#include "airborne_radar/signal/pipeline/config/InternalSignalPipelineConfig.h"
+#include "1q/airborne_radar/config/PipelineConfig.h"
+#include "airborne_radar/signal/pipeline/config/InternalPipelineConfig.h"
 #include "airborne_radar/signal/pipeline/assembly/SignalComponentFactory.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
@@ -19,11 +19,11 @@ namespace airborne_radar {
 namespace tests {
 
 TEST(SignalComponentFactoryTest, BuildOwnedComponentsSelectsPredictorUpdaterFamilyByBackend) {
-  config::SignalPipelineConfig config;
+  config::PipelineConfig config;
   config.tracking.enable_tracking_filter = true;
 
-  signal::pipeline::internal::InternalSignalPipelineConfig internal_config =
-      signal::pipeline::internal::BuildInternalSignalPipelineConfig(config);
+  signal::pipeline::internal::InternalPipelineConfig internal_config =
+      signal::pipeline::internal::BuildInternalPipelineConfig(config);
   internal_config.tracking_runtime.engineering.kalman_measurement_noise_std = 5.0f;
 
   internal_config.tracking_runtime.engineering.kalman_update_backend =
@@ -59,12 +59,12 @@ TEST(SignalComponentFactoryTest, BuildOwnedComponentsSelectsPredictorUpdaterFami
 }
 
 TEST(SignalComponentFactoryTest, ImmAssemblyUsesSamePredictorUpdaterBackendFamily) {
-  config::SignalPipelineConfig config;
+  config::PipelineConfig config;
   config.tracking.enable_tracking_filter = true;
   config.lifecycle.enable_imm_fusion = true;
 
-  signal::pipeline::internal::InternalSignalPipelineConfig internal_config =
-      signal::pipeline::internal::BuildInternalSignalPipelineConfig(config);
+  signal::pipeline::internal::InternalPipelineConfig internal_config =
+      signal::pipeline::internal::BuildInternalPipelineConfig(config);
   internal_config.tracking_runtime.engineering.kalman_update_backend =
       config::engineering::KalmanUpdateBackend::kUdKf;
   internal_config.lifecycle.imm_model_noise_diff_coeffs = {0.5f, 2.0f};
@@ -83,12 +83,12 @@ TEST(SignalComponentFactoryTest, ImmAssemblyUsesSamePredictorUpdaterBackendFamil
 }
 
 TEST(SignalComponentFactoryTest, InvalidImmAssemblyDoesNotFallbackToNonImmManager) {
-  config::SignalPipelineConfig config;
+  config::PipelineConfig config;
   config.tracking.enable_tracking_filter = true;
   config.lifecycle.enable_imm_fusion = true;
 
-  signal::pipeline::internal::InternalSignalPipelineConfig internal_config =
-      signal::pipeline::internal::BuildInternalSignalPipelineConfig(config);
+  signal::pipeline::internal::InternalPipelineConfig internal_config =
+      signal::pipeline::internal::BuildInternalPipelineConfig(config);
   internal_config.lifecycle.imm_model_noise_diff_coeffs = {0.5f, 2.0f};
   internal_config.lifecycle.imm_transition_probability = {1.0f, 0.0f, 0.0f};
 

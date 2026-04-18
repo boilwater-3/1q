@@ -11,7 +11,7 @@ namespace internal {
  * @brief RuntimeConfigState 描述会话持有的运行期配置唯一真值。
  */
 struct RuntimeConfigState {
-  config::SignalPipelineConfig signal_pipeline_config{};
+  config::PipelineConfig pipeline_config{};
   environment::EnvironmentScenarioConfig environment_scenario_config{};
   environment::JammingSensitivityProfile jamming_sensitivity_profile{
       environment::JammingSensitivityProfile::kBalanced};
@@ -25,7 +25,7 @@ struct RuntimeConfigResolveResult {
   RuntimeConfigState next_state{};
   bool has_requested_update{false};
   bool is_valid{true};
-  bool signal_pipeline_config_changed{false};
+  bool pipeline_config_changed{false};
   bool environment_scenario_config_changed{false};
   bool jamming_sensitivity_profile_changed{false};
 };

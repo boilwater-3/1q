@@ -16,7 +16,7 @@ int main() {
 
   // 1) 创建会话。
   const aq::session::RadarSessionConfig session_config =
-      aq::config::MakeDetectionMissionRadarSessionConfig();
+      aq::config::presets::MakeDetectionMissionRadarSessionConfig();
   aq::session::RadarSession session = aq::session::RadarSessionFactory::Create(session_config);
 
   // 2) 外部平台信息（位置、速度）。

@@ -26,7 +26,7 @@ class SignalPipeline final : public extension::ISignalPipeline {
    * @brief 构造信号处理流水线。
    * @param config 流水线运行配置。
    */
-  explicit SignalPipeline(SignalPipelineConfig config = {});
+  explicit SignalPipeline(PipelineConfig config = {});
   /**
    * @brief 析构信号处理流水线。
    */
@@ -105,7 +105,7 @@ class SignalPipeline final : public extension::ISignalPipeline {
    * @brief 更新流水线运行配置。
    * @param config 新配置。
    */
-  void UpdateConfig(SignalPipelineConfig config) override;
+  void UpdateConfig(PipelineConfig config) override;
 
  private:
   struct Impl;

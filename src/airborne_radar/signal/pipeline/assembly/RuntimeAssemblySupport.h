@@ -10,7 +10,7 @@
 
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
-#include "airborne_radar/signal/pipeline/config/InternalSignalPipelineConfig.h"
+#include "airborne_radar/signal/pipeline/config/InternalPipelineConfig.h"
 #include "airborne_radar/signal/pipeline/config/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/tracking/IKalmanPredictor.h"
 #include "airborne_radar/signal/tracking/IKalmanUpdater.h"
@@ -21,13 +21,13 @@ namespace signal {
 namespace pipeline {
 namespace assembly {
 
-using pipeline::SignalPipelineConfig;
+using pipeline::PipelineConfig;
 
 namespace internal {
 
-struct ResolvedRuntimeSignalPipelineConfig {
-  SignalPipelineConfig public_config{};
-  pipeline::internal::InternalSignalPipelineConfig internal_config{};
+struct ResolvedRuntimePipelineConfig {
+  PipelineConfig public_config{};
+  pipeline::internal::InternalPipelineConfig internal_config{};
 };
 
 /**
@@ -37,9 +37,9 @@ struct ResolvedRuntimeSignalPipelineConfig {
  * @param[in] control_profile 当前控制真值。
  * @return 调整后的运行时配置。
  */
-ResolvedRuntimeSignalPipelineConfig ResolveRuntimeSignalPipelineConfig(
-    const SignalPipelineConfig& base_config,
-    const pipeline::internal::InternalSignalPipelineConfig& base_internal_config,
+ResolvedRuntimePipelineConfig ResolveRuntimePipelineConfig(
+    const PipelineConfig& base_config,
+    const pipeline::internal::InternalPipelineConfig& base_internal_config,
     const extension::control::RadarControlProfile& control_profile);
 
 /**
@@ -48,11 +48,11 @@ ResolvedRuntimeSignalPipelineConfig ResolveRuntimeSignalPipelineConfig(
  * @return 生命周期管理器实例；当装配失败时返回空指针。
  */
 std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManagerForRuntimeConfig(
-    const SignalPipelineConfig& runtime_config);
+    const PipelineConfig& runtime_config);
 
 std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManagerForRuntimeConfig(
-    const SignalPipelineConfig& runtime_config,
-    const pipeline::internal::InternalSignalPipelineConfig& internal_config);
+    const PipelineConfig& runtime_config,
+    const pipeline::internal::InternalPipelineConfig& internal_config);
 
 /**
  * @brief OwnedComponentSlots 汇聚 Pipeline 自持有组件的重建槽位指针。
@@ -73,8 +73,8 @@ struct OwnedComponentSlots {
  * @param[in,out] slots 待重建的组件槽位。
  */
 void RebuildOwnedComponentsForPipeline(
-    const SignalPipelineConfig& base_config,
-    const pipeline::internal::InternalSignalPipelineConfig& base_internal_config,
+    const PipelineConfig& base_config,
+    const pipeline::internal::InternalPipelineConfig& base_internal_config,
     const extension::control::RadarControlProfile& control_profile, OwnedComponentSlots* slots);
 
 /**
@@ -82,7 +82,7 @@ void RebuildOwnedComponentsForPipeline(
  * @return 同步成功时返回 true；若 topology 重建失败并保留旧装配则返回 false。
  */
 bool SyncAutoLifecycleManagerForResolvedRuntimeConfig(
-    const ResolvedRuntimeSignalPipelineConfig& resolved_runtime_config,
+    const ResolvedRuntimePipelineConfig& resolved_runtime_config,
     tracking::ITrackLifecycleManager* auto_lifecycle_manager);
 
 /**
@@ -90,8 +90,8 @@ bool SyncAutoLifecycleManagerForResolvedRuntimeConfig(
  * @return 同步成功时返回 true；若 topology 重建失败并保留旧装配则返回 false。
  */
 bool SyncAutoLifecycleManagerForRuntimeConfig(
-    const SignalPipelineConfig& runtime_config,
-    const pipeline::internal::InternalSignalPipelineConfig& internal_runtime_config,
+    const PipelineConfig& runtime_config,
+    const pipeline::internal::InternalPipelineConfig& internal_runtime_config,
     tracking::ITrackLifecycleManager* auto_lifecycle_manager);
 
 }  // namespace internal

@@ -304,7 +304,7 @@ TEST(SignalDetectorTest, DetectionProbabilityUsesIntegratedSnr) {
   signal::detection::TargetReturn target;
   target.rcs_m2 = 0.5f;
   target.range_m = 120000.0f;
-  target.swerling_type = config::kSwerling2;
+  target.swerling_type = config::semantic::kSwerling2;
 
   signal::detection::EnvironmentState env;
   env.propagation_loss_db = 0.0f;
@@ -341,7 +341,7 @@ TEST(SignalDetectorTest, WiderBandwidthReducesSnrWithSameEnergyInputs) {
   signal::detection::TargetReturn target;
   target.rcs_m2 = 1.0f;
   target.range_m = 90000.0f;
-  target.swerling_type = config::kSwerling1;
+  target.swerling_type = config::semantic::kSwerling1;
 
   signal::detection::EnvironmentState env;
   env.propagation_loss_db = 0.0f;
@@ -365,7 +365,7 @@ TEST(SignalDetectorTest, HigherPulseCountYieldsHigherPd) {
   signal::detection::TargetReturn target;
   target.rcs_m2 = 1.0f;
   target.range_m = 90000.0f;
-  target.swerling_type = config::kSwerling1;
+  target.swerling_type = config::semantic::kSwerling1;
 
   signal::detection::EnvironmentState env;
   env.propagation_loss_db = 0.0f;
@@ -586,12 +586,12 @@ TEST(BeamControlResolverTest, GroundStabilizedCurrentlyMatchesInertialStabilized
 // Swerling 0~4 检测概率单元测试
 // ===========================================================================
 
-using config::kSwerling0;
-using config::kSwerling1;
-using config::kSwerling2;
-using config::kSwerling3;
-using config::kSwerling4;
-using config::SwerlingModel;
+using config::semantic::kSwerling0;
+using config::semantic::kSwerling1;
+using config::semantic::kSwerling2;
+using config::semantic::kSwerling3;
+using config::semantic::kSwerling4;
+using config::semantic::SwerlingModel;
 
 /// @brief Swerling 1 单脉冲 ≡ Swerling 2 单脉冲（单脉冲无所谓快慢起伏）。
 TEST(SwerlingDetectionTest, Sw1_N1_Equals_Sw2_N1) {

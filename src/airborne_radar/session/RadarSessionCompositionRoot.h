@@ -10,7 +10,7 @@ namespace session {
 namespace internal {
 
 struct RadarSessionComposition {
-  config::SignalPipelineConfig runtime_signal_pipeline_config{};
+  config::PipelineConfig runtime_pipeline_config{};
   environment::EnvironmentScenarioConfig runtime_environment_scenario_config{};
     environment::JammingSensitivityProfile runtime_jamming_sensitivity_profile{
             environment::JammingSensitivityProfile::kBalanced};

@@ -1,10 +1,10 @@
 /**
- * @file InternalSignalPipelineConfig.h
- * @brief 定义 SignalPipeline 内部扩展配置。
+ * @file InternalPipelineConfig.h
+ * @brief 定义机载雷达流水线内部扩展配置。
  */
 
-#ifndef AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_INTERNAL_SIGNAL_PIPELINE_CONFIG_H_
-#define AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_INTERNAL_SIGNAL_PIPELINE_CONFIG_H_
+#ifndef AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_INTERNAL_PIPELINE_CONFIG_H_
+#define AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_INTERNAL_PIPELINE_CONFIG_H_
 
 #include <cstddef>
 #include <vector>
@@ -25,13 +25,20 @@ enum class InternalSignalPipelineProfile {
 };
 
 inline InternalSignalPipelineProfile ResolveInternalProfileFromPublicConfig(
-    const SignalPipelineConfig& public_config) {
-  if (public_config.lifecycle.policy_profile == config::LifecyclePolicyProfile::kHighPersistence ||
-      public_config.tracking.policy_profile == config::TrackingPolicyProfile::kRobustAntiJamming) {
+    const PipelineConfig& public_config) {
+  if (public_config.model == config::PipelineConfigModel::kExpert) {
+    return InternalSignalPipelineProfile::kBaseline;
+  }
+  if (public_config.lifecycle.policy_profile ==
+          config::semantic::LifecyclePolicyProfile::kHighPersistence ||
+      public_config.tracking.policy_profile ==
+          config::semantic::TrackingPolicyProfile::kRobustAntiJamming) {
     return InternalSignalPipelineProfile::kRobustPreset;
   }
-  if (public_config.tracking.policy_profile == config::TrackingPolicyProfile::kFastAssociation ||
-      public_config.detection.intent_profile == config::DetectionIntentProfile::kDetectionPriority) {
+  if (public_config.tracking.policy_profile ==
+          config::semantic::TrackingPolicyProfile::kFastAssociation ||
+      public_config.detection.intent_profile ==
+          config::semantic::DetectionIntentProfile::kDetectionPriority) {
     return InternalSignalPipelineProfile::kTrackingPreset;
   }
   return InternalSignalPipelineProfile::kBaseline;
@@ -121,7 +128,7 @@ struct ResolvedBeamControlConfig {
   model::PlatformAttitudeDeg platform_attitude_deg{};
 };
 
-struct InternalSignalPipelineConfig {
+struct InternalPipelineConfig {
   SignalAssociationInternalConfig association{};
   SignalTrackingInternalConfig tracking{};
   SignalLifecycleInternalConfig lifecycle{};
@@ -134,15 +141,15 @@ struct InternalSignalPipelineConfig {
 };
 
 inline config::engineering::AntennaPatternConfig ResolveAntennaPatternEngineering(
-    const config::AntennaPatternConfig& semantic_pattern) {
+    const config::semantic::AntennaPatternConfig& semantic_pattern) {
   config::engineering::AntennaPatternConfig pattern;
   pattern.boresight_offset_deg = semantic_pattern.boresight_offset_deg;
-  if (semantic_pattern.profile == config::AntennaPatternProfile::kLowSidelobe) {
+  if (semantic_pattern.profile == config::semantic::AntennaPatternProfile::kLowSidelobe) {
     pattern.max_sidelobe_level_db = -30.0f;
     pattern.backlobe_level_db = -42.0f;
     return pattern;
   }
-  if (semantic_pattern.profile == config::AntennaPatternProfile::kWideCoverage) {
+  if (semantic_pattern.profile == config::semantic::AntennaPatternProfile::kWideCoverage) {
     pattern.model_type = config::engineering::AntennaPatternModelType::kParabolicMainLobe;
     pattern.max_sidelobe_level_db = -18.0f;
     pattern.max_scan_loss_db = 8.0f;
@@ -150,14 +157,90 @@ inline config::engineering::AntennaPatternConfig ResolveAntennaPatternEngineerin
   return pattern;
 }
 
+inline config::engineering::AntennaPatternModelType ResolveExpertAntennaPatternModelType(
+    config::expert::AntennaPatternModelType model_type) {
+  switch (model_type) {
+    case config::expert::AntennaPatternModelType::kParabolicMainLobe:
+      return config::engineering::AntennaPatternModelType::kParabolicMainLobe;
+    case config::expert::AntennaPatternModelType::kCosinePower:
+      return config::engineering::AntennaPatternModelType::kCosinePower;
+    case config::expert::AntennaPatternModelType::kGaussianMainLobe:
+    default:
+      return config::engineering::AntennaPatternModelType::kGaussianMainLobe;
+  }
+}
+
+inline config::engineering::KalmanUpdateBackend ResolveExpertKalmanUpdateBackend(
+    config::expert::KalmanUpdateBackend backend) {
+  switch (backend) {
+    case config::expert::KalmanUpdateBackend::kUdKf:
+      return config::engineering::KalmanUpdateBackend::kUdKf;
+    case config::expert::KalmanUpdateBackend::kSrif:
+      return config::engineering::KalmanUpdateBackend::kSrif;
+    case config::expert::KalmanUpdateBackend::kStandardKfJoseph:
+    default:
+      return config::engineering::KalmanUpdateBackend::kStandardKfJoseph;
+  }
+}
+
 inline config::engineering::DetectionConfig ResolveDetectionEngineering(
-    const config::SignalDetectionConfig& semantic_detection) {
+    const config::expert::DetectionConfig& expert_detection) {
+  config::engineering::DetectionConfig resolved;
+  resolved.enable_physics_detection = expert_detection.enable_physics_detection;
+  resolved.transmitter.peak_power_w = expert_detection.transmitter.peak_power_w;
+  resolved.transmitter.frequency_hz = expert_detection.transmitter.frequency_hz;
+  resolved.transmitter.bandwidth_hz = expert_detection.transmitter.bandwidth_hz;
+  resolved.transmitter.pulse_width_s = expert_detection.transmitter.pulse_width_s;
+  resolved.transmitter.prf_hz = expert_detection.transmitter.prf_hz;
+  resolved.transmitter.transmit_loss_db = expert_detection.transmitter.transmit_loss_db;
+  resolved.antenna.main_beam_gain_db = expert_detection.antenna.main_beam_gain_db;
+  resolved.antenna.nominal_az_beamwidth_deg =
+      expert_detection.antenna.nominal_az_beamwidth_deg;
+  resolved.antenna.nominal_el_beamwidth_deg =
+      expert_detection.antenna.nominal_el_beamwidth_deg;
+  resolved.antenna.pattern.model_type =
+      ResolveExpertAntennaPatternModelType(expert_detection.antenna.pattern.model_type);
+  resolved.antenna.pattern.max_sidelobe_level_db =
+      expert_detection.antenna.pattern.max_sidelobe_level_db;
+  resolved.antenna.pattern.backlobe_level_db =
+      expert_detection.antenna.pattern.backlobe_level_db;
+  resolved.antenna.pattern.scan_loss_coeff_db_per_deg2 =
+      expert_detection.antenna.pattern.scan_loss_coeff_db_per_deg2;
+  resolved.antenna.pattern.max_scan_loss_db =
+      expert_detection.antenna.pattern.max_scan_loss_db;
+  resolved.antenna.pattern.boresight_offset_deg =
+      expert_detection.antenna.pattern.boresight_offset_deg;
+  resolved.antenna.enable_directional_pattern =
+      expert_detection.antenna.enable_directional_pattern;
+  resolved.receiver.noise_figure_db = expert_detection.receiver.noise_figure_db;
+  resolved.receiver.receive_loss_db = expert_detection.receiver.receive_loss_db;
+  resolved.detection_policy.cfar_pfa = expert_detection.detection_policy.cfar_pfa;
+  resolved.detection_policy.min_snr_db = expert_detection.detection_policy.min_snr_db;
+  resolved.rcs_physics.enable_physical_rcs = expert_detection.rcs_physics.enable_physical_rcs;
+  resolved.rcs_physics.frequency_hz = expert_detection.rcs_physics.frequency_hz;
+  resolved.rcs_physics.physics_mix_ratio = expert_detection.rcs_physics.physics_mix_ratio;
+  resolved.rcs_physics.cylinder_weight = expert_detection.rcs_physics.cylinder_weight;
+  resolved.rcs_physics.min_equivalent_radius_m =
+      expert_detection.rcs_physics.min_equivalent_radius_m;
+  resolved.rcs_physics.max_equivalent_radius_m =
+      expert_detection.rcs_physics.max_equivalent_radius_m;
+  resolved.rcs_physics.min_rcs_m2 = expert_detection.rcs_physics.min_rcs_m2;
+  resolved.rcs_physics.max_rcs_m2 = expert_detection.rcs_physics.max_rcs_m2;
+  resolved.rcs_physics.bistatic_psi_offset_deg =
+      expert_detection.rcs_physics.bistatic_psi_offset_deg;
+  resolved.min_detection_margin_db = expert_detection.min_detection_margin_db;
+  resolved.pulse_count = expert_detection.pulse_count;
+  return resolved;
+}
+
+inline config::engineering::DetectionConfig ResolveDetectionEngineering(
+    const config::semantic::DetectionConfig& semantic_detection) {
   config::engineering::DetectionConfig resolved;
   resolved.enable_physics_detection = semantic_detection.enable_physics_detection;
   resolved.antenna.pattern = ResolveAntennaPatternEngineering(semantic_detection.antenna_pattern);
 
   switch (semantic_detection.hardware_profile) {
-    case config::RadarHardwareProfile::kLongRangeHighPower:
+    case config::semantic::RadarHardwareProfile::kLongRangeHighPower:
       resolved.transmitter.peak_power_w = 5.0e6f;
       resolved.transmitter.frequency_hz = 9.3e9f;
       resolved.transmitter.bandwidth_hz = 3.0e6f;
@@ -166,7 +249,7 @@ inline config::engineering::DetectionConfig ResolveDetectionEngineering(
       resolved.antenna.main_beam_gain_db = 38.0f;
       resolved.receiver.noise_figure_db = 3.0f;
       break;
-    case config::RadarHardwareProfile::kLightweightLpi:
+    case config::semantic::RadarHardwareProfile::kLightweightLpi:
       resolved.transmitter.peak_power_w = 3.5e5f;
       resolved.transmitter.frequency_hz = 10.0e9f;
       resolved.transmitter.bandwidth_hz = 8.0e6f;
@@ -177,50 +260,50 @@ inline config::engineering::DetectionConfig ResolveDetectionEngineering(
       resolved.antenna.nominal_el_beamwidth_deg = 5.0f;
       resolved.receiver.noise_figure_db = 5.0f;
       break;
-    case config::RadarHardwareProfile::kGenericAirborneXBand:
+    case config::semantic::RadarHardwareProfile::kGenericAirborneXBand:
     default:
       break;
   }
 
   switch (semantic_detection.intent_profile) {
-    case config::DetectionIntentProfile::kDetectionPriority:
+    case config::semantic::DetectionIntentProfile::kDetectionPriority:
       resolved.pulse_count = 16;
       resolved.detection_policy.cfar_pfa = 2e-6f;
       resolved.detection_policy.min_snr_db = -12.0f;
       break;
-    case config::DetectionIntentProfile::kTrackStabilityPriority:
+    case config::semantic::DetectionIntentProfile::kTrackStabilityPriority:
       resolved.pulse_count = 8;
       resolved.detection_policy.cfar_pfa = 5e-7f;
       resolved.detection_policy.min_snr_db = -8.0f;
       break;
-    case config::DetectionIntentProfile::kBalanced:
+    case config::semantic::DetectionIntentProfile::kBalanced:
     default:
       break;
   }
 
   switch (semantic_detection.rcs_fusion_profile) {
-    case config::RcsFusionProfile::kConservative:
+    case config::semantic::RcsFusionProfile::kConservative:
       resolved.rcs_physics.enable_physical_rcs = true;
       resolved.rcs_physics.physics_mix_ratio = 0.25f;
       break;
-    case config::RcsFusionProfile::kEnhanced:
+    case config::semantic::RcsFusionProfile::kEnhanced:
       resolved.rcs_physics.enable_physical_rcs = true;
       resolved.rcs_physics.physics_mix_ratio = 0.60f;
       resolved.rcs_physics.cylinder_weight = 0.65f;
       break;
-    case config::RcsFusionProfile::kDisabled:
+    case config::semantic::RcsFusionProfile::kDisabled:
     default:
       break;
   }
 
   switch (semantic_detection.intent_profile) {
-    case config::DetectionIntentProfile::kDetectionPriority:
+    case config::semantic::DetectionIntentProfile::kDetectionPriority:
       resolved.min_detection_margin_db = -100.0f;
       break;
-    case config::DetectionIntentProfile::kTrackStabilityPriority:
+    case config::semantic::DetectionIntentProfile::kTrackStabilityPriority:
       resolved.min_detection_margin_db = -20.0f;
       break;
-    case config::DetectionIntentProfile::kBalanced:
+    case config::semantic::DetectionIntentProfile::kBalanced:
     default:
       resolved.min_detection_margin_db = -2.0f;
       break;
@@ -229,19 +312,29 @@ inline config::engineering::DetectionConfig ResolveDetectionEngineering(
 }
 
 inline config::engineering::TrackingConfig ResolveTrackingEngineering(
-    const config::SignalTrackingConfig& semantic_tracking) {
+    const config::expert::TrackingConfig& expert_tracking) {
+  config::engineering::TrackingConfig resolved;
+  resolved.enable_kalman_filter = expert_tracking.enable_kalman_filter;
+  resolved.kalman_measurement_noise_std = expert_tracking.kalman_measurement_noise_std;
+  resolved.kalman_update_backend =
+      ResolveExpertKalmanUpdateBackend(expert_tracking.kalman_update_backend);
+  return resolved;
+}
+
+inline config::engineering::TrackingConfig ResolveTrackingEngineering(
+    const config::semantic::TrackingConfig& semantic_tracking) {
   config::engineering::TrackingConfig resolved;
   resolved.enable_kalman_filter = semantic_tracking.enable_tracking_filter;
   switch (semantic_tracking.policy_profile) {
-    case config::TrackingPolicyProfile::kFastAssociation:
+    case config::semantic::TrackingPolicyProfile::kFastAssociation:
       resolved.kalman_measurement_noise_std = 6.0f;
       resolved.kalman_update_backend = config::engineering::KalmanUpdateBackend::kStandardKfJoseph;
       break;
-    case config::TrackingPolicyProfile::kRobustAntiJamming:
+    case config::semantic::TrackingPolicyProfile::kRobustAntiJamming:
       resolved.kalman_measurement_noise_std = 12.0f;
       resolved.kalman_update_backend = config::engineering::KalmanUpdateBackend::kUdKf;
       break;
-    case config::TrackingPolicyProfile::kBalanced:
+    case config::semantic::TrackingPolicyProfile::kBalanced:
     default:
       break;
   }
@@ -249,30 +342,48 @@ inline config::engineering::TrackingConfig ResolveTrackingEngineering(
 }
 
 inline config::engineering::LifecycleRuntimeConfig ResolveLifecycleEngineering(
-    const config::SignalLifecycleConfig& semantic_lifecycle) {
+    const config::semantic::LifecycleConfig& semantic_lifecycle) {
   config::engineering::LifecycleRuntimeConfig resolved;
   resolved.enable_imm_lifecycle = semantic_lifecycle.enable_imm_fusion;
   switch (semantic_lifecycle.policy_profile) {
-    case config::LifecyclePolicyProfile::kFastConfirm:
+    case config::semantic::LifecyclePolicyProfile::kFastConfirm:
       resolved.lifecycle_config.confirm_hits = 1U;
       resolved.lifecycle_config.max_miss_before_lost = 1U;
       resolved.lifecycle_config.max_lost_cycles = 3U;
       break;
-    case config::LifecyclePolicyProfile::kHighPersistence:
+    case config::semantic::LifecyclePolicyProfile::kHighPersistence:
       resolved.lifecycle_config.confirm_hits = 3U;
       resolved.lifecycle_config.max_miss_before_lost = 3U;
       resolved.lifecycle_config.max_lost_cycles = 8U;
       break;
-    case config::LifecyclePolicyProfile::kBalanced:
+    case config::semantic::LifecyclePolicyProfile::kBalanced:
     default:
       break;
   }
   return resolved;
 }
 
-inline InternalSignalPipelineConfig BuildBaselineInternalSignalPipelineConfig(
-    const SignalPipelineConfig& public_config) {
-  InternalSignalPipelineConfig internal;
+inline config::engineering::LifecycleRuntimeConfig ResolveLifecycleEngineering(
+    const config::expert::LifecycleConfig& expert_lifecycle) {
+  config::engineering::LifecycleRuntimeConfig resolved;
+  resolved.lifecycle_config.confirm_hits = expert_lifecycle.confirm_hits;
+  resolved.lifecycle_config.max_miss_before_lost = expert_lifecycle.max_miss_before_lost;
+  resolved.lifecycle_config.max_lost_cycles = expert_lifecycle.max_lost_cycles;
+  resolved.enable_imm_lifecycle = expert_lifecycle.enable_imm_lifecycle;
+  return resolved;
+}
+
+inline InternalPipelineConfig BuildBaselineInternalPipelineConfig(
+    const PipelineConfig& public_config) {
+  InternalPipelineConfig internal;
+  if (public_config.model == config::PipelineConfigModel::kExpert) {
+    internal.detection.engineering = ResolveDetectionEngineering(public_config.expert.detection);
+    internal.tracking_runtime.engineering =
+        ResolveTrackingEngineering(public_config.expert.tracking);
+    internal.lifecycle_runtime.engineering =
+        ResolveLifecycleEngineering(public_config.expert.lifecycle);
+    return internal;
+  }
   internal.detection.engineering = ResolveDetectionEngineering(public_config.detection);
   internal.tracking_runtime.engineering = ResolveTrackingEngineering(public_config.tracking);
   internal.lifecycle_runtime.engineering = ResolveLifecycleEngineering(public_config.lifecycle);
@@ -280,7 +391,7 @@ inline InternalSignalPipelineConfig BuildBaselineInternalSignalPipelineConfig(
 }
 
 inline void ApplyInternalProfileTuning(InternalSignalPipelineProfile profile,
-                                       InternalSignalPipelineConfig* internal_config) {
+                                       InternalPipelineConfig* internal_config) {
   if (internal_config == nullptr) {
     return;
   }
@@ -295,17 +406,17 @@ inline void ApplyInternalProfileTuning(InternalSignalPipelineProfile profile,
 }
 
 inline void ApplyInternalImmDefaults(bool enable_imm_lifecycle,
-                                     InternalSignalPipelineConfig* internal_config) {
+                                     InternalPipelineConfig* internal_config) {
   if (internal_config == nullptr || !enable_imm_lifecycle) {
     return;
   }
   internal_config->lifecycle.imm_model_noise_diff_coeffs = std::vector<float>{0.5f, 4.0f};
 }
 
-inline InternalSignalPipelineConfig BuildInternalSignalPipelineConfig(
-    const SignalPipelineConfig& public_config) {
-  InternalSignalPipelineConfig internal_config =
-      BuildBaselineInternalSignalPipelineConfig(public_config);
+inline InternalPipelineConfig BuildInternalPipelineConfig(
+    const PipelineConfig& public_config) {
+  InternalPipelineConfig internal_config =
+      BuildBaselineInternalPipelineConfig(public_config);
   ApplyInternalProfileTuning(ResolveInternalProfileFromPublicConfig(public_config), &internal_config);
   ApplyInternalImmDefaults(internal_config.lifecycle_runtime.engineering.enable_imm_lifecycle,
                            &internal_config);
@@ -317,4 +428,4 @@ inline InternalSignalPipelineConfig BuildInternalSignalPipelineConfig(
 }  // namespace signal
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_INTERNAL_SIGNAL_PIPELINE_CONFIG_H_
+#endif  // AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_INTERNAL_PIPELINE_CONFIG_H_

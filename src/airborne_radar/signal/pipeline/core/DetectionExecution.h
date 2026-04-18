@@ -12,7 +12,7 @@
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
-#include "airborne_radar/signal/pipeline/config/InternalSignalPipelineConfig.h"
+#include "airborne_radar/signal/pipeline/config/InternalPipelineConfig.h"
 #include "airborne_radar/signal/pipeline/config/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/tracking/GaussianTrackState.h"
 
@@ -38,15 +38,15 @@ struct DetectionExecutionBuffers {
 };
 
 void RunHeuristicDetectionPass(const model::TargetFeatureList& input,
-                               const SignalPipelineConfig& runtime_config,
-                               const InternalSignalPipelineConfig& internal_config,
+                               const PipelineConfig& runtime_config,
+                               const InternalPipelineConfig& internal_config,
                                const extension::control::RadarControlProfile& control_profile,
                                const environment::EnvironmentSnapshot& environment_snapshot,
                                DetectionExecutionBuffers* buffers);
 
 void RunPhysicalDetectionPass(const model::TargetFeatureList& input,
-                              const SignalPipelineConfig& runtime_config,
-                              const InternalSignalPipelineConfig& internal_config,
+                              const PipelineConfig& runtime_config,
+                              const InternalPipelineConfig& internal_config,
                               const extension::control::RadarControlProfile& control_profile,
                               const environment::EnvironmentSnapshot& environment_snapshot,
                               detection::SignalDetector* signal_detector,

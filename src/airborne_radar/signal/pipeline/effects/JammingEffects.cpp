@@ -339,7 +339,7 @@ float ComputeTrackLevelJammingSeverity(
 void ApplyEnvironmentJammingFactsToRuntimeConfig(
     const extension::control::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot,
-    InternalSignalPipelineConfig* internal_runtime_config, SignalPipelineConfig* runtime_config) {
+    InternalPipelineConfig* internal_runtime_config, PipelineConfig* runtime_config) {
   if (runtime_config == nullptr || internal_runtime_config == nullptr ||
       !HasMultiSourceJammingFacts(environment_snapshot)) {
     return;

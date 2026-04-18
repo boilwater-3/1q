@@ -28,16 +28,16 @@ RuntimeConfigResolveResult ResolveRuntimeConfigPatch(const RuntimeConfigState& c
   resolved.next_state = current_state;
   bool has_requested_update = false;
 
-  if (patch.has_signal_pipeline_config) {
-    resolved.next_state.signal_pipeline_config = patch.signal_pipeline_config;
-    resolved.signal_pipeline_config_changed = true;
+  if (patch.has_pipeline_config) {
+    resolved.next_state.pipeline_config = patch.pipeline_config;
+    resolved.pipeline_config_changed = true;
     has_requested_update = true;
   }
 
-  config::SignalPipelineConfig* signal_pipeline_config = &resolved.next_state.signal_pipeline_config;
+  config::PipelineConfig* pipeline_config = &resolved.next_state.pipeline_config;
   if (patch.has_work_sub_mode) {
-    signal_pipeline_config->beam_control.radar_orientation.work_sub_mode = patch.work_sub_mode;
-    resolved.signal_pipeline_config_changed = true;
+    pipeline_config->beam_control.radar_orientation.work_sub_mode = patch.work_sub_mode;
+    resolved.pipeline_config_changed = true;
     has_requested_update = true;
   }
   if (patch.has_scan_center_deg) {
@@ -48,8 +48,8 @@ RuntimeConfigResolveResult ResolveRuntimeConfigPatch(const RuntimeConfigState& c
           patch.scan_center_deg.az_deg, patch.scan_center_deg.el_deg);
       return RejectPatch(current_state, true);
     }
-    signal_pipeline_config->beam_control.radar_orientation.scan_center_deg = patch.scan_center_deg;
-    resolved.signal_pipeline_config_changed = true;
+    pipeline_config->beam_control.radar_orientation.scan_center_deg = patch.scan_center_deg;
+    resolved.pipeline_config_changed = true;
     has_requested_update = true;
   }
   if (patch.has_dwell_center_deg) {
@@ -61,7 +61,7 @@ RuntimeConfigResolveResult ResolveRuntimeConfigPatch(const RuntimeConfigState& c
       return RejectPatch(current_state, true);
     }
     resolved.next_state.dwell_center_deg = patch.dwell_center_deg;
-    resolved.signal_pipeline_config_changed = true;
+    resolved.pipeline_config_changed = true;
     has_requested_update = true;
   }
   if (patch.has_commanded_beamwidth_deg) {
@@ -74,15 +74,15 @@ RuntimeConfigResolveResult ResolveRuntimeConfigPatch(const RuntimeConfigState& c
           patch.commanded_beamwidth_deg.commanded_el_beamwidth_deg);
       return RejectPatch(current_state, true);
     }
-    signal_pipeline_config->beam_control.radar_orientation.commanded_beamwidth_deg =
+    pipeline_config->beam_control.radar_orientation.commanded_beamwidth_deg =
         patch.commanded_beamwidth_deg;
-    resolved.signal_pipeline_config_changed = true;
+    resolved.pipeline_config_changed = true;
     has_requested_update = true;
   }
   if (patch.has_commanded_beamwidth_enabled) {
-    signal_pipeline_config->beam_control.radar_orientation.commanded_beamwidth_enabled =
+    pipeline_config->beam_control.radar_orientation.commanded_beamwidth_enabled =
         patch.commanded_beamwidth_enabled;
-    resolved.signal_pipeline_config_changed = true;
+    resolved.pipeline_config_changed = true;
     has_requested_update = true;
   }
 

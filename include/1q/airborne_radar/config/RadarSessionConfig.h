@@ -6,10 +6,12 @@
 #ifndef AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_H_
 #define AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_H_
 
-#include "1q/airborne_radar/config/SignalBeamControlConfig.h"
-#include "1q/airborne_radar/config/SignalDetectionConfig.h"
-#include "1q/airborne_radar/config/SignalLifecycleConfig.h"
-#include "1q/airborne_radar/config/SignalTrackingConfig.h"
+#include "1q/airborne_radar/config/ConfigModel.h"
+#include "1q/airborne_radar/config/expert/ExpertPipelineConfig.h"
+#include "1q/airborne_radar/config/semantic/BeamControlConfig.h"
+#include "1q/airborne_radar/config/semantic/DetectionConfig.h"
+#include "1q/airborne_radar/config/semantic/LifecycleConfig.h"
+#include "1q/airborne_radar/config/semantic/TrackingConfig.h"
 #include "1q/airborne_radar/environment/EnvironmentConfig.h"
 #include "1q/api.hpp"
 
@@ -17,23 +19,18 @@ namespace airborne_radar {
 namespace session {
 
 /**
- * @brief RadarSessionConfig 描述 RadarSession 的默认装配配置。
+ * @brief RadarSession 初始化配置。
+ * @note `pipeline_config_model` 决定会话启动时采用 semantic 还是 expert 流水线输入。
  */
 struct ONEQ_API RadarSessionConfig {
-  /** @brief 信号探测基线配置（初始化固定，运行期可通过 `ApplyRuntimeConfig` 覆盖部分字段）。 */
-  config::SignalDetectionConfig detection{};
-  /**
-   * @brief 波束控制基线配置。
-   * @note `radar_orientation.mount_angles_deg` 语义为 Body -> Radar。
-   *       平台姿态属于运行期外部输入，不在 session baseline config 中静态持有。
-   */
-  config::SignalBeamControlConfig beam_control{};
-  /** @brief 跟踪基线配置。 */
-  config::SignalTrackingConfig tracking{};
-  /** @brief 生命周期基线配置。 */
-  config::SignalLifecycleConfig lifecycle{};
-  /** @brief 环境模型基线配置（初始化固定，运行期可通过 `ApplyRuntimeConfig` 覆盖）。 */
-  environment::EnvironmentDefaultConfig environment_default_config{};
+  config::PipelineConfigModel pipeline_config_model{
+      config::PipelineConfigModel::kSemantic}; /**< 流水线公开配置模型。 */
+  config::semantic::DetectionConfig detection{}; /**< semantic 探测配置。 */
+  config::semantic::BeamControlConfig beam_control{}; /**< semantic 波束控制配置。 */
+  config::semantic::TrackingConfig tracking{}; /**< semantic 跟踪配置。 */
+  config::semantic::LifecycleConfig lifecycle{}; /**< semantic 生命周期配置。 */
+  config::expert::ExpertPipelineConfig expert_pipeline_config{}; /**< expert 流水线配置。 */
+  environment::EnvironmentDefaultConfig environment_default_config{}; /**< 环境默认配置。 */
 };
 
 }  // namespace session

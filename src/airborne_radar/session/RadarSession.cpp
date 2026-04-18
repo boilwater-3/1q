@@ -25,7 +25,7 @@ struct RadarSession::Impl {
         signal_pipeline(*composition.signal_pipeline),
         environment_service(*composition.environment_service),
         controller(*composition.controller) {
-    runtime_state.signal_pipeline_config = composition.runtime_signal_pipeline_config;
+    runtime_state.pipeline_config = composition.runtime_pipeline_config;
     runtime_state.environment_scenario_config = composition.runtime_environment_scenario_config;
     runtime_state.jamming_sensitivity_profile =
       composition.runtime_jamming_sensitivity_profile;
@@ -87,7 +87,7 @@ struct RadarSession::Impl {
       return;
     }
 
-    signal_pipeline.UpdateConfig(pending_runtime_state.signal_pipeline_config);
+    signal_pipeline.UpdateConfig(pending_runtime_state.pipeline_config);
     environment_service.UpdateModelConfig(environment::BuildModelConfigFromScenario(
         pending_runtime_state.environment_scenario_config));
     environment_service.SetJammingSensitivityProfile(

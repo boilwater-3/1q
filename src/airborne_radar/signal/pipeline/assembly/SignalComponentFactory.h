@@ -13,7 +13,7 @@
 #include "airborne_radar/config/engineering/SignalEngineeringConfig.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
-#include "airborne_radar/signal/pipeline/config/InternalSignalPipelineConfig.h"
+#include "airborne_radar/signal/pipeline/config/InternalPipelineConfig.h"
 #include "airborne_radar/signal/pipeline/config/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/tracking/BoostTrackPool.h"
 #include "airborne_radar/signal/tracking/IKalmanPredictor.h"
@@ -35,7 +35,7 @@ namespace signal {
 namespace pipeline {
 namespace assembly {
 
-using pipeline::SignalPipelineConfig;
+using pipeline::PipelineConfig;
 
 namespace internal {
 /**
@@ -76,15 +76,15 @@ class SignalComponentFactory final {
    * @brief 将公共生命周期配置映射为内部 tracking 配置。
    */
   static tracking::LifecycleConfig BuildLifecycleConfig(
-      const SignalPipelineConfig& config,
-      const pipeline::internal::InternalSignalPipelineConfig& internal_config);
+      const PipelineConfig& config,
+      const pipeline::internal::InternalPipelineConfig& internal_config);
   /**
    * @brief 从顶层配置构造轨迹滤波配置。
    * @param internal_config Signal 顶层配置对应的内部扩展配置。
    * @return TrackFilter 使用的配置。
    */
   static tracking::TrackFilterConfig BuildTrackFilterConfig(
-      const pipeline::internal::InternalSignalPipelineConfig& internal_config);
+      const pipeline::internal::InternalPipelineConfig& internal_config);
   /**
    * @brief 从顶层配置构造数据关联配置。
    * @param config Signal 顶层配置。
@@ -92,8 +92,8 @@ class SignalComponentFactory final {
    * @return DataAssociationEngine 使用的配置。
    */
   static association::DataAssociationConfig BuildAssociationConfig(
-      const SignalPipelineConfig& config,
-      const pipeline::internal::InternalSignalPipelineConfig& internal_config);
+      const PipelineConfig& config,
+      const pipeline::internal::InternalPipelineConfig& internal_config);
   /**
    * @brief 构造 Pipeline 自持有组件。
    * @param config Signal 顶层配置。
@@ -101,8 +101,8 @@ class SignalComponentFactory final {
    * @return 组件与其配置集合。
    */
   static OwnedSignalComponents BuildOwnedPipelineComponents(
-      const SignalPipelineConfig& config,
-      const pipeline::internal::InternalSignalPipelineConfig& internal_config);
+      const PipelineConfig& config,
+      const pipeline::internal::InternalPipelineConfig& internal_config);
   /**
    * @brief 构造 Lifecycle 自动装配组件。
    * @param config Signal 顶层配置。
@@ -110,8 +110,8 @@ class SignalComponentFactory final {
    * @return 生命周期装配结果。
    */
   static LifecycleAssemblyArtifacts BuildLifecycleAssemblyArtifacts(
-      const SignalPipelineConfig& config,
-      const pipeline::internal::InternalSignalPipelineConfig& internal_config);
+      const PipelineConfig& config,
+      const pipeline::internal::InternalPipelineConfig& internal_config);
 
  private:
   /**
@@ -147,7 +147,7 @@ class SignalComponentFactory final {
    * @return 转移概率矩阵。
    */
   static Eigen::MatrixXf BuildImmTransitionProbability(
-      const pipeline::internal::InternalSignalPipelineConfig& internal_config,
+      const pipeline::internal::InternalPipelineConfig& internal_config,
       std::size_t model_count);
   /**
    * @brief 构建 IMM 初始权重。
@@ -156,7 +156,7 @@ class SignalComponentFactory final {
    * @return 初始权重向量。
    */
   static Eigen::VectorXf BuildImmInitialWeights(
-      const pipeline::internal::InternalSignalPipelineConfig& internal_config,
+      const pipeline::internal::InternalPipelineConfig& internal_config,
       std::size_t model_count);
 };
 

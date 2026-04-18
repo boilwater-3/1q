@@ -8,7 +8,6 @@
 
 #include "airborne_radar/config/engineering/SignalEngineeringConfig.h"
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
-#include "1q/airborne_radar/config/SignalDetectionConfig.h"
 
 namespace airborne_radar {
 namespace signal {

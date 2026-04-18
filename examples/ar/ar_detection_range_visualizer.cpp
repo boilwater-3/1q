@@ -33,7 +33,8 @@
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/config/presets/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/config/RadarExpertSessionConfigBuilder.h"
 #include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/model/TargetFeatureUtils.h"
@@ -131,28 +132,23 @@ struct SimState {
 
 std::unique_ptr<airborne_radar::session::RadarSession> MakeSession() {
   namespace aq = airborne_radar::common;
-  const auto preset = airborne_radar::config::MakeDetectionMissionRadarSessionConfig();
-
-  airborne_radar::config::SignalDetectionConfig detection = preset.detection;
-  detection.enable_physics_detection = true;
-  detection.transmitter.peak_power_w = 5e6f;
-  detection.transmitter.frequency_hz = 9.3e9f;
-  detection.transmitter.bandwidth_hz = 10e6f;
-  detection.transmitter.pulse_width_s = 20e-6f;
-  detection.transmitter.prf_hz = 500.0f;
-  detection.antenna.main_beam_gain_db = 38.0f;
-  detection.antenna.nominal_az_beamwidth_deg = 3.5f;
-  detection.antenna.nominal_el_beamwidth_deg = 3.5f;
-  detection.receiver.noise_figure_db = 3.5f;
+  const auto preset = airborne_radar::config::presets::MakeDetectionMissionRadarSessionConfig();
 
   airborne_radar::environment::EnvironmentDefaultConfig env = preset.environment_default_config;
   env.jamming_sensitivity_profile = environment::ResolveJammingSensitivityProfile(5.0f);
 
   auto session = std::unique_ptr<airborne_radar::session::RadarSession>(
       new airborne_radar::session::RadarSession(airborne_radar::session::RadarSessionFactory::Create(
-          airborne_radar::config::RadarSessionConfigBuilder(preset)
+          airborne_radar::config::RadarExpertSessionConfigBuilder(preset)
               .Detection()
-              .WithDetection(detection)
+              .EnablePhysicsDetection(true)
+              .WithPeakPowerW(5e6f)
+              .WithFrequencyHz(9.3e9f)
+              .WithBandwidthHz(10e6f)
+              .WithPulseWidthS(20e-6f)
+              .WithPrfHz(500.0f)
+              .WithMainBeamGainDb(38.0f)
+              .WithNoiseFigureDb(3.5f)
               .End()
               .Environment()
               .WithEnvironmentDefault(env)

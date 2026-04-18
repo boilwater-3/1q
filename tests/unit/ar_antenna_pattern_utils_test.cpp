@@ -5,7 +5,7 @@
 
 #include <gtest/gtest.h>
 
-#include "1q/airborne_radar/config/AntennaPatternConfig.h"
+#include "1q/airborne_radar/config/semantic/AntennaPatternConfig.h"
 #include "airborne_radar/signal/detection/AntennaPatternRuntime.h"
 
 namespace airborne_radar {

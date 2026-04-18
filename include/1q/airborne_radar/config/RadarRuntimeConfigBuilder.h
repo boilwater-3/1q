@@ -9,7 +9,7 @@
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "1q/airborne_radar/environment/EnvironmentConfig.h"
 #include "1q/airborne_radar/environment/EnvironmentRuntimeConfigPatch.h"
-#include "1q/airborne_radar/config/SignalPipelineConfig.h"
+#include "1q/airborne_radar/config/PipelineConfig.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
@@ -27,13 +27,13 @@ using model::RadarWorkSubMode;
  * 提交前统一生效。
  *
  * 支持两类运行期更新：
- * 1) 整域覆盖：`signal_pipeline_config` 与 `environment_runtime_config`；
+ * 1) 整域覆盖：`pipeline_config` 与 `environment_runtime_config`；
  * 2) 叶子覆盖：工作子模式、扫描/驻留指向、指令态波束宽度等。
  * 当整域与叶子同时出现时，先应用整域再应用叶子，叶子具有最终优先级。
  */
 struct RadarRuntimeConfigPatch {
-  bool has_signal_pipeline_config{false};          /**< [补丁标志] 是否更新整套信号流水线配置 */
-  config::SignalPipelineConfig signal_pipeline_config{}; /**< [可外部调整] 整套信号流水线配置 */
+  bool has_pipeline_config{false};          /**< [补丁标志] 是否更新整套信号流水线配置 */
+  config::PipelineConfig pipeline_config{}; /**< [可外部调整] 整套信号流水线配置 */
 
   bool has_environment_runtime_config{false};  /**< [补丁标志] 是否更新环境运行期配置 */
   environment::EnvironmentRuntimeConfigPatch
@@ -61,10 +61,10 @@ struct RadarRuntimeConfigPatch {
 class ONEQ_API RadarRuntimeConfigBuilder {
  public:
   /** @brief 覆盖整套信号流水线配置。 */
-  RadarRuntimeConfigBuilder& WithSignalPipelineConfig(
-      const config::SignalPipelineConfig& config) {
-    patch_.has_signal_pipeline_config = true;
-    patch_.signal_pipeline_config = config;
+  RadarRuntimeConfigBuilder& WithPipelineConfig(
+      const config::PipelineConfig& config) {
+    patch_.has_pipeline_config = true;
+    patch_.pipeline_config = config;
     return *this;
   }
 

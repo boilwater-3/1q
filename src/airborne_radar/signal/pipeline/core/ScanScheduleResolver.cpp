@@ -16,18 +16,18 @@ namespace internal {
 namespace {
 
 config::engineering::AntennaConfig ResolveSchedulingAntennaConfig(
-    const config::SignalDetectionConfig& detection_config) {
+    const config::semantic::DetectionConfig& detection_config) {
   config::engineering::AntennaConfig antenna;
   switch (detection_config.hardware_profile) {
-    case config::RadarHardwareProfile::kLongRangeHighPower:
+    case config::semantic::RadarHardwareProfile::kLongRangeHighPower:
       antenna.nominal_az_beamwidth_deg = 3.0f;
       antenna.nominal_el_beamwidth_deg = 3.0f;
       break;
-    case config::RadarHardwareProfile::kLightweightLpi:
+    case config::semantic::RadarHardwareProfile::kLightweightLpi:
       antenna.nominal_az_beamwidth_deg = 5.0f;
       antenna.nominal_el_beamwidth_deg = 5.0f;
       break;
-    case config::RadarHardwareProfile::kGenericAirborneXBand:
+    case config::semantic::RadarHardwareProfile::kGenericAirborneXBand:
     default:
       break;
   }
@@ -215,7 +215,7 @@ model::AzimuthElevationDeg ResolveScheduledDwellCenter(
 }
 
 void ApplyScanScheduleToRuntimeConfig(std::uint32_t cycle_index,
-                                      SignalPipelineConfig* runtime_config) {
+                                      PipelineConfig* runtime_config) {
   if (runtime_config == nullptr) {
     return;
   }

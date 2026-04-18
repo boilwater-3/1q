@@ -12,7 +12,7 @@
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
-#include "airborne_radar/signal/pipeline/config/InternalSignalPipelineConfig.h"
+#include "airborne_radar/signal/pipeline/config/InternalPipelineConfig.h"
 #include "airborne_radar/signal/pipeline/config/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 
@@ -37,7 +37,7 @@ namespace internal {
  */
 void CollectCycleOutputs(const extension::control::RadarControlProfile& control_profile,
                          std::uint32_t cycle_index, std::uint64_t batch_id,
-                         const InternalSignalPipelineConfig& internal_runtime_config,
+                         const InternalPipelineConfig& internal_runtime_config,
                          const environment::EnvironmentSnapshot& environment_snapshot,
                          const model::TargetFeatureList& input_state,
                          const association::AssociationResult& association_result,

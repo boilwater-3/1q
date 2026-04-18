@@ -30,7 +30,7 @@ bool HasValidCycleWorkspace(const CycleWorkspace& workspace) {
 }  // namespace
 
 void ResetCycleWorkspace(const model::TargetFeatureList& input_state,
-                         const SignalPipelineConfig& runtime_config, CycleWorkspace* workspace) {
+                         const PipelineConfig& runtime_config, CycleWorkspace* workspace) {
   if (workspace == nullptr || !HasValidCycleWorkspace(*workspace)) {
     return;
   }
@@ -65,12 +65,12 @@ void RefreshMeasurementCovariances(
 }
 
 bool SyncAssociationAndTrackFilterConfigs(
-    const SignalPipelineConfig& runtime_config,
-    const InternalSignalPipelineConfig& internal_runtime_config,
+    const PipelineConfig& runtime_config,
+    const InternalPipelineConfig& internal_runtime_config,
     association::DataAssociationEngine* association_engine, tracking::TrackFilter* track_filter,
     tracking::ITrackLifecycleManager* auto_lifecycle_manager) {
   if (auto_lifecycle_manager != nullptr) {
-    assembly::internal::ResolvedRuntimeSignalPipelineConfig resolved_runtime_config;
+    assembly::internal::ResolvedRuntimePipelineConfig resolved_runtime_config;
     resolved_runtime_config.public_config = runtime_config;
     resolved_runtime_config.internal_config = internal_runtime_config;
     if (!assembly::internal::SyncAutoLifecycleManagerForResolvedRuntimeConfig(

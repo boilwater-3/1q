@@ -229,7 +229,7 @@ class AbortingSignalPipeline : public extension::ISignalPipeline {
     return control_profile_;
   }
 
-  void UpdateConfig(config::SignalPipelineConfig config) override { config_ = config; }
+  void UpdateConfig(config::PipelineConfig config) override { config_ = config; }
 
   extension::AssociationQualityMetrics GetLastAssociationQualityMetrics() const override {
     return {};
@@ -269,13 +269,13 @@ class AbortingSignalPipeline : public extension::ISignalPipeline {
   struct RuntimeState {
     model::PlatformAttitudeDeg platform_attitude_deg{};
     extension::control::RadarControlProfile control_profile{};
-    config::SignalPipelineConfig config{};
+    config::PipelineConfig config{};
     bool should_execute{false};
   };
 
   model::PlatformAttitudeDeg platform_attitude_deg_{};
   extension::control::RadarControlProfile control_profile_{};
-  config::SignalPipelineConfig config_{};
+  config::PipelineConfig config_{};
   bool should_execute_{false};
 };
 
@@ -562,10 +562,10 @@ TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {
 
   environment::EnvironmentService environment_service;
 
-  config::SignalPipelineConfig pipeline_config;
-  pipeline_config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
-  pipeline_config.lifecycle.policy_profile = config::LifecyclePolicyProfile::kFastConfirm;
-  pipeline_config.tracking.policy_profile = config::TrackingPolicyProfile::kFastAssociation;
+  config::PipelineConfig pipeline_config;
+  pipeline_config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
+  pipeline_config.lifecycle.policy_profile = config::semantic::LifecyclePolicyProfile::kFastConfirm;
+  pipeline_config.tracking.policy_profile = config::semantic::TrackingPolicyProfile::kFastAssociation;
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
@@ -604,10 +604,10 @@ TEST_F(CoreControllerTest, DuplicateExternalTargetIdRetainsPreviousValidOutputFr
 
   environment::EnvironmentService environment_service;
 
-  config::SignalPipelineConfig pipeline_config;
-  pipeline_config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
-  pipeline_config.lifecycle.policy_profile = config::LifecyclePolicyProfile::kFastConfirm;
-  pipeline_config.tracking.policy_profile = config::TrackingPolicyProfile::kFastAssociation;
+  config::PipelineConfig pipeline_config;
+  pipeline_config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
+  pipeline_config.lifecycle.policy_profile = config::semantic::LifecyclePolicyProfile::kFastConfirm;
+  pipeline_config.tracking.policy_profile = config::semantic::TrackingPolicyProfile::kFastAssociation;
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 

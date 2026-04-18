@@ -10,7 +10,7 @@
 #include <memory>
 
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
-#include "1q/airborne_radar/config/SignalPipelineConfig.h"
+#include "1q/airborne_radar/config/PipelineConfig.h"
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "1q/airborne_radar/extension/SignalPipelineResultTypes.h"
 #include "1q/api.hpp"
@@ -72,7 +72,7 @@ class ONEQ_API ISignalPipeline {
    * @brief 更新流水线运行配置。
    * @param[in] config 新配置。
    */
-  virtual void UpdateConfig(config::SignalPipelineConfig config) = 0;
+  virtual void UpdateConfig(config::PipelineConfig config) = 0;
 
   /**
    * @brief 获取上一周期关联质量指标。

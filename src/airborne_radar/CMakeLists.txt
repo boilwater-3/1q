@@ -99,18 +99,40 @@ if(ENABLE_INSTALL)
     )
     set(PUBLIC_HEADERS_CONFIG_ENTRY
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarSessionConfig.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarSessionConfigPresets.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarRuntimeConfigBuilder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarExpertSessionConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarSessionConfigBuilder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/ConfigModel.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/airborne_radar_config.hpp
     )
     set(PUBLIC_HEADERS_SIGNAL_CONFIG
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/AntennaPatternConfig.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/SignalBeamControlConfig.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/SignalDetectionConfig.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/SignalLifecycleConfig.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/SignalPipelineConfig.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/SignalTrackingConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/PipelineConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/semantic/AntennaPatternConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/semantic/BeamControlConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/semantic/DetectionConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/semantic/LifecycleConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/semantic/TrackingConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/semantic/profiles/DetectionProfiles.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/semantic/profiles/LifecycleProfiles.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/semantic/profiles/TrackingProfiles.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/presets/RadarSessionConfigPresets.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/presets/PipelineConfigPresets.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/expert/ExpertPipelineConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/expert/beam/BeamControlConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/expert/beam/BeamPointingConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/expert/beam/BeamSchedulerConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/expert/detection/AntennaConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/expert/detection/AntennaPatternConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/expert/detection/DetectionConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/expert/detection/DetectionPolicyConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/expert/detection/RcsPhysicsConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/expert/detection/ReceiverConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/expert/detection/TransmitterConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/expert/lifecycle/ImmConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/expert/lifecycle/LifecycleConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/expert/tracking/AssociationConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/expert/tracking/KalmanConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/expert/tracking/TrackingConfig.h
     )
     set(PUBLIC_HEADERS_CORE_CONTEXT
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarCycleInput.h

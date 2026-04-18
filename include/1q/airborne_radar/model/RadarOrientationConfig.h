@@ -95,7 +95,7 @@ struct RadarOrientationConfig {
   /**
    * @brief 雷达安装偏置角（单位：deg，参考系：Body -> Radar）。
    * @note 该角度定义在机体坐标系下，描述雷达坐标系相对机体系的固定安装偏置；
-   *       与 `SignalBeamControlConfig::platform_attitude_deg`（ENU -> Body）复合后，
+   *       与 `semantic::BeamControlConfig` 运行期提供的平台姿态（ENU -> Body）复合后，
    *       可得到“ENU -> Radar”的等效姿态。
    */
   EulerAnglesDeg mount_angles_deg;

@@ -269,7 +269,7 @@ double RadarEquations::MarcumQ(int order, double a, double b) {
 }
 
 float RadarEquations::ComputeDetectionProbability(float snr_db, float pfa,
-                                                  config::SwerlingModel model,
+                                                  config::semantic::SwerlingModel model,
                                                   int num_pulses) {
   if (pfa <= 0.0f || pfa >= 1.0f) {
     pfa = 1e-6f;
@@ -284,13 +284,13 @@ float RadarEquations::ComputeDetectionProbability(float snr_db, float pfa,
   double pd = 0.0;
 
   switch (model) {
-    case config::kSwerling0: {
+    case config::semantic::kSwerling0: {
       const double a = std::sqrt(2.0 * N * chi);
       const double b = std::sqrt(2.0 * T);
       pd = MarcumQ(N, a, b);
       break;
     }
-    case config::kSwerling1: {
+    case config::semantic::kSwerling1: {
       const double total_snr = N * chi;  // N 个脉冲的总 SNR
       if (N == 1) {
         pd = std::exp(-T / (1.0 + chi));
@@ -311,13 +311,13 @@ float RadarEquations::ComputeDetectionProbability(float snr_db, float pfa,
       break;
     }
 
-    case config::kSwerling2: {
+    case config::semantic::kSwerling2: {
       const double cT = T / (1.0 + chi);
       pd = boost::math::gamma_q(static_cast<double>(N), cT);
       break;
     }
 
-    case config::kSwerling3: {
+    case config::semantic::kSwerling3: {
       const double total_snr = N * chi;  // N 个脉冲的总 SNR
       if (N == 1) {
         const double u = 2.0 * T / (2.0 + chi);
@@ -344,7 +344,7 @@ float RadarEquations::ComputeDetectionProbability(float snr_db, float pfa,
       }
       break;
     }
-    case config::kSwerling4: {
+    case config::semantic::kSwerling4: {
       const double u = 2.0 * T / (2.0 + chi);
       pd = boost::math::gamma_q(2.0 * N, u);
       break;

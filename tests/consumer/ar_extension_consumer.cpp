@@ -146,7 +146,7 @@ class DummySignalPipeline : public extension::ISignalPipeline {
     return control_profile_;
   }
 
-  void UpdateConfig(config::SignalPipelineConfig config) override { config_ = config; }
+  void UpdateConfig(config::PipelineConfig config) override { config_ = config; }
 
   extension::AssociationQualityMetrics GetLastAssociationQualityMetrics() const override {
     return {};
@@ -182,12 +182,12 @@ class DummySignalPipeline : public extension::ISignalPipeline {
   struct RuntimeState {
     model::PlatformAttitudeDeg platform_attitude{};
     extension::control::RadarControlProfile control_profile{};
-    config::SignalPipelineConfig config{};
+    config::PipelineConfig config{};
   };
 
   model::PlatformAttitudeDeg platform_attitude_{};
   extension::control::RadarControlProfile control_profile_{};
-  config::SignalPipelineConfig config_{};
+  config::PipelineConfig config_{};
 };
 
 class DummyDecisionEngine : public extension::ITacticalDecisionEngine {

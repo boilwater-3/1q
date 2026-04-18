@@ -24,10 +24,10 @@ CycleExecutionContract BuildCycleExecutionContract(
     const model::TargetFeatureList& input_state,
     const environment::EnvironmentSnapshot& environment_snapshot, std::uint32_t cycle_index,
     std::uint64_t batch_id, const CycleExecutionRuntime& runtime) {
-  const assembly::internal::ResolvedRuntimeSignalPipelineConfig resolved =
-      assembly::internal::ResolveRuntimeSignalPipelineConfig(
+  const assembly::internal::ResolvedRuntimePipelineConfig resolved =
+      assembly::internal::ResolveRuntimePipelineConfig(
           runtime.base_config, runtime.base_internal_config, runtime.control_profile);
-  SignalPipelineConfig runtime_config = resolved.public_config;
+  PipelineConfig runtime_config = resolved.public_config;
   core::internal::ApplyScanScheduleToRuntimeConfig(cycle_index, &runtime_config);
   CycleExecutionContract output(input_state, environment_snapshot, cycle_index, batch_id,
                                 std::move(runtime_config), resolved.internal_config);

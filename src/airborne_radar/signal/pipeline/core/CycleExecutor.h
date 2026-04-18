@@ -15,7 +15,7 @@
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
-#include "airborne_radar/signal/pipeline/config/InternalSignalPipelineConfig.h"
+#include "airborne_radar/signal/pipeline/config/InternalPipelineConfig.h"
 #include "airborne_radar/signal/pipeline/config/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
@@ -52,8 +52,8 @@ struct CycleExecutionScratch {
  *       持有跨周期状态，signal_detector 仅表示当前配置下的执行组件。
  */
 struct CycleExecutionRuntime {
-  CycleExecutionRuntime(const SignalPipelineConfig& base_config,
-                        const InternalSignalPipelineConfig& base_internal_config,
+  CycleExecutionRuntime(const PipelineConfig& base_config,
+                        const InternalPipelineConfig& base_internal_config,
                         const extension::control::RadarControlProfile& control_profile,
                         association::DataAssociationEngine& association_engine,
                         tracking::TrackFilter& track_filter,
@@ -71,8 +71,8 @@ struct CycleExecutionRuntime {
         manual_association_seeds(manual_association_seeds),
         has_manual_association_seeds(has_manual_association_seeds) {}
 
-  const SignalPipelineConfig& base_config;
-  const InternalSignalPipelineConfig& base_internal_config;
+  const PipelineConfig& base_config;
+  const InternalPipelineConfig& base_internal_config;
   const extension::control::RadarControlProfile& control_profile;
   association::DataAssociationEngine& association_engine;
   tracking::TrackFilter& track_filter;
@@ -91,8 +91,8 @@ struct CycleExecutionContract {
   CycleExecutionContract(const model::TargetFeatureList& input_state,
                          const environment::EnvironmentSnapshot& environment_snapshot,
                          std::uint32_t cycle_index, std::uint64_t batch_id,
-                         SignalPipelineConfig runtime_config,
-                         InternalSignalPipelineConfig internal_runtime_config)
+                         PipelineConfig runtime_config,
+                         InternalPipelineConfig internal_runtime_config)
       : input_state(input_state),
         environment_snapshot(environment_snapshot),
         cycle_index(cycle_index),
@@ -104,8 +104,8 @@ struct CycleExecutionContract {
   const environment::EnvironmentSnapshot& environment_snapshot;
   std::uint32_t cycle_index{0U};
   std::uint64_t batch_id{0U};
-  SignalPipelineConfig runtime_config{};
-  InternalSignalPipelineConfig internal_runtime_config{};
+  PipelineConfig runtime_config{};
+  InternalPipelineConfig internal_runtime_config{};
 };
 
 /**

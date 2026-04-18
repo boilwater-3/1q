@@ -12,7 +12,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
-#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/config/presets/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/extension/RadarController.h"
@@ -32,11 +32,11 @@ namespace tests {
 
 namespace {
 
-config::SignalPipelineConfig MakeConveniencePipelineConfig() {
-  config::SignalPipelineConfig config;
-  config.detection.intent_profile = config::DetectionIntentProfile::kDetectionPriority;
-  config.lifecycle.policy_profile = config::LifecyclePolicyProfile::kFastConfirm;
-  config.tracking.policy_profile = config::TrackingPolicyProfile::kFastAssociation;
+config::PipelineConfig MakeConveniencePipelineConfig() {
+  config::PipelineConfig config;
+  config.detection.intent_profile = config::semantic::DetectionIntentProfile::kDetectionPriority;
+  config.lifecycle.policy_profile = config::semantic::LifecyclePolicyProfile::kFastConfirm;
+  config.tracking.policy_profile = config::semantic::TrackingPolicyProfile::kFastAssociation;
   return config;
 }
 
@@ -291,7 +291,7 @@ class RecordingSignalPipeline : public extension::ISignalPipeline {
     return control_profile_;
   }
 
-  void UpdateConfig(config::SignalPipelineConfig config) override {
+  void UpdateConfig(config::PipelineConfig config) override {
     ++update_config_count_;
     config_ = std::move(config);
   }
@@ -335,13 +335,13 @@ class RecordingSignalPipeline : public extension::ISignalPipeline {
   void SetShouldExecute(bool should_execute) { should_execute_ = should_execute; }
   std::size_t run_cycle_count() const { return run_cycle_count_; }
   std::size_t update_config_count() const { return update_config_count_; }
-  const config::SignalPipelineConfig& config() const { return config_; }
+  const config::PipelineConfig& config() const { return config_; }
 
  private:
   struct RuntimeState {
     model::PlatformAttitudeDeg platform_attitude_deg{};
     extension::control::RadarControlProfile control_profile{};
-    config::SignalPipelineConfig config{};
+    config::PipelineConfig config{};
     bool should_execute{true};
     std::size_t run_cycle_count{0U};
     std::size_t update_config_count{0U};
@@ -349,7 +349,7 @@ class RecordingSignalPipeline : public extension::ISignalPipeline {
 
   model::PlatformAttitudeDeg platform_attitude_deg_{};
   extension::control::RadarControlProfile control_profile_{};
-  config::SignalPipelineConfig config_{};
+  config::PipelineConfig config_{};
   bool should_execute_{true};
   std::size_t run_cycle_count_{0U};
   std::size_t update_config_count_{0U};
@@ -725,19 +725,19 @@ TEST(PublicApiConvenienceTest, RadarInputValidationFlagsMissingGeometryAndNonFin
 }
 
 TEST(PublicApiConvenienceTest, ConfigPresetsProvideExpectedDetectionAndRobustnessDefaults) {
-  const config::SignalPipelineConfig detection_config =
-      config::MakeDetectionMissionSignalPipelineConfig();
-  EXPECT_EQ(detection_config.lifecycle.policy_profile, config::LifecyclePolicyProfile::kFastConfirm);
+  const config::PipelineConfig detection_config =
+      config::presets::MakeDetectionMissionPipelineConfig();
+  EXPECT_EQ(detection_config.lifecycle.policy_profile, config::semantic::LifecyclePolicyProfile::kFastConfirm);
   EXPECT_EQ(detection_config.detection.intent_profile,
-            config::DetectionIntentProfile::kDetectionPriority);
+            config::semantic::DetectionIntentProfile::kDetectionPriority);
 
-  const config::SignalPipelineConfig robust_config =
-      config::MakeHighRobustnessSignalPipelineConfig();
-  EXPECT_EQ(robust_config.lifecycle.policy_profile, config::LifecyclePolicyProfile::kHighPersistence);
-  EXPECT_EQ(robust_config.tracking.policy_profile, config::TrackingPolicyProfile::kRobustAntiJamming);
+  const config::PipelineConfig robust_config =
+      config::presets::MakeHighRobustnessPipelineConfig();
+  EXPECT_EQ(robust_config.lifecycle.policy_profile, config::semantic::LifecyclePolicyProfile::kHighPersistence);
+  EXPECT_EQ(robust_config.tracking.policy_profile, config::semantic::TrackingPolicyProfile::kRobustAntiJamming);
 
   const session::RadarSessionConfig session_config =
-      config::MakeDetectionMissionRadarSessionConfig();
+      config::presets::MakeDetectionMissionRadarSessionConfig();
   session::RadarSession session = session::RadarSessionFactory::Create(session_config);
   const output::TrackOutputFrame frame = session.Step(MakeCycleInput(model::TargetFeatureList{
       model::MakeGroundTarget(901U, 20.0f, 5.0f, 0.8f),
@@ -746,7 +746,7 @@ TEST(PublicApiConvenienceTest, ConfigPresetsProvideExpectedDetectionAndRobustnes
 }
 
 TEST(PublicApiConvenienceTest, DefaultSessionConfigUsesLifecycleManagedTracks) {
-  const session::RadarSessionConfig default_config = config::MakeDefaultRadarSessionConfig();
+  const session::RadarSessionConfig default_config = config::presets::MakeDefaultRadarSessionConfig();
 
   session::RadarSession session = session::RadarSessionFactory::Create();
   const output::TrackOutputFrame frame = session.Step(MakeCycleInput(model::TargetFeatureList{
@@ -782,7 +782,7 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
   session::RadarSession session = session::RadarSessionFactory::Create(config);
 
   session::MutableRadarContext manual_context;
-  config::SignalPipelineConfig pipeline_config;
+  config::PipelineConfig pipeline_config;
   pipeline_config.detection = config.detection;
   pipeline_config.beam_control = config.beam_control;
   pipeline_config.tracking = config.tracking;
@@ -1028,7 +1028,7 @@ TEST(PublicApiConvenienceTest,
 }
 
 TEST(PublicApiConvenienceTest, RadarSessionStepWithResultAggregatesCurrentCycleObservations) {
-  const session::RadarSessionConfig config = config::MakeDetectionMissionRadarSessionConfig();
+  const session::RadarSessionConfig config = config::presets::MakeDetectionMissionRadarSessionConfig();
   session::RadarSession session = session::RadarSessionFactory::Create(config);
 
   const session::RadarCycleInput input = MakeCycleInput(model::TargetFeatureList{
@@ -1179,11 +1179,11 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultSurfacesValidationError
 }
 
 TEST(PublicApiConvenienceTest, RadarSessionStepWithResultMatchesManualChainUnderJammedScene) {
-  const session::RadarSessionConfig config = config::MakeDetectionMissionRadarSessionConfig();
+  const session::RadarSessionConfig config = config::presets::MakeDetectionMissionRadarSessionConfig();
   session::RadarSession session = session::RadarSessionFactory::Create(config);
 
   session::MutableRadarContext manual_context;
-  config::SignalPipelineConfig pipeline_config;
+  config::PipelineConfig pipeline_config;
   pipeline_config.detection = config.detection;
   pipeline_config.beam_control = config.beam_control;
   pipeline_config.tracking = config.tracking;

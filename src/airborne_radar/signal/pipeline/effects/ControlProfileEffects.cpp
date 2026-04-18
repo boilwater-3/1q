@@ -193,8 +193,8 @@ float ComputeHeuristicEnvironmentReliefDb(
 }
 
 void ApplyControlProfileToConfig(const extension::control::RadarControlProfile& control_profile,
-                                 SignalPipelineConfig* runtime_config,
-                                 InternalSignalPipelineConfig* internal_config) {
+                                 PipelineConfig* runtime_config,
+                                 InternalPipelineConfig* internal_config) {
   if (runtime_config == nullptr || internal_config == nullptr) {
     return;
   }
