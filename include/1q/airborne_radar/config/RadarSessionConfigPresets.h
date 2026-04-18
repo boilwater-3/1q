@@ -23,6 +23,16 @@ ONEQ_API session::RadarSessionConfig MakeDefaultRadarSessionConfig();
  * @return 带探测任务 semantic 预设的会话配置。
  */
 ONEQ_API session::RadarSessionConfig MakeDetectionMissionRadarSessionConfig();
+/**
+ * @brief 构造面向跟踪稳定性的 RadarSession 初始化配置。
+ * @return 带跟踪任务 semantic 预设的会话配置。
+ */
+ONEQ_API session::RadarSessionConfig MakeTrackingMissionRadarSessionConfig();
+/**
+ * @brief 构造面向高稳健场景的 RadarSession 初始化配置。
+ * @return 带高稳健 semantic 预设的会话配置。
+ */
+ONEQ_API session::RadarSessionConfig MakeHighRobustnessRadarSessionConfig();
 
 }  // namespace presets
 }  // namespace config

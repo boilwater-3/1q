@@ -47,9 +47,6 @@ expert/                                   内部专家物理参数
   |-- detection/
   |-- lifecycle/
   `-- tracking/
-presets/
-  |-- PipelineConfigPresets.h             内部装配预设
-  `-- RadarSessionConfigPresets.h         历史入口（等同根目录版本）
 ```
 
 外部调用方应避免直接依赖上述文件。后续里程碑将逐步将其下沉为内部实现头。

@@ -102,6 +102,7 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarRuntimeConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarDetailedSessionConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarSessionConfigBuilder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarSessionConfigPresets.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/airborne_radar_config.hpp
     )
     set(PUBLIC_HEADERS_SIGNAL_CONFIG
@@ -110,8 +111,6 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/semantic/DetectionProfiles.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/semantic/LifecycleProfiles.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/semantic/TrackingProfiles.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/presets/RadarSessionConfigPresets.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/presets/PipelineConfigPresets.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/expert/ExpertPipelineConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/expert/beam/BeamControlConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/expert/beam/BeamPointingConfig.h

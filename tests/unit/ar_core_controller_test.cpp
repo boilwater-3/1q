@@ -11,8 +11,7 @@
 #include <utility>
 #include <vector>
 
-#include "1q/airborne_radar/config/presets/PipelineConfigPresets.h"
-#include "1q/airborne_radar/config/presets/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/extension/ControlReducerTypes.h"
 #include "1q/airborne_radar/extension/IRadarContext.h"
@@ -559,15 +558,8 @@ TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {
 
   environment::EnvironmentService environment_service;
 
-  config::PipelineConfig pipeline_config = config::presets::MakeDetectionMissionPipelineConfig();
-  session::RadarSessionConfig session_config;
-  session_config.hardware.detection = pipeline_config.expert.detection;
-  session_config.policy.beam_control = pipeline_config.expert.beam_control;
-  session_config.policy.association = pipeline_config.expert.association;
-  session_config.policy.tracking = pipeline_config.expert.tracking;
-  session_config.policy.lifecycle = pipeline_config.expert.lifecycle;
-  session_config.policy.imm = pipeline_config.expert.imm;
-  session_config.mission.orientation = pipeline_config.orientation;
+  const session::RadarSessionConfig session_config =
+      config::presets::MakeDetectionMissionRadarSessionConfig();
   signal::pipeline::SignalPipeline signal_pipeline(session_config);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
@@ -605,15 +597,8 @@ TEST_F(CoreControllerTest, DuplicateExternalTargetIdRetainsPreviousValidOutputFr
 
   environment::EnvironmentService environment_service;
 
-  config::PipelineConfig pipeline_config = config::presets::MakeDetectionMissionPipelineConfig();
-  session::RadarSessionConfig session_config;
-  session_config.hardware.detection = pipeline_config.expert.detection;
-  session_config.policy.beam_control = pipeline_config.expert.beam_control;
-  session_config.policy.association = pipeline_config.expert.association;
-  session_config.policy.tracking = pipeline_config.expert.tracking;
-  session_config.policy.lifecycle = pipeline_config.expert.lifecycle;
-  session_config.policy.imm = pipeline_config.expert.imm;
-  session_config.mission.orientation = pipeline_config.orientation;
+  const session::RadarSessionConfig session_config =
+      config::presets::MakeDetectionMissionRadarSessionConfig();
   signal::pipeline::SignalPipeline signal_pipeline(session_config);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 

@@ -11,8 +11,8 @@
 #include <vector>
 
 #include "1q/airborne_radar/config/PipelineConfig.h"
+#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
-#include "1q/airborne_radar/config/presets/PipelineConfigPresets.h"
 #include "1q/airborne_radar/model/TargetFeatureUtils.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/session/SessionConfigBridge.h"
@@ -180,7 +180,8 @@ TEST(ScanScheduleResolverTest, ApplyScanScheduleUsesExpertBeamControlInputs) {
 
 TEST(CycleExecutorTest, ValidRuntimeProducesInputAlignedStageBuffers) {
   config::PipelineConfig base_config;
-  base_config = config::presets::MakeDetectionMissionPipelineConfig();
+  base_config = session::internal::BuildPipelineConfigFromSessionConfig(
+      config::presets::MakeDetectionMissionRadarSessionConfig());
   const signal::pipeline::internal::InternalPipelineConfig internal_config =
       signal::pipeline::internal::BuildInternalPipelineConfig(base_config);
   const extension::control::RadarControlProfile control_profile{};

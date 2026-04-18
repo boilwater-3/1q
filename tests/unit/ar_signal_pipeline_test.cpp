@@ -11,8 +11,8 @@
 #include <vector>
 
 #include "1q/airborne_radar/config/PipelineConfig.h"
+#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
-#include "1q/airborne_radar/config/presets/PipelineConfigPresets.h"
 #include "1q/airborne_radar/config/semantic/DetectionProfiles.h"
 #include "1q/airborne_radar/config/semantic/LifecycleProfiles.h"
 #include "1q/airborne_radar/config/semantic/TrackingProfiles.h"
@@ -85,6 +85,21 @@ environment::EnvironmentModelConfig MakeEnvironmentConfigWithJammers(
   config.jammer_sources.insert(config.jammer_sources.end(), jammer_sources.begin(),
                                jammer_sources.end());
   return config;
+}
+
+config::PipelineConfig MakeDetectionMissionPipelineConfigForTest() {
+  return session::internal::BuildPipelineConfigFromSessionConfig(
+      config::presets::MakeDetectionMissionRadarSessionConfig());
+}
+
+config::PipelineConfig MakeTrackingMissionPipelineConfigForTest() {
+  return session::internal::BuildPipelineConfigFromSessionConfig(
+      config::presets::MakeTrackingMissionRadarSessionConfig());
+}
+
+config::PipelineConfig MakeHighRobustnessPipelineConfigForTest() {
+  return session::internal::BuildPipelineConfigFromSessionConfig(
+      config::presets::MakeHighRobustnessRadarSessionConfig());
 }
 
 void ApplyHardwareProfile(session::RadarSessionConfig* config,
@@ -1615,7 +1630,7 @@ TEST(SignalPipelineTest, SameInstanceControlProfileSwitchAcrossCyclesSyncsLifecy
 }
 
 TEST(SignalPipelineInternalConfigTest, DetectionPresetMapsToBaselineProfile) {
-  const config::PipelineConfig config = config::presets::MakeDetectionMissionPipelineConfig();
+  const config::PipelineConfig config = MakeDetectionMissionPipelineConfigForTest();
   const signal::pipeline::PipelineConfig pipeline_config = config;
 
   const signal::pipeline::internal::InternalPipelineConfig internal_config =
@@ -1628,7 +1643,7 @@ TEST(SignalPipelineInternalConfigTest, DetectionPresetMapsToBaselineProfile) {
 }
 
 TEST(SignalPipelineInternalConfigTest, TrackingPresetMapsToTrackingProfile) {
-  const config::PipelineConfig config = config::presets::MakeTrackingMissionPipelineConfig();
+  const config::PipelineConfig config = MakeTrackingMissionPipelineConfigForTest();
   const signal::pipeline::PipelineConfig pipeline_config = config;
 
   const signal::pipeline::internal::InternalPipelineConfig internal_config =
@@ -1641,7 +1656,7 @@ TEST(SignalPipelineInternalConfigTest, TrackingPresetMapsToTrackingProfile) {
 }
 
 TEST(SignalPipelineInternalConfigTest, RobustPresetMapsToRobustProfile) {
-  const config::PipelineConfig config = config::presets::MakeHighRobustnessPipelineConfig();
+  const config::PipelineConfig config = MakeHighRobustnessPipelineConfigForTest();
   const signal::pipeline::PipelineConfig pipeline_config = config;
 
   const signal::pipeline::internal::InternalPipelineConfig internal_config =
@@ -1655,7 +1670,7 @@ TEST(SignalPipelineInternalConfigTest, RobustPresetMapsToRobustProfile) {
 
 TEST(SignalPipelineInternalConfigTest,
      NonDefaultRcsPhysicsBreaksTrackingPresetSignatureAndFallsBackToBaseline) {
-  config::PipelineConfig config = config::presets::MakeTrackingMissionPipelineConfig();
+  config::PipelineConfig config = MakeTrackingMissionPipelineConfigForTest();
   ApplyRcsFusionProfile(&config, config::semantic::RcsFusionProfile::kEnhanced);
 
   const signal::pipeline::PipelineConfig pipeline_config = config;
@@ -1669,7 +1684,7 @@ TEST(SignalPipelineInternalConfigTest,
 }
 
 TEST(SignalPipelineInternalConfigTest, CustomConfigStaysBaselineEvenWithHighLifecycleThresholds) {
-  config::PipelineConfig config = config::presets::MakeDetectionMissionPipelineConfig();
+  config::PipelineConfig config = MakeDetectionMissionPipelineConfigForTest();
   ApplyDetectionIntentProfile(&config, config::semantic::DetectionIntentProfile::kBalanced);
   ApplyLifecyclePolicyProfile(&config, config::semantic::LifecyclePolicyProfile::kBalanced);
   ApplyTrackingPolicyProfile(&config, config::semantic::TrackingPolicyProfile::kBalanced);
@@ -1685,7 +1700,7 @@ TEST(SignalPipelineInternalConfigTest, CustomConfigStaysBaselineEvenWithHighLife
 }
 
 TEST(SignalPipelineInternalConfigTest, ImmToggleOnlyControlsImmInternalDefaults) {
-  config::PipelineConfig config = config::presets::MakeTrackingMissionPipelineConfig();
+  config::PipelineConfig config = MakeTrackingMissionPipelineConfigForTest();
   const signal::pipeline::PipelineConfig pipeline_config = config;
 
   const signal::pipeline::internal::InternalPipelineConfig imm_disabled_internal_config =

@@ -43,8 +43,6 @@ set(AR_LEGACY_HEADERS
     "airborne_radar/config/expert/tracking/AssociationConfig.h"
     "airborne_radar/config/expert/tracking/KalmanConfig.h"
     "airborne_radar/config/expert/tracking/TrackingConfig.h"
-    "airborne_radar/config/presets/RadarSessionConfigPresets.h"
-    "airborne_radar/config/presets/PipelineConfigPresets.h"
 )
 
 # ── AR 环境域 ────────────────────────────────────────────────────────
