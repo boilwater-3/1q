@@ -26,6 +26,9 @@ struct ExpertPipelineConfig {
 };
 
 }  // namespace expert
+
+using expert::ExpertPipelineConfig;
+
 }  // namespace config
 }  // namespace airborne_radar
 
