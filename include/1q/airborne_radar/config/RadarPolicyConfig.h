@@ -8,16 +8,97 @@
 #ifndef AIRBORNE_RADAR_CONFIG_RADAR_POLICY_CONFIG_H_
 #define AIRBORNE_RADAR_CONFIG_RADAR_POLICY_CONFIG_H_
 
-#include "1q/airborne_radar/config/expert/beam/BeamControlConfig.h"
-#include "1q/airborne_radar/config/expert/lifecycle/ImmConfig.h"
-#include "1q/airborne_radar/config/expert/lifecycle/LifecycleConfig.h"
-#include "1q/airborne_radar/config/expert/tracking/AssociationConfig.h"
-#include "1q/airborne_radar/config/expert/tracking/TrackingConfig.h"
+#include <cstdint>
+
+#include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
 namespace config {
 namespace expert {
+namespace beam {
+
+/**
+ * @brief expert 波束指向基线配置。
+ */
+struct BeamPointingConfig {
+  model::AzimuthElevationDeg default_scan_center_deg{}; /**< 默认扫描中心。 */
+  model::CommandedBeamwidthDeg nominal_beamwidth_deg{}; /**< 名义指令态波束宽度。 */
+};
+
+/**
+ * @brief expert 波束扫描调度提示配置。
+ */
+struct BeamSchedulerConfig {
+  std::uint32_t azimuth_step_count_hint{0U}; /**< 方位步进数提示。 */
+  std::uint32_t elevation_step_count_hint{0U}; /**< 俯仰步进数提示。 */
+  bool prefer_dense_tas_sampling{false}; /**< 是否偏好更密的 TAS 采样。 */
+};
+
+/**
+ * @brief expert 波束控制聚合配置。
+ */
+struct BeamControlConfig {
+  BeamPointingConfig pointing{}; /**< expert 波束指向配置。 */
+  BeamSchedulerConfig scheduler{}; /**< expert 波束调度配置。 */
+};
+
+}  // namespace beam
+
+namespace lifecycle {
+
+/**
+ * @brief expert 航迹生命周期参数。
+ */
+struct LifecycleConfig {
+  std::uint32_t confirm_hits{3U}; /**< 航迹确认所需命中数。 */
+  std::uint32_t max_miss_before_lost{2U}; /**< 丢失前最大连续失配数。 */
+  std::uint32_t max_lost_cycles{5U}; /**< 允许保留的最大 lost 周期数。 */
+  bool enable_imm_lifecycle{false}; /**< 是否启用 IMM 生命周期路径。 */
+};
+
+/**
+ * @brief expert IMM 提示配置。
+ */
+struct ImmConfig {
+  bool enable_imm_lifecycle{false}; /**< 是否启用 IMM 生命周期路径。 */
+  std::uint32_t model_count_hint{2U}; /**< IMM 模型数提示值。 */
+};
+
+}  // namespace lifecycle
+
+namespace tracking {
+
+/**
+ * @brief Kalman 更新后端类型。
+ */
+enum class KalmanUpdateBackend {
+  kStandardKfJoseph = 0, /**< 标准 Joseph 形式 KF。 */
+  kUdKf = 1, /**< UD 分解 KF。 */
+  kSrif = 2 /**< SRIF 后端。 */
+};
+
+/**
+ * @brief expert 跟踪参数。
+ */
+struct TrackingConfig {
+  bool enable_kalman_filter{true}; /**< 是否启用 Kalman 滤波。 */
+  float kalman_measurement_noise_std{10.0f}; /**< 量测噪声标准差。 */
+  KalmanUpdateBackend kalman_update_backend{KalmanUpdateBackend::kStandardKfJoseph}; /**< 更新后端。 */
+  float speed_decay_ratio_on_loss{1.0f}; /**< 丢失周期速度衰减系数（默认无衰减）。 */
+  float rcs_decay_ratio_on_loss{1.0f}; /**< 丢失周期 RCS 衰减系数（默认无衰减）。 */
+};
+
+/**
+ * @brief expert 量测关联参数。
+ */
+struct AssociationConfig {
+  float unassigned_cost{9.0f}; /**< 未分配量测代价。 */
+  bool use_distance_gate_hint{false}; /**< 是否启用距离门限 sigma 提示。为 false 时库内自适应计算门限。 */
+  float distance_gate_sigma_hint{0.0f}; /**< 距离门限 sigma 提示值（单位：m）。仅当 use_distance_gate_hint=true 时生效。 */
+};
+
+}  // namespace tracking
 
 using beam::BeamControlConfig;
 using beam::BeamPointingConfig;
