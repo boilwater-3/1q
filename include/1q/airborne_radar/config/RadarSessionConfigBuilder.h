@@ -7,6 +7,7 @@
 #define AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_BUILDER_H_
 
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
+#include "1q/airborne_radar/config/expert/ExpertPipelineConfig.h"
 #include "1q/airborne_radar/config/semantic/AntennaProfiles.h"
 #include "1q/airborne_radar/config/semantic/DetectionProfiles.h"
 #include "1q/airborne_radar/config/semantic/LifecycleProfiles.h"
@@ -93,7 +94,6 @@ class ONEQ_API RadarSessionConfigBuilder {
   friend class LifecycleEditor;
   friend class EnvironmentEditor;
 
-  // 语义探测状态
   bool enable_physics_detection_{false};
   semantic::RadarHardwareProfile hardware_profile_{
       semantic::RadarHardwareProfile::kGenericAirborneXBand};
@@ -102,15 +102,12 @@ class ONEQ_API RadarSessionConfigBuilder {
   model::AzimuthElevationDeg antenna_boresight_offset_deg_{};
   semantic::RcsFusionProfile rcs_fusion_profile_{semantic::RcsFusionProfile::kDisabled};
 
-  // 语义跟踪状态
   bool enable_tracking_filter_{false};
   semantic::TrackingPolicyProfile tracking_profile_{semantic::TrackingPolicyProfile::kBalanced};
 
-  // 语义生命周期状态
   bool enable_imm_fusion_{false};
   semantic::LifecyclePolicyProfile lifecycle_profile_{semantic::LifecyclePolicyProfile::kBalanced};
 
-  // 方向与环境（直接透传至输出）
   expert::ExpertPipelineConfig base_expert_config_{};
   model::RadarOrientationConfig orientation_{};
   environment::EnvironmentDefaultConfig env_{};
@@ -262,8 +259,7 @@ class RadarSessionConfigBuilder::EnvironmentEditor {
     return *this;
   }
   /** @brief 设置干扰判定灵敏度语义档位。 */
-  EnvironmentEditor& WithJammingSensitivityProfile(
-      environment::JammingSensitivityProfile profile) {
+  EnvironmentEditor& WithJammingSensitivityProfile(environment::JammingSensitivityProfile profile) {
     builder_->env_.jamming_sensitivity_profile = profile;
     return *this;
   }

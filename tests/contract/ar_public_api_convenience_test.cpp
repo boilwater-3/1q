@@ -13,6 +13,7 @@
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
+#include "1q/airborne_radar/config/presets/PipelineConfigPresets.h"
 #include "1q/airborne_radar/config/presets/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"

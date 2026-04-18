@@ -11,18 +11,19 @@
 #include <utility>
 #include <vector>
 
+#include "1q/airborne_radar/config/presets/PipelineConfigPresets.h"
+#include "1q/airborne_radar/config/presets/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
+#include "1q/airborne_radar/extension/ControlReducerTypes.h"
+#include "1q/airborne_radar/extension/IRadarContext.h"
+#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/extension/RadarController.h"
+#include "1q/airborne_radar/extension/control/RadarCommand.h"
+#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/model/DecisionInputFrame.h"
 #include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
 #include "1q/airborne_radar/model/TargetFeature.h"
 #include "1q/airborne_radar/output/TrackOutputFrame.h"
-#include "1q/airborne_radar/extension/IRadarContext.h"
-#include "1q/airborne_radar/extension/RadarController.h"
-#include "1q/airborne_radar/extension/ControlReducerTypes.h"
-#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
-#include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
-#include "1q/airborne_radar/extension/control/RadarCommand.h"
-#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
-#include "1q/airborne_radar/config/presets/RadarSessionConfigPresets.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/core/SignalPipeline.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
@@ -75,9 +76,7 @@ class FakeRadarContext : public extension::IRadarContext {
   }
 
   /// @brief 获取当前搭载平台姿态角。
-  model::PlatformAttitudeDeg GetPlatformAttitude() const override {
-    return platform_attitude_deg_;
-  }
+  model::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_deg_; }
 
   /// @brief 获取当前周期时间步长。
   float GetCycleDeltaTimeSec() const override { return cycle_dt_sec_; }
@@ -158,11 +157,10 @@ class FixedDirectiveDecisionEngine : public extension::ITacticalDecisionEngine {
   explicit FixedDirectiveDecisionEngine(extension::control::ControlDirective directive)
       : directive_(std::move(directive)) {}
 
-  extension::TacticalDecisionResult Evaluate(
-      const model::DecisionInputFrame&, extension::TacticalStateStore&) override {
+  extension::TacticalDecisionResult Evaluate(const model::DecisionInputFrame&,
+                                             extension::TacticalStateStore&) override {
     extension::TacticalDecisionResult result;
-    result.proposals.push_back(
-        extension::TacticalProposal(directive_, 10, "test directive"));
+    result.proposals.push_back(extension::TacticalProposal(directive_, 10, "test directive"));
     return result;
   }
 
@@ -175,8 +173,8 @@ class FixedProposalDecisionEngine : public extension::ITacticalDecisionEngine {
   explicit FixedProposalDecisionEngine(std::vector<extension::TacticalProposal> proposals)
       : proposals_(std::move(proposals)) {}
 
-  extension::TacticalDecisionResult Evaluate(
-      const model::DecisionInputFrame&, extension::TacticalStateStore&) override {
+  extension::TacticalDecisionResult Evaluate(const model::DecisionInputFrame&,
+                                             extension::TacticalStateStore&) override {
     extension::TacticalDecisionResult result;
     result.proposals = proposals_;
     return result;
@@ -188,9 +186,8 @@ class FixedProposalDecisionEngine : public extension::ITacticalDecisionEngine {
 
 class CapturingDecisionEngine : public extension::ITacticalDecisionEngine {
  public:
-  extension::TacticalDecisionResult Evaluate(
-      const model::DecisionInputFrame& frame,
-      extension::TacticalStateStore&) override {
+  extension::TacticalDecisionResult Evaluate(const model::DecisionInputFrame& frame,
+                                             extension::TacticalStateStore&) override {
     last_frame = frame;
     ++evaluate_count;
     return extension::TacticalDecisionResult();
@@ -209,8 +206,9 @@ class AbortingSignalPipeline : public extension::ISignalPipeline {
                                         const environment::IEnvironmentService&) override {
     extension::SignalCycleResult result;
     result.executed_this_cycle = should_execute_;
-    result.abort_reason = should_execute_ ? extension::SignalCycleAbortReason::kNone
-                                          : extension::SignalCycleAbortReason::kRuntimePreparationFailed;
+    result.abort_reason = should_execute_
+                              ? extension::SignalCycleAbortReason::kNone
+                              : extension::SignalCycleAbortReason::kRuntimePreparationFailed;
     return result;
   }
 
@@ -218,9 +216,7 @@ class AbortingSignalPipeline : public extension::ISignalPipeline {
     platform_attitude_deg_ = platform_attitude_deg;
   }
 
-  model::PlatformAttitudeDeg GetPlatformAttitude() const override {
-    return platform_attitude_deg_;
-  }
+  model::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_deg_; }
 
   void SetControlProfile(const extension::control::RadarControlProfile& control_profile) override {
     control_profile_ = control_profile;
@@ -315,8 +311,7 @@ TEST_F(CoreControllerTest, PushesPlatformAttitudeIntoSignalPipelineBeforeRun) {
 
   controller.RunOnce();
 
-  const model::PlatformAttitudeDeg cached_platform_attitude =
-      signal_pipeline.GetPlatformAttitude();
+  const model::PlatformAttitudeDeg cached_platform_attitude = signal_pipeline.GetPlatformAttitude();
   EXPECT_FLOAT_EQ(cached_platform_attitude.yaw_deg, 18.0f);
   EXPECT_FLOAT_EQ(cached_platform_attitude.pitch_deg, -4.0f);
   EXPECT_FLOAT_EQ(cached_platform_attitude.roll_deg, 2.0f);
@@ -336,14 +331,13 @@ TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecisio
   jammer_source.azimuth_deg = 0.0f;
   jammer_source.elevation_deg = 1.0f;
   jammer_source.angular_span_deg = 5.0f;
-  environment_service.UpdateSceneState(environment::EnvironmentSceneBuilder()
-                                           .AddJammer(jammer_source)
-                                           .Build());
+  environment_service.UpdateSceneState(
+      environment::EnvironmentSceneBuilder().AddJammer(jammer_source).Build());
 
   signal::pipeline::SignalPipeline signal_pipeline;
   CapturingDecisionEngine decision_engine;
   extension::RadarController controller(radar_context, signal_pipeline, decision_engine,
-                                               environment_service);
+                                        environment_service);
 
   controller.RunOnce();
 
@@ -375,7 +369,7 @@ TEST_F(CoreControllerTest, AppliesUpdatedSceneOnNextControllerCycle) {
   signal::pipeline::SignalPipeline signal_pipeline;
   CapturingDecisionEngine decision_engine;
   extension::RadarController controller(radar_context, signal_pipeline, decision_engine,
-                                               environment_service);
+                                        environment_service);
 
   controller.RunOnce();
   EXPECT_FALSE(decision_engine.last_frame.environment_jamming_detected);
@@ -419,7 +413,7 @@ TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
   signal::pipeline::SignalPipeline signal_pipeline;
   CapturingDecisionEngine decision_engine;
   extension::RadarController controller(radar_context, signal_pipeline, decision_engine,
-                                               environment_service);
+                                        environment_service);
 
   controller.RunOnce();
 
@@ -458,7 +452,7 @@ TEST_F(CoreControllerTest, DefaultLifecyclePathBuildsTentativeDecisionFrameOnFir
   CapturingDecisionEngine decision_engine;
 
   extension::RadarController controller(radar_context, signal_pipeline, decision_engine,
-                                               environment_service);
+                                        environment_service);
 
   controller.RunOnce();
 
@@ -513,10 +507,9 @@ TEST_F(CoreControllerTest, RuntimeValidationErrorsAreExposedAndSkipCommandSubmis
 
   EXPECT_TRUE(controller.HasValidationError());
   const session::ValidationIssueList& issues = controller.GetLastValidationIssues();
-  EXPECT_TRUE(
-      std::find_if(issues.begin(), issues.end(), [](const session::ValidationIssue& issue) {
-        return issue.code == session::ValidationCode::kNonFiniteCycleDeltaTime;
-      }) != issues.end());
+  EXPECT_TRUE(std::find_if(issues.begin(), issues.end(), [](const session::ValidationIssue& issue) {
+                return issue.code == session::ValidationCode::kNonFiniteCycleDeltaTime;
+              }) != issues.end());
   EXPECT_TRUE(radar_context.SubmittedCommands().empty());
   EXPECT_FALSE(controller.HasLatestTrackOutputFrame());
 }
@@ -582,10 +575,9 @@ TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {
 
   EXPECT_TRUE(controller.HasValidationError());
   const session::ValidationIssueList& issues = controller.GetLastValidationIssues();
-  EXPECT_TRUE(
-      std::find_if(issues.begin(), issues.end(), [](const session::ValidationIssue& issue) {
-        return issue.code == session::ValidationCode::kInvalidCycleDeltaTime;
-      }) != issues.end());
+  EXPECT_TRUE(std::find_if(issues.begin(), issues.end(), [](const session::ValidationIssue& issue) {
+                return issue.code == session::ValidationCode::kInvalidCycleDeltaTime;
+              }) != issues.end());
   ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
   const output::TrackOutputFrame& retained_frame = controller.GetLatestTrackOutputFrame();
   EXPECT_EQ(retained_frame.cycle_index, previous_frame.cycle_index);
@@ -627,10 +619,9 @@ TEST_F(CoreControllerTest, DuplicateExternalTargetIdRetainsPreviousValidOutputFr
 
   EXPECT_TRUE(controller.HasValidationError());
   const session::ValidationIssueList& issues = controller.GetLastValidationIssues();
-  EXPECT_TRUE(
-      std::find_if(issues.begin(), issues.end(), [](const session::ValidationIssue& issue) {
-        return issue.code == session::ValidationCode::kDuplicateExternalTargetId;
-      }) != issues.end());
+  EXPECT_TRUE(std::find_if(issues.begin(), issues.end(), [](const session::ValidationIssue& issue) {
+                return issue.code == session::ValidationCode::kDuplicateExternalTargetId;
+              }) != issues.end());
   ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
   const output::TrackOutputFrame& retained_frame = controller.GetLatestTrackOutputFrame();
   EXPECT_EQ(retained_frame.cycle_index, previous_frame.cycle_index);
@@ -684,7 +675,7 @@ TEST_F(CoreControllerTest, CustomReducerConfigChangesPendingControlProfile) {
   FixedProposalDecisionEngine decision_engine(proposals);
 
   extension::RadarController controller(radar_context, signal_pipeline, decision_engine,
-                                               environment_service);
+                                        environment_service);
 
   extension::ControlReducerConfig reducer_config;
   reducer_config.lpi_power_scale_on_reduction = 0.60f;
