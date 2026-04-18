@@ -27,18 +27,18 @@
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/config/presets/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/config/RadarDetailedSessionConfigBuilder.h"
-#include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
+#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
+#include "1q/airborne_radar/environment/EnvironmentTypes.h"
+#include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
 #include "1q/airborne_radar/model/TargetFeatureUtils.h"
 #include "1q/airborne_radar/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
-#include "1q/airborne_radar/session/RadarSessionFactory.h"
 #include "1q/airborne_radar/session/RadarSession.h"
-#include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
-#include "1q/airborne_radar/environment/EnvironmentTypes.h"
+#include "1q/airborne_radar/session/RadarSessionFactory.h"
 
 namespace {
 
@@ -157,10 +157,10 @@ void StepOnce(airborne_radar::session::RadarSession& session, SimState& sim) {
   }
 
   namespace aq = airborne_radar::common;
-  using airborne_radar::session::RadarCycleInput;
   using airborne_radar::environment::EnvironmentSceneBuilder;
   using airborne_radar::environment::JammerEmitterState;
   using airborne_radar::environment::JammingTechnique;
+  using airborne_radar::session::RadarCycleInput;
 
   // 构造输入
   RadarCycleInput input;

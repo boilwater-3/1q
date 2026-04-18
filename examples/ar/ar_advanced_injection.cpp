@@ -20,15 +20,15 @@
 #include <vector>
 
 // Layer 2 头文件
-#include "1q/airborne_radar/extension/IRadarContext.h"
-#include "1q/airborne_radar/session/RadarCycleInput.h"
-#include "1q/airborne_radar/extension/RadarController.h"
-#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
+#include "1q/airborne_radar/extension/IRadarContext.h"
+#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/extension/RadarController.h"
+#include "1q/airborne_radar/session/RadarCycleInput.h"
 // 便捷辅助
-#include "1q/airborne_radar/config/presets/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
+#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/model/TargetFeatureBuilder.h"
 #include "1q/airborne_radar/output/TrackOutputQueries.h"
 // 平台侧需要直接操控原生组件时包含
@@ -43,8 +43,7 @@
 // ---------------------------------------------------------------------------
 namespace {
 
-class PlatformSpecificDecisionEngine
-    : public airborne_radar::extension::ITacticalDecisionEngine {
+class PlatformSpecificDecisionEngine : public airborne_radar::extension::ITacticalDecisionEngine {
  public:
   using DecisionInputFrame = airborne_radar::model::DecisionInputFrame;
   using TacticalDecisionResult = airborne_radar::extension::TacticalDecisionResult;
@@ -204,45 +203,40 @@ int main() {
   // 以下为伪代码注释，展示完整的 RadarController 手动组装方式。
   // 需要适配者在平台工程中补全 IRadarContext / ISignalPipeline 的具体实现。
   // ------------------------------------------------------------------
-  std::cout << "=== 完整注入代码模板（伪代码） ===\n"
-            << "\n"
-            << "  // 1. 构造平台侧上下文（实现 IRadarContext）\n"
-            << "  MyRadarContext my_context(...);\n"
-            << "\n"
-            << "  // 2. 构造信号流水线配置（推荐使用 RadarSessionConfigBuilder）\n"
-            << "  //    airborne_radar::config::semantic::DetectionConfig detection =\n"
-            << "  //        preset.detection;\n"
-            << "  //    detection.enable_physics_detection = true;\n"
-            << "  //    detection.transmitter.peak_power_w = 5e6f;\n"
-            << "  //    detection.antenna.main_beam_gain_db = 38.0f;\n"
-            << "  //    auto session_cfg =\n"
-            << "  //        airborne_radar::config::RadarSessionConfigBuilder(preset)\n"
-            << "  //            .Detection()\n"
-            << "  //            .WithDetection(detection)\n"
-            << "  //            .End()\n"
-            << "  //            .Build();\n"
-            << "  //    airborne_radar::config::PipelineConfig pipeline_cfg;\n"
-            << "  //    pipeline_cfg.detection = session_cfg.detection;\n"
-            << "  //    pipeline_cfg.beam_control = session_cfg.beam_control;\n"
-            << "  //    pipeline_cfg.tracking = session_cfg.tracking;\n"
-            << "  //    pipeline_cfg.lifecycle = session_cfg.lifecycle;\n"
-            << "  //    SignalPipeline signal_pipeline(pipeline_cfg);\n"
-            << "\n"
-            << "  // 3. 注入自定义决策引擎\n"
-            << "  PlatformSpecificDecisionEngine custom_engine(0.7f);\n"
-            << "  RadarController controller(\n"
-            << "      my_context,\n"
-            << "      signal_pipeline,\n"
-            << "      custom_engine,       // <-- 替换决策引擎\n"
-            << "      custom_env);         // <-- 替换环境服务\n"
-            << "\n"
-            << "  // 4. 驱动循环\n"
-            << "  my_context.BeginCycle(input);\n"
-            << "  controller.RunOnce();\n"
-            << "  if (controller.HasLatestTrackOutputFrame()) {\n"
-            << "    auto& frame = controller.GetLatestTrackOutputFrame();\n"
-            << "    // 读取 frame 中的轨迹输出 ...\n"
-            << "  }\n\n";
+  std::cout
+      << "=== 完整注入代码模板（伪代码） ===\n"
+      << "\n"
+      << "  // 1. 构造平台侧上下文（实现 IRadarContext）\n"
+      << "  MyRadarContext my_context(...);\n"
+      << "\n"
+      << "  // 2. 构造信号流水线配置（推荐使用四域 RadarDetailedSessionConfigBuilder）\n"
+      << "  //    auto preset =\n"
+      << "  //        airborne_radar::config::presets::MakeDetectionMissionRadarSessionConfig();\n"
+      << "  //    auto session_cfg =\n"
+      << "  //        airborne_radar::config::RadarDetailedSessionConfigBuilder(preset)\n"
+      << "  //            .Detection()\n"
+      << "  //            .EnablePhysicsDetection(true)\n"
+      << "  //            .WithPeakPowerW(5e6f)\n"
+      << "  //            .WithMainBeamGainDb(38.0f)\n"
+      << "  //            .End()\n"
+      << "  //            .Build();\n"
+      << "  //    SignalPipeline signal_pipeline(session_cfg);\n"
+      << "\n"
+      << "  // 3. 注入自定义决策引擎\n"
+      << "  PlatformSpecificDecisionEngine custom_engine(0.7f);\n"
+      << "  RadarController controller(\n"
+      << "      my_context,\n"
+      << "      signal_pipeline,\n"
+      << "      custom_engine,       // <-- 替换决策引擎\n"
+      << "      custom_env);         // <-- 替换环境服务\n"
+      << "\n"
+      << "  // 4. 驱动循环\n"
+      << "  my_context.BeginCycle(input);\n"
+      << "  controller.RunOnce();\n"
+      << "  if (controller.HasLatestTrackOutputFrame()) {\n"
+      << "    auto& frame = controller.GetLatestTrackOutputFrame();\n"
+      << "    // 读取 frame 中的轨迹输出 ...\n"
+      << "  }\n\n";
 
   std::cout << "=== 示例完成。组件实例化正确，可继续集成到平台工程 ===\n";
   return 0;

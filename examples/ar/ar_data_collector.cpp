@@ -7,7 +7,7 @@
 #include <memory>
 #include <string>
 
-#include "1q/airborne_radar/config/presets/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/model/TargetFeatureUtils.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarTraceSession.h"
@@ -16,12 +16,12 @@
 int main(int argc, char* argv[]) {
   namespace ar = airborne_radar;
 
-    const std::string executable_path =
-            (argc > 0 && argv != nullptr && argv[0] != nullptr) ? argv[0] : "";
-    const std::size_t last_sep = executable_path.find_last_of("/\\");
-    const std::string executable_dir =
-            (last_sep == std::string::npos) ? "." : executable_path.substr(0, last_sep);
-    const std::string trace_path = executable_dir + "/1q-ar-data-collector.jsonl";
+  const std::string executable_path =
+      (argc > 0 && argv != nullptr && argv[0] != nullptr) ? argv[0] : "";
+  const std::size_t last_sep = executable_path.find_last_of("/\\");
+  const std::string executable_dir =
+      (last_sep == std::string::npos) ? "." : executable_path.substr(0, last_sep);
+  const std::string trace_path = executable_dir + "/1q-ar-data-collector.jsonl";
   std::shared_ptr<oneq::trace::TraceSink> sink(
       new oneq::trace::JsonlFileTraceSink(trace_path, false));
 
