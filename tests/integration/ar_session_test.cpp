@@ -139,7 +139,7 @@ struct SceneScriptStep {
 };
 
 config::PipelineConfig MakeJointIntegrationPipelineConfig() {
-  return config::RadarSessionConfigBuilder()
+  const session::RadarSessionConfig session_config = config::RadarSessionConfigBuilder()
       .Detection()
       .WithDetectionIntentProfile(config::semantic::DetectionIntentProfile::kDetectionPriority)
       .End()
@@ -150,8 +150,8 @@ config::PipelineConfig MakeJointIntegrationPipelineConfig() {
       .Lifecycle()
       .WithLifecyclePolicyProfile(config::semantic::LifecyclePolicyProfile::kFastConfirm)
       .End()
-      .Build()
-      .pipeline_config;
+      .Build();
+  return session::BuildLegacyPipelineConfig(session_config);
 }
 
 config::PipelineConfig MakeJointIntegrationPhysicsPipelineConfig(

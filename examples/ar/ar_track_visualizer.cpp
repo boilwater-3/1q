@@ -28,7 +28,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/config/presets/RadarSessionConfigPresets.h"
-#include "1q/airborne_radar/config/RadarExpertSessionConfigBuilder.h"
+#include "1q/airborne_radar/config/RadarDetailedSessionConfigBuilder.h"
 #include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/model/TargetFeatureUtils.h"
@@ -120,12 +120,12 @@ std::unique_ptr<airborne_radar::session::RadarSession> MakeSession() {
   namespace aq = airborne_radar::common;
   const auto preset = airborne_radar::config::presets::MakeDetectionMissionRadarSessionConfig();
 
-  airborne_radar::environment::EnvironmentDefaultConfig env = preset.environment_default_config;
+  airborne_radar::environment::EnvironmentDefaultConfig env = preset.environment;
   env.jamming_sensitivity_profile = environment::ResolveJammingSensitivityProfile(5.0f);
 
   auto session = std::unique_ptr<airborne_radar::session::RadarSession>(
       new airborne_radar::session::RadarSession(airborne_radar::session::RadarSessionFactory::Create(
-          airborne_radar::config::RadarExpertSessionConfigBuilder(preset)
+          airborne_radar::config::RadarDetailedSessionConfigBuilder(preset)
               .Detection()
               .EnablePhysicsDetection(true)
               .WithPeakPowerW(5e6f)

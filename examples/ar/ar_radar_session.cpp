@@ -3,7 +3,7 @@
 // @file ar_radar_session.cpp
 // @brief 演示如何使用 RadarSession 驱动三周期机载雷达探测流程。
 //
-// 本文件同时展示使用 RadarExpertSessionConfigBuilder 按平台硬件参数定制会话配置：
+// 本文件同时展示使用 RadarDetailedSessionConfigBuilder 按平台硬件参数定制会话配置：
 //   - 以探测任务预设为基础，叠加平台发射机、天线、接收机参数
 //   - 启用物理层雷达方程检测（enable_physics_detection）
 //   - 设置平台干扰判定灵敏度
@@ -11,7 +11,7 @@
 #include <iostream>
 
 #include "1q/airborne_radar/config/presets/RadarSessionConfigPresets.h"
-#include "1q/airborne_radar/config/RadarExpertSessionConfigBuilder.h"
+#include "1q/airborne_radar/config/RadarDetailedSessionConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/model/TargetFeatureUtils.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
@@ -39,7 +39,7 @@ int main() {
   // RadarSession 托管默认的 Context / Signal / Environment / Controller 链路，
   // 外部调用方只需要按周期喂输入并读取输出。
   //
-  // 使用 RadarExpertSessionConfigBuilder 以探测任务预设为基础，叠加平台雷达硬件参数。
+  // 使用 RadarDetailedSessionConfigBuilder 以探测任务预设为基础，叠加平台雷达硬件参数。
   // Builder 使用分组编辑器：
   //   - Detection()：探测域参数（发射机、天线、接收机、物理检测开关等）
   //   - Environment()：环境默认配置（干扰判定阈值等）
@@ -49,11 +49,11 @@ int main() {
   //       RadarSessionFactory::Create(airborne_radar::config::presets::MakeDetectionMissionRadarSessionConfig());
   const auto preset = airborne_radar::config::presets::MakeDetectionMissionRadarSessionConfig();
 
-  airborne_radar::environment::EnvironmentDefaultConfig env = preset.environment_default_config;
+  airborne_radar::environment::EnvironmentDefaultConfig env = preset.environment;
   env.jamming_sensitivity_profile = environment::ResolveJammingSensitivityProfile(5.0f);
 
   RadarSession session = RadarSessionFactory::Create(
-      airborne_radar::config::RadarExpertSessionConfigBuilder(preset)
+      airborne_radar::config::RadarDetailedSessionConfigBuilder(preset)
           .Detection()
           .EnablePhysicsDetection(true)
           .WithPeakPowerW(5e6f)

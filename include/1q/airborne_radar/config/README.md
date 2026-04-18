@@ -4,7 +4,8 @@
 
 设计目标：
 
-- `expert/`：公开稳定的物理参数合同（运行配置主路径）
+- `hardware/mission/policy/environment`：公开稳定领域配置语言
+- `expert/`：保留底层参数定义，作为内部装配过渡层
 - `semantic/`：公开语义档位枚举（Builder 输入语义）
 - `presets/`：提供可直接使用的预设组合
 - 根目录仅保留聚合壳、Builder 与统一入口
@@ -13,12 +14,12 @@
 
 ```text
 config/
-|-- PipelineConfig.h
 |-- RadarSessionConfig.h
 |-- RadarSessionConfigBuilder.h
-|-- RadarExpertSessionConfigBuilder.h
+|-- RadarDetailedSessionConfigBuilder.h
 |-- RadarRuntimeConfigBuilder.h
 |-- airborne_radar_config.hpp
+|-- PipelineConfig.h                     (内部装配过渡壳)
 |-- expert/
 |-- semantic/
 |   |-- AntennaProfiles.h
@@ -30,25 +31,25 @@ config/
 
 ## 核心类型
 
-### `config::PipelineConfig`
-
-[`PipelineConfig.h`](/Users/aurora/Code/1q/include/1q/airborne_radar/config/PipelineConfig.h)
-
-信号流水线聚合配置壳，仅包含：
-
-- `expert`：完整物理参数配置
-- `orientation`：波束指向与扫描运行态
-
-> 不再存在 `PipelineConfigModel`，也不存在 semantic/expert 双路径切换。
-
 ### `session::RadarSessionConfig`
 
 [`RadarSessionConfig.h`](/Users/aurora/Code/1q/include/1q/airborne_radar/config/RadarSessionConfig.h)
 
-会话初始化配置壳：
+会话初始化配置壳（四域）：
 
-- `pipeline_config`：`expert + orientation`
-- `environment_default_config`：环境默认参数
+- `hardware`：硬件固有能力参数
+- `mission`：任务态与波束运行态
+- `policy`：调度/关联/跟踪/生命周期策略
+- `environment`：环境默认参数
+
+### `config::PipelineConfig`
+
+[`PipelineConfig.h`](/Users/aurora/Code/1q/include/1q/airborne_radar/config/PipelineConfig.h)
+
+内部装配过渡壳，当前用于将四域会话配置映射到信号流水线：
+
+- `expert`：内部专家参数聚合
+- `orientation`：内部波束与扫描运行态
 
 ## 配置分层
 
@@ -89,14 +90,14 @@ config/
 [`RadarSessionConfigBuilder.h`](/Users/aurora/Code/1q/include/1q/airborne_radar/config/RadarSessionConfigBuilder.h)
 
 - 输入：`semantic::...Profile` 枚举
-- 输出：`RadarSessionConfig`（`pipeline_config` 已翻译为 `expert + orientation`）
+- 输出：`RadarSessionConfig`（落到 `hardware/mission/policy/environment`）
 
-### 专家 Builder
+### 详细 Builder
 
-[`RadarExpertSessionConfigBuilder.h`](/Users/aurora/Code/1q/include/1q/airborne_radar/config/RadarExpertSessionConfigBuilder.h)
+[`RadarDetailedSessionConfigBuilder.h`](/Users/aurora/Code/1q/include/1q/airborne_radar/config/RadarDetailedSessionConfigBuilder.h)
 
-- 输入：显式工程参数
-- 输出：`RadarSessionConfig`（`pipeline_config` 直接写入 expert 子域）
+- 输入：显式细粒度工程参数
+- 输出：`RadarSessionConfig`（显式写入 `hardware/mission/policy/environment`）
 
 ## Runtime Patch
 
@@ -115,7 +116,7 @@ config/
 ## 使用建议
 
 - 业务/任务层优先：`semantic/profiles + RadarSessionConfigBuilder`
-- 专家建模优先：`RadarExpertSessionConfigBuilder`
+- 细粒度建模优先：`RadarDetailedSessionConfigBuilder`
 - 不要依赖内部 `src/.../engineering` 头
 
 ## 推荐入口

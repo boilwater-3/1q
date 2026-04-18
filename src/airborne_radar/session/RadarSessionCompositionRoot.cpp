@@ -14,15 +14,14 @@ namespace {
 
 config::PipelineConfig BuildPipelineConfig(
     const RadarSessionConfig& session_config) {
-  return session_config.pipeline_config;
+  return BuildLegacyPipelineConfig(session_config);
 }
 
 RadarSessionComposition BuildCompositionBase(const RadarSessionConfig& config) {
   RadarSessionComposition composition;
   composition.runtime_pipeline_config = BuildPipelineConfig(config);
-  composition.runtime_environment_scenario_config = config.environment_default_config.scenario_config;
-  composition.runtime_jamming_sensitivity_profile =
-      config.environment_default_config.jamming_sensitivity_profile;
+  composition.runtime_environment_scenario_config = config.environment.scenario_config;
+  composition.runtime_jamming_sensitivity_profile = config.environment.jamming_sensitivity_profile;
   return composition;
 }
 

@@ -14,7 +14,7 @@ namespace config {
 namespace internal {
 
 inline config::PipelineConfig BuildDetectionMissionPresetConfig() {
-  return config::RadarSessionConfigBuilder()
+  const session::RadarSessionConfig session_config = config::RadarSessionConfigBuilder()
       .Detection()
       .WithDetectionIntentProfile(config::semantic::DetectionIntentProfile::kDetectionPriority)
       .End()
@@ -24,22 +24,22 @@ inline config::PipelineConfig BuildDetectionMissionPresetConfig() {
       .Lifecycle()
       .WithLifecyclePolicyProfile(config::semantic::LifecyclePolicyProfile::kFastConfirm)
       .End()
-      .Build()
-      .pipeline_config;
+      .Build();
+  return session::BuildLegacyPipelineConfig(session_config);
 }
 
 inline config::PipelineConfig BuildTrackingMissionPresetConfig() {
-  return config::RadarSessionConfigBuilder()
+  const session::RadarSessionConfig session_config = config::RadarSessionConfigBuilder()
       .Detection()
       .WithDetectionIntentProfile(
           config::semantic::DetectionIntentProfile::kTrackStabilityPriority)
       .End()
-      .Build()
-      .pipeline_config;
+      .Build();
+  return session::BuildLegacyPipelineConfig(session_config);
 }
 
 inline config::PipelineConfig BuildHighRobustnessPresetConfig() {
-  return config::RadarSessionConfigBuilder()
+  const session::RadarSessionConfig session_config = config::RadarSessionConfigBuilder()
       .Detection()
       .WithDetectionIntentProfile(
           config::semantic::DetectionIntentProfile::kTrackStabilityPriority)
@@ -50,8 +50,8 @@ inline config::PipelineConfig BuildHighRobustnessPresetConfig() {
       .Lifecycle()
       .WithLifecyclePolicyProfile(config::semantic::LifecyclePolicyProfile::kHighPersistence)
       .End()
-      .Build()
-      .pipeline_config;
+      .Build();
+  return session::BuildLegacyPipelineConfig(session_config);
 }
 
 }  // namespace internal

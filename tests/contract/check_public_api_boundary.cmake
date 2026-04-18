@@ -2,7 +2,7 @@ set(PUBLIC_INCLUDE_DIR "${SOURCE_DIR}/include/1q")
 
 set(EXPECTED_PUBLIC_HEADERS
     "airborne_radar/airborne_radar.hpp"
-    "airborne_radar/config/RadarExpertSessionConfigBuilder.h"
+    "airborne_radar/config/RadarDetailedSessionConfigBuilder.h"
     "airborne_radar/config/RadarRuntimeConfigBuilder.h"
     "airborne_radar/config/RadarSessionConfig.h"
     "airborne_radar/config/RadarSessionConfigBuilder.h"
@@ -68,16 +68,15 @@ set(EXPECTED_PUBLIC_HEADERS
     "airborne_radar/session/RadarSessionFactory.h"
     "airborne_radar/session/RadarTraceSession.h"
     "api.hpp"
-    "electro_optical_sensor/config/EosDetectionPolicyConfig.h"
-    "electro_optical_sensor/config/EosEnvironmentPolicyConfig.h"
-    "electro_optical_sensor/config/EosOpticalConfig.h"
-    "electro_optical_sensor/config/EosPointingConfig.h"
+    "electro_optical_sensor/config/EosDetailedSessionConfigBuilder.h"
+    "electro_optical_sensor/config/EosEnvironmentConfig.h"
+    "electro_optical_sensor/config/EosHardwareConfig.h"
+    "electro_optical_sensor/config/EosMissionConfig.h"
+    "electro_optical_sensor/config/EosPolicyConfig.h"
     "electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
     "electro_optical_sensor/config/EosRuntimeConfigPatch.h"
-    "electro_optical_sensor/config/EosScanPolicyConfig.h"
     "electro_optical_sensor/config/EosSessionConfig.h"
     "electro_optical_sensor/config/EosSessionConfigBuilder.h"
-    "electro_optical_sensor/config/EosStrayLightPolicyConfig.h"
     "electro_optical_sensor/config/EosWorkMode.h"
     "electro_optical_sensor/config/electro_optical_sensor_config.hpp"
     "electro_optical_sensor/electro_optical_sensor.hpp"
@@ -104,6 +103,7 @@ set(EXPECTED_PUBLIC_HEADERS
     "electronic_surveillance_radar/config/EsrEnvironmentPolicyConfig.h"
     "electronic_surveillance_radar/config/EsrHardwareConfig.h"
     "electronic_surveillance_radar/config/EsrMissionControlConfig.h"
+    "electronic_surveillance_radar/config/EsrPolicyConfig.h"
     "electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
     "electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
     "electronic_surveillance_radar/config/EsrScanPolicyConfig.h"
@@ -147,6 +147,9 @@ file(GLOB_RECURSE ACTUAL_PUBLIC_HEADERS
      RELATIVE "${PUBLIC_INCLUDE_DIR}"
      "${PUBLIC_INCLUDE_DIR}/*.h"
      "${PUBLIC_INCLUDE_DIR}/*.hpp")
+
+list(FILTER ACTUAL_PUBLIC_HEADERS EXCLUDE REGEX
+  "^airborne_radar/config/RadarExpertSessionConfigBuilder\\.h$")
 
 list(SORT EXPECTED_PUBLIC_HEADERS)
 list(SORT ACTUAL_PUBLIC_HEADERS)

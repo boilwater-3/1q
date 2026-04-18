@@ -24,8 +24,8 @@ using model::RadarWorkSubMode;
  * @brief RadarSession 配置链式构造器。
  *
  * Builder 通过语义档位（Profile enum）控制探测 / 跟踪 / 生命周期行为，
- * `Build()` 时将语义设定翻译为 `expert::ExpertPipelineConfig` 物理参数。
- * 波束方向与扫描状态（orientation）及环境默认配置直接透传至输出。
+ * `Build()` 时将语义设定翻译为四域配置中的 hardware/policy 子域。
+ * 波束方向与扫描状态（mission.orientation）及环境默认配置直接透传至输出。
  *
  * @code
  * auto config = RadarSessionConfigBuilder()
@@ -62,7 +62,7 @@ class ONEQ_API RadarSessionConfigBuilder {
   /**
    * @brief 使用现有会话配置初始化 Builder。
    *
-   * 输入配置中的 `pipeline_config.expert` 会作为工程参数基线保留；
+   * 输入配置中的 `hardware/mission/policy` 会作为工程参数基线保留；
    * 仅当调用相应语义编辑器时，对应域才会被语义档位重新覆盖。
    *
    * @param config 作为编辑基线的会话配置。
@@ -81,8 +81,8 @@ class ONEQ_API RadarSessionConfigBuilder {
   EnvironmentEditor Environment();
 
   /**
-   * @brief 将语义档位翻译为 expert 物理参数，生成最终会话配置。
-   * @return 构建完成的 `RadarSessionConfig`（pipeline_config 仅含 expert + orientation）。
+   * @brief 将语义档位翻译为四域配置，生成最终会话配置。
+   * @return 构建完成的 `RadarSessionConfig`（hardware/mission/policy/environment）。
    */
   session::RadarSessionConfig Build() const;
 

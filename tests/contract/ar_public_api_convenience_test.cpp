@@ -34,7 +34,7 @@ namespace tests {
 namespace {
 
 config::PipelineConfig MakeConveniencePipelineConfig() {
-  return config::RadarSessionConfigBuilder()
+  const session::RadarSessionConfig session_config = config::RadarSessionConfigBuilder()
       .Detection()
       .WithDetectionIntentProfile(config::semantic::DetectionIntentProfile::kDetectionPriority)
       .End()
@@ -44,14 +44,12 @@ config::PipelineConfig MakeConveniencePipelineConfig() {
       .Lifecycle()
       .WithLifecyclePolicyProfile(config::semantic::LifecyclePolicyProfile::kFastConfirm)
       .End()
-      .Build()
-      .pipeline_config;
+      .Build();
+  return session::BuildLegacyPipelineConfig(session_config);
 }
 
 session::RadarSessionConfig MakeConvenienceSessionConfig() {
-  session::RadarSessionConfig config;
-  config.pipeline_config = MakeConveniencePipelineConfig();
-  return config;
+  return session::BuildRadarSessionConfig(MakeConveniencePipelineConfig());
 }
 
 session::RadarCycleInput MakeCycleInput(model::TargetFeatureList targets, float dt_sec = 1.0f) {
@@ -801,12 +799,12 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
   session::RadarSession session = session::RadarSessionFactory::Create(config);
 
   session::MutableRadarContext manual_context;
-  config::PipelineConfig pipeline_config = config.pipeline_config;
+  config::PipelineConfig pipeline_config = session::BuildLegacyPipelineConfig(config);
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
   environment::EnvironmentService environment_service(
-      environment::BuildModelConfigFromScenario(config.environment_default_config.scenario_config));
+      environment::BuildModelConfigFromScenario(config.environment.scenario_config));
   environment_service.SetJammingSensitivityProfile(
-      config.environment_default_config.jamming_sensitivity_profile);
+      config.environment.jamming_sensitivity_profile);
   extension::RadarController controller(manual_context, signal_pipeline, environment_service);
 
   const session::RadarCycleInput input = MakeCycleInput(model::TargetFeatureList{
@@ -1280,12 +1278,12 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultMatchesManualChainUnder
   session::RadarSession session = session::RadarSessionFactory::Create(config);
 
   session::MutableRadarContext manual_context;
-  config::PipelineConfig pipeline_config = config.pipeline_config;
+  config::PipelineConfig pipeline_config = session::BuildLegacyPipelineConfig(config);
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
   environment::EnvironmentService environment_service(
-      environment::BuildModelConfigFromScenario(config.environment_default_config.scenario_config));
+      environment::BuildModelConfigFromScenario(config.environment.scenario_config));
   environment_service.SetJammingSensitivityProfile(
-      config.environment_default_config.jamming_sensitivity_profile);
+      config.environment.jamming_sensitivity_profile);
   extension::RadarController controller(manual_context, signal_pipeline, environment_service);
 
   const session::RadarCycleInput input = MakeCycleInput(model::TargetFeatureList{

@@ -49,9 +49,7 @@ session::RadarSessionConfig MakeDefaultRadarSessionConfig() {
  * @return 在默认会话基础上叠加探测任务流水线预设的会话配置。
  */
 session::RadarSessionConfig MakeDetectionMissionRadarSessionConfig() {
-  session::RadarSessionConfig config;
-  config.pipeline_config = MakeDetectionMissionPipelineConfig();
-  return config;
+  return session::BuildRadarSessionConfig(MakeDetectionMissionPipelineConfig());
 }
 
 }  // namespace presets

@@ -37,7 +37,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/config/presets/RadarSessionConfigPresets.h"
-#include "1q/airborne_radar/config/RadarExpertSessionConfigBuilder.h"
+#include "1q/airborne_radar/config/RadarDetailedSessionConfigBuilder.h"
 #include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
 #include "1q/airborne_radar/extension/control/RadarCommand.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
@@ -181,7 +181,7 @@ std::unique_ptr<airborne_radar::session::RadarSession> MakeSession() {
   namespace aq = airborne_radar::common;
   auto session = std::unique_ptr<airborne_radar::session::RadarSession>(
       new airborne_radar::session::RadarSession(airborne_radar::session::RadarSessionFactory::Create(
-          airborne_radar::config::RadarExpertSessionConfigBuilder(
+          airborne_radar::config::RadarDetailedSessionConfigBuilder(
               airborne_radar::config::presets::MakeDetectionMissionRadarSessionConfig())
               .Detection()
               .EnablePhysicsDetection()

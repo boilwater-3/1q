@@ -10,6 +10,7 @@
 #include <utility>
 
 #include "1q/airborne_radar/airborne_radar.hpp"
+#include "1q/airborne_radar/config/RadarDetailedSessionConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
@@ -56,6 +57,7 @@
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
 #include "1q/airborne_radar/session/RadarTraceSession.h"
 #include "1q/api.hpp"
+#include "1q/electro_optical_sensor/config/EosDetailedSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/electro_optical_sensor_config.hpp"
@@ -217,6 +219,10 @@ static_assert(
                               .Build())>::value,
     "EnvironmentRuntimeConfigPatchBuilder::Build must return EnvironmentRuntimeConfigPatch");
 static_assert(
+    std::is_same<airborne_radar::session::RadarSessionConfig,
+                 decltype(airborne_radar::config::RadarDetailedSessionConfigBuilder().Build())>::value,
+    "RadarDetailedSessionConfigBuilder::Build must return RadarSessionConfig");
+static_assert(
     std::is_same<
         electro_optical_sensor::environment::EosEnvironmentRuntimeConfigPatch,
         decltype(electro_optical_sensor::environment::EosEnvironmentRuntimeConfigPatchBuilder()
@@ -224,6 +230,11 @@ static_assert(
                          electro_optical_sensor::environment::EosEnvironmentModelType::kAdvanced)
                      .Build())>::value,
     "EosEnvironmentRuntimeConfigPatchBuilder::Build must return EosEnvironmentRuntimeConfigPatch");
+static_assert(
+    std::is_same<
+        electro_optical_sensor::session::EosSessionConfig,
+        decltype(electro_optical_sensor::config::EosDetailedSessionConfigBuilder().Build())>::value,
+    "EosDetailedSessionConfigBuilder::Build must return EosSessionConfig");
 static_assert(
     std::is_same<electronic_surveillance_radar::environment::EsrEnvironmentRuntimeConfigPatch,
                  decltype(electronic_surveillance_radar::environment::
@@ -245,7 +256,7 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   ASSERT_TRUE(oneq::foundation::TryLlaToEcef(origin_lla, &origin_ecef));
 
   session::RadarSessionConfig session_config = config::presets::MakeDefaultRadarSessionConfig();
-  session_config.environment_default_config.scenario_config.atmospheric_physics.enable_physical_model =
+  session_config.environment.scenario_config.atmospheric_physics.enable_physical_model =
       true;
 
   session::RadarCycleInput input;
@@ -305,14 +316,14 @@ TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields)
                                                      environment::JammingSensitivityProfile::kRelaxed)
                                                  .End()
                                                  .Build();
-    EXPECT_TRUE(config.pipeline_config.expert.detection.enable_physics_detection);
-    EXPECT_EQ(config.pipeline_config.expert.detection.pulse_count, 16);
-    EXPECT_FLOAT_EQ(config.pipeline_config.expert.detection.transmitter.peak_power_w, 5.0e6f);
-    EXPECT_FLOAT_EQ(config.pipeline_config.expert.detection.antenna.pattern.max_sidelobe_level_db,
+    EXPECT_TRUE(config.hardware.detection.enable_physics_detection);
+    EXPECT_EQ(config.hardware.detection.pulse_count, 16);
+    EXPECT_FLOAT_EQ(config.hardware.detection.transmitter.peak_power_w, 5.0e6f);
+    EXPECT_FLOAT_EQ(config.hardware.detection.antenna.pattern.max_sidelobe_level_db,
                                     -30.0f);
-    EXPECT_FLOAT_EQ(config.pipeline_config.orientation.scan_center_deg.az_deg, -12.0f);
-    EXPECT_EQ(config.pipeline_config.expert.lifecycle.confirm_hits, 1U);
-  EXPECT_EQ(config.environment_default_config.jamming_sensitivity_profile,
+    EXPECT_FLOAT_EQ(config.mission.orientation.scan_center_deg.az_deg, -12.0f);
+    EXPECT_EQ(config.policy.lifecycle.confirm_hits, 1U);
+  EXPECT_EQ(config.environment.jamming_sensitivity_profile,
             environment::JammingSensitivityProfile::kRelaxed);
 
   environment::EnvironmentScenarioConfig scenario;
@@ -401,8 +412,8 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
                                                  .WithDetectionProfile(
                                                      config::EosDetectionProfile::kAggressive)
                                                  .Build();
-  session_config.pointing.scan_start_az_deg = -20.0f;
-  session_config.pointing.scan_end_az_deg = 20.0f;
+  session_config.mission.scan_start_az_deg = -20.0f;
+  session_config.mission.scan_end_az_deg = 20.0f;
 
   session::EosCycleInput input;
   input.cycle_index = 2U;

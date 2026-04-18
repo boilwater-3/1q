@@ -3,7 +3,7 @@
  * @brief 验证安装后机载雷达公共 API 路径可被外部工程编译链接。
  *
  * 覆盖要点：
- *   - RadarSessionConfigPresets + RadarSessionConfigBuilder/RadarExpertSessionConfigBuilder 构造会话配置
+ *   - RadarSessionConfigPresets + RadarSessionConfigBuilder/RadarDetailedSessionConfigBuilder 构造会话配置
  *   - RadarCycleInput 构造 + RadarInputValidation 校验
  *   - RadarSession 构造、StepWithResult、Step 调用
  *   - RadarRuntimeConfigBuilder 热切换（工作子模式、扫描中心）
@@ -15,7 +15,7 @@
 
 #include "1q/airborne_radar/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/output/TrackOutputQueries.h"
-#include "1q/airborne_radar/config/RadarExpertSessionConfigBuilder.h"
+#include "1q/airborne_radar/config/RadarDetailedSessionConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarInputValidation.h"
@@ -31,7 +31,7 @@ int main() {
 
   // 2. Builder config construction
   airborne_radar::session::RadarSessionConfig built_config =
-      airborne_radar::config::RadarExpertSessionConfigBuilder(preset_config)
+      airborne_radar::config::RadarDetailedSessionConfigBuilder(preset_config)
           .Detection()
           .WithPeakPowerW(5.0e6f)
           .WithFrequencyHz(9.3e9f)
