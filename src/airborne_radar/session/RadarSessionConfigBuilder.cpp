@@ -1,6 +1,5 @@
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 
-#include "1q/airborne_radar/config/PipelineConfig.h"
 #include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {

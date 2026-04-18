@@ -148,9 +148,6 @@ file(GLOB_RECURSE ACTUAL_PUBLIC_HEADERS
      "${PUBLIC_INCLUDE_DIR}/*.h"
      "${PUBLIC_INCLUDE_DIR}/*.hpp")
 
-list(FILTER ACTUAL_PUBLIC_HEADERS EXCLUDE REGEX
-  "^airborne_radar/config/RadarExpertSessionConfigBuilder\\.h$")
-
 list(SORT EXPECTED_PUBLIC_HEADERS)
 list(SORT ACTUAL_PUBLIC_HEADERS)
 

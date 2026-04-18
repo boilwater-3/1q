@@ -6,59 +6,41 @@
 #include "1q/airborne_radar/config/presets/RadarSessionConfigPresets.h"
 
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "airborne_radar/config/presets/BuildPresetPipelineConfig.h"
+#include "1q/airborne_radar/config/presets/PipelineConfigPresets.h"
+#include "airborne_radar/session/SessionConfigBridge.h"
 
 namespace airborne_radar {
 namespace config {
 namespace presets {
 
-/**
- * @brief 返回探测任务流水线预设。
- * @return 与探测任务匹配的流水线配置。
- */
 PipelineConfig MakeDetectionMissionPipelineConfig() {
-  return internal::BuildDetectionMissionPresetConfig();
+  return session::internal::BuildDetectionMissionPresetConfig();
 }
 
-/**
- * @brief 返回跟踪任务流水线预设。
- * @return 与跟踪任务匹配的流水线配置。
- */
 PipelineConfig MakeTrackingMissionPipelineConfig() {
-  return internal::BuildTrackingMissionPresetConfig();
+  return session::internal::BuildTrackingMissionPresetConfig();
 }
 
-/**
- * @brief 返回高稳健流水线预设。
- * @return 面向高稳健场景的流水线配置。
- */
 PipelineConfig MakeHighRobustnessPipelineConfig() {
-  return internal::BuildHighRobustnessPresetConfig();
+  return session::internal::BuildHighRobustnessPresetConfig();
 }
 
-/**
- * @brief 返回默认会话配置。
- * @return 带默认波束扫描起点、扫描顺序与工作子模式的会话配置。
- */
 session::RadarSessionConfig MakeDefaultRadarSessionConfig() {
   return config::RadarSessionConfigBuilder().Build();
 }
 
-/**
- * @brief 返回探测任务会话预设。
- * @return 在默认会话基础上叠加探测任务流水线预设的会话配置。
- */
 session::RadarSessionConfig MakeDetectionMissionRadarSessionConfig() {
-  config::PipelineConfig pipeline = MakeDetectionMissionPipelineConfig();
-  session::RadarSessionConfig result;
-  result.hardware.detection = pipeline.expert.detection;
-  result.policy.beam_control = pipeline.expert.beam_control;
-  result.policy.association = pipeline.expert.association;
-  result.policy.tracking = pipeline.expert.tracking;
-  result.policy.lifecycle = pipeline.expert.lifecycle;
-  result.policy.imm = pipeline.expert.imm;
-  result.mission.orientation = pipeline.orientation;
-  return result;
+  return config::RadarSessionConfigBuilder()
+      .Detection()
+      .WithDetectionIntentProfile(semantic::DetectionIntentProfile::kDetectionPriority)
+      .End()
+      .Tracking()
+      .WithTrackingPolicyProfile(semantic::TrackingPolicyProfile::kFastAssociation)
+      .End()
+      .Lifecycle()
+      .WithLifecyclePolicyProfile(semantic::LifecyclePolicyProfile::kFastConfirm)
+      .End()
+      .Build();
 }
 
 }  // namespace presets

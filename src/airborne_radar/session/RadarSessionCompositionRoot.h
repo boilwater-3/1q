@@ -3,6 +3,7 @@
 
 #include <memory>
 
+#include "1q/airborne_radar/config/PipelineConfig.h"
 #include "1q/airborne_radar/session/RadarSession.h"
 
 namespace airborne_radar {
@@ -12,8 +13,8 @@ namespace internal {
 struct RadarSessionComposition {
   config::PipelineConfig runtime_pipeline_config{};
   environment::EnvironmentScenarioConfig runtime_environment_scenario_config{};
-    environment::JammingSensitivityProfile runtime_jamming_sensitivity_profile{
-            environment::JammingSensitivityProfile::kBalanced};
+  environment::JammingSensitivityProfile runtime_jamming_sensitivity_profile{
+      environment::JammingSensitivityProfile::kBalanced};
 
   std::unique_ptr<extension::IRadarContext> owned_radar_context;
   std::unique_ptr<extension::ISignalPipeline> owned_signal_pipeline;
@@ -36,8 +37,8 @@ class RadarSessionCompositionRoot {
   static RadarSessionComposition ComposeWithEnvironmentService(
       const RadarSessionConfig& config, environment::IEnvironmentService& environment_service);
 
-  static RadarSessionComposition ComposeWithController(
-      const RadarSessionConfig& config, extension::RadarController& controller);
+  static RadarSessionComposition ComposeWithController(const RadarSessionConfig& config,
+                                                       extension::RadarController& controller);
 };
 
 }  // namespace internal
