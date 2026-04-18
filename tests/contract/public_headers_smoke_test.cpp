@@ -213,7 +213,8 @@ static_assert(
 static_assert(
     std::is_same<airborne_radar::environment::EnvironmentRuntimeConfigPatch,
                  decltype(airborne_radar::environment::EnvironmentRuntimeConfigPatchBuilder()
-                              .WithJammingDetectionThresholdDb(7.0f)
+                              .WithJammingSensitivityProfile(
+                                  airborne_radar::environment::JammingSensitivityProfile::kStrict)
                               .Build())>::value,
     "EnvironmentRuntimeConfigPatchBuilder::Build must return EnvironmentRuntimeConfigPatch");
 static_assert(
@@ -228,8 +229,8 @@ static_assert(
     std::is_same<electronic_surveillance_radar::environment::EsrEnvironmentRuntimeConfigPatch,
                  decltype(electronic_surveillance_radar::environment::
                               EsrEnvironmentRuntimeConfigPatchBuilder()
-                                  .WithModelConfig(
-                                      electronic_surveillance_radar::environment::EsrEnvironmentModelConfig{})
+                                  .WithPreset(electronic_surveillance_radar::config::
+                                                  EsrEnvironmentPreset::kJammed)
                                   .Build())>::value,
     "EsrEnvironmentRuntimeConfigPatchBuilder::Build must return EsrEnvironmentRuntimeConfigPatch");
 
@@ -301,7 +302,8 @@ TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields)
                                                      config::LifecyclePolicyProfile::kFastConfirm)
                                                  .End()
                                                  .Environment()
-                                                 .WithJammingDetectionThresholdDb(8.0f)
+                                                 .WithJammingSensitivityProfile(
+                                                     environment::JammingSensitivityProfile::kRelaxed)
                                                  .End()
                                                  .Build();
   EXPECT_TRUE(config.detection.enable_physics_detection);
@@ -310,15 +312,16 @@ TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields)
   EXPECT_EQ(config.detection.antenna_pattern.profile, config::AntennaPatternProfile::kLowSidelobe);
   EXPECT_FLOAT_EQ(config.beam_control.radar_orientation.scan_center_deg.az_deg, -12.0f);
   EXPECT_EQ(config.lifecycle.policy_profile, config::LifecyclePolicyProfile::kFastConfirm);
-  EXPECT_FLOAT_EQ(config.environment_default_config.jamming_detection_threshold_db, 8.0f);
+  EXPECT_EQ(config.environment_default_config.jamming_sensitivity_profile,
+            environment::JammingSensitivityProfile::kRelaxed);
 
   environment::EnvironmentScenarioConfig scenario;
   scenario.atmospheric_physics.enable_physical_model = true;
   environment::EnvironmentDefaultConfig env =
       environment::EnvironmentDefaultConfigBuilder().WithScenarioConfig(scenario).Build();
-  env.jamming_detection_threshold_db = 8.0f;
+  env.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kRelaxed;
   EXPECT_TRUE(env.scenario_config.atmospheric_physics.enable_physical_model);
-  EXPECT_FLOAT_EQ(env.jamming_detection_threshold_db, 8.0f);
+  EXPECT_EQ(env.jamming_sensitivity_profile, environment::JammingSensitivityProfile::kRelaxed);
 }
 
 }  // namespace

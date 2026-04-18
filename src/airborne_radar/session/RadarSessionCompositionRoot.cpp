@@ -26,16 +26,8 @@ RadarSessionComposition BuildCompositionBase(const RadarSessionConfig& config) {
   RadarSessionComposition composition;
   composition.runtime_signal_pipeline_config = BuildSignalPipelineConfig(config);
   composition.runtime_environment_scenario_config = config.environment_default_config.scenario_config;
-    if (config.environment_default_config.jamming_detection_threshold_db !=
-      environment::ResolveJammingDetectionThresholdDb(
-        config.environment_default_config.jamming_sensitivity_profile)) {
-    composition.runtime_jamming_sensitivity_profile =
-      environment::ResolveJammingSensitivityProfile(
-        config.environment_default_config.jamming_detection_threshold_db);
-    } else {
-    composition.runtime_jamming_sensitivity_profile =
+  composition.runtime_jamming_sensitivity_profile =
       config.environment_default_config.jamming_sensitivity_profile;
-    }
   return composition;
 }
 

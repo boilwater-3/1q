@@ -172,10 +172,9 @@ Json BuildJson(const environment::AtmosphericPhysicsConfig& value) {
 
 Json BuildJson(const environment::AtmosphericDerivedContext& value) {
   Json json;
-  json["has_k_factor"] = value.has_k_factor;
-  json["k_factor"] = value.k_factor;
-  json["has_day_of_year"] = value.has_day_of_year;
-  json["day_of_year"] = value.day_of_year;
+  json["has_simulation_unix_seconds"] = value.has_simulation_unix_seconds;
+  json["simulation_unix_seconds"] = value.simulation_unix_seconds;
+  json["effective_day_of_year"] = environment::ResolveEffectiveDayOfYear(value);
   json["solar_flux_f107a"] = value.solar_flux_f107a;
   json["solar_flux_f107"] = value.solar_flux_f107;
   json["geomagnetic_ap"] = value.geomagnetic_ap;
@@ -233,8 +232,8 @@ Json BuildJson(const environment::EnvironmentRuntimeConfigPatch& value) {
   Json json;
   json["has_scenario_config"] = value.has_scenario_config;
   json["scenario_config"] = BuildJson(value.scenario_config);
-  json["has_jamming_detection_threshold_db"] = value.has_jamming_detection_threshold_db;
-  json["jamming_detection_threshold_db"] = value.jamming_detection_threshold_db;
+  json["has_jamming_sensitivity_profile"] = value.has_jamming_sensitivity_profile;
+  json["jamming_sensitivity_profile"] = static_cast<int>(value.jamming_sensitivity_profile);
   return json;
 }
 
@@ -259,8 +258,8 @@ Json BuildJson(const RadarSessionConfig& value) {
   json["signal_pipeline_config"] = BuildJson(pipeline_config);
   json["environment_default_config"] = {
       {"scenario_config", BuildJson(value.environment_default_config.scenario_config)},
-      {"jamming_detection_threshold_db",
-       value.environment_default_config.jamming_detection_threshold_db}};
+      {"jamming_sensitivity_profile",
+       static_cast<int>(value.environment_default_config.jamming_sensitivity_profile)}};
   return json;
 }
 

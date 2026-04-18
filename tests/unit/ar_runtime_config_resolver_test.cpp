@@ -57,7 +57,7 @@ TEST(ArRuntimeConfigResolverTest, EnvironmentPatchUpdatesModelAndThreshold) {
   config::RadarRuntimeConfigPatch patch =
       config::RadarRuntimeConfigBuilder()
           .WithEnvironmentScenarioConfig(environment::EnvironmentScenarioConfig{})
-          .WithJammingDetectionThresholdDb(4.5f)
+          .WithJammingSensitivityProfile(environment::JammingSensitivityProfile::kStrict)
           .Build();
   patch.environment_runtime_config.scenario_config.atmospheric_physics.enable_physical_model = true;
 
@@ -66,7 +66,7 @@ TEST(ArRuntimeConfigResolverTest, EnvironmentPatchUpdatesModelAndThreshold) {
   EXPECT_TRUE(resolved.has_requested_update);
   EXPECT_TRUE(resolved.is_valid);
   EXPECT_TRUE(resolved.environment_scenario_config_changed);
-  EXPECT_TRUE(resolved.jamming_detection_threshold_changed);
+  EXPECT_TRUE(resolved.jamming_sensitivity_profile_changed);
   EXPECT_TRUE(
       resolved.next_state.environment_scenario_config.atmospheric_physics.enable_physical_model);
     EXPECT_EQ(resolved.next_state.jamming_sensitivity_profile,
@@ -80,7 +80,9 @@ TEST(ArRuntimeConfigResolverTest, InvalidPatchIsRejectedAtomically) {
     current_state.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kBalanced;
 
   config::RadarRuntimeConfigPatch patch =
-      config::RadarRuntimeConfigBuilder().WithJammingDetectionThresholdDb(3.5f).Build();
+      config::RadarRuntimeConfigBuilder()
+          .WithJammingSensitivityProfile(environment::JammingSensitivityProfile::kStrict)
+          .Build();
   patch.has_scan_center_deg = true;
   patch.scan_center_deg.az_deg = std::numeric_limits<float>::quiet_NaN();
   patch.scan_center_deg.el_deg = 0.0f;
@@ -91,7 +93,7 @@ TEST(ArRuntimeConfigResolverTest, InvalidPatchIsRejectedAtomically) {
   EXPECT_FALSE(resolved.is_valid);
   EXPECT_FALSE(resolved.signal_pipeline_config_changed);
   EXPECT_FALSE(resolved.environment_scenario_config_changed);
-  EXPECT_FALSE(resolved.jamming_detection_threshold_changed);
+  EXPECT_FALSE(resolved.jamming_sensitivity_profile_changed);
   EXPECT_FLOAT_EQ(
       resolved.next_state.signal_pipeline_config.beam_control.radar_orientation.scan_center_deg.az_deg,
       1.0f);

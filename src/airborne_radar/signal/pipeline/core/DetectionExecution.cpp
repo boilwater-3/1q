@@ -55,8 +55,8 @@ float ComputeTargetSpecificAtmosphericLossDb(
   inputs.pressure_hpa = environment_snapshot.atmospheric_physics.pressure_hpa;
   inputs.temperature_k = environment_snapshot.atmospheric_physics.temperature_k;
   inputs.relative_humidity = environment_snapshot.atmospheric_physics.relative_humidity;
-  inputs.k_factor = environment_snapshot.atmospheric_context.k_factor;
-  inputs.day_of_year = environment_snapshot.atmospheric_context.day_of_year;
+  inputs.k_factor = environment_snapshot.effective_k_factor;
+  inputs.day_of_year = environment_snapshot.effective_day_of_year;
   inputs.solar_flux_f107a = environment_snapshot.atmospheric_context.solar_flux_f107a;
   inputs.solar_flux_f107 = environment_snapshot.atmospheric_context.solar_flux_f107;
   inputs.geomagnetic_ap = environment_snapshot.atmospheric_context.geomagnetic_ap;

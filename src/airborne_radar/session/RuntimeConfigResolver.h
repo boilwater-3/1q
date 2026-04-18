@@ -15,9 +15,6 @@ struct RuntimeConfigState {
   environment::EnvironmentScenarioConfig environment_scenario_config{};
   environment::JammingSensitivityProfile jamming_sensitivity_profile{
       environment::JammingSensitivityProfile::kBalanced};
-  float jamming_detection_threshold_db{
-      environment::ResolveJammingDetectionThresholdDb(
-          environment::JammingSensitivityProfile::kBalanced)};
   model::AzimuthElevationDeg dwell_center_deg{};
 };
 
@@ -30,7 +27,7 @@ struct RuntimeConfigResolveResult {
   bool is_valid{true};
   bool signal_pipeline_config_changed{false};
   bool environment_scenario_config_changed{false};
-  bool jamming_detection_threshold_changed{false};
+  bool jamming_sensitivity_profile_changed{false};
 };
 
 /**

@@ -7,6 +7,8 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <algorithm>
+#include <cstdint>
 
 #include <nlohmann/json.hpp>
 
@@ -27,6 +29,10 @@ float GetFloat(const Json& json, const char* key, float default_value = 0.0f) {
 
 int GetInt(const Json& json, const char* key, int default_value = 0) {
   return json.contains(key) ? json[key].get<int>() : default_value;
+}
+
+std::int64_t GetInt64(const Json& json, const char* key, std::int64_t default_value = 0) {
+  return json.contains(key) ? json[key].get<std::int64_t>() : default_value;
 }
 
 bool GetBool(const Json& json, const char* key, bool default_value = false) {
@@ -162,8 +168,17 @@ ar::environment::AtmosphericPhysicsConfig ParseAtmosphericPhysics(const Json& js
 
 ar::environment::AtmosphericDerivedContext ParseAtmosphericContext(const Json& json) {
   ar::environment::AtmosphericDerivedContext value;
-  value.k_factor = GetFloat(json, "k_factor", value.k_factor);
-  value.day_of_year = GetInt(json, "day_of_year", value.day_of_year);
+  value.has_simulation_unix_seconds = GetBool(
+      json, "has_simulation_unix_seconds", value.has_simulation_unix_seconds);
+  value.simulation_unix_seconds =
+      GetInt64(json, "simulation_unix_seconds", value.simulation_unix_seconds);
+  if (!value.has_simulation_unix_seconds && json.contains("day_of_year")) {
+    // 兼容旧 trace：将 day_of_year 粗略映射到 1970 年对应 UTC 零点。
+    const int day_of_year = GetInt(json, "day_of_year", 172);
+    const int clamped_day = std::max(1, std::min(366, day_of_year));
+    value.has_simulation_unix_seconds = true;
+    value.simulation_unix_seconds = static_cast<std::int64_t>(clamped_day - 1) * 86400;
+  }
   value.solar_flux_f107a = GetFloat(json, "solar_flux_f107a", value.solar_flux_f107a);
   value.solar_flux_f107 = GetFloat(json, "solar_flux_f107", value.solar_flux_f107);
   value.geomagnetic_ap = GetFloat(json, "geomagnetic_ap", value.geomagnetic_ap);
@@ -239,8 +254,12 @@ ar::session::RadarSessionConfig ParseSessionConfig(const Json& payload) {
 
   if (payload.contains("environment_default_config")) {
     const Json& env = payload["environment_default_config"];
-    config.environment_default_config.jamming_detection_threshold_db =
-        GetFloat(env, "jamming_detection_threshold_db", config.environment_default_config.jamming_detection_threshold_db);
+    if (env.contains("jamming_sensitivity_profile")) {
+      config.environment_default_config.jamming_sensitivity_profile =
+          static_cast<ar::environment::JammingSensitivityProfile>(
+              GetInt(env, "jamming_sensitivity_profile",
+                     static_cast<int>(config.environment_default_config.jamming_sensitivity_profile)));
+    }
     if (env.contains("scenario_config")) {
       config.environment_default_config.scenario_config =
           ParseEnvironmentScenario(env["scenario_config"]);
@@ -342,10 +361,15 @@ ar::config::RadarRuntimeConfigPatch ParseRuntimePatch(const Json& payload) {
       patch.environment_runtime_config.scenario_config =
           ParseEnvironmentScenario(env["scenario_config"]);
     }
-    patch.environment_runtime_config.has_jamming_detection_threshold_db =
-        GetBool(env, "has_jamming_detection_threshold_db", false);
-    patch.environment_runtime_config.jamming_detection_threshold_db =
-        GetFloat(env, "jamming_detection_threshold_db", patch.environment_runtime_config.jamming_detection_threshold_db);
+    patch.environment_runtime_config.has_jamming_sensitivity_profile =
+        GetBool(env, "has_jamming_sensitivity_profile", false);
+    if (env.contains("jamming_sensitivity_profile")) {
+      patch.environment_runtime_config.has_jamming_sensitivity_profile = true;
+      patch.environment_runtime_config.jamming_sensitivity_profile =
+          static_cast<ar::environment::JammingSensitivityProfile>(
+              GetInt(env, "jamming_sensitivity_profile",
+                     static_cast<int>(patch.environment_runtime_config.jamming_sensitivity_profile)));
+    }
   }
 
   patch.has_work_sub_mode = GetBool(payload, "has_work_sub_mode", false);

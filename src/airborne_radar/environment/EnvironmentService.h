@@ -67,14 +67,7 @@ class EnvironmentService final : public environment::IEnvironmentService {
     * @brief 设置干扰判定灵敏度语义档位。
     * @param profile 干扰判定灵敏度语义档位。
     */
-    void SetJammingSensitivityProfile(JammingSensitivityProfile profile) override;
-
-    /**
-   * @brief 设置干扰判定阈值。
-   * @param threshold_db 干扰判定阈值，单位为 dB。
-    * @note 兼容旧 API，会映射为对应语义档位。
-   */
-  void SetJammingDetectionThresholdDb(float threshold_db) override;
+  void SetJammingSensitivityProfile(JammingSensitivityProfile profile) override;
 
   environment::EnvironmentServiceRuntimeState CaptureRuntimeState() const override;
 
@@ -88,7 +81,7 @@ class EnvironmentService final : public environment::IEnvironmentService {
   EnvironmentSnapshot frozen_snapshot_{};
   EnvironmentCycleContext current_cycle_context_{};
   JammingSensitivityProfile jamming_sensitivity_profile_{JammingSensitivityProfile::kBalanced};
-  float jamming_detection_threshold_db_{
+  float effective_jamming_detection_threshold_db_{
       ResolveJammingDetectionThresholdDb(JammingSensitivityProfile::kBalanced)};
 };
 

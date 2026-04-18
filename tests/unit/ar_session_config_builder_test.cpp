@@ -85,20 +85,23 @@ TEST(RadarSessionConfigBuilderTest, BeamAndEnvironmentEditorsApplyCorrectly) {
                           .WithScanCenterDeg(scan_center)
                           .End()
                           .Environment()
-                          .WithJammingDetectionThresholdDb(4.6f)
+                          .WithJammingSensitivityProfile(
+                              environment::JammingSensitivityProfile::kStrict)
                           .End()
                           .Build();
 
   EXPECT_EQ(config.beam_control.radar_orientation.work_sub_mode, model::RadarWorkSubMode::kTas);
   EXPECT_FLOAT_EQ(config.beam_control.radar_orientation.scan_center_deg.az_deg, 8.0f);
   EXPECT_FLOAT_EQ(config.beam_control.radar_orientation.scan_center_deg.el_deg, -2.0f);
-  EXPECT_FLOAT_EQ(config.environment_default_config.jamming_detection_threshold_db, 4.6f);
+  EXPECT_EQ(config.environment_default_config.jamming_sensitivity_profile,
+            environment::JammingSensitivityProfile::kStrict);
 }
 
 TEST(RadarSessionConfigBuilderTest, BuiltConfigCanConstructRadarSession) {
   const auto config = config::RadarSessionConfigBuilder(config::MakeDetectionMissionRadarSessionConfig())
                           .Environment()
-                          .WithJammingDetectionThresholdDb(5.0f)
+                          .WithJammingSensitivityProfile(
+                              environment::JammingSensitivityProfile::kStrict)
                           .End()
                           .Build();
   session::RadarSession session = session::RadarSessionFactory::Create(config);
@@ -125,7 +128,8 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValue
                                                     .WithDwellCenterDeg(dwell_center)
                                                     .WithCommandedBeamwidthDeg(commanded_beamwidth)
                                                     .EnableCommandedBeamwidth(true)
-                                                    .WithJammingDetectionThresholdDb(4.2f)
+                                                    .WithJammingSensitivityProfile(
+                                                        environment::JammingSensitivityProfile::kStrict)
                                                     .Build();
 
   EXPECT_TRUE(patch.has_work_sub_mode);
@@ -142,7 +146,9 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValue
   EXPECT_TRUE(patch.has_commanded_beamwidth_enabled);
   EXPECT_TRUE(patch.commanded_beamwidth_enabled);
   EXPECT_TRUE(patch.has_environment_runtime_config);
-  EXPECT_FLOAT_EQ(patch.environment_runtime_config.jamming_detection_threshold_db, 4.2f);
+  EXPECT_TRUE(patch.environment_runtime_config.has_jamming_sensitivity_profile);
+  EXPECT_EQ(patch.environment_runtime_config.jamming_sensitivity_profile,
+            environment::JammingSensitivityProfile::kStrict);
 }
 
 TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructingSession) {
@@ -152,7 +158,8 @@ TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructin
   const config::RadarRuntimeConfigPatch patch = config::RadarRuntimeConfigBuilder()
                                                     .WithRadarWorkSubMode(model::RadarWorkSubMode::kTas)
                                                     .EnableCommandedBeamwidth(true)
-                                                    .WithJammingDetectionThresholdDb(4.8f)
+                                                    .WithJammingSensitivityProfile(
+                                                        environment::JammingSensitivityProfile::kStrict)
                                                     .Build();
 
   session.ApplyRuntimeConfig(patch);

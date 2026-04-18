@@ -61,7 +61,7 @@ int main() {
   detection.receiver.noise_figure_db = 3.5f;
 
   airborne_radar::environment::EnvironmentDefaultConfig env = preset.environment_default_config;
-  env.jamming_detection_threshold_db = 5.0f;
+  env.jamming_sensitivity_profile = environment::ResolveJammingSensitivityProfile(5.0f);
 
   RadarSession session = RadarSessionFactory::Create(
       airborne_radar::config::RadarSessionConfigBuilder(preset)

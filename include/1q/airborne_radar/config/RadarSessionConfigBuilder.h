@@ -31,7 +31,8 @@ using model::RadarWorkSubMode;
  *                   .WithFrequencyHz(9.3e9f)
  *                   .End()
  *                   .Environment()
- *                   .WithJammingDetectionThresholdDb(5.0f)
+ *                   .WithJammingSensitivityProfile(
+ *                       environment::JammingSensitivityProfile::kStrict)
  *                   .End()
  *                   .Build();
  * @endcode
@@ -188,14 +189,6 @@ class RadarSessionConfigBuilder::EnvironmentEditor {
   EnvironmentEditor& WithJammingSensitivityProfile(
       environment::JammingSensitivityProfile profile) {
     builder_->config_.environment_default_config.jamming_sensitivity_profile = profile;
-    builder_->config_.environment_default_config.jamming_detection_threshold_db =
-        environment::ResolveJammingDetectionThresholdDb(profile);
-    return *this;
-  }
-  EnvironmentEditor& WithJammingDetectionThresholdDb(float threshold_db) {
-    builder_->config_.environment_default_config.jamming_detection_threshold_db = threshold_db;
-    builder_->config_.environment_default_config.jamming_sensitivity_profile =
-        environment::ResolveJammingSensitivityProfile(threshold_db);
     return *this;
   }
 

@@ -26,19 +26,10 @@ class EnvironmentRuntimeConfigPatchBuilder {
     return *this;
   }
 
-  EnvironmentRuntimeConfigPatchBuilder& WithJammingDetectionThresholdDb(float value) {
-    patch_.has_jamming_sensitivity_profile = true;
-    patch_.jamming_sensitivity_profile = ResolveJammingSensitivityProfile(value);
-    patch_.has_jamming_detection_threshold_db = true;
-    patch_.jamming_detection_threshold_db = value;
-    return *this;
-  }
-
   EnvironmentRuntimeConfigPatchBuilder& WithJammingSensitivityProfile(
       JammingSensitivityProfile profile) {
     patch_.has_jamming_sensitivity_profile = true;
     patch_.jamming_sensitivity_profile = profile;
-    patch_.jamming_detection_threshold_db = ResolveJammingDetectionThresholdDb(profile);
     return *this;
   }
 

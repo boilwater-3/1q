@@ -146,7 +146,7 @@ std::unique_ptr<airborne_radar::session::RadarSession> MakeSession() {
   detection.receiver.noise_figure_db = 3.5f;
 
   airborne_radar::environment::EnvironmentDefaultConfig env = preset.environment_default_config;
-  env.jamming_detection_threshold_db = 5.0f;
+  env.jamming_sensitivity_profile = environment::ResolveJammingSensitivityProfile(5.0f);
 
   auto session = std::unique_ptr<airborne_radar::session::RadarSession>(
       new airborne_radar::session::RadarSession(airborne_radar::session::RadarSessionFactory::Create(

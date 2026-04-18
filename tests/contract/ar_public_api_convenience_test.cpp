@@ -218,15 +218,10 @@ class RecordingEnvironmentService : public environment::IEnvironmentService {
     model_config_ = config;
   }
 
-  void SetJammingDetectionThresholdDb(float threshold_db) override {
-    ++set_threshold_count_;
-    jamming_detection_threshold_db_ = threshold_db;
-  }
-  
   void SetJammingSensitivityProfile(
       environment::JammingSensitivityProfile profile) override {
-    jamming_detection_threshold_db_ =
-        environment::ResolveJammingDetectionThresholdDb(profile);
+    ++set_sensitivity_count_;
+    jamming_sensitivity_profile_ = profile;
   }
 
   environment::EnvironmentServiceRuntimeState CaptureRuntimeState() const override {
@@ -234,7 +229,7 @@ class RecordingEnvironmentService : public environment::IEnvironmentService {
     state.active_scene_state = active_scene_state_;
     state.pending_scene_state = pending_scene_state_;
     state.active_cycle_context = cycle_context_;
-    state.jamming_detection_threshold_db = jamming_detection_threshold_db_;
+    state.jamming_sensitivity_profile = jamming_sensitivity_profile_;
     return state;
   }
 
@@ -242,25 +237,28 @@ class RecordingEnvironmentService : public environment::IEnvironmentService {
     active_scene_state_ = state.active_scene_state;
     pending_scene_state_ = state.pending_scene_state;
     cycle_context_ = state.active_cycle_context;
-    jamming_detection_threshold_db_ = state.jamming_detection_threshold_db;
+    jamming_sensitivity_profile_ = state.jamming_sensitivity_profile;
   }
 
   std::size_t begin_cycle_count() const { return begin_cycle_count_; }
   std::size_t update_scene_state_count() const { return update_scene_state_count_; }
   std::size_t update_model_config_count() const { return update_model_config_count_; }
-  std::size_t set_threshold_count() const { return set_threshold_count_; }
-  float jamming_detection_threshold_db() const { return jamming_detection_threshold_db_; }
+  std::size_t set_sensitivity_count() const { return set_sensitivity_count_; }
+  environment::JammingSensitivityProfile jamming_sensitivity_profile() const {
+    return jamming_sensitivity_profile_;
+  }
 
  private:
   environment::EnvironmentSceneState active_scene_state_{};
   environment::EnvironmentSceneState pending_scene_state_{};
   environment::EnvironmentModelConfig model_config_{};
   environment::EnvironmentCycleContext cycle_context_{};
-  float jamming_detection_threshold_db_{6.0f};
+  environment::JammingSensitivityProfile jamming_sensitivity_profile_{
+      environment::JammingSensitivityProfile::kBalanced};
   std::size_t begin_cycle_count_{0U};
   std::size_t update_scene_state_count_{0U};
   std::size_t update_model_config_count_{0U};
-  std::size_t set_threshold_count_{0U};
+  std::size_t set_sensitivity_count_{0U};
 };
 
 class RecordingSignalPipeline : public extension::ISignalPipeline {
@@ -792,8 +790,8 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
   environment::EnvironmentService environment_service(
       environment::BuildModelConfigFromScenario(config.environment_default_config.scenario_config));
-  environment_service.SetJammingDetectionThresholdDb(
-      config.environment_default_config.jamming_detection_threshold_db);
+  environment_service.SetJammingSensitivityProfile(
+      config.environment_default_config.jamming_sensitivity_profile);
   extension::RadarController controller(manual_context, signal_pipeline, environment_service);
 
   const session::RadarCycleInput input = MakeCycleInput(model::TargetFeatureList{
@@ -963,18 +961,18 @@ TEST(PublicApiConvenienceTest,
   const std::size_t committed_update_config_count = signal_pipeline.update_config_count();
   const std::size_t committed_update_scene_count = environment_service.update_scene_state_count();
   const std::size_t committed_update_model_count = environment_service.update_model_config_count();
-  const std::size_t committed_threshold_count = environment_service.set_threshold_count();
+  const std::size_t committed_threshold_count = environment_service.set_sensitivity_count();
 
   const config::RadarRuntimeConfigPatch patch =
       config::RadarRuntimeConfigBuilder()
           .WithRadarWorkSubMode(model::RadarWorkSubMode::kTas)
-          .WithJammingDetectionThresholdDb(4.2f)
+          .WithJammingSensitivityProfile(environment::JammingSensitivityProfile::kStrict)
           .Build();
   session.ApplyRuntimeConfig(patch);
 
   EXPECT_EQ(signal_pipeline.update_config_count(), committed_update_config_count);
   EXPECT_EQ(environment_service.update_model_config_count(), committed_update_model_count);
-  EXPECT_EQ(environment_service.set_threshold_count(), committed_threshold_count);
+  EXPECT_EQ(environment_service.set_sensitivity_count(), committed_threshold_count);
 
   environment::JammerEmitterState jammer;
   jammer.technique = environment::JammingTechnique::kNoiseSuppression;
@@ -1005,7 +1003,7 @@ TEST(PublicApiConvenienceTest,
   EXPECT_EQ(signal_pipeline.update_config_count(), committed_update_config_count);
   EXPECT_EQ(environment_service.update_scene_state_count(), committed_update_scene_count);
   EXPECT_EQ(environment_service.update_model_config_count(), committed_update_model_count);
-  EXPECT_EQ(environment_service.set_threshold_count(), committed_threshold_count);
+  EXPECT_EQ(environment_service.set_sensitivity_count(), committed_threshold_count);
   ASSERT_EQ(radar_context.GetTargetFeatures().size(), 1U);
   EXPECT_EQ(radar_context.GetTargetFeatures()[0].external_target_id, 810U);
   EXPECT_FLOAT_EQ(radar_context.GetCycleDeltaTimeSec(), 1.0f);
@@ -1021,10 +1019,11 @@ TEST(PublicApiConvenienceTest,
   EXPECT_EQ(signal_pipeline.update_config_count(), committed_update_config_count + 1U);
   EXPECT_EQ(environment_service.update_scene_state_count(), committed_update_scene_count + 1U);
   EXPECT_EQ(environment_service.update_model_config_count(), committed_update_model_count + 1U);
-  EXPECT_EQ(environment_service.set_threshold_count(), committed_threshold_count + 1U);
+  EXPECT_EQ(environment_service.set_sensitivity_count(), committed_threshold_count + 1U);
   EXPECT_EQ(signal_pipeline.config().beam_control.radar_orientation.work_sub_mode,
             model::RadarWorkSubMode::kTas);
-  EXPECT_FLOAT_EQ(environment_service.jamming_detection_threshold_db(), 4.2f);
+  EXPECT_EQ(environment_service.jamming_sensitivity_profile(),
+            environment::JammingSensitivityProfile::kStrict);
   EXPECT_EQ(environment_service.GetPendingSceneState().jammer_emitters.size(), 1U);
 }
 
@@ -1108,7 +1107,7 @@ TEST(PublicApiConvenienceTest,
   const config::RadarRuntimeConfigPatch patch =
       config::RadarRuntimeConfigBuilder()
           .WithRadarWorkSubMode(model::RadarWorkSubMode::kTas)
-          .WithJammingDetectionThresholdDb(4.2f)
+          .WithJammingSensitivityProfile(environment::JammingSensitivityProfile::kStrict)
           .Build();
   session.ApplyRuntimeConfig(patch);
 
@@ -1138,7 +1137,8 @@ TEST(PublicApiConvenienceTest,
   EXPECT_FLOAT_EQ(radar_context.GetCycleDeltaTimeSec(), 1.0f);
   EXPECT_EQ(signal_pipeline.config().beam_control.radar_orientation.work_sub_mode,
             model::RadarWorkSubMode::kTws);
-  EXPECT_FLOAT_EQ(environment_service.jamming_detection_threshold_db(), 6.0f);
+  EXPECT_EQ(environment_service.jamming_sensitivity_profile(),
+            environment::JammingSensitivityProfile::kBalanced);
   EXPECT_TRUE(environment_service.GetPendingSceneState().jammer_emitters.empty());
 
   signal_pipeline.SetShouldExecute(true);
@@ -1146,7 +1146,8 @@ TEST(PublicApiConvenienceTest,
   EXPECT_TRUE(committed.executed_this_cycle);
   EXPECT_EQ(signal_pipeline.config().beam_control.radar_orientation.work_sub_mode,
             model::RadarWorkSubMode::kTas);
-  EXPECT_FLOAT_EQ(environment_service.jamming_detection_threshold_db(), 4.2f);
+  EXPECT_EQ(environment_service.jamming_sensitivity_profile(),
+            environment::JammingSensitivityProfile::kStrict);
   EXPECT_EQ(environment_service.GetPendingSceneState().jammer_emitters.size(), 1U);
   EXPECT_EQ(committed.track_output_frame.cycle_index, baseline.track_output_frame.cycle_index + 1U);
   EXPECT_EQ(committed.track_output_frame.batch_id, baseline.track_output_frame.batch_id + 1U);
@@ -1190,8 +1191,8 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultMatchesManualChainUnder
   signal::pipeline::SignalPipeline signal_pipeline(pipeline_config);
   environment::EnvironmentService environment_service(
       environment::BuildModelConfigFromScenario(config.environment_default_config.scenario_config));
-  environment_service.SetJammingDetectionThresholdDb(
-      config.environment_default_config.jamming_detection_threshold_db);
+  environment_service.SetJammingSensitivityProfile(
+      config.environment_default_config.jamming_sensitivity_profile);
   extension::RadarController controller(manual_context, signal_pipeline, environment_service);
 
   const session::RadarCycleInput input = MakeCycleInput(model::TargetFeatureList{

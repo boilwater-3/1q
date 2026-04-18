@@ -85,24 +85,12 @@ class ONEQ_API RadarRuntimeConfigBuilder {
     return *this;
   }
 
-  /** @brief 更新干扰判定阈值（单位：dB）。 */
+  /** @brief 更新干扰判定灵敏度语义档位。 */
   RadarRuntimeConfigBuilder& WithJammingSensitivityProfile(
       environment::JammingSensitivityProfile profile) {
     patch_.has_environment_runtime_config = true;
     patch_.environment_runtime_config.has_jamming_sensitivity_profile = true;
     patch_.environment_runtime_config.jamming_sensitivity_profile = profile;
-    patch_.environment_runtime_config.jamming_detection_threshold_db =
-        environment::ResolveJammingDetectionThresholdDb(profile);
-    return *this;
-  }
-
-  /** @brief 更新干扰判定阈值（单位：dB）。 */
-  RadarRuntimeConfigBuilder& WithJammingDetectionThresholdDb(float threshold_db) {
-    patch_.has_environment_runtime_config = true;
-    patch_.environment_runtime_config.has_jamming_detection_threshold_db = true;
-    patch_.environment_runtime_config.jamming_detection_threshold_db = threshold_db;
-    patch_.environment_runtime_config.jamming_sensitivity_profile =
-        environment::ResolveJammingSensitivityProfile(threshold_db);
     return *this;
   }
 

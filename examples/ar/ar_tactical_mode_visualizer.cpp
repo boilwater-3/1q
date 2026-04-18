@@ -180,7 +180,7 @@ std::unique_ptr<airborne_radar::session::RadarSession> MakeSession() {
               .WithNoiseFigureDb(3.5f)
               .End()
               .Environment()
-              .WithJammingDetectionThresholdDb(4.0f)
+              .WithJammingSensitivityProfile(environment::ResolveJammingSensitivityProfile(4.0f))
               .End()
               .Build()));
 

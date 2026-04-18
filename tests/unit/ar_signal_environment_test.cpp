@@ -90,7 +90,7 @@ TEST(EnvironmentServiceTest, DetectsJammingByConfiguredThreshold) {
       MakeJammerEmitter(environment::JammingTechnique::kUnknown, 7.0f);
 
   environment::EnvironmentService service(MakeEnvironmentConfigWithJammers({jammer_source}));
-  service.SetJammingDetectionThresholdDb(6.0f);
+  service.SetJammingSensitivityProfile(environment::ResolveJammingSensitivityProfile(6.0f));
 
   const auto snapshot = service.SampleEnvironment();
   EXPECT_TRUE(snapshot.jamming_detected);
@@ -128,6 +128,35 @@ TEST(EnvironmentServiceTest, ModelConfigAtmosphericPhysicsAffectsDefaultSnapshot
   environment::EnvironmentService service(config);
   const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
   EXPECT_GT(snapshot.propagation_loss_db, 6.5f);
+}
+
+TEST(EnvironmentServiceTest, DerivesAtmosphericInputsFromObservationAndTimestamp) {
+  environment::EnvironmentModelConfig config;
+  config.atmospheric_physics.enable_physical_model = true;
+  config.atmospheric_physics.pressure_hpa = 950.0f;
+  config.atmospheric_physics.temperature_k = 300.0f;
+  config.atmospheric_physics.relative_humidity = 0.9f;
+  config.atmospheric_context.has_simulation_unix_seconds = true;
+  config.atmospheric_context.simulation_unix_seconds = 1704067200;  // 2024-01-01 00:00:00 UTC, DOY=1
+
+  environment::EnvironmentService service(config);
+  const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
+
+  EXPECT_GT(snapshot.effective_k_factor, 1.0f);
+  EXPECT_LT(snapshot.effective_k_factor, 2.0f);
+  EXPECT_EQ(snapshot.effective_day_of_year, 1);
+}
+
+TEST(EnvironmentServiceTest, FallsBackToDefaultDayOfYearWithoutTimestamp) {
+  environment::EnvironmentModelConfig config;
+  config.atmospheric_physics.enable_physical_model = true;
+  config.atmospheric_context.has_simulation_unix_seconds = false;
+  config.atmospheric_context.simulation_unix_seconds = 946684800;  // 2000-01-01
+
+  environment::EnvironmentService service(config);
+  const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
+
+  EXPECT_EQ(snapshot.effective_day_of_year, 172);
 }
 
 TEST(EnvironmentServiceTest, FreezesSnapshotUntilNextCycle) {
@@ -197,7 +226,7 @@ TEST(EnvironmentServiceTest, SupportsMultipleJammerSourcesInSnapshot) {
   config.jammer_sources.push_back(deception_source);
 
   environment::EnvironmentService service(config);
-  service.SetJammingDetectionThresholdDb(6.0f);
+  service.SetJammingSensitivityProfile(environment::ResolveJammingSensitivityProfile(6.0f));
 
   const auto snapshot = service.SampleEnvironment();
   ASSERT_EQ(snapshot.jammer_sources.size(), 2u);
@@ -1727,7 +1756,7 @@ TEST(PropagationModelTest, ZeroAtmosphericAttenuationKeepsInternalPropagationBas
 /// @brief 默认配置下不生成干扰源，也不会误判为探测到干扰。
 TEST(EnvironmentServiceTest, EmptyJammerSourcesProduceNoJammingFacts) {
   environment::EnvironmentService service;
-  service.SetJammingDetectionThresholdDb(0.001f);
+  service.SetJammingSensitivityProfile(environment::ResolveJammingSensitivityProfile(0.001f));
 
   const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
   EXPECT_TRUE(snapshot.jammer_sources.empty());
@@ -1744,7 +1773,7 @@ TEST(EnvironmentServiceTest, StructuredSidelobeFactIsPreservedWithoutDetection) 
   source.angular_span_deg = 30.0f;
 
   environment::EnvironmentService service(MakeEnvironmentConfigWithJammers({source}));
-  service.SetJammingDetectionThresholdDb(0.001f);
+  service.SetJammingSensitivityProfile(environment::ResolveJammingSensitivityProfile(0.001f));
 
   const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
   ASSERT_EQ(snapshot.jammer_sources.size(), 1u);
@@ -1827,8 +1856,8 @@ TEST(EnvironmentServiceTest, EmitterConfidenceAboveOneIsClampedToOne) {
 /// @brief 干扰功率恰好等于检测门限时，应判定为探测到干扰（>= 门限）。
 TEST(EnvironmentServiceTest, JammingDetectedWhenPowerEqualsThreshold) {
   environment::EnvironmentService service(MakeEnvironmentConfigWithJammers(
-      {MakeJammerEmitter(environment::JammingTechnique::kUnknown, 5.0f)}));
-  service.SetJammingDetectionThresholdDb(5.0f);  // 恰好等于
+      {MakeJammerEmitter(environment::JammingTechnique::kUnknown, 6.0f)}));
+  service.SetJammingSensitivityProfile(environment::JammingSensitivityProfile::kBalanced);
 
   EXPECT_TRUE(service.SampleEnvironment().jamming_detected);
 }
@@ -1836,8 +1865,8 @@ TEST(EnvironmentServiceTest, JammingDetectedWhenPowerEqualsThreshold) {
 /// @brief 干扰功率低于检测门限时，不判定为探测到干扰。
 TEST(EnvironmentServiceTest, JammingNotDetectedWhenPowerBelowThreshold) {
   environment::EnvironmentService service(MakeEnvironmentConfigWithJammers(
-      {MakeJammerEmitter(environment::JammingTechnique::kUnknown, 4.9f)}));
-  service.SetJammingDetectionThresholdDb(5.0f);
+      {MakeJammerEmitter(environment::JammingTechnique::kUnknown, 5.9f)}));
+  service.SetJammingSensitivityProfile(environment::JammingSensitivityProfile::kBalanced);
 
   EXPECT_FALSE(service.SampleEnvironment().jamming_detected);
 }
@@ -1860,7 +1889,7 @@ TEST(EnvironmentServiceTest, KeepsAllJammerSourcesInSnapshot) {
   config.jammer_sources.push_back(high);
 
   environment::EnvironmentService service(config);
-  service.SetJammingDetectionThresholdDb(2.0f);
+  service.SetJammingSensitivityProfile(environment::ResolveJammingSensitivityProfile(2.0f));
 
   const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
   ASSERT_EQ(snapshot.jammer_sources.size(), 2u);

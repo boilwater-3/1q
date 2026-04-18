@@ -201,13 +201,7 @@ void EnvironmentService::UpdateModelConfig(const EnvironmentModelConfig& config)
 
 void EnvironmentService::SetJammingSensitivityProfile(JammingSensitivityProfile profile) {
   jamming_sensitivity_profile_ = profile;
-  jamming_detection_threshold_db_ = ResolveJammingDetectionThresholdDb(profile);
-  RefreshFrozenSnapshotFromActiveScene();
-}
-
-void EnvironmentService::SetJammingDetectionThresholdDb(float threshold_db) {
-  jamming_detection_threshold_db_ = threshold_db;
-  jamming_sensitivity_profile_ = ResolveJammingSensitivityProfile(threshold_db);
+  effective_jamming_detection_threshold_db_ = ResolveJammingDetectionThresholdDb(profile);
   RefreshFrozenSnapshotFromActiveScene();
 }
 
@@ -219,7 +213,6 @@ environment::EnvironmentServiceRuntimeState EnvironmentService::CaptureRuntimeSt
     state.active_cycle_context = scene_manager_->GetActiveCycleContext();
   }
   state.jamming_sensitivity_profile = jamming_sensitivity_profile_;
-  state.jamming_detection_threshold_db = jamming_detection_threshold_db_;
   return state;
 }
 
@@ -230,14 +223,9 @@ void EnvironmentService::RestoreRuntimeState(
                                  state.active_cycle_context);
   }
   current_cycle_context_ = state.active_cycle_context;
-  jamming_detection_threshold_db_ = state.jamming_detection_threshold_db;
-  if (state.jamming_detection_threshold_db ==
-      ResolveJammingDetectionThresholdDb(state.jamming_sensitivity_profile)) {
-    jamming_sensitivity_profile_ = state.jamming_sensitivity_profile;
-  } else {
-    jamming_sensitivity_profile_ =
-        ResolveJammingSensitivityProfile(state.jamming_detection_threshold_db);
-  }
+  jamming_sensitivity_profile_ = state.jamming_sensitivity_profile;
+  effective_jamming_detection_threshold_db_ =
+      ResolveJammingDetectionThresholdDb(jamming_sensitivity_profile_);
   RefreshFrozenSnapshotFromActiveScene();
 }
 
@@ -256,6 +244,10 @@ void EnvironmentService::RefreshFrozenSnapshotFromActiveScene() {
   frozen_snapshot_.clutter_power_db = propagation_result.clutter_power_db;
   frozen_snapshot_.atmospheric_physics = active_scene.atmospheric_physics;
   frozen_snapshot_.atmospheric_context = active_scene.atmospheric_context;
+  frozen_snapshot_.effective_k_factor = ::airborne_radar::environment::ResolveEffectiveKFactor(
+      active_scene.atmospheric_context, active_scene.atmospheric_physics);
+  frozen_snapshot_.effective_day_of_year =
+      ::airborne_radar::environment::ResolveEffectiveDayOfYear(active_scene.atmospheric_context);
   frozen_snapshot_.jammer_sources.clear();
   frozen_snapshot_.jammer_sources.reserve(active_scene.jammer_emitters.size());
   for (std::size_t i = 0; i < active_scene.jammer_emitters.size(); ++i) {
@@ -265,8 +257,7 @@ void EnvironmentService::RefreshFrozenSnapshotFromActiveScene() {
   frozen_snapshot_.jamming_detected =
       std::find_if(frozen_snapshot_.jammer_sources.begin(), frozen_snapshot_.jammer_sources.end(),
                    [this](const JammerSourceFact& source) {
-                     return source.power_db >=
-                            jamming_detection_threshold_db_;
+                     return source.power_db >= effective_jamming_detection_threshold_db_;
                    }) != frozen_snapshot_.jammer_sources.end();
 }
 

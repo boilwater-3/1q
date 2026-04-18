@@ -46,7 +46,8 @@ int main() {
           .WithLifecycleConfirmHits(3)
           .End()
           .Environment()
-          .WithJammingDetectionThresholdDb(5.0f)
+          .WithJammingSensitivityProfile(
+              airborne_radar::environment::ResolveJammingSensitivityProfile(5.0f))
           .End()
           .Build();
 
@@ -93,7 +94,8 @@ int main() {
       airborne_radar::config::RadarRuntimeConfigBuilder()
           .WithRadarWorkSubMode(airborne_radar::model::RadarWorkSubMode::kTas)
           .WithScanCenterDeg({15.0f, -5.0f})
-          .WithJammingDetectionThresholdDb(8.0f)
+          .WithJammingSensitivityProfile(
+              airborne_radar::environment::ResolveJammingSensitivityProfile(8.0f))
           .EnableCommandedBeamwidth(true)
           .Build();
   session.ApplyRuntimeConfig(runtime_patch);

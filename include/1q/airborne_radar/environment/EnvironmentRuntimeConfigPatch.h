@@ -20,9 +20,6 @@ struct EnvironmentRuntimeConfigPatch {
   bool has_jamming_sensitivity_profile{false};    /**< 是否更新干扰判定灵敏度语义档位 */
   JammingSensitivityProfile jamming_sensitivity_profile{
       JammingSensitivityProfile::kBalanced};      /**< 运行期干扰判定灵敏度语义档位 */
-  bool has_jamming_detection_threshold_db{false}; /**< 是否更新干扰判定阈值 */
-  float jamming_detection_threshold_db{
-      ResolveJammingDetectionThresholdDb(JammingSensitivityProfile::kBalanced)}; /**< 兼容字段：运行期干扰判定阈值（单位：dB） */
 };
 
 }  // namespace environment

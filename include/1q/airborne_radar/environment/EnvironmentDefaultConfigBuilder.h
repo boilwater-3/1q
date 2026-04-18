@@ -15,7 +15,7 @@ namespace environment {
  * @brief EnvironmentDefaultConfig 链式构造器。
  *
  * 以 `EnvironmentDefaultConfig` 的直接字段为粒度提供 setter，
- * 分别对应默认环境模型配置和干扰判定阈值：
+ * 用于覆盖默认环境模型配置与干扰判定语义档位：
  *
  * @code
  * EnvironmentScenarioConfig scenario;
@@ -24,7 +24,7 @@ namespace environment {
  * EnvironmentDefaultConfig env = EnvironmentDefaultConfigBuilder()
  *     .WithScenarioConfig(scenario)
  *     .Build();
- * env.jamming_detection_threshold_db = 8.0f;
+ * env.jamming_sensitivity_profile = JammingSensitivityProfile::kRelaxed;
  * @endcode
  */
 class EnvironmentDefaultConfigBuilder {
