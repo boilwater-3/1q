@@ -15,6 +15,8 @@
 namespace airborne_radar {
 namespace config {
 
+using expert::ExpertPipelineConfig;
+
 /**
  * @brief 内部装配过渡壳，面向扩展管线接口的聚合配置。
  *
@@ -23,7 +25,7 @@ namespace config {
  * 运行时补丁（RadarRuntimeConfigPatch）会在不重建会话的前提下修改此字段。
  */
 struct PipelineConfig {
-  expert::ExpertPipelineConfig expert{};       /**< 物理参数配置（探测/跟踪/生命周期/波束调度）。 */
+  ExpertPipelineConfig expert{};               /**< 物理参数配置（探测/跟踪/生命周期/波束调度）。 */
   model::RadarOrientationConfig orientation{}; /**< 波束指向与扫描运行态（支持运行时热更新）。 */
 };
 

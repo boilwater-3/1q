@@ -116,7 +116,7 @@ Json BuildJson(const model::RadarOrientationConfig& value) {
   return json;
 }
 
-Json BuildJson(const config::expert::DetectionConfig& value) {
+Json BuildJson(const config::DetectionConfig& value) {
   Json json;
   json["enable_physics_detection"] = value.enable_physics_detection;
   json["swerling_model"] = static_cast<int>(value.swerling_model);
@@ -156,7 +156,7 @@ Json BuildJson(const config::expert::DetectionConfig& value) {
   return json;
 }
 
-Json BuildJson(const config::expert::TrackingConfig& value) {
+Json BuildJson(const config::TrackingConfig& value) {
   Json json;
   json["enable_kalman_filter"] = value.enable_kalman_filter;
   json["kalman_measurement_noise_std"] = value.kalman_measurement_noise_std;
@@ -164,7 +164,7 @@ Json BuildJson(const config::expert::TrackingConfig& value) {
   return json;
 }
 
-Json BuildJson(const config::expert::LifecycleConfig& value) {
+Json BuildJson(const config::LifecycleConfig& value) {
   Json json;
   json["confirm_hits"] = value.confirm_hits;
   json["max_miss_before_lost"] = value.max_miss_before_lost;

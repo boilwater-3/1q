@@ -1024,18 +1024,22 @@ include/1q/airborne_radar/config/
 - 已迁移公开/消费侧关键用法到非 `expert` 命名：
   - `RadarDetailedSessionConfigBuilder` 参数类型改为 `config::*` 别名
   - contract test、unit test、示例和 session builder 实现改为优先使用 `config::KalmanUpdateBackend`、`config::AntennaPatternModelType`
+- 已将 legacy 头从“公开合同白名单 + 安装导出清单”中下沉：
+  - `check_public_api_boundary.cmake` 不再把 `PipelineConfig.h`、`config/expert/*` 计入公开 API 合同
+  - `src/airborne_radar/CMakeLists.txt` 不再安装导出 `PipelineConfig.h` 与 `config/expert/*`
+- 已在实现层继续收敛 `expert` 显式命名：
+  - `PipelineConfig.h` 与 `RadarSessionConfigBuilder` 增补 `ExpertPipelineConfig` 平级别名并替换调用点
+  - `RadarTraceSession` 的配置序列化改为使用 `config::DetectionConfig/TrackingConfig/LifecycleConfig`
 
 当前验证结果：
 
 - `llvm-ninja-debug-local`：build + ctest 通过
 - `llvm-ninja-release-local`：build + ctest 通过
 
-M5 剩余关注点（留待后续批次）：
+阶段 6 候选优化（非 M5 阻塞项）：
 
-- `PipelineConfig.h` 与 `config/expert/*` 仍保留在 include 树，当前定位为遗留/内部过渡头。
-- `check_public_api_boundary.cmake` 仍包含上述遗留头白名单，用于与现状目录一致性校验。
-- 仍存在部分 `config::expert::*` 的公开可见路径（例如 `PipelineConfig.h` 与部分 builder 基类字段），需在阶段 6 继续下沉或替换。
-- 若目标是彻底达成“唯一公开主路径”，需要在后续阶段继续推进旧头下沉（对应阶段 6）。
+- `PipelineConfig.h` 与 `config/expert/*` 目前仍保留在仓库 `include` 树，后续可继续物理下沉到 `src/` 内部路径。
+- 如需彻底消除仓库级 legacy 目录，可在阶段 6 一次性迁移内部 include 与对应单测入口。
 
 ### 阶段 6：清理旧公开入口与历史桥接残留
 

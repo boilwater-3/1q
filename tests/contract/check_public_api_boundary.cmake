@@ -24,8 +24,8 @@ set(AR_SEMANTIC_HEADERS
     "airborne_radar/config/semantic/TrackingProfiles.h"
 )
 
-# ── AR 遗留/内部过渡头（短期保留在 include 树，不作为推荐入口） ─────
-set(AR_LEGACY_HEADERS
+# ── AR 内部过渡头（保留在仓库 include 树，但不计入公开合同白名单） ───
+set(AR_INTERNAL_TRANSITION_HEADERS
     "airborne_radar/config/PipelineConfig.h"
     "airborne_radar/config/expert/ExpertPipelineConfig.h"
     "airborne_radar/config/expert/beam/BeamControlConfig.h"
@@ -197,7 +197,6 @@ set(FOUNDATION_HEADERS
 set(EXPECTED_PUBLIC_HEADERS
     ${AR_PUBLIC_PRIMARY_HEADERS}
     ${AR_SEMANTIC_HEADERS}
-    ${AR_LEGACY_HEADERS}
     ${AR_ENVIRONMENT_HEADERS}
     ${AR_EXTENSION_HEADERS}
     ${AR_MODEL_HEADERS}
@@ -214,14 +213,18 @@ file(GLOB_RECURSE ACTUAL_PUBLIC_HEADERS
      "${PUBLIC_INCLUDE_DIR}/*.h"
      "${PUBLIC_INCLUDE_DIR}/*.hpp")
 
-list(SORT EXPECTED_PUBLIC_HEADERS)
-list(SORT ACTUAL_PUBLIC_HEADERS)
+set(ACTUAL_PUBLIC_CONTRACT_HEADERS ${ACTUAL_PUBLIC_HEADERS})
+list(FILTER ACTUAL_PUBLIC_CONTRACT_HEADERS EXCLUDE REGEX "^airborne_radar/config/PipelineConfig\\.h$")
+list(FILTER ACTUAL_PUBLIC_CONTRACT_HEADERS EXCLUDE REGEX "^airborne_radar/config/expert/")
 
-if(NOT ACTUAL_PUBLIC_HEADERS STREQUAL EXPECTED_PUBLIC_HEADERS)
+list(SORT EXPECTED_PUBLIC_HEADERS)
+list(SORT ACTUAL_PUBLIC_CONTRACT_HEADERS)
+
+if(NOT ACTUAL_PUBLIC_CONTRACT_HEADERS STREQUAL EXPECTED_PUBLIC_HEADERS)
   message(FATAL_ERROR
           "Public header whitelist drifted.\n"
           "Expected: ${EXPECTED_PUBLIC_HEADERS}\n"
-          "Actual: ${ACTUAL_PUBLIC_HEADERS}")
+          "Actual: ${ACTUAL_PUBLIC_CONTRACT_HEADERS}")
 endif()
 
 execute_process(

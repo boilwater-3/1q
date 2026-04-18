@@ -20,6 +20,7 @@ namespace config {
 using model::AzimuthElevationDeg;
 using model::CommandedBeamwidthDeg;
 using model::RadarWorkSubMode;
+using expert::ExpertPipelineConfig;
 
 /**
  * @brief RadarSession 配置链式构造器。
@@ -108,7 +109,7 @@ class ONEQ_API RadarSessionConfigBuilder {
   bool enable_imm_fusion_{false};
   semantic::LifecyclePolicyProfile lifecycle_profile_{semantic::LifecyclePolicyProfile::kBalanced};
 
-  expert::ExpertPipelineConfig base_expert_config_{};
+  ExpertPipelineConfig base_expert_config_{};
   model::RadarOrientationConfig orientation_{};
   environment::EnvironmentDefaultConfig env_{};
   bool detection_dirty_{false};

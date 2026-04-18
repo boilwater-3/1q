@@ -13,7 +13,7 @@ void ApplyDetectionSemanticConfig(bool enable_physics_detection,
                                   semantic::AntennaPatternProfile antenna_profile,
                                   const model::AzimuthElevationDeg& antenna_boresight_offset_deg,
                                   semantic::RcsFusionProfile rcs_fusion_profile,
-                                  expert::DetectionConfig* detection_config) {
+                                  DetectionConfig* detection_config) {
   if (detection_config == nullptr) {
     return;
   }
@@ -103,7 +103,7 @@ void ApplyDetectionSemanticConfig(bool enable_physics_detection,
 
 void ApplyTrackingSemanticConfig(bool enable_tracking_filter,
                                  semantic::TrackingPolicyProfile tracking_profile,
-                                 expert::ExpertPipelineConfig* expert_config) {
+                                 ExpertPipelineConfig* expert_config) {
   if (expert_config == nullptr) {
     return;
   }
@@ -133,7 +133,7 @@ void ApplyTrackingSemanticConfig(bool enable_tracking_filter,
 
 void ApplyLifecycleSemanticConfig(bool enable_imm_fusion,
                                   semantic::LifecyclePolicyProfile lifecycle_profile,
-                                  expert::LifecycleConfig* lifecycle_config) {
+                                  LifecycleConfig* lifecycle_config) {
   if (lifecycle_config == nullptr) {
     return;
   }
@@ -158,8 +158,8 @@ void ApplyLifecycleSemanticConfig(bool enable_imm_fusion,
   }
 }
 
-expert::ExpertPipelineConfig BuildDefaultSemanticExpertConfig() {
-  expert::ExpertPipelineConfig expert_config;
+ExpertPipelineConfig BuildDefaultSemanticExpertConfig() {
+  ExpertPipelineConfig expert_config;
   ApplyDetectionSemanticConfig(false, semantic::RadarHardwareProfile::kGenericAirborneXBand,
                                semantic::DetectionIntentProfile::kBalanced,
                                semantic::AntennaPatternProfile::kStandard,
@@ -188,7 +188,7 @@ RadarSessionConfigBuilder::RadarSessionConfigBuilder(const session::RadarSession
 
 session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
   session::RadarSessionConfig result;
-  const expert::ExpertPipelineConfig default_semantic_expert = BuildDefaultSemanticExpertConfig();
+  const ExpertPipelineConfig default_semantic_expert = BuildDefaultSemanticExpertConfig();
   result.hardware.detection = base_expert_config_.detection;
   result.policy.beam_control = base_expert_config_.beam_control;
   result.policy.association = base_expert_config_.association;
@@ -198,7 +198,7 @@ session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
   result.mission.orientation = orientation_;
   result.environment = env_;
 
-  expert::ExpertPipelineConfig merged_expert;
+  ExpertPipelineConfig merged_expert;
   merged_expert.detection = result.hardware.detection;
   merged_expert.beam_control = result.policy.beam_control;
   merged_expert.association = result.policy.association;
