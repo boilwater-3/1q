@@ -82,16 +82,19 @@ struct RadarSession::Impl {
     return result;
   }
 
-  void CommitPendingRuntimeConfig() {
+  bool CommitPendingRuntimeConfig() {
     if (!has_pending_runtime_update) {
-      return;
+      return true;
     }
 
-    signal_pipeline.UpdateConfig(pending_runtime_state.pipeline_config);
+    if (!signal_pipeline.UpdateConfig(pending_runtime_state.pipeline_config)) {
+      return false;
+    }
     environment_service.UpdateModelConfig(environment::BuildModelConfigFromScenario(
         pending_runtime_state.environment_scenario_config));
     environment_service.SetJammingSensitivityProfile(
         pending_runtime_state.jamming_sensitivity_profile);
+    return true;
   }
 
   void FinalizePendingRuntimeConfig() {
@@ -184,7 +187,13 @@ RadarCycleResult RadarSession::StepWithResult(const RadarCycleInput& input) {
   const extension::RadarControllerRuntimeState controller_state =
       needs_controller_snapshot ? impl_->controller.CaptureRuntimeState()
                                 : extension::RadarControllerRuntimeState();
-  impl_->CommitPendingRuntimeConfig();
+  if (!impl_->CommitPendingRuntimeConfig()) {
+    impl_->RollbackFailedCycle(radar_context_state,
+                               needs_environment_snapshot ? &environment_state : nullptr,
+                               needs_controller_snapshot ? &controller_state : nullptr);
+    return impl_->BuildExecutionAbortResult(
+        extension::SignalCycleAbortReason::kRuntimePreparationFailed);
+  }
   impl_->radar_context.BeginCycle(input);
   impl_->controller.RunOnce();
   if (!impl_->controller.ExecutedLatestCycle()) {
@@ -215,7 +224,13 @@ RadarCycleResult RadarSession::StepWithResult(
   const extension::RadarControllerRuntimeState controller_state =
       needs_controller_snapshot ? impl_->controller.CaptureRuntimeState()
                                 : extension::RadarControllerRuntimeState();
-  impl_->CommitPendingRuntimeConfig();
+  if (!impl_->CommitPendingRuntimeConfig()) {
+    impl_->RollbackFailedCycle(radar_context_state,
+                               needs_environment_snapshot ? &environment_state : nullptr,
+                               needs_controller_snapshot ? &controller_state : nullptr);
+    return impl_->BuildExecutionAbortResult(
+        extension::SignalCycleAbortReason::kRuntimePreparationFailed);
+  }
   impl_->environment_service.UpdateSceneState(scene_state);
   impl_->radar_context.BeginCycle(input);
   impl_->controller.RunOnce();

@@ -105,7 +105,7 @@ class SignalPipeline final : public extension::ISignalPipeline {
    * @brief 更新流水线运行配置。
    * @param config 新配置。
    */
-  void UpdateConfig(PipelineConfig config) override;
+  bool UpdateConfig(PipelineConfig config) override;
 
  private:
   struct Impl;

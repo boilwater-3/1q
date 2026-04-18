@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "1q/airborne_radar/config/expert/beam/BeamSchedulerConfig.h"
 #include "airborne_radar/utils/RadarOrientationUtils.h"
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"
 #include "airborne_radar/signal/pipeline/config/SignalPipelineRuntimeTypes.h"
@@ -32,6 +33,12 @@ std::vector<model::AzimuthElevationDeg> BuildScheduledScanPattern(
 model::AzimuthElevationDeg ResolveScheduledBeamPointing(
     const model::RadarOrientationConfig& orientation_config,
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg, std::uint32_t cycle_index);
+
+model::AzimuthElevationDeg ResolveScheduledBeamPointing(
+    const model::RadarOrientationConfig& orientation_config,
+    const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg,
+    const config::expert::beam::BeamSchedulerConfig& scheduler_config,
+    std::uint32_t cycle_index);
 
 model::AzimuthElevationDeg ResolveScheduledDwellCenter(
     const model::RadarOrientationConfig& orientation_config,

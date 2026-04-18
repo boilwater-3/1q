@@ -238,15 +238,32 @@ struct SignalPipeline::Impl {
         runtime_config.public_config, runtime_config.internal_config);
   }
 
-  void UpdateConfig(PipelineConfig new_config) {
+  bool UpdateConfig(PipelineConfig new_config) {
+    const PipelineConfig previous_config = runtime_.config.base_config;
+    const internal::InternalPipelineConfig previous_internal_config =
+        runtime_.config.base_internal_config;
     runtime_.config.base_config = std::move(new_config);
     runtime_.config.base_internal_config =
         internal::BuildInternalPipelineConfig(runtime_.config.base_config);
-    internal::SyncAssociationAndTrackFilterConfigs(runtime_.config.base_config,
-                                                   runtime_.config.base_internal_config,
-                                                   &runtime_.owned.association_engine,
-                                                   &runtime_.owned.track_filter);
-    RebuildOwnedComponents();
+    if (!internal::SyncAssociationAndTrackFilterConfigs(
+        runtime_.config.base_config, runtime_.config.base_internal_config,
+        &runtime_.owned.association_engine, &runtime_.owned.track_filter,
+        runtime_.owned.auto_lifecycle_manager.get())) {
+      runtime_.config.base_config = previous_config;
+      runtime_.config.base_internal_config = previous_internal_config;
+      PROJECT_LOG_ERROR(
+          "[SignalPipeline] UpdateConfig rejected because runtime config sync failed; "
+          "keeping previous pipeline config.");
+      return false;
+    }
+
+    assembly::internal::OwnedSignalComponents components =
+        assembly::internal::SignalComponentFactory::BuildOwnedPipelineComponents(
+            runtime_.config.base_config, runtime_.config.base_internal_config);
+    runtime_.owned.kalman_predictor = std::move(components.kalman_predictor);
+    runtime_.owned.kalman_updater = std::move(components.kalman_updater);
+    runtime_.owned.signal_detector = std::move(components.signal_detector);
+    return true;
   }
 
   void UpdatePlatformAttitude(const model::PlatformAttitudeDeg& platform_attitude_deg) {
@@ -337,8 +354,8 @@ extension::control::RadarControlProfile SignalPipeline::GetControlProfile() cons
   return impl_->GetControlProfile();
 }
 
-void SignalPipeline::UpdateConfig(PipelineConfig config) {
-  impl_->UpdateConfig(std::move(config));
+bool SignalPipeline::UpdateConfig(PipelineConfig config) {
+  return impl_->UpdateConfig(std::move(config));
 }
 
 }  // namespace pipeline

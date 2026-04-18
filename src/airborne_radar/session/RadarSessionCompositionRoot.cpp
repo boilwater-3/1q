@@ -30,7 +30,9 @@ void SyncPipelineConfig(RadarSessionComposition* composition) {
   if (composition == nullptr || composition->signal_pipeline == nullptr) {
     return;
   }
-  composition->signal_pipeline->UpdateConfig(composition->runtime_pipeline_config);
+  const bool accepted =
+      composition->signal_pipeline->UpdateConfig(composition->runtime_pipeline_config);
+  (void)accepted;
 }
 
 void SyncEnvironmentModelConfig(RadarSessionComposition* composition) {

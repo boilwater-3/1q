@@ -32,10 +32,46 @@ TEST(RadarSessionConfigBuilderTest, PresetBasePreservesPresetSemanticValues) {
       config::RadarSessionConfigBuilder(config::presets::MakeDetectionMissionRadarSessionConfig())
           .Build();
 
-    EXPECT_EQ(config.pipeline_config.expert.detection.pulse_count, 10);
-    EXPECT_FLOAT_EQ(config.pipeline_config.expert.detection.detection_policy.min_snr_db, -10.0f);
-    EXPECT_FLOAT_EQ(config.pipeline_config.expert.tracking.kalman_measurement_noise_std, 10.0f);
-    EXPECT_EQ(config.pipeline_config.expert.lifecycle.confirm_hits, 3U);
+  EXPECT_EQ(config.pipeline_config.expert.detection.pulse_count, 16);
+  EXPECT_FLOAT_EQ(config.pipeline_config.expert.detection.detection_policy.min_snr_db, -12.0f);
+  EXPECT_FLOAT_EQ(config.pipeline_config.expert.tracking.kalman_measurement_noise_std, 6.0f);
+  EXPECT_EQ(config.pipeline_config.expert.lifecycle.confirm_hits, 1U);
+}
+
+TEST(RadarSessionConfigBuilderTest, ExistingExpertConfigIsPreservedWhenOnlyEditingEnvironment) {
+  session::RadarSessionConfig base_config =
+      config::RadarExpertSessionConfigBuilder()
+          .Detection()
+          .EnablePhysicsDetection(true)
+          .WithPeakPowerW(7.5e6f)
+          .WithFrequencyHz(9.7e9f)
+          .End()
+          .Tracking()
+          .EnableKalmanFilter(true)
+          .WithKalmanMeasurementNoiseStd(4.5f)
+          .End()
+          .Lifecycle()
+          .EnableImmFusion(true)
+          .WithLifecycleConfirmHits(2U)
+          .End()
+          .Build();
+
+  const session::RadarSessionConfig rebuilt =
+      config::RadarSessionConfigBuilder(base_config)
+          .Environment()
+          .WithJammingSensitivityProfile(environment::JammingSensitivityProfile::kStrict)
+          .End()
+          .Build();
+
+  EXPECT_TRUE(rebuilt.pipeline_config.expert.detection.enable_physics_detection);
+  EXPECT_FLOAT_EQ(rebuilt.pipeline_config.expert.detection.transmitter.peak_power_w, 7.5e6f);
+  EXPECT_FLOAT_EQ(rebuilt.pipeline_config.expert.detection.transmitter.frequency_hz, 9.7e9f);
+  EXPECT_TRUE(rebuilt.pipeline_config.expert.tracking.enable_kalman_filter);
+  EXPECT_FLOAT_EQ(rebuilt.pipeline_config.expert.tracking.kalman_measurement_noise_std, 4.5f);
+  EXPECT_TRUE(rebuilt.pipeline_config.expert.lifecycle.enable_imm_lifecycle);
+  EXPECT_EQ(rebuilt.pipeline_config.expert.lifecycle.confirm_hits, 2U);
+  EXPECT_EQ(rebuilt.environment_default_config.jamming_sensitivity_profile,
+            environment::JammingSensitivityProfile::kStrict);
 }
 
 TEST(RadarSessionConfigBuilderTest, DetectionSemanticEditorsApplyCorrectly) {
@@ -250,12 +286,21 @@ TEST(RadarSessionConfigBuilderTest, ExpertBuiltConfigCanConstructRadarSession) {
 }
 
 TEST(RadarSessionConfigBuilderTest, ExpertBeamSchedulerWritesExpertPath) {
+  model::AzimuthElevationDeg default_scan_center;
+  default_scan_center.az_deg = 6.0f;
+  default_scan_center.el_deg = -1.5f;
+  model::CommandedBeamwidthDeg nominal_beamwidth;
+  nominal_beamwidth.commanded_az_beamwidth_deg = 2.5f;
+  nominal_beamwidth.commanded_el_beamwidth_deg = 1.5f;
+
   const auto expert_config =
       config::RadarExpertSessionConfigBuilder()
           .Beam()
           .WithAzimuthStepCountHint(8U)
           .WithElevationStepCountHint(4U)
           .PreferDenseTasSampling(true)
+          .WithDefaultScanCenterDeg(default_scan_center)
+          .WithNominalBeamwidthDeg(nominal_beamwidth)
           .End()
           .Build();
 
@@ -265,6 +310,14 @@ TEST(RadarSessionConfigBuilderTest, ExpertBeamSchedulerWritesExpertPath) {
       expert_config.pipeline_config.expert.beam_control.scheduler.elevation_step_count_hint, 4U);
   EXPECT_TRUE(
       expert_config.pipeline_config.expert.beam_control.scheduler.prefer_dense_tas_sampling);
+  EXPECT_FLOAT_EQ(expert_config.pipeline_config.orientation.scan_center_deg.az_deg, 6.0f);
+  EXPECT_FLOAT_EQ(expert_config.pipeline_config.orientation.scan_center_deg.el_deg, -1.5f);
+  EXPECT_FLOAT_EQ(
+      expert_config.pipeline_config.orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg,
+      2.5f);
+  EXPECT_FLOAT_EQ(
+      expert_config.pipeline_config.orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg,
+      1.5f);
 }
 
 }  // namespace tests

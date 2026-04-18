@@ -295,9 +295,13 @@ class RecordingSignalPipeline : public extension::ISignalPipeline {
     return control_profile_;
   }
 
-  void UpdateConfig(config::PipelineConfig config) override {
+  bool UpdateConfig(config::PipelineConfig config) override {
     ++update_config_count_;
+    if (!should_accept_updates_) {
+      return false;
+    }
     config_ = std::move(config);
+    return true;
   }
 
   extension::AssociationQualityMetrics GetLastAssociationQualityMetrics() const override {
@@ -310,6 +314,7 @@ class RecordingSignalPipeline : public extension::ISignalPipeline {
     state->control_profile = control_profile_;
     state->config = config_;
     state->should_execute = should_execute_;
+    state->should_accept_updates = should_accept_updates_;
     state->run_cycle_count = run_cycle_count_;
     state->update_config_count = update_config_count_;
     extension::SignalPipelineRuntimeState runtime_state;
@@ -332,11 +337,15 @@ class RecordingSignalPipeline : public extension::ISignalPipeline {
     control_profile_ = snapshot->control_profile;
     config_ = snapshot->config;
     should_execute_ = snapshot->should_execute;
+    should_accept_updates_ = snapshot->should_accept_updates;
     run_cycle_count_ = snapshot->run_cycle_count;
     update_config_count_ = snapshot->update_config_count;
   }
 
   void SetShouldExecute(bool should_execute) { should_execute_ = should_execute; }
+  void SetShouldAcceptUpdates(bool should_accept_updates) {
+    should_accept_updates_ = should_accept_updates;
+  }
   std::size_t run_cycle_count() const { return run_cycle_count_; }
   std::size_t update_config_count() const { return update_config_count_; }
   const config::PipelineConfig& config() const { return config_; }
@@ -347,6 +356,7 @@ class RecordingSignalPipeline : public extension::ISignalPipeline {
     extension::control::RadarControlProfile control_profile{};
     config::PipelineConfig config{};
     bool should_execute{true};
+    bool should_accept_updates{true};
     std::size_t run_cycle_count{0U};
     std::size_t update_config_count{0U};
   };
@@ -355,6 +365,7 @@ class RecordingSignalPipeline : public extension::ISignalPipeline {
   extension::control::RadarControlProfile control_profile_{};
   config::PipelineConfig config_{};
   bool should_execute_{true};
+  bool should_accept_updates_{true};
   std::size_t run_cycle_count_{0U};
   std::size_t update_config_count_{0U};
 };
@@ -1155,6 +1166,88 @@ TEST(PublicApiConvenienceTest,
   EXPECT_EQ(environment_service.GetPendingSceneState().jammer_emitters.size(), 1U);
   EXPECT_EQ(committed.track_output_frame.cycle_index, baseline.track_output_frame.cycle_index + 1U);
   EXPECT_EQ(committed.track_output_frame.batch_id, baseline.track_output_frame.batch_id + 1U);
+}
+
+TEST(PublicApiConvenienceTest,
+     RadarSessionRuntimePatchPreservesKnownTrackContinuityAcrossSuccessfulCycles) {
+  session::RadarSession session =
+      session::RadarSessionFactory::Create(MakeConvenienceSessionConfig());
+
+  const session::RadarCycleResult cycle_1 = session.StepWithResult(MakeCycleInput(
+      model::TargetFeatureList{
+          model::MakeAirTarget(970U, 180.0f, 1.5f, 12.0f, 65.0f, 0.0f, 0.0f, 1.0f),
+      }));
+  ASSERT_TRUE(cycle_1.executed_this_cycle);
+  ASSERT_EQ(cycle_1.track_output_frame.confirmed_track_count, 1U);
+  ASSERT_EQ(cycle_1.track_output_frame.tracks.size(), 1U);
+  const std::uint64_t baseline_key = cycle_1.track_output_frame.tracks[0].state.association_key;
+  ASSERT_NE(baseline_key, 0U);
+
+  session.ApplyRuntimeConfig(config::RadarRuntimeConfigBuilder()
+                                 .WithRadarWorkSubMode(model::RadarWorkSubMode::kTas)
+                                 .Build());
+
+  const session::RadarCycleResult cycle_2 = session.StepWithResult(MakeCycleInput(
+      model::TargetFeatureList{
+          model::MakeAirTarget(970U, 182.0f, 1.7f, 12.0f, 65.0f, 0.0f, 0.0f, 1.0f),
+      }));
+  ASSERT_TRUE(cycle_2.executed_this_cycle);
+  ASSERT_GE(cycle_2.track_output_frame.confirmed_track_count, 1U);
+  bool retained_known_track = false;
+  for (std::size_t i = 0; i < cycle_2.track_output_frame.tracks.size(); ++i) {
+    const model::DecisionTrackSnapshot& track = cycle_2.track_output_frame.tracks[i];
+    if (track.state.external_target_id == 970U &&
+        track.state.association_key == baseline_key) {
+      retained_known_track = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(retained_known_track);
+}
+
+TEST(PublicApiConvenienceTest,
+     RadarSessionKeepsRuntimePatchStagedWhenSignalPipelineRejectsConfigUpdate) {
+  RecordingRadarContext radar_context;
+  RecordingSignalPipeline signal_pipeline;
+  RecordingEnvironmentService environment_service;
+  NoopDecisionEngine decision_engine;
+  extension::RadarController controller(radar_context, signal_pipeline, decision_engine,
+                                        environment_service);
+  session::RadarSession session = session::RadarSessionFactory::CreateWithController(
+      MakeConvenienceSessionConfig(), controller);
+
+  const session::RadarCycleResult baseline = session.StepWithResult(MakeCycleInput(
+      model::TargetFeatureList{
+          model::MakeAirTarget(980U, 160.0f, 0.0f, 10.0f, 60.0f, 0.0f, 0.0f, 1.0f),
+      }));
+  ASSERT_TRUE(baseline.executed_this_cycle);
+  const std::size_t committed_update_config_count = signal_pipeline.update_config_count();
+
+  session.ApplyRuntimeConfig(config::RadarRuntimeConfigBuilder()
+                                 .WithRadarWorkSubMode(model::RadarWorkSubMode::kTas)
+                                 .Build());
+
+  signal_pipeline.SetShouldAcceptUpdates(false);
+  const session::RadarCycleResult rejected = session.StepWithResult(MakeCycleInput(
+      model::TargetFeatureList{
+          model::MakeAirTarget(981U, 162.0f, 0.0f, 10.0f, 60.0f, 0.0f, 0.0f, 1.0f),
+      }));
+  EXPECT_FALSE(rejected.executed_this_cycle);
+  EXPECT_EQ(rejected.signal_cycle_abort_reason,
+            extension::SignalCycleAbortReason::kRuntimePreparationFailed);
+  EXPECT_TRUE(rejected.reused_previous_track_output);
+  EXPECT_EQ(signal_pipeline.config().orientation.work_sub_mode,
+            model::RadarWorkSubMode::kTws);
+  EXPECT_EQ(signal_pipeline.update_config_count(), committed_update_config_count);
+
+  signal_pipeline.SetShouldAcceptUpdates(true);
+  const session::RadarCycleResult committed = session.StepWithResult(MakeCycleInput(
+      model::TargetFeatureList{
+          model::MakeAirTarget(982U, 164.0f, 0.0f, 10.0f, 60.0f, 0.0f, 0.0f, 1.0f),
+      }));
+  EXPECT_TRUE(committed.executed_this_cycle);
+  EXPECT_EQ(signal_pipeline.config().orientation.work_sub_mode,
+            model::RadarWorkSubMode::kTas);
 }
 
 TEST(PublicApiConvenienceTest, RadarSessionStepWithResultSurfacesValidationErrors) {

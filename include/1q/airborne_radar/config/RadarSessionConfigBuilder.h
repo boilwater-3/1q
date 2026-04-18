@@ -56,17 +56,18 @@ class ONEQ_API RadarSessionConfigBuilder {
   /** @brief 环境默认配置编辑器。 */
   class EnvironmentEditor;
 
+  /** @brief 使用语义默认值初始化 Builder。 */
+  RadarSessionConfigBuilder();
+
   /**
    * @brief 使用现有会话配置初始化 Builder。
    *
-   * 仅提取输入配置中的 `pipeline_config.orientation` 和
-   * `environment_default_config` 作为起始状态；语义档位始终从默认值开始。
+   * 输入配置中的 `pipeline_config.expert` 会作为工程参数基线保留；
+   * 仅当调用相应语义编辑器时，对应域才会被语义档位重新覆盖。
    *
    * @param config 作为编辑基线的会话配置。
    */
-  explicit RadarSessionConfigBuilder(const session::RadarSessionConfig& config = {})
-      : orientation_(config.pipeline_config.orientation),
-        env_(config.environment_default_config) {}
+  explicit RadarSessionConfigBuilder(const session::RadarSessionConfig& config);
 
   /** @brief 进入探测配置编辑域。 */
   DetectionEditor Detection();
@@ -110,8 +111,12 @@ class ONEQ_API RadarSessionConfigBuilder {
   semantic::LifecyclePolicyProfile lifecycle_profile_{semantic::LifecyclePolicyProfile::kBalanced};
 
   // 方向与环境（直接透传至输出）
+  expert::ExpertPipelineConfig base_expert_config_{};
   model::RadarOrientationConfig orientation_{};
   environment::EnvironmentDefaultConfig env_{};
+  bool detection_dirty_{false};
+  bool tracking_dirty_{false};
+  bool lifecycle_dirty_{false};
 };
 
 /**
@@ -124,26 +129,31 @@ class RadarSessionConfigBuilder::DetectionEditor {
   /** @brief 开启或关闭物理探测链路。 */
   DetectionEditor& EnablePhysicsDetection(bool enable = true) {
     builder_->enable_physics_detection_ = enable;
+    builder_->detection_dirty_ = true;
     return *this;
   }
   /** @brief 设置硬件语义档位。 */
   DetectionEditor& WithHardwareProfile(semantic::RadarHardwareProfile profile) {
     builder_->hardware_profile_ = profile;
+    builder_->detection_dirty_ = true;
     return *this;
   }
   /** @brief 设置探测意图语义档位。 */
   DetectionEditor& WithDetectionIntentProfile(semantic::DetectionIntentProfile profile) {
     builder_->intent_profile_ = profile;
+    builder_->detection_dirty_ = true;
     return *this;
   }
   /** @brief 设置方向图语义档位。 */
   DetectionEditor& WithAntennaPatternProfile(semantic::AntennaPatternProfile profile) {
     builder_->antenna_profile_ = profile;
+    builder_->detection_dirty_ = true;
     return *this;
   }
   /** @brief 设置 RCS 融合语义档位。 */
   DetectionEditor& WithRcsFusionProfile(semantic::RcsFusionProfile profile) {
     builder_->rcs_fusion_profile_ = profile;
+    builder_->detection_dirty_ = true;
     return *this;
   }
 
@@ -197,11 +207,13 @@ class RadarSessionConfigBuilder::TrackingEditor {
   /** @brief 开启或关闭公开跟踪滤波链路。 */
   TrackingEditor& EnableTrackingFilter(bool enable = true) {
     builder_->enable_tracking_filter_ = enable;
+    builder_->tracking_dirty_ = true;
     return *this;
   }
   /** @brief 设置跟踪策略语义档位。 */
   TrackingEditor& WithTrackingPolicyProfile(semantic::TrackingPolicyProfile profile) {
     builder_->tracking_profile_ = profile;
+    builder_->tracking_dirty_ = true;
     return *this;
   }
 
@@ -221,11 +233,13 @@ class RadarSessionConfigBuilder::LifecycleEditor {
   /** @brief 开启或关闭 IMM 融合。 */
   LifecycleEditor& EnableImmFusion(bool enable = true) {
     builder_->enable_imm_fusion_ = enable;
+    builder_->lifecycle_dirty_ = true;
     return *this;
   }
   /** @brief 设置生命周期策略语义档位。 */
   LifecycleEditor& WithLifecyclePolicyProfile(semantic::LifecyclePolicyProfile profile) {
     builder_->lifecycle_profile_ = profile;
+    builder_->lifecycle_dirty_ = true;
     return *this;
   }
 

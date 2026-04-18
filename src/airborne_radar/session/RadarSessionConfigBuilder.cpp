@@ -5,16 +5,23 @@
 namespace airborne_radar {
 namespace config {
 
-session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
-  session::RadarSessionConfig result;
-  result.pipeline_config.orientation = orientation_;
-  result.environment_default_config = env_;
+namespace {
 
-  auto& d = result.pipeline_config.expert.detection;
-  d.enable_physics_detection = enable_physics_detection_;
+void ApplyDetectionSemanticConfig(bool enable_physics_detection,
+                                  semantic::RadarHardwareProfile hardware_profile,
+                                  semantic::DetectionIntentProfile intent_profile,
+                                  semantic::AntennaPatternProfile antenna_profile,
+                                  const model::AzimuthElevationDeg& antenna_boresight_offset_deg,
+                                  semantic::RcsFusionProfile rcs_fusion_profile,
+                                  expert::DetectionConfig* detection_config) {
+  if (detection_config == nullptr) {
+    return;
+  }
+  auto& d = *detection_config;
+  d.enable_physics_detection = enable_physics_detection;
 
   // 硬件档位 → 发射机 / 天线 / 接收机物理参数
-  switch (hardware_profile_) {
+  switch (hardware_profile) {
     case semantic::RadarHardwareProfile::kLongRangeHighPower:
       d.transmitter.peak_power_w = 5.0e6f;
       d.transmitter.frequency_hz = 9.3e9f;
@@ -41,7 +48,7 @@ session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
   }
 
   // 探测意图档位 → 积累数 / 虚警率 / 最小信噪比 / 最小裕量
-  switch (intent_profile_) {
+  switch (intent_profile) {
     case semantic::DetectionIntentProfile::kDetectionPriority:
       d.pulse_count = 16;
       d.detection_policy.cfar_pfa = 2e-6f;
@@ -61,7 +68,7 @@ session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
   }
 
   // 方向图档位 → 旁瓣 / 覆盖模型参数
-  switch (antenna_profile_) {
+  switch (antenna_profile) {
     case semantic::AntennaPatternProfile::kLowSidelobe:
       d.antenna.pattern.max_sidelobe_level_db = -30.0f;
       d.antenna.pattern.backlobe_level_db = -42.0f;
@@ -76,10 +83,10 @@ session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
     default:
       break;
   }
-  d.antenna.pattern.boresight_offset_deg = antenna_boresight_offset_deg_;
+  d.antenna.pattern.boresight_offset_deg = antenna_boresight_offset_deg;
 
   // RCS 融合档位 → 物理 RCS 混合参数
-  switch (rcs_fusion_profile_) {
+  switch (rcs_fusion_profile) {
     case semantic::RcsFusionProfile::kConservative:
       d.rcs_physics.enable_physical_rcs = true;
       d.rcs_physics.physics_mix_ratio = 0.25f;
@@ -93,11 +100,19 @@ session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
     default:
       break;
   }
+}
+
+void ApplyTrackingSemanticConfig(bool enable_tracking_filter,
+                                 semantic::TrackingPolicyProfile tracking_profile,
+                                 expert::ExpertPipelineConfig* expert_config) {
+  if (expert_config == nullptr) {
+    return;
+  }
 
   // 跟踪档位 → Kalman 参数 + 衰减系数
-  auto& t = result.pipeline_config.expert.tracking;
-  t.enable_kalman_filter = enable_tracking_filter_;
-  switch (tracking_profile_) {
+  auto& t = expert_config->tracking;
+  t.enable_kalman_filter = enable_tracking_filter;
+  switch (tracking_profile) {
     case semantic::TrackingPolicyProfile::kFastAssociation:
       t.kalman_measurement_noise_std = 6.0f;
       t.kalman_update_backend = expert::KalmanUpdateBackend::kStandardKfJoseph;
@@ -109,17 +124,25 @@ session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
       t.kalman_update_backend = expert::KalmanUpdateBackend::kUdKf;
       t.speed_decay_ratio_on_loss = 0.95f;
       t.rcs_decay_ratio_on_loss = 0.92f;
-      result.pipeline_config.expert.association.unassigned_cost = 12.0f;
+      expert_config->association.unassigned_cost = 12.0f;
       break;
     case semantic::TrackingPolicyProfile::kBalanced:
     default:
       break;
   }
+}
+
+void ApplyLifecycleSemanticConfig(bool enable_imm_fusion,
+                                  semantic::LifecyclePolicyProfile lifecycle_profile,
+                                  expert::LifecycleConfig* lifecycle_config) {
+  if (lifecycle_config == nullptr) {
+    return;
+  }
 
   // 生命周期档位 → 确认门限 / 丢失门限
-  auto& lc = result.pipeline_config.expert.lifecycle;
-  lc.enable_imm_lifecycle = enable_imm_fusion_;
-  switch (lifecycle_profile_) {
+  auto& lc = *lifecycle_config;
+  lc.enable_imm_lifecycle = enable_imm_fusion;
+  switch (lifecycle_profile) {
     case semantic::LifecyclePolicyProfile::kFastConfirm:
       lc.confirm_hits = 1U;
       lc.max_miss_before_lost = 1U;
@@ -134,8 +157,62 @@ session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
     default:
       break;
   }
+}
 
-  if (tracking_profile_ == semantic::TrackingPolicyProfile::kRobustAntiJamming &&
+expert::ExpertPipelineConfig BuildDefaultSemanticExpertConfig() {
+  expert::ExpertPipelineConfig expert_config;
+  ApplyDetectionSemanticConfig(false, semantic::RadarHardwareProfile::kGenericAirborneXBand,
+                               semantic::DetectionIntentProfile::kBalanced,
+                               semantic::AntennaPatternProfile::kStandard,
+                               model::AzimuthElevationDeg(),
+                               semantic::RcsFusionProfile::kDisabled,
+                               &expert_config.detection);
+  ApplyTrackingSemanticConfig(false, semantic::TrackingPolicyProfile::kBalanced,
+                              &expert_config);
+  ApplyLifecycleSemanticConfig(false, semantic::LifecyclePolicyProfile::kBalanced,
+                               &expert_config.lifecycle);
+  return expert_config;
+}
+
+}  // namespace
+
+RadarSessionConfigBuilder::RadarSessionConfigBuilder()
+    : base_expert_config_(BuildDefaultSemanticExpertConfig()) {}
+
+RadarSessionConfigBuilder::RadarSessionConfigBuilder(const session::RadarSessionConfig& config)
+    : base_expert_config_(config.pipeline_config.expert),
+      orientation_(config.pipeline_config.orientation),
+      env_(config.environment_default_config) {}
+
+session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
+  session::RadarSessionConfig result;
+  const expert::ExpertPipelineConfig default_semantic_expert = BuildDefaultSemanticExpertConfig();
+  result.pipeline_config.expert = base_expert_config_;
+  result.pipeline_config.orientation = orientation_;
+  result.environment_default_config = env_;
+
+  if (detection_dirty_) {
+    result.pipeline_config.expert.detection = default_semantic_expert.detection;
+    ApplyDetectionSemanticConfig(enable_physics_detection_, hardware_profile_, intent_profile_,
+                                 antenna_profile_, antenna_boresight_offset_deg_,
+                                 rcs_fusion_profile_, &result.pipeline_config.expert.detection);
+  }
+
+  if (tracking_dirty_) {
+    result.pipeline_config.expert.tracking = default_semantic_expert.tracking;
+    result.pipeline_config.expert.association = default_semantic_expert.association;
+    ApplyTrackingSemanticConfig(enable_tracking_filter_, tracking_profile_,
+                                &result.pipeline_config.expert);
+  }
+
+  if (lifecycle_dirty_) {
+    result.pipeline_config.expert.lifecycle = default_semantic_expert.lifecycle;
+    ApplyLifecycleSemanticConfig(enable_imm_fusion_, lifecycle_profile_,
+                                 &result.pipeline_config.expert.lifecycle);
+  }
+
+  if (tracking_dirty_ &&
+      tracking_profile_ == semantic::TrackingPolicyProfile::kRobustAntiJamming &&
       !enable_imm_fusion_) {
     PROJECT_LOG_WARN(
         "[RadarSessionConfigBuilder] robust tracking policy is set while IMM fusion is disabled; "

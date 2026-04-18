@@ -146,7 +146,10 @@ class DummySignalPipeline : public extension::ISignalPipeline {
     return control_profile_;
   }
 
-  void UpdateConfig(config::PipelineConfig config) override { config_ = config; }
+  bool UpdateConfig(config::PipelineConfig config) override {
+    config_ = config;
+    return true;
+  }
 
   extension::AssociationQualityMetrics GetLastAssociationQualityMetrics() const override {
     return {};

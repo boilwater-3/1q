@@ -150,6 +150,31 @@ TEST(ScanScheduleResolverTest, StartPositionControlsFirstBeamQuadrant) {
   EXPECT_FLOAT_EQ(left_bottom_pattern.front().el_deg, -5.0f);
 }
 
+TEST(ScanScheduleResolverTest, ApplyScanScheduleUsesExpertBeamControlInputs) {
+  config::PipelineConfig runtime_config;
+  runtime_config.orientation.work_sub_mode = model::RadarWorkSubMode::kTas;
+  runtime_config.orientation.scan_center_deg.az_deg = 3.0f;
+  runtime_config.orientation.scan_center_deg.el_deg = -1.0f;
+  runtime_config.orientation.mechanical_scan_limits_deg.az_min_deg = -10.0f;
+  runtime_config.orientation.mechanical_scan_limits_deg.az_max_deg = 10.0f;
+  runtime_config.orientation.mechanical_scan_limits_deg.el_min_deg = -4.0f;
+  runtime_config.orientation.mechanical_scan_limits_deg.el_max_deg = 4.0f;
+  runtime_config.orientation.electronic_scan_limits_deg =
+      runtime_config.orientation.mechanical_scan_limits_deg;
+  runtime_config.expert.beam_control.pointing.nominal_beamwidth_deg.commanded_az_beamwidth_deg =
+      4.0f;
+  runtime_config.expert.beam_control.pointing.nominal_beamwidth_deg.commanded_el_beamwidth_deg =
+      2.0f;
+  runtime_config.expert.beam_control.scheduler.azimuth_step_count_hint = 6U;
+  runtime_config.expert.beam_control.scheduler.elevation_step_count_hint = 5U;
+  runtime_config.expert.beam_control.scheduler.prefer_dense_tas_sampling = true;
+
+  signal::pipeline::core::internal::ApplyScanScheduleToRuntimeConfig(1U, &runtime_config);
+
+  EXPECT_FLOAT_EQ(runtime_config.orientation.scan_center_deg.az_deg, -10.0f);
+  EXPECT_FLOAT_EQ(runtime_config.orientation.scan_center_deg.el_deg, 4.0f);
+}
+
 TEST(CycleExecutorTest, ValidRuntimeProducesInputAlignedStageBuffers) {
   config::PipelineConfig base_config;
   base_config = config::presets::MakeDetectionMissionPipelineConfig();

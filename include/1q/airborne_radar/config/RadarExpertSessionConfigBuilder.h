@@ -158,6 +158,10 @@ class RadarExpertSessionConfigBuilder::BeamEditor {
   /** @brief 整块替换 expert 波束控制配置（调度与指向入口）。 */
   BeamEditor& WithExpertBeamControl(const expert::BeamControlConfig& beam_control) {
     builder_->config_.pipeline_config.expert.beam_control = beam_control;
+    builder_->config_.pipeline_config.orientation.scan_center_deg =
+        beam_control.pointing.default_scan_center_deg;
+    builder_->config_.pipeline_config.orientation.commanded_beamwidth_deg =
+        beam_control.pointing.nominal_beamwidth_deg;
     return *this;
   }
   /** @brief 设置雷达工作子模式。 */
@@ -202,12 +206,14 @@ class RadarExpertSessionConfigBuilder::BeamEditor {
   BeamEditor& WithDefaultScanCenterDeg(const AzimuthElevationDeg& scan_center_deg) {
     builder_->config_.pipeline_config.expert.beam_control.pointing.default_scan_center_deg =
         scan_center_deg;
+    builder_->config_.pipeline_config.orientation.scan_center_deg = scan_center_deg;
     return *this;
   }
   /** @brief 设置名义指令态波束宽度（expert 指向路径）。 */
   BeamEditor& WithNominalBeamwidthDeg(const CommandedBeamwidthDeg& beamwidth_deg) {
     builder_->config_.pipeline_config.expert.beam_control.pointing.nominal_beamwidth_deg =
         beamwidth_deg;
+    builder_->config_.pipeline_config.orientation.commanded_beamwidth_deg = beamwidth_deg;
     return *this;
   }
 

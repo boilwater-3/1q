@@ -11,6 +11,50 @@ namespace pipeline {
 namespace core {
 namespace internal {
 
+namespace {
+
+bool IsFinitePositive(float value) {
+  return std::isfinite(value) && value > 0.0f;
+}
+
+detection::EffectiveBeamwidthDeg ResolveSchedulingBeamwidth(const PipelineConfig& runtime_config) {
+  detection::EffectiveBeamwidthDeg beamwidth;
+  const model::CommandedBeamwidthDeg& expert_nominal =
+      runtime_config.expert.beam_control.pointing.nominal_beamwidth_deg;
+  if (IsFinitePositive(expert_nominal.commanded_az_beamwidth_deg) &&
+      IsFinitePositive(expert_nominal.commanded_el_beamwidth_deg)) {
+    beamwidth.az_beamwidth_deg = expert_nominal.commanded_az_beamwidth_deg;
+    beamwidth.el_beamwidth_deg = expert_nominal.commanded_el_beamwidth_deg;
+    return beamwidth;
+  }
+
+  if (runtime_config.orientation.commanded_beamwidth_enabled &&
+      IsFinitePositive(runtime_config.orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg) &&
+      IsFinitePositive(runtime_config.orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg)) {
+    beamwidth.az_beamwidth_deg =
+        runtime_config.orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg;
+    beamwidth.el_beamwidth_deg =
+        runtime_config.orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg;
+    return beamwidth;
+  }
+
+  beamwidth.az_beamwidth_deg = runtime_config.expert.detection.antenna.nominal_az_beamwidth_deg;
+  beamwidth.el_beamwidth_deg = runtime_config.expert.detection.antenna.nominal_el_beamwidth_deg;
+  return beamwidth;
+}
+
+float ResolveAxisStepDeg(float min_deg, float max_deg, float default_step_deg,
+                         std::uint32_t step_count_hint) {
+  if (step_count_hint <= 1U) {
+    return default_step_deg;
+  }
+  const float span_deg = std::max(0.0f, max_deg - min_deg);
+  const float hint_step_deg = span_deg / static_cast<float>(step_count_hint - 1U);
+  return IsFinitePositive(hint_step_deg) ? hint_step_deg : default_step_deg;
+}
+
+}  // namespace
+
 model::AzimuthElevationDeg ResolveFiniteScanCenter(
     const model::RadarOrientationConfig& orientation_config) {
   model::AzimuthElevationDeg center = orientation_config.scan_center_deg;
@@ -123,7 +167,9 @@ std::vector<model::AzimuthElevationDeg> BuildScheduledScanPattern(
 
 model::AzimuthElevationDeg ResolveScheduledBeamPointing(
     const model::RadarOrientationConfig& orientation_config,
-    const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg, std::uint32_t cycle_index) {
+    const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg,
+    const config::expert::beam::BeamSchedulerConfig& scheduler_config,
+    std::uint32_t cycle_index) {
   model::AzimuthElevationLimitsDeg effective_limits = utils::IntersectScanLimits(
       orientation_config.mechanical_scan_limits_deg, orientation_config.electronic_scan_limits_deg);
   const bool limits_valid =
@@ -158,10 +204,21 @@ model::AzimuthElevationDeg ResolveScheduledBeamPointing(
     return fallback_center;
   }
 
-  const float step_scale = ResolveScanStepScale(orientation_config.work_sub_mode);
+  float step_scale = ResolveScanStepScale(orientation_config.work_sub_mode);
+  if (orientation_config.work_sub_mode == model::RadarWorkSubMode::kTas &&
+      scheduler_config.prefer_dense_tas_sampling) {
+    step_scale *= 0.5f;
+  }
+  const float default_az_step_deg = effective_beamwidth_deg.az_beamwidth_deg * step_scale;
+  const float default_el_step_deg = effective_beamwidth_deg.el_beamwidth_deg * step_scale;
+  const float az_step_deg = ResolveAxisStepDeg(effective_limits.az_min_deg,
+                                               effective_limits.az_max_deg, default_az_step_deg,
+                                               scheduler_config.azimuth_step_count_hint);
+  const float el_step_deg = ResolveAxisStepDeg(effective_limits.el_min_deg,
+                                               effective_limits.el_max_deg, default_el_step_deg,
+                                               scheduler_config.elevation_step_count_hint);
   const std::vector<model::AzimuthElevationDeg> pattern = BuildScheduledScanPattern(
-      effective_limits, effective_beamwidth_deg.az_beamwidth_deg * step_scale,
-      effective_beamwidth_deg.el_beamwidth_deg * step_scale, orientation_config.scan_start_position,
+      effective_limits, az_step_deg, el_step_deg, orientation_config.scan_start_position,
       orientation_config.scan_sequence);
   if (pattern.empty()) {
     return fallback_center;
@@ -171,6 +228,14 @@ model::AzimuthElevationDeg ResolveScheduledBeamPointing(
       cycle_index > 0U ? static_cast<std::uint64_t>(cycle_index - 1U) : 0U;
   return pattern[static_cast<std::size_t>(zero_based_cycle %
                                           static_cast<std::uint64_t>(pattern.size()))];
+}
+
+model::AzimuthElevationDeg ResolveScheduledBeamPointing(
+    const model::RadarOrientationConfig& orientation_config,
+    const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg, std::uint32_t cycle_index) {
+  return ResolveScheduledBeamPointing(
+      orientation_config, effective_beamwidth_deg, config::expert::beam::BeamSchedulerConfig(),
+      cycle_index);
 }
 
 model::AzimuthElevationDeg ResolveScheduledDwellCenter(
@@ -194,8 +259,10 @@ void ApplyScanScheduleToRuntimeConfig(std::uint32_t cycle_index,
   if (runtime_config == nullptr) {
     return;
   }
-  (void)cycle_index;
-  (void)runtime_config;
+
+  runtime_config->orientation.scan_center_deg = ResolveScheduledBeamPointing(
+      runtime_config->orientation, ResolveSchedulingBeamwidth(*runtime_config),
+      runtime_config->expert.beam_control.scheduler, cycle_index);
 }
 
 }  // namespace internal
