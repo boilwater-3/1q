@@ -1018,6 +1018,12 @@ include/1q/airborne_radar/config/
   - `MakeHighRobustnessRadarSessionConfig()`
 - 已完成受影响测试迁移，移除对旧 preset 头和旧 pipeline preset API 的依赖。
 - 已清理 integration 中未使用的 `PipelineConfig.h` 公开 include。
+- 已在公开四域头引入非 `expert` 命名的类型别名，降低调用侧直接依赖 `config::expert::*`：
+  - `RadarHardwareConfig.h`：`DetectionConfig`、`AntennaPatternModelType` 等别名
+  - `RadarPolicyConfig.h`：`TrackingConfig`、`LifecycleConfig`、`KalmanUpdateBackend` 等别名
+- 已迁移公开/消费侧关键用法到非 `expert` 命名：
+  - `RadarDetailedSessionConfigBuilder` 参数类型改为 `config::*` 别名
+  - contract test、unit test、示例和 session builder 实现改为优先使用 `config::KalmanUpdateBackend`、`config::AntennaPatternModelType`
 
 当前验证结果：
 
@@ -1028,6 +1034,7 @@ M5 剩余关注点（留待后续批次）：
 
 - `PipelineConfig.h` 与 `config/expert/*` 仍保留在 include 树，当前定位为遗留/内部过渡头。
 - `check_public_api_boundary.cmake` 仍包含上述遗留头白名单，用于与现状目录一致性校验。
+- 仍存在部分 `config::expert::*` 的公开可见路径（例如 `PipelineConfig.h` 与部分 builder 基类字段），需在阶段 6 继续下沉或替换。
 - 若目标是彻底达成“唯一公开主路径”，需要在后续阶段继续推进旧头下沉（对应阶段 6）。
 
 ### 阶段 6：清理旧公开入口与历史桥接残留

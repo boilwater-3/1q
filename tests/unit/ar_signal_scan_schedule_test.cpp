@@ -471,7 +471,7 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
   config.expert.detection.detection_policy.min_snr_db = -12.0f;
   config.expert.detection.min_detection_margin_db = -100.0f;
   config.expert.detection.antenna.pattern.model_type =
-      config::expert::AntennaPatternModelType::kParabolicMainLobe;
+      config::AntennaPatternModelType::kParabolicMainLobe;
   config.expert.detection.antenna.pattern.max_sidelobe_level_db = -18.0f;
   config.expert.detection.antenna.pattern.max_scan_loss_db = 8.0f;
 
@@ -575,7 +575,7 @@ TEST(SignalPipelineScanScheduleTest, WorkSubModeSttReducesSweepCoverageComparedT
   tws_config.expert.detection.detection_policy.min_snr_db = -12.0f;
   tws_config.expert.detection.min_detection_margin_db = -100.0f;
   tws_config.expert.detection.antenna.pattern.model_type =
-      config::expert::AntennaPatternModelType::kParabolicMainLobe;
+      config::AntennaPatternModelType::kParabolicMainLobe;
   tws_config.expert.detection.antenna.pattern.max_sidelobe_level_db = -18.0f;
   tws_config.expert.detection.antenna.pattern.max_scan_loss_db = 8.0f;
   model::RadarOrientationConfig& tws_orientation = tws_config.orientation;

@@ -31,13 +31,22 @@ using detection::TransmitterConfig;
 namespace airborne_radar {
 namespace config {
 
+using expert::AntennaConfig;
+using expert::AntennaPatternConfig;
+using expert::AntennaPatternModelType;
+using expert::DetectionConfig;
+using expert::DetectionPolicyConfig;
+using expert::RcsPhysicsConfig;
+using expert::ReceiverConfig;
+using expert::TransmitterConfig;
+
 /**
  * @brief 雷达硬件域配置。
  *
  * 当前阶段硬件域承载探测链路固有能力参数。
  */
 struct ONEQ_API RadarHardwareConfig {
-  expert::DetectionConfig detection{};
+  DetectionConfig detection{};
 };
 
 }  // namespace config

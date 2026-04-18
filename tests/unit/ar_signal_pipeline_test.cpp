@@ -194,13 +194,13 @@ void ApplyTrackingPolicyProfile(session::RadarSessionConfig* config,
   switch (profile) {
     case config::semantic::TrackingPolicyProfile::kFastAssociation:
       t.kalman_measurement_noise_std = 6.0f;
-      t.kalman_update_backend = config::expert::KalmanUpdateBackend::kStandardKfJoseph;
+      t.kalman_update_backend = config::KalmanUpdateBackend::kStandardKfJoseph;
       t.speed_decay_ratio_on_loss = 0.95f;
       t.rcs_decay_ratio_on_loss = 0.92f;
       break;
     case config::semantic::TrackingPolicyProfile::kRobustAntiJamming:
       t.kalman_measurement_noise_std = 12.0f;
-      t.kalman_update_backend = config::expert::KalmanUpdateBackend::kUdKf;
+      t.kalman_update_backend = config::KalmanUpdateBackend::kUdKf;
       t.speed_decay_ratio_on_loss = 0.95f;
       t.rcs_decay_ratio_on_loss = 0.92f;
       config->policy.association.unassigned_cost = 12.0f;
@@ -316,13 +316,13 @@ void ApplyTrackingPolicyProfile(config::PipelineConfig* config,
   switch (profile) {
     case config::semantic::TrackingPolicyProfile::kFastAssociation:
       t.kalman_measurement_noise_std = 6.0f;
-      t.kalman_update_backend = config::expert::KalmanUpdateBackend::kStandardKfJoseph;
+      t.kalman_update_backend = config::KalmanUpdateBackend::kStandardKfJoseph;
       t.speed_decay_ratio_on_loss = 0.95f;
       t.rcs_decay_ratio_on_loss = 0.92f;
       break;
     case config::semantic::TrackingPolicyProfile::kRobustAntiJamming:
       t.kalman_measurement_noise_std = 12.0f;
-      t.kalman_update_backend = config::expert::KalmanUpdateBackend::kUdKf;
+      t.kalman_update_backend = config::KalmanUpdateBackend::kUdKf;
       t.speed_decay_ratio_on_loss = 0.95f;
       t.rcs_decay_ratio_on_loss = 0.92f;
       config->expert.association.unassigned_cost = 12.0f;
@@ -509,7 +509,7 @@ TEST(SignalPipelineTest, AdaptiveBeamformingProfileTightensMeasurementCovariance
   ApplyDetectionIntentProfile(&session_config,
                               config::semantic::DetectionIntentProfile::kDetectionPriority);
   session_config.hardware.detection.antenna.pattern.model_type =
-      config::expert::AntennaPatternModelType::kParabolicMainLobe;
+      config::AntennaPatternModelType::kParabolicMainLobe;
   session_config.hardware.detection.antenna.pattern.max_sidelobe_level_db = -18.0f;
   session_config.hardware.detection.antenna.pattern.max_scan_loss_db = 8.0f;
 

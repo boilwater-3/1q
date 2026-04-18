@@ -33,17 +33,24 @@ using tracking::TrackingConfig;
 namespace airborne_radar {
 namespace config {
 
+using expert::AssociationConfig;
+using expert::BeamControlConfig;
+using expert::ImmConfig;
+using expert::KalmanUpdateBackend;
+using expert::LifecycleConfig;
+using expert::TrackingConfig;
+
 /**
  * @brief 雷达策略域配置。
  *
  * 当前阶段策略域承载调度、关联、跟踪与生命周期策略。
  */
 struct ONEQ_API RadarPolicyConfig {
-  expert::BeamControlConfig beam_control{};
-  expert::AssociationConfig association{};
-  expert::TrackingConfig tracking{};
-  expert::LifecycleConfig lifecycle{};
-  expert::ImmConfig imm{};
+  BeamControlConfig beam_control{};
+  AssociationConfig association{};
+  TrackingConfig tracking{};
+  LifecycleConfig lifecycle{};
+  ImmConfig imm{};
 };
 
 }  // namespace config

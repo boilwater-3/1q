@@ -83,7 +83,7 @@ class RadarDetailedSessionConfigBuilder::DetectionEditor {
   explicit DetectionEditor(RadarDetailedSessionConfigBuilder* builder) : builder_(builder) {}
 
   /** @brief 整块替换探测配置。 */
-  DetectionEditor& WithDetection(const expert::DetectionConfig& detection) {
+  DetectionEditor& WithDetection(const DetectionConfig& detection) {
     builder_->config_.hardware.detection = detection;
     return *this;
   }
@@ -161,7 +161,7 @@ class RadarDetailedSessionConfigBuilder::BeamEditor {
   explicit BeamEditor(RadarDetailedSessionConfigBuilder* builder) : builder_(builder) {}
 
   /** @brief 整块替换波束控制策略。 */
-  BeamEditor& WithBeamControl(const expert::BeamControlConfig& beam_control) {
+  BeamEditor& WithBeamControl(const BeamControlConfig& beam_control) {
     builder_->config_.policy.beam_control = beam_control;
     builder_->config_.mission.orientation.scan_center_deg =
         beam_control.pointing.default_scan_center_deg;
@@ -231,7 +231,7 @@ class RadarDetailedSessionConfigBuilder::TrackingEditor {
   explicit TrackingEditor(RadarDetailedSessionConfigBuilder* builder) : builder_(builder) {}
 
   /** @brief 整块替换跟踪策略配置。 */
-  TrackingEditor& WithTracking(const expert::TrackingConfig& tracking) {
+  TrackingEditor& WithTracking(const TrackingConfig& tracking) {
     builder_->config_.policy.tracking = tracking;
     return *this;
   }
@@ -246,7 +246,7 @@ class RadarDetailedSessionConfigBuilder::TrackingEditor {
     return *this;
   }
   /** @brief 设置 Kalman 更新后端。 */
-  TrackingEditor& WithKalmanUpdateBackend(expert::KalmanUpdateBackend backend) {
+  TrackingEditor& WithKalmanUpdateBackend(KalmanUpdateBackend backend) {
     builder_->config_.policy.tracking.kalman_update_backend = backend;
     return *this;
   }
@@ -275,7 +275,7 @@ class RadarDetailedSessionConfigBuilder::LifecycleEditor {
   explicit LifecycleEditor(RadarDetailedSessionConfigBuilder* builder) : builder_(builder) {}
 
   /** @brief 整块替换生命周期策略配置。 */
-  LifecycleEditor& WithLifecycle(const expert::LifecycleConfig& lifecycle) {
+  LifecycleEditor& WithLifecycle(const LifecycleConfig& lifecycle) {
     builder_->config_.policy.lifecycle = lifecycle;
     return *this;
   }

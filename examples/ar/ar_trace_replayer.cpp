@@ -125,7 +125,7 @@ ar::config::expert::DetectionConfig ParseDetection(const Json& json) {
         GetBool(a, "enable_directional_pattern", config.antenna.enable_directional_pattern);
     if (a.contains("pattern")) {
       const Json& p = a["pattern"];
-      config.antenna.pattern.model_type = static_cast<ar::config::expert::AntennaPatternModelType>(
+      config.antenna.pattern.model_type = static_cast<ar::config::AntennaPatternModelType>(
           GetInt(p, "model_type", static_cast<int>(config.antenna.pattern.model_type)));
       config.antenna.pattern.max_sidelobe_level_db =
           GetFloat(p, "max_sidelobe_level_db", config.antenna.pattern.max_sidelobe_level_db);
@@ -183,7 +183,7 @@ ar::config::expert::TrackingConfig ParseTracking(const Json& json) {
   config.kalman_measurement_noise_std =
       GetFloat(json, "kalman_measurement_noise_std", config.kalman_measurement_noise_std);
   if (json.contains("kalman_update_backend")) {
-    config.kalman_update_backend = static_cast<ar::config::expert::KalmanUpdateBackend>(
+    config.kalman_update_backend = static_cast<ar::config::KalmanUpdateBackend>(
         GetInt(json, "kalman_update_backend", static_cast<int>(config.kalman_update_backend)));
   }
   return config;

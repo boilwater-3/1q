@@ -313,9 +313,9 @@ TEST(PublicHeadersSmokeTest, FourDomainHeadersDefineIndependentConfigTypes) {
 
   config::RadarPolicyConfig policy{};
   policy.lifecycle.confirm_hits = 2U;
-  policy.tracking.kalman_update_backend = config::expert::KalmanUpdateBackend::kUdKf;
+  policy.tracking.kalman_update_backend = config::KalmanUpdateBackend::kUdKf;
   EXPECT_EQ(policy.lifecycle.confirm_hits, 2U);
-  EXPECT_EQ(policy.tracking.kalman_update_backend, config::expert::KalmanUpdateBackend::kUdKf);
+  EXPECT_EQ(policy.tracking.kalman_update_backend, config::KalmanUpdateBackend::kUdKf);
 
   config::RadarEnvironmentConfig env{};
   env.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kStrict;

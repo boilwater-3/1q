@@ -111,7 +111,7 @@ TEST(RadarSessionConfigBuilderTest, TrackingAndLifecycleSemanticEditorsApplyCorr
 
     EXPECT_TRUE(config.policy.tracking.enable_kalman_filter);
     EXPECT_EQ(config.policy.tracking.kalman_update_backend,
-                        config::expert::KalmanUpdateBackend::kUdKf);
+                        config::KalmanUpdateBackend::kUdKf);
     EXPECT_TRUE(config.policy.lifecycle.enable_imm_lifecycle);
     EXPECT_EQ(config.policy.lifecycle.confirm_hits, 3U);
     EXPECT_EQ(config.policy.lifecycle.max_lost_cycles, 8U);
@@ -235,7 +235,7 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig
           .Tracking()
           .EnableKalmanFilter(true)
           .WithKalmanMeasurementNoiseStd(7.5f)
-          .WithKalmanUpdateBackend(config::expert::KalmanUpdateBackend::kUdKf)
+          .WithKalmanUpdateBackend(config::KalmanUpdateBackend::kUdKf)
           .End()
           .Lifecycle()
           .EnableImmFusion(true)
@@ -258,7 +258,7 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig
     EXPECT_FLOAT_EQ(detailed_config.policy.tracking.kalman_measurement_noise_std,
                   7.5f);
     EXPECT_EQ(detailed_config.policy.tracking.kalman_update_backend,
-            config::expert::KalmanUpdateBackend::kUdKf);
+            config::KalmanUpdateBackend::kUdKf);
     EXPECT_EQ(detailed_config.policy.lifecycle.confirm_hits, 2U);
     EXPECT_TRUE(detailed_config.policy.lifecycle.enable_imm_lifecycle);
     EXPECT_EQ(detailed_config.environment.jamming_sensitivity_profile,
@@ -273,7 +273,7 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuiltConfigCanConstructRadarSession)
           .WithFrequencyHz(9.3e9f)
           .End()
           .Tracking()
-          .WithKalmanUpdateBackend(config::expert::KalmanUpdateBackend::kUdKf)
+          .WithKalmanUpdateBackend(config::KalmanUpdateBackend::kUdKf)
           .End()
           .Lifecycle()
           .EnableImmFusion(true)

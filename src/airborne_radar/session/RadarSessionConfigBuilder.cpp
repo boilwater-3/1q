@@ -74,7 +74,7 @@ void ApplyDetectionSemanticConfig(bool enable_physics_detection,
       d.antenna.pattern.backlobe_level_db = -42.0f;
       break;
     case semantic::AntennaPatternProfile::kWideCoverage:
-      d.antenna.pattern.model_type = expert::AntennaPatternModelType::kParabolicMainLobe;
+      d.antenna.pattern.model_type = AntennaPatternModelType::kParabolicMainLobe;
       d.antenna.pattern.max_sidelobe_level_db = -18.0f;
       d.antenna.pattern.max_scan_loss_db = 8.0f;
       break;
@@ -114,13 +114,13 @@ void ApplyTrackingSemanticConfig(bool enable_tracking_filter,
   switch (tracking_profile) {
     case semantic::TrackingPolicyProfile::kFastAssociation:
       t.kalman_measurement_noise_std = 6.0f;
-      t.kalman_update_backend = expert::KalmanUpdateBackend::kStandardKfJoseph;
+      t.kalman_update_backend = KalmanUpdateBackend::kStandardKfJoseph;
       t.speed_decay_ratio_on_loss = 0.95f;
       t.rcs_decay_ratio_on_loss = 0.92f;
       break;
     case semantic::TrackingPolicyProfile::kRobustAntiJamming:
       t.kalman_measurement_noise_std = 12.0f;
-      t.kalman_update_backend = expert::KalmanUpdateBackend::kUdKf;
+      t.kalman_update_backend = KalmanUpdateBackend::kUdKf;
       t.speed_decay_ratio_on_loss = 0.95f;
       t.rcs_decay_ratio_on_loss = 0.92f;
       expert_config->association.unassigned_cost = 12.0f;
