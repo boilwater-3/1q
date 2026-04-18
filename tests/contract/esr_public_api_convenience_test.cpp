@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 
+#include "1q/electronic_surveillance_radar/config/EsrDetailedSessionConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/model/EmitterTruthState.h"
@@ -47,11 +48,12 @@ model::EmitterTruthState MakeEmitter(const std::string& id) {
 }
 
 session::EsrSessionConfig MakeSessionConfig() {
-  session::EsrSessionConfig config = config::EsrSessionConfigBuilder()
-                                         .WithWorkMode(config::EsrWorkMode::kEsm)
-                                         .WithDetectionProfile(config::EsrDetectionProfile::kBalanced)
-                                         .WithEnvironmentPreset(config::EsrEnvironmentPreset::kStandard)
-                                         .Build();
+  session::EsrSessionConfig config =
+      config::EsrSessionConfigBuilder()
+          .WithWorkMode(config::EsrWorkMode::kEsm)
+          .WithDetectionProfile(config::EsrDetectionProfile::kBalanced)
+          .WithEnvironmentPreset(config::EsrEnvironmentPreset::kStandard)
+          .Build();
   config.mission.scan.use_explicit_scan_bounds = true;
   config.mission.scan.scan_start_az_deg = -60.0f;
   config.mission.scan.scan_end_az_deg = 60.0f;
@@ -69,59 +71,89 @@ TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderDefaultsMatchDefaultConfig
   const session::EsrSessionConfig defaults;
 
   EXPECT_EQ(built.mission.work_mode, defaults.mission.work_mode);
-  EXPECT_EQ(built.detection.profile, defaults.detection.profile);
+  EXPECT_EQ(built.policy.detection.profile, defaults.policy.detection.profile);
   EXPECT_EQ(built.environment.preset, defaults.environment.preset);
 }
 
 TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderOverridesDomainFields) {
-  const session::EsrSessionConfig cfg = config::EsrSessionConfigBuilder()
-                                            .WithWorkMode(config::EsrWorkMode::kRwr)
-                                            .WithPowerOn(false)
-                                            .WithScanRateHz(2.0f)
-                                            .WithDetectionProfile(config::EsrDetectionProfile::kSensitive)
-                                            .WithEnvironmentPreset(config::EsrEnvironmentPreset::kJammed)
-                                            .Build();
+  const session::EsrSessionConfig cfg =
+      config::EsrSessionConfigBuilder()
+          .WithWorkMode(config::EsrWorkMode::kRwr)
+          .WithPowerOn(false)
+          .WithScanRateHz(2.0f)
+          .WithDetectionProfile(config::EsrDetectionProfile::kSensitive)
+          .WithEnvironmentPreset(config::EsrEnvironmentPreset::kJammed)
+          .Build();
 
   EXPECT_EQ(cfg.mission.work_mode, config::EsrWorkMode::kRwr);
   EXPECT_FALSE(cfg.mission.power_on);
   EXPECT_FLOAT_EQ(cfg.mission.scan.scan_rate_hz, 2.0f);
-  EXPECT_EQ(cfg.detection.profile, config::EsrDetectionProfile::kSensitive);
+  EXPECT_EQ(cfg.policy.detection.profile, config::EsrDetectionProfile::kSensitive);
   EXPECT_EQ(cfg.environment.preset, config::EsrEnvironmentPreset::kJammed);
+}
+
+TEST(EsrPublicApiConvenienceTest, DetailedSessionConfigBuilderSupportsProfileAndDetails) {
+  const session::EsrSessionConfig profile_cfg =
+      config::EsrDetailedSessionConfigBuilder()
+          .WithDetectionProfile(config::EsrDetectionProfile::kConservative)
+          .WithWorkMode(config::EsrWorkMode::kEsm)
+          .Build();
+
+  EXPECT_EQ(profile_cfg.policy.detection.profile, config::EsrDetectionProfile::kConservative);
+  EXPECT_TRUE(profile_cfg.policy.detection.use_profile_defaults);
+
+  const session::EsrSessionConfig details_cfg =
+      config::EsrDetailedSessionConfigBuilder()
+          .WithDetectionDetails(8.0f, 1.0e-5f, 16U, 0.9f, true)
+          .WithScanRateHz(4.0f)
+          .WithExplicitScanBoundsDeg(-30.0f, 30.0f, -5.0f, 5.0f)
+          .WithEnvironmentPreset(config::EsrEnvironmentPreset::kLowClutter)
+          .Build();
+
+  EXPECT_FALSE(details_cfg.policy.detection.use_profile_defaults);
+  EXPECT_FLOAT_EQ(details_cfg.policy.detection.min_detect_snr_db, 8.0f);
+  EXPECT_FLOAT_EQ(details_cfg.policy.detection.pfa, 1.0e-5f);
+  EXPECT_EQ(details_cfg.policy.detection.pulse_count, 16U);
+  EXPECT_FLOAT_EQ(details_cfg.policy.detection.threshold_scale, 0.9f);
+  EXPECT_TRUE(details_cfg.policy.detection.enable_statistical_detection);
+  EXPECT_FLOAT_EQ(details_cfg.mission.scan.scan_rate_hz, 4.0f);
+  EXPECT_TRUE(details_cfg.mission.scan.use_explicit_scan_bounds);
+  EXPECT_EQ(details_cfg.environment.preset, config::EsrEnvironmentPreset::kLowClutter);
 }
 
 TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderDefaultsAreUnset) {
   const session::EsrRuntimeConfigPatch patch = config::EsrRuntimeConfigBuilder().Build();
 
+  EXPECT_FALSE(patch.has_mission);
+  EXPECT_FALSE(patch.has_policy);
+  EXPECT_FALSE(patch.has_environment_runtime_config);
   EXPECT_FALSE(patch.has_sensor_enabled);
   EXPECT_FALSE(patch.has_work_mode);
   EXPECT_FALSE(patch.has_scan_rate_hz);
   EXPECT_FALSE(patch.has_scan_center_az_deg);
   EXPECT_FALSE(patch.has_use_explicit_scan_bounds);
-  EXPECT_FALSE(patch.has_preset);
-  EXPECT_FALSE(patch.has_atmospheric_physics);
-  EXPECT_FALSE(patch.has_atmospheric_context);
 }
 
 TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSetsSemanticFields) {
-  environment::EsrAtmosphericPhysicsConfig atmospheric_physics;
+  config::EsrAtmosphericPhysicsConfig atmospheric_physics;
   atmospheric_physics.enable_physical_model = true;
   atmospheric_physics.relative_humidity = 0.65f;
-  environment::EsrAtmosphericDerivedContext atmospheric_context;
+  config::EsrAtmosphericDerivedContext atmospheric_context;
   atmospheric_context.has_day_of_year = true;
   atmospheric_context.day_of_year = 210;
 
-  const session::EsrRuntimeConfigPatch patch = config::EsrRuntimeConfigBuilder()
-                                                   .WithSensorEnabled(false)
-                                                   .WithWorkMode(config::EsrWorkMode::kHgesm)
-                                                   .WithScanRateHz(3.0f)
-                                                   .WithScanCenterAzDeg(15.0f)
-                                                   .WithScanCenterElDeg(5.0f)
-                                                   .WithExplicitScanBoundsDeg(-30.0f, 30.0f, -10.0f, 10.0f)
-                                                   .WithEnvironmentPreset(
-                                                       config::EsrEnvironmentPreset::kDenseClutter)
-                                                   .WithAtmosphericPhysicsConfig(atmospheric_physics)
-                                                   .WithAtmosphericContext(atmospheric_context)
-                                                   .Build();
+  const session::EsrRuntimeConfigPatch patch =
+      config::EsrRuntimeConfigBuilder()
+          .WithSensorEnabled(false)
+          .WithWorkMode(config::EsrWorkMode::kHgesm)
+          .WithScanRateHz(3.0f)
+          .WithScanCenterAzDeg(15.0f)
+          .WithScanCenterElDeg(5.0f)
+          .WithExplicitScanBoundsDeg(-30.0f, 30.0f, -10.0f, 10.0f)
+          .WithEnvironmentPreset(config::EsrEnvironmentPreset::kDenseClutter)
+          .WithAtmosphericPhysicsConfig(atmospheric_physics)
+          .WithAtmosphericContext(atmospheric_context)
+          .Build();
 
   EXPECT_TRUE(patch.has_sensor_enabled);
   EXPECT_FALSE(patch.sensor_enabled);
@@ -133,14 +165,36 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSetsSemanticFields) {
   EXPECT_TRUE(patch.has_scan_center_el_deg);
   EXPECT_TRUE(patch.has_use_explicit_scan_bounds);
   EXPECT_TRUE(patch.use_explicit_scan_bounds);
-  EXPECT_TRUE(patch.has_preset);
-  EXPECT_EQ(patch.preset, config::EsrEnvironmentPreset::kDenseClutter);
-  EXPECT_TRUE(patch.has_atmospheric_physics);
-  EXPECT_TRUE(patch.atmospheric_physics.enable_physical_model);
-  EXPECT_FLOAT_EQ(patch.atmospheric_physics.relative_humidity, 0.65f);
-  EXPECT_TRUE(patch.has_atmospheric_context);
-  EXPECT_TRUE(patch.atmospheric_context.has_day_of_year);
-  EXPECT_EQ(patch.atmospheric_context.day_of_year, 210);
+  EXPECT_TRUE(patch.has_environment_runtime_config);
+  EXPECT_TRUE(patch.environment_runtime_config.has_preset);
+  EXPECT_EQ(patch.environment_runtime_config.preset, config::EsrEnvironmentPreset::kDenseClutter);
+  EXPECT_TRUE(patch.environment_runtime_config.has_atmospheric_physics);
+  EXPECT_TRUE(patch.environment_runtime_config.atmospheric_physics.enable_physical_model);
+  EXPECT_FLOAT_EQ(patch.environment_runtime_config.atmospheric_physics.relative_humidity, 0.65f);
+  EXPECT_TRUE(patch.environment_runtime_config.has_atmospheric_context);
+  EXPECT_TRUE(patch.environment_runtime_config.atmospheric_context.has_day_of_year);
+  EXPECT_EQ(patch.environment_runtime_config.atmospheric_context.day_of_year, 210);
+}
+
+TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSupportsDomainOverrides) {
+  config::EsrMissionConfig mission;
+  mission.power_on = false;
+  mission.work_mode = config::EsrWorkMode::kRwr;
+  mission.scan.scan_rate_hz = 5.0f;
+
+  config::EsrPolicyConfig policy;
+  policy.detection.profile = config::EsrDetectionProfile::kSensitive;
+  policy.detection.use_profile_defaults = true;
+
+  const session::EsrRuntimeConfigPatch patch =
+      config::EsrRuntimeConfigBuilder().WithMission(mission).WithPolicy(policy).Build();
+
+  EXPECT_TRUE(patch.has_mission);
+  EXPECT_FALSE(patch.mission.power_on);
+  EXPECT_EQ(patch.mission.work_mode, config::EsrWorkMode::kRwr);
+  EXPECT_FLOAT_EQ(patch.mission.scan.scan_rate_hz, 5.0f);
+  EXPECT_TRUE(patch.has_policy);
+  EXPECT_EQ(patch.policy.detection.profile, config::EsrDetectionProfile::kSensitive);
 }
 
 TEST(EsrPublicApiConvenienceTest, InputValidationReportsErrorsForBoundaryCases) {
@@ -156,7 +210,8 @@ TEST(EsrPublicApiConvenienceTest, InputValidationReportsErrorsForBoundaryCases) 
   const session::EsrValidationIssueList issues = session::ValidateEsrCycleInput(input);
 
   EXPECT_TRUE(ContainsEsrIssueCode(issues, session::EsrValidationCode::kInvalidCycleDeltaTime));
-  EXPECT_TRUE(ContainsEsrIssueCode(issues, session::EsrValidationCode::kNonFinitePlatformNumericField));
+  EXPECT_TRUE(
+      ContainsEsrIssueCode(issues, session::EsrValidationCode::kNonFinitePlatformNumericField));
   EXPECT_TRUE(ContainsEsrIssueCode(issues, session::EsrValidationCode::kEmptyEmitterId));
   EXPECT_TRUE(session::HasEsrValidationError(issues));
 }

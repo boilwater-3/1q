@@ -16,12 +16,30 @@ namespace config {
  */
 class ONEQ_API EsrRuntimeConfigBuilder {
  public:
-  explicit EsrRuntimeConfigBuilder(
-      const session::EsrRuntimeConfigPatch& patch = {}) : patch_(patch) {}
+  explicit EsrRuntimeConfigBuilder(const session::EsrRuntimeConfigPatch& patch = {})
+      : patch_(patch) {}
 
-  EsrRuntimeConfigBuilder& WithRuntimeConfigPatch(
-      const session::EsrRuntimeConfigPatch& patch) {
+  EsrRuntimeConfigBuilder& WithRuntimeConfigPatch(const session::EsrRuntimeConfigPatch& patch) {
     patch_ = patch;
+    return *this;
+  }
+
+  EsrRuntimeConfigBuilder& WithMission(const EsrMissionConfig& mission) {
+    patch_.has_mission = true;
+    patch_.mission = mission;
+    return *this;
+  }
+
+  EsrRuntimeConfigBuilder& WithPolicy(const EsrPolicyConfig& policy) {
+    patch_.has_policy = true;
+    patch_.policy = policy;
+    return *this;
+  }
+
+  EsrRuntimeConfigBuilder& WithEnvironmentRuntimeConfig(
+      const environment::EsrEnvironmentRuntimeConfigPatch& env_patch) {
+    patch_.has_environment_runtime_config = true;
+    patch_.environment_runtime_config = env_patch;
     return *this;
   }
 
@@ -65,8 +83,8 @@ class ONEQ_API EsrRuntimeConfigBuilder {
     patch_.use_explicit_scan_bounds = enable;
     return *this;
   }
-  EsrRuntimeConfigBuilder& WithExplicitScanBoundsDeg(float start_az, float end_az,
-                                                      float start_el, float end_el) {
+  EsrRuntimeConfigBuilder& WithExplicitScanBoundsDeg(float start_az, float end_az, float start_el,
+                                                     float end_el) {
     patch_.has_use_explicit_scan_bounds = true;
     patch_.use_explicit_scan_bounds = true;
     patch_.has_scan_start_az_deg = true;
@@ -80,20 +98,23 @@ class ONEQ_API EsrRuntimeConfigBuilder {
     return *this;
   }
   EsrRuntimeConfigBuilder& WithEnvironmentPreset(config::EsrEnvironmentPreset preset) {
-    patch_.has_preset = true;
-    patch_.preset = preset;
+    patch_.has_environment_runtime_config = true;
+    patch_.environment_runtime_config.has_preset = true;
+    patch_.environment_runtime_config.preset = preset;
     return *this;
   }
   EsrRuntimeConfigBuilder& WithAtmosphericPhysicsConfig(
       const environment::EsrAtmosphericPhysicsConfig& atmospheric_physics) {
-    patch_.has_atmospheric_physics = true;
-    patch_.atmospheric_physics = atmospheric_physics;
+    patch_.has_environment_runtime_config = true;
+    patch_.environment_runtime_config.has_atmospheric_physics = true;
+    patch_.environment_runtime_config.atmospheric_physics = atmospheric_physics;
     return *this;
   }
   EsrRuntimeConfigBuilder& WithAtmosphericContext(
       const environment::EsrAtmosphericDerivedContext& atmospheric_context) {
-    patch_.has_atmospheric_context = true;
-    patch_.atmospheric_context = atmospheric_context;
+    patch_.has_environment_runtime_config = true;
+    patch_.environment_runtime_config.has_atmospheric_context = true;
+    patch_.environment_runtime_config.atmospheric_context = atmospheric_context;
     return *this;
   }
   session::EsrRuntimeConfigPatch Build() const { return patch_; }

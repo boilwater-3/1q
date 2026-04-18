@@ -1,9 +1,8 @@
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
 
 #include <cstddef>
-#include <string>
-
 #include <nlohmann/json.hpp>
+#include <string>
 
 #include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
 
@@ -111,6 +110,17 @@ Json BuildJson(const environment::EsrAtmosphericDerivedContext& value) {
   return json;
 }
 
+Json BuildJson(const environment::EsrEnvironmentRuntimeConfigPatch& value) {
+  Json json;
+  json["has_preset"] = value.has_preset;
+  json["preset"] = static_cast<int>(value.preset);
+  json["has_atmospheric_physics"] = value.has_atmospheric_physics;
+  json["atmospheric_physics"] = BuildJson(value.atmospheric_physics);
+  json["has_atmospheric_context"] = value.has_atmospheric_context;
+  json["atmospheric_context"] = BuildJson(value.atmospheric_context);
+  return json;
+}
+
 Json BuildJson(const environment::EsrEnvironmentObservation& value) {
   Json json;
   json["propagation_profile"] = static_cast<int>(value.propagation_profile);
@@ -118,9 +128,8 @@ Json BuildJson(const environment::EsrEnvironmentObservation& value) {
   json["spectrum_occupancy_ratio"] = value.spectrum_occupancy_ratio;
   json["atmospheric_observation"] = BuildJson(value.atmospheric_observation);
   json["jammer_sources"] =
-      SerializeArray(value.jammer_sources, [](const environment::EsrJammerSource& source) {
-        return BuildJson(source);
-      });
+      SerializeArray(value.jammer_sources,
+                     [](const environment::EsrJammerSource& source) { return BuildJson(source); });
   return json;
 }
 
@@ -130,9 +139,8 @@ Json BuildJson(const session::EsrCycleInput& value) {
   json["dt_sec"] = value.dt_sec;
   json["platform_pose"] = BuildJson(value.platform_pose);
   json["scene_emitters"] =
-      SerializeArray(value.scene_emitters, [](const model::EmitterTruthState& emitter) {
-        return BuildJson(emitter);
-      });
+      SerializeArray(value.scene_emitters,
+                     [](const model::EmitterTruthState& emitter) { return BuildJson(emitter); });
   json["environment_observation"] = BuildJson(value.environment_observation);
   return json;
 }
@@ -292,7 +300,8 @@ Json BuildJson(const extension::InterceptPipelineConfig& value) {
   Json deception_model;
   deception_model["false_alarm_probability_scale"] =
       value.deception_model.false_alarm_probability_scale;
-  deception_model["confusion_probability_scale"] = value.deception_model.confusion_probability_scale;
+  deception_model["confusion_probability_scale"] =
+      value.deception_model.confusion_probability_scale;
   deception_model["max_false_observations_per_emitter"] =
       value.deception_model.max_false_observations_per_emitter;
   deception_model["aoa_confusion_std_deg"] = value.deception_model.aoa_confusion_std_deg;
@@ -326,8 +335,7 @@ Json BuildJson(const session::EsrSessionConfig& value) {
   mission["scan_center_az_deg"] = value.mission.scan.scan_center_az_deg;
   mission["scan_center_el_deg"] = value.mission.scan.scan_center_el_deg;
   mission["scan_rate_hz"] = value.mission.scan.scan_rate_hz;
-  mission["scan_start_position"] =
-      static_cast<int>(value.mission.scan.scan_start_position);
+  mission["scan_start_position"] = static_cast<int>(value.mission.scan.scan_start_position);
   mission["scan_sequence"] = static_cast<int>(value.mission.scan.scan_sequence);
   mission["use_explicit_scan_bounds"] = value.mission.scan.use_explicit_scan_bounds;
   mission["scan_start_az_deg"] = value.mission.scan.scan_start_az_deg;
@@ -337,7 +345,7 @@ Json BuildJson(const session::EsrSessionConfig& value) {
 
   json["hardware"] = hardware;
   json["mission"] = mission;
-  json["detection_profile"] = static_cast<int>(value.detection.profile);
+  json["policy_detection_profile"] = static_cast<int>(value.policy.detection.profile);
   json["environment_preset"] = static_cast<int>(value.environment.preset);
 
   return json;
@@ -347,9 +355,8 @@ Json BuildJson(const session::EsrCycleResult& value) {
   Json json;
   json["output_frame"] = BuildJson(value.output_frame);
   json["validation_issues"] =
-      SerializeArray(value.validation_issues, [](const session::EsrValidationIssue& issue) {
-        return BuildJson(issue);
-      });
+      SerializeArray(value.validation_issues,
+                     [](const session::EsrValidationIssue& issue) { return BuildJson(issue); });
   json["has_validation_error"] = value.has_validation_error;
   return json;
 }
@@ -380,12 +387,8 @@ Json BuildJson(const session::EsrRuntimeConfigPatch& value) {
   json["scan_start_el_deg"] = value.scan_start_el_deg;
   json["has_scan_end_el_deg"] = value.has_scan_end_el_deg;
   json["scan_end_el_deg"] = value.scan_end_el_deg;
-  json["has_preset"] = value.has_preset;
-  json["preset"] = static_cast<int>(value.preset);
-  json["has_atmospheric_physics"] = value.has_atmospheric_physics;
-  json["atmospheric_physics"] = BuildJson(value.atmospheric_physics);
-  json["has_atmospheric_context"] = value.has_atmospheric_context;
-  json["atmospheric_context"] = BuildJson(value.atmospheric_context);
+  json["has_environment_runtime_config"] = value.has_environment_runtime_config;
+  json["environment_runtime_config"] = BuildJson(value.environment_runtime_config);
   return json;
 }
 
@@ -396,8 +399,7 @@ std::string ToJson(const T& value) {
 
 }  // namespace
 
-EsrTraceSession::EsrTraceSession(session::EsrSessionConfig config,
-                                 EsrTraceSessionOptions options)
+EsrTraceSession::EsrTraceSession(session::EsrSessionConfig config, EsrTraceSessionOptions options)
     : session_(config), sink_(std::move(options.sink)) {
   if (sink_ && options.trace_config_on_construct) {
     Record("config", ToJson(config));
@@ -415,8 +417,7 @@ output::EsrOutputFrame EsrTraceSession::Step(const session::EsrCycleInput& input
   return output;
 }
 
-session::EsrCycleResult EsrTraceSession::StepWithResult(
-    const session::EsrCycleInput& input) {
+session::EsrCycleResult EsrTraceSession::StepWithResult(const session::EsrCycleInput& input) {
   if (sink_) {
     Record("input", ToJson(input));
   }

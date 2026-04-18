@@ -73,6 +73,49 @@ void ApplyEnvironmentPreset(config::EsrEnvironmentPreset preset,
   model_config->preset = preset;
 }
 
+void ApplyEnvironmentRuntimePatch(const environment::EsrEnvironmentRuntimeConfigPatch& env_patch,
+                                  ResolvedEsrSessionConfig* resolved, bool* env_changed) {
+  if (env_patch.has_preset) {
+    ApplyEnvironmentPreset(env_patch.preset, &resolved->environment_model_config);
+    *env_changed = true;
+  }
+  if (env_patch.has_atmospheric_physics) {
+    resolved->environment_model_config.atmospheric_physics = env_patch.atmospheric_physics;
+    *env_changed = true;
+  }
+  if (env_patch.has_atmospheric_context) {
+    resolved->environment_model_config.atmospheric_context = env_patch.atmospheric_context;
+    *env_changed = true;
+  }
+}
+
+void ApplyDetectionPolicy(const config::EsrDetectionPolicyConfig& detection,
+                          extension::InterceptPipelineConfig* pipeline_config) {
+  if (pipeline_config == nullptr) {
+    return;
+  }
+  if (detection.use_profile_defaults) {
+    switch (detection.profile) {
+      case config::EsrDetectionProfile::kConservative:
+        pipeline_config->detection.min_detect_snr_db = 10.0f;
+        break;
+      case config::EsrDetectionProfile::kSensitive:
+        pipeline_config->detection.min_detect_snr_db = 3.0f;
+        break;
+      case config::EsrDetectionProfile::kBalanced:
+      default:
+        break;
+    }
+  } else {
+    pipeline_config->detection.min_detect_snr_db = detection.min_detect_snr_db;
+    pipeline_config->statistical_detection.pfa = detection.pfa;
+    pipeline_config->statistical_detection.pulse_count = detection.pulse_count;
+    pipeline_config->statistical_detection.threshold_scale = detection.threshold_scale;
+    pipeline_config->statistical_detection.enable_statistical_detection =
+        detection.enable_statistical_detection;
+  }
+}
+
 }  // namespace
 
 EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
@@ -81,6 +124,35 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
   resolved.next_config = current_config;
   bool has_requested_update = false;
 
+  // ---- Phase 1: 整块域覆盖（先于叶子） ----
+
+  if (patch.has_mission) {
+    has_requested_update = true;
+    resolved.next_config.runtime_config.sensor_enabled = patch.mission.power_on;
+    resolved.next_config.runtime_config.scan_rate_hz =
+        (IsFinite(patch.mission.scan.scan_rate_hz) && patch.mission.scan.scan_rate_hz > 0.0f)
+            ? patch.mission.scan.scan_rate_hz
+            : 1.0f;
+    ApplyWorkModeAdjustment(patch.mission.work_mode,
+                            &resolved.next_config.pipeline_config.statistical_detection);
+    resolved.runtime_config_changed = true;
+    resolved.pipeline_config_changed = true;
+  }
+
+  if (patch.has_policy) {
+    has_requested_update = true;
+    ApplyDetectionPolicy(patch.policy.detection, &resolved.next_config.pipeline_config);
+    resolved.pipeline_config_changed = true;
+  }
+
+  if (patch.has_environment_runtime_config) {
+    has_requested_update = true;
+    ApplyEnvironmentRuntimePatch(patch.environment_runtime_config, &resolved.next_config,
+                                 &resolved.environment_model_config_changed);
+  }
+
+  // ---- Phase 2: 叶子快捷覆盖（覆盖整块域的结果） ----
+
   if (patch.has_sensor_enabled) {
     resolved.next_config.runtime_config.sensor_enabled = patch.sensor_enabled;
     resolved.runtime_config_changed = true;
@@ -88,7 +160,8 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
   }
 
   if (patch.has_work_mode) {
-    ApplyWorkModeAdjustment(patch.work_mode, &resolved.next_config.pipeline_config.statistical_detection);
+    ApplyWorkModeAdjustment(patch.work_mode,
+                            &resolved.next_config.pipeline_config.statistical_detection);
     resolved.pipeline_config_changed = true;
     has_requested_update = true;
   }
@@ -120,38 +193,47 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
   if (patch.has_scan_center_az_deg) {
     has_requested_update = true;
     if (!IsFinite(patch.scan_center_az_deg)) {
-      PROJECT_LOG_ERROR("[EsrSession] Rejecting runtime config patch due to non-finite scan_center_az_deg={} .",
-                        patch.scan_center_az_deg);
+      PROJECT_LOG_ERROR(
+          "[EsrSession] Rejecting runtime config patch due to non-finite scan_center_az_deg={} .",
+          patch.scan_center_az_deg);
       return RejectPatch(current_config, true);
     }
-    const float half_az_span = 0.5f * std::fabs(resolved.next_config.pipeline_config.scan.scan_end_az_deg -
-                                                resolved.next_config.pipeline_config.scan.scan_start_az_deg);
-    resolved.next_config.pipeline_config.scan.scan_start_az_deg = patch.scan_center_az_deg - half_az_span;
-    resolved.next_config.pipeline_config.scan.scan_end_az_deg = patch.scan_center_az_deg + half_az_span;
+    const float half_az_span =
+        0.5f * std::fabs(resolved.next_config.pipeline_config.scan.scan_end_az_deg -
+                         resolved.next_config.pipeline_config.scan.scan_start_az_deg);
+    resolved.next_config.pipeline_config.scan.scan_start_az_deg =
+        patch.scan_center_az_deg - half_az_span;
+    resolved.next_config.pipeline_config.scan.scan_end_az_deg =
+        patch.scan_center_az_deg + half_az_span;
     resolved.pipeline_config_changed = true;
   }
   if (patch.has_scan_center_el_deg) {
     has_requested_update = true;
     if (!IsFinite(patch.scan_center_el_deg)) {
-      PROJECT_LOG_ERROR("[EsrSession] Rejecting runtime config patch due to non-finite scan_center_el_deg={} .",
-                        patch.scan_center_el_deg);
+      PROJECT_LOG_ERROR(
+          "[EsrSession] Rejecting runtime config patch due to non-finite scan_center_el_deg={} .",
+          patch.scan_center_el_deg);
       return RejectPatch(current_config, true);
     }
-    const float half_el_span = 0.5f * std::fabs(resolved.next_config.pipeline_config.scan.scan_end_el_deg -
-                                                resolved.next_config.pipeline_config.scan.scan_start_el_deg);
-    resolved.next_config.pipeline_config.scan.scan_start_el_deg = patch.scan_center_el_deg - half_el_span;
-    resolved.next_config.pipeline_config.scan.scan_end_el_deg = patch.scan_center_el_deg + half_el_span;
+    const float half_el_span =
+        0.5f * std::fabs(resolved.next_config.pipeline_config.scan.scan_end_el_deg -
+                         resolved.next_config.pipeline_config.scan.scan_start_el_deg);
+    resolved.next_config.pipeline_config.scan.scan_start_el_deg =
+        patch.scan_center_el_deg - half_el_span;
+    resolved.next_config.pipeline_config.scan.scan_end_el_deg =
+        patch.scan_center_el_deg + half_el_span;
     resolved.pipeline_config_changed = true;
   }
   if (patch.has_use_explicit_scan_bounds) {
     has_requested_update = true;
     if (patch.use_explicit_scan_bounds) {
-      if (!patch.has_scan_start_az_deg || !patch.has_scan_end_az_deg || !patch.has_scan_start_el_deg ||
-          !patch.has_scan_end_el_deg || !IsFinite(patch.scan_start_az_deg) ||
-          !IsFinite(patch.scan_end_az_deg) || !IsFinite(patch.scan_start_el_deg) ||
-          !IsFinite(patch.scan_end_el_deg)) {
+      if (!patch.has_scan_start_az_deg || !patch.has_scan_end_az_deg ||
+          !patch.has_scan_start_el_deg || !patch.has_scan_end_el_deg ||
+          !IsFinite(patch.scan_start_az_deg) || !IsFinite(patch.scan_end_az_deg) ||
+          !IsFinite(patch.scan_start_el_deg) || !IsFinite(patch.scan_end_el_deg)) {
         PROJECT_LOG_ERROR(
-            "[EsrSession] Rejecting runtime config patch due to invalid explicit scan bounds payload.");
+            "[EsrSession] Rejecting runtime config patch due to invalid explicit scan bounds "
+            "payload.");
         return RejectPatch(current_config, true);
       }
       float start_az = patch.scan_start_az_deg;
@@ -166,23 +248,6 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
       resolved.next_config.pipeline_config.scan.scan_end_el_deg = end_el;
       resolved.pipeline_config_changed = true;
     }
-  }
-  if (patch.has_preset) {
-    ApplyEnvironmentPreset(patch.preset, &resolved.next_config.environment_model_config);
-    resolved.environment_model_config_changed = true;
-    has_requested_update = true;
-  }
-  if (patch.has_atmospheric_physics) {
-    resolved.next_config.environment_model_config.atmospheric_physics =
-        patch.atmospheric_physics;
-    resolved.environment_model_config_changed = true;
-    has_requested_update = true;
-  }
-  if (patch.has_atmospheric_context) {
-    resolved.next_config.environment_model_config.atmospheric_context =
-        patch.atmospheric_context;
-    resolved.environment_model_config_changed = true;
-    has_requested_update = true;
   }
 
   resolved.has_requested_update = has_requested_update;

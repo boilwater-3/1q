@@ -9,7 +9,7 @@
 #include <cstdint>
 
 #include "1q/api.hpp"
-#include "1q/electronic_surveillance_radar/config/EsrEnvironmentPolicyConfig.h"
+#include "1q/electronic_surveillance_radar/config/EsrEnvironmentPreset.h"
 #include "1q/foundation/atmospheric_types.h"
 
 namespace electronic_surveillance_radar {
@@ -40,7 +40,7 @@ inline std::int32_t ResolveEffectiveDayOfYear(const EsrAtmosphericDerivedContext
  */
 struct ONEQ_API EsrEnvironmentModelConfig {
   config::EsrEnvironmentPreset preset{config::EsrEnvironmentPreset::kStandard}; /**< 环境预设语义 */
-  EsrAtmosphericPhysicsConfig atmospheric_physics{}; /**< 可选基础气象观测参数 */
+  EsrAtmosphericPhysicsConfig atmospheric_physics{};  /**< 可选基础气象观测参数 */
   EsrAtmosphericDerivedContext atmospheric_context{}; /**< 可选时间/空间天气高级上下文 */
 };
 

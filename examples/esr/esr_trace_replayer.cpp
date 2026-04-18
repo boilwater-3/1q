@@ -275,18 +275,54 @@ esr::session::EsrRuntimeConfigPatch ParseRuntimePatch(const Json& payload) {
   patch.scan_start_el_deg = GetFloat(payload, "scan_start_el_deg", patch.scan_start_el_deg);
   patch.has_scan_end_el_deg = GetBool(payload, "has_scan_end_el_deg", false);
   patch.scan_end_el_deg = GetFloat(payload, "scan_end_el_deg", patch.scan_end_el_deg);
-  patch.has_preset =
-      GetBool(payload, "has_preset", GetBool(payload, "has_environment_preset", false));
-  patch.preset = static_cast<esr::config::EsrEnvironmentPreset>(GetInt(
-      payload, "preset", GetInt(payload, "environment_preset", static_cast<int>(patch.preset))));
-  patch.has_atmospheric_physics = GetBool(payload, "has_atmospheric_physics", false);
-  if (payload.contains("atmospheric_physics") && payload["atmospheric_physics"].is_object()) {
-    patch.atmospheric_physics = ParseAtmosphericPhysicsConfig(payload["atmospheric_physics"]);
+
+  if (payload.contains("environment_runtime_config") &&
+      payload["environment_runtime_config"].is_object()) {
+    patch.has_environment_runtime_config = true;
+    const auto& env = payload["environment_runtime_config"];
+    patch.environment_runtime_config.has_preset =
+        GetBool(env, "has_preset", GetBool(env, "has_environment_preset", false));
+    patch.environment_runtime_config.preset = static_cast<esr::config::EsrEnvironmentPreset>(
+        GetInt(env, "preset",
+               GetInt(env, "environment_preset",
+                      static_cast<int>(patch.environment_runtime_config.preset))));
+    patch.environment_runtime_config.has_atmospheric_physics =
+        GetBool(env, "has_atmospheric_physics", false);
+    if (env.contains("atmospheric_physics") && env["atmospheric_physics"].is_object()) {
+      patch.environment_runtime_config.atmospheric_physics =
+          ParseAtmosphericPhysicsConfig(env["atmospheric_physics"]);
+    }
+    patch.environment_runtime_config.has_atmospheric_context =
+        GetBool(env, "has_atmospheric_context", false);
+    if (env.contains("atmospheric_context") && env["atmospheric_context"].is_object()) {
+      patch.environment_runtime_config.atmospheric_context =
+          ParseAtmosphericDerivedContext(env["atmospheric_context"]);
+    }
+  } else {
+    patch.has_environment_runtime_config =
+        GetBool(payload, "has_environment_runtime_config", false);
+    if (patch.has_environment_runtime_config) {
+      patch.environment_runtime_config.has_preset =
+          GetBool(payload, "has_preset", GetBool(payload, "has_environment_preset", false));
+      patch.environment_runtime_config.preset = static_cast<esr::config::EsrEnvironmentPreset>(
+          GetInt(payload, "preset",
+                 GetInt(payload, "environment_preset",
+                        static_cast<int>(patch.environment_runtime_config.preset))));
+      patch.environment_runtime_config.has_atmospheric_physics =
+          GetBool(payload, "has_atmospheric_physics", false);
+      if (payload.contains("atmospheric_physics") && payload["atmospheric_physics"].is_object()) {
+        patch.environment_runtime_config.atmospheric_physics =
+            ParseAtmosphericPhysicsConfig(payload["atmospheric_physics"]);
+      }
+      patch.environment_runtime_config.has_atmospheric_context =
+          GetBool(payload, "has_atmospheric_context", false);
+      if (payload.contains("atmospheric_context") && payload["atmospheric_context"].is_object()) {
+        patch.environment_runtime_config.atmospheric_context =
+            ParseAtmosphericDerivedContext(payload["atmospheric_context"]);
+      }
+    }
   }
-  patch.has_atmospheric_context = GetBool(payload, "has_atmospheric_context", false);
-  if (payload.contains("atmospheric_context") && payload["atmospheric_context"].is_object()) {
-    patch.atmospheric_context = ParseAtmosphericDerivedContext(payload["atmospheric_context"]);
-  }
+
   return patch;
 }
 

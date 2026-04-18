@@ -4,6 +4,7 @@
  *
  * 覆盖要点：
  *   - EsrSessionConfigBuilder 构造会话配置
+ *   - EsrDetailedSessionConfigBuilder 构造详细会话配置
  *   - EsrCycleInput + EmitterTruthState 构造场景输入
  *   - EsrInputValidation 输入校验
  *   - EsrSession 构造、Step、StepWithResult 调用
@@ -14,28 +15,39 @@
 #include <cstddef>
 #include <string>
 
-#include "1q/electronic_surveillance_radar/model/EmitterTruthState.h"
-#include "1q/electronic_surveillance_radar/output/EsrOutputFrame.h"
+#include "1q/electronic_surveillance_radar/config/EsrDetailedSessionConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
+#include "1q/electronic_surveillance_radar/model/EmitterTruthState.h"
+#include "1q/electronic_surveillance_radar/output/EsrOutputFrame.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
-#include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
+#include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 
 namespace esr = electronic_surveillance_radar;
 
 int main() {
   // 1. SessionConfigBuilder
- esr::session::EsrSessionConfig config = esr::config::EsrSessionConfigBuilder()
-                                                    .WithDetectionProfile(esr::config::EsrDetectionProfile::kBalanced)
-                                                    .WithScanRateHz(1.0f)
-                                                    .Build();
+  esr::session::EsrSessionConfig config =
+      esr::config::EsrSessionConfigBuilder()
+          .WithDetectionProfile(esr::config::EsrDetectionProfile::kBalanced)
+          .WithScanRateHz(1.0f)
+          .Build();
 
-  // 2. Session construction
+  // 2. DetailedSessionConfigBuilder
+  esr::session::EsrSessionConfig detailed_config =
+      esr::config::EsrDetailedSessionConfigBuilder()
+          .WithWorkMode(esr::config::EsrWorkMode::kEsm)
+          .WithScanRateHz(2.0f)
+          .WithDetectionDetails(8.0f, 1.0e-6f, 16U, 1.0f, true)
+          .WithEnvironmentPreset(esr::config::EsrEnvironmentPreset::kStandard)
+          .Build();
+
+  // 3. Session construction
   esr::session::EsrSession session(config);
 
-  // 3. CycleInput with a valid emitter
+  // 4. CycleInput with a valid emitter
   esr::session::EsrCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
@@ -53,23 +65,22 @@ int main() {
   emitter.is_emitting = true;
   input.scene_emitters.push_back(emitter);
 
-  // 4. Input validation
-  const esr::session::EsrValidationIssueList issues =
-      esr::session::ValidateEsrCycleInput(input);
+  // 5. Input validation
+  const esr::session::EsrValidationIssueList issues = esr::session::ValidateEsrCycleInput(input);
   if (esr::session::HasEsrValidationError(issues)) {
     return 1;
   }
 
-  // 5. StepWithResult
+  // 6. StepWithResult
   const esr::session::EsrCycleResult result = session.StepWithResult(input);
   if (result.has_validation_error) {
     return 2;
   }
 
-  // 6. Step (output-only)
+  // 7. Step (output-only)
   const esr::output::EsrOutputFrame step_frame = session.Step(input);
 
-  // 7. Access three-channel output
+  // 8. Access three-channel output
   const std::size_t obs_count = result.output_frame.observation_output.observations.size();
   const std::size_t hyp_count = result.output_frame.emitter_output.hypotheses.size();
   const std::size_t assoc_count = result.output_frame.truth_evaluation_output.associations.size();
@@ -83,12 +94,12 @@ int main() {
   (void)hyp_cycle;
   (void)eval_cycle;
 
-  // 8. RuntimeConfigBuilder: disable sensor
+  // 9. RuntimeConfigBuilder: disable sensor
   const esr::session::EsrRuntimeConfigPatch disable_patch =
       esr::config::EsrRuntimeConfigBuilder().WithSensorEnabled(false).Build();
   session.ApplyRuntimeConfig(disable_patch);
 
-  // 9. Step after sensor disabled — should return empty output
+  // 10. Step after sensor disabled — should return empty output
   esr::session::EsrCycleInput input_2 = input;
   input_2.cycle_index = 2U;
   const esr::output::EsrOutputFrame disabled_frame = session.Step(input_2);
@@ -96,12 +107,12 @@ int main() {
     return 3;
   }
 
-  // 10. RuntimeConfigBuilder: re-enable sensor
+  // 11. RuntimeConfigBuilder: re-enable sensor
   const esr::session::EsrRuntimeConfigPatch enable_patch =
       esr::config::EsrRuntimeConfigBuilder().WithSensorEnabled(true).Build();
   session.ApplyRuntimeConfig(enable_patch);
 
-  // 11. RuntimeConfigBuilder: scan rate + work mode
+  // 12. RuntimeConfigBuilder: scan rate + work mode
   const esr::session::EsrRuntimeConfigPatch tune_patch =
       esr::config::EsrRuntimeConfigBuilder()
           .WithScanRateHz(2.0f)
@@ -109,17 +120,26 @@ int main() {
           .Build();
   session.ApplyRuntimeConfig(tune_patch);
 
-  // 12. RuntimeConfigBuilder: explicit scan bounds
+  // 13. RuntimeConfigBuilder: explicit scan bounds
   const esr::session::EsrRuntimeConfigPatch window_patch =
-      esr::config::EsrRuntimeConfigBuilder().WithExplicitScanBoundsDeg(-45.0f, 45.0f, -15.0f, 15.0f).Build();
+      esr::config::EsrRuntimeConfigBuilder()
+          .WithExplicitScanBoundsDeg(-45.0f, 45.0f, -15.0f, 15.0f)
+          .Build();
   session.ApplyRuntimeConfig(window_patch);
 
-  // 13. RuntimeConfigBuilder: reset to center-driven scan
+  // 14. RuntimeConfigBuilder: reset to center-driven scan
   const esr::session::EsrRuntimeConfigPatch clear_window_patch =
       esr::config::EsrRuntimeConfigBuilder().SetUseExplicitScanBounds(false).Build();
   session.ApplyRuntimeConfig(clear_window_patch);
 
-  // 14. Final cycle
+  // 15. RuntimeConfigBuilder: environment preset via environment runtime config
+  const esr::session::EsrRuntimeConfigPatch env_patch =
+      esr::config::EsrRuntimeConfigBuilder()
+          .WithEnvironmentPreset(esr::config::EsrEnvironmentPreset::kDenseClutter)
+          .Build();
+  session.ApplyRuntimeConfig(env_patch);
+
+  // 16. Final cycle
   esr::session::EsrCycleInput input_3 = input;
   input_3.cycle_index = 3U;
   const esr::session::EsrCycleResult result_3 = session.StepWithResult(input_3);

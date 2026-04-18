@@ -7,59 +7,67 @@
 #define ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_RUNTIME_CONFIG_PATCH_H_
 
 #include "1q/api.hpp"
-#include "1q/electronic_surveillance_radar/config/EsrEnvironmentPolicyConfig.h"
+#include "1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
+#include "1q/electronic_surveillance_radar/config/EsrMissionConfig.h"
+#include "1q/electronic_surveillance_radar/config/EsrPolicyConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrScanPolicyConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrWorkMode.h"
-#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentConfig.h"
+#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentRuntimeConfigPatch.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
 
 /**
  * @brief EsrRuntimeConfigPatch 描述运行期可变参数补丁。
+ *
+ * 支持两类运行期更新：
+ * 1) 整域覆盖：mission、policy、environment_runtime_config；
+ * 2) 叶子覆盖：传感器开关、工作模式、扫描率、扫描中心、显式扫描边界等。
+ * 当整域与叶子同时出现时，先应用整域再应用叶子，叶子具有最终优先级。
  */
 struct ONEQ_API EsrRuntimeConfigPatch {
-  bool has_sensor_enabled{false}; /**< 是否显式设置传感器开关状态 */
-  bool sensor_enabled{true};      /**< 传感器开关状态 */
+  bool has_mission{false};            /**< [补丁标志] 是否整块覆盖任务域 */
+  config::EsrMissionConfig mission{}; /**< [可外部调整] 任务域整块覆盖 */
 
-  bool has_work_mode{false};                   /**< 是否显式设置工作模式 */
-  config::EsrWorkMode work_mode{config::EsrWorkMode::kEsm}; /**< 工作模式值 */
+  bool has_policy{false};           /**< [补丁标志] 是否整块覆盖策略域 */
+  config::EsrPolicyConfig policy{}; /**< [可外部调整] 策略域整块覆盖 */
 
-  bool has_scan_rate_hz{false}; /**< 是否显式设置扫描数据率 */
-  float scan_rate_hz{1.0f};     /**< 扫描数据率（单位：Hz） */
+  bool has_environment_runtime_config{false}; /**< [补丁标志] 是否更新环境运行期配置 */
+  environment::EsrEnvironmentRuntimeConfigPatch
+      environment_runtime_config{}; /**< [可外部调整] 环境运行期配置补丁 */
 
-  bool has_scan_start_position{false}; /**< 是否显式设置扫描起始位置 */
+  bool has_sensor_enabled{false}; /**< [补丁标志] 是否显式设置传感器开关状态 */
+  bool sensor_enabled{true};      /**< [可外部调整] 传感器开关状态 */
+
+  bool has_work_mode{false};                                /**< [补丁标志] 是否显式设置工作模式 */
+  config::EsrWorkMode work_mode{config::EsrWorkMode::kEsm}; /**< [可外部调整] 工作模式值 */
+
+  bool has_scan_rate_hz{false}; /**< [补丁标志] 是否显式设置扫描数据率 */
+  float scan_rate_hz{1.0f};     /**< [可外部调整] 扫描数据率（单位：Hz） */
+
+  bool has_scan_start_position{false}; /**< [补丁标志] 是否显式设置扫描起始位置 */
   config::EsrScanStartPosition scan_start_position{config::EsrScanStartPosition::kLeftTop};
 
-  bool has_scan_sequence{false}; /**< 是否显式设置扫描顺序 */
+  bool has_scan_sequence{false}; /**< [补丁标志] 是否显式设置扫描顺序 */
   config::EsrScanSequence scan_sequence{config::EsrScanSequence::kAzimuthFirst};
 
-  bool has_scan_center_az_deg{false}; /**< 是否显式设置扫描中心方位角 */
-  float scan_center_az_deg{0.0f};     /**< 扫描中心方位角（单位：deg） */
+  bool has_scan_center_az_deg{false}; /**< [补丁标志] 是否显式设置扫描中心方位角 */
+  float scan_center_az_deg{0.0f};     /**< [可外部调整] 扫描中心方位角（单位：deg） */
 
-  bool has_scan_center_el_deg{false}; /**< 是否显式设置扫描中心俯仰角 */
-  float scan_center_el_deg{0.0f};     /**< 扫描中心俯仰角（单位：deg） */
+  bool has_scan_center_el_deg{false}; /**< [补丁标志] 是否显式设置扫描中心俯仰角 */
+  float scan_center_el_deg{0.0f};     /**< [可外部调整] 扫描中心俯仰角（单位：deg） */
 
-  bool has_use_explicit_scan_bounds{false}; /**< 是否显式设置扫描边界模式 */
-  bool use_explicit_scan_bounds{false};      /**< 是否使用显式扫描起止角 */
+  bool has_use_explicit_scan_bounds{false}; /**< [补丁标志] 是否显式设置扫描边界模式 */
+  bool use_explicit_scan_bounds{false};     /**< [可外部调整] 是否使用显式扫描起止角 */
 
-  bool has_scan_start_az_deg{false}; /**< 是否显式设置扫描起始方位角 */
-  float scan_start_az_deg{-60.0f};   /**< 扫描起始方位角（单位：deg） */
-  bool has_scan_end_az_deg{false};   /**< 是否显式设置扫描结束方位角 */
-  float scan_end_az_deg{60.0f};      /**< 扫描结束方位角（单位：deg） */
-  bool has_scan_start_el_deg{false}; /**< 是否显式设置扫描起始俯仰角 */
-  float scan_start_el_deg{-10.0f};   /**< 扫描起始俯仰角（单位：deg） */
-  bool has_scan_end_el_deg{false};   /**< 是否显式设置扫描结束俯仰角 */
-  float scan_end_el_deg{10.0f};      /**< 扫描结束俯仰角（单位：deg） */
-
-  bool has_preset{false}; /**< 是否显式设置环境预设 */
-  config::EsrEnvironmentPreset preset{config::EsrEnvironmentPreset::kStandard};
-
-  bool has_atmospheric_physics{false}; /**< 是否显式设置基础气象观测参数 */
-  environment::EsrAtmosphericPhysicsConfig atmospheric_physics{};
-
-  bool has_atmospheric_context{false}; /**< 是否显式设置空间天气上下文参数 */
-  environment::EsrAtmosphericDerivedContext atmospheric_context{};
+  bool has_scan_start_az_deg{false}; /**< [补丁标志] 是否显式设置扫描起始方位角 */
+  float scan_start_az_deg{-60.0f};   /**< [可外部调整] 扫描起始方位角（单位：deg） */
+  bool has_scan_end_az_deg{false};   /**< [补丁标志] 是否显式设置扫描结束方位角 */
+  float scan_end_az_deg{60.0f};      /**< [可外部调整] 扫描结束方位角（单位：deg） */
+  bool has_scan_start_el_deg{false}; /**< [补丁标志] 是否显式设置扫描起始俯仰角 */
+  float scan_start_el_deg{-10.0f};   /**< [可外部调整] 扫描起始俯仰角（单位：deg） */
+  bool has_scan_end_el_deg{false};   /**< [补丁标志] 是否显式设置扫描结束俯仰角 */
+  float scan_end_el_deg{10.0f};      /**< [可外部调整] 扫描结束俯仰角（单位：deg） */
 };
 
 }  // namespace session

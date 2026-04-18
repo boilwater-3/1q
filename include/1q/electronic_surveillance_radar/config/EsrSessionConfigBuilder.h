@@ -16,8 +16,8 @@ namespace config {
  */
 class ONEQ_API EsrSessionConfigBuilder {
  public:
-  explicit EsrSessionConfigBuilder(
-      const session::EsrSessionConfig& config = {}) : config_(config) {}
+  explicit EsrSessionConfigBuilder(const session::EsrSessionConfig& config = {})
+      : config_(config) {}
 
   EsrSessionConfigBuilder& WithSessionConfig(const session::EsrSessionConfig& config) {
     config_ = config;
@@ -36,7 +36,7 @@ class ONEQ_API EsrSessionConfigBuilder {
     return *this;
   }
   EsrSessionConfigBuilder& WithDetectionProfile(config::EsrDetectionProfile profile) {
-    config_.detection.profile = profile;
+    config_.policy.detection.profile = profile;
     return *this;
   }
   EsrSessionConfigBuilder& WithEnvironmentPreset(config::EsrEnvironmentPreset preset) {
@@ -47,18 +47,15 @@ class ONEQ_API EsrSessionConfigBuilder {
     config_.hardware = hardware;
     return *this;
   }
-  EsrSessionConfigBuilder& WithMissionControlConfig(
-      const config::EsrMissionControlConfig& mission) {
+  EsrSessionConfigBuilder& WithMissionConfig(const config::EsrMissionConfig& mission) {
     config_.mission = mission;
     return *this;
   }
-  EsrSessionConfigBuilder& WithDetectionPolicyConfig(
-      const config::EsrDetectionPolicyConfig& detection) {
-    config_.detection = detection;
+  EsrSessionConfigBuilder& WithPolicyConfig(const config::EsrPolicyConfig& policy) {
+    config_.policy = policy;
     return *this;
   }
-  EsrSessionConfigBuilder& WithEnvironmentPolicyConfig(
-      const config::EsrEnvironmentPolicyConfig& environment) {
+  EsrSessionConfigBuilder& WithEnvironmentConfig(const config::EsrEnvironmentConfig& environment) {
     config_.environment = environment;
     return *this;
   }

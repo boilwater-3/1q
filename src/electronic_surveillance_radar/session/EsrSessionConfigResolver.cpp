@@ -9,18 +9,8 @@ namespace session {
 namespace internal {
 namespace {
 
-/**
- * @brief 判断双精度浮点值是否为有限数。
- * @param[in] value 输入值。
- * @return 有限数时返回 `true`。
- */
 bool IsFinite(double value) { return std::isfinite(value) != 0; }
 
-/**
- * @brief 判断单精度浮点值是否为有限数。
- * @param[in] value 输入值。
- * @return 有限数时返回 `true`。
- */
 bool IsFinite(float value) { return std::isfinite(value) != 0; }
 
 constexpr std::uint32_t kActiveScanPulseMultiplier = 4U;
@@ -31,11 +21,6 @@ constexpr float kRwrThresholdScale = 1.25f;
 constexpr float kConservativeDetectSnrDb = 10.0f;
 constexpr float kSensitiveDetectSnrDb = 3.0f;
 
-/**
- * @brief 归一化扫描起止边界，保证起点不大于终点。
- * @param[in,out] start 扫描起点角度（单位：deg）。
- * @param[in,out] end 扫描终点角度（单位：deg）。
- */
 void NormalizeScanBounds(float* start, float* end) {
   if (start == nullptr || end == nullptr) {
     return;
@@ -45,11 +30,6 @@ void NormalizeScanBounds(float* start, float* end) {
   }
 }
 
-/**
- * @brief 对统计检测参数施加模式映射。
- * @param[in] mode ESR 工作模式。
- * @param[in,out] config 统计检测参数。
- */
 void ApplyWorkModeAdjustment(EsrWorkMode mode,
                              extension::InterceptStatisticalDetectionConfig* config) {
   if (config == nullptr) {
@@ -61,8 +41,8 @@ void ApplyWorkModeAdjustment(EsrWorkMode mode,
                                 : 1.0f;
   switch (mode) {
     case EsrWorkMode::kHgesm:
-      config->pulse_count = std::min<std::uint32_t>(
-          config->pulse_count * kActiveScanPulseMultiplier, kMaxPulseCount);
+      config->pulse_count =
+          std::min<std::uint32_t>(config->pulse_count * kActiveScanPulseMultiplier, kMaxPulseCount);
       config->threshold_scale =
           std::max(kMinimumThresholdScale, config->threshold_scale * kHgesmThresholdScale);
       break;
@@ -77,12 +57,6 @@ void ApplyWorkModeAdjustment(EsrWorkMode mode,
   }
 }
 
-/**
- * @brief 按分层参数解析扫描边界。
- * @param[in] layered 分层参数。
- * @param[in] runtime_config 运行态参数。
- * @param[in,out] scan_config 扫描配置。
- */
 void ResolveScanPolicy(const config::EsrHardwareConfig& hardware,
                        const config::EsrScanPolicyConfig& scan_policy,
                        const extension::InterceptRuntimeConfig& runtime_config,
@@ -147,30 +121,43 @@ void ResolveScanPolicy(const config::EsrHardwareConfig& hardware,
   NormalizeScanBounds(&scan_config->scan_start_el_deg, &scan_config->scan_end_el_deg);
 }
 
-void ApplyDetectionPolicy(config::EsrDetectionProfile profile,
+void ApplyDetectionPolicy(const config::EsrDetectionPolicyConfig& detection,
                           extension::InterceptPipelineConfig* pipeline_config) {
   if (pipeline_config == nullptr) {
     return;
   }
-  switch (profile) {
-    case config::EsrDetectionProfile::kConservative:
-      pipeline_config->detection.min_detect_snr_db = kConservativeDetectSnrDb;
-      break;
-    case config::EsrDetectionProfile::kSensitive:
-      pipeline_config->detection.min_detect_snr_db = kSensitiveDetectSnrDb;
-      break;
-    case config::EsrDetectionProfile::kBalanced:
-    default:
-      break;
+  if (detection.use_profile_defaults) {
+    switch (detection.profile) {
+      case config::EsrDetectionProfile::kConservative:
+        pipeline_config->detection.min_detect_snr_db = kConservativeDetectSnrDb;
+        break;
+      case config::EsrDetectionProfile::kSensitive:
+        pipeline_config->detection.min_detect_snr_db = kSensitiveDetectSnrDb;
+        break;
+      case config::EsrDetectionProfile::kBalanced:
+      default:
+        break;
+    }
+  } else {
+    pipeline_config->detection.min_detect_snr_db = detection.min_detect_snr_db;
+    pipeline_config->statistical_detection.pfa = detection.pfa;
+    pipeline_config->statistical_detection.pulse_count = detection.pulse_count;
+    pipeline_config->statistical_detection.threshold_scale = detection.threshold_scale;
+    pipeline_config->statistical_detection.enable_statistical_detection =
+        detection.enable_statistical_detection;
   }
 }
 
-void ApplyEnvironmentPolicy(config::EsrEnvironmentPreset preset,
+void ApplyEnvironmentConfig(const config::EsrEnvironmentConfig& env_config,
                             environment::EsrEnvironmentModelConfig* model_config) {
   if (model_config == nullptr) {
     return;
   }
-  model_config->preset = preset;
+  model_config->preset = env_config.preset;
+  if (!env_config.use_preset_defaults) {
+    model_config->atmospheric_physics = env_config.atmospheric_physics;
+    model_config->atmospheric_context = env_config.atmospheric_context;
+  }
 }
 
 }  // namespace
@@ -178,7 +165,7 @@ void ApplyEnvironmentPolicy(config::EsrEnvironmentPreset preset,
 ResolvedEsrSessionConfig ResolveEsrSessionConfig(const EsrSessionConfig& session_config) {
   ResolvedEsrSessionConfig resolved;
   const config::EsrHardwareConfig& hardware = session_config.hardware;
-  const config::EsrMissionControlConfig& mission = session_config.mission;
+  const config::EsrMissionConfig& mission = session_config.mission;
   const config::EsrScanPolicyConfig& scan_policy = session_config.mission.scan;
 
   resolved.runtime_config.sensor_enabled = mission.power_on;
@@ -206,8 +193,8 @@ ResolvedEsrSessionConfig ResolveEsrSessionConfig(const EsrSessionConfig& session
     resolved.pipeline_config.detection.receiver_noise_floor_w = hardware.receiver_sensitivity_w;
   }
 
-  ApplyDetectionPolicy(session_config.detection.profile, &resolved.pipeline_config);
-  ApplyEnvironmentPolicy(session_config.environment.preset, &resolved.environment_model_config);
+  ApplyDetectionPolicy(session_config.policy.detection, &resolved.pipeline_config);
+  ApplyEnvironmentConfig(session_config.environment, &resolved.environment_model_config);
   ResolveScanPolicy(hardware, scan_policy, resolved.runtime_config, &resolved.pipeline_config.scan);
   ApplyWorkModeAdjustment(mission.work_mode, &resolved.pipeline_config.statistical_detection);
   return resolved;
