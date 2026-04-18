@@ -19,10 +19,23 @@ class ONEQ_API EsrEnvironmentRuntimeConfigPatchBuilder {
   explicit EsrEnvironmentRuntimeConfigPatchBuilder(
       const EsrEnvironmentRuntimeConfigPatch& patch = {}) : patch_(patch) {}
 
-  EsrEnvironmentRuntimeConfigPatchBuilder& WithModelConfig(
-      const EsrEnvironmentModelConfig& model_config) {
-    patch_.has_model_config = true;
-    patch_.model_config = model_config;
+  EsrEnvironmentRuntimeConfigPatchBuilder& WithPreset(config::EsrEnvironmentPreset preset) {
+    patch_.has_preset = true;
+    patch_.preset = preset;
+    return *this;
+  }
+
+  EsrEnvironmentRuntimeConfigPatchBuilder& WithAtmosphericPhysicsConfig(
+      const EsrAtmosphericPhysicsConfig& atmospheric_physics) {
+    patch_.has_atmospheric_physics = true;
+    patch_.atmospheric_physics = atmospheric_physics;
+    return *this;
+  }
+
+  EsrEnvironmentRuntimeConfigPatchBuilder& WithAtmosphericContext(
+      const EsrAtmosphericDerivedContext& atmospheric_context) {
+    patch_.has_atmospheric_context = true;
+    patch_.atmospheric_context = atmospheric_context;
     return *this;
   }
 

@@ -19,11 +19,6 @@ class ONEQ_API EsrEnvironmentConfigBuilder {
   explicit EsrEnvironmentConfigBuilder(const EsrEnvironmentDefaultConfig& config = {})
       : config_(config) {}
 
-  EsrEnvironmentConfigBuilder& WithModelConfig(const EsrEnvironmentModelConfig& model_config) {
-    config_.model_config = model_config;
-    return *this;
-  }
-
   EsrEnvironmentConfigBuilder& WithEnvironmentPreset(config::EsrEnvironmentPreset value) {
     config_.model_config.preset = value;
     return *this;

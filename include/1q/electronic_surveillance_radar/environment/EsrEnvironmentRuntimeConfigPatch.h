@@ -16,8 +16,14 @@ namespace environment {
  * @brief EsrEnvironmentRuntimeConfigPatch 描述运行期可变环境补丁。
  */
 struct ONEQ_API EsrEnvironmentRuntimeConfigPatch {
-  bool has_model_config{false};             /**< 是否更新环境模型配置 */
-  EsrEnvironmentModelConfig model_config{}; /**< 运行期环境模型配置 */
+  bool has_preset{false}; /**< 是否更新环境预设语义 */
+  config::EsrEnvironmentPreset preset{config::EsrEnvironmentPreset::kStandard};
+
+  bool has_atmospheric_physics{false}; /**< 是否更新基础气象观测参数 */
+  EsrAtmosphericPhysicsConfig atmospheric_physics{};
+
+  bool has_atmospheric_context{false}; /**< 是否更新时间/空间天气上下文 */
+  EsrAtmosphericDerivedContext atmospheric_context{};
 };
 
 }  // namespace environment

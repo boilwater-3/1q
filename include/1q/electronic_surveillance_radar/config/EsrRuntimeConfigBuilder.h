@@ -80,8 +80,20 @@ class ONEQ_API EsrRuntimeConfigBuilder {
     return *this;
   }
   EsrRuntimeConfigBuilder& WithEnvironmentPreset(config::EsrEnvironmentPreset preset) {
-    patch_.has_environment_preset = true;
-    patch_.environment_preset = preset;
+    patch_.has_preset = true;
+    patch_.preset = preset;
+    return *this;
+  }
+  EsrRuntimeConfigBuilder& WithAtmosphericPhysicsConfig(
+      const environment::EsrAtmosphericPhysicsConfig& atmospheric_physics) {
+    patch_.has_atmospheric_physics = true;
+    patch_.atmospheric_physics = atmospheric_physics;
+    return *this;
+  }
+  EsrRuntimeConfigBuilder& WithAtmosphericContext(
+      const environment::EsrAtmosphericDerivedContext& atmospheric_context) {
+    patch_.has_atmospheric_context = true;
+    patch_.atmospheric_context = atmospheric_context;
     return *this;
   }
   session::EsrRuntimeConfigPatch Build() const { return patch_; }

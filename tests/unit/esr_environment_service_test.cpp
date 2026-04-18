@@ -133,6 +133,46 @@ TEST(EsrEnvironmentServiceTest, ConfigAtmosphericPhysicsAppliesWhenSceneDoesNotO
   EXPECT_GT(snapshot.propagation_loss_db, 2.0f);
 }
 
+TEST(EsrEnvironmentServiceTest, AtmosphericContextCanChangePropagationLoss) {
+  EsrEnvironmentModelConfig baseline_config;
+  baseline_config.atmospheric_physics.enable_physical_model = true;
+  baseline_config.atmospheric_physics.pressure_hpa = 1013.25f;
+  baseline_config.atmospheric_physics.temperature_k = 288.15f;
+  baseline_config.atmospheric_physics.relative_humidity = 0.5f;
+  baseline_config.atmospheric_context.has_day_of_year = true;
+  baseline_config.atmospheric_context.day_of_year = 90;
+  baseline_config.atmospheric_context.has_k_factor = true;
+  baseline_config.atmospheric_context.k_factor = 1.30f;
+  baseline_config.atmospheric_context.solar_flux_f107a = 140.0f;
+  baseline_config.atmospheric_context.solar_flux_f107 = 140.0f;
+  baseline_config.atmospheric_context.geomagnetic_ap = 5.0f;
+
+  EsrEnvironmentModelConfig stressed_config = baseline_config;
+  stressed_config.atmospheric_context.day_of_year = 280;
+  stressed_config.atmospheric_context.k_factor = 1.45f;
+  stressed_config.atmospheric_context.solar_flux_f107a = 220.0f;
+  stressed_config.atmospheric_context.solar_flux_f107 = 220.0f;
+  stressed_config.atmospheric_context.geomagnetic_ap = 120.0f;
+
+  EsrEnvironmentCycleContext context;
+  context.cycle_index = 8U;
+  context.dt_sec = 1.0f;
+  context.observation.propagation_profile = EsrPropagationEnvironmentProfile::kOpen;
+  context.observation.atmospheric_observation.relative_humidity_ratio = 0.2f;
+  context.observation.atmospheric_observation.precipitation_rate_mmph = 0.0f;
+  context.observation.atmospheric_observation.visibility_km = 30.0f;
+
+  EsrEnvironmentService baseline_service(baseline_config);
+  baseline_service.BeginCycle(context);
+  const EsrEnvironmentSnapshot baseline_snapshot = baseline_service.SampleEnvironment();
+
+  EsrEnvironmentService stressed_service(stressed_config);
+  stressed_service.BeginCycle(context);
+  const EsrEnvironmentSnapshot stressed_snapshot = stressed_service.SampleEnvironment();
+
+  EXPECT_NE(baseline_snapshot.propagation_loss_db, stressed_snapshot.propagation_loss_db);
+}
+
 }  // namespace
 }  // namespace environment
 }  // namespace electronic_surveillance_radar

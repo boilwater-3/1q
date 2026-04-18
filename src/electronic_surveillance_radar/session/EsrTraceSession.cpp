@@ -90,6 +90,27 @@ Json BuildJson(const environment::EsrAtmosphericObservation& value) {
   return json;
 }
 
+Json BuildJson(const environment::EsrAtmosphericPhysicsConfig& value) {
+  Json json;
+  json["enable_physical_model"] = value.enable_physical_model;
+  json["pressure_hpa"] = value.pressure_hpa;
+  json["temperature_k"] = value.temperature_k;
+  json["relative_humidity"] = value.relative_humidity;
+  return json;
+}
+
+Json BuildJson(const environment::EsrAtmosphericDerivedContext& value) {
+  Json json;
+  json["has_k_factor"] = value.has_k_factor;
+  json["k_factor"] = value.k_factor;
+  json["has_day_of_year"] = value.has_day_of_year;
+  json["day_of_year"] = value.day_of_year;
+  json["solar_flux_f107a"] = value.solar_flux_f107a;
+  json["solar_flux_f107"] = value.solar_flux_f107;
+  json["geomagnetic_ap"] = value.geomagnetic_ap;
+  return json;
+}
+
 Json BuildJson(const environment::EsrEnvironmentObservation& value) {
   Json json;
   json["propagation_profile"] = static_cast<int>(value.propagation_profile);
@@ -359,8 +380,12 @@ Json BuildJson(const session::EsrRuntimeConfigPatch& value) {
   json["scan_start_el_deg"] = value.scan_start_el_deg;
   json["has_scan_end_el_deg"] = value.has_scan_end_el_deg;
   json["scan_end_el_deg"] = value.scan_end_el_deg;
-  json["has_environment_preset"] = value.has_environment_preset;
-  json["environment_preset"] = static_cast<int>(value.environment_preset);
+  json["has_preset"] = value.has_preset;
+  json["preset"] = static_cast<int>(value.preset);
+  json["has_atmospheric_physics"] = value.has_atmospheric_physics;
+  json["atmospheric_physics"] = BuildJson(value.atmospheric_physics);
+  json["has_atmospheric_context"] = value.has_atmospheric_context;
+  json["atmospheric_context"] = BuildJson(value.atmospheric_context);
   return json;
 }
 

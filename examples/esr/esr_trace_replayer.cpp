@@ -4,6 +4,7 @@
 // @brief ESR Trace 回放示例：读取 JSONL，驱动 EsrTraceSession 重放并校验一致性。
 
 #include <iostream>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -61,6 +62,29 @@ esr::environment::EsrAtmosphericObservation ParseAtmosphericObservation(const Js
   value.precipitation_rate_mmph =
       GetFloat(json, "precipitation_rate_mmph", value.precipitation_rate_mmph);
   value.visibility_km = GetFloat(json, "visibility_km", value.visibility_km);
+  return value;
+}
+
+esr::environment::EsrAtmosphericPhysicsConfig ParseAtmosphericPhysicsConfig(const Json& json) {
+  esr::environment::EsrAtmosphericPhysicsConfig value;
+  value.enable_physical_model =
+      GetBool(json, "enable_physical_model", value.enable_physical_model);
+  value.pressure_hpa = GetFloat(json, "pressure_hpa", value.pressure_hpa);
+  value.temperature_k = GetFloat(json, "temperature_k", value.temperature_k);
+  value.relative_humidity = GetFloat(json, "relative_humidity", value.relative_humidity);
+  return value;
+}
+
+esr::environment::EsrAtmosphericDerivedContext ParseAtmosphericDerivedContext(const Json& json) {
+  esr::environment::EsrAtmosphericDerivedContext value;
+  value.has_k_factor = GetBool(json, "has_k_factor", value.has_k_factor);
+  value.k_factor = GetFloat(json, "k_factor", value.k_factor);
+  value.has_day_of_year = GetBool(json, "has_day_of_year", value.has_day_of_year);
+  value.day_of_year =
+      static_cast<std::int32_t>(GetInt(json, "day_of_year", value.day_of_year));
+  value.solar_flux_f107a = GetFloat(json, "solar_flux_f107a", value.solar_flux_f107a);
+  value.solar_flux_f107 = GetFloat(json, "solar_flux_f107", value.solar_flux_f107);
+  value.geomagnetic_ap = GetFloat(json, "geomagnetic_ap", value.geomagnetic_ap);
   return value;
 }
 
@@ -250,9 +274,21 @@ esr::session::EsrRuntimeConfigPatch ParseRuntimePatch(const Json& payload) {
   patch.scan_start_el_deg = GetFloat(payload, "scan_start_el_deg", patch.scan_start_el_deg);
   patch.has_scan_end_el_deg = GetBool(payload, "has_scan_end_el_deg", false);
   patch.scan_end_el_deg = GetFloat(payload, "scan_end_el_deg", patch.scan_end_el_deg);
-  patch.has_environment_preset = GetBool(payload, "has_environment_preset", false);
-  patch.environment_preset = static_cast<esr::config::EsrEnvironmentPreset>(
-      GetInt(payload, "environment_preset", static_cast<int>(patch.environment_preset)));
+  patch.has_preset = GetBool(payload, "has_preset",
+                             GetBool(payload, "has_environment_preset", false));
+  patch.preset = static_cast<esr::config::EsrEnvironmentPreset>(
+      GetInt(payload, "preset",
+             GetInt(payload, "environment_preset", static_cast<int>(patch.preset))));
+  patch.has_atmospheric_physics =
+      GetBool(payload, "has_atmospheric_physics", false);
+  if (payload.contains("atmospheric_physics") && payload["atmospheric_physics"].is_object()) {
+    patch.atmospheric_physics = ParseAtmosphericPhysicsConfig(payload["atmospheric_physics"]);
+  }
+  patch.has_atmospheric_context =
+      GetBool(payload, "has_atmospheric_context", false);
+  if (payload.contains("atmospheric_context") && payload["atmospheric_context"].is_object()) {
+    patch.atmospheric_context = ParseAtmosphericDerivedContext(payload["atmospheric_context"]);
+  }
   return patch;
 }
 

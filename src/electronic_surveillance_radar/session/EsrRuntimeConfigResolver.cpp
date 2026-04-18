@@ -167,8 +167,20 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
       resolved.pipeline_config_changed = true;
     }
   }
-  if (patch.has_environment_preset) {
-    ApplyEnvironmentPreset(patch.environment_preset, &resolved.next_config.environment_model_config);
+  if (patch.has_preset) {
+    ApplyEnvironmentPreset(patch.preset, &resolved.next_config.environment_model_config);
+    resolved.environment_model_config_changed = true;
+    has_requested_update = true;
+  }
+  if (patch.has_atmospheric_physics) {
+    resolved.next_config.environment_model_config.atmospheric_physics =
+        patch.atmospheric_physics;
+    resolved.environment_model_config_changed = true;
+    has_requested_update = true;
+  }
+  if (patch.has_atmospheric_context) {
+    resolved.next_config.environment_model_config.atmospheric_context =
+        patch.atmospheric_context;
     resolved.environment_model_config_changed = true;
     has_requested_update = true;
   }

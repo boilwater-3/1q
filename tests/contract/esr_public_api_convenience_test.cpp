@@ -97,10 +97,19 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderDefaultsAreUnset) {
   EXPECT_FALSE(patch.has_scan_rate_hz);
   EXPECT_FALSE(patch.has_scan_center_az_deg);
   EXPECT_FALSE(patch.has_use_explicit_scan_bounds);
-  EXPECT_FALSE(patch.has_environment_preset);
+  EXPECT_FALSE(patch.has_preset);
+  EXPECT_FALSE(patch.has_atmospheric_physics);
+  EXPECT_FALSE(patch.has_atmospheric_context);
 }
 
 TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSetsSemanticFields) {
+  environment::EsrAtmosphericPhysicsConfig atmospheric_physics;
+  atmospheric_physics.enable_physical_model = true;
+  atmospheric_physics.relative_humidity = 0.65f;
+  environment::EsrAtmosphericDerivedContext atmospheric_context;
+  atmospheric_context.has_day_of_year = true;
+  atmospheric_context.day_of_year = 210;
+
   const session::EsrRuntimeConfigPatch patch = config::EsrRuntimeConfigBuilder()
                                                    .WithSensorEnabled(false)
                                                    .WithWorkMode(config::EsrWorkMode::kHgesm)
@@ -108,7 +117,10 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSetsSemanticFields) {
                                                    .WithScanCenterAzDeg(15.0f)
                                                    .WithScanCenterElDeg(5.0f)
                                                    .WithExplicitScanBoundsDeg(-30.0f, 30.0f, -10.0f, 10.0f)
-                                                   .WithEnvironmentPreset(config::EsrEnvironmentPreset::kDenseClutter)
+                                                   .WithEnvironmentPreset(
+                                                       config::EsrEnvironmentPreset::kDenseClutter)
+                                                   .WithAtmosphericPhysicsConfig(atmospheric_physics)
+                                                   .WithAtmosphericContext(atmospheric_context)
                                                    .Build();
 
   EXPECT_TRUE(patch.has_sensor_enabled);
@@ -121,7 +133,14 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSetsSemanticFields) {
   EXPECT_TRUE(patch.has_scan_center_el_deg);
   EXPECT_TRUE(patch.has_use_explicit_scan_bounds);
   EXPECT_TRUE(patch.use_explicit_scan_bounds);
-  EXPECT_TRUE(patch.has_environment_preset);
+  EXPECT_TRUE(patch.has_preset);
+  EXPECT_EQ(patch.preset, config::EsrEnvironmentPreset::kDenseClutter);
+  EXPECT_TRUE(patch.has_atmospheric_physics);
+  EXPECT_TRUE(patch.atmospheric_physics.enable_physical_model);
+  EXPECT_FLOAT_EQ(patch.atmospheric_physics.relative_humidity, 0.65f);
+  EXPECT_TRUE(patch.has_atmospheric_context);
+  EXPECT_TRUE(patch.atmospheric_context.has_day_of_year);
+  EXPECT_EQ(patch.atmospheric_context.day_of_year, 210);
 }
 
 TEST(EsrPublicApiConvenienceTest, InputValidationReportsErrorsForBoundaryCases) {

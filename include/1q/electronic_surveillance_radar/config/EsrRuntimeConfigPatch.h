@@ -10,6 +10,7 @@
 #include "1q/electronic_surveillance_radar/config/EsrEnvironmentPolicyConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrScanPolicyConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrWorkMode.h"
+#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentConfig.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
@@ -51,8 +52,14 @@ struct ONEQ_API EsrRuntimeConfigPatch {
   bool has_scan_end_el_deg{false};   /**< 是否显式设置扫描结束俯仰角 */
   float scan_end_el_deg{10.0f};      /**< 扫描结束俯仰角（单位：deg） */
 
-  bool has_environment_preset{false}; /**< 是否显式设置环境预设 */
-  config::EsrEnvironmentPreset environment_preset{config::EsrEnvironmentPreset::kStandard};
+  bool has_preset{false}; /**< 是否显式设置环境预设 */
+  config::EsrEnvironmentPreset preset{config::EsrEnvironmentPreset::kStandard};
+
+  bool has_atmospheric_physics{false}; /**< 是否显式设置基础气象观测参数 */
+  environment::EsrAtmosphericPhysicsConfig atmospheric_physics{};
+
+  bool has_atmospheric_context{false}; /**< 是否显式设置空间天气上下文参数 */
+  environment::EsrAtmosphericDerivedContext atmospheric_context{};
 };
 
 }  // namespace session
