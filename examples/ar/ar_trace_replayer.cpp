@@ -92,8 +92,8 @@ oneq::foundation::PoseState ParsePose(const Json& json) {
   return pose;
 }
 
-ar::config::expert::DetectionConfig ParseDetection(const Json& json) {
-  ar::config::expert::DetectionConfig config;
+ar::config::DetectionConfig ParseDetection(const Json& json) {
+  ar::config::DetectionConfig config;
   config.enable_physics_detection =
       GetBool(json, "enable_physics_detection", config.enable_physics_detection);
 
@@ -177,8 +177,8 @@ ar::config::expert::DetectionConfig ParseDetection(const Json& json) {
   return config;
 }
 
-ar::config::expert::TrackingConfig ParseTracking(const Json& json) {
-  ar::config::expert::TrackingConfig config;
+ar::config::TrackingConfig ParseTracking(const Json& json) {
+  ar::config::TrackingConfig config;
   config.enable_kalman_filter = GetBool(json, "enable_kalman_filter", config.enable_kalman_filter);
   config.kalman_measurement_noise_std =
       GetFloat(json, "kalman_measurement_noise_std", config.kalman_measurement_noise_std);
@@ -189,8 +189,8 @@ ar::config::expert::TrackingConfig ParseTracking(const Json& json) {
   return config;
 }
 
-ar::config::expert::LifecycleConfig ParseLifecycle(const Json& json) {
-  ar::config::expert::LifecycleConfig config;
+ar::config::LifecycleConfig ParseLifecycle(const Json& json) {
+  ar::config::LifecycleConfig config;
   config.confirm_hits = static_cast<std::uint32_t>(
       GetInt(json, "confirm_hits", static_cast<int>(config.confirm_hits)));
   config.max_miss_before_lost = static_cast<std::uint32_t>(
