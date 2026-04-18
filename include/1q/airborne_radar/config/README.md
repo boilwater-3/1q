@@ -21,7 +21,7 @@ config/
 |-- airborne_radar_config.hpp             统一入口头（聚合以上全部）
 ```
 
-调用方不需要直接 include `PipelineConfig.h`、`config/expert/*` 或 `model/RadarOrientationConfig.h`。
+调用方不需要直接 include `config/expert/*` 或 `model/RadarOrientationConfig.h`。
 
 ## 语义档位
 
@@ -40,7 +40,6 @@ semantic/
 以下头短期保留在仓库 `include` 树中供内部装配路径使用，**不计入公开 API 白名单，也不再进入安装导出清单**：
 
 ```text
-PipelineConfig.h                         内部装配过渡壳
 expert/                                   内部专家物理参数
   |-- ExpertPipelineConfig.h
   |-- beam/

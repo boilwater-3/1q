@@ -26,7 +26,6 @@ set(AR_SEMANTIC_HEADERS
 
 # ── AR 内部过渡头（保留在仓库 include 树，但不计入公开合同白名单） ───
 set(AR_INTERNAL_TRANSITION_HEADERS
-    "airborne_radar/config/PipelineConfig.h"
     "airborne_radar/config/expert/ExpertPipelineConfig.h"
     "airborne_radar/config/expert/beam/BeamControlConfig.h"
     "airborne_radar/config/expert/beam/BeamPointingConfig.h"
@@ -214,7 +213,6 @@ file(GLOB_RECURSE ACTUAL_PUBLIC_HEADERS
      "${PUBLIC_INCLUDE_DIR}/*.hpp")
 
 set(ACTUAL_PUBLIC_CONTRACT_HEADERS ${ACTUAL_PUBLIC_HEADERS})
-list(FILTER ACTUAL_PUBLIC_CONTRACT_HEADERS EXCLUDE REGEX "^airborne_radar/config/PipelineConfig\\.h$")
 list(FILTER ACTUAL_PUBLIC_CONTRACT_HEADERS EXCLUDE REGEX "^airborne_radar/config/expert/")
 
 list(SORT EXPECTED_PUBLIC_HEADERS)

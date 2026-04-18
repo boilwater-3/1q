@@ -1038,8 +1038,8 @@ include/1q/airborne_radar/config/
 
 阶段 6 候选优化（非 M5 阻塞项）：
 
-- `PipelineConfig.h` 与 `config/expert/*` 目前仍保留在仓库 `include` 树，后续可继续物理下沉到 `src/` 内部路径。
-- 如需彻底消除仓库级 legacy 目录，可在阶段 6 一次性迁移内部 include 与对应单测入口。
+- `PipelineConfig.h` 已从仓库 `include` 树移除；`config/expert/*` 仍保留，后续可继续物理下沉到 `src/` 内部路径。
+- 如需彻底消除仓库级 legacy 目录，可在阶段 6 继续迁移 `config/expert/*` 与对应内部引用入口。
 
 ### 阶段 6：清理旧公开入口与历史桥接残留
 
@@ -1047,6 +1047,10 @@ include/1q/airborne_radar/config/
   - 新增 `src/airborne_radar/config/legacy/*` 内部过渡头，作为 legacy 配置的内部引用入口。
   - `src/` 与相关 `tests/unit` 已切换到内部过渡头，不再直接 include 公开 legacy 头路径
     （`1q/airborne_radar/config/PipelineConfig.h`、`1q/airborne_radar/config/expert/*`）。
+  - 已删除公开 legacy 头 `include/1q/airborne_radar/config/PipelineConfig.h`，并将 `PipelineConfig` 定义下沉到
+    `src/airborne_radar/config/legacy/PipelineConfig.h`。
+  - `RadarSessionConfigBuilder` 已移除对 `ExpertPipelineConfig` 的公开头依赖，内部改为以四域 `RadarSessionConfig`
+    作为基线构造语义覆盖结果。
   - 验证结果：`llvm-ninja-debug-local` 与 `llvm-ninja-release-local` 的 build + ctest 均通过。
 
 - 删除或下线旧的 `RadarExpertSessionConfigBuilder`。

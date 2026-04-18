@@ -20,6 +20,8 @@ namespace config {
 namespace expert {
 
 using beam::BeamControlConfig;
+using beam::BeamPointingConfig;
+using beam::BeamSchedulerConfig;
 using lifecycle::ImmConfig;
 using lifecycle::LifecycleConfig;
 using tracking::AssociationConfig;
@@ -35,6 +37,8 @@ namespace config {
 
 using expert::AssociationConfig;
 using expert::BeamControlConfig;
+using expert::BeamPointingConfig;
+using expert::BeamSchedulerConfig;
 using expert::ImmConfig;
 using expert::KalmanUpdateBackend;
 using expert::LifecycleConfig;

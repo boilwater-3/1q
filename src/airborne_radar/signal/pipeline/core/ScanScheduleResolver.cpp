@@ -168,7 +168,7 @@ std::vector<model::AzimuthElevationDeg> BuildScheduledScanPattern(
 model::AzimuthElevationDeg ResolveScheduledBeamPointing(
     const model::RadarOrientationConfig& orientation_config,
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg,
-    const config::expert::beam::BeamSchedulerConfig& scheduler_config,
+    const config::BeamSchedulerConfig& scheduler_config,
     std::uint32_t cycle_index) {
   model::AzimuthElevationLimitsDeg effective_limits = utils::IntersectScanLimits(
       orientation_config.mechanical_scan_limits_deg, orientation_config.electronic_scan_limits_deg);
@@ -234,7 +234,7 @@ model::AzimuthElevationDeg ResolveScheduledBeamPointing(
     const model::RadarOrientationConfig& orientation_config,
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg, std::uint32_t cycle_index) {
   return ResolveScheduledBeamPointing(
-      orientation_config, effective_beamwidth_deg, config::expert::beam::BeamSchedulerConfig(),
+      orientation_config, effective_beamwidth_deg, config::BeamSchedulerConfig(),
       cycle_index);
 }
 
