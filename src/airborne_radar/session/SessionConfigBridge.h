@@ -1,7 +1,7 @@
 #ifndef AIRBORNE_RADAR_SESSION_SESSION_CONFIG_BRIDGE_H_
 #define AIRBORNE_RADAR_SESSION_SESSION_CONFIG_BRIDGE_H_
 
-#include "1q/airborne_radar/config/PipelineConfig.h"
+#include "airborne_radar/config/legacy/PipelineConfig.h"
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
 
 namespace airborne_radar {

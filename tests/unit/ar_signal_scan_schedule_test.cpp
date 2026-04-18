@@ -10,7 +10,7 @@
 #include <memory>
 #include <vector>
 
-#include "1q/airborne_radar/config/PipelineConfig.h"
+#include "airborne_radar/config/legacy/PipelineConfig.h"
 #include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/airborne_radar/model/TargetFeatureUtils.h"

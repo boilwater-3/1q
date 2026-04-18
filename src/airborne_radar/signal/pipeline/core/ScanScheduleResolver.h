@@ -9,7 +9,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "1q/airborne_radar/config/expert/beam/BeamSchedulerConfig.h"
+#include "airborne_radar/config/legacy/expert/beam/BeamSchedulerConfig.h"
 #include "airborne_radar/utils/RadarOrientationUtils.h"
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"
 #include "airborne_radar/signal/pipeline/config/SignalPipelineRuntimeTypes.h"

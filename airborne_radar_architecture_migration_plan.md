@@ -1043,6 +1043,12 @@ include/1q/airborne_radar/config/
 
 ### 阶段 6：清理旧公开入口与历史桥接残留
 
+- 已启动（`codex/ar-config-m6-legacy-cleanup`）：
+  - 新增 `src/airborne_radar/config/legacy/*` 内部过渡头，作为 legacy 配置的内部引用入口。
+  - `src/` 与相关 `tests/unit` 已切换到内部过渡头，不再直接 include 公开 legacy 头路径
+    （`1q/airborne_radar/config/PipelineConfig.h`、`1q/airborne_radar/config/expert/*`）。
+  - 验证结果：`llvm-ninja-debug-local` 与 `llvm-ninja-release-local` 的 build + ctest 均通过。
+
 - 删除或下线旧的 `RadarExpertSessionConfigBuilder`。
 - 删除旧公开注释、示例、README 中对 `pipeline/expert` 的主路径描述。
 - 移除所有只为兼容旧外部接口而保留的桥接层。

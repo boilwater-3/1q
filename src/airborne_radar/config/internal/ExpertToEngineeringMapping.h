@@ -6,7 +6,7 @@
 #ifndef AIRBORNE_RADAR_SRC_CONFIG_INTERNAL_EXPERT_TO_ENGINEERING_MAPPING_H_
 #define AIRBORNE_RADAR_SRC_CONFIG_INTERNAL_EXPERT_TO_ENGINEERING_MAPPING_H_
 
-#include "1q/airborne_radar/config/expert/ExpertPipelineConfig.h"
+#include "airborne_radar/config/legacy/expert/ExpertPipelineConfig.h"
 #include "airborne_radar/config/engineering/SignalEngineeringConfig.h"
 
 namespace airborne_radar {

@@ -5,7 +5,7 @@
 
 #include <gtest/gtest.h>
 
-#include "1q/airborne_radar/config/PipelineConfig.h"
+#include "airborne_radar/config/legacy/PipelineConfig.h"
 #include "airborne_radar/signal/pipeline/config/InternalPipelineConfig.h"
 #include "airborne_radar/signal/pipeline/assembly/SignalComponentFactory.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
