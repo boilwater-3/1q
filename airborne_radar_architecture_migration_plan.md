@@ -1004,6 +1004,32 @@ include/1q/airborne_radar/config/
 
 每个分支只做单里程碑范围内的改动，避免跨阶段混改导致回滚困难。
 
+## M5 执行进展（当前）
+
+以下为 `codex/ar-config-m5-cleanup` 已完成项：
+
+- 已移除旧 preset 公开头：
+  - `include/1q/airborne_radar/config/presets/PipelineConfigPresets.h`
+  - `include/1q/airborne_radar/config/presets/RadarSessionConfigPresets.h`
+- 已将 preset 主入口统一到：
+  - `include/1q/airborne_radar/config/RadarSessionConfigPresets.h`
+- 已补齐 session 预设能力以替代旧 pipeline preset：
+  - `MakeTrackingMissionRadarSessionConfig()`
+  - `MakeHighRobustnessRadarSessionConfig()`
+- 已完成受影响测试迁移，移除对旧 preset 头和旧 pipeline preset API 的依赖。
+- 已清理 integration 中未使用的 `PipelineConfig.h` 公开 include。
+
+当前验证结果：
+
+- `llvm-ninja-debug-local`：build + ctest 通过
+- `llvm-ninja-release-local`：build + ctest 通过
+
+M5 剩余关注点（留待后续批次）：
+
+- `PipelineConfig.h` 与 `config/expert/*` 仍保留在 include 树，当前定位为遗留/内部过渡头。
+- `check_public_api_boundary.cmake` 仍包含上述遗留头白名单，用于与现状目录一致性校验。
+- 若目标是彻底达成“唯一公开主路径”，需要在后续阶段继续推进旧头下沉（对应阶段 6）。
+
 ### 阶段 6：清理旧公开入口与历史桥接残留
 
 - 删除或下线旧的 `RadarExpertSessionConfigBuilder`。
