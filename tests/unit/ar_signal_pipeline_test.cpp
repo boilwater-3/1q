@@ -1,18 +1,18 @@
 // Copyright 2026. All Rights Reserved.
 //
-// @file signal_environment_test.cpp
-// @brief 验证真实环境建模与信号处理实现的基础行为。
+// @file ar_signal_pipeline_test.cpp
+// @brief 验证信号处理流水线与内部配置的基础行为。
 
 #include <gtest/gtest.h>
 
 #include <cmath>
 #include <initializer_list>
+#include <memory>
 #include <vector>
 
 #include "1q/airborne_radar/config/PipelineConfig.h"
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/airborne_radar/config/presets/PipelineConfigPresets.h"
-#include "1q/airborne_radar/config/presets/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/config/semantic/DetectionProfiles.h"
 #include "1q/airborne_radar/config/semantic/LifecycleProfiles.h"
 #include "1q/airborne_radar/config/semantic/TrackingProfiles.h"
@@ -20,8 +20,6 @@
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/model/TargetFeature.h"
 #include "airborne_radar/environment/EnvironmentService.h"
-#include "airborne_radar/environment/PropagationModel.h"
-#include "airborne_radar/environment/SceneManager.h"
 #include "airborne_radar/session/SessionConfigBridge.h"
 #include "airborne_radar/signal/pipeline/assembly/RuntimeAssemblySupport.h"
 #include "airborne_radar/signal/pipeline/core/SignalPipeline.h"
@@ -322,265 +320,6 @@ void ApplyTrackingPolicyProfile(config::PipelineConfig* config,
 
 }  // namespace
 
-TEST(EnvironmentServiceTest, DetectsJammingByConfiguredThreshold) {
-  environment::JammerEmitterState jammer_source =
-      MakeJammerEmitter(environment::JammingTechnique::kUnknown, 7.0f);
-
-  environment::EnvironmentService service(MakeEnvironmentConfigWithJammers({jammer_source}));
-  service.SetJammingSensitivityProfile(
-      environment::internal::ResolveJammingSensitivityProfile(6.0f));
-
-  const auto snapshot = service.SampleEnvironment();
-  EXPECT_TRUE(snapshot.jamming_detected);
-  ASSERT_EQ(snapshot.jammer_sources.size(), 1u);
-  EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].power_db, 7.0f);
-  EXPECT_GE(snapshot.jammer_sources[0].frequency_overlap_ratio, 0.0f);
-  EXPECT_LE(snapshot.jammer_sources[0].frequency_overlap_ratio, 1.0f);
-  EXPECT_GE(snapshot.jammer_sources[0].prf_lock_risk, 0.0f);
-  EXPECT_LE(snapshot.jammer_sources[0].prf_lock_risk, 1.0f);
-}
-
-TEST(EnvironmentServiceTest, KeepsDirectionUnknownWhenExternalDirectionIsMissing) {
-  environment::JammerEmitterState jammer_source =
-      MakeJammerEmitter(environment::JammingTechnique::kDeception, 10.0f);
-  jammer_source.js_db = 6.0f;
-  jammer_source.angular_span_deg = 15.0f;
-  jammer_source.has_direction_deg = false;
-
-  environment::EnvironmentService service(MakeEnvironmentConfigWithJammers({jammer_source}));
-  const auto snapshot = service.SampleEnvironment();
-
-  ASSERT_EQ(snapshot.jammer_sources.size(), 1u);
-  EXPECT_FALSE(snapshot.jammer_sources[0].has_direction_deg);
-  EXPECT_GE(snapshot.jammer_sources[0].frequency_overlap_ratio, 0.0f);
-  EXPECT_LE(snapshot.jammer_sources[0].frequency_overlap_ratio, 1.0f);
-  EXPECT_GE(snapshot.jammer_sources[0].prf_lock_risk, 0.0f);
-  EXPECT_LE(snapshot.jammer_sources[0].prf_lock_risk, 1.0f);
-}
-
-TEST(EnvironmentServiceTest, ModelConfigAtmosphericPhysicsAffectsDefaultSnapshot) {
-  environment::EnvironmentModelConfig config;
-  config.atmospheric_physics.enable_physical_model = true;
-  config.atmospheric_physics.relative_humidity = 0.7f;
-
-  environment::EnvironmentService service(config);
-  const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
-  EXPECT_GT(snapshot.propagation_loss_db, 6.5f);
-}
-
-TEST(EnvironmentServiceTest, DerivesAtmosphericInputsFromObservationAndTimestamp) {
-  environment::EnvironmentModelConfig config;
-  config.atmospheric_physics.enable_physical_model = true;
-  config.atmospheric_physics.pressure_hpa = 950.0f;
-  config.atmospheric_physics.temperature_k = 300.0f;
-  config.atmospheric_physics.relative_humidity = 0.9f;
-  config.atmospheric_context.has_simulation_unix_seconds = true;
-  config.atmospheric_context.simulation_unix_seconds =
-      1704067200;  // 2024-01-01 00:00:00 UTC, DOY=1
-
-  environment::EnvironmentService service(config);
-  const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
-
-  EXPECT_GT(snapshot.effective_k_factor, 1.0f);
-  EXPECT_LT(snapshot.effective_k_factor, 2.0f);
-  EXPECT_EQ(snapshot.effective_day_of_year, 1);
-}
-
-TEST(EnvironmentServiceTest, FallsBackToDefaultDayOfYearWithoutTimestamp) {
-  environment::EnvironmentModelConfig config;
-  config.atmospheric_physics.enable_physical_model = true;
-  config.atmospheric_context.has_simulation_unix_seconds = false;
-  config.atmospheric_context.simulation_unix_seconds = 946684800;  // 2000-01-01
-
-  environment::EnvironmentService service(config);
-  const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
-
-  EXPECT_EQ(snapshot.effective_day_of_year, 172);
-}
-
-TEST(EnvironmentServiceTest, FreezesSnapshotUntilNextCycle) {
-  environment::EnvironmentService service;
-
-  environment::JammerEmitterState emitter;
-  emitter.technique = environment::JammingTechnique::kNoiseSuppression;
-  emitter.power_db = 8.0f;
-  emitter.confidence = 1.0f;
-  emitter.has_direction_deg = true;
-  emitter.azimuth_deg = 18.0f;
-  emitter.elevation_deg = 1.0f;
-  emitter.angular_span_deg = 10.0f;
-  const environment::EnvironmentSceneState scene_state =
-      environment::EnvironmentSceneBuilder().AddJammer(emitter).Build();
-
-  service.UpdateSceneState(scene_state);
-
-  const environment::EnvironmentSnapshot pending_snapshot = service.SampleEnvironment();
-  EXPECT_FALSE(pending_snapshot.jamming_detected);
-  EXPECT_NEAR(pending_snapshot.propagation_loss_db, 6.5f, 1e-6f);
-
-  {
-    environment::EnvironmentCycleContext ctx;
-    ctx.cycle_index = 1U;
-    ctx.dt_sec = 1.0f;
-    service.BeginCycle(ctx);
-  }
-  const environment::EnvironmentSnapshot cycle_snapshot = service.SampleEnvironment();
-  const environment::EnvironmentSnapshot repeated_snapshot = service.SampleEnvironment();
-
-  EXPECT_TRUE(cycle_snapshot.jamming_detected);
-  EXPECT_FLOAT_EQ(cycle_snapshot.propagation_loss_db, 6.5f);
-  EXPECT_FLOAT_EQ(cycle_snapshot.clutter_power_db, 3.0f);
-  EXPECT_EQ(cycle_snapshot.jammer_sources.size(), 1U);
-  EXPECT_EQ(cycle_snapshot.jammer_sources.size(), repeated_snapshot.jammer_sources.size());
-  EXPECT_FLOAT_EQ(repeated_snapshot.jammer_sources[0].power_db,
-                  cycle_snapshot.jammer_sources[0].power_db);
-  EXPECT_EQ(repeated_snapshot.jamming_detected, cycle_snapshot.jamming_detected);
-}
-
-TEST(EnvironmentServiceTest, SupportsMultipleJammerSourcesInSnapshot) {
-  environment::EnvironmentModelConfig config;
-
-  environment::JammerEmitterState noise_source;
-  noise_source.technique = environment::JammingTechnique::kNoiseSuppression;
-  noise_source.power_db = 9.0f;
-  noise_source.js_db = 7.0f;
-  noise_source.has_direction_deg = true;
-  noise_source.azimuth_deg = 24.0f;
-  noise_source.elevation_deg = 7.0f;
-  noise_source.angular_span_deg = 30.0f;
-  noise_source.confidence = 0.9f;
-
-  environment::JammerEmitterState deception_source;
-  deception_source.technique = environment::JammingTechnique::kDeception;
-  deception_source.power_db = 4.0f;
-  deception_source.js_db = 5.0f;
-  deception_source.has_direction_deg = true;
-  deception_source.azimuth_deg = 2.0f;
-  deception_source.elevation_deg = 1.0f;
-  deception_source.angular_span_deg = 8.0f;
-  deception_source.confidence = 0.8f;
-
-  config.jammer_sources.push_back(noise_source);
-  config.jammer_sources.push_back(deception_source);
-
-  environment::EnvironmentService service(config);
-  service.SetJammingSensitivityProfile(
-      environment::internal::ResolveJammingSensitivityProfile(6.0f));
-
-  const auto snapshot = service.SampleEnvironment();
-  ASSERT_EQ(snapshot.jammer_sources.size(), 2u);
-  EXPECT_TRUE(snapshot.jamming_detected);
-  EXPECT_EQ(snapshot.jammer_sources[0].technique, environment::JammingTechnique::kNoiseSuppression);
-  EXPECT_EQ(snapshot.jammer_sources[1].technique, environment::JammingTechnique::kDeception);
-  EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].power_db, 9.0f);
-  EXPECT_TRUE(snapshot.jammer_sources[0].in_sidelobe);
-}
-
-TEST(EnvironmentServiceTest, AppliesPendingSceneJammerOnNextCycleOnly) {
-  environment::EnvironmentService service;
-
-  EXPECT_FALSE(service.SampleEnvironment().jamming_detected);
-
-  service.UpdateSceneState(
-      environment::EnvironmentSceneBuilder()
-          .AddJammer(MakeJammerEmitter(environment::JammingTechnique::kUnknown, 7.0f))
-          .Build());
-
-  EXPECT_FALSE(service.SampleEnvironment().jamming_detected);
-
-  environment::EnvironmentCycleContext cycle_3;
-  cycle_3.cycle_index = 3U;
-  cycle_3.dt_sec = 1.0f;
-  service.BeginCycle(cycle_3);
-  const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
-  EXPECT_TRUE(snapshot.jamming_detected);
-  ASSERT_EQ(snapshot.jammer_sources.size(), 1U);
-  EXPECT_EQ(snapshot.jammer_sources[0].technique, environment::JammingTechnique::kUnknown);
-  EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].power_db, 7.0f);
-}
-
-TEST(SceneManagerTest, CommitsPendingSceneOnlyWhenBeginCycleArrives) {
-  environment::EnvironmentSceneState initial_scene;
-  initial_scene.jammer_emitters.push_back(
-      MakeJammerEmitter(environment::JammingTechnique::kUnknown, 2.0f));
-
-  environment::SceneManager scene_manager(initial_scene);
-
-  environment::EnvironmentSceneState pending_scene = initial_scene;
-  pending_scene.jammer_emitters[0].power_db = 15.0f;
-  scene_manager.UpdatePendingScene(pending_scene);
-
-  ASSERT_EQ(scene_manager.GetActiveScene().jammer_emitters.size(), 1U);
-  ASSERT_EQ(scene_manager.GetPendingScene().jammer_emitters.size(), 1U);
-  EXPECT_FLOAT_EQ(scene_manager.GetActiveScene().jammer_emitters[0].power_db, 2.0f);
-  EXPECT_FLOAT_EQ(scene_manager.GetPendingScene().jammer_emitters[0].power_db, 15.0f);
-
-  environment::EnvironmentCycleContext cycle_9;
-  cycle_9.cycle_index = 9U;
-  cycle_9.dt_sec = 1.0f;
-  scene_manager.CommitPendingScene(cycle_9);
-
-  ASSERT_EQ(scene_manager.GetActiveScene().jammer_emitters.size(), 1U);
-  EXPECT_FLOAT_EQ(scene_manager.GetActiveScene().jammer_emitters[0].power_db, 15.0f);
-  EXPECT_EQ(scene_manager.GetActiveCycleContext().cycle_index, 9U);
-}
-
-TEST(PropagationModelTest, NegativeTerrainReflectionYieldsNetGainPassesThroughUnchanged) {
-  environment::EnvironmentSceneState scene_state;
-
-  environment::PropagationModel propagation_model;
-  const environment::PropagationResult result = propagation_model.Evaluate(scene_state);
-
-  EXPECT_FLOAT_EQ(result.propagation_loss_db, 6.5f);
-  EXPECT_FLOAT_EQ(result.clutter_power_db, 3.0f);
-}
-
-TEST(PropagationModelTest, OptionalAtmosphericPhysicsAddsExtraLossWhenEnabled) {
-  environment::EnvironmentSceneState baseline_scene;
-
-  environment::EnvironmentSceneState physics_scene = baseline_scene;
-  physics_scene.atmospheric_physics.enable_physical_model = true;
-  physics_scene.atmospheric_physics.relative_humidity = 0.75f;
-
-  environment::PropagationModel propagation_model;
-  const environment::PropagationResult baseline_result = propagation_model.Evaluate(baseline_scene);
-  const environment::PropagationResult physics_result = propagation_model.Evaluate(physics_scene);
-
-  EXPECT_GT(physics_result.propagation_loss_db, baseline_result.propagation_loss_db);
-}
-
-TEST(PropagationModelTest, OptionalVegetationScatterPhysicsRaisesClutterWhenEnabled) {
-  environment::EnvironmentSceneState baseline_scene;
-
-  environment::EnvironmentSceneState physics_scene = baseline_scene;
-  physics_scene.vegetation_scatter_physics.enable_physical_model = true;
-  physics_scene.vegetation_scatter_physics.cover_profile =
-      environment::VegetationCoverProfile::kTropicalDense;
-
-  environment::PropagationModel propagation_model;
-  const environment::PropagationResult baseline_result = propagation_model.Evaluate(baseline_scene);
-  const environment::PropagationResult physics_result = propagation_model.Evaluate(physics_scene);
-
-  EXPECT_FLOAT_EQ(physics_result.propagation_loss_db, baseline_result.propagation_loss_db);
-  EXPECT_GT(physics_result.clutter_power_db, baseline_result.clutter_power_db);
-}
-
-TEST(EnvironmentServiceTest, ModelConfigVegetationScatterAffectsDefaultSnapshotClutter) {
-  environment::EnvironmentModelConfig baseline_config;
-
-  environment::EnvironmentModelConfig physics_config = baseline_config;
-  physics_config.vegetation_scatter_physics.enable_physical_model = true;
-  physics_config.vegetation_scatter_physics.cover_profile =
-      environment::VegetationCoverProfile::kConiferousForest;
-
-  environment::EnvironmentService baseline_service(baseline_config);
-  environment::EnvironmentService physics_service(physics_config);
-
-  const environment::EnvironmentSnapshot baseline_snapshot = baseline_service.SampleEnvironment();
-  const environment::EnvironmentSnapshot physics_snapshot = physics_service.SampleEnvironment();
-  EXPECT_GT(physics_snapshot.clutter_power_db, baseline_snapshot.clutter_power_db);
-}
-
 TEST(SignalPipelineTest, KeepsTrackStableWhenDetectionMarginIsEnough) {
   environment::EnvironmentService environment_service;
 
@@ -719,97 +458,6 @@ TEST(SignalPipelineTest, AutoLifecycleManagerCreationFailsWhenImmAssemblyIsInval
           runtime_config, internal_config);
 
   EXPECT_EQ(lifecycle_manager, nullptr);
-}
-
-TEST(SignalPipelineInternalConfigTest, DetectionPresetMapsToBaselineProfile) {
-  const config::PipelineConfig config = config::presets::MakeDetectionMissionPipelineConfig();
-  const signal::pipeline::PipelineConfig pipeline_config = config;
-
-  const signal::pipeline::internal::InternalPipelineConfig internal_config =
-      signal::pipeline::internal::BuildInternalPipelineConfig(pipeline_config);
-
-  EXPECT_FLOAT_EQ(internal_config.association.unassigned_cost, 9.0f);
-  EXPECT_FLOAT_EQ(internal_config.tracking.kalman_noise_diff_coeff, 1.0f);
-  EXPECT_FLOAT_EQ(internal_config.tracking.speed_decay_ratio_on_loss, 0.95f);
-  EXPECT_FLOAT_EQ(internal_config.tracking.rcs_decay_ratio_on_loss, 0.92f);
-}
-
-TEST(SignalPipelineInternalConfigTest, TrackingPresetMapsToTrackingProfile) {
-  const config::PipelineConfig config = config::presets::MakeTrackingMissionPipelineConfig();
-  const signal::pipeline::PipelineConfig pipeline_config = config;
-
-  const signal::pipeline::internal::InternalPipelineConfig internal_config =
-      signal::pipeline::internal::BuildInternalPipelineConfig(pipeline_config);
-
-  EXPECT_FLOAT_EQ(internal_config.association.unassigned_cost, 9.0f);
-  EXPECT_FLOAT_EQ(internal_config.tracking.kalman_noise_diff_coeff, 1.0f);
-  EXPECT_FLOAT_EQ(internal_config.tracking.speed_decay_ratio_on_loss, 1.0f);
-  EXPECT_FLOAT_EQ(internal_config.tracking.rcs_decay_ratio_on_loss, 1.0f);
-}
-
-TEST(SignalPipelineInternalConfigTest, RobustPresetMapsToRobustProfile) {
-  const config::PipelineConfig config = config::presets::MakeHighRobustnessPipelineConfig();
-  const signal::pipeline::PipelineConfig pipeline_config = config;
-
-  const signal::pipeline::internal::InternalPipelineConfig internal_config =
-      signal::pipeline::internal::BuildInternalPipelineConfig(pipeline_config);
-
-  EXPECT_FLOAT_EQ(internal_config.association.unassigned_cost, 12.0f);
-  EXPECT_FLOAT_EQ(internal_config.tracking.kalman_noise_diff_coeff, 1.0f);
-  EXPECT_FLOAT_EQ(internal_config.tracking.speed_decay_ratio_on_loss, 0.95f);
-  EXPECT_FLOAT_EQ(internal_config.tracking.rcs_decay_ratio_on_loss, 0.92f);
-}
-
-TEST(SignalPipelineInternalConfigTest,
-     NonDefaultRcsPhysicsBreaksTrackingPresetSignatureAndFallsBackToBaseline) {
-  config::PipelineConfig config = config::presets::MakeTrackingMissionPipelineConfig();
-  ApplyRcsFusionProfile(&config, config::semantic::RcsFusionProfile::kEnhanced);
-
-  const signal::pipeline::PipelineConfig pipeline_config = config;
-  const signal::pipeline::internal::InternalPipelineConfig internal_config =
-      signal::pipeline::internal::BuildInternalPipelineConfig(pipeline_config);
-
-  EXPECT_FLOAT_EQ(internal_config.association.unassigned_cost, 9.0f);
-  EXPECT_FLOAT_EQ(internal_config.tracking.kalman_noise_diff_coeff, 1.0f);
-  EXPECT_FLOAT_EQ(internal_config.tracking.speed_decay_ratio_on_loss, 1.0f);
-  EXPECT_FLOAT_EQ(internal_config.tracking.rcs_decay_ratio_on_loss, 1.0f);
-}
-
-TEST(SignalPipelineInternalConfigTest, CustomConfigStaysBaselineEvenWithHighLifecycleThresholds) {
-  config::PipelineConfig config = config::presets::MakeDetectionMissionPipelineConfig();
-  ApplyDetectionIntentProfile(&config, config::semantic::DetectionIntentProfile::kBalanced);
-  ApplyLifecyclePolicyProfile(&config, config::semantic::LifecyclePolicyProfile::kBalanced);
-  ApplyTrackingPolicyProfile(&config, config::semantic::TrackingPolicyProfile::kBalanced);
-
-  const signal::pipeline::PipelineConfig pipeline_config = config;
-  const signal::pipeline::internal::InternalPipelineConfig internal_config =
-      signal::pipeline::internal::BuildInternalPipelineConfig(pipeline_config);
-
-  EXPECT_FLOAT_EQ(internal_config.association.unassigned_cost, 9.0f);
-  EXPECT_FLOAT_EQ(internal_config.tracking.kalman_noise_diff_coeff, 1.0f);
-  EXPECT_FLOAT_EQ(internal_config.tracking.speed_decay_ratio_on_loss, 0.95f);
-  EXPECT_FLOAT_EQ(internal_config.tracking.rcs_decay_ratio_on_loss, 0.92f);
-}
-
-TEST(SignalPipelineInternalConfigTest, ImmToggleOnlyControlsImmInternalDefaults) {
-  config::PipelineConfig config = config::presets::MakeTrackingMissionPipelineConfig();
-  const signal::pipeline::PipelineConfig pipeline_config = config;
-
-  const signal::pipeline::internal::InternalPipelineConfig imm_disabled_internal_config =
-      signal::pipeline::internal::BuildInternalPipelineConfig(pipeline_config);
-  EXPECT_TRUE(imm_disabled_internal_config.lifecycle.imm_model_noise_diff_coeffs.empty());
-  EXPECT_FLOAT_EQ(imm_disabled_internal_config.tracking.speed_decay_ratio_on_loss, 1.0f);
-  EXPECT_FLOAT_EQ(imm_disabled_internal_config.tracking.rcs_decay_ratio_on_loss, 1.0f);
-
-  config.expert.lifecycle.enable_imm_lifecycle = true;
-  const signal::pipeline::PipelineConfig imm_enabled_pipeline_config = config;
-  const signal::pipeline::internal::InternalPipelineConfig imm_enabled_internal_config =
-      signal::pipeline::internal::BuildInternalPipelineConfig(imm_enabled_pipeline_config);
-  ASSERT_EQ(imm_enabled_internal_config.lifecycle.imm_model_noise_diff_coeffs.size(), 2U);
-  EXPECT_FLOAT_EQ(imm_enabled_internal_config.lifecycle.imm_model_noise_diff_coeffs[0], 0.5f);
-  EXPECT_FLOAT_EQ(imm_enabled_internal_config.lifecycle.imm_model_noise_diff_coeffs[1], 4.0f);
-  EXPECT_FLOAT_EQ(imm_enabled_internal_config.tracking.speed_decay_ratio_on_loss, 1.0f);
-  EXPECT_FLOAT_EQ(imm_enabled_internal_config.tracking.rcs_decay_ratio_on_loss, 1.0f);
 }
 
 TEST(SignalPipelineTest, ControlProfilePowerReductionLowersPhysicalDetectionMargin) {
@@ -1613,57 +1261,6 @@ TEST(SignalPipelineTest, AutoImmLifecycleAssemblyUsesControlProfileAdjustedImmPa
             baseline_seeds[0].gaussian_state.covariance(0, 0));
 }
 
-TEST(TrackFilterTest, KeepsStateWhenDetectionIsStable) {
-  signal::tracking::TrackFilter filter;
-  const model::TargetFeature input(800.0f, 0.0f, 0.0f, 2.5f);
-
-  signal::tracking::TrackFilterContext context;
-  context.detection_succeeded = true;
-  context.jamming_detected = false;
-  context.detection_margin_db = 0.0f;
-
-  const model::TargetFeature output = filter.Filter(input, context);
-
-  EXPECT_FLOAT_EQ(output.current_track_speed, input.current_track_speed);
-  EXPECT_FLOAT_EQ(output.current_track_rcs, input.current_track_rcs);
-}
-
-TEST(TrackFilterTest, AppliesLossDecayAndJammingPenalty) {
-  signal::tracking::TrackFilter filter;
-  const model::TargetFeature input(800.0f, 0.0f, 0.0f, 2.5f);
-
-  signal::tracking::TrackFilterContext context;
-  context.detection_succeeded = false;
-  context.jamming_detected = true;
-  context.detection_margin_db = -10.0f;
-
-  const model::TargetFeature output = filter.Filter(input, context);
-
-  EXPECT_LT(output.current_track_speed, input.current_track_speed);
-  EXPECT_LT(output.current_track_rcs, input.current_track_rcs);
-}
-
-TEST(TrackFilterTest, DeceptionJammingRetainsMoreTrackEnergyThanNoiseSuppression) {
-  signal::tracking::TrackFilter filter;
-  const model::TargetFeature input(800.0f, 0.0f, 0.0f, 2.5f);
-
-  signal::tracking::TrackFilterContext noise_context;
-  noise_context.detection_succeeded = false;
-  noise_context.jamming_detected = true;
-  noise_context.dominant_jamming_semantic = model::JammingSemantic::kNoiseSuppression;
-  noise_context.jamming_severity = 0.8f;
-  noise_context.detection_margin_db = -10.0f;
-
-  signal::tracking::TrackFilterContext deception_context = noise_context;
-  deception_context.dominant_jamming_semantic = model::JammingSemantic::kDeception;
-
-  const model::TargetFeature noise_output = filter.Filter(input, noise_context);
-  const model::TargetFeature deception_output = filter.Filter(input, deception_context);
-
-  EXPECT_GT(deception_output.current_track_speed, noise_output.current_track_speed);
-  EXPECT_GT(deception_output.current_track_rcs, noise_output.current_track_rcs);
-}
-
 TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
   environment::EnvironmentService environment_service;
 
@@ -1959,329 +1556,6 @@ TEST(SignalPipelineTest, InvalidEnvironmentCycleAbortsAndClearsLastCycleCache) {
 // ============================================================================
 
 /// @brief 杂波功率由内部模型统一给出，不再由外部场景直填。
-TEST(PropagationModelTest, ClutterPowerUsesInternalBaselineWhenVegetationModelDisabled) {
-  environment::EnvironmentSceneState scene_state;
-
-  environment::PropagationModel model;
-  const environment::PropagationResult result = model.Evaluate(scene_state);
-
-  EXPECT_FLOAT_EQ(result.propagation_loss_db, 6.5f);
-  EXPECT_FLOAT_EQ(result.clutter_power_db, 3.0f);
-}
-
-/// @brief 关闭植被物理模型时，杂波保持内部默认值。
-TEST(PropagationModelTest, BaselineClutterRemainsStableAcrossDefaultScenes) {
-  environment::EnvironmentSceneState scene_state;
-
-  environment::PropagationModel model;
-  EXPECT_FLOAT_EQ(model.Evaluate(scene_state).clutter_power_db, 3.0f);
-}
-
-/// @brief 启用植被散射物理模型后，杂波高于内部基线。
-TEST(PropagationModelTest, VegetationScatterRaisesClutterFromInternalBaseline) {
-  environment::EnvironmentSceneState scene_state;
-  scene_state.vegetation_scatter_physics.enable_physical_model = true;
-  scene_state.vegetation_scatter_physics.cover_profile =
-      environment::VegetationCoverProfile::kSparseWoodland;
-
-  environment::PropagationModel model;
-  EXPECT_GT(model.Evaluate(scene_state).clutter_power_db, 3.0f);
-}
-
-/// @brief 传播损耗由内部基线组成。
-TEST(PropagationModelTest, PositivePropagationLossIsRetained) {
-  environment::EnvironmentSceneState scene_state;
-
-  environment::PropagationModel model;
-  const environment::PropagationResult result = model.Evaluate(scene_state);
-
-  EXPECT_FLOAT_EQ(result.propagation_loss_db, 6.5f);
-}
-
-/// @brief 默认场景下，传播损耗与杂波均回到内部基线。
-TEST(PropagationModelTest, ZeroAtmosphericAttenuationKeepsInternalPropagationBaseline) {
-  environment::EnvironmentSceneState scene_state;
-
-  environment::PropagationModel model;
-  const environment::PropagationResult result = model.Evaluate(scene_state);
-
-  EXPECT_FLOAT_EQ(result.propagation_loss_db, 6.5f);
-  EXPECT_FLOAT_EQ(result.clutter_power_db, 3.0f);
-}
-
-// ============================================================================
-// EnvironmentService — 结构化输入与规范化测试
-// ============================================================================
-
-/// @brief 默认配置下不生成干扰源，也不会误判为探测到干扰。
-TEST(EnvironmentServiceTest, EmptyJammerSourcesProduceNoJammingFacts) {
-  environment::EnvironmentService service;
-  service.SetJammingSensitivityProfile(
-      environment::internal::ResolveJammingSensitivityProfile(0.001f));
-
-  const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
-  EXPECT_TRUE(snapshot.jammer_sources.empty());
-  EXPECT_FALSE(snapshot.jamming_detected);
-}
-
-/// @brief 仅旁瓣属性为真且功率为零的结构化输入应被保留，但不应触发干扰探测。
-TEST(EnvironmentServiceTest, StructuredSidelobeFactIsPreservedWithoutDetection) {
-  environment::JammerEmitterState source =
-      MakeJammerEmitter(environment::JammingTechnique::kUnknown, 0.0f);
-  source.has_direction_deg = true;
-  source.azimuth_deg = 35.0f;
-  source.elevation_deg = 8.0f;
-  source.angular_span_deg = 30.0f;
-
-  environment::EnvironmentService service(MakeEnvironmentConfigWithJammers({source}));
-  service.SetJammingSensitivityProfile(
-      environment::internal::ResolveJammingSensitivityProfile(0.001f));
-
-  const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
-  ASSERT_EQ(snapshot.jammer_sources.size(), 1u);
-  EXPECT_TRUE(snapshot.jammer_sources[0].in_sidelobe);
-  EXPECT_FALSE(snapshot.jamming_detected);
-}
-
-/// @brief NormalizeEmitterState：负值 power_db 钳位到 0。
-TEST(EnvironmentServiceTest, NegativeEmitterPowerIsClampedToZero) {
-  environment::EnvironmentModelConfig config;
-  environment::JammerEmitterState source;
-  source.technique = environment::JammingTechnique::kNoiseSuppression;
-  source.power_db = -10.0f;  // 负值应被钳位
-  source.js_db = 3.0f;
-  source.confidence = 1.0f;
-  config.jammer_sources.push_back(source);
-
-  environment::EnvironmentService service(config);
-  const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
-
-  ASSERT_EQ(snapshot.jammer_sources.size(), 1u);
-  EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].power_db, 0.0f);
-}
-
-/// @brief NormalizeEmitterState：负值 js_db 与 angular_span_deg 钳位到 0。
-TEST(EnvironmentServiceTest, NegativeEmitterJsAndAngularSpanAreClampedToZero) {
-  environment::EnvironmentModelConfig config;
-  environment::JammerEmitterState source;
-  source.technique = environment::JammingTechnique::kNoiseSuppression;
-  source.power_db = 3.0f;
-  source.js_db = -2.0f;
-  source.angular_span_deg = -15.0f;
-  source.confidence = 0.7f;
-  config.jammer_sources.push_back(source);
-
-  environment::EnvironmentService service(config);
-  const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
-
-  ASSERT_EQ(snapshot.jammer_sources.size(), 1u);
-  EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].js_db, 0.0f);
-  EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].angular_span_deg, 0.0f);
-}
-
-/// @brief NormalizeEmitterState：派生 frequency_overlap_ratio 超过上限时钳位到 1.0。
-TEST(EnvironmentServiceTest, EmitterOverlapRatioAboveOneIsClampedToOne) {
-  environment::EnvironmentModelConfig config;
-  environment::JammerEmitterState source;
-  source.technique = environment::JammingTechnique::kDeception;
-  source.power_db = 5.0f;
-  source.js_db = 12.0f;
-  source.has_direction_deg = true;
-  source.azimuth_deg = 0.0f;
-  source.elevation_deg = 0.0f;
-  source.angular_span_deg = 0.0f;
-  source.confidence = 0.8f;
-  config.jammer_sources.push_back(source);
-
-  environment::EnvironmentService service(config);
-  const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
-
-  ASSERT_EQ(snapshot.jammer_sources.size(), 1u);
-  EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].frequency_overlap_ratio, 1.0f);
-}
-
-/// @brief NormalizeEmitterState：confidence > 1.0 钳位到 1.0。
-TEST(EnvironmentServiceTest, EmitterConfidenceAboveOneIsClampedToOne) {
-  environment::EnvironmentModelConfig config;
-  environment::JammerEmitterState source;
-  source.power_db = 5.0f;
-  source.confidence = 2.5f;  // 超出范围
-  config.jammer_sources.push_back(source);
-
-  environment::EnvironmentService service(config);
-  const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
-
-  ASSERT_EQ(snapshot.jammer_sources.size(), 1u);
-  EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].confidence, 1.0f);
-}
-
-/// @brief 干扰功率恰好等于检测门限时，应判定为探测到干扰（>= 门限）。
-TEST(EnvironmentServiceTest, JammingDetectedWhenPowerEqualsThreshold) {
-  environment::EnvironmentService service(MakeEnvironmentConfigWithJammers(
-      {MakeJammerEmitter(environment::JammingTechnique::kUnknown, 6.0f)}));
-  service.SetJammingSensitivityProfile(environment::JammingSensitivityProfile::kBalanced);
-
-  EXPECT_TRUE(service.SampleEnvironment().jamming_detected);
-}
-
-/// @brief 干扰功率低于检测门限时，不判定为探测到干扰。
-TEST(EnvironmentServiceTest, JammingNotDetectedWhenPowerBelowThreshold) {
-  environment::EnvironmentService service(MakeEnvironmentConfigWithJammers(
-      {MakeJammerEmitter(environment::JammingTechnique::kUnknown, 5.9f)}));
-  service.SetJammingSensitivityProfile(environment::JammingSensitivityProfile::kBalanced);
-
-  EXPECT_FALSE(service.SampleEnvironment().jamming_detected);
-}
-
-/// @brief 多干扰源输入应完整保留到快照中。
-TEST(EnvironmentServiceTest, KeepsAllJammerSourcesInSnapshot) {
-  environment::EnvironmentModelConfig config;
-
-  environment::JammerEmitterState low;
-  low.power_db = 3.0f;
-  low.technique = environment::JammingTechnique::kNoiseSuppression;
-  low.confidence = 1.0f;
-
-  environment::JammerEmitterState high;
-  high.power_db = 12.0f;
-  high.technique = environment::JammingTechnique::kDeception;
-  high.confidence = 1.0f;
-
-  config.jammer_sources.push_back(low);
-  config.jammer_sources.push_back(high);
-
-  environment::EnvironmentService service(config);
-  service.SetJammingSensitivityProfile(
-      environment::internal::ResolveJammingSensitivityProfile(2.0f));
-
-  const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
-  ASSERT_EQ(snapshot.jammer_sources.size(), 2u);
-  EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].power_db, 3.0f);
-  EXPECT_FLOAT_EQ(snapshot.jammer_sources[1].power_db, 12.0f);
-  EXPECT_TRUE(snapshot.jamming_detected);
-}
-
-// ============================================================================
-// TrackFilter — 衰减语义正确性测试
-// ============================================================================
-
-/// @brief 检测成功时，速度和 RCS 保持不变。
-TEST(TrackFilterTest, DetectionSuccessPreservesSpeedAndRcs) {
-  signal::tracking::TrackFilter filter;
-
-  model::TargetFeature input(300.0f, 0.0f, 0.0f, 2.0f);
-  input.has_cartesian_position = true;
-  input.position_x = 1000.0f;
-  input.range_m = 1000.0f;
-
-  signal::tracking::TrackFilterContext ctx;
-  ctx.detection_succeeded = true;
-
-  const model::TargetFeature output = filter.Filter(input, ctx);
-
-  EXPECT_FLOAT_EQ(output.current_track_speed, 300.0f);
-  EXPECT_FLOAT_EQ(output.current_track_rcs, 2.0f);
-}
-
-/// @brief 检测失配时，速度按配置系数衰减（speed = input * ratio）。
-TEST(TrackFilterTest, DetectionMissDecaysSpeedByConfiguredRatio) {
-  signal::tracking::TrackFilterConfig cfg;
-  cfg.speed_decay_ratio_on_loss = 0.80f;
-  cfg.rcs_decay_ratio_on_loss = 1.0f;  // RCS 不衰减，隔离速度分支
-  signal::tracking::TrackFilter filter(cfg);
-
-  model::TargetFeature input(500.0f, 0.0f, 0.0f, 2.0f);
-  signal::tracking::TrackFilterContext ctx;
-  ctx.detection_succeeded = false;
-
-  const model::TargetFeature output = filter.Filter(input, ctx);
-
-  EXPECT_FLOAT_EQ(output.current_track_speed, 400.0f);  // 500 * 0.8
-}
-
-/// @brief 检测失配时，RCS 按配置系数衰减，且不低于 0.05。
-TEST(TrackFilterTest, DetectionMissDecaysRcsByConfiguredRatio) {
-  signal::tracking::TrackFilterConfig cfg;
-  cfg.speed_decay_ratio_on_loss = 1.0f;
-  cfg.rcs_decay_ratio_on_loss = 0.70f;
-  signal::tracking::TrackFilter filter(cfg);
-
-  model::TargetFeature input(100.0f, 0.0f, 0.0f, 2.0f);
-  signal::tracking::TrackFilterContext ctx;
-  ctx.detection_succeeded = false;
-
-  const model::TargetFeature output = filter.Filter(input, ctx);
-
-  EXPECT_NEAR(output.current_track_rcs, 1.40f, 1e-4f);  // 2.0 * 0.7
-}
-
-/// @brief 连续多次失配时，速度单调递减。
-TEST(TrackFilterTest, ConsecutiveMissesMonotonicallyReduceSpeed) {
-  signal::tracking::TrackFilterConfig cfg;
-  cfg.speed_decay_ratio_on_loss = 0.90f;
-  cfg.rcs_decay_ratio_on_loss = 1.0f;
-  signal::tracking::TrackFilter filter(cfg);
-
-  signal::tracking::TrackFilterContext miss_ctx;
-  miss_ctx.detection_succeeded = false;
-
-  model::TargetFeature state(500.0f, 0.0f, 0.0f, 1.0f);
-  float prev_speed = 500.0f;
-  for (int i = 0; i < 5; ++i) {
-    state = filter.Filter(state, miss_ctx);
-    EXPECT_LT(state.current_track_speed, prev_speed)
-        << "Speed should decrease at miss #" << (i + 1);
-    prev_speed = state.current_track_speed;
-  }
-}
-
-/// @brief 衰减系数为 1.0 时，失配不改变速度。
-TEST(TrackFilterTest, DecayRatioOnePreservesSpeedOnMiss) {
-  signal::tracking::TrackFilterConfig cfg;
-  cfg.speed_decay_ratio_on_loss = 1.0f;
-  cfg.rcs_decay_ratio_on_loss = 1.0f;
-  signal::tracking::TrackFilter filter(cfg);
-
-  model::TargetFeature input(400.0f, 0.0f, 0.0f, 1.5f);
-  signal::tracking::TrackFilterContext ctx;
-  ctx.detection_succeeded = false;
-
-  const model::TargetFeature output = filter.Filter(input, ctx);
-
-  EXPECT_FLOAT_EQ(output.current_track_speed, 400.0f);
-}
-
-/// @brief 速度不会因失配变为负数（钳位到 0）。
-TEST(TrackFilterTest, SpeedNeverGoesNegativeOnMiss) {
-  signal::tracking::TrackFilterConfig cfg;
-  cfg.speed_decay_ratio_on_loss = 0.0f;  // 衰减至 0
-  cfg.rcs_decay_ratio_on_loss = 1.0f;
-  signal::tracking::TrackFilter filter(cfg);
-
-  model::TargetFeature input(300.0f, 0.0f, 0.0f, 1.0f);
-  signal::tracking::TrackFilterContext ctx;
-  ctx.detection_succeeded = false;
-
-  const model::TargetFeature output = filter.Filter(input, ctx);
-
-  EXPECT_GE(output.current_track_speed, 0.0f);
-}
-
-/// @brief RCS 不会因失配低于最小值 0.05。
-TEST(TrackFilterTest, RcsNeverGoesBelowMinimumOnMiss) {
-  signal::tracking::TrackFilterConfig cfg;
-  cfg.speed_decay_ratio_on_loss = 1.0f;
-  cfg.rcs_decay_ratio_on_loss = 0.0f;  // 衰减至 0
-  signal::tracking::TrackFilter filter(cfg);
-
-  model::TargetFeature input(100.0f, 0.0f, 0.0f, 0.01f);  // 极小 RCS
-  signal::tracking::TrackFilterContext ctx;
-  ctx.detection_succeeded = false;
-
-  const model::TargetFeature output = filter.Filter(input, ctx);
-
-  EXPECT_GE(output.current_track_rcs, 0.05f);
-}
 
 TEST(SignalPipelineTest, SameInstanceControlProfileSwitchAcrossCyclesSyncsLifecycleCovariance) {
   session::RadarSessionConfig session_config;
@@ -2338,6 +1612,97 @@ TEST(SignalPipelineTest, SameInstanceControlProfileSwitchAcrossCyclesSyncsLifecy
   ASSERT_EQ(agile_seeds.size(), 1u);
 
   EXPECT_GT(std::fabs(agile_seeds[0].gaussian_state.covariance(0, 0) - baseline_cov), 1.0e-4f);
+}
+
+TEST(SignalPipelineInternalConfigTest, DetectionPresetMapsToBaselineProfile) {
+  const config::PipelineConfig config = config::presets::MakeDetectionMissionPipelineConfig();
+  const signal::pipeline::PipelineConfig pipeline_config = config;
+
+  const signal::pipeline::internal::InternalPipelineConfig internal_config =
+      signal::pipeline::internal::BuildInternalPipelineConfig(pipeline_config);
+
+  EXPECT_FLOAT_EQ(internal_config.association.unassigned_cost, 9.0f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.kalman_noise_diff_coeff, 1.0f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.speed_decay_ratio_on_loss, 0.95f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.rcs_decay_ratio_on_loss, 0.92f);
+}
+
+TEST(SignalPipelineInternalConfigTest, TrackingPresetMapsToTrackingProfile) {
+  const config::PipelineConfig config = config::presets::MakeTrackingMissionPipelineConfig();
+  const signal::pipeline::PipelineConfig pipeline_config = config;
+
+  const signal::pipeline::internal::InternalPipelineConfig internal_config =
+      signal::pipeline::internal::BuildInternalPipelineConfig(pipeline_config);
+
+  EXPECT_FLOAT_EQ(internal_config.association.unassigned_cost, 9.0f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.kalman_noise_diff_coeff, 1.0f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.speed_decay_ratio_on_loss, 1.0f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.rcs_decay_ratio_on_loss, 1.0f);
+}
+
+TEST(SignalPipelineInternalConfigTest, RobustPresetMapsToRobustProfile) {
+  const config::PipelineConfig config = config::presets::MakeHighRobustnessPipelineConfig();
+  const signal::pipeline::PipelineConfig pipeline_config = config;
+
+  const signal::pipeline::internal::InternalPipelineConfig internal_config =
+      signal::pipeline::internal::BuildInternalPipelineConfig(pipeline_config);
+
+  EXPECT_FLOAT_EQ(internal_config.association.unassigned_cost, 12.0f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.kalman_noise_diff_coeff, 1.0f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.speed_decay_ratio_on_loss, 0.95f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.rcs_decay_ratio_on_loss, 0.92f);
+}
+
+TEST(SignalPipelineInternalConfigTest,
+     NonDefaultRcsPhysicsBreaksTrackingPresetSignatureAndFallsBackToBaseline) {
+  config::PipelineConfig config = config::presets::MakeTrackingMissionPipelineConfig();
+  ApplyRcsFusionProfile(&config, config::semantic::RcsFusionProfile::kEnhanced);
+
+  const signal::pipeline::PipelineConfig pipeline_config = config;
+  const signal::pipeline::internal::InternalPipelineConfig internal_config =
+      signal::pipeline::internal::BuildInternalPipelineConfig(pipeline_config);
+
+  EXPECT_FLOAT_EQ(internal_config.association.unassigned_cost, 9.0f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.kalman_noise_diff_coeff, 1.0f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.speed_decay_ratio_on_loss, 1.0f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.rcs_decay_ratio_on_loss, 1.0f);
+}
+
+TEST(SignalPipelineInternalConfigTest, CustomConfigStaysBaselineEvenWithHighLifecycleThresholds) {
+  config::PipelineConfig config = config::presets::MakeDetectionMissionPipelineConfig();
+  ApplyDetectionIntentProfile(&config, config::semantic::DetectionIntentProfile::kBalanced);
+  ApplyLifecyclePolicyProfile(&config, config::semantic::LifecyclePolicyProfile::kBalanced);
+  ApplyTrackingPolicyProfile(&config, config::semantic::TrackingPolicyProfile::kBalanced);
+
+  const signal::pipeline::PipelineConfig pipeline_config = config;
+  const signal::pipeline::internal::InternalPipelineConfig internal_config =
+      signal::pipeline::internal::BuildInternalPipelineConfig(pipeline_config);
+
+  EXPECT_FLOAT_EQ(internal_config.association.unassigned_cost, 9.0f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.kalman_noise_diff_coeff, 1.0f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.speed_decay_ratio_on_loss, 0.95f);
+  EXPECT_FLOAT_EQ(internal_config.tracking.rcs_decay_ratio_on_loss, 0.92f);
+}
+
+TEST(SignalPipelineInternalConfigTest, ImmToggleOnlyControlsImmInternalDefaults) {
+  config::PipelineConfig config = config::presets::MakeTrackingMissionPipelineConfig();
+  const signal::pipeline::PipelineConfig pipeline_config = config;
+
+  const signal::pipeline::internal::InternalPipelineConfig imm_disabled_internal_config =
+      signal::pipeline::internal::BuildInternalPipelineConfig(pipeline_config);
+  EXPECT_TRUE(imm_disabled_internal_config.lifecycle.imm_model_noise_diff_coeffs.empty());
+  EXPECT_FLOAT_EQ(imm_disabled_internal_config.tracking.speed_decay_ratio_on_loss, 1.0f);
+  EXPECT_FLOAT_EQ(imm_disabled_internal_config.tracking.rcs_decay_ratio_on_loss, 1.0f);
+
+  config.expert.lifecycle.enable_imm_lifecycle = true;
+  const signal::pipeline::PipelineConfig imm_enabled_pipeline_config = config;
+  const signal::pipeline::internal::InternalPipelineConfig imm_enabled_internal_config =
+      signal::pipeline::internal::BuildInternalPipelineConfig(imm_enabled_pipeline_config);
+  ASSERT_EQ(imm_enabled_internal_config.lifecycle.imm_model_noise_diff_coeffs.size(), 2U);
+  EXPECT_FLOAT_EQ(imm_enabled_internal_config.lifecycle.imm_model_noise_diff_coeffs[0], 0.5f);
+  EXPECT_FLOAT_EQ(imm_enabled_internal_config.lifecycle.imm_model_noise_diff_coeffs[1], 4.0f);
+  EXPECT_FLOAT_EQ(imm_enabled_internal_config.tracking.speed_decay_ratio_on_loss, 1.0f);
+  EXPECT_FLOAT_EQ(imm_enabled_internal_config.tracking.rcs_decay_ratio_on_loss, 1.0f);
 }
 
 }  // namespace tests
