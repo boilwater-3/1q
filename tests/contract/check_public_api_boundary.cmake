@@ -1,19 +1,32 @@
 set(PUBLIC_INCLUDE_DIR "${SOURCE_DIR}/include/1q")
 
-set(EXPECTED_PUBLIC_HEADERS
+# ── AR 推荐公开主路径（四域 + 会话 + Builder + 统一入口） ──────────
+set(AR_PUBLIC_PRIMARY_HEADERS
     "airborne_radar/airborne_radar.hpp"
-    "airborne_radar/config/RadarDetailedSessionConfigBuilder.h"
-    "airborne_radar/config/RadarEnvironmentConfig.h"
     "airborne_radar/config/RadarHardwareConfig.h"
     "airborne_radar/config/RadarMissionConfig.h"
     "airborne_radar/config/RadarPolicyConfig.h"
-    "airborne_radar/config/RadarRuntimeConfigBuilder.h"
-    "airborne_radar/config/RadarRuntimeConfigPatch.h"
+    "airborne_radar/config/RadarEnvironmentConfig.h"
     "airborne_radar/config/RadarSessionConfig.h"
+    "airborne_radar/config/RadarRuntimeConfigPatch.h"
+    "airborne_radar/config/RadarRuntimeConfigBuilder.h"
     "airborne_radar/config/RadarSessionConfigBuilder.h"
+    "airborne_radar/config/RadarDetailedSessionConfigBuilder.h"
     "airborne_radar/config/RadarSessionConfigPresets.h"
-    "airborne_radar/config/PipelineConfig.h"
     "airborne_radar/config/airborne_radar_config.hpp"
+)
+
+# ── AR 语义档位（Builder 输入材料，不属于独立配置入口） ─────────────
+set(AR_SEMANTIC_HEADERS
+    "airborne_radar/config/semantic/AntennaProfiles.h"
+    "airborne_radar/config/semantic/DetectionProfiles.h"
+    "airborne_radar/config/semantic/LifecycleProfiles.h"
+    "airborne_radar/config/semantic/TrackingProfiles.h"
+)
+
+# ── AR 遗留/内部过渡头（短期保留在 include 树，不作为推荐入口） ─────
+set(AR_LEGACY_HEADERS
+    "airborne_radar/config/PipelineConfig.h"
     "airborne_radar/config/expert/ExpertPipelineConfig.h"
     "airborne_radar/config/expert/beam/BeamControlConfig.h"
     "airborne_radar/config/expert/beam/BeamPointingConfig.h"
@@ -32,10 +45,10 @@ set(EXPECTED_PUBLIC_HEADERS
     "airborne_radar/config/expert/tracking/TrackingConfig.h"
     "airborne_radar/config/presets/RadarSessionConfigPresets.h"
     "airborne_radar/config/presets/PipelineConfigPresets.h"
-    "airborne_radar/config/semantic/AntennaProfiles.h"
-    "airborne_radar/config/semantic/DetectionProfiles.h"
-    "airborne_radar/config/semantic/LifecycleProfiles.h"
-    "airborne_radar/config/semantic/TrackingProfiles.h"
+)
+
+# ── AR 环境域 ────────────────────────────────────────────────────────
+set(AR_ENVIRONMENT_HEADERS
     "airborne_radar/environment/EnvironmentConfig.h"
     "airborne_radar/environment/EnvironmentDefaultConfigBuilder.h"
     "airborne_radar/environment/EnvironmentRuntimeConfigPatch.h"
@@ -44,6 +57,10 @@ set(EXPECTED_PUBLIC_HEADERS
     "airborne_radar/environment/EnvironmentTypes.h"
     "airborne_radar/environment/IEnvironmentService.h"
     "airborne_radar/environment/airborne_radar_environment.hpp"
+)
+
+# ── AR 扩展域 ────────────────────────────────────────────────────────
+set(AR_EXTENSION_HEADERS
     "airborne_radar/extension/ControlReducerTypes.h"
     "airborne_radar/extension/IRadarContext.h"
     "airborne_radar/extension/IRadarOutputReader.h"
@@ -55,6 +72,10 @@ set(EXPECTED_PUBLIC_HEADERS
     "airborne_radar/extension/control/ControlDirective.h"
     "airborne_radar/extension/control/RadarCommand.h"
     "airborne_radar/extension/control/RadarControlProfile.h"
+)
+
+# ── AR 模型域 ────────────────────────────────────────────────────────
+set(AR_MODEL_HEADERS
     "airborne_radar/model/DecisionInputFrame.h"
     "airborne_radar/model/DecisionSourceInfo.h"
     "airborne_radar/model/DecisionTrackSnapshot.h"
@@ -64,8 +85,16 @@ set(EXPECTED_PUBLIC_HEADERS
     "airborne_radar/model/TargetFeature.h"
     "airborne_radar/model/TargetFeatureBuilder.h"
     "airborne_radar/model/TargetFeatureUtils.h"
+)
+
+# ── AR 输出域 ────────────────────────────────────────────────────────
+set(AR_OUTPUT_HEADERS
     "airborne_radar/output/TrackOutputFrame.h"
     "airborne_radar/output/TrackOutputQueries.h"
+)
+
+# ── AR 会话域 ────────────────────────────────────────────────────────
+set(AR_SESSION_HEADERS
     "airborne_radar/session/RadarCycleInput.h"
     "airborne_radar/session/RadarCycleResult.h"
     "airborne_radar/session/RadarExternalInputAdapter.h"
@@ -73,7 +102,112 @@ set(EXPECTED_PUBLIC_HEADERS
     "airborne_radar/session/RadarSession.h"
     "airborne_radar/session/RadarSessionFactory.h"
     "airborne_radar/session/RadarTraceSession.h"
+)
+
+# ── 顶层入口 ─────────────────────────────────────────────────────────
+set(ROOT_HEADER
     "api.hpp"
+)
+
+# ── EOS 公开头 ──────────────────────────────────────────────────────
+set(EOS_PUBLIC_HEADERS
+    "electro_optical_sensor/config/EosDetailedSessionConfigBuilder.h"
+    "electro_optical_sensor/config/EosEnvironmentConfig.h"
+    "electro_optical_sensor/config/EosHardwareConfig.h"
+    "electro_optical_sensor/config/EosMissionConfig.h"
+    "electro_optical_sensor/config/EosPolicyConfig.h"
+    "electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
+    "electro_optical_sensor/config/EosRuntimeConfigPatch.h"
+    "electro_optical_sensor/config/EosSessionConfig.h"
+    "electro_optical_sensor/config/EosSessionConfigBuilder.h"
+    "electro_optical_sensor/config/EosWorkMode.h"
+    "electro_optical_sensor/config/electro_optical_sensor_config.hpp"
+    "electro_optical_sensor/electro_optical_sensor.hpp"
+    "electro_optical_sensor/environment/EosEnvironmentConfig.h"
+    "electro_optical_sensor/environment/EosEnvironmentConfigBuilder.h"
+    "electro_optical_sensor/environment/EosEnvironmentRuntimeConfigPatch.h"
+    "electro_optical_sensor/environment/EosEnvironmentRuntimeConfigPatchBuilder.h"
+    "electro_optical_sensor/environment/EosEnvironmentTypes.h"
+    "electro_optical_sensor/environment/IEosEnvironmentService.h"
+    "electro_optical_sensor/environment/electro_optical_sensor_environment.hpp"
+    "electro_optical_sensor/extension/EosController.h"
+    "electro_optical_sensor/extension/EosPipelineTypes.h"
+    "electro_optical_sensor/extension/IEosPipeline.h"
+    "electro_optical_sensor/extension/electro_optical_sensor_extension.hpp"
+    "electro_optical_sensor/foundation/EosRadiativeTransfer.h"
+    "electro_optical_sensor/model/EosCycleInput.h"
+    "electro_optical_sensor/model/EosCycleResult.h"
+    "electro_optical_sensor/model/EosInputValidation.h"
+    "electro_optical_sensor/output/EosOutputFrame.h"
+    "electro_optical_sensor/session/EosExternalInputAdapter.h"
+    "electro_optical_sensor/session/EosSession.h"
+    "electro_optical_sensor/session/EosTraceSession.h"
+)
+
+# ── ESR 公开头 ──────────────────────────────────────────────────────
+set(ESR_PUBLIC_HEADERS
+    "electronic_surveillance_radar/config/EsrDetectionPolicyConfig.h"
+    "electronic_surveillance_radar/config/EsrEnvironmentPolicyConfig.h"
+    "electronic_surveillance_radar/config/EsrHardwareConfig.h"
+    "electronic_surveillance_radar/config/EsrMissionControlConfig.h"
+    "electronic_surveillance_radar/config/EsrPolicyConfig.h"
+    "electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
+    "electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
+    "electronic_surveillance_radar/config/EsrScanPolicyConfig.h"
+    "electronic_surveillance_radar/config/EsrSessionConfig.h"
+    "electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
+    "electronic_surveillance_radar/config/EsrWorkMode.h"
+    "electronic_surveillance_radar/config/electronic_surveillance_radar_config.hpp"
+    "electronic_surveillance_radar/electronic_surveillance_radar.hpp"
+    "electronic_surveillance_radar/environment/EsrEnvironmentConfig.h"
+    "electronic_surveillance_radar/environment/EsrEnvironmentConfigBuilder.h"
+    "electronic_surveillance_radar/environment/EsrEnvironmentRuntimeConfigPatch.h"
+    "electronic_surveillance_radar/environment/EsrEnvironmentRuntimeConfigPatchBuilder.h"
+    "electronic_surveillance_radar/environment/EsrEnvironmentSceneBuilder.h"
+    "electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
+    "electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
+    "electronic_surveillance_radar/environment/electronic_surveillance_radar_environment.hpp"
+    "electronic_surveillance_radar/extension/EsrController.h"
+    "electronic_surveillance_radar/extension/IEsrContext.h"
+    "electronic_surveillance_radar/extension/IInterceptPipeline.h"
+    "electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
+    "electronic_surveillance_radar/model/EmitterHypothesis.h"
+    "electronic_surveillance_radar/model/EmitterObservation.h"
+    "electronic_surveillance_radar/model/EmitterTruthState.h"
+    "electronic_surveillance_radar/model/EsrOrientationConfig.h"
+    "electronic_surveillance_radar/output/EsrOutputFrame.h"
+    "electronic_surveillance_radar/session/EsrCycleInput.h"
+    "electronic_surveillance_radar/session/EsrCycleResult.h"
+    "electronic_surveillance_radar/session/EsrExternalInputAdapter.h"
+    "electronic_surveillance_radar/session/EsrInputValidation.h"
+    "electronic_surveillance_radar/session/EsrSession.h"
+    "electronic_surveillance_radar/session/EsrSessionFactory.h"
+    "electronic_surveillance_radar/session/EsrTraceSession.h"
+)
+
+# ── 跨域基础 ─────────────────────────────────────────────────────────
+set(FOUNDATION_HEADERS
+    "foundation/atmospheric_types.h"
+    "foundation/coordinate_transform.h"
+    "foundation/pose_types.h"
+    "foundation/scan_schedule_types.h"
+    "trace/TraceSink.h"
+)
+
+set(EXPECTED_PUBLIC_HEADERS
+    ${AR_PUBLIC_PRIMARY_HEADERS}
+    ${AR_SEMANTIC_HEADERS}
+    ${AR_LEGACY_HEADERS}
+    ${AR_ENVIRONMENT_HEADERS}
+    ${AR_EXTENSION_HEADERS}
+    ${AR_MODEL_HEADERS}
+    ${AR_OUTPUT_HEADERS}
+    ${AR_SESSION_HEADERS}
+    ${ROOT_HEADER}
+    ${EOS_PUBLIC_HEADERS}
+    ${ESR_PUBLIC_HEADERS}
+    ${FOUNDATION_HEADERS}
+)
     "electro_optical_sensor/config/EosDetailedSessionConfigBuilder.h"
     "electro_optical_sensor/config/EosEnvironmentConfig.h"
     "electro_optical_sensor/config/EosHardwareConfig.h"

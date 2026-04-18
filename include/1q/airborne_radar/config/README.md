@@ -1,40 +1,58 @@
 # Airborne Radar Config
 
-本目录定义机载雷达对外公开的配置 API。
+本目录定义机载雷达对外公开的配置 API，以 `hardware / mission / policy / environment` 四域模型为公开稳定主路径。
 
-设计目标：
+## 推荐公开主路径
 
-- `hardware / mission / policy / environment`：公开稳定四域配置语言
-- `semantic/`：公开语义档位枚举（Builder 输入语义）
-- `expert/`：内部专家物理参数定义，由 Builder 内部装配，不作为外部入口
-- 根目录仅保留聚合壳、Builder 与统一入口
-
-## 目录结构（公开层）
+调用方应仅通过以下头文件完成配置：
 
 ```text
 config/
-|-- RadarHardwareConfig.h
-|-- RadarMissionConfig.h
-|-- RadarPolicyConfig.h
-|-- RadarEnvironmentConfig.h
-|-- RadarSessionConfig.h
-|-- RadarRuntimeConfigPatch.h
-|-- RadarRuntimeConfigBuilder.h
-|-- RadarSessionConfigBuilder.h
-|-- RadarDetailedSessionConfigBuilder.h
-|-- RadarSessionConfigPresets.h
-|-- airborne_radar_config.hpp
-|-- PipelineConfig.h                     (内部装配过渡壳)
-|-- expert/
-|-- semantic/
-|   |-- AntennaProfiles.h
-|   |-- DetectionProfiles.h
-|   |-- TrackingProfiles.h
-|   `-- LifecycleProfiles.h
-`-- presets/
-    |-- RadarSessionConfigPresets.h      (历史入口，保留兼容)
-    `-- PipelineConfigPresets.h          (内部装配预设)
+|-- RadarHardwareConfig.h                 硬件固有能力（探测链路参数）
+|-- RadarMissionConfig.h                  任务态与波束运行态
+|-- RadarPolicyConfig.h                   调度/关联/跟踪/生命周期策略
+|-- RadarEnvironmentConfig.h              环境默认参数
+|-- RadarSessionConfig.h                  会话初始化配置壳（四域聚合）
+|-- RadarRuntimeConfigPatch.h             运行期可变参数补丁
+|-- RadarRuntimeConfigBuilder.h           运行期补丁 Builder
+|-- RadarSessionConfigBuilder.h           语义 Builder（Profile 输入）
+|-- RadarDetailedSessionConfigBuilder.h   详细 Builder（工程参数输入）
+|-- RadarSessionConfigPresets.h           预设工厂
+|-- airborne_radar_config.hpp             统一入口头（聚合以上全部）
 ```
+
+调用方不需要直接 include `PipelineConfig.h`、`config/expert/*` 或 `model/RadarOrientationConfig.h`。
+
+## 语义档位
+
+```text
+semantic/
+|-- AntennaProfiles.h
+|-- DetectionProfiles.h
+|-- TrackingProfiles.h
+`-- LifecycleProfiles.h
+```
+
+语义档位是 Builder 输入材料，服务于 `RadarSessionConfigBuilder` 与预设工厂。不属于独立配置入口。
+
+## 遗留/内部过渡头（不推荐直接使用）
+
+以下头短期保留在 `include` 树中供内部装配路径使用，**不作为对外推荐入口**：
+
+```text
+PipelineConfig.h                         内部装配过渡壳
+expert/                                   内部专家物理参数
+  |-- ExpertPipelineConfig.h
+  |-- beam/
+  |-- detection/
+  |-- lifecycle/
+  `-- tracking/
+presets/
+  |-- PipelineConfigPresets.h             内部装配预设
+  `-- RadarSessionConfigPresets.h         历史入口（等同根目录版本）
+```
+
+外部调用方应避免直接依赖上述文件。后续里程碑将逐步将其下沉为内部实现头。
 
 ## 核心类型
 
@@ -57,34 +75,6 @@ config/
 - `mission`：任务态波束与扫描运行态
 - `policy`：调度/关联/跟踪/生命周期策略
 - `environment`：环境默认参数
-
-### `config::PipelineConfig`
-
-[`PipelineConfig.h`](PipelineConfig.h)
-
-内部装配过渡壳，当前用于将四域会话配置映射到信号流水线。外部调用方不应直接使用。
-
-## 配置分层
-
-### `semantic/`
-
-语义档位枚举层（Builder 输入）：
-
-- `AntennaProfiles.h`
-- `DetectionProfiles.h`
-- `TrackingProfiles.h`
-- `LifecycleProfiles.h`
-
-适用：任务编排、场景驱动、低心智负担配置。
-
-### `expert/`
-
-内部专家物理参数层：
-
-- `detection/`、`beam/`、`tracking/`、`lifecycle/`
-- `ExpertPipelineConfig.h` 聚合各子域
-
-适用：由 Builder 内部装配使用，外部调用方应通过 `semantic` 档位或 `RadarDetailedSessionConfigBuilder` 间接配置。
 
 ## Builder 选择
 
@@ -124,8 +114,8 @@ config/
 
 - 业务/任务层优先：`semantic/profiles + RadarSessionConfigBuilder`
 - 细粒度建模优先：`RadarDetailedSessionConfigBuilder`
-- 不要依赖内部 `src/.../engineering` 头
 - 不要直接使用 `PipelineConfig`，它是内部装配过渡壳
+- 不要直接 include `expert/*`，其类型已通过四域头间接导出
 
 ## 推荐入口
 

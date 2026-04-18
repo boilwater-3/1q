@@ -11,11 +11,16 @@
 
 #include "1q/airborne_radar/airborne_radar.hpp"
 #include "1q/airborne_radar/config/RadarDetailedSessionConfigBuilder.h"
+#include "1q/airborne_radar/config/RadarEnvironmentConfig.h"
+#include "1q/airborne_radar/config/RadarHardwareConfig.h"
+#include "1q/airborne_radar/config/RadarMissionConfig.h"
+#include "1q/airborne_radar/config/RadarPolicyConfig.h"
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
+#include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
+#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/config/airborne_radar_config.hpp"
-#include "1q/airborne_radar/config/presets/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/config/semantic/AntennaProfiles.h"
 #include "1q/airborne_radar/config/semantic/DetectionProfiles.h"
 #include "1q/airborne_radar/config/semantic/LifecycleProfiles.h"
@@ -292,6 +297,40 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   EXPECT_GE(confirmed_tracks, 0U);
   EXPECT_GE(result.association_quality_metrics.detection_count, 0U);
   EXPECT_GE(trace_result.association_quality_metrics.detection_count, 0U);
+}
+
+TEST(PublicHeadersSmokeTest, FourDomainHeadersDefineIndependentConfigTypes) {
+  config::RadarHardwareConfig hardware{};
+  hardware.detection.pulse_count = 32;
+  EXPECT_EQ(hardware.detection.pulse_count, 32);
+
+  model::AzimuthElevationDeg scan_center;
+  scan_center.az_deg = 45.0f;
+  scan_center.el_deg = -5.0f;
+  config::RadarMissionConfig mission{};
+  mission.orientation.scan_center_deg = scan_center;
+  EXPECT_FLOAT_EQ(mission.orientation.scan_center_deg.az_deg, 45.0f);
+
+  config::RadarPolicyConfig policy{};
+  policy.lifecycle.confirm_hits = 2U;
+  policy.tracking.kalman_update_backend = config::expert::KalmanUpdateBackend::kUdKf;
+  EXPECT_EQ(policy.lifecycle.confirm_hits, 2U);
+  EXPECT_EQ(policy.tracking.kalman_update_backend, config::expert::KalmanUpdateBackend::kUdKf);
+
+  config::RadarEnvironmentConfig env{};
+  env.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kStrict;
+  EXPECT_EQ(env.jamming_sensitivity_profile, environment::JammingSensitivityProfile::kStrict);
+
+  session::RadarSessionConfig session_cfg;
+  session_cfg.hardware = hardware;
+  session_cfg.mission = mission;
+  session_cfg.policy = policy;
+  session_cfg.environment = env;
+  EXPECT_EQ(session_cfg.hardware.detection.pulse_count, 32);
+  EXPECT_FLOAT_EQ(session_cfg.mission.orientation.scan_center_deg.az_deg, 45.0f);
+  EXPECT_EQ(session_cfg.policy.lifecycle.confirm_hits, 2U);
+  EXPECT_EQ(session_cfg.environment.jamming_sensitivity_profile,
+            environment::JammingSensitivityProfile::kStrict);
 }
 
 TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields) {

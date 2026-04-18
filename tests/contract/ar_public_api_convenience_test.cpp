@@ -13,8 +13,7 @@
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/config/presets/PipelineConfigPresets.h"
-#include "1q/airborne_radar/config/presets/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/extension/RadarController.h"
@@ -746,23 +745,14 @@ TEST(PublicApiConvenienceTest, RadarInputValidationFlagsMissingGeometryAndNonFin
 }
 
 TEST(PublicApiConvenienceTest, ConfigPresetsProvideExpectedDetectionAndRobustnessDefaults) {
-  const config::PipelineConfig detection_config =
-      config::presets::MakeDetectionMissionPipelineConfig();
-  EXPECT_EQ(detection_config.expert.lifecycle.confirm_hits, 1U);
-  EXPECT_EQ(detection_config.expert.lifecycle.max_miss_before_lost, 1U);
-  EXPECT_EQ(detection_config.expert.detection.pulse_count, 16);
-  EXPECT_FLOAT_EQ(detection_config.expert.detection.detection_policy.min_snr_db, -12.0f);
-
-  const config::PipelineConfig robust_config = config::presets::MakeHighRobustnessPipelineConfig();
-  EXPECT_EQ(robust_config.expert.lifecycle.confirm_hits, 3U);
-  EXPECT_EQ(robust_config.expert.lifecycle.max_miss_before_lost, 3U);
-  EXPECT_EQ(robust_config.expert.tracking.kalman_update_backend,
-            config::expert::KalmanUpdateBackend::kUdKf);
-  EXPECT_FLOAT_EQ(robust_config.expert.association.unassigned_cost, 12.0f);
-
-  const session::RadarSessionConfig session_config =
+  const session::RadarSessionConfig detection_config =
       config::presets::MakeDetectionMissionRadarSessionConfig();
-  session::RadarSession session = session::RadarSessionFactory::Create(session_config);
+  EXPECT_EQ(detection_config.policy.lifecycle.confirm_hits, 1U);
+  EXPECT_EQ(detection_config.policy.lifecycle.max_miss_before_lost, 1U);
+  EXPECT_EQ(detection_config.hardware.detection.pulse_count, 16);
+  EXPECT_FLOAT_EQ(detection_config.hardware.detection.detection_policy.min_snr_db, -12.0f);
+
+  session::RadarSession session = session::RadarSessionFactory::Create(detection_config);
   const output::TrackOutputFrame frame = session.Step(MakeCycleInput(model::TargetFeatureList{
       model::MakeGroundTarget(901U, 20.0f, 5.0f, 0.8f),
   }));
