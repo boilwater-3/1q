@@ -26,9 +26,12 @@ struct RadarSession::Impl {
         signal_pipeline(*composition.signal_pipeline),
         environment_service(*composition.environment_service),
         controller(*composition.controller) {
-    runtime_state.hardware = composition.runtime_hardware;
-    runtime_state.mission = composition.runtime_mission;
-    runtime_state.policy = composition.runtime_policy;
+    session::RadarSessionConfig initial_session_config;
+    initial_session_config.hardware = composition.runtime_hardware;
+    initial_session_config.mission = composition.runtime_mission;
+    initial_session_config.policy = composition.runtime_policy;
+    runtime_state.execution_config =
+        internal::BuildExecutionConfigFromSessionConfig(initial_session_config);
     runtime_state.environment_scenario_config = composition.runtime_environment_scenario_config;
     runtime_state.jamming_sensitivity_profile = composition.runtime_jamming_sensitivity_profile;
     pending_runtime_state = runtime_state;
@@ -89,9 +92,7 @@ struct RadarSession::Impl {
     }
 
     const session::RadarSessionConfig pipeline_config =
-        internal::BuildSessionConfigFromRuntimeState(pending_runtime_state.hardware,
-                                                     pending_runtime_state.mission,
-                                                     pending_runtime_state.policy);
+        internal::BuildSessionConfigFromExecutionConfig(pending_runtime_state.execution_config);
     if (!signal_pipeline.UpdateConfig(pipeline_config)) {
       return false;
     }
