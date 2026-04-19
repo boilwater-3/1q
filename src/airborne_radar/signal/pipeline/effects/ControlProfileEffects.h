@@ -8,7 +8,7 @@
 
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
-#include "airborne_radar/signal/pipeline/config/InternalPipelineConfig.h"
+#include "airborne_radar/signal/pipeline/config/SignalPipelineExecutionConfig.h"
 #include "airborne_radar/signal/pipeline/config/SignalPipelineRuntimeTypes.h"
 
 namespace airborne_radar {
@@ -17,11 +17,12 @@ namespace pipeline {
 namespace internal {
 
 float ComputeHeuristicSignalAdjustmentDb(
-    const ControlProfileEffectsConfig& cfg,
+    const ::airborne_radar::config::execution::ControlProfileEffectsConfig& cfg,
     const extension::control::RadarControlProfile& control_profile);
 
 float ComputeHeuristicEnvironmentReliefDb(
-    const JammingEffectsConfig& cfg, const extension::control::RadarControlProfile& control_profile,
+    const ::airborne_radar::config::execution::JammingEffectsConfig& cfg,
+    const extension::control::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot);
 
 void ApplyControlProfileToConfig(const extension::control::RadarControlProfile& control_profile,

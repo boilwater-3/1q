@@ -13,7 +13,7 @@
 #include "airborne_radar/config/engineering/SignalEngineeringConfig.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
-#include "airborne_radar/signal/pipeline/config/InternalPipelineConfig.h"
+#include "airborne_radar/signal/pipeline/config/SignalPipelineExecutionConfig.h"
 #include "airborne_radar/signal/pipeline/config/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/tracking/BoostTrackPool.h"
 #include "airborne_radar/signal/tracking/IKalmanPredictor.h"

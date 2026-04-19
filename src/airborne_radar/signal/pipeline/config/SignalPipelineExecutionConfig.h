@@ -12,7 +12,7 @@ namespace airborne_radar {
 namespace signal {
 namespace pipeline {
 
-using PipelineConfig = ::airborne_radar::config::execution::InternalExecutionConfig;
+using ExecutionConfig = ::airborne_radar::config::execution::InternalExecutionConfig;
 
 }  // namespace pipeline
 }  // namespace signal

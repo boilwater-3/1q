@@ -1036,23 +1036,26 @@ include/1q/airborne_radar/config/
 - `llvm-ninja-debug-local`：build + ctest 通过
 - `llvm-ninja-release-local`：build + ctest 通过
 
-阶段 6 候选优化（非 M5 阻塞项）：
+阶段 6 执行结果（已完成）：
 
-- `PipelineConfig.h` 与 `config/expert/*` 已从仓库 `include` 树移除，后续可继续压缩 `src/airborne_radar/config/legacy/*` 过渡层。
-- 如需彻底消除仓库级 legacy 目录，可在阶段 6 继续把 `legacy` 聚合类型内联到内部装配模块。
+- `PipelineConfig.h` 与 `config/expert/*` 已从公开 include 树移除。
+- `src/airborne_radar/config/legacy/*` 已删除，不再保留过渡目录。
+- `src/airborne_radar/config/internal/SessionConfigPipelineMapper.h` 已删除。
+- `src/airborne_radar/config/internal/ExpertToEngineeringMapping.h` 已删除，四域到 execution 的映射收敛到
+  `src/airborne_radar/config/mapping/SessionToExecutionMapper.{h,cpp}` 与
+  `src/airborne_radar/config/mapping/RuntimePatchToExecutionMapper.{h,cpp}`。
 
 ### 阶段 6：清理旧公开入口与历史桥接残留
 
-- 当前分支状态（`codex/ar-config-m6-legacy-cleanup`）：公开入口清理已完成。
-  - 新增 `src/airborne_radar/config/legacy/*` 内部过渡头，作为 legacy 配置的内部引用入口。
-  - `src/` 与相关 `tests/unit` 已切换到内部过渡头，不再直接 include 公开 legacy 头路径
-    （`1q/airborne_radar/config/PipelineConfig.h`、`1q/airborne_radar/config/expert/*`）。
-  - 已删除公开 legacy 头 `include/1q/airborne_radar/config/PipelineConfig.h`，并将 `PipelineConfig` 定义下沉到
-    `src/airborne_radar/config/legacy/PipelineConfig.h`。
-  - 已删除公开 `include/1q/airborne_radar/config/expert/*` 目录；相关细粒度类型定义已收口到
-    `RadarHardwareConfig.h` 与 `RadarPolicyConfig.h`。
-  - `RadarSessionConfigBuilder` 已移除对 `ExpertPipelineConfig` 的公开头依赖，内部改为以四域 `RadarSessionConfig`
-    作为基线构造语义覆盖结果。
+- 当前分支状态（`codex/ar-config-m6-legacy-cleanup`）：公开入口清理与内部旧壳清理已完成。
+  - `src/` 与相关 `tests/unit` 已切换到 execution/mapping 路径，不再依赖 legacy 头。
+  - 已删除 `src/airborne_radar/config/legacy/*` 目录及其历史聚合类型。
+  - 已删除 `src/airborne_radar/config/internal/SessionConfigPipelineMapper.h`。
+  - 已删除 `src/airborne_radar/config/internal/ExpertToEngineeringMapping.h`，并以
+    `src/airborne_radar/config/mapping/SessionToExecutionMapper.{h,cpp}` 与
+    `src/airborne_radar/config/mapping/RuntimePatchToExecutionMapper.{h,cpp}` 统一映射入口。
+  - `RadarSessionConfigBuilder` 已移除对 `ExpertPipelineConfig` 的公开头依赖，内部以四域
+    `RadarSessionConfig` 作为语义基线。
   - 本批验证结果：`llvm-ninja-debug-local` 的 build + ctest 通过。
 
 - 删除或下线旧的 `RadarExpertSessionConfigBuilder`。
@@ -1063,7 +1066,8 @@ include/1q/airborne_radar/config/
 阶段 6 结论：
 
 - 公开 include 树不再包含 `PipelineConfig.h` 与 `config/expert/*`。
-- 旧模型仅保留在 `src/airborne_radar/config/legacy/*` 内部装配路径。
+- 仓库内不再保留 `src/airborne_radar/config/legacy/*` 目录。
+- 四域到 engineering 的内部映射统一为 `config/mapping` 下单路径。
 
 完成判据：
 

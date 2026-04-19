@@ -278,12 +278,13 @@ endforeach()
 # Guardrail (M7-F): deleted internal legacy config shells must not reappear.
 set(AR_FORBIDDEN_INTERNAL_PATHS
         "${CMAKE_SOURCE_DIR}/src/airborne_radar/config/legacy"
-        "${CMAKE_SOURCE_DIR}/src/airborne_radar/config/internal/SessionConfigPipelineMapper.h")
+    "${CMAKE_SOURCE_DIR}/src/airborne_radar/config/internal/SessionConfigPipelineMapper.h"
+    "${CMAKE_SOURCE_DIR}/src/airborne_radar/config/internal/ExpertToEngineeringMapping.h")
 
 foreach(FORBIDDEN_PATH IN LISTS AR_FORBIDDEN_INTERNAL_PATHS)
     if(EXISTS "${FORBIDDEN_PATH}")
         message(FATAL_ERROR
                         "Forbidden internal legacy path reintroduced: ${FORBIDDEN_PATH}\n"
-                        "M7-F requires legacy config shells and SessionConfigPipelineMapper to stay removed.")
+                        "M7-F requires legacy config shells, SessionConfigPipelineMapper, and ExpertToEngineeringMapping to stay removed.")
     endif()
 endforeach()

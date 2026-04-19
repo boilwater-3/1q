@@ -10,6 +10,8 @@ namespace signal {
 namespace pipeline {
 namespace internal {
 
+using JammingEffectsConfig = ::airborne_radar::config::execution::JammingEffectsConfig;
+
 namespace {
 
 constexpr float kSidelobeCancellerResidual = 0.55f;

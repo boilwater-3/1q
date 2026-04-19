@@ -45,7 +45,7 @@ model::AzimuthElevationDeg ResolveScheduledDwellCenter(
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg, std::uint32_t cycle_index);
 
 void ApplyScanScheduleToRuntimeConfig(std::uint32_t cycle_index,
-                                      PipelineConfig* runtime_config);
+                                      ExecutionConfig* runtime_config);
 
 }  // namespace internal
 }  // namespace core

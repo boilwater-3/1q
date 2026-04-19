@@ -8,7 +8,7 @@
 
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
-#include "airborne_radar/signal/pipeline/config/InternalPipelineConfig.h"
+#include "airborne_radar/signal/pipeline/config/SignalPipelineExecutionConfig.h"
 #include "airborne_radar/signal/pipeline/config/SignalPipelineRuntimeTypes.h"
 
 namespace airborne_radar {
@@ -21,17 +21,21 @@ bool HasMultiSourceJammingFacts(const environment::EnvironmentSnapshot& environm
 float ComputeResidualJammerFactor(const extension::control::RadarControlProfile& control_profile,
                                   const environment::JammerSourceFact& jammer_source);
 
-float ComputeHeuristicSourcePenaltyDb(const JammingEffectsConfig& cfg,
+float ComputeHeuristicSourcePenaltyDb(
+    const ::airborne_radar::config::execution::JammingEffectsConfig& cfg,
                                       const environment::JammerSourceFact& jammer_source);
 
 float ComputeHeuristicJammingPenaltyDb(
-    const JammingEffectsConfig& cfg, const environment::EnvironmentSnapshot& environment_snapshot);
+    const ::airborne_radar::config::execution::JammingEffectsConfig& cfg,
+    const environment::EnvironmentSnapshot& environment_snapshot);
 
-float ComputePhysicalSourceJamContributionW(const JammingEffectsConfig& cfg,
+float ComputePhysicalSourceJamContributionW(
+    const ::airborne_radar::config::execution::JammingEffectsConfig& cfg,
                                             const environment::JammerSourceFact& jammer_source);
 
 float ComputeMeasurementCovarianceInflation(
-    const JammingEffectsConfig& cfg, const extension::control::RadarControlProfile& control_profile,
+    const ::airborne_radar::config::execution::JammingEffectsConfig& cfg,
+    const extension::control::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot);
 
 model::JammingSemantic ResolveDominantJammingSemantic(

@@ -14,6 +14,10 @@ namespace signal {
 namespace pipeline {
 namespace internal {
 
+using ControlProfileEffectsConfig =
+  ::airborne_radar::config::execution::ControlProfileEffectsConfig;
+using JammingEffectsConfig = ::airborne_radar::config::execution::JammingEffectsConfig;
+
 namespace {
 
 constexpr float kImmNoiseCoeffMin = 0.001f;

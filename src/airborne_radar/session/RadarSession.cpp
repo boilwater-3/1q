@@ -11,6 +11,7 @@
 #include "airborne_radar/session/RadarSessionCompositionRoot.h"
 #include "airborne_radar/session/RuntimeConfigResolver.h"
 #include "airborne_radar/session/SessionConfigBridge.h"
+#include "airborne_radar/signal/pipeline/core/SignalPipeline.h"
 
 namespace airborne_radar {
 namespace session {
@@ -91,10 +92,18 @@ struct RadarSession::Impl {
       return true;
     }
 
-    const session::RadarSessionConfig pipeline_config =
-        internal::BuildSessionConfigFromExecutionConfig(pending_runtime_state.execution_config);
-    if (!signal_pipeline.UpdateConfig(pipeline_config)) {
-      return false;
+    signal::pipeline::SignalPipeline* concrete_pipeline =
+        dynamic_cast<signal::pipeline::SignalPipeline*>(&signal_pipeline);
+    if (concrete_pipeline != nullptr) {
+      if (!concrete_pipeline->UpdateExecutionConfig(pending_runtime_state.execution_config)) {
+        return false;
+      }
+    } else {
+      const session::RadarSessionConfig pipeline_config =
+          internal::BuildSessionConfigFromExecutionConfig(pending_runtime_state.execution_config);
+      if (!signal_pipeline.UpdateConfig(pipeline_config)) {
+        return false;
+      }
     }
     environment_service.UpdateModelConfig(environment::BuildModelConfigFromScenario(
         pending_runtime_state.environment_scenario_config));

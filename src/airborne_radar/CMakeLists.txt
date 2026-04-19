@@ -54,6 +54,8 @@ set(AIRBORNE_DECISION_SOURCES
 )
 
 set(AIRBORNE_CORE_SOURCES
+    airborne_radar/config/mapping/SessionToExecutionMapper.cpp
+    airborne_radar/config/mapping/RuntimePatchMapper.cpp
     airborne_radar/session/MutableRadarContext.cpp
     airborne_radar/session/RadarInputValidation.cpp
     airborne_radar/runtime/ControlCommandMapper.cpp

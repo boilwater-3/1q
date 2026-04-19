@@ -8,38 +8,13 @@
 
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "airborne_radar/config/execution/InternalExecutionConfig.h"
-#include "airborne_radar/config/internal/ExpertToEngineeringMapping.h"
 
 namespace airborne_radar {
 namespace config {
 namespace mapping {
 
-inline execution::InternalExecutionConfig MapSessionToExecution(
-    const session::RadarSessionConfig& session_config) {
-  execution::InternalExecutionConfig exec;
-
-  exec.hardware_detection = session_config.hardware.detection;
-  exec.policy_beam_control = session_config.policy.beam_control;
-  exec.policy_association = session_config.policy.association;
-  exec.policy_tracking = session_config.policy.tracking;
-  exec.policy_lifecycle = session_config.policy.lifecycle;
-  exec.policy_imm = session_config.policy.imm;
-  exec.mission_orientation = session_config.mission.orientation;
-
-  exec.detection_engineering = internal::ResolveDetectionEngineering(exec.hardware_detection);
-  exec.tracking_engineering = internal::ResolveTrackingEngineering(exec.policy_tracking);
-  exec.lifecycle_engineering = internal::ResolveLifecycleEngineering(exec.policy_lifecycle);
-
-  exec.tracking_speed_decay_ratio_on_loss = exec.policy_tracking.speed_decay_ratio_on_loss;
-  exec.tracking_rcs_decay_ratio_on_loss = exec.policy_tracking.rcs_decay_ratio_on_loss;
-  exec.association_unassigned_cost = exec.policy_association.unassigned_cost;
-
-  if (exec.lifecycle_engineering.enable_imm_lifecycle) {
-    exec.imm_model_noise_diff_coeffs = std::vector<float>{0.5f, 4.0f};
-  }
-
-  return exec;
-}
+execution::InternalExecutionConfig MapSessionToExecution(
+    const session::RadarSessionConfig& session_config);
 
 }  // namespace mapping
 }  // namespace config

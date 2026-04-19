@@ -7,13 +7,13 @@
 #include <vector>
 
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
-#include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/pipeline/assembly/RuntimeAssemblySupport.h"
 #include "airborne_radar/signal/pipeline/assembly/SignalComponentFactory.h"
 #include "airborne_radar/signal/pipeline/core/CycleContextSupport.h"
 #include "airborne_radar/signal/pipeline/core/CycleExecutor.h"
+#include "airborne_radar/session/SessionConfigBridge.h"
 #include "airborne_radar/signal/tracking/IKalmanPredictor.h"
 #include "airborne_radar/signal/tracking/IKalmanUpdater.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
@@ -38,10 +38,10 @@ bool HasValidEnvironmentCycle(const environment::EnvironmentSnapshot& snapshot) 
 }
 
 struct RuntimeConfigState {
-  explicit RuntimeConfigState(internal::ExecutionConfig initial_config)
+  explicit RuntimeConfigState(ExecutionConfig initial_config)
       : base_config(std::move(initial_config)) {}
 
-  internal::ExecutionConfig base_config{};
+  ExecutionConfig base_config{};
   extension::control::RadarControlProfile control_profile_{};
 };
 
@@ -66,7 +66,7 @@ struct AssociationSeedState {
 };
 
 struct SignalPipelineSnapshot {
-  internal::ExecutionConfig base_config{};
+  ExecutionConfig base_config{};
   extension::control::RadarControlProfile control_profile{};
   AssociationSeedState association_seeds{};
   std::vector<tracking::TrackMeasurement> track_measurements{};
@@ -77,7 +77,7 @@ struct SignalPipelineSnapshot {
 };
 
 struct RuntimeState {
-  explicit RuntimeState(internal::ExecutionConfig initial_config)
+  explicit RuntimeState(ExecutionConfig initial_config)
       : config(std::move(initial_config)), owned(config) {}
 
   RuntimeConfigState config;
@@ -94,7 +94,7 @@ struct CycleState {
 }  // namespace
 
 struct SignalPipeline::Impl {
-  explicit Impl(internal::ExecutionConfig initial_config) : runtime_(std::move(initial_config)) {
+  explicit Impl(ExecutionConfig initial_config) : runtime_(std::move(initial_config)) {
     RebuildOwnedComponents();
   }
 
@@ -229,8 +229,8 @@ struct SignalPipeline::Impl {
     return assembly::internal::CreateAutoLifecycleManagerForRuntimeConfig(runtime_config.config);
   }
 
-  bool UpdateConfig(internal::ExecutionConfig new_config) {
-    const internal::ExecutionConfig previous_config = runtime_.config.base_config;
+  bool UpdateConfig(ExecutionConfig new_config) {
+    const ExecutionConfig previous_config = runtime_.config.base_config;
     runtime_.config.base_config = std::move(new_config);
     if (!internal::SyncAssociationAndTrackFilterConfigs(
             runtime_.config.base_config, &runtime_.owned.association_engine,
@@ -280,9 +280,12 @@ struct SignalPipeline::Impl {
   CycleState cycle_;
 };
 
+SignalPipeline::SignalPipeline(const ExecutionConfig& config)
+  : impl_(std::unique_ptr<Impl>(new Impl(config))) {}
+
 SignalPipeline::SignalPipeline(const session::RadarSessionConfig& config)
-    : impl_(std::unique_ptr<Impl>(
-          new Impl(::airborne_radar::config::mapping::MapSessionToExecution(config)))) {}
+  : SignalPipeline(
+      ::airborne_radar::session::internal::BuildExecutionConfigFromSessionConfig(config)) {}
 
 SignalPipeline::~SignalPipeline() = default;
 
@@ -338,7 +341,12 @@ extension::control::RadarControlProfile SignalPipeline::GetControlProfile() cons
 }
 
 bool SignalPipeline::UpdateConfig(const session::RadarSessionConfig& config) {
-  return impl_->UpdateConfig(::airborne_radar::config::mapping::MapSessionToExecution(config));
+  return UpdateExecutionConfig(
+      ::airborne_radar::session::internal::BuildExecutionConfigFromSessionConfig(config));
+}
+
+bool SignalPipeline::UpdateExecutionConfig(const ExecutionConfig& config) {
+  return impl_->UpdateConfig(config);
 }
 
 }  // namespace pipeline

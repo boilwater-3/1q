@@ -15,7 +15,7 @@ namespace {
 
 bool IsFinitePositive(float value) { return std::isfinite(value) && value > 0.0f; }
 
-detection::EffectiveBeamwidthDeg ResolveSchedulingBeamwidth(const PipelineConfig& runtime_config) {
+detection::EffectiveBeamwidthDeg ResolveSchedulingBeamwidth(const ExecutionConfig& runtime_config) {
   detection::EffectiveBeamwidthDeg beamwidth;
   const model::CommandedBeamwidthDeg& expert_nominal =
       runtime_config.policy_beam_control.pointing.nominal_beamwidth_deg;
@@ -253,7 +253,8 @@ model::AzimuthElevationDeg ResolveScheduledDwellCenter(
   return dwell;
 }
 
-void ApplyScanScheduleToRuntimeConfig(std::uint32_t cycle_index, PipelineConfig* runtime_config) {
+void ApplyScanScheduleToRuntimeConfig(std::uint32_t cycle_index,
+                                      ExecutionConfig* runtime_config) {
   if (runtime_config == nullptr) {
     return;
   }
