@@ -1,10 +1,10 @@
 #include "airborne_radar/session/RuntimeConfigResolver.h"
 
 #include <cmath>
-#include <utility>
+#include <vector>
 
+#include "airborne_radar/config/internal/ExpertToEngineeringMapping.h"
 #include "common/logging/ProjectLog.h"
-#include "airborne_radar/session/SessionConfigBridge.h"
 
 namespace airborne_radar {
 namespace session {
@@ -28,25 +28,30 @@ RuntimeConfigResolveResult ResolveRuntimeConfigPatch(const RuntimeConfigState& c
                                                      const config::RadarRuntimeConfigPatch& patch) {
   RuntimeConfigResolveResult resolved;
   resolved.next_state = current_state;
-  session::RadarSessionConfig session_config =
-      BuildSessionConfigFromExecutionConfig(current_state.execution_config);
+  config::execution::InternalExecutionConfig next_execution_config = current_state.execution_config;
   bool has_requested_update = false;
   bool execution_config_changed = false;
+  bool policy_changed = false;
 
   if (patch.has_mission) {
-    session_config.mission = patch.mission;
+    next_execution_config.mission_orientation = patch.mission.orientation;
     execution_config_changed = true;
     has_requested_update = true;
   }
 
   if (patch.has_policy) {
-    session_config.policy = patch.policy;
+    next_execution_config.policy_beam_control = patch.policy.beam_control;
+    next_execution_config.policy_association = patch.policy.association;
+    next_execution_config.policy_tracking = patch.policy.tracking;
+    next_execution_config.policy_lifecycle = patch.policy.lifecycle;
+    next_execution_config.policy_imm = patch.policy.imm;
+    policy_changed = true;
     execution_config_changed = true;
     has_requested_update = true;
   }
 
   if (patch.has_work_sub_mode) {
-    session_config.mission.orientation.work_sub_mode = patch.work_sub_mode;
+    next_execution_config.mission_orientation.work_sub_mode = patch.work_sub_mode;
     execution_config_changed = true;
     has_requested_update = true;
   }
@@ -58,7 +63,7 @@ RuntimeConfigResolveResult ResolveRuntimeConfigPatch(const RuntimeConfigState& c
           patch.scan_center_deg.az_deg, patch.scan_center_deg.el_deg);
       return RejectPatch(current_state, true);
     }
-    session_config.mission.orientation.scan_center_deg = patch.scan_center_deg;
+    next_execution_config.mission_orientation.scan_center_deg = patch.scan_center_deg;
     execution_config_changed = true;
     has_requested_update = true;
   }
@@ -84,22 +89,39 @@ RuntimeConfigResolveResult ResolveRuntimeConfigPatch(const RuntimeConfigState& c
           patch.commanded_beamwidth_deg.commanded_el_beamwidth_deg);
       return RejectPatch(current_state, true);
     }
-    session_config.mission.orientation.commanded_beamwidth_deg = patch.commanded_beamwidth_deg;
+    next_execution_config.mission_orientation.commanded_beamwidth_deg = patch.commanded_beamwidth_deg;
     execution_config_changed = true;
     has_requested_update = true;
   }
   if (patch.has_commanded_beamwidth_enabled) {
-    session_config.mission.orientation.commanded_beamwidth_enabled = patch.commanded_beamwidth_enabled;
+    next_execution_config.mission_orientation.commanded_beamwidth_enabled =
+        patch.commanded_beamwidth_enabled;
     execution_config_changed = true;
     has_requested_update = true;
   }
 
+  if (policy_changed) {
+    next_execution_config.tracking_engineering =
+        config::internal::ResolveTrackingEngineering(next_execution_config.policy_tracking);
+    next_execution_config.lifecycle_engineering =
+        config::internal::ResolveLifecycleEngineering(next_execution_config.policy_lifecycle);
+    next_execution_config.tracking_speed_decay_ratio_on_loss =
+        next_execution_config.policy_tracking.speed_decay_ratio_on_loss;
+    next_execution_config.tracking_rcs_decay_ratio_on_loss =
+        next_execution_config.policy_tracking.rcs_decay_ratio_on_loss;
+    next_execution_config.association_unassigned_cost =
+        next_execution_config.policy_association.unassigned_cost;
+    if (next_execution_config.lifecycle_engineering.enable_imm_lifecycle) {
+      next_execution_config.imm_model_noise_diff_coeffs = std::vector<float>{0.5f, 4.0f};
+    } else {
+      next_execution_config.imm_model_noise_diff_coeffs.clear();
+      next_execution_config.imm_initial_weights.clear();
+      next_execution_config.imm_transition_probability.clear();
+    }
+  }
+
   if (execution_config_changed) {
-    config::execution::InternalExecutionConfig next_execution_config =
-        BuildExecutionConfigFromSessionConfig(session_config);
-    next_execution_config.platform_attitude_deg =
-        current_state.execution_config.platform_attitude_deg;
-    resolved.next_state.execution_config = std::move(next_execution_config);
+    resolved.next_state.execution_config = next_execution_config;
     resolved.execution_config_changed = true;
   }
 
