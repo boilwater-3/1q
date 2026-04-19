@@ -1,0 +1,580 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run AR contract test",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--test-dir",
+				"build/llvm-ninja-debug-local",
+				"-R",
+				"ar_public_api_convenience_test",
+				"--output-on-failure"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "build-debug-preset",
+			"type": "shell",
+			"command": "cmake",
+			"args": [
+				"--build",
+				"--preset",
+				"llvm-ninja-debug-local"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build-debug-preset",
+			"type": "shell",
+			"command": "cmake",
+			"args": [
+				"--build",
+				"--preset",
+				"llvm-ninja-debug-local"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build-debug-preset",
+			"type": "shell",
+			"command": "cmake",
+			"args": [
+				"--build",
+				"--preset",
+				"llvm-ninja-debug-local"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build-debug-preset",
+			"type": "shell",
+			"command": "cmake",
+			"args": [
+				"--build",
+				"--preset",
+				"llvm-ninja-debug-local"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build-debug-preset",
+			"type": "shell",
+			"command": "cmake",
+			"args": [
+				"--build",
+				"--preset",
+				"llvm-ninja-debug-local"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build-debug-preset",
+			"type": "shell",
+			"command": "cmake",
+			"args": [
+				"--build",
+				"--preset",
+				"llvm-ninja-debug-local"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "run-ar-relevant-tests",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--test-dir",
+				"build/llvm-ninja-debug-local",
+				"-R",
+				"ar_public_api_convenience_test|ar_signal_scan_schedule_test|ar_signal_environment_test|ar_session_test|ar_core_controller_test",
+				"--output-on-failure"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$gcc"
+			]
+		},
+		{
+			"label": "run-ar-relevant-tests",
+			"type": "shell",
+			"command": "ctest --test-dir build/llvm-ninja-debug-local -R 'ar_public_api_convenience_test|ar_signal_scan_schedule_test|ar_signal_environment_test|ar_session_test|ar_core_controller_test' --output-on-failure",
+			"isBackground": false,
+			"problemMatcher": [
+				"$gcc"
+			]
+		},
+		{
+			"label": "list-ctest-tests",
+			"type": "shell",
+			"command": "ctest --test-dir build/llvm-ninja-debug-local -N",
+			"isBackground": false,
+			"problemMatcher": [
+				"$gcc"
+			]
+		},
+		{
+			"label": "run-public-api-tests",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--test-dir",
+				"build/llvm-ninja-debug-local",
+				"-R",
+				"PublicApiConvenienceTest",
+				"--output-on-failure"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$gcc"
+			]
+		},
+		{
+			"label": "run-public-api-tests",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--test-dir",
+				"build/llvm-ninja-debug-local",
+				"-R",
+				"PublicApiConvenienceTest",
+				"--output-on-failure"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$gcc"
+			]
+		},
+		{
+			"label": "build-debug-preset",
+			"type": "shell",
+			"command": "cmake",
+			"args": [
+				"--build",
+				"--preset",
+				"llvm-ninja-debug-local"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "run-public-api-tests",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--test-dir",
+				"build/llvm-ninja-debug-local",
+				"-R",
+				"PublicApiConvenienceTest",
+				"--output-on-failure"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$gcc"
+			]
+		},
+		{
+			"label": "run-radar-orientation-tests",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--test-dir",
+				"build/llvm-ninja-debug-local",
+				"-R",
+				"RadarOrientationUtilsTest",
+				"--output-on-failure"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$gcc"
+			]
+		},
+		{
+			"label": "run-scan-schedule-tests",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--test-dir",
+				"build/llvm-ninja-debug-local",
+				"-R",
+				"SignalPipelineScanScheduleTest",
+				"--output-on-failure"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$gcc"
+			]
+		},
+		{
+			"label": "run-core-controller-tests",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--test-dir",
+				"build/llvm-ninja-debug-local",
+				"-R",
+				"CoreControllerTest",
+				"--output-on-failure"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$gcc"
+			]
+		},
+		{
+			"label": "run-ar-migration-validation",
+			"type": "shell",
+			"command": "ctest --test-dir build/llvm-ninja-debug-local -R 'ar_signal_scan_schedule_test|ar_signal_environment_test|ar_session_test|ar_core_controller_test|ar_session_config_builder_test|ar_runtime_config_resolver_test' --output-on-failure",
+			"isBackground": false
+		},
+		{
+			"label": "run-ar-migrated-suites",
+			"type": "shell",
+			"command": "ctest --test-dir build/llvm-ninja-debug-local -R 'SignalPipelineScanScheduleTest|SignalPipelineTest|EnvironmentServiceTest|CoreControllerTest|RadarSessionConfigBuilderTest|ArRuntimeConfigResolverTest|RadarJointIntegrationTest' --output-on-failure",
+			"isBackground": false
+		},
+		{
+			"label": "debug-ar-session-config-builder-failures",
+			"type": "shell",
+			"command": "ctest --test-dir build/llvm-ninja-debug-local -R 'RadarSessionConfigBuilderTest.(DefaultConstructionPreservesSemanticDefaults|PresetBasePreservesPresetSemanticValues)' --output-on-failure",
+			"isBackground": false
+		},
+		{
+			"label": "run-radar-joint-integration",
+			"type": "shell",
+			"command": "ctest --test-dir build/llvm-ninja-debug-local -R 'RadarJointIntegrationTest' --output-on-failure",
+			"isBackground": false
+		},
+		{
+			"label": "run-environment-and-runtime-unit",
+			"type": "shell",
+			"command": "ctest --test-dir build/llvm-ninja-debug-local -R 'SignalPipelineTest|EnvironmentServiceTest|ArRuntimeConfigResolverTest|RadarSessionConfigBuilderTest' --output-on-failure",
+			"isBackground": false
+		},
+		{
+			"label": "run-public-headers-smoke",
+			"type": "shell",
+			"command": "ctest --test-dir build/llvm-ninja-debug-local -R 'PublicHeadersSmokeTest' --output-on-failure",
+			"isBackground": false
+		},
+		{
+			"label": "run-full-debug-ctest",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--preset",
+				"llvm-ninja-debug-local",
+				"-Q",
+				"--output-on-failure"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run-full-debug-ctest-verbose",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--preset",
+				"llvm-ninja-debug-local",
+				"--output-on-failure"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run-internal-config-failures",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--test-dir",
+				"build/llvm-ninja-debug-local",
+				"-R",
+				"SignalPipelineInternalConfigTest\\.(TrackingPresetMapsToTrackingProfile|NonDefaultRcsPhysicsBreaksTrackingPresetSignatureAndFallsBackToBaseline|CustomConfigStaysBaselineEvenWithHighLifecycleThresholds|ImmToggleOnlyControlsImmInternalDefaults)",
+				"--output-on-failure"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run-internal-config-failures-quoted",
+			"type": "shell",
+			"command": "ctest --test-dir build/llvm-ninja-debug-local -R 'SignalPipelineInternalConfigTest\\.(TrackingPresetMapsToTrackingProfile|NonDefaultRcsPhysicsBreaksTrackingPresetSignatureAndFallsBackToBaseline|CustomConfigStaysBaselineEvenWithHighLifecycleThresholds|ImmToggleOnlyControlsImmInternalDefaults)' --output-on-failure",
+			"isBackground": false
+		},
+		{
+			"label": "rerun-internal-config-failures-quoted",
+			"type": "shell",
+			"command": "ctest --test-dir build/llvm-ninja-debug-local -R 'SignalPipelineInternalConfigTest\\.(TrackingPresetMapsToTrackingProfile|NonDefaultRcsPhysicsBreaksTrackingPresetSignatureAndFallsBackToBaseline|CustomConfigStaysBaselineEvenWithHighLifecycleThresholds|ImmToggleOnlyControlsImmInternalDefaults)' --output-on-failure",
+			"isBackground": false
+		},
+		{
+			"label": "rerun-internal-config-failures-quoted-after-build",
+			"type": "shell",
+			"command": "ctest --test-dir build/llvm-ninja-debug-local -R 'SignalPipelineInternalConfigTest\\.(TrackingPresetMapsToTrackingProfile|NonDefaultRcsPhysicsBreaksTrackingPresetSignatureAndFallsBackToBaseline|CustomConfigStaysBaselineEvenWithHighLifecycleThresholds|ImmToggleOnlyControlsImmInternalDefaults)' --output-on-failure",
+			"isBackground": false
+		},
+		{
+			"label": "rerun-full-debug-ctest-verbose-after-fix",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--preset",
+				"llvm-ninja-debug-local",
+				"--output-on-failure"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run-config-cleanup-targeted-tests",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--test-dir",
+				"build/llvm-ninja-debug-local",
+				"-R",
+				"public_api_boundary_guard|PublicHeadersSmokeTest|RadarSessionConfigBuilderTest|RadarOrientationUtilsTest|AntennaPatternUtilsTest",
+				"--output-on-failure"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run-config-cleanup-targeted-tests-quoted",
+			"type": "shell",
+			"command": "ctest --test-dir build/llvm-ninja-debug-local -R 'public_api_boundary_guard|PublicHeadersSmokeTest|RadarSessionConfigBuilderTest|RadarOrientationUtilsTest|AntennaPatternUtilsTest' --output-on-failure",
+			"isBackground": false
+		},
+		{
+			"label": "run-full-debug-ctest-after-config-cleanup",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--preset",
+				"llvm-ninja-debug-local",
+				"--output-on-failure"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run-full-debug-ctest-after-config-cleanup",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--preset",
+				"llvm-ninja-debug-local",
+				"--output-on-failure"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run-ar-key-regression",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--test-dir",
+				"build/llvm-ninja-debug-local",
+				"-R",
+				"ar_public_api_convenience_test|ar_signal_scan_schedule_test|ar_signal_environment_test|ar_session_test|ar_core_controller_test",
+				"--output-on-failure"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run-ar-session-tests",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--test-dir",
+				"build/llvm-ninja-debug-local",
+				"-R",
+				"ar_session_test",
+				"--output-on-failure"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run-ar-joint-integration",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--test-dir",
+				"build/llvm-ninja-debug-local",
+				"-R",
+				"RadarJointIntegrationTest",
+				"--output-on-failure"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run-ar-signal-environment-suite",
+			"type": "shell",
+			"command": "ctest --test-dir build/llvm-ninja-debug-local -R 'EnvironmentServiceTest|SignalPipelineInternalConfigTest|SignalPipelineTest' --output-on-failure",
+			"isBackground": false
+		},
+		{
+			"label": "run-environment-service-tests",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--test-dir",
+				"build/llvm-ninja-debug-local",
+				"-R",
+				"EnvironmentServiceTest",
+				"--output-on-failure"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run-signal-pipeline-internal-config-tests",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--test-dir",
+				"build/llvm-ninja-debug-local",
+				"-R",
+				"SignalPipelineInternalConfigTest",
+				"--output-on-failure"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run-signal-pipeline-tests",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--test-dir",
+				"build/llvm-ninja-debug-local",
+				"-R",
+				"SignalPipelineTest",
+				"--output-on-failure"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run-public-headers-smoke",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--test-dir",
+				"build/llvm-ninja-debug-local",
+				"-R",
+				"PublicHeadersSmokeTest|public_api_boundary_guard",
+				"--output-on-failure"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run-public-api-boundary-guard",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--test-dir",
+				"build/llvm-ninja-debug-local",
+				"-R",
+				"public_api_boundary_guard",
+				"--output-on-failure"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run-full-ctest-debug",
+			"type": "shell",
+			"command": "ctest --preset llvm-ninja-debug-local -Q --output-on-failure",
+			"isBackground": false
+		},
+		{
+			"label": "run-full-ctest-debug-verbose",
+			"type": "shell",
+			"command": "ctest --preset llvm-ninja-debug-local --output-on-failure",
+			"isBackground": false
+		},
+		{
+			"label": "rerun-public-api-boundary-guard",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--test-dir",
+				"build/llvm-ninja-debug-local",
+				"-R",
+				"public_api_boundary_guard",
+				"--output-on-failure"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "rerun-full-ctest-debug",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--preset",
+				"llvm-ninja-debug-local",
+				"--output-on-failure"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "verify-stage1-cross-module",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--test-dir",
+				"build/llvm-ninja-debug-local",
+				"-R",
+				"PublicApiConvenienceTest|EosPublicApiConvenienceTest|EsrPublicApiConvenienceTest|EsrSessionConfigResolverTest|EosSessionIntegrationTest|EsrSessionIntegrationTest",
+				"--output-on-failure"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "verify-signal-component-factory-tests",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--test-dir",
+				"build/llvm-ninja-debug-local",
+				"-R",
+				"SignalComponentFactoryTest",
+				"--output-on-failure"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "verify-ar-signal-environment-suite-quoted",
+			"type": "shell",
+			"command": "ctest",
+			"args": [
+				"--test-dir",
+				"build/llvm-ninja-debug-local",
+				"-R",
+				"EnvironmentServiceTest|SignalPipelineInternalConfigTest|SignalPipelineTest",
+				"--output-on-failure"
+			],
+			"isBackground": false
+		}
+	]
+}
