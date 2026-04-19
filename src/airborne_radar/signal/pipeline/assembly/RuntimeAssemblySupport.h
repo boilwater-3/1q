@@ -20,78 +20,42 @@ namespace airborne_radar {
 namespace signal {
 namespace pipeline {
 namespace assembly {
-
-using pipeline::PipelineConfig;
-
 namespace internal {
 
+using ::airborne_radar::config::execution::InternalExecutionConfig;
+using ExecutionConfig = ::airborne_radar::config::execution::InternalExecutionConfig;
+
 struct ResolvedRuntimePipelineConfig {
-  PipelineConfig public_config{};
-  pipeline::internal::InternalPipelineConfig internal_config{};
+  ExecutionConfig config{};
 };
 
-/**
- * @brief 基于基础配置与控制真值构建运行时配置。
- * @param[in] base_config 基础流水线配置。
- * @param[in] base_internal_config 基础内部扩展配置。
- * @param[in] control_profile 当前控制真值。
- * @return 调整后的运行时配置。
- */
 ResolvedRuntimePipelineConfig ResolveRuntimePipelineConfig(
-    const PipelineConfig& base_config,
-    const pipeline::internal::InternalPipelineConfig& base_internal_config,
+    const ExecutionConfig& base_config,
     const extension::control::RadarControlProfile& control_profile);
 
-/**
- * @brief 根据运行时配置自动装配生命周期管理器。
- * @param[in] runtime_config 运行时配置。
- * @return 生命周期管理器实例；当装配失败时返回空指针。
- */
 std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManagerForRuntimeConfig(
-    const PipelineConfig& runtime_config);
-
-std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManagerForRuntimeConfig(
-    const PipelineConfig& runtime_config,
-    const pipeline::internal::InternalPipelineConfig& internal_config);
+    const ExecutionConfig& runtime_config);
 
 /**
  * @brief OwnedComponentSlots 汇聚 Pipeline 自持有组件的重建槽位指针。
  */
 struct OwnedComponentSlots {
-  std::unique_ptr<tracking::IKalmanPredictor>* kalman_predictor{nullptr}; /**< Kalman 预测器槽位 */
-  std::unique_ptr<tracking::IKalmanUpdater>* kalman_updater{nullptr};    /**< Kalman 更新器槽位 */
-  std::unique_ptr<detection::SignalDetector>* signal_detector{nullptr};  /**< 物理探测器槽位 */
-  std::unique_ptr<tracking::ITrackLifecycleManager>* auto_lifecycle_manager{
-      nullptr}; /**< 生命周期管理器槽位 */
+  std::unique_ptr<tracking::IKalmanPredictor>* kalman_predictor{nullptr};
+  std::unique_ptr<tracking::IKalmanUpdater>* kalman_updater{nullptr};
+  std::unique_ptr<detection::SignalDetector>* signal_detector{nullptr};
+  std::unique_ptr<tracking::ITrackLifecycleManager>* auto_lifecycle_manager{nullptr};
 };
 
-/**
- * @brief 根据基础配置与控制真值重建 Pipeline 自持有组件。
- * @param[in] base_config 基础流水线配置。
- * @param[in] base_internal_config 基础内部扩展配置。
- * @param[in] control_profile 当前控制真值。
- * @param[in,out] slots 待重建的组件槽位。
- */
 void RebuildOwnedComponentsForPipeline(
-    const PipelineConfig& base_config,
-    const pipeline::internal::InternalPipelineConfig& base_internal_config,
+    const ExecutionConfig& base_config,
     const extension::control::RadarControlProfile& control_profile, OwnedComponentSlots* slots);
 
-/**
- * @brief 仅根据已解析的运行时配置同步自动生命周期管理器参数。
- * @return 同步成功时返回 true；若 topology 重建失败并保留旧装配则返回 false。
- */
 bool SyncAutoLifecycleManagerForResolvedRuntimeConfig(
     const ResolvedRuntimePipelineConfig& resolved_runtime_config,
     tracking::ITrackLifecycleManager* auto_lifecycle_manager);
 
-/**
- * @brief 将本周期运行时配置同步到自动生命周期管理器内部参数。
- * @return 同步成功时返回 true；若 topology 重建失败并保留旧装配则返回 false。
- */
 bool SyncAutoLifecycleManagerForRuntimeConfig(
-    const PipelineConfig& runtime_config,
-    const pipeline::internal::InternalPipelineConfig& internal_runtime_config,
+    const ExecutionConfig& runtime_config,
     tracking::ITrackLifecycleManager* auto_lifecycle_manager);
 
 }  // namespace internal

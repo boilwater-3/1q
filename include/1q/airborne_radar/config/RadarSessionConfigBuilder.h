@@ -7,11 +7,11 @@
 #define AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_BUILDER_H_
 
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
-#include "1q/airborne_radar/config/semantic/AntennaProfiles.h"
-#include "1q/airborne_radar/config/semantic/DetectionProfiles.h"
-#include "1q/airborne_radar/config/semantic/LifecycleProfiles.h"
-#include "1q/airborne_radar/config/semantic/TrackingProfiles.h"
 #include "1q/api.hpp"
+#include "airborne_radar/config/profiles/AntennaProfiles.h"
+#include "airborne_radar/config/profiles/DetectionProfiles.h"
+#include "airborne_radar/config/profiles/LifecycleProfiles.h"
+#include "airborne_radar/config/profiles/TrackingProfiles.h"
 
 namespace airborne_radar {
 namespace config {
@@ -32,9 +32,9 @@ using model::RadarWorkSubMode;
  *                   .Detection()
  *                   .EnablePhysicsDetection(true)
  *                   .WithHardwareProfile(
- *                       semantic::RadarHardwareProfile::kLongRangeHighPower)
+ *                       profiles::RadarHardwareProfile::kLongRangeHighPower)
  *                   .WithDetectionIntentProfile(
- *                       semantic::DetectionIntentProfile::kDetectionPriority)
+ *                       profiles::DetectionIntentProfile::kDetectionPriority)
  *                   .End()
  *                   .Environment()
  *                   .WithJammingSensitivityProfile(
@@ -94,18 +94,18 @@ class ONEQ_API RadarSessionConfigBuilder {
   friend class EnvironmentEditor;
 
   bool enable_physics_detection_{false};
-  semantic::RadarHardwareProfile hardware_profile_{
-      semantic::RadarHardwareProfile::kGenericAirborneXBand};
-  semantic::DetectionIntentProfile intent_profile_{semantic::DetectionIntentProfile::kBalanced};
-  semantic::AntennaPatternProfile antenna_profile_{semantic::AntennaPatternProfile::kStandard};
+  profiles::RadarHardwareProfile hardware_profile_{
+      profiles::RadarHardwareProfile::kGenericAirborneXBand};
+  profiles::DetectionIntentProfile intent_profile_{profiles::DetectionIntentProfile::kBalanced};
+  profiles::AntennaPatternProfile antenna_profile_{profiles::AntennaPatternProfile::kStandard};
   model::AzimuthElevationDeg antenna_boresight_offset_deg_{};
-  semantic::RcsFusionProfile rcs_fusion_profile_{semantic::RcsFusionProfile::kDisabled};
+  profiles::RcsFusionProfile rcs_fusion_profile_{profiles::RcsFusionProfile::kDisabled};
 
   bool enable_tracking_filter_{false};
-  semantic::TrackingPolicyProfile tracking_profile_{semantic::TrackingPolicyProfile::kBalanced};
+  profiles::TrackingPolicyProfile tracking_profile_{profiles::TrackingPolicyProfile::kBalanced};
 
   bool enable_imm_fusion_{false};
-  semantic::LifecyclePolicyProfile lifecycle_profile_{semantic::LifecyclePolicyProfile::kBalanced};
+  profiles::LifecyclePolicyProfile lifecycle_profile_{profiles::LifecyclePolicyProfile::kBalanced};
 
   session::RadarSessionConfig base_config_{};
   model::RadarOrientationConfig orientation_{};
@@ -129,25 +129,25 @@ class RadarSessionConfigBuilder::DetectionEditor {
     return *this;
   }
   /** @brief 设置硬件语义档位。 */
-  DetectionEditor& WithHardwareProfile(semantic::RadarHardwareProfile profile) {
+  DetectionEditor& WithHardwareProfile(profiles::RadarHardwareProfile profile) {
     builder_->hardware_profile_ = profile;
     builder_->detection_dirty_ = true;
     return *this;
   }
   /** @brief 设置探测意图语义档位。 */
-  DetectionEditor& WithDetectionIntentProfile(semantic::DetectionIntentProfile profile) {
+  DetectionEditor& WithDetectionIntentProfile(profiles::DetectionIntentProfile profile) {
     builder_->intent_profile_ = profile;
     builder_->detection_dirty_ = true;
     return *this;
   }
   /** @brief 设置方向图语义档位。 */
-  DetectionEditor& WithAntennaPatternProfile(semantic::AntennaPatternProfile profile) {
+  DetectionEditor& WithAntennaPatternProfile(profiles::AntennaPatternProfile profile) {
     builder_->antenna_profile_ = profile;
     builder_->detection_dirty_ = true;
     return *this;
   }
   /** @brief 设置 RCS 融合语义档位。 */
-  DetectionEditor& WithRcsFusionProfile(semantic::RcsFusionProfile profile) {
+  DetectionEditor& WithRcsFusionProfile(profiles::RcsFusionProfile profile) {
     builder_->rcs_fusion_profile_ = profile;
     builder_->detection_dirty_ = true;
     return *this;
@@ -207,7 +207,7 @@ class RadarSessionConfigBuilder::TrackingEditor {
     return *this;
   }
   /** @brief 设置跟踪策略语义档位。 */
-  TrackingEditor& WithTrackingPolicyProfile(semantic::TrackingPolicyProfile profile) {
+  TrackingEditor& WithTrackingPolicyProfile(profiles::TrackingPolicyProfile profile) {
     builder_->tracking_profile_ = profile;
     builder_->tracking_dirty_ = true;
     return *this;
@@ -233,7 +233,7 @@ class RadarSessionConfigBuilder::LifecycleEditor {
     return *this;
   }
   /** @brief 设置生命周期策略语义档位。 */
-  LifecycleEditor& WithLifecyclePolicyProfile(semantic::LifecyclePolicyProfile profile) {
+  LifecycleEditor& WithLifecyclePolicyProfile(profiles::LifecyclePolicyProfile profile) {
     builder_->lifecycle_profile_ = profile;
     builder_->lifecycle_dirty_ = true;
     return *this;

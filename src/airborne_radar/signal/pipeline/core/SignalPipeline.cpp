@@ -7,11 +7,11 @@
 #include <vector>
 
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
+#include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/pipeline/assembly/RuntimeAssemblySupport.h"
 #include "airborne_radar/signal/pipeline/assembly/SignalComponentFactory.h"
-#include "airborne_radar/config/internal/SessionConfigPipelineMapper.h"
 #include "airborne_radar/signal/pipeline/core/CycleContextSupport.h"
 #include "airborne_radar/signal/pipeline/core/CycleExecutor.h"
 #include "airborne_radar/signal/tracking/IKalmanPredictor.h"
@@ -38,21 +38,19 @@ bool HasValidEnvironmentCycle(const environment::EnvironmentSnapshot& snapshot) 
 }
 
 struct RuntimeConfigState {
-  explicit RuntimeConfigState(PipelineConfig initial_config)
-      : base_config(std::move(initial_config)),
-        base_internal_config(internal::BuildInternalPipelineConfig(base_config)) {}
+  explicit RuntimeConfigState(internal::ExecutionConfig initial_config)
+      : base_config(std::move(initial_config)) {}
 
-  PipelineConfig base_config{};
-  internal::InternalPipelineConfig base_internal_config{};
+  internal::ExecutionConfig base_config{};
   extension::control::RadarControlProfile control_profile_{};
 };
 
 struct RuntimeOwnedState {
   explicit RuntimeOwnedState(const RuntimeConfigState& config_state)
       : association_engine(assembly::internal::SignalComponentFactory::BuildAssociationConfig(
-            config_state.base_config, config_state.base_internal_config)),
+            config_state.base_config)),
         track_filter(assembly::internal::SignalComponentFactory::BuildTrackFilterConfig(
-            config_state.base_internal_config)) {}
+            config_state.base_config)) {}
 
   association::DataAssociationEngine association_engine{};
   tracking::TrackFilter track_filter{};
@@ -68,8 +66,7 @@ struct AssociationSeedState {
 };
 
 struct SignalPipelineSnapshot {
-  PipelineConfig base_config{};
-  model::PlatformAttitudeDeg platform_attitude_deg{};
+  internal::ExecutionConfig base_config{};
   extension::control::RadarControlProfile control_profile{};
   AssociationSeedState association_seeds{};
   std::vector<tracking::TrackMeasurement> track_measurements{};
@@ -80,7 +77,7 @@ struct SignalPipelineSnapshot {
 };
 
 struct RuntimeState {
-  explicit RuntimeState(PipelineConfig initial_config)
+  explicit RuntimeState(internal::ExecutionConfig initial_config)
       : config(std::move(initial_config)), owned(config) {}
 
   RuntimeConfigState config;
@@ -97,22 +94,21 @@ struct CycleState {
 }  // namespace
 
 struct SignalPipeline::Impl {
-  explicit Impl(PipelineConfig initial_config) : runtime_(std::move(initial_config)) {
+  explicit Impl(internal::ExecutionConfig initial_config) : runtime_(std::move(initial_config)) {
     RebuildOwnedComponents();
   }
 
   internal::CycleExecutionRuntime BuildExecutionRuntimeView() {
     return internal::CycleExecutionRuntime(
-        runtime_.config.base_config, runtime_.config.base_internal_config,
-        runtime_.config.control_profile_, runtime_.owned.association_engine,
-        runtime_.owned.track_filter, *runtime_.owned.auto_lifecycle_manager,
-        runtime_.owned.signal_detector.get(), runtime_.association_seeds.manual_association_seeds,
+        runtime_.config.base_config, runtime_.config.control_profile_,
+        runtime_.owned.association_engine, runtime_.owned.track_filter,
+        *runtime_.owned.auto_lifecycle_manager, runtime_.owned.signal_detector.get(),
+        runtime_.association_seeds.manual_association_seeds,
         runtime_.association_seeds.has_manual_association_seeds);
   }
 
   assembly::internal::ResolvedRuntimePipelineConfig ResolveRuntimeConfig() const {
     return assembly::internal::ResolveRuntimePipelineConfig(runtime_.config.base_config,
-                                                            runtime_.config.base_internal_config,
                                                             runtime_.config.control_profile_);
   }
 
@@ -169,8 +165,6 @@ struct SignalPipeline::Impl {
   extension::SignalPipelineRuntimeState CaptureRuntimeState() const {
     std::shared_ptr<SignalPipelineSnapshot> snapshot(new SignalPipelineSnapshot());
     snapshot->base_config = runtime_.config.base_config;
-    snapshot->platform_attitude_deg =
-        runtime_.config.base_internal_config.beam_control.platform_attitude_deg;
     snapshot->control_profile = runtime_.config.control_profile_;
     snapshot->association_seeds = runtime_.association_seeds;
     snapshot->track_measurements = cycle_.scratch.track_measurements;
@@ -200,10 +194,6 @@ struct SignalPipeline::Impl {
     }
 
     runtime_.config.base_config = snapshot->base_config;
-    runtime_.config.base_internal_config =
-        internal::BuildInternalPipelineConfig(runtime_.config.base_config);
-    runtime_.config.base_internal_config.beam_control.platform_attitude_deg =
-        snapshot->platform_attitude_deg;
     runtime_.config.control_profile_ = snapshot->control_profile;
     RebuildOwnedComponents();
     runtime_.association_seeds = snapshot->association_seeds;
@@ -236,23 +226,16 @@ struct SignalPipeline::Impl {
 
   std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManager() const {
     const assembly::internal::ResolvedRuntimePipelineConfig runtime_config = ResolveRuntimeConfig();
-    return assembly::internal::CreateAutoLifecycleManagerForRuntimeConfig(
-        runtime_config.public_config, runtime_config.internal_config);
+    return assembly::internal::CreateAutoLifecycleManagerForRuntimeConfig(runtime_config.config);
   }
 
-  bool UpdateConfig(PipelineConfig new_config) {
-    const PipelineConfig previous_config = runtime_.config.base_config;
-    const internal::InternalPipelineConfig previous_internal_config =
-        runtime_.config.base_internal_config;
+  bool UpdateConfig(internal::ExecutionConfig new_config) {
+    const internal::ExecutionConfig previous_config = runtime_.config.base_config;
     runtime_.config.base_config = std::move(new_config);
-    runtime_.config.base_internal_config =
-        internal::BuildInternalPipelineConfig(runtime_.config.base_config);
     if (!internal::SyncAssociationAndTrackFilterConfigs(
-            runtime_.config.base_config, runtime_.config.base_internal_config,
-            &runtime_.owned.association_engine, &runtime_.owned.track_filter,
-            runtime_.owned.auto_lifecycle_manager.get())) {
+            runtime_.config.base_config, &runtime_.owned.association_engine,
+            &runtime_.owned.track_filter, runtime_.owned.auto_lifecycle_manager.get())) {
       runtime_.config.base_config = previous_config;
-      runtime_.config.base_internal_config = previous_internal_config;
       PROJECT_LOG_ERROR(
           "[SignalPipeline] UpdateConfig rejected because runtime config sync failed; "
           "keeping previous pipeline config.");
@@ -261,7 +244,7 @@ struct SignalPipeline::Impl {
 
     assembly::internal::OwnedSignalComponents components =
         assembly::internal::SignalComponentFactory::BuildOwnedPipelineComponents(
-            runtime_.config.base_config, runtime_.config.base_internal_config);
+            runtime_.config.base_config);
     runtime_.owned.kalman_predictor = std::move(components.kalman_predictor);
     runtime_.owned.kalman_updater = std::move(components.kalman_updater);
     runtime_.owned.signal_detector = std::move(components.signal_detector);
@@ -269,11 +252,11 @@ struct SignalPipeline::Impl {
   }
 
   void UpdatePlatformAttitude(const model::PlatformAttitudeDeg& platform_attitude_deg) {
-    runtime_.config.base_internal_config.beam_control.platform_attitude_deg = platform_attitude_deg;
+    runtime_.config.base_config.platform_attitude_deg = platform_attitude_deg;
   }
 
   model::PlatformAttitudeDeg GetPlatformAttitude() const {
-    return runtime_.config.base_internal_config.beam_control.platform_attitude_deg;
+    return runtime_.config.base_config.platform_attitude_deg;
   }
 
   void SetControlProfile(const extension::control::RadarControlProfile& control_profile) {
@@ -290,8 +273,7 @@ struct SignalPipeline::Impl {
     component_slots.signal_detector = &runtime_.owned.signal_detector;
     component_slots.auto_lifecycle_manager = &runtime_.owned.auto_lifecycle_manager;
     assembly::internal::RebuildOwnedComponentsForPipeline(
-        runtime_.config.base_config, runtime_.config.base_internal_config,
-        runtime_.config.control_profile_, &component_slots);
+        runtime_.config.base_config, runtime_.config.control_profile_, &component_slots);
   }
 
   RuntimeState runtime_;
@@ -300,8 +282,7 @@ struct SignalPipeline::Impl {
 
 SignalPipeline::SignalPipeline(const session::RadarSessionConfig& config)
     : impl_(std::unique_ptr<Impl>(
-          new Impl(::airborne_radar::config::internal::BuildPipelineConfigFromSessionConfig(
-              config)))) {}
+          new Impl(::airborne_radar::config::mapping::MapSessionToExecution(config)))) {}
 
 SignalPipeline::~SignalPipeline() = default;
 
@@ -357,8 +338,7 @@ extension::control::RadarControlProfile SignalPipeline::GetControlProfile() cons
 }
 
 bool SignalPipeline::UpdateConfig(const session::RadarSessionConfig& config) {
-  return impl_->UpdateConfig(
-      ::airborne_radar::config::internal::BuildPipelineConfigFromSessionConfig(config));
+  return impl_->UpdateConfig(::airborne_radar::config::mapping::MapSessionToExecution(config));
 }
 
 }  // namespace pipeline

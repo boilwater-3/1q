@@ -26,52 +26,31 @@ namespace pipeline {
 namespace internal {
 
 struct CycleWorkspace {
-  model::TargetFeatureList* output_state{nullptr};              /**< 输出目标列表 */
-  model::DecisionInputFrame* decision_frame{nullptr};           /**< 决策输入帧 */
-  AssociationQualityMetrics* association_quality_metrics{nullptr};      /**< 关联质量观测指标 */
-  std::vector<tracking::TrackMeasurement>* track_measurements{nullptr}; /**< 跟踪量测列表 */
-  std::vector<float>* signal_term_db{nullptr};                          /**< 各目标信号项（dB） */
-  std::vector<float>* speed_penalty_db{nullptr};           /**< 各目标速度惩罚项（dB） */
-  std::vector<float>* detection_margin_db{nullptr};        /**< 各目标探测裕量（dB） */
-  std::vector<std::uint8_t>* detection_succeeded{nullptr}; /**< 各目标探测成功标志 */
-  std::vector<std::uint64_t>* association_keys{nullptr};   /**< 各目标关联键 */
-  std::vector<int>* measurement_slots{nullptr};            /**< 各目标量测槽位 */
-  std::vector<detection::ResolvedTargetGeometry>* target_geometry{nullptr}; /**< 各目标几何信息 */
-  std::vector<tracking::MeasurementCovariance>* measurement_covariances{
-      nullptr};                                                /**< 各目标量测协方差 */
-  association::AssociationResult* association_result{nullptr}; /**< 关联匹配结果 */
+  model::TargetFeatureList* output_state{nullptr};
+  model::DecisionInputFrame* decision_frame{nullptr};
+  AssociationQualityMetrics* association_quality_metrics{nullptr};
+  std::vector<tracking::TrackMeasurement>* track_measurements{nullptr};
+  std::vector<float>* signal_term_db{nullptr};
+  std::vector<float>* speed_penalty_db{nullptr};
+  std::vector<float>* detection_margin_db{nullptr};
+  std::vector<std::uint8_t>* detection_succeeded{nullptr};
+  std::vector<std::uint64_t>* association_keys{nullptr};
+  std::vector<int>* measurement_slots{nullptr};
+  std::vector<detection::ResolvedTargetGeometry>* target_geometry{nullptr};
+  std::vector<tracking::MeasurementCovariance>* measurement_covariances{nullptr};
+  association::AssociationResult* association_result{nullptr};
 };
 
-/**
- * @brief 根据输入目标列表与运行时配置重置周期工作区。
- * @param[in] input_state 当前周期输入目标列表。
- * @param[in] runtime_config 运行时配置。
- * @param[out] workspace 待重置的周期工作区。
- */
 void ResetCycleWorkspace(const model::TargetFeatureList& input_state,
-                         const PipelineConfig& runtime_config, CycleWorkspace* workspace);
+                         const ExecutionConfig& runtime_config, CycleWorkspace* workspace);
 
-/**
- * @brief 重置量测协方差为默认值。
- * @param[in] target_count 目标数量。
- * @param[in] kalman_measurement_noise_std Kalman 量测噪声标准差。
- * @param[out] measurement_covariances 待重置的量测协方差列表。
- */
 void RefreshMeasurementCovariances(
     std::size_t target_count, float kalman_measurement_noise_std,
     std::vector<tracking::MeasurementCovariance>* measurement_covariances);
 
-/**
- * @brief 同步运行时配置到关联引擎、轨迹滤波器和生命周期管理器。
- * @param[in] runtime_config 当前运行时配置。
- * @param[in] internal_runtime_config 当前内部运行时配置。
- * @param[in,out] association_engine 关联引擎。
- * @param[in,out] track_filter 轨迹滤波器。
- */
 bool SyncAssociationAndTrackFilterConfigs(
-    const PipelineConfig& runtime_config,
-    const InternalPipelineConfig& internal_runtime_config,
-    association::DataAssociationEngine* association_engine, tracking::TrackFilter* track_filter,
+    const ExecutionConfig& runtime_config, association::DataAssociationEngine* association_engine,
+    tracking::TrackFilter* track_filter,
     tracking::ITrackLifecycleManager* auto_lifecycle_manager = nullptr);
 
 }  // namespace internal

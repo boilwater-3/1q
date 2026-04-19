@@ -16,14 +16,6 @@ set(AR_PUBLIC_PRIMARY_HEADERS
     "airborne_radar/config/airborne_radar_config.hpp"
 )
 
-# ── AR 语义档位（Builder 输入材料，不属于独立配置入口） ─────────────
-set(AR_SEMANTIC_HEADERS
-    "airborne_radar/config/semantic/AntennaProfiles.h"
-    "airborne_radar/config/semantic/DetectionProfiles.h"
-    "airborne_radar/config/semantic/LifecycleProfiles.h"
-    "airborne_radar/config/semantic/TrackingProfiles.h"
-)
-
 # ── AR 环境域 ────────────────────────────────────────────────────────
 set(AR_ENVIRONMENT_HEADERS
     "airborne_radar/environment/EnvironmentConfig.h"
@@ -175,7 +167,6 @@ set(FOUNDATION_HEADERS
 
 set(EXPECTED_PUBLIC_HEADERS
     ${AR_PUBLIC_PRIMARY_HEADERS}
-    ${AR_SEMANTIC_HEADERS}
     ${AR_ENVIRONMENT_HEADERS}
     ${AR_EXTENSION_HEADERS}
     ${AR_MODEL_HEADERS}

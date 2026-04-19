@@ -6,8 +6,8 @@
 #ifndef AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_CONTROL_PROFILE_EFFECTS_H_
 #define AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_CONTROL_PROFILE_EFFECTS_H_
 
-#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
+#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "airborne_radar/signal/pipeline/config/InternalPipelineConfig.h"
 #include "airborne_radar/signal/pipeline/config/SignalPipelineRuntimeTypes.h"
 
@@ -16,35 +16,16 @@ namespace signal {
 namespace pipeline {
 namespace internal {
 
-/**
- * @brief 计算控制真值对经验信号项的修正量。
- * @param[in] cfg 控制轮廓效应配置。
- * @param[in] control_profile 当前控制真值。
- * @return 对经验信号项的修正量（dB）。
- */
 float ComputeHeuristicSignalAdjustmentDb(
     const ControlProfileEffectsConfig& cfg,
     const extension::control::RadarControlProfile& control_profile);
 
-/**
- * @brief 计算控制真值对经验环境惩罚项的抵消量。
- * @param[in] cfg 干扰效应配置。
- * @param[in] control_profile 当前控制真值。
- * @param[in] environment_snapshot 当前周期环境快照。
- * @return 对经验环境惩罚项的抵消量（dB）。
- */
 float ComputeHeuristicEnvironmentReliefDb(
     const JammingEffectsConfig& cfg, const extension::control::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot);
 
-/**
- * @brief 将控制真值映射为当前周期生效的运行时配置。
- * @param[in] control_profile 当前控制真值。
- * @param[in,out] runtime_config 待调整的运行时配置。
- */
 void ApplyControlProfileToConfig(const extension::control::RadarControlProfile& control_profile,
-                                 PipelineConfig* runtime_config,
-                                 InternalPipelineConfig* internal_config);
+                                 ExecutionConfig* config);
 
 }  // namespace internal
 }  // namespace pipeline

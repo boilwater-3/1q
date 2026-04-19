@@ -2,15 +2,15 @@
 
 #include <vector>
 
+#include "airborne_radar/signal/pipeline/assembly/OutputAssemblySupport.h"
+#include "airborne_radar/signal/pipeline/assembly/RuntimeAssemblySupport.h"
+#include "airborne_radar/signal/pipeline/assembly/TrackMeasurementProcessing.h"
 #include "airborne_radar/signal/pipeline/core/AssociationExecutionSupport.h"
 #include "airborne_radar/signal/pipeline/core/ContextBindingSupport.h"
 #include "airborne_radar/signal/pipeline/core/CycleContextSupport.h"
 #include "airborne_radar/signal/pipeline/core/DetectionExecution.h"
-#include "airborne_radar/signal/pipeline/effects/JammingEffects.h"
-#include "airborne_radar/signal/pipeline/assembly/OutputAssemblySupport.h"
-#include "airborne_radar/signal/pipeline/assembly/TrackMeasurementProcessing.h"
-#include "airborne_radar/signal/pipeline/assembly/RuntimeAssemblySupport.h"
 #include "airborne_radar/signal/pipeline/core/ScanScheduleResolver.h"
+#include "airborne_radar/signal/pipeline/effects/JammingEffects.h"
 #include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
@@ -25,12 +25,12 @@ CycleExecutionContract BuildCycleExecutionContract(
     const environment::EnvironmentSnapshot& environment_snapshot, std::uint32_t cycle_index,
     std::uint64_t batch_id, const CycleExecutionRuntime& runtime) {
   const assembly::internal::ResolvedRuntimePipelineConfig resolved =
-      assembly::internal::ResolveRuntimePipelineConfig(
-          runtime.base_config, runtime.base_internal_config, runtime.control_profile);
-  PipelineConfig runtime_config = resolved.public_config;
+      assembly::internal::ResolveRuntimePipelineConfig(runtime.base_config,
+                                                       runtime.control_profile);
+  ExecutionConfig runtime_config = resolved.config;
   core::internal::ApplyScanScheduleToRuntimeConfig(cycle_index, &runtime_config);
   CycleExecutionContract output(input_state, environment_snapshot, cycle_index, batch_id,
-                                std::move(runtime_config), resolved.internal_config);
+                                std::move(runtime_config));
   return output;
 }
 
@@ -53,16 +53,14 @@ void PrepareAssociationSeeds(const CycleExecutionRuntime& runtime) {
 
 bool RunEnvironmentPhase(CycleExecutionContract* contract, const CycleExecutionRuntime& runtime,
                          CycleExecutionScratch* scratch, EnvironmentPhaseOutput* output) {
-  ApplyEnvironmentJammingFactsToRuntimeConfig(runtime.control_profile, contract->environment_snapshot,
-                                              &contract->internal_runtime_config,
-                                              &contract->runtime_config);
-  RefreshMeasurementCovariances(scratch->target_geometry.size(),
-                                contract->internal_runtime_config
-                                    .tracking_runtime.engineering.kalman_measurement_noise_std,
-                                &scratch->measurement_covariances);
-  if (!SyncAssociationAndTrackFilterConfigs(contract->runtime_config,
-                                            contract->internal_runtime_config,
-                                            &runtime.association_engine, &runtime.track_filter,
+  ApplyEnvironmentJammingFactsToRuntimeConfig(
+      runtime.control_profile, contract->environment_snapshot, &contract->runtime_config);
+  RefreshMeasurementCovariances(
+      scratch->target_geometry.size(),
+      contract->runtime_config.tracking_engineering.kalman_measurement_noise_std,
+      &scratch->measurement_covariances);
+  if (!SyncAssociationAndTrackFilterConfigs(contract->runtime_config, &runtime.association_engine,
+                                            &runtime.track_filter,
                                             &runtime.auto_lifecycle_manager)) {
     PROJECT_LOG_ERROR(
         "[SignalPipeline] environment phase aborted because runtime config sync failed.");
@@ -85,15 +83,13 @@ DetectionPhaseOutput RunDetectionPhase(const CycleExecutionContract& contract,
       &scratch->detection_margin_db, &scratch->detection_succeeded,
       &scratch->measurement_covariances);
 
-  if (contract.internal_runtime_config.detection.engineering.enable_physics_detection &&
+  if (contract.runtime_config.detection_engineering.enable_physics_detection &&
       runtime.signal_detector != nullptr) {
-    RunPhysicalDetectionPass(contract.input_state, contract.runtime_config,
-                             contract.internal_runtime_config,
-                             runtime.control_profile, contract.environment_snapshot,
-                             runtime.signal_detector, &detection_buffers);
+    RunPhysicalDetectionPass(contract.input_state, contract.runtime_config, runtime.control_profile,
+                             contract.environment_snapshot, runtime.signal_detector,
+                             &detection_buffers);
   } else {
     RunHeuristicDetectionPass(contract.input_state, contract.runtime_config,
-                              contract.internal_runtime_config,
                               runtime.control_profile, contract.environment_snapshot,
                               &detection_buffers);
   }
@@ -109,9 +105,8 @@ AssociationPhaseOutput RunAssociationPhase(const CycleExecutionContract& contrac
                                            CycleExecutionScratch* scratch) {
   RunAssociationPass(contract.input_state, detection_phase.detection_succeeded,
                      detection_phase.measurement_covariances,
-                     contract.environment_snapshot.cycle_dt_sec,
-                     &runtime.association_engine, &scratch->association_result,
-                     &scratch->association_keys);
+                     contract.environment_snapshot.cycle_dt_sec, &runtime.association_engine,
+                     &scratch->association_result, &scratch->association_keys);
 
   return AssociationPhaseOutput(scratch->association_result, scratch->association_keys);
 }
@@ -121,10 +116,10 @@ MeasurementBuildPhaseOutput RunMeasurementBuildPhase(
     const DetectionPhaseOutput& detection_phase, const AssociationPhaseOutput& association_phase,
     CycleExecutionScratch* scratch) {
   TrackMeasurementBuildContext build_context = BuildTrackMeasurementBuildContextBindings(
-      contract.input_state, association_phase.association_result, detection_phase.detection_succeeded,
-      association_phase.association_keys, detection_phase.detection_margin_db,
-      detection_phase.target_geometry, detection_phase.measurement_covariances,
-      contract.environment_snapshot.jamming_detected,
+      contract.input_state, association_phase.association_result,
+      detection_phase.detection_succeeded, association_phase.association_keys,
+      detection_phase.detection_margin_db, detection_phase.target_geometry,
+      detection_phase.measurement_covariances, contract.environment_snapshot.jamming_detected,
       environment_phase.dominant_jamming_semantic, environment_phase.jamming_severity,
       scratch->measurement_slots, scratch->track_measurements);
   BuildTrackMeasurementsPass(build_context);
@@ -147,14 +142,12 @@ void RunTrackFilterPhase(const CycleExecutionContract& contract,
 }
 
 void AssembleOutputs(std::uint32_t cycle_index, std::uint64_t batch_id,
-                     const CycleExecutionContract& contract,
-                     const EnvironmentPhaseOutput&,
+                     const CycleExecutionContract& contract, const EnvironmentPhaseOutput&,
                      const CycleExecutionRuntime& runtime,
                      const AssociationPhaseOutput& association_phase,
                      const MeasurementBuildPhaseOutput& measurement_phase,
                      CycleExecutionScratch* scratch) {
-  CollectCycleOutputs(runtime.control_profile, cycle_index, batch_id,
-                      contract.internal_runtime_config,
+  CollectCycleOutputs(runtime.control_profile, cycle_index, batch_id, contract.runtime_config,
                       contract.environment_snapshot, contract.input_state,
                       association_phase.association_result, measurement_phase.track_measurements,
                       &runtime.auto_lifecycle_manager, &scratch->association_quality_metrics,
@@ -166,10 +159,9 @@ void AssembleOutputs(std::uint32_t cycle_index, std::uint64_t batch_id,
 bool ExecuteCycle(const model::TargetFeatureList& input_state,
                   const environment::EnvironmentSnapshot& environment_snapshot,
                   std::uint32_t cycle_index, std::uint64_t batch_id,
-                  const CycleExecutionRuntime& runtime,
-                  CycleExecutionScratch& cycle_scratch) {
-  CycleExecutionContract contract =
-      BuildCycleExecutionContract(input_state, environment_snapshot, cycle_index, batch_id, runtime);
+                  const CycleExecutionRuntime& runtime, CycleExecutionScratch& cycle_scratch) {
+  CycleExecutionContract contract = BuildCycleExecutionContract(input_state, environment_snapshot,
+                                                                cycle_index, batch_id, runtime);
   if (!PrepareExecutionState(contract, &cycle_scratch)) {
     return false;
   }
@@ -183,14 +175,12 @@ bool ExecuteCycle(const model::TargetFeatureList& input_state,
       RunDetectionPhase(contract, runtime, environment_phase, &cycle_scratch);
   const AssociationPhaseOutput association_phase =
       RunAssociationPhase(contract, runtime, environment_phase, detection_phase, &cycle_scratch);
-  const MeasurementBuildPhaseOutput measurement_phase =
-      RunMeasurementBuildPhase(contract, environment_phase, detection_phase, association_phase,
-                               &cycle_scratch);
+  const MeasurementBuildPhaseOutput measurement_phase = RunMeasurementBuildPhase(
+      contract, environment_phase, detection_phase, association_phase, &cycle_scratch);
   RunTrackFilterPhase(contract, runtime, environment_phase, detection_phase, measurement_phase,
                       &cycle_scratch);
   AssembleOutputs(contract.cycle_index, contract.batch_id, contract, environment_phase, runtime,
-                  association_phase,
-                  measurement_phase, &cycle_scratch);
+                  association_phase, measurement_phase, &cycle_scratch);
   return true;
 }
 

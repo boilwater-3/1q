@@ -30,8 +30,8 @@ struct DetectionResult {
 struct TargetReturn {
   float rcs_m2{0.0f};  /**< 目标 RCS (m²) */
   float range_m{0.0f}; /**< 目标到雷达斜距 (m) */
-  config::semantic::SwerlingModel swerling_type{
-      config::semantic::SwerlingModel::kSwerling0}; /**< 目标的 Swerling 起伏模型 */
+  config::profiles::SwerlingModel swerling_type{
+      config::profiles::SwerlingModel::kSwerling0}; /**< 目标的 Swerling 起伏模型 */
 };
 /**
  * @brief 环境噪声上下文。

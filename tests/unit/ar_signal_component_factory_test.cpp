@@ -5,8 +5,7 @@
 
 #include <gtest/gtest.h>
 
-#include "airborne_radar/config/legacy/PipelineConfig.h"
-#include "airborne_radar/signal/pipeline/config/InternalPipelineConfig.h"
+#include "airborne_radar/config/execution/InternalExecutionConfig.h"
 #include "airborne_radar/signal/pipeline/assembly/SignalComponentFactory.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
@@ -18,83 +17,81 @@
 namespace airborne_radar {
 namespace tests {
 
+using ExecutionConfig = config::execution::InternalExecutionConfig;
+
 TEST(SignalComponentFactoryTest, BuildOwnedComponentsSelectsPredictorUpdaterFamilyByBackend) {
-  config::PipelineConfig config;
-    config.expert.tracking.enable_kalman_filter = true;
+  ExecutionConfig config;
+  config.policy_tracking.enable_kalman_filter = true;
+    config.tracking_engineering.enable_kalman_filter = true;
+  config.tracking_engineering.kalman_measurement_noise_std = 5.0f;
 
-  signal::pipeline::internal::InternalPipelineConfig internal_config =
-      signal::pipeline::internal::BuildInternalPipelineConfig(config);
-  internal_config.tracking_runtime.engineering.kalman_measurement_noise_std = 5.0f;
-
-  internal_config.tracking_runtime.engineering.kalman_update_backend =
+  config.tracking_engineering.kalman_update_backend =
       config::engineering::KalmanUpdateBackend::kUdKf;
   signal::pipeline::assembly::internal::OwnedSignalComponents ud_components =
       signal::pipeline::assembly::internal::SignalComponentFactory::BuildOwnedPipelineComponents(
-          config, internal_config);
+          config);
   EXPECT_NE(dynamic_cast<signal::tracking::UdkfPredictor*>(ud_components.kalman_predictor.get()),
             nullptr);
   EXPECT_NE(dynamic_cast<signal::tracking::UdkfUpdater*>(ud_components.kalman_updater.get()),
             nullptr);
 
-  internal_config.tracking_runtime.engineering.kalman_update_backend =
+  config.tracking_engineering.kalman_update_backend =
       config::engineering::KalmanUpdateBackend::kSrif;
   signal::pipeline::assembly::internal::OwnedSignalComponents srif_components =
       signal::pipeline::assembly::internal::SignalComponentFactory::BuildOwnedPipelineComponents(
-          config, internal_config);
+          config);
   EXPECT_NE(dynamic_cast<signal::tracking::SrifPredictor*>(srif_components.kalman_predictor.get()),
             nullptr);
   EXPECT_NE(dynamic_cast<signal::tracking::SrifUpdater*>(srif_components.kalman_updater.get()),
             nullptr);
 
-  internal_config.tracking_runtime.engineering.kalman_update_backend =
+  config.tracking_engineering.kalman_update_backend =
       config::engineering::KalmanUpdateBackend::kStandardKfJoseph;
   signal::pipeline::assembly::internal::OwnedSignalComponents standard_components =
       signal::pipeline::assembly::internal::SignalComponentFactory::BuildOwnedPipelineComponents(
-          config, internal_config);
-  EXPECT_NE(dynamic_cast<signal::tracking::KalmanPredictor*>(
-                standard_components.kalman_predictor.get()),
-            nullptr);
-  EXPECT_NE(dynamic_cast<signal::tracking::KalmanUpdater*>(standard_components.kalman_updater.get()),
-            nullptr);
+          config);
+  EXPECT_NE(
+      dynamic_cast<signal::tracking::KalmanPredictor*>(standard_components.kalman_predictor.get()),
+      nullptr);
+  EXPECT_NE(
+      dynamic_cast<signal::tracking::KalmanUpdater*>(standard_components.kalman_updater.get()),
+      nullptr);
 }
 
 TEST(SignalComponentFactoryTest, ImmAssemblyUsesSamePredictorUpdaterBackendFamily) {
-  config::PipelineConfig config;
-    config.expert.tracking.enable_kalman_filter = true;
-    config.expert.lifecycle.enable_imm_lifecycle = true;
-
-  signal::pipeline::internal::InternalPipelineConfig internal_config =
-      signal::pipeline::internal::BuildInternalPipelineConfig(config);
-  internal_config.tracking_runtime.engineering.kalman_update_backend =
+  ExecutionConfig config;
+  config.policy_tracking.enable_kalman_filter = true;
+  config.policy_lifecycle.enable_imm_lifecycle = true;
+    config.tracking_engineering.enable_kalman_filter = true;
+    config.lifecycle_engineering.enable_imm_lifecycle = true;
+  config.tracking_engineering.kalman_update_backend =
       config::engineering::KalmanUpdateBackend::kUdKf;
-  internal_config.lifecycle.imm_model_noise_diff_coeffs = {0.5f, 2.0f};
+  config.imm_model_noise_diff_coeffs = {0.5f, 2.0f};
 
   signal::pipeline::assembly::internal::LifecycleAssemblyArtifacts artifacts =
       signal::pipeline::assembly::internal::SignalComponentFactory::BuildLifecycleAssemblyArtifacts(
-          config, internal_config);
+          config);
 
   ASSERT_EQ(artifacts.imm_predictors_owned.size(), 2U);
   ASSERT_EQ(artifacts.imm_updaters_owned.size(), 2U);
-  EXPECT_NE(dynamic_cast<signal::tracking::UdkfPredictor*>(
-                artifacts.imm_predictors_owned[0].get()),
+  EXPECT_NE(dynamic_cast<signal::tracking::UdkfPredictor*>(artifacts.imm_predictors_owned[0].get()),
             nullptr);
   EXPECT_NE(dynamic_cast<signal::tracking::UdkfUpdater*>(artifacts.imm_updaters_owned[0].get()),
             nullptr);
 }
 
 TEST(SignalComponentFactoryTest, InvalidImmAssemblyDoesNotFallbackToNonImmManager) {
-  config::PipelineConfig config;
-    config.expert.tracking.enable_kalman_filter = true;
-    config.expert.lifecycle.enable_imm_lifecycle = true;
-
-  signal::pipeline::internal::InternalPipelineConfig internal_config =
-      signal::pipeline::internal::BuildInternalPipelineConfig(config);
-  internal_config.lifecycle.imm_model_noise_diff_coeffs = {0.5f, 2.0f};
-  internal_config.lifecycle.imm_transition_probability = {1.0f, 0.0f, 0.0f};
+  ExecutionConfig config;
+  config.policy_tracking.enable_kalman_filter = true;
+  config.policy_lifecycle.enable_imm_lifecycle = true;
+    config.tracking_engineering.enable_kalman_filter = true;
+    config.lifecycle_engineering.enable_imm_lifecycle = true;
+  config.imm_model_noise_diff_coeffs = {0.5f, 2.0f};
+  config.imm_transition_probability = {1.0f, 0.0f, 0.0f};
 
   signal::pipeline::assembly::internal::LifecycleAssemblyArtifacts artifacts =
       signal::pipeline::assembly::internal::SignalComponentFactory::BuildLifecycleAssemblyArtifacts(
-          config, internal_config);
+          config);
 
   EXPECT_EQ(artifacts.lifecycle_manager, nullptr);
   EXPECT_TRUE(artifacts.kalman_predictor == nullptr);

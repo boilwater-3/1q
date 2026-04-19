@@ -4,9 +4,9 @@ find_package(nlohmann_json CONFIG REQUIRED)
 
 set(AR_EXAMPLE_SOURCES
     # ar_radar_session.cpp
-    ar_quick_start.cpp
-    ar_data_collector.cpp
-    ar_trace_replayer.cpp
+    # ar_quick_start.cpp
+    # ar_data_collector.cpp
+    # ar_trace_replayer.cpp
     # ar_advanced_injection.cpp
 )
 

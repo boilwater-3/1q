@@ -21,10 +21,6 @@
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/config/airborne_radar_config.hpp"
-#include "1q/airborne_radar/config/semantic/AntennaProfiles.h"
-#include "1q/airborne_radar/config/semantic/DetectionProfiles.h"
-#include "1q/airborne_radar/config/semantic/LifecycleProfiles.h"
-#include "1q/airborne_radar/config/semantic/TrackingProfiles.h"
 #include "1q/airborne_radar/environment/EnvironmentConfig.h"
 #include "1q/airborne_radar/environment/EnvironmentDefaultConfigBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentRuntimeConfigPatch.h"
@@ -342,15 +338,15 @@ TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields)
       config::RadarSessionConfigBuilder()
           .Detection()
           .EnablePhysicsDetection(true)
-          .WithDetectionIntentProfile(config::semantic::DetectionIntentProfile::kDetectionPriority)
-          .WithHardwareProfile(config::semantic::RadarHardwareProfile::kLongRangeHighPower)
-          .WithAntennaPatternProfile(config::semantic::AntennaPatternProfile::kLowSidelobe)
+          .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
+          .WithHardwareProfile(config::profiles::RadarHardwareProfile::kLongRangeHighPower)
+          .WithAntennaPatternProfile(config::profiles::AntennaPatternProfile::kLowSidelobe)
           .End()
           .Beam()
           .WithScanCenterDeg(scan_center)
           .End()
           .Lifecycle()
-          .WithLifecyclePolicyProfile(config::semantic::LifecyclePolicyProfile::kFastConfirm)
+          .WithLifecyclePolicyProfile(config::profiles::LifecyclePolicyProfile::kFastConfirm)
           .End()
           .Environment()
           .WithJammingSensitivityProfile(environment::JammingSensitivityProfile::kRelaxed)

@@ -98,7 +98,7 @@ ar::config::DetectionConfig ParseDetection(const Json& json) {
       GetBool(json, "enable_physics_detection", config.enable_physics_detection);
 
   if (json.contains("swerling_model")) {
-    config.swerling_model = static_cast<ar::config::semantic::SwerlingModel>(
+    config.swerling_model = static_cast<ar::config::profiles::SwerlingModel>(
         GetInt(json, "swerling_model", static_cast<int>(config.swerling_model)));
   }
 

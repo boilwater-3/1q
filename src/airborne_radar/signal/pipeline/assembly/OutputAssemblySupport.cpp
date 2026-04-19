@@ -91,7 +91,7 @@ std::uint32_t ResolveLifecycleExtraMissTolerance(
 
 void CollectCycleOutputs(const extension::control::RadarControlProfile& control_profile,
                          std::uint32_t cycle_index, std::uint64_t batch_id,
-                         const InternalPipelineConfig& internal_runtime_config,
+                         const ExecutionConfig& runtime_config,
                          const environment::EnvironmentSnapshot& environment_snapshot,
                          const model::TargetFeatureList& input_state,
                          const association::AssociationResult& association_result,
@@ -109,7 +109,7 @@ void CollectCycleOutputs(const extension::control::RadarControlProfile& control_
       ComputeTrackLevelJammingSeverity(control_profile, environment_snapshot);
   *association_quality_metrics = ToPipelineAssociationQualityMetrics(
       association_result.quality_metrics, dominant_jamming_semantic, jamming_severity,
-      internal_runtime_config.association.unassigned_cost);
+      runtime_config.association_unassigned_cost);
 
   const model::EccmSourceInfo eccm_source_info = BuildEccmSourceInfo(environment_snapshot);
   const model::AssociationQualityInfo association_quality_info =
@@ -129,8 +129,8 @@ void CollectCycleOutputs(const extension::control::RadarControlProfile& control_
   cycle.dt_sec = environment_snapshot.cycle_dt_sec;
   cycle.extra_miss_tolerance = ResolveLifecycleExtraMissTolerance(control_profile);
   auto_lifecycle_manager->Update(cycle, track_measurements);
-  *decision_frame = auto_lifecycle_manager->BuildDecisionFrame(
-      cycle_index, batch_id, eccm_source_info.has_jamming_signal);
+  *decision_frame = auto_lifecycle_manager->BuildDecisionFrame(cycle_index, batch_id,
+                                                               eccm_source_info.has_jamming_signal);
   decision_frame->environment_jamming_detected = eccm_source_info.has_jamming_signal;
   decision_frame->eccm_source_info = eccm_source_info;
   decision_frame->association_quality_info = association_quality_info;

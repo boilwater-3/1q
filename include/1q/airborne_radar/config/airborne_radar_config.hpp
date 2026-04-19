@@ -17,9 +17,5 @@
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
-#include "1q/airborne_radar/config/semantic/AntennaProfiles.h"
-#include "1q/airborne_radar/config/semantic/DetectionProfiles.h"
-#include "1q/airborne_radar/config/semantic/LifecycleProfiles.h"
-#include "1q/airborne_radar/config/semantic/TrackingProfiles.h"
 
 #endif  // ONEQ_AIRBORNE_RADAR_CONFIG_AIRBORNE_RADAR_CONFIG_HPP_

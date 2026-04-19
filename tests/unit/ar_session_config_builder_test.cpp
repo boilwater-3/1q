@@ -79,11 +79,11 @@ TEST(RadarSessionConfigBuilderTest, DetectionSemanticEditorsApplyCorrectly) {
       config::RadarSessionConfigBuilder()
           .Detection()
           .EnablePhysicsDetection(true)
-          .WithHardwareProfile(config::semantic::RadarHardwareProfile::kLongRangeHighPower)
+          .WithHardwareProfile(config::profiles::RadarHardwareProfile::kLongRangeHighPower)
           .WithDetectionIntentProfile(
-              config::semantic::DetectionIntentProfile::kTrackStabilityPriority)
-          .WithAntennaPatternProfile(config::semantic::AntennaPatternProfile::kLowSidelobe)
-          .WithRcsFusionProfile(config::semantic::RcsFusionProfile::kEnhanced)
+              config::profiles::DetectionIntentProfile::kTrackStabilityPriority)
+          .WithAntennaPatternProfile(config::profiles::AntennaPatternProfile::kLowSidelobe)
+          .WithRcsFusionProfile(config::profiles::RcsFusionProfile::kEnhanced)
           .End()
           .Build();
 
@@ -101,11 +101,11 @@ TEST(RadarSessionConfigBuilderTest, TrackingAndLifecycleSemanticEditorsApplyCorr
       config::RadarSessionConfigBuilder()
           .Tracking()
           .EnableTrackingFilter(true)
-          .WithTrackingPolicyProfile(config::semantic::TrackingPolicyProfile::kRobustAntiJamming)
+          .WithTrackingPolicyProfile(config::profiles::TrackingPolicyProfile::kRobustAntiJamming)
           .End()
           .Lifecycle()
           .EnableImmFusion(true)
-          .WithLifecyclePolicyProfile(config::semantic::LifecyclePolicyProfile::kHighPersistence)
+          .WithLifecyclePolicyProfile(config::profiles::LifecyclePolicyProfile::kHighPersistence)
           .End()
           .Build();
 

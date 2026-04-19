@@ -12,11 +12,6 @@ namespace internal {
 
 namespace {
 
-/**
- * @brief 检测 CycleWorkspace 中所有必需指针是否均已挂载
- * @param[in] workspace 待检查的周期工作空间
- * @return 所有指针均非空时返回 true，否则返回 false
- */
 bool HasValidCycleWorkspace(const CycleWorkspace& workspace) {
   return workspace.output_state != nullptr && workspace.decision_frame != nullptr &&
          workspace.association_quality_metrics != nullptr &&
@@ -30,7 +25,7 @@ bool HasValidCycleWorkspace(const CycleWorkspace& workspace) {
 }  // namespace
 
 void ResetCycleWorkspace(const model::TargetFeatureList& input_state,
-                         const PipelineConfig& runtime_config, CycleWorkspace* workspace) {
+                         const ExecutionConfig& runtime_config, CycleWorkspace* workspace) {
   if (workspace == nullptr || !HasValidCycleWorkspace(*workspace)) {
     return;
   }
@@ -47,8 +42,7 @@ void ResetCycleWorkspace(const model::TargetFeatureList& input_state,
   workspace->association_keys->resize(target_count);
   workspace->measurement_slots->assign(target_count, -1);
   workspace->target_geometry->resize(target_count);
-  RefreshMeasurementCovariances(
-      target_count, 10.0f, workspace->measurement_covariances);
+  RefreshMeasurementCovariances(target_count, 10.0f, workspace->measurement_covariances);
   *workspace->association_result = association::AssociationResult();
 }
 
@@ -65,27 +59,21 @@ void RefreshMeasurementCovariances(
 }
 
 bool SyncAssociationAndTrackFilterConfigs(
-    const PipelineConfig& runtime_config,
-    const InternalPipelineConfig& internal_runtime_config,
-    association::DataAssociationEngine* association_engine, tracking::TrackFilter* track_filter,
-    tracking::ITrackLifecycleManager* auto_lifecycle_manager) {
+    const ExecutionConfig& runtime_config, association::DataAssociationEngine* association_engine,
+    tracking::TrackFilter* track_filter, tracking::ITrackLifecycleManager* auto_lifecycle_manager) {
   if (auto_lifecycle_manager != nullptr) {
-    assembly::internal::ResolvedRuntimePipelineConfig resolved_runtime_config;
-    resolved_runtime_config.public_config = runtime_config;
-    resolved_runtime_config.internal_config = internal_runtime_config;
-    if (!assembly::internal::SyncAutoLifecycleManagerForResolvedRuntimeConfig(
-            resolved_runtime_config, auto_lifecycle_manager)) {
+    if (!assembly::internal::SyncAutoLifecycleManagerForRuntimeConfig(runtime_config,
+                                                                      auto_lifecycle_manager)) {
       return false;
     }
   }
   if (association_engine != nullptr) {
     association_engine->UpdateConfig(
-        assembly::internal::SignalComponentFactory::BuildAssociationConfig(runtime_config,
-                                                                          internal_runtime_config));
+        assembly::internal::SignalComponentFactory::BuildAssociationConfig(runtime_config));
   }
   if (track_filter != nullptr) {
     track_filter->UpdateConfig(
-        assembly::internal::SignalComponentFactory::BuildTrackFilterConfig(internal_runtime_config));
+        assembly::internal::SignalComponentFactory::BuildTrackFilterConfig(runtime_config));
   }
   return true;
 }

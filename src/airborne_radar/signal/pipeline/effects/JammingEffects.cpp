@@ -12,54 +12,35 @@ namespace internal {
 
 namespace {
 
+constexpr float kSidelobeCancellerResidual = 0.55f;
+constexpr float kAdaptiveBeamNarrowResidual = 0.72f;
+constexpr float kAdaptiveBeamWideResidual = 0.82f;
+constexpr float kAgilityFreqResidualMin = 0.35f;
+constexpr float kEccmRejitterResidualMin = 0.30f;
+constexpr float kBurnthroughResidualMin = 0.55f;
+constexpr float kResidualFactorMin = 0.15f;
+constexpr float kNoiseSidelobeCancellerFactor = 0.75f;
+constexpr float kDeceptionAgilityFactor = 0.65f;
+constexpr float kDeceptionRejitterFactor = 0.65f;
+constexpr float kRepeaterRejitterFactor = 0.60f;
 
-// ---------- A. ECCM 物理抑制系数（不开放配置，属于雷达对抗物理模型） ----------
-constexpr float kSidelobeCancellerResidual = 0.55f;    /**< 旁瓣对消主链残余因子 */
-constexpr float kAdaptiveBeamNarrowResidual = 0.72f;   /**< 自适应波束成形（窄角干扰）残余因子 */
-constexpr float kAdaptiveBeamWideResidual = 0.82f;     /**< 自适应波束成形（宽角干扰）残余因子 */
-constexpr float kAgilityFreqResidualMin = 0.35f;       /**< 频率捷变残余因子下界 */
-constexpr float kEccmRejitterResidualMin = 0.30f;      /**< ECCM 抖动残余因子下界 */
-constexpr float kBurnthroughResidualMin = 0.55f;       /**< 穿透增益残余因子下界 */
-constexpr float kResidualFactorMin = 0.15f;            /**< 总残余因子下界 */
-constexpr float kNoiseSidelobeCancellerFactor = 0.75f; /**< 噪声压制+旁瓣对消额外抑制 */
-constexpr float kDeceptionAgilityFactor = 0.65f;       /**< 欺骗干扰+频率捷变额外抑制 */
-constexpr float kDeceptionRejitterFactor = 0.65f;      /**< 欺骗干扰+ECCM 抖动额外抑制 */
-constexpr float kRepeaterRejitterFactor = 0.60f;       /**< 转发干扰+ECCM 抖动额外抑制 */
+constexpr float kMixedSemanticDominanceRatio = 0.65f;
+constexpr float kMixedSemanticMinScore = 0.18f;
+constexpr float kUnknownNoiseSplitWeight = 0.5f;
 
-// ---------- E. 主导语义判定阈值（算法逻辑阈值，不开放配置） ----------
-constexpr float kMixedSemanticDominanceRatio =
-    0.65f;                                       /**< 次优类型得分 >= 最优 * 此值时判为 Mixed */
-constexpr float kMixedSemanticMinScore = 0.18f;  /**< 次优类型得分须超过此绝对值才判为 Mixed */
-constexpr float kUnknownNoiseSplitWeight = 0.5f; /**< 未知类型拆分到噪声/欺骗的各自比例 */
-
-// ---------- 单源噪声严重度物理权重（不开放配置，与探测链路物理量纲一致） ----------
 constexpr float kPhysicalWeightNoise = 1.0f;
 constexpr float kPhysicalWeightDeception = 0.20f;
 constexpr float kPhysicalWeightRepeater = 0.40f;
 constexpr float kPhysicalWeightUnknown = 0.70f;
 
-/**
- * @brief 将干扰源置信度裁剪到配置允许的权重区间，作为后续加权计算的公共因子
- * @param[in] cfg 干扰效果配置，提供置信度下界 confidence_weight_min
- * @param[in] jammer_source 待评估的干扰源事实
- * @return 裁剪至 [cfg.confidence_weight_min, 1.0f] 的置信度权重
- */
 float ResolveJammerConfidenceWeight(const JammingEffectsConfig& cfg,
                                     const environment::JammerSourceFact& jammer_source) {
   return utils::ClampFloat(jammer_source.confidence, cfg.confidence_weight_min, 1.0f);
 }
 
-/**
- * @brief 计算单个干扰源在轨迹级的干扰贡献得分，参与主导语义判定（E 组）
- * @param[in] control_profile 雷达控制配置，提供 ECCM 使能状态和穿透增益
- * @param[in] jammer_source 待评估的干扰源事实
- * @return 裁剪至 [0.0f, 1.0f] 的轨迹级干扰贡献得分
- * @note 使用固定经验系数，不依赖 cfg，以保持语义判定阶段的稳定性
- */
 float ComputeTrackLevelJammingContribution(
     const extension::control::RadarControlProfile& control_profile,
     const environment::JammerSourceFact& jammer_source) {
-  // 轨迹级贡献使用固定系数——该函数参与主导语义判定（E 组），不用 cfg。
   const float confidence_weight = utils::ClampFloat(jammer_source.confidence, 0.25f, 1.0f);
   const float residual_factor = ComputeResidualJammerFactor(control_profile, jammer_source);
   float contribution = 0.10f + 0.020f * utils::ClampFloat(jammer_source.power_db, 0.0f, 20.0f) +
@@ -108,15 +89,15 @@ float ComputeResidualJammerFactor(const extension::control::RadarControlProfile&
   }
   if (control_profile.enable_agility_frequency && jammer_source.frequency_overlap_ratio > 0.0f) {
     residual_factor *= utils::ClampFloat(1.0f - 0.50f * jammer_source.frequency_overlap_ratio,
-                                  kAgilityFreqResidualMin, 1.0f);
+                                         kAgilityFreqResidualMin, 1.0f);
   }
   if (control_profile.enable_eccm_rejitter && jammer_source.prf_lock_risk > 0.0f) {
-    residual_factor *=
-        utils::ClampFloat(1.0f - 0.55f * jammer_source.prf_lock_risk, kEccmRejitterResidualMin, 1.0f);
+    residual_factor *= utils::ClampFloat(1.0f - 0.55f * jammer_source.prf_lock_risk,
+                                         kEccmRejitterResidualMin, 1.0f);
   }
   if (control_profile.eccm_burnthrough_gain > 1.0f) {
-    residual_factor *=
-        utils::ClampFloat(1.0f / control_profile.eccm_burnthrough_gain, kBurnthroughResidualMin, 1.0f);
+    residual_factor *= utils::ClampFloat(1.0f / control_profile.eccm_burnthrough_gain,
+                                         kBurnthroughResidualMin, 1.0f);
   }
 
   switch (jammer_source.technique) {
@@ -163,12 +144,12 @@ float ComputeHeuristicSourcePenaltyDb(const JammingEffectsConfig& cfg,
     case environment::JammingTechnique::kDeception:
       penalty_db += cfg.heuristic_deception_freq_penalty *
                     utils::ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
-      penalty_db +=
-          cfg.heuristic_deception_prf_penalty * utils::ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
+      penalty_db += cfg.heuristic_deception_prf_penalty *
+                    utils::ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
       break;
     case environment::JammingTechnique::kRepeater:
-      penalty_db +=
-          cfg.heuristic_repeater_prf_penalty * utils::ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
+      penalty_db += cfg.heuristic_repeater_prf_penalty *
+                    utils::ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
       penalty_db += cfg.heuristic_repeater_freq_penalty *
                     utils::ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
       break;
@@ -176,8 +157,8 @@ float ComputeHeuristicSourcePenaltyDb(const JammingEffectsConfig& cfg,
     default:
       penalty_db += cfg.heuristic_unknown_freq_penalty *
                     utils::ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
-      penalty_db +=
-          cfg.heuristic_unknown_prf_penalty * utils::ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
+      penalty_db += cfg.heuristic_unknown_prf_penalty *
+                    utils::ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
       penalty_db += jammer_source.in_sidelobe ? cfg.heuristic_unknown_sidelobe_penalty
                                               : cfg.heuristic_unknown_frontlobe_penalty;
       break;
@@ -338,13 +319,11 @@ float ComputeTrackLevelJammingSeverity(
 
 void ApplyEnvironmentJammingFactsToRuntimeConfig(
     const extension::control::RadarControlProfile& control_profile,
-    const environment::EnvironmentSnapshot& environment_snapshot,
-    InternalPipelineConfig* internal_runtime_config, PipelineConfig* runtime_config) {
-  if (runtime_config == nullptr || internal_runtime_config == nullptr ||
-      !HasMultiSourceJammingFacts(environment_snapshot)) {
+    const environment::EnvironmentSnapshot& environment_snapshot, ExecutionConfig* runtime_config) {
+  if (runtime_config == nullptr || !HasMultiSourceJammingFacts(environment_snapshot)) {
     return;
   }
-  const JammingEffectsConfig& cfg = internal_runtime_config->jamming_effects;
+  const JammingEffectsConfig& cfg = runtime_config->jamming_effects;
 
   float association_scale = 1.0f;
   float tracking_noise_scale = 1.0f;
@@ -385,11 +364,11 @@ void ApplyEnvironmentJammingFactsToRuntimeConfig(
     }
   }
 
-  internal_runtime_config->association.unassigned_cost *=
+  runtime_config->association_unassigned_cost *=
       utils::ClampFloat(association_scale, 1.0f, cfg.association_scale_max);
-  internal_runtime_config->tracking.kalman_noise_diff_coeff *=
+  runtime_config->tracking_kalman_noise_diff_coeff *=
       utils::ClampFloat(tracking_noise_scale, 1.0f, cfg.tracking_noise_scale_max);
-  internal_runtime_config->tracking_runtime.engineering.kalman_measurement_noise_std *=
+  runtime_config->tracking_engineering.kalman_measurement_noise_std *=
       utils::ClampFloat(measurement_noise_scale, 1.0f, cfg.measurement_noise_scale_max);
 }
 

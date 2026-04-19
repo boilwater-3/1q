@@ -9,8 +9,8 @@
 #include <cstdint>
 
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
-#include "1q/airborne_radar/config/semantic/DetectionProfiles.h"
 #include "1q/api.hpp"
+#include "airborne_radar/config/profiles/DetectionProfiles.h"
 
 namespace airborne_radar {
 namespace config {
@@ -138,7 +138,7 @@ class RadarDetailedSessionConfigBuilder::DetectionEditor {
     return *this;
   }
   /** @brief 设置目标起伏模型。 */
-  DetectionEditor& WithSwerlingModel(semantic::SwerlingModel swerling_model) {
+  DetectionEditor& WithSwerlingModel(profiles::SwerlingModel swerling_model) {
     builder_->config_.hardware.detection.swerling_model = swerling_model;
     return *this;
   }
@@ -319,8 +319,7 @@ class RadarDetailedSessionConfigBuilder::EnvironmentEditor {
     return *this;
   }
   /** @brief 设置干扰判定灵敏度语义档位。 */
-  EnvironmentEditor& WithJammingSensitivityProfile(
-      environment::JammingSensitivityProfile profile) {
+  EnvironmentEditor& WithJammingSensitivityProfile(environment::JammingSensitivityProfile profile) {
     builder_->config_.environment.jamming_sensitivity_profile = profile;
     return *this;
   }

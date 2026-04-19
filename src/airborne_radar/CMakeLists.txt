@@ -105,12 +105,6 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarSessionConfigPresets.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/airborne_radar_config.hpp
     )
-    set(PUBLIC_HEADERS_SEMANTIC_CONFIG
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/semantic/AntennaProfiles.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/semantic/DetectionProfiles.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/semantic/LifecycleProfiles.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/semantic/TrackingProfiles.h
-    )
     set(PUBLIC_HEADERS_CORE_CONTEXT
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarCycleInput.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarInputValidation.h
@@ -170,9 +164,6 @@ if(ENABLE_INSTALL)
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/output
     )
     install(FILES ${PUBLIC_HEADERS_CONFIG_ENTRY}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/config
-    )
-    install(FILES ${PUBLIC_HEADERS_SEMANTIC_CONFIG}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/config
     )
     install(FILES ${PUBLIC_HEADERS_CORE_CONTEXT}
