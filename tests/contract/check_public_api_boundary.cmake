@@ -227,6 +227,19 @@ foreach(HEADER IN LISTS ACTUAL_PUBLIC_HEADERS)
   endif()
 endforeach()
 
+# Guardrail: AR 公开配置头不能重新引入 expert 命名空间，避免公开语义回退。
+set(AR_CONFIG_HEADERS_NO_EXPERT_NAMESPACE
+    "airborne_radar/config/RadarHardwareConfig.h"
+    "airborne_radar/config/RadarPolicyConfig.h")
+
+foreach(HEADER IN LISTS AR_CONFIG_HEADERS_NO_EXPERT_NAMESPACE)
+  file(READ "${PUBLIC_INCLUDE_DIR}/${HEADER}" AR_CONFIG_HEADER_CONTENT)
+  if(AR_CONFIG_HEADER_CONTENT MATCHES "namespace[ \t]+expert[ \t]*\\{")
+    message(FATAL_ERROR
+            "Public AR config header must not expose namespace expert: ${HEADER}")
+  endif()
+endforeach()
+
 # Guardrail: prevent legacy top-level WithXxx/EnableXxx APIs from returning to
 # RadarSessionConfigBuilder. Only grouped editors are allowed.
 set(RADAR_SESSION_BUILDER_HEADER

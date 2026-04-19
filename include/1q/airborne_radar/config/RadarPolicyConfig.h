@@ -15,11 +15,10 @@
 
 namespace airborne_radar {
 namespace config {
-namespace expert {
 namespace beam {
 
 /**
- * @brief expert 波束指向基线配置。
+ * @brief 波束指向基线配置。
  */
 struct BeamPointingConfig {
   model::AzimuthElevationDeg default_scan_center_deg{}; /**< 默认扫描中心。 */
@@ -27,7 +26,7 @@ struct BeamPointingConfig {
 };
 
 /**
- * @brief expert 波束扫描调度提示配置。
+ * @brief 波束扫描调度提示配置。
  */
 struct BeamSchedulerConfig {
   std::uint32_t azimuth_step_count_hint{0U}; /**< 方位步进数提示。 */
@@ -36,11 +35,11 @@ struct BeamSchedulerConfig {
 };
 
 /**
- * @brief expert 波束控制聚合配置。
+ * @brief 波束控制聚合配置。
  */
 struct BeamControlConfig {
-  BeamPointingConfig pointing{}; /**< expert 波束指向配置。 */
-  BeamSchedulerConfig scheduler{}; /**< expert 波束调度配置。 */
+  BeamPointingConfig pointing{}; /**< 波束指向配置。 */
+  BeamSchedulerConfig scheduler{}; /**< 波束调度配置。 */
 };
 
 }  // namespace beam
@@ -48,7 +47,7 @@ struct BeamControlConfig {
 namespace lifecycle {
 
 /**
- * @brief expert 航迹生命周期参数。
+ * @brief 航迹生命周期参数。
  */
 struct LifecycleConfig {
   std::uint32_t confirm_hits{3U}; /**< 航迹确认所需命中数。 */
@@ -58,7 +57,7 @@ struct LifecycleConfig {
 };
 
 /**
- * @brief expert IMM 提示配置。
+ * @brief IMM 提示配置。
  */
 struct ImmConfig {
   bool enable_imm_lifecycle{false}; /**< 是否启用 IMM 生命周期路径。 */
@@ -79,7 +78,7 @@ enum class KalmanUpdateBackend {
 };
 
 /**
- * @brief expert 跟踪参数。
+ * @brief 跟踪参数。
  */
 struct TrackingConfig {
   bool enable_kalman_filter{true}; /**< 是否启用 Kalman 滤波。 */
@@ -90,7 +89,7 @@ struct TrackingConfig {
 };
 
 /**
- * @brief expert 量测关联参数。
+ * @brief 量测关联参数。
  */
 struct AssociationConfig {
   float unassigned_cost{9.0f}; /**< 未分配量测代价。 */
@@ -108,22 +107,6 @@ using lifecycle::LifecycleConfig;
 using tracking::AssociationConfig;
 using tracking::KalmanUpdateBackend;
 using tracking::TrackingConfig;
-
-}  // namespace expert
-}  // namespace config
-}  // namespace airborne_radar
-
-namespace airborne_radar {
-namespace config {
-
-using expert::AssociationConfig;
-using expert::BeamControlConfig;
-using expert::BeamPointingConfig;
-using expert::BeamSchedulerConfig;
-using expert::ImmConfig;
-using expert::KalmanUpdateBackend;
-using expert::LifecycleConfig;
-using expert::TrackingConfig;
 
 /**
  * @brief 雷达策略域配置。

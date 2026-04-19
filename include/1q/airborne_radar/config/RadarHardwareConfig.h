@@ -14,11 +14,10 @@
 
 namespace airborne_radar {
 namespace config {
-namespace expert {
 namespace detection {
 
 /**
- * @brief expert 方向图模型类型。
+ * @brief 方向图模型类型。
  */
 enum class AntennaPatternModelType {
   kGaussianMainLobe = 0, /**< 高斯主瓣近似。 */
@@ -27,7 +26,7 @@ enum class AntennaPatternModelType {
 };
 
 /**
- * @brief expert 天线方向图参数。
+ * @brief 天线方向图参数。
  */
 struct AntennaPatternConfig {
   AntennaPatternModelType model_type{AntennaPatternModelType::kGaussianMainLobe}; /**< 主瓣模型类型。 */
@@ -39,7 +38,7 @@ struct AntennaPatternConfig {
 };
 
 /**
- * @brief expert 天线工程参数。
+ * @brief 天线工程参数。
  */
 struct AntennaConfig {
   float main_beam_gain_db{35.0f}; /**< 主瓣峰值增益。 */
@@ -50,7 +49,7 @@ struct AntennaConfig {
 };
 
 /**
- * @brief expert 探测门限与判决配置。
+ * @brief 探测门限与判决配置。
  */
 struct DetectionPolicyConfig {
   float cfar_pfa{1e-6f}; /**< CFAR 虚警概率目标值。 */
@@ -58,7 +57,7 @@ struct DetectionPolicyConfig {
 };
 
 /**
- * @brief expert 接收机工程参数。
+ * @brief 接收机工程参数。
  */
 struct ReceiverConfig {
   float noise_figure_db{4.0f}; /**< 接收机噪声系数。 */
@@ -66,7 +65,7 @@ struct ReceiverConfig {
 };
 
 /**
- * @brief expert 发射机工程参数。
+ * @brief 发射机工程参数。
  */
 struct TransmitterConfig {
   float peak_power_w{1e6f}; /**< 峰值发射功率。 */
@@ -78,7 +77,7 @@ struct TransmitterConfig {
 };
 
 /**
- * @brief expert RCS 物理建模参数。
+ * @brief RCS 物理建模参数。
  */
 struct RcsPhysicsConfig {
   bool enable_physical_rcs{false}; /**< 是否启用物理 RCS 估计。 */
@@ -93,7 +92,7 @@ struct RcsPhysicsConfig {
 };
 
 /**
- * @brief expert 探测聚合配置。
+ * @brief 探测聚合配置。
  */
 struct DetectionConfig {
   bool enable_physics_detection{false}; /**< 是否启用物理雷达方程检测链。 */
@@ -117,22 +116,6 @@ using detection::DetectionPolicyConfig;
 using detection::RcsPhysicsConfig;
 using detection::ReceiverConfig;
 using detection::TransmitterConfig;
-
-}  // namespace expert
-}  // namespace config
-}  // namespace airborne_radar
-
-namespace airborne_radar {
-namespace config {
-
-using expert::AntennaConfig;
-using expert::AntennaPatternConfig;
-using expert::AntennaPatternModelType;
-using expert::DetectionConfig;
-using expert::DetectionPolicyConfig;
-using expert::RcsPhysicsConfig;
-using expert::ReceiverConfig;
-using expert::TransmitterConfig;
 
 /**
  * @brief 雷达硬件域配置。

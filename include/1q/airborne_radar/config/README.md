@@ -22,6 +22,7 @@ config/
 ```
 
 调用方不需要也不应直接 include `model/RadarOrientationConfig.h` 等内部装配头。
+公开可见配置类型以 `airborne_radar::config` 为稳定命名空间，不再以 `expert` 子命名空间作为主路径。
 
 ## 语义档位
 
