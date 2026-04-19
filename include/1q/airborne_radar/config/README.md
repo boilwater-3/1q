@@ -21,7 +21,8 @@ config/
 |-- airborne_radar_config.hpp             统一入口头（聚合以上全部）
 ```
 
-调用方不需要直接 include `PipelineConfig.h`、`config/expert/*` 或 `model/RadarOrientationConfig.h`。
+调用方不需要也不应直接 include `model/RadarOrientationConfig.h` 等内部装配头。
+公开可见配置类型以 `airborne_radar::config` 为稳定命名空间，不再以 `expert` 子命名空间作为主路径。
 
 ## 语义档位
 
@@ -37,19 +38,9 @@ semantic/
 
 ## 遗留/内部过渡头（不属于公开合同）
 
-以下头短期保留在仓库 `include` 树中供内部装配路径使用，**不计入公开 API 白名单，也不再进入安装导出清单**：
+legacy 装配类型已下沉到 `src/airborne_radar/config/legacy/*`，不在公开 `include` 合同范围内，也不会进入安装导出清单。
 
-```text
-PipelineConfig.h                         内部装配过渡壳
-expert/                                   内部专家物理参数
-  |-- ExpertPipelineConfig.h
-  |-- beam/
-  |-- detection/
-  |-- lifecycle/
-  `-- tracking/
-```
-
-外部调用方应避免直接依赖上述文件。后续里程碑将继续把它们从仓库 `include` 树下沉到内部实现路径。
+外部调用方应避免直接依赖 legacy 装配类型。
 
 ## 核心类型
 
@@ -111,8 +102,7 @@ expert/                                   内部专家物理参数
 
 - 业务/任务层优先：`semantic/profiles + RadarSessionConfigBuilder`
 - 细粒度建模优先：`RadarDetailedSessionConfigBuilder`
-- 不要直接使用 `PipelineConfig`，它是内部装配过渡壳
-- 不要直接 include `expert/*`，其类型已通过四域头间接导出
+- 不要直接依赖 `PipelineConfig` 等 legacy 装配类型，它们仅用于内部装配路径
 
 ## 推荐入口
 

@@ -14,9 +14,7 @@
 
 #include <cstddef>
 
-#include "1q/airborne_radar/config/RadarDetailedSessionConfigBuilder.h"
-#include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
-#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/config/airborne_radar_config.hpp"
 #include "1q/airborne_radar/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/output/TrackOutputQueries.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"

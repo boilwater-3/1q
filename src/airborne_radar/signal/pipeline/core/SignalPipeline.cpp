@@ -11,6 +11,7 @@
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/pipeline/assembly/RuntimeAssemblySupport.h"
 #include "airborne_radar/signal/pipeline/assembly/SignalComponentFactory.h"
+#include "airborne_radar/config/internal/SessionConfigPipelineMapper.h"
 #include "airborne_radar/signal/pipeline/core/CycleContextSupport.h"
 #include "airborne_radar/signal/pipeline/core/CycleExecutor.h"
 #include "airborne_radar/signal/tracking/IKalmanPredictor.h"
@@ -25,17 +26,6 @@ namespace pipeline {
 
 namespace {
 
-config::PipelineConfig ToInternalPipelineConfig(const session::RadarSessionConfig& config) {
-  config::PipelineConfig pc;
-  pc.expert.detection = config.hardware.detection;
-  pc.expert.beam_control = config.policy.beam_control;
-  pc.expert.association = config.policy.association;
-  pc.expert.tracking = config.policy.tracking;
-  pc.expert.lifecycle = config.policy.lifecycle;
-  pc.expert.imm = config.policy.imm;
-  pc.orientation = config.mission.orientation;
-  return pc;
-}
 void ResetCycleScratch(internal::CycleExecutionScratch* scratch) {
   if (scratch == nullptr) {
     return;
@@ -309,7 +299,9 @@ struct SignalPipeline::Impl {
 };
 
 SignalPipeline::SignalPipeline(const session::RadarSessionConfig& config)
-    : impl_(std::unique_ptr<Impl>(new Impl(ToInternalPipelineConfig(config)))) {}
+    : impl_(std::unique_ptr<Impl>(
+          new Impl(::airborne_radar::config::internal::BuildPipelineConfigFromSessionConfig(
+              config)))) {}
 
 SignalPipeline::~SignalPipeline() = default;
 
@@ -365,7 +357,8 @@ extension::control::RadarControlProfile SignalPipeline::GetControlProfile() cons
 }
 
 bool SignalPipeline::UpdateConfig(const session::RadarSessionConfig& config) {
-  return impl_->UpdateConfig(ToInternalPipelineConfig(config));
+  return impl_->UpdateConfig(
+      ::airborne_radar::config::internal::BuildPipelineConfigFromSessionConfig(config));
 }
 
 }  // namespace pipeline

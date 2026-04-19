@@ -103,13 +103,14 @@ void ApplyDetectionSemanticConfig(bool enable_physics_detection,
 
 void ApplyTrackingSemanticConfig(bool enable_tracking_filter,
                                  semantic::TrackingPolicyProfile tracking_profile,
-                                 ExpertPipelineConfig* expert_config) {
-  if (expert_config == nullptr) {
+                                 TrackingConfig* tracking_config,
+                                 AssociationConfig* association_config) {
+  if (tracking_config == nullptr || association_config == nullptr) {
     return;
   }
 
   // 跟踪档位 → Kalman 参数 + 衰减系数
-  auto& t = expert_config->tracking;
+  auto& t = *tracking_config;
   t.enable_kalman_filter = enable_tracking_filter;
   switch (tracking_profile) {
     case semantic::TrackingPolicyProfile::kFastAssociation:
@@ -123,7 +124,7 @@ void ApplyTrackingSemanticConfig(bool enable_tracking_filter,
       t.kalman_update_backend = KalmanUpdateBackend::kUdKf;
       t.speed_decay_ratio_on_loss = 0.95f;
       t.rcs_decay_ratio_on_loss = 0.92f;
-      expert_config->association.unassigned_cost = 12.0f;
+      association_config->unassigned_cost = 12.0f;
       break;
     case semantic::TrackingPolicyProfile::kBalanced:
     default:
@@ -158,78 +159,54 @@ void ApplyLifecycleSemanticConfig(bool enable_imm_fusion,
   }
 }
 
-ExpertPipelineConfig BuildDefaultSemanticExpertConfig() {
-  ExpertPipelineConfig expert_config;
+session::RadarSessionConfig BuildDefaultSemanticSessionConfig() {
+  session::RadarSessionConfig config;
   ApplyDetectionSemanticConfig(false, semantic::RadarHardwareProfile::kGenericAirborneXBand,
                                semantic::DetectionIntentProfile::kBalanced,
                                semantic::AntennaPatternProfile::kStandard,
                                model::AzimuthElevationDeg(), semantic::RcsFusionProfile::kDisabled,
-                               &expert_config.detection);
-  ApplyTrackingSemanticConfig(false, semantic::TrackingPolicyProfile::kBalanced, &expert_config);
+                               &config.hardware.detection);
+  ApplyTrackingSemanticConfig(false, semantic::TrackingPolicyProfile::kBalanced,
+                              &config.policy.tracking, &config.policy.association);
   ApplyLifecycleSemanticConfig(false, semantic::LifecyclePolicyProfile::kBalanced,
-                               &expert_config.lifecycle);
-  return expert_config;
+                               &config.policy.lifecycle);
+  return config;
 }
 
 }  // namespace
 
 RadarSessionConfigBuilder::RadarSessionConfigBuilder()
-    : base_expert_config_(BuildDefaultSemanticExpertConfig()) {}
+    : base_config_(BuildDefaultSemanticSessionConfig()),
+      orientation_(base_config_.mission.orientation),
+      env_(base_config_.environment) {}
 
 RadarSessionConfigBuilder::RadarSessionConfigBuilder(const session::RadarSessionConfig& config)
-    : orientation_(config.mission.orientation), env_(config.environment) {
-  base_expert_config_.detection = config.hardware.detection;
-  base_expert_config_.beam_control = config.policy.beam_control;
-  base_expert_config_.association = config.policy.association;
-  base_expert_config_.tracking = config.policy.tracking;
-  base_expert_config_.lifecycle = config.policy.lifecycle;
-  base_expert_config_.imm = config.policy.imm;
-}
+    : base_config_(config), orientation_(config.mission.orientation), env_(config.environment) {}
 
 session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
-  session::RadarSessionConfig result;
-  const ExpertPipelineConfig default_semantic_expert = BuildDefaultSemanticExpertConfig();
-  result.hardware.detection = base_expert_config_.detection;
-  result.policy.beam_control = base_expert_config_.beam_control;
-  result.policy.association = base_expert_config_.association;
-  result.policy.tracking = base_expert_config_.tracking;
-  result.policy.lifecycle = base_expert_config_.lifecycle;
-  result.policy.imm = base_expert_config_.imm;
+  session::RadarSessionConfig result = base_config_;
+  const session::RadarSessionConfig default_semantic = BuildDefaultSemanticSessionConfig();
   result.mission.orientation = orientation_;
   result.environment = env_;
 
-  ExpertPipelineConfig merged_expert;
-  merged_expert.detection = result.hardware.detection;
-  merged_expert.beam_control = result.policy.beam_control;
-  merged_expert.association = result.policy.association;
-  merged_expert.tracking = result.policy.tracking;
-  merged_expert.lifecycle = result.policy.lifecycle;
-  merged_expert.imm = result.policy.imm;
-
   if (detection_dirty_) {
-    merged_expert.detection = default_semantic_expert.detection;
+    result.hardware.detection = default_semantic.hardware.detection;
     ApplyDetectionSemanticConfig(enable_physics_detection_, hardware_profile_, intent_profile_,
                                  antenna_profile_, antenna_boresight_offset_deg_,
-                                 rcs_fusion_profile_, &merged_expert.detection);
+                                 rcs_fusion_profile_, &result.hardware.detection);
   }
 
   if (tracking_dirty_) {
-    merged_expert.tracking = default_semantic_expert.tracking;
-    merged_expert.association = default_semantic_expert.association;
-    ApplyTrackingSemanticConfig(enable_tracking_filter_, tracking_profile_, &merged_expert);
+    result.policy.tracking = default_semantic.policy.tracking;
+    result.policy.association = default_semantic.policy.association;
+    ApplyTrackingSemanticConfig(enable_tracking_filter_, tracking_profile_, &result.policy.tracking,
+                                &result.policy.association);
   }
 
   if (lifecycle_dirty_) {
-    merged_expert.lifecycle = default_semantic_expert.lifecycle;
-    ApplyLifecycleSemanticConfig(enable_imm_fusion_, lifecycle_profile_, &merged_expert.lifecycle);
+    result.policy.lifecycle = default_semantic.policy.lifecycle;
+    ApplyLifecycleSemanticConfig(enable_imm_fusion_, lifecycle_profile_, &result.policy.lifecycle);
   }
-
-  result.hardware.detection = merged_expert.detection;
-  result.policy.beam_control = merged_expert.beam_control;
-  result.policy.association = merged_expert.association;
-  result.policy.tracking = merged_expert.tracking;
-  result.policy.lifecycle = merged_expert.lifecycle;
-  result.policy.imm = merged_expert.imm;
 
   if (tracking_dirty_ && tracking_profile_ == semantic::TrackingPolicyProfile::kRobustAntiJamming &&
       !enable_imm_fusion_) {

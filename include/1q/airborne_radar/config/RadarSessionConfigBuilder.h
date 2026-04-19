@@ -7,7 +7,6 @@
 #define AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_BUILDER_H_
 
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
-#include "1q/airborne_radar/config/expert/ExpertPipelineConfig.h"
 #include "1q/airborne_radar/config/semantic/AntennaProfiles.h"
 #include "1q/airborne_radar/config/semantic/DetectionProfiles.h"
 #include "1q/airborne_radar/config/semantic/LifecycleProfiles.h"
@@ -20,7 +19,6 @@ namespace config {
 using model::AzimuthElevationDeg;
 using model::CommandedBeamwidthDeg;
 using model::RadarWorkSubMode;
-using expert::ExpertPipelineConfig;
 
 /**
  * @brief RadarSession 配置链式构造器。
@@ -109,7 +107,7 @@ class ONEQ_API RadarSessionConfigBuilder {
   bool enable_imm_fusion_{false};
   semantic::LifecyclePolicyProfile lifecycle_profile_{semantic::LifecyclePolicyProfile::kBalanced};
 
-  ExpertPipelineConfig base_expert_config_{};
+  session::RadarSessionConfig base_config_{};
   model::RadarOrientationConfig orientation_{};
   environment::EnvironmentDefaultConfig env_{};
   bool detection_dirty_{false};

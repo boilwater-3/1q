@@ -24,27 +24,6 @@ set(AR_SEMANTIC_HEADERS
     "airborne_radar/config/semantic/TrackingProfiles.h"
 )
 
-# ── AR 内部过渡头（保留在仓库 include 树，但不计入公开合同白名单） ───
-set(AR_INTERNAL_TRANSITION_HEADERS
-    "airborne_radar/config/PipelineConfig.h"
-    "airborne_radar/config/expert/ExpertPipelineConfig.h"
-    "airborne_radar/config/expert/beam/BeamControlConfig.h"
-    "airborne_radar/config/expert/beam/BeamPointingConfig.h"
-    "airborne_radar/config/expert/beam/BeamSchedulerConfig.h"
-    "airborne_radar/config/expert/detection/AntennaConfig.h"
-    "airborne_radar/config/expert/detection/AntennaPatternConfig.h"
-    "airborne_radar/config/expert/detection/DetectionConfig.h"
-    "airborne_radar/config/expert/detection/DetectionPolicyConfig.h"
-    "airborne_radar/config/expert/detection/RcsPhysicsConfig.h"
-    "airborne_radar/config/expert/detection/ReceiverConfig.h"
-    "airborne_radar/config/expert/detection/TransmitterConfig.h"
-    "airborne_radar/config/expert/lifecycle/ImmConfig.h"
-    "airborne_radar/config/expert/lifecycle/LifecycleConfig.h"
-    "airborne_radar/config/expert/tracking/AssociationConfig.h"
-    "airborne_radar/config/expert/tracking/KalmanConfig.h"
-    "airborne_radar/config/expert/tracking/TrackingConfig.h"
-)
-
 # ── AR 环境域 ────────────────────────────────────────────────────────
 set(AR_ENVIRONMENT_HEADERS
     "airborne_radar/environment/EnvironmentConfig.h"
@@ -213,18 +192,14 @@ file(GLOB_RECURSE ACTUAL_PUBLIC_HEADERS
      "${PUBLIC_INCLUDE_DIR}/*.h"
      "${PUBLIC_INCLUDE_DIR}/*.hpp")
 
-set(ACTUAL_PUBLIC_CONTRACT_HEADERS ${ACTUAL_PUBLIC_HEADERS})
-list(FILTER ACTUAL_PUBLIC_CONTRACT_HEADERS EXCLUDE REGEX "^airborne_radar/config/PipelineConfig\\.h$")
-list(FILTER ACTUAL_PUBLIC_CONTRACT_HEADERS EXCLUDE REGEX "^airborne_radar/config/expert/")
-
 list(SORT EXPECTED_PUBLIC_HEADERS)
-list(SORT ACTUAL_PUBLIC_CONTRACT_HEADERS)
+list(SORT ACTUAL_PUBLIC_HEADERS)
 
-if(NOT ACTUAL_PUBLIC_CONTRACT_HEADERS STREQUAL EXPECTED_PUBLIC_HEADERS)
+if(NOT ACTUAL_PUBLIC_HEADERS STREQUAL EXPECTED_PUBLIC_HEADERS)
   message(FATAL_ERROR
           "Public header whitelist drifted.\n"
           "Expected: ${EXPECTED_PUBLIC_HEADERS}\n"
-          "Actual: ${ACTUAL_PUBLIC_CONTRACT_HEADERS}")
+          "Actual: ${ACTUAL_PUBLIC_HEADERS}")
 endif()
 
 execute_process(
@@ -249,6 +224,19 @@ foreach(HEADER IN LISTS ACTUAL_PUBLIC_HEADERS)
   if(HEADER_CONTENT MATCHES "#[ \t]*include[ \t]*[<\"]Eigen/")
     message(FATAL_ERROR
             "Public header must not expose Eigen: ${HEADER}")
+  endif()
+endforeach()
+
+# Guardrail: AR 公开配置头不能重新引入 expert 命名空间，避免公开语义回退。
+set(AR_CONFIG_HEADERS_NO_EXPERT_NAMESPACE
+    "airborne_radar/config/RadarHardwareConfig.h"
+    "airborne_radar/config/RadarPolicyConfig.h")
+
+foreach(HEADER IN LISTS AR_CONFIG_HEADERS_NO_EXPERT_NAMESPACE)
+  file(READ "${PUBLIC_INCLUDE_DIR}/${HEADER}" AR_CONFIG_HEADER_CONTENT)
+  if(AR_CONFIG_HEADER_CONTENT MATCHES "namespace[ \t]+expert[ \t]*\\{")
+    message(FATAL_ERROR
+            "Public AR config header must not expose namespace expert: ${HEADER}")
   endif()
 endforeach()
 
