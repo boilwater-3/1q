@@ -1,6 +1,14 @@
 /**
  * @file EnvironmentConfig.h
  * @brief 定义环境模型配置相关的公开类型。
+ *
+ * @par 迁移模板
+ * 本文件作为 EOS/ESR 环境配置迁移的标准模板。迁移步骤：
+ * 1. 复制 ScenarioConfig -> ModelConfig (alias) -> DefaultConfig 层次结构；
+ * 2. 替换领域特定类型（如 JammerEmitterState -> 对应域场景输入类型）；
+ * 3. 实现对应领域的 BuildModelConfigFromScenario 映射函数；
+ * 4. 实现 RuntimeConfigPatch 及其 Builder，遵循 has_* 布尔标志模式；
+ * 5. 参考 ar_environment_config_contract_test.cpp 建立等价测试覆盖。
  */
 
 #ifndef AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_CONFIG_H_
@@ -31,9 +39,15 @@ enum class JammingSensitivityProfile {
 /**
  * @brief 将 dB 阈值近似映射为语义化干扰灵敏度档位。
  *
- * 反向映射：threshold_db <= 5 → kStrict，>= 7 → kRelaxed，其余 → kBalanced。
+ * @par 解析合约
+ * - 输入：threshold_db（干扰功率判定门限，单位 dB）。
+ * - 输出：JammingSensitivityProfile 语义档位。
+ * - 边界规则：threshold_db <= 5.0 → kStrict；5.0 < threshold_db < 7.0 → kBalanced；
+ *   threshold_db >= 7.0 → kRelaxed。
+ * - 恰好在 5.0 归入 kStrict（<= 含等号），恰好在 7.0 归入 kRelaxed（>= 含等号）。
+ * - 无异常抛出；任何浮点值均可安全映射。
  *
- * @param threshold_db 干扰功率判定门限（dB）。
+ * @param[in] threshold_db 干扰功率判定门限（dB）。
  * @return 对应的灵敏度档位。
  */
 JammingSensitivityProfile ResolveJammingSensitivityProfile(float threshold_db);
@@ -45,7 +59,14 @@ using JammingTechnique = model::JammingTechnique;
 
 /**
  * @brief JammerEmitterState 表示对外注入的干扰源场景事实输入。
- * @note 该结构仅承载外部场景事实，不暴露运行期派生量。
+ *
+ * @par 类型合约
+ * - 该结构仅承载外部场景事实，不暴露运行期派生量。
+ * - 运行期派生量（如 frequency_overlap_ratio、prf_lock_risk、in_sidelobe）
+ *   由库内 EnvironmentService 从场景事实与运行状态自动推导。
+ * - 字段值范围约束（由库内钳位处理）：
+ *   power_db/js_db/angular_span_deg 负值钳位到 0；
+ *   confidence 超出 [0, 1] 钳位到区间端点。
  */
 struct JammerEmitterState {
   JammerEmitterState() = default;
@@ -82,10 +103,19 @@ struct AtmosphericDerivedContext {
  * @brief 推导环境上下文中的有效 k_factor（由基础观测自动推导）。
  *
  * 基于地面气象观测估计近地层折射率梯度，映射到有效地球半径因子 k。
- * 若推导结果超出合理范围 [0.5, 2.5]，回退到标准 4/3 近似。
  *
- * @param context 时间/空间天气上下文（当前未使用，保留扩展）。
- * @param physics 基础气象观测输入。
+ * @par 解析合约
+ * - 输入：AtmosphericDerivedContext（当前未使用，保留扩展）+ AtmosphericPhysicsConfig（基础气象观测）。
+ * - 输出：有效地球半径因子 k，物理合理范围 (0.5, 2.5)。
+ * - Fallback 语义：
+ *   1. temperature_k <= 1 K 或 pressure_hpa <= 0：使用 ISA 标准值替代（288.15 K / 1013.25 hPa）。
+ *   2. relative_humidity 负值钳位到 0，超出 1.0 钳位到 1.0。
+ *   3. 折射率分母 <= 0.1（极端超折射陷阱条件）：回退到 4/3。
+ *   4. 推导结果 < 0.5 或 > 2.5：回退到标准 4/3 近似（~1.333）。
+ * - 无异常抛出；所有非法输入均通过 fallback 或钳位处理。
+ *
+ * @param[in] context 时间/空间天气上下文（当前未使用，保留扩展）。
+ * @param[in] physics 基础气象观测输入。
  * @return 有效地球半径因子 k。
  */
 float ResolveEffectiveKFactor(const AtmosphericDerivedContext& context,
@@ -94,9 +124,13 @@ float ResolveEffectiveKFactor(const AtmosphericDerivedContext& context,
 /**
  * @brief 推导环境上下文中的有效 day_of_year（由仿真时间自动推导）。
  *
- * 若未提供仿真时间戳，回退到默认值 172（夏至附近）。
+ * @par 解析合约
+ * - 输入：AtmosphericDerivedContext（需 has_simulation_unix_seconds == true 方使用仿真时间）。
+ * - 输出：年积日 [1, 366]，由仿真 UTC 秒级时间戳推导。
+ * - Fallback 语义：若 has_simulation_unix_seconds == false，回退到 172（夏至附近）。
+ * - 无异常抛出。
  *
- * @param context 时间/空间天气上下文。
+ * @param[in] context 时间/空间天气上下文。
  * @return 年积日 [1, 366]。
  */
 std::int32_t ResolveEffectiveDayOfYear(const AtmosphericDerivedContext& context);
@@ -127,6 +161,12 @@ struct VegetationScatterPhysicsConfig {
 
 /**
  * @brief EnvironmentScenarioConfig 描述对外场景输入（不暴露内部传播/杂波调参项）。
+ *
+ * @par 类型合约
+ * - 仅承载外部输入事实（气象观测、时间/空间天气、植被场景、干扰源事实）。
+ * - 不包含内部算法调参字段（如传播损耗系数、杂波增益）。
+ * - 不包含运行期派生量（如 effective_k_factor、effective_day_of_year）。
+ * - 新增字段须为外部可观测或可注入的场景事实，不得引入内部调参项。
  */
 struct EnvironmentScenarioConfig {
   AtmosphericPhysicsConfig atmospheric_physics{};              /**< 场景气象/电离层输入 */
@@ -135,11 +175,25 @@ struct EnvironmentScenarioConfig {
   JammerEmitterStateList jammer_sources{};                     /**< 场景干扰事实输入 */
 };
 
-/** @brief EnvironmentModelConfig 与 EnvironmentScenarioConfig 统一。 */
+/**
+ * @brief EnvironmentModelConfig 与 EnvironmentScenarioConfig 统一。
+ *
+ * @par 别名合约
+ * - 当前为 ScenarioConfig 的类型别名（恒等映射）。
+ * - 合约上允许未来独立演化，届时 BuildModelConfigFromScenario 需同步更新为非恒等映射。
+ * - 不得向 ModelConfig 添加 ScenarioConfig 不存在的字段；如需差异化，
+ *   应拆分为独立 struct 并更新映射函数。
+ */
 using EnvironmentModelConfig = EnvironmentScenarioConfig;
 
 /**
  * @brief EnvironmentDefaultConfig 描述初始化阶段的默认环境配置。
+ *
+ * @par 类型合约
+ * - 初始化阶段一次性构造，构造后不再变更。
+ * - 包含 scenario_config（外部场景事实）与策略枚举（如干扰灵敏度档位）。
+ * - 不提供运行期热更新语义；运行期更新须通过 EnvironmentRuntimeConfigPatch。
+ * - 无复杂校验逻辑，构造后即视为合法。
  */
 struct EnvironmentDefaultConfig {
   EnvironmentScenarioConfig scenario_config{}; /**< 默认环境场景输入 */
@@ -149,6 +203,14 @@ struct EnvironmentDefaultConfig {
 
 /**
  * @brief 将对外场景输入映射为内部环境模型配置。
+ *
+ * @par 映射合约
+ * - 当前为恒等映射（identity），直接透传 ScenarioConfig。
+ * - 若未来引入非恒等映射，须同步添加映射单元测试。
+ * - 无 fallback 语义：输入合法即输出合法。
+ *
+ * @param[in] scenario_config 外部场景输入。
+ * @return 与输入完全一致的模型配置。
  */
 inline EnvironmentModelConfig BuildModelConfigFromScenario(
     const EnvironmentScenarioConfig& scenario_config) {

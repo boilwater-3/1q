@@ -13,6 +13,11 @@ namespace environment {
 
 /**
  * @brief EnvironmentRuntimeConfigPatch 链式构造器。
+ *
+ * @par 构造器合约
+ * - 每个 With* 方法同时设置对应的 has_* 标志为 true。
+ * - Build() 返回的补丁对象可直接提交给运行期解析器。
+ * - 不执行输入校验（校验由解析器负责）。
  */
 class EnvironmentRuntimeConfigPatchBuilder {
  public:
