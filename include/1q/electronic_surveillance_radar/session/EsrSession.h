@@ -32,6 +32,28 @@ namespace electronic_surveillance_radar {
 namespace session {
 
 /**
+ * @brief ESR 运行期补丁应用状态码。
+ */
+enum class EsrRuntimeConfigApplyStatus {
+  kApplied = 0,
+  kNoRequestedUpdate,
+  kRejectedInvalidScanRate,
+  kRejectedInvalidScanCenterAz,
+  kRejectedInvalidScanCenterEl,
+  kRejectedInvalidExplicitScanBounds,
+  kRejectedUnsupportedEnvironmentPresetPatch,
+};
+
+/**
+ * @brief ESR 运行期补丁应用结果。
+ */
+struct ONEQ_API EsrRuntimeConfigApplyResult {
+  EsrRuntimeConfigApplyStatus status{EsrRuntimeConfigApplyStatus::kNoRequestedUpdate};
+  bool has_requested_update{false};
+  bool applied{false};
+};
+
+/**
  * @brief EsrSession 提供单周期外部接入门面。
  * @note 线程模型：会话对象持有可变状态，默认非线程安全；并发访问需外部同步。
  */
@@ -93,6 +115,20 @@ class ONEQ_API EsrSession {
    * @param[in] patch 运行期补丁。
    */
   void ApplyRuntimeConfig(const EsrRuntimeConfigPatch& patch);
+
+  /**
+   * @brief 尝试应用运行期可变配置补丁并返回是否生效。
+   * @param[in] patch 运行期补丁。
+   * @return true 表示补丁被接受并已应用；false 表示未请求更新或补丁被拒绝。
+   */
+  bool TryApplyRuntimeConfig(const EsrRuntimeConfigPatch& patch);
+
+  /**
+   * @brief 应用运行期补丁并返回结构化结果。
+   * @param[in] patch 运行期补丁。
+   * @return 结构化应用结果（含状态码）。
+   */
+  EsrRuntimeConfigApplyResult ApplyRuntimeConfigWithResult(const EsrRuntimeConfigPatch& patch);
 
  private:
   struct Impl;

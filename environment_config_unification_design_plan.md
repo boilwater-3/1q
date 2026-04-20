@@ -750,3 +750,49 @@ ESR 应补齐并统一使用：
 ### 14.3 变更判定原则
 
 若后续复核发现实现与本节记录不一致，以“代码 + 单测行为”为准，并在本节追加修订记录（不覆盖历史差异项）。
+
+## 15. ESR 实施差异标注（保留原文用于复核）
+
+说明：本节仅记录**当前实际执行路径**与上文 ESR 原始规划的差异；上文原文全部保留，不做替换，便于后期审计与回看。
+
+### 15.1 差异总览（仅 ESR）
+
+1. `config/EsrEnvironmentConfig.h` 已收敛为 alias：
+  - `using EsrEnvironmentConfig = environment::EsrEnvironmentDefaultConfig;`
+  - `config` 层不再定义并行环境 struct 真源。
+
+2. `environment/EsrEnvironmentConfig.h` 已采用 `Scenario/Model/Default` 三层，并引入：
+  - `EsrEnvironmentScenarioConfig`
+  - `EsrEnvironmentModelConfig`
+  - `BuildModelConfigFromScenario(...)`
+
+3. `EsrEnvironmentDefaultConfig` 已薄化为持有 `scenario_config`，不再持有 `model_config`。
+
+4. `session::ResolveEsrSessionConfig` 初始化路径已切换为单入口映射：
+  - 统一通过 `BuildModelConfigFromScenario(env_config.scenario_config)` 生成 `environment_model_config`。
+
+5. `use_preset_defaults` 已从 ESR 配置链路移除：
+  - 不再通过隐式总开关控制 preset 与详细字段覆盖。
+
+6. runtime patch 已进一步收敛到“最小可变面”：
+  - 禁止 `environment preset` 运行时热更新；
+  - `environment::EsrEnvironmentRuntimeConfigPatch` 仅允许模型叶子字段（`atmospheric_physics` / `atmospheric_context`）生效；
+  - 若提交 `has_preset=true`，resolver 显式 reject。
+
+7. runtime patch reject 已提供结构化可观察反馈：
+  - `EsrSession` 新增 `ApplyRuntimeConfigWithResult(...) -> EsrRuntimeConfigApplyResult`；
+  - `TryApplyRuntimeConfig(...)` 与 `ApplyRuntimeConfig(...)` 继续保留，分别作为布尔与 void 语义入口。
+
+8. ESR 相关测试已补齐并通过：
+  - 新增合同测试 `esr_environment_config_contract_test.cpp`（alias 约束 + Scenario->Model 映射 + Default 持有 Scenario）。
+  - 既有 resolver/integration/convenience 测试已迁移到 `environment.scenario_config` 路径并通过。
+
+### 15.2 复核关注点（建议）
+
+1. 是否需要进一步统一 AR/EOS/ESR 的 runtime reject 状态码命名与跨模块语义。
+
+2. 是否将 `EsrRuntimeConfigApplyResult` 扩展为携带字段级 reject 详情（例如参数名/值），用于回放诊断。
+
+### 15.3 变更判定原则
+
+若后续复核发现实现与本节记录不一致，以“代码 + 单测行为”为准，并在本节追加修订记录（不覆盖历史差异项）。

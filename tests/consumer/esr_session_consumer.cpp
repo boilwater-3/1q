@@ -132,10 +132,13 @@ int main() {
       esr::config::EsrRuntimeConfigBuilder().SetUseExplicitScanBounds(false).Build();
   session.ApplyRuntimeConfig(clear_window_patch);
 
-  // 15. RuntimeConfigBuilder: environment preset via environment runtime config
+    // 15. RuntimeConfigBuilder: environment atmospheric config via environment runtime config
+    esr::config::EsrAtmosphericPhysicsConfig atmospheric_physics;
+    atmospheric_physics.enable_physical_model = true;
+    atmospheric_physics.relative_humidity = 0.7f;
   const esr::session::EsrRuntimeConfigPatch env_patch =
       esr::config::EsrRuntimeConfigBuilder()
-          .WithEnvironmentPreset(esr::config::EsrEnvironmentPreset::kDenseClutter)
+      .WithAtmosphericPhysicsConfig(atmospheric_physics)
           .Build();
   session.ApplyRuntimeConfig(env_patch);
 

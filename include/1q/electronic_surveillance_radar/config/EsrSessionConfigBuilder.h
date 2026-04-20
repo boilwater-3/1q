@@ -40,7 +40,7 @@ class ONEQ_API EsrSessionConfigBuilder {
     return *this;
   }
   EsrSessionConfigBuilder& WithEnvironmentPreset(config::EsrEnvironmentPreset preset) {
-    config_.environment.preset = preset;
+    config_.environment.scenario_config.preset = preset;
     return *this;
   }
   EsrSessionConfigBuilder& WithHardwareConfig(const config::EsrHardwareConfig& hardware) {

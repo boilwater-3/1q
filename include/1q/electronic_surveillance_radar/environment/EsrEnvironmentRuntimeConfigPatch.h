@@ -16,7 +16,7 @@ namespace environment {
  * @brief EsrEnvironmentRuntimeConfigPatch 描述运行期可变环境补丁。
  */
 struct ONEQ_API EsrEnvironmentRuntimeConfigPatch {
-  bool has_preset{false}; /**< 是否更新环境预设语义 */
+  bool has_preset{false}; /**< [已弃用] 运行期不支持更新环境预设语义；若置 true 将被 reject */
   config::EsrEnvironmentPreset preset{config::EsrEnvironmentPreset::kStandard};
 
   bool has_atmospheric_physics{false}; /**< 是否更新基础气象观测参数 */

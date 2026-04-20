@@ -20,9 +20,11 @@ constexpr float kHgesmThresholdScale = 0.85f;
 constexpr float kRwrThresholdScale = 1.25f;
 
 EsrRuntimeConfigResolveResult RejectPatch(const ResolvedEsrSessionConfig& current_config,
-                                          bool has_requested_update) {
+                                          bool has_requested_update,
+                                          EsrRuntimeConfigApplyStatus status) {
   EsrRuntimeConfigResolveResult rejected;
   rejected.next_config = current_config;
+  rejected.status = status;
   rejected.has_requested_update = has_requested_update;
   rejected.is_valid = false;
   return rejected;
@@ -65,20 +67,8 @@ void ApplyWorkModeAdjustment(config::EsrWorkMode mode,
   }
 }
 
-void ApplyEnvironmentPreset(config::EsrEnvironmentPreset preset,
-                            environment::EsrEnvironmentModelConfig* model_config) {
-  if (model_config == nullptr) {
-    return;
-  }
-  model_config->preset = preset;
-}
-
 void ApplyEnvironmentRuntimePatch(const environment::EsrEnvironmentRuntimeConfigPatch& env_patch,
                                   ResolvedEsrSessionConfig* resolved, bool* env_changed) {
-  if (env_patch.has_preset) {
-    ApplyEnvironmentPreset(env_patch.preset, &resolved->environment_model_config);
-    *env_changed = true;
-  }
   if (env_patch.has_atmospheric_physics) {
     resolved->environment_model_config.atmospheric_physics = env_patch.atmospheric_physics;
     *env_changed = true;
@@ -122,6 +112,7 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
     const ResolvedEsrSessionConfig& current_config, const EsrRuntimeConfigPatch& patch) {
   EsrRuntimeConfigResolveResult resolved;
   resolved.next_config = current_config;
+  resolved.status = EsrRuntimeConfigApplyStatus::kNoRequestedUpdate;
   bool has_requested_update = false;
 
   // ---- Phase 1: 整块域覆盖（先于叶子） ----
@@ -147,6 +138,13 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
 
   if (patch.has_environment_runtime_config) {
     has_requested_update = true;
+    if (patch.environment_runtime_config.has_preset) {
+      PROJECT_LOG_ERROR(
+          "[EsrSession] Rejecting runtime config patch because environment preset hot update is "
+          "not allowed.");
+      return RejectPatch(current_config, true,
+                         EsrRuntimeConfigApplyStatus::kRejectedUnsupportedEnvironmentPresetPatch);
+    }
     ApplyEnvironmentRuntimePatch(patch.environment_runtime_config, &resolved.next_config,
                                  &resolved.environment_model_config_changed);
   }
@@ -173,7 +171,8 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
           "[EsrSession] Rejecting runtime config patch due to invalid scan_rate_hz={}; "
           "must be finite and positive.",
           patch.scan_rate_hz);
-      return RejectPatch(current_config, true);
+      return RejectPatch(current_config, true,
+                         EsrRuntimeConfigApplyStatus::kRejectedInvalidScanRate);
     }
     resolved.next_config.runtime_config.scan_rate_hz = patch.scan_rate_hz;
     resolved.runtime_config_changed = true;
@@ -196,7 +195,8 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
       PROJECT_LOG_ERROR(
           "[EsrSession] Rejecting runtime config patch due to non-finite scan_center_az_deg={} .",
           patch.scan_center_az_deg);
-      return RejectPatch(current_config, true);
+      return RejectPatch(current_config, true,
+                         EsrRuntimeConfigApplyStatus::kRejectedInvalidScanCenterAz);
     }
     const float half_az_span =
         0.5f * std::fabs(resolved.next_config.pipeline_config.scan.scan_end_az_deg -
@@ -213,7 +213,8 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
       PROJECT_LOG_ERROR(
           "[EsrSession] Rejecting runtime config patch due to non-finite scan_center_el_deg={} .",
           patch.scan_center_el_deg);
-      return RejectPatch(current_config, true);
+      return RejectPatch(current_config, true,
+                         EsrRuntimeConfigApplyStatus::kRejectedInvalidScanCenterEl);
     }
     const float half_el_span =
         0.5f * std::fabs(resolved.next_config.pipeline_config.scan.scan_end_el_deg -
@@ -234,7 +235,8 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
         PROJECT_LOG_ERROR(
             "[EsrSession] Rejecting runtime config patch due to invalid explicit scan bounds "
             "payload.");
-        return RejectPatch(current_config, true);
+        return RejectPatch(current_config, true,
+                           EsrRuntimeConfigApplyStatus::kRejectedInvalidExplicitScanBounds);
       }
       float start_az = patch.scan_start_az_deg;
       float end_az = patch.scan_end_az_deg;
@@ -251,6 +253,9 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
   }
 
   resolved.has_requested_update = has_requested_update;
+  if (has_requested_update) {
+    resolved.status = EsrRuntimeConfigApplyStatus::kApplied;
+  }
   return resolved;
 }
 

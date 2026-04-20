@@ -153,11 +153,7 @@ void ApplyEnvironmentConfig(const config::EsrEnvironmentConfig& env_config,
   if (model_config == nullptr) {
     return;
   }
-  model_config->preset = env_config.preset;
-  if (!env_config.use_preset_defaults) {
-    model_config->atmospheric_physics = env_config.atmospheric_physics;
-    model_config->atmospheric_context = env_config.atmospheric_context;
-  }
+  *model_config = environment::BuildModelConfigFromScenario(env_config.scenario_config);
 }
 
 }  // namespace

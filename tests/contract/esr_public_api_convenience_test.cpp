@@ -72,7 +72,7 @@ TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderDefaultsMatchDefaultConfig
 
   EXPECT_EQ(built.mission.work_mode, defaults.mission.work_mode);
   EXPECT_EQ(built.policy.detection.profile, defaults.policy.detection.profile);
-  EXPECT_EQ(built.environment.preset, defaults.environment.preset);
+  EXPECT_EQ(built.environment.scenario_config.preset, defaults.environment.scenario_config.preset);
 }
 
 TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderOverridesDomainFields) {
@@ -89,7 +89,7 @@ TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderOverridesDomainFields) {
   EXPECT_FALSE(cfg.mission.power_on);
   EXPECT_FLOAT_EQ(cfg.mission.scan.scan_rate_hz, 2.0f);
   EXPECT_EQ(cfg.policy.detection.profile, config::EsrDetectionProfile::kSensitive);
-  EXPECT_EQ(cfg.environment.preset, config::EsrEnvironmentPreset::kJammed);
+  EXPECT_EQ(cfg.environment.scenario_config.preset, config::EsrEnvironmentPreset::kJammed);
 }
 
 TEST(EsrPublicApiConvenienceTest, DetailedSessionConfigBuilderSupportsProfileAndDetails) {
@@ -118,7 +118,8 @@ TEST(EsrPublicApiConvenienceTest, DetailedSessionConfigBuilderSupportsProfileAnd
   EXPECT_TRUE(details_cfg.policy.detection.enable_statistical_detection);
   EXPECT_FLOAT_EQ(details_cfg.mission.scan.scan_rate_hz, 4.0f);
   EXPECT_TRUE(details_cfg.mission.scan.use_explicit_scan_bounds);
-  EXPECT_EQ(details_cfg.environment.preset, config::EsrEnvironmentPreset::kLowClutter);
+  EXPECT_EQ(details_cfg.environment.scenario_config.preset,
+            config::EsrEnvironmentPreset::kLowClutter);
 }
 
 TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderDefaultsAreUnset) {
@@ -150,7 +151,6 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSetsSemanticFields) {
           .WithScanCenterAzDeg(15.0f)
           .WithScanCenterElDeg(5.0f)
           .WithExplicitScanBoundsDeg(-30.0f, 30.0f, -10.0f, 10.0f)
-          .WithEnvironmentPreset(config::EsrEnvironmentPreset::kDenseClutter)
           .WithAtmosphericPhysicsConfig(atmospheric_physics)
           .WithAtmosphericContext(atmospheric_context)
           .Build();
@@ -166,8 +166,7 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSetsSemanticFields) {
   EXPECT_TRUE(patch.has_use_explicit_scan_bounds);
   EXPECT_TRUE(patch.use_explicit_scan_bounds);
   EXPECT_TRUE(patch.has_environment_runtime_config);
-  EXPECT_TRUE(patch.environment_runtime_config.has_preset);
-  EXPECT_EQ(patch.environment_runtime_config.preset, config::EsrEnvironmentPreset::kDenseClutter);
+  EXPECT_FALSE(patch.environment_runtime_config.has_preset);
   EXPECT_TRUE(patch.environment_runtime_config.has_atmospheric_physics);
   EXPECT_TRUE(patch.environment_runtime_config.atmospheric_physics.enable_physical_model);
   EXPECT_FLOAT_EQ(patch.environment_runtime_config.atmospheric_physics.relative_humidity, 0.65f);
@@ -255,6 +254,39 @@ TEST(EsrPublicApiConvenienceTest, SessionStepAndRuntimePatchWorkTogether) {
 
   const session::EsrCycleResult updated = session.StepWithResult(input);
   EXPECT_TRUE(updated.output_frame.observation_output.observations.empty());
+}
+
+TEST(EsrPublicApiConvenienceTest, TryApplyRuntimeConfigExposesRejectFeedback) {
+  session::EsrSession session(MakeSessionConfig());
+
+  session::EsrRuntimeConfigPatch invalid_patch;
+  invalid_patch.has_use_explicit_scan_bounds = true;
+  invalid_patch.use_explicit_scan_bounds = true;
+  invalid_patch.has_scan_start_az_deg = true;
+  invalid_patch.has_scan_end_az_deg = true;
+  invalid_patch.has_scan_start_el_deg = true;
+  invalid_patch.has_scan_end_el_deg = true;
+  invalid_patch.scan_start_az_deg = std::numeric_limits<float>::quiet_NaN();
+  invalid_patch.scan_end_az_deg = 10.0f;
+  invalid_patch.scan_start_el_deg = -10.0f;
+  invalid_patch.scan_end_el_deg = 10.0f;
+
+    const session::EsrRuntimeConfigApplyResult invalid_result =
+      session.ApplyRuntimeConfigWithResult(invalid_patch);
+    EXPECT_FALSE(invalid_result.applied);
+    EXPECT_TRUE(invalid_result.has_requested_update);
+    EXPECT_EQ(invalid_result.status,
+        session::EsrRuntimeConfigApplyStatus::kRejectedInvalidExplicitScanBounds);
+    EXPECT_FALSE(session.TryApplyRuntimeConfig(invalid_patch));
+
+  const session::EsrRuntimeConfigPatch valid_patch =
+      config::EsrRuntimeConfigBuilder().WithSensorEnabled(false).Build();
+    const session::EsrRuntimeConfigApplyResult valid_result =
+      session.ApplyRuntimeConfigWithResult(valid_patch);
+    EXPECT_TRUE(valid_result.applied);
+    EXPECT_TRUE(valid_result.has_requested_update);
+    EXPECT_EQ(valid_result.status, session::EsrRuntimeConfigApplyStatus::kApplied);
+  EXPECT_TRUE(session.TryApplyRuntimeConfig(valid_patch));
 }
 
 }  // namespace tests

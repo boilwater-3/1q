@@ -13,6 +13,7 @@ namespace internal {
  */
 struct EsrRuntimeConfigResolveResult {
   ResolvedEsrSessionConfig next_config{};
+  EsrRuntimeConfigApplyStatus status{EsrRuntimeConfigApplyStatus::kNoRequestedUpdate};
   bool has_requested_update{false};
   bool is_valid{true};
   bool runtime_config_changed{false};

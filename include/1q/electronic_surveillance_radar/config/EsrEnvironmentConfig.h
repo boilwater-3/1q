@@ -1,30 +1,26 @@
 /**
  * @file EsrEnvironmentConfig.h
- * @brief 定义 ESR 环境域配置。
+ * @brief ESR 环境配置聚合别名（真源位于 environment 层）。
  */
 
 #ifndef ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_ENVIRONMENT_CONFIG_H_
 #define ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_ENVIRONMENT_CONFIG_H_
 
 #include "1q/api.hpp"
-#include "1q/electronic_surveillance_radar/config/EsrEnvironmentPreset.h"
-#include "1q/foundation/atmospheric_types.h"
+#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentConfig.h"
 
 namespace electronic_surveillance_radar {
 namespace config {
 
-using EsrAtmosphericPhysicsConfig = oneq::foundation::AtmosphericObservation;
-using EsrAtmosphericDerivedContext = oneq::foundation::SpaceWeatherContext;
+using EsrAtmosphericPhysicsConfig = environment::EsrAtmosphericPhysicsConfig;
+using EsrAtmosphericDerivedContext = environment::EsrAtmosphericDerivedContext;
+using EsrEnvironmentScenarioConfig = environment::EsrEnvironmentScenarioConfig;
+using EsrEnvironmentModelConfig = environment::EsrEnvironmentModelConfig;
 
 /**
- * @brief EsrEnvironmentConfig 描述环境域配置。
+ * @brief EsrEnvironmentConfig 是 environment::EsrEnvironmentDefaultConfig 的聚合别名。
  */
-struct ONEQ_API EsrEnvironmentConfig {
-  EsrEnvironmentPreset preset{EsrEnvironmentPreset::kStandard}; /**< 环境预设 */
-  bool use_preset_defaults{true};                     /**< true 表示使用 preset 的默认参数映射 */
-  EsrAtmosphericPhysicsConfig atmospheric_physics{};  /**< 详细参数：基础气象观测 */
-  EsrAtmosphericDerivedContext atmospheric_context{}; /**< 详细参数：空间天气上下文 */
-};
+using EsrEnvironmentConfig = environment::EsrEnvironmentDefaultConfig;
 
 }  // namespace config
 }  // namespace electronic_surveillance_radar

@@ -51,7 +51,7 @@ TEST(EsrSessionConfigResolverTest, HardwareAndMissionMapToRuntimeAndScanConfig) 
 TEST(EsrSessionConfigResolverTest, DetectionAndEnvironmentPoliciesMapToInternalDefaults) {
   EsrSessionConfig config;
   config.policy.detection.profile = config::EsrDetectionProfile::kSensitive;
-  config.environment.preset = config::EsrEnvironmentPreset::kJammed;
+  config.environment.scenario_config.preset = config::EsrEnvironmentPreset::kJammed;
 
   const ResolvedEsrSessionConfig resolved = ResolveEsrSessionConfig(config);
 

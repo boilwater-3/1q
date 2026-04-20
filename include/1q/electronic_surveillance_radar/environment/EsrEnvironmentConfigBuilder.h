@@ -20,19 +20,19 @@ class ONEQ_API EsrEnvironmentConfigBuilder {
       : config_(config) {}
 
   EsrEnvironmentConfigBuilder& WithEnvironmentPreset(config::EsrEnvironmentPreset value) {
-    config_.model_config.preset = value;
+    config_.scenario_config.preset = value;
     return *this;
   }
 
   EsrEnvironmentConfigBuilder& WithAtmosphericPhysicsConfig(
       const EsrAtmosphericPhysicsConfig& config) {
-    config_.model_config.atmospheric_physics = config;
+    config_.scenario_config.atmospheric_physics = config;
     return *this;
   }
 
   EsrEnvironmentConfigBuilder& WithAtmosphericContext(
       const EsrAtmosphericDerivedContext& context) {
-    config_.model_config.atmospheric_context = context;
+    config_.scenario_config.atmospheric_context = context;
     return *this;
   }
 

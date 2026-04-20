@@ -117,20 +117,19 @@ class ONEQ_API EsrDetailedSessionConfigBuilder {
   }
 
   EsrDetailedSessionConfigBuilder& WithEnvironmentPreset(EsrEnvironmentPreset preset) {
-    config_.environment.preset = preset;
-    config_.environment.use_preset_defaults = true;
+    config_.environment.scenario_config.preset = preset;
     return *this;
   }
 
   EsrDetailedSessionConfigBuilder& WithAtmosphericPhysicsConfig(
       const EsrAtmosphericPhysicsConfig& atmospheric_physics) {
-    config_.environment.atmospheric_physics = atmospheric_physics;
+    config_.environment.scenario_config.atmospheric_physics = atmospheric_physics;
     return *this;
   }
 
   EsrDetailedSessionConfigBuilder& WithAtmosphericContext(
       const EsrAtmosphericDerivedContext& atmospheric_context) {
-    config_.environment.atmospheric_context = atmospheric_context;
+    config_.environment.scenario_config.atmospheric_context = atmospheric_context;
     return *this;
   }
 

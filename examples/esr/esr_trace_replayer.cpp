@@ -142,8 +142,9 @@ esr::session::EsrSessionConfig ParseSessionConfig(const Json& payload) {
         GetInt(payload, "detection_profile", static_cast<int>(config.policy.detection.profile)));
   }
   if (payload.contains("environment_preset")) {
-    config.environment.preset = static_cast<esr::config::EsrEnvironmentPreset>(
-        GetInt(payload, "environment_preset", static_cast<int>(config.environment.preset)));
+    config.environment.scenario_config.preset = static_cast<esr::config::EsrEnvironmentPreset>(
+      GetInt(payload, "environment_preset",
+           static_cast<int>(config.environment.scenario_config.preset)));
   }
 
   return config;
@@ -280,12 +281,6 @@ esr::session::EsrRuntimeConfigPatch ParseRuntimePatch(const Json& payload) {
       payload["environment_runtime_config"].is_object()) {
     patch.has_environment_runtime_config = true;
     const auto& env = payload["environment_runtime_config"];
-    patch.environment_runtime_config.has_preset =
-        GetBool(env, "has_preset", GetBool(env, "has_environment_preset", false));
-    patch.environment_runtime_config.preset = static_cast<esr::config::EsrEnvironmentPreset>(
-        GetInt(env, "preset",
-               GetInt(env, "environment_preset",
-                      static_cast<int>(patch.environment_runtime_config.preset))));
     patch.environment_runtime_config.has_atmospheric_physics =
         GetBool(env, "has_atmospheric_physics", false);
     if (env.contains("atmospheric_physics") && env["atmospheric_physics"].is_object()) {
@@ -302,12 +297,6 @@ esr::session::EsrRuntimeConfigPatch ParseRuntimePatch(const Json& payload) {
     patch.has_environment_runtime_config =
         GetBool(payload, "has_environment_runtime_config", false);
     if (patch.has_environment_runtime_config) {
-      patch.environment_runtime_config.has_preset =
-          GetBool(payload, "has_preset", GetBool(payload, "has_environment_preset", false));
-      patch.environment_runtime_config.preset = static_cast<esr::config::EsrEnvironmentPreset>(
-          GetInt(payload, "preset",
-                 GetInt(payload, "environment_preset",
-                        static_cast<int>(patch.environment_runtime_config.preset))));
       patch.environment_runtime_config.has_atmospheric_physics =
           GetBool(payload, "has_atmospheric_physics", false);
       if (payload.contains("atmospheric_physics") && payload["atmospheric_physics"].is_object()) {

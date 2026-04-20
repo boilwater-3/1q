@@ -97,12 +97,6 @@ class ONEQ_API EsrRuntimeConfigBuilder {
     patch_.scan_end_el_deg = end_el;
     return *this;
   }
-  EsrRuntimeConfigBuilder& WithEnvironmentPreset(config::EsrEnvironmentPreset preset) {
-    patch_.has_environment_runtime_config = true;
-    patch_.environment_runtime_config.has_preset = true;
-    patch_.environment_runtime_config.preset = preset;
-    return *this;
-  }
   EsrRuntimeConfigBuilder& WithAtmosphericPhysicsConfig(
       const environment::EsrAtmosphericPhysicsConfig& atmospheric_physics) {
     patch_.has_environment_runtime_config = true;

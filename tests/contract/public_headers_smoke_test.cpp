@@ -241,8 +241,9 @@ static_assert(
         electronic_surveillance_radar::environment::EsrEnvironmentRuntimeConfigPatch,
         decltype(electronic_surveillance_radar::environment::
                      EsrEnvironmentRuntimeConfigPatchBuilder()
-                         .WithPreset(
-                             electronic_surveillance_radar::config::EsrEnvironmentPreset::kJammed)
+                         .WithAtmosphericContext(
+                             electronic_surveillance_radar::environment::
+                                 EsrAtmosphericDerivedContext{})
                          .Build())>::value,
     "EsrEnvironmentRuntimeConfigPatchBuilder::Build must return EsrEnvironmentRuntimeConfigPatch");
 static_assert(

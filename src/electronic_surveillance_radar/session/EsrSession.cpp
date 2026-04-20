@@ -84,10 +84,23 @@ EsrCycleResult EsrSession::StepWithResult(const session::EsrCycleInput& input) {
 }
 
 void EsrSession::ApplyRuntimeConfig(const EsrRuntimeConfigPatch& patch) {
+  (void)ApplyRuntimeConfigWithResult(patch);
+}
+
+bool EsrSession::TryApplyRuntimeConfig(const EsrRuntimeConfigPatch& patch) {
+  return ApplyRuntimeConfigWithResult(patch).applied;
+}
+
+EsrRuntimeConfigApplyResult EsrSession::ApplyRuntimeConfigWithResult(
+    const EsrRuntimeConfigPatch& patch) {
+  EsrRuntimeConfigApplyResult apply_result;
   const internal::EsrRuntimeConfigResolveResult resolved =
       internal::ResolveEsrRuntimeConfigPatch(impl_->resolved_config, patch);
+  apply_result.status = resolved.status;
+  apply_result.has_requested_update = resolved.has_requested_update;
   if (!resolved.has_requested_update || !resolved.is_valid) {
-    return;
+    apply_result.applied = false;
+    return apply_result;
   }
 
   impl_->resolved_config = resolved.next_config;
@@ -100,6 +113,8 @@ void EsrSession::ApplyRuntimeConfig(const EsrRuntimeConfigPatch& patch) {
   if (resolved.environment_model_config_changed) {
     impl_->environment_service.UpdateModelConfig(impl_->resolved_config.environment_model_config);
   }
+  apply_result.applied = true;
+  return apply_result;
 }
 
 // ── EsrSessionFactory ──────────────────────────────────────────────────────

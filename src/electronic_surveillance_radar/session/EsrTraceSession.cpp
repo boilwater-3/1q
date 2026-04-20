@@ -112,8 +112,6 @@ Json BuildJson(const environment::EsrAtmosphericDerivedContext& value) {
 
 Json BuildJson(const environment::EsrEnvironmentRuntimeConfigPatch& value) {
   Json json;
-  json["has_preset"] = value.has_preset;
-  json["preset"] = static_cast<int>(value.preset);
   json["has_atmospheric_physics"] = value.has_atmospheric_physics;
   json["atmospheric_physics"] = BuildJson(value.atmospheric_physics);
   json["has_atmospheric_context"] = value.has_atmospheric_context;
@@ -346,7 +344,7 @@ Json BuildJson(const session::EsrSessionConfig& value) {
   json["hardware"] = hardware;
   json["mission"] = mission;
   json["policy_detection_profile"] = static_cast<int>(value.policy.detection.profile);
-  json["environment_preset"] = static_cast<int>(value.environment.preset);
+  json["environment_preset"] = static_cast<int>(value.environment.scenario_config.preset);
 
   return json;
 }
