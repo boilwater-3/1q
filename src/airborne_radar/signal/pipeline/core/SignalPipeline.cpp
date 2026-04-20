@@ -13,7 +13,7 @@
 #include "airborne_radar/signal/pipeline/assembly/SignalComponentFactory.h"
 #include "airborne_radar/signal/pipeline/core/CycleContextSupport.h"
 #include "airborne_radar/signal/pipeline/core/CycleExecutor.h"
-#include "airborne_radar/session/SessionConfigBridge.h"
+#include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 #include "airborne_radar/signal/tracking/IKalmanPredictor.h"
 #include "airborne_radar/signal/tracking/IKalmanUpdater.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
@@ -285,7 +285,7 @@ SignalPipeline::SignalPipeline(const ExecutionConfig& config)
 
 SignalPipeline::SignalPipeline(const session::RadarSessionConfig& config)
   : SignalPipeline(
-      ::airborne_radar::session::internal::BuildExecutionConfigFromSessionConfig(config)) {}
+      ::airborne_radar::config::mapping::MapSessionToExecution(config)) {}
 
 SignalPipeline::~SignalPipeline() = default;
 
@@ -342,7 +342,7 @@ extension::control::RadarControlProfile SignalPipeline::GetControlProfile() cons
 
 bool SignalPipeline::UpdateConfig(const session::RadarSessionConfig& config) {
   return UpdateExecutionConfig(
-      ::airborne_radar::session::internal::BuildExecutionConfigFromSessionConfig(config));
+      ::airborne_radar::config::mapping::MapSessionToExecution(config));
 }
 
 bool SignalPipeline::UpdateExecutionConfig(const ExecutionConfig& config) {

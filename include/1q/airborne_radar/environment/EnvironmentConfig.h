@@ -63,34 +63,6 @@ struct JammerEmitterState {
 /** @brief 场景中的干扰源输入列表 */
 using JammerEmitterStateList = std::vector<JammerEmitterState>;
 
-/**
- * @brief JammerDirectionDeg 表示干扰来向角。
- */
-struct JammerDirectionDeg {
-  float azimuth_deg{0.0f};   /**< 干扰来向方位角（单位：deg） */
-  float elevation_deg{0.0f}; /**< 干扰来向俯仰角（单位：deg） */
-};
-
-/**
- * @brief JammerSourceFact 表示单周期冻结后的干扰事实输出。
- * @note 其中 overlap/prf/sidelobe 等量由库内基于场景事实与运行状态派生。
- */
-struct JammerSourceFact {
-  JammingTechnique technique{JammingTechnique::kUnknown}; /**< 干扰技术类型 */
-  float power_db{0.0f};                                   /**< 干扰功率估计（单位：dB） */
-  float js_db{0.0f};                                      /**< 干扰与信号比估计（单位：dB） */
-  float frequency_overlap_ratio{0.0f}; /**< 干扰与当前工作频率的重叠度，范围 [0, 1] */
-  float prf_lock_risk{0.0f};           /**< 干扰对当前 PRF 锁定的风险度，范围 [0, 1] */
-  bool has_direction_deg{false};       /**< 是否具有可用的干扰来向方位/俯仰角 */
-  JammerDirectionDeg direction_deg{};  /**< 干扰来向角（仅在 has_direction_deg=true 时有效） */
-  float angular_span_deg{0.0f};        /**< 干扰角域宽度（单位：deg） */
-  bool in_sidelobe{false};             /**< 干扰是否主要经由旁瓣进入 */
-  float confidence{1.0f};              /**< 干扰事实置信度，范围 [0, 1] */
-};
-
-/** @brief 单周期内可见的干扰源列表 */
-using JammerSourceFactList = std::vector<JammerSourceFact>;
-
 /** @brief AtmosphericPhysicsConfig 复用 foundation 层统一基础气象观测类型。 */
 using AtmosphericPhysicsConfig = oneq::foundation::AtmosphericObservation;
 
