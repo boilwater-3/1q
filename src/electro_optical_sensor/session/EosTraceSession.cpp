@@ -157,15 +157,46 @@ Json BuildJson(const config::EosPolicyConfig& value) {
 }
 
 Json BuildJson(const config::EosEnvironmentConfig& value) {
+  const environment::EosEnvironmentScenarioConfig& scenario = value.scenario_config;
+  const environment::EosEnvironmentModelConfig model =
+    environment::BuildModelConfigFromScenario(scenario);
+
+  Json custom_overrides;
+  custom_overrides["radiative_transfer_model"] =
+    static_cast<int>(scenario.custom_overrides.radiative_transfer_model);
+  custom_overrides["aerosol_density_factor"] =
+    scenario.custom_overrides.aerosol_density_factor;
+  custom_overrides["turbulence_factor"] = scenario.custom_overrides.turbulence_factor;
+  custom_overrides["enable_optical_countermeasure_extension"] =
+    scenario.custom_overrides.enable_optical_countermeasure_extension;
+
   Json json;
-  json["environment_model_type"] = static_cast<int>(value.model_type);
-  json["environment_preset"] = static_cast<int>(value.preset);
-  json["use_preset_defaults"] = value.use_preset_defaults;
-  json["radiative_transfer_model"] = static_cast<int>(value.radiative_transfer_model);
-  json["aerosol_density_factor"] = value.aerosol_density_factor;
-  json["turbulence_factor"] = value.turbulence_factor;
+  json["environment_model_type"] = static_cast<int>(scenario.model_type);
+  json["environment_preset"] = static_cast<int>(scenario.preset);
+  json["has_custom_overrides"] = scenario.has_custom_overrides;
+  json["custom_overrides"] = custom_overrides;
+  json["radiative_transfer_model"] = static_cast<int>(model.radiative_transfer_model);
+  json["aerosol_density_factor"] = model.aerosol_density_factor;
+  json["turbulence_factor"] = model.turbulence_factor;
   json["enable_optical_countermeasure_extension"] =
-      value.enable_optical_countermeasure_extension;
+    model.enable_optical_countermeasure_extension;
+  return json;
+}
+
+Json BuildJson(const environment::EosEnvironmentRuntimeConfigPatch& value) {
+  Json json;
+  json["has_model_type"] = value.has_model_type;
+  json["environment_model_type"] = static_cast<int>(value.model_type);
+  json["has_radiative_transfer_model"] = value.has_radiative_transfer_model;
+  json["radiative_transfer_model"] = static_cast<int>(value.radiative_transfer_model);
+  json["has_aerosol_density_factor"] = value.has_aerosol_density_factor;
+  json["aerosol_density_factor"] = value.aerosol_density_factor;
+  json["has_turbulence_factor"] = value.has_turbulence_factor;
+  json["turbulence_factor"] = value.turbulence_factor;
+  json["has_enable_optical_countermeasure_extension"] =
+    value.has_enable_optical_countermeasure_extension;
+  json["enable_optical_countermeasure_extension"] =
+    value.enable_optical_countermeasure_extension;
   return json;
 }
 

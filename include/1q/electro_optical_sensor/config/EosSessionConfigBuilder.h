@@ -47,13 +47,12 @@ class ONEQ_API EosSessionConfigBuilder {
 
   EosSessionConfigBuilder& WithEnvironmentModelType(
       environment::EosEnvironmentModelType model_type) noexcept {
-    config_.environment.model_type = model_type;
+    config_.environment.scenario_config.model_type = model_type;
     return *this;
   }
 
   EosSessionConfigBuilder& WithEnvironmentPreset(EosEnvironmentPreset preset) noexcept {
-    config_.environment.preset = preset;
-    config_.environment.use_preset_defaults = true;
+    config_.environment.scenario_config.preset = preset;
     return *this;
   }
 

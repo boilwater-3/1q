@@ -10,6 +10,7 @@
 #include "1q/airborne_radar/config/RadarHardwareConfig.h"
 #include "1q/airborne_radar/config/RadarMissionConfig.h"
 #include "1q/airborne_radar/config/RadarPolicyConfig.h"
+#include "1q/airborne_radar/environment/EnvironmentConfig.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
@@ -23,6 +24,8 @@ struct ONEQ_API RadarSessionConfig {
   config::RadarMissionConfig mission{};
   config::RadarPolicyConfig policy{};
   config::RadarEnvironmentConfig environment{};
+  environment::JammingSensitivityProfile jamming_sensitivity_profile{
+      environment::JammingSensitivityProfile::kBalanced}; /**< 干扰判定灵敏度语义档位 */
 };
 
 }  // namespace session

@@ -1036,23 +1036,26 @@ include/1q/airborne_radar/config/
 - `llvm-ninja-debug-local`：build + ctest 通过
 - `llvm-ninja-release-local`：build + ctest 通过
 
-阶段 6 候选优化（非 M5 阻塞项）：
+阶段 6 执行结果（已完成）：
 
-- `PipelineConfig.h` 与 `config/expert/*` 已从仓库 `include` 树移除，后续可继续压缩 `src/airborne_radar/config/legacy/*` 过渡层。
-- 如需彻底消除仓库级 legacy 目录，可在阶段 6 继续把 `legacy` 聚合类型内联到内部装配模块。
+- `PipelineConfig.h` 与 `config/expert/*` 已从公开 include 树移除。
+- `src/airborne_radar/config/legacy/*` 已删除，不再保留过渡目录。
+- `src/airborne_radar/config/internal/SessionConfigPipelineMapper.h` 已删除。
+- `src/airborne_radar/config/internal/ExpertToEngineeringMapping.h` 已删除，四域到 execution 的映射收敛到
+  `src/airborne_radar/config/mapping/SessionToExecutionMapper.{h,cpp}` 与
+  `src/airborne_radar/config/mapping/RuntimePatchToExecutionMapper.{h,cpp}`。
 
 ### 阶段 6：清理旧公开入口与历史桥接残留
 
-- 当前分支状态（`codex/ar-config-m6-legacy-cleanup`）：公开入口清理已完成。
-  - 新增 `src/airborne_radar/config/legacy/*` 内部过渡头，作为 legacy 配置的内部引用入口。
-  - `src/` 与相关 `tests/unit` 已切换到内部过渡头，不再直接 include 公开 legacy 头路径
-    （`1q/airborne_radar/config/PipelineConfig.h`、`1q/airborne_radar/config/expert/*`）。
-  - 已删除公开 legacy 头 `include/1q/airborne_radar/config/PipelineConfig.h`，并将 `PipelineConfig` 定义下沉到
-    `src/airborne_radar/config/legacy/PipelineConfig.h`。
-  - 已删除公开 `include/1q/airborne_radar/config/expert/*` 目录；相关细粒度类型定义已收口到
-    `RadarHardwareConfig.h` 与 `RadarPolicyConfig.h`。
-  - `RadarSessionConfigBuilder` 已移除对 `ExpertPipelineConfig` 的公开头依赖，内部改为以四域 `RadarSessionConfig`
-    作为基线构造语义覆盖结果。
+- 当前分支状态（`codex/ar-config-m6-legacy-cleanup`）：公开入口清理与内部旧壳清理已完成。
+  - `src/` 与相关 `tests/unit` 已切换到 execution/mapping 路径，不再依赖 legacy 头。
+  - 已删除 `src/airborne_radar/config/legacy/*` 目录及其历史聚合类型。
+  - 已删除 `src/airborne_radar/config/internal/SessionConfigPipelineMapper.h`。
+  - 已删除 `src/airborne_radar/config/internal/ExpertToEngineeringMapping.h`，并以
+    `src/airborne_radar/config/mapping/SessionToExecutionMapper.{h,cpp}` 与
+    `src/airborne_radar/config/mapping/RuntimePatchToExecutionMapper.{h,cpp}` 统一映射入口。
+  - `RadarSessionConfigBuilder` 已移除对 `ExpertPipelineConfig` 的公开头依赖，内部以四域
+    `RadarSessionConfig` 作为语义基线。
   - 本批验证结果：`llvm-ninja-debug-local` 的 build + ctest 通过。
 
 - 删除或下线旧的 `RadarExpertSessionConfigBuilder`。
@@ -1063,12 +1066,135 @@ include/1q/airborne_radar/config/
 阶段 6 结论：
 
 - 公开 include 树不再包含 `PipelineConfig.h` 与 `config/expert/*`。
-- 旧模型仅保留在 `src/airborne_radar/config/legacy/*` 内部装配路径。
+- 仓库内不再保留 `src/airborne_radar/config/legacy/*` 目录。
+- 四域到 engineering 的内部映射统一为 `config/mapping` 下单路径。
 
 完成判据：
 
 - 仓库内不再存在“新旧双轨并存”的长期状态。
 - 外部推荐配置方式唯一且清晰。
+
+### 阶段 7：收缩 semantic 公开面并重构 config 内核
+
+目标：解决 AR 配置层与 EOS/ESR 不同构的问题，并结束 `src/airborne_radar/config` 的过渡态堆叠。
+
+#### 7.0 重点工程说明（执行原则）
+
+- 本阶段是架构重构，不是样式清理；目标是“单一内部配置真值 + 单一翻译边界”。
+- 采用“先内部收敛、再公开移除”的顺序，避免同时改动运行骨架与公开 API 导致回归定位困难。
+- 每个子阶段必须可独立回滚，禁止跨子阶段混改。
+
+#### 7.1 semantic 目录收缩（公开层）
+
+当前问题：
+
+- AR 独有 `include/1q/airborne_radar/config/semantic/*`，EOS/ESR 无同类公开目录。
+- 公开调用方需要同时理解“语义 profile 语言 + 四域工程参数语言”，入口不唯一。
+
+执行目标：
+
+- 对外唯一主叙事固定为：`RadarSessionConfig` 四域 + `RadarDetailedSessionConfigBuilder` + `RadarRuntimeConfigPatch`。
+- `semantic/*` 从公开主合同中退出，不再作为对外必需入口。
+
+执行步骤：
+
+1. M7-A（降级语义入口）
+   - README、consumer、contract 用例统一改为四域显式路径，不再把 `semantic/*` 作为首选。
+   - `RadarSessionConfigBuilder` 标注为“可选语义构造器”，不再作为统一入口头叙事中心。
+2. M7-B（内部化 profile）
+   - 将 profile 定义迁入 `src/airborne_radar/config/profiles/*`（内部头）。
+   - `RadarSessionConfigBuilder.cpp` 仅依赖内部 profile，不再依赖公开 `config/semantic/*`。
+3. M7-C（移除公开 semantic 目录）
+   - 删除 `include/1q/airborne_radar/config/semantic/*`。
+   - 更新 `check_public_api_boundary.cmake` 白名单与 smoke tests，保证不会回流。
+
+边界约束：
+
+- 不引入长期双轨兼容；若调用方使用 `semantic/*`，在本阶段统一迁移到四域显式配置或 detailed builder。
+
+#### 7.2 `src/airborne_radar/config` 内核重构（重点工程）
+
+当前问题：
+
+- `legacy / internal / engineering` 并存，目录语义与运行职责不一致。
+- `PipelineConfig` 在 signal/runtime 路径广泛流转，成为事实执行真值。
+- `SessionConfigPipelineMapper` 与 `ExpertToEngineeringMapping` 分裂成双重翻译链，边界不单一。
+
+重构目标：
+
+- 建立唯一内部执行配置真值：`InternalExecutionConfig`。
+- 建立唯一翻译边界：`session::RadarSessionConfig -> InternalExecutionConfig`。
+- signal/runtime 仅消费 `InternalExecutionConfig`，不再直接依赖 `legacy::PipelineConfig`。
+
+#### 7.3 重构后目录结构（目标态）
+
+```text
+src/airborne_radar/config/
+|-- execution/
+|   |-- InternalExecutionConfig.h           唯一内部执行配置真值（运行态字段全集）
+|   |-- ExecutionValidation.h               内部配置校验（有限值/范围/一致性）
+|   `-- RuntimeOverrideMerge.h              运行期补丁合并规则（先域后叶）
+|-- mapping/
+|   |-- SessionToExecutionMapper.h          四域 session -> execution 映射入口
+|   |-- SessionToExecutionMapper.cpp
+|   `-- RuntimePatchToExecutionMapper.h     runtime patch -> execution 增量映射
+|-- defaults/
+|   `-- ExecutionDefaults.h                 execution 默认值与安全兜底
+|-- profiles/                               （内部）原 semantic profile 定义与解释逻辑
+|   |-- DetectionProfiles.h
+|   |-- TrackingProfiles.h
+|   |-- LifecycleProfiles.h
+|   `-- AntennaProfiles.h
+`-- engineering/
+    `-- SignalEngineeringConfig.h           保留工程参数表达（仅被 execution/mapping 使用）
+```
+
+本阶段删除目录：
+
+- `src/airborne_radar/config/legacy/*`
+- `src/airborne_radar/config/internal/ExpertToEngineeringMapping.h`
+- `src/airborne_radar/config/internal/SessionConfigPipelineMapper.h`
+
+#### 7.4 代码迁移顺序（按子阶段）
+
+1. M7-D（引入 execution 真值，不删旧路径）
+   - 新增 `execution/InternalExecutionConfig.h`，字段覆盖当前 `PipelineConfig + InternalPipelineConfig` 在运行链路所需能力。
+   - 新增 `mapping/SessionToExecutionMapper.*`，实现单入口映射。
+   - 在 `SignalPipeline`、`RuntimeAssemblySupport`、`CycleExecutor` 增加双读比对开关（默认走旧路径，debug 用例比对新旧结果一致）。
+2. M7-E（切换消费方到 execution）
+   - signal/runtime 全量切到 `InternalExecutionConfig`。
+   - `RuntimeConfigResolver` 改为直接产出 execution 增量，不再经过 `PipelineConfig` 中转。
+   - 移除旧路径条件分支与双读比对代码。
+3. M7-F（清理旧壳）
+   - 删除 `legacy/*` 与旧 mapping 文件。
+   - contract 增加禁止项：`src/airborne_radar/config/legacy/*` 及 `ExpertToEngineeringMapping` 不得复活。
+
+#### 7.5 接口与类型变更清单（决策完成）
+
+新增（内部）：
+
+- `config::execution::InternalExecutionConfig`
+- `config::mapping::MapSessionToExecution(...)`
+- `config::mapping::ApplyRuntimePatchToExecution(...)`
+
+删除（内部）：
+
+- `config::PipelineConfig`（在运行主路径中的角色）
+- `config::expert::ExpertPipelineConfig`
+- `config::internal::Resolve*Engineering(...)` 旧 expert 命名映射接口
+
+公开层变化：
+
+- 移除 `include/1q/airborne_radar/config/semantic/*`
+- `RadarSessionConfigBuilder` 保留但仅作为可选语义入口，不再主推
+
+#### 7.6 阶段 7 完成判据
+
+- `include/1q/airborne_radar/config` 中无 `semantic/` 目录。
+- `src/airborne_radar/config` 中无 `legacy/` 目录。
+- `SignalPipeline`、`RuntimeAssemblySupport`、`RuntimeConfigResolver` 不再包含 `PipelineConfig` 作为执行主路径类型。
+- 运行期 patch 语义维持不变：整域优先于叶子，非法 patch 原子拒绝。
+- AR 对外入口叙事与 EOS/ESR 同构：四域配置 + runtime patch 为唯一主路径。
 
 ## 测试与验收标准
 
@@ -1091,6 +1217,13 @@ include/1q/airborne_radar/config/
 - `tests/contract/public_headers_smoke_test.cpp`
 - `tests/integration/ar_session_test.cpp`
 - 任何直接断言 `pipeline_config.expert` 或旧 builder 输出结构的测试
+- `tests/contract/check_public_api_boundary.cmake`：
+  - 增加对 `config/semantic/*` 的公开面约束（阶段 7 执行时启用）
+  - 增加对 `src/airborne_radar/config/legacy/*` 不得回流到公开路径的约束
+- `tests/contract/ar_public_api_convenience_test.cpp`：
+  - 增加“四域显式配置不依赖 semantic profile”用例
+- `tests/unit/ar_runtime_config_resolver_test.cpp`、`tests/unit/ar_signal_pipeline_test.cpp`：
+  - 增加 `InternalExecutionConfig` 映射一致性与原子拒绝语义回归用例
 
 ### 验收标准
 
@@ -1109,3 +1242,4 @@ include/1q/airborne_radar/config/
 - `mission` 域只承载公开层的任务态语言；内部是否拆成 baseline/override/runtime-only state，由内部装配态自行承担。
 - 环境域沿用现有 `EnvironmentDefaultConfig` / `EnvironmentRuntimeConfigPatch` 的能力，但公开命名统一为 `environment`。
 - AR 的重点不是把所有内部结构都改名成四域，而是保证四域公开模型与内部运行骨架之间只有一个清晰、稳定、可测试的翻译边界。
+- 阶段 7 默认采用“先内部重构、后公开移除”的顺序，避免同时改动内部执行与外部入口导致回归定位困难。

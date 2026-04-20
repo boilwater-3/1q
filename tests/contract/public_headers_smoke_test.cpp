@@ -21,10 +21,6 @@
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/config/airborne_radar_config.hpp"
-#include "1q/airborne_radar/config/semantic/AntennaProfiles.h"
-#include "1q/airborne_radar/config/semantic/DetectionProfiles.h"
-#include "1q/airborne_radar/config/semantic/LifecycleProfiles.h"
-#include "1q/airborne_radar/config/semantic/TrackingProfiles.h"
 #include "1q/airborne_radar/environment/EnvironmentConfig.h"
 #include "1q/airborne_radar/environment/EnvironmentDefaultConfigBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentRuntimeConfigPatch.h"
@@ -318,18 +314,19 @@ TEST(PublicHeadersSmokeTest, FourDomainHeadersDefineIndependentConfigTypes) {
   EXPECT_EQ(policy.tracking.kalman_update_backend, config::KalmanUpdateBackend::kUdKf);
 
   config::RadarEnvironmentConfig env{};
-  env.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kStrict;
-  EXPECT_EQ(env.jamming_sensitivity_profile, environment::JammingSensitivityProfile::kStrict);
+    env.scenario_config.atmospheric_physics.enable_physical_model = true;
+    EXPECT_TRUE(env.scenario_config.atmospheric_physics.enable_physical_model);
 
   session::RadarSessionConfig session_cfg;
   session_cfg.hardware = hardware;
   session_cfg.mission = mission;
   session_cfg.policy = policy;
   session_cfg.environment = env;
+    session_cfg.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kStrict;
   EXPECT_EQ(session_cfg.hardware.detection.pulse_count, 32);
   EXPECT_FLOAT_EQ(session_cfg.mission.orientation.scan_center_deg.az_deg, 45.0f);
   EXPECT_EQ(session_cfg.policy.lifecycle.confirm_hits, 2U);
-  EXPECT_EQ(session_cfg.environment.jamming_sensitivity_profile,
+  EXPECT_EQ(session_cfg.jamming_sensitivity_profile,
             environment::JammingSensitivityProfile::kStrict);
 }
 
@@ -342,15 +339,15 @@ TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields)
       config::RadarSessionConfigBuilder()
           .Detection()
           .EnablePhysicsDetection(true)
-          .WithDetectionIntentProfile(config::semantic::DetectionIntentProfile::kDetectionPriority)
-          .WithHardwareProfile(config::semantic::RadarHardwareProfile::kLongRangeHighPower)
-          .WithAntennaPatternProfile(config::semantic::AntennaPatternProfile::kLowSidelobe)
+          .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
+          .WithHardwareProfile(config::profiles::RadarHardwareProfile::kLongRangeHighPower)
+          .WithAntennaPatternProfile(config::profiles::AntennaPatternProfile::kLowSidelobe)
           .End()
           .Beam()
           .WithScanCenterDeg(scan_center)
           .End()
           .Lifecycle()
-          .WithLifecyclePolicyProfile(config::semantic::LifecyclePolicyProfile::kFastConfirm)
+          .WithLifecyclePolicyProfile(config::profiles::LifecyclePolicyProfile::kFastConfirm)
           .End()
           .Environment()
           .WithJammingSensitivityProfile(environment::JammingSensitivityProfile::kRelaxed)
@@ -362,16 +359,14 @@ TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields)
   EXPECT_FLOAT_EQ(config.hardware.detection.antenna.pattern.max_sidelobe_level_db, -30.0f);
   EXPECT_FLOAT_EQ(config.mission.orientation.scan_center_deg.az_deg, -12.0f);
   EXPECT_EQ(config.policy.lifecycle.confirm_hits, 1U);
-  EXPECT_EQ(config.environment.jamming_sensitivity_profile,
+  EXPECT_EQ(config.jamming_sensitivity_profile,
             environment::JammingSensitivityProfile::kRelaxed);
 
   environment::EnvironmentScenarioConfig scenario;
   scenario.atmospheric_physics.enable_physical_model = true;
   environment::EnvironmentDefaultConfig env =
       environment::EnvironmentDefaultConfigBuilder().WithScenarioConfig(scenario).Build();
-  env.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kRelaxed;
   EXPECT_TRUE(env.scenario_config.atmospheric_physics.enable_physical_model);
-  EXPECT_EQ(env.jamming_sensitivity_profile, environment::JammingSensitivityProfile::kRelaxed);
 }
 
 }  // namespace

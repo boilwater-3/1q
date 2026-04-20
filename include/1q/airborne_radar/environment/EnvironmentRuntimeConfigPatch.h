@@ -13,6 +13,12 @@ namespace environment {
 
 /**
  * @brief EnvironmentRuntimeConfigPatch 描述运行期可变环境参数补丁。
+ *
+ * @par 类型合约
+ * - 仅包含运行期可变更的环境参数项。
+ * - 每个字段配备对应的 has_* 布尔标志，未设置的项不参与更新。
+ * - 支持的补丁项：scenario_config、jamming_sensitivity_profile。
+ * - 解析时遵循原子语义：整个补丁要么全部生效，要么全部拒绝。
  */
 struct EnvironmentRuntimeConfigPatch {
   bool has_scenario_config{false};                /**< 是否更新环境场景输入 */

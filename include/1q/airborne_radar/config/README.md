@@ -24,18 +24,6 @@ config/
 调用方不需要也不应直接 include `model/RadarOrientationConfig.h` 等内部装配头。
 公开可见配置类型以 `airborne_radar::config` 为稳定命名空间，不再以 `expert` 子命名空间作为主路径。
 
-## 语义档位
-
-```text
-semantic/
-|-- AntennaProfiles.h
-|-- DetectionProfiles.h
-|-- TrackingProfiles.h
-`-- LifecycleProfiles.h
-```
-
-语义档位是 Builder 输入材料，服务于 `RadarSessionConfigBuilder` 与预设工厂。不属于独立配置入口。
-
 ## 遗留/内部过渡头（不属于公开合同）
 
 legacy 装配类型已下沉到 `src/airborne_radar/config/legacy/*`，不在公开 `include` 合同范围内，也不会进入安装导出清单。
@@ -70,10 +58,10 @@ legacy 装配类型已下沉到 `src/airborne_radar/config/legacy/*`，不在公
 
 [`RadarSessionConfigBuilder.h`](RadarSessionConfigBuilder.h)
 
-- 输入：`semantic::...Profile` 枚举
+- 输入：`profiles::...Profile` 枚举
 - 输出：`RadarSessionConfig`（落到 `hardware/mission/policy/environment`）
 
-适用：业务/任务层快速配置，推荐首选。
+适用：业务/任务层快速配置。
 
 ### 详细 Builder
 
@@ -100,7 +88,7 @@ legacy 装配类型已下沉到 `src/airborne_radar/config/legacy/*`，不在公
 
 ## 使用建议
 
-- 业务/任务层优先：`semantic/profiles + RadarSessionConfigBuilder`
+- 业务/任务层优先：`RadarSessionConfigBuilder`
 - 细粒度建模优先：`RadarDetailedSessionConfigBuilder`
 - 不要直接依赖 `PipelineConfig` 等 legacy 装配类型，它们仅用于内部装配路径
 

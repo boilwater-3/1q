@@ -5,9 +5,9 @@
 #include <limits>
 #include <utility>
 
-#include "airborne_radar/utils/MathUtils.h"
-#include "airborne_radar/environment/SceneManager.h"
 #include "airborne_radar/environment/PropagationModel.h"
+#include "airborne_radar/environment/SceneManager.h"
+#include "airborne_radar/utils/MathUtils.h"
 
 namespace airborne_radar {
 namespace environment {
@@ -22,9 +22,7 @@ float WrapAzimuthDeg(float azimuth_deg) {
   return wrapped - 180.0f;
 }
 
-bool HasExternalDirection(const JammerEmitterState& source) {
-  return source.has_direction_deg;
-}
+bool HasExternalDirection(const JammerEmitterState& source) { return source.has_direction_deg; }
 
 bool DeriveInSidelobeWithoutDirection(const JammerSourceFact& source) {
   float technique_bias = 0.40f;
@@ -43,7 +41,8 @@ bool DeriveInSidelobeWithoutDirection(const JammerSourceFact& source) {
       break;
   }
 
-  const float angular_focus = utils::ClampFloat(1.0f - source.angular_span_deg / 120.0f, 0.0f, 1.0f);
+  const float angular_focus =
+      utils::ClampFloat(1.0f - source.angular_span_deg / 120.0f, 0.0f, 1.0f);
   const float confidence = utils::ClampFloat(source.confidence, 0.0f, 1.0f);
   const float js_ratio = utils::ClampFloat(source.js_db / 12.0f, 0.0f, 1.0f);
   const float sidelobe_score =
@@ -124,10 +123,9 @@ JammerSourceFact NormalizeEmitterState(const JammerEmitterState& raw_source) {
   normalized.technique = raw_source.technique;
   normalized.power_db =
       utils::ClampFloat(raw_source.power_db, 0.0f, std::numeric_limits<float>::max());
-  normalized.js_db =
-      utils::ClampFloat(raw_source.js_db, 0.0f, std::numeric_limits<float>::max());
-  normalized.angular_span_deg = utils::ClampFloat(raw_source.angular_span_deg, 0.0f,
-                                                  std::numeric_limits<float>::max());
+  normalized.js_db = utils::ClampFloat(raw_source.js_db, 0.0f, std::numeric_limits<float>::max());
+  normalized.angular_span_deg =
+      utils::ClampFloat(raw_source.angular_span_deg, 0.0f, std::numeric_limits<float>::max());
   normalized.confidence = utils::ClampFloat(raw_source.confidence, 0.0f, 1.0f);
   if (HasExternalDirection(raw_source)) {
     normalized.has_direction_deg = true;
@@ -201,7 +199,7 @@ void EnvironmentService::UpdateModelConfig(const EnvironmentModelConfig& config)
 
 void EnvironmentService::SetJammingSensitivityProfile(JammingSensitivityProfile profile) {
   jamming_sensitivity_profile_ = profile;
-  effective_jamming_detection_threshold_db_ = internal::ResolveJammingDetectionThresholdDb(profile);
+  effective_jamming_detection_threshold_db_ = ResolveJammingDetectionThresholdDb(profile);
   RefreshFrozenSnapshotFromActiveScene();
 }
 
@@ -225,7 +223,7 @@ void EnvironmentService::RestoreRuntimeState(
   current_cycle_context_ = state.active_cycle_context;
   jamming_sensitivity_profile_ = state.jamming_sensitivity_profile;
   effective_jamming_detection_threshold_db_ =
-      internal::ResolveJammingDetectionThresholdDb(jamming_sensitivity_profile_);
+      ResolveJammingDetectionThresholdDb(jamming_sensitivity_profile_);
   RefreshFrozenSnapshotFromActiveScene();
 }
 

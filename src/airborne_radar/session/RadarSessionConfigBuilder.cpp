@@ -8,11 +8,11 @@ namespace config {
 namespace {
 
 void ApplyDetectionSemanticConfig(bool enable_physics_detection,
-                                  semantic::RadarHardwareProfile hardware_profile,
-                                  semantic::DetectionIntentProfile intent_profile,
-                                  semantic::AntennaPatternProfile antenna_profile,
+                                  profiles::RadarHardwareProfile hardware_profile,
+                                  profiles::DetectionIntentProfile intent_profile,
+                                  profiles::AntennaPatternProfile antenna_profile,
                                   const model::AzimuthElevationDeg& antenna_boresight_offset_deg,
-                                  semantic::RcsFusionProfile rcs_fusion_profile,
+                                  profiles::RcsFusionProfile rcs_fusion_profile,
                                   DetectionConfig* detection_config) {
   if (detection_config == nullptr) {
     return;
@@ -22,7 +22,7 @@ void ApplyDetectionSemanticConfig(bool enable_physics_detection,
 
   // 硬件档位 → 发射机 / 天线 / 接收机物理参数
   switch (hardware_profile) {
-    case semantic::RadarHardwareProfile::kLongRangeHighPower:
+    case profiles::RadarHardwareProfile::kLongRangeHighPower:
       d.transmitter.peak_power_w = 5.0e6f;
       d.transmitter.frequency_hz = 9.3e9f;
       d.transmitter.bandwidth_hz = 3.0e6f;
@@ -31,7 +31,7 @@ void ApplyDetectionSemanticConfig(bool enable_physics_detection,
       d.antenna.main_beam_gain_db = 38.0f;
       d.receiver.noise_figure_db = 3.0f;
       break;
-    case semantic::RadarHardwareProfile::kLightweightLpi:
+    case profiles::RadarHardwareProfile::kLightweightLpi:
       d.transmitter.peak_power_w = 3.5e5f;
       d.transmitter.frequency_hz = 10.0e9f;
       d.transmitter.bandwidth_hz = 8.0e6f;
@@ -42,26 +42,26 @@ void ApplyDetectionSemanticConfig(bool enable_physics_detection,
       d.antenna.nominal_el_beamwidth_deg = 5.0f;
       d.receiver.noise_figure_db = 5.0f;
       break;
-    case semantic::RadarHardwareProfile::kGenericAirborneXBand:
+    case profiles::RadarHardwareProfile::kGenericAirborneXBand:
     default:
       break;
   }
 
   // 探测意图档位 → 积累数 / 虚警率 / 最小信噪比 / 最小裕量
   switch (intent_profile) {
-    case semantic::DetectionIntentProfile::kDetectionPriority:
+    case profiles::DetectionIntentProfile::kDetectionPriority:
       d.pulse_count = 16;
       d.detection_policy.cfar_pfa = 2e-6f;
       d.detection_policy.min_snr_db = -12.0f;
       d.min_detection_margin_db = -100.0f;
       break;
-    case semantic::DetectionIntentProfile::kTrackStabilityPriority:
+    case profiles::DetectionIntentProfile::kTrackStabilityPriority:
       d.pulse_count = 8;
       d.detection_policy.cfar_pfa = 5e-7f;
       d.detection_policy.min_snr_db = -8.0f;
       d.min_detection_margin_db = -20.0f;
       break;
-    case semantic::DetectionIntentProfile::kBalanced:
+    case profiles::DetectionIntentProfile::kBalanced:
     default:
       d.min_detection_margin_db = -2.0f;
       break;
@@ -69,16 +69,16 @@ void ApplyDetectionSemanticConfig(bool enable_physics_detection,
 
   // 方向图档位 → 旁瓣 / 覆盖模型参数
   switch (antenna_profile) {
-    case semantic::AntennaPatternProfile::kLowSidelobe:
+    case profiles::AntennaPatternProfile::kLowSidelobe:
       d.antenna.pattern.max_sidelobe_level_db = -30.0f;
       d.antenna.pattern.backlobe_level_db = -42.0f;
       break;
-    case semantic::AntennaPatternProfile::kWideCoverage:
+    case profiles::AntennaPatternProfile::kWideCoverage:
       d.antenna.pattern.model_type = AntennaPatternModelType::kParabolicMainLobe;
       d.antenna.pattern.max_sidelobe_level_db = -18.0f;
       d.antenna.pattern.max_scan_loss_db = 8.0f;
       break;
-    case semantic::AntennaPatternProfile::kStandard:
+    case profiles::AntennaPatternProfile::kStandard:
     default:
       break;
   }
@@ -86,23 +86,23 @@ void ApplyDetectionSemanticConfig(bool enable_physics_detection,
 
   // RCS 融合档位 → 物理 RCS 混合参数
   switch (rcs_fusion_profile) {
-    case semantic::RcsFusionProfile::kConservative:
+    case profiles::RcsFusionProfile::kConservative:
       d.rcs_physics.enable_physical_rcs = true;
       d.rcs_physics.physics_mix_ratio = 0.25f;
       break;
-    case semantic::RcsFusionProfile::kEnhanced:
+    case profiles::RcsFusionProfile::kEnhanced:
       d.rcs_physics.enable_physical_rcs = true;
       d.rcs_physics.physics_mix_ratio = 0.60f;
       d.rcs_physics.cylinder_weight = 0.65f;
       break;
-    case semantic::RcsFusionProfile::kDisabled:
+    case profiles::RcsFusionProfile::kDisabled:
     default:
       break;
   }
 }
 
 void ApplyTrackingSemanticConfig(bool enable_tracking_filter,
-                                 semantic::TrackingPolicyProfile tracking_profile,
+                                 profiles::TrackingPolicyProfile tracking_profile,
                                  TrackingConfig* tracking_config,
                                  AssociationConfig* association_config) {
   if (tracking_config == nullptr || association_config == nullptr) {
@@ -113,27 +113,27 @@ void ApplyTrackingSemanticConfig(bool enable_tracking_filter,
   auto& t = *tracking_config;
   t.enable_kalman_filter = enable_tracking_filter;
   switch (tracking_profile) {
-    case semantic::TrackingPolicyProfile::kFastAssociation:
+    case profiles::TrackingPolicyProfile::kFastAssociation:
       t.kalman_measurement_noise_std = 6.0f;
       t.kalman_update_backend = KalmanUpdateBackend::kStandardKfJoseph;
       t.speed_decay_ratio_on_loss = 0.95f;
       t.rcs_decay_ratio_on_loss = 0.92f;
       break;
-    case semantic::TrackingPolicyProfile::kRobustAntiJamming:
+    case profiles::TrackingPolicyProfile::kRobustAntiJamming:
       t.kalman_measurement_noise_std = 12.0f;
       t.kalman_update_backend = KalmanUpdateBackend::kUdKf;
       t.speed_decay_ratio_on_loss = 0.95f;
       t.rcs_decay_ratio_on_loss = 0.92f;
       association_config->unassigned_cost = 12.0f;
       break;
-    case semantic::TrackingPolicyProfile::kBalanced:
+    case profiles::TrackingPolicyProfile::kBalanced:
     default:
       break;
   }
 }
 
 void ApplyLifecycleSemanticConfig(bool enable_imm_fusion,
-                                  semantic::LifecyclePolicyProfile lifecycle_profile,
+                                  profiles::LifecyclePolicyProfile lifecycle_profile,
                                   LifecycleConfig* lifecycle_config) {
   if (lifecycle_config == nullptr) {
     return;
@@ -143,17 +143,17 @@ void ApplyLifecycleSemanticConfig(bool enable_imm_fusion,
   auto& lc = *lifecycle_config;
   lc.enable_imm_lifecycle = enable_imm_fusion;
   switch (lifecycle_profile) {
-    case semantic::LifecyclePolicyProfile::kFastConfirm:
+    case profiles::LifecyclePolicyProfile::kFastConfirm:
       lc.confirm_hits = 1U;
       lc.max_miss_before_lost = 1U;
       lc.max_lost_cycles = 3U;
       break;
-    case semantic::LifecyclePolicyProfile::kHighPersistence:
+    case profiles::LifecyclePolicyProfile::kHighPersistence:
       lc.confirm_hits = 3U;
       lc.max_miss_before_lost = 3U;
       lc.max_lost_cycles = 8U;
       break;
-    case semantic::LifecyclePolicyProfile::kBalanced:
+    case profiles::LifecyclePolicyProfile::kBalanced:
     default:
       break;
   }
@@ -161,14 +161,14 @@ void ApplyLifecycleSemanticConfig(bool enable_imm_fusion,
 
 session::RadarSessionConfig BuildDefaultSemanticSessionConfig() {
   session::RadarSessionConfig config;
-  ApplyDetectionSemanticConfig(false, semantic::RadarHardwareProfile::kGenericAirborneXBand,
-                               semantic::DetectionIntentProfile::kBalanced,
-                               semantic::AntennaPatternProfile::kStandard,
-                               model::AzimuthElevationDeg(), semantic::RcsFusionProfile::kDisabled,
+  ApplyDetectionSemanticConfig(false, profiles::RadarHardwareProfile::kGenericAirborneXBand,
+                               profiles::DetectionIntentProfile::kBalanced,
+                               profiles::AntennaPatternProfile::kStandard,
+                               model::AzimuthElevationDeg(), profiles::RcsFusionProfile::kDisabled,
                                &config.hardware.detection);
-  ApplyTrackingSemanticConfig(false, semantic::TrackingPolicyProfile::kBalanced,
+  ApplyTrackingSemanticConfig(false, profiles::TrackingPolicyProfile::kBalanced,
                               &config.policy.tracking, &config.policy.association);
-  ApplyLifecycleSemanticConfig(false, semantic::LifecyclePolicyProfile::kBalanced,
+  ApplyLifecycleSemanticConfig(false, profiles::LifecyclePolicyProfile::kBalanced,
                                &config.policy.lifecycle);
   return config;
 }
@@ -178,16 +178,21 @@ session::RadarSessionConfig BuildDefaultSemanticSessionConfig() {
 RadarSessionConfigBuilder::RadarSessionConfigBuilder()
     : base_config_(BuildDefaultSemanticSessionConfig()),
       orientation_(base_config_.mission.orientation),
-      env_(base_config_.environment) {}
+      env_(base_config_.environment),
+      jamming_sensitivity_profile_(base_config_.jamming_sensitivity_profile) {}
 
 RadarSessionConfigBuilder::RadarSessionConfigBuilder(const session::RadarSessionConfig& config)
-    : base_config_(config), orientation_(config.mission.orientation), env_(config.environment) {}
+    : base_config_(config),
+      orientation_(config.mission.orientation),
+      env_(config.environment),
+      jamming_sensitivity_profile_(config.jamming_sensitivity_profile) {}
 
 session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
   session::RadarSessionConfig result = base_config_;
   const session::RadarSessionConfig default_semantic = BuildDefaultSemanticSessionConfig();
   result.mission.orientation = orientation_;
   result.environment = env_;
+  result.jamming_sensitivity_profile = jamming_sensitivity_profile_;
 
   if (detection_dirty_) {
     result.hardware.detection = default_semantic.hardware.detection;
@@ -208,7 +213,7 @@ session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
     ApplyLifecycleSemanticConfig(enable_imm_fusion_, lifecycle_profile_, &result.policy.lifecycle);
   }
 
-  if (tracking_dirty_ && tracking_profile_ == semantic::TrackingPolicyProfile::kRobustAntiJamming &&
+  if (tracking_dirty_ && tracking_profile_ == profiles::TrackingPolicyProfile::kRobustAntiJamming &&
       !enable_imm_fusion_) {
     PROJECT_LOG_WARN(
         "[RadarSessionConfigBuilder] robust tracking policy is set while IMM fusion is disabled; "

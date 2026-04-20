@@ -54,6 +54,8 @@ set(AIRBORNE_DECISION_SOURCES
 )
 
 set(AIRBORNE_CORE_SOURCES
+    airborne_radar/config/mapping/SessionToExecutionMapper.cpp
+    airborne_radar/config/mapping/RuntimePatchMapper.cpp
     airborne_radar/session/MutableRadarContext.cpp
     airborne_radar/session/RadarInputValidation.cpp
     airborne_radar/runtime/ControlCommandMapper.cpp
@@ -70,6 +72,7 @@ set(AIRBORNE_CORE_SOURCES
     airborne_radar/environment/FeatureRepository.cpp
     airborne_radar/environment/EnvironmentSceneBuilder.cpp
     airborne_radar/environment/EnvironmentService.cpp
+    airborne_radar/environment/EnvironmentPhysics.cpp
     airborne_radar/environment/SceneManager.cpp
     airborne_radar/environment/PropagationModel.cpp
 )
@@ -104,12 +107,6 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarSessionConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarSessionConfigPresets.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/airborne_radar_config.hpp
-    )
-    set(PUBLIC_HEADERS_SEMANTIC_CONFIG
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/semantic/AntennaProfiles.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/semantic/DetectionProfiles.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/semantic/LifecycleProfiles.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/semantic/TrackingProfiles.h
     )
     set(PUBLIC_HEADERS_CORE_CONTEXT
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarCycleInput.h
@@ -170,9 +167,6 @@ if(ENABLE_INSTALL)
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/output
     )
     install(FILES ${PUBLIC_HEADERS_CONFIG_ENTRY}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/config
-    )
-    install(FILES ${PUBLIC_HEADERS_SEMANTIC_CONFIG}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/config
     )
     install(FILES ${PUBLIC_HEADERS_CORE_CONTEXT}

@@ -4,18 +4,19 @@
 // @brief 验证航迹滤波衰减策略的基础行为。
 
 #include <gtest/gtest.h>
+
+#include <cmath>
+#include <initializer_list>
+#include <vector>
+
+#include "1q/airborne_radar/config/RadarHardwareConfig.h"
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
-#include "1q/airborne_radar/config/semantic/DetectionProfiles.h"
-#include "1q/airborne_radar/config/semantic/LifecycleProfiles.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/model/TargetFeature.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/core/SignalPipeline.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
-#include <cmath>
-#include <initializer_list>
-#include <vector>
 
 namespace airborne_radar {
 namespace tests {
@@ -66,32 +67,51 @@ environment::EnvironmentModelConfig MakeEnvironmentConfigWithJammers(
 }
 
 void ApplyDetectionIntentProfile(session::RadarSessionConfig* config,
-                                 config::semantic::DetectionIntentProfile profile) {
-  if (config == nullptr) { return; }
+                                 config::profiles::DetectionIntentProfile profile) {
+  if (config == nullptr) {
+    return;
+  }
   auto& d = config->hardware.detection;
   switch (profile) {
-    case config::semantic::DetectionIntentProfile::kDetectionPriority:
-      d.pulse_count = 16; d.detection_policy.cfar_pfa = 2e-6f;
-      d.detection_policy.min_snr_db = -12.0f; d.min_detection_margin_db = -100.0f; break;
-    case config::semantic::DetectionIntentProfile::kTrackStabilityPriority:
-      d.pulse_count = 8; d.detection_policy.cfar_pfa = 5e-7f;
-      d.detection_policy.min_snr_db = -8.0f; d.min_detection_margin_db = -20.0f; break;
-    case config::semantic::DetectionIntentProfile::kBalanced:
-    default: d.min_detection_margin_db = -2.0f; break;
+    case config::profiles::DetectionIntentProfile::kDetectionPriority:
+      d.pulse_count = 16;
+      d.detection_policy.cfar_pfa = 2e-6f;
+      d.detection_policy.min_snr_db = -12.0f;
+      d.min_detection_margin_db = -100.0f;
+      break;
+    case config::profiles::DetectionIntentProfile::kTrackStabilityPriority:
+      d.pulse_count = 8;
+      d.detection_policy.cfar_pfa = 5e-7f;
+      d.detection_policy.min_snr_db = -8.0f;
+      d.min_detection_margin_db = -20.0f;
+      break;
+    case config::profiles::DetectionIntentProfile::kBalanced:
+    default:
+      d.min_detection_margin_db = -2.0f;
+      break;
   }
 }
 
 void ApplyLifecyclePolicyProfile(session::RadarSessionConfig* config,
-                                 config::semantic::LifecyclePolicyProfile profile) {
-  if (config == nullptr) { return; }
+                                 config::profiles::LifecyclePolicyProfile profile) {
+  if (config == nullptr) {
+    return;
+  }
   auto& lc = config->policy.lifecycle;
   switch (profile) {
-    case config::semantic::LifecyclePolicyProfile::kFastConfirm:
-      lc.confirm_hits = 1U; lc.max_miss_before_lost = 1U; lc.max_lost_cycles = 3U; break;
-    case config::semantic::LifecyclePolicyProfile::kHighPersistence:
-      lc.confirm_hits = 3U; lc.max_miss_before_lost = 3U; lc.max_lost_cycles = 8U; break;
-    case config::semantic::LifecyclePolicyProfile::kBalanced:
-    default: break;
+    case config::profiles::LifecyclePolicyProfile::kFastConfirm:
+      lc.confirm_hits = 1U;
+      lc.max_miss_before_lost = 1U;
+      lc.max_lost_cycles = 3U;
+      break;
+    case config::profiles::LifecyclePolicyProfile::kHighPersistence:
+      lc.confirm_hits = 3U;
+      lc.max_miss_before_lost = 3U;
+      lc.max_lost_cycles = 8U;
+      break;
+    case config::profiles::LifecyclePolicyProfile::kBalanced:
+    default:
+      break;
   }
 }
 

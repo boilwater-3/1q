@@ -98,7 +98,7 @@ ar::config::DetectionConfig ParseDetection(const Json& json) {
       GetBool(json, "enable_physics_detection", config.enable_physics_detection);
 
   if (json.contains("swerling_model")) {
-    config.swerling_model = static_cast<ar::config::semantic::SwerlingModel>(
+    config.swerling_model = static_cast<ar::config::profiles::SwerlingModel>(
         GetInt(json, "swerling_model", static_cast<int>(config.swerling_model)));
   }
 
@@ -329,10 +329,10 @@ ar::session::RadarSessionConfig ParseSessionConfig(const Json& payload) {
   if (payload.contains("environment")) {
     const Json& env = payload["environment"];
     if (env.contains("jamming_sensitivity_profile")) {
-      config.environment.jamming_sensitivity_profile =
+      config.jamming_sensitivity_profile =
           static_cast<ar::environment::JammingSensitivityProfile>(
               GetInt(env, "jamming_sensitivity_profile",
-                     static_cast<int>(config.environment.jamming_sensitivity_profile)));
+                     static_cast<int>(config.jamming_sensitivity_profile)));
     }
     if (env.contains("scenario_config")) {
       config.environment.scenario_config = ParseEnvironmentScenario(env["scenario_config"]);

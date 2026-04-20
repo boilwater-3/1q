@@ -10,6 +10,7 @@
 
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
+#include "airborne_radar/environment/JammingThresholdUtils.h"
 
 namespace airborne_radar {
 namespace environment {
@@ -64,9 +65,9 @@ class EnvironmentService final : public environment::IEnvironmentService {
   void UpdateModelConfig(const EnvironmentModelConfig& config) override;
 
   /**
-    * @brief 设置干扰判定灵敏度语义档位。
-    * @param profile 干扰判定灵敏度语义档位。
-    */
+   * @brief 设置干扰判定灵敏度语义档位。
+   * @param profile 干扰判定灵敏度语义档位。
+   */
   void SetJammingSensitivityProfile(JammingSensitivityProfile profile) override;
 
   environment::EnvironmentServiceRuntimeState CaptureRuntimeState() const override;
@@ -82,7 +83,7 @@ class EnvironmentService final : public environment::IEnvironmentService {
   EnvironmentCycleContext current_cycle_context_{};
   JammingSensitivityProfile jamming_sensitivity_profile_{JammingSensitivityProfile::kBalanced};
   float effective_jamming_detection_threshold_db_{
-      internal::ResolveJammingDetectionThresholdDb(JammingSensitivityProfile::kBalanced)};
+      ResolveJammingDetectionThresholdDb(JammingSensitivityProfile::kBalanced)};
 };
 
 }  // namespace environment

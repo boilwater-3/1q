@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <type_traits>
 #include <vector>
 
 #include "1q/electro_optical_sensor/config/EosDetailedSessionConfigBuilder.h"
@@ -21,10 +22,17 @@
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/foundation/coordinate_transform.h"
 
+namespace rt = ::electro_optical_sensor::foundation::radiative_transfer;
+
 namespace electro_optical_sensor {
 namespace tests {
 
 namespace {
+
+static_assert(
+  std::is_same<config::EosEnvironmentConfig,
+         environment::EosEnvironmentDefaultConfig>::value,
+  "config::EosEnvironmentConfig must alias environment::EosEnvironmentDefaultConfig");
 
 bool ContainsEosIssueCode(const std::vector<model::EosValidationIssue>& issues,
                           model::EosValidationCode code) {
@@ -89,8 +97,9 @@ TEST(EosPublicApiConvenienceTest, SessionConfigBuilderOverridesSemanticFields) {
   EXPECT_EQ(config.mission.work_mode, session::EosWorkMode::kInfraredOnly);
   EXPECT_EQ(config.policy.detection.profile, config::EosDetectionProfile::kConservative);
   EXPECT_EQ(config.policy.stray_light.profile, config::EosStrayLightProfile::kEnhancedHood);
-  EXPECT_EQ(config.environment.model_type, environment::EosEnvironmentModelType::kAdvanced);
-  EXPECT_EQ(config.environment.preset, config::EosEnvironmentPreset::kDusty);
+  EXPECT_EQ(config.environment.scenario_config.model_type,
+            environment::EosEnvironmentModelType::kAdvanced);
+  EXPECT_EQ(config.environment.scenario_config.preset, config::EosEnvironmentPreset::kDusty);
 }
 
 TEST(EosPublicApiConvenienceTest, DetailedSessionConfigBuilderOverridesDomainAndLeafFields) {
@@ -110,8 +119,9 @@ TEST(EosPublicApiConvenienceTest, DetailedSessionConfigBuilderOverridesDomainAnd
   EXPECT_NEAR(config.mission.frame_rate_hz, 60.0f, 1e-5f);
   EXPECT_EQ(config.policy.detection.profile, config::EosDetectionProfile::kConservative);
   EXPECT_EQ(config.policy.stray_light.profile, config::EosStrayLightProfile::kEnhancedHood);
-  EXPECT_EQ(config.environment.model_type, environment::EosEnvironmentModelType::kAdvanced);
-  EXPECT_EQ(config.environment.preset, config::EosEnvironmentPreset::kDusty);
+  EXPECT_EQ(config.environment.scenario_config.model_type,
+            environment::EosEnvironmentModelType::kAdvanced);
+  EXPECT_EQ(config.environment.scenario_config.preset, config::EosEnvironmentPreset::kDusty);
 }
 
 TEST(EosPublicApiConvenienceTest, SessionConfigBuilderPreservesPreconfiguredSessionConfig) {
@@ -151,8 +161,10 @@ TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderSetsAllFields) {
                                                        config::EosStrayLightProfile::kEnhancedHood)
                                                    .WithEnvironmentModelType(
                                                        environment::EosEnvironmentModelType::kAdvanced)
-                                                   .WithEnvironmentPreset(
-                                                       config::EosEnvironmentPreset::kTurbulent)
+                           .WithEnvironmentDetails(
+                             rt::RadiativeTransferModel::kAdaptivePathRadiance,
+                             1.3f,
+                             1.8f)
                                                    .Build();
 
   EXPECT_TRUE(patch.has_work_mode);
@@ -165,8 +177,15 @@ TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderSetsAllFields) {
   EXPECT_EQ(patch.policy.detection.profile, config::EosDetectionProfile::kConservative);
   EXPECT_EQ(patch.policy.stray_light.profile, config::EosStrayLightProfile::kEnhancedHood);
   EXPECT_TRUE(patch.has_environment);
+  EXPECT_TRUE(patch.environment.has_model_type);
   EXPECT_EQ(patch.environment.model_type, environment::EosEnvironmentModelType::kAdvanced);
-  EXPECT_EQ(patch.environment.preset, config::EosEnvironmentPreset::kTurbulent);
+  EXPECT_TRUE(patch.environment.has_radiative_transfer_model);
+  EXPECT_EQ(patch.environment.radiative_transfer_model,
+            rt::RadiativeTransferModel::kAdaptivePathRadiance);
+  EXPECT_TRUE(patch.environment.has_aerosol_density_factor);
+  EXPECT_NEAR(patch.environment.aerosol_density_factor, 1.3f, 1e-5f);
+  EXPECT_TRUE(patch.environment.has_turbulence_factor);
+  EXPECT_NEAR(patch.environment.turbulence_factor, 1.8f, 1e-5f);
 }
 
 TEST(EosPublicApiConvenienceTest, InputValidationReportsErrorsForCommonBoundaryCases) {
@@ -481,20 +500,30 @@ TEST(EosPublicApiConvenienceTest, EosSessionMultiCycleProducesProgressiveCycleIn
 
 TEST(EosPublicApiConvenienceTest, EosEnvironmentDefaultConfigHasReasonableDefaults) {
   const environment::EosEnvironmentDefaultConfig default_config;
-  EXPECT_EQ(default_config.model_type, environment::EosEnvironmentModelType::kSimplified);
+  EXPECT_EQ(default_config.scenario_config.model_type,
+            environment::EosEnvironmentModelType::kSimplified);
 }
 
 TEST(EosPublicApiConvenienceTest, EosRuntimeConfigBuilderWithEnvironmentPolicies) {
   const session::EosRuntimeConfigPatch patch = config::EosRuntimeConfigBuilder()
                                                    .WithEnvironmentModelType(
                                                        environment::EosEnvironmentModelType::kAdvanced)
-                                                   .WithEnvironmentPreset(
-                                                       config::EosEnvironmentPreset::kTurbulent)
+                                                   .WithEnvironmentDetails(
+                                                       rt::RadiativeTransferModel::kAdaptivePathRadiance,
+                                                       1.3f,
+                                                       1.8f)
                                                    .Build();
 
   EXPECT_TRUE(patch.has_environment);
+  EXPECT_TRUE(patch.environment.has_model_type);
   EXPECT_EQ(patch.environment.model_type, environment::EosEnvironmentModelType::kAdvanced);
-  EXPECT_EQ(patch.environment.preset, config::EosEnvironmentPreset::kTurbulent);
+  EXPECT_TRUE(patch.environment.has_radiative_transfer_model);
+  EXPECT_EQ(patch.environment.radiative_transfer_model,
+            rt::RadiativeTransferModel::kAdaptivePathRadiance);
+  EXPECT_TRUE(patch.environment.has_aerosol_density_factor);
+  EXPECT_NEAR(patch.environment.aerosol_density_factor, 1.3f, 1e-5f);
+  EXPECT_TRUE(patch.environment.has_turbulence_factor);
+  EXPECT_NEAR(patch.environment.turbulence_factor, 1.8f, 1e-5f);
 }
 
 }  // namespace tests

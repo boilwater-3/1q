@@ -2,27 +2,28 @@
 #define AIRBORNE_RADAR_SESSION_SESSION_CONFIG_BRIDGE_H_
 
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
-#include "airborne_radar/config/internal/SessionConfigPipelineMapper.h"
+#include "airborne_radar/config/execution/InternalExecutionConfig.h"
+#include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 
 namespace airborne_radar {
 namespace session {
 namespace internal {
 
-/**
- * @brief 四域公开会话配置到内部 pipeline 装配配置的唯一翻译边界。
- */
-inline config::PipelineConfig BuildPipelineConfigFromSessionConfig(
+inline config::execution::InternalExecutionConfig BuildExecutionConfigFromSessionConfig(
     const RadarSessionConfig& config) {
-  return config::internal::BuildPipelineConfigFromSessionConfig(config);
+  return config::mapping::MapSessionToExecution(config);
 }
 
-inline RadarSessionConfig BuildSessionConfigFromRuntimeState(
-    const config::RadarHardwareConfig& hardware, const config::RadarMissionConfig& mission,
-    const config::RadarPolicyConfig& policy) {
+inline RadarSessionConfig BuildSessionConfigFromExecutionConfig(
+    const config::execution::InternalExecutionConfig& execution_config) {
   RadarSessionConfig config;
-  config.hardware = hardware;
-  config.mission = mission;
-  config.policy = policy;
+  config.hardware.detection = execution_config.hardware_detection;
+  config.mission.orientation = execution_config.mission_orientation;
+  config.policy.beam_control = execution_config.policy_beam_control;
+  config.policy.association = execution_config.policy_association;
+  config.policy.tracking = execution_config.policy_tracking;
+  config.policy.lifecycle = execution_config.policy_lifecycle;
+  config.policy.imm = execution_config.policy_imm;
   return config;
 }
 

@@ -600,7 +600,10 @@ TEST(EosSessionIntegrationTest, RuntimeEnvironmentModelChangeTakesEffect) {
   const EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder()
           .WithEnvironmentModelType(environment::EosEnvironmentModelType::kAdvanced)
-          .WithEnvironmentPreset(eos_config::EosEnvironmentPreset::kTurbulent)
+        .WithEnvironmentDetails(
+          foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance,
+          1.3f,
+          1.8f)
           .Build();
   session.ApplyRuntimeConfig(patch);
 

@@ -18,13 +18,13 @@ session::RadarSessionConfig MakeDefaultRadarSessionConfig() {
 session::RadarSessionConfig MakeDetectionMissionRadarSessionConfig() {
   return config::RadarSessionConfigBuilder()
       .Detection()
-      .WithDetectionIntentProfile(semantic::DetectionIntentProfile::kDetectionPriority)
+      .WithDetectionIntentProfile(profiles::DetectionIntentProfile::kDetectionPriority)
       .End()
       .Tracking()
-      .WithTrackingPolicyProfile(semantic::TrackingPolicyProfile::kFastAssociation)
+      .WithTrackingPolicyProfile(profiles::TrackingPolicyProfile::kFastAssociation)
       .End()
       .Lifecycle()
-      .WithLifecyclePolicyProfile(semantic::LifecyclePolicyProfile::kFastConfirm)
+      .WithLifecyclePolicyProfile(profiles::LifecyclePolicyProfile::kFastConfirm)
       .End()
       .Build();
 }
@@ -32,7 +32,7 @@ session::RadarSessionConfig MakeDetectionMissionRadarSessionConfig() {
 session::RadarSessionConfig MakeTrackingMissionRadarSessionConfig() {
   return config::RadarSessionConfigBuilder()
       .Detection()
-      .WithDetectionIntentProfile(semantic::DetectionIntentProfile::kTrackStabilityPriority)
+      .WithDetectionIntentProfile(profiles::DetectionIntentProfile::kTrackStabilityPriority)
       .End()
       .Build();
 }
@@ -40,13 +40,13 @@ session::RadarSessionConfig MakeTrackingMissionRadarSessionConfig() {
 session::RadarSessionConfig MakeHighRobustnessRadarSessionConfig() {
   return config::RadarSessionConfigBuilder()
       .Detection()
-      .WithDetectionIntentProfile(semantic::DetectionIntentProfile::kTrackStabilityPriority)
+      .WithDetectionIntentProfile(profiles::DetectionIntentProfile::kTrackStabilityPriority)
       .End()
       .Tracking()
-      .WithTrackingPolicyProfile(semantic::TrackingPolicyProfile::kRobustAntiJamming)
+      .WithTrackingPolicyProfile(profiles::TrackingPolicyProfile::kRobustAntiJamming)
       .End()
       .Lifecycle()
-      .WithLifecyclePolicyProfile(semantic::LifecyclePolicyProfile::kHighPersistence)
+      .WithLifecyclePolicyProfile(profiles::LifecyclePolicyProfile::kHighPersistence)
       .End()
       .Build();
 }

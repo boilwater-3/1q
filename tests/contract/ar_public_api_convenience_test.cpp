@@ -36,13 +36,13 @@ namespace {
 session::RadarSessionConfig MakeConvenienceSessionConfig() {
   return config::RadarSessionConfigBuilder()
       .Detection()
-      .WithDetectionIntentProfile(config::semantic::DetectionIntentProfile::kDetectionPriority)
+      .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
       .End()
       .Tracking()
-      .WithTrackingPolicyProfile(config::semantic::TrackingPolicyProfile::kFastAssociation)
+      .WithTrackingPolicyProfile(config::profiles::TrackingPolicyProfile::kFastAssociation)
       .End()
       .Lifecycle()
-      .WithLifecyclePolicyProfile(config::semantic::LifecyclePolicyProfile::kFastConfirm)
+      .WithLifecyclePolicyProfile(config::profiles::LifecyclePolicyProfile::kFastConfirm)
       .End()
       .Build();
 }
@@ -787,7 +787,7 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
   signal::pipeline::SignalPipeline signal_pipeline(config);
   environment::EnvironmentService environment_service(
       environment::BuildModelConfigFromScenario(config.environment.scenario_config));
-  environment_service.SetJammingSensitivityProfile(config.environment.jamming_sensitivity_profile);
+  environment_service.SetJammingSensitivityProfile(config.jamming_sensitivity_profile);
   extension::RadarController controller(manual_context, signal_pipeline, environment_service);
 
   const session::RadarCycleInput input = MakeCycleInput(model::TargetFeatureList{
@@ -1265,7 +1265,7 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultMatchesManualChainUnder
   signal::pipeline::SignalPipeline signal_pipeline(config);
   environment::EnvironmentService environment_service(
       environment::BuildModelConfigFromScenario(config.environment.scenario_config));
-  environment_service.SetJammingSensitivityProfile(config.environment.jamming_sensitivity_profile);
+  environment_service.SetJammingSensitivityProfile(config.jamming_sensitivity_profile);
   extension::RadarController controller(manual_context, signal_pipeline, environment_service);
 
   const session::RadarCycleInput input = MakeCycleInput(model::TargetFeatureList{

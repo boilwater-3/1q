@@ -4,12 +4,14 @@
 // @brief 验证环境服务与场景管理的基础行为。
 
 #include <gtest/gtest.h>
+
+#include <initializer_list>
+#include <vector>
+
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/model/TargetFeature.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/environment/SceneManager.h"
-#include <initializer_list>
-#include <vector>
 
 namespace airborne_radar {
 namespace tests {
@@ -40,8 +42,7 @@ TEST(EnvironmentServiceTest, DetectsJammingByConfiguredThreshold) {
       MakeJammerEmitter(environment::JammingTechnique::kUnknown, 7.0f);
 
   environment::EnvironmentService service(MakeEnvironmentConfigWithJammers({jammer_source}));
-  service.SetJammingSensitivityProfile(
-      environment::internal::ResolveJammingSensitivityProfile(6.0f));
+  service.SetJammingSensitivityProfile(environment::ResolveJammingSensitivityProfile(6.0f));
 
   const auto snapshot = service.SampleEnvironment();
   EXPECT_TRUE(snapshot.jamming_detected);
@@ -177,8 +178,7 @@ TEST(EnvironmentServiceTest, SupportsMultipleJammerSourcesInSnapshot) {
   config.jammer_sources.push_back(deception_source);
 
   environment::EnvironmentService service(config);
-  service.SetJammingSensitivityProfile(
-      environment::internal::ResolveJammingSensitivityProfile(6.0f));
+  service.SetJammingSensitivityProfile(environment::ResolveJammingSensitivityProfile(6.0f));
 
   const auto snapshot = service.SampleEnvironment();
   ASSERT_EQ(snapshot.jammer_sources.size(), 2u);
@@ -230,8 +230,7 @@ TEST(EnvironmentServiceTest, ModelConfigVegetationScatterAffectsDefaultSnapshotC
 
 TEST(EnvironmentServiceTest, EmptyJammerSourcesProduceNoJammingFacts) {
   environment::EnvironmentService service;
-  service.SetJammingSensitivityProfile(
-      environment::internal::ResolveJammingSensitivityProfile(0.001f));
+  service.SetJammingSensitivityProfile(environment::ResolveJammingSensitivityProfile(0.001f));
 
   const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
   EXPECT_TRUE(snapshot.jammer_sources.empty());
@@ -249,8 +248,7 @@ TEST(EnvironmentServiceTest, StructuredSidelobeFactIsPreservedWithoutDetection) 
   source.angular_span_deg = 30.0f;
 
   environment::EnvironmentService service(MakeEnvironmentConfigWithJammers({source}));
-  service.SetJammingSensitivityProfile(
-      environment::internal::ResolveJammingSensitivityProfile(0.001f));
+  service.SetJammingSensitivityProfile(environment::ResolveJammingSensitivityProfile(0.001f));
 
   const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
   ASSERT_EQ(snapshot.jammer_sources.size(), 1u);
@@ -373,8 +371,7 @@ TEST(EnvironmentServiceTest, KeepsAllJammerSourcesInSnapshot) {
   config.jammer_sources.push_back(high);
 
   environment::EnvironmentService service(config);
-  service.SetJammingSensitivityProfile(
-      environment::internal::ResolveJammingSensitivityProfile(2.0f));
+  service.SetJammingSensitivityProfile(environment::ResolveJammingSensitivityProfile(2.0f));
 
   const environment::EnvironmentSnapshot snapshot = service.SampleEnvironment();
   ASSERT_EQ(snapshot.jammer_sources.size(), 2u);

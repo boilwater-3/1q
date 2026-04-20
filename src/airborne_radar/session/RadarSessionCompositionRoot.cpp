@@ -5,6 +5,7 @@
 #include "1q/airborne_radar/extension/RadarController.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/session/MutableRadarContext.h"
+#include "airborne_radar/session/SessionConfigBridge.h"
 #include "airborne_radar/signal/pipeline/core/SignalPipeline.h"
 
 namespace airborne_radar {
@@ -26,7 +27,7 @@ RadarSessionComposition BuildCompositionBase(const RadarSessionConfig& config) {
   composition.runtime_mission = config.mission;
   composition.runtime_policy = config.policy;
   composition.runtime_environment_scenario_config = config.environment.scenario_config;
-  composition.runtime_jamming_sensitivity_profile = config.environment.jamming_sensitivity_profile;
+  composition.runtime_jamming_sensitivity_profile = config.jamming_sensitivity_profile;
   return composition;
 }
 
@@ -34,8 +35,16 @@ void SyncPipelineConfig(RadarSessionComposition* composition) {
   if (composition == nullptr || composition->signal_pipeline == nullptr) {
     return;
   }
-  const bool accepted =
-      composition->signal_pipeline->UpdateConfig(BuildRuntimeSessionConfig(*composition));
+  const session::RadarSessionConfig runtime_session_config = BuildRuntimeSessionConfig(*composition);
+  signal::pipeline::SignalPipeline* concrete_pipeline =
+      dynamic_cast<signal::pipeline::SignalPipeline*>(composition->signal_pipeline);
+  bool accepted = false;
+  if (concrete_pipeline != nullptr) {
+    accepted = concrete_pipeline->UpdateExecutionConfig(
+        BuildExecutionConfigFromSessionConfig(runtime_session_config));
+  } else {
+    accepted = composition->signal_pipeline->UpdateConfig(runtime_session_config);
+  }
   (void)accepted;
 }
 
@@ -61,8 +70,10 @@ RadarSessionComposition RadarSessionCompositionRoot::ComposeDefault(
     const RadarSessionConfig& config) {
   RadarSessionComposition composition = BuildCompositionBase(config);
   composition.owned_radar_context.reset(new MutableRadarContext());
+    const config::execution::InternalExecutionConfig runtime_execution_config =
+      BuildExecutionConfigFromSessionConfig(BuildRuntimeSessionConfig(composition));
   composition.owned_signal_pipeline.reset(
-      new signal::pipeline::SignalPipeline(BuildRuntimeSessionConfig(composition)));
+      new signal::pipeline::SignalPipeline(runtime_execution_config));
   composition.owned_environment_service.reset(new environment::EnvironmentService(
       environment::BuildModelConfigFromScenario(composition.runtime_environment_scenario_config)));
   composition.owned_controller.reset(new extension::RadarController(
@@ -97,8 +108,10 @@ RadarSessionComposition RadarSessionCompositionRoot::ComposeWithEnvironmentServi
     const RadarSessionConfig& config, environment::IEnvironmentService& environment_service) {
   RadarSessionComposition composition = BuildCompositionBase(config);
   composition.owned_radar_context.reset(new MutableRadarContext());
+    const config::execution::InternalExecutionConfig runtime_execution_config =
+      BuildExecutionConfigFromSessionConfig(BuildRuntimeSessionConfig(composition));
   composition.owned_signal_pipeline.reset(
-      new signal::pipeline::SignalPipeline(BuildRuntimeSessionConfig(composition)));
+      new signal::pipeline::SignalPipeline(runtime_execution_config));
   composition.owned_controller.reset(new extension::RadarController(
       *composition.owned_radar_context, *composition.owned_signal_pipeline, environment_service));
   composition.radar_context = composition.owned_radar_context.get();

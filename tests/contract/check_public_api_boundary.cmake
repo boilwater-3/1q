@@ -16,14 +16,6 @@ set(AR_PUBLIC_PRIMARY_HEADERS
     "airborne_radar/config/airborne_radar_config.hpp"
 )
 
-# ── AR 语义档位（Builder 输入材料，不属于独立配置入口） ─────────────
-set(AR_SEMANTIC_HEADERS
-    "airborne_radar/config/semantic/AntennaProfiles.h"
-    "airborne_radar/config/semantic/DetectionProfiles.h"
-    "airborne_radar/config/semantic/LifecycleProfiles.h"
-    "airborne_radar/config/semantic/TrackingProfiles.h"
-)
-
 # ── AR 环境域 ────────────────────────────────────────────────────────
 set(AR_ENVIRONMENT_HEADERS
     "airborne_radar/environment/EnvironmentConfig.h"
@@ -175,7 +167,6 @@ set(FOUNDATION_HEADERS
 
 set(EXPECTED_PUBLIC_HEADERS
     ${AR_PUBLIC_PRIMARY_HEADERS}
-    ${AR_SEMANTIC_HEADERS}
     ${AR_ENVIRONMENT_HEADERS}
     ${AR_EXTENSION_HEADERS}
     ${AR_MODEL_HEADERS}
@@ -282,4 +273,18 @@ foreach(FORBIDDEN_PATTERN IN LISTS FORBIDDEN_BUILDER_METHOD_PATTERNS)
             "Legacy top-level RadarSessionConfigBuilder API reintroduced: ${FORBIDDEN_PATTERN}\n"
             "Use grouped editors only: Detection()/Beam()/Tracking()/Lifecycle()/Environment().")
   endif()
+endforeach()
+
+# Guardrail (M7-F): deleted internal legacy config shells must not reappear.
+set(AR_FORBIDDEN_INTERNAL_PATHS
+        "${CMAKE_SOURCE_DIR}/src/airborne_radar/config/legacy"
+    "${CMAKE_SOURCE_DIR}/src/airborne_radar/config/internal/SessionConfigPipelineMapper.h"
+    "${CMAKE_SOURCE_DIR}/src/airborne_radar/config/internal/ExpertToEngineeringMapping.h")
+
+foreach(FORBIDDEN_PATH IN LISTS AR_FORBIDDEN_INTERNAL_PATHS)
+    if(EXISTS "${FORBIDDEN_PATH}")
+        message(FATAL_ERROR
+                        "Forbidden internal legacy path reintroduced: ${FORBIDDEN_PATH}\n"
+                        "M7-F requires legacy config shells, SessionConfigPipelineMapper, and ExpertToEngineeringMapping to stay removed.")
+    endif()
 endforeach()

@@ -19,8 +19,49 @@ class ONEQ_API EosEnvironmentConfigBuilder {
   explicit EosEnvironmentConfigBuilder(const EosEnvironmentDefaultConfig& config = {})
       : config_(config) {}
 
+  EosEnvironmentConfigBuilder& WithScenarioConfig(
+      const EosEnvironmentScenarioConfig& scenario_config) {
+    config_.scenario_config = scenario_config;
+    return *this;
+  }
+
   EosEnvironmentConfigBuilder& WithModelType(EosEnvironmentModelType model_type) {
-    config_.model_type = model_type;
+    config_.scenario_config.model_type = model_type;
+    return *this;
+  }
+
+  EosEnvironmentConfigBuilder& WithPreset(EosEnvironmentPreset preset) {
+    config_.scenario_config.preset = preset;
+    return *this;
+  }
+
+  EosEnvironmentConfigBuilder& WithCustomOverrides(
+      const EosEnvironmentCustomOverrides& custom_overrides) {
+    config_.scenario_config.has_custom_overrides = true;
+    config_.scenario_config.custom_overrides = custom_overrides;
+    return *this;
+  }
+
+  EosEnvironmentConfigBuilder& WithoutCustomOverrides() {
+    config_.scenario_config.has_custom_overrides = false;
+    config_.scenario_config.custom_overrides = EosEnvironmentCustomOverrides{};
+    return *this;
+  }
+
+  EosEnvironmentConfigBuilder& WithCustomDetails(
+      foundation::radiative_transfer::RadiativeTransferModel radiative_transfer_model,
+      float aerosol_density_factor,
+      float turbulence_factor,
+      bool enable_optical_countermeasure_extension = false) {
+    config_.scenario_config.has_custom_overrides = true;
+    config_.scenario_config.custom_overrides.radiative_transfer_model =
+        radiative_transfer_model;
+    config_.scenario_config.custom_overrides.aerosol_density_factor =
+        aerosol_density_factor;
+    config_.scenario_config.custom_overrides.turbulence_factor =
+        turbulence_factor;
+    config_.scenario_config.custom_overrides.enable_optical_countermeasure_extension =
+        enable_optical_countermeasure_extension;
     return *this;
   }
 

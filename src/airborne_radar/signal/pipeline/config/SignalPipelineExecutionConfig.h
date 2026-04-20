@@ -6,13 +6,13 @@
 #ifndef AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_SIGNAL_PIPELINE_EXECUTION_CONFIG_H_
 #define AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_SIGNAL_PIPELINE_EXECUTION_CONFIG_H_
 
-#include "airborne_radar/config/legacy/PipelineConfig.h"
+#include "airborne_radar/config/execution/InternalExecutionConfig.h"
 
 namespace airborne_radar {
 namespace signal {
 namespace pipeline {
 
-using PipelineConfig = config::PipelineConfig;
+using ExecutionConfig = ::airborne_radar::config::execution::InternalExecutionConfig;
 
 }  // namespace pipeline
 }  // namespace signal

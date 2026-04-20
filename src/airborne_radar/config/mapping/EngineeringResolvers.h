@@ -1,17 +1,18 @@
 /**
- * @file ExpertToEngineeringMapping.h
- * @brief 定义 expert 配置到 engineering 配置的内部映射函数。
+ * @file EngineeringResolvers.h
+ * @brief 定义四域配置子类型到 engineering 配置的共享映射函数。
  */
 
-#ifndef AIRBORNE_RADAR_SRC_CONFIG_INTERNAL_EXPERT_TO_ENGINEERING_MAPPING_H_
-#define AIRBORNE_RADAR_SRC_CONFIG_INTERNAL_EXPERT_TO_ENGINEERING_MAPPING_H_
+#ifndef AIRBORNE_RADAR_SRC_CONFIG_MAPPING_ENGINEERING_RESOLVERS_H_
+#define AIRBORNE_RADAR_SRC_CONFIG_MAPPING_ENGINEERING_RESOLVERS_H_
 
-#include "airborne_radar/config/legacy/expert/ExpertPipelineConfig.h"
+#include "1q/airborne_radar/config/RadarHardwareConfig.h"
+#include "1q/airborne_radar/config/RadarPolicyConfig.h"
 #include "airborne_radar/config/engineering/SignalEngineeringConfig.h"
 
 namespace airborne_radar {
 namespace config {
-namespace internal {
+namespace mapping {
 
 inline engineering::AntennaPatternModelType ResolveAntennaPatternModelType(
     AntennaPatternModelType model_type) {
@@ -109,8 +110,8 @@ inline engineering::LifecycleRuntimeConfig ResolveLifecycleEngineering(
   return resolved;
 }
 
-}  // namespace internal
+}  // namespace mapping
 }  // namespace config
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_SRC_CONFIG_INTERNAL_EXPERT_TO_ENGINEERING_MAPPING_H_
+#endif  // AIRBORNE_RADAR_SRC_CONFIG_MAPPING_ENGINEERING_RESOLVERS_H_

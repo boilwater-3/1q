@@ -136,14 +136,14 @@ struct SceneScriptStep {
 session::RadarSessionConfig MakeJointIntegrationSessionConfig() {
   return config::RadarSessionConfigBuilder()
       .Detection()
-      .WithDetectionIntentProfile(config::semantic::DetectionIntentProfile::kDetectionPriority)
+      .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
       .End()
       .Tracking()
       .EnableTrackingFilter(true)
-      .WithTrackingPolicyProfile(config::semantic::TrackingPolicyProfile::kFastAssociation)
+      .WithTrackingPolicyProfile(config::profiles::TrackingPolicyProfile::kFastAssociation)
       .End()
       .Lifecycle()
-      .WithLifecyclePolicyProfile(config::semantic::LifecyclePolicyProfile::kFastConfirm)
+      .WithLifecyclePolicyProfile(config::profiles::LifecyclePolicyProfile::kFastConfirm)
       .End()
       .Build();
 }
