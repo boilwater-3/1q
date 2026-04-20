@@ -176,45 +176,53 @@ struct EnvironmentScenarioConfig {
 };
 
 /**
- * @brief EnvironmentModelConfig 与 EnvironmentScenarioConfig 统一。
+ * @brief EnvironmentModelConfig 描述环境服务/算法执行直接消费的参数。
  *
- * @par 别名合约
- * - 当前为 ScenarioConfig 的类型别名（恒等映射）。
- * - 合约上允许未来独立演化，届时 BuildModelConfigFromScenario 需同步更新为非恒等映射。
- * - 不得向 ModelConfig 添加 ScenarioConfig 不存在的字段；如需差异化，
- *   应拆分为独立 struct 并更新映射函数。
+ * @par 类型合约
+ * - 独立于 EnvironmentScenarioConfig 的 struct，禁止退化为 type alias。
+ * - 字段与 ScenarioConfig 一致时，通过 BuildModelConfigFromScenario 显式字段映射构造。
+ * - 若未来需差异化（增加派生字段或移除场景字段），直接修改本 struct 并更新映射函数。
+ * - 调用方不得假设 ModelConfig 与 ScenarioConfig 同型。
  */
-using EnvironmentModelConfig = EnvironmentScenarioConfig;
+struct EnvironmentModelConfig {
+  AtmosphericPhysicsConfig atmospheric_physics{};
+  AtmosphericDerivedContext atmospheric_context{};
+  VegetationScatterPhysicsConfig vegetation_scatter_physics{};
+  JammerEmitterStateList jammer_sources{};
+};
 
 /**
  * @brief EnvironmentDefaultConfig 描述初始化阶段的默认环境配置。
  *
  * @par 类型合约
  * - 初始化阶段一次性构造，构造后不再变更。
- * - 包含 scenario_config（外部场景事实）与策略枚举（如干扰灵敏度档位）。
+ * - 仅承载 scenario_config（外部场景事实），不包含策略枚举或调参项。
  * - 不提供运行期热更新语义；运行期更新须通过 EnvironmentRuntimeConfigPatch。
  * - 无复杂校验逻辑，构造后即视为合法。
  */
 struct EnvironmentDefaultConfig {
   EnvironmentScenarioConfig scenario_config{}; /**< 默认环境场景输入 */
-  JammingSensitivityProfile jamming_sensitivity_profile{
-      JammingSensitivityProfile::kBalanced}; /**< 默认干扰判定灵敏度语义档位 */
 };
 
 /**
  * @brief 将对外场景输入映射为内部环境模型配置。
  *
  * @par 映射合约
- * - 当前为恒等映射（identity），直接透传 ScenarioConfig。
- * - 若未来引入非恒等映射，须同步添加映射单元测试。
+ * - 显式字段映射：逐字段从 ScenarioConfig 拷贝到 ModelConfig。
+ * - 若未来引入非恒等映射（字段转换、派生、过滤），须同步添加映射单元测试。
  * - 无 fallback 语义：输入合法即输出合法。
  *
  * @param[in] scenario_config 外部场景输入。
- * @return 与输入完全一致的模型配置。
+ * @return 逐字段拷贝后的模型配置。
  */
 inline EnvironmentModelConfig BuildModelConfigFromScenario(
     const EnvironmentScenarioConfig& scenario_config) {
-  return scenario_config;
+  EnvironmentModelConfig model_config;
+  model_config.atmospheric_physics = scenario_config.atmospheric_physics;
+  model_config.atmospheric_context = scenario_config.atmospheric_context;
+  model_config.vegetation_scatter_physics = scenario_config.vegetation_scatter_physics;
+  model_config.jammer_sources = scenario_config.jammer_sources;
+  return model_config;
 }
 
 }  // namespace environment

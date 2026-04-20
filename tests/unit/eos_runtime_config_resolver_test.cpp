@@ -21,13 +21,17 @@ TEST(EosRuntimeConfigResolverTest, ValidPatchBuildsRuntimeUpdateAndScanResetFlag
   eos_session::EosSessionConfig current_config;
   current_config.mission.scan_rate_deg_per_sec = 20.0f;
   current_config.policy.detection.profile = eos_config::EosDetectionProfile::kBalanced;
-  current_config.environment.preset = eos_config::EosEnvironmentPreset::kStandard;
+  current_config.environment.scenario_config.preset = eos_config::EosEnvironmentPreset::kStandard;
 
   const eos_session::EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder()
           .WithScanRateDegPerSec(60.0f)
           .WithDetectionProfile(eos_config::EosDetectionProfile::kConservative)
-          .WithEnvironmentPreset(eos_config::EosEnvironmentPreset::kDusty)
+          .WithEnvironmentDetails(
+              ::electro_optical_sensor::foundation::radiative_transfer::
+                  RadiativeTransferModel::kAdaptivePathRadiance,
+              2.0f,
+              1.2f)
           .Build();
 
   const EosRuntimeConfigResolveResult resolved =
@@ -38,7 +42,17 @@ TEST(EosRuntimeConfigResolverTest, ValidPatchBuildsRuntimeUpdateAndScanResetFlag
   EXPECT_TRUE(resolved.reset_scan_phase);
   EXPECT_FLOAT_EQ(resolved.next_config.mission.scan_rate_deg_per_sec, 60.0f);
   EXPECT_EQ(resolved.next_config.policy.detection.profile, eos_config::EosDetectionProfile::kConservative);
-  EXPECT_EQ(resolved.next_config.environment.preset, eos_config::EosEnvironmentPreset::kDusty);
+  EXPECT_TRUE(resolved.next_config.environment.scenario_config.has_custom_overrides);
+  EXPECT_EQ(
+      resolved.next_config.environment.scenario_config.custom_overrides.radiative_transfer_model,
+      ::electro_optical_sensor::foundation::radiative_transfer::
+          RadiativeTransferModel::kAdaptivePathRadiance);
+  EXPECT_FLOAT_EQ(
+      resolved.next_config.environment.scenario_config.custom_overrides.aerosol_density_factor,
+      2.0f);
+  EXPECT_FLOAT_EQ(
+      resolved.next_config.environment.scenario_config.custom_overrides.turbulence_factor,
+      1.2f);
 }
 
 TEST(EosRuntimeConfigResolverTest, InvalidFieldRejectsWholePatch) {

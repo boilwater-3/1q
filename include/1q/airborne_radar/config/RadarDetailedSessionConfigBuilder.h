@@ -319,7 +319,7 @@ class RadarDetailedSessionConfigBuilder::EnvironmentEditor {
   }
   /** @brief 设置干扰判定灵敏度语义档位。 */
   EnvironmentEditor& WithJammingSensitivityProfile(environment::JammingSensitivityProfile profile) {
-    builder_->config_.environment.jamming_sensitivity_profile = profile;
+    builder_->config_.jamming_sensitivity_profile = profile;
     return *this;
   }
 

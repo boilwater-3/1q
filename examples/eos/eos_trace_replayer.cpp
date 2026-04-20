@@ -134,28 +134,40 @@ eos::session::EosSessionConfig ParseSessionConfig(const Json& payload) {
 
   const Json environment_payload =
       payload.contains("environment") ? payload["environment"] : payload;
-  config.environment.model_type = static_cast<eos::environment::EosEnvironmentModelType>(
+    config.environment.scenario_config.model_type =
+      static_cast<eos::environment::EosEnvironmentModelType>(
       GetInt(environment_payload, "environment_model_type",
-             static_cast<int>(config.environment.model_type)));
-  config.environment.preset = static_cast<eos::config::EosEnvironmentPreset>(
+         static_cast<int>(config.environment.scenario_config.model_type)));
+    config.environment.scenario_config.preset =
+      static_cast<eos::config::EosEnvironmentPreset>(
       GetInt(environment_payload, "environment_preset",
-             static_cast<int>(config.environment.preset)));
-  config.environment.use_preset_defaults = GetBool(
-      environment_payload, "use_preset_defaults",
-      config.environment.use_preset_defaults);
-  config.environment.radiative_transfer_model =
+         static_cast<int>(config.environment.scenario_config.preset)));
+
+    const bool has_custom_overrides =
+      GetBool(environment_payload, "has_custom_overrides", false);
+    config.environment.scenario_config.has_custom_overrides = has_custom_overrides;
+    if (has_custom_overrides) {
+    const Json custom_overrides_payload =
+      environment_payload.contains("custom_overrides")
+        ? environment_payload["custom_overrides"]
+        : environment_payload;
+    config.environment.scenario_config.custom_overrides.radiative_transfer_model =
       static_cast<eos::foundation::radiative_transfer::RadiativeTransferModel>(
-          GetInt(environment_payload, "radiative_transfer_model",
-                 static_cast<int>(config.environment.radiative_transfer_model)));
-  config.environment.aerosol_density_factor = GetFloat(
-      environment_payload, "aerosol_density_factor",
-      config.environment.aerosol_density_factor);
-  config.environment.turbulence_factor = GetFloat(
-      environment_payload, "turbulence_factor",
-      config.environment.turbulence_factor);
-  config.environment.enable_optical_countermeasure_extension = GetBool(
-      environment_payload, "enable_optical_countermeasure_extension",
-      config.environment.enable_optical_countermeasure_extension);
+        GetInt(custom_overrides_payload, "radiative_transfer_model",
+             static_cast<int>(config.environment.scenario_config.custom_overrides
+                      .radiative_transfer_model)));
+    config.environment.scenario_config.custom_overrides.aerosol_density_factor = GetFloat(
+      custom_overrides_payload, "aerosol_density_factor",
+      config.environment.scenario_config.custom_overrides.aerosol_density_factor);
+    config.environment.scenario_config.custom_overrides.turbulence_factor = GetFloat(
+      custom_overrides_payload, "turbulence_factor",
+      config.environment.scenario_config.custom_overrides.turbulence_factor);
+    config.environment.scenario_config.custom_overrides
+      .enable_optical_countermeasure_extension = GetBool(
+      custom_overrides_payload, "enable_optical_countermeasure_extension",
+      config.environment.scenario_config.custom_overrides
+        .enable_optical_countermeasure_extension);
+    }
   return config;
 }
 
@@ -266,29 +278,42 @@ eos::session::EosRuntimeConfigPatch ParseRuntimePatch(const Json& payload) {
   patch.has_environment = GetBool(payload, "has_environment", false);
   if (patch.has_environment && payload.contains("environment")) {
     const Json& environment_payload = payload["environment"];
+    patch.environment.has_model_type =
+      GetBool(environment_payload, "has_model_type",
+          environment_payload.contains("environment_model_type"));
     patch.environment.model_type =
-        static_cast<eos::environment::EosEnvironmentModelType>(
-            GetInt(environment_payload, "environment_model_type",
-                   static_cast<int>(patch.environment.model_type)));
-    patch.environment.preset = static_cast<eos::config::EosEnvironmentPreset>(
-        GetInt(environment_payload, "environment_preset",
-               static_cast<int>(patch.environment.preset)));
-    patch.environment.use_preset_defaults =
-        GetBool(environment_payload, "use_preset_defaults",
-                patch.environment.use_preset_defaults);
+      static_cast<eos::environment::EosEnvironmentModelType>(
+        GetInt(environment_payload, "environment_model_type",
+             static_cast<int>(patch.environment.model_type)));
+
+    patch.environment.has_radiative_transfer_model =
+      GetBool(environment_payload, "has_radiative_transfer_model",
+          environment_payload.contains("radiative_transfer_model"));
     patch.environment.radiative_transfer_model =
-        static_cast<eos::foundation::radiative_transfer::RadiativeTransferModel>(
-            GetInt(environment_payload, "radiative_transfer_model",
-                   static_cast<int>(patch.environment.radiative_transfer_model)));
+      static_cast<eos::foundation::radiative_transfer::RadiativeTransferModel>(
+        GetInt(environment_payload, "radiative_transfer_model",
+             static_cast<int>(patch.environment.radiative_transfer_model)));
+
+    patch.environment.has_aerosol_density_factor =
+      GetBool(environment_payload, "has_aerosol_density_factor",
+          environment_payload.contains("aerosol_density_factor"));
     patch.environment.aerosol_density_factor =
-        GetFloat(environment_payload, "aerosol_density_factor",
-                 patch.environment.aerosol_density_factor);
+      GetFloat(environment_payload, "aerosol_density_factor",
+           patch.environment.aerosol_density_factor);
+
+    patch.environment.has_turbulence_factor =
+      GetBool(environment_payload, "has_turbulence_factor",
+          environment_payload.contains("turbulence_factor"));
     patch.environment.turbulence_factor =
-        GetFloat(environment_payload, "turbulence_factor",
-                 patch.environment.turbulence_factor);
+      GetFloat(environment_payload, "turbulence_factor",
+           patch.environment.turbulence_factor);
+
+    patch.environment.has_enable_optical_countermeasure_extension = GetBool(
+      environment_payload, "has_enable_optical_countermeasure_extension",
+      environment_payload.contains("enable_optical_countermeasure_extension"));
     patch.environment.enable_optical_countermeasure_extension = GetBool(
-        environment_payload, "enable_optical_countermeasure_extension",
-        patch.environment.enable_optical_countermeasure_extension);
+      environment_payload, "enable_optical_countermeasure_extension",
+      patch.environment.enable_optical_countermeasure_extension);
   }
 
   patch.has_work_mode = GetBool(payload, "has_work_mode", false);

@@ -20,16 +20,33 @@ namespace {
 // Suite 1: 类型与别名合同
 // ---------------------------------------------------------------------------
 
-TEST(ArEnvironmentTypeContractTest, ModelConfigIsAliasOfScenarioConfig) {
-  static_assert(std::is_same<EnvironmentModelConfig, EnvironmentScenarioConfig>::value,
-                "EnvironmentModelConfig must be an alias of EnvironmentScenarioConfig");
+TEST(ArEnvironmentTypeContractTest, ModelConfigIsIndependentFromScenarioConfig) {
+  static_assert(!std::is_same<EnvironmentModelConfig, EnvironmentScenarioConfig>::value,
+                "EnvironmentModelConfig must NOT be an alias of EnvironmentScenarioConfig");
 }
 
-TEST(ArEnvironmentTypeContractTest, DefaultConfigContainsScenarioAndProfile) {
+TEST(ArEnvironmentTypeContractTest, ModelConfigHasSameFieldStructureAsScenarioConfig) {
+  EnvironmentScenarioConfig scenario;
+  scenario.atmospheric_physics.pressure_hpa = 1000.0f;
+  scenario.atmospheric_context.solar_flux_f107 = 120.0f;
+  scenario.vegetation_scatter_physics.cover_profile = VegetationCoverProfile::kDeciduousForest;
+  JammerEmitterState j;
+  j.power_db = 5.0f;
+  scenario.jammer_sources = {j};
+
+  const auto model = BuildModelConfigFromScenario(scenario);
+
+  EXPECT_FLOAT_EQ(model.atmospheric_physics.pressure_hpa, 1000.0f);
+  EXPECT_FLOAT_EQ(model.atmospheric_context.solar_flux_f107, 120.0f);
+  EXPECT_EQ(model.vegetation_scatter_physics.cover_profile,
+            VegetationCoverProfile::kDeciduousForest);
+  ASSERT_EQ(model.jammer_sources.size(), 1u);
+  EXPECT_FLOAT_EQ(model.jammer_sources[0].power_db, 5.0f);
+}
+
+TEST(ArEnvironmentTypeContractTest, DefaultConfigContainsOnlyScenarioConfig) {
   EnvironmentDefaultConfig defaults;
   (void)defaults.scenario_config;
-  (void)defaults.jamming_sensitivity_profile;
-  EXPECT_EQ(defaults.jamming_sensitivity_profile, JammingSensitivityProfile::kBalanced);
 }
 
 TEST(ArEnvironmentTypeContractTest, DefaultConfigScenarioDefaultsToEmpty) {
@@ -99,7 +116,7 @@ TEST(ArEnvironmentDefaultStabilityTest, JammerEmitterStateDefaults) {
 TEST(ArEnvironmentDefaultStabilityTest, DefaultConfigBuilderEmptyProducesDefaults) {
   const auto built = EnvironmentDefaultConfigBuilder().Build();
   const EnvironmentDefaultConfig defaults;
-  EXPECT_EQ(built.jamming_sensitivity_profile, defaults.jamming_sensitivity_profile);
+  EXPECT_EQ(built.scenario_config.jammer_sources.size(), defaults.scenario_config.jammer_sources.size());
 }
 
 TEST(ArEnvironmentDefaultStabilityTest, DefaultConfigBuilderPreservesOverride) {
@@ -119,7 +136,7 @@ TEST(ArEnvironmentDefaultStabilityTest, DefaultConfigBuilderPreservesOverride) {
 // Suite 3: 映射函数行为
 // ---------------------------------------------------------------------------
 
-TEST(ArEnvironmentMappingFunctionTest, BuildModelConfigFromScenarioIsIdentity) {
+TEST(ArEnvironmentMappingFunctionTest, BuildModelConfigFromScenarioExplicitFieldMapping) {
   EnvironmentScenarioConfig scenario;
   scenario.atmospheric_physics.enable_physical_model = true;
   scenario.atmospheric_physics.temperature_k = 300.0f;

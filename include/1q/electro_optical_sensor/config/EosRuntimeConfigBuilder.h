@@ -6,6 +6,7 @@
 #ifndef ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_RUNTIME_CONFIG_BUILDER_H_
 #define ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_RUNTIME_CONFIG_BUILDER_H_
 
+#include "1q/electro_optical_sensor/config/EosEnvironmentConfig.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
 
 namespace electro_optical_sensor {
@@ -38,9 +39,32 @@ class ONEQ_API EosRuntimeConfigBuilder {
   }
 
   EosRuntimeConfigBuilder& WithEnvironment(
+      const environment::EosEnvironmentRuntimeConfigPatch& environment_patch) noexcept {
+    patch_.has_environment = true;
+    patch_.environment = environment_patch;
+    return *this;
+  }
+
+  EosRuntimeConfigBuilder& WithEnvironment(
       const EosEnvironmentConfig& environment) noexcept {
     patch_.has_environment = true;
-    patch_.environment = environment;
+    patch_.environment.has_model_type = true;
+    patch_.environment.model_type = environment.scenario_config.model_type;
+    if (environment.scenario_config.has_custom_overrides) {
+      patch_.environment.has_radiative_transfer_model = true;
+      patch_.environment.radiative_transfer_model =
+          environment.scenario_config.custom_overrides.radiative_transfer_model;
+      patch_.environment.has_aerosol_density_factor = true;
+      patch_.environment.aerosol_density_factor =
+          environment.scenario_config.custom_overrides.aerosol_density_factor;
+      patch_.environment.has_turbulence_factor = true;
+      patch_.environment.turbulence_factor =
+          environment.scenario_config.custom_overrides.turbulence_factor;
+      patch_.environment.has_enable_optical_countermeasure_extension = true;
+      patch_.environment.enable_optical_countermeasure_extension =
+          environment.scenario_config.custom_overrides
+              .enable_optical_countermeasure_extension;
+    }
     return *this;
   }
 
@@ -79,14 +103,8 @@ class ONEQ_API EosRuntimeConfigBuilder {
   EosRuntimeConfigBuilder& WithEnvironmentModelType(
       environment::EosEnvironmentModelType model_type) noexcept {
     patch_.has_environment = true;
+    patch_.environment.has_model_type = true;
     patch_.environment.model_type = model_type;
-    return *this;
-  }
-
-  EosRuntimeConfigBuilder& WithEnvironmentPreset(EosEnvironmentPreset preset) noexcept {
-    patch_.has_environment = true;
-    patch_.environment.preset = preset;
-    patch_.environment.use_preset_defaults = true;
     return *this;
   }
 
@@ -120,9 +138,11 @@ class ONEQ_API EosRuntimeConfigBuilder {
       foundation::radiative_transfer::RadiativeTransferModel radiative_transfer_model,
       float aerosol_density_factor, float turbulence_factor) noexcept {
     patch_.has_environment = true;
-    patch_.environment.use_preset_defaults = false;
+    patch_.environment.has_radiative_transfer_model = true;
     patch_.environment.radiative_transfer_model = radiative_transfer_model;
+    patch_.environment.has_aerosol_density_factor = true;
     patch_.environment.aerosol_density_factor = aerosol_density_factor;
+    patch_.environment.has_turbulence_factor = true;
     patch_.environment.turbulence_factor = turbulence_factor;
     return *this;
   }

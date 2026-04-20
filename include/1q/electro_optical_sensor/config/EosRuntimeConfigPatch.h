@@ -7,10 +7,10 @@
 #define ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_RUNTIME_CONFIG_PATCH_H_
 
 #include "1q/api.hpp"
-#include "1q/electro_optical_sensor/config/EosEnvironmentConfig.h"
 #include "1q/electro_optical_sensor/config/EosMissionConfig.h"
 #include "1q/electro_optical_sensor/config/EosPolicyConfig.h"
 #include "1q/electro_optical_sensor/config/EosWorkMode.h"
+#include "1q/electro_optical_sensor/environment/EosEnvironmentRuntimeConfigPatch.h"
 
 namespace electro_optical_sensor {
 namespace session {
@@ -27,8 +27,8 @@ struct ONEQ_API EosRuntimeConfigPatch {
   bool has_policy{false}; /**< 是否整块覆盖 policy */
   config::EosPolicyConfig policy{}; /**< policy 覆盖值 */
 
-  bool has_environment{false}; /**< 是否整块覆盖 environment */
-  config::EosEnvironmentConfig environment{}; /**< environment 覆盖值 */
+  bool has_environment{false}; /**< 是否应用 environment 白名单补丁 */
+  environment::EosEnvironmentRuntimeConfigPatch environment{}; /**< environment 白名单补丁 */
 
   bool has_work_mode{false};            /**< 是否显式设置工作模式 */
   EosWorkMode work_mode{EosWorkMode::kFused}; /**< 工作模式值 */

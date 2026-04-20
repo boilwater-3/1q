@@ -329,10 +329,10 @@ ar::session::RadarSessionConfig ParseSessionConfig(const Json& payload) {
   if (payload.contains("environment")) {
     const Json& env = payload["environment"];
     if (env.contains("jamming_sensitivity_profile")) {
-      config.environment.jamming_sensitivity_profile =
+      config.jamming_sensitivity_profile =
           static_cast<ar::environment::JammingSensitivityProfile>(
               GetInt(env, "jamming_sensitivity_profile",
-                     static_cast<int>(config.environment.jamming_sensitivity_profile)));
+                     static_cast<int>(config.jamming_sensitivity_profile)));
     }
     if (env.contains("scenario_config")) {
       config.environment.scenario_config = ParseEnvironmentScenario(env["scenario_config"]);

@@ -25,6 +25,48 @@ class ONEQ_API EosEnvironmentRuntimeConfigPatchBuilder {
     return *this;
   }
 
+  EosEnvironmentRuntimeConfigPatchBuilder& WithRadiativeTransferModel(
+      foundation::radiative_transfer::RadiativeTransferModel model) {
+    patch_.has_radiative_transfer_model = true;
+    patch_.radiative_transfer_model = model;
+    return *this;
+  }
+
+  EosEnvironmentRuntimeConfigPatchBuilder& WithAerosolDensityFactor(float value) {
+    patch_.has_aerosol_density_factor = true;
+    patch_.aerosol_density_factor = value;
+    return *this;
+  }
+
+  EosEnvironmentRuntimeConfigPatchBuilder& WithTurbulenceFactor(float value) {
+    patch_.has_turbulence_factor = true;
+    patch_.turbulence_factor = value;
+    return *this;
+  }
+
+  EosEnvironmentRuntimeConfigPatchBuilder& WithEnableOpticalCountermeasureExtension(
+      bool enable) {
+    patch_.has_enable_optical_countermeasure_extension = true;
+    patch_.enable_optical_countermeasure_extension = enable;
+    return *this;
+  }
+
+  EosEnvironmentRuntimeConfigPatchBuilder& WithModelDetails(
+      foundation::radiative_transfer::RadiativeTransferModel model,
+      float aerosol_density_factor,
+      float turbulence_factor,
+      bool enable_optical_countermeasure_extension = false) {
+    patch_.has_radiative_transfer_model = true;
+    patch_.radiative_transfer_model = model;
+    patch_.has_aerosol_density_factor = true;
+    patch_.aerosol_density_factor = aerosol_density_factor;
+    patch_.has_turbulence_factor = true;
+    patch_.turbulence_factor = turbulence_factor;
+    patch_.has_enable_optical_countermeasure_extension = true;
+    patch_.enable_optical_countermeasure_extension = enable_optical_countermeasure_extension;
+    return *this;
+  }
+
   EosEnvironmentRuntimeConfigPatch Build() const { return patch_; }
 
  private:

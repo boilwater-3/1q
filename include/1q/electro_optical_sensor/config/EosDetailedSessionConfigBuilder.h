@@ -79,13 +79,12 @@ class ONEQ_API EosDetailedSessionConfigBuilder {
 
   EosDetailedSessionConfigBuilder& WithEnvironmentModelType(
       environment::EosEnvironmentModelType model_type) noexcept {
-    config_.environment.model_type = model_type;
+    config_.environment.scenario_config.model_type = model_type;
     return *this;
   }
 
   EosDetailedSessionConfigBuilder& WithEnvironmentPreset(EosEnvironmentPreset preset) noexcept {
-    config_.environment.preset = preset;
-    config_.environment.use_preset_defaults = true;
+    config_.environment.scenario_config.preset = preset;
     return *this;
   }
 
@@ -116,10 +115,13 @@ class ONEQ_API EosDetailedSessionConfigBuilder {
   EosDetailedSessionConfigBuilder& WithEnvironmentDetails(
       foundation::radiative_transfer::RadiativeTransferModel radiative_transfer_model,
       float aerosol_density_factor, float turbulence_factor) noexcept {
-    config_.environment.use_preset_defaults = false;
-    config_.environment.radiative_transfer_model = radiative_transfer_model;
-    config_.environment.aerosol_density_factor = aerosol_density_factor;
-    config_.environment.turbulence_factor = turbulence_factor;
+    config_.environment.scenario_config.has_custom_overrides = true;
+    config_.environment.scenario_config.custom_overrides.radiative_transfer_model =
+      radiative_transfer_model;
+    config_.environment.scenario_config.custom_overrides.aerosol_density_factor =
+      aerosol_density_factor;
+    config_.environment.scenario_config.custom_overrides.turbulence_factor =
+      turbulence_factor;
     return *this;
   }
 

@@ -77,8 +77,8 @@ EosSessionConfig MakeSessionConfig() {
   config.mission.scan_rate_deg_per_sec = 9.0f;
   config.mission.frame_rate_hz = 15.0f;
   config.policy.detection.profile = config::EosDetectionProfile::kConservative;
-  config.environment.model_type = environment::EosEnvironmentModelType::kAdvanced;
-  config.environment.preset = config::EosEnvironmentPreset::kDusty;
+  config.environment.scenario_config.model_type = environment::EosEnvironmentModelType::kAdvanced;
+  config.environment.scenario_config.preset = config::EosEnvironmentPreset::kDusty;
   return config;
 }
 

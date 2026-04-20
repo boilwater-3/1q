@@ -60,14 +60,19 @@ bool IsValidPolicy(const config::EosPolicyConfig& policy) {
          IsValidStrayLightPolicy(policy.stray_light);
 }
 
-bool IsValidEnvironment(const config::EosEnvironmentConfig& environment) {
-  if (environment.use_preset_defaults) {
-    return true;
+bool IsValidEnvironmentPatch(
+    const environment::EosEnvironmentRuntimeConfigPatch& environment_patch) {
+  if (environment_patch.has_aerosol_density_factor &&
+      (!IsFinite(environment_patch.aerosol_density_factor) ||
+       environment_patch.aerosol_density_factor <= 0.0f)) {
+    return false;
   }
-  return IsFinite(environment.aerosol_density_factor) &&
-         environment.aerosol_density_factor > 0.0f &&
-         IsFinite(environment.turbulence_factor) &&
-         environment.turbulence_factor > 0.0f;
+  if (environment_patch.has_turbulence_factor &&
+      (!IsFinite(environment_patch.turbulence_factor) ||
+       environment_patch.turbulence_factor <= 0.0f)) {
+    return false;
+  }
+  return true;
 }
 
 EosRuntimeConfigResolveResult RejectPatch(
@@ -113,12 +118,45 @@ EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(
   }
 
   if (patch.has_environment) {
-    if (!IsValidEnvironment(patch.environment)) {
+    if (!IsValidEnvironmentPatch(patch.environment)) {
       PROJECT_LOG_ERROR(
           "[EosSession] Rejecting environment patch because environment values are invalid.");
       return RejectPatch(current_config, true);
     }
-    resolved.next_config.environment = patch.environment;
+
+    environment::EosEnvironmentScenarioConfig& scenario_config =
+        resolved.next_config.environment.scenario_config;
+    const environment::EosEnvironmentRuntimeConfigPatch& environment_patch =
+        patch.environment;
+
+    if (environment_patch.has_model_type) {
+      scenario_config.model_type = environment_patch.model_type;
+    }
+
+    const bool has_model_leaf_override =
+        environment_patch.has_radiative_transfer_model ||
+        environment_patch.has_aerosol_density_factor ||
+        environment_patch.has_turbulence_factor ||
+        environment_patch.has_enable_optical_countermeasure_extension;
+    if (has_model_leaf_override) {
+      scenario_config.has_custom_overrides = true;
+      if (environment_patch.has_radiative_transfer_model) {
+        scenario_config.custom_overrides.radiative_transfer_model =
+            environment_patch.radiative_transfer_model;
+      }
+      if (environment_patch.has_aerosol_density_factor) {
+        scenario_config.custom_overrides.aerosol_density_factor =
+            environment_patch.aerosol_density_factor;
+      }
+      if (environment_patch.has_turbulence_factor) {
+        scenario_config.custom_overrides.turbulence_factor =
+            environment_patch.turbulence_factor;
+      }
+      if (environment_patch.has_enable_optical_countermeasure_extension) {
+        scenario_config.custom_overrides.enable_optical_countermeasure_extension =
+            environment_patch.enable_optical_countermeasure_extension;
+      }
+    }
   }
 
   if (patch.has_work_mode) {

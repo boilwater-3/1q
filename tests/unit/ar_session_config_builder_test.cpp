@@ -70,7 +70,7 @@ TEST(RadarSessionConfigBuilderTest, ExistingDetailedConfigIsPreservedWhenOnlyEdi
   EXPECT_FLOAT_EQ(rebuilt.policy.tracking.kalman_measurement_noise_std, 4.5f);
   EXPECT_TRUE(rebuilt.policy.lifecycle.enable_imm_lifecycle);
   EXPECT_EQ(rebuilt.policy.lifecycle.confirm_hits, 2U);
-  EXPECT_EQ(rebuilt.environment.jamming_sensitivity_profile,
+  EXPECT_EQ(rebuilt.jamming_sensitivity_profile,
             environment::JammingSensitivityProfile::kStrict);
 }
 
@@ -139,7 +139,7 @@ TEST(RadarSessionConfigBuilderTest, BeamAndEnvironmentEditorsApplyCorrectly) {
                   8.0f);
     EXPECT_FLOAT_EQ(config.mission.orientation.scan_center_deg.el_deg,
                   -2.0f);
-  EXPECT_EQ(config.environment.jamming_sensitivity_profile,
+  EXPECT_EQ(config.jamming_sensitivity_profile,
             environment::JammingSensitivityProfile::kStrict);
 }
 
@@ -261,7 +261,7 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig
             config::KalmanUpdateBackend::kUdKf);
     EXPECT_EQ(detailed_config.policy.lifecycle.confirm_hits, 2U);
     EXPECT_TRUE(detailed_config.policy.lifecycle.enable_imm_lifecycle);
-    EXPECT_EQ(detailed_config.environment.jamming_sensitivity_profile,
+    EXPECT_EQ(detailed_config.jamming_sensitivity_profile,
             environment::JammingSensitivityProfile::kStrict);
 }
 

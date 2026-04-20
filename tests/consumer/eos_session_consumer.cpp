@@ -24,6 +24,7 @@
 #include "1q/electro_optical_sensor/model/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
+#include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 
 namespace eos = electro_optical_sensor;
 
@@ -135,19 +136,34 @@ int main() {
   const eos::session::EosRuntimeConfigPatch env_patch =
       eos::config::EosRuntimeConfigBuilder()
           .WithEnvironmentModelType(eos::environment::EosEnvironmentModelType::kAdvanced)
-          .WithEnvironmentPreset(eos::config::EosEnvironmentPreset::kTurbulent)
+        .WithEnvironmentDetails(
+          eos::foundation::radiative_transfer::RadiativeTransferModel::
+            kAdaptivePathRadiance,
+          1.3f,
+          1.8f)
           .Build();
   session.ApplyRuntimeConfig(env_patch);
 
-  // 14. RuntimeConfigBuilder: switch environment preset
+    // 14. RuntimeConfigBuilder: tune environment model details
   const eos::session::EosRuntimeConfigPatch rt_patch =
-      eos::config::EosRuntimeConfigBuilder().WithEnvironmentPreset(
-          eos::config::EosEnvironmentPreset::kDusty).Build();
+      eos::config::EosRuntimeConfigBuilder()
+        .WithEnvironmentDetails(
+          eos::foundation::radiative_transfer::RadiativeTransferModel::
+            kAdaptivePathRadiance,
+          2.0f,
+          1.2f)
+        .Build();
   session.ApplyRuntimeConfig(rt_patch);
 
-  // 15. RuntimeConfigBuilder: change visible reference irradiance
+    // 15. RuntimeConfigBuilder: change environment model details again
   const eos::session::EosRuntimeConfigPatch vis_ref_patch =
-      eos::config::EosRuntimeConfigBuilder().WithEnvironmentPreset(eos::config::EosEnvironmentPreset::kHumid).Build();
+      eos::config::EosRuntimeConfigBuilder()
+        .WithEnvironmentDetails(
+          eos::foundation::radiative_transfer::RadiativeTransferModel::
+            kHumidityWeighted,
+          1.1f,
+          1.1f)
+        .Build();
   session.ApplyRuntimeConfig(vis_ref_patch);
 
   // 16. Final cycle

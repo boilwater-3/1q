@@ -101,48 +101,12 @@ void ApplyStrayLightPolicy(
   config_out->hood_max_suppression_ratio = stray_light.hood_max_suppression_ratio;
 }
 
-void ApplyEnvironmentPreset(config::EosEnvironmentPreset preset,
-                            ::electro_optical_sensor::extension::EosPipelineConfig* config_out) {
-  using Model = foundation::radiative_transfer::RadiativeTransferModel;
-  if (preset == config::EosEnvironmentPreset::kHumid) {
-    config_out->radiative_transfer_model = Model::kHumidityWeighted;
-    config_out->aerosol_density_factor = 1.1f;
-    config_out->turbulence_factor = 1.1f;
-    return;
-  }
-  if (preset == config::EosEnvironmentPreset::kDusty) {
-    config_out->radiative_transfer_model = Model::kAdaptivePathRadiance;
-    config_out->aerosol_density_factor = 2.0f;
-    config_out->turbulence_factor = 1.2f;
-    return;
-  }
-  if (preset == config::EosEnvironmentPreset::kTurbulent) {
-    config_out->radiative_transfer_model = Model::kAdaptivePathRadiance;
-    config_out->aerosol_density_factor = 1.3f;
-    config_out->turbulence_factor = 1.8f;
-    return;
-  }
-  if (preset == config::EosEnvironmentPreset::kMaritime) {
-    config_out->radiative_transfer_model = Model::kHumidityWeighted;
-    config_out->aerosol_density_factor = 1.5f;
-    config_out->turbulence_factor = 1.4f;
-    return;
-  }
-  config_out->radiative_transfer_model = Model::kDerivedBeerLambert;
-  config_out->aerosol_density_factor = 1.0f;
-  config_out->turbulence_factor = 1.0f;
-}
-
-void ApplyEnvironmentConfig(
-    const config::EosEnvironmentConfig& environment,
+void ApplyEnvironmentModelConfig(
+    const environment::EosEnvironmentModelConfig& environment_model_config,
     ::electro_optical_sensor::extension::EosPipelineConfig* config_out) {
-  if (environment.use_preset_defaults) {
-    ApplyEnvironmentPreset(environment.preset, config_out);
-    return;
-  }
-  config_out->radiative_transfer_model = environment.radiative_transfer_model;
-  config_out->aerosol_density_factor = environment.aerosol_density_factor;
-  config_out->turbulence_factor = environment.turbulence_factor;
+  config_out->radiative_transfer_model = environment_model_config.radiative_transfer_model;
+  config_out->aerosol_density_factor = environment_model_config.aerosol_density_factor;
+  config_out->turbulence_factor = environment_model_config.turbulence_factor;
 }
 
 }  // namespace
@@ -150,6 +114,8 @@ void ApplyEnvironmentConfig(
 ::electro_optical_sensor::extension::EosPipelineConfig BuildEosPipelineConfig(
     const ::electro_optical_sensor::session::EosSessionConfig& config) {
   ::electro_optical_sensor::extension::EosPipelineConfig pipeline_config;
+  const environment::EosEnvironmentModelConfig environment_model_config =
+      environment::BuildModelConfigFromScenario(config.environment.scenario_config);
   pipeline_config.wavelength_lower_um = config.hardware.wavelength_lower_um;
   pipeline_config.wavelength_upper_um = config.hardware.wavelength_upper_um;
   pipeline_config.optical_aperture_m = config.hardware.optical_aperture_m;
@@ -168,10 +134,10 @@ void ApplyEnvironmentConfig(
 
   ApplyDetectionPolicy(config.policy.detection, &pipeline_config);
   ApplyStrayLightPolicy(config.policy.stray_light, &pipeline_config);
-  ApplyEnvironmentConfig(config.environment, &pipeline_config);
+  ApplyEnvironmentModelConfig(environment_model_config, &pipeline_config);
 
   pipeline_config.environment_model_type =
-      ToPipelineEnvironmentModelType(config.environment.model_type);
+      ToPipelineEnvironmentModelType(environment_model_config.model_type);
   return pipeline_config;
 }
 

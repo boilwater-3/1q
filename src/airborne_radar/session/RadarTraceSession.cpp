@@ -246,9 +246,9 @@ Json BuildJson(const RadarSessionConfig& value) {
   json["mission"] = {{"orientation", BuildJson(value.mission.orientation)}};
   json["policy"] = {{"tracking", BuildJson(value.policy.tracking)},
                     {"lifecycle", BuildJson(value.policy.lifecycle)}};
-  json["environment"] = {{"scenario_config", BuildJson(value.environment.scenario_config)},
-                         {"jamming_sensitivity_profile",
-                          static_cast<int>(value.environment.jamming_sensitivity_profile)}};
+  json["environment"] = {{"scenario_config", BuildJson(value.environment.scenario_config)}};
+  json["jamming_sensitivity_profile"] =
+      static_cast<int>(value.jamming_sensitivity_profile);
   return json;
 }
 

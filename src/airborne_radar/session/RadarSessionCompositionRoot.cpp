@@ -27,7 +27,7 @@ RadarSessionComposition BuildCompositionBase(const RadarSessionConfig& config) {
   composition.runtime_mission = config.mission;
   composition.runtime_policy = config.policy;
   composition.runtime_environment_scenario_config = config.environment.scenario_config;
-  composition.runtime_jamming_sensitivity_profile = config.environment.jamming_sensitivity_profile;
+  composition.runtime_jamming_sensitivity_profile = config.jamming_sensitivity_profile;
   return composition;
 }
 
