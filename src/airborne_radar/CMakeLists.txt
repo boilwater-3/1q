@@ -72,6 +72,7 @@ set(AIRBORNE_CORE_SOURCES
     airborne_radar/environment/FeatureRepository.cpp
     airborne_radar/environment/EnvironmentSceneBuilder.cpp
     airborne_radar/environment/EnvironmentService.cpp
+    airborne_radar/environment/EnvironmentPhysics.cpp
     airborne_radar/environment/SceneManager.cpp
     airborne_radar/environment/PropagationModel.cpp
 )

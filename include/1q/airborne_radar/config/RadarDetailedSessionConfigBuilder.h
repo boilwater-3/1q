@@ -10,7 +10,6 @@
 
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/api.hpp"
-#include "airborne_radar/config/profiles/DetectionProfiles.h"
 
 namespace airborne_radar {
 namespace config {

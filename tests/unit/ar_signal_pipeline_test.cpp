@@ -10,6 +10,7 @@
 #include <memory>
 #include <vector>
 
+#include "1q/airborne_radar/config/RadarHardwareConfig.h"
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
@@ -17,9 +18,6 @@
 #include "1q/airborne_radar/model/TargetFeature.h"
 #include "airborne_radar/config/execution/InternalExecutionConfig.h"
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
-#include "airborne_radar/config/profiles/DetectionProfiles.h"
-#include "airborne_radar/config/profiles/LifecycleProfiles.h"
-#include "airborne_radar/config/profiles/TrackingProfiles.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/assembly/RuntimeAssemblySupport.h"
 #include "airborne_radar/signal/pipeline/core/SignalPipeline.h"
