@@ -30,8 +30,14 @@ set(ESR_SESSION_SOURCES
     electronic_surveillance_radar/session/EsrSessionConfigResolver.cpp
     electronic_surveillance_radar/session/EsrRuntimeConfigResolver.cpp
     electronic_surveillance_radar/session/EsrSession.cpp
-    electronic_surveillance_radar/session/EsrTraceSession.cpp
 )
+if(MSVC AND MSVC_VERSION LESS 1910)
+    list(APPEND ESR_SESSION_SOURCES
+        electronic_surveillance_radar/session/EsrTraceSession.windows.cpp)
+else()
+    list(APPEND ESR_SESSION_SOURCES
+        electronic_surveillance_radar/session/EsrTraceSession.cpp)
+endif()
 
 if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_MODULE_ENTRY_ESR

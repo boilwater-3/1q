@@ -68,7 +68,6 @@ set(AIRBORNE_CORE_SOURCES
     airborne_radar/session/RadarSessionConfigBuilder.cpp
     airborne_radar/session/RuntimeConfigResolver.cpp
     airborne_radar/session/RadarSession.cpp
-    airborne_radar/session/RadarTraceSession.cpp
     airborne_radar/environment/FeatureRepository.cpp
     airborne_radar/environment/EnvironmentSceneBuilder.cpp
     airborne_radar/environment/EnvironmentService.cpp
@@ -76,6 +75,11 @@ set(AIRBORNE_CORE_SOURCES
     airborne_radar/environment/SceneManager.cpp
     airborne_radar/environment/PropagationModel.cpp
 )
+if(MSVC AND MSVC_VERSION LESS 1910)
+    list(APPEND AIRBORNE_CORE_SOURCES airborne_radar/session/RadarTraceSession.windows.cpp)
+else()
+    list(APPEND AIRBORNE_CORE_SOURCES airborne_radar/session/RadarTraceSession.cpp)
+endif()
 
 if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_COMMON_CONTROL

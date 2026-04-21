@@ -5,7 +5,7 @@ _BASE_DEPS_VS2015 = {
     "eigen": "eigen/3.3.9",
     "boost": "boost/1.74.0",
     "nanoflann": "nanoflann/1.3.2",
-    "nlohmann_json": "nlohmann_json/3.11.3",
+    "flatbuffers": "flatbuffers/1.12.0",
 }
 
 _BASE_DEPS_MODERN = {
@@ -13,6 +13,7 @@ _BASE_DEPS_MODERN = {
     "boost": "boost/1.83.0",
     "nanoflann": "nanoflann/1.6.0",
     "nlohmann_json": "nlohmann_json/3.11.3",
+    "flatbuffers": "flatbuffers/24.3.25",
 }
 
 _LOG_DEPS_NON_WINDOWS = {
@@ -49,6 +50,7 @@ class OneQConan(ConanFile):
         "imgui/*:shared": False,
         "implot/*:shared": False,
         "boost/*:header_only": True,
+        "flatbuffers/*:header_only": True,
         "imgui/*:with_glfw": True,
         "imgui/*:with_opengl3": True,
     }
@@ -76,7 +78,10 @@ class OneQConan(ConanFile):
         self.requires(deps["eigen"])
         self.requires(deps["boost"])
         self.requires(deps["nanoflann"])
-        self.requires(deps["nlohmann_json"])
+        if not self._is_vs2015_target():
+            self.requires(deps["nlohmann_json"])
+        if self._is_windows():
+            self.requires(deps["flatbuffers"])
 
         # macOS/Linux 保留调试日志能力，Windows 全平台关闭日志依赖。
         if not self._is_windows():

@@ -87,11 +87,20 @@ if(WIN32)
 else()
     set(PROJECT_ENABLE_SPDLOG ON)
 endif()
+set(ONEQ_ENABLE_NLOHMANN_JSON ON)
+if(MSVC AND MSVC_VERSION LESS 1910)
+    set(ONEQ_ENABLE_NLOHMANN_JSON OFF)
+endif()
 
 find_package(Eigen3 CONFIG REQUIRED)
 find_package(Boost CONFIG REQUIRED)
 find_package(nanoflann CONFIG REQUIRED)
-find_package(nlohmann_json CONFIG REQUIRED)
+if(ONEQ_ENABLE_NLOHMANN_JSON)
+    find_package(nlohmann_json CONFIG REQUIRED)
+endif()
+if(WIN32)
+    find_package(flatbuffers CONFIG REQUIRED)
+endif()
 if(PROJECT_ENABLE_SPDLOG)
     find_package(spdlog CONFIG REQUIRED)
 endif()
@@ -100,8 +109,13 @@ set(ONEQ_LINK_DEPENDENCIES
     Eigen3::Eigen
     Boost::boost
     nanoflann::nanoflann
-    nlohmann_json::nlohmann_json
 )
+if(ONEQ_ENABLE_NLOHMANN_JSON)
+    list(APPEND ONEQ_LINK_DEPENDENCIES nlohmann_json::nlohmann_json)
+endif()
+if(WIN32)
+    list(APPEND ONEQ_LINK_DEPENDENCIES flatbuffers::flatbuffers)
+endif()
 foreach(ONEQ_BUILD_TARGET IN ITEMS
     ${PROJECT_CORE_TARGET}
     ${ONEQ_OBJECT_TARGETS}
@@ -113,12 +127,16 @@ unset(ONEQ_BUILD_TARGET)
 # Conan's VS multi-config generation may only attach header-only include dirs
 # to Release. Mirror those include dirs onto this target when available so
 # Debug/RelWithDebInfo/MinSizeRel can compile against the same headers.
-foreach(_oneq_conan_include_var IN ITEMS
+set(_oneq_conan_include_vars
     eigen_INCLUDE_DIRS_RELEASE
     boost_INCLUDE_DIRS_RELEASE
     nanoflann_INCLUDE_DIRS_RELEASE
-    nlohmann_json_INCLUDE_DIRS_RELEASE
+    flatbuffers_INCLUDE_DIRS_RELEASE
 )
+if(ONEQ_ENABLE_NLOHMANN_JSON)
+    list(APPEND _oneq_conan_include_vars nlohmann_json_INCLUDE_DIRS_RELEASE)
+endif()
+foreach(_oneq_conan_include_var IN LISTS _oneq_conan_include_vars)
     if(DEFINED ${_oneq_conan_include_var})
         foreach(ONEQ_BUILD_TARGET IN ITEMS
             ${PROJECT_CORE_TARGET}
@@ -129,6 +147,7 @@ foreach(_oneq_conan_include_var IN ITEMS
     endif()
 endforeach()
 unset(_oneq_conan_include_var)
+unset(_oneq_conan_include_vars)
 unset(ONEQ_BUILD_TARGET)
 
 if(PROJECT_ENABLE_SPDLOG)

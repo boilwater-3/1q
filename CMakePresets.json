@@ -102,7 +102,6 @@
                 "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/ConanBootstrapToolchain.cmake",
                 "CMAKE_BUILD_TYPE": "Debug",
                 "ENABLE_TESTING": "ON",
-                "ENABLE_STRESS_TESTING": "OFF",
                 "BUILD_SHARED_LIBS": "OFF"
             }
         },
@@ -114,7 +113,6 @@
                 "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/ConanBootstrapToolchain.cmake",
                 "CMAKE_BUILD_TYPE": "Release",
                 "ENABLE_TESTING": "ON",
-                "ENABLE_STRESS_TESTING": "OFF",
                 "BUILD_SHARED_LIBS": "OFF"
             }
         },
@@ -142,7 +140,8 @@
             "displayName": "Windows Conan VS2015 x64 Lib",
             "generator": "Visual Studio 14 2015",
             "cacheVariables": {
-                "BUILD_SHARED_LIBS": "OFF"
+                "BUILD_SHARED_LIBS": "OFF",
+                "ENABLE_TESTING": "ON"
             }
         },
         {

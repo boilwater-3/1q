@@ -6,12 +6,19 @@
 #include <gtest/gtest.h>
 
 #include <cstdio>
+#include <cstdint>
 #include <cstdlib>
 #include <ctime>
 #include <fstream>
+#include <iterator>
 #include <memory>
 #include <sstream>
 #include <string>
+#include <vector>
+
+#if defined(_WIN32)
+#include <flatbuffers/flexbuffers.h>
+#endif
 
 #include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
@@ -25,8 +32,30 @@
 namespace {
 
 std::string MakeTempTracePath(const char* prefix) {
+  const char* temp_dir = nullptr;
+#if defined(_WIN32)
+  temp_dir = std::getenv("TEMP");
+  if (temp_dir == nullptr || temp_dir[0] == '\0') {
+    temp_dir = std::getenv("TMP");
+  }
+#else
+  temp_dir = std::getenv("TMPDIR");
+#endif
+  if (temp_dir == nullptr || temp_dir[0] == '\0') {
+#if defined(_WIN32)
+    temp_dir = ".";
+#else
+    temp_dir = "/tmp";
+#endif
+  }
+
   std::ostringstream stream;
-  stream << "/tmp/" << prefix << "-" << std::time(nullptr) << "-" << std::rand() << ".jsonl";
+  stream << temp_dir;
+  const std::string path = stream.str();
+  if (!path.empty() && path[path.size() - 1] != '/' && path[path.size() - 1] != '\\') {
+    stream << "/";
+  }
+  stream << prefix << "-" << std::time(nullptr) << "-" << std::rand() << ".jsonl";
   return stream.str();
 }
 
@@ -37,12 +66,40 @@ std::string ReadFile(const std::string& path) {
   return buffer.str();
 }
 
+std::vector<std::uint8_t> ReadBinaryFile(const std::string& path) {
+  std::ifstream input(path.c_str(), std::ios::in | std::ios::binary);
+  return std::vector<std::uint8_t>((std::istreambuf_iterator<char>(input)),
+                                   std::istreambuf_iterator<char>());
+}
+
 void ExpectCommonTracePhases(const std::string& content, const std::string& module_name) {
   EXPECT_NE(content.find("\"module\":\"" + module_name + "\""), std::string::npos);
   EXPECT_NE(content.find("\"phase\":\"config\""), std::string::npos);
   EXPECT_NE(content.find("\"phase\":\"input\""), std::string::npos);
   EXPECT_NE(content.find("\"phase\":\"output\""), std::string::npos);
 }
+
+#if defined(_WIN32)
+void ExpectFlatbufferRecord(const std::vector<std::uint8_t>& content,
+                            const std::string& module_name, const std::string& phase_name) {
+  ASSERT_GE(content.size(), 4U);
+
+  const std::uint32_t payload_size = static_cast<std::uint32_t>(content[0]) |
+                                     (static_cast<std::uint32_t>(content[1]) << 8U) |
+                                     (static_cast<std::uint32_t>(content[2]) << 16U) |
+                                     (static_cast<std::uint32_t>(content[3]) << 24U);
+  ASSERT_EQ(content.size(), static_cast<std::size_t>(payload_size) + 4U);
+
+  const flexbuffers::Reference root =
+      flexbuffers::GetRoot(content.data() + 4U, payload_size);
+  const flexbuffers::Map map = root.AsMap();
+
+  EXPECT_EQ(map["module"].AsString().str(), module_name);
+  EXPECT_EQ(map["phase"].AsString().str(), phase_name);
+  EXPECT_GT(map["timestamp_ms"].AsInt64(), 0);
+  EXPECT_FALSE(map["payload_json"].AsString().str().empty());
+}
+#endif
 
 }  // namespace
 
@@ -131,3 +188,29 @@ TEST(TraceSessionAdapterTest, EosTraceSessionWritesConfigInputOutput) {
 
 }  // namespace tests
 }  // namespace electro_optical_sensor
+
+namespace oneq {
+namespace trace {
+namespace tests {
+
+TEST(TraceSessionAdapterTest, PlatformFileTraceSinkUsesPlatformBackend) {
+  const std::string trace_path = MakeTempTracePath("oneq-platform-trace");
+  std::shared_ptr<TraceSink> sink(new PlatformFileTraceSink(trace_path, false));
+  sink->Record("platform_module", "input", "{\"value\":1}");
+
+#if defined(_WIN32)
+  const std::vector<std::uint8_t> content = ReadBinaryFile(trace_path);
+  ExpectFlatbufferRecord(content, "platform_module", "input");
+#else
+  const std::string content = ReadFile(trace_path);
+  EXPECT_NE(content.find("\"module\":\"platform_module\""), std::string::npos);
+  EXPECT_NE(content.find("\"phase\":\"input\""), std::string::npos);
+  EXPECT_NE(content.find("\"payload\":{\"value\":1}"), std::string::npos);
+#endif
+
+  std::remove(trace_path.c_str());
+}
+
+}  // namespace tests
+}  // namespace trace
+}  // namespace oneq
