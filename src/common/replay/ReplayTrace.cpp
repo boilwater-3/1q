@@ -347,6 +347,14 @@ std::int32_t ExtractInt32Field(const std::string& json, const std::string& field
   return static_cast<std::int32_t>(std::strtol(json.c_str() + value_pos, nullptr, 10));
 }
 
+bool ExtractBoolField(const std::string& json, const std::string& field_name) {
+  const std::size_t value_pos = FindFieldValueStart(json, field_name);
+  if (value_pos == std::string::npos) {
+    return false;
+  }
+  return json.compare(value_pos, 4U, "true") == 0;
+}
+
 bool ExtractNullableUInt32Field(const std::string& json, const std::string& field_name,
                                 std::uint32_t* value) {
   const std::size_t value_pos = FindFieldValueStart(json, field_name);
@@ -704,6 +712,61 @@ ReplayTraceScanResult ScanReplayTrace(const std::string& trace_dir) {
 
   result.ok = result.payload_hashes_ok && result.event_chain_ok &&
               result.sequences_contiguous;
+  return result;
+}
+
+ReplayTraceCompatibilityResult CheckReplayTraceCompatibility(
+    const std::string& trace_dir,
+    const ReplayTraceCompatibilityExpectation& expectation) {
+  ReplayTraceReader reader(trace_dir);
+  const std::string& manifest_json = reader.manifest_json();
+
+  ReplayTraceCompatibilityResult result;
+  result.manifest_trace_id = ExtractStringField(manifest_json, "trace_id");
+  result.manifest_module = ExtractStringField(manifest_json, "module");
+  result.manifest_schema_version = ExtractInt32Field(manifest_json, "schema_version");
+  result.manifest_serializer_version =
+      ExtractStringField(manifest_json, "serializer_version");
+  result.manifest_git_commit = ExtractStringField(manifest_json, "git_commit");
+  result.manifest_git_dirty = ExtractBoolField(manifest_json, "git_dirty");
+
+  result.schema_version_matches =
+      (result.manifest_schema_version == expectation.schema_version);
+  result.serializer_version_matches =
+      (result.manifest_serializer_version == expectation.serializer_version);
+  result.git_commit_matches =
+      !expectation.require_git_commit_match ||
+      expectation.git_commit.empty() ||
+      (result.manifest_git_commit == expectation.git_commit);
+  result.module_matches =
+      !expectation.require_module_match ||
+      expectation.module.empty() ||
+      (result.manifest_module == expectation.module);
+
+  if (!result.schema_version_matches && result.first_error.empty()) {
+    std::ostringstream message;
+    message << "replay schema mismatch: expected " << expectation.schema_version
+            << " but found " << result.manifest_schema_version;
+    result.first_error = message.str();
+  }
+  if (!result.serializer_version_matches && result.first_error.empty()) {
+    result.first_error = "replay serializer version mismatch";
+  }
+  if (!result.git_commit_matches && result.first_error.empty()) {
+    result.first_error = "replay git commit mismatch";
+  }
+  if (!result.module_matches && result.first_error.empty()) {
+    result.first_error = "replay module mismatch";
+  }
+
+  if (result.manifest_git_dirty) {
+    result.warning = "replay trace was captured from a dirty git worktree";
+  }
+
+  result.compatible = result.schema_version_matches &&
+                      result.serializer_version_matches &&
+                      result.git_commit_matches &&
+                      result.module_matches;
   return result;
 }
 

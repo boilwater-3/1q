@@ -363,6 +363,62 @@ TEST(ReplayTraceWriterTest, SplitsEventChunksAndWritesCycleIndex) {
   EXPECT_EQ(scan.event_count, 5U);
 }
 
+TEST(ReplayTraceWriterTest, ChecksManifestCompatibilityBeforeReplay) {
+  const std::string trace_dir = MakeTempTraceDir();
+
+  ReplayTraceManifest manifest;
+  manifest.trace_id = "compat-trace-test";
+  manifest.module = "airborne_radar";
+  manifest.schema_version = 1;
+  manifest.serializer_version = "replay-json-v1";
+  manifest.git_commit = "abc123";
+  manifest.git_dirty = true;
+
+  {
+    ReplayTraceWriter writer(trace_dir, manifest, true);
+    ReplayTraceEvent event;
+    event.module = "airborne_radar";
+    event.event_type = "session_config";
+    event.payload_type = "RadarSessionConfig";
+    event.payload_json = "{\"config\":true}";
+    writer.WriteEvent(event);
+    writer.Flush();
+  }
+
+  ReplayTraceCompatibilityExpectation expectation;
+  expectation.schema_version = 1;
+  expectation.serializer_version = "replay-json-v1";
+  expectation.module = "airborne_radar";
+  expectation.require_module_match = true;
+  expectation.git_commit = "abc123";
+  expectation.require_git_commit_match = true;
+
+  ReplayTraceCompatibilityResult result =
+      CheckReplayTraceCompatibility(trace_dir, expectation);
+  EXPECT_TRUE(result.compatible);
+  EXPECT_TRUE(result.schema_version_matches);
+  EXPECT_TRUE(result.serializer_version_matches);
+  EXPECT_TRUE(result.git_commit_matches);
+  EXPECT_TRUE(result.module_matches);
+  EXPECT_TRUE(result.manifest_git_dirty);
+  EXPECT_EQ(result.manifest_trace_id, "compat-trace-test");
+  EXPECT_EQ(result.manifest_module, "airborne_radar");
+  EXPECT_NE(result.warning.find("dirty git worktree"), std::string::npos);
+
+  expectation.schema_version = 2;
+  result = CheckReplayTraceCompatibility(trace_dir, expectation);
+  EXPECT_FALSE(result.compatible);
+  EXPECT_FALSE(result.schema_version_matches);
+  EXPECT_NE(result.first_error.find("schema mismatch"), std::string::npos);
+
+  expectation.schema_version = 1;
+  expectation.git_commit = "different";
+  result = CheckReplayTraceCompatibility(trace_dir, expectation);
+  EXPECT_FALSE(result.compatible);
+  EXPECT_FALSE(result.git_commit_matches);
+  EXPECT_NE(result.first_error.find("git commit mismatch"), std::string::npos);
+}
+
 }  // namespace tests
 }  // namespace replay
 }  // namespace oneq

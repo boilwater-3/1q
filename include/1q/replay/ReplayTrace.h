@@ -79,6 +79,31 @@ struct ONEQ_API ReplayTraceScanResult {
   std::string first_error{};
 };
 
+struct ONEQ_API ReplayTraceCompatibilityExpectation {
+  std::int32_t schema_version{1};
+  std::string serializer_version{"replay-json-v1"};
+  std::string git_commit{};
+  bool require_git_commit_match{false};
+  std::string module{};
+  bool require_module_match{false};
+};
+
+struct ONEQ_API ReplayTraceCompatibilityResult {
+  bool compatible{true};
+  bool schema_version_matches{true};
+  bool serializer_version_matches{true};
+  bool git_commit_matches{true};
+  bool module_matches{true};
+  bool manifest_git_dirty{false};
+  std::string manifest_trace_id{};
+  std::string manifest_module{};
+  std::int32_t manifest_schema_version{0};
+  std::string manifest_serializer_version{};
+  std::string manifest_git_commit{};
+  std::string first_error{};
+  std::string warning{};
+};
+
 struct ONEQ_API ReplayTraceFailure {
   std::string error_code{};
   std::string message{};
@@ -129,6 +154,9 @@ class ONEQ_API ReplayTraceReader final {
 };
 
 ONEQ_API ReplayTraceScanResult ScanReplayTrace(const std::string& trace_dir);
+ONEQ_API ReplayTraceCompatibilityResult CheckReplayTraceCompatibility(
+    const std::string& trace_dir,
+    const ReplayTraceCompatibilityExpectation& expectation);
 
 }  // namespace replay
 }  // namespace oneq
