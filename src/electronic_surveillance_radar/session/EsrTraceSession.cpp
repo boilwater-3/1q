@@ -398,17 +398,29 @@ std::string ToJson(const T& value) {
 }  // namespace
 
 EsrTraceSession::EsrTraceSession(session::EsrSessionConfig config, EsrTraceSessionOptions options)
-    : session_(config), sink_(std::move(options.sink)) {
+    : session_(config),
+      sink_(std::move(options.sink)),
+      replay_writer_(std::move(options.replay_writer)) {
+  if (replay_writer_ && options.trace_config_on_construct) {
+    RecordReplay("session_config", "EsrSessionConfig", ToJson(config));
+  }
   if (sink_ && options.trace_config_on_construct) {
     Record("config", ToJson(config));
   }
 }
 
 output::EsrOutputFrame EsrTraceSession::Step(const session::EsrCycleInput& input) {
+  if (replay_writer_) {
+    RecordReplay("cycle_input", "EsrCycleInput", ToJson(input), input.cycle_index);
+  }
   if (sink_) {
     Record("input", ToJson(input));
   }
   const output::EsrOutputFrame output = session_.Step(input);
+  if (replay_writer_) {
+    RecordReplay("cycle_output", "EsrOutputFrame", ToJson(output),
+                 output.observation_output.cycle_index);
+  }
   if (sink_) {
     Record("output", ToJson(output));
   }
@@ -416,10 +428,17 @@ output::EsrOutputFrame EsrTraceSession::Step(const session::EsrCycleInput& input
 }
 
 session::EsrCycleResult EsrTraceSession::StepWithResult(const session::EsrCycleInput& input) {
+  if (replay_writer_) {
+    RecordReplay("cycle_input", "EsrCycleInput", ToJson(input), input.cycle_index);
+  }
   if (sink_) {
     Record("input", ToJson(input));
   }
   const session::EsrCycleResult output = session_.StepWithResult(input);
+  if (replay_writer_) {
+    RecordReplay("cycle_output", "EsrCycleResult", ToJson(output),
+                 output.output_frame.observation_output.cycle_index);
+  }
   if (sink_) {
     Record("output", ToJson(output));
   }
@@ -427,6 +446,9 @@ session::EsrCycleResult EsrTraceSession::StepWithResult(const session::EsrCycleI
 }
 
 void EsrTraceSession::ApplyRuntimeConfig(const session::EsrRuntimeConfigPatch& patch) {
+  if (replay_writer_) {
+    RecordReplay("runtime_config_patch", "EsrRuntimeConfigPatch", ToJson(patch));
+  }
   session_.ApplyRuntimeConfig(patch);
   if (sink_) {
     Record("runtime_config_patch", ToJson(patch));
@@ -439,6 +461,31 @@ const session::EsrSession& EsrTraceSession::session() const { return session_; }
 
 void EsrTraceSession::Record(const std::string& phase, const std::string& payload_json) const {
   sink_->Record("electronic_surveillance_radar", phase, payload_json);
+}
+
+void EsrTraceSession::RecordReplay(const std::string& event_type,
+                                   const std::string& payload_type,
+                                   const std::string& payload_json) const {
+  oneq::replay::ReplayTraceEvent event;
+  event.module = "electronic_surveillance_radar";
+  event.event_type = event_type;
+  event.payload_type = payload_type;
+  event.payload_json = payload_json;
+  replay_writer_->WriteEvent(event);
+}
+
+void EsrTraceSession::RecordReplay(const std::string& event_type,
+                                   const std::string& payload_type,
+                                   const std::string& payload_json,
+                                   std::uint32_t cycle_index) const {
+  oneq::replay::ReplayTraceEvent event;
+  event.module = "electronic_surveillance_radar";
+  event.event_type = event_type;
+  event.payload_type = payload_type;
+  event.payload_json = payload_json;
+  event.has_cycle_index = true;
+  event.cycle_index = cycle_index;
+  replay_writer_->WriteEvent(event);
 }
 
 }  // namespace session

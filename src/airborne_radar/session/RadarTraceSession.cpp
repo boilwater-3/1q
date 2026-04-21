@@ -419,17 +419,28 @@ std::string ToJson(const T& value) {
 
 RadarTraceSession::RadarTraceSession(const RadarSessionConfig& config,
                                      RadarTraceSessionOptions options)
-    : session_(RadarSessionFactory::Create(config)), sink_(std::move(options.sink)) {
+    : session_(RadarSessionFactory::Create(config)),
+      sink_(std::move(options.sink)),
+      replay_writer_(std::move(options.replay_writer)) {
+  if (replay_writer_ && options.trace_config_on_construct) {
+    RecordReplay("session_config", "RadarSessionConfig", ToJson(config));
+  }
   if (sink_ && options.trace_config_on_construct) {
     Record("config", ToJson(config));
   }
 }
 
 output::TrackOutputFrame RadarTraceSession::Step(const RadarCycleInput& input) {
+  if (replay_writer_) {
+    RecordReplay("cycle_input", "RadarCycleInput", ToJson(input));
+  }
   if (sink_) {
     Record("input", ToJson(input));
   }
   const output::TrackOutputFrame output = session_.Step(input);
+  if (replay_writer_) {
+    RecordReplay("cycle_output", "TrackOutputFrame", ToJson(output), output.cycle_index);
+  }
   if (sink_) {
     Record("output", ToJson(output));
   }
@@ -438,6 +449,10 @@ output::TrackOutputFrame RadarTraceSession::Step(const RadarCycleInput& input) {
 
 output::TrackOutputFrame RadarTraceSession::Step(
     const RadarCycleInput& input, const environment::EnvironmentSceneState& scene_state) {
+  if (replay_writer_) {
+    RecordReplay("cycle_input", "RadarCycleInput", ToJson(input));
+    RecordReplay("scene_state", "EnvironmentSceneState", ToJson(scene_state));
+  }
   if (sink_) {
     Json input_payload;
     input_payload["cycle_input"] = BuildJson(input);
@@ -445,6 +460,9 @@ output::TrackOutputFrame RadarTraceSession::Step(
     Record("input", input_payload.dump());
   }
   const output::TrackOutputFrame output = session_.Step(input, scene_state);
+  if (replay_writer_) {
+    RecordReplay("cycle_output", "TrackOutputFrame", ToJson(output), output.cycle_index);
+  }
   if (sink_) {
     Record("output", ToJson(output));
   }
@@ -452,10 +470,17 @@ output::TrackOutputFrame RadarTraceSession::Step(
 }
 
 RadarCycleResult RadarTraceSession::StepWithResult(const RadarCycleInput& input) {
+  if (replay_writer_) {
+    RecordReplay("cycle_input", "RadarCycleInput", ToJson(input));
+  }
   if (sink_) {
     Record("input", ToJson(input));
   }
   const RadarCycleResult output = session_.StepWithResult(input);
+  if (replay_writer_) {
+    RecordReplay("cycle_output", "RadarCycleResult", ToJson(output),
+                 output.track_output_frame.cycle_index);
+  }
   if (sink_) {
     Record("output", ToJson(output));
   }
@@ -464,6 +489,10 @@ RadarCycleResult RadarTraceSession::StepWithResult(const RadarCycleInput& input)
 
 RadarCycleResult RadarTraceSession::StepWithResult(
     const RadarCycleInput& input, const environment::EnvironmentSceneState& scene_state) {
+  if (replay_writer_) {
+    RecordReplay("cycle_input", "RadarCycleInput", ToJson(input));
+    RecordReplay("scene_state", "EnvironmentSceneState", ToJson(scene_state));
+  }
   if (sink_) {
     Json input_payload;
     input_payload["cycle_input"] = BuildJson(input);
@@ -471,6 +500,10 @@ RadarCycleResult RadarTraceSession::StepWithResult(
     Record("input", input_payload.dump());
   }
   const RadarCycleResult output = session_.StepWithResult(input, scene_state);
+  if (replay_writer_) {
+    RecordReplay("cycle_output", "RadarCycleResult", ToJson(output),
+                 output.track_output_frame.cycle_index);
+  }
   if (sink_) {
     Record("output", ToJson(output));
   }
@@ -478,6 +511,9 @@ RadarCycleResult RadarTraceSession::StepWithResult(
 }
 
 void RadarTraceSession::ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch) {
+  if (replay_writer_) {
+    RecordReplay("runtime_config_patch", "RadarRuntimeConfigPatch", ToJson(patch));
+  }
   session_.ApplyRuntimeConfig(patch);
   if (sink_) {
     Record("runtime_config", ToJson(patch));
@@ -507,6 +543,31 @@ const RadarSession& RadarTraceSession::session() const { return session_; }
 
 void RadarTraceSession::Record(const std::string& phase, const std::string& payload_json) const {
   sink_->Record("airborne_radar", phase, payload_json);
+}
+
+void RadarTraceSession::RecordReplay(const std::string& event_type,
+                                     const std::string& payload_type,
+                                     const std::string& payload_json) const {
+  oneq::replay::ReplayTraceEvent event;
+  event.module = "airborne_radar";
+  event.event_type = event_type;
+  event.payload_type = payload_type;
+  event.payload_json = payload_json;
+  replay_writer_->WriteEvent(event);
+}
+
+void RadarTraceSession::RecordReplay(const std::string& event_type,
+                                     const std::string& payload_type,
+                                     const std::string& payload_json,
+                                     std::uint32_t cycle_index) const {
+  oneq::replay::ReplayTraceEvent event;
+  event.module = "airborne_radar";
+  event.event_type = event_type;
+  event.payload_type = payload_type;
+  event.payload_json = payload_json;
+  event.has_cycle_index = true;
+  event.cycle_index = cycle_index;
+  replay_writer_->WriteEvent(event);
 }
 
 }  // namespace session

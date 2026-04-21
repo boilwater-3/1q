@@ -162,6 +162,7 @@ set(FOUNDATION_HEADERS
     "foundation/coordinate_transform.h"
     "foundation/pose_types.h"
     "foundation/scan_schedule_types.h"
+    "replay/ReplayTrace.h"
     "trace/TraceSink.h"
 )
 

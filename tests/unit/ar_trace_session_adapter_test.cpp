@@ -23,6 +23,7 @@
 #include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarTraceSession.h"
+#include "1q/replay/ReplayTrace.h"
 #include "1q/trace/TraceSink.h"
 #include "1q/electro_optical_sensor/model/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosTraceSession.h"
@@ -124,6 +125,52 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesConfigInputOutput) {
   ExpectCommonTracePhases(content, "airborne_radar");
 
   std::remove(trace_path.c_str());
+}
+
+TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) {
+  const std::string trace_dir = MakeTempTracePath("oneq-radar-replay-trace");
+
+  oneq::replay::ReplayTraceManifest manifest;
+  manifest.trace_id = "radar-replay-test";
+  manifest.module = "airborne_radar";
+  manifest.scenario_id = "unit-test";
+
+  std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
+      new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
+
+  session::RadarSessionConfig config = config::presets::MakeDefaultRadarSessionConfig();
+  session::RadarTraceSessionOptions options;
+  options.replay_writer = replay_writer;
+  options.trace_config_on_construct = true;
+
+  session::RadarTraceSession session(config, options);
+  session::RadarCycleInput input;
+  input.dt_sec = 1.0f;
+
+  model::TargetFeature target;
+  target.external_target_id = 2001U;
+  target.current_track_velocity_x = 120.0f;
+  target.current_track_velocity_y = 0.0f;
+  target.current_track_velocity_z = 0.0f;
+  target.current_track_speed = 120.0f;
+  target.current_track_rcs = 1.5f;
+  target.range_m = 1500.0f;
+  target.has_cartesian_position = true;
+  target.position_x = 1500.0f;
+  target.position_y = 50.0f;
+  target.position_z = 100.0f;
+  input.target_features.push_back(target);
+
+  const session::RadarCycleResult result = session.StepWithResult(input);
+  EXPECT_GE(result.track_output_frame.published_track_count, 0U);
+
+  const std::string content = ReadFile(trace_dir + "/events/000000.events.jsonl");
+  EXPECT_NE(content.find("\"event_type\":\"session_config\""), std::string::npos);
+  EXPECT_NE(content.find("\"event_type\":\"cycle_input\""), std::string::npos);
+  EXPECT_NE(content.find("\"event_type\":\"cycle_output\""), std::string::npos);
+  EXPECT_NE(content.find("\"payload_type\":\"RadarCycleInput\""), std::string::npos);
+  EXPECT_NE(content.find("\"external_target_id\":2001"), std::string::npos);
+  EXPECT_NE(content.find("\"position_m\":[1500"), std::string::npos);
 }
 
 }  // namespace tests

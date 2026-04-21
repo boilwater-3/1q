@@ -6,12 +6,14 @@
 #ifndef ELECTRO_OPTICAL_SENSOR_TOOLS_EOS_TRACE_SESSION_H_
 #define ELECTRO_OPTICAL_SENSOR_TOOLS_EOS_TRACE_SESSION_H_
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
 
-#include "1q/trace/TraceSink.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
+#include "1q/replay/ReplayTrace.h"
+#include "1q/trace/TraceSink.h"
 
 namespace electro_optical_sensor {
 namespace session {
@@ -21,12 +23,19 @@ namespace session {
  */
 struct ONEQ_API EosTraceSessionOptions {
   std::shared_ptr<oneq::trace::TraceSink> sink{}; /**< 记录输出 sink */
+  std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer{};
   bool trace_config_on_construct{true};                   /**< 构造时是否记录配置 */
 
   EosTraceSessionOptions() = default;
   EosTraceSessionOptions(std::shared_ptr<oneq::trace::TraceSink> trace_sink,
                          bool trace_config)
       : sink(std::move(trace_sink)), trace_config_on_construct(trace_config) {}
+  EosTraceSessionOptions(std::shared_ptr<oneq::trace::TraceSink> trace_sink,
+                         bool trace_config,
+                         std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_trace_writer)
+      : sink(std::move(trace_sink)),
+        replay_writer(std::move(replay_trace_writer)),
+        trace_config_on_construct(trace_config) {}
 };
 
 /**
@@ -56,9 +65,14 @@ class ONEQ_API EosTraceSession {
 
  private:
   void Record(const std::string& phase, const std::string& payload_json) const;
+  void RecordReplay(const std::string& event_type, const std::string& payload_type,
+                    const std::string& payload_json) const;
+  void RecordReplay(const std::string& event_type, const std::string& payload_type,
+                    const std::string& payload_json, std::uint32_t cycle_index) const;
 
   EosSession session_;
   std::shared_ptr<oneq::trace::TraceSink> sink_;
+  std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer_;
 };
 
 }  // namespace session

@@ -239,17 +239,27 @@ std::string ToJson(const T& value) {
 EosTraceSession::EosTraceSession(EosSessionConfig config,
                                  EosTraceSessionOptions options)
     : session_(EosSessionFactory::Create(config)),
-      sink_(std::move(options.sink)) {
+      sink_(std::move(options.sink)),
+      replay_writer_(std::move(options.replay_writer)) {
+  if (replay_writer_ && options.trace_config_on_construct) {
+    RecordReplay("session_config", "EosSessionConfig", ToJson(config));
+  }
   if (sink_ && options.trace_config_on_construct) {
     Record("config", ToJson(config));
   }
 }
 
 output::EosOutputFrame EosTraceSession::Step(const EosCycleInput& input) {
+  if (replay_writer_) {
+    RecordReplay("cycle_input", "EosCycleInput", ToJson(input), input.cycle_index);
+  }
   if (sink_) {
     Record("input", ToJson(input));
   }
   const output::EosOutputFrame output = session_.Step(input);
+  if (replay_writer_) {
+    RecordReplay("cycle_output", "EosOutputFrame", ToJson(output), output.cycle_index);
+  }
   if (sink_) {
     Record("output", ToJson(output));
   }
@@ -257,10 +267,17 @@ output::EosOutputFrame EosTraceSession::Step(const EosCycleInput& input) {
 }
 
 model::EosCycleResult EosTraceSession::StepWithResult(const EosCycleInput& input) {
+  if (replay_writer_) {
+    RecordReplay("cycle_input", "EosCycleInput", ToJson(input), input.cycle_index);
+  }
   if (sink_) {
     Record("input", ToJson(input));
   }
   const model::EosCycleResult output = session_.StepWithResult(input);
+  if (replay_writer_) {
+    RecordReplay("cycle_output", "EosCycleResult", ToJson(output),
+                 output.output_frame.cycle_index);
+  }
   if (sink_) {
     Record("output", ToJson(output));
   }
@@ -268,6 +285,9 @@ model::EosCycleResult EosTraceSession::StepWithResult(const EosCycleInput& input
 }
 
 void EosTraceSession::ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch) {
+  if (replay_writer_) {
+    RecordReplay("runtime_config_patch", "EosRuntimeConfigPatch", ToJson(patch));
+  }
   session_.ApplyRuntimeConfig(patch);
   if (sink_) {
     Record("runtime_config_patch", ToJson(patch));
@@ -280,6 +300,31 @@ const EosSession& EosTraceSession::session() const { return session_; }
 
 void EosTraceSession::Record(const std::string& phase, const std::string& payload_json) const {
   sink_->Record("electro_optical_sensor", phase, payload_json);
+}
+
+void EosTraceSession::RecordReplay(const std::string& event_type,
+                                   const std::string& payload_type,
+                                   const std::string& payload_json) const {
+  oneq::replay::ReplayTraceEvent event;
+  event.module = "electro_optical_sensor";
+  event.event_type = event_type;
+  event.payload_type = payload_type;
+  event.payload_json = payload_json;
+  replay_writer_->WriteEvent(event);
+}
+
+void EosTraceSession::RecordReplay(const std::string& event_type,
+                                   const std::string& payload_type,
+                                   const std::string& payload_json,
+                                   std::uint32_t cycle_index) const {
+  oneq::replay::ReplayTraceEvent event;
+  event.module = "electro_optical_sensor";
+  event.event_type = event_type;
+  event.payload_type = payload_type;
+  event.payload_json = payload_json;
+  event.has_cycle_index = true;
+  event.cycle_index = cycle_index;
+  replay_writer_->WriteEvent(event);
 }
 
 }  // namespace session

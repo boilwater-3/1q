@@ -6,6 +6,7 @@ set(ONEQ_COMMON_SOURCES
     common/geometry/GeometryTransform.cpp
     common/numerics/SpectralNumerics.cpp
     common/rcs/RcsPhysics.cpp
+    common/replay/ReplayTrace.cpp
     common/trace/TraceSink.cpp
     common/timing/TimingRegimeModel.cpp
 )
@@ -16,6 +17,9 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/foundation/pose_types.h
         ${CMAKE_SOURCE_DIR}/include/1q/foundation/scan_schedule_types.h
     )
+    set(PUBLIC_HEADERS_REPLAY
+        ${CMAKE_SOURCE_DIR}/include/1q/replay/ReplayTrace.h
+    )
     set(PUBLIC_HEADERS_TRACE
         ${CMAKE_SOURCE_DIR}/include/1q/trace/TraceSink.h
     )
@@ -25,5 +29,8 @@ if(ENABLE_INSTALL)
     )
     install(FILES ${PUBLIC_HEADERS_TRACE}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/trace
+    )
+    install(FILES ${PUBLIC_HEADERS_REPLAY}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/replay
     )
 endif()
