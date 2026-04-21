@@ -350,6 +350,22 @@ void WriteReportFile(const std::string& path, const ReplayTraceReplayReport& rep
   output << "}\n";
 }
 
+bool InvokeReplayCallback(ReplayTraceEventCallback callback,
+                          const ReplayTraceReadEvent& event,
+                          void* user_data,
+                          const char* missing_callback_error,
+                          bool required,
+                          std::string* error) {
+  if (!callback) {
+    if (required) {
+      *error = missing_callback_error;
+      return false;
+    }
+    return true;
+  }
+  return callback(event, user_data, error);
+}
+
 std::string ReadWholeFile(const std::string& path) {
   std::ifstream input(path.c_str(), std::ios::in);
   if (!input.is_open()) {
@@ -909,6 +925,97 @@ ReplayTraceReplayReport BuildReplayTraceReport(
 void WriteReplayTraceReport(const ReplayTraceReplayReport& report,
                             const std::string& report_path) {
   WriteReportFile(report_path, report);
+}
+
+ReplayTracePlaybackResult PlaybackReplayTrace(
+    const std::string& trace_dir,
+    const ReplayTracePlaybackCallbacks& callbacks,
+    const ReplayTracePlaybackOptions& options) {
+  ReplayTracePlaybackResult result;
+  ReplayTraceReader reader(trace_dir);
+
+  ReplayTraceReadEvent event;
+  while (reader.ReadNextEvent(&event)) {
+    ++result.processed_event_count;
+
+    std::string callback_error;
+    bool callback_ok = true;
+    if (event.event_type == "session_config") {
+      callback_ok = InvokeReplayCallback(
+          callbacks.on_session_config, event, callbacks.user_data,
+          "missing session_config replay callback", true, &callback_error);
+    } else if (event.event_type == "cycle_input") {
+      callback_ok = InvokeReplayCallback(
+          callbacks.on_cycle_input, event, callbacks.user_data,
+          "missing cycle_input replay callback", true, &callback_error);
+      if (callback_ok) {
+        ++result.applied_input_count;
+      }
+    } else if (event.event_type == "scene_state") {
+      callback_ok = InvokeReplayCallback(
+          callbacks.on_scene_state, event, callbacks.user_data,
+          "missing scene_state replay callback", false, &callback_error);
+      if (callback_ok && callbacks.on_scene_state) {
+        ++result.applied_scene_state_count;
+      }
+    } else if (event.event_type == "runtime_config_patch") {
+      callback_ok = InvokeReplayCallback(
+          callbacks.on_runtime_config_patch, event, callbacks.user_data,
+          "missing runtime_config_patch replay callback", true, &callback_error);
+      if (callback_ok) {
+        ++result.applied_runtime_patch_count;
+      }
+    } else if (event.event_type == "cycle_output") {
+      if (!callbacks.on_cycle_output) {
+        if (options.require_output_callback) {
+          callback_ok = false;
+          callback_error = "missing cycle_output replay callback";
+        } else {
+          ++result.skipped_output_count;
+        }
+      } else {
+        std::string actual_output_json;
+        callback_ok = callbacks.on_cycle_output(event, callbacks.user_data,
+                                                &actual_output_json,
+                                                &callback_error);
+        if (callback_ok) {
+          ++result.compared_output_count;
+          if (actual_output_json != event.payload_json) {
+            result.divergence_found = true;
+            result.divergence_sequence = event.sequence;
+            result.expected_output_json = event.payload_json;
+            result.actual_output_json = actual_output_json;
+            result.ok = false;
+            if (result.first_error.empty()) {
+              result.first_error = "replay output divergence";
+            }
+            if (options.stop_on_first_divergence) {
+              return result;
+            }
+          }
+        }
+      }
+    } else if (event.event_type == "failure_marker") {
+      ++result.failure_marker_count;
+      callback_ok = InvokeReplayCallback(
+          callbacks.on_failure_marker, event, callbacks.user_data,
+          "missing failure_marker replay callback", false, &callback_error);
+      if (callback_ok && options.stop_on_failure_marker) {
+        return result;
+      }
+    }
+
+    if (!callback_ok) {
+      result.ok = false;
+      if (result.first_error.empty()) {
+        result.first_error = callback_error.empty() ? "replay callback failed"
+                                                    : callback_error;
+      }
+      return result;
+    }
+  }
+
+  return result;
 }
 
 }  // namespace replay

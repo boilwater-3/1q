@@ -134,6 +134,46 @@ struct ONEQ_API ReplayTraceFailure {
   std::string diagnostics_json{"{}"};
 };
 
+typedef bool (*ReplayTraceEventCallback)(const ReplayTraceReadEvent& event,
+                                         void* user_data,
+                                         std::string* error);
+typedef bool (*ReplayTraceOutputCallback)(const ReplayTraceReadEvent& event,
+                                          void* user_data,
+                                          std::string* actual_output_json,
+                                          std::string* error);
+
+struct ONEQ_API ReplayTracePlaybackCallbacks {
+  void* user_data{nullptr};
+  ReplayTraceEventCallback on_session_config{nullptr};
+  ReplayTraceEventCallback on_cycle_input{nullptr};
+  ReplayTraceEventCallback on_scene_state{nullptr};
+  ReplayTraceEventCallback on_runtime_config_patch{nullptr};
+  ReplayTraceOutputCallback on_cycle_output{nullptr};
+  ReplayTraceEventCallback on_failure_marker{nullptr};
+};
+
+struct ONEQ_API ReplayTracePlaybackOptions {
+  bool stop_on_first_divergence{true};
+  bool stop_on_failure_marker{false};
+  bool require_output_callback{false};
+};
+
+struct ONEQ_API ReplayTracePlaybackResult {
+  bool ok{true};
+  std::uint64_t processed_event_count{0U};
+  std::uint64_t applied_input_count{0U};
+  std::uint64_t applied_scene_state_count{0U};
+  std::uint64_t applied_runtime_patch_count{0U};
+  std::uint64_t compared_output_count{0U};
+  std::uint64_t skipped_output_count{0U};
+  std::uint64_t failure_marker_count{0U};
+  bool divergence_found{false};
+  std::uint64_t divergence_sequence{0U};
+  std::string expected_output_json{};
+  std::string actual_output_json{};
+  std::string first_error{};
+};
+
 class ONEQ_API ReplayTraceWriter final {
  public:
   ReplayTraceWriter(std::string trace_dir, ReplayTraceManifest manifest,
@@ -181,6 +221,10 @@ ONEQ_API ReplayTraceReplayReport BuildReplayTraceReport(
     const ReplayTraceCompatibilityExpectation& expectation);
 ONEQ_API void WriteReplayTraceReport(const ReplayTraceReplayReport& report,
                                      const std::string& report_path);
+ONEQ_API ReplayTracePlaybackResult PlaybackReplayTrace(
+    const std::string& trace_dir,
+    const ReplayTracePlaybackCallbacks& callbacks,
+    const ReplayTracePlaybackOptions& options = ReplayTracePlaybackOptions{});
 
 }  // namespace replay
 }  // namespace oneq
