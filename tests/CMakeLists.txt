@@ -2,12 +2,29 @@ if(NOT ENABLE_TESTING)
     return()
 endif()
 
-# 查找测试框架（测试专用依赖，不污染主库）
+if(MSVC AND MSVC_VERSION LESS 1910)
+    set(CMAKE_MAP_IMPORTED_CONFIG_DEBUG Release)
+    set(CMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
+    set(CMAKE_MAP_IMPORTED_CONFIG_MINSIZEREL Release)
+endif()
+
 find_package(GTest CONFIG REQUIRED)
 find_package(Boost CONFIG REQUIRED)
 find_package(Eigen3 CONFIG REQUIRED)
+if(WIN32 AND NOT DEFINED flatbuffers_INCLUDE_DIRS_RELEASE)
+    # Pull Conan-generated include variables without importing flatc target.
+    file(GLOB _oneq_flatbuffers_data_candidates
+        "${CMAKE_BINARY_DIR}/build/generators/flatbuffers-*-data.cmake")
+    foreach(_oneq_flatbuffers_data IN LISTS _oneq_flatbuffers_data_candidates)
+        if(NOT _oneq_flatbuffers_data MATCHES "module-flatbuffers")
+            include("${_oneq_flatbuffers_data}")
+            break()
+        endif()
+    endforeach()
+    unset(_oneq_flatbuffers_data)
+    unset(_oneq_flatbuffers_data_candidates)
+endif()
 
-# 按测试层级自动收集，避免根目录文件平铺导致维护成本上升
 file(GLOB_RECURSE UNIT_TEST_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/*.cpp"
 )
@@ -26,11 +43,10 @@ set(TEST_SOURCES
 
 if(NOT TEST_SOURCES)
     message(STATUS "No test sources defined in ${CMAKE_CURRENT_SOURCE_DIR}")
-    message(STATUS "  └─ Add .cpp files to unit/integration/contract to enable testing")
+    message(STATUS "  Add .cpp files to unit/integration/contract to enable testing")
     return()
 endif()
 
-# 注册测试用例（使用 GoogleTest 自动发现）
 include(GoogleTest)
 function(add_1q_gtest target_name suite_label discovery_timeout)
     if(NOT ARGN)
@@ -39,17 +55,34 @@ function(add_1q_gtest target_name suite_label discovery_timeout)
 
     add_executable(${target_name} ${ARGN})
     target_link_libraries(${target_name} PRIVATE
-        GTest::gtest_main  # 包含 main() 函数
-        GTest::gmock       # Mock 功能（可选）
+        GTest::gtest_main
+        GTest::gmock
         Boost::boost
         Eigen3::Eigen
-        ${PROJECT_ALIAS}   # 主库
+        ${PROJECT_ALIAS}
     )
+    if(TARGET flatbuffers::flatbuffers)
+        target_link_libraries(${target_name} PRIVATE flatbuffers::flatbuffers)
+    endif()
     target_include_directories(${target_name} PRIVATE
         ${CMAKE_SOURCE_DIR}/include
         ${CMAKE_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}
     )
+    if(WIN32 AND DEFINED flatbuffers_INCLUDE_DIRS_RELEASE)
+        # Conan + VS2015 multi-config can omit header-only include dirs for tests.
+        # Mirror Release include dirs so flexbuffers headers are always resolvable.
+        target_include_directories(${target_name} PRIVATE
+            ${flatbuffers_INCLUDE_DIRS_RELEASE}
+        )
+    endif()
+    if(WIN32)
+        # flatbuffers/1.12 header-only mode on VS2015 needs this to avoid
+        # unresolved ClassicLocale symbols from util.h.
+        target_compile_definitions(${target_name} PRIVATE
+            FLATBUFFERS_LOCALE_INDEPENDENT=0
+        )
+    endif()
 
     if(WIN32 AND BUILD_SHARED_LIBS)
         add_custom_command(TARGET ${target_name} POST_BUILD
@@ -72,7 +105,6 @@ add_1q_gtest(${PROJECT_NAME}_unit_tests unit 60 ${UNIT_TEST_SOURCES})
 add_1q_gtest(${PROJECT_NAME}_integration_tests integration 120 ${INTEGRATION_TEST_SOURCES})
 add_1q_gtest(${PROJECT_NAME}_contract_tests contract 60 ${CONTRACT_TEST_SOURCES})
 
-# 兼容既有工作流：保留聚合 target 名称
 add_custom_target(${PROJECT_NAME}_tests)
 add_dependencies(${PROJECT_NAME}_tests
     ${PROJECT_NAME}_unit_tests
