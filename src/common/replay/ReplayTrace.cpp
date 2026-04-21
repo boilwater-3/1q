@@ -2,7 +2,9 @@
 
 #include <cerrno>
 #include <chrono>
+#include <cstdlib>
 #include <cstdint>
+#include <deque>
 #include <fstream>
 #include <iomanip>
 #include <sstream>
@@ -78,6 +80,20 @@ std::string JoinPath(const std::string& left, const std::string& right) {
 #endif
 }
 
+std::string EventChunkFileName(std::uint32_t chunk_index) {
+  std::ostringstream stream;
+  stream << std::setw(6) << std::setfill('0') << chunk_index << ".events.jsonl";
+  return stream.str();
+}
+
+std::string EventChunkRelativePath(std::uint32_t chunk_index) {
+  return JoinPath("events", EventChunkFileName(chunk_index));
+}
+
+std::string EventChunkPath(const std::string& trace_dir, std::uint32_t chunk_index) {
+  return JoinPath(trace_dir, EventChunkRelativePath(chunk_index));
+}
+
 std::string HashString(const std::string& value) {
   std::uint64_t hash = 1469598103934665603ull;
   for (std::size_t i = 0; i < value.size(); ++i) {
@@ -132,8 +148,275 @@ void WriteManifestFile(const std::string& path, const ReplayTraceManifest& manif
   WriteJsonStringField(output, "float_policy", manifest.float_policy, true);
   WriteJsonRawField(output, "default_tolerances", manifest.default_tolerances_json, true);
   output << "\"checkpoint_interval_cycles\":" << manifest.checkpoint_interval_cycles << ",";
-  output << "\"event_chunk_size\":" << manifest.event_chunk_size;
+  output << "\"event_chunk_size\":" << manifest.event_chunk_size << ",";
+  output << "\"failure_window_event_count\":" << manifest.failure_window_event_count;
   output << "}\n";
+}
+
+void WriteOptionalUInt32Field(std::ostream& output, const char* name, bool has_value,
+                              std::uint32_t value, bool trailing_comma) {
+  output << "\"" << name << "\":";
+  if (has_value) {
+    output << value;
+  } else {
+    output << "null";
+  }
+  if (trailing_comma) {
+    output << ",";
+  }
+}
+
+void WriteOptionalUInt64Field(std::ostream& output, const char* name, bool has_value,
+                              std::uint64_t value, bool trailing_comma) {
+  output << "\"" << name << "\":";
+  if (has_value) {
+    output << value;
+  } else {
+    output << "null";
+  }
+  if (trailing_comma) {
+    output << ",";
+  }
+}
+
+void WriteOptionalDoubleField(std::ostream& output, const char* name, bool has_value,
+                              double value, bool trailing_comma) {
+  output << "\"" << name << "\":";
+  if (has_value) {
+    output << value;
+  } else {
+    output << "null";
+  }
+  if (trailing_comma) {
+    output << ",";
+  }
+}
+
+std::string BuildFailurePayloadJson(const ReplayTraceFailure& failure,
+                                    bool has_last_event_sequence,
+                                    std::uint64_t last_event_sequence) {
+  std::ostringstream payload;
+  payload << "{";
+  WriteJsonStringField(payload, "error_code", failure.error_code, true);
+  WriteJsonStringField(payload, "message", failure.message, true);
+  WriteJsonStringField(payload, "location", failure.location, true);
+  WriteOptionalUInt32Field(payload, "cycle_index", failure.has_cycle_index,
+                           failure.cycle_index, true);
+  WriteOptionalDoubleField(payload, "sim_time_sec", failure.has_sim_time_sec,
+                           failure.sim_time_sec, true);
+  WriteOptionalUInt64Field(payload, "last_event_sequence", has_last_event_sequence,
+                           last_event_sequence, true);
+  WriteJsonRawField(payload, "diagnostics", failure.diagnostics_json, false);
+  payload << "}";
+  return payload.str();
+}
+
+void WriteFailureFile(const std::string& path, const ReplayTraceManifest& manifest,
+                      const ReplayTraceFailure& failure,
+                      std::uint64_t failure_marker_sequence,
+                      bool has_last_event_sequence,
+                      std::uint64_t last_event_sequence) {
+  std::ofstream output(path.c_str(), std::ios::out | std::ios::trunc);
+  if (!output.is_open()) {
+    throw std::runtime_error("failed to open replay failure file: " + path);
+  }
+
+  output << "{";
+  output << "\"schema_version\":" << manifest.schema_version << ",";
+  WriteJsonStringField(output, "trace_id", manifest.trace_id, true);
+  WriteJsonStringField(output, "module", manifest.module, true);
+  output << "\"created_wall_time_ms\":" << CurrentTimestampMs() << ",";
+  output << "\"failure_marker_sequence\":" << failure_marker_sequence << ",";
+  WriteOptionalUInt64Field(output, "last_event_sequence", has_last_event_sequence,
+                           last_event_sequence, true);
+  WriteJsonStringField(output, "error_code", failure.error_code, true);
+  WriteJsonStringField(output, "message", failure.message, true);
+  WriteJsonStringField(output, "location", failure.location, true);
+  WriteOptionalUInt32Field(output, "cycle_index", failure.has_cycle_index,
+                           failure.cycle_index, true);
+  WriteOptionalDoubleField(output, "sim_time_sec", failure.has_sim_time_sec,
+                           failure.sim_time_sec, true);
+  WriteJsonRawField(output, "diagnostics", failure.diagnostics_json, false);
+  output << "}\n";
+}
+
+void WriteLastWindowFile(const std::string& path,
+                         const std::deque<std::string>& last_window) {
+  std::ofstream output(path.c_str(), std::ios::out | std::ios::trunc);
+  if (!output.is_open()) {
+    throw std::runtime_error("failed to open replay last-window file: " + path);
+  }
+
+  for (std::deque<std::string>::const_iterator it = last_window.begin();
+       it != last_window.end(); ++it) {
+    output << *it << '\n';
+  }
+}
+
+void WriteCycleIndexLine(std::ostream& output, const ReplayTraceEvent& event,
+                         std::uint64_t sequence, std::uint32_t chunk_index,
+                         std::uint64_t byte_offset) {
+  if (!event.has_cycle_index) {
+    return;
+  }
+
+  output << "{";
+  output << "\"cycle_index\":" << event.cycle_index << ",";
+  output << "\"sequence\":" << sequence << ",";
+  WriteJsonStringField(output, "event_file", EventChunkRelativePath(chunk_index), true);
+  output << "\"byte_offset\":" << byte_offset << ",";
+  WriteJsonStringField(output, "event_type", event.event_type, true);
+  WriteOptionalDoubleField(output, "sim_time_sec", event.has_sim_time_sec,
+                           event.sim_time_sec, false);
+  output << "}\n";
+}
+
+std::string ReadWholeFile(const std::string& path) {
+  std::ifstream input(path.c_str(), std::ios::in);
+  if (!input.is_open()) {
+    throw std::runtime_error("failed to open replay trace file: " + path);
+  }
+  std::ostringstream buffer;
+  buffer << input.rdbuf();
+  return buffer.str();
+}
+
+std::size_t FindFieldValueStart(const std::string& json, const std::string& field_name) {
+  const std::string key = "\"" + field_name + "\":";
+  const std::size_t key_pos = json.find(key);
+  if (key_pos == std::string::npos) {
+    return std::string::npos;
+  }
+  return key_pos + key.size();
+}
+
+std::string ExtractStringField(const std::string& json, const std::string& field_name) {
+  std::size_t value_pos = FindFieldValueStart(json, field_name);
+  if (value_pos == std::string::npos || value_pos >= json.size() || json[value_pos] != '"') {
+    return "";
+  }
+  ++value_pos;
+
+  std::ostringstream output;
+  bool escaping = false;
+  for (std::size_t i = value_pos; i < json.size(); ++i) {
+    const char c = json[i];
+    if (escaping) {
+      switch (c) {
+        case 'n':
+          output << '\n';
+          break;
+        case 'r':
+          output << '\r';
+          break;
+        case 't':
+          output << '\t';
+          break;
+        default:
+          output << c;
+          break;
+      }
+      escaping = false;
+      continue;
+    }
+    if (c == '\\') {
+      escaping = true;
+      continue;
+    }
+    if (c == '"') {
+      break;
+    }
+    output << c;
+  }
+  return output.str();
+}
+
+std::uint64_t ExtractUInt64Field(const std::string& json, const std::string& field_name) {
+  const std::size_t value_pos = FindFieldValueStart(json, field_name);
+  if (value_pos == std::string::npos) {
+    return 0U;
+  }
+  return static_cast<std::uint64_t>(std::strtoull(json.c_str() + value_pos, nullptr, 10));
+}
+
+std::int32_t ExtractInt32Field(const std::string& json, const std::string& field_name) {
+  const std::size_t value_pos = FindFieldValueStart(json, field_name);
+  if (value_pos == std::string::npos) {
+    return 0;
+  }
+  return static_cast<std::int32_t>(std::strtol(json.c_str() + value_pos, nullptr, 10));
+}
+
+bool ExtractNullableUInt32Field(const std::string& json, const std::string& field_name,
+                                std::uint32_t* value) {
+  const std::size_t value_pos = FindFieldValueStart(json, field_name);
+  if (value_pos == std::string::npos || json.compare(value_pos, 4U, "null") == 0) {
+    return false;
+  }
+  *value = static_cast<std::uint32_t>(std::strtoul(json.c_str() + value_pos, nullptr, 10));
+  return true;
+}
+
+bool ExtractNullableDoubleField(const std::string& json, const std::string& field_name,
+                                double* value) {
+  const std::size_t value_pos = FindFieldValueStart(json, field_name);
+  if (value_pos == std::string::npos || json.compare(value_pos, 4U, "null") == 0) {
+    return false;
+  }
+  *value = std::strtod(json.c_str() + value_pos, nullptr);
+  return true;
+}
+
+std::string ExtractRawJsonValue(const std::string& json, const std::string& field_name) {
+  const std::size_t value_pos = FindFieldValueStart(json, field_name);
+  if (value_pos == std::string::npos || value_pos >= json.size()) {
+    return "";
+  }
+
+  const char opening = json[value_pos];
+  char closing = '\0';
+  if (opening == '{') {
+    closing = '}';
+  } else if (opening == '[') {
+    closing = ']';
+  } else {
+    std::size_t end = value_pos;
+    while (end < json.size() && json[end] != ',') {
+      ++end;
+    }
+    return json.substr(value_pos, end - value_pos);
+  }
+
+  int depth = 0;
+  bool in_string = false;
+  bool escaping = false;
+  for (std::size_t i = value_pos; i < json.size(); ++i) {
+    const char c = json[i];
+    if (escaping) {
+      escaping = false;
+      continue;
+    }
+    if (c == '\\') {
+      escaping = in_string;
+      continue;
+    }
+    if (c == '"') {
+      in_string = !in_string;
+      continue;
+    }
+    if (in_string) {
+      continue;
+    }
+    if (c == opening) {
+      ++depth;
+    } else if (c == closing) {
+      --depth;
+      if (depth == 0) {
+        return json.substr(value_pos, i - value_pos + 1U);
+      }
+    }
+  }
+  return "";
 }
 
 }  // namespace
@@ -149,21 +432,50 @@ struct ReplayTraceWriter::Impl {
 
     WriteManifestFile(JoinPath(trace_dir, "manifest.json"), manifest);
 
-    const std::string event_path = JoinPath(JoinPath(trace_dir, "events"),
-                                           "000000.events.jsonl");
+    OpenEventChunk(0U, overwrite);
+
+    const std::string cycle_index_path = JoinPath(JoinPath(trace_dir, "indexes"),
+                                                 "cycles.idx");
+    cycles_index.open(cycle_index_path.c_str(),
+                      overwrite ? (std::ios::out | std::ios::trunc)
+                                : (std::ios::out | std::ios::app));
+    if (!cycles_index.is_open()) {
+      throw std::runtime_error("failed to open replay cycle index: " + cycle_index_path);
+    }
+  }
+
+  void OpenEventChunk(std::uint32_t chunk_index, bool truncate) {
+    if (events.is_open()) {
+      events.close();
+    }
+
+    const std::string event_path = EventChunkPath(trace_dir, chunk_index);
     events.open(event_path.c_str(),
-                overwrite ? (std::ios::out | std::ios::trunc)
-                          : (std::ios::out | std::ios::app));
+                truncate ? (std::ios::out | std::ios::trunc)
+                         : (std::ios::out | std::ios::app));
     if (!events.is_open()) {
       throw std::runtime_error("failed to open replay event file: " + event_path);
+    }
+    current_chunk_index = chunk_index;
+  }
+
+  void RotateEventChunkIfNeeded() {
+    if (manifest.event_chunk_size == 0U || next_sequence == 0U) {
+      return;
+    }
+    if ((next_sequence % manifest.event_chunk_size) == 0U) {
+      OpenEventChunk(current_chunk_index + 1U, true);
     }
   }
 
   std::string trace_dir;
   ReplayTraceManifest manifest;
   std::ofstream events;
+  std::ofstream cycles_index;
   std::uint64_t next_sequence{0U};
+  std::uint32_t current_chunk_index{0U};
   std::string previous_event_hash{};
+  std::deque<std::string> last_window;
 };
 
 ReplayTraceWriter::ReplayTraceWriter(std::string trace_dir, ReplayTraceManifest manifest,
@@ -173,6 +485,8 @@ ReplayTraceWriter::ReplayTraceWriter(std::string trace_dir, ReplayTraceManifest 
 ReplayTraceWriter::~ReplayTraceWriter() = default;
 
 void ReplayTraceWriter::WriteEvent(const ReplayTraceEvent& event) {
+  impl_->RotateEventChunkIfNeeded();
+
   const std::string payload_hash = HashString(event.payload_json);
   const std::string previous_hash = impl_->previous_event_hash;
 
@@ -202,17 +516,196 @@ void ReplayTraceWriter::WriteEvent(const ReplayTraceEvent& event) {
   line << "}";
 
   const std::string serialized = line.str();
+  const std::ostream::pos_type position = impl_->events.tellp();
+  std::uint64_t byte_offset = 0U;
+  if (position != std::ostream::pos_type(-1)) {
+    byte_offset = static_cast<std::uint64_t>(position);
+  }
   impl_->events << serialized << '\n';
   impl_->events.flush();
+  WriteCycleIndexLine(impl_->cycles_index, event, impl_->next_sequence,
+                      impl_->current_chunk_index, byte_offset);
+  impl_->cycles_index.flush();
   impl_->previous_event_hash = HashString(serialized);
   ++impl_->next_sequence;
+
+  const std::uint32_t window_limit = impl_->manifest.failure_window_event_count;
+  if (window_limit > 0U) {
+    while (impl_->last_window.size() >= window_limit) {
+      impl_->last_window.pop_front();
+    }
+    impl_->last_window.push_back(serialized);
+  }
 }
 
-void ReplayTraceWriter::Flush() { impl_->events.flush(); }
+void ReplayTraceWriter::WriteFailureMarker(const ReplayTraceFailure& failure) {
+  const std::uint64_t failure_marker_sequence = impl_->next_sequence;
+  const bool has_last_event_sequence = impl_->next_sequence > 0U;
+  const std::uint64_t last_event_sequence =
+      has_last_event_sequence ? (impl_->next_sequence - 1U) : 0U;
+
+  ReplayTraceEvent event;
+  event.module = impl_->manifest.module;
+  event.event_type = "failure_marker";
+  event.payload_type = "ReplayTraceFailure";
+  event.payload_json = BuildFailurePayloadJson(failure, has_last_event_sequence,
+                                               last_event_sequence);
+  event.has_cycle_index = failure.has_cycle_index;
+  event.cycle_index = failure.cycle_index;
+  event.has_sim_time_sec = failure.has_sim_time_sec;
+  event.sim_time_sec = failure.sim_time_sec;
+  WriteEvent(event);
+
+  const std::string crash_dir = JoinPath(impl_->trace_dir, "crash");
+  WriteFailureFile(JoinPath(crash_dir, "failure.json"), impl_->manifest, failure,
+                   failure_marker_sequence, has_last_event_sequence,
+                   last_event_sequence);
+  WriteLastWindowFile(JoinPath(crash_dir, "last-window.events.jsonl"),
+                      impl_->last_window);
+}
+
+void ReplayTraceWriter::Flush() {
+  impl_->events.flush();
+  impl_->cycles_index.flush();
+}
 
 const std::string& ReplayTraceWriter::trace_dir() const { return impl_->trace_dir; }
 
 const ReplayTraceManifest& ReplayTraceWriter::manifest() const { return impl_->manifest; }
+
+struct ReplayTraceReader::Impl {
+  explicit Impl(std::string path)
+      : trace_dir(std::move(path)),
+        manifest_json(ReadWholeFile(JoinPath(trace_dir, "manifest.json"))) {
+    if (!OpenEventChunk(0U)) {
+      throw std::runtime_error("failed to open replay event file: " +
+                               EventChunkPath(trace_dir, 0U));
+    }
+  }
+
+  bool OpenEventChunk(std::uint32_t chunk_index) {
+    if (events.is_open()) {
+      events.close();
+    }
+
+    const std::string event_path = EventChunkPath(trace_dir, chunk_index);
+    events.open(event_path.c_str(), std::ios::in);
+    if (!events.is_open()) {
+      return false;
+    }
+    current_chunk_index = chunk_index;
+    return true;
+  }
+
+  bool ReadNextLine(std::string* line) {
+    bool keep_reading = true;
+    while (keep_reading) {
+      if (std::getline(events, *line)) {
+        return true;
+      }
+      if (!OpenEventChunk(current_chunk_index + 1U)) {
+        return false;
+      }
+    }
+    return false;
+  }
+
+  std::string trace_dir;
+  std::string manifest_json;
+  std::ifstream events;
+  std::uint32_t current_chunk_index{0U};
+  std::string previous_event_hash;
+};
+
+ReplayTraceReader::ReplayTraceReader(std::string trace_dir)
+    : impl_(new Impl(std::move(trace_dir))) {}
+
+ReplayTraceReader::~ReplayTraceReader() = default;
+
+const std::string& ReplayTraceReader::trace_dir() const { return impl_->trace_dir; }
+
+const std::string& ReplayTraceReader::manifest_json() const { return impl_->manifest_json; }
+
+bool ReplayTraceReader::ReadNextEvent(ReplayTraceReadEvent* event) {
+  if (event == nullptr) {
+    return false;
+  }
+
+  std::string line;
+  if (!impl_->ReadNextLine(&line)) {
+    return false;
+  }
+
+  ReplayTraceReadEvent parsed;
+  parsed.raw_event_json = line;
+  parsed.schema_version = ExtractInt32Field(line, "schema_version");
+  parsed.trace_id = ExtractStringField(line, "trace_id");
+  parsed.sequence = ExtractUInt64Field(line, "sequence");
+  parsed.module = ExtractStringField(line, "module");
+  parsed.event_type = ExtractStringField(line, "event_type");
+  parsed.has_cycle_index = ExtractNullableUInt32Field(line, "cycle_index",
+                                                      &parsed.cycle_index);
+  parsed.has_sim_time_sec = ExtractNullableDoubleField(line, "sim_time_sec",
+                                                       &parsed.sim_time_sec);
+  parsed.payload_type = ExtractStringField(line, "payload_type");
+  parsed.payload_encoding = ExtractStringField(line, "payload_encoding");
+  parsed.payload_json = ExtractRawJsonValue(line, "payload");
+  parsed.payload_hash = ExtractStringField(line, "payload_hash");
+  parsed.previous_event_hash = ExtractStringField(line, "previous_event_hash");
+  parsed.payload_hash_matches = (HashString(parsed.payload_json) == parsed.payload_hash);
+  parsed.event_hash = HashString(line);
+  parsed.previous_event_hash_matches =
+      (parsed.previous_event_hash == impl_->previous_event_hash);
+  impl_->previous_event_hash = parsed.event_hash;
+
+  *event = parsed;
+  return true;
+}
+
+ReplayTraceScanResult ScanReplayTrace(const std::string& trace_dir) {
+  ReplayTraceReader reader(trace_dir);
+  ReplayTraceScanResult result;
+
+  std::uint64_t expected_sequence = 0U;
+  ReplayTraceReadEvent event;
+  while (reader.ReadNextEvent(&event)) {
+    ++result.event_count;
+
+    if (event.sequence != expected_sequence) {
+      result.sequences_contiguous = false;
+      if (result.first_error.empty()) {
+        std::ostringstream message;
+        message << "expected event sequence " << expected_sequence << " but found "
+                << event.sequence;
+        result.first_error = message.str();
+      }
+    }
+
+    if (!event.payload_hash_matches) {
+      result.payload_hashes_ok = false;
+      if (result.first_error.empty()) {
+        std::ostringstream message;
+        message << "payload hash mismatch at sequence " << event.sequence;
+        result.first_error = message.str();
+      }
+    }
+
+    if (!event.previous_event_hash_matches) {
+      result.event_chain_ok = false;
+      if (result.first_error.empty()) {
+        std::ostringstream message;
+        message << "event chain mismatch at sequence " << event.sequence;
+        result.first_error = message.str();
+      }
+    }
+
+    expected_sequence = event.sequence + 1U;
+  }
+
+  result.ok = result.payload_hashes_ok && result.event_chain_ok &&
+              result.sequences_contiguous;
+  return result;
+}
 
 }  // namespace replay
 }  // namespace oneq
