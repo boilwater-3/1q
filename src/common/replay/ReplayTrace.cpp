@@ -271,6 +271,85 @@ void WriteCycleIndexLine(std::ostream& output, const ReplayTraceEvent& event,
   output << "}\n";
 }
 
+void WriteReportFile(const std::string& path, const ReplayTraceReplayReport& report) {
+  std::ofstream output(path.c_str(), std::ios::out | std::ios::trunc);
+  if (!output.is_open()) {
+    throw std::runtime_error("failed to open replay report file: " + path);
+  }
+
+  output << "{";
+  output << "\"replay_ready\":" << trace::internal::BoolToJson(report.replay_ready)
+         << ",";
+  WriteJsonStringField(output, "first_error", report.first_error, true);
+  WriteJsonStringField(output, "warning", report.warning, true);
+
+  output << "\"compatibility\":{";
+  output << "\"compatible\":"
+         << trace::internal::BoolToJson(report.compatibility.compatible) << ",";
+  output << "\"schema_version_matches\":"
+         << trace::internal::BoolToJson(report.compatibility.schema_version_matches)
+         << ",";
+  output << "\"serializer_version_matches\":"
+         << trace::internal::BoolToJson(
+                report.compatibility.serializer_version_matches)
+         << ",";
+  output << "\"git_commit_matches\":"
+         << trace::internal::BoolToJson(report.compatibility.git_commit_matches)
+         << ",";
+  output << "\"module_matches\":"
+         << trace::internal::BoolToJson(report.compatibility.module_matches)
+         << ",";
+  output << "\"manifest_git_dirty\":"
+         << trace::internal::BoolToJson(report.compatibility.manifest_git_dirty)
+         << ",";
+  WriteJsonStringField(output, "manifest_trace_id",
+                       report.compatibility.manifest_trace_id, true);
+  WriteJsonStringField(output, "manifest_module",
+                       report.compatibility.manifest_module, true);
+  output << "\"manifest_schema_version\":"
+         << report.compatibility.manifest_schema_version << ",";
+  WriteJsonStringField(output, "manifest_serializer_version",
+                       report.compatibility.manifest_serializer_version, true);
+  WriteJsonStringField(output, "manifest_git_commit",
+                       report.compatibility.manifest_git_commit, true);
+  WriteJsonStringField(output, "first_error", report.compatibility.first_error,
+                       true);
+  WriteJsonStringField(output, "warning", report.compatibility.warning, false);
+  output << "},";
+
+  output << "\"scan\":{";
+  output << "\"ok\":" << trace::internal::BoolToJson(report.scan.ok) << ",";
+  output << "\"event_count\":" << report.scan.event_count << ",";
+  output << "\"payload_hashes_ok\":"
+         << trace::internal::BoolToJson(report.scan.payload_hashes_ok) << ",";
+  output << "\"event_chain_ok\":"
+         << trace::internal::BoolToJson(report.scan.event_chain_ok) << ",";
+  output << "\"sequences_contiguous\":"
+         << trace::internal::BoolToJson(report.scan.sequences_contiguous) << ",";
+  WriteJsonStringField(output, "first_error", report.scan.first_error, false);
+  output << "},";
+
+  output << "\"events\":{";
+  output << "\"has_session_config\":"
+         << trace::internal::BoolToJson(report.has_session_config) << ",";
+  output << "\"has_failure_marker\":"
+         << trace::internal::BoolToJson(report.has_failure_marker) << ",";
+  output << "\"session_config_count\":" << report.session_config_count << ",";
+  output << "\"cycle_input_count\":" << report.cycle_input_count << ",";
+  output << "\"scene_state_count\":" << report.scene_state_count << ",";
+  output << "\"runtime_config_patch_count\":"
+         << report.runtime_config_patch_count << ",";
+  output << "\"cycle_output_count\":" << report.cycle_output_count << ",";
+  output << "\"failure_marker_count\":" << report.failure_marker_count << ",";
+  output << "\"unsupported_event_count\":" << report.unsupported_event_count
+         << ",";
+  output << "\"first_failure_sequence\":" << report.first_failure_sequence << ",";
+  WriteJsonRawField(output, "first_failure_payload",
+                    report.first_failure_payload_json, false);
+  output << "}";
+  output << "}\n";
+}
+
 std::string ReadWholeFile(const std::string& path) {
   std::ifstream input(path.c_str(), std::ios::in);
   if (!input.is_open()) {
@@ -768,6 +847,68 @@ ReplayTraceCompatibilityResult CheckReplayTraceCompatibility(
                       result.git_commit_matches &&
                       result.module_matches;
   return result;
+}
+
+ReplayTraceReplayReport BuildReplayTraceReport(
+    const std::string& trace_dir,
+    const ReplayTraceCompatibilityExpectation& expectation) {
+  ReplayTraceReplayReport report;
+  report.compatibility = CheckReplayTraceCompatibility(trace_dir, expectation);
+  report.scan = ScanReplayTrace(trace_dir);
+
+  ReplayTraceReader reader(trace_dir);
+  ReplayTraceReadEvent event;
+  while (reader.ReadNextEvent(&event)) {
+    if (event.event_type == "session_config") {
+      ++report.session_config_count;
+      report.has_session_config = true;
+    } else if (event.event_type == "cycle_input") {
+      ++report.cycle_input_count;
+    } else if (event.event_type == "scene_state") {
+      ++report.scene_state_count;
+    } else if (event.event_type == "runtime_config_patch") {
+      ++report.runtime_config_patch_count;
+    } else if (event.event_type == "cycle_output") {
+      ++report.cycle_output_count;
+    } else if (event.event_type == "failure_marker") {
+      ++report.failure_marker_count;
+      if (!report.has_failure_marker) {
+        report.has_failure_marker = true;
+        report.first_failure_sequence = event.sequence;
+        report.first_failure_payload_json = event.payload_json;
+      }
+    } else {
+      ++report.unsupported_event_count;
+    }
+  }
+
+  if (!report.compatibility.compatible && report.first_error.empty()) {
+    report.first_error = report.compatibility.first_error;
+  }
+  if (!report.scan.ok && report.first_error.empty()) {
+    report.first_error = report.scan.first_error;
+  }
+  if (!report.has_session_config && report.first_error.empty()) {
+    report.first_error = "replay trace does not contain a session_config event";
+  }
+
+  if (!report.compatibility.warning.empty()) {
+    report.warning = report.compatibility.warning;
+  }
+  if (report.unsupported_event_count > 0U && report.warning.empty()) {
+    report.warning = "replay trace contains unsupported event types";
+  }
+
+  report.replay_ready = report.compatibility.compatible &&
+                        report.scan.ok &&
+                        report.has_session_config &&
+                        report.unsupported_event_count == 0U;
+  return report;
+}
+
+void WriteReplayTraceReport(const ReplayTraceReplayReport& report,
+                            const std::string& report_path) {
+  WriteReportFile(report_path, report);
 }
 
 }  // namespace replay

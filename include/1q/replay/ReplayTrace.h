@@ -104,6 +104,25 @@ struct ONEQ_API ReplayTraceCompatibilityResult {
   std::string warning{};
 };
 
+struct ONEQ_API ReplayTraceReplayReport {
+  ReplayTraceCompatibilityResult compatibility{};
+  ReplayTraceScanResult scan{};
+  bool replay_ready{false};
+  bool has_session_config{false};
+  bool has_failure_marker{false};
+  std::uint64_t session_config_count{0U};
+  std::uint64_t cycle_input_count{0U};
+  std::uint64_t scene_state_count{0U};
+  std::uint64_t runtime_config_patch_count{0U};
+  std::uint64_t cycle_output_count{0U};
+  std::uint64_t failure_marker_count{0U};
+  std::uint64_t unsupported_event_count{0U};
+  std::uint64_t first_failure_sequence{0U};
+  std::string first_failure_payload_json{};
+  std::string first_error{};
+  std::string warning{};
+};
+
 struct ONEQ_API ReplayTraceFailure {
   std::string error_code{};
   std::string message{};
@@ -157,6 +176,11 @@ ONEQ_API ReplayTraceScanResult ScanReplayTrace(const std::string& trace_dir);
 ONEQ_API ReplayTraceCompatibilityResult CheckReplayTraceCompatibility(
     const std::string& trace_dir,
     const ReplayTraceCompatibilityExpectation& expectation);
+ONEQ_API ReplayTraceReplayReport BuildReplayTraceReport(
+    const std::string& trace_dir,
+    const ReplayTraceCompatibilityExpectation& expectation);
+ONEQ_API void WriteReplayTraceReport(const ReplayTraceReplayReport& report,
+                                     const std::string& report_path);
 
 }  // namespace replay
 }  // namespace oneq

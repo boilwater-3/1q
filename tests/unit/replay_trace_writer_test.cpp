@@ -419,6 +419,106 @@ TEST(ReplayTraceWriterTest, ChecksManifestCompatibilityBeforeReplay) {
   EXPECT_NE(result.first_error.find("git commit mismatch"), std::string::npos);
 }
 
+TEST(ReplayTraceWriterTest, BuildsReplayReportForBComputerEntry) {
+  const std::string trace_dir = MakeTempTraceDir();
+
+  ReplayTraceManifest manifest;
+  manifest.trace_id = "report-trace-test";
+  manifest.module = "airborne_radar";
+
+  {
+    ReplayTraceWriter writer(trace_dir, manifest, true);
+
+    ReplayTraceEvent config;
+    config.module = "airborne_radar";
+    config.event_type = "session_config";
+    config.payload_type = "RadarSessionConfig";
+    config.payload_json = "{\"config\":true}";
+    writer.WriteEvent(config);
+
+    ReplayTraceEvent input;
+    input.module = "airborne_radar";
+    input.event_type = "cycle_input";
+    input.payload_type = "RadarCycleInput";
+    input.payload_json = "{\"dt_sec\":1.0}";
+    input.has_cycle_index = true;
+    input.cycle_index = 3U;
+    writer.WriteEvent(input);
+
+    ReplayTraceEvent output;
+    output.module = "airborne_radar";
+    output.event_type = "cycle_output";
+    output.payload_type = "RadarCycleResult";
+    output.payload_json = "{\"executed_this_cycle\":true}";
+    output.has_cycle_index = true;
+    output.cycle_index = 3U;
+    writer.WriteEvent(output);
+
+    ReplayTraceFailure failure;
+    failure.error_code = "DIVERGED";
+    failure.message = "output mismatch";
+    failure.has_cycle_index = true;
+    failure.cycle_index = 3U;
+    writer.WriteFailureMarker(failure);
+    writer.Flush();
+  }
+
+  ReplayTraceCompatibilityExpectation expectation;
+  expectation.module = "airborne_radar";
+  expectation.require_module_match = true;
+
+  ReplayTraceReplayReport report = BuildReplayTraceReport(trace_dir, expectation);
+  EXPECT_TRUE(report.replay_ready);
+  EXPECT_TRUE(report.compatibility.compatible);
+  EXPECT_TRUE(report.scan.ok);
+  EXPECT_TRUE(report.has_session_config);
+  EXPECT_TRUE(report.has_failure_marker);
+  EXPECT_EQ(report.session_config_count, 1U);
+  EXPECT_EQ(report.cycle_input_count, 1U);
+  EXPECT_EQ(report.cycle_output_count, 1U);
+  EXPECT_EQ(report.failure_marker_count, 1U);
+  EXPECT_EQ(report.unsupported_event_count, 0U);
+  EXPECT_EQ(report.first_failure_sequence, 3U);
+  EXPECT_NE(report.first_failure_payload_json.find("\"error_code\":\"DIVERGED\""),
+            std::string::npos);
+
+  const std::string report_path = JoinPath(trace_dir, "replay_report.json");
+  WriteReplayTraceReport(report, report_path);
+  const std::string report_json = ReadFile(report_path);
+  EXPECT_NE(report_json.find("\"replay_ready\":true"), std::string::npos);
+  EXPECT_NE(report_json.find("\"cycle_input_count\":1"), std::string::npos);
+  EXPECT_NE(report_json.find("\"first_failure_payload\":{\"error_code\":\"DIVERGED\""),
+            std::string::npos);
+}
+
+TEST(ReplayTraceWriterTest, ReplayReportRejectsMissingSessionConfig) {
+  const std::string trace_dir = MakeTempTraceDir();
+
+  ReplayTraceManifest manifest;
+  manifest.trace_id = "missing-config-report-test";
+  manifest.module = "airborne_radar";
+
+  {
+    ReplayTraceWriter writer(trace_dir, manifest, true);
+    ReplayTraceEvent input;
+    input.module = "airborne_radar";
+    input.event_type = "cycle_input";
+    input.payload_type = "RadarCycleInput";
+    input.payload_json = "{\"dt_sec\":1.0}";
+    writer.WriteEvent(input);
+    writer.Flush();
+  }
+
+  ReplayTraceCompatibilityExpectation expectation;
+  expectation.module = "airborne_radar";
+  expectation.require_module_match = true;
+
+  ReplayTraceReplayReport report = BuildReplayTraceReport(trace_dir, expectation);
+  EXPECT_FALSE(report.replay_ready);
+  EXPECT_FALSE(report.has_session_config);
+  EXPECT_NE(report.first_error.find("session_config"), std::string::npos);
+}
+
 }  // namespace tests
 }  // namespace replay
 }  // namespace oneq
