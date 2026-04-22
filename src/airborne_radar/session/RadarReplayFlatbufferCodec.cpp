@@ -5,12 +5,14 @@
 #include <vector>
 
 #include "airborne_radar/session/generated/airborne_radar_replay_generated.h"
+#include "airborne_radar/session/generated/airborne_radar_scene_replay_generated.h"
 
 namespace airborne_radar {
 namespace session {
 namespace {
 
 namespace fb = oneq::replay::airborne_radar::fb;
+namespace scene_fb = oneq::replay::airborne_radar::scene::fb;
 
 flatbuffers::Offset<fb::Vector3f> EncodeVector3(
     flatbuffers::FlatBufferBuilder* builder,
@@ -107,6 +109,92 @@ model::TargetFeature DecodeTargetFeature(const fb::TargetFeature* value) {
   return result;
 }
 
+flatbuffers::Offset<scene_fb::AtmosphericPhysicsConfig> EncodeAtmosphericPhysicsConfig(
+    flatbuffers::FlatBufferBuilder* builder,
+    const environment::AtmosphericPhysicsConfig& value) {
+  return scene_fb::CreateAtmosphericPhysicsConfig(
+      *builder, value.enable_physical_model, value.pressure_hpa,
+      value.temperature_k, value.relative_humidity);
+}
+
+flatbuffers::Offset<scene_fb::AtmosphericDerivedContext> EncodeAtmosphericDerivedContext(
+    flatbuffers::FlatBufferBuilder* builder,
+    const environment::AtmosphericDerivedContext& value) {
+  return scene_fb::CreateAtmosphericDerivedContext(
+      *builder, value.has_simulation_unix_seconds, value.simulation_unix_seconds,
+      value.solar_flux_f107a, value.solar_flux_f107, value.geomagnetic_ap);
+}
+
+flatbuffers::Offset<scene_fb::VegetationScatterPhysicsConfig>
+EncodeVegetationScatterPhysicsConfig(
+    flatbuffers::FlatBufferBuilder* builder,
+    const environment::VegetationScatterPhysicsConfig& value) {
+  return scene_fb::CreateVegetationScatterPhysicsConfig(
+      *builder, static_cast<int>(value.cover_profile), value.enable_physical_model);
+}
+
+flatbuffers::Offset<scene_fb::JammerEmitterState> EncodeJammerEmitterState(
+    flatbuffers::FlatBufferBuilder* builder,
+    const environment::JammerEmitterState& value) {
+  return scene_fb::CreateJammerEmitterState(
+      *builder, static_cast<int>(value.technique), value.power_db, value.js_db,
+      value.has_direction_deg, value.azimuth_deg, value.elevation_deg,
+      value.angular_span_deg, value.confidence);
+}
+
+environment::AtmosphericPhysicsConfig DecodeAtmosphericPhysicsConfig(
+    const scene_fb::AtmosphericPhysicsConfig* value) {
+  environment::AtmosphericPhysicsConfig result;
+  if (value != nullptr) {
+    result.enable_physical_model = value->enable_physical_model();
+    result.pressure_hpa = value->pressure_hpa();
+    result.temperature_k = value->temperature_k();
+    result.relative_humidity = value->relative_humidity();
+  }
+  return result;
+}
+
+environment::AtmosphericDerivedContext DecodeAtmosphericDerivedContext(
+    const scene_fb::AtmosphericDerivedContext* value) {
+  environment::AtmosphericDerivedContext result;
+  if (value != nullptr) {
+    result.has_simulation_unix_seconds = value->has_simulation_unix_seconds();
+    result.simulation_unix_seconds = value->simulation_unix_seconds();
+    result.solar_flux_f107a = value->solar_flux_f107a();
+    result.solar_flux_f107 = value->solar_flux_f107();
+    result.geomagnetic_ap = value->geomagnetic_ap();
+  }
+  return result;
+}
+
+environment::VegetationScatterPhysicsConfig DecodeVegetationScatterPhysicsConfig(
+    const scene_fb::VegetationScatterPhysicsConfig* value) {
+  environment::VegetationScatterPhysicsConfig result;
+  if (value != nullptr) {
+    result.cover_profile = static_cast<environment::VegetationCoverProfile>(
+        value->cover_profile());
+    result.enable_physical_model = value->enable_physical_model();
+  }
+  return result;
+}
+
+environment::JammerEmitterState DecodeJammerEmitterState(
+    const scene_fb::JammerEmitterState* value) {
+  environment::JammerEmitterState result;
+  if (value != nullptr) {
+    result.technique =
+        static_cast<environment::JammingTechnique>(value->technique());
+    result.power_db = value->power_db();
+    result.js_db = value->js_db();
+    result.has_direction_deg = value->has_direction_deg();
+    result.azimuth_deg = value->azimuth_deg();
+    result.elevation_deg = value->elevation_deg();
+    result.angular_span_deg = value->angular_span_deg();
+    result.confidence = value->confidence();
+  }
+  return result;
+}
+
 }  // namespace
 
 std::string EncodeCycleInputFlatbuffer(const RadarCycleInput& input) {
@@ -166,6 +254,80 @@ bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes,
     input->target_features.reserve(targets->size());
     for (flatbuffers::uoffset_t i = 0; i < targets->size(); ++i) {
       input->target_features.push_back(DecodeTargetFeature(targets->Get(i)));
+    }
+  }
+  return true;
+}
+
+std::string EncodeSceneStateFlatbuffer(
+    const environment::EnvironmentSceneState& scene_state) {
+  flatbuffers::FlatBufferBuilder builder;
+  std::vector<flatbuffers::Offset<scene_fb::JammerEmitterState> > emitters;
+  emitters.reserve(scene_state.jammer_emitters.size());
+  for (std::size_t i = 0; i < scene_state.jammer_emitters.size(); ++i) {
+    emitters.push_back(
+        EncodeJammerEmitterState(&builder, scene_state.jammer_emitters[i]));
+  }
+
+  const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<scene_fb::JammerEmitterState> > >
+      emitter_vector = builder.CreateVector(emitters);
+  const flatbuffers::Offset<scene_fb::EnvironmentSceneState> root =
+      scene_fb::CreateEnvironmentSceneState(
+          builder,
+          EncodeAtmosphericPhysicsConfig(&builder, scene_state.atmospheric_physics),
+          EncodeAtmosphericDerivedContext(&builder, scene_state.atmospheric_context),
+          EncodeVegetationScatterPhysicsConfig(
+              &builder, scene_state.vegetation_scatter_physics),
+          emitter_vector);
+  builder.Finish(root, scene_fb::EnvironmentSceneStateIdentifier());
+
+  const std::uint8_t* buffer = builder.GetBufferPointer();
+  return std::string(reinterpret_cast<const char*>(buffer),
+                     reinterpret_cast<const char*>(buffer) + builder.GetSize());
+}
+
+bool DecodeSceneStateFlatbuffer(const std::string& payload_bytes,
+                                environment::EnvironmentSceneState* scene_state,
+                                std::string* error) {
+  if (scene_state == nullptr) {
+    if (error != nullptr) {
+      *error = "null EnvironmentSceneState output";
+    }
+    return false;
+  }
+  if (payload_bytes.empty()) {
+    if (error != nullptr) {
+      *error = "empty EnvironmentSceneState flatbuffers payload";
+    }
+    return false;
+  }
+
+  const std::uint8_t* data =
+      reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
+  flatbuffers::Verifier verifier(data, payload_bytes.size());
+  if (!scene_fb::VerifyEnvironmentSceneStateBuffer(verifier)) {
+    if (error != nullptr) {
+      *error = "invalid EnvironmentSceneState flatbuffers payload";
+    }
+    return false;
+  }
+
+  const scene_fb::EnvironmentSceneState* root =
+      scene_fb::GetEnvironmentSceneState(data);
+  scene_state->atmospheric_physics =
+      DecodeAtmosphericPhysicsConfig(root->atmospheric_physics());
+  scene_state->atmospheric_context =
+      DecodeAtmosphericDerivedContext(root->atmospheric_context());
+  scene_state->vegetation_scatter_physics = DecodeVegetationScatterPhysicsConfig(
+      root->vegetation_scatter_physics());
+  scene_state->jammer_emitters.clear();
+  const flatbuffers::Vector<flatbuffers::Offset<scene_fb::JammerEmitterState> >*
+      emitters = root->jammer_emitters();
+  if (emitters != nullptr) {
+    scene_state->jammer_emitters.reserve(emitters->size());
+    for (flatbuffers::uoffset_t i = 0; i < emitters->size(); ++i) {
+      scene_state->jammer_emitters.push_back(
+          DecodeJammerEmitterState(emitters->Get(i)));
     }
   }
   return true;

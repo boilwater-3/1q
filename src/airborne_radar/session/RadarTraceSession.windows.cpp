@@ -371,6 +371,19 @@ void WriteCycleInputReplay(
   writer->WriteEvent(event);
 }
 
+void WriteSceneStateReplay(
+    const std::shared_ptr<oneq::replay::ReplayTraceWriter>& writer,
+    const environment::EnvironmentSceneState& scene_state) {
+  oneq::replay::ReplayTraceEvent event;
+  event.module = "airborne_radar";
+  event.event_type = "scene_state";
+  event.payload_type = "EnvironmentSceneState";
+  event.payload_encoding = "flatbuffers";
+  event.payload_json = "{}";
+  event.payload_bytes = EncodeSceneStateFlatbuffer(scene_state);
+  writer->WriteEvent(event);
+}
+
 std::string MakeInputPayload(const RadarCycleInput& input) {
   std::ostringstream stream;
   stream << "{"
@@ -487,8 +500,7 @@ output::TrackOutputFrame RadarTraceSession::Step(
     const RadarCycleInput& input, const environment::EnvironmentSceneState& scene_state) {
   if (replay_writer_) {
     WriteCycleInputReplay(replay_writer_, input);
-    RecordReplay("scene_state", "EnvironmentSceneState",
-                 MakeFlatbuffersPayload("EnvironmentSceneState", scene_state));
+    WriteSceneStateReplay(replay_writer_, scene_state);
   }
   if (sink_) {
     Record("input", MakeSceneInputPayload(input, scene_state));
@@ -526,8 +538,7 @@ RadarCycleResult RadarTraceSession::StepWithResult(
     const RadarCycleInput& input, const environment::EnvironmentSceneState& scene_state) {
   if (replay_writer_) {
     WriteCycleInputReplay(replay_writer_, input);
-    RecordReplay("scene_state", "EnvironmentSceneState",
-                 MakeFlatbuffersPayload("EnvironmentSceneState", scene_state));
+    WriteSceneStateReplay(replay_writer_, scene_state);
   }
   if (sink_) {
     Record("input", MakeSceneInputPayload(input, scene_state));

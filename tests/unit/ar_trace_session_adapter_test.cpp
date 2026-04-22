@@ -281,7 +281,21 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
             std::string::npos);
   EXPECT_NE(content.find("\"has_scan_center_deg\":true"), std::string::npos);
   EXPECT_NE(content.find("\"event_type\":\"scene_state\""), std::string::npos);
-  EXPECT_NE(content.find("\"jammer_emitters\":[{\"technique\":1"), std::string::npos);
+  EXPECT_NE(content.find("\"payload_encoding\":\"flatbuffers\""), std::string::npos);
+
+  oneq::replay::ReplayTraceReader replay_reader(trace_dir);
+  oneq::replay::ReplayTraceReadEvent replay_event;
+  bool saw_scene_state = false;
+  while (replay_reader.ReadNextEvent(&replay_event)) {
+    if (replay_event.event_type == "scene_state") {
+      saw_scene_state = true;
+      EXPECT_EQ(replay_event.payload_type, "EnvironmentSceneState");
+      EXPECT_EQ(replay_event.payload_encoding, "flatbuffers");
+      EXPECT_FALSE(replay_event.payload_bytes.empty());
+      EXPECT_TRUE(replay_event.payload_hash_matches);
+    }
+  }
+  EXPECT_TRUE(saw_scene_state);
 
   const session::RadarReplaySessionResult replay_result =
       session::ReplayRadarTrace(trace_dir);

@@ -975,6 +975,13 @@ bool OnSceneState(const oneq::replay::ReplayTraceReadEvent& event, void* user_da
 
   RadarReplayState* state = static_cast<RadarReplayState*>(user_data);
   environment::EnvironmentSceneState scene_state;
+#if defined(_WIN32)
+  if (event.payload_encoding == "flatbuffers") {
+    if (!DecodeSceneStateFlatbuffer(event.payload_bytes, &scene_state, error)) {
+      return false;
+    }
+  } else
+#endif
   if (!ParseSceneState(event.payload_json, &scene_state, error)) {
     return false;
   }
