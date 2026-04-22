@@ -170,6 +170,8 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) 
   EXPECT_NE(content.find("\"event_type\":\"cycle_input\""), std::string::npos);
   EXPECT_NE(content.find("\"event_type\":\"cycle_output\""), std::string::npos);
   EXPECT_NE(content.find("\"payload_type\":\"RadarCycleInput\""), std::string::npos);
+  EXPECT_NE(content.find("\"hardware\":{\"detection\""), std::string::npos);
+  EXPECT_NE(content.find("\"policy\":{\"beam_control\""), std::string::npos);
   EXPECT_NE(content.find("\"external_target_id\":2001"), std::string::npos);
   EXPECT_NE(content.find("\"position_m\":[1500"), std::string::npos);
 }
@@ -191,6 +193,11 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
     options.trace_config_on_construct = true;
 
     session::RadarSessionConfig config;
+    config.policy.lifecycle.confirm_hits = 1U;
+    config.policy.lifecycle.max_miss_before_lost = 1U;
+    config.policy.tracking.enable_kalman_filter = false;
+    config.mission.orientation.scan_center_deg.az_deg = 12.5f;
+    config.hardware.detection.min_detection_margin_db = -25.0f;
     session::RadarTraceSession session(config, options);
 
     session::RadarCycleInput input;
@@ -214,6 +221,11 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
     EXPECT_GE(result.track_output_frame.published_track_count, 0U);
     replay_writer->Flush();
   }
+
+  const std::string content = ReadFile(trace_dir + "/events/000000.events.jsonl");
+  EXPECT_NE(content.find("\"confirm_hits\":1"), std::string::npos);
+  EXPECT_NE(content.find("\"enable_kalman_filter\":false"), std::string::npos);
+  EXPECT_NE(content.find("\"scan_center_deg\":{\"az_deg\":12.5"), std::string::npos);
 
   const session::RadarReplaySessionResult replay_result =
       session::ReplayRadarTrace(trace_dir);

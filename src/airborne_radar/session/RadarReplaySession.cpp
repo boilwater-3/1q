@@ -60,6 +60,11 @@ std::uint64_t ReadUInt64(const std::string& json, const char* name,
   return static_cast<std::uint64_t>(std::strtoull(json.c_str() + value_pos, nullptr, 10));
 }
 
+std::uint32_t ReadUInt32(const std::string& json, const char* name,
+                         std::uint32_t fallback) {
+  return static_cast<std::uint32_t>(ReadUInt64(json, name, fallback));
+}
+
 std::string ExtractRawJsonValue(const std::string& json, const char* name) {
   const std::size_t value_pos = FindFieldValueStart(json, name);
   if (value_pos == std::string::npos || value_pos >= json.size()) {
@@ -190,6 +195,49 @@ oneq::foundation::EulerAnglesDeg ReadEulerAngles(
   return value;
 }
 
+model::EulerAnglesDeg ReadModelEulerAngles(
+    const std::string& json,
+    const model::EulerAnglesDeg& fallback) {
+  model::EulerAnglesDeg value = fallback;
+  value.yaw_deg = ReadFloat(json, "yaw_deg", value.yaw_deg);
+  value.pitch_deg = ReadFloat(json, "pitch_deg", value.pitch_deg);
+  value.roll_deg = ReadFloat(json, "roll_deg", value.roll_deg);
+  return value;
+}
+
+model::AzimuthElevationDeg ReadAzEl(
+    const std::string& json,
+    const model::AzimuthElevationDeg& fallback) {
+  model::AzimuthElevationDeg value = fallback;
+  value.az_deg = ReadFloat(json, "az_deg", value.az_deg);
+  value.el_deg = ReadFloat(json, "el_deg", value.el_deg);
+  return value;
+}
+
+model::AzimuthElevationLimitsDeg ReadAzElLimits(
+    const std::string& json,
+    const model::AzimuthElevationLimitsDeg& fallback) {
+  model::AzimuthElevationLimitsDeg value = fallback;
+  value.az_min_deg = ReadFloat(json, "az_min_deg", value.az_min_deg);
+  value.az_max_deg = ReadFloat(json, "az_max_deg", value.az_max_deg);
+  value.el_min_deg = ReadFloat(json, "el_min_deg", value.el_min_deg);
+  value.el_max_deg = ReadFloat(json, "el_max_deg", value.el_max_deg);
+  return value;
+}
+
+model::CommandedBeamwidthDeg ReadCommandedBeamwidth(
+    const std::string& json,
+    const model::CommandedBeamwidthDeg& fallback) {
+  model::CommandedBeamwidthDeg value = fallback;
+  value.commanded_az_beamwidth_deg =
+      ReadFloat(json, "commanded_az_beamwidth_deg",
+                value.commanded_az_beamwidth_deg);
+  value.commanded_el_beamwidth_deg =
+      ReadFloat(json, "commanded_el_beamwidth_deg",
+                value.commanded_el_beamwidth_deg);
+  return value;
+}
+
 oneq::foundation::PoseState ReadPoseState(
     const std::string& json,
     const oneq::foundation::PoseState& fallback) {
@@ -207,6 +255,309 @@ oneq::foundation::PoseState ReadPoseState(
     value.attitude_deg = ReadEulerAngles(attitude_json, value.attitude_deg);
   }
   return value;
+}
+
+config::DetectionConfig ReadDetectionConfig(
+    const std::string& json,
+    const config::DetectionConfig& fallback) {
+  config::DetectionConfig value = fallback;
+  value.enable_physics_detection =
+      ReadBool(json, "enable_physics_detection", value.enable_physics_detection);
+  value.swerling_model = static_cast<config::profiles::SwerlingModel>(
+      ReadInt(json, "swerling_model", static_cast<int>(value.swerling_model)));
+  value.min_detection_margin_db =
+      ReadFloat(json, "min_detection_margin_db", value.min_detection_margin_db);
+  value.pulse_count = ReadInt(json, "pulse_count", value.pulse_count);
+
+  const std::string transmitter_json = ExtractRawJsonValue(json, "transmitter");
+  if (!transmitter_json.empty()) {
+    value.transmitter.peak_power_w =
+        ReadFloat(transmitter_json, "peak_power_w", value.transmitter.peak_power_w);
+    value.transmitter.frequency_hz =
+        ReadFloat(transmitter_json, "frequency_hz", value.transmitter.frequency_hz);
+    value.transmitter.bandwidth_hz =
+        ReadFloat(transmitter_json, "bandwidth_hz", value.transmitter.bandwidth_hz);
+    value.transmitter.pulse_width_s =
+        ReadFloat(transmitter_json, "pulse_width_s", value.transmitter.pulse_width_s);
+    value.transmitter.prf_hz =
+        ReadFloat(transmitter_json, "prf_hz", value.transmitter.prf_hz);
+    value.transmitter.transmit_loss_db =
+        ReadFloat(transmitter_json, "transmit_loss_db",
+                  value.transmitter.transmit_loss_db);
+  }
+
+  const std::string antenna_json = ExtractRawJsonValue(json, "antenna");
+  if (!antenna_json.empty()) {
+    value.antenna.main_beam_gain_db =
+        ReadFloat(antenna_json, "main_beam_gain_db", value.antenna.main_beam_gain_db);
+    value.antenna.nominal_az_beamwidth_deg =
+        ReadFloat(antenna_json, "nominal_az_beamwidth_deg",
+                  value.antenna.nominal_az_beamwidth_deg);
+    value.antenna.nominal_el_beamwidth_deg =
+        ReadFloat(antenna_json, "nominal_el_beamwidth_deg",
+                  value.antenna.nominal_el_beamwidth_deg);
+    value.antenna.enable_directional_pattern =
+        ReadBool(antenna_json, "enable_directional_pattern",
+                 value.antenna.enable_directional_pattern);
+
+    const std::string pattern_json = ExtractRawJsonValue(antenna_json, "pattern");
+    if (!pattern_json.empty()) {
+      value.antenna.pattern.model_type =
+          static_cast<config::detection::AntennaPatternModelType>(
+              ReadInt(pattern_json, "model_type",
+                      static_cast<int>(value.antenna.pattern.model_type)));
+      value.antenna.pattern.max_sidelobe_level_db =
+          ReadFloat(pattern_json, "max_sidelobe_level_db",
+                    value.antenna.pattern.max_sidelobe_level_db);
+      value.antenna.pattern.backlobe_level_db =
+          ReadFloat(pattern_json, "backlobe_level_db",
+                    value.antenna.pattern.backlobe_level_db);
+      value.antenna.pattern.scan_loss_coeff_db_per_deg2 =
+          ReadFloat(pattern_json, "scan_loss_coeff_db_per_deg2",
+                    value.antenna.pattern.scan_loss_coeff_db_per_deg2);
+      value.antenna.pattern.max_scan_loss_db =
+          ReadFloat(pattern_json, "max_scan_loss_db",
+                    value.antenna.pattern.max_scan_loss_db);
+      const std::string offset_json =
+          ExtractRawJsonValue(pattern_json, "boresight_offset_deg");
+      if (!offset_json.empty()) {
+        value.antenna.pattern.boresight_offset_deg =
+            ReadAzEl(offset_json, value.antenna.pattern.boresight_offset_deg);
+      }
+    }
+  }
+
+  const std::string receiver_json = ExtractRawJsonValue(json, "receiver");
+  if (!receiver_json.empty()) {
+    value.receiver.noise_figure_db =
+        ReadFloat(receiver_json, "noise_figure_db", value.receiver.noise_figure_db);
+    value.receiver.receive_loss_db =
+        ReadFloat(receiver_json, "receive_loss_db", value.receiver.receive_loss_db);
+  }
+
+  const std::string policy_json = ExtractRawJsonValue(json, "detection_policy");
+  if (!policy_json.empty()) {
+    value.detection_policy.cfar_pfa =
+        ReadFloat(policy_json, "cfar_pfa", value.detection_policy.cfar_pfa);
+    value.detection_policy.min_snr_db =
+        ReadFloat(policy_json, "min_snr_db", value.detection_policy.min_snr_db);
+  }
+
+  const std::string rcs_json = ExtractRawJsonValue(json, "rcs_physics");
+  if (!rcs_json.empty()) {
+    value.rcs_physics.enable_physical_rcs =
+        ReadBool(rcs_json, "enable_physical_rcs",
+                 value.rcs_physics.enable_physical_rcs);
+    value.rcs_physics.frequency_hz =
+        ReadFloat(rcs_json, "frequency_hz", value.rcs_physics.frequency_hz);
+    value.rcs_physics.physics_mix_ratio =
+        ReadFloat(rcs_json, "physics_mix_ratio", value.rcs_physics.physics_mix_ratio);
+    value.rcs_physics.cylinder_weight =
+        ReadFloat(rcs_json, "cylinder_weight", value.rcs_physics.cylinder_weight);
+    value.rcs_physics.min_equivalent_radius_m =
+        ReadFloat(rcs_json, "min_equivalent_radius_m",
+                  value.rcs_physics.min_equivalent_radius_m);
+    value.rcs_physics.max_equivalent_radius_m =
+        ReadFloat(rcs_json, "max_equivalent_radius_m",
+                  value.rcs_physics.max_equivalent_radius_m);
+    value.rcs_physics.min_rcs_m2 =
+        ReadFloat(rcs_json, "min_rcs_m2", value.rcs_physics.min_rcs_m2);
+    value.rcs_physics.max_rcs_m2 =
+        ReadFloat(rcs_json, "max_rcs_m2", value.rcs_physics.max_rcs_m2);
+    value.rcs_physics.bistatic_psi_offset_deg =
+        ReadFloat(rcs_json, "bistatic_psi_offset_deg",
+                  value.rcs_physics.bistatic_psi_offset_deg);
+  }
+
+  return value;
+}
+
+model::RadarOrientationConfig ReadOrientationConfig(
+    const std::string& json,
+    const model::RadarOrientationConfig& fallback) {
+  model::RadarOrientationConfig value = fallback;
+  const std::string mount_json = ExtractRawJsonValue(json, "mount_angles_deg");
+  if (!mount_json.empty()) {
+    value.mount_angles_deg = ReadModelEulerAngles(mount_json, value.mount_angles_deg);
+  }
+  const std::string center_json = ExtractRawJsonValue(json, "scan_center_deg");
+  if (!center_json.empty()) {
+    value.scan_center_deg = ReadAzEl(center_json, value.scan_center_deg);
+  }
+  const std::string mechanical_json =
+      ExtractRawJsonValue(json, "mechanical_scan_limits_deg");
+  if (!mechanical_json.empty()) {
+    value.mechanical_scan_limits_deg =
+        ReadAzElLimits(mechanical_json, value.mechanical_scan_limits_deg);
+  }
+  const std::string electronic_json =
+      ExtractRawJsonValue(json, "electronic_scan_limits_deg");
+  if (!electronic_json.empty()) {
+    value.electronic_scan_limits_deg =
+        ReadAzElLimits(electronic_json, value.electronic_scan_limits_deg);
+  }
+  value.scan_start_position =
+      static_cast<oneq::foundation::ScanStartPosition>(
+          ReadInt(json, "scan_start_position",
+                  static_cast<int>(value.scan_start_position)));
+  value.scan_sequence =
+      static_cast<oneq::foundation::ScanSequence>(
+          ReadInt(json, "scan_sequence", static_cast<int>(value.scan_sequence)));
+  value.work_sub_mode =
+      static_cast<model::RadarWorkSubMode>(
+          ReadInt(json, "work_sub_mode", static_cast<int>(value.work_sub_mode)));
+  value.commanded_beamwidth_enabled =
+      ReadBool(json, "commanded_beamwidth_enabled",
+               value.commanded_beamwidth_enabled);
+  const std::string beamwidth_json =
+      ExtractRawJsonValue(json, "commanded_beamwidth_deg");
+  if (!beamwidth_json.empty()) {
+    value.commanded_beamwidth_deg =
+        ReadCommandedBeamwidth(beamwidth_json, value.commanded_beamwidth_deg);
+  }
+  value.stabilization_mode =
+      static_cast<model::StabilizationMode>(
+          ReadInt(json, "stabilization_mode",
+                  static_cast<int>(value.stabilization_mode)));
+  return value;
+}
+
+config::BeamControlConfig ReadBeamControlConfig(
+    const std::string& json,
+    const config::BeamControlConfig& fallback) {
+  config::BeamControlConfig value = fallback;
+  const std::string pointing_json = ExtractRawJsonValue(json, "pointing");
+  if (!pointing_json.empty()) {
+    const std::string center_json =
+        ExtractRawJsonValue(pointing_json, "default_scan_center_deg");
+    if (!center_json.empty()) {
+      value.pointing.default_scan_center_deg =
+          ReadAzEl(center_json, value.pointing.default_scan_center_deg);
+    }
+    const std::string beamwidth_json =
+        ExtractRawJsonValue(pointing_json, "nominal_beamwidth_deg");
+    if (!beamwidth_json.empty()) {
+      value.pointing.nominal_beamwidth_deg =
+          ReadCommandedBeamwidth(beamwidth_json,
+                                 value.pointing.nominal_beamwidth_deg);
+    }
+  }
+  const std::string scheduler_json = ExtractRawJsonValue(json, "scheduler");
+  if (!scheduler_json.empty()) {
+    value.scheduler.azimuth_step_count_hint =
+        ReadUInt32(scheduler_json, "azimuth_step_count_hint",
+                   value.scheduler.azimuth_step_count_hint);
+    value.scheduler.elevation_step_count_hint =
+        ReadUInt32(scheduler_json, "elevation_step_count_hint",
+                   value.scheduler.elevation_step_count_hint);
+    value.scheduler.prefer_dense_tas_sampling =
+        ReadBool(scheduler_json, "prefer_dense_tas_sampling",
+                 value.scheduler.prefer_dense_tas_sampling);
+  }
+  return value;
+}
+
+config::RadarPolicyConfig ReadPolicyConfig(
+    const std::string& json,
+    const config::RadarPolicyConfig& fallback) {
+  config::RadarPolicyConfig value = fallback;
+  const std::string beam_json = ExtractRawJsonValue(json, "beam_control");
+  if (!beam_json.empty()) {
+    value.beam_control = ReadBeamControlConfig(beam_json, value.beam_control);
+  }
+  const std::string association_json = ExtractRawJsonValue(json, "association");
+  if (!association_json.empty()) {
+    value.association.unassigned_cost =
+        ReadFloat(association_json, "unassigned_cost",
+                  value.association.unassigned_cost);
+    value.association.use_distance_gate_hint =
+        ReadBool(association_json, "use_distance_gate_hint",
+                 value.association.use_distance_gate_hint);
+    value.association.distance_gate_sigma_hint =
+        ReadFloat(association_json, "distance_gate_sigma_hint",
+                  value.association.distance_gate_sigma_hint);
+  }
+  const std::string tracking_json = ExtractRawJsonValue(json, "tracking");
+  if (!tracking_json.empty()) {
+    value.tracking.enable_kalman_filter =
+        ReadBool(tracking_json, "enable_kalman_filter",
+                 value.tracking.enable_kalman_filter);
+    value.tracking.kalman_measurement_noise_std =
+        ReadFloat(tracking_json, "kalman_measurement_noise_std",
+                  value.tracking.kalman_measurement_noise_std);
+    value.tracking.kalman_update_backend =
+        static_cast<config::tracking::KalmanUpdateBackend>(
+            ReadInt(tracking_json, "kalman_update_backend",
+                    static_cast<int>(value.tracking.kalman_update_backend)));
+    value.tracking.speed_decay_ratio_on_loss =
+        ReadFloat(tracking_json, "speed_decay_ratio_on_loss",
+                  value.tracking.speed_decay_ratio_on_loss);
+    value.tracking.rcs_decay_ratio_on_loss =
+        ReadFloat(tracking_json, "rcs_decay_ratio_on_loss",
+                  value.tracking.rcs_decay_ratio_on_loss);
+  }
+  const std::string lifecycle_json = ExtractRawJsonValue(json, "lifecycle");
+  if (!lifecycle_json.empty()) {
+    value.lifecycle.confirm_hits =
+        ReadUInt32(lifecycle_json, "confirm_hits", value.lifecycle.confirm_hits);
+    value.lifecycle.max_miss_before_lost =
+        ReadUInt32(lifecycle_json, "max_miss_before_lost",
+                   value.lifecycle.max_miss_before_lost);
+    value.lifecycle.max_lost_cycles =
+        ReadUInt32(lifecycle_json, "max_lost_cycles",
+                   value.lifecycle.max_lost_cycles);
+    value.lifecycle.enable_imm_lifecycle =
+        ReadBool(lifecycle_json, "enable_imm_lifecycle",
+                 value.lifecycle.enable_imm_lifecycle);
+  }
+  const std::string imm_json = ExtractRawJsonValue(json, "imm");
+  if (!imm_json.empty()) {
+    value.imm.enable_imm_lifecycle =
+        ReadBool(imm_json, "enable_imm_lifecycle",
+                 value.imm.enable_imm_lifecycle);
+    value.imm.model_count_hint =
+        ReadUInt32(imm_json, "model_count_hint", value.imm.model_count_hint);
+  }
+  return value;
+}
+
+bool ParseSessionConfig(const std::string& payload_json,
+                        RadarSessionConfig* config,
+                        std::string* error) {
+  if (payload_json.empty()) {
+    *error = "empty RadarSessionConfig payload";
+    return false;
+  }
+
+  const std::string hardware_json = ExtractRawJsonValue(payload_json, "hardware");
+  if (!hardware_json.empty()) {
+    const std::string detection_json = ExtractRawJsonValue(hardware_json, "detection");
+    if (!detection_json.empty()) {
+      config->hardware.detection =
+          ReadDetectionConfig(detection_json, config->hardware.detection);
+    }
+  }
+
+  const std::string mission_json = ExtractRawJsonValue(payload_json, "mission");
+  if (!mission_json.empty()) {
+    const std::string orientation_json =
+        ExtractRawJsonValue(mission_json, "orientation");
+    if (!orientation_json.empty()) {
+      config->mission.orientation =
+          ReadOrientationConfig(orientation_json, config->mission.orientation);
+    }
+  }
+
+  const std::string policy_json = ExtractRawJsonValue(payload_json, "policy");
+  if (!policy_json.empty()) {
+    config->policy = ReadPolicyConfig(policy_json, config->policy);
+  }
+
+  config->jamming_sensitivity_profile =
+      static_cast<environment::JammingSensitivityProfile>(
+          ReadInt(payload_json, "jamming_sensitivity_profile",
+                  static_cast<int>(config->jamming_sensitivity_profile)));
+  return true;
 }
 
 model::TargetFeature ReadTargetFeature(const std::string& json) {
@@ -304,6 +655,9 @@ bool OnSessionConfig(const oneq::replay::ReplayTraceReadEvent& event, void* user
 
   RadarReplayState* state = static_cast<RadarReplayState*>(user_data);
   RadarSessionConfig config;
+  if (!ParseSessionConfig(event.payload_json, &config, error)) {
+    return false;
+  }
   state->session.reset(new RadarSession(RadarSessionFactory::Create(config)));
   return true;
 }

@@ -10,6 +10,194 @@ namespace airborne_radar {
 namespace session {
 namespace {
 
+std::string JsonBool(bool value) { return value ? "true" : "false"; }
+
+std::string MakeEulerAnglesPayload(const model::EulerAnglesDeg& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"yaw_deg\":" << value.yaw_deg << ","
+         << "\"pitch_deg\":" << value.pitch_deg << ","
+         << "\"roll_deg\":" << value.roll_deg << "}";
+  return stream.str();
+}
+
+std::string MakeAzElPayload(const model::AzimuthElevationDeg& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"az_deg\":" << value.az_deg << ","
+         << "\"el_deg\":" << value.el_deg << "}";
+  return stream.str();
+}
+
+std::string MakeAzElLimitsPayload(const model::AzimuthElevationLimitsDeg& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"az_min_deg\":" << value.az_min_deg << ","
+         << "\"az_max_deg\":" << value.az_max_deg << ","
+         << "\"el_min_deg\":" << value.el_min_deg << ","
+         << "\"el_max_deg\":" << value.el_max_deg << "}";
+  return stream.str();
+}
+
+std::string MakeCommandedBeamwidthPayload(const model::CommandedBeamwidthDeg& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"commanded_az_beamwidth_deg\":"
+         << value.commanded_az_beamwidth_deg << ","
+         << "\"commanded_el_beamwidth_deg\":"
+         << value.commanded_el_beamwidth_deg << "}";
+  return stream.str();
+}
+
+std::string MakeOrientationPayload(const model::RadarOrientationConfig& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"mount_angles_deg\":" << MakeEulerAnglesPayload(value.mount_angles_deg) << ","
+         << "\"scan_center_deg\":" << MakeAzElPayload(value.scan_center_deg) << ","
+         << "\"mechanical_scan_limits_deg\":"
+         << MakeAzElLimitsPayload(value.mechanical_scan_limits_deg) << ","
+         << "\"electronic_scan_limits_deg\":"
+         << MakeAzElLimitsPayload(value.electronic_scan_limits_deg) << ","
+         << "\"scan_start_position\":"
+         << static_cast<int>(value.scan_start_position) << ","
+         << "\"scan_sequence\":" << static_cast<int>(value.scan_sequence) << ","
+         << "\"work_sub_mode\":" << static_cast<int>(value.work_sub_mode) << ","
+         << "\"commanded_beamwidth_enabled\":"
+         << JsonBool(value.commanded_beamwidth_enabled) << ","
+         << "\"commanded_beamwidth_deg\":"
+         << MakeCommandedBeamwidthPayload(value.commanded_beamwidth_deg) << ","
+         << "\"stabilization_mode\":"
+         << static_cast<int>(value.stabilization_mode) << "}";
+  return stream.str();
+}
+
+std::string MakeDetectionPayload(const config::DetectionConfig& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"enable_physics_detection\":"
+         << JsonBool(value.enable_physics_detection) << ","
+         << "\"swerling_model\":" << static_cast<int>(value.swerling_model) << ","
+         << "\"transmitter\":{"
+         << "\"peak_power_w\":" << value.transmitter.peak_power_w << ","
+         << "\"frequency_hz\":" << value.transmitter.frequency_hz << ","
+         << "\"bandwidth_hz\":" << value.transmitter.bandwidth_hz << ","
+         << "\"pulse_width_s\":" << value.transmitter.pulse_width_s << ","
+         << "\"prf_hz\":" << value.transmitter.prf_hz << ","
+         << "\"transmit_loss_db\":" << value.transmitter.transmit_loss_db << "},"
+         << "\"antenna\":{"
+         << "\"main_beam_gain_db\":" << value.antenna.main_beam_gain_db << ","
+         << "\"nominal_az_beamwidth_deg\":"
+         << value.antenna.nominal_az_beamwidth_deg << ","
+         << "\"nominal_el_beamwidth_deg\":"
+         << value.antenna.nominal_el_beamwidth_deg << ","
+         << "\"enable_directional_pattern\":"
+         << JsonBool(value.antenna.enable_directional_pattern) << ","
+         << "\"pattern\":{"
+         << "\"model_type\":" << static_cast<int>(value.antenna.pattern.model_type) << ","
+         << "\"max_sidelobe_level_db\":"
+         << value.antenna.pattern.max_sidelobe_level_db << ","
+         << "\"backlobe_level_db\":" << value.antenna.pattern.backlobe_level_db << ","
+         << "\"scan_loss_coeff_db_per_deg2\":"
+         << value.antenna.pattern.scan_loss_coeff_db_per_deg2 << ","
+         << "\"max_scan_loss_db\":" << value.antenna.pattern.max_scan_loss_db << ","
+         << "\"boresight_offset_deg\":"
+         << MakeAzElPayload(value.antenna.pattern.boresight_offset_deg) << "}},"
+         << "\"receiver\":{"
+         << "\"noise_figure_db\":" << value.receiver.noise_figure_db << ","
+         << "\"receive_loss_db\":" << value.receiver.receive_loss_db << "},"
+         << "\"detection_policy\":{"
+         << "\"cfar_pfa\":" << value.detection_policy.cfar_pfa << ","
+         << "\"min_snr_db\":" << value.detection_policy.min_snr_db << "},"
+         << "\"rcs_physics\":{"
+         << "\"enable_physical_rcs\":"
+         << JsonBool(value.rcs_physics.enable_physical_rcs) << ","
+         << "\"frequency_hz\":" << value.rcs_physics.frequency_hz << ","
+         << "\"physics_mix_ratio\":" << value.rcs_physics.physics_mix_ratio << ","
+         << "\"cylinder_weight\":" << value.rcs_physics.cylinder_weight << ","
+         << "\"min_equivalent_radius_m\":"
+         << value.rcs_physics.min_equivalent_radius_m << ","
+         << "\"max_equivalent_radius_m\":"
+         << value.rcs_physics.max_equivalent_radius_m << ","
+         << "\"min_rcs_m2\":" << value.rcs_physics.min_rcs_m2 << ","
+         << "\"max_rcs_m2\":" << value.rcs_physics.max_rcs_m2 << ","
+         << "\"bistatic_psi_offset_deg\":"
+         << value.rcs_physics.bistatic_psi_offset_deg << "},"
+         << "\"min_detection_margin_db\":" << value.min_detection_margin_db << ","
+         << "\"pulse_count\":" << value.pulse_count << "}";
+  return stream.str();
+}
+
+std::string MakeBeamControlPayload(const config::BeamControlConfig& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"pointing\":{"
+         << "\"default_scan_center_deg\":"
+         << MakeAzElPayload(value.pointing.default_scan_center_deg) << ","
+         << "\"nominal_beamwidth_deg\":"
+         << MakeCommandedBeamwidthPayload(value.pointing.nominal_beamwidth_deg)
+         << "},"
+         << "\"scheduler\":{"
+         << "\"azimuth_step_count_hint\":"
+         << value.scheduler.azimuth_step_count_hint << ","
+         << "\"elevation_step_count_hint\":"
+         << value.scheduler.elevation_step_count_hint << ","
+         << "\"prefer_dense_tas_sampling\":"
+         << JsonBool(value.scheduler.prefer_dense_tas_sampling) << "}}";
+  return stream.str();
+}
+
+std::string MakePolicyPayload(const config::RadarPolicyConfig& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"beam_control\":" << MakeBeamControlPayload(value.beam_control) << ","
+         << "\"association\":{"
+         << "\"unassigned_cost\":" << value.association.unassigned_cost << ","
+         << "\"use_distance_gate_hint\":"
+         << JsonBool(value.association.use_distance_gate_hint) << ","
+         << "\"distance_gate_sigma_hint\":"
+         << value.association.distance_gate_sigma_hint << "},"
+         << "\"tracking\":{"
+         << "\"enable_kalman_filter\":"
+         << JsonBool(value.tracking.enable_kalman_filter) << ","
+         << "\"kalman_measurement_noise_std\":"
+         << value.tracking.kalman_measurement_noise_std << ","
+         << "\"kalman_update_backend\":"
+         << static_cast<int>(value.tracking.kalman_update_backend) << ","
+         << "\"speed_decay_ratio_on_loss\":"
+         << value.tracking.speed_decay_ratio_on_loss << ","
+         << "\"rcs_decay_ratio_on_loss\":"
+         << value.tracking.rcs_decay_ratio_on_loss << "},"
+         << "\"lifecycle\":{"
+         << "\"confirm_hits\":" << value.lifecycle.confirm_hits << ","
+         << "\"max_miss_before_lost\":"
+         << value.lifecycle.max_miss_before_lost << ","
+         << "\"max_lost_cycles\":" << value.lifecycle.max_lost_cycles << ","
+         << "\"enable_imm_lifecycle\":"
+         << JsonBool(value.lifecycle.enable_imm_lifecycle) << "},"
+         << "\"imm\":{"
+         << "\"enable_imm_lifecycle\":"
+         << JsonBool(value.imm.enable_imm_lifecycle) << ","
+         << "\"model_count_hint\":" << value.imm.model_count_hint << "}}";
+  return stream.str();
+}
+
+std::string MakeFlatbuffersPayload(const char* type_name,
+                                   const RadarSessionConfig& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"serializer\":\"flatbuffers\","
+         << "\"platform\":\"windows\","
+         << "\"type\":\"" << type_name << "\","
+         << "\"hardware\":{\"detection\":"
+         << MakeDetectionPayload(value.hardware.detection) << "},"
+         << "\"mission\":{\"orientation\":"
+         << MakeOrientationPayload(value.mission.orientation) << "},"
+         << "\"policy\":" << MakePolicyPayload(value.policy) << ","
+         << "\"jamming_sensitivity_profile\":"
+         << static_cast<int>(value.jamming_sensitivity_profile) << "}";
+  return stream.str();
+}
+
 template <typename T>
 std::string MakeFlatbuffersPayload(const char* type_name, const T& /*value*/) {
   std::ostringstream stream;
