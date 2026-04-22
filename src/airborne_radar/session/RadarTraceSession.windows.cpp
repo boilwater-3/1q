@@ -232,6 +232,42 @@ std::string MakeJammerEmitterPayload(
   return stream.str();
 }
 
+std::string MakeEnvironmentScenarioPayload(
+    const environment::EnvironmentScenarioConfig& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"atmospheric_physics\":"
+         << MakeAtmosphericPhysicsPayload(value.atmospheric_physics) << ","
+         << "\"atmospheric_context\":"
+         << MakeAtmosphericContextPayload(value.atmospheric_context) << ","
+         << "\"vegetation_scatter_physics\":"
+         << MakeVegetationPayload(value.vegetation_scatter_physics) << ","
+         << "\"jammer_sources\":[";
+  for (std::size_t i = 0; i < value.jammer_sources.size(); ++i) {
+    if (i > 0U) {
+      stream << ",";
+    }
+    stream << MakeJammerEmitterPayload(value.jammer_sources[i]);
+  }
+  stream << "]}";
+  return stream.str();
+}
+
+std::string MakeEnvironmentRuntimePatchPayload(
+    const environment::EnvironmentRuntimeConfigPatch& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"has_scenario_config\":"
+         << JsonBool(value.has_scenario_config) << ","
+         << "\"scenario_config\":"
+         << MakeEnvironmentScenarioPayload(value.scenario_config) << ","
+         << "\"has_jamming_sensitivity_profile\":"
+         << JsonBool(value.has_jamming_sensitivity_profile) << ","
+         << "\"jamming_sensitivity_profile\":"
+         << static_cast<int>(value.jamming_sensitivity_profile) << "}";
+  return stream.str();
+}
+
 std::string MakeFlatbuffersPayload(const char* type_name,
                                    const RadarSessionConfig& value) {
   std::ostringstream stream;
@@ -289,6 +325,8 @@ std::string MakeFlatbuffersPayload(
          << "\"policy\":" << MakePolicyPayload(value.policy) << ","
          << "\"has_environment_runtime_config\":"
          << JsonBool(value.has_environment_runtime_config) << ","
+         << "\"environment_runtime_config\":"
+         << MakeEnvironmentRuntimePatchPayload(value.environment_runtime_config) << ","
          << "\"has_work_sub_mode\":" << JsonBool(value.has_work_sub_mode) << ","
          << "\"work_sub_mode\":" << static_cast<int>(value.work_sub_mode) << ","
          << "\"has_scan_center_deg\":"

@@ -713,6 +713,72 @@ bool ParseSceneState(const std::string& payload_json,
   return true;
 }
 
+bool ParseEnvironmentScenarioConfig(
+    const std::string& payload_json,
+    environment::EnvironmentScenarioConfig* scenario_config,
+    std::string* error) {
+  environment::EnvironmentSceneState scene_state;
+  scene_state.atmospheric_physics = scenario_config->atmospheric_physics;
+  scene_state.atmospheric_context = scenario_config->atmospheric_context;
+  scene_state.vegetation_scatter_physics =
+      scenario_config->vegetation_scatter_physics;
+  scene_state.jammer_emitters = scenario_config->jammer_sources;
+
+  std::string scene_payload = payload_json;
+  const std::string jammer_sources_json =
+      ExtractRawJsonValue(payload_json, "jammer_sources");
+  if (!jammer_sources_json.empty() &&
+      ExtractRawJsonValue(payload_json, "jammer_emitters").empty()) {
+    scene_payload = payload_json;
+    const std::size_t key_pos = scene_payload.find("\"jammer_sources\":");
+    if (key_pos != std::string::npos) {
+      scene_payload.replace(key_pos, std::string("\"jammer_sources\"").size(),
+                            "\"jammer_emitters\"");
+    }
+  }
+
+  if (!ParseSceneState(scene_payload, &scene_state, error)) {
+    return false;
+  }
+
+  scenario_config->atmospheric_physics = scene_state.atmospheric_physics;
+  scenario_config->atmospheric_context = scene_state.atmospheric_context;
+  scenario_config->vegetation_scatter_physics =
+      scene_state.vegetation_scatter_physics;
+  scenario_config->jammer_sources = scene_state.jammer_emitters;
+  return true;
+}
+
+bool ParseEnvironmentRuntimeConfigPatch(
+    const std::string& payload_json,
+    environment::EnvironmentRuntimeConfigPatch* patch,
+    std::string* error) {
+  if (payload_json.empty()) {
+    *error = "empty EnvironmentRuntimeConfigPatch payload";
+    return false;
+  }
+
+  patch->has_scenario_config =
+      ReadBool(payload_json, "has_scenario_config", patch->has_scenario_config);
+  const std::string scenario_json =
+      ExtractRawJsonValue(payload_json, "scenario_config");
+  if (!scenario_json.empty()) {
+    if (!ParseEnvironmentScenarioConfig(
+            scenario_json, &patch->scenario_config, error)) {
+      return false;
+    }
+  }
+
+  patch->has_jamming_sensitivity_profile =
+      ReadBool(payload_json, "has_jamming_sensitivity_profile",
+               patch->has_jamming_sensitivity_profile);
+  patch->jamming_sensitivity_profile =
+      static_cast<environment::JammingSensitivityProfile>(
+          ReadInt(payload_json, "jamming_sensitivity_profile",
+                  static_cast<int>(patch->jamming_sensitivity_profile)));
+  return true;
+}
+
 bool ParseRuntimeConfigPatch(const std::string& payload_json,
                              config::RadarRuntimeConfigPatch* patch,
                              std::string* error) {
@@ -736,6 +802,18 @@ bool ParseRuntimeConfigPatch(const std::string& payload_json,
   const std::string policy_json = ExtractRawJsonValue(payload_json, "policy");
   if (!policy_json.empty()) {
     patch->policy = ReadPolicyConfig(policy_json, patch->policy);
+  }
+
+  patch->has_environment_runtime_config =
+      ReadBool(payload_json, "has_environment_runtime_config",
+               patch->has_environment_runtime_config);
+  const std::string environment_json =
+      ExtractRawJsonValue(payload_json, "environment_runtime_config");
+  if (!environment_json.empty()) {
+    if (!ParseEnvironmentRuntimeConfigPatch(
+            environment_json, &patch->environment_runtime_config, error)) {
+      return false;
+    }
   }
 
   patch->has_work_sub_mode =

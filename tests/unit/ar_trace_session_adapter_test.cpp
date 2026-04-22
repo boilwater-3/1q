@@ -210,6 +210,15 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
     runtime_patch.scan_center_deg.el_deg = -1.0f;
     runtime_patch.has_commanded_beamwidth_enabled = true;
     runtime_patch.commanded_beamwidth_enabled = true;
+    runtime_patch.has_environment_runtime_config = true;
+    runtime_patch.environment_runtime_config.has_jamming_sensitivity_profile = true;
+    runtime_patch.environment_runtime_config.jamming_sensitivity_profile =
+        environment::JammingSensitivityProfile::kStrict;
+    runtime_patch.environment_runtime_config.has_scenario_config = true;
+    runtime_patch.environment_runtime_config.scenario_config.atmospheric_physics
+        .enable_physical_model = true;
+    runtime_patch.environment_runtime_config.scenario_config.atmospheric_physics
+        .relative_humidity = 0.4f;
     session.ApplyRuntimeConfig(runtime_patch);
 
     session::RadarCycleInput input;
@@ -253,6 +262,10 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
   EXPECT_NE(content.find("\"event_type\":\"runtime_config_patch\""), std::string::npos);
   EXPECT_NE(content.find("\"has_policy\":true"), std::string::npos);
   EXPECT_NE(content.find("\"kalman_measurement_noise_std\":7.5"), std::string::npos);
+  EXPECT_NE(content.find("\"has_environment_runtime_config\":true"),
+            std::string::npos);
+  EXPECT_NE(content.find("\"has_jamming_sensitivity_profile\":true"),
+            std::string::npos);
   EXPECT_NE(content.find("\"has_scan_center_deg\":true"), std::string::npos);
   EXPECT_NE(content.find("\"event_type\":\"scene_state\""), std::string::npos);
   EXPECT_NE(content.find("\"jammer_emitters\":[{\"technique\":1"), std::string::npos);
