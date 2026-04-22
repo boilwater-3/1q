@@ -26,6 +26,12 @@ struct TargetFeatureBuilder;
 struct RadarCycleInput;
 struct RadarCycleInputBuilder;
 
+struct TrackOutputFrame;
+struct TrackOutputFrameBuilder;
+
+struct RadarCycleResult;
+struct RadarCycleResultBuilder;
+
 struct Vector3f FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef Vector3fBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -405,6 +411,121 @@ inline flatbuffers::Offset<RadarCycleInput> CreateRadarCycleInputDirect(
       dt_sec,
       platform_pose,
       target_features__);
+}
+
+struct TrackOutputFrame FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef TrackOutputFrameBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_CYCLE_INDEX = 4,
+    VT_PUBLISHED_TRACK_COUNT = 6
+  };
+  uint32_t cycle_index() const {
+    return GetField<uint32_t>(VT_CYCLE_INDEX, 0);
+  }
+  uint64_t published_track_count() const {
+    return GetField<uint64_t>(VT_PUBLISHED_TRACK_COUNT, 0);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_CYCLE_INDEX) &&
+           VerifyField<uint64_t>(verifier, VT_PUBLISHED_TRACK_COUNT) &&
+           verifier.EndTable();
+  }
+};
+
+struct TrackOutputFrameBuilder {
+  typedef TrackOutputFrame Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_cycle_index(uint32_t cycle_index) {
+    fbb_.AddElement<uint32_t>(TrackOutputFrame::VT_CYCLE_INDEX, cycle_index, 0);
+  }
+  void add_published_track_count(uint64_t published_track_count) {
+    fbb_.AddElement<uint64_t>(TrackOutputFrame::VT_PUBLISHED_TRACK_COUNT, published_track_count, 0);
+  }
+  explicit TrackOutputFrameBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  TrackOutputFrameBuilder &operator=(const TrackOutputFrameBuilder &);
+  flatbuffers::Offset<TrackOutputFrame> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<TrackOutputFrame>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<TrackOutputFrame> CreateTrackOutputFrame(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t cycle_index = 0,
+    uint64_t published_track_count = 0) {
+  TrackOutputFrameBuilder builder_(_fbb);
+  builder_.add_published_track_count(published_track_count);
+  builder_.add_cycle_index(cycle_index);
+  return builder_.Finish();
+}
+
+struct RadarCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef RadarCycleResultBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_TRACK_OUTPUT_FRAME = 4,
+    VT_VALIDATION_ISSUE_COUNT = 6,
+    VT_EXECUTED_THIS_CYCLE = 8
+  };
+  const oneq::replay::airborne_radar::fb::TrackOutputFrame *track_output_frame() const {
+    return GetPointer<const oneq::replay::airborne_radar::fb::TrackOutputFrame *>(VT_TRACK_OUTPUT_FRAME);
+  }
+  uint32_t validation_issue_count() const {
+    return GetField<uint32_t>(VT_VALIDATION_ISSUE_COUNT, 0);
+  }
+  bool executed_this_cycle() const {
+    return GetField<uint8_t>(VT_EXECUTED_THIS_CYCLE, 0) != 0;
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_TRACK_OUTPUT_FRAME) &&
+           verifier.VerifyTable(track_output_frame()) &&
+           VerifyField<uint32_t>(verifier, VT_VALIDATION_ISSUE_COUNT) &&
+           VerifyField<uint8_t>(verifier, VT_EXECUTED_THIS_CYCLE) &&
+           verifier.EndTable();
+  }
+};
+
+struct RadarCycleResultBuilder {
+  typedef RadarCycleResult Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_track_output_frame(flatbuffers::Offset<oneq::replay::airborne_radar::fb::TrackOutputFrame> track_output_frame) {
+    fbb_.AddOffset(RadarCycleResult::VT_TRACK_OUTPUT_FRAME, track_output_frame);
+  }
+  void add_validation_issue_count(uint32_t validation_issue_count) {
+    fbb_.AddElement<uint32_t>(RadarCycleResult::VT_VALIDATION_ISSUE_COUNT, validation_issue_count, 0);
+  }
+  void add_executed_this_cycle(bool executed_this_cycle) {
+    fbb_.AddElement<uint8_t>(RadarCycleResult::VT_EXECUTED_THIS_CYCLE, static_cast<uint8_t>(executed_this_cycle), 0);
+  }
+  explicit RadarCycleResultBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  RadarCycleResultBuilder &operator=(const RadarCycleResultBuilder &);
+  flatbuffers::Offset<RadarCycleResult> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<RadarCycleResult>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<RadarCycleResult> CreateRadarCycleResult(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<oneq::replay::airborne_radar::fb::TrackOutputFrame> track_output_frame = 0,
+    uint32_t validation_issue_count = 0,
+    bool executed_this_cycle = false) {
+  RadarCycleResultBuilder builder_(_fbb);
+  builder_.add_validation_issue_count(validation_issue_count);
+  builder_.add_track_output_frame(track_output_frame);
+  builder_.add_executed_this_cycle(executed_this_cycle);
+  return builder_.Finish();
 }
 
 inline const oneq::replay::airborne_radar::fb::RadarCycleInput *GetRadarCycleInput(const void *buf) {

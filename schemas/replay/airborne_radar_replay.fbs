@@ -35,5 +35,16 @@ table RadarCycleInput {
   target_features:[TargetFeature];
 }
 
+table TrackOutputFrame {
+  cycle_index:uint;
+  published_track_count:ulong;
+}
+
+table RadarCycleResult {
+  track_output_frame:TrackOutputFrame;
+  validation_issue_count:uint;
+  executed_this_cycle:bool;
+}
+
 root_type RadarCycleInput;
 file_identifier "ARCI";

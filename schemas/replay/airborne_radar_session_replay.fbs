@@ -146,6 +146,70 @@ table RadarPolicyConfig {
   imm:ImmConfig;
 }
 
+table AtmosphericPhysicsConfig {
+  enable_physical_model:bool;
+  pressure_hpa:float;
+  temperature_k:float;
+  relative_humidity:float;
+}
+
+table AtmosphericDerivedContext {
+  has_simulation_unix_seconds:bool;
+  simulation_unix_seconds:long;
+  solar_flux_f107a:float;
+  solar_flux_f107:float;
+  geomagnetic_ap:float;
+}
+
+table VegetationScatterPhysicsConfig {
+  cover_profile:int;
+  enable_physical_model:bool;
+}
+
+table JammerEmitterState {
+  technique:int;
+  power_db:float;
+  js_db:float;
+  has_direction_deg:bool;
+  azimuth_deg:float;
+  elevation_deg:float;
+  angular_span_deg:float;
+  confidence:float;
+}
+
+table EnvironmentScenarioConfig {
+  atmospheric_physics:AtmosphericPhysicsConfig;
+  atmospheric_context:AtmosphericDerivedContext;
+  vegetation_scatter_physics:VegetationScatterPhysicsConfig;
+  jammer_sources:[JammerEmitterState];
+}
+
+table EnvironmentRuntimeConfigPatch {
+  has_scenario_config:bool;
+  scenario_config:EnvironmentScenarioConfig;
+  has_jamming_sensitivity_profile:bool;
+  jamming_sensitivity_profile:int;
+}
+
+table RadarRuntimeConfigPatch {
+  has_mission:bool;
+  mission_orientation:RadarOrientationConfig;
+  has_policy:bool;
+  policy:RadarPolicyConfig;
+  has_environment_runtime_config:bool;
+  environment_runtime_config:EnvironmentRuntimeConfigPatch;
+  has_work_sub_mode:bool;
+  work_sub_mode:int;
+  has_scan_center_deg:bool;
+  scan_center_deg:AzimuthElevationDeg;
+  has_dwell_center_deg:bool;
+  dwell_center_deg:AzimuthElevationDeg;
+  has_commanded_beamwidth_deg:bool;
+  commanded_beamwidth_deg:CommandedBeamwidthDeg;
+  has_commanded_beamwidth_enabled:bool;
+  commanded_beamwidth_enabled:bool;
+}
+
 table RadarSessionConfig {
   hardware_detection:DetectionConfig;
   mission_orientation:RadarOrientationConfig;

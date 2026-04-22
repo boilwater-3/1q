@@ -72,6 +72,27 @@ struct ImmConfigBuilder;
 struct RadarPolicyConfig;
 struct RadarPolicyConfigBuilder;
 
+struct AtmosphericPhysicsConfig;
+struct AtmosphericPhysicsConfigBuilder;
+
+struct AtmosphericDerivedContext;
+struct AtmosphericDerivedContextBuilder;
+
+struct VegetationScatterPhysicsConfig;
+struct VegetationScatterPhysicsConfigBuilder;
+
+struct JammerEmitterState;
+struct JammerEmitterStateBuilder;
+
+struct EnvironmentScenarioConfig;
+struct EnvironmentScenarioConfigBuilder;
+
+struct EnvironmentRuntimeConfigPatch;
+struct EnvironmentRuntimeConfigPatchBuilder;
+
+struct RadarRuntimeConfigPatch;
+struct RadarRuntimeConfigPatchBuilder;
+
 struct RadarSessionConfig;
 struct RadarSessionConfigBuilder;
 
@@ -1593,6 +1614,687 @@ inline flatbuffers::Offset<RadarPolicyConfig> CreateRadarPolicyConfig(
   builder_.add_tracking(tracking);
   builder_.add_association(association);
   builder_.add_beam_control(beam_control);
+  return builder_.Finish();
+}
+
+struct AtmosphericPhysicsConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef AtmosphericPhysicsConfigBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ENABLE_PHYSICAL_MODEL = 4,
+    VT_PRESSURE_HPA = 6,
+    VT_TEMPERATURE_K = 8,
+    VT_RELATIVE_HUMIDITY = 10
+  };
+  bool enable_physical_model() const {
+    return GetField<uint8_t>(VT_ENABLE_PHYSICAL_MODEL, 0) != 0;
+  }
+  float pressure_hpa() const {
+    return GetField<float>(VT_PRESSURE_HPA, 0.0f);
+  }
+  float temperature_k() const {
+    return GetField<float>(VT_TEMPERATURE_K, 0.0f);
+  }
+  float relative_humidity() const {
+    return GetField<float>(VT_RELATIVE_HUMIDITY, 0.0f);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_ENABLE_PHYSICAL_MODEL) &&
+           VerifyField<float>(verifier, VT_PRESSURE_HPA) &&
+           VerifyField<float>(verifier, VT_TEMPERATURE_K) &&
+           VerifyField<float>(verifier, VT_RELATIVE_HUMIDITY) &&
+           verifier.EndTable();
+  }
+};
+
+struct AtmosphericPhysicsConfigBuilder {
+  typedef AtmosphericPhysicsConfig Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_enable_physical_model(bool enable_physical_model) {
+    fbb_.AddElement<uint8_t>(AtmosphericPhysicsConfig::VT_ENABLE_PHYSICAL_MODEL, static_cast<uint8_t>(enable_physical_model), 0);
+  }
+  void add_pressure_hpa(float pressure_hpa) {
+    fbb_.AddElement<float>(AtmosphericPhysicsConfig::VT_PRESSURE_HPA, pressure_hpa, 0.0f);
+  }
+  void add_temperature_k(float temperature_k) {
+    fbb_.AddElement<float>(AtmosphericPhysicsConfig::VT_TEMPERATURE_K, temperature_k, 0.0f);
+  }
+  void add_relative_humidity(float relative_humidity) {
+    fbb_.AddElement<float>(AtmosphericPhysicsConfig::VT_RELATIVE_HUMIDITY, relative_humidity, 0.0f);
+  }
+  explicit AtmosphericPhysicsConfigBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  AtmosphericPhysicsConfigBuilder &operator=(const AtmosphericPhysicsConfigBuilder &);
+  flatbuffers::Offset<AtmosphericPhysicsConfig> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<AtmosphericPhysicsConfig>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<AtmosphericPhysicsConfig> CreateAtmosphericPhysicsConfig(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    bool enable_physical_model = false,
+    float pressure_hpa = 0.0f,
+    float temperature_k = 0.0f,
+    float relative_humidity = 0.0f) {
+  AtmosphericPhysicsConfigBuilder builder_(_fbb);
+  builder_.add_relative_humidity(relative_humidity);
+  builder_.add_temperature_k(temperature_k);
+  builder_.add_pressure_hpa(pressure_hpa);
+  builder_.add_enable_physical_model(enable_physical_model);
+  return builder_.Finish();
+}
+
+struct AtmosphericDerivedContext FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef AtmosphericDerivedContextBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_HAS_SIMULATION_UNIX_SECONDS = 4,
+    VT_SIMULATION_UNIX_SECONDS = 6,
+    VT_SOLAR_FLUX_F107A = 8,
+    VT_SOLAR_FLUX_F107 = 10,
+    VT_GEOMAGNETIC_AP = 12
+  };
+  bool has_simulation_unix_seconds() const {
+    return GetField<uint8_t>(VT_HAS_SIMULATION_UNIX_SECONDS, 0) != 0;
+  }
+  int64_t simulation_unix_seconds() const {
+    return GetField<int64_t>(VT_SIMULATION_UNIX_SECONDS, 0);
+  }
+  float solar_flux_f107a() const {
+    return GetField<float>(VT_SOLAR_FLUX_F107A, 0.0f);
+  }
+  float solar_flux_f107() const {
+    return GetField<float>(VT_SOLAR_FLUX_F107, 0.0f);
+  }
+  float geomagnetic_ap() const {
+    return GetField<float>(VT_GEOMAGNETIC_AP, 0.0f);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_SIMULATION_UNIX_SECONDS) &&
+           VerifyField<int64_t>(verifier, VT_SIMULATION_UNIX_SECONDS) &&
+           VerifyField<float>(verifier, VT_SOLAR_FLUX_F107A) &&
+           VerifyField<float>(verifier, VT_SOLAR_FLUX_F107) &&
+           VerifyField<float>(verifier, VT_GEOMAGNETIC_AP) &&
+           verifier.EndTable();
+  }
+};
+
+struct AtmosphericDerivedContextBuilder {
+  typedef AtmosphericDerivedContext Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_has_simulation_unix_seconds(bool has_simulation_unix_seconds) {
+    fbb_.AddElement<uint8_t>(AtmosphericDerivedContext::VT_HAS_SIMULATION_UNIX_SECONDS, static_cast<uint8_t>(has_simulation_unix_seconds), 0);
+  }
+  void add_simulation_unix_seconds(int64_t simulation_unix_seconds) {
+    fbb_.AddElement<int64_t>(AtmosphericDerivedContext::VT_SIMULATION_UNIX_SECONDS, simulation_unix_seconds, 0);
+  }
+  void add_solar_flux_f107a(float solar_flux_f107a) {
+    fbb_.AddElement<float>(AtmosphericDerivedContext::VT_SOLAR_FLUX_F107A, solar_flux_f107a, 0.0f);
+  }
+  void add_solar_flux_f107(float solar_flux_f107) {
+    fbb_.AddElement<float>(AtmosphericDerivedContext::VT_SOLAR_FLUX_F107, solar_flux_f107, 0.0f);
+  }
+  void add_geomagnetic_ap(float geomagnetic_ap) {
+    fbb_.AddElement<float>(AtmosphericDerivedContext::VT_GEOMAGNETIC_AP, geomagnetic_ap, 0.0f);
+  }
+  explicit AtmosphericDerivedContextBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  AtmosphericDerivedContextBuilder &operator=(const AtmosphericDerivedContextBuilder &);
+  flatbuffers::Offset<AtmosphericDerivedContext> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<AtmosphericDerivedContext>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<AtmosphericDerivedContext> CreateAtmosphericDerivedContext(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    bool has_simulation_unix_seconds = false,
+    int64_t simulation_unix_seconds = 0,
+    float solar_flux_f107a = 0.0f,
+    float solar_flux_f107 = 0.0f,
+    float geomagnetic_ap = 0.0f) {
+  AtmosphericDerivedContextBuilder builder_(_fbb);
+  builder_.add_simulation_unix_seconds(simulation_unix_seconds);
+  builder_.add_geomagnetic_ap(geomagnetic_ap);
+  builder_.add_solar_flux_f107(solar_flux_f107);
+  builder_.add_solar_flux_f107a(solar_flux_f107a);
+  builder_.add_has_simulation_unix_seconds(has_simulation_unix_seconds);
+  return builder_.Finish();
+}
+
+struct VegetationScatterPhysicsConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef VegetationScatterPhysicsConfigBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_COVER_PROFILE = 4,
+    VT_ENABLE_PHYSICAL_MODEL = 6
+  };
+  int32_t cover_profile() const {
+    return GetField<int32_t>(VT_COVER_PROFILE, 0);
+  }
+  bool enable_physical_model() const {
+    return GetField<uint8_t>(VT_ENABLE_PHYSICAL_MODEL, 0) != 0;
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int32_t>(verifier, VT_COVER_PROFILE) &&
+           VerifyField<uint8_t>(verifier, VT_ENABLE_PHYSICAL_MODEL) &&
+           verifier.EndTable();
+  }
+};
+
+struct VegetationScatterPhysicsConfigBuilder {
+  typedef VegetationScatterPhysicsConfig Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_cover_profile(int32_t cover_profile) {
+    fbb_.AddElement<int32_t>(VegetationScatterPhysicsConfig::VT_COVER_PROFILE, cover_profile, 0);
+  }
+  void add_enable_physical_model(bool enable_physical_model) {
+    fbb_.AddElement<uint8_t>(VegetationScatterPhysicsConfig::VT_ENABLE_PHYSICAL_MODEL, static_cast<uint8_t>(enable_physical_model), 0);
+  }
+  explicit VegetationScatterPhysicsConfigBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  VegetationScatterPhysicsConfigBuilder &operator=(const VegetationScatterPhysicsConfigBuilder &);
+  flatbuffers::Offset<VegetationScatterPhysicsConfig> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<VegetationScatterPhysicsConfig>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<VegetationScatterPhysicsConfig> CreateVegetationScatterPhysicsConfig(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    int32_t cover_profile = 0,
+    bool enable_physical_model = false) {
+  VegetationScatterPhysicsConfigBuilder builder_(_fbb);
+  builder_.add_cover_profile(cover_profile);
+  builder_.add_enable_physical_model(enable_physical_model);
+  return builder_.Finish();
+}
+
+struct JammerEmitterState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef JammerEmitterStateBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_TECHNIQUE = 4,
+    VT_POWER_DB = 6,
+    VT_JS_DB = 8,
+    VT_HAS_DIRECTION_DEG = 10,
+    VT_AZIMUTH_DEG = 12,
+    VT_ELEVATION_DEG = 14,
+    VT_ANGULAR_SPAN_DEG = 16,
+    VT_CONFIDENCE = 18
+  };
+  int32_t technique() const {
+    return GetField<int32_t>(VT_TECHNIQUE, 0);
+  }
+  float power_db() const {
+    return GetField<float>(VT_POWER_DB, 0.0f);
+  }
+  float js_db() const {
+    return GetField<float>(VT_JS_DB, 0.0f);
+  }
+  bool has_direction_deg() const {
+    return GetField<uint8_t>(VT_HAS_DIRECTION_DEG, 0) != 0;
+  }
+  float azimuth_deg() const {
+    return GetField<float>(VT_AZIMUTH_DEG, 0.0f);
+  }
+  float elevation_deg() const {
+    return GetField<float>(VT_ELEVATION_DEG, 0.0f);
+  }
+  float angular_span_deg() const {
+    return GetField<float>(VT_ANGULAR_SPAN_DEG, 0.0f);
+  }
+  float confidence() const {
+    return GetField<float>(VT_CONFIDENCE, 0.0f);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int32_t>(verifier, VT_TECHNIQUE) &&
+           VerifyField<float>(verifier, VT_POWER_DB) &&
+           VerifyField<float>(verifier, VT_JS_DB) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_DIRECTION_DEG) &&
+           VerifyField<float>(verifier, VT_AZIMUTH_DEG) &&
+           VerifyField<float>(verifier, VT_ELEVATION_DEG) &&
+           VerifyField<float>(verifier, VT_ANGULAR_SPAN_DEG) &&
+           VerifyField<float>(verifier, VT_CONFIDENCE) &&
+           verifier.EndTable();
+  }
+};
+
+struct JammerEmitterStateBuilder {
+  typedef JammerEmitterState Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_technique(int32_t technique) {
+    fbb_.AddElement<int32_t>(JammerEmitterState::VT_TECHNIQUE, technique, 0);
+  }
+  void add_power_db(float power_db) {
+    fbb_.AddElement<float>(JammerEmitterState::VT_POWER_DB, power_db, 0.0f);
+  }
+  void add_js_db(float js_db) {
+    fbb_.AddElement<float>(JammerEmitterState::VT_JS_DB, js_db, 0.0f);
+  }
+  void add_has_direction_deg(bool has_direction_deg) {
+    fbb_.AddElement<uint8_t>(JammerEmitterState::VT_HAS_DIRECTION_DEG, static_cast<uint8_t>(has_direction_deg), 0);
+  }
+  void add_azimuth_deg(float azimuth_deg) {
+    fbb_.AddElement<float>(JammerEmitterState::VT_AZIMUTH_DEG, azimuth_deg, 0.0f);
+  }
+  void add_elevation_deg(float elevation_deg) {
+    fbb_.AddElement<float>(JammerEmitterState::VT_ELEVATION_DEG, elevation_deg, 0.0f);
+  }
+  void add_angular_span_deg(float angular_span_deg) {
+    fbb_.AddElement<float>(JammerEmitterState::VT_ANGULAR_SPAN_DEG, angular_span_deg, 0.0f);
+  }
+  void add_confidence(float confidence) {
+    fbb_.AddElement<float>(JammerEmitterState::VT_CONFIDENCE, confidence, 0.0f);
+  }
+  explicit JammerEmitterStateBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  JammerEmitterStateBuilder &operator=(const JammerEmitterStateBuilder &);
+  flatbuffers::Offset<JammerEmitterState> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<JammerEmitterState>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<JammerEmitterState> CreateJammerEmitterState(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    int32_t technique = 0,
+    float power_db = 0.0f,
+    float js_db = 0.0f,
+    bool has_direction_deg = false,
+    float azimuth_deg = 0.0f,
+    float elevation_deg = 0.0f,
+    float angular_span_deg = 0.0f,
+    float confidence = 0.0f) {
+  JammerEmitterStateBuilder builder_(_fbb);
+  builder_.add_confidence(confidence);
+  builder_.add_angular_span_deg(angular_span_deg);
+  builder_.add_elevation_deg(elevation_deg);
+  builder_.add_azimuth_deg(azimuth_deg);
+  builder_.add_js_db(js_db);
+  builder_.add_power_db(power_db);
+  builder_.add_technique(technique);
+  builder_.add_has_direction_deg(has_direction_deg);
+  return builder_.Finish();
+}
+
+struct EnvironmentScenarioConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef EnvironmentScenarioConfigBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ATMOSPHERIC_PHYSICS = 4,
+    VT_ATMOSPHERIC_CONTEXT = 6,
+    VT_VEGETATION_SCATTER_PHYSICS = 8,
+    VT_JAMMER_SOURCES = 10
+  };
+  const oneq::replay::airborne_radar::session::fb::AtmosphericPhysicsConfig *atmospheric_physics() const {
+    return GetPointer<const oneq::replay::airborne_radar::session::fb::AtmosphericPhysicsConfig *>(VT_ATMOSPHERIC_PHYSICS);
+  }
+  const oneq::replay::airborne_radar::session::fb::AtmosphericDerivedContext *atmospheric_context() const {
+    return GetPointer<const oneq::replay::airborne_radar::session::fb::AtmosphericDerivedContext *>(VT_ATMOSPHERIC_CONTEXT);
+  }
+  const oneq::replay::airborne_radar::session::fb::VegetationScatterPhysicsConfig *vegetation_scatter_physics() const {
+    return GetPointer<const oneq::replay::airborne_radar::session::fb::VegetationScatterPhysicsConfig *>(VT_VEGETATION_SCATTER_PHYSICS);
+  }
+  const flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::JammerEmitterState>> *jammer_sources() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::JammerEmitterState>> *>(VT_JAMMER_SOURCES);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_ATMOSPHERIC_PHYSICS) &&
+           verifier.VerifyTable(atmospheric_physics()) &&
+           VerifyOffset(verifier, VT_ATMOSPHERIC_CONTEXT) &&
+           verifier.VerifyTable(atmospheric_context()) &&
+           VerifyOffset(verifier, VT_VEGETATION_SCATTER_PHYSICS) &&
+           verifier.VerifyTable(vegetation_scatter_physics()) &&
+           VerifyOffset(verifier, VT_JAMMER_SOURCES) &&
+           verifier.VerifyVector(jammer_sources()) &&
+           verifier.VerifyVectorOfTables(jammer_sources()) &&
+           verifier.EndTable();
+  }
+};
+
+struct EnvironmentScenarioConfigBuilder {
+  typedef EnvironmentScenarioConfig Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_atmospheric_physics(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::AtmosphericPhysicsConfig> atmospheric_physics) {
+    fbb_.AddOffset(EnvironmentScenarioConfig::VT_ATMOSPHERIC_PHYSICS, atmospheric_physics);
+  }
+  void add_atmospheric_context(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::AtmosphericDerivedContext> atmospheric_context) {
+    fbb_.AddOffset(EnvironmentScenarioConfig::VT_ATMOSPHERIC_CONTEXT, atmospheric_context);
+  }
+  void add_vegetation_scatter_physics(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::VegetationScatterPhysicsConfig> vegetation_scatter_physics) {
+    fbb_.AddOffset(EnvironmentScenarioConfig::VT_VEGETATION_SCATTER_PHYSICS, vegetation_scatter_physics);
+  }
+  void add_jammer_sources(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::JammerEmitterState>>> jammer_sources) {
+    fbb_.AddOffset(EnvironmentScenarioConfig::VT_JAMMER_SOURCES, jammer_sources);
+  }
+  explicit EnvironmentScenarioConfigBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  EnvironmentScenarioConfigBuilder &operator=(const EnvironmentScenarioConfigBuilder &);
+  flatbuffers::Offset<EnvironmentScenarioConfig> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<EnvironmentScenarioConfig>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<EnvironmentScenarioConfig> CreateEnvironmentScenarioConfig(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::AtmosphericPhysicsConfig> atmospheric_physics = 0,
+    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::AtmosphericDerivedContext> atmospheric_context = 0,
+    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::VegetationScatterPhysicsConfig> vegetation_scatter_physics = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::JammerEmitterState>>> jammer_sources = 0) {
+  EnvironmentScenarioConfigBuilder builder_(_fbb);
+  builder_.add_jammer_sources(jammer_sources);
+  builder_.add_vegetation_scatter_physics(vegetation_scatter_physics);
+  builder_.add_atmospheric_context(atmospheric_context);
+  builder_.add_atmospheric_physics(atmospheric_physics);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<EnvironmentScenarioConfig> CreateEnvironmentScenarioConfigDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::AtmosphericPhysicsConfig> atmospheric_physics = 0,
+    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::AtmosphericDerivedContext> atmospheric_context = 0,
+    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::VegetationScatterPhysicsConfig> vegetation_scatter_physics = 0,
+    const std::vector<flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::JammerEmitterState>> *jammer_sources = nullptr) {
+  auto jammer_sources__ = jammer_sources ? _fbb.CreateVector<flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::JammerEmitterState>>(*jammer_sources) : 0;
+  return oneq::replay::airborne_radar::session::fb::CreateEnvironmentScenarioConfig(
+      _fbb,
+      atmospheric_physics,
+      atmospheric_context,
+      vegetation_scatter_physics,
+      jammer_sources__);
+}
+
+struct EnvironmentRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef EnvironmentRuntimeConfigPatchBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_HAS_SCENARIO_CONFIG = 4,
+    VT_SCENARIO_CONFIG = 6,
+    VT_HAS_JAMMING_SENSITIVITY_PROFILE = 8,
+    VT_JAMMING_SENSITIVITY_PROFILE = 10
+  };
+  bool has_scenario_config() const {
+    return GetField<uint8_t>(VT_HAS_SCENARIO_CONFIG, 0) != 0;
+  }
+  const oneq::replay::airborne_radar::session::fb::EnvironmentScenarioConfig *scenario_config() const {
+    return GetPointer<const oneq::replay::airborne_radar::session::fb::EnvironmentScenarioConfig *>(VT_SCENARIO_CONFIG);
+  }
+  bool has_jamming_sensitivity_profile() const {
+    return GetField<uint8_t>(VT_HAS_JAMMING_SENSITIVITY_PROFILE, 0) != 0;
+  }
+  int32_t jamming_sensitivity_profile() const {
+    return GetField<int32_t>(VT_JAMMING_SENSITIVITY_PROFILE, 0);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_SCENARIO_CONFIG) &&
+           VerifyOffset(verifier, VT_SCENARIO_CONFIG) &&
+           verifier.VerifyTable(scenario_config()) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_JAMMING_SENSITIVITY_PROFILE) &&
+           VerifyField<int32_t>(verifier, VT_JAMMING_SENSITIVITY_PROFILE) &&
+           verifier.EndTable();
+  }
+};
+
+struct EnvironmentRuntimeConfigPatchBuilder {
+  typedef EnvironmentRuntimeConfigPatch Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_has_scenario_config(bool has_scenario_config) {
+    fbb_.AddElement<uint8_t>(EnvironmentRuntimeConfigPatch::VT_HAS_SCENARIO_CONFIG, static_cast<uint8_t>(has_scenario_config), 0);
+  }
+  void add_scenario_config(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::EnvironmentScenarioConfig> scenario_config) {
+    fbb_.AddOffset(EnvironmentRuntimeConfigPatch::VT_SCENARIO_CONFIG, scenario_config);
+  }
+  void add_has_jamming_sensitivity_profile(bool has_jamming_sensitivity_profile) {
+    fbb_.AddElement<uint8_t>(EnvironmentRuntimeConfigPatch::VT_HAS_JAMMING_SENSITIVITY_PROFILE, static_cast<uint8_t>(has_jamming_sensitivity_profile), 0);
+  }
+  void add_jamming_sensitivity_profile(int32_t jamming_sensitivity_profile) {
+    fbb_.AddElement<int32_t>(EnvironmentRuntimeConfigPatch::VT_JAMMING_SENSITIVITY_PROFILE, jamming_sensitivity_profile, 0);
+  }
+  explicit EnvironmentRuntimeConfigPatchBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  EnvironmentRuntimeConfigPatchBuilder &operator=(const EnvironmentRuntimeConfigPatchBuilder &);
+  flatbuffers::Offset<EnvironmentRuntimeConfigPatch> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<EnvironmentRuntimeConfigPatch>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<EnvironmentRuntimeConfigPatch> CreateEnvironmentRuntimeConfigPatch(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    bool has_scenario_config = false,
+    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::EnvironmentScenarioConfig> scenario_config = 0,
+    bool has_jamming_sensitivity_profile = false,
+    int32_t jamming_sensitivity_profile = 0) {
+  EnvironmentRuntimeConfigPatchBuilder builder_(_fbb);
+  builder_.add_jamming_sensitivity_profile(jamming_sensitivity_profile);
+  builder_.add_scenario_config(scenario_config);
+  builder_.add_has_jamming_sensitivity_profile(has_jamming_sensitivity_profile);
+  builder_.add_has_scenario_config(has_scenario_config);
+  return builder_.Finish();
+}
+
+struct RadarRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef RadarRuntimeConfigPatchBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_HAS_MISSION = 4,
+    VT_MISSION_ORIENTATION = 6,
+    VT_HAS_POLICY = 8,
+    VT_POLICY = 10,
+    VT_HAS_ENVIRONMENT_RUNTIME_CONFIG = 12,
+    VT_ENVIRONMENT_RUNTIME_CONFIG = 14,
+    VT_HAS_WORK_SUB_MODE = 16,
+    VT_WORK_SUB_MODE = 18,
+    VT_HAS_SCAN_CENTER_DEG = 20,
+    VT_SCAN_CENTER_DEG = 22,
+    VT_HAS_DWELL_CENTER_DEG = 24,
+    VT_DWELL_CENTER_DEG = 26,
+    VT_HAS_COMMANDED_BEAMWIDTH_DEG = 28,
+    VT_COMMANDED_BEAMWIDTH_DEG = 30,
+    VT_HAS_COMMANDED_BEAMWIDTH_ENABLED = 32,
+    VT_COMMANDED_BEAMWIDTH_ENABLED = 34
+  };
+  bool has_mission() const {
+    return GetField<uint8_t>(VT_HAS_MISSION, 0) != 0;
+  }
+  const oneq::replay::airborne_radar::session::fb::RadarOrientationConfig *mission_orientation() const {
+    return GetPointer<const oneq::replay::airborne_radar::session::fb::RadarOrientationConfig *>(VT_MISSION_ORIENTATION);
+  }
+  bool has_policy() const {
+    return GetField<uint8_t>(VT_HAS_POLICY, 0) != 0;
+  }
+  const oneq::replay::airborne_radar::session::fb::RadarPolicyConfig *policy() const {
+    return GetPointer<const oneq::replay::airborne_radar::session::fb::RadarPolicyConfig *>(VT_POLICY);
+  }
+  bool has_environment_runtime_config() const {
+    return GetField<uint8_t>(VT_HAS_ENVIRONMENT_RUNTIME_CONFIG, 0) != 0;
+  }
+  const oneq::replay::airborne_radar::session::fb::EnvironmentRuntimeConfigPatch *environment_runtime_config() const {
+    return GetPointer<const oneq::replay::airborne_radar::session::fb::EnvironmentRuntimeConfigPatch *>(VT_ENVIRONMENT_RUNTIME_CONFIG);
+  }
+  bool has_work_sub_mode() const {
+    return GetField<uint8_t>(VT_HAS_WORK_SUB_MODE, 0) != 0;
+  }
+  int32_t work_sub_mode() const {
+    return GetField<int32_t>(VT_WORK_SUB_MODE, 0);
+  }
+  bool has_scan_center_deg() const {
+    return GetField<uint8_t>(VT_HAS_SCAN_CENTER_DEG, 0) != 0;
+  }
+  const oneq::replay::airborne_radar::session::fb::AzimuthElevationDeg *scan_center_deg() const {
+    return GetPointer<const oneq::replay::airborne_radar::session::fb::AzimuthElevationDeg *>(VT_SCAN_CENTER_DEG);
+  }
+  bool has_dwell_center_deg() const {
+    return GetField<uint8_t>(VT_HAS_DWELL_CENTER_DEG, 0) != 0;
+  }
+  const oneq::replay::airborne_radar::session::fb::AzimuthElevationDeg *dwell_center_deg() const {
+    return GetPointer<const oneq::replay::airborne_radar::session::fb::AzimuthElevationDeg *>(VT_DWELL_CENTER_DEG);
+  }
+  bool has_commanded_beamwidth_deg() const {
+    return GetField<uint8_t>(VT_HAS_COMMANDED_BEAMWIDTH_DEG, 0) != 0;
+  }
+  const oneq::replay::airborne_radar::session::fb::CommandedBeamwidthDeg *commanded_beamwidth_deg() const {
+    return GetPointer<const oneq::replay::airborne_radar::session::fb::CommandedBeamwidthDeg *>(VT_COMMANDED_BEAMWIDTH_DEG);
+  }
+  bool has_commanded_beamwidth_enabled() const {
+    return GetField<uint8_t>(VT_HAS_COMMANDED_BEAMWIDTH_ENABLED, 0) != 0;
+  }
+  bool commanded_beamwidth_enabled() const {
+    return GetField<uint8_t>(VT_COMMANDED_BEAMWIDTH_ENABLED, 0) != 0;
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_MISSION) &&
+           VerifyOffset(verifier, VT_MISSION_ORIENTATION) &&
+           verifier.VerifyTable(mission_orientation()) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_POLICY) &&
+           VerifyOffset(verifier, VT_POLICY) &&
+           verifier.VerifyTable(policy()) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_ENVIRONMENT_RUNTIME_CONFIG) &&
+           VerifyOffset(verifier, VT_ENVIRONMENT_RUNTIME_CONFIG) &&
+           verifier.VerifyTable(environment_runtime_config()) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_WORK_SUB_MODE) &&
+           VerifyField<int32_t>(verifier, VT_WORK_SUB_MODE) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_SCAN_CENTER_DEG) &&
+           VerifyOffset(verifier, VT_SCAN_CENTER_DEG) &&
+           verifier.VerifyTable(scan_center_deg()) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_DWELL_CENTER_DEG) &&
+           VerifyOffset(verifier, VT_DWELL_CENTER_DEG) &&
+           verifier.VerifyTable(dwell_center_deg()) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_COMMANDED_BEAMWIDTH_DEG) &&
+           VerifyOffset(verifier, VT_COMMANDED_BEAMWIDTH_DEG) &&
+           verifier.VerifyTable(commanded_beamwidth_deg()) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_COMMANDED_BEAMWIDTH_ENABLED) &&
+           VerifyField<uint8_t>(verifier, VT_COMMANDED_BEAMWIDTH_ENABLED) &&
+           verifier.EndTable();
+  }
+};
+
+struct RadarRuntimeConfigPatchBuilder {
+  typedef RadarRuntimeConfigPatch Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_has_mission(bool has_mission) {
+    fbb_.AddElement<uint8_t>(RadarRuntimeConfigPatch::VT_HAS_MISSION, static_cast<uint8_t>(has_mission), 0);
+  }
+  void add_mission_orientation(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::RadarOrientationConfig> mission_orientation) {
+    fbb_.AddOffset(RadarRuntimeConfigPatch::VT_MISSION_ORIENTATION, mission_orientation);
+  }
+  void add_has_policy(bool has_policy) {
+    fbb_.AddElement<uint8_t>(RadarRuntimeConfigPatch::VT_HAS_POLICY, static_cast<uint8_t>(has_policy), 0);
+  }
+  void add_policy(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::RadarPolicyConfig> policy) {
+    fbb_.AddOffset(RadarRuntimeConfigPatch::VT_POLICY, policy);
+  }
+  void add_has_environment_runtime_config(bool has_environment_runtime_config) {
+    fbb_.AddElement<uint8_t>(RadarRuntimeConfigPatch::VT_HAS_ENVIRONMENT_RUNTIME_CONFIG, static_cast<uint8_t>(has_environment_runtime_config), 0);
+  }
+  void add_environment_runtime_config(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::EnvironmentRuntimeConfigPatch> environment_runtime_config) {
+    fbb_.AddOffset(RadarRuntimeConfigPatch::VT_ENVIRONMENT_RUNTIME_CONFIG, environment_runtime_config);
+  }
+  void add_has_work_sub_mode(bool has_work_sub_mode) {
+    fbb_.AddElement<uint8_t>(RadarRuntimeConfigPatch::VT_HAS_WORK_SUB_MODE, static_cast<uint8_t>(has_work_sub_mode), 0);
+  }
+  void add_work_sub_mode(int32_t work_sub_mode) {
+    fbb_.AddElement<int32_t>(RadarRuntimeConfigPatch::VT_WORK_SUB_MODE, work_sub_mode, 0);
+  }
+  void add_has_scan_center_deg(bool has_scan_center_deg) {
+    fbb_.AddElement<uint8_t>(RadarRuntimeConfigPatch::VT_HAS_SCAN_CENTER_DEG, static_cast<uint8_t>(has_scan_center_deg), 0);
+  }
+  void add_scan_center_deg(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::AzimuthElevationDeg> scan_center_deg) {
+    fbb_.AddOffset(RadarRuntimeConfigPatch::VT_SCAN_CENTER_DEG, scan_center_deg);
+  }
+  void add_has_dwell_center_deg(bool has_dwell_center_deg) {
+    fbb_.AddElement<uint8_t>(RadarRuntimeConfigPatch::VT_HAS_DWELL_CENTER_DEG, static_cast<uint8_t>(has_dwell_center_deg), 0);
+  }
+  void add_dwell_center_deg(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::AzimuthElevationDeg> dwell_center_deg) {
+    fbb_.AddOffset(RadarRuntimeConfigPatch::VT_DWELL_CENTER_DEG, dwell_center_deg);
+  }
+  void add_has_commanded_beamwidth_deg(bool has_commanded_beamwidth_deg) {
+    fbb_.AddElement<uint8_t>(RadarRuntimeConfigPatch::VT_HAS_COMMANDED_BEAMWIDTH_DEG, static_cast<uint8_t>(has_commanded_beamwidth_deg), 0);
+  }
+  void add_commanded_beamwidth_deg(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::CommandedBeamwidthDeg> commanded_beamwidth_deg) {
+    fbb_.AddOffset(RadarRuntimeConfigPatch::VT_COMMANDED_BEAMWIDTH_DEG, commanded_beamwidth_deg);
+  }
+  void add_has_commanded_beamwidth_enabled(bool has_commanded_beamwidth_enabled) {
+    fbb_.AddElement<uint8_t>(RadarRuntimeConfigPatch::VT_HAS_COMMANDED_BEAMWIDTH_ENABLED, static_cast<uint8_t>(has_commanded_beamwidth_enabled), 0);
+  }
+  void add_commanded_beamwidth_enabled(bool commanded_beamwidth_enabled) {
+    fbb_.AddElement<uint8_t>(RadarRuntimeConfigPatch::VT_COMMANDED_BEAMWIDTH_ENABLED, static_cast<uint8_t>(commanded_beamwidth_enabled), 0);
+  }
+  explicit RadarRuntimeConfigPatchBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  RadarRuntimeConfigPatchBuilder &operator=(const RadarRuntimeConfigPatchBuilder &);
+  flatbuffers::Offset<RadarRuntimeConfigPatch> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<RadarRuntimeConfigPatch>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<RadarRuntimeConfigPatch> CreateRadarRuntimeConfigPatch(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    bool has_mission = false,
+    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::RadarOrientationConfig> mission_orientation = 0,
+    bool has_policy = false,
+    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::RadarPolicyConfig> policy = 0,
+    bool has_environment_runtime_config = false,
+    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::EnvironmentRuntimeConfigPatch> environment_runtime_config = 0,
+    bool has_work_sub_mode = false,
+    int32_t work_sub_mode = 0,
+    bool has_scan_center_deg = false,
+    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::AzimuthElevationDeg> scan_center_deg = 0,
+    bool has_dwell_center_deg = false,
+    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::AzimuthElevationDeg> dwell_center_deg = 0,
+    bool has_commanded_beamwidth_deg = false,
+    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::CommandedBeamwidthDeg> commanded_beamwidth_deg = 0,
+    bool has_commanded_beamwidth_enabled = false,
+    bool commanded_beamwidth_enabled = false) {
+  RadarRuntimeConfigPatchBuilder builder_(_fbb);
+  builder_.add_commanded_beamwidth_deg(commanded_beamwidth_deg);
+  builder_.add_dwell_center_deg(dwell_center_deg);
+  builder_.add_scan_center_deg(scan_center_deg);
+  builder_.add_work_sub_mode(work_sub_mode);
+  builder_.add_environment_runtime_config(environment_runtime_config);
+  builder_.add_policy(policy);
+  builder_.add_mission_orientation(mission_orientation);
+  builder_.add_commanded_beamwidth_enabled(commanded_beamwidth_enabled);
+  builder_.add_has_commanded_beamwidth_enabled(has_commanded_beamwidth_enabled);
+  builder_.add_has_commanded_beamwidth_deg(has_commanded_beamwidth_deg);
+  builder_.add_has_dwell_center_deg(has_dwell_center_deg);
+  builder_.add_has_scan_center_deg(has_scan_center_deg);
+  builder_.add_has_work_sub_mode(has_work_sub_mode);
+  builder_.add_has_environment_runtime_config(has_environment_runtime_config);
+  builder_.add_has_policy(has_policy);
+  builder_.add_has_mission(has_mission);
   return builder_.Finish();
 }
 

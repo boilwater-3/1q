@@ -5,8 +5,8 @@
 
 #include <gtest/gtest.h>
 
-#include <cstdio>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <ctime>
 #include <fstream>
@@ -18,6 +18,8 @@
 
 #if defined(_WIN32)
 #include <flatbuffers/flexbuffers.h>
+
+#include "airborne_radar/session/RadarReplayFlatbufferCodec.h"
 #endif
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
@@ -25,12 +27,12 @@
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarReplaySession.h"
 #include "1q/airborne_radar/session/RadarTraceSession.h"
-#include "1q/replay/ReplayTrace.h"
-#include "1q/trace/TraceSink.h"
 #include "1q/electro_optical_sensor/model/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosTraceSession.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
+#include "1q/replay/ReplayTrace.h"
+#include "1q/trace/TraceSink.h"
 
 namespace {
 
@@ -93,8 +95,7 @@ void ExpectFlatbufferRecord(const std::vector<std::uint8_t>& content,
                                      (static_cast<std::uint32_t>(content[3]) << 24U);
   ASSERT_EQ(content.size(), static_cast<std::size_t>(payload_size) + 4U);
 
-  const flexbuffers::Reference root =
-      flexbuffers::GetRoot(content.data() + 4U, payload_size);
+  const flexbuffers::Reference root = flexbuffers::GetRoot(content.data() + 4U, payload_size);
   const flexbuffers::Map map = root.AsMap();
 
   EXPECT_EQ(map["module"].AsString().str(), module_name);
@@ -178,6 +179,7 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) 
   oneq::replay::ReplayTraceReadEvent event;
   bool saw_flatbuffer_session_config = false;
   bool saw_flatbuffer_input = false;
+  bool saw_flatbuffer_output = false;
   while (reader.ReadNextEvent(&event)) {
     if (event.event_type == "session_config") {
       saw_flatbuffer_session_config = true;
@@ -191,13 +193,34 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) 
       EXPECT_FALSE(event.payload_bytes.empty());
       EXPECT_TRUE(event.payload_hash_matches);
     }
+    if (event.event_type == "cycle_output") {
+      saw_flatbuffer_output = true;
+      EXPECT_EQ(event.payload_encoding, "flatbuffers");
+      EXPECT_FALSE(event.payload_bytes.empty());
+      EXPECT_TRUE(event.payload_hash_matches);
+#if defined(_WIN32)
+      session::RadarCycleResult decoded_result;
+      std::string decode_error;
+      EXPECT_TRUE(
+          session::DecodeCycleResultFlatbuffer(event.payload_bytes, &decoded_result, &decode_error))
+          << decode_error;
+      EXPECT_EQ(decoded_result.track_output_frame.cycle_index,
+                result.track_output_frame.cycle_index);
+      EXPECT_EQ(decoded_result.track_output_frame.published_track_count,
+                result.track_output_frame.published_track_count);
+#endif
+    }
   }
   EXPECT_TRUE(saw_flatbuffer_session_config);
   EXPECT_TRUE(saw_flatbuffer_input);
+  EXPECT_TRUE(saw_flatbuffer_output);
 }
 
 TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
   const std::string trace_dir = MakeTempTracePath("oneq-radar-replay-run");
+  const float expected_kalman_noise_std = 7.5f;
+  const float expected_scan_center_az_deg = 4.0f;
+  const float expected_scan_center_el_deg = -1.0f;
 
   oneq::replay::ReplayTraceManifest manifest;
   manifest.trace_id = "radar-replay-run-test";
@@ -223,10 +246,10 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
     config::RadarRuntimeConfigPatch runtime_patch;
     runtime_patch.has_policy = true;
     runtime_patch.policy = config.policy;
-    runtime_patch.policy.tracking.kalman_measurement_noise_std = 7.5f;
+    runtime_patch.policy.tracking.kalman_measurement_noise_std = expected_kalman_noise_std;
     runtime_patch.has_scan_center_deg = true;
-    runtime_patch.scan_center_deg.az_deg = 4.0f;
-    runtime_patch.scan_center_deg.el_deg = -1.0f;
+    runtime_patch.scan_center_deg.az_deg = expected_scan_center_az_deg;
+    runtime_patch.scan_center_deg.el_deg = expected_scan_center_el_deg;
     runtime_patch.has_commanded_beamwidth_enabled = true;
     runtime_patch.commanded_beamwidth_enabled = true;
     runtime_patch.has_environment_runtime_config = true;
@@ -236,8 +259,8 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
     runtime_patch.environment_runtime_config.has_scenario_config = true;
     runtime_patch.environment_runtime_config.scenario_config.atmospheric_physics
         .enable_physical_model = true;
-    runtime_patch.environment_runtime_config.scenario_config.atmospheric_physics
-        .relative_humidity = 0.4f;
+    runtime_patch.environment_runtime_config.scenario_config.atmospheric_physics.relative_humidity =
+        0.4f;
     session.ApplyRuntimeConfig(runtime_patch);
 
     session::RadarCycleInput input;
@@ -276,20 +299,17 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
 
   const std::string content = ReadFile(trace_dir + "/events/000000.events.jsonl");
   EXPECT_NE(content.find("\"event_type\":\"runtime_config_patch\""), std::string::npos);
-  EXPECT_NE(content.find("\"has_policy\":true"), std::string::npos);
-  EXPECT_NE(content.find("\"kalman_measurement_noise_std\":7.5"), std::string::npos);
-  EXPECT_NE(content.find("\"has_environment_runtime_config\":true"),
-            std::string::npos);
-  EXPECT_NE(content.find("\"has_jamming_sensitivity_profile\":true"),
-            std::string::npos);
-  EXPECT_NE(content.find("\"has_scan_center_deg\":true"), std::string::npos);
+  EXPECT_NE(content.find("\"payload_type\":\"RadarRuntimeConfigPatch\""), std::string::npos);
   EXPECT_NE(content.find("\"event_type\":\"scene_state\""), std::string::npos);
   EXPECT_NE(content.find("\"payload_encoding\":\"flatbuffers\""), std::string::npos);
+  EXPECT_NE(content.find("\"payload_base64\":\""), std::string::npos);
 
   oneq::replay::ReplayTraceReader replay_reader(trace_dir);
   oneq::replay::ReplayTraceReadEvent replay_event;
   bool saw_session_config = false;
   bool saw_scene_state = false;
+  bool saw_runtime_patch = false;
+  bool saw_cycle_output = false;
   while (replay_reader.ReadNextEvent(&replay_event)) {
     if (replay_event.event_type == "session_config") {
       saw_session_config = true;
@@ -305,12 +325,52 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
       EXPECT_FALSE(replay_event.payload_bytes.empty());
       EXPECT_TRUE(replay_event.payload_hash_matches);
     }
+    if (replay_event.event_type == "runtime_config_patch") {
+      saw_runtime_patch = true;
+      EXPECT_EQ(replay_event.payload_type, "RadarRuntimeConfigPatch");
+      EXPECT_EQ(replay_event.payload_encoding, "flatbuffers");
+      EXPECT_FALSE(replay_event.payload_bytes.empty());
+      EXPECT_TRUE(replay_event.payload_hash_matches);
+#if defined(_WIN32)
+      config::RadarRuntimeConfigPatch decoded_patch;
+      std::string decode_error;
+      EXPECT_TRUE(session::DecodeRuntimeConfigPatchFlatbuffer(replay_event.payload_bytes,
+                                                              &decoded_patch, &decode_error))
+          << decode_error;
+      EXPECT_TRUE(decoded_patch.has_policy);
+      EXPECT_FLOAT_EQ(decoded_patch.policy.tracking.kalman_measurement_noise_std,
+                      expected_kalman_noise_std);
+      EXPECT_TRUE(decoded_patch.has_scan_center_deg);
+      EXPECT_FLOAT_EQ(decoded_patch.scan_center_deg.az_deg, expected_scan_center_az_deg);
+      EXPECT_FLOAT_EQ(decoded_patch.scan_center_deg.el_deg, expected_scan_center_el_deg);
+      EXPECT_TRUE(decoded_patch.has_environment_runtime_config);
+      EXPECT_TRUE(decoded_patch.environment_runtime_config.has_jamming_sensitivity_profile);
+#endif
+    }
+    if (replay_event.event_type == "cycle_output") {
+      saw_cycle_output = true;
+      EXPECT_EQ(replay_event.payload_type, "RadarCycleResult");
+      EXPECT_EQ(replay_event.payload_encoding, "flatbuffers");
+      EXPECT_FALSE(replay_event.payload_bytes.empty());
+      EXPECT_TRUE(replay_event.payload_hash_matches);
+#if defined(_WIN32)
+      session::RadarCycleResult decoded_result;
+      std::string decode_error;
+      EXPECT_TRUE(session::DecodeCycleResultFlatbuffer(replay_event.payload_bytes, &decoded_result,
+                                                       &decode_error))
+          << decode_error;
+      EXPECT_TRUE(decoded_result.executed_this_cycle);
+      EXPECT_TRUE(replay_event.has_cycle_index);
+      EXPECT_EQ(decoded_result.track_output_frame.cycle_index, replay_event.cycle_index);
+#endif
+    }
   }
   EXPECT_TRUE(saw_session_config);
   EXPECT_TRUE(saw_scene_state);
+  EXPECT_TRUE(saw_runtime_patch);
+  EXPECT_TRUE(saw_cycle_output);
 
-  const session::RadarReplaySessionResult replay_result =
-      session::ReplayRadarTrace(trace_dir);
+  const session::RadarReplaySessionResult replay_result = session::ReplayRadarTrace(trace_dir);
   EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
   EXPECT_TRUE(replay_result.report.replay_ready);
   EXPECT_EQ(replay_result.playback.applied_input_count, 1U);
@@ -353,14 +413,12 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionStopsAtFailureMarker) {
     replay_writer->Flush();
   }
 
-  const session::RadarReplaySessionResult replay_result =
-      session::ReplayRadarTrace(trace_dir);
+  const session::RadarReplaySessionResult replay_result = session::ReplayRadarTrace(trace_dir);
   EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
   EXPECT_TRUE(replay_result.report.has_failure_marker);
   EXPECT_TRUE(replay_result.reached_failure_marker);
   EXPECT_EQ(replay_result.playback.failure_marker_count, 1U);
-  EXPECT_NE(replay_result.failure_marker_payload_json.find("AR_SIM_ASSERT"),
-            std::string::npos);
+  EXPECT_NE(replay_result.failure_marker_payload_json.find("AR_SIM_ASSERT"), std::string::npos);
 }
 
 }  // namespace tests
@@ -405,7 +463,8 @@ TEST(TraceSessionAdapterTest, EosTraceSessionWritesConfigInputOutput) {
       new oneq::trace::JsonlFileTraceSink(trace_path, false));
 
   session::EosSessionConfig config;
-  config.policy.detection.profile = ::electro_optical_sensor::config::EosDetectionProfile::kAggressive;
+  config.policy.detection.profile =
+      ::electro_optical_sensor::config::EosDetectionProfile::kAggressive;
 
   ::electro_optical_sensor::session::EosTraceSession session(
       config, ::electro_optical_sensor::session::EosTraceSessionOptions{sink, true});

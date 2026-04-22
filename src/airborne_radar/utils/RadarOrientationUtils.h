@@ -17,7 +17,7 @@ namespace utils {
 
 namespace internal {
 
-inline constexpr float kPi = 3.14159265358979f;
+constexpr float kPi = 3.14159265358979f;
 
 inline float DegToRad(float angle_deg) { return angle_deg * kPi / 180.0f; }
 

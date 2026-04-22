@@ -1,266 +1,59 @@
-结论：`config` 该从“按历史功能堆头文件”改成“按配置层级 + 领域”组织。  
-如果后面要公开 `beam expert`、`association expert`、`IMM expert`，继续在根目录加文件会很快失控。
+FlatBuffers 已经引入了，但现在没有被真正用于 AR replay payload 的 typed 序列化/反序列化。AR replay payload 层：没有真正 FlatBuffers schema。
 
-我建议把 AR config 重构成 4 层：
+目前进度：
+1、文档明确：FlatBuffers 是 replay payload 主路径，JSON 只是过渡/调试/兼容。
+2、ReplayTraceEvent 增加 payload_bytes，非 JSON payload 落盘为 payload_base64。
+3、payload hash 对原始 bytes 计算，而不是对 base64 文本或 debug JSON 计算。
+4、新增 AR replay schema：airborne_radar_replay.fbs
+5、新增 AR FlatBuffers codec：RadarReplayFlatbufferCodec.cpp
+6、Windows AR cycle_input 写侧已切到 payload_encoding="flatbuffers"。
+7、B 电脑 replay 读侧对 cycle_input 优先走 FlatBuffers decode，旧 JSON trace 仍 fallback。
+8、新增 schema：airborne_radar_scene_replay.fbs
+9、生成头：airborne_radar_scene_replay_generated.h
+10、扩展 codec（新增 scene_state encode/decode）：
+RadarReplayFlatbufferCodec.h
+RadarReplayFlatbufferCodec.cpp
+11、写侧切换 scene_state 为 payload_encoding="flatbuffers"：
+RadarTraceSession.windows.cpp
+12、读侧回放优先解码 scene_state bytes（保留 JSON fallback）：
+RadarReplaySession.cpp
+13、测试同步更新：
+ar_trace_session_adapter_test.cpp
+14、把 session_config 切到 FlatBuffers（写侧+回放解码+测试），初始化配置摆脱 JSON 字段对齐风险。
+重新生成了 airborne_radar_session_replay 的 FlatBuffers 头文件
 
-- `config/`：只放顶层聚合入口和总装配壳
-- `config/semantic/`：语义配置
-- `config/expert/`：专家配置
-- `config/presets/`：预设与 profile 映射入口
+airborne_radar_session_replay_generated.h
+基于你已扩展好的 airborne_radar_session_replay.fbs（包含 RadarRuntimeConfigPatch 与环境补丁表）
+扩展 AR codec，新增 runtime patch 编解码
 
-**目标**
-1. 让“semantic”和“expert”成为一级概念
-2. 让 beam/detection/tracking/lifecycle/association 成为稳定领域
-3. 让 public API 目录结构和命名空间一致
-4. 给后续 expert 扩展留足空间，不再出现“大而全头文件”
+RadarReplayFlatbufferCodec.h
+RadarReplayFlatbufferCodec.cpp
+新增：
+EncodeRuntimeConfigPatchFlatbuffer(...)
+DecodeRuntimeConfigPatchFlatbuffer(...)
+同时补了 environment patch 相关的内部 encode/decode 映射。
+接入写侧（Windows trace）
 
----
+RadarTraceSession.windows.cpp
+runtime_config_patch 事件改为：
+payload_encoding = "flatbuffers"
+payload_bytes = ...
+payload_json = "{}"（仅占位/兼容）
+接入读侧（replay）
 
-**建议目录**
-```text
-include/1q/airborne_radar/config/
-|-- airborne_radar_config.hpp                 public convenience umbrella
-|-- PipelineConfig.h                    top-level pipeline aggregate
-|-- RadarSessionConfig.h                      top-level session aggregate
-|-- RadarRuntimeConfigBuilder.h               runtime patch entry
-|-- RadarSessionConfigBuilder.h               semantic builder
-|-- RadarExpertSessionConfigBuilder.h         expert builder
-|-- ConfigModel.h                             PipelineConfigModel
-|-- semantic/
-|   |-- DetectionConfig.h
-|   |-- BeamControlConfig.h
-|   |-- TrackingConfig.h
-|   |-- LifecycleConfig.h
-|   |-- AntennaPatternConfig.h
-|   `-- profiles/
-|       |-- DetectionProfiles.h
-|       |-- TrackingProfiles.h
-|       `-- LifecycleProfiles.h
-|-- expert/
-|   |-- ExpertPipelineConfig.h
-|   |-- detection/
-|   |   |-- DetectionConfig.h
-|   |   |-- TransmitterConfig.h
-|   |   |-- ReceiverConfig.h
-|   |   |-- AntennaConfig.h
-|   |   |-- AntennaPatternConfig.h
-|   |   |-- DetectionPolicyConfig.h
-|   |   `-- RcsPhysicsConfig.h
-|   |-- beam/
-|   |   |-- BeamControlConfig.h
-|   |   |-- BeamSchedulerConfig.h
-|   |   `-- BeamPointingConfig.h
-|   |-- tracking/
-|   |   |-- TrackingConfig.h
-|   |   |-- AssociationConfig.h
-|   |   `-- KalmanConfig.h
-|   `-- lifecycle/
-|       |-- LifecycleConfig.h
-|       `-- ImmConfig.h
-`-- presets/
-    |-- RadarSessionConfigPresets.h
-    `-- PipelineConfigPresets.h
-```
+RadarReplaySession.cpp
+OnRuntimeConfigPatch 现在优先解码 FlatBuffers bytes，保留 JSON fallback。
+更新单测断言
 
----
+ar_trace_session_adapter_test.cpp
+不再依赖 runtime patch 的 JSON 字段文本查找，改为验证：
+payload_type/payload_encoding/payload_bytes/payload_hash_matches
+并对 bytes 做 runtime patch decode 后检查关键字段值。
 
-**建议命名空间**
-- 顶层聚合：`airborne_radar::config`
-- 语义层：`airborne_radar::config::semantic`
-- 专家层：`airborne_radar::config::expert`
-- 预设层：`airborne_radar::config::presets`
+已把 AR cycle_output 从“仅 JSON”切到“payload_encoding = flatbuffers + payload_bytes”。
+保留了 JSON 阴影字段用于现有 replay 比较框架兼容（否则会直接把 payload 读成 null 导致误判）。
+回放侧已在 cycle_output 处理里优先走 FlatBuffers decode + typed compare。
+新增/更新了对应测试断言，覆盖 cycle_output bytes 的 decode 校验。
 
-不要把 semantic 类型继续直接平铺在 `config` 根命名空间里。  
-现在 `SignalDetectionConfig`、`SignalTrackingConfig` 这种名字太泛，后面 expert 同名概念会越来越拧巴。
-
-更建议变成：
-
-- `semantic::DetectionConfig`
-- `semantic::TrackingConfig`
-- `semantic::LifecycleConfig`
-- `semantic::BeamControlConfig`
-
-和
-
-- `expert::detection::DetectionConfig`
-- `expert::tracking::TrackingConfig`
-- `expert::tracking::AssociationConfig`
-- `expert::lifecycle::ImmConfig`
-
----
-
-**顶层聚合该怎么长**
-`ConfigModel.h`
-```cpp
-namespace airborne_radar::config {
-enum class PipelineConfigModel {
-  kSemantic = 0,
-  kExpert = 1,
-};
-}
-```
-
-`PipelineConfig.h`
-```cpp
-namespace airborne_radar::config {
-
-struct PipelineConfig {
-  PipelineConfigModel model{PipelineConfigModel::kSemantic};
-
-  semantic::DetectionConfig detection{};
-  semantic::BeamControlConfig beam_control{};
-  semantic::TrackingConfig tracking{};
-  semantic::LifecycleConfig lifecycle{};
-
-  expert::ExpertPipelineConfig expert{};
-};
-
-}
-```
-
-这个聚合壳保留是对的，因为：
-- runtime patch 已经围绕它建模了
-- session/composition root 已经围绕它传递了
-
-但它应该只做“总装配壳”，不要再承载一堆子类型定义。
-
----
-
-**expert 层怎么拆**
-你后面提到的扩展点，天然就对应这些目录：
-
-1. `beam expert`
-- `expert/beam/BeamControlConfig.h`
-- `expert/beam/BeamSchedulerConfig.h`
-- `expert/beam/BeamPointingConfig.h`
-
-2. `association expert`
-- `expert/tracking/AssociationConfig.h`
-- 包含 gating、cost、unassigned cost、seed policy 之类
-- 因为 association 现在在实现上隶属 tracking/pipeline，放 `tracking/` 比单开根目录更稳
-
-3. `IMM expert`
-- `expert/lifecycle/ImmConfig.h`
-- 因为 IMM 在你的实现里更偏 lifecycle activation 和 lifecycle runtime assembly，而不是独立域
-
-4. detection 继续细分
-- `TransmitterConfig`
-- `ReceiverConfig`
-- `AntennaConfig`
-- `DetectionPolicyConfig`
-- `RcsPhysicsConfig`
-
-这比把它们都塞在 [ExpertPipelineConfig.h](/Users/aurora/Code/1q/include/1q/airborne_radar/config/ExpertPipelineConfig.h) 里强得多。
-
----
-
-**semantic 层怎么拆**
-semantic 不需要拆得像 expert 那么细。  
-semantic 的本质是“调用方意图输入”，不是工程参数库。
-
-所以 semantic 层控制在 4 到 6 个文件最合理：
-
-- `semantic/DetectionConfig.h`
-- `semantic/BeamControlConfig.h`
-- `semantic/TrackingConfig.h`
-- `semantic/LifecycleConfig.h`
-- `semantic/AntennaPatternConfig.h`
-
-不要把 semantic 再拆成 transmitter/receiver 这种工程子结构，那会回到专家配置思路。
-
----
-
-**当前文件的去留建议**
-保留：
-- [PipelineConfig.h](/Users/aurora/Code/1q/include/1q/airborne_radar/config/PipelineConfig.h)
-- [RadarSessionConfig.h](/Users/aurora/Code/1q/include/1q/airborne_radar/config/RadarSessionConfig.h)
-- [RadarRuntimeConfigBuilder.h](/Users/aurora/Code/1q/include/1q/airborne_radar/config/RadarRuntimeConfigBuilder.h)
-- [RadarSessionConfigBuilder.h](/Users/aurora/Code/1q/include/1q/airborne_radar/config/RadarSessionConfigBuilder.h)
-- [RadarExpertSessionConfigBuilder.h](/Users/aurora/Code/1q/include/1q/airborne_radar/config/RadarExpertSessionConfigBuilder.h)
-- [airborne_radar_config.hpp](/Users/aurora/Code/1q/include/1q/airborne_radar/config/airborne_radar_config.hpp)
-
-迁移/拆分：
-- [ExpertPipelineConfig.h](/Users/aurora/Code/1q/include/1q/airborne_radar/config/ExpertPipelineConfig.h)
-- [SignalDetectionConfig.h](/Users/aurora/Code/1q/include/1q/airborne_radar/config/SignalDetectionConfig.h)
-- [SignalTrackingConfig.h](/Users/aurora/Code/1q/include/1q/airborne_radar/config/SignalTrackingConfig.h)
-- [SignalLifecycleConfig.h](/Users/aurora/Code/1q/include/1q/airborne_radar/config/SignalLifecycleConfig.h)
-- [SignalBeamControlConfig.h](/Users/aurora/Code/1q/include/1q/airborne_radar/config/SignalBeamControlConfig.h)
-- [AntennaPatternConfig.h](/Users/aurora/Code/1q/include/1q/airborne_radar/config/AntennaPatternConfig.h)
-
-其中 `Signal*` 这个前缀我建议也一起处理，因为它已经不够清楚了。
-
----
-
-**命名建议**
-当前：
-- `SignalDetectionConfig`
-- `SignalTrackingConfig`
-- `SignalLifecycleConfig`
-- `SignalBeamControlConfig`
-
-建议改成：
-- `semantic::DetectionConfig`
-- `semantic::TrackingConfig`
-- `semantic::LifecycleConfig`
-- `semantic::BeamControlConfig`
-
-原因：
-- `Signal*` 没有提供有效区分
-- 后面 expert 也会有 detection/tracking/lifecycle/beam
-- 靠 `semantic::` / `expert::` 区分更稳，更清楚
-
-expert 侧建议：
-- `expert::detection::DetectionConfig`
-- `expert::tracking::TrackingConfig`
-- `expert::tracking::AssociationConfig`
-- `expert::lifecycle::LifecycleConfig`
-- `expert::lifecycle::ImmConfig`
-- `expert::beam::BeamControlConfig`
-
----
-
-**和内部 engineering 的关系**
-不要把 `src/airborne_radar/config/engineering/SignalEngineeringConfig.h` 直接 public 化。  
-应该继续保持：
-
-- public expert 是“稳定外部合同”
-- internal engineering 是“内部执行合同”
-- 中间用 resolver 转换
-
-这样以后你内部想把一个 `TrackingConfig` 拆成更多 runtime 子项，不会把 public API 一起拖着改。
-
----
-
-**我建议的重构原则**
-1. public config 不直接镜像 internal engineering
-2. semantic/expert 是一级维度，不是注释说明
-3. 领域类型放领域目录，聚合类型放根目录
-4. root header 只做装配，不定义大量细节结构
-5. runtime/session builder 继续围绕聚合壳工作
-
----
-
-**最值得避免的设计**
-1. 所有 expert 类型继续堆一个文件
-- 后面一定失控
-
-2. semantic 和 expert 都平铺在 `config/`
-- 名字冲突和认知冲突会越来越重
-
-3. 直接暴露 `engineering::...`
-- 会把内部实现锁死
-
----
-
-**落地顺序**
-1. 先引入 `config/ConfigModel.h`
-2. 拆 `semantic/`
-3. 拆 `expert/`
-4. 把根目录聚合头改成 include 聚合，不再定义子类型
-5. 最后统一 builder include 和命名空间
-
-如果你要，我下一步可以直接给你一份“可执行重构方案”，精确到：
-- 哪些文件新建
-- 哪些旧文件 move/rename
-- 哪些命名空间和 include 要怎么改
-- 哪一批可以一次提交完成，哪一批要分两步迁移
+现在任务：
+把 failure_marker 也按同样模式补成 typed payload，进一步贴近文档里“全事件 typed 化”的终态。

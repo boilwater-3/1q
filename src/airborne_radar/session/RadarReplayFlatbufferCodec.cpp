@@ -16,42 +16,33 @@ namespace fb = oneq::replay::airborne_radar::fb;
 namespace scene_fb = oneq::replay::airborne_radar::scene::fb;
 namespace session_fb = oneq::replay::airborne_radar::session::fb;
 
-flatbuffers::Offset<fb::Vector3f> EncodeVector3(
-    flatbuffers::FlatBufferBuilder* builder,
-    const oneq::foundation::Vector3f& value) {
+flatbuffers::Offset<fb::Vector3f> EncodeVector3(flatbuffers::FlatBufferBuilder* builder,
+                                                const oneq::foundation::Vector3f& value) {
   return fb::CreateVector3f(*builder, value.x, value.y, value.z);
 }
 
-flatbuffers::Offset<fb::Vector3f> EncodeVector3(
-    flatbuffers::FlatBufferBuilder* builder,
-    float x,
-    float y,
-    float z) {
+flatbuffers::Offset<fb::Vector3f> EncodeVector3(flatbuffers::FlatBufferBuilder* builder, float x,
+                                                float y, float z) {
   return fb::CreateVector3f(*builder, x, y, z);
 }
 
 flatbuffers::Offset<fb::EulerAnglesDeg> EncodeEulerAngles(
-    flatbuffers::FlatBufferBuilder* builder,
-    const oneq::foundation::EulerAnglesDeg& value) {
-  return fb::CreateEulerAnglesDeg(*builder, value.yaw_deg, value.pitch_deg,
-                                  value.roll_deg);
+    flatbuffers::FlatBufferBuilder* builder, const oneq::foundation::EulerAnglesDeg& value) {
+  return fb::CreateEulerAnglesDeg(*builder, value.yaw_deg, value.pitch_deg, value.roll_deg);
 }
 
-flatbuffers::Offset<fb::PoseState> EncodePoseState(
-    flatbuffers::FlatBufferBuilder* builder,
-    const oneq::foundation::PoseState& value) {
+flatbuffers::Offset<fb::PoseState> EncodePoseState(flatbuffers::FlatBufferBuilder* builder,
+                                                   const oneq::foundation::PoseState& value) {
   return fb::CreatePoseState(*builder, EncodeVector3(builder, value.position_m),
                              EncodeVector3(builder, value.velocity_mps),
                              EncodeEulerAngles(builder, value.attitude_deg));
 }
 
-flatbuffers::Offset<fb::TargetFeature> EncodeTargetFeature(
-    flatbuffers::FlatBufferBuilder* builder,
-    const model::TargetFeature& value) {
+flatbuffers::Offset<fb::TargetFeature> EncodeTargetFeature(flatbuffers::FlatBufferBuilder* builder,
+                                                           const model::TargetFeature& value) {
   return fb::CreateTargetFeature(
       *builder, value.external_target_id,
-      EncodeVector3(builder, value.current_track_velocity_x,
-                    value.current_track_velocity_y,
+      EncodeVector3(builder, value.current_track_velocity_x, value.current_track_velocity_y,
                     value.current_track_velocity_z),
       value.current_track_speed, value.current_track_rcs, value.range_m,
       value.has_cartesian_position,
@@ -69,8 +60,7 @@ oneq::foundation::Vector3f DecodeVector3(const fb::Vector3f* value) {
   return result;
 }
 
-oneq::foundation::EulerAnglesDeg DecodeEulerAngles(
-    const fb::EulerAnglesDeg* value) {
+oneq::foundation::EulerAnglesDeg DecodeEulerAngles(const fb::EulerAnglesDeg* value) {
   oneq::foundation::EulerAnglesDeg result;
   if (value != nullptr) {
     result.yaw_deg = value->yaw_deg();
@@ -111,24 +101,53 @@ model::TargetFeature DecodeTargetFeature(const fb::TargetFeature* value) {
   return result;
 }
 
+flatbuffers::Offset<fb::TrackOutputFrame> EncodeTrackOutputFrame(
+    flatbuffers::FlatBufferBuilder* builder, const output::TrackOutputFrame& value) {
+  return fb::CreateTrackOutputFrame(*builder, value.cycle_index,
+                                    static_cast<std::uint64_t>(value.published_track_count));
+}
+
+output::TrackOutputFrame DecodeTrackOutputFrame(const fb::TrackOutputFrame* value) {
+  output::TrackOutputFrame result;
+  if (value != nullptr) {
+    result.cycle_index = value->cycle_index();
+    result.published_track_count = static_cast<std::size_t>(value->published_track_count());
+  }
+  return result;
+}
+
+flatbuffers::Offset<fb::RadarCycleResult> EncodeCycleResult(flatbuffers::FlatBufferBuilder* builder,
+                                                            const RadarCycleResult& value) {
+  return fb::CreateRadarCycleResult(
+      *builder, EncodeTrackOutputFrame(builder, value.track_output_frame),
+      static_cast<std::uint32_t>(value.validation_issues.size()), value.executed_this_cycle);
+}
+
+RadarCycleResult DecodeCycleResult(const fb::RadarCycleResult* value) {
+  RadarCycleResult result;
+  if (value != nullptr) {
+    result.track_output_frame = DecodeTrackOutputFrame(value->track_output_frame());
+    result.validation_issues.resize(value->validation_issue_count());
+    result.executed_this_cycle = value->executed_this_cycle();
+  }
+  return result;
+}
+
 flatbuffers::Offset<scene_fb::AtmosphericPhysicsConfig> EncodeAtmosphericPhysicsConfig(
-    flatbuffers::FlatBufferBuilder* builder,
-    const environment::AtmosphericPhysicsConfig& value) {
-  return scene_fb::CreateAtmosphericPhysicsConfig(
-      *builder, value.enable_physical_model, value.pressure_hpa,
-      value.temperature_k, value.relative_humidity);
+    flatbuffers::FlatBufferBuilder* builder, const environment::AtmosphericPhysicsConfig& value) {
+  return scene_fb::CreateAtmosphericPhysicsConfig(*builder, value.enable_physical_model,
+                                                  value.pressure_hpa, value.temperature_k,
+                                                  value.relative_humidity);
 }
 
 flatbuffers::Offset<scene_fb::AtmosphericDerivedContext> EncodeAtmosphericDerivedContext(
-    flatbuffers::FlatBufferBuilder* builder,
-    const environment::AtmosphericDerivedContext& value) {
+    flatbuffers::FlatBufferBuilder* builder, const environment::AtmosphericDerivedContext& value) {
   return scene_fb::CreateAtmosphericDerivedContext(
       *builder, value.has_simulation_unix_seconds, value.simulation_unix_seconds,
       value.solar_flux_f107a, value.solar_flux_f107, value.geomagnetic_ap);
 }
 
-flatbuffers::Offset<scene_fb::VegetationScatterPhysicsConfig>
-EncodeVegetationScatterPhysicsConfig(
+flatbuffers::Offset<scene_fb::VegetationScatterPhysicsConfig> EncodeVegetationScatterPhysicsConfig(
     flatbuffers::FlatBufferBuilder* builder,
     const environment::VegetationScatterPhysicsConfig& value) {
   return scene_fb::CreateVegetationScatterPhysicsConfig(
@@ -136,12 +155,11 @@ EncodeVegetationScatterPhysicsConfig(
 }
 
 flatbuffers::Offset<scene_fb::JammerEmitterState> EncodeJammerEmitterState(
-    flatbuffers::FlatBufferBuilder* builder,
-    const environment::JammerEmitterState& value) {
-  return scene_fb::CreateJammerEmitterState(
-      *builder, static_cast<int>(value.technique), value.power_db, value.js_db,
-      value.has_direction_deg, value.azimuth_deg, value.elevation_deg,
-      value.angular_span_deg, value.confidence);
+    flatbuffers::FlatBufferBuilder* builder, const environment::JammerEmitterState& value) {
+  return scene_fb::CreateJammerEmitterState(*builder, static_cast<int>(value.technique),
+                                            value.power_db, value.js_db, value.has_direction_deg,
+                                            value.azimuth_deg, value.elevation_deg,
+                                            value.angular_span_deg, value.confidence);
 }
 
 environment::AtmosphericPhysicsConfig DecodeAtmosphericPhysicsConfig(
@@ -173,8 +191,7 @@ environment::VegetationScatterPhysicsConfig DecodeVegetationScatterPhysicsConfig
     const scene_fb::VegetationScatterPhysicsConfig* value) {
   environment::VegetationScatterPhysicsConfig result;
   if (value != nullptr) {
-    result.cover_profile = static_cast<environment::VegetationCoverProfile>(
-        value->cover_profile());
+    result.cover_profile = static_cast<environment::VegetationCoverProfile>(value->cover_profile());
     result.enable_physical_model = value->enable_physical_model();
   }
   return result;
@@ -184,8 +201,7 @@ environment::JammerEmitterState DecodeJammerEmitterState(
     const scene_fb::JammerEmitterState* value) {
   environment::JammerEmitterState result;
   if (value != nullptr) {
-    result.technique =
-        static_cast<environment::JammingTechnique>(value->technique());
+    result.technique = static_cast<environment::JammingTechnique>(value->technique());
     result.power_db = value->power_db();
     result.js_db = value->js_db();
     result.has_direction_deg = value->has_direction_deg();
@@ -198,128 +214,161 @@ environment::JammerEmitterState DecodeJammerEmitterState(
 }
 
 flatbuffers::Offset<session_fb::EulerAnglesDeg> EncodeSessionEulerAngles(
-    flatbuffers::FlatBufferBuilder* builder,
-    const model::EulerAnglesDeg& value) {
-  return session_fb::CreateEulerAnglesDeg(*builder, value.yaw_deg, value.pitch_deg,
-                                          value.roll_deg);
+    flatbuffers::FlatBufferBuilder* builder, const model::EulerAnglesDeg& value) {
+  return session_fb::CreateEulerAnglesDeg(*builder, value.yaw_deg, value.pitch_deg, value.roll_deg);
 }
 
 flatbuffers::Offset<session_fb::AzimuthElevationDeg> EncodeSessionAzEl(
-    flatbuffers::FlatBufferBuilder* builder,
-    const model::AzimuthElevationDeg& value) {
+    flatbuffers::FlatBufferBuilder* builder, const model::AzimuthElevationDeg& value) {
   return session_fb::CreateAzimuthElevationDeg(*builder, value.az_deg, value.el_deg);
 }
 
 flatbuffers::Offset<session_fb::AzimuthElevationLimitsDeg> EncodeSessionAzElLimits(
-    flatbuffers::FlatBufferBuilder* builder,
-    const model::AzimuthElevationLimitsDeg& value) {
-  return session_fb::CreateAzimuthElevationLimitsDeg(
-      *builder, value.az_min_deg, value.az_max_deg, value.el_min_deg,
-      value.el_max_deg);
+    flatbuffers::FlatBufferBuilder* builder, const model::AzimuthElevationLimitsDeg& value) {
+  return session_fb::CreateAzimuthElevationLimitsDeg(*builder, value.az_min_deg, value.az_max_deg,
+                                                     value.el_min_deg, value.el_max_deg);
 }
 
 flatbuffers::Offset<session_fb::CommandedBeamwidthDeg> EncodeSessionCommandedBeamwidth(
-    flatbuffers::FlatBufferBuilder* builder,
-    const model::CommandedBeamwidthDeg& value) {
-  return session_fb::CreateCommandedBeamwidthDeg(
-      *builder, value.commanded_az_beamwidth_deg, value.commanded_el_beamwidth_deg);
+    flatbuffers::FlatBufferBuilder* builder, const model::CommandedBeamwidthDeg& value) {
+  return session_fb::CreateCommandedBeamwidthDeg(*builder, value.commanded_az_beamwidth_deg,
+                                                 value.commanded_el_beamwidth_deg);
 }
 
 flatbuffers::Offset<session_fb::RadarOrientationConfig> EncodeSessionOrientation(
-    flatbuffers::FlatBufferBuilder* builder,
-    const model::RadarOrientationConfig& value) {
+    flatbuffers::FlatBufferBuilder* builder, const model::RadarOrientationConfig& value) {
   return session_fb::CreateRadarOrientationConfig(
       *builder, EncodeSessionEulerAngles(builder, value.mount_angles_deg),
       EncodeSessionAzEl(builder, value.scan_center_deg),
       EncodeSessionAzElLimits(builder, value.mechanical_scan_limits_deg),
       EncodeSessionAzElLimits(builder, value.electronic_scan_limits_deg),
-      static_cast<int>(value.scan_start_position),
-      static_cast<int>(value.scan_sequence), static_cast<int>(value.work_sub_mode),
-      value.commanded_beamwidth_enabled,
+      static_cast<int>(value.scan_start_position), static_cast<int>(value.scan_sequence),
+      static_cast<int>(value.work_sub_mode), value.commanded_beamwidth_enabled,
       EncodeSessionCommandedBeamwidth(builder, value.commanded_beamwidth_deg),
       static_cast<int>(value.stabilization_mode));
 }
 
 flatbuffers::Offset<session_fb::DetectionConfig> EncodeSessionDetectionConfig(
-    flatbuffers::FlatBufferBuilder* builder,
-    const config::DetectionConfig& value) {
+    flatbuffers::FlatBufferBuilder* builder, const config::DetectionConfig& value) {
   const flatbuffers::Offset<session_fb::TransmitterConfig> transmitter =
       session_fb::CreateTransmitterConfig(
           *builder, value.transmitter.peak_power_w, value.transmitter.frequency_hz,
-          value.transmitter.bandwidth_hz, value.transmitter.pulse_width_s,
-          value.transmitter.prf_hz, value.transmitter.transmit_loss_db);
+          value.transmitter.bandwidth_hz, value.transmitter.pulse_width_s, value.transmitter.prf_hz,
+          value.transmitter.transmit_loss_db);
   const flatbuffers::Offset<session_fb::AntennaPatternConfig> pattern =
       session_fb::CreateAntennaPatternConfig(
           *builder, static_cast<int>(value.antenna.pattern.model_type),
-          value.antenna.pattern.max_sidelobe_level_db,
-          value.antenna.pattern.backlobe_level_db,
-          value.antenna.pattern.scan_loss_coeff_db_per_deg2,
-          value.antenna.pattern.max_scan_loss_db,
+          value.antenna.pattern.max_sidelobe_level_db, value.antenna.pattern.backlobe_level_db,
+          value.antenna.pattern.scan_loss_coeff_db_per_deg2, value.antenna.pattern.max_scan_loss_db,
           EncodeSessionAzEl(builder, value.antenna.pattern.boresight_offset_deg));
-  const flatbuffers::Offset<session_fb::AntennaConfig> antenna =
-      session_fb::CreateAntennaConfig(
-          *builder, value.antenna.main_beam_gain_db,
-          value.antenna.nominal_az_beamwidth_deg,
-          value.antenna.nominal_el_beamwidth_deg,
-          value.antenna.enable_directional_pattern, pattern);
-  const flatbuffers::Offset<session_fb::ReceiverConfig> receiver =
-      session_fb::CreateReceiverConfig(*builder, value.receiver.noise_figure_db,
-                                       value.receiver.receive_loss_db);
+  const flatbuffers::Offset<session_fb::AntennaConfig> antenna = session_fb::CreateAntennaConfig(
+      *builder, value.antenna.main_beam_gain_db, value.antenna.nominal_az_beamwidth_deg,
+      value.antenna.nominal_el_beamwidth_deg, value.antenna.enable_directional_pattern, pattern);
+  const flatbuffers::Offset<session_fb::ReceiverConfig> receiver = session_fb::CreateReceiverConfig(
+      *builder, value.receiver.noise_figure_db, value.receiver.receive_loss_db);
   const flatbuffers::Offset<session_fb::DetectionPolicyConfig> policy =
       session_fb::CreateDetectionPolicyConfig(*builder, value.detection_policy.cfar_pfa,
                                               value.detection_policy.min_snr_db);
   const flatbuffers::Offset<session_fb::RcsPhysicsConfig> rcs_physics =
       session_fb::CreateRcsPhysicsConfig(
-          *builder, value.rcs_physics.enable_physical_rcs,
-          value.rcs_physics.frequency_hz, value.rcs_physics.physics_mix_ratio,
-          value.rcs_physics.cylinder_weight,
-          value.rcs_physics.min_equivalent_radius_m,
-          value.rcs_physics.max_equivalent_radius_m, value.rcs_physics.min_rcs_m2,
-          value.rcs_physics.max_rcs_m2,
+          *builder, value.rcs_physics.enable_physical_rcs, value.rcs_physics.frequency_hz,
+          value.rcs_physics.physics_mix_ratio, value.rcs_physics.cylinder_weight,
+          value.rcs_physics.min_equivalent_radius_m, value.rcs_physics.max_equivalent_radius_m,
+          value.rcs_physics.min_rcs_m2, value.rcs_physics.max_rcs_m2,
           value.rcs_physics.bistatic_psi_offset_deg);
   return session_fb::CreateDetectionConfig(
-      *builder, value.enable_physics_detection,
-      static_cast<int>(value.swerling_model), transmitter, antenna, receiver, policy,
-      rcs_physics, value.min_detection_margin_db, value.pulse_count);
+      *builder, value.enable_physics_detection, static_cast<int>(value.swerling_model), transmitter,
+      antenna, receiver, policy, rcs_physics, value.min_detection_margin_db, value.pulse_count);
 }
 
 flatbuffers::Offset<session_fb::RadarPolicyConfig> EncodeSessionPolicyConfig(
-    flatbuffers::FlatBufferBuilder* builder,
-    const config::RadarPolicyConfig& value) {
+    flatbuffers::FlatBufferBuilder* builder, const config::RadarPolicyConfig& value) {
   const flatbuffers::Offset<session_fb::BeamPointingConfig> pointing =
       session_fb::CreateBeamPointingConfig(
           *builder, EncodeSessionAzEl(builder, value.beam_control.pointing.default_scan_center_deg),
-          EncodeSessionCommandedBeamwidth(
-              builder, value.beam_control.pointing.nominal_beamwidth_deg));
+          EncodeSessionCommandedBeamwidth(builder,
+                                          value.beam_control.pointing.nominal_beamwidth_deg));
   const flatbuffers::Offset<session_fb::BeamSchedulerConfig> scheduler =
-      session_fb::CreateBeamSchedulerConfig(
-          *builder, value.beam_control.scheduler.azimuth_step_count_hint,
-          value.beam_control.scheduler.elevation_step_count_hint,
-          value.beam_control.scheduler.prefer_dense_tas_sampling);
+      session_fb::CreateBeamSchedulerConfig(*builder,
+                                            value.beam_control.scheduler.azimuth_step_count_hint,
+                                            value.beam_control.scheduler.elevation_step_count_hint,
+                                            value.beam_control.scheduler.prefer_dense_tas_sampling);
   const flatbuffers::Offset<session_fb::BeamControlConfig> beam_control =
       session_fb::CreateBeamControlConfig(*builder, pointing, scheduler);
   const flatbuffers::Offset<session_fb::AssociationConfig> association =
-      session_fb::CreateAssociationConfig(
-          *builder, value.association.unassigned_cost,
-          value.association.use_distance_gate_hint,
-          value.association.distance_gate_sigma_hint);
-  const flatbuffers::Offset<session_fb::TrackingConfig> tracking =
-      session_fb::CreateTrackingConfig(
-          *builder, value.tracking.enable_kalman_filter,
-          value.tracking.kalman_measurement_noise_std,
-          static_cast<int>(value.tracking.kalman_update_backend),
-          value.tracking.speed_decay_ratio_on_loss,
-          value.tracking.rcs_decay_ratio_on_loss);
+      session_fb::CreateAssociationConfig(*builder, value.association.unassigned_cost,
+                                          value.association.use_distance_gate_hint,
+                                          value.association.distance_gate_sigma_hint);
+  const flatbuffers::Offset<session_fb::TrackingConfig> tracking = session_fb::CreateTrackingConfig(
+      *builder, value.tracking.enable_kalman_filter, value.tracking.kalman_measurement_noise_std,
+      static_cast<int>(value.tracking.kalman_update_backend),
+      value.tracking.speed_decay_ratio_on_loss, value.tracking.rcs_decay_ratio_on_loss);
   const flatbuffers::Offset<session_fb::LifecycleConfig> lifecycle =
       session_fb::CreateLifecycleConfig(
-          *builder, value.lifecycle.confirm_hits,
-          value.lifecycle.max_miss_before_lost, value.lifecycle.max_lost_cycles,
-          value.lifecycle.enable_imm_lifecycle);
-  const flatbuffers::Offset<session_fb::ImmConfig> imm =
-      session_fb::CreateImmConfig(*builder, value.imm.enable_imm_lifecycle,
-                                  value.imm.model_count_hint);
-  return session_fb::CreateRadarPolicyConfig(*builder, beam_control, association,
-                                             tracking, lifecycle, imm);
+          *builder, value.lifecycle.confirm_hits, value.lifecycle.max_miss_before_lost,
+          value.lifecycle.max_lost_cycles, value.lifecycle.enable_imm_lifecycle);
+  const flatbuffers::Offset<session_fb::ImmConfig> imm = session_fb::CreateImmConfig(
+      *builder, value.imm.enable_imm_lifecycle, value.imm.model_count_hint);
+  return session_fb::CreateRadarPolicyConfig(*builder, beam_control, association, tracking,
+                                             lifecycle, imm);
+}
+
+flatbuffers::Offset<session_fb::AtmosphericPhysicsConfig> EncodeSessionAtmosphericPhysicsConfig(
+    flatbuffers::FlatBufferBuilder* builder, const environment::AtmosphericPhysicsConfig& value) {
+  return session_fb::CreateAtmosphericPhysicsConfig(*builder, value.enable_physical_model,
+                                                    value.pressure_hpa, value.temperature_k,
+                                                    value.relative_humidity);
+}
+
+flatbuffers::Offset<session_fb::AtmosphericDerivedContext> EncodeSessionAtmosphericDerivedContext(
+    flatbuffers::FlatBufferBuilder* builder, const environment::AtmosphericDerivedContext& value) {
+  return session_fb::CreateAtmosphericDerivedContext(
+      *builder, value.has_simulation_unix_seconds, value.simulation_unix_seconds,
+      value.solar_flux_f107a, value.solar_flux_f107, value.geomagnetic_ap);
+}
+
+flatbuffers::Offset<session_fb::VegetationScatterPhysicsConfig>
+EncodeSessionVegetationScatterPhysicsConfig(
+    flatbuffers::FlatBufferBuilder* builder,
+    const environment::VegetationScatterPhysicsConfig& value) {
+  return session_fb::CreateVegetationScatterPhysicsConfig(
+      *builder, static_cast<int>(value.cover_profile), value.enable_physical_model);
+}
+
+flatbuffers::Offset<session_fb::JammerEmitterState> EncodeSessionJammerEmitterState(
+    flatbuffers::FlatBufferBuilder* builder, const environment::JammerEmitterState& value) {
+  return session_fb::CreateJammerEmitterState(*builder, static_cast<int>(value.technique),
+                                              value.power_db, value.js_db, value.has_direction_deg,
+                                              value.azimuth_deg, value.elevation_deg,
+                                              value.angular_span_deg, value.confidence);
+}
+
+flatbuffers::Offset<session_fb::EnvironmentScenarioConfig> EncodeSessionEnvironmentScenarioConfig(
+    flatbuffers::FlatBufferBuilder* builder, const environment::EnvironmentScenarioConfig& value) {
+  std::vector<flatbuffers::Offset<session_fb::JammerEmitterState>> jammer_sources;
+  jammer_sources.reserve(value.jammer_sources.size());
+  for (std::size_t i = 0; i < value.jammer_sources.size(); ++i) {
+    jammer_sources.push_back(EncodeSessionJammerEmitterState(builder, value.jammer_sources[i]));
+  }
+
+  const flatbuffers::Offset<
+      flatbuffers::Vector<flatbuffers::Offset<session_fb::JammerEmitterState>>>
+      source_vector = builder->CreateVector(jammer_sources);
+  return session_fb::CreateEnvironmentScenarioConfig(
+      *builder, EncodeSessionAtmosphericPhysicsConfig(builder, value.atmospheric_physics),
+      EncodeSessionAtmosphericDerivedContext(builder, value.atmospheric_context),
+      EncodeSessionVegetationScatterPhysicsConfig(builder, value.vegetation_scatter_physics),
+      source_vector);
+}
+
+flatbuffers::Offset<session_fb::EnvironmentRuntimeConfigPatch>
+EncodeSessionEnvironmentRuntimeConfigPatch(
+    flatbuffers::FlatBufferBuilder* builder,
+    const environment::EnvironmentRuntimeConfigPatch& value) {
+  return session_fb::CreateEnvironmentRuntimeConfigPatch(
+      *builder, value.has_scenario_config,
+      EncodeSessionEnvironmentScenarioConfig(builder, value.scenario_config),
+      value.has_jamming_sensitivity_profile, static_cast<int>(value.jamming_sensitivity_profile));
 }
 
 model::EulerAnglesDeg DecodeSessionEulerAngles(const session_fb::EulerAnglesDeg* value) {
@@ -373,27 +422,23 @@ model::RadarOrientationConfig DecodeSessionOrientation(
         DecodeSessionAzElLimits(value->mechanical_scan_limits_deg());
     result.electronic_scan_limits_deg =
         DecodeSessionAzElLimits(value->electronic_scan_limits_deg());
-    result.scan_start_position = static_cast<oneq::foundation::ScanStartPosition>(
-        value->scan_start_position());
-    result.scan_sequence = static_cast<oneq::foundation::ScanSequence>(
-        value->scan_sequence());
+    result.scan_start_position =
+        static_cast<oneq::foundation::ScanStartPosition>(value->scan_start_position());
+    result.scan_sequence = static_cast<oneq::foundation::ScanSequence>(value->scan_sequence());
     result.work_sub_mode = static_cast<model::RadarWorkSubMode>(value->work_sub_mode());
     result.commanded_beamwidth_enabled = value->commanded_beamwidth_enabled();
     result.commanded_beamwidth_deg =
         DecodeSessionCommandedBeamwidth(value->commanded_beamwidth_deg());
-    result.stabilization_mode = static_cast<model::StabilizationMode>(
-        value->stabilization_mode());
+    result.stabilization_mode = static_cast<model::StabilizationMode>(value->stabilization_mode());
   }
   return result;
 }
 
-config::DetectionConfig DecodeSessionDetectionConfig(
-    const session_fb::DetectionConfig* value) {
+config::DetectionConfig DecodeSessionDetectionConfig(const session_fb::DetectionConfig* value) {
   config::DetectionConfig result;
   if (value != nullptr) {
     result.enable_physics_detection = value->enable_physics_detection();
-    result.swerling_model = static_cast<config::profiles::SwerlingModel>(
-        value->swerling_model());
+    result.swerling_model = static_cast<config::profiles::SwerlingModel>(value->swerling_model());
     const session_fb::TransmitterConfig* transmitter = value->transmitter();
     if (transmitter != nullptr) {
       result.transmitter.peak_power_w = transmitter->peak_power_w();
@@ -412,13 +457,10 @@ config::DetectionConfig DecodeSessionDetectionConfig(
       const session_fb::AntennaPatternConfig* pattern = antenna->pattern();
       if (pattern != nullptr) {
         result.antenna.pattern.model_type =
-            static_cast<config::detection::AntennaPatternModelType>(
-                pattern->model_type());
-        result.antenna.pattern.max_sidelobe_level_db =
-            pattern->max_sidelobe_level_db();
+            static_cast<config::detection::AntennaPatternModelType>(pattern->model_type());
+        result.antenna.pattern.max_sidelobe_level_db = pattern->max_sidelobe_level_db();
         result.antenna.pattern.backlobe_level_db = pattern->backlobe_level_db();
-        result.antenna.pattern.scan_loss_coeff_db_per_deg2 =
-            pattern->scan_loss_coeff_db_per_deg2();
+        result.antenna.pattern.scan_loss_coeff_db_per_deg2 = pattern->scan_loss_coeff_db_per_deg2();
         result.antenna.pattern.max_scan_loss_db = pattern->max_scan_loss_db();
         result.antenna.pattern.boresight_offset_deg =
             DecodeSessionAzEl(pattern->boresight_offset_deg());
@@ -440,14 +482,11 @@ config::DetectionConfig DecodeSessionDetectionConfig(
       result.rcs_physics.frequency_hz = rcs_physics->frequency_hz();
       result.rcs_physics.physics_mix_ratio = rcs_physics->physics_mix_ratio();
       result.rcs_physics.cylinder_weight = rcs_physics->cylinder_weight();
-      result.rcs_physics.min_equivalent_radius_m =
-          rcs_physics->min_equivalent_radius_m();
-      result.rcs_physics.max_equivalent_radius_m =
-          rcs_physics->max_equivalent_radius_m();
+      result.rcs_physics.min_equivalent_radius_m = rcs_physics->min_equivalent_radius_m();
+      result.rcs_physics.max_equivalent_radius_m = rcs_physics->max_equivalent_radius_m();
       result.rcs_physics.min_rcs_m2 = rcs_physics->min_rcs_m2();
       result.rcs_physics.max_rcs_m2 = rcs_physics->max_rcs_m2();
-      result.rcs_physics.bistatic_psi_offset_deg =
-          rcs_physics->bistatic_psi_offset_deg();
+      result.rcs_physics.bistatic_psi_offset_deg = rcs_physics->bistatic_psi_offset_deg();
     }
     result.min_detection_margin_db = value->min_detection_margin_db();
     result.pulse_count = value->pulse_count();
@@ -455,8 +494,7 @@ config::DetectionConfig DecodeSessionDetectionConfig(
   return result;
 }
 
-config::RadarPolicyConfig DecodeSessionPolicyConfig(
-    const session_fb::RadarPolicyConfig* value) {
+config::RadarPolicyConfig DecodeSessionPolicyConfig(const session_fb::RadarPolicyConfig* value) {
   config::RadarPolicyConfig result;
   if (value != nullptr) {
     const session_fb::BeamControlConfig* beam_control = value->beam_control();
@@ -481,20 +519,16 @@ config::RadarPolicyConfig DecodeSessionPolicyConfig(
     const session_fb::AssociationConfig* association = value->association();
     if (association != nullptr) {
       result.association.unassigned_cost = association->unassigned_cost();
-      result.association.use_distance_gate_hint =
-          association->use_distance_gate_hint();
-      result.association.distance_gate_sigma_hint =
-          association->distance_gate_sigma_hint();
+      result.association.use_distance_gate_hint = association->use_distance_gate_hint();
+      result.association.distance_gate_sigma_hint = association->distance_gate_sigma_hint();
     }
     const session_fb::TrackingConfig* tracking = value->tracking();
     if (tracking != nullptr) {
       result.tracking.enable_kalman_filter = tracking->enable_kalman_filter();
-      result.tracking.kalman_measurement_noise_std =
-          tracking->kalman_measurement_noise_std();
+      result.tracking.kalman_measurement_noise_std = tracking->kalman_measurement_noise_std();
       result.tracking.kalman_update_backend =
           static_cast<config::KalmanUpdateBackend>(tracking->kalman_update_backend());
-      result.tracking.speed_decay_ratio_on_loss =
-          tracking->speed_decay_ratio_on_loss();
+      result.tracking.speed_decay_ratio_on_loss = tracking->speed_decay_ratio_on_loss();
       result.tracking.rcs_decay_ratio_on_loss = tracking->rcs_decay_ratio_on_loss();
     }
     const session_fb::LifecycleConfig* lifecycle = value->lifecycle();
@@ -513,22 +547,107 @@ config::RadarPolicyConfig DecodeSessionPolicyConfig(
   return result;
 }
 
+environment::AtmosphericPhysicsConfig DecodeSessionAtmosphericPhysicsConfig(
+    const session_fb::AtmosphericPhysicsConfig* value) {
+  environment::AtmosphericPhysicsConfig result;
+  if (value != nullptr) {
+    result.enable_physical_model = value->enable_physical_model();
+    result.pressure_hpa = value->pressure_hpa();
+    result.temperature_k = value->temperature_k();
+    result.relative_humidity = value->relative_humidity();
+  }
+  return result;
+}
+
+environment::AtmosphericDerivedContext DecodeSessionAtmosphericDerivedContext(
+    const session_fb::AtmosphericDerivedContext* value) {
+  environment::AtmosphericDerivedContext result;
+  if (value != nullptr) {
+    result.has_simulation_unix_seconds = value->has_simulation_unix_seconds();
+    result.simulation_unix_seconds = value->simulation_unix_seconds();
+    result.solar_flux_f107a = value->solar_flux_f107a();
+    result.solar_flux_f107 = value->solar_flux_f107();
+    result.geomagnetic_ap = value->geomagnetic_ap();
+  }
+  return result;
+}
+
+environment::VegetationScatterPhysicsConfig DecodeSessionVegetationScatterPhysicsConfig(
+    const session_fb::VegetationScatterPhysicsConfig* value) {
+  environment::VegetationScatterPhysicsConfig result;
+  if (value != nullptr) {
+    result.cover_profile = static_cast<environment::VegetationCoverProfile>(value->cover_profile());
+    result.enable_physical_model = value->enable_physical_model();
+  }
+  return result;
+}
+
+environment::JammerEmitterState DecodeSessionJammerEmitterState(
+    const session_fb::JammerEmitterState* value) {
+  environment::JammerEmitterState result;
+  if (value != nullptr) {
+    result.technique = static_cast<environment::JammingTechnique>(value->technique());
+    result.power_db = value->power_db();
+    result.js_db = value->js_db();
+    result.has_direction_deg = value->has_direction_deg();
+    result.azimuth_deg = value->azimuth_deg();
+    result.elevation_deg = value->elevation_deg();
+    result.angular_span_deg = value->angular_span_deg();
+    result.confidence = value->confidence();
+  }
+  return result;
+}
+
+environment::EnvironmentScenarioConfig DecodeSessionEnvironmentScenarioConfig(
+    const session_fb::EnvironmentScenarioConfig* value) {
+  environment::EnvironmentScenarioConfig result;
+  if (value != nullptr) {
+    result.atmospheric_physics =
+        DecodeSessionAtmosphericPhysicsConfig(value->atmospheric_physics());
+    result.atmospheric_context =
+        DecodeSessionAtmosphericDerivedContext(value->atmospheric_context());
+    result.vegetation_scatter_physics =
+        DecodeSessionVegetationScatterPhysicsConfig(value->vegetation_scatter_physics());
+    result.jammer_sources.clear();
+    const flatbuffers::Vector<flatbuffers::Offset<session_fb::JammerEmitterState>>* jammer_sources =
+        value->jammer_sources();
+    if (jammer_sources != nullptr) {
+      result.jammer_sources.reserve(jammer_sources->size());
+      for (flatbuffers::uoffset_t i = 0; i < jammer_sources->size(); ++i) {
+        result.jammer_sources.push_back(DecodeSessionJammerEmitterState(jammer_sources->Get(i)));
+      }
+    }
+  }
+  return result;
+}
+
+environment::EnvironmentRuntimeConfigPatch DecodeSessionEnvironmentRuntimeConfigPatch(
+    const session_fb::EnvironmentRuntimeConfigPatch* value) {
+  environment::EnvironmentRuntimeConfigPatch result;
+  if (value != nullptr) {
+    result.has_scenario_config = value->has_scenario_config();
+    result.scenario_config = DecodeSessionEnvironmentScenarioConfig(value->scenario_config());
+    result.has_jamming_sensitivity_profile = value->has_jamming_sensitivity_profile();
+    result.jamming_sensitivity_profile =
+        static_cast<environment::JammingSensitivityProfile>(value->jamming_sensitivity_profile());
+  }
+  return result;
+}
+
 }  // namespace
 
 std::string EncodeCycleInputFlatbuffer(const RadarCycleInput& input) {
   flatbuffers::FlatBufferBuilder builder;
-  std::vector<flatbuffers::Offset<fb::TargetFeature> > targets;
+  std::vector<flatbuffers::Offset<fb::TargetFeature>> targets;
   targets.reserve(input.target_features.size());
   for (std::size_t i = 0; i < input.target_features.size(); ++i) {
     targets.push_back(EncodeTargetFeature(&builder, input.target_features[i]));
   }
 
-  const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fb::TargetFeature> > >
+  const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fb::TargetFeature>>>
       target_vector = builder.CreateVector(targets);
-  const flatbuffers::Offset<fb::RadarCycleInput> root =
-      fb::CreateRadarCycleInput(builder, input.dt_sec,
-                                EncodePoseState(&builder, input.platform_pose),
-                                target_vector);
+  const flatbuffers::Offset<fb::RadarCycleInput> root = fb::CreateRadarCycleInput(
+      builder, input.dt_sec, EncodePoseState(&builder, input.platform_pose), target_vector);
   builder.Finish(root, fb::RadarCycleInputIdentifier());
 
   const std::uint8_t* buffer = builder.GetBufferPointer();
@@ -536,8 +655,7 @@ std::string EncodeCycleInputFlatbuffer(const RadarCycleInput& input) {
                      reinterpret_cast<const char*>(buffer) + builder.GetSize());
 }
 
-bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes,
-                                RadarCycleInput* input,
+bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes, RadarCycleInput* input,
                                 std::string* error) {
   if (input == nullptr) {
     if (error != nullptr) {
@@ -552,8 +670,7 @@ bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes,
     return false;
   }
 
-  const std::uint8_t* data =
-      reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
+  const std::uint8_t* data = reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
   flatbuffers::Verifier verifier(data, payload_bytes.size());
   if (!fb::VerifyRadarCycleInputBuffer(verifier)) {
     if (error != nullptr) {
@@ -566,7 +683,7 @@ bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes,
   input->dt_sec = root->dt_sec();
   input->platform_pose = DecodePoseState(root->platform_pose());
   input->target_features.clear();
-  const flatbuffers::Vector<flatbuffers::Offset<fb::TargetFeature> >* targets =
+  const flatbuffers::Vector<flatbuffers::Offset<fb::TargetFeature>>* targets =
       root->target_features();
   if (targets != nullptr) {
     input->target_features.reserve(targets->size());
@@ -574,6 +691,85 @@ bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes,
       input->target_features.push_back(DecodeTargetFeature(targets->Get(i)));
     }
   }
+  return true;
+}
+
+std::string EncodeTrackOutputFrameFlatbuffer(const output::TrackOutputFrame& output_frame) {
+  flatbuffers::FlatBufferBuilder builder;
+  const flatbuffers::Offset<fb::TrackOutputFrame> root =
+      EncodeTrackOutputFrame(&builder, output_frame);
+  builder.Finish(root);
+
+  const std::uint8_t* buffer = builder.GetBufferPointer();
+  return std::string(reinterpret_cast<const char*>(buffer),
+                     reinterpret_cast<const char*>(buffer) + builder.GetSize());
+}
+
+bool DecodeTrackOutputFrameFlatbuffer(const std::string& payload_bytes,
+                                      output::TrackOutputFrame* output_frame, std::string* error) {
+  if (output_frame == nullptr) {
+    if (error != nullptr) {
+      *error = "null TrackOutputFrame output";
+    }
+    return false;
+  }
+  if (payload_bytes.empty()) {
+    if (error != nullptr) {
+      *error = "empty TrackOutputFrame flatbuffers payload";
+    }
+    return false;
+  }
+
+  const std::uint8_t* data = reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
+  flatbuffers::Verifier verifier(data, payload_bytes.size());
+  const fb::TrackOutputFrame* root = flatbuffers::GetRoot<fb::TrackOutputFrame>(data);
+  if (root == nullptr || !root->Verify(verifier)) {
+    if (error != nullptr) {
+      *error = "invalid TrackOutputFrame flatbuffers payload";
+    }
+    return false;
+  }
+
+  *output_frame = DecodeTrackOutputFrame(root);
+  return true;
+}
+
+std::string EncodeCycleResultFlatbuffer(const RadarCycleResult& result) {
+  flatbuffers::FlatBufferBuilder builder;
+  const flatbuffers::Offset<fb::RadarCycleResult> root = EncodeCycleResult(&builder, result);
+  builder.Finish(root);
+
+  const std::uint8_t* buffer = builder.GetBufferPointer();
+  return std::string(reinterpret_cast<const char*>(buffer),
+                     reinterpret_cast<const char*>(buffer) + builder.GetSize());
+}
+
+bool DecodeCycleResultFlatbuffer(const std::string& payload_bytes, RadarCycleResult* result,
+                                 std::string* error) {
+  if (result == nullptr) {
+    if (error != nullptr) {
+      *error = "null RadarCycleResult output";
+    }
+    return false;
+  }
+  if (payload_bytes.empty()) {
+    if (error != nullptr) {
+      *error = "empty RadarCycleResult flatbuffers payload";
+    }
+    return false;
+  }
+
+  const std::uint8_t* data = reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
+  flatbuffers::Verifier verifier(data, payload_bytes.size());
+  const fb::RadarCycleResult* root = flatbuffers::GetRoot<fb::RadarCycleResult>(data);
+  if (root == nullptr || !root->Verify(verifier)) {
+    if (error != nullptr) {
+      *error = "invalid RadarCycleResult flatbuffers payload";
+    }
+    return false;
+  }
+
+  *result = DecodeCycleResult(root);
   return true;
 }
 
@@ -592,8 +788,7 @@ std::string EncodeSessionConfigFlatbuffer(const RadarSessionConfig& config) {
                      reinterpret_cast<const char*>(buffer) + builder.GetSize());
 }
 
-bool DecodeSessionConfigFlatbuffer(const std::string& payload_bytes,
-                                   RadarSessionConfig* config,
+bool DecodeSessionConfigFlatbuffer(const std::string& payload_bytes, RadarSessionConfig* config,
                                    std::string* error) {
   if (config == nullptr) {
     if (error != nullptr) {
@@ -608,8 +803,7 @@ bool DecodeSessionConfigFlatbuffer(const std::string& payload_bytes,
     return false;
   }
 
-  const std::uint8_t* data =
-      reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
+  const std::uint8_t* data = reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
   flatbuffers::Verifier verifier(data, payload_bytes.size());
   if (!session_fb::VerifyRadarSessionConfigBuffer(verifier)) {
     if (error != nullptr) {
@@ -618,36 +812,97 @@ bool DecodeSessionConfigFlatbuffer(const std::string& payload_bytes,
     return false;
   }
 
-  const session_fb::RadarSessionConfig* root =
-      session_fb::GetRadarSessionConfig(data);
+  const session_fb::RadarSessionConfig* root = session_fb::GetRadarSessionConfig(data);
   config->hardware.detection = DecodeSessionDetectionConfig(root->hardware_detection());
   config->mission.orientation = DecodeSessionOrientation(root->mission_orientation());
   config->policy = DecodeSessionPolicyConfig(root->policy());
   config->jamming_sensitivity_profile =
-      static_cast<environment::JammingSensitivityProfile>(
-          root->jamming_sensitivity_profile());
+      static_cast<environment::JammingSensitivityProfile>(root->jamming_sensitivity_profile());
   return true;
 }
 
-std::string EncodeSceneStateFlatbuffer(
-    const environment::EnvironmentSceneState& scene_state) {
+std::string EncodeRuntimeConfigPatchFlatbuffer(const config::RadarRuntimeConfigPatch& patch) {
   flatbuffers::FlatBufferBuilder builder;
-  std::vector<flatbuffers::Offset<scene_fb::JammerEmitterState> > emitters;
-  emitters.reserve(scene_state.jammer_emitters.size());
-  for (std::size_t i = 0; i < scene_state.jammer_emitters.size(); ++i) {
-    emitters.push_back(
-        EncodeJammerEmitterState(&builder, scene_state.jammer_emitters[i]));
+  const flatbuffers::Offset<session_fb::RadarRuntimeConfigPatch> root =
+      session_fb::CreateRadarRuntimeConfigPatch(
+          builder, patch.has_mission, EncodeSessionOrientation(&builder, patch.mission.orientation),
+          patch.has_policy, EncodeSessionPolicyConfig(&builder, patch.policy),
+          patch.has_environment_runtime_config,
+          EncodeSessionEnvironmentRuntimeConfigPatch(&builder, patch.environment_runtime_config),
+          patch.has_work_sub_mode, static_cast<int>(patch.work_sub_mode), patch.has_scan_center_deg,
+          EncodeSessionAzEl(&builder, patch.scan_center_deg), patch.has_dwell_center_deg,
+          EncodeSessionAzEl(&builder, patch.dwell_center_deg), patch.has_commanded_beamwidth_deg,
+          EncodeSessionCommandedBeamwidth(&builder, patch.commanded_beamwidth_deg),
+          patch.has_commanded_beamwidth_enabled, patch.commanded_beamwidth_enabled);
+  builder.Finish(root);
+
+  const std::uint8_t* buffer = builder.GetBufferPointer();
+  return std::string(reinterpret_cast<const char*>(buffer),
+                     reinterpret_cast<const char*>(buffer) + builder.GetSize());
+}
+
+bool DecodeRuntimeConfigPatchFlatbuffer(const std::string& payload_bytes,
+                                        config::RadarRuntimeConfigPatch* patch,
+                                        std::string* error) {
+  if (patch == nullptr) {
+    if (error != nullptr) {
+      *error = "null RadarRuntimeConfigPatch output";
+    }
+    return false;
+  }
+  if (payload_bytes.empty()) {
+    if (error != nullptr) {
+      *error = "empty RadarRuntimeConfigPatch flatbuffers payload";
+    }
+    return false;
   }
 
-  const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<scene_fb::JammerEmitterState> > >
+  const std::uint8_t* data = reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
+  flatbuffers::Verifier verifier(data, payload_bytes.size());
+  const session_fb::RadarRuntimeConfigPatch* root =
+      flatbuffers::GetRoot<session_fb::RadarRuntimeConfigPatch>(data);
+  if (root == nullptr || !root->Verify(verifier)) {
+    if (error != nullptr) {
+      *error = "invalid RadarRuntimeConfigPatch flatbuffers payload";
+    }
+    return false;
+  }
+
+  patch->has_mission = root->has_mission();
+  patch->mission.orientation = DecodeSessionOrientation(root->mission_orientation());
+  patch->has_policy = root->has_policy();
+  patch->policy = DecodeSessionPolicyConfig(root->policy());
+  patch->has_environment_runtime_config = root->has_environment_runtime_config();
+  patch->environment_runtime_config =
+      DecodeSessionEnvironmentRuntimeConfigPatch(root->environment_runtime_config());
+  patch->has_work_sub_mode = root->has_work_sub_mode();
+  patch->work_sub_mode = static_cast<config::RadarWorkSubMode>(root->work_sub_mode());
+  patch->has_scan_center_deg = root->has_scan_center_deg();
+  patch->scan_center_deg = DecodeSessionAzEl(root->scan_center_deg());
+  patch->has_dwell_center_deg = root->has_dwell_center_deg();
+  patch->dwell_center_deg = DecodeSessionAzEl(root->dwell_center_deg());
+  patch->has_commanded_beamwidth_deg = root->has_commanded_beamwidth_deg();
+  patch->commanded_beamwidth_deg = DecodeSessionCommandedBeamwidth(root->commanded_beamwidth_deg());
+  patch->has_commanded_beamwidth_enabled = root->has_commanded_beamwidth_enabled();
+  patch->commanded_beamwidth_enabled = root->commanded_beamwidth_enabled();
+  return true;
+}
+
+std::string EncodeSceneStateFlatbuffer(const environment::EnvironmentSceneState& scene_state) {
+  flatbuffers::FlatBufferBuilder builder;
+  std::vector<flatbuffers::Offset<scene_fb::JammerEmitterState>> emitters;
+  emitters.reserve(scene_state.jammer_emitters.size());
+  for (std::size_t i = 0; i < scene_state.jammer_emitters.size(); ++i) {
+    emitters.push_back(EncodeJammerEmitterState(&builder, scene_state.jammer_emitters[i]));
+  }
+
+  const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<scene_fb::JammerEmitterState>>>
       emitter_vector = builder.CreateVector(emitters);
   const flatbuffers::Offset<scene_fb::EnvironmentSceneState> root =
       scene_fb::CreateEnvironmentSceneState(
-          builder,
-          EncodeAtmosphericPhysicsConfig(&builder, scene_state.atmospheric_physics),
+          builder, EncodeAtmosphericPhysicsConfig(&builder, scene_state.atmospheric_physics),
           EncodeAtmosphericDerivedContext(&builder, scene_state.atmospheric_context),
-          EncodeVegetationScatterPhysicsConfig(
-              &builder, scene_state.vegetation_scatter_physics),
+          EncodeVegetationScatterPhysicsConfig(&builder, scene_state.vegetation_scatter_physics),
           emitter_vector);
   builder.Finish(root, scene_fb::EnvironmentSceneStateIdentifier());
 
@@ -672,8 +927,7 @@ bool DecodeSceneStateFlatbuffer(const std::string& payload_bytes,
     return false;
   }
 
-  const std::uint8_t* data =
-      reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
+  const std::uint8_t* data = reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
   flatbuffers::Verifier verifier(data, payload_bytes.size());
   if (!scene_fb::VerifyEnvironmentSceneStateBuffer(verifier)) {
     if (error != nullptr) {
@@ -682,22 +936,18 @@ bool DecodeSceneStateFlatbuffer(const std::string& payload_bytes,
     return false;
   }
 
-  const scene_fb::EnvironmentSceneState* root =
-      scene_fb::GetEnvironmentSceneState(data);
-  scene_state->atmospheric_physics =
-      DecodeAtmosphericPhysicsConfig(root->atmospheric_physics());
-  scene_state->atmospheric_context =
-      DecodeAtmosphericDerivedContext(root->atmospheric_context());
-  scene_state->vegetation_scatter_physics = DecodeVegetationScatterPhysicsConfig(
-      root->vegetation_scatter_physics());
+  const scene_fb::EnvironmentSceneState* root = scene_fb::GetEnvironmentSceneState(data);
+  scene_state->atmospheric_physics = DecodeAtmosphericPhysicsConfig(root->atmospheric_physics());
+  scene_state->atmospheric_context = DecodeAtmosphericDerivedContext(root->atmospheric_context());
+  scene_state->vegetation_scatter_physics =
+      DecodeVegetationScatterPhysicsConfig(root->vegetation_scatter_physics());
   scene_state->jammer_emitters.clear();
-  const flatbuffers::Vector<flatbuffers::Offset<scene_fb::JammerEmitterState> >*
-      emitters = root->jammer_emitters();
+  const flatbuffers::Vector<flatbuffers::Offset<scene_fb::JammerEmitterState>>* emitters =
+      root->jammer_emitters();
   if (emitters != nullptr) {
     scene_state->jammer_emitters.reserve(emitters->size());
     for (flatbuffers::uoffset_t i = 0; i < emitters->size(); ++i) {
-      scene_state->jammer_emitters.push_back(
-          DecodeJammerEmitterState(emitters->Get(i)));
+      scene_state->jammer_emitters.push_back(DecodeJammerEmitterState(emitters->Get(i)));
     }
   }
   return true;
