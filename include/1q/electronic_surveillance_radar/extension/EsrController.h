@@ -12,6 +12,7 @@
 #include "1q/electronic_surveillance_radar/output/EsrOutputFrame.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
+#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
 
 namespace electronic_surveillance_radar {
 namespace environment {
@@ -67,6 +68,24 @@ class ONEQ_API EsrController {
    * @brief 获取当前控制器绑定的流水线实例。
    */
   extension::IInterceptPipeline& GetPipeline();
+
+  /**
+   * @brief 最近一次 RunOnce 是否执行了核心 pipeline。
+   * @return 若执行了核心 pipeline 则返回 true。
+   */
+  bool ExecutedLatestCycle() const;
+
+  /**
+   * @brief 最近一次 RunOnce 是否复用了上一有效输出。
+   * @return 若复用了上一有效输出则返回 true。
+   */
+  bool ReusedPreviousOutputLatestCycle() const;
+
+  /**
+   * @brief 最近一次 RunOnce 的周期终止原因。
+   * @return 周期终止原因。
+   */
+  extension::EsrPipelineAbortReason GetLastAbortReason() const;
 
   /**
    * @brief 获取当前控制器绑定的环境服务实例。

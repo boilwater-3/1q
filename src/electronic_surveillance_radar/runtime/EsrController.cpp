@@ -23,6 +23,9 @@ struct EsrController::Impl {
   oneq::internal::runtime::RuntimeCycleState<output::EsrOutputFrame,
                                              session::ValidationIssueList>
       runtime_state{};
+  bool last_cycle_executed{false};
+  bool last_cycle_reused_previous_output{false};
+  extension::EsrPipelineAbortReason last_abort_reason{extension::EsrPipelineAbortReason::kNone};
 };
 
 EsrController::EsrController(extension::IInterceptPipeline& pipeline,
@@ -76,6 +79,10 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
           output_frame.truth_evaluation_output.associations.size(), matched_truth_count, true);
       runtime::EsrCycleTelemetryLogger::LogCycleSummary(payload);
 
+      impl->last_cycle_executed = true;
+      impl->last_cycle_reused_previous_output = false;
+      impl->last_abort_reason = extension::EsrPipelineAbortReason::kNone;
+
       return output_frame;
     }
 
@@ -83,6 +90,15 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
         const session::EsrCycleInput& cycle_input,
         const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
       (void)cycle_input;
+      impl->last_cycle_executed = false;
+      impl->last_abort_reason = extension::EsrPipelineAbortReason::kValidationRejected;
+
+      if (impl->runtime_state.has_latest_output) {
+        impl->last_cycle_reused_previous_output = true;
+        return impl->runtime_state.latest_output;
+      }
+      
+      impl->last_cycle_reused_previous_output = false;
       return impl->output_manager.BuildEmptyFrame(stamp.cycle_index, stamp.batch_id);
     }
   };
@@ -101,6 +117,16 @@ const output::EsrOutputFrame& EsrController::GetLatestOutputFrame() const {
 
 const session::ValidationIssueList& EsrController::GetLastValidationIssues() const {
   return impl_->runtime_state.last_validation_issues;
+}
+
+bool EsrController::ExecutedLatestCycle() const { return impl_->last_cycle_executed; }
+
+bool EsrController::ReusedPreviousOutputLatestCycle() const {
+  return impl_->last_cycle_reused_previous_output;
+}
+
+extension::EsrPipelineAbortReason EsrController::GetLastAbortReason() const {
+  return impl_->last_abort_reason;
 }
 
 extension::IInterceptPipeline& EsrController::GetPipeline() { return impl_->pipeline; }

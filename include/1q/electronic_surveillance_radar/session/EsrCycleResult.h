@@ -9,6 +9,8 @@
 #include "1q/electronic_surveillance_radar/output/EsrOutputFrame.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 
+#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
+
 namespace electronic_surveillance_radar {
 namespace session {
 
@@ -19,6 +21,10 @@ struct ONEQ_API EsrCycleResult {
   output::EsrOutputFrame output_frame{};               /**< 当前周期输出帧 */
   session::ValidationIssueList validation_issues{}; /**< 当前周期输入校验结果 */
   bool has_validation_error{false};                    /**< 是否存在 error 级输入问题 */
+  bool executed_this_cycle{false};                     /**< 当前调用是否真正执行了 pipeline */
+  bool reused_previous_output{false};                  /**< 当前 output_frame 是否复用了上一有效周期输出 */
+  extension::EsrPipelineAbortReason abort_reason{
+      extension::EsrPipelineAbortReason::kNone};       /**< 若 downstream 链路 abort，给出结构化原因 */
 };
 
 }  // namespace session

@@ -34,6 +34,9 @@ struct EsrSession::Impl {
     }
     result.validation_issues = controller.GetLastValidationIssues();
     result.has_validation_error = session::HasValidationError(result.validation_issues);
+    result.executed_this_cycle = controller.ExecutedLatestCycle();
+    result.reused_previous_output = controller.ReusedPreviousOutputLatestCycle();
+    result.abort_reason = controller.GetLastAbortReason();
     return result;
   }
 

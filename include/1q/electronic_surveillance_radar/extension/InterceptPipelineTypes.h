@@ -171,6 +171,16 @@ struct ONEQ_API InterceptPipelineConfig {
 };
 
 /**
+ * @brief EsrPipelineAbortReason 表示单周期核心管线流产原因。
+ */
+enum class EsrPipelineAbortReason {
+  kNone = 0,                    /**< 正常执行完成，未中断 */
+  kValidationRejected,          /**< 因输入级严重校验问题（Error）而主动放弃计算 */
+  kRuntimeStateRestoreRejected, /**< 因运行时状态回滚失败引发阻断 */
+  kOutputContractViolation      /**< 下游计算返回的契约非法或状态错乱 */
+};
+
+/**
  * @brief InterceptCycleResult 描述单周期流水线输出。
  */
 struct ONEQ_API InterceptCycleResult {
