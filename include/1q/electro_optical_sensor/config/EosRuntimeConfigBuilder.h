@@ -68,7 +68,7 @@ class ONEQ_API EosRuntimeConfigBuilder {
     return *this;
   }
 
-  EosRuntimeConfigBuilder& WithWorkMode(session::EosWorkMode mode) noexcept {
+  EosRuntimeConfigBuilder& WithWorkMode(config::EosWorkMode mode) noexcept {
     patch_.has_work_mode = true;
     patch_.work_mode = mode;
     return *this;

@@ -206,7 +206,7 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, output::EsrOutpu
         rec.timestamp_s = obs->timestamp_s(); rec.aoa_az_deg = obs->aoa_az_deg();
         rec.aoa_el_deg = obs->aoa_el_deg(); rec.rf_hz = obs->rf_hz();
         rec.pulse_width_s = obs->pulse_width_s(); rec.amplitude_db = obs->amplitude_db();
-        rec.snr_db = obs->snr_db(); rec.quality = static_cast<model::ObservationQuality>(obs->quality());
+        rec.snr_db = obs->snr_db(); rec.quality = static_cast<model::EsrObservationQuality>(obs->quality());
         rec.is_jammed = obs->is_jammed();
         out->observation_output.observations.push_back(rec);
       }
@@ -220,8 +220,8 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, output::EsrOutpu
       for (const auto* h : *e->hypotheses()) {
         model::EmitterHypothesis hyp{};
         hyp.hypothesis_id = h->hypothesis_id();
-        hyp.mode = static_cast<model::EmitterMode>(h->mode());
-        hyp.threat_level = static_cast<model::ThreatLevel>(h->threat_level());
+        hyp.mode = static_cast<model::EsrEmitterMode>(h->mode());
+        hyp.threat_level = static_cast<model::EsrThreatLevel>(h->threat_level());
         hyp.bearing_az_deg = h->bearing_az_deg(); hyp.bearing_el_deg = h->bearing_el_deg();
         hyp.bearing_std_deg = h->bearing_std_deg(); hyp.confidence = h->confidence();
         hyp.last_seen_cycle = h->last_seen_cycle();

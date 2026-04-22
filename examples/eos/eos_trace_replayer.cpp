@@ -75,7 +75,7 @@ eos::session::EosSessionConfig ParseSessionConfig(const Json& payload) {
   config.hardware.focal_length_m = GetFloat(payload, "focal_length_m", config.hardware.focal_length_m);
 
   const Json mission_payload = payload.contains("mission") ? payload["mission"] : payload;
-  config.mission.work_mode = static_cast<eos::session::EosWorkMode>(
+  config.mission.work_mode = static_cast<eos::config::EosWorkMode>(
       GetInt(mission_payload, "work_mode", static_cast<int>(config.mission.work_mode)));
   config.mission.horizontal_fov_deg =
       GetFloat(mission_payload, "horizontal_fov_deg", config.mission.horizontal_fov_deg);
@@ -183,7 +183,7 @@ eos::session::EosCycleInput ParseCycleInput(const Json& payload) {
   input.solar_irradiance_w_m2 = GetFloat(payload, "solar_irradiance_w_m2", input.solar_irradiance_w_m2);
   input.cloud_coverage_ratio = GetFloat(payload, "cloud_coverage_ratio", input.cloud_coverage_ratio);
   input.ambient_wind_speed_mps = GetFloat(payload, "ambient_wind_speed_mps", input.ambient_wind_speed_mps);
-  input.day_night_type = static_cast<eos::session::DayNightType>(
+  input.day_night_type = static_cast<eos::model::DayNightType>(
       GetInt(payload, "day_night_type", static_cast<int>(input.day_night_type)));
   input.background_temperature_k =
       GetFloat(payload, "background_temperature_k", input.background_temperature_k);
@@ -213,7 +213,7 @@ eos::session::EosRuntimeConfigPatch ParseRuntimePatch(const Json& payload) {
   patch.has_mission = GetBool(payload, "has_mission", false);
   if (patch.has_mission && payload.contains("mission")) {
     const Json& mission_payload = payload["mission"];
-    patch.mission.work_mode = static_cast<eos::session::EosWorkMode>(
+    patch.mission.work_mode = static_cast<eos::config::EosWorkMode>(
         GetInt(mission_payload, "work_mode", static_cast<int>(patch.mission.work_mode)));
     patch.mission.horizontal_fov_deg =
         GetFloat(mission_payload, "horizontal_fov_deg", patch.mission.horizontal_fov_deg);
@@ -318,7 +318,7 @@ eos::session::EosRuntimeConfigPatch ParseRuntimePatch(const Json& payload) {
 
   patch.has_work_mode = GetBool(payload, "has_work_mode", false);
   patch.work_mode =
-      static_cast<eos::session::EosWorkMode>(GetInt(payload, "work_mode", static_cast<int>(patch.work_mode)));
+      static_cast<eos::config::EosWorkMode>(GetInt(payload, "work_mode", static_cast<int>(patch.work_mode)));
   patch.has_scan_rate_deg_per_sec = GetBool(payload, "has_scan_rate_deg_per_sec", false);
   patch.scan_rate_deg_per_sec = GetFloat(payload, "scan_rate_deg_per_sec", patch.scan_rate_deg_per_sec);
   patch.has_frame_rate_hz = GetBool(payload, "has_frame_rate_hz", false);

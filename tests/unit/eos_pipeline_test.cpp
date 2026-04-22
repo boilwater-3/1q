@@ -38,7 +38,7 @@ session::EosCycleInput MakeCycleInput(float dt_sec = 1.0f) {
   input.solar_altitude_deg = 45.0f;
   input.cloud_coverage_ratio = 0.2f;
   input.background_temperature_k = 289.0f;
-  input.day_night_type = session::DayNightType::kDay;
+  input.day_night_type = model::DayNightType::kDay;
   input.platform_pose.position_m.z = 1200.0f;
   return input;
 }
@@ -400,7 +400,7 @@ TEST(EosPipelineTest, FusedWeightShiftsTowardVisibleInDayAndInfraredAtNight) {
 
   session::EosCycleInput day_input = MakeCycleInput(1.0f);
   day_input.cycle_index = 12U;
-  day_input.day_night_type = session::DayNightType::kDay;
+  day_input.day_night_type = model::DayNightType::kDay;
   day_input.cloud_coverage_ratio = 0.0f;
   day_input.background_temperature_k = 240.0f;
   const float day_scan_azimuth = ResolveFirstCycleScanAzimuthDeg(fused_config, day_input.dt_sec);
@@ -426,7 +426,7 @@ TEST(EosPipelineTest, FusedWeightShiftsTowardVisibleInDayAndInfraredAtNight) {
 
   session::EosCycleInput night_input = day_input;
   night_input.cycle_index = 13U;
-  night_input.day_night_type = session::DayNightType::kNight;
+  night_input.day_night_type = model::DayNightType::kNight;
     const output::EosOutputFrame night_fused_frame =
       night_fused_pipeline.Execute(night_input).output_frame;
     const output::EosOutputFrame night_infrared_frame =

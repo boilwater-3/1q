@@ -32,7 +32,7 @@ int main() {
   // 1. 语义 Builder：work mode / profile / preset
   const eos::session::EosSessionConfig semantic_config =
       eos::config::EosSessionConfigBuilder()
-          .WithWorkMode(eos::session::EosWorkMode::kFused)
+          .WithWorkMode(eos::config::EosWorkMode::kFused)
           .WithDetectionProfile(eos::config::EosDetectionProfile::kAggressive)
           .WithEnvironmentModelType(eos::environment::EosEnvironmentModelType::kSimplified)
           .Build();
@@ -55,7 +55,7 @@ int main() {
   input.solar_altitude_deg = 45.0f;
   input.cloud_coverage_ratio = 0.2f;
   input.background_temperature_k = 289.0f;
-  input.day_night_type = eos::session::DayNightType::kDay;
+  input.day_night_type = eos::model::DayNightType::kDay;
   input.platform_pose.position_m.z = 1200.0f;
 
   eos::session::EosTargetState target;
@@ -110,7 +110,7 @@ int main() {
   // 9. RuntimeConfigBuilder: switch to infrared-only mode
   const eos::session::EosRuntimeConfigPatch ir_patch =
       eos::config::EosRuntimeConfigBuilder()
-          .WithWorkMode(eos::session::EosWorkMode::kInfraredOnly)
+          .WithWorkMode(eos::config::EosWorkMode::kInfraredOnly)
           .Build();
   session.ApplyRuntimeConfig(ir_patch);
 

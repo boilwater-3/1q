@@ -31,7 +31,7 @@ struct ONEQ_API EosRuntimeConfigPatch {
   environment::EosEnvironmentRuntimeConfigPatch environment{}; /**< environment 白名单补丁 */
 
   bool has_work_mode{false};            /**< 是否显式设置工作模式 */
-  EosWorkMode work_mode{EosWorkMode::kFused}; /**< 工作模式值 */
+  config::EosWorkMode work_mode{config::EosWorkMode::kFused}; /**< 工作模式值 */
 
   bool has_scan_rate_deg_per_sec{false}; /**< 是否显式设置扫描角速度 */
   float scan_rate_deg_per_sec{20.0f};     /**< 扫描角速度（单位：deg/s） */

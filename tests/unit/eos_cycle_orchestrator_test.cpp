@@ -22,10 +22,11 @@ namespace {
 
 namespace eos_config = ::electro_optical_sensor::config;
 namespace eos_session = ::electro_optical_sensor::session;
+namespace eos_model = ::electro_optical_sensor::model;
 
 eos_session::EosSessionConfig MakeSessionConfig() {
   eos_session::EosSessionConfig config;
-  config.mission.work_mode = eos_session::EosWorkMode::kInfraredOnly;
+  config.mission.work_mode = eos_config::EosWorkMode::kInfraredOnly;
   config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
   config.mission.scan_start_az_deg = -10.0f;
   config.mission.scan_end_az_deg = 10.0f;
@@ -43,7 +44,7 @@ eos_session::EosCycleInput MakeCycleInput(std::uint32_t cycle_index, float dt_se
   input.solar_altitude_deg = 45.0f;
   input.cloud_coverage_ratio = 0.2f;
   input.background_temperature_k = 289.0f;
-  input.day_night_type = eos_session::DayNightType::kDay;
+  input.day_night_type = eos_model::DayNightType::kDay;
   return input;
 }
 

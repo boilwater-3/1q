@@ -12,11 +12,11 @@ namespace internal {
 namespace {
 
 ::electro_optical_sensor::extension::EosPipelineWorkMode ToPipelineWorkMode(
-    ::electro_optical_sensor::session::EosWorkMode mode) {
-  if (mode == ::electro_optical_sensor::session::EosWorkMode::kInfraredOnly) {
+    ::electro_optical_sensor::config::EosWorkMode mode) {
+  if (mode == ::electro_optical_sensor::config::EosWorkMode::kInfraredOnly) {
     return ::electro_optical_sensor::extension::EosPipelineWorkMode::kInfraredOnly;
   }
-  if (mode == ::electro_optical_sensor::session::EosWorkMode::kVisibleOnly) {
+  if (mode == ::electro_optical_sensor::config::EosWorkMode::kVisibleOnly) {
     return ::electro_optical_sensor::extension::EosPipelineWorkMode::kVisibleOnly;
   }
   return ::electro_optical_sensor::extension::EosPipelineWorkMode::kFused;

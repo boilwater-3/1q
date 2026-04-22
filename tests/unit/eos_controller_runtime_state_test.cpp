@@ -78,7 +78,7 @@ session::EosCycleInput MakeValidInput(std::uint32_t cycle_index) {
   input.solar_altitude_deg = 45.0f;
   input.cloud_coverage_ratio = 0.2f;
   input.background_temperature_k = 289.0f;
-  input.day_night_type = session::DayNightType::kDay;
+  input.day_night_type = model::DayNightType::kDay;
   return input;
 }
 

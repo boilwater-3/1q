@@ -15,9 +15,9 @@ namespace electronic_surveillance_radar {
 namespace model {
 
 /**
- * @brief ObservationQuality 表示观测质量等级。
+ * @brief EsrObservationQuality 表示观测质量等级。
  */
-enum class ObservationQuality {
+enum class EsrObservationQuality {
   kLow = 0, /**< 低质量观测 */
   kMedium,  /**< 中等质量观测 */
   kHigh     /**< 高质量观测 */
@@ -35,7 +35,7 @@ struct ONEQ_API EmitterObservation {
   double pulse_width_s{0.0};                            /**< 测得脉宽（单位：s） */
   float amplitude_db{0.0f};                             /**< 接收幅度（单位：dB） */
   float snr_db{0.0f};                                   /**< 观测信噪比（单位：dB） */
-  ObservationQuality quality{ObservationQuality::kLow}; /**< 观测质量等级 */
+  EsrObservationQuality quality{EsrObservationQuality::kLow}; /**< 观测质量等级 */
   bool is_jammed{false};                                /**< 该观测是否受干扰显著影响 */
 };
 

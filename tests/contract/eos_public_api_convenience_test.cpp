@@ -87,14 +87,14 @@ TEST(EosPublicApiConvenienceTest, SessionConfigBuilderDefaultsMatchEosSessionCon
 TEST(EosPublicApiConvenienceTest, SessionConfigBuilderOverridesSemanticFields) {
   const session::EosSessionConfig config =
       config::EosSessionConfigBuilder()
-          .WithWorkMode(session::EosWorkMode::kInfraredOnly)
+          .WithWorkMode(config::EosWorkMode::kInfraredOnly)
           .WithDetectionProfile(config::EosDetectionProfile::kConservative)
           .WithStrayLightProfile(config::EosStrayLightProfile::kEnhancedHood)
           .WithEnvironmentModelType(environment::EosEnvironmentModelType::kAdvanced)
           .WithEnvironmentPreset(config::EosEnvironmentPreset::kDusty)
           .Build();
 
-  EXPECT_EQ(config.mission.work_mode, session::EosWorkMode::kInfraredOnly);
+  EXPECT_EQ(config.mission.work_mode, config::EosWorkMode::kInfraredOnly);
   EXPECT_EQ(config.policy.detection.profile, config::EosDetectionProfile::kConservative);
   EXPECT_EQ(config.policy.stray_light.profile, config::EosStrayLightProfile::kEnhancedHood);
   EXPECT_EQ(config.environment.scenario_config.model_type,
@@ -105,7 +105,7 @@ TEST(EosPublicApiConvenienceTest, SessionConfigBuilderOverridesSemanticFields) {
 TEST(EosPublicApiConvenienceTest, DetailedSessionConfigBuilderOverridesDomainAndLeafFields) {
   const session::EosSessionConfig config =
       config::EosDetailedSessionConfigBuilder()
-          .WithWorkMode(session::EosWorkMode::kInfraredOnly)
+          .WithWorkMode(config::EosWorkMode::kInfraredOnly)
           .WithScanRateDegPerSec(40.0f)
           .WithFrameRateHz(60.0f)
           .WithDetectionProfile(config::EosDetectionProfile::kConservative)
@@ -114,7 +114,7 @@ TEST(EosPublicApiConvenienceTest, DetailedSessionConfigBuilderOverridesDomainAnd
           .WithEnvironmentPreset(config::EosEnvironmentPreset::kDusty)
           .Build();
 
-  EXPECT_EQ(config.mission.work_mode, session::EosWorkMode::kInfraredOnly);
+  EXPECT_EQ(config.mission.work_mode, config::EosWorkMode::kInfraredOnly);
   EXPECT_NEAR(config.mission.scan_rate_deg_per_sec, 40.0f, 1e-5f);
   EXPECT_NEAR(config.mission.frame_rate_hz, 60.0f, 1e-5f);
   EXPECT_EQ(config.policy.detection.profile, config::EosDetectionProfile::kConservative);
@@ -152,7 +152,7 @@ TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderDefaultsAreUnset) {
 
 TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderSetsAllFields) {
   const session::EosRuntimeConfigPatch patch = config::EosRuntimeConfigBuilder()
-                                                   .WithWorkMode(session::EosWorkMode::kVisibleOnly)
+                                                   .WithWorkMode(config::EosWorkMode::kVisibleOnly)
                                                    .WithScanRateDegPerSec(50.0f)
                                                    .WithFrameRateHz(120.0f)
                                                    .WithDetectionProfile(
@@ -168,7 +168,7 @@ TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderSetsAllFields) {
                                                    .Build();
 
   EXPECT_TRUE(patch.has_work_mode);
-  EXPECT_EQ(patch.work_mode, session::EosWorkMode::kVisibleOnly);
+  EXPECT_EQ(patch.work_mode, config::EosWorkMode::kVisibleOnly);
   EXPECT_TRUE(patch.has_scan_rate_deg_per_sec);
   EXPECT_NEAR(patch.scan_rate_deg_per_sec, 50.0f, 1e-5f);
   EXPECT_TRUE(patch.has_frame_rate_hz);
@@ -445,7 +445,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionAppliesRuntimeConfigPatch) {
 
   const session::EosRuntimeConfigPatch patch =
       config::EosRuntimeConfigBuilder()
-          .WithWorkMode(session::EosWorkMode::kInfraredOnly)
+          .WithWorkMode(config::EosWorkMode::kInfraredOnly)
           .WithFrameRateHz(15.0f)
           .WithStrayLightProfile(config::EosStrayLightProfile::kEnhancedHood)
           .Build();

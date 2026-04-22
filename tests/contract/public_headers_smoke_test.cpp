@@ -441,7 +441,7 @@ namespace {
 TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   session::EosSessionConfig session_config =
       config::EosSessionConfigBuilder()
-          .WithWorkMode(session::EosWorkMode::kFused)
+          .WithWorkMode(config::EosWorkMode::kFused)
           .WithDetectionProfile(config::EosDetectionProfile::kAggressive)
           .Build();
   session_config.mission.scan_start_az_deg = -20.0f;
@@ -450,7 +450,7 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   session::EosCycleInput input;
   input.cycle_index = 2U;
   input.dt_sec = 1.0f;
-  input.day_night_type = session::DayNightType::kDay;
+  input.day_night_type = model::DayNightType::kDay;
   session::EosTargetState target;
   target.target_id = 7U;
   target.range_m = 1500.0f;

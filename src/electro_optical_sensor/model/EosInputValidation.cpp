@@ -5,7 +5,7 @@
 namespace electro_optical_sensor {
 namespace model {
 
-using ::electro_optical_sensor::session::DayNightType;
+using ::electro_optical_sensor::model::DayNightType;
 using ::electro_optical_sensor::session::EosCycleInput;
 using ::electro_optical_sensor::session::EosTargetState;
 

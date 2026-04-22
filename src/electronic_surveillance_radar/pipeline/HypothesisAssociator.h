@@ -56,8 +56,8 @@ class HypothesisAssociator final {
     std::uint64_t hypothesis_id{0U};
     ObservationFeatureVector feature{};
     std::vector<std::string> candidate_classes{};
-    model::EmitterMode mode{model::EmitterMode::kUnknown};
-    model::ThreatLevel threat_level{model::ThreatLevel::kLow};
+    model::EsrEmitterMode mode{model::EsrEmitterMode::kUnknown};
+    model::EsrThreatLevel threat_level{model::EsrThreatLevel::kLow};
     float bearing_az_deg{0.0f};
     float bearing_el_deg{0.0f};
     float bearing_std_deg{8.0f};

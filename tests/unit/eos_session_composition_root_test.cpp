@@ -73,7 +73,7 @@ class CountingEnvironmentService final : public environment::IEosEnvironmentServ
 
 EosSessionConfig MakeSessionConfig() {
   EosSessionConfig config;
-  config.mission.work_mode = EosWorkMode::kVisibleOnly;
+  config.mission.work_mode = config::EosWorkMode::kVisibleOnly;
   config.mission.scan_rate_deg_per_sec = 9.0f;
   config.mission.frame_rate_hz = 15.0f;
   config.policy.detection.profile = config::EosDetectionProfile::kConservative;

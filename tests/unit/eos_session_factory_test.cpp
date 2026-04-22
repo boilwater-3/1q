@@ -85,7 +85,7 @@ class CountingEnvironmentService final : public environment::IEosEnvironmentServ
 
 EosSessionConfig MakeSessionConfig() {
   EosSessionConfig config;
-  config.mission.work_mode = EosWorkMode::kInfraredOnly;
+  config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
   config.policy.detection.profile = config::EosDetectionProfile::kAggressive;
   config.mission.scan_rate_deg_per_sec = 5.0f;
   config.mission.horizontal_fov_deg = 20.0f;
@@ -101,7 +101,7 @@ EosCycleInput MakeValidInput(std::uint32_t cycle_index) {
   input.solar_altitude_deg = 45.0f;
   input.cloud_coverage_ratio = 0.2f;
   input.background_temperature_k = 289.0f;
-  input.day_night_type = DayNightType::kDay;
+  input.day_night_type = model::DayNightType::kDay;
   return input;
 }
 

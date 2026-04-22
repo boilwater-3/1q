@@ -149,7 +149,7 @@ TEST(EosInputValidationTest, InvalidAmbientWindSpeedIsReportedAsError) {
 
 TEST(EosInputValidationTest, SessionProducesInFovDetectionsOnly) {
   session::EosSessionConfig config;
-  config.mission.work_mode = session::EosWorkMode::kFused;
+  config.mission.work_mode = config::EosWorkMode::kFused;
   config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
   config.mission.scan_start_az_deg = -5.0f;
   config.mission.scan_end_az_deg = 5.0f;
@@ -188,7 +188,7 @@ TEST(EosInputValidationTest, SessionReturnsValidationErrorsForInvalidInput) {
 
 TEST(EosInputValidationTest, SessionConfigBuilderCanStartFromExternalConfig) {
   session::EosSessionConfig base_config;
-  base_config.mission.work_mode = session::EosWorkMode::kInfraredOnly;
+  base_config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
   base_config.mission.scan_rate_deg_per_sec = 12.0f;
   base_config.mission.frame_rate_hz = 20.0f;
   base_config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
@@ -197,7 +197,7 @@ TEST(EosInputValidationTest, SessionConfigBuilderCanStartFromExternalConfig) {
                                                      .WithFrameRateHz(25.0f)
                                                      .WithStrayLightProfile(eos_config::EosStrayLightProfile::kEnhancedHood)
                                                      .Build();
-  EXPECT_EQ(built_config.mission.work_mode, session::EosWorkMode::kInfraredOnly);
+  EXPECT_EQ(built_config.mission.work_mode, config::EosWorkMode::kInfraredOnly);
   EXPECT_FLOAT_EQ(built_config.mission.scan_rate_deg_per_sec, 12.0f);
   EXPECT_FLOAT_EQ(built_config.mission.frame_rate_hz, 25.0f);
   EXPECT_EQ(built_config.policy.detection.profile, eos_config::EosDetectionProfile::kAggressive);
@@ -206,7 +206,7 @@ TEST(EosInputValidationTest, SessionConfigBuilderCanStartFromExternalConfig) {
 
 TEST(EosInputValidationTest, RuntimeConfigBuilderCanTightenDetectionThresholdAtRuntime) {
   session::EosSessionConfig config;
-  config.mission.work_mode = session::EosWorkMode::kFused;
+  config.mission.work_mode = config::EosWorkMode::kFused;
   config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
   config.mission.scan_start_az_deg = -20.0f;
   config.mission.scan_end_az_deg = 20.0f;
@@ -245,7 +245,7 @@ TEST(EosInputValidationTest, RuntimeConfigBuilderCanTightenDetectionThresholdAtR
 
 TEST(EosInputValidationTest, RuntimePatchPreservesScanPhaseUnlessScanRateChanges) {
   session::EosSessionConfig config;
-  config.mission.work_mode = session::EosWorkMode::kInfraredOnly;
+  config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
   config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
   config.mission.scan_start_az_deg = -20.0f;
   config.mission.scan_end_az_deg = 20.0f;
@@ -323,7 +323,7 @@ TEST(EosInputValidationTest, InconsistentDayNightTypeIsReportedAsWarning) {
 
 TEST(EosInputValidationTest, RuntimePatchRejectsInvalidFrameRateHz) {
   session::EosSessionConfig config;
-  config.mission.work_mode = session::EosWorkMode::kInfraredOnly;
+  config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
   config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
   config.mission.scan_start_az_deg = -20.0f;
   config.mission.scan_end_az_deg = 20.0f;
@@ -360,7 +360,7 @@ TEST(EosInputValidationTest, RuntimePatchRejectsInvalidFrameRateHz) {
 
 TEST(EosInputValidationTest, RuntimePatchRejectsInvalidScanRate) {
   session::EosSessionConfig config;
-  config.mission.work_mode = session::EosWorkMode::kInfraredOnly;
+  config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
   config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
   config.mission.scan_start_az_deg = -20.0f;
   config.mission.scan_end_az_deg = 20.0f;
@@ -392,7 +392,7 @@ TEST(EosInputValidationTest, RuntimePatchRejectsInvalidScanRate) {
 
 TEST(EosInputValidationTest, RuntimePatchIsAtomicWhenAnyFieldIsInvalid) {
   session::EosSessionConfig config;
-  config.mission.work_mode = session::EosWorkMode::kFused;
+  config.mission.work_mode = config::EosWorkMode::kFused;
   config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
   config.mission.scan_start_az_deg = -20.0f;
   config.mission.scan_end_az_deg = 20.0f;

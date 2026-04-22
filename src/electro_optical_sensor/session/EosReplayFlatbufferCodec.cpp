@@ -107,7 +107,7 @@ bool DecodeEosCycleInput(const std::string& bytes, EosCycleInput* out) {
   out->solar_irradiance_w_m2 = fb->solar_irradiance_w_m2();
   out->cloud_coverage_ratio = fb->cloud_coverage_ratio();
   out->ambient_wind_speed_mps = fb->ambient_wind_speed_mps();
-  out->day_night_type = static_cast<DayNightType>(fb->day_night_type());
+  out->day_night_type = static_cast<model::DayNightType>(fb->day_night_type());
   out->background_temperature_k = fb->background_temperature_k();
   out->scene_targets.clear();
   if (fb->scene_targets()) {
@@ -316,7 +316,7 @@ bool DecodeEosSessionConfig(const std::string& bytes, EosSessionConfig* out) {
   }
   if (fb->mission()) {
     const auto* m = fb->mission();
-    out->mission.work_mode = static_cast<EosWorkMode>(m->work_mode());
+    out->mission.work_mode = static_cast<config::EosWorkMode>(m->work_mode());
     out->mission.horizontal_fov_deg = m->horizontal_fov_deg();
     out->mission.vertical_fov_deg = m->vertical_fov_deg();
     out->mission.scan_rate_deg_per_sec = m->scan_rate_deg_per_sec();
@@ -418,14 +418,14 @@ bool DecodeEosRuntimeConfigPatch(const std::string& bytes, EosRuntimeConfigPatch
   out->has_policy = fb->has_policy();
   out->has_environment = fb->has_environment();
   out->has_work_mode = fb->has_work_mode();
-  out->work_mode = static_cast<EosWorkMode>(fb->work_mode());
+  out->work_mode = static_cast<config::EosWorkMode>(fb->work_mode());
   out->has_scan_rate_deg_per_sec = fb->has_scan_rate_deg_per_sec();
   out->scan_rate_deg_per_sec = fb->scan_rate_deg_per_sec();
   out->has_frame_rate_hz = fb->has_frame_rate_hz();
   out->frame_rate_hz = fb->frame_rate_hz();
   if (fb->mission()) {
     const auto* m = fb->mission();
-    out->mission.work_mode = static_cast<EosWorkMode>(m->work_mode());
+    out->mission.work_mode = static_cast<config::EosWorkMode>(m->work_mode());
     out->mission.horizontal_fov_deg = m->horizontal_fov_deg();
     out->mission.vertical_fov_deg = m->vertical_fov_deg();
     out->mission.scan_rate_deg_per_sec = m->scan_rate_deg_per_sec();

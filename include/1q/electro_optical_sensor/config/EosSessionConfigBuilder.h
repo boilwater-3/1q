@@ -28,7 +28,7 @@ class ONEQ_API EosSessionConfigBuilder {
     return *this;
   }
 
-  EosSessionConfigBuilder& WithWorkMode(session::EosWorkMode mode) noexcept {
+  EosSessionConfigBuilder& WithWorkMode(config::EosWorkMode mode) noexcept {
     config_.mission.work_mode = mode;
     return *this;
   }

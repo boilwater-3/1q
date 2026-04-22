@@ -72,7 +72,7 @@ TEST(EsrKdTreeClustererTest, PreprocessorSortsFiltersAndDeduplicates) {
   ASSERT_EQ(output.size(), 2U);
   EXPECT_LT(output[0].observation.timestamp_s, output[1].observation.timestamp_s);
   EXPECT_EQ(output[1].observation.observation_id, 11U);
-  EXPECT_EQ(output[1].observation.quality, model::ObservationQuality::kMedium);
+  EXPECT_EQ(output[1].observation.quality, model::EsrObservationQuality::kMedium);
 }
 
 TEST(EsrKdTreeClustererTest, ClustererGroupsNearbyFeatures) {

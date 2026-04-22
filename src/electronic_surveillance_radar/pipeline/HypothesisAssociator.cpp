@@ -22,18 +22,18 @@ namespace {
  * @param[in] summary 簇摘要。
  * @return 工作模式。
  */
-model::EmitterMode InferModeFromCluster(const ClusterSummary& summary) {
+model::EsrEmitterMode InferModeFromCluster(const ClusterSummary& summary) {
   const bool has_valid_pri = std::isfinite(summary.mean_pri_s) && summary.mean_pri_s > 0.0;
   if (summary.mean_pulse_width_s < 1.5e-6 && (!has_valid_pri || summary.mean_pri_s >= 1.5e-4)) {
-    return model::EmitterMode::kSearch;
+    return model::EsrEmitterMode::kSearch;
   }
   if (has_valid_pri && summary.mean_pri_s <= 8.0e-5) {
-    return model::EmitterMode::kGuidance;
+    return model::EsrEmitterMode::kGuidance;
   }
   if (summary.mean_pulse_width_s < 3.0e-6 || (has_valid_pri && summary.mean_pri_s <= 3.0e-4)) {
-    return model::EmitterMode::kTracking;
+    return model::EsrEmitterMode::kTracking;
   }
-  return model::EmitterMode::kGuidance;
+  return model::EsrEmitterMode::kGuidance;
 }
 
 /**
@@ -42,14 +42,14 @@ model::EmitterMode InferModeFromCluster(const ClusterSummary& summary) {
  * @param[in] mean_snr_db 簇均值信噪比。
  * @return 威胁等级。
  */
-model::ThreatLevel InferThreatFromCluster(model::EmitterMode mode, float mean_snr_db) {
-  if (mode == model::EmitterMode::kGuidance || mean_snr_db >= 20.0f) {
-    return model::ThreatLevel::kHigh;
+model::EsrThreatLevel InferThreatFromCluster(model::EsrEmitterMode mode, float mean_snr_db) {
+  if (mode == model::EsrEmitterMode::kGuidance || mean_snr_db >= 20.0f) {
+    return model::EsrThreatLevel::kHigh;
   }
-  if (mode == model::EmitterMode::kTracking || mean_snr_db >= 10.0f) {
-    return model::ThreatLevel::kMedium;
+  if (mode == model::EsrEmitterMode::kTracking || mean_snr_db >= 10.0f) {
+    return model::EsrThreatLevel::kMedium;
   }
-  return model::ThreatLevel::kLow;
+  return model::EsrThreatLevel::kLow;
 }
 
 /**

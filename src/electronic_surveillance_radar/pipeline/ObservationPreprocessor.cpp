@@ -45,14 +45,14 @@ bool IsValidObservation(const model::EmitterObservation& observation) {
  * @param[in] snr_db 观测信噪比（单位：dB）。
  * @return 重标定后的质量等级。
  */
-model::ObservationQuality NormalizeQuality(float snr_db) {
+model::EsrObservationQuality NormalizeQuality(float snr_db) {
   if (snr_db >= 18.0f) {
-    return model::ObservationQuality::kHigh;
+    return model::EsrObservationQuality::kHigh;
   }
   if (snr_db >= 10.0f) {
-    return model::ObservationQuality::kMedium;
+    return model::EsrObservationQuality::kMedium;
   }
-  return model::ObservationQuality::kLow;
+  return model::EsrObservationQuality::kLow;
 }
 
 /**

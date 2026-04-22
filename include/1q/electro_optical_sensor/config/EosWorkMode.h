@@ -9,7 +9,7 @@
 #include "1q/api.hpp"
 
 namespace electro_optical_sensor {
-namespace session {
+namespace config {
 
 /**
  * @brief EosWorkMode 表示传感器工作模式。
@@ -20,7 +20,7 @@ enum class ONEQ_API EosWorkMode {
   kFused             /**< 红外/可见光融合探测 */
 };
 
-}  // namespace session
+}  // namespace config
 }  // namespace electro_optical_sensor
 
 #endif  // ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_WORK_MODE_H_

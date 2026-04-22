@@ -307,14 +307,14 @@ std::size_t ResolveActiveBeamIndex(std::uint32_t cycle_index, float dt_sec,
  * @param[in] is_jammed 是否受干扰显著影响。
  * @return 观测质量等级。
  */
-model::ObservationQuality ClassifyObservationQuality(float snr_db, bool is_jammed) {
+model::EsrObservationQuality ClassifyObservationQuality(float snr_db, bool is_jammed) {
   if (!is_jammed && snr_db >= 18.0f) {
-    return model::ObservationQuality::kHigh;
+    return model::EsrObservationQuality::kHigh;
   }
   if (snr_db >= 10.0f) {
-    return model::ObservationQuality::kMedium;
+    return model::EsrObservationQuality::kMedium;
   }
-  return model::ObservationQuality::kLow;
+  return model::EsrObservationQuality::kLow;
 }
 
 /**
@@ -396,7 +396,7 @@ internal::RawObservationRecord BuildDeceptionRecord(
     record.observation.pulse_width_s = std::max(record.observation.pulse_width_s, 1.0e-9);
     record.observation.snr_db -= snr_loss_dist(*rng);
   }
-  record.observation.quality = model::ObservationQuality::kLow;
+  record.observation.quality = model::EsrObservationQuality::kLow;
   record.observation.is_jammed = false;
   record.truth_emitter_id = "";
   record.truth_pri_s = 0.0;

@@ -23,7 +23,7 @@ model::EmitterObservation MakeObservation(std::uint64_t observation_id, float sn
   observation.pulse_width_s = 2.0e-6;
   observation.amplitude_db = 18.0f;
   observation.snr_db = snr_db;
-  observation.quality = model::ObservationQuality::kHigh;
+  observation.quality = model::EsrObservationQuality::kHigh;
   return observation;
 }
 
@@ -31,8 +31,8 @@ model::EmitterHypothesis MakeHypothesis(std::uint64_t hypothesis_id, float confi
   model::EmitterHypothesis hypothesis;
   hypothesis.hypothesis_id = hypothesis_id;
   hypothesis.candidate_classes.push_back("SAM");
-  hypothesis.mode = model::EmitterMode::kTracking;
-  hypothesis.threat_level = model::ThreatLevel::kHigh;
+  hypothesis.mode = model::EsrEmitterMode::kTracking;
+  hypothesis.threat_level = model::EsrThreatLevel::kHigh;
   hypothesis.bearing_az_deg = 11.0f;
   hypothesis.bearing_el_deg = 2.5f;
   hypothesis.bearing_std_deg = 0.8f;
