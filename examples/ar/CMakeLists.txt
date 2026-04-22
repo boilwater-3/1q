@@ -1,12 +1,9 @@
 # AR 示例构建配置
 
-find_package(nlohmann_json CONFIG REQUIRED)
-
 set(AR_EXAMPLE_SOURCES
     # ar_radar_session.cpp
     # ar_quick_start.cpp
     # ar_data_collector.cpp
-    # ar_trace_replayer.cpp
     # ar_advanced_injection.cpp
 )
 
@@ -14,7 +11,7 @@ foreach(example_src IN LISTS AR_EXAMPLE_SOURCES)
     get_filename_component(example_name ${example_src} NAME_WE)
 
     add_executable(${example_name} ${example_src})
-    target_link_libraries(${example_name} PRIVATE ${PROJECT_ALIAS} nlohmann_json::nlohmann_json)
+    target_link_libraries(${example_name} PRIVATE ${PROJECT_ALIAS})
     target_include_directories(${example_name} PRIVATE
         ${CMAKE_SOURCE_DIR}/include
         ${CMAKE_SOURCE_DIR}/examples

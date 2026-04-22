@@ -1,0 +1,115 @@
+// esr_session_replay.fbs
+// ESR 模块 replay FlatBuffers schema：session_config 与 runtime_config_patch 载荷
+//
+// file_identifier: ESRS (ESR Session)
+
+namespace esr.replay;
+
+// ---- EsrSessionConfig ----
+
+table EsrHardwareConfig {
+  receiver_band_lower_hz:      double;
+  receiver_band_upper_hz:      double;
+  receiver_sensitivity_w:      float;
+  integrated_receive_loss_db:  float;
+  beam_az_width_deg:           float;
+  beam_el_width_deg:           float;
+  az_scan_range_deg:           float;
+  el_scan_range_deg:           float;
+  antenna_mount_az_deg:        float;
+  antenna_mount_el_deg:        float;
+}
+
+table EsrScanConfig {
+  scan_center_az_deg:     float;
+  scan_center_el_deg:     float;
+  scan_rate_hz:           float;
+  scan_start_position:    int32;
+  scan_sequence:          int32;
+  use_explicit_scan_bounds: bool;
+  scan_start_az_deg:      float;
+  scan_end_az_deg:        float;
+  scan_start_el_deg:      float;
+  scan_end_el_deg:        float;
+}
+
+table EsrMissionConfig {
+  power_on:  bool;
+  work_mode: int32;
+  scan:      EsrScanConfig;
+}
+
+table EsrPolicyConfig {
+  detection_profile: int32;
+}
+
+table EsrAtmosphericPhysicsConfig {
+  enable_physical_model: bool;
+  pressure_hpa:          float;
+  temperature_k:         float;
+  relative_humidity:     float;
+}
+
+table EsrAtmosphericDerivedContext {
+  has_k_factor:    bool;
+  k_factor:        float;
+  has_day_of_year: bool;
+  day_of_year:     int32;
+  solar_flux_f107a: float;
+  solar_flux_f107:  float;
+  geomagnetic_ap:   float;
+}
+
+table EsrEnvironmentConfig {
+  preset:              int32;
+  atmospheric_physics: EsrAtmosphericPhysicsConfig;
+  atmospheric_context: EsrAtmosphericDerivedContext;
+}
+
+table EsrSessionConfig {
+  hardware:    EsrHardwareConfig;
+  mission:     EsrMissionConfig;
+  policy:      EsrPolicyConfig;
+  environment: EsrEnvironmentConfig;
+}
+
+root_type EsrSessionConfig;
+file_identifier "ESRS";
+
+// ---- EsrRuntimeConfigPatch ----
+
+table EsrEnvironmentRuntimeConfigPatch {
+  has_atmospheric_physics: bool;
+  atmospheric_physics:     EsrAtmosphericPhysicsConfig;
+  has_atmospheric_context: bool;
+  atmospheric_context:     EsrAtmosphericDerivedContext;
+}
+
+table EsrRuntimeConfigPatch {
+  has_sensor_enabled:          bool;
+  sensor_enabled:              bool;
+  has_work_mode:               bool;
+  work_mode:                   int32;
+  has_scan_rate_hz:            bool;
+  scan_rate_hz:                float;
+  has_scan_start_position:     bool;
+  scan_start_position:         int32;
+  has_scan_sequence:           bool;
+  scan_sequence:               int32;
+  has_scan_center_az_deg:      bool;
+  scan_center_az_deg:          float;
+  has_scan_center_el_deg:      bool;
+  scan_center_el_deg:          float;
+  has_use_explicit_scan_bounds: bool;
+  use_explicit_scan_bounds:    bool;
+  has_scan_start_az_deg:       bool;
+  scan_start_az_deg:           float;
+  has_scan_end_az_deg:         bool;
+  scan_end_az_deg:             float;
+  has_scan_start_el_deg:       bool;
+  scan_start_el_deg:           float;
+  has_scan_end_el_deg:         bool;
+  scan_end_el_deg:             float;
+  has_environment_runtime_config: bool;
+  environment_runtime_config:  EsrEnvironmentRuntimeConfigPatch;
+}

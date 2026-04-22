@@ -1,0 +1,96 @@
+// eos_session_replay.fbs
+// EOS 模块 replay FlatBuffers schema：session_config 与 runtime_config_patch 载荷
+//
+// file_identifier: EOSC (EOS Config)
+
+namespace eos.replay;
+
+// ---- EosSessionConfig ----
+
+table EosMissionConfig {
+  work_mode:                int32;
+  horizontal_fov_deg:       float;
+  vertical_fov_deg:         float;
+  scan_rate_deg_per_sec:    float;
+  frame_rate_hz:            float;
+  scan_start_az_deg:        float;
+  scan_end_az_deg:          float;
+  scan_center_el_deg:       float;
+  boresight_depression_deg: float;
+}
+
+table EosPolicyDetectionConfig {
+  profile:                          int32;
+  use_profile_defaults:             bool;
+  minimum_snr_db:                   float;
+  detection_sensitivity_w:          float;
+  visible_reference_irradiance_w_m2: float;
+}
+
+table EosPolicyStrayLightConfig {
+  profile:                   int32;
+  use_profile_defaults:      bool;
+  enable_straylight_filter:  bool;
+  hood_inner_half_angle_deg: float;
+  hood_outer_half_angle_deg: float;
+  hood_min_suppression_ratio: float;
+  hood_max_suppression_ratio: float;
+}
+
+table EosPolicyConfig {
+  detection:   EosPolicyDetectionConfig;
+  stray_light: EosPolicyStrayLightConfig;
+}
+
+table EosEnvironmentCustomOverrides {
+  radiative_transfer_model:                int32;
+  aerosol_density_factor:                  float;
+  turbulence_factor:                       float;
+  enable_optical_countermeasure_extension: bool;
+}
+
+table EosEnvironmentConfig {
+  model_type:           int32;
+  preset:               int32;
+  has_custom_overrides: bool;
+  custom_overrides:     EosEnvironmentCustomOverrides;
+  // 派生的 ModelConfig 字段（冗余记录以支持精确比对）
+  radiative_transfer_model_derived:                int32;
+  aerosol_density_factor_derived:                  float;
+  turbulence_factor_derived:                       float;
+  enable_optical_countermeasure_extension_derived: bool;
+}
+
+table EosHardwareConfig {
+  wavelength_lower_um:  float;
+  wavelength_upper_um:  float;
+  optical_aperture_m:   float;
+  focal_length_m:       float;
+}
+
+table EosSessionConfig {
+  hardware:    EosHardwareConfig;
+  mission:     EosMissionConfig;
+  policy:      EosPolicyConfig;
+  environment: EosEnvironmentConfig;
+}
+
+root_type EosSessionConfig;
+file_identifier "EOSC";
+
+// ---- EosRuntimeConfigPatch ----
+
+table EosRuntimeConfigPatch {
+  has_mission:              bool;
+  mission:                  EosMissionConfig;
+  has_policy:               bool;
+  policy:                   EosPolicyConfig;
+  has_environment:          bool;
+  environment:              EosEnvironmentConfig;
+  has_work_mode:            bool;
+  work_mode:                int32;
+  has_scan_rate_deg_per_sec: bool;
+  scan_rate_deg_per_sec:    float;
+  has_frame_rate_hz:        bool;
+  frame_rate_hz:            float;
+}

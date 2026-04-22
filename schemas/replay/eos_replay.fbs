@@ -1,0 +1,94 @@
+// eos_replay.fbs
+// EOS 模块 replay FlatBuffers schema：cycle_input 与 cycle_output 载荷
+//
+// file_identifier: EOSC (EOS Cycle)
+
+namespace eos.replay;
+
+// ---- 基础向量与姿态类型 ----
+
+struct Vec3 {
+  x: float;
+  y: float;
+  z: float;
+}
+
+struct EulerDeg {
+  yaw_deg:   float;
+  pitch_deg: float;
+  roll_deg:  float;
+}
+
+table PoseState {
+  position_m:   Vec3;
+  velocity_mps: Vec3;
+  attitude_deg: EulerDeg;
+}
+
+// ---- EosCycleInput ----
+
+table EosTargetState {
+  target_id:             uint32;
+  range_m:               float;
+  azimuth_deg:           float;
+  elevation_deg:         float;
+  apparent_temperature_k: float;
+  emissivity:            float;
+  reflectance:           float;
+  projected_area_m2:     float;
+}
+
+table EosCycleInput {
+  cycle_index:              uint32;
+  dt_sec:                   float;
+  platform_pose:            PoseState;
+  solar_altitude_deg:       float;
+  solar_azimuth_deg:        float;
+  solar_irradiance_w_m2:    float;
+  cloud_coverage_ratio:     float;
+  ambient_wind_speed_mps:   float;
+  day_night_type:           int32;
+  background_temperature_k: float;
+  scene_targets:            [EosTargetState];
+}
+
+root_type EosCycleInput;
+file_identifier "EOSC";
+
+// ---- EosOutputFrame ----
+
+table EosDetectionRecord {
+  target_id:           uint32;
+  range_m:             float;
+  azimuth_deg:         float;
+  elevation_deg:       float;
+  infrared_snr_linear: float;
+  visible_snr_linear:  float;
+  fused_snr_linear:    float;
+  fused_snr_db:        float;
+  detected:            bool;
+}
+
+table EosOutputFrame {
+  cycle_index:       uint32;
+  scan_azimuth_deg:  float;
+  detections:        [EosDetectionRecord];
+}
+
+// ---- EosCycleResult (cycle_output via StepWithResult) ----
+
+table EosValidationIssue {
+  severity:     int32;
+  code:         int32;
+  target_index: int32;
+  message:      string;
+}
+
+table EosCycleResult {
+  output_frame:           EosOutputFrame;
+  validation_issues:      [EosValidationIssue];
+  has_validation_error:   bool;
+  executed_this_cycle:    bool;
+  reused_previous_output: bool;
+  abort_reason:           int32;
+}

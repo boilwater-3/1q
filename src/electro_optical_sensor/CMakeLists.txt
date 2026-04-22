@@ -18,12 +18,9 @@ set(EOS_SOURCES
     electro_optical_sensor/runtime/EosRuntimeConfigResolver.cpp
     electro_optical_sensor/session/EosSessionCompositionRoot.cpp
     electro_optical_sensor/session/EosSession.cpp
+    electro_optical_sensor/session/EosTraceSession.cpp
+    electro_optical_sensor/session/EosReplayFlatbufferCodec.cpp
 )
-if(MSVC AND MSVC_VERSION LESS 1910)
-    list(APPEND EOS_SOURCES electro_optical_sensor/session/EosTraceSession.windows.cpp)
-else()
-    list(APPEND EOS_SOURCES electro_optical_sensor/session/EosTraceSession.cpp)
-endif()
 
 if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_MODULE_ENTRY_EOS

@@ -54,15 +54,15 @@ class ONEQ_API EsrTraceSession {
   const session::EsrSession& session() const;
 
  private:
-  void Record(const std::string& phase, const std::string& payload_json) const;
-  void RecordReplay(const std::string& event_type, const std::string& payload_type,
-                    const std::string& payload_json) const;
-  void RecordReplay(const std::string& event_type, const std::string& payload_type,
-                    const std::string& payload_json, std::uint32_t cycle_index) const;
+  void WriteReplayEvent(const std::string& event_type, const std::string& payload_type,
+                        const std::string& payload_bytes) const;
+  void WriteReplayEvent(const std::string& event_type, const std::string& payload_type,
+                        const std::string& payload_bytes, std::uint32_t cycle_index) const;
 
   session::EsrSession session_;
   std::shared_ptr<oneq::trace::TraceSink> sink_;
   std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer_;
+  bool pending_input_written_{false};
 };
 
 }  // namespace session

@@ -241,9 +241,8 @@ static_assert(
         electronic_surveillance_radar::environment::EsrEnvironmentRuntimeConfigPatch,
         decltype(electronic_surveillance_radar::environment::
                      EsrEnvironmentRuntimeConfigPatchBuilder()
-                         .WithAtmosphericContext(
-                             electronic_surveillance_radar::environment::
-                                 EsrAtmosphericDerivedContext{})
+                         .WithAtmosphericContext(electronic_surveillance_radar::environment::
+                                                     EsrAtmosphericDerivedContext{})
                          .Build())>::value,
     "EsrEnvironmentRuntimeConfigPatchBuilder::Build must return EsrEnvironmentRuntimeConfigPatch");
 static_assert(
@@ -276,10 +275,8 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   scene_state.jammer_emitters.push_back(environment::JammerEmitterState{});
 
   session::RadarSession session = session::RadarSessionFactory::Create(session_config);
-  std::shared_ptr<oneq::trace::TraceSink> trace_sink(
-      new oneq::trace::JsonlFileTraceSink("/tmp/oneq-smoke-radar-trace.jsonl", false));
   session::RadarTraceSession trace_session(session_config,
-                                           session::RadarTraceSessionOptions{trace_sink, false});
+                                           session::RadarTraceSessionOptions{nullptr, false});
   const config::RadarRuntimeConfigPatch runtime_patch =
       config::RadarRuntimeConfigBuilder()
           .WithRadarWorkSubMode(model::RadarWorkSubMode::kTas)
@@ -315,15 +312,15 @@ TEST(PublicHeadersSmokeTest, FourDomainHeadersDefineIndependentConfigTypes) {
   EXPECT_EQ(policy.tracking.kalman_update_backend, config::KalmanUpdateBackend::kUdKf);
 
   config::RadarEnvironmentConfig env{};
-    env.scenario_config.atmospheric_physics.enable_physical_model = true;
-    EXPECT_TRUE(env.scenario_config.atmospheric_physics.enable_physical_model);
+  env.scenario_config.atmospheric_physics.enable_physical_model = true;
+  EXPECT_TRUE(env.scenario_config.atmospheric_physics.enable_physical_model);
 
   session::RadarSessionConfig session_cfg;
   session_cfg.hardware = hardware;
   session_cfg.mission = mission;
   session_cfg.policy = policy;
   session_cfg.environment = env;
-    session_cfg.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kStrict;
+  session_cfg.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kStrict;
   EXPECT_EQ(session_cfg.hardware.detection.pulse_count, 32);
   EXPECT_FLOAT_EQ(session_cfg.mission.orientation.scan_center_deg.az_deg, 45.0f);
   EXPECT_EQ(session_cfg.policy.lifecycle.confirm_hits, 2U);
@@ -360,8 +357,7 @@ TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields)
   EXPECT_FLOAT_EQ(config.hardware.detection.antenna.pattern.max_sidelobe_level_db, -30.0f);
   EXPECT_FLOAT_EQ(config.mission.orientation.scan_center_deg.az_deg, -12.0f);
   EXPECT_EQ(config.policy.lifecycle.confirm_hits, 1U);
-  EXPECT_EQ(config.jamming_sensitivity_profile,
-            environment::JammingSensitivityProfile::kRelaxed);
+  EXPECT_EQ(config.jamming_sensitivity_profile, environment::JammingSensitivityProfile::kRelaxed);
 
   environment::EnvironmentScenarioConfig scenario;
   scenario.atmospheric_physics.enable_physical_model = true;

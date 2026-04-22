@@ -1,0 +1,158 @@
+// esr_replay.fbs
+// ESR 模块 replay FlatBuffers schema：cycle_input 与 cycle_output 载荷
+//
+// file_identifier: ESRC (ESR Cycle)
+
+namespace esr.replay;
+
+// ---- 基础向量与姿态类型 ----
+
+struct Vec3 {
+  x: float;
+  y: float;
+  z: float;
+}
+
+struct EulerDeg {
+  yaw_deg:   float;
+  pitch_deg: float;
+  roll_deg:  float;
+}
+
+table PoseState {
+  position_m:   Vec3;
+  velocity_mps: Vec3;
+  attitude_deg: EulerDeg;
+}
+
+// ---- EsrCycleInput ----
+
+table EmitterBeamState {
+  center_az_deg:    float;
+  center_el_deg:    float;
+  az_beamwidth_deg: float;
+  el_beamwidth_deg: float;
+  beam_state_valid: bool;
+}
+
+table EmitterTruthState {
+  emitter_id:   string;
+  pose:         PoseState;
+  carrier_hz:   double;
+  bandwidth_hz: double;
+  tx_power_w:   float;
+  pulse_width_s: float;
+  pri_s:        float;
+  beam_state:   EmitterBeamState;
+  is_emitting:  bool;
+}
+
+table EsrJammerSource {
+  technique:       int32;
+  active:          bool;
+  center_hz:       double;
+  bandwidth_hz:    double;
+  power_w:         float;
+  deception_risk:  float;
+  confidence:      float;
+}
+
+table EsrAtmosphericObservation {
+  relative_humidity_ratio:  float;
+  precipitation_rate_mmph:  float;
+  visibility_km:            float;
+}
+
+table EsrEnvironmentObservation {
+  propagation_profile:      int32;
+  clutter_density:          int32;
+  spectrum_occupancy_ratio: float;
+  atmospheric_observation:  EsrAtmosphericObservation;
+  jammer_sources:           [EsrJammerSource];
+}
+
+table EsrCycleInput {
+  cycle_index:             uint32;
+  dt_sec:                  float;
+  platform_pose:           PoseState;
+  scene_emitters:          [EmitterTruthState];
+  environment_observation: EsrEnvironmentObservation;
+}
+
+root_type EsrCycleInput;
+file_identifier "ESRC";
+
+// ---- EsrOutputFrame ----
+
+table EmitterObservation {
+  observation_id: uint32;
+  timestamp_s:    float;
+  aoa_az_deg:     float;
+  aoa_el_deg:     float;
+  rf_hz:          double;
+  pulse_width_s:  float;
+  amplitude_db:   float;
+  snr_db:         float;
+  quality:        int32;
+  is_jammed:      bool;
+}
+
+table ObservationOutput {
+  cycle_index:   uint32;
+  batch_id:      uint32;
+  observations:  [EmitterObservation];
+}
+
+table EmitterHypothesis {
+  hypothesis_id:     uint32;
+  candidate_classes: [string];
+  mode:              int32;
+  threat_level:      int32;
+  bearing_az_deg:    float;
+  bearing_el_deg:    float;
+  bearing_std_deg:   float;
+  confidence:        float;
+  last_seen_cycle:   uint32;
+}
+
+table EmitterOutput {
+  cycle_index:  uint32;
+  batch_id:     uint32;
+  hypotheses:   [EmitterHypothesis];
+}
+
+table TruthAssociationRecord {
+  observation_id:   uint32;
+  truth_emitter_id: string;
+  matched:          bool;
+  confidence:       float;
+}
+
+table TruthEvaluationOutput {
+  cycle_index:             uint32;
+  batch_id:                uint32;
+  matched_count:           uint32;
+  total_observation_count: uint32;
+  associations:            [TruthAssociationRecord];
+}
+
+table EsrOutputFrame {
+  observation_output:    ObservationOutput;
+  emitter_output:        EmitterOutput;
+  truth_evaluation_output: TruthEvaluationOutput;
+}
+
+// ---- EsrCycleResult (cycle_output via StepWithResult) ----
+
+table EsrValidationIssue {
+  severity:      int32;
+  code:          int32;
+  emitter_index: int32;
+  message:       string;
+}
+
+table EsrCycleResult {
+  output_frame:         EsrOutputFrame;
+  validation_issues:    [EsrValidationIssue];
+  has_validation_error: bool;
+}
