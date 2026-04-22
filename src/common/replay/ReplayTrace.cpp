@@ -2,14 +2,18 @@
 
 #include <cerrno>
 #include <chrono>
-#include <cstdlib>
 #include <cstdint>
+#include <cstdlib>
 #include <deque>
 #include <fstream>
 #include <iomanip>
 #include <sstream>
 #include <stdexcept>
 #include <utility>
+
+#if ONEQ_HAVE_ZLIB
+#include <zlib.h>
+#endif
 
 #if defined(_WIN32)
 #include <direct.h>
@@ -86,13 +90,83 @@ std::string EventChunkFileName(std::uint32_t chunk_index) {
   return stream.str();
 }
 
+std::string EventChunkGzFileName(std::uint32_t chunk_index) {
+  return EventChunkFileName(chunk_index) + ".gz";
+}
+
 std::string EventChunkRelativePath(std::uint32_t chunk_index) {
   return JoinPath("events", EventChunkFileName(chunk_index));
+}
+
+std::string EventChunkGzRelativePath(std::uint32_t chunk_index) {
+  return JoinPath("events", EventChunkGzFileName(chunk_index));
 }
 
 std::string EventChunkPath(const std::string& trace_dir, std::uint32_t chunk_index) {
   return JoinPath(trace_dir, EventChunkRelativePath(chunk_index));
 }
+
+std::string EventChunkGzPath(const std::string& trace_dir, std::uint32_t chunk_index) {
+  return JoinPath(trace_dir, EventChunkGzRelativePath(chunk_index));
+}
+
+bool FileExists(const std::string& path) {
+  std::ifstream f(path.c_str());
+  return f.good();
+}
+
+#if ONEQ_HAVE_ZLIB
+// 将 src_path 内容压缩写入 dst_gz_path，成功后删除 src_path。
+// 若任意步骤失败则抛出 std::runtime_error。
+void GzipCompressFile(const std::string& src_path, const std::string& dst_gz_path) {
+  // 读取原文件
+  std::ifstream src(src_path.c_str(), std::ios::in | std::ios::binary);
+  if (!src.is_open()) {
+    throw std::runtime_error("gzip: failed to open source: " + src_path);
+  }
+  const std::string contents((std::istreambuf_iterator<char>(src)),
+                              std::istreambuf_iterator<char>());
+  src.close();
+
+  // 写入 .gz
+  gzFile gz = gzopen(dst_gz_path.c_str(), "wb");
+  if (gz == Z_NULL) {
+    throw std::runtime_error("gzip: failed to create gz file: " + dst_gz_path);
+  }
+  if (!contents.empty()) {
+    const int written = gzwrite(gz, contents.data(), static_cast<unsigned int>(contents.size()));
+    if (written <= 0) {
+      gzclose(gz);
+      throw std::runtime_error("gzip: write failed: " + dst_gz_path);
+    }
+  }
+  gzclose(gz);
+
+  // 删除原始文件
+  std::remove(src_path.c_str());
+}
+
+// 从 gzFile 中读取一行（不含换行符）。返回 false 表示 EOF 或错误。
+bool GzipReadLine(gzFile gz, std::string* line) {
+  line->clear();
+  char buf[4096];
+  bool got_any = false;
+  while (true) {
+    const char* result = gzgets(gz, buf, static_cast<int>(sizeof(buf)));
+    if (result == Z_NULL) {
+      break;
+    }
+    got_any = true;
+    const std::string chunk(result);
+    if (!chunk.empty() && chunk[chunk.size() - 1U] == '\n') {
+      line->append(chunk, 0U, chunk.size() - 1U);
+      return true;
+    }
+    *line += chunk;
+  }
+  return got_any && !line->empty();
+}
+#endif  // ONEQ_HAVE_ZLIB
 
 std::string HashString(const std::string& value) {
   std::uint64_t hash = 1469598103934665603ull;
@@ -115,8 +189,7 @@ std::string Base64Encode(const std::string& bytes) {
   std::uint32_t accumulator = 0U;
   int bits = -6;
   for (std::size_t i = 0; i < bytes.size(); ++i) {
-    accumulator = (accumulator << 8) |
-                  static_cast<unsigned char>(bytes[i]);
+    accumulator = (accumulator << 8) | static_cast<unsigned char>(bytes[i]);
     bits += 8;
     while (bits >= 0) {
       output.push_back(Base64Alphabet()[(accumulator >> bits) & 0x3FU]);
@@ -175,23 +248,16 @@ std::string Base64Decode(const std::string& text) {
 }
 
 const std::string& PayloadBytesForHash(const ReplayTraceEvent& event) {
-  if (event.payload_encoding == "json") {
-    return event.payload_json;
-  }
   return event.payload_bytes;
 }
 
 const std::string& PayloadBytesForHash(const ReplayTraceReadEvent& event) {
-  if (event.payload_encoding == "json") {
-    return event.payload_json;
-  }
   return event.payload_bytes;
 }
 
 void WriteJsonStringField(std::ostream& output, const char* name, const std::string& value,
                           bool trailing_comma) {
-  output << "\"" << name << "\":"
-         << trace::internal::QuoteString(value);
+  output << "\"" << name << "\":" << trace::internal::QuoteString(value);
   if (trailing_comma) {
     output << ",";
   }
@@ -226,9 +292,10 @@ void WriteManifestFile(const std::string& path, const ReplayTraceManifest& manif
   WriteJsonStringField(output, "platform", manifest.platform, true);
   WriteJsonStringField(output, "cpu_arch", manifest.cpu_arch, true);
   WriteJsonStringField(output, "library_version", manifest.library_version, true);
-  WriteJsonRawField(output, "dependency_versions", manifest.dependency_versions_json, true);
+  WriteJsonRawField(output, "dependency_versions", manifest.dependency_versions_payload, true);
   WriteJsonStringField(output, "float_policy", manifest.float_policy, true);
-  WriteJsonRawField(output, "default_tolerances", manifest.default_tolerances_json, true);
+  WriteJsonRawField(output, "default_tolerances", manifest.default_tolerances_payload, true);
+  output << "\"compress_closed_chunks\":" << trace::internal::BoolToJson(manifest.compress_closed_chunks) << ",";
   output << "\"checkpoint_interval_cycles\":" << manifest.checkpoint_interval_cycles << ",";
   output << "\"event_chunk_size\":" << manifest.event_chunk_size << ",";
   output << "\"failure_window_event_count\":" << manifest.failure_window_event_count;
@@ -261,8 +328,8 @@ void WriteOptionalUInt64Field(std::ostream& output, const char* name, bool has_v
   }
 }
 
-void WriteOptionalDoubleField(std::ostream& output, const char* name, bool has_value,
-                              double value, bool trailing_comma) {
+void WriteOptionalDoubleField(std::ostream& output, const char* name, bool has_value, double value,
+                              bool trailing_comma) {
   output << "\"" << name << "\":";
   if (has_value) {
     output << value;
@@ -274,30 +341,9 @@ void WriteOptionalDoubleField(std::ostream& output, const char* name, bool has_v
   }
 }
 
-std::string BuildFailurePayloadJson(const ReplayTraceFailure& failure,
-                                    bool has_last_event_sequence,
-                                    std::uint64_t last_event_sequence) {
-  std::ostringstream payload;
-  payload << "{";
-  WriteJsonStringField(payload, "error_code", failure.error_code, true);
-  WriteJsonStringField(payload, "message", failure.message, true);
-  WriteJsonStringField(payload, "location", failure.location, true);
-  WriteOptionalUInt32Field(payload, "cycle_index", failure.has_cycle_index,
-                           failure.cycle_index, true);
-  WriteOptionalDoubleField(payload, "sim_time_sec", failure.has_sim_time_sec,
-                           failure.sim_time_sec, true);
-  WriteOptionalUInt64Field(payload, "last_event_sequence", has_last_event_sequence,
-                           last_event_sequence, true);
-  WriteJsonRawField(payload, "diagnostics", failure.diagnostics_json, false);
-  payload << "}";
-  return payload.str();
-}
-
 void WriteFailureFile(const std::string& path, const ReplayTraceManifest& manifest,
-                      const ReplayTraceFailure& failure,
-                      std::uint64_t failure_marker_sequence,
-                      bool has_last_event_sequence,
-                      std::uint64_t last_event_sequence) {
+                      const ReplayTraceFailure& failure, std::uint64_t failure_marker_sequence,
+                      bool has_last_event_sequence, std::uint64_t last_event_sequence) {
   std::ofstream output(path.c_str(), std::ios::out | std::ios::trunc);
   if (!output.is_open()) {
     throw std::runtime_error("failed to open replay failure file: " + path);
@@ -314,23 +360,22 @@ void WriteFailureFile(const std::string& path, const ReplayTraceManifest& manife
   WriteJsonStringField(output, "error_code", failure.error_code, true);
   WriteJsonStringField(output, "message", failure.message, true);
   WriteJsonStringField(output, "location", failure.location, true);
-  WriteOptionalUInt32Field(output, "cycle_index", failure.has_cycle_index,
-                           failure.cycle_index, true);
-  WriteOptionalDoubleField(output, "sim_time_sec", failure.has_sim_time_sec,
-                           failure.sim_time_sec, true);
-  WriteJsonRawField(output, "diagnostics", failure.diagnostics_json, false);
+  WriteOptionalUInt32Field(output, "cycle_index", failure.has_cycle_index, failure.cycle_index,
+                           true);
+  WriteOptionalDoubleField(output, "sim_time_sec", failure.has_sim_time_sec, failure.sim_time_sec,
+                           true);
+  WriteJsonRawField(output, "diagnostics", failure.diagnostics_payload, false);
   output << "}\n";
 }
 
-void WriteLastWindowFile(const std::string& path,
-                         const std::deque<std::string>& last_window) {
+void WriteLastWindowFile(const std::string& path, const std::deque<std::string>& last_window) {
   std::ofstream output(path.c_str(), std::ios::out | std::ios::trunc);
   if (!output.is_open()) {
     throw std::runtime_error("failed to open replay last-window file: " + path);
   }
 
-  for (std::deque<std::string>::const_iterator it = last_window.begin();
-       it != last_window.end(); ++it) {
+  for (std::deque<std::string>::const_iterator it = last_window.begin(); it != last_window.end();
+       ++it) {
     output << *it << '\n';
   }
 }
@@ -348,8 +393,8 @@ void WriteCycleIndexLine(std::ostream& output, const ReplayTraceEvent& event,
   WriteJsonStringField(output, "event_file", EventChunkRelativePath(chunk_index), true);
   output << "\"byte_offset\":" << byte_offset << ",";
   WriteJsonStringField(output, "event_type", event.event_type, true);
-  WriteOptionalDoubleField(output, "sim_time_sec", event.has_sim_time_sec,
-                           event.sim_time_sec, false);
+  WriteOptionalDoubleField(output, "sim_time_sec", event.has_sim_time_sec, event.sim_time_sec,
+                           false);
   output << "}\n";
 }
 
@@ -360,83 +405,65 @@ void WriteReportFile(const std::string& path, const ReplayTraceReplayReport& rep
   }
 
   output << "{";
-  output << "\"replay_ready\":" << trace::internal::BoolToJson(report.replay_ready)
-         << ",";
+  output << "\"replay_ready\":" << trace::internal::BoolToJson(report.replay_ready) << ",";
   WriteJsonStringField(output, "first_error", report.first_error, true);
   WriteJsonStringField(output, "warning", report.warning, true);
 
   output << "\"compatibility\":{";
-  output << "\"compatible\":"
-         << trace::internal::BoolToJson(report.compatibility.compatible) << ",";
+  output << "\"compatible\":" << trace::internal::BoolToJson(report.compatibility.compatible)
+         << ",";
   output << "\"schema_version_matches\":"
-         << trace::internal::BoolToJson(report.compatibility.schema_version_matches)
-         << ",";
+         << trace::internal::BoolToJson(report.compatibility.schema_version_matches) << ",";
   output << "\"serializer_version_matches\":"
-         << trace::internal::BoolToJson(
-                report.compatibility.serializer_version_matches)
-         << ",";
+         << trace::internal::BoolToJson(report.compatibility.serializer_version_matches) << ",";
   output << "\"git_commit_matches\":"
-         << trace::internal::BoolToJson(report.compatibility.git_commit_matches)
-         << ",";
+         << trace::internal::BoolToJson(report.compatibility.git_commit_matches) << ",";
   output << "\"module_matches\":"
-         << trace::internal::BoolToJson(report.compatibility.module_matches)
-         << ",";
+         << trace::internal::BoolToJson(report.compatibility.module_matches) << ",";
   output << "\"manifest_git_dirty\":"
-         << trace::internal::BoolToJson(report.compatibility.manifest_git_dirty)
-         << ",";
-  WriteJsonStringField(output, "manifest_trace_id",
-                       report.compatibility.manifest_trace_id, true);
-  WriteJsonStringField(output, "manifest_module",
-                       report.compatibility.manifest_module, true);
-  output << "\"manifest_schema_version\":"
-         << report.compatibility.manifest_schema_version << ",";
+         << trace::internal::BoolToJson(report.compatibility.manifest_git_dirty) << ",";
+  WriteJsonStringField(output, "manifest_trace_id", report.compatibility.manifest_trace_id, true);
+  WriteJsonStringField(output, "manifest_module", report.compatibility.manifest_module, true);
+  output << "\"manifest_schema_version\":" << report.compatibility.manifest_schema_version << ",";
   WriteJsonStringField(output, "manifest_serializer_version",
                        report.compatibility.manifest_serializer_version, true);
-  WriteJsonStringField(output, "manifest_git_commit",
-                       report.compatibility.manifest_git_commit, true);
-  WriteJsonStringField(output, "first_error", report.compatibility.first_error,
+  WriteJsonStringField(output, "manifest_git_commit", report.compatibility.manifest_git_commit,
                        true);
+  WriteJsonStringField(output, "first_error", report.compatibility.first_error, true);
   WriteJsonStringField(output, "warning", report.compatibility.warning, false);
   output << "},";
 
   output << "\"scan\":{";
   output << "\"ok\":" << trace::internal::BoolToJson(report.scan.ok) << ",";
   output << "\"event_count\":" << report.scan.event_count << ",";
-  output << "\"payload_hashes_ok\":"
-         << trace::internal::BoolToJson(report.scan.payload_hashes_ok) << ",";
-  output << "\"event_chain_ok\":"
-         << trace::internal::BoolToJson(report.scan.event_chain_ok) << ",";
+  output << "\"payload_hashes_ok\":" << trace::internal::BoolToJson(report.scan.payload_hashes_ok)
+         << ",";
+  output << "\"event_chain_ok\":" << trace::internal::BoolToJson(report.scan.event_chain_ok) << ",";
   output << "\"sequences_contiguous\":"
          << trace::internal::BoolToJson(report.scan.sequences_contiguous) << ",";
   WriteJsonStringField(output, "first_error", report.scan.first_error, false);
   output << "},";
 
   output << "\"events\":{";
-  output << "\"has_session_config\":"
-         << trace::internal::BoolToJson(report.has_session_config) << ",";
-  output << "\"has_failure_marker\":"
-         << trace::internal::BoolToJson(report.has_failure_marker) << ",";
+  output << "\"has_session_config\":" << trace::internal::BoolToJson(report.has_session_config)
+         << ",";
+  output << "\"has_failure_marker\":" << trace::internal::BoolToJson(report.has_failure_marker)
+         << ",";
   output << "\"session_config_count\":" << report.session_config_count << ",";
   output << "\"cycle_input_count\":" << report.cycle_input_count << ",";
   output << "\"scene_state_count\":" << report.scene_state_count << ",";
-  output << "\"runtime_config_patch_count\":"
-         << report.runtime_config_patch_count << ",";
+  output << "\"runtime_config_patch_count\":" << report.runtime_config_patch_count << ",";
   output << "\"cycle_output_count\":" << report.cycle_output_count << ",";
   output << "\"failure_marker_count\":" << report.failure_marker_count << ",";
-  output << "\"unsupported_event_count\":" << report.unsupported_event_count
-         << ",";
+  output << "\"unsupported_event_count\":" << report.unsupported_event_count << ",";
   output << "\"first_failure_sequence\":" << report.first_failure_sequence << ",";
-  WriteJsonRawField(output, "first_failure_payload",
-                    report.first_failure_payload_json, false);
+  WriteJsonRawField(output, "first_failure_payload", report.first_failure_payload, false);
   output << "}";
   output << "}\n";
 }
 
-bool InvokeReplayCallback(ReplayTraceEventCallback callback,
-                          const ReplayTraceReadEvent& event,
-                          void* user_data,
-                          const char* missing_callback_error,
-                          bool required,
+bool InvokeReplayCallback(ReplayTraceEventCallback callback, const ReplayTraceReadEvent& event,
+                          void* user_data, const char* missing_callback_error, bool required,
                           std::string* error) {
   if (!callback) {
     if (required) {
@@ -619,11 +646,9 @@ struct ReplayTraceWriter::Impl {
 
     OpenEventChunk(0U, overwrite);
 
-    const std::string cycle_index_path = JoinPath(JoinPath(trace_dir, "indexes"),
-                                                 "cycles.idx");
-    cycles_index.open(cycle_index_path.c_str(),
-                      overwrite ? (std::ios::out | std::ios::trunc)
-                                : (std::ios::out | std::ios::app));
+    const std::string cycle_index_path = JoinPath(JoinPath(trace_dir, "indexes"), "cycles.idx");
+    cycles_index.open(cycle_index_path.c_str(), overwrite ? (std::ios::out | std::ios::trunc)
+                                                          : (std::ios::out | std::ios::app));
     if (!cycles_index.is_open()) {
       throw std::runtime_error("failed to open replay cycle index: " + cycle_index_path);
     }
@@ -636,8 +661,7 @@ struct ReplayTraceWriter::Impl {
 
     const std::string event_path = EventChunkPath(trace_dir, chunk_index);
     events.open(event_path.c_str(),
-                truncate ? (std::ios::out | std::ios::trunc)
-                         : (std::ios::out | std::ios::app));
+                truncate ? (std::ios::out | std::ios::trunc) : (std::ios::out | std::ios::app));
     if (!events.is_open()) {
       throw std::runtime_error("failed to open replay event file: " + event_path);
     }
@@ -649,7 +673,16 @@ struct ReplayTraceWriter::Impl {
       return;
     }
     if ((next_sequence % manifest.event_chunk_size) == 0U) {
+      // Seal the current chunk before opening the next one.
+      const std::uint32_t sealed_index = current_chunk_index;
       OpenEventChunk(current_chunk_index + 1U, true);
+#if ONEQ_HAVE_ZLIB
+      if (manifest.compress_closed_chunks) {
+        const std::string plain_path = EventChunkPath(trace_dir, sealed_index);
+        const std::string gz_path    = EventChunkGzPath(trace_dir, sealed_index);
+        GzipCompressFile(plain_path, gz_path);
+      }
+#endif
     }
   }
 
@@ -695,12 +728,8 @@ void ReplayTraceWriter::WriteEvent(const ReplayTraceEvent& event) {
   line << "\"wall_time_ms\":" << CurrentTimestampMs() << ",";
   WriteJsonStringField(line, "payload_type", event.payload_type, true);
   WriteJsonStringField(line, "payload_encoding", event.payload_encoding, true);
-  if (event.payload_encoding == "json") {
-    WriteJsonRawField(line, "payload", event.payload_json, true);
-  } else {
-    line << "\"payload\":null,";
-    WriteJsonStringField(line, "payload_base64", Base64Encode(event.payload_bytes), true);
-  }
+  line << "\"payload\":null,";
+  WriteJsonStringField(line, "payload_base64", Base64Encode(event.payload_bytes), true);
   WriteJsonStringField(line, "payload_hash", payload_hash, true);
   WriteJsonStringField(line, "previous_event_hash", previous_hash, false);
   line << "}";
@@ -713,8 +742,8 @@ void ReplayTraceWriter::WriteEvent(const ReplayTraceEvent& event) {
   }
   impl_->events << serialized << '\n';
   impl_->events.flush();
-  WriteCycleIndexLine(impl_->cycles_index, event, impl_->next_sequence,
-                      impl_->current_chunk_index, byte_offset);
+  WriteCycleIndexLine(impl_->cycles_index, event, impl_->next_sequence, impl_->current_chunk_index,
+                      byte_offset);
   impl_->cycles_index.flush();
   impl_->previous_event_hash = HashString(serialized);
   ++impl_->next_sequence;
@@ -733,7 +762,7 @@ void ReplayTraceWriter::WriteFailureMarker(const ReplayTraceFailure& failure) {
 }
 
 void ReplayTraceWriter::WriteFailureMarker(const ReplayTraceFailure& failure,
-                                            const std::string& payload_bytes) {
+                                           const std::string& payload_bytes) {
   const std::uint64_t failure_marker_sequence = impl_->next_sequence;
   const bool has_last_event_sequence = impl_->next_sequence > 0U;
   const std::uint64_t last_event_sequence =
@@ -743,13 +772,8 @@ void ReplayTraceWriter::WriteFailureMarker(const ReplayTraceFailure& failure,
   event.module = impl_->manifest.module;
   event.event_type = "failure_marker";
   event.payload_type = "ReplayTraceFailure";
-  event.payload_encoding = "json";
-  event.payload_json = BuildFailurePayloadJson(failure, has_last_event_sequence,
-                                               last_event_sequence);
-  if (!payload_bytes.empty()) {
-    event.payload_encoding = "flatbuffers";
-    event.payload_bytes = payload_bytes;
-  }
+  event.payload_encoding = "flatbuffers";
+  event.payload_bytes = payload_bytes;
   event.has_cycle_index = failure.has_cycle_index;
   event.cycle_index = failure.cycle_index;
   event.has_sim_time_sec = failure.has_sim_time_sec;
@@ -758,10 +782,8 @@ void ReplayTraceWriter::WriteFailureMarker(const ReplayTraceFailure& failure,
 
   const std::string crash_dir = JoinPath(impl_->trace_dir, "crash");
   WriteFailureFile(JoinPath(crash_dir, "failure.json"), impl_->manifest, failure,
-                   failure_marker_sequence, has_last_event_sequence,
-                   last_event_sequence);
-  WriteLastWindowFile(JoinPath(crash_dir, "last-window.events.jsonl"),
-                      impl_->last_window);
+                   failure_marker_sequence, has_last_event_sequence, last_event_sequence);
+  WriteLastWindowFile(JoinPath(crash_dir, "last-window.events.jsonl"), impl_->last_window);
 }
 
 void ReplayTraceWriter::Flush() {
@@ -783,11 +805,34 @@ struct ReplayTraceReader::Impl {
     }
   }
 
+  ~Impl() {
+#if ONEQ_HAVE_ZLIB
+    if (gz_events != Z_NULL) {
+      gzclose(gz_events);
+      gz_events = Z_NULL;
+    }
+#endif
+  }
+
   bool OpenEventChunk(std::uint32_t chunk_index) {
     if (events.is_open()) {
       events.close();
     }
-
+#if ONEQ_HAVE_ZLIB
+    if (gz_events != Z_NULL) {
+      gzclose(gz_events);
+      gz_events = Z_NULL;
+    }
+    // Prefer compressed chunk if present.
+    const std::string gz_path = EventChunkGzPath(trace_dir, chunk_index);
+    if (FileExists(gz_path)) {
+      gz_events = gzopen(gz_path.c_str(), "rb");
+      if (gz_events != Z_NULL) {
+        current_chunk_index = chunk_index;
+        return true;
+      }
+    }
+#endif
     const std::string event_path = EventChunkPath(trace_dir, chunk_index);
     events.open(event_path.c_str(), std::ios::in);
     if (!events.is_open()) {
@@ -798,8 +843,18 @@ struct ReplayTraceReader::Impl {
   }
 
   bool ReadNextLine(std::string* line) {
-    bool keep_reading = true;
-    while (keep_reading) {
+    while (true) {
+#if ONEQ_HAVE_ZLIB
+      if (gz_events != Z_NULL) {
+        if (GzipReadLine(gz_events, line)) {
+          return true;
+        }
+        if (!OpenEventChunk(current_chunk_index + 1U)) {
+          return false;
+        }
+        continue;
+      }
+#endif
       if (std::getline(events, *line)) {
         return true;
       }
@@ -807,12 +862,14 @@ struct ReplayTraceReader::Impl {
         return false;
       }
     }
-    return false;
   }
 
   std::string trace_dir;
   std::string manifest_json;
   std::ifstream events;
+#if ONEQ_HAVE_ZLIB
+  gzFile gz_events{Z_NULL};
+#endif
   std::uint32_t current_chunk_index{0U};
   std::string previous_event_hash;
 };
@@ -843,24 +900,20 @@ bool ReplayTraceReader::ReadNextEvent(ReplayTraceReadEvent* event) {
   parsed.sequence = ExtractUInt64Field(line, "sequence");
   parsed.module = ExtractStringField(line, "module");
   parsed.event_type = ExtractStringField(line, "event_type");
-  parsed.has_cycle_index = ExtractNullableUInt32Field(line, "cycle_index",
-                                                      &parsed.cycle_index);
-  parsed.has_sim_time_sec = ExtractNullableDoubleField(line, "sim_time_sec",
-                                                       &parsed.sim_time_sec);
+  parsed.has_cycle_index = ExtractNullableUInt32Field(line, "cycle_index", &parsed.cycle_index);
+  parsed.has_sim_time_sec = ExtractNullableDoubleField(line, "sim_time_sec", &parsed.sim_time_sec);
   parsed.payload_type = ExtractStringField(line, "payload_type");
   parsed.payload_encoding = ExtractStringField(line, "payload_encoding");
-  parsed.payload_json = ExtractRawJsonValue(line, "payload");
+  parsed.payload_inline = ExtractRawJsonValue(line, "payload");
   const std::string payload_base64 = ExtractStringField(line, "payload_base64");
   if (!payload_base64.empty()) {
     parsed.payload_bytes = Base64Decode(payload_base64);
   }
   parsed.payload_hash = ExtractStringField(line, "payload_hash");
   parsed.previous_event_hash = ExtractStringField(line, "previous_event_hash");
-  parsed.payload_hash_matches =
-      (HashString(PayloadBytesForHash(parsed)) == parsed.payload_hash);
+  parsed.payload_hash_matches = (HashString(PayloadBytesForHash(parsed)) == parsed.payload_hash);
   parsed.event_hash = HashString(line);
-  parsed.previous_event_hash_matches =
-      (parsed.previous_event_hash == impl_->previous_event_hash);
+  parsed.previous_event_hash_matches = (parsed.previous_event_hash == impl_->previous_event_hash);
   impl_->previous_event_hash = parsed.event_hash;
 
   *event = parsed;
@@ -907,14 +960,12 @@ ReplayTraceScanResult ScanReplayTrace(const std::string& trace_dir) {
     expected_sequence = event.sequence + 1U;
   }
 
-  result.ok = result.payload_hashes_ok && result.event_chain_ok &&
-              result.sequences_contiguous;
+  result.ok = result.payload_hashes_ok && result.event_chain_ok && result.sequences_contiguous;
   return result;
 }
 
 ReplayTraceCompatibilityResult CheckReplayTraceCompatibility(
-    const std::string& trace_dir,
-    const ReplayTraceCompatibilityExpectation& expectation) {
+    const std::string& trace_dir, const ReplayTraceCompatibilityExpectation& expectation) {
   ReplayTraceReader reader(trace_dir);
   const std::string& manifest_json = reader.manifest_json();
 
@@ -922,28 +973,23 @@ ReplayTraceCompatibilityResult CheckReplayTraceCompatibility(
   result.manifest_trace_id = ExtractStringField(manifest_json, "trace_id");
   result.manifest_module = ExtractStringField(manifest_json, "module");
   result.manifest_schema_version = ExtractInt32Field(manifest_json, "schema_version");
-  result.manifest_serializer_version =
-      ExtractStringField(manifest_json, "serializer_version");
+  result.manifest_serializer_version = ExtractStringField(manifest_json, "serializer_version");
   result.manifest_git_commit = ExtractStringField(manifest_json, "git_commit");
   result.manifest_git_dirty = ExtractBoolField(manifest_json, "git_dirty");
 
-  result.schema_version_matches =
-      (result.manifest_schema_version == expectation.schema_version);
+  result.schema_version_matches = (result.manifest_schema_version == expectation.schema_version);
   result.serializer_version_matches =
       (result.manifest_serializer_version == expectation.serializer_version);
-  result.git_commit_matches =
-      !expectation.require_git_commit_match ||
-      expectation.git_commit.empty() ||
-      (result.manifest_git_commit == expectation.git_commit);
-  result.module_matches =
-      !expectation.require_module_match ||
-      expectation.module.empty() ||
-      (result.manifest_module == expectation.module);
+  result.git_commit_matches = !expectation.require_git_commit_match ||
+                              expectation.git_commit.empty() ||
+                              (result.manifest_git_commit == expectation.git_commit);
+  result.module_matches = !expectation.require_module_match || expectation.module.empty() ||
+                          (result.manifest_module == expectation.module);
 
   if (!result.schema_version_matches && result.first_error.empty()) {
     std::ostringstream message;
-    message << "replay schema mismatch: expected " << expectation.schema_version
-            << " but found " << result.manifest_schema_version;
+    message << "replay schema mismatch: expected " << expectation.schema_version << " but found "
+            << result.manifest_schema_version;
     result.first_error = message.str();
   }
   if (!result.serializer_version_matches && result.first_error.empty()) {
@@ -960,16 +1006,13 @@ ReplayTraceCompatibilityResult CheckReplayTraceCompatibility(
     result.warning = "replay trace was captured from a dirty git worktree";
   }
 
-  result.compatible = result.schema_version_matches &&
-                      result.serializer_version_matches &&
-                      result.git_commit_matches &&
-                      result.module_matches;
+  result.compatible = result.schema_version_matches && result.serializer_version_matches &&
+                      result.git_commit_matches && result.module_matches;
   return result;
 }
 
 ReplayTraceReplayReport BuildReplayTraceReport(
-    const std::string& trace_dir,
-    const ReplayTraceCompatibilityExpectation& expectation) {
+    const std::string& trace_dir, const ReplayTraceCompatibilityExpectation& expectation) {
   ReplayTraceReplayReport report;
   report.compatibility = CheckReplayTraceCompatibility(trace_dir, expectation);
   report.scan = ScanReplayTrace(trace_dir);
@@ -993,7 +1036,7 @@ ReplayTraceReplayReport BuildReplayTraceReport(
       if (!report.has_failure_marker) {
         report.has_failure_marker = true;
         report.first_failure_sequence = event.sequence;
-        report.first_failure_payload_json = event.payload_json;
+        report.first_failure_payload = event.payload_inline;
       }
     } else {
       ++report.unsupported_event_count;
@@ -1017,22 +1060,18 @@ ReplayTraceReplayReport BuildReplayTraceReport(
     report.warning = "replay trace contains unsupported event types";
   }
 
-  report.replay_ready = report.compatibility.compatible &&
-                        report.scan.ok &&
-                        report.has_session_config &&
-                        report.unsupported_event_count == 0U;
+  report.replay_ready = report.compatibility.compatible && report.scan.ok &&
+                        report.has_session_config && report.unsupported_event_count == 0U;
   return report;
 }
 
-void WriteReplayTraceReport(const ReplayTraceReplayReport& report,
-                            const std::string& report_path) {
+void WriteReplayTraceReport(const ReplayTraceReplayReport& report, const std::string& report_path) {
   WriteReportFile(report_path, report);
 }
 
-ReplayTracePlaybackResult PlaybackReplayTrace(
-    const std::string& trace_dir,
-    const ReplayTracePlaybackCallbacks& callbacks,
-    const ReplayTracePlaybackOptions& options) {
+ReplayTracePlaybackResult PlaybackReplayTrace(const std::string& trace_dir,
+                                              const ReplayTracePlaybackCallbacks& callbacks,
+                                              const ReplayTracePlaybackOptions& options) {
   ReplayTracePlaybackResult result;
   ReplayTraceReader reader(trace_dir);
 
@@ -1043,20 +1082,20 @@ ReplayTracePlaybackResult PlaybackReplayTrace(
     std::string callback_error;
     bool callback_ok = true;
     if (event.event_type == "session_config") {
-      callback_ok = InvokeReplayCallback(
-          callbacks.on_session_config, event, callbacks.user_data,
-          "missing session_config replay callback", true, &callback_error);
+      callback_ok =
+          InvokeReplayCallback(callbacks.on_session_config, event, callbacks.user_data,
+                               "missing session_config replay callback", true, &callback_error);
     } else if (event.event_type == "cycle_input") {
-      callback_ok = InvokeReplayCallback(
-          callbacks.on_cycle_input, event, callbacks.user_data,
-          "missing cycle_input replay callback", true, &callback_error);
+      callback_ok =
+          InvokeReplayCallback(callbacks.on_cycle_input, event, callbacks.user_data,
+                               "missing cycle_input replay callback", true, &callback_error);
       if (callback_ok) {
         ++result.applied_input_count;
       }
     } else if (event.event_type == "scene_state") {
-      callback_ok = InvokeReplayCallback(
-          callbacks.on_scene_state, event, callbacks.user_data,
-          "missing scene_state replay callback", false, &callback_error);
+      callback_ok =
+          InvokeReplayCallback(callbacks.on_scene_state, event, callbacks.user_data,
+                               "missing scene_state replay callback", false, &callback_error);
       if (callback_ok && callbacks.on_scene_state) {
         ++result.applied_scene_state_count;
       }
@@ -1076,32 +1115,18 @@ ReplayTracePlaybackResult PlaybackReplayTrace(
           ++result.skipped_output_count;
         }
       } else {
-        std::string actual_output_json;
-        callback_ok = callbacks.on_cycle_output(event, callbacks.user_data,
-                                                &actual_output_json,
+        std::string actual_output_payload;
+        callback_ok = callbacks.on_cycle_output(event, callbacks.user_data, &actual_output_payload,
                                                 &callback_error);
         if (callback_ok) {
           ++result.compared_output_count;
-          if (actual_output_json != event.payload_json) {
-            result.divergence_found = true;
-            result.divergence_sequence = event.sequence;
-            result.expected_output_json = event.payload_json;
-            result.actual_output_json = actual_output_json;
-            result.ok = false;
-            if (result.first_error.empty()) {
-              result.first_error = "replay output divergence";
-            }
-            if (options.stop_on_first_divergence) {
-              return result;
-            }
-          }
         }
       }
     } else if (event.event_type == "failure_marker") {
       ++result.failure_marker_count;
-      callback_ok = InvokeReplayCallback(
-          callbacks.on_failure_marker, event, callbacks.user_data,
-          "missing failure_marker replay callback", false, &callback_error);
+      callback_ok =
+          InvokeReplayCallback(callbacks.on_failure_marker, event, callbacks.user_data,
+                               "missing failure_marker replay callback", false, &callback_error);
       if (callback_ok && options.stop_on_failure_marker) {
         return result;
       }
@@ -1110,8 +1135,7 @@ ReplayTracePlaybackResult PlaybackReplayTrace(
     if (!callback_ok) {
       result.ok = false;
       if (result.first_error.empty()) {
-        result.first_error = callback_error.empty() ? "replay callback failed"
-                                                    : callback_error;
+        result.first_error = callback_error.empty() ? "replay callback failed" : callback_error;
       }
       return result;
     }

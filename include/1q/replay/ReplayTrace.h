@@ -29,12 +29,13 @@ struct ONEQ_API ReplayTraceManifest {
   std::string platform{};
   std::string cpu_arch{};
   std::string library_version{};
-  std::string dependency_versions_json{"{}"};
+  std::string dependency_versions_payload{"{}"};
   std::string float_policy{};
-  std::string default_tolerances_json{"{}"};
+  std::string default_tolerances_payload{"{}"};
   std::uint32_t checkpoint_interval_cycles{0U};
   std::uint32_t event_chunk_size{10000U};
   std::uint32_t failure_window_event_count{128U};
+  bool compress_closed_chunks{false}; /**< 若为 true，Writer 关闭 chunk 后将其压缩为 .gz 并删除原文件；Reader 自动透明解压 */
 };
 
 struct ONEQ_API ReplayTraceEvent {
@@ -42,7 +43,7 @@ struct ONEQ_API ReplayTraceEvent {
   std::string event_type{};
   std::string payload_type{};
   std::string payload_encoding{"flatbuffers"};
-  std::string payload_json{"{}"};
+  std::string payload_inline{"{}"};
   std::string payload_bytes{};
   bool has_cycle_index{false};
   std::uint32_t cycle_index{0U};
@@ -63,7 +64,7 @@ struct ONEQ_API ReplayTraceReadEvent {
   double sim_time_sec{0.0};
   std::string payload_type{};
   std::string payload_encoding{};
-  std::string payload_json{};
+  std::string payload_inline{};
   std::string payload_bytes{};
   std::string payload_hash{};
   std::string previous_event_hash{};
@@ -120,7 +121,7 @@ struct ONEQ_API ReplayTraceReplayReport {
   std::uint64_t failure_marker_count{0U};
   std::uint64_t unsupported_event_count{0U};
   std::uint64_t first_failure_sequence{0U};
-  std::string first_failure_payload_json{};
+  std::string first_failure_payload{};
   std::string first_error{};
   std::string warning{};
 };
@@ -133,15 +134,13 @@ struct ONEQ_API ReplayTraceFailure {
   std::uint32_t cycle_index{0U};
   bool has_sim_time_sec{false};
   double sim_time_sec{0.0};
-  std::string diagnostics_json{"{}"};
+  std::string diagnostics_payload{"{}"};
 };
 
-typedef bool (*ReplayTraceEventCallback)(const ReplayTraceReadEvent& event,
-                                         void* user_data,
+typedef bool (*ReplayTraceEventCallback)(const ReplayTraceReadEvent& event, void* user_data,
                                          std::string* error);
-typedef bool (*ReplayTraceOutputCallback)(const ReplayTraceReadEvent& event,
-                                          void* user_data,
-                                          std::string* actual_output_json,
+typedef bool (*ReplayTraceOutputCallback)(const ReplayTraceReadEvent& event, void* user_data,
+                                          std::string* actual_output_payload,
                                           std::string* error);
 
 struct ONEQ_API ReplayTracePlaybackCallbacks {
@@ -171,15 +170,14 @@ struct ONEQ_API ReplayTracePlaybackResult {
   std::uint64_t failure_marker_count{0U};
   bool divergence_found{false};
   std::uint64_t divergence_sequence{0U};
-  std::string expected_output_json{};
-  std::string actual_output_json{};
+  std::string expected_output_payload{};
+  std::string actual_output_payload{};
   std::string first_error{};
 };
 
 class ONEQ_API ReplayTraceWriter final {
  public:
-  ReplayTraceWriter(std::string trace_dir, ReplayTraceManifest manifest,
-                    bool overwrite = false);
+  ReplayTraceWriter(std::string trace_dir, ReplayTraceManifest manifest, bool overwrite = false);
   ~ReplayTraceWriter();
 
   ReplayTraceWriter(const ReplayTraceWriter&) = delete;
@@ -187,8 +185,7 @@ class ONEQ_API ReplayTraceWriter final {
 
   void WriteEvent(const ReplayTraceEvent& event);
   void WriteFailureMarker(const ReplayTraceFailure& failure);
-  void WriteFailureMarker(const ReplayTraceFailure& failure,
-                           const std::string& payload_bytes);
+  void WriteFailureMarker(const ReplayTraceFailure& failure, const std::string& payload_bytes);
   void Flush();
 
   const std::string& trace_dir() const;
@@ -218,17 +215,14 @@ class ONEQ_API ReplayTraceReader final {
 
 ONEQ_API ReplayTraceScanResult ScanReplayTrace(const std::string& trace_dir);
 ONEQ_API ReplayTraceCompatibilityResult CheckReplayTraceCompatibility(
-    const std::string& trace_dir,
-    const ReplayTraceCompatibilityExpectation& expectation);
+    const std::string& trace_dir, const ReplayTraceCompatibilityExpectation& expectation);
 ONEQ_API ReplayTraceReplayReport BuildReplayTraceReport(
-    const std::string& trace_dir,
-    const ReplayTraceCompatibilityExpectation& expectation);
+    const std::string& trace_dir, const ReplayTraceCompatibilityExpectation& expectation);
 ONEQ_API void WriteReplayTraceReport(const ReplayTraceReplayReport& report,
                                      const std::string& report_path);
-ONEQ_API ReplayTracePlaybackResult PlaybackReplayTrace(
-    const std::string& trace_dir,
-    const ReplayTracePlaybackCallbacks& callbacks,
-    const ReplayTracePlaybackOptions& options = ReplayTracePlaybackOptions{});
+ONEQ_API ReplayTracePlaybackResult
+PlaybackReplayTrace(const std::string& trace_dir, const ReplayTracePlaybackCallbacks& callbacks,
+                    const ReplayTracePlaybackOptions& options = ReplayTracePlaybackOptions{});
 
 }  // namespace replay
 }  // namespace oneq

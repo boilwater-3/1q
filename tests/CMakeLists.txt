@@ -11,7 +11,9 @@ endif()
 find_package(GTest CONFIG REQUIRED)
 find_package(Boost CONFIG REQUIRED)
 find_package(Eigen3 CONFIG REQUIRED)
-if(WIN32 AND NOT DEFINED flatbuffers_INCLUDE_DIRS_RELEASE)
+find_package(flatbuffers CONFIG REQUIRED)
+find_package(ZLIB QUIET)
+if(NOT DEFINED flatbuffers_INCLUDE_DIRS_RELEASE)
     # Pull Conan-generated include variables without importing flatc target.
     file(GLOB _oneq_flatbuffers_data_candidates
         "${CMAKE_BINARY_DIR}/build/generators/flatbuffers-*-data.cmake")
@@ -61,6 +63,9 @@ function(add_1q_gtest target_name suite_label discovery_timeout)
         Eigen3::Eigen
         ${PROJECT_ALIAS}
     )
+    if(TARGET ZLIB::ZLIB)
+        target_link_libraries(${target_name} PRIVATE ZLIB::ZLIB)
+    endif()
     if(TARGET flatbuffers::flatbuffers)
         target_link_libraries(${target_name} PRIVATE flatbuffers::flatbuffers)
     endif()
@@ -69,8 +74,8 @@ function(add_1q_gtest target_name suite_label discovery_timeout)
         ${CMAKE_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}
     )
-    if(WIN32 AND DEFINED flatbuffers_INCLUDE_DIRS_RELEASE)
-        # Conan + VS2015 multi-config can omit header-only include dirs for tests.
+    if(DEFINED flatbuffers_INCLUDE_DIRS_RELEASE)
+        # Conan multi-config can omit header-only include dirs for tests.
         # Mirror Release include dirs so flexbuffers headers are always resolvable.
         target_include_directories(${target_name} PRIVATE
             ${flatbuffers_INCLUDE_DIRS_RELEASE}
@@ -82,6 +87,16 @@ function(add_1q_gtest target_name suite_label discovery_timeout)
         target_compile_definitions(${target_name} PRIVATE
             FLATBUFFERS_LOCALE_INDEPENDENT=0
         )
+    endif()
+
+    # Propagate ONEQ_HAVE_ZLIB so compression test guards resolve the same as in the library.
+    if(TARGET ZLIB::ZLIB)
+        target_compile_definitions(${target_name} PRIVATE ONEQ_HAVE_ZLIB=1)
+        if(DEFINED zlib_INCLUDE_DIRS_RELEASE)
+            target_include_directories(${target_name} PRIVATE ${zlib_INCLUDE_DIRS_RELEASE})
+        endif()
+    else()
+        target_compile_definitions(${target_name} PRIVATE ONEQ_HAVE_ZLIB=0)
     endif()
 
     if(WIN32 AND BUILD_SHARED_LIBS)
@@ -108,6 +123,8 @@ add_1q_gtest(${PROJECT_NAME}_contract_tests contract 60 ${CONTRACT_TEST_SOURCES}
 set(REPLAY_FAST_TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/replay_trace_writer_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/ar_trace_session_adapter_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/ar_replay_codec_roundtrip_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/replay_trace_compression_test.cpp
 )
 add_1q_gtest(${PROJECT_NAME}_replay_fast_tests replay_fast 90 ${REPLAY_FAST_TEST_SOURCES})
 

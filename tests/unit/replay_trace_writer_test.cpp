@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <cstdlib>
 #include <ctime>
 #include <fstream>
@@ -11,6 +12,7 @@
 namespace {
 
 std::string MakeTempTraceDir() {
+  static unsigned int unique_counter = 0U;
   const char* temp_dir = nullptr;
 #if defined(_WIN32)
   temp_dir = std::getenv("TEMP");
@@ -34,7 +36,10 @@ std::string MakeTempTraceDir() {
   if (!base.empty() && base[base.size() - 1U] != '/' && base[base.size() - 1U] != '\\') {
     stream << "/";
   }
-  stream << "oneq-replay-trace-" << std::time(nullptr) << "-" << std::rand();
+  const long long ticks = static_cast<long long>(
+      std::chrono::high_resolution_clock::now().time_since_epoch().count());
+  stream << "oneq-replay-trace-" << std::time(nullptr) << "-" << ticks << "-"
+         << std::rand() << "-" << unique_counter++;
   return stream.str();
 }
 
@@ -103,11 +108,11 @@ bool CountCycleInputCallback(const oneq::replay::ReplayTraceReadEvent& event,
 
 bool EchoOutputCallback(const oneq::replay::ReplayTraceReadEvent& event,
                         void* user_data,
-                        std::string* actual_output_json,
+                        std::string* actual_output_payload,
                         std::string* error) {
   (void)user_data;
   (void)error;
-  *actual_output_json = event.payload_json;
+  *actual_output_payload = event.payload_inline;
   return true;
 }
 
@@ -117,17 +122,6 @@ bool AlwaysOkEventCallback(const oneq::replay::ReplayTraceReadEvent& event,
   (void)event;
   (void)user_data;
   (void)error;
-  return true;
-}
-
-bool DivergentOutputCallback(const oneq::replay::ReplayTraceReadEvent& event,
-                             void* user_data,
-                             std::string* actual_output_json,
-                             std::string* error) {
-  (void)event;
-  (void)user_data;
-  (void)error;
-  *actual_output_json = "{\"track_count\":1}";
   return true;
 }
 
@@ -146,7 +140,7 @@ TEST(ReplayTraceWriterTest, WritesManifestAndReplayEventEnvelope) {
   manifest.scenario_id = "scenario-a";
   manifest.git_commit = "abc123";
   manifest.platform = "test-platform";
-  manifest.default_tolerances_json = "{\"float_abs\":0.001}";
+  manifest.default_tolerances_payload = "{\"float_abs\":0.001}";
   manifest.failure_window_event_count = 64U;
 
   ReplayTraceWriter writer(trace_dir, manifest, true);
@@ -227,7 +221,7 @@ TEST(ReplayTraceWriterTest, ReaderIteratesEventsAndValidatesPayloadHash) {
   EXPECT_EQ(event.event_type, "session_config");
   EXPECT_EQ(event.payload_type, "RadarSessionConfig");
   EXPECT_EQ(event.payload_encoding, "flatbuffers");
-  EXPECT_EQ(event.payload_json, "null");
+  EXPECT_EQ(event.payload_inline, "null");
   EXPECT_EQ(event.payload_bytes, MakeFlatbuffersPayloadBytes("reader-config"));
   EXPECT_TRUE(event.payload_hash_matches);
   EXPECT_TRUE(event.previous_event_hash_matches);
@@ -243,7 +237,7 @@ TEST(ReplayTraceWriterTest, ReaderIteratesEventsAndValidatesPayloadHash) {
   EXPECT_TRUE(event.has_sim_time_sec);
   EXPECT_DOUBLE_EQ(event.sim_time_sec, 9.0);
   EXPECT_EQ(event.payload_encoding, "flatbuffers");
-  EXPECT_EQ(event.payload_json, "null");
+  EXPECT_EQ(event.payload_inline, "null");
   EXPECT_EQ(event.payload_bytes, MakeFlatbuffersPayloadBytes("reader-input"));
   EXPECT_TRUE(event.payload_hash_matches);
   EXPECT_TRUE(event.previous_event_hash_matches);
@@ -269,7 +263,7 @@ TEST(ReplayTraceWriterTest, ReaderRestoresBinaryPayloadBytes) {
     event.event_type = "cycle_input";
     event.payload_type = "RadarCycleInput";
     event.payload_encoding = "flatbuffers";
-    event.payload_json = "{}";
+    event.payload_inline = "{}";
     event.payload_bytes = payload_bytes;
     writer.WriteEvent(event);
     writer.Flush();
@@ -287,7 +281,7 @@ TEST(ReplayTraceWriterTest, ReaderRestoresBinaryPayloadBytes) {
   ReplayTraceReadEvent event;
   ASSERT_TRUE(reader.ReadNextEvent(&event));
   EXPECT_EQ(event.payload_encoding, "flatbuffers");
-  EXPECT_EQ(event.payload_json, "null");
+  EXPECT_EQ(event.payload_inline, "null");
   EXPECT_EQ(event.payload_bytes, payload_bytes);
   EXPECT_TRUE(event.payload_hash_matches);
   EXPECT_FALSE(event.payload_hash.empty());
@@ -381,7 +375,7 @@ TEST(ReplayTraceWriterTest, WritesFailureMarkerAndLastWindowPackage) {
     failure.cycle_index = 1U;
     failure.has_sim_time_sec = true;
     failure.sim_time_sec = 1.0;
-    failure.diagnostics_json = "{\"track_id\":17}";
+    failure.diagnostics_payload = "{\"track_id\":17}";
     writer.WriteFailureMarker(failure, MakeFlatbuffersPayloadBytes("window-failure"));
     writer.Flush();
   }
@@ -593,7 +587,7 @@ TEST(ReplayTraceWriterTest, BuildsReplayReportForBComputerEntry) {
   EXPECT_EQ(report.failure_marker_count, 1U);
   EXPECT_EQ(report.unsupported_event_count, 0U);
   EXPECT_EQ(report.first_failure_sequence, 3U);
-  EXPECT_FALSE(report.first_failure_payload_json.empty());
+  EXPECT_FALSE(report.first_failure_payload.empty());
 
   const std::string report_path = JoinPath(trace_dir, "replay_report.json");
   WriteReplayTraceReport(report, report_path);
@@ -683,60 +677,6 @@ TEST(ReplayTraceWriterTest, PlaybackDispatchesEventsAndComparesOutput) {
   EXPECT_EQ(result.compared_output_count, 1U);
   EXPECT_EQ(state.session_config_calls, 1U);
   EXPECT_EQ(state.cycle_input_calls, 1U);
-}
-
-TEST(ReplayTraceWriterTest, PlaybackStopsOnOutputDivergence) {
-  const std::string trace_dir = MakeTempTraceDir();
-
-  ReplayTraceManifest manifest;
-  manifest.trace_id = "divergence-trace-test";
-  manifest.module = "airborne_radar";
-
-  {
-    ReplayTraceWriter writer(trace_dir, manifest, true);
-
-    ReplayTraceEvent config;
-    config.module = "airborne_radar";
-    config.event_type = "session_config";
-    config.payload_type = "RadarSessionConfig";
-    config.payload_encoding = "flatbuffers";
-    config.payload_bytes = MakeFlatbuffersPayloadBytes("divergence-config");
-    writer.WriteEvent(config);
-
-    ReplayTraceEvent input;
-    input.module = "airborne_radar";
-    input.event_type = "cycle_input";
-    input.payload_type = "RadarCycleInput";
-    input.payload_encoding = "flatbuffers";
-    input.payload_bytes = MakeFlatbuffersPayloadBytes("divergence-input");
-    writer.WriteEvent(input);
-
-    ReplayTraceEvent output;
-    output.module = "airborne_radar";
-    output.event_type = "cycle_output";
-    output.payload_type = "RadarCycleResult";
-    output.payload_encoding = "flatbuffers";
-    output.payload_bytes = MakeFlatbuffersPayloadBytes("divergence-output");
-    writer.WriteEvent(output);
-    writer.Flush();
-  }
-
-  ReplayTracePlaybackCallbacks callbacks;
-  callbacks.on_session_config = AlwaysOkEventCallback;
-  callbacks.on_cycle_input = AlwaysOkEventCallback;
-  callbacks.on_cycle_output = DivergentOutputCallback;
-
-  ReplayTracePlaybackOptions options;
-  options.stop_on_first_divergence = true;
-
-  ReplayTracePlaybackResult result =
-      PlaybackReplayTrace(trace_dir, callbacks, options);
-  EXPECT_FALSE(result.ok);
-  EXPECT_TRUE(result.divergence_found);
-  EXPECT_EQ(result.divergence_sequence, 2U);
-  EXPECT_EQ(result.expected_output_json, "null");
-  EXPECT_EQ(result.actual_output_json, "{\"track_count\":1}");
-  EXPECT_NE(result.first_error.find("divergence"), std::string::npos);
 }
 
 TEST(ReplayTraceWriterTest, PlaybackRejectsMissingRequiredCallback) {

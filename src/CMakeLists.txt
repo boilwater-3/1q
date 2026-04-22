@@ -98,12 +98,15 @@ find_package(nanoflann CONFIG REQUIRED)
 if(ONEQ_ENABLE_NLOHMANN_JSON)
     find_package(nlohmann_json CONFIG REQUIRED)
 endif()
-if(WIN32)
-    find_package(flatbuffers CONFIG REQUIRED)
-endif()
+find_package(flatbuffers CONFIG REQUIRED)
 if(PROJECT_ENABLE_SPDLOG)
     find_package(spdlog CONFIG REQUIRED)
 endif()
+
+# zlib は全プラットフォームで Conan が供給する（macOS/Linux はシステム互換、
+# Windows は Conan レシピ経由）。
+find_package(ZLIB REQUIRED)
+set(ONEQ_HAVE_ZLIB ON)
 
 set(ONEQ_LINK_DEPENDENCIES
     Eigen3::Eigen
@@ -113,9 +116,7 @@ set(ONEQ_LINK_DEPENDENCIES
 if(ONEQ_ENABLE_NLOHMANN_JSON)
     list(APPEND ONEQ_LINK_DEPENDENCIES nlohmann_json::nlohmann_json)
 endif()
-if(WIN32)
-    list(APPEND ONEQ_LINK_DEPENDENCIES flatbuffers::flatbuffers)
-endif()
+list(APPEND ONEQ_LINK_DEPENDENCIES flatbuffers::flatbuffers)
 foreach(ONEQ_BUILD_TARGET IN ITEMS
     ${PROJECT_CORE_TARGET}
     ${ONEQ_OBJECT_TARGETS}
@@ -132,6 +133,7 @@ set(_oneq_conan_include_vars
     boost_INCLUDE_DIRS_RELEASE
     nanoflann_INCLUDE_DIRS_RELEASE
     flatbuffers_INCLUDE_DIRS_RELEASE
+    zlib_INCLUDE_DIRS_RELEASE
 )
 if(ONEQ_ENABLE_NLOHMANN_JSON)
     list(APPEND _oneq_conan_include_vars nlohmann_json_INCLUDE_DIRS_RELEASE)
@@ -173,9 +175,20 @@ foreach(ONEQ_BUILD_TARGET IN ITEMS
 )
     target_compile_definitions(${ONEQ_BUILD_TARGET}
         PRIVATE PROJECT_LOG_BACKEND_SPDLOG=$<BOOL:${PROJECT_ENABLE_SPDLOG}>
+                ONEQ_HAVE_ZLIB=$<BOOL:${ONEQ_HAVE_ZLIB}>
     )
 endforeach()
 unset(ONEQ_BUILD_TARGET)
+
+if(ONEQ_HAVE_ZLIB)
+    foreach(ONEQ_BUILD_TARGET IN ITEMS
+        ${PROJECT_CORE_TARGET}
+        ${ONEQ_OBJECT_TARGETS}
+    )
+        target_link_libraries(${ONEQ_BUILD_TARGET} PRIVATE ZLIB::ZLIB)
+    endforeach()
+    unset(ONEQ_BUILD_TARGET)
+endif()
 
 set(ONEQ_MSVC_RUNTIME_LIBRARY "" CACHE STRING
     "Optional MSVC runtime override (example: MultiThreadedDLL). Empty keeps toolchain/profile default.")
