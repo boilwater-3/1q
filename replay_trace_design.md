@@ -493,11 +493,11 @@ if (result.reached_failure_marker) {
 
 2. `cycle_output` 只用于校验，不用于驱动 B 电脑模型。B 电脑必须自己执行模型得到 actual output，然后和 A 电脑 expected output 比较。
 
-3. Windows 侧当前 payload 标记仍保留 `"serializer":"flatbuffers"` 和 `"platform":"windows"`，但 Phase 1 durable replay payload 实际采用可检查 JSON 字段。后续如切到真正二进制 payload，需要同步实现稳定的 reader。
+3. FlatBuffers 是 replay payload 的目标编码，不是后续可有可无的压缩优化。设计初衷是让 `session_config`、`cycle_input`、`scene_state`、`runtime_config_patch`、`cycle_output`、`failure_marker` 都有稳定 schema，避免 writer/parser 依赖手写字段名字符串。
 
-4. 当前 AR parser 是轻量字符串解析，目的是避免给 VS2015 `airborne_core` 目标引入额外 JSON include 依赖。它适合读取本模块 serializer 生成的稳定 JSON，不适合作为任意 JSON 通用解析器。
+4. 当前代码中的 JSON payload 只应被视为 Phase 1 过渡实现和 debug/export 格式。Windows 侧 `"serializer":"flatbuffers"` 标记如果没有对应的 typed FlatBuffers bytes，就是不完整实现，后续代码必须修正为真实二进制 payload 或明确标记为 `json`。
 
-5. 旧 trace 兼容：如果旧 `session_config` 只有 type 壳而没有完整字段，回放会落到默认配置。这能兼容早期 trace，但不建议用于严肃复现。
+5. replay 事件外层仍可以保留 JSONL event envelope，便于人工检查 manifest、sequence、hash chain、event_type 等元信息；但 `payload` 字段应支持 `payload_encoding = "flatbuffers"`，并以稳定 bytes 形式保存 typed payload。JSON payload 可以作为可选 shadow/debug 字段，不应作为 B 电脑复现的唯一数据源。
 
 6. 运行期 patch 的语义是“先记录，再应用”。回放时必须按事件流原始顺序调用 `ApplyRuntimeConfig`，否则后续周期行为会偏移。
 
@@ -505,16 +505,62 @@ if (result.reached_failure_marker) {
 
 8. `failure_marker` 不是 divergence。failure marker 表示 A 电脑记录的原始故障点；divergence 表示 B 电脑回放输出已经和 A 电脑记录输出不一致。
 
-### 17.8 当前限制和后续工作
+### 17.8 FlatBuffers 迁移设计
+
+目标数据流如下：
+
+```text
+A 电脑 C++ typed object
+  -> FlatBuffers builder
+  -> bytes payload
+  -> ReplayTraceEvent(payload_encoding = "flatbuffers")
+  -> events/*.events.jsonl 或二进制 chunk
+
+B 电脑 ReplayTraceReader
+  -> 读取 bytes payload
+  -> FlatBuffers verifier
+  -> generated reader
+  -> C++ typed object
+  -> RadarSession replay
+```
+
+第一阶段先不改变事件流调度语义，只替换 payload 编码：
+- 保留 `ReplayTraceWriter::WriteEvent` 的 event envelope、sequence、hash chain、failure window 和 cycle index。
+- 给 `ReplayTraceEvent` 增加 bytes payload 能力，`payload_encoding` 可以是 `json` 或 `flatbuffers`。
+- 对 `flatbuffers` payload 计算 hash 时必须基于原始 bytes，而不是 base64 文本或 debug JSON。
+- 为 AR replay 新增 typed payload schema，先覆盖 `RadarCycleInput`、`EnvironmentSceneState`、`RadarSessionConfig`、`RadarRuntimeConfigPatch` 和当前摘要级 `cycle_output`。
+- B 电脑优先读取 `flatbuffers` payload；只有历史 trace 或 debug trace 才回退 JSON。
+
+建议 schema 目录：
+- `schemas/replay/airborne_radar_replay.fbs`
+
+建议生成代码目录：
+- `generated/1q/replay/airborne_radar/airborne_radar_replay_generated.h`
+
+兼容策略：
+- `manifest.serializer_version` 从 `replay-json-v1` 升级到 `replay-flatbuffers-v1`。
+- `ReplayTraceCompatibilityExpectation` 必须检查 serializer version，避免 B 电脑用 JSON parser 误读 FlatBuffers trace。
+- 过渡期允许 reader 同时支持 `json` 和 `flatbuffers`，但 writer 默认写 `flatbuffers`。
+- debug/export 工具可以把 FlatBuffers payload 转成 JSON 观察，但复现链路不依赖 debug JSON。
+
+实现顺序：
+1. 文档和 manifest 语义先改清楚，消除 `"serializer":"flatbuffers"` 但 payload 实际是 JSON 的歧义。
+2. 扩展 replay event 支持 bytes payload，先用 base64 放在 JSONL envelope 中，保证改动小且 hash/reader 行为可测。
+3. 增加 AR FlatBuffers schema 和 encode/decode adapter。
+4. 将 `RadarTraceSession` 写侧切到 `payload_encoding = "flatbuffers"`。
+5. 将 `RadarReplaySession` 读侧优先走 FlatBuffers decode，保留 JSON fallback。
+6. 补 round-trip 测试，要求每个新增字段同时覆盖 encode、decode、replay。
+
+### 17.9 当前限制和后续工作
 
 当前 Phase 1 仍有这些限制：
 - 不支持从 checkpoint 恢复内部状态，只能从 cycle 0 或已有事件起点完整回放。
 - `cycle_output` 目前仍是摘要级对比，不是完整 `RadarCycleResult` 深度结构对比。
 - 没有记录 RNG engine 内部状态；如果未来 AR 引入随机噪声，至少需要记录 seed，最好记录可恢复 RNG state。
 - 没有记录所有内部私有状态，例如 track pool、filter covariance、controller internal snapshot；这些应进入 Phase 3 checkpoint/restore。
-- 轻量 JSON parser 依赖当前 serializer 的字段命名和格式，新增字段时要同步补 serializer、parser 和测试。
+- 当前落地代码仍有 JSON payload fallback，必须迁移为 FlatBuffers 优先路径；新增字段时应先改 schema，再改 adapter 和 round-trip 测试。
 
 建议下一阶段优先级：
-- Phase 2: 增加更完整的 output payload，用结构化字段定位 divergence。
+- Phase 2: 完成 FlatBuffers payload 写读路径，并增加更完整的 output payload，用结构化字段定位 divergence。
 - Phase 3: 设计 AR checkpoint，覆盖 track lifecycle、filter state、environment runtime state、controller runtime state。
-- Phase 4: 再考虑压缩、二进制 payload、跨平台容差策略和大规模长时间仿真 trace 管理。
+- Phase 4: 再考虑压缩、跨平台容差策略和大规模长时间仿真 trace 管理。
