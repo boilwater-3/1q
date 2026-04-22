@@ -793,6 +793,8 @@ struct RadarReplayState {
   bool has_pending_scene_state{false};
   std::string latest_result_payload{};
   std::string latest_frame_payload{};
+  bool reached_failure_marker{false};
+  std::string failure_marker_payload_json{};
 };
 
 bool ExecutePendingCycle(RadarReplayState* state, std::string* error) {
@@ -916,6 +918,14 @@ bool OnCycleOutput(const oneq::replay::ReplayTraceReadEvent& event, void* user_d
   return false;
 }
 
+bool OnFailureMarker(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
+                     std::string* /*error*/) {
+  RadarReplayState* state = static_cast<RadarReplayState*>(user_data);
+  state->reached_failure_marker = true;
+  state->failure_marker_payload_json = event.payload_json;
+  return true;
+}
+
 }  // namespace
 
 RadarReplaySessionResult ReplayRadarTrace(const std::string& trace_dir) {
@@ -940,13 +950,17 @@ RadarReplaySessionResult ReplayRadarTrace(const std::string& trace_dir) {
   callbacks.on_scene_state = OnSceneState;
   callbacks.on_runtime_config_patch = OnRuntimeConfigPatch;
   callbacks.on_cycle_output = OnCycleOutput;
+  callbacks.on_failure_marker = OnFailureMarker;
 
   oneq::replay::ReplayTracePlaybackOptions options;
   options.require_output_callback = true;
   options.stop_on_first_divergence = true;
+  options.stop_on_failure_marker = true;
 
   result.playback = oneq::replay::PlaybackReplayTrace(trace_dir, callbacks, options);
   result.ok = result.playback.ok;
+  result.reached_failure_marker = state.reached_failure_marker;
+  result.failure_marker_payload_json = state.failure_marker_payload_json;
   if (!result.ok) {
     result.first_error = result.playback.first_error;
   }

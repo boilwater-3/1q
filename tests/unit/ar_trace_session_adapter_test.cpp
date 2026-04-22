@@ -263,6 +263,49 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
   EXPECT_FALSE(replay_result.playback.divergence_found);
 }
 
+TEST(TraceSessionAdapterTest, RadarReplaySessionStopsAtFailureMarker) {
+  const std::string trace_dir = MakeTempTracePath("oneq-radar-replay-failure");
+
+  oneq::replay::ReplayTraceManifest manifest;
+  manifest.trace_id = "radar-replay-failure-test";
+  manifest.module = "airborne_radar";
+  manifest.scenario_id = "unit-test";
+
+  {
+    std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
+        new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
+
+    session::RadarTraceSessionOptions options;
+    options.replay_writer = replay_writer;
+    options.trace_config_on_construct = true;
+
+    session::RadarSessionConfig config;
+    session::RadarTraceSession session(config, options);
+
+    session::RadarCycleInput input;
+    input.dt_sec = 1.0f;
+    const session::RadarCycleResult result = session.StepWithResult(input);
+    EXPECT_GE(result.track_output_frame.published_track_count, 0U);
+
+    oneq::replay::ReplayTraceFailure failure;
+    failure.error_code = "AR_SIM_ASSERT";
+    failure.message = "synthetic replay failure marker";
+    failure.has_cycle_index = true;
+    failure.cycle_index = result.track_output_frame.cycle_index;
+    replay_writer->WriteFailureMarker(failure);
+    replay_writer->Flush();
+  }
+
+  const session::RadarReplaySessionResult replay_result =
+      session::ReplayRadarTrace(trace_dir);
+  EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
+  EXPECT_TRUE(replay_result.report.has_failure_marker);
+  EXPECT_TRUE(replay_result.reached_failure_marker);
+  EXPECT_EQ(replay_result.playback.failure_marker_count, 1U);
+  EXPECT_NE(replay_result.failure_marker_payload_json.find("AR_SIM_ASSERT"),
+            std::string::npos);
+}
+
 }  // namespace tests
 }  // namespace airborne_radar
 
