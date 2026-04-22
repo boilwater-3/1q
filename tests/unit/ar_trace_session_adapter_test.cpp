@@ -20,6 +20,7 @@
 #include <flatbuffers/flexbuffers.h>
 #endif
 
+#include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
 #include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarReplaySession.h"
@@ -200,6 +201,14 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
     config.hardware.detection.min_detection_margin_db = -25.0f;
     session::RadarTraceSession session(config, options);
 
+    config::RadarRuntimeConfigPatch runtime_patch;
+    runtime_patch.has_scan_center_deg = true;
+    runtime_patch.scan_center_deg.az_deg = 4.0f;
+    runtime_patch.scan_center_deg.el_deg = -1.0f;
+    runtime_patch.has_commanded_beamwidth_enabled = true;
+    runtime_patch.commanded_beamwidth_enabled = true;
+    session.ApplyRuntimeConfig(runtime_patch);
+
     session::RadarCycleInput input;
     input.dt_sec = 1.0f;
 
@@ -238,6 +247,8 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
   EXPECT_NE(content.find("\"confirm_hits\":1"), std::string::npos);
   EXPECT_NE(content.find("\"enable_kalman_filter\":false"), std::string::npos);
   EXPECT_NE(content.find("\"scan_center_deg\":{\"az_deg\":12.5"), std::string::npos);
+  EXPECT_NE(content.find("\"event_type\":\"runtime_config_patch\""), std::string::npos);
+  EXPECT_NE(content.find("\"has_scan_center_deg\":true"), std::string::npos);
   EXPECT_NE(content.find("\"event_type\":\"scene_state\""), std::string::npos);
   EXPECT_NE(content.find("\"jammer_emitters\":[{\"technique\":1"), std::string::npos);
 
@@ -247,6 +258,7 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
   EXPECT_TRUE(replay_result.report.replay_ready);
   EXPECT_EQ(replay_result.playback.applied_input_count, 1U);
   EXPECT_EQ(replay_result.playback.applied_scene_state_count, 1U);
+  EXPECT_EQ(replay_result.playback.applied_runtime_patch_count, 1U);
   EXPECT_EQ(replay_result.playback.compared_output_count, 1U);
   EXPECT_FALSE(replay_result.playback.divergence_found);
 }

@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
 
 namespace airborne_radar {
@@ -712,6 +713,54 @@ bool ParseSceneState(const std::string& payload_json,
   return true;
 }
 
+bool ParseRuntimeConfigPatch(const std::string& payload_json,
+                             config::RadarRuntimeConfigPatch* patch,
+                             std::string* error) {
+  if (payload_json.empty()) {
+    *error = "empty RadarRuntimeConfigPatch payload";
+    return false;
+  }
+
+  patch->has_work_sub_mode =
+      ReadBool(payload_json, "has_work_sub_mode", patch->has_work_sub_mode);
+  patch->work_sub_mode = static_cast<config::RadarWorkSubMode>(
+      ReadInt(payload_json, "work_sub_mode", static_cast<int>(patch->work_sub_mode)));
+
+  patch->has_scan_center_deg =
+      ReadBool(payload_json, "has_scan_center_deg", patch->has_scan_center_deg);
+  const std::string scan_center_json =
+      ExtractRawJsonValue(payload_json, "scan_center_deg");
+  if (!scan_center_json.empty()) {
+    patch->scan_center_deg = ReadAzEl(scan_center_json, patch->scan_center_deg);
+  }
+
+  patch->has_dwell_center_deg =
+      ReadBool(payload_json, "has_dwell_center_deg", patch->has_dwell_center_deg);
+  const std::string dwell_center_json =
+      ExtractRawJsonValue(payload_json, "dwell_center_deg");
+  if (!dwell_center_json.empty()) {
+    patch->dwell_center_deg = ReadAzEl(dwell_center_json, patch->dwell_center_deg);
+  }
+
+  patch->has_commanded_beamwidth_deg =
+      ReadBool(payload_json, "has_commanded_beamwidth_deg",
+               patch->has_commanded_beamwidth_deg);
+  const std::string beamwidth_json =
+      ExtractRawJsonValue(payload_json, "commanded_beamwidth_deg");
+  if (!beamwidth_json.empty()) {
+    patch->commanded_beamwidth_deg =
+        ReadCommandedBeamwidth(beamwidth_json, patch->commanded_beamwidth_deg);
+  }
+
+  patch->has_commanded_beamwidth_enabled =
+      ReadBool(payload_json, "has_commanded_beamwidth_enabled",
+               patch->has_commanded_beamwidth_enabled);
+  patch->commanded_beamwidth_enabled =
+      ReadBool(payload_json, "commanded_beamwidth_enabled",
+               patch->commanded_beamwidth_enabled);
+  return true;
+}
+
 std::string MakeOutputPayload(const output::TrackOutputFrame& output) {
   std::ostringstream stream;
   stream << "{"
@@ -827,6 +876,28 @@ bool OnSceneState(const oneq::replay::ReplayTraceReadEvent& event, void* user_da
   return true;
 }
 
+bool OnRuntimeConfigPatch(const oneq::replay::ReplayTraceReadEvent& event,
+                          void* user_data,
+                          std::string* error) {
+  if (event.payload_type != "RadarRuntimeConfigPatch") {
+    *error = "AR replay expected RadarRuntimeConfigPatch runtime_config_patch";
+    return false;
+  }
+
+  RadarReplayState* state = static_cast<RadarReplayState*>(user_data);
+  if (!state->session) {
+    *error = "AR replay received runtime_config_patch before session_config";
+    return false;
+  }
+
+  config::RadarRuntimeConfigPatch patch;
+  if (!ParseRuntimeConfigPatch(event.payload_json, &patch, error)) {
+    return false;
+  }
+  state->session->ApplyRuntimeConfig(patch);
+  return true;
+}
+
 bool OnCycleOutput(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
                    std::string* actual_output_json, std::string* error) {
   RadarReplayState* state = static_cast<RadarReplayState*>(user_data);
@@ -867,6 +938,7 @@ RadarReplaySessionResult ReplayRadarTrace(const std::string& trace_dir) {
   callbacks.on_session_config = OnSessionConfig;
   callbacks.on_cycle_input = OnCycleInput;
   callbacks.on_scene_state = OnSceneState;
+  callbacks.on_runtime_config_patch = OnRuntimeConfigPatch;
   callbacks.on_cycle_output = OnCycleOutput;
 
   oneq::replay::ReplayTracePlaybackOptions options;

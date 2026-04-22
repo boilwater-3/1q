@@ -4,6 +4,7 @@
 #include <sstream>
 #include <string>
 
+#include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
 
 namespace airborne_radar {
@@ -270,6 +271,37 @@ std::string MakeFlatbuffersPayload(
     stream << MakeJammerEmitterPayload(value.jammer_emitters[i]);
   }
   stream << "]}";
+  return stream.str();
+}
+
+std::string MakeFlatbuffersPayload(
+    const char* type_name,
+    const config::RadarRuntimeConfigPatch& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"serializer\":\"flatbuffers\","
+         << "\"platform\":\"windows\","
+         << "\"type\":\"" << type_name << "\","
+         << "\"has_mission\":" << JsonBool(value.has_mission) << ","
+         << "\"has_policy\":" << JsonBool(value.has_policy) << ","
+         << "\"has_environment_runtime_config\":"
+         << JsonBool(value.has_environment_runtime_config) << ","
+         << "\"has_work_sub_mode\":" << JsonBool(value.has_work_sub_mode) << ","
+         << "\"work_sub_mode\":" << static_cast<int>(value.work_sub_mode) << ","
+         << "\"has_scan_center_deg\":"
+         << JsonBool(value.has_scan_center_deg) << ","
+         << "\"scan_center_deg\":" << MakeAzElPayload(value.scan_center_deg) << ","
+         << "\"has_dwell_center_deg\":"
+         << JsonBool(value.has_dwell_center_deg) << ","
+         << "\"dwell_center_deg\":" << MakeAzElPayload(value.dwell_center_deg) << ","
+         << "\"has_commanded_beamwidth_deg\":"
+         << JsonBool(value.has_commanded_beamwidth_deg) << ","
+         << "\"commanded_beamwidth_deg\":"
+         << MakeCommandedBeamwidthPayload(value.commanded_beamwidth_deg) << ","
+         << "\"has_commanded_beamwidth_enabled\":"
+         << JsonBool(value.has_commanded_beamwidth_enabled) << ","
+         << "\"commanded_beamwidth_enabled\":"
+         << JsonBool(value.commanded_beamwidth_enabled) << "}";
   return stream.str();
 }
 
