@@ -6,6 +6,7 @@
 
 #include "airborne_radar/session/generated/airborne_radar_replay_generated.h"
 #include "airborne_radar/session/generated/airborne_radar_scene_replay_generated.h"
+#include "airborne_radar/session/generated/airborne_radar_session_replay_generated.h"
 
 namespace airborne_radar {
 namespace session {
@@ -13,6 +14,7 @@ namespace {
 
 namespace fb = oneq::replay::airborne_radar::fb;
 namespace scene_fb = oneq::replay::airborne_radar::scene::fb;
+namespace session_fb = oneq::replay::airborne_radar::session::fb;
 
 flatbuffers::Offset<fb::Vector3f> EncodeVector3(
     flatbuffers::FlatBufferBuilder* builder,
@@ -195,6 +197,322 @@ environment::JammerEmitterState DecodeJammerEmitterState(
   return result;
 }
 
+flatbuffers::Offset<session_fb::EulerAnglesDeg> EncodeSessionEulerAngles(
+    flatbuffers::FlatBufferBuilder* builder,
+    const model::EulerAnglesDeg& value) {
+  return session_fb::CreateEulerAnglesDeg(*builder, value.yaw_deg, value.pitch_deg,
+                                          value.roll_deg);
+}
+
+flatbuffers::Offset<session_fb::AzimuthElevationDeg> EncodeSessionAzEl(
+    flatbuffers::FlatBufferBuilder* builder,
+    const model::AzimuthElevationDeg& value) {
+  return session_fb::CreateAzimuthElevationDeg(*builder, value.az_deg, value.el_deg);
+}
+
+flatbuffers::Offset<session_fb::AzimuthElevationLimitsDeg> EncodeSessionAzElLimits(
+    flatbuffers::FlatBufferBuilder* builder,
+    const model::AzimuthElevationLimitsDeg& value) {
+  return session_fb::CreateAzimuthElevationLimitsDeg(
+      *builder, value.az_min_deg, value.az_max_deg, value.el_min_deg,
+      value.el_max_deg);
+}
+
+flatbuffers::Offset<session_fb::CommandedBeamwidthDeg> EncodeSessionCommandedBeamwidth(
+    flatbuffers::FlatBufferBuilder* builder,
+    const model::CommandedBeamwidthDeg& value) {
+  return session_fb::CreateCommandedBeamwidthDeg(
+      *builder, value.commanded_az_beamwidth_deg, value.commanded_el_beamwidth_deg);
+}
+
+flatbuffers::Offset<session_fb::RadarOrientationConfig> EncodeSessionOrientation(
+    flatbuffers::FlatBufferBuilder* builder,
+    const model::RadarOrientationConfig& value) {
+  return session_fb::CreateRadarOrientationConfig(
+      *builder, EncodeSessionEulerAngles(builder, value.mount_angles_deg),
+      EncodeSessionAzEl(builder, value.scan_center_deg),
+      EncodeSessionAzElLimits(builder, value.mechanical_scan_limits_deg),
+      EncodeSessionAzElLimits(builder, value.electronic_scan_limits_deg),
+      static_cast<int>(value.scan_start_position),
+      static_cast<int>(value.scan_sequence), static_cast<int>(value.work_sub_mode),
+      value.commanded_beamwidth_enabled,
+      EncodeSessionCommandedBeamwidth(builder, value.commanded_beamwidth_deg),
+      static_cast<int>(value.stabilization_mode));
+}
+
+flatbuffers::Offset<session_fb::DetectionConfig> EncodeSessionDetectionConfig(
+    flatbuffers::FlatBufferBuilder* builder,
+    const config::DetectionConfig& value) {
+  const flatbuffers::Offset<session_fb::TransmitterConfig> transmitter =
+      session_fb::CreateTransmitterConfig(
+          *builder, value.transmitter.peak_power_w, value.transmitter.frequency_hz,
+          value.transmitter.bandwidth_hz, value.transmitter.pulse_width_s,
+          value.transmitter.prf_hz, value.transmitter.transmit_loss_db);
+  const flatbuffers::Offset<session_fb::AntennaPatternConfig> pattern =
+      session_fb::CreateAntennaPatternConfig(
+          *builder, static_cast<int>(value.antenna.pattern.model_type),
+          value.antenna.pattern.max_sidelobe_level_db,
+          value.antenna.pattern.backlobe_level_db,
+          value.antenna.pattern.scan_loss_coeff_db_per_deg2,
+          value.antenna.pattern.max_scan_loss_db,
+          EncodeSessionAzEl(builder, value.antenna.pattern.boresight_offset_deg));
+  const flatbuffers::Offset<session_fb::AntennaConfig> antenna =
+      session_fb::CreateAntennaConfig(
+          *builder, value.antenna.main_beam_gain_db,
+          value.antenna.nominal_az_beamwidth_deg,
+          value.antenna.nominal_el_beamwidth_deg,
+          value.antenna.enable_directional_pattern, pattern);
+  const flatbuffers::Offset<session_fb::ReceiverConfig> receiver =
+      session_fb::CreateReceiverConfig(*builder, value.receiver.noise_figure_db,
+                                       value.receiver.receive_loss_db);
+  const flatbuffers::Offset<session_fb::DetectionPolicyConfig> policy =
+      session_fb::CreateDetectionPolicyConfig(*builder, value.detection_policy.cfar_pfa,
+                                              value.detection_policy.min_snr_db);
+  const flatbuffers::Offset<session_fb::RcsPhysicsConfig> rcs_physics =
+      session_fb::CreateRcsPhysicsConfig(
+          *builder, value.rcs_physics.enable_physical_rcs,
+          value.rcs_physics.frequency_hz, value.rcs_physics.physics_mix_ratio,
+          value.rcs_physics.cylinder_weight,
+          value.rcs_physics.min_equivalent_radius_m,
+          value.rcs_physics.max_equivalent_radius_m, value.rcs_physics.min_rcs_m2,
+          value.rcs_physics.max_rcs_m2,
+          value.rcs_physics.bistatic_psi_offset_deg);
+  return session_fb::CreateDetectionConfig(
+      *builder, value.enable_physics_detection,
+      static_cast<int>(value.swerling_model), transmitter, antenna, receiver, policy,
+      rcs_physics, value.min_detection_margin_db, value.pulse_count);
+}
+
+flatbuffers::Offset<session_fb::RadarPolicyConfig> EncodeSessionPolicyConfig(
+    flatbuffers::FlatBufferBuilder* builder,
+    const config::RadarPolicyConfig& value) {
+  const flatbuffers::Offset<session_fb::BeamPointingConfig> pointing =
+      session_fb::CreateBeamPointingConfig(
+          *builder, EncodeSessionAzEl(builder, value.beam_control.pointing.default_scan_center_deg),
+          EncodeSessionCommandedBeamwidth(
+              builder, value.beam_control.pointing.nominal_beamwidth_deg));
+  const flatbuffers::Offset<session_fb::BeamSchedulerConfig> scheduler =
+      session_fb::CreateBeamSchedulerConfig(
+          *builder, value.beam_control.scheduler.azimuth_step_count_hint,
+          value.beam_control.scheduler.elevation_step_count_hint,
+          value.beam_control.scheduler.prefer_dense_tas_sampling);
+  const flatbuffers::Offset<session_fb::BeamControlConfig> beam_control =
+      session_fb::CreateBeamControlConfig(*builder, pointing, scheduler);
+  const flatbuffers::Offset<session_fb::AssociationConfig> association =
+      session_fb::CreateAssociationConfig(
+          *builder, value.association.unassigned_cost,
+          value.association.use_distance_gate_hint,
+          value.association.distance_gate_sigma_hint);
+  const flatbuffers::Offset<session_fb::TrackingConfig> tracking =
+      session_fb::CreateTrackingConfig(
+          *builder, value.tracking.enable_kalman_filter,
+          value.tracking.kalman_measurement_noise_std,
+          static_cast<int>(value.tracking.kalman_update_backend),
+          value.tracking.speed_decay_ratio_on_loss,
+          value.tracking.rcs_decay_ratio_on_loss);
+  const flatbuffers::Offset<session_fb::LifecycleConfig> lifecycle =
+      session_fb::CreateLifecycleConfig(
+          *builder, value.lifecycle.confirm_hits,
+          value.lifecycle.max_miss_before_lost, value.lifecycle.max_lost_cycles,
+          value.lifecycle.enable_imm_lifecycle);
+  const flatbuffers::Offset<session_fb::ImmConfig> imm =
+      session_fb::CreateImmConfig(*builder, value.imm.enable_imm_lifecycle,
+                                  value.imm.model_count_hint);
+  return session_fb::CreateRadarPolicyConfig(*builder, beam_control, association,
+                                             tracking, lifecycle, imm);
+}
+
+model::EulerAnglesDeg DecodeSessionEulerAngles(const session_fb::EulerAnglesDeg* value) {
+  model::EulerAnglesDeg result;
+  if (value != nullptr) {
+    result.yaw_deg = value->yaw_deg();
+    result.pitch_deg = value->pitch_deg();
+    result.roll_deg = value->roll_deg();
+  }
+  return result;
+}
+
+model::AzimuthElevationDeg DecodeSessionAzEl(const session_fb::AzimuthElevationDeg* value) {
+  model::AzimuthElevationDeg result;
+  if (value != nullptr) {
+    result.az_deg = value->az_deg();
+    result.el_deg = value->el_deg();
+  }
+  return result;
+}
+
+model::AzimuthElevationLimitsDeg DecodeSessionAzElLimits(
+    const session_fb::AzimuthElevationLimitsDeg* value) {
+  model::AzimuthElevationLimitsDeg result;
+  if (value != nullptr) {
+    result.az_min_deg = value->az_min_deg();
+    result.az_max_deg = value->az_max_deg();
+    result.el_min_deg = value->el_min_deg();
+    result.el_max_deg = value->el_max_deg();
+  }
+  return result;
+}
+
+model::CommandedBeamwidthDeg DecodeSessionCommandedBeamwidth(
+    const session_fb::CommandedBeamwidthDeg* value) {
+  model::CommandedBeamwidthDeg result;
+  if (value != nullptr) {
+    result.commanded_az_beamwidth_deg = value->commanded_az_beamwidth_deg();
+    result.commanded_el_beamwidth_deg = value->commanded_el_beamwidth_deg();
+  }
+  return result;
+}
+
+model::RadarOrientationConfig DecodeSessionOrientation(
+    const session_fb::RadarOrientationConfig* value) {
+  model::RadarOrientationConfig result;
+  if (value != nullptr) {
+    result.mount_angles_deg = DecodeSessionEulerAngles(value->mount_angles_deg());
+    result.scan_center_deg = DecodeSessionAzEl(value->scan_center_deg());
+    result.mechanical_scan_limits_deg =
+        DecodeSessionAzElLimits(value->mechanical_scan_limits_deg());
+    result.electronic_scan_limits_deg =
+        DecodeSessionAzElLimits(value->electronic_scan_limits_deg());
+    result.scan_start_position = static_cast<oneq::foundation::ScanStartPosition>(
+        value->scan_start_position());
+    result.scan_sequence = static_cast<oneq::foundation::ScanSequence>(
+        value->scan_sequence());
+    result.work_sub_mode = static_cast<model::RadarWorkSubMode>(value->work_sub_mode());
+    result.commanded_beamwidth_enabled = value->commanded_beamwidth_enabled();
+    result.commanded_beamwidth_deg =
+        DecodeSessionCommandedBeamwidth(value->commanded_beamwidth_deg());
+    result.stabilization_mode = static_cast<model::StabilizationMode>(
+        value->stabilization_mode());
+  }
+  return result;
+}
+
+config::DetectionConfig DecodeSessionDetectionConfig(
+    const session_fb::DetectionConfig* value) {
+  config::DetectionConfig result;
+  if (value != nullptr) {
+    result.enable_physics_detection = value->enable_physics_detection();
+    result.swerling_model = static_cast<config::profiles::SwerlingModel>(
+        value->swerling_model());
+    const session_fb::TransmitterConfig* transmitter = value->transmitter();
+    if (transmitter != nullptr) {
+      result.transmitter.peak_power_w = transmitter->peak_power_w();
+      result.transmitter.frequency_hz = transmitter->frequency_hz();
+      result.transmitter.bandwidth_hz = transmitter->bandwidth_hz();
+      result.transmitter.pulse_width_s = transmitter->pulse_width_s();
+      result.transmitter.prf_hz = transmitter->prf_hz();
+      result.transmitter.transmit_loss_db = transmitter->transmit_loss_db();
+    }
+    const session_fb::AntennaConfig* antenna = value->antenna();
+    if (antenna != nullptr) {
+      result.antenna.main_beam_gain_db = antenna->main_beam_gain_db();
+      result.antenna.nominal_az_beamwidth_deg = antenna->nominal_az_beamwidth_deg();
+      result.antenna.nominal_el_beamwidth_deg = antenna->nominal_el_beamwidth_deg();
+      result.antenna.enable_directional_pattern = antenna->enable_directional_pattern();
+      const session_fb::AntennaPatternConfig* pattern = antenna->pattern();
+      if (pattern != nullptr) {
+        result.antenna.pattern.model_type =
+            static_cast<config::detection::AntennaPatternModelType>(
+                pattern->model_type());
+        result.antenna.pattern.max_sidelobe_level_db =
+            pattern->max_sidelobe_level_db();
+        result.antenna.pattern.backlobe_level_db = pattern->backlobe_level_db();
+        result.antenna.pattern.scan_loss_coeff_db_per_deg2 =
+            pattern->scan_loss_coeff_db_per_deg2();
+        result.antenna.pattern.max_scan_loss_db = pattern->max_scan_loss_db();
+        result.antenna.pattern.boresight_offset_deg =
+            DecodeSessionAzEl(pattern->boresight_offset_deg());
+      }
+    }
+    const session_fb::ReceiverConfig* receiver = value->receiver();
+    if (receiver != nullptr) {
+      result.receiver.noise_figure_db = receiver->noise_figure_db();
+      result.receiver.receive_loss_db = receiver->receive_loss_db();
+    }
+    const session_fb::DetectionPolicyConfig* policy = value->detection_policy();
+    if (policy != nullptr) {
+      result.detection_policy.cfar_pfa = policy->cfar_pfa();
+      result.detection_policy.min_snr_db = policy->min_snr_db();
+    }
+    const session_fb::RcsPhysicsConfig* rcs_physics = value->rcs_physics();
+    if (rcs_physics != nullptr) {
+      result.rcs_physics.enable_physical_rcs = rcs_physics->enable_physical_rcs();
+      result.rcs_physics.frequency_hz = rcs_physics->frequency_hz();
+      result.rcs_physics.physics_mix_ratio = rcs_physics->physics_mix_ratio();
+      result.rcs_physics.cylinder_weight = rcs_physics->cylinder_weight();
+      result.rcs_physics.min_equivalent_radius_m =
+          rcs_physics->min_equivalent_radius_m();
+      result.rcs_physics.max_equivalent_radius_m =
+          rcs_physics->max_equivalent_radius_m();
+      result.rcs_physics.min_rcs_m2 = rcs_physics->min_rcs_m2();
+      result.rcs_physics.max_rcs_m2 = rcs_physics->max_rcs_m2();
+      result.rcs_physics.bistatic_psi_offset_deg =
+          rcs_physics->bistatic_psi_offset_deg();
+    }
+    result.min_detection_margin_db = value->min_detection_margin_db();
+    result.pulse_count = value->pulse_count();
+  }
+  return result;
+}
+
+config::RadarPolicyConfig DecodeSessionPolicyConfig(
+    const session_fb::RadarPolicyConfig* value) {
+  config::RadarPolicyConfig result;
+  if (value != nullptr) {
+    const session_fb::BeamControlConfig* beam_control = value->beam_control();
+    if (beam_control != nullptr) {
+      const session_fb::BeamPointingConfig* pointing = beam_control->pointing();
+      if (pointing != nullptr) {
+        result.beam_control.pointing.default_scan_center_deg =
+            DecodeSessionAzEl(pointing->default_scan_center_deg());
+        result.beam_control.pointing.nominal_beamwidth_deg =
+            DecodeSessionCommandedBeamwidth(pointing->nominal_beamwidth_deg());
+      }
+      const session_fb::BeamSchedulerConfig* scheduler = beam_control->scheduler();
+      if (scheduler != nullptr) {
+        result.beam_control.scheduler.azimuth_step_count_hint =
+            scheduler->azimuth_step_count_hint();
+        result.beam_control.scheduler.elevation_step_count_hint =
+            scheduler->elevation_step_count_hint();
+        result.beam_control.scheduler.prefer_dense_tas_sampling =
+            scheduler->prefer_dense_tas_sampling();
+      }
+    }
+    const session_fb::AssociationConfig* association = value->association();
+    if (association != nullptr) {
+      result.association.unassigned_cost = association->unassigned_cost();
+      result.association.use_distance_gate_hint =
+          association->use_distance_gate_hint();
+      result.association.distance_gate_sigma_hint =
+          association->distance_gate_sigma_hint();
+    }
+    const session_fb::TrackingConfig* tracking = value->tracking();
+    if (tracking != nullptr) {
+      result.tracking.enable_kalman_filter = tracking->enable_kalman_filter();
+      result.tracking.kalman_measurement_noise_std =
+          tracking->kalman_measurement_noise_std();
+      result.tracking.kalman_update_backend =
+          static_cast<config::KalmanUpdateBackend>(tracking->kalman_update_backend());
+      result.tracking.speed_decay_ratio_on_loss =
+          tracking->speed_decay_ratio_on_loss();
+      result.tracking.rcs_decay_ratio_on_loss = tracking->rcs_decay_ratio_on_loss();
+    }
+    const session_fb::LifecycleConfig* lifecycle = value->lifecycle();
+    if (lifecycle != nullptr) {
+      result.lifecycle.confirm_hits = lifecycle->confirm_hits();
+      result.lifecycle.max_miss_before_lost = lifecycle->max_miss_before_lost();
+      result.lifecycle.max_lost_cycles = lifecycle->max_lost_cycles();
+      result.lifecycle.enable_imm_lifecycle = lifecycle->enable_imm_lifecycle();
+    }
+    const session_fb::ImmConfig* imm = value->imm();
+    if (imm != nullptr) {
+      result.imm.enable_imm_lifecycle = imm->enable_imm_lifecycle();
+      result.imm.model_count_hint = imm->model_count_hint();
+    }
+  }
+  return result;
+}
+
 }  // namespace
 
 std::string EncodeCycleInputFlatbuffer(const RadarCycleInput& input) {
@@ -256,6 +574,58 @@ bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes,
       input->target_features.push_back(DecodeTargetFeature(targets->Get(i)));
     }
   }
+  return true;
+}
+
+std::string EncodeSessionConfigFlatbuffer(const RadarSessionConfig& config) {
+  flatbuffers::FlatBufferBuilder builder;
+  const flatbuffers::Offset<session_fb::RadarSessionConfig> root =
+      session_fb::CreateRadarSessionConfig(
+          builder, EncodeSessionDetectionConfig(&builder, config.hardware.detection),
+          EncodeSessionOrientation(&builder, config.mission.orientation),
+          EncodeSessionPolicyConfig(&builder, config.policy),
+          static_cast<int>(config.jamming_sensitivity_profile));
+  builder.Finish(root, session_fb::RadarSessionConfigIdentifier());
+
+  const std::uint8_t* buffer = builder.GetBufferPointer();
+  return std::string(reinterpret_cast<const char*>(buffer),
+                     reinterpret_cast<const char*>(buffer) + builder.GetSize());
+}
+
+bool DecodeSessionConfigFlatbuffer(const std::string& payload_bytes,
+                                   RadarSessionConfig* config,
+                                   std::string* error) {
+  if (config == nullptr) {
+    if (error != nullptr) {
+      *error = "null RadarSessionConfig output";
+    }
+    return false;
+  }
+  if (payload_bytes.empty()) {
+    if (error != nullptr) {
+      *error = "empty RadarSessionConfig flatbuffers payload";
+    }
+    return false;
+  }
+
+  const std::uint8_t* data =
+      reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
+  flatbuffers::Verifier verifier(data, payload_bytes.size());
+  if (!session_fb::VerifyRadarSessionConfigBuffer(verifier)) {
+    if (error != nullptr) {
+      *error = "invalid RadarSessionConfig flatbuffers payload";
+    }
+    return false;
+  }
+
+  const session_fb::RadarSessionConfig* root =
+      session_fb::GetRadarSessionConfig(data);
+  config->hardware.detection = DecodeSessionDetectionConfig(root->hardware_detection());
+  config->mission.orientation = DecodeSessionOrientation(root->mission_orientation());
+  config->policy = DecodeSessionPolicyConfig(root->policy());
+  config->jamming_sensitivity_profile =
+      static_cast<environment::JammingSensitivityProfile>(
+          root->jamming_sensitivity_profile());
   return true;
 }
 

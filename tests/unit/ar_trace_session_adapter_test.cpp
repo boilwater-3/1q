@@ -173,13 +173,18 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) 
   EXPECT_NE(content.find("\"payload_type\":\"RadarCycleInput\""), std::string::npos);
   EXPECT_NE(content.find("\"payload_encoding\":\"flatbuffers\""), std::string::npos);
   EXPECT_NE(content.find("\"payload_base64\":\""), std::string::npos);
-  EXPECT_NE(content.find("\"hardware\":{\"detection\""), std::string::npos);
-  EXPECT_NE(content.find("\"policy\":{\"beam_control\""), std::string::npos);
 
   oneq::replay::ReplayTraceReader reader(trace_dir);
   oneq::replay::ReplayTraceReadEvent event;
+  bool saw_flatbuffer_session_config = false;
   bool saw_flatbuffer_input = false;
   while (reader.ReadNextEvent(&event)) {
+    if (event.event_type == "session_config") {
+      saw_flatbuffer_session_config = true;
+      EXPECT_EQ(event.payload_encoding, "flatbuffers");
+      EXPECT_FALSE(event.payload_bytes.empty());
+      EXPECT_TRUE(event.payload_hash_matches);
+    }
     if (event.event_type == "cycle_input") {
       saw_flatbuffer_input = true;
       EXPECT_EQ(event.payload_encoding, "flatbuffers");
@@ -187,6 +192,7 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) 
       EXPECT_TRUE(event.payload_hash_matches);
     }
   }
+  EXPECT_TRUE(saw_flatbuffer_session_config);
   EXPECT_TRUE(saw_flatbuffer_input);
 }
 
@@ -269,9 +275,6 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
   }
 
   const std::string content = ReadFile(trace_dir + "/events/000000.events.jsonl");
-  EXPECT_NE(content.find("\"confirm_hits\":1"), std::string::npos);
-  EXPECT_NE(content.find("\"enable_kalman_filter\":false"), std::string::npos);
-  EXPECT_NE(content.find("\"scan_center_deg\":{\"az_deg\":12.5"), std::string::npos);
   EXPECT_NE(content.find("\"event_type\":\"runtime_config_patch\""), std::string::npos);
   EXPECT_NE(content.find("\"has_policy\":true"), std::string::npos);
   EXPECT_NE(content.find("\"kalman_measurement_noise_std\":7.5"), std::string::npos);
@@ -285,8 +288,16 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
 
   oneq::replay::ReplayTraceReader replay_reader(trace_dir);
   oneq::replay::ReplayTraceReadEvent replay_event;
+  bool saw_session_config = false;
   bool saw_scene_state = false;
   while (replay_reader.ReadNextEvent(&replay_event)) {
+    if (replay_event.event_type == "session_config") {
+      saw_session_config = true;
+      EXPECT_EQ(replay_event.payload_type, "RadarSessionConfig");
+      EXPECT_EQ(replay_event.payload_encoding, "flatbuffers");
+      EXPECT_FALSE(replay_event.payload_bytes.empty());
+      EXPECT_TRUE(replay_event.payload_hash_matches);
+    }
     if (replay_event.event_type == "scene_state") {
       saw_scene_state = true;
       EXPECT_EQ(replay_event.payload_type, "EnvironmentSceneState");
@@ -295,6 +306,7 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
       EXPECT_TRUE(replay_event.payload_hash_matches);
     }
   }
+  EXPECT_TRUE(saw_session_config);
   EXPECT_TRUE(saw_scene_state);
 
   const session::RadarReplaySessionResult replay_result =

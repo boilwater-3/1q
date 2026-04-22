@@ -3,6 +3,7 @@
 
 #include <string>
 
+#include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 
@@ -13,6 +14,10 @@ std::string EncodeCycleInputFlatbuffer(const RadarCycleInput& input);
 bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes,
                                 RadarCycleInput* input,
                                 std::string* error);
+std::string EncodeSessionConfigFlatbuffer(const RadarSessionConfig& config);
+bool DecodeSessionConfigFlatbuffer(const std::string& payload_bytes,
+                                   RadarSessionConfig* config,
+                                   std::string* error);
 std::string EncodeSceneStateFlatbuffer(
     const environment::EnvironmentSceneState& scene_state);
 bool DecodeSceneStateFlatbuffer(const std::string& payload_bytes,

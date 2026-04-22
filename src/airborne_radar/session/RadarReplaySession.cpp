@@ -928,6 +928,13 @@ bool OnSessionConfig(const oneq::replay::ReplayTraceReadEvent& event, void* user
 
   RadarReplayState* state = static_cast<RadarReplayState*>(user_data);
   RadarSessionConfig config;
+#if defined(_WIN32)
+  if (event.payload_encoding == "flatbuffers") {
+    if (!DecodeSessionConfigFlatbuffer(event.payload_bytes, &config, error)) {
+      return false;
+    }
+  } else
+#endif
   if (!ParseSessionConfig(event.payload_json, &config, error)) {
     return false;
   }

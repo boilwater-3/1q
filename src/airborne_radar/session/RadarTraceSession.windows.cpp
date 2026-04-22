@@ -371,6 +371,19 @@ void WriteCycleInputReplay(
   writer->WriteEvent(event);
 }
 
+void WriteSessionConfigReplay(
+    const std::shared_ptr<oneq::replay::ReplayTraceWriter>& writer,
+    const RadarSessionConfig& config) {
+  oneq::replay::ReplayTraceEvent event;
+  event.module = "airborne_radar";
+  event.event_type = "session_config";
+  event.payload_type = "RadarSessionConfig";
+  event.payload_encoding = "flatbuffers";
+  event.payload_json = "{}";
+  event.payload_bytes = EncodeSessionConfigFlatbuffer(config);
+  writer->WriteEvent(event);
+}
+
 void WriteSceneStateReplay(
     const std::shared_ptr<oneq::replay::ReplayTraceWriter>& writer,
     const environment::EnvironmentSceneState& scene_state) {
@@ -470,8 +483,7 @@ RadarTraceSession::RadarTraceSession(const RadarSessionConfig& config,
       sink_(std::move(options.sink)),
       replay_writer_(std::move(options.replay_writer)) {
   if (replay_writer_ && options.trace_config_on_construct) {
-    RecordReplay("session_config", "RadarSessionConfig",
-                 MakeFlatbuffersPayload("RadarSessionConfig", config));
+    WriteSessionConfigReplay(replay_writer_, config);
   }
   if (sink_ && options.trace_config_on_construct) {
     Record("config", MakeFlatbuffersPayload("RadarSessionConfig", config));

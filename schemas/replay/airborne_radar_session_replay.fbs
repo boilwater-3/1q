@@ -1,0 +1,157 @@
+namespace oneq.replay.airborne_radar.session.fb;
+
+table EulerAnglesDeg {
+  yaw_deg:float;
+  pitch_deg:float;
+  roll_deg:float;
+}
+
+table AzimuthElevationDeg {
+  az_deg:float;
+  el_deg:float;
+}
+
+table AzimuthElevationLimitsDeg {
+  az_min_deg:float;
+  az_max_deg:float;
+  el_min_deg:float;
+  el_max_deg:float;
+}
+
+table CommandedBeamwidthDeg {
+  commanded_az_beamwidth_deg:float;
+  commanded_el_beamwidth_deg:float;
+}
+
+table RadarOrientationConfig {
+  mount_angles_deg:EulerAnglesDeg;
+  scan_center_deg:AzimuthElevationDeg;
+  mechanical_scan_limits_deg:AzimuthElevationLimitsDeg;
+  electronic_scan_limits_deg:AzimuthElevationLimitsDeg;
+  scan_start_position:int;
+  scan_sequence:int;
+  work_sub_mode:int;
+  commanded_beamwidth_enabled:bool;
+  commanded_beamwidth_deg:CommandedBeamwidthDeg;
+  stabilization_mode:int;
+}
+
+table TransmitterConfig {
+  peak_power_w:float;
+  frequency_hz:float;
+  bandwidth_hz:float;
+  pulse_width_s:float;
+  prf_hz:float;
+  transmit_loss_db:float;
+}
+
+table AntennaPatternConfig {
+  model_type:int;
+  max_sidelobe_level_db:float;
+  backlobe_level_db:float;
+  scan_loss_coeff_db_per_deg2:float;
+  max_scan_loss_db:float;
+  boresight_offset_deg:AzimuthElevationDeg;
+}
+
+table AntennaConfig {
+  main_beam_gain_db:float;
+  nominal_az_beamwidth_deg:float;
+  nominal_el_beamwidth_deg:float;
+  enable_directional_pattern:bool;
+  pattern:AntennaPatternConfig;
+}
+
+table ReceiverConfig {
+  noise_figure_db:float;
+  receive_loss_db:float;
+}
+
+table DetectionPolicyConfig {
+  cfar_pfa:float;
+  min_snr_db:float;
+}
+
+table RcsPhysicsConfig {
+  enable_physical_rcs:bool;
+  frequency_hz:float;
+  physics_mix_ratio:float;
+  cylinder_weight:float;
+  min_equivalent_radius_m:float;
+  max_equivalent_radius_m:float;
+  min_rcs_m2:float;
+  max_rcs_m2:float;
+  bistatic_psi_offset_deg:float;
+}
+
+table DetectionConfig {
+  enable_physics_detection:bool;
+  swerling_model:int;
+  transmitter:TransmitterConfig;
+  antenna:AntennaConfig;
+  receiver:ReceiverConfig;
+  detection_policy:DetectionPolicyConfig;
+  rcs_physics:RcsPhysicsConfig;
+  min_detection_margin_db:float;
+  pulse_count:int;
+}
+
+table BeamPointingConfig {
+  default_scan_center_deg:AzimuthElevationDeg;
+  nominal_beamwidth_deg:CommandedBeamwidthDeg;
+}
+
+table BeamSchedulerConfig {
+  azimuth_step_count_hint:uint;
+  elevation_step_count_hint:uint;
+  prefer_dense_tas_sampling:bool;
+}
+
+table BeamControlConfig {
+  pointing:BeamPointingConfig;
+  scheduler:BeamSchedulerConfig;
+}
+
+table AssociationConfig {
+  unassigned_cost:float;
+  use_distance_gate_hint:bool;
+  distance_gate_sigma_hint:float;
+}
+
+table TrackingConfig {
+  enable_kalman_filter:bool;
+  kalman_measurement_noise_std:float;
+  kalman_update_backend:int;
+  speed_decay_ratio_on_loss:float;
+  rcs_decay_ratio_on_loss:float;
+}
+
+table LifecycleConfig {
+  confirm_hits:uint;
+  max_miss_before_lost:uint;
+  max_lost_cycles:uint;
+  enable_imm_lifecycle:bool;
+}
+
+table ImmConfig {
+  enable_imm_lifecycle:bool;
+  model_count_hint:uint;
+}
+
+table RadarPolicyConfig {
+  beam_control:BeamControlConfig;
+  association:AssociationConfig;
+  tracking:TrackingConfig;
+  lifecycle:LifecycleConfig;
+  imm:ImmConfig;
+}
+
+table RadarSessionConfig {
+  hardware_detection:DetectionConfig;
+  mission_orientation:RadarOrientationConfig;
+  policy:RadarPolicyConfig;
+  jamming_sensitivity_profile:int;
+}
+
+root_type RadarSessionConfig;
+file_identifier "ARSC";
