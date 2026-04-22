@@ -1,0 +1,39 @@
+namespace oneq.replay.airborne_radar.fb;
+
+table Vector3f {
+  x:float;
+  y:float;
+  z:float;
+}
+
+table EulerAnglesDeg {
+  yaw_deg:float;
+  pitch_deg:float;
+  roll_deg:float;
+}
+
+table PoseState {
+  position_m:Vector3f;
+  velocity_mps:Vector3f;
+  attitude_deg:EulerAnglesDeg;
+}
+
+table TargetFeature {
+  external_target_id:ulong;
+  velocity_mps:Vector3f;
+  current_track_speed:float;
+  current_track_rcs:float;
+  range_m:float;
+  has_cartesian_position:bool;
+  position_m:Vector3f;
+  target_swerling_type:int;
+}
+
+table RadarCycleInput {
+  dt_sec:float = 1.0;
+  platform_pose:PoseState;
+  target_features:[TargetFeature];
+}
+
+root_type RadarCycleInput;
+file_identifier "ARCI";

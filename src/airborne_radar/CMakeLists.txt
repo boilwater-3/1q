@@ -76,6 +76,9 @@ set(AIRBORNE_CORE_SOURCES
     airborne_radar/environment/SceneManager.cpp
     airborne_radar/environment/PropagationModel.cpp
 )
+if(WIN32)
+    list(APPEND AIRBORNE_CORE_SOURCES airborne_radar/session/RadarReplayFlatbufferCodec.cpp)
+endif()
 if(MSVC AND MSVC_VERSION LESS 1910)
     list(APPEND AIRBORNE_CORE_SOURCES airborne_radar/session/RadarTraceSession.windows.cpp)
 else()

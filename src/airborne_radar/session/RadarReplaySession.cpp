@@ -8,6 +8,9 @@
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
+#if defined(_WIN32)
+#include "airborne_radar/session/RadarReplayFlatbufferCodec.h"
+#endif
 
 namespace airborne_radar {
 namespace session {
@@ -946,6 +949,13 @@ bool OnCycleInput(const oneq::replay::ReplayTraceReadEvent& event, void* user_da
   }
 
   RadarCycleInput input;
+#if defined(_WIN32)
+  if (event.payload_encoding == "flatbuffers") {
+    if (!DecodeCycleInputFlatbuffer(event.payload_bytes, &input, error)) {
+      return false;
+    }
+  } else
+#endif
   if (!ParseCycleInput(event.payload_json, &input, error)) {
     return false;
   }

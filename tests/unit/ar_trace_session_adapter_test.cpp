@@ -171,10 +171,23 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) 
   EXPECT_NE(content.find("\"event_type\":\"cycle_input\""), std::string::npos);
   EXPECT_NE(content.find("\"event_type\":\"cycle_output\""), std::string::npos);
   EXPECT_NE(content.find("\"payload_type\":\"RadarCycleInput\""), std::string::npos);
+  EXPECT_NE(content.find("\"payload_encoding\":\"flatbuffers\""), std::string::npos);
+  EXPECT_NE(content.find("\"payload_base64\":\""), std::string::npos);
   EXPECT_NE(content.find("\"hardware\":{\"detection\""), std::string::npos);
   EXPECT_NE(content.find("\"policy\":{\"beam_control\""), std::string::npos);
-  EXPECT_NE(content.find("\"external_target_id\":2001"), std::string::npos);
-  EXPECT_NE(content.find("\"position_m\":[1500"), std::string::npos);
+
+  oneq::replay::ReplayTraceReader reader(trace_dir);
+  oneq::replay::ReplayTraceReadEvent event;
+  bool saw_flatbuffer_input = false;
+  while (reader.ReadNextEvent(&event)) {
+    if (event.event_type == "cycle_input") {
+      saw_flatbuffer_input = true;
+      EXPECT_EQ(event.payload_encoding, "flatbuffers");
+      EXPECT_FALSE(event.payload_bytes.empty());
+      EXPECT_TRUE(event.payload_hash_matches);
+    }
+  }
+  EXPECT_TRUE(saw_flatbuffer_input);
 }
 
 TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
