@@ -11,8 +11,8 @@
 
 #include <string>
 
-#include "1q/electro_optical_sensor/model/EosCycleInput.h"
-#include "1q/electro_optical_sensor/model/EosCycleResult.h"
+#include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/output/EosOutputFrame.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfig.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
@@ -24,7 +24,7 @@ namespace session {
 
 std::string EncodeEosCycleInput(const EosCycleInput& value);
 std::string EncodeEosOutputFrame(const output::EosOutputFrame& value);
-std::string EncodeEosCycleResult(const model::EosCycleResult& value);
+std::string EncodeEosCycleResult(const ::electro_optical_sensor::session::EosCycleResult& value);
 std::string EncodeEosSessionConfig(const EosSessionConfig& value);
 std::string EncodeEosRuntimeConfigPatch(const EosRuntimeConfigPatch& value);
 
@@ -32,7 +32,7 @@ std::string EncodeEosRuntimeConfigPatch(const EosRuntimeConfigPatch& value);
 
 bool DecodeEosCycleInput(const std::string& bytes, EosCycleInput* out);
 bool DecodeEosOutputFrame(const std::string& bytes, output::EosOutputFrame* out);
-bool DecodeEosCycleResult(const std::string& bytes, model::EosCycleResult* out);
+bool DecodeEosCycleResult(const std::string& bytes, ::electro_optical_sensor::session::EosCycleResult* out);
 bool DecodeEosSessionConfig(const std::string& bytes, EosSessionConfig* out);
 bool DecodeEosRuntimeConfigPatch(const std::string& bytes, EosRuntimeConfigPatch* out);
 

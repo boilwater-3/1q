@@ -8,7 +8,7 @@
 
 #include "1q/api.hpp"
 #include "1q/electro_optical_sensor/output/EosOutputFrame.h"
-#include "1q/electro_optical_sensor/model/EosCycleInput.h"
+#include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
 
 namespace electro_optical_sensor {
@@ -47,7 +47,7 @@ class ONEQ_API IEosPipeline {
    * @param[in] input 当前周期输入。
    * @return 单周期执行结果。
    */
-  virtual EosPipelineExecuteResult Execute(const session::EosCycleInput& input) = 0;
+  virtual EosPipelineExecuteResult Execute(const ::electro_optical_sensor::session::EosCycleInput& input) = 0;
 };
 
 }  // namespace extension

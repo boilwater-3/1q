@@ -57,7 +57,7 @@ class ONEQ_API EosTraceSession {
    * @brief 执行单周期并返回聚合结果。
    * @note 返回值包含 `executed_this_cycle` / `reused_previous_output` 等状态语义。
    */
-  model::EosCycleResult StepWithResult(const EosCycleInput& input);
+  ::electro_optical_sensor::session::EosCycleResult StepWithResult(const EosCycleInput& input);
   void ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch);
 
   EosSession& session();

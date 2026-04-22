@@ -10,8 +10,8 @@
  */
 
 #include "1q/electro_optical_sensor/output/EosOutputFrame.h"
-#include "1q/electro_optical_sensor/model/EosCycleInput.h"
-#include "1q/electro_optical_sensor/model/EosInputValidation.h"
+#include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
 #include "1q/electro_optical_sensor/extension/EosController.h"
@@ -28,7 +28,7 @@ class DummyEosPipeline : public extension::IEosPipeline {
     (void)reset_scan_phase;
   }
 
-  extension::EosPipelineExecuteResult Execute(const session::EosCycleInput& input) override {
+  extension::EosPipelineExecuteResult Execute(const ::electro_optical_sensor::session::EosCycleInput& input) override {
     extension::EosPipelineExecuteResult result;
     output::EosOutputFrame& frame = result.output_frame;
     frame.cycle_index = input.cycle_index;
@@ -107,7 +107,7 @@ int main() {
     return 2;
   }
 
-  const electro_optical_sensor::model::EosValidationIssueList& issues =
+  const electro_optical_sensor::session::ValidationIssueList& issues =
       controller.GetLastValidationIssues();
   (void)issues.size();
 

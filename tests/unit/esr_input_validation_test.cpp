@@ -26,7 +26,7 @@ namespace {
  * @param[in] code 目标编码。
  * @return 若包含指定编码则返回 `true`。
  */
-bool ContainsCode(const EsrValidationIssueList& issues, EsrValidationCode code) {
+bool ContainsCode(const ValidationIssueList& issues, ValidationCode code) {
   for (std::size_t i = 0; i < issues.size(); ++i) {
     if (issues[i].code == code) {
       return true;
@@ -65,10 +65,10 @@ TEST(EsrInputValidationTest, InvalidCycleDeltaTimeIsReportedAsError) {
   input.dt_sec = 0.0f;
   input.scene_emitters.push_back(MakeValidEmitter());
 
-  const EsrValidationIssueList issues = ValidateEsrCycleInput(input);
+  const ValidationIssueList issues = ValidateEsrCycleInput(input);
 
-  EXPECT_TRUE(ContainsCode(issues, EsrValidationCode::kInvalidCycleDeltaTime));
-  EXPECT_TRUE(HasEsrValidationError(issues));
+  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kInvalidCycleDeltaTime));
+  EXPECT_TRUE(HasValidationError(issues));
 }
 
 TEST(EsrInputValidationTest, InvalidEmitterFrequencyIsReportedAsError) {
@@ -78,19 +78,19 @@ TEST(EsrInputValidationTest, InvalidEmitterFrequencyIsReportedAsError) {
   emitter.carrier_hz = 0.0;
   input.scene_emitters.push_back(emitter);
 
-  const EsrValidationIssueList issues = ValidateEsrCycleInput(input);
+  const ValidationIssueList issues = ValidateEsrCycleInput(input);
 
-  EXPECT_TRUE(ContainsCode(issues, EsrValidationCode::kInvalidEmitterFrequency));
-  EXPECT_TRUE(HasEsrValidationError(issues));
+  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kInvalidEmitterFrequency));
+  EXPECT_TRUE(HasValidationError(issues));
 }
 
 TEST(EsrInputValidationTest, EmptySceneInputIsAllowed) {
   EsrCycleInput input;
   input.dt_sec = 1.0f;
 
-  const EsrValidationIssueList issues = ValidateEsrCycleInput(input);
+  const ValidationIssueList issues = ValidateEsrCycleInput(input);
 
-  EXPECT_FALSE(HasEsrValidationError(issues));
+  EXPECT_FALSE(HasValidationError(issues));
   EXPECT_TRUE(issues.empty());
 }
 
@@ -101,10 +101,10 @@ TEST(EsrInputValidationTest, NonFiniteEmitterNumericFieldIsReported) {
   emitter.bandwidth_hz = std::numeric_limits<double>::infinity();
   input.scene_emitters.push_back(emitter);
 
-  const EsrValidationIssueList issues = ValidateEsrCycleInput(input);
+  const ValidationIssueList issues = ValidateEsrCycleInput(input);
 
-  EXPECT_TRUE(ContainsCode(issues, EsrValidationCode::kNonFiniteEmitterNumericField));
-  EXPECT_TRUE(HasEsrValidationError(issues));
+  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kNonFiniteEmitterNumericField));
+  EXPECT_TRUE(HasValidationError(issues));
 }
 
 TEST(EsrInputValidationTest, NonFinitePlatformNumericFieldIsReported) {
@@ -113,10 +113,10 @@ TEST(EsrInputValidationTest, NonFinitePlatformNumericFieldIsReported) {
   input.platform_pose.attitude_deg.yaw_deg = std::numeric_limits<float>::infinity();
   input.scene_emitters.push_back(MakeValidEmitter());
 
-  const EsrValidationIssueList issues = ValidateEsrCycleInput(input);
+  const ValidationIssueList issues = ValidateEsrCycleInput(input);
 
-  EXPECT_TRUE(ContainsCode(issues, EsrValidationCode::kNonFinitePlatformNumericField));
-  EXPECT_TRUE(HasEsrValidationError(issues));
+  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kNonFinitePlatformNumericField));
+  EXPECT_TRUE(HasValidationError(issues));
 }
 
 TEST(EsrInputValidationTest, NonFiniteEmitterAttitudeIsReported) {
@@ -126,10 +126,10 @@ TEST(EsrInputValidationTest, NonFiniteEmitterAttitudeIsReported) {
   emitter.pose.attitude_deg.roll_deg = std::numeric_limits<float>::quiet_NaN();
   input.scene_emitters.push_back(emitter);
 
-  const EsrValidationIssueList issues = ValidateEsrCycleInput(input);
+  const ValidationIssueList issues = ValidateEsrCycleInput(input);
 
-  EXPECT_TRUE(ContainsCode(issues, EsrValidationCode::kNonFiniteEmitterNumericField));
-  EXPECT_TRUE(HasEsrValidationError(issues));
+  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kNonFiniteEmitterNumericField));
+  EXPECT_TRUE(HasValidationError(issues));
 }
 
 TEST(EsrInputValidationTest, InvalidEmitterPulseWidthIsReportedAsError) {
@@ -139,10 +139,10 @@ TEST(EsrInputValidationTest, InvalidEmitterPulseWidthIsReportedAsError) {
   emitter.pulse_width_s = 0.0;
   input.scene_emitters.push_back(emitter);
 
-  const EsrValidationIssueList issues = ValidateEsrCycleInput(input);
+  const ValidationIssueList issues = ValidateEsrCycleInput(input);
 
-  EXPECT_TRUE(ContainsCode(issues, EsrValidationCode::kInvalidEmitterPulseWidth));
-  EXPECT_TRUE(HasEsrValidationError(issues));
+  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kInvalidEmitterPulseWidth));
+  EXPECT_TRUE(HasValidationError(issues));
 }
 
 TEST(EsrInputValidationTest, InvalidEmitterPriIsReportedAsError) {
@@ -152,10 +152,10 @@ TEST(EsrInputValidationTest, InvalidEmitterPriIsReportedAsError) {
   emitter.pri_s = 0.0;
   input.scene_emitters.push_back(emitter);
 
-  const EsrValidationIssueList issues = ValidateEsrCycleInput(input);
+  const ValidationIssueList issues = ValidateEsrCycleInput(input);
 
-  EXPECT_TRUE(ContainsCode(issues, EsrValidationCode::kInvalidEmitterPri));
-  EXPECT_TRUE(HasEsrValidationError(issues));
+  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kInvalidEmitterPri));
+  EXPECT_TRUE(HasValidationError(issues));
 }
 
 TEST(EsrInputValidationTest, EmitterPriLessThanPulseWidthIsReportedAsError) {
@@ -166,10 +166,10 @@ TEST(EsrInputValidationTest, EmitterPriLessThanPulseWidthIsReportedAsError) {
   emitter.pri_s = 1.0e-6;
   input.scene_emitters.push_back(emitter);
 
-  const EsrValidationIssueList issues = ValidateEsrCycleInput(input);
+  const ValidationIssueList issues = ValidateEsrCycleInput(input);
 
-  EXPECT_TRUE(ContainsCode(issues, EsrValidationCode::kEmitterPriLessThanPulseWidth));
-  EXPECT_TRUE(HasEsrValidationError(issues));
+  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kEmitterPriLessThanPulseWidth));
+  EXPECT_TRUE(HasValidationError(issues));
 }
 
 TEST(EsrInputValidationTest, InvalidEmitterBeamwidthIsReportedAsError) {
@@ -179,10 +179,10 @@ TEST(EsrInputValidationTest, InvalidEmitterBeamwidthIsReportedAsError) {
   emitter.beam_state.az_beamwidth_deg = 0.0f;
   input.scene_emitters.push_back(emitter);
 
-  const EsrValidationIssueList issues = ValidateEsrCycleInput(input);
+  const ValidationIssueList issues = ValidateEsrCycleInput(input);
 
-  EXPECT_TRUE(ContainsCode(issues, EsrValidationCode::kInvalidEmitterBeamwidth));
-  EXPECT_TRUE(HasEsrValidationError(issues));
+  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kInvalidEmitterBeamwidth));
+  EXPECT_TRUE(HasValidationError(issues));
 }
 
 }  // namespace

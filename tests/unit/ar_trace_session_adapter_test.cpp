@@ -23,7 +23,7 @@
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarReplaySession.h"
 #include "1q/airborne_radar/session/RadarTraceSession.h"
-#include "1q/electro_optical_sensor/model/EosCycleInput.h"
+#include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosTraceSession.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
@@ -445,11 +445,11 @@ TEST(TraceSessionAdapterTest, EosTraceSessionWritesConfigInputOutput) {
   ::electro_optical_sensor::session::EosTraceSession session(
       config, ::electro_optical_sensor::session::EosTraceSessionOptions{sink, true});
 
-  session::EosCycleInput input;
+  ::electro_optical_sensor::session::EosCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
 
-  const ::electro_optical_sensor::model::EosCycleResult result = session.StepWithResult(input);
+  const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
   EXPECT_GE(result.output_frame.detections.size(), 0U);
 
   const std::string content = ReadFile(trace_path);

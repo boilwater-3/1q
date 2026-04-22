@@ -28,7 +28,7 @@ extension::EosPipelineAbortReason NormalizeAbortReason(
 }
 
 bool IsExecuteResultContractValid(const extension::EosPipelineExecuteResult& execute_result,
-                                  const session::EosCycleInput& input) {
+                                  const ::electro_optical_sensor::session::EosCycleInput& input) {
   if (!execute_result.executed_this_cycle) {
     return false;
   }
@@ -43,7 +43,7 @@ struct EosController::Impl {
 
   extension::IEosPipeline& pipeline;
   output::EosOutputFrame latest_output{};
-  model::EosValidationIssueList last_validation_issues{};
+  session::ValidationIssueList last_validation_issues{};
   bool has_latest_output{false};
   bool has_validation_error{false};
   bool last_cycle_executed{false};
@@ -55,7 +55,7 @@ EosController::EosController(extension::IEosPipeline& pipeline) : impl_(new Impl
 
 EosController::~EosController() = default;
 
-void EosController::RunOnce(const session::EosCycleInput& input) {
+void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInput& input) {
   const output::EosOutputFrame previous_output = impl_->latest_output;
   const bool had_previous_output = impl_->has_latest_output;
   const extension::EosPipelineRuntimeState previous_pipeline_state =
@@ -64,8 +64,8 @@ void EosController::RunOnce(const session::EosCycleInput& input) {
   impl_->last_cycle_executed = false;
   impl_->last_cycle_reused_previous_output = false;
   impl_->last_abort_reason = extension::EosPipelineAbortReason::kNone;
-  impl_->last_validation_issues = model::ValidateEosCycleInput(input);
-  impl_->has_validation_error = model::HasEosValidationError(impl_->last_validation_issues);
+  impl_->last_validation_issues = session::ValidateEosCycleInput(input);
+  impl_->has_validation_error = session::HasValidationError(impl_->last_validation_issues);
   if (impl_->has_validation_error) {
     impl_->last_abort_reason = extension::EosPipelineAbortReason::kValidationRejected;
     impl_->last_cycle_reused_previous_output = had_previous_output;
@@ -111,7 +111,7 @@ const output::EosOutputFrame& EosController::GetLatestOutputFrame() const {
   return impl_->latest_output;
 }
 
-const model::EosValidationIssueList& EosController::GetLastValidationIssues() const {
+const session::ValidationIssueList& EosController::GetLastValidationIssues() const {
   return impl_->last_validation_issues;
 }
 
@@ -127,8 +127,8 @@ extension::EosPipelineAbortReason EosController::GetLastAbortReason() const {
   return impl_->last_abort_reason;
 }
 
-model::EosCycleResult EosController::BuildCycleResult(const session::EosCycleInput& input) const {
-  model::EosCycleResult result;
+::electro_optical_sensor::session::EosCycleResult EosController::BuildCycleResult(const ::electro_optical_sensor::session::EosCycleInput& input) const {
+  ::electro_optical_sensor::session::EosCycleResult result;
   result.validation_issues = impl_->last_validation_issues;
   result.has_validation_error = impl_->has_validation_error;
   result.executed_this_cycle = impl_->last_cycle_executed;

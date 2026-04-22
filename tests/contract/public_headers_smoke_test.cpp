@@ -74,9 +74,9 @@
 #include "1q/electro_optical_sensor/extension/IEosPipeline.h"
 #include "1q/electro_optical_sensor/extension/electro_optical_sensor_extension.hpp"
 #include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
-#include "1q/electro_optical_sensor/model/EosCycleInput.h"
-#include "1q/electro_optical_sensor/model/EosCycleResult.h"
-#include "1q/electro_optical_sensor/model/EosInputValidation.h"
+#include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "1q/electro_optical_sensor/session/EosCycleResult.h"
+#include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/output/EosOutputFrame.h"
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
@@ -415,8 +415,8 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   ASSERT_TRUE(
       session::TryMakeEsrPoseFromExternalKinematics(esr_pose_input, esr_reference, &esr_pose));
 
-  const session::EsrValidationIssueList issues = session::ValidateEsrCycleInput(input);
-  EXPECT_FALSE(session::HasEsrValidationError(issues));
+  const session::ValidationIssueList issues = session::ValidateEsrCycleInput(input);
+  EXPECT_FALSE(session::HasValidationError(issues));
 
   session::EsrSession session(session_config);
   const session::EsrRuntimeConfigPatch runtime_patch =
@@ -447,10 +447,10 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   session_config.mission.scan_start_az_deg = -20.0f;
   session_config.mission.scan_end_az_deg = 20.0f;
 
-  session::EosCycleInput input;
+  ::electro_optical_sensor::session::EosCycleInput input;
   input.cycle_index = 2U;
   input.dt_sec = 1.0f;
-  input.day_night_type = model::DayNightType::kDay;
+  input.day_night_type = ::electro_optical_sensor::session::DayNightType::kDay;
   session::EosTargetState target;
   target.target_id = 7U;
   target.range_m = 1500.0f;
@@ -474,8 +474,8 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   ASSERT_TRUE(
       session::TryMakeEosPoseFromExternalKinematics(eos_pose_input, eos_reference, &eos_pose));
 
-  const model::EosValidationIssueList issues = model::ValidateEosCycleInput(input);
-  EXPECT_FALSE(model::HasEosValidationError(issues));
+  const session::ValidationIssueList issues = session::ValidateEosCycleInput(input);
+  EXPECT_FALSE(session::HasValidationError(issues));
 
   foundation::radiative_transfer::RadiativeTransferInputs transfer_inputs;
   transfer_inputs.model =
@@ -491,9 +491,9 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   const session::EosRuntimeConfigPatch runtime_patch =
       config::EosRuntimeConfigBuilder().WithFrameRateHz(15.0f).Build();
   session.ApplyRuntimeConfig(runtime_patch);
-  const model::EosCycleResult result = session.StepWithResult(input);
+  const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
   session::EosTraceSession trace_session(session_config, session::EosTraceSessionOptions{});
-  const model::EosCycleResult trace_result = trace_session.StepWithResult(input);
+  const ::electro_optical_sensor::session::EosCycleResult trace_result = trace_session.StepWithResult(input);
   EXPECT_TRUE(result.executed_this_cycle);
   EXPECT_FALSE(result.reused_previous_output);
   EXPECT_TRUE(trace_result.executed_this_cycle);

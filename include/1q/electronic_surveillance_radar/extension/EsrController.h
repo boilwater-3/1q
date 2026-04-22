@@ -61,7 +61,7 @@ class ONEQ_API EsrController {
    * @brief 获取最近一次输入校验结果。
    * @return 最近一次输入校验问题列表。
    */
-  const session::EsrValidationIssueList& GetLastValidationIssues() const;
+  const session::ValidationIssueList& GetLastValidationIssues() const;
 
   /**
    * @brief 获取当前控制器绑定的流水线实例。

@@ -88,7 +88,7 @@ int main() {
   (void)frame.emitter_output.hypotheses.size();
   (void)frame.truth_evaluation_output.associations.size();
 
-  const electronic_surveillance_radar::session::EsrValidationIssueList& issues =
+  const electronic_surveillance_radar::session::ValidationIssueList& issues =
       controller.GetLastValidationIssues();
   (void)issues.size();
 

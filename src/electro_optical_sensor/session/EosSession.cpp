@@ -88,7 +88,7 @@ output::EosOutputFrame EosSession::Step(const EosCycleInput& input) {
   return StepWithResult(input).output_frame;
 }
 
-model::EosCycleResult EosSession::StepWithResult(const EosCycleInput& input) {
+::electro_optical_sensor::session::EosCycleResult EosSession::StepWithResult(const EosCycleInput& input) {
   return impl_->cycle_orchestrator.Step(input);
 }
 

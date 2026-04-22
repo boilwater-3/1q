@@ -9,8 +9,8 @@
 #include "generated/eos_session_replay_generated.h"
 
 #include "1q/electro_optical_sensor/environment/EosEnvironmentConfig.h"
-#include "1q/electro_optical_sensor/model/EosCycleInput.h"
-#include "1q/electro_optical_sensor/model/EosCycleResult.h"
+#include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
 
 namespace electro_optical_sensor {
@@ -107,7 +107,7 @@ bool DecodeEosCycleInput(const std::string& bytes, EosCycleInput* out) {
   out->solar_irradiance_w_m2 = fb->solar_irradiance_w_m2();
   out->cloud_coverage_ratio = fb->cloud_coverage_ratio();
   out->ambient_wind_speed_mps = fb->ambient_wind_speed_mps();
-  out->day_night_type = static_cast<model::DayNightType>(fb->day_night_type());
+  out->day_night_type = static_cast<::electro_optical_sensor::session::DayNightType>(fb->day_night_type());
   out->background_temperature_k = fb->background_temperature_k();
   out->scene_targets.clear();
   if (fb->scene_targets()) {
@@ -173,7 +173,7 @@ bool DecodeEosOutputFrame(const std::string& bytes, output::EosOutputFrame* out)
 
 // ---- EosCycleResult ----
 
-std::string EncodeEosCycleResult(const model::EosCycleResult& v) {
+std::string EncodeEosCycleResult(const ::electro_optical_sensor::session::EosCycleResult& v) {
   flatbuffers::FlatBufferBuilder fbb(512);
 
   // 先编码 output_frame
@@ -188,10 +188,10 @@ std::string EncodeEosCycleResult(const model::EosCycleResult& v) {
       fbb, v.output_frame.cycle_index, v.output_frame.scan_azimuth_deg,
       fbb.CreateVector(det_vec));
 
-  std::vector<flatbuffers::Offset<eos::replay::EosValidationIssue>> issue_vec;
+  std::vector<flatbuffers::Offset<eos::replay::ValidationIssue>> issue_vec;
   for (const auto& i : v.validation_issues) {
     auto msg = fbb.CreateString(i.message);
-    issue_vec.push_back(eos::replay::CreateEosValidationIssue(
+    issue_vec.push_back(eos::replay::CreateValidationIssue(
         fbb, static_cast<int32_t>(i.severity), static_cast<int32_t>(i.code),
         i.target_index, msg));
   }
@@ -205,7 +205,7 @@ std::string EncodeEosCycleResult(const model::EosCycleResult& v) {
   return std::string(reinterpret_cast<const char*>(buf), fbb.GetSize());
 }
 
-bool DecodeEosCycleResult(const std::string& bytes, model::EosCycleResult* out) {
+bool DecodeEosCycleResult(const std::string& bytes, ::electro_optical_sensor::session::EosCycleResult* out) {
   flatbuffers::Verifier verifier(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
   if (!verifier.VerifyBuffer<eos::replay::EosCycleResult>()) return false;
   const auto* fb = flatbuffers::GetRoot<eos::replay::EosCycleResult>(bytes.data());
@@ -236,9 +236,9 @@ bool DecodeEosCycleResult(const std::string& bytes, model::EosCycleResult* out) 
   out->validation_issues.clear();
   if (fb->validation_issues()) {
     for (const auto* i : *fb->validation_issues()) {
-      model::EosValidationIssue iss{};
-      iss.severity = static_cast<model::EosValidationSeverity>(i->severity());
-      iss.code = static_cast<model::EosValidationCode>(i->code());
+      session::ValidationIssue iss{};
+      iss.severity = static_cast<session::ValidationSeverity>(i->severity());
+      iss.code = static_cast<session::ValidationCode>(i->code());
       iss.target_index = i->target_index();
       if (i->message()) iss.message = i->message()->str();
       out->validation_issues.push_back(iss);

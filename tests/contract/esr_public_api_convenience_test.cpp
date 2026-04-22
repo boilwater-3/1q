@@ -24,8 +24,8 @@ namespace electronic_surveillance_radar {
 namespace tests {
 namespace {
 
-bool ContainsEsrIssueCode(const std::vector<session::EsrValidationIssue>& issues,
-                          session::EsrValidationCode code) {
+bool ContainsEsrIssueCode(const std::vector<session::ValidationIssue>& issues,
+                          session::ValidationCode code) {
   for (std::size_t i = 0; i < issues.size(); ++i) {
     if (issues[i].code == code) {
       return true;
@@ -206,13 +206,13 @@ TEST(EsrPublicApiConvenienceTest, InputValidationReportsErrorsForBoundaryCases) 
   invalid_emitter.carrier_hz = -1.0;
   input.scene_emitters.push_back(invalid_emitter);
 
-  const session::EsrValidationIssueList issues = session::ValidateEsrCycleInput(input);
+  const session::ValidationIssueList issues = session::ValidateEsrCycleInput(input);
 
-  EXPECT_TRUE(ContainsEsrIssueCode(issues, session::EsrValidationCode::kInvalidCycleDeltaTime));
+  EXPECT_TRUE(ContainsEsrIssueCode(issues, session::ValidationCode::kInvalidCycleDeltaTime));
   EXPECT_TRUE(
-      ContainsEsrIssueCode(issues, session::EsrValidationCode::kNonFinitePlatformNumericField));
-  EXPECT_TRUE(ContainsEsrIssueCode(issues, session::EsrValidationCode::kEmptyEmitterId));
-  EXPECT_TRUE(session::HasEsrValidationError(issues));
+      ContainsEsrIssueCode(issues, session::ValidationCode::kNonFinitePlatformNumericField));
+  EXPECT_TRUE(ContainsEsrIssueCode(issues, session::ValidationCode::kEmptyEmitterId));
+  EXPECT_TRUE(session::HasValidationError(issues));
 }
 
 TEST(EsrPublicApiConvenienceTest, CoordinateUtilsBuildsPoseFromExternalKinematics) {

@@ -57,11 +57,11 @@ bool WorkModeIncludesVisible(EosPipelineWorkMode mode) {
 }
 
 foundation::radiometry::IlluminationCondition ToIlluminationCondition(
-		::electro_optical_sensor::model::DayNightType day_night_type) {
-	if (day_night_type == ::electro_optical_sensor::model::DayNightType::kNight) {
+		::electro_optical_sensor::session::DayNightType day_night_type) {
+	if (day_night_type == ::electro_optical_sensor::session::DayNightType::kNight) {
 		return foundation::radiometry::IlluminationCondition::kNight;
 	}
-	if (day_night_type == ::electro_optical_sensor::model::DayNightType::kTwilight) {
+	if (day_night_type == ::electro_optical_sensor::session::DayNightType::kTwilight) {
 		return foundation::radiometry::IlluminationCondition::kTwilight;
 	}
 	return foundation::radiometry::IlluminationCondition::kDay;
@@ -345,7 +345,7 @@ float ComputeVisibleSnrLinear(const EosPipelineConfig& config,
 }
 
 float ComputeFusedSnrLinear(EosPipelineWorkMode work_mode,
-														::electro_optical_sensor::model::DayNightType day_night_type,
+														::electro_optical_sensor::session::DayNightType day_night_type,
 														float infrared_snr_linear, float visible_snr_linear) {
 	if (work_mode == EosPipelineWorkMode::kInfraredOnly) {
 		return infrared_snr_linear;
@@ -365,10 +365,10 @@ float ComputeFusedSnrLinear(EosPipelineWorkMode work_mode,
 
 	float infrared_weight = 0.5f;
 	float visible_weight = 0.5f;
-	if (day_night_type == ::electro_optical_sensor::model::DayNightType::kDay) {
+	if (day_night_type == ::electro_optical_sensor::session::DayNightType::kDay) {
 		infrared_weight = 0.35f;
 		visible_weight = 0.65f;
-	} else if (day_night_type == ::electro_optical_sensor::model::DayNightType::kNight) {
+	} else if (day_night_type == ::electro_optical_sensor::session::DayNightType::kNight) {
 		infrared_weight = 0.80f;
 		visible_weight = 0.20f;
 	}

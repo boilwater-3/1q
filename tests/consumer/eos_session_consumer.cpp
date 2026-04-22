@@ -19,9 +19,9 @@
 #include "1q/electro_optical_sensor/config/EosDetailedSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
-#include "1q/electro_optical_sensor/model/EosCycleInput.h"
-#include "1q/electro_optical_sensor/model/EosInputValidation.h"
-#include "1q/electro_optical_sensor/model/EosCycleResult.h"
+#include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "1q/electro_optical_sensor/session/EosInputValidation.h"
+#include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
 #include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
@@ -48,14 +48,14 @@ int main() {
       eos::session::EosSessionFactory::Create(config);
 
   // 4. CycleInput with a target
-  eos::session::EosCycleInput input;
+  eos::::electro_optical_sensor::session::EosCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
   input.solar_irradiance_w_m2 = 850.0f;
   input.solar_altitude_deg = 45.0f;
   input.cloud_coverage_ratio = 0.2f;
   input.background_temperature_k = 289.0f;
-  input.day_night_type = eos::model::DayNightType::kDay;
+  input.day_night_type = eos::::electro_optical_sensor::session::DayNightType::kDay;
   input.platform_pose.position_m.z = 1200.0f;
 
   eos::session::EosTargetState target;
@@ -70,14 +70,14 @@ int main() {
   input.scene_targets.push_back(target);
 
   // 5. Input validation
-  const eos::model::EosValidationIssueList issues =
-      eos::model::ValidateEosCycleInput(input);
-  if (eos::model::HasEosValidationError(issues)) {
+  const eos::session::ValidationIssueList issues =
+      eos::session::ValidateEosCycleInput(input);
+  if (eos::session::HasValidationError(issues)) {
     return 1;
   }
 
   // 6. StepWithResult
-  const eos::model::EosCycleResult result = session.StepWithResult(input);
+  const eos::::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
   if (result.has_validation_error) {
     return 2;
   }
@@ -115,7 +115,7 @@ int main() {
   session.ApplyRuntimeConfig(ir_patch);
 
   // 10. Step after mode switch
-  eos::session::EosCycleInput input_2 = input;
+  eos::::electro_optical_sensor::session::EosCycleInput input_2 = input;
   input_2.cycle_index = 2U;
   const eos::output::EosOutputFrame ir_frame = session.Step(input_2);
 
@@ -167,9 +167,9 @@ int main() {
   session.ApplyRuntimeConfig(vis_ref_patch);
 
   // 16. Final cycle
-  eos::session::EosCycleInput input_3 = input;
+  eos::::electro_optical_sensor::session::EosCycleInput input_3 = input;
   input_3.cycle_index = 3U;
-  const eos::model::EosCycleResult result_3 = session.StepWithResult(input_3);
+  const eos::::electro_optical_sensor::session::EosCycleResult result_3 = session.StepWithResult(input_3);
   if (result_3.has_validation_error) {
     return 3;
   }

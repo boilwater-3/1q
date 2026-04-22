@@ -30,7 +30,7 @@ class EosCycleOrchestrator {
    * @param[in] input 当前周期输入。
    * @return 当前周期聚合结果。
    */
-  model::EosCycleResult Step(const ::electro_optical_sensor::session::EosCycleInput& input);
+  ::electro_optical_sensor::session::EosCycleResult Step(const ::electro_optical_sensor::session::EosCycleInput& input);
 
   /**
    * @brief 应用运行期可变配置补丁。

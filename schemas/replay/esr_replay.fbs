@@ -144,7 +144,7 @@ table EsrOutputFrame {
 
 // ---- EsrCycleResult (cycle_output via StepWithResult) ----
 
-table EsrValidationIssue {
+table ValidationIssue {
   severity:      int32;
   code:          int32;
   emitter_index: int32;
@@ -153,6 +153,6 @@ table EsrValidationIssue {
 
 table EsrCycleResult {
   output_frame:         EsrOutputFrame;
-  validation_issues:    [EsrValidationIssue];
+  validation_issues:    [ValidationIssue];
   has_validation_error: bool;
 }

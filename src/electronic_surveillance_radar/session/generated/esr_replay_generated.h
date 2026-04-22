@@ -69,9 +69,9 @@ struct EsrOutputFrame;
 struct EsrOutputFrameBuilder;
 struct EsrOutputFrameT;
 
-struct EsrValidationIssue;
-struct EsrValidationIssueBuilder;
-struct EsrValidationIssueT;
+struct ValidationIssue;
+struct ValidationIssueBuilder;
+struct ValidationIssueT;
 
 struct EsrCycleResult;
 struct EsrCycleResultBuilder;
@@ -1780,22 +1780,22 @@ inline flatbuffers::Offset<EsrOutputFrame> CreateEsrOutputFrame(
 
 flatbuffers::Offset<EsrOutputFrame> CreateEsrOutputFrame(flatbuffers::FlatBufferBuilder &_fbb, const EsrOutputFrameT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
-struct EsrValidationIssueT : public flatbuffers::NativeTable {
-  typedef EsrValidationIssue TableType;
+struct ValidationIssueT : public flatbuffers::NativeTable {
+  typedef ValidationIssue TableType;
   int32_t severity;
   int32_t code;
   int32_t emitter_index;
   std::string message;
-  EsrValidationIssueT()
+  ValidationIssueT()
       : severity(0),
         code(0),
         emitter_index(0) {
   }
 };
 
-struct EsrValidationIssue FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EsrValidationIssueT NativeTableType;
-  typedef EsrValidationIssueBuilder Builder;
+struct ValidationIssue FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef ValidationIssueT NativeTableType;
+  typedef ValidationIssueBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_SEVERITY = 4,
     VT_CODE = 6,
@@ -1823,46 +1823,46 @@ struct EsrValidationIssue FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyString(message()) &&
            verifier.EndTable();
   }
-  EsrValidationIssueT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EsrValidationIssueT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EsrValidationIssue> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EsrValidationIssueT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+  ValidationIssueT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(ValidationIssueT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<ValidationIssue> Pack(flatbuffers::FlatBufferBuilder &_fbb, const ValidationIssueT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
-struct EsrValidationIssueBuilder {
-  typedef EsrValidationIssue Table;
+struct ValidationIssueBuilder {
+  typedef ValidationIssue Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_severity(int32_t severity) {
-    fbb_.AddElement<int32_t>(EsrValidationIssue::VT_SEVERITY, severity, 0);
+    fbb_.AddElement<int32_t>(ValidationIssue::VT_SEVERITY, severity, 0);
   }
   void add_code(int32_t code) {
-    fbb_.AddElement<int32_t>(EsrValidationIssue::VT_CODE, code, 0);
+    fbb_.AddElement<int32_t>(ValidationIssue::VT_CODE, code, 0);
   }
   void add_emitter_index(int32_t emitter_index) {
-    fbb_.AddElement<int32_t>(EsrValidationIssue::VT_EMITTER_INDEX, emitter_index, 0);
+    fbb_.AddElement<int32_t>(ValidationIssue::VT_EMITTER_INDEX, emitter_index, 0);
   }
   void add_message(flatbuffers::Offset<flatbuffers::String> message) {
-    fbb_.AddOffset(EsrValidationIssue::VT_MESSAGE, message);
+    fbb_.AddOffset(ValidationIssue::VT_MESSAGE, message);
   }
-  explicit EsrValidationIssueBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit ValidationIssueBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  EsrValidationIssueBuilder &operator=(const EsrValidationIssueBuilder &);
-  flatbuffers::Offset<EsrValidationIssue> Finish() {
+  ValidationIssueBuilder &operator=(const ValidationIssueBuilder &);
+  flatbuffers::Offset<ValidationIssue> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<EsrValidationIssue>(end);
+    auto o = flatbuffers::Offset<ValidationIssue>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<EsrValidationIssue> CreateEsrValidationIssue(
+inline flatbuffers::Offset<ValidationIssue> CreateValidationIssue(
     flatbuffers::FlatBufferBuilder &_fbb,
     int32_t severity = 0,
     int32_t code = 0,
     int32_t emitter_index = 0,
     flatbuffers::Offset<flatbuffers::String> message = 0) {
-  EsrValidationIssueBuilder builder_(_fbb);
+  ValidationIssueBuilder builder_(_fbb);
   builder_.add_message(message);
   builder_.add_emitter_index(emitter_index);
   builder_.add_code(code);
@@ -1870,14 +1870,14 @@ inline flatbuffers::Offset<EsrValidationIssue> CreateEsrValidationIssue(
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<EsrValidationIssue> CreateEsrValidationIssueDirect(
+inline flatbuffers::Offset<ValidationIssue> CreateValidationIssueDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     int32_t severity = 0,
     int32_t code = 0,
     int32_t emitter_index = 0,
     const char *message = nullptr) {
   auto message__ = message ? _fbb.CreateString(message) : 0;
-  return esr::replay::CreateEsrValidationIssue(
+  return esr::replay::CreateValidationIssue(
       _fbb,
       severity,
       code,
@@ -1885,12 +1885,12 @@ inline flatbuffers::Offset<EsrValidationIssue> CreateEsrValidationIssueDirect(
       message__);
 }
 
-flatbuffers::Offset<EsrValidationIssue> CreateEsrValidationIssue(flatbuffers::FlatBufferBuilder &_fbb, const EsrValidationIssueT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+flatbuffers::Offset<ValidationIssue> CreateValidationIssue(flatbuffers::FlatBufferBuilder &_fbb, const ValidationIssueT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
 struct EsrCycleResultT : public flatbuffers::NativeTable {
   typedef EsrCycleResult TableType;
   std::unique_ptr<esr::replay::EsrOutputFrameT> output_frame;
-  std::vector<std::unique_ptr<esr::replay::EsrValidationIssueT>> validation_issues;
+  std::vector<std::unique_ptr<esr::replay::ValidationIssueT>> validation_issues;
   bool has_validation_error;
   EsrCycleResultT()
       : has_validation_error(false) {
@@ -1908,8 +1908,8 @@ struct EsrCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const esr::replay::EsrOutputFrame *output_frame() const {
     return GetPointer<const esr::replay::EsrOutputFrame *>(VT_OUTPUT_FRAME);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<esr::replay::EsrValidationIssue>> *validation_issues() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<esr::replay::EsrValidationIssue>> *>(VT_VALIDATION_ISSUES);
+  const flatbuffers::Vector<flatbuffers::Offset<esr::replay::ValidationIssue>> *validation_issues() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<esr::replay::ValidationIssue>> *>(VT_VALIDATION_ISSUES);
   }
   bool has_validation_error() const {
     return GetField<uint8_t>(VT_HAS_VALIDATION_ERROR, 0) != 0;
@@ -1936,7 +1936,7 @@ struct EsrCycleResultBuilder {
   void add_output_frame(flatbuffers::Offset<esr::replay::EsrOutputFrame> output_frame) {
     fbb_.AddOffset(EsrCycleResult::VT_OUTPUT_FRAME, output_frame);
   }
-  void add_validation_issues(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<esr::replay::EsrValidationIssue>>> validation_issues) {
+  void add_validation_issues(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<esr::replay::ValidationIssue>>> validation_issues) {
     fbb_.AddOffset(EsrCycleResult::VT_VALIDATION_ISSUES, validation_issues);
   }
   void add_has_validation_error(bool has_validation_error) {
@@ -1957,7 +1957,7 @@ struct EsrCycleResultBuilder {
 inline flatbuffers::Offset<EsrCycleResult> CreateEsrCycleResult(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<esr::replay::EsrOutputFrame> output_frame = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<esr::replay::EsrValidationIssue>>> validation_issues = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<esr::replay::ValidationIssue>>> validation_issues = 0,
     bool has_validation_error = false) {
   EsrCycleResultBuilder builder_(_fbb);
   builder_.add_validation_issues(validation_issues);
@@ -1969,9 +1969,9 @@ inline flatbuffers::Offset<EsrCycleResult> CreateEsrCycleResult(
 inline flatbuffers::Offset<EsrCycleResult> CreateEsrCycleResultDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<esr::replay::EsrOutputFrame> output_frame = 0,
-    const std::vector<flatbuffers::Offset<esr::replay::EsrValidationIssue>> *validation_issues = nullptr,
+    const std::vector<flatbuffers::Offset<esr::replay::ValidationIssue>> *validation_issues = nullptr,
     bool has_validation_error = false) {
-  auto validation_issues__ = validation_issues ? _fbb.CreateVector<flatbuffers::Offset<esr::replay::EsrValidationIssue>>(*validation_issues) : 0;
+  auto validation_issues__ = validation_issues ? _fbb.CreateVector<flatbuffers::Offset<esr::replay::ValidationIssue>>(*validation_issues) : 0;
   return esr::replay::CreateEsrCycleResult(
       _fbb,
       output_frame,
@@ -2525,13 +2525,13 @@ inline flatbuffers::Offset<EsrOutputFrame> CreateEsrOutputFrame(flatbuffers::Fla
       _truth_evaluation_output);
 }
 
-inline EsrValidationIssueT *EsrValidationIssue::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<esr::replay::EsrValidationIssueT> _o = std::unique_ptr<esr::replay::EsrValidationIssueT>(new EsrValidationIssueT());
+inline ValidationIssueT *ValidationIssue::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<esr::replay::ValidationIssueT> _o = std::unique_ptr<esr::replay::ValidationIssueT>(new ValidationIssueT());
   UnPackTo(_o.get(), _resolver);
   return _o.release();
 }
 
-inline void EsrValidationIssue::UnPackTo(EsrValidationIssueT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+inline void ValidationIssue::UnPackTo(ValidationIssueT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
   { auto _e = severity(); _o->severity = _e; }
@@ -2540,19 +2540,19 @@ inline void EsrValidationIssue::UnPackTo(EsrValidationIssueT *_o, const flatbuff
   { auto _e = message(); if (_e) _o->message = _e->str(); }
 }
 
-inline flatbuffers::Offset<EsrValidationIssue> EsrValidationIssue::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EsrValidationIssueT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEsrValidationIssue(_fbb, _o, _rehasher);
+inline flatbuffers::Offset<ValidationIssue> ValidationIssue::Pack(flatbuffers::FlatBufferBuilder &_fbb, const ValidationIssueT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateValidationIssue(_fbb, _o, _rehasher);
 }
 
-inline flatbuffers::Offset<EsrValidationIssue> CreateEsrValidationIssue(flatbuffers::FlatBufferBuilder &_fbb, const EsrValidationIssueT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+inline flatbuffers::Offset<ValidationIssue> CreateValidationIssue(flatbuffers::FlatBufferBuilder &_fbb, const ValidationIssueT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
   (void)_rehasher;
   (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EsrValidationIssueT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const ValidationIssueT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
   auto _severity = _o->severity;
   auto _code = _o->code;
   auto _emitter_index = _o->emitter_index;
   auto _message = _o->message.empty() ? 0 : _fbb.CreateString(_o->message);
-  return esr::replay::CreateEsrValidationIssue(
+  return esr::replay::CreateValidationIssue(
       _fbb,
       _severity,
       _code,
@@ -2570,7 +2570,7 @@ inline void EsrCycleResult::UnPackTo(EsrCycleResultT *_o, const flatbuffers::res
   (void)_o;
   (void)_resolver;
   { auto _e = output_frame(); if (_e) _o->output_frame = std::unique_ptr<esr::replay::EsrOutputFrameT>(_e->UnPack(_resolver)); }
-  { auto _e = validation_issues(); if (_e) { _o->validation_issues.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->validation_issues[_i] = std::unique_ptr<esr::replay::EsrValidationIssueT>(_e->Get(_i)->UnPack(_resolver)); } } }
+  { auto _e = validation_issues(); if (_e) { _o->validation_issues.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->validation_issues[_i] = std::unique_ptr<esr::replay::ValidationIssueT>(_e->Get(_i)->UnPack(_resolver)); } } }
   { auto _e = has_validation_error(); _o->has_validation_error = _e; }
 }
 
@@ -2583,7 +2583,7 @@ inline flatbuffers::Offset<EsrCycleResult> CreateEsrCycleResult(flatbuffers::Fla
   (void)_o;
   struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EsrCycleResultT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
   auto _output_frame = _o->output_frame ? CreateEsrOutputFrame(_fbb, _o->output_frame.get(), _rehasher) : 0;
-  auto _validation_issues = _o->validation_issues.size() ? _fbb.CreateVector<flatbuffers::Offset<esr::replay::EsrValidationIssue>> (_o->validation_issues.size(), [](size_t i, _VectorArgs *__va) { return CreateEsrValidationIssue(*__va->__fbb, __va->__o->validation_issues[i].get(), __va->__rehasher); }, &_va ) : 0;
+  auto _validation_issues = _o->validation_issues.size() ? _fbb.CreateVector<flatbuffers::Offset<esr::replay::ValidationIssue>> (_o->validation_issues.size(), [](size_t i, _VectorArgs *__va) { return CreateValidationIssue(*__va->__fbb, __va->__o->validation_issues[i].get(), __va->__rehasher); }, &_va ) : 0;
   auto _has_validation_error = _o->has_validation_error;
   return esr::replay::CreateEsrCycleResult(
       _fbb,

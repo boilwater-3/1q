@@ -11,8 +11,8 @@
 #include "1q/api.hpp"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfig.h"
-#include "1q/electro_optical_sensor/model/EosCycleInput.h"
-#include "1q/electro_optical_sensor/model/EosCycleResult.h"
+#include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/output/EosOutputFrame.h"
 
 namespace electro_optical_sensor {
@@ -60,7 +60,7 @@ class ONEQ_API EosSession {
    *       提供结构化周期状态语义。
    * @note 非线程安全：会读写会话内部状态；并发调用需外部同步。
    */
-  model::EosCycleResult StepWithResult(const EosCycleInput& input);
+  ::electro_optical_sensor::session::EosCycleResult StepWithResult(const EosCycleInput& input);
 
   /**
    * @brief 应用运行期可变配置补丁。

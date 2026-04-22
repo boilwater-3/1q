@@ -94,8 +94,8 @@ int main() {
   input.platform_pose = platform_pose;
   input.scene_emitters.push_back(emitter);
 
-  const esr::session::EsrValidationIssueList issues = esr::session::ValidateEsrCycleInput(input);
-  if (esr::session::HasEsrValidationError(issues)) {
+  const esr::session::ValidationIssueList issues = esr::session::ValidateEsrCycleInput(input);
+  if (esr::session::HasValidationError(issues)) {
     std::cerr << "invalid esr input" << std::endl;
     return 1;
   }

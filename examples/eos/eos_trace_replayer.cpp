@@ -171,8 +171,8 @@ eos::session::EosSessionConfig ParseSessionConfig(const Json& payload) {
   return config;
 }
 
-eos::session::EosCycleInput ParseCycleInput(const Json& payload) {
-  eos::session::EosCycleInput input;
+eos::::electro_optical_sensor::session::EosCycleInput ParseCycleInput(const Json& payload) {
+  eos::::electro_optical_sensor::session::EosCycleInput input;
   input.cycle_index = payload.value("cycle_index", input.cycle_index);
   input.dt_sec = GetFloat(payload, "dt_sec", input.dt_sec);
   if (payload.contains("platform_pose")) {
@@ -183,7 +183,7 @@ eos::session::EosCycleInput ParseCycleInput(const Json& payload) {
   input.solar_irradiance_w_m2 = GetFloat(payload, "solar_irradiance_w_m2", input.solar_irradiance_w_m2);
   input.cloud_coverage_ratio = GetFloat(payload, "cloud_coverage_ratio", input.cloud_coverage_ratio);
   input.ambient_wind_speed_mps = GetFloat(payload, "ambient_wind_speed_mps", input.ambient_wind_speed_mps);
-  input.day_night_type = static_cast<eos::model::DayNightType>(
+  input.day_night_type = static_cast<eos::::electro_optical_sensor::session::DayNightType>(
       GetInt(payload, "day_night_type", static_cast<int>(input.day_night_type)));
   input.background_temperature_k =
       GetFloat(payload, "background_temperature_k", input.background_temperature_k);
@@ -378,7 +378,7 @@ int main(int argc, char* argv[]) {
   for (std::size_t i = 0; i < expected.size(); ++i) {
     const TraceRecord& record = expected[i];
     if (record.phase == "input") {
-      const eos::session::EosCycleInput input = ParseCycleInput(record.payload);
+      const eos::::electro_optical_sensor::session::EosCycleInput input = ParseCycleInput(record.payload);
       (void)session.StepWithResult(input);
     } else if (record.phase == "runtime_config_patch") {
       const eos::session::EosRuntimeConfigPatch patch = ParseRuntimePatch(record.payload);

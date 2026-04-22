@@ -66,8 +66,8 @@ int main() {
   input.scene_emitters.push_back(emitter);
 
   // 5. Input validation
-  const esr::session::EsrValidationIssueList issues = esr::session::ValidateEsrCycleInput(input);
-  if (esr::session::HasEsrValidationError(issues)) {
+  const esr::session::ValidationIssueList issues = esr::session::ValidateEsrCycleInput(input);
+  if (esr::session::HasValidationError(issues)) {
     return 1;
   }
 

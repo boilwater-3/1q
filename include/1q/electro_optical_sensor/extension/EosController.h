@@ -12,9 +12,9 @@
 #include "1q/api.hpp"
 #include "1q/electro_optical_sensor/output/EosOutputFrame.h"
 #include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
-#include "1q/electro_optical_sensor/model/EosCycleResult.h"
-#include "1q/electro_optical_sensor/model/EosCycleInput.h"
-#include "1q/electro_optical_sensor/model/EosInputValidation.h"
+#include "1q/electro_optical_sensor/session/EosCycleResult.h"
+#include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "1q/electro_optical_sensor/session/EosInputValidation.h"
 
 namespace electro_optical_sensor {
 namespace extension {
@@ -29,7 +29,7 @@ struct ONEQ_API EosControllerRuntimeState {
   const void* owner_identity{nullptr};
   std::uint32_t schema_version{0U};
   output::EosOutputFrame latest_output{};
-  model::EosValidationIssueList last_validation_issues{};
+  session::ValidationIssueList last_validation_issues{};
   bool has_latest_output{false};
   bool has_validation_error{false};
   bool last_cycle_executed{false};
@@ -57,7 +57,7 @@ class ONEQ_API EosController {
    * @brief 执行一次光学传感器处理周期。
    * @param[in] input 当前周期输入。
    */
-  void RunOnce(const session::EosCycleInput& input);
+  void RunOnce(const ::electro_optical_sensor::session::EosCycleInput& input);
 
   /**
    * @brief 判断当前是否有可读取的最新输出帧。
@@ -75,7 +75,7 @@ class ONEQ_API EosController {
    * @brief 获取最近一次输入校验结果。
    * @return 最近一次输入校验问题列表。
    */
-  const model::EosValidationIssueList& GetLastValidationIssues() const;
+  const session::ValidationIssueList& GetLastValidationIssues() const;
 
   /**
    * @brief 判断最近一次输入校验是否存在 error 级问题。
@@ -106,7 +106,7 @@ class ONEQ_API EosController {
    * @param[in] input 当前周期输入，仅在无可复用输出时用于回填 cycle_index。
    * @return 当前周期聚合结果。
    */
-  model::EosCycleResult BuildCycleResult(const session::EosCycleInput& input) const;
+  ::electro_optical_sensor::session::EosCycleResult BuildCycleResult(const ::electro_optical_sensor::session::EosCycleInput& input) const;
 
   /**
    * @brief 获取当前控制器绑定的核心管线实例。

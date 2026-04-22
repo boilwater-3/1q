@@ -22,7 +22,7 @@ namespace {
 
 namespace eos_config = ::electro_optical_sensor::config;
 namespace eos_session = ::electro_optical_sensor::session;
-namespace eos_model = ::electro_optical_sensor::model;
+
 
 eos_session::EosSessionConfig MakeSessionConfig() {
   eos_session::EosSessionConfig config;
@@ -44,7 +44,7 @@ eos_session::EosCycleInput MakeCycleInput(std::uint32_t cycle_index, float dt_se
   input.solar_altitude_deg = 45.0f;
   input.cloud_coverage_ratio = 0.2f;
   input.background_temperature_k = 289.0f;
-  input.day_night_type = eos_model::DayNightType::kDay;
+  input.day_night_type = eos_session::DayNightType::kDay;
   return input;
 }
 
@@ -56,7 +56,7 @@ TEST(EosCycleOrchestratorTest, StepProducesOutputAndPreservesCycleIndex) {
   extension::EosController controller(pipeline);
   EosCycleOrchestrator orchestrator(config, pipeline_config, true, pipeline, controller);
 
-  const ::electro_optical_sensor::model::EosCycleResult result = orchestrator.Step(MakeCycleInput(7U, 1.0f));
+  const ::electro_optical_sensor::session::EosCycleResult result = orchestrator.Step(MakeCycleInput(7U, 1.0f));
 
   EXPECT_FALSE(result.has_validation_error);
   EXPECT_TRUE(result.executed_this_cycle);
@@ -71,13 +71,13 @@ TEST(EosCycleOrchestratorTest, ValidRuntimePatchTakesEffectOnNextStep) {
   extension::EosController controller(pipeline);
   EosCycleOrchestrator orchestrator(config, pipeline_config, true, pipeline, controller);
 
-  const ::electro_optical_sensor::model::EosCycleResult baseline = orchestrator.Step(MakeCycleInput(1U, 1.0f));
+  const ::electro_optical_sensor::session::EosCycleResult baseline = orchestrator.Step(MakeCycleInput(1U, 1.0f));
   const float baseline_scan_azimuth = baseline.output_frame.scan_azimuth_deg;
 
   orchestrator.ApplyRuntimeConfig(
       eos_config::EosRuntimeConfigBuilder().WithScanRateDegPerSec(9.0f).Build());
 
-  const ::electro_optical_sensor::model::EosCycleResult patched = orchestrator.Step(MakeCycleInput(2U, 1.0f));
+  const ::electro_optical_sensor::session::EosCycleResult patched = orchestrator.Step(MakeCycleInput(2U, 1.0f));
   EXPECT_FALSE(patched.has_validation_error);
   EXPECT_TRUE(patched.executed_this_cycle);
   EXPECT_NEAR(patched.output_frame.scan_azimuth_deg, -1.0f, 1.0e-6f);
@@ -95,7 +95,7 @@ TEST(EosCycleOrchestratorTest, InvalidRuntimePatchDoesNotChangeUpdateBehavior) {
   orchestrator.ApplyRuntimeConfig(
       eos_config::EosRuntimeConfigBuilder().WithFrameRateHz(0.0f).Build());
 
-  const ::electro_optical_sensor::model::EosCycleResult result = orchestrator.Step(MakeCycleInput(3U, 1.0f));
+  const ::electro_optical_sensor::session::EosCycleResult result = orchestrator.Step(MakeCycleInput(3U, 1.0f));
   EXPECT_FALSE(result.has_validation_error);
   EXPECT_TRUE(result.executed_this_cycle);
   EXPECT_NEAR(result.output_frame.scan_azimuth_deg, -5.0f, 1.0e-6f);

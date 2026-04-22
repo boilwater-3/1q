@@ -6,7 +6,7 @@
 #include <iostream>
 
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
-#include "1q/electro_optical_sensor/model/EosInputValidation.h"
+#include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/foundation/coordinate_transform.h"
@@ -78,18 +78,18 @@ int main() {
   }
 
   //    将平台位姿和场景目标合成当前周期输入，然后执行一次仿真周期。
-  eos::session::EosCycleInput input;
+  eos::::electro_optical_sensor::session::EosCycleInput input;
   input.dt_sec = 1.0f;
   input.platform_pose = platform_pose;
   input.scene_targets.push_back(target);
 
-  const eos::model::EosValidationIssueList issues = eos::model::ValidateEosCycleInput(input);
-  if (eos::model::HasEosValidationError(issues)) {
+  const eos::session::ValidationIssueList issues = eos::session::ValidateEosCycleInput(input);
+  if (eos::session::HasValidationError(issues)) {
     std::cerr << "invalid eos input" << std::endl;
     return 1;
   }
 
-  const eos::model::EosCycleResult result = session.StepWithResult(input);
+  const eos::::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
   std::cout << "cycle=" << result.output_frame.cycle_index
             << " detections=" << result.output_frame.detections.size()
             << " executed=" << (result.executed_this_cycle ? "true" : "false") << std::endl;

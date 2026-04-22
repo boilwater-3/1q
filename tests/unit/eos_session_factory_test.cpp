@@ -101,7 +101,7 @@ EosCycleInput MakeValidInput(std::uint32_t cycle_index) {
   input.solar_altitude_deg = 45.0f;
   input.cloud_coverage_ratio = 0.2f;
   input.background_temperature_k = 289.0f;
-  input.day_night_type = model::DayNightType::kDay;
+  input.day_night_type = ::electro_optical_sensor::session::DayNightType::kDay;
   return input;
 }
 
@@ -109,7 +109,7 @@ TEST(EosSessionFactoryTest, CreateWithPipelineUsesInjectedPipeline) {
   CountingPipeline pipeline;
   EosSession session = EosSessionFactory::CreateWithPipeline(MakeSessionConfig(), pipeline);
 
-  const ::electro_optical_sensor::model::EosCycleResult result = session.StepWithResult(MakeValidInput(8U));
+  const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(MakeValidInput(8U));
 
   EXPECT_EQ(pipeline.update_count, 2U);
   EXPECT_EQ(pipeline.execute_count, 1U);
@@ -137,7 +137,7 @@ TEST(EosSessionFactoryTest, CreateWithEnvironmentServiceUsesInjectedService) {
   target.projected_area_m2 = 4.0f;
   input.scene_targets.push_back(target);
 
-  const ::electro_optical_sensor::model::EosCycleResult result = session.StepWithResult(input);
+  const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
 
   EXPECT_EQ(environment_service.resolve_count, 1U);
   EXPECT_FLOAT_EQ(environment_service.last_inputs.cloud_coverage_ratio, 0.2f);
@@ -151,7 +151,7 @@ TEST(EosSessionFactoryTest, CreateUsesDefaultPipelineAndProducesResult) {
   EosCycleInput input = MakeValidInput(10U);
   input.scene_targets.clear();
 
-  const ::electro_optical_sensor::model::EosCycleResult result = session.StepWithResult(input);
+  const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
 
   EXPECT_FALSE(result.has_validation_error);
   EXPECT_TRUE(result.executed_this_cycle);
@@ -164,7 +164,7 @@ TEST(EosSessionFactoryTest, CreateWithControllerReusesProvidedController) {
   extension::EosController controller(pipeline);
   EosSession session = EosSessionFactory::CreateWithController(MakeSessionConfig(), controller);
 
-  const ::electro_optical_sensor::model::EosCycleResult result = session.StepWithResult(MakeValidInput(11U));
+  const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(MakeValidInput(11U));
 
   EXPECT_EQ(pipeline.update_count, 2U);
   EXPECT_EQ(pipeline.execute_count, 1U);
@@ -179,7 +179,7 @@ TEST(EosSessionFactoryTest, CreateWithControllerSessionMoveKeepsExternalControll
   EosSession session = EosSessionFactory::CreateWithController(MakeSessionConfig(), controller);
 
   EosSession moved_session(std::move(session));
-  const ::electro_optical_sensor::model::EosCycleResult result = moved_session.StepWithResult(MakeValidInput(12U));
+  const ::electro_optical_sensor::session::EosCycleResult result = moved_session.StepWithResult(MakeValidInput(12U));
 
   EXPECT_EQ(pipeline.update_count, 2U);
   EXPECT_EQ(pipeline.execute_count, 1U);

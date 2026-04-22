@@ -17,7 +17,7 @@
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
 #include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
-#include "1q/electro_optical_sensor/model/EosInputValidation.h"
+#include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/foundation/coordinate_transform.h"
@@ -34,8 +34,8 @@ static_assert(
          environment::EosEnvironmentDefaultConfig>::value,
   "config::EosEnvironmentConfig must alias environment::EosEnvironmentDefaultConfig");
 
-bool ContainsEosIssueCode(const std::vector<model::EosValidationIssue>& issues,
-                          model::EosValidationCode code) {
+bool ContainsEosIssueCode(const std::vector<session::ValidationIssue>& issues,
+                          session::ValidationCode code) {
   for (std::size_t i = 0; i < issues.size(); ++i) {
     if (issues[i].code == code) {
       return true;
@@ -189,7 +189,7 @@ TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderSetsAllFields) {
 }
 
 TEST(EosPublicApiConvenienceTest, InputValidationReportsErrorsForCommonBoundaryCases) {
-  session::EosCycleInput input;
+  ::electro_optical_sensor::session::EosCycleInput input;
   input.dt_sec = 0.0f;
   input.solar_irradiance_w_m2 = -1.0f;
   input.cloud_coverage_ratio = -0.1f;
@@ -206,26 +206,26 @@ TEST(EosPublicApiConvenienceTest, InputValidationReportsErrorsForCommonBoundaryC
   invalid_target.projected_area_m2 = -1.0f;
   input.scene_targets.push_back(invalid_target);
 
-  const model::EosValidationIssueList issues = model::ValidateEosCycleInput(input);
+  const session::ValidationIssueList issues = session::ValidateEosCycleInput(input);
 
-  EXPECT_TRUE(ContainsEosIssueCode(issues, model::EosValidationCode::kInvalidCycleDeltaTime));
-  EXPECT_TRUE(ContainsEosIssueCode(issues, model::EosValidationCode::kInvalidSolarIrradiance));
-  EXPECT_TRUE(ContainsEosIssueCode(issues, model::EosValidationCode::kInvalidCloudCoverageRatio));
-  EXPECT_TRUE(ContainsEosIssueCode(issues, model::EosValidationCode::kInvalidAmbientWindSpeed));
+  EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidCycleDeltaTime));
+  EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidSolarIrradiance));
+  EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidCloudCoverageRatio));
+  EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidAmbientWindSpeed));
   EXPECT_TRUE(
-      ContainsEosIssueCode(issues, model::EosValidationCode::kInvalidBackgroundTemperature));
-  EXPECT_TRUE(ContainsEosIssueCode(issues, model::EosValidationCode::kInvalidTargetId));
-  EXPECT_TRUE(ContainsEosIssueCode(issues, model::EosValidationCode::kInvalidTargetRange));
-  EXPECT_TRUE(ContainsEosIssueCode(issues, model::EosValidationCode::kInvalidTargetTemperature));
-  EXPECT_TRUE(ContainsEosIssueCode(issues, model::EosValidationCode::kInvalidTargetEmissivity));
-  EXPECT_TRUE(ContainsEosIssueCode(issues, model::EosValidationCode::kInvalidTargetReflectance));
-  EXPECT_TRUE(ContainsEosIssueCode(issues, model::EosValidationCode::kInvalidTargetProjectedArea));
-  EXPECT_TRUE(ContainsEosIssueCode(issues, model::EosValidationCode::kInvalidSolarAltitudeRange));
-  EXPECT_TRUE(model::HasEosValidationError(issues));
+      ContainsEosIssueCode(issues, session::ValidationCode::kInvalidBackgroundTemperature));
+  EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidTargetId));
+  EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidTargetRange));
+  EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidTargetTemperature));
+  EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidTargetEmissivity));
+  EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidTargetReflectance));
+  EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidTargetProjectedArea));
+  EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidSolarAltitudeRange));
+  EXPECT_TRUE(session::HasValidationError(issues));
 }
 
 TEST(EosPublicApiConvenienceTest, InputValidationFlagsNonFiniteDtAndTargetFields) {
-  session::EosCycleInput input;
+  ::electro_optical_sensor::session::EosCycleInput input;
   input.dt_sec = std::numeric_limits<float>::quiet_NaN();
 
   session::EosTargetState nan_target;
@@ -233,15 +233,15 @@ TEST(EosPublicApiConvenienceTest, InputValidationFlagsNonFiniteDtAndTargetFields
   nan_target.range_m = std::numeric_limits<float>::infinity();
   input.scene_targets.push_back(nan_target);
 
-  const model::EosValidationIssueList issues = model::ValidateEosCycleInput(input);
+  const session::ValidationIssueList issues = session::ValidateEosCycleInput(input);
 
-  EXPECT_TRUE(ContainsEosIssueCode(issues, model::EosValidationCode::kNonFiniteCycleDeltaTime));
-  EXPECT_TRUE(ContainsEosIssueCode(issues, model::EosValidationCode::kNonFiniteTargetNumericField));
-  EXPECT_TRUE(model::HasEosValidationError(issues));
+  EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kNonFiniteCycleDeltaTime));
+  EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kNonFiniteTargetNumericField));
+  EXPECT_TRUE(session::HasValidationError(issues));
 }
 
 TEST(EosPublicApiConvenienceTest, InputValidationFlagsEnergyBalanceInconsistency) {
-  session::EosCycleInput input;
+  ::electro_optical_sensor::session::EosCycleInput input;
   input.dt_sec = 1.0f;
 
   session::EosTargetState unbalanced;
@@ -253,21 +253,21 @@ TEST(EosPublicApiConvenienceTest, InputValidationFlagsEnergyBalanceInconsistency
   unbalanced.projected_area_m2 = 2.0f;
   input.scene_targets.push_back(unbalanced);
 
-  const model::EosValidationIssueList issues = model::ValidateEosCycleInput(input);
+  const session::ValidationIssueList issues = session::ValidateEosCycleInput(input);
 
   EXPECT_TRUE(
-      ContainsEosIssueCode(issues, model::EosValidationCode::kInconsistentTargetEnergyBalance));
-  EXPECT_FALSE(model::HasEosValidationError(issues));
+      ContainsEosIssueCode(issues, session::ValidationCode::kInconsistentTargetEnergyBalance));
+  EXPECT_FALSE(session::HasValidationError(issues));
 }
 
 TEST(EosPublicApiConvenienceTest, InputValidationPassesForValidInput) {
-  session::EosCycleInput input;
+  ::electro_optical_sensor::session::EosCycleInput input;
   input.dt_sec = 1.0f;
   input.scene_targets.push_back(MakeTarget(300U, 1500.0f, 5.0f, -2.0f, 320.0f, 0.9f, 0.1f, 2.0f));
 
-  const model::EosValidationIssueList issues = model::ValidateEosCycleInput(input);
+  const session::ValidationIssueList issues = session::ValidateEosCycleInput(input);
 
-  EXPECT_FALSE(model::HasEosValidationError(issues));
+  EXPECT_FALSE(session::HasValidationError(issues));
 }
 
 TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsPoseFromExternalKinematics) {
@@ -389,7 +389,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionStepProducesDetectionOutput) {
 
   session::EosSession session = session::EosSessionFactory::Create(config);
 
-  session::EosCycleInput input;
+  ::electro_optical_sensor::session::EosCycleInput input;
   input.cycle_index = 0U;
   input.dt_sec = 1.0f;
   input.scene_targets.push_back(MakeTarget(501U, 1500.0f, 0.0f, 0.0f, 350.0f, 0.9f, 0.1f, 3.0f));
@@ -406,12 +406,12 @@ TEST(EosPublicApiConvenienceTest, EosSessionStepWithResultAggregatesOutputAndVal
 
   session::EosSession session = session::EosSessionFactory::Create(config);
 
-  session::EosCycleInput input;
+  ::electro_optical_sensor::session::EosCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
   input.scene_targets.push_back(MakeTarget(502U, 2000.0f, 5.0f, -3.0f, 330.0f, 0.85f, 0.15f, 2.5f));
 
-  const model::EosCycleResult result = session.StepWithResult(input);
+  const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
 
   EXPECT_FALSE(result.has_validation_error);
   EXPECT_TRUE(result.executed_this_cycle);
@@ -424,19 +424,19 @@ TEST(EosPublicApiConvenienceTest, EosSessionStepWithResultSurfacesValidationErro
   session::EosSessionConfig session_config;
   session::EosSession session = session::EosSessionFactory::Create(session_config);
 
-  session::EosCycleInput input;
+  ::electro_optical_sensor::session::EosCycleInput input;
   input.dt_sec = std::numeric_limits<float>::quiet_NaN();
   session::EosTargetState invalid_target;
   invalid_target.target_id = 0U;
   input.scene_targets.push_back(invalid_target);
 
-  const model::EosCycleResult result = session.StepWithResult(input);
+  const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
 
   EXPECT_TRUE(result.has_validation_error);
   EXPECT_FALSE(result.executed_this_cycle);
   EXPECT_FALSE(result.reused_previous_output);
   EXPECT_TRUE(ContainsEosIssueCode(result.validation_issues,
-                                   model::EosValidationCode::kNonFiniteCycleDeltaTime));
+                                   session::ValidationCode::kNonFiniteCycleDeltaTime));
 }
 
 TEST(EosPublicApiConvenienceTest, EosSessionAppliesRuntimeConfigPatch) {
@@ -451,11 +451,11 @@ TEST(EosPublicApiConvenienceTest, EosSessionAppliesRuntimeConfigPatch) {
           .Build();
   session.ApplyRuntimeConfig(patch);
 
-  session::EosCycleInput input;
+  ::electro_optical_sensor::session::EosCycleInput input;
   input.dt_sec = 1.0f;
   input.scene_targets.push_back(MakeTarget(600U, 1000.0f, 0.0f, 0.0f, 310.0f, 0.9f, 0.1f, 1.5f));
 
-  const model::EosCycleResult result = session.StepWithResult(input);
+  const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
   EXPECT_TRUE(result.executed_this_cycle);
   EXPECT_FALSE(result.reused_previous_output);
   EXPECT_EQ(result.output_frame.cycle_index, 0U);
@@ -466,12 +466,12 @@ TEST(EosPublicApiConvenienceTest, EosSessionFactoryCanInjectEnvironmentService) 
   session::EosSession session = session::EosSessionFactory::CreateWithEnvironmentService(
       session::EosSessionConfig{}, environment_service);
 
-  session::EosCycleInput input;
+  ::electro_optical_sensor::session::EosCycleInput input;
   input.cycle_index = 7U;
   input.dt_sec = 1.0f;
   input.scene_targets.push_back(MakeTarget(601U, 1000.0f, 0.0f, 0.0f, 310.0f, 0.9f, 0.1f, 1.5f));
 
-  const model::EosCycleResult result = session.StepWithResult(input);
+  const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
   EXPECT_FALSE(result.has_validation_error);
   EXPECT_TRUE(result.executed_this_cycle);
   EXPECT_FALSE(result.reused_previous_output);
@@ -487,7 +487,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionMultiCycleProducesProgressiveCycleIn
   session::EosSession session = session::EosSessionFactory::Create(config);
 
   for (std::uint32_t i = 0U; i < 3U; ++i) {
-    session::EosCycleInput input;
+    ::electro_optical_sensor::session::EosCycleInput input;
     input.cycle_index = i;
     input.dt_sec = 1.0f;
     input.scene_targets.push_back(

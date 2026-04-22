@@ -61,8 +61,8 @@ session::EosTargetState MakeTarget(float azimuth_deg, float elevation_deg) {
   return target;
 }
 
-session::EosCycleInput MakeInput() {
-  session::EosCycleInput input;
+::electro_optical_sensor::session::EosCycleInput MakeInput() {
+  ::electro_optical_sensor::session::EosCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
   input.solar_azimuth_deg = 180.0f;
@@ -70,7 +70,7 @@ session::EosCycleInput MakeInput() {
   input.solar_irradiance_w_m2 = 900.0f;
   input.cloud_coverage_ratio = 0.0f;
   input.background_temperature_k = 220.0f;
-  input.day_night_type = model::DayNightType::kDay;
+  input.day_night_type = ::electro_optical_sensor::session::DayNightType::kDay;
   input.platform_pose.position_m.z = 1200.0f;
   input.scene_targets.push_back(MakeTarget(180.0f, 45.0f));
   return input;
@@ -97,7 +97,7 @@ EosPipelineConfig MakeConfig(bool enable_straylight_filter) {
 TEST(EosStrayLightPipelineTest, EnablingHoodFilterImprovesNearSunSnr) {
   EosPipeline pipeline_without_filter(MakeConfig(false));
   EosPipeline pipeline_with_filter(MakeConfig(true));
-  const session::EosCycleInput input = MakeInput();
+  const ::electro_optical_sensor::session::EosCycleInput input = MakeInput();
 
     const output::EosOutputFrame frame_without_filter =
       pipeline_without_filter.Execute(input).output_frame;

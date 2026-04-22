@@ -8,7 +8,7 @@
 #include "common/logging/ProjectLog.h"
 #include "electro_optical_sensor/runtime/EosPipelineConfigMapper.h"
 #include "electro_optical_sensor/runtime/EosRuntimeConfigResolver.h"
-#include "1q/electro_optical_sensor/model/EosCycleResult.h"
+#include "1q/electro_optical_sensor/session/EosCycleResult.h"
 
 namespace electro_optical_sensor {
 namespace runtime {
@@ -25,7 +25,7 @@ EosCycleOrchestrator::EosCycleOrchestrator(
   pipeline_.UpdateConfig(pipeline_config, initial_reset_scan_phase);
 }
 
-model::EosCycleResult EosCycleOrchestrator::Step(
+::electro_optical_sensor::session::EosCycleResult EosCycleOrchestrator::Step(
     const ::electro_optical_sensor::session::EosCycleInput& input) {
   controller_.RunOnce(input);
   return controller_.BuildCycleResult(input);

@@ -11,24 +11,24 @@
 #include <vector>
 
 #include "1q/api.hpp"
-#include "1q/electro_optical_sensor/model/EosCycleInput.h"
+#include "1q/electro_optical_sensor/session/EosCycleInput.h"
 
 namespace electro_optical_sensor {
-namespace model {
+namespace session {
 
 /**
- * @brief EosValidationSeverity 表示输入校验问题严重级别。
+ * @brief ValidationSeverity 表示输入校验问题严重级别。
  */
-enum class EosValidationSeverity {
+enum class ValidationSeverity {
   kInfo = 0, /**< 信息级问题，不阻断执行 */
   kWarning,  /**< 警告级问题，建议调用方关注 */
   kError     /**< 错误级问题，建议阻断执行 */
 };
 
 /**
- * @brief EosValidationCode 表示结构化输入校验编码。
+ * @brief ValidationCode 表示结构化输入校验编码。
  */
-enum class EosValidationCode {
+enum class ValidationCode {
   kNone = 0,                        /**< 无问题占位值 */
   kInvalidCycleDeltaTime,           /**< 周期步长非法（<= 0） */
   kNonFiniteCycleDeltaTime,         /**< 周期步长非有限值 */
@@ -52,25 +52,25 @@ enum class EosValidationCode {
 };
 
 /**
- * @brief EosValidationIssue 描述单条输入校验结果。
+ * @brief ValidationIssue 描述单条输入校验结果。
  */
-struct ONEQ_API EosValidationIssue {
-  EosValidationSeverity severity{EosValidationSeverity::kInfo}; /**< 问题严重级别 */
-  EosValidationCode code{EosValidationCode::kNone};             /**< 结构化编码 */
+struct ONEQ_API ValidationIssue {
+  ValidationSeverity severity{ValidationSeverity::kInfo}; /**< 问题严重级别 */
+  ValidationCode code{ValidationCode::kNone};             /**< 结构化编码 */
   std::size_t target_index{
       static_cast<std::size_t>(-1)}; /**< 目标索引；若无特定目标则为 `size_t(-1)` */
   std::string message{};             /**< 面向调用方的简短说明 */
 };
 
-/** @brief EosValidationIssueList 表示输入校验问题列表。 */
-using EosValidationIssueList = std::vector<EosValidationIssue>;
+/** @brief ValidationIssueList 表示输入校验问题列表。 */
+using ValidationIssueList = std::vector<ValidationIssue>;
 
 /**
  * @brief 校验单周期光学传感器输入。
  * @param[in] input 单周期输入。
  * @return 校验问题列表。
  */
-ONEQ_API EosValidationIssueList ValidateEosCycleInput(
+ONEQ_API ValidationIssueList ValidateEosCycleInput(
     const ::electro_optical_sensor::session::EosCycleInput& input);
 
 /**
@@ -78,9 +78,9 @@ ONEQ_API EosValidationIssueList ValidateEosCycleInput(
  * @param[in] issues 校验问题列表。
  * @return 若存在 error 级问题则返回 `true`。
  */
-ONEQ_API bool HasEosValidationError(const EosValidationIssueList& issues);
+ONEQ_API bool HasValidationError(const ValidationIssueList& issues);
 
-}  // namespace model
+}  // namespace session
 
 }  // namespace electro_optical_sensor
 

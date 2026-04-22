@@ -36,7 +36,7 @@ output::EosOutputFrame EosTraceSession::Step(const EosCycleInput& input) {
   return output;
 }
 
-model::EosCycleResult EosTraceSession::StepWithResult(const EosCycleInput& input) {
+::electro_optical_sensor::session::EosCycleResult EosTraceSession::StepWithResult(const EosCycleInput& input) {
   if (replay_writer_) {
     if (pending_input_written_) {
       // P2-B: 连续两次 cycle_input 无中间 output，记录 warning 后继续
@@ -51,7 +51,7 @@ model::EosCycleResult EosTraceSession::StepWithResult(const EosCycleInput& input
                      EncodeEosCycleInput(input), input.cycle_index);
     pending_input_written_ = true;
   }
-  const model::EosCycleResult result = session_.StepWithResult(input);
+  const ::electro_optical_sensor::session::EosCycleResult result = session_.StepWithResult(input);
   if (replay_writer_) {
     WriteReplayEvent("cycle_output", "EosCycleResult",
                      EncodeEosCycleResult(result), result.output_frame.cycle_index);

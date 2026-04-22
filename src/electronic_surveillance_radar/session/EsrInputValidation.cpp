@@ -18,11 +18,11 @@ namespace {
  * @param[in] message 面向调用方的短消息。
  * @return 组装后的校验问题。
  */
-EsrValidationIssue MakeIssue(EsrValidationSeverity severity, EsrValidationCode code,
+ValidationIssue MakeIssue(ValidationSeverity severity, ValidationCode code,
                              std::size_t emitter_index, const std::string& message) {
-  return oneq::internal::validation::MakeIndexedIssue<EsrValidationIssue, EsrValidationSeverity,
-                                                      EsrValidationCode,
-                                                      &EsrValidationIssue::emitter_index>(
+  return oneq::internal::validation::MakeIndexedIssue<ValidationIssue, ValidationSeverity,
+                                                      ValidationCode,
+                                                      &ValidationIssue::emitter_index>(
       severity, code, emitter_index, message);
 }
 
@@ -42,7 +42,7 @@ bool IsFinite(T value) {
  * @param[out] issues 校验问题列表。
  */
 void ValidatePlatformPose(const model::EsrPoseState& platform_pose,
-                          EsrValidationIssueList* issues) {
+                          ValidationIssueList* issues) {
   if (issues == nullptr) {
     return;
   }
@@ -53,7 +53,7 @@ void ValidatePlatformPose(const model::EsrPoseState& platform_pose,
       !IsFinite(platform_pose.attitude_deg.pitch_deg) ||
       !IsFinite(platform_pose.attitude_deg.roll_deg)) {
     issues->push_back(
-        MakeIssue(EsrValidationSeverity::kError, EsrValidationCode::kNonFinitePlatformNumericField,
+        MakeIssue(ValidationSeverity::kError, ValidationCode::kNonFinitePlatformNumericField,
                   static_cast<std::size_t>(-1), "platform pose contains non-finite numeric field"));
   }
 }
@@ -65,13 +65,13 @@ void ValidatePlatformPose(const model::EsrPoseState& platform_pose,
  * @param[out] issues 校验问题列表。
  */
 void ValidateEmitter(const model::EmitterTruthState& emitter, std::size_t emitter_index,
-                     EsrValidationIssueList* issues) {
+                     ValidationIssueList* issues) {
   if (issues == nullptr) {
     return;
   }
 
   if (emitter.emitter_id.empty()) {
-    issues->push_back(MakeIssue(EsrValidationSeverity::kError, EsrValidationCode::kEmptyEmitterId,
+    issues->push_back(MakeIssue(ValidationSeverity::kError, ValidationCode::kEmptyEmitterId,
                                 emitter_index, "emitter id must not be empty"));
   }
 
@@ -86,64 +86,64 @@ void ValidateEmitter(const model::EmitterTruthState& emitter, std::size_t emitte
       !IsFinite(emitter.beam_state.center_az_deg) || !IsFinite(emitter.beam_state.center_el_deg) ||
       !IsFinite(emitter.beam_state.az_beamwidth_deg) ||
       !IsFinite(emitter.beam_state.el_beamwidth_deg)) {
-    issues->push_back(MakeIssue(EsrValidationSeverity::kError,
-                                EsrValidationCode::kNonFiniteEmitterNumericField, emitter_index,
+    issues->push_back(MakeIssue(ValidationSeverity::kError,
+                                ValidationCode::kNonFiniteEmitterNumericField, emitter_index,
                                 "emitter contains non-finite numeric field"));
   }
 
   if (emitter.carrier_hz <= 0.0) {
-    issues->push_back(MakeIssue(EsrValidationSeverity::kError,
-                                EsrValidationCode::kInvalidEmitterFrequency, emitter_index,
+    issues->push_back(MakeIssue(ValidationSeverity::kError,
+                                ValidationCode::kInvalidEmitterFrequency, emitter_index,
                                 "emitter carrier frequency must be positive"));
   }
   if (emitter.bandwidth_hz <= 0.0) {
-    issues->push_back(MakeIssue(EsrValidationSeverity::kError,
-                                EsrValidationCode::kInvalidEmitterBandwidth, emitter_index,
+    issues->push_back(MakeIssue(ValidationSeverity::kError,
+                                ValidationCode::kInvalidEmitterBandwidth, emitter_index,
                                 "emitter bandwidth must be positive"));
   }
   if (emitter.tx_power_w <= 0.0) {
-    issues->push_back(MakeIssue(EsrValidationSeverity::kError,
-                                EsrValidationCode::kInvalidEmitterPower, emitter_index,
+    issues->push_back(MakeIssue(ValidationSeverity::kError,
+                                ValidationCode::kInvalidEmitterPower, emitter_index,
                                 "emitter transmit power must be positive"));
   }
   if (emitter.pulse_width_s <= 0.0) {
-    issues->push_back(MakeIssue(EsrValidationSeverity::kError,
-                                EsrValidationCode::kInvalidEmitterPulseWidth, emitter_index,
+    issues->push_back(MakeIssue(ValidationSeverity::kError,
+                                ValidationCode::kInvalidEmitterPulseWidth, emitter_index,
                                 "emitter pulse width must be positive"));
   }
   if (emitter.pri_s <= 0.0) {
-    issues->push_back(MakeIssue(EsrValidationSeverity::kError,
-                                EsrValidationCode::kInvalidEmitterPri, emitter_index,
+    issues->push_back(MakeIssue(ValidationSeverity::kError,
+                                ValidationCode::kInvalidEmitterPri, emitter_index,
                                 "emitter pri must be positive"));
   }
   const bool pri_valid = emitter.pri_s > 0.0;
   const bool pulse_width_valid = emitter.pulse_width_s > 0.0;
   if (pri_valid && pulse_width_valid) {
     if (emitter.pri_s < emitter.pulse_width_s) {
-      issues->push_back(MakeIssue(EsrValidationSeverity::kError,
-                                  EsrValidationCode::kEmitterPriLessThanPulseWidth, emitter_index,
+      issues->push_back(MakeIssue(ValidationSeverity::kError,
+                                  ValidationCode::kEmitterPriLessThanPulseWidth, emitter_index,
                                   "emitter pri must be greater than or equal to pulse width"));
     }
   }
   if (emitter.beam_state.az_beamwidth_deg <= 0.0f || emitter.beam_state.el_beamwidth_deg <= 0.0f) {
-    issues->push_back(MakeIssue(EsrValidationSeverity::kError,
-                                EsrValidationCode::kInvalidEmitterBeamwidth, emitter_index,
+    issues->push_back(MakeIssue(ValidationSeverity::kError,
+                                ValidationCode::kInvalidEmitterBeamwidth, emitter_index,
                                 "emitter beam width must be positive"));
   }
 }
 
 }  // namespace
 
-EsrValidationIssueList ValidateEsrCycleInput(const EsrCycleInput& input) {
-  EsrValidationIssueList issues;
+ValidationIssueList ValidateEsrCycleInput(const EsrCycleInput& input) {
+  ValidationIssueList issues;
 
   if (!IsFinite(input.dt_sec)) {
-    issues.push_back(MakeIssue(EsrValidationSeverity::kError,
-                               EsrValidationCode::kNonFiniteCycleDeltaTime,
+    issues.push_back(MakeIssue(ValidationSeverity::kError,
+                               ValidationCode::kNonFiniteCycleDeltaTime,
                                static_cast<std::size_t>(-1), "cycle delta time must be finite"));
   } else if (input.dt_sec <= 0.0f) {
-    issues.push_back(MakeIssue(EsrValidationSeverity::kError,
-                               EsrValidationCode::kInvalidCycleDeltaTime,
+    issues.push_back(MakeIssue(ValidationSeverity::kError,
+                               ValidationCode::kInvalidCycleDeltaTime,
                                static_cast<std::size_t>(-1), "cycle delta time must be positive"));
   }
   ValidatePlatformPose(input.platform_pose, &issues);
@@ -155,10 +155,10 @@ EsrValidationIssueList ValidateEsrCycleInput(const EsrCycleInput& input) {
   return issues;
 }
 
-bool HasEsrValidationError(const EsrValidationIssueList& issues) {
-  return oneq::internal::validation::HasSeverity<EsrValidationIssueList, EsrValidationSeverity,
-                                                 &EsrValidationIssue::severity>(
-      issues, EsrValidationSeverity::kError);
+bool HasValidationError(const ValidationIssueList& issues) {
+  return oneq::internal::validation::HasSeverity<ValidationIssueList, ValidationSeverity,
+                                                 &ValidationIssue::severity>(
+      issues, ValidationSeverity::kError);
 }
 
 }  // namespace session

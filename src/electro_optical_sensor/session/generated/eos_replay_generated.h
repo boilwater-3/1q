@@ -33,9 +33,9 @@ struct EosOutputFrame;
 struct EosOutputFrameBuilder;
 struct EosOutputFrameT;
 
-struct EosValidationIssue;
-struct EosValidationIssueBuilder;
-struct EosValidationIssueT;
+struct ValidationIssue;
+struct ValidationIssueBuilder;
+struct ValidationIssueT;
 
 struct EosCycleResult;
 struct EosCycleResultBuilder;
@@ -764,22 +764,22 @@ inline flatbuffers::Offset<EosOutputFrame> CreateEosOutputFrameDirect(
 
 flatbuffers::Offset<EosOutputFrame> CreateEosOutputFrame(flatbuffers::FlatBufferBuilder &_fbb, const EosOutputFrameT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
-struct EosValidationIssueT : public flatbuffers::NativeTable {
-  typedef EosValidationIssue TableType;
+struct ValidationIssueT : public flatbuffers::NativeTable {
+  typedef ValidationIssue TableType;
   int32_t severity;
   int32_t code;
   int32_t target_index;
   std::string message;
-  EosValidationIssueT()
+  ValidationIssueT()
       : severity(0),
         code(0),
         target_index(0) {
   }
 };
 
-struct EosValidationIssue FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EosValidationIssueT NativeTableType;
-  typedef EosValidationIssueBuilder Builder;
+struct ValidationIssue FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef ValidationIssueT NativeTableType;
+  typedef ValidationIssueBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_SEVERITY = 4,
     VT_CODE = 6,
@@ -807,46 +807,46 @@ struct EosValidationIssue FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyString(message()) &&
            verifier.EndTable();
   }
-  EosValidationIssueT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EosValidationIssueT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EosValidationIssue> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosValidationIssueT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+  ValidationIssueT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(ValidationIssueT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<ValidationIssue> Pack(flatbuffers::FlatBufferBuilder &_fbb, const ValidationIssueT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
-struct EosValidationIssueBuilder {
-  typedef EosValidationIssue Table;
+struct ValidationIssueBuilder {
+  typedef ValidationIssue Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_severity(int32_t severity) {
-    fbb_.AddElement<int32_t>(EosValidationIssue::VT_SEVERITY, severity, 0);
+    fbb_.AddElement<int32_t>(ValidationIssue::VT_SEVERITY, severity, 0);
   }
   void add_code(int32_t code) {
-    fbb_.AddElement<int32_t>(EosValidationIssue::VT_CODE, code, 0);
+    fbb_.AddElement<int32_t>(ValidationIssue::VT_CODE, code, 0);
   }
   void add_target_index(int32_t target_index) {
-    fbb_.AddElement<int32_t>(EosValidationIssue::VT_TARGET_INDEX, target_index, 0);
+    fbb_.AddElement<int32_t>(ValidationIssue::VT_TARGET_INDEX, target_index, 0);
   }
   void add_message(flatbuffers::Offset<flatbuffers::String> message) {
-    fbb_.AddOffset(EosValidationIssue::VT_MESSAGE, message);
+    fbb_.AddOffset(ValidationIssue::VT_MESSAGE, message);
   }
-  explicit EosValidationIssueBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit ValidationIssueBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  EosValidationIssueBuilder &operator=(const EosValidationIssueBuilder &);
-  flatbuffers::Offset<EosValidationIssue> Finish() {
+  ValidationIssueBuilder &operator=(const ValidationIssueBuilder &);
+  flatbuffers::Offset<ValidationIssue> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<EosValidationIssue>(end);
+    auto o = flatbuffers::Offset<ValidationIssue>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<EosValidationIssue> CreateEosValidationIssue(
+inline flatbuffers::Offset<ValidationIssue> CreateValidationIssue(
     flatbuffers::FlatBufferBuilder &_fbb,
     int32_t severity = 0,
     int32_t code = 0,
     int32_t target_index = 0,
     flatbuffers::Offset<flatbuffers::String> message = 0) {
-  EosValidationIssueBuilder builder_(_fbb);
+  ValidationIssueBuilder builder_(_fbb);
   builder_.add_message(message);
   builder_.add_target_index(target_index);
   builder_.add_code(code);
@@ -854,14 +854,14 @@ inline flatbuffers::Offset<EosValidationIssue> CreateEosValidationIssue(
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<EosValidationIssue> CreateEosValidationIssueDirect(
+inline flatbuffers::Offset<ValidationIssue> CreateValidationIssueDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     int32_t severity = 0,
     int32_t code = 0,
     int32_t target_index = 0,
     const char *message = nullptr) {
   auto message__ = message ? _fbb.CreateString(message) : 0;
-  return eos::replay::CreateEosValidationIssue(
+  return eos::replay::CreateValidationIssue(
       _fbb,
       severity,
       code,
@@ -869,12 +869,12 @@ inline flatbuffers::Offset<EosValidationIssue> CreateEosValidationIssueDirect(
       message__);
 }
 
-flatbuffers::Offset<EosValidationIssue> CreateEosValidationIssue(flatbuffers::FlatBufferBuilder &_fbb, const EosValidationIssueT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+flatbuffers::Offset<ValidationIssue> CreateValidationIssue(flatbuffers::FlatBufferBuilder &_fbb, const ValidationIssueT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
 struct EosCycleResultT : public flatbuffers::NativeTable {
   typedef EosCycleResult TableType;
   std::unique_ptr<eos::replay::EosOutputFrameT> output_frame;
-  std::vector<std::unique_ptr<eos::replay::EosValidationIssueT>> validation_issues;
+  std::vector<std::unique_ptr<eos::replay::ValidationIssueT>> validation_issues;
   bool has_validation_error;
   bool executed_this_cycle;
   bool reused_previous_output;
@@ -901,8 +901,8 @@ struct EosCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const eos::replay::EosOutputFrame *output_frame() const {
     return GetPointer<const eos::replay::EosOutputFrame *>(VT_OUTPUT_FRAME);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<eos::replay::EosValidationIssue>> *validation_issues() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<eos::replay::EosValidationIssue>> *>(VT_VALIDATION_ISSUES);
+  const flatbuffers::Vector<flatbuffers::Offset<eos::replay::ValidationIssue>> *validation_issues() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<eos::replay::ValidationIssue>> *>(VT_VALIDATION_ISSUES);
   }
   bool has_validation_error() const {
     return GetField<uint8_t>(VT_HAS_VALIDATION_ERROR, 0) != 0;
@@ -941,7 +941,7 @@ struct EosCycleResultBuilder {
   void add_output_frame(flatbuffers::Offset<eos::replay::EosOutputFrame> output_frame) {
     fbb_.AddOffset(EosCycleResult::VT_OUTPUT_FRAME, output_frame);
   }
-  void add_validation_issues(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<eos::replay::EosValidationIssue>>> validation_issues) {
+  void add_validation_issues(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<eos::replay::ValidationIssue>>> validation_issues) {
     fbb_.AddOffset(EosCycleResult::VT_VALIDATION_ISSUES, validation_issues);
   }
   void add_has_validation_error(bool has_validation_error) {
@@ -971,7 +971,7 @@ struct EosCycleResultBuilder {
 inline flatbuffers::Offset<EosCycleResult> CreateEosCycleResult(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<eos::replay::EosOutputFrame> output_frame = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<eos::replay::EosValidationIssue>>> validation_issues = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<eos::replay::ValidationIssue>>> validation_issues = 0,
     bool has_validation_error = false,
     bool executed_this_cycle = false,
     bool reused_previous_output = false,
@@ -989,12 +989,12 @@ inline flatbuffers::Offset<EosCycleResult> CreateEosCycleResult(
 inline flatbuffers::Offset<EosCycleResult> CreateEosCycleResultDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<eos::replay::EosOutputFrame> output_frame = 0,
-    const std::vector<flatbuffers::Offset<eos::replay::EosValidationIssue>> *validation_issues = nullptr,
+    const std::vector<flatbuffers::Offset<eos::replay::ValidationIssue>> *validation_issues = nullptr,
     bool has_validation_error = false,
     bool executed_this_cycle = false,
     bool reused_previous_output = false,
     int32_t abort_reason = 0) {
-  auto validation_issues__ = validation_issues ? _fbb.CreateVector<flatbuffers::Offset<eos::replay::EosValidationIssue>>(*validation_issues) : 0;
+  auto validation_issues__ = validation_issues ? _fbb.CreateVector<flatbuffers::Offset<eos::replay::ValidationIssue>>(*validation_issues) : 0;
   return eos::replay::CreateEosCycleResult(
       _fbb,
       output_frame,
@@ -1224,13 +1224,13 @@ inline flatbuffers::Offset<EosOutputFrame> CreateEosOutputFrame(flatbuffers::Fla
       _detections);
 }
 
-inline EosValidationIssueT *EosValidationIssue::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<eos::replay::EosValidationIssueT> _o = std::unique_ptr<eos::replay::EosValidationIssueT>(new EosValidationIssueT());
+inline ValidationIssueT *ValidationIssue::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<eos::replay::ValidationIssueT> _o = std::unique_ptr<eos::replay::ValidationIssueT>(new ValidationIssueT());
   UnPackTo(_o.get(), _resolver);
   return _o.release();
 }
 
-inline void EosValidationIssue::UnPackTo(EosValidationIssueT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+inline void ValidationIssue::UnPackTo(ValidationIssueT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
   { auto _e = severity(); _o->severity = _e; }
@@ -1239,19 +1239,19 @@ inline void EosValidationIssue::UnPackTo(EosValidationIssueT *_o, const flatbuff
   { auto _e = message(); if (_e) _o->message = _e->str(); }
 }
 
-inline flatbuffers::Offset<EosValidationIssue> EosValidationIssue::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosValidationIssueT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEosValidationIssue(_fbb, _o, _rehasher);
+inline flatbuffers::Offset<ValidationIssue> ValidationIssue::Pack(flatbuffers::FlatBufferBuilder &_fbb, const ValidationIssueT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateValidationIssue(_fbb, _o, _rehasher);
 }
 
-inline flatbuffers::Offset<EosValidationIssue> CreateEosValidationIssue(flatbuffers::FlatBufferBuilder &_fbb, const EosValidationIssueT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+inline flatbuffers::Offset<ValidationIssue> CreateValidationIssue(flatbuffers::FlatBufferBuilder &_fbb, const ValidationIssueT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
   (void)_rehasher;
   (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EosValidationIssueT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const ValidationIssueT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
   auto _severity = _o->severity;
   auto _code = _o->code;
   auto _target_index = _o->target_index;
   auto _message = _o->message.empty() ? 0 : _fbb.CreateString(_o->message);
-  return eos::replay::CreateEosValidationIssue(
+  return eos::replay::CreateValidationIssue(
       _fbb,
       _severity,
       _code,
@@ -1269,7 +1269,7 @@ inline void EosCycleResult::UnPackTo(EosCycleResultT *_o, const flatbuffers::res
   (void)_o;
   (void)_resolver;
   { auto _e = output_frame(); if (_e) _o->output_frame = std::unique_ptr<eos::replay::EosOutputFrameT>(_e->UnPack(_resolver)); }
-  { auto _e = validation_issues(); if (_e) { _o->validation_issues.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->validation_issues[_i] = std::unique_ptr<eos::replay::EosValidationIssueT>(_e->Get(_i)->UnPack(_resolver)); } } }
+  { auto _e = validation_issues(); if (_e) { _o->validation_issues.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->validation_issues[_i] = std::unique_ptr<eos::replay::ValidationIssueT>(_e->Get(_i)->UnPack(_resolver)); } } }
   { auto _e = has_validation_error(); _o->has_validation_error = _e; }
   { auto _e = executed_this_cycle(); _o->executed_this_cycle = _e; }
   { auto _e = reused_previous_output(); _o->reused_previous_output = _e; }
@@ -1285,7 +1285,7 @@ inline flatbuffers::Offset<EosCycleResult> CreateEosCycleResult(flatbuffers::Fla
   (void)_o;
   struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EosCycleResultT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
   auto _output_frame = _o->output_frame ? CreateEosOutputFrame(_fbb, _o->output_frame.get(), _rehasher) : 0;
-  auto _validation_issues = _o->validation_issues.size() ? _fbb.CreateVector<flatbuffers::Offset<eos::replay::EosValidationIssue>> (_o->validation_issues.size(), [](size_t i, _VectorArgs *__va) { return CreateEosValidationIssue(*__va->__fbb, __va->__o->validation_issues[i].get(), __va->__rehasher); }, &_va ) : 0;
+  auto _validation_issues = _o->validation_issues.size() ? _fbb.CreateVector<flatbuffers::Offset<eos::replay::ValidationIssue>> (_o->validation_issues.size(), [](size_t i, _VectorArgs *__va) { return CreateValidationIssue(*__va->__fbb, __va->__o->validation_issues[i].get(), __va->__rehasher); }, &_va ) : 0;
   auto _has_validation_error = _o->has_validation_error;
   auto _executed_this_cycle = _o->executed_this_cycle;
   auto _reused_previous_output = _o->reused_previous_output;

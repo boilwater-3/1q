@@ -9,7 +9,7 @@
 #include <cstdint>
 
 #include "1q/api.hpp"
-#include "1q/electro_optical_sensor/model/EosCycleInput.h"
+#include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/foundation/coordinate_transform.h"
 
 namespace electro_optical_sensor {

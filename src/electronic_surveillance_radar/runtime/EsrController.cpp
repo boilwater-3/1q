@@ -21,7 +21,7 @@ struct EsrController::Impl {
   environment::IEsrEnvironmentService& environment_service;
   output::EsrOutputManager output_manager;
   oneq::internal::runtime::RuntimeCycleState<output::EsrOutputFrame,
-                                             session::EsrValidationIssueList>
+                                             session::ValidationIssueList>
       runtime_state{};
 };
 
@@ -35,11 +35,11 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
   struct EsrRuntimeHooks {
     Impl* impl{nullptr};
 
-    oneq::internal::runtime::RuntimeValidationResult<session::EsrValidationIssueList> Validate(
+    oneq::internal::runtime::RuntimeValidationResult<session::ValidationIssueList> Validate(
         const session::EsrCycleInput& cycle_input) const {
-      oneq::internal::runtime::RuntimeValidationResult<session::EsrValidationIssueList> result;
+      oneq::internal::runtime::RuntimeValidationResult<session::ValidationIssueList> result;
       result.issues = session::ValidateEsrCycleInput(cycle_input);
-      result.has_error = session::HasEsrValidationError(result.issues);
+      result.has_error = session::HasValidationError(result.issues);
       return result;
     }
 
@@ -99,7 +99,7 @@ const output::EsrOutputFrame& EsrController::GetLatestOutputFrame() const {
   return impl_->runtime_state.latest_output;
 }
 
-const session::EsrValidationIssueList& EsrController::GetLastValidationIssues() const {
+const session::ValidationIssueList& EsrController::GetLastValidationIssues() const {
   return impl_->runtime_state.last_validation_issues;
 }
 

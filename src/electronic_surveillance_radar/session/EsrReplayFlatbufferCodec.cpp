@@ -269,9 +269,9 @@ bool DecodeEsrOutputFrame(const std::string& bytes, output::EsrOutputFrame* out)
 std::string EncodeEsrCycleResult(const EsrCycleResult& v) {
   flatbuffers::FlatBufferBuilder fbb(512);
   auto frame = BuildOutputFrame(fbb, v.output_frame);
-  std::vector<flatbuffers::Offset<esr::replay::EsrValidationIssue>> issues;
+  std::vector<flatbuffers::Offset<esr::replay::ValidationIssue>> issues;
   for (const auto& i : v.validation_issues) {
-    issues.push_back(esr::replay::CreateEsrValidationIssue(fbb,
+    issues.push_back(esr::replay::CreateValidationIssue(fbb,
         static_cast<int32_t>(i.severity), static_cast<int32_t>(i.code),
         i.emitter_index, fbb.CreateString(i.message)));
   }
@@ -289,9 +289,9 @@ bool DecodeEsrCycleResult(const std::string& bytes, EsrCycleResult* out) {
   out->validation_issues.clear();
   if (fb->validation_issues()) {
     for (const auto* i : *fb->validation_issues()) {
-      EsrValidationIssue iss{};
-      iss.severity = static_cast<EsrValidationSeverity>(i->severity());
-      iss.code = static_cast<EsrValidationCode>(i->code());
+      ValidationIssue iss{};
+      iss.severity = static_cast<ValidationSeverity>(i->severity());
+      iss.code = static_cast<ValidationCode>(i->code());
       iss.emitter_index = static_cast<std::size_t>(i->emitter_index());
       if (i->message()) iss.message = i->message()->str();
       out->validation_issues.push_back(iss);
