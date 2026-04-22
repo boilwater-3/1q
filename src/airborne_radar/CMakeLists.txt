@@ -66,6 +66,7 @@ set(AIRBORNE_CORE_SOURCES
     airborne_radar/session/RadarExternalInputAdapter.cpp
     airborne_radar/session/RadarSessionConfigPresets.cpp
     airborne_radar/session/RadarSessionConfigBuilder.cpp
+    airborne_radar/session/RadarReplaySession.cpp
     airborne_radar/session/RuntimeConfigResolver.cpp
     airborne_radar/session/RadarSession.cpp
     airborne_radar/environment/FeatureRepository.cpp
@@ -126,6 +127,7 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarCycleResult.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarSessionFactory.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarSession.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarReplaySession.h
     )
     set(PUBLIC_HEADERS_DECISION
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/ControlReducerTypes.h

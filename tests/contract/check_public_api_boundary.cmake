@@ -68,6 +68,7 @@ set(AR_SESSION_HEADERS
     "airborne_radar/session/RadarCycleResult.h"
     "airborne_radar/session/RadarExternalInputAdapter.h"
     "airborne_radar/session/RadarInputValidation.h"
+    "airborne_radar/session/RadarReplaySession.h"
     "airborne_radar/session/RadarSession.h"
     "airborne_radar/session/RadarSessionFactory.h"
     "airborne_radar/session/RadarTraceSession.h"

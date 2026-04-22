@@ -22,6 +22,7 @@
 
 #include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
+#include "1q/airborne_radar/session/RadarReplaySession.h"
 #include "1q/airborne_radar/session/RadarTraceSession.h"
 #include "1q/replay/ReplayTrace.h"
 #include "1q/trace/TraceSink.h"
@@ -171,6 +172,56 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) 
   EXPECT_NE(content.find("\"payload_type\":\"RadarCycleInput\""), std::string::npos);
   EXPECT_NE(content.find("\"external_target_id\":2001"), std::string::npos);
   EXPECT_NE(content.find("\"position_m\":[1500"), std::string::npos);
+}
+
+TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
+  const std::string trace_dir = MakeTempTracePath("oneq-radar-replay-run");
+
+  oneq::replay::ReplayTraceManifest manifest;
+  manifest.trace_id = "radar-replay-run-test";
+  manifest.module = "airborne_radar";
+  manifest.scenario_id = "unit-test";
+
+  {
+    std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
+        new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
+
+    session::RadarTraceSessionOptions options;
+    options.replay_writer = replay_writer;
+    options.trace_config_on_construct = true;
+
+    session::RadarSessionConfig config;
+    session::RadarTraceSession session(config, options);
+
+    session::RadarCycleInput input;
+    input.dt_sec = 1.0f;
+
+    model::TargetFeature target;
+    target.external_target_id = 2002U;
+    target.current_track_velocity_x = 80.0f;
+    target.current_track_velocity_y = 1.0f;
+    target.current_track_velocity_z = 0.0f;
+    target.current_track_speed = 80.006f;
+    target.current_track_rcs = 2.0f;
+    target.range_m = 2000.0f;
+    target.has_cartesian_position = true;
+    target.position_x = 2000.0f;
+    target.position_y = 0.0f;
+    target.position_z = 150.0f;
+    input.target_features.push_back(target);
+
+    const session::RadarCycleResult result = session.StepWithResult(input);
+    EXPECT_GE(result.track_output_frame.published_track_count, 0U);
+    replay_writer->Flush();
+  }
+
+  const session::RadarReplaySessionResult replay_result =
+      session::ReplayRadarTrace(trace_dir);
+  EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
+  EXPECT_TRUE(replay_result.report.replay_ready);
+  EXPECT_EQ(replay_result.playback.applied_input_count, 1U);
+  EXPECT_EQ(replay_result.playback.compared_output_count, 1U);
+  EXPECT_FALSE(replay_result.playback.divergence_found);
 }
 
 }  // namespace tests
