@@ -181,6 +181,56 @@ std::string MakePolicyPayload(const config::RadarPolicyConfig& value) {
   return stream.str();
 }
 
+std::string MakeAtmosphericPhysicsPayload(
+    const environment::AtmosphericPhysicsConfig& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"enable_physical_model\":"
+         << JsonBool(value.enable_physical_model) << ","
+         << "\"pressure_hpa\":" << value.pressure_hpa << ","
+         << "\"temperature_k\":" << value.temperature_k << ","
+         << "\"relative_humidity\":" << value.relative_humidity << "}";
+  return stream.str();
+}
+
+std::string MakeAtmosphericContextPayload(
+    const environment::AtmosphericDerivedContext& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"has_simulation_unix_seconds\":"
+         << JsonBool(value.has_simulation_unix_seconds) << ","
+         << "\"simulation_unix_seconds\":" << value.simulation_unix_seconds << ","
+         << "\"solar_flux_f107a\":" << value.solar_flux_f107a << ","
+         << "\"solar_flux_f107\":" << value.solar_flux_f107 << ","
+         << "\"geomagnetic_ap\":" << value.geomagnetic_ap << "}";
+  return stream.str();
+}
+
+std::string MakeVegetationPayload(
+    const environment::VegetationScatterPhysicsConfig& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"cover_profile\":" << static_cast<int>(value.cover_profile) << ","
+         << "\"enable_physical_model\":"
+         << JsonBool(value.enable_physical_model) << "}";
+  return stream.str();
+}
+
+std::string MakeJammerEmitterPayload(
+    const environment::JammerEmitterState& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"technique\":" << static_cast<int>(value.technique) << ","
+         << "\"power_db\":" << value.power_db << ","
+         << "\"js_db\":" << value.js_db << ","
+         << "\"has_direction_deg\":" << JsonBool(value.has_direction_deg) << ","
+         << "\"azimuth_deg\":" << value.azimuth_deg << ","
+         << "\"elevation_deg\":" << value.elevation_deg << ","
+         << "\"angular_span_deg\":" << value.angular_span_deg << ","
+         << "\"confidence\":" << value.confidence << "}";
+  return stream.str();
+}
+
 std::string MakeFlatbuffersPayload(const char* type_name,
                                    const RadarSessionConfig& value) {
   std::ostringstream stream;
@@ -195,6 +245,31 @@ std::string MakeFlatbuffersPayload(const char* type_name,
          << "\"policy\":" << MakePolicyPayload(value.policy) << ","
          << "\"jamming_sensitivity_profile\":"
          << static_cast<int>(value.jamming_sensitivity_profile) << "}";
+  return stream.str();
+}
+
+std::string MakeFlatbuffersPayload(
+    const char* type_name,
+    const environment::EnvironmentSceneState& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"serializer\":\"flatbuffers\","
+         << "\"platform\":\"windows\","
+         << "\"type\":\"" << type_name << "\","
+         << "\"atmospheric_physics\":"
+         << MakeAtmosphericPhysicsPayload(value.atmospheric_physics) << ","
+         << "\"atmospheric_context\":"
+         << MakeAtmosphericContextPayload(value.atmospheric_context) << ","
+         << "\"vegetation_scatter_physics\":"
+         << MakeVegetationPayload(value.vegetation_scatter_physics) << ","
+         << "\"jammer_emitters\":[";
+  for (std::size_t i = 0; i < value.jammer_emitters.size(); ++i) {
+    if (i > 0U) {
+      stream << ",";
+    }
+    stream << MakeJammerEmitterPayload(value.jammer_emitters[i]);
+  }
+  stream << "]}";
   return stream.str();
 }
 

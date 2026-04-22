@@ -51,6 +51,15 @@ int ReadInt(const std::string& json, const char* name, int fallback) {
   return static_cast<int>(std::strtol(json.c_str() + value_pos, nullptr, 10));
 }
 
+std::int64_t ReadInt64(const std::string& json, const char* name,
+                       std::int64_t fallback) {
+  const std::size_t value_pos = FindFieldValueStart(json, name);
+  if (value_pos == std::string::npos) {
+    return fallback;
+  }
+  return static_cast<std::int64_t>(std::strtoll(json.c_str() + value_pos, nullptr, 10));
+}
+
 std::uint64_t ReadUInt64(const std::string& json, const char* name,
                          std::uint64_t fallback) {
   const std::size_t value_pos = FindFieldValueStart(json, name);
@@ -616,6 +625,93 @@ bool ParseCycleInput(const std::string& payload_json, RadarCycleInput* input,
   return true;
 }
 
+environment::JammerEmitterState ReadJammerEmitterState(const std::string& json) {
+  environment::JammerEmitterState emitter;
+  emitter.technique = static_cast<environment::JammingTechnique>(
+      ReadInt(json, "technique", static_cast<int>(emitter.technique)));
+  emitter.power_db = ReadFloat(json, "power_db", emitter.power_db);
+  emitter.js_db = ReadFloat(json, "js_db", emitter.js_db);
+  emitter.has_direction_deg =
+      ReadBool(json, "has_direction_deg", emitter.has_direction_deg);
+  emitter.azimuth_deg = ReadFloat(json, "azimuth_deg", emitter.azimuth_deg);
+  emitter.elevation_deg = ReadFloat(json, "elevation_deg", emitter.elevation_deg);
+  emitter.angular_span_deg =
+      ReadFloat(json, "angular_span_deg", emitter.angular_span_deg);
+  emitter.confidence = ReadFloat(json, "confidence", emitter.confidence);
+  return emitter;
+}
+
+bool ParseSceneState(const std::string& payload_json,
+                     environment::EnvironmentSceneState* scene_state,
+                     std::string* error) {
+  if (payload_json.empty()) {
+    *error = "empty EnvironmentSceneState payload";
+    return false;
+  }
+
+  const std::string atmospheric_json =
+      ExtractRawJsonValue(payload_json, "atmospheric_physics");
+  if (!atmospheric_json.empty()) {
+    scene_state->atmospheric_physics.enable_physical_model =
+        ReadBool(atmospheric_json, "enable_physical_model",
+                 scene_state->atmospheric_physics.enable_physical_model);
+    scene_state->atmospheric_physics.pressure_hpa =
+        ReadFloat(atmospheric_json, "pressure_hpa",
+                  scene_state->atmospheric_physics.pressure_hpa);
+    scene_state->atmospheric_physics.temperature_k =
+        ReadFloat(atmospheric_json, "temperature_k",
+                  scene_state->atmospheric_physics.temperature_k);
+    scene_state->atmospheric_physics.relative_humidity =
+        ReadFloat(atmospheric_json, "relative_humidity",
+                  scene_state->atmospheric_physics.relative_humidity);
+  }
+
+  const std::string context_json =
+      ExtractRawJsonValue(payload_json, "atmospheric_context");
+  if (!context_json.empty()) {
+    scene_state->atmospheric_context.has_simulation_unix_seconds =
+        ReadBool(context_json, "has_simulation_unix_seconds",
+                 scene_state->atmospheric_context.has_simulation_unix_seconds);
+    scene_state->atmospheric_context.simulation_unix_seconds =
+        ReadInt64(context_json, "simulation_unix_seconds",
+                  scene_state->atmospheric_context.simulation_unix_seconds);
+    scene_state->atmospheric_context.solar_flux_f107a =
+        ReadFloat(context_json, "solar_flux_f107a",
+                  scene_state->atmospheric_context.solar_flux_f107a);
+    scene_state->atmospheric_context.solar_flux_f107 =
+        ReadFloat(context_json, "solar_flux_f107",
+                  scene_state->atmospheric_context.solar_flux_f107);
+    scene_state->atmospheric_context.geomagnetic_ap =
+        ReadFloat(context_json, "geomagnetic_ap",
+                  scene_state->atmospheric_context.geomagnetic_ap);
+  }
+
+  const std::string vegetation_json =
+      ExtractRawJsonValue(payload_json, "vegetation_scatter_physics");
+  if (!vegetation_json.empty()) {
+    scene_state->vegetation_scatter_physics.cover_profile =
+        static_cast<environment::VegetationCoverProfile>(
+            ReadInt(vegetation_json, "cover_profile",
+                    static_cast<int>(
+                        scene_state->vegetation_scatter_physics.cover_profile)));
+    scene_state->vegetation_scatter_physics.enable_physical_model =
+        ReadBool(vegetation_json, "enable_physical_model",
+                 scene_state->vegetation_scatter_physics.enable_physical_model);
+  }
+
+  const std::string jammers_json =
+      ExtractRawJsonValue(payload_json, "jammer_emitters");
+  if (!jammers_json.empty()) {
+    const std::vector<std::string> emitters = ExtractObjectArrayItems(jammers_json);
+    scene_state->jammer_emitters.clear();
+    for (std::size_t i = 0; i < emitters.size(); ++i) {
+      scene_state->jammer_emitters.push_back(ReadJammerEmitterState(emitters[i]));
+    }
+  }
+
+  return true;
+}
+
 std::string MakeOutputPayload(const output::TrackOutputFrame& output) {
   std::ostringstream stream;
   stream << "{"
@@ -642,9 +738,37 @@ std::string MakeResultPayload(const RadarCycleResult& output) {
 
 struct RadarReplayState {
   std::unique_ptr<RadarSession> session{};
+  RadarCycleInput pending_input{};
+  bool has_pending_input{false};
+  environment::EnvironmentSceneState pending_scene_state{};
+  bool has_pending_scene_state{false};
   std::string latest_result_payload{};
   std::string latest_frame_payload{};
 };
+
+bool ExecutePendingCycle(RadarReplayState* state, std::string* error) {
+  if (!state->session) {
+    *error = "AR replay cannot execute before session_config";
+    return false;
+  }
+  if (!state->has_pending_input) {
+    *error = "AR replay cycle_output arrived before cycle_input";
+    return false;
+  }
+
+  RadarCycleResult result;
+  if (state->has_pending_scene_state) {
+    result = state->session->StepWithResult(state->pending_input,
+                                            state->pending_scene_state);
+  } else {
+    result = state->session->StepWithResult(state->pending_input);
+  }
+  state->latest_result_payload = MakeResultPayload(result);
+  state->latest_frame_payload = MakeOutputPayload(result.track_output_frame);
+  state->has_pending_input = false;
+  state->has_pending_scene_state = false;
+  return true;
+}
 
 bool OnSessionConfig(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
                      std::string* error) {
@@ -680,15 +804,35 @@ bool OnCycleInput(const oneq::replay::ReplayTraceReadEvent& event, void* user_da
     return false;
   }
 
-  const RadarCycleResult result = state->session->StepWithResult(input);
-  state->latest_result_payload = MakeResultPayload(result);
-  state->latest_frame_payload = MakeOutputPayload(result.track_output_frame);
+  state->pending_input = input;
+  state->has_pending_input = true;
+  state->has_pending_scene_state = false;
+  return true;
+}
+
+bool OnSceneState(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
+                  std::string* error) {
+  if (event.payload_type != "EnvironmentSceneState") {
+    *error = "AR replay expected EnvironmentSceneState scene_state";
+    return false;
+  }
+
+  RadarReplayState* state = static_cast<RadarReplayState*>(user_data);
+  environment::EnvironmentSceneState scene_state;
+  if (!ParseSceneState(event.payload_json, &scene_state, error)) {
+    return false;
+  }
+  state->pending_scene_state = scene_state;
+  state->has_pending_scene_state = true;
   return true;
 }
 
 bool OnCycleOutput(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
                    std::string* actual_output_json, std::string* error) {
   RadarReplayState* state = static_cast<RadarReplayState*>(user_data);
+  if (!ExecutePendingCycle(state, error)) {
+    return false;
+  }
   if (event.payload_type == "RadarCycleResult") {
     *actual_output_json = state->latest_result_payload;
     return true;
@@ -722,6 +866,7 @@ RadarReplaySessionResult ReplayRadarTrace(const std::string& trace_dir) {
   callbacks.user_data = &state;
   callbacks.on_session_config = OnSessionConfig;
   callbacks.on_cycle_input = OnCycleInput;
+  callbacks.on_scene_state = OnSceneState;
   callbacks.on_cycle_output = OnCycleOutput;
 
   oneq::replay::ReplayTracePlaybackOptions options;

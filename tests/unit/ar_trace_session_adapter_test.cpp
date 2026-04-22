@@ -217,7 +217,19 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
     target.position_z = 150.0f;
     input.target_features.push_back(target);
 
-    const session::RadarCycleResult result = session.StepWithResult(input);
+    environment::EnvironmentSceneState scene_state;
+    scene_state.atmospheric_physics.enable_physical_model = true;
+    scene_state.atmospheric_physics.relative_humidity = 0.65f;
+    environment::JammerEmitterState jammer;
+    jammer.technique = model::JammingTechnique::kNoiseSuppression;
+    jammer.power_db = 24.0f;
+    jammer.js_db = 7.0f;
+    jammer.has_direction_deg = true;
+    jammer.azimuth_deg = 18.0f;
+    jammer.elevation_deg = 2.0f;
+    scene_state.jammer_emitters.push_back(jammer);
+
+    const session::RadarCycleResult result = session.StepWithResult(input, scene_state);
     EXPECT_GE(result.track_output_frame.published_track_count, 0U);
     replay_writer->Flush();
   }
@@ -226,12 +238,15 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
   EXPECT_NE(content.find("\"confirm_hits\":1"), std::string::npos);
   EXPECT_NE(content.find("\"enable_kalman_filter\":false"), std::string::npos);
   EXPECT_NE(content.find("\"scan_center_deg\":{\"az_deg\":12.5"), std::string::npos);
+  EXPECT_NE(content.find("\"event_type\":\"scene_state\""), std::string::npos);
+  EXPECT_NE(content.find("\"jammer_emitters\":[{\"technique\":1"), std::string::npos);
 
   const session::RadarReplaySessionResult replay_result =
       session::ReplayRadarTrace(trace_dir);
   EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
   EXPECT_TRUE(replay_result.report.replay_ready);
   EXPECT_EQ(replay_result.playback.applied_input_count, 1U);
+  EXPECT_EQ(replay_result.playback.applied_scene_state_count, 1U);
   EXPECT_EQ(replay_result.playback.compared_output_count, 1U);
   EXPECT_FALSE(replay_result.playback.divergence_found);
 }
