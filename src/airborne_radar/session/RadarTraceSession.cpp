@@ -1,418 +1,472 @@
 #include "1q/airborne_radar/session/RadarTraceSession.h"
 
 #include <cstddef>
-#include <nlohmann/json.hpp>
+#include <sstream>
 #include <string>
 
-#include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
+#include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
+#include "airborne_radar/session/RadarReplayFlatbufferCodec.h"
 
 namespace airborne_radar {
 namespace session {
 namespace {
 
-using Json = nlohmann::ordered_json;
+std::string JsonBool(bool value) { return value ? "true" : "false"; }
 
-template <typename Container, typename Serializer>
-Json SerializeArray(const Container& values, const Serializer& serializer) {
-  Json result = Json::array();
-  for (std::size_t i = 0; i < values.size(); ++i) {
-    result.push_back(serializer(values[i]));
+std::string MakeEulerAnglesPayload(const model::EulerAnglesDeg& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"yaw_deg\":" << value.yaw_deg << ","
+         << "\"pitch_deg\":" << value.pitch_deg << ","
+         << "\"roll_deg\":" << value.roll_deg << "}";
+  return stream.str();
+}
+
+std::string MakeAzElPayload(const model::AzimuthElevationDeg& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"az_deg\":" << value.az_deg << ","
+         << "\"el_deg\":" << value.el_deg << "}";
+  return stream.str();
+}
+
+std::string MakeAzElLimitsPayload(const model::AzimuthElevationLimitsDeg& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"az_min_deg\":" << value.az_min_deg << ","
+         << "\"az_max_deg\":" << value.az_max_deg << ","
+         << "\"el_min_deg\":" << value.el_min_deg << ","
+         << "\"el_max_deg\":" << value.el_max_deg << "}";
+  return stream.str();
+}
+
+std::string MakeCommandedBeamwidthPayload(const model::CommandedBeamwidthDeg& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"commanded_az_beamwidth_deg\":" << value.commanded_az_beamwidth_deg << ","
+         << "\"commanded_el_beamwidth_deg\":" << value.commanded_el_beamwidth_deg << "}";
+  return stream.str();
+}
+
+std::string MakeOrientationPayload(const model::RadarOrientationConfig& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"mount_angles_deg\":" << MakeEulerAnglesPayload(value.mount_angles_deg) << ","
+         << "\"scan_center_deg\":" << MakeAzElPayload(value.scan_center_deg) << ","
+         << "\"mechanical_scan_limits_deg\":"
+         << MakeAzElLimitsPayload(value.mechanical_scan_limits_deg) << ","
+         << "\"electronic_scan_limits_deg\":"
+         << MakeAzElLimitsPayload(value.electronic_scan_limits_deg) << ","
+         << "\"scan_start_position\":" << static_cast<int>(value.scan_start_position) << ","
+         << "\"scan_sequence\":" << static_cast<int>(value.scan_sequence) << ","
+         << "\"work_sub_mode\":" << static_cast<int>(value.work_sub_mode) << ","
+         << "\"commanded_beamwidth_enabled\":" << JsonBool(value.commanded_beamwidth_enabled) << ","
+         << "\"commanded_beamwidth_deg\":"
+         << MakeCommandedBeamwidthPayload(value.commanded_beamwidth_deg) << ","
+         << "\"stabilization_mode\":" << static_cast<int>(value.stabilization_mode) << "}";
+  return stream.str();
+}
+
+std::string MakeDetectionPayload(const config::DetectionConfig& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"enable_physics_detection\":" << JsonBool(value.enable_physics_detection) << ","
+         << "\"swerling_model\":" << static_cast<int>(value.swerling_model) << ","
+         << "\"transmitter\":{"
+         << "\"peak_power_w\":" << value.transmitter.peak_power_w << ","
+         << "\"frequency_hz\":" << value.transmitter.frequency_hz << ","
+         << "\"bandwidth_hz\":" << value.transmitter.bandwidth_hz << ","
+         << "\"pulse_width_s\":" << value.transmitter.pulse_width_s << ","
+         << "\"prf_hz\":" << value.transmitter.prf_hz << ","
+         << "\"transmit_loss_db\":" << value.transmitter.transmit_loss_db << "},"
+         << "\"antenna\":{"
+         << "\"main_beam_gain_db\":" << value.antenna.main_beam_gain_db << ","
+         << "\"nominal_az_beamwidth_deg\":" << value.antenna.nominal_az_beamwidth_deg << ","
+         << "\"nominal_el_beamwidth_deg\":" << value.antenna.nominal_el_beamwidth_deg << ","
+         << "\"enable_directional_pattern\":" << JsonBool(value.antenna.enable_directional_pattern)
+         << ","
+         << "\"pattern\":{"
+         << "\"model_type\":" << static_cast<int>(value.antenna.pattern.model_type) << ","
+         << "\"max_sidelobe_level_db\":" << value.antenna.pattern.max_sidelobe_level_db << ","
+         << "\"backlobe_level_db\":" << value.antenna.pattern.backlobe_level_db << ","
+         << "\"scan_loss_coeff_db_per_deg2\":" << value.antenna.pattern.scan_loss_coeff_db_per_deg2
+         << ","
+         << "\"max_scan_loss_db\":" << value.antenna.pattern.max_scan_loss_db << ","
+         << "\"boresight_offset_deg\":"
+         << MakeAzElPayload(value.antenna.pattern.boresight_offset_deg) << "}},"
+         << "\"receiver\":{"
+         << "\"noise_figure_db\":" << value.receiver.noise_figure_db << ","
+         << "\"receive_loss_db\":" << value.receiver.receive_loss_db << "},"
+         << "\"detection_policy\":{"
+         << "\"cfar_pfa\":" << value.detection_policy.cfar_pfa << ","
+         << "\"min_snr_db\":" << value.detection_policy.min_snr_db << "},"
+         << "\"rcs_physics\":{"
+         << "\"enable_physical_rcs\":" << JsonBool(value.rcs_physics.enable_physical_rcs) << ","
+         << "\"frequency_hz\":" << value.rcs_physics.frequency_hz << ","
+         << "\"physics_mix_ratio\":" << value.rcs_physics.physics_mix_ratio << ","
+         << "\"cylinder_weight\":" << value.rcs_physics.cylinder_weight << ","
+         << "\"min_equivalent_radius_m\":" << value.rcs_physics.min_equivalent_radius_m << ","
+         << "\"max_equivalent_radius_m\":" << value.rcs_physics.max_equivalent_radius_m << ","
+         << "\"min_rcs_m2\":" << value.rcs_physics.min_rcs_m2 << ","
+         << "\"max_rcs_m2\":" << value.rcs_physics.max_rcs_m2 << ","
+         << "\"bistatic_psi_offset_deg\":" << value.rcs_physics.bistatic_psi_offset_deg << "},"
+         << "\"min_detection_margin_db\":" << value.min_detection_margin_db << ","
+         << "\"pulse_count\":" << value.pulse_count << "}";
+  return stream.str();
+}
+
+std::string MakeBeamControlPayload(const config::BeamControlConfig& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"pointing\":{"
+         << "\"default_scan_center_deg\":"
+         << MakeAzElPayload(value.pointing.default_scan_center_deg) << ","
+         << "\"nominal_beamwidth_deg\":"
+         << MakeCommandedBeamwidthPayload(value.pointing.nominal_beamwidth_deg) << "},"
+         << "\"scheduler\":{"
+         << "\"azimuth_step_count_hint\":" << value.scheduler.azimuth_step_count_hint << ","
+         << "\"elevation_step_count_hint\":" << value.scheduler.elevation_step_count_hint << ","
+         << "\"prefer_dense_tas_sampling\":" << JsonBool(value.scheduler.prefer_dense_tas_sampling)
+         << "}}";
+  return stream.str();
+}
+
+std::string MakePolicyPayload(const config::RadarPolicyConfig& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"beam_control\":" << MakeBeamControlPayload(value.beam_control) << ","
+         << "\"association\":{"
+         << "\"unassigned_cost\":" << value.association.unassigned_cost << ","
+         << "\"use_distance_gate_hint\":" << JsonBool(value.association.use_distance_gate_hint)
+         << ","
+         << "\"distance_gate_sigma_hint\":" << value.association.distance_gate_sigma_hint << "},"
+         << "\"tracking\":{"
+         << "\"enable_kalman_filter\":" << JsonBool(value.tracking.enable_kalman_filter) << ","
+         << "\"kalman_measurement_noise_std\":" << value.tracking.kalman_measurement_noise_std
+         << ","
+         << "\"kalman_update_backend\":" << static_cast<int>(value.tracking.kalman_update_backend)
+         << ","
+         << "\"speed_decay_ratio_on_loss\":" << value.tracking.speed_decay_ratio_on_loss << ","
+         << "\"rcs_decay_ratio_on_loss\":" << value.tracking.rcs_decay_ratio_on_loss << "},"
+         << "\"lifecycle\":{"
+         << "\"confirm_hits\":" << value.lifecycle.confirm_hits << ","
+         << "\"max_miss_before_lost\":" << value.lifecycle.max_miss_before_lost << ","
+         << "\"max_lost_cycles\":" << value.lifecycle.max_lost_cycles << ","
+         << "\"enable_imm_lifecycle\":" << JsonBool(value.lifecycle.enable_imm_lifecycle) << "},"
+         << "\"imm\":{"
+         << "\"enable_imm_lifecycle\":" << JsonBool(value.imm.enable_imm_lifecycle) << ","
+         << "\"model_count_hint\":" << value.imm.model_count_hint << "}}";
+  return stream.str();
+}
+
+std::string MakeAtmosphericPhysicsPayload(const environment::AtmosphericPhysicsConfig& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"enable_physical_model\":" << JsonBool(value.enable_physical_model) << ","
+         << "\"pressure_hpa\":" << value.pressure_hpa << ","
+         << "\"temperature_k\":" << value.temperature_k << ","
+         << "\"relative_humidity\":" << value.relative_humidity << "}";
+  return stream.str();
+}
+
+std::string MakeAtmosphericContextPayload(const environment::AtmosphericDerivedContext& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"has_simulation_unix_seconds\":" << JsonBool(value.has_simulation_unix_seconds) << ","
+         << "\"simulation_unix_seconds\":" << value.simulation_unix_seconds << ","
+         << "\"solar_flux_f107a\":" << value.solar_flux_f107a << ","
+         << "\"solar_flux_f107\":" << value.solar_flux_f107 << ","
+         << "\"geomagnetic_ap\":" << value.geomagnetic_ap << "}";
+  return stream.str();
+}
+
+std::string MakeVegetationPayload(const environment::VegetationScatterPhysicsConfig& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"cover_profile\":" << static_cast<int>(value.cover_profile) << ","
+         << "\"enable_physical_model\":" << JsonBool(value.enable_physical_model) << "}";
+  return stream.str();
+}
+
+std::string MakeJammerEmitterPayload(const environment::JammerEmitterState& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"technique\":" << static_cast<int>(value.technique) << ","
+         << "\"power_db\":" << value.power_db << ","
+         << "\"js_db\":" << value.js_db << ","
+         << "\"has_direction_deg\":" << JsonBool(value.has_direction_deg) << ","
+         << "\"azimuth_deg\":" << value.azimuth_deg << ","
+         << "\"elevation_deg\":" << value.elevation_deg << ","
+         << "\"angular_span_deg\":" << value.angular_span_deg << ","
+         << "\"confidence\":" << value.confidence << "}";
+  return stream.str();
+}
+
+std::string MakeEnvironmentScenarioPayload(const environment::EnvironmentScenarioConfig& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"atmospheric_physics\":" << MakeAtmosphericPhysicsPayload(value.atmospheric_physics)
+         << ","
+         << "\"atmospheric_context\":" << MakeAtmosphericContextPayload(value.atmospheric_context)
+         << ","
+         << "\"vegetation_scatter_physics\":"
+         << MakeVegetationPayload(value.vegetation_scatter_physics) << ","
+         << "\"jammer_sources\":[";
+  for (std::size_t i = 0; i < value.jammer_sources.size(); ++i) {
+    if (i > 0U) {
+      stream << ",";
+    }
+    stream << MakeJammerEmitterPayload(value.jammer_sources[i]);
   }
-  return result;
+  stream << "]}";
+  return stream.str();
+}
+
+std::string MakeEnvironmentRuntimePatchPayload(
+    const environment::EnvironmentRuntimeConfigPatch& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"has_scenario_config\":" << JsonBool(value.has_scenario_config) << ","
+         << "\"scenario_config\":" << MakeEnvironmentScenarioPayload(value.scenario_config) << ","
+         << "\"has_jamming_sensitivity_profile\":"
+         << JsonBool(value.has_jamming_sensitivity_profile) << ","
+         << "\"jamming_sensitivity_profile\":"
+         << static_cast<int>(value.jamming_sensitivity_profile) << "}";
+  return stream.str();
+}
+
+std::string MakeFlatbuffersPayload(const char* type_name, const RadarSessionConfig& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"serializer\":\"flatbuffers\","
+         << "\"platform\":\"windows\","
+         << "\"type\":\"" << type_name << "\","
+         << "\"hardware\":{\"detection\":" << MakeDetectionPayload(value.hardware.detection) << "},"
+         << "\"mission\":{\"orientation\":" << MakeOrientationPayload(value.mission.orientation)
+         << "},"
+         << "\"policy\":" << MakePolicyPayload(value.policy) << ","
+         << "\"jamming_sensitivity_profile\":"
+         << static_cast<int>(value.jamming_sensitivity_profile) << "}";
+  return stream.str();
+}
+
+std::string MakeFlatbuffersPayload(const char* type_name,
+                                   const environment::EnvironmentSceneState& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"serializer\":\"flatbuffers\","
+         << "\"platform\":\"windows\","
+         << "\"type\":\"" << type_name << "\","
+         << "\"atmospheric_physics\":" << MakeAtmosphericPhysicsPayload(value.atmospheric_physics)
+         << ","
+         << "\"atmospheric_context\":" << MakeAtmosphericContextPayload(value.atmospheric_context)
+         << ","
+         << "\"vegetation_scatter_physics\":"
+         << MakeVegetationPayload(value.vegetation_scatter_physics) << ","
+         << "\"jammer_emitters\":[";
+  for (std::size_t i = 0; i < value.jammer_emitters.size(); ++i) {
+    if (i > 0U) {
+      stream << ",";
+    }
+    stream << MakeJammerEmitterPayload(value.jammer_emitters[i]);
+  }
+  stream << "]}";
+  return stream.str();
+}
+
+std::string MakeFlatbuffersPayload(const char* type_name,
+                                   const config::RadarRuntimeConfigPatch& value) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"serializer\":\"flatbuffers\","
+         << "\"platform\":\"windows\","
+         << "\"type\":\"" << type_name << "\","
+         << "\"has_mission\":" << JsonBool(value.has_mission) << ","
+         << "\"mission\":{\"orientation\":" << MakeOrientationPayload(value.mission.orientation)
+         << "},"
+         << "\"has_policy\":" << JsonBool(value.has_policy) << ","
+         << "\"policy\":" << MakePolicyPayload(value.policy) << ","
+         << "\"has_environment_runtime_config\":" << JsonBool(value.has_environment_runtime_config)
+         << ","
+         << "\"environment_runtime_config\":"
+         << MakeEnvironmentRuntimePatchPayload(value.environment_runtime_config) << ","
+         << "\"has_work_sub_mode\":" << JsonBool(value.has_work_sub_mode) << ","
+         << "\"work_sub_mode\":" << static_cast<int>(value.work_sub_mode) << ","
+         << "\"has_scan_center_deg\":" << JsonBool(value.has_scan_center_deg) << ","
+         << "\"scan_center_deg\":" << MakeAzElPayload(value.scan_center_deg) << ","
+         << "\"has_dwell_center_deg\":" << JsonBool(value.has_dwell_center_deg) << ","
+         << "\"dwell_center_deg\":" << MakeAzElPayload(value.dwell_center_deg) << ","
+         << "\"has_commanded_beamwidth_deg\":" << JsonBool(value.has_commanded_beamwidth_deg) << ","
+         << "\"commanded_beamwidth_deg\":"
+         << MakeCommandedBeamwidthPayload(value.commanded_beamwidth_deg) << ","
+         << "\"has_commanded_beamwidth_enabled\":"
+         << JsonBool(value.has_commanded_beamwidth_enabled) << ","
+         << "\"commanded_beamwidth_enabled\":" << JsonBool(value.commanded_beamwidth_enabled)
+         << "}";
+  return stream.str();
 }
 
 template <typename T>
-Json NumberArray3(T first, T second, T third) {
-  Json json = Json::array();
-  json.push_back(first);
-  json.push_back(second);
-  json.push_back(third);
-  return json;
+std::string MakeFlatbuffersPayload(const char* type_name, const T& /*value*/) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"serializer\":\"flatbuffers\","
+         << "\"platform\":\"windows\","
+         << "\"type\":\"" << type_name << "\""
+         << "}";
+  return stream.str();
 }
 
-Json BuildJson(const model::EulerAnglesDeg& value) {
-  Json json;
-  json["yaw_deg"] = value.yaw_deg;
-  json["pitch_deg"] = value.pitch_deg;
-  json["roll_deg"] = value.roll_deg;
-  return json;
+void WriteCycleInputReplay(const std::shared_ptr<oneq::replay::ReplayTraceWriter>& writer,
+                           const RadarCycleInput& input) {
+  oneq::replay::ReplayTraceEvent event;
+  event.module = "airborne_radar";
+  event.event_type = "cycle_input";
+  event.payload_type = "RadarCycleInput";
+  event.payload_encoding = "flatbuffers";
+  event.payload_json = "{}";
+  event.payload_bytes = EncodeCycleInputFlatbuffer(input);
+  writer->WriteEvent(event);
 }
 
-Json BuildJson(const oneq::foundation::EulerAnglesDeg& value) {
-  Json json;
-  json["yaw_deg"] = value.yaw_deg;
-  json["pitch_deg"] = value.pitch_deg;
-  json["roll_deg"] = value.roll_deg;
-  return json;
+void WriteSessionConfigReplay(const std::shared_ptr<oneq::replay::ReplayTraceWriter>& writer,
+                              const RadarSessionConfig& config) {
+  oneq::replay::ReplayTraceEvent event;
+  event.module = "airborne_radar";
+  event.event_type = "session_config";
+  event.payload_type = "RadarSessionConfig";
+  event.payload_encoding = "flatbuffers";
+  event.payload_json = "{}";
+  event.payload_bytes = EncodeSessionConfigFlatbuffer(config);
+  writer->WriteEvent(event);
 }
 
-Json BuildJson(const oneq::foundation::Vector3f& value) {
-  Json json;
-  json["x"] = value.x;
-  json["y"] = value.y;
-  json["z"] = value.z;
-  return json;
+void WriteSceneStateReplay(const std::shared_ptr<oneq::replay::ReplayTraceWriter>& writer,
+                           const environment::EnvironmentSceneState& scene_state) {
+  oneq::replay::ReplayTraceEvent event;
+  event.module = "airborne_radar";
+  event.event_type = "scene_state";
+  event.payload_type = "EnvironmentSceneState";
+  event.payload_encoding = "flatbuffers";
+  event.payload_json = "{}";
+  event.payload_bytes = EncodeSceneStateFlatbuffer(scene_state);
+  writer->WriteEvent(event);
 }
 
-Json BuildJson(const oneq::foundation::PoseState& value) {
-  Json json;
-  json["position_m"] = BuildJson(value.position_m);
-  json["velocity_mps"] = BuildJson(value.velocity_mps);
-  json["attitude_deg"] = BuildJson(value.attitude_deg);
-  return json;
+void WriteRuntimeConfigPatchReplay(const std::shared_ptr<oneq::replay::ReplayTraceWriter>& writer,
+                                   const config::RadarRuntimeConfigPatch& patch) {
+  oneq::replay::ReplayTraceEvent event;
+  event.module = "airborne_radar";
+  event.event_type = "runtime_config_patch";
+  event.payload_type = "RadarRuntimeConfigPatch";
+  event.payload_encoding = "flatbuffers";
+  event.payload_json = "{}";
+  event.payload_bytes = EncodeRuntimeConfigPatchFlatbuffer(patch);
+  writer->WriteEvent(event);
 }
 
-Json BuildJson(const model::AzimuthElevationDeg& value) {
-  Json json;
-  json["az_deg"] = value.az_deg;
-  json["el_deg"] = value.el_deg;
-  return json;
+void WriteTrackOutputReplay(const std::shared_ptr<oneq::replay::ReplayTraceWriter>& writer,
+                            const output::TrackOutputFrame& output_frame,
+                            const std::string& payload_json) {
+  oneq::replay::ReplayTraceEvent event;
+  event.module = "airborne_radar";
+  event.event_type = "cycle_output";
+  event.payload_type = "TrackOutputFrame";
+  event.payload_encoding = "flatbuffers";
+  event.payload_json = payload_json;
+  event.payload_bytes = EncodeTrackOutputFrameFlatbuffer(output_frame);
+  event.has_cycle_index = true;
+  event.cycle_index = output_frame.cycle_index;
+  writer->WriteEvent(event);
 }
 
-Json BuildJson(const model::AzimuthElevationLimitsDeg& value) {
-  Json json;
-  json["az_min_deg"] = value.az_min_deg;
-  json["az_max_deg"] = value.az_max_deg;
-  json["el_min_deg"] = value.el_min_deg;
-  json["el_max_deg"] = value.el_max_deg;
-  return json;
+void WriteCycleResultReplay(const std::shared_ptr<oneq::replay::ReplayTraceWriter>& writer,
+                            const RadarCycleResult& result, const std::string& payload_json) {
+  oneq::replay::ReplayTraceEvent event;
+  event.module = "airborne_radar";
+  event.event_type = "cycle_output";
+  event.payload_type = "RadarCycleResult";
+  event.payload_encoding = "flatbuffers";
+  event.payload_json = payload_json;
+  event.payload_bytes = EncodeCycleResultFlatbuffer(result);
+  event.has_cycle_index = true;
+  event.cycle_index = result.track_output_frame.cycle_index;
+  writer->WriteEvent(event);
 }
 
-const char* ToString(const extension::SignalCycleAbortReason value) {
-  switch (value) {
-    case extension::SignalCycleAbortReason::kNone:
-      return "none";
-    case extension::SignalCycleAbortReason::kLifecycleUnavailable:
-      return "lifecycle_unavailable";
-    case extension::SignalCycleAbortReason::kInvalidEnvironmentCycle:
-      return "invalid_environment_cycle";
-    case extension::SignalCycleAbortReason::kRuntimePreparationFailed:
-      return "runtime_preparation_failed";
-    default:
-      return "unknown";
+std::string MakeInputPayload(const RadarCycleInput& input) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"serializer\":\"flatbuffers\","
+         << "\"platform\":\"windows\","
+         << "\"type\":\"RadarCycleInput\","
+         << "\"dt_sec\":" << input.dt_sec << ","
+         << "\"platform_pose\":{"
+         << "\"position_m\":[" << input.platform_pose.position_m.x << ","
+         << input.platform_pose.position_m.y << "," << input.platform_pose.position_m.z << "],"
+         << "\"velocity_mps\":[" << input.platform_pose.velocity_mps.x << ","
+         << input.platform_pose.velocity_mps.y << "," << input.platform_pose.velocity_mps.z << "],"
+         << "\"attitude_deg\":{"
+         << "\"yaw_deg\":" << input.platform_pose.attitude_deg.yaw_deg << ","
+         << "\"pitch_deg\":" << input.platform_pose.attitude_deg.pitch_deg << ","
+         << "\"roll_deg\":" << input.platform_pose.attitude_deg.roll_deg << "}"
+         << "},"
+         << "\"target_features\":[";
+  for (std::size_t i = 0; i < input.target_features.size(); ++i) {
+    const model::TargetFeature& target = input.target_features[i];
+    if (i > 0U) {
+      stream << ",";
+    }
+    stream << "{"
+           << "\"external_target_id\":" << target.external_target_id << ","
+           << "\"velocity_mps\":[" << target.current_track_velocity_x << ","
+           << target.current_track_velocity_y << "," << target.current_track_velocity_z << "],"
+           << "\"current_track_speed\":" << target.current_track_speed << ","
+           << "\"current_track_rcs\":" << target.current_track_rcs << ","
+           << "\"range_m\":" << target.range_m << ","
+           << "\"has_cartesian_position\":" << (target.has_cartesian_position ? "true" : "false")
+           << ","
+           << "\"position_m\":[" << target.position_x << "," << target.position_y << ","
+           << target.position_z << "],"
+           << "\"target_swerling_type\":" << target.target_swerling_type << "}";
   }
+  stream << "]}";
+  return stream.str();
 }
 
-Json BuildJson(const model::CommandedBeamwidthDeg& value) {
-  Json json;
-  json["commanded_az_beamwidth_deg"] = value.commanded_az_beamwidth_deg;
-  json["commanded_el_beamwidth_deg"] = value.commanded_el_beamwidth_deg;
-  return json;
+std::string MakeOutputPayload(const output::TrackOutputFrame& output) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"serializer\":\"flatbuffers\","
+         << "\"platform\":\"windows\","
+         << "\"type\":\"TrackOutputFrame\","
+         << "\"cycle_index\":" << output.cycle_index << ","
+         << "\"published_track_count\":" << output.published_track_count << "}";
+  return stream.str();
 }
 
-Json BuildJson(const model::RadarOrientationConfig& value) {
-  Json json;
-  json["mount_angles_deg"] = BuildJson(value.mount_angles_deg);
-  json["scan_center_deg"] = BuildJson(value.scan_center_deg);
-  json["mechanical_scan_limits_deg"] = BuildJson(value.mechanical_scan_limits_deg);
-  json["electronic_scan_limits_deg"] = BuildJson(value.electronic_scan_limits_deg);
-  json["scan_start_position"] = static_cast<int>(value.scan_start_position);
-  json["scan_sequence"] = static_cast<int>(value.scan_sequence);
-  json["work_sub_mode"] = static_cast<int>(value.work_sub_mode);
-  json["commanded_beamwidth_enabled"] = value.commanded_beamwidth_enabled;
-  json["commanded_beamwidth_deg"] = BuildJson(value.commanded_beamwidth_deg);
-  json["stabilization_mode"] = static_cast<int>(value.stabilization_mode);
-  return json;
+std::string MakeResultPayload(const RadarCycleResult& output) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"serializer\":\"flatbuffers\","
+         << "\"platform\":\"windows\","
+         << "\"type\":\"RadarCycleResult\","
+         << "\"validation_issue_count\":" << output.validation_issues.size() << ","
+         << "\"executed_this_cycle\":" << (output.executed_this_cycle ? "true" : "false") << "}";
+  return stream.str();
 }
 
-Json BuildJson(const config::DetectionConfig& value) {
-  Json json;
-  json["enable_physics_detection"] = value.enable_physics_detection;
-  json["swerling_model"] = static_cast<int>(value.swerling_model);
-  json["transmitter"] = {{"peak_power_w", value.transmitter.peak_power_w},
-                         {"frequency_hz", value.transmitter.frequency_hz},
-                         {"bandwidth_hz", value.transmitter.bandwidth_hz},
-                         {"pulse_width_s", value.transmitter.pulse_width_s},
-                         {"prf_hz", value.transmitter.prf_hz},
-                         {"transmit_loss_db", value.transmitter.transmit_loss_db}};
-  json["antenna"] = {
-      {"main_beam_gain_db", value.antenna.main_beam_gain_db},
-      {"nominal_az_beamwidth_deg", value.antenna.nominal_az_beamwidth_deg},
-      {"nominal_el_beamwidth_deg", value.antenna.nominal_el_beamwidth_deg},
-      {"enable_directional_pattern", value.antenna.enable_directional_pattern},
-      {"pattern",
-       {{"model_type", static_cast<int>(value.antenna.pattern.model_type)},
-        {"max_sidelobe_level_db", value.antenna.pattern.max_sidelobe_level_db},
-        {"backlobe_level_db", value.antenna.pattern.backlobe_level_db},
-        {"scan_loss_coeff_db_per_deg2", value.antenna.pattern.scan_loss_coeff_db_per_deg2},
-        {"max_scan_loss_db", value.antenna.pattern.max_scan_loss_db},
-        {"boresight_offset_deg", BuildJson(value.antenna.pattern.boresight_offset_deg)}}}};
-  json["receiver"] = {{"noise_figure_db", value.receiver.noise_figure_db},
-                      {"receive_loss_db", value.receiver.receive_loss_db}};
-  json["detection_policy"] = {{"cfar_pfa", value.detection_policy.cfar_pfa},
-                              {"min_snr_db", value.detection_policy.min_snr_db}};
-  json["rcs_physics"] = {{"enable_physical_rcs", value.rcs_physics.enable_physical_rcs},
-                         {"frequency_hz", value.rcs_physics.frequency_hz},
-                         {"physics_mix_ratio", value.rcs_physics.physics_mix_ratio},
-                         {"cylinder_weight", value.rcs_physics.cylinder_weight},
-                         {"min_equivalent_radius_m", value.rcs_physics.min_equivalent_radius_m},
-                         {"max_equivalent_radius_m", value.rcs_physics.max_equivalent_radius_m},
-                         {"min_rcs_m2", value.rcs_physics.min_rcs_m2},
-                         {"max_rcs_m2", value.rcs_physics.max_rcs_m2},
-                         {"bistatic_psi_offset_deg", value.rcs_physics.bistatic_psi_offset_deg}};
-  json["min_detection_margin_db"] = value.min_detection_margin_db;
-  json["pulse_count"] = value.pulse_count;
-  return json;
-}
-
-Json BuildJson(const config::TrackingConfig& value) {
-  Json json;
-  json["enable_kalman_filter"] = value.enable_kalman_filter;
-  json["kalman_measurement_noise_std"] = value.kalman_measurement_noise_std;
-  json["kalman_update_backend"] = static_cast<int>(value.kalman_update_backend);
-  return json;
-}
-
-Json BuildJson(const config::LifecycleConfig& value) {
-  Json json;
-  json["confirm_hits"] = value.confirm_hits;
-  json["max_miss_before_lost"] = value.max_miss_before_lost;
-  json["max_lost_cycles"] = value.max_lost_cycles;
-  json["enable_imm_lifecycle"] = value.enable_imm_lifecycle;
-  return json;
-}
-
-Json BuildJson(const environment::AtmosphericPhysicsConfig& value) {
-  Json json;
-  json["enable_physical_model"] = value.enable_physical_model;
-  json["pressure_hpa"] = value.pressure_hpa;
-  json["temperature_k"] = value.temperature_k;
-  json["relative_humidity"] = value.relative_humidity;
-  return json;
-}
-
-Json BuildJson(const environment::AtmosphericDerivedContext& value) {
-  Json json;
-  json["has_simulation_unix_seconds"] = value.has_simulation_unix_seconds;
-  json["simulation_unix_seconds"] = value.simulation_unix_seconds;
-  json["effective_day_of_year"] = environment::ResolveEffectiveDayOfYear(value);
-  json["solar_flux_f107a"] = value.solar_flux_f107a;
-  json["solar_flux_f107"] = value.solar_flux_f107;
-  json["geomagnetic_ap"] = value.geomagnetic_ap;
-  return json;
-}
-
-Json BuildJson(const environment::JammerEmitterState& value) {
-  Json json;
-  json["technique"] = static_cast<int>(value.technique);
-  json["power_db"] = value.power_db;
-  json["js_db"] = value.js_db;
-  json["has_direction_deg"] = value.has_direction_deg;
-  if (value.has_direction_deg) {
-    json["azimuth_deg"] = value.azimuth_deg;
-    json["elevation_deg"] = value.elevation_deg;
-  }
-  json["angular_span_deg"] = value.angular_span_deg;
-  json["confidence"] = value.confidence;
-  return json;
-}
-
-Json BuildJson(const environment::EnvironmentScenarioConfig& value) {
-  Json json;
-  json["atmospheric_physics"] = BuildJson(value.atmospheric_physics);
-  json["atmospheric_context"] = BuildJson(value.atmospheric_context);
-  json["vegetation_scatter_physics"] = {
-      {"cover_profile", static_cast<int>(value.vegetation_scatter_physics.cover_profile)},
-      {"enable_physical_model", value.vegetation_scatter_physics.enable_physical_model}};
-  json["jammer_sources"] = SerializeArray(
-      value.jammer_sources,
-      [](const environment::JammerEmitterState& source) { return BuildJson(source); });
-  return json;
-}
-
-Json BuildJson(const environment::EnvironmentRuntimeConfigPatch& value) {
-  Json json;
-  json["has_scenario_config"] = value.has_scenario_config;
-  json["scenario_config"] = BuildJson(value.scenario_config);
-  json["has_jamming_sensitivity_profile"] = value.has_jamming_sensitivity_profile;
-  json["jamming_sensitivity_profile"] = static_cast<int>(value.jamming_sensitivity_profile);
-  return json;
-}
-
-Json BuildJson(const environment::EnvironmentSceneState& value) {
-  Json json;
-  json["atmospheric_physics"] = BuildJson(value.atmospheric_physics);
-  json["atmospheric_context"] = BuildJson(value.atmospheric_context);
-  json["jammer_emitters"] = SerializeArray(
-      value.jammer_emitters,
-      [](const environment::JammerEmitterState& source) { return BuildJson(source); });
-  return json;
-}
-
-Json BuildJson(const RadarSessionConfig& value) {
-  Json json;
-  json["hardware"] = {{"detection", BuildJson(value.hardware.detection)}};
-  json["mission"] = {{"orientation", BuildJson(value.mission.orientation)}};
-  json["policy"] = {{"tracking", BuildJson(value.policy.tracking)},
-                    {"lifecycle", BuildJson(value.policy.lifecycle)}};
-  json["environment"] = {{"scenario_config", BuildJson(value.environment.scenario_config)}};
-  json["jamming_sensitivity_profile"] =
-      static_cast<int>(value.jamming_sensitivity_profile);
-  return json;
-}
-
-Json BuildJson(const model::TargetFeature& value) {
-  Json json;
-  json["external_target_id"] = value.external_target_id;
-  json["velocity_mps"] =
-      NumberArray3(value.current_track_velocity_x, value.current_track_velocity_y,
-                   value.current_track_velocity_z);
-  json["current_track_speed"] = value.current_track_speed;
-  json["current_track_rcs"] = value.current_track_rcs;
-  json["range_m"] = value.range_m;
-  json["has_cartesian_position"] = value.has_cartesian_position;
-  json["position_m"] = NumberArray3(value.position_x, value.position_y, value.position_z);
-  json["target_swerling_type"] = value.target_swerling_type;
-  return json;
-}
-
-Json BuildJson(const RadarCycleInput& value) {
-  Json json;
-  json["dt_sec"] = value.dt_sec;
-  json["platform_pose"] = BuildJson(value.platform_pose);
-  json["target_features"] = SerializeArray(
-      value.target_features, [](const model::TargetFeature& target) { return BuildJson(target); });
-  return json;
-}
-
-Json BuildJson(const ValidationIssue& value) {
-  Json json;
-  json["severity"] = static_cast<int>(value.severity);
-  json["code"] = static_cast<int>(value.code);
-  json["target_index"] = value.target_index;
-  json["message"] = value.message;
-  return json;
-}
-
-Json BuildJson(const extension::control::RadarCommand& value) {
-  Json json;
-  json["type"] = static_cast<int>(value.type);
-  json["source"] = static_cast<int>(value.source);
-  return json;
-}
-
-Json BuildJson(const extension::control::RadarControlProfile& value) {
-  Json json;
-  json["version"] = value.version;
-  json["enable_lpi_power_control"] = value.enable_lpi_power_control;
-  json["lpi_power_scale"] = value.lpi_power_scale;
-  json["enable_lpi_beamforming"] = value.enable_lpi_beamforming;
-  json["lpi_dwell_scale"] = value.lpi_dwell_scale;
-  json["enable_agility_frequency"] = value.enable_agility_frequency;
-  json["agility_frequency_hop_phase"] =
-      static_cast<unsigned int>(value.agility_frequency_hop_phase);
-  json["enable_sidelobe_canceller"] = value.enable_sidelobe_canceller;
-  json["enable_adaptive_beamforming"] = value.enable_adaptive_beamforming;
-  json["enable_eccm_rejitter"] = value.enable_eccm_rejitter;
-  json["eccm_burnthrough_gain"] = value.eccm_burnthrough_gain;
-  return json;
-}
-
-Json BuildJson(const extension::AssociationQualityMetrics& value) {
-  Json json;
-  json["prior_track_count"] = value.prior_track_count;
-  json["detection_count"] = value.detection_count;
-  json["matched_count"] = value.matched_count;
-  json["new_track_count"] = value.new_track_count;
-  json["missed_track_count"] = value.missed_track_count;
-  json["match_rate"] = value.match_rate;
-  json["new_track_rate"] = value.new_track_rate;
-  json["missed_track_rate"] = value.missed_track_rate;
-  json["mean_match_cost"] = value.mean_match_cost;
-  json["p95_match_cost"] = value.p95_match_cost;
-  json["dominant_jamming_semantic"] = static_cast<int>(value.dominant_jamming_semantic);
-  json["jamming_severity"] = value.jamming_severity;
-  json["association_stress"] = value.association_stress;
-  return json;
-}
-
-Json BuildJson(const model::DecisionTrackSnapshot& value) {
-  Json state;
-  state["association_key"] = value.state.association_key;
-  state["external_target_id"] = value.state.external_target_id;
-  state["status"] = static_cast<int>(value.state.status);
-  state["position_m"] =
-      NumberArray3(value.state.position_x, value.state.position_y, value.state.position_z);
-  state["velocity_mps"] =
-      NumberArray3(value.state.velocity_x, value.state.velocity_y, value.state.velocity_z);
-  state["speed"] = value.state.speed;
-  state["acceleration_mps2"] = NumberArray3(value.state.acceleration_x, value.state.acceleration_y,
-                                            value.state.acceleration_z);
-  state["acceleration"] = value.state.acceleration;
-  state["rcs"] = value.state.rcs;
-  state["jamming_detected"] = value.state.jamming_detected;
-  state["hit_count"] = value.state.hit_count;
-  state["miss_count"] = value.state.miss_count;
-
-  Json evidence;
-  evidence["has_measurement_evidence"] = value.evidence.has_measurement_evidence;
-  evidence["updated_this_cycle"] = value.evidence.updated_this_cycle;
-  evidence["predicted_only_this_cycle"] = value.evidence.predicted_only_this_cycle;
-  evidence["matched_existing_track"] = value.evidence.matched_existing_track;
-  evidence["association_cost"] = value.evidence.association_cost;
-  evidence["detection_margin_db"] = value.evidence.detection_margin_db;
-  evidence["used_position_association"] = value.evidence.used_position_association;
-  evidence["used_external_association_seeds"] = value.evidence.used_external_association_seeds;
-
-  Json json;
-  json["state"] = state;
-  json["evidence"] = evidence;
-  return json;
-}
-
-Json BuildJson(const output::TrackOutputFrame& value) {
-  Json json;
-  json["cycle_index"] = value.cycle_index;
-  json["batch_id"] = value.batch_id;
-  json["published_track_count"] = value.published_track_count;
-  json["confirmed_track_count"] = value.confirmed_track_count;
-  json["contains_lost_tracks"] = value.contains_lost_tracks;
-  json["tracks"] = SerializeArray(
-      value.tracks, [](const model::DecisionTrackSnapshot& track) { return BuildJson(track); });
-  return json;
-}
-
-Json BuildJson(const RadarCycleResult& value) {
-  Json json;
-  json["track_output_frame"] = BuildJson(value.track_output_frame);
-  json["submitted_commands"] = SerializeArray(
-      value.submitted_commands,
-      [](const extension::control::RadarCommand& command) { return BuildJson(command); });
-  json["validation_issues"] = SerializeArray(
-      value.validation_issues, [](const ValidationIssue& issue) { return BuildJson(issue); });
-  json["has_validation_error"] = value.has_validation_error;
-  json["executed_this_cycle"] = value.executed_this_cycle;
-  json["signal_cycle_abort_reason"] = ToString(value.signal_cycle_abort_reason);
-  json["reused_previous_track_output"] = value.reused_previous_track_output;
-  json["has_control_profile"] = value.has_control_profile;
-  json["control_profile"] = BuildJson(value.control_profile);
-  json["association_quality_metrics"] = BuildJson(value.association_quality_metrics);
-  return json;
-}
-
-Json BuildJson(const config::RadarRuntimeConfigPatch& value) {
-  Json json;
-  json["has_mission"] = value.has_mission;
-  json["has_policy"] = value.has_policy;
-  json["has_environment_runtime_config"] = value.has_environment_runtime_config;
-  json["environment_runtime_config"] = BuildJson(value.environment_runtime_config);
-  json["has_work_sub_mode"] = value.has_work_sub_mode;
-  json["work_sub_mode"] = static_cast<int>(value.work_sub_mode);
-  json["has_scan_center_deg"] = value.has_scan_center_deg;
-  json["scan_center_deg"] = BuildJson(value.scan_center_deg);
-  json["has_dwell_center_deg"] = value.has_dwell_center_deg;
-  json["dwell_center_deg"] = BuildJson(value.dwell_center_deg);
-  json["has_commanded_beamwidth_deg"] = value.has_commanded_beamwidth_deg;
-  json["commanded_beamwidth_deg"] = BuildJson(value.commanded_beamwidth_deg);
-  json["has_commanded_beamwidth_enabled"] = value.has_commanded_beamwidth_enabled;
-  json["commanded_beamwidth_enabled"] = value.commanded_beamwidth_enabled;
-  return json;
-}
-
-template <typename T>
-std::string ToJson(const T& value) {
-  return BuildJson(value).dump();
+std::string MakeSceneInputPayload(const RadarCycleInput& input,
+                                  const environment::EnvironmentSceneState& scene_state) {
+  std::ostringstream stream;
+  stream << "{"
+         << "\"serializer\":\"flatbuffers\","
+         << "\"platform\":\"windows\","
+         << "\"type\":\"RadarCycleInputWithScene\","
+         << "\"cycle_input\":" << MakeInputPayload(input) << ","
+         << "\"jammer_emitter_count\":" << scene_state.jammer_emitters.size() << "}";
+  return stream.str();
 }
 
 }  // namespace
@@ -423,26 +477,26 @@ RadarTraceSession::RadarTraceSession(const RadarSessionConfig& config,
       sink_(std::move(options.sink)),
       replay_writer_(std::move(options.replay_writer)) {
   if (replay_writer_ && options.trace_config_on_construct) {
-    RecordReplay("session_config", "RadarSessionConfig", ToJson(config));
+    WriteSessionConfigReplay(replay_writer_, config);
   }
   if (sink_ && options.trace_config_on_construct) {
-    Record("config", ToJson(config));
+    Record("config", MakeFlatbuffersPayload("RadarSessionConfig", config));
   }
 }
 
 output::TrackOutputFrame RadarTraceSession::Step(const RadarCycleInput& input) {
   if (replay_writer_) {
-    RecordReplay("cycle_input", "RadarCycleInput", ToJson(input));
+    WriteCycleInputReplay(replay_writer_, input);
   }
   if (sink_) {
-    Record("input", ToJson(input));
+    Record("input", MakeInputPayload(input));
   }
   const output::TrackOutputFrame output = session_.Step(input);
   if (replay_writer_) {
-    RecordReplay("cycle_output", "TrackOutputFrame", ToJson(output), output.cycle_index);
+    WriteTrackOutputReplay(replay_writer_, output, MakeOutputPayload(output));
   }
   if (sink_) {
-    Record("output", ToJson(output));
+    Record("output", MakeOutputPayload(output));
   }
   return output;
 }
@@ -450,39 +504,35 @@ output::TrackOutputFrame RadarTraceSession::Step(const RadarCycleInput& input) {
 output::TrackOutputFrame RadarTraceSession::Step(
     const RadarCycleInput& input, const environment::EnvironmentSceneState& scene_state) {
   if (replay_writer_) {
-    RecordReplay("cycle_input", "RadarCycleInput", ToJson(input));
-    RecordReplay("scene_state", "EnvironmentSceneState", ToJson(scene_state));
+    WriteCycleInputReplay(replay_writer_, input);
+    WriteSceneStateReplay(replay_writer_, scene_state);
   }
   if (sink_) {
-    Json input_payload;
-    input_payload["cycle_input"] = BuildJson(input);
-    input_payload["scene_state"] = BuildJson(scene_state);
-    Record("input", input_payload.dump());
+    Record("input", MakeSceneInputPayload(input, scene_state));
   }
   const output::TrackOutputFrame output = session_.Step(input, scene_state);
   if (replay_writer_) {
-    RecordReplay("cycle_output", "TrackOutputFrame", ToJson(output), output.cycle_index);
+    WriteTrackOutputReplay(replay_writer_, output, MakeOutputPayload(output));
   }
   if (sink_) {
-    Record("output", ToJson(output));
+    Record("output", MakeOutputPayload(output));
   }
   return output;
 }
 
 RadarCycleResult RadarTraceSession::StepWithResult(const RadarCycleInput& input) {
   if (replay_writer_) {
-    RecordReplay("cycle_input", "RadarCycleInput", ToJson(input));
+    WriteCycleInputReplay(replay_writer_, input);
   }
   if (sink_) {
-    Record("input", ToJson(input));
+    Record("input", MakeInputPayload(input));
   }
   const RadarCycleResult output = session_.StepWithResult(input);
   if (replay_writer_) {
-    RecordReplay("cycle_output", "RadarCycleResult", ToJson(output),
-                 output.track_output_frame.cycle_index);
+    WriteCycleResultReplay(replay_writer_, output, MakeResultPayload(output));
   }
   if (sink_) {
-    Record("output", ToJson(output));
+    Record("output", MakeResultPayload(output));
   }
   return output;
 }
@@ -490,33 +540,29 @@ RadarCycleResult RadarTraceSession::StepWithResult(const RadarCycleInput& input)
 RadarCycleResult RadarTraceSession::StepWithResult(
     const RadarCycleInput& input, const environment::EnvironmentSceneState& scene_state) {
   if (replay_writer_) {
-    RecordReplay("cycle_input", "RadarCycleInput", ToJson(input));
-    RecordReplay("scene_state", "EnvironmentSceneState", ToJson(scene_state));
+    WriteCycleInputReplay(replay_writer_, input);
+    WriteSceneStateReplay(replay_writer_, scene_state);
   }
   if (sink_) {
-    Json input_payload;
-    input_payload["cycle_input"] = BuildJson(input);
-    input_payload["scene_state"] = BuildJson(scene_state);
-    Record("input", input_payload.dump());
+    Record("input", MakeSceneInputPayload(input, scene_state));
   }
   const RadarCycleResult output = session_.StepWithResult(input, scene_state);
   if (replay_writer_) {
-    RecordReplay("cycle_output", "RadarCycleResult", ToJson(output),
-                 output.track_output_frame.cycle_index);
+    WriteCycleResultReplay(replay_writer_, output, MakeResultPayload(output));
   }
   if (sink_) {
-    Record("output", ToJson(output));
+    Record("output", MakeResultPayload(output));
   }
   return output;
 }
 
 void RadarTraceSession::ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch) {
   if (replay_writer_) {
-    RecordReplay("runtime_config_patch", "RadarRuntimeConfigPatch", ToJson(patch));
+    WriteRuntimeConfigPatchReplay(replay_writer_, patch);
   }
   session_.ApplyRuntimeConfig(patch);
   if (sink_) {
-    Record("runtime_config", ToJson(patch));
+    Record("runtime_config", MakeFlatbuffersPayload("RadarRuntimeConfigPatch", patch));
   }
 }
 
@@ -543,31 +589,6 @@ const RadarSession& RadarTraceSession::session() const { return session_; }
 
 void RadarTraceSession::Record(const std::string& phase, const std::string& payload_json) const {
   sink_->Record("airborne_radar", phase, payload_json);
-}
-
-void RadarTraceSession::RecordReplay(const std::string& event_type,
-                                     const std::string& payload_type,
-                                     const std::string& payload_json) const {
-  oneq::replay::ReplayTraceEvent event;
-  event.module = "airborne_radar";
-  event.event_type = event_type;
-  event.payload_type = payload_type;
-  event.payload_json = payload_json;
-  replay_writer_->WriteEvent(event);
-}
-
-void RadarTraceSession::RecordReplay(const std::string& event_type,
-                                     const std::string& payload_type,
-                                     const std::string& payload_json,
-                                     std::uint32_t cycle_index) const {
-  oneq::replay::ReplayTraceEvent event;
-  event.module = "airborne_radar";
-  event.event_type = event_type;
-  event.payload_type = payload_type;
-  event.payload_json = payload_json;
-  event.has_cycle_index = true;
-  event.cycle_index = cycle_index;
-  replay_writer_->WriteEvent(event);
 }
 
 }  // namespace session

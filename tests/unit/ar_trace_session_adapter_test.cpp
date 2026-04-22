@@ -16,11 +16,9 @@
 #include <string>
 #include <vector>
 
-#if defined(_WIN32)
 #include <flatbuffers/flexbuffers.h>
 
 #include "airborne_radar/session/RadarReplayFlatbufferCodec.h"
-#endif
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
 #include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
@@ -84,7 +82,6 @@ void ExpectCommonTracePhases(const std::string& content, const std::string& modu
   EXPECT_NE(content.find("\"phase\":\"output\""), std::string::npos);
 }
 
-#if defined(_WIN32)
 void ExpectFlatbufferRecord(const std::vector<std::uint8_t>& content,
                             const std::string& module_name, const std::string& phase_name) {
   ASSERT_GE(content.size(), 4U);
@@ -103,7 +100,6 @@ void ExpectFlatbufferRecord(const std::vector<std::uint8_t>& content,
   EXPECT_GT(map["timestamp_ms"].AsInt64(), 0);
   EXPECT_FALSE(map["payload_json"].AsString().str().empty());
 }
-#endif
 
 }  // namespace
 
@@ -198,7 +194,6 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) 
       EXPECT_EQ(event.payload_encoding, "flatbuffers");
       EXPECT_FALSE(event.payload_bytes.empty());
       EXPECT_TRUE(event.payload_hash_matches);
-#if defined(_WIN32)
       session::RadarCycleResult decoded_result;
       std::string decode_error;
       EXPECT_TRUE(
@@ -208,7 +203,6 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) 
                 result.track_output_frame.cycle_index);
       EXPECT_EQ(decoded_result.track_output_frame.published_track_count,
                 result.track_output_frame.published_track_count);
-#endif
     }
   }
   EXPECT_TRUE(saw_flatbuffer_session_config);
@@ -331,7 +325,6 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
       EXPECT_EQ(replay_event.payload_encoding, "flatbuffers");
       EXPECT_FALSE(replay_event.payload_bytes.empty());
       EXPECT_TRUE(replay_event.payload_hash_matches);
-#if defined(_WIN32)
       config::RadarRuntimeConfigPatch decoded_patch;
       std::string decode_error;
       EXPECT_TRUE(session::DecodeRuntimeConfigPatchFlatbuffer(replay_event.payload_bytes,
@@ -345,7 +338,6 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
       EXPECT_FLOAT_EQ(decoded_patch.scan_center_deg.el_deg, expected_scan_center_el_deg);
       EXPECT_TRUE(decoded_patch.has_environment_runtime_config);
       EXPECT_TRUE(decoded_patch.environment_runtime_config.has_jamming_sensitivity_profile);
-#endif
     }
     if (replay_event.event_type == "cycle_output") {
       saw_cycle_output = true;
@@ -353,7 +345,6 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
       EXPECT_EQ(replay_event.payload_encoding, "flatbuffers");
       EXPECT_FALSE(replay_event.payload_bytes.empty());
       EXPECT_TRUE(replay_event.payload_hash_matches);
-#if defined(_WIN32)
       session::RadarCycleResult decoded_result;
       std::string decode_error;
       EXPECT_TRUE(session::DecodeCycleResultFlatbuffer(replay_event.payload_bytes, &decoded_result,
@@ -362,7 +353,6 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
       EXPECT_TRUE(decoded_result.executed_this_cycle);
       EXPECT_TRUE(replay_event.has_cycle_index);
       EXPECT_EQ(decoded_result.track_output_frame.cycle_index, replay_event.cycle_index);
-#endif
     }
   }
   EXPECT_TRUE(saw_session_config);
@@ -498,15 +488,8 @@ TEST(TraceSessionAdapterTest, PlatformFileTraceSinkUsesPlatformBackend) {
   std::shared_ptr<TraceSink> sink(new PlatformFileTraceSink(trace_path, false));
   sink->Record("platform_module", "input", "{\"value\":1}");
 
-#if defined(_WIN32)
   const std::vector<std::uint8_t> content = ReadBinaryFile(trace_path);
   ExpectFlatbufferRecord(content, "platform_module", "input");
-#else
-  const std::string content = ReadFile(trace_path);
-  EXPECT_NE(content.find("\"module\":\"platform_module\""), std::string::npos);
-  EXPECT_NE(content.find("\"phase\":\"input\""), std::string::npos);
-  EXPECT_NE(content.find("\"payload\":{\"value\":1}"), std::string::npos);
-#endif
 
   std::remove(trace_path.c_str());
 }

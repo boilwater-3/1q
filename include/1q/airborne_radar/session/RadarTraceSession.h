@@ -67,10 +67,6 @@ class ONEQ_API RadarTraceSession {
 
  private:
   void Record(const std::string& phase, const std::string& payload_json) const;
-  void RecordReplay(const std::string& event_type, const std::string& payload_type,
-                    const std::string& payload_json) const;
-  void RecordReplay(const std::string& event_type, const std::string& payload_type,
-                    const std::string& payload_json, std::uint32_t cycle_index) const;
 
   RadarSession session_;
   std::shared_ptr<oneq::trace::TraceSink> sink_;

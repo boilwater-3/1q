@@ -20,7 +20,7 @@ struct ONEQ_API ReplayTraceManifest {
   std::string module{};
   std::string scenario_id{};
   int schema_version{1};
-  std::string serializer_version{"replay-json-v1"};
+  std::string serializer_version{"replay-flatbuffers-v1"};
   std::string git_commit{};
   bool git_dirty{false};
   std::string build_type{};
@@ -41,7 +41,7 @@ struct ONEQ_API ReplayTraceEvent {
   std::string module{};
   std::string event_type{};
   std::string payload_type{};
-  std::string payload_encoding{"json"};
+  std::string payload_encoding{"flatbuffers"};
   std::string payload_json{"{}"};
   std::string payload_bytes{};
   bool has_cycle_index{false};
@@ -83,7 +83,7 @@ struct ONEQ_API ReplayTraceScanResult {
 
 struct ONEQ_API ReplayTraceCompatibilityExpectation {
   std::int32_t schema_version{1};
-  std::string serializer_version{"replay-json-v1"};
+  std::string serializer_version{"replay-flatbuffers-v1"};
   std::string git_commit{};
   bool require_git_commit_match{false};
   std::string module{};

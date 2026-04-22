@@ -76,14 +76,8 @@ set(AIRBORNE_CORE_SOURCES
     airborne_radar/environment/SceneManager.cpp
     airborne_radar/environment/PropagationModel.cpp
 )
-if(WIN32)
-    list(APPEND AIRBORNE_CORE_SOURCES airborne_radar/session/RadarReplayFlatbufferCodec.cpp)
-endif()
-if(MSVC AND MSVC_VERSION LESS 1910)
-    list(APPEND AIRBORNE_CORE_SOURCES airborne_radar/session/RadarTraceSession.windows.cpp)
-else()
-    list(APPEND AIRBORNE_CORE_SOURCES airborne_radar/session/RadarTraceSession.cpp)
-endif()
+list(APPEND AIRBORNE_CORE_SOURCES airborne_radar/session/RadarReplayFlatbufferCodec.cpp)
+list(APPEND AIRBORNE_CORE_SOURCES airborne_radar/session/RadarTraceSession.cpp)
 
 if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_COMMON_CONTROL

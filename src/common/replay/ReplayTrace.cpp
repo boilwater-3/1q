@@ -175,17 +175,17 @@ std::string Base64Decode(const std::string& text) {
 }
 
 const std::string& PayloadBytesForHash(const ReplayTraceEvent& event) {
-  if (event.payload_encoding != "json" && !event.payload_bytes.empty()) {
-    return event.payload_bytes;
+  if (event.payload_encoding == "json") {
+    return event.payload_json;
   }
-  return event.payload_json;
+  return event.payload_bytes;
 }
 
 const std::string& PayloadBytesForHash(const ReplayTraceReadEvent& event) {
-  if (event.payload_encoding != "json" && !event.payload_bytes.empty()) {
-    return event.payload_bytes;
+  if (event.payload_encoding == "json") {
+    return event.payload_json;
   }
-  return event.payload_json;
+  return event.payload_bytes;
 }
 
 void WriteJsonStringField(std::ostream& output, const char* name, const std::string& value,
@@ -695,7 +695,7 @@ void ReplayTraceWriter::WriteEvent(const ReplayTraceEvent& event) {
   line << "\"wall_time_ms\":" << CurrentTimestampMs() << ",";
   WriteJsonStringField(line, "payload_type", event.payload_type, true);
   WriteJsonStringField(line, "payload_encoding", event.payload_encoding, true);
-  if (event.payload_encoding == "json" || event.payload_bytes.empty()) {
+  if (event.payload_encoding == "json") {
     WriteJsonRawField(line, "payload", event.payload_json, true);
   } else {
     line << "\"payload\":null,";
@@ -743,6 +743,7 @@ void ReplayTraceWriter::WriteFailureMarker(const ReplayTraceFailure& failure,
   event.module = impl_->manifest.module;
   event.event_type = "failure_marker";
   event.payload_type = "ReplayTraceFailure";
+  event.payload_encoding = "json";
   event.payload_json = BuildFailurePayloadJson(failure, has_last_event_sequence,
                                                last_event_sequence);
   if (!payload_bytes.empty()) {

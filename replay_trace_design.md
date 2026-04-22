@@ -2,34 +2,32 @@
 
 ## 1. 背景
 
-业务目标不是简单记录运行摘要，而是支持这个流程：
+业务目标不是记录摘要日志，而是支持下面这条链路：
 
 1. A 电脑创建场景并长时间仿真。
 2. A 电脑在某个时刻出现问题。
-3. 将采集数据拷贝到 B 电脑。
-4. B 电脑重建同一个 session，并按同一时间线 replay，直到复现问题或定位首次分歧。
+3. 将采集数据带到 B 电脑。
+4. B 电脑重建同一 session，按同一事件顺序回放，复现问题或定位首个分歧点。
 
-因此，采集器必须记录“可重新驱动模型的数据”。当前 Windows trace 只记录 `target_feature_count`、`detection_count` 这类摘要，无法复现场景、输入、运行时配置变化、随机状态和模型内部状态。
+因此采集器必须记录“可重新驱动模型”的完整输入数据，而不是仅记录统计摘要。
 
 ## 2. 设计目标
 
-- 能在 B 电脑重建 A 电脑的仿真 session。
-- 能按原始顺序回放每个外部输入。
-- 能用 A 电脑输出作为 replay 校验基准。
-- 能为长时间仿真提供 checkpoint，避免每次从 cycle 0 开始重放。
-- 能在故障发生时保存最后窗口数据。
-- trace 格式必须版本化、可校验、可检查。
-- 模块业务字段由模块 serializer 负责，通用 writer 只处理事件 envelope。
+- 支持在 B 电脑重建 A 电脑仿真过程。
+- 支持按事件顺序回放配置、输入、场景、运行时补丁。
+- 支持用 A 电脑输出作为回放校验基准。
+- 支持完整性校验（payload hash + event chain）。
+- 支持故障时落盘 failure marker 与最近窗口。
+- 支持分片存储与索引，便于大规模 trace 管理。
+- 模块只负责 typed payload 编解码，通用层负责 envelope 与存储。
 
 ## 3. 非目标
 
-- 第一版不承诺跨编译器、跨 CPU 的 bit-exact 复现。
-- 不把所有内部私有状态直接暴露为公共 API。
-- 不把 replay trace 混成普通日志系统。
+- 第一阶段不承诺跨编译器/跨 CPU 的 bit-exact 复现。
+- 不把 replay trace 设计为通用业务日志系统。
+- 不在第一阶段暴露全部内部私有状态（由后续 checkpoint/restore 完成）。
 
-## 4. 采集产物结构
-
-Replay trace 建议是目录，而不是单个大文件：
+## 4. 产物目录结构
 
 ```text
 trace-<trace_id>/
@@ -48,11 +46,15 @@ trace-<trace_id>/
     checkpoints.idx
 ```
 
-`manifest.json` 保存运行身份和兼容性信息。`events/*.jsonl` 保存按序排列的 replay 事件。`checkpoints/*` 保存周期性状态快照。`crash/*` 保存故障现场。`indexes/*` 用于快速定位 cycle 和 checkpoint。
+说明：
+
+- `manifest.json`：运行身份与兼容性信息。
+- `events/*.jsonl`：顺序事件流。
+- `checkpoints/*`：快照数据。
+- `crash/*`：故障上下文。
+- `indexes/*`：定位 cycle/checkpoint 的加速索引。
 
 ## 5. 事件 Envelope
-
-所有事件统一使用 envelope：
 
 ```json
 {
@@ -65,67 +67,34 @@ trace-<trace_id>/
   "sim_time_sec": 1001.0,
   "wall_time_ms": 1776770000000,
   "payload_type": "RadarCycleInput",
-  "payload_encoding": "json",
-  "payload": {},
-  "payload_hash": "sha256:...",
-  "previous_event_hash": "sha256:..."
+  "payload_encoding": "flatbuffers",
+  "payload": null,
+  "payload_base64": "BASE64_PAYLOAD_BYTES",
+  "payload_hash": "fnv1a64:...",
+  "previous_event_hash": "fnv1a64:..."
 }
 ```
 
-字段含义：
+字段要点：
 
-- `schema_version`: replay trace schema 版本。
-- `trace_id`: 本次仿真的唯一 ID。
-- `sequence`: 全局递增事件序号。
-- `module`: `airborne_radar`、`electronic_surveillance_radar` 或 `electro_optical_sensor`。
-- `event_type`: 事件类型。
-- `cycle_index`: 当前周期编号；没有周期语义时可为空或为最近周期。
-- `sim_time_sec`: 仿真时间。
-- `wall_time_ms`: 真实墙钟时间，用于排查长时间运行问题。
-- `payload_type`: 业务 payload 的具体类型。
-- `payload_encoding`: 第一版使用 `json`，后续可扩展 `flexbuffers`、压缩二进制。
-- `payload`: 完整业务数据。
-- `payload_hash`: payload 内容哈希，用于拷贝和读取校验。
-- `previous_event_hash`: 前一事件哈希，用于发现丢事件、乱序或截断。
+- `payload_encoding == "json"` 时，`payload` 为 JSON，通常不含 `payload_base64`。
+- `payload_encoding != "json"`（如 flatbuffers）时，`payload` 为 `null`，`payload_base64` 存放二进制。
+- `payload_hash`：对实际 payload 内容哈希。
+- `previous_event_hash`：链式完整性校验。
 
-## 6. 必须记录的事件
+## 6. 必须记录的事件类型
 
-`session_config`:
-完整 session 配置。必须是解析默认值之后的完整配置，包括硬件、任务、策略、环境、扫描、检测、跟踪等字段。
+- `session_config`：完整 session 配置。
+- `cycle_input`：每个周期驱动输入。
+- `scene_state`：每周期场景状态（如 AR 环境状态）。
+- `runtime_config_patch`：运行时配置变更。
+- `cycle_output`：每周期输出（用于比对）。
+- `checkpoint`：快照引用事件。
+- `failure_marker`：故障事件与诊断信息。
 
-`initial_scene`:
-A 电脑创建的初始场景真值。它不是摘要，而是重建场景的源数据。
-
-`cycle_input`:
-每次传入 `Step` 或 `StepWithResult` 的完整输入。
-
-`scene_state`:
-独立传入的场景状态，例如 AR 的 `EnvironmentSceneState`。
-
-`runtime_config_patch`:
-每次 `ApplyRuntimeConfig` 的完整 patch，并记录发生时的 cycle 和仿真时间。
-
-`external_command`:
-外部控制、人工注入、暂停/恢复、场景突变、测试驱动事件等会影响后续行为的事件。
-
-`rng_state`:
-随机种子和可序列化的随机引擎状态。至少要记录 seed；存在随机噪声、虚警、欺骗、量测误差时，需要更强的 RNG 状态保存。
-
-`cycle_output`:
-每次模型输出的完整结果。输出不用于驱动 replay，但用于对比 B 电脑是否复现 A 电脑行为。
-
-`checkpoint`:
-指向 checkpoint 文件的事件。大 payload 放在 `checkpoints/` 下，不直接塞进事件流。
-
-`failure_marker`:
-故障标记，包括错误码、异常信息、断言位置、最后 cycle、最后 event sequence、相关诊断文件。
-
-## 7. Manifest 内容
-
-`manifest.json` 至少包括：
+## 7. Manifest 关键字段
 
 - `trace_id`
-- `created_wall_time_ms`
 - `module`
 - `scenario_id`
 - `schema_version`
@@ -138,429 +107,233 @@ A 电脑创建的初始场景真值。它不是摘要，而是重建场景的源
 - `platform`
 - `cpu_arch`
 - `library_version`
-- `dependency_versions`
+- `dependency_versions_json`
 - `float_policy`
-- `default_tolerances`
+- `default_tolerances_json`
 - `checkpoint_interval_cycles`
 - `event_chunk_size`
+- `failure_window_event_count`
 
-B 电脑 replay 时必须校验 `schema_version`、`serializer_version`、`git_commit`。不匹配时不一定禁止 replay，但必须给出明确警告。
+## 8. 三模块记录范围
 
-## 8. 各模块必须保存的业务数据
+### 8.1 AR
 
-AR 机载雷达：
+- `RadarSessionConfig`
+- `RadarCycleInput`
+- `EnvironmentSceneState`
+- `RadarRuntimeConfigPatch`
+- `RadarCycleResult`/`TrackOutputFrame`（用于输出比对）
 
-- 完整 `RadarSessionConfig`。
-- 完整 `RadarCycleInput`: `dt_sec`、`platform_pose`、每个 `TargetFeature`。
-- 使用场景态 Step 时，完整 `EnvironmentSceneState`。
-- 完整 `RadarRuntimeConfigPatch`。
-- 完整 `RadarCycleResult`: `TrackOutputFrame`、validation issues、submitted commands、control profile、abort reason、association metrics。
-- checkpoint 需要覆盖 track pool、track lifecycle、filter state、last output、cycle counters、control profile state、environment runtime state、random state。
+### 8.2 ESR
 
-ESR 电子侦察雷达：
+- `EsrSessionConfig`
+- `EsrCycleInput`
+- `EsrRuntimeConfigPatch`
+- `EsrCycleResult`/`EsrOutputFrame`
 
-- 完整 `EsrSessionConfig`。
-- 完整 `EsrCycleInput`: `cycle_index`、`dt_sec`、`platform_pose`、每个 `EmitterTruthState`、`environment_observation`。
-- 完整 `EsrRuntimeConfigPatch`。
-- 完整 `EsrCycleResult` 和 `EsrOutputFrame`。
-- checkpoint 需要覆盖 observation history、hypothesis association state、cluster/track state、scan state、environment runtime state、random state。
+### 8.3 EOS
 
-EOS 光电传感器：
+- `EosSessionConfig`
+- `EosCycleInput`
+- `EosRuntimeConfigPatch`
+- `EosCycleResult`/`EosOutputFrame`
 
-- 完整 `EosSessionConfig`。
-- 完整 `EosCycleInput`: `cycle_index`、`dt_sec`、`platform_pose`、太阳参数、云量、昼夜类型、背景温度、每个 `EosTargetState`。
-- 完整 `EosRuntimeConfigPatch`。
-- 完整 `EosCycleResult` 和 `EosOutputFrame`。
-- checkpoint 需要覆盖 scan state、last output、cadence/frame scheduler state、environment model state、random state。
-
-## 9. 采集顺序
-
-Session wrapper 应按如下顺序记录：
+## 9. 采集顺序（原则）
 
 ```text
 construct session
-  write manifest
-  write session_config
-  write initial_scene
+  -> write manifest
+  -> write session_config
 
 ApplyRuntimeConfig(patch)
-  write runtime_config_patch
-  apply patch
-  optionally write runtime_config_applied
+  -> write runtime_config_patch
+  -> apply patch
 
-Step(input)
-  write cycle_input
-  write scene_state when present
-  write rng_state when available
-  execute model
-  write cycle_output
-  write checkpoint when triggered
+Step(input[, scene_state])
+  -> write cycle_input
+  -> write scene_state (if any)
+  -> execute model
+  -> write cycle_output
+  -> write checkpoint (if triggered)
 ```
 
-输入必须在执行前写入。这样即使模型在本周期内部崩溃，B 电脑仍然能拿到触发崩溃的输入。
+关键原则：输入在执行前写，输出在执行后写。
 
 ## 10. Checkpoint 策略
 
-长时间仿真不能只依赖从头 replay。checkpoint 用来缩短复现路径。
+- 周期触发：每 N 个 cycle。
+- 关键变更触发：runtime patch 前后。
+- 异常触发：validation/error/failure 时。
+- 手工触发：测试或调试显式请求。
 
-第一版可以先支持从 cycle 0 完整 replay，并写 checkpoint 元信息。第二版再支持真正恢复内部状态。
-
-触发条件：
-
-- 每 `N` 个周期。
-- runtime config 变化前后。
-- 用户显式请求。
-- 出现 validation error 或异常 abort reason。
-- 发生故障且进程仍可写文件。
-
-checkpoint 文件应包含：
+checkpoint 至少应包含：
 
 - `checkpoint_id`
 - `cycle_index`
 - `sim_time_sec`
 - `last_event_sequence`
 - `session_config_hash`
-- `rng_state`
+- `rng_state`（若存在）
 - module-specific internal state
-- `last_output`
 
 ## 11. 故障窗口
 
-采集器应维护一个内存 ring buffer，保存最后 `N` 个事件。故障发生时写入：
+采集器维护最近 N 条事件环形缓冲。故障发生时写入：
 
-- 最近 checkpoint id。
-- 最后 `N` 个事件。
-- 触发故障的 input。
-- 最后一个成功 output。
-- failure metadata。
-- process/build metadata。
+- `failure_marker`
+- `crash/failure.json`
+- `crash/last-window.events.jsonl`
 
-B 电脑优先从最近 checkpoint 恢复，再 replay 最后窗口。
+## 12. 序列化策略
 
-## 12. 序列化方案
+- 当前主路径：FlatBuffers 作为 replay payload 编码。
+- JSON 仅作为通用 envelope 的一种显式编码类型，不作为 AR 回放主链路 fallback。
+- 通用 writer/read 层支持 `payload_encoding` 分流，业务回放层按模块策略解码。
 
-第一版使用 JSON 作为 durable replay 格式，因为它可检查、便于测试，并且当前非 Windows trace 已有完整 JSON serializer 的雏形。
-
-不要继续扩展当前 summary-style `TraceSink`。建议新增 replay 专用层：
+## 13. B 电脑回放流程
 
 ```text
-ReplayTraceWriter
-  WriteManifest(...)
-  WriteEvent(...)
-  WriteCheckpoint(...)
-  Flush()
-
-ReplayTraceReader
-  ReadManifest(...)
-  IterateEvents(...)
-  LoadCheckpoint(...)
-
-ReplaySerializer<T>
-  ToJson(T)
-  FromJson(Json)
-```
-
-当前 `TraceSink` 可以保留为轻量 telemetry。Replay capture 是更强语义的功能，应该独立。
-
-## 13. B 电脑 Replay 流程
-
-```text
-open trace directory
+open trace
 read manifest
-verify schema/build compatibility
-create session from session_config
-load initial_scene
-optionally restore nearest checkpoint
-iterate ordered events
-apply runtime_config_patch at recorded sequence
-feed cycle_input and scene_state into Step/StepWithResult
-compare cycle_output with recorded output
-stop at first divergence or reproduce failure_marker
-write replay_report.json
+check compatibility
+build replay report
+playback ordered events
+apply input/scene/patch in order
+compare outputs
+stop on divergence or failure_marker
+write replay report
 ```
-
-输出对比需要模块级浮点容差。报告要区分：完全一致、容差内一致、超出容差、缺事件、不支持 checkpoint、构建不兼容。
 
 ## 14. 实施阶段
 
-Phase 1: 从 cycle 0 完整 replay。
-
-- 增加 replay trace schema 和 writer。
-- 序列化完整 config、input、runtime patch、output。
-- 增加 AR/ESR/EOS replay 示例。
-- 增加“记录短仿真再 replay 并对比输出”的测试。
-
-Phase 2: 故障包和工程化。
-
-- 增加最后窗口 ring buffer。
-- 增加分片 event 文件和索引。
-- 增加 hash 链和 manifest 兼容性检查。
-- 增加显式 failure marker API。
-
-Phase 3: 真正 checkpoint/restore。
-
-- 为各模块增加内部状态 snapshot/export 接口。
-- 增加 checkpoint restore 路径。
-- 增加从 checkpoint replay 的测试。
-
-Phase 4: 二进制与压缩。
-
-- 增加可选 FlexBuffers 或 FlatBuffers payload encoding。
-- 为长时间仿真增加压缩分片。
-- 保留 JSON debug/export 格式。
+- Phase 1：从 cycle 0 完整事件流回放（已完成主链路）。
+- Phase 2：完善故障包与工程化工具链。
+- Phase 3：完善 checkpoint/restore 内部状态恢复。
+- Phase 4：压缩与大规模 trace 管理优化。
 
 ## 15. 关键决策
 
-- telemetry trace 和 replay trace 分离。
-- replay 事件必须记录完整 typed payload，不能记录摘要。
-- input 在执行前记录，output 在执行后记录。
-- output 是校验数据，不是 replay 输入。
-- checkpoint 用来缩短 replay 时间，不能替代事件流。
-- 所有兼容性都显式写进 manifest。
+- telemetry trace 与 replay trace 分离。
+- replay 必须记录 typed payload，不能只记录摘要。
+- output 用于比对，不用于驱动 replay。
+- 兼容性显式写入 manifest。
 
 ## 16. 待确认问题
 
-- replay trace 是否需要加密，因为它会包含完整场景真值。
-- 最大仿真时长和可接受 trace 体积是多少。
-- 业务上需要 bit-exact 复现，还是容差内行为复现即可。
-- 第一阶段先落哪个模块：AR、ESR 还是 EOS。
-- 是否要求跨操作系统 replay，还是只要求同平台 replay。
+- 是否需要对 trace 加密。
+- 单次仿真允许的 trace 体积上限。
+- 是否需要跨平台严格复现或仅行为一致。
+- 各模块 checkpoint 边界与状态最小集。
 
-## 17. AR 模块 Phase 1 实现说明
+## 17. AR 模块实现说明（历史章节）
 
-### 17.1 完成度判断
+本章保留历史背景。当前实现请以第 18 章“2026-04 更新”为准。
 
-AR 模块的 replay 主链路已经达到 Phase 1 可落地状态：A 电脑运行仿真时可以把重建同一条仿真路径所需的关键外部输入记录到 replay trace；B 电脑可以读取 trace、重建 `RadarSession`、按事件顺序回放输入，并用 A 电脑记录的输出做一致性校验。
+## 18. AR 模块实现（2026-04 更新）
 
-当前完成的是“从 cycle 0 开始的完整事件流回放”，不是最终形态的 checkpoint/restore。也就是说：
-- 已完成：配置、周期输入、场景状态、运行期配置、输出对比、失败标记。
-- 未完成：从中间 checkpoint 恢复内部状态、跨编译器/跨 CPU 的 bit-exact 保证、完整内部私有状态快照。
+AR 数据收集器入口与主数据流（代码依据）
+入口是 RadarTraceSession，通过 RadarTraceSessionOptions.replay_writer 注入 replay writer。见 RadarTraceSession.h (line 23)、RadarTraceSession.cpp (line 474)。
+配置（session_config）在构造时写入：WriteSessionConfigReplay，触发点在构造函数 trace_config_on_construct 分支。见 RadarTraceSession.cpp (line 333)、RadarTraceSession.cpp (line 479)。
+输入（cycle_input）在每次 Step/StepWithResult 执行前写入：WriteCycleInputReplay。见 RadarTraceSession.cpp (line 321)、RadarTraceSession.cpp (line 487)、RadarTraceSession.cpp (line 523)。
+场景（scene_state）仅在带 scene 的 Step 路径执行前写入：WriteSceneStateReplay。见 RadarTraceSession.cpp (line 345)、RadarTraceSession.cpp (line 505)。
+运行时补丁（runtime_config_patch）在 ApplyRuntimeConfig 里“先写再 apply”：WriteRuntimeConfigPatchReplay -> session_.ApplyRuntimeConfig。见 RadarTraceSession.cpp (line 357)、RadarTraceSession.cpp (line 559)。
+输出（cycle_output）在模型执行后写入：WriteTrackOutputReplay / WriteCycleResultReplay。见 RadarTraceSession.cpp (line 369)、RadarTraceSession.cpp (line 384)。
+故障标记（failure_marker）当前不是 RadarTraceSession 自动写；由通用 ReplayTraceWriter::WriteFailureMarker 写入。见 ReplayTrace.h (line 189)、ReplayTrace.cpp (line 735)。AR 回放端会处理该事件，见 RadarReplaySession.cpp (line 210)。
+replay writer/read path 的 payload 编码策略与完整性校验
+当前 envelope 语义：payload_encoding=="json" 时写 payload；否则（flatbuffers）写 payload:null + payload_base64。见 ReplayTrace.cpp (line 698)、ReplayTrace.cpp (line 701)。
+哈希语义：payload_hash 对 json 用 payload_json，对非 json 用 payload_bytes；没有 json fallback。见 ReplayTrace.cpp (line 177)、ReplayTrace.cpp (line 184)、ReplayTrace.cpp (line 675)。
+事件链完整性：每条记录存 previous_event_hash，reader 校验 previous_event_hash_matches。见 ReplayTrace.cpp (line 705)、ReplayTrace.cpp (line 862)。
+reader 还原：从 payload_base64 解出 payload_bytes；flatbuffers 事件 payload_json 常为 "null"。见 ReplayTrace.cpp (line 852)、ReplayTrace.cpp (line 853)。
+AR 各核心 payload 已走 FlatBuffers codec（encode/decode），并在 decode 时做 verifier 校验。见 RadarReplayFlatbufferCodec.h (line 16)、RadarReplayFlatbufferCodec.cpp (line 658)、RadarReplayFlatbufferCodec.cpp (line 791)。
+schema/file id 依据：ARCI(cycle_input)、ARSS(scene_state)、ARSC(session_config)。见 airborne_radar_replay.fbs (line 63)、airborne_radar_scene_replay.fbs (line 42)、airborne_radar_session_replay.fbs (line 221)。
+AR 回放执行中 event_type 处理顺序与约束
+回放入口：ReplayRadarTrace(trace_dir)，先 BuildReplayTraceReport 再 PlaybackReplayTrace。见 RadarReplaySession.cpp (line 225)。
+分发顺序按 trace 文件事件顺序，不重排。见 ReplayTrace.cpp (line 1040)。
+AR 回调绑定：on_session_config/on_cycle_input/on_scene_state/on_runtime_config_patch/on_cycle_output/on_failure_marker。见 RadarReplaySession.cpp (line 241)。
+关键硬约束：
+session_config 先决：cycle_input、runtime_config_patch、cycle_output 前必须已建 session，否则失败。见 RadarReplaySession.cpp (line 113)、RadarReplaySession.cpp (line 154)、RadarReplaySession.cpp (line 65)。
+cycle_output 必须有待执行 cycle_input，否则失败。见 RadarReplaySession.cpp (line 69)。
+cycle_output.payload_type 仅支持 RadarCycleResult 或 TrackOutputFrame，其他类型失败。见 RadarReplaySession.cpp (line 174)、RadarReplaySession.cpp (line 185)。
+ReplayRadarTrace 选项是 require_output_callback=true、stop_on_first_divergence=true、stop_on_failure_marker=true。见 RadarReplaySession.cpp (line 249)。
+细节约束（文档建议强调）：
+scene_state 是“挂起到下一次 execute”的语义；推荐顺序 cycle_input -> scene_state -> cycle_output。见 RadarReplaySession.cpp (line 41)、RadarReplaySession.cpp (line 75)。
+连续两个 cycle_input 会覆盖 pending_input（无显式报错），属于 trace 质量风险。见 RadarReplaySession.cpp (line 123)。
+AR 输出比较当前是“摘要 JSON 比较”（payload_json 字符串比较触发 divergence），不是二进制 payload 逐字段深比较。见 RadarReplaySession.cpp (line 197)、ReplayTrace.cpp (line 1085)。
+文档里应强调的注意事项
+新增字段三联动：schemas/*.fbs + RadarReplayFlatbufferCodec encode/decode + 单测（至少 round-trip 与 replay 流）。依据文件 airborne_radar_replay.fbs、airborne_radar_scene_replay.fbs、airborne_radar_session_replay.fbs、RadarReplayFlatbufferCodec.cpp、ar_trace_session_adapter_test.cpp。
+当前 AR 回放已按 flatbuffers bytes 解码，不应再依赖 json fallback；若事件写成 json-only，AR decode 会直接失败。见 RadarReplaySession.cpp (line 98)、RadarReplaySession.cpp (line 119)。
+通用 replay 层仍支持 payload_encoding=json（为基础设施通用语义），但 AR 执行链路应统一写 flatbuffers。见 ReplayTrace.cpp (line 698)。
+failure_marker 在 AR 回放中也按 FlatBuffers 解码；生产侧写 failure marker 时应传 payload_bytes。见 RadarReplaySession.cpp (line 216)、ReplayTrace.cpp (line 749)。
+平台/实现差异：AR 当前只有 RadarTraceSession.cpp，文档若还引用 RadarTraceSession.windows.cpp 已过时；ESR/EOS 仍有 windows 分文件。见 src/airborne_radar/session/RadarTraceSession.cpp、src/electronic_surveillance_radar/session/EsrTraceSession.windows.cpp。
+建议在 replay_trace_design.md 新增的小节标题（AR）
+AR Replay 入口与事件写入链路（A 机）
+AR Replay 回放调度与事件依赖约束（B 机）
+FlatBuffers Payload 规范与完整性校验（Hash/Chain）
+AR EventType 语义表（session_config/cycle_input/scene_state/runtime_config_patch/cycle_output/failure_marker）
+字段演进与兼容性准则（Schema/Codec/Test 同步）
 
-### 17.2 相关入口和文件
+### 18.2 A 机事件写入链路
 
-AR replay 的公共入口：
-- `include/1q/airborne_radar/session/RadarReplaySession.h`
-- `session::ReplayRadarTrace(const std::string& trace_dir)`
+- 构造时写 `session_config`。
+- `ApplyRuntimeConfig`：先写 `runtime_config_patch`，再 apply。
+- `Step/StepWithResult`：执行前写 `cycle_input`，有场景则写 `scene_state`，执行后写 `cycle_output`。
+- `failure_marker`：由通用 writer 写入。
 
-AR replay 的实现：
-- `src/airborne_radar/session/RadarReplaySession.cpp`
-
-AR trace 写入端：
-- `src/airborne_radar/session/RadarTraceSession.cpp`
-- `src/airborne_radar/session/RadarTraceSession.windows.cpp`
-
-通用 replay 基础设施：
-- `include/1q/replay/ReplayTrace.h`
-- `src/common/replay/ReplayTrace.cpp`
-
-覆盖测试：
-- `tests/unit/ar_trace_session_adapter_test.cpp`
-- `tests/unit/replay_trace_writer_test.cpp`
-
-### 17.3 A 电脑写入的数据流
-
-AR 模块通过 `RadarTraceSession` 包装真实 `RadarSession`。业务侧仍然调用 `RadarTraceSession::Step`、`StepWithResult`、`ApplyRuntimeConfig`，wrapper 在调用真实模型前后写入 replay events。
-
-写入顺序如下：
-
-```text
-construct RadarTraceSession
-  -> write session_config
-
-ApplyRuntimeConfig(patch)
-  -> write runtime_config_patch
-  -> apply patch to RadarSession
-
-StepWithResult(input)
-  -> write cycle_input
-  -> if provided, write scene_state
-  -> execute RadarSession::StepWithResult
-  -> write cycle_output
-
-failure happens
-  -> write failure_marker
-```
-
-注意：`cycle_input` 和 `scene_state` 必须在模型执行前写入。这样即使 A 电脑在本周期内部崩溃，trace 中也已经有触发问题的输入。
-
-### 17.4 B 电脑回放的数据流
-
-B 电脑调用：
-
-```cpp
-const session::RadarReplaySessionResult result =
-    session::ReplayRadarTrace(trace_dir);
-```
-
-内部流程：
+推荐时序：
 
 ```text
-BuildReplayTraceReport(trace_dir)
-  -> 校验 manifest/schema/module/hash/event chain
-  -> 统计 session_config/cycle_input/scene_state/runtime_config_patch/cycle_output/failure_marker
-
-PlaybackReplayTrace(trace_dir)
-  -> session_config: 创建 RadarSession
-  -> runtime_config_patch: 调用 RadarSession::ApplyRuntimeConfig
-  -> cycle_input: 暂存输入
-  -> scene_state: 暂存场景
-  -> cycle_output: 执行暂存的 input/scene，然后和 A 电脑输出比较
-  -> failure_marker: 停止回放并返回故障 payload
+session_config
+(runtime_config_patch)*
+for each cycle:
+  cycle_input
+  (scene_state)?
+  cycle_output
+...
+failure_marker(optional)
 ```
 
-这里有一个容易踩坑的细节：`RadarTraceSession::Step(input, scene_state)` 写事件的顺序是先 `cycle_input`，再 `scene_state`，最后才执行模型。因此 B 电脑不能在收到 `cycle_input` 时立刻执行模型，而是必须暂存输入，等收到对应 `cycle_output` 之前再执行。当前 `RadarReplaySession.cpp` 已按这个规则实现。
+### 18.3 B 机回放约束
 
-### 17.5 已记录的 AR payload
+- `session_config` 必须先于 `cycle_input/runtime_config_patch/cycle_output`。
+- `cycle_output` 到达时必须已有 pending `cycle_input`。
+- `cycle_output.payload_type` 仅支持 `RadarCycleResult` 或 `TrackOutputFrame`。
+- 默认策略：`require_output_callback=true`、`stop_on_first_divergence=true`、`stop_on_failure_marker=true`。
+- `scene_state` 为“挂起到下一次执行”的语义。
 
-`session_config` 记录用于重建 `RadarSession` 的初始化配置，当前覆盖：
-- `hardware.detection`
-- `mission.orientation`
-- `policy.beam_control`
-- `policy.association`
-- `policy.tracking`
-- `policy.lifecycle`
-- `policy.imm`
-- `jamming_sensitivity_profile`
+### 18.4 编码与完整性校验
 
-`cycle_input` 记录每个周期的驱动输入：
-- `dt_sec`
-- `platform_pose`
-- `target_features`
-- 目标速度、RCS、距离、笛卡尔位置、Swerling 类型等字段
+- AR 主链路 payload：`flatbuffers`。
+- envelope：
+  - `json` -> 写 `payload`。
+  - 非 `json` -> 写 `payload:null` + `payload_base64`。
+- 哈希：
+  - `json` 事件对 `payload_json` 哈希。
+  - 非 `json` 事件对 `payload_bytes` 哈希。
+  - 无 JSON fallback 哈希逻辑。
+- event chain：每条事件记录并校验 `previous_event_hash`。
 
-`scene_state` 记录 Step 级别显式传入的环境状态：
-- `atmospheric_physics`
-- `atmospheric_context`
-- `vegetation_scatter_physics`
-- `jammer_emitters`
+### 18.5 AR Schema 与 Codec
 
-`runtime_config_patch` 记录运行期调参：
-- full-domain `mission`
-- full-domain `policy`
-- `environment_runtime_config`
-- `work_sub_mode`
-- `scan_center_deg`
-- `dwell_center_deg`
-- `commanded_beamwidth_deg`
-- `commanded_beamwidth_enabled`
+- `schemas/replay/airborne_radar_replay.fbs`（`ARCI`）
+- `schemas/replay/airborne_radar_scene_replay.fbs`（`ARSS`）
+- `schemas/replay/airborne_radar_session_replay.fbs`（`ARSC`）
+- `src/airborne_radar/session/RadarReplayFlatbufferCodec.h/.cpp`
 
-`cycle_output` 记录用于对比的输出摘要：
-- `RadarCycleResult`: validation issue 数量、是否执行本周期
-- `TrackOutputFrame`: cycle index、发布轨迹数量
+### 18.6 字段演进规则（强约束）
 
-`failure_marker` 记录原始故障点：
-- error code
-- message
-- cycle index
-- diagnostics payload
+新增字段必须同步修改：
 
-### 17.6 回放结果结构
+1. Schema（`.fbs`）
+2. Codec（encode/decode）
+3. 测试（至少 round-trip + replay 流）
 
-`RadarReplaySessionResult` 聚合三类信息：
+否则会导致回放失败或产生 silent drift。
 
-```text
-report
-  -> trace 是否 ready、事件数量、是否有 failure marker、首个故障 payload
+### 18.7 最小回归测试集
 
-playback
-  -> 实际处理了多少事件、应用了多少 input/scene/runtime patch、比较了多少 output、是否 divergence
+- `ReplayTraceWriterTest.*`
+- `TraceSessionAdapterTest.Radar*`
 
-AR 扩展字段
-  -> reached_failure_marker
-  -> failure_marker_payload_json
-  -> first_error
-```
+---
 
-使用侧判断建议：
-
-```cpp
-if (!result.ok) {
-  // 回放过程失败，优先看 result.first_error
-}
-
-if (result.playback.divergence_found) {
-  // B 电脑输出和 A 电脑记录输出不一致
-}
-
-if (result.reached_failure_marker) {
-  // 已经走到 A 电脑记录的故障点
-}
-```
-
-### 17.7 重要实现细节
-
-1. replay trace 和 telemetry trace 是两套语义。telemetry 可以是摘要，replay 必须保存可驱动模型的 typed payload。
-
-2. `cycle_output` 只用于校验，不用于驱动 B 电脑模型。B 电脑必须自己执行模型得到 actual output，然后和 A 电脑 expected output 比较。
-
-3. FlatBuffers 是 replay payload 的目标编码，不是后续可有可无的压缩优化。设计初衷是让 `session_config`、`cycle_input`、`scene_state`、`runtime_config_patch`、`cycle_output`、`failure_marker` 都有稳定 schema，避免 writer/parser 依赖手写字段名字符串。
-
-4. 当前代码中的 JSON payload 只应被视为 Phase 1 过渡实现和 debug/export 格式。Windows 侧 `"serializer":"flatbuffers"` 标记如果没有对应的 typed FlatBuffers bytes，就是不完整实现，后续代码必须修正为真实二进制 payload 或明确标记为 `json`。
-
-5. replay 事件外层仍可以保留 JSONL event envelope，便于人工检查 manifest、sequence、hash chain、event_type 等元信息；但 `payload` 字段应支持 `payload_encoding = "flatbuffers"`，并以稳定 bytes 形式保存 typed payload。JSON payload 可以作为可选 shadow/debug 字段，不应作为 B 电脑复现的唯一数据源。
-
-6. 运行期 patch 的语义是“先记录，再应用”。回放时必须按事件流原始顺序调用 `ApplyRuntimeConfig`，否则后续周期行为会偏移。
-
-7. `scene_state` 是 per-step 显式场景状态；`environment_runtime_config` 是运行期默认环境配置 patch。两者不是同一个东西，都需要记录。
-
-8. `failure_marker` 不是 divergence。failure marker 表示 A 电脑记录的原始故障点；divergence 表示 B 电脑回放输出已经和 A 电脑记录输出不一致。
-
-### 17.8 FlatBuffers 迁移设计
-
-目标数据流如下：
-
-```text
-A 电脑 C++ typed object
-  -> FlatBuffers builder
-  -> bytes payload
-  -> ReplayTraceEvent(payload_encoding = "flatbuffers")
-  -> events/*.events.jsonl 或二进制 chunk
-
-B 电脑 ReplayTraceReader
-  -> 读取 bytes payload
-  -> FlatBuffers verifier
-  -> generated reader
-  -> C++ typed object
-  -> RadarSession replay
-```
-
-第一阶段先不改变事件流调度语义，只替换 payload 编码：
-- 保留 `ReplayTraceWriter::WriteEvent` 的 event envelope、sequence、hash chain、failure window 和 cycle index。
-- 给 `ReplayTraceEvent` 增加 bytes payload 能力，`payload_encoding` 可以是 `json` 或 `flatbuffers`。
-- 对 `flatbuffers` payload 计算 hash 时必须基于原始 bytes，而不是 base64 文本或 debug JSON。
-- 为 AR replay 新增 typed payload schema，先覆盖 `RadarCycleInput`、`EnvironmentSceneState`、`RadarSessionConfig`、`RadarRuntimeConfigPatch` 和当前摘要级 `cycle_output`。
-- B 电脑优先读取 `flatbuffers` payload；只有历史 trace 或 debug trace 才回退 JSON。
-
-建议 schema 目录：
-- `schemas/replay/airborne_radar_replay.fbs`
-
-建议生成代码目录：
-- `generated/1q/replay/airborne_radar/airborne_radar_replay_generated.h`
-
-兼容策略：
-- `manifest.serializer_version` 从 `replay-json-v1` 升级到 `replay-flatbuffers-v1`。
-- `ReplayTraceCompatibilityExpectation` 必须检查 serializer version，避免 B 电脑用 JSON parser 误读 FlatBuffers trace。
-- 过渡期允许 reader 同时支持 `json` 和 `flatbuffers`，但 writer 默认写 `flatbuffers`。
-- debug/export 工具可以把 FlatBuffers payload 转成 JSON 观察，但复现链路不依赖 debug JSON。
-
-实现顺序：
-1. 文档和 manifest 语义先改清楚，消除 `"serializer":"flatbuffers"` 但 payload 实际是 JSON 的歧义。
-2. 扩展 replay event 支持 bytes payload，先用 base64 放在 JSONL envelope 中，保证改动小且 hash/reader 行为可测。
-3. 增加 AR FlatBuffers schema 和 encode/decode adapter。
-4. 将 `RadarTraceSession` 写侧切到 `payload_encoding = "flatbuffers"`。
-5. 将 `RadarReplaySession` 读侧优先走 FlatBuffers decode，保留 JSON fallback。
-6. 补 round-trip 测试，要求每个新增字段同时覆盖 encode、decode、replay。
-
-### 17.9 当前限制和后续工作
-
-当前 Phase 1 仍有这些限制：
-- 不支持从 checkpoint 恢复内部状态，只能从 cycle 0 或已有事件起点完整回放。
-- `cycle_output` 目前仍是摘要级对比，不是完整 `RadarCycleResult` 深度结构对比。
-- 没有记录 RNG engine 内部状态；如果未来 AR 引入随机噪声，至少需要记录 seed，最好记录可恢复 RNG state。
-- 没有记录所有内部私有状态，例如 track pool、filter covariance、controller internal snapshot；这些应进入 Phase 3 checkpoint/restore。
-- 当前落地代码仍有 JSON payload fallback，必须迁移为 FlatBuffers 优先路径；新增字段时应先改 schema，再改 adapter 和 round-trip 测试。
-
-建议下一阶段优先级：
-- Phase 2: 完成 FlatBuffers payload 写读路径，并增加更完整的 output payload，用结构化字段定位 divergence。
-- Phase 3: 设计 AR checkpoint，覆盖 track lifecycle、filter state、environment runtime state、controller runtime state。
-- Phase 4: 再考虑压缩、跨平台容差策略和大规模长时间仿真 trace 管理。
+文档编码要求：本文件应始终保持 UTF-8 与 LF 行尾。
