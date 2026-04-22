@@ -106,6 +106,88 @@ std::string HashString(const std::string& value) {
   return stream.str();
 }
 
+const char* Base64Alphabet() {
+  return "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+}
+
+std::string Base64Encode(const std::string& bytes) {
+  std::string output;
+  std::uint32_t accumulator = 0U;
+  int bits = -6;
+  for (std::size_t i = 0; i < bytes.size(); ++i) {
+    accumulator = (accumulator << 8) |
+                  static_cast<unsigned char>(bytes[i]);
+    bits += 8;
+    while (bits >= 0) {
+      output.push_back(Base64Alphabet()[(accumulator >> bits) & 0x3FU]);
+      bits -= 6;
+    }
+  }
+  if (bits > -6) {
+    output.push_back(Base64Alphabet()[((accumulator << 8) >> (bits + 8)) & 0x3FU]);
+  }
+  while ((output.size() % 4U) != 0U) {
+    output.push_back('=');
+  }
+  return output;
+}
+
+int Base64Value(char value) {
+  if (value >= 'A' && value <= 'Z') {
+    return value - 'A';
+  }
+  if (value >= 'a' && value <= 'z') {
+    return value - 'a' + 26;
+  }
+  if (value >= '0' && value <= '9') {
+    return value - '0' + 52;
+  }
+  if (value == '+') {
+    return 62;
+  }
+  if (value == '/') {
+    return 63;
+  }
+  return -1;
+}
+
+std::string Base64Decode(const std::string& text) {
+  std::string output;
+  std::uint32_t accumulator = 0U;
+  int bits = -8;
+  for (std::size_t i = 0; i < text.size(); ++i) {
+    const char c = text[i];
+    if (c == '=') {
+      break;
+    }
+    const int value = Base64Value(c);
+    if (value < 0) {
+      continue;
+    }
+    accumulator = (accumulator << 6) | static_cast<std::uint32_t>(value);
+    bits += 6;
+    if (bits >= 0) {
+      output.push_back(static_cast<char>((accumulator >> bits) & 0xFFU));
+      bits -= 8;
+    }
+  }
+  return output;
+}
+
+const std::string& PayloadBytesForHash(const ReplayTraceEvent& event) {
+  if (event.payload_encoding != "json" && !event.payload_bytes.empty()) {
+    return event.payload_bytes;
+  }
+  return event.payload_json;
+}
+
+const std::string& PayloadBytesForHash(const ReplayTraceReadEvent& event) {
+  if (event.payload_encoding != "json" && !event.payload_bytes.empty()) {
+    return event.payload_bytes;
+  }
+  return event.payload_json;
+}
+
 void WriteJsonStringField(std::ostream& output, const char* name, const std::string& value,
                           bool trailing_comma) {
   output << "\"" << name << "\":"
@@ -590,7 +672,7 @@ ReplayTraceWriter::~ReplayTraceWriter() = default;
 void ReplayTraceWriter::WriteEvent(const ReplayTraceEvent& event) {
   impl_->RotateEventChunkIfNeeded();
 
-  const std::string payload_hash = HashString(event.payload_json);
+  const std::string payload_hash = HashString(PayloadBytesForHash(event));
   const std::string previous_hash = impl_->previous_event_hash;
 
   std::ostringstream line;
@@ -613,7 +695,12 @@ void ReplayTraceWriter::WriteEvent(const ReplayTraceEvent& event) {
   line << "\"wall_time_ms\":" << CurrentTimestampMs() << ",";
   WriteJsonStringField(line, "payload_type", event.payload_type, true);
   WriteJsonStringField(line, "payload_encoding", event.payload_encoding, true);
-  WriteJsonRawField(line, "payload", event.payload_json, true);
+  if (event.payload_encoding == "json" || event.payload_bytes.empty()) {
+    WriteJsonRawField(line, "payload", event.payload_json, true);
+  } else {
+    line << "\"payload\":null,";
+    WriteJsonStringField(line, "payload_base64", Base64Encode(event.payload_bytes), true);
+  }
   WriteJsonStringField(line, "payload_hash", payload_hash, true);
   WriteJsonStringField(line, "previous_event_hash", previous_hash, false);
   line << "}";
@@ -753,9 +840,14 @@ bool ReplayTraceReader::ReadNextEvent(ReplayTraceReadEvent* event) {
   parsed.payload_type = ExtractStringField(line, "payload_type");
   parsed.payload_encoding = ExtractStringField(line, "payload_encoding");
   parsed.payload_json = ExtractRawJsonValue(line, "payload");
+  const std::string payload_base64 = ExtractStringField(line, "payload_base64");
+  if (!payload_base64.empty()) {
+    parsed.payload_bytes = Base64Decode(payload_base64);
+  }
   parsed.payload_hash = ExtractStringField(line, "payload_hash");
   parsed.previous_event_hash = ExtractStringField(line, "previous_event_hash");
-  parsed.payload_hash_matches = (HashString(parsed.payload_json) == parsed.payload_hash);
+  parsed.payload_hash_matches =
+      (HashString(PayloadBytesForHash(parsed)) == parsed.payload_hash);
   parsed.event_hash = HashString(line);
   parsed.previous_event_hash_matches =
       (parsed.previous_event_hash == impl_->previous_event_hash);

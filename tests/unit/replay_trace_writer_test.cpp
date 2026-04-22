@@ -241,6 +241,48 @@ TEST(ReplayTraceWriterTest, ReaderIteratesEventsAndValidatesPayloadHash) {
   EXPECT_FALSE(reader.ReadNextEvent(&event));
 }
 
+TEST(ReplayTraceWriterTest, ReaderRestoresBinaryPayloadBytes) {
+  const std::string trace_dir = MakeTempTraceDir();
+
+  ReplayTraceManifest manifest;
+  manifest.trace_id = "binary-payload-test";
+  manifest.module = "airborne_radar";
+  manifest.serializer_version = "replay-flatbuffers-v1";
+
+  const std::string payload_bytes("fb\0\1", 4U);
+  {
+    ReplayTraceWriter writer(trace_dir, manifest, true);
+
+    ReplayTraceEvent event;
+    event.module = "airborne_radar";
+    event.event_type = "cycle_input";
+    event.payload_type = "RadarCycleInput";
+    event.payload_encoding = "flatbuffers";
+    event.payload_json = "{}";
+    event.payload_bytes = payload_bytes;
+    writer.WriteEvent(event);
+    writer.Flush();
+  }
+
+  const std::string event_content =
+      ReadFile(JoinPath(JoinPath(trace_dir, "events"), "000000.events.jsonl"));
+  EXPECT_NE(event_content.find("\"payload_encoding\":\"flatbuffers\""),
+            std::string::npos);
+  EXPECT_NE(event_content.find("\"payload\":null"), std::string::npos);
+  EXPECT_NE(event_content.find("\"payload_base64\":\"ZmIAAQ==\""),
+            std::string::npos);
+
+  ReplayTraceReader reader(trace_dir);
+  ReplayTraceReadEvent event;
+  ASSERT_TRUE(reader.ReadNextEvent(&event));
+  EXPECT_EQ(event.payload_encoding, "flatbuffers");
+  EXPECT_EQ(event.payload_json, "null");
+  EXPECT_EQ(event.payload_bytes, payload_bytes);
+  EXPECT_TRUE(event.payload_hash_matches);
+  EXPECT_FALSE(event.payload_hash.empty());
+  EXPECT_FALSE(reader.ReadNextEvent(&event));
+}
+
 TEST(ReplayTraceWriterTest, ScanReportsEventCountAndDetectsTampering) {
   const std::string trace_dir = MakeTempTraceDir();
 

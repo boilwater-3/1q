@@ -43,6 +43,7 @@ struct ONEQ_API ReplayTraceEvent {
   std::string payload_type{};
   std::string payload_encoding{"json"};
   std::string payload_json{"{}"};
+  std::string payload_bytes{};
   bool has_cycle_index{false};
   std::uint32_t cycle_index{0U};
   bool has_sim_time_sec{false};
@@ -63,6 +64,7 @@ struct ONEQ_API ReplayTraceReadEvent {
   std::string payload_type{};
   std::string payload_encoding{};
   std::string payload_json{};
+  std::string payload_bytes{};
   std::string payload_hash{};
   std::string previous_event_hash{};
   bool payload_hash_matches{false};
