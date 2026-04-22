@@ -55,5 +55,14 @@ payload_type/payload_encoding/payload_bytes/payload_hash_matches
 回放侧已在 cycle_output 处理里优先走 FlatBuffers decode + typed compare。
 新增/更新了对应测试断言，覆盖 cycle_output bytes 的 decode 校验。
 
-现在任务：
-把 failure_marker 也按同样模式补成 typed payload，进一步贴近文档里“全事件 typed 化”的终态。
+已把 failure_marker 切到 typed payload：
+15、新增 schema：FailureMarker 表（airborne_radar_replay.fbs）
+16、生成头：airborne_radar_replay_generated.h（flatc 重新生成）
+17、扩展 codec：
+EncodeFailureMarkerFlatbuffer(...)
+DecodeFailureMarkerFlatbuffer(...)
+18、WriteFailureMarker 新增 payload_bytes 重载（ReplayTrace.h / ReplayTrace.cpp）
+写侧传入 flatbuffers bytes，payload_encoding = “flatbuffers”
+19、读侧 OnFailureMarker 优先走 FlatBuffers decode，旧 JSON fallback 保留
+20、RadarReplaySessionResult 新增 failure_marker_data（ReplayTraceFailure）
+21、测试改为验证 typed decode 后的字段值（error_code、message、has_cycle_index）

@@ -953,5 +953,58 @@ bool DecodeSceneStateFlatbuffer(const std::string& payload_bytes,
   return true;
 }
 
+std::string EncodeFailureMarkerFlatbuffer(const oneq::replay::ReplayTraceFailure& failure,
+                                          bool has_last_event_sequence,
+                                          std::uint64_t last_event_sequence) {
+  flatbuffers::FlatBufferBuilder builder;
+  const flatbuffers::Offset<fb::FailureMarker> root = fb::CreateFailureMarkerDirect(
+      builder, failure.error_code.c_str(), failure.message.c_str(),
+      failure.location.c_str(), failure.has_cycle_index, failure.cycle_index,
+      failure.has_sim_time_sec, failure.sim_time_sec, failure.diagnostics_json.c_str(),
+      has_last_event_sequence, last_event_sequence);
+  builder.Finish(root);
+
+  const std::uint8_t* buffer = builder.GetBufferPointer();
+  return std::string(reinterpret_cast<const char*>(buffer),
+                     reinterpret_cast<const char*>(buffer) + builder.GetSize());
+}
+
+bool DecodeFailureMarkerFlatbuffer(const std::string& payload_bytes,
+                                   oneq::replay::ReplayTraceFailure* failure,
+                                   std::string* error) {
+  if (failure == nullptr) {
+    if (error != nullptr) {
+      *error = "null FailureMarker output";
+    }
+    return false;
+  }
+  if (payload_bytes.empty()) {
+    if (error != nullptr) {
+      *error = "empty FailureMarker flatbuffers payload";
+    }
+    return false;
+  }
+
+  const std::uint8_t* data = reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
+  flatbuffers::Verifier verifier(data, payload_bytes.size());
+  const fb::FailureMarker* root = flatbuffers::GetRoot<fb::FailureMarker>(data);
+  if (root == nullptr || !root->Verify(verifier)) {
+    if (error != nullptr) {
+      *error = "invalid FailureMarker flatbuffers payload";
+    }
+    return false;
+  }
+
+  failure->error_code = root->error_code() ? root->error_code()->str() : "";
+  failure->message = root->message() ? root->message()->str() : "";
+  failure->location = root->location() ? root->location()->str() : "";
+  failure->has_cycle_index = root->has_cycle_index();
+  failure->cycle_index = root->cycle_index();
+  failure->has_sim_time_sec = root->has_sim_time_sec();
+  failure->sim_time_sec = root->sim_time_sec();
+  failure->diagnostics_json = root->diagnostics() ? root->diagnostics()->str() : "{}";
+  return true;
+}
+
 }  // namespace session
 }  // namespace airborne_radar

@@ -729,6 +729,11 @@ void ReplayTraceWriter::WriteEvent(const ReplayTraceEvent& event) {
 }
 
 void ReplayTraceWriter::WriteFailureMarker(const ReplayTraceFailure& failure) {
+  WriteFailureMarker(failure, "");
+}
+
+void ReplayTraceWriter::WriteFailureMarker(const ReplayTraceFailure& failure,
+                                            const std::string& payload_bytes) {
   const std::uint64_t failure_marker_sequence = impl_->next_sequence;
   const bool has_last_event_sequence = impl_->next_sequence > 0U;
   const std::uint64_t last_event_sequence =
@@ -740,6 +745,10 @@ void ReplayTraceWriter::WriteFailureMarker(const ReplayTraceFailure& failure) {
   event.payload_type = "ReplayTraceFailure";
   event.payload_json = BuildFailurePayloadJson(failure, has_last_event_sequence,
                                                last_event_sequence);
+  if (!payload_bytes.empty()) {
+    event.payload_encoding = "flatbuffers";
+    event.payload_bytes = payload_bytes;
+  }
   event.has_cycle_index = failure.has_cycle_index;
   event.cycle_index = failure.cycle_index;
   event.has_sim_time_sec = failure.has_sim_time_sec;

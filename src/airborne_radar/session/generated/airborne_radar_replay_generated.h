@@ -32,6 +32,9 @@ struct TrackOutputFrameBuilder;
 struct RadarCycleResult;
 struct RadarCycleResultBuilder;
 
+struct FailureMarker;
+struct FailureMarkerBuilder;
+
 struct Vector3f FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef Vector3fBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -526,6 +529,172 @@ inline flatbuffers::Offset<RadarCycleResult> CreateRadarCycleResult(
   builder_.add_track_output_frame(track_output_frame);
   builder_.add_executed_this_cycle(executed_this_cycle);
   return builder_.Finish();
+}
+
+struct FailureMarker FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef FailureMarkerBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ERROR_CODE = 4,
+    VT_MESSAGE = 6,
+    VT_LOCATION = 8,
+    VT_HAS_CYCLE_INDEX = 10,
+    VT_CYCLE_INDEX = 12,
+    VT_HAS_SIM_TIME_SEC = 14,
+    VT_SIM_TIME_SEC = 16,
+    VT_DIAGNOSTICS = 18,
+    VT_HAS_LAST_EVENT_SEQUENCE = 20,
+    VT_LAST_EVENT_SEQUENCE = 22
+  };
+  const flatbuffers::String *error_code() const {
+    return GetPointer<const flatbuffers::String *>(VT_ERROR_CODE);
+  }
+  const flatbuffers::String *message() const {
+    return GetPointer<const flatbuffers::String *>(VT_MESSAGE);
+  }
+  const flatbuffers::String *location() const {
+    return GetPointer<const flatbuffers::String *>(VT_LOCATION);
+  }
+  bool has_cycle_index() const {
+    return GetField<uint8_t>(VT_HAS_CYCLE_INDEX, 0) != 0;
+  }
+  uint32_t cycle_index() const {
+    return GetField<uint32_t>(VT_CYCLE_INDEX, 0);
+  }
+  bool has_sim_time_sec() const {
+    return GetField<uint8_t>(VT_HAS_SIM_TIME_SEC, 0) != 0;
+  }
+  double sim_time_sec() const {
+    return GetField<double>(VT_SIM_TIME_SEC, 0.0);
+  }
+  const flatbuffers::String *diagnostics() const {
+    return GetPointer<const flatbuffers::String *>(VT_DIAGNOSTICS);
+  }
+  bool has_last_event_sequence() const {
+    return GetField<uint8_t>(VT_HAS_LAST_EVENT_SEQUENCE, 0) != 0;
+  }
+  uint64_t last_event_sequence() const {
+    return GetField<uint64_t>(VT_LAST_EVENT_SEQUENCE, 0);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_ERROR_CODE) &&
+           verifier.VerifyString(error_code()) &&
+           VerifyOffset(verifier, VT_MESSAGE) &&
+           verifier.VerifyString(message()) &&
+           VerifyOffset(verifier, VT_LOCATION) &&
+           verifier.VerifyString(location()) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_CYCLE_INDEX) &&
+           VerifyField<uint32_t>(verifier, VT_CYCLE_INDEX) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_SIM_TIME_SEC) &&
+           VerifyField<double>(verifier, VT_SIM_TIME_SEC) &&
+           VerifyOffset(verifier, VT_DIAGNOSTICS) &&
+           verifier.VerifyString(diagnostics()) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_LAST_EVENT_SEQUENCE) &&
+           VerifyField<uint64_t>(verifier, VT_LAST_EVENT_SEQUENCE) &&
+           verifier.EndTable();
+  }
+};
+
+struct FailureMarkerBuilder {
+  typedef FailureMarker Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_error_code(flatbuffers::Offset<flatbuffers::String> error_code) {
+    fbb_.AddOffset(FailureMarker::VT_ERROR_CODE, error_code);
+  }
+  void add_message(flatbuffers::Offset<flatbuffers::String> message) {
+    fbb_.AddOffset(FailureMarker::VT_MESSAGE, message);
+  }
+  void add_location(flatbuffers::Offset<flatbuffers::String> location) {
+    fbb_.AddOffset(FailureMarker::VT_LOCATION, location);
+  }
+  void add_has_cycle_index(bool has_cycle_index) {
+    fbb_.AddElement<uint8_t>(FailureMarker::VT_HAS_CYCLE_INDEX, static_cast<uint8_t>(has_cycle_index), 0);
+  }
+  void add_cycle_index(uint32_t cycle_index) {
+    fbb_.AddElement<uint32_t>(FailureMarker::VT_CYCLE_INDEX, cycle_index, 0);
+  }
+  void add_has_sim_time_sec(bool has_sim_time_sec) {
+    fbb_.AddElement<uint8_t>(FailureMarker::VT_HAS_SIM_TIME_SEC, static_cast<uint8_t>(has_sim_time_sec), 0);
+  }
+  void add_sim_time_sec(double sim_time_sec) {
+    fbb_.AddElement<double>(FailureMarker::VT_SIM_TIME_SEC, sim_time_sec, 0.0);
+  }
+  void add_diagnostics(flatbuffers::Offset<flatbuffers::String> diagnostics) {
+    fbb_.AddOffset(FailureMarker::VT_DIAGNOSTICS, diagnostics);
+  }
+  void add_has_last_event_sequence(bool has_last_event_sequence) {
+    fbb_.AddElement<uint8_t>(FailureMarker::VT_HAS_LAST_EVENT_SEQUENCE, static_cast<uint8_t>(has_last_event_sequence), 0);
+  }
+  void add_last_event_sequence(uint64_t last_event_sequence) {
+    fbb_.AddElement<uint64_t>(FailureMarker::VT_LAST_EVENT_SEQUENCE, last_event_sequence, 0);
+  }
+  explicit FailureMarkerBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  FailureMarkerBuilder &operator=(const FailureMarkerBuilder &);
+  flatbuffers::Offset<FailureMarker> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<FailureMarker>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<FailureMarker> CreateFailureMarker(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::String> error_code = 0,
+    flatbuffers::Offset<flatbuffers::String> message = 0,
+    flatbuffers::Offset<flatbuffers::String> location = 0,
+    bool has_cycle_index = false,
+    uint32_t cycle_index = 0,
+    bool has_sim_time_sec = false,
+    double sim_time_sec = 0.0,
+    flatbuffers::Offset<flatbuffers::String> diagnostics = 0,
+    bool has_last_event_sequence = false,
+    uint64_t last_event_sequence = 0) {
+  FailureMarkerBuilder builder_(_fbb);
+  builder_.add_last_event_sequence(last_event_sequence);
+  builder_.add_sim_time_sec(sim_time_sec);
+  builder_.add_diagnostics(diagnostics);
+  builder_.add_cycle_index(cycle_index);
+  builder_.add_location(location);
+  builder_.add_message(message);
+  builder_.add_error_code(error_code);
+  builder_.add_has_last_event_sequence(has_last_event_sequence);
+  builder_.add_has_sim_time_sec(has_sim_time_sec);
+  builder_.add_has_cycle_index(has_cycle_index);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<FailureMarker> CreateFailureMarkerDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const char *error_code = nullptr,
+    const char *message = nullptr,
+    const char *location = nullptr,
+    bool has_cycle_index = false,
+    uint32_t cycle_index = 0,
+    bool has_sim_time_sec = false,
+    double sim_time_sec = 0.0,
+    const char *diagnostics = nullptr,
+    bool has_last_event_sequence = false,
+    uint64_t last_event_sequence = 0) {
+  auto error_code__ = error_code ? _fbb.CreateString(error_code) : 0;
+  auto message__ = message ? _fbb.CreateString(message) : 0;
+  auto location__ = location ? _fbb.CreateString(location) : 0;
+  auto diagnostics__ = diagnostics ? _fbb.CreateString(diagnostics) : 0;
+  return oneq::replay::airborne_radar::fb::CreateFailureMarker(
+      _fbb,
+      error_code__,
+      message__,
+      location__,
+      has_cycle_index,
+      cycle_index,
+      has_sim_time_sec,
+      sim_time_sec,
+      diagnostics__,
+      has_last_event_sequence,
+      last_event_sequence);
 }
 
 inline const oneq::replay::airborne_radar::fb::RadarCycleInput *GetRadarCycleInput(const void *buf) {

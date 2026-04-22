@@ -187,6 +187,8 @@ class ONEQ_API ReplayTraceWriter final {
 
   void WriteEvent(const ReplayTraceEvent& event);
   void WriteFailureMarker(const ReplayTraceFailure& failure);
+  void WriteFailureMarker(const ReplayTraceFailure& failure,
+                           const std::string& payload_bytes);
   void Flush();
 
   const std::string& trace_dir() const;

@@ -8,6 +8,7 @@
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
+#include "1q/replay/ReplayTrace.h"
 
 namespace airborne_radar {
 namespace session {
@@ -31,6 +32,11 @@ std::string EncodeSceneStateFlatbuffer(const environment::EnvironmentSceneState&
 bool DecodeSceneStateFlatbuffer(const std::string& payload_bytes,
                                 environment::EnvironmentSceneState* scene_state,
                                 std::string* error);
+std::string EncodeFailureMarkerFlatbuffer(const oneq::replay::ReplayTraceFailure& failure,
+                                          bool has_last_event_sequence,
+                                          std::uint64_t last_event_sequence);
+bool DecodeFailureMarkerFlatbuffer(const std::string& payload_bytes,
+                                   oneq::replay::ReplayTraceFailure* failure, std::string* error);
 
 }  // namespace session
 }  // namespace airborne_radar

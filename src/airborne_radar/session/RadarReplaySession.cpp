@@ -789,6 +789,7 @@ struct RadarReplayState {
   std::string latest_frame_payload{};
   bool reached_failure_marker{false};
   std::string failure_marker_payload_json{};
+  oneq::replay::ReplayTraceFailure failure_marker_data{};
 };
 
 bool TrackOutputSummaryEqual(const output::TrackOutputFrame& left,
@@ -994,10 +995,19 @@ bool OnCycleOutput(const oneq::replay::ReplayTraceReadEvent& event, void* user_d
 }
 
 bool OnFailureMarker(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
-                     std::string* /*error*/) {
+                     std::string* error) {
   RadarReplayState* state = static_cast<RadarReplayState*>(user_data);
   state->reached_failure_marker = true;
   state->failure_marker_payload_json = event.payload_json;
+#if defined(_WIN32)
+  if (event.payload_encoding == "flatbuffers") {
+    oneq::replay::ReplayTraceFailure decoded;
+    if (!DecodeFailureMarkerFlatbuffer(event.payload_bytes, &decoded, error)) {
+      return false;
+    }
+    state->failure_marker_data = decoded;
+  }
+#endif
   return true;
 }
 
@@ -1036,6 +1046,7 @@ RadarReplaySessionResult ReplayRadarTrace(const std::string& trace_dir) {
   result.ok = result.playback.ok;
   result.reached_failure_marker = state.reached_failure_marker;
   result.failure_marker_payload_json = state.failure_marker_payload_json;
+  result.failure_marker_data = state.failure_marker_data;
   if (!result.ok) {
     result.first_error = result.playback.first_error;
   }

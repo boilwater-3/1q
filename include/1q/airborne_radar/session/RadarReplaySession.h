@@ -20,6 +20,7 @@ struct ONEQ_API RadarReplaySessionResult {
   bool ok{false};
   bool reached_failure_marker{false};
   std::string failure_marker_payload_json{};
+  oneq::replay::ReplayTraceFailure failure_marker_data{};
   std::string first_error{};
 };
 

@@ -409,7 +409,9 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionStopsAtFailureMarker) {
     failure.message = "synthetic replay failure marker";
     failure.has_cycle_index = true;
     failure.cycle_index = result.track_output_frame.cycle_index;
-    replay_writer->WriteFailureMarker(failure);
+    const std::string failure_bytes =
+        session::EncodeFailureMarkerFlatbuffer(failure, false, 0U);
+    replay_writer->WriteFailureMarker(failure, failure_bytes);
     replay_writer->Flush();
   }
 
@@ -418,7 +420,9 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionStopsAtFailureMarker) {
   EXPECT_TRUE(replay_result.report.has_failure_marker);
   EXPECT_TRUE(replay_result.reached_failure_marker);
   EXPECT_EQ(replay_result.playback.failure_marker_count, 1U);
-  EXPECT_NE(replay_result.failure_marker_payload_json.find("AR_SIM_ASSERT"), std::string::npos);
+  EXPECT_EQ(replay_result.failure_marker_data.error_code, "AR_SIM_ASSERT");
+  EXPECT_EQ(replay_result.failure_marker_data.message, "synthetic replay failure marker");
+  EXPECT_TRUE(replay_result.failure_marker_data.has_cycle_index);
 }
 
 }  // namespace tests

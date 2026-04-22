@@ -46,5 +46,18 @@ table RadarCycleResult {
   executed_this_cycle:bool;
 }
 
+table FailureMarker {
+  error_code:string;
+  message:string;
+  location:string;
+  has_cycle_index:bool;
+  cycle_index:uint;
+  has_sim_time_sec:bool;
+  sim_time_sec:double;
+  diagnostics:string;
+  has_last_event_sequence:bool;
+  last_event_sequence:ulong;
+}
+
 root_type RadarCycleInput;
 file_identifier "ARCI";
