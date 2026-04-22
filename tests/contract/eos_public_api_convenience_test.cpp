@@ -151,6 +151,13 @@ TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderDefaultsAreUnset) {
 }
 
 TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderSetsAllFields) {
+  environment::EosEnvironmentScenarioConfig env_config;
+  env_config.model_type = environment::EosEnvironmentModelType::kAdvanced;
+  env_config.has_custom_overrides = true;
+  env_config.custom_overrides.radiative_transfer_model = rt::RadiativeTransferModel::kAdaptivePathRadiance;
+  env_config.custom_overrides.aerosol_density_factor = 1.3f;
+  env_config.custom_overrides.turbulence_factor = 1.8f;
+
   const session::EosRuntimeConfigPatch patch = config::EosRuntimeConfigBuilder()
                                                    .WithWorkMode(config::EosWorkMode::kVisibleOnly)
                                                    .WithScanRateDegPerSec(50.0f)
@@ -159,12 +166,7 @@ TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderSetsAllFields) {
                                                        config::EosDetectionProfile::kConservative)
                                                    .WithStrayLightProfile(
                                                        config::EosStrayLightProfile::kEnhancedHood)
-                                                   .WithEnvironmentModelType(
-                                                       environment::EosEnvironmentModelType::kAdvanced)
-                           .WithEnvironmentDetails(
-                             rt::RadiativeTransferModel::kAdaptivePathRadiance,
-                             1.3f,
-                             1.8f)
+                                                   .WithEnvironmentScenarioConfig(env_config)
                                                    .Build();
 
   EXPECT_TRUE(patch.has_work_mode);
@@ -177,15 +179,13 @@ TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderSetsAllFields) {
   EXPECT_EQ(patch.policy.detection.profile, config::EosDetectionProfile::kConservative);
   EXPECT_EQ(patch.policy.stray_light.profile, config::EosStrayLightProfile::kEnhancedHood);
   EXPECT_TRUE(patch.has_environment);
-  EXPECT_TRUE(patch.environment.has_model_type);
-  EXPECT_EQ(patch.environment.model_type, environment::EosEnvironmentModelType::kAdvanced);
-  EXPECT_TRUE(patch.environment.has_radiative_transfer_model);
-  EXPECT_EQ(patch.environment.radiative_transfer_model,
+  EXPECT_TRUE(patch.environment.has_scenario_config);
+  EXPECT_EQ(patch.environment.scenario_config.model_type, environment::EosEnvironmentModelType::kAdvanced);
+  EXPECT_TRUE(patch.environment.scenario_config.has_custom_overrides);
+  EXPECT_EQ(patch.environment.scenario_config.custom_overrides.radiative_transfer_model,
             rt::RadiativeTransferModel::kAdaptivePathRadiance);
-  EXPECT_TRUE(patch.environment.has_aerosol_density_factor);
-  EXPECT_NEAR(patch.environment.aerosol_density_factor, 1.3f, 1e-5f);
-  EXPECT_TRUE(patch.environment.has_turbulence_factor);
-  EXPECT_NEAR(patch.environment.turbulence_factor, 1.8f, 1e-5f);
+  EXPECT_NEAR(patch.environment.scenario_config.custom_overrides.aerosol_density_factor, 1.3f, 1e-5f);
+  EXPECT_NEAR(patch.environment.scenario_config.custom_overrides.turbulence_factor, 1.8f, 1e-5f);
 }
 
 TEST(EosPublicApiConvenienceTest, InputValidationReportsErrorsForCommonBoundaryCases) {
@@ -505,25 +505,25 @@ TEST(EosPublicApiConvenienceTest, EosEnvironmentDefaultConfigHasReasonableDefaul
 }
 
 TEST(EosPublicApiConvenienceTest, EosRuntimeConfigBuilderWithEnvironmentPolicies) {
+  environment::EosEnvironmentScenarioConfig env_config;
+  env_config.model_type = environment::EosEnvironmentModelType::kAdvanced;
+  env_config.has_custom_overrides = true;
+  env_config.custom_overrides.radiative_transfer_model = rt::RadiativeTransferModel::kAdaptivePathRadiance;
+  env_config.custom_overrides.aerosol_density_factor = 1.3f;
+  env_config.custom_overrides.turbulence_factor = 1.8f;
+
   const session::EosRuntimeConfigPatch patch = config::EosRuntimeConfigBuilder()
-                                                   .WithEnvironmentModelType(
-                                                       environment::EosEnvironmentModelType::kAdvanced)
-                                                   .WithEnvironmentDetails(
-                                                       rt::RadiativeTransferModel::kAdaptivePathRadiance,
-                                                       1.3f,
-                                                       1.8f)
+                                                   .WithEnvironmentScenarioConfig(env_config)
                                                    .Build();
 
   EXPECT_TRUE(patch.has_environment);
-  EXPECT_TRUE(patch.environment.has_model_type);
-  EXPECT_EQ(patch.environment.model_type, environment::EosEnvironmentModelType::kAdvanced);
-  EXPECT_TRUE(patch.environment.has_radiative_transfer_model);
-  EXPECT_EQ(patch.environment.radiative_transfer_model,
+  EXPECT_TRUE(patch.environment.has_scenario_config);
+  EXPECT_EQ(patch.environment.scenario_config.model_type, environment::EosEnvironmentModelType::kAdvanced);
+  EXPECT_TRUE(patch.environment.scenario_config.has_custom_overrides);
+  EXPECT_EQ(patch.environment.scenario_config.custom_overrides.radiative_transfer_model,
             rt::RadiativeTransferModel::kAdaptivePathRadiance);
-  EXPECT_TRUE(patch.environment.has_aerosol_density_factor);
-  EXPECT_NEAR(patch.environment.aerosol_density_factor, 1.3f, 1e-5f);
-  EXPECT_TRUE(patch.environment.has_turbulence_factor);
-  EXPECT_NEAR(patch.environment.turbulence_factor, 1.8f, 1e-5f);
+  EXPECT_NEAR(patch.environment.scenario_config.custom_overrides.aerosol_density_factor, 1.3f, 1e-5f);
+  EXPECT_NEAR(patch.environment.scenario_config.custom_overrides.turbulence_factor, 1.8f, 1e-5f);
 }
 
 }  // namespace tests

@@ -388,19 +388,24 @@ std::string EncodeEosRuntimeConfigPatch(const EosRuntimeConfigPatch& v) {
       v.policy.stray_light.hood_min_suppression_ratio,
       v.policy.stray_light.hood_max_suppression_ratio);
   auto policy = eos::replay::CreateEosPolicyConfig(fbb, pd, ps);
-  // EosEnvironmentRuntimeConfigPatch 是展平字段：无 scenario_config
   const auto& ep = v.environment;
-  // 使用默认的空 environment config（patch 的 env 字段是增量，不是全量配置）
-  auto co = eos::replay::CreateEosEnvironmentCustomOverrides(fbb,
-      static_cast<int32_t>(ep.radiative_transfer_model),
-      ep.aerosol_density_factor, ep.turbulence_factor,
-      ep.enable_optical_countermeasure_extension);
-  auto env = eos::replay::CreateEosEnvironmentConfig(fbb,
-      static_cast<int32_t>(ep.model_type), 0 /*preset not in patch*/,
-      false, co,
-      static_cast<int32_t>(ep.radiative_transfer_model),
-      ep.aerosol_density_factor, ep.turbulence_factor,
-      ep.enable_optical_countermeasure_extension);
+  flatbuffers::Offset<eos::replay::EosEnvironmentConfig> env = 0;
+  if (ep.has_scenario_config) {
+    auto co = eos::replay::CreateEosEnvironmentCustomOverrides(fbb,
+        static_cast<int32_t>(ep.scenario_config.custom_overrides.radiative_transfer_model),
+        ep.scenario_config.custom_overrides.aerosol_density_factor,
+        ep.scenario_config.custom_overrides.turbulence_factor,
+        ep.scenario_config.custom_overrides.enable_optical_countermeasure_extension);
+    env = eos::replay::CreateEosEnvironmentConfig(fbb,
+        static_cast<int32_t>(ep.scenario_config.model_type),
+        static_cast<int32_t>(ep.scenario_config.preset),
+        ep.scenario_config.has_custom_overrides, co,
+        0, 0.0f, 0.0f, false); // derived fields set to 0/false for patch
+  } else {
+    // Write an empty environment config just to satisfy the struct
+    auto co = eos::replay::CreateEosEnvironmentCustomOverrides(fbb, 0, 1.0f, 1.0f, false);
+    env = eos::replay::CreateEosEnvironmentConfig(fbb, 0, 0, false, co, 0, 0.0f, 0.0f, false);
+  }
   fbb.Finish(eos::replay::CreateEosRuntimeConfigPatch(fbb,
       v.has_mission, mission, v.has_policy, policy, v.has_environment, env,
       v.has_work_mode, static_cast<int32_t>(v.work_mode),
@@ -417,6 +422,26 @@ bool DecodeEosRuntimeConfigPatch(const std::string& bytes, EosRuntimeConfigPatch
   out->has_mission = fb->has_mission();
   out->has_policy = fb->has_policy();
   out->has_environment = fb->has_environment();
+  if (out->has_environment && fb->environment()) {
+    const auto* e = fb->environment();
+    out->environment.has_scenario_config = true;
+    out->environment.scenario_config.model_type =
+        static_cast<environment::EosEnvironmentModelType>(e->model_type());
+    out->environment.scenario_config.preset =
+        static_cast<environment::EosEnvironmentPreset>(e->preset());
+    out->environment.scenario_config.has_custom_overrides = e->has_custom_overrides();
+    if (e->custom_overrides()) {
+      out->environment.scenario_config.custom_overrides.radiative_transfer_model =
+          static_cast<foundation::radiative_transfer::RadiativeTransferModel>(
+              e->custom_overrides()->radiative_transfer_model());
+      out->environment.scenario_config.custom_overrides.aerosol_density_factor =
+          e->custom_overrides()->aerosol_density_factor();
+      out->environment.scenario_config.custom_overrides.turbulence_factor =
+          e->custom_overrides()->turbulence_factor();
+      out->environment.scenario_config.custom_overrides.enable_optical_countermeasure_extension =
+          e->custom_overrides()->enable_optical_countermeasure_extension();
+    }
+  }
   out->has_work_mode = fb->has_work_mode();
   out->work_mode = static_cast<config::EosWorkMode>(fb->work_mode());
   out->has_scan_rate_deg_per_sec = fb->has_scan_rate_deg_per_sec();

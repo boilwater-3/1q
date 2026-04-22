@@ -227,8 +227,8 @@ static_assert(
     std::is_same<
         electro_optical_sensor::environment::EosEnvironmentRuntimeConfigPatch,
         decltype(electro_optical_sensor::environment::EosEnvironmentRuntimeConfigPatchBuilder()
-                     .WithModelType(
-                         electro_optical_sensor::environment::EosEnvironmentModelType::kAdvanced)
+                     .WithScenarioConfig(
+                         electro_optical_sensor::environment::EosEnvironmentScenarioConfig{})
                      .Build())>::value,
     "EosEnvironmentRuntimeConfigPatchBuilder::Build must return EosEnvironmentRuntimeConfigPatch");
 static_assert(

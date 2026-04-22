@@ -597,13 +597,17 @@ TEST(EosSessionIntegrationTest, RuntimeEnvironmentModelChangeTakesEffect) {
 
   const output::EosOutputFrame simplified_frame = session.Step(input);
 
+  environment::EosEnvironmentScenarioConfig env_config;
+  env_config.model_type = environment::EosEnvironmentModelType::kAdvanced;
+  env_config.has_custom_overrides = true;
+  env_config.custom_overrides.radiative_transfer_model =
+      foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance;
+  env_config.custom_overrides.aerosol_density_factor = 1.3f;
+  env_config.custom_overrides.turbulence_factor = 1.8f;
+
   const EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder()
-          .WithEnvironmentModelType(environment::EosEnvironmentModelType::kAdvanced)
-        .WithEnvironmentDetails(
-          foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance,
-          1.3f,
-          1.8f)
+          .WithEnvironmentScenarioConfig(env_config)
           .Build();
   session.ApplyRuntimeConfig(patch);
 

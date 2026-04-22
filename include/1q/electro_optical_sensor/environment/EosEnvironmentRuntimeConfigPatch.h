@@ -17,21 +17,8 @@ namespace environment {
  * @brief EosEnvironmentRuntimeConfigPatch 描述运行期可变环境补丁。
  */
 struct ONEQ_API EosEnvironmentRuntimeConfigPatch {
-  bool has_model_type{false};
-  EosEnvironmentModelType model_type{EosEnvironmentModelType::kSimplified};
-
-  bool has_radiative_transfer_model{false};
-  foundation::radiative_transfer::RadiativeTransferModel radiative_transfer_model{
-      foundation::radiative_transfer::RadiativeTransferModel::kDerivedBeerLambert};
-
-  bool has_aerosol_density_factor{false};
-  float aerosol_density_factor{1.0f};
-
-  bool has_turbulence_factor{false};
-  float turbulence_factor{1.0f};
-
-  bool has_enable_optical_countermeasure_extension{false};
-  bool enable_optical_countermeasure_extension{false};
+  bool has_scenario_config{false};
+  EosEnvironmentScenarioConfig scenario_config{};
 };
 
 }  // namespace environment

@@ -23,15 +23,19 @@ TEST(EosRuntimeConfigResolverTest, ValidPatchBuildsRuntimeUpdateAndScanResetFlag
   current_config.policy.detection.profile = eos_config::EosDetectionProfile::kBalanced;
   current_config.environment.scenario_config.preset = eos_config::EosEnvironmentPreset::kStandard;
 
+  eos_config::EosEnvironmentScenarioConfig env_config;
+  env_config.has_custom_overrides = true;
+  env_config.custom_overrides.radiative_transfer_model =
+      ::electro_optical_sensor::foundation::radiative_transfer::
+          RadiativeTransferModel::kAdaptivePathRadiance;
+  env_config.custom_overrides.aerosol_density_factor = 2.0f;
+  env_config.custom_overrides.turbulence_factor = 1.2f;
+
   const eos_session::EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder()
           .WithScanRateDegPerSec(60.0f)
           .WithDetectionProfile(eos_config::EosDetectionProfile::kConservative)
-          .WithEnvironmentDetails(
-              ::electro_optical_sensor::foundation::radiative_transfer::
-                  RadiativeTransferModel::kAdaptivePathRadiance,
-              2.0f,
-              1.2f)
+          .WithEnvironmentScenarioConfig(env_config)
           .Build();
 
   const EosRuntimeConfigResolveResult resolved =

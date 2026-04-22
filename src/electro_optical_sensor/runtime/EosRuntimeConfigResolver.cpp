@@ -62,15 +62,17 @@ bool IsValidPolicy(const config::EosPolicyConfig& policy) {
 
 bool IsValidEnvironmentPatch(
     const environment::EosEnvironmentRuntimeConfigPatch& environment_patch) {
-  if (environment_patch.has_aerosol_density_factor &&
-      (!IsFinite(environment_patch.aerosol_density_factor) ||
-       environment_patch.aerosol_density_factor <= 0.0f)) {
-    return false;
-  }
-  if (environment_patch.has_turbulence_factor &&
-      (!IsFinite(environment_patch.turbulence_factor) ||
-       environment_patch.turbulence_factor <= 0.0f)) {
-    return false;
+  if (environment_patch.has_scenario_config) {
+    if (environment_patch.scenario_config.has_custom_overrides) {
+      if (!IsFinite(environment_patch.scenario_config.custom_overrides.aerosol_density_factor) ||
+          environment_patch.scenario_config.custom_overrides.aerosol_density_factor <= 0.0f) {
+        return false;
+      }
+      if (!IsFinite(environment_patch.scenario_config.custom_overrides.turbulence_factor) ||
+          environment_patch.scenario_config.custom_overrides.turbulence_factor <= 0.0f) {
+        return false;
+      }
+    }
   }
   return true;
 }
@@ -129,33 +131,8 @@ EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(
     const environment::EosEnvironmentRuntimeConfigPatch& environment_patch =
         patch.environment;
 
-    if (environment_patch.has_model_type) {
-      scenario_config.model_type = environment_patch.model_type;
-    }
-
-    const bool has_model_leaf_override =
-        environment_patch.has_radiative_transfer_model ||
-        environment_patch.has_aerosol_density_factor ||
-        environment_patch.has_turbulence_factor ||
-        environment_patch.has_enable_optical_countermeasure_extension;
-    if (has_model_leaf_override) {
-      scenario_config.has_custom_overrides = true;
-      if (environment_patch.has_radiative_transfer_model) {
-        scenario_config.custom_overrides.radiative_transfer_model =
-            environment_patch.radiative_transfer_model;
-      }
-      if (environment_patch.has_aerosol_density_factor) {
-        scenario_config.custom_overrides.aerosol_density_factor =
-            environment_patch.aerosol_density_factor;
-      }
-      if (environment_patch.has_turbulence_factor) {
-        scenario_config.custom_overrides.turbulence_factor =
-            environment_patch.turbulence_factor;
-      }
-      if (environment_patch.has_enable_optical_countermeasure_extension) {
-        scenario_config.custom_overrides.enable_optical_countermeasure_extension =
-            environment_patch.enable_optical_countermeasure_extension;
-      }
+    if (environment_patch.has_scenario_config) {
+      scenario_config = environment_patch.scenario_config;
     }
   }
 
