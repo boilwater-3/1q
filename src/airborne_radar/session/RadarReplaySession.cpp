@@ -721,6 +721,23 @@ bool ParseRuntimeConfigPatch(const std::string& payload_json,
     return false;
   }
 
+  patch->has_mission = ReadBool(payload_json, "has_mission", patch->has_mission);
+  const std::string mission_json = ExtractRawJsonValue(payload_json, "mission");
+  if (!mission_json.empty()) {
+    const std::string orientation_json =
+        ExtractRawJsonValue(mission_json, "orientation");
+    if (!orientation_json.empty()) {
+      patch->mission.orientation =
+          ReadOrientationConfig(orientation_json, patch->mission.orientation);
+    }
+  }
+
+  patch->has_policy = ReadBool(payload_json, "has_policy", patch->has_policy);
+  const std::string policy_json = ExtractRawJsonValue(payload_json, "policy");
+  if (!policy_json.empty()) {
+    patch->policy = ReadPolicyConfig(policy_json, patch->policy);
+  }
+
   patch->has_work_sub_mode =
       ReadBool(payload_json, "has_work_sub_mode", patch->has_work_sub_mode);
   patch->work_sub_mode = static_cast<config::RadarWorkSubMode>(

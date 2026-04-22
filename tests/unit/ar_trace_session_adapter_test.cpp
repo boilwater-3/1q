@@ -202,6 +202,9 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
     session::RadarTraceSession session(config, options);
 
     config::RadarRuntimeConfigPatch runtime_patch;
+    runtime_patch.has_policy = true;
+    runtime_patch.policy = config.policy;
+    runtime_patch.policy.tracking.kalman_measurement_noise_std = 7.5f;
     runtime_patch.has_scan_center_deg = true;
     runtime_patch.scan_center_deg.az_deg = 4.0f;
     runtime_patch.scan_center_deg.el_deg = -1.0f;
@@ -248,6 +251,8 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
   EXPECT_NE(content.find("\"enable_kalman_filter\":false"), std::string::npos);
   EXPECT_NE(content.find("\"scan_center_deg\":{\"az_deg\":12.5"), std::string::npos);
   EXPECT_NE(content.find("\"event_type\":\"runtime_config_patch\""), std::string::npos);
+  EXPECT_NE(content.find("\"has_policy\":true"), std::string::npos);
+  EXPECT_NE(content.find("\"kalman_measurement_noise_std\":7.5"), std::string::npos);
   EXPECT_NE(content.find("\"has_scan_center_deg\":true"), std::string::npos);
   EXPECT_NE(content.find("\"event_type\":\"scene_state\""), std::string::npos);
   EXPECT_NE(content.find("\"jammer_emitters\":[{\"technique\":1"), std::string::npos);
