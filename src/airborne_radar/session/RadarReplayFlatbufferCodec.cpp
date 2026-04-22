@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
 #include "airborne_radar/session/generated/airborne_radar_replay_generated.h"
 #include "airborne_radar/session/generated/airborne_radar_scene_replay_generated.h"
 #include "airborne_radar/session/generated/airborne_radar_session_replay_generated.h"
@@ -101,10 +102,95 @@ model::TargetFeature DecodeTargetFeature(const fb::TargetFeature* value) {
   return result;
 }
 
+flatbuffers::Offset<fb::DecisionTrackStateSnapshot> EncodeTrackStateSnapshot(
+    flatbuffers::FlatBufferBuilder* builder, const model::DecisionTrackStateSnapshot& value) {
+  return fb::CreateDecisionTrackStateSnapshot(
+      *builder, value.association_key, value.external_target_id,
+      static_cast<int>(value.status), value.position_x, value.position_y, value.position_z,
+      value.velocity_x, value.velocity_y, value.velocity_z, value.speed,
+      value.acceleration_x, value.acceleration_y, value.acceleration_z, value.acceleration,
+      value.rcs, value.jamming_detected, value.hit_count, value.miss_count);
+}
+
+flatbuffers::Offset<fb::DecisionMeasurementEvidence> EncodeTrackEvidence(
+    flatbuffers::FlatBufferBuilder* builder, const model::DecisionMeasurementEvidence& value) {
+  return fb::CreateDecisionMeasurementEvidence(
+      *builder, value.has_measurement_evidence, value.updated_this_cycle,
+      value.predicted_only_this_cycle, value.matched_existing_track, value.association_cost,
+      value.detection_margin_db, value.used_position_association,
+      value.used_external_association_seeds);
+}
+
+flatbuffers::Offset<fb::DecisionTrackSnapshot> EncodeTrackSnapshot(
+    flatbuffers::FlatBufferBuilder* builder, const model::DecisionTrackSnapshot& value) {
+  return fb::CreateDecisionTrackSnapshot(*builder, EncodeTrackStateSnapshot(builder, value.state),
+                                         EncodeTrackEvidence(builder, value.evidence));
+}
+
+model::DecisionTrackStateSnapshot DecodeTrackStateSnapshot(
+    const fb::DecisionTrackStateSnapshot* value) {
+  model::DecisionTrackStateSnapshot result;
+  if (value != nullptr) {
+    result.association_key = value->association_key();
+    result.external_target_id = value->external_target_id();
+    result.status = static_cast<model::DecisionTrackStatus>(value->status());
+    result.position_x = value->position_x();
+    result.position_y = value->position_y();
+    result.position_z = value->position_z();
+    result.velocity_x = value->velocity_x();
+    result.velocity_y = value->velocity_y();
+    result.velocity_z = value->velocity_z();
+    result.speed = value->speed();
+    result.acceleration_x = value->acceleration_x();
+    result.acceleration_y = value->acceleration_y();
+    result.acceleration_z = value->acceleration_z();
+    result.acceleration = value->acceleration();
+    result.rcs = value->rcs();
+    result.jamming_detected = value->jamming_detected();
+    result.hit_count = value->hit_count();
+    result.miss_count = value->miss_count();
+  }
+  return result;
+}
+
+model::DecisionMeasurementEvidence DecodeTrackEvidence(
+    const fb::DecisionMeasurementEvidence* value) {
+  model::DecisionMeasurementEvidence result;
+  if (value != nullptr) {
+    result.has_measurement_evidence = value->has_measurement_evidence();
+    result.updated_this_cycle = value->updated_this_cycle();
+    result.predicted_only_this_cycle = value->predicted_only_this_cycle();
+    result.matched_existing_track = value->matched_existing_track();
+    result.association_cost = value->association_cost();
+    result.detection_margin_db = value->detection_margin_db();
+    result.used_position_association = value->used_position_association();
+    result.used_external_association_seeds = value->used_external_association_seeds();
+  }
+  return result;
+}
+
+model::DecisionTrackSnapshot DecodeTrackSnapshot(const fb::DecisionTrackSnapshot* value) {
+  model::DecisionTrackSnapshot result;
+  if (value != nullptr) {
+    result.state = DecodeTrackStateSnapshot(value->state());
+    result.evidence = DecodeTrackEvidence(value->evidence());
+  }
+  return result;
+}
+
 flatbuffers::Offset<fb::TrackOutputFrame> EncodeTrackOutputFrame(
     flatbuffers::FlatBufferBuilder* builder, const output::TrackOutputFrame& value) {
-  return fb::CreateTrackOutputFrame(*builder, value.cycle_index,
-                                    static_cast<std::uint64_t>(value.published_track_count));
+  std::vector<flatbuffers::Offset<fb::DecisionTrackSnapshot>> track_offsets;
+  track_offsets.reserve(value.tracks.size());
+  for (std::size_t i = 0; i < value.tracks.size(); ++i) {
+    track_offsets.push_back(EncodeTrackSnapshot(builder, value.tracks[i]));
+  }
+  const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fb::DecisionTrackSnapshot>>>
+      tracks_vec = builder->CreateVector(track_offsets);
+  return fb::CreateTrackOutputFrame(
+      *builder, value.cycle_index, static_cast<std::uint64_t>(value.published_track_count),
+      value.batch_id, static_cast<std::uint64_t>(value.confirmed_track_count),
+      value.contains_lost_tracks, tracks_vec);
 }
 
 output::TrackOutputFrame DecodeTrackOutputFrame(const fb::TrackOutputFrame* value) {
@@ -112,6 +198,17 @@ output::TrackOutputFrame DecodeTrackOutputFrame(const fb::TrackOutputFrame* valu
   if (value != nullptr) {
     result.cycle_index = value->cycle_index();
     result.published_track_count = static_cast<std::size_t>(value->published_track_count());
+    result.batch_id = value->batch_id();
+    result.confirmed_track_count = static_cast<std::size_t>(value->confirmed_track_count());
+    result.contains_lost_tracks = value->contains_lost_tracks();
+    const flatbuffers::Vector<flatbuffers::Offset<fb::DecisionTrackSnapshot>>* tracks =
+        value->tracks();
+    if (tracks != nullptr) {
+      result.tracks.reserve(tracks->size());
+      for (flatbuffers::uoffset_t i = 0; i < tracks->size(); ++i) {
+        result.tracks.push_back(DecodeTrackSnapshot(tracks->Get(i)));
+      }
+    }
   }
   return result;
 }
@@ -634,6 +731,21 @@ environment::EnvironmentRuntimeConfigPatch DecodeSessionEnvironmentRuntimeConfig
   return result;
 }
 
+flatbuffers::Offset<session_fb::EnvironmentDefaultConfig> EncodeEnvironmentDefaultConfig(
+    flatbuffers::FlatBufferBuilder* builder, const environment::EnvironmentDefaultConfig& value) {
+  return session_fb::CreateEnvironmentDefaultConfig(
+      *builder, EncodeSessionEnvironmentScenarioConfig(builder, value.scenario_config));
+}
+
+environment::EnvironmentDefaultConfig DecodeEnvironmentDefaultConfig(
+    const session_fb::EnvironmentDefaultConfig* value) {
+  environment::EnvironmentDefaultConfig result;
+  if (value != nullptr) {
+    result.scenario_config = DecodeSessionEnvironmentScenarioConfig(value->scenario_config());
+  }
+  return result;
+}
+
 }  // namespace
 
 std::string EncodeCycleInputFlatbuffer(const RadarCycleInput& input) {
@@ -780,7 +892,8 @@ std::string EncodeSessionConfigFlatbuffer(const RadarSessionConfig& config) {
           builder, EncodeSessionDetectionConfig(&builder, config.hardware.detection),
           EncodeSessionOrientation(&builder, config.mission.orientation),
           EncodeSessionPolicyConfig(&builder, config.policy),
-          static_cast<int>(config.jamming_sensitivity_profile));
+          static_cast<int>(config.jamming_sensitivity_profile),
+          EncodeEnvironmentDefaultConfig(&builder, config.environment));
   builder.Finish(root, session_fb::RadarSessionConfigIdentifier());
 
   const std::uint8_t* buffer = builder.GetBufferPointer();
@@ -818,6 +931,7 @@ bool DecodeSessionConfigFlatbuffer(const std::string& payload_bytes, RadarSessio
   config->policy = DecodeSessionPolicyConfig(root->policy());
   config->jamming_sensitivity_profile =
       static_cast<environment::JammingSensitivityProfile>(root->jamming_sensitivity_profile());
+  config->environment = DecodeEnvironmentDefaultConfig(root->environment_default_config());
   return true;
 }
 
@@ -958,10 +1072,9 @@ std::string EncodeFailureMarkerFlatbuffer(const oneq::replay::ReplayTraceFailure
                                           std::uint64_t last_event_sequence) {
   flatbuffers::FlatBufferBuilder builder;
   const flatbuffers::Offset<fb::FailureMarker> root = fb::CreateFailureMarkerDirect(
-      builder, failure.error_code.c_str(), failure.message.c_str(),
-      failure.location.c_str(), failure.has_cycle_index, failure.cycle_index,
-      failure.has_sim_time_sec, failure.sim_time_sec, failure.diagnostics_json.c_str(),
-      has_last_event_sequence, last_event_sequence);
+      builder, failure.error_code.c_str(), failure.message.c_str(), failure.location.c_str(),
+      failure.has_cycle_index, failure.cycle_index, failure.has_sim_time_sec, failure.sim_time_sec,
+      failure.diagnostics_payload.c_str(), has_last_event_sequence, last_event_sequence);
   builder.Finish(root);
 
   const std::uint8_t* buffer = builder.GetBufferPointer();
@@ -970,8 +1083,7 @@ std::string EncodeFailureMarkerFlatbuffer(const oneq::replay::ReplayTraceFailure
 }
 
 bool DecodeFailureMarkerFlatbuffer(const std::string& payload_bytes,
-                                   oneq::replay::ReplayTraceFailure* failure,
-                                   std::string* error) {
+                                   oneq::replay::ReplayTraceFailure* failure, std::string* error) {
   if (failure == nullptr) {
     if (error != nullptr) {
       *error = "null FailureMarker output";
@@ -1002,7 +1114,7 @@ bool DecodeFailureMarkerFlatbuffer(const std::string& payload_bytes,
   failure->cycle_index = root->cycle_index();
   failure->has_sim_time_sec = root->has_sim_time_sec();
   failure->sim_time_sec = root->sim_time_sec();
-  failure->diagnostics_json = root->diagnostics() ? root->diagnostics()->str() : "{}";
+  failure->diagnostics_payload = root->diagnostics() ? root->diagnostics()->str() : "{}";
   return true;
 }
 

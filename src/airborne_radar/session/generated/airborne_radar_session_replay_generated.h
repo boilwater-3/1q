@@ -87,6 +87,9 @@ struct JammerEmitterStateBuilder;
 struct EnvironmentScenarioConfig;
 struct EnvironmentScenarioConfigBuilder;
 
+struct EnvironmentDefaultConfig;
+struct EnvironmentDefaultConfigBuilder;
+
 struct EnvironmentRuntimeConfigPatch;
 struct EnvironmentRuntimeConfigPatchBuilder;
 
@@ -98,6 +101,9 @@ struct RadarSessionConfigBuilder;
 
 struct EulerAnglesDeg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef EulerAnglesDegBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.EulerAnglesDeg";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_YAW_DEG = 4,
     VT_PITCH_DEG = 6,
@@ -160,6 +166,9 @@ inline flatbuffers::Offset<EulerAnglesDeg> CreateEulerAnglesDeg(
 
 struct AzimuthElevationDeg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef AzimuthElevationDegBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.AzimuthElevationDeg";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_AZ_DEG = 4,
     VT_EL_DEG = 6
@@ -212,6 +221,9 @@ inline flatbuffers::Offset<AzimuthElevationDeg> CreateAzimuthElevationDeg(
 
 struct AzimuthElevationLimitsDeg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef AzimuthElevationLimitsDegBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.AzimuthElevationLimitsDeg";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_AZ_MIN_DEG = 4,
     VT_AZ_MAX_DEG = 6,
@@ -284,6 +296,9 @@ inline flatbuffers::Offset<AzimuthElevationLimitsDeg> CreateAzimuthElevationLimi
 
 struct CommandedBeamwidthDeg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef CommandedBeamwidthDegBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.CommandedBeamwidthDeg";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_COMMANDED_AZ_BEAMWIDTH_DEG = 4,
     VT_COMMANDED_EL_BEAMWIDTH_DEG = 6
@@ -336,6 +351,9 @@ inline flatbuffers::Offset<CommandedBeamwidthDeg> CreateCommandedBeamwidthDeg(
 
 struct RadarOrientationConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef RadarOrientationConfigBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.RadarOrientationConfig";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_MOUNT_ANGLES_DEG = 4,
     VT_SCAN_CENTER_DEG = 6,
@@ -473,6 +491,9 @@ inline flatbuffers::Offset<RadarOrientationConfig> CreateRadarOrientationConfig(
 
 struct TransmitterConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef TransmitterConfigBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.TransmitterConfig";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_PEAK_POWER_W = 4,
     VT_FREQUENCY_HZ = 6,
@@ -565,6 +586,9 @@ inline flatbuffers::Offset<TransmitterConfig> CreateTransmitterConfig(
 
 struct AntennaPatternConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef AntennaPatternConfigBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.AntennaPatternConfig";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_MODEL_TYPE = 4,
     VT_MAX_SIDELOBE_LEVEL_DB = 6,
@@ -658,6 +682,9 @@ inline flatbuffers::Offset<AntennaPatternConfig> CreateAntennaPatternConfig(
 
 struct AntennaConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef AntennaConfigBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.AntennaConfig";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_MAIN_BEAM_GAIN_DB = 4,
     VT_NOMINAL_AZ_BEAMWIDTH_DEG = 6,
@@ -741,6 +768,9 @@ inline flatbuffers::Offset<AntennaConfig> CreateAntennaConfig(
 
 struct ReceiverConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef ReceiverConfigBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.ReceiverConfig";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_NOISE_FIGURE_DB = 4,
     VT_RECEIVE_LOSS_DB = 6
@@ -793,6 +823,9 @@ inline flatbuffers::Offset<ReceiverConfig> CreateReceiverConfig(
 
 struct DetectionPolicyConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef DetectionPolicyConfigBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.DetectionPolicyConfig";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_CFAR_PFA = 4,
     VT_MIN_SNR_DB = 6
@@ -845,6 +878,9 @@ inline flatbuffers::Offset<DetectionPolicyConfig> CreateDetectionPolicyConfig(
 
 struct RcsPhysicsConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef RcsPhysicsConfigBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.RcsPhysicsConfig";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ENABLE_PHYSICAL_RCS = 4,
     VT_FREQUENCY_HZ = 6,
@@ -967,6 +1003,9 @@ inline flatbuffers::Offset<RcsPhysicsConfig> CreateRcsPhysicsConfig(
 
 struct DetectionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef DetectionConfigBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.DetectionConfig";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ENABLE_PHYSICS_DETECTION = 4,
     VT_SWERLING_MODEL = 6,
@@ -1094,6 +1133,9 @@ inline flatbuffers::Offset<DetectionConfig> CreateDetectionConfig(
 
 struct BeamPointingConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef BeamPointingConfigBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.BeamPointingConfig";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_DEFAULT_SCAN_CENTER_DEG = 4,
     VT_NOMINAL_BEAMWIDTH_DEG = 6
@@ -1148,6 +1190,9 @@ inline flatbuffers::Offset<BeamPointingConfig> CreateBeamPointingConfig(
 
 struct BeamSchedulerConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef BeamSchedulerConfigBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.BeamSchedulerConfig";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_AZIMUTH_STEP_COUNT_HINT = 4,
     VT_ELEVATION_STEP_COUNT_HINT = 6,
@@ -1210,6 +1255,9 @@ inline flatbuffers::Offset<BeamSchedulerConfig> CreateBeamSchedulerConfig(
 
 struct BeamControlConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef BeamControlConfigBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.BeamControlConfig";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_POINTING = 4,
     VT_SCHEDULER = 6
@@ -1264,6 +1312,9 @@ inline flatbuffers::Offset<BeamControlConfig> CreateBeamControlConfig(
 
 struct AssociationConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef AssociationConfigBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.AssociationConfig";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_UNASSIGNED_COST = 4,
     VT_USE_DISTANCE_GATE_HINT = 6,
@@ -1326,6 +1377,9 @@ inline flatbuffers::Offset<AssociationConfig> CreateAssociationConfig(
 
 struct TrackingConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef TrackingConfigBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.TrackingConfig";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ENABLE_KALMAN_FILTER = 4,
     VT_KALMAN_MEASUREMENT_NOISE_STD = 6,
@@ -1408,6 +1462,9 @@ inline flatbuffers::Offset<TrackingConfig> CreateTrackingConfig(
 
 struct LifecycleConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef LifecycleConfigBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.LifecycleConfig";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_CONFIRM_HITS = 4,
     VT_MAX_MISS_BEFORE_LOST = 6,
@@ -1480,6 +1537,9 @@ inline flatbuffers::Offset<LifecycleConfig> CreateLifecycleConfig(
 
 struct ImmConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef ImmConfigBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.ImmConfig";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ENABLE_IMM_LIFECYCLE = 4,
     VT_MODEL_COUNT_HINT = 6
@@ -1532,6 +1592,9 @@ inline flatbuffers::Offset<ImmConfig> CreateImmConfig(
 
 struct RadarPolicyConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef RadarPolicyConfigBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.RadarPolicyConfig";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_BEAM_CONTROL = 4,
     VT_ASSOCIATION = 6,
@@ -1619,6 +1682,9 @@ inline flatbuffers::Offset<RadarPolicyConfig> CreateRadarPolicyConfig(
 
 struct AtmosphericPhysicsConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef AtmosphericPhysicsConfigBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.AtmosphericPhysicsConfig";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ENABLE_PHYSICAL_MODEL = 4,
     VT_PRESSURE_HPA = 6,
@@ -1691,6 +1757,9 @@ inline flatbuffers::Offset<AtmosphericPhysicsConfig> CreateAtmosphericPhysicsCon
 
 struct AtmosphericDerivedContext FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef AtmosphericDerivedContextBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.AtmosphericDerivedContext";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_HAS_SIMULATION_UNIX_SECONDS = 4,
     VT_SIMULATION_UNIX_SECONDS = 6,
@@ -1773,6 +1842,9 @@ inline flatbuffers::Offset<AtmosphericDerivedContext> CreateAtmosphericDerivedCo
 
 struct VegetationScatterPhysicsConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef VegetationScatterPhysicsConfigBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.VegetationScatterPhysicsConfig";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_COVER_PROFILE = 4,
     VT_ENABLE_PHYSICAL_MODEL = 6
@@ -1825,6 +1897,9 @@ inline flatbuffers::Offset<VegetationScatterPhysicsConfig> CreateVegetationScatt
 
 struct JammerEmitterState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef JammerEmitterStateBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.JammerEmitterState";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_TECHNIQUE = 4,
     VT_POWER_DB = 6,
@@ -1937,6 +2012,9 @@ inline flatbuffers::Offset<JammerEmitterState> CreateJammerEmitterState(
 
 struct EnvironmentScenarioConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef EnvironmentScenarioConfigBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.EnvironmentScenarioConfig";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ATMOSPHERIC_PHYSICS = 4,
     VT_ATMOSPHERIC_CONTEXT = 6,
@@ -2027,8 +2105,57 @@ inline flatbuffers::Offset<EnvironmentScenarioConfig> CreateEnvironmentScenarioC
       jammer_sources__);
 }
 
+struct EnvironmentDefaultConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef EnvironmentDefaultConfigBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.EnvironmentDefaultConfig";
+  }
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_SCENARIO_CONFIG = 4
+  };
+  const oneq::replay::airborne_radar::session::fb::EnvironmentScenarioConfig *scenario_config() const {
+    return GetPointer<const oneq::replay::airborne_radar::session::fb::EnvironmentScenarioConfig *>(VT_SCENARIO_CONFIG);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_SCENARIO_CONFIG) &&
+           verifier.VerifyTable(scenario_config()) &&
+           verifier.EndTable();
+  }
+};
+
+struct EnvironmentDefaultConfigBuilder {
+  typedef EnvironmentDefaultConfig Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_scenario_config(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::EnvironmentScenarioConfig> scenario_config) {
+    fbb_.AddOffset(EnvironmentDefaultConfig::VT_SCENARIO_CONFIG, scenario_config);
+  }
+  explicit EnvironmentDefaultConfigBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  EnvironmentDefaultConfigBuilder &operator=(const EnvironmentDefaultConfigBuilder &);
+  flatbuffers::Offset<EnvironmentDefaultConfig> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<EnvironmentDefaultConfig>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<EnvironmentDefaultConfig> CreateEnvironmentDefaultConfig(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::EnvironmentScenarioConfig> scenario_config = 0) {
+  EnvironmentDefaultConfigBuilder builder_(_fbb);
+  builder_.add_scenario_config(scenario_config);
+  return builder_.Finish();
+}
+
 struct EnvironmentRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef EnvironmentRuntimeConfigPatchBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.EnvironmentRuntimeConfigPatch";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_HAS_SCENARIO_CONFIG = 4,
     VT_SCENARIO_CONFIG = 6,
@@ -2102,6 +2229,9 @@ inline flatbuffers::Offset<EnvironmentRuntimeConfigPatch> CreateEnvironmentRunti
 
 struct RadarRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef RadarRuntimeConfigPatchBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.RadarRuntimeConfigPatch";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_HAS_MISSION = 4,
     VT_MISSION_ORIENTATION = 6,
@@ -2300,11 +2430,15 @@ inline flatbuffers::Offset<RadarRuntimeConfigPatch> CreateRadarRuntimeConfigPatc
 
 struct RadarSessionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef RadarSessionConfigBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.session.fb.RadarSessionConfig";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_HARDWARE_DETECTION = 4,
     VT_MISSION_ORIENTATION = 6,
     VT_POLICY = 8,
-    VT_JAMMING_SENSITIVITY_PROFILE = 10
+    VT_JAMMING_SENSITIVITY_PROFILE = 10,
+    VT_ENVIRONMENT_DEFAULT_CONFIG = 12
   };
   const oneq::replay::airborne_radar::session::fb::DetectionConfig *hardware_detection() const {
     return GetPointer<const oneq::replay::airborne_radar::session::fb::DetectionConfig *>(VT_HARDWARE_DETECTION);
@@ -2318,6 +2452,9 @@ struct RadarSessionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   int32_t jamming_sensitivity_profile() const {
     return GetField<int32_t>(VT_JAMMING_SENSITIVITY_PROFILE, 0);
   }
+  const oneq::replay::airborne_radar::session::fb::EnvironmentDefaultConfig *environment_default_config() const {
+    return GetPointer<const oneq::replay::airborne_radar::session::fb::EnvironmentDefaultConfig *>(VT_ENVIRONMENT_DEFAULT_CONFIG);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_HARDWARE_DETECTION) &&
@@ -2327,6 +2464,8 @@ struct RadarSessionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyOffset(verifier, VT_POLICY) &&
            verifier.VerifyTable(policy()) &&
            VerifyField<int32_t>(verifier, VT_JAMMING_SENSITIVITY_PROFILE) &&
+           VerifyOffset(verifier, VT_ENVIRONMENT_DEFAULT_CONFIG) &&
+           verifier.VerifyTable(environment_default_config()) &&
            verifier.EndTable();
   }
 };
@@ -2347,6 +2486,9 @@ struct RadarSessionConfigBuilder {
   void add_jamming_sensitivity_profile(int32_t jamming_sensitivity_profile) {
     fbb_.AddElement<int32_t>(RadarSessionConfig::VT_JAMMING_SENSITIVITY_PROFILE, jamming_sensitivity_profile, 0);
   }
+  void add_environment_default_config(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::EnvironmentDefaultConfig> environment_default_config) {
+    fbb_.AddOffset(RadarSessionConfig::VT_ENVIRONMENT_DEFAULT_CONFIG, environment_default_config);
+  }
   explicit RadarSessionConfigBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -2364,8 +2506,10 @@ inline flatbuffers::Offset<RadarSessionConfig> CreateRadarSessionConfig(
     flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::DetectionConfig> hardware_detection = 0,
     flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::RadarOrientationConfig> mission_orientation = 0,
     flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::RadarPolicyConfig> policy = 0,
-    int32_t jamming_sensitivity_profile = 0) {
+    int32_t jamming_sensitivity_profile = 0,
+    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::EnvironmentDefaultConfig> environment_default_config = 0) {
   RadarSessionConfigBuilder builder_(_fbb);
+  builder_.add_environment_default_config(environment_default_config);
   builder_.add_jamming_sensitivity_profile(jamming_sensitivity_profile);
   builder_.add_policy(policy);
   builder_.add_mission_orientation(mission_orientation);

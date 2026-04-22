@@ -38,6 +38,47 @@ table RadarCycleInput {
 table TrackOutputFrame {
   cycle_index:uint;
   published_track_count:ulong;
+  batch_id:ulong;
+  confirmed_track_count:ulong;
+  contains_lost_tracks:bool;
+  tracks:[DecisionTrackSnapshot];
+}
+
+table DecisionTrackStateSnapshot {
+  association_key:ulong;
+  external_target_id:ulong;
+  status:int;
+  position_x:float;
+  position_y:float;
+  position_z:float;
+  velocity_x:float;
+  velocity_y:float;
+  velocity_z:float;
+  speed:float;
+  acceleration_x:float;
+  acceleration_y:float;
+  acceleration_z:float;
+  acceleration:float;
+  rcs:float;
+  jamming_detected:bool;
+  hit_count:uint;
+  miss_count:uint;
+}
+
+table DecisionMeasurementEvidence {
+  has_measurement_evidence:bool;
+  updated_this_cycle:bool;
+  predicted_only_this_cycle:bool;
+  matched_existing_track:bool;
+  association_cost:float;
+  detection_margin_db:float;
+  used_position_association:bool;
+  used_external_association_seeds:bool;
+}
+
+table DecisionTrackSnapshot {
+  state:DecisionTrackStateSnapshot;
+  evidence:DecisionMeasurementEvidence;
 }
 
 table RadarCycleResult {

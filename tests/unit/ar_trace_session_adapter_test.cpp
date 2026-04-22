@@ -3,8 +3,10 @@
  * @brief 验证三模块 TraceSession 中间层能够落盘记录 config/input/output。
  */
 
+#include <flatbuffers/flexbuffers.h>
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -15,10 +17,6 @@
 #include <sstream>
 #include <string>
 #include <vector>
-
-#include <flatbuffers/flexbuffers.h>
-
-#include "airborne_radar/session/RadarReplayFlatbufferCodec.h"
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
 #include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
@@ -31,10 +29,12 @@
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
 #include "1q/replay/ReplayTrace.h"
 #include "1q/trace/TraceSink.h"
+#include "airborne_radar/session/RadarReplayFlatbufferCodec.h"
 
 namespace {
 
 std::string MakeTempTracePath(const char* prefix) {
+  static unsigned int unique_counter = 0U;
   const char* temp_dir = nullptr;
 #if defined(_WIN32)
   temp_dir = std::getenv("TEMP");
@@ -58,7 +58,10 @@ std::string MakeTempTracePath(const char* prefix) {
   if (!path.empty() && path[path.size() - 1] != '/' && path[path.size() - 1] != '\\') {
     stream << "/";
   }
-  stream << prefix << "-" << std::time(nullptr) << "-" << std::rand() << ".jsonl";
+  const long long ticks = static_cast<long long>(
+      std::chrono::high_resolution_clock::now().time_since_epoch().count());
+  stream << prefix << "-" << std::time(nullptr) << "-" << ticks << "-" << std::rand()
+         << "-" << unique_counter++ << ".trace";
   return stream.str();
 }
 
@@ -105,26 +108,6 @@ void ExpectFlatbufferRecord(const std::vector<std::uint8_t>& content,
 
 namespace airborne_radar {
 namespace tests {
-
-TEST(TraceSessionAdapterTest, RadarTraceSessionWritesConfigInputOutput) {
-  const std::string trace_path = MakeTempTracePath("oneq-radar-trace");
-  std::shared_ptr<oneq::trace::TraceSink> sink(
-      new oneq::trace::JsonlFileTraceSink(trace_path, false));
-
-  session::RadarSessionConfig config = config::presets::MakeDefaultRadarSessionConfig();
-
-  session::RadarTraceSession session(config, session::RadarTraceSessionOptions{sink, true});
-  session::RadarCycleInput input;
-  input.dt_sec = 1.0f;
-
-  const session::RadarCycleResult result = session.StepWithResult(input);
-  EXPECT_GE(result.track_output_frame.published_track_count, 0U);
-
-  const std::string content = ReadFile(trace_path);
-  ExpectCommonTracePhases(content, "airborne_radar");
-
-  std::remove(trace_path.c_str());
-}
 
 TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) {
   const std::string trace_dir = MakeTempTracePath("oneq-radar-replay-trace");
@@ -399,8 +382,7 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionStopsAtFailureMarker) {
     failure.message = "synthetic replay failure marker";
     failure.has_cycle_index = true;
     failure.cycle_index = result.track_output_frame.cycle_index;
-    const std::string failure_bytes =
-        session::EncodeFailureMarkerFlatbuffer(failure, false, 0U);
+    const std::string failure_bytes = session::EncodeFailureMarkerFlatbuffer(failure, false, 0U);
     replay_writer->WriteFailureMarker(failure, failure_bytes);
     replay_writer->Flush();
   }
@@ -488,8 +470,15 @@ TEST(TraceSessionAdapterTest, PlatformFileTraceSinkUsesPlatformBackend) {
   std::shared_ptr<TraceSink> sink(new PlatformFileTraceSink(trace_path, false));
   sink->Record("platform_module", "input", "{\"value\":1}");
 
+#if defined(_WIN32)
   const std::vector<std::uint8_t> content = ReadBinaryFile(trace_path);
   ExpectFlatbufferRecord(content, "platform_module", "input");
+#else
+  const std::string content = ReadFile(trace_path);
+  EXPECT_NE(content.find("\"module\":\"platform_module\""), std::string::npos);
+  EXPECT_NE(content.find("\"phase\":\"input\""), std::string::npos);
+  EXPECT_NE(content.find("\"payload\":{\"value\":1}"), std::string::npos);
+#endif
 
   std::remove(trace_path.c_str());
 }

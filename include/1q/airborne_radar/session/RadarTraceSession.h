@@ -14,7 +14,6 @@
 
 #include "1q/airborne_radar/session/RadarSession.h"
 #include "1q/replay/ReplayTrace.h"
-#include "1q/trace/TraceSink.h"
 
 namespace airborne_radar {
 namespace session {
@@ -23,20 +22,13 @@ namespace session {
  * @brief RadarTraceSessionOptions 描述记录包装器配置。
  */
 struct ONEQ_API RadarTraceSessionOptions {
-  std::shared_ptr<oneq::trace::TraceSink> sink{}; /**< 记录输出 sink */
   std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer{};
-  bool trace_config_on_construct{true};                   /**< 构造时是否记录配置 */
+  bool trace_config_on_construct{true}; /**< 构造时是否记录配置 */
 
   RadarTraceSessionOptions() = default;
-  RadarTraceSessionOptions(std::shared_ptr<oneq::trace::TraceSink> trace_sink,
+  RadarTraceSessionOptions(std::shared_ptr<oneq::replay::ReplayTraceWriter> writer,
                            bool trace_config)
-      : sink(std::move(trace_sink)), trace_config_on_construct(trace_config) {}
-  RadarTraceSessionOptions(std::shared_ptr<oneq::trace::TraceSink> trace_sink,
-                           bool trace_config,
-                           std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_trace_writer)
-      : sink(std::move(trace_sink)),
-        replay_writer(std::move(replay_trace_writer)),
-        trace_config_on_construct(trace_config) {}
+      : replay_writer(std::move(writer)), trace_config_on_construct(trace_config) {}
 };
 
 /**
@@ -51,9 +43,8 @@ class ONEQ_API RadarTraceSession {
   output::TrackOutputFrame Step(const RadarCycleInput& input,
                                 const environment::EnvironmentSceneState& scene_state);
   RadarCycleResult StepWithResult(const RadarCycleInput& input);
-  RadarCycleResult StepWithResult(
-      const RadarCycleInput& input,
-      const environment::EnvironmentSceneState& scene_state);
+  RadarCycleResult StepWithResult(const RadarCycleInput& input,
+                                  const environment::EnvironmentSceneState& scene_state);
 
   void ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch);
 
@@ -66,11 +57,9 @@ class ONEQ_API RadarTraceSession {
   const RadarSession& session() const;
 
  private:
-  void Record(const std::string& phase, const std::string& payload_json) const;
-
   RadarSession session_;
-  std::shared_ptr<oneq::trace::TraceSink> sink_;
   std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer_;
+  bool pending_input_written_{false};  // NOLINT: used via pointer in RadarTraceSession.cpp
 };
 
 }  // namespace session

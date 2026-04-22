@@ -184,6 +184,10 @@ table EnvironmentScenarioConfig {
   jammer_sources:[JammerEmitterState];
 }
 
+table EnvironmentDefaultConfig {
+  scenario_config:EnvironmentScenarioConfig;
+}
+
 table EnvironmentRuntimeConfigPatch {
   has_scenario_config:bool;
   scenario_config:EnvironmentScenarioConfig;
@@ -215,6 +219,7 @@ table RadarSessionConfig {
   mission_orientation:RadarOrientationConfig;
   policy:RadarPolicyConfig;
   jamming_sensitivity_profile:int;
+  environment_default_config:EnvironmentDefaultConfig;
 }
 
 root_type RadarSessionConfig;

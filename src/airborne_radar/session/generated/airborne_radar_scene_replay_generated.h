@@ -29,6 +29,9 @@ struct EnvironmentSceneStateBuilder;
 
 struct AtmosphericPhysicsConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef AtmosphericPhysicsConfigBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.scene.fb.AtmosphericPhysicsConfig";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ENABLE_PHYSICAL_MODEL = 4,
     VT_PRESSURE_HPA = 6,
@@ -101,6 +104,9 @@ inline flatbuffers::Offset<AtmosphericPhysicsConfig> CreateAtmosphericPhysicsCon
 
 struct AtmosphericDerivedContext FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef AtmosphericDerivedContextBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.scene.fb.AtmosphericDerivedContext";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_HAS_SIMULATION_UNIX_SECONDS = 4,
     VT_SIMULATION_UNIX_SECONDS = 6,
@@ -183,6 +189,9 @@ inline flatbuffers::Offset<AtmosphericDerivedContext> CreateAtmosphericDerivedCo
 
 struct VegetationScatterPhysicsConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef VegetationScatterPhysicsConfigBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.scene.fb.VegetationScatterPhysicsConfig";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_COVER_PROFILE = 4,
     VT_ENABLE_PHYSICAL_MODEL = 6
@@ -235,6 +244,9 @@ inline flatbuffers::Offset<VegetationScatterPhysicsConfig> CreateVegetationScatt
 
 struct JammerEmitterState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef JammerEmitterStateBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.scene.fb.JammerEmitterState";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_TECHNIQUE = 4,
     VT_POWER_DB = 6,
@@ -347,6 +359,9 @@ inline flatbuffers::Offset<JammerEmitterState> CreateJammerEmitterState(
 
 struct EnvironmentSceneState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef EnvironmentSceneStateBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
+    return "oneq.replay.airborne_radar.scene.fb.EnvironmentSceneState";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ATMOSPHERIC_PHYSICS = 4,
     VT_ATMOSPHERIC_CONTEXT = 6,
