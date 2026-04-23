@@ -63,9 +63,7 @@
 #include "1q/electro_optical_sensor/config/electro_optical_sensor_config.hpp"
 #include "1q/electro_optical_sensor/electro_optical_sensor.hpp"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentConfig.h"
-#include "1q/electro_optical_sensor/environment/EosEnvironmentConfigBuilder.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentRuntimeConfigPatch.h"
-#include "1q/electro_optical_sensor/environment/EosEnvironmentRuntimeConfigPatchBuilder.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
 #include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
 #include "1q/electro_optical_sensor/environment/electro_optical_sensor_environment.hpp"
@@ -223,14 +221,6 @@ static_assert(std::is_same<airborne_radar::session::RadarSessionConfig,
                            decltype(airborne_radar::config::RadarDetailedSessionConfigBuilder()
                                         .Build())>::value,
               "RadarDetailedSessionConfigBuilder::Build must return RadarSessionConfig");
-static_assert(
-    std::is_same<
-        electro_optical_sensor::environment::EosEnvironmentRuntimeConfigPatch,
-        decltype(electro_optical_sensor::environment::EosEnvironmentRuntimeConfigPatchBuilder()
-                     .WithScenarioConfig(
-                         electro_optical_sensor::environment::EosEnvironmentScenarioConfig{})
-                     .Build())>::value,
-    "EosEnvironmentRuntimeConfigPatchBuilder::Build must return EosEnvironmentRuntimeConfigPatch");
 static_assert(
     std::is_same<
         electro_optical_sensor::session::EosSessionConfig,
