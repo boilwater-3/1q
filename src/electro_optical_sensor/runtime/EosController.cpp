@@ -4,7 +4,12 @@
 #include <memory>
 
 #include "1q/electro_optical_sensor/extension/IEosPipeline.h"
+#include "common/runtime/RuntimeCycleExecutor.h"
 #include "common/logging/ProjectLog.h"
+#include "electro_optical_sensor/runtime/components/EosCycleOutcomeRecorder.h"
+#include "electro_optical_sensor/runtime/components/EosInputValidator.h"
+#include "electro_optical_sensor/runtime/components/EosRuntimeHooks.h"
+#include "electro_optical_sensor/runtime/components/EosSignalProcessor.h"
 
 namespace electro_optical_sensor {
 namespace extension {
@@ -17,23 +22,6 @@ bool IsCompatibleControllerRuntimeState(const extension::EosControllerRuntimeSta
                                         const void* owner_identity) {
   return state.owner_identity == owner_identity &&
          state.schema_version == kControllerRuntimeStateSchemaVersion;
-}
-
-extension::EosPipelineAbortReason NormalizeAbortReason(
-    extension::EosPipelineAbortReason abort_reason) {
-  if (abort_reason == extension::EosPipelineAbortReason::kNone) {
-    return extension::EosPipelineAbortReason::kOutputContractViolation;
-  }
-  return abort_reason;
-}
-
-bool IsExecuteResultContractValid(const extension::EosPipelineExecuteResult& execute_result,
-                                  const ::electro_optical_sensor::session::EosCycleInput& input) {
-  if (!execute_result.executed_this_cycle) {
-    return false;
-  }
-  return execute_result.abort_reason == extension::EosPipelineAbortReason::kNone &&
-         execute_result.output_frame.cycle_index == input.cycle_index;
 }
 
 }  // namespace
@@ -56,21 +44,29 @@ EosController::EosController(extension::IEosPipeline& pipeline) : impl_(new Impl
 EosController::~EosController() = default;
 
 void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInput& input) {
+  runtime::components::EosInputValidator input_validator;
+  runtime::components::EosSignalProcessor signal_processor(impl_->pipeline);
+  runtime::components::EosCycleOutcomeRecorder outcome_recorder(
+      impl_->latest_output, impl_->has_latest_output, impl_->last_cycle_executed,
+      impl_->last_cycle_reused_previous_output, impl_->last_abort_reason);
+
   const output::EosOutputFrame previous_output = impl_->latest_output;
   const bool had_previous_output = impl_->has_latest_output;
   const extension::EosPipelineRuntimeState previous_pipeline_state =
-      impl_->pipeline.CaptureRuntimeState();
+      signal_processor.CaptureRuntimeState();
+  const oneq::internal::runtime::RuntimeCycleStamp stamp =
+      oneq::internal::runtime::MakeRuntimeCycleStamp(input.cycle_index, 0U);
 
-  impl_->last_cycle_executed = false;
-  impl_->last_cycle_reused_previous_output = false;
-  impl_->last_abort_reason = extension::EosPipelineAbortReason::kNone;
-  impl_->last_validation_issues = session::ValidateEosCycleInput(input);
-  impl_->has_validation_error = session::HasValidationError(impl_->last_validation_issues);
-  if (impl_->has_validation_error) {
-    impl_->last_abort_reason = extension::EosPipelineAbortReason::kValidationRejected;
-    impl_->last_cycle_reused_previous_output = had_previous_output;
-    impl_->latest_output = previous_output;
-    impl_->has_latest_output = had_previous_output;
+  runtime::components::EosRuntimeHooks hooks(
+      input_validator, signal_processor, outcome_recorder, previous_output, had_previous_output,
+      previous_pipeline_state, impl_->has_validation_error);
+
+  outcome_recorder.ResetPerCycleFlags();
+  const oneq::internal::runtime::RuntimeValidationResult<session::ValidationIssueList> validation =
+      hooks.Validate(input);
+  impl_->last_validation_issues = validation.issues;
+  if (validation.has_error) {
+    hooks.BuildErrorOutput(input, stamp);
     PROJECT_LOG_DEBUG(
         "[EosController] cycle telemetry: cycle_index={} executed=false "
         "abort=kValidationRejected validation_issues={}",
@@ -78,31 +74,14 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
     return;
   }
 
-  const extension::EosPipelineExecuteResult execute_result = impl_->pipeline.Execute(input);
-  if (!IsExecuteResultContractValid(execute_result, input)) {
-    const bool restore_ok = impl_->pipeline.RestoreRuntimeState(previous_pipeline_state);
-    if (!restore_ok) {
-      impl_->latest_output = output::EosOutputFrame{};
-      impl_->has_latest_output = false;
-      impl_->last_cycle_executed = false;
-      impl_->last_cycle_reused_previous_output = false;
-      impl_->last_abort_reason = extension::EosPipelineAbortReason::kRuntimeStateRestoreRejected;
-      return;
-    }
-    impl_->latest_output = previous_output;
-    impl_->has_latest_output = had_previous_output;
-    impl_->last_cycle_executed = false;
-    impl_->last_cycle_reused_previous_output = had_previous_output;
-    impl_->last_abort_reason = NormalizeAbortReason(execute_result.abort_reason);
-    return;
+  hooks.FreezeEnvironment(input, stamp);
+  const output::EosOutputFrame output_frame = hooks.Execute(input, stamp);
+  if (impl_->last_cycle_executed) {
+    PROJECT_LOG_DEBUG(
+        "[EosController] cycle telemetry: cycle_index={} executed=true "
+        "detections={} input_targets={} abort=kNone",
+        input.cycle_index, output_frame.detections.size(), input.scene_targets.size());
   }
-  impl_->latest_output = execute_result.output_frame;
-  impl_->has_latest_output = true;
-  impl_->last_cycle_executed = true;
-  PROJECT_LOG_DEBUG(
-      "[EosController] cycle telemetry: cycle_index={} executed=true "
-      "detections={} input_targets={} abort=kNone",
-      input.cycle_index, execute_result.output_frame.detections.size(), input.scene_targets.size());
 }
 
 bool EosController::HasLatestOutputFrame() const { return impl_->has_latest_output; }

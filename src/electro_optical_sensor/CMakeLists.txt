@@ -12,6 +12,10 @@ set(EOS_SOURCES
     electro_optical_sensor/session/EosExternalInputAdapter.cpp
     electro_optical_sensor/session/EosInputValidation.cpp
     electro_optical_sensor/runtime/EosController.cpp
+    electro_optical_sensor/runtime/components/EosCycleOutcomeRecorder.cpp
+    electro_optical_sensor/runtime/components/EosInputValidator.cpp
+    electro_optical_sensor/runtime/components/EosRuntimeHooks.cpp
+    electro_optical_sensor/runtime/components/EosSignalProcessor.cpp
     electro_optical_sensor/runtime/EosCycleOrchestrator.cpp
     electro_optical_sensor/signal/pipeline/EosPipeline.cpp
     electro_optical_sensor/runtime/EosPipelineConfigMapper.cpp

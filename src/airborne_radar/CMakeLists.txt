@@ -62,6 +62,9 @@ set(AIRBORNE_CORE_SOURCES
     airborne_radar/runtime/CycleTelemetryLogger.cpp
     airborne_radar/runtime/RadarCycleOrchestrator.cpp
     airborne_radar/runtime/RadarController.cpp
+    airborne_radar/runtime/components/RadarCycleOutcomeRecorder.cpp
+    airborne_radar/runtime/components/RadarRuntimeHooks.cpp
+    airborne_radar/runtime/components/RadarRuntimeInputBuilder.cpp
     airborne_radar/session/RadarSessionCompositionRoot.cpp
     airborne_radar/session/RadarExternalInputAdapter.cpp
     airborne_radar/session/RadarSessionConfigPresets.cpp

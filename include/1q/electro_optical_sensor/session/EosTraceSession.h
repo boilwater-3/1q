@@ -8,12 +8,18 @@
 
 #include <cstdint>
 #include <memory>
-#include <string>
 #include <utility>
 
 #include "1q/electro_optical_sensor/session/EosSession.h"
-#include "1q/replay/ReplayTrace.h"
-#include "1q/trace/TraceSink.h"
+
+namespace oneq {
+namespace replay {
+class ReplayTraceWriter;
+}
+namespace trace {
+class TraceSink;
+}
+}  // namespace oneq
 
 namespace electro_optical_sensor {
 namespace session {
@@ -45,6 +51,12 @@ class ONEQ_API EosTraceSession {
  public:
   explicit EosTraceSession(EosSessionConfig config = {},
                            EosTraceSessionOptions options = {});
+  ~EosTraceSession();
+
+  EosTraceSession(const EosTraceSession&) = delete;
+  EosTraceSession& operator=(const EosTraceSession&) = delete;
+  EosTraceSession(EosTraceSession&&) noexcept;
+  EosTraceSession& operator=(EosTraceSession&&) noexcept;
 
   /**
    * @brief 执行单周期并返回输出帧（输出便捷入口）。
@@ -64,15 +76,8 @@ class ONEQ_API EosTraceSession {
   const EosSession& session() const;
 
  private:
-  void WriteReplayEvent(const std::string& event_type, const std::string& payload_type,
-                        const std::string& payload_bytes) const;
-  void WriteReplayEvent(const std::string& event_type, const std::string& payload_type,
-                        const std::string& payload_bytes, std::uint32_t cycle_index) const;
-
-  EosSession session_;
-  std::shared_ptr<oneq::trace::TraceSink> sink_;
-  std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer_;
-  bool pending_input_written_{false}; /**< P2-B: 追踪是否有待对应 output 的 cycle_input */
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 }  // namespace session

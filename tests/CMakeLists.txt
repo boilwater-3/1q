@@ -179,6 +179,12 @@ add_test(
             -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_esr_include_direction.cmake
 )
+add_test(
+    NAME public_header_external_dependency_isolation_guard
+    COMMAND ${CMAKE_COMMAND}
+            -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_public_header_external_dependency_isolation.cmake
+)
 
 set_tests_properties(
     public_api_boundary_guard
@@ -187,5 +193,6 @@ set_tests_properties(
     eos_include_style_guard
     airborne_include_direction_guard
     esr_include_direction_guard
+    public_header_external_dependency_isolation_guard
     PROPERTIES LABELS "contract"
 )

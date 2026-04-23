@@ -8,12 +8,18 @@
 
 #include <cstdint>
 #include <memory>
-#include <string>
 #include <utility>
 
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
-#include "1q/replay/ReplayTrace.h"
-#include "1q/trace/TraceSink.h"
+
+namespace oneq {
+namespace replay {
+class ReplayTraceWriter;
+}
+namespace trace {
+class TraceSink;
+}
+}  // namespace oneq
 
 namespace electronic_surveillance_radar {
 namespace session {
@@ -45,6 +51,12 @@ class ONEQ_API EsrTraceSession {
  public:
   explicit EsrTraceSession(session::EsrSessionConfig config = {},
                            EsrTraceSessionOptions options = {});
+  ~EsrTraceSession();
+
+  EsrTraceSession(const EsrTraceSession&) = delete;
+  EsrTraceSession& operator=(const EsrTraceSession&) = delete;
+  EsrTraceSession(EsrTraceSession&&) noexcept;
+  EsrTraceSession& operator=(EsrTraceSession&&) noexcept;
 
   output::EsrOutputFrame Step(const session::EsrCycleInput& input);
   session::EsrCycleResult StepWithResult(const session::EsrCycleInput& input);
@@ -54,15 +66,8 @@ class ONEQ_API EsrTraceSession {
   const session::EsrSession& session() const;
 
  private:
-  void WriteReplayEvent(const std::string& event_type, const std::string& payload_type,
-                        const std::string& payload_bytes) const;
-  void WriteReplayEvent(const std::string& event_type, const std::string& payload_type,
-                        const std::string& payload_bytes, std::uint32_t cycle_index) const;
-
-  session::EsrSession session_;
-  std::shared_ptr<oneq::trace::TraceSink> sink_;
-  std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer_;
-  bool pending_input_written_{false};
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 }  // namespace session

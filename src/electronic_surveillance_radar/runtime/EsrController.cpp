@@ -1,13 +1,15 @@
 #include "1q/electronic_surveillance_radar/extension/EsrController.h"
 
-#include <cstddef>
 #include <memory>
 
 #include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
 #include "1q/electronic_surveillance_radar/extension/IInterceptPipeline.h"
 #include "common/runtime/RuntimeCycleExecutor.h"
 #include "electronic_surveillance_radar/output/EsrOutputManager.h"
-#include "electronic_surveillance_radar/runtime/EsrCycleTelemetryLogger.h"
+#include "electronic_surveillance_radar/runtime/components/EsrEnvironmentUpdater.h"
+#include "electronic_surveillance_radar/runtime/components/EsrOutputFormatter.h"
+#include "electronic_surveillance_radar/runtime/components/EsrRuntimeHooks.h"
+#include "electronic_surveillance_radar/runtime/components/EsrSignalProcessor.h"
 
 namespace electronic_surveillance_radar {
 namespace extension {
@@ -35,76 +37,13 @@ EsrController::EsrController(extension::IInterceptPipeline& pipeline,
 EsrController::~EsrController() = default;
 
 void EsrController::RunOnce(const session::EsrCycleInput& input) {
-  struct EsrRuntimeHooks {
-    Impl* impl{nullptr};
-
-    oneq::internal::runtime::RuntimeValidationResult<session::ValidationIssueList> Validate(
-        const session::EsrCycleInput& cycle_input) const {
-      oneq::internal::runtime::RuntimeValidationResult<session::ValidationIssueList> result;
-      result.issues = session::ValidateEsrCycleInput(cycle_input);
-      result.has_error = session::HasValidationError(result.issues);
-      return result;
-    }
-
-    void FreezeEnvironment(const session::EsrCycleInput& cycle_input,
-                           const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
-      if (impl == nullptr) {
-        return;
-      }
-      environment::EsrEnvironmentCycleContext environment_context;
-      environment_context.cycle_index = stamp.cycle_index;
-      environment_context.dt_sec = cycle_input.dt_sec;
-      environment_context.observation = cycle_input.environment_observation;
-      impl->environment_service.BeginCycle(environment_context);
-    }
-
-    output::EsrOutputFrame Execute(const session::EsrCycleInput& cycle_input,
-                                   const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
-      const extension::InterceptCycleResult intercept_result =
-          impl->pipeline.RunCycle(cycle_input, impl->environment_service);
-      const output::EsrOutputFrame output_frame = impl->output_manager.BuildOutputFrame(
-          stamp.cycle_index, stamp.batch_id, intercept_result);
-
-      std::size_t matched_truth_count = 0U;
-      for (std::size_t i = 0; i < output_frame.truth_evaluation_output.associations.size(); ++i) {
-        if (output_frame.truth_evaluation_output.associations[i].matched) {
-          ++matched_truth_count;
-        }
-      }
-
-      const runtime::EsrCycleTelemetryPayload payload(
-          stamp, cycle_input.scene_emitters.size(), intercept_result.raw_observation_count,
-          output_frame.observation_output.observations.size(), intercept_result.cluster_count,
-          output_frame.emitter_output.hypotheses.size(),
-          output_frame.truth_evaluation_output.associations.size(), matched_truth_count, true);
-      runtime::EsrCycleTelemetryLogger::LogCycleSummary(payload);
-
-      impl->last_cycle_executed = true;
-      impl->last_cycle_reused_previous_output = false;
-      impl->last_abort_reason = extension::EsrPipelineAbortReason::kNone;
-
-      return output_frame;
-    }
-
-    output::EsrOutputFrame BuildErrorOutput(
-        const session::EsrCycleInput& cycle_input,
-        const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
-      (void)cycle_input;
-      impl->last_cycle_executed = false;
-      impl->last_abort_reason = extension::EsrPipelineAbortReason::kValidationRejected;
-
-      if (impl->runtime_state.has_latest_output) {
-        impl->last_cycle_reused_previous_output = true;
-        return impl->runtime_state.latest_output;
-      }
-      
-      impl->last_cycle_reused_previous_output = false;
-      return impl->output_manager.BuildEmptyFrame(stamp.cycle_index, stamp.batch_id);
-    }
-  };
-
-  EsrRuntimeHooks hooks;
-  hooks.impl = impl_.get();
+  runtime::components::EsrEnvironmentUpdater environment_updater(impl_->environment_service);
+  runtime::components::EsrSignalProcessor signal_processor(impl_->pipeline);
+  runtime::components::EsrOutputFormatter output_formatter(impl_->output_manager);
+  runtime::components::EsrRuntimeHooks hooks(
+      environment_updater, signal_processor, output_formatter, impl_->environment_service,
+      impl_->runtime_state, impl_->last_cycle_executed, impl_->last_cycle_reused_previous_output,
+      impl_->last_abort_reason);
   oneq::internal::runtime::ExecuteRuntimeCycle(input, input.cycle_index, &impl_->runtime_state,
                                                &hooks);
 }

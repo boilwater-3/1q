@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
-#include <vector>
 
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/output/TrackOutputFrame.h"
@@ -12,8 +11,10 @@
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/extension/ISignalPipeline.h"
 #include "airborne_radar/runtime/ControlCommandMapper.h"
-#include "airborne_radar/runtime/CycleTelemetryLogger.h"
 #include "airborne_radar/runtime/RadarCycleOrchestrator.h"
+#include "airborne_radar/runtime/components/RadarCycleOutcomeRecorder.h"
+#include "airborne_radar/runtime/components/RadarRuntimeHooks.h"
+#include "airborne_radar/runtime/components/RadarRuntimeInputBuilder.h"
 #include "airborne_radar/decision/pipeline/ControlReducer.h"
 #include "airborne_radar/decision/pipeline/TacticalCoordinator.h"
 #include "airborne_radar/signal/assembly/DataOutputManager.h"
@@ -30,16 +31,6 @@ bool IsCompatibleSignalPipelineRuntimeState(const extension::SignalPipelineRunti
                                             const extension::ISignalPipeline& pipeline) {
   return state.owner_identity == &pipeline && state.schema_version == 1U;
 }
-
-/**
- * @brief AirborneRuntimeInput 描述单周期骨架执行需要的输入快照。
- */
-struct AirborneRuntimeInput {
-  const model::TargetFeatureList* target_features{
-      nullptr};                                            /**< 当前周期目标输入只读视图。 */
-  model::PlatformAttitudeDeg platform_attitude{}; /**< 当前平台姿态。 */
-  float cycle_dt_sec{1.0f};                                /**< 当前周期步长。 */
-};
 
 }  // namespace
 
@@ -116,110 +107,28 @@ RadarController::RadarController(extension::IRadarContext& radar_context,
 RadarController::~RadarController() = default;
 
 void RadarController::RunOnce() {
-  const environment::EnvironmentServiceRuntimeState environment_state =
-      impl_->environment_service.CaptureRuntimeState();
-  const output::TrackOutputFrame previous_output = impl_->runtime_state.latest_output;
-  const bool had_previous_output = impl_->runtime_state.has_latest_output;
-  const std::uint64_t previous_batch_id = impl_->runtime_state.next_batch_id;
-  const std::uint32_t previous_cycle_index = impl_->cycle_index;
-  const extension::SignalPipelineRuntimeState pipeline_state =
-      impl_->signal_pipeline.CaptureRuntimeState();
+  runtime::components::RadarCycleOutcomeRecorder outcome_recorder(
+      impl_->environment_service, impl_->signal_pipeline, impl_->runtime_state, impl_->cycle_index,
+      impl_->last_cycle_executed, impl_->last_cycle_reused_previous_output,
+      impl_->last_signal_abort_reason);
+  const runtime::components::RadarCycleSnapshot snapshot = outcome_recorder.CaptureSnapshot();
+  outcome_recorder.ResetPerCycleFlags();
 
-  impl_->last_cycle_executed = false;
-  impl_->last_cycle_reused_previous_output = false;
-  impl_->last_signal_abort_reason = extension::SignalCycleAbortReason::kNone;
-  AirborneRuntimeInput runtime_input;
-  runtime_input.target_features = &impl_->radar_context.GetTargetFeatures();
-  runtime_input.platform_attitude = impl_->radar_context.GetPlatformAttitude();
-  runtime_input.cycle_dt_sec = impl_->radar_context.GetCycleDeltaTimeSec();
+  runtime::components::RadarRuntimeInputBuilder runtime_input_builder;
+  const runtime::components::AirborneRuntimeInput runtime_input =
+      runtime_input_builder.Build(impl_->radar_context);
 
-  struct AirborneRuntimeHooks {
-    Impl* impl{nullptr};
-
-    oneq::internal::runtime::RuntimeValidationResult<session::ValidationIssueList> Validate(
-        const AirborneRuntimeInput& input) const {
-      oneq::internal::runtime::RuntimeValidationResult<session::ValidationIssueList> result;
-      result.issues = session::ValidateRadarCycleDeltaTime(input.cycle_dt_sec);
-      if (input.target_features != nullptr) {
-        const session::ValidationIssueList target_issues =
-            session::ValidateTargetFeatures(*input.target_features);
-        result.issues.insert(result.issues.end(), target_issues.begin(), target_issues.end());
-      }
-      result.has_error = session::HasValidationError(result.issues);
-      return result;
-    }
-
-    void FreezeEnvironment(const AirborneRuntimeInput& input,
-                           const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
-      if (impl == nullptr) {
-        return;
-      }
-      impl->cycle_orchestrator->FreezeEnvironment(input.cycle_dt_sec, stamp);
-    }
-
-    output::TrackOutputFrame Execute(
-        const AirborneRuntimeInput& input,
-        const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
-      const CycleExecutionResult exec_result = impl->cycle_orchestrator->Execute(
-          input.target_features, input.platform_attitude, impl->control_profile.get(), stamp);
-      impl->last_cycle_executed = exec_result.signal_result.executed_this_cycle;
-      impl->last_signal_abort_reason = exec_result.signal_result.abort_reason;
-      impl->last_cycle_reused_previous_output =
-          !impl->last_cycle_executed && impl->runtime_state.has_latest_output;
-      if (!impl->last_cycle_executed) {
-        return BuildErrorOutput(input, stamp);
-      }
-
-      const extension::ControlReductionResult reduction_result =
-          impl->command_mapper->Apply(&impl->control_profile.get(),
-                                      exec_result.decision_result.proposals);
-
-      const std::size_t input_target_count =
-          input.target_features != nullptr ? input.target_features->size() : 0u;
-      CycleTelemetryLogger::LogCycleSummary(
-          CycleTelemetryPayload(
-              stamp, input_target_count,
-              exec_result.signal_result.decision_frame.tracks.size(),
-              reduction_result.applied_directives.size(),
-              exec_result.signal_result.decision_frame.environment_jamming_detected,
-              impl->control_profile.get().version,
-              exec_result.signal_result.decision_frame.perception_quality_info,
-              exec_result.signal_result.association_quality_metrics));
-      return exec_result.track_output_frame;
-    }
-
-    output::TrackOutputFrame BuildErrorOutput(
-        const AirborneRuntimeInput& input,
-        const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
-      (void)input;
-      if (impl != nullptr) {
-        impl->last_cycle_executed = false;
-        impl->last_cycle_reused_previous_output = impl->runtime_state.has_latest_output;
-      }
-      if (impl != nullptr && impl->runtime_state.has_latest_output) {
-        return impl->runtime_state.latest_output;
-      }
-      output::TrackOutputFrame frame;
-      frame.cycle_index = stamp.cycle_index;
-      frame.batch_id = stamp.batch_id;
-      return frame;
-    }
-  };
-
-  AirborneRuntimeHooks hooks;
-  hooks.impl = impl_.get();
+  runtime::components::RadarRuntimeHooks hooks(
+      *impl_->cycle_orchestrator, *impl_->command_mapper, impl_->control_profile.get(),
+      impl_->runtime_state, impl_->last_cycle_executed, impl_->last_cycle_reused_previous_output,
+      impl_->last_signal_abort_reason);
   oneq::internal::runtime::ExecuteRuntimeCycle(runtime_input, impl_->cycle_index,
                                                &impl_->runtime_state, &hooks);
   if (!impl_->last_cycle_executed) {
-    impl_->environment_service.RestoreRuntimeState(environment_state);
-    impl_->signal_pipeline.RestoreRuntimeState(pipeline_state);
-    impl_->runtime_state.latest_output = previous_output;
-    impl_->runtime_state.has_latest_output = had_previous_output;
-    impl_->runtime_state.next_batch_id = previous_batch_id;
-    impl_->cycle_index = previous_cycle_index;
+    outcome_recorder.RestoreFromFailedCycle(snapshot);
     return;
   }
-  ++impl_->cycle_index;
+  outcome_recorder.CommitSuccessfulCycle();
 }
 
 void RadarController::RunCycles(std::size_t cycles) {
