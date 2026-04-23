@@ -72,7 +72,7 @@ std::string ReadFile(const std::string& path) {
   return buffer.str();
 }
 
-std::vector<std::uint8_t> ReadBinaryFile(const std::string& path) {
+__attribute__((unused)) std::vector<std::uint8_t> ReadBinaryFile(const std::string& path) {
   std::ifstream input(path.c_str(), std::ios::in | std::ios::binary);
   return std::vector<std::uint8_t>((std::istreambuf_iterator<char>(input)),
                                    std::istreambuf_iterator<char>());
@@ -85,8 +85,9 @@ void ExpectCommonTracePhases(const std::string& content, const std::string& modu
   EXPECT_NE(content.find("\"phase\":\"output\""), std::string::npos);
 }
 
-void ExpectFlatbufferRecord(const std::vector<std::uint8_t>& content,
-                            const std::string& module_name, const std::string& phase_name) {
+__attribute__((unused)) void ExpectFlatbufferRecord(const std::vector<std::uint8_t>& content,
+                                                    const std::string& module_name,
+                                                    const std::string& phase_name) {
   ASSERT_GE(content.size(), 4U);
 
   const std::uint32_t payload_size = static_cast<std::uint32_t>(content[0]) |

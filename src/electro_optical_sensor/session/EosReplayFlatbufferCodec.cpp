@@ -41,7 +41,9 @@ flatbuffers::Offset<eos::replay::PoseState> BuildPoseState(
 
 oneq::foundation::PoseState FromFbPoseState(const eos::replay::PoseState* fb) {
   oneq::foundation::PoseState out{};
-  if (!fb) return out;
+  if (!fb) {
+    return out;
+  }
   if (fb->position_m()) {
     out.position_m.x = fb->position_m()->x();
     out.position_m.y = fb->position_m()->y();
@@ -71,7 +73,7 @@ std::string EncodeEosCycleInput(const EosCycleInput& v) {
   targets_vec.reserve(v.scene_targets.size());
   for (const auto& t : v.scene_targets) {
     auto b = eos::replay::CreateEosTargetState(
-        fbb, t.target_id, t.range_m, t.azimuth_deg, t.elevation_deg,
+        fbb, static_cast<std::uint32_t>(t.target_id), t.range_m, t.azimuth_deg, t.elevation_deg,
         t.apparent_temperature_k, t.emissivity, t.reflectance, t.projected_area_m2);
     targets_vec.push_back(b);
   }
@@ -97,7 +99,9 @@ std::string EncodeEosCycleInput(const EosCycleInput& v) {
 
 bool DecodeEosCycleInput(const std::string& bytes, EosCycleInput* out) {
   flatbuffers::Verifier verifier(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
-  if (!verifier.VerifyBuffer<eos::replay::EosCycleInput>()) return false;
+  if (!verifier.VerifyBuffer<eos::replay::EosCycleInput>()) {
+    return false;
+  }
   const auto* fb = flatbuffers::GetRoot<eos::replay::EosCycleInput>(bytes.data());
   out->cycle_index = fb->cycle_index();
   out->dt_sec = fb->dt_sec();
@@ -135,7 +139,7 @@ std::string EncodeEosOutputFrame(const output::EosOutputFrame& v) {
   det_vec.reserve(v.detections.size());
   for (const auto& d : v.detections) {
     det_vec.push_back(eos::replay::CreateEosDetectionRecord(
-        fbb, d.target_id, d.range_m, d.azimuth_deg, d.elevation_deg,
+        fbb, static_cast<std::uint32_t>(d.target_id), d.range_m, d.azimuth_deg, d.elevation_deg,
         d.infrared_snr_linear, d.visible_snr_linear, d.fused_snr_linear,
         d.fused_snr_db, d.detected));
   }
@@ -148,7 +152,9 @@ std::string EncodeEosOutputFrame(const output::EosOutputFrame& v) {
 
 bool DecodeEosOutputFrame(const std::string& bytes, output::EosOutputFrame* out) {
   flatbuffers::Verifier verifier(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
-  if (!verifier.VerifyBuffer<eos::replay::EosOutputFrame>()) return false;
+  if (!verifier.VerifyBuffer<eos::replay::EosOutputFrame>()) {
+    return false;
+  }
   const auto* fb = flatbuffers::GetRoot<eos::replay::EosOutputFrame>(bytes.data());
   out->cycle_index = fb->cycle_index();
   out->scan_azimuth_deg = fb->scan_azimuth_deg();
@@ -180,7 +186,7 @@ std::string EncodeEosCycleResult(const ::electro_optical_sensor::session::EosCyc
   std::vector<flatbuffers::Offset<eos::replay::EosDetectionRecord>> det_vec;
   for (const auto& d : v.output_frame.detections) {
     det_vec.push_back(eos::replay::CreateEosDetectionRecord(
-        fbb, d.target_id, d.range_m, d.azimuth_deg, d.elevation_deg,
+        fbb, static_cast<std::uint32_t>(d.target_id), d.range_m, d.azimuth_deg, d.elevation_deg,
         d.infrared_snr_linear, d.visible_snr_linear, d.fused_snr_linear,
         d.fused_snr_db, d.detected));
   }
@@ -193,7 +199,7 @@ std::string EncodeEosCycleResult(const ::electro_optical_sensor::session::EosCyc
     auto msg = fbb.CreateString(i.message);
     issue_vec.push_back(eos::replay::CreateValidationIssue(
         fbb, static_cast<int32_t>(i.severity), static_cast<int32_t>(i.code),
-        i.target_index, msg));
+        static_cast<int32_t>(i.target_index), msg));
   }
 
   auto result = eos::replay::CreateEosCycleResult(
@@ -207,7 +213,9 @@ std::string EncodeEosCycleResult(const ::electro_optical_sensor::session::EosCyc
 
 bool DecodeEosCycleResult(const std::string& bytes, ::electro_optical_sensor::session::EosCycleResult* out) {
   flatbuffers::Verifier verifier(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
-  if (!verifier.VerifyBuffer<eos::replay::EosCycleResult>()) return false;
+  if (!verifier.VerifyBuffer<eos::replay::EosCycleResult>()) {
+    return false;
+  }
   const auto* fb = flatbuffers::GetRoot<eos::replay::EosCycleResult>(bytes.data());
   if (fb->output_frame()) {
     DecodeEosOutputFrame(EncodeEosOutputFrame(out->output_frame), &out->output_frame);
@@ -235,15 +243,17 @@ bool DecodeEosCycleResult(const std::string& bytes, ::electro_optical_sensor::se
   out->abort_reason = static_cast<extension::EosPipelineAbortReason>(fb->abort_reason());
   out->validation_issues.clear();
   if (fb->validation_issues()) {
-    for (const auto* i : *fb->validation_issues()) {
-      session::ValidationIssue iss{};
-      iss.severity = static_cast<session::ValidationSeverity>(i->severity());
-      iss.code = static_cast<session::ValidationCode>(i->code());
-      iss.target_index = i->target_index();
-      if (i->message()) iss.message = i->message()->str();
-      out->validation_issues.push_back(iss);
+      for (const auto* i : *fb->validation_issues()) {
+        session::ValidationIssue iss{};
+        iss.severity = static_cast<session::ValidationSeverity>(i->severity());
+        iss.code = static_cast<session::ValidationCode>(i->code());
+        iss.target_index = static_cast<std::size_t>(i->target_index());
+        if (i->message()) {
+          iss.message = i->message()->str();
+        }
+        out->validation_issues.push_back(iss);
+      }
     }
-  }
   return true;
 }
 
@@ -305,7 +315,9 @@ std::string EncodeEosSessionConfig(const EosSessionConfig& v) {
 
 bool DecodeEosSessionConfig(const std::string& bytes, EosSessionConfig* out) {
   flatbuffers::Verifier verifier(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
-  if (!verifier.VerifyBuffer<eos::replay::EosSessionConfig>()) return false;
+  if (!verifier.VerifyBuffer<eos::replay::EosSessionConfig>()) {
+    return false;
+  }
   const auto* fb = flatbuffers::GetRoot<eos::replay::EosSessionConfig>(bytes.data());
 
   if (fb->hardware()) {
@@ -417,7 +429,9 @@ std::string EncodeEosRuntimeConfigPatch(const EosRuntimeConfigPatch& v) {
 
 bool DecodeEosRuntimeConfigPatch(const std::string& bytes, EosRuntimeConfigPatch* out) {
   flatbuffers::Verifier verifier(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
-  if (!verifier.VerifyBuffer<eos::replay::EosRuntimeConfigPatch>()) return false;
+  if (!verifier.VerifyBuffer<eos::replay::EosRuntimeConfigPatch>()) {
+    return false;
+  }
   const auto* fb = flatbuffers::GetRoot<eos::replay::EosRuntimeConfigPatch>(bytes.data());
   out->has_mission = fb->has_mission();
   out->has_policy = fb->has_policy();

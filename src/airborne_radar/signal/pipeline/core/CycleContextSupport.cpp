@@ -26,6 +26,7 @@ bool HasValidCycleWorkspace(const CycleWorkspace& workspace) {
 
 void ResetCycleWorkspace(const model::TargetFeatureList& input_state,
                          const ExecutionConfig& runtime_config, CycleWorkspace* workspace) {
+  (void)runtime_config;
   if (workspace == nullptr || !HasValidCycleWorkspace(*workspace)) {
     return;
   }

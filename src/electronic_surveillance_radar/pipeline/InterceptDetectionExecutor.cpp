@@ -191,20 +191,23 @@ float ComputeEmitterBeamOverlapRatio(const model::EsrPoseState& platform_pose,
           ToGeometryVector(emitter_state.pose.position_m),
           ToGeometryEuler(emitter_state.pose.attitude_deg),
           ToGeometryVector(platform_pose.position_m));
-  const float az_diff = std::fabs(oneq::internal::geometry::ComputeAzimuthDifferenceDeg(
-      emitter_to_platform.az_deg, emitter_state.beam_state.center_az_deg));
-  const float el_diff =
-      std::fabs(emitter_to_platform.el_deg - emitter_state.beam_state.center_el_deg);
-  const float half_az_width = std::max(1.0e-6f, 0.5f * emitter_state.beam_state.az_beamwidth_deg);
-  const float half_el_width = std::max(1.0e-6f, 0.5f * emitter_state.beam_state.el_beamwidth_deg);
-  const float normalized_az = az_diff / half_az_width;
-  const float normalized_el = el_diff / half_el_width;
-  const float normalized_distance =
+  const double az_diff = std::fabs(static_cast<double>(
+      oneq::internal::geometry::ComputeAzimuthDifferenceDeg(
+          emitter_to_platform.az_deg,
+          static_cast<float>(emitter_state.beam_state.center_az_deg))));
+  const double el_diff =
+      std::fabs(static_cast<double>(emitter_to_platform.el_deg) -
+                emitter_state.beam_state.center_el_deg);
+  const double half_az_width = std::max(1.0e-6, 0.5 * emitter_state.beam_state.az_beamwidth_deg);
+  const double half_el_width = std::max(1.0e-6, 0.5 * emitter_state.beam_state.el_beamwidth_deg);
+  const double normalized_az = az_diff / half_az_width;
+  const double normalized_el = el_diff / half_el_width;
+  const double normalized_distance =
       std::sqrt(normalized_az * normalized_az + normalized_el * normalized_el);
-  if (normalized_distance >= 1.0f) {
+  if (normalized_distance >= 1.0) {
     return 0.0f;
   }
-  return 1.0f - normalized_distance;
+  return static_cast<float>(1.0 - normalized_distance);
 }
 
 /**
@@ -318,18 +321,6 @@ model::EsrObservationQuality ClassifyObservationQuality(float snr_db, bool is_ja
 }
 
 /**
- * @brief 构造观测级置信度。
- * @param[in] snr_db 观测信噪比（单位：dB）。
- * @param[in] is_jammed 是否受扰。
- * @return 置信度，范围 [0, 1]。
- */
-float ComputeObservationConfidence(float snr_db, bool is_jammed) {
-  const float snr_score = utils::Clamp01((snr_db + 5.0f) / 30.0f);
-  const float jam_penalty = is_jammed ? 0.75f : 1.0f;
-  return utils::Clamp01(snr_score * jam_penalty);
-}
-
-/**
  * @brief 对真实观测施加欺骗式错分选扰动。
  * @param[in] deception_strength 欺骗强度。
  * @param[in] config 欺骗建模配置。
@@ -350,13 +341,14 @@ void ApplyDeceptionConfusion(float deception_strength, const extension::Intercep
   std::uniform_real_distribution<float> rf_ratio_dist(-rf_ratio, rf_ratio);
   std::uniform_real_distribution<float> pw_ratio_dist(-pw_ratio, pw_ratio);
 
-  record->observation.aoa_az_deg += az_noise_dist(*rng);
-  record->observation.aoa_el_deg += el_noise_dist(*rng);
+  record->observation.aoa_az_deg += static_cast<double>(az_noise_dist(*rng));
+  record->observation.aoa_el_deg += static_cast<double>(el_noise_dist(*rng));
   record->observation.rf_hz += static_cast<double>(record->observation.rf_hz) *
                                static_cast<double>(rf_ratio_dist(*rng) * strength);
   record->observation.pulse_width_s += static_cast<double>(record->observation.pulse_width_s) *
                                        static_cast<double>(pw_ratio_dist(*rng) * strength);
-  record->observation.pulse_width_s = std::max(record->observation.pulse_width_s, 1.0e-9);
+  record->observation.pulse_width_s =
+      std::max(record->observation.pulse_width_s, 1.0e-9);
   record->deception_affected = true;
 }
 
@@ -386,15 +378,16 @@ internal::RawObservationRecord BuildDeceptionRecord(
                                                       std::max(0.0f, config.pw_confusion_ratio));
   std::uniform_real_distribution<float> snr_loss_dist(4.0f, 10.0f);
   if (rng != nullptr) {
-    record.observation.aoa_az_deg += angle_dist(*rng);
-    record.observation.aoa_el_deg += angle_dist(*rng) * 0.6f;
+    record.observation.aoa_az_deg += static_cast<double>(angle_dist(*rng));
+    record.observation.aoa_el_deg += static_cast<double>(angle_dist(*rng) * 0.6f);
     record.observation.rf_hz += static_cast<double>(template_record.observation.rf_hz) *
                                 static_cast<double>(rf_ratio_dist(*rng) * strength);
     record.observation.pulse_width_s +=
         static_cast<double>(template_record.observation.pulse_width_s) *
         static_cast<double>(pw_shift_dist(*rng));
-    record.observation.pulse_width_s = std::max(record.observation.pulse_width_s, 1.0e-9);
-    record.observation.snr_db -= snr_loss_dist(*rng);
+    record.observation.pulse_width_s =
+        std::max(record.observation.pulse_width_s, 1.0e-9);
+    record.observation.snr_db -= static_cast<double>(snr_loss_dist(*rng));
   }
   record.observation.quality = model::EsrObservationQuality::kLow;
   record.observation.is_jammed = false;
@@ -527,12 +520,14 @@ InterceptDetectionOutput InterceptDetectionExecutor::Execute(const extension::IE
         intercept::InterceptGate::Evaluate(gate_input);
     const float effective_beamwidth_deg =
         std::max(1.0f, 0.5f * (gate_input.beam_az_width_deg + gate_input.beam_el_width_deg));
-    const float measured_az_deg =
-        target_az_deg + intercept::AngleErrorModel::SampleErrorDeg(snr_db, effective_beamwidth_deg,
-                                                                   &rng, angle_error_config);
-    const float measured_el_deg =
-        target_el_deg + intercept::AngleErrorModel::SampleErrorDeg(snr_db, effective_beamwidth_deg,
-                                                                   &rng, angle_error_config);
+    const double measured_az_deg =
+        static_cast<double>(target_az_deg) +
+        static_cast<double>(intercept::AngleErrorModel::SampleErrorDeg(
+            snr_db, effective_beamwidth_deg, &rng, angle_error_config));
+    const double measured_el_deg =
+        static_cast<double>(target_el_deg) +
+        static_cast<double>(intercept::AngleErrorModel::SampleErrorDeg(
+            snr_db, effective_beamwidth_deg, &rng, angle_error_config));
     const bool is_jammed =
         effective_suppression_power_w >=
         static_cast<double>(std::max(0.0f, config.suppression_model.suppression_mark_threshold_w));
@@ -548,8 +543,8 @@ InterceptDetectionOutput InterceptDetectionExecutor::Execute(const extension::IE
     base_record.observation.aoa_el_deg = measured_el_deg;
     base_record.observation.rf_hz = emitter.carrier_hz;
     base_record.observation.pulse_width_s = emitter.pulse_width_s;
-    base_record.observation.amplitude_db = ToDb(received_power_w);
-    base_record.observation.snr_db = snr_db;
+    base_record.observation.amplitude_db = static_cast<double>(ToDb(received_power_w));
+    base_record.observation.snr_db = static_cast<double>(snr_db);
     base_record.observation.quality = ClassifyObservationQuality(snr_db, is_jammed);
     base_record.observation.is_jammed = is_jammed;
 

@@ -27,7 +27,9 @@ flatbuffers::Offset<esr::replay::PoseState> BuildPose(
 
 model::EsrPoseState FromPose(const esr::replay::PoseState* fb) {
   model::EsrPoseState out{};
-  if (!fb) return out;
+  if (!fb) {
+    return out;
+  }
   if (fb->position_m()) {
     out.position_m.x = fb->position_m()->x();
     out.position_m.y = fb->position_m()->y();
@@ -61,9 +63,12 @@ std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
         e.beam_state.beam_state_valid);
     esr::replay::EmitterTruthStateBuilder eb(fbb);
     eb.add_emitter_id(id); eb.add_pose(pose); eb.add_beam_state(beam);
-    eb.add_carrier_hz(e.carrier_hz); eb.add_bandwidth_hz(e.bandwidth_hz);
-    eb.add_tx_power_w(e.tx_power_w); eb.add_pulse_width_s(e.pulse_width_s);
-    eb.add_pri_s(e.pri_s); eb.add_is_emitting(e.is_emitting);
+    eb.add_carrier_hz(e.carrier_hz);
+    eb.add_bandwidth_hz(e.bandwidth_hz);
+    eb.add_tx_power_w(e.tx_power_w);
+    eb.add_pulse_width_s(e.pulse_width_s);
+    eb.add_pri_s(e.pri_s);
+    eb.add_is_emitting(e.is_emitting);
     emitters.push_back(eb.Finish());
   }
 
@@ -96,7 +101,9 @@ std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
 
 bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
   flatbuffers::Verifier ver(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
-  if (!ver.VerifyBuffer<esr::replay::EsrCycleInput>()) return false;
+  if (!ver.VerifyBuffer<esr::replay::EsrCycleInput>()) {
+    return false;
+  }
   const auto* fb = flatbuffers::GetRoot<esr::replay::EsrCycleInput>(bytes.data());
   out->cycle_index = fb->cycle_index(); out->dt_sec = fb->dt_sec();
   out->platform_pose = FromPose(fb->platform_pose());
@@ -104,11 +111,16 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
   if (fb->scene_emitters()) {
     for (const auto* e : *fb->scene_emitters()) {
       model::EmitterTruthState ts{};
-      if (e->emitter_id()) ts.emitter_id = e->emitter_id()->str();
+      if (e->emitter_id()) {
+        ts.emitter_id = e->emitter_id()->str();
+      }
       ts.pose = FromPose(e->pose());
-      ts.carrier_hz = e->carrier_hz(); ts.bandwidth_hz = e->bandwidth_hz();
-      ts.tx_power_w = e->tx_power_w(); ts.pulse_width_s = e->pulse_width_s();
-      ts.pri_s = e->pri_s(); ts.is_emitting = e->is_emitting();
+      ts.carrier_hz = e->carrier_hz();
+      ts.bandwidth_hz = e->bandwidth_hz();
+      ts.tx_power_w = e->tx_power_w();
+      ts.pulse_width_s = e->pulse_width_s();
+      ts.pri_s = e->pri_s();
+      ts.is_emitting = e->is_emitting();
       if (e->beam_state()) {
         ts.beam_state.center_az_deg = e->beam_state()->center_az_deg();
         ts.beam_state.center_el_deg = e->beam_state()->center_el_deg();
@@ -157,8 +169,8 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> BuildOutputFrame(
   std::vector<flatbuffers::Offset<esr::replay::EmitterObservation>> obs_vec;
   for (const auto& o : v.observation_output.observations) {
     obs_vec.push_back(esr::replay::CreateEmitterObservation(fbb,
-        o.observation_id, o.timestamp_s, o.aoa_az_deg, o.aoa_el_deg,
-        o.rf_hz, o.pulse_width_s, o.amplitude_db, o.snr_db,
+        static_cast<std::uint32_t>(o.observation_id), o.timestamp_s,
+        o.aoa_az_deg, o.aoa_el_deg, o.rf_hz, o.pulse_width_s, o.amplitude_db, o.snr_db,
         static_cast<int32_t>(o.quality), o.is_jammed));
   }
   auto obs_out = esr::replay::CreateObservationOutput(fbb, fbb.CreateVector(obs_vec));
@@ -167,9 +179,11 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> BuildOutputFrame(
   std::vector<flatbuffers::Offset<esr::replay::EmitterHypothesis>> hyp_vec;
   for (const auto& h : v.emitter_output.hypotheses) {
     std::vector<flatbuffers::Offset<flatbuffers::String>> cls_vec;
-    for (const auto& c : h.candidate_classes) cls_vec.push_back(fbb.CreateString(c));
+    for (const auto& c : h.candidate_classes) {
+      cls_vec.push_back(fbb.CreateString(c));
+    }
     hyp_vec.push_back(esr::replay::CreateEmitterHypothesis(fbb,
-        h.hypothesis_id, fbb.CreateVector(cls_vec),
+        static_cast<std::uint32_t>(h.hypothesis_id), fbb.CreateVector(cls_vec),
         static_cast<int32_t>(h.mode), static_cast<int32_t>(h.threat_level),
         h.bearing_az_deg, h.bearing_el_deg, h.bearing_std_deg,
         h.confidence, h.last_seen_cycle));
@@ -180,17 +194,21 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> BuildOutputFrame(
   std::vector<flatbuffers::Offset<esr::replay::TruthAssociationRecord>> ta_vec;
   for (const auto& a : v.truth_evaluation_output.associations) {
     ta_vec.push_back(esr::replay::CreateTruthAssociationRecord(fbb,
-        a.observation_id, fbb.CreateString(a.truth_emitter_id), a.matched, a.confidence));
+        static_cast<std::uint32_t>(a.observation_id), fbb.CreateString(a.truth_emitter_id),
+        a.matched, static_cast<float>(a.confidence)));
   }
   auto truth_out =
       esr::replay::CreateTruthEvaluationOutput(fbb, fbb.CreateVector(ta_vec));
 
   return esr::replay::CreateEsrOutputFrame(
-      fbb, v.cycle_index, v.batch_id, obs_out, em_out, truth_out);
+      fbb, static_cast<std::uint32_t>(v.cycle_index), static_cast<std::uint32_t>(v.batch_id),
+      obs_out, em_out, truth_out);
 }
 
 void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, output::EsrOutputFrame* out) {
-  if (!fb) return;
+  if (!fb) {
+    return;
+  }
   out->cycle_index = fb->cycle_index();
   out->batch_id = fb->batch_id();
   if (fb->observation_output()) {
@@ -199,9 +217,12 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, output::EsrOutpu
       for (const auto* obs : *o->observations()) {
         model::EmitterObservation rec{};
         rec.observation_id = obs->observation_id();
-        rec.timestamp_s = obs->timestamp_s(); rec.aoa_az_deg = obs->aoa_az_deg();
-        rec.aoa_el_deg = obs->aoa_el_deg(); rec.rf_hz = obs->rf_hz();
-        rec.pulse_width_s = obs->pulse_width_s(); rec.amplitude_db = obs->amplitude_db();
+        rec.timestamp_s = obs->timestamp_s();
+        rec.aoa_az_deg = obs->aoa_az_deg();
+        rec.aoa_el_deg = obs->aoa_el_deg();
+        rec.rf_hz = obs->rf_hz();
+        rec.pulse_width_s = obs->pulse_width_s();
+        rec.amplitude_db = obs->amplitude_db();
         rec.snr_db = obs->snr_db(); rec.quality = static_cast<model::EsrObservationQuality>(obs->quality());
         rec.is_jammed = obs->is_jammed();
         out->observation_output.observations.push_back(rec);
@@ -220,8 +241,11 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, output::EsrOutpu
         hyp.bearing_std_deg = h->bearing_std_deg(); hyp.confidence = h->confidence();
         hyp.last_seen_cycle = h->last_seen_cycle();
         if (h->candidate_classes()) {
-          for (const auto* c : *h->candidate_classes())
-            if (c) hyp.candidate_classes.push_back(c->str());
+          for (const auto* c : *h->candidate_classes()) {
+            if (c) {
+              hyp.candidate_classes.push_back(c->str());
+            }
+          }
         }
         out->emitter_output.hypotheses.push_back(hyp);
       }
@@ -233,7 +257,9 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, output::EsrOutpu
       for (const auto* a : *t->associations()) {
         output::TruthAssociationRecord rec{};
         rec.observation_id = a->observation_id();
-        if (a->truth_emitter_id()) rec.truth_emitter_id = a->truth_emitter_id()->str();
+        if (a->truth_emitter_id()) {
+          rec.truth_emitter_id = a->truth_emitter_id()->str();
+        }
         rec.matched = a->matched(); rec.confidence = a->confidence();
         out->truth_evaluation_output.associations.push_back(rec);
       }
@@ -251,7 +277,9 @@ std::string EncodeEsrOutputFrame(const output::EsrOutputFrame& v) {
 
 bool DecodeEsrOutputFrame(const std::string& bytes, output::EsrOutputFrame* out) {
   flatbuffers::Verifier ver(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
-  if (!ver.VerifyBuffer<esr::replay::EsrOutputFrame>()) return false;
+  if (!ver.VerifyBuffer<esr::replay::EsrOutputFrame>()) {
+    return false;
+  }
   PopulateOutputFrame(flatbuffers::GetRoot<esr::replay::EsrOutputFrame>(bytes.data()), out);
   return true;
 }
@@ -263,7 +291,7 @@ std::string EncodeEsrCycleResult(const EsrCycleResult& v) {
   for (const auto& i : v.validation_issues) {
     issues.push_back(esr::replay::CreateValidationIssue(fbb,
         static_cast<int32_t>(i.severity), static_cast<int32_t>(i.code),
-        i.emitter_index, fbb.CreateString(i.message)));
+        static_cast<int32_t>(i.emitter_index), fbb.CreateString(i.message)));
   }
   fbb.Finish(esr::replay::CreateEsrCycleResult(fbb, frame,
       fbb.CreateVector(issues), v.has_validation_error));
@@ -272,7 +300,9 @@ std::string EncodeEsrCycleResult(const EsrCycleResult& v) {
 
 bool DecodeEsrCycleResult(const std::string& bytes, EsrCycleResult* out) {
   flatbuffers::Verifier ver(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
-  if (!ver.VerifyBuffer<esr::replay::EsrCycleResult>()) return false;
+  if (!ver.VerifyBuffer<esr::replay::EsrCycleResult>()) {
+    return false;
+  }
   const auto* fb = flatbuffers::GetRoot<esr::replay::EsrCycleResult>(bytes.data());
   PopulateOutputFrame(fb->output_frame(), &out->output_frame);
   out->has_validation_error = fb->has_validation_error();
@@ -282,8 +312,10 @@ bool DecodeEsrCycleResult(const std::string& bytes, EsrCycleResult* out) {
       ValidationIssue iss{};
       iss.severity = static_cast<ValidationSeverity>(i->severity());
       iss.code = static_cast<ValidationCode>(i->code());
-      iss.emitter_index = static_cast<std::size_t>(i->emitter_index());
-      if (i->message()) iss.message = i->message()->str();
+      iss.emitter_index = i->emitter_index();
+      if (i->message()) {
+        iss.message = i->message()->str();
+      }
       out->validation_issues.push_back(iss);
     }
   }
@@ -326,7 +358,9 @@ std::string EncodeEsrSessionConfig(const EsrSessionConfig& v) {
 
 bool DecodeEsrSessionConfig(const std::string& bytes, EsrSessionConfig* out) {
   flatbuffers::Verifier ver(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
-  if (!ver.VerifyBuffer<esr::replay::EsrSessionConfig>()) return false;
+  if (!ver.VerifyBuffer<esr::replay::EsrSessionConfig>()) {
+    return false;
+  }
   const auto* fb = flatbuffers::GetRoot<esr::replay::EsrSessionConfig>(bytes.data());
   if (fb->hardware()) {
     const auto* h = fb->hardware();
@@ -400,7 +434,9 @@ std::string EncodeEsrRuntimeConfigPatch(const EsrRuntimeConfigPatch& v) {
 
 bool DecodeEsrRuntimeConfigPatch(const std::string& bytes, EsrRuntimeConfigPatch* out) {
   flatbuffers::Verifier ver(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
-  if (!ver.VerifyBuffer<esr::replay::EsrRuntimeConfigPatch>()) return false;
+  if (!ver.VerifyBuffer<esr::replay::EsrRuntimeConfigPatch>()) {
+    return false;
+  }
   const auto* fb = flatbuffers::GetRoot<esr::replay::EsrRuntimeConfigPatch>(bytes.data());
   out->has_sensor_enabled = fb->has_sensor_enabled();
   out->sensor_enabled = fb->sensor_enabled();

@@ -59,7 +59,7 @@ class MahalanobisDistanceMetric final : public IDistanceMetric {
  */
 class ICovarianceAwareDistanceMetric : public IDistanceMetric {
  public:
-  virtual ~ICovarianceAwareDistanceMetric() = default;
+  ~ICovarianceAwareDistanceMetric() override = default;
   /**
    * @brief 更新本次轨迹计算使用的新息协方差矩阵。
    * @param S 3×3 新息协方差矩阵。

@@ -19,8 +19,8 @@ model::EmitterObservation MakeObservation(std::uint64_t observation_id, float sn
   observation.timestamp_s = 12.0;
   observation.aoa_az_deg = 5.0f;
   observation.aoa_el_deg = -2.0f;
-  observation.rf_hz = 9.4e9;
-  observation.pulse_width_s = 2.0e-6;
+  observation.rf_hz = 9.4e9f;
+  observation.pulse_width_s = 2.0e-6f;
   observation.amplitude_db = 18.0f;
   observation.snr_db = snr_db;
   observation.quality = model::EsrObservationQuality::kHigh;

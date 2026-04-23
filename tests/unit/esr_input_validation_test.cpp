@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <type_traits>
 #include <utility>
@@ -45,8 +46,8 @@ model::EmitterTruthState MakeValidEmitter() {
   emitter.carrier_hz = 10.0e9;
   emitter.bandwidth_hz = 2.0e6;
   emitter.tx_power_w = 1.0e6;
-  emitter.pulse_width_s = 2.0e-6;
-  emitter.pri_s = 2.0e-4;
+  emitter.pulse_width_s = 2.0e-6f;
+  emitter.pri_s = 2.0e-4f;
   emitter.pose.position_m.x = 1000.0f;
   return emitter;
 }
@@ -136,7 +137,7 @@ TEST(EsrInputValidationTest, InvalidEmitterPulseWidthIsReportedAsError) {
   EsrCycleInput input;
   input.dt_sec = 1.0f;
   model::EmitterTruthState emitter = MakeValidEmitter();
-  emitter.pulse_width_s = 0.0;
+  emitter.pulse_width_s = 0.0f;
   input.scene_emitters.push_back(emitter);
 
   const ValidationIssueList issues = ValidateEsrCycleInput(input);
@@ -149,7 +150,7 @@ TEST(EsrInputValidationTest, InvalidEmitterPriIsReportedAsError) {
   EsrCycleInput input;
   input.dt_sec = 1.0f;
   model::EmitterTruthState emitter = MakeValidEmitter();
-  emitter.pri_s = 0.0;
+  emitter.pri_s = 0.0f;
   input.scene_emitters.push_back(emitter);
 
   const ValidationIssueList issues = ValidateEsrCycleInput(input);
@@ -162,8 +163,8 @@ TEST(EsrInputValidationTest, EmitterPriLessThanPulseWidthIsReportedAsError) {
   EsrCycleInput input;
   input.dt_sec = 1.0f;
   model::EmitterTruthState emitter = MakeValidEmitter();
-  emitter.pulse_width_s = 3.0e-6;
-  emitter.pri_s = 1.0e-6;
+  emitter.pulse_width_s = 3.0e-6f;
+  emitter.pri_s = 1.0e-6f;
   input.scene_emitters.push_back(emitter);
 
   const ValidationIssueList issues = ValidateEsrCycleInput(input);

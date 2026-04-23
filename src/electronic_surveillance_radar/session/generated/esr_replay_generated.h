@@ -186,27 +186,27 @@ struct EmitterBeamState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_EL_BEAMWIDTH_DEG = 10,
     VT_BEAM_STATE_VALID = 12
   };
-  float center_az_deg() const {
-    return GetField<float>(VT_CENTER_AZ_DEG, 0.0f);
+  double center_az_deg() const {
+    return GetField<double>(VT_CENTER_AZ_DEG, 0.0);
   }
-  float center_el_deg() const {
-    return GetField<float>(VT_CENTER_EL_DEG, 0.0f);
+  double center_el_deg() const {
+    return GetField<double>(VT_CENTER_EL_DEG, 0.0);
   }
-  float az_beamwidth_deg() const {
-    return GetField<float>(VT_AZ_BEAMWIDTH_DEG, 0.0f);
+  double az_beamwidth_deg() const {
+    return GetField<double>(VT_AZ_BEAMWIDTH_DEG, 0.0);
   }
-  float el_beamwidth_deg() const {
-    return GetField<float>(VT_EL_BEAMWIDTH_DEG, 0.0f);
+  double el_beamwidth_deg() const {
+    return GetField<double>(VT_EL_BEAMWIDTH_DEG, 0.0);
   }
   bool beam_state_valid() const {
     return GetField<uint8_t>(VT_BEAM_STATE_VALID, 0) != 0;
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<float>(verifier, VT_CENTER_AZ_DEG) &&
-           VerifyField<float>(verifier, VT_CENTER_EL_DEG) &&
-           VerifyField<float>(verifier, VT_AZ_BEAMWIDTH_DEG) &&
-           VerifyField<float>(verifier, VT_EL_BEAMWIDTH_DEG) &&
+           VerifyField<double>(verifier, VT_CENTER_AZ_DEG) &&
+           VerifyField<double>(verifier, VT_CENTER_EL_DEG) &&
+           VerifyField<double>(verifier, VT_AZ_BEAMWIDTH_DEG) &&
+           VerifyField<double>(verifier, VT_EL_BEAMWIDTH_DEG) &&
            VerifyField<uint8_t>(verifier, VT_BEAM_STATE_VALID) &&
            verifier.EndTable();
   }
@@ -216,17 +216,17 @@ struct EmitterBeamStateBuilder {
   typedef EmitterBeamState Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_center_az_deg(float center_az_deg) {
-    fbb_.AddElement<float>(EmitterBeamState::VT_CENTER_AZ_DEG, center_az_deg, 0.0f);
+  void add_center_az_deg(double center_az_deg) {
+    fbb_.AddElement<double>(EmitterBeamState::VT_CENTER_AZ_DEG, center_az_deg, 0.0);
   }
-  void add_center_el_deg(float center_el_deg) {
-    fbb_.AddElement<float>(EmitterBeamState::VT_CENTER_EL_DEG, center_el_deg, 0.0f);
+  void add_center_el_deg(double center_el_deg) {
+    fbb_.AddElement<double>(EmitterBeamState::VT_CENTER_EL_DEG, center_el_deg, 0.0);
   }
-  void add_az_beamwidth_deg(float az_beamwidth_deg) {
-    fbb_.AddElement<float>(EmitterBeamState::VT_AZ_BEAMWIDTH_DEG, az_beamwidth_deg, 0.0f);
+  void add_az_beamwidth_deg(double az_beamwidth_deg) {
+    fbb_.AddElement<double>(EmitterBeamState::VT_AZ_BEAMWIDTH_DEG, az_beamwidth_deg, 0.0);
   }
-  void add_el_beamwidth_deg(float el_beamwidth_deg) {
-    fbb_.AddElement<float>(EmitterBeamState::VT_EL_BEAMWIDTH_DEG, el_beamwidth_deg, 0.0f);
+  void add_el_beamwidth_deg(double el_beamwidth_deg) {
+    fbb_.AddElement<double>(EmitterBeamState::VT_EL_BEAMWIDTH_DEG, el_beamwidth_deg, 0.0);
   }
   void add_beam_state_valid(bool beam_state_valid) {
     fbb_.AddElement<uint8_t>(EmitterBeamState::VT_BEAM_STATE_VALID, static_cast<uint8_t>(beam_state_valid), 0);
@@ -245,10 +245,10 @@ struct EmitterBeamStateBuilder {
 
 inline flatbuffers::Offset<EmitterBeamState> CreateEmitterBeamState(
     flatbuffers::FlatBufferBuilder &_fbb,
-    float center_az_deg = 0.0f,
-    float center_el_deg = 0.0f,
-    float az_beamwidth_deg = 0.0f,
-    float el_beamwidth_deg = 0.0f,
+    double center_az_deg = 0.0,
+    double center_el_deg = 0.0,
+    double az_beamwidth_deg = 0.0,
+    double el_beamwidth_deg = 0.0,
     bool beam_state_valid = false) {
   EmitterBeamStateBuilder builder_(_fbb);
   builder_.add_el_beamwidth_deg(el_beamwidth_deg);
@@ -284,14 +284,14 @@ struct EmitterTruthState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   double bandwidth_hz() const {
     return GetField<double>(VT_BANDWIDTH_HZ, 0.0);
   }
-  float tx_power_w() const {
-    return GetField<float>(VT_TX_POWER_W, 0.0f);
+  double tx_power_w() const {
+    return GetField<double>(VT_TX_POWER_W, 0.0);
   }
-  float pulse_width_s() const {
-    return GetField<float>(VT_PULSE_WIDTH_S, 0.0f);
+  double pulse_width_s() const {
+    return GetField<double>(VT_PULSE_WIDTH_S, 0.0);
   }
-  float pri_s() const {
-    return GetField<float>(VT_PRI_S, 0.0f);
+  double pri_s() const {
+    return GetField<double>(VT_PRI_S, 0.0);
   }
   const esr::replay::EmitterBeamState *beam_state() const {
     return GetPointer<const esr::replay::EmitterBeamState *>(VT_BEAM_STATE);
@@ -307,9 +307,9 @@ struct EmitterTruthState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyTable(pose()) &&
            VerifyField<double>(verifier, VT_CARRIER_HZ) &&
            VerifyField<double>(verifier, VT_BANDWIDTH_HZ) &&
-           VerifyField<float>(verifier, VT_TX_POWER_W) &&
-           VerifyField<float>(verifier, VT_PULSE_WIDTH_S) &&
-           VerifyField<float>(verifier, VT_PRI_S) &&
+           VerifyField<double>(verifier, VT_TX_POWER_W) &&
+           VerifyField<double>(verifier, VT_PULSE_WIDTH_S) &&
+           VerifyField<double>(verifier, VT_PRI_S) &&
            VerifyOffset(verifier, VT_BEAM_STATE) &&
            verifier.VerifyTable(beam_state()) &&
            VerifyField<uint8_t>(verifier, VT_IS_EMITTING) &&
@@ -333,14 +333,14 @@ struct EmitterTruthStateBuilder {
   void add_bandwidth_hz(double bandwidth_hz) {
     fbb_.AddElement<double>(EmitterTruthState::VT_BANDWIDTH_HZ, bandwidth_hz, 0.0);
   }
-  void add_tx_power_w(float tx_power_w) {
-    fbb_.AddElement<float>(EmitterTruthState::VT_TX_POWER_W, tx_power_w, 0.0f);
+  void add_tx_power_w(double tx_power_w) {
+    fbb_.AddElement<double>(EmitterTruthState::VT_TX_POWER_W, tx_power_w, 0.0);
   }
-  void add_pulse_width_s(float pulse_width_s) {
-    fbb_.AddElement<float>(EmitterTruthState::VT_PULSE_WIDTH_S, pulse_width_s, 0.0f);
+  void add_pulse_width_s(double pulse_width_s) {
+    fbb_.AddElement<double>(EmitterTruthState::VT_PULSE_WIDTH_S, pulse_width_s, 0.0);
   }
-  void add_pri_s(float pri_s) {
-    fbb_.AddElement<float>(EmitterTruthState::VT_PRI_S, pri_s, 0.0f);
+  void add_pri_s(double pri_s) {
+    fbb_.AddElement<double>(EmitterTruthState::VT_PRI_S, pri_s, 0.0);
   }
   void add_beam_state(flatbuffers::Offset<esr::replay::EmitterBeamState> beam_state) {
     fbb_.AddOffset(EmitterTruthState::VT_BEAM_STATE, beam_state);
@@ -366,18 +366,18 @@ inline flatbuffers::Offset<EmitterTruthState> CreateEmitterTruthState(
     flatbuffers::Offset<esr::replay::PoseState> pose = 0,
     double carrier_hz = 0.0,
     double bandwidth_hz = 0.0,
-    float tx_power_w = 0.0f,
-    float pulse_width_s = 0.0f,
-    float pri_s = 0.0f,
+    double tx_power_w = 0.0,
+    double pulse_width_s = 0.0,
+    double pri_s = 0.0,
     flatbuffers::Offset<esr::replay::EmitterBeamState> beam_state = 0,
     bool is_emitting = false) {
   EmitterTruthStateBuilder builder_(_fbb);
-  builder_.add_bandwidth_hz(bandwidth_hz);
-  builder_.add_carrier_hz(carrier_hz);
-  builder_.add_beam_state(beam_state);
   builder_.add_pri_s(pri_s);
   builder_.add_pulse_width_s(pulse_width_s);
   builder_.add_tx_power_w(tx_power_w);
+  builder_.add_bandwidth_hz(bandwidth_hz);
+  builder_.add_carrier_hz(carrier_hz);
+  builder_.add_beam_state(beam_state);
   builder_.add_pose(pose);
   builder_.add_emitter_id(emitter_id);
   builder_.add_is_emitting(is_emitting);
@@ -390,9 +390,9 @@ inline flatbuffers::Offset<EmitterTruthState> CreateEmitterTruthStateDirect(
     flatbuffers::Offset<esr::replay::PoseState> pose = 0,
     double carrier_hz = 0.0,
     double bandwidth_hz = 0.0,
-    float tx_power_w = 0.0f,
-    float pulse_width_s = 0.0f,
-    float pri_s = 0.0f,
+    double tx_power_w = 0.0,
+    double pulse_width_s = 0.0,
+    double pri_s = 0.0,
     flatbuffers::Offset<esr::replay::EmitterBeamState> beam_state = 0,
     bool is_emitting = false) {
   auto emitter_id__ = emitter_id ? _fbb.CreateString(emitter_id) : 0;
@@ -795,26 +795,26 @@ struct EmitterObservation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   uint32_t observation_id() const {
     return GetField<uint32_t>(VT_OBSERVATION_ID, 0);
   }
-  float timestamp_s() const {
-    return GetField<float>(VT_TIMESTAMP_S, 0.0f);
+  double timestamp_s() const {
+    return GetField<double>(VT_TIMESTAMP_S, 0.0);
   }
-  float aoa_az_deg() const {
-    return GetField<float>(VT_AOA_AZ_DEG, 0.0f);
+  double aoa_az_deg() const {
+    return GetField<double>(VT_AOA_AZ_DEG, 0.0);
   }
-  float aoa_el_deg() const {
-    return GetField<float>(VT_AOA_EL_DEG, 0.0f);
+  double aoa_el_deg() const {
+    return GetField<double>(VT_AOA_EL_DEG, 0.0);
   }
   double rf_hz() const {
     return GetField<double>(VT_RF_HZ, 0.0);
   }
-  float pulse_width_s() const {
-    return GetField<float>(VT_PULSE_WIDTH_S, 0.0f);
+  double pulse_width_s() const {
+    return GetField<double>(VT_PULSE_WIDTH_S, 0.0);
   }
-  float amplitude_db() const {
-    return GetField<float>(VT_AMPLITUDE_DB, 0.0f);
+  double amplitude_db() const {
+    return GetField<double>(VT_AMPLITUDE_DB, 0.0);
   }
-  float snr_db() const {
-    return GetField<float>(VT_SNR_DB, 0.0f);
+  double snr_db() const {
+    return GetField<double>(VT_SNR_DB, 0.0);
   }
   int32_t quality() const {
     return GetField<int32_t>(VT_QUALITY, 0);
@@ -825,13 +825,13 @@ struct EmitterObservation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint32_t>(verifier, VT_OBSERVATION_ID) &&
-           VerifyField<float>(verifier, VT_TIMESTAMP_S) &&
-           VerifyField<float>(verifier, VT_AOA_AZ_DEG) &&
-           VerifyField<float>(verifier, VT_AOA_EL_DEG) &&
+           VerifyField<double>(verifier, VT_TIMESTAMP_S) &&
+           VerifyField<double>(verifier, VT_AOA_AZ_DEG) &&
+           VerifyField<double>(verifier, VT_AOA_EL_DEG) &&
            VerifyField<double>(verifier, VT_RF_HZ) &&
-           VerifyField<float>(verifier, VT_PULSE_WIDTH_S) &&
-           VerifyField<float>(verifier, VT_AMPLITUDE_DB) &&
-           VerifyField<float>(verifier, VT_SNR_DB) &&
+           VerifyField<double>(verifier, VT_PULSE_WIDTH_S) &&
+           VerifyField<double>(verifier, VT_AMPLITUDE_DB) &&
+           VerifyField<double>(verifier, VT_SNR_DB) &&
            VerifyField<int32_t>(verifier, VT_QUALITY) &&
            VerifyField<uint8_t>(verifier, VT_IS_JAMMED) &&
            verifier.EndTable();
@@ -845,26 +845,26 @@ struct EmitterObservationBuilder {
   void add_observation_id(uint32_t observation_id) {
     fbb_.AddElement<uint32_t>(EmitterObservation::VT_OBSERVATION_ID, observation_id, 0);
   }
-  void add_timestamp_s(float timestamp_s) {
-    fbb_.AddElement<float>(EmitterObservation::VT_TIMESTAMP_S, timestamp_s, 0.0f);
+  void add_timestamp_s(double timestamp_s) {
+    fbb_.AddElement<double>(EmitterObservation::VT_TIMESTAMP_S, timestamp_s, 0.0);
   }
-  void add_aoa_az_deg(float aoa_az_deg) {
-    fbb_.AddElement<float>(EmitterObservation::VT_AOA_AZ_DEG, aoa_az_deg, 0.0f);
+  void add_aoa_az_deg(double aoa_az_deg) {
+    fbb_.AddElement<double>(EmitterObservation::VT_AOA_AZ_DEG, aoa_az_deg, 0.0);
   }
-  void add_aoa_el_deg(float aoa_el_deg) {
-    fbb_.AddElement<float>(EmitterObservation::VT_AOA_EL_DEG, aoa_el_deg, 0.0f);
+  void add_aoa_el_deg(double aoa_el_deg) {
+    fbb_.AddElement<double>(EmitterObservation::VT_AOA_EL_DEG, aoa_el_deg, 0.0);
   }
   void add_rf_hz(double rf_hz) {
     fbb_.AddElement<double>(EmitterObservation::VT_RF_HZ, rf_hz, 0.0);
   }
-  void add_pulse_width_s(float pulse_width_s) {
-    fbb_.AddElement<float>(EmitterObservation::VT_PULSE_WIDTH_S, pulse_width_s, 0.0f);
+  void add_pulse_width_s(double pulse_width_s) {
+    fbb_.AddElement<double>(EmitterObservation::VT_PULSE_WIDTH_S, pulse_width_s, 0.0);
   }
-  void add_amplitude_db(float amplitude_db) {
-    fbb_.AddElement<float>(EmitterObservation::VT_AMPLITUDE_DB, amplitude_db, 0.0f);
+  void add_amplitude_db(double amplitude_db) {
+    fbb_.AddElement<double>(EmitterObservation::VT_AMPLITUDE_DB, amplitude_db, 0.0);
   }
-  void add_snr_db(float snr_db) {
-    fbb_.AddElement<float>(EmitterObservation::VT_SNR_DB, snr_db, 0.0f);
+  void add_snr_db(double snr_db) {
+    fbb_.AddElement<double>(EmitterObservation::VT_SNR_DB, snr_db, 0.0);
   }
   void add_quality(int32_t quality) {
     fbb_.AddElement<int32_t>(EmitterObservation::VT_QUALITY, quality, 0);
@@ -887,24 +887,24 @@ struct EmitterObservationBuilder {
 inline flatbuffers::Offset<EmitterObservation> CreateEmitterObservation(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint32_t observation_id = 0,
-    float timestamp_s = 0.0f,
-    float aoa_az_deg = 0.0f,
-    float aoa_el_deg = 0.0f,
+    double timestamp_s = 0.0,
+    double aoa_az_deg = 0.0,
+    double aoa_el_deg = 0.0,
     double rf_hz = 0.0,
-    float pulse_width_s = 0.0f,
-    float amplitude_db = 0.0f,
-    float snr_db = 0.0f,
+    double pulse_width_s = 0.0,
+    double amplitude_db = 0.0,
+    double snr_db = 0.0,
     int32_t quality = 0,
     bool is_jammed = false) {
   EmitterObservationBuilder builder_(_fbb);
-  builder_.add_rf_hz(rf_hz);
-  builder_.add_quality(quality);
   builder_.add_snr_db(snr_db);
   builder_.add_amplitude_db(amplitude_db);
   builder_.add_pulse_width_s(pulse_width_s);
+  builder_.add_rf_hz(rf_hz);
   builder_.add_aoa_el_deg(aoa_el_deg);
   builder_.add_aoa_az_deg(aoa_az_deg);
   builder_.add_timestamp_s(timestamp_s);
+  builder_.add_quality(quality);
   builder_.add_observation_id(observation_id);
   builder_.add_is_jammed(is_jammed);
   return builder_.Finish();

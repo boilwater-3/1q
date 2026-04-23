@@ -38,8 +38,8 @@ RawObservationRecord MakeRecord(std::uint64_t observation_id, double timestamp_s
   RawObservationRecord record;
   record.observation.observation_id = observation_id;
   record.observation.timestamp_s = timestamp_s;
-  record.observation.rf_hz = rf_hz;
-  record.observation.pulse_width_s = pulse_width_s;
+  record.observation.rf_hz = static_cast<float>(rf_hz);
+  record.observation.pulse_width_s = static_cast<float>(pulse_width_s);
   record.observation.aoa_az_deg = az_deg;
   record.observation.aoa_el_deg = el_deg;
   record.observation.snr_db = snr_db;
@@ -183,8 +183,8 @@ TEST(EsrKdTreeClustererTest, MinPointsLargerThanDatasetIsClamped) {
 
 TEST(EsrKdTreeClustererTest, ObservationFeatureEncoderFallsBackForNonFiniteScales) {
   model::EmitterObservation observation;
-  observation.rf_hz = 12.0e9;
-  observation.pulse_width_s = 2.0e-6;
+  observation.rf_hz = 12.0e9f;
+  observation.pulse_width_s = 2.0e-6f;
   observation.aoa_az_deg = 10.0f;
   observation.aoa_el_deg = -4.0f;
   observation.snr_db = 16.0f;
@@ -202,7 +202,7 @@ TEST(EsrKdTreeClustererTest, ObservationFeatureEncoderFallsBackForNonFiniteScale
     EXPECT_TRUE(std::isfinite(feature.values[i]));
   }
   EXPECT_FLOAT_EQ(feature.values[0], static_cast<float>(observation.rf_hz));
-  EXPECT_FLOAT_EQ(feature.values[1], static_cast<float>(observation.pulse_width_s / 1.0e-6));
+  EXPECT_FLOAT_EQ(feature.values[1], static_cast<float>(observation.pulse_width_s / 1.0e-6f));
   EXPECT_FLOAT_EQ(feature.values[2], observation.aoa_az_deg);
   EXPECT_FLOAT_EQ(feature.values[3], observation.aoa_el_deg);
   EXPECT_FLOAT_EQ(feature.values[4], observation.snr_db);
@@ -211,9 +211,8 @@ TEST(EsrKdTreeClustererTest, ObservationFeatureEncoderFallsBackForNonFiniteScale
 TEST(EsrKdTreeClustererTest, PreprocessorTreatsNearBoundaryAsDuplicateWithEpsilon) {
   std::vector<RawObservationRecord> records;
   records.push_back(MakeRecord(30U, 1.0, 10.0e9, 1.0e-6, 10.0f, 1.0f, 9.0f));
-  records.push_back(MakeRecord(31U, 1.0 + 5.0e-6 + 5.0e-10, 10.0e9 + 1.0e6 + 5.0e-4,
-                               1.0e-6 + 2.0e-7 + 5.0e-13, 11.0f + 5.0e-7f, 2.0f + 5.0e-7f,
-                               14.0f));
+  records.push_back(MakeRecord(31U, 1.0 + 4.0e-6, 10.0e9 + 9.0e5, 1.0e-6f + 1.0e-7f,
+                               10.0f + 5.0e-7f, 1.0f + 5.0e-7f, 14.0f));
 
   ObservationPreprocessor preprocessor;
   extension::InterceptPreprocessConfig config;

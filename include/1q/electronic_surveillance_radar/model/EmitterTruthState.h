@@ -19,10 +19,10 @@ namespace model {
  * @brief EmitterBeamState 描述发射源当前波束状态。
  */
 struct ONEQ_API EmitterBeamState {
-  float center_az_deg{0.0f};     /**< 波束中心方位（单位：deg） */
-  float center_el_deg{0.0f};     /**< 波束中心俯仰（单位：deg） */
-  float az_beamwidth_deg{20.0f}; /**< 方位波束宽度（单位：deg） */
-  float el_beamwidth_deg{20.0f}; /**< 俯仰波束宽度（单位：deg） */
+  double center_az_deg{0.0};     /**< 波束中心方位（单位：deg） */
+  double center_el_deg{0.0};     /**< 波束中心俯仰（单位：deg） */
+  double az_beamwidth_deg{20.0}; /**< 方位波束宽度（单位：deg） */
+  double el_beamwidth_deg{20.0}; /**< 俯仰波束宽度（单位：deg） */
   bool beam_state_valid{false};  /**< 波束参数是否已显式配置，`false` 表示历史默认值 */
 };
 

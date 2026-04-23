@@ -33,7 +33,7 @@ DenseCostHypothesiser::DenseCostHypothesiser(ICovarianceAwareDistanceMetric* dis
 
 DenseCostHypothesiser::DenseCostHypothesiser(const IDistanceMetric* distance_metric,
                                              const IGater* gater)
-    : distance_metric_(distance_metric), covariance_metric_(nullptr), gater_(gater) {
+    : distance_metric_(distance_metric), gater_(gater) {
   if (distance_metric_ == nullptr || gater_ == nullptr) {
     AbortContractViolation("hypothesiser requires distance metric and gater");
   }

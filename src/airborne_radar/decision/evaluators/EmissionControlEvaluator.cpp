@@ -27,6 +27,7 @@ void EmissionControlEvaluator::Evaluate(const model::DecisionInputFrame& input_f
   // input_frame 在此评估器中未使用：LPI 降功率条件由上游
   // ThreatAssessmentEvaluator 写入 evaluation_state.should_reduce_power。
   // 保持窗口由 ControlReducer 统一维护，本评估器仅负责生成当周期提案。
+  (void)input_frame;
   (void)state_store;
   bool should_reduce_power = evaluation_state.should_reduce_power;
 

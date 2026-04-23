@@ -15,13 +15,9 @@ namespace {
 constexpr double kTimeCompareEpsilonSec = 1.0e-9;
 constexpr double kRfCompareEpsilonHz = 1.0e-3;
 constexpr double kPwCompareEpsilonSec = 1.0e-12;
-constexpr float kAngleCompareEpsilonDeg = 1.0e-6f;
+constexpr double kAngleCompareEpsilonDeg = 1.0e-6;
 
 bool LessOrNearEqual(double lhs, double rhs, double epsilon) {
-  return lhs <= rhs + epsilon;
-}
-
-bool LessOrNearEqual(float lhs, float rhs, float epsilon) {
   return lhs <= rhs + epsilon;
 }
 
@@ -45,11 +41,11 @@ bool IsValidObservation(const model::EmitterObservation& observation) {
  * @param[in] snr_db 观测信噪比（单位：dB）。
  * @return 重标定后的质量等级。
  */
-model::EsrObservationQuality NormalizeQuality(float snr_db) {
-  if (snr_db >= 18.0f) {
+model::EsrObservationQuality NormalizeQuality(double snr_db) {
+  if (snr_db >= 18.0) {
     return model::EsrObservationQuality::kHigh;
   }
-  if (snr_db >= 10.0f) {
+  if (snr_db >= 10.0) {
     return model::EsrObservationQuality::kMedium;
   }
   return model::EsrObservationQuality::kLow;
@@ -66,17 +62,20 @@ bool IsDuplicateObservation(const model::EmitterObservation& lhs,
                             const model::EmitterObservation& rhs,
                             const extension::InterceptPreprocessConfig& config) {
   const double dedup_time_window_sec = static_cast<double>(config.dedup_time_window_sec);
-  const float az_diff = std::fabs(
-      oneq::internal::geometry::ComputeAzimuthDifferenceDeg(lhs.aoa_az_deg, rhs.aoa_az_deg));
+  const double az_diff = std::fabs(static_cast<double>(
+      oneq::internal::geometry::ComputeAzimuthDifferenceDeg(static_cast<float>(lhs.aoa_az_deg),
+                                                            static_cast<float>(rhs.aoa_az_deg))));
   return LessOrNearEqual(std::fabs(lhs.timestamp_s - rhs.timestamp_s), dedup_time_window_sec,
                          kTimeCompareEpsilonSec) &&
-         LessOrNearEqual(std::fabs(lhs.rf_hz - rhs.rf_hz), config.dedup_rf_window_hz,
-                         kRfCompareEpsilonHz) &&
-         LessOrNearEqual(std::fabs(lhs.pulse_width_s - rhs.pulse_width_s),
+         LessOrNearEqual(static_cast<double>(std::fabs(lhs.rf_hz - rhs.rf_hz)),
+                         config.dedup_rf_window_hz, kRfCompareEpsilonHz) &&
+         LessOrNearEqual(static_cast<double>(std::fabs(lhs.pulse_width_s - rhs.pulse_width_s)),
                          config.dedup_pw_window_sec, kPwCompareEpsilonSec) &&
-         LessOrNearEqual(az_diff, config.dedup_az_window_deg, kAngleCompareEpsilonDeg) &&
-         LessOrNearEqual(std::fabs(lhs.aoa_el_deg - rhs.aoa_el_deg),
-                         config.dedup_el_window_deg, kAngleCompareEpsilonDeg);
+         LessOrNearEqual(az_diff, static_cast<double>(config.dedup_az_window_deg),
+                         kAngleCompareEpsilonDeg) &&
+         LessOrNearEqual(static_cast<double>(std::fabs(lhs.aoa_el_deg - rhs.aoa_el_deg)),
+                         static_cast<double>(config.dedup_el_window_deg),
+                         kAngleCompareEpsilonDeg);
 }
 
 /**

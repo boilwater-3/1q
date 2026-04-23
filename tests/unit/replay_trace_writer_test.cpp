@@ -127,15 +127,6 @@ bool DivergentOutputCallback(const oneq::replay::ReplayTraceReadEvent& event,
   return true;
 }
 
-bool AlwaysOkEventCallback(const oneq::replay::ReplayTraceReadEvent& event,
-                           void* user_data,
-                           std::string* error) {
-  (void)event;
-  (void)user_data;
-  (void)error;
-  return true;
-}
-
 }  // namespace
 
 namespace oneq {

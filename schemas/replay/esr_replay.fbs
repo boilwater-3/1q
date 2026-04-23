@@ -28,10 +28,10 @@ table PoseState {
 // ---- EsrCycleInput ----
 
 table EmitterBeamState {
-  center_az_deg:    float;
-  center_el_deg:    float;
-  az_beamwidth_deg: float;
-  el_beamwidth_deg: float;
+  center_az_deg:    double;
+  center_el_deg:    double;
+  az_beamwidth_deg: double;
+  el_beamwidth_deg: double;
   beam_state_valid: bool;
 }
 
@@ -40,9 +40,9 @@ table EmitterTruthState {
   pose:         PoseState;
   carrier_hz:   double;
   bandwidth_hz: double;
-  tx_power_w:   float;
-  pulse_width_s: float;
-  pri_s:        float;
+  tx_power_w:   double;
+  pulse_width_s: double;
+  pri_s:        double;
   beam_state:   EmitterBeamState;
   is_emitting:  bool;
 }
@@ -86,13 +86,13 @@ file_identifier "ESRC";
 
 table EmitterObservation {
   observation_id: uint32;
-  timestamp_s:    float;
-  aoa_az_deg:     float;
-  aoa_el_deg:     float;
+  timestamp_s:    double;
+  aoa_az_deg:     double;
+  aoa_el_deg:     double;
   rf_hz:          double;
-  pulse_width_s:  float;
-  amplitude_db:   float;
-  snr_db:         float;
+  pulse_width_s:  double;
+  amplitude_db:   double;
+  snr_db:         double;
   quality:        int32;
   is_jammed:      bool;
 }

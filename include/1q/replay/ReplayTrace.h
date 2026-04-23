@@ -140,9 +140,9 @@ struct ONEQ_API ReplayTraceFailure {
   std::string diagnostics_payload{"{}"};
 };
 
-typedef bool (*ReplayTraceEventCallback)(const ReplayTraceReadEvent& event, void* user_data,
+using ReplayTraceEventCallback = bool (*)(const ReplayTraceReadEvent& event, void* user_data,
                                          std::string* error);
-typedef bool (*ReplayTraceOutputCallback)(const ReplayTraceReadEvent& event, void* user_data,
+using ReplayTraceOutputCallback = bool (*)(const ReplayTraceReadEvent& event, void* user_data,
                                           std::string* actual_output_payload,
                                           std::string* error);
 

@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <limits>
+#include <cstdint>
 #include <vector>
 
 #include "1q/airborne_radar/session/RadarInputValidation.h"
@@ -99,7 +100,7 @@ TEST(ValidationUtilsTest, HasSeverityReturnsTrueWhenExpectedSeverityExists) {
           &electronic_surveillance_radar::session::ValidationIssue::emitter_index>(
           electronic_surveillance_radar::session::ValidationSeverity::kInfo,
           electronic_surveillance_radar::session::ValidationCode::kNone,
-          static_cast<std::size_t>(-1), "info"));
+          static_cast<std::int32_t>(-1), "info"));
   issues.push_back(
       MakeIndexedIssue<
           electronic_surveillance_radar::session::ValidationIssue,

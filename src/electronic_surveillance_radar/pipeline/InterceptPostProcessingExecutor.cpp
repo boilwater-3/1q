@@ -25,10 +25,11 @@ namespace {
  * @param[in] is_jammed 是否受扰。
  * @return 置信度，范围 [0, 1]。
  */
-float ComputeObservationConfidence(float snr_db, bool is_jammed) {
-  const float snr_score = utils::Clamp01((snr_db + 5.0f) / 30.0f);
+double ComputeObservationConfidence(double snr_db, bool is_jammed) {
+  const float snr_score = utils::Clamp01(
+      static_cast<float>((snr_db + 5.0) / 30.0));
   const float jam_penalty = is_jammed ? 0.75f : 1.0f;
-  return utils::Clamp01(snr_score * jam_penalty);
+  return static_cast<double>(utils::Clamp01(snr_score * jam_penalty));
 }
 
 /**
@@ -164,24 +165,30 @@ internal::ClusterSummary BuildClusterSummary(
 
   summary.support_count = cluster_indices.size();
   std::size_t representative = cluster_indices[0];
-  float representative_snr = records[representative].observation.snr_db;
-  float confidence_acc = 0.0f;
+  double representative_snr = records[representative].observation.snr_db;
+  double confidence_acc = 0.0;
   std::size_t deception_affected_count = 0U;
   std::size_t false_alarm_count = 0U;
   std::size_t matched_truth_count = 0U;
+  double mean_snr_db = 0.0;
+  double mean_az_deg = 0.0;
+  double mean_el_deg = 0.0;
+  double mean_rf_hz = 0.0;
+  double mean_pulse_width_s = 0.0;
+  double mean_pri_s = 0.0;
 
   for (std::size_t i = 0; i < cluster_indices.size(); ++i) {
     const std::size_t index = cluster_indices[i];
     for (std::size_t dim = 0; dim < internal::kObservationFeatureDimension; ++dim) {
       summary.centroid_feature.values[dim] += features[index].values[dim];
     }
-    summary.mean_snr_db += records[index].observation.snr_db;
-    summary.mean_az_deg += records[index].observation.aoa_az_deg;
-    summary.mean_el_deg += records[index].observation.aoa_el_deg;
-    summary.mean_rf_hz += records[index].observation.rf_hz;
-    summary.mean_pulse_width_s += records[index].observation.pulse_width_s;
+    mean_snr_db += records[index].observation.snr_db;
+    mean_az_deg += records[index].observation.aoa_az_deg;
+    mean_el_deg += records[index].observation.aoa_el_deg;
+    mean_rf_hz += records[index].observation.rf_hz;
+    mean_pulse_width_s += records[index].observation.pulse_width_s;
     if (records[index].matched_truth) {
-      summary.mean_pri_s += records[index].truth_pri_s;
+      mean_pri_s += records[index].truth_pri_s;
       ++matched_truth_count;
     }
     confidence_acc += ComputeObservationConfidence(records[index].observation.snr_db,
@@ -203,19 +210,21 @@ internal::ClusterSummary BuildClusterSummary(
   for (std::size_t dim = 0; dim < internal::kObservationFeatureDimension; ++dim) {
     summary.centroid_feature.values[dim] *= inv_count;
   }
-  summary.mean_snr_db *= inv_count;
-  summary.mean_az_deg *= inv_count;
-  summary.mean_el_deg *= inv_count;
-  summary.mean_rf_hz *= static_cast<double>(inv_count);
-  summary.mean_pulse_width_s *= static_cast<double>(inv_count);
+  const double inv_count_d = static_cast<double>(inv_count);
+  summary.mean_snr_db = static_cast<float>(mean_snr_db * inv_count_d);
+  summary.mean_az_deg = static_cast<float>(mean_az_deg * inv_count_d);
+  summary.mean_el_deg = static_cast<float>(mean_el_deg * inv_count_d);
+  summary.mean_rf_hz = mean_rf_hz * inv_count_d;
+  summary.mean_pulse_width_s = mean_pulse_width_s * inv_count_d;
   if (matched_truth_count > 0U) {
-    summary.mean_pri_s *= static_cast<double>(1.0f / static_cast<float>(matched_truth_count));
+    summary.mean_pri_s = mean_pri_s / static_cast<double>(matched_truth_count);
   }
   summary.deception_support_ratio = static_cast<float>(deception_affected_count) * inv_count;
   summary.false_alarm_ratio = static_cast<float>(false_alarm_count) * inv_count;
   const float deception_penalty = 1.0f - utils::Clamp01(deception_config.cluster_confidence_penalty_scale *
                                                  summary.deception_support_ratio);
-  summary.confidence_score = utils::Clamp01(confidence_acc * inv_count * deception_penalty);
+  summary.confidence_score = utils::Clamp01(
+      static_cast<float>(confidence_acc * inv_count_d * static_cast<double>(deception_penalty)));
   summary.representative_index = representative;
   PopulateClusterSpectralSummary(cluster_indices, records, spectral_config, &summary);
   return summary;
@@ -289,8 +298,9 @@ extension::InterceptCycleResult InterceptPostProcessingExecutor::Execute(
         records[i].truth_emitter_id.empty() ? "UNASSOCIATED" : records[i].truth_emitter_id;
     association.matched = records[i].matched_truth && !records[i].truth_emitter_id.empty();
     association.confidence = association.matched
-                                 ? ComputeObservationConfidence(records[i].observation.snr_db,
-                                                                records[i].observation.is_jammed)
+                                 ? static_cast<float>(ComputeObservationConfidence(
+                                       records[i].observation.snr_db,
+                                       records[i].observation.is_jammed))
                                  : 0.1f;
     result.truth_associations.push_back(association);
     if (association.matched) {

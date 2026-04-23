@@ -8,6 +8,7 @@
 
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <string>
 
 namespace oneq {
@@ -39,6 +40,29 @@ inline bool IsFinite(T value) {
  */
 template <typename IssueT, typename SeverityT, typename CodeT, std::size_t IssueT::* IndexField>
 inline IssueT MakeIndexedIssue(SeverityT severity, CodeT code, std::size_t index,
+                               const std::string& message) {
+  IssueT issue;
+  issue.severity = severity;
+  issue.code = code;
+  issue.*IndexField = index;
+  issue.message = message;
+  return issue;
+}
+
+/**
+ * @brief 构造带索引字段的结构化校验问题。
+ * @tparam IssueT 问题结构类型。
+ * @tparam SeverityT 严重级别枚举类型。
+ * @tparam CodeT 编码枚举类型。
+ * @tparam IndexField 问题结构中的索引字段成员指针。
+ * @param[in] severity 严重级别。
+ * @param[in] code 结构化问题编码。
+ * @param[in] index 与问题关联的索引值。
+ * @param[in] message 面向调用方的简短说明。
+ * @return 构造后的问题结构。
+ */
+template <typename IssueT, typename SeverityT, typename CodeT, std::int32_t IssueT::* IndexField>
+inline IssueT MakeIndexedIssue(SeverityT severity, CodeT code, std::int32_t index,
                                const std::string& message) {
   IssueT issue;
   issue.severity = severity;

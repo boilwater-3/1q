@@ -1,6 +1,7 @@
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 
 #include "common/validation/ValidationUtils.h"
@@ -14,12 +15,12 @@ namespace {
  * @brief 生成一条 ESR 输入校验问题。
  * @param[in] severity 问题严重级别。
  * @param[in] code 结构化问题编码。
- * @param[in] emitter_index 辐射源索引；若无特定索引则为 `size_t(-1)`。
+ * @param[in] emitter_index 辐射源索引；若无特定索引则为 `-1`。
  * @param[in] message 面向调用方的短消息。
  * @return 组装后的校验问题。
  */
 ValidationIssue MakeIssue(ValidationSeverity severity, ValidationCode code,
-                             std::size_t emitter_index, const std::string& message) {
+                             std::int32_t emitter_index, const std::string& message) {
   return oneq::internal::validation::MakeIndexedIssue<ValidationIssue, ValidationSeverity,
                                                       ValidationCode,
                                                       &ValidationIssue::emitter_index>(
@@ -54,7 +55,7 @@ void ValidatePlatformPose(const model::EsrPoseState& platform_pose,
       !IsFinite(platform_pose.attitude_deg.roll_deg)) {
     issues->push_back(
         MakeIssue(ValidationSeverity::kError, ValidationCode::kNonFinitePlatformNumericField,
-                  static_cast<std::size_t>(-1), "platform pose contains non-finite numeric field"));
+                  static_cast<std::int32_t>(-1), "platform pose contains non-finite numeric field"));
   }
 }
 
@@ -64,7 +65,7 @@ void ValidatePlatformPose(const model::EsrPoseState& platform_pose,
  * @param[in] emitter_index 辐射源索引。
  * @param[out] issues 校验问题列表。
  */
-void ValidateEmitter(const model::EmitterTruthState& emitter, std::size_t emitter_index,
+void ValidateEmitter(const model::EmitterTruthState& emitter, std::int32_t emitter_index,
                      ValidationIssueList* issues) {
   if (issues == nullptr) {
     return;
@@ -125,7 +126,7 @@ void ValidateEmitter(const model::EmitterTruthState& emitter, std::size_t emitte
                                   "emitter pri must be greater than or equal to pulse width"));
     }
   }
-  if (emitter.beam_state.az_beamwidth_deg <= 0.0f || emitter.beam_state.el_beamwidth_deg <= 0.0f) {
+  if (emitter.beam_state.az_beamwidth_deg <= 0.0 || emitter.beam_state.el_beamwidth_deg <= 0.0) {
     issues->push_back(MakeIssue(ValidationSeverity::kError,
                                 ValidationCode::kInvalidEmitterBeamwidth, emitter_index,
                                 "emitter beam width must be positive"));
@@ -140,16 +141,16 @@ ValidationIssueList ValidateEsrCycleInput(const EsrCycleInput& input) {
   if (!IsFinite(input.dt_sec)) {
     issues.push_back(MakeIssue(ValidationSeverity::kError,
                                ValidationCode::kNonFiniteCycleDeltaTime,
-                               static_cast<std::size_t>(-1), "cycle delta time must be finite"));
+                               static_cast<std::int32_t>(-1), "cycle delta time must be finite"));
   } else if (input.dt_sec <= 0.0f) {
     issues.push_back(MakeIssue(ValidationSeverity::kError,
                                ValidationCode::kInvalidCycleDeltaTime,
-                               static_cast<std::size_t>(-1), "cycle delta time must be positive"));
+                               static_cast<std::int32_t>(-1), "cycle delta time must be positive"));
   }
   ValidatePlatformPose(input.platform_pose, &issues);
 
   for (std::size_t i = 0; i < input.scene_emitters.size(); ++i) {
-    ValidateEmitter(input.scene_emitters[i], i, &issues);
+    ValidateEmitter(input.scene_emitters[i], static_cast<std::int32_t>(i), &issues);
   }
 
   return issues;
