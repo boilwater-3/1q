@@ -116,6 +116,17 @@ bool EchoOutputCallback(const oneq::replay::ReplayTraceReadEvent& event,
   return true;
 }
 
+bool DivergentOutputCallback(const oneq::replay::ReplayTraceReadEvent& event,
+                             void* user_data,
+                             std::string* actual_output_payload,
+                             std::string* error) {
+  (void)event;
+  (void)user_data;
+  (void)error;
+  *actual_output_payload = "{\"mismatch\":true}";
+  return true;
+}
+
 bool AlwaysOkEventCallback(const oneq::replay::ReplayTraceReadEvent& event,
                            void* user_data,
                            std::string* error) {
@@ -587,14 +598,22 @@ TEST(ReplayTraceWriterTest, BuildsReplayReportForBComputerEntry) {
   EXPECT_EQ(report.failure_marker_count, 1U);
   EXPECT_EQ(report.unsupported_event_count, 0U);
   EXPECT_EQ(report.first_failure_sequence, 3U);
-  EXPECT_FALSE(report.first_failure_payload.empty());
+  EXPECT_FALSE(report.first_failure_payload_base64.empty());
+  EXPECT_EQ(report.first_failure_payload_base64, "ZmI6cmVwb3J0LWZhaWx1cmU=");
+  EXPECT_EQ(report.first_failure_payload_encoding, "flatbuffers");
+  EXPECT_EQ(report.first_failure_payload_type, "ReplayTraceFailure");
 
   const std::string report_path = JoinPath(trace_dir, "replay_report.json");
   WriteReplayTraceReport(report, report_path);
   const std::string report_json = ReadFile(report_path);
   EXPECT_NE(report_json.find("\"replay_ready\":true"), std::string::npos);
   EXPECT_NE(report_json.find("\"cycle_input_count\":1"), std::string::npos);
-  EXPECT_NE(report_json.find("\"first_failure_payload\":"), std::string::npos);
+  EXPECT_NE(report_json.find("\"first_failure_payload_base64\":\"ZmI6cmVwb3J0LWZhaWx1cmU=\""),
+            std::string::npos);
+  EXPECT_NE(report_json.find("\"first_failure_payload_encoding\":\"flatbuffers\""),
+            std::string::npos);
+  EXPECT_NE(report_json.find("\"first_failure_payload_type\":\"ReplayTraceFailure\""),
+            std::string::npos);
 }
 
 TEST(ReplayTraceWriterTest, ReplayReportRejectsMissingSessionConfig) {
@@ -624,6 +643,52 @@ TEST(ReplayTraceWriterTest, ReplayReportRejectsMissingSessionConfig) {
   EXPECT_FALSE(report.replay_ready);
   EXPECT_FALSE(report.has_session_config);
   EXPECT_NE(report.first_error.find("session_config"), std::string::npos);
+}
+
+TEST(ReplayTraceWriterTest, ReplayReportTreatsWarningEventAsNonBlocking) {
+  const std::string trace_dir = MakeTempTraceDir();
+
+  ReplayTraceManifest manifest;
+  manifest.trace_id = "warning-event-report-test";
+  manifest.module = "airborne_radar";
+
+  {
+    ReplayTraceWriter writer(trace_dir, manifest, true);
+
+    ReplayTraceEvent config;
+    config.module = "airborne_radar";
+    config.event_type = "session_config";
+    config.payload_type = "RadarSessionConfig";
+    config.payload_encoding = "flatbuffers";
+    config.payload_bytes = MakeFlatbuffersPayloadBytes("warning-config");
+    writer.WriteEvent(config);
+
+    ReplayTraceEvent warning_event;
+    warning_event.module = "airborne_radar";
+    warning_event.event_type = "warning";
+    warning_event.payload_type = "ConsecutiveCycleInputWarning";
+    warning_event.payload_encoding = "flatbuffers";
+    writer.WriteEvent(warning_event);
+    writer.Flush();
+  }
+
+  ReplayTraceCompatibilityExpectation expectation;
+  expectation.module = "airborne_radar";
+  expectation.require_module_match = true;
+
+  ReplayTraceReplayReport report = BuildReplayTraceReport(trace_dir, expectation);
+  EXPECT_TRUE(report.replay_ready);
+  EXPECT_TRUE(report.has_session_config);
+  EXPECT_EQ(report.warning_event_count, 1U);
+  EXPECT_EQ(report.unsupported_event_count, 0U);
+  EXPECT_NE(report.warning.find("warning events"), std::string::npos);
+
+  const std::string report_path = JoinPath(trace_dir, "warning_replay_report.json");
+  WriteReplayTraceReport(report, report_path);
+  const std::string report_json = ReadFile(report_path);
+  EXPECT_NE(report_json.find("\"warning_event_count\":1"), std::string::npos);
+  EXPECT_NE(report_json.find("\"unsupported_event_count\":0"), std::string::npos);
+  EXPECT_NE(report_json.find("\"replay_ready\":true"), std::string::npos);
 }
 
 TEST(ReplayTraceWriterTest, PlaybackDispatchesEventsAndComparesOutput) {
@@ -677,6 +742,132 @@ TEST(ReplayTraceWriterTest, PlaybackDispatchesEventsAndComparesOutput) {
   EXPECT_EQ(result.compared_output_count, 1U);
   EXPECT_EQ(state.session_config_calls, 1U);
   EXPECT_EQ(state.cycle_input_calls, 1U);
+}
+
+TEST(ReplayTraceWriterTest, PlaybackStopsOnFirstDivergenceWhenEnabled) {
+  const std::string trace_dir = MakeTempTraceDir();
+
+  ReplayTraceManifest manifest;
+  manifest.trace_id = "playback-divergence-stop";
+  manifest.module = "airborne_radar";
+
+  {
+    ReplayTraceWriter writer(trace_dir, manifest, true);
+
+    ReplayTraceEvent config;
+    config.module = "airborne_radar";
+    config.event_type = "session_config";
+    config.payload_type = "RadarSessionConfig";
+    config.payload_encoding = "flatbuffers";
+    config.payload_bytes = MakeFlatbuffersPayloadBytes("div-stop-config");
+    writer.WriteEvent(config);
+
+    ReplayTraceEvent input;
+    input.module = "airborne_radar";
+    input.event_type = "cycle_input";
+    input.payload_type = "RadarCycleInput";
+    input.payload_encoding = "flatbuffers";
+    input.payload_bytes = MakeFlatbuffersPayloadBytes("div-stop-input");
+    writer.WriteEvent(input);
+
+    ReplayTraceEvent output;
+    output.module = "airborne_radar";
+    output.event_type = "cycle_output";
+    output.payload_type = "RadarCycleResult";
+    output.payload_encoding = "flatbuffers";
+    output.payload_bytes = MakeFlatbuffersPayloadBytes("div-stop-output");
+    writer.WriteEvent(output);
+    writer.Flush();
+  }
+
+  PlaybackDispatchState state;
+  ReplayTracePlaybackCallbacks callbacks;
+  callbacks.user_data = &state;
+  callbacks.on_session_config = CountSessionConfigCallback;
+  callbacks.on_cycle_input = CountCycleInputCallback;
+  callbacks.on_cycle_output = DivergentOutputCallback;
+
+  ReplayTracePlaybackResult result = PlaybackReplayTrace(trace_dir, callbacks);
+  EXPECT_FALSE(result.ok);
+  EXPECT_TRUE(result.divergence_found);
+  EXPECT_EQ(result.divergence_sequence, 2U);
+  EXPECT_EQ(result.expected_output_payload, "null");
+  EXPECT_EQ(result.actual_output_payload, "{\"mismatch\":true}");
+  EXPECT_NE(result.first_error.find("divergence"), std::string::npos);
+  EXPECT_EQ(result.processed_event_count, 3U);
+  EXPECT_EQ(result.compared_output_count, 1U);
+}
+
+TEST(ReplayTraceWriterTest, PlaybackContinuesAfterDivergenceWhenDisabled) {
+  const std::string trace_dir = MakeTempTraceDir();
+
+  ReplayTraceManifest manifest;
+  manifest.trace_id = "playback-divergence-continue";
+  manifest.module = "airborne_radar";
+
+  {
+    ReplayTraceWriter writer(trace_dir, manifest, true);
+
+    ReplayTraceEvent config;
+    config.module = "airborne_radar";
+    config.event_type = "session_config";
+    config.payload_type = "RadarSessionConfig";
+    config.payload_encoding = "flatbuffers";
+    config.payload_bytes = MakeFlatbuffersPayloadBytes("div-continue-config");
+    writer.WriteEvent(config);
+
+    ReplayTraceEvent input_a;
+    input_a.module = "airborne_radar";
+    input_a.event_type = "cycle_input";
+    input_a.payload_type = "RadarCycleInput";
+    input_a.payload_encoding = "flatbuffers";
+    input_a.payload_bytes = MakeFlatbuffersPayloadBytes("div-continue-input-a");
+    writer.WriteEvent(input_a);
+
+    ReplayTraceEvent output_a;
+    output_a.module = "airborne_radar";
+    output_a.event_type = "cycle_output";
+    output_a.payload_type = "RadarCycleResult";
+    output_a.payload_encoding = "flatbuffers";
+    output_a.payload_bytes = MakeFlatbuffersPayloadBytes("div-continue-output-a");
+    writer.WriteEvent(output_a);
+
+    ReplayTraceEvent input_b;
+    input_b.module = "airborne_radar";
+    input_b.event_type = "cycle_input";
+    input_b.payload_type = "RadarCycleInput";
+    input_b.payload_encoding = "flatbuffers";
+    input_b.payload_bytes = MakeFlatbuffersPayloadBytes("div-continue-input-b");
+    writer.WriteEvent(input_b);
+
+    ReplayTraceEvent output_b;
+    output_b.module = "airborne_radar";
+    output_b.event_type = "cycle_output";
+    output_b.payload_type = "RadarCycleResult";
+    output_b.payload_encoding = "flatbuffers";
+    output_b.payload_bytes = MakeFlatbuffersPayloadBytes("div-continue-output-b");
+    writer.WriteEvent(output_b);
+    writer.Flush();
+  }
+
+  PlaybackDispatchState state;
+  ReplayTracePlaybackCallbacks callbacks;
+  callbacks.user_data = &state;
+  callbacks.on_session_config = CountSessionConfigCallback;
+  callbacks.on_cycle_input = CountCycleInputCallback;
+  callbacks.on_cycle_output = DivergentOutputCallback;
+
+  ReplayTracePlaybackOptions options;
+  options.stop_on_first_divergence = false;
+  ReplayTracePlaybackResult result = PlaybackReplayTrace(trace_dir, callbacks, options);
+  EXPECT_FALSE(result.ok);
+  EXPECT_TRUE(result.divergence_found);
+  EXPECT_EQ(result.divergence_sequence, 2U);
+  EXPECT_EQ(result.expected_output_payload, "null");
+  EXPECT_EQ(result.actual_output_payload, "{\"mismatch\":true}");
+  EXPECT_EQ(result.processed_event_count, 5U);
+  EXPECT_EQ(result.applied_input_count, 2U);
+  EXPECT_EQ(result.compared_output_count, 2U);
 }
 
 TEST(ReplayTraceWriterTest, PlaybackRejectsMissingRequiredCallback) {

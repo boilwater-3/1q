@@ -119,9 +119,12 @@ struct ONEQ_API ReplayTraceReplayReport {
   std::uint64_t runtime_config_patch_count{0U};
   std::uint64_t cycle_output_count{0U};
   std::uint64_t failure_marker_count{0U};
+  std::uint64_t warning_event_count{0U};
   std::uint64_t unsupported_event_count{0U};
   std::uint64_t first_failure_sequence{0U};
-  std::string first_failure_payload{};
+  std::string first_failure_payload_base64{};
+  std::string first_failure_payload_encoding{};
+  std::string first_failure_payload_type{};
   std::string first_error{};
   std::string warning{};
 };

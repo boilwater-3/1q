@@ -455,9 +455,15 @@ void WriteReportFile(const std::string& path, const ReplayTraceReplayReport& rep
   output << "\"runtime_config_patch_count\":" << report.runtime_config_patch_count << ",";
   output << "\"cycle_output_count\":" << report.cycle_output_count << ",";
   output << "\"failure_marker_count\":" << report.failure_marker_count << ",";
+  output << "\"warning_event_count\":" << report.warning_event_count << ",";
   output << "\"unsupported_event_count\":" << report.unsupported_event_count << ",";
   output << "\"first_failure_sequence\":" << report.first_failure_sequence << ",";
-  WriteJsonRawField(output, "first_failure_payload", report.first_failure_payload, false);
+  WriteJsonStringField(output, "first_failure_payload_base64",
+                       report.first_failure_payload_base64, true);
+  WriteJsonStringField(output, "first_failure_payload_encoding",
+                       report.first_failure_payload_encoding, true);
+  WriteJsonStringField(output, "first_failure_payload_type", report.first_failure_payload_type,
+                       false);
   output << "}";
   output << "}\n";
 }
@@ -1036,8 +1042,12 @@ ReplayTraceReplayReport BuildReplayTraceReport(
       if (!report.has_failure_marker) {
         report.has_failure_marker = true;
         report.first_failure_sequence = event.sequence;
-        report.first_failure_payload = event.payload_inline;
+        report.first_failure_payload_base64 = Base64Encode(event.payload_bytes);
+        report.first_failure_payload_encoding = event.payload_encoding;
+        report.first_failure_payload_type = event.payload_type;
       }
+    } else if (event.event_type == "warning") {
+      ++report.warning_event_count;
     } else {
       ++report.unsupported_event_count;
     }
@@ -1055,6 +1065,9 @@ ReplayTraceReplayReport BuildReplayTraceReport(
 
   if (!report.compatibility.warning.empty()) {
     report.warning = report.compatibility.warning;
+  }
+  if (report.warning_event_count > 0U && report.warning.empty()) {
+    report.warning = "replay trace contains warning events";
   }
   if (report.unsupported_event_count > 0U && report.warning.empty()) {
     report.warning = "replay trace contains unsupported event types";
@@ -1120,6 +1133,24 @@ ReplayTracePlaybackResult PlaybackReplayTrace(const std::string& trace_dir,
                                                 &callback_error);
         if (callback_ok) {
           ++result.compared_output_count;
+          // Optional generic divergence check:
+          // - callback may leave actual_output_payload empty to signal "comparison handled by module".
+          // - when non-empty, compare with event payload inline JSON and fill divergence fields.
+          if (!actual_output_payload.empty() && actual_output_payload != event.payload_inline) {
+            result.divergence_found = true;
+            if (result.divergence_sequence == 0U) {
+              result.divergence_sequence = event.sequence;
+              result.expected_output_payload = event.payload_inline;
+              result.actual_output_payload = actual_output_payload;
+              if (result.first_error.empty()) {
+                result.first_error = "replay cycle_output divergence";
+              }
+            }
+            result.ok = false;
+            if (options.stop_on_first_divergence) {
+              return result;
+            }
+          }
         }
       }
     } else if (event.event_type == "failure_marker") {

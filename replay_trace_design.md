@@ -53,9 +53,9 @@ trace-<trace_id>/
 
 - `manifest.json`：运行身份与兼容性信息，含 `compress_closed_chunks` 字段。
 - `events/*.jsonl`：JSONL 格式顺序事件流，当前 chunk 为明文，历史 chunk 压缩为 `.gz`。
-- `checkpoints/*`：快照数据（Phase 3 完善）。
+- `checkpoints/*`：当前由 writer 预创建目录，checkpoint 事件/文件仍在 Phase 3 规划中。
 - `crash/*`：故障上下文。
-- `indexes/*`：定位 cycle/checkpoint 的加速索引。
+- `indexes/*`：当前写入 `cycles.idx`；`checkpoints.idx` 预留。
 
 ## 5. 事件 Envelope
 
@@ -91,8 +91,9 @@ trace-<trace_id>/
 - `scene_state`：每周期场景状态（如 AR 环境状态）。
 - `runtime_config_patch`：运行时配置变更。
 - `cycle_output`：每周期输出，含**完整 per-track 结构化字段**（用于深度比对）。
-- `checkpoint`：快照引用事件。
 - `failure_marker`：故障事件与诊断信息（`has_validation_error` 时自动写入）。
+
+说明：`checkpoint` 事件类型仍在规划中，当前代码路径未写入该事件。
 
 ## 7. Manifest 关键字段
 
@@ -141,6 +142,11 @@ trace-<trace_id>/
 - `EosRuntimeConfigPatch`
 - `EosCycleResult` / `EosOutputFrame`
 
+补充状态（当前实现）：
+
+- AR 提供了库内专用回放入口 `ReplayRadarTrace(trace_dir)`。
+- EOS/ESR 当前提供 replay 事件采集与 codec，回放验证主要体现在示例与测试路径，尚无与 AR 对等的专用 `Replay*Trace` API。
+
 ## 9. 采集顺序（原则）
 
 ```text
@@ -158,14 +164,13 @@ Step(input[, scene_state])
   -> execute model
   -> write cycle_output          (pending_input_written_ = false)
   -> write failure_marker if has_validation_error (自动)
-  -> write checkpoint (if triggered)
 ```
 
 关键原则：输入在执行前写，输出在执行后写。
 
 P2-B 保护：若连续两个 `cycle_input` 无中间 `cycle_output`，`RadarReplaySession` 报告错误，`RadarTraceSession` 通过 `pending_input_written_` 追踪状态。
 
-## 10. Checkpoint 策略
+## 10. Checkpoint 策略（Phase 3 规划中）
 
 - 周期触发：每 N 个 cycle。
 - 关键变更触发：runtime patch 前后。
@@ -195,7 +200,8 @@ checkpoint 至少应包含：
 ## 12. 序列化策略
 
 - 当前主路径：FlatBuffers 作为 replay payload 编码。
-- 通用 writer/reader 层支持 `payload_encoding` 分流，业务回放层按模块策略解码。
+- 当前 writer 统一写 `payload:null` + `payload_base64`（来源 `payload_bytes`）；reader 从 `payload_base64` 还原字节并做 hash/chain 校验。
+- `payload_encoding` 当前主要作为语义标记（默认 `flatbuffers`），通用层不按编码类型切换写盘格式。
 - FlatBuffers 生成头文件提交至仓库（`src/airborne_radar/session/generated/`），不在构建时自动生成。
 
 ## 13. B 电脑回放流程
@@ -203,12 +209,12 @@ checkpoint 至少应包含：
 ```text
 open trace
 read manifest
-check compatibility
+check compatibility + scan hash/chain
 build replay report
-playback ordered events
+playback ordered events (按事件顺序调用回调)
 apply input/scene/patch in order
-compare outputs (deep per-track structural comparison)
-stop on divergence or failure_marker
+AR 回放回调内做结构化输出比对（不在通用层自动比对）
+stop on callback error or failure_marker (if enabled)
 write replay report
 ```
 
@@ -310,7 +316,11 @@ auto writer = std::make_shared<ReplayTraceWriter>(trace_dir, manifest);
 ### 18.4 AR 输出比较与注意事项
 
 - AR 输出比较基于 FlatBuffers 解码后的结构化字段，**深度 per-track 比对**（P0-B）。
-- 比较函数：`TrackOutputFrameEqual` / `CycleResultEqual`，精确到每条轨迹的 `association_key`、`state_snapshot`（position/velocity/acceleration）、`evidence`（hit_count、quality）等字段。
+- 比较函数：`TrackOutputFrameEqual` / `CycleResultEqual`。
+- 当前 `TrackOutputFrameEqual` 实际比较字段包括：
+  - frame 级：`cycle_index`、`published_track_count`、`batch_id`、`confirmed_track_count`、`contains_lost_tracks`、`tracks.size()`
+  - track state 级：`association_key`、`external_target_id`、`status`、`position_{x,y,z}`、`velocity_{x,y,z}`、`speed`、`rcs`、`jamming_detected`、`hit_count`、`miss_count`
+- 当前 AR 回放比对**未覆盖** `acceleration_*`、`acceleration` 以及 `evidence` 子字段；这些字段目前依赖 codec round-trip 测试保障编解码一致性。
 - 新增字段须三联动：schema + codec encode/decode + 单测（round-trip + replay 流）。
 - AR 回放链路已收紧为二进制 payload 优先；payload 为空时 decode 直接失败。
 - `failure_marker` 在 AR 回放中也按 FlatBuffers 解码；生产侧写 failure marker 时应传 `payload_bytes`。
@@ -348,7 +358,14 @@ auto writer = std::make_shared<ReplayTraceWriter>(trace_dir, manifest);
 
 - `ReplayTraceWriterTest.*`（通用 writer/reader/scan/playback）
 - `ReplayTraceCompressionTest.*`（gzip 压缩 round-trip，新增）
-- `TraceSessionAdapterTest.Radar*`（AR trace 写入/回放 integration）
+- `TraceSessionAdapterTest.Radar*`（文件：`tests/unit/ar_trace_session_adapter_test.cpp`，AR trace 写入/回放 integration）
 - `ArReplayCodecRoundtripTest.*`（AR 全 payload 类型 codec round-trip，新增）
+
+### 18.9 当前限制与后续工作（按代码现状）
+
+- `PlaybackReplayTrace` 已支持通用分歧检测：当 `on_cycle_output` 回调返回非空 `actual_output_payload` 且与事件 `payload` 不一致时，填充 `divergence_*` 并置 `ok=false`；`stop_on_first_divergence=true` 时立即停止，`false` 时继续处理后续事件。
+- `BuildReplayTraceReport` 已使用二进制语义输出首个 failure marker 负载：`first_failure_payload_base64`、`first_failure_payload_encoding`、`first_failure_payload_type`。
+- 通用报告已将 `warning` 归类为已知非阻断事件（计入 `warning_event_count`，不计入 `unsupported_event_count`），因此不会单独导致 `replay_ready=false`。
+- checkpoint 目录与索引目录已创建，但 checkpoint 事件/文件与 `checkpoints.idx` 仍待 Phase 3 落地。
 
 文档编码要求：本文件应始终保持 UTF-8 与 LF 行尾。
