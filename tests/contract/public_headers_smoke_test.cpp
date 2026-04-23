@@ -85,9 +85,7 @@
 #include "1q/electronic_surveillance_radar/config/electronic_surveillance_radar_config.hpp"
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentConfig.h"
-#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentRuntimeConfigPatch.h"
-#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentRuntimeConfigPatchBuilder.h"
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentSceneBuilder.h"
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
 #include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
@@ -226,15 +224,6 @@ static_assert(
         electro_optical_sensor::session::EosSessionConfig,
         decltype(electro_optical_sensor::config::EosDetailedSessionConfigBuilder().Build())>::value,
     "EosDetailedSessionConfigBuilder::Build must return EosSessionConfig");
-static_assert(
-    std::is_same<
-        electronic_surveillance_radar::environment::EsrEnvironmentRuntimeConfigPatch,
-        decltype(electronic_surveillance_radar::environment::
-                     EsrEnvironmentRuntimeConfigPatchBuilder()
-                         .WithAtmosphericContext(electronic_surveillance_radar::environment::
-                                                     EsrAtmosphericDerivedContext{})
-                         .Build())>::value,
-    "EsrEnvironmentRuntimeConfigPatchBuilder::Build must return EsrEnvironmentRuntimeConfigPatch");
 static_assert(
     std::is_same<electronic_surveillance_radar::session::EsrSessionConfig,
                  decltype(electronic_surveillance_radar::config::EsrDetailedSessionConfigBuilder()
