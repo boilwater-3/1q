@@ -320,7 +320,7 @@ auto writer = std::make_shared<ReplayTraceWriter>(trace_dir, manifest);
 - 当前 `TrackOutputFrameEqual` 实际比较字段包括：
   - frame 级：`cycle_index`、`published_track_count`、`batch_id`、`confirmed_track_count`、`contains_lost_tracks`、`tracks.size()`
   - track state 级：`association_key`、`external_target_id`、`status`、`position_{x,y,z}`、`velocity_{x,y,z}`、`speed`、`rcs`、`jamming_detected`、`hit_count`、`miss_count`
-- 当前 AR 回放比对**未覆盖** `acceleration_*`、`acceleration` 以及 `evidence` 子字段；这些字段目前依赖 codec round-trip 测试保障编解码一致性。
+- 当前 AR 回放比对**未覆盖** `acceleration_*` 与 `acceleration` 字段；这些字段目前依赖 codec round-trip 测试保障编解码一致性。
 - 新增字段须三联动：schema + codec encode/decode + 单测（round-trip + replay 流）。
 - AR 回放链路已收紧为二进制 payload 优先；payload 为空时 decode 直接失败。
 - `failure_marker` 在 AR 回放中也按 FlatBuffers 解码；生产侧写 failure marker 时应传 `payload_bytes`。

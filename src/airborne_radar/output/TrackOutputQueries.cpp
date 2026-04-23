@@ -11,11 +11,11 @@ namespace {
  * @param status 目标状态。
  * @return 匹配状态的轨迹快照拷贝列表。
  */
-model::DecisionTrackSnapshotList CollectTracksByStatus(const TrackOutputFrame& frame,
-                                                       model::DecisionTrackStatus status) {
-  model::DecisionTrackSnapshotList tracks;
+model::TrackStateSnapshotList CollectTracksByStatus(const TrackOutputFrame& frame,
+                                                       model::TrackStatus status) {
+  model::TrackStateSnapshotList tracks;
   for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
-    if (frame.tracks[i].state.status == status) {
+    if (frame.tracks[i].status == status) {
       tracks.push_back(frame.tracks[i]);
     }
   }
@@ -24,51 +24,51 @@ model::DecisionTrackSnapshotList CollectTracksByStatus(const TrackOutputFrame& f
 
 }  // namespace
 
-std::unordered_map<std::uint64_t, model::DecisionTrackSnapshot> BuildTrackMapByExternalTargetId(
+std::unordered_map<std::uint64_t, model::TrackStateSnapshot> BuildTrackMapByExternalTargetId(
     const TrackOutputFrame& frame) {
-  std::unordered_map<std::uint64_t, model::DecisionTrackSnapshot> track_map;
+  std::unordered_map<std::uint64_t, model::TrackStateSnapshot> track_map;
   for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
-    const model::DecisionTrackSnapshot& track = frame.tracks[i];
-    if (track.state.external_target_id == 0U) {
+    const model::TrackStateSnapshot& track = frame.tracks[i];
+    if (track.external_target_id == 0U) {
       continue;
     }
-    track_map[track.state.external_target_id] = track;
+    track_map[track.external_target_id] = track;
   }
   return track_map;
 }
 
-std::unordered_map<std::uint64_t, model::DecisionTrackSnapshot> BuildTrackMapByAssociationKey(
+std::unordered_map<std::uint64_t, model::TrackStateSnapshot> BuildTrackMapByAssociationKey(
     const TrackOutputFrame& frame) {
-  std::unordered_map<std::uint64_t, model::DecisionTrackSnapshot> track_map;
+  std::unordered_map<std::uint64_t, model::TrackStateSnapshot> track_map;
   for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
-    track_map[frame.tracks[i].state.association_key] = frame.tracks[i];
+    track_map[frame.tracks[i].association_key] = frame.tracks[i];
   }
   return track_map;
 }
 
-model::DecisionTrackSnapshotList CollectTracksByExternalTargetId(const TrackOutputFrame& frame,
+model::TrackStateSnapshotList CollectTracksByExternalTargetId(const TrackOutputFrame& frame,
                                                                  std::uint64_t external_target_id) {
-  model::DecisionTrackSnapshotList tracks;
+  model::TrackStateSnapshotList tracks;
   for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
-    if (frame.tracks[i].state.external_target_id == external_target_id) {
+    if (frame.tracks[i].external_target_id == external_target_id) {
       tracks.push_back(frame.tracks[i]);
     }
   }
   return tracks;
 }
 
-model::DecisionTrackSnapshotList CollectConfirmedTracks(const TrackOutputFrame& frame) {
-  return CollectTracksByStatus(frame, model::DecisionTrackStatus::kConfirmed);
+model::TrackStateSnapshotList CollectConfirmedTracks(const TrackOutputFrame& frame) {
+  return CollectTracksByStatus(frame, model::TrackStatus::kConfirmed);
 }
 
-model::DecisionTrackSnapshotList CollectLostTracks(const TrackOutputFrame& frame) {
-  return CollectTracksByStatus(frame, model::DecisionTrackStatus::kLost);
+model::TrackStateSnapshotList CollectLostTracks(const TrackOutputFrame& frame) {
+  return CollectTracksByStatus(frame, model::TrackStatus::kLost);
 }
 
-model::DecisionTrackSnapshotList CollectJammingTracks(const TrackOutputFrame& frame) {
-  model::DecisionTrackSnapshotList tracks;
+model::TrackStateSnapshotList CollectJammingTracks(const TrackOutputFrame& frame) {
+  model::TrackStateSnapshotList tracks;
   for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
-    if (frame.tracks[i].state.jamming_detected) {
+    if (frame.tracks[i].jamming_detected) {
       tracks.push_back(frame.tracks[i]);
     }
   }
@@ -77,7 +77,7 @@ model::DecisionTrackSnapshotList CollectJammingTracks(const TrackOutputFrame& fr
 
 bool ContainsExternalTargetId(const TrackOutputFrame& frame, std::uint64_t external_target_id) {
   for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
-    if (frame.tracks[i].state.external_target_id == external_target_id) {
+    if (frame.tracks[i].external_target_id == external_target_id) {
       return true;
     }
   }
@@ -87,17 +87,17 @@ bool ContainsExternalTargetId(const TrackOutputFrame& frame, std::uint64_t exter
 std::size_t CountJammingTracks(const TrackOutputFrame& frame) {
   std::size_t count = 0U;
   for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
-    if (frame.tracks[i].state.jamming_detected) {
+    if (frame.tracks[i].jamming_detected) {
       ++count;
     }
   }
   return count;
 }
 
-std::size_t CountTracksByStatus(const TrackOutputFrame& frame, model::DecisionTrackStatus status) {
+std::size_t CountTracksByStatus(const TrackOutputFrame& frame, model::TrackStatus status) {
   std::size_t count = 0U;
   for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
-    if (frame.tracks[i].state.status == status) {
+    if (frame.tracks[i].status == status) {
       ++count;
     }
   }

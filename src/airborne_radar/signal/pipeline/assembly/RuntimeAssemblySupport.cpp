@@ -153,9 +153,9 @@ class AutoConfiguredLifecycleManager final : public tracking::ITrackLifecycleMan
     return assembly_.lifecycle_manager->BuildFeatureSnapshot();
   }
 
-  model::DecisionTrackSnapshotList BuildDecisionSnapshot() const override {
+  model::TrackStateSnapshotList BuildDecisionSnapshot() const override {
     if (assembly_.lifecycle_manager == nullptr) {
-      return model::DecisionTrackSnapshotList();
+      return model::TrackStateSnapshotList();
     }
     return assembly_.lifecycle_manager->BuildDecisionSnapshot();
   }

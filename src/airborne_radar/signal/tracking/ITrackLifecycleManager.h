@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/model/DecisionInputFrame.h"
-#include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
+#include "1q/airborne_radar/model/TrackStateSnapshot.h"
 #include "1q/airborne_radar/model/TargetFeature.h"
 #include "airborne_radar/signal/tracking/LifecycleConfig.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
@@ -39,7 +39,7 @@ class ITrackLifecycleManager {
    * @brief 导出供决策引擎消费的活跃轨迹快照。
    * @return 包含 tentative/confirmed/lost 状态且未回收的轨迹列表。
    */
-  virtual model::DecisionTrackSnapshotList BuildDecisionSnapshot() const = 0;
+  virtual model::TrackStateSnapshotList BuildDecisionSnapshot() const = 0;
   /**
    * @brief 导出完整的单周期决策输入帧。
    * @param cycle_index 当前处理周期索引。

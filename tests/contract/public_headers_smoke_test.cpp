@@ -40,7 +40,7 @@
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/model/DecisionInputFrame.h"
 #include "1q/airborne_radar/model/DecisionSourceInfo.h"
-#include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
+#include "1q/airborne_radar/model/TrackStateSnapshot.h"
 #include "1q/airborne_radar/model/JammingSemantics.h"
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "1q/airborne_radar/model/TargetCategory.h"
@@ -256,7 +256,7 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   const session::RadarCycleResult result = session.StepWithResult(input, scene_state);
   const session::RadarCycleResult trace_result = trace_session.StepWithResult(input, scene_state);
   const std::size_t confirmed_tracks = output::CountTracksByStatus(
-      result.track_output_frame, model::DecisionTrackStatus::kConfirmed);
+      result.track_output_frame, model::TrackStatus::kConfirmed);
 
   EXPECT_GE(confirmed_tracks, 0U);
   EXPECT_GE(result.association_quality_metrics.detection_count, 0U);

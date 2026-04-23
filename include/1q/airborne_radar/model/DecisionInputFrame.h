@@ -10,7 +10,7 @@
 #include <cstdint>
 
 #include "1q/airborne_radar/model/DecisionSourceInfo.h"
-#include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
+#include "1q/airborne_radar/model/TrackStateSnapshot.h"
 #include "1q/airborne_radar/model/JammingSemantics.h"
 
 namespace airborne_radar {
@@ -52,14 +52,14 @@ struct DecisionInputFrame {
   EccmSourceInfo eccm_source_info{};                 /**< 供 ECCM 消费的干扰事实摘要 */
   AssociationQualityInfo association_quality_info{}; /**< 供决策层消费的关联质量摘要 */
   PerceptionQualityInfo perception_quality_info{};   /**< 供决策层消费的探测质量摘要 */
-  DecisionTrackSnapshotList tracks{};                /**< 当前周期可见的轨迹快照 */
+  TrackStateSnapshotList tracks{};                /**< 当前周期可见的轨迹快照 */
 
   DecisionInputFrame() = default; /**< 默认构造 */
 
   /** @brief 使用轨迹集合构造输入帧。
    * @param[in] track_snapshots 轨迹快照列表。
    */
-  explicit DecisionInputFrame(const DecisionTrackSnapshotList& track_snapshots)
+  explicit DecisionInputFrame(const TrackStateSnapshotList& track_snapshots)
       : tracks(track_snapshots) {}
 };
 

@@ -22,6 +22,7 @@
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/model/TargetFeature.h"
 #include "1q/airborne_radar/output/TrackOutputFrame.h"
+#include "1q/airborne_radar/output/TrackOutputQueries.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/core/SignalPipeline.h"
 
@@ -249,23 +250,23 @@ void AdvanceTargets(float dt_sec, model::TargetFeatureList* targets) {
   }
 }
 
-std::unordered_map<std::uint64_t, const model::DecisionTrackSnapshot*> BuildTrackMapByExternalId(
+std::unordered_map<std::uint64_t, const model::TrackStateSnapshot*> BuildTrackMapByExternalId(
     const output::TrackOutputFrame& frame) {
-  std::unordered_map<std::uint64_t, const model::DecisionTrackSnapshot*> track_map;
+  std::unordered_map<std::uint64_t, const model::TrackStateSnapshot*> track_map;
   for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
-    const model::DecisionTrackSnapshot& track = frame.tracks[i];
-    if (track.state.external_target_id != 0U) {
-      track_map[track.state.external_target_id] = &track;
+    const model::TrackStateSnapshot& track = frame.tracks[i];
+    if (track.external_target_id != 0U) {
+      track_map[track.external_target_id] = &track;
     }
   }
   return track_map;
 }
 
-std::vector<const model::DecisionTrackSnapshot*> CollectTracksByExternalId(
+std::vector<const model::TrackStateSnapshot*> CollectTracksByExternalId(
     const output::TrackOutputFrame& frame, std::uint64_t external_target_id) {
-  std::vector<const model::DecisionTrackSnapshot*> matching_tracks;
+  std::vector<const model::TrackStateSnapshot*> matching_tracks;
   for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
-    if (frame.tracks[i].state.external_target_id == external_target_id) {
+    if (frame.tracks[i].external_target_id == external_target_id) {
       matching_tracks.push_back(&frame.tracks[i]);
     }
   }
@@ -285,7 +286,7 @@ bool ContainsCommandType(const ScenarioRadarContext& radar_context,
 std::size_t CountJammingFlaggedTracks(const output::TrackOutputFrame& frame) {
   std::size_t count = 0U;
   for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
-    if (frame.tracks[i].state.jamming_detected) {
+    if (frame.tracks[i].jamming_detected) {
       ++count;
     }
   }
@@ -373,8 +374,9 @@ CycleStats CaptureCycleStats(const output::TrackOutputFrame& frame,
   const extension::AssociationQualityMetrics metrics =
       signal_pipeline.GetLastAssociationQualityMetrics();
   CycleStats stats;
-  stats.published_track_count = frame.published_track_count;
-  stats.confirmed_track_count = frame.confirmed_track_count;
+  stats.published_track_count = frame.tracks.size();
+  stats.confirmed_track_count =
+      output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed);
   stats.jamming_track_count = CountJammingFlaggedTracks(frame);
   stats.command_delta_count = radar_context.SubmittedCommands().size() - previous_command_count;
   stats.association_stress = metrics.association_stress;
@@ -395,14 +397,14 @@ void ExpectBoundedCommandBurst(const std::vector<CycleStats>& stats,
   }
 }
 
-void ExpectFiniteTrackState(const model::DecisionTrackSnapshot& track) {
-  EXPECT_TRUE(std::isfinite(track.state.position_x));
-  EXPECT_TRUE(std::isfinite(track.state.position_y));
-  EXPECT_TRUE(std::isfinite(track.state.position_z));
-  EXPECT_TRUE(std::isfinite(track.state.velocity_x));
-  EXPECT_TRUE(std::isfinite(track.state.velocity_y));
-  EXPECT_TRUE(std::isfinite(track.state.velocity_z));
-  EXPECT_TRUE(std::isfinite(track.state.speed));
+void ExpectFiniteTrackState(const model::TrackStateSnapshot& track) {
+  EXPECT_TRUE(std::isfinite(track.position_x));
+  EXPECT_TRUE(std::isfinite(track.position_y));
+  EXPECT_TRUE(std::isfinite(track.position_z));
+  EXPECT_TRUE(std::isfinite(track.velocity_x));
+  EXPECT_TRUE(std::isfinite(track.velocity_y));
+  EXPECT_TRUE(std::isfinite(track.velocity_z));
+  EXPECT_TRUE(std::isfinite(track.speed));
 }
 
 void ExpectFrameContainsTargetIds(const output::TrackOutputFrame& frame,
@@ -438,17 +440,17 @@ TEST(RadarJointIntegrationTest, StageOneGroundTargetsRemainStableWithoutInterfer
   for (std::size_t cycle = 0; cycle < 3U; ++cycle) {
     const output::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
 
-    ASSERT_EQ(frame.published_track_count, targets.size());
-    ASSERT_EQ(frame.confirmed_track_count, targets.size());
-    EXPECT_FALSE(frame.contains_lost_tracks);
+    ASSERT_EQ(frame.tracks.size(), targets.size());
+    ASSERT_EQ(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), targets.size());
+    EXPECT_FALSE(output::CountTracksByStatus(frame, model::TrackStatus::kLost) > 0U);
     ExpectFrameContainsTargets(frame, targets);
 
     const auto track_map = BuildTrackMapByExternalId(frame);
     for (std::size_t i = 0; i < targets.size(); ++i) {
-      const model::DecisionTrackSnapshot& track = *track_map.at(targets[i].external_target_id);
-      EXPECT_NEAR(track.state.position_z, 0.0f, 1e-5f);
-      EXPECT_NEAR(track.state.speed, 0.0f, 1e-5f);
-      EXPECT_FALSE(track.state.jamming_detected);
+      const model::TrackStateSnapshot& track = *track_map.at(targets[i].external_target_id);
+      EXPECT_NEAR(track.position_z, 0.0f, 1e-5f);
+      EXPECT_NEAR(track.speed, 0.0f, 1e-5f);
+      EXPECT_FALSE(track.jamming_detected);
     }
   }
 
@@ -475,29 +477,29 @@ TEST(RadarJointIntegrationTest, StageOneMovingAirTargetsKeepStableEnemyOutputWit
   for (std::size_t cycle = 0; cycle < 4U; ++cycle) {
     const output::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
 
-    ASSERT_EQ(frame.published_track_count, targets.size());
-    ASSERT_EQ(frame.confirmed_track_count, targets.size());
-    EXPECT_FALSE(frame.contains_lost_tracks);
+    ASSERT_EQ(frame.tracks.size(), targets.size());
+    ASSERT_EQ(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), targets.size());
+    EXPECT_FALSE(output::CountTracksByStatus(frame, model::TrackStatus::kLost) > 0U);
     ExpectFrameContainsTargets(frame, targets);
 
     const auto track_map = BuildTrackMapByExternalId(frame);
     for (std::size_t i = 0; i < targets.size(); ++i) {
       const model::TargetFeature& target = targets[i];
-      const model::DecisionTrackSnapshot& track = *track_map.at(target.external_target_id);
+      const model::TrackStateSnapshot& track = *track_map.at(target.external_target_id);
       const float expected_speed =
           std::sqrt(target.current_track_velocity_x * target.current_track_velocity_x +
                     target.current_track_velocity_y * target.current_track_velocity_y +
                     target.current_track_velocity_z * target.current_track_velocity_z);
-      EXPECT_GT(track.state.position_z, 0.0f);
-      EXPECT_NEAR(track.state.speed, expected_speed, 1e-4f);
-      EXPECT_FALSE(track.state.jamming_detected);
+      EXPECT_GT(track.position_z, 0.0f);
+      EXPECT_NEAR(track.speed, expected_speed, 1e-4f);
+      EXPECT_FALSE(track.jamming_detected);
 
       if (cycle > 0U) {
-        EXPECT_EQ(track.state.association_key, previous_keys[target.external_target_id]);
-        EXPECT_GT(track.state.position_x, previous_position_x[target.external_target_id]);
+        EXPECT_EQ(track.association_key, previous_keys[target.external_target_id]);
+        EXPECT_GT(track.position_x, previous_position_x[target.external_target_id]);
       }
-      previous_keys[target.external_target_id] = track.state.association_key;
-      previous_position_x[target.external_target_id] = track.state.position_x;
+      previous_keys[target.external_target_id] = track.association_key;
+      previous_position_x[target.external_target_id] = track.position_x;
     }
 
     AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
@@ -522,7 +524,7 @@ TEST(RadarJointIntegrationTest,
 
   const output::TrackOutputFrame baseline_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
-  ASSERT_EQ(baseline_frame.confirmed_track_count, targets.size());
+  ASSERT_EQ(output::CountTracksByStatus(baseline_frame, model::TrackStatus::kConfirmed), targets.size());
 
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   environment_service.UpdateSceneState(
@@ -549,8 +551,8 @@ TEST(RadarJointIntegrationTest,
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   const output::TrackOutputFrame protected_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
-  EXPECT_GT(protected_frame.published_track_count, 0U);
-  EXPECT_GT(protected_frame.confirmed_track_count, 0U);
+  EXPECT_GT(protected_frame.tracks.size(), 0U);
+  EXPECT_GT(output::CountTracksByStatus(protected_frame, model::TrackStatus::kConfirmed), 0U);
   EXPECT_GT(CountJammingFlaggedTracks(protected_frame), 0U);
   ExpectFrameContainsTargets(protected_frame, targets);
 }
@@ -569,7 +571,7 @@ TEST(RadarJointIntegrationTest,
 
   const output::TrackOutputFrame baseline_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
-  ASSERT_EQ(baseline_frame.confirmed_track_count, 1U);
+  ASSERT_EQ(output::CountTracksByStatus(baseline_frame, model::TrackStatus::kConfirmed), 1U);
 
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   environment_service.UpdateSceneState(
@@ -600,7 +602,7 @@ TEST(RadarJointIntegrationTest,
   const extension::AssociationQualityMetrics cycle_3_metrics =
       signal_pipeline.GetLastAssociationQualityMetrics();
 
-  EXPECT_GT(cycle_3_frame.confirmed_track_count, 0U);
+  EXPECT_GT(output::CountTracksByStatus(cycle_3_frame, model::TrackStatus::kConfirmed), 0U);
   ExpectFrameContainsTargets(cycle_3_frame, targets);
   EXPECT_LE(cycle_3_metrics.association_stress, cycle_2_metrics.association_stress);
   EXPECT_GE(cycle_3_metrics.match_rate, cycle_2_metrics.match_rate);
@@ -620,7 +622,7 @@ TEST(RadarJointIntegrationTest, StageTwoRepeaterInterferenceKeepsTrackOutputAndS
 
   const output::TrackOutputFrame baseline_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
-  ASSERT_EQ(baseline_frame.confirmed_track_count, targets.size());
+  ASSERT_EQ(output::CountTracksByStatus(baseline_frame, model::TrackStatus::kConfirmed), targets.size());
 
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   environment_service.UpdateSceneState(
@@ -644,8 +646,8 @@ TEST(RadarJointIntegrationTest, StageTwoRepeaterInterferenceKeepsTrackOutputAndS
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   const output::TrackOutputFrame cycle_3_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
-  EXPECT_GT(cycle_3_frame.published_track_count, 0U);
-  EXPECT_GT(cycle_3_frame.confirmed_track_count, 0U);
+  EXPECT_GT(cycle_3_frame.tracks.size(), 0U);
+  EXPECT_GT(output::CountTracksByStatus(cycle_3_frame, model::TrackStatus::kConfirmed), 0U);
   ExpectFrameContainsTargets(cycle_3_frame, targets);
 }
 
@@ -665,7 +667,7 @@ TEST(RadarJointIntegrationTest,
 
   const output::TrackOutputFrame baseline_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
-  ASSERT_EQ(baseline_frame.confirmed_track_count, targets.size());
+  ASSERT_EQ(output::CountTracksByStatus(baseline_frame, model::TrackStatus::kConfirmed), targets.size());
 
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   environment_service.UpdateSceneState(
@@ -691,15 +693,15 @@ TEST(RadarJointIntegrationTest,
       RunScenarioCycle(&controller, &radar_context, targets);
   const auto track_map = BuildTrackMapByExternalId(cycle_3_frame);
 
-  ASSERT_EQ(cycle_3_frame.published_track_count, targets.size());
-  ASSERT_EQ(cycle_3_frame.confirmed_track_count, targets.size());
+  ASSERT_EQ(cycle_3_frame.tracks.size(), targets.size());
+  ASSERT_EQ(output::CountTracksByStatus(cycle_3_frame, model::TrackStatus::kConfirmed), targets.size());
   EXPECT_GT(CountJammingFlaggedTracks(cycle_3_frame), 0U);
   ExpectFrameContainsTargets(cycle_3_frame, targets);
   for (std::size_t i = 0; i < targets.size(); ++i) {
-    const model::DecisionTrackSnapshot& track = *track_map.at(targets[i].external_target_id);
-    EXPECT_GT(track.state.speed, 0.0f);
-    EXPECT_GT(track.state.position_z, 0.0f);
-    EXPECT_TRUE(track.state.jamming_detected);
+    const model::TrackStateSnapshot& track = *track_map.at(targets[i].external_target_id);
+    EXPECT_GT(track.speed, 0.0f);
+    EXPECT_GT(track.position_z, 0.0f);
+    EXPECT_TRUE(track.jamming_detected);
   }
 }
 
@@ -715,9 +717,9 @@ TEST(RadarJointIntegrationTest, MediumScaleStaticSearchMaintainsStableOutputAcro
         BuildStaticGroundTargets(target_tiers[tier_index], 60.0f, -8.0f);
     for (std::size_t cycle = 0; cycle < 5U; ++cycle) {
       const output::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
-      ASSERT_EQ(frame.published_track_count, target_tiers[tier_index]);
-      ASSERT_EQ(frame.confirmed_track_count, target_tiers[tier_index]);
-      EXPECT_FALSE(frame.contains_lost_tracks);
+      ASSERT_EQ(frame.tracks.size(), target_tiers[tier_index]);
+      ASSERT_EQ(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), target_tiers[tier_index]);
+      EXPECT_FALSE(output::CountTracksByStatus(frame, model::TrackStatus::kLost) > 0U);
       ExpectFrameContainsTargets(frame, targets);
       EXPECT_EQ(CountJammingFlaggedTracks(frame), 0U);
     }
@@ -750,8 +752,8 @@ TEST(RadarJointIntegrationTest, MediumScaleDynamicSearchMaintainsStableAssociati
       const output::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
       stats.push_back(
           CaptureCycleStats(frame, radar_context, signal_pipeline, previous_command_count));
-      ASSERT_EQ(frame.published_track_count, tiers[tier_index].target_count);
-      ASSERT_EQ(frame.confirmed_track_count, tiers[tier_index].target_count);
+      ASSERT_EQ(frame.tracks.size(), tiers[tier_index].target_count);
+      ASSERT_EQ(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), tiers[tier_index].target_count);
       ExpectFrameContainsTargets(frame, targets);
 
       const auto track_map = BuildTrackMapByExternalId(frame);
@@ -759,9 +761,9 @@ TEST(RadarJointIntegrationTest, MediumScaleDynamicSearchMaintainsStableAssociati
         const std::uint64_t target_id = targets[i].external_target_id;
         ASSERT_NE(track_map.count(target_id), 0U);
         if (cycle > 0U) {
-          EXPECT_EQ(track_map.at(target_id)->state.association_key, previous_keys[target_id]);
+          EXPECT_EQ(track_map.at(target_id)->association_key, previous_keys[target_id]);
         }
-        previous_keys[target_id] = track_map.at(target_id)->state.association_key;
+        previous_keys[target_id] = track_map.at(target_id)->association_key;
       }
       AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
     }
@@ -799,8 +801,8 @@ TEST(RadarJointIntegrationTest,
     stats.push_back(
         CaptureCycleStats(frame, radar_context, signal_pipeline, previous_command_count));
 
-    ASSERT_GE(frame.published_track_count, targets.size());
-    ASSERT_GE(frame.confirmed_track_count, targets.size());
+    ASSERT_GE(frame.tracks.size(), targets.size());
+    ASSERT_GE(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), targets.size());
     ExpectFrameContainsTargetIds(frame, ExtractTargetIds(targets));
     if (script[cycle].expect_jamming) {
       EXPECT_GT(stats.back().jamming_track_count, 0U);
@@ -866,8 +868,8 @@ TEST(RadarJointIntegrationTest, LongDurationMediumLoadPatrolKeepsMetricsBoundedW
     max_association_stress = std::max(max_association_stress, cycle_stats.association_stress);
     min_match_rate = std::min(min_match_rate, cycle_stats.match_rate);
 
-    EXPECT_GE(frame.published_track_count, 24U);
-    EXPECT_GE(frame.confirmed_track_count, 24U);
+    EXPECT_GE(frame.tracks.size(), 24U);
+    EXPECT_GE(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), 24U);
     EXPECT_LE(cycle_stats.jamming_track_count, targets.size());
     AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   }
@@ -887,10 +889,10 @@ TEST(RadarJointIntegrationTest, EmptySearchAreaKeepsTrackOutputReadableWithoutSp
   const model::TargetFeatureList targets;
   for (std::size_t cycle = 0; cycle < 3U; ++cycle) {
     const output::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
-    EXPECT_EQ(frame.published_track_count, 0U);
-    EXPECT_EQ(frame.confirmed_track_count, 0U);
+    EXPECT_EQ(frame.tracks.size(), 0U);
+    EXPECT_EQ(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), 0U);
     EXPECT_TRUE(frame.tracks.empty());
-    EXPECT_FALSE(frame.contains_lost_tracks);
+    EXPECT_FALSE(output::CountTracksByStatus(frame, model::TrackStatus::kLost) > 0U);
   }
 
   EXPECT_FALSE(
@@ -914,7 +916,7 @@ TEST(RadarJointIntegrationTest, DuplicateExternalTargetIdsAreRejectedAndPrevious
   };
   const output::TrackOutputFrame previous_frame =
       RunScenarioCycle(&controller, &radar_context, valid_targets);
-  ASSERT_EQ(previous_frame.published_track_count, valid_targets.size());
+  ASSERT_EQ(previous_frame.tracks.size(), valid_targets.size());
   ASSERT_FALSE(controller.HasValidationError());
 
   model::TargetFeatureList duplicate_targets{
@@ -934,8 +936,8 @@ TEST(RadarJointIntegrationTest, DuplicateExternalTargetIdsAreRejectedAndPrevious
   const output::TrackOutputFrame& retained_frame = controller.GetLatestTrackOutputFrame();
   EXPECT_EQ(retained_frame.cycle_index, previous_frame.cycle_index);
   EXPECT_EQ(retained_frame.batch_id, previous_frame.batch_id);
-  EXPECT_EQ(retained_frame.published_track_count, previous_frame.published_track_count);
-  EXPECT_EQ(retained_frame.confirmed_track_count, previous_frame.confirmed_track_count);
+  EXPECT_EQ(retained_frame.tracks.size(), previous_frame.tracks.size());
+  EXPECT_EQ(output::CountTracksByStatus(retained_frame, model::TrackStatus::kConfirmed), output::CountTracksByStatus(previous_frame, model::TrackStatus::kConfirmed));
 }
 
 TEST(RadarJointIntegrationTest, ExtremeRangeTargetsKeepFiniteStableOutputAcrossCycles) {
@@ -955,22 +957,22 @@ TEST(RadarJointIntegrationTest, ExtremeRangeTargetsKeepFiniteStableOutputAcrossC
   std::unordered_map<std::uint64_t, std::uint64_t> previous_keys;
   for (std::size_t cycle = 0; cycle < 4U; ++cycle) {
     const output::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
-    ASSERT_EQ(frame.published_track_count, targets.size());
-    ASSERT_EQ(frame.confirmed_track_count, targets.size());
-    EXPECT_FALSE(frame.contains_lost_tracks);
+    ASSERT_EQ(frame.tracks.size(), targets.size());
+    ASSERT_EQ(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), targets.size());
+    EXPECT_FALSE(output::CountTracksByStatus(frame, model::TrackStatus::kLost) > 0U);
     ExpectFrameContainsTargets(frame, targets);
 
     const auto track_map = BuildTrackMapByExternalId(frame);
     for (std::size_t i = 0; i < targets.size(); ++i) {
-      const model::DecisionTrackSnapshot& track = *track_map.at(targets[i].external_target_id);
+      const model::TrackStateSnapshot& track = *track_map.at(targets[i].external_target_id);
       ExpectFiniteTrackState(track);
-      EXPECT_FALSE(track.state.jamming_detected);
-      EXPECT_GT(track.state.association_key, 0U);
-      EXPECT_GT(track.state.position_x, 0.0f);
+      EXPECT_FALSE(track.jamming_detected);
+      EXPECT_GT(track.association_key, 0U);
+      EXPECT_GT(track.position_x, 0.0f);
       if (cycle > 0U) {
-        EXPECT_EQ(track.state.association_key, previous_keys[targets[i].external_target_id]);
+        EXPECT_EQ(track.association_key, previous_keys[targets[i].external_target_id]);
       }
-      previous_keys[targets[i].external_target_id] = track.state.association_key;
+      previous_keys[targets[i].external_target_id] = track.association_key;
     }
     AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   }
@@ -996,31 +998,31 @@ TEST(RadarJointIntegrationTest,
   float previous_fast_x = 0.0f;
   for (std::size_t cycle = 0; cycle < 5U; ++cycle) {
     const output::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
-    ASSERT_EQ(frame.published_track_count, targets.size());
-    ASSERT_EQ(frame.confirmed_track_count, targets.size());
-    EXPECT_FALSE(frame.contains_lost_tracks);
+    ASSERT_EQ(frame.tracks.size(), targets.size());
+    ASSERT_EQ(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), targets.size());
+    EXPECT_FALSE(output::CountTracksByStatus(frame, model::TrackStatus::kLost) > 0U);
     ExpectFrameContainsTargets(frame, targets);
 
     const auto track_map = BuildTrackMapByExternalId(frame);
-    const model::DecisionTrackSnapshot& stationary_track = *track_map.at(9201u);
-    const model::DecisionTrackSnapshot& fast_track = *track_map.at(9204u);
+    const model::TrackStateSnapshot& stationary_track = *track_map.at(9201u);
+    const model::TrackStateSnapshot& fast_track = *track_map.at(9204u);
     ExpectFiniteTrackState(stationary_track);
     ExpectFiniteTrackState(fast_track);
-    EXPECT_FALSE(stationary_track.state.jamming_detected);
-    EXPECT_FALSE(fast_track.state.jamming_detected);
-    EXPECT_NEAR(stationary_track.state.speed, 0.0f, 0.5f);
-    EXPECT_GT(fast_track.state.speed, 150.0f);
+    EXPECT_FALSE(stationary_track.jamming_detected);
+    EXPECT_FALSE(fast_track.jamming_detected);
+    EXPECT_NEAR(stationary_track.speed, 0.0f, 0.5f);
+    EXPECT_GT(fast_track.speed, 150.0f);
 
     if (cycle > 0U) {
-      EXPECT_EQ(stationary_track.state.association_key, previous_keys[9201u]);
-      EXPECT_EQ(fast_track.state.association_key, previous_keys[9204u]);
-      EXPECT_NEAR(stationary_track.state.position_x, previous_stationary_x, 3.0f);
-      EXPECT_GT(fast_track.state.position_x, previous_fast_x);
+      EXPECT_EQ(stationary_track.association_key, previous_keys[9201u]);
+      EXPECT_EQ(fast_track.association_key, previous_keys[9204u]);
+      EXPECT_NEAR(stationary_track.position_x, previous_stationary_x, 3.0f);
+      EXPECT_GT(fast_track.position_x, previous_fast_x);
     }
-    previous_keys[9201u] = stationary_track.state.association_key;
-    previous_keys[9204u] = fast_track.state.association_key;
-    previous_stationary_x = stationary_track.state.position_x;
-    previous_fast_x = fast_track.state.position_x;
+    previous_keys[9201u] = stationary_track.association_key;
+    previous_keys[9204u] = fast_track.association_key;
+    previous_stationary_x = stationary_track.position_x;
+    previous_fast_x = fast_track.position_x;
     AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   }
 
@@ -1048,33 +1050,33 @@ TEST(RadarJointIntegrationTest,
 
   const output::TrackOutputFrame cycle_1_frame =
       RunScenarioCycle(&controller, &radar_context, initial_targets);
-  ASSERT_EQ(cycle_1_frame.published_track_count, initial_targets.size());
-  ASSERT_EQ(cycle_1_frame.confirmed_track_count, initial_targets.size());
+  ASSERT_EQ(cycle_1_frame.tracks.size(), initial_targets.size());
+  ASSERT_EQ(output::CountTracksByStatus(cycle_1_frame, model::TrackStatus::kConfirmed), initial_targets.size());
   ExpectFrameContainsTargets(cycle_1_frame, initial_targets);
 
   const output::TrackOutputFrame cycle_2_frame =
       RunScenarioCycle(&controller, &radar_context, expanded_targets);
-  ASSERT_GE(cycle_2_frame.published_track_count, expanded_targets.size());
-  ASSERT_GE(cycle_2_frame.confirmed_track_count, expanded_targets.size());
+  ASSERT_GE(cycle_2_frame.tracks.size(), expanded_targets.size());
+  ASSERT_GE(output::CountTracksByStatus(cycle_2_frame, model::TrackStatus::kConfirmed), expanded_targets.size());
   ExpectFrameContainsTargets(cycle_2_frame, expanded_targets);
   const auto cycle_2_track_map = BuildTrackMapByExternalId(cycle_2_frame);
   for (std::size_t i = 0; i < shrunk_targets.size(); ++i) {
-    const model::DecisionTrackSnapshot& track =
+    const model::TrackStateSnapshot& track =
         *cycle_2_track_map.at(shrunk_targets[i].external_target_id);
     ExpectFiniteTrackState(track);
-    EXPECT_NE(track.state.association_key, 0U);
+    EXPECT_NE(track.association_key, 0U);
   }
 
   const output::TrackOutputFrame cycle_3_frame =
       RunScenarioCycle(&controller, &radar_context, shrunk_targets);
-  EXPECT_GE(cycle_3_frame.published_track_count, shrunk_targets.size());
-  EXPECT_GE(cycle_3_frame.confirmed_track_count, shrunk_targets.size());
+  EXPECT_GE(cycle_3_frame.tracks.size(), shrunk_targets.size());
+  EXPECT_GE(output::CountTracksByStatus(cycle_3_frame, model::TrackStatus::kConfirmed), shrunk_targets.size());
   const auto cycle_3_track_map = BuildTrackMapByExternalId(cycle_3_frame);
   for (std::size_t i = 0; i < shrunk_targets.size(); ++i) {
-    const model::DecisionTrackSnapshot& track =
+    const model::TrackStateSnapshot& track =
         *cycle_3_track_map.at(shrunk_targets[i].external_target_id);
     ExpectFiniteTrackState(track);
-    EXPECT_NE(track.state.association_key, 0U);
+    EXPECT_NE(track.association_key, 0U);
   }
 }
 
@@ -1092,7 +1094,7 @@ TEST(RadarJointIntegrationTest,
 
   const output::TrackOutputFrame cycle_1_frame =
       RunScenarioCycle(&controller, &radar_context, full_targets);
-  ASSERT_EQ(cycle_1_frame.published_track_count, full_targets.size());
+  ASSERT_EQ(cycle_1_frame.tracks.size(), full_targets.size());
   std::vector<std::uint64_t> full_target_ids;
   full_target_ids.reserve(full_targets.size());
   for (std::size_t i = 0; i < full_targets.size(); ++i) {
@@ -1101,27 +1103,27 @@ TEST(RadarJointIntegrationTest,
 
   const output::TrackOutputFrame cycle_2_frame =
       RunScenarioCycle(&controller, &radar_context, dropout_targets);
-  EXPECT_GE(cycle_2_frame.published_track_count, dropout_targets.size());
-  EXPECT_GE(cycle_2_frame.confirmed_track_count, dropout_targets.size());
+  EXPECT_GE(cycle_2_frame.tracks.size(), dropout_targets.size());
+  EXPECT_GE(output::CountTracksByStatus(cycle_2_frame, model::TrackStatus::kConfirmed), dropout_targets.size());
   const auto cycle_2_track_map = BuildTrackMapByExternalId(cycle_2_frame);
   for (std::size_t i = 0; i < dropout_targets.size(); ++i) {
-    const model::DecisionTrackSnapshot& track =
+    const model::TrackStateSnapshot& track =
         *cycle_2_track_map.at(dropout_targets[i].external_target_id);
     ExpectFiniteTrackState(track);
-    EXPECT_NE(track.state.association_key, 0U);
+    EXPECT_NE(track.association_key, 0U);
   }
 
   const output::TrackOutputFrame cycle_3_frame =
       RunScenarioCycle(&controller, &radar_context, full_targets);
-  EXPECT_GE(cycle_3_frame.published_track_count, full_targets.size());
-  EXPECT_GE(cycle_3_frame.confirmed_track_count, full_targets.size());
+  EXPECT_GE(cycle_3_frame.tracks.size(), full_targets.size());
+  EXPECT_GE(output::CountTracksByStatus(cycle_3_frame, model::TrackStatus::kConfirmed), full_targets.size());
   ExpectFrameContainsTargetIds(cycle_3_frame, full_target_ids);
   const auto cycle_3_track_map = BuildTrackMapByExternalId(cycle_3_frame);
   for (std::size_t i = 0; i < dropout_targets.size(); ++i) {
-    const model::DecisionTrackSnapshot& track =
+    const model::TrackStateSnapshot& track =
         *cycle_3_track_map.at(dropout_targets[i].external_target_id);
     ExpectFiniteTrackState(track);
-    EXPECT_NE(track.state.association_key, 0U);
+    EXPECT_NE(track.association_key, 0U);
   }
 }
 
@@ -1145,19 +1147,19 @@ TEST(RadarJointIntegrationTest, InputOrderingPermutationKeepsExternalIdentitySta
     }
 
     const output::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
-    ASSERT_GE(frame.published_track_count, targets.size());
-    ASSERT_GE(frame.confirmed_track_count, targets.size());
+    ASSERT_GE(frame.tracks.size(), targets.size());
+    ASSERT_GE(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), targets.size());
     ExpectFrameContainsTargetIds(frame, ExtractTargetIds(targets));
 
     const auto track_map = BuildTrackMapByExternalId(frame);
     for (std::size_t i = 0; i < targets.size(); ++i) {
       const std::uint64_t target_id = targets[i].external_target_id;
-      const model::DecisionTrackSnapshot& track = *track_map.at(target_id);
+      const model::TrackStateSnapshot& track = *track_map.at(target_id);
       ExpectFiniteTrackState(track);
       if (cycle > 0U) {
-        EXPECT_EQ(track.state.association_key, previous_keys[target_id]);
+        EXPECT_EQ(track.association_key, previous_keys[target_id]);
       }
-      previous_keys[target_id] = track.state.association_key;
+      previous_keys[target_id] = track.association_key;
     }
     AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   }
@@ -1189,8 +1191,8 @@ TEST(RadarJointIntegrationTest,
         CaptureCycleStats(frame, radar_context, signal_pipeline, previous_command_count);
     stats.push_back(cycle_stats);
 
-    EXPECT_EQ(frame.published_track_count, targets.size());
-    EXPECT_EQ(frame.confirmed_track_count, targets.size());
+    EXPECT_EQ(frame.tracks.size(), targets.size());
+    EXPECT_EQ(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), targets.size());
     ExpectFrameContainsTargets(frame, targets);
     if (script[cycle].expect_jamming) {
       EXPECT_GT(cycle_stats.jamming_track_count, 0U);
@@ -1222,28 +1224,28 @@ TEST(RadarJointIntegrationTest,
   std::unordered_map<std::uint64_t, std::uint64_t> previous_known_keys;
   for (std::size_t cycle = 0; cycle < 3U; ++cycle) {
     const output::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
-    ASSERT_EQ(frame.published_track_count, targets.size());
-    ASSERT_EQ(frame.confirmed_track_count, targets.size());
+    ASSERT_EQ(frame.tracks.size(), targets.size());
+    ASSERT_EQ(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), targets.size());
     ASSERT_EQ(CollectTracksByExternalId(frame, 0u).size(), 2U);
     ExpectFrameContainsTargetIds(frame, std::vector<std::uint64_t>{14001u, 14002u});
 
     const auto known_track_map = BuildTrackMapByExternalId(frame);
     for (std::size_t i = 0; i < 2U; ++i) {
       const std::uint64_t target_id = (i == 0U) ? 14001u : 14002u;
-      const model::DecisionTrackSnapshot& track = *known_track_map.at(target_id);
+      const model::TrackStateSnapshot& track = *known_track_map.at(target_id);
       ExpectFiniteTrackState(track);
-      EXPECT_NE(track.state.association_key, 0U);
+      EXPECT_NE(track.association_key, 0U);
       if (cycle > 0U) {
-        EXPECT_EQ(track.state.association_key, previous_known_keys[target_id]);
+        EXPECT_EQ(track.association_key, previous_known_keys[target_id]);
       }
-      previous_known_keys[target_id] = track.state.association_key;
+      previous_known_keys[target_id] = track.association_key;
     }
 
-    const std::vector<const model::DecisionTrackSnapshot*> unknown_tracks =
+    const std::vector<const model::TrackStateSnapshot*> unknown_tracks =
         CollectTracksByExternalId(frame, 0u);
     for (std::size_t i = 0; i < unknown_tracks.size(); ++i) {
       ExpectFiniteTrackState(*unknown_tracks[i]);
-      EXPECT_NE(unknown_tracks[i]->state.association_key, 0U);
+      EXPECT_NE(unknown_tracks[i]->association_key, 0U);
     }
 
     const std::vector<signal::tracking::TrackMeasurement> measurements =
@@ -1276,14 +1278,14 @@ TEST(RadarJointIntegrationTest, CoLocatedTargetsWithDistinctIdsRemainSeparateAcr
 
   for (std::size_t cycle = 0; cycle < 3U; ++cycle) {
     const output::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
-    ASSERT_GE(frame.published_track_count, targets.size());
-    ASSERT_GE(frame.confirmed_track_count, targets.size());
+    ASSERT_GE(frame.tracks.size(), targets.size());
+    ASSERT_GE(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), targets.size());
     ExpectFrameContainsTargetIds(frame, ExtractTargetIds(targets));
 
     const auto track_map = BuildTrackMapByExternalId(frame);
-    const std::uint64_t key_1 = track_map.at(15001u)->state.association_key;
-    const std::uint64_t key_2 = track_map.at(15002u)->state.association_key;
-    const std::uint64_t key_3 = track_map.at(15003u)->state.association_key;
+    const std::uint64_t key_1 = track_map.at(15001u)->association_key;
+    const std::uint64_t key_2 = track_map.at(15002u)->association_key;
+    const std::uint64_t key_3 = track_map.at(15003u)->association_key;
     EXPECT_NE(key_1, 0U);
     EXPECT_NE(key_2, 0U);
     EXPECT_NE(key_3, 0U);
@@ -1318,9 +1320,9 @@ TEST(RadarJointIntegrationTest, SuddenVelocityMutationKeepsKnownTargetReadableAc
   const output::TrackOutputFrame cycle_1_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
   const auto cycle_1_track_map = BuildTrackMapByExternalId(cycle_1_frame);
-  const std::uint64_t mutated_key = cycle_1_track_map.at(16001u)->state.association_key;
-  const float cycle_1_speed = cycle_1_track_map.at(16001u)->state.speed;
-  const float cycle_1_position_x = cycle_1_track_map.at(16001u)->state.position_x;
+  const std::uint64_t mutated_key = cycle_1_track_map.at(16001u)->association_key;
+  const float cycle_1_speed = cycle_1_track_map.at(16001u)->speed;
+  const float cycle_1_position_x = cycle_1_track_map.at(16001u)->position_x;
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
 
   targets[0].current_track_velocity_x = 220.0f;
@@ -1330,11 +1332,11 @@ TEST(RadarJointIntegrationTest, SuddenVelocityMutationKeepsKnownTargetReadableAc
   const output::TrackOutputFrame cycle_2_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
   const auto cycle_2_track_map = BuildTrackMapByExternalId(cycle_2_frame);
-  const model::DecisionTrackSnapshot& cycle_2_track = *cycle_2_track_map.at(16001u);
+  const model::TrackStateSnapshot& cycle_2_track = *cycle_2_track_map.at(16001u);
   ExpectFiniteTrackState(cycle_2_track);
-  EXPECT_EQ(cycle_2_track.state.association_key, mutated_key);
-  EXPECT_GE(cycle_2_track.state.speed, cycle_1_speed);
-  EXPECT_GT(cycle_2_track.state.position_x, cycle_1_position_x);
+  EXPECT_EQ(cycle_2_track.association_key, mutated_key);
+  EXPECT_GE(cycle_2_track.speed, cycle_1_speed);
+  EXPECT_GT(cycle_2_track.position_x, cycle_1_position_x);
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
 
   targets[0].current_track_velocity_x = 35.0f;
@@ -1344,10 +1346,10 @@ TEST(RadarJointIntegrationTest, SuddenVelocityMutationKeepsKnownTargetReadableAc
   const output::TrackOutputFrame cycle_3_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
   const auto cycle_3_track_map = BuildTrackMapByExternalId(cycle_3_frame);
-  const model::DecisionTrackSnapshot& cycle_3_track = *cycle_3_track_map.at(16001u);
+  const model::TrackStateSnapshot& cycle_3_track = *cycle_3_track_map.at(16001u);
   ExpectFiniteTrackState(cycle_3_track);
-  EXPECT_EQ(cycle_3_track.state.association_key, mutated_key);
-  EXPECT_GT(cycle_3_track.state.speed, 20.0f);
+  EXPECT_EQ(cycle_3_track.association_key, mutated_key);
+  EXPECT_GT(cycle_3_track.speed, 20.0f);
   EXPECT_FALSE(cycle_3_frame.tracks.empty());
 }
 
@@ -1368,8 +1370,8 @@ TEST(RadarJointIntegrationTest,
   for (std::size_t cycle = 0; cycle < batches.size(); ++cycle) {
     const output::TrackOutputFrame frame =
         RunScenarioCycle(&controller, &radar_context, batches[cycle]);
-    EXPECT_GE(frame.published_track_count, batches[cycle].size());
-    EXPECT_GE(frame.confirmed_track_count, batches[cycle].size());
+    EXPECT_GE(frame.tracks.size(), batches[cycle].size());
+    EXPECT_GE(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), batches[cycle].size());
     std::vector<std::uint64_t> current_target_ids;
     current_target_ids.reserve(batches[cycle].size());
     for (std::size_t i = 0; i < batches[cycle].size(); ++i) {
@@ -1379,10 +1381,10 @@ TEST(RadarJointIntegrationTest,
 
     const auto track_map = BuildTrackMapByExternalId(frame);
     for (std::size_t i = 0; i < batches[cycle].size(); ++i) {
-      const model::DecisionTrackSnapshot& track =
+      const model::TrackStateSnapshot& track =
           *track_map.at(batches[cycle][i].external_target_id);
       ExpectFiniteTrackState(track);
-      EXPECT_NE(track.state.association_key, 0U);
+      EXPECT_NE(track.association_key, 0U);
     }
   }
 }
@@ -1414,8 +1416,8 @@ TEST(RadarJointIntegrationTest, LongDurationPulsedInterferenceRecoversOnEveryCle
         CaptureCycleStats(frame, radar_context, signal_pipeline, previous_command_count);
     stats.push_back(cycle_stats);
 
-    EXPECT_EQ(frame.published_track_count, targets.size());
-    EXPECT_EQ(frame.confirmed_track_count, targets.size());
+    EXPECT_EQ(frame.tracks.size(), targets.size());
+    EXPECT_EQ(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), targets.size());
     ExpectFrameContainsTargets(frame, targets);
     if (script[cycle].expect_jamming) {
       EXPECT_GT(cycle_stats.jamming_track_count, 0U);
@@ -1444,8 +1446,8 @@ TEST(RadarJointIntegrationTest, InvalidCycleDeltaFallsBackWithoutBreakingTrackCo
   radar_context.SetCycleDeltaTimeSec(1.0f);
   const output::TrackOutputFrame initial_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
-  ASSERT_GE(initial_frame.published_track_count, targets.size());
-  ASSERT_GE(initial_frame.confirmed_track_count, targets.size());
+  ASSERT_GE(initial_frame.tracks.size(), targets.size());
+  ASSERT_GE(output::CountTracksByStatus(initial_frame, model::TrackStatus::kConfirmed), targets.size());
   ExpectFrameContainsTargetIds(initial_frame, ExtractTargetIds(targets));
 
   std::unordered_map<std::uint64_t, std::uint64_t> previous_keys;
@@ -1453,8 +1455,8 @@ TEST(RadarJointIntegrationTest, InvalidCycleDeltaFallsBackWithoutBreakingTrackCo
   const auto initial_track_map = BuildTrackMapByExternalId(initial_frame);
   for (std::size_t i = 0; i < targets.size(); ++i) {
     const std::uint64_t target_id = targets[i].external_target_id;
-    previous_keys[target_id] = initial_track_map.at(target_id)->state.association_key;
-    previous_x[target_id] = initial_track_map.at(target_id)->state.position_x;
+    previous_keys[target_id] = initial_track_map.at(target_id)->association_key;
+    previous_x[target_id] = initial_track_map.at(target_id)->position_x;
   }
 
   const std::vector<float> invalid_dts{0.0f, -1.0f, 0.0f, -3.0f};
@@ -1463,18 +1465,18 @@ TEST(RadarJointIntegrationTest, InvalidCycleDeltaFallsBackWithoutBreakingTrackCo
     const output::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
     ASSERT_EQ(frame.cycle_index, initial_frame.cycle_index);
     ASSERT_EQ(frame.batch_id, initial_frame.batch_id);
-    ASSERT_EQ(frame.published_track_count, initial_frame.published_track_count);
-    ASSERT_EQ(frame.confirmed_track_count, initial_frame.confirmed_track_count);
+    ASSERT_EQ(frame.tracks.size(), initial_frame.tracks.size());
+    ASSERT_EQ(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), output::CountTracksByStatus(initial_frame, model::TrackStatus::kConfirmed));
     ExpectFrameContainsTargetIds(frame, ExtractTargetIds(targets));
 
     const auto track_map = BuildTrackMapByExternalId(frame);
     for (std::size_t i = 0; i < targets.size(); ++i) {
       const std::uint64_t target_id = targets[i].external_target_id;
-      const model::DecisionTrackSnapshot& track = *track_map.at(target_id);
+      const model::TrackStateSnapshot& track = *track_map.at(target_id);
       ExpectFiniteTrackState(track);
-      EXPECT_NE(track.state.association_key, 0U);
-      EXPECT_EQ(track.state.association_key, previous_keys[target_id]);
-      EXPECT_FLOAT_EQ(track.state.position_x, previous_x[target_id]);
+      EXPECT_NE(track.association_key, 0U);
+      EXPECT_EQ(track.association_key, previous_keys[target_id]);
+      EXPECT_FLOAT_EQ(track.position_x, previous_x[target_id]);
     }
     AdvanceTargets(1.0f, &targets);
   }
@@ -1497,15 +1499,15 @@ TEST(RadarJointIntegrationTest, NonPositiveRangeAndNearOriginInputsRemainFiniteA
 
   for (std::size_t cycle = 0; cycle < 3U; ++cycle) {
     const output::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
-    ASSERT_EQ(frame.published_track_count, targets.size());
-    ASSERT_EQ(frame.confirmed_track_count, targets.size());
+    ASSERT_EQ(frame.tracks.size(), targets.size());
+    ASSERT_EQ(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), targets.size());
     ExpectFrameContainsTargets(frame, targets);
 
     const auto track_map = BuildTrackMapByExternalId(frame);
     for (std::size_t i = 0; i < targets.size(); ++i) {
-      const model::DecisionTrackSnapshot& track = *track_map.at(targets[i].external_target_id);
+      const model::TrackStateSnapshot& track = *track_map.at(targets[i].external_target_id);
       ExpectFiniteTrackState(track);
-      EXPECT_NE(track.state.association_key, 0U);
+      EXPECT_NE(track.association_key, 0U);
     }
     AdvanceTargets(1.0f, &targets);
     targets[0].range_m = 0.0f;
@@ -1555,16 +1557,16 @@ TEST(RadarJointIntegrationTest, ExtremeRcsSpreadKeepsAllTracksFiniteAcrossCycles
 
   for (std::size_t cycle = 0; cycle < 3U; ++cycle) {
     const output::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
-    ASSERT_EQ(frame.published_track_count, targets.size());
-    ASSERT_EQ(frame.confirmed_track_count, targets.size());
+    ASSERT_EQ(frame.tracks.size(), targets.size());
+    ASSERT_EQ(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), targets.size());
     ExpectFrameContainsTargets(frame, targets);
 
     const auto track_map = BuildTrackMapByExternalId(frame);
     for (std::size_t i = 0; i < targets.size(); ++i) {
-      const model::DecisionTrackSnapshot& track = *track_map.at(targets[i].external_target_id);
+      const model::TrackStateSnapshot& track = *track_map.at(targets[i].external_target_id);
       ExpectFiniteTrackState(track);
-      EXPECT_TRUE(std::isfinite(track.state.rcs));
-      EXPECT_GT(track.state.association_key, 0U);
+      EXPECT_TRUE(std::isfinite(track.rcs));
+      EXPECT_GT(track.association_key, 0U);
     }
     AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   }
@@ -1586,19 +1588,19 @@ TEST(RadarJointIntegrationTest, UltraHighAltitudeTargetsRemainTrackableAcrossCyc
   std::unordered_map<std::uint64_t, std::uint64_t> previous_keys;
   for (std::size_t cycle = 0; cycle < 4U; ++cycle) {
     const output::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
-    ASSERT_EQ(frame.published_track_count, targets.size());
-    ASSERT_EQ(frame.confirmed_track_count, targets.size());
+    ASSERT_EQ(frame.tracks.size(), targets.size());
+    ASSERT_EQ(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), targets.size());
     ExpectFrameContainsTargets(frame, targets);
 
     const auto track_map = BuildTrackMapByExternalId(frame);
     for (std::size_t i = 0; i < targets.size(); ++i) {
-      const model::DecisionTrackSnapshot& track = *track_map.at(targets[i].external_target_id);
+      const model::TrackStateSnapshot& track = *track_map.at(targets[i].external_target_id);
       ExpectFiniteTrackState(track);
-      EXPECT_GT(track.state.position_z, 500.0f);
+      EXPECT_GT(track.position_z, 500.0f);
       if (cycle > 0U) {
-        EXPECT_EQ(track.state.association_key, previous_keys[targets[i].external_target_id]);
+        EXPECT_EQ(track.association_key, previous_keys[targets[i].external_target_id]);
       }
-      previous_keys[targets[i].external_target_id] = track.state.association_key;
+      previous_keys[targets[i].external_target_id] = track.association_key;
     }
     AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   }
@@ -1633,8 +1635,8 @@ TEST(RadarJointIntegrationTest, SimultaneousTargetAndJammerVolatilityKeepsCurren
         CaptureCycleStats(frame, radar_context, signal_pipeline, previous_command_count);
     stats.push_back(cycle_stats);
 
-    EXPECT_GE(frame.published_track_count, batches[cycle].size());
-    EXPECT_GE(frame.confirmed_track_count, batches[cycle].size());
+    EXPECT_GE(frame.tracks.size(), batches[cycle].size());
+    EXPECT_GE(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), batches[cycle].size());
     ExpectFrameContainsTargetIds(frame, ExtractTargetIds(batches[cycle]));
     if (script[cycle].expect_jamming) {
       EXPECT_GT(cycle_stats.jamming_track_count, 0U);
@@ -1673,16 +1675,16 @@ TEST(RadarJointIntegrationTest, LongDurationCycleDeltaAndGeometryVolatilityKeeps
     stats.push_back(
         CaptureCycleStats(frame, radar_context, signal_pipeline, previous_command_count));
 
-    ASSERT_GE(frame.published_track_count, targets.size());
-    ASSERT_GE(frame.confirmed_track_count, targets.size());
+    ASSERT_GE(frame.tracks.size(), targets.size());
+    ASSERT_GE(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), targets.size());
     ExpectFrameContainsTargetIds(frame, ExtractTargetIds(targets));
 
     const auto track_map = BuildTrackMapByExternalId(frame);
     for (std::size_t i = 0; i < targets.size(); ++i) {
       const std::uint64_t target_id = targets[i].external_target_id;
-      const model::DecisionTrackSnapshot& track = *track_map.at(target_id);
+      const model::TrackStateSnapshot& track = *track_map.at(target_id);
       ExpectFiniteTrackState(track);
-      EXPECT_NE(track.state.association_key, 0U);
+      EXPECT_NE(track.association_key, 0U);
     }
 
     AdvanceTargets(1.0f, &targets);
@@ -1722,8 +1724,8 @@ TEST(RadarJointIntegrationTest, BatchReplacementAndPulsedInterferenceKeepCurrent
         CaptureCycleStats(frame, radar_context, signal_pipeline, previous_command_count);
     stats.push_back(cycle_stats);
 
-    EXPECT_GE(frame.published_track_count, batches[cycle].size());
-    EXPECT_GE(frame.confirmed_track_count, batches[cycle].size());
+    EXPECT_GE(frame.tracks.size(), batches[cycle].size());
+    EXPECT_GE(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), batches[cycle].size());
     ExpectFrameContainsTargetIds(frame, ExtractTargetIds(batches[cycle]));
     if (script[cycle].expect_jamming) {
       EXPECT_GT(cycle_stats.jamming_track_count, 0U);
@@ -1766,15 +1768,15 @@ TEST(RadarJointIntegrationTest, LongDurationExtremeRcsAndAltitudeMixKeepsMetrics
     stats.push_back(cycle_stats);
     max_association_stress = std::max(max_association_stress, cycle_stats.association_stress);
 
-    ASSERT_EQ(frame.published_track_count, targets.size());
-    ASSERT_EQ(frame.confirmed_track_count, targets.size());
+    ASSERT_EQ(frame.tracks.size(), targets.size());
+    ASSERT_EQ(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), targets.size());
     ExpectFrameContainsTargets(frame, targets);
     const auto track_map = BuildTrackMapByExternalId(frame);
     for (std::size_t i = 0; i < targets.size(); ++i) {
-      const model::DecisionTrackSnapshot& track = *track_map.at(targets[i].external_target_id);
+      const model::TrackStateSnapshot& track = *track_map.at(targets[i].external_target_id);
       ExpectFiniteTrackState(track);
-      EXPECT_TRUE(std::isfinite(track.state.rcs));
-      EXPECT_GT(track.state.position_z, 10.0f);
+      EXPECT_TRUE(std::isfinite(track.rcs));
+      EXPECT_GT(track.position_z, 10.0f);
     }
     AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   }

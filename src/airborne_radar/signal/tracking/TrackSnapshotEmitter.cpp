@@ -5,6 +5,8 @@
 
 #include "airborne_radar/signal/tracking/TrackSnapshotEmitter.h"
 
+#include <cmath>
+
 namespace airborne_radar {
 namespace signal {
 namespace tracking {
@@ -16,26 +18,23 @@ namespace {
  * @param status 内部轨迹状态。
  * @return 决策层可见的轨迹状态。
  */
-model::DecisionTrackStatus ToDecisionTrackStatus(TrackStatus status) {
+model::TrackStatus ToTrackStatus(TrackStatus status) {
   switch (status) {
     case TrackStatus::kConfirmed:
-      return model::DecisionTrackStatus::kConfirmed;
+      return model::TrackStatus::kConfirmed;
     case TrackStatus::kLost:
-      return model::DecisionTrackStatus::kLost;
+      return model::TrackStatus::kLost;
     case TrackStatus::kTentative:
     case TrackStatus::kRecycled:
     default:
-      return model::DecisionTrackStatus::kTentative;
+      return model::TrackStatus::kTentative;
   }
 }
 
 }  // namespace
 
 void TrackSnapshotEmitter::Refresh(
-    const std::unordered_map<std::uint64_t, TrackState*>& tracks_by_key,
-    const std::unordered_map<std::uint64_t, model::DecisionMeasurementEvidence>&
-        evidence_by_key,
-    std::uint32_t last_cycle_index) {
+    const std::unordered_map<std::uint64_t, TrackState*>& tracks_by_key) {
   active_tracks_.clear();
   active_tracks_.reserve(tracks_by_key.size());
   for (std::unordered_map<std::uint64_t, TrackState*>::const_iterator it = tracks_by_key.begin();
@@ -47,8 +46,6 @@ void TrackSnapshotEmitter::Refresh(
       active_tracks_.push_back(entry);
     }
   }
-  evidence_by_key_ = evidence_by_key;
-  last_cycle_index_ = last_cycle_index;
 }
 
 model::TargetFeatureList TrackSnapshotEmitter::BuildFeatureSnapshot() const {
@@ -69,33 +66,37 @@ model::TargetFeatureList TrackSnapshotEmitter::BuildFeatureSnapshot() const {
   return features;
 }
 
-model::DecisionTrackSnapshotList TrackSnapshotEmitter::BuildDecisionSnapshot() const {
-  model::DecisionTrackSnapshotList snapshots;
+model::TrackStateSnapshotList TrackSnapshotEmitter::BuildDecisionSnapshot() const {
+  model::TrackStateSnapshotList snapshots;
   snapshots.reserve(active_tracks_.size());
   for (std::vector<ActiveTrackEntry>::const_iterator it = active_tracks_.begin();
        it != active_tracks_.end(); ++it) {
     const std::uint64_t key = it->key;
     const TrackState& track = *it->track;
-    model::DecisionTrackSnapshot snapshot(
-        track.velocity(0), track.velocity(1), track.velocity(2), track.rcs, track.acceleration(0),
-        track.acceleration(1), track.acceleration(2), track.jamming_detected,
-        track.external_target_id, key);
-    snapshot.state.status = ToDecisionTrackStatus(track.status);
-    snapshot.state.position_x = track.position(0);
-    snapshot.state.position_y = track.position(1);
-    snapshot.state.position_z = track.position(2);
-    snapshot.state.hit_count = track.hit_count;
-    snapshot.state.miss_count = track.miss_count;
+    model::TrackStateSnapshot snapshot;
+    snapshot.association_key = key;
+    snapshot.external_target_id = track.external_target_id;
+    snapshot.velocity_x = track.velocity(0);
+    snapshot.velocity_y = track.velocity(1);
+    snapshot.velocity_z = track.velocity(2);
+    snapshot.speed = std::sqrt(snapshot.velocity_x * snapshot.velocity_x +
+                               snapshot.velocity_y * snapshot.velocity_y +
+                               snapshot.velocity_z * snapshot.velocity_z);
+    snapshot.acceleration_x = track.acceleration(0);
+    snapshot.acceleration_y = track.acceleration(1);
+    snapshot.acceleration_z = track.acceleration(2);
+    snapshot.acceleration = std::sqrt(snapshot.acceleration_x * snapshot.acceleration_x +
+                                      snapshot.acceleration_y * snapshot.acceleration_y +
+                                      snapshot.acceleration_z * snapshot.acceleration_z);
+    snapshot.rcs = track.rcs;
+    snapshot.jamming_detected = track.jamming_detected;
+    snapshot.status = ToTrackStatus(track.status);
+    snapshot.position_x = track.position(0);
+    snapshot.position_y = track.position(1);
+    snapshot.position_z = track.position(2);
+    snapshot.hit_count = track.hit_count;
+    snapshot.miss_count = track.miss_count;
 
-    std::unordered_map<std::uint64_t, model::DecisionMeasurementEvidence>::const_iterator
-        evidence_found = evidence_by_key_.find(key);
-    if (evidence_found != evidence_by_key_.end()) {
-      snapshot.evidence = evidence_found->second;
-    } else {
-      snapshot.evidence.has_measurement_evidence = false;
-      snapshot.evidence.updated_this_cycle = false;
-      snapshot.evidence.predicted_only_this_cycle = track.last_update_cycle != last_cycle_index_;
-    }
     snapshots.push_back(snapshot);
   }
   return snapshots;

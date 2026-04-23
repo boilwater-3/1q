@@ -45,7 +45,7 @@ set(AR_EXTENSION_HEADERS
 set(AR_MODEL_HEADERS
     "airborne_radar/model/DecisionInputFrame.h"
     "airborne_radar/model/DecisionSourceInfo.h"
-    "airborne_radar/model/DecisionTrackSnapshot.h"
+    "airborne_radar/model/TrackStateSnapshot.h"
     "airborne_radar/model/JammingSemantics.h"
     "airborne_radar/model/RadarOrientationConfig.h"
     "airborne_radar/model/TargetCategory.h"

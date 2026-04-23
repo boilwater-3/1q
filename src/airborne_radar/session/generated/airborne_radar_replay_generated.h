@@ -32,9 +32,6 @@ struct TrackOutputFrameBuilder;
 struct DecisionTrackStateSnapshot;
 struct DecisionTrackStateSnapshotBuilder;
 
-struct DecisionMeasurementEvidence;
-struct DecisionMeasurementEvidenceBuilder;
-
 struct DecisionTrackSnapshot;
 struct DecisionTrackSnapshotBuilder;
 
@@ -46,9 +43,6 @@ struct FailureMarkerBuilder;
 
 struct Vector3f FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef Vector3fBuilder Builder;
-  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
-    return "oneq.replay.airborne_radar.fb.Vector3f";
-  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_X = 4,
     VT_Y = 6,
@@ -111,9 +105,6 @@ inline flatbuffers::Offset<Vector3f> CreateVector3f(
 
 struct EulerAnglesDeg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef EulerAnglesDegBuilder Builder;
-  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
-    return "oneq.replay.airborne_radar.fb.EulerAnglesDeg";
-  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_YAW_DEG = 4,
     VT_PITCH_DEG = 6,
@@ -176,9 +167,6 @@ inline flatbuffers::Offset<EulerAnglesDeg> CreateEulerAnglesDeg(
 
 struct PoseState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PoseStateBuilder Builder;
-  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
-    return "oneq.replay.airborne_radar.fb.PoseState";
-  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_POSITION_M = 4,
     VT_VELOCITY_MPS = 6,
@@ -244,9 +232,6 @@ inline flatbuffers::Offset<PoseState> CreatePoseState(
 
 struct TargetFeature FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef TargetFeatureBuilder Builder;
-  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
-    return "oneq.replay.airborne_radar.fb.TargetFeature";
-  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_EXTERNAL_TARGET_ID = 4,
     VT_VELOCITY_MPS = 6,
@@ -361,9 +346,6 @@ inline flatbuffers::Offset<TargetFeature> CreateTargetFeature(
 
 struct RadarCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef RadarCycleInputBuilder Builder;
-  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
-    return "oneq.replay.airborne_radar.fb.RadarCycleInput";
-  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_DT_SEC = 4,
     VT_PLATFORM_POSE = 6,
@@ -442,9 +424,6 @@ inline flatbuffers::Offset<RadarCycleInput> CreateRadarCycleInputDirect(
 
 struct TrackOutputFrame FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef TrackOutputFrameBuilder Builder;
-  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
-    return "oneq.replay.airborne_radar.fb.TrackOutputFrame";
-  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_CYCLE_INDEX = 4,
     VT_PUBLISHED_TRACK_COUNT = 6,
@@ -558,9 +537,6 @@ inline flatbuffers::Offset<TrackOutputFrame> CreateTrackOutputFrameDirect(
 
 struct DecisionTrackStateSnapshot FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef DecisionTrackStateSnapshotBuilder Builder;
-  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
-    return "oneq.replay.airborne_radar.fb.DecisionTrackStateSnapshot";
-  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ASSOCIATION_KEY = 4,
     VT_EXTERNAL_TARGET_ID = 6,
@@ -771,142 +747,18 @@ inline flatbuffers::Offset<DecisionTrackStateSnapshot> CreateDecisionTrackStateS
   return builder_.Finish();
 }
 
-struct DecisionMeasurementEvidence FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef DecisionMeasurementEvidenceBuilder Builder;
-  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
-    return "oneq.replay.airborne_radar.fb.DecisionMeasurementEvidence";
-  }
-  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_HAS_MEASUREMENT_EVIDENCE = 4,
-    VT_UPDATED_THIS_CYCLE = 6,
-    VT_PREDICTED_ONLY_THIS_CYCLE = 8,
-    VT_MATCHED_EXISTING_TRACK = 10,
-    VT_ASSOCIATION_COST = 12,
-    VT_DETECTION_MARGIN_DB = 14,
-    VT_USED_POSITION_ASSOCIATION = 16,
-    VT_USED_EXTERNAL_ASSOCIATION_SEEDS = 18
-  };
-  bool has_measurement_evidence() const {
-    return GetField<uint8_t>(VT_HAS_MEASUREMENT_EVIDENCE, 0) != 0;
-  }
-  bool updated_this_cycle() const {
-    return GetField<uint8_t>(VT_UPDATED_THIS_CYCLE, 0) != 0;
-  }
-  bool predicted_only_this_cycle() const {
-    return GetField<uint8_t>(VT_PREDICTED_ONLY_THIS_CYCLE, 0) != 0;
-  }
-  bool matched_existing_track() const {
-    return GetField<uint8_t>(VT_MATCHED_EXISTING_TRACK, 0) != 0;
-  }
-  float association_cost() const {
-    return GetField<float>(VT_ASSOCIATION_COST, 0.0f);
-  }
-  float detection_margin_db() const {
-    return GetField<float>(VT_DETECTION_MARGIN_DB, 0.0f);
-  }
-  bool used_position_association() const {
-    return GetField<uint8_t>(VT_USED_POSITION_ASSOCIATION, 0) != 0;
-  }
-  bool used_external_association_seeds() const {
-    return GetField<uint8_t>(VT_USED_EXTERNAL_ASSOCIATION_SEEDS, 0) != 0;
-  }
-  bool Verify(flatbuffers::Verifier &verifier) const {
-    return VerifyTableStart(verifier) &&
-           VerifyField<uint8_t>(verifier, VT_HAS_MEASUREMENT_EVIDENCE) &&
-           VerifyField<uint8_t>(verifier, VT_UPDATED_THIS_CYCLE) &&
-           VerifyField<uint8_t>(verifier, VT_PREDICTED_ONLY_THIS_CYCLE) &&
-           VerifyField<uint8_t>(verifier, VT_MATCHED_EXISTING_TRACK) &&
-           VerifyField<float>(verifier, VT_ASSOCIATION_COST) &&
-           VerifyField<float>(verifier, VT_DETECTION_MARGIN_DB) &&
-           VerifyField<uint8_t>(verifier, VT_USED_POSITION_ASSOCIATION) &&
-           VerifyField<uint8_t>(verifier, VT_USED_EXTERNAL_ASSOCIATION_SEEDS) &&
-           verifier.EndTable();
-  }
-};
-
-struct DecisionMeasurementEvidenceBuilder {
-  typedef DecisionMeasurementEvidence Table;
-  flatbuffers::FlatBufferBuilder &fbb_;
-  flatbuffers::uoffset_t start_;
-  void add_has_measurement_evidence(bool has_measurement_evidence) {
-    fbb_.AddElement<uint8_t>(DecisionMeasurementEvidence::VT_HAS_MEASUREMENT_EVIDENCE, static_cast<uint8_t>(has_measurement_evidence), 0);
-  }
-  void add_updated_this_cycle(bool updated_this_cycle) {
-    fbb_.AddElement<uint8_t>(DecisionMeasurementEvidence::VT_UPDATED_THIS_CYCLE, static_cast<uint8_t>(updated_this_cycle), 0);
-  }
-  void add_predicted_only_this_cycle(bool predicted_only_this_cycle) {
-    fbb_.AddElement<uint8_t>(DecisionMeasurementEvidence::VT_PREDICTED_ONLY_THIS_CYCLE, static_cast<uint8_t>(predicted_only_this_cycle), 0);
-  }
-  void add_matched_existing_track(bool matched_existing_track) {
-    fbb_.AddElement<uint8_t>(DecisionMeasurementEvidence::VT_MATCHED_EXISTING_TRACK, static_cast<uint8_t>(matched_existing_track), 0);
-  }
-  void add_association_cost(float association_cost) {
-    fbb_.AddElement<float>(DecisionMeasurementEvidence::VT_ASSOCIATION_COST, association_cost, 0.0f);
-  }
-  void add_detection_margin_db(float detection_margin_db) {
-    fbb_.AddElement<float>(DecisionMeasurementEvidence::VT_DETECTION_MARGIN_DB, detection_margin_db, 0.0f);
-  }
-  void add_used_position_association(bool used_position_association) {
-    fbb_.AddElement<uint8_t>(DecisionMeasurementEvidence::VT_USED_POSITION_ASSOCIATION, static_cast<uint8_t>(used_position_association), 0);
-  }
-  void add_used_external_association_seeds(bool used_external_association_seeds) {
-    fbb_.AddElement<uint8_t>(DecisionMeasurementEvidence::VT_USED_EXTERNAL_ASSOCIATION_SEEDS, static_cast<uint8_t>(used_external_association_seeds), 0);
-  }
-  explicit DecisionMeasurementEvidenceBuilder(flatbuffers::FlatBufferBuilder &_fbb)
-        : fbb_(_fbb) {
-    start_ = fbb_.StartTable();
-  }
-  DecisionMeasurementEvidenceBuilder &operator=(const DecisionMeasurementEvidenceBuilder &);
-  flatbuffers::Offset<DecisionMeasurementEvidence> Finish() {
-    const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<DecisionMeasurementEvidence>(end);
-    return o;
-  }
-};
-
-inline flatbuffers::Offset<DecisionMeasurementEvidence> CreateDecisionMeasurementEvidence(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    bool has_measurement_evidence = false,
-    bool updated_this_cycle = false,
-    bool predicted_only_this_cycle = false,
-    bool matched_existing_track = false,
-    float association_cost = 0.0f,
-    float detection_margin_db = 0.0f,
-    bool used_position_association = false,
-    bool used_external_association_seeds = false) {
-  DecisionMeasurementEvidenceBuilder builder_(_fbb);
-  builder_.add_detection_margin_db(detection_margin_db);
-  builder_.add_association_cost(association_cost);
-  builder_.add_used_external_association_seeds(used_external_association_seeds);
-  builder_.add_used_position_association(used_position_association);
-  builder_.add_matched_existing_track(matched_existing_track);
-  builder_.add_predicted_only_this_cycle(predicted_only_this_cycle);
-  builder_.add_updated_this_cycle(updated_this_cycle);
-  builder_.add_has_measurement_evidence(has_measurement_evidence);
-  return builder_.Finish();
-}
-
 struct DecisionTrackSnapshot FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef DecisionTrackSnapshotBuilder Builder;
-  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
-    return "oneq.replay.airborne_radar.fb.DecisionTrackSnapshot";
-  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_STATE = 4,
-    VT_EVIDENCE = 6
+    VT_STATE = 4
   };
   const oneq::replay::airborne_radar::fb::DecisionTrackStateSnapshot *state() const {
     return GetPointer<const oneq::replay::airborne_radar::fb::DecisionTrackStateSnapshot *>(VT_STATE);
-  }
-  const oneq::replay::airborne_radar::fb::DecisionMeasurementEvidence *evidence() const {
-    return GetPointer<const oneq::replay::airborne_radar::fb::DecisionMeasurementEvidence *>(VT_EVIDENCE);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_STATE) &&
            verifier.VerifyTable(state()) &&
-           VerifyOffset(verifier, VT_EVIDENCE) &&
-           verifier.VerifyTable(evidence()) &&
            verifier.EndTable();
   }
 };
@@ -917,9 +769,6 @@ struct DecisionTrackSnapshotBuilder {
   flatbuffers::uoffset_t start_;
   void add_state(flatbuffers::Offset<oneq::replay::airborne_radar::fb::DecisionTrackStateSnapshot> state) {
     fbb_.AddOffset(DecisionTrackSnapshot::VT_STATE, state);
-  }
-  void add_evidence(flatbuffers::Offset<oneq::replay::airborne_radar::fb::DecisionMeasurementEvidence> evidence) {
-    fbb_.AddOffset(DecisionTrackSnapshot::VT_EVIDENCE, evidence);
   }
   explicit DecisionTrackSnapshotBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -935,19 +784,14 @@ struct DecisionTrackSnapshotBuilder {
 
 inline flatbuffers::Offset<DecisionTrackSnapshot> CreateDecisionTrackSnapshot(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<oneq::replay::airborne_radar::fb::DecisionTrackStateSnapshot> state = 0,
-    flatbuffers::Offset<oneq::replay::airborne_radar::fb::DecisionMeasurementEvidence> evidence = 0) {
+    flatbuffers::Offset<oneq::replay::airborne_radar::fb::DecisionTrackStateSnapshot> state = 0) {
   DecisionTrackSnapshotBuilder builder_(_fbb);
-  builder_.add_evidence(evidence);
   builder_.add_state(state);
   return builder_.Finish();
 }
 
 struct RadarCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef RadarCycleResultBuilder Builder;
-  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
-    return "oneq.replay.airborne_radar.fb.RadarCycleResult";
-  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_TRACK_OUTPUT_FRAME = 4,
     VT_VALIDATION_ISSUE_COUNT = 6,
@@ -1011,9 +855,6 @@ inline flatbuffers::Offset<RadarCycleResult> CreateRadarCycleResult(
 
 struct FailureMarker FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef FailureMarkerBuilder Builder;
-  static FLATBUFFERS_CONSTEXPR const char *GetFullyQualifiedName() {
-    return "oneq.replay.airborne_radar.fb.FailureMarker";
-  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ERROR_CODE = 4,
     VT_MESSAGE = 6,

@@ -144,7 +144,7 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) 
   input.target_features.push_back(target);
 
   const session::RadarCycleResult result = session.StepWithResult(input);
-  EXPECT_GE(result.track_output_frame.published_track_count, 0U);
+  EXPECT_GE(result.track_output_frame.tracks.size(), 0U);
 
   const std::string content = ReadFile(trace_dir + "/events/000000.events.jsonl");
   EXPECT_NE(content.find("\"event_type\":\"session_config\""), std::string::npos);
@@ -184,8 +184,8 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) 
           << decode_error;
       EXPECT_EQ(decoded_result.track_output_frame.cycle_index,
                 result.track_output_frame.cycle_index);
-      EXPECT_EQ(decoded_result.track_output_frame.published_track_count,
-                result.track_output_frame.published_track_count);
+      EXPECT_EQ(decoded_result.track_output_frame.tracks.size(),
+                result.track_output_frame.tracks.size());
     }
   }
   EXPECT_TRUE(saw_flatbuffer_session_config);
@@ -270,7 +270,7 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
     scene_state.jammer_emitters.push_back(jammer);
 
     const session::RadarCycleResult result = session.StepWithResult(input, scene_state);
-    EXPECT_GE(result.track_output_frame.published_track_count, 0U);
+    EXPECT_GE(result.track_output_frame.tracks.size(), 0U);
     replay_writer->Flush();
   }
 
@@ -375,7 +375,7 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionStopsAtFailureMarker) {
     session::RadarCycleInput input;
     input.dt_sec = 1.0f;
     const session::RadarCycleResult result = session.StepWithResult(input);
-    EXPECT_GE(result.track_output_frame.published_track_count, 0U);
+    EXPECT_GE(result.track_output_frame.tracks.size(), 0U);
 
     oneq::replay::ReplayTraceFailure failure;
     failure.error_code = "AR_SIM_ASSERT";

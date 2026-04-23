@@ -14,8 +14,9 @@
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/airborne_radar/environment/EnvironmentConfig.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
+#include "1q/airborne_radar/model/TrackStateSnapshot.h"
 #include "1q/airborne_radar/output/TrackOutputFrame.h"
+#include "1q/airborne_radar/output/TrackOutputQueries.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/replay/ReplayTrace.h"
@@ -103,33 +104,31 @@ TEST(ArReplayCodecRoundtripTest, TrackOutputFramePreservesAllFields) {
   output::TrackOutputFrame frame;
   frame.cycle_index = 77U;
   frame.batch_id = 5U;
-  frame.published_track_count = 1U;
-  frame.confirmed_track_count = 1U;
-  frame.contains_lost_tracks = true;
 
-  model::DecisionTrackSnapshot snap;
-  snap.state.association_key = 999U;
-  snap.state.external_target_id = 42U;
-  snap.state.status = model::DecisionTrackStatus::kConfirmed;
-  snap.state.position_x = 100.0f;
-  snap.state.position_y = 200.0f;
-  snap.state.position_z = 50.0f;
-  snap.state.velocity_x = 30.0f;
-  snap.state.velocity_y = 5.0f;
-  snap.state.velocity_z = -2.0f;
-  snap.state.speed = 30.5f;
-  snap.state.acceleration_x = 1.0f;
-  snap.state.acceleration_y = 0.5f;
-  snap.state.acceleration_z = 0.1f;
-  snap.state.acceleration = 1.12f;
-  snap.state.rcs = 2.5f;
-  snap.state.jamming_detected = true;
-  snap.state.hit_count = 5U;
-  snap.state.miss_count = 1U;
-  snap.evidence.has_measurement_evidence = true;
-  snap.evidence.updated_this_cycle = true;
-  snap.evidence.detection_margin_db = 12.0f;
+  model::TrackStateSnapshot snap;
+  snap.association_key = 999U;
+  snap.external_target_id = 42U;
+  snap.status = model::TrackStatus::kConfirmed;
+  snap.position_x = 100.0f;
+  snap.position_y = 200.0f;
+  snap.position_z = 50.0f;
+  snap.velocity_x = 30.0f;
+  snap.velocity_y = 5.0f;
+  snap.velocity_z = -2.0f;
+  snap.speed = 30.5f;
+  snap.acceleration_x = 1.0f;
+  snap.acceleration_y = 0.5f;
+  snap.acceleration_z = 0.1f;
+  snap.acceleration = 1.12f;
+  snap.rcs = 2.5f;
+  snap.jamming_detected = true;
+  snap.hit_count = 5U;
+  snap.miss_count = 1U;
   frame.tracks.push_back(snap);
+  model::TrackStateSnapshot lost = snap;
+  lost.association_key = 1001U;
+  lost.status = model::TrackStatus::kLost;
+  frame.tracks.push_back(lost);
 
   const std::string bytes = EncodeTrackOutputFrameFlatbuffer(frame);
   ASSERT_FALSE(bytes.empty());
@@ -140,15 +139,15 @@ TEST(ArReplayCodecRoundtripTest, TrackOutputFramePreservesAllFields) {
 
   EXPECT_EQ(decoded.cycle_index, 77U);
   EXPECT_EQ(decoded.batch_id, 5U);
-  EXPECT_EQ(decoded.published_track_count, 1U);
-  EXPECT_EQ(decoded.confirmed_track_count, 1U);
-  EXPECT_TRUE(decoded.contains_lost_tracks);
-  ASSERT_EQ(decoded.tracks.size(), 1U);
+  EXPECT_EQ(decoded.tracks.size(), 2U);
+  EXPECT_EQ(output::CountTracksByStatus(decoded, model::TrackStatus::kConfirmed), 1U);
+  EXPECT_TRUE(output::CountTracksByStatus(decoded, model::TrackStatus::kLost) > 0U);
+  ASSERT_EQ(decoded.tracks.size(), 2U);
 
-  const model::DecisionTrackStateSnapshot& ds = decoded.tracks[0].state;
+  const model::TrackStateSnapshot& ds = decoded.tracks[0];
   EXPECT_EQ(ds.association_key, 999U);
   EXPECT_EQ(ds.external_target_id, 42U);
-  EXPECT_EQ(ds.status, model::DecisionTrackStatus::kConfirmed);
+  EXPECT_EQ(ds.status, model::TrackStatus::kConfirmed);
   EXPECT_FLOAT_EQ(ds.position_x, 100.0f);
   EXPECT_FLOAT_EQ(ds.position_y, 200.0f);
   EXPECT_FLOAT_EQ(ds.position_z, 50.0f);
@@ -158,10 +157,6 @@ TEST(ArReplayCodecRoundtripTest, TrackOutputFramePreservesAllFields) {
   EXPECT_EQ(ds.hit_count, 5U);
   EXPECT_EQ(ds.miss_count, 1U);
 
-  const model::DecisionMeasurementEvidence& ev = decoded.tracks[0].evidence;
-  EXPECT_TRUE(ev.has_measurement_evidence);
-  EXPECT_TRUE(ev.updated_this_cycle);
-  EXPECT_FLOAT_EQ(ev.detection_margin_db, 12.0f);
 }
 
 // ---------------------------------------------------------------------------
@@ -171,16 +166,13 @@ TEST(ArReplayCodecRoundtripTest, TrackOutputFramePreservesAllFields) {
 TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   RadarCycleResult result;
   result.track_output_frame.cycle_index = 5U;
-  result.track_output_frame.published_track_count = 2U;
   result.track_output_frame.batch_id = 3U;
-  result.track_output_frame.confirmed_track_count = 2U;
-  result.track_output_frame.contains_lost_tracks = false;
 
-  model::DecisionTrackSnapshot snap;
-  snap.state.association_key = 1U;
-  snap.state.position_x = 50.0f;
-  snap.state.rcs = 1.5f;
-  snap.state.status = model::DecisionTrackStatus::kTentative;
+  model::TrackStateSnapshot snap;
+  snap.association_key = 1U;
+  snap.position_x = 50.0f;
+  snap.rcs = 1.5f;
+  snap.status = model::TrackStatus::kTentative;
   result.track_output_frame.tracks.push_back(snap);
 
   result.validation_issues.resize(0U);
@@ -194,12 +186,12 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   ASSERT_TRUE(DecodeCycleResultFlatbuffer(bytes, &decoded, &error)) << error;
 
   EXPECT_EQ(decoded.track_output_frame.cycle_index, 5U);
-  EXPECT_EQ(decoded.track_output_frame.published_track_count, 2U);
+  EXPECT_EQ(decoded.track_output_frame.tracks.size(), 1U);
   EXPECT_EQ(decoded.track_output_frame.batch_id, 3U);
   EXPECT_TRUE(decoded.executed_this_cycle);
   ASSERT_EQ(decoded.track_output_frame.tracks.size(), 1U);
-  EXPECT_FLOAT_EQ(decoded.track_output_frame.tracks[0].state.position_x, 50.0f);
-  EXPECT_FLOAT_EQ(decoded.track_output_frame.tracks[0].state.rcs, 1.5f);
+  EXPECT_FLOAT_EQ(decoded.track_output_frame.tracks[0].position_x, 50.0f);
+  EXPECT_FLOAT_EQ(decoded.track_output_frame.tracks[0].rcs, 1.5f);
 }
 
 // ---------------------------------------------------------------------------

@@ -1,7 +1,6 @@
 # airborne_radar 模块源文件与安装清单
 
 set(AIRBORNE_COMMON_SOURCES
-    airborne_radar/model/DecisionTrackSnapshot.cpp
     airborne_radar/output/TrackOutputQueries.cpp
     airborne_radar/model/TargetFeatureUtils.cpp
 )
@@ -91,7 +90,7 @@ if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_COMMON_MODEL
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/DecisionInputFrame.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/DecisionSourceInfo.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/DecisionTrackSnapshot.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/TrackStateSnapshot.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/RadarOrientationConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/TargetCategory.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/TargetFeature.h

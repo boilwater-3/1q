@@ -101,6 +101,24 @@ bool ContainsIssueCode(const std::vector<session::ValidationIssue>& issues,
   return false;
 }
 
+model::TrackStateSnapshot MakeTrackStateSnapshot(float velocity_x, float velocity_y,
+                                                 float velocity_z, float rcs,
+                                                 bool jamming_detected,
+                                                 std::uint64_t external_target_id,
+                                                 std::uint64_t association_key) {
+  model::TrackStateSnapshot track;
+  track.velocity_x = velocity_x;
+  track.velocity_y = velocity_y;
+  track.velocity_z = velocity_z;
+  track.speed = std::sqrt(velocity_x * velocity_x + velocity_y * velocity_y +
+                          velocity_z * velocity_z);
+  track.rcs = rcs;
+  track.jamming_detected = jamming_detected;
+  track.external_target_id = external_target_id;
+  track.association_key = association_key;
+  return track;
+}
+
 class RecordingRadarContext : public extension::IRadarContext {
  public:
   void BeginCycle(const session::RadarCycleInput& input) override {
@@ -650,50 +668,52 @@ TEST(PublicApiConvenienceTest, EnvironmentSceneBuilderJammerHelpersPopulateTyped
 TEST(PublicApiConvenienceTest, TrackOutputQueriesSupportUniqueDuplicateAndJammingSearch) {
   output::TrackOutputFrame frame;
   frame.tracks.push_back(
-      model::DecisionTrackSnapshot(10.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, false, 401U, 1U));
+      MakeTrackStateSnapshot(10.0f, 0.0f, 0.0f, 1.0f, false, 401U, 1U));
   frame.tracks.push_back(
-      model::DecisionTrackSnapshot(20.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, true, 402U, 2U));
+      MakeTrackStateSnapshot(20.0f, 0.0f, 0.0f, 1.0f, true, 402U, 2U));
   frame.tracks.push_back(
-      model::DecisionTrackSnapshot(21.0f, 0.0f, 0.0f, 1.1f, 0.0f, 0.0f, 0.0f, false, 402U, 3U));
+      MakeTrackStateSnapshot(21.0f, 0.0f, 0.0f, 1.1f, false, 402U, 3U));
   frame.tracks.push_back(
-      model::DecisionTrackSnapshot(8.0f, 0.0f, 0.0f, 0.7f, 0.0f, 0.0f, 0.0f, true, 0U, 4U));
+      MakeTrackStateSnapshot(8.0f, 0.0f, 0.0f, 0.7f, true, 0U, 4U));
 
   const auto track_map = output::BuildTrackMapByExternalTargetId(frame);
   EXPECT_EQ(track_map.size(), 2U);
   ASSERT_NE(track_map.count(401U), 0U);
   ASSERT_NE(track_map.count(402U), 0U);
-  EXPECT_EQ(track_map.at(402U).state.association_key, 3U);
+  EXPECT_EQ(track_map.at(402U).association_key, 3U);
 
-  const model::DecisionTrackSnapshotList duplicate_tracks =
+  const model::TrackStateSnapshotList duplicate_tracks =
       output::CollectTracksByExternalTargetId(frame, 402U);
   EXPECT_EQ(duplicate_tracks.size(), 2U);
   EXPECT_TRUE(output::ContainsExternalTargetId(frame, 401U));
   EXPECT_TRUE(output::ContainsExternalTargetId(frame, 0U));
   EXPECT_FALSE(output::ContainsExternalTargetId(frame, 999U));
   EXPECT_EQ(output::CountJammingTracks(frame), 2U);
-  EXPECT_EQ(output::CountTracksByStatus(frame, model::DecisionTrackStatus::kTentative), 4U);
+  EXPECT_EQ(output::CountTracksByStatus(frame, model::TrackStatus::kTentative), 4U);
 }
 
 TEST(PublicApiConvenienceTest, TrackOutputQueriesSupportAssociationKeyStatusAndJammingCollections) {
   output::TrackOutputFrame frame;
-  model::DecisionTrackSnapshot confirmed(20.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, false, 410U,
-                                         11U);
-  confirmed.state.status = model::DecisionTrackStatus::kConfirmed;
-  model::DecisionTrackSnapshot lost(5.0f, 0.0f, 0.0f, 0.8f, 0.0f, 0.0f, 0.0f, false, 411U, 12U);
-  lost.state.status = model::DecisionTrackStatus::kLost;
-  model::DecisionTrackSnapshot jammed(18.0f, 0.0f, 0.0f, 1.2f, 0.0f, 0.0f, 0.0f, true, 412U, 13U);
-  jammed.state.status = model::DecisionTrackStatus::kConfirmed;
+  model::TrackStateSnapshot confirmed =
+      MakeTrackStateSnapshot(20.0f, 0.0f, 0.0f, 1.0f, false, 410U, 11U);
+  confirmed.status = model::TrackStatus::kConfirmed;
+  model::TrackStateSnapshot lost =
+      MakeTrackStateSnapshot(5.0f, 0.0f, 0.0f, 0.8f, false, 411U, 12U);
+  lost.status = model::TrackStatus::kLost;
+  model::TrackStateSnapshot jammed =
+      MakeTrackStateSnapshot(18.0f, 0.0f, 0.0f, 1.2f, true, 412U, 13U);
+  jammed.status = model::TrackStatus::kConfirmed;
   frame.tracks.push_back(confirmed);
   frame.tracks.push_back(lost);
   frame.tracks.push_back(jammed);
 
   const auto track_map = output::BuildTrackMapByAssociationKey(frame);
   ASSERT_EQ(track_map.size(), 3U);
-  EXPECT_EQ(track_map.at(13U).state.external_target_id, 412U);
+  EXPECT_EQ(track_map.at(13U).external_target_id, 412U);
   EXPECT_EQ(output::CollectConfirmedTracks(frame).size(), 2U);
   EXPECT_EQ(output::CollectLostTracks(frame).size(), 1U);
   EXPECT_EQ(output::CollectJammingTracks(frame).size(), 1U);
-  EXPECT_EQ(output::CountTracksByStatus(frame, model::DecisionTrackStatus::kConfirmed), 2U);
+  EXPECT_EQ(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), 2U);
 }
 
 TEST(PublicApiConvenienceTest, RadarInputValidationReportsWarningsAndErrorsForCommonBoundaryCases) {
@@ -743,7 +763,7 @@ TEST(PublicApiConvenienceTest, ConfigPresetsProvideExpectedDetectionAndRobustnes
   const output::TrackOutputFrame frame = session.Step(MakeCycleInput(model::TargetFeatureList{
       model::MakeGroundTarget(901U, 20.0f, 5.0f, 0.8f),
   }));
-  EXPECT_EQ(frame.confirmed_track_count, 1U);
+  EXPECT_EQ(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), 1U);
 }
 
 TEST(PublicApiConvenienceTest, DefaultSessionConfigUsesLifecycleManagedTracks) {
@@ -756,9 +776,9 @@ TEST(PublicApiConvenienceTest, DefaultSessionConfigUsesLifecycleManagedTracks) {
   }));
 
   ASSERT_EQ(frame.tracks.size(), 1U);
-  EXPECT_EQ(frame.published_track_count, 1U);
-  EXPECT_EQ(frame.confirmed_track_count, 0U);
-  EXPECT_EQ(frame.tracks[0].state.status, model::DecisionTrackStatus::kTentative);
+  EXPECT_EQ(frame.tracks.size(), 1U);
+  EXPECT_EQ(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), 0U);
+  EXPECT_EQ(frame.tracks[0].status, model::TrackStatus::kTentative);
 }
 
 TEST(PublicApiConvenienceTest, RadarSessionStepProducesReadableOutputWithoutInterference) {
@@ -770,8 +790,8 @@ TEST(PublicApiConvenienceTest, RadarSessionStepProducesReadableOutputWithoutInte
   });
 
   const output::TrackOutputFrame frame = session.Step(input);
-  EXPECT_EQ(frame.published_track_count, 2U);
-  EXPECT_EQ(frame.confirmed_track_count, 2U);
+  EXPECT_EQ(frame.tracks.size(), 2U);
+  EXPECT_EQ(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), 2U);
   EXPECT_TRUE(output::ContainsExternalTargetId(frame, 501U));
   EXPECT_TRUE(output::ContainsExternalTargetId(frame, 502U));
   EXPECT_EQ(output::CountJammingTracks(frame), 0U);
@@ -814,8 +834,8 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
   ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
   const output::TrackOutputFrame manual_frame = controller.GetLatestTrackOutputFrame();
 
-  EXPECT_EQ(session_frame.published_track_count, manual_frame.published_track_count);
-  EXPECT_EQ(session_frame.confirmed_track_count, manual_frame.confirmed_track_count);
+  EXPECT_EQ(session_frame.tracks.size(), manual_frame.tracks.size());
+  EXPECT_EQ(output::CountTracksByStatus(session_frame, model::TrackStatus::kConfirmed), output::CountTracksByStatus(manual_frame, model::TrackStatus::kConfirmed));
   EXPECT_EQ(output::CountJammingTracks(session_frame), output::CountJammingTracks(manual_frame));
 
   const auto session_track_map = output::BuildTrackMapByExternalTargetId(session_frame);
@@ -825,8 +845,8 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
     const std::uint64_t target_id = input.target_features[i].external_target_id;
     ASSERT_NE(session_track_map.count(target_id), 0U);
     ASSERT_NE(manual_track_map.count(target_id), 0U);
-    EXPECT_EQ(session_track_map.at(target_id).state.association_key,
-              manual_track_map.at(target_id).state.association_key);
+    EXPECT_EQ(session_track_map.at(target_id).association_key,
+              manual_track_map.at(target_id).association_key);
   }
 
   ExpectEquivalentCommands(manual_context.GetSubmittedCommands(), session.GetSubmittedCommands());
@@ -858,7 +878,7 @@ TEST(PublicApiConvenienceTest,
       1.0f);
   const session::RadarCycleResult result_1 = session.StepWithResult(cycle_1);
   const output::TrackOutputFrame& frame_1 = result_1.track_output_frame;
-  EXPECT_GT(frame_1.published_track_count, 0U);
+  EXPECT_GT(frame_1.tracks.size(), 0U);
   EXPECT_TRUE(output::ContainsExternalTargetId(frame_1, 0U));
   EXPECT_EQ(output::CollectTracksByExternalTargetId(frame_1, 701U).size(), 1U);
   EXPECT_FALSE(result_1.has_validation_error);
@@ -881,8 +901,8 @@ TEST(PublicApiConvenienceTest,
   EXPECT_TRUE(duplicate_result.reused_previous_track_output);
   EXPECT_EQ(duplicate_result.track_output_frame.cycle_index, frame_1.cycle_index);
   EXPECT_EQ(duplicate_result.track_output_frame.batch_id, frame_1.batch_id);
-  EXPECT_EQ(duplicate_result.track_output_frame.published_track_count,
-            frame_1.published_track_count);
+  EXPECT_EQ(duplicate_result.track_output_frame.tracks.size(),
+            frame_1.tracks.size());
 
   session::RadarCycleInput cycle_2 = cycle_1;
   cycle_2.dt_sec = -1.0f;
@@ -909,7 +929,7 @@ TEST(PublicApiConvenienceTest,
                                 session::ValidationCode::kInvalidCycleDeltaTime));
   EXPECT_EQ(frame_2.cycle_index, frame_1.cycle_index);
   EXPECT_EQ(frame_2.batch_id, frame_1.batch_id);
-  EXPECT_EQ(frame_2.published_track_count, frame_1.published_track_count);
+  EXPECT_EQ(frame_2.tracks.size(), frame_1.tracks.size());
   EXPECT_EQ(output::CountJammingTracks(frame_2), output::CountJammingTracks(frame_1));
   EXPECT_TRUE(result_2.submitted_commands.empty());
   EXPECT_FALSE(result_2.has_control_profile);
@@ -922,7 +942,7 @@ TEST(PublicApiConvenienceTest,
   cycle_3.target_features[2].external_target_id = 704U;
   const output::TrackOutputFrame frame_3 =
       session.Step(cycle_3, environment::EnvironmentSceneBuilder().Build());
-  EXPECT_GT(frame_3.published_track_count, 0U);
+  EXPECT_GT(frame_3.tracks.size(), 0U);
   EXPECT_EQ(output::CountJammingTracks(frame_3), 0U);
   EXPECT_TRUE(output::ContainsExternalTargetId(frame_3, 703U));
   EXPECT_TRUE(output::ContainsExternalTargetId(frame_3, 704U));
@@ -1035,9 +1055,9 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultAggregatesCurrentCycleO
 
   const session::RadarCycleResult result = session.StepWithResult(input);
 
-  EXPECT_GT(result.track_output_frame.published_track_count, 0U);
-  EXPECT_GE(result.track_output_frame.published_track_count,
-            result.track_output_frame.confirmed_track_count);
+  EXPECT_GT(result.track_output_frame.tracks.size(), 0U);
+  EXPECT_GE(result.track_output_frame.tracks.size(),
+            output::CountTracksByStatus(result.track_output_frame, model::TrackStatus::kConfirmed));
   EXPECT_TRUE(result.executed_this_cycle);
   EXPECT_FALSE(result.reused_previous_track_output);
   EXPECT_EQ(result.submitted_commands.size(), session.GetSubmittedCommands().size());
@@ -1160,9 +1180,9 @@ TEST(PublicApiConvenienceTest,
           model::MakeAirTarget(970U, 180.0f, 1.5f, 12.0f, 65.0f, 0.0f, 0.0f, 1.0f),
       }));
   ASSERT_TRUE(cycle_1.executed_this_cycle);
-  ASSERT_EQ(cycle_1.track_output_frame.confirmed_track_count, 1U);
+  ASSERT_EQ(output::CountTracksByStatus(cycle_1.track_output_frame, model::TrackStatus::kConfirmed), 1U);
   ASSERT_EQ(cycle_1.track_output_frame.tracks.size(), 1U);
-  const std::uint64_t baseline_key = cycle_1.track_output_frame.tracks[0].state.association_key;
+  const std::uint64_t baseline_key = cycle_1.track_output_frame.tracks[0].association_key;
   ASSERT_NE(baseline_key, 0U);
 
   session.ApplyRuntimeConfig(config::RadarRuntimeConfigBuilder()
@@ -1174,11 +1194,11 @@ TEST(PublicApiConvenienceTest,
           model::MakeAirTarget(970U, 182.0f, 1.7f, 12.0f, 65.0f, 0.0f, 0.0f, 1.0f),
       }));
   ASSERT_TRUE(cycle_2.executed_this_cycle);
-  ASSERT_GE(cycle_2.track_output_frame.confirmed_track_count, 1U);
+  ASSERT_GE(output::CountTracksByStatus(cycle_2.track_output_frame, model::TrackStatus::kConfirmed), 1U);
   bool retained_known_track = false;
   for (std::size_t i = 0; i < cycle_2.track_output_frame.tracks.size(); ++i) {
-    const model::DecisionTrackSnapshot& track = cycle_2.track_output_frame.tracks[i];
-    if (track.state.external_target_id == 970U && track.state.association_key == baseline_key) {
+    const model::TrackStateSnapshot& track = cycle_2.track_output_frame.tracks[i];
+    if (track.external_target_id == 970U && track.association_key == baseline_key) {
       retained_known_track = true;
       break;
     }
@@ -1290,8 +1310,8 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultMatchesManualChainUnder
   controller.RunOnce();
 
   ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
-  EXPECT_EQ(session_result.track_output_frame.published_track_count,
-            controller.GetLatestTrackOutputFrame().published_track_count);
+  EXPECT_EQ(session_result.track_output_frame.tracks.size(),
+            controller.GetLatestTrackOutputFrame().tracks.size());
   ExpectEquivalentCommands(manual_context.GetSubmittedCommands(),
                            session_result.submitted_commands);
   ASSERT_TRUE(manual_context.HasLatestControlProfile());

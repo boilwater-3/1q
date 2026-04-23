@@ -112,7 +112,7 @@ void BackfillAssociationDrivenEccmTrigger(
   eccm_source_info->has_jamming_signal = true;
 }
 
-void PruneInactiveTrackState(const model::DecisionTrackSnapshotList& tracks,
+void PruneInactiveTrackState(const model::TrackStateSnapshotList& tracks,
                              TacticalStateStore* state_store) {
   if (state_store == nullptr) {
     return;
@@ -121,7 +121,7 @@ void PruneInactiveTrackState(const model::DecisionTrackSnapshotList& tracks,
   std::unordered_set<std::uint64_t> active_keys;
   active_keys.reserve(tracks.size());
   for (std::size_t i = 0; i < tracks.size(); ++i) {
-    active_keys.insert(tracks[i].state.association_key);
+    active_keys.insert(tracks[i].association_key);
   }
 
   constexpr std::size_t kMaxStateStoreEntries = 2048U;

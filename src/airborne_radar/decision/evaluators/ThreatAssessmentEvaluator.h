@@ -9,7 +9,7 @@
 #include <string>
 
 #include "1q/airborne_radar/model/DecisionSourceInfo.h"
-#include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
+#include "1q/airborne_radar/model/TrackStateSnapshot.h"
 #include "1q/airborne_radar/model/TargetCategory.h"
 #include "airborne_radar/decision/pipeline/TacticalEvaluation.h"
 #include "airborne_radar/environment/IFeatureRepository.h"
@@ -47,14 +47,14 @@ class ThreatAssessmentEvaluator final : public pipeline::ITacticalEvaluator {
    * @return 含类型标签及归一化概率的 TargetCategory；启发式路径时 probability 为 0。
    */
   model::TargetCategory IdentifyTarget(
-      const model::DecisionTrackSnapshot& track_snapshot) const;
+      const model::TrackStateSnapshot& track_snapshot) const;
 
   /**
    * @brief 计算威胁评分。
    * @param track_snapshot 单条轨迹快照。
    * @return 轨迹的威胁评分。
    */
-  float ComputeThreatScore(const model::DecisionTrackSnapshot& track_snapshot) const;
+  float ComputeThreatScore(const model::TrackStateSnapshot& track_snapshot) const;
 
   /**
    * @brief 更新供 LPI 使用的来源信息。
@@ -77,7 +77,7 @@ class ThreatAssessmentEvaluator final : public pipeline::ITacticalEvaluator {
    * @param previous_confidence 上一周期保留的置信度。
    * @return 更新后的置信度。
    */
-  float UpdateConfidence(const model::DecisionTrackSnapshot& track_snapshot,
+  float UpdateConfidence(const model::TrackStateSnapshot& track_snapshot,
                          float previous_confidence) const;
 
   /**

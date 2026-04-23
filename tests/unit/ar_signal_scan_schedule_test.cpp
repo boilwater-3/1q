@@ -89,8 +89,8 @@ class NonAutoLifecycleManager final : public signal::tracking::ITrackLifecycleMa
     return model::TargetFeatureList();
   }
 
-  model::DecisionTrackSnapshotList BuildDecisionSnapshot() const override {
-    return model::DecisionTrackSnapshotList();
+  model::TrackStateSnapshotList BuildDecisionSnapshot() const override {
+    return model::TrackStateSnapshotList();
   }
 
   model::DecisionInputFrame BuildDecisionFrame(std::uint32_t, std::uint64_t, bool) const override {

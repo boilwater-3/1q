@@ -74,7 +74,7 @@ int main() {
 
   // 7. Access result fields
   const std::size_t confirmed_tracks = airborne_radar::output::CountTracksByStatus(
-      result.track_output_frame, airborne_radar::model::DecisionTrackStatus::kConfirmed);
+      result.track_output_frame, airborne_radar::model::TrackStatus::kConfirmed);
   if (confirmed_tracks > result.track_output_frame.tracks.size()) {
     return 3;
   }

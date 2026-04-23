@@ -31,7 +31,7 @@ class IDataOutputManager {
    */
   virtual output::TrackOutputFrame BuildTrackOutputFrame(
       std::uint32_t cycle_index, std::uint64_t batch_id,
-      const model::DecisionTrackSnapshotList& track_snapshots) const = 0;
+      const model::TrackStateSnapshotList& track_snapshots) const = 0;
 
   /**
    * @brief 使用中性输出帧和周期摘要装配决策输入帧。

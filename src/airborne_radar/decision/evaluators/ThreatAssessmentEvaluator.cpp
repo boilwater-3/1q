@@ -51,12 +51,12 @@ void ThreatAssessmentEvaluator::Evaluate(
   }
 
   for (std::size_t i = 0; i < input_frame.tracks.size(); ++i) {
-    const model::DecisionTrackSnapshot& track_snapshot = input_frame.tracks[i];
+    const model::TrackStateSnapshot& track_snapshot = input_frame.tracks[i];
     const model::TargetCategory category = IdentifyTarget(track_snapshot);
     evaluation_state.target_classification_result.push_back(category);
     UpdateLpiSourceInfo(&evaluation_state.lpi_source_info, category.target_type);
 
-    const std::uint64_t track_key = track_snapshot.state.association_key;
+    const std::uint64_t track_key = track_snapshot.association_key;
     const float previous_confidence = state_store.confidence_memory.count(track_key) != 0U
                                           ? state_store.confidence_memory[track_key]
                                           : 0.0f;
@@ -65,15 +65,13 @@ void ThreatAssessmentEvaluator::Evaluate(
     state_store.threat_memory[track_key] = ComputeThreatScore(track_snapshot);
 
     const bool can_trigger_aggressive_controls =
-        track_snapshot.state.status != model::DecisionTrackStatus::kLost &&
-        confidence >= kHighThreatConfidenceThreshold &&
-        (track_snapshot.evidence.has_measurement_evidence ||
-         track_snapshot.state.status == model::DecisionTrackStatus::kConfirmed);
+        track_snapshot.status != model::TrackStatus::kLost &&
+        confidence >= kHighThreatConfidenceThreshold;
 
     if (IsHighThreatCategory(category.target_type) && can_trigger_aggressive_controls) {
       evaluation_state.should_reduce_power = true;
     }
-    if (track_snapshot.state.jamming_detected && can_trigger_aggressive_controls) {
+    if (track_snapshot.jamming_detected && can_trigger_aggressive_controls) {
       evaluation_state.eccm_source_info.has_jamming_signal = true;
     }
 
@@ -84,12 +82,12 @@ void ThreatAssessmentEvaluator::Evaluate(
 }
 
 model::TargetCategory ThreatAssessmentEvaluator::IdentifyTarget(
-    const model::DecisionTrackSnapshot& track_snapshot) const {
+    const model::TrackStateSnapshot& track_snapshot) const {
   if (feature_repository_ != nullptr) {
     environment::FeatureVector input;
-    input.Set("speed", track_snapshot.state.speed);
-    input.Set("rcs", track_snapshot.state.rcs);
-    input.Set("jamming", track_snapshot.state.jamming_detected ? 1.0f : 0.0f);
+    input.Set("speed", track_snapshot.speed);
+    input.Set("rcs", track_snapshot.rcs);
+    input.Set("jamming", track_snapshot.jamming_detected ? 1.0f : 0.0f);
 
     environment::MatchResult match_result;
     if (feature_repository_->QueryBestMatch(input, match_result)) {
@@ -116,11 +114,11 @@ model::TargetCategory ThreatAssessmentEvaluator::IdentifyTarget(
 }
 
 float ThreatAssessmentEvaluator::ComputeThreatScore(
-    const model::DecisionTrackSnapshot& track_snapshot) const {
+    const model::TrackStateSnapshot& track_snapshot) const {
   float threat_score = 0.0f;
-  const float track_speed = track_snapshot.state.speed;
-  const float track_rcs = track_snapshot.state.rcs;
-  const bool jamming_detected = track_snapshot.state.jamming_detected;
+  const float track_speed = track_snapshot.speed;
+  const float track_rcs = track_snapshot.rcs;
+  const bool jamming_detected = track_snapshot.jamming_detected;
 
   if (track_speed > 300.0f) {
     threat_score += 2.0f;
@@ -138,7 +136,7 @@ float ThreatAssessmentEvaluator::ComputeThreatScore(
     threat_score += 1.0f;
   }
 
-  if (track_snapshot.state.status == model::DecisionTrackStatus::kConfirmed) {
+  if (track_snapshot.status == model::TrackStatus::kConfirmed) {
     threat_score += 0.25f;
   }
 
@@ -169,28 +167,14 @@ bool ThreatAssessmentEvaluator::ShouldAcceptRepositoryMatch(
 }
 
 float ThreatAssessmentEvaluator::UpdateConfidence(
-    const model::DecisionTrackSnapshot& track_snapshot, float previous_confidence) const {
-  float confidence = previous_confidence;
-  if (track_snapshot.evidence.has_measurement_evidence) {
-    confidence = std::min(1.0f, confidence + 0.35f);
-  } else {
-    confidence *= 0.60f;
+    const model::TrackStateSnapshot& track_snapshot, float previous_confidence) const {
+  if (track_snapshot.status == model::TrackStatus::kConfirmed) {
+    return std::max(0.70f, std::min(1.0f, previous_confidence + 0.20f));
   }
-
-  if (track_snapshot.state.status == model::DecisionTrackStatus::kConfirmed) {
-    confidence = std::max(confidence, 0.70f);
+  if (track_snapshot.status == model::TrackStatus::kTentative) {
+    return std::min(0.45f, std::max(0.20f, previous_confidence + 0.10f));
   }
-
-  if (track_snapshot.state.status == model::DecisionTrackStatus::kTentative &&
-      !track_snapshot.evidence.has_measurement_evidence) {
-    confidence = std::min(confidence, 0.30f);
-  }
-
-  if (track_snapshot.state.status == model::DecisionTrackStatus::kLost) {
-    confidence *= 0.50f;
-  }
-
-  return confidence;
+  return previous_confidence * 0.50f;
 }
 
 bool ThreatAssessmentEvaluator::IsHighThreatCategory(const std::string& category) const {

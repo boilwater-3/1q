@@ -4,7 +4,7 @@
 #include <string>
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
-#include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
+#include "1q/airborne_radar/model/TrackStateSnapshot.h"
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
 #include "airborne_radar/session/RadarReplayFlatbufferCodec.h"
 
@@ -25,8 +25,8 @@ struct RadarReplayState {
   oneq::replay::ReplayTraceFailure failure_marker_data{};
 };
 
-bool TrackStateSnapshotEqual(const model::DecisionTrackStateSnapshot& left,
-                             const model::DecisionTrackStateSnapshot& right) {
+bool TrackStateSnapshotEqual(const model::TrackStateSnapshot& left,
+                             const model::TrackStateSnapshot& right) {
   return left.association_key == right.association_key &&
          left.external_target_id == right.external_target_id &&
          left.status == right.status &&
@@ -46,15 +46,12 @@ bool TrackStateSnapshotEqual(const model::DecisionTrackStateSnapshot& left,
 bool TrackOutputFrameEqual(const output::TrackOutputFrame& left,
                            const output::TrackOutputFrame& right) {
   if (left.cycle_index != right.cycle_index ||
-      left.published_track_count != right.published_track_count ||
-      left.batch_id != right.batch_id ||
-      left.confirmed_track_count != right.confirmed_track_count ||
-      left.contains_lost_tracks != right.contains_lost_tracks ||
-      left.tracks.size() != right.tracks.size()) {
+      left.tracks.size() != right.tracks.size() ||
+      left.batch_id != right.batch_id) {
     return false;
   }
   for (std::size_t i = 0; i < left.tracks.size(); ++i) {
-    if (!TrackStateSnapshotEqual(left.tracks[i].state, right.tracks[i].state)) {
+    if (!TrackStateSnapshotEqual(left.tracks[i], right.tracks[i])) {
       return false;
     }
   }

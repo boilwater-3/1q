@@ -358,7 +358,7 @@ void TrackLifecycleManager::Update(const CycleContext& cycle,
       scratch.predicted_without_hit_count, scratch.keys_to_recycle.size(), tracks_by_key_.size(),
       IsImmEnabled() ? "true" : "false", effective_dt_sec);
 
-  snapshot_emitter_.Refresh(tracks_by_key_, latest_evidence_by_key_, last_cycle_index_);
+  snapshot_emitter_.Refresh(tracks_by_key_);
 }
 
 void TrackLifecycleManager::PreparePhase(LifecycleUpdateScratch& scratch,
@@ -559,27 +559,6 @@ void TrackLifecycleManager::RecyclePhase(LifecycleUpdateScratch& scratch) {
     tracks_by_key_.erase(found);
   }
 
-  latest_evidence_by_key_.clear();
-  latest_evidence_by_key_.reserve(scratch.measurement_by_key.size());
-  for (std::unordered_map<std::uint64_t, const TrackMeasurement*>::const_iterator it =
-           scratch.measurement_by_key.begin();
-       it != scratch.measurement_by_key.end(); ++it) {
-    if (tracks_by_key_.find(it->first) == tracks_by_key_.end()) {
-      continue;
-    }
-    const TrackMeasurement& measurement = *(it->second);
-    model::DecisionMeasurementEvidence evidence;
-    evidence.has_measurement_evidence = true;
-    evidence.updated_this_cycle = true;
-    evidence.predicted_only_this_cycle = false;
-    evidence.matched_existing_track = measurement.raw_measurement.matched_existing_track;
-    evidence.association_cost = measurement.raw_measurement.association_cost;
-    evidence.detection_margin_db = measurement.raw_measurement.detection_margin_db;
-    evidence.used_position_association = measurement.raw_measurement.used_position_association;
-    evidence.used_external_association_seeds =
-        measurement.raw_measurement.used_external_association_seeds;
-    latest_evidence_by_key_[it->first] = evidence;
-  }
 }
 
 bool TrackLifecycleManager::TryResolveEffectiveCycleDeltaTimeSec(const CycleContext& cycle,

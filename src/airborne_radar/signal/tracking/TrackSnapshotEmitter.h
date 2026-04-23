@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/model/DecisionInputFrame.h"
-#include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
+#include "1q/airborne_radar/model/TrackStateSnapshot.h"
 #include "1q/airborne_radar/model/TargetFeature.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
 #include "airborne_radar/signal/tracking/TrackState.h"
@@ -31,13 +31,8 @@ class TrackSnapshotEmitter {
   /**
    * @brief 刷新内部快照缓存。
    * @param tracks_by_key 生命周期管理器的活跃轨迹表（key 为关联键）。
-   * @param evidence_by_key 最新量测证据表（key 为关联键）。
-   * @param last_cycle_index 当前已完成的周期号。
    */
-  void Refresh(const std::unordered_map<std::uint64_t, TrackState*>& tracks_by_key,
-               const std::unordered_map<std::uint64_t, model::DecisionMeasurementEvidence>&
-                   evidence_by_key,
-               std::uint32_t last_cycle_index);
+  void Refresh(const std::unordered_map<std::uint64_t, TrackState*>& tracks_by_key);
 
   /**
    * @brief 导出供外围事件链路消费的轻量目标特征快照。
@@ -49,7 +44,7 @@ class TrackSnapshotEmitter {
    * @brief 导出供决策层消费的活跃轨迹快照。
    * @return 包含 tentative/confirmed/lost 状态且未回收的决策快照列表。
    */
-  model::DecisionTrackSnapshotList BuildDecisionSnapshot() const;
+  model::TrackStateSnapshotList BuildDecisionSnapshot() const;
 
   /**
    * @brief 导出完整的决策输入帧。
@@ -76,8 +71,6 @@ class TrackSnapshotEmitter {
   };
 
   std::vector<ActiveTrackEntry> active_tracks_;
-  std::unordered_map<std::uint64_t, model::DecisionMeasurementEvidence> evidence_by_key_;
-  std::uint32_t last_cycle_index_{0};
 };
 
 }  // namespace tracking

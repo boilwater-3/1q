@@ -12,7 +12,7 @@
 
 #include "1q/airborne_radar/extension/control/ControlDirective.h"
 #include "1q/airborne_radar/model/DecisionInputFrame.h"
-#include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
+#include "1q/airborne_radar/model/TrackStateSnapshot.h"
 #include "airborne_radar/decision/evaluators/ThreatAssessmentEvaluator.h"
 #include "airborne_radar/decision/pipeline/TacticalCoordinator.h"
 #include "airborne_radar/decision/pipeline/TacticalEvaluation.h"
@@ -26,13 +26,21 @@ namespace edb = airborne_radar::environment;
 
 namespace {
 
+acm::TrackStateSnapshot MakeTrack(float vx, float vy, float vz, float rcs, bool jamming = false) {
+  acm::TrackStateSnapshot track;
+  track.velocity_x = vx;
+  track.velocity_y = vy;
+  track.velocity_z = vz;
+  track.speed = std::sqrt(vx * vx + vy * vy + vz * vz);
+  track.rcs = rcs;
+  track.jamming_detected = jamming;
+  return track;
+}
+
 acm::DecisionInputFrame BuildSingleTrackFrame(float speed, float rcs, bool jamming) {
   acm::DecisionInputFrame frame;
-  frame.tracks.push_back(acm::DecisionTrackSnapshot(speed, 0.0f, 0.0f, rcs, 0.0f, 0.0f, 0.0f,
-                                                     jamming));
-  frame.tracks.back().state.status = acm::DecisionTrackStatus::kConfirmed;
-  frame.tracks.back().evidence.has_measurement_evidence = true;
-  frame.tracks.back().evidence.updated_this_cycle = true;
+  frame.tracks.push_back(MakeTrack(speed, 0.0f, 0.0f, rcs, jamming));
+  frame.tracks.back().status = acm::TrackStatus::kConfirmed;
   return frame;
 }
 
@@ -129,12 +137,10 @@ TEST(TacticalCoordinatorTest, ClassifiesAllTracksInFrame) {
   dp::TacticalStateStore state_store;
 
   acm::DecisionInputFrame frame;
-  frame.tracks.push_back(acm::DecisionTrackSnapshot(900.0f, 0.0f, 0.0f, 4.5f));
-  frame.tracks.push_back(acm::DecisionTrackSnapshot(160.0f, 0.0f, 0.0f, 0.8f));
-  frame.tracks[0].state.status = acm::DecisionTrackStatus::kConfirmed;
-  frame.tracks[1].state.status = acm::DecisionTrackStatus::kConfirmed;
-  frame.tracks[0].evidence.has_measurement_evidence = true;
-  frame.tracks[1].evidence.has_measurement_evidence = true;
+  frame.tracks.push_back(MakeTrack(900.0f, 0.0f, 0.0f, 4.5f));
+  frame.tracks.push_back(MakeTrack(160.0f, 0.0f, 0.0f, 0.8f));
+  frame.tracks[0].status = acm::TrackStatus::kConfirmed;
+  frame.tracks[1].status = acm::TrackStatus::kConfirmed;
 
   const dp::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);

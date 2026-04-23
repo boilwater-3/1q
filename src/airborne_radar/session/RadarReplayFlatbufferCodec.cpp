@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
+#include "1q/airborne_radar/model/TrackStateSnapshot.h"
 #include "airborne_radar/session/generated/airborne_radar_replay_generated.h"
 #include "airborne_radar/session/generated/airborne_radar_scene_replay_generated.h"
 #include "airborne_radar/session/generated/airborne_radar_session_replay_generated.h"
@@ -16,6 +16,16 @@ namespace {
 namespace fb = oneq::replay::airborne_radar::fb;
 namespace scene_fb = oneq::replay::airborne_radar::scene::fb;
 namespace session_fb = oneq::replay::airborne_radar::session::fb;
+
+std::size_t CountTracksByStatus(const model::TrackStateSnapshotList& tracks, model::TrackStatus status) {
+  std::size_t count = 0U;
+  for (std::size_t i = 0; i < tracks.size(); ++i) {
+    if (tracks[i].status == status) {
+      ++count;
+    }
+  }
+  return count;
+}
 
 flatbuffers::Offset<fb::Vector3f> EncodeVector3(flatbuffers::FlatBufferBuilder* builder,
                                                 const oneq::foundation::Vector3f& value) {
@@ -103,7 +113,7 @@ model::TargetFeature DecodeTargetFeature(const fb::TargetFeature* value) {
 }
 
 flatbuffers::Offset<fb::DecisionTrackStateSnapshot> EncodeTrackStateSnapshot(
-    flatbuffers::FlatBufferBuilder* builder, const model::DecisionTrackStateSnapshot& value) {
+    flatbuffers::FlatBufferBuilder* builder, const model::TrackStateSnapshot& value) {
   return fb::CreateDecisionTrackStateSnapshot(
       *builder, value.association_key, value.external_target_id,
       static_cast<int>(value.status), value.position_x, value.position_y, value.position_z,
@@ -112,28 +122,18 @@ flatbuffers::Offset<fb::DecisionTrackStateSnapshot> EncodeTrackStateSnapshot(
       value.rcs, value.jamming_detected, value.hit_count, value.miss_count);
 }
 
-flatbuffers::Offset<fb::DecisionMeasurementEvidence> EncodeTrackEvidence(
-    flatbuffers::FlatBufferBuilder* builder, const model::DecisionMeasurementEvidence& value) {
-  return fb::CreateDecisionMeasurementEvidence(
-      *builder, value.has_measurement_evidence, value.updated_this_cycle,
-      value.predicted_only_this_cycle, value.matched_existing_track, value.association_cost,
-      value.detection_margin_db, value.used_position_association,
-      value.used_external_association_seeds);
-}
-
 flatbuffers::Offset<fb::DecisionTrackSnapshot> EncodeTrackSnapshot(
-    flatbuffers::FlatBufferBuilder* builder, const model::DecisionTrackSnapshot& value) {
-  return fb::CreateDecisionTrackSnapshot(*builder, EncodeTrackStateSnapshot(builder, value.state),
-                                         EncodeTrackEvidence(builder, value.evidence));
+    flatbuffers::FlatBufferBuilder* builder, const model::TrackStateSnapshot& value) {
+  return fb::CreateDecisionTrackSnapshot(*builder, EncodeTrackStateSnapshot(builder, value));
 }
 
-model::DecisionTrackStateSnapshot DecodeTrackStateSnapshot(
+model::TrackStateSnapshot DecodeTrackStateSnapshot(
     const fb::DecisionTrackStateSnapshot* value) {
-  model::DecisionTrackStateSnapshot result;
+  model::TrackStateSnapshot result;
   if (value != nullptr) {
     result.association_key = value->association_key();
     result.external_target_id = value->external_target_id();
-    result.status = static_cast<model::DecisionTrackStatus>(value->status());
+    result.status = static_cast<model::TrackStatus>(value->status());
     result.position_x = value->position_x();
     result.position_y = value->position_y();
     result.position_z = value->position_z();
@@ -153,27 +153,10 @@ model::DecisionTrackStateSnapshot DecodeTrackStateSnapshot(
   return result;
 }
 
-model::DecisionMeasurementEvidence DecodeTrackEvidence(
-    const fb::DecisionMeasurementEvidence* value) {
-  model::DecisionMeasurementEvidence result;
+model::TrackStateSnapshot DecodeTrackSnapshot(const fb::DecisionTrackSnapshot* value) {
+  model::TrackStateSnapshot result;
   if (value != nullptr) {
-    result.has_measurement_evidence = value->has_measurement_evidence();
-    result.updated_this_cycle = value->updated_this_cycle();
-    result.predicted_only_this_cycle = value->predicted_only_this_cycle();
-    result.matched_existing_track = value->matched_existing_track();
-    result.association_cost = value->association_cost();
-    result.detection_margin_db = value->detection_margin_db();
-    result.used_position_association = value->used_position_association();
-    result.used_external_association_seeds = value->used_external_association_seeds();
-  }
-  return result;
-}
-
-model::DecisionTrackSnapshot DecodeTrackSnapshot(const fb::DecisionTrackSnapshot* value) {
-  model::DecisionTrackSnapshot result;
-  if (value != nullptr) {
-    result.state = DecodeTrackStateSnapshot(value->state());
-    result.evidence = DecodeTrackEvidence(value->evidence());
+    result = DecodeTrackStateSnapshot(value->state());
   }
   return result;
 }
@@ -188,19 +171,17 @@ flatbuffers::Offset<fb::TrackOutputFrame> EncodeTrackOutputFrame(
   const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fb::DecisionTrackSnapshot>>>
       tracks_vec = builder->CreateVector(track_offsets);
   return fb::CreateTrackOutputFrame(
-      *builder, value.cycle_index, static_cast<std::uint64_t>(value.published_track_count),
-      value.batch_id, static_cast<std::uint64_t>(value.confirmed_track_count),
-      value.contains_lost_tracks, tracks_vec);
+      *builder, value.cycle_index, static_cast<std::uint64_t>(value.tracks.size()),
+      value.batch_id,
+      static_cast<std::uint64_t>(CountTracksByStatus(value.tracks, model::TrackStatus::kConfirmed)),
+      CountTracksByStatus(value.tracks, model::TrackStatus::kLost) > 0U, tracks_vec);
 }
 
 output::TrackOutputFrame DecodeTrackOutputFrame(const fb::TrackOutputFrame* value) {
   output::TrackOutputFrame result;
   if (value != nullptr) {
     result.cycle_index = value->cycle_index();
-    result.published_track_count = static_cast<std::size_t>(value->published_track_count());
     result.batch_id = value->batch_id();
-    result.confirmed_track_count = static_cast<std::size_t>(value->confirmed_track_count());
-    result.contains_lost_tracks = value->contains_lost_tracks();
     const flatbuffers::Vector<flatbuffers::Offset<fb::DecisionTrackSnapshot>>* tracks =
         value->tracks();
     if (tracks != nullptr) {

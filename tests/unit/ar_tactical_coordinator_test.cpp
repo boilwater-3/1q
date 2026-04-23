@@ -6,11 +6,12 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cmath>
 #include <set>
 #include <string>
 
 #include "1q/airborne_radar/model/DecisionInputFrame.h"
-#include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
+#include "1q/airborne_radar/model/TrackStateSnapshot.h"
 #include "airborne_radar/decision/pipeline/ControlReducer.h"
 #include "airborne_radar/decision/pipeline/TacticalCoordinator.h"
 
@@ -19,16 +20,17 @@ namespace tests {
 
 namespace {
 
-model::DecisionTrackSnapshot BuildTrack(float speed, float rcs, model::DecisionTrackStatus status,
-                                         bool has_measurement_evidence,
-                                         bool jamming_detected = false) {
-  model::DecisionTrackSnapshot snapshot(speed, 0.0f, 0.0f, rcs, 0.0f, 0.0f, 0.0f,
-                                         jamming_detected);
-  snapshot.state.status = status;
-  snapshot.evidence.has_measurement_evidence = has_measurement_evidence;
-  snapshot.evidence.updated_this_cycle = has_measurement_evidence;
-  snapshot.evidence.predicted_only_this_cycle = !has_measurement_evidence;
-  snapshot.state.association_key = static_cast<std::uint64_t>(speed * 10.0f + rcs * 10.0f);
+model::TrackStateSnapshot BuildTrack(float speed, float rcs, model::TrackStatus status,
+                                bool jamming_detected = false) {
+  model::TrackStateSnapshot snapshot;
+  snapshot.velocity_x = speed;
+  snapshot.velocity_y = 0.0f;
+  snapshot.velocity_z = 0.0f;
+  snapshot.speed = std::sqrt(speed * speed);
+  snapshot.rcs = rcs;
+  snapshot.jamming_detected = jamming_detected;
+  snapshot.status = status;
+  snapshot.association_key = static_cast<std::uint64_t>(speed * 10.0f + rcs * 10.0f);
   return snapshot;
 }
 
@@ -70,7 +72,7 @@ TEST(TacticalCoordinatorTest, HighThreatTrackGeneratesLpiProposal) {
   model::DecisionInputFrame frame;
   frame.cycle_index = 1u;
   frame.batch_id = 1u;
-  frame.tracks.push_back(BuildTrack(800.0f, 4.0f, model::DecisionTrackStatus::kConfirmed, true));
+  frame.tracks.push_back(BuildTrack(800.0f, 4.0f, model::TrackStatus::kConfirmed));
 
   const extension::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
@@ -88,7 +90,7 @@ TEST(TacticalCoordinatorTest, LowEvidenceTrackDoesNotTriggerAggressiveControl) {
   model::DecisionInputFrame frame;
   frame.cycle_index = 1u;
   frame.batch_id = 1u;
-  frame.tracks.push_back(BuildTrack(900.0f, 5.0f, model::DecisionTrackStatus::kTentative, false));
+  frame.tracks.push_back(BuildTrack(900.0f, 5.0f, model::TrackStatus::kTentative));
 
   const extension::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
@@ -126,7 +128,7 @@ TEST(TacticalCoordinatorTest, JammingEnvironmentGeneratesEccmProposals) {
   frame.eccm_source_info.jammer_sources.push_back(noise_source);
   frame.eccm_source_info.jammer_sources.push_back(deception_source);
   frame.tracks.push_back(
-      BuildTrack(200.0f, 2.0f, model::DecisionTrackStatus::kConfirmed, true, true));
+      BuildTrack(200.0f, 2.0f, model::TrackStatus::kConfirmed, true));
 
   const extension::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
@@ -169,7 +171,7 @@ TEST(TacticalCoordinatorTest, DetailedEccmFactsSelectOnlyRelevantProposals) {
   source.confidence = 1.0f;
   frame.eccm_source_info.jammer_sources.push_back(source);
   frame.tracks.push_back(
-      BuildTrack(200.0f, 2.0f, model::DecisionTrackStatus::kConfirmed, true, true));
+      BuildTrack(200.0f, 2.0f, model::TrackStatus::kConfirmed, true));
 
   const extension::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
@@ -206,7 +208,7 @@ TEST(TacticalCoordinatorTest, LowConfidenceEccmSourceDoesNotGetArtificialWeightB
   source.confidence = 0.36f;
   frame.eccm_source_info.jammer_sources.push_back(source);
   frame.tracks.push_back(
-      BuildTrack(220.0f, 2.0f, model::DecisionTrackStatus::kConfirmed, true, true));
+      BuildTrack(220.0f, 2.0f, model::TrackStatus::kConfirmed, true));
 
   const extension::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
@@ -244,7 +246,7 @@ TEST(TacticalCoordinatorTest, MultiSourceEccmFactsCombineTypeSpecificCountermeas
   frame.eccm_source_info.jammer_sources.push_back(noise_source);
   frame.eccm_source_info.jammer_sources.push_back(deception_source);
   frame.tracks.push_back(
-      BuildTrack(200.0f, 2.0f, model::DecisionTrackStatus::kConfirmed, true, true));
+      BuildTrack(200.0f, 2.0f, model::TrackStatus::kConfirmed, true));
 
   const extension::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
@@ -287,7 +289,7 @@ TEST(TacticalCoordinatorTest,
 
   frame.eccm_source_info.jammer_sources.push_back(low_confidence_deception);
   frame.tracks.push_back(
-      BuildTrack(200.0f, 2.0f, model::DecisionTrackStatus::kConfirmed, true, true));
+      BuildTrack(200.0f, 2.0f, model::TrackStatus::kConfirmed, true));
 
   const extension::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
@@ -314,7 +316,7 @@ TEST(TacticalCoordinatorTest, AssociationStressCanBackfillDeceptionDrivenEccmTri
   frame.association_quality_info.jamming_severity = 0.7f;
   frame.association_quality_info.association_stress = 0.35f;
   frame.tracks.push_back(
-      BuildTrack(200.0f, 2.0f, model::DecisionTrackStatus::kConfirmed, true, false));
+      BuildTrack(200.0f, 2.0f, model::TrackStatus::kConfirmed));
 
   const extension::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
@@ -351,7 +353,7 @@ TEST(TacticalCoordinatorTest, AssociationStressRaisesTypeSpecificEccmPriorityWit
   baseline_source.confidence = 1.0f;
   baseline_frame.eccm_source_info.jammer_sources.push_back(baseline_source);
   baseline_frame.tracks.push_back(
-      BuildTrack(200.0f, 2.0f, model::DecisionTrackStatus::kConfirmed, true, false));
+      BuildTrack(200.0f, 2.0f, model::TrackStatus::kConfirmed));
 
   model::DecisionInputFrame stressed_frame = baseline_frame;
   stressed_frame.association_quality_info.dominant_jamming_semantic =
@@ -399,7 +401,7 @@ TEST(TacticalCoordinatorTest, PoorAssociationQualityWithoutJammingSemanticDoesNo
   frame.perception_quality_info.detection_rate = 0.25f;
   frame.perception_quality_info.detection_stress = 0.75f;
   frame.tracks.push_back(
-      BuildTrack(200.0f, 2.0f, model::DecisionTrackStatus::kConfirmed, true, false));
+      BuildTrack(200.0f, 2.0f, model::TrackStatus::kConfirmed));
 
   const extension::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
@@ -426,7 +428,7 @@ TEST(TacticalCoordinatorTest, EnvironmentJammingAndAssociationPressureAreBothRef
   frame.perception_quality_info.detection_rate = 0.5f;
   frame.perception_quality_info.detection_stress = 0.5f;
   frame.tracks.push_back(
-      BuildTrack(200.0f, 2.0f, model::DecisionTrackStatus::kConfirmed, true, true));
+      BuildTrack(200.0f, 2.0f, model::TrackStatus::kConfirmed, true));
 
   const extension::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
@@ -444,7 +446,7 @@ TEST(TacticalCoordinatorTest, LpiProposalStopsWithoutFreshThreatEvidence) {
   trigger_frame.cycle_index = 1u;
   trigger_frame.batch_id = 1u;
   trigger_frame.tracks.push_back(
-      BuildTrack(820.0f, 4.5f, model::DecisionTrackStatus::kConfirmed, true));
+      BuildTrack(820.0f, 4.5f, model::TrackStatus::kConfirmed));
   const extension::TacticalDecisionResult trigger_result =
       coordinator.Evaluate(trigger_frame, state_store);
   EXPECT_EQ(trigger_result.selected_mode, extension::TacticalMode::kThreatResponse);
@@ -470,7 +472,7 @@ TEST(TacticalCoordinatorTest, EccmProposalStopsWithoutFreshJammingEvidence) {
   trigger_frame.batch_id = 1u;
   trigger_frame.environment_jamming_detected = true;
   trigger_frame.tracks.push_back(
-      BuildTrack(260.0f, 2.2f, model::DecisionTrackStatus::kConfirmed, true, true));
+      BuildTrack(260.0f, 2.2f, model::TrackStatus::kConfirmed, true));
   const extension::TacticalDecisionResult trigger_result =
       coordinator.Evaluate(trigger_frame, state_store);
   EXPECT_EQ(trigger_result.selected_mode, extension::TacticalMode::kProtectedEmission);
@@ -495,7 +497,7 @@ TEST(TacticalCoordinatorTest, ControlHoldIsOwnedByReducerAfterProposalStops) {
   trigger_frame.cycle_index = 1u;
   trigger_frame.batch_id = 1u;
   trigger_frame.tracks.push_back(
-      BuildTrack(820.0f, 4.5f, model::DecisionTrackStatus::kConfirmed, true));
+      BuildTrack(820.0f, 4.5f, model::TrackStatus::kConfirmed));
 
   const extension::TacticalDecisionResult trigger_result =
       coordinator.Evaluate(trigger_frame, state_store);
@@ -531,8 +533,8 @@ TEST(TacticalCoordinatorTest, PrunesInactiveTrackStateMemoryByActiveTrackKeys) {
   frame_a.cycle_index = 1u;
   frame_a.batch_id = 1u;
   frame_a.tracks.push_back(
-      BuildTrack(780.0f, 3.8f, model::DecisionTrackStatus::kConfirmed, true));
-  frame_a.tracks.back().state.association_key = 1001u;
+      BuildTrack(780.0f, 3.8f, model::TrackStatus::kConfirmed));
+  frame_a.tracks.back().association_key = 1001u;
   coordinator.Evaluate(frame_a, state_store);
   ASSERT_EQ(state_store.confidence_memory.size(), 1u);
   ASSERT_EQ(state_store.threat_memory.size(), 1u);
@@ -543,8 +545,8 @@ TEST(TacticalCoordinatorTest, PrunesInactiveTrackStateMemoryByActiveTrackKeys) {
   frame_b.cycle_index = 2u;
   frame_b.batch_id = 2u;
   frame_b.tracks.push_back(
-      BuildTrack(260.0f, 1.8f, model::DecisionTrackStatus::kConfirmed, true));
-  frame_b.tracks.back().state.association_key = 2002u;
+      BuildTrack(260.0f, 1.8f, model::TrackStatus::kConfirmed));
+  frame_b.tracks.back().association_key = 2002u;
   coordinator.Evaluate(frame_b, state_store);
 
   EXPECT_EQ(state_store.confidence_memory.size(), 1u);

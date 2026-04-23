@@ -65,20 +65,8 @@ table DecisionTrackStateSnapshot {
   miss_count:uint;
 }
 
-table DecisionMeasurementEvidence {
-  has_measurement_evidence:bool;
-  updated_this_cycle:bool;
-  predicted_only_this_cycle:bool;
-  matched_existing_track:bool;
-  association_cost:float;
-  detection_margin_db:float;
-  used_position_association:bool;
-  used_external_association_seeds:bool;
-}
-
 table DecisionTrackSnapshot {
   state:DecisionTrackStateSnapshot;
-  evidence:DecisionMeasurementEvidence;
 }
 
 table RadarCycleResult {
