@@ -35,6 +35,14 @@ struct ONEQ_API EosTargetAppearance {
 };
 
 /**
+ * @brief EOS 外部目标位置参考系类型。
+ */
+enum class ONEQ_API EosTargetPositionFrame {
+  kEcef = 0, /**< 目标位置由 ECEF 坐标给出 */
+  kLla = 1   /**< 目标位置由 WGS84 LLA 坐标给出 */
+};
+
+/**
  * @brief EOS 平台速度输入参考系类型。
  */
 enum class ONEQ_API EosVelocityFrame {
@@ -52,6 +60,16 @@ struct ONEQ_API EosExternalPoseInput {
   oneq::foundation::Vector3f platform_velocity_mps{};                    /**< 平台速度（m/s） */
   EosVelocityFrame platform_velocity_frame{EosVelocityFrame::kEosLocal}; /**< 速度参考系 */
   oneq::foundation::EulerAnglesDeg platform_attitude_deg{}; /**< 平台姿态角（EOS 局部系，deg） */
+};
+
+/**
+ * @brief EOS 外部目标输入（统一入口）。
+ */
+struct ONEQ_API EosExternalTargetInput {
+  EosTargetPositionFrame position_frame{EosTargetPositionFrame::kEcef}; /**< 目标位置参考系 */
+  oneq::foundation::EcefCoordinateM target_position_ecef_m{};            /**< 目标 ECEF 坐标 */
+  oneq::foundation::LlaCoordinateDegM target_position_lla_deg_m{};       /**< 目标 WGS84 LLA 坐标 */
+  EosTargetAppearance appearance{};                                      /**< 目标辐射与外观参数 */
 };
 
 /**
@@ -78,41 +96,22 @@ ONEQ_API bool TryMakeEosPoseFromExternalKinematics(const EosExternalPoseInput& i
                                                    EosCoordinateStatus* status = nullptr);
 
 /**
- * @brief 将外部 ECEF 目标坐标转换为 EOS 目标状态。
+ * @brief 两步模式第二步：将外部目标输入转换为 EOS 场景目标状态。
  * @param target_id 目标标识。
- * @param target_ecef_m 目标 ECEF 坐标。
+ * @param input 外部目标输入。
  * @param reference EOS 局部坐标参考系。
  * @param platform_pose 平台位姿，用于计算目标相对平台的几何关系。
- * @param appearance 目标辐射与外观参数。
  * @param target 输出目标状态。
  * @param status 可选输出状态，nullptr 表示不关心失败原因。
  * @return 转换成功返回 true；输入非法、坐标变换失败或输出为空返回 false。
  */
-ONEQ_API bool TryMakeEosTargetFromEcef(std::uint64_t target_id,
-                                       const oneq::foundation::EcefCoordinateM& target_ecef_m,
-                                       const EosCoordinateReference& reference,
-                                       const oneq::foundation::PoseState& platform_pose,
-                                       const EosTargetAppearance& appearance,
-                                       EosTargetState* target,
-                                       EosCoordinateStatus* status = nullptr);
-
-/**
- * @brief 将外部 LLA 目标坐标转换为 EOS 目标状态。
- * @param target_id 目标标识。
- * @param target_lla_deg_m 目标 WGS84 LLA 坐标。
- * @param reference EOS 局部坐标参考系。
- * @param platform_pose 平台位姿，用于计算目标相对平台的几何关系。
- * @param appearance 目标辐射与外观参数。
- * @param target 输出目标状态。
- * @param status 可选输出状态，nullptr 表示不关心失败原因。
- * @return 转换成功返回 true；输入非法、坐标变换失败或输出为空返回 false。
- */
-ONEQ_API bool TryMakeEosTargetFromLla(std::uint64_t target_id,
-                                      const oneq::foundation::LlaCoordinateDegM& target_lla_deg_m,
-                                      const EosCoordinateReference& reference,
-                                      const oneq::foundation::PoseState& platform_pose,
-                                      const EosTargetAppearance& appearance, EosTargetState* target,
-                                      EosCoordinateStatus* status = nullptr);
+ONEQ_API bool TryMakeEosSceneTargetFromExternalInput(
+    std::uint64_t target_id,
+    const EosExternalTargetInput& input,
+    const EosCoordinateReference& reference,
+    const oneq::foundation::PoseState& platform_pose,
+    EosSceneTarget* target,
+    EosCoordinateStatus* status = nullptr);
 
 }  // namespace session
 }  // namespace electro_optical_sensor

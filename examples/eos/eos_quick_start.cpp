@@ -70,15 +70,20 @@ int main() {
     return 1;
   }
 
+  eos::session::EosExternalTargetInput target_input;
+  target_input.position_frame = eos::session::EosTargetPositionFrame::kEcef;
+  target_input.target_position_ecef_m = target_ecef;
+  target_input.appearance = appearance;
+
   eos::session::EosTargetState target;
-  if (!eos::session::TryMakeEosTargetFromEcef(1001U, target_ecef, reference, platform_pose,
-                                              appearance, &target)) {
+  if (!eos::session::TryMakeEosSceneTargetFromExternalInput(1001U, target_input, reference,
+                                                            platform_pose, &target)) {
     std::cerr << "failed to build eos target" << std::endl;
     return 1;
   }
 
   //    将平台位姿和场景目标合成当前周期输入，然后执行一次仿真周期。
-  eos::::electro_optical_sensor::session::EosCycleInput input;
+  eos::session::EosCycleInput input;
   input.dt_sec = 1.0f;
   input.platform_pose = platform_pose;
   input.scene.targets.push_back(target);
@@ -89,7 +94,7 @@ int main() {
     return 1;
   }
 
-  const eos::::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
+  const eos::session::EosCycleResult result = session.StepWithResult(input);
   std::cout << "cycle=" << result.output_frame.cycle_index
             << " detections=" << result.output_frame.detections.size()
             << " executed=" << (result.executed_this_cycle ? "true" : "false") << std::endl;

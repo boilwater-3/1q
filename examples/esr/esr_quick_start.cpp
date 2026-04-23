@@ -6,7 +6,6 @@
 #include <iostream>
 
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
-#include "1q/electronic_surveillance_radar/model/EmitterTruthState.h"
 #include "1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
@@ -46,8 +45,8 @@ int main() {
   platform_velocity_ecef_mps.y = 60.0f;
   platform_velocity_ecef_mps.z = -5.0f;
 
-  // 3) 目标信息（辐射源真值）。
-  //    ESR 真值输入最终需要局部坐标，这里先从 LLA 转 ECEF，再转成 ENU 作为示例。
+  // 3) 辐射源信息（外部坐标）。
+  //    这里同样模拟外部系统给出地理位置，再交给适配器转换成 ESR 场景输入实体。
   geo::LlaCoordinateDegM emitter_lla = platform_lla;
   emitter_lla.longitude_deg += 0.01;
   emitter_lla.altitude_m = 200.0;
@@ -56,21 +55,6 @@ int main() {
     std::cerr << "invalid emitter lla" << std::endl;
     return 1;
   }
-  geo::EnuCoordinateM emitter_enu;
-  if (!geo::TryEcefToEnu(emitter_ecef, platform_lla, &emitter_enu)) {
-    std::cerr << "failed to convert emitter ecef to enu" << std::endl;
-    return 1;
-  }
-  esr::model::EmitterTruthState emitter;
-  emitter.emitter_id = "emitter-1";
-  emitter.pose.position_m.x = static_cast<float>(emitter_enu.x_m);
-  emitter.pose.position_m.y = static_cast<float>(emitter_enu.y_m);
-  emitter.pose.position_m.z = static_cast<float>(emitter_enu.z_m);
-  emitter.carrier_hz = 10.0e9;
-  emitter.bandwidth_hz = 2.0e6;
-  emitter.tx_power_w = 5.0e7;
-  emitter.pulse_width_s = 1.0e-6;
-  emitter.pri_s = 1.0e-4;
 
   // 4) 组装外部输入并执行单周期。
   //    reference 定义 ESR 局部参考系，pose_input 描述外部系统给出的平台位置和速度。
@@ -86,6 +70,21 @@ int main() {
   esr::model::EsrPoseState platform_pose;
   if (!esr::session::TryMakeEsrPoseFromExternalKinematics(pose_input, reference, &platform_pose)) {
     std::cerr << "failed to build esr platform pose" << std::endl;
+    return 1;
+  }
+
+  esr::session::EsrExternalEmitterInput emitter_input;
+  emitter_input.emitter_id = "emitter-1";
+  emitter_input.emitter_position_ecef_m = emitter_ecef;
+  emitter_input.emitter_velocity_frame = esr::session::EsrVelocityFrame::kEcef;
+  emitter_input.carrier_hz = 10.0e9;
+  emitter_input.bandwidth_hz = 2.0e6;
+  emitter_input.tx_power_w = 5.0e7;
+  emitter_input.pulse_width_s = 1.0e-6;
+  emitter_input.pri_s = 1.0e-4;
+  esr::session::EsrSceneEmitter emitter;
+  if (!esr::session::TryMakeEsrSceneEmitterFromExternalInput(emitter_input, reference, &emitter)) {
+    std::cerr << "failed to build esr emitter" << std::endl;
     return 1;
   }
   //    将平台位姿与辐射源真值合成当前周期输入，然后执行一次侦察周期。

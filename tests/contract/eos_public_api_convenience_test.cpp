@@ -344,18 +344,26 @@ TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsTargetFromEcefAndLla) {
   target_lla.longitude_deg = 0.001;
   target_lla.altitude_m = 0.0;
 
+  session::EosExternalTargetInput lla_input;
+  lla_input.position_frame = session::EosTargetPositionFrame::kLla;
+  lla_input.target_position_lla_deg_m = target_lla;
+  lla_input.appearance = appearance;
   session::EosTargetState target_from_lla;
-  ASSERT_TRUE(session::TryMakeEosTargetFromLla(401U, target_lla, reference, platform_pose,
-                                               appearance, &target_from_lla));
+  ASSERT_TRUE(session::TryMakeEosSceneTargetFromExternalInput(
+      401U, lla_input, reference, platform_pose, &target_from_lla));
   EXPECT_EQ(target_from_lla.target_id, 401U);
   EXPECT_GT(target_from_lla.range_m, 0.0f);
   EXPECT_NEAR(target_from_lla.apparent_temperature_k, 320.0f, 1e-5f);
 
   oneq::foundation::EcefCoordinateM target_ecef;
   ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));
+  session::EosExternalTargetInput ecef_input;
+  ecef_input.position_frame = session::EosTargetPositionFrame::kEcef;
+  ecef_input.target_position_ecef_m = target_ecef;
+  ecef_input.appearance = appearance;
   session::EosTargetState target_from_ecef;
-  ASSERT_TRUE(session::TryMakeEosTargetFromEcef(402U, target_ecef, reference, platform_pose,
-                                                appearance, &target_from_ecef));
+  ASSERT_TRUE(session::TryMakeEosSceneTargetFromExternalInput(
+      402U, ecef_input, reference, platform_pose, &target_from_ecef));
   EXPECT_NEAR(target_from_ecef.range_m, target_from_lla.range_m, 1.0f);
 }
 

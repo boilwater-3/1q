@@ -67,9 +67,13 @@ TEST(EosCoordinateUtilsTest, MakeTargetFromLlaAndEcefAreConsistent) {
   appearance.reflectance = 0.3f;
   appearance.projected_area_m2 = 2.5f;
 
+  ::electro_optical_sensor::session::EosExternalTargetInput lla_input;
+  lla_input.position_frame = ::electro_optical_sensor::session::EosTargetPositionFrame::kLla;
+  lla_input.target_position_lla_deg_m = target_lla;
+  lla_input.appearance = appearance;
   ::electro_optical_sensor::session::EosTargetState target_from_lla;
-  ASSERT_TRUE(session::TryMakeEosTargetFromLla(11U, target_lla, reference, platform_pose,
-                                               appearance, &target_from_lla));
+  ASSERT_TRUE(session::TryMakeEosSceneTargetFromExternalInput(
+      11U, lla_input, reference, platform_pose, &target_from_lla));
   EXPECT_EQ(target_from_lla.target_id, 11U);
   EXPECT_GT(target_from_lla.range_m, 100.0f);
   EXPECT_NEAR(target_from_lla.azimuth_deg, 0.0f, 1.0e-2f);
@@ -77,9 +81,13 @@ TEST(EosCoordinateUtilsTest, MakeTargetFromLlaAndEcefAreConsistent) {
 
   oneq::foundation::EcefCoordinateM target_ecef;
   ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));
+  ::electro_optical_sensor::session::EosExternalTargetInput ecef_input;
+  ecef_input.position_frame = ::electro_optical_sensor::session::EosTargetPositionFrame::kEcef;
+  ecef_input.target_position_ecef_m = target_ecef;
+  ecef_input.appearance = appearance;
   ::electro_optical_sensor::session::EosTargetState target_from_ecef;
-  ASSERT_TRUE(session::TryMakeEosTargetFromEcef(12U, target_ecef, reference, platform_pose,
-                                                appearance, &target_from_ecef));
+  ASSERT_TRUE(session::TryMakeEosSceneTargetFromExternalInput(
+      12U, ecef_input, reference, platform_pose, &target_from_ecef));
   EXPECT_NEAR(target_from_ecef.range_m, target_from_lla.range_m, 1.0e-3f);
   EXPECT_NEAR(target_from_ecef.azimuth_deg, target_from_lla.azimuth_deg, 1.0e-3f);
   EXPECT_NEAR(target_from_ecef.elevation_deg, target_from_lla.elevation_deg, 1.0e-3f);
@@ -108,10 +116,14 @@ TEST(EosCoordinateUtilsTest, ReportsFailureStatusForNullOutputAndDegenerateGeome
   platform_pose.position_m.y = 0.0f;
   platform_pose.position_m.z = 0.0f;
   ::electro_optical_sensor::session::EosTargetAppearance appearance;
-  ::electro_optical_sensor::session::EosTargetState target;
   oneq::foundation::LlaCoordinateDegM target_lla = reference.origin_lla;
-  EXPECT_FALSE(session::TryMakeEosTargetFromLla(1U, target_lla, reference, platform_pose,
-                                                appearance, &target, &status));
+  ::electro_optical_sensor::session::EosExternalTargetInput lla_input;
+  lla_input.position_frame = ::electro_optical_sensor::session::EosTargetPositionFrame::kLla;
+  lla_input.target_position_lla_deg_m = target_lla;
+  lla_input.appearance = appearance;
+  ::electro_optical_sensor::session::EosTargetState target;
+  EXPECT_FALSE(session::TryMakeEosSceneTargetFromExternalInput(
+      1U, lla_input, reference, platform_pose, &target, &status));
   EXPECT_EQ(status, ::electro_optical_sensor::session::EosCoordinateStatus::kDegenerateGeometry);
 }
 

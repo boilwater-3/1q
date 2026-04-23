@@ -57,8 +57,8 @@ enum class ValidationCode {
 struct ONEQ_API ValidationIssue {
   ValidationSeverity severity{ValidationSeverity::kInfo}; /**< 问题严重级别 */
   ValidationCode code{ValidationCode::kNone};             /**< 结构化编码 */
-  std::size_t target_index{
-      static_cast<std::size_t>(-1)}; /**< 目标索引；若无特定目标则为 `size_t(-1)` */
+  std::size_t entity_index{
+      static_cast<std::size_t>(-1)}; /**< 实体索引；若无特定实体则为 `size_t(-1)` */
   std::string message{};             /**< 面向调用方的简短说明 */
 };
 

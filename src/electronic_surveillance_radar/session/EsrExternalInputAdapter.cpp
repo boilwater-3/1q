@@ -8,6 +8,12 @@ namespace session {
 
 namespace {
 
+void SetStatus(EsrCoordinateStatus value, EsrCoordinateStatus* status) {
+  if (status != nullptr) {
+    *status = value;
+  }
+}
+
 oneq::internal::geometry::EulerAnglesDeg ToGeometryEuler(const model::EsrEulerAngleDeg& euler_deg) {
   oneq::internal::geometry::EulerAnglesDeg geometry_euler;
   geometry_euler.yaw_deg = euler_deg.yaw_deg;
@@ -84,13 +90,16 @@ bool TryConvertEcefVelocityToEnu(const model::EsrVector3f& velocity_ecef_mps,
 
 bool TryConvertEcefToEsrLocalInternal(const oneq::foundation::EcefCoordinateM& position_ecef_m,
                                       const EsrCoordinateReference& reference,
-                                      model::EsrVector3f* position_local_m) {
+                                      model::EsrVector3f* position_local_m,
+                                      EsrCoordinateStatus* status) {
   if (position_local_m == nullptr) {
+    SetStatus(EsrCoordinateStatus::kNullOutput, status);
     return false;
   }
 
   oneq::foundation::EnuCoordinateM enu;
   if (!oneq::foundation::TryEcefToEnu(position_ecef_m, reference.origin_lla, &enu)) {
+    SetStatus(EsrCoordinateStatus::kCoordinateTransformFail, status);
     return false;
   }
 
@@ -102,18 +111,21 @@ bool TryConvertEcefToEsrLocalInternal(const oneq::foundation::EcefCoordinateM& p
 
 bool TryMakeEsrPoseFromExternalKinematics(const EsrExternalPoseInput& input,
                                           const EsrCoordinateReference& reference,
-                                          model::EsrPoseState* pose) {
+                                          model::EsrPoseState* pose,
+                                          EsrCoordinateStatus* status) {
   if (pose == nullptr) {
+    SetStatus(EsrCoordinateStatus::kNullOutput, status);
     return false;
   }
 
   model::EsrVector3f local_position;
   if (!TryConvertEcefToEsrLocalInternal(input.platform_position_ecef_m, reference,
-                                        &local_position)) {
+                                        &local_position, status)) {
     return false;
   }
 
   if (!IsFiniteVector3f(input.platform_velocity_mps)) {
+    SetStatus(EsrCoordinateStatus::kCoordinateTransformFail, status);
     return false;
   }
 
@@ -126,6 +138,7 @@ bool TryMakeEsrPoseFromExternalKinematics(const EsrExternalPoseInput& input,
       oneq::foundation::EnuCoordinateM velocity_enu;
       if (!TryConvertEcefVelocityToEnu(input.platform_velocity_mps, reference.origin_lla,
                                        &velocity_enu)) {
+        SetStatus(EsrCoordinateStatus::kCoordinateTransformFail, status);
         return false;
       }
       local_velocity = ConvertEnuToEsrLocal(velocity_enu, reference.frame_attitude_deg);
@@ -148,6 +161,71 @@ bool TryMakeEsrPoseFromExternalKinematics(const EsrExternalPoseInput& input,
   pose->position_m = local_position;
   pose->velocity_mps = local_velocity;
   pose->attitude_deg = input.platform_attitude_deg;
+  SetStatus(EsrCoordinateStatus::kOk, status);
+  return true;
+}
+
+bool TryMakeEsrSceneEmitterFromExternalInput(const EsrExternalEmitterInput& input,
+                                             const EsrCoordinateReference& reference,
+                                             EsrSceneEmitter* emitter,
+                                             EsrCoordinateStatus* status) {
+  if (emitter == nullptr) {
+    SetStatus(EsrCoordinateStatus::kNullOutput, status);
+    return false;
+  }
+
+  model::EsrVector3f local_position;
+  if (!TryConvertEcefToEsrLocalInternal(input.emitter_position_ecef_m, reference, &local_position,
+                                        status)) {
+    return false;
+  }
+
+  if (!IsFiniteVector3f(input.emitter_velocity_mps)) {
+    SetStatus(EsrCoordinateStatus::kCoordinateTransformFail, status);
+    return false;
+  }
+
+  model::EsrVector3f local_velocity;
+  switch (input.emitter_velocity_frame) {
+    case EsrVelocityFrame::kEsrLocal:
+      local_velocity = input.emitter_velocity_mps;
+      break;
+    case EsrVelocityFrame::kEcef: {
+      oneq::foundation::EnuCoordinateM velocity_enu;
+      if (!TryConvertEcefVelocityToEnu(input.emitter_velocity_mps, reference.origin_lla,
+                                       &velocity_enu)) {
+        SetStatus(EsrCoordinateStatus::kCoordinateTransformFail, status);
+        return false;
+      }
+      local_velocity = ConvertEnuToEsrLocal(velocity_enu, reference.frame_attitude_deg);
+      break;
+    }
+    case EsrVelocityFrame::kEnu: {
+      const oneq::foundation::EnuCoordinateM velocity_enu =
+          ToEnuFromEnuVector(input.emitter_velocity_mps);
+      local_velocity = ConvertEnuToEsrLocal(velocity_enu, reference.frame_attitude_deg);
+      break;
+    }
+    case EsrVelocityFrame::kNed: {
+      const oneq::foundation::EnuCoordinateM velocity_enu =
+          ToEnuFromNed(input.emitter_velocity_mps);
+      local_velocity = ConvertEnuToEsrLocal(velocity_enu, reference.frame_attitude_deg);
+      break;
+    }
+  }
+
+  emitter->emitter_id = input.emitter_id;
+  emitter->pose.position_m = local_position;
+  emitter->pose.velocity_mps = local_velocity;
+  emitter->pose.attitude_deg = input.emitter_attitude_deg;
+  emitter->carrier_hz = input.carrier_hz;
+  emitter->bandwidth_hz = input.bandwidth_hz;
+  emitter->tx_power_w = input.tx_power_w;
+  emitter->pulse_width_s = input.pulse_width_s;
+  emitter->pri_s = input.pri_s;
+  emitter->beam_state = input.beam_state;
+  emitter->is_emitting = input.is_emitting;
+  SetStatus(EsrCoordinateStatus::kOk, status);
   return true;
 }
 

@@ -291,7 +291,7 @@ std::string EncodeEsrCycleResult(const EsrCycleResult& v) {
   for (const auto& i : v.validation_issues) {
     issues.push_back(esr::replay::CreateValidationIssue(fbb,
         static_cast<int32_t>(i.severity), static_cast<int32_t>(i.code),
-        static_cast<int32_t>(i.emitter_index), fbb.CreateString(i.message)));
+        static_cast<int32_t>(i.entity_index), fbb.CreateString(i.message)));
   }
   fbb.Finish(esr::replay::CreateEsrCycleResult(fbb, frame,
       fbb.CreateVector(issues), v.has_validation_error));
@@ -312,7 +312,7 @@ bool DecodeEsrCycleResult(const std::string& bytes, EsrCycleResult* out) {
       ValidationIssue iss{};
       iss.severity = static_cast<ValidationSeverity>(i->severity());
       iss.code = static_cast<ValidationCode>(i->code());
-      iss.emitter_index = i->emitter_index();
+      iss.entity_index = static_cast<std::size_t>(i->emitter_index());
       if (i->message()) {
         iss.message = i->message()->str();
       }

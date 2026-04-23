@@ -200,7 +200,7 @@ std::string EncodeEosCycleResult(const ::electro_optical_sensor::session::EosCyc
     auto msg = fbb.CreateString(i.message);
     issue_vec.push_back(eos::replay::CreateValidationIssue(
         fbb, static_cast<int32_t>(i.severity), static_cast<int32_t>(i.code),
-        static_cast<int32_t>(i.target_index), msg));
+        static_cast<int32_t>(i.entity_index), msg));
   }
 
   auto result = eos::replay::CreateEosCycleResult(
@@ -248,7 +248,7 @@ bool DecodeEosCycleResult(const std::string& bytes, ::electro_optical_sensor::se
         session::ValidationIssue iss{};
         iss.severity = static_cast<session::ValidationSeverity>(i->severity());
         iss.code = static_cast<session::ValidationCode>(i->code());
-        iss.target_index = static_cast<std::size_t>(i->target_index());
+        iss.entity_index = static_cast<std::size_t>(i->target_index());
         if (i->message()) {
           iss.message = i->message()->str();
         }

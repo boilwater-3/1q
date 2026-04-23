@@ -25,27 +25,27 @@ TEST(ValidationUtilsTest, IsFiniteDistinguishesFiniteNanAndInfinity) {
   EXPECT_FALSE(IsFinite(std::numeric_limits<double>::infinity()));
 }
 
-TEST(ValidationUtilsTest, MakeIndexedIssueSupportsTargetIndexField) {
+TEST(ValidationUtilsTest, MakeIndexedIssueSupportsEntityIndexFieldForAr) {
   const airborne_radar::session::ValidationIssue issue =
       MakeIndexedIssue<airborne_radar::session::ValidationIssue,
                        airborne_radar::session::ValidationSeverity,
                        airborne_radar::session::ValidationCode,
-                       &airborne_radar::session::ValidationIssue::target_index>(
+                       &airborne_radar::session::ValidationIssue::entity_index>(
           airborne_radar::session::ValidationSeverity::kWarning,
           airborne_radar::session::ValidationCode::kNegativeRcs, 3U, "negative rcs");
 
   EXPECT_EQ(issue.severity, airborne_radar::session::ValidationSeverity::kWarning);
   EXPECT_EQ(issue.code, airborne_radar::session::ValidationCode::kNegativeRcs);
-  EXPECT_EQ(issue.target_index, 3U);
+  EXPECT_EQ(issue.entity_index, 3U);
   EXPECT_EQ(issue.message, "negative rcs");
 }
 
-TEST(ValidationUtilsTest, MakeIndexedIssueSupportsEmitterIndexField) {
+TEST(ValidationUtilsTest, MakeIndexedIssueSupportsEntityIndexFieldForEsr) {
   const electronic_surveillance_radar::session::ValidationIssue issue = MakeIndexedIssue<
       electronic_surveillance_radar::session::ValidationIssue,
       electronic_surveillance_radar::session::ValidationSeverity,
       electronic_surveillance_radar::session::ValidationCode,
-      &electronic_surveillance_radar::session::ValidationIssue::emitter_index>(
+      &electronic_surveillance_radar::session::ValidationIssue::entity_index>(
       electronic_surveillance_radar::session::ValidationSeverity::kError,
       electronic_surveillance_radar::session::ValidationCode::kInvalidEmitterFrequency, 5U,
       "invalid emitter frequency");
@@ -55,7 +55,7 @@ TEST(ValidationUtilsTest, MakeIndexedIssueSupportsEmitterIndexField) {
   EXPECT_EQ(
       issue.code,
       electronic_surveillance_radar::session::ValidationCode::kInvalidEmitterFrequency);
-  EXPECT_EQ(issue.emitter_index, 5U);
+  EXPECT_EQ(issue.entity_index, 5U);
   EXPECT_EQ(issue.message, "invalid emitter frequency");
 }
 
@@ -73,13 +73,13 @@ TEST(ValidationUtilsTest, HasSeverityReturnsFalseWhenNoExpectedSeverity) {
   issues.push_back(MakeIndexedIssue<airborne_radar::session::ValidationIssue,
                                     airborne_radar::session::ValidationSeverity,
                                     airborne_radar::session::ValidationCode,
-                                    &airborne_radar::session::ValidationIssue::target_index>(
+                                    &airborne_radar::session::ValidationIssue::entity_index>(
       airborne_radar::session::ValidationSeverity::kInfo,
       airborne_radar::session::ValidationCode::kUnknownExternalTargetId, 1U, "unknown id"));
   issues.push_back(MakeIndexedIssue<airborne_radar::session::ValidationIssue,
                                     airborne_radar::session::ValidationSeverity,
                                     airborne_radar::session::ValidationCode,
-                                    &airborne_radar::session::ValidationIssue::target_index>(
+                                    &airborne_radar::session::ValidationIssue::entity_index>(
       airborne_radar::session::ValidationSeverity::kWarning,
       airborne_radar::session::ValidationCode::kNegativeRcs, 2U, "negative rcs"));
 
@@ -97,16 +97,16 @@ TEST(ValidationUtilsTest, HasSeverityReturnsTrueWhenExpectedSeverityExists) {
           electronic_surveillance_radar::session::ValidationIssue,
           electronic_surveillance_radar::session::ValidationSeverity,
           electronic_surveillance_radar::session::ValidationCode,
-          &electronic_surveillance_radar::session::ValidationIssue::emitter_index>(
+          &electronic_surveillance_radar::session::ValidationIssue::entity_index>(
           electronic_surveillance_radar::session::ValidationSeverity::kInfo,
           electronic_surveillance_radar::session::ValidationCode::kNone,
-          static_cast<std::int32_t>(-1), "info"));
+          static_cast<std::size_t>(-1), "info"));
   issues.push_back(
       MakeIndexedIssue<
           electronic_surveillance_radar::session::ValidationIssue,
           electronic_surveillance_radar::session::ValidationSeverity,
           electronic_surveillance_radar::session::ValidationCode,
-          &electronic_surveillance_radar::session::ValidationIssue::emitter_index>(
+          &electronic_surveillance_radar::session::ValidationIssue::entity_index>(
           electronic_surveillance_radar::session::ValidationSeverity::kError,
           electronic_surveillance_radar::session::ValidationCode::kInvalidEmitterPri, 4U,
           "invalid pri"));

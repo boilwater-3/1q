@@ -15,15 +15,15 @@ namespace {
  * @brief 生成一条 ESR 输入校验问题。
  * @param[in] severity 问题严重级别。
  * @param[in] code 结构化问题编码。
- * @param[in] emitter_index 辐射源索引；若无特定索引则为 `-1`。
+ * @param[in] emitter_index 实体索引；若无特定索引则为 `size_t(-1)`。
  * @param[in] message 面向调用方的短消息。
  * @return 组装后的校验问题。
  */
 ValidationIssue MakeIssue(ValidationSeverity severity, ValidationCode code,
-                             std::int32_t emitter_index, const std::string& message) {
+                             std::size_t emitter_index, const std::string& message) {
   return oneq::internal::validation::MakeIndexedIssue<ValidationIssue, ValidationSeverity,
                                                       ValidationCode,
-                                                      &ValidationIssue::emitter_index>(
+                                                      &ValidationIssue::entity_index>(
       severity, code, emitter_index, message);
 }
 
@@ -55,17 +55,17 @@ void ValidatePlatformPose(const model::EsrPoseState& platform_pose,
       !IsFinite(platform_pose.attitude_deg.roll_deg)) {
     issues->push_back(
         MakeIssue(ValidationSeverity::kError, ValidationCode::kNonFinitePlatformNumericField,
-                  static_cast<std::int32_t>(-1), "platform pose contains non-finite numeric field"));
+                  static_cast<std::size_t>(-1), "platform pose contains non-finite numeric field"));
   }
 }
 
 /**
  * @brief 校验单个辐射源输入字段。
  * @param[in] emitter 单个辐射源输入。
- * @param[in] emitter_index 辐射源索引。
+ * @param[in] emitter_index 实体索引。
  * @param[out] issues 校验问题列表。
  */
-void ValidateEmitter(const model::EmitterTruthState& emitter, std::int32_t emitter_index,
+void ValidateEmitter(const model::EmitterTruthState& emitter, std::size_t emitter_index,
                      ValidationIssueList* issues) {
   if (issues == nullptr) {
     return;
@@ -141,16 +141,16 @@ ValidationIssueList ValidateEsrCycleInput(const EsrCycleInput& input) {
   if (!IsFinite(input.dt_sec)) {
     issues.push_back(MakeIssue(ValidationSeverity::kError,
                                ValidationCode::kNonFiniteCycleDeltaTime,
-                               static_cast<std::int32_t>(-1), "cycle delta time must be finite"));
+                               static_cast<std::size_t>(-1), "cycle delta time must be finite"));
   } else if (input.dt_sec <= 0.0f) {
     issues.push_back(MakeIssue(ValidationSeverity::kError,
                                ValidationCode::kInvalidCycleDeltaTime,
-                               static_cast<std::int32_t>(-1), "cycle delta time must be positive"));
+                               static_cast<std::size_t>(-1), "cycle delta time must be positive"));
   }
   ValidatePlatformPose(input.platform_pose, &issues);
 
   for (std::size_t i = 0; i < input.scene.emitters.size(); ++i) {
-    ValidateEmitter(input.scene.emitters[i], static_cast<std::int32_t>(i), &issues);
+    ValidateEmitter(input.scene.emitters[i], i, &issues);
   }
 
   return issues;

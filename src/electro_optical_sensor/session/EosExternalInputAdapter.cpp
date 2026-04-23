@@ -258,31 +258,29 @@ bool TryMakeEosPoseFromExternalKinematics(const EosExternalPoseInput& input,
   return true;
 }
 
-bool TryMakeEosTargetFromEcef(std::uint64_t target_id,
-                              const oneq::foundation::EcefCoordinateM& target_ecef_m,
-                              const EosCoordinateReference& reference,
-                              const oneq::foundation::PoseState& platform_pose,
-                              const EosTargetAppearance& appearance, EosTargetState* target,
-                              EosCoordinateStatus* status) {
+bool TryMakeEosSceneTargetFromExternalInput(
+    std::uint64_t target_id,
+    const EosExternalTargetInput& input,
+    const EosCoordinateReference& reference,
+    const oneq::foundation::PoseState& platform_pose,
+    EosSceneTarget* target,
+    EosCoordinateStatus* status) {
   oneq::foundation::Vector3f target_local;
-  if (!TryConvertEcefToEosLocalInternal(target_ecef_m, reference, &target_local, status)) {
-    return false;
+  switch (input.position_frame) {
+    case EosTargetPositionFrame::kEcef:
+      if (!TryConvertEcefToEosLocalInternal(input.target_position_ecef_m, reference, &target_local,
+                                            status)) {
+        return false;
+      }
+      break;
+    case EosTargetPositionFrame::kLla:
+      if (!TryConvertLlaToEosLocalInternal(input.target_position_lla_deg_m, reference, &target_local,
+                                           status)) {
+        return false;
+      }
+      break;
   }
-  return FillTargetFromLocalPosition(target_id, target_local, platform_pose, appearance, target,
-                                     status);
-}
-
-bool TryMakeEosTargetFromLla(std::uint64_t target_id,
-                             const oneq::foundation::LlaCoordinateDegM& target_lla_deg_m,
-                             const EosCoordinateReference& reference,
-                             const oneq::foundation::PoseState& platform_pose,
-                             const EosTargetAppearance& appearance, EosTargetState* target,
-                             EosCoordinateStatus* status) {
-  oneq::foundation::Vector3f target_local;
-  if (!TryConvertLlaToEosLocalInternal(target_lla_deg_m, reference, &target_local, status)) {
-    return false;
-  }
-  return FillTargetFromLocalPosition(target_id, target_local, platform_pose, appearance, target,
+  return FillTargetFromLocalPosition(target_id, target_local, platform_pose, input.appearance, target,
                                      status);
 }
 

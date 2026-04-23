@@ -237,6 +237,42 @@ TEST(EsrPublicApiConvenienceTest, CoordinateUtilsBuildsPoseFromExternalKinematic
   EXPECT_GT(pose.position_m.x, 100.0f);
 }
 
+TEST(EsrPublicApiConvenienceTest, CoordinateUtilsBuildsSceneEmitterFromExternalInput) {
+  session::EsrCoordinateReference reference;
+  reference.origin_lla.latitude_deg = 0.0;
+  reference.origin_lla.longitude_deg = 0.0;
+  reference.origin_lla.altitude_m = 0.0;
+
+  oneq::foundation::LlaCoordinateDegM emitter_lla;
+  emitter_lla.latitude_deg = 0.0;
+  emitter_lla.longitude_deg = 0.001;
+  emitter_lla.altitude_m = 0.0;
+
+  oneq::foundation::EcefCoordinateM emitter_ecef;
+  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(emitter_lla, &emitter_ecef));
+
+  session::EsrExternalEmitterInput input;
+  input.emitter_id = "emitter-001";
+  input.emitter_position_ecef_m = emitter_ecef;
+  input.emitter_velocity_frame = session::EsrVelocityFrame::kEnu;
+  input.emitter_velocity_mps.x = 1.0f;
+  input.emitter_velocity_mps.y = 2.0f;
+  input.emitter_velocity_mps.z = 3.0f;
+  input.carrier_hz = 10.0e9;
+  input.bandwidth_hz = 2.0e6;
+  input.tx_power_w = 5.0e7;
+  input.pulse_width_s = 1.0e-6;
+  input.pri_s = 1.0e-4;
+
+  session::EsrSceneEmitter emitter;
+  session::EsrCoordinateStatus status = session::EsrCoordinateStatus::kCoordinateTransformFail;
+  ASSERT_TRUE(session::TryMakeEsrSceneEmitterFromExternalInput(input, reference, &emitter, &status));
+  EXPECT_EQ(status, session::EsrCoordinateStatus::kOk);
+  EXPECT_EQ(emitter.emitter_id, "emitter-001");
+  EXPECT_GT(emitter.pose.position_m.x, 100.0f);
+  EXPECT_NEAR(emitter.pose.velocity_mps.x, 1.0f, 1.0e-5f);
+}
+
 TEST(EsrPublicApiConvenienceTest, SessionStepAndRuntimePatchWorkTogether) {
   session::EsrSession session(MakeSessionConfig());
 

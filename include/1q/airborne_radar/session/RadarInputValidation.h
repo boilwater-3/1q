@@ -47,8 +47,8 @@ enum class ValidationCode {
 struct ValidationIssue {
   ValidationSeverity severity{ValidationSeverity::kInfo}; /**< 严重级别 */
   ValidationCode code{ValidationCode::kNone};             /**< 问题类型编码 */
-  std::size_t target_index{
-      static_cast<std::size_t>(-1)}; /**< 目标索引；若与具体目标无关，则为 `size_t(-1)` */
+  std::size_t entity_index{
+      static_cast<std::size_t>(-1)}; /**< 实体索引；若与具体实体无关，则为 `size_t(-1)` */
   std::string message{};             /**< 面向外部调用方的简短说明 */
 };
 

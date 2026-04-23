@@ -6,8 +6,11 @@
 #ifndef ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_EXTERNAL_INPUT_ADAPTER_H_
 #define ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_EXTERNAL_INPUT_ADAPTER_H_
 
+#include <string>
+
 #include "1q/api.hpp"
 #include "1q/electronic_surveillance_radar/model/EsrOrientationConfig.h"
+#include "1q/electronic_surveillance_radar/session/EsrSceneInput.h"
 #include "1q/foundation/coordinate_transform.h"
 
 namespace electronic_surveillance_radar {
@@ -42,9 +45,43 @@ struct ONEQ_API EsrExternalPoseInput {
   model::EsrEulerAngleDeg platform_attitude_deg{}; /**< 平台姿态角（ESR 局部系，deg） */
 };
 
+/**
+ * @brief ESR 外部辐射源输入（统一入口）。
+ */
+struct ONEQ_API EsrExternalEmitterInput {
+  std::string emitter_id{};                                  /**< 辐射源标识 */
+  oneq::foundation::EcefCoordinateM emitter_position_ecef_m{}; /**< 辐射源位置（ECEF，m） */
+  model::EsrVector3f emitter_velocity_mps{};                /**< 辐射源速度（m/s） */
+  EsrVelocityFrame emitter_velocity_frame{EsrVelocityFrame::kEsrLocal}; /**< 速度参考系 */
+  model::EsrEulerAngleDeg emitter_attitude_deg{};           /**< 辐射源姿态角（ESR 局部系，deg） */
+  double carrier_hz{0.0};                                   /**< 发射中心频率（Hz） */
+  double bandwidth_hz{0.0};                                 /**< 发射带宽（Hz） */
+  double tx_power_w{0.0};                                   /**< 发射功率（W） */
+  double pulse_width_s{0.0};                                /**< 脉宽（s） */
+  double pri_s{0.0};                                        /**< 脉冲重复间隔（s） */
+  model::EmitterBeamState beam_state{};                     /**< 发射波束状态 */
+  bool is_emitting{true};                                   /**< 当前周期是否发射 */
+};
+
+/**
+ * @brief ESR 坐标适配执行状态。
+ */
+enum class ONEQ_API EsrCoordinateStatus {
+  kOk = 0,
+  kNullOutput,
+  kCoordinateTransformFail
+};
+
 ONEQ_API bool TryMakeEsrPoseFromExternalKinematics(const EsrExternalPoseInput& input,
                                                    const EsrCoordinateReference& reference,
-                                                   model::EsrPoseState* pose);
+                                                   model::EsrPoseState* pose,
+                                                   EsrCoordinateStatus* status = nullptr);
+
+ONEQ_API bool TryMakeEsrSceneEmitterFromExternalInput(
+    const EsrExternalEmitterInput& input,
+    const EsrCoordinateReference& reference,
+    EsrSceneEmitter* emitter,
+    EsrCoordinateStatus* status = nullptr);
 
 }  // namespace session
 }  // namespace electronic_surveillance_radar

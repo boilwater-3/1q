@@ -15,7 +15,7 @@ ValidationIssue MakeIssue(ValidationSeverity severity, ValidationCode code,
                              std::size_t target_index, const std::string& message) {
   return oneq::internal::validation::MakeIndexedIssue<ValidationIssue, ValidationSeverity,
                                                       ValidationCode,
-                                                      &ValidationIssue::target_index>(
+                                                      &ValidationIssue::entity_index>(
       severity, code, target_index, message);
 }
 
