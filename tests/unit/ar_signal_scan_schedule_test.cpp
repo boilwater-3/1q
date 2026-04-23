@@ -89,7 +89,7 @@ class NonAutoLifecycleManager final : public signal::tracking::ITrackLifecycleMa
     return model::TargetFeatureList();
   }
 
-  model::TrackStateSnapshotList BuildDecisionSnapshot() const override {
+  model::TrackStateSnapshotList BuildTrackStateSnapshots() const override {
     return model::TrackStateSnapshotList();
   }
 

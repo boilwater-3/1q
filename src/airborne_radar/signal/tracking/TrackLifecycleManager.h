@@ -17,7 +17,7 @@
 #include "airborne_radar/signal/tracking/ITrackPool.h"
 #include "airborne_radar/signal/tracking/LifecycleConfig.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
-#include "airborne_radar/signal/tracking/TrackSnapshotEmitter.h"
+#include "airborne_radar/signal/tracking/TrackStateSnapshotEmitter.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -79,7 +79,7 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
    * @brief 导出供决策层消费的活跃轨迹快照。
    * @return 包含 tentative/confirmed/lost 状态且未回收的决策快照列表。
    */
-  model::TrackStateSnapshotList BuildDecisionSnapshot() const override;
+  model::TrackStateSnapshotList BuildTrackStateSnapshots() const override;
   /**
    * @brief 导出完整的决策输入帧。
    * @param cycle_index 当前处理周期索引。
@@ -307,7 +307,7 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
   std::unordered_map<std::uint64_t, std::unique_ptr<ImmFilter>>
       imm_filters_by_key_;            /**< 每条轨迹对应的 IMM 运行态。 */
   std::uint32_t last_cycle_index_{0}; /**< 上一周期编号，用于计算 dt。 */
-  TrackSnapshotEmitter snapshot_emitter_; /**< 快照导出器，每周期末刷新。 */
+  TrackStateSnapshotEmitter snapshot_emitter_; /**< 快照导出器，每周期末刷新。 */
 };
 
 }  // namespace tracking

@@ -32,8 +32,8 @@ struct TrackOutputFrameBuilder;
 struct DecisionTrackStateSnapshot;
 struct DecisionTrackStateSnapshotBuilder;
 
-struct DecisionTrackSnapshot;
-struct DecisionTrackSnapshotBuilder;
+struct TrackStateSnapshot;
+struct TrackStateSnapshotBuilder;
 
 struct RadarCycleResult;
 struct RadarCycleResultBuilder;
@@ -447,8 +447,8 @@ struct TrackOutputFrame FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool contains_lost_tracks() const {
     return GetField<uint8_t>(VT_CONTAINS_LOST_TRACKS, 0) != 0;
   }
-  const flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::DecisionTrackSnapshot>> *tracks() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::DecisionTrackSnapshot>> *>(VT_TRACKS);
+  const flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::TrackStateSnapshot>> *tracks() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::TrackStateSnapshot>> *>(VT_TRACKS);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -483,7 +483,7 @@ struct TrackOutputFrameBuilder {
   void add_contains_lost_tracks(bool contains_lost_tracks) {
     fbb_.AddElement<uint8_t>(TrackOutputFrame::VT_CONTAINS_LOST_TRACKS, static_cast<uint8_t>(contains_lost_tracks), 0);
   }
-  void add_tracks(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::DecisionTrackSnapshot>>> tracks) {
+  void add_tracks(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::TrackStateSnapshot>>> tracks) {
     fbb_.AddOffset(TrackOutputFrame::VT_TRACKS, tracks);
   }
   explicit TrackOutputFrameBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -505,7 +505,7 @@ inline flatbuffers::Offset<TrackOutputFrame> CreateTrackOutputFrame(
     uint64_t batch_id = 0,
     uint64_t confirmed_track_count = 0,
     bool contains_lost_tracks = false,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::DecisionTrackSnapshot>>> tracks = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::TrackStateSnapshot>>> tracks = 0) {
   TrackOutputFrameBuilder builder_(_fbb);
   builder_.add_confirmed_track_count(confirmed_track_count);
   builder_.add_batch_id(batch_id);
@@ -523,8 +523,8 @@ inline flatbuffers::Offset<TrackOutputFrame> CreateTrackOutputFrameDirect(
     uint64_t batch_id = 0,
     uint64_t confirmed_track_count = 0,
     bool contains_lost_tracks = false,
-    const std::vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::DecisionTrackSnapshot>> *tracks = nullptr) {
-  auto tracks__ = tracks ? _fbb.CreateVector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::DecisionTrackSnapshot>>(*tracks) : 0;
+    const std::vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::TrackStateSnapshot>> *tracks = nullptr) {
+  auto tracks__ = tracks ? _fbb.CreateVector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::TrackStateSnapshot>>(*tracks) : 0;
   return oneq::replay::airborne_radar::fb::CreateTrackOutputFrame(
       _fbb,
       cycle_index,
@@ -747,8 +747,8 @@ inline flatbuffers::Offset<DecisionTrackStateSnapshot> CreateDecisionTrackStateS
   return builder_.Finish();
 }
 
-struct DecisionTrackSnapshot FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef DecisionTrackSnapshotBuilder Builder;
+struct TrackStateSnapshot FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef TrackStateSnapshotBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_STATE = 4
   };
@@ -763,29 +763,29 @@ struct DecisionTrackSnapshot FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
   }
 };
 
-struct DecisionTrackSnapshotBuilder {
-  typedef DecisionTrackSnapshot Table;
+struct TrackStateSnapshotBuilder {
+  typedef TrackStateSnapshot Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_state(flatbuffers::Offset<oneq::replay::airborne_radar::fb::DecisionTrackStateSnapshot> state) {
-    fbb_.AddOffset(DecisionTrackSnapshot::VT_STATE, state);
+    fbb_.AddOffset(TrackStateSnapshot::VT_STATE, state);
   }
-  explicit DecisionTrackSnapshotBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit TrackStateSnapshotBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  DecisionTrackSnapshotBuilder &operator=(const DecisionTrackSnapshotBuilder &);
-  flatbuffers::Offset<DecisionTrackSnapshot> Finish() {
+  TrackStateSnapshotBuilder &operator=(const TrackStateSnapshotBuilder &);
+  flatbuffers::Offset<TrackStateSnapshot> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<DecisionTrackSnapshot>(end);
+    auto o = flatbuffers::Offset<TrackStateSnapshot>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<DecisionTrackSnapshot> CreateDecisionTrackSnapshot(
+inline flatbuffers::Offset<TrackStateSnapshot> CreateTrackStateSnapshot(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<oneq::replay::airborne_radar::fb::DecisionTrackStateSnapshot> state = 0) {
-  DecisionTrackSnapshotBuilder builder_(_fbb);
+  TrackStateSnapshotBuilder builder_(_fbb);
   builder_.add_state(state);
   return builder_.Finish();
 }

@@ -39,7 +39,7 @@ class ITrackLifecycleManager {
    * @brief 导出供决策引擎消费的活跃轨迹快照。
    * @return 包含 tentative/confirmed/lost 状态且未回收的轨迹列表。
    */
-  virtual model::TrackStateSnapshotList BuildDecisionSnapshot() const = 0;
+  virtual model::TrackStateSnapshotList BuildTrackStateSnapshots() const = 0;
   /**
    * @brief 导出完整的单周期决策输入帧。
    * @param cycle_index 当前处理周期索引。

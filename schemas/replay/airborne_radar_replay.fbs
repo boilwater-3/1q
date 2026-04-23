@@ -41,7 +41,7 @@ table TrackOutputFrame {
   batch_id:ulong;
   confirmed_track_count:ulong;
   contains_lost_tracks:bool;
-  tracks:[DecisionTrackSnapshot];
+  tracks:[TrackStateSnapshot];
 }
 
 table DecisionTrackStateSnapshot {
@@ -65,7 +65,7 @@ table DecisionTrackStateSnapshot {
   miss_count:uint;
 }
 
-table DecisionTrackSnapshot {
+table TrackStateSnapshot {
   state:DecisionTrackStateSnapshot;
 }
 

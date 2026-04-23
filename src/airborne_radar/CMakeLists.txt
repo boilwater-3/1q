@@ -38,7 +38,7 @@ set(AIRBORNE_SIGNAL_SOURCES
     airborne_radar/signal/tracking/TrackFilter.cpp
     airborne_radar/signal/tracking/TrackLifecycleManager.cpp
     airborne_radar/signal/tracking/TrackLifecycleSnapshots.cpp
-    airborne_radar/signal/tracking/TrackSnapshotEmitter.cpp
+    airborne_radar/signal/tracking/TrackStateSnapshotEmitter.cpp
     airborne_radar/signal/tracking/UdkfPredictor.cpp
     airborne_radar/signal/tracking/UdkfUpdater.cpp
 )

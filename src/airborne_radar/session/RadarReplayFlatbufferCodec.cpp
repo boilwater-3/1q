@@ -122,9 +122,9 @@ flatbuffers::Offset<fb::DecisionTrackStateSnapshot> EncodeTrackStateSnapshot(
       value.rcs, value.jamming_detected, value.hit_count, value.miss_count);
 }
 
-flatbuffers::Offset<fb::DecisionTrackSnapshot> EncodeTrackSnapshot(
+flatbuffers::Offset<fb::TrackStateSnapshot> EncodeTrackSnapshot(
     flatbuffers::FlatBufferBuilder* builder, const model::TrackStateSnapshot& value) {
-  return fb::CreateDecisionTrackSnapshot(*builder, EncodeTrackStateSnapshot(builder, value));
+  return fb::CreateTrackStateSnapshot(*builder, EncodeTrackStateSnapshot(builder, value));
 }
 
 model::TrackStateSnapshot DecodeTrackStateSnapshot(
@@ -153,7 +153,7 @@ model::TrackStateSnapshot DecodeTrackStateSnapshot(
   return result;
 }
 
-model::TrackStateSnapshot DecodeTrackSnapshot(const fb::DecisionTrackSnapshot* value) {
+model::TrackStateSnapshot DecodeTrackSnapshot(const fb::TrackStateSnapshot* value) {
   model::TrackStateSnapshot result;
   if (value != nullptr) {
     result = DecodeTrackStateSnapshot(value->state());
@@ -163,12 +163,12 @@ model::TrackStateSnapshot DecodeTrackSnapshot(const fb::DecisionTrackSnapshot* v
 
 flatbuffers::Offset<fb::TrackOutputFrame> EncodeTrackOutputFrame(
     flatbuffers::FlatBufferBuilder* builder, const output::TrackOutputFrame& value) {
-  std::vector<flatbuffers::Offset<fb::DecisionTrackSnapshot>> track_offsets;
+  std::vector<flatbuffers::Offset<fb::TrackStateSnapshot>> track_offsets;
   track_offsets.reserve(value.tracks.size());
   for (std::size_t i = 0; i < value.tracks.size(); ++i) {
     track_offsets.push_back(EncodeTrackSnapshot(builder, value.tracks[i]));
   }
-  const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fb::DecisionTrackSnapshot>>>
+  const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fb::TrackStateSnapshot>>>
       tracks_vec = builder->CreateVector(track_offsets);
   return fb::CreateTrackOutputFrame(
       *builder, value.cycle_index, static_cast<std::uint64_t>(value.tracks.size()),
@@ -182,7 +182,7 @@ output::TrackOutputFrame DecodeTrackOutputFrame(const fb::TrackOutputFrame* valu
   if (value != nullptr) {
     result.cycle_index = value->cycle_index();
     result.batch_id = value->batch_id();
-    const flatbuffers::Vector<flatbuffers::Offset<fb::DecisionTrackSnapshot>>* tracks =
+    const flatbuffers::Vector<flatbuffers::Offset<fb::TrackStateSnapshot>>* tracks =
         value->tracks();
     if (tracks != nullptr) {
       result.tracks.reserve(tracks->size());

@@ -1,9 +1,9 @@
 /**
- * @file TrackSnapshotEmitter.cpp
+ * @file TrackStateSnapshotEmitter.cpp
  * @brief 轨迹快照导出器实现。
  */
 
-#include "airborne_radar/signal/tracking/TrackSnapshotEmitter.h"
+#include "airborne_radar/signal/tracking/TrackStateSnapshotEmitter.h"
 
 #include <cmath>
 
@@ -33,7 +33,7 @@ model::TrackStatus ToTrackStatus(TrackStatus status) {
 
 }  // namespace
 
-void TrackSnapshotEmitter::Refresh(
+void TrackStateSnapshotEmitter::Refresh(
     const std::unordered_map<std::uint64_t, TrackState*>& tracks_by_key) {
   active_tracks_.clear();
   active_tracks_.reserve(tracks_by_key.size());
@@ -48,7 +48,7 @@ void TrackSnapshotEmitter::Refresh(
   }
 }
 
-model::TargetFeatureList TrackSnapshotEmitter::BuildFeatureSnapshot() const {
+model::TargetFeatureList TrackStateSnapshotEmitter::BuildFeatureSnapshot() const {
   model::TargetFeatureList features;
   features.reserve(active_tracks_.size());
   for (std::vector<ActiveTrackEntry>::const_iterator it = active_tracks_.begin();
@@ -66,7 +66,7 @@ model::TargetFeatureList TrackSnapshotEmitter::BuildFeatureSnapshot() const {
   return features;
 }
 
-model::TrackStateSnapshotList TrackSnapshotEmitter::BuildDecisionSnapshot() const {
+model::TrackStateSnapshotList TrackStateSnapshotEmitter::BuildTrackStateSnapshots() const {
   model::TrackStateSnapshotList snapshots;
   snapshots.reserve(active_tracks_.size());
   for (std::vector<ActiveTrackEntry>::const_iterator it = active_tracks_.begin();
@@ -102,17 +102,17 @@ model::TrackStateSnapshotList TrackSnapshotEmitter::BuildDecisionSnapshot() cons
   return snapshots;
 }
 
-model::DecisionInputFrame TrackSnapshotEmitter::BuildDecisionFrame(
+model::DecisionInputFrame TrackStateSnapshotEmitter::BuildDecisionFrame(
     std::uint32_t cycle_index, std::uint64_t batch_id, bool environment_jamming_detected) const {
   model::DecisionInputFrame frame;
   frame.cycle_index = cycle_index;
   frame.batch_id = batch_id;
   frame.environment_jamming_detected = environment_jamming_detected;
-  frame.tracks = BuildDecisionSnapshot();
+  frame.tracks = BuildTrackStateSnapshots();
   return frame;
 }
 
-std::vector<AssociationTrackSeed> TrackSnapshotEmitter::BuildAssociationSeeds() const {
+std::vector<AssociationTrackSeed> TrackStateSnapshotEmitter::BuildAssociationSeeds() const {
   std::vector<AssociationTrackSeed> seeds;
   seeds.reserve(active_tracks_.size());
   for (std::vector<ActiveTrackEntry>::const_iterator it = active_tracks_.begin();

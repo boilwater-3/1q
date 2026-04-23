@@ -42,7 +42,7 @@
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/extension/control/RadarCommand.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
-#include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
+#include "1q/airborne_radar/model/TrackStateSnapshot.h"
 #include "1q/airborne_radar/model/TargetFeatureUtils.h"
 #include "1q/airborne_radar/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
@@ -146,7 +146,7 @@ struct SimState {
   std::map<std::uint64_t, std::vector<float>> hist_y;
 
   // 最近一帧轨迹
-  std::vector<airborne_radar::model::DecisionTrackSnapshot> latest_tracks;
+  std::vector<airborne_radar::model::TrackStateSnapshot> latest_tracks;
 
   // 指令历史（每个 cycle 的指令列表）
   std::vector<std::vector<airborne_radar::extension::control::RadarCommand>> command_history;

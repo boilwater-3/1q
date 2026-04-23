@@ -38,7 +38,7 @@
 #include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/extension/SignalPipelineResultTypes.h"
-#include "1q/airborne_radar/model/DecisionTrackSnapshot.h"
+#include "1q/airborne_radar/model/TrackStateSnapshot.h"
 #include "1q/airborne_radar/model/TargetFeatureUtils.h"
 #include "1q/airborne_radar/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
@@ -104,7 +104,7 @@ struct SimState {
   std::vector<std::map<std::uint64_t, int>> status_history;
 
   // 最近一帧
-  std::vector<airborne_radar::model::DecisionTrackSnapshot> latest_tracks;
+  std::vector<airborne_radar::model::TrackStateSnapshot> latest_tracks;
 
   // 关联质量
   std::vector<airborne_radar::extension::AssociationQualityMetrics> quality_history;

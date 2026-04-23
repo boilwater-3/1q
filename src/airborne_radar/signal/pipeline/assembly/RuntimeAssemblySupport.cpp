@@ -153,11 +153,11 @@ class AutoConfiguredLifecycleManager final : public tracking::ITrackLifecycleMan
     return assembly_.lifecycle_manager->BuildFeatureSnapshot();
   }
 
-  model::TrackStateSnapshotList BuildDecisionSnapshot() const override {
+  model::TrackStateSnapshotList BuildTrackStateSnapshots() const override {
     if (assembly_.lifecycle_manager == nullptr) {
       return model::TrackStateSnapshotList();
     }
-    return assembly_.lifecycle_manager->BuildDecisionSnapshot();
+    return assembly_.lifecycle_manager->BuildTrackStateSnapshots();
   }
 
   model::DecisionInputFrame BuildDecisionFrame(std::uint32_t cycle_index, std::uint64_t batch_id,

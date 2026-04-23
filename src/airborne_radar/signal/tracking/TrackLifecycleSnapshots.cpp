@@ -23,8 +23,8 @@ model::TargetFeatureList TrackLifecycleManager::BuildFeatureSnapshot() const {
   return snapshot_emitter_.BuildFeatureSnapshot();
 }
 
-model::TrackStateSnapshotList TrackLifecycleManager::BuildDecisionSnapshot() const {
-  return snapshot_emitter_.BuildDecisionSnapshot();
+model::TrackStateSnapshotList TrackLifecycleManager::BuildTrackStateSnapshots() const {
+  return snapshot_emitter_.BuildTrackStateSnapshots();
 }
 
 model::DecisionInputFrame TrackLifecycleManager::BuildDecisionFrame(

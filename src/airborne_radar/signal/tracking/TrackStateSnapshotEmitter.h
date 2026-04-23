@@ -1,5 +1,5 @@
 /**
- * @file TrackSnapshotEmitter.h
+ * @file TrackStateSnapshotEmitter.h
  * @brief 定义轨迹快照导出器，负责将活跃轨迹集转换为各类外部消费快照。
  */
 
@@ -26,7 +26,7 @@ namespace tracking {
  * 调用方须在每次 Update() 完成后调用 Refresh() 刷新内部快照，
  * 后续的 Build* 方法均基于刷新后的数据生成只读视图。
  */
-class TrackSnapshotEmitter {
+class TrackStateSnapshotEmitter {
  public:
   /**
    * @brief 刷新内部快照缓存。
@@ -44,7 +44,7 @@ class TrackSnapshotEmitter {
    * @brief 导出供决策层消费的活跃轨迹快照。
    * @return 包含 tentative/confirmed/lost 状态且未回收的决策快照列表。
    */
-  model::TrackStateSnapshotList BuildDecisionSnapshot() const;
+  model::TrackStateSnapshotList BuildTrackStateSnapshots() const;
 
   /**
    * @brief 导出完整的决策输入帧。

@@ -341,7 +341,7 @@ auto writer = std::make_shared<ReplayTraceWriter>(trace_dir, manifest);
 - `schemas/replay/airborne_radar_replay.fbs`（`ARCI` — cycle_input）
 - `schemas/replay/airborne_radar_scene_replay.fbs`（`ARSS` — scene_state）
 - `schemas/replay/airborne_radar_session_replay.fbs`（`ARSC` — session_config，含 `EnvironmentDefaultConfig`）
-- `src/airborne_radar/session/RadarReplayFlatbufferCodec.h/.cpp`（encode/decode 含 per-track DecisionTrackSnapshot）
+- `src/airborne_radar/session/RadarReplayFlatbufferCodec.h/.cpp`（encode/decode 含 per-track TrackStateSnapshot）
 - `src/airborne_radar/session/generated/`（预生成头文件，提交至仓库）
 
 ### 18.7 字段演进规则（强约束）
