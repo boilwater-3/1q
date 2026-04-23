@@ -14,7 +14,6 @@
 #include "1q/electronic_surveillance_radar/config/EsrDetailedSessionConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
-#include "1q/electronic_surveillance_radar/model/EmitterTruthState.h"
 #include "1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
@@ -34,8 +33,8 @@ bool ContainsEsrIssueCode(const std::vector<session::ValidationIssue>& issues,
   return false;
 }
 
-model::EmitterTruthState MakeEmitter(const std::string& id) {
-  model::EmitterTruthState emitter;
+session::EsrSceneEmitter MakeEmitter(const std::string& id) {
+  session::EsrSceneEmitter emitter;
   emitter.emitter_id = id;
   emitter.pose.position_m.x = 1200.0f;
   emitter.pose.position_m.z = 5200.0f;
@@ -201,7 +200,7 @@ TEST(EsrPublicApiConvenienceTest, InputValidationReportsErrorsForBoundaryCases) 
   input.dt_sec = 0.0f;
   input.platform_pose.position_m.x = std::numeric_limits<float>::infinity();
 
-  model::EmitterTruthState invalid_emitter;
+  session::EsrSceneEmitter invalid_emitter;
   invalid_emitter.emitter_id = "";
   invalid_emitter.carrier_hz = -1.0;
   input.scene.emitters.push_back(invalid_emitter);

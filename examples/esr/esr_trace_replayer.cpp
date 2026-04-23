@@ -172,7 +172,7 @@ esr::session::EsrCycleInput ParseCycleInput(const Json& payload) {
     input.scene.emitters.clear();
     for (std::size_t i = 0; i < payload["scene_emitters"].size(); ++i) {
       const Json& e = payload["scene_emitters"][i];
-      esr::model::EmitterTruthState emitter;
+      esr::session::EsrSceneEmitter emitter;
       emitter.emitter_id = e.value("emitter_id", std::string());
       if (e.contains("pose")) {
         const Json& p = e["pose"];

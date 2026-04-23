@@ -65,7 +65,7 @@ void ValidatePlatformPose(const model::EsrPoseState& platform_pose,
  * @param[in] emitter_index 实体索引。
  * @param[out] issues 校验问题列表。
  */
-void ValidateEmitter(const model::EmitterTruthState& emitter, std::size_t emitter_index,
+void ValidateEmitter(const session::EsrSceneEmitter& emitter, std::size_t emitter_index,
                      ValidationIssueList* issues) {
   if (issues == nullptr) {
     return;

@@ -7,6 +7,7 @@
 #include <limits>
 #include <utility>
 
+#include "1q/electronic_surveillance_radar/model/EmitterTruthState.h"
 #include "common/geometry/GeometryTransform.h"
 #include "common/numerics/SpectralNumerics.h"
 #include "common/timing/TimingRegimeModel.h"

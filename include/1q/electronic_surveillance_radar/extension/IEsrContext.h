@@ -12,6 +12,7 @@
 #include "1q/api.hpp"
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
 #include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
+#include "1q/electronic_surveillance_radar/model/EmitterTruthState.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 
 namespace electronic_surveillance_radar {

@@ -89,7 +89,6 @@
 #include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
 #include "1q/electronic_surveillance_radar/environment/electronic_surveillance_radar_environment.hpp"
 #include "1q/electronic_surveillance_radar/extension/IInterceptPipeline.h"
-#include "1q/electronic_surveillance_radar/model/EmitterTruthState.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
@@ -363,7 +362,7 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   session::EsrCycleInput input;
   input.cycle_index = 4U;
   input.dt_sec = 1.0f;
-  model::EmitterTruthState emitter;
+  session::EsrSceneEmitter emitter;
   emitter.emitter_id = "smoke-emitter";
   emitter.pose.position_m.x = 1200.0f;
   emitter.carrier_hz = 10.0e9;

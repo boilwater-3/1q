@@ -5,7 +5,7 @@
  * 覆盖要点：
  *   - EsrSessionConfigBuilder 构造会话配置
  *   - EsrDetailedSessionConfigBuilder 构造详细会话配置
- *   - EsrCycleInput + EmitterTruthState 构造场景输入
+ *   - EsrCycleInput + EsrSceneEmitter 构造场景输入
  *   - EsrInputValidation 输入校验
  *   - EsrSession 构造、Step、StepWithResult 调用
  *   - EsrOutputFrame 三通道输出字段可访问
@@ -18,7 +18,6 @@
 #include "1q/electronic_surveillance_radar/config/EsrDetailedSessionConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
-#include "1q/electronic_surveillance_radar/model/EmitterTruthState.h"
 #include "1q/electronic_surveillance_radar/output/EsrOutputFrame.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
@@ -52,7 +51,7 @@ int main() {
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
 
-  esr::model::EmitterTruthState emitter;
+  esr::session::EsrSceneEmitter emitter;
   emitter.emitter_id = "test-emitter";
   emitter.pose.position_m.x = 1000.0f;
   emitter.pose.position_m.y = 0.0f;

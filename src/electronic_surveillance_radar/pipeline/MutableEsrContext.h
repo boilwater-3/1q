@@ -6,6 +6,7 @@
 #ifndef ELECTRONIC_SURVEILLANCE_RADAR_SRC_PIPELINE_MUTABLE_ESR_CONTEXT_H_
 #define ELECTRONIC_SURVEILLANCE_RADAR_SRC_PIPELINE_MUTABLE_ESR_CONTEXT_H_
 
+#include "1q/electronic_surveillance_radar/model/EmitterTruthState.h"
 #include "1q/electronic_surveillance_radar/extension/IEsrContext.h"
 
 namespace electronic_surveillance_radar {

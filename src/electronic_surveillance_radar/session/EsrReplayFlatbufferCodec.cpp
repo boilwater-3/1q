@@ -110,7 +110,7 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
   out->scene.emitters.clear();
   if (fb->scene_emitters()) {
     for (const auto* e : *fb->scene_emitters()) {
-      model::EmitterTruthState ts{};
+      session::EsrSceneEmitter ts{};
       if (e->emitter_id()) {
         ts.emitter_id = e->emitter_id()->str();
       }

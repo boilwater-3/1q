@@ -13,7 +13,6 @@
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
-#include "1q/electronic_surveillance_radar/model/EmitterTruthState.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 
@@ -29,7 +28,7 @@ EsrCycleInput MakeBaseInput() {
   input.dt_sec = 1.0f;
   input.platform_pose.position_m.z = 5000.0f;
 
-  model::EmitterTruthState emitter;
+  session::EsrSceneEmitter emitter;
   emitter.emitter_id = "target-emitter";
   emitter.pose.position_m.x = 1200.0f;
   emitter.pose.position_m.z = 5200.0f;

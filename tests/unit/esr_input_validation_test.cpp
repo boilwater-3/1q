@@ -13,7 +13,6 @@
 #include <vector>
 
 #include "1q/electronic_surveillance_radar/model/EmitterHypothesis.h"
-#include "1q/electronic_surveillance_radar/model/EmitterTruthState.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 
@@ -40,8 +39,8 @@ bool ContainsCode(const ValidationIssueList& issues, ValidationCode code) {
  * @brief 构造最小可用辐射源输入。
  * @return 最小可用辐射源输入。
  */
-model::EmitterTruthState MakeValidEmitter() {
-  model::EmitterTruthState emitter;
+session::EsrSceneEmitter MakeValidEmitter() {
+  session::EsrSceneEmitter emitter;
   emitter.emitter_id = "E-1";
   emitter.carrier_hz = 10.0e9;
   emitter.bandwidth_hz = 2.0e6;
@@ -75,7 +74,7 @@ TEST(EsrInputValidationTest, InvalidCycleDeltaTimeIsReportedAsError) {
 TEST(EsrInputValidationTest, InvalidEmitterFrequencyIsReportedAsError) {
   EsrCycleInput input;
   input.dt_sec = 1.0f;
-  model::EmitterTruthState emitter = MakeValidEmitter();
+  session::EsrSceneEmitter emitter = MakeValidEmitter();
   emitter.carrier_hz = 0.0;
   input.scene.emitters.push_back(emitter);
 
@@ -98,7 +97,7 @@ TEST(EsrInputValidationTest, EmptySceneInputIsAllowed) {
 TEST(EsrInputValidationTest, NonFiniteEmitterNumericFieldIsReported) {
   EsrCycleInput input;
   input.dt_sec = 1.0f;
-  model::EmitterTruthState emitter = MakeValidEmitter();
+  session::EsrSceneEmitter emitter = MakeValidEmitter();
   emitter.bandwidth_hz = std::numeric_limits<double>::infinity();
   input.scene.emitters.push_back(emitter);
 
@@ -123,7 +122,7 @@ TEST(EsrInputValidationTest, NonFinitePlatformNumericFieldIsReported) {
 TEST(EsrInputValidationTest, NonFiniteEmitterAttitudeIsReported) {
   EsrCycleInput input;
   input.dt_sec = 1.0f;
-  model::EmitterTruthState emitter = MakeValidEmitter();
+  session::EsrSceneEmitter emitter = MakeValidEmitter();
   emitter.pose.attitude_deg.roll_deg = std::numeric_limits<float>::quiet_NaN();
   input.scene.emitters.push_back(emitter);
 
@@ -136,7 +135,7 @@ TEST(EsrInputValidationTest, NonFiniteEmitterAttitudeIsReported) {
 TEST(EsrInputValidationTest, InvalidEmitterPulseWidthIsReportedAsError) {
   EsrCycleInput input;
   input.dt_sec = 1.0f;
-  model::EmitterTruthState emitter = MakeValidEmitter();
+  session::EsrSceneEmitter emitter = MakeValidEmitter();
   emitter.pulse_width_s = 0.0f;
   input.scene.emitters.push_back(emitter);
 
@@ -149,7 +148,7 @@ TEST(EsrInputValidationTest, InvalidEmitterPulseWidthIsReportedAsError) {
 TEST(EsrInputValidationTest, InvalidEmitterPriIsReportedAsError) {
   EsrCycleInput input;
   input.dt_sec = 1.0f;
-  model::EmitterTruthState emitter = MakeValidEmitter();
+  session::EsrSceneEmitter emitter = MakeValidEmitter();
   emitter.pri_s = 0.0f;
   input.scene.emitters.push_back(emitter);
 
@@ -162,7 +161,7 @@ TEST(EsrInputValidationTest, InvalidEmitterPriIsReportedAsError) {
 TEST(EsrInputValidationTest, EmitterPriLessThanPulseWidthIsReportedAsError) {
   EsrCycleInput input;
   input.dt_sec = 1.0f;
-  model::EmitterTruthState emitter = MakeValidEmitter();
+  session::EsrSceneEmitter emitter = MakeValidEmitter();
   emitter.pulse_width_s = 3.0e-6f;
   emitter.pri_s = 1.0e-6f;
   input.scene.emitters.push_back(emitter);
@@ -176,7 +175,7 @@ TEST(EsrInputValidationTest, EmitterPriLessThanPulseWidthIsReportedAsError) {
 TEST(EsrInputValidationTest, InvalidEmitterBeamwidthIsReportedAsError) {
   EsrCycleInput input;
   input.dt_sec = 1.0f;
-  model::EmitterTruthState emitter = MakeValidEmitter();
+  session::EsrSceneEmitter emitter = MakeValidEmitter();
   emitter.beam_state.az_beamwidth_deg = 0.0f;
   input.scene.emitters.push_back(emitter);
 

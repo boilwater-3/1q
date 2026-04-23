@@ -59,7 +59,7 @@ struct ONEQ_API EsrExternalEmitterInput {
   double tx_power_w{0.0};                                   /**< 发射功率（W） */
   double pulse_width_s{0.0};                                /**< 脉宽（s） */
   double pri_s{0.0};                                        /**< 脉冲重复间隔（s） */
-  model::EmitterBeamState beam_state{};                     /**< 发射波束状态 */
+  EsrEmitterBeamState beam_state{};                         /**< 发射波束状态 */
   bool is_emitting{true};                                   /**< 当前周期是否发射 */
 };
 
