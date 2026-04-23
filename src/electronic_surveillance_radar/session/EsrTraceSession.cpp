@@ -72,12 +72,10 @@ output::EsrOutputFrame EsrTraceSession::Step(const EsrCycleInput& input) {
   }
   const output::EsrOutputFrame output = impl_->session.Step(input);
   if (impl_->sink) {
-    impl_->sink->Record("electronic_surveillance_radar", "output",
-                        std::to_string(output.observation_output.cycle_index));
+    impl_->sink->Record("electronic_surveillance_radar", "output", std::to_string(output.cycle_index));
   }
   if (impl_->replay_writer) {
-    impl_->WriteReplayEvent("cycle_output", "EsrOutputFrame", EncodeEsrOutputFrame(output),
-                            output.observation_output.cycle_index);
+    impl_->WriteReplayEvent("cycle_output", "EsrOutputFrame", EncodeEsrOutputFrame(output), output.cycle_index);
     impl_->pending_input_written = false;
   }
   return output;
@@ -104,17 +102,17 @@ EsrCycleResult EsrTraceSession::StepWithResult(const EsrCycleInput& input) {
   const EsrCycleResult result = impl_->session.StepWithResult(input);
   if (impl_->sink) {
     impl_->sink->Record("electronic_surveillance_radar", "output",
-                        std::to_string(result.output_frame.observation_output.cycle_index));
+                        std::to_string(result.output_frame.cycle_index));
   }
   if (impl_->replay_writer) {
     impl_->WriteReplayEvent("cycle_output", "EsrCycleResult", EncodeEsrCycleResult(result),
-                            result.output_frame.observation_output.cycle_index);
+                            result.output_frame.cycle_index);
     impl_->pending_input_written = false;
     if (result.has_validation_error) {
       oneq::replay::ReplayTraceFailure failure;
       failure.error_code = "validation_error";
       failure.message = "EsrCycleResult has_validation_error=true";
-      failure.cycle_index = result.output_frame.observation_output.cycle_index;
+      failure.cycle_index = result.output_frame.cycle_index;
       failure.has_cycle_index = true;
       impl_->replay_writer->WriteFailureMarker(failure);
     }

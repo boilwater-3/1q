@@ -161,9 +161,7 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> BuildOutputFrame(
         o.rf_hz, o.pulse_width_s, o.amplitude_db, o.snr_db,
         static_cast<int32_t>(o.quality), o.is_jammed));
   }
-  auto obs_out = esr::replay::CreateObservationOutput(fbb,
-      v.observation_output.cycle_index, v.observation_output.batch_id,
-      fbb.CreateVector(obs_vec));
+  auto obs_out = esr::replay::CreateObservationOutput(fbb, fbb.CreateVector(obs_vec));
 
   // emitter output
   std::vector<flatbuffers::Offset<esr::replay::EmitterHypothesis>> hyp_vec;
@@ -176,8 +174,7 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> BuildOutputFrame(
         h.bearing_az_deg, h.bearing_el_deg, h.bearing_std_deg,
         h.confidence, h.last_seen_cycle));
   }
-  auto em_out = esr::replay::CreateEmitterOutput(fbb,
-      v.emitter_output.cycle_index, v.emitter_output.batch_id, fbb.CreateVector(hyp_vec));
+  auto em_out = esr::replay::CreateEmitterOutput(fbb, fbb.CreateVector(hyp_vec));
 
   // truth output
   std::vector<flatbuffers::Offset<esr::replay::TruthAssociationRecord>> ta_vec;
@@ -185,20 +182,19 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> BuildOutputFrame(
     ta_vec.push_back(esr::replay::CreateTruthAssociationRecord(fbb,
         a.observation_id, fbb.CreateString(a.truth_emitter_id), a.matched, a.confidence));
   }
-  auto truth_out = esr::replay::CreateTruthEvaluationOutput(fbb,
-      v.truth_evaluation_output.cycle_index, v.truth_evaluation_output.batch_id,
-      v.truth_evaluation_output.matched_count,
-      v.truth_evaluation_output.total_observation_count, fbb.CreateVector(ta_vec));
+  auto truth_out =
+      esr::replay::CreateTruthEvaluationOutput(fbb, fbb.CreateVector(ta_vec));
 
-  return esr::replay::CreateEsrOutputFrame(fbb, obs_out, em_out, truth_out);
+  return esr::replay::CreateEsrOutputFrame(
+      fbb, v.cycle_index, v.batch_id, obs_out, em_out, truth_out);
 }
 
 void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, output::EsrOutputFrame* out) {
   if (!fb) return;
+  out->cycle_index = fb->cycle_index();
+  out->batch_id = fb->batch_id();
   if (fb->observation_output()) {
     const auto* o = fb->observation_output();
-    out->observation_output.cycle_index = o->cycle_index();
-    out->observation_output.batch_id = o->batch_id();
     if (o->observations()) {
       for (const auto* obs : *o->observations()) {
         model::EmitterObservation rec{};
@@ -214,8 +210,6 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, output::EsrOutpu
   }
   if (fb->emitter_output()) {
     const auto* e = fb->emitter_output();
-    out->emitter_output.cycle_index = e->cycle_index();
-    out->emitter_output.batch_id = e->batch_id();
     if (e->hypotheses()) {
       for (const auto* h : *e->hypotheses()) {
         model::EmitterHypothesis hyp{};
@@ -235,10 +229,6 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, output::EsrOutpu
   }
   if (fb->truth_evaluation_output()) {
     const auto* t = fb->truth_evaluation_output();
-    out->truth_evaluation_output.cycle_index = t->cycle_index();
-    out->truth_evaluation_output.batch_id = t->batch_id();
-    out->truth_evaluation_output.matched_count = t->matched_count();
-    out->truth_evaluation_output.total_observation_count = t->total_observation_count();
     if (t->associations()) {
       for (const auto* a : *t->associations()) {
         output::TruthAssociationRecord rec{};

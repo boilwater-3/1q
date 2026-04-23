@@ -6,7 +6,6 @@
 #ifndef ELECTRONIC_SURVEILLANCE_RADAR_OUTPUT_ESR_OUTPUT_FRAME_H_
 #define ELECTRONIC_SURVEILLANCE_RADAR_OUTPUT_ESR_OUTPUT_FRAME_H_
 
-#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -35,8 +34,6 @@ using TruthAssociationRecordList = std::vector<TruthAssociationRecord>;
  * @brief ObservationOutputFrame 表示观测输出通道。
  */
 struct ONEQ_API ObservationOutputFrame {
-  std::uint32_t cycle_index{0U};                /**< 当前周期号 */
-  std::uint64_t batch_id{0U};                   /**< 当前批次号 */
   model::EmitterObservationList observations{}; /**< 当前周期观测记录 */
 };
 
@@ -44,8 +41,6 @@ struct ONEQ_API ObservationOutputFrame {
  * @brief EmitterOutputFrame 表示侦察输出通道。
  */
 struct ONEQ_API EmitterOutputFrame {
-  std::uint32_t cycle_index{0U};             /**< 当前周期号 */
-  std::uint64_t batch_id{0U};                /**< 当前批次号 */
   model::EmitterHypothesisList hypotheses{}; /**< 当前周期辐射源假设 */
 };
 
@@ -53,11 +48,7 @@ struct ONEQ_API EmitterOutputFrame {
  * @brief TruthEvaluationFrame 表示真值评估输出通道。
  */
 struct ONEQ_API TruthEvaluationFrame {
-  std::uint32_t cycle_index{0U};             /**< 当前周期号 */
-  std::uint64_t batch_id{0U};                /**< 当前批次号 */
   TruthAssociationRecordList associations{}; /**< 观测与真值关联记录 */
-  std::size_t matched_count{0U};             /**< 匹配成功的观测数 */
-  std::size_t total_observation_count{0U};   /**< 参与评估的观测总数 */
 };
 
 /**
@@ -65,6 +56,8 @@ struct ONEQ_API TruthEvaluationFrame {
  * @warning `emitter_output` 不应包含任何真值直通字段。
  */
 struct ONEQ_API EsrOutputFrame {
+  std::uint32_t cycle_index{0U};                 /**< 当前周期号 */
+  std::uint64_t batch_id{0U};                    /**< 当前批次号 */
   ObservationOutputFrame observation_output{};    /**< 传感器观测输出通道 */
   EmitterOutputFrame emitter_output{};            /**< 侦察假设输出通道 */
   TruthEvaluationFrame truth_evaluation_output{}; /**< 真值评估输出通道 */

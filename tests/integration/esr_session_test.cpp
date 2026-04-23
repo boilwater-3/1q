@@ -89,9 +89,7 @@ TEST(EsrSessionIntegrationTest, StepWithResultProducesThreeChannelOutput) {
   const EsrCycleResult result = session.StepWithResult(MakeBaseInput());
 
   EXPECT_FALSE(result.has_validation_error);
-  EXPECT_EQ(result.output_frame.observation_output.cycle_index, 1U);
-  EXPECT_EQ(result.output_frame.emitter_output.cycle_index, 1U);
-  EXPECT_EQ(result.output_frame.truth_evaluation_output.cycle_index, 1U);
+  EXPECT_EQ(result.output_frame.cycle_index, 1U);
 }
 
 TEST(EsrSessionIntegrationTest, WorkModeMappingMakesHgesmMoreDetectableThanRwr) {

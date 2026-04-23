@@ -51,25 +51,19 @@ output::TruthAssociationRecord MakeAssociation(std::uint64_t observation_id,
   return association;
 }
 
-TEST(EsrOutputManagerTest, BuildEmptyFrameSetsHeaderForThreeChannelsAndZeroCounts) {
+TEST(EsrOutputManagerTest, BuildEmptyFrameSetsTopLevelHeader) {
   EsrOutputManager manager;
 
   const output::EsrOutputFrame frame = manager.BuildEmptyFrame(7U, 103U);
 
-  EXPECT_EQ(frame.observation_output.cycle_index, 7U);
-  EXPECT_EQ(frame.observation_output.batch_id, 103U);
+  EXPECT_EQ(frame.cycle_index, 7U);
+  EXPECT_EQ(frame.batch_id, 103U);
   EXPECT_TRUE(frame.observation_output.observations.empty());
-  EXPECT_EQ(frame.emitter_output.cycle_index, 7U);
-  EXPECT_EQ(frame.emitter_output.batch_id, 103U);
   EXPECT_TRUE(frame.emitter_output.hypotheses.empty());
-  EXPECT_EQ(frame.truth_evaluation_output.cycle_index, 7U);
-  EXPECT_EQ(frame.truth_evaluation_output.batch_id, 103U);
   EXPECT_TRUE(frame.truth_evaluation_output.associations.empty());
-  EXPECT_EQ(frame.truth_evaluation_output.total_observation_count, 0U);
-  EXPECT_EQ(frame.truth_evaluation_output.matched_count, 0U);
 }
 
-TEST(EsrOutputManagerTest, BuildOutputFrameMovesCycleResultsAndCountsMatchedAssociations) {
+TEST(EsrOutputManagerTest, BuildOutputFrameMovesCycleResults) {
   EsrOutputManager manager;
   extension::InterceptCycleResult cycle_result;
   cycle_result.observations.push_back(MakeObservation(1001U, 18.5f));
@@ -80,6 +74,8 @@ TEST(EsrOutputManagerTest, BuildOutputFrameMovesCycleResultsAndCountsMatchedAsso
 
   const output::EsrOutputFrame frame = manager.BuildOutputFrame(8U, 104U, cycle_result);
 
+  EXPECT_EQ(frame.cycle_index, 8U);
+  EXPECT_EQ(frame.batch_id, 104U);
   ASSERT_EQ(frame.observation_output.observations.size(), 2U);
   EXPECT_EQ(frame.observation_output.observations[0].observation_id, 1001U);
   EXPECT_EQ(frame.observation_output.observations[1].observation_id, 1002U);
@@ -88,8 +84,6 @@ TEST(EsrOutputManagerTest, BuildOutputFrameMovesCycleResultsAndCountsMatchedAsso
   ASSERT_EQ(frame.truth_evaluation_output.associations.size(), 2U);
   EXPECT_TRUE(frame.truth_evaluation_output.associations[0].matched);
   EXPECT_FALSE(frame.truth_evaluation_output.associations[1].matched);
-  EXPECT_EQ(frame.truth_evaluation_output.total_observation_count, 2U);
-  EXPECT_EQ(frame.truth_evaluation_output.matched_count, 1U);
 }
 
 }  // namespace

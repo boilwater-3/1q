@@ -84,15 +84,11 @@ int main() {
   const std::size_t obs_count = result.output_frame.observation_output.observations.size();
   const std::size_t hyp_count = result.output_frame.emitter_output.hypotheses.size();
   const std::size_t assoc_count = result.output_frame.truth_evaluation_output.associations.size();
-  const std::uint32_t obs_cycle = result.output_frame.observation_output.cycle_index;
-  const std::uint32_t hyp_cycle = result.output_frame.emitter_output.cycle_index;
-  const std::uint32_t eval_cycle = result.output_frame.truth_evaluation_output.cycle_index;
+  const std::uint32_t cycle_index = result.output_frame.cycle_index;
   (void)obs_count;
   (void)hyp_count;
   (void)assoc_count;
-  (void)obs_cycle;
-  (void)hyp_cycle;
-  (void)eval_cycle;
+  (void)cycle_index;
 
   // 9. RuntimeConfigBuilder: disable sensor
   const esr::session::EsrRuntimeConfigPatch disable_patch =

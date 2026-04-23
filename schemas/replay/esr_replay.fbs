@@ -98,8 +98,6 @@ table EmitterObservation {
 }
 
 table ObservationOutput {
-  cycle_index:   uint32;
-  batch_id:      uint32;
   observations:  [EmitterObservation];
 }
 
@@ -116,8 +114,6 @@ table EmitterHypothesis {
 }
 
 table EmitterOutput {
-  cycle_index:  uint32;
-  batch_id:     uint32;
   hypotheses:   [EmitterHypothesis];
 }
 
@@ -129,14 +125,12 @@ table TruthAssociationRecord {
 }
 
 table TruthEvaluationOutput {
-  cycle_index:             uint32;
-  batch_id:                uint32;
-  matched_count:           uint32;
-  total_observation_count: uint32;
   associations:            [TruthAssociationRecord];
 }
 
 table EsrOutputFrame {
+  cycle_index:           uint32;
+  batch_id:              uint32;
   observation_output:    ObservationOutput;
   emitter_output:        EmitterOutput;
   truth_evaluation_output: TruthEvaluationOutput;
