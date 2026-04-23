@@ -8,9 +8,7 @@
 #include <type_traits>
 
 #include "1q/airborne_radar/environment/EnvironmentConfig.h"
-#include "1q/airborne_radar/environment/EnvironmentDefaultConfigBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentRuntimeConfigPatch.h"
-#include "1q/airborne_radar/environment/EnvironmentRuntimeConfigPatchBuilder.h"
 
 namespace airborne_radar {
 namespace environment {
@@ -63,14 +61,15 @@ TEST(ArEnvironmentTypeContractTest, RuntimePatchFieldsDefaultToUnset) {
   EXPECT_FALSE(patch.has_jamming_sensitivity_profile);
 }
 
-TEST(ArEnvironmentTypeContractTest, PatchBuilderSetsHasFlags) {
+TEST(ArEnvironmentTypeContractTest, RuntimePatchSupportsExplicitHasFlags) {
   EnvironmentScenarioConfig scenario;
   scenario.atmospheric_physics.enable_physical_model = true;
 
-  const auto patch = EnvironmentRuntimeConfigPatchBuilder()
-                         .WithScenarioConfig(scenario)
-                         .WithJammingSensitivityProfile(JammingSensitivityProfile::kStrict)
-                         .Build();
+  EnvironmentRuntimeConfigPatch patch;
+  patch.has_scenario_config = true;
+  patch.scenario_config = scenario;
+  patch.has_jamming_sensitivity_profile = true;
+  patch.jamming_sensitivity_profile = JammingSensitivityProfile::kStrict;
 
   EXPECT_TRUE(patch.has_scenario_config);
   EXPECT_TRUE(patch.has_jamming_sensitivity_profile);
@@ -113,20 +112,19 @@ TEST(ArEnvironmentDefaultStabilityTest, JammerEmitterStateDefaults) {
   EXPECT_FLOAT_EQ(jammer.confidence, 1.0f);
 }
 
-TEST(ArEnvironmentDefaultStabilityTest, DefaultConfigBuilderEmptyProducesDefaults) {
-  const auto built = EnvironmentDefaultConfigBuilder().Build();
+TEST(ArEnvironmentDefaultStabilityTest, DefaultConfigDefaultConstructedProducesDefaults) {
+  const EnvironmentDefaultConfig built;
   const EnvironmentDefaultConfig defaults;
   EXPECT_EQ(built.scenario_config.jammer_sources.size(), defaults.scenario_config.jammer_sources.size());
 }
 
-TEST(ArEnvironmentDefaultStabilityTest, DefaultConfigBuilderPreservesOverride) {
+TEST(ArEnvironmentDefaultStabilityTest, DefaultConfigPreservesOverride) {
   EnvironmentScenarioConfig scenario;
   scenario.atmospheric_physics.enable_physical_model = true;
   scenario.atmospheric_physics.temperature_k = 300.0f;
 
-  const auto built = EnvironmentDefaultConfigBuilder()
-                         .WithScenarioConfig(scenario)
-                         .Build();
+  EnvironmentDefaultConfig built;
+  built.scenario_config = scenario;
 
   EXPECT_TRUE(built.scenario_config.atmospheric_physics.enable_physical_model);
   EXPECT_FLOAT_EQ(built.scenario_config.atmospheric_physics.temperature_k, 300.0f);
@@ -290,9 +288,9 @@ TEST(ArEnvironmentRuntimePatchBehaviorTest, ScenarioConfigPatchSetsCorrectField)
   EnvironmentScenarioConfig scenario;
   scenario.atmospheric_physics.enable_physical_model = true;
 
-  const auto patch = EnvironmentRuntimeConfigPatchBuilder()
-                         .WithScenarioConfig(scenario)
-                         .Build();
+  EnvironmentRuntimeConfigPatch patch;
+  patch.has_scenario_config = true;
+  patch.scenario_config = scenario;
 
   EXPECT_TRUE(patch.has_scenario_config);
   EXPECT_TRUE(patch.scenario_config.atmospheric_physics.enable_physical_model);
@@ -301,9 +299,9 @@ TEST(ArEnvironmentRuntimePatchBehaviorTest, ScenarioConfigPatchSetsCorrectField)
 }
 
 TEST(ArEnvironmentRuntimePatchBehaviorTest, JammingProfilePatchSetsCorrectField) {
-  const auto patch = EnvironmentRuntimeConfigPatchBuilder()
-                         .WithJammingSensitivityProfile(JammingSensitivityProfile::kRelaxed)
-                         .Build();
+  EnvironmentRuntimeConfigPatch patch;
+  patch.has_jamming_sensitivity_profile = true;
+  patch.jamming_sensitivity_profile = JammingSensitivityProfile::kRelaxed;
 
   EXPECT_TRUE(patch.has_jamming_sensitivity_profile);
   EXPECT_EQ(patch.jamming_sensitivity_profile, JammingSensitivityProfile::kRelaxed);
@@ -311,14 +309,15 @@ TEST(ArEnvironmentRuntimePatchBehaviorTest, JammingProfilePatchSetsCorrectField)
   EXPECT_FALSE(patch.has_scenario_config);
 }
 
-TEST(ArEnvironmentRuntimePatchBehaviorTest, FullPatchBuilderChainsBothFields) {
+TEST(ArEnvironmentRuntimePatchBehaviorTest, FullPatchSupportsScenarioAndProfile) {
   EnvironmentScenarioConfig scenario;
   scenario.atmospheric_physics.temperature_k = 310.0f;
 
-  const auto patch = EnvironmentRuntimeConfigPatchBuilder()
-                         .WithScenarioConfig(scenario)
-                         .WithJammingSensitivityProfile(JammingSensitivityProfile::kStrict)
-                         .Build();
+  EnvironmentRuntimeConfigPatch patch;
+  patch.has_scenario_config = true;
+  patch.scenario_config = scenario;
+  patch.has_jamming_sensitivity_profile = true;
+  patch.jamming_sensitivity_profile = JammingSensitivityProfile::kStrict;
 
   EXPECT_TRUE(patch.has_scenario_config);
   EXPECT_TRUE(patch.has_jamming_sensitivity_profile);

@@ -22,9 +22,7 @@
 #include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/config/airborne_radar_config.hpp"
 #include "1q/airborne_radar/environment/EnvironmentConfig.h"
-#include "1q/airborne_radar/environment/EnvironmentDefaultConfigBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentRuntimeConfigPatch.h"
-#include "1q/airborne_radar/environment/EnvironmentRuntimeConfigPatchBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
@@ -208,13 +206,6 @@ static_assert(
                      std::declval<const electro_optical_sensor::session::EosSessionConfig&>(),
                      std::declval<electro_optical_sensor::extension::EosController&>()))>::value,
     "EosSessionFactory::CreateWithController must return EosSession");
-static_assert(
-    std::is_same<airborne_radar::environment::EnvironmentRuntimeConfigPatch,
-                 decltype(airborne_radar::environment::EnvironmentRuntimeConfigPatchBuilder()
-                              .WithJammingSensitivityProfile(
-                                  airborne_radar::environment::JammingSensitivityProfile::kStrict)
-                              .Build())>::value,
-    "EnvironmentRuntimeConfigPatchBuilder::Build must return EnvironmentRuntimeConfigPatch");
 static_assert(std::is_same<airborne_radar::session::RadarSessionConfig,
                            decltype(airborne_radar::config::RadarDetailedSessionConfigBuilder()
                                         .Build())>::value,
@@ -340,8 +331,8 @@ TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields)
 
   environment::EnvironmentScenarioConfig scenario;
   scenario.atmospheric_physics.enable_physical_model = true;
-  environment::EnvironmentDefaultConfig env =
-      environment::EnvironmentDefaultConfigBuilder().WithScenarioConfig(scenario).Build();
+  environment::EnvironmentDefaultConfig env;
+  env.scenario_config = scenario;
   EXPECT_TRUE(env.scenario_config.atmospheric_physics.enable_physical_model);
 }
 
