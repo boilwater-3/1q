@@ -149,8 +149,8 @@ ValidationIssueList ValidateEsrCycleInput(const EsrCycleInput& input) {
   }
   ValidatePlatformPose(input.platform_pose, &issues);
 
-  for (std::size_t i = 0; i < input.scene_emitters.size(); ++i) {
-    ValidateEmitter(input.scene_emitters[i], static_cast<std::int32_t>(i), &issues);
+  for (std::size_t i = 0; i < input.scene.emitters.size(); ++i) {
+    ValidateEmitter(input.scene.emitters[i], static_cast<std::int32_t>(i), &issues);
   }
 
   return issues;

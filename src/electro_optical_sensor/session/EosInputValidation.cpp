@@ -27,17 +27,17 @@ bool IsFinite(T value) {
 bool IsRatioValid(float value) { return IsFinite(value) && value >= 0.0f && value <= 1.0f; }
 
 void ValidateDayNightConsistency(const EosCycleInput& input, ValidationIssueList* issues) {
-  if (issues == nullptr || !IsFinite(input.solar_altitude_deg)) {
+  if (issues == nullptr || !IsFinite(input.environment.solar_altitude_deg)) {
     return;
   }
-  if (input.day_night_type == DayNightType::kDay && input.solar_altitude_deg < 0.0f) {
+  if (input.environment.day_night_type == DayNightType::kDay && input.environment.solar_altitude_deg < 0.0f) {
     issues->push_back(MakeIssue(ValidationSeverity::kWarning,
                                 ValidationCode::kInconsistentDayNightType,
                                 static_cast<std::size_t>(-1),
                                 "day/night type is day while solar altitude is below horizon"));
     return;
   }
-  if (input.day_night_type == DayNightType::kNight && input.solar_altitude_deg > -6.0f) {
+  if (input.environment.day_night_type == DayNightType::kNight && input.environment.solar_altitude_deg > -6.0f) {
     issues->push_back(MakeIssue(ValidationSeverity::kWarning,
                                 ValidationCode::kInconsistentDayNightType,
                                 static_cast<std::size_t>(-1),
@@ -135,40 +135,40 @@ ValidationIssueList ValidateEosCycleInput(
 
   ValidatePlatformPose(input.platform_pose, &issues);
 
-  if (!IsFinite(input.solar_altitude_deg) || !IsFinite(input.solar_azimuth_deg)) {
+  if (!IsFinite(input.environment.solar_altitude_deg) || !IsFinite(input.environment.solar_azimuth_deg)) {
     issues.push_back(MakeIssue(ValidationSeverity::kError,
                                ValidationCode::kNonFiniteSolarAngles,
                                static_cast<std::size_t>(-1), "solar angles must be finite"));
-  } else if (input.solar_altitude_deg < -90.0f || input.solar_altitude_deg > 90.0f) {
+  } else if (input.environment.solar_altitude_deg < -90.0f || input.environment.solar_altitude_deg > 90.0f) {
     issues.push_back(
         MakeIssue(ValidationSeverity::kError, ValidationCode::kInvalidSolarAltitudeRange,
                   static_cast<std::size_t>(-1), "solar altitude must be in [-90, 90] degrees"));
   }
   ValidateDayNightConsistency(input, &issues);
 
-  if (!IsFinite(input.solar_irradiance_w_m2) || input.solar_irradiance_w_m2 < 0.0f) {
+  if (!IsFinite(input.environment.solar_irradiance_w_m2) || input.environment.solar_irradiance_w_m2 < 0.0f) {
     issues.push_back(MakeIssue(
         ValidationSeverity::kError, ValidationCode::kInvalidSolarIrradiance,
         static_cast<std::size_t>(-1), "solar irradiance must be finite and non-negative"));
   }
-  if (!IsRatioValid(input.cloud_coverage_ratio)) {
+  if (!IsRatioValid(input.environment.cloud_coverage_ratio)) {
     issues.push_back(
         MakeIssue(ValidationSeverity::kError, ValidationCode::kInvalidCloudCoverageRatio,
                   static_cast<std::size_t>(-1), "cloud coverage ratio must be in [0, 1]"));
   }
-  if (!IsFinite(input.ambient_wind_speed_mps) || input.ambient_wind_speed_mps < 0.0f) {
+  if (!IsFinite(input.environment.ambient_wind_speed_mps) || input.environment.ambient_wind_speed_mps < 0.0f) {
     issues.push_back(MakeIssue(
         ValidationSeverity::kError, ValidationCode::kInvalidAmbientWindSpeed,
         static_cast<std::size_t>(-1), "ambient wind speed must be finite and non-negative"));
   }
-  if (!IsFinite(input.background_temperature_k) || input.background_temperature_k <= 0.0f) {
+  if (!IsFinite(input.environment.background_temperature_k) || input.environment.background_temperature_k <= 0.0f) {
     issues.push_back(MakeIssue(
         ValidationSeverity::kError, ValidationCode::kInvalidBackgroundTemperature,
         static_cast<std::size_t>(-1), "background temperature must be finite and positive"));
   }
 
-  for (std::size_t i = 0; i < input.scene_targets.size(); ++i) {
-    ValidateTarget(input.scene_targets[i], i, &issues);
+  for (std::size_t i = 0; i < input.scene.targets.size(); ++i) {
+    ValidateTarget(input.scene.targets[i], i, &issues);
   }
 
   return issues;

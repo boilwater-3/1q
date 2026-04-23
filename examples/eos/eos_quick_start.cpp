@@ -81,7 +81,7 @@ int main() {
   eos::::electro_optical_sensor::session::EosCycleInput input;
   input.dt_sec = 1.0f;
   input.platform_pose = platform_pose;
-  input.scene_targets.push_back(target);
+  input.scene.targets.push_back(target);
 
   const eos::session::ValidationIssueList issues = eos::session::ValidateEosCycleInput(input);
   if (eos::session::HasValidationError(issues)) {

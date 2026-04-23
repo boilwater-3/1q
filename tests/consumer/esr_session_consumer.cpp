@@ -63,7 +63,7 @@ int main() {
   emitter.pulse_width_s = 1.0e-6;
   emitter.pri_s = 1.0e-4;
   emitter.is_emitting = true;
-  input.scene_emitters.push_back(emitter);
+  input.scene.emitters.push_back(emitter);
 
   // 5. Input validation
   const esr::session::ValidationIssueList issues = esr::session::ValidateEsrCycleInput(input);

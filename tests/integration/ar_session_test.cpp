@@ -37,7 +37,7 @@ class ScenarioRadarContext : public extension::IRadarContext {
       : target_features_(std::move(target_features)) {}
 
   void BeginCycle(const session::RadarCycleInput& input) override {
-    target_features_ = input.target_features;
+    target_features_ = input.scene.targets;
     platform_attitude_deg_.yaw_deg = input.platform_pose.attitude_deg.yaw_deg;
     platform_attitude_deg_.pitch_deg = input.platform_pose.attitude_deg.pitch_deg;
     platform_attitude_deg_.roll_deg = input.platform_pose.attitude_deg.roll_deg;
@@ -73,7 +73,7 @@ class ScenarioRadarContext : public extension::IRadarContext {
   extension::RadarContextRuntimeState CaptureRuntimeState() const override {
     extension::RadarContextRuntimeState state;
     state.target_features = target_features_;
-    state.platform_attitude_deg = platform_attitude_deg_;
+    state.platform_pose.attitude_deg = platform_attitude_deg_;
     state.cycle_dt_sec = cycle_dt_sec_;
     state.submitted_commands = submitted_commands_;
     state.latest_control_profile = latest_control_profile_;
@@ -83,7 +83,7 @@ class ScenarioRadarContext : public extension::IRadarContext {
 
   void RestoreRuntimeState(const extension::RadarContextRuntimeState& state) override {
     target_features_ = state.target_features;
-    platform_attitude_deg_ = state.platform_attitude_deg;
+    platform_attitude_deg_ = state.platform_pose.attitude_deg;
     cycle_dt_sec_ = state.cycle_dt_sec;
     submitted_commands_ = state.submitted_commands;
     latest_control_profile_ = state.latest_control_profile;

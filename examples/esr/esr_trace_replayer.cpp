@@ -169,7 +169,7 @@ esr::session::EsrCycleInput ParseCycleInput(const Json& payload) {
   }
 
   if (payload.contains("scene_emitters") && payload["scene_emitters"].is_array()) {
-    input.scene_emitters.clear();
+    input.scene.emitters.clear();
     for (std::size_t i = 0; i < payload["scene_emitters"].size(); ++i) {
       const Json& e = payload["scene_emitters"][i];
       esr::model::EmitterTruthState emitter;
@@ -205,28 +205,28 @@ esr::session::EsrCycleInput ParseCycleInput(const Json& payload) {
             GetBool(b, "beam_state_valid", emitter.beam_state.beam_state_valid);
       }
       emitter.is_emitting = GetBool(e, "is_emitting", emitter.is_emitting);
-      input.scene_emitters.push_back(emitter);
+      input.scene.emitters.push_back(emitter);
     }
   }
 
   if (payload.contains("environment_observation")) {
     const Json& env = payload["environment_observation"];
-    input.environment_observation.propagation_profile =
+    input.environment.observation.propagation_profile =
         static_cast<esr::environment::EsrPropagationEnvironmentProfile>(
             GetInt(env, "propagation_profile",
-                   static_cast<int>(input.environment_observation.propagation_profile)));
-    input.environment_observation.clutter_density =
+                   static_cast<int>(input.environment.observation.propagation_profile)));
+    input.environment.observation.clutter_density =
         static_cast<esr::environment::EsrClutterDensityLevel>(
             GetInt(env, "clutter_density",
-                   static_cast<int>(input.environment_observation.clutter_density)));
-    input.environment_observation.spectrum_occupancy_ratio = GetFloat(
-        env, "spectrum_occupancy_ratio", input.environment_observation.spectrum_occupancy_ratio);
+                   static_cast<int>(input.environment.observation.clutter_density)));
+    input.environment.observation.spectrum_occupancy_ratio = GetFloat(
+        env, "spectrum_occupancy_ratio", input.environment.observation.spectrum_occupancy_ratio);
     if (env.contains("atmospheric_observation")) {
-      input.environment_observation.atmospheric_observation =
+      input.environment.observation.atmospheric_observation =
           ParseAtmosphericObservation(env["atmospheric_observation"]);
     }
     if (env.contains("jammer_sources") && env["jammer_sources"].is_array()) {
-      input.environment_observation.jammer_sources.clear();
+      input.environment.observation.jammer_sources.clear();
       for (std::size_t i = 0; i < env["jammer_sources"].size(); ++i) {
         const Json& j = env["jammer_sources"][i];
         esr::environment::EsrJammerSource jammer;
@@ -238,7 +238,7 @@ esr::session::EsrCycleInput ParseCycleInput(const Json& payload) {
         jammer.power_w = GetFloat(j, "power_w", jammer.power_w);
         jammer.deception_risk = GetFloat(j, "deception_risk", jammer.deception_risk);
         jammer.confidence = GetFloat(j, "confidence", jammer.confidence);
-        input.environment_observation.jammer_sources.push_back(jammer);
+        input.environment.observation.jammer_sources.push_back(jammer);
       }
     }
   }

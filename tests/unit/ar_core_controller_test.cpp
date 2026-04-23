@@ -67,7 +67,7 @@ class FakeRadarContext : public extension::IRadarContext {
   const model::TargetFeatureList& GetTargetFeatures() const override { return state_; }
 
   void BeginCycle(const session::RadarCycleInput& input) override {
-    state_ = input.target_features;
+    state_ = input.scene.targets;
     platform_attitude_deg_.yaw_deg = input.platform_pose.attitude_deg.yaw_deg;
     platform_attitude_deg_.pitch_deg = input.platform_pose.attitude_deg.pitch_deg;
     platform_attitude_deg_.roll_deg = input.platform_pose.attitude_deg.roll_deg;
@@ -110,7 +110,7 @@ class FakeRadarContext : public extension::IRadarContext {
   extension::RadarContextRuntimeState CaptureRuntimeState() const override {
     extension::RadarContextRuntimeState state;
     state.target_features = state_;
-    state.platform_attitude_deg = platform_attitude_deg_;
+    state.platform_pose.attitude_deg = platform_attitude_deg_;
     state.cycle_dt_sec = cycle_dt_sec_;
     state.submitted_commands = submitted_commands_;
     state.latest_control_profile = latest_control_profile_;
@@ -120,7 +120,7 @@ class FakeRadarContext : public extension::IRadarContext {
 
   void RestoreRuntimeState(const extension::RadarContextRuntimeState& state) override {
     state_ = state.target_features;
-    platform_attitude_deg_ = state.platform_attitude_deg;
+    platform_attitude_deg_ = state.platform_pose.attitude_deg;
     cycle_dt_sec_ = state.cycle_dt_sec;
     submitted_commands_ = state.submitted_commands;
     latest_control_profile_ = state.latest_control_profile;

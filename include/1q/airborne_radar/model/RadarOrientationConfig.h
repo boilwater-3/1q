@@ -6,23 +6,14 @@
 #ifndef AIRBORNE_RADAR_CONFIG_RADAR_ORIENTATION_CONFIG_H_
 #define AIRBORNE_RADAR_CONFIG_RADAR_ORIENTATION_CONFIG_H_
 
+#include "1q/foundation/pose_types.h"
 #include "1q/foundation/scan_schedule_types.h"
 
 namespace airborne_radar {
 namespace model {
 
-/**
- * @brief EulerAnglesDeg 表示欧拉角定义（单位：度）。
- * 约定:
- * - yaw   表示偏航 / 方位角
- * - pitch 表示俯仰角
- * - roll  表示滚转角
- */
-struct EulerAnglesDeg {
-  float yaw_deg{0.0f};   /**< 偏航 / 方位角（单位：度） */
-  float pitch_deg{0.0f}; /**< 俯仰角（单位：度） */
-  float roll_deg{0.0f};  /**< 滚转角（单位：度） */
-};
+/** @brief EulerAnglesDeg 兼容别名：欧拉角姿态（单位：deg）。 */
+using EulerAnglesDeg = oneq::foundation::EulerAnglesDeg;
 
 /** @brief PlatformAttitudeDeg 表示搭载平台姿态角（单位：度） */
 using PlatformAttitudeDeg = EulerAnglesDeg;

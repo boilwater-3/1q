@@ -178,18 +178,18 @@ eos::::electro_optical_sensor::session::EosCycleInput ParseCycleInput(const Json
   if (payload.contains("platform_pose")) {
     input.platform_pose = ParsePose(payload["platform_pose"]);
   }
-  input.solar_altitude_deg = GetFloat(payload, "solar_altitude_deg", input.solar_altitude_deg);
-  input.solar_azimuth_deg = GetFloat(payload, "solar_azimuth_deg", input.solar_azimuth_deg);
-  input.solar_irradiance_w_m2 = GetFloat(payload, "solar_irradiance_w_m2", input.solar_irradiance_w_m2);
-  input.cloud_coverage_ratio = GetFloat(payload, "cloud_coverage_ratio", input.cloud_coverage_ratio);
-  input.ambient_wind_speed_mps = GetFloat(payload, "ambient_wind_speed_mps", input.ambient_wind_speed_mps);
-  input.day_night_type = static_cast<eos::::electro_optical_sensor::session::DayNightType>(
-      GetInt(payload, "day_night_type", static_cast<int>(input.day_night_type)));
-  input.background_temperature_k =
-      GetFloat(payload, "background_temperature_k", input.background_temperature_k);
+  input.environment.solar_altitude_deg = GetFloat(payload, "solar_altitude_deg", input.environment.solar_altitude_deg);
+  input.environment.solar_azimuth_deg = GetFloat(payload, "solar_azimuth_deg", input.environment.solar_azimuth_deg);
+  input.environment.solar_irradiance_w_m2 = GetFloat(payload, "solar_irradiance_w_m2", input.environment.solar_irradiance_w_m2);
+  input.environment.cloud_coverage_ratio = GetFloat(payload, "cloud_coverage_ratio", input.environment.cloud_coverage_ratio);
+  input.environment.ambient_wind_speed_mps = GetFloat(payload, "ambient_wind_speed_mps", input.environment.ambient_wind_speed_mps);
+  input.environment.day_night_type = static_cast<eos::::electro_optical_sensor::session::DayNightType>(
+      GetInt(payload, "day_night_type", static_cast<int>(input.environment.day_night_type)));
+  input.environment.background_temperature_k =
+      GetFloat(payload, "background_temperature_k", input.environment.background_temperature_k);
 
   if (payload.contains("scene_targets") && payload["scene_targets"].is_array()) {
-    input.scene_targets.clear();
+    input.scene.targets.clear();
     for (std::size_t i = 0; i < payload["scene_targets"].size(); ++i) {
       const Json& j = payload["scene_targets"][i];
       eos::session::EosTargetState target;
@@ -202,7 +202,7 @@ eos::::electro_optical_sensor::session::EosCycleInput ParseCycleInput(const Json
       target.emissivity = GetFloat(j, "emissivity", target.emissivity);
       target.reflectance = GetFloat(j, "reflectance", target.reflectance);
       target.projected_area_m2 = GetFloat(j, "projected_area_m2", target.projected_area_m2);
-      input.scene_targets.push_back(target);
+      input.scene.targets.push_back(target);
     }
   }
   return input;

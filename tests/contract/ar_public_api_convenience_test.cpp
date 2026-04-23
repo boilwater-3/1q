@@ -49,7 +49,7 @@ session::RadarSessionConfig MakeConvenienceSessionConfig() {
 
 session::RadarCycleInput MakeCycleInput(model::TargetFeatureList targets, float dt_sec = 1.0f) {
   session::RadarCycleInput input;
-  input.target_features = std::move(targets);
+  input.scene.targets = std::move(targets);
   input.dt_sec = dt_sec;
   input.platform_pose.attitude_deg.yaw_deg = 5.0f;
   input.platform_pose.attitude_deg.pitch_deg = -1.0f;
@@ -123,7 +123,7 @@ class RecordingRadarContext : public extension::IRadarContext {
  public:
   void BeginCycle(const session::RadarCycleInput& input) override {
     ++begin_cycle_count_;
-    target_features_ = input.target_features;
+    target_features_ = input.scene.targets;
     platform_attitude_deg_.yaw_deg = input.platform_pose.attitude_deg.yaw_deg;
     platform_attitude_deg_.pitch_deg = input.platform_pose.attitude_deg.pitch_deg;
     platform_attitude_deg_.roll_deg = input.platform_pose.attitude_deg.roll_deg;
@@ -159,7 +159,7 @@ class RecordingRadarContext : public extension::IRadarContext {
   extension::RadarContextRuntimeState CaptureRuntimeState() const override {
     extension::RadarContextRuntimeState state;
     state.target_features = target_features_;
-    state.platform_attitude_deg = platform_attitude_deg_;
+    state.platform_pose.attitude_deg = platform_attitude_deg_;
     state.cycle_dt_sec = cycle_dt_sec_;
     state.submitted_commands = submitted_commands_;
     state.latest_control_profile = latest_control_profile_;
@@ -169,7 +169,7 @@ class RecordingRadarContext : public extension::IRadarContext {
 
   void RestoreRuntimeState(const extension::RadarContextRuntimeState& state) override {
     target_features_ = state.target_features;
-    platform_attitude_deg_ = state.platform_attitude_deg;
+    platform_attitude_deg_ = state.platform_pose.attitude_deg;
     cycle_dt_sec_ = state.cycle_dt_sec;
     submitted_commands_ = state.submitted_commands;
     latest_control_profile_ = state.latest_control_profile;
@@ -526,8 +526,16 @@ TEST(PublicApiConvenienceTest, TargetFeatureUtilsBuildsTargetFromExternalCoordin
   oneq::foundation::EcefCoordinateM target_ecef;
   ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));
 
-  session::TargetExternalKinematicsInput input;
-  input.radar_position_ecef_m = radar_ecef;
+  session::RadarExternalPoseInput pose_input;
+  pose_input.platform_position_ecef_m = radar_ecef;
+  pose_input.has_platform_velocity_ecef_mps = false;
+
+  session::RadarLocalFrameReference reference;
+  oneq::foundation::PoseState platform_pose;
+  ASSERT_TRUE(session::TryMakeRadarPoseFromExternalKinematics(pose_input, &reference,
+                                                               &platform_pose));
+
+  session::TargetExternalKinematics input;
   input.target_position_ecef_m = target_ecef;
   input.target_velocity_frame = session::VelocityFrame::kEcef;
   input.target_velocity_mps.x = 80.0f;
@@ -537,7 +545,8 @@ TEST(PublicApiConvenienceTest, TargetFeatureUtilsBuildsTargetFromExternalCoordin
   input.swerling_type = 0;
 
   model::TargetFeature target_from_external;
-  ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(403U, input, &target_from_external));
+  ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
+      403U, input, reference, platform_pose.velocity_mps, &target_from_external));
   EXPECT_EQ(target_from_external.external_target_id, 403U);
   EXPECT_TRUE(target_from_external.has_cartesian_position);
   EXPECT_GT(target_from_external.position_x, 100.0f);
@@ -560,11 +569,23 @@ TEST(PublicApiConvenienceTest, TargetFeatureUtilsBuildsTargetFromExternalKinemat
   oneq::foundation::EcefCoordinateM target_ecef;
   ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));
 
-  session::TargetExternalKinematicsInput input;
-  input.radar_position_ecef_m = radar_ecef;
+  session::RadarExternalPoseInput pose_input;
+  pose_input.platform_position_ecef_m = radar_ecef;
+  pose_input.has_platform_velocity_ecef_mps = true;
+  pose_input.platform_velocity_frame = session::VelocityFrame::kEcef;
+  pose_input.platform_velocity_mps.x = 120.0f;
+  pose_input.platform_velocity_mps.y = -70.0f;
+  pose_input.platform_velocity_mps.z = 30.0f;
+  pose_input.platform_attitude_deg.yaw_deg = 5.0f;
+  pose_input.radar_mount_angles_deg.pitch_deg = 2.0f;
+
+  session::RadarLocalFrameReference reference;
+  oneq::foundation::PoseState platform_pose;
+  ASSERT_TRUE(session::TryMakeRadarPoseFromExternalKinematics(pose_input, &reference,
+                                                               &platform_pose));
+
+  session::TargetExternalKinematics input;
   input.target_position_ecef_m = target_ecef;
-  input.platform_attitude_deg.yaw_deg = 5.0f;
-  input.radar_mount_angles_deg.pitch_deg = 2.0f;
   input.rcs = 1.2f;
 
   // ECEF 速度 + 雷达自身 ECEF 速度补偿后应接近零相对速度。
@@ -572,20 +593,20 @@ TEST(PublicApiConvenienceTest, TargetFeatureUtilsBuildsTargetFromExternalKinemat
   input.target_velocity_mps.x = 120.0f;
   input.target_velocity_mps.y = -70.0f;
   input.target_velocity_mps.z = 30.0f;
-  input.has_radar_velocity_ecef_mps = true;
-  input.radar_velocity_ecef_mps = input.target_velocity_mps;
   model::TargetFeature ecef_target;
-  ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(501U, input, &ecef_target));
+  ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
+      501U, input, reference, platform_pose.velocity_mps, &ecef_target));
   EXPECT_NEAR(ecef_target.current_track_speed, 0.0f, 1.0e-4f);
 
   // ENU 输入。
   input.target_velocity_frame = session::VelocityFrame::kEnu;
-  input.has_radar_velocity_ecef_mps = false;
+  platform_pose.velocity_mps = oneq::foundation::Vector3f{};
   input.target_velocity_mps.x = 200.0f;  // east
   input.target_velocity_mps.y = 0.0f;    // north
   input.target_velocity_mps.z = 0.0f;    // up
   model::TargetFeature enu_target;
-  ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(502U, input, &enu_target));
+  ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
+      502U, input, reference, platform_pose.velocity_mps, &enu_target));
   EXPECT_GT(enu_target.current_track_speed, 100.0f);
 
   // NED 输入（north, east, down）。
@@ -594,7 +615,8 @@ TEST(PublicApiConvenienceTest, TargetFeatureUtilsBuildsTargetFromExternalKinemat
   input.target_velocity_mps.y = 50.0f;   // east
   input.target_velocity_mps.z = -20.0f;  // down
   model::TargetFeature ned_target;
-  ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(503U, input, &ned_target));
+  ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
+      503U, input, reference, platform_pose.velocity_mps, &ned_target));
   EXPECT_GT(ned_target.current_track_speed, 50.0f);
 
   // RadarLocal 输入应直接保留速度分量。
@@ -603,10 +625,91 @@ TEST(PublicApiConvenienceTest, TargetFeatureUtilsBuildsTargetFromExternalKinemat
   input.target_velocity_mps.y = 12.0f;
   input.target_velocity_mps.z = 13.0f;
   model::TargetFeature local_target;
-  ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(504U, input, &local_target));
+  ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
+      504U, input, reference, platform_pose.velocity_mps, &local_target));
   EXPECT_NEAR(local_target.current_track_velocity_x, 11.0f, 1.0e-5f);
   EXPECT_NEAR(local_target.current_track_velocity_y, 12.0f, 1.0e-5f);
   EXPECT_NEAR(local_target.current_track_velocity_z, 13.0f, 1.0e-5f);
+}
+
+TEST(PublicApiConvenienceTest, TwoStepExternalKinematicsProducesStableTarget) {
+  oneq::foundation::LlaCoordinateDegM radar_lla;
+  radar_lla.latitude_deg = 31.2304;
+  radar_lla.longitude_deg = 121.4737;
+  radar_lla.altitude_m = 200.0;
+  oneq::foundation::EcefCoordinateM radar_ecef;
+  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(radar_lla, &radar_ecef));
+
+  oneq::foundation::LlaCoordinateDegM target_lla = radar_lla;
+  target_lla.longitude_deg += 0.001;
+  oneq::foundation::EcefCoordinateM target_ecef;
+  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));
+
+  session::RadarExternalPoseInput pose_input;
+  pose_input.platform_position_ecef_m = radar_ecef;
+  pose_input.has_platform_velocity_ecef_mps = true;
+  pose_input.platform_velocity_mps.x = 120.0f;
+  pose_input.platform_velocity_mps.y = -70.0f;
+  pose_input.platform_velocity_mps.z = 30.0f;
+  pose_input.platform_velocity_frame = session::VelocityFrame::kEcef;
+  pose_input.platform_attitude_deg.yaw_deg = 5.0f;
+  pose_input.radar_mount_angles_deg.pitch_deg = 2.0f;
+
+  session::RadarLocalFrameReference reference;
+  oneq::foundation::PoseState platform_pose;
+  ASSERT_TRUE(session::TryMakeRadarPoseFromExternalKinematics(pose_input, &reference,
+                                                               &platform_pose));
+
+  session::TargetExternalKinematics target_input;
+  target_input.target_position_ecef_m = target_ecef;
+  target_input.target_velocity_mps.x = 120.0f;
+  target_input.target_velocity_mps.y = -70.0f;
+  target_input.target_velocity_mps.z = 30.0f;
+  target_input.target_velocity_frame = session::VelocityFrame::kEcef;
+  target_input.rcs = 1.2f;
+  target_input.swerling_type = 0;
+
+  model::TargetFeature target_1;
+  ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
+      600U, target_input, reference, platform_pose.velocity_mps, &target_1));
+
+  model::TargetFeature target_2;
+  ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
+      600U, target_input, reference, platform_pose.velocity_mps, &target_2));
+
+  EXPECT_EQ(target_1.external_target_id, target_2.external_target_id);
+  EXPECT_NEAR(target_1.position_x, target_2.position_x, 1.0e-6f);
+  EXPECT_NEAR(target_1.position_y, target_2.position_y, 1.0e-6f);
+  EXPECT_NEAR(target_1.position_z, target_2.position_z, 1.0e-6f);
+  EXPECT_NEAR(target_1.current_track_speed, target_2.current_track_speed, 1.0e-6f);
+  EXPECT_NEAR(target_1.range_m, target_2.range_m, 1.0e-6f);
+}
+
+TEST(PublicApiConvenienceTest, TwoStepApiPlatformPoseFeedsDirectlyIntoCycleInput) {
+  oneq::foundation::LlaCoordinateDegM radar_lla;
+  radar_lla.latitude_deg = 31.0;
+  radar_lla.longitude_deg = 121.0;
+  radar_lla.altitude_m = 1000.0;
+  oneq::foundation::EcefCoordinateM radar_ecef;
+  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(radar_lla, &radar_ecef));
+
+  session::RadarExternalPoseInput pose_input;
+  pose_input.platform_position_ecef_m = radar_ecef;
+  pose_input.platform_attitude_deg.yaw_deg = 10.0f;
+  pose_input.platform_attitude_deg.pitch_deg = -3.0f;
+  pose_input.platform_attitude_deg.roll_deg = 1.0f;
+
+  session::RadarLocalFrameReference reference;
+  oneq::foundation::PoseState platform_pose;
+  ASSERT_TRUE(session::TryMakeRadarPoseFromExternalKinematics(pose_input, &reference,
+                                                               &platform_pose));
+
+  // platform_pose 可直接赋给 RadarCycleInput::platform_pose，无需手动复制姿态
+  session::RadarCycleInput cycle_input;
+  cycle_input.platform_pose = platform_pose;
+  EXPECT_NEAR(cycle_input.platform_pose.attitude_deg.yaw_deg, 10.0f, 1.0e-5f);
+  EXPECT_NEAR(cycle_input.platform_pose.attitude_deg.pitch_deg, -3.0f, 1.0e-5f);
+  EXPECT_NEAR(cycle_input.platform_pose.attitude_deg.roll_deg, 1.0f, 1.0e-5f);
 }
 
 TEST(PublicApiConvenienceTest, EnvironmentSceneBuilderDefaultsMatchEnvironmentSceneState) {
@@ -724,8 +827,8 @@ TEST(PublicApiConvenienceTest, RadarInputValidationReportsWarningsAndErrorsForCo
           model::MakeAirTarget(800U, 155.0f, 2.0f, 12.0f, 63.0f, -0.2f, 0.0f, -1.1f),
       },
       0.0f);
-  input.target_features[2].position_x = std::numeric_limits<float>::infinity();
-  input.target_features[2].range_m = 0.0f;
+  input.scene.targets[2].position_x = std::numeric_limits<float>::infinity();
+  input.scene.targets[2].range_m = 0.0f;
 
   const std::vector<session::ValidationIssue> issues = session::ValidateRadarCycleInput(input);
   EXPECT_TRUE(ContainsIssueCode(issues, session::ValidationCode::kInvalidCycleDeltaTime));
@@ -742,7 +845,7 @@ TEST(PublicApiConvenienceTest, RadarInputValidationFlagsMissingGeometryAndNonFin
   model::TargetFeature invalid_target;
   invalid_target.external_target_id = 900U;
   invalid_target.range_m = 0.0f;
-  input.target_features.push_back(invalid_target);
+  input.scene.targets.push_back(invalid_target);
 
   const std::vector<session::ValidationIssue> issues = session::ValidateRadarCycleInput(input);
   EXPECT_TRUE(ContainsIssueCode(issues, session::ValidationCode::kNonFiniteCycleDeltaTime));
@@ -841,8 +944,8 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
   const auto session_track_map = output::BuildTrackMapByExternalTargetId(session_frame);
   const auto manual_track_map = output::BuildTrackMapByExternalTargetId(manual_frame);
   ASSERT_EQ(session_track_map.size(), manual_track_map.size());
-  for (std::size_t i = 0; i < input.target_features.size(); ++i) {
-    const std::uint64_t target_id = input.target_features[i].external_target_id;
+  for (std::size_t i = 0; i < input.scene.targets.size(); ++i) {
+    const std::uint64_t target_id = input.scene.targets[i].external_target_id;
     ASSERT_NE(session_track_map.count(target_id), 0U);
     ASSERT_NE(manual_track_map.count(target_id), 0U);
     EXPECT_EQ(session_track_map.at(target_id).association_key,
@@ -906,8 +1009,8 @@ TEST(PublicApiConvenienceTest,
 
   session::RadarCycleInput cycle_2 = cycle_1;
   cycle_2.dt_sec = -1.0f;
-  for (std::size_t i = 0; i < cycle_2.target_features.size(); ++i) {
-    cycle_2.target_features[i].position_x += 5.0f;
+  for (std::size_t i = 0; i < cycle_2.scene.targets.size(); ++i) {
+    cycle_2.scene.targets[i].position_x += 5.0f;
   }
   environment::JammerEmitterState noise_emitter_3;
   noise_emitter_3.technique = environment::JammingTechnique::kNoiseSuppression;
@@ -938,8 +1041,8 @@ TEST(PublicApiConvenienceTest,
 
   session::RadarCycleInput cycle_3 = cycle_2;
   cycle_3.dt_sec = 1.0f;
-  cycle_3.target_features[1].external_target_id = 703U;
-  cycle_3.target_features[2].external_target_id = 704U;
+  cycle_3.scene.targets[1].external_target_id = 703U;
+  cycle_3.scene.targets[2].external_target_id = 704U;
   const output::TrackOutputFrame frame_3 =
       session.Step(cycle_3, environment::EnvironmentSceneBuilder().Build());
   EXPECT_GT(frame_3.tracks.size(), 0U);
@@ -1260,7 +1363,7 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultSurfacesValidationError
   model::TargetFeature invalid_target;
   invalid_target.external_target_id = 123U;
   invalid_target.range_m = 0.0f;
-  input.target_features.push_back(invalid_target);
+  input.scene.targets.push_back(invalid_target);
 
   const session::RadarCycleResult result = session.StepWithResult(input);
 

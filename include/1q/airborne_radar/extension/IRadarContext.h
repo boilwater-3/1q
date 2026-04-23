@@ -28,7 +28,6 @@ struct RadarContextRuntimeState {
   std::shared_ptr<void> opaque{};      /**< 可选的实现私有快照负载；用于高效回滚 */
   model::TargetFeatureList target_features{};
   oneq::foundation::PoseState platform_pose{};
-  model::PlatformAttitudeDeg platform_attitude_deg{};
   float cycle_dt_sec{1.0f};
   std::vector<extension::control::RadarCommand> submitted_commands{};
   extension::control::RadarControlProfile latest_control_profile{};
@@ -100,7 +99,7 @@ class ONEQ_API IRadarContext {
   /**
    * @brief 捕获当前上下文运行态快照。
    * @return 可用于失败回滚的上下文快照。
-   * @note 默认回退字段为 `target_features/platform_pose/platform_attitude_deg/cycle_dt_sec/`
+   * @note 默认回退字段为 `target_features/platform_pose/cycle_dt_sec/`
    *       `submitted_commands/latest_control_profile/has_latest_control_profile`。
    *       若实现需要降低快照开销，可在 `opaque` 中存放私有快照，并使用
    *       `owner_identity/schema_version` 防止跨实例或跨 schema 误用。

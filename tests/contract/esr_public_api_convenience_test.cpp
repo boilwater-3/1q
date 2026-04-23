@@ -204,7 +204,7 @@ TEST(EsrPublicApiConvenienceTest, InputValidationReportsErrorsForBoundaryCases) 
   model::EmitterTruthState invalid_emitter;
   invalid_emitter.emitter_id = "";
   invalid_emitter.carrier_hz = -1.0;
-  input.scene_emitters.push_back(invalid_emitter);
+  input.scene.emitters.push_back(invalid_emitter);
 
   const session::ValidationIssueList issues = session::ValidateEsrCycleInput(input);
 
@@ -243,7 +243,7 @@ TEST(EsrPublicApiConvenienceTest, SessionStepAndRuntimePatchWorkTogether) {
   session::EsrCycleInput input;
   input.cycle_index = 0U;
   input.dt_sec = 1.0f;
-  input.scene_emitters.push_back(MakeEmitter("emitter-1"));
+  input.scene.emitters.push_back(MakeEmitter("emitter-1"));
 
   const session::EsrCycleResult baseline = session.StepWithResult(input);
   EXPECT_FALSE(baseline.has_validation_error);

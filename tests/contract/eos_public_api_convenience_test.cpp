@@ -191,11 +191,11 @@ TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderSetsAllFields) {
 TEST(EosPublicApiConvenienceTest, InputValidationReportsErrorsForCommonBoundaryCases) {
   ::electro_optical_sensor::session::EosCycleInput input;
   input.dt_sec = 0.0f;
-  input.solar_irradiance_w_m2 = -1.0f;
-  input.cloud_coverage_ratio = -0.1f;
-  input.ambient_wind_speed_mps = -5.0f;
-  input.background_temperature_k = 0.0f;
-  input.solar_altitude_deg = 100.0f;
+  input.environment.solar_irradiance_w_m2 = -1.0f;
+  input.environment.cloud_coverage_ratio = -0.1f;
+  input.environment.ambient_wind_speed_mps = -5.0f;
+  input.environment.background_temperature_k = 0.0f;
+  input.environment.solar_altitude_deg = 100.0f;
 
   session::EosTargetState invalid_target;
   invalid_target.target_id = 0U;
@@ -204,7 +204,7 @@ TEST(EosPublicApiConvenienceTest, InputValidationReportsErrorsForCommonBoundaryC
   invalid_target.emissivity = 1.5f;
   invalid_target.reflectance = 1.5f;
   invalid_target.projected_area_m2 = -1.0f;
-  input.scene_targets.push_back(invalid_target);
+  input.scene.targets.push_back(invalid_target);
 
   const session::ValidationIssueList issues = session::ValidateEosCycleInput(input);
 
@@ -231,7 +231,7 @@ TEST(EosPublicApiConvenienceTest, InputValidationFlagsNonFiniteDtAndTargetFields
   session::EosTargetState nan_target;
   nan_target.target_id = 100U;
   nan_target.range_m = std::numeric_limits<float>::infinity();
-  input.scene_targets.push_back(nan_target);
+  input.scene.targets.push_back(nan_target);
 
   const session::ValidationIssueList issues = session::ValidateEosCycleInput(input);
 
@@ -251,7 +251,7 @@ TEST(EosPublicApiConvenienceTest, InputValidationFlagsEnergyBalanceInconsistency
   unbalanced.emissivity = 0.8f;
   unbalanced.reflectance = 0.3f;
   unbalanced.projected_area_m2 = 2.0f;
-  input.scene_targets.push_back(unbalanced);
+  input.scene.targets.push_back(unbalanced);
 
   const session::ValidationIssueList issues = session::ValidateEosCycleInput(input);
 
@@ -263,7 +263,7 @@ TEST(EosPublicApiConvenienceTest, InputValidationFlagsEnergyBalanceInconsistency
 TEST(EosPublicApiConvenienceTest, InputValidationPassesForValidInput) {
   ::electro_optical_sensor::session::EosCycleInput input;
   input.dt_sec = 1.0f;
-  input.scene_targets.push_back(MakeTarget(300U, 1500.0f, 5.0f, -2.0f, 320.0f, 0.9f, 0.1f, 2.0f));
+  input.scene.targets.push_back(MakeTarget(300U, 1500.0f, 5.0f, -2.0f, 320.0f, 0.9f, 0.1f, 2.0f));
 
   const session::ValidationIssueList issues = session::ValidateEosCycleInput(input);
 
@@ -392,7 +392,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionStepProducesDetectionOutput) {
   ::electro_optical_sensor::session::EosCycleInput input;
   input.cycle_index = 0U;
   input.dt_sec = 1.0f;
-  input.scene_targets.push_back(MakeTarget(501U, 1500.0f, 0.0f, 0.0f, 350.0f, 0.9f, 0.1f, 3.0f));
+  input.scene.targets.push_back(MakeTarget(501U, 1500.0f, 0.0f, 0.0f, 350.0f, 0.9f, 0.1f, 3.0f));
 
   const output::EosOutputFrame frame = session.Step(input);
   EXPECT_EQ(frame.cycle_index, 0U);
@@ -409,7 +409,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionStepWithResultAggregatesOutputAndVal
   ::electro_optical_sensor::session::EosCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
-  input.scene_targets.push_back(MakeTarget(502U, 2000.0f, 5.0f, -3.0f, 330.0f, 0.85f, 0.15f, 2.5f));
+  input.scene.targets.push_back(MakeTarget(502U, 2000.0f, 5.0f, -3.0f, 330.0f, 0.85f, 0.15f, 2.5f));
 
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
 
@@ -428,7 +428,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionStepWithResultSurfacesValidationErro
   input.dt_sec = std::numeric_limits<float>::quiet_NaN();
   session::EosTargetState invalid_target;
   invalid_target.target_id = 0U;
-  input.scene_targets.push_back(invalid_target);
+  input.scene.targets.push_back(invalid_target);
 
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
 
@@ -453,7 +453,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionAppliesRuntimeConfigPatch) {
 
   ::electro_optical_sensor::session::EosCycleInput input;
   input.dt_sec = 1.0f;
-  input.scene_targets.push_back(MakeTarget(600U, 1000.0f, 0.0f, 0.0f, 310.0f, 0.9f, 0.1f, 1.5f));
+  input.scene.targets.push_back(MakeTarget(600U, 1000.0f, 0.0f, 0.0f, 310.0f, 0.9f, 0.1f, 1.5f));
 
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
   EXPECT_TRUE(result.executed_this_cycle);
@@ -469,7 +469,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionFactoryCanInjectEnvironmentService) 
   ::electro_optical_sensor::session::EosCycleInput input;
   input.cycle_index = 7U;
   input.dt_sec = 1.0f;
-  input.scene_targets.push_back(MakeTarget(601U, 1000.0f, 0.0f, 0.0f, 310.0f, 0.9f, 0.1f, 1.5f));
+  input.scene.targets.push_back(MakeTarget(601U, 1000.0f, 0.0f, 0.0f, 310.0f, 0.9f, 0.1f, 1.5f));
 
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
   EXPECT_FALSE(result.has_validation_error);
@@ -490,7 +490,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionMultiCycleProducesProgressiveCycleIn
     ::electro_optical_sensor::session::EosCycleInput input;
     input.cycle_index = i;
     input.dt_sec = 1.0f;
-    input.scene_targets.push_back(
+    input.scene.targets.push_back(
         MakeTarget(700U + i, 1500.0f, 0.0f, 0.0f, 320.0f, 0.9f, 0.1f, 2.0f));
 
     const output::EosOutputFrame frame = session.Step(input);

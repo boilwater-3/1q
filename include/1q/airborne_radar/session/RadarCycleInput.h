@@ -6,19 +6,24 @@
 #ifndef AIRBORNE_RADAR_CORE_CONTEXT_RADAR_CYCLE_INPUT_H_
 #define AIRBORNE_RADAR_CORE_CONTEXT_RADAR_CYCLE_INPUT_H_
 
-#include "1q/airborne_radar/model/TargetFeature.h"
+#include <cstdint>
+
+#include "1q/airborne_radar/session/RadarEnvironmentInput.h"
+#include "1q/airborne_radar/session/RadarSceneInput.h"
 #include "1q/foundation/pose_types.h"
 
 namespace airborne_radar {
 namespace session {
 
 /**
- * @brief RadarCycleInput 描述单周期输入的目标、平台位姿与步长。
+ * @brief RadarCycleInput 描述单周期输入的场景、环境、平台位姿与步长。
  */
 struct RadarCycleInput {
-  model::TargetFeatureList target_features{}; /**< 当前周期的目标特征列表 */
+  std::uint32_t cycle_index{0U};            /**< 当前周期号 */
+  float dt_sec{1.0f};                       /**< 当前周期步长（单位：秒） */
   oneq::foundation::PoseState platform_pose{}; /**< 当前周期平台位姿状态 */
-  float dt_sec{1.0f};                           /**< 当前周期步长（单位：秒） */
+  RadarSceneInput scene{};                  /**< 当前周期场景实体输入 */
+  RadarEnvironmentInput environment{};      /**< 当前周期环境输入 */
 };
 
 }  // namespace session

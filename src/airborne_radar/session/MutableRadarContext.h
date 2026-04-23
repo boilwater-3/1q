@@ -114,7 +114,6 @@ class MutableRadarContext final : public extension::IRadarContext {
 
   std::shared_ptr<model::TargetFeatureList> target_features_{new model::TargetFeatureList()};
   oneq::foundation::PoseState platform_pose_{};
-  model::PlatformAttitudeDeg platform_attitude_deg_{};
   float cycle_dt_sec_{1.0f};
   std::vector<extension::control::RadarCommand> submitted_commands_{};
   extension::control::RadarControlProfile latest_control_profile_{};

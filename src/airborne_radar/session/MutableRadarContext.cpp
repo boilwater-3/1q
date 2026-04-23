@@ -8,7 +8,6 @@ namespace session {
 struct MutableRadarContext::RuntimeSnapshot {
   std::shared_ptr<model::TargetFeatureList> target_features;
   oneq::foundation::PoseState platform_pose{};
-  model::PlatformAttitudeDeg platform_attitude_deg{};
   float cycle_dt_sec{1.0f};
   std::vector<extension::control::RadarCommand> submitted_commands{};
   extension::control::RadarControlProfile latest_control_profile{};
@@ -16,13 +15,8 @@ struct MutableRadarContext::RuntimeSnapshot {
 };
 
 void MutableRadarContext::BeginCycle(const RadarCycleInput& input) {
-  SetTargetFeatures(input.target_features);
+  SetTargetFeatures(input.scene.targets);
   platform_pose_ = input.platform_pose;
-  model::PlatformAttitudeDeg platform_attitude_deg;
-  platform_attitude_deg.yaw_deg = input.platform_pose.attitude_deg.yaw_deg;
-  platform_attitude_deg.pitch_deg = input.platform_pose.attitude_deg.pitch_deg;
-  platform_attitude_deg.roll_deg = input.platform_pose.attitude_deg.roll_deg;
-  SetPlatformAttitude(platform_attitude_deg);
   SetCycleDeltaTimeSec(input.dt_sec);
   ResetCycleOutputs();
 }
@@ -33,7 +27,7 @@ void MutableRadarContext::SetTargetFeatures(model::TargetFeatureList target_feat
 
 void MutableRadarContext::SetPlatformAttitude(
     const model::PlatformAttitudeDeg& platform_attitude_deg) {
-  platform_attitude_deg_ = platform_attitude_deg;
+  platform_pose_.attitude_deg = platform_attitude_deg;
 }
 
 void MutableRadarContext::SetCycleDeltaTimeSec(float dt_sec) { cycle_dt_sec_ = dt_sec; }
@@ -56,7 +50,6 @@ extension::RadarContextRuntimeState MutableRadarContext::CaptureRuntimeState() c
   std::shared_ptr<RuntimeSnapshot> snapshot(new RuntimeSnapshot());
   snapshot->target_features = target_features_;
   snapshot->platform_pose = platform_pose_;
-  snapshot->platform_attitude_deg = platform_attitude_deg_;
   snapshot->cycle_dt_sec = cycle_dt_sec_;
   snapshot->submitted_commands = submitted_commands_;
   snapshot->latest_control_profile = latest_control_profile_;
@@ -66,7 +59,6 @@ extension::RadarContextRuntimeState MutableRadarContext::CaptureRuntimeState() c
   state.opaque = snapshot;
   state.target_features = target_features_ != nullptr ? *target_features_ : model::TargetFeatureList();
   state.platform_pose = platform_pose_;
-  state.platform_attitude_deg = platform_attitude_deg_;
   state.cycle_dt_sec = cycle_dt_sec_;
   state.submitted_commands = submitted_commands_;
   state.latest_control_profile = latest_control_profile_;
@@ -81,7 +73,6 @@ void MutableRadarContext::RestoreRuntimeState(const extension::RadarContextRunti
     if (snapshot != nullptr) {
       target_features_ = snapshot->target_features;
       platform_pose_ = snapshot->platform_pose;
-      platform_attitude_deg_ = snapshot->platform_attitude_deg;
       cycle_dt_sec_ = snapshot->cycle_dt_sec;
       submitted_commands_ = snapshot->submitted_commands;
       latest_control_profile_ = snapshot->latest_control_profile;
@@ -92,10 +83,6 @@ void MutableRadarContext::RestoreRuntimeState(const extension::RadarContextRunti
 
   target_features_.reset(new model::TargetFeatureList(state.target_features));
   platform_pose_ = state.platform_pose;
-  platform_pose_.attitude_deg.yaw_deg = state.platform_attitude_deg.yaw_deg;
-  platform_pose_.attitude_deg.pitch_deg = state.platform_attitude_deg.pitch_deg;
-  platform_pose_.attitude_deg.roll_deg = state.platform_attitude_deg.roll_deg;
-  platform_attitude_deg_ = state.platform_attitude_deg;
   cycle_dt_sec_ = state.cycle_dt_sec;
   submitted_commands_ = state.submitted_commands;
   latest_control_profile_ = state.latest_control_profile;
@@ -108,7 +95,7 @@ const model::TargetFeatureList& MutableRadarContext::GetTargetFeatures() const {
 }
 
 model::PlatformAttitudeDeg MutableRadarContext::GetPlatformAttitude() const {
-  return platform_attitude_deg_;
+  return platform_pose_.attitude_deg;
 }
 
 float MutableRadarContext::GetCycleDeltaTimeSec() const { return cycle_dt_sec_; }

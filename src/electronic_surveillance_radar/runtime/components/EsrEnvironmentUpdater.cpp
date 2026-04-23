@@ -14,7 +14,7 @@ void EsrEnvironmentUpdater::FreezeEnvironment(
   environment::EsrEnvironmentCycleContext environment_context;
   environment_context.cycle_index = stamp.cycle_index;
   environment_context.dt_sec = cycle_input.dt_sec;
-  environment_context.observation = cycle_input.environment_observation;
+  environment_context.observation = cycle_input.environment.observation;
   environment_service_.BeginCycle(environment_context);
 }
 

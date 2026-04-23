@@ -45,7 +45,7 @@ void RadarRuntimeHooks::FreezeEnvironment(
 
 output::TrackOutputFrame RadarRuntimeHooks::Execute(
     const AirborneRuntimeInput& input,
-    const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
+  const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
   const extension::CycleExecutionResult exec_result = cycle_orchestrator_.Execute(
       input.target_features, input.platform_attitude, control_profile_, stamp);
   last_cycle_executed_ = exec_result.signal_result.executed_this_cycle;

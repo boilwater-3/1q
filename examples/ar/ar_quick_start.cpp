@@ -51,21 +51,34 @@ int main() {
   target_velocity_ecef_mps.z = 30.0f;
 
   // 4) 组装外部输入并执行单周期。
-  //    先把外部平台与目标信息合成统一输入，再由适配器生成目标特征。
-  aq::session::TargetExternalKinematicsInput external_input;
-  external_input.radar_position_ecef_m = platform_ecef;
-  external_input.has_radar_velocity_ecef_mps = true;
-  external_input.radar_velocity_ecef_mps = platform_velocity_ecef_mps;
-  external_input.target_position_ecef_m = target_ecef;
-  external_input.target_velocity_mps = target_velocity_ecef_mps;
-  external_input.target_velocity_frame = aq::session::VelocityFrame::kEcef;
-  external_input.platform_attitude_deg = aq::model::PlatformAttitudeDeg{};
-  external_input.radar_mount_angles_deg = session_config.mission.orientation.mount_angles_deg;
-  external_input.rcs = 1.8f;
-  external_input.swerling_type = 0;
+  //    第一步：将外部平台运动学转换为雷达局部位姿和参考系。
+  aq::session::RadarExternalPoseInput pose_input;
+  pose_input.platform_position_ecef_m = platform_ecef;
+  pose_input.has_platform_velocity_ecef_mps = true;
+  pose_input.platform_velocity_mps = platform_velocity_ecef_mps;
+  pose_input.platform_velocity_frame = aq::session::VelocityFrame::kEcef;
+  pose_input.platform_attitude_deg = aq::model::PlatformAttitudeDeg{};
+  pose_input.radar_mount_angles_deg = session_config.mission.orientation.mount_angles_deg;
+
+  aq::session::RadarLocalFrameReference reference;
+  oneq::foundation::PoseState platform_pose;
+  if (!aq::session::TryMakeRadarPoseFromExternalKinematics(pose_input, &reference,
+                                                            &platform_pose)) {
+    std::cerr << "failed to build radar pose from external kinematics input" << std::endl;
+    return 1;
+  }
+
+  //    第二步：使用预计算的参考系将目标转换为 TargetFeature。
+  aq::session::TargetExternalKinematics target_input;
+  target_input.target_position_ecef_m = target_ecef;
+  target_input.target_velocity_mps = target_velocity_ecef_mps;
+  target_input.target_velocity_frame = aq::session::VelocityFrame::kEcef;
+  target_input.rcs = 1.8f;
+  target_input.swerling_type = 0;
 
   aq::model::TargetFeature target;
-  if (!aq::session::TryMakeTargetFromExternalKinematics(1001U, external_input, &target)) {
+  if (!aq::session::TryMakeTargetFromExternalKinematics(
+          1001U, target_input, reference, platform_pose.velocity_mps, &target)) {
     std::cerr << "failed to build target from external kinematics input" << std::endl;
     return 1;
   }
@@ -73,10 +86,8 @@ int main() {
   //    将单个目标特征放入当前周期输入，完成一次雷达循环。
   aq::session::RadarCycleInput input;
   input.dt_sec = 1.0f;
-  input.platform_pose.attitude_deg.yaw_deg = 0.0f;
-  input.platform_pose.attitude_deg.pitch_deg = 0.0f;
-  input.platform_pose.attitude_deg.roll_deg = 0.0f;
-  input.target_features.push_back(target);
+  input.platform_pose = platform_pose;
+  input.scene.targets.push_back(target);
 
   const auto issues = aq::session::ValidateRadarCycleInput(input);
   if (aq::session::HasValidationError(issues)) {

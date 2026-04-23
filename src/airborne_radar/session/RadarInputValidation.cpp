@@ -114,7 +114,7 @@ ValidationIssueList ValidateRadarCycleInput(const RadarCycleInput& input) {
   ValidationIssueList issues = ValidateRadarCycleDeltaTime(input.dt_sec);
   ValidatePlatformPose(input.platform_pose, &issues);
 
-  const ValidationIssueList target_issues = ValidateTargetFeatures(input.target_features);
+  const ValidationIssueList target_issues = ValidateTargetFeatures(input.scene.targets);
   issues.insert(issues.end(), target_issues.begin(), target_issues.end());
   return issues;
 }

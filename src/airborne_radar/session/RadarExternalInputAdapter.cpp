@@ -46,19 +46,10 @@ oneq::foundation::Vector3f ConvertEnuToRadarLocal(
 oneq::internal::geometry::EulerAnglesDeg ComposeGeometryEuler(
     const model::EulerAnglesDeg& platform_attitude_deg,
     const model::EulerAnglesDeg& mount_angles_deg) {
-  oneq::foundation::EulerAnglesDeg platform_foundation;
-  platform_foundation.yaw_deg = platform_attitude_deg.yaw_deg;
-  platform_foundation.pitch_deg = platform_attitude_deg.pitch_deg;
-  platform_foundation.roll_deg = platform_attitude_deg.roll_deg;
-  oneq::foundation::EulerAnglesDeg mount_foundation;
-  mount_foundation.yaw_deg = mount_angles_deg.yaw_deg;
-  mount_foundation.pitch_deg = mount_angles_deg.pitch_deg;
-  mount_foundation.roll_deg = mount_angles_deg.roll_deg;
-
   const Eigen::Matrix3f platform_rotation =
-      oneq::internal::geometry::BuildRotationMatrix(ToGeometryEuler(platform_foundation));
+      oneq::internal::geometry::BuildRotationMatrix(ToGeometryEuler(platform_attitude_deg));
   const Eigen::Matrix3f mount_rotation =
-      oneq::internal::geometry::BuildRotationMatrix(ToGeometryEuler(mount_foundation));
+      oneq::internal::geometry::BuildRotationMatrix(ToGeometryEuler(mount_angles_deg));
   const Eigen::Matrix3f composed = platform_rotation * mount_rotation;
 
   const float r20 = composed(2, 0);
@@ -128,72 +119,6 @@ oneq::foundation::EnuCoordinateM ToEnuFromEnuVector(const oneq::foundation::Vect
   return enu;
 }
 
-bool TryBuildRadarLocalReference(const TargetExternalKinematicsInput& input,
-                                 RadarLocalFrameReference* reference) {
-  if (reference == nullptr) {
-    return false;
-  }
-  oneq::foundation::LlaCoordinateDegM radar_lla;
-  if (!oneq::foundation::TryEcefToLla(input.radar_position_ecef_m, &radar_lla)) {
-    return false;
-  }
-  reference->origin_lla = radar_lla;
-  reference->radar_attitude_deg =
-      ComposeRadarAttitudeDeg(input.platform_attitude_deg, input.radar_mount_angles_deg);
-  return true;
-}
-
-bool TryResolveRadarRelativeVelocityFromEnu(
-    const TargetExternalKinematicsInput& input, const RadarLocalFrameReference& reference,
-    oneq::foundation::EnuCoordinateM* target_relative_enu_mps) {
-  if (target_relative_enu_mps == nullptr || !IsFiniteVector3f(input.target_velocity_mps)) {
-    return false;
-  }
-  *target_relative_enu_mps = ToEnuFromEnuVector(input.target_velocity_mps);
-
-  if (!input.has_radar_velocity_ecef_mps) {
-    return true;
-  }
-  if (!IsFiniteVector3f(input.radar_velocity_ecef_mps)) {
-    return false;
-  }
-
-  oneq::foundation::EnuCoordinateM radar_enu_mps;
-  if (!TryConvertEcefVelocityToEnu(input.radar_velocity_ecef_mps, reference.origin_lla,
-                                   &radar_enu_mps)) {
-    return false;
-  }
-  target_relative_enu_mps->x_m -= radar_enu_mps.x_m;
-  target_relative_enu_mps->y_m -= radar_enu_mps.y_m;
-  target_relative_enu_mps->z_m -= radar_enu_mps.z_m;
-  return true;
-}
-
-bool TryResolveRadarRelativeVelocityFromNed(
-    const TargetExternalKinematicsInput& input, const RadarLocalFrameReference& reference,
-    oneq::foundation::EnuCoordinateM* target_relative_enu_mps) {
-  if (target_relative_enu_mps == nullptr || !IsFiniteVector3f(input.target_velocity_mps)) {
-    return false;
-  }
-  *target_relative_enu_mps = ToEnuFromNed(input.target_velocity_mps);
-
-  if (!input.has_radar_velocity_ecef_mps) {
-    return true;
-  }
-  if (!IsFiniteVector3f(input.radar_velocity_ecef_mps)) {
-    return false;
-  }
-
-  oneq::foundation::EnuCoordinateM radar_enu_mps;
-  if (!TryConvertEcefVelocityToEnu(input.radar_velocity_ecef_mps, reference.origin_lla,
-                                   &radar_enu_mps)) {
-    return false;
-  }
-  target_relative_enu_mps->x_m -= radar_enu_mps.x_m;
-  target_relative_enu_mps->y_m -= radar_enu_mps.y_m;
-  target_relative_enu_mps->z_m -= radar_enu_mps.z_m;
-  return true;
-}
 
 bool TryConvertEcefToRadarLocalInternal(const oneq::foundation::EcefCoordinateM& position_ecef_m,
                                         const RadarLocalFrameReference& reference,
@@ -225,45 +150,6 @@ bool TryConvertEcefVelocityToRadarLocalInternal(const oneq::foundation::Vector3f
   return true;
 }
 
-bool TryMakeTargetFromEcefInternal(std::uint64_t external_target_id,
-                                   const oneq::foundation::EcefCoordinateM& position_ecef_m,
-                                   const RadarLocalFrameReference& reference, float velocity_x,
-                                   float velocity_y, float velocity_z, float rcs, int swerling_type,
-                                   model::TargetFeature* target) {
-  if (target == nullptr) {
-    return false;
-  }
-
-  oneq::foundation::Vector3f local_position;
-  if (!TryConvertEcefToRadarLocalInternal(position_ecef_m, reference, &local_position)) {
-    return false;
-  }
-
-  *target = model::MakeTargetFromCartesian(external_target_id, local_position.x, local_position.y,
-                                           local_position.z, velocity_x, velocity_y, velocity_z,
-                                           rcs, swerling_type);
-  return true;
-}
-
-bool TryMakeTargetFromEcefWithEcefVelocityInternal(
-    std::uint64_t external_target_id, const oneq::foundation::EcefCoordinateM& position_ecef_m,
-    const oneq::foundation::Vector3f& velocity_ecef_mps, const RadarLocalFrameReference& reference,
-    float rcs, int swerling_type, model::TargetFeature* target) {
-  if (target == nullptr) {
-    return false;
-  }
-
-  oneq::foundation::Vector3f velocity_local_mps;
-  if (!TryConvertEcefVelocityToRadarLocalInternal(velocity_ecef_mps, reference,
-                                                  &velocity_local_mps)) {
-    return false;
-  }
-
-  return TryMakeTargetFromEcefInternal(external_target_id, position_ecef_m, reference,
-                                       velocity_local_mps.x, velocity_local_mps.y,
-                                       velocity_local_mps.z, rcs, swerling_type, target);
-}
-
 }  // namespace
 
 oneq::foundation::EulerAnglesDeg ComposeRadarAttitudeDeg(
@@ -279,74 +165,120 @@ oneq::foundation::EulerAnglesDeg ComposeRadarAttitudeDeg(
   return output;
 }
 
-bool TryMakeTargetFromExternalKinematics(std::uint64_t external_target_id,
-                                         const TargetExternalKinematicsInput& input,
-                                         model::TargetFeature* target) {
-  if (target == nullptr) {
+bool TryMakeRadarPoseFromExternalKinematics(
+    const RadarExternalPoseInput& input,
+    RadarLocalFrameReference* reference,
+    oneq::foundation::PoseState* platform_pose) {
+  if (reference == nullptr || platform_pose == nullptr) {
     return false;
   }
 
-  RadarLocalFrameReference reference;
-  if (!TryBuildRadarLocalReference(input, &reference)) {
+  oneq::foundation::LlaCoordinateDegM radar_lla;
+  if (!oneq::foundation::TryEcefToLla(input.platform_position_ecef_m, &radar_lla)) {
     return false;
   }
+  reference->origin_lla = radar_lla;
+  reference->radar_attitude_deg =
+      ComposeRadarAttitudeDeg(input.platform_attitude_deg, input.radar_mount_angles_deg);
 
-  switch (input.target_velocity_frame) {
-    case VelocityFrame::kRadarLocal:
-      if (!IsFiniteVector3f(input.target_velocity_mps)) {
-        return false;
-      }
-      return TryMakeTargetFromEcefInternal(external_target_id, input.target_position_ecef_m,
-                                           reference, input.target_velocity_mps.x,
-                                           input.target_velocity_mps.y, input.target_velocity_mps.z,
-                                           input.rcs, input.swerling_type, target);
+  platform_pose->position_m = oneq::foundation::Vector3f{};
 
-    case VelocityFrame::kEcef: {
-      if (!IsFiniteVector3f(input.target_velocity_mps)) {
-        return false;
-      }
-      oneq::foundation::Vector3f target_velocity_ecef_rel = input.target_velocity_mps;
-      if (input.has_radar_velocity_ecef_mps) {
-        if (!IsFiniteVector3f(input.radar_velocity_ecef_mps)) {
+  if (!input.has_platform_velocity_ecef_mps || !IsFiniteVector3f(input.platform_velocity_mps)) {
+    platform_pose->velocity_mps = oneq::foundation::Vector3f{};
+  } else {
+    switch (input.platform_velocity_frame) {
+      case VelocityFrame::kRadarLocal:
+        platform_pose->velocity_mps = input.platform_velocity_mps;
+        break;
+      case VelocityFrame::kEcef: {
+        oneq::foundation::EnuCoordinateM velocity_enu;
+        if (!TryConvertEcefVelocityToEnu(input.platform_velocity_mps, reference->origin_lla,
+                                         &velocity_enu)) {
           return false;
         }
-        target_velocity_ecef_rel.x -= input.radar_velocity_ecef_mps.x;
-        target_velocity_ecef_rel.y -= input.radar_velocity_ecef_mps.y;
-        target_velocity_ecef_rel.z -= input.radar_velocity_ecef_mps.z;
+        platform_pose->velocity_mps =
+            ConvertEnuToRadarLocal(velocity_enu, reference->radar_attitude_deg);
+        break;
       }
-      return TryMakeTargetFromEcefWithEcefVelocityInternal(
-          external_target_id, input.target_position_ecef_m, target_velocity_ecef_rel, reference,
-          input.rcs, input.swerling_type, target);
-    }
-
-    case VelocityFrame::kEnu: {
-      oneq::foundation::EnuCoordinateM target_relative_enu_mps;
-      if (!TryResolveRadarRelativeVelocityFromEnu(input, reference, &target_relative_enu_mps)) {
-        return false;
+      case VelocityFrame::kEnu: {
+        oneq::foundation::EnuCoordinateM velocity_enu =
+            ToEnuFromEnuVector(input.platform_velocity_mps);
+        platform_pose->velocity_mps =
+            ConvertEnuToRadarLocal(velocity_enu, reference->radar_attitude_deg);
+        break;
       }
-      const oneq::foundation::Vector3f target_velocity_local_mps =
-          ConvertEnuToRadarLocal(target_relative_enu_mps, reference.radar_attitude_deg);
-      return TryMakeTargetFromEcefInternal(external_target_id, input.target_position_ecef_m,
-                                           reference, target_velocity_local_mps.x,
-                                           target_velocity_local_mps.y, target_velocity_local_mps.z,
-                                           input.rcs, input.swerling_type, target);
-    }
-
-    case VelocityFrame::kNed: {
-      oneq::foundation::EnuCoordinateM target_relative_enu_mps;
-      if (!TryResolveRadarRelativeVelocityFromNed(input, reference, &target_relative_enu_mps)) {
-        return false;
+      case VelocityFrame::kNed: {
+        oneq::foundation::EnuCoordinateM velocity_enu =
+            ToEnuFromNed(input.platform_velocity_mps);
+        platform_pose->velocity_mps =
+            ConvertEnuToRadarLocal(velocity_enu, reference->radar_attitude_deg);
+        break;
       }
-      const oneq::foundation::Vector3f target_velocity_local_mps =
-          ConvertEnuToRadarLocal(target_relative_enu_mps, reference.radar_attitude_deg);
-      return TryMakeTargetFromEcefInternal(external_target_id, input.target_position_ecef_m,
-                                           reference, target_velocity_local_mps.x,
-                                           target_velocity_local_mps.y, target_velocity_local_mps.z,
-                                           input.rcs, input.swerling_type, target);
     }
   }
 
-  return false;
+  platform_pose->attitude_deg = input.platform_attitude_deg;
+  return true;
+}
+
+bool TryMakeTargetFromExternalKinematics(
+    std::uint64_t external_target_id,
+    const TargetExternalKinematics& target_input,
+    const RadarLocalFrameReference& reference,
+    oneq::foundation::Vector3f radar_local_velocity_mps,
+    model::TargetFeature* target) {
+  if (target == nullptr || !IsFiniteVector3f(target_input.target_velocity_mps)) {
+    return false;
+  }
+
+  oneq::foundation::Vector3f target_position_local;
+  if (!TryConvertEcefToRadarLocalInternal(target_input.target_position_ecef_m, reference,
+                                           &target_position_local)) {
+    return false;
+  }
+
+  oneq::foundation::Vector3f target_velocity_local;
+  switch (target_input.target_velocity_frame) {
+    case VelocityFrame::kRadarLocal:
+      target_velocity_local = target_input.target_velocity_mps;
+      break;
+    case VelocityFrame::kEcef: {
+      if (!TryConvertEcefVelocityToRadarLocalInternal(
+              target_input.target_velocity_mps, reference, &target_velocity_local)) {
+        return false;
+      }
+      target_velocity_local.x -= radar_local_velocity_mps.x;
+      target_velocity_local.y -= radar_local_velocity_mps.y;
+      target_velocity_local.z -= radar_local_velocity_mps.z;
+      break;
+    }
+    case VelocityFrame::kEnu: {
+      oneq::foundation::EnuCoordinateM velocity_enu =
+          ToEnuFromEnuVector(target_input.target_velocity_mps);
+      target_velocity_local =
+          ConvertEnuToRadarLocal(velocity_enu, reference.radar_attitude_deg);
+      target_velocity_local.x -= radar_local_velocity_mps.x;
+      target_velocity_local.y -= radar_local_velocity_mps.y;
+      target_velocity_local.z -= radar_local_velocity_mps.z;
+      break;
+    }
+    case VelocityFrame::kNed: {
+      oneq::foundation::EnuCoordinateM velocity_enu =
+          ToEnuFromNed(target_input.target_velocity_mps);
+      target_velocity_local =
+          ConvertEnuToRadarLocal(velocity_enu, reference.radar_attitude_deg);
+      target_velocity_local.x -= radar_local_velocity_mps.x;
+      target_velocity_local.y -= radar_local_velocity_mps.y;
+      target_velocity_local.z -= radar_local_velocity_mps.z;
+      break;
+    }
+  }
+
+  *target = model::MakeTargetFromCartesian(
+      external_target_id, target_position_local.x, target_position_local.y,
+      target_position_local.z, target_velocity_local.x, target_velocity_local.y,
+      target_velocity_local.z, target_input.rcs, target_input.swerling_type);
+  return true;
 }
 
 }  // namespace session

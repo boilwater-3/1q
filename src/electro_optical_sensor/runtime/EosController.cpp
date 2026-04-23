@@ -80,7 +80,7 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
     PROJECT_LOG_DEBUG(
         "[EosController] cycle telemetry: cycle_index={} executed=true "
         "detections={} input_targets={} abort=kNone",
-        input.cycle_index, output_frame.detections.size(), input.scene_targets.size());
+        input.cycle_index, output_frame.detections.size(), input.scene.targets.size());
   }
 }
 

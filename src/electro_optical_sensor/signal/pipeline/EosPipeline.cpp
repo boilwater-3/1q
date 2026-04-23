@@ -76,7 +76,7 @@ float ComputeApertureAreaM2(float optical_aperture_m) {
 foundation::radiative_transfer::RadiativeTransferResult ComputePathRadiativeTransfer(
 		const EosPipelineConfig& config, const ::electro_optical_sensor::session::EosCycleInput& input,
 		float range_m, const environment::EosEnvironmentModelResult& environment_result) {
-	const float cloud_ratio = oneq::internal::numerics::Clamp01(input.cloud_coverage_ratio);
+	const float cloud_ratio = oneq::internal::numerics::Clamp01(input.environment.cloud_coverage_ratio);
 	const float aerosol_excess = std::max(0.0f, environment_result.aerosol_density_factor - 1.0f);
 	const float turbulence_excess =
 			std::max(0.0f, environment_result.turbulence_factor - 1.0f);
@@ -94,7 +94,7 @@ foundation::radiative_transfer::RadiativeTransferResult ComputePathRadiativeTran
 	transfer_inputs.model = config.radiative_transfer_model;
 	transfer_inputs.base_transmittance = derived_base_transmittance;
 	transfer_inputs.cloud_coverage_ratio =
-			oneq::internal::numerics::Clamp01(input.cloud_coverage_ratio);
+			oneq::internal::numerics::Clamp01(input.environment.cloud_coverage_ratio);
 	transfer_inputs.path_length_m = std::max(0.0f, range_m);
 	transfer_inputs.aerosol_density_factor =
 			std::max(1.0f, environment_result.aerosol_density_factor);
@@ -131,11 +131,11 @@ float ComputeSensorIntegrationTimeSec(const EosPipelineConfig& config,
 float ComputeVisiblePhotonNoiseEnhancement(const EosPipelineConfig& config,
 																					 const ::electro_optical_sensor::session::EosCycleInput& input) {
 	const float reference_irradiance = SafePositive(config.visible_reference_irradiance_w_m2, 800.0f);
-	const float observed_irradiance = std::max(0.0f, input.solar_irradiance_w_m2);
+	const float observed_irradiance = std::max(0.0f, input.environment.solar_irradiance_w_m2);
 	const float irradiance_ratio = std::max(observed_irradiance, 1.0e-3f) / reference_irradiance;
 	const float irradiance_mismatch = std::fabs(std::log2(std::max(irradiance_ratio, 1.0e-6f)));
 	const float cloud_factor =
-			1.0f + 0.5f * oneq::internal::numerics::Clamp01(input.cloud_coverage_ratio);
+			1.0f + 0.5f * oneq::internal::numerics::Clamp01(input.environment.cloud_coverage_ratio);
 	return oneq::internal::numerics::Clamp(
 			1.0f + 0.12f * irradiance_mismatch * cloud_factor, 1.0f, 2.5f);
 }
@@ -176,8 +176,8 @@ DetectionComputationContext BuildDetectionComputationContext(
 	environment_inputs.model_type = ToEnvironmentModelType(config.environment_model_type);
 	environment_inputs.platform_altitude_m = std::fabs(input.platform_pose.position_m.z);
 	environment_inputs.cloud_coverage_ratio =
-			oneq::internal::numerics::Clamp01(input.cloud_coverage_ratio);
-	environment_inputs.wind_speed_mps = std::max(0.0f, input.ambient_wind_speed_mps);
+			oneq::internal::numerics::Clamp01(input.environment.cloud_coverage_ratio);
+	environment_inputs.wind_speed_mps = std::max(0.0f, input.environment.ambient_wind_speed_mps);
 	const environment::EosEnvironmentModelResult environment_result =
 			environment_service->ResolveFactors(environment_inputs);
 	const foundation::radiative_transfer::RadiativeTransferResult transfer_result =
@@ -237,7 +237,7 @@ DetectionComputationContext BuildDetectionComputationContext(
 	context_values.noise_inputs.electrical_bandwidth_hz =
 			context_values.nep_inputs.electrical_bandwidth_hz;
 	context_values.noise_inputs.integration_time_sec = context_values.nep_inputs.integration_time_sec;
-	context_values.noise_inputs.cloud_coverage_ratio = input.cloud_coverage_ratio;
+	context_values.noise_inputs.cloud_coverage_ratio = input.environment.cloud_coverage_ratio;
 	context_values.noise_inputs.detector_area_cm2 = context_values.nep_inputs.detector_area_cm2;
 	context_values.noise_inputs.scene_complexity_factor =
 			std::max(1.0f, 1.0f + 0.3f * (1.0f - context_values.imaging_quality_gain));
@@ -246,9 +246,9 @@ DetectionComputationContext BuildDetectionComputationContext(
 	stray_light_inputs.enabled = config.enable_straylight_filter;
 	stray_light_inputs.target_azimuth_deg = target.azimuth_deg;
 	stray_light_inputs.target_elevation_deg = target.elevation_deg;
-	stray_light_inputs.sun_azimuth_deg = input.solar_azimuth_deg;
-	stray_light_inputs.sun_altitude_deg = input.solar_altitude_deg;
-	stray_light_inputs.cloud_coverage_ratio = input.cloud_coverage_ratio;
+	stray_light_inputs.sun_azimuth_deg = input.environment.solar_azimuth_deg;
+	stray_light_inputs.sun_altitude_deg = input.environment.solar_altitude_deg;
+	stray_light_inputs.cloud_coverage_ratio = input.environment.cloud_coverage_ratio;
 	stray_light_inputs.hood_inner_half_angle_deg = config.hood_inner_half_angle_deg;
 	stray_light_inputs.hood_outer_half_angle_deg = config.hood_outer_half_angle_deg;
 	stray_light_inputs.min_suppression_ratio = config.hood_min_suppression_ratio;
@@ -265,11 +265,11 @@ float ComputeInfraredSnrLinear(const ::electro_optical_sensor::session::EosTarge
 	infrared_inputs.wavelength_um = context_values.wavelength_center_um;
 	infrared_inputs.target_temperature_k = target.apparent_temperature_k;
 	infrared_inputs.emissivity = target.emissivity;
-	infrared_inputs.background_temperature_k = input.background_temperature_k;
+	infrared_inputs.background_temperature_k = input.environment.background_temperature_k;
 	const float infrared_delta_spectral_radiance =
 			foundation::radiometry::ComputeInfraredRadianceDelta(infrared_inputs);
 	const float background_spectral_radiance = foundation::radiometry::ComputePlanckRadiance(
-			context_values.wavelength_center_um, input.background_temperature_k);
+			context_values.wavelength_center_um, input.environment.background_temperature_k);
 	const float infrared_delta_radiance = foundation::radiometry::IntegrateSpectralRadianceOverBand(
 			infrared_delta_spectral_radiance, context_values.wavelength_bandwidth_um);
 	const float background_radiance = foundation::radiometry::IntegrateSpectralRadianceOverBand(
@@ -307,11 +307,11 @@ float ComputeVisibleSnrLinear(const EosPipelineConfig& config,
 															const ::electro_optical_sensor::session::EosCycleInput& input,
 															const DetectionComputationContext& context_values) {
 	foundation::radiometry::VisibleChannelInputs visible_inputs;
-	visible_inputs.target.solar_irradiance_w_m2 = input.solar_irradiance_w_m2;
-	visible_inputs.target.solar_altitude_deg = input.solar_altitude_deg;
-	visible_inputs.target.cloud_coverage_ratio = input.cloud_coverage_ratio;
+	visible_inputs.target.solar_irradiance_w_m2 = input.environment.solar_irradiance_w_m2;
+	visible_inputs.target.solar_altitude_deg = input.environment.solar_altitude_deg;
+	visible_inputs.target.cloud_coverage_ratio = input.environment.cloud_coverage_ratio;
 	visible_inputs.target.reflectance = target.reflectance;
-	visible_inputs.target.illumination = ToIlluminationCondition(input.day_night_type);
+	visible_inputs.target.illumination = ToIlluminationCondition(input.environment.day_night_type);
 	visible_inputs.background_reflectance = 0.12f;
 	visible_inputs.background_patch_area_m2 = 20.0f;
 	const foundation::radiometry::VisibleChannelResult visible_result =
@@ -432,8 +432,8 @@ extension::EosPipelineExecuteResult EosPipeline::Execute(
 	AdvanceScan(input.dt_sec);
 	output.scan_azimuth_deg = current_scan_azimuth_deg_;
 
-	for (std::size_t i = 0; i < input.scene_targets.size(); ++i) {
-		const ::electro_optical_sensor::session::EosTargetState& target = input.scene_targets[i];
+	for (std::size_t i = 0; i < input.scene.targets.size(); ++i) {
+		const ::electro_optical_sensor::session::EosTargetState& target = input.scene.targets[i];
 		if (!IsTargetInCurrentFov(target)) {
 			continue;
 		}
@@ -489,7 +489,7 @@ output::EosDetectionRecord EosPipeline::BuildDetectionRecord(
 
 	record.infrared_snr_linear = infrared_snr_linear;
 	record.visible_snr_linear = visible_snr_linear;
-	record.fused_snr_linear = ComputeFusedSnrLinear(config_.work_mode, input.day_night_type,
+	record.fused_snr_linear = ComputeFusedSnrLinear(config_.work_mode, input.environment.day_night_type,
 																									infrared_snr_linear, visible_snr_linear);
 	record.fused_snr_db = foundation::propagation::ComputeSnrDb(record.fused_snr_linear);
 	record.detected =

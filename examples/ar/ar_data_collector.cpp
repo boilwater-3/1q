@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
   input.platform_pose.attitude_deg.yaw_deg = 0.0f;
   input.platform_pose.attitude_deg.pitch_deg = 0.0f;
   input.platform_pose.attitude_deg.roll_deg = 0.0f;
-  input.target_features.push_back(
+  input.scene.targets.push_back(
       ar::model::MakeTargetFromCartesian(2001U, 1500.0f, 50.0f, 100.0f, 220.0f, 0.0f, 0.0f, 1.5f));
 
   const ar::session::RadarCycleResult result = session.StepWithResult(input);

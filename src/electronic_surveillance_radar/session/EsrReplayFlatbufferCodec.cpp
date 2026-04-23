@@ -54,7 +54,7 @@ std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
   flatbuffers::FlatBufferBuilder fbb(1024);
 
   std::vector<flatbuffers::Offset<esr::replay::EmitterTruthState>> emitters;
-  for (const auto& e : v.scene_emitters) {
+  for (const auto& e : v.scene.emitters) {
     auto id = fbb.CreateString(e.emitter_id);
     auto pose = BuildPose(fbb, e.pose);
     auto beam = esr::replay::CreateEmitterBeamState(fbb,
@@ -72,7 +72,7 @@ std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
     emitters.push_back(eb.Finish());
   }
 
-  const auto& env = v.environment_observation;
+  const auto& env = v.environment.observation;
   std::vector<flatbuffers::Offset<esr::replay::EsrJammerSource>> jammers;
   for (const auto& j : env.jammer_sources) {
     jammers.push_back(esr::replay::CreateEsrJammerSource(fbb,
@@ -107,7 +107,7 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
   const auto* fb = flatbuffers::GetRoot<esr::replay::EsrCycleInput>(bytes.data());
   out->cycle_index = fb->cycle_index(); out->dt_sec = fb->dt_sec();
   out->platform_pose = FromPose(fb->platform_pose());
-  out->scene_emitters.clear();
+  out->scene.emitters.clear();
   if (fb->scene_emitters()) {
     for (const auto* e : *fb->scene_emitters()) {
       model::EmitterTruthState ts{};
@@ -128,23 +128,23 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
         ts.beam_state.el_beamwidth_deg = e->beam_state()->el_beamwidth_deg();
         ts.beam_state.beam_state_valid = e->beam_state()->beam_state_valid();
       }
-      out->scene_emitters.push_back(ts);
+      out->scene.emitters.push_back(ts);
     }
   }
-  out->environment_observation = {};
+  out->environment.observation = {};
   if (fb->environment_observation()) {
     const auto* e = fb->environment_observation();
-    out->environment_observation.propagation_profile =
+    out->environment.observation.propagation_profile =
         static_cast<environment::EsrPropagationEnvironmentProfile>(e->propagation_profile());
-    out->environment_observation.clutter_density =
+    out->environment.observation.clutter_density =
         static_cast<environment::EsrClutterDensityLevel>(e->clutter_density());
-    out->environment_observation.spectrum_occupancy_ratio = e->spectrum_occupancy_ratio();
+    out->environment.observation.spectrum_occupancy_ratio = e->spectrum_occupancy_ratio();
     if (e->atmospheric_observation()) {
-      out->environment_observation.atmospheric_observation.relative_humidity_ratio =
+      out->environment.observation.atmospheric_observation.relative_humidity_ratio =
           e->atmospheric_observation()->relative_humidity_ratio();
-      out->environment_observation.atmospheric_observation.precipitation_rate_mmph =
+      out->environment.observation.atmospheric_observation.precipitation_rate_mmph =
           e->atmospheric_observation()->precipitation_rate_mmph();
-      out->environment_observation.atmospheric_observation.visibility_km =
+      out->environment.observation.atmospheric_observation.visibility_km =
           e->atmospheric_observation()->visibility_km();
     }
     if (e->jammer_sources()) {
@@ -154,7 +154,7 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
         js.active = j->active(); js.center_hz = j->center_hz();
         js.bandwidth_hz = j->bandwidth_hz(); js.power_w = j->power_w();
         js.deception_risk = j->deception_risk(); js.confidence = j->confidence();
-        out->environment_observation.jammer_sources.push_back(js);
+        out->environment.observation.jammer_sources.push_back(js);
       }
     }
   }

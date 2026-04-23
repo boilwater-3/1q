@@ -51,11 +51,11 @@ int main() {
   eos::::electro_optical_sensor::session::EosCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
-  input.solar_irradiance_w_m2 = 850.0f;
-  input.solar_altitude_deg = 45.0f;
-  input.cloud_coverage_ratio = 0.2f;
-  input.background_temperature_k = 289.0f;
-  input.day_night_type = eos::::electro_optical_sensor::session::DayNightType::kDay;
+  input.environment.solar_irradiance_w_m2 = 850.0f;
+  input.environment.solar_altitude_deg = 45.0f;
+  input.environment.cloud_coverage_ratio = 0.2f;
+  input.environment.background_temperature_k = 289.0f;
+  input.environment.day_night_type = eos::::electro_optical_sensor::session::DayNightType::kDay;
   input.platform_pose.position_m.z = 1200.0f;
 
   eos::session::EosTargetState target;
@@ -67,7 +67,7 @@ int main() {
   target.emissivity = 0.92f;
   target.reflectance = 0.38f;
   target.projected_area_m2 = 4.0f;
-  input.scene_targets.push_back(target);
+  input.scene.targets.push_back(target);
 
   // 5. Input validation
   const eos::session::ValidationIssueList issues =

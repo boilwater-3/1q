@@ -70,8 +70,8 @@ std::string EncodeEosCycleInput(const EosCycleInput& v) {
   flatbuffers::FlatBufferBuilder fbb(512);
 
   std::vector<flatbuffers::Offset<eos::replay::EosTargetState>> targets_vec;
-  targets_vec.reserve(v.scene_targets.size());
-  for (const auto& t : v.scene_targets) {
+  targets_vec.reserve(v.scene.targets.size());
+  for (const auto& t : v.scene.targets) {
     auto b = eos::replay::CreateEosTargetState(
         fbb, static_cast<std::uint32_t>(t.target_id), t.range_m, t.azimuth_deg, t.elevation_deg,
         t.apparent_temperature_k, t.emissivity, t.reflectance, t.projected_area_m2);
@@ -84,13 +84,13 @@ std::string EncodeEosCycleInput(const EosCycleInput& v) {
   b.add_cycle_index(v.cycle_index);
   b.add_dt_sec(v.dt_sec);
   b.add_platform_pose(pose);
-  b.add_solar_altitude_deg(v.solar_altitude_deg);
-  b.add_solar_azimuth_deg(v.solar_azimuth_deg);
-  b.add_solar_irradiance_w_m2(v.solar_irradiance_w_m2);
-  b.add_cloud_coverage_ratio(v.cloud_coverage_ratio);
-  b.add_ambient_wind_speed_mps(v.ambient_wind_speed_mps);
-  b.add_day_night_type(static_cast<int32_t>(v.day_night_type));
-  b.add_background_temperature_k(v.background_temperature_k);
+  b.add_solar_altitude_deg(v.environment.solar_altitude_deg);
+  b.add_solar_azimuth_deg(v.environment.solar_azimuth_deg);
+  b.add_solar_irradiance_w_m2(v.environment.solar_irradiance_w_m2);
+  b.add_cloud_coverage_ratio(v.environment.cloud_coverage_ratio);
+  b.add_ambient_wind_speed_mps(v.environment.ambient_wind_speed_mps);
+  b.add_day_night_type(static_cast<int32_t>(v.environment.day_night_type));
+  b.add_background_temperature_k(v.environment.background_temperature_k);
   b.add_scene_targets(targets);
   fbb.Finish(b.Finish());
   const uint8_t* buf = fbb.GetBufferPointer();
@@ -106,14 +106,15 @@ bool DecodeEosCycleInput(const std::string& bytes, EosCycleInput* out) {
   out->cycle_index = fb->cycle_index();
   out->dt_sec = fb->dt_sec();
   out->platform_pose = FromFbPoseState(fb->platform_pose());
-  out->solar_altitude_deg = fb->solar_altitude_deg();
-  out->solar_azimuth_deg = fb->solar_azimuth_deg();
-  out->solar_irradiance_w_m2 = fb->solar_irradiance_w_m2();
-  out->cloud_coverage_ratio = fb->cloud_coverage_ratio();
-  out->ambient_wind_speed_mps = fb->ambient_wind_speed_mps();
-  out->day_night_type = static_cast<::electro_optical_sensor::session::DayNightType>(fb->day_night_type());
-  out->background_temperature_k = fb->background_temperature_k();
-  out->scene_targets.clear();
+  out->environment.solar_altitude_deg = fb->solar_altitude_deg();
+  out->environment.solar_azimuth_deg = fb->solar_azimuth_deg();
+  out->environment.solar_irradiance_w_m2 = fb->solar_irradiance_w_m2();
+  out->environment.cloud_coverage_ratio = fb->cloud_coverage_ratio();
+  out->environment.ambient_wind_speed_mps = fb->ambient_wind_speed_mps();
+  out->environment.day_night_type =
+      static_cast<::electro_optical_sensor::session::DayNightType>(fb->day_night_type());
+  out->environment.background_temperature_k = fb->background_temperature_k();
+  out->scene.targets.clear();
   if (fb->scene_targets()) {
     for (const auto* t : *fb->scene_targets()) {
       EosTargetState ts{};
@@ -125,7 +126,7 @@ bool DecodeEosCycleInput(const std::string& bytes, EosCycleInput* out) {
       ts.emissivity = t->emissivity();
       ts.reflectance = t->reflectance();
       ts.projected_area_m2 = t->projected_area_m2();
-      out->scene_targets.push_back(ts);
+      out->scene.targets.push_back(ts);
     }
   }
   return true;

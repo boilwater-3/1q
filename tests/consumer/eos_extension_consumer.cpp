@@ -90,8 +90,8 @@ int main() {
   electro_optical_sensor::session::EosCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
-  input.solar_irradiance_w_m2 = 850.0f;
-  input.background_temperature_k = 289.0f;
+  input.environment.solar_irradiance_w_m2 = 850.0f;
+  input.environment.background_temperature_k = 289.0f;
 
   controller.RunOnce(input);
 

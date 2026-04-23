@@ -56,7 +56,7 @@ TEST(ArReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   target.position_y = 56.0f;
   target.position_z = 78.0f;
   target.target_swerling_type = 2;
-  input.target_features.push_back(target);
+  input.scene.targets.push_back(target);
 
   const std::string bytes = EncodeCycleInputFlatbuffer(input);
   ASSERT_FALSE(bytes.empty());
@@ -69,13 +69,13 @@ TEST(ArReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   EXPECT_FLOAT_EQ(decoded.platform_pose.position_m.x, 100.0f);
   EXPECT_FLOAT_EQ(decoded.platform_pose.velocity_mps.y, 20.0f);
   EXPECT_FLOAT_EQ(decoded.platform_pose.attitude_deg.yaw_deg, 45.0f);
-  ASSERT_EQ(decoded.target_features.size(), 1U);
-  EXPECT_EQ(decoded.target_features[0].external_target_id, 42U);
-  EXPECT_FLOAT_EQ(decoded.target_features[0].current_track_rcs, 3.0f);
-  EXPECT_FLOAT_EQ(decoded.target_features[0].range_m, 1234.5f);
-  EXPECT_TRUE(decoded.target_features[0].has_cartesian_position);
-  EXPECT_FLOAT_EQ(decoded.target_features[0].position_x, 1234.0f);
-  EXPECT_EQ(decoded.target_features[0].target_swerling_type, 2);
+  ASSERT_EQ(decoded.scene.targets.size(), 1U);
+  EXPECT_EQ(decoded.scene.targets[0].external_target_id, 42U);
+  EXPECT_FLOAT_EQ(decoded.scene.targets[0].current_track_rcs, 3.0f);
+  EXPECT_FLOAT_EQ(decoded.scene.targets[0].range_m, 1234.5f);
+  EXPECT_TRUE(decoded.scene.targets[0].has_cartesian_position);
+  EXPECT_FLOAT_EQ(decoded.scene.targets[0].position_x, 1234.0f);
+  EXPECT_EQ(decoded.scene.targets[0].target_swerling_type, 2);
 }
 
 TEST(ArReplayCodecRoundtripTest, CycleInputDecodesEmptyTargetList) {
@@ -86,7 +86,7 @@ TEST(ArReplayCodecRoundtripTest, CycleInputDecodesEmptyTargetList) {
   RadarCycleInput decoded;
   std::string error;
   ASSERT_TRUE(DecodeCycleInputFlatbuffer(bytes, &decoded, &error)) << error;
-  EXPECT_TRUE(decoded.target_features.empty());
+  EXPECT_TRUE(decoded.scene.targets.empty());
 }
 
 TEST(ArReplayCodecRoundtripTest, CycleInputRejectsEmptyPayload) {

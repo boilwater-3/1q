@@ -51,7 +51,7 @@ class DummyRadarContext : public extension::IRadarContext {
 
   extension::RadarContextRuntimeState CaptureRuntimeState() const override {
     extension::RadarContextRuntimeState state;
-    state.platform_attitude_deg = platform_attitude_;
+    state.platform_pose.attitude_deg = platform_attitude_;
     state.submitted_commands = commands_;
     state.latest_control_profile = control_profile_;
     state.has_latest_control_profile = has_control_profile_;
@@ -59,7 +59,7 @@ class DummyRadarContext : public extension::IRadarContext {
   }
 
   void RestoreRuntimeState(const extension::RadarContextRuntimeState& state) override {
-    platform_attitude_ = state.platform_attitude_deg;
+    platform_attitude_ = state.platform_pose.attitude_deg;
     commands_ = state.submitted_commands;
     control_profile_ = state.latest_control_profile;
     has_control_profile_ = state.has_latest_control_profile;

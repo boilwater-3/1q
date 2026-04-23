@@ -92,7 +92,7 @@ int main() {
   esr::session::EsrCycleInput input;
   input.dt_sec = 1.0f;
   input.platform_pose = platform_pose;
-  input.scene_emitters.push_back(emitter);
+  input.scene.emitters.push_back(emitter);
 
   const esr::session::ValidationIssueList issues = esr::session::ValidateEsrCycleInput(input);
   if (esr::session::HasValidationError(issues)) {

@@ -52,13 +52,13 @@ EosCycleInput MakeValidInput() {
   EosCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 0.5f;
-  input.solar_altitude_deg = 42.0f;
-  input.solar_azimuth_deg = 165.0f;
-  input.solar_irradiance_w_m2 = 900.0f;
-  input.cloud_coverage_ratio = 0.25f;
-  input.day_night_type = DayNightType::kDay;
-  input.background_temperature_k = 287.0f;
-  input.scene_targets.push_back(MakeValidTarget());
+  input.environment.solar_altitude_deg = 42.0f;
+  input.environment.solar_azimuth_deg = 165.0f;
+  input.environment.solar_irradiance_w_m2 = 900.0f;
+  input.environment.cloud_coverage_ratio = 0.25f;
+  input.environment.day_night_type = DayNightType::kDay;
+  input.environment.background_temperature_k = 287.0f;
+  input.scene.targets.push_back(MakeValidTarget());
   return input;
 }
 
@@ -118,7 +118,7 @@ TEST(EosInputValidationTest, NonFinitePlatformNumericFieldIsReportedAsError) {
 
 TEST(EosInputValidationTest, InvalidTargetEmissivityIsReportedAsError) {
   EosCycleInput input = MakeValidInput();
-  input.scene_targets[0].emissivity = 1.2f;
+  input.scene.targets[0].emissivity = 1.2f;
 
   const ValidationIssueList issues = ValidateEosCycleInput(input);
 
@@ -128,8 +128,8 @@ TEST(EosInputValidationTest, InvalidTargetEmissivityIsReportedAsError) {
 
 TEST(EosInputValidationTest, InconsistentTargetEnergyBalanceIsReportedAsWarning) {
   EosCycleInput input = MakeValidInput();
-  input.scene_targets[0].emissivity = 0.8f;
-  input.scene_targets[0].reflectance = 0.4f;
+  input.scene.targets[0].emissivity = 0.8f;
+  input.scene.targets[0].reflectance = 0.4f;
 
   const ValidationIssueList issues = ValidateEosCycleInput(input);
 
@@ -139,7 +139,7 @@ TEST(EosInputValidationTest, InconsistentTargetEnergyBalanceIsReportedAsWarning)
 
 TEST(EosInputValidationTest, InvalidAmbientWindSpeedIsReportedAsError) {
   EosCycleInput input = MakeValidInput();
-  input.ambient_wind_speed_mps = -1.0f;
+  input.environment.ambient_wind_speed_mps = -1.0f;
 
   const ValidationIssueList issues = ValidateEosCycleInput(input);
 
@@ -159,11 +159,11 @@ TEST(EosInputValidationTest, SessionProducesInFovDetectionsOnly) {
 
   session::EosSession eos_session = session::EosSessionFactory::Create(config);
   EosCycleInput input = MakeValidInput();
-  input.scene_targets[0].azimuth_deg = -3.0f;
+  input.scene.targets[0].azimuth_deg = -3.0f;
   EosTargetState out_of_fov_target = MakeValidTarget();
   out_of_fov_target.target_id = 1002U;
   out_of_fov_target.azimuth_deg = 30.0f;
-  input.scene_targets.push_back(out_of_fov_target);
+  input.scene.targets.push_back(out_of_fov_target);
 
   const ::electro_optical_sensor::session::EosCycleResult result = eos_session.StepWithResult(input);
 
@@ -175,7 +175,7 @@ TEST(EosInputValidationTest, SessionProducesInFovDetectionsOnly) {
 TEST(EosInputValidationTest, SessionReturnsValidationErrorsForInvalidInput) {
   session::EosSession eos_session = session::EosSessionFactory::Create();
   EosCycleInput input = MakeValidInput();
-  input.scene_targets[0].range_m = 0.0f;
+  input.scene.targets[0].range_m = 0.0f;
 
   const ::electro_optical_sensor::session::EosCycleResult result = eos_session.StepWithResult(input);
 
@@ -216,9 +216,9 @@ TEST(EosInputValidationTest, RuntimeConfigBuilderCanTightenDetectionThresholdAtR
   session::EosSession eos_session = session::EosSessionFactory::Create(config);
   EosCycleInput input = MakeValidInput();
   input.platform_pose.position_m.z = 1200.0f;
-  input.scene_targets[0].range_m = 1700.0f;
+  input.scene.targets[0].range_m = 1700.0f;
   // Keep target aligned to first-cycle scan azimuth so this test isolates threshold behavior.
-  input.scene_targets[0].azimuth_deg = ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec);
+  input.scene.targets[0].azimuth_deg = ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec);
 
   const ::electro_optical_sensor::session::EosCycleResult baseline = eos_session.StepWithResult(input);
   ASSERT_FALSE(baseline.has_validation_error);
@@ -232,7 +232,7 @@ TEST(EosInputValidationTest, RuntimeConfigBuilderCanTightenDetectionThresholdAtR
   eos_session.ApplyRuntimeConfig(patch);
 
   input.cycle_index += 1U;
-  input.scene_targets[0].azimuth_deg =
+  input.scene.targets[0].azimuth_deg =
       ResolveNextScanAzimuthDeg(config, baseline.output_frame.scan_azimuth_deg, input.dt_sec);
   const ::electro_optical_sensor::session::EosCycleResult updated = eos_session.StepWithResult(input);
   EXPECT_FALSE(updated.has_validation_error);
@@ -256,7 +256,7 @@ TEST(EosInputValidationTest, RuntimePatchPreservesScanPhaseUnlessScanRateChanges
   session::EosSession eos_session = session::EosSessionFactory::Create(config);
   EosCycleInput input = MakeValidInput();
   input.dt_sec = 0.5f;
-  input.scene_targets[0].azimuth_deg = ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec);
+  input.scene.targets[0].azimuth_deg = ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec);
 
   const ::electro_optical_sensor::session::EosCycleResult first = eos_session.StepWithResult(input);
   ASSERT_FALSE(first.has_validation_error);
@@ -292,7 +292,7 @@ TEST(EosInputValidationTest, RuntimePatchPreservesScanPhaseUnlessScanRateChanges
 
 TEST(EosInputValidationTest, NonFiniteSolarAnglesAreReportedAsError) {
   EosCycleInput input = MakeValidInput();
-  input.solar_altitude_deg = std::numeric_limits<float>::quiet_NaN();
+  input.environment.solar_altitude_deg = std::numeric_limits<float>::quiet_NaN();
 
   const ValidationIssueList issues = ValidateEosCycleInput(input);
 
@@ -302,7 +302,7 @@ TEST(EosInputValidationTest, NonFiniteSolarAnglesAreReportedAsError) {
 
 TEST(EosInputValidationTest, SolarAltitudeOutOfRangeIsReportedAsError) {
   EosCycleInput input = MakeValidInput();
-  input.solar_altitude_deg = 100.0f;
+  input.environment.solar_altitude_deg = 100.0f;
 
   const ValidationIssueList issues = ValidateEosCycleInput(input);
 
@@ -312,8 +312,8 @@ TEST(EosInputValidationTest, SolarAltitudeOutOfRangeIsReportedAsError) {
 
 TEST(EosInputValidationTest, InconsistentDayNightTypeIsReportedAsWarning) {
   EosCycleInput input = MakeValidInput();
-  input.day_night_type = DayNightType::kNight;
-  input.solar_altitude_deg = 20.0f;
+  input.environment.day_night_type = DayNightType::kNight;
+  input.environment.solar_altitude_deg = 20.0f;
 
   const ValidationIssueList issues = ValidateEosCycleInput(input);
 
@@ -332,7 +332,7 @@ TEST(EosInputValidationTest, RuntimePatchRejectsInvalidFrameRateHz) {
 
   session::EosSession eos_session = session::EosSessionFactory::Create(config);
   EosCycleInput input = MakeValidInput();
-  input.scene_targets[0].azimuth_deg = ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec);
+  input.scene.targets[0].azimuth_deg = ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec);
 
   const ::electro_optical_sensor::session::EosCycleResult baseline = eos_session.StepWithResult(input);
   ASSERT_FALSE(baseline.has_validation_error);
@@ -342,7 +342,7 @@ TEST(EosInputValidationTest, RuntimePatchRejectsInvalidFrameRateHz) {
   eos_session.ApplyRuntimeConfig(patch);
 
   input.cycle_index += 1U;
-  input.scene_targets[0].azimuth_deg =
+  input.scene.targets[0].azimuth_deg =
       ResolveNextScanAzimuthDeg(config, baseline.output_frame.scan_azimuth_deg, input.dt_sec);
   const ::electro_optical_sensor::session::EosCycleResult after_patch = eos_session.StepWithResult(input);
   EXPECT_FALSE(after_patch.has_validation_error);
@@ -370,7 +370,7 @@ TEST(EosInputValidationTest, RuntimePatchRejectsInvalidScanRate) {
 
   session::EosSession eos_session = session::EosSessionFactory::Create(config);
   EosCycleInput input = MakeValidInput();
-  input.scene_targets[0].azimuth_deg = ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec);
+  input.scene.targets[0].azimuth_deg = ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec);
 
   const ::electro_optical_sensor::session::EosCycleResult baseline = eos_session.StepWithResult(input);
   ASSERT_FALSE(baseline.has_validation_error);
@@ -381,7 +381,7 @@ TEST(EosInputValidationTest, RuntimePatchRejectsInvalidScanRate) {
   eos_session.ApplyRuntimeConfig(patch);
 
   input.cycle_index += 1U;
-  input.scene_targets[0].azimuth_deg =
+  input.scene.targets[0].azimuth_deg =
       ResolveNextScanAzimuthDeg(config, baseline_azimuth, input.dt_sec);
   const ::electro_optical_sensor::session::EosCycleResult after_patch = eos_session.StepWithResult(input);
   EXPECT_FALSE(after_patch.has_validation_error);
@@ -402,8 +402,8 @@ TEST(EosInputValidationTest, RuntimePatchIsAtomicWhenAnyFieldIsInvalid) {
   session::EosSession eos_session = session::EosSessionFactory::Create(config);
   EosCycleInput input = MakeValidInput();
   input.platform_pose.position_m.z = 1200.0f;
-  input.scene_targets[0].range_m = 1700.0f;
-  input.scene_targets[0].azimuth_deg = ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec);
+  input.scene.targets[0].range_m = 1700.0f;
+  input.scene.targets[0].azimuth_deg = ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec);
 
   const ::electro_optical_sensor::session::EosCycleResult baseline = eos_session.StepWithResult(input);
   ASSERT_FALSE(baseline.has_validation_error);
@@ -417,7 +417,7 @@ TEST(EosInputValidationTest, RuntimePatchIsAtomicWhenAnyFieldIsInvalid) {
   eos_session.ApplyRuntimeConfig(patch);
 
   input.cycle_index += 1U;
-  input.scene_targets[0].azimuth_deg =
+  input.scene.targets[0].azimuth_deg =
       ResolveNextScanAzimuthDeg(config, baseline.output_frame.scan_azimuth_deg, input.dt_sec);
   const ::electro_optical_sensor::session::EosCycleResult after_patch = eos_session.StepWithResult(input);
   ASSERT_FALSE(after_patch.has_validation_error);

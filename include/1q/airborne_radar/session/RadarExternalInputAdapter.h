@@ -36,21 +36,26 @@ enum class VelocityFrame {
 };
 
 /**
- * @brief 外部目标运动学输入（统一入口）。
+ * @brief 外部平台运动学输入（对齐 EOS/ESR 两步模式）。
  */
-struct ONEQ_API TargetExternalKinematicsInput {
-  oneq::foundation::EcefCoordinateM radar_position_ecef_m{};       /**< 雷达位置（ECEF，m） */
-  oneq::foundation::EcefCoordinateM target_position_ecef_m{};      /**< 目标位置（ECEF，m） */
-  oneq::foundation::Vector3f target_velocity_mps{};                /**< 目标速度（单位：m/s） */
-  VelocityFrame target_velocity_frame{VelocityFrame::kRadarLocal}; /**< 目标速度参考系 */
+struct ONEQ_API RadarExternalPoseInput {
+  oneq::foundation::EcefCoordinateM platform_position_ecef_m{};      /**< 平台位置（ECEF，m） */
+  oneq::foundation::Vector3f platform_velocity_mps{};                /**< 平台速度（单位：m/s） */
+  bool has_platform_velocity_ecef_mps{false};                        /**< 是否提供平台速度 */
+  VelocityFrame platform_velocity_frame{VelocityFrame::kEcef};       /**< 平台速度参考系 */
+  oneq::foundation::EulerAnglesDeg platform_attitude_deg{};          /**< 平台姿态角（ENU->Body，deg） */
+  oneq::foundation::EulerAnglesDeg radar_mount_angles_deg{};         /**< 雷达安装角（Body->Radar，deg） */
+};
 
-  bool has_radar_velocity_ecef_mps{false};              /**< 是否提供雷达自身 ECEF 速度 */
-  oneq::foundation::Vector3f radar_velocity_ecef_mps{}; /**< 雷达自身 ECEF 速度（m/s） */
-
-  model::EulerAnglesDeg platform_attitude_deg{};  /**< 平台姿态角（ENU->Body，deg） */
-  model::EulerAnglesDeg radar_mount_angles_deg{}; /**< 雷达安装角（Body->Radar，deg） */
-  float rcs{1.0f};                                /**< 目标 RCS（m^2） */
-  int swerling_type{0};                           /**< 目标起伏模型 */
+/**
+ * @brief 外部目标运动学输入（纯目标字段）。
+ */
+struct ONEQ_API TargetExternalKinematics {
+  oneq::foundation::EcefCoordinateM target_position_ecef_m{};        /**< 目标位置（ECEF，m） */
+  oneq::foundation::Vector3f target_velocity_mps{};                  /**< 目标速度（单位：m/s） */
+  VelocityFrame target_velocity_frame{VelocityFrame::kRadarLocal};   /**< 目标速度参考系 */
+  float rcs{1.0f};                                                   /**< 目标 RCS（m^2） */
+  int swerling_type{0};                                              /**< 目标起伏模型 */
 };
 
 /**
@@ -65,19 +70,35 @@ ONEQ_API oneq::foundation::EulerAnglesDeg ComposeRadarAttitudeDeg(
     const model::EulerAnglesDeg& radar_mount_angles_deg);
 
 /**
- * @brief 统一入口：由外部 ECEF 位置和多参考系速度构造 TargetFeature。
+ * @brief 两步模式——第一步：将外部平台运动学转换为雷达局部位姿。
+ * @param[in] input 外部平台运动学输入。
+ * @param[out] reference 输出雷达局部参考系信息，用于后续目标转换。
+ * @param[out] platform_pose 输出雷达局部平台位姿。
+ * @return 成功返回 true，输入非法或输出为空返回 false。
+ */
+ONEQ_API bool TryMakeRadarPoseFromExternalKinematics(
+    const RadarExternalPoseInput& input,
+    RadarLocalFrameReference* reference,
+    oneq::foundation::PoseState* platform_pose);
+
+/**
+ * @brief 两步模式——第二步：使用预计算的参考系将外部目标转换为 TargetFeature。
  * @param[in] external_target_id 外部目标标识符。
- * @param[in] input 外部运动学输入。
+ * @param[in] target_input 目标运动学输入（纯目标字段）。
+ * @param[in] reference 第一步产出的雷达局部参考系。
+ * @param[in] radar_local_velocity_mps 雷达局部速度（用于计算相对速度）。
  * @param[out] target 输出目标特征，可为 nullptr。
  * @return 成功返回 true，输入非法或输出为空返回 false。
  *
- * @note 当 `has_radar_velocity_ecef_mps=true` 且速度输入为 ECEF/ENU/NED 时，
- *       会先扣除雷达自身速度，再转换到雷达局部坐标：
- *       `v_rel = v_target - v_radar`。
+ * @note 当 `radar_local_velocity_mps` 非零且目标速度参考系非 kRadarLocal 时，
+ *       在雷达局部坐标系内扣除雷达自身速度：`v_rel = v_target_local - v_radar_local`。
  */
-ONEQ_API bool TryMakeTargetFromExternalKinematics(std::uint64_t external_target_id,
-                                                  const TargetExternalKinematicsInput& input,
-                                                  model::TargetFeature* target);
+ONEQ_API bool TryMakeTargetFromExternalKinematics(
+    std::uint64_t external_target_id,
+    const TargetExternalKinematics& target_input,
+    const RadarLocalFrameReference& reference,
+    oneq::foundation::Vector3f radar_local_velocity_mps,
+    model::TargetFeature* target);
 
 }  // namespace session
 }  // namespace airborne_radar

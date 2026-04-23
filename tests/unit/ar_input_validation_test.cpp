@@ -254,7 +254,7 @@ TEST(RadarInputValidationTest, NegativeRcsIsWarning) {
 TEST(RadarInputValidationTest, PositiveDtIsValid) {
   session::RadarCycleInput input;
   input.dt_sec = 0.5f;
-  input.target_features.push_back(MakeValidTarget());
+  input.scene.targets.push_back(MakeValidTarget());
 
   const auto issues = ValidateRadarCycleInput(input);
   EXPECT_FALSE(HasValidationError(issues));
@@ -266,7 +266,7 @@ TEST(RadarInputValidationTest, PositiveDtIsValid) {
 TEST(RadarInputValidationTest, ZeroDtIsError) {
   session::RadarCycleInput input;
   input.dt_sec = 0.0f;
-  input.target_features.push_back(MakeValidTarget());
+  input.scene.targets.push_back(MakeValidTarget());
 
   const auto issues = ValidateRadarCycleInput(input);
   const session::ValidationIssue* issue =
@@ -280,7 +280,7 @@ TEST(RadarInputValidationTest, ZeroDtIsError) {
 TEST(RadarInputValidationTest, NegativeDtIsError) {
   session::RadarCycleInput input;
   input.dt_sec = -1.0f;
-  input.target_features.push_back(MakeValidTarget());
+  input.scene.targets.push_back(MakeValidTarget());
 
   const auto issues = ValidateRadarCycleInput(input);
   const session::ValidationIssue* issue =
@@ -294,7 +294,7 @@ TEST(RadarInputValidationTest, NegativeDtIsError) {
 TEST(RadarInputValidationTest, NanDtIsError) {
   session::RadarCycleInput input;
   input.dt_sec = std::numeric_limits<float>::quiet_NaN();
-  input.target_features.push_back(MakeValidTarget());
+  input.scene.targets.push_back(MakeValidTarget());
 
   const auto issues = ValidateRadarCycleInput(input);
   EXPECT_TRUE(HasValidationError(issues));
@@ -305,7 +305,7 @@ TEST(RadarInputValidationTest, NanDtIsError) {
 TEST(RadarInputValidationTest, InfDtIsError) {
   session::RadarCycleInput input;
   input.dt_sec = std::numeric_limits<float>::infinity();
-  input.target_features.push_back(MakeValidTarget());
+  input.scene.targets.push_back(MakeValidTarget());
 
   const auto issues = ValidateRadarCycleInput(input);
   EXPECT_TRUE(HasValidationError(issues));
@@ -317,7 +317,7 @@ TEST(RadarInputValidationTest, NonFinitePlatformPoseIsError) {
   session::RadarCycleInput input;
   input.dt_sec = 1.0f;
   input.platform_pose.attitude_deg.yaw_deg = std::numeric_limits<float>::quiet_NaN();
-  input.target_features.push_back(MakeValidTarget());
+  input.scene.targets.push_back(MakeValidTarget());
 
   const auto issues = ValidateRadarCycleInput(input);
   EXPECT_TRUE(HasValidationError(issues));
@@ -332,8 +332,8 @@ TEST(RadarInputValidationTest, NonFinitePlatformPoseIsError) {
 TEST(RadarInputValidationTest, FullyValidInputProducesNoIssues) {
   session::RadarCycleInput input;
   input.dt_sec = 0.5f;
-  input.target_features.push_back(MakeValidTarget(101u));
-  input.target_features.push_back(MakeValidTarget(102u));
+  input.scene.targets.push_back(MakeValidTarget(101u));
+  input.scene.targets.push_back(MakeValidTarget(102u));
 
   const auto issues = ValidateRadarCycleInput(input);
   EXPECT_TRUE(issues.empty());

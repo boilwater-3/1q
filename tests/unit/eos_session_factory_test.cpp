@@ -97,11 +97,11 @@ EosCycleInput MakeValidInput(std::uint32_t cycle_index) {
   EosCycleInput input;
   input.cycle_index = cycle_index;
   input.dt_sec = 1.0f;
-  input.solar_irradiance_w_m2 = 800.0f;
-  input.solar_altitude_deg = 45.0f;
-  input.cloud_coverage_ratio = 0.2f;
-  input.background_temperature_k = 289.0f;
-  input.day_night_type = ::electro_optical_sensor::session::DayNightType::kDay;
+  input.environment.solar_irradiance_w_m2 = 800.0f;
+  input.environment.solar_altitude_deg = 45.0f;
+  input.environment.cloud_coverage_ratio = 0.2f;
+  input.environment.background_temperature_k = 289.0f;
+  input.environment.day_night_type = ::electro_optical_sensor::session::DayNightType::kDay;
   return input;
 }
 
@@ -125,7 +125,7 @@ TEST(EosSessionFactoryTest, CreateWithEnvironmentServiceUsesInjectedService) {
                                                                        environment_service);
 
   EosCycleInput input = MakeValidInput(9U);
-  input.scene_targets.clear();
+  input.scene.targets.clear();
   EosTargetState target;
   target.target_id = 7U;
   target.range_m = 1000.0f;
@@ -135,7 +135,7 @@ TEST(EosSessionFactoryTest, CreateWithEnvironmentServiceUsesInjectedService) {
   target.emissivity = 0.9f;
   target.reflectance = 0.2f;
   target.projected_area_m2 = 4.0f;
-  input.scene_targets.push_back(target);
+  input.scene.targets.push_back(target);
 
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
 
@@ -149,7 +149,7 @@ TEST(EosSessionFactoryTest, CreateUsesDefaultPipelineAndProducesResult) {
   EosSession session = EosSessionFactory::Create(MakeSessionConfig());
 
   EosCycleInput input = MakeValidInput(10U);
-  input.scene_targets.clear();
+  input.scene.targets.clear();
 
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
 
