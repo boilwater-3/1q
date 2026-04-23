@@ -50,7 +50,7 @@ flatbuffers::Offset<fb::PoseState> EncodePoseState(flatbuffers::FlatBufferBuilde
 }
 
 flatbuffers::Offset<fb::TargetFeature> EncodeTargetFeature(flatbuffers::FlatBufferBuilder* builder,
-                                                           const model::TargetFeature& value) {
+                                                           const RadarSceneTarget& value) {
   return fb::CreateTargetFeature(
       *builder, value.external_target_id,
       EncodeVector3(builder, value.current_track_velocity_x, value.current_track_velocity_y,
@@ -91,8 +91,8 @@ oneq::foundation::PoseState DecodePoseState(const fb::PoseState* value) {
   return result;
 }
 
-model::TargetFeature DecodeTargetFeature(const fb::TargetFeature* value) {
-  model::TargetFeature result;
+RadarSceneTarget DecodeTargetFeature(const fb::TargetFeature* value) {
+  RadarSceneTarget result;
   if (value != nullptr) {
     result.external_target_id = value->external_target_id();
     const oneq::foundation::Vector3f velocity = DecodeVector3(value->velocity_mps());

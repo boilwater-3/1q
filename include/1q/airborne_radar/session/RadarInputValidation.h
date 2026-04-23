@@ -10,8 +10,8 @@
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/model/TargetFeature.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
+#include "1q/airborne_radar/session/RadarSceneInput.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
@@ -75,7 +75,7 @@ ONEQ_API ValidationIssueList ValidateRadarCycleInput(const RadarCycleInput& inpu
  * @return 按发现顺序返回的校验问题列表。
  */
 ONEQ_API ValidationIssueList
-ValidateTargetFeatures(const model::TargetFeatureList& targets);
+ValidateTargetFeatures(const RadarSceneTargetList& targets);
 
 /**
  * @brief 判断是否包含 error 级别问题。

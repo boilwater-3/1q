@@ -54,7 +54,7 @@ void ValidatePlatformPose(const oneq::foundation::PoseState& platform_pose,
  * @param target 目标特征。
  * @return `has_cartesian_position` 为 `true` 时返回 `true`。
  */
-bool HasCartesianPosition(const model::TargetFeature& target) {
+bool HasCartesianPosition(const RadarSceneTarget& target) {
   return target.has_cartesian_position;
 }
 
@@ -64,7 +64,7 @@ bool HasCartesianPosition(const model::TargetFeature& target) {
  * @param target_index 目标索引。
  * @param[out] issues 输出问题列表。
  */
-void ValidateSingleTarget(const model::TargetFeature& target, std::size_t target_index,
+void ValidateSingleTarget(const RadarSceneTarget& target, std::size_t target_index,
                           ValidationIssueList* issues) {
   if (issues == nullptr) {
     return;
@@ -119,7 +119,7 @@ ValidationIssueList ValidateRadarCycleInput(const RadarCycleInput& input) {
   return issues;
 }
 
-ValidationIssueList ValidateTargetFeatures(const model::TargetFeatureList& targets) {
+ValidationIssueList ValidateTargetFeatures(const RadarSceneTargetList& targets) {
   ValidationIssueList issues;
   std::unordered_map<std::uint64_t, std::size_t> first_seen_target_index;
 

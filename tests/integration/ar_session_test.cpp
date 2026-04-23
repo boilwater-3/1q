@@ -31,13 +31,39 @@ namespace tests {
 
 namespace {
 
+model::TargetFeature ToModelTarget(const session::RadarSceneTarget& target) {
+  model::TargetFeature out;
+  out.external_target_id = target.external_target_id;
+  out.current_track_velocity_x = target.current_track_velocity_x;
+  out.current_track_velocity_y = target.current_track_velocity_y;
+  out.current_track_velocity_z = target.current_track_velocity_z;
+  out.current_track_speed = target.current_track_speed;
+  out.current_track_rcs = target.current_track_rcs;
+  out.range_m = target.range_m;
+  out.has_cartesian_position = target.has_cartesian_position;
+  out.position_x = target.position_x;
+  out.position_y = target.position_y;
+  out.position_z = target.position_z;
+  out.target_swerling_type = target.target_swerling_type;
+  return out;
+}
+
+model::TargetFeatureList ToModelTargets(const session::RadarSceneTargetList& targets) {
+  model::TargetFeatureList out;
+  out.reserve(targets.size());
+  for (std::size_t i = 0; i < targets.size(); ++i) {
+    out.push_back(ToModelTarget(targets[i]));
+  }
+  return out;
+}
+
 class ScenarioRadarContext : public extension::IRadarContext {
  public:
   explicit ScenarioRadarContext(model::TargetFeatureList target_features = {})
       : target_features_(std::move(target_features)) {}
 
   void BeginCycle(const session::RadarCycleInput& input) override {
-    target_features_ = input.scene.targets;
+    target_features_ = ToModelTargets(input.scene.targets);
     platform_attitude_deg_.yaw_deg = input.platform_pose.attitude_deg.yaw_deg;
     platform_attitude_deg_.pitch_deg = input.platform_pose.attitude_deg.pitch_deg;
     platform_attitude_deg_.roll_deg = input.platform_pose.attitude_deg.roll_deg;

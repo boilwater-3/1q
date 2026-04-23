@@ -130,7 +130,7 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) 
   session::RadarCycleInput input;
   input.dt_sec = 1.0f;
 
-  model::TargetFeature target;
+  session::RadarSceneTarget target;
   target.external_target_id = 2001U;
   target.current_track_velocity_x = 120.0f;
   target.current_track_velocity_y = 0.0f;
@@ -244,7 +244,7 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
     session::RadarCycleInput input;
     input.dt_sec = 1.0f;
 
-    model::TargetFeature target;
+    session::RadarSceneTarget target;
     target.external_target_id = 2002U;
     target.current_track_velocity_x = 80.0f;
     target.current_track_velocity_y = 1.0f;

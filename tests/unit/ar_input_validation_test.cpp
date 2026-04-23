@@ -14,7 +14,6 @@
 #include <limits>
 #include <vector>
 
-#include "1q/airborne_radar/model/TargetFeature.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarInputValidation.h"
 
@@ -30,8 +29,8 @@ using session::ValidationSeverity;
 namespace {
 
 // 构造一个最简有效目标（位于 X 轴方向 1000m，有速度有 ID）
-model::TargetFeature MakeValidTarget(std::uint64_t id = 1u) {
-  model::TargetFeature t(100.0f, 0.0f, 0.0f, 1.0f);
+session::RadarSceneTarget MakeValidTarget(std::uint64_t id = 1u) {
+  session::RadarSceneTarget t(100.0f, 0.0f, 0.0f, 1.0f);
   t.external_target_id = id;
   t.has_cartesian_position = true;
   t.position_x = 1000.0f;
@@ -60,7 +59,7 @@ const session::ValidationIssue* FindIssue(
 
 /// @brief 目标位于原点 (0,0,0) 且 range_m <= 0 → 必须报 kMissingRangeAndCartesianPosition。
 TEST(RadarInputValidationTest, OriginWithNoRangeIsError) {
-  model::TargetFeature target;
+  session::RadarSceneTarget target;
   target.external_target_id = 1u;
   target.has_cartesian_position = false;
   target.position_x = 0.0f;
@@ -77,7 +76,7 @@ TEST(RadarInputValidationTest, OriginWithNoRangeIsError) {
 
 /// @brief 目标位于原点 (0,0,0) 但 range_m > 0 → 斜距有效，不报位置缺失错误。
 TEST(RadarInputValidationTest, OriginWithPositiveRangeIsValid) {
-  model::TargetFeature target;
+  session::RadarSceneTarget target;
   target.external_target_id = 1u;
   target.has_cartesian_position = false;
   target.position_x = 0.0f;
@@ -94,7 +93,7 @@ TEST(RadarInputValidationTest, OriginWithPositiveRangeIsValid) {
 
 /// @brief 目标标记了 has_cartesian_position=true 且 range_m <= 0 → 不报位置缺失错误。
 TEST(RadarInputValidationTest, FlaggedCartesianPositionWithNonPositiveRangeIsValid) {
-  model::TargetFeature target;
+  session::RadarSceneTarget target;
   target.external_target_id = 1u;
   target.has_cartesian_position = true;
   target.position_x = 3000.0f;  // 有笛卡尔位置
@@ -110,7 +109,7 @@ TEST(RadarInputValidationTest, FlaggedCartesianPositionWithNonPositiveRangeIsVal
 
 /// @brief 非零坐标但 has_cartesian_position=false 且 range_m <= 0 → 仍视为缺失位置并报错。
 TEST(RadarInputValidationTest, NonZeroCoordinatesWithoutPositionFlagIsError) {
-  model::TargetFeature target;
+  session::RadarSceneTarget target;
   target.external_target_id = 1u;
   target.has_cartesian_position = false;
   target.position_x = 3000.0f;
@@ -127,7 +126,7 @@ TEST(RadarInputValidationTest, NonZeroCoordinatesWithoutPositionFlagIsError) {
 
 /// @brief 原点 (0,0,0) 且 has_cartesian_position=true 时，即使 range_m<=0 也视为有效位置。
 TEST(RadarInputValidationTest, OriginWithPositionFlagAndNoRangeIsValid) {
-  model::TargetFeature target;
+  session::RadarSceneTarget target;
   target.external_target_id = 1u;
   target.has_cartesian_position = true;
   target.position_x = 0.0f;
@@ -144,7 +143,7 @@ TEST(RadarInputValidationTest, OriginWithPositionFlagAndNoRangeIsValid) {
 
 /// @brief 目标 range_m 为负值且无有效笛卡尔位置标志 → 同样报错。
 TEST(RadarInputValidationTest, NegativeRangeWithNoPositionIsError) {
-  model::TargetFeature target;
+  session::RadarSceneTarget target;
   target.external_target_id = 1u;
   target.has_cartesian_position = false;
   target.position_x = 0.0f;
@@ -165,7 +164,7 @@ TEST(RadarInputValidationTest, NegativeRangeWithNoPositionIsError) {
 
 /// @brief 位置字段含 NaN → 报 kNonFiniteTargetField（Error 级别）。
 TEST(RadarInputValidationTest, NanPositionFieldIsError) {
-  model::TargetFeature target = MakeValidTarget();
+  session::RadarSceneTarget target = MakeValidTarget();
   target.position_x = std::numeric_limits<float>::quiet_NaN();
 
   const auto issues = ValidateTargetFeatures({target});
@@ -175,7 +174,7 @@ TEST(RadarInputValidationTest, NanPositionFieldIsError) {
 
 /// @brief 速度字段含 Inf → 报 kNonFiniteTargetField。
 TEST(RadarInputValidationTest, InfVelocityFieldIsError) {
-  model::TargetFeature target = MakeValidTarget();
+  session::RadarSceneTarget target = MakeValidTarget();
   target.current_track_velocity_y = std::numeric_limits<float>::infinity();
 
   const auto issues = ValidateTargetFeatures({target});
@@ -185,7 +184,7 @@ TEST(RadarInputValidationTest, InfVelocityFieldIsError) {
 
 /// @brief RCS 字段含 NaN → 报 kNonFiniteTargetField。
 TEST(RadarInputValidationTest, NanRcsFieldIsError) {
-  model::TargetFeature target = MakeValidTarget();
+  session::RadarSceneTarget target = MakeValidTarget();
   target.current_track_rcs = std::numeric_limits<float>::quiet_NaN();
 
   const auto issues = ValidateTargetFeatures({target});
@@ -195,7 +194,7 @@ TEST(RadarInputValidationTest, NanRcsFieldIsError) {
 
 /// @brief range_m 字段含 -Inf → 报 kNonFiniteTargetField。
 TEST(RadarInputValidationTest, NegativeInfRangeFieldIsError) {
-  model::TargetFeature target = MakeValidTarget();
+  session::RadarSceneTarget target = MakeValidTarget();
   target.range_m = -std::numeric_limits<float>::infinity();
 
   const auto issues = ValidateTargetFeatures({target});
@@ -209,7 +208,7 @@ TEST(RadarInputValidationTest, NegativeInfRangeFieldIsError) {
 
 /// @brief external_target_id == 0 → kInfo 级别（不阻断执行）。
 TEST(RadarInputValidationTest, ZeroExternalIdIsInfo) {
-  model::TargetFeature target = MakeValidTarget(0u);
+  session::RadarSceneTarget target = MakeValidTarget(0u);
 
   const auto issues = ValidateTargetFeatures({target});
   const session::ValidationIssue* issue =
@@ -221,8 +220,8 @@ TEST(RadarInputValidationTest, ZeroExternalIdIsInfo) {
 
 /// @brief 同一 external_target_id 出现两次 → Error 级别。
 TEST(RadarInputValidationTest, DuplicateExternalIdIsError) {
-  model::TargetFeature t1 = MakeValidTarget(42u);
-  model::TargetFeature t2 = MakeValidTarget(42u);
+  session::RadarSceneTarget t1 = MakeValidTarget(42u);
+  session::RadarSceneTarget t2 = MakeValidTarget(42u);
   t2.position_x = 2000.0f;
   t2.range_m = 2000.0f;
 
@@ -236,7 +235,7 @@ TEST(RadarInputValidationTest, DuplicateExternalIdIsError) {
 
 /// @brief 负 RCS → Warning 级别（不阻断执行）。
 TEST(RadarInputValidationTest, NegativeRcsIsWarning) {
-  model::TargetFeature target = MakeValidTarget();
+  session::RadarSceneTarget target = MakeValidTarget();
   target.current_track_rcs = -0.5f;
 
   const auto issues = ValidateTargetFeatures({target});

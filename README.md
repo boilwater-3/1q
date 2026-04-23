@@ -52,9 +52,10 @@ ctest --preset llvm-ninja-debug-local --output-on-failure
 
 ## 文档
 
-- `doc/architecture/`: 架构与模块设计文档。
-- `doc/electronic_surveillance_radar/`: ESR 设计与说明文档。
-- `doc/reference/`: 参考文档。
+- `AGENTS.md`: 工程约束、构建测试规则与重构策略。
+- `include/1q/README.md`: 公共头文件导航与对外接入建议。
+- `tests/README.md`: 测试分层约定与运行建议。
+- `input_surface_unification_refactor_plan.md`: 当前 input surface 统一重构计划与执行状态。
 
 ## 测试
 

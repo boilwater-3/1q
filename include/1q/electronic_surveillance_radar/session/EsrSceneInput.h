@@ -42,6 +42,8 @@ using EsrSceneEmitterList = std::vector<EsrSceneEmitter>;
 
 /**
  * @brief EsrSceneInput 聚合 ESR 单周期场景实体输入。
+ * @note 当前仅含 `emitters`，是统一骨架 `CycleInput.scene` 的固定语义槽位，
+ *       用于外部输入边界与内部真值模型解耦。
  */
 struct ONEQ_API EsrSceneInput {
   EsrSceneEmitterList emitters{}; /**< 当前周期场景辐射源输入列表 */

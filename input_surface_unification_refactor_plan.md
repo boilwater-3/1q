@@ -1,5 +1,20 @@
 # 三模块 Input Surface 统一标准与破坏性重构计划
 
+## 0. 执行状态（截至 2026-04-23）
+
+- 第一阶段（统一公开类型骨架）：已完成
+- 第二阶段（删除旧公开输入语言）：部分完成
+- 第三阶段（适配器统一两步化）：基本完成
+- 第四阶段（校验与 replay 收敛）：部分完成
+- 第五阶段（公开 input 与内部 model 彻底解耦）：进行中
+
+未收尾重点：
+
+- AR 公开输入已切换为 `RadarSceneTarget`，但 AR 测试与文档仍有少量旧命名语义待继续清理
+- 校验结构仅统一到 `entity_index`，尚未落地 `ValidationLocation`
+- replay 生成 schema 层仍保留 `target_index` / `emitter_index` 字段名
+- EOS 仍保留 `EosTargetState` 兼容别名，未完全收敛到单一命名语言
+
 ## 1. 背景与目标
 
 当前 `airborne_radar`、`electro_optical_sensor`、`electronic_surveillance_radar` 三个模块在“外部 input”这一层存在明显不统一：
@@ -33,6 +48,8 @@
 这些层会被 input 重构波及，但它们不是本计划的标准制定对象。
 
 ## 3. 现状证据
+
+> 注：本节描述的是改造前基线，当前仓库已有部分条目完成整改，具体进度以“0. 执行状态”为准。
 
 ### 3.1 周期输入公共骨架不一致
 
@@ -278,6 +295,20 @@ struct ValidationIssue {
 - `ExternalPoseInput`
 - `ExternalTargetInput`
 - `ExternalEmitterInput`
+
+### 4.8 标准七：聚合层级最小化（针对单字段 struct）
+
+`SceneInput` / `EnvironmentInput` 允许在阶段性状态下只包含一个字段，但必须满足以下条件：
+
+1. 它是跨模块统一骨架中的固定语义槽位（`CycleInput.scene` / `CycleInput.environment`），不是临时包装。
+2. 它承担明确边界职责：将“外部输入语义”与内部 model 隔离。
+3. 代码中禁止再并行暴露等价根级字段，避免双路径。
+4. 若后续确认该槽位长期不会扩展，且跨模块统一收益不成立，应回退为直接字段而非保留空心层。
+
+反例（不允许）：
+
+- 为了“看起来分层”而新增仅转发、无边界价值的壳结构。
+- 公开头中保留旧别名/旧字段，同时再包一层单字段 struct。
 
 ## 5. 目标边界
 

@@ -4,6 +4,35 @@
 
 namespace airborne_radar {
 namespace session {
+namespace {
+
+model::TargetFeature ToModelTargetFeature(const RadarSceneTarget& input) {
+  model::TargetFeature out;
+  out.external_target_id = input.external_target_id;
+  out.current_track_velocity_x = input.current_track_velocity_x;
+  out.current_track_velocity_y = input.current_track_velocity_y;
+  out.current_track_velocity_z = input.current_track_velocity_z;
+  out.current_track_speed = input.current_track_speed;
+  out.current_track_rcs = input.current_track_rcs;
+  out.range_m = input.range_m;
+  out.has_cartesian_position = input.has_cartesian_position;
+  out.position_x = input.position_x;
+  out.position_y = input.position_y;
+  out.position_z = input.position_z;
+  out.target_swerling_type = input.target_swerling_type;
+  return out;
+}
+
+model::TargetFeatureList ToModelTargetFeatures(const RadarSceneTargetList& input) {
+  model::TargetFeatureList out;
+  out.reserve(input.size());
+  for (std::size_t i = 0; i < input.size(); ++i) {
+    out.push_back(ToModelTargetFeature(input[i]));
+  }
+  return out;
+}
+
+}  // namespace
 
 struct MutableRadarContext::RuntimeSnapshot {
   std::shared_ptr<model::TargetFeatureList> target_features;
@@ -15,7 +44,7 @@ struct MutableRadarContext::RuntimeSnapshot {
 };
 
 void MutableRadarContext::BeginCycle(const RadarCycleInput& input) {
-  SetTargetFeatures(input.scene.targets);
+  SetTargetFeatures(ToModelTargetFeatures(input.scene.targets));
   platform_pose_ = input.platform_pose;
   SetCycleDeltaTimeSec(input.dt_sec);
   ResetCycleOutputs();

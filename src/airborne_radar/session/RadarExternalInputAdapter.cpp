@@ -226,7 +226,7 @@ bool TryMakeTargetFromExternalKinematics(
     const TargetExternalKinematics& target_input,
     const RadarLocalFrameReference& reference,
     oneq::foundation::Vector3f radar_local_velocity_mps,
-    model::TargetFeature* target) {
+    RadarSceneTarget* target) {
   if (target == nullptr || !IsFiniteVector3f(target_input.target_velocity_mps)) {
     return false;
   }
@@ -274,10 +274,22 @@ bool TryMakeTargetFromExternalKinematics(
     }
   }
 
-  *target = model::MakeTargetFromCartesian(
+  const model::TargetFeature converted = model::MakeTargetFromCartesian(
       external_target_id, target_position_local.x, target_position_local.y,
       target_position_local.z, target_velocity_local.x, target_velocity_local.y,
       target_velocity_local.z, target_input.rcs, target_input.swerling_type);
+  target->external_target_id = converted.external_target_id;
+  target->current_track_velocity_x = converted.current_track_velocity_x;
+  target->current_track_velocity_y = converted.current_track_velocity_y;
+  target->current_track_velocity_z = converted.current_track_velocity_z;
+  target->current_track_speed = converted.current_track_speed;
+  target->current_track_rcs = converted.current_track_rcs;
+  target->range_m = converted.range_m;
+  target->has_cartesian_position = converted.has_cartesian_position;
+  target->position_x = converted.position_x;
+  target->position_y = converted.position_y;
+  target->position_z = converted.position_z;
+  target->target_swerling_type = converted.target_swerling_type;
   return true;
 }
 

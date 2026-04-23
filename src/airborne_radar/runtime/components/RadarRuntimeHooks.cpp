@@ -7,6 +7,35 @@
 namespace airborne_radar {
 namespace runtime {
 namespace components {
+namespace {
+
+session::RadarSceneTarget ToSceneTarget(const model::TargetFeature& input) {
+  session::RadarSceneTarget out;
+  out.external_target_id = input.external_target_id;
+  out.current_track_velocity_x = input.current_track_velocity_x;
+  out.current_track_velocity_y = input.current_track_velocity_y;
+  out.current_track_velocity_z = input.current_track_velocity_z;
+  out.current_track_speed = input.current_track_speed;
+  out.current_track_rcs = input.current_track_rcs;
+  out.range_m = input.range_m;
+  out.has_cartesian_position = input.has_cartesian_position;
+  out.position_x = input.position_x;
+  out.position_y = input.position_y;
+  out.position_z = input.position_z;
+  out.target_swerling_type = input.target_swerling_type;
+  return out;
+}
+
+session::RadarSceneTargetList ToSceneTargets(const model::TargetFeatureList& input) {
+  session::RadarSceneTargetList out;
+  out.reserve(input.size());
+  for (std::size_t i = 0; i < input.size(); ++i) {
+    out.push_back(ToSceneTarget(input[i]));
+  }
+  return out;
+}
+
+}  // namespace
 
 RadarRuntimeHooks::RadarRuntimeHooks(
     extension::RadarCycleOrchestrator& cycle_orchestrator,
@@ -29,8 +58,8 @@ RadarRuntimeHooks::Validate(const AirborneRuntimeInput& input) const {
   oneq::internal::runtime::RuntimeValidationResult<session::ValidationIssueList> result;
   result.issues = session::ValidateRadarCycleDeltaTime(input.cycle_dt_sec);
   if (input.target_features != nullptr) {
-    const session::ValidationIssueList target_issues =
-        session::ValidateTargetFeatures(*input.target_features);
+    const session::RadarSceneTargetList scene_targets = ToSceneTargets(*input.target_features);
+    const session::ValidationIssueList target_issues = session::ValidateTargetFeatures(scene_targets);
     result.issues.insert(result.issues.end(), target_issues.begin(), target_issues.end());
   }
   result.has_error = session::HasValidationError(result.issues);

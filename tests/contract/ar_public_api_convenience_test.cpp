@@ -33,6 +33,58 @@ namespace tests {
 
 namespace {
 
+session::RadarSceneTarget ToSceneTarget(const model::TargetFeature& target) {
+  session::RadarSceneTarget out;
+  out.external_target_id = target.external_target_id;
+  out.current_track_velocity_x = target.current_track_velocity_x;
+  out.current_track_velocity_y = target.current_track_velocity_y;
+  out.current_track_velocity_z = target.current_track_velocity_z;
+  out.current_track_speed = target.current_track_speed;
+  out.current_track_rcs = target.current_track_rcs;
+  out.range_m = target.range_m;
+  out.has_cartesian_position = target.has_cartesian_position;
+  out.position_x = target.position_x;
+  out.position_y = target.position_y;
+  out.position_z = target.position_z;
+  out.target_swerling_type = target.target_swerling_type;
+  return out;
+}
+
+model::TargetFeature ToModelTarget(const session::RadarSceneTarget& target) {
+  model::TargetFeature out;
+  out.external_target_id = target.external_target_id;
+  out.current_track_velocity_x = target.current_track_velocity_x;
+  out.current_track_velocity_y = target.current_track_velocity_y;
+  out.current_track_velocity_z = target.current_track_velocity_z;
+  out.current_track_speed = target.current_track_speed;
+  out.current_track_rcs = target.current_track_rcs;
+  out.range_m = target.range_m;
+  out.has_cartesian_position = target.has_cartesian_position;
+  out.position_x = target.position_x;
+  out.position_y = target.position_y;
+  out.position_z = target.position_z;
+  out.target_swerling_type = target.target_swerling_type;
+  return out;
+}
+
+session::RadarSceneTargetList ToSceneTargets(const model::TargetFeatureList& targets) {
+  session::RadarSceneTargetList out;
+  out.reserve(targets.size());
+  for (std::size_t i = 0; i < targets.size(); ++i) {
+    out.push_back(ToSceneTarget(targets[i]));
+  }
+  return out;
+}
+
+model::TargetFeatureList ToModelTargets(const session::RadarSceneTargetList& targets) {
+  model::TargetFeatureList out;
+  out.reserve(targets.size());
+  for (std::size_t i = 0; i < targets.size(); ++i) {
+    out.push_back(ToModelTarget(targets[i]));
+  }
+  return out;
+}
+
 session::RadarSessionConfig MakeConvenienceSessionConfig() {
   return config::RadarSessionConfigBuilder()
       .Detection()
@@ -49,7 +101,7 @@ session::RadarSessionConfig MakeConvenienceSessionConfig() {
 
 session::RadarCycleInput MakeCycleInput(model::TargetFeatureList targets, float dt_sec = 1.0f) {
   session::RadarCycleInput input;
-  input.scene.targets = std::move(targets);
+  input.scene.targets = ToSceneTargets(targets);
   input.dt_sec = dt_sec;
   input.platform_pose.attitude_deg.yaw_deg = 5.0f;
   input.platform_pose.attitude_deg.pitch_deg = -1.0f;
@@ -123,7 +175,7 @@ class RecordingRadarContext : public extension::IRadarContext {
  public:
   void BeginCycle(const session::RadarCycleInput& input) override {
     ++begin_cycle_count_;
-    target_features_ = input.scene.targets;
+    target_features_ = ToModelTargets(input.scene.targets);
     platform_attitude_deg_.yaw_deg = input.platform_pose.attitude_deg.yaw_deg;
     platform_attitude_deg_.pitch_deg = input.platform_pose.attitude_deg.pitch_deg;
     platform_attitude_deg_.roll_deg = input.platform_pose.attitude_deg.roll_deg;
@@ -544,7 +596,7 @@ TEST(PublicApiConvenienceTest, TargetFeatureUtilsBuildsTargetFromExternalCoordin
   input.rcs = 2.0f;
   input.swerling_type = 0;
 
-  model::TargetFeature target_from_external;
+  session::RadarSceneTarget target_from_external;
   ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
       403U, input, reference, platform_pose.velocity_mps, &target_from_external));
   EXPECT_EQ(target_from_external.external_target_id, 403U);
@@ -593,7 +645,7 @@ TEST(PublicApiConvenienceTest, TargetFeatureUtilsBuildsTargetFromExternalKinemat
   input.target_velocity_mps.x = 120.0f;
   input.target_velocity_mps.y = -70.0f;
   input.target_velocity_mps.z = 30.0f;
-  model::TargetFeature ecef_target;
+  session::RadarSceneTarget ecef_target;
   ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
       501U, input, reference, platform_pose.velocity_mps, &ecef_target));
   EXPECT_NEAR(ecef_target.current_track_speed, 0.0f, 1.0e-4f);
@@ -604,7 +656,7 @@ TEST(PublicApiConvenienceTest, TargetFeatureUtilsBuildsTargetFromExternalKinemat
   input.target_velocity_mps.x = 200.0f;  // east
   input.target_velocity_mps.y = 0.0f;    // north
   input.target_velocity_mps.z = 0.0f;    // up
-  model::TargetFeature enu_target;
+  session::RadarSceneTarget enu_target;
   ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
       502U, input, reference, platform_pose.velocity_mps, &enu_target));
   EXPECT_GT(enu_target.current_track_speed, 100.0f);
@@ -614,7 +666,7 @@ TEST(PublicApiConvenienceTest, TargetFeatureUtilsBuildsTargetFromExternalKinemat
   input.target_velocity_mps.x = 100.0f;  // north
   input.target_velocity_mps.y = 50.0f;   // east
   input.target_velocity_mps.z = -20.0f;  // down
-  model::TargetFeature ned_target;
+  session::RadarSceneTarget ned_target;
   ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
       503U, input, reference, platform_pose.velocity_mps, &ned_target));
   EXPECT_GT(ned_target.current_track_speed, 50.0f);
@@ -624,7 +676,7 @@ TEST(PublicApiConvenienceTest, TargetFeatureUtilsBuildsTargetFromExternalKinemat
   input.target_velocity_mps.x = 11.0f;
   input.target_velocity_mps.y = 12.0f;
   input.target_velocity_mps.z = 13.0f;
-  model::TargetFeature local_target;
+  session::RadarSceneTarget local_target;
   ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
       504U, input, reference, platform_pose.velocity_mps, &local_target));
   EXPECT_NEAR(local_target.current_track_velocity_x, 11.0f, 1.0e-5f);
@@ -669,11 +721,11 @@ TEST(PublicApiConvenienceTest, TwoStepExternalKinematicsProducesStableTarget) {
   target_input.rcs = 1.2f;
   target_input.swerling_type = 0;
 
-  model::TargetFeature target_1;
+  session::RadarSceneTarget target_1;
   ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
       600U, target_input, reference, platform_pose.velocity_mps, &target_1));
 
-  model::TargetFeature target_2;
+  session::RadarSceneTarget target_2;
   ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
       600U, target_input, reference, platform_pose.velocity_mps, &target_2));
 
@@ -842,7 +894,7 @@ TEST(PublicApiConvenienceTest, RadarInputValidationReportsWarningsAndErrorsForCo
 TEST(PublicApiConvenienceTest, RadarInputValidationFlagsMissingGeometryAndNonFiniteCycleDelta) {
   session::RadarCycleInput input;
   input.dt_sec = std::numeric_limits<float>::quiet_NaN();
-  model::TargetFeature invalid_target;
+  session::RadarSceneTarget invalid_target;
   invalid_target.external_target_id = 900U;
   invalid_target.range_m = 0.0f;
   input.scene.targets.push_back(invalid_target);
@@ -1360,7 +1412,7 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultSurfacesValidationError
 
   session::RadarCycleInput input;
   input.dt_sec = std::numeric_limits<float>::quiet_NaN();
-  model::TargetFeature invalid_target;
+  session::RadarSceneTarget invalid_target;
   invalid_target.external_target_id = 123U;
   invalid_target.range_m = 0.0f;
   input.scene.targets.push_back(invalid_target);

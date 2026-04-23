@@ -35,6 +35,8 @@ using EosTargetStateList = EosSceneTargetList;
 
 /**
  * @brief EosSceneInput 聚合 EOS 单周期场景实体输入。
+ * @note 当前仅含 `targets`，是统一骨架 `CycleInput.scene` 的固定语义槽位，
+ *       用于稳定外部输入边界；不是临时包装层。
  */
 struct ONEQ_API EosSceneInput {
   EosSceneTargetList targets{}; /**< 当前周期场景目标输入列表 */

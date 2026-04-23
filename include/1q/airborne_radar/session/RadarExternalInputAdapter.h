@@ -9,7 +9,7 @@
 #include <cstdint>
 
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
-#include "1q/airborne_radar/model/TargetFeature.h"
+#include "1q/airborne_radar/session/RadarSceneInput.h"
 #include "1q/api.hpp"
 #include "1q/foundation/coordinate_transform.h"
 
@@ -29,7 +29,7 @@ struct ONEQ_API RadarLocalFrameReference {
  * @brief 目标速度输入参考系类型。
  */
 enum class VelocityFrame {
-  kRadarLocal = 0, /**< 雷达局部坐标速度（与 TargetFeature 的 position/velocity 同系） */
+  kRadarLocal = 0, /**< 雷达局部坐标速度（与 RadarSceneTarget 的 position/velocity 同系） */
   kEcef = 1,       /**< 地固 ECEF 速度 */
   kEnu = 2,        /**< 局部 ENU 速度（x=east, y=north, z=up） */
   kNed = 3         /**< 局部 NED 速度（x=north, y=east, z=down） */
@@ -82,12 +82,12 @@ ONEQ_API bool TryMakeRadarPoseFromExternalKinematics(
     oneq::foundation::PoseState* platform_pose);
 
 /**
- * @brief 两步模式——第二步：使用预计算的参考系将外部目标转换为 TargetFeature。
+ * @brief 两步模式——第二步：使用预计算的参考系将外部目标转换为 RadarSceneTarget。
  * @param[in] external_target_id 外部目标标识符。
  * @param[in] target_input 目标运动学输入（纯目标字段）。
  * @param[in] reference 第一步产出的雷达局部参考系。
  * @param[in] radar_local_velocity_mps 雷达局部速度（用于计算相对速度）。
- * @param[out] target 输出目标特征，可为 nullptr。
+ * @param[out] target 输出场景目标输入，可为 nullptr。
  * @return 成功返回 true，输入非法或输出为空返回 false。
  *
  * @note 当 `radar_local_velocity_mps` 非零且目标速度参考系非 kRadarLocal 时，
@@ -98,7 +98,7 @@ ONEQ_API bool TryMakeTargetFromExternalKinematics(
     const TargetExternalKinematics& target_input,
     const RadarLocalFrameReference& reference,
     oneq::foundation::Vector3f radar_local_velocity_mps,
-    model::TargetFeature* target);
+    RadarSceneTarget* target);
 
 }  // namespace session
 }  // namespace airborne_radar

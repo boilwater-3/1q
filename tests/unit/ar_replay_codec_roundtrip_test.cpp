@@ -43,7 +43,7 @@ TEST(ArReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   input.platform_pose.attitude_deg.pitch_deg = -5.0f;
   input.platform_pose.attitude_deg.roll_deg = 2.0f;
 
-  model::TargetFeature target;
+  RadarSceneTarget target;
   target.external_target_id = 42U;
   target.current_track_velocity_x = 80.0f;
   target.current_track_velocity_y = 1.5f;

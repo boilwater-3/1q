@@ -23,36 +23,27 @@
 
 - `airborne_radar/config/`：初始化与运行期配置入口（Builder、预设、扫描/姿态配置）。
 - `airborne_radar/session/`：会话门面与周期结果。
-- `airborne_radar/core/context/`：单周期输入与输入校验。
-- `airborne_radar/core/controller/`：控制器门面与输出读取接口。
 - `airborne_radar/environment/`：环境输入与构造辅助。
-- `airborne_radar/decision/pipeline/`：决策管线契约类型。
-- `airborne_radar/signal/pipeline/`：信号管线契约类型。
-- `airborne_radar/model/`、`airborne_radar/output/`：目标、输出等公共域模型（纯输入输出契约为主）。
-- `airborne_radar/extension/`：外部接管行为接口相关类型（如 control 指令/控制真值）。
-- `airborne_radar/tools/`：调试/追踪辅助封装。
+- `airborne_radar/extension/`：控制器、上下文、信号管线等可替换扩展接口。
+- `airborne_radar/model/`、`airborne_radar/output/`：目标与输出等公共域模型。
 
 ## Electronic Surveillance Radar (ESR)
 
 - `electronic_surveillance_radar/config/`：配置与 Builder 入口（推荐从这里拿配置类型与 Builder）。
-- `electronic_surveillance_radar/core/session/`：会话门面与结果对象。
-- `electronic_surveillance_radar/core/context/`：周期输入与校验。
-- `electronic_surveillance_radar/core/controller/`：控制门面。
+- `electronic_surveillance_radar/session/`：会话门面、周期输入/结果、输入校验、外部适配器。
 - `electronic_surveillance_radar/environment/`：环境输入契约。
-- `electronic_surveillance_radar/pipeline/`：拦截管线契约。
-- `electronic_surveillance_radar/model/`：观测、假设、姿态等公共域模型。
-- `electronic_surveillance_radar/tools/`：调试/追踪辅助封装。
+- `electronic_surveillance_radar/extension/`：控制器与拦截流水线扩展接口。
+- `electronic_surveillance_radar/model/`：观测、假设、姿态等公共域模型（非对外场景输入主入口）。
+- `electronic_surveillance_radar/output/`：输出帧模型。
 
 ## Electro Optical Sensor (EOS)
 
 - `electro_optical_sensor/config/`：配置与 Builder 入口（推荐从这里拿配置类型与 Builder）。
-- `electro_optical_sensor/session/`：会话门面与 trace 包装器。
-- `electro_optical_sensor/model/`：周期输入、输入校验、周期结果等核心数据模型。
+- `electro_optical_sensor/session/`：会话门面、周期输入/结果、输入校验、外部适配器。
 - `electro_optical_sensor/extension/`：控制器、pipeline 等扩展接口契约。
 - `electro_optical_sensor/environment/`：环境契约类型与 environment service 接口。
 - `electro_optical_sensor/foundation/`：辐射传输、噪声、光学等基础模型。
 - `electro_optical_sensor/output/`：输出帧模型。
-- `electro_optical_sensor/utils/`：坐标工具等通用工具能力。
 
 ## Recommended Include Strategy
 
