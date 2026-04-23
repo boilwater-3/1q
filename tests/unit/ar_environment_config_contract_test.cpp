@@ -115,7 +115,8 @@ TEST(ArEnvironmentDefaultStabilityTest, JammerEmitterStateDefaults) {
 TEST(ArEnvironmentDefaultStabilityTest, DefaultConfigDefaultConstructedProducesDefaults) {
   const EnvironmentDefaultConfig built;
   const EnvironmentDefaultConfig defaults;
-  EXPECT_EQ(built.scenario_config.jammer_sources.size(), defaults.scenario_config.jammer_sources.size());
+  EXPECT_EQ(built.scenario_config.jammer_sources.size(),
+            defaults.scenario_config.jammer_sources.size());
 }
 
 TEST(ArEnvironmentDefaultStabilityTest, DefaultConfigPreservesOverride) {
@@ -152,7 +153,9 @@ TEST(ArEnvironmentMappingFunctionTest, BuildModelConfigFromScenarioExplicitField
 
 TEST(ArEnvironmentMappingFunctionTest, BuildModelConfigFromScenarioPreservesJammerSources) {
   EnvironmentScenarioConfig scenario;
-  JammerEmitterState j1, j2, j3;
+  JammerEmitterState j1;
+  JammerEmitterState j2;
+  JammerEmitterState j3;
   j1.power_db = 10.0f;
   j2.power_db = 20.0f;
   j3.power_db = 30.0f;
