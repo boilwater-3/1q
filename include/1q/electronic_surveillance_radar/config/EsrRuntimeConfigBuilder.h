@@ -13,6 +13,8 @@ namespace config {
 
 /**
  * @brief EsrRuntimeConfigBuilder 提供运行期补丁链式构造。
+ * @note 推荐路径：会话创建后的参数热更新统一通过本构造器生成补丁，
+ *       避免直接手写 `EsrRuntimeConfigPatch` 的 `has_*` 标志位。
  */
 class ONEQ_API EsrRuntimeConfigBuilder {
  public:

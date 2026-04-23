@@ -14,6 +14,8 @@ namespace config {
 
 /**
  * @brief RadarRuntimeConfigBuilder 提供运行期补丁的链式构造。
+ * @note 推荐路径：会话创建后的参数热更新统一通过本构造器生成补丁，
+ *       避免直接手写 `RadarRuntimeConfigPatch` 的 `has_*` 标志位。
  */
 class ONEQ_API RadarRuntimeConfigBuilder {
  public:

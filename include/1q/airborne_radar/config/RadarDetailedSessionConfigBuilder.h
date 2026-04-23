@@ -26,6 +26,9 @@ using model::RadarWorkSubMode;
  * - `mission`：任务态波束与扫描运行态
  * - `policy`：调度、关联、跟踪与生命周期策略
  * - `environment`：环境默认配置
+ *
+ * @note 推荐路径：该构造器面向高级调用方与工程调参场景；
+ *       常规业务初始化优先使用 `RadarSessionConfigBuilder`。
  */
 class ONEQ_API RadarDetailedSessionConfigBuilder {
  public:

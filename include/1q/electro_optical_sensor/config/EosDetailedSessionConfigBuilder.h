@@ -15,6 +15,8 @@ namespace config {
  * @brief EosDetailedSessionConfigBuilder 提供四域详细配置构造入口。
  * @note 该构造器面向高级调用方，可直接编辑
  *       hardware/mission/policy/environment 以及策略详细参数。
+ * @note 推荐路径：该构造器用于高级调参场景；
+ *       常规业务初始化优先使用 EosSessionConfigBuilder。
  */
 class ONEQ_API EosDetailedSessionConfigBuilder {
  public:

@@ -16,6 +16,9 @@ namespace config {
  *
  * 面向高级调用方，可直接编辑 hardware/mission/policy/environment
  * 以及策略详细参数。
+ *
+ * @note 推荐路径：该构造器用于高级调参与工程化配置；
+ *       常规业务初始化优先使用 EsrSessionConfigBuilder。
  */
 class ONEQ_API EsrDetailedSessionConfigBuilder {
  public:

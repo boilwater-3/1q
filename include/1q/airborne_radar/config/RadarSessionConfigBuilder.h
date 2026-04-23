@@ -23,6 +23,11 @@ using model::RadarWorkSubMode;
  * `Build()` 时将语义设定翻译为四域配置中的 hardware/policy 子域。
  * 波束方向与扫描状态（mission.orientation）及环境默认配置直接透传至输出。
  *
+ * @note 推荐路径：
+ * - 会话初始化优先使用本构造器表达高层语义输入；
+ * - 运行期热更新统一使用 `RadarRuntimeConfigBuilder`；
+ * - 仅在需要直接编辑四域细项时使用 `RadarDetailedSessionConfigBuilder`。
+ *
  * @code
  * auto config = RadarSessionConfigBuilder()
  *                   .Detection()

@@ -271,6 +271,26 @@ foreach(FORBIDDEN_PATTERN IN LISTS FORBIDDEN_BUILDER_METHOD_PATTERNS)
   endif()
 endforeach()
 
+# Guardrail: ESR Session builder keeps semantic-only surface; domain-level
+# whole-config setters must stay in EsrDetailedSessionConfigBuilder.
+set(ESR_SESSION_BUILDER_HEADER
+    "${PUBLIC_INCLUDE_DIR}/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h")
+file(READ "${ESR_SESSION_BUILDER_HEADER}" ESR_SESSION_BUILDER_CONTENT)
+
+set(ESR_FORBIDDEN_SESSION_METHOD_PATTERNS
+    "EsrSessionConfigBuilder[ \t]*&[ \t]*WithHardwareConfig[ \t]*\\("
+    "EsrSessionConfigBuilder[ \t]*&[ \t]*WithMissionConfig[ \t]*\\("
+    "EsrSessionConfigBuilder[ \t]*&[ \t]*WithPolicyConfig[ \t]*\\("
+    "EsrSessionConfigBuilder[ \t]*&[ \t]*WithEnvironmentConfig[ \t]*\\(")
+
+foreach(FORBIDDEN_PATTERN IN LISTS ESR_FORBIDDEN_SESSION_METHOD_PATTERNS)
+  if(ESR_SESSION_BUILDER_CONTENT MATCHES "${FORBIDDEN_PATTERN}")
+    message(FATAL_ERROR
+            "Legacy ESR session-builder domain setter reintroduced: ${FORBIDDEN_PATTERN}\n"
+            "Use EsrDetailedSessionConfigBuilder for domain-level overrides.")
+  endif()
+endforeach()
+
 # Guardrail (M7-F): deleted internal legacy config shells must not reappear.
 set(AR_FORBIDDEN_INTERNAL_PATHS
         "${CMAKE_SOURCE_DIR}/src/airborne_radar/config/legacy"

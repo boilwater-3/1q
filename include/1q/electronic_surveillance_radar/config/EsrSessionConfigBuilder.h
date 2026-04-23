@@ -13,6 +13,10 @@ namespace config {
 
 /**
  * @brief EsrSessionConfigBuilder 提供初始化配置链式构造。
+ * @note 推荐路径：
+ *       会话初始化优先使用本构造器表达语义输入（work mode/profile/preset）；
+ *       运行期热更新统一使用 EsrRuntimeConfigBuilder；
+ *       需要直接编辑四域细项时优先使用 EsrDetailedSessionConfigBuilder。
  */
 class ONEQ_API EsrSessionConfigBuilder {
  public:
@@ -41,22 +45,6 @@ class ONEQ_API EsrSessionConfigBuilder {
   }
   EsrSessionConfigBuilder& WithEnvironmentPreset(config::EsrEnvironmentPreset preset) {
     config_.environment.scenario_config.preset = preset;
-    return *this;
-  }
-  EsrSessionConfigBuilder& WithHardwareConfig(const config::EsrHardwareConfig& hardware) {
-    config_.hardware = hardware;
-    return *this;
-  }
-  EsrSessionConfigBuilder& WithMissionConfig(const config::EsrMissionConfig& mission) {
-    config_.mission = mission;
-    return *this;
-  }
-  EsrSessionConfigBuilder& WithPolicyConfig(const config::EsrPolicyConfig& policy) {
-    config_.policy = policy;
-    return *this;
-  }
-  EsrSessionConfigBuilder& WithEnvironmentConfig(const config::EsrEnvironmentConfig& environment) {
-    config_.environment = environment;
     return *this;
   }
   session::EsrSessionConfig Build() const { return config_; }

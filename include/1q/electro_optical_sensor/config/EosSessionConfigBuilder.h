@@ -16,6 +16,9 @@ namespace config {
  * @note 该构造器用于 work mode/profile/preset 等高层语义输入。
  *       如需直接编辑 hardware/mission/policy/environment 四域详细参数，
  *       请使用 EosDetailedSessionConfigBuilder。
+ * @note 推荐路径：
+ *       会话初始化优先使用本构造器；
+ *       运行期热更新统一使用 EosRuntimeConfigBuilder。
  */
 class ONEQ_API EosSessionConfigBuilder {
  public:
