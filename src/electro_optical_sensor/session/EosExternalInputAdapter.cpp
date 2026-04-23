@@ -161,7 +161,7 @@ bool ResolveTargetLookAngles(const oneq::foundation::Vector3f& relative_local,
 bool FillTargetFromLocalPosition(std::uint64_t target_id,
                                  const oneq::foundation::Vector3f& target_local,
                                  const oneq::foundation::PoseState& platform_pose,
-                                 const EosTargetAppearance& appearance, EosTargetState* target,
+                                 const EosTargetAppearance& appearance, EosSceneTarget* target,
                                  EosCoordinateStatus* status) {
   if (target == nullptr) {
     SetStatus(EosCoordinateStatus::kNullOutput, status);

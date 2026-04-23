@@ -71,7 +71,7 @@ TEST(EosCoordinateUtilsTest, MakeTargetFromLlaAndEcefAreConsistent) {
   lla_input.position_frame = ::electro_optical_sensor::session::EosTargetPositionFrame::kLla;
   lla_input.target_position_lla_deg_m = target_lla;
   lla_input.appearance = appearance;
-  ::electro_optical_sensor::session::EosTargetState target_from_lla;
+  ::electro_optical_sensor::session::EosSceneTarget target_from_lla;
   ASSERT_TRUE(session::TryMakeEosSceneTargetFromExternalInput(
       11U, lla_input, reference, platform_pose, &target_from_lla));
   EXPECT_EQ(target_from_lla.target_id, 11U);
@@ -85,7 +85,7 @@ TEST(EosCoordinateUtilsTest, MakeTargetFromLlaAndEcefAreConsistent) {
   ecef_input.position_frame = ::electro_optical_sensor::session::EosTargetPositionFrame::kEcef;
   ecef_input.target_position_ecef_m = target_ecef;
   ecef_input.appearance = appearance;
-  ::electro_optical_sensor::session::EosTargetState target_from_ecef;
+  ::electro_optical_sensor::session::EosSceneTarget target_from_ecef;
   ASSERT_TRUE(session::TryMakeEosSceneTargetFromExternalInput(
       12U, ecef_input, reference, platform_pose, &target_from_ecef));
   EXPECT_NEAR(target_from_ecef.range_m, target_from_lla.range_m, 1.0e-3f);
@@ -121,7 +121,7 @@ TEST(EosCoordinateUtilsTest, ReportsFailureStatusForNullOutputAndDegenerateGeome
   lla_input.position_frame = ::electro_optical_sensor::session::EosTargetPositionFrame::kLla;
   lla_input.target_position_lla_deg_m = target_lla;
   lla_input.appearance = appearance;
-  ::electro_optical_sensor::session::EosTargetState target;
+  ::electro_optical_sensor::session::EosSceneTarget target;
   EXPECT_FALSE(session::TryMakeEosSceneTargetFromExternalInput(
       1U, lla_input, reference, platform_pose, &target, &status));
   EXPECT_EQ(status, ::electro_optical_sensor::session::EosCoordinateStatus::kDegenerateGeometry);

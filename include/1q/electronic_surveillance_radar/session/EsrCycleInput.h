@@ -9,7 +9,7 @@
 #include "1q/api.hpp"
 #include "1q/electronic_surveillance_radar/model/EsrOrientationConfig.h"
 #include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
-#include "1q/electronic_surveillance_radar/session/EsrSceneInput.h"
+#include "1q/electronic_surveillance_radar/session/EsrSceneTypes.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
@@ -21,7 +21,7 @@ struct ONEQ_API EsrCycleInput {
   std::uint32_t cycle_index{0U};                /**< 当前周期号 */
   float dt_sec{1.0f};                           /**< 当前周期步长（单位：s） */
   model::EsrPoseState platform_pose{};          /**< 侦察平台姿态与运动状态 */
-  EsrSceneInput scene{};                        /**< 当前周期场景实体输入 */
+  EsrSceneEmitterList scene{};                  /**< 当前周期场景辐射源输入列表 */
   EsrEnvironmentInput environment{};            /**< 本周期环境高层观测输入 */
 };
 

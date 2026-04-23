@@ -180,7 +180,7 @@ void StepOnce(airborne_radar::session::RadarSession& session, SimState& sim) {
     float range = sim.current_range[kTargets[i].id];
     // 目标在 X 轴正方向，Y/Z 略有偏移以区分
     float py = static_cast<float>(i - 1) * 200.0f;
-    input.scene.targets.push_back(aq::MakeTargetFromCartesian(
+    input.scene.push_back(aq::MakeTargetFromCartesian(
         kTargets[i].id, range, py, 3000.0f, kTargets[i].radial_speed, 0.0f, 0.0f, kTargets[i].rcs));
     sim.true_range_km[kTargets[i].id].push_back(range / 1000.0f);
   }

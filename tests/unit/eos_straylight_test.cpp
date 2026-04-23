@@ -48,8 +48,8 @@ namespace pipeline {
 namespace context = ::electro_optical_sensor::session;
 namespace {
 
-session::EosTargetState MakeTarget(float azimuth_deg, float elevation_deg) {
-  session::EosTargetState target;
+session::EosSceneTarget MakeTarget(float azimuth_deg, float elevation_deg) {
+  session::EosSceneTarget target;
   target.target_id = 1U;
   target.range_m = 500.0f;
   target.azimuth_deg = azimuth_deg;
@@ -72,7 +72,7 @@ session::EosTargetState MakeTarget(float azimuth_deg, float elevation_deg) {
   input.environment.background_temperature_k = 220.0f;
   input.environment.day_night_type = ::electro_optical_sensor::session::DayNightType::kDay;
   input.platform_pose.position_m.z = 1200.0f;
-  input.scene.targets.push_back(MakeTarget(180.0f, 45.0f));
+  input.scene.push_back(MakeTarget(180.0f, 45.0f));
   return input;
 }
 

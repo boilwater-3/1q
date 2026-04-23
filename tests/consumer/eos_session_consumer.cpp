@@ -5,7 +5,7 @@
  * 覆盖要点：
  *   - EosSessionConfigBuilder 语义化会话配置构造
  *   - EosDetailedSessionConfigBuilder 四域详细参数构造（hardware/mission/policy/environment）
- *   - EosCycleInput + EosTargetState 构造场景输入
+ *   - EosCycleInput + EosSceneTarget 构造场景输入
  *   - EosInputValidation 输入校验
  *   - EosSessionFactory 创建会话，Step、StepWithResult 调用
  *   - EosOutputFrame 探测输出字段可访问
@@ -48,17 +48,17 @@ int main() {
       eos::session::EosSessionFactory::Create(config);
 
   // 4. CycleInput with a target
-  eos::::electro_optical_sensor::session::EosCycleInput input;
+  eos::session::EosCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
   input.environment.solar_irradiance_w_m2 = 850.0f;
   input.environment.solar_altitude_deg = 45.0f;
   input.environment.cloud_coverage_ratio = 0.2f;
   input.environment.background_temperature_k = 289.0f;
-  input.environment.day_night_type = eos::::electro_optical_sensor::session::DayNightType::kDay;
+  input.environment.day_night_type = eos::session::DayNightType::kDay;
   input.platform_pose.position_m.z = 1200.0f;
 
-  eos::session::EosTargetState target;
+  eos::session::EosSceneTarget target;
   target.target_id = 1U;
   target.range_m = 1500.0f;
   target.azimuth_deg = 0.0f;
@@ -67,7 +67,7 @@ int main() {
   target.emissivity = 0.92f;
   target.reflectance = 0.38f;
   target.projected_area_m2 = 4.0f;
-  input.scene.targets.push_back(target);
+  input.scene.push_back(target);
 
   // 5. Input validation
   const eos::session::ValidationIssueList issues =
@@ -77,7 +77,7 @@ int main() {
   }
 
   // 6. StepWithResult
-  const eos::::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
+  const eos::session::EosCycleResult result = session.StepWithResult(input);
   if (result.has_validation_error) {
     return 2;
   }
@@ -115,7 +115,7 @@ int main() {
   session.ApplyRuntimeConfig(ir_patch);
 
   // 10. Step after mode switch
-  eos::::electro_optical_sensor::session::EosCycleInput input_2 = input;
+  eos::session::EosCycleInput input_2 = input;
   input_2.cycle_index = 2U;
   const eos::output::EosOutputFrame ir_frame = session.Step(input_2);
 
@@ -167,9 +167,9 @@ int main() {
   session.ApplyRuntimeConfig(vis_ref_patch);
 
   // 16. Final cycle
-  eos::::electro_optical_sensor::session::EosCycleInput input_3 = input;
+  eos::session::EosCycleInput input_3 = input;
   input_3.cycle_index = 3U;
-  const eos::::electro_optical_sensor::session::EosCycleResult result_3 = session.StepWithResult(input_3);
+  const eos::session::EosCycleResult result_3 = session.StepWithResult(input_3);
   if (result_3.has_validation_error) {
     return 3;
   }

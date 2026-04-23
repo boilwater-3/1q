@@ -101,7 +101,7 @@ session::RadarSessionConfig MakeConvenienceSessionConfig() {
 
 session::RadarCycleInput MakeCycleInput(model::TargetFeatureList targets, float dt_sec = 1.0f) {
   session::RadarCycleInput input;
-  input.scene.targets = ToSceneTargets(targets);
+  input.scene = ToSceneTargets(targets);
   input.dt_sec = dt_sec;
   input.platform_pose.attitude_deg.yaw_deg = 5.0f;
   input.platform_pose.attitude_deg.pitch_deg = -1.0f;
@@ -175,7 +175,7 @@ class RecordingRadarContext : public extension::IRadarContext {
  public:
   void BeginCycle(const session::RadarCycleInput& input) override {
     ++begin_cycle_count_;
-    target_features_ = ToModelTargets(input.scene.targets);
+    target_features_ = ToModelTargets(input.scene);
     platform_attitude_deg_.yaw_deg = input.platform_pose.attitude_deg.yaw_deg;
     platform_attitude_deg_.pitch_deg = input.platform_pose.attitude_deg.pitch_deg;
     platform_attitude_deg_.roll_deg = input.platform_pose.attitude_deg.roll_deg;
@@ -879,8 +879,8 @@ TEST(PublicApiConvenienceTest, RadarInputValidationReportsWarningsAndErrorsForCo
           model::MakeAirTarget(800U, 155.0f, 2.0f, 12.0f, 63.0f, -0.2f, 0.0f, -1.1f),
       },
       0.0f);
-  input.scene.targets[2].position_x = std::numeric_limits<float>::infinity();
-  input.scene.targets[2].range_m = 0.0f;
+  input.scene[2].position_x = std::numeric_limits<float>::infinity();
+  input.scene[2].range_m = 0.0f;
 
   const std::vector<session::ValidationIssue> issues = session::ValidateRadarCycleInput(input);
   EXPECT_TRUE(ContainsIssueCode(issues, session::ValidationCode::kInvalidCycleDeltaTime));
@@ -897,7 +897,7 @@ TEST(PublicApiConvenienceTest, RadarInputValidationFlagsMissingGeometryAndNonFin
   session::RadarSceneTarget invalid_target;
   invalid_target.external_target_id = 900U;
   invalid_target.range_m = 0.0f;
-  input.scene.targets.push_back(invalid_target);
+  input.scene.push_back(invalid_target);
 
   const std::vector<session::ValidationIssue> issues = session::ValidateRadarCycleInput(input);
   EXPECT_TRUE(ContainsIssueCode(issues, session::ValidationCode::kNonFiniteCycleDeltaTime));
@@ -996,8 +996,8 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
   const auto session_track_map = output::BuildTrackMapByExternalTargetId(session_frame);
   const auto manual_track_map = output::BuildTrackMapByExternalTargetId(manual_frame);
   ASSERT_EQ(session_track_map.size(), manual_track_map.size());
-  for (std::size_t i = 0; i < input.scene.targets.size(); ++i) {
-    const std::uint64_t target_id = input.scene.targets[i].external_target_id;
+  for (std::size_t i = 0; i < input.scene.size(); ++i) {
+    const std::uint64_t target_id = input.scene[i].external_target_id;
     ASSERT_NE(session_track_map.count(target_id), 0U);
     ASSERT_NE(manual_track_map.count(target_id), 0U);
     EXPECT_EQ(session_track_map.at(target_id).association_key,
@@ -1061,8 +1061,8 @@ TEST(PublicApiConvenienceTest,
 
   session::RadarCycleInput cycle_2 = cycle_1;
   cycle_2.dt_sec = -1.0f;
-  for (std::size_t i = 0; i < cycle_2.scene.targets.size(); ++i) {
-    cycle_2.scene.targets[i].position_x += 5.0f;
+  for (std::size_t i = 0; i < cycle_2.scene.size(); ++i) {
+    cycle_2.scene[i].position_x += 5.0f;
   }
   environment::JammerEmitterState noise_emitter_3;
   noise_emitter_3.technique = environment::JammingTechnique::kNoiseSuppression;
@@ -1093,8 +1093,8 @@ TEST(PublicApiConvenienceTest,
 
   session::RadarCycleInput cycle_3 = cycle_2;
   cycle_3.dt_sec = 1.0f;
-  cycle_3.scene.targets[1].external_target_id = 703U;
-  cycle_3.scene.targets[2].external_target_id = 704U;
+  cycle_3.scene[1].external_target_id = 703U;
+  cycle_3.scene[2].external_target_id = 704U;
   const output::TrackOutputFrame frame_3 =
       session.Step(cycle_3, environment::EnvironmentSceneBuilder().Build());
   EXPECT_GT(frame_3.tracks.size(), 0U);
@@ -1415,7 +1415,7 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultSurfacesValidationError
   session::RadarSceneTarget invalid_target;
   invalid_target.external_target_id = 123U;
   invalid_target.range_m = 0.0f;
-  input.scene.targets.push_back(invalid_target);
+  input.scene.push_back(invalid_target);
 
   const session::RadarCycleResult result = session.StepWithResult(input);
 

@@ -164,7 +164,7 @@ struct DetectionComputationContext {
 };
 
 DetectionComputationContext BuildDetectionComputationContext(
-		const EosPipelineConfig& config, const ::electro_optical_sensor::session::EosTargetState& target,
+		const EosPipelineConfig& config, const ::electro_optical_sensor::session::EosSceneTarget& target,
 		const ::electro_optical_sensor::session::EosCycleInput& input,
 		const std::shared_ptr<environment::IEosEnvironmentService>& environment_service) {
 	DetectionComputationContext context_values;
@@ -258,7 +258,7 @@ DetectionComputationContext BuildDetectionComputationContext(
 	return context_values;
 }
 
-float ComputeInfraredSnrLinear(const ::electro_optical_sensor::session::EosTargetState& target,
+float ComputeInfraredSnrLinear(const ::electro_optical_sensor::session::EosSceneTarget& target,
 															 const ::electro_optical_sensor::session::EosCycleInput& input,
 															 const DetectionComputationContext& context_values) {
 	foundation::radiometry::InfraredRadianceInputs infrared_inputs;
@@ -303,7 +303,7 @@ float ComputeInfraredSnrLinear(const ::electro_optical_sensor::session::EosTarge
 }
 
 float ComputeVisibleSnrLinear(const EosPipelineConfig& config,
-															const ::electro_optical_sensor::session::EosTargetState& target,
+															const ::electro_optical_sensor::session::EosSceneTarget& target,
 															const ::electro_optical_sensor::session::EosCycleInput& input,
 															const DetectionComputationContext& context_values) {
 	foundation::radiometry::VisibleChannelInputs visible_inputs;
@@ -432,8 +432,8 @@ extension::EosPipelineExecuteResult EosPipeline::Execute(
 	AdvanceScan(input.dt_sec);
 	output.scan_azimuth_deg = current_scan_azimuth_deg_;
 
-	for (std::size_t i = 0; i < input.scene.targets.size(); ++i) {
-		const ::electro_optical_sensor::session::EosTargetState& target = input.scene.targets[i];
+	for (std::size_t i = 0; i < input.scene.size(); ++i) {
+		const ::electro_optical_sensor::session::EosSceneTarget& target = input.scene[i];
 		if (!IsTargetInCurrentFov(target)) {
 			continue;
 		}
@@ -461,7 +461,7 @@ void EosPipeline::AdvanceScan(float dt_sec) {
 }
 
 bool EosPipeline::IsTargetInCurrentFov(
-		const ::electro_optical_sensor::session::EosTargetState& target) const {
+		const ::electro_optical_sensor::session::EosSceneTarget& target) const {
 	const float azimuth_delta_deg =
 			std::fabs(NormalizeAngle180(target.azimuth_deg - current_scan_azimuth_deg_));
 	const float elevation_delta_deg = std::fabs(target.elevation_deg - config_.scan_center_el_deg);
@@ -470,7 +470,7 @@ bool EosPipeline::IsTargetInCurrentFov(
 }
 
 output::EosDetectionRecord EosPipeline::BuildDetectionRecord(
-		const ::electro_optical_sensor::session::EosTargetState& target,
+		const ::electro_optical_sensor::session::EosSceneTarget& target,
 		const ::electro_optical_sensor::session::EosCycleInput& input) const {
 	output::EosDetectionRecord record;
 	record.target_id = target.target_id;

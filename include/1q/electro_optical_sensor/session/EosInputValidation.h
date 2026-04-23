@@ -52,13 +52,32 @@ enum class ValidationCode {
 };
 
 /**
+ * @brief ValidationLocationKind 表示校验问题定位域。
+ */
+enum class ValidationLocationKind {
+  kGlobal = 0,  /**< 与具体域或实体无关 */
+  kPlatform,    /**< 平台位姿域 */
+  kEnvironment, /**< 环境输入域 */
+  kSceneEntity  /**< 场景实体域（需配合 `entity_index`） */
+};
+
+/**
+ * @brief ValidationLocation 描述校验问题定位信息。
+ */
+struct ONEQ_API ValidationLocation {
+  ValidationLocationKind kind{ValidationLocationKind::kGlobal}; /**< 定位域 */
+  std::size_t entity_index{
+      static_cast<std::size_t>(-1)}; /**< 场景实体索引；非场景实体问题时为 `size_t(-1)` */
+};
+
+/**
  * @brief ValidationIssue 描述单条输入校验结果。
  */
 struct ONEQ_API ValidationIssue {
   ValidationSeverity severity{ValidationSeverity::kInfo}; /**< 问题严重级别 */
   ValidationCode code{ValidationCode::kNone};             /**< 结构化编码 */
-  std::size_t entity_index{
-      static_cast<std::size_t>(-1)}; /**< 实体索引；若无特定实体则为 `size_t(-1)` */
+  ValidationLocation location{};       /**< 结构化定位信息 */
+  std::string field{};                 /**< 触发问题的字段名；为空表示跨字段或域级问题 */
   std::string message{};             /**< 面向调用方的简短说明 */
 };
 

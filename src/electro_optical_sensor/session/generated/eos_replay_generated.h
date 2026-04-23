@@ -768,12 +768,12 @@ struct ValidationIssueT : public flatbuffers::NativeTable {
   typedef ValidationIssue TableType;
   int32_t severity;
   int32_t code;
-  int32_t target_index;
+  int32_t entity_index;
   std::string message;
   ValidationIssueT()
       : severity(0),
         code(0),
-        target_index(0) {
+        entity_index(0) {
   }
 };
 
@@ -783,7 +783,7 @@ struct ValidationIssue FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_SEVERITY = 4,
     VT_CODE = 6,
-    VT_TARGET_INDEX = 8,
+    VT_ENTITY_INDEX = 8,
     VT_MESSAGE = 10
   };
   int32_t severity() const {
@@ -792,8 +792,8 @@ struct ValidationIssue FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   int32_t code() const {
     return GetField<int32_t>(VT_CODE, 0);
   }
-  int32_t target_index() const {
-    return GetField<int32_t>(VT_TARGET_INDEX, 0);
+  int32_t entity_index() const {
+    return GetField<int32_t>(VT_ENTITY_INDEX, 0);
   }
   const flatbuffers::String *message() const {
     return GetPointer<const flatbuffers::String *>(VT_MESSAGE);
@@ -802,7 +802,7 @@ struct ValidationIssue FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     return VerifyTableStart(verifier) &&
            VerifyField<int32_t>(verifier, VT_SEVERITY) &&
            VerifyField<int32_t>(verifier, VT_CODE) &&
-           VerifyField<int32_t>(verifier, VT_TARGET_INDEX) &&
+           VerifyField<int32_t>(verifier, VT_ENTITY_INDEX) &&
            VerifyOffset(verifier, VT_MESSAGE) &&
            verifier.VerifyString(message()) &&
            verifier.EndTable();
@@ -822,8 +822,8 @@ struct ValidationIssueBuilder {
   void add_code(int32_t code) {
     fbb_.AddElement<int32_t>(ValidationIssue::VT_CODE, code, 0);
   }
-  void add_target_index(int32_t target_index) {
-    fbb_.AddElement<int32_t>(ValidationIssue::VT_TARGET_INDEX, target_index, 0);
+  void add_entity_index(int32_t entity_index) {
+    fbb_.AddElement<int32_t>(ValidationIssue::VT_ENTITY_INDEX, entity_index, 0);
   }
   void add_message(flatbuffers::Offset<flatbuffers::String> message) {
     fbb_.AddOffset(ValidationIssue::VT_MESSAGE, message);
@@ -844,11 +844,11 @@ inline flatbuffers::Offset<ValidationIssue> CreateValidationIssue(
     flatbuffers::FlatBufferBuilder &_fbb,
     int32_t severity = 0,
     int32_t code = 0,
-    int32_t target_index = 0,
+    int32_t entity_index = 0,
     flatbuffers::Offset<flatbuffers::String> message = 0) {
   ValidationIssueBuilder builder_(_fbb);
   builder_.add_message(message);
-  builder_.add_target_index(target_index);
+  builder_.add_entity_index(entity_index);
   builder_.add_code(code);
   builder_.add_severity(severity);
   return builder_.Finish();
@@ -858,14 +858,14 @@ inline flatbuffers::Offset<ValidationIssue> CreateValidationIssueDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     int32_t severity = 0,
     int32_t code = 0,
-    int32_t target_index = 0,
+    int32_t entity_index = 0,
     const char *message = nullptr) {
   auto message__ = message ? _fbb.CreateString(message) : 0;
   return eos::replay::CreateValidationIssue(
       _fbb,
       severity,
       code,
-      target_index,
+      entity_index,
       message__);
 }
 
@@ -1235,7 +1235,7 @@ inline void ValidationIssue::UnPackTo(ValidationIssueT *_o, const flatbuffers::r
   (void)_resolver;
   { auto _e = severity(); _o->severity = _e; }
   { auto _e = code(); _o->code = _e; }
-  { auto _e = target_index(); _o->target_index = _e; }
+  { auto _e = entity_index(); _o->entity_index = _e; }
   { auto _e = message(); if (_e) _o->message = _e->str(); }
 }
 
@@ -1249,13 +1249,13 @@ inline flatbuffers::Offset<ValidationIssue> CreateValidationIssue(flatbuffers::F
   struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const ValidationIssueT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
   auto _severity = _o->severity;
   auto _code = _o->code;
-  auto _target_index = _o->target_index;
+  auto _entity_index = _o->entity_index;
   auto _message = _o->message.empty() ? 0 : _fbb.CreateString(_o->message);
   return eos::replay::CreateValidationIssue(
       _fbb,
       _severity,
       _code,
-      _target_index,
+      _entity_index,
       _message);
 }
 

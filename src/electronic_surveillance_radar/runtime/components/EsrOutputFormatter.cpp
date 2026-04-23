@@ -35,7 +35,7 @@ void EsrOutputFormatter::LogCycleSummary(
   }
 
   const runtime::EsrCycleTelemetryPayload payload(
-      stamp, cycle_input.scene.emitters.size(), intercept_result.raw_observation_count,
+      stamp, cycle_input.scene.size(), intercept_result.raw_observation_count,
       output_frame.observation_output.observations.size(), intercept_result.cluster_count,
       output_frame.emitter_output.hypotheses.size(),
       output_frame.truth_evaluation_output.associations.size(), matched_truth_count, true);

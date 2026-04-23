@@ -63,7 +63,7 @@ static_assert(!HasTruthEmitterId<model::EmitterHypothesis>::value,
 TEST(EsrInputValidationTest, InvalidCycleDeltaTimeIsReportedAsError) {
   EsrCycleInput input;
   input.dt_sec = 0.0f;
-  input.scene.emitters.push_back(MakeValidEmitter());
+  input.scene.push_back(MakeValidEmitter());
 
   const ValidationIssueList issues = ValidateEsrCycleInput(input);
 
@@ -76,7 +76,7 @@ TEST(EsrInputValidationTest, InvalidEmitterFrequencyIsReportedAsError) {
   input.dt_sec = 1.0f;
   session::EsrSceneEmitter emitter = MakeValidEmitter();
   emitter.carrier_hz = 0.0;
-  input.scene.emitters.push_back(emitter);
+  input.scene.push_back(emitter);
 
   const ValidationIssueList issues = ValidateEsrCycleInput(input);
 
@@ -99,7 +99,7 @@ TEST(EsrInputValidationTest, NonFiniteEmitterNumericFieldIsReported) {
   input.dt_sec = 1.0f;
   session::EsrSceneEmitter emitter = MakeValidEmitter();
   emitter.bandwidth_hz = std::numeric_limits<double>::infinity();
-  input.scene.emitters.push_back(emitter);
+  input.scene.push_back(emitter);
 
   const ValidationIssueList issues = ValidateEsrCycleInput(input);
 
@@ -111,7 +111,7 @@ TEST(EsrInputValidationTest, NonFinitePlatformNumericFieldIsReported) {
   EsrCycleInput input;
   input.dt_sec = 1.0f;
   input.platform_pose.attitude_deg.yaw_deg = std::numeric_limits<float>::infinity();
-  input.scene.emitters.push_back(MakeValidEmitter());
+  input.scene.push_back(MakeValidEmitter());
 
   const ValidationIssueList issues = ValidateEsrCycleInput(input);
 
@@ -124,7 +124,7 @@ TEST(EsrInputValidationTest, NonFiniteEmitterAttitudeIsReported) {
   input.dt_sec = 1.0f;
   session::EsrSceneEmitter emitter = MakeValidEmitter();
   emitter.pose.attitude_deg.roll_deg = std::numeric_limits<float>::quiet_NaN();
-  input.scene.emitters.push_back(emitter);
+  input.scene.push_back(emitter);
 
   const ValidationIssueList issues = ValidateEsrCycleInput(input);
 
@@ -137,7 +137,7 @@ TEST(EsrInputValidationTest, InvalidEmitterPulseWidthIsReportedAsError) {
   input.dt_sec = 1.0f;
   session::EsrSceneEmitter emitter = MakeValidEmitter();
   emitter.pulse_width_s = 0.0f;
-  input.scene.emitters.push_back(emitter);
+  input.scene.push_back(emitter);
 
   const ValidationIssueList issues = ValidateEsrCycleInput(input);
 
@@ -150,7 +150,7 @@ TEST(EsrInputValidationTest, InvalidEmitterPriIsReportedAsError) {
   input.dt_sec = 1.0f;
   session::EsrSceneEmitter emitter = MakeValidEmitter();
   emitter.pri_s = 0.0f;
-  input.scene.emitters.push_back(emitter);
+  input.scene.push_back(emitter);
 
   const ValidationIssueList issues = ValidateEsrCycleInput(input);
 
@@ -164,7 +164,7 @@ TEST(EsrInputValidationTest, EmitterPriLessThanPulseWidthIsReportedAsError) {
   session::EsrSceneEmitter emitter = MakeValidEmitter();
   emitter.pulse_width_s = 3.0e-6f;
   emitter.pri_s = 1.0e-6f;
-  input.scene.emitters.push_back(emitter);
+  input.scene.push_back(emitter);
 
   const ValidationIssueList issues = ValidateEsrCycleInput(input);
 
@@ -177,7 +177,7 @@ TEST(EsrInputValidationTest, InvalidEmitterBeamwidthIsReportedAsError) {
   input.dt_sec = 1.0f;
   session::EsrSceneEmitter emitter = MakeValidEmitter();
   emitter.beam_state.az_beamwidth_deg = 0.0f;
-  input.scene.emitters.push_back(emitter);
+  input.scene.push_back(emitter);
 
   const ValidationIssueList issues = ValidateEsrCycleInput(input);
 

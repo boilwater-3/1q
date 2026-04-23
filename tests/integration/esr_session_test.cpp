@@ -38,7 +38,7 @@ EsrCycleInput MakeBaseInput() {
   emitter.pulse_width_s = 1.2e-6;
   emitter.pri_s = 1.0e-4;
   emitter.is_emitting = true;
-  input.scene.emitters.push_back(emitter);
+  input.scene.push_back(emitter);
   return input;
 }
 
@@ -98,7 +98,7 @@ TEST(EsrSessionIntegrationTest, WorkModeMappingMakesHgesmMoreDetectableThanRwr) 
   rwr_config.mission.work_mode = EsrWorkMode::kRwr;
 
   EsrCycleInput input = MakeBaseInput();
-  input.scene.emitters.front().tx_power_w = 30.0;
+  input.scene.front().tx_power_w = 30.0;
 
   EsrSession hgesm_session(hgesm_config);
   EsrSession rwr_session(rwr_config);
@@ -136,8 +136,8 @@ TEST(EsrSessionIntegrationTest, RuntimePatchCanApplyExplicitScanBounds) {
   EsrSession session(MakeSessionConfig());
 
   EsrCycleInput input = MakeBaseInput();
-  input.scene.emitters.front().pose.position_m.x = 1200.0f;
-  input.scene.emitters.front().pose.position_m.y = 0.0f;
+  input.scene.front().pose.position_m.x = 1200.0f;
+  input.scene.front().pose.position_m.y = 0.0f;
 
   const EsrCycleResult baseline = session.StepWithResult(input);
   EXPECT_GT(CountMatchedTruthObservations(baseline, "target-emitter"), 0U);

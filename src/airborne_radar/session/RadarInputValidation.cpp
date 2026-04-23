@@ -10,19 +10,23 @@ namespace session {
 
 namespace {
 
-/**
- * @brief 构造一条结构化校验结果。
- * @param severity 严重级别。
- * @param code 问题编码。
- * @param target_index 目标索引。
- * @param message 面向调用方的简短说明。
- * @return 组装后的校验结果。
- */
+ValidationLocation MakeLocation(ValidationLocationKind kind, std::size_t entity_index) {
+  ValidationLocation location;
+  location.kind = kind;
+  location.entity_index = entity_index;
+  return location;
+}
+
 ValidationIssue MakeIssue(ValidationSeverity severity, ValidationCode code,
-                          std::size_t target_index, const std::string& message) {
-  return oneq::internal::validation::MakeIndexedIssue<
-      ValidationIssue, ValidationSeverity, ValidationCode, &ValidationIssue::entity_index>(
-      severity, code, target_index, message);
+                          ValidationLocationKind location_kind, std::size_t entity_index,
+                          const std::string& field, const std::string& message) {
+  ValidationIssue issue;
+  issue.severity = severity;
+  issue.code = code;
+  issue.location = MakeLocation(location_kind, entity_index);
+  issue.field = field;
+  issue.message = message;
+  return issue;
 }
 
 /**
@@ -45,7 +49,8 @@ void ValidatePlatformPose(const oneq::foundation::PoseState& platform_pose,
       !IsFinite(platform_pose.attitude_deg.roll_deg)) {
     issues->push_back(
         MakeIssue(ValidationSeverity::kError, ValidationCode::kNonFinitePlatformNumericField,
-                  static_cast<std::size_t>(-1), "platform pose contains non-finite numeric field"));
+                  ValidationLocationKind::kPlatform, static_cast<std::size_t>(-1), "platform_pose",
+                  "platform pose contains non-finite numeric field"));
   }
 }
 
@@ -76,23 +81,27 @@ void ValidateSingleTarget(const RadarSceneTarget& target, std::size_t target_ind
       !IsFinite(target.current_track_speed) || !IsFinite(target.current_track_rcs) ||
       !IsFinite(target.range_m)) {
     issues->push_back(MakeIssue(ValidationSeverity::kError, ValidationCode::kNonFiniteTargetField,
-                                target_index, "target contains non-finite numeric field"));
+                                ValidationLocationKind::kSceneEntity, target_index, "scene",
+                                "target contains non-finite numeric field"));
   }
 
   if (target.range_m <= 0.0f && !HasCartesianPosition(target)) {
     issues->push_back(MakeIssue(ValidationSeverity::kError,
-                                ValidationCode::kMissingRangeAndCartesianPosition, target_index,
+                                ValidationCode::kMissingRangeAndCartesianPosition,
+                                ValidationLocationKind::kSceneEntity, target_index, "range_m",
                                 "target requires positive range or cartesian position"));
   }
 
   if (target.external_target_id == 0U) {
     issues->push_back(MakeIssue(ValidationSeverity::kInfo, ValidationCode::kUnknownExternalTargetId,
-                                target_index, "target external id is unknown"));
+                                ValidationLocationKind::kSceneEntity, target_index,
+                                "external_target_id", "target external id is unknown"));
   }
 
   if (target.current_track_rcs < 0.0f) {
     issues->push_back(MakeIssue(ValidationSeverity::kWarning, ValidationCode::kNegativeRcs,
-                                target_index, "target rcs is negative"));
+                                ValidationLocationKind::kSceneEntity, target_index,
+                                "current_track_rcs", "target rcs is negative"));
   }
 }
 
@@ -102,10 +111,12 @@ ValidationIssueList ValidateRadarCycleDeltaTime(float dt_sec) {
   ValidationIssueList issues;
   if (!IsFinite(dt_sec)) {
     issues.push_back(MakeIssue(ValidationSeverity::kError, ValidationCode::kNonFiniteCycleDeltaTime,
-                               static_cast<std::size_t>(-1), "cycle delta time must be finite"));
+                               ValidationLocationKind::kGlobal, static_cast<std::size_t>(-1),
+                               "dt_sec", "cycle delta time must be finite"));
   } else if (dt_sec <= 0.0f) {
     issues.push_back(MakeIssue(ValidationSeverity::kError, ValidationCode::kInvalidCycleDeltaTime,
-                               static_cast<std::size_t>(-1), "cycle delta time is non-positive"));
+                               ValidationLocationKind::kGlobal, static_cast<std::size_t>(-1),
+                               "dt_sec", "cycle delta time is non-positive"));
   }
   return issues;
 }
@@ -114,7 +125,7 @@ ValidationIssueList ValidateRadarCycleInput(const RadarCycleInput& input) {
   ValidationIssueList issues = ValidateRadarCycleDeltaTime(input.dt_sec);
   ValidatePlatformPose(input.platform_pose, &issues);
 
-  const ValidationIssueList target_issues = ValidateTargetFeatures(input.scene.targets);
+  const ValidationIssueList target_issues = ValidateTargetFeatures(input.scene);
   issues.insert(issues.end(), target_issues.begin(), target_issues.end());
   return issues;
 }
@@ -141,7 +152,9 @@ ValidationIssueList ValidateTargetFeatures(const RadarSceneTargetList& targets) 
     stream << "duplicate external target id " << external_target_id << " first seen at index "
            << it->second;
     issues.push_back(MakeIssue(ValidationSeverity::kError,
-                               ValidationCode::kDuplicateExternalTargetId, i, stream.str()));
+                               ValidationCode::kDuplicateExternalTargetId,
+                               ValidationLocationKind::kSceneEntity, i, "external_target_id",
+                               stream.str()));
   }
 
   return issues;

@@ -171,8 +171,8 @@ eos::session::EosSessionConfig ParseSessionConfig(const Json& payload) {
   return config;
 }
 
-eos::::electro_optical_sensor::session::EosCycleInput ParseCycleInput(const Json& payload) {
-  eos::::electro_optical_sensor::session::EosCycleInput input;
+eos::session::EosCycleInput ParseCycleInput(const Json& payload) {
+  eos::session::EosCycleInput input;
   input.cycle_index = payload.value("cycle_index", input.cycle_index);
   input.dt_sec = GetFloat(payload, "dt_sec", input.dt_sec);
   if (payload.contains("platform_pose")) {
@@ -183,16 +183,16 @@ eos::::electro_optical_sensor::session::EosCycleInput ParseCycleInput(const Json
   input.environment.solar_irradiance_w_m2 = GetFloat(payload, "solar_irradiance_w_m2", input.environment.solar_irradiance_w_m2);
   input.environment.cloud_coverage_ratio = GetFloat(payload, "cloud_coverage_ratio", input.environment.cloud_coverage_ratio);
   input.environment.ambient_wind_speed_mps = GetFloat(payload, "ambient_wind_speed_mps", input.environment.ambient_wind_speed_mps);
-  input.environment.day_night_type = static_cast<eos::::electro_optical_sensor::session::DayNightType>(
+  input.environment.day_night_type = static_cast<eos::session::DayNightType>(
       GetInt(payload, "day_night_type", static_cast<int>(input.environment.day_night_type)));
   input.environment.background_temperature_k =
       GetFloat(payload, "background_temperature_k", input.environment.background_temperature_k);
 
   if (payload.contains("scene_targets") && payload["scene_targets"].is_array()) {
-    input.scene.targets.clear();
+    input.scene.clear();
     for (std::size_t i = 0; i < payload["scene_targets"].size(); ++i) {
       const Json& j = payload["scene_targets"][i];
-      eos::session::EosTargetState target;
+      eos::session::EosSceneTarget target;
       target.target_id = j.value("target_id", target.target_id);
       target.range_m = GetFloat(j, "range_m", target.range_m);
       target.azimuth_deg = GetFloat(j, "azimuth_deg", target.azimuth_deg);
@@ -202,7 +202,7 @@ eos::::electro_optical_sensor::session::EosCycleInput ParseCycleInput(const Json
       target.emissivity = GetFloat(j, "emissivity", target.emissivity);
       target.reflectance = GetFloat(j, "reflectance", target.reflectance);
       target.projected_area_m2 = GetFloat(j, "projected_area_m2", target.projected_area_m2);
-      input.scene.targets.push_back(target);
+      input.scene.push_back(target);
     }
   }
   return input;
@@ -378,7 +378,7 @@ int main(int argc, char* argv[]) {
   for (std::size_t i = 0; i < expected.size(); ++i) {
     const TraceRecord& record = expected[i];
     if (record.phase == "input") {
-      const eos::::electro_optical_sensor::session::EosCycleInput input = ParseCycleInput(record.payload);
+      const eos::session::EosCycleInput input = ParseCycleInput(record.payload);
       (void)session.StepWithResult(input);
     } else if (record.phase == "runtime_config_patch") {
       const eos::session::EosRuntimeConfigPatch patch = ParseRuntimePatch(record.payload);

@@ -370,7 +370,7 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   emitter.tx_power_w = 5.0e7;
   emitter.pulse_width_s = 1.0e-6;
   emitter.pri_s = 1.0e-4;
-  input.scene.emitters.push_back(emitter);
+  input.scene.push_back(emitter);
 
   session::EsrCoordinateReference esr_reference;
   esr_reference.origin_lla.latitude_deg = 0.0;
@@ -420,7 +420,7 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   input.cycle_index = 2U;
   input.dt_sec = 1.0f;
   input.environment.day_night_type = ::electro_optical_sensor::session::DayNightType::kDay;
-  session::EosTargetState target;
+  session::EosSceneTarget target;
   target.target_id = 7U;
   target.range_m = 1500.0f;
   target.azimuth_deg = 0.0f;
@@ -429,7 +429,7 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   target.emissivity = 0.9f;
   target.reflectance = 0.4f;
   target.projected_area_m2 = 2.0f;
-  input.scene.targets.push_back(target);
+  input.scene.push_back(target);
 
   session::EosCoordinateReference eos_reference;
   eos_reference.origin_lla.latitude_deg = 0.0;

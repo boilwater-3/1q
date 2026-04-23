@@ -7,16 +7,27 @@ namespace session {
 
 using ::electro_optical_sensor::session::DayNightType;
 using ::electro_optical_sensor::session::EosCycleInput;
-using ::electro_optical_sensor::session::EosTargetState;
+using ::electro_optical_sensor::session::EosSceneTarget;
 
 namespace {
 
+ValidationLocation MakeLocation(ValidationLocationKind kind, std::size_t entity_index) {
+  ValidationLocation location;
+  location.kind = kind;
+  location.entity_index = entity_index;
+  return location;
+}
+
 ValidationIssue MakeIssue(ValidationSeverity severity, ValidationCode code,
-                             std::size_t target_index, const std::string& message) {
-  return oneq::internal::validation::MakeIndexedIssue<ValidationIssue, ValidationSeverity,
-                                                      ValidationCode,
-                                                      &ValidationIssue::entity_index>(
-      severity, code, target_index, message);
+                          ValidationLocationKind location_kind, std::size_t entity_index,
+                          const std::string& field, const std::string& message) {
+  ValidationIssue issue;
+  issue.severity = severity;
+  issue.code = code;
+  issue.location = MakeLocation(location_kind, entity_index);
+  issue.field = field;
+  issue.message = message;
+  return issue;
 }
 
 template <typename T>
@@ -33,14 +44,18 @@ void ValidateDayNightConsistency(const EosCycleInput& input, ValidationIssueList
   if (input.environment.day_night_type == DayNightType::kDay && input.environment.solar_altitude_deg < 0.0f) {
     issues->push_back(MakeIssue(ValidationSeverity::kWarning,
                                 ValidationCode::kInconsistentDayNightType,
+                                ValidationLocationKind::kEnvironment,
                                 static_cast<std::size_t>(-1),
+                                "environment.day_night_type",
                                 "day/night type is day while solar altitude is below horizon"));
     return;
   }
   if (input.environment.day_night_type == DayNightType::kNight && input.environment.solar_altitude_deg > -6.0f) {
     issues->push_back(MakeIssue(ValidationSeverity::kWarning,
                                 ValidationCode::kInconsistentDayNightType,
+                                ValidationLocationKind::kEnvironment,
                                 static_cast<std::size_t>(-1),
+                                "environment.day_night_type",
                                 "day/night type is night while solar altitude indicates twilight/day"));
   }
 }
@@ -59,11 +74,12 @@ void ValidatePlatformPose(const oneq::foundation::PoseState& platform_pose,
       !IsFinite(platform_pose.attitude_deg.roll_deg)) {
     issues->push_back(
         MakeIssue(ValidationSeverity::kError, ValidationCode::kNonFinitePlatformNumericField,
-                  static_cast<std::size_t>(-1), "platform pose contains non-finite numeric field"));
+                  ValidationLocationKind::kPlatform, static_cast<std::size_t>(-1), "platform_pose",
+                  "platform pose contains non-finite numeric field"));
   }
 }
 
-void ValidateTarget(const EosTargetState& target, std::size_t target_index,
+void ValidateTarget(const EosSceneTarget& target, std::size_t target_index,
                     ValidationIssueList* issues) {
   if (issues == nullptr) {
     return;
@@ -71,7 +87,8 @@ void ValidateTarget(const EosTargetState& target, std::size_t target_index,
 
   if (target.target_id == 0U) {
     issues->push_back(MakeIssue(ValidationSeverity::kWarning,
-                                ValidationCode::kInvalidTargetId, target_index,
+                                ValidationCode::kInvalidTargetId, ValidationLocationKind::kSceneEntity,
+                                target_index, "target_id",
                                 "target id is zero"));
   }
 
@@ -80,39 +97,49 @@ void ValidateTarget(const EosTargetState& target, std::size_t target_index,
       !IsFinite(target.emissivity) || !IsFinite(target.reflectance) ||
       !IsFinite(target.projected_area_m2)) {
     issues->push_back(MakeIssue(ValidationSeverity::kError,
-                                ValidationCode::kNonFiniteTargetNumericField, target_index,
+                                ValidationCode::kNonFiniteTargetNumericField,
+                                ValidationLocationKind::kSceneEntity, target_index, "scene",
                                 "target contains non-finite numeric field"));
   }
 
   if (target.range_m <= 0.0f) {
     issues->push_back(MakeIssue(ValidationSeverity::kError,
-                                ValidationCode::kInvalidTargetRange, target_index,
+                                ValidationCode::kInvalidTargetRange, ValidationLocationKind::kSceneEntity,
+                                target_index, "range_m",
                                 "target range must be positive"));
   }
   if (target.apparent_temperature_k <= 0.0f) {
     issues->push_back(MakeIssue(ValidationSeverity::kError,
-                                ValidationCode::kInvalidTargetTemperature, target_index,
+                                ValidationCode::kInvalidTargetTemperature,
+                                ValidationLocationKind::kSceneEntity, target_index,
+                                "apparent_temperature_k",
                                 "target temperature must be positive"));
   }
   if (!IsRatioValid(target.emissivity)) {
     issues->push_back(MakeIssue(ValidationSeverity::kError,
-                                ValidationCode::kInvalidTargetEmissivity, target_index,
+                                ValidationCode::kInvalidTargetEmissivity,
+                                ValidationLocationKind::kSceneEntity, target_index, "emissivity",
                                 "target emissivity must be in [0, 1]"));
   }
   if (!IsRatioValid(target.reflectance)) {
     issues->push_back(MakeIssue(ValidationSeverity::kError,
-                                ValidationCode::kInvalidTargetReflectance, target_index,
+                                ValidationCode::kInvalidTargetReflectance,
+                                ValidationLocationKind::kSceneEntity, target_index, "reflectance",
                                 "target reflectance must be in [0, 1]"));
   }
   if (IsFinite(target.emissivity) && IsFinite(target.reflectance) &&
       (target.emissivity + target.reflectance > 1.0f + 1.0e-4f)) {
     issues->push_back(MakeIssue(ValidationSeverity::kWarning,
-                                ValidationCode::kInconsistentTargetEnergyBalance, target_index,
+                                ValidationCode::kInconsistentTargetEnergyBalance,
+                                ValidationLocationKind::kSceneEntity, target_index,
+                                "emissivity+reflectance",
                                 "target emissivity + reflectance should not exceed 1"));
   }
   if (target.projected_area_m2 <= 0.0f) {
     issues->push_back(MakeIssue(ValidationSeverity::kError,
-                                ValidationCode::kInvalidTargetProjectedArea, target_index,
+                                ValidationCode::kInvalidTargetProjectedArea,
+                                ValidationLocationKind::kSceneEntity, target_index,
+                                "projected_area_m2",
                                 "target projected area must be positive"));
   }
 }
@@ -126,11 +153,13 @@ ValidationIssueList ValidateEosCycleInput(
   if (!IsFinite(input.dt_sec)) {
     issues.push_back(MakeIssue(ValidationSeverity::kError,
                                ValidationCode::kNonFiniteCycleDeltaTime,
-                               static_cast<std::size_t>(-1), "cycle delta time must be finite"));
+                               ValidationLocationKind::kGlobal, static_cast<std::size_t>(-1),
+                               "dt_sec", "cycle delta time must be finite"));
   } else if (input.dt_sec <= 0.0f) {
     issues.push_back(MakeIssue(ValidationSeverity::kError,
                                ValidationCode::kInvalidCycleDeltaTime,
-                               static_cast<std::size_t>(-1), "cycle delta time must be positive"));
+                               ValidationLocationKind::kGlobal, static_cast<std::size_t>(-1),
+                               "dt_sec", "cycle delta time must be positive"));
   }
 
   ValidatePlatformPose(input.platform_pose, &issues);
@@ -138,37 +167,49 @@ ValidationIssueList ValidateEosCycleInput(
   if (!IsFinite(input.environment.solar_altitude_deg) || !IsFinite(input.environment.solar_azimuth_deg)) {
     issues.push_back(MakeIssue(ValidationSeverity::kError,
                                ValidationCode::kNonFiniteSolarAngles,
-                               static_cast<std::size_t>(-1), "solar angles must be finite"));
+                               ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1),
+                               "environment.solar_altitude_deg/solar_azimuth_deg",
+                               "solar angles must be finite"));
   } else if (input.environment.solar_altitude_deg < -90.0f || input.environment.solar_altitude_deg > 90.0f) {
     issues.push_back(
         MakeIssue(ValidationSeverity::kError, ValidationCode::kInvalidSolarAltitudeRange,
-                  static_cast<std::size_t>(-1), "solar altitude must be in [-90, 90] degrees"));
+                  ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1),
+                  "environment.solar_altitude_deg",
+                  "solar altitude must be in [-90, 90] degrees"));
   }
   ValidateDayNightConsistency(input, &issues);
 
   if (!IsFinite(input.environment.solar_irradiance_w_m2) || input.environment.solar_irradiance_w_m2 < 0.0f) {
     issues.push_back(MakeIssue(
         ValidationSeverity::kError, ValidationCode::kInvalidSolarIrradiance,
-        static_cast<std::size_t>(-1), "solar irradiance must be finite and non-negative"));
+        ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1),
+        "environment.solar_irradiance_w_m2",
+        "solar irradiance must be finite and non-negative"));
   }
   if (!IsRatioValid(input.environment.cloud_coverage_ratio)) {
     issues.push_back(
         MakeIssue(ValidationSeverity::kError, ValidationCode::kInvalidCloudCoverageRatio,
-                  static_cast<std::size_t>(-1), "cloud coverage ratio must be in [0, 1]"));
+                  ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1),
+                  "environment.cloud_coverage_ratio",
+                  "cloud coverage ratio must be in [0, 1]"));
   }
   if (!IsFinite(input.environment.ambient_wind_speed_mps) || input.environment.ambient_wind_speed_mps < 0.0f) {
     issues.push_back(MakeIssue(
         ValidationSeverity::kError, ValidationCode::kInvalidAmbientWindSpeed,
-        static_cast<std::size_t>(-1), "ambient wind speed must be finite and non-negative"));
+        ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1),
+        "environment.ambient_wind_speed_mps",
+        "ambient wind speed must be finite and non-negative"));
   }
   if (!IsFinite(input.environment.background_temperature_k) || input.environment.background_temperature_k <= 0.0f) {
     issues.push_back(MakeIssue(
         ValidationSeverity::kError, ValidationCode::kInvalidBackgroundTemperature,
-        static_cast<std::size_t>(-1), "background temperature must be finite and positive"));
+        ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1),
+        "environment.background_temperature_k",
+        "background temperature must be finite and positive"));
   }
 
-  for (std::size_t i = 0; i < input.scene.targets.size(); ++i) {
-    ValidateTarget(input.scene.targets[i], i, &issues);
+  for (std::size_t i = 0; i < input.scene.size(); ++i) {
+    ValidateTarget(input.scene[i], i, &issues);
   }
 
   return issues;

@@ -25,12 +25,12 @@ int main() {
           .Build();
   eos::session::EosTraceSession session(config, eos::session::EosTraceSessionOptions{sink, true});
 
-  eos::::electro_optical_sensor::session::EosCycleInput input;
+  eos::session::EosCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
   input.platform_pose.position_m.z = 1200.0f;
 
-  const eos::::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
+  const eos::session::EosCycleResult result = session.StepWithResult(input);
   std::cout << "trace_file=" << trace_path
             << " executed=" << (result.executed_this_cycle ? "true" : "false")
             << " detections=" << result.output_frame.detections.size() << std::endl;

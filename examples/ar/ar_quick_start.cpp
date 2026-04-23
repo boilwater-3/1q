@@ -87,7 +87,7 @@ int main() {
   aq::session::RadarCycleInput input;
   input.dt_sec = 1.0f;
   input.platform_pose = platform_pose;
-  input.scene.targets.push_back(target);
+  input.scene.push_back(target);
 
   const auto issues = aq::session::ValidateRadarCycleInput(input);
   if (aq::session::HasValidationError(issues)) {

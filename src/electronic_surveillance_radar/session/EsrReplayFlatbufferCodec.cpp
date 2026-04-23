@@ -54,7 +54,7 @@ std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
   flatbuffers::FlatBufferBuilder fbb(1024);
 
   std::vector<flatbuffers::Offset<esr::replay::EmitterTruthState>> emitters;
-  for (const auto& e : v.scene.emitters) {
+  for (const auto& e : v.scene) {
     auto id = fbb.CreateString(e.emitter_id);
     auto pose = BuildPose(fbb, e.pose);
     auto beam = esr::replay::CreateEmitterBeamState(fbb,
@@ -107,7 +107,7 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
   const auto* fb = flatbuffers::GetRoot<esr::replay::EsrCycleInput>(bytes.data());
   out->cycle_index = fb->cycle_index(); out->dt_sec = fb->dt_sec();
   out->platform_pose = FromPose(fb->platform_pose());
-  out->scene.emitters.clear();
+  out->scene.clear();
   if (fb->scene_emitters()) {
     for (const auto* e : *fb->scene_emitters()) {
       session::EsrSceneEmitter ts{};
@@ -128,7 +128,7 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
         ts.beam_state.el_beamwidth_deg = e->beam_state()->el_beamwidth_deg();
         ts.beam_state.beam_state_valid = e->beam_state()->beam_state_valid();
       }
-      out->scene.emitters.push_back(ts);
+      out->scene.push_back(ts);
     }
   }
   out->environment.observation = {};
@@ -289,9 +289,13 @@ std::string EncodeEsrCycleResult(const EsrCycleResult& v) {
   auto frame = BuildOutputFrame(fbb, v.output_frame);
   std::vector<flatbuffers::Offset<esr::replay::ValidationIssue>> issues;
   for (const auto& i : v.validation_issues) {
+    const std::size_t encoded_entity_index =
+        i.location.kind == ValidationLocationKind::kSceneEntity
+            ? i.location.entity_index
+            : static_cast<std::size_t>(-1);
     issues.push_back(esr::replay::CreateValidationIssue(fbb,
         static_cast<int32_t>(i.severity), static_cast<int32_t>(i.code),
-        static_cast<int32_t>(i.entity_index), fbb.CreateString(i.message)));
+        static_cast<int32_t>(encoded_entity_index), fbb.CreateString(i.message)));
   }
   fbb.Finish(esr::replay::CreateEsrCycleResult(fbb, frame,
       fbb.CreateVector(issues), v.has_validation_error));
@@ -312,7 +316,12 @@ bool DecodeEsrCycleResult(const std::string& bytes, EsrCycleResult* out) {
       ValidationIssue iss{};
       iss.severity = static_cast<ValidationSeverity>(i->severity());
       iss.code = static_cast<ValidationCode>(i->code());
-      iss.entity_index = static_cast<std::size_t>(i->emitter_index());
+      iss.location.kind = ValidationLocationKind::kSceneEntity;
+      iss.location.entity_index = static_cast<std::size_t>(i->entity_index());
+      if (i->entity_index() < 0) {
+        iss.location.kind = ValidationLocationKind::kGlobal;
+        iss.location.entity_index = static_cast<std::size_t>(-1);
+      }
       if (i->message()) {
         iss.message = i->message()->str();
       }

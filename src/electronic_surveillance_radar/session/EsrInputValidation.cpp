@@ -11,20 +11,23 @@ namespace session {
 
 namespace {
 
-/**
- * @brief 生成一条 ESR 输入校验问题。
- * @param[in] severity 问题严重级别。
- * @param[in] code 结构化问题编码。
- * @param[in] emitter_index 实体索引；若无特定索引则为 `size_t(-1)`。
- * @param[in] message 面向调用方的短消息。
- * @return 组装后的校验问题。
- */
+ValidationLocation MakeLocation(ValidationLocationKind kind, std::size_t entity_index) {
+  ValidationLocation location;
+  location.kind = kind;
+  location.entity_index = entity_index;
+  return location;
+}
+
 ValidationIssue MakeIssue(ValidationSeverity severity, ValidationCode code,
-                             std::size_t emitter_index, const std::string& message) {
-  return oneq::internal::validation::MakeIndexedIssue<ValidationIssue, ValidationSeverity,
-                                                      ValidationCode,
-                                                      &ValidationIssue::entity_index>(
-      severity, code, emitter_index, message);
+                          ValidationLocationKind location_kind, std::size_t entity_index,
+                          const std::string& field, const std::string& message) {
+  ValidationIssue issue;
+  issue.severity = severity;
+  issue.code = code;
+  issue.location = MakeLocation(location_kind, entity_index);
+  issue.field = field;
+  issue.message = message;
+  return issue;
 }
 
 /**
@@ -55,7 +58,8 @@ void ValidatePlatformPose(const model::EsrPoseState& platform_pose,
       !IsFinite(platform_pose.attitude_deg.roll_deg)) {
     issues->push_back(
         MakeIssue(ValidationSeverity::kError, ValidationCode::kNonFinitePlatformNumericField,
-                  static_cast<std::size_t>(-1), "platform pose contains non-finite numeric field"));
+                  ValidationLocationKind::kPlatform, static_cast<std::size_t>(-1), "platform_pose",
+                  "platform pose contains non-finite numeric field"));
   }
 }
 
@@ -73,7 +77,8 @@ void ValidateEmitter(const session::EsrSceneEmitter& emitter, std::size_t emitte
 
   if (emitter.emitter_id.empty()) {
     issues->push_back(MakeIssue(ValidationSeverity::kError, ValidationCode::kEmptyEmitterId,
-                                emitter_index, "emitter id must not be empty"));
+                                ValidationLocationKind::kSceneEntity, emitter_index, "emitter_id",
+                                "emitter id must not be empty"));
   }
 
   if (!IsFinite(emitter.carrier_hz) || !IsFinite(emitter.bandwidth_hz) ||
@@ -88,33 +93,39 @@ void ValidateEmitter(const session::EsrSceneEmitter& emitter, std::size_t emitte
       !IsFinite(emitter.beam_state.az_beamwidth_deg) ||
       !IsFinite(emitter.beam_state.el_beamwidth_deg)) {
     issues->push_back(MakeIssue(ValidationSeverity::kError,
-                                ValidationCode::kNonFiniteEmitterNumericField, emitter_index,
+                                ValidationCode::kNonFiniteEmitterNumericField,
+                                ValidationLocationKind::kSceneEntity, emitter_index, "scene",
                                 "emitter contains non-finite numeric field"));
   }
 
   if (emitter.carrier_hz <= 0.0) {
     issues->push_back(MakeIssue(ValidationSeverity::kError,
-                                ValidationCode::kInvalidEmitterFrequency, emitter_index,
+                                ValidationCode::kInvalidEmitterFrequency,
+                                ValidationLocationKind::kSceneEntity, emitter_index, "carrier_hz",
                                 "emitter carrier frequency must be positive"));
   }
   if (emitter.bandwidth_hz <= 0.0) {
     issues->push_back(MakeIssue(ValidationSeverity::kError,
-                                ValidationCode::kInvalidEmitterBandwidth, emitter_index,
+                                ValidationCode::kInvalidEmitterBandwidth,
+                                ValidationLocationKind::kSceneEntity, emitter_index, "bandwidth_hz",
                                 "emitter bandwidth must be positive"));
   }
   if (emitter.tx_power_w <= 0.0) {
     issues->push_back(MakeIssue(ValidationSeverity::kError,
-                                ValidationCode::kInvalidEmitterPower, emitter_index,
+                                ValidationCode::kInvalidEmitterPower,
+                                ValidationLocationKind::kSceneEntity, emitter_index, "tx_power_w",
                                 "emitter transmit power must be positive"));
   }
   if (emitter.pulse_width_s <= 0.0) {
     issues->push_back(MakeIssue(ValidationSeverity::kError,
-                                ValidationCode::kInvalidEmitterPulseWidth, emitter_index,
+                                ValidationCode::kInvalidEmitterPulseWidth,
+                                ValidationLocationKind::kSceneEntity, emitter_index, "pulse_width_s",
                                 "emitter pulse width must be positive"));
   }
   if (emitter.pri_s <= 0.0) {
     issues->push_back(MakeIssue(ValidationSeverity::kError,
-                                ValidationCode::kInvalidEmitterPri, emitter_index,
+                                ValidationCode::kInvalidEmitterPri,
+                                ValidationLocationKind::kSceneEntity, emitter_index, "pri_s",
                                 "emitter pri must be positive"));
   }
   const bool pri_valid = emitter.pri_s > 0.0;
@@ -122,13 +133,17 @@ void ValidateEmitter(const session::EsrSceneEmitter& emitter, std::size_t emitte
   if (pri_valid && pulse_width_valid) {
     if (emitter.pri_s < emitter.pulse_width_s) {
       issues->push_back(MakeIssue(ValidationSeverity::kError,
-                                  ValidationCode::kEmitterPriLessThanPulseWidth, emitter_index,
+                                  ValidationCode::kEmitterPriLessThanPulseWidth,
+                                  ValidationLocationKind::kSceneEntity, emitter_index,
+                                  "pri_s/pulse_width_s",
                                   "emitter pri must be greater than or equal to pulse width"));
     }
   }
   if (emitter.beam_state.az_beamwidth_deg <= 0.0 || emitter.beam_state.el_beamwidth_deg <= 0.0) {
     issues->push_back(MakeIssue(ValidationSeverity::kError,
-                                ValidationCode::kInvalidEmitterBeamwidth, emitter_index,
+                                ValidationCode::kInvalidEmitterBeamwidth,
+                                ValidationLocationKind::kSceneEntity, emitter_index,
+                                "beam_state.az_beamwidth_deg/el_beamwidth_deg",
                                 "emitter beam width must be positive"));
   }
 }
@@ -141,16 +156,18 @@ ValidationIssueList ValidateEsrCycleInput(const EsrCycleInput& input) {
   if (!IsFinite(input.dt_sec)) {
     issues.push_back(MakeIssue(ValidationSeverity::kError,
                                ValidationCode::kNonFiniteCycleDeltaTime,
-                               static_cast<std::size_t>(-1), "cycle delta time must be finite"));
+                               ValidationLocationKind::kGlobal, static_cast<std::size_t>(-1),
+                               "dt_sec", "cycle delta time must be finite"));
   } else if (input.dt_sec <= 0.0f) {
     issues.push_back(MakeIssue(ValidationSeverity::kError,
                                ValidationCode::kInvalidCycleDeltaTime,
-                               static_cast<std::size_t>(-1), "cycle delta time must be positive"));
+                               ValidationLocationKind::kGlobal, static_cast<std::size_t>(-1),
+                               "dt_sec", "cycle delta time must be positive"));
   }
   ValidatePlatformPose(input.platform_pose, &issues);
 
-  for (std::size_t i = 0; i < input.scene.emitters.size(); ++i) {
-    ValidateEmitter(input.scene.emitters[i], i, &issues);
+  for (std::size_t i = 0; i < input.scene.size(); ++i) {
+    ValidateEmitter(input.scene[i], i, &issues);
   }
 
   return issues;

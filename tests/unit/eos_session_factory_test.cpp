@@ -125,8 +125,8 @@ TEST(EosSessionFactoryTest, CreateWithEnvironmentServiceUsesInjectedService) {
                                                                        environment_service);
 
   EosCycleInput input = MakeValidInput(9U);
-  input.scene.targets.clear();
-  EosTargetState target;
+  input.scene.clear();
+  EosSceneTarget target;
   target.target_id = 7U;
   target.range_m = 1000.0f;
   target.azimuth_deg = -55.0f;
@@ -135,7 +135,7 @@ TEST(EosSessionFactoryTest, CreateWithEnvironmentServiceUsesInjectedService) {
   target.emissivity = 0.9f;
   target.reflectance = 0.2f;
   target.projected_area_m2 = 4.0f;
-  input.scene.targets.push_back(target);
+  input.scene.push_back(target);
 
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
 
@@ -149,7 +149,7 @@ TEST(EosSessionFactoryTest, CreateUsesDefaultPipelineAndProducesResult) {
   EosSession session = EosSessionFactory::Create(MakeSessionConfig());
 
   EosCycleInput input = MakeValidInput(10U);
-  input.scene.targets.clear();
+  input.scene.clear();
 
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
 

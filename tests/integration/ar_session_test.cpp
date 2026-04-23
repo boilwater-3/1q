@@ -63,7 +63,7 @@ class ScenarioRadarContext : public extension::IRadarContext {
       : target_features_(std::move(target_features)) {}
 
   void BeginCycle(const session::RadarCycleInput& input) override {
-    target_features_ = ToModelTargets(input.scene.targets);
+    target_features_ = ToModelTargets(input.scene);
     platform_attitude_deg_.yaw_deg = input.platform_pose.attitude_deg.yaw_deg;
     platform_attitude_deg_.pitch_deg = input.platform_pose.attitude_deg.pitch_deg;
     platform_attitude_deg_.roll_deg = input.platform_pose.attitude_deg.roll_deg;

@@ -10,7 +10,7 @@
 
 #include "1q/api.hpp"
 #include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
-#include "1q/electro_optical_sensor/session/EosSceneInput.h"
+#include "1q/electro_optical_sensor/session/EosSceneTypes.h"
 #include "1q/foundation/pose_types.h"
 
 namespace electro_optical_sensor {
@@ -23,7 +23,7 @@ struct ONEQ_API EosCycleInput {
   std::uint32_t cycle_index{0U};            /**< 当前周期号 */
   float dt_sec{1.0f};                       /**< 当前周期步长（单位：s） */
   oneq::foundation::PoseState platform_pose{};  /**< 平台位姿状态 */
-  EosSceneInput scene{};                    /**< 当前周期场景实体输入 */
+  EosSceneTargetList scene{};               /**< 当前周期场景目标输入列表 */
   EosEnvironmentInput environment{};        /**< 当前周期环境事实输入 */
 };
 

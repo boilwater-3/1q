@@ -142,7 +142,7 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) 
   target.position_x = 1500.0f;
   target.position_y = 50.0f;
   target.position_z = 100.0f;
-  input.scene.targets.push_back(target);
+  input.scene.push_back(target);
 
   const session::RadarCycleResult result = session.StepWithResult(input);
   EXPECT_GE(result.track_output_frame.tracks.size(), 0U);
@@ -256,7 +256,7 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
     target.position_x = 2000.0f;
     target.position_y = 0.0f;
     target.position_z = 150.0f;
-    input.scene.targets.push_back(target);
+    input.scene.push_back(target);
 
     environment::EnvironmentSceneState scene_state;
     scene_state.atmospheric_physics.enable_physical_model = true;

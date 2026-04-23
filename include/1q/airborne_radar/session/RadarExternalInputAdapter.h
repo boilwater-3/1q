@@ -9,7 +9,7 @@
 #include <cstdint>
 
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
-#include "1q/airborne_radar/session/RadarSceneInput.h"
+#include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "1q/api.hpp"
 #include "1q/foundation/coordinate_transform.h"
 

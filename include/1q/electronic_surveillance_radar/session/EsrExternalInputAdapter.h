@@ -10,7 +10,7 @@
 
 #include "1q/api.hpp"
 #include "1q/electronic_surveillance_radar/model/EsrOrientationConfig.h"
-#include "1q/electronic_surveillance_radar/session/EsrSceneInput.h"
+#include "1q/electronic_surveillance_radar/session/EsrSceneTypes.h"
 #include "1q/foundation/coordinate_transform.h"
 
 namespace electronic_surveillance_radar {

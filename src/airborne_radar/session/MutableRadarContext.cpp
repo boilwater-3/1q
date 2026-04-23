@@ -44,7 +44,7 @@ struct MutableRadarContext::RuntimeSnapshot {
 };
 
 void MutableRadarContext::BeginCycle(const RadarCycleInput& input) {
-  SetTargetFeatures(ToModelTargetFeatures(input.scene.targets));
+  SetTargetFeatures(ToModelTargetFeatures(input.scene));
   platform_pose_ = input.platform_pose;
   SetCycleDeltaTimeSec(input.dt_sec);
   ResetCycleOutputs();

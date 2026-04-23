@@ -43,7 +43,7 @@ void MutableEsrContext::BeginCycle(const session::EsrCycleInput& input,
   cycle_index_ = input.cycle_index;
   dt_sec_ = input.dt_sec;
   platform_pose_ = input.platform_pose;
-  scene_emitters_ = ToModelEmitters(input.scene.emitters);
+  scene_emitters_ = ToModelEmitters(input.scene);
   environment_snapshot_ = environment_snapshot;
   pipeline_config_ = pipeline_config;
   runtime_config_ = runtime_config;

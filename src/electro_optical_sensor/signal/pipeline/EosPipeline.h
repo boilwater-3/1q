@@ -63,9 +63,9 @@ class EosPipeline : public ::electro_optical_sensor::extension::IEosPipeline {
  private:
   void AdvanceScan(float dt_sec);
   bool IsTargetInCurrentFov(
-	  const ::electro_optical_sensor::session::EosTargetState& target) const;
+	  const ::electro_optical_sensor::session::EosSceneTarget& target) const;
   output::EosDetectionRecord BuildDetectionRecord(
-	  const ::electro_optical_sensor::session::EosTargetState& target,
+	  const ::electro_optical_sensor::session::EosSceneTarget& target,
 	  const ::electro_optical_sensor::session::EosCycleInput& input) const;
 
   EosPipelineConfig config_{};

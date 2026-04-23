@@ -732,9 +732,9 @@ environment::EnvironmentDefaultConfig DecodeEnvironmentDefaultConfig(
 std::string EncodeCycleInputFlatbuffer(const RadarCycleInput& input) {
   flatbuffers::FlatBufferBuilder builder;
   std::vector<flatbuffers::Offset<fb::TargetFeature>> targets;
-  targets.reserve(input.scene.targets.size());
-  for (std::size_t i = 0; i < input.scene.targets.size(); ++i) {
-    targets.push_back(EncodeTargetFeature(&builder, input.scene.targets[i]));
+  targets.reserve(input.scene.size());
+  for (std::size_t i = 0; i < input.scene.size(); ++i) {
+    targets.push_back(EncodeTargetFeature(&builder, input.scene[i]));
   }
 
   const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fb::TargetFeature>>>
@@ -775,13 +775,13 @@ bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes, RadarCycleInpu
   const fb::RadarCycleInput* root = fb::GetRadarCycleInput(data);
   input->dt_sec = root->dt_sec();
   input->platform_pose = DecodePoseState(root->platform_pose());
-  input->scene.targets.clear();
+  input->scene.clear();
   const flatbuffers::Vector<flatbuffers::Offset<fb::TargetFeature>>* targets =
       root->target_features();
   if (targets != nullptr) {
-    input->scene.targets.reserve(targets->size());
+    input->scene.reserve(targets->size());
     for (flatbuffers::uoffset_t i = 0; i < targets->size(); ++i) {
-      input->scene.targets.push_back(DecodeTargetFeature(targets->Get(i)));
+      input->scene.push_back(DecodeTargetFeature(targets->Get(i)));
     }
   }
   return true;

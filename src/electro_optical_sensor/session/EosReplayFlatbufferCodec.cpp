@@ -70,8 +70,8 @@ std::string EncodeEosCycleInput(const EosCycleInput& v) {
   flatbuffers::FlatBufferBuilder fbb(512);
 
   std::vector<flatbuffers::Offset<eos::replay::EosTargetState>> targets_vec;
-  targets_vec.reserve(v.scene.targets.size());
-  for (const auto& t : v.scene.targets) {
+  targets_vec.reserve(v.scene.size());
+  for (const auto& t : v.scene) {
     auto b = eos::replay::CreateEosTargetState(
         fbb, static_cast<std::uint32_t>(t.target_id), t.range_m, t.azimuth_deg, t.elevation_deg,
         t.apparent_temperature_k, t.emissivity, t.reflectance, t.projected_area_m2);
@@ -114,10 +114,10 @@ bool DecodeEosCycleInput(const std::string& bytes, EosCycleInput* out) {
   out->environment.day_night_type =
       static_cast<::electro_optical_sensor::session::DayNightType>(fb->day_night_type());
   out->environment.background_temperature_k = fb->background_temperature_k();
-  out->scene.targets.clear();
+  out->scene.clear();
   if (fb->scene_targets()) {
     for (const auto* t : *fb->scene_targets()) {
-      EosTargetState ts{};
+      EosSceneTarget ts{};
       ts.target_id = t->target_id();
       ts.range_m = t->range_m();
       ts.azimuth_deg = t->azimuth_deg();
@@ -126,7 +126,7 @@ bool DecodeEosCycleInput(const std::string& bytes, EosCycleInput* out) {
       ts.emissivity = t->emissivity();
       ts.reflectance = t->reflectance();
       ts.projected_area_m2 = t->projected_area_m2();
-      out->scene.targets.push_back(ts);
+      out->scene.push_back(ts);
     }
   }
   return true;
@@ -197,10 +197,14 @@ std::string EncodeEosCycleResult(const ::electro_optical_sensor::session::EosCyc
 
   std::vector<flatbuffers::Offset<eos::replay::ValidationIssue>> issue_vec;
   for (const auto& i : v.validation_issues) {
+    const std::size_t encoded_entity_index =
+        i.location.kind == session::ValidationLocationKind::kSceneEntity
+            ? i.location.entity_index
+            : static_cast<std::size_t>(-1);
     auto msg = fbb.CreateString(i.message);
     issue_vec.push_back(eos::replay::CreateValidationIssue(
         fbb, static_cast<int32_t>(i.severity), static_cast<int32_t>(i.code),
-        static_cast<int32_t>(i.entity_index), msg));
+        static_cast<int32_t>(encoded_entity_index), msg));
   }
 
   auto result = eos::replay::CreateEosCycleResult(
@@ -248,7 +252,12 @@ bool DecodeEosCycleResult(const std::string& bytes, ::electro_optical_sensor::se
         session::ValidationIssue iss{};
         iss.severity = static_cast<session::ValidationSeverity>(i->severity());
         iss.code = static_cast<session::ValidationCode>(i->code());
-        iss.entity_index = static_cast<std::size_t>(i->target_index());
+        iss.location.kind = session::ValidationLocationKind::kSceneEntity;
+        iss.location.entity_index = static_cast<std::size_t>(i->entity_index());
+        if (i->entity_index() < 0) {
+          iss.location.kind = session::ValidationLocationKind::kGlobal;
+          iss.location.entity_index = static_cast<std::size_t>(-1);
+        }
         if (i->message()) {
           iss.message = i->message()->str();
         }

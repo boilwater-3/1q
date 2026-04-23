@@ -72,9 +72,9 @@ int main() {
   // 周期 1：构造两批空中目标并执行一次无干扰探测。
   RadarCycleInput cycle_1;
   cycle_1.dt_sec = 1.0f;
-  cycle_1.scene.targets.push_back(
+  cycle_1.scene.push_back(
       aq::MakeTargetFromCartesian(1001U, 180.0f, -5.0f, 18.0f, 65.0f, 0.0f, 0.0f, 1.0f));
-  cycle_1.scene.targets.push_back(
+  cycle_1.scene.push_back(
       aq::MakeTargetFromCartesian(1002U, 260.0f, 8.0f, 22.0f, 82.0f, 1.0f, 0.0f, 1.1f));
 
   const std::vector<airborne_radar::session::ValidationIssue> cycle_1_issues =
@@ -90,9 +90,9 @@ int main() {
 
   // 周期 2：调用方按自己的平台/目标模型推进相对位置后继续执行。
   RadarCycleInput cycle_2 = cycle_1;
-  for (std::size_t i = 0; i < cycle_2.scene.targets.size(); ++i) {
-    cycle_2.scene.targets[i].position_x +=
-        cycle_2.scene.targets[i].current_track_velocity_x * cycle_2.dt_sec;
+  for (std::size_t i = 0; i < cycle_2.scene.size(); ++i) {
+    cycle_2.scene[i].position_x +=
+        cycle_2.scene[i].current_track_velocity_x * cycle_2.dt_sec;
   }
 
   const RadarCycleResult result_2 = session.StepWithResult(cycle_2);
@@ -102,9 +102,9 @@ int main() {
 
   // 周期 3：在 step 前提交场景更新，演示"当前周期切入干扰"的高层用法。
   RadarCycleInput cycle_3 = cycle_2;
-  for (std::size_t i = 0; i < cycle_3.scene.targets.size(); ++i) {
-    cycle_3.scene.targets[i].position_x +=
-        cycle_3.scene.targets[i].current_track_velocity_x * cycle_3.dt_sec;
+  for (std::size_t i = 0; i < cycle_3.scene.size(); ++i) {
+    cycle_3.scene[i].position_x +=
+        cycle_3.scene[i].current_track_velocity_x * cycle_3.dt_sec;
   }
 
   JammerEmitterState noise_jammer;

@@ -1,10 +1,10 @@
 /**
- * @file EsrSceneInput.h
- * @brief 定义 ESR 单周期场景输入聚合类型。
+ * @file EsrSceneTypes.h
+ * @brief 定义 ESR 单周期场景实体输入类型。
  */
 
-#ifndef ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_SCENE_INPUT_H_
-#define ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_SCENE_INPUT_H_
+#ifndef ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_SCENE_TYPES_H_
+#define ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_SCENE_TYPES_H_
 
 #include <string>
 #include <vector>
@@ -40,16 +40,7 @@ struct ONEQ_API EsrSceneEmitter {
 /** @brief EsrSceneEmitterList 表示 ESR 场景辐射源输入列表。 */
 using EsrSceneEmitterList = std::vector<EsrSceneEmitter>;
 
-/**
- * @brief EsrSceneInput 聚合 ESR 单周期场景实体输入。
- * @note 当前仅含 `emitters`，是统一骨架 `CycleInput.scene` 的固定语义槽位，
- *       用于外部输入边界与内部真值模型解耦。
- */
-struct ONEQ_API EsrSceneInput {
-  EsrSceneEmitterList emitters{}; /**< 当前周期场景辐射源输入列表 */
-};
-
 }  // namespace session
 }  // namespace electronic_surveillance_radar
 
-#endif  // ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_SCENE_INPUT_H_
+#endif  // ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_SCENE_TYPES_H_

@@ -169,7 +169,7 @@ esr::session::EsrCycleInput ParseCycleInput(const Json& payload) {
   }
 
   if (payload.contains("scene_emitters") && payload["scene_emitters"].is_array()) {
-    input.scene.emitters.clear();
+    input.scene.clear();
     for (std::size_t i = 0; i < payload["scene_emitters"].size(); ++i) {
       const Json& e = payload["scene_emitters"][i];
       esr::session::EsrSceneEmitter emitter;
@@ -205,7 +205,7 @@ esr::session::EsrCycleInput ParseCycleInput(const Json& payload) {
             GetBool(b, "beam_state_valid", emitter.beam_state.beam_state_valid);
       }
       emitter.is_emitting = GetBool(e, "is_emitting", emitter.is_emitting);
-      input.scene.emitters.push_back(emitter);
+      input.scene.push_back(emitter);
     }
   }
 

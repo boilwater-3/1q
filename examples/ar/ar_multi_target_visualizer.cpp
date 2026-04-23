@@ -199,7 +199,7 @@ void StepOnce(airborne_radar::session::RadarSession& session, SimState& sim) {
   input.dt_sec = kDtSec;
   for (const auto& kv : sim.target_pos) {
     const auto& p = kv.second;
-    input.scene.targets.push_back(
+    input.scene.push_back(
         aq::MakeTargetFromCartesian(kv.first, p.px, p.py, p.pz, p.vx, p.vy, p.vz, p.rcs));
   }
 

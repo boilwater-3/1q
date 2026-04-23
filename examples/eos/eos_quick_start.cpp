@@ -75,7 +75,7 @@ int main() {
   target_input.target_position_ecef_m = target_ecef;
   target_input.appearance = appearance;
 
-  eos::session::EosTargetState target;
+  eos::session::EosSceneTarget target;
   if (!eos::session::TryMakeEosSceneTargetFromExternalInput(1001U, target_input, reference,
                                                             platform_pose, &target)) {
     std::cerr << "failed to build eos target" << std::endl;
@@ -86,7 +86,7 @@ int main() {
   eos::session::EosCycleInput input;
   input.dt_sec = 1.0f;
   input.platform_pose = platform_pose;
-  input.scene.targets.push_back(target);
+  input.scene.push_back(target);
 
   const eos::session::ValidationIssueList issues = eos::session::ValidateEosCycleInput(input);
   if (eos::session::HasValidationError(issues)) {

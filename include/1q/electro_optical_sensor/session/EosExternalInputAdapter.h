@@ -9,8 +9,9 @@
 #include <cstdint>
 
 #include "1q/api.hpp"
-#include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "1q/electro_optical_sensor/session/EosSceneTypes.h"
 #include "1q/foundation/coordinate_transform.h"
+#include "1q/foundation/pose_types.h"
 
 namespace electro_optical_sensor {
 namespace session {

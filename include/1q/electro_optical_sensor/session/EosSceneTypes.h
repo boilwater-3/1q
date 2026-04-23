@@ -1,10 +1,10 @@
 /**
- * @file EosSceneInput.h
- * @brief 定义 EOS 单周期场景输入聚合类型。
+ * @file EosSceneTypes.h
+ * @brief 定义 EOS 单周期场景实体输入类型。
  */
 
-#ifndef ELECTRO_OPTICAL_SENSOR_SESSION_EOS_SCENE_INPUT_H_
-#define ELECTRO_OPTICAL_SENSOR_SESSION_EOS_SCENE_INPUT_H_
+#ifndef ELECTRO_OPTICAL_SENSOR_SESSION_EOS_SCENE_TYPES_H_
+#define ELECTRO_OPTICAL_SENSOR_SESSION_EOS_SCENE_TYPES_H_
 
 #include <cstdint>
 #include <vector>
@@ -30,19 +30,8 @@ struct ONEQ_API EosSceneTarget {
 
 /** @brief EosSceneTargetList 表示 EOS 场景目标输入列表。 */
 using EosSceneTargetList = std::vector<EosSceneTarget>;
-using EosTargetState = EosSceneTarget;
-using EosTargetStateList = EosSceneTargetList;
-
-/**
- * @brief EosSceneInput 聚合 EOS 单周期场景实体输入。
- * @note 当前仅含 `targets`，是统一骨架 `CycleInput.scene` 的固定语义槽位，
- *       用于稳定外部输入边界；不是临时包装层。
- */
-struct ONEQ_API EosSceneInput {
-  EosSceneTargetList targets{}; /**< 当前周期场景目标输入列表 */
-};
 
 }  // namespace session
 }  // namespace electro_optical_sensor
 
-#endif  // ELECTRO_OPTICAL_SENSOR_SESSION_EOS_SCENE_INPUT_H_
+#endif  // ELECTRO_OPTICAL_SENSOR_SESSION_EOS_SCENE_TYPES_H_

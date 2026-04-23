@@ -7,16 +7,34 @@
 
 #include <limits>
 #include <cstdint>
+#include <string>
 #include <vector>
 
-#include "1q/airborne_radar/session/RadarInputValidation.h"
-#include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "common/validation/ValidationUtils.h"
 
 namespace oneq {
 namespace internal {
 namespace validation {
 namespace {
+
+enum class TestSeverity {
+  kInfo = 0,
+  kWarning,
+  kError
+};
+
+enum class TestCode {
+  kNone = 0,
+  kA,
+  kB
+};
+
+struct TestIssue {
+  TestSeverity severity{TestSeverity::kInfo};
+  TestCode code{TestCode::kNone};
+  std::size_t entity_index{static_cast<std::size_t>(-1)};
+  std::string message{};
+};
 
 TEST(ValidationUtilsTest, IsFiniteDistinguishesFiniteNanAndInfinity) {
   EXPECT_TRUE(IsFinite(1.0f));
@@ -25,97 +43,69 @@ TEST(ValidationUtilsTest, IsFiniteDistinguishesFiniteNanAndInfinity) {
   EXPECT_FALSE(IsFinite(std::numeric_limits<double>::infinity()));
 }
 
-TEST(ValidationUtilsTest, MakeIndexedIssueSupportsEntityIndexFieldForAr) {
-  const airborne_radar::session::ValidationIssue issue =
-      MakeIndexedIssue<airborne_radar::session::ValidationIssue,
-                       airborne_radar::session::ValidationSeverity,
-                       airborne_radar::session::ValidationCode,
-                       &airborne_radar::session::ValidationIssue::entity_index>(
-          airborne_radar::session::ValidationSeverity::kWarning,
-          airborne_radar::session::ValidationCode::kNegativeRcs, 3U, "negative rcs");
+TEST(ValidationUtilsTest, MakeIndexedIssueSupportsSizeTIndexField) {
+  const TestIssue issue = MakeIndexedIssue<TestIssue, TestSeverity, TestCode,
+                                           &TestIssue::entity_index>(
+      TestSeverity::kWarning, TestCode::kA, 3U, "issue-a");
 
-  EXPECT_EQ(issue.severity, airborne_radar::session::ValidationSeverity::kWarning);
-  EXPECT_EQ(issue.code, airborne_radar::session::ValidationCode::kNegativeRcs);
+  EXPECT_EQ(issue.severity, TestSeverity::kWarning);
+  EXPECT_EQ(issue.code, TestCode::kA);
   EXPECT_EQ(issue.entity_index, 3U);
-  EXPECT_EQ(issue.message, "negative rcs");
+  EXPECT_EQ(issue.message, "issue-a");
 }
 
-TEST(ValidationUtilsTest, MakeIndexedIssueSupportsEntityIndexFieldForEsr) {
-  const electronic_surveillance_radar::session::ValidationIssue issue = MakeIndexedIssue<
-      electronic_surveillance_radar::session::ValidationIssue,
-      electronic_surveillance_radar::session::ValidationSeverity,
-      electronic_surveillance_radar::session::ValidationCode,
-      &electronic_surveillance_radar::session::ValidationIssue::entity_index>(
-      electronic_surveillance_radar::session::ValidationSeverity::kError,
-      electronic_surveillance_radar::session::ValidationCode::kInvalidEmitterFrequency, 5U,
-      "invalid emitter frequency");
+TEST(ValidationUtilsTest, MakeIndexedIssueSupportsInt32IndexField) {
+  struct Int32Issue {
+    TestSeverity severity{TestSeverity::kInfo};
+    TestCode code{TestCode::kNone};
+    std::int32_t entity_index{0};
+    std::string message{};
+  };
 
-  EXPECT_EQ(issue.severity,
-            electronic_surveillance_radar::session::ValidationSeverity::kError);
-  EXPECT_EQ(
-      issue.code,
-      electronic_surveillance_radar::session::ValidationCode::kInvalidEmitterFrequency);
-  EXPECT_EQ(issue.entity_index, 5U);
-  EXPECT_EQ(issue.message, "invalid emitter frequency");
+  const Int32Issue issue = MakeIndexedIssue<Int32Issue, TestSeverity, TestCode,
+                                            &Int32Issue::entity_index>(
+      TestSeverity::kError, TestCode::kB, static_cast<std::int32_t>(5), "issue-b");
+  EXPECT_EQ(issue.severity, TestSeverity::kError);
+  EXPECT_EQ(issue.code, TestCode::kB);
+  EXPECT_EQ(issue.entity_index, 5);
+  EXPECT_EQ(issue.message, "issue-b");
 }
 
 TEST(ValidationUtilsTest, HasSeverityReturnsFalseForEmptyList) {
-  const std::vector<airborne_radar::session::ValidationIssue> issues;
-  const bool has_error = HasSeverity<std::vector<airborne_radar::session::ValidationIssue>,
-                                     airborne_radar::session::ValidationSeverity,
-                                     &airborne_radar::session::ValidationIssue::severity>(
-      issues, airborne_radar::session::ValidationSeverity::kError);
+  const std::vector<TestIssue> issues;
+  const bool has_error =
+      HasSeverity<std::vector<TestIssue>, TestSeverity, &TestIssue::severity>(
+          issues, TestSeverity::kError);
   EXPECT_FALSE(has_error);
 }
 
 TEST(ValidationUtilsTest, HasSeverityReturnsFalseWhenNoExpectedSeverity) {
-  std::vector<airborne_radar::session::ValidationIssue> issues;
-  issues.push_back(MakeIndexedIssue<airborne_radar::session::ValidationIssue,
-                                    airborne_radar::session::ValidationSeverity,
-                                    airborne_radar::session::ValidationCode,
-                                    &airborne_radar::session::ValidationIssue::entity_index>(
-      airborne_radar::session::ValidationSeverity::kInfo,
-      airborne_radar::session::ValidationCode::kUnknownExternalTargetId, 1U, "unknown id"));
-  issues.push_back(MakeIndexedIssue<airborne_radar::session::ValidationIssue,
-                                    airborne_radar::session::ValidationSeverity,
-                                    airborne_radar::session::ValidationCode,
-                                    &airborne_radar::session::ValidationIssue::entity_index>(
-      airborne_radar::session::ValidationSeverity::kWarning,
-      airborne_radar::session::ValidationCode::kNegativeRcs, 2U, "negative rcs"));
+  std::vector<TestIssue> issues;
+  issues.push_back(MakeIndexedIssue<TestIssue, TestSeverity, TestCode,
+                                    &TestIssue::entity_index>(
+      TestSeverity::kInfo, TestCode::kA, 1U, "info"));
+  issues.push_back(MakeIndexedIssue<TestIssue, TestSeverity, TestCode,
+                                    &TestIssue::entity_index>(
+      TestSeverity::kWarning, TestCode::kB, 2U, "warning"));
 
-  const bool has_error = HasSeverity<std::vector<airborne_radar::session::ValidationIssue>,
-                                     airborne_radar::session::ValidationSeverity,
-                                     &airborne_radar::session::ValidationIssue::severity>(
-      issues, airborne_radar::session::ValidationSeverity::kError);
+  const bool has_error =
+      HasSeverity<std::vector<TestIssue>, TestSeverity, &TestIssue::severity>(
+          issues, TestSeverity::kError);
   EXPECT_FALSE(has_error);
 }
 
 TEST(ValidationUtilsTest, HasSeverityReturnsTrueWhenExpectedSeverityExists) {
-  std::vector<electronic_surveillance_radar::session::ValidationIssue> issues;
-  issues.push_back(
-      MakeIndexedIssue<
-          electronic_surveillance_radar::session::ValidationIssue,
-          electronic_surveillance_radar::session::ValidationSeverity,
-          electronic_surveillance_radar::session::ValidationCode,
-          &electronic_surveillance_radar::session::ValidationIssue::entity_index>(
-          electronic_surveillance_radar::session::ValidationSeverity::kInfo,
-          electronic_surveillance_radar::session::ValidationCode::kNone,
-          static_cast<std::size_t>(-1), "info"));
-  issues.push_back(
-      MakeIndexedIssue<
-          electronic_surveillance_radar::session::ValidationIssue,
-          electronic_surveillance_radar::session::ValidationSeverity,
-          electronic_surveillance_radar::session::ValidationCode,
-          &electronic_surveillance_radar::session::ValidationIssue::entity_index>(
-          electronic_surveillance_radar::session::ValidationSeverity::kError,
-          electronic_surveillance_radar::session::ValidationCode::kInvalidEmitterPri, 4U,
-          "invalid pri"));
+  std::vector<TestIssue> issues;
+  issues.push_back(MakeIndexedIssue<TestIssue, TestSeverity, TestCode,
+                                    &TestIssue::entity_index>(
+      TestSeverity::kInfo, TestCode::kNone, static_cast<std::size_t>(-1), "info"));
+  issues.push_back(MakeIndexedIssue<TestIssue, TestSeverity, TestCode,
+                                    &TestIssue::entity_index>(
+      TestSeverity::kError, TestCode::kB, 4U, "error"));
 
   const bool has_error =
-      HasSeverity<std::vector<electronic_surveillance_radar::session::ValidationIssue>,
-                  electronic_surveillance_radar::session::ValidationSeverity,
-                  &electronic_surveillance_radar::session::ValidationIssue::severity>(
-          issues, electronic_surveillance_radar::session::ValidationSeverity::kError);
+      HasSeverity<std::vector<TestIssue>, TestSeverity, &TestIssue::severity>(
+          issues, TestSeverity::kError);
   EXPECT_TRUE(has_error);
 }
 

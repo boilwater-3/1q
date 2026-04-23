@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/session/RadarCycleInput.h"
-#include "1q/airborne_radar/session/RadarSceneInput.h"
+#include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
@@ -42,13 +42,32 @@ enum class ValidationCode {
 };
 
 /**
+ * @brief ValidationLocationKind 表示校验问题定位域。
+ */
+enum class ValidationLocationKind {
+  kGlobal = 0,  /**< 与具体域或实体无关 */
+  kPlatform,    /**< 平台位姿域 */
+  kEnvironment, /**< 环境输入域 */
+  kSceneEntity  /**< 场景实体域（需配合 `entity_index`） */
+};
+
+/**
+ * @brief ValidationLocation 描述校验问题定位信息。
+ */
+struct ValidationLocation {
+  ValidationLocationKind kind{ValidationLocationKind::kGlobal}; /**< 定位域 */
+  std::size_t entity_index{
+      static_cast<std::size_t>(-1)}; /**< 场景实体索引；非场景实体问题时为 `size_t(-1)` */
+};
+
+/**
  * @brief ValidationIssue 描述一条结构化输入校验结果。
  */
 struct ValidationIssue {
   ValidationSeverity severity{ValidationSeverity::kInfo}; /**< 严重级别 */
   ValidationCode code{ValidationCode::kNone};             /**< 问题类型编码 */
-  std::size_t entity_index{
-      static_cast<std::size_t>(-1)}; /**< 实体索引；若与具体实体无关，则为 `size_t(-1)` */
+  ValidationLocation location{};       /**< 结构化定位信息 */
+  std::string field{};                 /**< 触发问题的字段名；为空表示跨字段或域级问题 */
   std::string message{};             /**< 面向外部调用方的简短说明 */
 };
 

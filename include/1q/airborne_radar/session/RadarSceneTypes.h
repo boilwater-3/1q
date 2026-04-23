@@ -1,10 +1,10 @@
 /**
- * @file RadarSceneInput.h
- * @brief 定义机载雷达单周期场景输入聚合类型。
+ * @file RadarSceneTypes.h
+ * @brief 定义机载雷达单周期场景实体输入类型。
  */
 
-#ifndef AIRBORNE_RADAR_SESSION_RADAR_SCENE_INPUT_H_
-#define AIRBORNE_RADAR_SESSION_RADAR_SCENE_INPUT_H_
+#ifndef AIRBORNE_RADAR_SESSION_RADAR_SCENE_TYPES_H_
+#define AIRBORNE_RADAR_SESSION_RADAR_SCENE_TYPES_H_
 
 #include <cmath>
 #include <cstdint>
@@ -49,16 +49,7 @@ struct RadarSceneTarget {
 /** @brief RadarSceneTargetList 表示雷达场景目标输入列表。 */
 using RadarSceneTargetList = std::vector<RadarSceneTarget>;
 
-/**
- * @brief RadarSceneInput 聚合雷达单周期场景实体输入。
- * @note 当前仅含 `targets`，是统一骨架 `CycleInput.scene` 的固定语义槽位，
- *       用于外部输入边界与内部模型解耦。
- */
-struct RadarSceneInput {
-  RadarSceneTargetList targets{}; /**< 当前周期场景目标输入列表 */
-};
-
 }  // namespace session
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_SESSION_RADAR_SCENE_INPUT_H_
+#endif  // AIRBORNE_RADAR_SESSION_RADAR_SCENE_TYPES_H_
