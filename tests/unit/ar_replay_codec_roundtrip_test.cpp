@@ -32,6 +32,7 @@ namespace tests {
 
 TEST(ArReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   RadarCycleInput input;
+  input.cycle_index = 7U;
   input.dt_sec = 0.5f;
   input.platform_pose.position_m.x = 100.0f;
   input.platform_pose.position_m.y = 200.0f;
@@ -63,6 +64,7 @@ TEST(ArReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   std::string error;
   ASSERT_TRUE(DecodeCycleInputFlatbuffer(bytes, &decoded, &error)) << error;
 
+  EXPECT_EQ(decoded.cycle_index, 7U);
   EXPECT_FLOAT_EQ(decoded.dt_sec, input.dt_sec);
   EXPECT_FLOAT_EQ(decoded.platform_pose.position_m.x, 100.0f);
   EXPECT_FLOAT_EQ(decoded.platform_pose.velocity_mps.y, 20.0f);

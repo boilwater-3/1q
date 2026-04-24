@@ -13,35 +13,62 @@ namespace fb {
 
 struct Vector3f;
 struct Vector3fBuilder;
+struct Vector3fT;
 
 struct EulerAnglesDeg;
 struct EulerAnglesDegBuilder;
+struct EulerAnglesDegT;
 
 struct PoseState;
 struct PoseStateBuilder;
+struct PoseStateT;
 
-struct TargetFeature;
-struct TargetFeatureBuilder;
+struct RadarSceneTarget;
+struct RadarSceneTargetBuilder;
+struct RadarSceneTargetT;
+
+struct RadarCycleEnvironmentInput;
+struct RadarCycleEnvironmentInputBuilder;
+struct RadarCycleEnvironmentInputT;
 
 struct RadarCycleInput;
 struct RadarCycleInputBuilder;
+struct RadarCycleInputT;
 
 struct TrackOutputFrame;
 struct TrackOutputFrameBuilder;
+struct TrackOutputFrameT;
 
 struct DecisionTrackStateSnapshot;
 struct DecisionTrackStateSnapshotBuilder;
+struct DecisionTrackStateSnapshotT;
 
 struct TrackStateSnapshot;
 struct TrackStateSnapshotBuilder;
+struct TrackStateSnapshotT;
 
 struct RadarCycleResult;
 struct RadarCycleResultBuilder;
+struct RadarCycleResultT;
 
 struct FailureMarker;
 struct FailureMarkerBuilder;
+struct FailureMarkerT;
+
+struct Vector3fT : public flatbuffers::NativeTable {
+  typedef Vector3f TableType;
+  float x;
+  float y;
+  float z;
+  Vector3fT()
+      : x(0.0f),
+        y(0.0f),
+        z(0.0f) {
+  }
+};
 
 struct Vector3f FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef Vector3fT NativeTableType;
   typedef Vector3fBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_X = 4,
@@ -64,6 +91,9 @@ struct Vector3f FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<float>(verifier, VT_Z) &&
            verifier.EndTable();
   }
+  Vector3fT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(Vector3fT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<Vector3f> Pack(flatbuffers::FlatBufferBuilder &_fbb, const Vector3fT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct Vector3fBuilder {
@@ -103,7 +133,22 @@ inline flatbuffers::Offset<Vector3f> CreateVector3f(
   return builder_.Finish();
 }
 
+flatbuffers::Offset<Vector3f> CreateVector3f(flatbuffers::FlatBufferBuilder &_fbb, const Vector3fT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct EulerAnglesDegT : public flatbuffers::NativeTable {
+  typedef EulerAnglesDeg TableType;
+  float yaw_deg;
+  float pitch_deg;
+  float roll_deg;
+  EulerAnglesDegT()
+      : yaw_deg(0.0f),
+        pitch_deg(0.0f),
+        roll_deg(0.0f) {
+  }
+};
+
 struct EulerAnglesDeg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef EulerAnglesDegT NativeTableType;
   typedef EulerAnglesDegBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_YAW_DEG = 4,
@@ -126,6 +171,9 @@ struct EulerAnglesDeg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<float>(verifier, VT_ROLL_DEG) &&
            verifier.EndTable();
   }
+  EulerAnglesDegT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(EulerAnglesDegT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<EulerAnglesDeg> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EulerAnglesDegT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct EulerAnglesDegBuilder {
@@ -165,7 +213,19 @@ inline flatbuffers::Offset<EulerAnglesDeg> CreateEulerAnglesDeg(
   return builder_.Finish();
 }
 
+flatbuffers::Offset<EulerAnglesDeg> CreateEulerAnglesDeg(flatbuffers::FlatBufferBuilder &_fbb, const EulerAnglesDegT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct PoseStateT : public flatbuffers::NativeTable {
+  typedef PoseState TableType;
+  std::unique_ptr<oneq::replay::airborne_radar::fb::Vector3fT> position_m;
+  std::unique_ptr<oneq::replay::airborne_radar::fb::Vector3fT> velocity_mps;
+  std::unique_ptr<oneq::replay::airborne_radar::fb::EulerAnglesDegT> attitude_deg;
+  PoseStateT() {
+  }
+};
+
 struct PoseState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef PoseStateT NativeTableType;
   typedef PoseStateBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_POSITION_M = 4,
@@ -191,6 +251,9 @@ struct PoseState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyTable(attitude_deg()) &&
            verifier.EndTable();
   }
+  PoseStateT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(PoseStateT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<PoseState> Pack(flatbuffers::FlatBufferBuilder &_fbb, const PoseStateT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct PoseStateBuilder {
@@ -230,30 +293,75 @@ inline flatbuffers::Offset<PoseState> CreatePoseState(
   return builder_.Finish();
 }
 
-struct TargetFeature FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef TargetFeatureBuilder Builder;
+flatbuffers::Offset<PoseState> CreatePoseState(flatbuffers::FlatBufferBuilder &_fbb, const PoseStateT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct RadarSceneTargetT : public flatbuffers::NativeTable {
+  typedef RadarSceneTarget TableType;
+  uint64_t external_target_id;
+  float velocity_x;
+  float velocity_y;
+  float velocity_z;
+  float rcs;
+  float range_m;
+  float position_x;
+  float position_y;
+  float position_z;
+  int32_t target_swerling_type;
+  RadarSceneTargetT()
+      : external_target_id(0),
+        velocity_x(0.0f),
+        velocity_y(0.0f),
+        velocity_z(0.0f),
+        rcs(0.0f),
+        range_m(0.0f),
+        position_x(0.0f),
+        position_y(0.0f),
+        position_z(0.0f),
+        target_swerling_type(0) {
+  }
+};
+
+struct RadarSceneTarget FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef RadarSceneTargetT NativeTableType;
+  typedef RadarSceneTargetBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_EXTERNAL_TARGET_ID = 4,
-    VT_VELOCITY_MPS = 6,
-    VT_CURRENT_TRACK_RCS = 8,
-    VT_RANGE_M = 10,
-    VT_POSITION_M = 12,
-    VT_TARGET_SWERLING_TYPE = 14
+    VT_VELOCITY_X = 6,
+    VT_VELOCITY_Y = 8,
+    VT_VELOCITY_Z = 10,
+    VT_RCS = 12,
+    VT_RANGE_M = 14,
+    VT_POSITION_X = 16,
+    VT_POSITION_Y = 18,
+    VT_POSITION_Z = 20,
+    VT_TARGET_SWERLING_TYPE = 22
   };
   uint64_t external_target_id() const {
     return GetField<uint64_t>(VT_EXTERNAL_TARGET_ID, 0);
   }
-  const oneq::replay::airborne_radar::fb::Vector3f *velocity_mps() const {
-    return GetPointer<const oneq::replay::airborne_radar::fb::Vector3f *>(VT_VELOCITY_MPS);
+  float velocity_x() const {
+    return GetField<float>(VT_VELOCITY_X, 0.0f);
   }
-  float current_track_rcs() const {
-    return GetField<float>(VT_CURRENT_TRACK_RCS, 0.0f);
+  float velocity_y() const {
+    return GetField<float>(VT_VELOCITY_Y, 0.0f);
+  }
+  float velocity_z() const {
+    return GetField<float>(VT_VELOCITY_Z, 0.0f);
+  }
+  float rcs() const {
+    return GetField<float>(VT_RCS, 0.0f);
   }
   float range_m() const {
     return GetField<float>(VT_RANGE_M, 0.0f);
   }
-  const oneq::replay::airborne_radar::fb::Vector3f *position_m() const {
-    return GetPointer<const oneq::replay::airborne_radar::fb::Vector3f *>(VT_POSITION_M);
+  float position_x() const {
+    return GetField<float>(VT_POSITION_X, 0.0f);
+  }
+  float position_y() const {
+    return GetField<float>(VT_POSITION_Y, 0.0f);
+  }
+  float position_z() const {
+    return GetField<float>(VT_POSITION_Z, 0.0f);
   }
   int32_t target_swerling_type() const {
     return GetField<int32_t>(VT_TARGET_SWERLING_TYPE, 0);
@@ -261,109 +369,212 @@ struct TargetFeature FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint64_t>(verifier, VT_EXTERNAL_TARGET_ID) &&
-           VerifyOffset(verifier, VT_VELOCITY_MPS) &&
-           verifier.VerifyTable(velocity_mps()) &&
-           VerifyField<float>(verifier, VT_CURRENT_TRACK_RCS) &&
+           VerifyField<float>(verifier, VT_VELOCITY_X) &&
+           VerifyField<float>(verifier, VT_VELOCITY_Y) &&
+           VerifyField<float>(verifier, VT_VELOCITY_Z) &&
+           VerifyField<float>(verifier, VT_RCS) &&
            VerifyField<float>(verifier, VT_RANGE_M) &&
-           VerifyOffset(verifier, VT_POSITION_M) &&
-           verifier.VerifyTable(position_m()) &&
+           VerifyField<float>(verifier, VT_POSITION_X) &&
+           VerifyField<float>(verifier, VT_POSITION_Y) &&
+           VerifyField<float>(verifier, VT_POSITION_Z) &&
            VerifyField<int32_t>(verifier, VT_TARGET_SWERLING_TYPE) &&
            verifier.EndTable();
   }
+  RadarSceneTargetT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(RadarSceneTargetT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<RadarSceneTarget> Pack(flatbuffers::FlatBufferBuilder &_fbb, const RadarSceneTargetT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
-struct TargetFeatureBuilder {
-  typedef TargetFeature Table;
+struct RadarSceneTargetBuilder {
+  typedef RadarSceneTarget Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_external_target_id(uint64_t external_target_id) {
-    fbb_.AddElement<uint64_t>(TargetFeature::VT_EXTERNAL_TARGET_ID, external_target_id, 0);
+    fbb_.AddElement<uint64_t>(RadarSceneTarget::VT_EXTERNAL_TARGET_ID, external_target_id, 0);
   }
-  void add_velocity_mps(flatbuffers::Offset<oneq::replay::airborne_radar::fb::Vector3f> velocity_mps) {
-    fbb_.AddOffset(TargetFeature::VT_VELOCITY_MPS, velocity_mps);
+  void add_velocity_x(float velocity_x) {
+    fbb_.AddElement<float>(RadarSceneTarget::VT_VELOCITY_X, velocity_x, 0.0f);
   }
-  void add_current_track_rcs(float current_track_rcs) {
-    fbb_.AddElement<float>(TargetFeature::VT_CURRENT_TRACK_RCS, current_track_rcs, 0.0f);
+  void add_velocity_y(float velocity_y) {
+    fbb_.AddElement<float>(RadarSceneTarget::VT_VELOCITY_Y, velocity_y, 0.0f);
+  }
+  void add_velocity_z(float velocity_z) {
+    fbb_.AddElement<float>(RadarSceneTarget::VT_VELOCITY_Z, velocity_z, 0.0f);
+  }
+  void add_rcs(float rcs) {
+    fbb_.AddElement<float>(RadarSceneTarget::VT_RCS, rcs, 0.0f);
   }
   void add_range_m(float range_m) {
-    fbb_.AddElement<float>(TargetFeature::VT_RANGE_M, range_m, 0.0f);
+    fbb_.AddElement<float>(RadarSceneTarget::VT_RANGE_M, range_m, 0.0f);
   }
-  void add_position_m(flatbuffers::Offset<oneq::replay::airborne_radar::fb::Vector3f> position_m) {
-    fbb_.AddOffset(TargetFeature::VT_POSITION_M, position_m);
+  void add_position_x(float position_x) {
+    fbb_.AddElement<float>(RadarSceneTarget::VT_POSITION_X, position_x, 0.0f);
+  }
+  void add_position_y(float position_y) {
+    fbb_.AddElement<float>(RadarSceneTarget::VT_POSITION_Y, position_y, 0.0f);
+  }
+  void add_position_z(float position_z) {
+    fbb_.AddElement<float>(RadarSceneTarget::VT_POSITION_Z, position_z, 0.0f);
   }
   void add_target_swerling_type(int32_t target_swerling_type) {
-    fbb_.AddElement<int32_t>(TargetFeature::VT_TARGET_SWERLING_TYPE, target_swerling_type, 0);
+    fbb_.AddElement<int32_t>(RadarSceneTarget::VT_TARGET_SWERLING_TYPE, target_swerling_type, 0);
   }
-  explicit TargetFeatureBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit RadarSceneTargetBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  TargetFeatureBuilder &operator=(const TargetFeatureBuilder &);
-  flatbuffers::Offset<TargetFeature> Finish() {
+  RadarSceneTargetBuilder &operator=(const RadarSceneTargetBuilder &);
+  flatbuffers::Offset<RadarSceneTarget> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<TargetFeature>(end);
+    auto o = flatbuffers::Offset<RadarSceneTarget>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<TargetFeature> CreateTargetFeature(
+inline flatbuffers::Offset<RadarSceneTarget> CreateRadarSceneTarget(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint64_t external_target_id = 0,
-    flatbuffers::Offset<oneq::replay::airborne_radar::fb::Vector3f> velocity_mps = 0,
-    float current_track_rcs = 0.0f,
+    float velocity_x = 0.0f,
+    float velocity_y = 0.0f,
+    float velocity_z = 0.0f,
+    float rcs = 0.0f,
     float range_m = 0.0f,
-    flatbuffers::Offset<oneq::replay::airborne_radar::fb::Vector3f> position_m = 0,
+    float position_x = 0.0f,
+    float position_y = 0.0f,
+    float position_z = 0.0f,
     int32_t target_swerling_type = 0) {
-  TargetFeatureBuilder builder_(_fbb);
+  RadarSceneTargetBuilder builder_(_fbb);
   builder_.add_external_target_id(external_target_id);
   builder_.add_target_swerling_type(target_swerling_type);
-  builder_.add_position_m(position_m);
+  builder_.add_position_z(position_z);
+  builder_.add_position_y(position_y);
+  builder_.add_position_x(position_x);
   builder_.add_range_m(range_m);
-  builder_.add_current_track_rcs(current_track_rcs);
-  builder_.add_velocity_mps(velocity_mps);
+  builder_.add_rcs(rcs);
+  builder_.add_velocity_z(velocity_z);
+  builder_.add_velocity_y(velocity_y);
+  builder_.add_velocity_x(velocity_x);
   return builder_.Finish();
 }
 
+flatbuffers::Offset<RadarSceneTarget> CreateRadarSceneTarget(flatbuffers::FlatBufferBuilder &_fbb, const RadarSceneTargetT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct RadarCycleEnvironmentInputT : public flatbuffers::NativeTable {
+  typedef RadarCycleEnvironmentInput TableType;
+  RadarCycleEnvironmentInputT() {
+  }
+};
+
+struct RadarCycleEnvironmentInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef RadarCycleEnvironmentInputT NativeTableType;
+  typedef RadarCycleEnvironmentInputBuilder Builder;
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+  RadarCycleEnvironmentInputT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(RadarCycleEnvironmentInputT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<RadarCycleEnvironmentInput> Pack(flatbuffers::FlatBufferBuilder &_fbb, const RadarCycleEnvironmentInputT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct RadarCycleEnvironmentInputBuilder {
+  typedef RadarCycleEnvironmentInput Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  explicit RadarCycleEnvironmentInputBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  RadarCycleEnvironmentInputBuilder &operator=(const RadarCycleEnvironmentInputBuilder &);
+  flatbuffers::Offset<RadarCycleEnvironmentInput> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<RadarCycleEnvironmentInput>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<RadarCycleEnvironmentInput> CreateRadarCycleEnvironmentInput(
+    flatbuffers::FlatBufferBuilder &_fbb) {
+  RadarCycleEnvironmentInputBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+flatbuffers::Offset<RadarCycleEnvironmentInput> CreateRadarCycleEnvironmentInput(flatbuffers::FlatBufferBuilder &_fbb, const RadarCycleEnvironmentInputT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct RadarCycleInputT : public flatbuffers::NativeTable {
+  typedef RadarCycleInput TableType;
+  uint32_t cycle_index;
+  float dt_sec;
+  std::unique_ptr<oneq::replay::airborne_radar::fb::PoseStateT> platform_pose;
+  std::vector<std::unique_ptr<oneq::replay::airborne_radar::fb::RadarSceneTargetT>> scene;
+  std::unique_ptr<oneq::replay::airborne_radar::fb::RadarCycleEnvironmentInputT> environment;
+  RadarCycleInputT()
+      : cycle_index(0),
+        dt_sec(1.0f) {
+  }
+};
+
 struct RadarCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef RadarCycleInputT NativeTableType;
   typedef RadarCycleInputBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_DT_SEC = 4,
-    VT_PLATFORM_POSE = 6,
-    VT_TARGET_FEATURES = 8
+    VT_CYCLE_INDEX = 4,
+    VT_DT_SEC = 6,
+    VT_PLATFORM_POSE = 8,
+    VT_SCENE = 10,
+    VT_ENVIRONMENT = 12
   };
+  uint32_t cycle_index() const {
+    return GetField<uint32_t>(VT_CYCLE_INDEX, 0);
+  }
   float dt_sec() const {
     return GetField<float>(VT_DT_SEC, 1.0f);
   }
   const oneq::replay::airborne_radar::fb::PoseState *platform_pose() const {
     return GetPointer<const oneq::replay::airborne_radar::fb::PoseState *>(VT_PLATFORM_POSE);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::TargetFeature>> *target_features() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::TargetFeature>> *>(VT_TARGET_FEATURES);
+  const flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarSceneTarget>> *scene() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarSceneTarget>> *>(VT_SCENE);
+  }
+  const oneq::replay::airborne_radar::fb::RadarCycleEnvironmentInput *environment() const {
+    return GetPointer<const oneq::replay::airborne_radar::fb::RadarCycleEnvironmentInput *>(VT_ENVIRONMENT);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_CYCLE_INDEX) &&
            VerifyField<float>(verifier, VT_DT_SEC) &&
            VerifyOffset(verifier, VT_PLATFORM_POSE) &&
            verifier.VerifyTable(platform_pose()) &&
-           VerifyOffset(verifier, VT_TARGET_FEATURES) &&
-           verifier.VerifyVector(target_features()) &&
-           verifier.VerifyVectorOfTables(target_features()) &&
+           VerifyOffset(verifier, VT_SCENE) &&
+           verifier.VerifyVector(scene()) &&
+           verifier.VerifyVectorOfTables(scene()) &&
+           VerifyOffset(verifier, VT_ENVIRONMENT) &&
+           verifier.VerifyTable(environment()) &&
            verifier.EndTable();
   }
+  RadarCycleInputT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(RadarCycleInputT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<RadarCycleInput> Pack(flatbuffers::FlatBufferBuilder &_fbb, const RadarCycleInputT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct RadarCycleInputBuilder {
   typedef RadarCycleInput Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
+  void add_cycle_index(uint32_t cycle_index) {
+    fbb_.AddElement<uint32_t>(RadarCycleInput::VT_CYCLE_INDEX, cycle_index, 0);
+  }
   void add_dt_sec(float dt_sec) {
     fbb_.AddElement<float>(RadarCycleInput::VT_DT_SEC, dt_sec, 1.0f);
   }
   void add_platform_pose(flatbuffers::Offset<oneq::replay::airborne_radar::fb::PoseState> platform_pose) {
     fbb_.AddOffset(RadarCycleInput::VT_PLATFORM_POSE, platform_pose);
   }
-  void add_target_features(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::TargetFeature>>> target_features) {
-    fbb_.AddOffset(RadarCycleInput::VT_TARGET_FEATURES, target_features);
+  void add_scene(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarSceneTarget>>> scene) {
+    fbb_.AddOffset(RadarCycleInput::VT_SCENE, scene);
+  }
+  void add_environment(flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarCycleEnvironmentInput> environment) {
+    fbb_.AddOffset(RadarCycleInput::VT_ENVIRONMENT, environment);
   }
   explicit RadarCycleInputBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -379,30 +590,58 @@ struct RadarCycleInputBuilder {
 
 inline flatbuffers::Offset<RadarCycleInput> CreateRadarCycleInput(
     flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t cycle_index = 0,
     float dt_sec = 1.0f,
     flatbuffers::Offset<oneq::replay::airborne_radar::fb::PoseState> platform_pose = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::TargetFeature>>> target_features = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarSceneTarget>>> scene = 0,
+    flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarCycleEnvironmentInput> environment = 0) {
   RadarCycleInputBuilder builder_(_fbb);
-  builder_.add_target_features(target_features);
+  builder_.add_environment(environment);
+  builder_.add_scene(scene);
   builder_.add_platform_pose(platform_pose);
   builder_.add_dt_sec(dt_sec);
+  builder_.add_cycle_index(cycle_index);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<RadarCycleInput> CreateRadarCycleInputDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t cycle_index = 0,
     float dt_sec = 1.0f,
     flatbuffers::Offset<oneq::replay::airborne_radar::fb::PoseState> platform_pose = 0,
-    const std::vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::TargetFeature>> *target_features = nullptr) {
-  auto target_features__ = target_features ? _fbb.CreateVector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::TargetFeature>>(*target_features) : 0;
+    const std::vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarSceneTarget>> *scene = nullptr,
+    flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarCycleEnvironmentInput> environment = 0) {
+  auto scene__ = scene ? _fbb.CreateVector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarSceneTarget>>(*scene) : 0;
   return oneq::replay::airborne_radar::fb::CreateRadarCycleInput(
       _fbb,
+      cycle_index,
       dt_sec,
       platform_pose,
-      target_features__);
+      scene__,
+      environment);
 }
 
+flatbuffers::Offset<RadarCycleInput> CreateRadarCycleInput(flatbuffers::FlatBufferBuilder &_fbb, const RadarCycleInputT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct TrackOutputFrameT : public flatbuffers::NativeTable {
+  typedef TrackOutputFrame TableType;
+  uint32_t cycle_index;
+  uint64_t published_track_count;
+  uint64_t batch_id;
+  uint64_t confirmed_track_count;
+  bool contains_lost_tracks;
+  std::vector<std::unique_ptr<oneq::replay::airborne_radar::fb::TrackStateSnapshotT>> tracks;
+  TrackOutputFrameT()
+      : cycle_index(0),
+        published_track_count(0),
+        batch_id(0),
+        confirmed_track_count(0),
+        contains_lost_tracks(false) {
+  }
+};
+
 struct TrackOutputFrame FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef TrackOutputFrameT NativeTableType;
   typedef TrackOutputFrameBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_CYCLE_INDEX = 4,
@@ -442,6 +681,9 @@ struct TrackOutputFrame FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVectorOfTables(tracks()) &&
            verifier.EndTable();
   }
+  TrackOutputFrameT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(TrackOutputFrameT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<TrackOutputFrame> Pack(flatbuffers::FlatBufferBuilder &_fbb, const TrackOutputFrameT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct TrackOutputFrameBuilder {
@@ -515,7 +757,52 @@ inline flatbuffers::Offset<TrackOutputFrame> CreateTrackOutputFrameDirect(
       tracks__);
 }
 
+flatbuffers::Offset<TrackOutputFrame> CreateTrackOutputFrame(flatbuffers::FlatBufferBuilder &_fbb, const TrackOutputFrameT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct DecisionTrackStateSnapshotT : public flatbuffers::NativeTable {
+  typedef DecisionTrackStateSnapshot TableType;
+  uint64_t association_key;
+  uint64_t external_target_id;
+  int32_t status;
+  float position_x;
+  float position_y;
+  float position_z;
+  float velocity_x;
+  float velocity_y;
+  float velocity_z;
+  float speed;
+  float acceleration_x;
+  float acceleration_y;
+  float acceleration_z;
+  float acceleration;
+  float rcs;
+  bool jamming_detected;
+  uint32_t hit_count;
+  uint32_t miss_count;
+  DecisionTrackStateSnapshotT()
+      : association_key(0),
+        external_target_id(0),
+        status(0),
+        position_x(0.0f),
+        position_y(0.0f),
+        position_z(0.0f),
+        velocity_x(0.0f),
+        velocity_y(0.0f),
+        velocity_z(0.0f),
+        speed(0.0f),
+        acceleration_x(0.0f),
+        acceleration_y(0.0f),
+        acceleration_z(0.0f),
+        acceleration(0.0f),
+        rcs(0.0f),
+        jamming_detected(false),
+        hit_count(0),
+        miss_count(0) {
+  }
+};
+
 struct DecisionTrackStateSnapshot FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef DecisionTrackStateSnapshotT NativeTableType;
   typedef DecisionTrackStateSnapshotBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ASSOCIATION_KEY = 4,
@@ -613,6 +900,9 @@ struct DecisionTrackStateSnapshot FLATBUFFERS_FINAL_CLASS : private flatbuffers:
            VerifyField<uint32_t>(verifier, VT_MISS_COUNT) &&
            verifier.EndTable();
   }
+  DecisionTrackStateSnapshotT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(DecisionTrackStateSnapshotT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<DecisionTrackStateSnapshot> Pack(flatbuffers::FlatBufferBuilder &_fbb, const DecisionTrackStateSnapshotT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct DecisionTrackStateSnapshotBuilder {
@@ -727,7 +1017,17 @@ inline flatbuffers::Offset<DecisionTrackStateSnapshot> CreateDecisionTrackStateS
   return builder_.Finish();
 }
 
+flatbuffers::Offset<DecisionTrackStateSnapshot> CreateDecisionTrackStateSnapshot(flatbuffers::FlatBufferBuilder &_fbb, const DecisionTrackStateSnapshotT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct TrackStateSnapshotT : public flatbuffers::NativeTable {
+  typedef TrackStateSnapshot TableType;
+  std::unique_ptr<oneq::replay::airborne_radar::fb::DecisionTrackStateSnapshotT> state;
+  TrackStateSnapshotT() {
+  }
+};
+
 struct TrackStateSnapshot FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef TrackStateSnapshotT NativeTableType;
   typedef TrackStateSnapshotBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_STATE = 4
@@ -741,6 +1041,9 @@ struct TrackStateSnapshot FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyTable(state()) &&
            verifier.EndTable();
   }
+  TrackStateSnapshotT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(TrackStateSnapshotT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<TrackStateSnapshot> Pack(flatbuffers::FlatBufferBuilder &_fbb, const TrackStateSnapshotT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct TrackStateSnapshotBuilder {
@@ -770,7 +1073,21 @@ inline flatbuffers::Offset<TrackStateSnapshot> CreateTrackStateSnapshot(
   return builder_.Finish();
 }
 
+flatbuffers::Offset<TrackStateSnapshot> CreateTrackStateSnapshot(flatbuffers::FlatBufferBuilder &_fbb, const TrackStateSnapshotT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct RadarCycleResultT : public flatbuffers::NativeTable {
+  typedef RadarCycleResult TableType;
+  std::unique_ptr<oneq::replay::airborne_radar::fb::TrackOutputFrameT> track_output_frame;
+  uint32_t validation_issue_count;
+  bool executed_this_cycle;
+  RadarCycleResultT()
+      : validation_issue_count(0),
+        executed_this_cycle(false) {
+  }
+};
+
 struct RadarCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef RadarCycleResultT NativeTableType;
   typedef RadarCycleResultBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_TRACK_OUTPUT_FRAME = 4,
@@ -794,6 +1111,9 @@ struct RadarCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint8_t>(verifier, VT_EXECUTED_THIS_CYCLE) &&
            verifier.EndTable();
   }
+  RadarCycleResultT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(RadarCycleResultT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<RadarCycleResult> Pack(flatbuffers::FlatBufferBuilder &_fbb, const RadarCycleResultT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct RadarCycleResultBuilder {
@@ -833,7 +1153,32 @@ inline flatbuffers::Offset<RadarCycleResult> CreateRadarCycleResult(
   return builder_.Finish();
 }
 
+flatbuffers::Offset<RadarCycleResult> CreateRadarCycleResult(flatbuffers::FlatBufferBuilder &_fbb, const RadarCycleResultT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct FailureMarkerT : public flatbuffers::NativeTable {
+  typedef FailureMarker TableType;
+  std::string error_code;
+  std::string message;
+  std::string location;
+  bool has_cycle_index;
+  uint32_t cycle_index;
+  bool has_sim_time_sec;
+  double sim_time_sec;
+  std::string diagnostics;
+  bool has_last_event_sequence;
+  uint64_t last_event_sequence;
+  FailureMarkerT()
+      : has_cycle_index(false),
+        cycle_index(0),
+        has_sim_time_sec(false),
+        sim_time_sec(0.0),
+        has_last_event_sequence(false),
+        last_event_sequence(0) {
+  }
+};
+
 struct FailureMarker FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef FailureMarkerT NativeTableType;
   typedef FailureMarkerBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ERROR_CODE = 4,
@@ -895,6 +1240,9 @@ struct FailureMarker FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint64_t>(verifier, VT_LAST_EVENT_SEQUENCE) &&
            verifier.EndTable();
   }
+  FailureMarkerT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(FailureMarkerT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<FailureMarker> Pack(flatbuffers::FlatBufferBuilder &_fbb, const FailureMarkerT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct FailureMarkerBuilder {
@@ -999,6 +1347,447 @@ inline flatbuffers::Offset<FailureMarker> CreateFailureMarkerDirect(
       last_event_sequence);
 }
 
+flatbuffers::Offset<FailureMarker> CreateFailureMarker(flatbuffers::FlatBufferBuilder &_fbb, const FailureMarkerT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+inline Vector3fT *Vector3f::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<oneq::replay::airborne_radar::fb::Vector3fT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::Vector3fT>(new Vector3fT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void Vector3f::UnPackTo(Vector3fT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = x(); _o->x = _e; }
+  { auto _e = y(); _o->y = _e; }
+  { auto _e = z(); _o->z = _e; }
+}
+
+inline flatbuffers::Offset<Vector3f> Vector3f::Pack(flatbuffers::FlatBufferBuilder &_fbb, const Vector3fT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateVector3f(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<Vector3f> CreateVector3f(flatbuffers::FlatBufferBuilder &_fbb, const Vector3fT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const Vector3fT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _x = _o->x;
+  auto _y = _o->y;
+  auto _z = _o->z;
+  return oneq::replay::airborne_radar::fb::CreateVector3f(
+      _fbb,
+      _x,
+      _y,
+      _z);
+}
+
+inline EulerAnglesDegT *EulerAnglesDeg::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<oneq::replay::airborne_radar::fb::EulerAnglesDegT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::EulerAnglesDegT>(new EulerAnglesDegT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void EulerAnglesDeg::UnPackTo(EulerAnglesDegT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = yaw_deg(); _o->yaw_deg = _e; }
+  { auto _e = pitch_deg(); _o->pitch_deg = _e; }
+  { auto _e = roll_deg(); _o->roll_deg = _e; }
+}
+
+inline flatbuffers::Offset<EulerAnglesDeg> EulerAnglesDeg::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EulerAnglesDegT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateEulerAnglesDeg(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<EulerAnglesDeg> CreateEulerAnglesDeg(flatbuffers::FlatBufferBuilder &_fbb, const EulerAnglesDegT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EulerAnglesDegT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _yaw_deg = _o->yaw_deg;
+  auto _pitch_deg = _o->pitch_deg;
+  auto _roll_deg = _o->roll_deg;
+  return oneq::replay::airborne_radar::fb::CreateEulerAnglesDeg(
+      _fbb,
+      _yaw_deg,
+      _pitch_deg,
+      _roll_deg);
+}
+
+inline PoseStateT *PoseState::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<oneq::replay::airborne_radar::fb::PoseStateT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::PoseStateT>(new PoseStateT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void PoseState::UnPackTo(PoseStateT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = position_m(); if (_e) _o->position_m = std::unique_ptr<oneq::replay::airborne_radar::fb::Vector3fT>(_e->UnPack(_resolver)); }
+  { auto _e = velocity_mps(); if (_e) _o->velocity_mps = std::unique_ptr<oneq::replay::airborne_radar::fb::Vector3fT>(_e->UnPack(_resolver)); }
+  { auto _e = attitude_deg(); if (_e) _o->attitude_deg = std::unique_ptr<oneq::replay::airborne_radar::fb::EulerAnglesDegT>(_e->UnPack(_resolver)); }
+}
+
+inline flatbuffers::Offset<PoseState> PoseState::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PoseStateT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreatePoseState(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<PoseState> CreatePoseState(flatbuffers::FlatBufferBuilder &_fbb, const PoseStateT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const PoseStateT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _position_m = _o->position_m ? CreateVector3f(_fbb, _o->position_m.get(), _rehasher) : 0;
+  auto _velocity_mps = _o->velocity_mps ? CreateVector3f(_fbb, _o->velocity_mps.get(), _rehasher) : 0;
+  auto _attitude_deg = _o->attitude_deg ? CreateEulerAnglesDeg(_fbb, _o->attitude_deg.get(), _rehasher) : 0;
+  return oneq::replay::airborne_radar::fb::CreatePoseState(
+      _fbb,
+      _position_m,
+      _velocity_mps,
+      _attitude_deg);
+}
+
+inline RadarSceneTargetT *RadarSceneTarget::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<oneq::replay::airborne_radar::fb::RadarSceneTargetT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::RadarSceneTargetT>(new RadarSceneTargetT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void RadarSceneTarget::UnPackTo(RadarSceneTargetT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = external_target_id(); _o->external_target_id = _e; }
+  { auto _e = velocity_x(); _o->velocity_x = _e; }
+  { auto _e = velocity_y(); _o->velocity_y = _e; }
+  { auto _e = velocity_z(); _o->velocity_z = _e; }
+  { auto _e = rcs(); _o->rcs = _e; }
+  { auto _e = range_m(); _o->range_m = _e; }
+  { auto _e = position_x(); _o->position_x = _e; }
+  { auto _e = position_y(); _o->position_y = _e; }
+  { auto _e = position_z(); _o->position_z = _e; }
+  { auto _e = target_swerling_type(); _o->target_swerling_type = _e; }
+}
+
+inline flatbuffers::Offset<RadarSceneTarget> RadarSceneTarget::Pack(flatbuffers::FlatBufferBuilder &_fbb, const RadarSceneTargetT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateRadarSceneTarget(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<RadarSceneTarget> CreateRadarSceneTarget(flatbuffers::FlatBufferBuilder &_fbb, const RadarSceneTargetT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const RadarSceneTargetT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _external_target_id = _o->external_target_id;
+  auto _velocity_x = _o->velocity_x;
+  auto _velocity_y = _o->velocity_y;
+  auto _velocity_z = _o->velocity_z;
+  auto _rcs = _o->rcs;
+  auto _range_m = _o->range_m;
+  auto _position_x = _o->position_x;
+  auto _position_y = _o->position_y;
+  auto _position_z = _o->position_z;
+  auto _target_swerling_type = _o->target_swerling_type;
+  return oneq::replay::airborne_radar::fb::CreateRadarSceneTarget(
+      _fbb,
+      _external_target_id,
+      _velocity_x,
+      _velocity_y,
+      _velocity_z,
+      _rcs,
+      _range_m,
+      _position_x,
+      _position_y,
+      _position_z,
+      _target_swerling_type);
+}
+
+inline RadarCycleEnvironmentInputT *RadarCycleEnvironmentInput::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<oneq::replay::airborne_radar::fb::RadarCycleEnvironmentInputT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::RadarCycleEnvironmentInputT>(new RadarCycleEnvironmentInputT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void RadarCycleEnvironmentInput::UnPackTo(RadarCycleEnvironmentInputT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+}
+
+inline flatbuffers::Offset<RadarCycleEnvironmentInput> RadarCycleEnvironmentInput::Pack(flatbuffers::FlatBufferBuilder &_fbb, const RadarCycleEnvironmentInputT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateRadarCycleEnvironmentInput(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<RadarCycleEnvironmentInput> CreateRadarCycleEnvironmentInput(flatbuffers::FlatBufferBuilder &_fbb, const RadarCycleEnvironmentInputT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const RadarCycleEnvironmentInputT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  return oneq::replay::airborne_radar::fb::CreateRadarCycleEnvironmentInput(
+      _fbb);
+}
+
+inline RadarCycleInputT *RadarCycleInput::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<oneq::replay::airborne_radar::fb::RadarCycleInputT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::RadarCycleInputT>(new RadarCycleInputT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void RadarCycleInput::UnPackTo(RadarCycleInputT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = cycle_index(); _o->cycle_index = _e; }
+  { auto _e = dt_sec(); _o->dt_sec = _e; }
+  { auto _e = platform_pose(); if (_e) _o->platform_pose = std::unique_ptr<oneq::replay::airborne_radar::fb::PoseStateT>(_e->UnPack(_resolver)); }
+  { auto _e = scene(); if (_e) { _o->scene.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->scene[_i] = std::unique_ptr<oneq::replay::airborne_radar::fb::RadarSceneTargetT>(_e->Get(_i)->UnPack(_resolver)); } } }
+  { auto _e = environment(); if (_e) _o->environment = std::unique_ptr<oneq::replay::airborne_radar::fb::RadarCycleEnvironmentInputT>(_e->UnPack(_resolver)); }
+}
+
+inline flatbuffers::Offset<RadarCycleInput> RadarCycleInput::Pack(flatbuffers::FlatBufferBuilder &_fbb, const RadarCycleInputT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateRadarCycleInput(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<RadarCycleInput> CreateRadarCycleInput(flatbuffers::FlatBufferBuilder &_fbb, const RadarCycleInputT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const RadarCycleInputT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _cycle_index = _o->cycle_index;
+  auto _dt_sec = _o->dt_sec;
+  auto _platform_pose = _o->platform_pose ? CreatePoseState(_fbb, _o->platform_pose.get(), _rehasher) : 0;
+  auto _scene = _o->scene.size() ? _fbb.CreateVector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarSceneTarget>> (_o->scene.size(), [](size_t i, _VectorArgs *__va) { return CreateRadarSceneTarget(*__va->__fbb, __va->__o->scene[i].get(), __va->__rehasher); }, &_va ) : 0;
+  auto _environment = _o->environment ? CreateRadarCycleEnvironmentInput(_fbb, _o->environment.get(), _rehasher) : 0;
+  return oneq::replay::airborne_radar::fb::CreateRadarCycleInput(
+      _fbb,
+      _cycle_index,
+      _dt_sec,
+      _platform_pose,
+      _scene,
+      _environment);
+}
+
+inline TrackOutputFrameT *TrackOutputFrame::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<oneq::replay::airborne_radar::fb::TrackOutputFrameT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::TrackOutputFrameT>(new TrackOutputFrameT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void TrackOutputFrame::UnPackTo(TrackOutputFrameT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = cycle_index(); _o->cycle_index = _e; }
+  { auto _e = published_track_count(); _o->published_track_count = _e; }
+  { auto _e = batch_id(); _o->batch_id = _e; }
+  { auto _e = confirmed_track_count(); _o->confirmed_track_count = _e; }
+  { auto _e = contains_lost_tracks(); _o->contains_lost_tracks = _e; }
+  { auto _e = tracks(); if (_e) { _o->tracks.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->tracks[_i] = std::unique_ptr<oneq::replay::airborne_radar::fb::TrackStateSnapshotT>(_e->Get(_i)->UnPack(_resolver)); } } }
+}
+
+inline flatbuffers::Offset<TrackOutputFrame> TrackOutputFrame::Pack(flatbuffers::FlatBufferBuilder &_fbb, const TrackOutputFrameT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateTrackOutputFrame(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<TrackOutputFrame> CreateTrackOutputFrame(flatbuffers::FlatBufferBuilder &_fbb, const TrackOutputFrameT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const TrackOutputFrameT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _cycle_index = _o->cycle_index;
+  auto _published_track_count = _o->published_track_count;
+  auto _batch_id = _o->batch_id;
+  auto _confirmed_track_count = _o->confirmed_track_count;
+  auto _contains_lost_tracks = _o->contains_lost_tracks;
+  auto _tracks = _o->tracks.size() ? _fbb.CreateVector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::TrackStateSnapshot>> (_o->tracks.size(), [](size_t i, _VectorArgs *__va) { return CreateTrackStateSnapshot(*__va->__fbb, __va->__o->tracks[i].get(), __va->__rehasher); }, &_va ) : 0;
+  return oneq::replay::airborne_radar::fb::CreateTrackOutputFrame(
+      _fbb,
+      _cycle_index,
+      _published_track_count,
+      _batch_id,
+      _confirmed_track_count,
+      _contains_lost_tracks,
+      _tracks);
+}
+
+inline DecisionTrackStateSnapshotT *DecisionTrackStateSnapshot::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<oneq::replay::airborne_radar::fb::DecisionTrackStateSnapshotT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::DecisionTrackStateSnapshotT>(new DecisionTrackStateSnapshotT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void DecisionTrackStateSnapshot::UnPackTo(DecisionTrackStateSnapshotT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = association_key(); _o->association_key = _e; }
+  { auto _e = external_target_id(); _o->external_target_id = _e; }
+  { auto _e = status(); _o->status = _e; }
+  { auto _e = position_x(); _o->position_x = _e; }
+  { auto _e = position_y(); _o->position_y = _e; }
+  { auto _e = position_z(); _o->position_z = _e; }
+  { auto _e = velocity_x(); _o->velocity_x = _e; }
+  { auto _e = velocity_y(); _o->velocity_y = _e; }
+  { auto _e = velocity_z(); _o->velocity_z = _e; }
+  { auto _e = speed(); _o->speed = _e; }
+  { auto _e = acceleration_x(); _o->acceleration_x = _e; }
+  { auto _e = acceleration_y(); _o->acceleration_y = _e; }
+  { auto _e = acceleration_z(); _o->acceleration_z = _e; }
+  { auto _e = acceleration(); _o->acceleration = _e; }
+  { auto _e = rcs(); _o->rcs = _e; }
+  { auto _e = jamming_detected(); _o->jamming_detected = _e; }
+  { auto _e = hit_count(); _o->hit_count = _e; }
+  { auto _e = miss_count(); _o->miss_count = _e; }
+}
+
+inline flatbuffers::Offset<DecisionTrackStateSnapshot> DecisionTrackStateSnapshot::Pack(flatbuffers::FlatBufferBuilder &_fbb, const DecisionTrackStateSnapshotT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateDecisionTrackStateSnapshot(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<DecisionTrackStateSnapshot> CreateDecisionTrackStateSnapshot(flatbuffers::FlatBufferBuilder &_fbb, const DecisionTrackStateSnapshotT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const DecisionTrackStateSnapshotT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _association_key = _o->association_key;
+  auto _external_target_id = _o->external_target_id;
+  auto _status = _o->status;
+  auto _position_x = _o->position_x;
+  auto _position_y = _o->position_y;
+  auto _position_z = _o->position_z;
+  auto _velocity_x = _o->velocity_x;
+  auto _velocity_y = _o->velocity_y;
+  auto _velocity_z = _o->velocity_z;
+  auto _speed = _o->speed;
+  auto _acceleration_x = _o->acceleration_x;
+  auto _acceleration_y = _o->acceleration_y;
+  auto _acceleration_z = _o->acceleration_z;
+  auto _acceleration = _o->acceleration;
+  auto _rcs = _o->rcs;
+  auto _jamming_detected = _o->jamming_detected;
+  auto _hit_count = _o->hit_count;
+  auto _miss_count = _o->miss_count;
+  return oneq::replay::airborne_radar::fb::CreateDecisionTrackStateSnapshot(
+      _fbb,
+      _association_key,
+      _external_target_id,
+      _status,
+      _position_x,
+      _position_y,
+      _position_z,
+      _velocity_x,
+      _velocity_y,
+      _velocity_z,
+      _speed,
+      _acceleration_x,
+      _acceleration_y,
+      _acceleration_z,
+      _acceleration,
+      _rcs,
+      _jamming_detected,
+      _hit_count,
+      _miss_count);
+}
+
+inline TrackStateSnapshotT *TrackStateSnapshot::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<oneq::replay::airborne_radar::fb::TrackStateSnapshotT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::TrackStateSnapshotT>(new TrackStateSnapshotT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void TrackStateSnapshot::UnPackTo(TrackStateSnapshotT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = state(); if (_e) _o->state = std::unique_ptr<oneq::replay::airborne_radar::fb::DecisionTrackStateSnapshotT>(_e->UnPack(_resolver)); }
+}
+
+inline flatbuffers::Offset<TrackStateSnapshot> TrackStateSnapshot::Pack(flatbuffers::FlatBufferBuilder &_fbb, const TrackStateSnapshotT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateTrackStateSnapshot(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<TrackStateSnapshot> CreateTrackStateSnapshot(flatbuffers::FlatBufferBuilder &_fbb, const TrackStateSnapshotT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const TrackStateSnapshotT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _state = _o->state ? CreateDecisionTrackStateSnapshot(_fbb, _o->state.get(), _rehasher) : 0;
+  return oneq::replay::airborne_radar::fb::CreateTrackStateSnapshot(
+      _fbb,
+      _state);
+}
+
+inline RadarCycleResultT *RadarCycleResult::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<oneq::replay::airborne_radar::fb::RadarCycleResultT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::RadarCycleResultT>(new RadarCycleResultT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void RadarCycleResult::UnPackTo(RadarCycleResultT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = track_output_frame(); if (_e) _o->track_output_frame = std::unique_ptr<oneq::replay::airborne_radar::fb::TrackOutputFrameT>(_e->UnPack(_resolver)); }
+  { auto _e = validation_issue_count(); _o->validation_issue_count = _e; }
+  { auto _e = executed_this_cycle(); _o->executed_this_cycle = _e; }
+}
+
+inline flatbuffers::Offset<RadarCycleResult> RadarCycleResult::Pack(flatbuffers::FlatBufferBuilder &_fbb, const RadarCycleResultT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateRadarCycleResult(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<RadarCycleResult> CreateRadarCycleResult(flatbuffers::FlatBufferBuilder &_fbb, const RadarCycleResultT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const RadarCycleResultT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _track_output_frame = _o->track_output_frame ? CreateTrackOutputFrame(_fbb, _o->track_output_frame.get(), _rehasher) : 0;
+  auto _validation_issue_count = _o->validation_issue_count;
+  auto _executed_this_cycle = _o->executed_this_cycle;
+  return oneq::replay::airborne_radar::fb::CreateRadarCycleResult(
+      _fbb,
+      _track_output_frame,
+      _validation_issue_count,
+      _executed_this_cycle);
+}
+
+inline FailureMarkerT *FailureMarker::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<oneq::replay::airborne_radar::fb::FailureMarkerT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::FailureMarkerT>(new FailureMarkerT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void FailureMarker::UnPackTo(FailureMarkerT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = error_code(); if (_e) _o->error_code = _e->str(); }
+  { auto _e = message(); if (_e) _o->message = _e->str(); }
+  { auto _e = location(); if (_e) _o->location = _e->str(); }
+  { auto _e = has_cycle_index(); _o->has_cycle_index = _e; }
+  { auto _e = cycle_index(); _o->cycle_index = _e; }
+  { auto _e = has_sim_time_sec(); _o->has_sim_time_sec = _e; }
+  { auto _e = sim_time_sec(); _o->sim_time_sec = _e; }
+  { auto _e = diagnostics(); if (_e) _o->diagnostics = _e->str(); }
+  { auto _e = has_last_event_sequence(); _o->has_last_event_sequence = _e; }
+  { auto _e = last_event_sequence(); _o->last_event_sequence = _e; }
+}
+
+inline flatbuffers::Offset<FailureMarker> FailureMarker::Pack(flatbuffers::FlatBufferBuilder &_fbb, const FailureMarkerT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateFailureMarker(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<FailureMarker> CreateFailureMarker(flatbuffers::FlatBufferBuilder &_fbb, const FailureMarkerT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const FailureMarkerT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _error_code = _o->error_code.empty() ? 0 : _fbb.CreateString(_o->error_code);
+  auto _message = _o->message.empty() ? 0 : _fbb.CreateString(_o->message);
+  auto _location = _o->location.empty() ? 0 : _fbb.CreateString(_o->location);
+  auto _has_cycle_index = _o->has_cycle_index;
+  auto _cycle_index = _o->cycle_index;
+  auto _has_sim_time_sec = _o->has_sim_time_sec;
+  auto _sim_time_sec = _o->sim_time_sec;
+  auto _diagnostics = _o->diagnostics.empty() ? 0 : _fbb.CreateString(_o->diagnostics);
+  auto _has_last_event_sequence = _o->has_last_event_sequence;
+  auto _last_event_sequence = _o->last_event_sequence;
+  return oneq::replay::airborne_radar::fb::CreateFailureMarker(
+      _fbb,
+      _error_code,
+      _message,
+      _location,
+      _has_cycle_index,
+      _cycle_index,
+      _has_sim_time_sec,
+      _sim_time_sec,
+      _diagnostics,
+      _has_last_event_sequence,
+      _last_event_sequence);
+}
+
 inline const oneq::replay::airborne_radar::fb::RadarCycleInput *GetRadarCycleInput(const void *buf) {
   return flatbuffers::GetRoot<oneq::replay::airborne_radar::fb::RadarCycleInput>(buf);
 }
@@ -1036,6 +1825,18 @@ inline void FinishSizePrefixedRadarCycleInputBuffer(
     flatbuffers::FlatBufferBuilder &fbb,
     flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarCycleInput> root) {
   fbb.FinishSizePrefixed(root, RadarCycleInputIdentifier());
+}
+
+inline std::unique_ptr<oneq::replay::airborne_radar::fb::RadarCycleInputT> UnPackRadarCycleInput(
+    const void *buf,
+    const flatbuffers::resolver_function_t *res = nullptr) {
+  return std::unique_ptr<oneq::replay::airborne_radar::fb::RadarCycleInputT>(GetRadarCycleInput(buf)->UnPack(res));
+}
+
+inline std::unique_ptr<oneq::replay::airborne_radar::fb::RadarCycleInputT> UnPackSizePrefixedRadarCycleInput(
+    const void *buf,
+    const flatbuffers::resolver_function_t *res = nullptr) {
+  return std::unique_ptr<oneq::replay::airborne_radar::fb::RadarCycleInputT>(GetSizePrefixedRadarCycleInput(buf)->UnPack(res));
 }
 
 }  // namespace fb

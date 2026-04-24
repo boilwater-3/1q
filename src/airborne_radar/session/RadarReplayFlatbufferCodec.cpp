@@ -49,15 +49,12 @@ flatbuffers::Offset<fb::PoseState> EncodePoseState(flatbuffers::FlatBufferBuilde
                              EncodeEulerAngles(builder, value.attitude_deg));
 }
 
-flatbuffers::Offset<fb::TargetFeature> EncodeSceneTarget(flatbuffers::FlatBufferBuilder* builder,
-                                                         const RadarSceneTarget& value) {
-  return fb::CreateTargetFeature(
-      *builder, value.external_target_id,
-      EncodeVector3(builder, value.velocity_x, value.velocity_y,
-                    value.velocity_z),
-      value.rcs, value.range_m,
-      EncodeVector3(builder, value.position_x, value.position_y, value.position_z),
-      value.target_swerling_type);
+flatbuffers::Offset<fb::RadarSceneTarget> EncodeSceneTarget(
+    flatbuffers::FlatBufferBuilder* builder, const RadarSceneTarget& value) {
+  return fb::CreateRadarSceneTarget(*builder, value.external_target_id, value.velocity_x,
+                                    value.velocity_y, value.velocity_z, value.rcs, value.range_m,
+                                    value.position_x, value.position_y, value.position_z,
+                                    value.target_swerling_type);
 }
 
 oneq::foundation::Vector3f DecodeVector3(const fb::Vector3f* value) {
@@ -90,20 +87,18 @@ oneq::foundation::PoseState DecodePoseState(const fb::PoseState* value) {
   return result;
 }
 
-RadarSceneTarget DecodeSceneTarget(const fb::TargetFeature* value) {
+RadarSceneTarget DecodeSceneTarget(const fb::RadarSceneTarget* value) {
   RadarSceneTarget result;
   if (value != nullptr) {
     result.external_target_id = value->external_target_id();
-    const oneq::foundation::Vector3f velocity = DecodeVector3(value->velocity_mps());
-    result.velocity_x = velocity.x;
-    result.velocity_y = velocity.y;
-    result.velocity_z = velocity.z;
-    result.rcs = value->current_track_rcs();
+    result.velocity_x = value->velocity_x();
+    result.velocity_y = value->velocity_y();
+    result.velocity_z = value->velocity_z();
+    result.rcs = value->rcs();
     result.range_m = value->range_m();
-    const oneq::foundation::Vector3f position = DecodeVector3(value->position_m());
-    result.position_x = position.x;
-    result.position_y = position.y;
-    result.position_z = position.z;
+    result.position_x = value->position_x();
+    result.position_y = value->position_y();
+    result.position_z = value->position_z();
     result.target_swerling_type = value->target_swerling_type();
   }
   return result;
@@ -728,16 +723,18 @@ environment::EnvironmentDefaultConfig DecodeEnvironmentDefaultConfig(
 
 std::string EncodeCycleInputFlatbuffer(const RadarCycleInput& input) {
   flatbuffers::FlatBufferBuilder builder;
-  std::vector<flatbuffers::Offset<fb::TargetFeature>> targets;
+  std::vector<flatbuffers::Offset<fb::RadarSceneTarget>> targets;
   targets.reserve(input.scene.size());
   for (std::size_t i = 0; i < input.scene.size(); ++i) {
     targets.push_back(EncodeSceneTarget(&builder, input.scene[i]));
   }
 
-  const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fb::TargetFeature>>>
-      target_vector = builder.CreateVector(targets);
+  const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fb::RadarSceneTarget>>>
+      scene_vector = builder.CreateVector(targets);
+  auto env = fb::CreateRadarCycleEnvironmentInput(builder);
   const flatbuffers::Offset<fb::RadarCycleInput> root = fb::CreateRadarCycleInput(
-      builder, input.dt_sec, EncodePoseState(&builder, input.platform_pose), target_vector);
+      builder, input.cycle_index, input.dt_sec, EncodePoseState(&builder, input.platform_pose),
+      scene_vector, env);
   builder.Finish(root, fb::RadarCycleInputIdentifier());
 
   const std::uint8_t* buffer = builder.GetBufferPointer();
@@ -770,15 +767,16 @@ bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes, RadarCycleInpu
   }
 
   const fb::RadarCycleInput* root = fb::GetRadarCycleInput(data);
+  input->cycle_index = root->cycle_index();
   input->dt_sec = root->dt_sec();
   input->platform_pose = DecodePoseState(root->platform_pose());
   input->scene.clear();
-  const flatbuffers::Vector<flatbuffers::Offset<fb::TargetFeature>>* targets =
-      root->target_features();
-  if (targets != nullptr) {
-    input->scene.reserve(targets->size());
-    for (flatbuffers::uoffset_t i = 0; i < targets->size(); ++i) {
-      input->scene.push_back(DecodeSceneTarget(targets->Get(i)));
+  const flatbuffers::Vector<flatbuffers::Offset<fb::RadarSceneTarget>>* scene =
+      root->scene();
+  if (scene != nullptr) {
+    input->scene.reserve(scene->size());
+    for (flatbuffers::uoffset_t i = 0; i < scene->size(); ++i) {
+      input->scene.push_back(DecodeSceneTarget(scene->Get(i)));
     }
   }
   return true;

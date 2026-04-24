@@ -18,19 +18,30 @@ table PoseState {
   attitude_deg:EulerAnglesDeg;
 }
 
-table TargetFeature {
+table RadarSceneTarget {
   external_target_id:ulong;
-  velocity_mps:Vector3f;
-  current_track_rcs:float;
+  velocity_x:float;
+  velocity_y:float;
+  velocity_z:float;
+  rcs:float;
   range_m:float;
-  position_m:Vector3f;
+  position_x:float;
+  position_y:float;
+  position_z:float;
   target_swerling_type:int;
 }
 
+// RadarCycleEnvironmentInput 聚合雷达单周期环境输入。
+// 当前为预留占位结构，待 RadarEnvironmentInput 扩展后同步补充字段。
+table RadarCycleEnvironmentInput {
+}
+
 table RadarCycleInput {
+  cycle_index:uint = 0;
   dt_sec:float = 1.0;
   platform_pose:PoseState;
-  target_features:[TargetFeature];
+  scene:[RadarSceneTarget];
+  environment:RadarCycleEnvironmentInput;
 }
 
 table TrackOutputFrame {
