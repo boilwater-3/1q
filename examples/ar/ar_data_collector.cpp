@@ -8,7 +8,7 @@
 #include <string>
 
 #include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
-#include "1q/airborne_radar/model/TargetFeatureUtils.h"
+#include "1q/airborne_radar/session/RadarSceneTargetUtils.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarTraceSession.h"
 #include "1q/replay/ReplayTrace.h"
@@ -41,7 +41,7 @@ int main(int argc, char* argv[]) {
   input.platform_pose.attitude_deg.pitch_deg = 0.0f;
   input.platform_pose.attitude_deg.roll_deg = 0.0f;
   input.scene.push_back(
-      ar::model::MakeTargetFromCartesian(2001U, 1500.0f, 50.0f, 100.0f, 220.0f, 0.0f, 0.0f, 1.5f));
+      ar::session::MakeSceneTarget(2001U, 1500.0f, 50.0f, 100.0f, 220.0f, 0.0f, 0.0f, 1.5f));
 
   const ar::session::RadarCycleResult result = session.StepWithResult(input);
   replay_writer->Flush();

@@ -43,7 +43,7 @@
 #include "1q/airborne_radar/extension/control/RadarCommand.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/model/TrackStateSnapshot.h"
-#include "1q/airborne_radar/model/TargetFeatureUtils.h"
+#include "1q/airborne_radar/session/RadarSceneTargetUtils.h"
 #include "1q/airborne_radar/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
@@ -178,7 +178,6 @@ struct SimState {
 // ── 构造 RadarSession ─────────────────────────────────────────────────────────
 
 std::unique_ptr<airborne_radar::session::RadarSession> MakeSession() {
-  namespace aq = airborne_radar::common;
   auto session = std::unique_ptr<airborne_radar::session::RadarSession>(
       new airborne_radar::session::RadarSession(airborne_radar::session::RadarSessionFactory::Create(
           airborne_radar::config::RadarDetailedSessionConfigBuilder(
@@ -266,7 +265,7 @@ void StepOnce(airborne_radar::session::RadarSession& session, SimState& sim) {
     return;
   }
 
-  namespace aq = airborne_radar::common;
+  namespace aq = airborne_radar::session;
   using airborne_radar::session::RadarCycleInput;
 
   RadarCycleInput input;
@@ -274,7 +273,7 @@ void StepOnce(airborne_radar::session::RadarSession& session, SimState& sim) {
   for (const auto& kv : sim.target_pos) {
     const auto& p = kv.second;
     input.scene.push_back(
-        aq::MakeTargetFromCartesian(kv.first, p.px, p.py, p.pz, p.vx, p.vy, p.vz, p.rcs));
+        aq::MakeSceneTarget(kv.first, p.px, p.py, p.pz, p.vx, p.vy, p.vz, p.rcs));
   }
 
   // 根据当前 cycle 构造环境场景

@@ -29,7 +29,7 @@
 // 便捷辅助
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
-#include "1q/airborne_radar/model/TargetFeatureBuilder.h"
+#include "1q/airborne_radar/session/RadarSceneTargetUtils.h"
 #include "1q/airborne_radar/output/TrackOutputQueries.h"
 // 平台侧需要直接操控原生组件时包含
 #include "1q/airborne_radar/extension/SignalPipelineResultTypes.h"
@@ -164,8 +164,6 @@ class SimulatedEnvironmentService : public airborne_radar::environment::IEnviron
 // 目标接口即可。
 
 int main() {
-  namespace aq = airborne_radar::model;
-
   // ------------------------------------------------------------------
   // 设计要点说明（可在此运行并修改为完整注入代码）
   // ------------------------------------------------------------------

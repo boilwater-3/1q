@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cmath>
 
-#include "1q/airborne_radar/model/TargetFeatureUtils.h"
 #include "common/geometry/GeometryTransform.h"
 
 namespace airborne_radar {
@@ -274,22 +273,22 @@ bool TryMakeTargetFromExternalKinematics(
     }
   }
 
-  const model::TargetFeature converted = model::MakeTargetFromCartesian(
-      external_target_id, target_position_local.x, target_position_local.y,
-      target_position_local.z, target_velocity_local.x, target_velocity_local.y,
-      target_velocity_local.z, target_input.rcs, target_input.swerling_type);
-  target->external_target_id = converted.external_target_id;
-  target->current_track_velocity_x = converted.current_track_velocity_x;
-  target->current_track_velocity_y = converted.current_track_velocity_y;
-  target->current_track_velocity_z = converted.current_track_velocity_z;
-  target->current_track_speed = converted.current_track_speed;
-  target->current_track_rcs = converted.current_track_rcs;
-  target->range_m = converted.range_m;
-  target->has_cartesian_position = converted.has_cartesian_position;
-  target->position_x = converted.position_x;
-  target->position_y = converted.position_y;
-  target->position_z = converted.position_z;
-  target->target_swerling_type = converted.target_swerling_type;
+  const float range =
+      std::sqrt(target_position_local.x * target_position_local.x +
+                target_position_local.y * target_position_local.y +
+                target_position_local.z * target_position_local.z);
+
+  target->external_target_id = external_target_id;
+  target->velocity_x = target_velocity_local.x;
+  target->velocity_y = target_velocity_local.y;
+  target->velocity_z = target_velocity_local.z;
+  target->rcs = target_input.rcs;
+  target->range_m = range;
+  target->has_cartesian_position = true;
+  target->position_x = target_position_local.x;
+  target->position_y = target_position_local.y;
+  target->position_z = target_position_local.z;
+  target->target_swerling_type = target_input.swerling_type;
   return true;
 }
 

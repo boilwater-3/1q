@@ -33,7 +33,7 @@
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/model/TrackStateSnapshot.h"
-#include "1q/airborne_radar/model/TargetFeatureUtils.h"
+#include "1q/airborne_radar/session/RadarSceneTargetUtils.h"
 #include "1q/airborne_radar/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
@@ -117,7 +117,6 @@ struct SimState {
 // ── 构造 RadarSession ─────────────────────────────────────────────────────────
 
 std::unique_ptr<airborne_radar::session::RadarSession> MakeSession() {
-  namespace aq = airborne_radar::common;
   const auto preset = airborne_radar::config::presets::MakeDetectionMissionRadarSessionConfig();
 
   airborne_radar::environment::EnvironmentDefaultConfig env = preset.environment;
@@ -156,7 +155,7 @@ void StepOnce(airborne_radar::session::RadarSession& session, SimState& sim) {
     return;
   }
 
-  namespace aq = airborne_radar::common;
+  namespace aq = airborne_radar::session;
   using airborne_radar::environment::EnvironmentSceneBuilder;
   using airborne_radar::environment::JammerEmitterState;
   using airborne_radar::environment::JammingTechnique;
@@ -168,7 +167,7 @@ void StepOnce(airborne_radar::session::RadarSession& session, SimState& sim) {
   for (const auto& kv : sim.target_pos) {
     const auto& p = kv.second;
     input.scene.push_back(
-        aq::MakeTargetFromCartesian(kv.first, p.px, p.py, p.pz, p.vx, p.vy, p.vz, p.rcs));
+        aq::MakeSceneTarget(kv.first, p.px, p.py, p.pz, p.vx, p.vy, p.vz, p.rcs));
   }
 
   // cycle 12+ 注入噪声干扰

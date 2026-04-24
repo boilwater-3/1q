@@ -66,8 +66,7 @@ TEST(RadarInputValidationTest, OriginWithNoRangeIsError) {
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 0.0f;  // 无有效斜距
-  target.current_track_rcs = 1.0f;
-  target.current_track_speed = 0.0f;
+  target.rcs = 1.0f;
 
   const auto issues = ValidateTargetFeatures({target});
   EXPECT_TRUE(HasValidationError(issues));
@@ -83,8 +82,7 @@ TEST(RadarInputValidationTest, OriginWithPositiveRangeIsValid) {
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 5000.0f;  // 斜距有效
-  target.current_track_rcs = 1.0f;
-  target.current_track_speed = 0.0f;
+  target.rcs = 1.0f;
 
   const auto issues = ValidateTargetFeatures({target});
   EXPECT_EQ(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition), nullptr);
@@ -100,8 +98,7 @@ TEST(RadarInputValidationTest, FlaggedCartesianPositionWithNonPositiveRangeIsVal
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 0.0f;  // 无斜距
-  target.current_track_rcs = 1.0f;
-  target.current_track_speed = 0.0f;
+  target.rcs = 1.0f;
 
   const auto issues = ValidateTargetFeatures({target});
   EXPECT_EQ(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition), nullptr);
@@ -116,8 +113,7 @@ TEST(RadarInputValidationTest, NonZeroCoordinatesWithoutPositionFlagIsError) {
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 0.0f;
-  target.current_track_rcs = 1.0f;
-  target.current_track_speed = 0.0f;
+  target.rcs = 1.0f;
 
   const auto issues = ValidateTargetFeatures({target});
   EXPECT_TRUE(HasValidationError(issues));
@@ -133,8 +129,7 @@ TEST(RadarInputValidationTest, OriginWithPositionFlagAndNoRangeIsValid) {
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 0.0f;
-  target.current_track_rcs = 1.0f;
-  target.current_track_speed = 0.0f;
+  target.rcs = 1.0f;
 
   const auto issues = ValidateTargetFeatures({target});
   EXPECT_EQ(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition), nullptr);
@@ -150,8 +145,7 @@ TEST(RadarInputValidationTest, NegativeRangeWithNoPositionIsError) {
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = -100.0f;
-  target.current_track_rcs = 1.0f;
-  target.current_track_speed = 0.0f;
+  target.rcs = 1.0f;
 
   const auto issues = ValidateTargetFeatures({target});
   EXPECT_TRUE(HasValidationError(issues));
@@ -175,7 +169,7 @@ TEST(RadarInputValidationTest, NanPositionFieldIsError) {
 /// @brief 速度字段含 Inf → 报 kNonFiniteTargetField。
 TEST(RadarInputValidationTest, InfVelocityFieldIsError) {
   session::RadarSceneTarget target = MakeValidTarget();
-  target.current_track_velocity_y = std::numeric_limits<float>::infinity();
+  target.velocity_y = std::numeric_limits<float>::infinity();
 
   const auto issues = ValidateTargetFeatures({target});
   EXPECT_TRUE(HasValidationError(issues));
@@ -185,7 +179,7 @@ TEST(RadarInputValidationTest, InfVelocityFieldIsError) {
 /// @brief RCS 字段含 NaN → 报 kNonFiniteTargetField。
 TEST(RadarInputValidationTest, NanRcsFieldIsError) {
   session::RadarSceneTarget target = MakeValidTarget();
-  target.current_track_rcs = std::numeric_limits<float>::quiet_NaN();
+  target.rcs = std::numeric_limits<float>::quiet_NaN();
 
   const auto issues = ValidateTargetFeatures({target});
   EXPECT_TRUE(HasValidationError(issues));
@@ -236,7 +230,7 @@ TEST(RadarInputValidationTest, DuplicateExternalIdIsError) {
 /// @brief 负 RCS → Warning 级别（不阻断执行）。
 TEST(RadarInputValidationTest, NegativeRcsIsWarning) {
   session::RadarSceneTarget target = MakeValidTarget();
-  target.current_track_rcs = -0.5f;
+  target.rcs = -0.5f;
 
   const auto issues = ValidateTargetFeatures({target});
   const session::ValidationIssue* issue = FindIssue(issues, ValidationCode::kNegativeRcs);

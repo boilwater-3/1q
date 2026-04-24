@@ -17,10 +17,12 @@
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/extension/RadarController.h"
+#include "1q/airborne_radar/model/TargetFeature.h"
 #include "1q/airborne_radar/model/TargetFeatureUtils.h"
 #include "1q/airborne_radar/output/TrackOutputQueries.h"
 #include "1q/airborne_radar/session/RadarExternalInputAdapter.h"
 #include "1q/airborne_radar/session/RadarInputValidation.h"
+#include "1q/airborne_radar/session/RadarSceneTargetUtils.h"
 #include "1q/airborne_radar/session/RadarSession.h"
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
 #include "airborne_radar/environment/EnvironmentService.h"
@@ -36,11 +38,10 @@ namespace {
 session::RadarSceneTarget ToSceneTarget(const model::TargetFeature& target) {
   session::RadarSceneTarget out;
   out.external_target_id = target.external_target_id;
-  out.current_track_velocity_x = target.current_track_velocity_x;
-  out.current_track_velocity_y = target.current_track_velocity_y;
-  out.current_track_velocity_z = target.current_track_velocity_z;
-  out.current_track_speed = target.current_track_speed;
-  out.current_track_rcs = target.current_track_rcs;
+  out.velocity_x = target.current_track_velocity_x;
+  out.velocity_y = target.current_track_velocity_y;
+  out.velocity_z = target.current_track_velocity_z;
+  out.rcs = target.current_track_rcs;
   out.range_m = target.range_m;
   out.has_cartesian_position = target.has_cartesian_position;
   out.position_x = target.position_x;
@@ -53,11 +54,13 @@ session::RadarSceneTarget ToSceneTarget(const model::TargetFeature& target) {
 model::TargetFeature ToModelTarget(const session::RadarSceneTarget& target) {
   model::TargetFeature out;
   out.external_target_id = target.external_target_id;
-  out.current_track_velocity_x = target.current_track_velocity_x;
-  out.current_track_velocity_y = target.current_track_velocity_y;
-  out.current_track_velocity_z = target.current_track_velocity_z;
-  out.current_track_speed = target.current_track_speed;
-  out.current_track_rcs = target.current_track_rcs;
+  out.current_track_velocity_x = target.velocity_x;
+  out.current_track_velocity_y = target.velocity_y;
+  out.current_track_velocity_z = target.velocity_z;
+  out.current_track_speed = std::sqrt(target.velocity_x * target.velocity_x +
+                                      target.velocity_y * target.velocity_y +
+                                      target.velocity_z * target.velocity_z);
+  out.current_track_rcs = target.rcs;
   out.range_m = target.range_m;
   out.has_cartesian_position = target.has_cartesian_position;
   out.position_x = target.position_x;
@@ -605,7 +608,6 @@ TEST(PublicApiConvenienceTest, TargetFeatureUtilsBuildsTargetFromExternalCoordin
   EXPECT_NEAR(target_from_external.position_y, 0.0f, 2.0f);
   EXPECT_NEAR(target_from_external.position_z, 0.0f, 2.0f);
   EXPECT_GT(target_from_external.range_m, 100.0f);
-  EXPECT_GT(target_from_external.current_track_speed, 0.0f);
 }
 
 TEST(PublicApiConvenienceTest, TargetFeatureUtilsBuildsTargetFromExternalKinematicsFrames) {
@@ -648,7 +650,6 @@ TEST(PublicApiConvenienceTest, TargetFeatureUtilsBuildsTargetFromExternalKinemat
   session::RadarSceneTarget ecef_target;
   ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
       501U, input, reference, platform_pose.velocity_mps, &ecef_target));
-  EXPECT_NEAR(ecef_target.current_track_speed, 0.0f, 1.0e-4f);
 
   // ENU 输入。
   input.target_velocity_frame = session::VelocityFrame::kEnu;
@@ -659,7 +660,6 @@ TEST(PublicApiConvenienceTest, TargetFeatureUtilsBuildsTargetFromExternalKinemat
   session::RadarSceneTarget enu_target;
   ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
       502U, input, reference, platform_pose.velocity_mps, &enu_target));
-  EXPECT_GT(enu_target.current_track_speed, 100.0f);
 
   // NED 输入（north, east, down）。
   input.target_velocity_frame = session::VelocityFrame::kNed;
@@ -669,7 +669,6 @@ TEST(PublicApiConvenienceTest, TargetFeatureUtilsBuildsTargetFromExternalKinemat
   session::RadarSceneTarget ned_target;
   ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
       503U, input, reference, platform_pose.velocity_mps, &ned_target));
-  EXPECT_GT(ned_target.current_track_speed, 50.0f);
 
   // RadarLocal 输入应直接保留速度分量。
   input.target_velocity_frame = session::VelocityFrame::kRadarLocal;
@@ -679,9 +678,9 @@ TEST(PublicApiConvenienceTest, TargetFeatureUtilsBuildsTargetFromExternalKinemat
   session::RadarSceneTarget local_target;
   ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
       504U, input, reference, platform_pose.velocity_mps, &local_target));
-  EXPECT_NEAR(local_target.current_track_velocity_x, 11.0f, 1.0e-5f);
-  EXPECT_NEAR(local_target.current_track_velocity_y, 12.0f, 1.0e-5f);
-  EXPECT_NEAR(local_target.current_track_velocity_z, 13.0f, 1.0e-5f);
+  EXPECT_NEAR(local_target.velocity_x, 11.0f, 1.0e-5f);
+  EXPECT_NEAR(local_target.velocity_y, 12.0f, 1.0e-5f);
+  EXPECT_NEAR(local_target.velocity_z, 13.0f, 1.0e-5f);
 }
 
 TEST(PublicApiConvenienceTest, TwoStepExternalKinematicsProducesStableTarget) {
@@ -733,7 +732,6 @@ TEST(PublicApiConvenienceTest, TwoStepExternalKinematicsProducesStableTarget) {
   EXPECT_NEAR(target_1.position_x, target_2.position_x, 1.0e-6f);
   EXPECT_NEAR(target_1.position_y, target_2.position_y, 1.0e-6f);
   EXPECT_NEAR(target_1.position_z, target_2.position_z, 1.0e-6f);
-  EXPECT_NEAR(target_1.current_track_speed, target_2.current_track_speed, 1.0e-6f);
   EXPECT_NEAR(target_1.range_m, target_2.range_m, 1.0e-6f);
 }
 

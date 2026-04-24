@@ -53,9 +53,11 @@ flatbuffers::Offset<fb::TargetFeature> EncodeTargetFeature(flatbuffers::FlatBuff
                                                            const RadarSceneTarget& value) {
   return fb::CreateTargetFeature(
       *builder, value.external_target_id,
-      EncodeVector3(builder, value.current_track_velocity_x, value.current_track_velocity_y,
-                    value.current_track_velocity_z),
-      value.current_track_speed, value.current_track_rcs, value.range_m,
+      EncodeVector3(builder, value.velocity_x, value.velocity_y,
+                    value.velocity_z),
+      std::sqrt(value.velocity_x * value.velocity_x + value.velocity_y * value.velocity_y +
+                value.velocity_z * value.velocity_z),
+      value.rcs, value.range_m,
       value.has_cartesian_position,
       EncodeVector3(builder, value.position_x, value.position_y, value.position_z),
       value.target_swerling_type);
@@ -96,11 +98,15 @@ RadarSceneTarget DecodeTargetFeature(const fb::TargetFeature* value) {
   if (value != nullptr) {
     result.external_target_id = value->external_target_id();
     const oneq::foundation::Vector3f velocity = DecodeVector3(value->velocity_mps());
-    result.current_track_velocity_x = velocity.x;
-    result.current_track_velocity_y = velocity.y;
-    result.current_track_velocity_z = velocity.z;
-    result.current_track_speed = value->current_track_speed();
-    result.current_track_rcs = value->current_track_rcs();
+    result.velocity_x = velocity.x;
+    result.velocity_y = velocity.y;
+    result.velocity_z = velocity.z;
+    // Backward compatibility: some legacy traces carry only current_track_speed.
+    if (result.velocity_x == 0.0f && result.velocity_y == 0.0f && result.velocity_z == 0.0f &&
+        value->current_track_speed() > 0.0f) {
+      result.velocity_x = value->current_track_speed();
+    }
+    result.rcs = value->current_track_rcs();
     result.range_m = value->range_m();
     result.has_cartesian_position = value->has_cartesian_position();
     const oneq::foundation::Vector3f position = DecodeVector3(value->position_m());

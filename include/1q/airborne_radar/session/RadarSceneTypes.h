@@ -6,7 +6,6 @@
 #ifndef AIRBORNE_RADAR_SESSION_RADAR_SCENE_TYPES_H_
 #define AIRBORNE_RADAR_SESSION_RADAR_SCENE_TYPES_H_
 
-#include <cmath>
 #include <cstdint>
 #include <vector>
 
@@ -18,11 +17,10 @@ namespace session {
  */
 struct RadarSceneTarget {
   std::uint64_t external_target_id{0};   /**< 外部输入原始目标标识符（0 表示未知/未提供） */
-  float current_track_velocity_x{0.0f};  /**< 雷达局部坐标速度 x 分量（单位：m/s） */
-  float current_track_velocity_y{0.0f};  /**< 雷达局部坐标速度 y 分量（单位：m/s） */
-  float current_track_velocity_z{0.0f};  /**< 雷达局部坐标速度 z 分量（单位：m/s） */
-  float current_track_speed{0.0f};       /**< 目标速度模长（单位：m/s） */
-  float current_track_rcs{0.0f};         /**< 目标雷达散射截面积（单位：m^2） */
+  float velocity_x{0.0f};               /**< 雷达局部坐标速度 x 分量（单位：m/s） */
+  float velocity_y{0.0f};               /**< 雷达局部坐标速度 y 分量（单位：m/s） */
+  float velocity_z{0.0f};               /**< 雷达局部坐标速度 z 分量（单位：m/s） */
+  float rcs{0.0f};                       /**< 目标雷达散射截面积（单位：m^2） */
   float range_m{0.0f};                   /**< 目标到雷达的斜距（单位：m） */
   bool has_cartesian_position{false};    /**< 是否显式提供笛卡尔位置 */
   float position_x{0.0f};                /**< 雷达局部笛卡尔坐标 x（单位：m） */
@@ -35,13 +33,10 @@ struct RadarSceneTarget {
                    float rcs_m2_in, float range_m_in = 0.0f, int swerling_type_in = 0,
                    std::uint64_t external_target_id_in = 0)
       : external_target_id(external_target_id_in),
-        current_track_velocity_x(velocity_x_mps_in),
-        current_track_velocity_y(velocity_y_mps_in),
-        current_track_velocity_z(velocity_z_mps_in),
-        current_track_speed(std::sqrt(velocity_x_mps_in * velocity_x_mps_in +
-                                      velocity_y_mps_in * velocity_y_mps_in +
-                                      velocity_z_mps_in * velocity_z_mps_in)),
-        current_track_rcs(rcs_m2_in),
+        velocity_x(velocity_x_mps_in),
+        velocity_y(velocity_y_mps_in),
+        velocity_z(velocity_z_mps_in),
+        rcs(rcs_m2_in),
         range_m(range_m_in),
         target_swerling_type(swerling_type_in) {}
 };

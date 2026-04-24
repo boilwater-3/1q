@@ -132,11 +132,10 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) 
 
   session::RadarSceneTarget target;
   target.external_target_id = 2001U;
-  target.current_track_velocity_x = 120.0f;
-  target.current_track_velocity_y = 0.0f;
-  target.current_track_velocity_z = 0.0f;
-  target.current_track_speed = 120.0f;
-  target.current_track_rcs = 1.5f;
+  target.velocity_x = 120.0f;
+  target.velocity_y = 0.0f;
+  target.velocity_z = 0.0f;
+  target.rcs = 1.5f;
   target.range_m = 1500.0f;
   target.has_cartesian_position = true;
   target.position_x = 1500.0f;
@@ -246,11 +245,10 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
 
     session::RadarSceneTarget target;
     target.external_target_id = 2002U;
-    target.current_track_velocity_x = 80.0f;
-    target.current_track_velocity_y = 1.0f;
-    target.current_track_velocity_z = 0.0f;
-    target.current_track_speed = 80.006f;
-    target.current_track_rcs = 2.0f;
+    target.velocity_x = 80.0f;
+    target.velocity_y = 1.0f;
+    target.velocity_z = 0.0f;
+    target.rcs = 2.0f;
     target.range_m = 2000.0f;
     target.has_cartesian_position = true;
     target.position_x = 2000.0f;

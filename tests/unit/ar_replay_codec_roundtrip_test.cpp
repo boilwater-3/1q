@@ -45,11 +45,10 @@ TEST(ArReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
 
   RadarSceneTarget target;
   target.external_target_id = 42U;
-  target.current_track_velocity_x = 80.0f;
-  target.current_track_velocity_y = 1.5f;
-  target.current_track_velocity_z = -0.5f;
-  target.current_track_speed = 80.02f;
-  target.current_track_rcs = 3.0f;
+  target.velocity_x = 80.0f;
+  target.velocity_y = 1.5f;
+  target.velocity_z = -0.5f;
+  target.rcs = 3.0f;
   target.range_m = 1234.5f;
   target.has_cartesian_position = true;
   target.position_x = 1234.0f;
@@ -71,7 +70,7 @@ TEST(ArReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   EXPECT_FLOAT_EQ(decoded.platform_pose.attitude_deg.yaw_deg, 45.0f);
   ASSERT_EQ(decoded.scene.size(), 1U);
   EXPECT_EQ(decoded.scene[0].external_target_id, 42U);
-  EXPECT_FLOAT_EQ(decoded.scene[0].current_track_rcs, 3.0f);
+  EXPECT_FLOAT_EQ(decoded.scene[0].rcs, 3.0f);
   EXPECT_FLOAT_EQ(decoded.scene[0].range_m, 1234.5f);
   EXPECT_TRUE(decoded.scene[0].has_cartesian_position);
   EXPECT_FLOAT_EQ(decoded.scene[0].position_x, 1234.0f);

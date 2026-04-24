@@ -76,10 +76,9 @@ void ValidateSingleTarget(const RadarSceneTarget& target, std::size_t target_ind
   }
 
   if (!IsFinite(target.position_x) || !IsFinite(target.position_y) ||
-      !IsFinite(target.position_z) || !IsFinite(target.current_track_velocity_x) ||
-      !IsFinite(target.current_track_velocity_y) || !IsFinite(target.current_track_velocity_z) ||
-      !IsFinite(target.current_track_speed) || !IsFinite(target.current_track_rcs) ||
-      !IsFinite(target.range_m)) {
+      !IsFinite(target.position_z) || !IsFinite(target.velocity_x) ||
+      !IsFinite(target.velocity_y) || !IsFinite(target.velocity_z) ||
+      !IsFinite(target.rcs) || !IsFinite(target.range_m)) {
     issues->push_back(MakeIssue(ValidationSeverity::kError, ValidationCode::kNonFiniteTargetField,
                                 ValidationLocationKind::kSceneEntity, target_index, "scene",
                                 "target contains non-finite numeric field"));
@@ -98,10 +97,10 @@ void ValidateSingleTarget(const RadarSceneTarget& target, std::size_t target_ind
                                 "external_target_id", "target external id is unknown"));
   }
 
-  if (target.current_track_rcs < 0.0f) {
+  if (target.rcs < 0.0f) {
     issues->push_back(MakeIssue(ValidationSeverity::kWarning, ValidationCode::kNegativeRcs,
                                 ValidationLocationKind::kSceneEntity, target_index,
-                                "current_track_rcs", "target rcs is negative"));
+                                "rcs", "target rcs is negative"));
   }
 }
 

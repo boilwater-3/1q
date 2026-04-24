@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <memory>
 #include <utility>
@@ -48,11 +49,13 @@ model::TargetFeatureList BuildSingleTarget(float speed, float rcs, bool jamming)
 model::TargetFeature ToModelTarget(const session::RadarSceneTarget& target) {
   model::TargetFeature out;
   out.external_target_id = target.external_target_id;
-  out.current_track_velocity_x = target.current_track_velocity_x;
-  out.current_track_velocity_y = target.current_track_velocity_y;
-  out.current_track_velocity_z = target.current_track_velocity_z;
-  out.current_track_speed = target.current_track_speed;
-  out.current_track_rcs = target.current_track_rcs;
+  out.current_track_velocity_x = target.velocity_x;
+  out.current_track_velocity_y = target.velocity_y;
+  out.current_track_velocity_z = target.velocity_z;
+  out.current_track_speed = std::sqrt(target.velocity_x * target.velocity_x +
+                                      target.velocity_y * target.velocity_y +
+                                      target.velocity_z * target.velocity_z);
+  out.current_track_rcs = target.rcs;
   out.range_m = target.range_m;
   out.has_cartesian_position = target.has_cartesian_position;
   out.position_x = target.position_x;

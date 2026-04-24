@@ -15,7 +15,7 @@
 #include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "1q/airborne_radar/model/TargetFeatureUtils.h"
+#include "1q/airborne_radar/session/RadarSceneTargetUtils.h"
 #include "1q/airborne_radar/output/TrackOutputQueries.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarInputValidation.h"
@@ -23,7 +23,7 @@
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
 
 int main() {
-  namespace aq = airborne_radar::model;
+  namespace aq = airborne_radar::session;
   using airborne_radar::environment::EnvironmentSceneBuilder;
   using airborne_radar::environment::JammerEmitterState;
   using airborne_radar::environment::JammingTechnique;
@@ -73,9 +73,9 @@ int main() {
   RadarCycleInput cycle_1;
   cycle_1.dt_sec = 1.0f;
   cycle_1.scene.push_back(
-      aq::MakeTargetFromCartesian(1001U, 180.0f, -5.0f, 18.0f, 65.0f, 0.0f, 0.0f, 1.0f));
+      aq::MakeSceneTarget(1001U, 180.0f, -5.0f, 18.0f, 65.0f, 0.0f, 0.0f, 1.0f));
   cycle_1.scene.push_back(
-      aq::MakeTargetFromCartesian(1002U, 260.0f, 8.0f, 22.0f, 82.0f, 1.0f, 0.0f, 1.1f));
+      aq::MakeSceneTarget(1002U, 260.0f, 8.0f, 22.0f, 82.0f, 1.0f, 0.0f, 1.1f));
 
   const std::vector<airborne_radar::session::ValidationIssue> cycle_1_issues =
       ValidateRadarCycleInput(cycle_1);
@@ -92,7 +92,7 @@ int main() {
   RadarCycleInput cycle_2 = cycle_1;
   for (std::size_t i = 0; i < cycle_2.scene.size(); ++i) {
     cycle_2.scene[i].position_x +=
-        cycle_2.scene[i].current_track_velocity_x * cycle_2.dt_sec;
+        cycle_2.scene[i].velocity_x * cycle_2.dt_sec;
   }
 
   const RadarCycleResult result_2 = session.StepWithResult(cycle_2);
@@ -104,7 +104,7 @@ int main() {
   RadarCycleInput cycle_3 = cycle_2;
   for (std::size_t i = 0; i < cycle_3.scene.size(); ++i) {
     cycle_3.scene[i].position_x +=
-        cycle_3.scene[i].current_track_velocity_x * cycle_3.dt_sec;
+        cycle_3.scene[i].velocity_x * cycle_3.dt_sec;
   }
 
   JammerEmitterState noise_jammer;
