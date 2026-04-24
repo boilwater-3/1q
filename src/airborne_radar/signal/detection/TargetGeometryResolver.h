@@ -9,7 +9,7 @@
 #include <Eigen/Core>
 #include <algorithm>
 
-#include "1q/airborne_radar/model/TargetFeature.h"
+#include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "airborne_radar/signal/detection/TargetLookResolver.h"
 
 namespace airborne_radar {
@@ -17,7 +17,6 @@ namespace signal {
 namespace detection {
 
 struct ResolvedTargetGeometry {
-  bool has_cartesian_position{false};
   Eigen::Vector3f position_m{Eigen::Vector3f::Zero()};
   float range_m{50000.0f};
   TargetLookAnglesDeg look_angles_deg;
@@ -25,11 +24,10 @@ struct ResolvedTargetGeometry {
 
 class TargetGeometryResolver {
  public:
-  static ResolvedTargetGeometry Resolve(const model::TargetFeature& target) {
+  static ResolvedTargetGeometry Resolve(const session::RadarSceneTarget& target) {
     ResolvedTargetGeometry geometry;
     geometry.position_m =
         Eigen::Vector3f(target.position_x, target.position_y, target.position_z);
-    geometry.has_cartesian_position = target.has_cartesian_position;
     geometry.look_angles_deg = TargetLookResolver::Resolve(target);
 
     if (target.range_m > 0.0f) {
@@ -37,13 +35,7 @@ class TargetGeometryResolver {
       return geometry;
     }
 
-    if (geometry.has_cartesian_position) {
-      geometry.range_m = std::max(geometry.position_m.norm(), 0.1f);
-      return geometry;
-    }
-
-    constexpr float kFallbackRangeMeters = 50000.0f;
-    geometry.range_m = kFallbackRangeMeters;
+    geometry.range_m = std::max(geometry.position_m.norm(), 0.1f);
     return geometry;
   }
 };

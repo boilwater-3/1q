@@ -49,8 +49,8 @@ flatbuffers::Offset<fb::PoseState> EncodePoseState(flatbuffers::FlatBufferBuilde
                              EncodeEulerAngles(builder, value.attitude_deg));
 }
 
-flatbuffers::Offset<fb::TargetFeature> EncodeTargetFeature(flatbuffers::FlatBufferBuilder* builder,
-                                                           const RadarSceneTarget& value) {
+flatbuffers::Offset<fb::TargetFeature> EncodeSceneTarget(flatbuffers::FlatBufferBuilder* builder,
+                                                         const RadarSceneTarget& value) {
   return fb::CreateTargetFeature(
       *builder, value.external_target_id,
       EncodeVector3(builder, value.velocity_x, value.velocity_y,
@@ -90,7 +90,7 @@ oneq::foundation::PoseState DecodePoseState(const fb::PoseState* value) {
   return result;
 }
 
-RadarSceneTarget DecodeTargetFeature(const fb::TargetFeature* value) {
+RadarSceneTarget DecodeSceneTarget(const fb::TargetFeature* value) {
   RadarSceneTarget result;
   if (value != nullptr) {
     result.external_target_id = value->external_target_id();
@@ -731,7 +731,7 @@ std::string EncodeCycleInputFlatbuffer(const RadarCycleInput& input) {
   std::vector<flatbuffers::Offset<fb::TargetFeature>> targets;
   targets.reserve(input.scene.size());
   for (std::size_t i = 0; i < input.scene.size(); ++i) {
-    targets.push_back(EncodeTargetFeature(&builder, input.scene[i]));
+    targets.push_back(EncodeSceneTarget(&builder, input.scene[i]));
   }
 
   const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fb::TargetFeature>>>
@@ -778,7 +778,7 @@ bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes, RadarCycleInpu
   if (targets != nullptr) {
     input->scene.reserve(targets->size());
     for (flatbuffers::uoffset_t i = 0; i < targets->size(); ++i) {
-      input->scene.push_back(DecodeTargetFeature(targets->Get(i)));
+      input->scene.push_back(DecodeSceneTarget(targets->Get(i)));
     }
   }
   return true;

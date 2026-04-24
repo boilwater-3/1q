@@ -93,7 +93,6 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/TrackStateSnapshot.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/RadarOrientationConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/TargetCategory.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/TargetFeature.h
     )
     set(PUBLIC_HEADERS_COMMON_UTILS
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/JammingSemantics.h
