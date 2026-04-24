@@ -40,7 +40,13 @@ table EsrMissionConfig {
 }
 
 table EsrPolicyConfig {
-  detection_profile: int32;
+  detection_profile:          int32;
+  use_profile_defaults:       bool;
+  min_detect_snr_db:          float;
+  pfa:                        float;
+  pulse_count:                uint32;
+  threshold_scale:            float;
+  enable_statistical_detection: bool;
 }
 
 table EsrAtmosphericPhysicsConfig {
@@ -110,6 +116,10 @@ table EsrRuntimeConfigPatch {
   scan_start_el_deg:           float;
   has_scan_end_el_deg:         bool;
   scan_end_el_deg:             float;
+  has_mission:                 bool;
+  mission:                     EsrMissionConfig;
+  has_policy:                  bool;
+  policy:                      EsrPolicyConfig;
   has_environment_runtime_config: bool;
   environment_runtime_config:  EsrEnvironmentRuntimeConfigPatch;
 }

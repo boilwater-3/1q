@@ -142,6 +142,7 @@ table ValidationIssue {
   severity:      int32;
   code:          int32;
   emitter_index: int32;
+  field:         string;
   message:       string;
 }
 
@@ -149,4 +150,7 @@ table EsrCycleResult {
   output_frame:         EsrOutputFrame;
   validation_issues:    [ValidationIssue];
   has_validation_error: bool;
+  executed_this_cycle:  bool = false;
+  reused_previous_output: bool = false;
+  abort_reason:         int32 = 0;
 }

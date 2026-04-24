@@ -90,10 +90,11 @@ std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
       env.spectrum_occupancy_ratio, atm, fbb.CreateVector(jammers));
 
   auto platform = BuildPose(fbb, v.platform_pose);
+  auto emitters_vec = fbb.CreateVector(emitters);
   esr::replay::EsrCycleInputBuilder b(fbb);
   b.add_cycle_index(v.cycle_index); b.add_dt_sec(v.dt_sec);
   b.add_platform_pose(platform);
-  b.add_scene_emitters(fbb.CreateVector(emitters));
+  b.add_scene_emitters(emitters_vec);
   b.add_environment_observation(env_fb);
   fbb.Finish(b.Finish());
   return {reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize()};
@@ -295,10 +296,13 @@ std::string EncodeEsrCycleResult(const EsrCycleResult& v) {
             : static_cast<std::size_t>(-1);
     issues.push_back(esr::replay::CreateValidationIssue(fbb,
         static_cast<int32_t>(i.severity), static_cast<int32_t>(i.code),
-        static_cast<int32_t>(encoded_entity_index), fbb.CreateString(i.message)));
+        static_cast<int32_t>(encoded_entity_index),
+        fbb.CreateString(i.field), fbb.CreateString(i.message)));
   }
   fbb.Finish(esr::replay::CreateEsrCycleResult(fbb, frame,
-      fbb.CreateVector(issues), v.has_validation_error));
+      fbb.CreateVector(issues), v.has_validation_error,
+      v.executed_this_cycle, v.reused_previous_output,
+      static_cast<int32_t>(v.abort_reason)));
   return {reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize()};
 }
 
@@ -310,6 +314,9 @@ bool DecodeEsrCycleResult(const std::string& bytes, EsrCycleResult* out) {
   const auto* fb = flatbuffers::GetRoot<esr::replay::EsrCycleResult>(bytes.data());
   PopulateOutputFrame(fb->output_frame(), &out->output_frame);
   out->has_validation_error = fb->has_validation_error();
+  out->executed_this_cycle = fb->executed_this_cycle();
+  out->reused_previous_output = fb->reused_previous_output();
+  out->abort_reason = static_cast<extension::EsrPipelineAbortReason>(fb->abort_reason());
   out->validation_issues.clear();
   if (fb->validation_issues()) {
     for (const auto* i : *fb->validation_issues()) {
@@ -317,13 +324,16 @@ bool DecodeEsrCycleResult(const std::string& bytes, EsrCycleResult* out) {
       iss.severity = static_cast<ValidationSeverity>(i->severity());
       iss.code = static_cast<ValidationCode>(i->code());
       iss.location.kind = ValidationLocationKind::kSceneEntity;
-      iss.location.entity_index = static_cast<std::size_t>(i->entity_index());
-      if (i->entity_index() < 0) {
+      iss.location.entity_index = static_cast<std::size_t>(i->emitter_index());
+      if (i->emitter_index() < 0) {
         iss.location.kind = ValidationLocationKind::kGlobal;
         iss.location.entity_index = static_cast<std::size_t>(-1);
       }
       if (i->message()) {
         iss.message = i->message()->str();
+      }
+      if (i->field()) {
+        iss.field = i->field()->str();
       }
       out->validation_issues.push_back(iss);
     }
@@ -349,7 +359,13 @@ std::string EncodeEsrSessionConfig(const EsrSessionConfig& v) {
   auto mission = esr::replay::CreateEsrMissionConfig(fbb, v.mission.power_on,
       static_cast<int32_t>(v.mission.work_mode), scan);
   auto policy = esr::replay::CreateEsrPolicyConfig(fbb,
-      static_cast<int32_t>(v.policy.detection.profile));
+      static_cast<int32_t>(v.policy.detection.profile),
+      v.policy.detection.use_profile_defaults,
+      v.policy.detection.min_detect_snr_db,
+      v.policy.detection.pfa,
+      v.policy.detection.pulse_count,
+      v.policy.detection.threshold_scale,
+      v.policy.detection.enable_statistical_detection);
   const auto& es = v.environment.scenario_config;
   auto ap = esr::replay::CreateEsrAtmosphericPhysicsConfig(fbb,
       es.atmospheric_physics.enable_physical_model, es.atmospheric_physics.pressure_hpa,
@@ -405,14 +421,54 @@ bool DecodeEsrSessionConfig(const std::string& bytes, EsrSessionConfig* out) {
     }
   }
   if (fb->policy()) {
+    const auto* p = fb->policy();
     out->policy.detection.profile =
-        static_cast<config::EsrDetectionProfile>(fb->policy()->detection_profile());
+        static_cast<config::EsrDetectionProfile>(p->detection_profile());
+    out->policy.detection.use_profile_defaults = p->use_profile_defaults();
+    out->policy.detection.min_detect_snr_db = p->min_detect_snr_db();
+    out->policy.detection.pfa = p->pfa();
+    out->policy.detection.pulse_count = p->pulse_count();
+    out->policy.detection.threshold_scale = p->threshold_scale();
+    out->policy.detection.enable_statistical_detection = p->enable_statistical_detection();
+  }
+  if (fb->environment()) {
+    const auto* e = fb->environment();
+    out->environment.scenario_config.preset =
+        static_cast<config::EsrEnvironmentPreset>(e->preset());
+    if (e->atmospheric_physics()) {
+      const auto* ap = e->atmospheric_physics();
+      out->environment.scenario_config.atmospheric_physics.enable_physical_model =
+          ap->enable_physical_model();
+      out->environment.scenario_config.atmospheric_physics.pressure_hpa =
+          ap->pressure_hpa();
+      out->environment.scenario_config.atmospheric_physics.temperature_k =
+          ap->temperature_k();
+      out->environment.scenario_config.atmospheric_physics.relative_humidity =
+          ap->relative_humidity();
+    }
+    if (e->atmospheric_context()) {
+      const auto* ac = e->atmospheric_context();
+      out->environment.scenario_config.atmospheric_context.has_k_factor =
+          ac->has_k_factor();
+      out->environment.scenario_config.atmospheric_context.k_factor =
+          ac->k_factor();
+      out->environment.scenario_config.atmospheric_context.has_day_of_year =
+          ac->has_day_of_year();
+      out->environment.scenario_config.atmospheric_context.day_of_year =
+          ac->day_of_year();
+      out->environment.scenario_config.atmospheric_context.solar_flux_f107a =
+          ac->solar_flux_f107a();
+      out->environment.scenario_config.atmospheric_context.solar_flux_f107 =
+          ac->solar_flux_f107();
+      out->environment.scenario_config.atmospheric_context.geomagnetic_ap =
+          ac->geomagnetic_ap();
+    }
   }
   return true;
 }
 
 std::string EncodeEsrRuntimeConfigPatch(const EsrRuntimeConfigPatch& v) {
-  flatbuffers::FlatBufferBuilder fbb(256);
+  flatbuffers::FlatBufferBuilder fbb(512);
   const auto& ev = v.environment_runtime_config;
   auto ap = esr::replay::CreateEsrAtmosphericPhysicsConfig(fbb,
       ev.atmospheric_physics.enable_physical_model, ev.atmospheric_physics.pressure_hpa,
@@ -423,7 +479,30 @@ std::string EncodeEsrRuntimeConfigPatch(const EsrRuntimeConfigPatch& v) {
       ev.atmospheric_context.solar_flux_f107a, ev.atmospheric_context.solar_flux_f107,
       ev.atmospheric_context.geomagnetic_ap);
   auto env_patch = esr::replay::CreateEsrEnvironmentRuntimeConfigPatch(fbb,
-      v.has_environment_runtime_config, ap, v.has_environment_runtime_config, ac);
+      ev.has_atmospheric_physics, ap, ev.has_atmospheric_context, ac);
+  flatbuffers::Offset<esr::replay::EsrMissionConfig> mission;
+  if (v.has_mission) {
+    const auto& sc = v.mission.scan;
+    auto scan = esr::replay::CreateEsrScanConfig(fbb,
+        sc.scan_center_az_deg, sc.scan_center_el_deg, sc.scan_rate_hz,
+        static_cast<int32_t>(sc.scan_start_position),
+        static_cast<int32_t>(sc.scan_sequence),
+        sc.use_explicit_scan_bounds, sc.scan_start_az_deg, sc.scan_end_az_deg,
+        sc.scan_start_el_deg, sc.scan_end_el_deg);
+    mission = esr::replay::CreateEsrMissionConfig(
+        fbb, v.mission.power_on, static_cast<int32_t>(v.mission.work_mode), scan);
+  }
+  flatbuffers::Offset<esr::replay::EsrPolicyConfig> policy;
+  if (v.has_policy) {
+    policy = esr::replay::CreateEsrPolicyConfig(fbb,
+        static_cast<int32_t>(v.policy.detection.profile),
+        v.policy.detection.use_profile_defaults,
+        v.policy.detection.min_detect_snr_db,
+        v.policy.detection.pfa,
+        v.policy.detection.pulse_count,
+        v.policy.detection.threshold_scale,
+        v.policy.detection.enable_statistical_detection);
+  }
   fbb.Finish(esr::replay::CreateEsrRuntimeConfigPatch(fbb,
       v.has_sensor_enabled, v.sensor_enabled,
       v.has_work_mode, static_cast<int32_t>(v.work_mode),
@@ -437,6 +516,8 @@ std::string EncodeEsrRuntimeConfigPatch(const EsrRuntimeConfigPatch& v) {
       v.has_scan_end_az_deg, v.scan_end_az_deg,
       v.has_scan_start_el_deg, v.scan_start_el_deg,
       v.has_scan_end_el_deg, v.scan_end_el_deg,
+      v.has_mission, mission,
+      v.has_policy, policy,
       v.has_environment_runtime_config, env_patch));
   return {reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize()};
 }
@@ -452,11 +533,91 @@ bool DecodeEsrRuntimeConfigPatch(const std::string& bytes, EsrRuntimeConfigPatch
   out->has_work_mode = fb->has_work_mode();
   out->work_mode = static_cast<config::EsrWorkMode>(fb->work_mode());
   out->has_scan_rate_hz = fb->has_scan_rate_hz(); out->scan_rate_hz = fb->scan_rate_hz();
+  out->has_scan_start_position = fb->has_scan_start_position();
+  out->scan_start_position = static_cast<config::EsrScanStartPosition>(fb->scan_start_position());
+  out->has_scan_sequence = fb->has_scan_sequence();
+  out->scan_sequence = static_cast<config::EsrScanSequence>(fb->scan_sequence());
   out->has_scan_center_az_deg = fb->has_scan_center_az_deg();
   out->scan_center_az_deg = fb->scan_center_az_deg();
   out->has_scan_center_el_deg = fb->has_scan_center_el_deg();
   out->scan_center_el_deg = fb->scan_center_el_deg();
+  out->has_use_explicit_scan_bounds = fb->has_use_explicit_scan_bounds();
+  out->use_explicit_scan_bounds = fb->use_explicit_scan_bounds();
+  out->has_scan_start_az_deg = fb->has_scan_start_az_deg();
+  out->scan_start_az_deg = fb->scan_start_az_deg();
+  out->has_scan_end_az_deg = fb->has_scan_end_az_deg();
+  out->scan_end_az_deg = fb->scan_end_az_deg();
+  out->has_scan_start_el_deg = fb->has_scan_start_el_deg();
+  out->scan_start_el_deg = fb->scan_start_el_deg();
+  out->has_scan_end_el_deg = fb->has_scan_end_el_deg();
+  out->scan_end_el_deg = fb->scan_end_el_deg();
+  out->has_mission = fb->has_mission();
+  if (fb->mission()) {
+    const auto* m = fb->mission();
+    out->mission.power_on = m->power_on();
+    out->mission.work_mode = static_cast<config::EsrWorkMode>(m->work_mode());
+    if (m->scan()) {
+      const auto* s = m->scan();
+      out->mission.scan.scan_center_az_deg = s->scan_center_az_deg();
+      out->mission.scan.scan_center_el_deg = s->scan_center_el_deg();
+      out->mission.scan.scan_rate_hz = s->scan_rate_hz();
+      out->mission.scan.scan_start_position =
+          static_cast<config::EsrScanStartPosition>(s->scan_start_position());
+      out->mission.scan.scan_sequence =
+          static_cast<config::EsrScanSequence>(s->scan_sequence());
+      out->mission.scan.use_explicit_scan_bounds = s->use_explicit_scan_bounds();
+      out->mission.scan.scan_start_az_deg = s->scan_start_az_deg();
+      out->mission.scan.scan_end_az_deg = s->scan_end_az_deg();
+      out->mission.scan.scan_start_el_deg = s->scan_start_el_deg();
+      out->mission.scan.scan_end_el_deg = s->scan_end_el_deg();
+    }
+  }
+  out->has_policy = fb->has_policy();
+  if (fb->policy()) {
+    const auto* p = fb->policy();
+    out->policy.detection.profile =
+        static_cast<config::EsrDetectionProfile>(p->detection_profile());
+    out->policy.detection.use_profile_defaults = p->use_profile_defaults();
+    out->policy.detection.min_detect_snr_db = p->min_detect_snr_db();
+    out->policy.detection.pfa = p->pfa();
+    out->policy.detection.pulse_count = p->pulse_count();
+    out->policy.detection.threshold_scale = p->threshold_scale();
+    out->policy.detection.enable_statistical_detection = p->enable_statistical_detection();
+  }
   out->has_environment_runtime_config = fb->has_environment_runtime_config();
+  if (fb->environment_runtime_config()) {
+    const auto* ec = fb->environment_runtime_config();
+    out->environment_runtime_config.has_atmospheric_physics =
+        ec->has_atmospheric_physics();
+    if (ec->atmospheric_physics()) {
+      out->environment_runtime_config.atmospheric_physics.enable_physical_model =
+          ec->atmospheric_physics()->enable_physical_model();
+      out->environment_runtime_config.atmospheric_physics.pressure_hpa =
+          ec->atmospheric_physics()->pressure_hpa();
+      out->environment_runtime_config.atmospheric_physics.temperature_k =
+          ec->atmospheric_physics()->temperature_k();
+      out->environment_runtime_config.atmospheric_physics.relative_humidity =
+          ec->atmospheric_physics()->relative_humidity();
+    }
+    out->environment_runtime_config.has_atmospheric_context =
+        ec->has_atmospheric_context();
+    if (ec->atmospheric_context()) {
+      out->environment_runtime_config.atmospheric_context.has_k_factor =
+          ec->atmospheric_context()->has_k_factor();
+      out->environment_runtime_config.atmospheric_context.k_factor =
+          ec->atmospheric_context()->k_factor();
+      out->environment_runtime_config.atmospheric_context.has_day_of_year =
+          ec->atmospheric_context()->has_day_of_year();
+      out->environment_runtime_config.atmospheric_context.day_of_year =
+          ec->atmospheric_context()->day_of_year();
+      out->environment_runtime_config.atmospheric_context.solar_flux_f107a =
+          ec->atmospheric_context()->solar_flux_f107a();
+      out->environment_runtime_config.atmospheric_context.solar_flux_f107 =
+          ec->atmospheric_context()->solar_flux_f107();
+      out->environment_runtime_config.atmospheric_context.geomagnetic_ap =
+          ec->atmospheric_context()->geomagnetic_ap();
+    }
+  }
   return true;
 }
 
