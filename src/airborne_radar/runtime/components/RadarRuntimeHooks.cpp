@@ -30,7 +30,7 @@ RadarRuntimeHooks::Validate(const AirborneRuntimeInput& input) const {
   result.issues = session::ValidateRadarCycleDeltaTime(input.cycle_dt_sec);
   if (input.scene_targets != nullptr) {
     const session::ValidationIssueList target_issues =
-        session::ValidateTargetFeatures(*input.scene_targets);
+        session::ValidateRadarSceneTargets(*input.scene_targets);
     result.issues.insert(result.issues.end(), target_issues.begin(), target_issues.end());
   }
   result.has_error = session::HasValidationError(result.issues);

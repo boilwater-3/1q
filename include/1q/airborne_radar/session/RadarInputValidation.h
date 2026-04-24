@@ -89,12 +89,12 @@ ONEQ_API ValidationIssueList ValidateRadarCycleDeltaTime(float dt_sec);
 ONEQ_API ValidationIssueList ValidateRadarCycleInput(const RadarCycleInput& input);
 
 /**
- * @brief 校验目标特征列表。
- * @param[in] targets 当前周期目标列表。
+ * @brief 校验场景目标列表。
+ * @param[in] targets 当前周期场景目标列表。
  * @return 按发现顺序返回的校验问题列表。
  */
 ONEQ_API ValidationIssueList
-ValidateTargetFeatures(const RadarSceneTargetList& targets);
+ValidateRadarSceneTargets(const RadarSceneTargetList& targets);
 
 /**
  * @brief 判断是否包含 error 级别问题。

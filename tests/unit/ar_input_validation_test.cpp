@@ -22,7 +22,7 @@ namespace tests {
 
 using session::HasValidationError;
 using session::ValidateRadarCycleInput;
-using session::ValidateTargetFeatures;
+using session::ValidateRadarSceneTargets;
 using session::ValidationCode;
 using session::ValidationSeverity;
 
@@ -66,7 +66,7 @@ TEST(RadarInputValidationTest, OriginWithNoRangeIsError) {
   target.range_m = 0.0f;  // 无有效斜距
   target.rcs = 1.0f;
 
-  const auto issues = ValidateTargetFeatures({target});
+  const auto issues = ValidateRadarSceneTargets({target});
   EXPECT_TRUE(HasValidationError(issues));
   EXPECT_NE(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition), nullptr);
 }
@@ -81,7 +81,7 @@ TEST(RadarInputValidationTest, OriginWithPositiveRangeIsValid) {
   target.range_m = 5000.0f;  // 斜距有效
   target.rcs = 1.0f;
 
-  const auto issues = ValidateTargetFeatures({target});
+  const auto issues = ValidateRadarSceneTargets({target});
   EXPECT_EQ(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition), nullptr);
   EXPECT_FALSE(HasValidationError(issues));
 }
@@ -96,7 +96,7 @@ TEST(RadarInputValidationTest, FlaggedCartesianPositionWithNonPositiveRangeIsVal
   target.range_m = 0.0f;  // 无斜距
   target.rcs = 1.0f;
 
-  const auto issues = ValidateTargetFeatures({target});
+  const auto issues = ValidateRadarSceneTargets({target});
   EXPECT_EQ(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition), nullptr);
 }
 
@@ -110,7 +110,7 @@ TEST(RadarInputValidationTest, NonZeroCoordinatesImpliesCartesianPositionAndIsVa
   target.range_m = 0.0f;
   target.rcs = 1.0f;
 
-  const auto issues = ValidateTargetFeatures({target});
+  const auto issues = ValidateRadarSceneTargets({target});
   EXPECT_EQ(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition), nullptr);
   EXPECT_FALSE(HasValidationError(issues));
 }
@@ -125,7 +125,7 @@ TEST(RadarInputValidationTest, OriginWithNoRangeIsErrorEvenWithoutPositionFlag) 
   target.range_m = 0.0f;
   target.rcs = 1.0f;
 
-  const auto issues = ValidateTargetFeatures({target});
+  const auto issues = ValidateRadarSceneTargets({target});
   EXPECT_TRUE(HasValidationError(issues));
   EXPECT_NE(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition), nullptr);
 }
@@ -140,7 +140,7 @@ TEST(RadarInputValidationTest, NegativeRangeWithNoPositionIsError) {
   target.range_m = -100.0f;
   target.rcs = 1.0f;
 
-  const auto issues = ValidateTargetFeatures({target});
+  const auto issues = ValidateRadarSceneTargets({target});
   EXPECT_TRUE(HasValidationError(issues));
   EXPECT_NE(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition), nullptr);
 }
@@ -154,7 +154,7 @@ TEST(RadarInputValidationTest, NanPositionFieldIsError) {
   session::RadarSceneTarget target = MakeValidTarget();
   target.position_x = std::numeric_limits<float>::quiet_NaN();
 
-  const auto issues = ValidateTargetFeatures({target});
+  const auto issues = ValidateRadarSceneTargets({target});
   EXPECT_TRUE(HasValidationError(issues));
   EXPECT_NE(FindIssue(issues, ValidationCode::kNonFiniteTargetField), nullptr);
 }
@@ -164,7 +164,7 @@ TEST(RadarInputValidationTest, InfVelocityFieldIsError) {
   session::RadarSceneTarget target = MakeValidTarget();
   target.velocity_y = std::numeric_limits<float>::infinity();
 
-  const auto issues = ValidateTargetFeatures({target});
+  const auto issues = ValidateRadarSceneTargets({target});
   EXPECT_TRUE(HasValidationError(issues));
   EXPECT_NE(FindIssue(issues, ValidationCode::kNonFiniteTargetField), nullptr);
 }
@@ -174,7 +174,7 @@ TEST(RadarInputValidationTest, NanRcsFieldIsError) {
   session::RadarSceneTarget target = MakeValidTarget();
   target.rcs = std::numeric_limits<float>::quiet_NaN();
 
-  const auto issues = ValidateTargetFeatures({target});
+  const auto issues = ValidateRadarSceneTargets({target});
   EXPECT_TRUE(HasValidationError(issues));
   EXPECT_NE(FindIssue(issues, ValidationCode::kNonFiniteTargetField), nullptr);
 }
@@ -184,7 +184,7 @@ TEST(RadarInputValidationTest, NegativeInfRangeFieldIsError) {
   session::RadarSceneTarget target = MakeValidTarget();
   target.range_m = -std::numeric_limits<float>::infinity();
 
-  const auto issues = ValidateTargetFeatures({target});
+  const auto issues = ValidateRadarSceneTargets({target});
   EXPECT_TRUE(HasValidationError(issues));
   EXPECT_NE(FindIssue(issues, ValidationCode::kNonFiniteTargetField), nullptr);
 }
@@ -197,7 +197,7 @@ TEST(RadarInputValidationTest, NegativeInfRangeFieldIsError) {
 TEST(RadarInputValidationTest, ZeroExternalIdIsInfo) {
   session::RadarSceneTarget target = MakeValidTarget(0u);
 
-  const auto issues = ValidateTargetFeatures({target});
+  const auto issues = ValidateRadarSceneTargets({target});
   const session::ValidationIssue* issue =
       FindIssue(issues, ValidationCode::kUnknownExternalTargetId);
   ASSERT_NE(issue, nullptr);
@@ -212,7 +212,7 @@ TEST(RadarInputValidationTest, DuplicateExternalIdIsError) {
   t2.position_x = 2000.0f;
   t2.range_m = 2000.0f;
 
-  const auto issues = ValidateTargetFeatures({t1, t2});
+  const auto issues = ValidateRadarSceneTargets({t1, t2});
   const session::ValidationIssue* issue =
       FindIssue(issues, ValidationCode::kDuplicateExternalTargetId);
   ASSERT_NE(issue, nullptr);
@@ -225,7 +225,7 @@ TEST(RadarInputValidationTest, NegativeRcsIsWarning) {
   session::RadarSceneTarget target = MakeValidTarget();
   target.rcs = -0.5f;
 
-  const auto issues = ValidateTargetFeatures({target});
+  const auto issues = ValidateRadarSceneTargets({target});
   const session::ValidationIssue* issue = FindIssue(issues, ValidationCode::kNegativeRcs);
   ASSERT_NE(issue, nullptr);
   EXPECT_EQ(issue->severity, ValidationSeverity::kWarning);
