@@ -63,10 +63,10 @@ int main() {
   target.range_m = 1500.0f;
   target.azimuth_deg = 0.0f;
   target.elevation_deg = 0.0f;
-  target.apparent_temperature_k = 330.0f;
-  target.emissivity = 0.92f;
-  target.reflectance = 0.38f;
-  target.projected_area_m2 = 4.0f;
+  target.appearance.apparent_temperature_k = 330.0f;
+  target.appearance.emissivity = 0.92f;
+  target.appearance.reflectance = 0.38f;
+  target.appearance.projected_area_m2 = 4.0f;
   input.scene.push_back(target);
 
   // 5. Input validation

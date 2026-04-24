@@ -74,7 +74,7 @@ std::string EncodeEosCycleInput(const EosCycleInput& v) {
   for (const auto& t : v.scene) {
     auto b = eos::replay::CreateEosTargetState(
         fbb, static_cast<std::uint32_t>(t.target_id), t.range_m, t.azimuth_deg, t.elevation_deg,
-        t.apparent_temperature_k, t.emissivity, t.reflectance, t.projected_area_m2);
+        t.appearance.apparent_temperature_k, t.appearance.emissivity, t.appearance.reflectance, t.appearance.projected_area_m2);
     targets_vec.push_back(b);
   }
   auto targets = fbb.CreateVector(targets_vec);
@@ -122,10 +122,10 @@ bool DecodeEosCycleInput(const std::string& bytes, EosCycleInput* out) {
       ts.range_m = t->range_m();
       ts.azimuth_deg = t->azimuth_deg();
       ts.elevation_deg = t->elevation_deg();
-      ts.apparent_temperature_k = t->apparent_temperature_k();
-      ts.emissivity = t->emissivity();
-      ts.reflectance = t->reflectance();
-      ts.projected_area_m2 = t->projected_area_m2();
+      ts.appearance.apparent_temperature_k = t->apparent_temperature_k();
+      ts.appearance.emissivity = t->emissivity();
+      ts.appearance.reflectance = t->reflectance();
+      ts.appearance.projected_area_m2 = t->projected_area_m2();
       out->scene.push_back(ts);
     }
   }

@@ -54,10 +54,10 @@ session::EosSceneTarget MakeTarget(float azimuth_deg, float elevation_deg) {
   target.range_m = 500.0f;
   target.azimuth_deg = azimuth_deg;
   target.elevation_deg = elevation_deg;
-  target.apparent_temperature_k = 950.0f;
-  target.emissivity = 0.98f;
-  target.reflectance = 0.70f;
-  target.projected_area_m2 = 20.0f;
+  target.appearance.apparent_temperature_k = 950.0f;
+  target.appearance.emissivity = 0.98f;
+  target.appearance.reflectance = 0.70f;
+  target.appearance.projected_area_m2 = 20.0f;
   return target;
 }
 

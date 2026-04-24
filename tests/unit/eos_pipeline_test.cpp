@@ -24,10 +24,10 @@ session::EosSceneTarget MakeTarget(std::uint64_t id, float azimuth_deg, float ra
   target.range_m = range_m;
   target.azimuth_deg = azimuth_deg;
   target.elevation_deg = 0.0f;
-  target.apparent_temperature_k = 330.0f;
-  target.emissivity = 0.92f;
-  target.reflectance = 0.38f;
-  target.projected_area_m2 = projected_area_m2;
+  target.appearance.apparent_temperature_k = 330.0f;
+  target.appearance.emissivity = 0.92f;
+  target.appearance.reflectance = 0.38f;
+  target.appearance.projected_area_m2 = projected_area_m2;
   return target;
 }
 
@@ -117,11 +117,11 @@ TEST(EosPipelineTest, LargerTargetAreaHasHigherFusedSnrAtSameGeometry) {
   input.environment.background_temperature_k = 240.0f;
   input.environment.cloud_coverage_ratio = 0.0f;
   session::EosSceneTarget small_target = MakeTarget(301U, -5.0f, 600.0f, 1.0f);
-  small_target.apparent_temperature_k = 900.0f;
-  small_target.emissivity = 0.98f;
+  small_target.appearance.apparent_temperature_k = 900.0f;
+  small_target.appearance.emissivity = 0.98f;
   session::EosSceneTarget large_target = MakeTarget(302U, -5.0f, 600.0f, 36.0f);
-  large_target.apparent_temperature_k = 900.0f;
-  large_target.emissivity = 0.98f;
+  large_target.appearance.apparent_temperature_k = 900.0f;
+  large_target.appearance.emissivity = 0.98f;
   input.scene.push_back(small_target);
   input.scene.push_back(large_target);
 
@@ -172,8 +172,8 @@ TEST(EosPipelineTest, AdaptiveRadiativeTransferModelProducesLowerSnrInSameScene)
   input.environment.background_temperature_k = 240.0f;
   input.environment.cloud_coverage_ratio = 0.5f;
   session::EosSceneTarget target = MakeTarget(401U, -5.0f, 1200.0f, 12.0f);
-  target.apparent_temperature_k = 850.0f;
-  target.emissivity = 0.98f;
+  target.appearance.apparent_temperature_k = 850.0f;
+  target.appearance.emissivity = 0.98f;
   input.scene.push_back(target);
 
   const output::EosOutputFrame baseline_frame = baseline_pipeline.Execute(input).output_frame;
@@ -207,8 +207,8 @@ TEST(EosPipelineTest, AdvancedEnvironmentModelLowersSnrInHighWindScene) {
   input.environment.cloud_coverage_ratio = 0.6f;
   input.environment.ambient_wind_speed_mps = 120.0f;
   session::EosSceneTarget target = MakeTarget(501U, -5.0f, 1200.0f, 10.0f);
-  target.apparent_temperature_k = 880.0f;
-  target.emissivity = 0.98f;
+  target.appearance.apparent_temperature_k = 880.0f;
+  target.appearance.emissivity = 0.98f;
   input.scene.push_back(target);
 
   const output::EosOutputFrame simplified_frame = simplified_pipeline.Execute(input).output_frame;
@@ -239,8 +239,8 @@ TEST(EosPipelineTest, PlatformVelocityDoesNotAffectEnvironmentPenaltyWhenWindFix
   low_speed_input.environment.ambient_wind_speed_mps = 35.0f;
   low_speed_input.platform_pose.velocity_mps.x = 10.0f;
   session::EosSceneTarget low_speed_target = MakeTarget(601U, -5.0f, 1200.0f, 10.0f);
-  low_speed_target.apparent_temperature_k = 880.0f;
-  low_speed_target.emissivity = 0.98f;
+  low_speed_target.appearance.apparent_temperature_k = 880.0f;
+  low_speed_target.appearance.emissivity = 0.98f;
   low_speed_input.scene.push_back(low_speed_target);
 
   ::electro_optical_sensor::session::EosCycleInput high_speed_input = low_speed_input;
@@ -278,8 +278,8 @@ TEST(EosPipelineTest, LowerFrameRateProducesHigherSnrWithLongerIntegrationWindow
   input.environment.cloud_coverage_ratio = 0.1f;
   session::EosSceneTarget target =
       MakeTarget(701U, ResolveFirstCycleScanAzimuthDeg(low_rate_config, input.dt_sec), 1000.0f, 8.0f);
-  target.apparent_temperature_k = 860.0f;
-  target.emissivity = 0.98f;
+  target.appearance.apparent_temperature_k = 860.0f;
+  target.appearance.emissivity = 0.98f;
   input.scene.push_back(target);
 
   const output::EosOutputFrame low_rate_frame = low_rate_pipeline.Execute(input).output_frame;
@@ -337,8 +337,8 @@ TEST(EosPipelineTest, BetterDetectionSensitivityProducesHigherSnr) {
   input.environment.cloud_coverage_ratio = 0.1f;
   session::EosSceneTarget target = MakeTarget(
       901U, ResolveFirstCycleScanAzimuthDeg(better_sensitivity_config, input.dt_sec), 900.0f, 9.0f);
-  target.apparent_temperature_k = 860.0f;
-  target.emissivity = 0.98f;
+  target.appearance.apparent_temperature_k = 860.0f;
+  target.appearance.emissivity = 0.98f;
   input.scene.push_back(target);
 
     const output::EosOutputFrame better_frame =
@@ -371,8 +371,8 @@ TEST(EosPipelineTest, InfraredBandwidthIncreaseRaisesSnrAtFixedCenterWavelength)
   input.environment.cloud_coverage_ratio = 0.1f;
   session::EosSceneTarget target =
       MakeTarget(1001U, ResolveFirstCycleScanAzimuthDeg(narrow_band_config, input.dt_sec), 900.0f, 8.0f);
-  target.apparent_temperature_k = 860.0f;
-  target.emissivity = 0.98f;
+  target.appearance.apparent_temperature_k = 860.0f;
+  target.appearance.emissivity = 0.98f;
   input.scene.push_back(target);
 
     const output::EosOutputFrame narrow_band_frame =

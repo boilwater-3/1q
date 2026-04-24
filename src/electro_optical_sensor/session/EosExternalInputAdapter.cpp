@@ -192,10 +192,7 @@ bool FillTargetFromLocalPosition(std::uint64_t target_id,
   target->range_m = range_m;
   target->azimuth_deg = azimuth_deg;
   target->elevation_deg = elevation_deg;
-  target->apparent_temperature_k = appearance.apparent_temperature_k;
-  target->emissivity = appearance.emissivity;
-  target->reflectance = appearance.reflectance;
-  target->projected_area_m2 = appearance.projected_area_m2;
+  target->appearance = appearance;
   SetStatus(EosCoordinateStatus::kOk, status);
   return true;
 }

@@ -52,10 +52,10 @@ session::EosSceneTarget MakeTarget(std::uint64_t id, float range_m, float az_deg
   target.range_m = range_m;
   target.azimuth_deg = az_deg;
   target.elevation_deg = el_deg;
-  target.apparent_temperature_k = temp_k;
-  target.emissivity = emissivity;
-  target.reflectance = reflectance;
-  target.projected_area_m2 = area_m2;
+  target.appearance.apparent_temperature_k = temp_k;
+  target.appearance.emissivity = emissivity;
+  target.appearance.reflectance = reflectance;
+  target.appearance.projected_area_m2 = area_m2;
   return target;
 }
 
@@ -200,10 +200,10 @@ TEST(EosPublicApiConvenienceTest, InputValidationReportsErrorsForCommonBoundaryC
   session::EosSceneTarget invalid_target;
   invalid_target.target_id = 0U;
   invalid_target.range_m = -1.0f;
-  invalid_target.apparent_temperature_k = 0.0f;
-  invalid_target.emissivity = 1.5f;
-  invalid_target.reflectance = 1.5f;
-  invalid_target.projected_area_m2 = -1.0f;
+  invalid_target.appearance.apparent_temperature_k = 0.0f;
+  invalid_target.appearance.emissivity = 1.5f;
+  invalid_target.appearance.reflectance = 1.5f;
+  invalid_target.appearance.projected_area_m2 = -1.0f;
   input.scene.push_back(invalid_target);
 
   const session::ValidationIssueList issues = session::ValidateEosCycleInput(input);
@@ -247,10 +247,10 @@ TEST(EosPublicApiConvenienceTest, InputValidationFlagsEnergyBalanceInconsistency
   session::EosSceneTarget unbalanced;
   unbalanced.target_id = 200U;
   unbalanced.range_m = 1000.0f;
-  unbalanced.apparent_temperature_k = 300.0f;
-  unbalanced.emissivity = 0.8f;
-  unbalanced.reflectance = 0.3f;
-  unbalanced.projected_area_m2 = 2.0f;
+  unbalanced.appearance.apparent_temperature_k = 300.0f;
+  unbalanced.appearance.emissivity = 0.8f;
+  unbalanced.appearance.reflectance = 0.3f;
+  unbalanced.appearance.projected_area_m2 = 2.0f;
   input.scene.push_back(unbalanced);
 
   const session::ValidationIssueList issues = session::ValidateEosCycleInput(input);
@@ -353,7 +353,7 @@ TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsTargetFromEcefAndLla) {
       401U, lla_input, reference, platform_pose, &target_from_lla));
   EXPECT_EQ(target_from_lla.target_id, 401U);
   EXPECT_GT(target_from_lla.range_m, 0.0f);
-  EXPECT_NEAR(target_from_lla.apparent_temperature_k, 320.0f, 1e-5f);
+  EXPECT_NEAR(target_from_lla.appearance.apparent_temperature_k, 320.0f, 1e-5f);
 
   oneq::foundation::EcefCoordinateM target_ecef;
   ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));

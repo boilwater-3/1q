@@ -131,10 +131,10 @@ TEST(EosSessionFactoryTest, CreateWithEnvironmentServiceUsesInjectedService) {
   target.range_m = 1000.0f;
   target.azimuth_deg = -55.0f;
   target.elevation_deg = 0.0f;
-  target.apparent_temperature_k = 500.0f;
-  target.emissivity = 0.9f;
-  target.reflectance = 0.2f;
-  target.projected_area_m2 = 4.0f;
+  target.appearance.apparent_temperature_k = 500.0f;
+  target.appearance.emissivity = 0.9f;
+  target.appearance.reflectance = 0.2f;
+  target.appearance.projected_area_m2 = 4.0f;
   input.scene.push_back(target);
 
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);

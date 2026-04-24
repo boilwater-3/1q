@@ -93,9 +93,9 @@ void ValidateTarget(const EosSceneTarget& target, std::size_t target_index,
   }
 
   if (!IsFinite(target.range_m) || !IsFinite(target.azimuth_deg) ||
-      !IsFinite(target.elevation_deg) || !IsFinite(target.apparent_temperature_k) ||
-      !IsFinite(target.emissivity) || !IsFinite(target.reflectance) ||
-      !IsFinite(target.projected_area_m2)) {
+      !IsFinite(target.elevation_deg) || !IsFinite(target.appearance.apparent_temperature_k) ||
+      !IsFinite(target.appearance.emissivity) || !IsFinite(target.appearance.reflectance) ||
+      !IsFinite(target.appearance.projected_area_m2)) {
     issues->push_back(MakeIssue(ValidationSeverity::kError,
                                 ValidationCode::kNonFiniteTargetNumericField,
                                 ValidationLocationKind::kSceneEntity, target_index, "scene",
@@ -108,34 +108,34 @@ void ValidateTarget(const EosSceneTarget& target, std::size_t target_index,
                                 target_index, "range_m",
                                 "target range must be positive"));
   }
-  if (target.apparent_temperature_k <= 0.0f) {
+  if (target.appearance.apparent_temperature_k <= 0.0f) {
     issues->push_back(MakeIssue(ValidationSeverity::kError,
                                 ValidationCode::kInvalidTargetTemperature,
                                 ValidationLocationKind::kSceneEntity, target_index,
                                 "apparent_temperature_k",
                                 "target temperature must be positive"));
   }
-  if (!IsRatioValid(target.emissivity)) {
+  if (!IsRatioValid(target.appearance.emissivity)) {
     issues->push_back(MakeIssue(ValidationSeverity::kError,
                                 ValidationCode::kInvalidTargetEmissivity,
                                 ValidationLocationKind::kSceneEntity, target_index, "emissivity",
                                 "target emissivity must be in [0, 1]"));
   }
-  if (!IsRatioValid(target.reflectance)) {
+  if (!IsRatioValid(target.appearance.reflectance)) {
     issues->push_back(MakeIssue(ValidationSeverity::kError,
                                 ValidationCode::kInvalidTargetReflectance,
                                 ValidationLocationKind::kSceneEntity, target_index, "reflectance",
                                 "target reflectance must be in [0, 1]"));
   }
-  if (IsFinite(target.emissivity) && IsFinite(target.reflectance) &&
-      (target.emissivity + target.reflectance > 1.0f + 1.0e-4f)) {
+  if (IsFinite(target.appearance.emissivity) && IsFinite(target.appearance.reflectance) &&
+      (target.appearance.emissivity + target.appearance.reflectance > 1.0f + 1.0e-4f)) {
     issues->push_back(MakeIssue(ValidationSeverity::kWarning,
                                 ValidationCode::kInconsistentTargetEnergyBalance,
                                 ValidationLocationKind::kSceneEntity, target_index,
                                 "emissivity+reflectance",
                                 "target emissivity + reflectance should not exceed 1"));
   }
-  if (target.projected_area_m2 <= 0.0f) {
+  if (target.appearance.projected_area_m2 <= 0.0f) {
     issues->push_back(MakeIssue(ValidationSeverity::kError,
                                 ValidationCode::kInvalidTargetProjectedArea,
                                 ValidationLocationKind::kSceneEntity, target_index,

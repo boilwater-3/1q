@@ -197,11 +197,11 @@ eos::session::EosCycleInput ParseCycleInput(const Json& payload) {
       target.range_m = GetFloat(j, "range_m", target.range_m);
       target.azimuth_deg = GetFloat(j, "azimuth_deg", target.azimuth_deg);
       target.elevation_deg = GetFloat(j, "elevation_deg", target.elevation_deg);
-      target.apparent_temperature_k =
-          GetFloat(j, "apparent_temperature_k", target.apparent_temperature_k);
-      target.emissivity = GetFloat(j, "emissivity", target.emissivity);
-      target.reflectance = GetFloat(j, "reflectance", target.reflectance);
-      target.projected_area_m2 = GetFloat(j, "projected_area_m2", target.projected_area_m2);
+      target.appearance.apparent_temperature_k =
+          GetFloat(j, "apparent_temperature_k", target.appearance.apparent_temperature_k);
+      target.appearance.emissivity = GetFloat(j, "emissivity", target.appearance.emissivity);
+      target.appearance.reflectance = GetFloat(j, "reflectance", target.appearance.reflectance);
+      target.appearance.projected_area_m2 = GetFloat(j, "projected_area_m2", target.appearance.projected_area_m2);
       input.scene.push_back(target);
     }
   }

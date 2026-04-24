@@ -15,6 +15,16 @@ namespace electro_optical_sensor {
 namespace session {
 
 /**
+ * @brief EosTargetAppearance 描述目标辐射与外观参数。
+ */
+struct ONEQ_API EosTargetAppearance {
+  float apparent_temperature_k{290.0f}; /**< 目标等效温度（单位：K） */
+  float emissivity{0.9f};               /**< 红外辐射效率，范围 [0, 1] */
+  float reflectance{0.2f};              /**< 可见光反射率，范围 [0, 1] */
+  float projected_area_m2{1.0f};        /**< 等效投影面积（单位：m^2） */
+};
+
+/**
  * @brief EosSceneTarget 描述单目标输入特征。
  */
 struct ONEQ_API EosSceneTarget {
@@ -22,10 +32,7 @@ struct ONEQ_API EosSceneTarget {
   float range_m{0.0f};                  /**< 斜距（单位：m） */
   float azimuth_deg{0.0f};              /**< 目标方位角（单位：deg） */
   float elevation_deg{0.0f};            /**< 目标仰角（单位：deg） */
-  float apparent_temperature_k{290.0f}; /**< 目标等效温度（单位：K） */
-  float emissivity{0.9f};               /**< 红外辐射效率，范围 [0, 1] */
-  float reflectance{0.2f};              /**< 可见光反射率，范围 [0, 1] */
-  float projected_area_m2{1.0f};        /**< 等效投影面积（单位：m^2） */
+  EosTargetAppearance appearance{};     /**< 目标辐射与外观参数 */
 };
 
 /** @brief EosSceneTargetList 表示 EOS 场景目标输入列表。 */

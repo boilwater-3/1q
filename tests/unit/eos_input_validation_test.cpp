@@ -41,10 +41,10 @@ EosSceneTarget MakeValidTarget() {
   target.range_m = 2200.0f;
   target.azimuth_deg = 2.0f;
   target.elevation_deg = 0.0f;
-  target.apparent_temperature_k = 335.0f;
-  target.emissivity = 0.93f;
-  target.reflectance = 0.45f;
-  target.projected_area_m2 = 2.8f;
+  target.appearance.apparent_temperature_k = 335.0f;
+  target.appearance.emissivity = 0.93f;
+  target.appearance.reflectance = 0.45f;
+  target.appearance.projected_area_m2 = 2.8f;
   return target;
 }
 
@@ -118,7 +118,7 @@ TEST(EosInputValidationTest, NonFinitePlatformNumericFieldIsReportedAsError) {
 
 TEST(EosInputValidationTest, InvalidTargetEmissivityIsReportedAsError) {
   EosCycleInput input = MakeValidInput();
-  input.scene[0].emissivity = 1.2f;
+  input.scene[0].appearance.emissivity = 1.2f;
 
   const ValidationIssueList issues = ValidateEosCycleInput(input);
 
@@ -128,8 +128,8 @@ TEST(EosInputValidationTest, InvalidTargetEmissivityIsReportedAsError) {
 
 TEST(EosInputValidationTest, InconsistentTargetEnergyBalanceIsReportedAsWarning) {
   EosCycleInput input = MakeValidInput();
-  input.scene[0].emissivity = 0.8f;
-  input.scene[0].reflectance = 0.4f;
+  input.scene[0].appearance.emissivity = 0.8f;
+  input.scene[0].appearance.reflectance = 0.4f;
 
   const ValidationIssueList issues = ValidateEosCycleInput(input);
 

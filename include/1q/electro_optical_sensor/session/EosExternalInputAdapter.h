@@ -26,16 +26,6 @@ struct ONEQ_API EosCoordinateReference {
 };
 
 /**
- * @brief EOS 目标辐射/外观参数集合。
- */
-struct ONEQ_API EosTargetAppearance {
-  float apparent_temperature_k{290.0f}; /**< 目标等效温度（单位：K） */
-  float emissivity{0.9f};               /**< 红外辐射效率，范围 [0, 1] */
-  float reflectance{0.2f};              /**< 可见光反射率，范围 [0, 1] */
-  float projected_area_m2{1.0f};        /**< 等效投影面积（单位：m^2） */
-};
-
-/**
  * @brief EOS 外部目标位置参考系类型。
  */
 enum class ONEQ_API EosTargetPositionFrame {

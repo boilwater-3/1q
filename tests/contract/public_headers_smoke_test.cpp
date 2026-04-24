@@ -424,10 +424,10 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   target.range_m = 1500.0f;
   target.azimuth_deg = 0.0f;
   target.elevation_deg = 0.0f;
-  target.apparent_temperature_k = 320.0f;
-  target.emissivity = 0.9f;
-  target.reflectance = 0.4f;
-  target.projected_area_m2 = 2.0f;
+  target.appearance.apparent_temperature_k = 320.0f;
+  target.appearance.emissivity = 0.9f;
+  target.appearance.reflectance = 0.4f;
+  target.appearance.projected_area_m2 = 2.0f;
   input.scene.push_back(target);
 
   session::EosCoordinateReference eos_reference;

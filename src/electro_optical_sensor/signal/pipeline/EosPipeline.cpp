@@ -210,7 +210,7 @@ DetectionComputationContext BuildDetectionComputationContext(
 					context_values.wavelength_center_um, config.optical_aperture_m);
 	const float gsd_m =
 			foundation::optics::ComputeGroundSampleDistanceM(target.range_m, diffraction_resolution_rad);
-	const float target_linear_size_m = std::sqrt(SafePositive(target.projected_area_m2, 1.0f));
+	const float target_linear_size_m = std::sqrt(SafePositive(target.appearance.projected_area_m2, 1.0f));
 	const float geometric_quality_gain = target_linear_size_m / (target_linear_size_m + gsd_m);
 	foundation::spatial_spectrum::SpatialSpectrumInputs spectrum_inputs;
 	spectrum_inputs.target_characteristic_size_m = target_linear_size_m;
@@ -218,7 +218,7 @@ DetectionComputationContext BuildDetectionComputationContext(
 	spectrum_inputs.optical_mtf_reference = 0.65f;
 	spectrum_inputs.sampling_efficiency = 0.9f;
 	spectrum_inputs.scene_contrast_ratio = oneq::internal::numerics::Clamp01(
-			0.5f * (std::max(0.0f, target.reflectance) + std::max(0.0f, target.emissivity)));
+			0.5f * (std::max(0.0f, target.appearance.reflectance) + std::max(0.0f, target.appearance.emissivity)));
 	const foundation::spatial_spectrum::SpatialSpectrumResult spectrum_result =
 			foundation::spatial_spectrum::EvaluateSpatialResolvability(spectrum_inputs);
 	context_values.imaging_quality_gain = oneq::internal::numerics::Clamp(
@@ -263,8 +263,8 @@ float ComputeInfraredSnrLinear(const ::electro_optical_sensor::session::EosScene
 															 const DetectionComputationContext& context_values) {
 	foundation::radiometry::InfraredRadianceInputs infrared_inputs;
 	infrared_inputs.wavelength_um = context_values.wavelength_center_um;
-	infrared_inputs.target_temperature_k = target.apparent_temperature_k;
-	infrared_inputs.emissivity = target.emissivity;
+	infrared_inputs.target_temperature_k = target.appearance.apparent_temperature_k;
+	infrared_inputs.emissivity = target.appearance.emissivity;
 	infrared_inputs.background_temperature_k = input.environment.background_temperature_k;
 	const float infrared_delta_spectral_radiance =
 			foundation::radiometry::ComputeInfraredRadianceDelta(infrared_inputs);
@@ -280,7 +280,7 @@ float ComputeInfraredSnrLinear(const ::electro_optical_sensor::session::EosScene
 			std::max(0.0f, infrared_delta_radiance) * (1.0f + std::max(0.0f, infrared_contrast));
 	const float infrared_received_power_w =
 			foundation::propagation::ComputeReceivedPowerW(
-					infrared_source_radiance, target.projected_area_m2, target.range_m,
+					infrared_source_radiance, target.appearance.projected_area_m2, target.range_m,
 					context_values.aperture_area_m2, context_values.path_transmittance,
 					context_values.optical_transmittance) *
 			context_values.stray_light_result.signal_transmission_scale;
@@ -310,7 +310,7 @@ float ComputeVisibleSnrLinear(const EosPipelineConfig& config,
 	visible_inputs.target.solar_irradiance_w_m2 = input.environment.solar_irradiance_w_m2;
 	visible_inputs.target.solar_altitude_deg = input.environment.solar_altitude_deg;
 	visible_inputs.target.cloud_coverage_ratio = input.environment.cloud_coverage_ratio;
-	visible_inputs.target.reflectance = target.reflectance;
+	visible_inputs.target.reflectance = target.appearance.reflectance;
 	visible_inputs.target.illumination = ToIlluminationCondition(input.environment.day_night_type);
 	visible_inputs.background_reflectance = 0.12f;
 	visible_inputs.background_patch_area_m2 = 20.0f;
@@ -320,7 +320,7 @@ float ComputeVisibleSnrLinear(const EosPipelineConfig& config,
 			foundation::propagation::ComputeReceivedPowerW(
 					std::max(0.0f, visible_result.target_radiance) *
 							(1.0f + std::max(0.0f, visible_result.normalized_contrast)),
-					target.projected_area_m2, target.range_m, context_values.aperture_area_m2,
+					target.appearance.projected_area_m2, target.range_m, context_values.aperture_area_m2,
 					context_values.path_transmittance, context_values.optical_transmittance) *
 			context_values.stray_light_result.signal_transmission_scale;
 	const float visible_background_flux_w =

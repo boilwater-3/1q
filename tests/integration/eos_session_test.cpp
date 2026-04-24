@@ -32,10 +32,10 @@ session::EosSceneTarget MakeTarget(std::uint64_t id, float azimuth_deg, float ra
   target.range_m = range_m;
   target.azimuth_deg = azimuth_deg;
   target.elevation_deg = 0.0f;
-  target.apparent_temperature_k = 330.0f;
-  target.emissivity = 0.92f;
-  target.reflectance = 0.38f;
-  target.projected_area_m2 = projected_area_m2;
+  target.appearance.apparent_temperature_k = 330.0f;
+  target.appearance.emissivity = 0.92f;
+  target.appearance.reflectance = 0.38f;
+  target.appearance.projected_area_m2 = projected_area_m2;
   return target;
 }
 
@@ -121,8 +121,8 @@ TEST(EosSessionIntegrationTest, FusedModeDetectsInFovTarget) {
   EosSession session = EosSessionFactory::Create(config);
   ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
   input.scene.front().range_m = 1700.0f;
-  input.scene.front().apparent_temperature_k = 600.0f;
-  input.scene.front().projected_area_m2 = 8.0f;
+  input.scene.front().appearance.apparent_temperature_k = 600.0f;
+  input.scene.front().appearance.projected_area_m2 = 8.0f;
 
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
 
@@ -374,8 +374,8 @@ TEST(EosSessionIntegrationTest, RuntimeConfigSnrThresholdFiltersWeakTargets) {
   EosSession session = EosSessionFactory::Create(config);
   ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
   input.scene.front().range_m = 1700.0f;
-  input.scene.front().apparent_temperature_k = 600.0f;
-  input.scene.front().projected_area_m2 = 8.0f;
+  input.scene.front().appearance.apparent_temperature_k = 600.0f;
+  input.scene.front().appearance.projected_area_m2 = 8.0f;
 
   const output::EosOutputFrame baseline_frame = session.Step(input);
   ASSERT_GT(CountDetectedTargets(baseline_frame), 0U);
@@ -490,7 +490,7 @@ TEST(EosSessionIntegrationTest, StraylightFilterReducesOffAxisTargetSnr) {
   input.environment.solar_altitude_deg = 75.0f;
   input.environment.solar_azimuth_deg = 90.0f;
   session::EosSceneTarget target = MakeTarget(1U, 0.0f, 1000.0f, 6.0f);
-  target.apparent_temperature_k = 500.0f;
+  target.appearance.apparent_temperature_k = 500.0f;
   input.scene.push_back(target);
 
   const output::EosOutputFrame no_filter_frame = no_filter_session.Step(input);
@@ -527,9 +527,9 @@ TEST(EosSessionIntegrationTest, CloserTargetHasHigherSnrAtSameTemperature) {
   ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
   input.scene.clear();
   session::EosSceneTarget near_target = MakeTarget(201U, 0.0f, 600.0f, 4.0f);
-  near_target.apparent_temperature_k = 600.0f;
+  near_target.appearance.apparent_temperature_k = 600.0f;
   session::EosSceneTarget far_target = MakeTarget(202U, 0.0f, 3000.0f, 4.0f);
-  far_target.apparent_temperature_k = 600.0f;
+  far_target.appearance.apparent_temperature_k = 600.0f;
   input.scene.push_back(near_target);
   input.scene.push_back(far_target);
 
@@ -554,7 +554,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigStraylightToggleWorks) {
   input.environment.solar_azimuth_deg = 90.0f;
   input.scene.clear();
   session::EosSceneTarget target = MakeTarget(1U, 0.0f, 1000.0f, 6.0f);
-  target.apparent_temperature_k = 500.0f;
+  target.appearance.apparent_temperature_k = 500.0f;
   input.scene.push_back(target);
 
   const output::EosOutputFrame baseline_frame = session.Step(input);
@@ -591,7 +591,7 @@ TEST(EosSessionIntegrationTest, RuntimeEnvironmentModelChangeTakesEffect) {
   input.environment.ambient_wind_speed_mps = 100.0f;
   input.scene.clear();
   session::EosSceneTarget target = MakeTarget(1U, 0.0f, 1000.0f, 8.0f);
-  target.apparent_temperature_k = 700.0f;
+  target.appearance.apparent_temperature_k = 700.0f;
   input.scene.push_back(target);
 
   const output::EosOutputFrame simplified_frame = session.Step(input);
