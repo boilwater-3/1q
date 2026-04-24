@@ -7,12 +7,12 @@
 - 第三阶段（适配器统一两步化）：已完成
 - 第四阶段（校验与 replay 收敛）：已完成
 - 第五阶段（公开 input 与内部 model 彻底解耦）：已完成
-- 第六阶段（AR 枝干修剪与边界去回退）：进行中
+- 第六阶段（AR 枝干修剪与边界去回退）：已完成
 
-未收尾重点：
+当前收敛结论：
 
-- AR `model -> scene` 反向桥已删除，`IRadarContext/ISignalPipeline` 已切到 `RadarSceneTarget` 输入视角。
-- AR 仍保留 `scene -> model` 内部单向转换（用于 signal pipeline 内部消费），后续可继续评估是否进一步下沉/裁剪。
+- AR 已彻底删除 `TargetFeature*` 同构桥，输入与内部主链统一使用 `session::RadarSceneTarget(List)`。
+- AR 生命周期快照接口命名已收敛为 scene 语义：`BuildSceneTargetSnapshot()`。
 - ESR 已完成公开输入侧收口：`EmitterTruthState` 与 `EsrOrientationConfig` 已退出 public include 面，公开输入主链改为 `session/foundation` 语义类型。
 
 ## 1. 背景与目标

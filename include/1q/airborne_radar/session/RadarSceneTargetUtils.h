@@ -68,8 +68,7 @@ ONEQ_API RadarSceneTarget MakeAirSceneTarget(std::uint64_t external_target_id, f
 
 /**
  * @brief 规范化单个场景目标的几何派生量。
- * @details 当 range_m 未提供（<=0）且 has_cartesian_position 为 true 时，
- *          从笛卡尔位置范数回填斜距。
+ * @details 当 range_m 未提供（<=0）时，从笛卡尔位置范数回填斜距。
  * @param[in,out] target 场景目标指针，可为 nullptr。
  */
 ONEQ_API void NormalizeSceneTargetGeometry(RadarSceneTarget* target);
