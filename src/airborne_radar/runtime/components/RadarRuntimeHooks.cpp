@@ -1,7 +1,5 @@
 #include "airborne_radar/runtime/components/RadarRuntimeHooks.h"
 
-#include "airborne_radar/session/RadarSceneTargetConversion.h"
-
 #include <cstddef>
 
 #include "airborne_radar/runtime/CycleTelemetryLogger.h"
@@ -30,9 +28,9 @@ oneq::internal::runtime::RuntimeValidationResult<session::ValidationIssueList>
 RadarRuntimeHooks::Validate(const AirborneRuntimeInput& input) const {
   oneq::internal::runtime::RuntimeValidationResult<session::ValidationIssueList> result;
   result.issues = session::ValidateRadarCycleDeltaTime(input.cycle_dt_sec);
-  if (input.target_features != nullptr) {
-    const session::RadarSceneTargetList scene_targets = session::ToSceneTargetList(*input.target_features);
-    const session::ValidationIssueList target_issues = session::ValidateTargetFeatures(scene_targets);
+  if (input.scene_targets != nullptr) {
+    const session::ValidationIssueList target_issues =
+        session::ValidateTargetFeatures(*input.scene_targets);
     result.issues.insert(result.issues.end(), target_issues.begin(), target_issues.end());
   }
   result.has_error = session::HasValidationError(result.issues);
@@ -49,7 +47,7 @@ output::TrackOutputFrame RadarRuntimeHooks::Execute(
     const AirborneRuntimeInput& input,
   const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
   const extension::CycleExecutionResult exec_result = cycle_orchestrator_.Execute(
-      input.target_features, input.platform_attitude, control_profile_, stamp);
+      input.scene_targets, input.platform_attitude, control_profile_, stamp);
   last_cycle_executed_ = exec_result.signal_result.executed_this_cycle;
   last_signal_abort_reason_ = exec_result.signal_result.abort_reason;
   last_cycle_reused_previous_output_ = !last_cycle_executed_ && runtime_state_.has_latest_output;
@@ -61,7 +59,7 @@ output::TrackOutputFrame RadarRuntimeHooks::Execute(
       command_mapper_.Apply(&control_profile_, exec_result.decision_result.proposals);
 
   const std::size_t input_target_count =
-      input.target_features != nullptr ? input.target_features->size() : 0U;
+      input.scene_targets != nullptr ? input.scene_targets->size() : 0U;
   extension::CycleTelemetryLogger::LogCycleSummary(
       extension::CycleTelemetryPayload(
           stamp, input_target_count, exec_result.signal_result.decision_frame.tracks.size(),

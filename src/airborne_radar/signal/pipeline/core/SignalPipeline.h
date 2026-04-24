@@ -40,12 +40,12 @@ class SignalPipeline final : public extension::ISignalPipeline {
 
   /**
    * @brief 执行单周期信号处理流程。
-   * @param input_state 当前周期输入目标状态。
+   * @param scene_targets 当前周期场景目标输入列表。
    * @param environment 当前环境服务。
    * @return 当前周期的信号处理输出。
    */
   extension::SignalCycleResult RunCycle(
-      const model::TargetFeatureList& input_state,
+      const session::RadarSceneTargetList& scene_targets,
       const environment::IEnvironmentService& environment) override;
 
   /**

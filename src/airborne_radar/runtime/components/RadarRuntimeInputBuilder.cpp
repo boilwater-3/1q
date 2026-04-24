@@ -7,7 +7,7 @@ namespace components {
 AirborneRuntimeInput RadarRuntimeInputBuilder::Build(
     const extension::IRadarContext& radar_context) const {
   AirborneRuntimeInput input;
-  input.target_features = &radar_context.GetTargetFeatures();
+  input.scene_targets = &radar_context.GetSceneTargets();
   input.platform_attitude = radar_context.GetPlatformAttitude();
   input.cycle_dt_sec = radar_context.GetCycleDeltaTimeSec();
   return input;

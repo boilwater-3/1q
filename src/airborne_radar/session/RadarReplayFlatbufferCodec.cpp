@@ -55,10 +55,7 @@ flatbuffers::Offset<fb::TargetFeature> EncodeTargetFeature(flatbuffers::FlatBuff
       *builder, value.external_target_id,
       EncodeVector3(builder, value.velocity_x, value.velocity_y,
                     value.velocity_z),
-      std::sqrt(value.velocity_x * value.velocity_x + value.velocity_y * value.velocity_y +
-                value.velocity_z * value.velocity_z),
       value.rcs, value.range_m,
-      value.has_cartesian_position,
       EncodeVector3(builder, value.position_x, value.position_y, value.position_z),
       value.target_swerling_type);
 }
@@ -101,14 +98,8 @@ RadarSceneTarget DecodeTargetFeature(const fb::TargetFeature* value) {
     result.velocity_x = velocity.x;
     result.velocity_y = velocity.y;
     result.velocity_z = velocity.z;
-    // Backward compatibility: some legacy traces carry only current_track_speed.
-    if (result.velocity_x == 0.0f && result.velocity_y == 0.0f && result.velocity_z == 0.0f &&
-        value->current_track_speed() > 0.0f) {
-      result.velocity_x = value->current_track_speed();
-    }
     result.rcs = value->current_track_rcs();
     result.range_m = value->range_m();
-    result.has_cartesian_position = value->has_cartesian_position();
     const oneq::foundation::Vector3f position = DecodeVector3(value->position_m());
     result.position_x = position.x;
     result.position_y = position.y;

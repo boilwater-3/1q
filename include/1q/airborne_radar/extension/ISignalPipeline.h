@@ -13,6 +13,7 @@
 #include "1q/airborne_radar/extension/SignalPipelineResultTypes.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
+#include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
@@ -35,12 +36,12 @@ class ONEQ_API ISignalPipeline {
 
   /**
    * @brief 执行一次信号处理循环。
-   * @param[in] input_state 当前周期目标特征列表。
+   * @param[in] scene_targets 当前周期场景目标输入列表。
    * @param[in] environment 环境服务只读接口。调用前必须已对该环境服务执行有效的
    *                        `BeginCycle(...)`，并确保其冻结快照携带正的 `cycle_dt_sec`。
    * @return 当前周期信号流水线输出结果。
    */
-  virtual SignalCycleResult RunCycle(const model::TargetFeatureList& input_state,
+  virtual SignalCycleResult RunCycle(const session::RadarSceneTargetList& scene_targets,
                                      const environment::IEnvironmentService& environment) = 0;
 
   /**

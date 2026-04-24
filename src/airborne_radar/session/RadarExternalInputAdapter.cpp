@@ -284,7 +284,6 @@ bool TryMakeTargetFromExternalKinematics(
   target->velocity_z = target_velocity_local.z;
   target->rcs = target_input.rcs;
   target->range_m = range;
-  target->has_cartesian_position = true;
   target->position_x = target_position_local.x;
   target->position_y = target_position_local.y;
   target->position_z = target_position_local.z;

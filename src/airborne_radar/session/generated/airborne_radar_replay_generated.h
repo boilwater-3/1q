@@ -235,12 +235,10 @@ struct TargetFeature FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_EXTERNAL_TARGET_ID = 4,
     VT_VELOCITY_MPS = 6,
-    VT_CURRENT_TRACK_SPEED = 8,
-    VT_CURRENT_TRACK_RCS = 10,
-    VT_RANGE_M = 12,
-    VT_HAS_CARTESIAN_POSITION = 14,
-    VT_POSITION_M = 16,
-    VT_TARGET_SWERLING_TYPE = 18
+    VT_CURRENT_TRACK_RCS = 8,
+    VT_RANGE_M = 10,
+    VT_POSITION_M = 12,
+    VT_TARGET_SWERLING_TYPE = 14
   };
   uint64_t external_target_id() const {
     return GetField<uint64_t>(VT_EXTERNAL_TARGET_ID, 0);
@@ -248,17 +246,11 @@ struct TargetFeature FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const oneq::replay::airborne_radar::fb::Vector3f *velocity_mps() const {
     return GetPointer<const oneq::replay::airborne_radar::fb::Vector3f *>(VT_VELOCITY_MPS);
   }
-  float current_track_speed() const {
-    return GetField<float>(VT_CURRENT_TRACK_SPEED, 0.0f);
-  }
   float current_track_rcs() const {
     return GetField<float>(VT_CURRENT_TRACK_RCS, 0.0f);
   }
   float range_m() const {
     return GetField<float>(VT_RANGE_M, 0.0f);
-  }
-  bool has_cartesian_position() const {
-    return GetField<uint8_t>(VT_HAS_CARTESIAN_POSITION, 0) != 0;
   }
   const oneq::replay::airborne_radar::fb::Vector3f *position_m() const {
     return GetPointer<const oneq::replay::airborne_radar::fb::Vector3f *>(VT_POSITION_M);
@@ -271,10 +263,8 @@ struct TargetFeature FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint64_t>(verifier, VT_EXTERNAL_TARGET_ID) &&
            VerifyOffset(verifier, VT_VELOCITY_MPS) &&
            verifier.VerifyTable(velocity_mps()) &&
-           VerifyField<float>(verifier, VT_CURRENT_TRACK_SPEED) &&
            VerifyField<float>(verifier, VT_CURRENT_TRACK_RCS) &&
            VerifyField<float>(verifier, VT_RANGE_M) &&
-           VerifyField<uint8_t>(verifier, VT_HAS_CARTESIAN_POSITION) &&
            VerifyOffset(verifier, VT_POSITION_M) &&
            verifier.VerifyTable(position_m()) &&
            VerifyField<int32_t>(verifier, VT_TARGET_SWERLING_TYPE) &&
@@ -292,17 +282,11 @@ struct TargetFeatureBuilder {
   void add_velocity_mps(flatbuffers::Offset<oneq::replay::airborne_radar::fb::Vector3f> velocity_mps) {
     fbb_.AddOffset(TargetFeature::VT_VELOCITY_MPS, velocity_mps);
   }
-  void add_current_track_speed(float current_track_speed) {
-    fbb_.AddElement<float>(TargetFeature::VT_CURRENT_TRACK_SPEED, current_track_speed, 0.0f);
-  }
   void add_current_track_rcs(float current_track_rcs) {
     fbb_.AddElement<float>(TargetFeature::VT_CURRENT_TRACK_RCS, current_track_rcs, 0.0f);
   }
   void add_range_m(float range_m) {
     fbb_.AddElement<float>(TargetFeature::VT_RANGE_M, range_m, 0.0f);
-  }
-  void add_has_cartesian_position(bool has_cartesian_position) {
-    fbb_.AddElement<uint8_t>(TargetFeature::VT_HAS_CARTESIAN_POSITION, static_cast<uint8_t>(has_cartesian_position), 0);
   }
   void add_position_m(flatbuffers::Offset<oneq::replay::airborne_radar::fb::Vector3f> position_m) {
     fbb_.AddOffset(TargetFeature::VT_POSITION_M, position_m);
@@ -326,10 +310,8 @@ inline flatbuffers::Offset<TargetFeature> CreateTargetFeature(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint64_t external_target_id = 0,
     flatbuffers::Offset<oneq::replay::airborne_radar::fb::Vector3f> velocity_mps = 0,
-    float current_track_speed = 0.0f,
     float current_track_rcs = 0.0f,
     float range_m = 0.0f,
-    bool has_cartesian_position = false,
     flatbuffers::Offset<oneq::replay::airborne_radar::fb::Vector3f> position_m = 0,
     int32_t target_swerling_type = 0) {
   TargetFeatureBuilder builder_(_fbb);
@@ -338,9 +320,7 @@ inline flatbuffers::Offset<TargetFeature> CreateTargetFeature(
   builder_.add_position_m(position_m);
   builder_.add_range_m(range_m);
   builder_.add_current_track_rcs(current_track_rcs);
-  builder_.add_current_track_speed(current_track_speed);
   builder_.add_velocity_mps(velocity_mps);
-  builder_.add_has_cartesian_position(has_cartesian_position);
   return builder_.Finish();
 }
 

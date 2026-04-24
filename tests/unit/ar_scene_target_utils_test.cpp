@@ -15,7 +15,6 @@ TEST(RadarSceneTargetUtilsTest, MakeSceneTargetSetsAllFields) {
   EXPECT_FLOAT_EQ(target.velocity_y, 20.0f);
   EXPECT_FLOAT_EQ(target.velocity_z, 30.0f);
   EXPECT_FLOAT_EQ(target.rcs, 5.0f);
-  EXPECT_TRUE(target.has_cartesian_position);
   EXPECT_FLOAT_EQ(target.position_x, 100.0f);
   EXPECT_FLOAT_EQ(target.position_y, 200.0f);
   EXPECT_FLOAT_EQ(target.position_z, 300.0f);
@@ -34,7 +33,6 @@ TEST(RadarSceneTargetUtilsTest, MakeGroundSceneTargetHasZeroZ) {
 
   EXPECT_FLOAT_EQ(target.position_z, 0.0f);
   EXPECT_FLOAT_EQ(target.velocity_z, 0.0f);
-  EXPECT_TRUE(target.has_cartesian_position);
   EXPECT_GT(target.range_m, 0.0f);
 }
 
@@ -49,7 +47,6 @@ TEST(RadarSceneTargetUtilsTest, MakeAirSceneTargetSetsAllDimensions) {
 
 TEST(RadarSceneTargetUtilsTest, NormalizeSceneTargetGeometryBackfillsRange) {
   RadarSceneTarget target;
-  target.has_cartesian_position = true;
   target.position_x = 3.0f;
   target.position_y = 4.0f;
   target.position_z = 0.0f;
@@ -61,7 +58,6 @@ TEST(RadarSceneTargetUtilsTest, NormalizeSceneTargetGeometryBackfillsRange) {
 
 TEST(RadarSceneTargetUtilsTest, NormalizeSceneTargetGeometrySkipsIfRangeSet) {
   RadarSceneTarget target;
-  target.has_cartesian_position = true;
   target.position_x = 3.0f;
   target.position_y = 4.0f;
   target.position_z = 0.0f;
@@ -80,12 +76,10 @@ TEST(RadarSceneTargetUtilsTest, NormalizeSceneTargetGeometryHandlesNullptr) {
 
 TEST(RadarSceneTargetUtilsTest, NormalizeSceneTargetGeometryBatch) {
   RadarSceneTargetList targets(2);
-  targets[0].has_cartesian_position = true;
   targets[0].position_x = 3.0f;
   targets[0].position_y = 4.0f;
   targets[0].range_m = 0.0f;
 
-  targets[1].has_cartesian_position = true;
   targets[1].position_x = 6.0f;
   targets[1].position_y = 8.0f;
   targets[1].range_m = 0.0f;

@@ -34,10 +34,10 @@ class MutableRadarContext final : public extension::IRadarContext {
   void BeginCycle(const RadarCycleInput& input) override;
 
   /**
-   * @brief 更新当前周期目标特征列表。
-   * @param target_features 新的目标特征列表。
+   * @brief 更新当前周期场景目标列表。
+   * @param scene_targets 新的场景目标列表。
    */
-  void SetTargetFeatures(model::TargetFeatureList target_features);
+  void SetSceneTargets(RadarSceneTargetList scene_targets);
 
   /**
    * @brief 更新当前平台姿态角。
@@ -80,10 +80,10 @@ class MutableRadarContext final : public extension::IRadarContext {
   void RestoreRuntimeState(const extension::RadarContextRuntimeState& state) override;
 
   /**
-   * @brief 获取当前周期的目标特征列表。
-   * @return 当前周期的目标特征列表只读引用。
+   * @brief 获取当前周期场景目标列表。
+   * @return 当前周期场景目标列表只读引用。
    */
-  const model::TargetFeatureList& GetTargetFeatures() const override;
+  const RadarSceneTargetList& GetSceneTargets() const override;
 
   /**
    * @brief 获取当前平台姿态角。
@@ -112,7 +112,7 @@ class MutableRadarContext final : public extension::IRadarContext {
  private:
   struct RuntimeSnapshot;
 
-  std::shared_ptr<model::TargetFeatureList> target_features_{new model::TargetFeatureList()};
+  std::shared_ptr<RadarSceneTargetList> scene_targets_{new RadarSceneTargetList()};
   oneq::foundation::PoseState platform_pose_{};
   float cycle_dt_sec_{1.0f};
   std::vector<extension::control::RadarCommand> submitted_commands_{};

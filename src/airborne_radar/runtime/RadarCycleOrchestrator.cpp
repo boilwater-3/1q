@@ -29,19 +29,19 @@ void RadarCycleOrchestrator::FreezeEnvironment(
 }
 
 CycleExecutionResult RadarCycleOrchestrator::Execute(
-    const model::TargetFeatureList* target_features,
+    const session::RadarSceneTargetList* scene_targets,
     const model::PlatformAttitudeDeg& platform_attitude,
     const extension::control::RadarControlProfile& current_profile,
     const oneq::internal::runtime::RuntimeCycleStamp& stamp) {
-  const model::TargetFeatureList kEmptyTargets;
-  const model::TargetFeatureList& features =
-      target_features != nullptr ? *target_features : kEmptyTargets;
+  const session::RadarSceneTargetList kEmptyTargets;
+  const session::RadarSceneTargetList& targets =
+      scene_targets != nullptr ? *scene_targets : kEmptyTargets;
 
   signal_pipeline_.SetControlProfile(current_profile);
   signal_pipeline_.UpdatePlatformAttitude(platform_attitude);
 
   CycleExecutionResult result;
-  result.signal_result = signal_pipeline_.RunCycle(features, environment_service_);
+  result.signal_result = signal_pipeline_.RunCycle(targets, environment_service_);
   if (!result.signal_result.executed_this_cycle) {
     return result;
   }

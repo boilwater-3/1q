@@ -2,14 +2,14 @@
 #define AIRBORNE_RADAR_RUNTIME_COMPONENTS_AIRBORNE_RUNTIME_INPUT_H_
 
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
-#include "1q/airborne_radar/model/TargetFeature.h"
+#include "1q/airborne_radar/session/RadarSceneTypes.h"
 
 namespace airborne_radar {
 namespace runtime {
 namespace components {
 
 struct AirborneRuntimeInput {
-  const model::TargetFeatureList* target_features{nullptr};
+  const session::RadarSceneTargetList* scene_targets{nullptr};
   model::PlatformAttitudeDeg platform_attitude{};
   float cycle_dt_sec{1.0f};
 };

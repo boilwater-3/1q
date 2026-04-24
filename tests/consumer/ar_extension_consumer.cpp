@@ -21,8 +21,8 @@ class DummyRadarContext : public extension::IRadarContext {
     commands_.clear();
   }
 
-  const model::TargetFeatureList& GetTargetFeatures() const override {
-    static const model::TargetFeatureList kEmptyTargets;
+  const session::RadarSceneTargetList& GetSceneTargets() const override {
+    static const session::RadarSceneTargetList kEmptyTargets;
     return kEmptyTargets;
   }
 
@@ -117,12 +117,12 @@ class DummyEnvironmentService : public environment::IEnvironmentService {
 class DummySignalPipeline : public extension::ISignalPipeline {
  public:
   extension::SignalCycleResult RunCycle(
-      const model::TargetFeatureList& input_state,
+      const session::RadarSceneTargetList& input_state,
       const environment::IEnvironmentService& environment) override {
     (void)environment;
     extension::SignalCycleResult result;
     result.executed_this_cycle = true;
-    result.updated_features = input_state;
+    result.updated_scene_targets = input_state;
     return result;
   }
 

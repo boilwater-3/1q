@@ -22,7 +22,6 @@ RadarSceneTarget MakeSceneTarget(std::uint64_t external_target_id, float positio
   target.velocity_y = velocity_y;
   target.velocity_z = velocity_z;
   target.rcs = rcs;
-  target.has_cartesian_position = true;
   target.position_x = position_x;
   target.position_y = position_y;
   target.position_z = position_z;
@@ -50,7 +49,10 @@ void NormalizeSceneTargetGeometry(RadarSceneTarget* target) {
   if (target == nullptr) {
     return;
   }
-  if (target->range_m > 0.0f || !target->has_cartesian_position) {
+  if (target->range_m > 0.0f) {
+    return;
+  }
+  if (target->position_x == 0.0f && target->position_y == 0.0f && target->position_z == 0.0f) {
     return;
   }
   target->range_m = ComputeNorm3(target->position_x, target->position_y, target->position_z);

@@ -42,7 +42,7 @@ model::TargetFeature ToModelTarget(const session::RadarSceneTarget& target) {
                                       target.velocity_z * target.velocity_z);
   out.current_track_rcs = target.rcs;
   out.range_m = target.range_m;
-  out.has_cartesian_position = target.has_cartesian_position;
+  out.has_cartesian_position = true;
   out.position_x = target.position_x;
   out.position_y = target.position_y;
   out.position_z = target.position_z;
@@ -59,13 +59,37 @@ model::TargetFeatureList ToModelTargets(const session::RadarSceneTargetList& tar
   return out;
 }
 
+session::RadarSceneTarget ToSceneTarget(const model::TargetFeature& target) {
+  session::RadarSceneTarget out;
+  out.external_target_id = target.external_target_id;
+  out.velocity_x = target.current_track_velocity_x;
+  out.velocity_y = target.current_track_velocity_y;
+  out.velocity_z = target.current_track_velocity_z;
+  out.rcs = target.current_track_rcs;
+  out.range_m = target.range_m;
+  out.position_x = target.position_x;
+  out.position_y = target.position_y;
+  out.position_z = target.position_z;
+  out.target_swerling_type = target.target_swerling_type;
+  return out;
+}
+
+session::RadarSceneTargetList ToSceneTargets(const model::TargetFeatureList& targets) {
+  session::RadarSceneTargetList out;
+  out.reserve(targets.size());
+  for (std::size_t i = 0; i < targets.size(); ++i) {
+    out.push_back(ToSceneTarget(targets[i]));
+  }
+  return out;
+}
+
 class ScenarioRadarContext : public extension::IRadarContext {
  public:
   explicit ScenarioRadarContext(model::TargetFeatureList target_features = {})
-      : target_features_(std::move(target_features)) {}
+      : scene_targets_(ToSceneTargets(target_features)) {}
 
   void BeginCycle(const session::RadarCycleInput& input) override {
-    target_features_ = ToModelTargets(input.scene);
+    scene_targets_ = input.scene;
     platform_attitude_deg_.yaw_deg = input.platform_pose.attitude_deg.yaw_deg;
     platform_attitude_deg_.pitch_deg = input.platform_pose.attitude_deg.pitch_deg;
     platform_attitude_deg_.roll_deg = input.platform_pose.attitude_deg.roll_deg;
@@ -73,7 +97,7 @@ class ScenarioRadarContext : public extension::IRadarContext {
     submitted_commands_.clear();
   }
 
-  const model::TargetFeatureList& GetTargetFeatures() const override { return target_features_; }
+  const session::RadarSceneTargetList& GetSceneTargets() const override { return scene_targets_; }
 
   model::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_deg_; }
 
@@ -100,7 +124,7 @@ class ScenarioRadarContext : public extension::IRadarContext {
 
   extension::RadarContextRuntimeState CaptureRuntimeState() const override {
     extension::RadarContextRuntimeState state;
-    state.target_features = target_features_;
+    state.scene_targets = scene_targets_;
     state.platform_pose.attitude_deg = platform_attitude_deg_;
     state.cycle_dt_sec = cycle_dt_sec_;
     state.submitted_commands = submitted_commands_;
@@ -110,7 +134,7 @@ class ScenarioRadarContext : public extension::IRadarContext {
   }
 
   void RestoreRuntimeState(const extension::RadarContextRuntimeState& state) override {
-    target_features_ = state.target_features;
+    scene_targets_ = state.scene_targets;
     platform_attitude_deg_ = state.platform_pose.attitude_deg;
     cycle_dt_sec_ = state.cycle_dt_sec;
     submitted_commands_ = state.submitted_commands;
@@ -119,7 +143,7 @@ class ScenarioRadarContext : public extension::IRadarContext {
   }
 
   void SetTargetFeatures(model::TargetFeatureList target_features) {
-    target_features_ = std::move(target_features);
+    scene_targets_ = ToSceneTargets(target_features);
   }
 
   void SetPlatformAttitude(const model::PlatformAttitudeDeg& platform_attitude_deg) {
@@ -137,7 +161,7 @@ class ScenarioRadarContext : public extension::IRadarContext {
   }
 
  private:
-  model::TargetFeatureList target_features_;
+  session::RadarSceneTargetList scene_targets_{};
   model::PlatformAttitudeDeg platform_attitude_deg_{};
   float cycle_dt_sec_{1.0f};
   std::vector<extension::control::RadarCommand> submitted_commands_;

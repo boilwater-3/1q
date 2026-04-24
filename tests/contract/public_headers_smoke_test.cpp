@@ -45,7 +45,6 @@
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "1q/airborne_radar/model/TargetCategory.h"
 #include "1q/airborne_radar/model/TargetFeature.h"
-#include "1q/airborne_radar/model/TargetFeatureUtils.h"
 #include "1q/airborne_radar/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/output/TrackOutputQueries.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
@@ -381,7 +380,7 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   ASSERT_TRUE(oneq::foundation::TryLlaToEcef(esr_reference.origin_lla, &esr_origin_ecef));
   session::EsrExternalPoseInput esr_pose_input;
   esr_pose_input.platform_position_ecef_m = esr_origin_ecef;
-  model::EsrPoseState esr_pose;
+  session::EsrPoseState esr_pose;
   ASSERT_TRUE(
       session::TryMakeEsrPoseFromExternalKinematics(esr_pose_input, esr_reference, &esr_pose));
 

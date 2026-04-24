@@ -13,7 +13,6 @@
 
 #include "1q/airborne_radar/extension/control/RadarCommand.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
-#include "1q/airborne_radar/model/TargetFeature.h"
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/api.hpp"
@@ -26,7 +25,7 @@ struct RadarContextRuntimeState {
   const void* owner_identity{nullptr}; /**< 生成该快照的上下文实例地址 */
   std::uint32_t schema_version{0U};    /**< 快照 schema 版本 */
   std::shared_ptr<void> opaque{};      /**< 可选的实现私有快照负载；用于高效回滚 */
-  model::TargetFeatureList target_features{};
+  session::RadarSceneTargetList scene_targets{};
   oneq::foundation::PoseState platform_pose{};
   float cycle_dt_sec{1.0f};
   std::vector<extension::control::RadarCommand> submitted_commands{};
@@ -49,10 +48,10 @@ class ONEQ_API IRadarContext {
   virtual void BeginCycle(const session::RadarCycleInput& input) = 0;
 
   /**
-   * @brief 获取当前周期的目标特征列表。
-   * @return 当前周期的目标特征列表只读引用。
+   * @brief 获取当前周期场景目标列表。
+   * @return 当前周期场景目标列表只读引用。
    */
-  virtual const model::TargetFeatureList& GetTargetFeatures() const = 0;
+  virtual const session::RadarSceneTargetList& GetSceneTargets() const = 0;
 
   /**
    * @brief 获取当前搭载平台姿态角。
@@ -99,7 +98,7 @@ class ONEQ_API IRadarContext {
   /**
    * @brief 捕获当前上下文运行态快照。
    * @return 可用于失败回滚的上下文快照。
-   * @note 默认回退字段为 `target_features/platform_pose/cycle_dt_sec/`
+   * @note 默认回退字段为 `scene_targets/platform_pose/cycle_dt_sec/`
    *       `submitted_commands/latest_control_profile/has_latest_control_profile`。
    *       若实现需要降低快照开销，可在 `opaque` 中存放私有快照，并使用
    *       `owner_identity/schema_version` 防止跨实例或跨 schema 误用。

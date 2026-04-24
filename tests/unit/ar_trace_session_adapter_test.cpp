@@ -137,7 +137,6 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) 
   target.velocity_z = 0.0f;
   target.rcs = 1.5f;
   target.range_m = 1500.0f;
-  target.has_cartesian_position = true;
   target.position_x = 1500.0f;
   target.position_y = 50.0f;
   target.position_z = 100.0f;
@@ -250,7 +249,6 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
     target.velocity_z = 0.0f;
     target.rcs = 2.0f;
     target.range_m = 2000.0f;
-    target.has_cartesian_position = true;
     target.position_x = 2000.0f;
     target.position_y = 0.0f;
     target.position_z = 150.0f;

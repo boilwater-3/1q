@@ -1,14 +1,12 @@
 #include "airborne_radar/session/MutableRadarContext.h"
 
-#include "airborne_radar/session/RadarSceneTargetConversion.h"
-
 #include <utility>
 
 namespace airborne_radar {
 namespace session {
 
 struct MutableRadarContext::RuntimeSnapshot {
-  std::shared_ptr<model::TargetFeatureList> target_features;
+  std::shared_ptr<RadarSceneTargetList> scene_targets;
   oneq::foundation::PoseState platform_pose{};
   float cycle_dt_sec{1.0f};
   std::vector<extension::control::RadarCommand> submitted_commands{};
@@ -17,14 +15,14 @@ struct MutableRadarContext::RuntimeSnapshot {
 };
 
 void MutableRadarContext::BeginCycle(const RadarCycleInput& input) {
-  SetTargetFeatures(ToModelTargetFeatureList(input.scene));
+  SetSceneTargets(input.scene);
   platform_pose_ = input.platform_pose;
   SetCycleDeltaTimeSec(input.dt_sec);
   ResetCycleOutputs();
 }
 
-void MutableRadarContext::SetTargetFeatures(model::TargetFeatureList target_features) {
-  target_features_.reset(new model::TargetFeatureList(std::move(target_features)));
+void MutableRadarContext::SetSceneTargets(RadarSceneTargetList scene_targets) {
+  scene_targets_.reset(new RadarSceneTargetList(std::move(scene_targets)));
 }
 
 void MutableRadarContext::SetPlatformAttitude(
@@ -50,7 +48,7 @@ const extension::control::RadarControlProfile& MutableRadarContext::GetLatestCon
 extension::RadarContextRuntimeState MutableRadarContext::CaptureRuntimeState() const {
   extension::RadarContextRuntimeState state;
   std::shared_ptr<RuntimeSnapshot> snapshot(new RuntimeSnapshot());
-  snapshot->target_features = target_features_;
+  snapshot->scene_targets = scene_targets_;
   snapshot->platform_pose = platform_pose_;
   snapshot->cycle_dt_sec = cycle_dt_sec_;
   snapshot->submitted_commands = submitted_commands_;
@@ -59,7 +57,7 @@ extension::RadarContextRuntimeState MutableRadarContext::CaptureRuntimeState() c
   state.owner_identity = this;
   state.schema_version = 1U;
   state.opaque = snapshot;
-  state.target_features = target_features_ != nullptr ? *target_features_ : model::TargetFeatureList();
+  state.scene_targets = scene_targets_ != nullptr ? *scene_targets_ : RadarSceneTargetList();
   state.platform_pose = platform_pose_;
   state.cycle_dt_sec = cycle_dt_sec_;
   state.submitted_commands = submitted_commands_;
@@ -73,7 +71,7 @@ void MutableRadarContext::RestoreRuntimeState(const extension::RadarContextRunti
     const std::shared_ptr<RuntimeSnapshot> snapshot =
         std::static_pointer_cast<RuntimeSnapshot>(state.opaque);
     if (snapshot != nullptr) {
-      target_features_ = snapshot->target_features;
+      scene_targets_ = snapshot->scene_targets;
       platform_pose_ = snapshot->platform_pose;
       cycle_dt_sec_ = snapshot->cycle_dt_sec;
       submitted_commands_ = snapshot->submitted_commands;
@@ -83,7 +81,7 @@ void MutableRadarContext::RestoreRuntimeState(const extension::RadarContextRunti
     }
   }
 
-  target_features_.reset(new model::TargetFeatureList(state.target_features));
+  scene_targets_.reset(new RadarSceneTargetList(state.scene_targets));
   platform_pose_ = state.platform_pose;
   cycle_dt_sec_ = state.cycle_dt_sec;
   submitted_commands_ = state.submitted_commands;
@@ -91,9 +89,9 @@ void MutableRadarContext::RestoreRuntimeState(const extension::RadarContextRunti
   has_latest_control_profile_ = state.has_latest_control_profile;
 }
 
-const model::TargetFeatureList& MutableRadarContext::GetTargetFeatures() const {
-  static const model::TargetFeatureList kEmptyTargetFeatures;
-  return target_features_ != nullptr ? *target_features_ : kEmptyTargetFeatures;
+const RadarSceneTargetList& MutableRadarContext::GetSceneTargets() const {
+  static const RadarSceneTargetList kEmptySceneTargets;
+  return scene_targets_ != nullptr ? *scene_targets_ : kEmptySceneTargets;
 }
 
 model::PlatformAttitudeDeg MutableRadarContext::GetPlatformAttitude() const {

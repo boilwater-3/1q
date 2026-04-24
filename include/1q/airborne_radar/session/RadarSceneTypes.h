@@ -22,7 +22,6 @@ struct RadarSceneTarget {
   float velocity_z{0.0f};               /**< 雷达局部坐标速度 z 分量（单位：m/s） */
   float rcs{0.0f};                       /**< 目标雷达散射截面积（单位：m^2） */
   float range_m{0.0f};                   /**< 目标到雷达的斜距（单位：m） */
-  bool has_cartesian_position{false};    /**< 是否显式提供笛卡尔位置 */
   float position_x{0.0f};                /**< 雷达局部笛卡尔坐标 x（单位：m） */
   float position_y{0.0f};                /**< 雷达局部笛卡尔坐标 y（单位：m） */
   float position_z{0.0f};                /**< 雷达局部笛卡尔坐标 z（单位：m） */

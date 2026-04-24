@@ -50,7 +50,6 @@ TEST(ArReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   target.velocity_z = -0.5f;
   target.rcs = 3.0f;
   target.range_m = 1234.5f;
-  target.has_cartesian_position = true;
   target.position_x = 1234.0f;
   target.position_y = 56.0f;
   target.position_z = 78.0f;
@@ -72,7 +71,6 @@ TEST(ArReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   EXPECT_EQ(decoded.scene[0].external_target_id, 42U);
   EXPECT_FLOAT_EQ(decoded.scene[0].rcs, 3.0f);
   EXPECT_FLOAT_EQ(decoded.scene[0].range_m, 1234.5f);
-  EXPECT_TRUE(decoded.scene[0].has_cartesian_position);
   EXPECT_FLOAT_EQ(decoded.scene[0].position_x, 1234.0f);
   EXPECT_EQ(decoded.scene[0].target_swerling_type, 2);
 }

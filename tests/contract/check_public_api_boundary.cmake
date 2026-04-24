@@ -50,8 +50,6 @@ set(AR_MODEL_HEADERS
     "airborne_radar/model/RadarOrientationConfig.h"
     "airborne_radar/model/TargetCategory.h"
     "airborne_radar/model/TargetFeature.h"
-    "airborne_radar/model/TargetFeatureBuilder.h"
-    "airborne_radar/model/TargetFeatureUtils.h"
 )
 
 # ── AR 输出域 ────────────────────────────────────────────────────────
@@ -144,8 +142,6 @@ set(ESR_PUBLIC_HEADERS
     "electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
     "electronic_surveillance_radar/model/EmitterHypothesis.h"
     "electronic_surveillance_radar/model/EmitterObservation.h"
-    "electronic_surveillance_radar/model/EmitterTruthState.h"
-    "electronic_surveillance_radar/model/EsrOrientationConfig.h"
     "electronic_surveillance_radar/output/EsrOutputFrame.h"
     "electronic_surveillance_radar/session/EsrCycleInput.h"
     "electronic_surveillance_radar/session/EsrCycleResult.h"

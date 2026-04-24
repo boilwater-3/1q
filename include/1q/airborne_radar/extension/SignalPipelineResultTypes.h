@@ -9,8 +9,8 @@
 #include <cstddef>
 
 #include "1q/airborne_radar/model/DecisionInputFrame.h"
-#include "1q/airborne_radar/model/TargetFeature.h"
 #include "1q/airborne_radar/model/JammingSemantics.h"
+#include "1q/airborne_radar/session/RadarSceneTypes.h"
 
 namespace airborne_radar {
 namespace extension {
@@ -49,7 +49,8 @@ struct SignalCycleResult {
   bool executed_this_cycle{false};                  /**< 当前调用是否真正完成了 signal pipeline 主链路 */
   SignalCycleAbortReason abort_reason{
       SignalCycleAbortReason::kNone}; /**< 若当前调用未执行成功，给出结构化 abort 原因 */
-  model::TargetFeatureList updated_features{};     /**< 当前周期更新后的目标特征列表 */
+  session::RadarSceneTargetList
+      updated_scene_targets{};                    /**< 当前周期更新后的场景目标列表 */
   model::DecisionInputFrame decision_frame{};      /**< 当前周期决策输入帧 */
   AssociationQualityMetrics association_quality_metrics{}; /**< 当前周期关联质量观测指标 */
 };

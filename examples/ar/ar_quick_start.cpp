@@ -68,7 +68,7 @@ int main() {
     return 1;
   }
 
-  //    第二步：使用预计算的参考系将目标转换为 TargetFeature。
+  //    第二步：使用预计算的参考系将目标转换为 RadarSceneTarget。
   aq::session::TargetExternalKinematics target_input;
   target_input.target_position_ecef_m = target_ecef;
   target_input.target_velocity_mps = target_velocity_ecef_mps;
@@ -76,14 +76,14 @@ int main() {
   target_input.rcs = 1.8f;
   target_input.swerling_type = 0;
 
-  aq::model::TargetFeature target;
+  aq::session::RadarSceneTarget target;
   if (!aq::session::TryMakeTargetFromExternalKinematics(
           1001U, target_input, reference, platform_pose.velocity_mps, &target)) {
     std::cerr << "failed to build target from external kinematics input" << std::endl;
     return 1;
   }
 
-  //    将单个目标特征放入当前周期输入，完成一次雷达循环。
+  //    将单个场景目标放入当前周期输入，完成一次雷达循环。
   aq::session::RadarCycleInput input;
   input.dt_sec = 1.0f;
   input.platform_pose = platform_pose;

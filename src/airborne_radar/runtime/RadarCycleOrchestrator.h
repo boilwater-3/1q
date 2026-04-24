@@ -7,7 +7,6 @@
 #define AIRBORNE_RADAR_CORE_CONTROLLER_RADAR_CYCLE_ORCHESTRATOR_H_
 
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
-#include "1q/airborne_radar/model/TargetFeature.h"
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/extension/ISignalPipeline.h"
 #include "1q/airborne_radar/output/TrackOutputFrame.h"
@@ -66,14 +65,14 @@ class RadarCycleOrchestrator {
 
   /**
    * @brief 执行信号流水线与决策引擎，返回完整周期执行结果。
-   * @param target_features   当前周期目标特征列表（可为 nullptr，视为空列表）。
+   * @param scene_targets     当前周期场景目标列表（可为 nullptr，视为空列表）。
    * @param platform_attitude 当前平台姿态。
    * @param current_profile   本周期生效的控制真值（只读）。
    * @param stamp             当前周期时间戳。
    * @return 信号+决策的聚合结果。
    */
   CycleExecutionResult Execute(
-      const model::TargetFeatureList* target_features,
+      const session::RadarSceneTargetList* scene_targets,
       const model::PlatformAttitudeDeg& platform_attitude,
       const extension::control::RadarControlProfile& current_profile,
       const oneq::internal::runtime::RuntimeCycleStamp& stamp);

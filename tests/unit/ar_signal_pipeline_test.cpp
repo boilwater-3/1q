@@ -44,6 +44,58 @@ model::TargetFeature BuildPhysicsTarget(float range_m, float rcs) {
   return target;
 }
 
+session::RadarSceneTarget ToSceneTarget(const model::TargetFeature& target) {
+  session::RadarSceneTarget out;
+  out.external_target_id = target.external_target_id;
+  out.velocity_x = target.current_track_velocity_x;
+  out.velocity_y = target.current_track_velocity_y;
+  out.velocity_z = target.current_track_velocity_z;
+  out.rcs = target.current_track_rcs;
+  out.range_m = target.range_m;
+  out.position_x = target.position_x;
+  out.position_y = target.position_y;
+  out.position_z = target.position_z;
+  out.target_swerling_type = target.target_swerling_type;
+  return out;
+}
+
+session::RadarSceneTargetList ToSceneTargets(const model::TargetFeatureList& targets) {
+  session::RadarSceneTargetList out;
+  out.reserve(targets.size());
+  for (std::size_t i = 0; i < targets.size(); ++i) {
+    out.push_back(ToSceneTarget(targets[i]));
+  }
+  return out;
+}
+
+model::TargetFeature ToModelTarget(const session::RadarSceneTarget& target) {
+  model::TargetFeature out;
+  out.external_target_id = target.external_target_id;
+  out.current_track_velocity_x = target.velocity_x;
+  out.current_track_velocity_y = target.velocity_y;
+  out.current_track_velocity_z = target.velocity_z;
+  out.current_track_speed = std::sqrt(target.velocity_x * target.velocity_x +
+                                      target.velocity_y * target.velocity_y +
+                                      target.velocity_z * target.velocity_z);
+  out.current_track_rcs = target.rcs;
+  out.range_m = target.range_m;
+  out.has_cartesian_position = true;
+  out.position_x = target.position_x;
+  out.position_y = target.position_y;
+  out.position_z = target.position_z;
+  out.target_swerling_type = target.target_swerling_type;
+  return out;
+}
+
+model::TargetFeatureList ToModelTargets(const session::RadarSceneTargetList& targets) {
+  model::TargetFeatureList out;
+  out.reserve(targets.size());
+  for (std::size_t i = 0; i < targets.size(); ++i) {
+    out.push_back(ToModelTarget(targets[i]));
+  }
+  return out;
+}
+
 signal::tracking::CycleContext MakeLifecycleCycle(std::uint32_t cycle_index,
                                                   std::uint64_t batch_id) {
   signal::tracking::CycleContext cycle;
@@ -67,7 +119,7 @@ extension::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
                                               environment::EnvironmentService* environment_service,
                                               std::uint32_t cycle_index = 1u) {
   environment_service->BeginCycle(MakeEnvironmentCycle(cycle_index));
-  return pipeline->RunCycle(input_state, *environment_service);
+  return pipeline->RunCycle(ToSceneTargets(input_state), *environment_service);
 }
 
 environment::JammerEmitterState MakeJammerEmitter(environment::JammingTechnique technique,
@@ -233,8 +285,8 @@ TEST(SignalPipelineTest, KeepsTrackStableWhenDetectionMarginIsEnough) {
   target.range_m = 100.0f;
   const model::TargetFeatureList input_state{target};
 
-  const auto output_state =
-      RunPipelineCycle(&signal_pipeline, input_state, &environment_service).updated_features;
+  const auto output_state = ToModelTargets(
+      RunPipelineCycle(&signal_pipeline, input_state, &environment_service).updated_scene_targets);
 
   ASSERT_EQ(output_state.size(), 1u);
   EXPECT_FLOAT_EQ(output_state[0].current_track_speed, input_state[0].current_track_speed);
@@ -250,8 +302,8 @@ TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
   signal::pipeline::SignalPipeline signal_pipeline;
   const model::TargetFeatureList input_state{model::TargetFeature(800.0f, 0.0f, 0.0f, 2.5f)};
 
-  const auto output_state =
-      RunPipelineCycle(&signal_pipeline, input_state, &environment_service).updated_features;
+  const auto output_state = ToModelTargets(
+      RunPipelineCycle(&signal_pipeline, input_state, &environment_service).updated_scene_targets);
 
   ASSERT_EQ(output_state.size(), 1u);
   EXPECT_LE(output_state[0].current_track_speed, input_state[0].current_track_speed);
@@ -277,7 +329,7 @@ TEST(SignalPipelineTest,
       RunPipelineCycle(&baseline_pipeline, input_state, &baseline_environment);
   const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
-  ASSERT_EQ(baseline_result.updated_features.size(), 1u);
+  ASSERT_EQ(baseline_result.updated_scene_targets.size(), 1u);
   EXPECT_FALSE(baseline_measurements.empty());
 
   session::RadarSessionConfig disabled_override_config = baseline_config;
@@ -289,10 +341,10 @@ TEST(SignalPipelineTest,
       RunPipelineCycle(&disabled_pipeline, input_state, &disabled_environment);
   const auto disabled_measurements = disabled_pipeline.GetLastTrackMeasurements();
 
-  ASSERT_EQ(disabled_result.updated_features.size(), 1u);
+  ASSERT_EQ(disabled_result.updated_scene_targets.size(), 1u);
   EXPECT_FALSE(disabled_measurements.empty());
-  EXPECT_FLOAT_EQ(disabled_result.updated_features[0].current_track_rcs,
-                  baseline_result.updated_features[0].current_track_rcs);
+  EXPECT_FLOAT_EQ(disabled_result.updated_scene_targets[0].rcs,
+                  baseline_result.updated_scene_targets[0].rcs);
 
   session::RadarSessionConfig enabled_override_config = disabled_override_config;
   ApplyRcsFusionProfile(&enabled_override_config, config::profiles::RcsFusionProfile::kEnhanced);
@@ -813,8 +865,9 @@ TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
   const model::TargetFeatureList input_state{target};
 
   signal::pipeline::SignalPipeline baseline_pipeline;
-  const auto baseline_output =
-      RunPipelineCycle(&baseline_pipeline, input_state, &environment_service).updated_features;
+  const auto baseline_output = ToModelTargets(
+      RunPipelineCycle(&baseline_pipeline, input_state, &environment_service)
+          .updated_scene_targets);
 
   extension::control::RadarControlProfile eccm_profile;
   eccm_profile.enable_sidelobe_canceller = true;
@@ -822,8 +875,9 @@ TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
   eccm_profile.eccm_burnthrough_gain = 1.5f;
   signal::pipeline::SignalPipeline protected_pipeline;
   protected_pipeline.SetControlProfile(eccm_profile);
-  const auto protected_output =
-      RunPipelineCycle(&protected_pipeline, input_state, &environment_service).updated_features;
+  const auto protected_output = ToModelTargets(
+      RunPipelineCycle(&protected_pipeline, input_state, &environment_service)
+          .updated_scene_targets);
 
   ASSERT_EQ(baseline_output.size(), 1u);
   ASSERT_EQ(protected_output.size(), 1u);
@@ -1415,15 +1469,16 @@ TEST(SignalPipelineTest, InvalidEnvironmentCycleAbortsAndClearsLastCycleCache) {
       RunPipelineCycle(&signal_pipeline, model::TargetFeatureList{target}, &valid_environment, 1u);
   EXPECT_TRUE(valid_result.executed_this_cycle);
   EXPECT_EQ(valid_result.abort_reason, extension::SignalCycleAbortReason::kNone);
-  ASSERT_EQ(valid_result.updated_features.size(), 1u);
+  ASSERT_EQ(valid_result.updated_scene_targets.size(), 1u);
   ASSERT_EQ(signal_pipeline.GetLastTrackMeasurements().size(), 1u);
 
   const extension::SignalCycleResult invalid_result =
-      signal_pipeline.RunCycle(model::TargetFeatureList{target}, invalid_environment);
+      signal_pipeline.RunCycle(ToSceneTargets(model::TargetFeatureList{target}),
+                               invalid_environment);
   EXPECT_FALSE(invalid_result.executed_this_cycle);
   EXPECT_EQ(invalid_result.abort_reason,
             extension::SignalCycleAbortReason::kInvalidEnvironmentCycle);
-  EXPECT_TRUE(invalid_result.updated_features.empty());
+  EXPECT_TRUE(invalid_result.updated_scene_targets.empty());
   EXPECT_TRUE(invalid_result.decision_frame.tracks.empty());
   EXPECT_TRUE(signal_pipeline.GetLastTrackMeasurements().empty());
   EXPECT_EQ(signal_pipeline.GetLastAssociationQualityMetrics().detection_count, 0u);

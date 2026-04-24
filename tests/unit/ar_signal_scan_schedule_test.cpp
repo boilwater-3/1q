@@ -12,7 +12,6 @@
 
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
-#include "1q/airborne_radar/model/TargetFeatureUtils.h"
 #include "airborne_radar/config/execution/InternalExecutionConfig.h"
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 #include "airborne_radar/environment/EnvironmentService.h"
@@ -71,13 +70,37 @@ environment::EnvironmentSnapshot MakeEnvironmentSnapshot(std::uint32_t cycle_ind
   return snapshot;
 }
 
+session::RadarSceneTarget ToSceneTarget(const model::TargetFeature& target) {
+  session::RadarSceneTarget out;
+  out.external_target_id = target.external_target_id;
+  out.velocity_x = target.current_track_velocity_x;
+  out.velocity_y = target.current_track_velocity_y;
+  out.velocity_z = target.current_track_velocity_z;
+  out.rcs = target.current_track_rcs;
+  out.range_m = target.range_m;
+  out.position_x = target.position_x;
+  out.position_y = target.position_y;
+  out.position_z = target.position_z;
+  out.target_swerling_type = target.target_swerling_type;
+  return out;
+}
+
+session::RadarSceneTargetList ToSceneTargets(const model::TargetFeatureList& targets) {
+  session::RadarSceneTargetList out;
+  out.reserve(targets.size());
+  for (std::size_t i = 0; i < targets.size(); ++i) {
+    out.push_back(ToSceneTarget(targets[i]));
+  }
+  return out;
+}
+
 template <typename PipelineType>
 extension::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
                                               const model::TargetFeatureList& input_state,
                                               environment::EnvironmentService* environment_service,
                                               std::uint32_t cycle_index) {
   environment_service->BeginCycle(MakeEnvironmentCycle(cycle_index));
-  return pipeline->RunCycle(input_state, *environment_service);
+  return pipeline->RunCycle(ToSceneTargets(input_state), *environment_service);
 }
 
 class NonAutoLifecycleManager final : public signal::tracking::ITrackLifecycleManager {
@@ -497,8 +520,11 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
   environment::EnvironmentModelConfig environment_config;
   environment::EnvironmentService environment_service(environment_config);
 
-  model::TargetFeature target =
-      model::MakeAirTarget(2026U, 120.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 10000.0f);
+  model::TargetFeature target(0.0f, 0.0f, 0.0f, 10000.0f, 120.0f, 0, 2026U);
+  target.has_cartesian_position = true;
+  target.position_x = 120.0f;
+  target.position_y = 0.0f;
+  target.position_z = 0.0f;
   const model::TargetFeatureList targets(1U, target);
 
   const signal::detection::TargetLookAnglesDeg look_angles =
@@ -589,8 +615,11 @@ TEST(SignalPipelineScanScheduleTest, WorkSubModeSttReducesSweepCoverageComparedT
   environment::EnvironmentModelConfig environment_config;
   environment::EnvironmentService environment_service(environment_config);
 
-  model::TargetFeature target =
-      model::MakeAirTarget(2026U, 120.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 10000.0f);
+  model::TargetFeature target(0.0f, 0.0f, 0.0f, 10000.0f, 120.0f, 0, 2026U);
+  target.has_cartesian_position = true;
+  target.position_x = 120.0f;
+  target.position_y = 0.0f;
+  target.position_z = 0.0f;
   const model::TargetFeatureList targets(1U, target);
 
   std::size_t tws_detected = 0U;

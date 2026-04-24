@@ -18,7 +18,6 @@
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/extension/RadarController.h"
 #include "1q/airborne_radar/model/TargetFeature.h"
-#include "1q/airborne_radar/model/TargetFeatureUtils.h"
 #include "1q/airborne_radar/output/TrackOutputQueries.h"
 #include "1q/airborne_radar/session/RadarExternalInputAdapter.h"
 #include "1q/airborne_radar/session/RadarInputValidation.h"
@@ -31,6 +30,81 @@
 #include "common/geometry/GeometryTransform.h"
 
 namespace airborne_radar {
+
+namespace model {
+namespace {
+
+TargetFeature ToModelTarget(const session::RadarSceneTarget& target) {
+  TargetFeature out;
+  out.external_target_id = target.external_target_id;
+  out.current_track_velocity_x = target.velocity_x;
+  out.current_track_velocity_y = target.velocity_y;
+  out.current_track_velocity_z = target.velocity_z;
+  out.current_track_speed = std::sqrt(target.velocity_x * target.velocity_x +
+                                      target.velocity_y * target.velocity_y +
+                                      target.velocity_z * target.velocity_z);
+  out.current_track_rcs = target.rcs;
+  out.range_m = target.range_m;
+  out.has_cartesian_position = true;
+  out.position_x = target.position_x;
+  out.position_y = target.position_y;
+  out.position_z = target.position_z;
+  out.target_swerling_type = target.target_swerling_type;
+  return out;
+}
+
+float ComputeNorm3(float x, float y, float z) { return std::sqrt(x * x + y * y + z * z); }
+
+}  // namespace
+
+TargetFeature MakeTargetFromCartesian(std::uint64_t external_target_id, float position_x,
+                                      float position_y, float position_z, float velocity_x,
+                                      float velocity_y, float velocity_z, float rcs,
+                                      int swerling_type = 0) {
+  return ToModelTarget(session::MakeSceneTarget(external_target_id, position_x, position_y,
+                                                position_z, velocity_x, velocity_y, velocity_z,
+                                                rcs, swerling_type));
+}
+
+TargetFeature MakeGroundTarget(std::uint64_t external_target_id, float position_x, float position_y,
+                               float rcs = 1.0f, float velocity_x = 0.0f,
+                               float velocity_y = 0.0f, int swerling_type = 0) {
+  return ToModelTarget(session::MakeGroundSceneTarget(external_target_id, position_x, position_y,
+                                                      rcs, velocity_x, velocity_y, swerling_type));
+}
+
+TargetFeature MakeAirTarget(std::uint64_t external_target_id, float position_x, float position_y,
+                            float position_z, float velocity_x, float velocity_y,
+                            float velocity_z, float rcs = 1.0f, int swerling_type = 0) {
+  return ToModelTarget(session::MakeAirSceneTarget(external_target_id, position_x, position_y,
+                                                   position_z, velocity_x, velocity_y, velocity_z,
+                                                   rcs, swerling_type));
+}
+
+void NormalizeTargetGeometry(TargetFeature* target) {
+  if (target == nullptr) {
+    return;
+  }
+  target->current_track_speed =
+      ComputeNorm3(target->current_track_velocity_x, target->current_track_velocity_y,
+                   target->current_track_velocity_z);
+  if (target->range_m > 0.0f || !target->has_cartesian_position) {
+    return;
+  }
+  target->range_m = ComputeNorm3(target->position_x, target->position_y, target->position_z);
+}
+
+void NormalizeTargetGeometry(TargetFeatureList* targets) {
+  if (targets == nullptr) {
+    return;
+  }
+  for (std::size_t i = 0; i < targets->size(); ++i) {
+    NormalizeTargetGeometry(&(*targets)[i]);
+  }
+}
+
+}  // namespace model
+
 namespace tests {
 
 namespace {
@@ -43,7 +117,6 @@ session::RadarSceneTarget ToSceneTarget(const model::TargetFeature& target) {
   out.velocity_z = target.current_track_velocity_z;
   out.rcs = target.current_track_rcs;
   out.range_m = target.range_m;
-  out.has_cartesian_position = target.has_cartesian_position;
   out.position_x = target.position_x;
   out.position_y = target.position_y;
   out.position_z = target.position_z;
@@ -62,7 +135,7 @@ model::TargetFeature ToModelTarget(const session::RadarSceneTarget& target) {
                                       target.velocity_z * target.velocity_z);
   out.current_track_rcs = target.rcs;
   out.range_m = target.range_m;
-  out.has_cartesian_position = target.has_cartesian_position;
+  out.has_cartesian_position = true;
   out.position_x = target.position_x;
   out.position_y = target.position_y;
   out.position_z = target.position_z;
@@ -178,7 +251,7 @@ class RecordingRadarContext : public extension::IRadarContext {
  public:
   void BeginCycle(const session::RadarCycleInput& input) override {
     ++begin_cycle_count_;
-    target_features_ = ToModelTargets(input.scene);
+    scene_targets_ = input.scene;
     platform_attitude_deg_.yaw_deg = input.platform_pose.attitude_deg.yaw_deg;
     platform_attitude_deg_.pitch_deg = input.platform_pose.attitude_deg.pitch_deg;
     platform_attitude_deg_.roll_deg = input.platform_pose.attitude_deg.roll_deg;
@@ -186,7 +259,7 @@ class RecordingRadarContext : public extension::IRadarContext {
     submitted_commands_.clear();
   }
 
-  const model::TargetFeatureList& GetTargetFeatures() const override { return target_features_; }
+  const session::RadarSceneTargetList& GetSceneTargets() const override { return scene_targets_; }
 
   model::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_deg_; }
 
@@ -213,7 +286,7 @@ class RecordingRadarContext : public extension::IRadarContext {
 
   extension::RadarContextRuntimeState CaptureRuntimeState() const override {
     extension::RadarContextRuntimeState state;
-    state.target_features = target_features_;
+    state.scene_targets = scene_targets_;
     state.platform_pose.attitude_deg = platform_attitude_deg_;
     state.cycle_dt_sec = cycle_dt_sec_;
     state.submitted_commands = submitted_commands_;
@@ -223,7 +296,7 @@ class RecordingRadarContext : public extension::IRadarContext {
   }
 
   void RestoreRuntimeState(const extension::RadarContextRuntimeState& state) override {
-    target_features_ = state.target_features;
+    scene_targets_ = state.scene_targets;
     platform_attitude_deg_ = state.platform_pose.attitude_deg;
     cycle_dt_sec_ = state.cycle_dt_sec;
     submitted_commands_ = state.submitted_commands;
@@ -234,7 +307,7 @@ class RecordingRadarContext : public extension::IRadarContext {
   std::size_t begin_cycle_count() const { return begin_cycle_count_; }
 
  private:
-  model::TargetFeatureList target_features_{};
+  session::RadarSceneTargetList scene_targets_{};
   model::PlatformAttitudeDeg platform_attitude_deg_{};
   float cycle_dt_sec_{1.0f};
   std::vector<extension::control::RadarCommand> submitted_commands_{};
@@ -333,7 +406,7 @@ class RecordingEnvironmentService : public environment::IEnvironmentService {
 class RecordingSignalPipeline : public extension::ISignalPipeline {
  public:
   extension::SignalCycleResult RunCycle(
-      const model::TargetFeatureList& input_state,
+      const session::RadarSceneTargetList& input_state,
       const environment::IEnvironmentService& environment) override {
     (void)input_state;
     (void)environment;
@@ -456,7 +529,7 @@ TEST(PublicApiConvenienceTest, MutableRadarContextBeginsCycleAndResetsPerCycleCo
       0.5f);
 
   context.BeginCycle(input);
-  ASSERT_EQ(context.GetTargetFeatures().size(), 1U);
+  ASSERT_EQ(context.GetSceneTargets().size(), 1U);
   EXPECT_NEAR(context.GetPlatformAttitude().yaw_deg, 5.0f, 1e-5f);
   EXPECT_NEAR(context.GetCycleDeltaTimeSec(), 0.5f, 1e-5f);
   EXPECT_TRUE(context.GetSubmittedCommands().empty());
@@ -603,7 +676,6 @@ TEST(PublicApiConvenienceTest, TargetFeatureUtilsBuildsTargetFromExternalCoordin
   ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
       403U, input, reference, platform_pose.velocity_mps, &target_from_external));
   EXPECT_EQ(target_from_external.external_target_id, 403U);
-  EXPECT_TRUE(target_from_external.has_cartesian_position);
   EXPECT_GT(target_from_external.position_x, 100.0f);
   EXPECT_NEAR(target_from_external.position_y, 0.0f, 2.0f);
   EXPECT_NEAR(target_from_external.position_z, 0.0f, 2.0f);
@@ -1121,8 +1193,8 @@ TEST(PublicApiConvenienceTest,
   EXPECT_FALSE(baseline.has_validation_error);
   EXPECT_TRUE(baseline.executed_this_cycle);
   EXPECT_FALSE(baseline.reused_previous_track_output);
-  ASSERT_EQ(radar_context.GetTargetFeatures().size(), 1U);
-  EXPECT_EQ(radar_context.GetTargetFeatures()[0].external_target_id, 810U);
+  ASSERT_EQ(radar_context.GetSceneTargets().size(), 1U);
+  EXPECT_EQ(radar_context.GetSceneTargets()[0].external_target_id, 810U);
   EXPECT_FLOAT_EQ(radar_context.GetCycleDeltaTimeSec(), 1.0f);
 
   const std::size_t committed_begin_cycles = radar_context.begin_cycle_count();
@@ -1173,8 +1245,8 @@ TEST(PublicApiConvenienceTest,
   EXPECT_EQ(environment_service.update_scene_state_count(), committed_update_scene_count);
   EXPECT_EQ(environment_service.update_model_config_count(), committed_update_model_count);
   EXPECT_EQ(environment_service.set_sensitivity_count(), committed_threshold_count);
-  ASSERT_EQ(radar_context.GetTargetFeatures().size(), 1U);
-  EXPECT_EQ(radar_context.GetTargetFeatures()[0].external_target_id, 810U);
+  ASSERT_EQ(radar_context.GetSceneTargets().size(), 1U);
+  EXPECT_EQ(radar_context.GetSceneTargets()[0].external_target_id, 810U);
   EXPECT_FLOAT_EQ(radar_context.GetCycleDeltaTimeSec(), 1.0f);
   EXPECT_TRUE(environment_service.GetPendingSceneState().jammer_emitters.empty());
 
@@ -1302,8 +1374,8 @@ TEST(PublicApiConvenienceTest,
   EXPECT_EQ(failed.signal_cycle_abort_reason,
             extension::SignalCycleAbortReason::kRuntimePreparationFailed);
   EXPECT_TRUE(failed.reused_previous_track_output);
-  ASSERT_EQ(radar_context.GetTargetFeatures().size(), 1U);
-  EXPECT_EQ(radar_context.GetTargetFeatures()[0].external_target_id, 960U);
+  ASSERT_EQ(radar_context.GetSceneTargets().size(), 1U);
+  EXPECT_EQ(radar_context.GetSceneTargets()[0].external_target_id, 960U);
   EXPECT_FLOAT_EQ(radar_context.GetCycleDeltaTimeSec(), 1.0f);
   EXPECT_EQ(signal_pipeline.config().mission.orientation.work_sub_mode,
             model::RadarWorkSubMode::kTws);

@@ -21,11 +21,8 @@ table PoseState {
 table TargetFeature {
   external_target_id:ulong;
   velocity_mps:Vector3f;
-  /// @deprecated Scene replay no longer carries derived speed; encoder writes from velocity and decoder uses it only as legacy fallback when velocity_mps is zero.
-  current_track_speed:float;
   current_track_rcs:float;
   range_m:float;
-  has_cartesian_position:bool;
   position_m:Vector3f;
   target_swerling_type:int;
 }

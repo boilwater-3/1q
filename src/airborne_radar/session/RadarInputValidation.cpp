@@ -60,7 +60,7 @@ void ValidatePlatformPose(const oneq::foundation::PoseState& platform_pose,
  * @return `has_cartesian_position` 为 `true` 时返回 `true`。
  */
 bool HasCartesianPosition(const RadarSceneTarget& target) {
-  return target.has_cartesian_position;
+  return target.position_x != 0.0f || target.position_y != 0.0f || target.position_z != 0.0f;
 }
 
 /**

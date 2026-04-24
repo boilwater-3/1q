@@ -57,7 +57,7 @@ model::TargetFeature ToModelTarget(const session::RadarSceneTarget& target) {
                                       target.velocity_z * target.velocity_z);
   out.current_track_rcs = target.rcs;
   out.range_m = target.range_m;
-  out.has_cartesian_position = target.has_cartesian_position;
+  out.has_cartesian_position = true;
   out.position_x = target.position_x;
   out.position_y = target.position_y;
   out.position_z = target.position_z;
@@ -70,6 +70,30 @@ model::TargetFeatureList ToModelTargets(const session::RadarSceneTargetList& tar
   out.reserve(targets.size());
   for (std::size_t i = 0; i < targets.size(); ++i) {
     out.push_back(ToModelTarget(targets[i]));
+  }
+  return out;
+}
+
+session::RadarSceneTarget ToSceneTarget(const model::TargetFeature& target) {
+  session::RadarSceneTarget out;
+  out.external_target_id = target.external_target_id;
+  out.velocity_x = target.current_track_velocity_x;
+  out.velocity_y = target.current_track_velocity_y;
+  out.velocity_z = target.current_track_velocity_z;
+  out.rcs = target.current_track_rcs;
+  out.range_m = target.range_m;
+  out.position_x = target.position_x;
+  out.position_y = target.position_y;
+  out.position_z = target.position_z;
+  out.target_swerling_type = target.target_swerling_type;
+  return out;
+}
+
+session::RadarSceneTargetList ToSceneTargets(const model::TargetFeatureList& targets) {
+  session::RadarSceneTargetList out;
+  out.reserve(targets.size());
+  for (std::size_t i = 0; i < targets.size(); ++i) {
+    out.push_back(ToSceneTarget(targets[i]));
   }
   return out;
 }
@@ -90,13 +114,14 @@ environment::EnvironmentModelConfig BuildJammingEnvironmentConfig(float jammer_p
 class FakeRadarContext : public extension::IRadarContext {
  public:
   /// @brief 构造函数，注入固定的输入状态。
-  explicit FakeRadarContext(model::TargetFeatureList state) : state_(std::move(state)) {}
+  explicit FakeRadarContext(model::TargetFeatureList state)
+      : scene_targets_(ToSceneTargets(state)) {}
 
-  /// @brief 获取当前雷达状态。
-  const model::TargetFeatureList& GetTargetFeatures() const override { return state_; }
+  /// @brief 获取当前雷达场景目标输入。
+  const session::RadarSceneTargetList& GetSceneTargets() const override { return scene_targets_; }
 
   void BeginCycle(const session::RadarCycleInput& input) override {
-    state_ = ToModelTargets(input.scene);
+    scene_targets_ = input.scene;
     platform_attitude_deg_.yaw_deg = input.platform_pose.attitude_deg.yaw_deg;
     platform_attitude_deg_.pitch_deg = input.platform_pose.attitude_deg.pitch_deg;
     platform_attitude_deg_.roll_deg = input.platform_pose.attitude_deg.roll_deg;
@@ -138,7 +163,7 @@ class FakeRadarContext : public extension::IRadarContext {
 
   extension::RadarContextRuntimeState CaptureRuntimeState() const override {
     extension::RadarContextRuntimeState state;
-    state.target_features = state_;
+    state.scene_targets = scene_targets_;
     state.platform_pose.attitude_deg = platform_attitude_deg_;
     state.cycle_dt_sec = cycle_dt_sec_;
     state.submitted_commands = submitted_commands_;
@@ -148,7 +173,7 @@ class FakeRadarContext : public extension::IRadarContext {
   }
 
   void RestoreRuntimeState(const extension::RadarContextRuntimeState& state) override {
-    state_ = state.target_features;
+    scene_targets_ = state.scene_targets;
     platform_attitude_deg_ = state.platform_pose.attitude_deg;
     cycle_dt_sec_ = state.cycle_dt_sec;
     submitted_commands_ = state.submitted_commands;
@@ -170,10 +195,12 @@ class FakeRadarContext : public extension::IRadarContext {
   void SetCycleDeltaTimeSec(float cycle_dt_sec) { cycle_dt_sec_ = cycle_dt_sec; }
 
   /// @brief 设置当前周期目标列表。
-  void SetTargetFeatures(model::TargetFeatureList state) { state_ = std::move(state); }
+  void SetTargetFeatures(model::TargetFeatureList state) {
+    scene_targets_ = ToSceneTargets(state);
+  }
 
  private:
-  model::TargetFeatureList state_;
+  session::RadarSceneTargetList scene_targets_{};
   model::PlatformAttitudeDeg platform_attitude_deg_{};
   float cycle_dt_sec_{1.0f};
   std::vector<extension::control::RadarCommand> submitted_commands_;
@@ -231,7 +258,7 @@ class CoreControllerTest : public ::testing::Test {};
 
 class AbortingSignalPipeline : public extension::ISignalPipeline {
  public:
-  extension::SignalCycleResult RunCycle(const model::TargetFeatureList&,
+  extension::SignalCycleResult RunCycle(const session::RadarSceneTargetList&,
                                         const environment::IEnvironmentService&) override {
     extension::SignalCycleResult result;
     result.executed_this_cycle = should_execute_;

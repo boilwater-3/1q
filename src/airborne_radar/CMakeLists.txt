@@ -2,7 +2,6 @@
 
 set(AIRBORNE_COMMON_SOURCES
     airborne_radar/output/TrackOutputQueries.cpp
-    airborne_radar/model/TargetFeatureUtils.cpp
 )
 
 set(AIRBORNE_SIGNAL_SOURCES
@@ -57,7 +56,6 @@ set(AIRBORNE_CORE_SOURCES
     airborne_radar/config/mapping/RuntimePatchMapper.cpp
     airborne_radar/session/MutableRadarContext.cpp
     airborne_radar/session/RadarInputValidation.cpp
-    airborne_radar/session/RadarSceneTargetConversion.cpp
     airborne_radar/session/RadarSceneTargetUtils.cpp
     airborne_radar/runtime/ControlCommandMapper.cpp
     airborne_radar/runtime/CycleTelemetryLogger.cpp
@@ -96,11 +94,9 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/RadarOrientationConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/TargetCategory.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/TargetFeature.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/TargetFeatureBuilder.h
     )
     set(PUBLIC_HEADERS_COMMON_UTILS
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/JammingSemantics.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/TargetFeatureUtils.h
     )
     set(PUBLIC_HEADERS_COMMON_OUTPUT
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/output/TrackOutputFrame.h
