@@ -36,10 +36,10 @@ void InterceptPipeline::UpdateRuntimeConfig(extension::InterceptRuntimeConfig ru
   runtime_config_ = std::move(runtime_config);
 }
 
-extension::InterceptCycleResult InterceptPipeline::RunCycle(
+output::EsrOutputFrame InterceptPipeline::RunCycle(
     const session::EsrCycleInput& input_state,
     const environment::IEsrEnvironmentService& environment_service) {
-  extension::InterceptCycleResult result;
+  output::EsrOutputFrame result;
   if (!runtime_config_.sensor_enabled) {
     return result;
   }

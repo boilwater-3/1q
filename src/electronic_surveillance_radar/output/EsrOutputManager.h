@@ -9,7 +9,6 @@
 #include <cstdint>
 
 #include "1q/electronic_surveillance_radar/output/EsrOutputFrame.h"
-#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
 
 namespace electronic_surveillance_radar {
 namespace output {
@@ -26,8 +25,8 @@ class EsrOutputManager final {
    * @param[in] cycle_result 流水线结果。
    * @return 组装后的输出帧。
    */
-  output::EsrOutputFrame BuildOutputFrame(std::uint32_t cycle_index, std::uint64_t batch_id,
-                                          const extension::InterceptCycleResult& cycle_result) const;
+  void StampOutputFrame(std::uint32_t cycle_index, std::uint64_t batch_id,
+                       output::EsrOutputFrame& frame) const;
 
   /**
    * @brief 构造空内容输出帧。

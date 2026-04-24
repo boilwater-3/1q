@@ -10,7 +10,6 @@
 #include <cstdint>
 
 #include "1q/api.hpp"
-#include "1q/electronic_surveillance_radar/output/EsrOutputFrame.h"
 
 namespace electronic_surveillance_radar {
 namespace extension {
@@ -178,17 +177,6 @@ enum class EsrPipelineAbortReason {
   kValidationRejected,          /**< 因输入级严重校验问题（Error）而主动放弃计算 */
   kRuntimeStateRestoreRejected, /**< 因运行时状态回滚失败引发阻断 */
   kOutputContractViolation      /**< 下游计算返回的契约非法或状态错乱 */
-};
-
-/**
- * @brief InterceptCycleResult 描述单周期流水线输出。
- */
-struct ONEQ_API InterceptCycleResult {
-  std::size_t raw_observation_count{0U};                   /**< 检测阶段原始观测记录数 */
-  std::size_t cluster_count{0U};                           /**< 后处理阶段最终聚类簇数 */
-  model::EmitterObservationList observations{};           /**< 当前周期观测记录 */
-  model::EmitterHypothesisList emitter_hypotheses{};      /**< 当前周期辐射源假设 */
-  output::TruthAssociationRecordList truth_associations{}; /**< 当前周期真值评估关联记录 */
 };
 
 }  // namespace extension

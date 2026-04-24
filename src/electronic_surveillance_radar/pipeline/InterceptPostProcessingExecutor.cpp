@@ -232,13 +232,13 @@ internal::ClusterSummary BuildClusterSummary(
 
 }  // namespace
 
-extension::InterceptCycleResult InterceptPostProcessingExecutor::Execute(
+output::EsrOutputFrame InterceptPostProcessingExecutor::Execute(
     const std::vector<RawObservationRecord>& raw_records, const extension::IEsrContext& ctx,
     ObservationPreprocessor& preprocessor, KdTreeClusterer& clusterer,
     HypothesisAssociator& associator, const ObservationFeatureScales& feature_scales,
     std::uint64_t& next_hypothesis_id) {
-  extension::InterceptCycleResult result;
-  result.raw_observation_count = raw_records.size();
+  output::EsrOutputFrame result;
+  result.observation_output.raw_observation_count = raw_records.size();
 
   const auto& config = ctx.GetPipelineConfig();
 
@@ -247,9 +247,9 @@ extension::InterceptCycleResult InterceptPostProcessingExecutor::Execute(
       preprocessor.Run(raw_records, config.preprocess);
 
   // Extract observations
-  result.observations.reserve(records.size());
+  result.observation_output.observations.reserve(records.size());
   for (std::size_t i = 0; i < records.size(); ++i) {
-    result.observations.push_back(records[i].observation);
+    result.observation_output.observations.push_back(records[i].observation);
   }
 
   // Feature encoding
@@ -272,7 +272,7 @@ extension::InterceptCycleResult InterceptPostProcessingExecutor::Execute(
               }
               return lhs.front() < rhs.front();
             });
-  result.cluster_count = cluster_result.clusters.size();
+  result.observation_output.cluster_count = cluster_result.clusters.size();
 
   // Cluster summaries
   std::vector<ClusterSummary> cluster_summaries;
@@ -285,7 +285,7 @@ extension::InterceptCycleResult InterceptPostProcessingExecutor::Execute(
 
   // Hypothesis association
   associator.UpdateConfig(config.association);
-  result.emitter_hypotheses =
+  result.emitter_output.hypotheses =
       associator.Update(ctx.GetCycleIndex(), cluster_summaries, &next_hypothesis_id);
 
   // Truth evaluation
@@ -302,7 +302,7 @@ extension::InterceptCycleResult InterceptPostProcessingExecutor::Execute(
                                        records[i].observation.snr_db,
                                        records[i].observation.is_jammed))
                                  : 0.1f;
-    result.truth_associations.push_back(association);
+    result.truth_evaluation_output.associations.push_back(association);
     if (association.matched) {
       observed_truth_ids.insert(records[i].truth_emitter_id);
     }
@@ -320,7 +320,7 @@ extension::InterceptCycleResult InterceptPostProcessingExecutor::Execute(
     missed_association.truth_emitter_id = scene_emitters[i].emitter_id;
     missed_association.matched = false;
     missed_association.confidence = 0.0f;
-    result.truth_associations.push_back(missed_association);
+    result.truth_evaluation_output.associations.push_back(missed_association);
   }
 
   return result;

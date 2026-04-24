@@ -63,16 +63,16 @@ TEST(EsrOutputManagerTest, BuildEmptyFrameSetsTopLevelHeader) {
   EXPECT_TRUE(frame.truth_evaluation_output.associations.empty());
 }
 
-TEST(EsrOutputManagerTest, BuildOutputFrameMovesCycleResults) {
+TEST(EsrOutputManagerTest, StampOutputFrameSetsHeaderAndPreservesData) {
   EsrOutputManager manager;
-  extension::InterceptCycleResult cycle_result;
-  cycle_result.observations.push_back(MakeObservation(1001U, 18.5f));
-  cycle_result.observations.push_back(MakeObservation(1002U, 7.5f));
-  cycle_result.emitter_hypotheses.push_back(MakeHypothesis(3001U, 0.82f));
-  cycle_result.truth_associations.push_back(MakeAssociation(1001U, "truth-a", true));
-  cycle_result.truth_associations.push_back(MakeAssociation(1002U, "UNASSOCIATED", false));
+  output::EsrOutputFrame frame;
+  frame.observation_output.observations.push_back(MakeObservation(1001U, 18.5f));
+  frame.observation_output.observations.push_back(MakeObservation(1002U, 7.5f));
+  frame.emitter_output.hypotheses.push_back(MakeHypothesis(3001U, 0.82f));
+  frame.truth_evaluation_output.associations.push_back(MakeAssociation(1001U, "truth-a", true));
+  frame.truth_evaluation_output.associations.push_back(MakeAssociation(1002U, "UNASSOCIATED", false));
 
-  const output::EsrOutputFrame frame = manager.BuildOutputFrame(8U, 104U, cycle_result);
+  manager.StampOutputFrame(8U, 104U, frame);
 
   EXPECT_EQ(frame.cycle_index, 8U);
   EXPECT_EQ(frame.batch_id, 104U);

@@ -38,11 +38,10 @@ void EsrRuntimeHooks::FreezeEnvironment(
 output::EsrOutputFrame EsrRuntimeHooks::Execute(
     const session::EsrCycleInput& cycle_input,
     const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
-  const extension::InterceptCycleResult intercept_result =
+  output::EsrOutputFrame output_frame =
       signal_processor_.Execute(cycle_input, environment_service_);
-  const output::EsrOutputFrame output_frame =
-      output_formatter_.BuildOutputFrame(stamp, intercept_result);
-  output_formatter_.LogCycleSummary(cycle_input, stamp, intercept_result, output_frame);
+  output_formatter_.BuildOutputFrame(stamp, output_frame);
+  output_formatter_.LogCycleSummary(cycle_input, stamp, output_frame);
 
   last_cycle_executed_ = true;
   last_cycle_reused_previous_output_ = false;

@@ -23,11 +23,11 @@ namespace {
 
 class DummyInterceptPipeline : public extension::IInterceptPipeline {
  public:
-  extension::InterceptCycleResult RunCycle(
+  output::EsrOutputFrame RunCycle(
       const session::EsrCycleInput& input_state,
       const environment::IEsrEnvironmentService& environment) override {
     (void)input_state;
-    extension::InterceptCycleResult result;
+    output::EsrOutputFrame result;
     const environment::EsrEnvironmentSnapshot snapshot = environment.SampleEnvironment();
     (void)snapshot;
     return result;

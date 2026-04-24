@@ -11,7 +11,7 @@ class EsrSignalProcessor {
  public:
   explicit EsrSignalProcessor(extension::IInterceptPipeline& pipeline);
 
-  extension::InterceptCycleResult Execute(const session::EsrCycleInput& cycle_input,
+  output::EsrOutputFrame Execute(const session::EsrCycleInput& cycle_input,
                                           const environment::IEsrEnvironmentService& environment)
       const;
 

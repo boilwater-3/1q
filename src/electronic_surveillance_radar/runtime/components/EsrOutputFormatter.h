@@ -3,7 +3,6 @@
 
 #include "1q/electronic_surveillance_radar/output/EsrOutputFrame.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
-#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
 #include "common/runtime/RuntimeCycleExecutor.h"
 #include "electronic_surveillance_radar/output/EsrOutputManager.h"
 
@@ -15,16 +14,15 @@ class EsrOutputFormatter {
  public:
   explicit EsrOutputFormatter(output::EsrOutputManager& output_manager);
 
-  output::EsrOutputFrame BuildOutputFrame(
+  void BuildOutputFrame(
       const oneq::internal::runtime::RuntimeCycleStamp& stamp,
-      const extension::InterceptCycleResult& intercept_result) const;
+      output::EsrOutputFrame& cycle_frame) const;
 
   output::EsrOutputFrame BuildEmptyFrame(
       const oneq::internal::runtime::RuntimeCycleStamp& stamp) const;
 
   void LogCycleSummary(const session::EsrCycleInput& cycle_input,
                        const oneq::internal::runtime::RuntimeCycleStamp& stamp,
-                       const extension::InterceptCycleResult& intercept_result,
                        const output::EsrOutputFrame& output_frame) const;
 
  private:

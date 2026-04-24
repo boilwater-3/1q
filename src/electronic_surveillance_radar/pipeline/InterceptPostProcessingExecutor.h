@@ -15,6 +15,7 @@
 
 #include "1q/electronic_surveillance_radar/extension/IEsrContext.h"
 #include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
+#include "1q/electronic_surveillance_radar/output/EsrOutputFrame.h"
 #include "electronic_surveillance_radar/pipeline/HypothesisAssociator.h"
 #include "electronic_surveillance_radar/pipeline/KdTreeClusterer.h"
 #include "electronic_surveillance_radar/pipeline/ObservationPipelineTypes.h"
@@ -48,7 +49,7 @@ class InterceptPostProcessingExecutor {
    * @param[in,out] next_hypothesis_id 假设 ID 分配器。
    * @return 单周期流水线输出。
    */
-  extension::InterceptCycleResult Execute(const std::vector<RawObservationRecord>& raw_records,
+  output::EsrOutputFrame Execute(const std::vector<RawObservationRecord>& raw_records,
                                const extension::IEsrContext& ctx,
                                ObservationPreprocessor& preprocessor, KdTreeClusterer& clusterer,
                                HypothesisAssociator& associator,

@@ -6,6 +6,7 @@
 #ifndef ELECTRONIC_SURVEILLANCE_RADAR_OUTPUT_ESR_OUTPUT_FRAME_H_
 #define ELECTRONIC_SURVEILLANCE_RADAR_OUTPUT_ESR_OUTPUT_FRAME_H_
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -34,7 +35,9 @@ using TruthAssociationRecordList = std::vector<TruthAssociationRecord>;
  * @brief ObservationOutputFrame 表示观测输出通道。
  */
 struct ONEQ_API ObservationOutputFrame {
-  model::EmitterObservationList observations{}; /**< 当前周期观测记录 */
+  std::size_t raw_observation_count{0U};               /**< 预处理前原始检测记录数 */
+  std::size_t cluster_count{0U};                       /**< 聚类后簇数 */
+  model::EmitterObservationList observations{};        /**< 当前周期观测记录 */
 };
 
 /**
