@@ -39,7 +39,7 @@ void CollectCycleOutputs(const extension::control::RadarControlProfile& control_
                          std::uint32_t cycle_index, std::uint64_t batch_id,
                          const ExecutionConfig& runtime_config,
                          const environment::EnvironmentSnapshot& environment_snapshot,
-                         const model::TargetFeatureList& input_state,
+                         const session::RadarSceneTargetList& input_state,
                          const association::AssociationResult& association_result,
                          const std::vector<tracking::TrackMeasurement>& track_measurements,
                          tracking::ITrackLifecycleManager* auto_lifecycle_manager,

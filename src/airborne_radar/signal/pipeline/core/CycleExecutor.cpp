@@ -21,7 +21,7 @@ namespace internal {
 namespace {
 
 CycleExecutionContract BuildCycleExecutionContract(
-    const model::TargetFeatureList& input_state,
+    const session::RadarSceneTargetList& input_state,
     const environment::EnvironmentSnapshot& environment_snapshot, std::uint32_t cycle_index,
     std::uint64_t batch_id, const CycleExecutionRuntime& runtime) {
   const assembly::internal::ResolvedRuntimePipelineConfig resolved =
@@ -156,7 +156,7 @@ void AssembleOutputs(std::uint32_t cycle_index, std::uint64_t batch_id,
 
 }  // namespace
 
-bool ExecuteCycle(const model::TargetFeatureList& input_state,
+bool ExecuteCycle(const session::RadarSceneTargetList& input_state,
                   const environment::EnvironmentSnapshot& environment_snapshot,
                   std::uint32_t cycle_index, std::uint64_t batch_id,
                   const CycleExecutionRuntime& runtime, CycleExecutionScratch& cycle_scratch) {

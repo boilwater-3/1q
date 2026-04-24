@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/model/DecisionInputFrame.h"
-#include "1q/airborne_radar/model/TargetFeature.h"
+#include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
 #include "airborne_radar/signal/pipeline/config/SignalPipelineExecutionConfig.h"
@@ -26,7 +26,7 @@ namespace pipeline {
 namespace internal {
 
 struct CycleWorkspace {
-  model::TargetFeatureList* output_state{nullptr};
+  session::RadarSceneTargetList* output_state{nullptr};
   model::DecisionInputFrame* decision_frame{nullptr};
   AssociationQualityMetrics* association_quality_metrics{nullptr};
   std::vector<tracking::TrackMeasurement>* track_measurements{nullptr};
@@ -41,7 +41,7 @@ struct CycleWorkspace {
   association::AssociationResult* association_result{nullptr};
 };
 
-void ResetCycleWorkspace(const model::TargetFeatureList& input_state,
+void ResetCycleWorkspace(const session::RadarSceneTargetList& input_state,
                          const ExecutionConfig& runtime_config, CycleWorkspace* workspace);
 
 void RefreshMeasurementCovariances(

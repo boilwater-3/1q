@@ -27,7 +27,7 @@ namespace pipeline {
 namespace internal {
 
 struct CycleExecutionScratch {
-  model::TargetFeatureList output_state;
+  session::RadarSceneTargetList output_state;
   std::vector<tracking::TrackMeasurement> track_measurements;
   model::DecisionInputFrame decision_frame{};
   AssociationQualityMetrics association_quality_metrics{};
@@ -72,7 +72,7 @@ struct CycleExecutionRuntime {
 };
 
 struct CycleExecutionContract {
-  CycleExecutionContract(const model::TargetFeatureList& input_state,
+  CycleExecutionContract(const session::RadarSceneTargetList& input_state,
                          const environment::EnvironmentSnapshot& environment_snapshot,
                          std::uint32_t cycle_index, std::uint64_t batch_id,
                          ExecutionConfig runtime_config)
@@ -82,7 +82,7 @@ struct CycleExecutionContract {
         batch_id(batch_id),
         runtime_config(std::move(runtime_config)) {}
 
-  const model::TargetFeatureList& input_state;
+  const session::RadarSceneTargetList& input_state;
   const environment::EnvironmentSnapshot& environment_snapshot;
   std::uint32_t cycle_index{0U};
   std::uint64_t batch_id{0U};
@@ -128,7 +128,7 @@ struct MeasurementBuildPhaseOutput {
   const std::vector<tracking::TrackMeasurement>& track_measurements;
 };
 
-bool ExecuteCycle(const model::TargetFeatureList& input_state,
+bool ExecuteCycle(const session::RadarSceneTargetList& input_state,
                   const environment::EnvironmentSnapshot& environment_snapshot,
                   std::uint32_t cycle_index, std::uint64_t batch_id,
                   const CycleExecutionRuntime& runtime, CycleExecutionScratch& cycle_scratch);

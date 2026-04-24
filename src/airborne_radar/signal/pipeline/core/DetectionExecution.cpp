@@ -73,10 +73,10 @@ float ComputeEquivalentRadiusM(float input_rcs_m2,
   return ClampToRange(equivalent_radius_m, min_radius_m, max_radius_m);
 }
 
-float ComputeEffectiveTargetRcsM2(const model::TargetFeature& target,
+float ComputeEffectiveTargetRcsM2(const session::RadarSceneTarget& target,
                                   const detection::ResolvedTargetGeometry& geometry,
                                   const ExecutionConfig& exec_config) {
-  const float input_rcs_m2 = std::max(target.current_track_rcs, 0.0f);
+  const float input_rcs_m2 = std::max(target.rcs, 0.0f);
   const config::engineering::RcsPhysicsConfig& rcs_config =
       exec_config.detection_engineering.rcs_physics;
   if (!rcs_config.enable_physical_rcs) {
@@ -137,8 +137,7 @@ tracking::MeasurementCovariance BuildMeasurementCovariance(
   const float range_m = std::max(geometry.range_m, 0.1f);
   const float var_r = range_error_std * range_error_std;
   const float var_theta = angle_error_std * angle_error_std;
-  Eigen::Vector3f pos =
-      geometry.has_cartesian_position ? geometry.position_m : Eigen::Vector3f(range_m, 0.0f, 0.0f);
+  Eigen::Vector3f pos = geometry.position_m;
   const float pos_norm = pos.norm();
   if (pos_norm > 0.1f) {
     const Eigen::Vector3f u = pos / pos_norm;
@@ -158,7 +157,7 @@ bool HasValidBuffers(const DetectionExecutionBuffers& buffers) {
 
 }  // namespace
 
-void RunHeuristicDetectionPass(const model::TargetFeatureList& input, const ExecutionConfig& config,
+void RunHeuristicDetectionPass(const session::RadarSceneTargetList& input, const ExecutionConfig& config,
                                const extension::control::RadarControlProfile& control_profile,
                                const environment::EnvironmentSnapshot& environment_snapshot,
                                DetectionExecutionBuffers* buffers) {
@@ -193,7 +192,7 @@ void RunHeuristicDetectionPass(const model::TargetFeatureList& input, const Exec
   }
 }
 
-void RunPhysicalDetectionPass(const model::TargetFeatureList& input, const ExecutionConfig& config,
+void RunPhysicalDetectionPass(const session::RadarSceneTargetList& input, const ExecutionConfig& config,
                               const extension::control::RadarControlProfile& control_profile,
                               const environment::EnvironmentSnapshot& environment_snapshot,
                               detection::SignalDetector* signal_detector,

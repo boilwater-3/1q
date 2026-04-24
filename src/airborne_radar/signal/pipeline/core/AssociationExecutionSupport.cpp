@@ -25,7 +25,7 @@ void PrepareAssociationSeedsForCycle(
   association_engine->ResetAssociationSeedModeToStateless();
 }
 
-void RunAssociationPass(const model::TargetFeatureList& input_state,
+void RunAssociationPass(const session::RadarSceneTargetList& input_state,
                         const std::vector<std::uint8_t>& detection_succeeded,
                         const std::vector<tracking::MeasurementCovariance>& measurement_covariances,
                         float dt_sec, association::DataAssociationEngine* association_engine,

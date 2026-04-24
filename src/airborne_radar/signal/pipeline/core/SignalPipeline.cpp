@@ -37,34 +37,6 @@ bool HasValidEnvironmentCycle(const environment::EnvironmentSnapshot& snapshot) 
   return std::isfinite(snapshot.cycle_dt_sec) != 0 && snapshot.cycle_dt_sec > 0.0f;
 }
 
-model::TargetFeature ToModelTargetFeature(const session::RadarSceneTarget& input) {
-  model::TargetFeature out;
-  out.external_target_id = input.external_target_id;
-  out.current_track_velocity_x = input.velocity_x;
-  out.current_track_velocity_y = input.velocity_y;
-  out.current_track_velocity_z = input.velocity_z;
-  out.current_track_speed =
-      std::sqrt(input.velocity_x * input.velocity_x + input.velocity_y * input.velocity_y +
-                input.velocity_z * input.velocity_z);
-  out.current_track_rcs = input.rcs;
-  out.range_m = input.range_m;
-  out.has_cartesian_position = true;
-  out.position_x = input.position_x;
-  out.position_y = input.position_y;
-  out.position_z = input.position_z;
-  out.target_swerling_type = input.target_swerling_type;
-  return out;
-}
-
-model::TargetFeatureList ToModelTargetFeatureList(const session::RadarSceneTargetList& input) {
-  model::TargetFeatureList out;
-  out.reserve(input.size());
-  for (std::size_t i = 0; i < input.size(); ++i) {
-    out.push_back(ToModelTargetFeature(input[i]));
-  }
-  return out;
-}
-
 struct RuntimeConfigState {
   explicit RuntimeConfigState(ExecutionConfig initial_config)
       : base_config(std::move(initial_config)) {}
@@ -142,7 +114,7 @@ struct SignalPipeline::Impl {
 
   extension::SignalCycleResult RunCycle(const session::RadarSceneTargetList& scene_targets,
                                         const environment::IEnvironmentService& environment) {
-    const model::TargetFeatureList input_state = ToModelTargetFeatureList(scene_targets);
+    const session::RadarSceneTargetList& input_state = scene_targets;
 
     if (runtime_.owned.auto_lifecycle_manager == nullptr) {
       PROJECT_LOG_ERROR(

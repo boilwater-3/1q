@@ -9,7 +9,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "1q/airborne_radar/model/TargetFeature.h"
+#include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "1q/airborne_radar/model/JammingSemantics.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
@@ -27,7 +27,7 @@ namespace internal {
  */
 struct TrackMeasurementBuildContext {
   TrackMeasurementBuildContext(
-      const model::TargetFeatureList& input,
+      const session::RadarSceneTargetList& input,
       const association::AssociationResult& association_result,
       const std::vector<std::uint8_t>& detection_succeeded,
       const std::vector<std::uint64_t>& association_keys,
@@ -50,7 +50,7 @@ struct TrackMeasurementBuildContext {
         measurement_slots(measurement_slots),
         track_measurements(track_measurements) {}
 
-  const model::TargetFeatureList& input;            /**< 输入目标列表 */
+  const session::RadarSceneTargetList& input;            /**< 输入目标列表 */
   const association::AssociationResult& association_result; /**< 关联匹配结果 */
   const std::vector<std::uint8_t>& detection_succeeded;     /**< 各目标探测成功标志 */
   const std::vector<std::uint64_t>& association_keys;       /**< 各目标关联键 */
@@ -75,7 +75,7 @@ void BuildTrackMeasurementsPass(const TrackMeasurementBuildContext& context);
  * @brief TrackFilterApplyContext 汇聚滤波应用阶段的输入与输出绑定。
  */
 struct TrackFilterApplyContext {
-  TrackFilterApplyContext(const model::TargetFeatureList& input, model::TargetFeatureList& output,
+  TrackFilterApplyContext(const session::RadarSceneTargetList& input, session::RadarSceneTargetList& output,
                           const std::vector<std::uint8_t>& detection_succeeded,
                           const std::vector<float>& detection_margin_db, bool jamming_detected,
                           model::JammingSemantic dominant_jamming_semantic, float jamming_severity,
@@ -93,8 +93,8 @@ struct TrackFilterApplyContext {
         measurement_slots(measurement_slots),
         track_measurements(track_measurements) {}
 
-  const model::TargetFeatureList& input;        /**< 输入目标列表 */
-  model::TargetFeatureList& output;             /**< 输出目标列表 */
+  const session::RadarSceneTargetList& input;        /**< 输入目标列表 */
+  session::RadarSceneTargetList& output;             /**< 输出目标列表 */
   const std::vector<std::uint8_t>& detection_succeeded; /**< 各目标探测成功标志 */
   const std::vector<float>& detection_margin_db;        /**< 各目标探测裕量（dB） */
   bool jamming_detected{false};                                  /**< 是否检测到干扰 */

@@ -9,7 +9,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "1q/airborne_radar/model/TargetFeature.h"
+#include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "1q/airborne_radar/model/JammingSemantics.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
@@ -32,7 +32,7 @@ namespace internal {
  * @param[out] workspace 待初始化的周期工作区。
  */
 CycleWorkspace BuildCycleWorkspaceBindings(
-    model::TargetFeatureList* output_state,
+    session::RadarSceneTargetList* output_state,
     model::DecisionInputFrame* decision_frame,
     AssociationQualityMetrics* association_quality_metrics,
     std::vector<tracking::TrackMeasurement>* track_measurements, std::vector<float>* signal_term_db,
@@ -74,7 +74,7 @@ DetectionExecutionBuffers BuildDetectionExecutionBuffers(
  * @param[out] track_measurements 跟踪量测输出。
  */
 TrackMeasurementBuildContext BuildTrackMeasurementBuildContextBindings(
-    const model::TargetFeatureList& input,
+    const session::RadarSceneTargetList& input,
     const association::AssociationResult& association_result,
     const std::vector<std::uint8_t>& detection_succeeded,
     const std::vector<std::uint64_t>& association_keys,
@@ -99,7 +99,7 @@ TrackMeasurementBuildContext BuildTrackMeasurementBuildContextBindings(
  * @param[out] track_measurements 跟踪量测输出。
  */
 TrackFilterApplyContext BuildTrackFilterApplyContextBindings(
-    const model::TargetFeatureList& input, model::TargetFeatureList& output,
+    const session::RadarSceneTargetList& input, session::RadarSceneTargetList& output,
     const std::vector<std::uint8_t>& detection_succeeded,
     const std::vector<float>& detection_margin_db, bool jamming_detected,
     model::JammingSemantic dominant_jamming_semantic, float jamming_severity,

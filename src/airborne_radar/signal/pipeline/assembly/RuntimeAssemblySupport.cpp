@@ -146,11 +146,11 @@ class AutoConfiguredLifecycleManager final : public tracking::ITrackLifecycleMan
     assembly_.lifecycle_manager->Update(cycle, measurements);
   }
 
-  model::TargetFeatureList BuildFeatureSnapshot() const override {
+  session::RadarSceneTargetList BuildSceneTargetSnapshot() const override {
     if (assembly_.lifecycle_manager == nullptr) {
-      return model::TargetFeatureList();
+      return session::RadarSceneTargetList();
     }
-    return assembly_.lifecycle_manager->BuildFeatureSnapshot();
+    return assembly_.lifecycle_manager->BuildSceneTargetSnapshot();
   }
 
   model::TrackStateSnapshotList BuildTrackStateSnapshots() const override {

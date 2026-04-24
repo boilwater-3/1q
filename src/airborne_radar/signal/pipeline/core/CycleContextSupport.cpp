@@ -24,7 +24,7 @@ bool HasValidCycleWorkspace(const CycleWorkspace& workspace) {
 
 }  // namespace
 
-void ResetCycleWorkspace(const model::TargetFeatureList& input_state,
+void ResetCycleWorkspace(const session::RadarSceneTargetList& input_state,
                          const ExecutionConfig& runtime_config, CycleWorkspace* workspace) {
   (void)runtime_config;
   if (workspace == nullptr || !HasValidCycleWorkspace(*workspace)) {

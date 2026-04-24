@@ -6,7 +6,7 @@ namespace pipeline {
 namespace internal {
 
 CycleWorkspace BuildCycleWorkspaceBindings(
-    model::TargetFeatureList* output_state,
+    session::RadarSceneTargetList* output_state,
     model::DecisionInputFrame* decision_frame,
     AssociationQualityMetrics* association_quality_metrics,
     std::vector<tracking::TrackMeasurement>* track_measurements, std::vector<float>* signal_term_db,
@@ -49,7 +49,7 @@ DetectionExecutionBuffers BuildDetectionExecutionBuffers(
 }
 
 TrackMeasurementBuildContext BuildTrackMeasurementBuildContextBindings(
-    const model::TargetFeatureList& input,
+    const session::RadarSceneTargetList& input,
     const association::AssociationResult& association_result,
     const std::vector<std::uint8_t>& detection_succeeded,
     const std::vector<std::uint64_t>& association_keys,
@@ -66,7 +66,7 @@ TrackMeasurementBuildContext BuildTrackMeasurementBuildContextBindings(
 }
 
 TrackFilterApplyContext BuildTrackFilterApplyContextBindings(
-    const model::TargetFeatureList& input, model::TargetFeatureList& output,
+    const session::RadarSceneTargetList& input, session::RadarSceneTargetList& output,
     const std::vector<std::uint8_t>& detection_succeeded,
     const std::vector<float>& detection_margin_db, bool jamming_detected,
     model::JammingSemantic dominant_jamming_semantic, float jamming_severity,

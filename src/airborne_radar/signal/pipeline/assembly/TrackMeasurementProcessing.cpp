@@ -32,13 +32,12 @@ const association::AssociationMatch* FindAssociationMatch(
  * @param target  目标特征数据。
  * @return 当三维速度分量非零时返回对应矢量，否则沿 X 轴方向构造矢量。
  */
-Eigen::Vector3f ResolveVelocityVector(const model::TargetFeature& target) {
-  const Eigen::Vector3f velocity(target.current_track_velocity_x, target.current_track_velocity_y,
-                                 target.current_track_velocity_z);
+Eigen::Vector3f ResolveVelocityVector(const session::RadarSceneTarget& target) {
+  const Eigen::Vector3f velocity(target.velocity_x, target.velocity_y, target.velocity_z);
   if (velocity.squaredNorm() > 0.0f) {
     return velocity;
   }
-  return Eigen::Vector3f(target.current_track_speed, 0.0f, 0.0f);
+  return Eigen::Vector3f::Zero();
 }
 
 }  // namespace
@@ -66,10 +65,7 @@ void BuildTrackMeasurementsPass(const TrackMeasurementBuildContext& context) {
     measurement.raw_measurement.used_external_association_seeds =
         context.association_result.used_external_association_seeds;
     measurement.raw_measurement.detection_margin_db = context.detection_margin_db[i];
-    measurement.raw_measurement.has_cartesian_position = context.target_geometry[i].has_cartesian_position;
-    measurement.raw_measurement.position = measurement.raw_measurement.has_cartesian_position
-                                               ? context.target_geometry[i].position_m
-                                               : Eigen::Vector3f::Zero();
+    measurement.raw_measurement.position = context.target_geometry[i].position_m;
     measurement.raw_measurement.measurement_covariance = context.measurement_covariances[i];
     measurement.filtered_feature.jamming_detected = context.jamming_detected;
     measurement.filtered_feature.dominant_jamming_semantic = context.dominant_jamming_semantic;
@@ -100,7 +96,7 @@ void ApplyTrackFilterPass(const TrackFilterApplyContext& context) {
         context.track_measurements[static_cast<std::size_t>(measurement_slot)];
     measurement.filtered_feature.observed_speed = ResolveSpeedMagnitude(context.output[i]);
     measurement.filtered_feature.velocity = ResolveVelocityVector(context.output[i]);
-    measurement.filtered_feature.rcs = context.output[i].current_track_rcs;
+    measurement.filtered_feature.rcs = context.output[i].rcs;
     measurement.filtered_feature.jamming_detected = context.jamming_detected;
     measurement.filtered_feature.dominant_jamming_semantic = context.dominant_jamming_semantic;
     measurement.filtered_feature.jamming_severity = context.jamming_severity;
