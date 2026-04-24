@@ -45,7 +45,7 @@ bool IsFinite(T value) {
  * @param[in] platform_pose 平台位姿输入。
  * @param[out] issues 校验问题列表。
  */
-void ValidatePlatformPose(const model::EsrPoseState& platform_pose,
+void ValidatePlatformPose(const session::EsrPoseState& platform_pose,
                           ValidationIssueList* issues) {
   if (issues == nullptr) {
     return;

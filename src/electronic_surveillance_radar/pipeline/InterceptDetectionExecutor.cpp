@@ -7,7 +7,6 @@
 #include <limits>
 #include <utility>
 
-#include "1q/electronic_surveillance_radar/model/EmitterTruthState.h"
 #include "common/geometry/GeometryTransform.h"
 #include "common/numerics/SpectralNumerics.h"
 #include "common/timing/TimingRegimeModel.h"
@@ -64,7 +63,7 @@ double ComputeReceiveLossScale(float loss_db) {
  * @param[in] beam_state 发射源波束状态。
  * @return 历史默认值返回 `true`。
  */
-bool IsLegacyDefaultBeamState(const model::EmitterBeamState& beam_state) {
+bool IsLegacyDefaultBeamState(const session::EsrEmitterBeamState& beam_state) {
   return !beam_state.beam_state_valid;
 }
 
@@ -112,8 +111,8 @@ oneq::internal::timing::StatisticalDetectionParams ToTimingDetectionParams(
  * @param[in] emitter_state 辐射源状态。
  * @return 两者距离（单位：m）。
  */
-float ComputeRangeM(const model::EsrPoseState& platform_pose,
-                    const model::EmitterTruthState& emitter_state) {
+float ComputeRangeM(const session::EsrPoseState& platform_pose,
+                    const session::EsrSceneEmitter& emitter_state) {
   const float dx = emitter_state.pose.position_m.x - platform_pose.position_m.x;
   const float dy = emitter_state.pose.position_m.y - platform_pose.position_m.y;
   const float dz = emitter_state.pose.position_m.z - platform_pose.position_m.z;
@@ -125,7 +124,7 @@ float ComputeRangeM(const model::EsrPoseState& platform_pose,
  * @param[in] vector ESR 三维向量。
  * @return 共享几何三维向量。
  */
-oneq::internal::geometry::Vector3f ToGeometryVector(const model::EsrVector3f& vector) {
+oneq::internal::geometry::Vector3f ToGeometryVector(const session::EsrVector3f& vector) {
   oneq::internal::geometry::Vector3f result;
   result.x = vector.x;
   result.y = vector.y;
@@ -138,7 +137,7 @@ oneq::internal::geometry::Vector3f ToGeometryVector(const model::EsrVector3f& ve
  * @param[in] angle ESR 欧拉角。
  * @return 共享几何欧拉角。
  */
-oneq::internal::geometry::EulerAnglesDeg ToGeometryEuler(const model::EsrEulerAngleDeg& angle) {
+oneq::internal::geometry::EulerAnglesDeg ToGeometryEuler(const session::EsrEulerAngleDeg& angle) {
   oneq::internal::geometry::EulerAnglesDeg result;
   result.yaw_deg = angle.yaw_deg;
   result.pitch_deg = angle.pitch_deg;
@@ -153,7 +152,7 @@ oneq::internal::geometry::EulerAnglesDeg ToGeometryEuler(const model::EsrEulerAn
  * @return 接收机参考系下的方位/俯仰角（单位：deg）。
  */
 oneq::internal::geometry::AzimuthElevationDeg ComputeEmitterLookAngles(
-    const model::EsrPoseState& platform_pose, const model::EmitterTruthState& emitter_state) {
+    const session::EsrPoseState& platform_pose, const session::EsrSceneEmitter& emitter_state) {
   return oneq::internal::geometry::ComputeRelativeLineOfSightAzEl(
       ToGeometryVector(platform_pose.position_m), ToGeometryEuler(platform_pose.attitude_deg),
       ToGeometryVector(emitter_state.pose.position_m));
@@ -181,8 +180,8 @@ oneq::internal::geometry::AzimuthElevationDeg ApplyAntennaMountOffset(
  * @param[in] emitter_state 发射源状态。
  * @return 发射源波束覆盖比例，范围 [0, 1]。
  */
-float ComputeEmitterBeamOverlapRatio(const model::EsrPoseState& platform_pose,
-                                     const model::EmitterTruthState& emitter_state) {
+float ComputeEmitterBeamOverlapRatio(const session::EsrPoseState& platform_pose,
+                                     const session::EsrSceneEmitter& emitter_state) {
   if (IsLegacyDefaultBeamState(emitter_state.beam_state)) {
     return 1.0f;
   }
@@ -219,7 +218,7 @@ float ComputeEmitterBeamOverlapRatio(const model::EsrPoseState& platform_pose,
  * @return 发射源在当前周期的统一时序体制状态。
  */
 oneq::internal::timing::ResolvedCycleTimingState ResolveEmitterTimingState(
-    float dt_sec, const model::EmitterTruthState& emitter,
+    float dt_sec, const session::EsrSceneEmitter& emitter,
     const oneq::internal::timing::StatisticalDetectionParams& base_params) {
   oneq::internal::timing::CycleTimingBaseParams timing_base_params;
   timing_base_params.base_pulse_count = static_cast<int>(base_params.pulse_count);
@@ -439,7 +438,7 @@ InterceptDetectionOutput InterceptDetectionExecutor::Execute(const extension::IE
   std::uniform_real_distribution<float> uniform_01(0.0f, 1.0f);
 
   for (std::size_t i = 0; i < scene_emitters.size(); ++i) {
-    const model::EmitterTruthState& emitter = scene_emitters[i];
+    const session::EsrSceneEmitter& emitter = scene_emitters[i];
     if (!emitter.is_emitting || emitter.carrier_hz <= 0.0 || emitter.bandwidth_hz <= 0.0 ||
         emitter.tx_power_w <= 0.0) {
       continue;

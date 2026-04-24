@@ -19,8 +19,8 @@ struct PoseStateBuilder;
 struct EmitterBeamState;
 struct EmitterBeamStateBuilder;
 
-struct EmitterTruthState;
-struct EmitterTruthStateBuilder;
+struct SceneEmitter;
+struct SceneEmitterBuilder;
 
 struct EsrJammerSource;
 struct EsrJammerSourceBuilder;
@@ -259,8 +259,8 @@ inline flatbuffers::Offset<EmitterBeamState> CreateEmitterBeamState(
   return builder_.Finish();
 }
 
-struct EmitterTruthState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EmitterTruthStateBuilder Builder;
+struct SceneEmitter FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SceneEmitterBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_EMITTER_ID = 4,
     VT_POSE = 6,
@@ -317,50 +317,50 @@ struct EmitterTruthState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
-struct EmitterTruthStateBuilder {
-  typedef EmitterTruthState Table;
+struct SceneEmitterBuilder {
+  typedef SceneEmitter Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_emitter_id(flatbuffers::Offset<flatbuffers::String> emitter_id) {
-    fbb_.AddOffset(EmitterTruthState::VT_EMITTER_ID, emitter_id);
+    fbb_.AddOffset(SceneEmitter::VT_EMITTER_ID, emitter_id);
   }
   void add_pose(flatbuffers::Offset<esr::replay::PoseState> pose) {
-    fbb_.AddOffset(EmitterTruthState::VT_POSE, pose);
+    fbb_.AddOffset(SceneEmitter::VT_POSE, pose);
   }
   void add_carrier_hz(double carrier_hz) {
-    fbb_.AddElement<double>(EmitterTruthState::VT_CARRIER_HZ, carrier_hz, 0.0);
+    fbb_.AddElement<double>(SceneEmitter::VT_CARRIER_HZ, carrier_hz, 0.0);
   }
   void add_bandwidth_hz(double bandwidth_hz) {
-    fbb_.AddElement<double>(EmitterTruthState::VT_BANDWIDTH_HZ, bandwidth_hz, 0.0);
+    fbb_.AddElement<double>(SceneEmitter::VT_BANDWIDTH_HZ, bandwidth_hz, 0.0);
   }
   void add_tx_power_w(double tx_power_w) {
-    fbb_.AddElement<double>(EmitterTruthState::VT_TX_POWER_W, tx_power_w, 0.0);
+    fbb_.AddElement<double>(SceneEmitter::VT_TX_POWER_W, tx_power_w, 0.0);
   }
   void add_pulse_width_s(double pulse_width_s) {
-    fbb_.AddElement<double>(EmitterTruthState::VT_PULSE_WIDTH_S, pulse_width_s, 0.0);
+    fbb_.AddElement<double>(SceneEmitter::VT_PULSE_WIDTH_S, pulse_width_s, 0.0);
   }
   void add_pri_s(double pri_s) {
-    fbb_.AddElement<double>(EmitterTruthState::VT_PRI_S, pri_s, 0.0);
+    fbb_.AddElement<double>(SceneEmitter::VT_PRI_S, pri_s, 0.0);
   }
   void add_beam_state(flatbuffers::Offset<esr::replay::EmitterBeamState> beam_state) {
-    fbb_.AddOffset(EmitterTruthState::VT_BEAM_STATE, beam_state);
+    fbb_.AddOffset(SceneEmitter::VT_BEAM_STATE, beam_state);
   }
   void add_is_emitting(bool is_emitting) {
-    fbb_.AddElement<uint8_t>(EmitterTruthState::VT_IS_EMITTING, static_cast<uint8_t>(is_emitting), 0);
+    fbb_.AddElement<uint8_t>(SceneEmitter::VT_IS_EMITTING, static_cast<uint8_t>(is_emitting), 0);
   }
-  explicit EmitterTruthStateBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit SceneEmitterBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  EmitterTruthStateBuilder &operator=(const EmitterTruthStateBuilder &);
-  flatbuffers::Offset<EmitterTruthState> Finish() {
+  SceneEmitterBuilder &operator=(const SceneEmitterBuilder &);
+  flatbuffers::Offset<SceneEmitter> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<EmitterTruthState>(end);
+    auto o = flatbuffers::Offset<SceneEmitter>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<EmitterTruthState> CreateEmitterTruthState(
+inline flatbuffers::Offset<SceneEmitter> CreateSceneEmitter(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::String> emitter_id = 0,
     flatbuffers::Offset<esr::replay::PoseState> pose = 0,
@@ -371,7 +371,7 @@ inline flatbuffers::Offset<EmitterTruthState> CreateEmitterTruthState(
     double pri_s = 0.0,
     flatbuffers::Offset<esr::replay::EmitterBeamState> beam_state = 0,
     bool is_emitting = false) {
-  EmitterTruthStateBuilder builder_(_fbb);
+  SceneEmitterBuilder builder_(_fbb);
   builder_.add_pri_s(pri_s);
   builder_.add_pulse_width_s(pulse_width_s);
   builder_.add_tx_power_w(tx_power_w);
@@ -384,7 +384,7 @@ inline flatbuffers::Offset<EmitterTruthState> CreateEmitterTruthState(
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<EmitterTruthState> CreateEmitterTruthStateDirect(
+inline flatbuffers::Offset<SceneEmitter> CreateSceneEmitterDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const char *emitter_id = nullptr,
     flatbuffers::Offset<esr::replay::PoseState> pose = 0,
@@ -396,7 +396,7 @@ inline flatbuffers::Offset<EmitterTruthState> CreateEmitterTruthStateDirect(
     flatbuffers::Offset<esr::replay::EmitterBeamState> beam_state = 0,
     bool is_emitting = false) {
   auto emitter_id__ = emitter_id ? _fbb.CreateString(emitter_id) : 0;
-  return esr::replay::CreateEmitterTruthState(
+  return esr::replay::CreateSceneEmitter(
       _fbb,
       emitter_id__,
       pose,
@@ -693,8 +693,8 @@ struct EsrCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const esr::replay::PoseState *platform_pose() const {
     return GetPointer<const esr::replay::PoseState *>(VT_PLATFORM_POSE);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<esr::replay::EmitterTruthState>> *scene_emitters() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<esr::replay::EmitterTruthState>> *>(VT_SCENE_EMITTERS);
+  const flatbuffers::Vector<flatbuffers::Offset<esr::replay::SceneEmitter>> *scene_emitters() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<esr::replay::SceneEmitter>> *>(VT_SCENE_EMITTERS);
   }
   const esr::replay::EsrEnvironmentObservation *environment_observation() const {
     return GetPointer<const esr::replay::EsrEnvironmentObservation *>(VT_ENVIRONMENT_OBSERVATION);
@@ -727,7 +727,7 @@ struct EsrCycleInputBuilder {
   void add_platform_pose(flatbuffers::Offset<esr::replay::PoseState> platform_pose) {
     fbb_.AddOffset(EsrCycleInput::VT_PLATFORM_POSE, platform_pose);
   }
-  void add_scene_emitters(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<esr::replay::EmitterTruthState>>> scene_emitters) {
+  void add_scene_emitters(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<esr::replay::SceneEmitter>>> scene_emitters) {
     fbb_.AddOffset(EsrCycleInput::VT_SCENE_EMITTERS, scene_emitters);
   }
   void add_environment_observation(flatbuffers::Offset<esr::replay::EsrEnvironmentObservation> environment_observation) {
@@ -750,7 +750,7 @@ inline flatbuffers::Offset<EsrCycleInput> CreateEsrCycleInput(
     uint32_t cycle_index = 0,
     float dt_sec = 0.0f,
     flatbuffers::Offset<esr::replay::PoseState> platform_pose = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<esr::replay::EmitterTruthState>>> scene_emitters = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<esr::replay::SceneEmitter>>> scene_emitters = 0,
     flatbuffers::Offset<esr::replay::EsrEnvironmentObservation> environment_observation = 0) {
   EsrCycleInputBuilder builder_(_fbb);
   builder_.add_environment_observation(environment_observation);
@@ -766,9 +766,9 @@ inline flatbuffers::Offset<EsrCycleInput> CreateEsrCycleInputDirect(
     uint32_t cycle_index = 0,
     float dt_sec = 0.0f,
     flatbuffers::Offset<esr::replay::PoseState> platform_pose = 0,
-    const std::vector<flatbuffers::Offset<esr::replay::EmitterTruthState>> *scene_emitters = nullptr,
+    const std::vector<flatbuffers::Offset<esr::replay::SceneEmitter>> *scene_emitters = nullptr,
     flatbuffers::Offset<esr::replay::EsrEnvironmentObservation> environment_observation = 0) {
-  auto scene_emitters__ = scene_emitters ? _fbb.CreateVector<flatbuffers::Offset<esr::replay::EmitterTruthState>>(*scene_emitters) : 0;
+  auto scene_emitters__ = scene_emitters ? _fbb.CreateVector<flatbuffers::Offset<esr::replay::SceneEmitter>>(*scene_emitters) : 0;
   return esr::replay::CreateEsrCycleInput(
       _fbb,
       cycle_index,

@@ -12,7 +12,6 @@
 #include "1q/api.hpp"
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
 #include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
-#include "1q/electronic_surveillance_radar/model/EmitterTruthState.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 
 namespace electronic_surveillance_radar {
@@ -35,10 +34,10 @@ class ONEQ_API IEsrContext {
   virtual float GetCycleDeltaTimeSec() const = 0;
 
   /** @brief 获取当前周期平台姿态。 */
-  virtual const model::EsrPoseState& GetPlatformPose() const = 0;
+  virtual const session::EsrPoseState& GetPlatformPose() const = 0;
 
   /** @brief 获取当前周期场景辐射源列表。 */
-  virtual const model::EmitterTruthStateList& GetSceneEmitters() const = 0;
+  virtual const session::EsrSceneEmitterList& GetSceneEmitters() const = 0;
 
   /** @brief 获取当前周期环境快照。 */
   virtual const environment::EsrEnvironmentSnapshot& GetEnvironmentSnapshot() const = 0;

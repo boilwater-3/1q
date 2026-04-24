@@ -9,7 +9,6 @@
 #include <string>
 
 #include "1q/api.hpp"
-#include "1q/electronic_surveillance_radar/model/EsrOrientationConfig.h"
 #include "1q/electronic_surveillance_radar/session/EsrSceneTypes.h"
 #include "1q/foundation/coordinate_transform.h"
 
@@ -40,9 +39,9 @@ enum class ONEQ_API EsrVelocityFrame {
  */
 struct ONEQ_API EsrExternalPoseInput {
   oneq::foundation::EcefCoordinateM platform_position_ecef_m{};          /**< 平台位置（ECEF，m） */
-  model::EsrVector3f platform_velocity_mps{};                            /**< 平台速度（m/s） */
+  EsrVector3f platform_velocity_mps{};                                    /**< 平台速度（m/s） */
   EsrVelocityFrame platform_velocity_frame{EsrVelocityFrame::kEsrLocal}; /**< 速度参考系 */
-  model::EsrEulerAngleDeg platform_attitude_deg{}; /**< 平台姿态角（ESR 局部系，deg） */
+  EsrEulerAngleDeg platform_attitude_deg{}; /**< 平台姿态角（ESR 局部系，deg） */
 };
 
 /**
@@ -51,9 +50,9 @@ struct ONEQ_API EsrExternalPoseInput {
 struct ONEQ_API EsrExternalEmitterInput {
   std::string emitter_id{};                                  /**< 辐射源标识 */
   oneq::foundation::EcefCoordinateM emitter_position_ecef_m{}; /**< 辐射源位置（ECEF，m） */
-  model::EsrVector3f emitter_velocity_mps{};                /**< 辐射源速度（m/s） */
+  EsrVector3f emitter_velocity_mps{};                       /**< 辐射源速度（m/s） */
   EsrVelocityFrame emitter_velocity_frame{EsrVelocityFrame::kEsrLocal}; /**< 速度参考系 */
-  model::EsrEulerAngleDeg emitter_attitude_deg{};           /**< 辐射源姿态角（ESR 局部系，deg） */
+  EsrEulerAngleDeg emitter_attitude_deg{};                  /**< 辐射源姿态角（ESR 局部系，deg） */
   double carrier_hz{0.0};                                   /**< 发射中心频率（Hz） */
   double bandwidth_hz{0.0};                                 /**< 发射带宽（Hz） */
   double tx_power_w{0.0};                                   /**< 发射功率（W） */
@@ -74,7 +73,7 @@ enum class ONEQ_API EsrCoordinateStatus {
 
 ONEQ_API bool TryMakeEsrPoseFromExternalKinematics(const EsrExternalPoseInput& input,
                                                    const EsrCoordinateReference& reference,
-                                                   model::EsrPoseState* pose,
+                                                   EsrPoseState* pose,
                                                    EsrCoordinateStatus* status = nullptr);
 
 ONEQ_API bool TryMakeEsrSceneEmitterFromExternalInput(

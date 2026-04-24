@@ -40,7 +40,7 @@ int main() {
     std::cerr << "invalid platform lla" << std::endl;
     return 1;
   }
-  esr::model::EsrVector3f platform_velocity_ecef_mps;
+  esr::session::EsrVector3f platform_velocity_ecef_mps;
   platform_velocity_ecef_mps.x = 20.0f;
   platform_velocity_ecef_mps.y = 60.0f;
   platform_velocity_ecef_mps.z = -5.0f;
@@ -67,7 +67,7 @@ int main() {
   pose_input.platform_velocity_frame = esr::session::EsrVelocityFrame::kEcef;
   pose_input.platform_velocity_mps = platform_velocity_ecef_mps;
 
-  esr::model::EsrPoseState platform_pose;
+  esr::session::EsrPoseState platform_pose;
   if (!esr::session::TryMakeEsrPoseFromExternalKinematics(pose_input, reference, &platform_pose)) {
     std::cerr << "failed to build esr platform pose" << std::endl;
     return 1;

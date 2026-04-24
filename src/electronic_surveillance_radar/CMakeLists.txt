@@ -45,8 +45,6 @@ if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_ESR_MODEL
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/model/EmitterHypothesis.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/model/EmitterObservation.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/model/EmitterTruthState.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/model/EsrOrientationConfig.h
     )
     set(PUBLIC_HEADERS_ESR_OUTPUT
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/output/EsrOutputFrame.h

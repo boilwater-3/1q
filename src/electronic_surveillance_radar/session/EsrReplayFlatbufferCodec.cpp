@@ -17,7 +17,7 @@ esr::replay::EulerDeg ToE(const oneq::foundation::EulerAnglesDeg& e) {
 }
 
 flatbuffers::Offset<esr::replay::PoseState> BuildPose(
-    flatbuffers::FlatBufferBuilder& b, const model::EsrPoseState& v) {
+    flatbuffers::FlatBufferBuilder& b, const session::EsrPoseState& v) {
   esr::replay::PoseStateBuilder pb(b);
   auto pos = ToV(v.position_m); pb.add_position_m(&pos);
   auto vel = ToV(v.velocity_mps); pb.add_velocity_mps(&vel);
@@ -25,8 +25,8 @@ flatbuffers::Offset<esr::replay::PoseState> BuildPose(
   return pb.Finish();
 }
 
-model::EsrPoseState FromPose(const esr::replay::PoseState* fb) {
-  model::EsrPoseState out{};
+session::EsrPoseState FromPose(const esr::replay::PoseState* fb) {
+  session::EsrPoseState out{};
   if (!fb) {
     return out;
   }
@@ -53,7 +53,7 @@ model::EsrPoseState FromPose(const esr::replay::PoseState* fb) {
 std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
   flatbuffers::FlatBufferBuilder fbb(1024);
 
-  std::vector<flatbuffers::Offset<esr::replay::EmitterTruthState>> emitters;
+  std::vector<flatbuffers::Offset<esr::replay::SceneEmitter>> emitters;
   for (const auto& e : v.scene) {
     auto id = fbb.CreateString(e.emitter_id);
     auto pose = BuildPose(fbb, e.pose);
@@ -61,7 +61,7 @@ std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
         e.beam_state.center_az_deg, e.beam_state.center_el_deg,
         e.beam_state.az_beamwidth_deg, e.beam_state.el_beamwidth_deg,
         e.beam_state.beam_state_valid);
-    esr::replay::EmitterTruthStateBuilder eb(fbb);
+    esr::replay::SceneEmitterBuilder eb(fbb);
     eb.add_emitter_id(id); eb.add_pose(pose); eb.add_beam_state(beam);
     eb.add_carrier_hz(e.carrier_hz);
     eb.add_bandwidth_hz(e.bandwidth_hz);

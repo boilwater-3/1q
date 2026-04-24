@@ -9,7 +9,7 @@
 #include "1q/foundation/coordinate_transform.h"
 
 namespace electronic_surveillance_radar {
-namespace model {
+namespace session {
 namespace {
 
 TEST(EsrCoordinateUtilsTest, ExternalKinematicsSupportsEnuAndEcefVelocity) {
@@ -25,11 +25,11 @@ TEST(EsrCoordinateUtilsTest, ExternalKinematicsSupportsEnuAndEcefVelocity) {
 
   oneq::foundation::EcefCoordinateM target_ecef;
   ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));
-  EsrVector3f velocity;
+  session::EsrVector3f velocity;
   velocity.x = 11.0f;
   velocity.y = 12.0f;
   velocity.z = 13.0f;
-  EsrEulerAngleDeg attitude;
+  session::EsrEulerAngleDeg attitude;
   attitude.yaw_deg = 1.0f;
   attitude.pitch_deg = 2.0f;
   attitude.roll_deg = 3.0f;
@@ -48,7 +48,7 @@ TEST(EsrCoordinateUtilsTest, ExternalKinematicsSupportsEnuAndEcefVelocity) {
   ecef_input.platform_velocity_mps.y = 11.0f;  // east -> +Y at lat=0, lon=0
   ecef_input.platform_velocity_mps.z = 12.0f;  // north -> +Z at lat=0, lon=0
 
-  EsrPoseState pose_from_enu;
+  session::EsrPoseState pose_from_enu;
   ASSERT_TRUE(session::TryMakeEsrPoseFromExternalKinematics(enu_input, reference, &pose_from_enu));
   EXPECT_GT(pose_from_enu.position_m.x, 100.0f);
   EXPECT_FLOAT_EQ(pose_from_enu.velocity_mps.x, 11.0f);
@@ -58,7 +58,7 @@ TEST(EsrCoordinateUtilsTest, ExternalKinematicsSupportsEnuAndEcefVelocity) {
   EXPECT_FLOAT_EQ(pose_from_enu.attitude_deg.pitch_deg, 2.0f);
   EXPECT_FLOAT_EQ(pose_from_enu.attitude_deg.roll_deg, 3.0f);
 
-  EsrPoseState pose_from_ecef;
+  session::EsrPoseState pose_from_ecef;
   ASSERT_TRUE(
       session::TryMakeEsrPoseFromExternalKinematics(ecef_input, reference, &pose_from_ecef));
   EXPECT_NEAR(pose_from_ecef.position_m.x, pose_from_enu.position_m.x, 1.0e-3f);
@@ -115,5 +115,5 @@ TEST(EsrCoordinateUtilsTest, ExternalEmitterInputBuildsSceneEmitter) {
 }
 
 }  // namespace
-}  // namespace model
+}  // namespace session
 }  // namespace electronic_surveillance_radar

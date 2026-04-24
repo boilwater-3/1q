@@ -231,7 +231,7 @@ TEST(EsrPublicApiConvenienceTest, CoordinateUtilsBuildsPoseFromExternalKinematic
   session::EsrExternalPoseInput pose_input;
   pose_input.platform_position_ecef_m = target_ecef;
 
-  model::EsrPoseState pose;
+  session::EsrPoseState pose;
   ASSERT_TRUE(session::TryMakeEsrPoseFromExternalKinematics(pose_input, reference, &pose));
   EXPECT_GT(pose.position_m.x, 100.0f);
 }

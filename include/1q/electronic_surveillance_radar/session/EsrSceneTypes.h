@@ -10,10 +10,19 @@
 #include <vector>
 
 #include "1q/api.hpp"
-#include "1q/electronic_surveillance_radar/model/EsrOrientationConfig.h"
+#include "1q/foundation/pose_types.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
+
+/** @brief ESR 会话输入三维向量别名。 */
+using EsrVector3f = oneq::foundation::Vector3f;
+
+/** @brief ESR 会话输入欧拉角姿态别名（单位：deg）。 */
+using EsrEulerAngleDeg = oneq::foundation::EulerAnglesDeg;
+
+/** @brief ESR 会话输入位姿状态别名。 */
+using EsrPoseState = oneq::foundation::PoseState;
 
 /** @brief EsrEmitterBeamState 描述 ESR 场景辐射源波束参数。 */
 struct ONEQ_API EsrEmitterBeamState {
@@ -27,7 +36,7 @@ struct ONEQ_API EsrEmitterBeamState {
 /** @brief EsrSceneEmitter 描述 ESR 场景辐射源输入。 */
 struct ONEQ_API EsrSceneEmitter {
   std::string emitter_id{};          /**< 辐射源标识 */
-  model::EsrPoseState pose{};        /**< 辐射源位置、速度与姿态状态 */
+  EsrPoseState pose{};               /**< 辐射源位置、速度与姿态状态 */
   double carrier_hz{0.0};            /**< 发射中心频率（单位：Hz） */
   double bandwidth_hz{0.0};          /**< 发射带宽（单位：Hz） */
   double tx_power_w{0.0};            /**< 发射功率（单位：W） */

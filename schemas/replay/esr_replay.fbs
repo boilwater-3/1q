@@ -35,7 +35,7 @@ table EmitterBeamState {
   beam_state_valid: bool;
 }
 
-table EmitterTruthState {
+table SceneEmitter {
   emitter_id:   string;
   pose:         PoseState;
   carrier_hz:   double;
@@ -75,7 +75,7 @@ table EsrCycleInput {
   cycle_index:             uint32;
   dt_sec:                  float;
   platform_pose:           PoseState;
-  scene_emitters:          [EmitterTruthState];
+  scene_emitters:          [SceneEmitter];
   environment_observation: EsrEnvironmentObservation;
 }
 

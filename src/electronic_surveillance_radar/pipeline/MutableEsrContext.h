@@ -6,7 +6,6 @@
 #ifndef ELECTRONIC_SURVEILLANCE_RADAR_SRC_PIPELINE_MUTABLE_ESR_CONTEXT_H_
 #define ELECTRONIC_SURVEILLANCE_RADAR_SRC_PIPELINE_MUTABLE_ESR_CONTEXT_H_
 
-#include "1q/electronic_surveillance_radar/model/EmitterTruthState.h"
 #include "1q/electronic_surveillance_radar/extension/IEsrContext.h"
 
 namespace electronic_surveillance_radar {
@@ -34,8 +33,8 @@ class MutableEsrContext final : public extension::IEsrContext {
 
   std::uint32_t GetCycleIndex() const override;
   float GetCycleDeltaTimeSec() const override;
-  const model::EsrPoseState& GetPlatformPose() const override;
-  const model::EmitterTruthStateList& GetSceneEmitters() const override;
+  const session::EsrPoseState& GetPlatformPose() const override;
+  const session::EsrSceneEmitterList& GetSceneEmitters() const override;
   const environment::EsrEnvironmentSnapshot& GetEnvironmentSnapshot() const override;
   const extension::InterceptPipelineConfig& GetPipelineConfig() const override;
   const extension::InterceptRuntimeConfig& GetRuntimeConfig() const override;
@@ -43,8 +42,8 @@ class MutableEsrContext final : public extension::IEsrContext {
  private:
   std::uint32_t cycle_index_{0U};
   float dt_sec_{1.0f};
-  model::EsrPoseState platform_pose_{};
-  model::EmitterTruthStateList scene_emitters_{};
+  session::EsrPoseState platform_pose_{};
+  session::EsrSceneEmitterList scene_emitters_{};
   environment::EsrEnvironmentSnapshot environment_snapshot_{};
   extension::InterceptPipelineConfig pipeline_config_{};
   extension::InterceptRuntimeConfig runtime_config_{};
