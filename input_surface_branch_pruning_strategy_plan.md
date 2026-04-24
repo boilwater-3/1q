@@ -17,6 +17,35 @@
 - 保留已经确定的公开输入壳
 - 修剪壳里仍然带着内部模型痕迹的字段、重复结构和 include 暴露
 
+### 0.1 当前进度与 AR 未完成项（2026-04-24）
+
+已完成：
+
+- `RadarSceneTarget` 已切换到事实字段命名（`velocity_*`、`rcs`），公开层不再承载 `current_track_speed`。
+- `RadarSceneTargetConversion` 已从 `include/1q` 下沉到 `src/airborne_radar/session/`，避免 public API 暴露 `model::TargetFeature`。
+- `RadarSceneTargetConversion` 的 `model -> scene` 反向桥（`ToSceneTarget/ToSceneTargetList`）已删除。
+- `IRadarContext` / `ISignalPipeline` 公开纯虚接口已切换为 `RadarSceneTarget` 输入视角，不再在接口签名上暴露 `TargetFeature`。
+- replay 兼容已补齐：历史数据仅有 `current_track_speed` 且速度分量为零时，解码回填 `velocity_x`。
+
+未完成（收尾阶段）：
+
+- conversion 仍以 `scene -> model` 形式保留在 signal pipeline 内部单向入口。
+- 后续目标：评估并继续压缩 conversion 的覆盖面，避免在 tests/examples 侧出现新的桥接扩散。
+- 当前退出条件已从“双向桥删除”升级为“仅保留必要的内部单向转换且不外溢 public surface”。
+
+### 0.2 ESR 当前进度（2026-04-24）
+
+已完成：
+
+- `EmitterTruthState.h` 已从公开输入链路删除，`EsrCycleInput/IEsrContext/pipeline` 主链路统一消费 `EsrSceneEmitter`。
+- ESR session 公共输入已不再依赖 `model::EsrPoseState` 兼容别名，改为 `session::EsrPoseState`（底层对齐 `foundation::PoseState`）。
+- `EsrOrientationConfig.h` 已删除并退出 public include/install 白名单。
+- ESR 示例与 contract/unit 测试已切换到 `session` 输入视角。
+
+剩余收尾：
+
+- 保持 AR conversion 清理为最终唯一未完成项，避免把 ESR 已完成分支再拉回复杂状态。
+
 ## 1. 这轮到底要解决什么
 
 当前最典型的问题是 AR：
