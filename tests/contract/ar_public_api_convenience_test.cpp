@@ -17,7 +17,7 @@
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/extension/RadarController.h"
-#include "1q/airborne_radar/model/TargetFeature.h"
+#include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "1q/airborne_radar/output/TrackOutputQueries.h"
 #include "1q/airborne_radar/session/RadarExternalInputAdapter.h"
 #include "1q/airborne_radar/session/RadarInputValidation.h"
@@ -34,18 +34,23 @@ namespace airborne_radar {
 namespace model {
 namespace {
 
-TargetFeature ToModelTarget(const session::RadarSceneTarget& target) {
-  TargetFeature out;
+using SceneTarget = session::RadarSceneTarget;
+using SceneTargetList = session::RadarSceneTargetList;
+
+float SpeedOf(const SceneTarget& target) {
+  return std::sqrt(target.velocity_x * target.velocity_x + target.velocity_y * target.velocity_y +
+                   target.velocity_z * target.velocity_z);
+}
+
+SceneTarget CloneSceneTarget(const session::RadarSceneTarget& target) {
+  SceneTarget out;
   out.external_target_id = target.external_target_id;
-  out.current_track_velocity_x = target.velocity_x;
-  out.current_track_velocity_y = target.velocity_y;
-  out.current_track_velocity_z = target.velocity_z;
-  out.current_track_speed = std::sqrt(target.velocity_x * target.velocity_x +
-                                      target.velocity_y * target.velocity_y +
-                                      target.velocity_z * target.velocity_z);
-  out.current_track_rcs = target.rcs;
+  out.velocity_x = target.velocity_x;
+  out.velocity_y = target.velocity_y;
+  out.velocity_z = target.velocity_z;
+  out.rcs = target.rcs;
   out.range_m = target.range_m;
-  out.has_cartesian_position = true;
+
   out.position_x = target.position_x;
   out.position_y = target.position_y;
   out.position_z = target.position_z;
@@ -57,44 +62,41 @@ float ComputeNorm3(float x, float y, float z) { return std::sqrt(x * x + y * y +
 
 }  // namespace
 
-TargetFeature MakeTargetFromCartesian(std::uint64_t external_target_id, float position_x,
-                                      float position_y, float position_z, float velocity_x,
-                                      float velocity_y, float velocity_z, float rcs,
-                                      int swerling_type = 0) {
-  return ToModelTarget(session::MakeSceneTarget(external_target_id, position_x, position_y,
+SceneTarget MakeTargetFromCartesian(std::uint64_t external_target_id, float position_x,
+                                    float position_y, float position_z, float velocity_x,
+                                    float velocity_y, float velocity_z, float rcs,
+                                    int swerling_type = 0) {
+  return CloneSceneTarget(session::MakeSceneTarget(external_target_id, position_x, position_y,
                                                 position_z, velocity_x, velocity_y, velocity_z,
                                                 rcs, swerling_type));
 }
 
-TargetFeature MakeGroundTarget(std::uint64_t external_target_id, float position_x, float position_y,
-                               float rcs = 1.0f, float velocity_x = 0.0f,
-                               float velocity_y = 0.0f, int swerling_type = 0) {
-  return ToModelTarget(session::MakeGroundSceneTarget(external_target_id, position_x, position_y,
+SceneTarget MakeGroundTarget(std::uint64_t external_target_id, float position_x, float position_y,
+                             float rcs = 1.0f, float velocity_x = 0.0f,
+                             float velocity_y = 0.0f, int swerling_type = 0) {
+  return CloneSceneTarget(session::MakeGroundSceneTarget(external_target_id, position_x, position_y,
                                                       rcs, velocity_x, velocity_y, swerling_type));
 }
 
-TargetFeature MakeAirTarget(std::uint64_t external_target_id, float position_x, float position_y,
-                            float position_z, float velocity_x, float velocity_y,
-                            float velocity_z, float rcs = 1.0f, int swerling_type = 0) {
-  return ToModelTarget(session::MakeAirSceneTarget(external_target_id, position_x, position_y,
+SceneTarget MakeAirTarget(std::uint64_t external_target_id, float position_x, float position_y,
+                          float position_z, float velocity_x, float velocity_y,
+                          float velocity_z, float rcs = 1.0f, int swerling_type = 0) {
+  return CloneSceneTarget(session::MakeAirSceneTarget(external_target_id, position_x, position_y,
                                                    position_z, velocity_x, velocity_y, velocity_z,
                                                    rcs, swerling_type));
 }
 
-void NormalizeTargetGeometry(TargetFeature* target) {
+void NormalizeTargetGeometry(SceneTarget* target) {
   if (target == nullptr) {
     return;
   }
-  target->current_track_speed =
-      ComputeNorm3(target->current_track_velocity_x, target->current_track_velocity_y,
-                   target->current_track_velocity_z);
-  if (target->range_m > 0.0f || !target->has_cartesian_position) {
+  if (target->range_m > 0.0f) {
     return;
   }
   target->range_m = ComputeNorm3(target->position_x, target->position_y, target->position_z);
 }
 
-void NormalizeTargetGeometry(TargetFeatureList* targets) {
+void NormalizeTargetGeometry(SceneTargetList* targets) {
   if (targets == nullptr) {
     return;
   }
@@ -109,13 +111,18 @@ namespace tests {
 
 namespace {
 
-session::RadarSceneTarget ToSceneTarget(const model::TargetFeature& target) {
+float SpeedOf(const session::RadarSceneTarget& target) {
+  return std::sqrt(target.velocity_x * target.velocity_x + target.velocity_y * target.velocity_y +
+                   target.velocity_z * target.velocity_z);
+}
+
+session::RadarSceneTarget ToSceneTarget(const session::RadarSceneTarget& target) {
   session::RadarSceneTarget out;
   out.external_target_id = target.external_target_id;
-  out.velocity_x = target.current_track_velocity_x;
-  out.velocity_y = target.current_track_velocity_y;
-  out.velocity_z = target.current_track_velocity_z;
-  out.rcs = target.current_track_rcs;
+  out.velocity_x = target.velocity_x;
+  out.velocity_y = target.velocity_y;
+  out.velocity_z = target.velocity_z;
+  out.rcs = target.rcs;
   out.range_m = target.range_m;
   out.position_x = target.position_x;
   out.position_y = target.position_y;
@@ -124,18 +131,15 @@ session::RadarSceneTarget ToSceneTarget(const model::TargetFeature& target) {
   return out;
 }
 
-model::TargetFeature ToModelTarget(const session::RadarSceneTarget& target) {
-  model::TargetFeature out;
+session::RadarSceneTarget CloneSceneTarget(const session::RadarSceneTarget& target) {
+  session::RadarSceneTarget out;
   out.external_target_id = target.external_target_id;
-  out.current_track_velocity_x = target.velocity_x;
-  out.current_track_velocity_y = target.velocity_y;
-  out.current_track_velocity_z = target.velocity_z;
-  out.current_track_speed = std::sqrt(target.velocity_x * target.velocity_x +
-                                      target.velocity_y * target.velocity_y +
-                                      target.velocity_z * target.velocity_z);
-  out.current_track_rcs = target.rcs;
+  out.velocity_x = target.velocity_x;
+  out.velocity_y = target.velocity_y;
+  out.velocity_z = target.velocity_z;
+  out.rcs = target.rcs;
   out.range_m = target.range_m;
-  out.has_cartesian_position = true;
+
   out.position_x = target.position_x;
   out.position_y = target.position_y;
   out.position_z = target.position_z;
@@ -143,7 +147,7 @@ model::TargetFeature ToModelTarget(const session::RadarSceneTarget& target) {
   return out;
 }
 
-session::RadarSceneTargetList ToSceneTargets(const model::TargetFeatureList& targets) {
+session::RadarSceneTargetList ToSceneTargets(const session::RadarSceneTargetList& targets) {
   session::RadarSceneTargetList out;
   out.reserve(targets.size());
   for (std::size_t i = 0; i < targets.size(); ++i) {
@@ -152,11 +156,11 @@ session::RadarSceneTargetList ToSceneTargets(const model::TargetFeatureList& tar
   return out;
 }
 
-model::TargetFeatureList ToModelTargets(const session::RadarSceneTargetList& targets) {
-  model::TargetFeatureList out;
+session::RadarSceneTargetList CloneSceneTargets(const session::RadarSceneTargetList& targets) {
+  session::RadarSceneTargetList out;
   out.reserve(targets.size());
   for (std::size_t i = 0; i < targets.size(); ++i) {
-    out.push_back(ToModelTarget(targets[i]));
+    out.push_back(CloneSceneTarget(targets[i]));
   }
   return out;
 }
@@ -175,7 +179,7 @@ session::RadarSessionConfig MakeConvenienceSessionConfig() {
       .Build();
 }
 
-session::RadarCycleInput MakeCycleInput(model::TargetFeatureList targets, float dt_sec = 1.0f) {
+session::RadarCycleInput MakeCycleInput(session::RadarSceneTargetList targets, float dt_sec = 1.0f) {
   session::RadarCycleInput input;
   input.scene = ToSceneTargets(targets);
   input.dt_sec = dt_sec;
@@ -523,7 +527,7 @@ class NoopDecisionEngine : public extension::ITacticalDecisionEngine {
 TEST(PublicApiConvenienceTest, MutableRadarContextBeginsCycleAndResetsPerCycleCommands) {
   session::MutableRadarContext context;
   session::RadarCycleInput input = MakeCycleInput(
-      model::TargetFeatureList{
+      session::RadarSceneTargetList{
           model::MakeAirTarget(101U, 120.0f, -5.0f, 18.0f, 62.0f, 0.0f, 0.0f, 1.0f),
       },
       0.5f);
@@ -555,42 +559,39 @@ TEST(PublicApiConvenienceTest, MutableRadarContextBeginsCycleAndResetsPerCycleCo
   EXPECT_EQ(context.GetLatestControlProfile().version, 4U);
 }
 
-TEST(PublicApiConvenienceTest, TargetFeatureUtilsBuildCartesianGroundAndAirTargets) {
-  const model::TargetFeature cartesian_target =
+TEST(PublicApiConvenienceTest, SceneTargetUtilsBuildCartesianGroundAndAirTargets) {
+  const session::RadarSceneTarget cartesian_target =
       model::MakeTargetFromCartesian(201U, 3.0f, 4.0f, 12.0f, 10.0f, -2.0f, 1.0f, 0.9f, 2);
   EXPECT_EQ(cartesian_target.external_target_id, 201U);
-  EXPECT_TRUE(cartesian_target.has_cartesian_position);
   EXPECT_NEAR(cartesian_target.range_m, 13.0f, 1e-5f);
-  EXPECT_NEAR(cartesian_target.current_track_speed, std::sqrt(105.0f), 1e-5f);
+  EXPECT_NEAR(SpeedOf(cartesian_target), std::sqrt(105.0f), 1e-5f);
   EXPECT_EQ(cartesian_target.target_swerling_type, 2);
 
-  const model::TargetFeature ground_target = model::MakeGroundTarget(202U, 20.0f, -15.0f, 0.8f);
-  EXPECT_TRUE(ground_target.has_cartesian_position);
+  const session::RadarSceneTarget ground_target = model::MakeGroundTarget(202U, 20.0f, -15.0f, 0.8f);
   EXPECT_NEAR(ground_target.position_z, 0.0f, 1e-5f);
-  EXPECT_NEAR(ground_target.current_track_velocity_z, 0.0f, 1e-5f);
+  EXPECT_NEAR(ground_target.velocity_z, 0.0f, 1e-5f);
   EXPECT_NEAR(ground_target.range_m, 25.0f, 1e-5f);
 
-  const model::TargetFeature air_target =
+  const session::RadarSceneTarget air_target =
       model::MakeAirTarget(203U, 30.0f, 40.0f, 50.0f, 90.0f, -3.0f, 4.0f, 1.2f);
-  EXPECT_TRUE(air_target.has_cartesian_position);
   EXPECT_NEAR(air_target.range_m, std::sqrt(5000.0f), 1e-5f);
-  EXPECT_NEAR(air_target.current_track_speed, std::sqrt(8125.0f), 1e-5f);
+  EXPECT_NEAR(SpeedOf(air_target), std::sqrt(8125.0f), 1e-5f);
 }
 
-TEST(PublicApiConvenienceTest, TargetFeatureUtilsNormalizeGeometryOnlyWhenCartesianPositionExists) {
-  model::TargetFeature normalized =
+TEST(PublicApiConvenienceTest, SceneTargetUtilsNormalizeGeometryFromCartesianPosition) {
+  session::RadarSceneTarget normalized =
       model::MakeAirTarget(301U, 6.0f, 8.0f, 0.0f, 50.0f, 0.0f, 0.0f, 1.0f);
   normalized.range_m = 0.0f;
   model::NormalizeTargetGeometry(&normalized);
   EXPECT_NEAR(normalized.range_m, 10.0f, 1e-5f);
 
-  model::TargetFeature unresolved;
+  session::RadarSceneTarget unresolved;
   unresolved.external_target_id = 302U;
   unresolved.range_m = 0.0f;
   model::NormalizeTargetGeometry(&unresolved);
   EXPECT_NEAR(unresolved.range_m, 0.0f, 1e-5f);
 
-  model::TargetFeatureList targets;
+  session::RadarSceneTargetList targets;
   targets.push_back(normalized);
   targets.back().range_m = -1.0f;
   targets.push_back(unresolved);
@@ -599,7 +600,7 @@ TEST(PublicApiConvenienceTest, TargetFeatureUtilsNormalizeGeometryOnlyWhenCartes
   EXPECT_NEAR(targets[1].range_m, 0.0f, 1e-5f);
 }
 
-TEST(PublicApiConvenienceTest, TargetFeatureUtilsComposeRadarAttitudeUsesRotationComposition) {
+TEST(PublicApiConvenienceTest, SceneTargetUtilsComposeRadarAttitudeUsesRotationComposition) {
   model::EulerAnglesDeg platform_attitude;
   platform_attitude.yaw_deg = 40.0f;
   platform_attitude.pitch_deg = 12.0f;
@@ -638,7 +639,7 @@ TEST(PublicApiConvenienceTest, TargetFeatureUtilsComposeRadarAttitudeUsesRotatio
   }
 }
 
-TEST(PublicApiConvenienceTest, TargetFeatureUtilsBuildsTargetFromExternalCoordinates) {
+TEST(PublicApiConvenienceTest, SceneTargetUtilsBuildsTargetFromExternalCoordinates) {
   oneq::foundation::LlaCoordinateDegM radar_lla;
   radar_lla.latitude_deg = 0.0;
   radar_lla.longitude_deg = 0.0;
@@ -682,7 +683,7 @@ TEST(PublicApiConvenienceTest, TargetFeatureUtilsBuildsTargetFromExternalCoordin
   EXPECT_GT(target_from_external.range_m, 100.0f);
 }
 
-TEST(PublicApiConvenienceTest, TargetFeatureUtilsBuildsTargetFromExternalKinematicsFrames) {
+TEST(PublicApiConvenienceTest, SceneTargetUtilsBuildsTargetFromExternalKinematicsFrames) {
   oneq::foundation::LlaCoordinateDegM radar_lla;
   radar_lla.latitude_deg = 31.2304;
   radar_lla.longitude_deg = 121.4737;
@@ -943,7 +944,7 @@ TEST(PublicApiConvenienceTest, TrackOutputQueriesSupportAssociationKeyStatusAndJ
 
 TEST(PublicApiConvenienceTest, RadarInputValidationReportsWarningsAndErrorsForCommonBoundaryCases) {
   session::RadarCycleInput input = MakeCycleInput(
-      model::TargetFeatureList{
+      session::RadarSceneTargetList{
           model::MakeAirTarget(0U, 120.0f, 0.0f, 10.0f, 55.0f, 0.0f, 0.0f, 1.0f),
           model::MakeAirTarget(800U, 150.0f, -2.0f, 12.0f, 62.0f, 0.2f, 0.0f, 1.0f),
           model::MakeAirTarget(800U, 155.0f, 2.0f, 12.0f, 63.0f, -0.2f, 0.0f, -1.1f),
@@ -985,7 +986,7 @@ TEST(PublicApiConvenienceTest, ConfigPresetsProvideExpectedDetectionAndRobustnes
   EXPECT_FLOAT_EQ(detection_config.hardware.detection.detection_policy.min_snr_db, -12.0f);
 
   session::RadarSession session = session::RadarSessionFactory::Create(detection_config);
-  const output::TrackOutputFrame frame = session.Step(MakeCycleInput(model::TargetFeatureList{
+  const output::TrackOutputFrame frame = session.Step(MakeCycleInput(session::RadarSceneTargetList{
       model::MakeGroundTarget(901U, 20.0f, 5.0f, 0.8f),
   }));
   EXPECT_EQ(output::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), 1U);
@@ -996,7 +997,7 @@ TEST(PublicApiConvenienceTest, DefaultSessionConfigUsesLifecycleManagedTracks) {
       config::presets::MakeDefaultRadarSessionConfig();
 
   session::RadarSession session = session::RadarSessionFactory::Create();
-  const output::TrackOutputFrame frame = session.Step(MakeCycleInput(model::TargetFeatureList{
+  const output::TrackOutputFrame frame = session.Step(MakeCycleInput(session::RadarSceneTargetList{
       model::MakeGroundTarget(902U, 15.0f, -3.0f, 0.8f),
   }));
 
@@ -1009,7 +1010,7 @@ TEST(PublicApiConvenienceTest, DefaultSessionConfigUsesLifecycleManagedTracks) {
 TEST(PublicApiConvenienceTest, RadarSessionStepProducesReadableOutputWithoutInterference) {
   session::RadarSession session =
       session::RadarSessionFactory::Create(MakeConvenienceSessionConfig());
-  const session::RadarCycleInput input = MakeCycleInput(model::TargetFeatureList{
+  const session::RadarCycleInput input = MakeCycleInput(session::RadarSceneTargetList{
       model::MakeGroundTarget(501U, 25.0f, -5.0f, 0.7f),
       model::MakeAirTarget(502U, 150.0f, 6.0f, 18.0f, 72.0f, 1.0f, 0.0f, 1.0f),
   });
@@ -1035,7 +1036,7 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
   environment_service.SetJammingSensitivityProfile(config.jamming_sensitivity_profile);
   extension::RadarController controller(manual_context, signal_pipeline, environment_service);
 
-  const session::RadarCycleInput input = MakeCycleInput(model::TargetFeatureList{
+  const session::RadarCycleInput input = MakeCycleInput(session::RadarSceneTargetList{
       model::MakeAirTarget(601U, 180.0f, -4.0f, 16.0f, 60.0f, 0.0f, 0.0f, 1.0f),
       model::MakeAirTarget(602U, 240.0f, 8.0f, 18.0f, 76.0f, 0.5f, 0.0f, 1.1f),
   });
@@ -1095,7 +1096,7 @@ TEST(PublicApiConvenienceTest,
       session::RadarSessionFactory::Create(MakeConvenienceSessionConfig());
 
   session::RadarCycleInput cycle_1 = MakeCycleInput(
-      model::TargetFeatureList{
+      session::RadarSceneTargetList{
           model::MakeAirTarget(0U, 120.0f, 0.0f, 10.0f, 55.0f, 0.0f, 0.0f, 1.0f),
           model::MakeAirTarget(701U, 150.0f, -2.0f, 12.0f, 62.0f, 0.2f, 0.0f, 1.0f),
           model::MakeGroundTarget(702U, 40.0f, -6.0f, 0.8f),
@@ -1111,7 +1112,7 @@ TEST(PublicApiConvenienceTest,
   EXPECT_FALSE(result_1.reused_previous_track_output);
 
   session::RadarCycleInput duplicate_cycle = MakeCycleInput(
-      model::TargetFeatureList{
+      session::RadarSceneTargetList{
           model::MakeAirTarget(0U, 120.0f, 0.0f, 10.0f, 55.0f, 0.0f, 0.0f, 1.0f),
           model::MakeAirTarget(701U, 150.0f, -2.0f, 12.0f, 62.0f, 0.2f, 0.0f, 1.0f),
           model::MakeAirTarget(701U, 155.0f, 2.0f, 12.0f, 63.0f, -0.2f, 0.0f, 1.1f),
@@ -1185,7 +1186,7 @@ TEST(PublicApiConvenienceTest,
       MakeConvenienceSessionConfig(), controller);
 
   session::RadarCycleInput baseline_input = MakeCycleInput(
-      model::TargetFeatureList{
+      session::RadarSceneTargetList{
           model::MakeAirTarget(810U, 120.0f, 1.0f, 10.0f, 55.0f, 0.0f, 0.0f, 1.0f),
       },
       1.0f);
@@ -1228,7 +1229,7 @@ TEST(PublicApiConvenienceTest,
   jammed_scene.jammer_emitters.push_back(jammer);
 
   session::RadarCycleInput invalid_input = MakeCycleInput(
-      model::TargetFeatureList{
+      session::RadarSceneTargetList{
           model::MakeAirTarget(811U, 140.0f, -2.0f, 12.0f, 60.0f, 0.0f, 0.0f, 1.0f),
       },
       -1.0f);
@@ -1273,7 +1274,7 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultAggregatesCurrentCycleO
       config::presets::MakeDetectionMissionRadarSessionConfig();
   session::RadarSession session = session::RadarSessionFactory::Create(config);
 
-  const session::RadarCycleInput input = MakeCycleInput(model::TargetFeatureList{
+  const session::RadarCycleInput input = MakeCycleInput(session::RadarSceneTargetList{
       model::MakeAirTarget(950U, 200.0f, -3.0f, 15.0f, 70.0f, 0.0f, 0.0f, 1.0f),
       model::MakeAirTarget(951U, 240.0f, 4.0f, 18.0f, 78.0f, 0.3f, 0.0f, 1.1f),
   });
@@ -1306,7 +1307,7 @@ TEST(PublicApiConvenienceTest, RadarSessionReusesPreviousOutputWhenSignalPipelin
   session::RadarSession session = session::RadarSessionFactory::CreateWithController(
       MakeConvenienceSessionConfig(), controller);
 
-  const session::RadarCycleInput input = MakeCycleInput(model::TargetFeatureList{
+  const session::RadarCycleInput input = MakeCycleInput(session::RadarSceneTargetList{
       model::MakeAirTarget(952U, 200.0f, -3.0f, 15.0f, 70.0f, 0.0f, 0.0f, 1.0f),
   });
 
@@ -1340,7 +1341,7 @@ TEST(PublicApiConvenienceTest,
   session::RadarSession session = session::RadarSessionFactory::CreateWithController(
       MakeConvenienceSessionConfig(), controller);
 
-  const session::RadarCycleInput baseline_input = MakeCycleInput(model::TargetFeatureList{
+  const session::RadarCycleInput baseline_input = MakeCycleInput(session::RadarSceneTargetList{
       model::MakeAirTarget(960U, 200.0f, -3.0f, 15.0f, 70.0f, 0.0f, 0.0f, 1.0f),
   });
   const session::RadarCycleResult baseline = session.StepWithResult(baseline_input);
@@ -1366,7 +1367,7 @@ TEST(PublicApiConvenienceTest,
   jammed_scene.jammer_emitters.push_back(jammer);
 
   signal_pipeline.SetShouldExecute(false);
-  const session::RadarCycleInput failed_input = MakeCycleInput(model::TargetFeatureList{
+  const session::RadarCycleInput failed_input = MakeCycleInput(session::RadarSceneTargetList{
       model::MakeAirTarget(961U, 140.0f, -2.0f, 12.0f, 60.0f, 0.0f, 0.0f, 1.0f),
   });
   const session::RadarCycleResult failed = session.StepWithResult(failed_input, jammed_scene);
@@ -1401,7 +1402,7 @@ TEST(PublicApiConvenienceTest,
       session::RadarSessionFactory::Create(MakeConvenienceSessionConfig());
 
   const session::RadarCycleResult cycle_1 =
-      session.StepWithResult(MakeCycleInput(model::TargetFeatureList{
+      session.StepWithResult(MakeCycleInput(session::RadarSceneTargetList{
           model::MakeAirTarget(970U, 180.0f, 1.5f, 12.0f, 65.0f, 0.0f, 0.0f, 1.0f),
       }));
   ASSERT_TRUE(cycle_1.executed_this_cycle);
@@ -1415,7 +1416,7 @@ TEST(PublicApiConvenienceTest,
                                  .Build());
 
   const session::RadarCycleResult cycle_2 =
-      session.StepWithResult(MakeCycleInput(model::TargetFeatureList{
+      session.StepWithResult(MakeCycleInput(session::RadarSceneTargetList{
           model::MakeAirTarget(970U, 182.0f, 1.7f, 12.0f, 65.0f, 0.0f, 0.0f, 1.0f),
       }));
   ASSERT_TRUE(cycle_2.executed_this_cycle);
@@ -1443,7 +1444,7 @@ TEST(PublicApiConvenienceTest,
       MakeConvenienceSessionConfig(), controller);
 
   const session::RadarCycleResult baseline =
-      session.StepWithResult(MakeCycleInput(model::TargetFeatureList{
+      session.StepWithResult(MakeCycleInput(session::RadarSceneTargetList{
           model::MakeAirTarget(980U, 160.0f, 0.0f, 10.0f, 60.0f, 0.0f, 0.0f, 1.0f),
       }));
   ASSERT_TRUE(baseline.executed_this_cycle);
@@ -1455,7 +1456,7 @@ TEST(PublicApiConvenienceTest,
 
   signal_pipeline.SetShouldAcceptUpdates(false);
   const session::RadarCycleResult rejected =
-      session.StepWithResult(MakeCycleInput(model::TargetFeatureList{
+      session.StepWithResult(MakeCycleInput(session::RadarSceneTargetList{
           model::MakeAirTarget(981U, 162.0f, 0.0f, 10.0f, 60.0f, 0.0f, 0.0f, 1.0f),
       }));
   EXPECT_FALSE(rejected.executed_this_cycle);
@@ -1468,7 +1469,7 @@ TEST(PublicApiConvenienceTest,
 
   signal_pipeline.SetShouldAcceptUpdates(true);
   const session::RadarCycleResult committed =
-      session.StepWithResult(MakeCycleInput(model::TargetFeatureList{
+      session.StepWithResult(MakeCycleInput(session::RadarSceneTargetList{
           model::MakeAirTarget(982U, 164.0f, 0.0f, 10.0f, 60.0f, 0.0f, 0.0f, 1.0f),
       }));
   EXPECT_TRUE(committed.executed_this_cycle);
@@ -1513,7 +1514,7 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultMatchesManualChainUnder
   environment_service.SetJammingSensitivityProfile(config.jamming_sensitivity_profile);
   extension::RadarController controller(manual_context, signal_pipeline, environment_service);
 
-  const session::RadarCycleInput input = MakeCycleInput(model::TargetFeatureList{
+  const session::RadarCycleInput input = MakeCycleInput(session::RadarSceneTargetList{
       model::MakeAirTarget(960U, 180.0f, -4.0f, 16.0f, 60.0f, 0.0f, 0.0f, 1.0f),
   });
   environment::JammerEmitterState noise_emitter_5;

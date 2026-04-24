@@ -49,7 +49,6 @@ set(AR_MODEL_HEADERS
     "airborne_radar/model/JammingSemantics.h"
     "airborne_radar/model/RadarOrientationConfig.h"
     "airborne_radar/model/TargetCategory.h"
-    "airborne_radar/model/TargetFeature.h"
 )
 
 # ── AR 输出域 ────────────────────────────────────────────────────────

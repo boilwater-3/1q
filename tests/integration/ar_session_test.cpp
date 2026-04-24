@@ -20,7 +20,7 @@
 #include "1q/airborne_radar/extension/RadarController.h"
 #include "1q/airborne_radar/extension/control/RadarCommand.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
-#include "1q/airborne_radar/model/TargetFeature.h"
+#include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "1q/airborne_radar/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/output/TrackOutputQueries.h"
 #include "airborne_radar/environment/EnvironmentService.h"
@@ -31,18 +31,20 @@ namespace tests {
 
 namespace {
 
-model::TargetFeature ToModelTarget(const session::RadarSceneTarget& target) {
-  model::TargetFeature out;
+float SpeedOf(const session::RadarSceneTarget& target) {
+  return std::sqrt(target.velocity_x * target.velocity_x + target.velocity_y * target.velocity_y +
+                   target.velocity_z * target.velocity_z);
+}
+
+session::RadarSceneTarget CloneSceneTarget(const session::RadarSceneTarget& target) {
+  session::RadarSceneTarget out;
   out.external_target_id = target.external_target_id;
-  out.current_track_velocity_x = target.velocity_x;
-  out.current_track_velocity_y = target.velocity_y;
-  out.current_track_velocity_z = target.velocity_z;
-  out.current_track_speed = std::sqrt(target.velocity_x * target.velocity_x +
-                                      target.velocity_y * target.velocity_y +
-                                      target.velocity_z * target.velocity_z);
-  out.current_track_rcs = target.rcs;
+  out.velocity_x = target.velocity_x;
+  out.velocity_y = target.velocity_y;
+  out.velocity_z = target.velocity_z;
+  out.rcs = target.rcs;
   out.range_m = target.range_m;
-  out.has_cartesian_position = true;
+
   out.position_x = target.position_x;
   out.position_y = target.position_y;
   out.position_z = target.position_z;
@@ -50,22 +52,22 @@ model::TargetFeature ToModelTarget(const session::RadarSceneTarget& target) {
   return out;
 }
 
-model::TargetFeatureList ToModelTargets(const session::RadarSceneTargetList& targets) {
-  model::TargetFeatureList out;
+session::RadarSceneTargetList CloneSceneTargets(const session::RadarSceneTargetList& targets) {
+  session::RadarSceneTargetList out;
   out.reserve(targets.size());
   for (std::size_t i = 0; i < targets.size(); ++i) {
-    out.push_back(ToModelTarget(targets[i]));
+    out.push_back(CloneSceneTarget(targets[i]));
   }
   return out;
 }
 
-session::RadarSceneTarget ToSceneTarget(const model::TargetFeature& target) {
+session::RadarSceneTarget ToSceneTarget(const session::RadarSceneTarget& target) {
   session::RadarSceneTarget out;
   out.external_target_id = target.external_target_id;
-  out.velocity_x = target.current_track_velocity_x;
-  out.velocity_y = target.current_track_velocity_y;
-  out.velocity_z = target.current_track_velocity_z;
-  out.rcs = target.current_track_rcs;
+  out.velocity_x = target.velocity_x;
+  out.velocity_y = target.velocity_y;
+  out.velocity_z = target.velocity_z;
+  out.rcs = target.rcs;
   out.range_m = target.range_m;
   out.position_x = target.position_x;
   out.position_y = target.position_y;
@@ -74,7 +76,7 @@ session::RadarSceneTarget ToSceneTarget(const model::TargetFeature& target) {
   return out;
 }
 
-session::RadarSceneTargetList ToSceneTargets(const model::TargetFeatureList& targets) {
+session::RadarSceneTargetList ToSceneTargets(const session::RadarSceneTargetList& targets) {
   session::RadarSceneTargetList out;
   out.reserve(targets.size());
   for (std::size_t i = 0; i < targets.size(); ++i) {
@@ -85,7 +87,7 @@ session::RadarSceneTargetList ToSceneTargets(const model::TargetFeatureList& tar
 
 class ScenarioRadarContext : public extension::IRadarContext {
  public:
-  explicit ScenarioRadarContext(model::TargetFeatureList target_features = {})
+  explicit ScenarioRadarContext(session::RadarSceneTargetList target_features = {})
       : scene_targets_(ToSceneTargets(target_features)) {}
 
   void BeginCycle(const session::RadarCycleInput& input) override {
@@ -142,8 +144,8 @@ class ScenarioRadarContext : public extension::IRadarContext {
     has_latest_control_profile_ = state.has_latest_control_profile;
   }
 
-  void SetTargetFeatures(model::TargetFeatureList target_features) {
-    scene_targets_ = ToSceneTargets(target_features);
+  void SetSceneTargets(session::RadarSceneTargetList targets) {
+    scene_targets_ = ToSceneTargets(targets);
   }
 
   void SetPlatformAttitude(const model::PlatformAttitudeDeg& platform_attitude_deg) {
@@ -216,16 +218,16 @@ session::RadarSessionConfig MakeJointIntegrationPhysicsSessionConfig(float pulse
   return config;
 }
 
-float ComputeRange(const model::TargetFeature& target) {
+float ComputeRange(const session::RadarSceneTarget& target) {
   return std::sqrt(target.position_x * target.position_x + target.position_y * target.position_y +
                    target.position_z * target.position_z);
 }
 
-model::TargetFeature BuildTarget(std::uint64_t external_target_id, float velocity_x,
+session::RadarSceneTarget BuildTarget(std::uint64_t external_target_id, float velocity_x,
                                  float velocity_y, float velocity_z, float rcs, float position_x,
                                  float position_y, float position_z) {
-  model::TargetFeature target(velocity_x, velocity_y, velocity_z, rcs, 0.0f, 0, external_target_id);
-  target.has_cartesian_position = true;
+  session::RadarSceneTarget target(velocity_x, velocity_y, velocity_z, rcs, 0.0f, 0, external_target_id);
+
   target.position_x = position_x;
   target.position_y = position_y;
   target.position_z = position_z;
@@ -233,25 +235,25 @@ model::TargetFeature BuildTarget(std::uint64_t external_target_id, float velocit
   return target;
 }
 
-model::TargetFeature BuildGroundTarget(std::uint64_t external_target_id, float position_x,
+session::RadarSceneTarget BuildGroundTarget(std::uint64_t external_target_id, float position_x,
                                        float position_y, float rcs = 0.8f) {
   return BuildTarget(external_target_id, 0.0f, 0.0f, 0.0f, rcs, position_x, position_y, 0.0f);
 }
 
-model::TargetFeature BuildAirTarget(std::uint64_t external_target_id, float velocity_x,
+session::RadarSceneTarget BuildAirTarget(std::uint64_t external_target_id, float velocity_x,
                                     float velocity_y, float velocity_z, float rcs, float position_x,
                                     float position_y, float position_z) {
   return BuildTarget(external_target_id, velocity_x, velocity_y, velocity_z, rcs, position_x,
                      position_y, position_z);
 }
 
-model::TargetFeatureList BuildMixedPatrolTargetsWithBaseId(std::size_t count,
+session::RadarSceneTargetList BuildMixedPatrolTargetsWithBaseId(std::size_t count,
                                                            std::uint64_t base_target_id,
                                                            float x_bias, float y_bias,
                                                            float z_bias);
 
-model::TargetFeatureList BuildStaticGroundTargets(std::size_t count, float x_bias, float y_bias) {
-  model::TargetFeatureList targets;
+session::RadarSceneTargetList BuildStaticGroundTargets(std::size_t count, float x_bias, float y_bias) {
+  session::RadarSceneTargetList targets;
   targets.reserve(count);
   for (std::size_t i = 0; i < count; ++i) {
     targets.push_back(BuildGroundTarget(1000u + static_cast<std::uint64_t>(i),
@@ -261,16 +263,16 @@ model::TargetFeatureList BuildStaticGroundTargets(std::size_t count, float x_bia
   return targets;
 }
 
-model::TargetFeatureList BuildMixedPatrolTargets(std::size_t count, float x_bias, float y_bias,
+session::RadarSceneTargetList BuildMixedPatrolTargets(std::size_t count, float x_bias, float y_bias,
                                                  float z_bias) {
   return BuildMixedPatrolTargetsWithBaseId(count, 5000u, x_bias, y_bias, z_bias);
 }
 
-model::TargetFeatureList BuildMixedPatrolTargetsWithBaseId(std::size_t count,
+session::RadarSceneTargetList BuildMixedPatrolTargetsWithBaseId(std::size_t count,
                                                            std::uint64_t base_target_id,
                                                            float x_bias, float y_bias,
                                                            float z_bias) {
-  model::TargetFeatureList targets;
+  session::RadarSceneTargetList targets;
   targets.reserve(count);
   for (std::size_t i = 0; i < count; ++i) {
     const std::uint64_t target_id = base_target_id + static_cast<std::uint64_t>(i);
@@ -291,13 +293,13 @@ model::TargetFeatureList BuildMixedPatrolTargetsWithBaseId(std::size_t count,
   return targets;
 }
 
-void AdvanceTargets(float dt_sec, model::TargetFeatureList* targets) {
+void AdvanceTargets(float dt_sec, session::RadarSceneTargetList* targets) {
   ASSERT_NE(targets, nullptr);
   for (std::size_t i = 0; i < targets->size(); ++i) {
-    model::TargetFeature& target = (*targets)[i];
-    target.position_x += target.current_track_velocity_x * dt_sec;
-    target.position_y += target.current_track_velocity_y * dt_sec;
-    target.position_z += target.current_track_velocity_z * dt_sec;
+    session::RadarSceneTarget& target = (*targets)[i];
+    target.position_x += target.velocity_x * dt_sec;
+    target.position_y += target.velocity_y * dt_sec;
+    target.position_z += target.velocity_z * dt_sec;
     target.range_m = ComputeRange(target);
   }
 }
@@ -396,7 +398,7 @@ environment::EnvironmentSceneState MakeMixedScene() {
 }
 
 void ExpectFrameContainsTargets(const output::TrackOutputFrame& frame,
-                                const model::TargetFeatureList& targets) {
+                                const session::RadarSceneTargetList& targets) {
   const auto track_map = BuildTrackMapByExternalId(frame);
   ASSERT_EQ(track_map.size(), targets.size());
   for (std::size_t i = 0; i < targets.size(); ++i) {
@@ -407,13 +409,13 @@ void ExpectFrameContainsTargets(const output::TrackOutputFrame& frame,
 
 output::TrackOutputFrame RunScenarioCycle(extension::RadarController* controller,
                                           ScenarioRadarContext* radar_context,
-                                          const model::TargetFeatureList& targets) {
+                                          const session::RadarSceneTargetList& targets) {
   EXPECT_NE(controller, nullptr);
   EXPECT_NE(radar_context, nullptr);
   if (controller == nullptr || radar_context == nullptr) {
     return output::TrackOutputFrame();
   }
-  radar_context->SetTargetFeatures(targets);
+  radar_context->SetSceneTargets(targets);
   controller->RunOnce();
   EXPECT_TRUE(controller->HasLatestTrackOutputFrame());
   return controller->GetLatestTrackOutputFrame();
@@ -466,7 +468,7 @@ void ExpectFrameContainsTargetIds(const output::TrackOutputFrame& frame,
   }
 }
 
-std::vector<std::uint64_t> ExtractTargetIds(const model::TargetFeatureList& targets) {
+std::vector<std::uint64_t> ExtractTargetIds(const session::RadarSceneTargetList& targets) {
   std::vector<std::uint64_t> target_ids;
   target_ids.reserve(targets.size());
   for (std::size_t i = 0; i < targets.size(); ++i) {
@@ -483,7 +485,7 @@ TEST(RadarJointIntegrationTest, StageOneGroundTargetsRemainStableWithoutInterfer
   ScenarioRadarContext radar_context;
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-  model::TargetFeatureList targets{
+  session::RadarSceneTargetList targets{
       BuildGroundTarget(101u, 20.0f, -5.0f),
       BuildGroundTarget(102u, 45.0f, 8.0f),
       BuildGroundTarget(103u, 72.0f, -12.0f),
@@ -516,7 +518,7 @@ TEST(RadarJointIntegrationTest, StageOneMovingAirTargetsKeepStableEnemyOutputWit
   radar_context.SetCycleDeltaTimeSec(1.0f);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-  model::TargetFeatureList targets{
+  session::RadarSceneTargetList targets{
       BuildAirTarget(201u, 70.0f, 0.0f, 0.0f, 0.9f, 200.0f, -20.0f, 18.0f),
       BuildAirTarget(202u, 85.0f, 2.0f, 0.0f, 1.0f, 280.0f, 10.0f, 22.0f),
       BuildAirTarget(203u, 100.0f, -1.0f, 0.0f, 1.1f, 360.0f, -8.0f, 26.0f),
@@ -536,12 +538,12 @@ TEST(RadarJointIntegrationTest, StageOneMovingAirTargetsKeepStableEnemyOutputWit
 
     const auto track_map = BuildTrackMapByExternalId(frame);
     for (std::size_t i = 0; i < targets.size(); ++i) {
-      const model::TargetFeature& target = targets[i];
+      const session::RadarSceneTarget& target = targets[i];
       const model::TrackStateSnapshot& track = *track_map.at(target.external_target_id);
       const float expected_speed =
-          std::sqrt(target.current_track_velocity_x * target.current_track_velocity_x +
-                    target.current_track_velocity_y * target.current_track_velocity_y +
-                    target.current_track_velocity_z * target.current_track_velocity_z);
+          std::sqrt(target.velocity_x * target.velocity_x +
+                    target.velocity_y * target.velocity_y +
+                    target.velocity_z * target.velocity_z);
       EXPECT_GT(track.position_z, 0.0f);
       EXPECT_NEAR(track.speed, expected_speed, 1e-4f);
       EXPECT_FALSE(track.jamming_detected);
@@ -568,7 +570,7 @@ TEST(RadarJointIntegrationTest,
   radar_context.SetCycleDeltaTimeSec(1.0f);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-  model::TargetFeatureList targets{
+  session::RadarSceneTargetList targets{
       BuildAirTarget(301u, 60.0f, 0.0f, 0.0f, 1.0f, 180.0f, -6.0f, 16.0f),
       BuildAirTarget(302u, 75.0f, 0.5f, 0.0f, 1.0f, 260.0f, 12.0f, 20.0f),
       BuildAirTarget(303u, 90.0f, -0.5f, 0.0f, 1.1f, 340.0f, -10.0f, 24.0f),
@@ -617,7 +619,7 @@ TEST(RadarJointIntegrationTest,
   radar_context.SetCycleDeltaTimeSec(1.0f);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-  model::TargetFeatureList targets{
+  session::RadarSceneTargetList targets{
       BuildAirTarget(401u, 1.0f, 0.0f, 0.0f, 1.0f, 4.0f, 0.0f, 3.0f),
   };
 
@@ -667,7 +669,7 @@ TEST(RadarJointIntegrationTest, StageTwoRepeaterInterferenceKeepsTrackOutputAndS
   radar_context.SetCycleDeltaTimeSec(1.0f);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-  model::TargetFeatureList targets{
+  session::RadarSceneTargetList targets{
       BuildAirTarget(501u, 2.0f, 0.0f, 0.0f, 1.0f, 8.0f, -1.0f, 3.0f),
       BuildAirTarget(502u, 2.5f, 0.2f, 0.0f, 1.0f, 12.0f, 1.0f, 4.0f),
   };
@@ -711,7 +713,7 @@ TEST(RadarJointIntegrationTest,
   radar_context.SetCycleDeltaTimeSec(1.0f);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-  model::TargetFeatureList targets{
+  session::RadarSceneTargetList targets{
       BuildAirTarget(601u, 4.0f, 0.0f, 0.0f, 1.0f, 14.0f, -4.0f, 4.0f),
       BuildAirTarget(602u, 4.5f, 0.1f, 0.0f, 1.1f, 20.0f, 6.0f, 5.0f),
       BuildAirTarget(603u, 5.0f, -0.1f, 0.0f, 1.0f, 28.0f, -3.0f, 6.0f),
@@ -765,7 +767,7 @@ TEST(RadarJointIntegrationTest, MediumScaleStaticSearchMaintainsStableOutputAcro
     ScenarioRadarContext radar_context;
     extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-    const model::TargetFeatureList targets =
+    const session::RadarSceneTargetList targets =
         BuildStaticGroundTargets(target_tiers[tier_index], 60.0f, -8.0f);
     for (std::size_t cycle = 0; cycle < 5U; ++cycle) {
       const output::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
@@ -793,7 +795,7 @@ TEST(RadarJointIntegrationTest, MediumScaleDynamicSearchMaintainsStableAssociati
     radar_context.SetCycleDeltaTimeSec(1.0f);
     extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-    model::TargetFeatureList targets =
+    session::RadarSceneTargetList targets =
         BuildMixedPatrolTargets(tiers[tier_index].target_count, 120.0f, -6.0f, 6.0f);
     std::unordered_map<std::uint64_t, std::uint64_t> previous_keys;
     std::vector<CycleStats> stats;
@@ -833,7 +835,7 @@ TEST(RadarJointIntegrationTest,
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
-  model::TargetFeatureList targets = BuildMixedPatrolTargets(20U, 100.0f, -5.0f, 6.0f);
+  session::RadarSceneTargetList targets = BuildMixedPatrolTargets(20U, 100.0f, -5.0f, 6.0f);
 
   const std::vector<SceneScriptStep> script{
       {MakeClearScene(), false},   {MakeNoiseScene(), true},  {MakeDeceptionScene(), true},
@@ -881,7 +883,7 @@ TEST(RadarJointIntegrationTest, LongDurationMediumLoadPatrolKeepsMetricsBoundedW
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
-  model::TargetFeatureList targets = BuildMixedPatrolTargets(32U, 140.0f, -8.0f, 8.0f);
+  session::RadarSceneTargetList targets = BuildMixedPatrolTargets(32U, 140.0f, -8.0f, 8.0f);
 
   const std::size_t cycle_count = 120U;
   std::vector<CycleStats> stats;
@@ -938,7 +940,7 @@ TEST(RadarJointIntegrationTest, EmptySearchAreaKeepsTrackOutputReadableWithoutSp
   ScenarioRadarContext radar_context;
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-  const model::TargetFeatureList targets;
+  const session::RadarSceneTargetList targets;
   for (std::size_t cycle = 0; cycle < 3U; ++cycle) {
     const output::TrackOutputFrame frame = RunScenarioCycle(&controller, &radar_context, targets);
     EXPECT_EQ(frame.tracks.size(), 0U);
@@ -962,7 +964,7 @@ TEST(RadarJointIntegrationTest, DuplicateExternalTargetIdsAreRejectedAndPrevious
   radar_context.SetCycleDeltaTimeSec(1.0f);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-  model::TargetFeatureList valid_targets{
+  session::RadarSceneTargetList valid_targets{
       BuildAirTarget(9001u, 42.0f, 0.4f, 0.0f, 0.9f, 120.0f, -6.0f, 12.0f),
       BuildAirTarget(9002u, 71.0f, 0.1f, 0.0f, 1.1f, 240.0f, 1.0f, 18.0f),
   };
@@ -971,12 +973,12 @@ TEST(RadarJointIntegrationTest, DuplicateExternalTargetIdsAreRejectedAndPrevious
   ASSERT_EQ(previous_frame.tracks.size(), valid_targets.size());
   ASSERT_FALSE(controller.HasValidationError());
 
-  model::TargetFeatureList duplicate_targets{
+  session::RadarSceneTargetList duplicate_targets{
       BuildAirTarget(9001u, 42.0f, 0.4f, 0.0f, 0.9f, 120.0f, -6.0f, 12.0f),
       BuildAirTarget(9001u, 58.0f, -0.2f, 0.0f, 1.0f, 175.0f, 9.0f, 15.0f),
       BuildAirTarget(9002u, 71.0f, 0.1f, 0.0f, 1.1f, 240.0f, 1.0f, 18.0f),
   };
-  radar_context.SetTargetFeatures(duplicate_targets);
+  radar_context.SetSceneTargets(duplicate_targets);
   controller.RunOnce();
 
   EXPECT_TRUE(controller.HasValidationError());
@@ -999,7 +1001,7 @@ TEST(RadarJointIntegrationTest, ExtremeRangeTargetsKeepFiniteStableOutputAcrossC
   radar_context.SetCycleDeltaTimeSec(1.0f);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-  model::TargetFeatureList targets{
+  session::RadarSceneTargetList targets{
       BuildGroundTarget(9101u, 2.5f, -0.5f, 0.8f),
       BuildAirTarget(9102u, 35.0f, 0.0f, 0.0f, 0.9f, 250.0f, 4.0f, 10.0f),
       BuildAirTarget(9103u, 65.0f, -0.3f, 0.0f, 1.0f, 3200.0f, -18.0f, 28.0f),
@@ -1038,7 +1040,7 @@ TEST(RadarJointIntegrationTest,
   radar_context.SetCycleDeltaTimeSec(1.0f);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-  model::TargetFeatureList targets{
+  session::RadarSceneTargetList targets{
       BuildGroundTarget(9201u, 35.0f, -4.0f, 0.9f),
       BuildAirTarget(9202u, 0.6f, 0.0f, 0.0f, 0.9f, 95.0f, 2.0f, 9.0f),
       BuildAirTarget(9203u, 140.0f, 0.8f, 0.0f, 1.0f, 180.0f, -3.0f, 16.0f),
@@ -1092,13 +1094,13 @@ TEST(RadarJointIntegrationTest,
   radar_context.SetCycleDeltaTimeSec(1.0f);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-  const model::TargetFeatureList initial_targets =
+  const session::RadarSceneTargetList initial_targets =
       BuildMixedPatrolTargetsWithBaseId(10U, 10000u, 120.0f, -8.0f, 8.0f);
-  const model::TargetFeatureList burst_targets =
+  const session::RadarSceneTargetList burst_targets =
       BuildMixedPatrolTargetsWithBaseId(20U, 10100u, 320.0f, 10.0f, 10.0f);
-  model::TargetFeatureList expanded_targets = initial_targets;
+  session::RadarSceneTargetList expanded_targets = initial_targets;
   expanded_targets.insert(expanded_targets.end(), burst_targets.begin(), burst_targets.end());
-  model::TargetFeatureList shrunk_targets(initial_targets.begin(), initial_targets.begin() + 6);
+  session::RadarSceneTargetList shrunk_targets(initial_targets.begin(), initial_targets.begin() + 6);
 
   const output::TrackOutputFrame cycle_1_frame =
       RunScenarioCycle(&controller, &radar_context, initial_targets);
@@ -1140,9 +1142,9 @@ TEST(RadarJointIntegrationTest,
   radar_context.SetCycleDeltaTimeSec(1.0f);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-  model::TargetFeatureList full_targets =
+  session::RadarSceneTargetList full_targets =
       BuildMixedPatrolTargetsWithBaseId(12U, 11000u, 150.0f, -10.0f, 8.0f);
-  model::TargetFeatureList dropout_targets(full_targets.begin(), full_targets.begin() + 6);
+  session::RadarSceneTargetList dropout_targets(full_targets.begin(), full_targets.begin() + 6);
 
   const output::TrackOutputFrame cycle_1_frame =
       RunScenarioCycle(&controller, &radar_context, full_targets);
@@ -1186,7 +1188,7 @@ TEST(RadarJointIntegrationTest, InputOrderingPermutationKeepsExternalIdentitySta
   radar_context.SetCycleDeltaTimeSec(1.0f);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-  model::TargetFeatureList targets =
+  session::RadarSceneTargetList targets =
       BuildMixedPatrolTargetsWithBaseId(15U, 12000u, 180.0f, -6.0f, 8.0f);
   std::unordered_map<std::uint64_t, std::uint64_t> previous_keys;
   for (std::size_t cycle = 0; cycle < 4U; ++cycle) {
@@ -1224,7 +1226,7 @@ TEST(RadarJointIntegrationTest,
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
-  model::TargetFeatureList targets =
+  session::RadarSceneTargetList targets =
       BuildMixedPatrolTargetsWithBaseId(18U, 13000u, 200.0f, -4.0f, 8.0f);
 
   const std::vector<SceneScriptStep> script{
@@ -1266,7 +1268,7 @@ TEST(RadarJointIntegrationTest,
   radar_context.SetCycleDeltaTimeSec(1.0f);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-  model::TargetFeatureList targets{
+  session::RadarSceneTargetList targets{
       BuildAirTarget(0u, 42.0f, 0.0f, 0.0f, 0.9f, 110.0f, -4.0f, 12.0f),
       BuildGroundTarget(14001u, 150.0f, 6.0f, 0.8f),
       BuildAirTarget(0u, 58.0f, 0.2f, 0.0f, 1.0f, 190.0f, 8.0f, 16.0f),
@@ -1322,7 +1324,7 @@ TEST(RadarJointIntegrationTest, CoLocatedTargetsWithDistinctIdsRemainSeparateAcr
   radar_context.SetCycleDeltaTimeSec(1.0f);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-  model::TargetFeatureList targets{
+  session::RadarSceneTargetList targets{
       BuildAirTarget(15001u, 38.0f, 0.0f, 0.0f, 0.9f, 160.0f, 2.0f, 14.0f),
       BuildAirTarget(15002u, 44.0f, 0.3f, 0.0f, 1.0f, 160.0f, 2.0f, 14.0f),
       BuildAirTarget(15003u, 51.0f, -0.2f, 0.0f, 1.1f, 160.0f, 2.0f, 14.0f),
@@ -1364,7 +1366,7 @@ TEST(RadarJointIntegrationTest, SuddenVelocityMutationKeepsKnownTargetReadableAc
   radar_context.SetCycleDeltaTimeSec(1.0f);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-  model::TargetFeatureList targets{
+  session::RadarSceneTargetList targets{
       BuildAirTarget(16001u, 28.0f, 0.0f, 0.0f, 1.0f, 140.0f, -2.0f, 14.0f),
       BuildAirTarget(16002u, 54.0f, 0.2f, 0.0f, 0.9f, 210.0f, 4.0f, 18.0f),
   };
@@ -1377,9 +1379,9 @@ TEST(RadarJointIntegrationTest, SuddenVelocityMutationKeepsKnownTargetReadableAc
   const float cycle_1_position_x = cycle_1_track_map.at(16001u)->position_x;
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
 
-  targets[0].current_track_velocity_x = 220.0f;
-  targets[0].current_track_velocity_y = 2.0f;
-  targets[0].current_track_velocity_z = 6.0f;
+  targets[0].velocity_x = 220.0f;
+  targets[0].velocity_y = 2.0f;
+  targets[0].velocity_z = 6.0f;
   targets[0].range_m = ComputeRange(targets[0]);
   const output::TrackOutputFrame cycle_2_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
@@ -1391,9 +1393,9 @@ TEST(RadarJointIntegrationTest, SuddenVelocityMutationKeepsKnownTargetReadableAc
   EXPECT_GT(cycle_2_track.position_x, cycle_1_position_x);
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
 
-  targets[0].current_track_velocity_x = 35.0f;
-  targets[0].current_track_velocity_y = -0.5f;
-  targets[0].current_track_velocity_z = 0.0f;
+  targets[0].velocity_x = 35.0f;
+  targets[0].velocity_y = -0.5f;
+  targets[0].velocity_z = 0.0f;
   targets[0].range_m = ComputeRange(targets[0]);
   const output::TrackOutputFrame cycle_3_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
@@ -1413,7 +1415,7 @@ TEST(RadarJointIntegrationTest,
   radar_context.SetCycleDeltaTimeSec(1.0f);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-  const std::vector<model::TargetFeatureList> batches{
+  const std::vector<session::RadarSceneTargetList> batches{
       BuildMixedPatrolTargetsWithBaseId(8U, 17000u, 160.0f, -8.0f, 8.0f),
       BuildMixedPatrolTargetsWithBaseId(8U, 17100u, 420.0f, 12.0f, 10.0f),
       BuildMixedPatrolTargetsWithBaseId(8U, 17200u, 220.0f, -14.0f, 12.0f),
@@ -1447,7 +1449,7 @@ TEST(RadarJointIntegrationTest, LongDurationPulsedInterferenceRecoversOnEveryCle
   ScenarioRadarContext radar_context;
   radar_context.SetCycleDeltaTimeSec(1.0f);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
-  model::TargetFeatureList targets =
+  session::RadarSceneTargetList targets =
       BuildMixedPatrolTargetsWithBaseId(20U, 18000u, 220.0f, -6.0f, 8.0f);
 
   const std::vector<SceneScriptStep> script{
@@ -1492,7 +1494,7 @@ TEST(RadarJointIntegrationTest, InvalidCycleDeltaFallsBackWithoutBreakingTrackCo
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
-  model::TargetFeatureList targets =
+  session::RadarSceneTargetList targets =
       BuildMixedPatrolTargetsWithBaseId(6U, 19000u, 180.0f, -5.0f, 8.0f);
 
   radar_context.SetCycleDeltaTimeSec(1.0f);
@@ -1540,7 +1542,7 @@ TEST(RadarJointIntegrationTest, NonPositiveRangeAndNearOriginInputsRemainFiniteA
   ScenarioRadarContext radar_context;
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-  model::TargetFeatureList targets{
+  session::RadarSceneTargetList targets{
       BuildAirTarget(20001u, 12.0f, 0.0f, 0.0f, 0.8f, 0.01f, 0.0f, 0.0f),
       BuildAirTarget(20002u, 8.0f, 0.1f, 0.0f, 0.9f, 0.05f, 0.02f, 0.01f),
       BuildAirTarget(20003u, 4.0f, 0.0f, 0.0f, 0.7f, 0.12f, -0.03f, 0.0f),
@@ -1575,12 +1577,12 @@ TEST(RadarJointIntegrationTest,
   ScenarioRadarContext radar_context;
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-  model::TargetFeatureList targets{
+  session::RadarSceneTargetList targets{
       BuildGroundTarget(20011u, 0.0f, 0.0f, 0.7f),
   };
-  targets[0].has_cartesian_position = false;
+
   targets[0].range_m = 0.0f;
-  radar_context.SetTargetFeatures(targets);
+  radar_context.SetSceneTargets(targets);
 
   controller.RunOnce();
 
@@ -1600,7 +1602,7 @@ TEST(RadarJointIntegrationTest, ExtremeRcsSpreadKeepsAllTracksFiniteAcrossCycles
   radar_context.SetCycleDeltaTimeSec(1.0f);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-  model::TargetFeatureList targets{
+  session::RadarSceneTargetList targets{
       BuildAirTarget(21001u, 30.0f, 0.0f, 0.0f, 0.001f, 180.0f, -6.0f, 12.0f),
       BuildAirTarget(21002u, 42.0f, 0.1f, 0.0f, 0.05f, 230.0f, 4.0f, 15.0f),
       BuildAirTarget(21003u, 55.0f, -0.2f, 0.0f, 5.0f, 310.0f, -3.0f, 18.0f),
@@ -1631,7 +1633,7 @@ TEST(RadarJointIntegrationTest, UltraHighAltitudeTargetsRemainTrackableAcrossCyc
   radar_context.SetCycleDeltaTimeSec(1.0f);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-  model::TargetFeatureList targets{
+  session::RadarSceneTargetList targets{
       BuildAirTarget(22001u, 48.0f, 0.0f, 4.0f, 0.9f, 260.0f, -8.0f, 1200.0f),
       BuildAirTarget(22002u, 55.0f, -0.2f, 3.0f, 1.0f, 340.0f, 10.0f, 6000.0f),
       BuildAirTarget(22003u, 62.0f, 0.1f, -2.0f, 1.1f, 420.0f, -4.0f, 15000.0f),
@@ -1665,7 +1667,7 @@ TEST(RadarJointIntegrationTest, SimultaneousTargetAndJammerVolatilityKeepsCurren
   radar_context.SetCycleDeltaTimeSec(1.0f);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-  const std::vector<model::TargetFeatureList> batches{
+  const std::vector<session::RadarSceneTargetList> batches{
       BuildMixedPatrolTargetsWithBaseId(6U, 23000u, 180.0f, -6.0f, 8.0f),
       BuildMixedPatrolTargetsWithBaseId(18U, 23100u, 320.0f, 10.0f, 10.0f),
       BuildMixedPatrolTargetsWithBaseId(10U, 23200u, 220.0f, -12.0f, 12.0f),
@@ -1704,7 +1706,7 @@ TEST(RadarJointIntegrationTest, LongDurationCycleDeltaAndGeometryVolatilityKeeps
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
-  model::TargetFeatureList targets =
+  session::RadarSceneTargetList targets =
       BuildMixedPatrolTargetsWithBaseId(10U, 24000u, 200.0f, -8.0f, 8.0f);
 
   const std::vector<float> dt_pattern{1.0f, 0.0f, -1.0f, 0.5f, 2.0f, 0.0f};
@@ -1753,7 +1755,7 @@ TEST(RadarJointIntegrationTest, BatchReplacementAndPulsedInterferenceKeepCurrent
   radar_context.SetCycleDeltaTimeSec(1.0f);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-  const std::vector<model::TargetFeatureList> batches{
+  const std::vector<session::RadarSceneTargetList> batches{
       BuildMixedPatrolTargetsWithBaseId(9U, 25000u, 180.0f, -8.0f, 8.0f),
       BuildMixedPatrolTargetsWithBaseId(14U, 25100u, 320.0f, 10.0f, 10.0f),
       BuildMixedPatrolTargetsWithBaseId(7U, 25200u, 220.0f, -14.0f, 12.0f),
@@ -1795,7 +1797,7 @@ TEST(RadarJointIntegrationTest, LongDurationExtremeRcsAndAltitudeMixKeepsMetrics
   radar_context.SetCycleDeltaTimeSec(1.0f);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-  model::TargetFeatureList targets{
+  session::RadarSceneTargetList targets{
       BuildAirTarget(26001u, 34.0f, 0.0f, 0.0f, 0.001f, 180.0f, -5.0f, 20.0f),
       BuildAirTarget(26002u, 41.0f, 0.1f, 0.0f, 0.02f, 240.0f, 4.0f, 1200.0f),
       BuildAirTarget(26003u, 53.0f, -0.2f, 1.0f, 0.3f, 320.0f, -3.0f, 3000.0f),
@@ -1839,7 +1841,7 @@ TEST(RadarJointIntegrationTest, LongDurationExtremeRcsAndAltitudeMixKeepsMetrics
 }
 
 TEST(RadarJointIntegrationTest, PhysicsPulseWidthRetuningStaysWithinBoundedWindow) {
-  const model::TargetFeatureList base_targets =
+  const session::RadarSceneTargetList base_targets =
       BuildMixedPatrolTargetsWithBaseId(24U, 27000u, 260.0f, -6.0f, 10.0f);
   const std::vector<SceneScriptStep> script{
       {MakeClearScene(), false},
@@ -1856,7 +1858,7 @@ TEST(RadarJointIntegrationTest, PhysicsPulseWidthRetuningStaysWithinBoundedWindo
     radar_context.SetCycleDeltaTimeSec(1.0f);
     extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
-    model::TargetFeatureList targets = base_targets;
+    session::RadarSceneTargetList targets = base_targets;
     std::vector<float> association_stress_series;
     std::size_t published_sum = 0U;
     for (std::size_t cycle = 0; cycle < 20U; ++cycle) {
