@@ -384,7 +384,7 @@ TEST(SignalDetectorTest, HigherPulseCountYieldsHigherPd) {
 
 /// @brief 雷达局部坐标应能解析出稳定的目标方位/俯仰角。
 TEST(TargetLookResolverTest, ResolvesRadarLocalLookAngles) {
-  model::TargetFeature target;
+  session::RadarSceneTarget target;
   target.position_x = 10.0f;
   target.position_y = 10.0f;
   target.position_z = 10.0f;

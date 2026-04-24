@@ -12,7 +12,7 @@
 #include "1q/airborne_radar/config/RadarHardwareConfig.h"
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
-#include "1q/airborne_radar/model/TargetFeature.h"
+#include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/core/SignalPipeline.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
@@ -22,6 +22,11 @@ namespace airborne_radar {
 namespace tests {
 
 namespace {
+
+float SpeedOf(const session::RadarSceneTarget& target) {
+  return std::sqrt(target.velocity_x * target.velocity_x + target.velocity_y * target.velocity_y +
+                   target.velocity_z * target.velocity_z);
+}
 
 signal::tracking::CycleContext MakeLifecycleCycle(std::uint32_t cycle_index,
                                                   std::uint64_t batch_id) {
@@ -42,7 +47,7 @@ environment::EnvironmentCycleContext MakeEnvironmentCycle(std::uint32_t cycle_in
 
 template <typename PipelineType>
 extension::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
-                                              const model::TargetFeatureList& input_state,
+                                              const session::RadarSceneTargetList& input_state,
                                               environment::EnvironmentService* environment_service,
                                               std::uint32_t cycle_index = 1u) {
   environment_service->BeginCycle(MakeEnvironmentCycle(cycle_index));
@@ -119,37 +124,37 @@ void ApplyLifecyclePolicyProfile(session::RadarSessionConfig* config,
 
 TEST(TrackFilterTest, KeepsStateWhenDetectionIsStable) {
   signal::tracking::TrackFilter filter;
-  const model::TargetFeature input(800.0f, 0.0f, 0.0f, 2.5f);
+  const session::RadarSceneTarget input(800.0f, 0.0f, 0.0f, 2.5f);
 
   signal::tracking::TrackFilterContext context;
   context.detection_succeeded = true;
   context.jamming_detected = false;
   context.detection_margin_db = 0.0f;
 
-  const model::TargetFeature output = filter.Filter(input, context);
+  const session::RadarSceneTarget output = filter.Filter(input, context);
 
-  EXPECT_FLOAT_EQ(output.current_track_speed, input.current_track_speed);
-  EXPECT_FLOAT_EQ(output.current_track_rcs, input.current_track_rcs);
+  EXPECT_FLOAT_EQ(SpeedOf(output), SpeedOf(input));
+  EXPECT_FLOAT_EQ(output.rcs, input.rcs);
 }
 
 TEST(TrackFilterTest, AppliesLossDecayAndJammingPenalty) {
   signal::tracking::TrackFilter filter;
-  const model::TargetFeature input(800.0f, 0.0f, 0.0f, 2.5f);
+  const session::RadarSceneTarget input(800.0f, 0.0f, 0.0f, 2.5f);
 
   signal::tracking::TrackFilterContext context;
   context.detection_succeeded = false;
   context.jamming_detected = true;
   context.detection_margin_db = -10.0f;
 
-  const model::TargetFeature output = filter.Filter(input, context);
+  const session::RadarSceneTarget output = filter.Filter(input, context);
 
-  EXPECT_LT(output.current_track_speed, input.current_track_speed);
-  EXPECT_LT(output.current_track_rcs, input.current_track_rcs);
+  EXPECT_LT(SpeedOf(output), SpeedOf(input));
+  EXPECT_LT(output.rcs, input.rcs);
 }
 
 TEST(TrackFilterTest, DeceptionJammingRetainsMoreTrackEnergyThanNoiseSuppression) {
   signal::tracking::TrackFilter filter;
-  const model::TargetFeature input(800.0f, 0.0f, 0.0f, 2.5f);
+  const session::RadarSceneTarget input(800.0f, 0.0f, 0.0f, 2.5f);
 
   signal::tracking::TrackFilterContext noise_context;
   noise_context.detection_succeeded = false;
@@ -161,28 +166,28 @@ TEST(TrackFilterTest, DeceptionJammingRetainsMoreTrackEnergyThanNoiseSuppression
   signal::tracking::TrackFilterContext deception_context = noise_context;
   deception_context.dominant_jamming_semantic = model::JammingSemantic::kDeception;
 
-  const model::TargetFeature noise_output = filter.Filter(input, noise_context);
-  const model::TargetFeature deception_output = filter.Filter(input, deception_context);
+  const session::RadarSceneTarget noise_output = filter.Filter(input, noise_context);
+  const session::RadarSceneTarget deception_output = filter.Filter(input, deception_context);
 
-  EXPECT_GT(deception_output.current_track_speed, noise_output.current_track_speed);
-  EXPECT_GT(deception_output.current_track_rcs, noise_output.current_track_rcs);
+  EXPECT_GT(SpeedOf(deception_output), SpeedOf(noise_output));
+  EXPECT_GT(deception_output.rcs, noise_output.rcs);
 }
 
 TEST(TrackFilterTest, DetectionSuccessPreservesSpeedAndRcs) {
   signal::tracking::TrackFilter filter;
 
-  model::TargetFeature input(300.0f, 0.0f, 0.0f, 2.0f);
-  input.has_cartesian_position = true;
+  session::RadarSceneTarget input(300.0f, 0.0f, 0.0f, 2.0f);
+
   input.position_x = 1000.0f;
   input.range_m = 1000.0f;
 
   signal::tracking::TrackFilterContext ctx;
   ctx.detection_succeeded = true;
 
-  const model::TargetFeature output = filter.Filter(input, ctx);
+  const session::RadarSceneTarget output = filter.Filter(input, ctx);
 
-  EXPECT_FLOAT_EQ(output.current_track_speed, 300.0f);
-  EXPECT_FLOAT_EQ(output.current_track_rcs, 2.0f);
+  EXPECT_FLOAT_EQ(SpeedOf(output), 300.0f);
+  EXPECT_FLOAT_EQ(output.rcs, 2.0f);
 }
 
 /// @brief 检测失配时，速度按配置系数衰减（speed = input * ratio）。
@@ -193,13 +198,13 @@ TEST(TrackFilterTest, DetectionMissDecaysSpeedByConfiguredRatio) {
   cfg.rcs_decay_ratio_on_loss = 1.0f;  // RCS 不衰减，隔离速度分支
   signal::tracking::TrackFilter filter(cfg);
 
-  model::TargetFeature input(500.0f, 0.0f, 0.0f, 2.0f);
+  session::RadarSceneTarget input(500.0f, 0.0f, 0.0f, 2.0f);
   signal::tracking::TrackFilterContext ctx;
   ctx.detection_succeeded = false;
 
-  const model::TargetFeature output = filter.Filter(input, ctx);
+  const session::RadarSceneTarget output = filter.Filter(input, ctx);
 
-  EXPECT_FLOAT_EQ(output.current_track_speed, 400.0f);  // 500 * 0.8
+  EXPECT_FLOAT_EQ(SpeedOf(output), 400.0f);  // 500 * 0.8
 }
 
 /// @brief 检测失配时，RCS 按配置系数衰减，且不低于 0.05。
@@ -210,13 +215,13 @@ TEST(TrackFilterTest, DetectionMissDecaysRcsByConfiguredRatio) {
   cfg.rcs_decay_ratio_on_loss = 0.70f;
   signal::tracking::TrackFilter filter(cfg);
 
-  model::TargetFeature input(100.0f, 0.0f, 0.0f, 2.0f);
+  session::RadarSceneTarget input(100.0f, 0.0f, 0.0f, 2.0f);
   signal::tracking::TrackFilterContext ctx;
   ctx.detection_succeeded = false;
 
-  const model::TargetFeature output = filter.Filter(input, ctx);
+  const session::RadarSceneTarget output = filter.Filter(input, ctx);
 
-  EXPECT_NEAR(output.current_track_rcs, 1.40f, 1e-4f);  // 2.0 * 0.7
+  EXPECT_NEAR(output.rcs, 1.40f, 1e-4f);  // 2.0 * 0.7
 }
 
 /// @brief 连续多次失配时，速度单调递减。
@@ -230,13 +235,13 @@ TEST(TrackFilterTest, ConsecutiveMissesMonotonicallyReduceSpeed) {
   signal::tracking::TrackFilterContext miss_ctx;
   miss_ctx.detection_succeeded = false;
 
-  model::TargetFeature state(500.0f, 0.0f, 0.0f, 1.0f);
+  session::RadarSceneTarget state(500.0f, 0.0f, 0.0f, 1.0f);
   float prev_speed = 500.0f;
   for (int i = 0; i < 5; ++i) {
     state = filter.Filter(state, miss_ctx);
-    EXPECT_LT(state.current_track_speed, prev_speed)
+    EXPECT_LT(SpeedOf(state), prev_speed)
         << "Speed should decrease at miss #" << (i + 1);
-    prev_speed = state.current_track_speed;
+    prev_speed = SpeedOf(state);
   }
 }
 
@@ -248,13 +253,13 @@ TEST(TrackFilterTest, DecayRatioOnePreservesSpeedOnMiss) {
   cfg.rcs_decay_ratio_on_loss = 1.0f;
   signal::tracking::TrackFilter filter(cfg);
 
-  model::TargetFeature input(400.0f, 0.0f, 0.0f, 1.5f);
+  session::RadarSceneTarget input(400.0f, 0.0f, 0.0f, 1.5f);
   signal::tracking::TrackFilterContext ctx;
   ctx.detection_succeeded = false;
 
-  const model::TargetFeature output = filter.Filter(input, ctx);
+  const session::RadarSceneTarget output = filter.Filter(input, ctx);
 
-  EXPECT_FLOAT_EQ(output.current_track_speed, 400.0f);
+  EXPECT_FLOAT_EQ(SpeedOf(output), 400.0f);
 }
 
 /// @brief 速度不会因失配变为负数（钳位到 0）。
@@ -265,13 +270,13 @@ TEST(TrackFilterTest, SpeedNeverGoesNegativeOnMiss) {
   cfg.rcs_decay_ratio_on_loss = 1.0f;
   signal::tracking::TrackFilter filter(cfg);
 
-  model::TargetFeature input(300.0f, 0.0f, 0.0f, 1.0f);
+  session::RadarSceneTarget input(300.0f, 0.0f, 0.0f, 1.0f);
   signal::tracking::TrackFilterContext ctx;
   ctx.detection_succeeded = false;
 
-  const model::TargetFeature output = filter.Filter(input, ctx);
+  const session::RadarSceneTarget output = filter.Filter(input, ctx);
 
-  EXPECT_GE(output.current_track_speed, 0.0f);
+  EXPECT_GE(SpeedOf(output), 0.0f);
 }
 
 /// @brief RCS 不会因失配低于最小值 0.05。
@@ -282,13 +287,13 @@ TEST(TrackFilterTest, RcsNeverGoesBelowMinimumOnMiss) {
   cfg.rcs_decay_ratio_on_loss = 0.0f;  // 衰减至 0
   signal::tracking::TrackFilter filter(cfg);
 
-  model::TargetFeature input(100.0f, 0.0f, 0.0f, 0.01f);  // 极小 RCS
+  session::RadarSceneTarget input(100.0f, 0.0f, 0.0f, 0.01f);  // 极小 RCS
   signal::tracking::TrackFilterContext ctx;
   ctx.detection_succeeded = false;
 
-  const model::TargetFeature output = filter.Filter(input, ctx);
+  const session::RadarSceneTarget output = filter.Filter(input, ctx);
 
-  EXPECT_GE(output.current_track_rcs, 0.05f);
+  EXPECT_GE(output.rcs, 0.05f);
 }
 
 }  // namespace tests

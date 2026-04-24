@@ -2,7 +2,7 @@
 //
 // @file radar_input_validation_test.cpp
 // @brief 验证雷达周期输入校验器的边界行为，覆盖以下缺口：
-//   - has_cartesian_position 严格语义（非零坐标不再隐式视为有效位置）
+//   - 笛卡尔位置与斜距的组合有效性语义
 //   - 负距离 / 零距离的错误判定
 //   - 非有限数（NaN / Inf）全字段检测
 //   - 重复外部 ID、零 ID、负 RCS 的级别判定
@@ -53,7 +53,7 @@ const session::ValidationIssue* FindIssue(
 }  // namespace
 
 // ===========================================================================
-// has_cartesian_position 严格语义
+// 笛卡尔位置与斜距组合语义
 // ===========================================================================
 
 /// @brief 目标位于原点 (0,0,0) 且 range_m <= 0 → 必须报 kMissingRangeAndCartesianPosition。
@@ -86,7 +86,7 @@ TEST(RadarInputValidationTest, OriginWithPositiveRangeIsValid) {
   EXPECT_FALSE(HasValidationError(issues));
 }
 
-/// @brief 目标标记了 has_cartesian_position=true 且 range_m <= 0 → 不报位置缺失错误。
+/// @brief 目标具有有效笛卡尔位置且 range_m <= 0 → 不报位置缺失错误。
 TEST(RadarInputValidationTest, FlaggedCartesianPositionWithNonPositiveRangeIsValid) {
   session::RadarSceneTarget target;
   target.external_target_id = 1u;
@@ -115,7 +115,7 @@ TEST(RadarInputValidationTest, NonZeroCoordinatesImpliesCartesianPositionAndIsVa
   EXPECT_FALSE(HasValidationError(issues));
 }
 
-/// @brief 原点 (0,0,0) 且 range_m <= 0 → 无非零坐标可推断笛卡尔位置，报位置缺失错误。
+/// @brief 原点 (0,0,0) 且 range_m <= 0 → 报位置缺失错误。
 TEST(RadarInputValidationTest, OriginWithNoRangeIsErrorEvenWithoutPositionFlag) {
   session::RadarSceneTarget target;
   target.external_target_id = 1u;
@@ -130,7 +130,7 @@ TEST(RadarInputValidationTest, OriginWithNoRangeIsErrorEvenWithoutPositionFlag) 
   EXPECT_NE(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition), nullptr);
 }
 
-/// @brief 目标 range_m 为负值且无有效笛卡尔位置标志 → 同样报错。
+/// @brief 目标 range_m 为负值且无有效笛卡尔位置 → 同样报错。
 TEST(RadarInputValidationTest, NegativeRangeWithNoPositionIsError) {
   session::RadarSceneTarget target;
   target.external_target_id = 1u;

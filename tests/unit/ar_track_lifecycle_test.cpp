@@ -8,6 +8,7 @@
 #include <cmath>
 #include <vector>
 
+#include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "airborne_radar/signal/tracking/TrackState.h"
 #include "airborne_radar/signal/tracking/BoostTrackPool.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
@@ -19,6 +20,11 @@ namespace airborne_radar {
 namespace tests {
 
 namespace {
+
+float SpeedOf(const session::RadarSceneTarget& target) {
+  return std::sqrt(target.velocity_x * target.velocity_x + target.velocity_y * target.velocity_y +
+                   target.velocity_z * target.velocity_z);
+}
 
 class CountingTrackPool : public signal::tracking::ITrackPool {
  public:
@@ -77,7 +83,7 @@ signal::tracking::TrackMeasurement MakeCartesianMeasurement(std::uint64_t associ
   signal::tracking::TrackMeasurement measurement;
   measurement.raw_measurement.association_key = association_key;
   measurement.raw_measurement.matched_existing_track = matched_existing_track;
-  measurement.raw_measurement.has_cartesian_position = true;
+
   measurement.raw_measurement.position = Eigen::Vector3f(position_x, 0.0f, 0.0f);
   measurement.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
   measurement.filtered_feature.velocity = Eigen::Vector3f(velocity_x, 0.0f, 0.0f);
@@ -121,10 +127,10 @@ TEST(TrackLifecycleManagerTest, ConfirmsTrackAfterConfiguredHits) {
   ASSERT_EQ(active_tracks.size(), 1u);
   EXPECT_EQ(active_tracks[0]->status, signal::tracking::TrackStatus::kConfirmed);
 
-  const model::TargetFeatureList snapshot = manager.BuildFeatureSnapshot();
+  const session::RadarSceneTargetList snapshot = manager.BuildSceneTargetSnapshot();
   ASSERT_EQ(snapshot.size(), 1u);
-  EXPECT_FLOAT_EQ(snapshot[0].current_track_speed, 5.0f);
-  EXPECT_FLOAT_EQ(snapshot[0].current_track_rcs, 1.5f);
+  EXPECT_FLOAT_EQ(SpeedOf(snapshot[0]), 5.0f);
+  EXPECT_FLOAT_EQ(snapshot[0].rcs, 1.5f);
 }
 
 TEST(TrackLifecycleManagerTest, RecyclesTrackAfterLostTimeout) {
@@ -153,7 +159,7 @@ TEST(TrackLifecycleManagerTest, RecyclesTrackAfterLostTimeout) {
   active_tracks = manager.GetActiveTracks();
   EXPECT_TRUE(active_tracks.empty());
 
-  const model::TargetFeatureList snapshot = manager.BuildFeatureSnapshot();
+  const session::RadarSceneTargetList snapshot = manager.BuildSceneTargetSnapshot();
   EXPECT_TRUE(snapshot.empty());
 }
 
@@ -298,7 +304,7 @@ TEST(TrackLifecycleManagerTest, UsesExternalDtForPredictionWhenProvided) {
 
   signal::tracking::TrackMeasurement measurement;
   measurement.raw_measurement.association_key = 13u;
-  measurement.raw_measurement.has_cartesian_position = true;
+
   measurement.raw_measurement.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
   measurement.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
   measurement.filtered_feature.velocity = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
@@ -337,7 +343,7 @@ TEST(TrackLifecycleManagerTest, InvalidExternalDtSkipsUpdateWithoutStateChanges)
 
   signal::tracking::TrackMeasurement measurement;
   measurement.raw_measurement.association_key = 14u;
-  measurement.raw_measurement.has_cartesian_position = true;
+
   measurement.raw_measurement.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
   measurement.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
   measurement.filtered_feature.velocity = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
@@ -377,7 +383,7 @@ TEST(TrackLifecycleManagerTest, InvalidExternalDtWithNonIncreasingCycleAlsoSkips
 
   signal::tracking::TrackMeasurement measurement;
   measurement.raw_measurement.association_key = 15u;
-  measurement.raw_measurement.has_cartesian_position = true;
+
   measurement.raw_measurement.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
   measurement.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
   measurement.filtered_feature.velocity = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
@@ -432,7 +438,7 @@ TEST(TrackLifecycleManagerTest, ImmPathPredictsConfirmedTrackAcrossMissedCycles)
   signal::tracking::TrackMeasurement measurement;
   measurement.raw_measurement.association_key = 42;
   measurement.raw_measurement.matched_existing_track = false;
-  measurement.raw_measurement.has_cartesian_position = true;
+
   measurement.raw_measurement.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
   measurement.filtered_feature.velocity = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
   measurement.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
@@ -461,7 +467,7 @@ TEST(TrackLifecycleManagerTest, ImmPathPredictsConfirmedTrackAcrossMissedCycles)
   EXPECT_GE(active_tracks[0]->position(0), 109.0f);
   EXPECT_GT(active_tracks[0]->gaussian_state.covariance(0, 0), covariance_before_miss);
 
-  const model::TargetFeatureList snapshot = manager.BuildFeatureSnapshot();
+  const session::RadarSceneTargetList snapshot = manager.BuildSceneTargetSnapshot();
   ASSERT_EQ(snapshot.size(), 1u);
   EXPECT_FLOAT_EQ(snapshot[0].position_x, active_tracks[0]->position(0));
 }
@@ -498,7 +504,7 @@ TEST(TrackLifecycleManagerTest, ConfirmedOnlyImmFallsBackToSingleModelBeforeImmC
   signal::tracking::TrackMeasurement measurement;
   measurement.raw_measurement.association_key = 52u;
   measurement.raw_measurement.matched_existing_track = false;
-  measurement.raw_measurement.has_cartesian_position = true;
+
   measurement.raw_measurement.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
   measurement.filtered_feature.velocity = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
   measurement.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
@@ -562,7 +568,7 @@ TEST(TrackLifecycleManagerTest, ConfirmedOnlyImmCreatesAndUsesFilterOnFirstConfi
   signal::tracking::TrackMeasurement first;
   first.raw_measurement.association_key = 62u;
   first.raw_measurement.matched_existing_track = false;
-  first.raw_measurement.has_cartesian_position = true;
+
   first.raw_measurement.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
   first.filtered_feature.velocity = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
   first.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
@@ -735,7 +741,7 @@ TEST(TrackLifecycleManagerTest, BuildAssociationSeedsExportsPositionAndGaussianS
   signal::tracking::TrackMeasurement measurement;
   measurement.raw_measurement.association_key = 99u;
   measurement.raw_measurement.matched_existing_track = false;
-  measurement.raw_measurement.has_cartesian_position = true;
+
   measurement.raw_measurement.position = Eigen::Vector3f(30.0f, 2.0f, -1.0f);
   measurement.filtered_feature.velocity = Eigen::Vector3f(5.0f, 0.0f, 0.0f);
   measurement.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
@@ -772,7 +778,7 @@ TEST(TrackLifecycleManagerTest, FilterWritebackUpdatesAccelerationFromVelocityDe
   signal::tracking::TrackMeasurement first;
   first.raw_measurement.association_key = 501u;
   first.raw_measurement.matched_existing_track = false;
-  first.raw_measurement.has_cartesian_position = true;
+
   first.raw_measurement.position = Eigen::Vector3f(0.0f, 0.0f, 0.0f);
   first.filtered_feature.velocity = Eigen::Vector3f(1.0f, 2.0f, 0.0f);
   first.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
@@ -790,13 +796,13 @@ TEST(TrackLifecycleManagerTest, FilterWritebackUpdatesAccelerationFromVelocityDe
   ASSERT_EQ(active.size(), 1u);
   EXPECT_GT(active[0]->acceleration.norm(), 0.0f);
 
-  const model::TargetFeatureList snapshot = manager.BuildFeatureSnapshot();
+  const session::RadarSceneTargetList snapshot = manager.BuildSceneTargetSnapshot();
   ASSERT_EQ(snapshot.size(), 1u);
   EXPECT_NEAR(
-      snapshot[0].current_track_speed,
-      std::sqrt(snapshot[0].current_track_velocity_x * snapshot[0].current_track_velocity_x +
-                snapshot[0].current_track_velocity_y * snapshot[0].current_track_velocity_y +
-                snapshot[0].current_track_velocity_z * snapshot[0].current_track_velocity_z),
+      SpeedOf(snapshot[0]),
+      std::sqrt(snapshot[0].velocity_x * snapshot[0].velocity_x +
+                snapshot[0].velocity_y * snapshot[0].velocity_y +
+                snapshot[0].velocity_z * snapshot[0].velocity_z),
       1e-4f);
 }
 

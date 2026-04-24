@@ -22,7 +22,7 @@
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/model/DecisionInputFrame.h"
 #include "1q/airborne_radar/model/TrackStateSnapshot.h"
-#include "1q/airborne_radar/model/TargetFeature.h"
+#include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "1q/airborne_radar/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/output/TrackOutputQueries.h"
 #include "airborne_radar/environment/EnvironmentService.h"
@@ -35,29 +35,31 @@ namespace tests {
 
 namespace {
 
-model::TargetFeatureList BuildSingleTarget(float speed, float rcs, bool jamming) {
+float SpeedOf(const session::RadarSceneTarget& target) {
+  return std::sqrt(target.velocity_x * target.velocity_x + target.velocity_y * target.velocity_y +
+                   target.velocity_z * target.velocity_z);
+}
+
+session::RadarSceneTargetList BuildSingleTarget(float speed, float rcs, bool jamming) {
   (void)jamming;
-  model::TargetFeature target(speed, 0.0f, 0.0f, rcs);
-  target.has_cartesian_position = true;
+  session::RadarSceneTarget target(speed, 0.0f, 0.0f, rcs);
+
   target.position_x = 100.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 100.0f;
-  return model::TargetFeatureList{target};
+  return session::RadarSceneTargetList{target};
 }
 
-model::TargetFeature ToModelTarget(const session::RadarSceneTarget& target) {
-  model::TargetFeature out;
+session::RadarSceneTarget CloneSceneTarget(const session::RadarSceneTarget& target) {
+  session::RadarSceneTarget out;
   out.external_target_id = target.external_target_id;
-  out.current_track_velocity_x = target.velocity_x;
-  out.current_track_velocity_y = target.velocity_y;
-  out.current_track_velocity_z = target.velocity_z;
-  out.current_track_speed = std::sqrt(target.velocity_x * target.velocity_x +
-                                      target.velocity_y * target.velocity_y +
-                                      target.velocity_z * target.velocity_z);
-  out.current_track_rcs = target.rcs;
+  out.velocity_x = target.velocity_x;
+  out.velocity_y = target.velocity_y;
+  out.velocity_z = target.velocity_z;
+  out.rcs = target.rcs;
   out.range_m = target.range_m;
-  out.has_cartesian_position = true;
+
   out.position_x = target.position_x;
   out.position_y = target.position_y;
   out.position_z = target.position_z;
@@ -65,22 +67,22 @@ model::TargetFeature ToModelTarget(const session::RadarSceneTarget& target) {
   return out;
 }
 
-model::TargetFeatureList ToModelTargets(const session::RadarSceneTargetList& targets) {
-  model::TargetFeatureList out;
+session::RadarSceneTargetList CloneSceneTargets(const session::RadarSceneTargetList& targets) {
+  session::RadarSceneTargetList out;
   out.reserve(targets.size());
   for (std::size_t i = 0; i < targets.size(); ++i) {
-    out.push_back(ToModelTarget(targets[i]));
+    out.push_back(CloneSceneTarget(targets[i]));
   }
   return out;
 }
 
-session::RadarSceneTarget ToSceneTarget(const model::TargetFeature& target) {
+session::RadarSceneTarget ToSceneTarget(const session::RadarSceneTarget& target) {
   session::RadarSceneTarget out;
   out.external_target_id = target.external_target_id;
-  out.velocity_x = target.current_track_velocity_x;
-  out.velocity_y = target.current_track_velocity_y;
-  out.velocity_z = target.current_track_velocity_z;
-  out.rcs = target.current_track_rcs;
+  out.velocity_x = target.velocity_x;
+  out.velocity_y = target.velocity_y;
+  out.velocity_z = target.velocity_z;
+  out.rcs = target.rcs;
   out.range_m = target.range_m;
   out.position_x = target.position_x;
   out.position_y = target.position_y;
@@ -89,7 +91,7 @@ session::RadarSceneTarget ToSceneTarget(const model::TargetFeature& target) {
   return out;
 }
 
-session::RadarSceneTargetList ToSceneTargets(const model::TargetFeatureList& targets) {
+session::RadarSceneTargetList ToSceneTargets(const session::RadarSceneTargetList& targets) {
   session::RadarSceneTargetList out;
   out.reserve(targets.size());
   for (std::size_t i = 0; i < targets.size(); ++i) {
@@ -114,7 +116,7 @@ environment::EnvironmentModelConfig BuildJammingEnvironmentConfig(float jammer_p
 class FakeRadarContext : public extension::IRadarContext {
  public:
   /// @brief 构造函数，注入固定的输入状态。
-  explicit FakeRadarContext(model::TargetFeatureList state)
+  explicit FakeRadarContext(session::RadarSceneTargetList state)
       : scene_targets_(ToSceneTargets(state)) {}
 
   /// @brief 获取当前雷达场景目标输入。
@@ -195,7 +197,7 @@ class FakeRadarContext : public extension::IRadarContext {
   void SetCycleDeltaTimeSec(float cycle_dt_sec) { cycle_dt_sec_ = cycle_dt_sec; }
 
   /// @brief 设置当前周期目标列表。
-  void SetTargetFeatures(model::TargetFeatureList state) {
+  void SetSceneTargets(session::RadarSceneTargetList state) {
     scene_targets_ = ToSceneTargets(state);
   }
 
@@ -336,7 +338,7 @@ class AbortingSignalPipeline : public extension::ISignalPipeline {
 };
 
 TEST_F(CoreControllerTest, RunOnceSubmitsCommands) {
-  const model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
+  const session::RadarSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service(BuildJammingEnvironmentConfig(12.0f));
@@ -352,7 +354,7 @@ TEST_F(CoreControllerTest, RunOnceSubmitsCommands) {
 }
 
 TEST_F(CoreControllerTest, PushesPlatformAttitudeIntoSignalPipelineBeforeRun) {
-  const model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
+  const session::RadarSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
   model::PlatformAttitudeDeg platform_attitude_deg;
   platform_attitude_deg.yaw_deg = 18.0f;
@@ -374,7 +376,7 @@ TEST_F(CoreControllerTest, PushesPlatformAttitudeIntoSignalPipelineBeforeRun) {
 }
 
 TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecision) {
-  const model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
+  const session::RadarSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service;
@@ -418,7 +420,7 @@ TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecisio
 }
 
 TEST_F(CoreControllerTest, AppliesUpdatedSceneOnNextControllerCycle) {
-  const model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
+  const session::RadarSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service;
@@ -450,7 +452,7 @@ TEST_F(CoreControllerTest, AppliesUpdatedSceneOnNextControllerCycle) {
 }
 
 TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
-  const model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
+  const session::RadarSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentModelConfig env_config;
@@ -499,7 +501,7 @@ TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
 }
 
 TEST_F(CoreControllerTest, DefaultLifecyclePathBuildsTentativeDecisionFrameOnFirstCycle) {
-  const model::TargetFeatureList input_state = BuildSingleTarget(640.0f, 1.5f, false);
+  const session::RadarSceneTargetList input_state = BuildSingleTarget(640.0f, 1.5f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service;
@@ -526,7 +528,7 @@ TEST_F(CoreControllerTest, DefaultLifecyclePathBuildsTentativeDecisionFrameOnFir
 }
 
 TEST_F(CoreControllerTest, PublicOutputReaderApiExposesLatestTrackOutputFrame) {
-  const model::TargetFeatureList input_state = BuildSingleTarget(510.0f, 1.0f, false);
+  const session::RadarSceneTargetList input_state = BuildSingleTarget(510.0f, 1.0f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service;
@@ -550,7 +552,7 @@ TEST_F(CoreControllerTest, PublicOutputReaderApiExposesLatestTrackOutputFrame) {
 }
 
 TEST_F(CoreControllerTest, RuntimeValidationErrorsAreExposedAndSkipCommandSubmission) {
-  const model::TargetFeatureList input_state = BuildSingleTarget(510.0f, 1.0f, false);
+  const session::RadarSceneTargetList input_state = BuildSingleTarget(510.0f, 1.0f, false);
   FakeRadarContext radar_context(input_state);
   radar_context.SetCycleDeltaTimeSec(std::numeric_limits<float>::quiet_NaN());
 
@@ -571,7 +573,7 @@ TEST_F(CoreControllerTest, RuntimeValidationErrorsAreExposedAndSkipCommandSubmis
 }
 
 TEST_F(CoreControllerTest, FirstCycleSignalPipelineAbortDoesNotPublishSyntheticLatestFrame) {
-  const model::TargetFeatureList input_state = BuildSingleTarget(510.0f, 1.0f, false);
+  const session::RadarSceneTargetList input_state = BuildSingleTarget(510.0f, 1.0f, false);
   FakeRadarContext radar_context(input_state);
   environment::EnvironmentService environment_service;
   AbortingSignalPipeline signal_pipeline;
@@ -584,7 +586,7 @@ TEST_F(CoreControllerTest, FirstCycleSignalPipelineAbortDoesNotPublishSyntheticL
 }
 
 TEST_F(CoreControllerTest, FailedCycleDoesNotAdvanceEnvironmentStampOrOutputSequence) {
-  const model::TargetFeatureList input_state = BuildSingleTarget(510.0f, 1.0f, false);
+  const session::RadarSceneTargetList input_state = BuildSingleTarget(510.0f, 1.0f, false);
   FakeRadarContext radar_context(input_state);
   environment::EnvironmentService environment_service;
   AbortingSignalPipeline signal_pipeline;
@@ -610,7 +612,7 @@ TEST_F(CoreControllerTest, FailedCycleDoesNotAdvanceEnvironmentStampOrOutputSequ
 }
 
 TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {
-  const model::TargetFeatureList input_state = BuildSingleTarget(510.0f, 1.0f, false);
+  const session::RadarSceneTargetList input_state = BuildSingleTarget(510.0f, 1.0f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service;
@@ -649,7 +651,7 @@ TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {
 }
 
 TEST_F(CoreControllerTest, DuplicateExternalTargetIdRetainsPreviousValidOutputFrame) {
-  const model::TargetFeatureList input_state = BuildSingleTarget(510.0f, 1.0f, false);
+  const session::RadarSceneTargetList input_state = BuildSingleTarget(510.0f, 1.0f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service;
@@ -666,12 +668,12 @@ TEST_F(CoreControllerTest, DuplicateExternalTargetIdRetainsPreviousValidOutputFr
   const std::vector<extension::control::RadarCommand> previous_commands =
       radar_context.SubmittedCommands();
 
-  model::TargetFeature duplicate_a = input_state.front();
+  session::RadarSceneTarget duplicate_a = input_state.front();
   duplicate_a.external_target_id = 42U;
-  model::TargetFeature duplicate_b = duplicate_a;
+  session::RadarSceneTarget duplicate_b = duplicate_a;
   duplicate_b.position_x += 50.0f;
   duplicate_b.range_m += 50.0f;
-  radar_context.SetTargetFeatures(model::TargetFeatureList{duplicate_a, duplicate_b});
+  radar_context.SetSceneTargets(session::RadarSceneTargetList{duplicate_a, duplicate_b});
 
   controller.RunOnce();
 
@@ -694,7 +696,7 @@ TEST_F(CoreControllerTest, DuplicateExternalTargetIdRetainsPreviousValidOutputFr
 }
 
 TEST_F(CoreControllerTest, NextCycleAppliesPendingControlProfileToSignalPipeline) {
-  const model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
+  const session::RadarSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service(BuildJammingEnvironmentConfig(12.0f));
@@ -713,7 +715,7 @@ TEST_F(CoreControllerTest, NextCycleAppliesPendingControlProfileToSignalPipeline
 }
 
 TEST_F(CoreControllerTest, CustomReducerConfigChangesPendingControlProfile) {
-  const model::TargetFeatureList input_state = BuildSingleTarget(800.0f, 2.5f, false);
+  const session::RadarSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service;

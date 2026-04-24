@@ -70,13 +70,13 @@ environment::EnvironmentSnapshot MakeEnvironmentSnapshot(std::uint32_t cycle_ind
   return snapshot;
 }
 
-session::RadarSceneTarget ToSceneTarget(const model::TargetFeature& target) {
+session::RadarSceneTarget ToSceneTarget(const session::RadarSceneTarget& target) {
   session::RadarSceneTarget out;
   out.external_target_id = target.external_target_id;
-  out.velocity_x = target.current_track_velocity_x;
-  out.velocity_y = target.current_track_velocity_y;
-  out.velocity_z = target.current_track_velocity_z;
-  out.rcs = target.current_track_rcs;
+  out.velocity_x = target.velocity_x;
+  out.velocity_y = target.velocity_y;
+  out.velocity_z = target.velocity_z;
+  out.rcs = target.rcs;
   out.range_m = target.range_m;
   out.position_x = target.position_x;
   out.position_y = target.position_y;
@@ -85,7 +85,7 @@ session::RadarSceneTarget ToSceneTarget(const model::TargetFeature& target) {
   return out;
 }
 
-session::RadarSceneTargetList ToSceneTargets(const model::TargetFeatureList& targets) {
+session::RadarSceneTargetList ToSceneTargets(const session::RadarSceneTargetList& targets) {
   session::RadarSceneTargetList out;
   out.reserve(targets.size());
   for (std::size_t i = 0; i < targets.size(); ++i) {
@@ -96,7 +96,7 @@ session::RadarSceneTargetList ToSceneTargets(const model::TargetFeatureList& tar
 
 template <typename PipelineType>
 extension::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
-                                              const model::TargetFeatureList& input_state,
+                                              const session::RadarSceneTargetList& input_state,
                                               environment::EnvironmentService* environment_service,
                                               std::uint32_t cycle_index) {
   environment_service->BeginCycle(MakeEnvironmentCycle(cycle_index));
@@ -108,8 +108,8 @@ class NonAutoLifecycleManager final : public signal::tracking::ITrackLifecycleMa
   void Update(const signal::tracking::CycleContext&,
               const std::vector<signal::tracking::TrackMeasurement>&) override {}
 
-  model::TargetFeatureList BuildFeatureSnapshot() const override {
-    return model::TargetFeatureList();
+  session::RadarSceneTargetList BuildSceneTargetSnapshot() const override {
+    return session::RadarSceneTargetList();
   }
 
   model::TrackStateSnapshotList BuildTrackStateSnapshots() const override {
@@ -216,15 +216,15 @@ TEST(CycleExecutorTest, ValidRuntimeProducesInputAlignedStageBuffers) {
   const signal::pipeline::internal::CycleExecutionRuntime runtime = BuildMinimalValidRuntime(
       exec_config, control_profile, &association_engine, &track_filter, lifecycle_manager.get());
 
-  model::TargetFeature target_a(1000.0f, 0.0f, 0.0f, 2.0f);
-  target_a.has_cartesian_position = true;
+  session::RadarSceneTarget target_a(1000.0f, 0.0f, 0.0f, 2.0f);
+
   target_a.position_x = 1000.0f;
   target_a.range_m = 1000.0f;
-  model::TargetFeature target_b(1500.0f, 0.0f, 0.0f, 3.0f);
-  target_b.has_cartesian_position = true;
+  session::RadarSceneTarget target_b(1500.0f, 0.0f, 0.0f, 3.0f);
+
   target_b.position_x = 1500.0f;
   target_b.range_m = 1500.0f;
-  const model::TargetFeatureList input_state{target_a, target_b};
+  const session::RadarSceneTargetList input_state{target_a, target_b};
 
   environment::EnvironmentService environment_service;
   signal::pipeline::internal::CycleExecutionScratch scratch;
@@ -256,7 +256,7 @@ TEST(CycleExecutorTest, EmptyInputKeepsWorkspaceOutputsEmpty) {
   const signal::pipeline::internal::CycleExecutionRuntime runtime = BuildMinimalValidRuntime(
       exec_config, control_profile, &association_engine, &track_filter, lifecycle_manager.get());
 
-  const model::TargetFeatureList input_state;
+  const session::RadarSceneTargetList input_state;
   signal::pipeline::internal::CycleExecutionScratch scratch;
   EXPECT_TRUE(signal::pipeline::internal::ExecuteCycle(input_state, MakeEnvironmentSnapshot(1U), 1U,
                                                        1U, runtime, scratch));
@@ -278,14 +278,14 @@ TEST(CycleExecutorTest, NonAutoLifecycleManagerCausesRuntimeSyncFailure) {
   const signal::pipeline::internal::CycleExecutionRuntime runtime = BuildMinimalValidRuntime(
       exec_config, control_profile, &association_engine, &track_filter, &lifecycle_manager);
 
-  model::TargetFeature target(1000.0f, 0.0f, 0.0f, 2.0f);
-  target.has_cartesian_position = true;
+  session::RadarSceneTarget target(1000.0f, 0.0f, 0.0f, 2.0f);
+
   target.position_x = 1000.0f;
   target.range_m = 1000.0f;
 
   signal::pipeline::internal::CycleExecutionScratch scratch;
   EXPECT_FALSE(signal::pipeline::internal::ExecuteCycle(
-      model::TargetFeatureList{target}, MakeEnvironmentSnapshot(1U), 1U, 1U, runtime, scratch));
+      session::RadarSceneTargetList{target}, MakeEnvironmentSnapshot(1U), 1U, 1U, runtime, scratch));
   EXPECT_TRUE(scratch.track_measurements.empty());
   EXPECT_EQ(scratch.decision_frame.cycle_index, 0U);
 }
@@ -520,12 +520,12 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
   environment::EnvironmentModelConfig environment_config;
   environment::EnvironmentService environment_service(environment_config);
 
-  model::TargetFeature target(0.0f, 0.0f, 0.0f, 10000.0f, 120.0f, 0, 2026U);
-  target.has_cartesian_position = true;
+  session::RadarSceneTarget target(0.0f, 0.0f, 0.0f, 10000.0f, 120.0f, 0, 2026U);
+
   target.position_x = 120.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
-  const model::TargetFeatureList targets(1U, target);
+  const session::RadarSceneTargetList targets(1U, target);
 
   const signal::detection::TargetLookAnglesDeg look_angles =
       signal::detection::TargetLookResolver::Resolve(target);
@@ -551,7 +551,7 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
                                                       look_angles, cycle_2_dwell_center);
 
   signal::detection::TargetReturn target_return;
-  target_return.rcs_m2 = target.current_track_rcs;
+  target_return.rcs_m2 = target.rcs;
   target_return.range_m = target.range_m;
   target_return.swerling_type =
       static_cast<config::profiles::SwerlingModel>(target.target_swerling_type);
@@ -615,12 +615,12 @@ TEST(SignalPipelineScanScheduleTest, WorkSubModeSttReducesSweepCoverageComparedT
   environment::EnvironmentModelConfig environment_config;
   environment::EnvironmentService environment_service(environment_config);
 
-  model::TargetFeature target(0.0f, 0.0f, 0.0f, 10000.0f, 120.0f, 0, 2026U);
-  target.has_cartesian_position = true;
+  session::RadarSceneTarget target(0.0f, 0.0f, 0.0f, 10000.0f, 120.0f, 0, 2026U);
+
   target.position_x = 120.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
-  const model::TargetFeatureList targets(1U, target);
+  const session::RadarSceneTargetList targets(1U, target);
 
   std::size_t tws_detected = 0U;
   std::size_t stt_detected = 0U;

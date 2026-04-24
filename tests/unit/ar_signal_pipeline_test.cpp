@@ -15,7 +15,7 @@
 #include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
-#include "1q/airborne_radar/model/TargetFeature.h"
+#include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "airborne_radar/config/execution/InternalExecutionConfig.h"
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 #include "airborne_radar/environment/EnvironmentService.h"
@@ -34,9 +34,14 @@ namespace {
 
 using ExecutionConfig = config::execution::InternalExecutionConfig;
 
-model::TargetFeature BuildPhysicsTarget(float range_m, float rcs) {
-  model::TargetFeature target(220.0f, 0.0f, 0.0f, rcs, 0.0f, 0.0f, 0.0f);
-  target.has_cartesian_position = true;
+float SpeedOf(const session::RadarSceneTarget& target) {
+  return std::sqrt(target.velocity_x * target.velocity_x + target.velocity_y * target.velocity_y +
+                   target.velocity_z * target.velocity_z);
+}
+
+session::RadarSceneTarget BuildPhysicsTarget(float range_m, float rcs) {
+  session::RadarSceneTarget target(220.0f, 0.0f, 0.0f, rcs, 0.0f, 0.0f, 0.0f);
+
   target.position_x = range_m;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
@@ -44,13 +49,13 @@ model::TargetFeature BuildPhysicsTarget(float range_m, float rcs) {
   return target;
 }
 
-session::RadarSceneTarget ToSceneTarget(const model::TargetFeature& target) {
+session::RadarSceneTarget ToSceneTarget(const session::RadarSceneTarget& target) {
   session::RadarSceneTarget out;
   out.external_target_id = target.external_target_id;
-  out.velocity_x = target.current_track_velocity_x;
-  out.velocity_y = target.current_track_velocity_y;
-  out.velocity_z = target.current_track_velocity_z;
-  out.rcs = target.current_track_rcs;
+  out.velocity_x = target.velocity_x;
+  out.velocity_y = target.velocity_y;
+  out.velocity_z = target.velocity_z;
+  out.rcs = target.rcs;
   out.range_m = target.range_m;
   out.position_x = target.position_x;
   out.position_y = target.position_y;
@@ -59,7 +64,7 @@ session::RadarSceneTarget ToSceneTarget(const model::TargetFeature& target) {
   return out;
 }
 
-session::RadarSceneTargetList ToSceneTargets(const model::TargetFeatureList& targets) {
+session::RadarSceneTargetList ToSceneTargets(const session::RadarSceneTargetList& targets) {
   session::RadarSceneTargetList out;
   out.reserve(targets.size());
   for (std::size_t i = 0; i < targets.size(); ++i) {
@@ -68,18 +73,15 @@ session::RadarSceneTargetList ToSceneTargets(const model::TargetFeatureList& tar
   return out;
 }
 
-model::TargetFeature ToModelTarget(const session::RadarSceneTarget& target) {
-  model::TargetFeature out;
+session::RadarSceneTarget CloneSceneTarget(const session::RadarSceneTarget& target) {
+  session::RadarSceneTarget out;
   out.external_target_id = target.external_target_id;
-  out.current_track_velocity_x = target.velocity_x;
-  out.current_track_velocity_y = target.velocity_y;
-  out.current_track_velocity_z = target.velocity_z;
-  out.current_track_speed = std::sqrt(target.velocity_x * target.velocity_x +
-                                      target.velocity_y * target.velocity_y +
-                                      target.velocity_z * target.velocity_z);
-  out.current_track_rcs = target.rcs;
+  out.velocity_x = target.velocity_x;
+  out.velocity_y = target.velocity_y;
+  out.velocity_z = target.velocity_z;
+  out.rcs = target.rcs;
   out.range_m = target.range_m;
-  out.has_cartesian_position = true;
+
   out.position_x = target.position_x;
   out.position_y = target.position_y;
   out.position_z = target.position_z;
@@ -87,11 +89,11 @@ model::TargetFeature ToModelTarget(const session::RadarSceneTarget& target) {
   return out;
 }
 
-model::TargetFeatureList ToModelTargets(const session::RadarSceneTargetList& targets) {
-  model::TargetFeatureList out;
+session::RadarSceneTargetList CloneSceneTargets(const session::RadarSceneTargetList& targets) {
+  session::RadarSceneTargetList out;
   out.reserve(targets.size());
   for (std::size_t i = 0; i < targets.size(); ++i) {
-    out.push_back(ToModelTarget(targets[i]));
+    out.push_back(CloneSceneTarget(targets[i]));
   }
   return out;
 }
@@ -115,7 +117,7 @@ environment::EnvironmentCycleContext MakeEnvironmentCycle(std::uint32_t cycle_in
 
 template <typename PipelineType>
 extension::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
-                                              const model::TargetFeatureList& input_state,
+                                              const session::RadarSceneTargetList& input_state,
                                               environment::EnvironmentService* environment_service,
                                               std::uint32_t cycle_index = 1u) {
   environment_service->BeginCycle(MakeEnvironmentCycle(cycle_index));
@@ -277,20 +279,20 @@ TEST(SignalPipelineTest, KeepsTrackStableWhenDetectionMarginIsEnough) {
   environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  model::TargetFeature target(800.0f, 0.0f, 0.0f, 2.5f, 0.0f, 0.0f, 0.0f);
-  target.has_cartesian_position = true;
+  session::RadarSceneTarget target(800.0f, 0.0f, 0.0f, 2.5f, 0.0f, 0.0f, 0.0f);
+
   target.position_x = 100.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 100.0f;
-  const model::TargetFeatureList input_state{target};
+  const session::RadarSceneTargetList input_state{target};
 
-  const auto output_state = ToModelTargets(
+  const auto output_state = CloneSceneTargets(
       RunPipelineCycle(&signal_pipeline, input_state, &environment_service).updated_scene_targets);
 
   ASSERT_EQ(output_state.size(), 1u);
-  EXPECT_FLOAT_EQ(output_state[0].current_track_speed, input_state[0].current_track_speed);
-  EXPECT_FLOAT_EQ(output_state[0].current_track_rcs, input_state[0].current_track_rcs);
+  EXPECT_FLOAT_EQ(SpeedOf(output_state[0]), SpeedOf(input_state[0]));
+  EXPECT_FLOAT_EQ(output_state[0].rcs, input_state[0].rcs);
 }
 
 TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
@@ -300,14 +302,14 @@ TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  const model::TargetFeatureList input_state{model::TargetFeature(800.0f, 0.0f, 0.0f, 2.5f)};
+  const session::RadarSceneTargetList input_state{session::RadarSceneTarget(800.0f, 0.0f, 0.0f, 2.5f)};
 
-  const auto output_state = ToModelTargets(
+  const auto output_state = CloneSceneTargets(
       RunPipelineCycle(&signal_pipeline, input_state, &environment_service).updated_scene_targets);
 
   ASSERT_EQ(output_state.size(), 1u);
-  EXPECT_LE(output_state[0].current_track_speed, input_state[0].current_track_speed);
-  EXPECT_LE(output_state[0].current_track_rcs, input_state[0].current_track_rcs);
+  EXPECT_LE(SpeedOf(output_state[0]), SpeedOf(input_state[0]));
+  EXPECT_LE(output_state[0].rcs, input_state[0].rcs);
 }
 
 TEST(SignalPipelineTest,
@@ -321,7 +323,7 @@ TEST(SignalPipelineTest,
 
   environment::EnvironmentModelConfig env_config;
 
-  const model::TargetFeatureList input_state{BuildPhysicsTarget(4500.0f, 0.2f)};
+  const session::RadarSceneTargetList input_state{BuildPhysicsTarget(4500.0f, 0.2f)};
 
   environment::EnvironmentService baseline_environment(env_config);
   signal::pipeline::SignalPipeline baseline_pipeline(baseline_config);
@@ -415,7 +417,7 @@ TEST(SignalPipelineTest, ControlProfilePowerReductionLowersPhysicalDetectionMarg
 
   environment::EnvironmentService environment_service;
 
-  const model::TargetFeatureList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
+  const session::RadarSceneTargetList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
 
   signal::pipeline::SignalPipeline baseline_pipeline(session_config);
   RunPipelineCycle(&baseline_pipeline, input_state, &environment_service);
@@ -447,7 +449,7 @@ TEST(SignalPipelineTest, AdaptiveBeamformingProfileTightensMeasurementCovariance
 
   environment::EnvironmentService environment_service;
 
-  const model::TargetFeatureList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
+  const session::RadarSceneTargetList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
 
   signal::pipeline::SignalPipeline baseline_pipeline(session_config);
   RunPipelineCycle(&baseline_pipeline, input_state, &environment_service);
@@ -475,13 +477,13 @@ TEST(SignalPipelineTest, EccmProfileRelaxesHeuristicAssociationGateForSeededTrac
 
   environment::EnvironmentService environment_service;
 
-  model::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f);
-  target.has_cartesian_position = true;
+  session::RadarSceneTarget target(100.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f);
+
   target.position_x = 4.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 4.0f;
-  const model::TargetFeatureList input_state{target};
+  const session::RadarSceneTargetList input_state{target};
 
   signal::tracking::AssociationTrackSeed seed;
   seed.association_key = 7u;
@@ -519,13 +521,13 @@ TEST(SignalPipelineTest, AssociationQualityMetricsExposeTypeSpecificStressSummar
   ApplyTrackingPolicyProfile(&session_config,
                              config::profiles::TrackingPolicyProfile::kFastAssociation);
 
-  model::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f);
-  target.has_cartesian_position = true;
+  session::RadarSceneTarget target(100.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f);
+
   target.position_x = 4.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 4.0f;
-  const model::TargetFeatureList input_state{target};
+  const session::RadarSceneTargetList input_state{target};
 
   signal::tracking::AssociationTrackSeed seed;
   seed.association_key = 11u;
@@ -637,13 +639,13 @@ TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) 
   ApplyTrackingPolicyProfile(&session_config,
                              config::profiles::TrackingPolicyProfile::kFastAssociation);
 
-  model::TargetFeature target(100.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f);
-  target.has_cartesian_position = true;
+  session::RadarSceneTarget target(100.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f);
+
   target.position_x = 4.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 4.0f;
-  const model::TargetFeatureList input_state{target};
+  const session::RadarSceneTargetList input_state{target};
 
   signal::tracking::AssociationTrackSeed seed;
   seed.association_key = 12u;
@@ -709,7 +711,7 @@ TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) 
       MakeJammerEmitter(environment::JammingTechnique::kUnknown, 12.0f));
   environment::EnvironmentService environment_service(env_config);
 
-  const model::TargetFeatureList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
+  const session::RadarSceneTargetList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
 
   signal::pipeline::SignalPipeline baseline_pipeline(session_config);
   RunPipelineCycle(&baseline_pipeline, input_state, &environment_service);
@@ -763,7 +765,7 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulatePhysicalEccmBenefit) {
   environment::EnvironmentService unfavorable_environment(
       MakeEnvironmentConfigWithJammers({unfavorable_source}));
 
-  const model::TargetFeatureList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
+  const session::RadarSceneTargetList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
 
   extension::control::RadarControlProfile eccm_profile;
   eccm_profile.enable_sidelobe_canceller = true;
@@ -807,7 +809,7 @@ TEST(SignalPipelineTest, DeceptionJammingFactsShrinkPhysicalCovarianceWhenMatche
   env_config.jammer_sources.push_back(deception_source);
   environment::EnvironmentService environment_service(env_config);
 
-  const model::TargetFeatureList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
+  const session::RadarSceneTargetList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
 
   signal::pipeline::SignalPipeline baseline_pipeline(session_config);
   RunPipelineCycle(&baseline_pipeline, input_state, &environment_service);
@@ -856,16 +858,16 @@ TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
       MakeJammerEmitter(environment::JammingTechnique::kUnknown, 45.0f));
   environment::EnvironmentService environment_service(env_config);
 
-  model::TargetFeature target(800.0f, 0.0f, 0.0f, 2.5f);
-  target.has_cartesian_position = true;
+  session::RadarSceneTarget target(800.0f, 0.0f, 0.0f, 2.5f);
+
   target.position_x = 100.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 100.0f;
-  const model::TargetFeatureList input_state{target};
+  const session::RadarSceneTargetList input_state{target};
 
   signal::pipeline::SignalPipeline baseline_pipeline;
-  const auto baseline_output = ToModelTargets(
+  const auto baseline_output = CloneSceneTargets(
       RunPipelineCycle(&baseline_pipeline, input_state, &environment_service)
           .updated_scene_targets);
 
@@ -875,14 +877,14 @@ TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
   eccm_profile.eccm_burnthrough_gain = 1.5f;
   signal::pipeline::SignalPipeline protected_pipeline;
   protected_pipeline.SetControlProfile(eccm_profile);
-  const auto protected_output = ToModelTargets(
+  const auto protected_output = CloneSceneTargets(
       RunPipelineCycle(&protected_pipeline, input_state, &environment_service)
           .updated_scene_targets);
 
   ASSERT_EQ(baseline_output.size(), 1u);
   ASSERT_EQ(protected_output.size(), 1u);
-  EXPECT_GE(protected_output[0].current_track_speed, baseline_output[0].current_track_speed);
-  EXPECT_GE(protected_output[0].current_track_rcs, baseline_output[0].current_track_rcs);
+  EXPECT_GE(SpeedOf(protected_output[0]), SpeedOf(baseline_output[0]));
+  EXPECT_GE(protected_output[0].rcs, baseline_output[0].rcs);
 }
 
 TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
@@ -911,13 +913,13 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
       MakeEnvironmentConfigWithJammers({unfavorable_source});
   environment::EnvironmentService unfavorable_environment(unfavorable_env_config);
 
-  model::TargetFeature target(800.0f, 0.0f, 0.0f, 2.5f, 1.0f, 0.0f, 0.0f);
-  target.has_cartesian_position = true;
+  session::RadarSceneTarget target(800.0f, 0.0f, 0.0f, 2.5f, 1.0f, 0.0f, 0.0f);
+
   target.position_x = 100.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 100.0f;
-  const model::TargetFeatureList input_state{target};
+  const session::RadarSceneTargetList input_state{target};
 
   extension::control::RadarControlProfile eccm_profile;
   eccm_profile.enable_sidelobe_canceller = true;
@@ -952,13 +954,13 @@ TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUp
 
   environment::EnvironmentService environment_service;
 
-  model::TargetFeature target(1.0f, 0.0f, 0.0f, 5.0f, 0.0f, 0.0f, 0.0f);
-  target.has_cartesian_position = true;
+  session::RadarSceneTarget target(1.0f, 0.0f, 0.0f, 5.0f, 0.0f, 0.0f, 0.0f);
+
   target.position_x = 100.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 100.0f;
-  const model::TargetFeatureList cycle_1_input{target};
+  const session::RadarSceneTargetList cycle_1_input{target};
 
   signal::pipeline::SignalPipeline baseline_pipeline(session_config);
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> baseline_manager =
@@ -970,7 +972,7 @@ TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUp
 
   target.position_x = 101.0f;
   target.range_m = 101.0f;
-  const model::TargetFeatureList cycle_2_input{target};
+  const session::RadarSceneTargetList cycle_2_input{target};
   baseline_pipeline.SetAssociationSeeds(baseline_manager->BuildAssociationSeeds());
   RunPipelineCycle(&baseline_pipeline, cycle_2_input, &environment_service, 2u);
   baseline_manager->Update(MakeLifecycleCycle(2u, 2u),
@@ -1021,7 +1023,7 @@ TEST(SignalPipelineTest, AutoLifecycleManagerSyncsRuntimeTuningAcrossCycles) {
 
   environment::EnvironmentService environment_service;
   signal::pipeline::SignalPipeline measurement_source_pipeline(session_config);
-  const model::TargetFeatureList cycle_1_input{BuildPhysicsTarget(100.0f, 4.0f)};
+  const session::RadarSceneTargetList cycle_1_input{BuildPhysicsTarget(100.0f, 4.0f)};
   RunPipelineCycle(&measurement_source_pipeline, cycle_1_input, &environment_service, 1u);
   const std::vector<signal::tracking::TrackMeasurement> cycle_1_measurements =
       measurement_source_pipeline.GetLastTrackMeasurements();
@@ -1066,7 +1068,7 @@ TEST(SignalPipelineTest, InvalidTopologyRebuildKeepsPreviousLifecycleAssemblyOpe
 
   environment::EnvironmentService environment_service;
   signal::pipeline::SignalPipeline measurement_source_pipeline(session_config);
-  const model::TargetFeatureList cycle_1_input{BuildPhysicsTarget(100.0f, 4.0f)};
+  const session::RadarSceneTargetList cycle_1_input{BuildPhysicsTarget(100.0f, 4.0f)};
   RunPipelineCycle(&measurement_source_pipeline, cycle_1_input, &environment_service, 1u);
   const std::vector<signal::tracking::TrackMeasurement> cycle_1_measurements =
       measurement_source_pipeline.GetLastTrackMeasurements();
@@ -1130,7 +1132,7 @@ TEST(SignalPipelineTest, DeceptionJammingInflatesPhysicalCovarianceMoreThanNoise
   deception_env_config.jammer_sources.push_back(deception_source);
   environment::EnvironmentService deception_environment(deception_env_config);
 
-  const model::TargetFeatureList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
+  const session::RadarSceneTargetList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
 
   signal::pipeline::SignalPipeline noise_pipeline(session_config);
   RunPipelineCycle(&noise_pipeline, input_state, &noise_environment);
@@ -1158,8 +1160,8 @@ TEST(SignalPipelineTest, AutoImmLifecycleAssemblyUsesControlProfileAdjustedImmPa
 
   environment::EnvironmentService environment_service;
 
-  model::TargetFeature target = BuildPhysicsTarget(120.0f, 4.0f);
-  const model::TargetFeatureList cycle_1_input{target};
+  session::RadarSceneTarget target = BuildPhysicsTarget(120.0f, 4.0f);
+  const session::RadarSceneTargetList cycle_1_input{target};
 
   signal::pipeline::SignalPipeline baseline_pipeline(session_config);
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> baseline_manager =
@@ -1197,15 +1199,15 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
   environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  model::TargetFeature first(100.0f, 0.0f, 0.0f, 2.0f);
-  first.has_cartesian_position = true;
+  session::RadarSceneTarget first(100.0f, 0.0f, 0.0f, 2.0f);
+
   first.position_x = 10.0f;
   first.range_m = 10.0f;
-  model::TargetFeature second(220.0f, 0.0f, 0.0f, 5.0f);
-  second.has_cartesian_position = true;
+  session::RadarSceneTarget second(220.0f, 0.0f, 0.0f, 5.0f);
+
   second.position_x = 100.0f;
   second.range_m = 100.0f;
-  const model::TargetFeatureList cycle_1{first, second};
+  const session::RadarSceneTargetList cycle_1{first, second};
 
   RunPipelineCycle(&signal_pipeline, cycle_1, &environment_service, 1u);
   const std::vector<signal::tracking::TrackMeasurement> first_measurements =
@@ -1216,17 +1218,20 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
   EXPECT_FALSE(first_measurements[1].raw_measurement.matched_existing_track);
   EXPECT_EQ(first_measurements[0].raw_measurement.source_index, 0u);
   EXPECT_EQ(first_measurements[1].raw_measurement.source_index, 1u);
-  EXPECT_TRUE(first_measurements[0].raw_measurement.has_cartesian_position);
   EXPECT_GT(first_measurements[0].filtered_feature.observed_speed, 0.0f);
   EXPECT_GT(first_measurements[0].raw_measurement.detection_margin_db, -2.0f);
   EXPECT_TRUE(first_measurements[0].raw_measurement.used_position_association);
 
-  first.current_track_speed = 101.0f;
-  first.current_track_rcs = 2.1f;
+  first.velocity_x = 101.0f;
+  first.velocity_y = 0.0f;
+  first.velocity_z = 0.0f;
+  first.rcs = 2.1f;
   first.position_x = 11.0f;
   first.range_m = 11.0f;
-  second.current_track_speed = 219.5f;
-  second.current_track_rcs = 4.9f;
+  second.velocity_x = 219.5f;
+  second.velocity_y = 0.0f;
+  second.velocity_z = 0.0f;
+  second.rcs = 4.9f;
   second.position_x = 101.0f;
   second.range_m = 101.0f;
   signal::tracking::AssociationTrackSeed first_seed;
@@ -1249,7 +1254,7 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
 
   signal_pipeline.SetAssociationSeeds(
       std::vector<signal::tracking::AssociationTrackSeed>{first_seed, second_seed});
-  const model::TargetFeatureList cycle_2{first, second};
+  const session::RadarSceneTargetList cycle_2{first, second};
   RunPipelineCycle(&signal_pipeline, cycle_2, &environment_service, 2u);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
@@ -1262,14 +1267,13 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
   EXPECT_TRUE(second_measurements[0].raw_measurement.used_position_association);
 }
 
-TEST(SignalPipelineTest, CompletesWithoutCrashWhenDetectedTargetLacksCartesianPosition) {
+TEST(SignalPipelineTest, CompletesWithoutCrashWhenDetectedTargetUsesDefaultPosition) {
   environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  const model::TargetFeatureList input_state{
-      model::TargetFeature(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f)};
+  const session::RadarSceneTargetList input_state{
+      session::RadarSceneTarget(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f)};
 
-  // Contract violation is logged and skipped; cycle completes without aborting
   RunPipelineCycle(&signal_pipeline, input_state, &environment_service);
 }
 
@@ -1277,28 +1281,27 @@ TEST(SignalPipelineTest, UsesPositionAssociationByDefaultWhenCartesianPositionEx
   environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  model::TargetFeature first(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
-  first.has_cartesian_position = true;
+  session::RadarSceneTarget first(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
+
   first.position_x = 10.0f;
   first.position_y = 0.0f;
   first.position_z = 0.0f;
   first.range_m = 10.0f;
 
-  model::TargetFeature second(220.0f, 0.0f, 0.0f, 5.0f, 3.0f, 0.0f, 0.0f);
-  second.has_cartesian_position = true;
+  session::RadarSceneTarget second(220.0f, 0.0f, 0.0f, 5.0f, 3.0f, 0.0f, 0.0f);
+
   second.position_x = 100.0f;
   second.position_y = 0.0f;
   second.position_z = 0.0f;
   second.range_m = 100.0f;
 
-  RunPipelineCycle(&signal_pipeline, model::TargetFeatureList{first, second}, &environment_service,
+  RunPipelineCycle(&signal_pipeline, session::RadarSceneTargetList{first, second}, &environment_service,
                    1u);
   const std::vector<signal::tracking::TrackMeasurement> first_measurements =
       signal_pipeline.GetLastTrackMeasurements();
 
   ASSERT_EQ(first_measurements.size(), 2u);
   EXPECT_TRUE(first_measurements[0].raw_measurement.used_position_association);
-  EXPECT_TRUE(first_measurements[0].raw_measurement.has_cartesian_position);
   EXPECT_TRUE(first_measurements[1].raw_measurement.used_position_association);
 
   signal::tracking::AssociationTrackSeed first_seed;
@@ -1324,7 +1327,7 @@ TEST(SignalPipelineTest, UsesPositionAssociationByDefaultWhenCartesianPositionEx
 
   first.position_x = 11.0f;
   second.position_x = 101.0f;
-  RunPipelineCycle(&signal_pipeline, model::TargetFeatureList{second, first}, &environment_service,
+  RunPipelineCycle(&signal_pipeline, session::RadarSceneTargetList{second, first}, &environment_service,
                    2u);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
@@ -1340,14 +1343,14 @@ TEST(SignalPipelineTest, UsesLifecycleAssociationSeedsByDefault) {
   environment_service.BeginCycle(MakeEnvironmentCycle(1u));
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  model::TargetFeature target(0.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
-  target.has_cartesian_position = true;
+  session::RadarSceneTarget target(0.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
+
   target.position_x = 10.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 10.0f;
 
-  RunPipelineCycle(&signal_pipeline, model::TargetFeatureList{target}, &environment_service, 1u);
+  RunPipelineCycle(&signal_pipeline, session::RadarSceneTargetList{target}, &environment_service, 1u);
   const std::vector<signal::tracking::TrackMeasurement> first_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(first_measurements.size(), 1u);
@@ -1357,7 +1360,7 @@ TEST(SignalPipelineTest, UsesLifecycleAssociationSeedsByDefault) {
 
   target.position_x = 10.2f;
   target.range_m = 10.2f;
-  RunPipelineCycle(&signal_pipeline, model::TargetFeatureList{target}, &environment_service, 2u);
+  RunPipelineCycle(&signal_pipeline, session::RadarSceneTargetList{target}, &environment_service, 2u);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(second_measurements.size(), 1u);
@@ -1384,14 +1387,14 @@ TEST(SignalPipelineTest, ClearManualAssociationSeedsKeepsLifecycleSeedsActive) {
       std::vector<signal::tracking::AssociationTrackSeed>(1, side_channel_seed));
   signal_pipeline.ClearManualAssociationSeeds();
 
-  model::TargetFeature target(0.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
-  target.has_cartesian_position = true;
+  session::RadarSceneTarget target(0.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
+
   target.position_x = 10.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 10.0f;
 
-  RunPipelineCycle(&signal_pipeline, model::TargetFeatureList{target}, &environment_service, 1u);
+  RunPipelineCycle(&signal_pipeline, session::RadarSceneTargetList{target}, &environment_service, 1u);
   const std::vector<signal::tracking::TrackMeasurement> first_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(first_measurements.size(), 1u);
@@ -1401,7 +1404,7 @@ TEST(SignalPipelineTest, ClearManualAssociationSeedsKeepsLifecycleSeedsActive) {
 
   target.position_x = 10.1f;
   target.range_m = 10.1f;
-  RunPipelineCycle(&signal_pipeline, model::TargetFeatureList{target}, &environment_service, 2u);
+  RunPipelineCycle(&signal_pipeline, session::RadarSceneTargetList{target}, &environment_service, 2u);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(second_measurements.size(), 1u);
@@ -1426,15 +1429,15 @@ TEST(SignalPipelineTest, InvalidManualAssociationSeedsDoNotDisableLifecycleSeeds
   signal_pipeline.SetAssociationSeeds(
       std::vector<signal::tracking::AssociationTrackSeed>(1, invalid_seed));
 
-  model::TargetFeature target(0.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
-  target.has_cartesian_position = true;
+  session::RadarSceneTarget target(0.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
+
   target.position_x = 10.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 10.0f;
 
   const extension::SignalCycleResult first_result = RunPipelineCycle(
-      &signal_pipeline, model::TargetFeatureList{target}, &environment_service, 1u);
+      &signal_pipeline, session::RadarSceneTargetList{target}, &environment_service, 1u);
   EXPECT_TRUE(first_result.executed_this_cycle);
   const std::vector<signal::tracking::TrackMeasurement> first_measurements =
       signal_pipeline.GetLastTrackMeasurements();
@@ -1446,7 +1449,7 @@ TEST(SignalPipelineTest, InvalidManualAssociationSeedsDoNotDisableLifecycleSeeds
   target.position_x = 10.1f;
   target.range_m = 10.1f;
   const extension::SignalCycleResult second_result = RunPipelineCycle(
-      &signal_pipeline, model::TargetFeatureList{target}, &environment_service, 2u);
+      &signal_pipeline, session::RadarSceneTargetList{target}, &environment_service, 2u);
   EXPECT_TRUE(second_result.executed_this_cycle);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
@@ -1460,20 +1463,20 @@ TEST(SignalPipelineTest, InvalidEnvironmentCycleAbortsAndClearsLastCycleCache) {
   environment::EnvironmentService valid_environment;
   environment::EnvironmentService invalid_environment;
 
-  model::TargetFeature target(0.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
-  target.has_cartesian_position = true;
+  session::RadarSceneTarget target(0.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
+
   target.position_x = 10.0f;
   target.range_m = 10.0f;
 
   const extension::SignalCycleResult valid_result =
-      RunPipelineCycle(&signal_pipeline, model::TargetFeatureList{target}, &valid_environment, 1u);
+      RunPipelineCycle(&signal_pipeline, session::RadarSceneTargetList{target}, &valid_environment, 1u);
   EXPECT_TRUE(valid_result.executed_this_cycle);
   EXPECT_EQ(valid_result.abort_reason, extension::SignalCycleAbortReason::kNone);
   ASSERT_EQ(valid_result.updated_scene_targets.size(), 1u);
   ASSERT_EQ(signal_pipeline.GetLastTrackMeasurements().size(), 1u);
 
   const extension::SignalCycleResult invalid_result =
-      signal_pipeline.RunCycle(ToSceneTargets(model::TargetFeatureList{target}),
+      signal_pipeline.RunCycle(ToSceneTargets(session::RadarSceneTargetList{target}),
                                invalid_environment);
   EXPECT_FALSE(invalid_result.executed_this_cycle);
   EXPECT_EQ(invalid_result.abort_reason,
@@ -1500,13 +1503,13 @@ TEST(SignalPipelineTest, SameInstanceControlProfileSwitchAcrossCyclesSyncsLifecy
 
   environment::EnvironmentService environment_service;
 
-  model::TargetFeature target(1.0f, 0.0f, 0.0f, 5.0f, 0.0f, 0.0f, 0.0f);
-  target.has_cartesian_position = true;
+  session::RadarSceneTarget target(1.0f, 0.0f, 0.0f, 5.0f, 0.0f, 0.0f, 0.0f);
+
   target.position_x = 100.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 100.0f;
-  const model::TargetFeatureList input{target};
+  const session::RadarSceneTargetList input{target};
 
   signal::pipeline::SignalPipeline pipeline(session_config);
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> manager =
@@ -1521,7 +1524,7 @@ TEST(SignalPipelineTest, SameInstanceControlProfileSwitchAcrossCyclesSyncsLifecy
 
   target.position_x = 101.0f;
   target.range_m = 101.0f;
-  const model::TargetFeatureList input2{target};
+  const session::RadarSceneTargetList input2{target};
   pipeline.SetAssociationSeeds(manager->BuildAssociationSeeds());
   RunPipelineCycle(&pipeline, input2, &environment_service, 2u);
   manager->Update(MakeLifecycleCycle(2u, 2u), pipeline.GetLastTrackMeasurements());
@@ -1536,7 +1539,7 @@ TEST(SignalPipelineTest, SameInstanceControlProfileSwitchAcrossCyclesSyncsLifecy
 
   target.position_x = 102.0f;
   target.range_m = 102.0f;
-  const model::TargetFeatureList input3{target};
+  const session::RadarSceneTargetList input3{target};
   pipeline.SetAssociationSeeds(manager->BuildAssociationSeeds());
   RunPipelineCycle(&pipeline, input3, &environment_service, 3u);
   manager->Update(MakeLifecycleCycle(3u, 3u), pipeline.GetLastTrackMeasurements());
