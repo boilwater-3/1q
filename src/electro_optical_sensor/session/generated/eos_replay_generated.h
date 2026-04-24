@@ -21,6 +21,10 @@ struct EosTargetState;
 struct EosTargetStateBuilder;
 struct EosTargetStateT;
 
+struct EosEnvironmentInput;
+struct EosEnvironmentInputBuilder;
+struct EosEnvironmentInputT;
+
 struct EosCycleInput;
 struct EosCycleInputBuilder;
 struct EosCycleInputT;
@@ -312,11 +316,8 @@ inline flatbuffers::Offset<EosTargetState> CreateEosTargetState(
 
 flatbuffers::Offset<EosTargetState> CreateEosTargetState(flatbuffers::FlatBufferBuilder &_fbb, const EosTargetStateT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
-struct EosCycleInputT : public flatbuffers::NativeTable {
-  typedef EosCycleInput TableType;
-  uint32_t cycle_index;
-  float dt_sec;
-  std::unique_ptr<eos::replay::PoseStateT> platform_pose;
+struct EosEnvironmentInputT : public flatbuffers::NativeTable {
+  typedef EosEnvironmentInput TableType;
   float solar_altitude_deg;
   float solar_azimuth_deg;
   float solar_irradiance_w_m2;
@@ -324,11 +325,8 @@ struct EosCycleInputT : public flatbuffers::NativeTable {
   float ambient_wind_speed_mps;
   int32_t day_night_type;
   float background_temperature_k;
-  std::vector<std::unique_ptr<eos::replay::EosTargetStateT>> scene_targets;
-  EosCycleInputT()
-      : cycle_index(0),
-        dt_sec(0.0f),
-        solar_altitude_deg(0.0f),
+  EosEnvironmentInputT()
+      : solar_altitude_deg(0.0f),
         solar_azimuth_deg(0.0f),
         solar_irradiance_w_m2(0.0f),
         cloud_coverage_ratio(0.0f),
@@ -338,31 +336,18 @@ struct EosCycleInputT : public flatbuffers::NativeTable {
   }
 };
 
-struct EosCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EosCycleInputT NativeTableType;
-  typedef EosCycleInputBuilder Builder;
+struct EosEnvironmentInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef EosEnvironmentInputT NativeTableType;
+  typedef EosEnvironmentInputBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_CYCLE_INDEX = 4,
-    VT_DT_SEC = 6,
-    VT_PLATFORM_POSE = 8,
-    VT_SOLAR_ALTITUDE_DEG = 10,
-    VT_SOLAR_AZIMUTH_DEG = 12,
-    VT_SOLAR_IRRADIANCE_W_M2 = 14,
-    VT_CLOUD_COVERAGE_RATIO = 16,
-    VT_AMBIENT_WIND_SPEED_MPS = 18,
-    VT_DAY_NIGHT_TYPE = 20,
-    VT_BACKGROUND_TEMPERATURE_K = 22,
-    VT_SCENE_TARGETS = 24
+    VT_SOLAR_ALTITUDE_DEG = 4,
+    VT_SOLAR_AZIMUTH_DEG = 6,
+    VT_SOLAR_IRRADIANCE_W_M2 = 8,
+    VT_CLOUD_COVERAGE_RATIO = 10,
+    VT_AMBIENT_WIND_SPEED_MPS = 12,
+    VT_DAY_NIGHT_TYPE = 14,
+    VT_BACKGROUND_TEMPERATURE_K = 16
   };
-  uint32_t cycle_index() const {
-    return GetField<uint32_t>(VT_CYCLE_INDEX, 0);
-  }
-  float dt_sec() const {
-    return GetField<float>(VT_DT_SEC, 0.0f);
-  }
-  const eos::replay::PoseState *platform_pose() const {
-    return GetPointer<const eos::replay::PoseState *>(VT_PLATFORM_POSE);
-  }
   float solar_altitude_deg() const {
     return GetField<float>(VT_SOLAR_ALTITUDE_DEG, 0.0f);
   }
@@ -384,6 +369,116 @@ struct EosCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   float background_temperature_k() const {
     return GetField<float>(VT_BACKGROUND_TEMPERATURE_K, 0.0f);
   }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<float>(verifier, VT_SOLAR_ALTITUDE_DEG) &&
+           VerifyField<float>(verifier, VT_SOLAR_AZIMUTH_DEG) &&
+           VerifyField<float>(verifier, VT_SOLAR_IRRADIANCE_W_M2) &&
+           VerifyField<float>(verifier, VT_CLOUD_COVERAGE_RATIO) &&
+           VerifyField<float>(verifier, VT_AMBIENT_WIND_SPEED_MPS) &&
+           VerifyField<int32_t>(verifier, VT_DAY_NIGHT_TYPE) &&
+           VerifyField<float>(verifier, VT_BACKGROUND_TEMPERATURE_K) &&
+           verifier.EndTable();
+  }
+  EosEnvironmentInputT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(EosEnvironmentInputT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<EosEnvironmentInput> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosEnvironmentInputT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct EosEnvironmentInputBuilder {
+  typedef EosEnvironmentInput Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_solar_altitude_deg(float solar_altitude_deg) {
+    fbb_.AddElement<float>(EosEnvironmentInput::VT_SOLAR_ALTITUDE_DEG, solar_altitude_deg, 0.0f);
+  }
+  void add_solar_azimuth_deg(float solar_azimuth_deg) {
+    fbb_.AddElement<float>(EosEnvironmentInput::VT_SOLAR_AZIMUTH_DEG, solar_azimuth_deg, 0.0f);
+  }
+  void add_solar_irradiance_w_m2(float solar_irradiance_w_m2) {
+    fbb_.AddElement<float>(EosEnvironmentInput::VT_SOLAR_IRRADIANCE_W_M2, solar_irradiance_w_m2, 0.0f);
+  }
+  void add_cloud_coverage_ratio(float cloud_coverage_ratio) {
+    fbb_.AddElement<float>(EosEnvironmentInput::VT_CLOUD_COVERAGE_RATIO, cloud_coverage_ratio, 0.0f);
+  }
+  void add_ambient_wind_speed_mps(float ambient_wind_speed_mps) {
+    fbb_.AddElement<float>(EosEnvironmentInput::VT_AMBIENT_WIND_SPEED_MPS, ambient_wind_speed_mps, 0.0f);
+  }
+  void add_day_night_type(int32_t day_night_type) {
+    fbb_.AddElement<int32_t>(EosEnvironmentInput::VT_DAY_NIGHT_TYPE, day_night_type, 0);
+  }
+  void add_background_temperature_k(float background_temperature_k) {
+    fbb_.AddElement<float>(EosEnvironmentInput::VT_BACKGROUND_TEMPERATURE_K, background_temperature_k, 0.0f);
+  }
+  explicit EosEnvironmentInputBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  EosEnvironmentInputBuilder &operator=(const EosEnvironmentInputBuilder &);
+  flatbuffers::Offset<EosEnvironmentInput> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<EosEnvironmentInput>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<EosEnvironmentInput> CreateEosEnvironmentInput(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    float solar_altitude_deg = 0.0f,
+    float solar_azimuth_deg = 0.0f,
+    float solar_irradiance_w_m2 = 0.0f,
+    float cloud_coverage_ratio = 0.0f,
+    float ambient_wind_speed_mps = 0.0f,
+    int32_t day_night_type = 0,
+    float background_temperature_k = 0.0f) {
+  EosEnvironmentInputBuilder builder_(_fbb);
+  builder_.add_background_temperature_k(background_temperature_k);
+  builder_.add_day_night_type(day_night_type);
+  builder_.add_ambient_wind_speed_mps(ambient_wind_speed_mps);
+  builder_.add_cloud_coverage_ratio(cloud_coverage_ratio);
+  builder_.add_solar_irradiance_w_m2(solar_irradiance_w_m2);
+  builder_.add_solar_azimuth_deg(solar_azimuth_deg);
+  builder_.add_solar_altitude_deg(solar_altitude_deg);
+  return builder_.Finish();
+}
+
+flatbuffers::Offset<EosEnvironmentInput> CreateEosEnvironmentInput(flatbuffers::FlatBufferBuilder &_fbb, const EosEnvironmentInputT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct EosCycleInputT : public flatbuffers::NativeTable {
+  typedef EosCycleInput TableType;
+  uint32_t cycle_index;
+  float dt_sec;
+  std::unique_ptr<eos::replay::PoseStateT> platform_pose;
+  std::unique_ptr<eos::replay::EosEnvironmentInputT> environment;
+  std::vector<std::unique_ptr<eos::replay::EosTargetStateT>> scene_targets;
+  EosCycleInputT()
+      : cycle_index(0),
+        dt_sec(0.0f) {
+  }
+};
+
+struct EosCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef EosCycleInputT NativeTableType;
+  typedef EosCycleInputBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_CYCLE_INDEX = 4,
+    VT_DT_SEC = 6,
+    VT_PLATFORM_POSE = 8,
+    VT_ENVIRONMENT = 10,
+    VT_SCENE_TARGETS = 12
+  };
+  uint32_t cycle_index() const {
+    return GetField<uint32_t>(VT_CYCLE_INDEX, 0);
+  }
+  float dt_sec() const {
+    return GetField<float>(VT_DT_SEC, 0.0f);
+  }
+  const eos::replay::PoseState *platform_pose() const {
+    return GetPointer<const eos::replay::PoseState *>(VT_PLATFORM_POSE);
+  }
+  const eos::replay::EosEnvironmentInput *environment() const {
+    return GetPointer<const eos::replay::EosEnvironmentInput *>(VT_ENVIRONMENT);
+  }
   const flatbuffers::Vector<flatbuffers::Offset<eos::replay::EosTargetState>> *scene_targets() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<eos::replay::EosTargetState>> *>(VT_SCENE_TARGETS);
   }
@@ -393,13 +488,8 @@ struct EosCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<float>(verifier, VT_DT_SEC) &&
            VerifyOffset(verifier, VT_PLATFORM_POSE) &&
            verifier.VerifyTable(platform_pose()) &&
-           VerifyField<float>(verifier, VT_SOLAR_ALTITUDE_DEG) &&
-           VerifyField<float>(verifier, VT_SOLAR_AZIMUTH_DEG) &&
-           VerifyField<float>(verifier, VT_SOLAR_IRRADIANCE_W_M2) &&
-           VerifyField<float>(verifier, VT_CLOUD_COVERAGE_RATIO) &&
-           VerifyField<float>(verifier, VT_AMBIENT_WIND_SPEED_MPS) &&
-           VerifyField<int32_t>(verifier, VT_DAY_NIGHT_TYPE) &&
-           VerifyField<float>(verifier, VT_BACKGROUND_TEMPERATURE_K) &&
+           VerifyOffset(verifier, VT_ENVIRONMENT) &&
+           verifier.VerifyTable(environment()) &&
            VerifyOffset(verifier, VT_SCENE_TARGETS) &&
            verifier.VerifyVector(scene_targets()) &&
            verifier.VerifyVectorOfTables(scene_targets()) &&
@@ -423,26 +513,8 @@ struct EosCycleInputBuilder {
   void add_platform_pose(flatbuffers::Offset<eos::replay::PoseState> platform_pose) {
     fbb_.AddOffset(EosCycleInput::VT_PLATFORM_POSE, platform_pose);
   }
-  void add_solar_altitude_deg(float solar_altitude_deg) {
-    fbb_.AddElement<float>(EosCycleInput::VT_SOLAR_ALTITUDE_DEG, solar_altitude_deg, 0.0f);
-  }
-  void add_solar_azimuth_deg(float solar_azimuth_deg) {
-    fbb_.AddElement<float>(EosCycleInput::VT_SOLAR_AZIMUTH_DEG, solar_azimuth_deg, 0.0f);
-  }
-  void add_solar_irradiance_w_m2(float solar_irradiance_w_m2) {
-    fbb_.AddElement<float>(EosCycleInput::VT_SOLAR_IRRADIANCE_W_M2, solar_irradiance_w_m2, 0.0f);
-  }
-  void add_cloud_coverage_ratio(float cloud_coverage_ratio) {
-    fbb_.AddElement<float>(EosCycleInput::VT_CLOUD_COVERAGE_RATIO, cloud_coverage_ratio, 0.0f);
-  }
-  void add_ambient_wind_speed_mps(float ambient_wind_speed_mps) {
-    fbb_.AddElement<float>(EosCycleInput::VT_AMBIENT_WIND_SPEED_MPS, ambient_wind_speed_mps, 0.0f);
-  }
-  void add_day_night_type(int32_t day_night_type) {
-    fbb_.AddElement<int32_t>(EosCycleInput::VT_DAY_NIGHT_TYPE, day_night_type, 0);
-  }
-  void add_background_temperature_k(float background_temperature_k) {
-    fbb_.AddElement<float>(EosCycleInput::VT_BACKGROUND_TEMPERATURE_K, background_temperature_k, 0.0f);
+  void add_environment(flatbuffers::Offset<eos::replay::EosEnvironmentInput> environment) {
+    fbb_.AddOffset(EosCycleInput::VT_ENVIRONMENT, environment);
   }
   void add_scene_targets(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<eos::replay::EosTargetState>>> scene_targets) {
     fbb_.AddOffset(EosCycleInput::VT_SCENE_TARGETS, scene_targets);
@@ -464,23 +536,11 @@ inline flatbuffers::Offset<EosCycleInput> CreateEosCycleInput(
     uint32_t cycle_index = 0,
     float dt_sec = 0.0f,
     flatbuffers::Offset<eos::replay::PoseState> platform_pose = 0,
-    float solar_altitude_deg = 0.0f,
-    float solar_azimuth_deg = 0.0f,
-    float solar_irradiance_w_m2 = 0.0f,
-    float cloud_coverage_ratio = 0.0f,
-    float ambient_wind_speed_mps = 0.0f,
-    int32_t day_night_type = 0,
-    float background_temperature_k = 0.0f,
+    flatbuffers::Offset<eos::replay::EosEnvironmentInput> environment = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<eos::replay::EosTargetState>>> scene_targets = 0) {
   EosCycleInputBuilder builder_(_fbb);
   builder_.add_scene_targets(scene_targets);
-  builder_.add_background_temperature_k(background_temperature_k);
-  builder_.add_day_night_type(day_night_type);
-  builder_.add_ambient_wind_speed_mps(ambient_wind_speed_mps);
-  builder_.add_cloud_coverage_ratio(cloud_coverage_ratio);
-  builder_.add_solar_irradiance_w_m2(solar_irradiance_w_m2);
-  builder_.add_solar_azimuth_deg(solar_azimuth_deg);
-  builder_.add_solar_altitude_deg(solar_altitude_deg);
+  builder_.add_environment(environment);
   builder_.add_platform_pose(platform_pose);
   builder_.add_dt_sec(dt_sec);
   builder_.add_cycle_index(cycle_index);
@@ -492,13 +552,7 @@ inline flatbuffers::Offset<EosCycleInput> CreateEosCycleInputDirect(
     uint32_t cycle_index = 0,
     float dt_sec = 0.0f,
     flatbuffers::Offset<eos::replay::PoseState> platform_pose = 0,
-    float solar_altitude_deg = 0.0f,
-    float solar_azimuth_deg = 0.0f,
-    float solar_irradiance_w_m2 = 0.0f,
-    float cloud_coverage_ratio = 0.0f,
-    float ambient_wind_speed_mps = 0.0f,
-    int32_t day_night_type = 0,
-    float background_temperature_k = 0.0f,
+    flatbuffers::Offset<eos::replay::EosEnvironmentInput> environment = 0,
     const std::vector<flatbuffers::Offset<eos::replay::EosTargetState>> *scene_targets = nullptr) {
   auto scene_targets__ = scene_targets ? _fbb.CreateVector<flatbuffers::Offset<eos::replay::EosTargetState>>(*scene_targets) : 0;
   return eos::replay::CreateEosCycleInput(
@@ -506,13 +560,7 @@ inline flatbuffers::Offset<EosCycleInput> CreateEosCycleInputDirect(
       cycle_index,
       dt_sec,
       platform_pose,
-      solar_altitude_deg,
-      solar_azimuth_deg,
-      solar_irradiance_w_m2,
-      cloud_coverage_ratio,
-      ambient_wind_speed_mps,
-      day_night_type,
-      background_temperature_k,
+      environment,
       scene_targets__);
 }
 
@@ -1086,6 +1134,50 @@ inline flatbuffers::Offset<EosTargetState> CreateEosTargetState(flatbuffers::Fla
       _projected_area_m2);
 }
 
+inline EosEnvironmentInputT *EosEnvironmentInput::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<eos::replay::EosEnvironmentInputT> _o = std::unique_ptr<eos::replay::EosEnvironmentInputT>(new EosEnvironmentInputT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void EosEnvironmentInput::UnPackTo(EosEnvironmentInputT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = solar_altitude_deg(); _o->solar_altitude_deg = _e; }
+  { auto _e = solar_azimuth_deg(); _o->solar_azimuth_deg = _e; }
+  { auto _e = solar_irradiance_w_m2(); _o->solar_irradiance_w_m2 = _e; }
+  { auto _e = cloud_coverage_ratio(); _o->cloud_coverage_ratio = _e; }
+  { auto _e = ambient_wind_speed_mps(); _o->ambient_wind_speed_mps = _e; }
+  { auto _e = day_night_type(); _o->day_night_type = _e; }
+  { auto _e = background_temperature_k(); _o->background_temperature_k = _e; }
+}
+
+inline flatbuffers::Offset<EosEnvironmentInput> EosEnvironmentInput::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosEnvironmentInputT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateEosEnvironmentInput(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<EosEnvironmentInput> CreateEosEnvironmentInput(flatbuffers::FlatBufferBuilder &_fbb, const EosEnvironmentInputT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EosEnvironmentInputT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _solar_altitude_deg = _o->solar_altitude_deg;
+  auto _solar_azimuth_deg = _o->solar_azimuth_deg;
+  auto _solar_irradiance_w_m2 = _o->solar_irradiance_w_m2;
+  auto _cloud_coverage_ratio = _o->cloud_coverage_ratio;
+  auto _ambient_wind_speed_mps = _o->ambient_wind_speed_mps;
+  auto _day_night_type = _o->day_night_type;
+  auto _background_temperature_k = _o->background_temperature_k;
+  return eos::replay::CreateEosEnvironmentInput(
+      _fbb,
+      _solar_altitude_deg,
+      _solar_azimuth_deg,
+      _solar_irradiance_w_m2,
+      _cloud_coverage_ratio,
+      _ambient_wind_speed_mps,
+      _day_night_type,
+      _background_temperature_k);
+}
+
 inline EosCycleInputT *EosCycleInput::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
   std::unique_ptr<eos::replay::EosCycleInputT> _o = std::unique_ptr<eos::replay::EosCycleInputT>(new EosCycleInputT());
   UnPackTo(_o.get(), _resolver);
@@ -1098,13 +1190,7 @@ inline void EosCycleInput::UnPackTo(EosCycleInputT *_o, const flatbuffers::resol
   { auto _e = cycle_index(); _o->cycle_index = _e; }
   { auto _e = dt_sec(); _o->dt_sec = _e; }
   { auto _e = platform_pose(); if (_e) _o->platform_pose = std::unique_ptr<eos::replay::PoseStateT>(_e->UnPack(_resolver)); }
-  { auto _e = solar_altitude_deg(); _o->solar_altitude_deg = _e; }
-  { auto _e = solar_azimuth_deg(); _o->solar_azimuth_deg = _e; }
-  { auto _e = solar_irradiance_w_m2(); _o->solar_irradiance_w_m2 = _e; }
-  { auto _e = cloud_coverage_ratio(); _o->cloud_coverage_ratio = _e; }
-  { auto _e = ambient_wind_speed_mps(); _o->ambient_wind_speed_mps = _e; }
-  { auto _e = day_night_type(); _o->day_night_type = _e; }
-  { auto _e = background_temperature_k(); _o->background_temperature_k = _e; }
+  { auto _e = environment(); if (_e) _o->environment = std::unique_ptr<eos::replay::EosEnvironmentInputT>(_e->UnPack(_resolver)); }
   { auto _e = scene_targets(); if (_e) { _o->scene_targets.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->scene_targets[_i] = std::unique_ptr<eos::replay::EosTargetStateT>(_e->Get(_i)->UnPack(_resolver)); } } }
 }
 
@@ -1119,26 +1205,14 @@ inline flatbuffers::Offset<EosCycleInput> CreateEosCycleInput(flatbuffers::FlatB
   auto _cycle_index = _o->cycle_index;
   auto _dt_sec = _o->dt_sec;
   auto _platform_pose = _o->platform_pose ? CreatePoseState(_fbb, _o->platform_pose.get(), _rehasher) : 0;
-  auto _solar_altitude_deg = _o->solar_altitude_deg;
-  auto _solar_azimuth_deg = _o->solar_azimuth_deg;
-  auto _solar_irradiance_w_m2 = _o->solar_irradiance_w_m2;
-  auto _cloud_coverage_ratio = _o->cloud_coverage_ratio;
-  auto _ambient_wind_speed_mps = _o->ambient_wind_speed_mps;
-  auto _day_night_type = _o->day_night_type;
-  auto _background_temperature_k = _o->background_temperature_k;
+  auto _environment = _o->environment ? CreateEosEnvironmentInput(_fbb, _o->environment.get(), _rehasher) : 0;
   auto _scene_targets = _o->scene_targets.size() ? _fbb.CreateVector<flatbuffers::Offset<eos::replay::EosTargetState>> (_o->scene_targets.size(), [](size_t i, _VectorArgs *__va) { return CreateEosTargetState(*__va->__fbb, __va->__o->scene_targets[i].get(), __va->__rehasher); }, &_va ) : 0;
   return eos::replay::CreateEosCycleInput(
       _fbb,
       _cycle_index,
       _dt_sec,
       _platform_pose,
-      _solar_altitude_deg,
-      _solar_azimuth_deg,
-      _solar_irradiance_w_m2,
-      _cloud_coverage_ratio,
-      _ambient_wind_speed_mps,
-      _day_night_type,
-      _background_temperature_k,
+      _environment,
       _scene_targets);
 }
 

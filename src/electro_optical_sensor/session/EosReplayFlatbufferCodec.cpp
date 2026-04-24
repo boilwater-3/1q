@@ -79,18 +79,21 @@ std::string EncodeEosCycleInput(const EosCycleInput& v) {
   }
   auto targets = fbb.CreateVector(targets_vec);
   auto pose = BuildPoseState(fbb, v.platform_pose);
+  auto env = eos::replay::CreateEosEnvironmentInput(
+      fbb,
+      v.environment.solar_altitude_deg,
+      v.environment.solar_azimuth_deg,
+      v.environment.solar_irradiance_w_m2,
+      v.environment.cloud_coverage_ratio,
+      v.environment.ambient_wind_speed_mps,
+      static_cast<int32_t>(v.environment.day_night_type),
+      v.environment.background_temperature_k);
 
   eos::replay::EosCycleInputBuilder b(fbb);
   b.add_cycle_index(v.cycle_index);
   b.add_dt_sec(v.dt_sec);
   b.add_platform_pose(pose);
-  b.add_solar_altitude_deg(v.environment.solar_altitude_deg);
-  b.add_solar_azimuth_deg(v.environment.solar_azimuth_deg);
-  b.add_solar_irradiance_w_m2(v.environment.solar_irradiance_w_m2);
-  b.add_cloud_coverage_ratio(v.environment.cloud_coverage_ratio);
-  b.add_ambient_wind_speed_mps(v.environment.ambient_wind_speed_mps);
-  b.add_day_night_type(static_cast<int32_t>(v.environment.day_night_type));
-  b.add_background_temperature_k(v.environment.background_temperature_k);
+  b.add_environment(env);
   b.add_scene_targets(targets);
   fbb.Finish(b.Finish());
   const uint8_t* buf = fbb.GetBufferPointer();
@@ -106,14 +109,17 @@ bool DecodeEosCycleInput(const std::string& bytes, EosCycleInput* out) {
   out->cycle_index = fb->cycle_index();
   out->dt_sec = fb->dt_sec();
   out->platform_pose = FromFbPoseState(fb->platform_pose());
-  out->environment.solar_altitude_deg = fb->solar_altitude_deg();
-  out->environment.solar_azimuth_deg = fb->solar_azimuth_deg();
-  out->environment.solar_irradiance_w_m2 = fb->solar_irradiance_w_m2();
-  out->environment.cloud_coverage_ratio = fb->cloud_coverage_ratio();
-  out->environment.ambient_wind_speed_mps = fb->ambient_wind_speed_mps();
-  out->environment.day_night_type =
-      static_cast<::electro_optical_sensor::session::DayNightType>(fb->day_night_type());
-  out->environment.background_temperature_k = fb->background_temperature_k();
+  if (fb->environment()) {
+    const auto* env = fb->environment();
+    out->environment.solar_altitude_deg = env->solar_altitude_deg();
+    out->environment.solar_azimuth_deg = env->solar_azimuth_deg();
+    out->environment.solar_irradiance_w_m2 = env->solar_irradiance_w_m2();
+    out->environment.cloud_coverage_ratio = env->cloud_coverage_ratio();
+    out->environment.ambient_wind_speed_mps = env->ambient_wind_speed_mps();
+    out->environment.day_night_type =
+        static_cast<::electro_optical_sensor::session::DayNightType>(env->day_night_type());
+    out->environment.background_temperature_k = env->background_temperature_k();
+  }
   out->scene.clear();
   if (fb->scene_targets()) {
     for (const auto* t : *fb->scene_targets()) {
@@ -464,6 +470,33 @@ bool DecodeEosRuntimeConfigPatch(const std::string& bytes, EosRuntimeConfigPatch
           e->custom_overrides()->turbulence_factor();
       out->environment.scenario_config.custom_overrides.enable_optical_countermeasure_extension =
           e->custom_overrides()->enable_optical_countermeasure_extension();
+    }
+  }
+  if (fb->policy()) {
+    const auto* p = fb->policy();
+    if (p->detection()) {
+      out->policy.detection.profile =
+          static_cast<config::EosDetectionProfile>(p->detection()->profile());
+      out->policy.detection.use_profile_defaults = p->detection()->use_profile_defaults();
+      out->policy.detection.minimum_snr_db = p->detection()->minimum_snr_db();
+      out->policy.detection.detection_sensitivity_w = p->detection()->detection_sensitivity_w();
+      out->policy.detection.visible_reference_irradiance_w_m2 =
+          p->detection()->visible_reference_irradiance_w_m2();
+    }
+    if (p->stray_light()) {
+      out->policy.stray_light.profile =
+          static_cast<config::EosStrayLightProfile>(p->stray_light()->profile());
+      out->policy.stray_light.use_profile_defaults = p->stray_light()->use_profile_defaults();
+      out->policy.stray_light.enable_straylight_filter =
+          p->stray_light()->enable_straylight_filter();
+      out->policy.stray_light.hood_inner_half_angle_deg =
+          p->stray_light()->hood_inner_half_angle_deg();
+      out->policy.stray_light.hood_outer_half_angle_deg =
+          p->stray_light()->hood_outer_half_angle_deg();
+      out->policy.stray_light.hood_min_suppression_ratio =
+          p->stray_light()->hood_min_suppression_ratio();
+      out->policy.stray_light.hood_max_suppression_ratio =
+          p->stray_light()->hood_max_suppression_ratio();
     }
   }
   out->has_work_mode = fb->has_work_mode();

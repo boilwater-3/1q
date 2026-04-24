@@ -38,10 +38,7 @@ table EosTargetState {
   projected_area_m2:     float;
 }
 
-table EosCycleInput {
-  cycle_index:              uint32;
-  dt_sec:                   float;
-  platform_pose:            PoseState;
+table EosEnvironmentInput {
   solar_altitude_deg:       float;
   solar_azimuth_deg:        float;
   solar_irradiance_w_m2:    float;
@@ -49,6 +46,13 @@ table EosCycleInput {
   ambient_wind_speed_mps:   float;
   day_night_type:           int32;
   background_temperature_k: float;
+}
+
+table EosCycleInput {
+  cycle_index:              uint32;
+  dt_sec:                   float;
+  platform_pose:            PoseState;
+  environment:              EosEnvironmentInput;
   scene_targets:            [EosTargetState];
 }
 
@@ -80,7 +84,7 @@ table EosOutputFrame {
 table ValidationIssue {
   severity:     int32;
   code:         int32;
-  target_index: int32;
+  entity_index: int32;
   message:      string;
 }
 
