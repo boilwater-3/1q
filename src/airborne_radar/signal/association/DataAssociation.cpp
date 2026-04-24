@@ -156,7 +156,7 @@ void DataAssociationEngine::UpdateConfig(DataAssociationConfig config) {
 }
 
 AssociationResult DataAssociationEngine::AssociateDetections(
-    const model::TargetFeatureList& targets,
+    const session::RadarSceneTargetList& targets,
     const std::vector<std::uint8_t>& detection_succeeded, float dt_sec) {
   std::vector<tracking::MeasurementCovariance> measurement_covariances(
       targets.size(), BuildDefaultMeasurementCovariance(config_.kalman_measurement_noise_std));
@@ -164,7 +164,7 @@ AssociationResult DataAssociationEngine::AssociateDetections(
 }
 
 AssociationResult DataAssociationEngine::AssociateDetections(
-    const model::TargetFeatureList& targets,
+    const session::RadarSceneTargetList& targets,
     const std::vector<std::uint8_t>& detection_succeeded,
     const std::vector<tracking::MeasurementCovariance>& measurement_covariances, float dt_sec) {
   const std::size_t target_count = targets.size();
@@ -315,13 +315,13 @@ AssociationResult DataAssociationEngine::AssociateDetections(
 }
 
 std::vector<std::uint64_t> DataAssociationEngine::Associate(
-    const model::TargetFeatureList& targets,
+    const session::RadarSceneTargetList& targets,
     const std::vector<std::uint8_t>& detection_succeeded) {
   return AssociateDetections(targets, detection_succeeded).target_keys;
 }
 
 std::vector<std::uint64_t> DataAssociationEngine::Associate(
-    const model::TargetFeatureList& targets,
+    const session::RadarSceneTargetList& targets,
     const std::vector<std::uint8_t>& detection_succeeded,
     const std::vector<tracking::MeasurementCovariance>& measurement_covariances) {
   return AssociateDetections(targets, detection_succeeded, measurement_covariances).target_keys;
@@ -463,12 +463,13 @@ DataAssociationEngine::BuildExternalPositionAssociationPriors(
 }
 
 Eigen::Vector3f DataAssociationEngine::BuildPositionVector(
-    const model::TargetFeature& target) const {
+    const session::RadarSceneTarget& target) const {
   return Eigen::Vector3f(target.position_x, target.position_y, target.position_z);
 }
 
-bool DataAssociationEngine::HasPositionMeasurement(const model::TargetFeature& target) const {
-  return target.has_cartesian_position;
+bool DataAssociationEngine::HasPositionMeasurement(const session::RadarSceneTarget& target) const {
+  (void)target;
+  return true;
 }
 
 tracking::GaussianTrackState DataAssociationEngine::InitializeGaussianState(

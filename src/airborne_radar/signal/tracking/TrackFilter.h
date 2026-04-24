@@ -6,7 +6,7 @@
 #ifndef AIRBORNE_RADAR_SIGNAL_TRACKING_TRACK_FILTER_H_
 #define AIRBORNE_RADAR_SIGNAL_TRACKING_TRACK_FILTER_H_
 
-#include "1q/airborne_radar/model/TargetFeature.h"
+#include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "1q/airborne_radar/model/JammingSemantics.h"
 
 namespace airborne_radar {
@@ -58,7 +58,7 @@ class ITrackPredictor {
    * @param input 输入目标特征。
    * @return 预测后的轨迹状态。
    */
-  virtual PredictedTrackState Predict(const model::TargetFeature& input) const = 0;
+  virtual PredictedTrackState Predict(const session::RadarSceneTarget& input) const = 0;
 };
 /**
  * @brief 轻量轨迹预测器。
@@ -72,7 +72,7 @@ class IdentityTrackPredictor final : public ITrackPredictor {
    * @param input 输入目标特征。
    * @return 预测后的轨迹状态。
    */
-  PredictedTrackState Predict(const model::TargetFeature& input) const override;
+  PredictedTrackState Predict(const session::RadarSceneTarget& input) const override;
 };
 /**
  * @brief 轨迹更新器抽象接口。
@@ -86,7 +86,7 @@ class ITrackUpdater {
    * @param context 处理上下文。
    * @return 更新后的目标特征。
    */
-  virtual model::TargetFeature Update(const PredictedTrackState& predicted,
+  virtual session::RadarSceneTarget Update(const PredictedTrackState& predicted,
                                               const TrackFilterContext& context) const = 0;
 };
 /**
@@ -105,7 +105,7 @@ class SimpleTrackUpdater final : public ITrackUpdater {
    * @param context 处理上下文。
    * @return 更新后的目标特征。
    */
-  model::TargetFeature Update(const PredictedTrackState& predicted,
+  session::RadarSceneTarget Update(const PredictedTrackState& predicted,
                                       const TrackFilterContext& context) const override;
   /**
    * @brief 更新配置参数。
@@ -132,7 +132,7 @@ class TrackFilter final {
    * @param context 当前周期的传感器处理上下文。
    * @return 滤波后的平滑目标特征。
    */
-  model::TargetFeature Filter(const model::TargetFeature& input,
+  session::RadarSceneTarget Filter(const session::RadarSceneTarget& input,
                                       const TrackFilterContext& context) const;
   /**
    * @brief 更新配置参数。

@@ -252,8 +252,8 @@ GaussianTrackState TrackLifecycleManager::BuildInitialGaussianState(
 
 bool TrackLifecycleManager::ShouldUseImmForMeasurement(bool track_existed_before_cycle,
                                                        TrackStatus status_before_update,
-                                                       const TrackMeasurement& measurement) const {
-  if (!IsImmEnabled() || !measurement.raw_measurement.has_cartesian_position) {
+                                                       bool matched_existing_track) const {
+  if (!IsImmEnabled()) {
     return false;
   }
 
@@ -262,7 +262,7 @@ bool TrackLifecycleManager::ShouldUseImmForMeasurement(bool track_existed_before
   }
 
   return track_existed_before_cycle && status_before_update == TrackStatus::kConfirmed &&
-         measurement.raw_measurement.matched_existing_track;
+         matched_existing_track;
 }
 
 bool TrackLifecycleManager::ShouldUseImmForMiss(TrackStatus status_before_prediction) const {
@@ -424,8 +424,9 @@ void TrackLifecycleManager::EnsurePhase(LifecycleUpdateScratch& scratch,
 
     const TrackStatus status_before_update =
         track_existed_before_cycle ? track_before_update.status : TrackStatus::kTentative;
-    const bool use_imm =
-        ShouldUseImmForMeasurement(track_existed_before_cycle, status_before_update, measurement);
+    const bool use_imm = ShouldUseImmForMeasurement(
+        track_existed_before_cycle, status_before_update,
+        measurement.raw_measurement.matched_existing_track);
     ImmFilter* imm_filter = nullptr;
     if (use_imm) {
       const GaussianTrackState initial_state = measurement.raw_measurement.matched_existing_track
@@ -493,9 +494,7 @@ void TrackLifecycleManager::ComputePhase(LifecycleUpdateScratch& scratch, const 
       track.hit_count += 1;
       track.miss_count = 0;
 
-      if (measurement.raw_measurement.has_cartesian_position) {
-        track.position = measurement.raw_measurement.position;
-      }
+      track.position = measurement.raw_measurement.position;
       if (measurement.raw_measurement.external_target_id != 0U) {
         track.external_target_id = measurement.raw_measurement.external_target_id;
       }
@@ -511,9 +510,7 @@ void TrackLifecycleManager::ComputePhase(LifecycleUpdateScratch& scratch, const 
 
       PromoteState(track, cycle.cycle_index, true, cycle.extra_miss_tolerance);
 
-      if (measurement.raw_measurement.has_cartesian_position) {
-        ApplyKalmanHitUpdate(work_item, measurement, track, effective_dt_sec);
-      }
+      ApplyKalmanHitUpdate(work_item, measurement, track, effective_dt_sec);
     } else {
       PromoteState(track, cycle.cycle_index, false, cycle.extra_miss_tolerance);
 

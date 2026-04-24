@@ -64,31 +64,28 @@ bool IsAssociationFragileJamming(model::JammingSemantic semantic) {
 }  // namespace
 
 PredictedTrackState IdentityTrackPredictor::Predict(
-    const model::TargetFeature& input) const {
+    const session::RadarSceneTarget& input) const {
   const bool has_velocity_axis =
-      HasNonZero3(input.current_track_velocity_x, input.current_track_velocity_y,
-                  input.current_track_velocity_z);
-  const float speed = has_velocity_axis ? VectorNorm3(input.current_track_velocity_x,
-                                                      input.current_track_velocity_y,
-                                                      input.current_track_velocity_z)
-                                        : input.current_track_speed;
+      HasNonZero3(input.velocity_x, input.velocity_y, input.velocity_z);
+  const float speed =
+      has_velocity_axis ? VectorNorm3(input.velocity_x, input.velocity_y, input.velocity_z) : 0.0f;
 
-  const float vx = has_velocity_axis ? input.current_track_velocity_x : speed;
-  const float vy = has_velocity_axis ? input.current_track_velocity_y : 0.0f;
-  const float vz = has_velocity_axis ? input.current_track_velocity_z : 0.0f;
+  const float vx = has_velocity_axis ? input.velocity_x : speed;
+  const float vy = has_velocity_axis ? input.velocity_y : 0.0f;
+  const float vz = has_velocity_axis ? input.velocity_z : 0.0f;
 
-  return PredictedTrackState{speed, input.current_track_rcs, vx, vy, vz};
+  return PredictedTrackState{speed, input.rcs, vx, vy, vz};
 }
 
 SimpleTrackUpdater::SimpleTrackUpdater(TrackFilterConfig config) : config_(config) {}
 
-model::TargetFeature SimpleTrackUpdater::Update(const PredictedTrackState& predicted,
+session::RadarSceneTarget SimpleTrackUpdater::Update(const PredictedTrackState& predicted,
                                                         const TrackFilterContext& context) const {
-  model::TargetFeature output(predicted.velocity_x, predicted.velocity_y,
+  session::RadarSceneTarget output(predicted.velocity_x, predicted.velocity_y,
                                       predicted.velocity_z, predicted.rcs);
-  output.current_track_velocity_x = predicted.velocity_x;
-  output.current_track_velocity_y = predicted.velocity_y;
-  output.current_track_velocity_z = predicted.velocity_z;
+  output.velocity_x = predicted.velocity_x;
+  output.velocity_y = predicted.velocity_y;
+  output.velocity_z = predicted.velocity_z;
 
   if (!context.detection_succeeded) {
     float speed_decay_ratio = config_.speed_decay_ratio_on_loss;
@@ -99,17 +96,17 @@ model::TargetFeature SimpleTrackUpdater::Update(const PredictedTrackState& predi
       speed_decay_ratio = std::min(0.995f, speed_decay_ratio + relief_scale);
       rcs_decay_ratio = std::min(0.999f, rcs_decay_ratio + 1.2f * relief_scale);
     }
-    output.current_track_speed = std::max(0.0f, predicted.speed * speed_decay_ratio);
-    output.current_track_rcs = std::max(0.05f, predicted.rcs * rcs_decay_ratio);
+    const float decayed_speed = std::max(0.0f, predicted.speed * speed_decay_ratio);
+    output.rcs = std::max(0.05f, predicted.rcs * rcs_decay_ratio);
 
     float dir_vx = 1.0f;
     float dir_vy = 0.0f;
     float dir_vz = 0.0f;
     NormalizeOrFallback(predicted.velocity_x, predicted.velocity_y, predicted.velocity_z, dir_vx,
                         dir_vy, dir_vz, 1.0f, 0.0f, 0.0f);
-    output.current_track_velocity_x = dir_vx * output.current_track_speed;
-    output.current_track_velocity_y = dir_vy * output.current_track_speed;
-    output.current_track_velocity_z = dir_vz * output.current_track_speed;
+    output.velocity_x = dir_vx * decayed_speed;
+    output.velocity_y = dir_vy * decayed_speed;
+    output.velocity_z = dir_vz * decayed_speed;
   }
 
   return output;
@@ -119,7 +116,7 @@ void SimpleTrackUpdater::UpdateConfig(TrackFilterConfig config) { config_ = conf
 
 TrackFilter::TrackFilter(TrackFilterConfig config) : updater_(config) {}
 
-model::TargetFeature TrackFilter::Filter(const model::TargetFeature& input,
+session::RadarSceneTarget TrackFilter::Filter(const session::RadarSceneTarget& input,
                                                  const TrackFilterContext& context) const {
   const PredictedTrackState predicted = predictor_.Predict(input);
   return updater_.Update(predicted, context);

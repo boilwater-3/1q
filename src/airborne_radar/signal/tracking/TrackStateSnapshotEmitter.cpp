@@ -48,15 +48,14 @@ void TrackStateSnapshotEmitter::Refresh(
   }
 }
 
-model::TargetFeatureList TrackStateSnapshotEmitter::BuildFeatureSnapshot() const {
-  model::TargetFeatureList features;
+session::RadarSceneTargetList TrackStateSnapshotEmitter::BuildSceneTargetSnapshot() const {
+  session::RadarSceneTargetList features;
   features.reserve(active_tracks_.size());
   for (std::vector<ActiveTrackEntry>::const_iterator it = active_tracks_.begin();
        it != active_tracks_.end(); ++it) {
     const TrackState& track = *it->track;
-    model::TargetFeature feature(track.velocity(0), track.velocity(1), track.velocity(2),
-                                         track.rcs);
-    feature.has_cartesian_position = true;
+    session::RadarSceneTarget feature(track.velocity(0), track.velocity(1), track.velocity(2),
+                                      track.rcs);
     feature.position_x = track.position(0);
     feature.position_y = track.position(1);
     feature.position_z = track.position(2);

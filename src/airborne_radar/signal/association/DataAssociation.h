@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "1q/airborne_radar/model/TargetFeature.h"
+#include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "airborne_radar/signal/association/DistanceMetric.h"
 #include "airborne_radar/signal/association/Gater.h"
 #include "airborne_radar/signal/association/Hypothesiser.h"
@@ -102,7 +102,7 @@ class DataAssociationEngine {
    * @param dt_sec 当前周期实际步长（单位：s），用于先验预测。默认值 `1.0f` 向后兼容。
    * @return 包含命中、失配和未关联目标的完整结果。
    */
-  AssociationResult AssociateDetections(const model::TargetFeatureList& targets,
+  AssociationResult AssociateDetections(const session::RadarSceneTargetList& targets,
                                         const std::vector<std::uint8_t>& detection_succeeded,
                                         float dt_sec = 1.0f);
   /**
@@ -114,7 +114,7 @@ class DataAssociationEngine {
    * @return 包含命中、失配和未关联目标的完整结果。
    */
   AssociationResult AssociateDetections(
-      const model::TargetFeatureList& targets,
+      const session::RadarSceneTargetList& targets,
       const std::vector<std::uint8_t>& detection_succeeded,
       const std::vector<tracking::MeasurementCovariance>& measurement_covariances,
       float dt_sec = 1.0f);
@@ -124,7 +124,7 @@ class DataAssociationEngine {
    * @param detection_succeeded 探测阶段输出的有效标记。
    * @return 与目标索引对齐的关联键列表；0 表示未关联。
    */
-  std::vector<std::uint64_t> Associate(const model::TargetFeatureList& targets,
+  std::vector<std::uint64_t> Associate(const session::RadarSceneTargetList& targets,
                                        const std::vector<std::uint8_t>& detection_succeeded);
   /**
    * @brief 关联当前周期探测并返回稳定关联键（使用动态量测协方差）。
@@ -134,7 +134,7 @@ class DataAssociationEngine {
    * @return 与目标索引对齐的关联键列表；0 表示未关联。
    */
   std::vector<std::uint64_t> Associate(
-      const model::TargetFeatureList& targets,
+      const session::RadarSceneTargetList& targets,
       const std::vector<std::uint8_t>& detection_succeeded,
       const std::vector<tracking::MeasurementCovariance>& measurement_covariances);
   /**
@@ -188,13 +188,13 @@ class DataAssociationEngine {
    * @param target 输入目标特征。
    * @return 由 x、y、z 组成的三维位置向量。
    */
-  Eigen::Vector3f BuildPositionVector(const model::TargetFeature& target) const;
+  Eigen::Vector3f BuildPositionVector(const session::RadarSceneTarget& target) const;
   /**
    * @brief 判断目标是否带有可用的笛卡尔位置量测。
    * @param target 输入目标特征。
    * @return 若存在位置量测则返回 true。
    */
-  bool HasPositionMeasurement(const model::TargetFeature& target) const;
+  bool HasPositionMeasurement(const session::RadarSceneTarget& target) const;
   /**
    * @brief 从位置量测初始化高斯状态。
    * @param position 位置量测。

@@ -12,7 +12,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "1q/airborne_radar/model/TargetFeature.h"
+#include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/ITrackPool.h"
 #include "airborne_radar/signal/tracking/LifecycleConfig.h"
@@ -74,7 +74,7 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
    * @brief 导出供外围事件链路消费的轻量目标特征快照。
    * @return 可直接用于外部状态广播的目标特征列表。
    */
-  model::TargetFeatureList BuildFeatureSnapshot() const override;
+  session::RadarSceneTargetList BuildSceneTargetSnapshot() const override;
   /**
    * @brief 导出供决策层消费的活跃轨迹快照。
    * @return 包含 tentative/confirmed/lost 状态且未回收的决策快照列表。
@@ -223,8 +223,9 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
    * @param measurement 当前量测。
    * @return 若应创建或使用 IMM 路径则返回 true。
    */
-  bool ShouldUseImmForMeasurement(bool track_existed_before_cycle, TrackStatus status_before_update,
-                                  const TrackMeasurement& measurement) const;
+  bool ShouldUseImmForMeasurement(bool track_existed_before_cycle,
+                                  TrackStatus status_before_update,
+                                  bool matched_existing_track) const;
   /**
    * @brief 判断指定轨迹在当前失配周期是否应走 IMM 预测路径。
    * @param status_before_prediction 预测前轨迹状态。
