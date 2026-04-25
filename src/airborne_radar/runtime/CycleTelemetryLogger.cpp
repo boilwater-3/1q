@@ -26,7 +26,7 @@ const char* JammingSemanticName(model::JammingSemantic semantic) {
 
 }  // namespace
 
-void CycleTelemetryLogger::LogCycleSummary(const CycleTelemetryPayload& payload) {
+void LogCycleTelemetrySummary(const CycleTelemetryPayload& payload) {
   PROJECT_LOG_DEBUG(
       "[RadarController] cycle summary: cycle_index={} batch_id={} "
       "input_targets={} decision_features={} directives={} "

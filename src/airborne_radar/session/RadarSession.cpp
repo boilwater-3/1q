@@ -87,6 +87,11 @@ struct RadarSession::Impl {
     return result;
   }
 
+  /**
+   * @brief 将已暂存的运行期配置提交到各子系统。
+   *
+   * 失败时子系统已通过各自内部回滚保持一致，调用方无需额外处理。
+   */
   bool CommitPendingRuntimeConfig() {
     if (!has_pending_runtime_update) {
       return true;
@@ -118,18 +123,6 @@ struct RadarSession::Impl {
     }
     runtime_state = pending_runtime_state;
     has_pending_runtime_update = false;
-  }
-
-  void RollbackFailedCycle(const extension::RadarContextRuntimeState& radar_context_state,
-                           const environment::EnvironmentServiceRuntimeState* environment_state,
-                           const extension::RadarControllerRuntimeState* controller_state) {
-    radar_context.RestoreRuntimeState(radar_context_state);
-    if (environment_state != nullptr) {
-      environment_service.RestoreRuntimeState(*environment_state);
-    }
-    if (controller_state != nullptr) {
-      controller.RestoreRuntimeState(*controller_state);
-    }
   }
 
   config::mapping::RuntimeConfigState runtime_state{};
@@ -185,76 +178,76 @@ output::TrackOutputFrame RadarSession::Step(const RadarCycleInput& input,
 }
 
 RadarCycleResult RadarSession::StepWithResult(const RadarCycleInput& input) {
+  // 1. Session 级输入校验（阻断后不进入 controller 层）
   const ValidationIssueList issues = impl_->ValidateInput(input);
   if (HasValidationError(issues)) {
     return impl_->BuildValidationErrorResult(issues);
   }
 
+  // 2. 捕获 radar_context 快照：仅用于 BeginCycle 的撤销（submitted_commands 等）
   const extension::RadarContextRuntimeState radar_context_state =
       impl_->radar_context.CaptureRuntimeState();
-  const bool needs_environment_snapshot = impl_->has_pending_runtime_update;
-  const bool needs_controller_snapshot = impl_->has_pending_runtime_update;
-  const environment::EnvironmentServiceRuntimeState environment_state =
-      needs_environment_snapshot ? impl_->environment_service.CaptureRuntimeState()
-                                 : environment::EnvironmentServiceRuntimeState();
-  const extension::RadarControllerRuntimeState controller_state =
-      needs_controller_snapshot ? impl_->controller.CaptureRuntimeState()
-                                : extension::RadarControllerRuntimeState();
+
+  // 3. 若有待提交配置，先提交；失败时只需回滚 context（controller 内部自行回滚）
   if (!impl_->CommitPendingRuntimeConfig()) {
-    impl_->RollbackFailedCycle(radar_context_state,
-                               needs_environment_snapshot ? &environment_state : nullptr,
-                               needs_controller_snapshot ? &controller_state : nullptr);
+    impl_->radar_context.RestoreRuntimeState(radar_context_state);
     return impl_->BuildExecutionAbortResult(
         extension::SignalCycleAbortReason::kRuntimePreparationFailed);
   }
+
+  // 4. 执行本周期
   impl_->radar_context.BeginCycle(input);
   impl_->controller.RunOnce();
+
   if (!impl_->controller.ExecutedLatestCycle()) {
-    const extension::SignalCycleAbortReason abort_reason =
-        impl_->controller.GetLastSignalCycleAbortReason();
-    impl_->RollbackFailedCycle(radar_context_state,
-                               needs_environment_snapshot ? &environment_state : nullptr,
-                               needs_controller_snapshot ? &controller_state : nullptr);
-    return impl_->BuildExecutionAbortResult(abort_reason);
+    // controller 已在内部回滚 env + pipeline；此处只撤销 BeginCycle 对 context 的修改
+    impl_->radar_context.RestoreRuntimeState(radar_context_state);
+    return impl_->BuildExecutionAbortResult(
+        impl_->controller.GetLastSignalCycleAbortReason());
   }
+
   impl_->FinalizePendingRuntimeConfig();
   return impl_->BuildCycleResult();
 }
 
 RadarCycleResult RadarSession::StepWithResult(
     const RadarCycleInput& input, const environment::EnvironmentSceneState& scene_state) {
+  // 1. Session 级输入校验
   const ValidationIssueList issues = impl_->ValidateInput(input);
   if (HasValidationError(issues)) {
     return impl_->BuildValidationErrorResult(issues);
   }
 
+  // 2. 捕获快照
+  //    - radar_context：撤销 BeginCycle
+  //    - environment：撤销 UpdateSceneState（controller 不感知此调用，无法替我们回滚）
   const extension::RadarContextRuntimeState radar_context_state =
       impl_->radar_context.CaptureRuntimeState();
-  const bool needs_environment_snapshot = true;
-  const bool needs_controller_snapshot = impl_->has_pending_runtime_update;
   const environment::EnvironmentServiceRuntimeState environment_state =
       impl_->environment_service.CaptureRuntimeState();
-  const extension::RadarControllerRuntimeState controller_state =
-      needs_controller_snapshot ? impl_->controller.CaptureRuntimeState()
-                                : extension::RadarControllerRuntimeState();
+
+  // 3. 提交待更新配置
   if (!impl_->CommitPendingRuntimeConfig()) {
-    impl_->RollbackFailedCycle(radar_context_state,
-                               needs_environment_snapshot ? &environment_state : nullptr,
-                               needs_controller_snapshot ? &controller_state : nullptr);
+    impl_->radar_context.RestoreRuntimeState(radar_context_state);
+    // environment 尚未被 UpdateSceneState 修改，无需回滚
     return impl_->BuildExecutionAbortResult(
         extension::SignalCycleAbortReason::kRuntimePreparationFailed);
   }
+
+  // 4. 提交场景并执行
   impl_->environment_service.UpdateSceneState(scene_state);
   impl_->radar_context.BeginCycle(input);
   impl_->controller.RunOnce();
+
   if (!impl_->controller.ExecutedLatestCycle()) {
-    const extension::SignalCycleAbortReason abort_reason =
-        impl_->controller.GetLastSignalCycleAbortReason();
-    impl_->RollbackFailedCycle(radar_context_state,
-                               needs_environment_snapshot ? &environment_state : nullptr,
-                               needs_controller_snapshot ? &controller_state : nullptr);
-    return impl_->BuildExecutionAbortResult(abort_reason);
+    // controller 回滚了 env（FreezeEnvironment 之后的状态）；
+    // 但 UpdateSceneState 在 RunOnce 之前，需要 Session 额外回滚至调用前的场景
+    impl_->radar_context.RestoreRuntimeState(radar_context_state);
+    impl_->environment_service.RestoreRuntimeState(environment_state);
+    return impl_->BuildExecutionAbortResult(
+        impl_->controller.GetLastSignalCycleAbortReason());
   }
+
   impl_->FinalizePendingRuntimeConfig();
   return impl_->BuildCycleResult();
 }

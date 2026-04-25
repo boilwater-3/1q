@@ -1,6 +1,6 @@
 /**
  * @file CycleTelemetryLogger.h
- * @brief 封装单周期遥测日志输出职责。
+ * @brief 声明单周期遥测日志输出函数。
  */
 
 #ifndef AIRBORNE_RADAR_CORE_CONTROLLER_CYCLE_TELEMETRY_LOGGER_H_
@@ -48,16 +48,10 @@ struct CycleTelemetryPayload {
 };
 
 /**
- * @brief 无状态周期遥测日志输出工具类。
+ * @brief 将单周期摘要输出为结构化 debug 日志。
+ * @param payload 本周期日志载荷。
  */
-class CycleTelemetryLogger {
- public:
-  /**
-   * @brief 将单周期摘要输出为结构化 debug 日志。
-   * @param payload 本周期日志载荷。
-   */
-  static void LogCycleSummary(const CycleTelemetryPayload& payload);
-};
+void LogCycleTelemetrySummary(const CycleTelemetryPayload& payload);
 
 }  // namespace extension
 }  // namespace airborne_radar

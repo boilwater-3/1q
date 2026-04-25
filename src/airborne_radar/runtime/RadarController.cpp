@@ -13,7 +13,6 @@
 #include "airborne_radar/runtime/ControlCommandMapper.h"
 #include "airborne_radar/runtime/CycleTelemetryLogger.h"
 #include "airborne_radar/runtime/RadarCycleOrchestrator.h"
-#include "airborne_radar/runtime/components/RadarCycleOutcomeRecorder.h"
 #include "airborne_radar/decision/ControlReducer.h"
 #include "airborne_radar/decision/TacticalCoordinator.h"
 #include "common/logging/ProjectLog.h"
@@ -29,6 +28,18 @@ bool IsCompatibleSignalPipelineRuntimeState(const extension::SignalPipelineRunti
 }
 
 }  // namespace
+
+/**
+ * @brief 单周期内部快照，用于执行失败时的原子回滚。
+ */
+struct CycleSnapshot {
+  environment::EnvironmentServiceRuntimeState environment_state{};
+  output::TrackOutputFrame previous_output{};
+  bool had_previous_output{false};
+  std::uint64_t previous_batch_id{0U};
+  std::uint32_t previous_cycle_index{0U};
+  extension::SignalPipelineRuntimeState pipeline_state{};
+};
 
 /**
  * @brief RadarController 内部实现体，持有所有运行时状态。
@@ -84,6 +95,38 @@ struct RadarController::Impl {
         command_mapper(new extension::ControlCommandMapper(*control_reducer, ctx, ctx)),
         cycle_orchestrator(new extension::RadarCycleOrchestrator(
             sig, &ext_engine, tactical_state_store.get(), env)) {}
+
+  /** @brief 在执行开始前为本周期捕获可回滚快照。 */
+  CycleSnapshot CaptureSnapshot() const {
+    CycleSnapshot snapshot;
+    snapshot.environment_state = environment_service.CaptureRuntimeState();
+    snapshot.previous_output = runtime_state.latest_output;
+    snapshot.had_previous_output = runtime_state.has_latest_output;
+    snapshot.previous_batch_id = runtime_state.next_batch_id;
+    snapshot.previous_cycle_index = cycle_index;
+    snapshot.pipeline_state = signal_pipeline.CaptureRuntimeState();
+    return snapshot;
+  }
+
+  /** @brief 重置每周期可变标志位。 */
+  void ResetPerCycleFlags() {
+    last_cycle_executed = false;
+    last_cycle_reused_previous_output = false;
+    last_signal_abort_reason = extension::SignalCycleAbortReason::kNone;
+  }
+
+  /** @brief 将环境与信号流水线回滚至本周期执行前的状态。 */
+  void RestoreFromFailedCycle(const CycleSnapshot& snapshot) {
+    environment_service.RestoreRuntimeState(snapshot.environment_state);
+    signal_pipeline.RestoreRuntimeState(snapshot.pipeline_state);
+    runtime_state.latest_output = snapshot.previous_output;
+    runtime_state.has_latest_output = snapshot.had_previous_output;
+    runtime_state.next_batch_id = snapshot.previous_batch_id;
+    cycle_index = snapshot.previous_cycle_index;
+  }
+
+  /** @brief 提交成功周期并推进周期计数器。 */
+  void CommitSuccessfulCycle() { ++cycle_index; }
 };
 
 RadarController::RadarController(extension::IRadarContext& radar_context,
@@ -100,12 +143,8 @@ RadarController::RadarController(extension::IRadarContext& radar_context,
 RadarController::~RadarController() = default;
 
 void RadarController::RunOnce() {
-  runtime::components::RadarCycleOutcomeRecorder outcome_recorder(
-      impl_->environment_service, impl_->signal_pipeline, impl_->runtime_state, impl_->cycle_index,
-      impl_->last_cycle_executed, impl_->last_cycle_reused_previous_output,
-      impl_->last_signal_abort_reason);
-  const runtime::components::RadarCycleSnapshot snapshot = outcome_recorder.CaptureSnapshot();
-  outcome_recorder.ResetPerCycleFlags();
+  const CycleSnapshot snapshot = impl_->CaptureSnapshot();
+  impl_->ResetPerCycleFlags();
 
   const session::RadarSceneTargetList& scene_targets_ref = impl_->radar_context.GetSceneTargets();
   const session::RadarSceneTargetList* scene_targets = &scene_targets_ref;
@@ -128,7 +167,7 @@ void RadarController::RunOnce() {
 
   if (session::HasValidationError(issues)) {
     impl_->last_cycle_reused_previous_output = impl_->runtime_state.has_latest_output;
-    outcome_recorder.RestoreFromFailedCycle(snapshot);
+    impl_->RestoreFromFailedCycle(snapshot);
     return;
   }
 
@@ -144,7 +183,7 @@ void RadarController::RunOnce() {
 
   if (!impl_->last_cycle_executed) {
     impl_->last_cycle_reused_previous_output = impl_->runtime_state.has_latest_output;
-    outcome_recorder.RestoreFromFailedCycle(snapshot);
+    impl_->RestoreFromFailedCycle(snapshot);
     return;
   }
 
@@ -154,7 +193,7 @@ void RadarController::RunOnce() {
                                    exec_result.decision_result.proposals);
   const std::size_t input_target_count =
       scene_targets != nullptr ? scene_targets->size() : 0U;
-  extension::CycleTelemetryLogger::LogCycleSummary(
+  extension::LogCycleTelemetrySummary(
       extension::CycleTelemetryPayload(
           stamp, input_target_count, exec_result.signal_result.decision_frame.tracks.size(),
           reduction_result.applied_directives.size(),
@@ -167,7 +206,7 @@ void RadarController::RunOnce() {
   impl_->runtime_state.has_latest_output = true;
   impl_->last_cycle_reused_previous_output = false;
   ++impl_->runtime_state.next_batch_id;
-  outcome_recorder.CommitSuccessfulCycle();
+  impl_->CommitSuccessfulCycle();
 }
 
 void RadarController::RunCycles(std::size_t cycles) {
