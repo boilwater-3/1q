@@ -4,6 +4,7 @@
 #include <functional>
 #include <memory>
 
+#include "1q/airborne_radar/extension/IOverrideControlStrategy.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/extension/IRadarContext.h"
@@ -42,20 +43,55 @@ struct CycleSnapshot {
 };
 
 /**
+ * @brief 控制器内部自有组件，生命周期由 Impl 管理。
+ *
+ * 统一封装需要默认构建的决策子系统；外部注入决策引擎时此结构为空。
+ */
+struct OwnedDecisionComponents {
+  std::unique_ptr<extension::ITacticalDecisionEngine> decision_engine;
+  std::unique_ptr<extension::TacticalStateStore> tactical_state_store;
+  std::unique_ptr<decision::ControlReducer> control_reducer;
+};
+
+namespace {
+
+/**
+ * @brief 构建使用默认 TacticalCoordinator 的内部决策组件。
+ * @param override_strategy 可选的外部策略覆盖接口，nullptr 时使用内部评估器。
+ */
+OwnedDecisionComponents BuildDecisionComponents(
+    extension::IOverrideControlStrategy* override_strategy) {
+  OwnedDecisionComponents components;
+  components.decision_engine.reset(
+      new decision::TacticalCoordinator(nullptr, override_strategy));
+  components.tactical_state_store.reset(new extension::TacticalStateStore());
+  components.control_reducer.reset(new decision::ControlReducer());
+  return components;
+}
+
+}  // namespace
+
+/**
  * @brief RadarController 内部实现体，持有所有运行时状态。
  */
 struct RadarController::Impl {
+  // -- 外部引用（生命周期由 Session 管理）
   extension::IRadarContext& radar_context;
   extension::ISignalPipeline& signal_pipeline;
-  extension::ITacticalDecisionEngine* decision_engine{nullptr};
-  std::unique_ptr<extension::ITacticalDecisionEngine> owned_decision_engine;
   environment::IEnvironmentService& environment_service;
-  std::unique_ptr<extension::control::RadarControlProfile> owned_control_profile;
-  std::reference_wrapper<extension::control::RadarControlProfile> control_profile;
-  std::unique_ptr<extension::TacticalStateStore> tactical_state_store;
-  std::unique_ptr<decision::ControlReducer> control_reducer;
+
+  // -- 决策子系统（默认路径自建；外部注入路径为空）
+  OwnedDecisionComponents owned_decision_components;
+  extension::ITacticalDecisionEngine* decision_engine{nullptr};
+
+  // -- 控制状态
+  extension::control::RadarControlProfile control_profile{};
+
+  // -- 独立生命周期组件
   std::unique_ptr<extension::ControlCommandMapper> command_mapper;
   std::unique_ptr<extension::RadarCycleOrchestrator> cycle_orchestrator;
+
+  // -- 周期运行时状态
   oneq::internal::runtime::RuntimeCycleState<output::TrackOutputFrame,
                                              session::ValidationIssueList>
       runtime_state{};
@@ -65,36 +101,42 @@ struct RadarController::Impl {
   extension::SignalCycleAbortReason last_signal_abort_reason{
       extension::SignalCycleAbortReason::kNone};
 
+  /** @brief 构造使用默认 TacticalCoordinator 的控制器（可选注入 override_strategy）。 */
   Impl(extension::IRadarContext& ctx, extension::ISignalPipeline& sig,
-       environment::IEnvironmentService& env)
+       environment::IEnvironmentService& env,
+       extension::IOverrideControlStrategy* override_strategy)
       : radar_context(ctx),
         signal_pipeline(sig),
-        owned_decision_engine(new decision::TacticalCoordinator()),
         environment_service(env),
-        owned_control_profile(new extension::control::RadarControlProfile()),
-        control_profile(*owned_control_profile),
-        tactical_state_store(new extension::TacticalStateStore()),
-        control_reducer(new decision::ControlReducer()),
-        command_mapper(new extension::ControlCommandMapper(*control_reducer, ctx, ctx)) {
-    decision_engine = owned_decision_engine.get();
+        owned_decision_components(BuildDecisionComponents(override_strategy)) {
+    decision_engine = owned_decision_components.decision_engine.get();
+    // 显式 upcast 表明 IRadarContext 同时满足两个写入接口
+    command_mapper.reset(new extension::ControlCommandMapper(
+        *owned_decision_components.control_reducer,
+        static_cast<extension::IRadarCommandBus&>(ctx),
+        static_cast<extension::IRadarControlProfileStore&>(ctx)));
     cycle_orchestrator.reset(new extension::RadarCycleOrchestrator(
-        sig, decision_engine, tactical_state_store.get(), env));
+        sig, decision_engine, owned_decision_components.tactical_state_store.get(), env));
   }
 
+  /** @brief 构造使用外部决策引擎的控制器。 */
   Impl(extension::IRadarContext& ctx, extension::ISignalPipeline& sig,
        extension::ITacticalDecisionEngine& ext_engine,
        environment::IEnvironmentService& env)
       : radar_context(ctx),
         signal_pipeline(sig),
-        decision_engine(&ext_engine),
         environment_service(env),
-        owned_control_profile(new extension::control::RadarControlProfile()),
-        control_profile(*owned_control_profile),
-        tactical_state_store(new extension::TacticalStateStore()),
-        control_reducer(new decision::ControlReducer()),
-        command_mapper(new extension::ControlCommandMapper(*control_reducer, ctx, ctx)),
-        cycle_orchestrator(new extension::RadarCycleOrchestrator(
-            sig, &ext_engine, tactical_state_store.get(), env)) {}
+        decision_engine(&ext_engine) {
+    // 外部注入决策引擎时，仍需内部 ControlReducer 处理归并与指令提交
+    owned_decision_components.tactical_state_store.reset(new extension::TacticalStateStore());
+    owned_decision_components.control_reducer.reset(new decision::ControlReducer());
+    command_mapper.reset(new extension::ControlCommandMapper(
+        *owned_decision_components.control_reducer,
+        static_cast<extension::IRadarCommandBus&>(ctx),
+        static_cast<extension::IRadarControlProfileStore&>(ctx)));
+    cycle_orchestrator.reset(new extension::RadarCycleOrchestrator(
+        sig, decision_engine, owned_decision_components.tactical_state_store.get(), env));
+  }
 
   /** @brief 在执行开始前为本周期捕获可回滚快照。 */
   CycleSnapshot CaptureSnapshot() const {
@@ -129,10 +171,18 @@ struct RadarController::Impl {
   void CommitSuccessfulCycle() { ++cycle_index; }
 };
 
+// -- 构造函数
+
 RadarController::RadarController(extension::IRadarContext& radar_context,
                                  extension::ISignalPipeline& signal_pipeline,
                                  environment::IEnvironmentService& environment_service)
-    : impl_(new Impl(radar_context, signal_pipeline, environment_service)) {}
+    : impl_(new Impl(radar_context, signal_pipeline, environment_service, nullptr)) {}
+
+RadarController::RadarController(extension::IRadarContext& radar_context,
+                                 extension::ISignalPipeline& signal_pipeline,
+                                 environment::IEnvironmentService& environment_service,
+                                 extension::IOverrideControlStrategy& override_strategy)
+    : impl_(new Impl(radar_context, signal_pipeline, environment_service, &override_strategy)) {}
 
 RadarController::RadarController(extension::IRadarContext& radar_context,
                                  extension::ISignalPipeline& signal_pipeline,
@@ -176,8 +226,7 @@ void RadarController::RunOnce() {
 
   // 执行信号流水线与决策引擎
   const extension::CycleExecutionResult exec_result = impl_->cycle_orchestrator->Execute(
-      scene_targets, platform_attitude,
-      impl_->control_profile.get(), stamp);
+      scene_targets, platform_attitude, impl_->control_profile, stamp);
   impl_->last_cycle_executed = exec_result.signal_result.executed_this_cycle;
   impl_->last_signal_abort_reason = exec_result.signal_result.abort_reason;
 
@@ -189,7 +238,7 @@ void RadarController::RunOnce() {
 
   // 应用控制指令并记录遥测
   const extension::ControlReductionResult reduction_result =
-      impl_->command_mapper->Apply(&impl_->control_profile.get(),
+      impl_->command_mapper->Apply(&impl_->control_profile,
                                    exec_result.decision_result.proposals);
   const std::size_t input_target_count =
       scene_targets != nullptr ? scene_targets->size() : 0U;
@@ -198,7 +247,7 @@ void RadarController::RunOnce() {
           stamp, input_target_count, exec_result.signal_result.decision_frame.tracks.size(),
           reduction_result.applied_directives.size(),
           exec_result.signal_result.decision_frame.environment_jamming_detected,
-          impl_->control_profile.get().version,
+          impl_->control_profile.version,
           exec_result.signal_result.decision_frame.perception_quality_info,
           exec_result.signal_result.association_quality_metrics));
 
@@ -217,10 +266,10 @@ void RadarController::RunCycles(std::size_t cycles) {
 
 void RadarController::UpdateControlReducerConfig(
     const extension::ControlReducerConfig& config) {
-  if (impl_->control_reducer == nullptr) {
+  if (impl_->owned_decision_components.control_reducer == nullptr) {
     return;
   }
-  impl_->control_reducer->UpdateConfig(config);
+  impl_->owned_decision_components.control_reducer->UpdateConfig(config);
   PROJECT_LOG_INFO(
       "[RadarController] control reducer config updated: "
       "lpi_power_scale={} dwell_scale={} burnthrough_gain={} "

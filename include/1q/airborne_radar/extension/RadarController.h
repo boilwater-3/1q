@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <memory>
 
+#include "1q/airborne_radar/extension/IOverrideControlStrategy.h"
 #include "1q/airborne_radar/extension/ISignalPipeline.h"
 #include "1q/airborne_radar/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/session/RadarInputValidation.h"
@@ -58,6 +59,19 @@ class ONEQ_API RadarController {
   RadarController(extension::IRadarContext& radar_context,
                   extension::ISignalPipeline& signal_pipeline,
                   environment::IEnvironmentService& environment_service);
+
+  /**
+   * @brief 构造函数，注入外部覆盖策略；其余内部组件自动构建。
+   * @param[in] radar_context      雷达上下文引用。
+   * @param[in] signal_pipeline    信号处理流水线引用。
+   * @param[in] environment_service 环境服务引用。
+   * @param[in] override_strategy  外部策略覆盖接口引用，生命周期由调用方管理。
+   * @note 注入后内部 LPI/ECCM evaluator 将被跳过，由外部策略全权决策。
+   */
+  RadarController(extension::IRadarContext& radar_context,
+                  extension::ISignalPipeline& signal_pipeline,
+                  environment::IEnvironmentService& environment_service,
+                  extension::IOverrideControlStrategy& override_strategy);
 
   /**
    * @brief 构造函数，显式注入新的决策引擎。

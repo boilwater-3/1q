@@ -136,6 +136,28 @@ RadarSessionComposition RadarSessionCompositionRoot::ComposeWithController(
   return composition;
 }
 
+RadarSessionComposition RadarSessionCompositionRoot::ComposeWithOverrideStrategy(
+    const RadarSessionConfig& config,
+    extension::IOverrideControlStrategy& override_strategy) {
+  RadarSessionComposition composition = BuildCompositionBase(config);
+  composition.owned_radar_context.reset(new MutableRadarContext());
+  const config::execution::InternalExecutionConfig runtime_execution_config =
+      config::mapping::MapSessionToExecution(BuildRuntimeSessionConfig(composition));
+  composition.owned_signal_pipeline.reset(
+      new signal::pipeline::SignalPipeline(runtime_execution_config));
+  composition.owned_environment_service.reset(new environment::EnvironmentService(
+      environment::BuildModelConfigFromScenario(composition.runtime_environment_scenario_config)));
+  composition.owned_controller.reset(new extension::RadarController(
+      *composition.owned_radar_context, *composition.owned_signal_pipeline,
+      *composition.owned_environment_service, override_strategy));
+  composition.radar_context = composition.owned_radar_context.get();
+  composition.signal_pipeline = composition.owned_signal_pipeline.get();
+  composition.environment_service = composition.owned_environment_service.get();
+  composition.controller = composition.owned_controller.get();
+  SyncEnvironmentJammingThreshold(&composition);
+  return composition;
+}
+
 }  // namespace internal
 }  // namespace session
 }  // namespace airborne_radar
