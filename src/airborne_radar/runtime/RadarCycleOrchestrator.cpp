@@ -1,5 +1,7 @@
 #include "airborne_radar/runtime/RadarCycleOrchestrator.h"
 
+#include <algorithm>
+
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/extension/ISignalPipeline.h"
@@ -56,6 +58,15 @@ CycleExecutionResult RadarCycleOrchestrator::Execute(
   if (decision_engine_ != nullptr && tactical_state_store_ != nullptr) {
     result.decision_result =
         decision_engine_->Evaluate(decision_frame, *tactical_state_store_);
+
+    // 将目标分类结果回填到轨迹输出帧
+    const auto& classifications = result.decision_result.target_classification_result;
+    auto& output_tracks = result.track_output_frame.tracks;
+    const std::size_t count = std::min(classifications.size(), output_tracks.size());
+    for (std::size_t i = 0; i < count; ++i) {
+      output_tracks[i].target_type = classifications[i].target_type;
+      output_tracks[i].target_probability = classifications[i].probability;
+    }
   }
 
   result.signal_result.decision_frame = decision_frame;

@@ -43,6 +43,7 @@ LpiEvaluator::Result LpiEvaluator::Evaluate(
 
   result.requests_power_reduction = true;
   const float power_scale = ComputePowerScale(lpi_source_info);
+  result.power_scale = power_scale;
 
   std::string rationale = "recon platform";
   if (lpi_source_info.threat_range_km > 0.0f) {

@@ -13,24 +13,23 @@ namespace {
 
 bool IsFinite(float value) { return std::isfinite(value) != 0; }
 
-RuntimePatchMappingResult RejectPatch(
-    const execution::InternalExecutionConfig& current_execution_config,
-    bool has_requested_update) {
-  RuntimePatchMappingResult rejected;
-  rejected.next_execution_config = current_execution_config;
+RuntimeConfigResolveResult RejectPatch(const RuntimeConfigState& current_state,
+                                       bool has_requested_update) {
+  RuntimeConfigResolveResult rejected;
+  rejected.next_state = current_state;
   rejected.has_requested_update = has_requested_update;
   rejected.is_valid = false;
-  rejected.execution_config_changed = false;
   return rejected;
 }
 
 }  // namespace
 
-RuntimePatchMappingResult ApplyRuntimePatch(
-    const execution::InternalExecutionConfig& current_execution_config,
-    const RadarRuntimeConfigPatch& patch) {
-  RuntimePatchMappingResult result;
-  execution::InternalExecutionConfig next_execution_config = current_execution_config;
+RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_state,
+                                             const RadarRuntimeConfigPatch& patch) {
+  RuntimeConfigResolveResult resolved;
+  resolved.next_state = current_state;
+
+  execution::InternalExecutionConfig next_execution_config = current_state.execution_config;
   bool execution_config_changed = false;
   bool has_requested_update = false;
   bool policy_changed = false;
@@ -42,22 +41,21 @@ RuntimePatchMappingResult ApplyRuntimePatch(
           "[RadarSession] Rejecting runtime config patch due to non-finite dwell_center_deg "
           "(az_deg={}, el_deg={}).",
           patch.dwell_center_deg.az_deg, patch.dwell_center_deg.el_deg);
-      return RejectPatch(current_execution_config, true);
+      return RejectPatch(current_state, true);
     }
-    result.next_dwell_center_deg = patch.dwell_center_deg;
-    result.dwell_center_changed = true;
+    resolved.next_state.dwell_center_deg = patch.dwell_center_deg;
   }
 
   if (patch.has_environment_runtime_config) {
     has_requested_update = true;
     if (patch.environment_runtime_config.has_scenario_config) {
-      result.next_environment_scenario_config = patch.environment_runtime_config.scenario_config;
-      result.environment_scenario_config_changed = true;
+      resolved.next_state.environment_scenario_config = patch.environment_runtime_config.scenario_config;
+      resolved.environment_scenario_config_changed = true;
     }
     if (patch.environment_runtime_config.has_jamming_sensitivity_profile) {
-      result.next_jamming_sensitivity_profile =
+      resolved.next_state.jamming_sensitivity_profile =
           patch.environment_runtime_config.jamming_sensitivity_profile;
-      result.jamming_sensitivity_profile_changed = true;
+      resolved.jamming_sensitivity_profile_changed = true;
     }
   }
 
@@ -89,7 +87,7 @@ RuntimePatchMappingResult ApplyRuntimePatch(
           "[RadarSession] Rejecting runtime config patch due to non-finite scan_center_deg "
           "(az_deg={}, el_deg={}).",
           patch.scan_center_deg.az_deg, patch.scan_center_deg.el_deg);
-      return RejectPatch(current_execution_config, true);
+      return RejectPatch(current_state, true);
     }
     next_execution_config.mission_orientation.scan_center_deg = patch.scan_center_deg;
     execution_config_changed = true;
@@ -103,7 +101,7 @@ RuntimePatchMappingResult ApplyRuntimePatch(
           "commanded_beamwidth_deg (az_deg={}, el_deg={}).",
           patch.commanded_beamwidth_deg.commanded_az_beamwidth_deg,
           patch.commanded_beamwidth_deg.commanded_el_beamwidth_deg);
-      return RejectPatch(current_execution_config, true);
+      return RejectPatch(current_state, true);
     }
     next_execution_config.mission_orientation.commanded_beamwidth_deg =
         patch.commanded_beamwidth_deg;
@@ -138,11 +136,24 @@ RuntimePatchMappingResult ApplyRuntimePatch(
     }
   }
 
-  result.next_execution_config = next_execution_config;
-  result.has_requested_update = has_requested_update;
-  result.is_valid = true;
-  result.execution_config_changed = execution_config_changed;
-  return result;
+  resolved.next_state.execution_config = next_execution_config;
+  resolved.has_requested_update = has_requested_update;
+  resolved.is_valid = true;
+  resolved.execution_config_changed = execution_config_changed;
+  return resolved;
+}
+
+session::RadarSessionConfig MapExecutionToSession(
+    const execution::InternalExecutionConfig& execution_config) {
+  session::RadarSessionConfig config;
+  config.hardware.detection = execution_config.hardware_detection;
+  config.mission.orientation = execution_config.mission_orientation;
+  config.policy.beam_control = execution_config.policy_beam_control;
+  config.policy.association = execution_config.policy_association;
+  config.policy.tracking = execution_config.policy_tracking;
+  config.policy.lifecycle = execution_config.policy_lifecycle;
+  config.policy.imm = execution_config.policy_imm;
+  return config;
 }
 
 }  // namespace mapping

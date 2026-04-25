@@ -33,6 +33,7 @@ set(AR_EXTENSION_HEADERS
     "airborne_radar/extension/IRadarOutputReader.h"
     "airborne_radar/extension/ISignalPipeline.h"
     "airborne_radar/extension/ITacticalDecisionEngine.h"
+    "airborne_radar/extension/IOverrideControlStrategy.h"
     "airborne_radar/extension/RadarController.h"
     "airborne_radar/extension/SignalPipelineResultTypes.h"
     "airborne_radar/extension/airborne_radar_extension.hpp"

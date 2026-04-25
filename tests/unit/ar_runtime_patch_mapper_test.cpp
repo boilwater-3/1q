@@ -1,39 +1,41 @@
 // Copyright 2026. All Rights Reserved.
 //
-// @file ar_runtime_config_resolver_test.cpp
-// @brief 验证 AR 运行期配置解析器的合并优先级与原子拒绝语义。
+// @file ar_runtime_patch_mapper_test.cpp
+// @brief 验证 AR 运行期补丁映射器的合并优先级、原子拒绝语义与反向映射。
 
 #include <gtest/gtest.h>
 
 #include <limits>
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
-#include "airborne_radar/session/RuntimeConfigResolver.h"
+#include "1q/airborne_radar/config/RadarSessionConfig.h"
+#include "airborne_radar/config/mapping/RuntimePatchMapper.h"
+#include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 
 namespace airborne_radar {
-namespace session {
-namespace internal {
+namespace config {
+namespace mapping {
 namespace {
 
-TEST(ArRuntimeConfigResolverTest, MissionDomainAppliedBeforeLeafPatch) {
+TEST(ArRuntimePatchMapperTest, MissionDomainAppliedBeforeLeafPatch) {
   RuntimeConfigState current_state;
   current_state.execution_config.mission_orientation.scan_center_deg.az_deg = 1.0f;
   current_state.execution_config.mission_orientation.scan_center_deg.el_deg = 2.0f;
   current_state.execution_config.mission_orientation.work_sub_mode = model::RadarWorkSubMode::kTws;
 
-  config::RadarMissionConfig mission_patch;
+  RadarMissionConfig mission_patch;
   mission_patch.orientation.scan_center_deg.az_deg = 10.0f;
   mission_patch.orientation.scan_center_deg.el_deg = 20.0f;
   mission_patch.orientation.work_sub_mode = model::RadarWorkSubMode::kTas;
 
-  config::RadarRuntimeConfigPatch patch;
+  RadarRuntimeConfigPatch patch;
   patch.has_mission = true;
   patch.mission = mission_patch;
   patch.has_scan_center_deg = true;
   patch.scan_center_deg.az_deg = 30.0f;
   patch.scan_center_deg.el_deg = 40.0f;
 
-  const RuntimeConfigResolveResult resolved = ResolveRuntimeConfigPatch(current_state, patch);
+  const RuntimeConfigResolveResult resolved = ApplyRuntimePatch(current_state, patch);
 
   EXPECT_TRUE(resolved.has_requested_update);
   EXPECT_TRUE(resolved.is_valid);
@@ -46,19 +48,19 @@ TEST(ArRuntimeConfigResolverTest, MissionDomainAppliedBeforeLeafPatch) {
                   40.0f);
 }
 
-TEST(ArRuntimeConfigResolverTest, EnvironmentPatchUpdatesModelAndThreshold) {
+TEST(ArRuntimePatchMapperTest, EnvironmentPatchUpdatesModelAndThreshold) {
   RuntimeConfigState current_state;
   current_state.environment_scenario_config.atmospheric_physics.enable_physical_model = false;
   current_state.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kBalanced;
 
-  config::RadarRuntimeConfigPatch patch =
-      config::RadarRuntimeConfigBuilder()
+  RadarRuntimeConfigPatch patch =
+      RadarRuntimeConfigBuilder()
           .WithEnvironmentScenarioConfig(environment::EnvironmentScenarioConfig{})
           .WithJammingSensitivityProfile(environment::JammingSensitivityProfile::kStrict)
           .Build();
   patch.environment_runtime_config.scenario_config.atmospheric_physics.enable_physical_model = true;
 
-  const RuntimeConfigResolveResult resolved = ResolveRuntimeConfigPatch(current_state, patch);
+  const RuntimeConfigResolveResult resolved = ApplyRuntimePatch(current_state, patch);
 
   EXPECT_TRUE(resolved.has_requested_update);
   EXPECT_TRUE(resolved.is_valid);
@@ -70,21 +72,21 @@ TEST(ArRuntimeConfigResolverTest, EnvironmentPatchUpdatesModelAndThreshold) {
             environment::JammingSensitivityProfile::kStrict);
 }
 
-TEST(ArRuntimeConfigResolverTest, InvalidPatchIsRejectedAtomically) {
+TEST(ArRuntimePatchMapperTest, InvalidPatchIsRejectedAtomically) {
   RuntimeConfigState current_state;
   current_state.execution_config.mission_orientation.scan_center_deg.az_deg = 1.0f;
   current_state.execution_config.mission_orientation.scan_center_deg.el_deg = 2.0f;
   current_state.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kBalanced;
 
-  config::RadarRuntimeConfigPatch patch =
-      config::RadarRuntimeConfigBuilder()
+  RadarRuntimeConfigPatch patch =
+      RadarRuntimeConfigBuilder()
           .WithJammingSensitivityProfile(environment::JammingSensitivityProfile::kStrict)
           .Build();
   patch.has_scan_center_deg = true;
   patch.scan_center_deg.az_deg = std::numeric_limits<float>::quiet_NaN();
   patch.scan_center_deg.el_deg = 0.0f;
 
-  const RuntimeConfigResolveResult resolved = ResolveRuntimeConfigPatch(current_state, patch);
+  const RuntimeConfigResolveResult resolved = ApplyRuntimePatch(current_state, patch);
 
   EXPECT_TRUE(resolved.has_requested_update);
   EXPECT_FALSE(resolved.is_valid);
@@ -97,7 +99,27 @@ TEST(ArRuntimeConfigResolverTest, InvalidPatchIsRejectedAtomically) {
             environment::JammingSensitivityProfile::kBalanced);
 }
 
+TEST(ArRuntimePatchMapperTest, MapExecutionToSessionRoundTripsFields) {
+  session::RadarSessionConfig original;
+  original.hardware.detection.min_detection_margin_db = -3.0f;
+  original.hardware.detection.pulse_count = 20;
+  original.mission.orientation.scan_center_deg.az_deg = 45.0f;
+  original.mission.orientation.scan_center_deg.el_deg = 10.0f;
+  original.policy.tracking.speed_decay_ratio_on_loss = 0.9f;
+  original.policy.association.unassigned_cost = 12.0f;
+
+  const execution::InternalExecutionConfig mapped = mapping::MapSessionToExecution(original);
+  const session::RadarSessionConfig round_tripped = mapping::MapExecutionToSession(mapped);
+
+  EXPECT_FLOAT_EQ(round_tripped.hardware.detection.min_detection_margin_db, -3.0f);
+  EXPECT_EQ(round_tripped.hardware.detection.pulse_count, 20);
+  EXPECT_FLOAT_EQ(round_tripped.mission.orientation.scan_center_deg.az_deg, 45.0f);
+  EXPECT_FLOAT_EQ(round_tripped.mission.orientation.scan_center_deg.el_deg, 10.0f);
+  EXPECT_FLOAT_EQ(round_tripped.policy.tracking.speed_decay_ratio_on_loss, 0.9f);
+  EXPECT_FLOAT_EQ(round_tripped.policy.association.unassigned_cost, 12.0f);
+}
+
 }  // namespace
-}  // namespace internal
-}  // namespace session
+}  // namespace mapping
+}  // namespace config
 }  // namespace airborne_radar

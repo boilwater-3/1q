@@ -78,8 +78,10 @@ std::string DescribeAssociationSemantic(model::JammingSemantic semantic) {
 // ===== 构造函数 =====
 
 TacticalCoordinator::TacticalCoordinator(
-    const environment::IFeatureRepository* feature_repository)
-    : threat_assessment_evaluator_(feature_repository) {}
+    const environment::IFeatureRepository* feature_repository,
+    extension::IOverrideControlStrategy* override_strategy)
+    : threat_assessment_evaluator_(feature_repository),
+      override_strategy_(override_strategy) {}
 
 // ===== 私有静态方法 =====
 
@@ -279,8 +281,13 @@ extension::TacticalDecisionResult TacticalCoordinator::Evaluate(
 
   // ==== [3] LPI 发射控制 ====
   std::vector<extension::TacticalProposal> all_proposals;
-  const LpiEvaluator::Result lpi_result =
-      lpi_evaluator_.Evaluate(threat_result.lpi_source_info, &all_proposals);
+  LpiEvaluator::Result lpi_result;
+  if (override_strategy_ != nullptr &&
+      override_strategy_->OverrideLpi(threat_result.lpi_source_info, &all_proposals)) {
+    PROJECT_LOG_INFO("[TacticalCoordinator] LPI decision overridden by external strategy.");
+  } else {
+    lpi_result = lpi_evaluator_.Evaluate(threat_result.lpi_source_info, &all_proposals);
+  }
 
   // ==== [4] ECCM 抗干扰 ====
   bool should_enable_eccm = eccm_has_jamming;
@@ -320,7 +327,13 @@ extension::TacticalDecisionResult TacticalCoordinator::Evaluate(
       synthetic.jammer_in_sidelobe = false;
       eccm_input.jammer_sources.push_back(synthetic);
     }
-    eccm_result = eccm_evaluator_.Evaluate(eccm_input, false, &all_proposals);
+    if (override_strategy_ != nullptr &&
+        override_strategy_->OverrideEccm(eccm_input, &all_proposals)) {
+      PROJECT_LOG_INFO("[TacticalCoordinator] ECCM decision overridden by external strategy.");
+      eccm_result.eccm_activated = true;
+    } else {
+      eccm_result = eccm_evaluator_.Evaluate(eccm_input, false, &all_proposals);
+    }
     PROJECT_LOG_INFO(
         "[TacticalCoordinator] Active jamming detected. Appending ECCM proposals.");
   } else {

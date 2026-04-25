@@ -10,7 +10,7 @@
 #include <string>
 
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
-#include "1q/airborne_radar/model/DecisionSourceInfo.h"
+#include "airborne_radar/decision/LpiSourceInfo.h"
 #include "1q/airborne_radar/model/DecisionInputFrame.h"
 #include "1q/airborne_radar/model/TargetCategory.h"
 #include "1q/airborne_radar/model/TrackStateSnapshot.h"

@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
-#include "1q/airborne_radar/model/DecisionSourceInfo.h"
+#include "airborne_radar/decision/LpiSourceInfo.h"
 
 namespace airborne_radar {
 namespace decision {
@@ -29,6 +29,7 @@ class LpiEvaluator final {
    */
   struct Result {
     bool requests_power_reduction{false}; /**< 是否请求 LPI 降功率 */
+    float power_scale{1.0f};              /**< 推荐降功率比例 [0,1]，值越低功率压得越低 */
   };
 
   /**
