@@ -17,9 +17,6 @@
 namespace airborne_radar {
 namespace signal {
 namespace pipeline {
-namespace core {
-
-namespace internal {
 
 model::AzimuthElevationDeg ResolveFiniteScanCenter(
     const model::RadarOrientationConfig& orientation_config);
@@ -47,8 +44,6 @@ model::AzimuthElevationDeg ResolveScheduledDwellCenter(
 void ApplyScanScheduleToRuntimeConfig(std::uint32_t cycle_index,
                                       ExecutionConfig* runtime_config);
 
-}  // namespace internal
-}  // namespace core
 }  // namespace pipeline
 }  // namespace signal
 }  // namespace airborne_radar

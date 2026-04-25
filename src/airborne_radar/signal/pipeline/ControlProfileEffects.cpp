@@ -12,7 +12,6 @@
 namespace airborne_radar {
 namespace signal {
 namespace pipeline {
-namespace internal {
 
 using ControlProfileEffectsConfig =
   ::airborne_radar::config::execution::ControlProfileEffectsConfig;
@@ -255,7 +254,7 @@ void ApplyControlProfileToConfig(const extension::control::RadarControlProfile& 
   }
 }
 
-}  // namespace internal
+
 }  // namespace pipeline
 }  // namespace signal
 }  // namespace airborne_radar

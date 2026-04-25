@@ -19,10 +19,7 @@
 namespace airborne_radar {
 namespace signal {
 namespace pipeline {
-namespace assembly {
-namespace internal {
 
-using ::airborne_radar::config::execution::InternalExecutionConfig;
 using ExecutionConfig = ::airborne_radar::config::execution::InternalExecutionConfig;
 
 struct ResolvedRuntimePipelineConfig {
@@ -58,8 +55,6 @@ bool SyncAutoLifecycleManagerForRuntimeConfig(
     const ExecutionConfig& runtime_config,
     tracking::ITrackLifecycleManager* auto_lifecycle_manager);
 
-}  // namespace internal
-}  // namespace assembly
 }  // namespace pipeline
 }  // namespace signal
 }  // namespace airborne_radar

@@ -5,7 +5,6 @@
 namespace airborne_radar {
 namespace signal {
 namespace pipeline {
-namespace internal {
 
 namespace {
 
@@ -76,7 +75,7 @@ model::PerceptionQualityInfo BuildPerceptionQualityInfo(
   return info;
 }
 
-}  // namespace internal
+
 }  // namespace pipeline
 }  // namespace signal
 }  // namespace airborne_radar

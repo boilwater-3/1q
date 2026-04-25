@@ -14,7 +14,6 @@
 namespace airborne_radar {
 namespace signal {
 namespace pipeline {
-namespace internal {
 
 bool HasMultiSourceJammingFacts(const environment::EnvironmentSnapshot& environment_snapshot);
 
@@ -50,7 +49,7 @@ void ApplyEnvironmentJammingFactsToRuntimeConfig(
     const extension::control::RadarControlProfile& control_profile,
     const environment::EnvironmentSnapshot& environment_snapshot, ExecutionConfig* runtime_config);
 
-}  // namespace internal
+
 }  // namespace pipeline
 }  // namespace signal
 }  // namespace airborne_radar

@@ -12,8 +12,6 @@
 namespace airborne_radar {
 namespace signal {
 namespace pipeline {
-namespace assembly {
-namespace internal {
 
 namespace {
 
@@ -253,7 +251,7 @@ ResolvedRuntimePipelineConfig ResolveRuntimePipelineConfig(
     const extension::control::RadarControlProfile& control_profile) {
   ResolvedRuntimePipelineConfig resolved;
   resolved.config = base_config;
-  pipeline::internal::ApplyControlProfileToConfig(control_profile, &resolved.config);
+  ApplyControlProfileToConfig(control_profile, &resolved.config);
   return resolved;
 }
 
@@ -305,8 +303,8 @@ bool SyncAutoLifecycleManagerForRuntimeConfig(
   return SyncAutoLifecycleManagerForResolvedRuntimeConfig(resolved, auto_lifecycle_manager);
 }
 
-}  // namespace internal
-}  // namespace assembly
+
+
 }  // namespace pipeline
 }  // namespace signal
 }  // namespace airborne_radar

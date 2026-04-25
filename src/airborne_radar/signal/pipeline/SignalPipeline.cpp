@@ -26,11 +26,11 @@ namespace pipeline {
 
 namespace {
 
-void ResetCycleScratch(internal::CycleExecutionScratch* scratch) {
+void ResetCycleScratch(CycleExecutionScratch* scratch) {
   if (scratch == nullptr) {
     return;
   }
-  *scratch = internal::CycleExecutionScratch();
+  *scratch = CycleExecutionScratch();
 }
 
 bool HasValidEnvironmentCycle(const environment::EnvironmentSnapshot& snapshot) {
@@ -47,9 +47,9 @@ struct RuntimeConfigState {
 
 struct RuntimeOwnedState {
   explicit RuntimeOwnedState(const RuntimeConfigState& config_state)
-      : association_engine(assembly::internal::SignalComponentFactory::BuildAssociationConfig(
+      : association_engine(SignalComponentFactory::BuildAssociationConfig(
             config_state.base_config)),
-        track_filter(assembly::internal::SignalComponentFactory::BuildTrackFilterConfig(
+        track_filter(SignalComponentFactory::BuildTrackFilterConfig(
             config_state.base_config)) {}
 
   association::DataAssociationEngine association_engine{};
@@ -88,7 +88,7 @@ struct RuntimeState {
 struct CycleState {
   std::uint32_t cycle_index{1};
   std::uint64_t batch_id{1};
-  internal::CycleExecutionScratch scratch{};
+  CycleExecutionScratch scratch{};
 };
 
 }  // namespace
@@ -98,8 +98,8 @@ struct SignalPipeline::Impl {
     RebuildOwnedComponents();
   }
 
-  internal::CycleExecutionRuntime BuildExecutionRuntimeView() {
-    return internal::CycleExecutionRuntime(
+  CycleExecutionRuntime BuildExecutionRuntimeView() {
+    return CycleExecutionRuntime(
         runtime_.config.base_config, runtime_.config.control_profile_,
         runtime_.owned.association_engine, runtime_.owned.track_filter,
         *runtime_.owned.auto_lifecycle_manager, runtime_.owned.signal_detector.get(),
@@ -107,8 +107,8 @@ struct SignalPipeline::Impl {
         runtime_.association_seeds.has_manual_association_seeds);
   }
 
-  assembly::internal::ResolvedRuntimePipelineConfig ResolveRuntimeConfig() const {
-    return assembly::internal::ResolveRuntimePipelineConfig(runtime_.config.base_config,
+  ResolvedRuntimePipelineConfig ResolveRuntimeConfig() const {
+    return ResolveRuntimePipelineConfig(runtime_.config.base_config,
                                                             runtime_.config.control_profile_);
   }
 
@@ -135,9 +135,9 @@ struct SignalPipeline::Impl {
       result.abort_reason = extension::SignalCycleAbortReason::kInvalidEnvironmentCycle;
       return result;
     }
-    const internal::CycleExecutionRuntime runtime_execution = BuildExecutionRuntimeView();
+    const CycleExecutionRuntime runtime_execution = BuildExecutionRuntimeView();
 
-    if (!internal::ExecuteCycle(input_state, environment_snapshot, cycle_.cycle_index,
+    if (!ExecuteCycle(input_state, environment_snapshot, cycle_.cycle_index,
                                 cycle_.batch_id, runtime_execution, cycle_.scratch)) {
       ResetCycleScratch(&cycle_.scratch);
       extension::SignalCycleResult result;
@@ -200,7 +200,7 @@ struct SignalPipeline::Impl {
     RebuildOwnedComponents();
     runtime_.association_seeds = snapshot->association_seeds;
     runtime_.owned.association_engine.RestoreRuntimeState(snapshot->association_runtime);
-    cycle_.scratch = internal::CycleExecutionScratch();
+    cycle_.scratch = CycleExecutionScratch();
     cycle_.scratch.track_measurements = snapshot->track_measurements;
     cycle_.scratch.association_quality_metrics = snapshot->association_quality_metrics;
     cycle_.cycle_index = snapshot->cycle_index;
@@ -227,14 +227,14 @@ struct SignalPipeline::Impl {
   }
 
   std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManager() const {
-    const assembly::internal::ResolvedRuntimePipelineConfig runtime_config = ResolveRuntimeConfig();
-    return assembly::internal::CreateAutoLifecycleManagerForRuntimeConfig(runtime_config.config);
+    const ResolvedRuntimePipelineConfig runtime_config = ResolveRuntimeConfig();
+    return CreateAutoLifecycleManagerForRuntimeConfig(runtime_config.config);
   }
 
   bool UpdateConfig(ExecutionConfig new_config) {
     const ExecutionConfig previous_config = runtime_.config.base_config;
     runtime_.config.base_config = std::move(new_config);
-    if (!internal::SyncAssociationAndTrackFilterConfigs(
+    if (!SyncAssociationAndTrackFilterConfigs(
             runtime_.config.base_config, &runtime_.owned.association_engine,
             &runtime_.owned.track_filter, runtime_.owned.auto_lifecycle_manager.get())) {
       runtime_.config.base_config = previous_config;
@@ -244,8 +244,8 @@ struct SignalPipeline::Impl {
       return false;
     }
 
-    assembly::internal::OwnedSignalComponents components =
-        assembly::internal::SignalComponentFactory::BuildOwnedPipelineComponents(
+    OwnedSignalComponents components =
+        SignalComponentFactory::BuildOwnedPipelineComponents(
             runtime_.config.base_config);
     runtime_.owned.kalman_predictor = std::move(components.kalman_predictor);
     runtime_.owned.kalman_updater = std::move(components.kalman_updater);
@@ -269,12 +269,12 @@ struct SignalPipeline::Impl {
   }
 
   void RebuildOwnedComponents() {
-    assembly::internal::OwnedComponentSlots component_slots;
+    OwnedComponentSlots component_slots;
     component_slots.kalman_predictor = &runtime_.owned.kalman_predictor;
     component_slots.kalman_updater = &runtime_.owned.kalman_updater;
     component_slots.signal_detector = &runtime_.owned.signal_detector;
     component_slots.auto_lifecycle_manager = &runtime_.owned.auto_lifecycle_manager;
-    assembly::internal::RebuildOwnedComponentsForPipeline(
+    RebuildOwnedComponentsForPipeline(
         runtime_.config.base_config, runtime_.config.control_profile_, &component_slots);
   }
 

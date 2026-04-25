@@ -14,7 +14,6 @@
 namespace airborne_radar {
 namespace signal {
 namespace pipeline {
-namespace internal {
 
 float ComputeHeuristicSignalAdjustmentDb(
     const ::airborne_radar::config::execution::ControlProfileEffectsConfig& cfg,
@@ -28,7 +27,7 @@ float ComputeHeuristicEnvironmentReliefDb(
 void ApplyControlProfileToConfig(const extension::control::RadarControlProfile& control_profile,
                                  ExecutionConfig* config);
 
-}  // namespace internal
+
 }  // namespace pipeline
 }  // namespace signal
 }  // namespace airborne_radar

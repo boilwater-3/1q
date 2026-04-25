@@ -34,8 +34,6 @@
 namespace airborne_radar {
 namespace signal {
 namespace pipeline {
-namespace assembly {
-namespace internal {
 
 using ExecutionConfig = ::airborne_radar::config::execution::InternalExecutionConfig;
 
@@ -84,8 +82,6 @@ class SignalComponentFactory final {
                                                 std::size_t model_count);
 };
 
-}  // namespace internal
-}  // namespace assembly
 }  // namespace pipeline
 }  // namespace signal
 }  // namespace airborne_radar

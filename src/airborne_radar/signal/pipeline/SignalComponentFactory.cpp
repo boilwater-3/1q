@@ -14,8 +14,6 @@
 namespace airborne_radar {
 namespace signal {
 namespace pipeline {
-namespace assembly {
-namespace internal {
 
 tracking::LifecycleConfig SignalComponentFactory::BuildLifecycleConfig(
     const ExecutionConfig& config) {
@@ -285,8 +283,8 @@ Eigen::VectorXf SignalComponentFactory::BuildImmInitialWeights(const ExecutionCo
   return weights;
 }
 
-}  // namespace internal
-}  // namespace assembly
+
+
 }  // namespace pipeline
 }  // namespace signal
 }  // namespace airborne_radar

@@ -3,61 +3,39 @@
 #include <algorithm>
 #include <vector>
 
-#include "airborne_radar/signal/pipeline/DecisionFrameBuilders.h"
-#include "airborne_radar/signal/pipeline/RuntimeAssemblySupport.h"
-#include "airborne_radar/signal/pipeline/TrackMeasurementProcessing.h"
 #include "airborne_radar/signal/pipeline/CycleContextSupport.h"
+#include "airborne_radar/signal/pipeline/DecisionFrameBuilders.h"
 #include "airborne_radar/signal/pipeline/DetectionExecution.h"
-#include "airborne_radar/signal/pipeline/ScanScheduleResolver.h"
 #include "airborne_radar/signal/pipeline/JammingEffects.h"
+#include "airborne_radar/signal/pipeline/RuntimeAssemblySupport.h"
+#include "airborne_radar/signal/pipeline/ScanScheduleResolver.h"
+#include "airborne_radar/signal/pipeline/TrackMeasurementProcessing.h"
 #include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
 namespace signal {
 namespace pipeline {
-namespace internal {
 
 namespace {
+
+// ---------------------------------------------------------------------------
+// 合约构建
+// ---------------------------------------------------------------------------
 
 CycleExecutionContract BuildCycleExecutionContract(
     const session::RadarSceneTargetList& input_state,
     const environment::EnvironmentSnapshot& environment_snapshot, std::uint32_t cycle_index,
     std::uint64_t batch_id, const CycleExecutionRuntime& runtime) {
-  const assembly::internal::ResolvedRuntimePipelineConfig resolved =
-      assembly::internal::ResolveRuntimePipelineConfig(runtime.base_config,
-                                                       runtime.control_profile);
+  const ResolvedRuntimePipelineConfig resolved =
+      ResolveRuntimePipelineConfig(runtime.base_config, runtime.control_profile);
   ExecutionConfig runtime_config = resolved.config;
-  core::internal::ApplyScanScheduleToRuntimeConfig(cycle_index, &runtime_config);
-  CycleExecutionContract output(input_state, environment_snapshot, cycle_index, batch_id,
+  ApplyScanScheduleToRuntimeConfig(cycle_index, &runtime_config);
+  return CycleExecutionContract(input_state, environment_snapshot, cycle_index, batch_id,
                                 std::move(runtime_config));
-  return output;
 }
 
 // ---------------------------------------------------------------------------
-// 准备执行状态
-// ---------------------------------------------------------------------------
-
-bool PrepareExecutionState(const CycleExecutionContract& contract, CycleExecutionScratch* scratch) {
-  CycleWorkspace cycle_workspace;
-  cycle_workspace.output_state = &scratch->output_state;
-  cycle_workspace.decision_frame = &scratch->decision_frame;
-  cycle_workspace.association_quality_metrics = &scratch->association_quality_metrics;
-  cycle_workspace.track_measurements = &scratch->track_measurements;
-  cycle_workspace.signal_term_db = &scratch->signal_term_db;
-  cycle_workspace.speed_penalty_db = &scratch->speed_penalty_db;
-  cycle_workspace.detection_margin_db = &scratch->detection_margin_db;
-  cycle_workspace.detection_succeeded = &scratch->detection_succeeded;
-  cycle_workspace.association_keys = &scratch->association_keys;
-  cycle_workspace.measurement_slots = &scratch->measurement_slots;
-  cycle_workspace.target_geometry = &scratch->target_geometry;
-  cycle_workspace.measurement_covariances = &scratch->measurement_covariances;
-  cycle_workspace.association_result = &scratch->association_result;
-  ResetCycleWorkspace(contract.input_state, contract.runtime_config, &cycle_workspace);
-  return true;
-}
-
-// ---------------------------------------------------------------------------
-// 准备关联种子
+// 关联种子
 // ---------------------------------------------------------------------------
 
 void PrepareAssociationSeeds(const CycleExecutionRuntime& runtime) {
@@ -70,17 +48,17 @@ void PrepareAssociationSeeds(const CycleExecutionRuntime& runtime) {
 }
 
 // ---------------------------------------------------------------------------
-// 环境阶段
+// 环境阶段：写入 scratch.dominant_jamming_semantic / jamming_severity
 // ---------------------------------------------------------------------------
 
 bool RunEnvironmentPhase(CycleExecutionContract* contract, const CycleExecutionRuntime& runtime,
-                         CycleExecutionScratch* scratch, EnvironmentPhaseOutput* output) {
+                         CycleExecutionScratch& scratch) {
   ApplyEnvironmentJammingFactsToRuntimeConfig(
       runtime.control_profile, contract->environment_snapshot, &contract->runtime_config);
   RefreshMeasurementCovariances(
-      scratch->target_geometry.size(),
+      scratch.target_geometry.size(),
       contract->runtime_config.tracking_engineering.kalman_measurement_noise_std,
-      &scratch->measurement_covariances);
+      &scratch.measurement_covariances);
   if (!SyncAssociationAndTrackFilterConfigs(contract->runtime_config, &runtime.association_engine,
                                             &runtime.track_filter,
                                             &runtime.auto_lifecycle_manager)) {
@@ -89,28 +67,26 @@ bool RunEnvironmentPhase(CycleExecutionContract* contract, const CycleExecutionR
     return false;
   }
 
-  output->dominant_jamming_semantic =
+  scratch.dominant_jamming_semantic =
       ResolveDominantJammingSemantic(runtime.control_profile, contract->environment_snapshot);
-  output->jamming_severity =
+  scratch.jamming_severity =
       ComputeTrackLevelJammingSeverity(runtime.control_profile, contract->environment_snapshot);
   return true;
 }
 
 // ---------------------------------------------------------------------------
-// 检测阶段
+// 检测阶段：写入 scratch 的 detection_* / target_geometry / measurement_covariances
 // ---------------------------------------------------------------------------
 
-DetectionPhaseOutput RunDetectionPhase(const CycleExecutionContract& contract,
-                                       const CycleExecutionRuntime& runtime,
-                                       const EnvironmentPhaseOutput&,
-                                       CycleExecutionScratch* scratch) {
+void RunDetectionPhase(const CycleExecutionContract& contract, const CycleExecutionRuntime& runtime,
+                       CycleExecutionScratch& scratch) {
   DetectionExecutionBuffers detection_buffers;
-  detection_buffers.target_geometry = &scratch->target_geometry;
-  detection_buffers.signal_term_db = &scratch->signal_term_db;
-  detection_buffers.speed_penalty_db = &scratch->speed_penalty_db;
-  detection_buffers.detection_margin_db = &scratch->detection_margin_db;
-  detection_buffers.detection_succeeded = &scratch->detection_succeeded;
-  detection_buffers.measurement_covariances = &scratch->measurement_covariances;
+  detection_buffers.target_geometry = &scratch.target_geometry;
+  detection_buffers.signal_term_db = &scratch.signal_term_db;
+  detection_buffers.speed_penalty_db = &scratch.speed_penalty_db;
+  detection_buffers.detection_margin_db = &scratch.detection_margin_db;
+  detection_buffers.detection_succeeded = &scratch.detection_succeeded;
+  detection_buffers.measurement_covariances = &scratch.measurement_covariances;
 
   if (contract.runtime_config.detection_engineering.enable_physics_detection &&
       runtime.signal_detector != nullptr) {
@@ -122,69 +98,42 @@ DetectionPhaseOutput RunDetectionPhase(const CycleExecutionContract& contract,
                               runtime.control_profile, contract.environment_snapshot,
                               &detection_buffers);
   }
-
-  return DetectionPhaseOutput(scratch->detection_succeeded, scratch->detection_margin_db,
-                              scratch->measurement_covariances, scratch->target_geometry);
 }
 
 // ---------------------------------------------------------------------------
-// 关联阶段
+// 关联阶段：写入 scratch.association_result / association_keys
 // ---------------------------------------------------------------------------
 
-AssociationPhaseOutput RunAssociationPhase(const CycleExecutionContract& contract,
-                                           const CycleExecutionRuntime& runtime,
-                                           const EnvironmentPhaseOutput&,
-                                           const DetectionPhaseOutput& detection_phase,
-                                           CycleExecutionScratch* scratch) {
-  scratch->association_result = runtime.association_engine.AssociateDetections(
-      contract.input_state, detection_phase.detection_succeeded,
-      detection_phase.measurement_covariances,
+void RunAssociationPhase(const CycleExecutionContract& contract,
+                         const CycleExecutionRuntime& runtime, CycleExecutionScratch& scratch) {
+  scratch.association_result = runtime.association_engine.AssociateDetections(
+      contract.input_state, scratch.detection_succeeded, scratch.measurement_covariances,
       contract.environment_snapshot.cycle_dt_sec);
-  scratch->association_keys = scratch->association_result.target_keys;
-
-  return AssociationPhaseOutput(scratch->association_result, scratch->association_keys);
+  scratch.association_keys = scratch.association_result.target_keys;
 }
 
 // ---------------------------------------------------------------------------
-// 量测构建阶段
+// 量测构建阶段：写入 scratch.measurement_slots / track_measurements
 // ---------------------------------------------------------------------------
 
-MeasurementBuildPhaseOutput RunMeasurementBuildPhase(
-    const CycleExecutionContract& contract, const EnvironmentPhaseOutput& environment_phase,
-    const DetectionPhaseOutput& detection_phase, const AssociationPhaseOutput& association_phase,
-    CycleExecutionScratch* scratch) {
-  TrackMeasurementBuildContext build_context(
-      contract.input_state, association_phase.association_result,
-      detection_phase.detection_succeeded, association_phase.association_keys,
-      detection_phase.detection_margin_db, detection_phase.target_geometry,
-      detection_phase.measurement_covariances, contract.environment_snapshot.jamming_detected,
-      environment_phase.dominant_jamming_semantic, environment_phase.jamming_severity,
-      scratch->measurement_slots, scratch->track_measurements);
-  BuildTrackMeasurementsPass(build_context);
-
-  return MeasurementBuildPhaseOutput(scratch->measurement_slots, scratch->track_measurements);
+void RunMeasurementBuildPhase(const CycleExecutionContract& contract,
+                              CycleExecutionScratch& scratch) {
+  BuildTrackMeasurementsPass(contract.input_state,
+                             contract.environment_snapshot.jamming_detected, scratch);
 }
 
 // ---------------------------------------------------------------------------
-// 滤波阶段
+// 滤波阶段：写入 scratch.output_state / track_measurements.filtered_feature
 // ---------------------------------------------------------------------------
 
 void RunTrackFilterPhase(const CycleExecutionContract& contract,
-                         const CycleExecutionRuntime& runtime,
-                         const EnvironmentPhaseOutput& environment_phase,
-                         const DetectionPhaseOutput& detection_phase,
-                         const MeasurementBuildPhaseOutput& measurement_phase,
-                         CycleExecutionScratch* scratch) {
-  TrackFilterApplyContext filter_context(
-      contract.input_state, scratch->output_state, detection_phase.detection_succeeded,
-      detection_phase.detection_margin_db, contract.environment_snapshot.jamming_detected,
-      environment_phase.dominant_jamming_semantic, environment_phase.jamming_severity,
-      runtime.track_filter, measurement_phase.measurement_slots, scratch->track_measurements);
-  ApplyTrackFilterPass(filter_context);
+                         const CycleExecutionRuntime& runtime, CycleExecutionScratch& scratch) {
+  ApplyTrackFilterPass(contract.input_state, contract.environment_snapshot.jamming_detected,
+                       runtime.track_filter, scratch);
 }
 
 // ---------------------------------------------------------------------------
-// 输出收尾（原 OutputAssemblySupport）
+// 输出收尾
 // ---------------------------------------------------------------------------
 
 namespace {
@@ -258,12 +207,11 @@ void CollectCycleOutputs(const extension::control::RadarControlProfile& control_
                          const ExecutionConfig& runtime_config,
                          const environment::EnvironmentSnapshot& environment_snapshot,
                          const session::RadarSceneTargetList& input_state,
-                         const association::AssociationResult& association_result,
-                         const std::vector<tracking::TrackMeasurement>& track_measurements,
                          tracking::ITrackLifecycleManager* auto_lifecycle_manager,
-                         AssociationQualityMetrics* association_quality_metrics,
-                         model::DecisionInputFrame* decision_frame) {
-  if (association_quality_metrics == nullptr || decision_frame == nullptr) {
+                         CycleExecutionScratch& scratch) {
+  if (auto_lifecycle_manager == nullptr) {
+    PROJECT_LOG_ERROR(
+        "[CycleExecutor] auto_lifecycle_manager is null; decision frame assembly aborted.");
     return;
   }
 
@@ -271,54 +219,43 @@ void CollectCycleOutputs(const extension::control::RadarControlProfile& control_
       ResolveDominantJammingSemantic(control_profile, environment_snapshot);
   const float jamming_severity =
       ComputeTrackLevelJammingSeverity(control_profile, environment_snapshot);
-  *association_quality_metrics = ToPipelineAssociationQualityMetrics(
-      association_result.quality_metrics, dominant_jamming_semantic, jamming_severity,
+  scratch.association_quality_metrics = ToPipelineAssociationQualityMetrics(
+      scratch.association_result.quality_metrics, dominant_jamming_semantic, jamming_severity,
       runtime_config.association_unassigned_cost);
 
   const model::EccmSourceInfo eccm_source_info = BuildEccmSourceInfo(environment_snapshot);
   const model::AssociationQualityInfo association_quality_info =
-      BuildAssociationQualityInfo(*association_quality_metrics);
+      BuildAssociationQualityInfo(scratch.association_quality_metrics);
   const model::PerceptionQualityInfo perception_quality_info =
-      BuildPerceptionQualityInfo(input_state.size(), *association_quality_metrics);
-
-  if (auto_lifecycle_manager == nullptr) {
-    PROJECT_LOG_ERROR(
-        "[CycleExecutor] auto_lifecycle_manager is null; decision frame assembly aborted.");
-    return;
-  }
+      BuildPerceptionQualityInfo(input_state.size(), scratch.association_quality_metrics);
 
   tracking::CycleContext cycle;
   cycle.cycle_index = cycle_index;
   cycle.batch_id = batch_id;
   cycle.dt_sec = environment_snapshot.cycle_dt_sec;
   cycle.extra_miss_tolerance = ResolveLifecycleExtraMissTolerance(control_profile);
-  auto_lifecycle_manager->Update(cycle, track_measurements);
-  *decision_frame = auto_lifecycle_manager->BuildDecisionFrame(cycle_index, batch_id,
-                                                               eccm_source_info.has_jamming_signal);
-  decision_frame->environment_jamming_detected = eccm_source_info.has_jamming_signal;
-  decision_frame->eccm_source_info = eccm_source_info;
-  decision_frame->association_quality_info = association_quality_info;
-  decision_frame->perception_quality_info = perception_quality_info;
+  auto_lifecycle_manager->Update(cycle, scratch.track_measurements);
+  scratch.decision_frame = auto_lifecycle_manager->BuildDecisionFrame(
+      cycle_index, batch_id, eccm_source_info.has_jamming_signal);
+  scratch.decision_frame.environment_jamming_detected = eccm_source_info.has_jamming_signal;
+  scratch.decision_frame.eccm_source_info = eccm_source_info;
+  scratch.decision_frame.association_quality_info = association_quality_info;
+  scratch.decision_frame.perception_quality_info = perception_quality_info;
 }
 
-// ---------------------------------------------------------------------------
-// 输出装配
-// ---------------------------------------------------------------------------
-
 void AssembleOutputs(std::uint32_t cycle_index, std::uint64_t batch_id,
-                     const CycleExecutionContract& contract, const EnvironmentPhaseOutput&,
-                     const CycleExecutionRuntime& runtime,
-                     const AssociationPhaseOutput& association_phase,
-                     const MeasurementBuildPhaseOutput& measurement_phase,
-                     CycleExecutionScratch* scratch) {
+                     const CycleExecutionContract& contract, const CycleExecutionRuntime& runtime,
+                     CycleExecutionScratch& scratch) {
   CollectCycleOutputs(runtime.control_profile, cycle_index, batch_id, contract.runtime_config,
                       contract.environment_snapshot, contract.input_state,
-                      association_phase.association_result, measurement_phase.track_measurements,
-                      &runtime.auto_lifecycle_manager, &scratch->association_quality_metrics,
-                      &scratch->decision_frame);
+                      &runtime.auto_lifecycle_manager, scratch);
 }
 
 }  // namespace
+
+// ---------------------------------------------------------------------------
+// 顶层入口
+// ---------------------------------------------------------------------------
 
 bool ExecuteCycle(const session::RadarSceneTargetList& input_state,
                   const environment::EnvironmentSnapshot& environment_snapshot,
@@ -326,29 +263,20 @@ bool ExecuteCycle(const session::RadarSceneTargetList& input_state,
                   const CycleExecutionRuntime& runtime, CycleExecutionScratch& cycle_scratch) {
   CycleExecutionContract contract = BuildCycleExecutionContract(input_state, environment_snapshot,
                                                                 cycle_index, batch_id, runtime);
-  if (!PrepareExecutionState(contract, &cycle_scratch)) {
-    return false;
-  }
+  ResetCycleExecutionScratch(contract.input_state, cycle_scratch);
 
-  EnvironmentPhaseOutput environment_phase;
-  if (!RunEnvironmentPhase(&contract, runtime, &cycle_scratch, &environment_phase)) {
+  if (!RunEnvironmentPhase(&contract, runtime, cycle_scratch)) {
     return false;
   }
   PrepareAssociationSeeds(runtime);
-  const DetectionPhaseOutput detection_phase =
-      RunDetectionPhase(contract, runtime, environment_phase, &cycle_scratch);
-  const AssociationPhaseOutput association_phase =
-      RunAssociationPhase(contract, runtime, environment_phase, detection_phase, &cycle_scratch);
-  const MeasurementBuildPhaseOutput measurement_phase = RunMeasurementBuildPhase(
-      contract, environment_phase, detection_phase, association_phase, &cycle_scratch);
-  RunTrackFilterPhase(contract, runtime, environment_phase, detection_phase, measurement_phase,
-                      &cycle_scratch);
-  AssembleOutputs(contract.cycle_index, contract.batch_id, contract, environment_phase, runtime,
-                  association_phase, measurement_phase, &cycle_scratch);
+  RunDetectionPhase(contract, runtime, cycle_scratch);
+  RunAssociationPhase(contract, runtime, cycle_scratch);
+  RunMeasurementBuildPhase(contract, cycle_scratch);
+  RunTrackFilterPhase(contract, runtime, cycle_scratch);
+  AssembleOutputs(contract.cycle_index, contract.batch_id, contract, runtime, cycle_scratch);
   return true;
 }
 
-}  // namespace internal
 }  // namespace pipeline
 }  // namespace signal
 }  // namespace airborne_radar

@@ -12,7 +12,6 @@
 namespace airborne_radar {
 namespace signal {
 namespace pipeline {
-namespace internal {
 
 /**
  * @brief 将环境快照转换为决策层 ECCM 输入摘要。
@@ -39,7 +38,7 @@ model::AssociationQualityInfo BuildAssociationQualityInfo(
 model::PerceptionQualityInfo BuildPerceptionQualityInfo(
     std::size_t input_target_count, const AssociationQualityMetrics& metrics);
 
-}  // namespace internal
+
 }  // namespace pipeline
 }  // namespace signal
 }  // namespace airborne_radar

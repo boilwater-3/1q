@@ -1,6 +1,6 @@
 /**
  * @file CycleExecutor.h
- * @brief 定义 SignalPipeline 单周期执行器。
+ * @brief 定义 SignalPipeline 单周期执行器与相关数据结构。
  */
 
 #ifndef AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_CYCLE_EXECUTOR_H_
@@ -12,6 +12,7 @@
 
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
+#include "1q/airborne_radar/model/JammingSemantics.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
@@ -24,23 +25,37 @@
 namespace airborne_radar {
 namespace signal {
 namespace pipeline {
-namespace internal {
 
+/**
+ * @brief 单周期执行过程中所有中间产物和最终输出的共享暂存区。
+ *
+ * 各阶段函数直接读写此结构，不再通过 PhaseOutput 传递引用。
+ */
 struct CycleExecutionScratch {
+  // 最终输出
   session::RadarSceneTargetList output_state;
   std::vector<tracking::TrackMeasurement> track_measurements;
   model::DecisionInputFrame decision_frame{};
   AssociationQualityMetrics association_quality_metrics{};
 
+  // 检测阶段中间数据
   std::vector<float> signal_term_db;
   std::vector<float> speed_penalty_db;
   std::vector<float> detection_margin_db;
   std::vector<std::uint8_t> detection_succeeded;
+  std::vector<detection::ResolvedTargetGeometry> target_geometry;
+  std::vector<tracking::MeasurementCovariance> measurement_covariances;
+
+  // 关联阶段中间数据
   association::AssociationResult association_result;
   std::vector<std::uint64_t> association_keys;
-  std::vector<tracking::MeasurementCovariance> measurement_covariances;
+
+  // 量测构建阶段中间数据
   std::vector<int> measurement_slots;
-  std::vector<detection::ResolvedTargetGeometry> target_geometry;
+
+  // 环境阶段输出（各后续阶段共享）
+  model::JammingSemantic dominant_jamming_semantic{model::JammingSemantic::kNone};
+  float jamming_severity{0.0f};
 };
 
 struct CycleExecutionRuntime {
@@ -89,51 +104,11 @@ struct CycleExecutionContract {
   ExecutionConfig runtime_config{};
 };
 
-struct EnvironmentPhaseOutput {
-  model::JammingSemantic dominant_jamming_semantic{model::JammingSemantic::kNone};
-  float jamming_severity{0.0f};
-};
-
-struct DetectionPhaseOutput {
-  DetectionPhaseOutput(const std::vector<std::uint8_t>& detection_succeeded,
-                       const std::vector<float>& detection_margin_db,
-                       const std::vector<tracking::MeasurementCovariance>& measurement_covariances,
-                       const std::vector<detection::ResolvedTargetGeometry>& target_geometry)
-      : detection_succeeded(detection_succeeded),
-        detection_margin_db(detection_margin_db),
-        measurement_covariances(measurement_covariances),
-        target_geometry(target_geometry) {}
-
-  const std::vector<std::uint8_t>& detection_succeeded;
-  const std::vector<float>& detection_margin_db;
-  const std::vector<tracking::MeasurementCovariance>& measurement_covariances;
-  const std::vector<detection::ResolvedTargetGeometry>& target_geometry;
-};
-
-struct AssociationPhaseOutput {
-  AssociationPhaseOutput(const association::AssociationResult& association_result,
-                         const std::vector<std::uint64_t>& association_keys)
-      : association_result(association_result), association_keys(association_keys) {}
-
-  const association::AssociationResult& association_result;
-  const std::vector<std::uint64_t>& association_keys;
-};
-
-struct MeasurementBuildPhaseOutput {
-  MeasurementBuildPhaseOutput(const std::vector<int>& measurement_slots,
-                              const std::vector<tracking::TrackMeasurement>& track_measurements)
-      : measurement_slots(measurement_slots), track_measurements(track_measurements) {}
-
-  const std::vector<int>& measurement_slots;
-  const std::vector<tracking::TrackMeasurement>& track_measurements;
-};
-
 bool ExecuteCycle(const session::RadarSceneTargetList& input_state,
                   const environment::EnvironmentSnapshot& environment_snapshot,
                   std::uint32_t cycle_index, std::uint64_t batch_id,
                   const CycleExecutionRuntime& runtime, CycleExecutionScratch& cycle_scratch);
 
-}  // namespace internal
 }  // namespace pipeline
 }  // namespace signal
 }  // namespace airborne_radar

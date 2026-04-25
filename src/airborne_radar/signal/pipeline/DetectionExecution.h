@@ -22,7 +22,6 @@ namespace detection {
 class SignalDetector;
 }  // namespace detection
 namespace pipeline {
-namespace internal {
 
 struct DetectionExecutionBuffers {
   std::vector<detection::ResolvedTargetGeometry>* target_geometry{nullptr};
@@ -44,7 +43,7 @@ void RunPhysicalDetectionPass(const session::RadarSceneTargetList& input, const 
                               detection::SignalDetector* signal_detector,
                               DetectionExecutionBuffers* buffers);
 
-}  // namespace internal
+
 }  // namespace pipeline
 }  // namespace signal
 }  // namespace airborne_radar

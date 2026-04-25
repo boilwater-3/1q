@@ -13,7 +13,6 @@
 namespace airborne_radar {
 namespace signal {
 namespace pipeline {
-namespace internal {
 
 /**
  * @brief 从场景目标中解算速度标量。
@@ -25,7 +24,7 @@ inline float ResolveSpeedMagnitude(const session::RadarSceneTarget& target) {
   return velocity.norm();
 }
 
-}  // namespace internal
+
 }  // namespace pipeline
 }  // namespace signal
 }  // namespace airborne_radar

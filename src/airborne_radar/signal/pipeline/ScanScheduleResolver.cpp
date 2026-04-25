@@ -8,8 +8,6 @@
 namespace airborne_radar {
 namespace signal {
 namespace pipeline {
-namespace core {
-namespace internal {
 
 namespace {
 
@@ -264,8 +262,8 @@ void ApplyScanScheduleToRuntimeConfig(std::uint32_t cycle_index,
       runtime_config->policy_beam_control.scheduler, cycle_index);
 }
 
-}  // namespace internal
-}  // namespace core
+
+
 }  // namespace pipeline
 }  // namespace signal
 }  // namespace airborne_radar

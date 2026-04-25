@@ -18,7 +18,6 @@
 namespace airborne_radar {
 namespace signal {
 namespace pipeline {
-namespace internal {
 
 namespace {
 
@@ -276,7 +275,7 @@ void RunPhysicalDetectionPass(const session::RadarSceneTargetList& input, const 
   }
 }
 
-}  // namespace internal
+
 }  // namespace pipeline
 }  // namespace signal
 }  // namespace airborne_radar

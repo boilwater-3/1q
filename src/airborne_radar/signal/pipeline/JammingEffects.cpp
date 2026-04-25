@@ -8,7 +8,6 @@
 namespace airborne_radar {
 namespace signal {
 namespace pipeline {
-namespace internal {
 
 using JammingEffectsConfig = ::airborne_radar::config::execution::JammingEffectsConfig;
 
@@ -374,7 +373,7 @@ void ApplyEnvironmentJammingFactsToRuntimeConfig(
       utils::ClampFloat(measurement_noise_scale, 1.0f, cfg.measurement_noise_scale_max);
 }
 
-}  // namespace internal
+
 }  // namespace pipeline
 }  // namespace signal
 }  // namespace airborne_radar

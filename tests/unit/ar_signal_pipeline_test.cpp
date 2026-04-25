@@ -382,7 +382,7 @@ TEST(SignalPipelineTest, AutoLifecycleManagerBuildsWithDefaultInternalImmConfig)
       config::mapping::MapSessionToExecution(session_runtime_config);
 
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> lifecycle_manager =
-      signal::pipeline::assembly::internal::CreateAutoLifecycleManagerForRuntimeConfig(exec_config);
+      signal::pipeline::CreateAutoLifecycleManagerForRuntimeConfig(exec_config);
   ASSERT_TRUE(lifecycle_manager != nullptr);
 
   const signal::tracking::CycleContext cycle = MakeLifecycleCycle(1u, 7u);
@@ -404,7 +404,7 @@ TEST(SignalPipelineTest, AutoLifecycleManagerCreationFailsWhenImmAssemblyIsInval
   exec_config.imm_initial_weights = {1.0f};
 
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> lifecycle_manager =
-      signal::pipeline::assembly::internal::CreateAutoLifecycleManagerForRuntimeConfig(exec_config);
+      signal::pipeline::CreateAutoLifecycleManagerForRuntimeConfig(exec_config);
 
   EXPECT_EQ(lifecycle_manager, nullptr);
 }
@@ -605,7 +605,7 @@ TEST(SignalPipelineTest, DominantJammingSemanticReturnsMixedWhenSecondScoreClose
   deception_source.confidence = 1.0f;
   snapshot.jammer_sources.push_back(deception_source);
 
-  EXPECT_EQ(signal::pipeline::internal::ResolveDominantJammingSemantic(control_profile, snapshot),
+  EXPECT_EQ(signal::pipeline::ResolveDominantJammingSemantic(control_profile, snapshot),
             model::JammingSemantic::kMixed);
 }
 
@@ -630,7 +630,7 @@ TEST(SignalPipelineTest, DominantJammingSemanticStaysNoiseWhenSecondScoreBelowTh
   deception_source.confidence = 0.25f;
   snapshot.jammer_sources.push_back(deception_source);
 
-  EXPECT_EQ(signal::pipeline::internal::ResolveDominantJammingSemantic(control_profile, snapshot),
+  EXPECT_EQ(signal::pipeline::ResolveDominantJammingSemantic(control_profile, snapshot),
             model::JammingSemantic::kNoiseSuppression);
 }
 
@@ -844,9 +844,9 @@ TEST(SignalPipelineTest, AgilityFrequencyHopPhaseControlsFrequencyDirection) {
   extension::control::RadarControlProfile profile;
   profile.enable_agility_frequency = true;
   profile.agility_frequency_hop_phase = 0U;
-  signal::pipeline::internal::ApplyControlProfileToConfig(profile, &phase_zero_exec);
+  signal::pipeline::ApplyControlProfileToConfig(profile, &phase_zero_exec);
   profile.agility_frequency_hop_phase = 1U;
-  signal::pipeline::internal::ApplyControlProfileToConfig(profile, &phase_one_exec);
+  signal::pipeline::ApplyControlProfileToConfig(profile, &phase_one_exec);
 
   EXPECT_FLOAT_EQ(phase_zero_exec.detection_engineering.transmitter.frequency_hz, 1.015e9f);
   EXPECT_FLOAT_EQ(phase_one_exec.detection_engineering.transmitter.frequency_hz, 0.985e9f);
@@ -1013,10 +1013,10 @@ TEST(SignalPipelineTest, AutoLifecycleManagerSyncsRuntimeTuningAcrossCycles) {
 
   const ExecutionConfig base_exec_config = config::mapping::MapSessionToExecution(session_config);
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> unsynced_manager =
-      signal::pipeline::assembly::internal::CreateAutoLifecycleManagerForRuntimeConfig(
+      signal::pipeline::CreateAutoLifecycleManagerForRuntimeConfig(
           base_exec_config);
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> synced_manager =
-      signal::pipeline::assembly::internal::CreateAutoLifecycleManagerForRuntimeConfig(
+      signal::pipeline::CreateAutoLifecycleManagerForRuntimeConfig(
           base_exec_config);
   ASSERT_TRUE(unsynced_manager != nullptr);
   ASSERT_TRUE(synced_manager != nullptr);
@@ -1034,10 +1034,10 @@ TEST(SignalPipelineTest, AutoLifecycleManagerSyncsRuntimeTuningAcrossCycles) {
 
   extension::control::RadarControlProfile agile_profile;
   agile_profile.enable_agility_frequency = true;
-  const signal::pipeline::assembly::internal::ResolvedRuntimePipelineConfig agile_runtime_config =
-      signal::pipeline::assembly::internal::ResolveRuntimePipelineConfig(base_exec_config,
+  const signal::pipeline::ResolvedRuntimePipelineConfig agile_runtime_config =
+      signal::pipeline::ResolveRuntimePipelineConfig(base_exec_config,
                                                                          agile_profile);
-  signal::pipeline::assembly::internal::SyncAutoLifecycleManagerForResolvedRuntimeConfig(
+  signal::pipeline::SyncAutoLifecycleManagerForResolvedRuntimeConfig(
       agile_runtime_config, synced_manager.get());
 
   unsynced_manager->Update(MakeLifecycleCycle(2u, 2u), {});
@@ -1063,7 +1063,7 @@ TEST(SignalPipelineTest, InvalidTopologyRebuildKeepsPreviousLifecycleAssemblyOpe
 
   const ExecutionConfig exec_config = config::mapping::MapSessionToExecution(session_config);
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> lifecycle_manager =
-      signal::pipeline::assembly::internal::CreateAutoLifecycleManagerForRuntimeConfig(exec_config);
+      signal::pipeline::CreateAutoLifecycleManagerForRuntimeConfig(exec_config);
   ASSERT_TRUE(lifecycle_manager != nullptr);
 
   environment::EnvironmentService environment_service;
@@ -1085,11 +1085,11 @@ TEST(SignalPipelineTest, InvalidTopologyRebuildKeepsPreviousLifecycleAssemblyOpe
   invalid_exec.imm_model_noise_diff_coeffs = {0.5f, 2.0f};
   invalid_exec.imm_initial_weights = {1.0f};
 
-  signal::pipeline::assembly::internal::ResolvedRuntimePipelineConfig invalid_runtime_config;
+  signal::pipeline::ResolvedRuntimePipelineConfig invalid_runtime_config;
   invalid_runtime_config.config = invalid_exec;
 
   const bool sync_succeeded =
-      signal::pipeline::assembly::internal::SyncAutoLifecycleManagerForResolvedRuntimeConfig(
+      signal::pipeline::SyncAutoLifecycleManagerForResolvedRuntimeConfig(
           invalid_runtime_config, lifecycle_manager.get());
   EXPECT_FALSE(sync_succeeded);
 
