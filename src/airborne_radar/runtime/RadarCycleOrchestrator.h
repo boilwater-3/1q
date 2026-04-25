@@ -16,12 +16,6 @@
 #include "common/runtime/RuntimeCycleExecutor.h"
 
 namespace airborne_radar {
-namespace signal {
-namespace assembly {
-class IDataOutputManager;
-}  // namespace assembly
-}  // namespace signal
-
 namespace extension {
 
 /**
@@ -46,14 +40,12 @@ class RadarCycleOrchestrator {
    * @param decision_engine   决策引擎指针（可为 nullptr，为空时跳过决策）。
    * @param tactical_state_store 跨周期战术内存指针（可为 nullptr）。
    * @param environment_service  环境服务引用。
-   * @param output_manager    数据输出装配接口引用。
    */
   RadarCycleOrchestrator(
       extension::ISignalPipeline& signal_pipeline,
       extension::ITacticalDecisionEngine* decision_engine,
       extension::TacticalStateStore* tactical_state_store,
-      environment::IEnvironmentService& environment_service,
-      signal::assembly::IDataOutputManager& output_manager);
+      environment::IEnvironmentService& environment_service);
 
   /**
    * @brief 冻结本周期环境，驱动 IEnvironmentService::BeginCycle。
@@ -82,7 +74,6 @@ class RadarCycleOrchestrator {
   extension::ITacticalDecisionEngine* decision_engine_{nullptr};
   extension::TacticalStateStore* tactical_state_store_{nullptr};
   environment::IEnvironmentService& environment_service_;
-  signal::assembly::IDataOutputManager& output_manager_;
 };
 
 }  // namespace extension

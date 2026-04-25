@@ -7,7 +7,7 @@
 #define AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_DECISION_FRAME_BUILDERS_H_
 
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "airborne_radar/signal/pipeline/config/SignalPipelineRuntimeTypes.h"
+#include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 
 namespace airborne_radar {
 namespace signal {

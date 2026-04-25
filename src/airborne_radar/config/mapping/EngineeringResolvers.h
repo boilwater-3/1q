@@ -8,7 +8,7 @@
 
 #include "1q/airborne_radar/config/RadarHardwareConfig.h"
 #include "1q/airborne_radar/config/RadarPolicyConfig.h"
-#include "airborne_radar/config/engineering/SignalEngineeringConfig.h"
+#include "airborne_radar/config/SignalEngineeringConfig.h"
 
 namespace airborne_radar {
 namespace config {

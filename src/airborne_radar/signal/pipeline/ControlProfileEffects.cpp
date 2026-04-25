@@ -1,11 +1,11 @@
-#include "airborne_radar/signal/pipeline/effects/ControlProfileEffects.h"
+#include "airborne_radar/signal/pipeline/ControlProfileEffects.h"
 
 #include <algorithm>
 #include <cmath>
 #include <vector>
 
-#include "airborne_radar/config/engineering/SignalEngineeringConfig.h"
-#include "airborne_radar/signal/pipeline/effects/JammingEffects.h"
+#include "airborne_radar/config/SignalEngineeringConfig.h"
+#include "airborne_radar/signal/pipeline/JammingEffects.h"
 #include "airborne_radar/utils/MathUtils.h"
 #include "common/timing/TimingRegimeModel.h"
 

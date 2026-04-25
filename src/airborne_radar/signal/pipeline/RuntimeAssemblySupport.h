@@ -10,8 +10,8 @@
 
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
-#include "airborne_radar/signal/pipeline/config/SignalPipelineExecutionConfig.h"
-#include "airborne_radar/signal/pipeline/config/SignalPipelineRuntimeTypes.h"
+#include "airborne_radar/signal/pipeline/SignalPipelineExecutionConfig.h"
+#include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/tracking/IKalmanPredictor.h"
 #include "airborne_radar/signal/tracking/IKalmanUpdater.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"

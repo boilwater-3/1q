@@ -1,15 +1,15 @@
-#include "airborne_radar/signal/pipeline/core/CycleExecutor.h"
+#include "airborne_radar/signal/pipeline/CycleExecutor.h"
 
 #include <algorithm>
 #include <vector>
 
-#include "airborne_radar/signal/pipeline/assembly/DecisionFrameBuilders.h"
-#include "airborne_radar/signal/pipeline/assembly/RuntimeAssemblySupport.h"
-#include "airborne_radar/signal/pipeline/assembly/TrackMeasurementProcessing.h"
-#include "airborne_radar/signal/pipeline/core/CycleContextSupport.h"
-#include "airborne_radar/signal/pipeline/core/DetectionExecution.h"
-#include "airborne_radar/signal/pipeline/core/ScanScheduleResolver.h"
-#include "airborne_radar/signal/pipeline/effects/JammingEffects.h"
+#include "airborne_radar/signal/pipeline/DecisionFrameBuilders.h"
+#include "airborne_radar/signal/pipeline/RuntimeAssemblySupport.h"
+#include "airborne_radar/signal/pipeline/TrackMeasurementProcessing.h"
+#include "airborne_radar/signal/pipeline/CycleContextSupport.h"
+#include "airborne_radar/signal/pipeline/DetectionExecution.h"
+#include "airborne_radar/signal/pipeline/ScanScheduleResolver.h"
+#include "airborne_radar/signal/pipeline/JammingEffects.h"
 #include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {

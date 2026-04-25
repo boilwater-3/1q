@@ -9,7 +9,7 @@
 #include <random>
 
 #include "1q/airborne_radar/config/RadarHardwareConfig.h"
-#include "airborne_radar/config/engineering/SignalEngineeringConfig.h"
+#include "airborne_radar/config/SignalEngineeringConfig.h"
 
 namespace airborne_radar {
 namespace signal {

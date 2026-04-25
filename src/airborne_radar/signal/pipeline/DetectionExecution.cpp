@@ -1,17 +1,17 @@
-#include "airborne_radar/signal/pipeline/core/DetectionExecution.h"
+#include "airborne_radar/signal/pipeline/DetectionExecution.h"
 
 #include <Eigen/Core>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 
-#include "airborne_radar/config/engineering/SignalEngineeringConfig.h"
+#include "airborne_radar/config/SignalEngineeringConfig.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/MeasurementErrorModel.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
-#include "airborne_radar/signal/pipeline/core/PipelineTargetUtils.h"
-#include "airborne_radar/signal/pipeline/effects/ControlProfileEffects.h"
-#include "airborne_radar/signal/pipeline/effects/JammingEffects.h"
+#include "airborne_radar/signal/pipeline/PipelineTargetUtils.h"
+#include "airborne_radar/signal/pipeline/ControlProfileEffects.h"
+#include "airborne_radar/signal/pipeline/JammingEffects.h"
 #include "common/atmosphere/AtmospherePhysics.h"
 #include "common/rcs/RcsPhysics.h"
 

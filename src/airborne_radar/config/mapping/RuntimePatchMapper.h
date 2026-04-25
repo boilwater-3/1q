@@ -9,7 +9,7 @@
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/airborne_radar/environment/EnvironmentConfig.h"
-#include "airborne_radar/config/execution/InternalExecutionConfig.h"
+#include "airborne_radar/config/InternalExecutionConfig.h"
 
 namespace airborne_radar {
 namespace config {

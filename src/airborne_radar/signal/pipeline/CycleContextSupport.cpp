@@ -1,9 +1,9 @@
-#include "airborne_radar/signal/pipeline/core/CycleContextSupport.h"
+#include "airborne_radar/signal/pipeline/CycleContextSupport.h"
 
 #include <algorithm>
 
-#include "airborne_radar/signal/pipeline/assembly/RuntimeAssemblySupport.h"
-#include "airborne_radar/signal/pipeline/assembly/SignalComponentFactory.h"
+#include "airborne_radar/signal/pipeline/RuntimeAssemblySupport.h"
+#include "airborne_radar/signal/pipeline/SignalComponentFactory.h"
 
 namespace airborne_radar {
 namespace signal {

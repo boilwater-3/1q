@@ -1,4 +1,4 @@
-#include "airborne_radar/signal/pipeline/assembly/DecisionFrameBuilders.h"
+#include "airborne_radar/signal/pipeline/DecisionFrameBuilders.h"
 
 #include <algorithm>
 

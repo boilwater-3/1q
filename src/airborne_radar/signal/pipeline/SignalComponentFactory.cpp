@@ -3,7 +3,7 @@
  * @brief SignalPipeline 私有组件工厂实现。
  */
 
-#include "airborne_radar/signal/pipeline/assembly/SignalComponentFactory.h"
+#include "airborne_radar/signal/pipeline/SignalComponentFactory.h"
 
 #include <Eigen/Core>
 #include <algorithm>

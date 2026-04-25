@@ -1,8 +1,8 @@
-#include "airborne_radar/signal/pipeline/assembly/TrackMeasurementProcessing.h"
+#include "airborne_radar/signal/pipeline/TrackMeasurementProcessing.h"
 
 #include <Eigen/Core>
 
-#include "airborne_radar/signal/pipeline/core/PipelineTargetUtils.h"
+#include "airborne_radar/signal/pipeline/PipelineTargetUtils.h"
 
 namespace airborne_radar {
 namespace signal {

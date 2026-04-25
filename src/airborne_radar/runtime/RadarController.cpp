@@ -16,8 +16,6 @@
 #include "airborne_radar/runtime/components/RadarCycleOutcomeRecorder.h"
 #include "airborne_radar/decision/ControlReducer.h"
 #include "airborne_radar/decision/TacticalCoordinator.h"
-#include "airborne_radar/signal/assembly/DataOutputManager.h"
-#include "airborne_radar/signal/assembly/IDataOutputManager.h"
 #include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
@@ -45,7 +43,6 @@ struct RadarController::Impl {
   std::reference_wrapper<extension::control::RadarControlProfile> control_profile;
   std::unique_ptr<extension::TacticalStateStore> tactical_state_store;
   std::unique_ptr<decision::ControlReducer> control_reducer;
-  std::unique_ptr<signal::assembly::IDataOutputManager> output_manager;
   std::unique_ptr<extension::ControlCommandMapper> command_mapper;
   std::unique_ptr<extension::RadarCycleOrchestrator> cycle_orchestrator;
   oneq::internal::runtime::RuntimeCycleState<output::TrackOutputFrame,
@@ -67,11 +64,10 @@ struct RadarController::Impl {
         control_profile(*owned_control_profile),
         tactical_state_store(new extension::TacticalStateStore()),
         control_reducer(new decision::ControlReducer()),
-        output_manager(new signal::assembly::DataOutputManager()),
         command_mapper(new extension::ControlCommandMapper(*control_reducer, ctx, ctx)) {
     decision_engine = owned_decision_engine.get();
     cycle_orchestrator.reset(new extension::RadarCycleOrchestrator(
-        sig, decision_engine, tactical_state_store.get(), env, *output_manager));
+        sig, decision_engine, tactical_state_store.get(), env));
   }
 
   Impl(extension::IRadarContext& ctx, extension::ISignalPipeline& sig,
@@ -85,10 +81,9 @@ struct RadarController::Impl {
         control_profile(*owned_control_profile),
         tactical_state_store(new extension::TacticalStateStore()),
         control_reducer(new decision::ControlReducer()),
-        output_manager(new signal::assembly::DataOutputManager()),
         command_mapper(new extension::ControlCommandMapper(*control_reducer, ctx, ctx)),
         cycle_orchestrator(new extension::RadarCycleOrchestrator(
-            sig, &ext_engine, tactical_state_store.get(), env, *output_manager)) {}
+            sig, &ext_engine, tactical_state_store.get(), env)) {}
 };
 
 RadarController::RadarController(extension::IRadarContext& radar_context,

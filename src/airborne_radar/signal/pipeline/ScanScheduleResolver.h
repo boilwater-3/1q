@@ -12,7 +12,7 @@
 #include "1q/airborne_radar/config/RadarPolicyConfig.h"
 #include "airborne_radar/utils/RadarOrientationUtils.h"
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"
-#include "airborne_radar/signal/pipeline/config/SignalPipelineRuntimeTypes.h"
+#include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 
 namespace airborne_radar {
 namespace signal {

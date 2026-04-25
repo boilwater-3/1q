@@ -5,7 +5,6 @@
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/extension/ISignalPipeline.h"
-#include "airborne_radar/signal/assembly/IDataOutputManager.h"
 
 namespace airborne_radar {
 namespace extension {
@@ -14,13 +13,11 @@ RadarCycleOrchestrator::RadarCycleOrchestrator(
     extension::ISignalPipeline& signal_pipeline,
     extension::ITacticalDecisionEngine* decision_engine,
     extension::TacticalStateStore* tactical_state_store,
-    environment::IEnvironmentService& environment_service,
-    signal::assembly::IDataOutputManager& output_manager)
+    environment::IEnvironmentService& environment_service)
     : signal_pipeline_(signal_pipeline),
       decision_engine_(decision_engine),
       tactical_state_store_(tactical_state_store),
-      environment_service_(environment_service),
-      output_manager_(output_manager) {}
+      environment_service_(environment_service) {}
 
 void RadarCycleOrchestrator::FreezeEnvironment(
     float cycle_dt_sec, const oneq::internal::runtime::RuntimeCycleStamp& stamp) {
@@ -52,8 +49,11 @@ CycleExecutionResult RadarCycleOrchestrator::Execute(
   decision_frame.cycle_index = stamp.cycle_index;
   decision_frame.batch_id = stamp.batch_id;
 
-  result.track_output_frame = output_manager_.BuildTrackOutputFrame(
-      stamp.cycle_index, stamp.batch_id, decision_frame.tracks);
+  output::TrackOutputFrame track_output_frame;
+  track_output_frame.cycle_index = stamp.cycle_index;
+  track_output_frame.batch_id = stamp.batch_id;
+  track_output_frame.tracks = decision_frame.tracks;
+  result.track_output_frame = std::move(track_output_frame);
 
   if (decision_engine_ != nullptr && tactical_state_store_ != nullptr) {
     result.decision_result =

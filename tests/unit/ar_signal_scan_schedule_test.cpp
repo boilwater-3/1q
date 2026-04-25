@@ -12,17 +12,17 @@
 
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
-#include "airborne_radar/config/execution/InternalExecutionConfig.h"
+#include "airborne_radar/config/InternalExecutionConfig.h"
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/detection/TargetLookResolver.h"
-#include "airborne_radar/signal/pipeline/assembly/RuntimeAssemblySupport.h"
-#include "airborne_radar/signal/pipeline/core/CycleExecutor.h"
-#include "airborne_radar/signal/pipeline/core/ScanScheduleResolver.h"
-#include "airborne_radar/signal/pipeline/core/SignalPipeline.h"
+#include "airborne_radar/signal/pipeline/RuntimeAssemblySupport.h"
+#include "airborne_radar/signal/pipeline/CycleExecutor.h"
+#include "airborne_radar/signal/pipeline/ScanScheduleResolver.h"
+#include "airborne_radar/signal/pipeline/SignalPipeline.h"
 
 namespace airborne_radar {
 namespace tests {

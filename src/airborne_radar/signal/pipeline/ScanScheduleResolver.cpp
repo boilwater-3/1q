@@ -1,4 +1,4 @@
-#include "airborne_radar/signal/pipeline/core/ScanScheduleResolver.h"
+#include "airborne_radar/signal/pipeline/ScanScheduleResolver.h"
 
 #include <algorithm>
 #include <cmath>

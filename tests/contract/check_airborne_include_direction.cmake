@@ -44,9 +44,6 @@ foreach(IMPL_FILE IN LISTS AIRBORNE_IMPL_FILES)
         if(IMPL_FILE STREQUAL "${CORE_COMPOSITION_ROOT_FILE}")
           list(APPEND CORE_COMPOSITION_ROOT_EXEMPTIONS
                "${IMPL_FILE}: composition root exemption '${INCLUDE_PATH}'")
-        elseif(INCLUDE_PATH STREQUAL "airborne_radar/signal/assembly/IDataOutputManager.h")
-          list(APPEND CORE_GRAY_ZONE_WARNINGS
-               "${IMPL_FILE}: gray-zone dependency '${INCLUDE_PATH}'")
         else()
           list(APPEND CORE_CONCRETE_DEP_WARNINGS
                "${IMPL_FILE}: core concrete dependency '${INCLUDE_PATH}'")

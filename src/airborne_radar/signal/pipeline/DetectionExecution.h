@@ -12,8 +12,8 @@
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
-#include "airborne_radar/signal/pipeline/config/SignalPipelineExecutionConfig.h"
-#include "airborne_radar/signal/pipeline/config/SignalPipelineRuntimeTypes.h"
+#include "airborne_radar/signal/pipeline/SignalPipelineExecutionConfig.h"
+#include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/tracking/GaussianTrackState.h"
 
 namespace airborne_radar {

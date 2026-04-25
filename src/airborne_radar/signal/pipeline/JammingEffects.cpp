@@ -1,4 +1,4 @@
-#include "airborne_radar/signal/pipeline/effects/JammingEffects.h"
+#include "airborne_radar/signal/pipeline/JammingEffects.h"
 
 #include <algorithm>
 #include <cmath>

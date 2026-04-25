@@ -1,8 +1,8 @@
 #include "airborne_radar/config/mapping/RuntimePatchMapper.h"
 
 #include <cmath>
+#include <vector>
 
-#include "airborne_radar/config/defaults/ExecutionDefaults.h"
 #include "airborne_radar/config/mapping/EngineeringResolvers.h"
 #include "common/logging/ProjectLog.h"
 
@@ -128,7 +128,7 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
         next_execution_config.policy_association.unassigned_cost;
     if (next_execution_config.lifecycle_engineering.enable_imm_lifecycle) {
       next_execution_config.imm_model_noise_diff_coeffs =
-          defaults::DefaultImmModelNoiseDiffCoeffs();
+          std::vector<float>{0.5f, 4.0f};
     } else {
       next_execution_config.imm_model_noise_diff_coeffs.clear();
       next_execution_config.imm_initial_weights.clear();

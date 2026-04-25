@@ -24,7 +24,7 @@
 #include "1q/airborne_radar/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/output/TrackOutputQueries.h"
 #include "airborne_radar/environment/EnvironmentService.h"
-#include "airborne_radar/signal/pipeline/core/SignalPipeline.h"
+#include "airborne_radar/signal/pipeline/SignalPipeline.h"
 
 namespace airborne_radar {
 namespace tests {

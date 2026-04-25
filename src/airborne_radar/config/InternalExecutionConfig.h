@@ -17,7 +17,7 @@
 #include "1q/airborne_radar/config/RadarMissionConfig.h"
 #include "1q/airborne_radar/config/RadarPolicyConfig.h"
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
-#include "airborne_radar/config/engineering/SignalEngineeringConfig.h"
+#include "airborne_radar/config/SignalEngineeringConfig.h"
 #include "airborne_radar/signal/tracking/LifecycleConfig.h"
 
 namespace airborne_radar {

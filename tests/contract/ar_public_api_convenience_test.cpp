@@ -26,7 +26,7 @@
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/session/MutableRadarContext.h"
-#include "airborne_radar/signal/pipeline/core/SignalPipeline.h"
+#include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "common/geometry/GeometryTransform.h"
 
 namespace airborne_radar {

@@ -9,20 +9,19 @@ set(AIRBORNE_SIGNAL_SOURCES
     airborne_radar/signal/association/DistanceMetric.cpp
     airborne_radar/signal/association/Hypothesiser.cpp
     airborne_radar/signal/association/LapjvSolver.cpp
-    airborne_radar/signal/assembly/DataOutputManager.cpp
     airborne_radar/signal/detection/RadarEquations.cpp
     airborne_radar/signal/detection/SignalDetector.cpp
-    airborne_radar/signal/pipeline/effects/ControlProfileEffects.cpp
-    airborne_radar/signal/pipeline/core/CycleContextSupport.cpp
-    airborne_radar/signal/pipeline/core/CycleExecutor.cpp
-    airborne_radar/signal/pipeline/assembly/DecisionFrameBuilders.cpp
-    airborne_radar/signal/pipeline/core/DetectionExecution.cpp
-    airborne_radar/signal/pipeline/effects/JammingEffects.cpp
-    airborne_radar/signal/pipeline/core/SignalPipeline.cpp
-    airborne_radar/signal/pipeline/assembly/TrackMeasurementProcessing.cpp
-    airborne_radar/signal/pipeline/assembly/RuntimeAssemblySupport.cpp
-    airborne_radar/signal/pipeline/core/ScanScheduleResolver.cpp
-    airborne_radar/signal/pipeline/assembly/SignalComponentFactory.cpp
+    airborne_radar/signal/pipeline/ControlProfileEffects.cpp
+    airborne_radar/signal/pipeline/CycleContextSupport.cpp
+    airborne_radar/signal/pipeline/CycleExecutor.cpp
+    airborne_radar/signal/pipeline/DecisionFrameBuilders.cpp
+    airborne_radar/signal/pipeline/DetectionExecution.cpp
+    airborne_radar/signal/pipeline/JammingEffects.cpp
+    airborne_radar/signal/pipeline/SignalPipeline.cpp
+    airborne_radar/signal/pipeline/TrackMeasurementProcessing.cpp
+    airborne_radar/signal/pipeline/RuntimeAssemblySupport.cpp
+    airborne_radar/signal/pipeline/ScanScheduleResolver.cpp
+    airborne_radar/signal/pipeline/SignalComponentFactory.cpp
     airborne_radar/signal/tracking/BoostTrackPool.cpp
     airborne_radar/signal/tracking/EkfFilter.cpp
     airborne_radar/signal/tracking/ImmFilter.cpp

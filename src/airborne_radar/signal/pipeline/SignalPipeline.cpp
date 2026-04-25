@@ -1,4 +1,4 @@
-#include "airborne_radar/signal/pipeline/core/SignalPipeline.h"
+#include "airborne_radar/signal/pipeline/SignalPipeline.h"
 
 #include <cmath>
 #include <cstdint>
@@ -9,10 +9,10 @@
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
-#include "airborne_radar/signal/pipeline/assembly/RuntimeAssemblySupport.h"
-#include "airborne_radar/signal/pipeline/assembly/SignalComponentFactory.h"
-#include "airborne_radar/signal/pipeline/core/CycleContextSupport.h"
-#include "airborne_radar/signal/pipeline/core/CycleExecutor.h"
+#include "airborne_radar/signal/pipeline/RuntimeAssemblySupport.h"
+#include "airborne_radar/signal/pipeline/SignalComponentFactory.h"
+#include "airborne_radar/signal/pipeline/CycleContextSupport.h"
+#include "airborne_radar/signal/pipeline/CycleExecutor.h"
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 #include "airborne_radar/signal/tracking/IKalmanPredictor.h"
 #include "airborne_radar/signal/tracking/IKalmanUpdater.h"
