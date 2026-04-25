@@ -9,7 +9,8 @@
 #include <vector>
 
 #include "1q/airborne_radar/extension/ControlReducerTypes.h"
-#include "1q/airborne_radar/extension/IRadarContext.h"
+#include "1q/airborne_radar/extension/IRadarCommandBus.h"
+#include "1q/airborne_radar/extension/IRadarControlProfileStore.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 
 namespace airborne_radar {
@@ -24,22 +25,26 @@ namespace extension {
  *
  * 封装两个内聚职责：
  *   1. 调用 ControlReducer 归并 proposals -> profile；
- *   2. 将被采纳的 directives 转换为 RadarCommand 并提交到 IRadarContext。
+ *   2. 将被采纳的 directives 转换为 RadarCommand 并提交到 IRadarCommandBus，
+ *      同时更新 IRadarControlProfileStore。
  */
 class ControlCommandMapper {
  public:
   /**
    * @brief 构造 mapper，所有依赖均为外部生命周期管理。
    * @param control_reducer  控制归并器引用。
-   * @param radar_context    雷达上下文，用于提交命令和更新 profile。
+   * @param command_bus      指令总线，用于提交命令。
+   * @param profile_store    控制真值存储，用于更新 profile。
    */
   ControlCommandMapper(decision::ControlReducer& control_reducer,
-                       extension::IRadarContext& radar_context);
+                       extension::IRadarCommandBus& command_bus,
+                       extension::IRadarControlProfileStore& profile_store);
 
   /**
    * @brief 执行归并和命令提交。
    *
-   * 调用后 *current_profile 更新为归并结果，IRadarContext 已收到新 profile 和所有命令。
+   * 调用后 *current_profile 更新为归并结果，command_bus 已收到所有命令，
+   * profile_store 已收到新 profile。
    *
    * @param current_profile 当前控制真值指针，调用后被写入归并后的新值。
    * @param proposals       本周期战术 proposal 列表。
@@ -51,7 +56,8 @@ class ControlCommandMapper {
 
  private:
   decision::ControlReducer& control_reducer_;
-  extension::IRadarContext& radar_context_;
+  extension::IRadarCommandBus& command_bus_;
+  extension::IRadarControlProfileStore& profile_store_;
 };
 
 }  // namespace extension

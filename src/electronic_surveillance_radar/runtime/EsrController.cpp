@@ -4,11 +4,11 @@
 
 #include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
 #include "1q/electronic_surveillance_radar/extension/IInterceptPipeline.h"
+#include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "common/runtime/RuntimeCycleExecutor.h"
 #include "electronic_surveillance_radar/output/EsrOutputManager.h"
 #include "electronic_surveillance_radar/runtime/components/EsrEnvironmentUpdater.h"
 #include "electronic_surveillance_radar/runtime/components/EsrOutputFormatter.h"
-#include "electronic_surveillance_radar/runtime/components/EsrRuntimeHooks.h"
 #include "electronic_surveillance_radar/runtime/components/EsrSignalProcessor.h"
 
 namespace electronic_surveillance_radar {
@@ -40,12 +40,42 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
   runtime::components::EsrEnvironmentUpdater environment_updater(impl_->environment_service);
   runtime::components::EsrSignalProcessor signal_processor(impl_->pipeline);
   runtime::components::EsrOutputFormatter output_formatter(impl_->output_manager);
-  runtime::components::EsrRuntimeHooks hooks(
-      environment_updater, signal_processor, output_formatter, impl_->environment_service,
-      impl_->runtime_state, impl_->last_cycle_executed, impl_->last_cycle_reused_previous_output,
-      impl_->last_abort_reason);
-  oneq::internal::runtime::ExecuteRuntimeCycle(input, input.cycle_index, &impl_->runtime_state,
-                                               &hooks);
+
+  const oneq::internal::runtime::RuntimeCycleStamp stamp =
+      oneq::internal::runtime::MakeRuntimeCycleStamp(
+          input.cycle_index, impl_->runtime_state.next_batch_id);
+
+  // 校验
+  session::ValidationIssueList issues = session::ValidateEsrCycleInput(input);
+  impl_->runtime_state.last_validation_issues = issues;
+
+  if (session::HasValidationError(issues)) {
+    impl_->last_cycle_executed = false;
+    impl_->last_abort_reason = extension::EsrPipelineAbortReason::kValidationRejected;
+    impl_->last_cycle_reused_previous_output = impl_->runtime_state.has_latest_output;
+    if (!impl_->runtime_state.has_latest_output) {
+      impl_->runtime_state.latest_output = output_formatter.BuildEmptyFrame(stamp);
+    }
+    impl_->runtime_state.has_latest_output = true;
+    ++impl_->runtime_state.next_batch_id;
+    return;
+  }
+
+  // 冻结环境
+  environment_updater.FreezeEnvironment(input, stamp);
+
+  // 执行
+  output::EsrOutputFrame output_frame =
+      signal_processor.Execute(input, impl_->environment_service);
+  output_formatter.BuildOutputFrame(stamp, output_frame);
+  output_formatter.LogCycleSummary(input, stamp, output_frame);
+
+  impl_->runtime_state.latest_output = output_frame;
+  impl_->runtime_state.has_latest_output = true;
+  impl_->last_cycle_executed = true;
+  impl_->last_cycle_reused_previous_output = false;
+  impl_->last_abort_reason = extension::EsrPipelineAbortReason::kNone;
+  ++impl_->runtime_state.next_batch_id;
 }
 
 bool EsrController::HasLatestOutputFrame() const { return impl_->runtime_state.has_latest_output; }

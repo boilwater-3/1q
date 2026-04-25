@@ -23,7 +23,6 @@ set(ESR_RUNTIME_SOURCES
     electronic_surveillance_radar/runtime/EsrCycleTelemetryLogger.cpp
     electronic_surveillance_radar/runtime/components/EsrEnvironmentUpdater.cpp
     electronic_surveillance_radar/runtime/components/EsrOutputFormatter.cpp
-    electronic_surveillance_radar/runtime/components/EsrRuntimeHooks.cpp
     electronic_surveillance_radar/runtime/components/EsrSignalProcessor.cpp
     electronic_surveillance_radar/output/EsrOutputManager.cpp
 )

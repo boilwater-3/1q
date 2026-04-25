@@ -29,8 +29,10 @@ set(AR_ENVIRONMENT_HEADERS
 # ── AR 扩展域 ────────────────────────────────────────────────────────
 set(AR_EXTENSION_HEADERS
     "airborne_radar/extension/ControlReducerTypes.h"
+    "airborne_radar/extension/IRadarCommandBus.h"
     "airborne_radar/extension/IRadarContext.h"
-    "airborne_radar/extension/IRadarOutputReader.h"
+    "airborne_radar/extension/IRadarContextReader.h"
+    "airborne_radar/extension/IRadarControlProfileStore.h"
     "airborne_radar/extension/ISignalPipeline.h"
     "airborne_radar/extension/ITacticalDecisionEngine.h"
     "airborne_radar/extension/IOverrideControlStrategy.h"

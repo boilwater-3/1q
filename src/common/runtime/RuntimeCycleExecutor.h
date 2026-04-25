@@ -82,46 +82,6 @@ inline void AdvanceBatchId(std::uint64_t* batch_id) {
   ++(*batch_id);
 }
 
-/**
- * @brief 执行通用单周期骨架流程。
- * @tparam InputT 周期输入类型。
- * @tparam OutputT 周期输出类型。
- * @tparam ValidationIssuesT 校验问题列表类型。
- * @tparam HooksT 业务 Hook 实现类型。
- * @param[in] input 当前周期输入。
- * @param[in] cycle_index 当前周期号。
- * @param[in,out] state 骨架状态缓存。
- * @param[in,out] hooks 业务 Hook。
- *
- * @note `hooks` 需要提供以下成员函数：
- * 1. `Validate(input) -> RuntimeValidationResult<ValidationIssuesT>`
- * 2. `FreezeEnvironment(input, stamp)`
- * 3. `Execute(input, stamp) -> OutputT`
- * 4. `BuildErrorOutput(input, stamp) -> OutputT`
- */
-template <typename InputT, typename OutputT, typename ValidationIssuesT, typename HooksT>
-void ExecuteRuntimeCycle(const InputT& input, std::uint32_t cycle_index,
-                         RuntimeCycleState<OutputT, ValidationIssuesT>* state, HooksT* hooks) {
-  if (state == nullptr || hooks == nullptr) {
-    return;
-  }
-
-  const RuntimeCycleStamp stamp = MakeRuntimeCycleStamp(cycle_index, state->next_batch_id);
-  const RuntimeValidationResult<ValidationIssuesT> validation = hooks->Validate(input);
-  state->last_validation_issues = validation.issues;
-
-  if (validation.has_error) {
-    state->latest_output = hooks->BuildErrorOutput(input, stamp);
-    state->has_latest_output = true;
-    AdvanceBatchId(&state->next_batch_id);
-    return;
-  }
-
-  hooks->FreezeEnvironment(input, stamp);
-  state->latest_output = hooks->Execute(input, stamp);
-  state->has_latest_output = true;
-  AdvanceBatchId(&state->next_batch_id);
-}
 
 }  // namespace runtime
 }  // namespace internal

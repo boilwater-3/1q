@@ -8,7 +8,6 @@
 #include "common/logging/ProjectLog.h"
 #include "electro_optical_sensor/runtime/components/EosCycleOutcomeRecorder.h"
 #include "electro_optical_sensor/runtime/components/EosInputValidator.h"
-#include "electro_optical_sensor/runtime/components/EosRuntimeHooks.h"
 #include "electro_optical_sensor/runtime/components/EosSignalProcessor.h"
 
 namespace electro_optical_sensor {
@@ -43,6 +42,21 @@ EosController::EosController(extension::IEosPipeline& pipeline) : impl_(new Impl
 
 EosController::~EosController() = default;
 
+namespace {
+
+/** @brief 校验 EOS 执行结果是否符合契约。 */
+bool IsEosExecuteResultContractValid(
+    const extension::EosPipelineExecuteResult& execute_result,
+    const ::electro_optical_sensor::session::EosCycleInput& input) {
+  if (!execute_result.executed_this_cycle) {
+    return false;
+  }
+  return execute_result.abort_reason == extension::EosPipelineAbortReason::kNone &&
+         execute_result.output_frame.cycle_index == input.cycle_index;
+}
+
+}  // namespace
+
 void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInput& input) {
   runtime::components::EosInputValidator input_validator;
   runtime::components::EosSignalProcessor signal_processor(impl_->pipeline);
@@ -57,16 +71,20 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
   const oneq::internal::runtime::RuntimeCycleStamp stamp =
       oneq::internal::runtime::MakeRuntimeCycleStamp(input.cycle_index, 0U);
 
-  runtime::components::EosRuntimeHooks hooks(
-      input_validator, signal_processor, outcome_recorder, previous_output, had_previous_output,
-      previous_pipeline_state, impl_->has_validation_error);
-
   outcome_recorder.ResetPerCycleFlags();
-  const oneq::internal::runtime::RuntimeValidationResult<session::ValidationIssueList> validation =
-      hooks.Validate(input);
-  impl_->last_validation_issues = validation.issues;
-  if (validation.has_error) {
-    hooks.BuildErrorOutput(input, stamp);
+
+  // 校验
+  const session::ValidationIssueList issues = input_validator.Validate(input);
+  impl_->last_validation_issues = issues;
+  impl_->has_validation_error = input_validator.HasError(issues);
+
+  if (impl_->has_validation_error) {
+    outcome_recorder.RecordValidationRejected(previous_output, had_previous_output);
+    if (had_previous_output) {
+      impl_->latest_output = previous_output;
+    } else {
+      impl_->latest_output = output::EosOutputFrame{};
+    }
     PROJECT_LOG_DEBUG(
         "[EosController] cycle telemetry: cycle_index={} executed=false "
         "abort=kValidationRejected validation_issues={}",
@@ -74,14 +92,34 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
     return;
   }
 
-  hooks.FreezeEnvironment(input, stamp);
-  const output::EosOutputFrame output_frame = hooks.Execute(input, stamp);
-  if (impl_->last_cycle_executed) {
-    PROJECT_LOG_DEBUG(
-        "[EosController] cycle telemetry: cycle_index={} executed=true "
-        "detections={} input_targets={} abort=kNone",
-        input.cycle_index, output_frame.detections.size(), input.scene.size());
+  // FreezeEnvironment（EOS 当前为空操作）
+  (void)stamp;
+
+  // 执行信号流水线
+  const extension::EosPipelineExecuteResult execute_result = signal_processor.Execute(input);
+
+  if (!IsEosExecuteResultContractValid(execute_result, input)) {
+    const bool restore_ok = signal_processor.RestoreRuntimeState(previous_pipeline_state);
+    if (!restore_ok) {
+      outcome_recorder.RecordExecuteContractViolationRollbackFailed();
+      impl_->latest_output = output::EosOutputFrame{};
+      return;
+    }
+    outcome_recorder.RecordExecuteContractViolationRollbackSucceeded(
+        previous_output, had_previous_output, execute_result.abort_reason);
+    impl_->latest_output = previous_output;
+    impl_->has_latest_output = had_previous_output;
+    return;
   }
+
+  outcome_recorder.RecordExecuteSucceeded(execute_result);
+  impl_->latest_output = execute_result.output_frame;
+  impl_->has_latest_output = true;
+
+  PROJECT_LOG_DEBUG(
+      "[EosController] cycle telemetry: cycle_index={} executed=true "
+      "detections={} input_targets={} abort=kNone",
+      input.cycle_index, execute_result.output_frame.detections.size(), input.scene.size());
 }
 
 bool EosController::HasLatestOutputFrame() const { return impl_->has_latest_output; }

@@ -12,15 +12,12 @@ set(AIRBORNE_SIGNAL_SOURCES
     airborne_radar/signal/assembly/DataOutputManager.cpp
     airborne_radar/signal/detection/RadarEquations.cpp
     airborne_radar/signal/detection/SignalDetector.cpp
-    airborne_radar/signal/pipeline/core/AssociationExecutionSupport.cpp
-    airborne_radar/signal/pipeline/core/ContextBindingSupport.cpp
     airborne_radar/signal/pipeline/effects/ControlProfileEffects.cpp
     airborne_radar/signal/pipeline/core/CycleContextSupport.cpp
     airborne_radar/signal/pipeline/core/CycleExecutor.cpp
     airborne_radar/signal/pipeline/assembly/DecisionFrameBuilders.cpp
     airborne_radar/signal/pipeline/core/DetectionExecution.cpp
     airborne_radar/signal/pipeline/effects/JammingEffects.cpp
-    airborne_radar/signal/pipeline/assembly/OutputAssemblySupport.cpp
     airborne_radar/signal/pipeline/core/SignalPipeline.cpp
     airborne_radar/signal/pipeline/assembly/TrackMeasurementProcessing.cpp
     airborne_radar/signal/pipeline/assembly/RuntimeAssemblySupport.cpp
@@ -61,8 +58,6 @@ set(AIRBORNE_CORE_SOURCES
     airborne_radar/runtime/RadarCycleOrchestrator.cpp
     airborne_radar/runtime/RadarController.cpp
     airborne_radar/runtime/components/RadarCycleOutcomeRecorder.cpp
-    airborne_radar/runtime/components/RadarRuntimeHooks.cpp
-    airborne_radar/runtime/components/RadarRuntimeInputBuilder.cpp
     airborne_radar/session/RadarSessionCompositionRoot.cpp
     airborne_radar/session/RadarExternalInputAdapter.cpp
     airborne_radar/session/RadarSessionConfigPresets.cpp
@@ -113,8 +108,10 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarExternalInputAdapter.h
     )
     set(PUBLIC_HEADERS_CORE_CONTROLLER
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/IRadarCommandBus.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/IRadarContext.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/IRadarOutputReader.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/IRadarContextReader.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/IRadarControlProfileStore.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/RadarController.h
     )
     set(PUBLIC_HEADERS_CORE_SESSION

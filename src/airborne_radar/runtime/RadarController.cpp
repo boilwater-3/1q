@@ -11,16 +11,14 @@
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/extension/ISignalPipeline.h"
 #include "airborne_radar/runtime/ControlCommandMapper.h"
+#include "airborne_radar/runtime/CycleTelemetryLogger.h"
 #include "airborne_radar/runtime/RadarCycleOrchestrator.h"
 #include "airborne_radar/runtime/components/RadarCycleOutcomeRecorder.h"
-#include "airborne_radar/runtime/components/RadarRuntimeHooks.h"
-#include "airborne_radar/runtime/components/RadarRuntimeInputBuilder.h"
 #include "airborne_radar/decision/ControlReducer.h"
 #include "airborne_radar/decision/TacticalCoordinator.h"
 #include "airborne_radar/signal/assembly/DataOutputManager.h"
 #include "airborne_radar/signal/assembly/IDataOutputManager.h"
 #include "common/logging/ProjectLog.h"
-#include "common/runtime/RuntimeCycleExecutor.h"
 
 namespace airborne_radar {
 namespace extension {
@@ -70,7 +68,7 @@ struct RadarController::Impl {
         tactical_state_store(new extension::TacticalStateStore()),
         control_reducer(new decision::ControlReducer()),
         output_manager(new signal::assembly::DataOutputManager()),
-        command_mapper(new extension::ControlCommandMapper(*control_reducer, ctx)) {
+        command_mapper(new extension::ControlCommandMapper(*control_reducer, ctx, ctx)) {
     decision_engine = owned_decision_engine.get();
     cycle_orchestrator.reset(new extension::RadarCycleOrchestrator(
         sig, decision_engine, tactical_state_store.get(), env, *output_manager));
@@ -88,7 +86,7 @@ struct RadarController::Impl {
         tactical_state_store(new extension::TacticalStateStore()),
         control_reducer(new decision::ControlReducer()),
         output_manager(new signal::assembly::DataOutputManager()),
-        command_mapper(new extension::ControlCommandMapper(*control_reducer, ctx)),
+        command_mapper(new extension::ControlCommandMapper(*control_reducer, ctx, ctx)),
         cycle_orchestrator(new extension::RadarCycleOrchestrator(
             sig, &ext_engine, tactical_state_store.get(), env, *output_manager)) {}
 };
@@ -114,20 +112,66 @@ void RadarController::RunOnce() {
   const runtime::components::RadarCycleSnapshot snapshot = outcome_recorder.CaptureSnapshot();
   outcome_recorder.ResetPerCycleFlags();
 
-  runtime::components::RadarRuntimeInputBuilder runtime_input_builder;
-  const runtime::components::AirborneRuntimeInput runtime_input =
-      runtime_input_builder.Build(impl_->radar_context);
+  const session::RadarSceneTargetList& scene_targets_ref = impl_->radar_context.GetSceneTargets();
+  const session::RadarSceneTargetList* scene_targets = &scene_targets_ref;
+  const model::PlatformAttitudeDeg platform_attitude = impl_->radar_context.GetPlatformAttitude();
+  const float cycle_dt_sec = impl_->radar_context.GetCycleDeltaTimeSec();
 
-  runtime::components::RadarRuntimeHooks hooks(
-      *impl_->cycle_orchestrator, *impl_->command_mapper, impl_->control_profile.get(),
-      impl_->runtime_state, impl_->last_cycle_executed, impl_->last_cycle_reused_previous_output,
-      impl_->last_signal_abort_reason);
-  oneq::internal::runtime::ExecuteRuntimeCycle(runtime_input, impl_->cycle_index,
-                                               &impl_->runtime_state, &hooks);
-  if (!impl_->last_cycle_executed) {
+  const oneq::internal::runtime::RuntimeCycleStamp stamp =
+      oneq::internal::runtime::MakeRuntimeCycleStamp(
+          impl_->cycle_index, impl_->runtime_state.next_batch_id);
+
+  // 校验
+  session::ValidationIssueList issues =
+      session::ValidateRadarCycleDeltaTime(cycle_dt_sec);
+  if (scene_targets != nullptr) {
+    const session::ValidationIssueList target_issues =
+        session::ValidateRadarSceneTargets(*scene_targets);
+    issues.insert(issues.end(), target_issues.begin(), target_issues.end());
+  }
+  impl_->runtime_state.last_validation_issues = issues;
+
+  if (session::HasValidationError(issues)) {
+    impl_->last_cycle_reused_previous_output = impl_->runtime_state.has_latest_output;
     outcome_recorder.RestoreFromFailedCycle(snapshot);
     return;
   }
+
+  // 冻结环境
+  impl_->cycle_orchestrator->FreezeEnvironment(cycle_dt_sec, stamp);
+
+  // 执行信号流水线与决策引擎
+  const extension::CycleExecutionResult exec_result = impl_->cycle_orchestrator->Execute(
+      scene_targets, platform_attitude,
+      impl_->control_profile.get(), stamp);
+  impl_->last_cycle_executed = exec_result.signal_result.executed_this_cycle;
+  impl_->last_signal_abort_reason = exec_result.signal_result.abort_reason;
+
+  if (!impl_->last_cycle_executed) {
+    impl_->last_cycle_reused_previous_output = impl_->runtime_state.has_latest_output;
+    outcome_recorder.RestoreFromFailedCycle(snapshot);
+    return;
+  }
+
+  // 应用控制指令并记录遥测
+  const extension::ControlReductionResult reduction_result =
+      impl_->command_mapper->Apply(&impl_->control_profile.get(),
+                                   exec_result.decision_result.proposals);
+  const std::size_t input_target_count =
+      scene_targets != nullptr ? scene_targets->size() : 0U;
+  extension::CycleTelemetryLogger::LogCycleSummary(
+      extension::CycleTelemetryPayload(
+          stamp, input_target_count, exec_result.signal_result.decision_frame.tracks.size(),
+          reduction_result.applied_directives.size(),
+          exec_result.signal_result.decision_frame.environment_jamming_detected,
+          impl_->control_profile.get().version,
+          exec_result.signal_result.decision_frame.perception_quality_info,
+          exec_result.signal_result.association_quality_metrics));
+
+  impl_->runtime_state.latest_output = exec_result.track_output_frame;
+  impl_->runtime_state.has_latest_output = true;
+  impl_->last_cycle_reused_previous_output = false;
+  ++impl_->runtime_state.next_batch_id;
   outcome_recorder.CommitSuccessfulCycle();
 }
 

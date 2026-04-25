@@ -12,7 +12,6 @@
 #include "1q/airborne_radar/extension/ISignalPipeline.h"
 #include "1q/airborne_radar/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/session/RadarInputValidation.h"
-#include "1q/airborne_radar/extension/IRadarOutputReader.h"
 #include "1q/airborne_radar/extension/ControlReducerTypes.h"
 #include "1q/api.hpp"
 
@@ -46,9 +45,9 @@ namespace extension {
  * @details 采用 PIMPL 模式隐藏实现细节，保证 ABI 稳定性；
  *          内部状态变更不会触发外部项目重编。
  */
-class ONEQ_API RadarController : public IRadarOutputReader {
+class ONEQ_API RadarController {
  public:
-  ~RadarController() override;
+  ~RadarController();
 
   /**
    * @brief 构造函数，使用默认战术协调器。
@@ -91,13 +90,13 @@ class ONEQ_API RadarController : public IRadarOutputReader {
    * @brief 判断当前是否已有可读取的最新轨迹输出帧。
    * @return 若已完成至少一次输出帧装配则返回 true。
    */
-  bool HasLatestTrackOutputFrame() const override;
+  bool HasLatestTrackOutputFrame() const;
 
   /**
    * @brief 获取最近一次已缓存的轨迹输出帧。
    * @return 最近一次运行周期产生的轨迹输出帧引用。
    */
-  const output::TrackOutputFrame& GetLatestTrackOutputFrame() const override;
+  const output::TrackOutputFrame& GetLatestTrackOutputFrame() const;
 
   /**
    * @brief 获取最近一次输入校验问题列表。

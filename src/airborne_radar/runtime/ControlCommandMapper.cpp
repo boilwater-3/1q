@@ -1,6 +1,7 @@
 #include "airborne_radar/runtime/ControlCommandMapper.h"
 
-#include "1q/airborne_radar/extension/IRadarContext.h"
+#include "1q/airborne_radar/extension/IRadarCommandBus.h"
+#include "1q/airborne_radar/extension/IRadarControlProfileStore.h"
 #include "1q/airborne_radar/extension/control/RadarCommand.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "airborne_radar/decision/ControlReducer.h"
@@ -60,9 +61,11 @@ extension::control::RadarCommand ToRadarCommand(
 
 ControlCommandMapper::ControlCommandMapper(
     decision::ControlReducer& control_reducer,
-    extension::IRadarContext& radar_context)
+    extension::IRadarCommandBus& command_bus,
+    extension::IRadarControlProfileStore& profile_store)
     : control_reducer_(control_reducer),
-      radar_context_(radar_context) {}
+      command_bus_(command_bus),
+      profile_store_(profile_store) {}
 
 extension::ControlReductionResult ControlCommandMapper::Apply(
     extension::control::RadarControlProfile* current_profile,
@@ -71,7 +74,7 @@ extension::ControlReductionResult ControlCommandMapper::Apply(
       control_reducer_.Reduce(*current_profile, proposals);
 
   *current_profile = reduction_result.profile;
-  radar_context_.UpdateRadarControlProfile(*current_profile);
+  profile_store_.UpdateRadarControlProfile(*current_profile);
 
   for (std::size_t i = 0; i < reduction_result.applied_directives.size(); ++i) {
     const extension::control::RadarCommand command =
@@ -79,7 +82,7 @@ extension::ControlReductionResult ControlCommandMapper::Apply(
     if (command.type == extension::control::RadarCommandType::NONE) {
       continue;
     }
-    radar_context_.SubmitControlCommand(command);
+    command_bus_.SubmitControlCommand(command);
   }
 
   return reduction_result;
