@@ -83,7 +83,8 @@ struct DetectionConfig {
 enum class KalmanUpdateBackend {
   kStandardKfJoseph = 0,
   kUdKf,
-  kSrif
+  kSrif,
+  kEkf
 };
 
 struct TrackingConfig {

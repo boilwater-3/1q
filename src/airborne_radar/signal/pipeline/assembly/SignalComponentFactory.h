@@ -16,6 +16,7 @@
 #include "airborne_radar/signal/pipeline/config/SignalPipelineExecutionConfig.h"
 #include "airborne_radar/signal/pipeline/config/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/tracking/BoostTrackPool.h"
+#include "airborne_radar/signal/tracking/EkfFilter.h"
 #include "airborne_radar/signal/tracking/IKalmanPredictor.h"
 #include "airborne_radar/signal/tracking/IKalmanUpdater.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"

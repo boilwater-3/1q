@@ -34,6 +34,8 @@ inline engineering::KalmanUpdateBackend ResolveKalmanUpdateBackend(
       return engineering::KalmanUpdateBackend::kUdKf;
     case KalmanUpdateBackend::kSrif:
       return engineering::KalmanUpdateBackend::kSrif;
+    case KalmanUpdateBackend::kEkf:
+      return engineering::KalmanUpdateBackend::kEkf;
     case KalmanUpdateBackend::kStandardKfJoseph:
     default:
       return engineering::KalmanUpdateBackend::kStandardKfJoseph;
