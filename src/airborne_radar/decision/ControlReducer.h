@@ -13,7 +13,6 @@
 
 namespace airborne_radar {
 namespace decision {
-namespace pipeline {
 
 /**
  * @brief ControlReducerRuntimeState 存储 reducer 跨周期的内部运行态。
@@ -77,7 +76,6 @@ class ControlReducer {
   std::uint32_t eccm_cooldown_cycles_remaining_{0};
 };
 
-}  // namespace pipeline
 }  // namespace decision
 }  // namespace airborne_radar
 

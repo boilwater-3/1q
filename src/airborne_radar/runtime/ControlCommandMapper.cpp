@@ -3,7 +3,7 @@
 #include "1q/airborne_radar/extension/IRadarContext.h"
 #include "1q/airborne_radar/extension/control/RadarCommand.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
-#include "airborne_radar/decision/pipeline/ControlReducer.h"
+#include "airborne_radar/decision/ControlReducer.h"
 
 namespace airborne_radar {
 namespace extension {
@@ -59,7 +59,7 @@ extension::control::RadarCommand ToRadarCommand(
 }  // namespace
 
 ControlCommandMapper::ControlCommandMapper(
-    decision::pipeline::ControlReducer& control_reducer,
+    decision::ControlReducer& control_reducer,
     extension::IRadarContext& radar_context)
     : control_reducer_(control_reducer),
       radar_context_(radar_context) {}

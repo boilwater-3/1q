@@ -14,9 +14,7 @@
 
 namespace airborne_radar {
 namespace decision {
-namespace pipeline {
 class ControlReducer;
-}  // namespace pipeline
 }  // namespace decision
 
 namespace extension {
@@ -35,7 +33,7 @@ class ControlCommandMapper {
    * @param control_reducer  控制归并器引用。
    * @param radar_context    雷达上下文，用于提交命令和更新 profile。
    */
-  ControlCommandMapper(decision::pipeline::ControlReducer& control_reducer,
+  ControlCommandMapper(decision::ControlReducer& control_reducer,
                        extension::IRadarContext& radar_context);
 
   /**
@@ -52,7 +50,7 @@ class ControlCommandMapper {
       const std::vector<extension::TacticalProposal>& proposals);
 
  private:
-  decision::pipeline::ControlReducer& control_reducer_;
+  decision::ControlReducer& control_reducer_;
   extension::IRadarContext& radar_context_;
 };
 

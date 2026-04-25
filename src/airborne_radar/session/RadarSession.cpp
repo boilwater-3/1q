@@ -9,8 +9,8 @@
 #include "1q/airborne_radar/extension/RadarController.h"
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
 #include "airborne_radar/session/RadarSessionCompositionRoot.h"
-#include "airborne_radar/session/RuntimeConfigResolver.h"
-#include "airborne_radar/session/SessionConfigBridge.h"
+#include "airborne_radar/config/mapping/RuntimePatchMapper.h"
+#include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 #include "airborne_radar/signal/pipeline/core/SignalPipeline.h"
 
 namespace airborne_radar {
@@ -32,7 +32,7 @@ struct RadarSession::Impl {
     initial_session_config.mission = composition.runtime_mission;
     initial_session_config.policy = composition.runtime_policy;
     runtime_state.execution_config =
-        internal::BuildExecutionConfigFromSessionConfig(initial_session_config);
+        config::mapping::MapSessionToExecution(initial_session_config);
     runtime_state.environment_scenario_config = composition.runtime_environment_scenario_config;
     runtime_state.jamming_sensitivity_profile = composition.runtime_jamming_sensitivity_profile;
     pending_runtime_state = runtime_state;
@@ -100,7 +100,7 @@ struct RadarSession::Impl {
       }
     } else {
       const session::RadarSessionConfig pipeline_config =
-          internal::BuildSessionConfigFromExecutionConfig(pending_runtime_state.execution_config);
+          config::mapping::MapExecutionToSession(pending_runtime_state.execution_config);
       if (!signal_pipeline.UpdateConfig(pipeline_config)) {
         return false;
       }
@@ -132,8 +132,8 @@ struct RadarSession::Impl {
     }
   }
 
-  internal::RuntimeConfigState runtime_state{};
-  internal::RuntimeConfigState pending_runtime_state{};
+  config::mapping::RuntimeConfigState runtime_state{};
+  config::mapping::RuntimeConfigState pending_runtime_state{};
   bool has_pending_runtime_update{false};
   std::unique_ptr<extension::IRadarContext> owned_radar_context;
   std::unique_ptr<extension::ISignalPipeline> owned_signal_pipeline;
@@ -276,10 +276,10 @@ extension::AssociationQualityMetrics RadarSession::GetLastAssociationQualityMetr
 }
 
 void RadarSession::ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch) {
-  const internal::RuntimeConfigState& patch_base_state =
+  const config::mapping::RuntimeConfigState& patch_base_state =
       impl_->has_pending_runtime_update ? impl_->pending_runtime_state : impl_->runtime_state;
-  const internal::RuntimeConfigResolveResult resolved =
-      internal::ResolveRuntimeConfigPatch(patch_base_state, patch);
+  const config::mapping::RuntimeConfigResolveResult resolved =
+      config::mapping::ApplyRuntimePatch(patch_base_state, patch);
   if (!resolved.has_requested_update || !resolved.is_valid) {
     return;
   }

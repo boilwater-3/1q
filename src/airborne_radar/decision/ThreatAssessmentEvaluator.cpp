@@ -1,4 +1,4 @@
-#include "airborne_radar/decision/evaluators/ThreatAssessmentEvaluator.h"
+#include "airborne_radar/decision/ThreatAssessmentEvaluator.h"
 
 #include <algorithm>
 #include <cmath>
@@ -7,28 +7,18 @@
 
 namespace airborne_radar {
 namespace decision {
-namespace evaluators {
 
 namespace {
 
 /**
  * @brief 仓储匹配结果通过验收所需的最小概率阈值。
- * @note 代码行为依据：仅当匹配概率不低于该阈值时，仓储结果才可能覆盖启发式分类。
  */
 const float kMinRepositoryMatchProbability = 0.55f;
 
 /**
  * @brief 仓储匹配结果通过验收所允许的最大距离阈值。
- * @note 代码行为依据：仅当匹配距离不高于该阈值时，仓储结果才会被视为可接受匹配。
  */
 const float kMaxRepositoryMatchDistance = 1.80f;
-
-/**
- * @brief 触发高威胁控制路径所需的最小置信度阈值。
- * @note 代码行为依据：该值位于单次 tentative 命中的 `0.35` 与 confirmed / 持续命中的 `0.70`
- * 之间，用于区分低证据与可触发激进控制的目标。
- */
-const float kHighThreatConfidenceThreshold = 0.55f;
 
 }  // namespace
 
@@ -36,49 +26,61 @@ ThreatAssessmentEvaluator::ThreatAssessmentEvaluator(
     const environment::IFeatureRepository* feature_repository)
     : feature_repository_(feature_repository) {}
 
-void ThreatAssessmentEvaluator::Evaluate(
-    const model::DecisionInputFrame& input_frame, pipeline::TacticalStateStore& state_store,
-    pipeline::TacticalEvaluationState& evaluation_state) const {
-  evaluation_state.target_classification_result.clear();
-  evaluation_state.target_classification_result.reserve(input_frame.tracks.size());
-  evaluation_state.lpi_source_info.has_recon_platform = false;
+ThreatAssessmentEvaluator::Result ThreatAssessmentEvaluator::Evaluate(
+    const model::DecisionInputFrame& input_frame,
+    extension::TacticalStateStore& state_store) const {
+  Result result;
+  result.target_classification_result.reserve(input_frame.tracks.size());
 
-  if (input_frame.tracks.empty()) {
-    PROJECT_LOG_DEBUG(
-        "[ThreatAssessmentEvaluator] Empty track snapshot list, classification reset.");
-    evaluation_state.threat_assessment_phase_done = true;
-    return;
-  }
+  // 最近威胁追踪：找到高威胁目标中距离最近的
+  float nearest_threat_range_km = 1e6f;
 
   for (std::size_t i = 0; i < input_frame.tracks.size(); ++i) {
     const model::TrackStateSnapshot& track_snapshot = input_frame.tracks[i];
     const model::TargetCategory category = IdentifyTarget(track_snapshot);
-    evaluation_state.target_classification_result.push_back(category);
-    UpdateLpiSourceInfo(&evaluation_state.lpi_source_info, category.target_type);
+    result.target_classification_result.push_back(category);
+
+    // 更新 LPI 来源信息
+    UpdateLpiSourceInfo(&result.lpi_source_info, track_snapshot, category.target_type);
 
     const std::uint64_t track_key = track_snapshot.association_key;
-    const float previous_confidence = state_store.confidence_memory.count(track_key) != 0U
-                                          ? state_store.confidence_memory[track_key]
-                                          : 0.0f;
+    const float previous_confidence =
+        state_store.confidence_memory.count(track_key) != 0U
+            ? state_store.confidence_memory[track_key]
+            : 0.0f;
     const float confidence = UpdateConfidence(track_snapshot, previous_confidence);
     state_store.confidence_memory[track_key] = confidence;
     state_store.threat_memory[track_key] = ComputeThreatScore(track_snapshot);
 
-    const bool can_trigger_aggressive_controls =
-        track_snapshot.status != model::TrackStatus::kLost &&
-        confidence >= kHighThreatConfidenceThreshold;
-
-    if (IsHighThreatCategory(category.target_type) && can_trigger_aggressive_controls) {
-      evaluation_state.should_reduce_power = true;
-    }
-    if (track_snapshot.jamming_detected && can_trigger_aggressive_controls) {
-      evaluation_state.eccm_source_info.has_jamming_signal = true;
+    // 追踪最近的高威胁目标距离
+    if (IsHighThreatCategory(category.target_type)) {
+      const float range_m = std::sqrt(
+          track_snapshot.position_x * track_snapshot.position_x +
+          track_snapshot.position_y * track_snapshot.position_y +
+          track_snapshot.position_z * track_snapshot.position_z);
+      const float range_km = range_m / 1000.0f;
+      if (range_km < nearest_threat_range_km) {
+        nearest_threat_range_km = range_km;
+        result.lpi_source_info.threat_range_km = range_km;
+        result.lpi_source_info.threat_closure_speed_mps =
+            track_snapshot.speed;  // 速度模长作为接近速率的近似
+        result.lpi_source_info.threat_rcs = track_snapshot.rcs;
+        // 方位角/俯仰角预留
+        result.lpi_source_info.threat_azimuth_deg = 0.0f;
+        result.lpi_source_info.threat_elevation_deg = 0.0f;
+      }
     }
 
     PROJECT_LOG_INFO("[ThreatAssessmentEvaluator] Target[{}] -> Classification: {}", i,
                      category.target_type);
   }
-  evaluation_state.threat_assessment_phase_done = true;
+
+  if (input_frame.tracks.empty()) {
+    PROJECT_LOG_DEBUG(
+        "[ThreatAssessmentEvaluator] Empty track snapshot list, classification reset.");
+  }
+
+  return result;
 }
 
 model::TargetCategory ThreatAssessmentEvaluator::IdentifyTarget(
@@ -143,13 +145,16 @@ float ThreatAssessmentEvaluator::ComputeThreatScore(
   return threat_score;
 }
 
-void ThreatAssessmentEvaluator::UpdateLpiSourceInfo(model::LpiSourceInfo* source_info,
-                                                    const std::string& classification) const {
-  if (source_info == nullptr || source_info->has_recon_platform) {
+void ThreatAssessmentEvaluator::UpdateLpiSourceInfo(
+    model::LpiSourceInfo* source_info,
+    const model::TrackStateSnapshot& track_snapshot,
+    const std::string& classification) const {
+  if (source_info == nullptr) {
     return;
   }
 
-  if (IsHighThreatCategory(classification)) {
+  if (IsHighThreatCategory(classification) &&
+      track_snapshot.status == model::TrackStatus::kConfirmed) {
     source_info->has_recon_platform = true;
   }
 }
@@ -181,6 +186,5 @@ bool ThreatAssessmentEvaluator::IsHighThreatCategory(const std::string& category
   return category == "HIGH_THREAT_FIGHTER";
 }
 
-}  // namespace evaluators
 }  // namespace decision
 }  // namespace airborne_radar

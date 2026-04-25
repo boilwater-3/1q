@@ -13,16 +13,16 @@
 #include "1q/airborne_radar/extension/control/ControlDirective.h"
 #include "1q/airborne_radar/model/DecisionInputFrame.h"
 #include "1q/airborne_radar/model/TrackStateSnapshot.h"
-#include "airborne_radar/decision/evaluators/ThreatAssessmentEvaluator.h"
-#include "airborne_radar/decision/pipeline/TacticalCoordinator.h"
-#include "airborne_radar/decision/pipeline/TacticalEvaluation.h"
+#include "airborne_radar/decision/ThreatAssessmentEvaluator.h"
+#include "airborne_radar/decision/TacticalCoordinator.h"
 #include "airborne_radar/environment/FeatureRepository.h"
 
-namespace dp = airborne_radar::decision::pipeline;
-namespace de = airborne_radar::decision::evaluators;
+namespace dp = airborne_radar::decision;
+namespace de = airborne_radar::decision;
 namespace acc = airborne_radar::extension::control;
 namespace acm = airborne_radar::model;
 namespace edb = airborne_radar::environment;
+namespace ext = airborne_radar::extension;
 
 namespace {
 
@@ -44,17 +44,17 @@ acm::DecisionInputFrame BuildSingleTrackFrame(float speed, float rcs, bool jammi
   return frame;
 }
 
-std::string PrimaryCategory(const dp::TacticalDecisionResult& result) {
+std::string PrimaryCategory(const ext::TacticalDecisionResult& result) {
   if (result.target_classification_result.empty()) {
     return "UNKNOWN";
   }
   return result.target_classification_result.front().target_type;
 }
 
-bool ContainsDirectiveType(const std::vector<dp::TacticalProposal>& proposals,
+bool ContainsDirectiveType(const std::vector<ext::TacticalProposal>& proposals,
                            acc::ControlDirectiveType type) {
   return std::find_if(proposals.begin(), proposals.end(),
-                      [type](const dp::TacticalProposal& proposal) {
+                      [type](const ext::TacticalProposal& proposal) {
                         return proposal.directive.type == type;
                       }) != proposals.end();
 }
@@ -63,7 +63,7 @@ bool ContainsDirectiveType(const std::vector<dp::TacticalProposal>& proposals,
 
 TEST(TacticalCoordinatorTest, HighThreatAndJamming) {
   dp::TacticalCoordinator coordinator;
-  dp::TacticalStateStore state_store;
+  ext::TacticalStateStore state_store;
 
   acm::DecisionInputFrame frame = BuildSingleTrackFrame(800.0f, 2.5f, true);
   frame.environment_jamming_detected = true;
@@ -78,11 +78,11 @@ TEST(TacticalCoordinatorTest, HighThreatAndJamming) {
   source.confidence = 1.0f;
   frame.eccm_source_info.jammer_sources.push_back(source);
 
-  const dp::TacticalDecisionResult result =
+  const ext::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
   EXPECT_EQ(PrimaryCategory(result), "HIGH_THREAT_FIGHTER");
-  EXPECT_EQ(result.selected_mode, dp::TacticalMode::kProtectedEmission);
+  EXPECT_EQ(result.selected_mode, ext::TacticalMode::kProtectedEmission);
   EXPECT_TRUE(ContainsDirectiveType(result.proposals,
                                     acc::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION));
   EXPECT_TRUE(ContainsDirectiveType(
@@ -95,27 +95,27 @@ TEST(TacticalCoordinatorTest, HighThreatAndJamming) {
 
 TEST(TacticalCoordinatorTest, LowThreatClearEnvironment) {
   dp::TacticalCoordinator coordinator;
-  dp::TacticalStateStore state_store;
+  ext::TacticalStateStore state_store;
 
   const acm::DecisionInputFrame frame = BuildSingleTrackFrame(150.0f, 1.0f, false);
-  const dp::TacticalDecisionResult result =
+  const ext::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
   EXPECT_EQ(PrimaryCategory(result), "LOW_THREAT_TARGET");
-  EXPECT_EQ(result.selected_mode, dp::TacticalMode::kBaseline);
+  EXPECT_EQ(result.selected_mode, ext::TacticalMode::kBaseline);
   EXPECT_TRUE(result.proposals.empty());
 }
 
 TEST(TacticalCoordinatorTest, HighThreatClearEnvironment) {
   dp::TacticalCoordinator coordinator;
-  dp::TacticalStateStore state_store;
+  ext::TacticalStateStore state_store;
 
   const acm::DecisionInputFrame frame = BuildSingleTrackFrame(900.0f, 5.0f, false);
-  const dp::TacticalDecisionResult result =
+  const ext::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
   EXPECT_EQ(PrimaryCategory(result), "HIGH_THREAT_FIGHTER");
-  EXPECT_EQ(result.selected_mode, dp::TacticalMode::kThreatResponse);
+  EXPECT_EQ(result.selected_mode, ext::TacticalMode::kThreatResponse);
   ASSERT_EQ(result.proposals.size(), 1u);
   EXPECT_EQ(result.proposals[0].directive.type,
             acc::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION);
@@ -123,10 +123,10 @@ TEST(TacticalCoordinatorTest, HighThreatClearEnvironment) {
 
 TEST(TacticalCoordinatorTest, HighRcsCanPromoteThreatWithModerateSpeed) {
   dp::TacticalCoordinator coordinator;
-  dp::TacticalStateStore state_store;
+  ext::TacticalStateStore state_store;
 
   const acm::DecisionInputFrame frame = BuildSingleTrackFrame(180.0f, 4.2f, false);
-  const dp::TacticalDecisionResult result =
+  const ext::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
   EXPECT_EQ(PrimaryCategory(result), "HIGH_THREAT_FIGHTER");
@@ -134,7 +134,7 @@ TEST(TacticalCoordinatorTest, HighRcsCanPromoteThreatWithModerateSpeed) {
 
 TEST(TacticalCoordinatorTest, ClassifiesAllTracksInFrame) {
   dp::TacticalCoordinator coordinator;
-  dp::TacticalStateStore state_store;
+  ext::TacticalStateStore state_store;
 
   acm::DecisionInputFrame frame;
   frame.tracks.push_back(MakeTrack(900.0f, 0.0f, 0.0f, 4.5f));
@@ -142,7 +142,7 @@ TEST(TacticalCoordinatorTest, ClassifiesAllTracksInFrame) {
   frame.tracks[0].status = acm::TrackStatus::kConfirmed;
   frame.tracks[1].status = acm::TrackStatus::kConfirmed;
 
-  const dp::TacticalDecisionResult result =
+  const ext::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
   ASSERT_EQ(result.target_classification_result.size(), frame.tracks.size());
@@ -153,17 +153,17 @@ TEST(TacticalCoordinatorTest, ClassifiesAllTracksInFrame) {
 TEST(ThreatAssessmentEvaluatorTest, RepositoryMatchProvidesProbability) {
   edb::FeatureRepository repository;
   de::ThreatAssessmentEvaluator evaluator(&repository);
-  dp::TacticalStateStore state_store;
-  dp::TacticalEvaluationState evaluation_state;
+  ext::TacticalStateStore state_store;
 
   const acm::DecisionInputFrame frame = BuildSingleTrackFrame(780.0f, 2.8f, true);
 
-  evaluator.Evaluate(frame, state_store, evaluation_state);
+  const de::ThreatAssessmentEvaluator::Result threat_result =
+      evaluator.Evaluate(frame, state_store);
 
-  ASSERT_FALSE(evaluation_state.target_classification_result.empty());
-  EXPECT_EQ(evaluation_state.target_classification_result.front().target_type,
+  ASSERT_FALSE(threat_result.target_classification_result.empty());
+  EXPECT_EQ(threat_result.target_classification_result.front().target_type,
             "HIGH_THREAT_FIGHTER");
-  const float prob = evaluation_state.target_classification_result.front().probability;
+  const float prob = threat_result.target_classification_result.front().probability;
   EXPECT_GT(prob, 0.0f);
   EXPECT_LE(prob, 1.0f);
   EXPECT_FALSE(std::isnan(prob));

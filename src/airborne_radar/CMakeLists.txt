@@ -43,12 +43,11 @@ set(AIRBORNE_SIGNAL_SOURCES
 )
 
 set(AIRBORNE_DECISION_SOURCES
-    airborne_radar/decision/evaluators/EmissionControlEvaluator.cpp
-    airborne_radar/decision/evaluators/SurvivabilityEvaluator.cpp
-    airborne_radar/decision/evaluators/SurvivabilityEvaluatorHelpers.cpp
-    airborne_radar/decision/evaluators/ThreatAssessmentEvaluator.cpp
-    airborne_radar/decision/pipeline/ControlReducer.cpp
-    airborne_radar/decision/pipeline/TacticalCoordinator.cpp
+    airborne_radar/decision/ThreatAssessmentEvaluator.cpp
+    airborne_radar/decision/LpiEvaluator.cpp
+    airborne_radar/decision/EccmEvaluator.cpp
+    airborne_radar/decision/ControlReducer.cpp
+    airborne_radar/decision/TacticalCoordinator.cpp
 )
 
 set(AIRBORNE_CORE_SOURCES
@@ -69,7 +68,6 @@ set(AIRBORNE_CORE_SOURCES
     airborne_radar/session/RadarSessionConfigPresets.cpp
     airborne_radar/session/RadarSessionConfigBuilder.cpp
     airborne_radar/session/RadarReplaySession.cpp
-    airborne_radar/session/RuntimeConfigResolver.cpp
     airborne_radar/session/RadarSession.cpp
     airborne_radar/environment/FeatureRepository.cpp
     airborne_radar/environment/EnvironmentSceneBuilder.cpp

@@ -12,8 +12,8 @@
 
 #include "1q/airborne_radar/model/DecisionInputFrame.h"
 #include "1q/airborne_radar/model/TrackStateSnapshot.h"
-#include "airborne_radar/decision/pipeline/ControlReducer.h"
-#include "airborne_radar/decision/pipeline/TacticalCoordinator.h"
+#include "airborne_radar/decision/ControlReducer.h"
+#include "airborne_radar/decision/TacticalCoordinator.h"
 
 namespace airborne_radar {
 namespace tests {
@@ -66,7 +66,7 @@ std::string FindDirectiveRationale(
 }  // namespace
 
 TEST(TacticalCoordinatorTest, HighThreatTrackGeneratesLpiProposal) {
-  decision::pipeline::TacticalCoordinator coordinator;
+  decision::TacticalCoordinator coordinator;
   extension::TacticalStateStore state_store;
 
   model::DecisionInputFrame frame;
@@ -84,7 +84,7 @@ TEST(TacticalCoordinatorTest, HighThreatTrackGeneratesLpiProposal) {
 }
 
 TEST(TacticalCoordinatorTest, LowEvidenceTrackDoesNotTriggerAggressiveControl) {
-  decision::pipeline::TacticalCoordinator coordinator;
+  decision::TacticalCoordinator coordinator;
   extension::TacticalStateStore state_store;
 
   model::DecisionInputFrame frame;
@@ -100,7 +100,7 @@ TEST(TacticalCoordinatorTest, LowEvidenceTrackDoesNotTriggerAggressiveControl) {
 }
 
 TEST(TacticalCoordinatorTest, JammingEnvironmentGeneratesEccmProposals) {
-  decision::pipeline::TacticalCoordinator coordinator;
+  decision::TacticalCoordinator coordinator;
   extension::TacticalStateStore state_store;
 
   model::DecisionInputFrame frame;
@@ -154,7 +154,7 @@ TEST(TacticalCoordinatorTest, JammingEnvironmentGeneratesEccmProposals) {
 }
 
 TEST(TacticalCoordinatorTest, DetailedEccmFactsSelectOnlyRelevantProposals) {
-  decision::pipeline::TacticalCoordinator coordinator;
+  decision::TacticalCoordinator coordinator;
   extension::TacticalStateStore state_store;
 
   model::DecisionInputFrame frame;
@@ -190,7 +190,7 @@ TEST(TacticalCoordinatorTest, DetailedEccmFactsSelectOnlyRelevantProposals) {
 }
 
 TEST(TacticalCoordinatorTest, LowConfidenceEccmSourceDoesNotGetArtificialWeightBoost) {
-  decision::pipeline::TacticalCoordinator coordinator;
+  decision::TacticalCoordinator coordinator;
   extension::TacticalStateStore state_store;
 
   model::DecisionInputFrame frame;
@@ -219,7 +219,7 @@ TEST(TacticalCoordinatorTest, LowConfidenceEccmSourceDoesNotGetArtificialWeightB
 }
 
 TEST(TacticalCoordinatorTest, MultiSourceEccmFactsCombineTypeSpecificCountermeasures) {
-  decision::pipeline::TacticalCoordinator coordinator;
+  decision::TacticalCoordinator coordinator;
   extension::TacticalStateStore state_store;
 
   model::DecisionInputFrame frame;
@@ -271,7 +271,7 @@ TEST(TacticalCoordinatorTest, MultiSourceEccmFactsCombineTypeSpecificCountermeas
 
 TEST(TacticalCoordinatorTest,
      LowConfidenceMultiSourceFactsDoNotTriggerAggressiveTypeSpecificActions) {
-  decision::pipeline::TacticalCoordinator coordinator;
+  decision::TacticalCoordinator coordinator;
   extension::TacticalStateStore state_store;
 
   model::DecisionInputFrame frame;
@@ -306,7 +306,7 @@ TEST(TacticalCoordinatorTest,
 }
 
 TEST(TacticalCoordinatorTest, AssociationStressCanBackfillDeceptionDrivenEccmTrigger) {
-  decision::pipeline::TacticalCoordinator coordinator;
+  decision::TacticalCoordinator coordinator;
   extension::TacticalStateStore state_store;
 
   model::DecisionInputFrame frame;
@@ -336,7 +336,7 @@ TEST(TacticalCoordinatorTest, AssociationStressCanBackfillDeceptionDrivenEccmTri
 }
 
 TEST(TacticalCoordinatorTest, AssociationStressRaisesTypeSpecificEccmPriorityWithoutMutatingFacts) {
-  decision::pipeline::TacticalCoordinator coordinator;
+  decision::TacticalCoordinator coordinator;
   extension::TacticalStateStore baseline_state_store;
   extension::TacticalStateStore stressed_state_store;
 
@@ -383,7 +383,7 @@ TEST(TacticalCoordinatorTest, AssociationStressRaisesTypeSpecificEccmPriorityWit
 }
 
 TEST(TacticalCoordinatorTest, PoorAssociationQualityWithoutJammingSemanticDoesNotTriggerEccm) {
-  decision::pipeline::TacticalCoordinator coordinator;
+  decision::TacticalCoordinator coordinator;
   extension::TacticalStateStore state_store;
 
   model::DecisionInputFrame frame;
@@ -412,7 +412,7 @@ TEST(TacticalCoordinatorTest, PoorAssociationQualityWithoutJammingSemanticDoesNo
 }
 
 TEST(TacticalCoordinatorTest, EnvironmentJammingAndAssociationPressureAreBothReflectedInSummary) {
-  decision::pipeline::TacticalCoordinator coordinator;
+  decision::TacticalCoordinator coordinator;
   extension::TacticalStateStore state_store;
 
   model::DecisionInputFrame frame;
@@ -439,7 +439,7 @@ TEST(TacticalCoordinatorTest, EnvironmentJammingAndAssociationPressureAreBothRef
 }
 
 TEST(TacticalCoordinatorTest, LpiProposalStopsWithoutFreshThreatEvidence) {
-  decision::pipeline::TacticalCoordinator coordinator;
+  decision::TacticalCoordinator coordinator;
   extension::TacticalStateStore state_store;
 
   model::DecisionInputFrame trigger_frame;
@@ -464,13 +464,14 @@ TEST(TacticalCoordinatorTest, LpiProposalStopsWithoutFreshThreatEvidence) {
 }
 
 TEST(TacticalCoordinatorTest, EccmProposalStopsWithoutFreshJammingEvidence) {
-  decision::pipeline::TacticalCoordinator coordinator;
+  decision::TacticalCoordinator coordinator;
   extension::TacticalStateStore state_store;
 
   model::DecisionInputFrame trigger_frame;
   trigger_frame.cycle_index = 1u;
   trigger_frame.batch_id = 1u;
   trigger_frame.environment_jamming_detected = true;
+  trigger_frame.eccm_source_info.has_jamming_signal = true;
   trigger_frame.tracks.push_back(
       BuildTrack(260.0f, 2.2f, model::TrackStatus::kConfirmed, true));
   const extension::TacticalDecisionResult trigger_result =
@@ -486,10 +487,10 @@ TEST(TacticalCoordinatorTest, EccmProposalStopsWithoutFreshJammingEvidence) {
 }
 
 TEST(TacticalCoordinatorTest, ControlHoldIsOwnedByReducerAfterProposalStops) {
-  decision::pipeline::TacticalCoordinator coordinator;
+  decision::TacticalCoordinator coordinator;
   extension::ControlReducerConfig reducer_config;
   reducer_config.lpi_hold_cycles_after_request = 2u;
-  decision::pipeline::ControlReducer reducer(reducer_config);
+  decision::ControlReducer reducer(reducer_config);
   extension::TacticalStateStore state_store;
   extension::control::RadarControlProfile profile;
 
@@ -526,7 +527,7 @@ TEST(TacticalCoordinatorTest, ControlHoldIsOwnedByReducerAfterProposalStops) {
 }
 
 TEST(TacticalCoordinatorTest, PrunesInactiveTrackStateMemoryByActiveTrackKeys) {
-  decision::pipeline::TacticalCoordinator coordinator;
+  decision::TacticalCoordinator coordinator;
   extension::TacticalStateStore state_store;
 
   model::DecisionInputFrame frame_a;
@@ -558,7 +559,7 @@ TEST(TacticalCoordinatorTest, PrunesInactiveTrackStateMemoryByActiveTrackKeys) {
 }
 
 TEST(ControlReducerTest, ReducerBuildsNextControlProfileAndRejectsDuplicates) {
-  decision::pipeline::ControlReducer reducer;
+  decision::ControlReducer reducer;
   extension::control::RadarControlProfile previous_profile;
 
   std::vector<extension::TacticalProposal> proposals;
@@ -587,7 +588,7 @@ TEST(ControlReducerTest, ReducerBuildsNextControlProfileAndRejectsDuplicates) {
 }
 
 TEST(ControlReducerTest, AgilityFrequencyHopPhaseAlternatesAcrossConsecutiveEnabledCycles) {
-  decision::pipeline::ControlReducer reducer;
+  decision::ControlReducer reducer;
   extension::control::RadarControlProfile previous_profile;
 
   const std::vector<extension::TacticalProposal> proposals{
@@ -619,7 +620,7 @@ TEST(ControlReducerTest, AgilityFrequencyHopPhaseAlternatesAcrossConsecutiveEnab
 TEST(ControlReducerTest, HopPhaseTogglingDuringHoldDoesNotIncreaseProfileVersion) {
   extension::ControlReducerConfig config;
   config.eccm_hold_cycles_after_request = 2u;
-  decision::pipeline::ControlReducer reducer(config);
+  decision::ControlReducer reducer(config);
 
   extension::control::RadarControlProfile previous_profile;
   const std::vector<extension::TacticalProposal> proposals{
@@ -646,7 +647,7 @@ TEST(ControlReducerTest, HopPhaseTogglingDuringHoldDoesNotIncreaseProfileVersion
 }
 
 TEST(ControlReducerTest, BurnthroughGainFloorsLpiPowerReductionForSurvivability) {
-  decision::pipeline::ControlReducer reducer;
+  decision::ControlReducer reducer;
   extension::control::RadarControlProfile previous_profile;
 
   std::vector<extension::TacticalProposal> proposals;
@@ -674,7 +675,7 @@ TEST(ControlReducerTest, ReducerSupportsCustomConfigPolicyTable) {
   config.eccm_burnthrough_gain = 1.8f;
   config.burnthrough_lpi_power_floor = 0.92f;
 
-  decision::pipeline::ControlReducer reducer(config);
+  decision::ControlReducer reducer(config);
   extension::control::RadarControlProfile previous_profile;
 
   std::vector<extension::TacticalProposal> proposals;
@@ -700,7 +701,7 @@ TEST(ControlReducerTest, ReducerSupportsCustomConfigPolicyTable) {
 }
 
 TEST(ControlReducerTest, ReducerClearsExpiredDomainWhenNoProposalArrives) {
-  decision::pipeline::ControlReducer reducer;
+  decision::ControlReducer reducer;
   extension::control::RadarControlProfile previous_profile;
   previous_profile.version = 3u;
   previous_profile.enable_lpi_power_control = true;
@@ -717,7 +718,7 @@ TEST(ControlReducerTest, ReducerClearsExpiredDomainWhenNoProposalArrives) {
 TEST(ControlReducerTest, ReducerPreservesDomainDuringConfiguredHoldWindow) {
   extension::ControlReducerConfig config;
   config.eccm_hold_cycles_after_request = 1u;
-  decision::pipeline::ControlReducer reducer(config);
+  decision::ControlReducer reducer(config);
   extension::control::RadarControlProfile previous_profile;
 
   std::vector<extension::TacticalProposal> proposals;
@@ -746,7 +747,7 @@ TEST(ControlReducerTest, ReducerPreservesDomainDuringConfiguredHoldWindow) {
 TEST(ControlReducerTest, ReducerRejectsReentryDuringConfiguredCooldown) {
   extension::ControlReducerConfig config;
   config.eccm_cooldown_cycles_after_release = 2u;
-  decision::pipeline::ControlReducer reducer(config);
+  decision::ControlReducer reducer(config);
 
   extension::control::RadarControlProfile active_profile;
   active_profile.version = 7u;
@@ -784,7 +785,7 @@ TEST(ControlReducerTest, ReducerRejectsReentryDuringConfiguredCooldown) {
 }
 
 TEST(ControlReducerTest, BeamConflictPrefersSurvivabilityByDefault) {
-  decision::pipeline::ControlReducer reducer;
+  decision::ControlReducer reducer;
   extension::control::RadarControlProfile previous_profile;
 
   std::vector<extension::TacticalProposal> proposals;

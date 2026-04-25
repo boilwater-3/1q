@@ -1,27 +1,28 @@
 /**
  * @file ThreatAssessmentEvaluator.h
- * @brief 定义威胁评估 evaluator，与旧分类节点共享核心逻辑。
+ * @brief 定义威胁评估 evaluator 类。
  */
 
-#ifndef AIRBORNE_RADAR_DECISION_EVALUATORS_THREAT_ASSESSMENT_EVALUATOR_H_
-#define AIRBORNE_RADAR_DECISION_EVALUATORS_THREAT_ASSESSMENT_EVALUATOR_H_
+#ifndef AIRBORNE_RADAR_DECISION_THREAT_ASSESSMENT_EVALUATOR_H_
+#define AIRBORNE_RADAR_DECISION_THREAT_ASSESSMENT_EVALUATOR_H_
 
+#include <cmath>
 #include <string>
 
+#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/model/DecisionSourceInfo.h"
-#include "1q/airborne_radar/model/TrackStateSnapshot.h"
+#include "1q/airborne_radar/model/DecisionInputFrame.h"
 #include "1q/airborne_radar/model/TargetCategory.h"
-#include "airborne_radar/decision/pipeline/TacticalEvaluation.h"
+#include "1q/airborne_radar/model/TrackStateSnapshot.h"
 #include "airborne_radar/environment/IFeatureRepository.h"
 
 namespace airborne_radar {
 namespace decision {
-namespace evaluators {
 
 /**
- * @brief 实现目标分类与威胁记忆更新。
+ * @brief 实现目标分类与威胁记忆更新，输出供 LPI 等模块消费的威胁来源信息。
  */
-class ThreatAssessmentEvaluator final : public pipeline::ITacticalEvaluator {
+class ThreatAssessmentEvaluator final {
  public:
   /**
    * @brief 构造函数，可选注入特征仓储。
@@ -31,14 +32,21 @@ class ThreatAssessmentEvaluator final : public pipeline::ITacticalEvaluator {
       const environment::IFeatureRepository* feature_repository = nullptr);
 
   /**
+   * @brief 单周期评估结果。
+   */
+  struct Result {
+    model::TargetCategoryList target_classification_result; /**< 目标分类结果 */
+    model::LpiSourceInfo lpi_source_info;                   /**< 供 LPI 模块消费的来源信息 */
+  };
+
+  /**
    * @brief 评估单周期输入并更新分类与威胁状态。
    * @param input_frame 当前周期决策输入帧。
    * @param[in,out] state_store 跨周期决策状态存储。
-   * @param[in,out] evaluation_state evaluator 间共享的中间结果。
+   * @return 本周期威胁评估结果。
    */
-  void Evaluate(const model::DecisionInputFrame& input_frame,
-                pipeline::TacticalStateStore& state_store,
-                pipeline::TacticalEvaluationState& evaluation_state) const override;
+  Result Evaluate(const model::DecisionInputFrame& input_frame,
+                  extension::TacticalStateStore& state_store) const;
 
  private:
   /**
@@ -59,9 +67,11 @@ class ThreatAssessmentEvaluator final : public pipeline::ITacticalEvaluator {
   /**
    * @brief 更新供 LPI 使用的来源信息。
    * @param[in,out] source_info 待更新的 LPI 来源信息。
+   * @param track_snapshot 当前轨迹快照。
    * @param classification 当前识别出的分类标签。
    */
   void UpdateLpiSourceInfo(model::LpiSourceInfo* source_info,
+                           const model::TrackStateSnapshot& track_snapshot,
                            const std::string& classification) const;
 
   /**
@@ -90,8 +100,7 @@ class ThreatAssessmentEvaluator final : public pipeline::ITacticalEvaluator {
   const environment::IFeatureRepository* feature_repository_;
 };
 
-}  // namespace evaluators
 }  // namespace decision
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_DECISION_EVALUATORS_THREAT_ASSESSMENT_EVALUATOR_H_
+#endif  // AIRBORNE_RADAR_DECISION_THREAT_ASSESSMENT_EVALUATOR_H_

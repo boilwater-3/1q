@@ -15,8 +15,8 @@
 #include "airborne_radar/runtime/components/RadarCycleOutcomeRecorder.h"
 #include "airborne_radar/runtime/components/RadarRuntimeHooks.h"
 #include "airborne_radar/runtime/components/RadarRuntimeInputBuilder.h"
-#include "airborne_radar/decision/pipeline/ControlReducer.h"
-#include "airborne_radar/decision/pipeline/TacticalCoordinator.h"
+#include "airborne_radar/decision/ControlReducer.h"
+#include "airborne_radar/decision/TacticalCoordinator.h"
 #include "airborne_radar/signal/assembly/DataOutputManager.h"
 #include "airborne_radar/signal/assembly/IDataOutputManager.h"
 #include "common/logging/ProjectLog.h"
@@ -46,7 +46,7 @@ struct RadarController::Impl {
   std::unique_ptr<extension::control::RadarControlProfile> owned_control_profile;
   std::reference_wrapper<extension::control::RadarControlProfile> control_profile;
   std::unique_ptr<extension::TacticalStateStore> tactical_state_store;
-  std::unique_ptr<decision::pipeline::ControlReducer> control_reducer;
+  std::unique_ptr<decision::ControlReducer> control_reducer;
   std::unique_ptr<signal::assembly::IDataOutputManager> output_manager;
   std::unique_ptr<extension::ControlCommandMapper> command_mapper;
   std::unique_ptr<extension::RadarCycleOrchestrator> cycle_orchestrator;
@@ -63,12 +63,12 @@ struct RadarController::Impl {
        environment::IEnvironmentService& env)
       : radar_context(ctx),
         signal_pipeline(sig),
-        owned_decision_engine(new decision::pipeline::TacticalCoordinator()),
+        owned_decision_engine(new decision::TacticalCoordinator()),
         environment_service(env),
         owned_control_profile(new extension::control::RadarControlProfile()),
         control_profile(*owned_control_profile),
         tactical_state_store(new extension::TacticalStateStore()),
-        control_reducer(new decision::pipeline::ControlReducer()),
+        control_reducer(new decision::ControlReducer()),
         output_manager(new signal::assembly::DataOutputManager()),
         command_mapper(new extension::ControlCommandMapper(*control_reducer, ctx)) {
     decision_engine = owned_decision_engine.get();
@@ -86,7 +86,7 @@ struct RadarController::Impl {
         owned_control_profile(new extension::control::RadarControlProfile()),
         control_profile(*owned_control_profile),
         tactical_state_store(new extension::TacticalStateStore()),
-        control_reducer(new decision::pipeline::ControlReducer()),
+        control_reducer(new decision::ControlReducer()),
         output_manager(new signal::assembly::DataOutputManager()),
         command_mapper(new extension::ControlCommandMapper(*control_reducer, ctx)),
         cycle_orchestrator(new extension::RadarCycleOrchestrator(
