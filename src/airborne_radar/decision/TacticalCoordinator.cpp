@@ -293,46 +293,17 @@ extension::TacticalDecisionResult TacticalCoordinator::Evaluate(
   bool should_enable_eccm = eccm_has_jamming;
   EccmEvaluator::Result eccm_result;
   if (should_enable_eccm) {
-    // 构建含安全网标记的 ECCM 输入
     model::EccmSourceInfo eccm_input = input_frame.eccm_source_info;
     if (!eccm_input.has_jamming_signal) {
       eccm_input.has_jamming_signal = true;
-    }
-    // 关联质量安全网回填：无实际干扰源时，根据关联语义创建合成干扰源，
-    // 使 ECCM 评估器能生成类型特化的对抗提案（而非仅有自适应波束回退）。
-    if (eccm_input.jammer_sources.empty() &&
-        ShouldBackfillEccmTrigger(input_frame.association_quality_info)) {
-      model::EccmJammerSourceInfo synthetic;
-      switch (input_frame.association_quality_info.dominant_jamming_semantic) {
-        case model::JammingSemantic::kDeception:
-          synthetic.technique = model::JammingTechnique::kDeception;
-          break;
-        case model::JammingSemantic::kRepeater:
-          synthetic.technique = model::JammingTechnique::kRepeater;
-          break;
-        case model::JammingSemantic::kMixed:
-          synthetic.technique = model::JammingTechnique::kDeception;
-          break;
-        default:
-          synthetic.technique = model::JammingTechnique::kUnknown;
-      }
-      synthetic.jammer_power_db = 8.0f;
-      synthetic.jammer_to_signal_db = 6.0f;
-      synthetic.frequency_overlap_ratio =
-          input_frame.association_quality_info.jamming_severity;
-      synthetic.prf_lock_risk =
-          input_frame.association_quality_info.jamming_severity;
-      synthetic.confidence =
-          input_frame.association_quality_info.jamming_severity;
-      synthetic.jammer_in_sidelobe = false;
-      eccm_input.jammer_sources.push_back(synthetic);
     }
     if (override_strategy_ != nullptr &&
         override_strategy_->OverrideEccm(eccm_input, &all_proposals)) {
       PROJECT_LOG_INFO("[TacticalCoordinator] ECCM decision overridden by external strategy.");
       eccm_result.eccm_activated = true;
     } else {
-      eccm_result = eccm_evaluator_.Evaluate(eccm_input, false, &all_proposals);
+      eccm_result = eccm_evaluator_.Evaluate(eccm_input, input_frame.association_quality_info,
+                                             false, &all_proposals);
     }
     PROJECT_LOG_INFO(
         "[TacticalCoordinator] Active jamming detected. Appending ECCM proposals.");

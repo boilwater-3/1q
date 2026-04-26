@@ -101,16 +101,6 @@ model::TrackStateSnapshotList TrackStateSnapshotEmitter::BuildTrackStateSnapshot
   return snapshots;
 }
 
-model::DecisionInputFrame TrackStateSnapshotEmitter::BuildDecisionFrame(
-    std::uint32_t cycle_index, std::uint64_t batch_id, bool environment_jamming_detected) const {
-  model::DecisionInputFrame frame;
-  frame.cycle_index = cycle_index;
-  frame.batch_id = batch_id;
-  frame.environment_jamming_detected = environment_jamming_detected;
-  frame.tracks = BuildTrackStateSnapshots();
-  return frame;
-}
-
 std::vector<AssociationTrackSeed> TrackStateSnapshotEmitter::BuildAssociationSeeds() const {
   std::vector<AssociationTrackSeed> seeds;
   seeds.reserve(active_tracks_.size());

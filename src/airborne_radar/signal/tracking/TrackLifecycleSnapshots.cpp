@@ -27,11 +27,6 @@ model::TrackStateSnapshotList TrackLifecycleManager::BuildTrackStateSnapshots() 
   return snapshot_emitter_.BuildTrackStateSnapshots();
 }
 
-model::DecisionInputFrame TrackLifecycleManager::BuildDecisionFrame(
-    std::uint32_t cycle_index, std::uint64_t batch_id, bool environment_jamming_detected) const {
-  return snapshot_emitter_.BuildDecisionFrame(cycle_index, batch_id, environment_jamming_detected);
-}
-
 std::vector<AssociationTrackSeed> TrackLifecycleManager::BuildAssociationSeeds() const {
   return snapshot_emitter_.BuildAssociationSeeds();
 }

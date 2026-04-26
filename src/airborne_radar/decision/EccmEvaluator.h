@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/model/DecisionInputFrame.h"
 #include "1q/airborne_radar/model/DecisionSourceInfo.h"
 
 namespace airborne_radar {
@@ -43,6 +44,23 @@ class EccmEvaluator final {
                   bool hold_only,
                   std::vector<extension::TacticalProposal>* proposals);
 
+  /**
+   * @brief 基于关联质量压力生成 ECCM 战术提案（无实际干扰源时的路径）。
+   *
+   * 当环境未上报可信干扰源，但关联质量异常显示存在等效干扰压力时，
+   * 直接根据干扰语义与强度推算 ECCM 评分，而非通过合成物理干扰源绕行。
+   *
+   * @param eccm_source_info   环境干扰来源（has_jamming_signal 已置位，jammer_sources 可为空）
+   * @param association_quality 关联质量摘要，包含语义类型和强度
+   * @param hold_only           true 表示仅输出保守保底提案（持有期路径）
+   * @param proposals           [out] 追加 ECCM 提案
+   * @return 本评估周期的 ECCM 评估结果
+   */
+  Result Evaluate(const model::EccmSourceInfo& eccm_source_info,
+                  const model::AssociationQualityInfo& association_quality,
+                  bool hold_only,
+                  std::vector<extension::TacticalProposal>* proposals);
+
  private:
   /** @brief ECCM 提案评分中间累加状态。 */
   struct EccmProposalSelection {
@@ -70,6 +88,16 @@ class EccmEvaluator final {
 
   /** @brief 添加保守自适应波束形成保底分。 */
   static void AccumulateCautiousFallback(EccmProposalSelection* selection);
+
+  /**
+   * @brief 基于关联质量压力直接累加 ECCM 评分（等效于物理参数在阈值处的合成干扰源）。
+   *
+   * 避免向 EccmEvaluator 喂入伪造的物理参数：
+   * 按干扰语义选择技术特化评分项，以 jamming_severity 作为置信度尺度。
+   */
+  static void AccumulateAssociationPressureFacts(
+      const model::AssociationQualityInfo& association_quality,
+      EccmProposalSelection* selection);
 
   /** @brief 累加单个可信干扰源事实对五种 ECCM 措施的评分。 */
   static void AccumulateMultiSourceEccmFacts(

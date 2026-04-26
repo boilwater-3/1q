@@ -389,8 +389,11 @@ TEST(SignalPipelineTest, AutoLifecycleManagerBuildsWithDefaultInternalImmConfig)
   const std::vector<signal::tracking::TrackMeasurement> measurements;
   lifecycle_manager->Update(cycle, measurements);
 
-  const model::DecisionInputFrame decision_frame =
-      lifecycle_manager->BuildDecisionFrame(1u, 7u, false);
+  model::DecisionInputFrame decision_frame(
+      lifecycle_manager->BuildTrackStateSnapshots());
+  decision_frame.cycle_index = 1u;
+  decision_frame.batch_id = 7u;
+  decision_frame.environment_jamming_detected = false;
   EXPECT_EQ(decision_frame.cycle_index, 1u);
   EXPECT_EQ(decision_frame.batch_id, 7u);
 }

@@ -116,10 +116,6 @@ class NonAutoLifecycleManager final : public signal::tracking::ITrackLifecycleMa
     return model::TrackStateSnapshotList();
   }
 
-  model::DecisionInputFrame BuildDecisionFrame(std::uint32_t, std::uint64_t, bool) const override {
-    return model::DecisionInputFrame();
-  }
-
   std::vector<signal::tracking::AssociationTrackSeed> BuildAssociationSeeds() const override {
     return std::vector<signal::tracking::AssociationTrackSeed>();
   }

@@ -8,7 +8,7 @@
 
 #include <vector>
 
-#include "1q/airborne_radar/model/DecisionInputFrame.h"
+
 #include "1q/airborne_radar/model/TrackStateSnapshot.h"
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "airborne_radar/signal/tracking/LifecycleConfig.h"
@@ -40,16 +40,6 @@ class ITrackLifecycleManager {
    * @return 包含 tentative/confirmed/lost 状态且未回收的轨迹列表。
    */
   virtual model::TrackStateSnapshotList BuildTrackStateSnapshots() const = 0;
-  /**
-   * @brief 导出完整的单周期决策输入帧。
-   * @param cycle_index 当前处理周期索引。
-   * @param batch_id 本批关联唯一标识符。
-   * @param environment_jamming_detected 环境是否检测到严重干扰。
-   * @return 封装好的决策数据帧，包含轨迹和量测证据。
-   */
-  virtual model::DecisionInputFrame BuildDecisionFrame(
-      std::uint32_t cycle_index, std::uint64_t batch_id,
-      bool environment_jamming_detected) const = 0;
   /**
    * @brief 导出供关联阶段使用的上一周期轨迹种子。
    * @return 由当前未回收轨迹（tentative/confirmed/lost）组成的关联候选列表。

@@ -158,19 +158,6 @@ class AutoConfiguredLifecycleManager final : public tracking::ITrackLifecycleMan
     return assembly_.lifecycle_manager->BuildTrackStateSnapshots();
   }
 
-  model::DecisionInputFrame BuildDecisionFrame(std::uint32_t cycle_index, std::uint64_t batch_id,
-                                               bool environment_jamming_detected) const override {
-    if (assembly_.lifecycle_manager == nullptr) {
-      model::DecisionInputFrame frame;
-      frame.cycle_index = cycle_index;
-      frame.batch_id = batch_id;
-      frame.environment_jamming_detected = environment_jamming_detected;
-      return frame;
-    }
-    return assembly_.lifecycle_manager->BuildDecisionFrame(cycle_index, batch_id,
-                                                           environment_jamming_detected);
-  }
-
   std::vector<tracking::AssociationTrackSeed> BuildAssociationSeeds() const override {
     if (assembly_.lifecycle_manager == nullptr) {
       return std::vector<tracking::AssociationTrackSeed>();

@@ -10,7 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "1q/airborne_radar/model/DecisionInputFrame.h"
+
 #include "1q/airborne_radar/model/TrackStateSnapshot.h"
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
@@ -46,16 +46,6 @@ class TrackStateSnapshotEmitter {
    */
   model::TrackStateSnapshotList BuildTrackStateSnapshots() const;
 
-  /**
-   * @brief 导出完整的决策输入帧。
-   * @param cycle_index 当前处理周期索引。
-   * @param batch_id 本次批处理唯一 ID。
-   * @param environment_jamming_detected 环境是否检测到大面积干扰。
-   * @return 填充好的决策输入数据帧。
-   */
-  model::DecisionInputFrame BuildDecisionFrame(std::uint32_t cycle_index,
-                                                       std::uint64_t batch_id,
-                                                       bool environment_jamming_detected) const;
 
   /**
    * @brief 导出供关联阶段消费的轨迹种子。

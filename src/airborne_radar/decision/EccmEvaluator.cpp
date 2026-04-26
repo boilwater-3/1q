@@ -64,6 +64,58 @@ void EccmEvaluator::AccumulateCautiousFallback(
       std::max(selection->adaptive_beamforming_score, 1.0f);
 }
 
+void EccmEvaluator::AccumulateAssociationPressureFacts(
+    const model::AssociationQualityInfo& association_quality,
+    EccmProposalSelection* selection) {
+  if (selection == nullptr) {
+    return;
+  }
+  if (!HasMeaningfulAssociationPressure(association_quality.jamming_severity,
+                                        association_quality.association_stress)) {
+    return;
+  }
+
+  // 等效于物理参数恰在阈值处（jammer_power_db = kHighJammerPowerDb,
+  // jammer_to_signal_db = kHighJammerToSignalDb, jammer_in_sidelobe = false）。
+  const float severity = ClampUnit(association_quality.jamming_severity);
+  selection->has_credible_multisource_evidence = true;
+
+  // 通用：自适应波束形成在所有干扰类型下均适用
+  selection->adaptive_beamforming_score += 0.8f * severity;
+
+  // 频率重叠和 PRF 锁风险以 severity 代替（物理映射）
+  if (severity >= kHighFrequencyOverlapRatio) {
+    selection->agility_frequency_score += 2.0f * severity * severity;
+  }
+  if (severity >= kHighPrfLockRisk) {
+    selection->eccm_rejitter_score += 2.0f * severity * severity;
+  }
+  // 穿透增益（等效 power_weight = js_weight = 1.0）
+  selection->burnthrough_gain_score += severity;
+
+  // 干扰语义特化评分
+  switch (association_quality.dominant_jamming_semantic) {
+    case model::JammingSemantic::kDeception:
+    case model::JammingSemantic::kMixed:
+      selection->agility_frequency_score += 1.5f * severity;
+      selection->eccm_rejitter_score += 1.8f * severity;
+      selection->adaptive_beamforming_score += 0.5f * severity;
+      break;
+    case model::JammingSemantic::kRepeater:
+      selection->eccm_rejitter_score += 1.6f * severity;
+      selection->adaptive_beamforming_score += 1.0f * severity;
+      selection->agility_frequency_score += 0.6f * severity;
+      break;
+    case model::JammingSemantic::kNoiseSuppression:
+      selection->adaptive_beamforming_score += 0.7f * severity;
+      selection->burnthrough_gain_score += 0.8f * severity;
+      break;
+    default:
+      selection->adaptive_beamforming_score += 0.4f * severity;
+      break;
+  }
+}
+
 void EccmEvaluator::AccumulateMultiSourceEccmFacts(
     const model::EccmJammerSourceInfo& source,
     EccmProposalSelection* selection) {
@@ -269,6 +321,106 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
     }
   }
 
+  return result;
+}
+
+// ===== Evaluate 重载（关联压力路径）=====
+
+EccmEvaluator::Result EccmEvaluator::Evaluate(
+    const model::EccmSourceInfo& eccm_source_info,
+    const model::AssociationQualityInfo& association_quality, bool hold_only,
+    std::vector<extension::TacticalProposal>* proposals) {
+  if (proposals == nullptr) {
+    return Result();
+  }
+
+  EccmProposalSelection selection;
+
+  if (hold_only) {
+    AccumulateCautiousFallback(&selection);
+  } else {
+    if (!eccm_source_info.jammer_sources.empty()) {
+      for (std::size_t i = 0; i < eccm_source_info.jammer_sources.size(); ++i) {
+        AccumulateMultiSourceEccmFacts(eccm_source_info.jammer_sources[i], &selection);
+      }
+      if (!selection.has_credible_multisource_evidence) {
+        AccumulateCautiousFallback(&selection);
+      }
+    } else if (HasMeaningfulAssociationPressure(association_quality.jamming_severity,
+                                                association_quality.association_stress)) {
+      AccumulateAssociationPressureFacts(association_quality, &selection);
+    } else {
+      AccumulateCautiousFallback(&selection);
+    }
+  }
+
+  // 评分→提案（共享逻辑，与基础 Evaluate 相同）
+  Result result;
+  if (selection.sidelobe_canceller_score >= kThresholdSidelobeCanceller) {
+    AppendProposal(
+        extension::control::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER,
+        ResolvePriorityFromScore(kBasePrioritySidelobeCanceller,
+                                 selection.sidelobe_canceller_score),
+        BuildProposalRationale(
+            extension::control::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER,
+            selection),
+        proposals);
+    result.eccm_activated = true;
+  }
+  if (selection.adaptive_beamforming_score >= kThresholdAdaptiveBeamforming) {
+    AppendProposal(
+        extension::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
+        ResolvePriorityFromScore(kBasePriorityAdaptiveBeamforming,
+                                 selection.adaptive_beamforming_score),
+        BuildProposalRationale(
+            extension::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
+            selection),
+        proposals);
+    result.eccm_activated = true;
+  }
+  if (selection.agility_frequency_score >= kThresholdAgilityFrequency) {
+    AppendProposal(
+        extension::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
+        ResolvePriorityFromScore(kBasePriorityAgilityFrequency,
+                                 selection.agility_frequency_score),
+        BuildProposalRationale(
+            extension::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY, selection),
+        proposals);
+    result.eccm_activated = true;
+  }
+  if (selection.eccm_rejitter_score >= kThresholdEccmRejitter) {
+    AppendProposal(
+        extension::control::ControlDirectiveType::REQUEST_ECCM_REJITTER,
+        ResolvePriorityFromScore(kBasePriorityEccmRejitter, selection.eccm_rejitter_score),
+        BuildProposalRationale(extension::control::ControlDirectiveType::REQUEST_ECCM_REJITTER,
+                               selection),
+        proposals);
+    result.eccm_activated = true;
+  }
+  if (selection.burnthrough_gain_score >= kThresholdBurnthroughGain) {
+    AppendProposal(
+        extension::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
+        ResolvePriorityFromScore(kBasePriorityBurnthroughGain,
+                                 selection.burnthrough_gain_score),
+        BuildProposalRationale(
+            extension::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN, selection),
+        proposals);
+    result.eccm_activated = true;
+  }
+  if (!result.eccm_activated && !hold_only) {
+    AccumulateCautiousFallback(&selection);
+    if (selection.adaptive_beamforming_score >= kThresholdAdaptiveBeamforming) {
+      AppendProposal(
+          extension::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
+          ResolvePriorityFromScore(kBasePriorityAdaptiveBeamforming,
+                                   selection.adaptive_beamforming_score),
+          BuildProposalRationale(
+              extension::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
+              selection),
+          proposals);
+      result.eccm_activated = true;
+    }
+  }
   return result;
 }
 

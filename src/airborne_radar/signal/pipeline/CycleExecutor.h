@@ -12,6 +12,7 @@
 
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
+#include "1q/airborne_radar/model/DecisionInputFrame.h"
 #include "1q/airborne_radar/model/JammingSemantics.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"

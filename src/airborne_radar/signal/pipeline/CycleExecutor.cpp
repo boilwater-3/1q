@@ -235,8 +235,10 @@ void CollectCycleOutputs(const extension::control::RadarControlProfile& control_
   cycle.dt_sec = environment_snapshot.cycle_dt_sec;
   cycle.extra_miss_tolerance = ResolveLifecycleExtraMissTolerance(control_profile);
   auto_lifecycle_manager->Update(cycle, scratch.track_measurements);
-  scratch.decision_frame = auto_lifecycle_manager->BuildDecisionFrame(
-      cycle_index, batch_id, eccm_source_info.has_jamming_signal);
+  scratch.decision_frame = model::DecisionInputFrame(
+      auto_lifecycle_manager->BuildTrackStateSnapshots());
+  scratch.decision_frame.cycle_index = cycle_index;
+  scratch.decision_frame.batch_id = batch_id;
   scratch.decision_frame.environment_jamming_detected = eccm_source_info.has_jamming_signal;
   scratch.decision_frame.eccm_source_info = eccm_source_info;
   scratch.decision_frame.association_quality_info = association_quality_info;

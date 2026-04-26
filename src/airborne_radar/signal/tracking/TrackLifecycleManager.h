@@ -80,16 +80,7 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
    * @return 包含 tentative/confirmed/lost 状态且未回收的决策快照列表。
    */
   model::TrackStateSnapshotList BuildTrackStateSnapshots() const override;
-  /**
-   * @brief 导出完整的决策输入帧。
-   * @param cycle_index 当前处理周期索引。
-   * @param batch_id 本次批处理唯一 ID。
-   * @param environment_jamming_detected 环境是否检测到大面积干扰。
-   * @return 填充好的决策输入数据帧。
-   */
-  model::DecisionInputFrame BuildDecisionFrame(
-      std::uint32_t cycle_index, std::uint64_t batch_id,
-      bool environment_jamming_detected) const override;
+
   /**
    * @brief 导出供关联阶段消费的轨迹种子。
    * @return 由当前未回收轨迹（tentative/confirmed/lost）构成的关联种子列表。
