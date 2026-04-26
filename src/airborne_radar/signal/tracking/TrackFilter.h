@@ -48,51 +48,23 @@ struct PredictedTrackState {
   float velocity_z{0.0f}; /**< Z轴速度 */
 };
 /**
- * @brief 轨迹预测器抽象接口。
- */
-class ITrackPredictor {
- public:
-  virtual ~ITrackPredictor() = default;
-  /**
-   * @brief 执行轨迹预测。
-   * @param input 输入目标特征。
-   * @return 预测后的轨迹状态。
-   */
-  virtual PredictedTrackState Predict(const session::RadarSceneTarget& input) const = 0;
-};
-/**
  * @brief 轻量轨迹预测器。
  * @details 默认保持输入语义；当轴向速度分量缺失时，
  *          会使用标量速度回填 X 轴并将其余轴置零。
  */
-class IdentityTrackPredictor final : public ITrackPredictor {
+class IdentityTrackPredictor final {
  public:
   /**
    * @brief 执行恒等预测。
    * @param input 输入目标特征。
    * @return 预测后的轨迹状态。
    */
-  PredictedTrackState Predict(const session::RadarSceneTarget& input) const override;
-};
-/**
- * @brief 轨迹更新器抽象接口。
- */
-class ITrackUpdater {
- public:
-  virtual ~ITrackUpdater() = default;
-  /**
-   * @brief 执行轨迹更新。
-   * @param predicted 预测后的状态。
-   * @param context 处理上下文。
-   * @return 更新后的目标特征。
-   */
-  virtual session::RadarSceneTarget Update(const PredictedTrackState& predicted,
-                                              const TrackFilterContext& context) const = 0;
+  PredictedTrackState Predict(const session::RadarSceneTarget& input) const;
 };
 /**
  * @brief 简单轨迹更新器实现。
  */
-class SimpleTrackUpdater final : public ITrackUpdater {
+class SimpleTrackUpdater final {
  public:
   /**
    * @brief 构造函数。
@@ -106,7 +78,7 @@ class SimpleTrackUpdater final : public ITrackUpdater {
    * @return 更新后的目标特征。
    */
   session::RadarSceneTarget Update(const PredictedTrackState& predicted,
-                                      const TrackFilterContext& context) const override;
+                                      const TrackFilterContext& context) const;
   /**
    * @brief 更新配置参数。
    * @param config 新配置。
