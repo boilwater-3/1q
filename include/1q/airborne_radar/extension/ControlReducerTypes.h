@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "1q/api.hpp"
 #include "1q/airborne_radar/extension/control/ControlDirective.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 
@@ -18,7 +19,7 @@ namespace extension {
 /**
  * @brief ControlReducerConfig 描述 proposal -> profile 的固定映射与冲突裁决策略。
  */
-struct ControlReducerConfig {
+struct ONEQ_API ControlReducerConfig {
   float lpi_power_scale_on_reduction{0.5f}; /**< LPI 降功率意图映射到的默认功率比例 */
   float lpi_dwell_scale{0.75f};             /**< LPI 驻留调整意图映射到的默认驻留比例 */
   float eccm_burnthrough_gain{1.5f};        /**< ECCM 烧穿意图映射到的默认增益倍率 */
@@ -36,7 +37,7 @@ struct ControlReducerConfig {
 /**
  * @brief ControlReductionResult 表示 reducer 的单周期输出。
  */
-struct ControlReductionResult {
+struct ONEQ_API ControlReductionResult {
   extension::control::RadarControlProfile profile; /**< 归并后的下一周期控制真值 */
   std::vector<extension::control::ControlDirective> applied_directives;  /**< 被采纳的控制意图 */
   std::vector<extension::control::ControlDirective> rejected_directives; /**< 被拒绝的控制意图 */

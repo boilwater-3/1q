@@ -8,6 +8,7 @@
 
 #include <cstddef>
 
+#include "1q/api.hpp"
 #include "1q/airborne_radar/model/DecisionInputFrame.h"
 #include "1q/airborne_radar/model/JammingSemantics.h"
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
@@ -15,7 +16,7 @@
 namespace airborne_radar {
 namespace extension {
 
-enum class SignalCycleAbortReason {
+enum class ONEQ_API SignalCycleAbortReason {
   kNone = 0,
   kLifecycleUnavailable,
   kInvalidEnvironmentCycle,
@@ -25,7 +26,7 @@ enum class SignalCycleAbortReason {
 /**
  * @brief 关联质量观测指标（Pipeline 对外公开版本）。
  */
-struct AssociationQualityMetrics {
+struct ONEQ_API AssociationQualityMetrics {
   std::size_t prior_track_count{0};  /**< 进入关联阶段的历史先验轨迹数 */
   std::size_t detection_count{0};    /**< 本周期探测成功并参与关联的量测数 */
   std::size_t matched_count{0};      /**< 命中已有轨迹的关联数 */
@@ -45,7 +46,7 @@ struct AssociationQualityMetrics {
 /**
  * @brief SignalCycleResult 描述信号流水线单周期的稳定输出。
  */
-struct SignalCycleResult {
+struct ONEQ_API SignalCycleResult {
   bool executed_this_cycle{false};                  /**< 当前调用是否真正完成了 signal pipeline 主链路 */
   SignalCycleAbortReason abort_reason{
       SignalCycleAbortReason::kNone}; /**< 若当前调用未执行成功，给出结构化 abort 原因 */

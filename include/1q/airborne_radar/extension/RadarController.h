@@ -24,7 +24,7 @@ namespace extension {
 class IRadarContext;
 class ITacticalDecisionEngine;
 
-struct RadarControllerRuntimeState {
+struct ONEQ_API RadarControllerRuntimeState {
   session::TrackOutputFrame latest_output{};
   bool has_latest_output{false};
   session::ValidationIssueList last_validation_issues{};

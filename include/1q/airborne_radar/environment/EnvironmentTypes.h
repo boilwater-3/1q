@@ -8,6 +8,7 @@
 
 #include <cstdint>
 
+#include "1q/api.hpp"
 #include "1q/airborne_radar/environment/EnvironmentConfig.h"
 
 namespace airborne_radar {
@@ -16,7 +17,7 @@ namespace environment {
 /**
  * @brief JammerDirectionDeg 表示干扰来向角。
  */
-struct JammerDirectionDeg {
+struct ONEQ_API JammerDirectionDeg {
   float azimuth_deg{0.0f};   /**< 干扰来向方位角（单位：deg） */
   float elevation_deg{0.0f}; /**< 干扰来向俯仰角（单位：deg） */
 };
@@ -25,7 +26,7 @@ struct JammerDirectionDeg {
  * @brief JammerSourceFact 表示单周期冻结后的干扰事实输出。
  * @note 其中 overlap/prf/sidelobe 等量由库内基于场景事实与运行状态派生。
  */
-struct JammerSourceFact {
+struct ONEQ_API JammerSourceFact {
   JammingTechnique technique{JammingTechnique::kUnknown}; /**< 干扰技术类型 */
   float power_db{0.0f};                                   /**< 干扰功率估计（单位：dB） */
   float js_db{0.0f};                                      /**< 干扰与信号比估计（单位：dB） */
@@ -44,7 +45,7 @@ using JammerSourceFactList = std::vector<JammerSourceFact>;
 /**
  * @brief EnvironmentCycleContext 描述环境层周期冻结上下文。
  */
-struct EnvironmentCycleContext {
+struct ONEQ_API EnvironmentCycleContext {
   std::uint32_t cycle_index{0U}; /**< 当前周期号 */
   float dt_sec{0.0f};            /**< 当前周期步长（单位：s） */
 };
@@ -52,7 +53,7 @@ struct EnvironmentCycleContext {
 /**
  * @brief EnvironmentSnapshot 用于封装单个处理周期内的环境快照。
  */
-struct EnvironmentSnapshot {
+struct ONEQ_API EnvironmentSnapshot {
   float cycle_dt_sec{0.0f};               /**< 当前周期步长（单位：s） */
   float propagation_loss_db{0.0f};        /**< 传播损耗（单位：dB） */
   float atmospheric_physics_loss_db{0.0f}; /**< 传播损耗中的大气物理附加项（单位：dB） */
@@ -68,7 +69,7 @@ struct EnvironmentSnapshot {
 /**
  * @brief EnvironmentSceneState 描述环境层待冻结的场景状态。
  */
-struct EnvironmentSceneState {
+struct ONEQ_API EnvironmentSceneState {
   AtmosphericPhysicsConfig atmospheric_physics{}; /**< 可选物理传播参数 */
   AtmosphericDerivedContext atmospheric_context{}; /**< 可选时间/空间天气上下文 */
   VegetationScatterPhysicsConfig vegetation_scatter_physics{}; /**< 可选植被散射参数 */

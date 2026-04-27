@@ -17,7 +17,7 @@ namespace model {
 /**
  * @brief EsrObservationQuality 表示观测质量等级。
  */
-enum class EsrObservationQuality {
+enum class ONEQ_API EsrObservationQuality {
   kLow = 0, /**< 低质量观测 */
   kMedium,  /**< 中等质量观测 */
   kHigh     /**< 高质量观测 */

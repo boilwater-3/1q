@@ -6,6 +6,7 @@
 #ifndef AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_RUNTIME_CONFIG_PATCH_H_
 #define AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_RUNTIME_CONFIG_PATCH_H_
 
+#include "1q/api.hpp"
 #include "1q/airborne_radar/environment/EnvironmentConfig.h"
 
 namespace airborne_radar {
@@ -20,7 +21,7 @@ namespace environment {
  * - 支持的补丁项：scenario_config、jamming_sensitivity_profile。
  * - 解析时遵循原子语义：整个补丁要么全部生效，要么全部拒绝。
  */
-struct EnvironmentRuntimeConfigPatch {
+struct ONEQ_API EnvironmentRuntimeConfigPatch {
   bool has_scenario_config{false};                /**< 是否更新环境场景输入 */
   EnvironmentScenarioConfig scenario_config{};    /**< 运行期环境场景输入 */
   bool has_jamming_sensitivity_profile{false};    /**< 是否更新干扰判定灵敏度语义档位 */

@@ -6,13 +6,15 @@
 #ifndef AIRBORNE_RADAR_COMMON_JAMMING_SEMANTICS_H_
 #define AIRBORNE_RADAR_COMMON_JAMMING_SEMANTICS_H_
 
+#include "1q/api.hpp"
+
 namespace airborne_radar {
 namespace model {
 
 /**
  * @brief JammingSemantic 表示轨迹级/量测级干扰摘要类型。
  */
-enum class JammingSemantic {
+enum class ONEQ_API JammingSemantic {
   kNone = 0,         /**< 未观测到有效干扰语义 */
   kNoiseSuppression, /**< 压制式/噪声式干扰占主导 */
   kDeception,        /**< 欺骗式干扰占主导 */

@@ -20,7 +20,7 @@ namespace session {
 /**
  * @brief ValidationSeverity 表示校验结果严重级别。
  */
-enum class ValidationSeverity {
+enum class ONEQ_API ValidationSeverity {
   kInfo = 0, /**< 仅提示语义，不阻断执行 */
   kWarning,  /**< 调用方应显式关注的潜在问题 */
   kError     /**< 明确的错误输入，建议阻断执行 */
@@ -29,7 +29,7 @@ enum class ValidationSeverity {
 /**
  * @brief ValidationCode 表示结构化校验问题类型。
  */
-enum class ValidationCode {
+enum class ONEQ_API ValidationCode {
   kNone = 0,                         /**< 无问题占位值 */
   kInvalidCycleDeltaTime,            /**< 周期步长非法（<= 0） */
   kNonFiniteCycleDeltaTime,          /**< 周期步长不是有限值 */
@@ -44,7 +44,7 @@ enum class ValidationCode {
 /**
  * @brief ValidationLocationKind 表示校验问题定位域。
  */
-enum class ValidationLocationKind {
+enum class ONEQ_API ValidationLocationKind {
   kGlobal = 0,  /**< 与具体域或实体无关 */
   kPlatform,    /**< 平台位姿域 */
   kEnvironment, /**< 环境输入域 */
@@ -54,7 +54,7 @@ enum class ValidationLocationKind {
 /**
  * @brief ValidationLocation 描述校验问题定位信息。
  */
-struct ValidationLocation {
+struct ONEQ_API ValidationLocation {
   ValidationLocationKind kind{ValidationLocationKind::kGlobal}; /**< 定位域 */
   std::size_t entity_index{
       static_cast<std::size_t>(-1)}; /**< 场景实体索引；非场景实体问题时为 `size_t(-1)` */
@@ -63,7 +63,7 @@ struct ValidationLocation {
 /**
  * @brief ValidationIssue 描述一条结构化输入校验结果。
  */
-struct ValidationIssue {
+struct ONEQ_API ValidationIssue {
   ValidationSeverity severity{ValidationSeverity::kInfo}; /**< 严重级别 */
   ValidationCode code{ValidationCode::kNone};             /**< 问题类型编码 */
   ValidationLocation location{};       /**< 结构化定位信息 */

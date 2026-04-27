@@ -35,7 +35,7 @@ enum class TacticalMode {
  * 该结构仅承载决策引擎自身需要跨周期保留的战术语义状态。
  * ControlReducer 的 hold/cooldown 等内部运行态不属于此契约的一部分。
  */
-struct TacticalStateStore {
+struct ONEQ_API TacticalStateStore {
   TacticalMode current_mode{TacticalMode::kBaseline};         /**< 当前战术模式 */
   std::unordered_map<std::uint64_t, float> threat_memory;     /**< 每轨威胁记忆 */
   std::unordered_map<std::uint64_t, float> confidence_memory; /**< 每轨置信度记忆 */
@@ -46,7 +46,7 @@ struct TacticalStateStore {
 /**
  * @brief TacticalProposal 表示单个 evaluator 输出的战术建议。
  */
-struct TacticalProposal {
+struct ONEQ_API TacticalProposal {
   extension::control::ControlDirective directive; /**< 控制意图 */
   int priority{0};                             /**< 建议优先级，数值越大优先级越高 */
   std::string rationale;                       /**< 生成原因 */
@@ -67,7 +67,7 @@ struct TacticalProposal {
 /**
  * @brief TacticalDecisionResult 表示决策引擎单周期输出。
  */
-struct TacticalDecisionResult {
+struct ONEQ_API TacticalDecisionResult {
   model::TargetCategoryList target_classification_result; /**< 目标分类结果 */
   std::vector<TacticalProposal> proposals;                        /**< 汇总后的战术建议集合 */
   TacticalMode selected_mode{TacticalMode::kBaseline};            /**< 当前选定战术模式 */

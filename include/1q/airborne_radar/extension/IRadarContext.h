@@ -25,7 +25,7 @@
 namespace airborne_radar {
 namespace extension {
 
-struct RadarContextRuntimeState {
+struct ONEQ_API RadarContextRuntimeState {
   const void* owner_identity{nullptr}; /**< 生成该快照的上下文实例地址 */
   std::uint32_t schema_version{0U};    /**< 快照 schema 版本 */
   std::shared_ptr<void> opaque{};      /**< 可选的实现私有快照负载；用于高效回滚 */

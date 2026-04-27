@@ -12,7 +12,7 @@
 namespace airborne_radar {
 namespace environment {
 
-struct EnvironmentServiceRuntimeState {
+struct ONEQ_API EnvironmentServiceRuntimeState {
   EnvironmentSceneState active_scene_state{};
   EnvironmentSceneState pending_scene_state{};
   EnvironmentCycleContext active_cycle_context{};

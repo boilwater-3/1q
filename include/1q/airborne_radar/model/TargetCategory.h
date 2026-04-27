@@ -10,6 +10,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "1q/api.hpp"
+
 namespace airborne_radar {
 namespace model {
 
@@ -18,7 +20,7 @@ namespace model {
  * 目前该结构体在数据库匹配后只输出最优匹配类型以及对应该类别的特征值列表，
  * 后续可根据需要扩展更多字段。
  */
-struct TargetCategory {
+struct ONEQ_API TargetCategory {
   std::string target_type{"UNKNOWN"}; /**< 目标类别标识符 */
 
   float probability{0.0f}; /**< 归一化后的类别概率（来自特征库匹配；启发式分类时为 0） */

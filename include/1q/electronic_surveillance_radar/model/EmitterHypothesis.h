@@ -18,7 +18,7 @@ namespace model {
 /**
  * @brief EsrEmitterMode 表示辐射源工作模式假设。
  */
-enum class EsrEmitterMode {
+enum class ONEQ_API EsrEmitterMode {
   kUnknown = 0, /**< 未知模式 */
   kSearch,      /**< 搜索模式 */
   kTracking,    /**< 跟踪模式 */
@@ -28,7 +28,7 @@ enum class EsrEmitterMode {
 /**
  * @brief EsrThreatLevel 表示威胁等级。
  */
-enum class EsrThreatLevel {
+enum class ONEQ_API EsrThreatLevel {
   kLow = 0, /**< 低威胁 */
   kMedium,  /**< 中威胁 */
   kHigh     /**< 高威胁 */

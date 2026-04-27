@@ -8,13 +8,15 @@
 
 #include <vector>
 
+#include "1q/api.hpp"
+
 namespace airborne_radar {
 namespace model {
 
 /**
  * @brief JammingTechnique 表示供决策层消费的干扰技术类型。
  */
-enum class JammingTechnique {
+enum class ONEQ_API JammingTechnique {
   kUnknown = 0,      /**< 未知或未分类干扰 */
   kNoiseSuppression, /**< 压制式/噪声式干扰 */
   kDeception,        /**< 欺骗式干扰 */
@@ -24,7 +26,7 @@ enum class JammingTechnique {
 /**
  * @brief EccmJammerDirectionDeg 表示干扰来向角。
  */
-struct EccmJammerDirectionDeg {
+struct ONEQ_API EccmJammerDirectionDeg {
   float azimuth_deg{0.0f};   /**< 干扰来向方位角（单位：deg） */
   float elevation_deg{0.0f}; /**< 干扰来向俯仰角（单位：deg） */
 };
@@ -32,7 +34,7 @@ struct EccmJammerDirectionDeg {
 /**
  * @brief EccmJammerSourceInfo 表示单个干扰源的摘要事实。
  */
-struct EccmJammerSourceInfo {
+struct ONEQ_API EccmJammerSourceInfo {
   JammingTechnique technique{JammingTechnique::kUnknown}; /**< 干扰技术类型 */
   float jammer_power_db{0.0f};                            /**< 干扰功率估计（单位：dB） */
   float jammer_to_signal_db{0.0f};                        /**< 干扰与信号比估计（单位：dB） */
@@ -51,7 +53,7 @@ using EccmJammerSourceInfoList = std::vector<EccmJammerSourceInfo>;
 /**
  * @brief EccmSourceInfo 表示供 ECCM 模块消费的干扰来源信息。
  */
-struct EccmSourceInfo {
+struct ONEQ_API EccmSourceInfo {
   bool has_jamming_signal{false};            /**< 当前周期是否检测到干扰信号 */
   EccmJammerSourceInfoList jammer_sources{}; /**< 当前周期可见的多源干扰摘要 */
 

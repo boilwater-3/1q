@@ -23,7 +23,7 @@ enum class ONEQ_API EosWorkMode {
 /**
  * @brief EosMissionConfig 描述工作模式、扫描与指向任务参数。
  */
-struct EosMissionConfig {
+struct ONEQ_API EosMissionConfig {
   config::EosWorkMode work_mode{config::EosWorkMode::kFused}; /**< 工作模式 */
   float horizontal_fov_deg{6.0f};                               /**< 水平视场角（单位：deg） */
   float vertical_fov_deg{4.0f};                                 /**< 垂直视场角（单位：deg） */

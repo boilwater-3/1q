@@ -24,7 +24,7 @@ namespace session {
 /**
  * @brief TrackOutputFrame 表示单周期稳定的中性轨迹输出帧。
  */
-struct TrackOutputFrame {
+struct ONEQ_API TrackOutputFrame {
   std::uint32_t cycle_index{0};              /**< 当前周期号 */
   std::uint64_t batch_id{0};                 /**< 当前批号 */
   model::TrackStateSnapshotList tracks{};         /**< 当前周期发布的轨迹快照列表 */
@@ -83,7 +83,7 @@ ONEQ_API std::size_t CountTracksByStatus(const TrackOutputFrame& frame,
 /**
  * @brief RadarCycleResult 描述单周期执行后的聚合观测结果。
  */
-struct RadarCycleResult {
+struct ONEQ_API RadarCycleResult {
   TrackOutputFrame track_output_frame{}; /**< 当前调用返回的轨迹输出帧 */
   std::vector<extension::control::RadarCommand>
       submitted_commands{}; /**< 当前周期已提交的控制指令；若未执行则为空 */

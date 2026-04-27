@@ -21,7 +21,7 @@ namespace environment {
 class IEnvironmentService;
 }
 namespace extension {
-struct SignalPipelineRuntimeState {
+struct ONEQ_API SignalPipelineRuntimeState {
   const void* owner_identity{nullptr}; /**< 生成该快照的 pipeline 实例地址 */
   std::uint32_t schema_version{0U};    /**< 运行态快照 schema 版本 */
   std::shared_ptr<void> opaque{};      /**< 由具体 pipeline 实现解释的运行态快照 */

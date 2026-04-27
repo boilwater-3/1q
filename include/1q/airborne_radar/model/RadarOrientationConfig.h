@@ -6,6 +6,7 @@
 #ifndef AIRBORNE_RADAR_CONFIG_RADAR_ORIENTATION_CONFIG_H_
 #define AIRBORNE_RADAR_CONFIG_RADAR_ORIENTATION_CONFIG_H_
 
+#include "1q/api.hpp"
 #include "1q/foundation/pose_types.h"
 #include "1q/foundation/scan_schedule_types.h"
 
@@ -21,7 +22,7 @@ using PlatformAttitudeDeg = EulerAnglesDeg;
 /**
  * @brief AzimuthElevationDeg 表示方位-俯仰二维角度（单位：度）。
  */
-struct AzimuthElevationDeg {
+struct ONEQ_API AzimuthElevationDeg {
   float az_deg{0.0f}; /**< 方位角（单位：度） */
   float el_deg{0.0f}; /**< 俯仰角（单位：度） */
 };
@@ -30,7 +31,7 @@ struct AzimuthElevationDeg {
  * @brief AzimuthElevationLimitsDeg 表示方位-俯仰扫描限位（单位：度）。
  * @note 该结构通常用于初始化固定边界；
  */
-struct AzimuthElevationLimitsDeg {
+struct ONEQ_API AzimuthElevationLimitsDeg {
   float az_min_deg{-60.0f}; /**< 方位最小扫描角（单位：度） */
   float az_max_deg{60.0f};  /**< 方位最大扫描角（单位：度） */
   float el_min_deg{-30.0f}; /**< 俯仰最小扫描角（单位：度） */
@@ -45,7 +46,7 @@ struct AzimuthElevationLimitsDeg {
  *       但它只有在 commanded_beamwidth_enabled == true 时才会真正生效。
  *       该默认值设置意在“指令态波束宽度”和“名义波束宽度”保持同一量级，避免一开局就出现很窄或很宽的异常控制值。
  */
-struct CommandedBeamwidthDeg {
+struct ONEQ_API CommandedBeamwidthDeg {
   float commanded_az_beamwidth_deg{
       4.0f}; /**< [可外部调整，但建议在初始化配置后不修改] 指令态方位波束宽度（单位：度） */
   float commanded_el_beamwidth_deg{
@@ -57,7 +58,7 @@ struct CommandedBeamwidthDeg {
  * @note 该枚举对应运行期可外部调整控制量。
  * @note "可外部调整"定义：调用方可在不重建 `RadarSession` 的前提下，通过公开 API 直接提交修改。
  */
-enum class RadarWorkSubMode {
+enum class ONEQ_API RadarWorkSubMode {
   kStby = 0, /**< 待机：波束停泊并停止扫描 */
   kTas = 1,  /**< 目标捕获扫描：更高空间采样密度的二维扫描（步进更小） */
   kTws = 2,  /**< 边扫边跟踪：常规二维扫描 */
@@ -69,7 +70,7 @@ enum class RadarWorkSubMode {
  * @note 该枚举作为 `RadarOrientationConfig::stabilization_mode` 的取值域，
  *       默认属于初始化固定配置。
  */
-enum class StabilizationMode {
+enum class ONEQ_API StabilizationMode {
   kBodyStabilized = 0,     /**< 随机体稳定，波束方向随平台姿态变化 */
   kInertialStabilized = 1, /**< 对惯性空间稳定，尽量保持相对惯性坐标系方向不变 */
   kGroundStabilized = 2    /**< 对地稳定；当前无地理参考输入时，代码上等效于惯性稳定 */
@@ -82,7 +83,7 @@ enum class StabilizationMode {
  *       actual_beam_pointing_base = platform_attitude + mount_angles_deg + scan_center_deg
  * @note 运行期若存在驻留偏移（dwell center），由运行态控制链路在上述基准上追加叠加。
  */
-struct RadarOrientationConfig {
+struct ONEQ_API RadarOrientationConfig {
   /**
    * @brief 雷达安装偏置角（单位：deg，参考系：Body -> Radar）。
    * @note 该角度定义在机体坐标系下，描述雷达坐标系相对机体系的固定安装偏置；

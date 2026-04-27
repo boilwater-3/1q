@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include "1q/api.hpp"
 #include "1q/airborne_radar/session/RadarSession.h"
 #include "1q/replay/ReplayTrace.h"
 

@@ -18,7 +18,7 @@ namespace environment {
 /**
  * @brief EsrJammingTechnique 表示干扰技术类型。
  */
-enum class EsrJammingTechnique {
+enum class ONEQ_API EsrJammingTechnique {
   kUnknown = 0,      /**< 未知或未分类干扰 */
   kNoiseSuppression, /**< 压制式/噪声式干扰 */
   kDeception,        /**< 欺骗式干扰 */

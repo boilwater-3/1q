@@ -10,13 +10,15 @@
 #include <string>
 #include <vector>
 
+#include "1q/api.hpp"
+
 namespace airborne_radar {
 namespace model {
 
 /**
  * @brief TrackStatus 表示对外可见的轨迹生命周期状态。
  */
-enum class TrackStatus {
+enum class ONEQ_API TrackStatus {
   kTentative = 0, /**< 候选轨迹 */
   kConfirmed,     /**< 已确认轨迹 */
   kLost           /**< 丢失轨迹 */
@@ -25,7 +27,7 @@ enum class TrackStatus {
 /**
  * @brief TrackStateSnapshot 表示跨周期稳定的轨迹状态快照。
  */
-struct TrackStateSnapshot {
+struct ONEQ_API TrackStateSnapshot {
   std::uint64_t association_key{0};    /**< 当前快照对应的关联键 */
   std::uint64_t external_target_id{0}; /**< 外部输入原始目标标识符（0 表示未知/未提供） */
   TrackStatus status{TrackStatus::kTentative}; /**< 轨迹生命周期状态 */

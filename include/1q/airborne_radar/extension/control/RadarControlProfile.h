@@ -8,6 +8,8 @@
 
 #include <cstdint>
 
+#include "1q/api.hpp"
+
 namespace airborne_radar {
 namespace extension {
 namespace control {
@@ -15,7 +17,7 @@ namespace control {
 /**
  * @brief RadarControlProfile 表示下一周期生效的雷达控制状态。
  */
-struct RadarControlProfile {
+struct ONEQ_API RadarControlProfile {
   std::uint64_t version{0};             /**< 配置版本号，每次 reducer 生成新 profile 时递增 */
   bool enable_lpi_power_control{false}; /**< 是否启用 LPI 功率控制 */
   float lpi_power_scale{1.0f};          /**< LPI 功率比例 */

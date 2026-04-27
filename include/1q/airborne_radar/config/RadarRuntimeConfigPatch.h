@@ -30,7 +30,7 @@ using model::RadarWorkSubMode;
  * 2) 叶子覆盖：工作子模式、扫描/驻留指向、指令态波束宽度等。
  * 当整域与叶子同时出现时，先应用整域再应用叶子，叶子具有最终优先级。
  */
-struct RadarRuntimeConfigPatch {
+struct ONEQ_API RadarRuntimeConfigPatch {
   bool has_mission{false};
   config::RadarMissionConfig mission{};
 

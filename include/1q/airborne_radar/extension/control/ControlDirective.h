@@ -6,6 +6,8 @@
 #ifndef AIRBORNE_RADAR_COMMON_CONTROL_DIRECTIVE_H_
 #define AIRBORNE_RADAR_COMMON_CONTROL_DIRECTIVE_H_
 
+#include "1q/api.hpp"
+
 namespace airborne_radar {
 namespace extension {
 namespace control {
@@ -13,7 +15,7 @@ namespace control {
 /**
  * @brief ControlDirectiveSource 表示控制意图来源模块。
  */
-enum class ControlDirectiveSource {
+enum class ONEQ_API ControlDirectiveSource {
   UNKNOWN = 0,       /**< 未知来源 */
   THREAT_ASSESSMENT, /**< 威胁评估/分类来源 */
   EMISSION_CONTROL,  /**< 发射控制来源 */
@@ -23,7 +25,7 @@ enum class ControlDirectiveSource {
 /**
  * @brief ControlDirectiveType 表示决策层输出的控制意图类型。
  */
-enum class ControlDirectiveType {
+enum class ONEQ_API ControlDirectiveType {
   NONE = 0,                            /**< 空意图 */
   REQUEST_LPI_POWER_REDUCTION,         /**< 请求降低发射功率 */
   REQUEST_LPI_BEAMFORMING,             /**< 请求启用 LPI 波束形成 */
@@ -38,7 +40,7 @@ enum class ControlDirectiveType {
 /**
  * @brief ControlDirective 表示一条可带附加信息的控制意图。
  */
-struct ControlDirective {
+struct ONEQ_API ControlDirective {
   ControlDirectiveType type{ControlDirectiveType::NONE};          /**< 控制意图类型 */
   ControlDirectiveSource source{ControlDirectiveSource::UNKNOWN}; /**< 控制意图来源 */
 

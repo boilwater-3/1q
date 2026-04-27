@@ -6,13 +6,15 @@
 #ifndef ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_POLICY_CONFIG_H_
 #define ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_POLICY_CONFIG_H_
 
+#include "1q/api.hpp"
+
 namespace electro_optical_sensor {
 namespace config {
 
 /**
  * @brief EosDetectionProfile 描述探测策略档位。
  */
-enum class EosDetectionProfile {
+enum class ONEQ_API EosDetectionProfile {
   kConservative = 0,
   kBalanced,
   kAggressive
@@ -21,7 +23,7 @@ enum class EosDetectionProfile {
 /**
  * @brief EosDetectionPolicyConfig 描述探测策略参数。
  */
-struct EosDetectionPolicyConfig {
+struct ONEQ_API EosDetectionPolicyConfig {
   EosDetectionProfile profile{EosDetectionProfile::kBalanced}; /**< 探测策略档位 */
   bool use_profile_defaults{true}; /**< true 表示使用 profile 的默认参数映射 */
   float minimum_snr_db{6.0f}; /**< 详细参数：最小检测信噪比门限（单位：dB） */
@@ -32,7 +34,7 @@ struct EosDetectionPolicyConfig {
 /**
  * @brief EosStrayLightProfile 描述杂散光防护档位。
  */
-enum class EosStrayLightProfile {
+enum class ONEQ_API EosStrayLightProfile {
   kDisabled = 0,
   kStandardHood,
   kEnhancedHood
@@ -41,7 +43,7 @@ enum class EosStrayLightProfile {
 /**
  * @brief EosStrayLightPolicyConfig 描述杂散光抑制策略参数。
  */
-struct EosStrayLightPolicyConfig {
+struct ONEQ_API EosStrayLightPolicyConfig {
   EosStrayLightProfile profile{EosStrayLightProfile::kDisabled}; /**< 杂散光防护档位 */
   bool use_profile_defaults{true}; /**< true 表示使用 profile 的默认参数映射 */
   bool enable_straylight_filter{false}; /**< 详细参数：是否启用杂散光抑制 */
@@ -54,7 +56,7 @@ struct EosStrayLightPolicyConfig {
 /**
  * @brief EosPolicyConfig 描述策略域配置。
  */
-struct EosPolicyConfig {
+struct ONEQ_API EosPolicyConfig {
   EosDetectionPolicyConfig detection{};
   EosStrayLightPolicyConfig stray_light{};
 };

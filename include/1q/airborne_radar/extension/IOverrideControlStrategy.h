@@ -12,6 +12,7 @@
 
 #include <vector>
 
+#include "1q/api.hpp"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/model/DecisionSourceInfo.h"
 
@@ -31,7 +32,7 @@ namespace extension {
  * 方法将分别在 LPI 和 ECCM 评估阶段被调用。返回 true 表示本次决策已由
  * 外部策略处理，内部评估器不再参与。
  */
-class IOverrideControlStrategy {
+class ONEQ_API IOverrideControlStrategy {
  public:
   virtual ~IOverrideControlStrategy() = default;
 

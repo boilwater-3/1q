@@ -20,7 +20,7 @@ namespace session {
 /**
  * @brief ValidationSeverity 表示校验问题严重级别。
  */
-enum class ValidationSeverity {
+enum class ONEQ_API ValidationSeverity {
   kInfo = 0, /**< 信息级问题，不阻断执行 */
   kWarning,  /**< 警告级问题，建议调用方关注 */
   kError     /**< 错误级问题，建议阻断执行 */
@@ -29,7 +29,7 @@ enum class ValidationSeverity {
 /**
  * @brief ValidationCode 表示结构化校验编码。
  */
-enum class ValidationCode {
+enum class ONEQ_API ValidationCode {
   kNone = 0,                      /**< 无问题占位值 */
   kInvalidCycleDeltaTime,         /**< 周期步长非法（<= 0） */
   kNonFiniteCycleDeltaTime,       /**< 周期步长非有限值 */
@@ -48,7 +48,7 @@ enum class ValidationCode {
 /**
  * @brief ValidationLocationKind 表示校验问题定位域。
  */
-enum class ValidationLocationKind {
+enum class ONEQ_API ValidationLocationKind {
   kGlobal = 0,  /**< 与具体域或实体无关 */
   kPlatform,    /**< 平台位姿域 */
   kEnvironment, /**< 环境输入域 */

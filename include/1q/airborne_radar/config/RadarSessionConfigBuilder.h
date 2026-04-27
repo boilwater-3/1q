@@ -121,7 +121,7 @@ class ONEQ_API RadarSessionConfigBuilder {
 /**
  * @brief 语义探测配置编辑器。
  */
-class RadarSessionConfigBuilder::DetectionEditor {
+class ONEQ_API RadarSessionConfigBuilder::DetectionEditor {
  public:
   explicit DetectionEditor(RadarSessionConfigBuilder* builder) : builder_(builder) {}
 
@@ -165,7 +165,7 @@ class RadarSessionConfigBuilder::DetectionEditor {
 /**
  * @brief 波束控制配置编辑器。
  */
-class RadarSessionConfigBuilder::BeamEditor {
+class ONEQ_API RadarSessionConfigBuilder::BeamEditor {
  public:
   explicit BeamEditor(RadarSessionConfigBuilder* builder) : builder_(builder) {}
 
@@ -199,7 +199,7 @@ class RadarSessionConfigBuilder::BeamEditor {
 /**
  * @brief 语义跟踪配置编辑器。
  */
-class RadarSessionConfigBuilder::TrackingEditor {
+class ONEQ_API RadarSessionConfigBuilder::TrackingEditor {
  public:
   explicit TrackingEditor(RadarSessionConfigBuilder* builder) : builder_(builder) {}
 
@@ -225,7 +225,7 @@ class RadarSessionConfigBuilder::TrackingEditor {
 /**
  * @brief 语义生命周期配置编辑器。
  */
-class RadarSessionConfigBuilder::LifecycleEditor {
+class ONEQ_API RadarSessionConfigBuilder::LifecycleEditor {
  public:
   explicit LifecycleEditor(RadarSessionConfigBuilder* builder) : builder_(builder) {}
 
@@ -251,7 +251,7 @@ class RadarSessionConfigBuilder::LifecycleEditor {
 /**
  * @brief 环境默认配置编辑器。
  */
-class RadarSessionConfigBuilder::EnvironmentEditor {
+class ONEQ_API RadarSessionConfigBuilder::EnvironmentEditor {
  public:
   explicit EnvironmentEditor(RadarSessionConfigBuilder* builder) : builder_(builder) {}
 

@@ -6,6 +6,8 @@
 #ifndef AIRBORNE_RADAR_COMMON_RADAR_COMMAND_H_
 #define AIRBORNE_RADAR_COMMON_RADAR_COMMAND_H_
 
+#include "1q/api.hpp"
+
 namespace airborne_radar {
 namespace extension {
 namespace control {
@@ -14,7 +16,7 @@ namespace control {
  * @brief RadarCommandSource 表示指令来源模块。
  * 决策层处理结束后根据来源模块进行指令分类分别下发到不同的硬件接口或处理单元。
  */
-enum class RadarCommandSource {
+enum class ONEQ_API RadarCommandSource {
   UNKNOWN,    /**< 未知来源或未设置来源 */
   CLASSIFIER, /**< 来源于 Classifier 模块 */
   LPI,        /**< 来源于 LPI 模块 */
@@ -24,7 +26,7 @@ enum class RadarCommandSource {
 /**
  * @brief RadarCommandType 表示战术指令类型。
  */
-enum class RadarCommandType {
+enum class ONEQ_API RadarCommandType {
   NONE,                        /**< 空指令，占位或无操作 */
   SET_LPI_POWER,               /**< 设置 LPI 发射功率控制 */
   SET_LPI_BEAMFORMING,         /**< 设置 LPI 波束形成参数（当前阶段预留占位，尚未启用） */
@@ -39,7 +41,7 @@ enum class RadarCommandType {
 /**
  * @brief RadarCommand 表示可携带参数的战术控制指令。
  */
-struct RadarCommand {
+struct ONEQ_API RadarCommand {
   RadarCommandType type{RadarCommandType::NONE};          /**< 指令类型 */
   RadarCommandSource source{RadarCommandSource::UNKNOWN}; /**< 指令来源模块 */
 

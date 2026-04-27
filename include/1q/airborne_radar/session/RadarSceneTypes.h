@@ -9,13 +9,15 @@
 #include <cstdint>
 #include <vector>
 
+#include "1q/api.hpp"
+
 namespace airborne_radar {
 namespace session {
 
 /**
  * @brief RadarSceneTarget 描述雷达单周期场景目标输入。
  */
-struct RadarSceneTarget {
+struct ONEQ_API RadarSceneTarget {
   std::uint64_t external_target_id{0};   /**< 外部输入原始目标标识符（0 表示未知/未提供） */
   float velocity_x{0.0f};               /**< 雷达局部坐标速度 x 分量（单位：m/s） */
   float velocity_y{0.0f};               /**< 雷达局部坐标速度 y 分量（单位：m/s） */
