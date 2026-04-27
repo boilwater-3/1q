@@ -114,9 +114,7 @@ set(EOS_PUBLIC_HEADERS
 
 # ── ESR 公开头 ──────────────────────────────────────────────────────
 set(ESR_PUBLIC_HEADERS
-    "electronic_surveillance_radar/config/EsrDetectionPolicyConfig.h"
     "electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
-    "electronic_surveillance_radar/config/EsrEnvironmentPreset.h"
     "electronic_surveillance_radar/config/EsrHardwareConfig.h"
     "electronic_surveillance_radar/config/EsrMissionConfig.h"
     "electronic_surveillance_radar/config/EsrPolicyConfig.h"

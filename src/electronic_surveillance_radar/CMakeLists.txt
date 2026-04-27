@@ -72,7 +72,6 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/environment/electronic_surveillance_radar_environment.hpp
     )
     set(PUBLIC_HEADERS_ESR_CONFIG
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrDetectionPolicyConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrEnvironmentPolicyConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrHardwareConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrPolicyConfig.h

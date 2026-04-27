@@ -9,10 +9,24 @@
 #include <cstdint>
 
 #include "1q/api.hpp"
-#include "1q/electronic_surveillance_radar/config/EsrEnvironmentPreset.h"
 #include "1q/foundation/atmospheric_types.h"
 
 namespace electronic_surveillance_radar {
+
+namespace config {
+
+/**
+ * @brief EsrEnvironmentPreset 描述对外环境预设。
+ */
+enum class ONEQ_API EsrEnvironmentPreset {
+  kStandard = 0, /**< 标准环境 */
+  kLowClutter,   /**< 低杂波环境 */
+  kDenseClutter, /**< 高杂波环境 */
+  kJammed        /**< 强干扰环境 */
+};
+
+}  // namespace config
+
 namespace environment {
 
 /** @brief EsrAtmosphericPhysicsConfig 复用 foundation 层统一基础气象观测类型。 */

@@ -6,9 +6,7 @@
 #ifndef ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_HPP_
 #define ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_HPP_
 
-#include "1q/electronic_surveillance_radar/config/EsrDetectionPolicyConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
-#include "1q/electronic_surveillance_radar/config/EsrEnvironmentPreset.h"
 #include "1q/electronic_surveillance_radar/config/EsrHardwareConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrMissionConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrPolicyConfig.h"
