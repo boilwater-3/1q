@@ -31,14 +31,14 @@ Eigen::MatrixXf BuildImmTransitionProbabilityOrDefault(const ExecutionConfig& co
   if (model_count == 0U) {
     return Eigen::MatrixXf();
   }
-  if (config.imm_transition_probability.empty()) {
+  if (config.lifecycle.imm_transition_probability.empty()) {
     Eigen::MatrixXf matrix = Eigen::MatrixXf::Constant(
         static_cast<Eigen::Index>(model_count), static_cast<Eigen::Index>(model_count),
         model_count > 1U ? 0.05f / static_cast<float>(model_count - 1U) : 1.0f);
     matrix.diagonal().setConstant(model_count > 1U ? 0.95f : 1.0f);
     return matrix;
   }
-  if (config.imm_transition_probability.size() != model_count * model_count) {
+  if (config.lifecycle.imm_transition_probability.size() != model_count * model_count) {
     return Eigen::MatrixXf();
   }
   Eigen::MatrixXf matrix(static_cast<Eigen::Index>(model_count),
@@ -46,7 +46,7 @@ Eigen::MatrixXf BuildImmTransitionProbabilityOrDefault(const ExecutionConfig& co
   for (std::size_t r = 0; r < model_count; ++r) {
     float row_sum = 0.0f;
     for (std::size_t c = 0; c < model_count; ++c) {
-      const float value = config.imm_transition_probability[r * model_count + c];
+      const float value = config.lifecycle.imm_transition_probability[r * model_count + c];
       if (std::isfinite(value) == 0 || value < 0.0f || value > 1.0f) {
         return Eigen::MatrixXf();
       }
@@ -65,17 +65,17 @@ Eigen::VectorXf BuildImmInitialWeightsOrDefault(const ExecutionConfig& config,
   if (model_count == 0U) {
     return Eigen::VectorXf();
   }
-  if (config.imm_initial_weights.empty()) {
+  if (config.lifecycle.imm_initial_weights.empty()) {
     return Eigen::VectorXf::Constant(static_cast<Eigen::Index>(model_count),
                                      1.0f / static_cast<float>(model_count));
   }
-  if (config.imm_initial_weights.size() != model_count) {
+  if (config.lifecycle.imm_initial_weights.size() != model_count) {
     return Eigen::VectorXf();
   }
   Eigen::VectorXf weights(static_cast<Eigen::Index>(model_count));
   float sum = 0.0f;
   for (std::size_t i = 0; i < model_count; ++i) {
-    const float value = config.imm_initial_weights[i];
+    const float value = config.lifecycle.imm_initial_weights[i];
     if (std::isfinite(value) == 0 || value < 0.0f || value > 1.0f) {
       return Eigen::VectorXf();
     }
@@ -90,10 +90,10 @@ Eigen::VectorXf BuildImmInitialWeightsOrDefault(const ExecutionConfig& config,
 
 LifecycleConfigSignature BuildLifecycleConfigSignature(const ExecutionConfig& config) {
   LifecycleConfigSignature signature;
-  signature.enable_imm_lifecycle = config.lifecycle_engineering.enable_imm_lifecycle;
-  signature.kalman_update_backend = config.tracking_engineering.kalman_update_backend;
-  signature.imm_model_count = config.imm_model_noise_diff_coeffs.size();
-  signature.track_pool_thread_safety_mode = config.track_pool_thread_safety_mode;
+  signature.enable_imm_lifecycle = config.lifecycle.engineering.enable_imm_lifecycle;
+  signature.kalman_update_backend = config.tracking.engineering.kalman_update_backend;
+  signature.imm_model_count = config.lifecycle.imm_model_noise_diff_coeffs.size();
+  signature.track_pool_thread_safety_mode = config.lifecycle.track_pool_thread_safety_mode;
   return signature;
 }
 
@@ -207,10 +207,10 @@ class AutoConfiguredLifecycleManager final : public tracking::ITrackLifecycleMan
     AssignLifecycleSignature(incoming_signature, &signature_);
     const tracking::LifecycleConfig lifecycle_config =
         SignalComponentFactory::BuildLifecycleConfig(config_);
-    const float kalman_noise_diff_coeff = config_.tracking_kalman_noise_diff_coeff;
+    const float kalman_noise_diff_coeff = config_.tracking.kalman_noise_diff_coeff;
     const float kalman_measurement_noise_std =
-        config_.tracking_engineering.kalman_measurement_noise_std;
-    const std::vector<float>& imm_model_noise_diff_coeffs = config_.imm_model_noise_diff_coeffs;
+        config_.tracking.engineering.kalman_measurement_noise_std;
+    const std::vector<float>& imm_model_noise_diff_coeffs = config_.lifecycle.imm_model_noise_diff_coeffs;
     const Eigen::MatrixXf imm_transition_probability =
         BuildImmTransitionProbabilityOrDefault(config_, imm_model_noise_diff_coeffs.size());
     const Eigen::VectorXf imm_initial_weights =

@@ -12,7 +12,6 @@
 
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "airborne_radar/signal/association/DistanceMetric.h"
-#include "airborne_radar/signal/association/Gater.h"
 #include "airborne_radar/signal/association/Hypothesiser.h"
 #include "airborne_radar/signal/association/LapjvSolver.h"
 #include "airborne_radar/signal/tracking/GaussianTrackState.h"
@@ -225,7 +224,6 @@ class DataAssociationEngine {
       const std::vector<ExternalSeedTrackSignature>& external_priors, float dt_sec) const;
   DataAssociationConfig config_{};                     /**< 当前引擎配置。 */
   FullMahalanobisDistanceMetric full_distance_metric_; /**< 完整协方差位置空间马氏距离度量实现。 */
-  CostThresholdGater gater_;                           /**< 基于代价阈值的波门器。 */
   DenseCostHypothesiser position_hypothesiser_;        /**< 位置空间候选假设生成器。 */
   LapjvSolver assignment_solver_;                      /**< LAPJV 指派求解器。 */
   tracking::KalmanPredictor kalman_predictor_;         /**< 位置空间关联使用的内部预测器。 */

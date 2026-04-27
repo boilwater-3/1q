@@ -29,11 +29,11 @@ float ClampToRange(float value, float lower_bound, float upper_bound) {
 }
 
 float ResolveRcsPhysicsFrequencyHz(const ExecutionConfig& exec_config) {
-  const float config_frequency_hz = exec_config.detection_engineering.rcs_physics.frequency_hz;
+  const float config_frequency_hz = exec_config.detection.engineering.rcs_physics.frequency_hz;
   if (config_frequency_hz > 0.0f) {
     return config_frequency_hz;
   }
-  return exec_config.detection_engineering.transmitter.frequency_hz;
+  return exec_config.detection.engineering.transmitter.frequency_hz;
 }
 
 float ComputeTargetSpecificAtmosphericLossDb(
@@ -46,7 +46,7 @@ float ComputeTargetSpecificAtmosphericLossDb(
 
   oneq::internal::atmosphere::AtmosphericPropagationInputs inputs;
   inputs.enable_physics = true;
-  inputs.frequency_hz = exec_config.detection_engineering.transmitter.frequency_hz;
+  inputs.frequency_hz = exec_config.detection.engineering.transmitter.frequency_hz;
   inputs.path_length_m = std::max(geometry.range_m, 0.1f);
   inputs.radar_altitude_m = 0.0f;
   inputs.target_altitude_m = std::max(geometry.position_m.z(), 0.0f);
@@ -77,7 +77,7 @@ float ComputeEffectiveTargetRcsM2(const session::RadarSceneTarget& target,
                                   const ExecutionConfig& exec_config) {
   const float input_rcs_m2 = std::max(target.rcs, 0.0f);
   const config::engineering::RcsPhysicsConfig& rcs_config =
-      exec_config.detection_engineering.rcs_physics;
+      exec_config.detection.engineering.rcs_physics;
   if (!rcs_config.enable_physical_rcs) {
     return input_rcs_m2;
   }
@@ -187,7 +187,7 @@ void RunHeuristicDetectionPass(const session::RadarSceneTargetList& input, const
         (*buffers->signal_term_db)[i] - (*buffers->speed_penalty_db)[i] - environment_penalty_db;
     (*buffers->detection_margin_db)[i] = margin;
     (*buffers->detection_succeeded)[i] =
-        static_cast<std::uint8_t>(margin >= config.detection_engineering.min_detection_margin_db);
+        static_cast<std::uint8_t>(margin >= config.detection.engineering.min_detection_margin_db);
   }
 }
 
@@ -228,7 +228,7 @@ void RunPhysicalDetectionPass(const session::RadarSceneTargetList& input, const 
   env.clutter_noise_w = clutter_w;
   env.jam_noise_w = jam_w;
 
-  signal_detector->UpdateConfig(config.detection_engineering);
+  signal_detector->UpdateConfig(config.detection.engineering);
 
   for (std::size_t i = 0; i < count; ++i) {
     (*buffers->target_geometry)[i] = detection::TargetGeometryResolver::Resolve(input[i]);
@@ -248,18 +248,18 @@ void RunPhysicalDetectionPass(const session::RadarSceneTargetList& input, const 
       target.swerling_type =
           static_cast<config::profiles::SwerlingModel>(input[i].target_swerling_type);
     } else {
-      target.swerling_type = config.hardware_detection.swerling_model;
+      target.swerling_type = config.detection.hardware.swerling_model;
     }
 
     const detection::ResolvedBeamState beam_state = detection::BeamControlResolver::Resolve(
-        config.detection_engineering.antenna, config.mission_orientation,
-        config.platform_attitude_deg, (*buffers->target_geometry)[i].look_angles_deg);
+        config.detection.engineering.antenna, config.detection.orientation,
+        config.detection.platform_attitude_deg, (*buffers->target_geometry)[i].look_angles_deg);
     const detection::DetectionResult detection_result = signal_detector->Detect(
-        target, env, beam_state.one_way_antenna_gain_db, config.detection_engineering.pulse_count);
+        target, env, beam_state.one_way_antenna_gain_db, config.detection.engineering.pulse_count);
     const detection::MeasurementErrorState measurement_error =
         detection::MeasurementErrorModel::Compute(
             detection_result.snr_db, beam_state.effective_beamwidth_deg,
-            config.detection_engineering.transmitter.bandwidth_hz);
+            config.detection.engineering.transmitter.bandwidth_hz);
 
     (*buffers->signal_term_db)[i] = detection_result.snr_db;
     (*buffers->speed_penalty_db)[i] = 0.0f;
@@ -269,7 +269,7 @@ void RunPhysicalDetectionPass(const session::RadarSceneTargetList& input, const 
     (*buffers->measurement_covariances)[i] = BuildMeasurementCovariance(
         (*buffers->target_geometry)[i], measurement_error.range_error_std_m,
         measurement_error.angle_error_std_rad,
-        config.tracking_engineering.kalman_measurement_noise_std);
+        config.tracking.engineering.kalman_measurement_noise_std);
     (*buffers->measurement_covariances)[i] *= ComputeMeasurementCovarianceInflation(
         config.jamming_effects, control_profile, environment_snapshot);
   }

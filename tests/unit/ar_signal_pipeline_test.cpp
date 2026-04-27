@@ -403,8 +403,8 @@ TEST(SignalPipelineTest, AutoLifecycleManagerCreationFailsWhenImmAssemblyIsInval
   session_runtime_config.policy.tracking.enable_kalman_filter = true;
   session_runtime_config.policy.lifecycle.enable_imm_lifecycle = true;
   ExecutionConfig exec_config = config::mapping::MapSessionToExecution(session_runtime_config);
-  exec_config.imm_model_noise_diff_coeffs = {0.5f, 2.0f};
-  exec_config.imm_initial_weights = {1.0f};
+  exec_config.lifecycle.imm_model_noise_diff_coeffs = {0.5f, 2.0f};
+  exec_config.lifecycle.imm_initial_weights = {1.0f};
 
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> lifecycle_manager =
       signal::pipeline::CreateAutoLifecycleManagerForRuntimeConfig(exec_config);
@@ -841,8 +841,8 @@ TEST(SignalPipelineTest, AgilityFrequencyHopPhaseControlsFrequencyDirection) {
   session::RadarSessionConfig phase_one_config = phase_zero_config;
   ExecutionConfig phase_zero_exec = config::mapping::MapSessionToExecution(phase_zero_config);
   ExecutionConfig phase_one_exec = config::mapping::MapSessionToExecution(phase_one_config);
-  phase_zero_exec.detection_engineering.transmitter.frequency_hz = 1.0e9f;
-  phase_one_exec.detection_engineering.transmitter.frequency_hz = 1.0e9f;
+  phase_zero_exec.detection.engineering.transmitter.frequency_hz = 1.0e9f;
+  phase_one_exec.detection.engineering.transmitter.frequency_hz = 1.0e9f;
 
   extension::control::RadarControlProfile profile;
   profile.enable_agility_frequency = true;
@@ -851,8 +851,8 @@ TEST(SignalPipelineTest, AgilityFrequencyHopPhaseControlsFrequencyDirection) {
   profile.agility_frequency_hop_phase = 1U;
   signal::pipeline::ApplyControlProfileToConfig(profile, &phase_one_exec);
 
-  EXPECT_FLOAT_EQ(phase_zero_exec.detection_engineering.transmitter.frequency_hz, 1.015e9f);
-  EXPECT_FLOAT_EQ(phase_one_exec.detection_engineering.transmitter.frequency_hz, 0.985e9f);
+  EXPECT_FLOAT_EQ(phase_zero_exec.detection.engineering.transmitter.frequency_hz, 1.015e9f);
+  EXPECT_FLOAT_EQ(phase_one_exec.detection.engineering.transmitter.frequency_hz, 0.985e9f);
 }
 
 TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
@@ -1083,10 +1083,10 @@ TEST(SignalPipelineTest, InvalidTopologyRebuildKeepsPreviousLifecycleAssemblyOpe
   ASSERT_EQ(previous_seeds.size(), 1u);
 
   ExecutionConfig invalid_exec = exec_config;
-  invalid_exec.policy_lifecycle.enable_imm_lifecycle = true;
-  invalid_exec.lifecycle_engineering.enable_imm_lifecycle = true;
-  invalid_exec.imm_model_noise_diff_coeffs = {0.5f, 2.0f};
-  invalid_exec.imm_initial_weights = {1.0f};
+  invalid_exec.lifecycle.policy.enable_imm_lifecycle = true;
+  invalid_exec.lifecycle.engineering.enable_imm_lifecycle = true;
+  invalid_exec.lifecycle.imm_model_noise_diff_coeffs = {0.5f, 2.0f};
+  invalid_exec.lifecycle.imm_initial_weights = {1.0f};
 
   signal::pipeline::ResolvedRuntimePipelineConfig invalid_runtime_config;
   invalid_runtime_config.config = invalid_exec;
@@ -1557,30 +1557,30 @@ TEST(SignalPipelineInternalConfigTest, DetectionPresetMapsToBaselineProfile) {
   const ExecutionConfig exec_config = config::mapping::MapSessionToExecution(
       config::presets::MakeDetectionMissionRadarSessionConfig());
 
-  EXPECT_FLOAT_EQ(exec_config.association_unassigned_cost, 9.0f);
-  EXPECT_FLOAT_EQ(exec_config.tracking_kalman_noise_diff_coeff, 1.0f);
-  EXPECT_FLOAT_EQ(exec_config.tracking_speed_decay_ratio_on_loss, 0.95f);
-  EXPECT_FLOAT_EQ(exec_config.tracking_rcs_decay_ratio_on_loss, 0.92f);
+  EXPECT_FLOAT_EQ(exec_config.association.unassigned_cost, 9.0f);
+  EXPECT_FLOAT_EQ(exec_config.tracking.kalman_noise_diff_coeff, 1.0f);
+  EXPECT_FLOAT_EQ(exec_config.tracking.speed_decay_ratio_on_loss, 0.95f);
+  EXPECT_FLOAT_EQ(exec_config.tracking.rcs_decay_ratio_on_loss, 0.92f);
 }
 
 TEST(SignalPipelineInternalConfigTest, TrackingPresetMapsToTrackingProfile) {
   const ExecutionConfig exec_config = config::mapping::MapSessionToExecution(
       config::presets::MakeTrackingMissionRadarSessionConfig());
 
-  EXPECT_FLOAT_EQ(exec_config.association_unassigned_cost, 9.0f);
-  EXPECT_FLOAT_EQ(exec_config.tracking_kalman_noise_diff_coeff, 1.0f);
-  EXPECT_FLOAT_EQ(exec_config.tracking_speed_decay_ratio_on_loss, 1.0f);
-  EXPECT_FLOAT_EQ(exec_config.tracking_rcs_decay_ratio_on_loss, 1.0f);
+  EXPECT_FLOAT_EQ(exec_config.association.unassigned_cost, 9.0f);
+  EXPECT_FLOAT_EQ(exec_config.tracking.kalman_noise_diff_coeff, 1.0f);
+  EXPECT_FLOAT_EQ(exec_config.tracking.speed_decay_ratio_on_loss, 1.0f);
+  EXPECT_FLOAT_EQ(exec_config.tracking.rcs_decay_ratio_on_loss, 1.0f);
 }
 
 TEST(SignalPipelineInternalConfigTest, RobustPresetMapsToRobustProfile) {
   const ExecutionConfig exec_config = config::mapping::MapSessionToExecution(
       config::presets::MakeHighRobustnessRadarSessionConfig());
 
-  EXPECT_FLOAT_EQ(exec_config.association_unassigned_cost, 12.0f);
-  EXPECT_FLOAT_EQ(exec_config.tracking_kalman_noise_diff_coeff, 1.0f);
-  EXPECT_FLOAT_EQ(exec_config.tracking_speed_decay_ratio_on_loss, 0.95f);
-  EXPECT_FLOAT_EQ(exec_config.tracking_rcs_decay_ratio_on_loss, 0.92f);
+  EXPECT_FLOAT_EQ(exec_config.association.unassigned_cost, 12.0f);
+  EXPECT_FLOAT_EQ(exec_config.tracking.kalman_noise_diff_coeff, 1.0f);
+  EXPECT_FLOAT_EQ(exec_config.tracking.speed_decay_ratio_on_loss, 0.95f);
+  EXPECT_FLOAT_EQ(exec_config.tracking.rcs_decay_ratio_on_loss, 0.92f);
 }
 
 TEST(SignalPipelineInternalConfigTest,
@@ -1590,10 +1590,10 @@ TEST(SignalPipelineInternalConfigTest,
   ApplyRcsFusionProfile(&session_config, config::profiles::RcsFusionProfile::kEnhanced);
   const ExecutionConfig exec_config = config::mapping::MapSessionToExecution(session_config);
 
-  EXPECT_FLOAT_EQ(exec_config.association_unassigned_cost, 9.0f);
-  EXPECT_FLOAT_EQ(exec_config.tracking_kalman_noise_diff_coeff, 1.0f);
-  EXPECT_FLOAT_EQ(exec_config.tracking_speed_decay_ratio_on_loss, 1.0f);
-  EXPECT_FLOAT_EQ(exec_config.tracking_rcs_decay_ratio_on_loss, 1.0f);
+  EXPECT_FLOAT_EQ(exec_config.association.unassigned_cost, 9.0f);
+  EXPECT_FLOAT_EQ(exec_config.tracking.kalman_noise_diff_coeff, 1.0f);
+  EXPECT_FLOAT_EQ(exec_config.tracking.speed_decay_ratio_on_loss, 1.0f);
+  EXPECT_FLOAT_EQ(exec_config.tracking.rcs_decay_ratio_on_loss, 1.0f);
 }
 
 TEST(SignalPipelineInternalConfigTest, CustomConfigStaysBaselineEvenWithHighLifecycleThresholds) {
@@ -1604,27 +1604,27 @@ TEST(SignalPipelineInternalConfigTest, CustomConfigStaysBaselineEvenWithHighLife
   ApplyTrackingPolicyProfile(&session_config, config::profiles::TrackingPolicyProfile::kBalanced);
   const ExecutionConfig exec_config = config::mapping::MapSessionToExecution(session_config);
 
-  EXPECT_FLOAT_EQ(exec_config.association_unassigned_cost, 9.0f);
-  EXPECT_FLOAT_EQ(exec_config.tracking_kalman_noise_diff_coeff, 1.0f);
-  EXPECT_FLOAT_EQ(exec_config.tracking_speed_decay_ratio_on_loss, 0.95f);
-  EXPECT_FLOAT_EQ(exec_config.tracking_rcs_decay_ratio_on_loss, 0.92f);
+  EXPECT_FLOAT_EQ(exec_config.association.unassigned_cost, 9.0f);
+  EXPECT_FLOAT_EQ(exec_config.tracking.kalman_noise_diff_coeff, 1.0f);
+  EXPECT_FLOAT_EQ(exec_config.tracking.speed_decay_ratio_on_loss, 0.95f);
+  EXPECT_FLOAT_EQ(exec_config.tracking.rcs_decay_ratio_on_loss, 0.92f);
 }
 
 TEST(SignalPipelineInternalConfigTest, ImmToggleOnlyControlsImmInternalDefaults) {
   session::RadarSessionConfig session_config =
       config::presets::MakeTrackingMissionRadarSessionConfig();
   const ExecutionConfig imm_disabled_exec = config::mapping::MapSessionToExecution(session_config);
-  EXPECT_TRUE(imm_disabled_exec.imm_model_noise_diff_coeffs.empty());
-  EXPECT_FLOAT_EQ(imm_disabled_exec.tracking_speed_decay_ratio_on_loss, 1.0f);
-  EXPECT_FLOAT_EQ(imm_disabled_exec.tracking_rcs_decay_ratio_on_loss, 1.0f);
+  EXPECT_TRUE(imm_disabled_exec.lifecycle.imm_model_noise_diff_coeffs.empty());
+  EXPECT_FLOAT_EQ(imm_disabled_exec.tracking.speed_decay_ratio_on_loss, 1.0f);
+  EXPECT_FLOAT_EQ(imm_disabled_exec.tracking.rcs_decay_ratio_on_loss, 1.0f);
 
   session_config.policy.lifecycle.enable_imm_lifecycle = true;
   const ExecutionConfig imm_enabled_exec = config::mapping::MapSessionToExecution(session_config);
-  ASSERT_EQ(imm_enabled_exec.imm_model_noise_diff_coeffs.size(), 2U);
-  EXPECT_FLOAT_EQ(imm_enabled_exec.imm_model_noise_diff_coeffs[0], 0.5f);
-  EXPECT_FLOAT_EQ(imm_enabled_exec.imm_model_noise_diff_coeffs[1], 4.0f);
-  EXPECT_FLOAT_EQ(imm_enabled_exec.tracking_speed_decay_ratio_on_loss, 1.0f);
-  EXPECT_FLOAT_EQ(imm_enabled_exec.tracking_rcs_decay_ratio_on_loss, 1.0f);
+  ASSERT_EQ(imm_enabled_exec.lifecycle.imm_model_noise_diff_coeffs.size(), 2U);
+  EXPECT_FLOAT_EQ(imm_enabled_exec.lifecycle.imm_model_noise_diff_coeffs[0], 0.5f);
+  EXPECT_FLOAT_EQ(imm_enabled_exec.lifecycle.imm_model_noise_diff_coeffs[1], 4.0f);
+  EXPECT_FLOAT_EQ(imm_enabled_exec.tracking.speed_decay_ratio_on_loss, 1.0f);
+  EXPECT_FLOAT_EQ(imm_enabled_exec.tracking.rcs_decay_ratio_on_loss, 1.0f);
 }
 
 }  // namespace tests

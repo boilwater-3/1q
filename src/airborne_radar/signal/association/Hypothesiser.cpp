@@ -24,18 +24,18 @@ namespace {
 }  // namespace
 
 DenseCostHypothesiser::DenseCostHypothesiser(ICovarianceAwareDistanceMetric* distance_metric,
-                                             const IGater* gater)
-    : distance_metric_(distance_metric), covariance_metric_(distance_metric), gater_(gater) {
-  if (distance_metric_ == nullptr || gater_ == nullptr) {
-    AbortContractViolation("hypothesiser requires distance metric and gater");
+                                             float max_cost)
+    : distance_metric_(distance_metric), covariance_metric_(distance_metric), max_cost_(max_cost) {
+  if (distance_metric_ == nullptr) {
+    AbortContractViolation("hypothesiser requires distance metric");
   }
 }
 
 DenseCostHypothesiser::DenseCostHypothesiser(const IDistanceMetric* distance_metric,
-                                             const IGater* gater)
-    : distance_metric_(distance_metric), gater_(gater) {
-  if (distance_metric_ == nullptr || gater_ == nullptr) {
-    AbortContractViolation("hypothesiser requires distance metric and gater");
+                                             float max_cost)
+    : distance_metric_(distance_metric), max_cost_(max_cost) {
+  if (distance_metric_ == nullptr) {
+    AbortContractViolation("hypothesiser requires distance metric");
   }
 }
 
@@ -49,7 +49,7 @@ std::vector<AssociationHypothesis> DenseCostHypothesiser::Generate(
          ++measurement_index) {
       const float cost =
           distance_metric_->Compute(predicted_tracks[track_index], measurements[measurement_index]);
-      if (!gater_->Accept(cost)) {
+      if (cost > max_cost_) {
         continue;
       }
 
@@ -81,7 +81,7 @@ std::vector<AssociationHypothesis> DenseCostHypothesiser::Generate(
          ++measurement_index) {
       const float cost =
           distance_metric_->Compute(predicted_tracks[track_index], measurements[measurement_index]);
-      if (!gater_->Accept(cost)) {
+      if (cost > max_cost_) {
         continue;
       }
 
@@ -121,7 +121,7 @@ std::vector<AssociationHypothesis> DenseCostHypothesiser::Generate(
                                                   measurement_covariances[measurement_index]);
       const float cost =
           distance_metric_->Compute(predicted_tracks[track_index], measurements[measurement_index]);
-      if (!gater_->Accept(cost)) {
+      if (cost > max_cost_) {
         continue;
       }
 

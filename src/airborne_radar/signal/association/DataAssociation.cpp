@@ -135,8 +135,7 @@ DataAssociationEngine::DataAssociationEngine(DataAssociationConfig config)
     : config_(config),
       full_distance_metric_(Eigen::Matrix3f::Identity() * (config.kalman_measurement_noise_std *
                                                            config.kalman_measurement_noise_std)),
-      gater_(config.unassigned_cost),
-      position_hypothesiser_(&full_distance_metric_, &gater_),
+      position_hypothesiser_(&full_distance_metric_, config.unassigned_cost),
       kalman_predictor_(tracking::KalmanPredictorConfig()) {
   tracking::KalmanPredictorConfig predictor_config;
   predictor_config.noise_diff_coeff = config.kalman_noise_diff_coeff;
@@ -148,8 +147,7 @@ void DataAssociationEngine::UpdateConfig(DataAssociationConfig config) {
   full_distance_metric_ = FullMahalanobisDistanceMetric(
       Eigen::Matrix3f::Identity() *
       (config.kalman_measurement_noise_std * config.kalman_measurement_noise_std));
-  gater_ = CostThresholdGater(config.unassigned_cost);
-  position_hypothesiser_ = DenseCostHypothesiser(&full_distance_metric_, &gater_);
+  position_hypothesiser_ = DenseCostHypothesiser(&full_distance_metric_, config.unassigned_cost);
   tracking::KalmanPredictorConfig predictor_config;
   predictor_config.noise_diff_coeff = config.kalman_noise_diff_coeff;
   kalman_predictor_.UpdateConfig(predictor_config);

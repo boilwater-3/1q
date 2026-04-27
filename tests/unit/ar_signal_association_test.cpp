@@ -8,7 +8,6 @@
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/association/DistanceMetric.h"
-#include "airborne_radar/signal/association/Gater.h"
 #include "airborne_radar/signal/association/Hypothesiser.h"
 
 namespace airborne_radar {
@@ -524,32 +523,21 @@ TEST(DataAssociationEngineTest, EmptyExternalSeedsKeepsAssociationStateless) {
   EXPECT_EQ(result.unassociated_target_indices[0], 0u);
 }
 
-TEST(CostThresholdGaterTest, RejectsHypothesesOutsideThreshold) {
-  const signal::association::CostThresholdGater gater(9.0f);
-
-  EXPECT_TRUE(gater.Accept(8.5f));
-  EXPECT_TRUE(gater.Accept(9.0f));
-  EXPECT_FALSE(gater.Accept(9.1f));
-}
 
 TEST(DenseCostHypothesiserTest, NullDependenciesFailFast) {
-  const signal::association::CostThresholdGater gater(9.0f);
+  const float max_cost = 9.0f;
   const signal::association::MahalanobisDistanceMetric metric(40.0f, 8.0f, 10.0f);
 
   EXPECT_DEATH_IF_SUPPORTED(
       signal::association::DenseCostHypothesiser(
-          static_cast<signal::association::IDistanceMetric*>(nullptr), &gater),
-      "requires distance metric and gater");
-  EXPECT_DEATH_IF_SUPPORTED(
-      signal::association::DenseCostHypothesiser(
-          &metric, static_cast<const signal::association::IGater*>(nullptr)),
-      "requires distance metric and gater");
+          static_cast<signal::association::IDistanceMetric*>(nullptr), max_cost),
+      "requires distance metric");
 }
 
 TEST(DenseCostHypothesiserTest, GeneratesOnlyGatedHypotheses) {
   const signal::association::MahalanobisDistanceMetric metric(40.0f, 8.0f, 10.0f);
-  const signal::association::CostThresholdGater gater(9.0f);
-  const signal::association::DenseCostHypothesiser hypothesiser(&metric, &gater);
+  const float max_cost = 9.0f;
+  const signal::association::DenseCostHypothesiser hypothesiser(&metric, max_cost);
 
   const signal::association::FeatureVectorList predicted_tracks{
       Eigen::Vector3f(100.0f, 2.0f, 1.0f)};
@@ -567,8 +555,8 @@ TEST(DenseCostHypothesiserTest, GeneratesOnlyGatedHypotheses) {
 
 TEST(DenseCostHypothesiserTest, UsesTrackWiseInnovationCovarianceForFullMahalanobis) {
   signal::association::FullMahalanobisDistanceMetric metric(Eigen::Matrix3f::Identity());
-  const signal::association::CostThresholdGater gater(1.5f);
-  const signal::association::DenseCostHypothesiser hypothesiser(&metric, &gater);
+  const float max_cost = 1.5f;
+  const signal::association::DenseCostHypothesiser hypothesiser(&metric, max_cost);
 
   const signal::association::FeatureVectorList predicted_tracks{Eigen::Vector3f(0.0f, 0.0f, 0.0f)};
   const signal::association::FeatureVectorList measurements{Eigen::Vector3f(2.0f, 0.0f, 0.0f)};
@@ -586,8 +574,8 @@ TEST(DenseCostHypothesiserTest, UsesTrackWiseInnovationCovarianceForFullMahalano
 
 TEST(DenseCostHypothesiserTest, MismatchedTrackWiseInnovationCovarianceFailsFast) {
   signal::association::FullMahalanobisDistanceMetric metric(Eigen::Matrix3f::Identity());
-  const signal::association::CostThresholdGater gater(1.5f);
-  const signal::association::DenseCostHypothesiser hypothesiser(&metric, &gater);
+  const float max_cost = 1.5f;
+  const signal::association::DenseCostHypothesiser hypothesiser(&metric, max_cost);
 
   const signal::association::FeatureVectorList predicted_tracks{
       Eigen::Vector3f(0.0f, 0.0f, 0.0f), Eigen::Vector3f(1.0f, 0.0f, 0.0f)};
@@ -601,8 +589,8 @@ TEST(DenseCostHypothesiserTest, MismatchedTrackWiseInnovationCovarianceFailsFast
 
 TEST(DenseCostHypothesiserTest, ConstMetricRejectsDynamicInnovationCovariance) {
   const signal::association::FullMahalanobisDistanceMetric metric(Eigen::Matrix3f::Identity());
-  const signal::association::CostThresholdGater gater(1.5f);
-  const signal::association::DenseCostHypothesiser hypothesiser(&metric, &gater);
+  const float max_cost = 1.5f;
+  const signal::association::DenseCostHypothesiser hypothesiser(&metric, max_cost);
 
   const signal::association::FeatureVectorList predicted_tracks{Eigen::Vector3f(0.0f, 0.0f, 0.0f)};
   const signal::association::FeatureVectorList measurements{Eigen::Vector3f(2.0f, 0.0f, 0.0f)};

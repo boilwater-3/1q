@@ -12,24 +12,24 @@ execution::InternalExecutionConfig MapSessionToExecution(
     const session::RadarSessionConfig& session_config) {
   execution::InternalExecutionConfig exec;
 
-  exec.hardware_detection = session_config.hardware.detection;
-  exec.policy_beam_control = session_config.policy.beam_control;
-  exec.policy_association = session_config.policy.association;
-  exec.policy_tracking = session_config.policy.tracking;
-  exec.policy_lifecycle = session_config.policy.lifecycle;
-  exec.policy_imm = session_config.policy.imm;
-  exec.mission_orientation = session_config.mission.orientation;
+  exec.detection.hardware = session_config.hardware.detection;
+  exec.detection.beam_control = session_config.policy.beam_control;
+  exec.association.policy = session_config.policy.association;
+  exec.tracking.policy = session_config.policy.tracking;
+  exec.lifecycle.policy = session_config.policy.lifecycle;
+  exec.lifecycle.imm_policy = session_config.policy.imm;
+  exec.detection.orientation = session_config.mission.orientation;
 
-  exec.detection_engineering = ResolveDetectionEngineering(exec.hardware_detection);
-  exec.tracking_engineering = ResolveTrackingEngineering(exec.policy_tracking);
-  exec.lifecycle_engineering = ResolveLifecycleEngineering(exec.policy_lifecycle);
+  exec.detection.engineering = ResolveDetectionEngineering(exec.detection.hardware);
+  exec.tracking.engineering = ResolveTrackingEngineering(exec.tracking.policy);
+  exec.lifecycle.engineering = ResolveLifecycleEngineering(exec.lifecycle.policy);
 
-  exec.tracking_speed_decay_ratio_on_loss = exec.policy_tracking.speed_decay_ratio_on_loss;
-  exec.tracking_rcs_decay_ratio_on_loss = exec.policy_tracking.rcs_decay_ratio_on_loss;
-  exec.association_unassigned_cost = exec.policy_association.unassigned_cost;
+  exec.tracking.speed_decay_ratio_on_loss = exec.tracking.policy.speed_decay_ratio_on_loss;
+  exec.tracking.rcs_decay_ratio_on_loss = exec.tracking.policy.rcs_decay_ratio_on_loss;
+  exec.association.unassigned_cost = exec.association.policy.unassigned_cost;
 
-  if (exec.lifecycle_engineering.enable_imm_lifecycle) {
-    exec.imm_model_noise_diff_coeffs = std::vector<float>{0.5f, 4.0f};
+  if (exec.lifecycle.engineering.enable_imm_lifecycle) {
+    exec.lifecycle.imm_model_noise_diff_coeffs = std::vector<float>{0.5f, 4.0f};
   }
 
   return exec;

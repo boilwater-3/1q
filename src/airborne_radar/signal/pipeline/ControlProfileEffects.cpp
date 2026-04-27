@@ -150,82 +150,82 @@ void ApplyControlProfileToConfig(const extension::control::RadarControlProfile& 
     return;
   }
   const oneq::internal::timing::ResolvedCycleTimingState timing_state =
-      ResolveDetectionTimingState(control_profile, config->detection_engineering);
+      ResolveDetectionTimingState(control_profile, config->detection.engineering);
 
   const ControlProfileEffectsConfig& cfg = config->control_profile_effects;
 
   if (control_profile.enable_lpi_power_control) {
-    config->detection_engineering.transmitter.peak_power_w *=
+    config->detection.engineering.transmitter.peak_power_w *=
         ClampProfileScale(control_profile.lpi_power_scale, 1.0f);
-    config->tracking_engineering.kalman_measurement_noise_std *= kLpiPowerKalmanNoiseScale;
-    config->association_unassigned_cost *= kLpiPowerAssignCostScale;
+    config->tracking.engineering.kalman_measurement_noise_std *= kLpiPowerKalmanNoiseScale;
+    config->association.unassigned_cost *= kLpiPowerAssignCostScale;
   }
 
   if (control_profile.lpi_dwell_scale != 1.0f) {
-    config->detection_engineering.pulse_count =
+    config->detection.engineering.pulse_count =
         static_cast<int>(timing_state.effective_pulse_count);
   }
 
   if (control_profile.enable_agility_frequency) {
     const float hop_factor =
         (control_profile.agility_frequency_hop_phase % 2U == 0U) ? 1.015f : 0.985f;
-    config->detection_engineering.transmitter.frequency_hz *= hop_factor;
-    config->association_unassigned_cost *= kAgilityFreqAssignCostScale;
-    config->tracking_kalman_noise_diff_coeff *= kAgilityFreqKalmanDiffScale;
+    config->detection.engineering.transmitter.frequency_hz *= hop_factor;
+    config->association.unassigned_cost *= kAgilityFreqAssignCostScale;
+    config->tracking.kalman_noise_diff_coeff *= kAgilityFreqKalmanDiffScale;
   }
 
   if (control_profile.enable_eccm_rejitter) {
-    config->detection_engineering.transmitter.prf_hz = timing_state.effective_prf_hz;
-    config->association_unassigned_cost *= kRejitterAssignCostScale;
-    config->tracking_kalman_noise_diff_coeff *= kRejitterKalmanDiffScale;
+    config->detection.engineering.transmitter.prf_hz = timing_state.effective_prf_hz;
+    config->association.unassigned_cost *= kRejitterAssignCostScale;
+    config->tracking.kalman_noise_diff_coeff *= kRejitterKalmanDiffScale;
   }
 
   if (control_profile.eccm_burnthrough_gain > 1.0f) {
     const float gain_db = ToDbDelta(control_profile.eccm_burnthrough_gain);
-    config->detection_engineering.receiver.noise_figure_db =
-        std::max(0.0f, config->detection_engineering.receiver.noise_figure_db - gain_db);
-    config->association_unassigned_cost *=
+    config->detection.engineering.receiver.noise_figure_db =
+        std::max(0.0f, config->detection.engineering.receiver.noise_figure_db - gain_db);
+    config->association.unassigned_cost *=
         utils::ClampFloat(control_profile.eccm_burnthrough_gain, 1.0f, kBurnthroughAssignCostMax);
-    config->tracking_engineering.kalman_measurement_noise_std *= kBurnthroughKalmanNoiseScale;
+    config->tracking.engineering.kalman_measurement_noise_std *= kBurnthroughKalmanNoiseScale;
   }
 
   if (control_profile.enable_sidelobe_canceller) {
-    config->detection_engineering.antenna.enable_directional_pattern = true;
-    config->detection_engineering.antenna.pattern.max_sidelobe_level_db -=
+    config->detection.engineering.antenna.enable_directional_pattern = true;
+    config->detection.engineering.antenna.pattern.max_sidelobe_level_db -=
         cfg.sidelobe_level_reduction_db;
-    config->association_unassigned_cost *= kSidelobeAssignCostScale;
+    config->association.unassigned_cost *= kSidelobeAssignCostScale;
   }
 
   const float beamwidth_scale = ResolveBeamwidthScale(cfg, control_profile);
   if (beamwidth_scale < 0.999f) {
-    config->mission_orientation.commanded_beamwidth_enabled = true;
-    config->mission_orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg = std::max(
-        0.5f, config->detection_engineering.antenna.nominal_az_beamwidth_deg * beamwidth_scale);
-    config->mission_orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg = std::max(
-        0.5f, config->detection_engineering.antenna.nominal_el_beamwidth_deg * beamwidth_scale);
+    config->detection.orientation.commanded_beamwidth_enabled = true;
+    config->detection.orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg = std::max(
+        0.5f, config->detection.engineering.antenna.nominal_az_beamwidth_deg * beamwidth_scale);
+    config->detection.orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg = std::max(
+        0.5f, config->detection.engineering.antenna.nominal_el_beamwidth_deg * beamwidth_scale);
   }
 
   if (control_profile.enable_adaptive_beamforming) {
-    config->detection_engineering.antenna.main_beam_gain_db += cfg.adaptive_beam_gain_boost_db;
-    config->association_unassigned_cost *= kAdaptiveBeamAssignCostScale;
-    config->tracking_engineering.kalman_measurement_noise_std *= kAdaptiveBeamKalmanNoiseScale;
+    config->detection.engineering.antenna.main_beam_gain_db += cfg.adaptive_beam_gain_boost_db;
+    config->association.unassigned_cost *= kAdaptiveBeamAssignCostScale;
+    config->tracking.engineering.kalman_measurement_noise_std *= kAdaptiveBeamKalmanNoiseScale;
   }
 
   if (control_profile.enable_lpi_beamforming) {
-    config->tracking_engineering.kalman_measurement_noise_std *= kLpiBeamKalmanNoiseScale;
+    config->tracking.engineering.kalman_measurement_noise_std *= kLpiBeamKalmanNoiseScale;
   }
 
   if (control_profile.enable_sidelobe_canceller || control_profile.enable_agility_frequency ||
       control_profile.enable_eccm_rejitter || control_profile.eccm_burnthrough_gain > 1.0f) {
-    config->tracking_speed_decay_ratio_on_loss =
-        utils::ClampFloat(config->tracking_speed_decay_ratio_on_loss + cfg.eccm_speed_decay_bonus,
+    config->tracking.speed_decay_ratio_on_loss =
+        utils::ClampFloat(config->tracking.speed_decay_ratio_on_loss + cfg.eccm_speed_decay_bonus,
                           0.0f, kSpeedDecayRatioMax);
-    config->tracking_rcs_decay_ratio_on_loss =
-        utils::ClampFloat(config->tracking_rcs_decay_ratio_on_loss + cfg.eccm_rcs_decay_bonus, 0.0f,
+    config->tracking.rcs_decay_ratio_on_loss =
+        utils::ClampFloat(config->tracking.rcs_decay_ratio_on_loss + cfg.eccm_rcs_decay_bonus, 0.0f,
                           kRcsDecayRatioMax);
   }
 
-  if (!config->imm_model_noise_diff_coeffs.empty()) {
+  if (!config->lifecycle.imm_model_noise_diff_coeffs.empty()) {
     float imm_noise_scale = 1.0f;
     if (control_profile.enable_agility_frequency) {
       imm_noise_scale *= kImmAgilityNoiseScale;
@@ -237,20 +237,20 @@ void ApplyControlProfileToConfig(const extension::control::RadarControlProfile& 
       imm_noise_scale *=
           utils::ClampFloat(control_profile.eccm_burnthrough_gain, 1.0f, kBurnthroughAssignCostMax);
     }
-    for (std::size_t i = 0; i < config->imm_model_noise_diff_coeffs.size(); ++i) {
-      config->imm_model_noise_diff_coeffs[i] =
-          std::max(kImmNoiseCoeffMin, config->imm_model_noise_diff_coeffs[i] * imm_noise_scale);
+    for (std::size_t i = 0; i < config->lifecycle.imm_model_noise_diff_coeffs.size(); ++i) {
+      config->lifecycle.imm_model_noise_diff_coeffs[i] =
+          std::max(kImmNoiseCoeffMin, config->lifecycle.imm_model_noise_diff_coeffs[i] * imm_noise_scale);
     }
   }
 
-  if (!config->imm_initial_weights.empty() && config->imm_initial_weights.size() > 1U &&
+  if (!config->lifecycle.imm_initial_weights.empty() && config->lifecycle.imm_initial_weights.size() > 1U &&
       (control_profile.enable_agility_frequency || control_profile.enable_eccm_rejitter ||
        control_profile.eccm_burnthrough_gain > 1.0f)) {
-    const std::size_t last_index = config->imm_initial_weights.size() - 1U;
+    const std::size_t last_index = config->lifecycle.imm_initial_weights.size() - 1U;
     const float bonus = control_profile.eccm_burnthrough_gain > 1.0f ? kImmWeightBonusBurnthrough
                                                                      : kImmWeightBonusNormal;
-    config->imm_initial_weights[last_index] += bonus;
-    NormalizeImmInitialWeights(&config->imm_initial_weights);
+    config->lifecycle.imm_initial_weights[last_index] += bonus;
+    NormalizeImmInitialWeights(&config->lifecycle.imm_initial_weights);
   }
 }
 

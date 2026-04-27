@@ -36,16 +36,7 @@ void SyncPipelineConfig(RadarSessionComposition* composition) {
     return;
   }
   const session::RadarSessionConfig runtime_session_config = BuildRuntimeSessionConfig(*composition);
-  signal::pipeline::SignalPipeline* concrete_pipeline =
-      dynamic_cast<signal::pipeline::SignalPipeline*>(composition->signal_pipeline);
-  bool accepted = false;
-  if (concrete_pipeline != nullptr) {
-    accepted = concrete_pipeline->UpdateExecutionConfig(
-        config::mapping::MapSessionToExecution(runtime_session_config));
-  } else {
-    accepted = composition->signal_pipeline->UpdateConfig(runtime_session_config);
-  }
-  (void)accepted;
+  composition->signal_pipeline->UpdateConfig(runtime_session_config);
 }
 
 void SyncEnvironmentModelConfig(RadarSessionComposition* composition) {

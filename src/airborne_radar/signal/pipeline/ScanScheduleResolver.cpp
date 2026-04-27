@@ -16,7 +16,7 @@ bool IsFinitePositive(float value) { return std::isfinite(value) && value > 0.0f
 detection::EffectiveBeamwidthDeg ResolveSchedulingBeamwidth(const ExecutionConfig& runtime_config) {
   detection::EffectiveBeamwidthDeg beamwidth;
   const model::CommandedBeamwidthDeg& expert_nominal =
-      runtime_config.policy_beam_control.pointing.nominal_beamwidth_deg;
+      runtime_config.detection.beam_control.pointing.nominal_beamwidth_deg;
   if (IsFinitePositive(expert_nominal.commanded_az_beamwidth_deg) &&
       IsFinitePositive(expert_nominal.commanded_el_beamwidth_deg)) {
     beamwidth.az_beamwidth_deg = expert_nominal.commanded_az_beamwidth_deg;
@@ -24,20 +24,20 @@ detection::EffectiveBeamwidthDeg ResolveSchedulingBeamwidth(const ExecutionConfi
     return beamwidth;
   }
 
-  if (runtime_config.mission_orientation.commanded_beamwidth_enabled &&
+  if (runtime_config.detection.orientation.commanded_beamwidth_enabled &&
       IsFinitePositive(
-          runtime_config.mission_orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg) &&
+          runtime_config.detection.orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg) &&
       IsFinitePositive(
-          runtime_config.mission_orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg)) {
+          runtime_config.detection.orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg)) {
     beamwidth.az_beamwidth_deg =
-        runtime_config.mission_orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg;
+        runtime_config.detection.orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg;
     beamwidth.el_beamwidth_deg =
-        runtime_config.mission_orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg;
+        runtime_config.detection.orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg;
     return beamwidth;
   }
 
-  beamwidth.az_beamwidth_deg = runtime_config.hardware_detection.antenna.nominal_az_beamwidth_deg;
-  beamwidth.el_beamwidth_deg = runtime_config.hardware_detection.antenna.nominal_el_beamwidth_deg;
+  beamwidth.az_beamwidth_deg = runtime_config.detection.hardware.antenna.nominal_az_beamwidth_deg;
+  beamwidth.el_beamwidth_deg = runtime_config.detection.hardware.antenna.nominal_el_beamwidth_deg;
   return beamwidth;
 }
 
@@ -257,9 +257,9 @@ void ApplyScanScheduleToRuntimeConfig(std::uint32_t cycle_index,
     return;
   }
 
-  runtime_config->mission_orientation.scan_center_deg = ResolveScheduledBeamPointing(
-      runtime_config->mission_orientation, ResolveSchedulingBeamwidth(*runtime_config),
-      runtime_config->policy_beam_control.scheduler, cycle_index);
+  runtime_config->detection.orientation.scan_center_deg = ResolveScheduledBeamPointing(
+      runtime_config->detection.orientation, ResolveSchedulingBeamwidth(*runtime_config),
+      runtime_config->detection.beam_control.scheduler, cycle_index);
 }
 
 

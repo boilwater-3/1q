@@ -1,10 +1,19 @@
 /**
  * @file InternalExecutionConfig.h
- * @brief 定义唯一内部执行配置真值。
+ * @brief 定义唯一内部执行配置真值及其 domain 子配置。
  *
  * 本类型合并了 legacy PipelineConfig（四域公开参数 + orientation 运行态）
  * 与 InternalPipelineConfig（信号链路内部扩展参数）的全部运行期字段，
  * 作为 signal/runtime 各模块的唯一配置消费入口。
+ *
+ * InternalExecutionConfig 按 domain 拆分为四个子配置：
+ * - DetectionExecutionConfig：检测与波束调度
+ * - AssociationExecutionConfig：数据关联
+ * - TrackingExecutionConfig：航迹滤波与卡尔曼
+ * - LifecycleExecutionConfig：航迹生命周期与 IMM
+ *
+ * 跨域共享的 JammingEffectsConfig 与 ControlProfileEffectsConfig
+ * 保留在顶层。
  */
 
 #ifndef AIRBORNE_RADAR_SRC_CONFIG_EXECUTION_INTERNAL_EXECUTION_CONFIG_H_
@@ -70,24 +79,43 @@ struct ControlProfileEffectsConfig {
   float eccm_rcs_decay_bonus{0.08f};
 };
 
-struct InternalExecutionConfig {
-  DetectionConfig hardware_detection{};
-  BeamControlConfig policy_beam_control{};
-  TrackingConfig policy_tracking{};
-  AssociationConfig policy_association{};
-  LifecycleConfig policy_lifecycle{};
-  ImmConfig policy_imm{};
-  model::RadarOrientationConfig mission_orientation{};
+/**
+ * @brief 检测与波束调度相关执行配置。
+ */
+struct DetectionExecutionConfig {
+  DetectionConfig hardware{};
+  BeamControlConfig beam_control{};
+  model::RadarOrientationConfig orientation{};
   model::PlatformAttitudeDeg platform_attitude_deg{};
+  engineering::DetectionConfig engineering{};
+};
 
-  engineering::DetectionConfig detection_engineering{};
-  engineering::TrackingConfig tracking_engineering{};
-  engineering::LifecycleRuntimeConfig lifecycle_engineering{};
+/**
+ * @brief 数据关联相关执行配置。
+ */
+struct AssociationExecutionConfig {
+  AssociationConfig policy{};
+  float unassigned_cost{9.0f};
+};
 
-  float tracking_speed_decay_ratio_on_loss{0.90f};
-  float tracking_rcs_decay_ratio_on_loss{0.85f};
-  float association_unassigned_cost{9.0f};
+/**
+ * @brief 航迹滤波与卡尔曼相关执行配置。
+ */
+struct TrackingExecutionConfig {
+  TrackingConfig policy{};
+  engineering::TrackingConfig engineering{};
+  float speed_decay_ratio_on_loss{0.90f};
+  float rcs_decay_ratio_on_loss{0.85f};
+  float kalman_noise_diff_coeff{1.0f};
+};
 
+/**
+ * @brief 航迹生命周期与 IMM 相关执行配置。
+ */
+struct LifecycleExecutionConfig {
+  LifecycleConfig policy{};
+  ImmConfig imm_policy{};
+  engineering::LifecycleRuntimeConfig engineering{};
   signal::tracking::ImmActivationPolicy imm_activation_policy{
       signal::tracking::ImmActivationPolicy::kConfirmedTracksOnly};
   signal::tracking::TrackPoolThreadSafetyMode track_pool_thread_safety_mode{
@@ -95,10 +123,21 @@ struct InternalExecutionConfig {
   std::vector<float> imm_model_noise_diff_coeffs;
   std::vector<float> imm_initial_weights;
   std::vector<float> imm_transition_probability;
-  std::size_t lifecycle_track_pool_initial_chunk{64};
-  std::size_t lifecycle_track_pool_max_chunks{256};
-  float tracking_kalman_noise_diff_coeff{1.0f};
+  std::size_t track_pool_initial_chunk{64};
+  std::size_t track_pool_max_chunks{256};
+};
 
+/**
+ * @brief 唯一内部执行配置真值。
+ *
+ * 按 domain 将字段组织为四个子配置，外加跨域共享的干扰/控制效果配置。
+ * 各 pipeline phase 函数应只接收其所需的子配置引用，而非整个 InternalExecutionConfig。
+ */
+struct InternalExecutionConfig {
+  DetectionExecutionConfig detection{};
+  AssociationExecutionConfig association{};
+  TrackingExecutionConfig tracking{};
+  LifecycleExecutionConfig lifecycle{};
   JammingEffectsConfig jamming_effects{};
   ControlProfileEffectsConfig control_profile_effects{};
 };

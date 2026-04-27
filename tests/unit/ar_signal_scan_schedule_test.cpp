@@ -195,8 +195,8 @@ TEST(ScanScheduleResolverTest, ApplyScanScheduleUsesPolicyBeamControlInputs) {
 
   signal::pipeline::ApplyScanScheduleToRuntimeConfig(1U, &runtime_config);
 
-  EXPECT_FLOAT_EQ(runtime_config.mission_orientation.scan_center_deg.az_deg, -10.0f);
-  EXPECT_FLOAT_EQ(runtime_config.mission_orientation.scan_center_deg.el_deg, 4.0f);
+  EXPECT_FLOAT_EQ(runtime_config.detection.orientation.scan_center_deg.az_deg, -10.0f);
+  EXPECT_FLOAT_EQ(runtime_config.detection.orientation.scan_center_deg.el_deg, 4.0f);
 }
 
 TEST(CycleExecutorTest, ValidRuntimeProducesInputAlignedStageBuffers) {
@@ -485,16 +485,16 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
   session_config.hardware.detection.antenna.pattern.max_scan_loss_db = 8.0f;
 
   ExecutionConfig exec_config = config::mapping::MapSessionToExecution(session_config);
-  exec_config.detection_engineering.pulse_count = 4096;
-  exec_config.detection_engineering.detection_policy.cfar_pfa = 0.999999f;
-  exec_config.detection_engineering.detection_policy.min_snr_db = -50.0f;
-  exec_config.detection_engineering.antenna.nominal_az_beamwidth_deg = 120.0f;
-  exec_config.detection_engineering.antenna.nominal_el_beamwidth_deg = 10.0f;
-  exec_config.detection_engineering.antenna.enable_directional_pattern = true;
-  exec_config.detection_engineering.antenna.pattern.max_sidelobe_level_db = -80.0f;
-  exec_config.detection_engineering.antenna.pattern.backlobe_level_db = -80.0f;
+  exec_config.detection.engineering.pulse_count = 4096;
+  exec_config.detection.engineering.detection_policy.cfar_pfa = 0.999999f;
+  exec_config.detection.engineering.detection_policy.min_snr_db = -50.0f;
+  exec_config.detection.engineering.antenna.nominal_az_beamwidth_deg = 120.0f;
+  exec_config.detection.engineering.antenna.nominal_el_beamwidth_deg = 10.0f;
+  exec_config.detection.engineering.antenna.enable_directional_pattern = true;
+  exec_config.detection.engineering.antenna.pattern.max_sidelobe_level_db = -80.0f;
+  exec_config.detection.engineering.antenna.pattern.backlobe_level_db = -80.0f;
 
-  model::RadarOrientationConfig& orientation = exec_config.mission_orientation;
+  model::RadarOrientationConfig& orientation = exec_config.detection.orientation;
   orientation.scan_center_deg.az_deg = 0.0f;
   orientation.scan_center_deg.el_deg = 0.0f;
   orientation.mechanical_scan_limits_deg.az_min_deg = -60.0f;
@@ -505,13 +505,13 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
   orientation.scan_start_position = oneq::foundation::ScanStartPosition::kLeftTop;
   orientation.scan_sequence = oneq::foundation::ScanSequence::kAzimuthFirst;
 
-  session_config.mission.orientation = exec_config.mission_orientation;
-  session_config.hardware.detection = exec_config.hardware_detection;
-  session_config.policy.beam_control = exec_config.policy_beam_control;
-  session_config.policy.association = exec_config.policy_association;
-  session_config.policy.tracking = exec_config.policy_tracking;
-  session_config.policy.lifecycle = exec_config.policy_lifecycle;
-  session_config.policy.imm = exec_config.policy_imm;
+  session_config.mission.orientation = exec_config.detection.orientation;
+  session_config.hardware.detection = exec_config.detection.hardware;
+  session_config.policy.beam_control = exec_config.detection.beam_control;
+  session_config.policy.association = exec_config.association.policy;
+  session_config.policy.tracking = exec_config.tracking.policy;
+  session_config.policy.lifecycle = exec_config.lifecycle.policy;
+  session_config.policy.imm = exec_config.lifecycle.imm_policy;
   signal::pipeline::SignalPipeline signal_pipeline(session_config);
   environment::EnvironmentModelConfig environment_config;
   environment::EnvironmentService environment_service(environment_config);
@@ -527,7 +527,7 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
       signal::detection::TargetLookResolver::Resolve(target);
   ASSERT_TRUE(look_angles.has_look_angles);
   const signal::detection::EffectiveBeamwidthDeg effective_beamwidth =
-      signal::detection::ResolveEffectiveBeamwidth(exec_config.detection_engineering.antenna,
+      signal::detection::ResolveEffectiveBeamwidth(exec_config.detection.engineering.antenna,
                                                    orientation);
 
   const model::AzimuthElevationDeg cycle_1_dwell_center =
@@ -538,11 +538,11 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
                                                                     effective_beamwidth, 2U);
   const model::PlatformAttitudeDeg platform_attitude_deg{};
   const signal::detection::ResolvedBeamState cycle_1_beam =
-      signal::detection::BeamControlResolver::Resolve(exec_config.detection_engineering.antenna,
+      signal::detection::BeamControlResolver::Resolve(exec_config.detection.engineering.antenna,
                                                       orientation, platform_attitude_deg,
                                                       look_angles, cycle_1_dwell_center);
   const signal::detection::ResolvedBeamState cycle_2_beam =
-      signal::detection::BeamControlResolver::Resolve(exec_config.detection_engineering.antenna,
+      signal::detection::BeamControlResolver::Resolve(exec_config.detection.engineering.antenna,
                                                       orientation, platform_attitude_deg,
                                                       look_angles, cycle_2_dwell_center);
 
@@ -552,13 +552,13 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
   target_return.swerling_type =
       static_cast<config::profiles::SwerlingModel>(target.target_swerling_type);
   signal::detection::EnvironmentState environment_state;
-  signal::detection::SignalDetector detector(exec_config.detection_engineering);
+  signal::detection::SignalDetector detector(exec_config.detection.engineering);
   const signal::detection::DetectionResult cycle_1_detection =
       detector.Detect(target_return, environment_state, cycle_1_beam.one_way_antenna_gain_db,
-                      exec_config.detection_engineering.pulse_count);
+                      exec_config.detection.engineering.pulse_count);
   const signal::detection::DetectionResult cycle_2_detection =
       detector.Detect(target_return, environment_state, cycle_2_beam.one_way_antenna_gain_db,
-                      exec_config.detection_engineering.pulse_count);
+                      exec_config.detection.engineering.pulse_count);
   ASSERT_GE(cycle_2_detection.snr_db, cycle_1_detection.snr_db);
   ASSERT_GE(cycle_2_detection.detection_prob, cycle_1_detection.detection_prob);
 

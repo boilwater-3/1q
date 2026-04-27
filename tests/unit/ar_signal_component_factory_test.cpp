@@ -21,11 +21,11 @@ using ExecutionConfig = config::execution::InternalExecutionConfig;
 
 TEST(SignalComponentFactoryTest, BuildOwnedComponentsSelectsPredictorUpdaterFamilyByBackend) {
   ExecutionConfig config;
-  config.policy_tracking.enable_kalman_filter = true;
-    config.tracking_engineering.enable_kalman_filter = true;
-  config.tracking_engineering.kalman_measurement_noise_std = 5.0f;
+  config.tracking.policy.enable_kalman_filter = true;
+    config.tracking.engineering.enable_kalman_filter = true;
+  config.tracking.engineering.kalman_measurement_noise_std = 5.0f;
 
-  config.tracking_engineering.kalman_update_backend =
+  config.tracking.engineering.kalman_update_backend =
       config::engineering::KalmanUpdateBackend::kUdKf;
   signal::pipeline::OwnedSignalComponents ud_components =
       signal::pipeline::SignalComponentFactory::BuildOwnedPipelineComponents(
@@ -35,7 +35,7 @@ TEST(SignalComponentFactoryTest, BuildOwnedComponentsSelectsPredictorUpdaterFami
   EXPECT_NE(dynamic_cast<signal::tracking::UdkfUpdater*>(ud_components.kalman_updater.get()),
             nullptr);
 
-  config.tracking_engineering.kalman_update_backend =
+  config.tracking.engineering.kalman_update_backend =
       config::engineering::KalmanUpdateBackend::kSrif;
   signal::pipeline::OwnedSignalComponents srif_components =
       signal::pipeline::SignalComponentFactory::BuildOwnedPipelineComponents(
@@ -45,7 +45,7 @@ TEST(SignalComponentFactoryTest, BuildOwnedComponentsSelectsPredictorUpdaterFami
   EXPECT_NE(dynamic_cast<signal::tracking::SrifUpdater*>(srif_components.kalman_updater.get()),
             nullptr);
 
-  config.tracking_engineering.kalman_update_backend =
+  config.tracking.engineering.kalman_update_backend =
       config::engineering::KalmanUpdateBackend::kStandardKfJoseph;
   signal::pipeline::OwnedSignalComponents standard_components =
       signal::pipeline::SignalComponentFactory::BuildOwnedPipelineComponents(
@@ -60,13 +60,13 @@ TEST(SignalComponentFactoryTest, BuildOwnedComponentsSelectsPredictorUpdaterFami
 
 TEST(SignalComponentFactoryTest, ImmAssemblyUsesSamePredictorUpdaterBackendFamily) {
   ExecutionConfig config;
-  config.policy_tracking.enable_kalman_filter = true;
-  config.policy_lifecycle.enable_imm_lifecycle = true;
-    config.tracking_engineering.enable_kalman_filter = true;
-    config.lifecycle_engineering.enable_imm_lifecycle = true;
-  config.tracking_engineering.kalman_update_backend =
+  config.tracking.policy.enable_kalman_filter = true;
+  config.lifecycle.policy.enable_imm_lifecycle = true;
+    config.tracking.engineering.enable_kalman_filter = true;
+    config.lifecycle.engineering.enable_imm_lifecycle = true;
+  config.tracking.engineering.kalman_update_backend =
       config::engineering::KalmanUpdateBackend::kUdKf;
-  config.imm_model_noise_diff_coeffs = {0.5f, 2.0f};
+  config.lifecycle.imm_model_noise_diff_coeffs = {0.5f, 2.0f};
 
   signal::pipeline::LifecycleAssemblyArtifacts artifacts =
       signal::pipeline::SignalComponentFactory::BuildLifecycleAssemblyArtifacts(
@@ -82,12 +82,12 @@ TEST(SignalComponentFactoryTest, ImmAssemblyUsesSamePredictorUpdaterBackendFamil
 
 TEST(SignalComponentFactoryTest, InvalidImmAssemblyDoesNotFallbackToNonImmManager) {
   ExecutionConfig config;
-  config.policy_tracking.enable_kalman_filter = true;
-  config.policy_lifecycle.enable_imm_lifecycle = true;
-    config.tracking_engineering.enable_kalman_filter = true;
-    config.lifecycle_engineering.enable_imm_lifecycle = true;
-  config.imm_model_noise_diff_coeffs = {0.5f, 2.0f};
-  config.imm_transition_probability = {1.0f, 0.0f, 0.0f};
+  config.tracking.policy.enable_kalman_filter = true;
+  config.lifecycle.policy.enable_imm_lifecycle = true;
+    config.tracking.engineering.enable_kalman_filter = true;
+    config.lifecycle.engineering.enable_imm_lifecycle = true;
+  config.lifecycle.imm_model_noise_diff_coeffs = {0.5f, 2.0f};
+  config.lifecycle.imm_transition_probability = {1.0f, 0.0f, 0.0f};
 
   signal::pipeline::LifecycleAssemblyArtifacts artifacts =
       signal::pipeline::SignalComponentFactory::BuildLifecycleAssemblyArtifacts(

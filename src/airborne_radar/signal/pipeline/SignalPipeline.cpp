@@ -37,8 +37,8 @@ bool HasValidEnvironmentCycle(const environment::EnvironmentSnapshot& snapshot) 
   return std::isfinite(snapshot.cycle_dt_sec) != 0 && snapshot.cycle_dt_sec > 0.0f;
 }
 
-struct RuntimeConfigState {
-  explicit RuntimeConfigState(ExecutionConfig initial_config)
+struct PipelineRuntimeConfig {
+  explicit PipelineRuntimeConfig(ExecutionConfig initial_config)
       : base_config(std::move(initial_config)) {}
 
   ExecutionConfig base_config{};
@@ -46,7 +46,7 @@ struct RuntimeConfigState {
 };
 
 struct RuntimeOwnedState {
-  explicit RuntimeOwnedState(const RuntimeConfigState& config_state)
+  explicit RuntimeOwnedState(const PipelineRuntimeConfig& config_state)
       : association_engine(SignalComponentFactory::BuildAssociationConfig(
             config_state.base_config)),
         track_filter(SignalComponentFactory::BuildTrackFilterConfig(
@@ -80,7 +80,7 @@ struct RuntimeState {
   explicit RuntimeState(ExecutionConfig initial_config)
       : config(std::move(initial_config)), owned(config) {}
 
-  RuntimeConfigState config;
+  PipelineRuntimeConfig config;
   RuntimeOwnedState owned;
   AssociationSeedState association_seeds;
 };
@@ -254,11 +254,11 @@ struct SignalPipeline::Impl {
   }
 
   void UpdatePlatformAttitude(const model::PlatformAttitudeDeg& platform_attitude_deg) {
-    runtime_.config.base_config.platform_attitude_deg = platform_attitude_deg;
+    runtime_.config.base_config.detection.platform_attitude_deg = platform_attitude_deg;
   }
 
   model::PlatformAttitudeDeg GetPlatformAttitude() const {
-    return runtime_.config.base_config.platform_attitude_deg;
+    return runtime_.config.base_config.detection.platform_attitude_deg;
   }
 
   void SetControlProfile(const extension::control::RadarControlProfile& control_profile) {

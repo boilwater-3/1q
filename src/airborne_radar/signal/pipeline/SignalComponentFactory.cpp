@@ -19,30 +19,30 @@ tracking::LifecycleConfig SignalComponentFactory::BuildLifecycleConfig(
     const ExecutionConfig& config) {
   tracking::LifecycleConfig lifecycle_config;
   const ::airborne_radar::config::engineering::LifecycleConfig& lifecycle_runtime =
-      config.lifecycle_engineering.lifecycle_config;
+      config.lifecycle.engineering.lifecycle_config;
   lifecycle_config.confirm_hits = lifecycle_runtime.confirm_hits;
   lifecycle_config.max_miss_before_lost = lifecycle_runtime.max_miss_before_lost;
   lifecycle_config.max_lost_cycles = lifecycle_runtime.max_lost_cycles;
-  lifecycle_config.imm_activation_policy = config.imm_activation_policy;
-  lifecycle_config.track_pool_thread_safety_mode = config.track_pool_thread_safety_mode;
+  lifecycle_config.imm_activation_policy = config.lifecycle.imm_activation_policy;
+  lifecycle_config.track_pool_thread_safety_mode = config.lifecycle.track_pool_thread_safety_mode;
   return lifecycle_config;
 }
 
 tracking::TrackFilterConfig SignalComponentFactory::BuildTrackFilterConfig(
     const ExecutionConfig& config) {
   tracking::TrackFilterConfig filter_config;
-  filter_config.speed_decay_ratio_on_loss = config.tracking_speed_decay_ratio_on_loss;
-  filter_config.rcs_decay_ratio_on_loss = config.tracking_rcs_decay_ratio_on_loss;
+  filter_config.speed_decay_ratio_on_loss = config.tracking.speed_decay_ratio_on_loss;
+  filter_config.rcs_decay_ratio_on_loss = config.tracking.rcs_decay_ratio_on_loss;
   return filter_config;
 }
 
 association::DataAssociationConfig SignalComponentFactory::BuildAssociationConfig(
     const ExecutionConfig& config) {
   association::DataAssociationConfig association_config;
-  association_config.unassigned_cost = config.association_unassigned_cost;
-  association_config.kalman_noise_diff_coeff = config.tracking_kalman_noise_diff_coeff;
+  association_config.unassigned_cost = config.association.unassigned_cost;
+  association_config.kalman_noise_diff_coeff = config.tracking.kalman_noise_diff_coeff;
   association_config.kalman_measurement_noise_std =
-      config.tracking_engineering.kalman_measurement_noise_std;
+      config.tracking.engineering.kalman_measurement_noise_std;
   return association_config;
 }
 
@@ -52,16 +52,16 @@ OwnedSignalComponents SignalComponentFactory::BuildOwnedPipelineComponents(
   components.association_config = BuildAssociationConfig(config);
   components.track_filter_config = BuildTrackFilterConfig(config);
 
-  if (config.tracking_engineering.enable_kalman_filter) {
+  if (config.tracking.engineering.enable_kalman_filter) {
     components.kalman_predictor = CreateKalmanPredictor(
-        config.tracking_kalman_noise_diff_coeff, config.tracking_engineering.kalman_update_backend);
+        config.tracking.kalman_noise_diff_coeff, config.tracking.engineering.kalman_update_backend);
     components.kalman_updater =
-        CreateKalmanUpdater(config.tracking_engineering.kalman_measurement_noise_std,
-                            config.tracking_engineering.kalman_update_backend);
+        CreateKalmanUpdater(config.tracking.engineering.kalman_measurement_noise_std,
+                            config.tracking.engineering.kalman_update_backend);
   }
 
-  if (config.detection_engineering.enable_physics_detection) {
-    components.signal_detector.reset(new detection::SignalDetector(config.detection_engineering));
+  if (config.detection.engineering.enable_physics_detection) {
+    components.signal_detector.reset(new detection::SignalDetector(config.detection.engineering));
   }
   return components;
 }
@@ -70,8 +70,8 @@ LifecycleAssemblyArtifacts SignalComponentFactory::BuildLifecycleAssemblyArtifac
     const ExecutionConfig& config) {
   LifecycleAssemblyArtifacts artifacts;
   const tracking::LifecycleConfig lifecycle_config = BuildLifecycleConfig(config);
-  artifacts.pool.reset(new tracking::BoostTrackPool(config.lifecycle_track_pool_initial_chunk,
-                                                    config.lifecycle_track_pool_max_chunks));
+  artifacts.pool.reset(new tracking::BoostTrackPool(config.lifecycle.track_pool_initial_chunk,
+                                                    config.lifecycle.track_pool_max_chunks));
 
   tracking::ITrackPool* effective_pool = artifacts.pool.get();
   if (lifecycle_config.track_pool_thread_safety_mode ==
@@ -80,11 +80,11 @@ LifecycleAssemblyArtifacts SignalComponentFactory::BuildLifecycleAssemblyArtifac
     effective_pool = artifacts.pool_wrapper.get();
   }
 
-  if (config.lifecycle_engineering.enable_imm_lifecycle) {
-    const std::size_t model_count = config.imm_model_noise_diff_coeffs.size();
+  if (config.lifecycle.engineering.enable_imm_lifecycle) {
+    const std::size_t model_count = config.lifecycle.imm_model_noise_diff_coeffs.size();
     bool imm_ready = true;
     if (model_count == 0U) {
-      LogLifecycleAssemblyConfigViolation("IMM enabled but imm_model_noise_diff_coeffs is empty",
+      LogLifecycleAssemblyConfigViolation("IMM enabled but lifecycle.imm_model_noise_diff_coeffs is empty",
                                           model_count);
       imm_ready = false;
     }
@@ -101,7 +101,7 @@ LifecycleAssemblyArtifacts SignalComponentFactory::BuildLifecycleAssemblyArtifac
       artifacts.imm_predictors.reserve(model_count);
       artifacts.imm_updaters.reserve(model_count);
       for (std::size_t i = 0; i < model_count; ++i) {
-        const float noise_diff_coeff = config.imm_model_noise_diff_coeffs[i];
+        const float noise_diff_coeff = config.lifecycle.imm_model_noise_diff_coeffs[i];
         if (noise_diff_coeff <= 0.0f) {
           LogLifecycleAssemblyConfigViolation("IMM model noise_diff_coeff must be > 0",
                                               noise_diff_coeff);
@@ -110,10 +110,10 @@ LifecycleAssemblyArtifacts SignalComponentFactory::BuildLifecycleAssemblyArtifac
         }
 
         artifacts.imm_predictors_owned.push_back(CreateKalmanPredictor(
-            noise_diff_coeff, config.tracking_engineering.kalman_update_backend));
+            noise_diff_coeff, config.tracking.engineering.kalman_update_backend));
         artifacts.imm_updaters_owned.push_back(
-            CreateKalmanUpdater(config.tracking_engineering.kalman_measurement_noise_std,
-                                config.tracking_engineering.kalman_update_backend));
+            CreateKalmanUpdater(config.tracking.engineering.kalman_measurement_noise_std,
+                                config.tracking.engineering.kalman_update_backend));
         artifacts.imm_predictors.push_back(artifacts.imm_predictors_owned.back().get());
         artifacts.imm_updaters.push_back(artifacts.imm_updaters_owned.back().get());
       }
@@ -142,12 +142,12 @@ LifecycleAssemblyArtifacts SignalComponentFactory::BuildLifecycleAssemblyArtifac
     return artifacts;
   }
 
-  if (config.tracking_engineering.enable_kalman_filter) {
+  if (config.tracking.engineering.enable_kalman_filter) {
     artifacts.kalman_predictor = CreateKalmanPredictor(
-        config.tracking_kalman_noise_diff_coeff, config.tracking_engineering.kalman_update_backend);
+        config.tracking.kalman_noise_diff_coeff, config.tracking.engineering.kalman_update_backend);
     artifacts.kalman_updater =
-        CreateKalmanUpdater(config.tracking_engineering.kalman_measurement_noise_std,
-                            config.tracking_engineering.kalman_update_backend);
+        CreateKalmanUpdater(config.tracking.engineering.kalman_measurement_noise_std,
+                            config.tracking.engineering.kalman_update_backend);
     artifacts.lifecycle_manager.reset(new tracking::TrackLifecycleManager(
         *effective_pool, lifecycle_config, artifacts.kalman_predictor.get(),
         artifacts.kalman_updater.get()));
@@ -215,7 +215,7 @@ std::unique_ptr<tracking::IKalmanUpdater> SignalComponentFactory::CreateKalmanUp
 
 Eigen::MatrixXf SignalComponentFactory::BuildImmTransitionProbability(const ExecutionConfig& config,
                                                                       std::size_t model_count) {
-  if (config.imm_transition_probability.empty()) {
+  if (config.lifecycle.imm_transition_probability.empty()) {
     Eigen::MatrixXf matrix = Eigen::MatrixXf::Constant(
         static_cast<Eigen::Index>(model_count), static_cast<Eigen::Index>(model_count),
         model_count > 1U ? 0.05f / static_cast<float>(model_count - 1U) : 1.0f);
@@ -223,10 +223,10 @@ Eigen::MatrixXf SignalComponentFactory::BuildImmTransitionProbability(const Exec
     return matrix;
   }
 
-  if (config.imm_transition_probability.size() != model_count * model_count) {
+  if (config.lifecycle.imm_transition_probability.size() != model_count * model_count) {
     LogLifecycleAssemblyConfigViolation(
-        "imm_transition_probability size must equal model_count*model_count",
-        config.imm_transition_probability.size());
+        "lifecycle.imm_transition_probability size must equal model_count*model_count",
+        config.lifecycle.imm_transition_probability.size());
     return Eigen::MatrixXf();
   }
 
@@ -235,7 +235,7 @@ Eigen::MatrixXf SignalComponentFactory::BuildImmTransitionProbability(const Exec
   for (std::size_t r = 0; r < model_count; ++r) {
     float row_sum = 0.0f;
     for (std::size_t c = 0; c < model_count; ++c) {
-      const float value = config.imm_transition_probability[r * model_count + c];
+      const float value = config.lifecycle.imm_transition_probability[r * model_count + c];
       if (value < 0.0f || value > 1.0f) {
         LogLifecycleAssemblyConfigViolation("IMM transition probability must be in [0,1]", value);
         return Eigen::MatrixXf();
@@ -253,21 +253,21 @@ Eigen::MatrixXf SignalComponentFactory::BuildImmTransitionProbability(const Exec
 
 Eigen::VectorXf SignalComponentFactory::BuildImmInitialWeights(const ExecutionConfig& config,
                                                                std::size_t model_count) {
-  if (config.imm_initial_weights.empty()) {
+  if (config.lifecycle.imm_initial_weights.empty()) {
     return Eigen::VectorXf::Constant(static_cast<Eigen::Index>(model_count),
                                      1.0f / static_cast<float>(model_count));
   }
 
-  if (config.imm_initial_weights.size() != model_count) {
-    LogLifecycleAssemblyConfigViolation("imm_initial_weights size must equal model_count",
-                                        config.imm_initial_weights.size());
+  if (config.lifecycle.imm_initial_weights.size() != model_count) {
+    LogLifecycleAssemblyConfigViolation("lifecycle.imm_initial_weights size must equal model_count",
+                                        config.lifecycle.imm_initial_weights.size());
     return Eigen::VectorXf();
   }
 
   Eigen::VectorXf weights(static_cast<Eigen::Index>(model_count));
   float sum = 0.0f;
   for (std::size_t i = 0; i < model_count; ++i) {
-    const float value = config.imm_initial_weights[i];
+    const float value = config.lifecycle.imm_initial_weights[i];
     if (value < 0.0f || value > 1.0f) {
       LogLifecycleAssemblyConfigViolation("IMM initial weight must be in [0,1]", value);
       return Eigen::VectorXf();

@@ -57,7 +57,7 @@ bool RunEnvironmentPhase(CycleExecutionContract* contract, const CycleExecutionR
       runtime.control_profile, contract->environment_snapshot, &contract->runtime_config);
   RefreshMeasurementCovariances(
       scratch.target_geometry.size(),
-      contract->runtime_config.tracking_engineering.kalman_measurement_noise_std,
+      contract->runtime_config.tracking.engineering.kalman_measurement_noise_std,
       &scratch.measurement_covariances);
   if (!SyncAssociationAndTrackFilterConfigs(contract->runtime_config, &runtime.association_engine,
                                             &runtime.track_filter,
@@ -88,7 +88,7 @@ void RunDetectionPhase(const CycleExecutionContract& contract, const CycleExecut
   detection_buffers.detection_succeeded = &scratch.detection_succeeded;
   detection_buffers.measurement_covariances = &scratch.measurement_covariances;
 
-  if (contract.runtime_config.detection_engineering.enable_physics_detection &&
+  if (contract.runtime_config.detection.engineering.enable_physics_detection &&
       runtime.signal_detector != nullptr) {
     RunPhysicalDetectionPass(contract.input_state, contract.runtime_config, runtime.control_profile,
                              contract.environment_snapshot, runtime.signal_detector,
@@ -221,7 +221,7 @@ void CollectCycleOutputs(const extension::control::RadarControlProfile& control_
       ComputeTrackLevelJammingSeverity(control_profile, environment_snapshot);
   scratch.association_quality_metrics = ToPipelineAssociationQualityMetrics(
       scratch.association_result.quality_metrics, dominant_jamming_semantic, jamming_severity,
-      runtime_config.association_unassigned_cost);
+      runtime_config.association.unassigned_cost);
 
   const model::EccmSourceInfo eccm_source_info = BuildEccmSourceInfo(environment_snapshot);
   const model::AssociationQualityInfo association_quality_info =

@@ -11,7 +11,6 @@
 #include <vector>
 
 #include "airborne_radar/signal/association/DistanceMetric.h"
-#include "airborne_radar/signal/association/Gater.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -57,15 +56,15 @@ class DenseCostHypothesiser final : public IHypothesiser {
   /**
    * @brief 构造候选假设生成器（协方差注入路径）。
    * @param distance_metric 支持协方差注入的距离度量器，用于带新息协方差的 Generate() 重载。
-   * @param gater 波门裁剪器。
+   * @param max_cost 最大允许代价值阈值。
    */
-  DenseCostHypothesiser(ICovarianceAwareDistanceMetric* distance_metric, const IGater* gater);
+  DenseCostHypothesiser(ICovarianceAwareDistanceMetric* distance_metric, float max_cost);
   /**
    * @brief 构造候选假设生成器（只读基础路径）。
    * @param distance_metric 距离度量器，仅支持基础 Generate() 重载。
-   * @param gater 波门裁剪器。
+   * @param max_cost 最大允许代价值阈值。
    */
-  DenseCostHypothesiser(const IDistanceMetric* distance_metric, const IGater* gater);
+  DenseCostHypothesiser(const IDistanceMetric* distance_metric, float max_cost);
   /**
    * @brief 生成所有通过波门的轨迹-量测候选。
    * @param predicted_tracks 历史轨迹预测特征集合。
@@ -100,7 +99,7 @@ class DenseCostHypothesiser final : public IHypothesiser {
  private:
   const IDistanceMetric* distance_metric_{nullptr};            /**< 距离度量器（基础路径）。 */
   ICovarianceAwareDistanceMetric* covariance_metric_{nullptr}; /**< 协方差注入度量器（可空）。 */
-  const IGater* gater_{nullptr};                               /**< 波门裁剪器。 */
+  float max_cost_{0.0f};                                       /**< 最大允许代价阈值。 */
 };
 
 }  // namespace association
