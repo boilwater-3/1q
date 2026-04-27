@@ -8,8 +8,12 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
+#include <vector>
 
 #include "1q/api.hpp"
+#include "1q/electronic_surveillance_radar/model/EmitterHypothesis.h"
+#include "1q/electronic_surveillance_radar/model/EmitterObservation.h"
 
 namespace electronic_surveillance_radar {
 namespace extension {
@@ -167,6 +171,51 @@ struct ONEQ_API InterceptPipelineConfig {
   InterceptAssociationConfig association{};                    /**< 假设关联配置 */
   InterceptSuppressionModelConfig suppression_model{};         /**< 压制分量建模配置 */
   InterceptDeceptionModelConfig deception_model{};             /**< 欺骗分量建模配置 */
+};
+
+/**
+ * @brief TruthAssociationRecord 表示观测记录与真值辐射源的评估关联。
+ */
+struct ONEQ_API TruthAssociationRecord {
+  std::uint64_t observation_id{0U};
+  std::string truth_emitter_id{};
+  bool matched{false};
+  float confidence{0.0f};
+};
+
+/** @brief TruthAssociationRecordList 表示评估关联记录列表。 */
+using TruthAssociationRecordList = std::vector<TruthAssociationRecord>;
+
+/**
+ * @brief ObservationOutputFrame 表示观测输出通道。
+ */
+struct ONEQ_API ObservationOutputFrame {
+  std::size_t raw_observation_count{0U};
+  std::size_t cluster_count{0U};
+  model::EmitterObservationList observations{};
+};
+
+/**
+ * @brief EmitterOutputFrame 表示侦察输出通道。
+ */
+struct ONEQ_API EmitterOutputFrame {
+  model::EmitterHypothesisList hypotheses{};
+};
+
+/**
+ * @brief TruthEvaluationFrame 表示真值评估输出通道。
+ */
+struct ONEQ_API TruthEvaluationFrame {
+  TruthAssociationRecordList associations{};
+};
+
+/**
+ * @brief InterceptPipelineResult 表示电子侦察流水线单周期执行结果（内部类型）。
+ */
+struct ONEQ_API InterceptPipelineResult {
+  ObservationOutputFrame observation_output{};
+  EmitterOutputFrame emitter_output{};
+  TruthEvaluationFrame truth_evaluation_output{};
 };
 
 /**

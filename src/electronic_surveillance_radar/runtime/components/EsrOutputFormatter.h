@@ -14,10 +14,6 @@ class EsrOutputFormatter {
  public:
   explicit EsrOutputFormatter(output::EsrOutputManager& output_manager);
 
-  void BuildOutputFrame(
-      const oneq::internal::runtime::RuntimeCycleStamp& stamp,
-      session::EsrOutputFrame& cycle_frame) const;
-
   session::EsrOutputFrame BuildEmptyFrame(
       const oneq::internal::runtime::RuntimeCycleStamp& stamp) const;
 

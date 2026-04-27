@@ -161,7 +161,7 @@ TEST(EsrReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
   hyp.last_seen_cycle = 7U;
   frame.emitter_output.hypotheses.push_back(hyp);
 
-  session::TruthAssociationRecord truth;
+  extension::TruthAssociationRecord truth;
   truth.observation_id = 100U;
   truth.truth_emitter_id = "truth_emitter_001";
   truth.matched = true;

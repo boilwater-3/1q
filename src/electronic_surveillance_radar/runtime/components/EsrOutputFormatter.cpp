@@ -11,12 +11,6 @@ namespace components {
 EsrOutputFormatter::EsrOutputFormatter(output::EsrOutputManager& output_manager)
     : output_manager_(output_manager) {}
 
-void EsrOutputFormatter::BuildOutputFrame(
-    const oneq::internal::runtime::RuntimeCycleStamp& stamp,
-    session::EsrOutputFrame& cycle_frame) const {
-  output_manager_.StampOutputFrame(stamp.cycle_index, stamp.batch_id, cycle_frame);
-}
-
 session::EsrOutputFrame EsrOutputFormatter::BuildEmptyFrame(
     const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
   return output_manager_.BuildEmptyFrame(stamp.cycle_index, stamp.batch_id);

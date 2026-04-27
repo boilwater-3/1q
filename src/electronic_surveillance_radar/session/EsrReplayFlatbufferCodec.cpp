@@ -256,7 +256,7 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, session::EsrOutp
     const auto* t = fb->truth_evaluation_output();
     if (t->associations()) {
       for (const auto* a : *t->associations()) {
-        session::TruthAssociationRecord rec{};
+        extension::TruthAssociationRecord rec{};
         rec.observation_id = a->observation_id();
         if (a->truth_emitter_id()) {
           rec.truth_emitter_id = a->truth_emitter_id()->str();

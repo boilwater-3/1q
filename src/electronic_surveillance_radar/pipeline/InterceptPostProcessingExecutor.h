@@ -49,7 +49,7 @@ class InterceptPostProcessingExecutor {
    * @param[in,out] next_hypothesis_id 假设 ID 分配器。
    * @return 单周期流水线输出。
    */
-  session::EsrOutputFrame Execute(const std::vector<RawObservationRecord>& raw_records,
+  extension::InterceptPipelineResult Execute(const std::vector<RawObservationRecord>& raw_records,
                                const extension::IEsrContext& ctx,
                                ObservationPreprocessor& preprocessor, KdTreeClusterer& clusterer,
                                HypothesisAssociator& associator,

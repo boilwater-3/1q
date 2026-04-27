@@ -65,12 +65,17 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
   environment_updater.FreezeEnvironment(input, stamp);
 
   // 执行
-  session::EsrOutputFrame output_frame =
+  extension::InterceptPipelineResult pipeline_result =
       signal_processor.Execute(input, impl_->environment_service);
-  output_formatter.BuildOutputFrame(stamp, output_frame);
+  session::EsrOutputFrame output_frame;
+  output_frame.cycle_index = stamp.cycle_index;
+  output_frame.batch_id = stamp.batch_id;
+  output_frame.observation_output = std::move(pipeline_result.observation_output);
+  output_frame.emitter_output = std::move(pipeline_result.emitter_output);
+  output_frame.truth_evaluation_output = std::move(pipeline_result.truth_evaluation_output);
   output_formatter.LogCycleSummary(input, stamp, output_frame);
 
-  impl_->runtime_state.latest_output = output_frame;
+  impl_->runtime_state.latest_output = std::move(output_frame);
   impl_->runtime_state.has_latest_output = true;
   impl_->last_cycle_executed = true;
   impl_->last_cycle_reused_previous_output = false;

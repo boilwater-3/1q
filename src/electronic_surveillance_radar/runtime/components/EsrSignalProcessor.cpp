@@ -7,10 +7,10 @@ namespace components {
 EsrSignalProcessor::EsrSignalProcessor(extension::IInterceptPipeline& pipeline)
     : pipeline_(pipeline) {}
 
-session::EsrOutputFrame EsrSignalProcessor::Execute(
+extension::InterceptPipelineResult EsrSignalProcessor::Execute(
     const session::EsrCycleInput& cycle_input,
     const environment::IEsrEnvironmentService& environment) const {
-  return pipeline_.RunCycle(cycle_input, environment);
+  return pipeline_.Execute(cycle_input, environment);
 }
 
 }  // namespace components

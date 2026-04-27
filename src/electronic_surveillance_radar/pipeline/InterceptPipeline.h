@@ -55,7 +55,7 @@ class InterceptPipeline final : public extension::IInterceptPipeline {
    * @param[in] environment 环境服务。
    * @return 单周期输出。
    */
-  session::EsrOutputFrame RunCycle(
+  extension::InterceptPipelineResult Execute(
       const session::EsrCycleInput& input_state,
       const environment::IEsrEnvironmentService& environment) override;
 
