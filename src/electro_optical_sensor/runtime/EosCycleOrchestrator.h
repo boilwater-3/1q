@@ -33,6 +33,13 @@ class EosCycleOrchestrator {
   ::electro_optical_sensor::session::EosCycleResult Step(const ::electro_optical_sensor::session::EosCycleInput& input);
 
   /**
+   * @brief 执行单周期并仅返回输出帧（跳过全量 EosCycleResult 构造）。
+   * @param[in] input 当前周期输入。
+   * @return 当前周期输出帧。
+   */
+  ::electro_optical_sensor::output::EosOutputFrame BuildOutputFrame(const ::electro_optical_sensor::session::EosCycleInput& input);
+
+  /**
    * @brief 应用运行期可变配置补丁。
    * @param[in] patch 运行期补丁。
    */

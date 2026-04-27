@@ -38,11 +38,16 @@ struct RadarSession::Impl {
     pending_runtime_state = runtime_state;
   }
 
+  session::TrackOutputFrame BuildOutputFrame() const {
+    if (controller.HasLatestTrackOutputFrame()) {
+      return controller.GetLatestTrackOutputFrame();
+    }
+    return session::TrackOutputFrame{};
+  }
+
   RadarCycleResult BuildCycleResult() const {
     RadarCycleResult result;
-    if (controller.HasLatestTrackOutputFrame()) {
-      result.track_output_frame = controller.GetLatestTrackOutputFrame();
-    }
+    result.track_output_frame = BuildOutputFrame();
     result.executed_this_cycle = controller.ExecutedLatestCycle();
     result.signal_cycle_abort_reason = controller.GetLastSignalCycleAbortReason();
     result.reused_previous_track_output = controller.ReusedPreviousTrackOutputLatestCycle();
@@ -68,10 +73,8 @@ struct RadarSession::Impl {
 
   RadarCycleResult BuildValidationErrorResult(const ValidationIssueList& issues) const {
     RadarCycleResult result;
-    if (controller.HasLatestTrackOutputFrame()) {
-      result.track_output_frame = controller.GetLatestTrackOutputFrame();
-      result.reused_previous_track_output = true;
-    }
+    result.track_output_frame = BuildOutputFrame();
+    result.reused_previous_track_output = controller.HasLatestTrackOutputFrame();
     result.validation_issues = issues;
     result.has_validation_error = HasValidationError(issues);
     return result;
@@ -79,10 +82,8 @@ struct RadarSession::Impl {
 
   RadarCycleResult BuildExecutionAbortResult(extension::SignalCycleAbortReason abort_reason) const {
     RadarCycleResult result;
-    if (controller.HasLatestTrackOutputFrame()) {
-      result.track_output_frame = controller.GetLatestTrackOutputFrame();
-      result.reused_previous_track_output = true;
-    }
+    result.track_output_frame = BuildOutputFrame();
+    result.reused_previous_track_output = controller.HasLatestTrackOutputFrame();
     result.signal_cycle_abort_reason = abort_reason;
     return result;
   }
@@ -169,12 +170,60 @@ RadarSession RadarSessionFactory::CreateWithOverrideStrategy(
 }
 
 session::TrackOutputFrame RadarSession::Step(const RadarCycleInput& input) {
-  return StepWithResult(input).track_output_frame;
+  const ValidationIssueList issues = impl_->ValidateInput(input);
+  if (HasValidationError(issues)) {
+    return impl_->BuildOutputFrame();
+  }
+
+  const extension::RadarContextRuntimeState radar_context_state =
+      impl_->radar_context.CaptureRuntimeState();
+
+  if (!impl_->CommitPendingRuntimeConfig()) {
+    impl_->radar_context.RestoreRuntimeState(radar_context_state);
+    return impl_->BuildOutputFrame();
+  }
+
+  impl_->radar_context.BeginCycle(input);
+  impl_->controller.RunOnce();
+
+  if (!impl_->controller.ExecutedLatestCycle()) {
+    impl_->radar_context.RestoreRuntimeState(radar_context_state);
+    return impl_->BuildOutputFrame();
+  }
+
+  impl_->FinalizePendingRuntimeConfig();
+  return impl_->BuildOutputFrame();
 }
 
 session::TrackOutputFrame RadarSession::Step(const RadarCycleInput& input,
                                             const environment::EnvironmentSceneState& scene_state) {
-  return StepWithResult(input, scene_state).track_output_frame;
+  const ValidationIssueList issues = impl_->ValidateInput(input);
+  if (HasValidationError(issues)) {
+    return impl_->BuildOutputFrame();
+  }
+
+  const extension::RadarContextRuntimeState radar_context_state =
+      impl_->radar_context.CaptureRuntimeState();
+  const environment::EnvironmentServiceRuntimeState environment_state =
+      impl_->environment_service.CaptureRuntimeState();
+
+  if (!impl_->CommitPendingRuntimeConfig()) {
+    impl_->radar_context.RestoreRuntimeState(radar_context_state);
+    return impl_->BuildOutputFrame();
+  }
+
+  impl_->environment_service.UpdateSceneState(scene_state);
+  impl_->radar_context.BeginCycle(input);
+  impl_->controller.RunOnce();
+
+  if (!impl_->controller.ExecutedLatestCycle()) {
+    impl_->radar_context.RestoreRuntimeState(radar_context_state);
+    impl_->environment_service.RestoreRuntimeState(environment_state);
+    return impl_->BuildOutputFrame();
+  }
+
+  impl_->FinalizePendingRuntimeConfig();
+  return impl_->BuildOutputFrame();
 }
 
 RadarCycleResult RadarSession::StepWithResult(const RadarCycleInput& input) {

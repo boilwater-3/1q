@@ -85,7 +85,7 @@ EosSession EosSessionFactory::CreateWithController(
 }
 
 output::EosOutputFrame EosSession::Step(const EosCycleInput& input) {
-  return StepWithResult(input).output_frame;
+  return impl_->cycle_orchestrator.BuildOutputFrame(input);
 }
 
 ::electro_optical_sensor::session::EosCycleResult EosSession::StepWithResult(const EosCycleInput& input) {

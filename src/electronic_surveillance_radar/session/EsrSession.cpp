@@ -29,15 +29,24 @@ struct EsrSession::Impl {
    */
   EsrCycleResult BuildCycleResult() const {
     EsrCycleResult result;
-    if (controller.HasLatestOutputFrame()) {
-      result.output_frame = controller.GetLatestOutputFrame();
-    }
+    result.output_frame = BuildOutputFrame();
     result.validation_issues = controller.GetLastValidationIssues();
     result.has_validation_error = session::HasValidationError(result.validation_issues);
     result.executed_this_cycle = controller.ExecutedLatestCycle();
     result.reused_previous_output = controller.ReusedPreviousOutputLatestCycle();
     result.abort_reason = controller.GetLastAbortReason();
     return result;
+  }
+
+  /**
+   * @brief 仅获取当前周期输出帧，避免构建完整 EsrCycleResult 的开销。
+   * @return 当前周期输出帧。
+   */
+  session::EsrOutputFrame BuildOutputFrame() const {
+    if (controller.HasLatestOutputFrame()) {
+      return controller.GetLatestOutputFrame();
+    }
+    return {};
   }
 
   internal::ResolvedEsrSessionConfig resolved_config{};
@@ -78,7 +87,8 @@ EsrSession::EsrSession(EsrSession&& other) noexcept = default;
 EsrSession& EsrSession::operator=(EsrSession&& other) noexcept = default;
 
 session::EsrOutputFrame EsrSession::Step(const session::EsrCycleInput& input) {
-  return StepWithResult(input).output_frame;
+  impl_->controller.RunOnce(input);
+  return impl_->BuildOutputFrame();
 }
 
 EsrCycleResult EsrSession::StepWithResult(const session::EsrCycleInput& input) {

@@ -31,6 +31,17 @@ EosCycleOrchestrator::EosCycleOrchestrator(
   return controller_.BuildCycleResult(input);
 }
 
+::electro_optical_sensor::output::EosOutputFrame EosCycleOrchestrator::BuildOutputFrame(
+    const ::electro_optical_sensor::session::EosCycleInput& input) {
+  controller_.RunOnce(input);
+  if (controller_.HasLatestOutputFrame()) {
+    return controller_.GetLatestOutputFrame();
+  }
+  ::electro_optical_sensor::output::EosOutputFrame frame;
+  frame.cycle_index = input.cycle_index;
+  return frame;
+}
+
 void EosCycleOrchestrator::ApplyRuntimeConfig(
     const ::electro_optical_sensor::session::EosRuntimeConfigPatch& patch) {
   const EosRuntimeConfigResolveResult resolved =
