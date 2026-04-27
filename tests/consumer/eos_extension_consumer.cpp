@@ -9,7 +9,7 @@
  *   - HasValidationError、GetLastValidationIssues 字段可访问
  */
 
-#include "1q/electro_optical_sensor/output/EosOutputFrame.h"
+#include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"

@@ -9,7 +9,7 @@
 #include <memory>
 
 #include "1q/api.hpp"
-#include "1q/electronic_surveillance_radar/output/EsrOutputFrame.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
@@ -56,7 +56,7 @@ class ONEQ_API EsrController {
    * @brief 获取最新输出帧。
    * @return 最新电子侦察输出帧。
    */
-  const output::EsrOutputFrame& GetLatestOutputFrame() const;
+  const session::EsrOutputFrame& GetLatestOutputFrame() const;
 
   /**
    * @brief 获取最近一次输入校验结果。

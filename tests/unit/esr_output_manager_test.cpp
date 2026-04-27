@@ -41,9 +41,9 @@ model::EmitterHypothesis MakeHypothesis(std::uint64_t hypothesis_id, float confi
   return hypothesis;
 }
 
-output::TruthAssociationRecord MakeAssociation(std::uint64_t observation_id,
+session::TruthAssociationRecord MakeAssociation(std::uint64_t observation_id,
                                                const std::string& truth_emitter_id, bool matched) {
-  output::TruthAssociationRecord association;
+  session::TruthAssociationRecord association;
   association.observation_id = observation_id;
   association.truth_emitter_id = truth_emitter_id;
   association.matched = matched;
@@ -54,7 +54,7 @@ output::TruthAssociationRecord MakeAssociation(std::uint64_t observation_id,
 TEST(EsrOutputManagerTest, BuildEmptyFrameSetsTopLevelHeader) {
   EsrOutputManager manager;
 
-  const output::EsrOutputFrame frame = manager.BuildEmptyFrame(7U, 103U);
+  const session::EsrOutputFrame frame = manager.BuildEmptyFrame(7U, 103U);
 
   EXPECT_EQ(frame.cycle_index, 7U);
   EXPECT_EQ(frame.batch_id, 103U);
@@ -65,7 +65,7 @@ TEST(EsrOutputManagerTest, BuildEmptyFrameSetsTopLevelHeader) {
 
 TEST(EsrOutputManagerTest, StampOutputFrameSetsHeaderAndPreservesData) {
   EsrOutputManager manager;
-  output::EsrOutputFrame frame;
+  session::EsrOutputFrame frame;
   frame.observation_output.observations.push_back(MakeObservation(1001U, 18.5f));
   frame.observation_output.observations.push_back(MakeObservation(1002U, 7.5f));
   frame.emitter_output.hypotheses.push_back(MakeHypothesis(3001U, 0.82f));

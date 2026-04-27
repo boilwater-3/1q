@@ -45,9 +45,6 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/model/EmitterHypothesis.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/model/EmitterObservation.h
     )
-    set(PUBLIC_HEADERS_ESR_OUTPUT
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/output/EsrOutputFrame.h
-    )
     set(PUBLIC_HEADERS_ESR_EXTENSION
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/extension/EsrController.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/extension/IEsrContext.h
@@ -88,9 +85,6 @@ if(ENABLE_INSTALL)
     )
     install(FILES ${PUBLIC_HEADERS_ESR_MODEL}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/model
-    )
-    install(FILES ${PUBLIC_HEADERS_ESR_OUTPUT}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/output
     )
     install(FILES ${PUBLIC_HEADERS_ESR_EXTENSION}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/extension

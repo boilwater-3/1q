@@ -1,7 +1,7 @@
 #ifndef ELECTRONIC_SURVEILLANCE_RADAR_RUNTIME_COMPONENTS_ESR_OUTPUT_FORMATTER_H_
 #define ELECTRONIC_SURVEILLANCE_RADAR_RUNTIME_COMPONENTS_ESR_OUTPUT_FORMATTER_H_
 
-#include "1q/electronic_surveillance_radar/output/EsrOutputFrame.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "common/runtime/RuntimeCycleExecutor.h"
 #include "electronic_surveillance_radar/output/EsrOutputManager.h"
@@ -16,14 +16,14 @@ class EsrOutputFormatter {
 
   void BuildOutputFrame(
       const oneq::internal::runtime::RuntimeCycleStamp& stamp,
-      output::EsrOutputFrame& cycle_frame) const;
+      session::EsrOutputFrame& cycle_frame) const;
 
-  output::EsrOutputFrame BuildEmptyFrame(
+  session::EsrOutputFrame BuildEmptyFrame(
       const oneq::internal::runtime::RuntimeCycleStamp& stamp) const;
 
   void LogCycleSummary(const session::EsrCycleInput& cycle_input,
                        const oneq::internal::runtime::RuntimeCycleStamp& stamp,
-                       const output::EsrOutputFrame& output_frame) const;
+                       const session::EsrOutputFrame& output_frame) const;
 
  private:
   output::EsrOutputManager& output_manager_;

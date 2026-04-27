@@ -165,7 +165,7 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
 namespace {
 
 flatbuffers::Offset<esr::replay::EsrOutputFrame> BuildOutputFrame(
-    flatbuffers::FlatBufferBuilder& fbb, const output::EsrOutputFrame& v) {
+    flatbuffers::FlatBufferBuilder& fbb, const session::EsrOutputFrame& v) {
   // observation output
   std::vector<flatbuffers::Offset<esr::replay::EmitterObservation>> obs_vec;
   for (const auto& o : v.observation_output.observations) {
@@ -206,7 +206,7 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> BuildOutputFrame(
       obs_out, em_out, truth_out);
 }
 
-void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, output::EsrOutputFrame* out) {
+void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, session::EsrOutputFrame* out) {
   if (!fb) {
     return;
   }
@@ -256,7 +256,7 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, output::EsrOutpu
     const auto* t = fb->truth_evaluation_output();
     if (t->associations()) {
       for (const auto* a : *t->associations()) {
-        output::TruthAssociationRecord rec{};
+        session::TruthAssociationRecord rec{};
         rec.observation_id = a->observation_id();
         if (a->truth_emitter_id()) {
           rec.truth_emitter_id = a->truth_emitter_id()->str();
@@ -270,13 +270,13 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, output::EsrOutpu
 
 }  // namespace
 
-std::string EncodeEsrOutputFrame(const output::EsrOutputFrame& v) {
+std::string EncodeEsrOutputFrame(const session::EsrOutputFrame& v) {
   flatbuffers::FlatBufferBuilder fbb(512);
   fbb.Finish(BuildOutputFrame(fbb, v));
   return {reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize()};
 }
 
-bool DecodeEsrOutputFrame(const std::string& bytes, output::EsrOutputFrame* out) {
+bool DecodeEsrOutputFrame(const std::string& bytes, session::EsrOutputFrame* out) {
   flatbuffers::Verifier ver(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
   if (!ver.VerifyBuffer<esr::replay::EsrOutputFrame>()) {
     return false;

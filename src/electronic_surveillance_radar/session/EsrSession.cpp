@@ -77,7 +77,7 @@ EsrSession::EsrSession(EsrSession&& other) noexcept = default;
 
 EsrSession& EsrSession::operator=(EsrSession&& other) noexcept = default;
 
-output::EsrOutputFrame EsrSession::Step(const session::EsrCycleInput& input) {
+session::EsrOutputFrame EsrSession::Step(const session::EsrCycleInput& input) {
   return StepWithResult(input).output_frame;
 }
 

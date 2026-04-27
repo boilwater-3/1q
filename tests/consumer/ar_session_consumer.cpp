@@ -14,10 +14,8 @@
 #include <cstddef>
 
 #include "1q/airborne_radar/config/airborne_radar_config.hpp"
-#include "1q/airborne_radar/output/TrackOutputFrame.h"
-#include "1q/airborne_radar/output/TrackOutputQueries.h"
-#include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
+#include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarInputValidation.h"
 #include "1q/airborne_radar/session/RadarSession.h"
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
@@ -57,10 +55,10 @@ int main() {
   }
 
   // 6. Step (output-only)
-  const airborne_radar::output::TrackOutputFrame step_frame = session.Step(input);
+  const airborne_radar::session::TrackOutputFrame step_frame = session.Step(input);
 
   // 7. Access result fields
-  const std::size_t confirmed_tracks = airborne_radar::output::CountTracksByStatus(
+  const std::size_t confirmed_tracks = airborne_radar::session::CountTracksByStatus(
       result.track_output_frame, airborne_radar::model::TrackStatus::kConfirmed);
   if (confirmed_tracks > result.track_output_frame.tracks.size()) {
     return 3;

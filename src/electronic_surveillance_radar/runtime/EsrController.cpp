@@ -22,7 +22,7 @@ struct EsrController::Impl {
   extension::IInterceptPipeline& pipeline;
   environment::IEsrEnvironmentService& environment_service;
   output::EsrOutputManager output_manager;
-  oneq::internal::runtime::RuntimeCycleState<output::EsrOutputFrame,
+  oneq::internal::runtime::RuntimeCycleState<session::EsrOutputFrame,
                                              session::ValidationIssueList>
       runtime_state{};
   bool last_cycle_executed{false};
@@ -65,7 +65,7 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
   environment_updater.FreezeEnvironment(input, stamp);
 
   // 执行
-  output::EsrOutputFrame output_frame =
+  session::EsrOutputFrame output_frame =
       signal_processor.Execute(input, impl_->environment_service);
   output_formatter.BuildOutputFrame(stamp, output_frame);
   output_formatter.LogCycleSummary(input, stamp, output_frame);
@@ -80,7 +80,7 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
 
 bool EsrController::HasLatestOutputFrame() const { return impl_->runtime_state.has_latest_output; }
 
-const output::EsrOutputFrame& EsrController::GetLatestOutputFrame() const {
+const session::EsrOutputFrame& EsrController::GetLatestOutputFrame() const {
   return impl_->runtime_state.latest_output;
 }
 

@@ -154,7 +154,7 @@ model::TrackStateSnapshot DecodeTrackSnapshot(const fb::TrackStateSnapshot* valu
 }
 
 flatbuffers::Offset<fb::TrackOutputFrame> EncodeTrackOutputFrame(
-    flatbuffers::FlatBufferBuilder* builder, const output::TrackOutputFrame& value) {
+    flatbuffers::FlatBufferBuilder* builder, const session::TrackOutputFrame& value) {
   std::vector<flatbuffers::Offset<fb::TrackStateSnapshot>> track_offsets;
   track_offsets.reserve(value.tracks.size());
   for (std::size_t i = 0; i < value.tracks.size(); ++i) {
@@ -169,8 +169,8 @@ flatbuffers::Offset<fb::TrackOutputFrame> EncodeTrackOutputFrame(
       CountTracksByStatus(value.tracks, model::TrackStatus::kLost) > 0U, tracks_vec);
 }
 
-output::TrackOutputFrame DecodeTrackOutputFrame(const fb::TrackOutputFrame* value) {
-  output::TrackOutputFrame result;
+session::TrackOutputFrame DecodeTrackOutputFrame(const fb::TrackOutputFrame* value) {
+  session::TrackOutputFrame result;
   if (value != nullptr) {
     result.cycle_index = value->cycle_index();
     result.batch_id = value->batch_id();
@@ -782,7 +782,7 @@ bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes, RadarCycleInpu
   return true;
 }
 
-std::string EncodeTrackOutputFrameFlatbuffer(const output::TrackOutputFrame& output_frame) {
+std::string EncodeTrackOutputFrameFlatbuffer(const session::TrackOutputFrame& output_frame) {
   flatbuffers::FlatBufferBuilder builder;
   const flatbuffers::Offset<fb::TrackOutputFrame> root =
       EncodeTrackOutputFrame(&builder, output_frame);
@@ -794,7 +794,7 @@ std::string EncodeTrackOutputFrameFlatbuffer(const output::TrackOutputFrame& out
 }
 
 bool DecodeTrackOutputFrameFlatbuffer(const std::string& payload_bytes,
-                                      output::TrackOutputFrame* output_frame, std::string* error) {
+                                      session::TrackOutputFrame* output_frame, std::string* error) {
   if (output_frame == nullptr) {
     if (error != nullptr) {
       *error = "null TrackOutputFrame output";

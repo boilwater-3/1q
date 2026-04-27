@@ -97,7 +97,7 @@ int main() {
 
   const aq::session::RadarCycleResult result = session.StepWithResult(input);
   const std::size_t confirmed =
-      aq::output::CollectConfirmedTracks(result.track_output_frame).size();
+      aq::session::CollectConfirmedTracks(result.track_output_frame).size();
 
   std::cout << "published=" << result.track_output_frame.published_track_count
             << " confirmed=" << confirmed

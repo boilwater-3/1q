@@ -17,9 +17,8 @@
 
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
-#include "1q/electronic_surveillance_radar/output/EsrOutputFrame.h"
-#include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 
@@ -79,7 +78,7 @@ int main() {
   }
 
   // 7. Step (output-only)
-  const esr::output::EsrOutputFrame step_frame = session.Step(input);
+  const esr::session::EsrOutputFrame step_frame = session.Step(input);
 
   // 8. Access three-channel output
   const std::size_t obs_count = result.output_frame.observation_output.observations.size();
@@ -99,7 +98,7 @@ int main() {
   // 10. Step after sensor disabled — should return empty output
   esr::session::EsrCycleInput input_2 = input;
   input_2.cycle_index = 2U;
-  const esr::output::EsrOutputFrame disabled_frame = session.Step(input_2);
+  const esr::session::EsrOutputFrame disabled_frame = session.Step(input_2);
   if (!disabled_frame.observation_output.observations.empty()) {
     return 3;
   }

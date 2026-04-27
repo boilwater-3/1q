@@ -88,10 +88,6 @@ if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_COMMON_UTILS
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/JammingSemantics.h
     )
-    set(PUBLIC_HEADERS_COMMON_OUTPUT
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/output/TrackOutputFrame.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/output/TrackOutputQueries.h
-    )
     set(PUBLIC_HEADERS_CONFIG_ENTRY
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarSessionConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarRuntimeConfigBuilder.h

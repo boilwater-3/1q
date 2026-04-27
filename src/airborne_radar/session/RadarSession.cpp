@@ -168,11 +168,11 @@ RadarSession RadarSessionFactory::CreateWithOverrideStrategy(
                                                                          override_strategy))));
 }
 
-output::TrackOutputFrame RadarSession::Step(const RadarCycleInput& input) {
+session::TrackOutputFrame RadarSession::Step(const RadarCycleInput& input) {
   return StepWithResult(input).track_output_frame;
 }
 
-output::TrackOutputFrame RadarSession::Step(const RadarCycleInput& input,
+session::TrackOutputFrame RadarSession::Step(const RadarCycleInput& input,
                                             const environment::EnvironmentSceneState& scene_state) {
   return StepWithResult(input, scene_state).track_output_frame;
 }

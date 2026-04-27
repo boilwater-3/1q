@@ -60,7 +60,7 @@ EsrTraceSession::~EsrTraceSession() = default;
 EsrTraceSession::EsrTraceSession(EsrTraceSession&&) noexcept = default;
 EsrTraceSession& EsrTraceSession::operator=(EsrTraceSession&&) noexcept = default;
 
-output::EsrOutputFrame EsrTraceSession::Step(const EsrCycleInput& input) {
+session::EsrOutputFrame EsrTraceSession::Step(const EsrCycleInput& input) {
   if (impl_->replay_writer) {
     impl_->WriteReplayEvent("cycle_input", "EsrCycleInput", EncodeEsrCycleInput(input),
                             input.cycle_index);
@@ -70,7 +70,7 @@ output::EsrOutputFrame EsrTraceSession::Step(const EsrCycleInput& input) {
     impl_->sink->Record("electronic_surveillance_radar", "input",
                         std::to_string(input.cycle_index));
   }
-  const output::EsrOutputFrame output = impl_->session.Step(input);
+  const session::EsrOutputFrame output = impl_->session.Step(input);
   if (impl_->sink) {
     impl_->sink->Record("electronic_surveillance_radar", "output", std::to_string(output.cycle_index));
   }

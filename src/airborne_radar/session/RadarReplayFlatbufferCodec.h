@@ -16,9 +16,9 @@ namespace session {
 std::string EncodeCycleInputFlatbuffer(const RadarCycleInput& input);
 bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes, RadarCycleInput* input,
                                 std::string* error);
-std::string EncodeTrackOutputFrameFlatbuffer(const output::TrackOutputFrame& output_frame);
+std::string EncodeTrackOutputFrameFlatbuffer(const session::TrackOutputFrame& output_frame);
 bool DecodeTrackOutputFrameFlatbuffer(const std::string& payload_bytes,
-                                      output::TrackOutputFrame* output_frame, std::string* error);
+                                      session::TrackOutputFrame* output_frame, std::string* error);
 std::string EncodeCycleResultFlatbuffer(const RadarCycleResult& result);
 bool DecodeCycleResultFlatbuffer(const std::string& payload_bytes, RadarCycleResult* result,
                                  std::string* error);

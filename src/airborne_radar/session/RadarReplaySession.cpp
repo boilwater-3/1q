@@ -19,7 +19,7 @@ struct RadarReplayState {
   environment::EnvironmentSceneState pending_scene_state{};
   bool has_pending_scene_state{false};
   RadarCycleResult latest_result{};
-  output::TrackOutputFrame latest_frame{};
+  session::TrackOutputFrame latest_frame{};
   bool reached_failure_marker{false};
   std::string failure_marker_payload{};
   oneq::replay::ReplayTraceFailure failure_marker_data{};
@@ -43,8 +43,8 @@ bool TrackStateSnapshotEqual(const model::TrackStateSnapshot& left,
          left.miss_count == right.miss_count;
 }
 
-bool TrackOutputFrameEqual(const output::TrackOutputFrame& left,
-                           const output::TrackOutputFrame& right) {
+bool TrackOutputFrameEqual(const session::TrackOutputFrame& left,
+                           const session::TrackOutputFrame& right) {
   if (left.cycle_index != right.cycle_index ||
       left.tracks.size() != right.tracks.size() ||
       left.batch_id != right.batch_id) {
@@ -174,7 +174,7 @@ bool OnRuntimeConfigPatch(const oneq::replay::ReplayTraceReadEvent& event, void*
 bool OnCycleOutput(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
                    std::string* actual_output, std::string* error) {
   RadarCycleResult expected_result;
-  output::TrackOutputFrame expected_frame;
+  session::TrackOutputFrame expected_frame;
   bool has_expected_result = false;
   bool has_expected_frame = false;
 

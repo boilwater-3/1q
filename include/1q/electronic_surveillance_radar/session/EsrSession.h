@@ -11,9 +11,8 @@
 #include "1q/api.hpp"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfig.h"
-#include "1q/electronic_surveillance_radar/output/EsrOutputFrame.h"
-#include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 
 namespace electronic_surveillance_radar {
 namespace extension {
@@ -101,7 +100,7 @@ class ONEQ_API EsrSession {
    * @param[in] input 当前周期输入。
    * @return 当前周期输出帧。
    */
-  output::EsrOutputFrame Step(const session::EsrCycleInput& input);
+  session::EsrOutputFrame Step(const session::EsrCycleInput& input);
 
   /**
    * @brief 执行单周期并返回聚合结果。

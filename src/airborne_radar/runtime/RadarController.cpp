@@ -6,7 +6,7 @@
 
 #include "1q/airborne_radar/extension/IOverrideControlStrategy.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
-#include "1q/airborne_radar/output/TrackOutputFrame.h"
+#include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/airborne_radar/extension/IRadarContext.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
@@ -35,7 +35,7 @@ bool IsCompatibleSignalPipelineRuntimeState(const extension::SignalPipelineRunti
  */
 struct CycleSnapshot {
   environment::EnvironmentServiceRuntimeState environment_state{};
-  output::TrackOutputFrame previous_output{};
+  session::TrackOutputFrame previous_output{};
   bool had_previous_output{false};
   std::uint64_t previous_batch_id{0U};
   std::uint32_t previous_cycle_index{0U};
@@ -92,7 +92,7 @@ struct RadarController::Impl {
   std::unique_ptr<extension::RadarCycleOrchestrator> cycle_orchestrator;
 
   // -- 周期运行时状态
-  oneq::internal::runtime::RuntimeCycleState<output::TrackOutputFrame,
+  oneq::internal::runtime::RuntimeCycleState<session::TrackOutputFrame,
                                              session::ValidationIssueList>
       runtime_state{};
   std::uint32_t cycle_index{1};
@@ -288,7 +288,7 @@ bool RadarController::HasLatestTrackOutputFrame() const {
   return impl_->runtime_state.has_latest_output;
 }
 
-const output::TrackOutputFrame& RadarController::GetLatestTrackOutputFrame() const {
+const session::TrackOutputFrame& RadarController::GetLatestTrackOutputFrame() const {
   return impl_->runtime_state.latest_output;
 }
 

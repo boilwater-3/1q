@@ -45,10 +45,8 @@
 #include "1q/airborne_radar/model/JammingSemantics.h"
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "1q/airborne_radar/model/TargetCategory.h"
-#include "1q/airborne_radar/output/TrackOutputFrame.h"
-#include "1q/airborne_radar/output/TrackOutputQueries.h"
-#include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
+#include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarInputValidation.h"
 #include "1q/airborne_radar/session/RadarSceneTargetUtils.h"
 #include "1q/airborne_radar/session/RadarSession.h"
@@ -72,7 +70,6 @@
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
-#include "1q/electro_optical_sensor/output/EosOutputFrame.h"
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electro_optical_sensor/session/EosTraceSession.h"
@@ -238,7 +235,7 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   session.ApplyRuntimeConfig(runtime_patch);
   const session::RadarCycleResult result = session.StepWithResult(input, scene_state);
   const session::RadarCycleResult trace_result = trace_session.StepWithResult(input, scene_state);
-  const std::size_t confirmed_tracks = output::CountTracksByStatus(
+  const std::size_t confirmed_tracks = session::CountTracksByStatus(
       result.track_output_frame, model::TrackStatus::kConfirmed);
 
   EXPECT_GE(confirmed_tracks, 0U);

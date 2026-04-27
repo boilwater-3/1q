@@ -9,7 +9,7 @@
 #include "1q/api.hpp"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
-#include "1q/electronic_surveillance_radar/output/EsrOutputFrame.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
 #include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
 
 namespace electronic_surveillance_radar {
@@ -28,7 +28,7 @@ class ONEQ_API IInterceptPipeline {
    * @param[in] environment 环境服务只读接口。
    * @return 当前周期流水线输出。
    */
-  virtual output::EsrOutputFrame RunCycle(const session::EsrCycleInput& input_state,
+  virtual session::EsrOutputFrame RunCycle(const session::EsrCycleInput& input_state,
                                         const environment::IEsrEnvironmentService& environment) = 0;
 
   /**

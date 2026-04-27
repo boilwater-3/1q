@@ -10,7 +10,7 @@
 #include <utility>
 #include <vector>
 
-#include "1q/electro_optical_sensor/output/EosOutputFrame.h"
+#include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
 #include "1q/electro_optical_sensor/extension/EosController.h"
 #include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"

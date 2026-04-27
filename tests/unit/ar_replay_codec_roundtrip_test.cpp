@@ -15,10 +15,8 @@
 #include "1q/airborne_radar/environment/EnvironmentConfig.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/model/TrackStateSnapshot.h"
-#include "1q/airborne_radar/output/TrackOutputFrame.h"
-#include "1q/airborne_radar/output/TrackOutputQueries.h"
-#include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
+#include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/replay/ReplayTrace.h"
 #include "airborne_radar/session/RadarReplayFlatbufferCodec.h"
 
@@ -100,7 +98,7 @@ TEST(ArReplayCodecRoundtripTest, CycleInputRejectsEmptyPayload) {
 // ---------------------------------------------------------------------------
 
 TEST(ArReplayCodecRoundtripTest, TrackOutputFramePreservesAllFields) {
-  output::TrackOutputFrame frame;
+  session::TrackOutputFrame frame;
   frame.cycle_index = 77U;
   frame.batch_id = 5U;
 
@@ -132,15 +130,15 @@ TEST(ArReplayCodecRoundtripTest, TrackOutputFramePreservesAllFields) {
   const std::string bytes = EncodeTrackOutputFrameFlatbuffer(frame);
   ASSERT_FALSE(bytes.empty());
 
-  output::TrackOutputFrame decoded;
+  session::TrackOutputFrame decoded;
   std::string error;
   ASSERT_TRUE(DecodeTrackOutputFrameFlatbuffer(bytes, &decoded, &error)) << error;
 
   EXPECT_EQ(decoded.cycle_index, 77U);
   EXPECT_EQ(decoded.batch_id, 5U);
   EXPECT_EQ(decoded.tracks.size(), 2U);
-  EXPECT_EQ(output::CountTracksByStatus(decoded, model::TrackStatus::kConfirmed), 1U);
-  EXPECT_TRUE(output::CountTracksByStatus(decoded, model::TrackStatus::kLost) > 0U);
+  EXPECT_EQ(session::CountTracksByStatus(decoded, model::TrackStatus::kConfirmed), 1U);
+  EXPECT_TRUE(session::CountTracksByStatus(decoded, model::TrackStatus::kLost) > 0U);
   ASSERT_EQ(decoded.tracks.size(), 2U);
 
   const model::TrackStateSnapshot& ds = decoded.tracks[0];

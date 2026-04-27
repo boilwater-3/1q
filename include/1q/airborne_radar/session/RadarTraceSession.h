@@ -39,8 +39,8 @@ class ONEQ_API RadarTraceSession {
   explicit RadarTraceSession(const RadarSessionConfig& config = {},
                              RadarTraceSessionOptions options = {});
 
-  output::TrackOutputFrame Step(const RadarCycleInput& input);
-  output::TrackOutputFrame Step(const RadarCycleInput& input,
+  session::TrackOutputFrame Step(const RadarCycleInput& input);
+  session::TrackOutputFrame Step(const RadarCycleInput& input,
                                 const environment::EnvironmentSceneState& scene_state);
   RadarCycleResult StepWithResult(const RadarCycleInput& input);
   RadarCycleResult StepWithResult(const RadarCycleInput& input,

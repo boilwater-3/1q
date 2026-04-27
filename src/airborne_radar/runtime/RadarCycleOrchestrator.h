@@ -9,7 +9,7 @@
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/extension/ISignalPipeline.h"
-#include "1q/airborne_radar/output/TrackOutputFrame.h"
+#include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/extension/SignalPipelineResultTypes.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
@@ -23,7 +23,7 @@ namespace extension {
  */
 struct CycleExecutionResult {
   extension::SignalCycleResult signal_result;     /**< 信号流水线原始结果。 */
-  output::TrackOutputFrame track_output_frame;  /**< 装配后的中性输出帧。 */
+  session::TrackOutputFrame track_output_frame;  /**< 装配后的中性输出帧。 */
   extension::TacticalDecisionResult decision_result; /**< 决策引擎输出。 */
 };
 

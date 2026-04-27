@@ -8,7 +8,7 @@
 
 #include <cstdint>
 
-#include "1q/electronic_surveillance_radar/output/EsrOutputFrame.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
 
 namespace electronic_surveillance_radar {
 namespace output {
@@ -26,7 +26,7 @@ class EsrOutputManager final {
    * @return 组装后的输出帧。
    */
   void StampOutputFrame(std::uint32_t cycle_index, std::uint64_t batch_id,
-                       output::EsrOutputFrame& frame) const;
+                       session::EsrOutputFrame& frame) const;
 
   /**
    * @brief 构造空内容输出帧。
@@ -34,7 +34,7 @@ class EsrOutputManager final {
    * @param[in] batch_id 批次号。
    * @return 无观测、无假设、无关联的输出帧。
    */
-  output::EsrOutputFrame BuildEmptyFrame(std::uint32_t cycle_index, std::uint64_t batch_id) const;
+  session::EsrOutputFrame BuildEmptyFrame(std::uint32_t cycle_index, std::uint64_t batch_id) const;
 };
 
 }  // namespace output

@@ -8,11 +8,10 @@
 #include <cmath>
 #include <cstdint>
 
-#include "1q/electro_optical_sensor/output/EosOutputFrame.h"
+#include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
-#include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
 

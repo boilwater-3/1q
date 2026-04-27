@@ -1,7 +1,7 @@
-#include "1q/airborne_radar/output/TrackOutputQueries.h"
+#include "1q/airborne_radar/session/RadarCycleResult.h"
 
 namespace airborne_radar {
-namespace output {
+namespace session {
 
 namespace {
 
@@ -104,5 +104,5 @@ std::size_t CountTracksByStatus(const TrackOutputFrame& frame, model::TrackStatu
   return count;
 }
 
-}  // namespace output
+}  // namespace session
 }  // namespace airborne_radar

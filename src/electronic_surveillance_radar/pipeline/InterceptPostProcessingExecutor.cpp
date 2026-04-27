@@ -232,12 +232,12 @@ internal::ClusterSummary BuildClusterSummary(
 
 }  // namespace
 
-output::EsrOutputFrame InterceptPostProcessingExecutor::Execute(
+session::EsrOutputFrame InterceptPostProcessingExecutor::Execute(
     const std::vector<RawObservationRecord>& raw_records, const extension::IEsrContext& ctx,
     ObservationPreprocessor& preprocessor, KdTreeClusterer& clusterer,
     HypothesisAssociator& associator, const ObservationFeatureScales& feature_scales,
     std::uint64_t& next_hypothesis_id) {
-  output::EsrOutputFrame result;
+  session::EsrOutputFrame result;
   result.observation_output.raw_observation_count = raw_records.size();
 
   const auto& config = ctx.GetPipelineConfig();
@@ -292,7 +292,7 @@ output::EsrOutputFrame InterceptPostProcessingExecutor::Execute(
   const auto& scene_emitters = ctx.GetSceneEmitters();
   std::set<std::string> observed_truth_ids;
   for (std::size_t i = 0; i < records.size(); ++i) {
-    output::TruthAssociationRecord association;
+    session::TruthAssociationRecord association;
     association.observation_id = records[i].observation.observation_id;
     association.truth_emitter_id =
         records[i].truth_emitter_id.empty() ? "UNASSOCIATED" : records[i].truth_emitter_id;
@@ -315,7 +315,7 @@ output::EsrOutputFrame InterceptPostProcessingExecutor::Execute(
     if (observed_truth_ids.find(scene_emitters[i].emitter_id) != observed_truth_ids.end()) {
       continue;
     }
-    output::TruthAssociationRecord missed_association;
+    session::TruthAssociationRecord missed_association;
     missed_association.observation_id = 0U;
     missed_association.truth_emitter_id = scene_emitters[i].emitter_id;
     missed_association.matched = false;

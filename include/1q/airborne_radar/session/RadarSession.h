@@ -13,7 +13,6 @@
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/extension/control/RadarCommand.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
-#include "1q/airborne_radar/output/TrackOutputFrame.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/api.hpp"
@@ -64,7 +63,7 @@ class ONEQ_API RadarSession {
    *       会以尽力而为出发返回上一周期有效状态，输出帧中
    *       `tracks` 可能为空。
    */
-  output::TrackOutputFrame Step(const RadarCycleInput& input);
+  session::TrackOutputFrame Step(const RadarCycleInput& input);
 
   /**
    * @brief 先更新待生效场景，再执行当前周期。
@@ -75,7 +74,7 @@ class ONEQ_API RadarSession {
    *       会以尽力而为出发返回上一周期有效状态，输出帧中
    *       `tracks` 可能为空。
    */
-  output::TrackOutputFrame Step(const RadarCycleInput& input,
+  session::TrackOutputFrame Step(const RadarCycleInput& input,
                                 const environment::EnvironmentSceneState& scene_state);
 
   /**

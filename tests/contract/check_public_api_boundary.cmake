@@ -55,8 +55,6 @@ set(AR_MODEL_HEADERS
 
 # ── AR 输出域 ────────────────────────────────────────────────────────
 set(AR_OUTPUT_HEADERS
-    "airborne_radar/output/TrackOutputFrame.h"
-    "airborne_radar/output/TrackOutputQueries.h"
 )
 
 # ── AR 会话域 ────────────────────────────────────────────────────────
@@ -101,7 +99,6 @@ set(EOS_PUBLIC_HEADERS
     "electro_optical_sensor/extension/IEosPipeline.h"
     "electro_optical_sensor/extension/electro_optical_sensor_extension.hpp"
     "electro_optical_sensor/foundation/EosRadiativeTransfer.h"
-    "electro_optical_sensor/output/EosOutputFrame.h"
     "electro_optical_sensor/session/EosCycleInput.h"
     "electro_optical_sensor/session/EosCycleResult.h"
     "electro_optical_sensor/session/EosEnvironmentInput.h"
@@ -136,7 +133,6 @@ set(ESR_PUBLIC_HEADERS
     "electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
     "electronic_surveillance_radar/model/EmitterHypothesis.h"
     "electronic_surveillance_radar/model/EmitterObservation.h"
-    "electronic_surveillance_radar/output/EsrOutputFrame.h"
     "electronic_surveillance_radar/session/EsrCycleInput.h"
     "electronic_surveillance_radar/session/EsrCycleResult.h"
     "electronic_surveillance_radar/session/EsrEnvironmentInput.h"

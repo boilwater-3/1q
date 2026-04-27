@@ -1,7 +1,7 @@
 #ifndef ELECTRO_OPTICAL_SENSOR_RUNTIME_COMPONENTS_EOS_CYCLE_OUTCOME_RECORDER_H_
 #define ELECTRO_OPTICAL_SENSOR_RUNTIME_COMPONENTS_EOS_CYCLE_OUTCOME_RECORDER_H_
 
-#include "1q/electro_optical_sensor/output/EosOutputFrame.h"
+#include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
 
 namespace electro_optical_sensor {

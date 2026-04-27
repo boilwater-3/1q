@@ -49,7 +49,7 @@ CycleExecutionResult RadarCycleOrchestrator::Execute(
   decision_frame.cycle_index = stamp.cycle_index;
   decision_frame.batch_id = stamp.batch_id;
 
-  output::TrackOutputFrame track_output_frame;
+  session::TrackOutputFrame track_output_frame;
   track_output_frame.cycle_index = stamp.cycle_index;
   track_output_frame.batch_id = stamp.batch_id;
   track_output_frame.tracks = decision_frame.tracks;

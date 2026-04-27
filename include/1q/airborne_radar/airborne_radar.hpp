@@ -16,8 +16,6 @@
 #include "1q/airborne_radar/model/JammingSemantics.h"
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "1q/airborne_radar/model/TargetCategory.h"
-#include "1q/airborne_radar/output/TrackOutputFrame.h"
-#include "1q/airborne_radar/output/TrackOutputQueries.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/airborne_radar/session/RadarExternalInputAdapter.h"

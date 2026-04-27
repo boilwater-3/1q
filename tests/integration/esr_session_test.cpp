@@ -60,7 +60,7 @@ EsrSessionConfig MakeSessionConfig() {
 std::size_t CountMatchedTruthObservations(const EsrCycleResult& result, const std::string& truth_id) {
   std::size_t matched_count = 0U;
   for (std::size_t i = 0; i < result.output_frame.truth_evaluation_output.associations.size(); ++i) {
-    const output::TruthAssociationRecord& association =
+    const session::TruthAssociationRecord& association =
         result.output_frame.truth_evaluation_output.associations[i];
     if (association.matched && association.truth_emitter_id == truth_id) {
       ++matched_count;

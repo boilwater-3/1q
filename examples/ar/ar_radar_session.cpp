@@ -28,8 +28,8 @@ int main() {
   using airborne_radar::environment::EnvironmentSceneBuilder;
   using airborne_radar::environment::JammerEmitterState;
   using airborne_radar::environment::JammingTechnique;
-  using airborne_radar::output::CollectConfirmedTracks;
-  using airborne_radar::output::CollectJammingTracks;
+  using airborne_radar::session::CollectConfirmedTracks;
+  using airborne_radar::session::CollectJammingTracks;
   using airborne_radar::session::HasValidationError;
   using airborne_radar::session::RadarCycleInput;
   using airborne_radar::session::RadarCycleResult;

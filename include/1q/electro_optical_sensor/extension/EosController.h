@@ -10,9 +10,8 @@
 #include <memory>
 
 #include "1q/api.hpp"
-#include "1q/electro_optical_sensor/output/EosOutputFrame.h"
-#include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
+#include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 

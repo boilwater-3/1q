@@ -23,8 +23,7 @@
 #include "1q/airborne_radar/model/DecisionInputFrame.h"
 #include "1q/airborne_radar/model/TrackStateSnapshot.h"
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
-#include "1q/airborne_radar/output/TrackOutputFrame.h"
-#include "1q/airborne_radar/output/TrackOutputQueries.h"
+#include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
@@ -515,11 +514,11 @@ TEST_F(CoreControllerTest, DefaultLifecyclePathBuildsTentativeDecisionFrameOnFir
   controller.RunOnce();
 
   EXPECT_TRUE(controller.HasLatestTrackOutputFrame());
-  const output::TrackOutputFrame& latest_track_output_frame =
+  const session::TrackOutputFrame& latest_track_output_frame =
       controller.GetLatestTrackOutputFrame();
   EXPECT_EQ(latest_track_output_frame.tracks.size(), 1U);
-  EXPECT_EQ(output::CountTracksByStatus(latest_track_output_frame, model::TrackStatus::kConfirmed), 0U);
-  EXPECT_FALSE(output::CountTracksByStatus(latest_track_output_frame, model::TrackStatus::kLost) > 0U);
+  EXPECT_EQ(session::CountTracksByStatus(latest_track_output_frame, model::TrackStatus::kConfirmed), 0U);
+  EXPECT_FALSE(session::CountTracksByStatus(latest_track_output_frame, model::TrackStatus::kLost) > 0U);
   ASSERT_EQ(decision_engine.last_frame.tracks.size(), 1U);
   EXPECT_EQ(decision_engine.last_frame.tracks[0].status,
             model::TrackStatus::kTentative);
@@ -541,7 +540,7 @@ TEST_F(CoreControllerTest, PublicOutputReaderApiExposesLatestTrackOutputFrame) {
   controller.RunOnce();
 
   EXPECT_TRUE(controller.HasLatestTrackOutputFrame());
-  const output::TrackOutputFrame& latest_track_output_frame =
+  const session::TrackOutputFrame& latest_track_output_frame =
       controller.GetLatestTrackOutputFrame();
   EXPECT_EQ(latest_track_output_frame.cycle_index, 1U);
   EXPECT_EQ(latest_track_output_frame.batch_id, 1U);
@@ -605,7 +604,7 @@ TEST_F(CoreControllerTest, FailedCycleDoesNotAdvanceEnvironmentStampOrOutputSequ
 
   EXPECT_TRUE(controller.ExecutedLatestCycle());
   ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
-  const output::TrackOutputFrame& latest_track_output_frame =
+  const session::TrackOutputFrame& latest_track_output_frame =
       controller.GetLatestTrackOutputFrame();
   EXPECT_EQ(latest_track_output_frame.cycle_index, 1U);
   EXPECT_EQ(latest_track_output_frame.batch_id, 1U);
@@ -624,7 +623,7 @@ TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {
 
   controller.RunOnce();
   ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
-  const output::TrackOutputFrame previous_frame = controller.GetLatestTrackOutputFrame();
+  const session::TrackOutputFrame previous_frame = controller.GetLatestTrackOutputFrame();
   ASSERT_GT(previous_frame.tracks.size(), 0U);
   const std::vector<extension::control::RadarCommand> previous_commands =
       radar_context.SubmittedCommands();
@@ -638,11 +637,11 @@ TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {
                 return issue.code == session::ValidationCode::kInvalidCycleDeltaTime;
               }) != issues.end());
   ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
-  const output::TrackOutputFrame& retained_frame = controller.GetLatestTrackOutputFrame();
+  const session::TrackOutputFrame& retained_frame = controller.GetLatestTrackOutputFrame();
   EXPECT_EQ(retained_frame.cycle_index, previous_frame.cycle_index);
   EXPECT_EQ(retained_frame.batch_id, previous_frame.batch_id);
   EXPECT_EQ(retained_frame.tracks.size(), previous_frame.tracks.size());
-  EXPECT_EQ(output::CountTracksByStatus(retained_frame, model::TrackStatus::kConfirmed), output::CountTracksByStatus(previous_frame, model::TrackStatus::kConfirmed));
+  EXPECT_EQ(session::CountTracksByStatus(retained_frame, model::TrackStatus::kConfirmed), session::CountTracksByStatus(previous_frame, model::TrackStatus::kConfirmed));
   ASSERT_EQ(radar_context.SubmittedCommands().size(), previous_commands.size());
   for (std::size_t i = 0; i < previous_commands.size(); ++i) {
     EXPECT_EQ(radar_context.SubmittedCommands()[i].type, previous_commands[i].type);
@@ -663,7 +662,7 @@ TEST_F(CoreControllerTest, DuplicateExternalTargetIdRetainsPreviousValidOutputFr
 
   controller.RunOnce();
   ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
-  const output::TrackOutputFrame previous_frame = controller.GetLatestTrackOutputFrame();
+  const session::TrackOutputFrame previous_frame = controller.GetLatestTrackOutputFrame();
   ASSERT_GT(previous_frame.tracks.size(), 0U);
   const std::vector<extension::control::RadarCommand> previous_commands =
       radar_context.SubmittedCommands();
@@ -683,11 +682,11 @@ TEST_F(CoreControllerTest, DuplicateExternalTargetIdRetainsPreviousValidOutputFr
                 return issue.code == session::ValidationCode::kDuplicateExternalTargetId;
               }) != issues.end());
   ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
-  const output::TrackOutputFrame& retained_frame = controller.GetLatestTrackOutputFrame();
+  const session::TrackOutputFrame& retained_frame = controller.GetLatestTrackOutputFrame();
   EXPECT_EQ(retained_frame.cycle_index, previous_frame.cycle_index);
   EXPECT_EQ(retained_frame.batch_id, previous_frame.batch_id);
   EXPECT_EQ(retained_frame.tracks.size(), previous_frame.tracks.size());
-  EXPECT_EQ(output::CountTracksByStatus(retained_frame, model::TrackStatus::kConfirmed), output::CountTracksByStatus(previous_frame, model::TrackStatus::kConfirmed));
+  EXPECT_EQ(session::CountTracksByStatus(retained_frame, model::TrackStatus::kConfirmed), session::CountTracksByStatus(previous_frame, model::TrackStatus::kConfirmed));
   ASSERT_EQ(radar_context.SubmittedCommands().size(), previous_commands.size());
   for (std::size_t i = 0; i < previous_commands.size(); ++i) {
     EXPECT_EQ(radar_context.SubmittedCommands()[i].type, previous_commands[i].type);

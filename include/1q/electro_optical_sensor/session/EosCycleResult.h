@@ -7,7 +7,6 @@
 #define ELECTRO_OPTICAL_SENSOR_CORE_SESSION_EOS_CYCLE_RESULT_H_
 
 #include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
-#include "1q/electro_optical_sensor/output/EosOutputFrame.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 
 namespace electro_optical_sensor {

@@ -45,7 +45,7 @@ void WriteRuntimeConfigPatchReplay(const std::shared_ptr<oneq::replay::ReplayTra
 }
 
 void WriteTrackOutputReplay(const std::shared_ptr<oneq::replay::ReplayTraceWriter>& writer,
-                            const output::TrackOutputFrame& output_frame) {
+                            const session::TrackOutputFrame& output_frame) {
   oneq::replay::ReplayTraceEvent event;
   event.module = "airborne_radar";
   event.event_type = "cycle_output";
@@ -110,12 +110,12 @@ RadarTraceSession::RadarTraceSession(const RadarSessionConfig& config,
   }
 }
 
-output::TrackOutputFrame RadarTraceSession::Step(const RadarCycleInput& input) {
+session::TrackOutputFrame RadarTraceSession::Step(const RadarCycleInput& input) {
   if (replay_writer_) {
     pending_input_written_ = true;
     WriteCycleInputEvent(replay_writer_, input);
   }
-  const output::TrackOutputFrame output = session_.Step(input);
+  const session::TrackOutputFrame output = session_.Step(input);
   if (replay_writer_) {
     WriteTrackOutputReplay(replay_writer_, output);
     pending_input_written_ = false;
@@ -123,14 +123,14 @@ output::TrackOutputFrame RadarTraceSession::Step(const RadarCycleInput& input) {
   return output;
 }
 
-output::TrackOutputFrame RadarTraceSession::Step(
+session::TrackOutputFrame RadarTraceSession::Step(
     const RadarCycleInput& input, const environment::EnvironmentSceneState& scene_state) {
   if (replay_writer_) {
     pending_input_written_ = true;
     WriteCycleInputEvent(replay_writer_, input);
     WriteSceneStateReplay(replay_writer_, scene_state);
   }
-  const output::TrackOutputFrame output = session_.Step(input, scene_state);
+  const session::TrackOutputFrame output = session_.Step(input, scene_state);
   if (replay_writer_) {
     WriteTrackOutputReplay(replay_writer_, output);
     pending_input_written_ = false;

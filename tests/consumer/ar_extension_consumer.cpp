@@ -10,7 +10,7 @@
 #include "1q/airborne_radar/extension/ISignalPipeline.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/extension/RadarController.h"
-#include "1q/airborne_radar/output/TrackOutputFrame.h"
+#include "1q/airborne_radar/session/RadarCycleResult.h"
 namespace airborne_radar {
 namespace {
 

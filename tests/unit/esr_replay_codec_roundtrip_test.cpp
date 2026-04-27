@@ -13,9 +13,8 @@
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfig.h"
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
-#include "1q/electronic_surveillance_radar/output/EsrOutputFrame.h"
-#include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
 #include "electronic_surveillance_radar/session/EsrReplayFlatbufferCodec.h"
@@ -132,7 +131,7 @@ TEST(EsrReplayCodecRoundtripTest, CycleInputRejectsEmptyPayload) {
 // ---------------------------------------------------------------------------
 
 TEST(EsrReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
-  output::EsrOutputFrame frame;
+  session::EsrOutputFrame frame;
   frame.cycle_index = 7U;
   frame.batch_id = 42U;
 
@@ -162,7 +161,7 @@ TEST(EsrReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
   hyp.last_seen_cycle = 7U;
   frame.emitter_output.hypotheses.push_back(hyp);
 
-  output::TruthAssociationRecord truth;
+  session::TruthAssociationRecord truth;
   truth.observation_id = 100U;
   truth.truth_emitter_id = "truth_emitter_001";
   truth.matched = true;
@@ -172,7 +171,7 @@ TEST(EsrReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
   const std::string bytes = EncodeEsrOutputFrame(frame);
   ASSERT_FALSE(bytes.empty());
 
-  output::EsrOutputFrame decoded;
+  session::EsrOutputFrame decoded;
   ASSERT_TRUE(DecodeEsrOutputFrame(bytes, &decoded));
 
   EXPECT_EQ(decoded.cycle_index, 7U);

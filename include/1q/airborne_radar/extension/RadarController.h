@@ -11,7 +11,7 @@
 
 #include "1q/airborne_radar/extension/IOverrideControlStrategy.h"
 #include "1q/airborne_radar/extension/ISignalPipeline.h"
-#include "1q/airborne_radar/output/TrackOutputFrame.h"
+#include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/airborne_radar/session/RadarInputValidation.h"
 #include "1q/airborne_radar/extension/ControlReducerTypes.h"
 #include "1q/api.hpp"
@@ -25,7 +25,7 @@ class IRadarContext;
 class ITacticalDecisionEngine;
 
 struct RadarControllerRuntimeState {
-  output::TrackOutputFrame latest_output{};
+  session::TrackOutputFrame latest_output{};
   bool has_latest_output{false};
   session::ValidationIssueList last_validation_issues{};
   std::uint64_t next_batch_id{1U};
@@ -110,7 +110,7 @@ class ONEQ_API RadarController {
    * @brief 获取最近一次已缓存的轨迹输出帧。
    * @return 最近一次运行周期产生的轨迹输出帧引用。
    */
-  const output::TrackOutputFrame& GetLatestTrackOutputFrame() const;
+  const session::TrackOutputFrame& GetLatestTrackOutputFrame() const;
 
   /**
    * @brief 获取最近一次输入校验问题列表。

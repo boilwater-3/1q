@@ -29,9 +29,6 @@ if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_MODULE_ENTRY_EOS
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/electro_optical_sensor.hpp
     )
-    set(PUBLIC_HEADERS_EOS_OUTPUT
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/output/EosOutputFrame.h
-    )
     set(PUBLIC_HEADERS_EOS_FOUNDATION
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h
     )
@@ -71,9 +68,6 @@ if(ENABLE_INSTALL)
 
     install(FILES ${PUBLIC_HEADERS_MODULE_ENTRY_EOS}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor
-    )
-    install(FILES ${PUBLIC_HEADERS_EOS_OUTPUT}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/output
     )
     install(FILES ${PUBLIC_HEADERS_EOS_MODEL}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/model

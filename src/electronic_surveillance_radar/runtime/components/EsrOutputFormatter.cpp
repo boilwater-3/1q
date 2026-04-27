@@ -13,11 +13,11 @@ EsrOutputFormatter::EsrOutputFormatter(output::EsrOutputManager& output_manager)
 
 void EsrOutputFormatter::BuildOutputFrame(
     const oneq::internal::runtime::RuntimeCycleStamp& stamp,
-    output::EsrOutputFrame& cycle_frame) const {
+    session::EsrOutputFrame& cycle_frame) const {
   output_manager_.StampOutputFrame(stamp.cycle_index, stamp.batch_id, cycle_frame);
 }
 
-output::EsrOutputFrame EsrOutputFormatter::BuildEmptyFrame(
+session::EsrOutputFrame EsrOutputFormatter::BuildEmptyFrame(
     const oneq::internal::runtime::RuntimeCycleStamp& stamp) const {
   return output_manager_.BuildEmptyFrame(stamp.cycle_index, stamp.batch_id);
 }
@@ -25,7 +25,7 @@ output::EsrOutputFrame EsrOutputFormatter::BuildEmptyFrame(
 void EsrOutputFormatter::LogCycleSummary(
     const session::EsrCycleInput& cycle_input,
     const oneq::internal::runtime::RuntimeCycleStamp& stamp,
-    const output::EsrOutputFrame& output_frame) const {
+    const session::EsrOutputFrame& output_frame) const {
   std::size_t matched_truth_count = 0U;
   for (std::size_t i = 0; i < output_frame.truth_evaluation_output.associations.size(); ++i) {
     if (output_frame.truth_evaluation_output.associations[i].matched) {
