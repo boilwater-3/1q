@@ -15,7 +15,7 @@ namespace config {
  * @brief EosSessionConfigBuilder 提供语义化会话配置构造入口。
  * @note 该构造器用于 work mode/profile/preset 等高层语义输入。
  *       如需直接编辑 hardware/mission/policy/environment 四域详细参数，
- *       请使用 EosDetailedSessionConfigBuilder。
+ *       请使用直接字段赋值。
  * @note 推荐路径：
  *       会话初始化优先使用本构造器；
  *       运行期热更新统一使用 EosRuntimeConfigBuilder。

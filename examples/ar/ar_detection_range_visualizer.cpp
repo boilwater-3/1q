@@ -33,7 +33,6 @@
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/config/RadarDetailedSessionConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"

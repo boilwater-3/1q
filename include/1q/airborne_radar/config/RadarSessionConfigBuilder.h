@@ -26,7 +26,7 @@ using model::RadarWorkSubMode;
  * @note 推荐路径：
  * - 会话初始化优先使用本构造器表达高层语义输入；
  * - 运行期热更新统一使用 `RadarRuntimeConfigBuilder`；
- * - 仅在需要直接编辑四域细项时使用 `RadarDetailedSessionConfigBuilder`。
+ * - 仅在需要直接编辑四域细项时使用直接字段赋值。
  *
  * @code
  * auto config = RadarSessionConfigBuilder()

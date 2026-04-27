@@ -11,7 +11,6 @@ set(AR_PUBLIC_PRIMARY_HEADERS
     "airborne_radar/config/RadarRuntimeConfigPatch.h"
     "airborne_radar/config/RadarRuntimeConfigBuilder.h"
     "airborne_radar/config/RadarSessionConfigBuilder.h"
-    "airborne_radar/config/RadarDetailedSessionConfigBuilder.h"
     "airborne_radar/config/RadarSessionConfigPresets.h"
     "airborne_radar/config/airborne_radar_config.hpp"
 )
@@ -82,7 +81,6 @@ set(ROOT_HEADER
 
 # ── EOS 公开头 ──────────────────────────────────────────────────────
 set(EOS_PUBLIC_HEADERS
-    "electro_optical_sensor/config/EosDetailedSessionConfigBuilder.h"
     "electro_optical_sensor/config/EosEnvironmentConfig.h"
     "electro_optical_sensor/config/EosHardwareConfig.h"
     "electro_optical_sensor/config/EosMissionConfig.h"
@@ -117,7 +115,6 @@ set(EOS_PUBLIC_HEADERS
 
 # ── ESR 公开头 ──────────────────────────────────────────────────────
 set(ESR_PUBLIC_HEADERS
-    "electronic_surveillance_radar/config/EsrDetailedSessionConfigBuilder.h"
     "electronic_surveillance_radar/config/EsrDetectionPolicyConfig.h"
     "electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
     "electronic_surveillance_radar/config/EsrEnvironmentPreset.h"
@@ -277,7 +274,7 @@ foreach(FORBIDDEN_PATTERN IN LISTS FORBIDDEN_BUILDER_METHOD_PATTERNS)
 endforeach()
 
 # Guardrail: ESR Session builder keeps semantic-only surface; domain-level
-# whole-config setters must stay in EsrDetailedSessionConfigBuilder.
+# whole-config setters must use direct field assignment.
 set(ESR_SESSION_BUILDER_HEADER
     "${PUBLIC_INCLUDE_DIR}/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h")
 file(READ "${ESR_SESSION_BUILDER_HEADER}" ESR_SESSION_BUILDER_CONTENT)
@@ -292,7 +289,7 @@ foreach(FORBIDDEN_PATTERN IN LISTS ESR_FORBIDDEN_SESSION_METHOD_PATTERNS)
   if(ESR_SESSION_BUILDER_CONTENT MATCHES "${FORBIDDEN_PATTERN}")
     message(FATAL_ERROR
             "Legacy ESR session-builder domain setter reintroduced: ${FORBIDDEN_PATTERN}\n"
-            "Use EsrDetailedSessionConfigBuilder for domain-level overrides.")
+            "Use direct field assignment for domain-level overrides.")
   endif()
 endforeach()
 

@@ -3,8 +3,7 @@
  * @brief 验证安装后机载雷达公共 API 路径可被外部工程编译链接。
  *
  * 覆盖要点：
- *   - RadarSessionConfigPresets + RadarSessionConfigBuilder/RadarDetailedSessionConfigBuilder
- * 构造会话配置
+ *   - RadarSessionConfigPresets + RadarSessionConfigBuilder/直接字段赋值 构造会话配置
  *   - RadarCycleInput 构造 + RadarInputValidation 校验
  *   - RadarSession 构造、StepWithResult、Step 调用
  *   - RadarRuntimeConfigBuilder 热切换（工作子模式、扫描中心）
@@ -28,27 +27,15 @@ int main() {
   airborne_radar::session::RadarSessionConfig preset_config =
       airborne_radar::config::presets::MakeDefaultRadarSessionConfig();
 
-  // 2. Builder config construction
-  airborne_radar::session::RadarSessionConfig built_config =
-      airborne_radar::config::RadarDetailedSessionConfigBuilder(preset_config)
-          .Detection()
-          .WithPeakPowerW(5.0e6f)
-          .WithFrequencyHz(9.3e9f)
-          .End()
-          .Beam()
-          .WithScanCenterDeg({0.0f, 0.0f})
-          .End()
-          .Tracking()
-          .EnableKalmanFilter(true)
-          .End()
-          .Lifecycle()
-          .WithLifecycleConfirmHits(3)
-          .End()
-          .Environment()
-          .WithJammingSensitivityProfile(
-              airborne_radar::environment::ResolveJammingSensitivityProfile(5.0f))
-          .End()
-          .Build();
+  // 2. 直接字段赋值构造会话配置
+  auto built_config = preset_config;
+  built_config.hardware.detection.transmitter.peak_power_w = 5.0e6f;
+  built_config.hardware.detection.transmitter.frequency_hz = 9.3e9f;
+  built_config.mission.orientation.scan_center_deg = {0.0f, 0.0f};
+  built_config.policy.tracking.enable_kalman_filter = true;
+  built_config.policy.lifecycle.confirm_hits = 3;
+  built_config.jamming_sensitivity_profile =
+      airborne_radar::environment::ResolveJammingSensitivityProfile(5.0f);
 
   // 3. Session construction from builder config
   airborne_radar::session::RadarSession session =

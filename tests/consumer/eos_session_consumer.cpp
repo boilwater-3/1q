@@ -4,7 +4,7 @@
  *
  * 覆盖要点：
  *   - EosSessionConfigBuilder 语义化会话配置构造
- *   - EosDetailedSessionConfigBuilder 四域详细参数构造（hardware/mission/policy/environment）
+ *   - 直接字段赋值覆盖四域详细参数（hardware/mission/policy/environment）
  *   - EosCycleInput + EosSceneTarget 构造场景输入
  *   - EosInputValidation 输入校验
  *   - EosSessionFactory 创建会话，Step、StepWithResult 调用
@@ -16,7 +16,6 @@
 #include <cstdint>
 
 #include "1q/electro_optical_sensor/output/EosOutputFrame.h"
-#include "1q/electro_optical_sensor/config/EosDetailedSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
@@ -36,12 +35,13 @@ int main() {
           .WithDetectionProfile(eos::config::EosDetectionProfile::kAggressive)
           .WithEnvironmentModelType(eos::environment::EosEnvironmentModelType::kSimplified)
           .Build();
-  // 2. 详细 Builder：直接编辑四域及详细参数
-  const eos::session::EosSessionConfig config =
-      eos::config::EosDetailedSessionConfigBuilder(semantic_config)
-          .WithScanRateDegPerSec(5.0f)
-          .WithDetectionDetails(4.5f, 0.9e-12f, 720.0f)
-          .Build();
+  // 2. 直接字段赋值覆盖四域详细参数
+  auto config = semantic_config;
+  config.mission.scan_rate_deg_per_sec = 5.0f;
+  config.policy.detection.use_profile_defaults = false;
+  config.policy.detection.minimum_snr_db = 4.5f;
+  config.policy.detection.detection_sensitivity_w = 0.9e-12f;
+  config.policy.detection.visible_reference_irradiance_w_m2 = 720.0f;
 
   // 3. Session construction
   eos::session::EosSession session =

@@ -4,7 +4,7 @@
  *
  * 覆盖要点：
  *   - EsrSessionConfigBuilder 构造会话配置
- *   - EsrDetailedSessionConfigBuilder 构造详细会话配置
+ *   - 直接字段赋值构造详细会话配置
  *   - EsrCycleInput + EsrSceneEmitter 构造场景输入
  *   - EsrInputValidation 输入校验
  *   - EsrSession 构造、Step、StepWithResult 调用
@@ -15,7 +15,6 @@
 #include <cstddef>
 #include <string>
 
-#include "1q/electronic_surveillance_radar/config/EsrDetailedSessionConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/output/EsrOutputFrame.h"
@@ -34,14 +33,17 @@ int main() {
           .WithScanRateHz(1.0f)
           .Build();
 
-  // 2. DetailedSessionConfigBuilder
-  esr::session::EsrSessionConfig detailed_config =
-      esr::config::EsrDetailedSessionConfigBuilder()
-          .WithWorkMode(esr::config::EsrWorkMode::kEsm)
-          .WithScanRateHz(2.0f)
-          .WithDetectionDetails(8.0f, 1.0e-6f, 16U, 1.0f, true)
-          .WithEnvironmentPreset(esr::config::EsrEnvironmentPreset::kStandard)
-          .Build();
+  // 2. 直接字段赋值构造详细会话配置
+  esr::session::EsrSessionConfig detailed_config{};
+  detailed_config.mission.work_mode = esr::config::EsrWorkMode::kEsm;
+  detailed_config.mission.scan.scan_rate_hz = 2.0f;
+  detailed_config.policy.detection.use_profile_defaults = false;
+  detailed_config.policy.detection.min_detect_snr_db = 8.0f;
+  detailed_config.policy.detection.pfa = 1.0e-6f;
+  detailed_config.policy.detection.pulse_count = 16U;
+  detailed_config.policy.detection.threshold_scale = 1.0f;
+  detailed_config.policy.detection.enable_statistical_detection = true;
+  detailed_config.environment.scenario_config.preset = esr::config::EsrEnvironmentPreset::kStandard;
 
   // 3. Session construction
   esr::session::EsrSession session(config);

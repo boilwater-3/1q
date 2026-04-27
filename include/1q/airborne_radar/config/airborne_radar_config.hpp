@@ -7,7 +7,6 @@
 #ifndef ONEQ_AIRBORNE_RADAR_CONFIG_AIRBORNE_RADAR_CONFIG_HPP_
 #define ONEQ_AIRBORNE_RADAR_CONFIG_AIRBORNE_RADAR_CONFIG_HPP_
 
-#include "1q/airborne_radar/config/RadarDetailedSessionConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarEnvironmentConfig.h"
 #include "1q/airborne_radar/config/RadarHardwareConfig.h"
 #include "1q/airborne_radar/config/RadarMissionConfig.h"

@@ -5,7 +5,6 @@
 
 #include <gtest/gtest.h>
 
-#include "1q/airborne_radar/config/RadarDetailedSessionConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
@@ -39,22 +38,14 @@ TEST(RadarSessionConfigBuilderTest, PresetBasePreservesPresetSemanticValues) {
 }
 
 TEST(RadarSessionConfigBuilderTest, ExistingDetailedConfigIsPreservedWhenOnlyEditingEnvironment) {
-  session::RadarSessionConfig base_config =
-            config::RadarDetailedSessionConfigBuilder()
-          .Detection()
-          .EnablePhysicsDetection(true)
-          .WithPeakPowerW(7.5e6f)
-          .WithFrequencyHz(9.7e9f)
-          .End()
-          .Tracking()
-          .EnableKalmanFilter(true)
-          .WithKalmanMeasurementNoiseStd(4.5f)
-          .End()
-          .Lifecycle()
-          .EnableImmFusion(true)
-          .WithLifecycleConfirmHits(2U)
-          .End()
-          .Build();
+  session::RadarSessionConfig base_config{};
+  base_config.hardware.detection.enable_physics_detection = true;
+  base_config.hardware.detection.transmitter.peak_power_w = 7.5e6f;
+  base_config.hardware.detection.transmitter.frequency_hz = 9.7e9f;
+  base_config.policy.tracking.enable_kalman_filter = true;
+  base_config.policy.tracking.kalman_measurement_noise_std = 4.5f;
+  base_config.policy.lifecycle.enable_imm_lifecycle = true;
+  base_config.policy.lifecycle.confirm_hits = 2U;
 
   const session::RadarSessionConfig rebuilt =
       config::RadarSessionConfigBuilder(base_config)
@@ -217,36 +208,24 @@ TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructin
 }
 
 TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig) {
-    const auto detailed_config =
-            config::RadarDetailedSessionConfigBuilder()
-          .Detection()
-          .EnablePhysicsDetection(true)
-          .WithPeakPowerW(5.0e6f)
-          .WithFrequencyHz(9.3e9f)
-          .WithBandwidthHz(10.0e6f)
-          .WithPulseWidthS(20e-6f)
-          .WithPrfHz(500.0f)
-          .WithMainBeamGainDb(38.0f)
-          .WithNoiseFigureDb(3.5f)
-          .End()
-          .Beam()
-          .WithRadarWorkSubMode(model::RadarWorkSubMode::kTas)
-          .End()
-          .Tracking()
-          .EnableKalmanFilter(true)
-          .WithKalmanMeasurementNoiseStd(7.5f)
-          .WithKalmanUpdateBackend(config::KalmanUpdateBackend::kUdKf)
-          .End()
-          .Lifecycle()
-          .EnableImmFusion(true)
-          .WithLifecycleConfirmHits(2U)
-          .WithLifecycleMaxMissBeforeLost(1U)
-          .WithLifecycleMaxLostCycles(4U)
-          .End()
-          .Environment()
-          .WithJammingSensitivityProfile(environment::JammingSensitivityProfile::kStrict)
-          .End()
-          .Build();
+  session::RadarSessionConfig detailed_config{};
+  detailed_config.hardware.detection.enable_physics_detection = true;
+  detailed_config.hardware.detection.transmitter.peak_power_w = 5.0e6f;
+  detailed_config.hardware.detection.transmitter.frequency_hz = 9.3e9f;
+  detailed_config.hardware.detection.transmitter.bandwidth_hz = 10.0e6f;
+  detailed_config.hardware.detection.transmitter.pulse_width_s = 20e-6f;
+  detailed_config.hardware.detection.transmitter.prf_hz = 500.0f;
+  detailed_config.hardware.detection.antenna.main_beam_gain_db = 38.0f;
+  detailed_config.hardware.detection.receiver.noise_figure_db = 3.5f;
+  detailed_config.mission.orientation.work_sub_mode = model::RadarWorkSubMode::kTas;
+  detailed_config.policy.tracking.enable_kalman_filter = true;
+  detailed_config.policy.tracking.kalman_measurement_noise_std = 7.5f;
+  detailed_config.policy.tracking.kalman_update_backend = config::KalmanUpdateBackend::kUdKf;
+  detailed_config.policy.lifecycle.enable_imm_lifecycle = true;
+  detailed_config.policy.lifecycle.confirm_hits = 2U;
+  detailed_config.policy.lifecycle.max_miss_before_lost = 1U;
+  detailed_config.policy.lifecycle.max_lost_cycles = 4U;
+  detailed_config.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kStrict;
 
     EXPECT_TRUE(detailed_config.hardware.detection.enable_physics_detection);
     EXPECT_FLOAT_EQ(detailed_config.hardware.detection.transmitter.peak_power_w,
@@ -266,19 +245,11 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig
 }
 
 TEST(RadarSessionConfigBuilderTest, DetailedBuiltConfigCanConstructRadarSession) {
-  const auto config =
-            config::RadarDetailedSessionConfigBuilder()
-          .Detection()
-          .WithPeakPowerW(5.0e6f)
-          .WithFrequencyHz(9.3e9f)
-          .End()
-          .Tracking()
-          .WithKalmanUpdateBackend(config::KalmanUpdateBackend::kUdKf)
-          .End()
-          .Lifecycle()
-          .EnableImmFusion(true)
-          .End()
-          .Build();
+  session::RadarSessionConfig config{};
+  config.hardware.detection.transmitter.peak_power_w = 5.0e6f;
+  config.hardware.detection.transmitter.frequency_hz = 9.3e9f;
+  config.policy.tracking.kalman_update_backend = config::KalmanUpdateBackend::kUdKf;
+  config.policy.lifecycle.enable_imm_lifecycle = true;
 
   session::RadarSession session = session::RadarSessionFactory::Create(config);
   EXPECT_TRUE(session.HasLatestControlProfile() == false ||
@@ -293,16 +264,14 @@ TEST(RadarSessionConfigBuilderTest, DetailedBeamSchedulerWritesPolicyPath) {
   nominal_beamwidth.commanded_az_beamwidth_deg = 2.5f;
   nominal_beamwidth.commanded_el_beamwidth_deg = 1.5f;
 
-  const auto detailed_config =
-      config::RadarDetailedSessionConfigBuilder()
-          .Beam()
-          .WithAzimuthStepCountHint(8U)
-          .WithElevationStepCountHint(4U)
-          .PreferDenseTasSampling(true)
-          .WithDefaultScanCenterDeg(default_scan_center)
-          .WithNominalBeamwidthDeg(nominal_beamwidth)
-          .End()
-          .Build();
+  session::RadarSessionConfig detailed_config{};
+  detailed_config.policy.beam_control.scheduler.azimuth_step_count_hint = 8U;
+  detailed_config.policy.beam_control.scheduler.elevation_step_count_hint = 4U;
+  detailed_config.policy.beam_control.scheduler.prefer_dense_tas_sampling = true;
+  detailed_config.policy.beam_control.pointing.default_scan_center_deg = default_scan_center;
+  detailed_config.mission.orientation.scan_center_deg = default_scan_center;
+  detailed_config.policy.beam_control.pointing.nominal_beamwidth_deg = nominal_beamwidth;
+  detailed_config.mission.orientation.commanded_beamwidth_deg = nominal_beamwidth;
 
   EXPECT_EQ(
       detailed_config.policy.beam_control.scheduler.azimuth_step_count_hint, 8U);

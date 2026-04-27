@@ -12,7 +12,6 @@
 #include <type_traits>
 #include <vector>
 
-#include "1q/electro_optical_sensor/config/EosDetailedSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
@@ -103,16 +102,16 @@ TEST(EosPublicApiConvenienceTest, SessionConfigBuilderOverridesSemanticFields) {
 }
 
 TEST(EosPublicApiConvenienceTest, DetailedSessionConfigBuilderOverridesDomainAndLeafFields) {
-  const session::EosSessionConfig config =
-      config::EosDetailedSessionConfigBuilder()
-          .WithWorkMode(config::EosWorkMode::kInfraredOnly)
-          .WithScanRateDegPerSec(40.0f)
-          .WithFrameRateHz(60.0f)
-          .WithDetectionProfile(config::EosDetectionProfile::kConservative)
-          .WithStrayLightProfile(config::EosStrayLightProfile::kEnhancedHood)
-          .WithEnvironmentModelType(environment::EosEnvironmentModelType::kAdvanced)
-          .WithEnvironmentPreset(config::EosEnvironmentPreset::kDusty)
-          .Build();
+  session::EosSessionConfig config{};
+  config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
+  config.mission.scan_rate_deg_per_sec = 40.0f;
+  config.mission.frame_rate_hz = 60.0f;
+  config.policy.detection.profile = config::EosDetectionProfile::kConservative;
+  config.policy.detection.use_profile_defaults = true;
+  config.policy.stray_light.profile = config::EosStrayLightProfile::kEnhancedHood;
+  config.policy.stray_light.use_profile_defaults = true;
+  config.environment.scenario_config.model_type = environment::EosEnvironmentModelType::kAdvanced;
+  config.environment.scenario_config.preset = config::EosEnvironmentPreset::kDusty;
 
   EXPECT_EQ(config.mission.work_mode, config::EosWorkMode::kInfraredOnly);
   EXPECT_NEAR(config.mission.scan_rate_deg_per_sec, 40.0f, 1e-5f);

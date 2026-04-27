@@ -11,7 +11,6 @@
 #include <string>
 #include <vector>
 
-#include "1q/electronic_surveillance_radar/config/EsrDetailedSessionConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h"
@@ -92,22 +91,28 @@ TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderOverridesDomainFields) {
 }
 
 TEST(EsrPublicApiConvenienceTest, DetailedSessionConfigBuilderSupportsProfileAndDetails) {
-  const session::EsrSessionConfig profile_cfg =
-      config::EsrDetailedSessionConfigBuilder()
-          .WithDetectionProfile(config::EsrDetectionProfile::kConservative)
-          .WithWorkMode(config::EsrWorkMode::kEsm)
-          .Build();
+  session::EsrSessionConfig profile_cfg{};
+  profile_cfg.policy.detection.profile = config::EsrDetectionProfile::kConservative;
+  profile_cfg.policy.detection.use_profile_defaults = true;
+  profile_cfg.mission.work_mode = config::EsrWorkMode::kEsm;
 
   EXPECT_EQ(profile_cfg.policy.detection.profile, config::EsrDetectionProfile::kConservative);
   EXPECT_TRUE(profile_cfg.policy.detection.use_profile_defaults);
 
-  const session::EsrSessionConfig details_cfg =
-      config::EsrDetailedSessionConfigBuilder()
-          .WithDetectionDetails(8.0f, 1.0e-5f, 16U, 0.9f, true)
-          .WithScanRateHz(4.0f)
-          .WithExplicitScanBoundsDeg(-30.0f, 30.0f, -5.0f, 5.0f)
-          .WithEnvironmentPreset(config::EsrEnvironmentPreset::kLowClutter)
-          .Build();
+  session::EsrSessionConfig details_cfg{};
+  details_cfg.policy.detection.use_profile_defaults = false;
+  details_cfg.policy.detection.min_detect_snr_db = 8.0f;
+  details_cfg.policy.detection.pfa = 1.0e-5f;
+  details_cfg.policy.detection.pulse_count = 16U;
+  details_cfg.policy.detection.threshold_scale = 0.9f;
+  details_cfg.policy.detection.enable_statistical_detection = true;
+  details_cfg.mission.scan.scan_rate_hz = 4.0f;
+  details_cfg.mission.scan.use_explicit_scan_bounds = true;
+  details_cfg.mission.scan.scan_start_az_deg = -30.0f;
+  details_cfg.mission.scan.scan_end_az_deg = 30.0f;
+  details_cfg.mission.scan.scan_start_el_deg = -5.0f;
+  details_cfg.mission.scan.scan_end_el_deg = 5.0f;
+  details_cfg.environment.scenario_config.preset = config::EsrEnvironmentPreset::kLowClutter;
 
   EXPECT_FALSE(details_cfg.policy.detection.use_profile_defaults);
   EXPECT_FLOAT_EQ(details_cfg.policy.detection.min_detect_snr_db, 8.0f);

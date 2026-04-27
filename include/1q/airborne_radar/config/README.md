@@ -16,7 +16,6 @@ config/
 |-- RadarRuntimeConfigPatch.h             运行期可变参数补丁
 |-- RadarRuntimeConfigBuilder.h           运行期补丁 Builder
 |-- RadarSessionConfigBuilder.h           语义 Builder（Profile 输入）
-|-- RadarDetailedSessionConfigBuilder.h   详细 Builder（工程参数输入）
 |-- RadarSessionConfigPresets.h           预设工厂
 |-- airborne_radar_config.hpp             统一入口头（聚合以上全部）
 ```
@@ -65,12 +64,7 @@ legacy 装配类型已下沉到 `src/airborne_radar/config/legacy/*`，不在公
 
 ### 详细 Builder
 
-[`RadarDetailedSessionConfigBuilder.h`](RadarDetailedSessionConfigBuilder.h)
-
-- 输入：显式细粒度工程参数
-- 输出：`RadarSessionConfig`（显式写入 `hardware/mission/policy/environment`）
-
-适用：细粒度建模、工程调参、体制复现。
+已删除。直接使用字段赋值覆盖预设配置中的细粒度工程参数。
 
 ## Runtime Patch
 
@@ -89,8 +83,7 @@ legacy 装配类型已下沉到 `src/airborne_radar/config/legacy/*`，不在公
 ## 使用建议
 
 - 业务/任务层优先：`RadarSessionConfigBuilder`
-- 细粒度建模优先：`RadarDetailedSessionConfigBuilder`
-- 不要直接依赖 `PipelineConfig` 等 legacy 装配类型，它们仅用于内部装配路径
+- 细粒度建模优先：直接字段赋值
 
 ## 推荐入口
 

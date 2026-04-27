@@ -10,7 +10,6 @@
 
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
-#include "1q/electro_optical_sensor/config/EosDetailedSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
@@ -192,11 +191,10 @@ TEST(EosInputValidationTest, SessionConfigBuilderCanStartFromExternalConfig) {
   base_config.mission.scan_rate_deg_per_sec = 12.0f;
   base_config.mission.frame_rate_hz = 20.0f;
   base_config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
-  const session::EosSessionConfig built_config =
-      eos_config::EosDetailedSessionConfigBuilder(base_config)
-                                                     .WithFrameRateHz(25.0f)
-                                                     .WithStrayLightProfile(eos_config::EosStrayLightProfile::kEnhancedHood)
-                                                     .Build();
+  auto built_config = base_config;
+  built_config.mission.frame_rate_hz = 25.0f;
+  built_config.policy.stray_light.profile = eos_config::EosStrayLightProfile::kEnhancedHood;
+  built_config.policy.stray_light.use_profile_defaults = true;
   EXPECT_EQ(built_config.mission.work_mode, config::EosWorkMode::kInfraredOnly);
   EXPECT_FLOAT_EQ(built_config.mission.scan_rate_deg_per_sec, 12.0f);
   EXPECT_FLOAT_EQ(built_config.mission.frame_rate_hz, 25.0f);

@@ -3,14 +3,15 @@
 // @file ar_radar_session.cpp
 // @brief 演示如何使用 RadarSession 驱动三周期机载雷达探测流程。
 //
-// 本文件同时展示使用 RadarDetailedSessionConfigBuilder 按平台硬件参数定制会话配置：
+// 本文件同时展示按平台硬件参数定制会话配置：
 //   - 以探测任务预设为基础，叠加平台发射机、天线、接收机参数
 //   - 启用物理层雷达方程检测（enable_physics_detection）
 //   - 设置平台干扰判定灵敏度
+//
+// 配置方式：以 preset 为基线，直接覆盖四域中的具体字段。
 
 #include <iostream>
 
-#include "1q/airborne_radar/config/RadarDetailedSessionConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
@@ -39,35 +40,25 @@ int main() {
   // RadarSession 托管默认的 Context / Signal / Environment / Controller 链路，
   // 外部调用方只需要按周期喂输入并读取输出。
   //
-  // 使用 RadarDetailedSessionConfigBuilder 以探测任务预设为基础，叠加平台雷达硬件参数。
-  // Builder 使用分组编辑器：
-  //   - Detection()：探测域参数（发射机、天线、接收机、物理检测开关等）
-  //   - Environment()：环境默认配置（干扰判定阈值等）
+  // 以探测任务预设为基础，覆盖平台雷达硬件参数：
+  //   - hardware.detection：探测域参数（发射机、天线、接收机、物理检测开关等）
+  //   - environment：环境默认配置（干扰判定阈值等）
   //
   // 若平台暂无硬件参数，可退回到最简形式：
   //   RadarSession session =
   //       RadarSessionFactory::Create(airborne_radar::config::presets::MakeDetectionMissionRadarSessionConfig());
-  const auto preset = airborne_radar::config::presets::MakeDetectionMissionRadarSessionConfig();
+  auto config = airborne_radar::config::presets::MakeDetectionMissionRadarSessionConfig();
+  config.hardware.detection.enable_physics_detection = true;
+  config.hardware.detection.transmitter.peak_power_w = 5e6f;
+  config.hardware.detection.transmitter.frequency_hz = 9.3e9f;
+  config.hardware.detection.transmitter.bandwidth_hz = 10e6f;
+  config.hardware.detection.transmitter.pulse_width_s = 20e-6f;
+  config.hardware.detection.transmitter.prf_hz = 500.0f;
+  config.hardware.detection.antenna.main_beam_gain_db = 38.0f;
+  config.hardware.detection.receiver.noise_figure_db = 3.5f;
+  config.environment.jamming_sensitivity_profile = environment::ResolveJammingSensitivityProfile(5.0f);
 
-  airborne_radar::environment::EnvironmentDefaultConfig env = preset.environment;
-  env.jamming_sensitivity_profile = environment::ResolveJammingSensitivityProfile(5.0f);
-
-  RadarSession session =
-      RadarSessionFactory::Create(airborne_radar::config::RadarDetailedSessionConfigBuilder(preset)
-                                      .Detection()
-                                      .EnablePhysicsDetection(true)
-                                      .WithPeakPowerW(5e6f)
-                                      .WithFrequencyHz(9.3e9f)
-                                      .WithBandwidthHz(10e6f)
-                                      .WithPulseWidthS(20e-6f)
-                                      .WithPrfHz(500.0f)
-                                      .WithMainBeamGainDb(38.0f)
-                                      .WithNoiseFigureDb(3.5f)
-                                      .End()
-                                      .Environment()
-                                      .WithEnvironmentDefault(env)
-                                      .End()
-                                      .Build());
+  RadarSession session = RadarSessionFactory::Create(config);
 
   // 周期 1：构造两批空中目标并执行一次无干扰探测。
   RadarCycleInput cycle_1;

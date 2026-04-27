@@ -6,7 +6,6 @@
 #ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_CONFIG_ELECTRO_OPTICAL_SENSOR_CONFIG_HPP_
 #define ONEQ_ELECTRO_OPTICAL_SENSOR_CONFIG_ELECTRO_OPTICAL_SENSOR_CONFIG_HPP_
 
-#include "1q/electro_optical_sensor/config/EosDetailedSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosEnvironmentConfig.h"
 #include "1q/electro_optical_sensor/config/EosHardwareConfig.h"
 #include "1q/electro_optical_sensor/config/EosMissionConfig.h"

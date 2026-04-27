@@ -16,7 +16,7 @@ namespace config {
  * @note 推荐路径：
  *       会话初始化优先使用本构造器表达语义输入（work mode/profile/preset）；
  *       运行期热更新统一使用 EsrRuntimeConfigBuilder；
- *       需要直接编辑四域细项时优先使用 EsrDetailedSessionConfigBuilder。
+ *       需要直接编辑四域细项时使用直接字段赋值。
  */
 class ONEQ_API EsrSessionConfigBuilder {
  public:

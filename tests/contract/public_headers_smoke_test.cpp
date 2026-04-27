@@ -10,7 +10,6 @@
 #include <utility>
 
 #include "1q/airborne_radar/airborne_radar.hpp"
-#include "1q/airborne_radar/config/RadarDetailedSessionConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarEnvironmentConfig.h"
 #include "1q/airborne_radar/config/RadarHardwareConfig.h"
 #include "1q/airborne_radar/config/RadarMissionConfig.h"
@@ -56,7 +55,6 @@
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
 #include "1q/airborne_radar/session/RadarTraceSession.h"
 #include "1q/api.hpp"
-#include "1q/electro_optical_sensor/config/EosDetailedSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/electro_optical_sensor_config.hpp"
@@ -78,7 +76,6 @@
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electro_optical_sensor/session/EosTraceSession.h"
-#include "1q/electronic_surveillance_radar/config/EsrDetailedSessionConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/electronic_surveillance_radar_config.hpp"
@@ -206,20 +203,6 @@ static_assert(
                      std::declval<const electro_optical_sensor::session::EosSessionConfig&>(),
                      std::declval<electro_optical_sensor::extension::EosController&>()))>::value,
     "EosSessionFactory::CreateWithController must return EosSession");
-static_assert(std::is_same<airborne_radar::session::RadarSessionConfig,
-                           decltype(airborne_radar::config::RadarDetailedSessionConfigBuilder()
-                                        .Build())>::value,
-              "RadarDetailedSessionConfigBuilder::Build must return RadarSessionConfig");
-static_assert(
-    std::is_same<
-        electro_optical_sensor::session::EosSessionConfig,
-        decltype(electro_optical_sensor::config::EosDetailedSessionConfigBuilder().Build())>::value,
-    "EosDetailedSessionConfigBuilder::Build must return EosSessionConfig");
-static_assert(
-    std::is_same<electronic_surveillance_radar::session::EsrSessionConfig,
-                 decltype(electronic_surveillance_radar::config::EsrDetailedSessionConfigBuilder()
-                              .Build())>::value,
-    "EsrDetailedSessionConfigBuilder::Build must return EsrSessionConfig");
 
 namespace airborne_radar {
 namespace {
