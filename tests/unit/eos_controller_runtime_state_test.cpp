@@ -51,9 +51,7 @@ class TrackingPipeline final : public IEosPipeline {
     scan_azimuth_deg += 2.0f;
 
     EosPipelineExecuteResult result;
-    result.output_frame.cycle_index = emit_cycle_index_mismatch ? input.cycle_index + 100U
-                                                                : input.cycle_index;
-    result.output_frame.scan_azimuth_deg = scan_azimuth_deg;
+    result.scan_azimuth_deg = scan_azimuth_deg;
     result.executed_this_cycle = !force_abort;
     result.abort_reason = emit_abort_on_executed_cycle
                               ? EosPipelineAbortReason::kOutputContractViolation
@@ -107,7 +105,7 @@ TEST(EosControllerRuntimeStateTest, ExecuteAbortRestoresPipelineStateAndReusesPr
   controller.RunOnce(MakeValidInput(10U));
   ASSERT_TRUE(controller.ExecutedLatestCycle());
   const float baseline_scan_azimuth = pipeline.scan_azimuth_deg;
-  const output::EosOutputFrame baseline_output = controller.GetLatestOutputFrame();
+  const session::EosOutputFrame baseline_output = controller.GetLatestOutputFrame();
 
   pipeline.force_abort = true;
   controller.RunOnce(MakeValidInput(11U));
@@ -199,14 +197,14 @@ TEST(EosControllerRuntimeStateTest,
 }
 
 TEST(EosControllerRuntimeStateTest,
-     ExecutedCycleWithMismatchedOutputCycleIndexFallsBackToPreviousOutput) {
+     PipelineAbortOnExecutedCycleFallsBackToPreviousOutput) {
   TrackingPipeline pipeline;
   EosController controller(pipeline);
 
   controller.RunOnce(MakeValidInput(60U));
   ASSERT_TRUE(controller.ExecutedLatestCycle());
 
-  pipeline.emit_cycle_index_mismatch = true;
+  pipeline.emit_abort_on_executed_cycle = true;
   controller.RunOnce(MakeValidInput(61U));
 
   EXPECT_FALSE(controller.ExecutedLatestCycle());

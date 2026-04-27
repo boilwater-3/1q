@@ -427,17 +427,15 @@ bool EosPipeline::RestoreRuntimeState(const extension::EosPipelineRuntimeState& 
 extension::EosPipelineExecuteResult EosPipeline::Execute(
 		const ::electro_optical_sensor::session::EosCycleInput& input) {
 	extension::EosPipelineExecuteResult result;
-	output::EosOutputFrame& output = result.output_frame;
-	output.cycle_index = input.cycle_index;
 	AdvanceScan(input.dt_sec);
-	output.scan_azimuth_deg = current_scan_azimuth_deg_;
+	result.scan_azimuth_deg = current_scan_azimuth_deg_;
 
 	for (std::size_t i = 0; i < input.scene.size(); ++i) {
 		const ::electro_optical_sensor::session::EosSceneTarget& target = input.scene[i];
 		if (!IsTargetInCurrentFov(target)) {
 			continue;
 		}
-		output.detections.push_back(BuildDetectionRecord(target, input));
+		result.detections.push_back(BuildDetectionRecord(target, input));
 	}
 
 	result.executed_this_cycle = true;

@@ -64,7 +64,7 @@ EosSessionConfig MakeSessionConfig() {
   return config;
 }
 
-std::size_t CountDetectedTargets(const output::EosOutputFrame& frame) {
+std::size_t CountDetectedTargets(const session::EosOutputFrame& frame) {
   std::size_t count = 0U;
   for (std::size_t i = 0; i < frame.detections.size(); ++i) {
     if (frame.detections[i].detected) {
@@ -74,7 +74,7 @@ std::size_t CountDetectedTargets(const output::EosOutputFrame& frame) {
   return count;
 }
 
-bool HasTargetId(const output::EosOutputFrame& frame, std::uint64_t target_id) {
+bool HasTargetId(const session::EosOutputFrame& frame, std::uint64_t target_id) {
   for (std::size_t i = 0; i < frame.detections.size(); ++i) {
     if (frame.detections[i].target_id == target_id) {
       return true;
@@ -83,7 +83,7 @@ bool HasTargetId(const output::EosOutputFrame& frame, std::uint64_t target_id) {
   return false;
 }
 
-const output::EosDetectionRecord* FindDetection(const output::EosOutputFrame& frame,
+const output::EosDetectionRecord* FindDetection(const session::EosOutputFrame& frame,
                                                 std::uint64_t target_id) {
   for (std::size_t i = 0; i < frame.detections.size(); ++i) {
     if (frame.detections[i].target_id == target_id) {
@@ -108,7 +108,7 @@ TEST(EosSessionIntegrationTest, StepReturnsSameCycleIndexAsStepWithResult) {
   EosSession session = EosSessionFactory::Create(MakeSessionConfig());
   const ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
 
-  const output::EosOutputFrame step_frame = session.Step(input);
+  const session::EosOutputFrame step_frame = session.Step(input);
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(MakeBaseInput());
 
   EXPECT_EQ(step_frame.cycle_index, result.output_frame.cycle_index);
@@ -175,9 +175,9 @@ TEST(EosSessionIntegrationTest, FusedSnrExceedsBothSingleChannelSnrInDay) {
 
   const ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
 
-  const output::EosOutputFrame fused_frame = fused_session.Step(input);
-  const output::EosOutputFrame ir_frame = ir_session.Step(input);
-  const output::EosOutputFrame vis_frame = vis_session.Step(input);
+  const session::EosOutputFrame fused_frame = fused_session.Step(input);
+  const session::EosOutputFrame ir_frame = ir_session.Step(input);
+  const session::EosOutputFrame vis_frame = vis_session.Step(input);
 
   ASSERT_FALSE(fused_frame.detections.empty());
   ASSERT_FALSE(ir_frame.detections.empty());
@@ -225,8 +225,8 @@ TEST(EosSessionIntegrationTest, HigherCloudCoverageReducesVisibleSnr) {
   ::electro_optical_sensor::session::EosCycleInput cloudy_input = MakeBaseInput();
   cloudy_input.environment.cloud_coverage_ratio = 0.9f;
 
-  const output::EosOutputFrame clear_frame = clear_session.Step(clear_input);
-  const output::EosOutputFrame cloudy_frame = cloudy_session.Step(cloudy_input);
+  const session::EosOutputFrame clear_frame = clear_session.Step(clear_input);
+  const session::EosOutputFrame cloudy_frame = cloudy_session.Step(cloudy_input);
 
   ASSERT_FALSE(clear_frame.detections.empty());
   ASSERT_FALSE(cloudy_frame.detections.empty());
@@ -250,8 +250,8 @@ TEST(EosSessionIntegrationTest, WorseAtmosphereObservationReducesInfraredSnr) {
   poor_input.environment.cloud_coverage_ratio = 0.9f;
   poor_input.environment.ambient_wind_speed_mps = 70.0f;
 
-  const output::EosOutputFrame good_frame = good_atm_session.Step(good_input);
-  const output::EosOutputFrame poor_frame = poor_atm_session.Step(poor_input);
+  const session::EosOutputFrame good_frame = good_atm_session.Step(good_input);
+  const session::EosOutputFrame poor_frame = poor_atm_session.Step(poor_input);
 
   ASSERT_FALSE(good_frame.detections.empty());
   ASSERT_FALSE(poor_frame.detections.empty());
@@ -275,9 +275,9 @@ TEST(EosSessionIntegrationTest, NightShiftsFusedWeightTowardInfrared) {
   ::electro_optical_sensor::session::EosCycleInput day_input = MakeBaseInput();
   day_input.environment.day_night_type = ::electro_optical_sensor::session::DayNightType::kDay;
 
-  const output::EosOutputFrame day_fused_frame = day_fused.Step(day_input);
-  const output::EosOutputFrame day_ir_frame = day_ir.Step(day_input);
-  const output::EosOutputFrame day_vis_frame = day_vis.Step(day_input);
+  const session::EosOutputFrame day_fused_frame = day_fused.Step(day_input);
+  const session::EosOutputFrame day_ir_frame = day_ir.Step(day_input);
+  const session::EosOutputFrame day_vis_frame = day_vis.Step(day_input);
   ASSERT_FALSE(day_fused_frame.detections.empty());
   ASSERT_FALSE(day_ir_frame.detections.empty());
   ASSERT_FALSE(day_vis_frame.detections.empty());
@@ -294,9 +294,9 @@ TEST(EosSessionIntegrationTest, NightShiftsFusedWeightTowardInfrared) {
   ::electro_optical_sensor::session::EosCycleInput night_input = MakeBaseInput();
   night_input.environment.day_night_type = ::electro_optical_sensor::session::DayNightType::kNight;
 
-  const output::EosOutputFrame night_fused_frame = night_fused.Step(night_input);
-  const output::EosOutputFrame night_ir_frame = night_ir.Step(night_input);
-  const output::EosOutputFrame night_vis_frame = night_vis.Step(night_input);
+  const session::EosOutputFrame night_fused_frame = night_fused.Step(night_input);
+  const session::EosOutputFrame night_ir_frame = night_ir.Step(night_input);
+  const session::EosOutputFrame night_vis_frame = night_vis.Step(night_input);
   ASSERT_FALSE(night_fused_frame.detections.empty());
   ASSERT_FALSE(night_ir_frame.detections.empty());
   ASSERT_FALSE(night_vis_frame.detections.empty());
@@ -311,11 +311,11 @@ TEST(EosSessionIntegrationTest, MultiCycleScanAdvancesAzimuth) {
   EosSession session = EosSessionFactory::Create(MakeSessionConfig());
 
   const ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
-  const output::EosOutputFrame frame_1 = session.Step(input);
+  const session::EosOutputFrame frame_1 = session.Step(input);
 
   ::electro_optical_sensor::session::EosCycleInput input_2 = MakeBaseInput();
   input_2.cycle_index = 2U;
-  const output::EosOutputFrame frame_2 = session.Step(input_2);
+  const session::EosOutputFrame frame_2 = session.Step(input_2);
 
   EXPECT_NE(frame_1.scan_azimuth_deg, frame_2.scan_azimuth_deg);
 }
@@ -324,7 +324,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigWorkModeSwitchTakesEffectImmediatel
   EosSession session = EosSessionFactory::Create(MakeSessionConfig());
   const ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
 
-  const output::EosOutputFrame fused_frame = session.Step(input);
+  const session::EosOutputFrame fused_frame = session.Step(input);
   ASSERT_FALSE(fused_frame.detections.empty());
   EXPECT_GT(fused_frame.detections.front().infrared_snr_linear, 0.0f);
   EXPECT_GT(fused_frame.detections.front().visible_snr_linear, 0.0f);
@@ -335,7 +335,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigWorkModeSwitchTakesEffectImmediatel
 
   ::electro_optical_sensor::session::EosCycleInput input_2 = MakeBaseInput();
   input_2.cycle_index = 2U;
-  const output::EosOutputFrame ir_frame = session.Step(input_2);
+  const session::EosOutputFrame ir_frame = session.Step(input_2);
   ASSERT_FALSE(ir_frame.detections.empty());
   EXPECT_GT(ir_frame.detections.front().infrared_snr_linear, 0.0f);
   EXPECT_NEAR(ir_frame.detections.front().visible_snr_linear, 0.0f, 1e-6f);
@@ -345,7 +345,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigScanRateChangeUpdatesAdvance) {
   EosSession session = EosSessionFactory::Create(MakeSessionConfig());
 
   const ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
-  const output::EosOutputFrame frame_1 = session.Step(input);
+  const session::EosOutputFrame frame_1 = session.Step(input);
 
   const EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder().WithScanRateDegPerSec(97.0f).Build();
@@ -353,15 +353,15 @@ TEST(EosSessionIntegrationTest, RuntimeConfigScanRateChangeUpdatesAdvance) {
 
   ::electro_optical_sensor::session::EosCycleInput input_2 = MakeBaseInput();
   input_2.cycle_index = 2U;
-  const output::EosOutputFrame frame_2 = session.Step(input_2);
+  const session::EosOutputFrame frame_2 = session.Step(input_2);
 
   const float delta_fast = std::fabs(frame_2.scan_azimuth_deg - frame_1.scan_azimuth_deg);
 
   EosSession slow_session = EosSessionFactory::Create(MakeSessionConfig());
-  const output::EosOutputFrame slow_1 = slow_session.Step(input);
+  const session::EosOutputFrame slow_1 = slow_session.Step(input);
   ::electro_optical_sensor::session::EosCycleInput input_3 = MakeBaseInput();
   input_3.cycle_index = 2U;
-  const output::EosOutputFrame slow_2 = slow_session.Step(input_3);
+  const session::EosOutputFrame slow_2 = slow_session.Step(input_3);
   const float delta_slow = std::fabs(slow_2.scan_azimuth_deg - slow_1.scan_azimuth_deg);
 
   EXPECT_GT(delta_fast, delta_slow);
@@ -376,7 +376,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigSnrThresholdFiltersWeakTargets) {
   input.scene.front().appearance.apparent_temperature_k = 600.0f;
   input.scene.front().appearance.projected_area_m2 = 8.0f;
 
-  const output::EosOutputFrame baseline_frame = session.Step(input);
+  const session::EosOutputFrame baseline_frame = session.Step(input);
   ASSERT_GT(CountDetectedTargets(baseline_frame), 0U);
 
   const EosRuntimeConfigPatch patch =
@@ -387,7 +387,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigSnrThresholdFiltersWeakTargets) {
 
   ::electro_optical_sensor::session::EosCycleInput input_2 = input;
   input_2.cycle_index = 2U;
-  const output::EosOutputFrame filtered_frame = session.Step(input_2);
+  const session::EosOutputFrame filtered_frame = session.Step(input_2);
   EXPECT_LE(CountDetectedTargets(filtered_frame), CountDetectedTargets(baseline_frame));
   ASSERT_FALSE(filtered_frame.detections.empty());
   ASSERT_FALSE(baseline_frame.detections.empty());
@@ -407,8 +407,8 @@ TEST(EosSessionIntegrationTest, SessionConfigBuilderProducesSameResultAsDirectCo
   EosSession built_session = EosSessionFactory::Create(built_config);
 
   const ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
-  const output::EosOutputFrame direct_frame = direct_session.Step(input);
-  const output::EosOutputFrame built_frame = built_session.Step(input);
+  const session::EosOutputFrame direct_frame = direct_session.Step(input);
+  const session::EosOutputFrame built_frame = built_session.Step(input);
 
   EXPECT_EQ(direct_frame.detections.size(), built_frame.detections.size());
   if (!direct_frame.detections.empty() && !built_frame.detections.empty()) {
@@ -455,12 +455,12 @@ TEST(EosSessionIntegrationTest, StepReusesPreviousOutputWhenValidationFailsAfter
 
   ::electro_optical_sensor::session::EosCycleInput valid_input = MakeBaseInput();
   valid_input.cycle_index = 10U;
-  const output::EosOutputFrame valid_frame = session.Step(valid_input);
+  const session::EosOutputFrame valid_frame = session.Step(valid_input);
 
   ::electro_optical_sensor::session::EosCycleInput invalid_input = MakeBaseInput();
   invalid_input.cycle_index = 11U;
   invalid_input.dt_sec = 0.0f;
-  const output::EosOutputFrame invalid_frame = session.Step(invalid_input);
+  const session::EosOutputFrame invalid_frame = session.Step(invalid_input);
 
   EXPECT_EQ(invalid_frame.cycle_index, valid_frame.cycle_index);
   EXPECT_EQ(invalid_frame.detections.size(), valid_frame.detections.size());
@@ -492,8 +492,8 @@ TEST(EosSessionIntegrationTest, StraylightFilterReducesOffAxisTargetSnr) {
   target.appearance.apparent_temperature_k = 500.0f;
   input.scene.push_back(target);
 
-  const output::EosOutputFrame no_filter_frame = no_filter_session.Step(input);
-  const output::EosOutputFrame filter_frame = filter_session.Step(input);
+  const session::EosOutputFrame no_filter_frame = no_filter_session.Step(input);
+  const session::EosOutputFrame filter_frame = filter_session.Step(input);
 
   ASSERT_FALSE(no_filter_frame.detections.empty());
   ASSERT_FALSE(filter_frame.detections.empty());
@@ -509,7 +509,7 @@ TEST(EosSessionIntegrationTest, MultipleTargetsInFovAllDetected) {
   input.scene.push_back(MakeTarget(102U, 0.0f, 1500.0f, 4.0f));
   input.scene.push_back(MakeTarget(103U, 4.0f, 1800.0f, 5.0f));
 
-  const output::EosOutputFrame frame = session.Step(input);
+  const session::EosOutputFrame frame = session.Step(input);
 
   EXPECT_EQ(frame.detections.size(), 3U);
   EXPECT_TRUE(HasTargetId(frame, 101U));
@@ -532,7 +532,7 @@ TEST(EosSessionIntegrationTest, CloserTargetHasHigherSnrAtSameTemperature) {
   input.scene.push_back(near_target);
   input.scene.push_back(far_target);
 
-  const output::EosOutputFrame frame = session.Step(input);
+  const session::EosOutputFrame frame = session.Step(input);
 
   const output::EosDetectionRecord* near_rec = FindDetection(frame, 201U);
   const output::EosDetectionRecord* far_rec = FindDetection(frame, 202U);
@@ -556,7 +556,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigStraylightToggleWorks) {
   target.appearance.apparent_temperature_k = 500.0f;
   input.scene.push_back(target);
 
-  const output::EosOutputFrame baseline_frame = session.Step(input);
+  const session::EosOutputFrame baseline_frame = session.Step(input);
 
   const EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder()
@@ -571,7 +571,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigStraylightToggleWorks) {
   input_2.scene.clear();
   input_2.scene.push_back(target);
 
-  const output::EosOutputFrame filtered_frame = session.Step(input_2);
+  const session::EosOutputFrame filtered_frame = session.Step(input_2);
 
   ASSERT_FALSE(baseline_frame.detections.empty());
   ASSERT_FALSE(filtered_frame.detections.empty());
@@ -593,7 +593,7 @@ TEST(EosSessionIntegrationTest, RuntimeEnvironmentModelChangeTakesEffect) {
   target.appearance.apparent_temperature_k = 700.0f;
   input.scene.push_back(target);
 
-  const output::EosOutputFrame simplified_frame = session.Step(input);
+  const session::EosOutputFrame simplified_frame = session.Step(input);
 
   environment::EosEnvironmentScenarioConfig env_config;
   env_config.model_type = environment::EosEnvironmentModelType::kAdvanced;
@@ -616,7 +616,7 @@ TEST(EosSessionIntegrationTest, RuntimeEnvironmentModelChangeTakesEffect) {
   input_2.scene.clear();
   input_2.scene.push_back(target);
 
-  const output::EosOutputFrame advanced_frame = session.Step(input_2);
+  const session::EosOutputFrame advanced_frame = session.Step(input_2);
 
   ASSERT_FALSE(simplified_frame.detections.empty());
   ASSERT_FALSE(advanced_frame.detections.empty());

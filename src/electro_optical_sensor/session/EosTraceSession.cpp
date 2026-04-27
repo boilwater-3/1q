@@ -60,7 +60,7 @@ EosTraceSession::~EosTraceSession() = default;
 EosTraceSession::EosTraceSession(EosTraceSession&&) noexcept = default;
 EosTraceSession& EosTraceSession::operator=(EosTraceSession&&) noexcept = default;
 
-output::EosOutputFrame EosTraceSession::Step(const EosCycleInput& input) {
+session::EosOutputFrame EosTraceSession::Step(const EosCycleInput& input) {
   if (impl_->replay_writer) {
     impl_->WriteReplayEvent("cycle_input", "EosCycleInput", EncodeEosCycleInput(input),
                             input.cycle_index);
@@ -69,7 +69,7 @@ output::EosOutputFrame EosTraceSession::Step(const EosCycleInput& input) {
   if (impl_->sink) {
     impl_->sink->Record("electro_optical_sensor", "input", std::to_string(input.cycle_index));
   }
-  const output::EosOutputFrame output = impl_->session.Step(input);
+  const session::EosOutputFrame output = impl_->session.Step(input);
   if (impl_->sink) {
     impl_->sink->Record("electro_optical_sensor", "output", std::to_string(output.cycle_index));
   }

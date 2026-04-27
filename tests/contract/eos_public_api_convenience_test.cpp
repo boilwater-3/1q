@@ -401,7 +401,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionStepProducesDetectionOutput) {
   input.dt_sec = 1.0f;
   input.scene.push_back(MakeTarget(501U, 1500.0f, 0.0f, 0.0f, 350.0f, 0.9f, 0.1f, 3.0f));
 
-  const output::EosOutputFrame frame = session.Step(input);
+  const session::EosOutputFrame frame = session.Step(input);
   EXPECT_EQ(frame.cycle_index, 0U);
 }
 
@@ -500,7 +500,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionMultiCycleProducesProgressiveCycleIn
     input.scene.push_back(
         MakeTarget(700U + i, 1500.0f, 0.0f, 0.0f, 320.0f, 0.9f, 0.1f, 2.0f));
 
-    const output::EosOutputFrame frame = session.Step(input);
+    const session::EosOutputFrame frame = session.Step(input);
     EXPECT_EQ(frame.cycle_index, i);
   }
 }

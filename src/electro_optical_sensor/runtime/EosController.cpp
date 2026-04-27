@@ -29,7 +29,7 @@ struct EosController::Impl {
   explicit Impl(extension::IEosPipeline& pipeline_ref) : pipeline(pipeline_ref) {}
 
   extension::IEosPipeline& pipeline;
-  output::EosOutputFrame latest_output{};
+  session::EosOutputFrame latest_output{};
   session::ValidationIssueList last_validation_issues{};
   bool has_latest_output{false};
   bool has_validation_error{false};
@@ -51,8 +51,7 @@ bool IsEosExecuteResultContractValid(
   if (!execute_result.executed_this_cycle) {
     return false;
   }
-  return execute_result.abort_reason == extension::EosPipelineAbortReason::kNone &&
-         execute_result.output_frame.cycle_index == input.cycle_index;
+  return execute_result.abort_reason == extension::EosPipelineAbortReason::kNone;
 }
 
 }  // namespace
@@ -64,7 +63,7 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
       impl_->latest_output, impl_->has_latest_output, impl_->last_cycle_executed,
       impl_->last_cycle_reused_previous_output, impl_->last_abort_reason);
 
-  const output::EosOutputFrame previous_output = impl_->latest_output;
+  const session::EosOutputFrame previous_output = impl_->latest_output;
   const bool had_previous_output = impl_->has_latest_output;
   const extension::EosPipelineRuntimeState previous_pipeline_state =
       signal_processor.CaptureRuntimeState();
@@ -83,7 +82,7 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
     if (had_previous_output) {
       impl_->latest_output = previous_output;
     } else {
-      impl_->latest_output = output::EosOutputFrame{};
+      impl_->latest_output = session::EosOutputFrame{};
     }
     PROJECT_LOG_DEBUG(
         "[EosController] cycle telemetry: cycle_index={} executed=false "
@@ -102,7 +101,7 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
     const bool restore_ok = signal_processor.RestoreRuntimeState(previous_pipeline_state);
     if (!restore_ok) {
       outcome_recorder.RecordExecuteContractViolationRollbackFailed();
-      impl_->latest_output = output::EosOutputFrame{};
+      impl_->latest_output = session::EosOutputFrame{};
       return;
     }
     outcome_recorder.RecordExecuteContractViolationRollbackSucceeded(
@@ -112,19 +111,23 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
     return;
   }
 
-  outcome_recorder.RecordExecuteSucceeded(execute_result);
-  impl_->latest_output = execute_result.output_frame;
+  session::EosOutputFrame assembled_frame;
+  assembled_frame.cycle_index = input.cycle_index;
+  assembled_frame.scan_azimuth_deg = execute_result.scan_azimuth_deg;
+  assembled_frame.detections = std::move(execute_result.detections);
+  outcome_recorder.RecordExecuteSucceeded(assembled_frame);
+  impl_->latest_output = assembled_frame;
   impl_->has_latest_output = true;
 
   PROJECT_LOG_DEBUG(
       "[EosController] cycle telemetry: cycle_index={} executed=true "
       "detections={} input_targets={} abort=kNone",
-      input.cycle_index, execute_result.output_frame.detections.size(), input.scene.size());
+      input.cycle_index, assembled_frame.detections.size(), input.scene.size());
 }
 
 bool EosController::HasLatestOutputFrame() const { return impl_->has_latest_output; }
 
-const output::EosOutputFrame& EosController::GetLatestOutputFrame() const {
+const session::EosOutputFrame& EosController::GetLatestOutputFrame() const {
   return impl_->latest_output;
 }
 

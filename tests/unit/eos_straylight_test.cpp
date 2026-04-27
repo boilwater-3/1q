@@ -99,10 +99,10 @@ TEST(EosStrayLightPipelineTest, EnablingHoodFilterImprovesNearSunSnr) {
   EosPipeline pipeline_with_filter(MakeConfig(true));
   const ::electro_optical_sensor::session::EosCycleInput input = MakeInput();
 
-    const output::EosOutputFrame frame_without_filter =
-      pipeline_without_filter.Execute(input).output_frame;
-    const output::EosOutputFrame frame_with_filter =
-      pipeline_with_filter.Execute(input).output_frame;
+    const auto frame_without_filter =
+      pipeline_without_filter.Execute(input);
+    const auto frame_with_filter =
+      pipeline_with_filter.Execute(input);
 
   ASSERT_EQ(frame_without_filter.detections.size(), 1U);
   ASSERT_EQ(frame_with_filter.detections.size(), 1U);

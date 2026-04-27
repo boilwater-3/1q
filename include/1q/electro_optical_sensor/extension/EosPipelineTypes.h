@@ -33,15 +33,6 @@ struct ONEQ_API EosDetectionRecord {
 /** @brief EosDetectionRecordList 表示单周期探测结果列表。 */
 using EosDetectionRecordList = std::vector<EosDetectionRecord>;
 
-/**
- * @brief EosOutputFrame 表示单周期聚合探测输出帧。
- */
-struct ONEQ_API EosOutputFrame {
-  std::uint32_t cycle_index{0U};           /**< 当前周期号 */
-  float scan_azimuth_deg{0.0f};            /**< 当前周期扫描中心方位角（单位：deg） */
-  EosDetectionRecordList detections{};     /**< 当前周期探测结果 */
-};
-
 }  // namespace output
 
 namespace extension {
@@ -124,7 +115,8 @@ enum class ONEQ_API EosPipelineAbortReason {
  * @brief EosPipelineExecuteResult 描述核心管线单周期执行结果。
  */
 struct ONEQ_API EosPipelineExecuteResult {
-  output::EosOutputFrame output_frame{};
+  output::EosDetectionRecordList detections{};
+  float scan_azimuth_deg{0.0f};
   bool executed_this_cycle{false};
   EosPipelineAbortReason abort_reason{EosPipelineAbortReason::kNone};
 };

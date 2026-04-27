@@ -140,7 +140,7 @@ bool DecodeEosCycleInput(const std::string& bytes, EosCycleInput* out) {
 
 // ---- EosOutputFrame ----
 
-std::string EncodeEosOutputFrame(const output::EosOutputFrame& v) {
+std::string EncodeEosOutputFrame(const session::EosOutputFrame& v) {
   flatbuffers::FlatBufferBuilder fbb(256);
   std::vector<flatbuffers::Offset<eos::replay::EosDetectionRecord>> det_vec;
   det_vec.reserve(v.detections.size());
@@ -157,7 +157,7 @@ std::string EncodeEosOutputFrame(const output::EosOutputFrame& v) {
   return std::string(reinterpret_cast<const char*>(buf), fbb.GetSize());
 }
 
-bool DecodeEosOutputFrame(const std::string& bytes, output::EosOutputFrame* out) {
+bool DecodeEosOutputFrame(const std::string& bytes, session::EosOutputFrame* out) {
   flatbuffers::Verifier verifier(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
   if (!verifier.VerifyBuffer<eos::replay::EosOutputFrame>()) {
     return false;

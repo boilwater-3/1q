@@ -5,7 +5,7 @@ namespace runtime {
 namespace components {
 
 EosCycleOutcomeRecorder::EosCycleOutcomeRecorder(
-    output::EosOutputFrame& latest_output, bool& has_latest_output, bool& last_cycle_executed,
+    session::EosOutputFrame& latest_output, bool& has_latest_output, bool& last_cycle_executed,
     bool& last_cycle_reused_previous_output,
     extension::EosPipelineAbortReason& last_abort_reason)
     : latest_output_(latest_output),
@@ -21,7 +21,7 @@ void EosCycleOutcomeRecorder::ResetPerCycleFlags() const {
 }
 
 void EosCycleOutcomeRecorder::RecordValidationRejected(
-    const output::EosOutputFrame& previous_output, bool had_previous_output) const {
+    const session::EosOutputFrame& previous_output, bool had_previous_output) const {
   last_abort_reason_ = extension::EosPipelineAbortReason::kValidationRejected;
   last_cycle_reused_previous_output_ = had_previous_output;
   latest_output_ = previous_output;
@@ -29,7 +29,7 @@ void EosCycleOutcomeRecorder::RecordValidationRejected(
 }
 
 void EosCycleOutcomeRecorder::RecordExecuteContractViolationRollbackFailed() const {
-  latest_output_ = output::EosOutputFrame{};
+  latest_output_ = session::EosOutputFrame{};
   has_latest_output_ = false;
   last_cycle_executed_ = false;
   last_cycle_reused_previous_output_ = false;
@@ -37,7 +37,7 @@ void EosCycleOutcomeRecorder::RecordExecuteContractViolationRollbackFailed() con
 }
 
 void EosCycleOutcomeRecorder::RecordExecuteContractViolationRollbackSucceeded(
-    const output::EosOutputFrame& previous_output, bool had_previous_output,
+    const session::EosOutputFrame& previous_output, bool had_previous_output,
     extension::EosPipelineAbortReason abort_reason) const {
   latest_output_ = previous_output;
   has_latest_output_ = had_previous_output;
@@ -47,8 +47,8 @@ void EosCycleOutcomeRecorder::RecordExecuteContractViolationRollbackSucceeded(
 }
 
 void EosCycleOutcomeRecorder::RecordExecuteSucceeded(
-    const extension::EosPipelineExecuteResult& execute_result) const {
-  latest_output_ = execute_result.output_frame;
+    const session::EosOutputFrame& assembled_frame) const {
+  latest_output_ = assembled_frame;
   has_latest_output_ = true;
   last_cycle_executed_ = true;
 }

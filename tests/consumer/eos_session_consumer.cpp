@@ -82,7 +82,7 @@ int main() {
   }
 
   // 7. Step (output-only)
-  const eos::output::EosOutputFrame step_frame = session.Step(input);
+  const eos::session::EosOutputFrame step_frame = session.Step(input);
 
   // 8. Access detection output
   const std::size_t det_count = result.output_frame.detections.size();
@@ -116,7 +116,7 @@ int main() {
   // 10. Step after mode switch
   eos::session::EosCycleInput input_2 = input;
   input_2.cycle_index = 2U;
-  const eos::output::EosOutputFrame ir_frame = session.Step(input_2);
+  const eos::session::EosOutputFrame ir_frame = session.Step(input_2);
 
   // 11. RuntimeConfigBuilder: change scan rate + SNR threshold
   const eos::session::EosRuntimeConfigPatch tune_patch =

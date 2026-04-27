@@ -27,7 +27,7 @@ namespace extension {
 struct ONEQ_API EosControllerRuntimeState {
   const void* owner_identity{nullptr};
   std::uint32_t schema_version{0U};
-  output::EosOutputFrame latest_output{};
+  session::EosOutputFrame latest_output{};
   session::ValidationIssueList last_validation_issues{};
   bool has_latest_output{false};
   bool has_validation_error{false};
@@ -68,7 +68,7 @@ class ONEQ_API EosController {
    * @brief 获取最新输出帧。
    * @return 最新输出帧。
    */
-  const output::EosOutputFrame& GetLatestOutputFrame() const;
+  const session::EosOutputFrame& GetLatestOutputFrame() const;
 
   /**
    * @brief 获取最近一次输入校验结果。

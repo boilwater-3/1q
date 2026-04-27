@@ -10,28 +10,28 @@ namespace components {
 
 class EosCycleOutcomeRecorder {
  public:
-  EosCycleOutcomeRecorder(output::EosOutputFrame& latest_output, bool& has_latest_output,
+  EosCycleOutcomeRecorder(session::EosOutputFrame& latest_output, bool& has_latest_output,
                           bool& last_cycle_executed, bool& last_cycle_reused_previous_output,
                           extension::EosPipelineAbortReason& last_abort_reason);
 
   void ResetPerCycleFlags() const;
 
-  void RecordValidationRejected(const output::EosOutputFrame& previous_output,
+  void RecordValidationRejected(const session::EosOutputFrame& previous_output,
                                 bool had_previous_output) const;
 
   void RecordExecuteContractViolationRollbackFailed() const;
 
   void RecordExecuteContractViolationRollbackSucceeded(
-      const output::EosOutputFrame& previous_output, bool had_previous_output,
+      const session::EosOutputFrame& previous_output, bool had_previous_output,
       extension::EosPipelineAbortReason abort_reason) const;
 
-  void RecordExecuteSucceeded(const extension::EosPipelineExecuteResult& execute_result) const;
+  void RecordExecuteSucceeded(const session::EosOutputFrame& assembled_frame) const;
 
  private:
   static extension::EosPipelineAbortReason NormalizeAbortReason(
       extension::EosPipelineAbortReason abort_reason);
 
-  output::EosOutputFrame& latest_output_;
+  session::EosOutputFrame& latest_output_;
   bool& has_latest_output_;
   bool& last_cycle_executed_;
   bool& last_cycle_reused_previous_output_;

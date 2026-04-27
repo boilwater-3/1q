@@ -34,14 +34,12 @@ class CountingPipeline final : public extension::IEosPipeline {
   extension::EosPipelineExecuteResult Execute(const EosCycleInput& input) override {
     ++execute_count;
     extension::EosPipelineExecuteResult result;
-    output::EosOutputFrame& frame = result.output_frame;
-    frame.cycle_index = input.cycle_index;
-    frame.scan_azimuth_deg = 42.0f;
+    result.scan_azimuth_deg = 42.0f;
     output::EosDetectionRecord detection;
     detection.target_id = 99U;
     detection.detected = true;
     detection.fused_snr_linear = 12.5f;
-    frame.detections.push_back(detection);
+    result.detections.push_back(detection);
     result.executed_this_cycle = true;
     result.abort_reason = extension::EosPipelineAbortReason::kNone;
     return result;

@@ -49,7 +49,7 @@ class ONEQ_API EosSession {
    *       "本周期实际执行" 与 "复用上一有效输出"，请使用 `StepWithResult()`。
    * @note 非线程安全：会读写会话内部状态；并发调用需外部同步。
    */
-  output::EosOutputFrame Step(const EosCycleInput& input);
+  session::EosOutputFrame Step(const EosCycleInput& input);
 
   /**
    * @brief 执行单周期并返回聚合结果。

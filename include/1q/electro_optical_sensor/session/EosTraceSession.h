@@ -63,7 +63,7 @@ class ONEQ_API EosTraceSession {
    * @note 若需要区分本周期是否执行或是否复用上一输出，请使用
    *       `StepWithResult()` 读取结构化状态字段。
    */
-  output::EosOutputFrame Step(const EosCycleInput& input);
+  session::EosOutputFrame Step(const EosCycleInput& input);
 
   /**
    * @brief 执行单周期并返回聚合结果。

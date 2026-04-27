@@ -109,7 +109,7 @@ TEST(EosReplayCodecRoundtripTest, CycleInputRejectsEmptyPayload) {
 // ---------------------------------------------------------------------------
 
 TEST(EosReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
-  output::EosOutputFrame frame;
+  session::EosOutputFrame frame;
   frame.cycle_index = 7U;
   frame.scan_azimuth_deg = 15.0f;
 
@@ -128,7 +128,7 @@ TEST(EosReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
   const std::string bytes = EncodeEosOutputFrame(frame);
   ASSERT_FALSE(bytes.empty());
 
-  output::EosOutputFrame decoded;
+  session::EosOutputFrame decoded;
   ASSERT_TRUE(DecodeEosOutputFrame(bytes, &decoded));
 
   EXPECT_EQ(decoded.cycle_index, 7U);

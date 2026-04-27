@@ -84,7 +84,7 @@ EosSession EosSessionFactory::CreateWithController(
           internal::EosSessionCompositionRoot::ComposeWithController(config, controller))));
 }
 
-output::EosOutputFrame EosSession::Step(const EosCycleInput& input) {
+session::EosOutputFrame EosSession::Step(const EosCycleInput& input) {
   return impl_->cycle_orchestrator.BuildOutputFrame(input);
 }
 
