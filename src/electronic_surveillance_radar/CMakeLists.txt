@@ -78,11 +78,9 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrPolicyConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrScanPolicyConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrSessionConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrMissionControlConfig.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrWorkMode.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/electronic_surveillance_radar_config.hpp
     )
 

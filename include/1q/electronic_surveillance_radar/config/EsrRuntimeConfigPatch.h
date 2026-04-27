@@ -10,8 +10,6 @@
 #include "1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrMissionConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrPolicyConfig.h"
-#include "1q/electronic_surveillance_radar/config/EsrScanPolicyConfig.h"
-#include "1q/electronic_surveillance_radar/config/EsrWorkMode.h"
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentRuntimeConfigPatch.h"
 
 namespace electronic_surveillance_radar {

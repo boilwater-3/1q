@@ -9,7 +9,6 @@
 #include "1q/api.hpp"
 #include "1q/electro_optical_sensor/config/EosMissionConfig.h"
 #include "1q/electro_optical_sensor/config/EosPolicyConfig.h"
-#include "1q/electro_optical_sensor/config/EosWorkMode.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentRuntimeConfigPatch.h"
 
 namespace electro_optical_sensor {
