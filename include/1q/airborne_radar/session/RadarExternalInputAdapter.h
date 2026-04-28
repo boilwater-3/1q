@@ -11,7 +11,8 @@
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "1q/api.hpp"
-#include "1q/foundation/coordinate_transform.h"
+#include "1q/coordinate/types.h"
+#include "1q/foundation/pose_types.h"
 
 namespace airborne_radar {
 namespace session {
@@ -21,8 +22,8 @@ namespace session {
  * @note `origin_lla` 定义局部 ENU 原点，`radar_attitude_deg` 定义雷达局部坐标相对 ENU 的姿态。
  */
 struct ONEQ_API RadarLocalFrameReference {
-  oneq::foundation::LlaCoordinateDegM origin_lla{};      /**< 雷达参考原点（WGS84 LLA） */
-  oneq::foundation::EulerAnglesDeg radar_attitude_deg{}; /**< 雷达局部坐标相对 ENU 的姿态角 */
+  oneq::coordinate::LlaPositionDegM origin_lla{};      /**< 雷达参考原点（WGS84 LLA） */
+  oneq::coordinate::EulerAnglesDeg radar_attitude_deg{}; /**< 雷达局部坐标相对 ENU 的姿态角 */
 };
 
 /**
@@ -30,10 +31,10 @@ struct ONEQ_API RadarLocalFrameReference {
  * @note 速度固定为 ECEF 坐标系，姿态角采用 Body->ENU 约定。
  */
 struct ONEQ_API RadarExternalPoseInput {
-  oneq::foundation::EcefCoordinateM platform_position_ecef_m{};  /**< 平台位置（ECEF，m） */
-  oneq::foundation::Vector3f platform_velocity_mps{};            /**< 平台速度（ECEF，单位：m/s） */
-  oneq::foundation::EulerAnglesDeg platform_attitude_deg{};      /**< 平台姿态角（Body->ENU，deg） */
-  oneq::foundation::EulerAnglesDeg radar_mount_angles_deg{};     /**< 雷达安装角（Body->Radar，deg） */
+  oneq::coordinate::EcefPositionM platform_position_ecef_m{};    /**< 平台位置（ECEF，m） */
+  oneq::coordinate::EcefVelocityMps platform_velocity_mps{};     /**< 平台速度（ECEF，单位：m/s） */
+  oneq::coordinate::EulerAnglesDeg platform_attitude_deg{};      /**< 平台姿态角（Body->ENU，deg） */
+  oneq::coordinate::EulerAnglesDeg radar_mount_angles_deg{};     /**< 雷达安装角（Body->Radar，deg） */
 };
 
 /**
@@ -41,8 +42,8 @@ struct ONEQ_API RadarExternalPoseInput {
  * @note 速度固定为 ECEF 坐标系，适配器内自动扣除平台速度得到相对速度。
  */
 struct ONEQ_API TargetExternalKinematics {
-  oneq::foundation::EcefCoordinateM target_position_ecef_m{};  /**< 目标位置（ECEF，m） */
-  oneq::foundation::Vector3f target_velocity_mps{};            /**< 目标速度（ECEF，单位：m/s） */
+  oneq::coordinate::EcefPositionM target_position_ecef_m{};    /**< 目标位置（ECEF，m） */
+  oneq::coordinate::EcefVelocityMps target_velocity_mps{};     /**< 目标速度（ECEF，单位：m/s） */
   float rcs{1.0f};                                             /**< 目标 RCS（m^2） */
   int swerling_type{0};                                        /**< 目标起伏模型 */
 };
@@ -54,9 +55,9 @@ struct ONEQ_API TargetExternalKinematics {
  * @return 复合后的雷达姿态角（ENU->Radar，单位：deg）。
  * @note 该接口采用旋转矩阵复合，不使用欧拉角分量直接相加。
  */
-ONEQ_API oneq::foundation::EulerAnglesDeg ComposeRadarAttitudeDeg(
-    const model::EulerAnglesDeg& platform_attitude_deg,
-    const model::EulerAnglesDeg& radar_mount_angles_deg);
+ONEQ_API oneq::coordinate::EulerAnglesDeg ComposeRadarAttitudeDeg(
+    const oneq::coordinate::EulerAnglesDeg& platform_attitude_deg,
+    const oneq::coordinate::EulerAnglesDeg& radar_mount_angles_deg);
 
 /**
  * @brief 两步模式——第一步：将外部平台运动学转换为雷达局部位姿。

@@ -177,9 +177,12 @@ session::TrackOutputFrame RadarSession::Step(const RadarCycleInput& input) {
 
   const extension::RadarContextRuntimeState radar_context_state =
       impl_->radar_context.CaptureRuntimeState();
+  const extension::SignalPipelineRuntimeState pipeline_state =
+      impl_->signal_pipeline.CaptureRuntimeState();
 
   if (!impl_->CommitPendingRuntimeConfig()) {
     impl_->radar_context.RestoreRuntimeState(radar_context_state);
+    impl_->signal_pipeline.RestoreRuntimeState(pipeline_state);
     return impl_->BuildOutputFrame();
   }
 
@@ -188,6 +191,7 @@ session::TrackOutputFrame RadarSession::Step(const RadarCycleInput& input) {
 
   if (!impl_->controller.ExecutedLatestCycle()) {
     impl_->radar_context.RestoreRuntimeState(radar_context_state);
+    impl_->signal_pipeline.RestoreRuntimeState(pipeline_state);
     return impl_->BuildOutputFrame();
   }
 
@@ -204,11 +208,14 @@ session::TrackOutputFrame RadarSession::Step(const RadarCycleInput& input,
 
   const extension::RadarContextRuntimeState radar_context_state =
       impl_->radar_context.CaptureRuntimeState();
+  const extension::SignalPipelineRuntimeState pipeline_state =
+      impl_->signal_pipeline.CaptureRuntimeState();
   const environment::EnvironmentServiceRuntimeState environment_state =
       impl_->environment_service.CaptureRuntimeState();
 
   if (!impl_->CommitPendingRuntimeConfig()) {
     impl_->radar_context.RestoreRuntimeState(radar_context_state);
+    impl_->signal_pipeline.RestoreRuntimeState(pipeline_state);
     return impl_->BuildOutputFrame();
   }
 
@@ -218,6 +225,7 @@ session::TrackOutputFrame RadarSession::Step(const RadarCycleInput& input,
 
   if (!impl_->controller.ExecutedLatestCycle()) {
     impl_->radar_context.RestoreRuntimeState(radar_context_state);
+    impl_->signal_pipeline.RestoreRuntimeState(pipeline_state);
     impl_->environment_service.RestoreRuntimeState(environment_state);
     return impl_->BuildOutputFrame();
   }
@@ -233,13 +241,17 @@ RadarCycleResult RadarSession::StepWithResult(const RadarCycleInput& input) {
     return impl_->BuildValidationErrorResult(issues);
   }
 
-  // 2. 捕获 radar_context 快照：仅用于 BeginCycle 的撤销（submitted_commands 等）
+  // 2. 捕获快照：CommitPendingRuntimeConfig 可能修改 pipeline/environment，
+  //    若本周期失败需回滚到调用前状态。
   const extension::RadarContextRuntimeState radar_context_state =
       impl_->radar_context.CaptureRuntimeState();
+  const extension::SignalPipelineRuntimeState pipeline_state =
+      impl_->signal_pipeline.CaptureRuntimeState();
 
-  // 3. 若有待提交配置，先提交；失败时只需回滚 context（controller 内部自行回滚）
+  // 3. 若有待提交配置，先提交
   if (!impl_->CommitPendingRuntimeConfig()) {
     impl_->radar_context.RestoreRuntimeState(radar_context_state);
+    impl_->signal_pipeline.RestoreRuntimeState(pipeline_state);
     return impl_->BuildExecutionAbortResult(
         extension::SignalCycleAbortReason::kRuntimePreparationFailed);
   }
@@ -249,8 +261,10 @@ RadarCycleResult RadarSession::StepWithResult(const RadarCycleInput& input) {
   impl_->controller.RunOnce();
 
   if (!impl_->controller.ExecutedLatestCycle()) {
-    // controller 已在内部回滚 env + pipeline；此处只撤销 BeginCycle 对 context 的修改
+    // controller 已内部回滚 RunOnce 期间的中间状态；
+    // 此处回滚 CommitPendingRuntimeConfig 对 pipeline 的修改
     impl_->radar_context.RestoreRuntimeState(radar_context_state);
+    impl_->signal_pipeline.RestoreRuntimeState(pipeline_state);
     return impl_->BuildExecutionAbortResult(
         impl_->controller.GetLastSignalCycleAbortReason());
   }
@@ -269,16 +283,19 @@ RadarCycleResult RadarSession::StepWithResult(
 
   // 2. 捕获快照
   //    - radar_context：撤销 BeginCycle
+  //    - pipeline：回滚 CommitPendingRuntimeConfig 的配置修改
   //    - environment：撤销 UpdateSceneState（controller 不感知此调用，无法替我们回滚）
   const extension::RadarContextRuntimeState radar_context_state =
       impl_->radar_context.CaptureRuntimeState();
+  const extension::SignalPipelineRuntimeState pipeline_state =
+      impl_->signal_pipeline.CaptureRuntimeState();
   const environment::EnvironmentServiceRuntimeState environment_state =
       impl_->environment_service.CaptureRuntimeState();
 
   // 3. 提交待更新配置
   if (!impl_->CommitPendingRuntimeConfig()) {
     impl_->radar_context.RestoreRuntimeState(radar_context_state);
-    // environment 尚未被 UpdateSceneState 修改，无需回滚
+    impl_->signal_pipeline.RestoreRuntimeState(pipeline_state);
     return impl_->BuildExecutionAbortResult(
         extension::SignalCycleAbortReason::kRuntimePreparationFailed);
   }
@@ -289,9 +306,8 @@ RadarCycleResult RadarSession::StepWithResult(
   impl_->controller.RunOnce();
 
   if (!impl_->controller.ExecutedLatestCycle()) {
-    // controller 回滚了 env（FreezeEnvironment 之后的状态）；
-    // 但 UpdateSceneState 在 RunOnce 之前，需要 Session 额外回滚至调用前的场景
     impl_->radar_context.RestoreRuntimeState(radar_context_state);
+    impl_->signal_pipeline.RestoreRuntimeState(pipeline_state);
     impl_->environment_service.RestoreRuntimeState(environment_state);
     return impl_->BuildExecutionAbortResult(
         impl_->controller.GetLastSignalCycleAbortReason());

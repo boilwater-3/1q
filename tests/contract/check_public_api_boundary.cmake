@@ -147,10 +147,17 @@ set(ESR_PUBLIC_HEADERS
     "electronic_surveillance_radar/session/EsrTraceSession.h"
 )
 
+# ── 坐标工具 ─────────────────────────────────────────────────────────
+set(COORDINATE_HEADERS
+    "coordinate/attitude_transform.h"
+    "coordinate/position_transform.h"
+    "coordinate/types.h"
+    "coordinate/velocity_transform.h"
+)
+
 # ── 跨域基础 ─────────────────────────────────────────────────────────
 set(FOUNDATION_HEADERS
     "foundation/atmospheric_types.h"
-    "foundation/coordinate_transform.h"
     "foundation/pose_types.h"
     "foundation/scan_schedule_types.h"
     "replay/ReplayTrace.h"
@@ -167,6 +174,7 @@ set(EXPECTED_PUBLIC_HEADERS
     ${ROOT_HEADER}
     ${EOS_PUBLIC_HEADERS}
     ${ESR_PUBLIC_HEADERS}
+    ${COORDINATE_HEADERS}
     ${FOUNDATION_HEADERS}
 )
 

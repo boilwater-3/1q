@@ -9,8 +9,8 @@
 #include <cstdint>
 
 #include "1q/api.hpp"
+#include "1q/coordinate/types.h"
 #include "1q/electro_optical_sensor/session/EosSceneTypes.h"
-#include "1q/foundation/coordinate_transform.h"
 #include "1q/foundation/pose_types.h"
 
 namespace electro_optical_sensor {
@@ -21,8 +21,8 @@ namespace session {
  * @note origin_lla 定义 ENU 原点；frame_attitude_deg 定义 EOS 局部坐标相对 ENU 的姿态。
  */
 struct ONEQ_API EosCoordinateReference {
-  oneq::foundation::LlaCoordinateDegM origin_lla{};      /**< 参考原点（WGS84 LLA） */
-  oneq::foundation::EulerAnglesDeg frame_attitude_deg{}; /**< EOS 局部坐标相对 ENU 的姿态角 */
+  oneq::coordinate::LlaPositionDegM origin_lla{};      /**< 参考原点（WGS84 LLA） */
+  oneq::coordinate::EulerAnglesDeg frame_attitude_deg{}; /**< EOS 局部坐标相对 ENU 的姿态角 */
 };
 
 /**
@@ -38,9 +38,9 @@ enum class ONEQ_API EosTargetPositionFrame {
  * @note 速度固定为 ECEF 坐标系。
  */
 struct ONEQ_API EosExternalPoseInput {
-  oneq::foundation::EcefCoordinateM platform_position_ecef_m{};  /**< 平台位置（ECEF，m） */
-  oneq::foundation::Vector3f platform_velocity_mps{};            /**< 平台速度（ECEF，单位：m/s） */
-  oneq::foundation::EulerAnglesDeg platform_attitude_deg{};      /**< 平台姿态角（Body->ENU，deg） */
+  oneq::coordinate::EcefPositionM platform_position_ecef_m{};    /**< 平台位置（ECEF，m） */
+  oneq::coordinate::EcefVelocityMps platform_velocity_mps{};     /**< 平台速度（ECEF，单位：m/s） */
+  oneq::coordinate::EulerAnglesDeg platform_attitude_deg{};      /**< 平台姿态角（Body->ENU，deg） */
 };
 
 /**
@@ -48,8 +48,8 @@ struct ONEQ_API EosExternalPoseInput {
  */
 struct ONEQ_API EosExternalTargetInput {
   EosTargetPositionFrame position_frame{EosTargetPositionFrame::kEcef}; /**< 目标位置参考系 */
-  oneq::foundation::EcefCoordinateM target_position_ecef_m{};            /**< 目标 ECEF 坐标 */
-  oneq::foundation::LlaCoordinateDegM target_position_lla_deg_m{};       /**< 目标 WGS84 LLA 坐标 */
+  oneq::coordinate::EcefPositionM target_position_ecef_m{};              /**< 目标 ECEF 坐标 */
+  oneq::coordinate::LlaPositionDegM target_position_lla_deg_m{};         /**< 目标 WGS84 LLA 坐标 */
   EosTargetAppearance appearance{};                                      /**< 目标辐射与外观参数 */
 };
 

@@ -5,6 +5,8 @@
 
 #include <gtest/gtest.h>
 
+#include "1q/coordinate/position_transform.h"
+
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -601,17 +603,17 @@ TEST(PublicApiConvenienceTest, SceneTargetUtilsNormalizeGeometryFromCartesianPos
 }
 
 TEST(PublicApiConvenienceTest, SceneTargetUtilsComposeRadarAttitudeUsesRotationComposition) {
-  model::EulerAnglesDeg platform_attitude;
+  oneq::coordinate::EulerAnglesDeg platform_attitude;
   platform_attitude.yaw_deg = 40.0f;
   platform_attitude.pitch_deg = 12.0f;
   platform_attitude.roll_deg = -18.0f;
 
-  model::EulerAnglesDeg mount_angles;
+  oneq::coordinate::EulerAnglesDeg mount_angles;
   mount_angles.yaw_deg = 3.0f;
   mount_angles.pitch_deg = -2.5f;
   mount_angles.roll_deg = 1.5f;
 
-  const oneq::foundation::EulerAnglesDeg composed =
+  const oneq::coordinate::EulerAnglesDeg composed =
       session::ComposeRadarAttitudeDeg(platform_attitude, mount_angles);
 
   oneq::internal::geometry::EulerAnglesDeg platform_geometry;
@@ -640,20 +642,20 @@ TEST(PublicApiConvenienceTest, SceneTargetUtilsComposeRadarAttitudeUsesRotationC
 }
 
 TEST(PublicApiConvenienceTest, SceneTargetUtilsBuildsTargetFromExternalCoordinates) {
-  oneq::foundation::LlaCoordinateDegM radar_lla;
+  oneq::coordinate::LlaPositionDegM radar_lla;
   radar_lla.latitude_deg = 0.0;
   radar_lla.longitude_deg = 0.0;
   radar_lla.altitude_m = 0.0;
-  oneq::foundation::EcefCoordinateM radar_ecef;
-  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(radar_lla, &radar_ecef));
+  oneq::coordinate::EcefPositionM radar_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(radar_lla, &radar_ecef));
 
-  oneq::foundation::LlaCoordinateDegM target_lla;
+  oneq::coordinate::LlaPositionDegM target_lla;
   target_lla.latitude_deg = 0.0;
   target_lla.longitude_deg = 0.001;
   target_lla.altitude_m = 0.0;
 
-  oneq::foundation::EcefCoordinateM target_ecef;
-  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));
+  oneq::coordinate::EcefPositionM target_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(target_lla, &target_ecef));
 
   session::RadarExternalPoseInput pose_input;
   pose_input.platform_position_ecef_m = radar_ecef;
@@ -665,9 +667,9 @@ TEST(PublicApiConvenienceTest, SceneTargetUtilsBuildsTargetFromExternalCoordinat
 
   session::TargetExternalKinematics input;
   input.target_position_ecef_m = target_ecef;
-  input.target_velocity_mps.x = 80.0f;
-  input.target_velocity_mps.y = -30.0f;
-  input.target_velocity_mps.z = 10.0f;
+  input.target_velocity_mps.x_mps = 80.0f;
+  input.target_velocity_mps.y_mps = -30.0f;
+  input.target_velocity_mps.z_mps = 10.0f;
   input.rcs = 2.0f;
   input.swerling_type = 0;
 
@@ -682,23 +684,23 @@ TEST(PublicApiConvenienceTest, SceneTargetUtilsBuildsTargetFromExternalCoordinat
 }
 
 TEST(PublicApiConvenienceTest, SceneTargetUtilsBuildsTargetFromExternalKinematicsFrames) {
-  oneq::foundation::LlaCoordinateDegM radar_lla;
+  oneq::coordinate::LlaPositionDegM radar_lla;
   radar_lla.latitude_deg = 31.2304;
   radar_lla.longitude_deg = 121.4737;
   radar_lla.altitude_m = 200.0;
-  oneq::foundation::EcefCoordinateM radar_ecef;
-  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(radar_lla, &radar_ecef));
+  oneq::coordinate::EcefPositionM radar_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(radar_lla, &radar_ecef));
 
-  oneq::foundation::LlaCoordinateDegM target_lla = radar_lla;
+  oneq::coordinate::LlaPositionDegM target_lla = radar_lla;
   target_lla.longitude_deg += 0.001;
-  oneq::foundation::EcefCoordinateM target_ecef;
-  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));
+  oneq::coordinate::EcefPositionM target_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(target_lla, &target_ecef));
 
   session::RadarExternalPoseInput pose_input;
   pose_input.platform_position_ecef_m = radar_ecef;
-  pose_input.platform_velocity_mps.x = 120.0f;
-  pose_input.platform_velocity_mps.y = -70.0f;
-  pose_input.platform_velocity_mps.z = 30.0f;
+  pose_input.platform_velocity_mps.x_mps = 120.0f;
+  pose_input.platform_velocity_mps.y_mps = -70.0f;
+  pose_input.platform_velocity_mps.z_mps = 30.0f;
   pose_input.platform_attitude_deg.yaw_deg = 5.0f;
   pose_input.radar_mount_angles_deg.pitch_deg = 2.0f;
 
@@ -712,9 +714,9 @@ TEST(PublicApiConvenienceTest, SceneTargetUtilsBuildsTargetFromExternalKinematic
   input.rcs = 1.2f;
 
   // ECEF 速度 + 雷达自身 ECEF 速度补偿后应接近零相对速度。
-  input.target_velocity_mps.x = 120.0f;
-  input.target_velocity_mps.y = -70.0f;
-  input.target_velocity_mps.z = 30.0f;
+  input.target_velocity_mps.x_mps = 120.0f;
+  input.target_velocity_mps.y_mps = -70.0f;
+  input.target_velocity_mps.z_mps = 30.0f;
   session::RadarSceneTarget ecef_target;
   ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
       501U, input, reference, platform_pose.velocity_mps, &ecef_target));
@@ -724,23 +726,23 @@ TEST(PublicApiConvenienceTest, SceneTargetUtilsBuildsTargetFromExternalKinematic
 }
 
 TEST(PublicApiConvenienceTest, TwoStepExternalKinematicsProducesStableTarget) {
-  oneq::foundation::LlaCoordinateDegM radar_lla;
+  oneq::coordinate::LlaPositionDegM radar_lla;
   radar_lla.latitude_deg = 31.2304;
   radar_lla.longitude_deg = 121.4737;
   radar_lla.altitude_m = 200.0;
-  oneq::foundation::EcefCoordinateM radar_ecef;
-  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(radar_lla, &radar_ecef));
+  oneq::coordinate::EcefPositionM radar_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(radar_lla, &radar_ecef));
 
-  oneq::foundation::LlaCoordinateDegM target_lla = radar_lla;
+  oneq::coordinate::LlaPositionDegM target_lla = radar_lla;
   target_lla.longitude_deg += 0.001;
-  oneq::foundation::EcefCoordinateM target_ecef;
-  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));
+  oneq::coordinate::EcefPositionM target_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(target_lla, &target_ecef));
 
   session::RadarExternalPoseInput pose_input;
   pose_input.platform_position_ecef_m = radar_ecef;
-  pose_input.platform_velocity_mps.x = 120.0f;
-  pose_input.platform_velocity_mps.y = -70.0f;
-  pose_input.platform_velocity_mps.z = 30.0f;
+  pose_input.platform_velocity_mps.x_mps = 120.0f;
+  pose_input.platform_velocity_mps.y_mps = -70.0f;
+  pose_input.platform_velocity_mps.z_mps = 30.0f;
   pose_input.platform_attitude_deg.yaw_deg = 5.0f;
   pose_input.radar_mount_angles_deg.pitch_deg = 2.0f;
 
@@ -751,9 +753,9 @@ TEST(PublicApiConvenienceTest, TwoStepExternalKinematicsProducesStableTarget) {
 
   session::TargetExternalKinematics target_input;
   target_input.target_position_ecef_m = target_ecef;
-  target_input.target_velocity_mps.x = 120.0f;
-  target_input.target_velocity_mps.y = -70.0f;
-  target_input.target_velocity_mps.z = 30.0f;
+  target_input.target_velocity_mps.x_mps = 120.0f;
+  target_input.target_velocity_mps.y_mps = -70.0f;
+  target_input.target_velocity_mps.z_mps = 30.0f;
   target_input.rcs = 1.2f;
   target_input.swerling_type = 0;
 
@@ -773,12 +775,12 @@ TEST(PublicApiConvenienceTest, TwoStepExternalKinematicsProducesStableTarget) {
 }
 
 TEST(PublicApiConvenienceTest, TwoStepApiPlatformPoseFeedsDirectlyIntoCycleInput) {
-  oneq::foundation::LlaCoordinateDegM radar_lla;
+  oneq::coordinate::LlaPositionDegM radar_lla;
   radar_lla.latitude_deg = 31.0;
   radar_lla.longitude_deg = 121.0;
   radar_lla.altitude_m = 1000.0;
-  oneq::foundation::EcefCoordinateM radar_ecef;
-  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(radar_lla, &radar_ecef));
+  oneq::coordinate::EcefPositionM radar_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(radar_lla, &radar_ecef));
 
   session::RadarExternalPoseInput pose_input;
   pose_input.platform_position_ecef_m = radar_ecef;

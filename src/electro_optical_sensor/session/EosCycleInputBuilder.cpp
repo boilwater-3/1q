@@ -1,5 +1,7 @@
 #include "1q/electro_optical_sensor/session/EosCycleInputBuilder.h"
 
+#include "1q/coordinate/position_transform.h"
+
 namespace electro_optical_sensor {
 namespace session {
 
@@ -16,7 +18,7 @@ bool EosCycleInputBuilder::Build(const EosExternalPoseInput& platform,
   }
 
   EosCoordinateReference reference;
-  if (!oneq::foundation::TryEcefToLla(platform.platform_position_ecef_m, &reference.origin_lla)) {
+  if (!oneq::coordinate::TryEcefToLla(platform.platform_position_ecef_m, &reference.origin_lla)) {
     if (status != nullptr) {
       *status = EosCoordinateStatus::kCoordinateTransformFail;
     }

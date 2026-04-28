@@ -6,7 +6,7 @@
 #include <gtest/gtest.h>
 
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
-#include "1q/foundation/coordinate_transform.h"
+#include "1q/coordinate/position_transform.h"
 
 namespace electro_optical_sensor {
 namespace utils {
@@ -18,18 +18,18 @@ TEST(EosCoordinateUtilsTest, MakePoseFromLlaPopulatesPlatformPose) {
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;
 
-  oneq::foundation::LlaCoordinateDegM pose_lla;
+  oneq::coordinate::LlaPositionDegM pose_lla;
   pose_lla.latitude_deg = 0.0;
   pose_lla.longitude_deg = 0.001;
   pose_lla.altitude_m = 0.0;
-  oneq::foundation::EcefCoordinateM pose_ecef;
-  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(pose_lla, &pose_ecef));
+  oneq::coordinate::EcefPositionM pose_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(pose_lla, &pose_ecef));
 
-  oneq::foundation::Vector3f velocity;
-  velocity.x = 1.0f;
-  velocity.y = 2.0f;
-  velocity.z = 3.0f;
-  oneq::foundation::EulerAnglesDeg attitude;
+  oneq::coordinate::EcefVelocityMps velocity;
+  velocity.x_mps = 1.0;
+  velocity.y_mps = 2.0;
+  velocity.z_mps = 3.0;
+  oneq::coordinate::EulerAnglesDeg attitude;
   attitude.yaw_deg = 10.0f;
 
   session::EosExternalPoseInput input;
@@ -54,7 +54,7 @@ TEST(EosCoordinateUtilsTest, MakeTargetFromLlaAndEcefAreConsistent) {
   platform_pose.position_m.y = 0.0f;
   platform_pose.position_m.z = 0.0f;
 
-  oneq::foundation::LlaCoordinateDegM target_lla;
+  oneq::coordinate::LlaPositionDegM target_lla;
   target_lla.latitude_deg = 0.0;
   target_lla.longitude_deg = 0.001;
   target_lla.altitude_m = 0.0;
@@ -77,8 +77,8 @@ TEST(EosCoordinateUtilsTest, MakeTargetFromLlaAndEcefAreConsistent) {
   EXPECT_NEAR(target_from_lla.azimuth_deg, 0.0f, 1.0e-2f);
   EXPECT_NEAR(target_from_lla.elevation_deg, 0.0f, 1.0e-2f);
 
-  oneq::foundation::EcefCoordinateM target_ecef;
-  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));
+  oneq::coordinate::EcefPositionM target_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(target_lla, &target_ecef));
   ::electro_optical_sensor::session::EosExternalTargetInput ecef_input;
   ecef_input.position_frame = ::electro_optical_sensor::session::EosTargetPositionFrame::kEcef;
   ecef_input.target_position_ecef_m = target_ecef;
@@ -114,7 +114,7 @@ TEST(EosCoordinateUtilsTest, ReportsFailureStatusForNullOutputAndDegenerateGeome
   platform_pose.position_m.y = 0.0f;
   platform_pose.position_m.z = 0.0f;
   ::electro_optical_sensor::session::EosTargetAppearance appearance;
-  oneq::foundation::LlaCoordinateDegM target_lla = reference.origin_lla;
+  oneq::coordinate::LlaPositionDegM target_lla = reference.origin_lla;
   ::electro_optical_sensor::session::EosExternalTargetInput lla_input;
   lla_input.position_frame = ::electro_optical_sensor::session::EosTargetPositionFrame::kLla;
   lla_input.target_position_lla_deg_m = target_lla;

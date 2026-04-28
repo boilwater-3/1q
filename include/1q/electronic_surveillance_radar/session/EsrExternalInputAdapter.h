@@ -9,8 +9,8 @@
 #include <string>
 
 #include "1q/api.hpp"
+#include "1q/coordinate/types.h"
 #include "1q/electronic_surveillance_radar/session/EsrSceneTypes.h"
-#include "1q/foundation/coordinate_transform.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
@@ -20,8 +20,8 @@ namespace session {
  * @note origin_lla 定义 ENU 原点；frame_attitude_deg 定义 ESR 局部坐标相对 ENU 的姿态。
  */
 struct ONEQ_API EsrCoordinateReference {
-  oneq::foundation::LlaCoordinateDegM origin_lla{};      /**< 参考原点（WGS84 LLA） */
-  oneq::foundation::EulerAnglesDeg frame_attitude_deg{}; /**< ESR 局部坐标相对 ENU 的姿态角 */
+  oneq::coordinate::LlaPositionDegM origin_lla{};      /**< 参考原点（WGS84 LLA） */
+  oneq::coordinate::EulerAnglesDeg frame_attitude_deg{}; /**< ESR 局部坐标相对 ENU 的姿态角 */
 };
 
 /**
@@ -29,19 +29,19 @@ struct ONEQ_API EsrCoordinateReference {
  * @note 速度固定为 ECEF 坐标系。
  */
 struct ONEQ_API EsrExternalPoseInput {
-  oneq::foundation::EcefCoordinateM platform_position_ecef_m{};  /**< 平台位置（ECEF，m） */
-  EsrVector3f platform_velocity_mps{};                            /**< 平台速度（ECEF，单位：m/s） */
-  EsrEulerAngleDeg platform_attitude_deg{};                       /**< 平台姿态角（Body->ENU，deg） */
+  oneq::coordinate::EcefPositionM platform_position_ecef_m{};     /**< 平台位置（ECEF，m） */
+  oneq::coordinate::EcefVelocityMps platform_velocity_mps{};      /**< 平台速度（ECEF，单位：m/s） */
+  oneq::coordinate::EulerAnglesDeg platform_attitude_deg{};       /**< 平台姿态角（Body->ENU，deg） */
 };
 
 /**
  * @brief ESR 外部辐射源输入（统一入口）。
  */
 struct ONEQ_API EsrExternalEmitterInput {
-  std::string emitter_id{};                                    /**< 辐射源标识 */
-  oneq::foundation::EcefCoordinateM emitter_position_ecef_m{}; /**< 辐射源位置（ECEF，m） */
-  EsrVector3f emitter_velocity_mps{};                          /**< 辐射源速度（ECEF，单位：m/s） */
-  EsrEulerAngleDeg emitter_attitude_deg{};                     /**< 辐射源姿态角（Body->ENU，deg） */
+  std::string emitter_id{};                                      /**< 辐射源标识 */
+  oneq::coordinate::EcefPositionM emitter_position_ecef_m{};     /**< 辐射源位置（ECEF，m） */
+  oneq::coordinate::EcefVelocityMps emitter_velocity_mps{};      /**< 辐射源速度（ECEF，单位：m/s） */
+  oneq::coordinate::EulerAnglesDeg emitter_attitude_deg{};       /**< 辐射源姿态角（Body->ENU，deg） */
   double carrier_hz{0.0};                                   /**< 发射中心频率（Hz） */
   double bandwidth_hz{0.0};                                 /**< 发射带宽（Hz） */
   double tx_power_w{0.0};                                   /**< 发射功率（W） */

@@ -16,7 +16,7 @@
 #include "1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
-#include "1q/foundation/coordinate_transform.h"
+#include "1q/coordinate/position_transform.h"
 
 namespace electronic_surveillance_radar {
 namespace tests {
@@ -225,13 +225,13 @@ TEST(EsrPublicApiConvenienceTest, CoordinateUtilsBuildsPoseFromExternalKinematic
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;
 
-  oneq::foundation::LlaCoordinateDegM target_lla;
+  oneq::coordinate::LlaPositionDegM target_lla;
   target_lla.latitude_deg = 0.0;
   target_lla.longitude_deg = 0.001;
   target_lla.altitude_m = 0.0;
 
-  oneq::foundation::EcefCoordinateM target_ecef;
-  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));
+  oneq::coordinate::EcefPositionM target_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(target_lla, &target_ecef));
 
   session::EsrExternalPoseInput pose_input;
   pose_input.platform_position_ecef_m = target_ecef;
@@ -247,20 +247,20 @@ TEST(EsrPublicApiConvenienceTest, CoordinateUtilsBuildsSceneEmitterFromExternalI
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;
 
-  oneq::foundation::LlaCoordinateDegM emitter_lla;
+  oneq::coordinate::LlaPositionDegM emitter_lla;
   emitter_lla.latitude_deg = 0.0;
   emitter_lla.longitude_deg = 0.001;
   emitter_lla.altitude_m = 0.0;
 
-  oneq::foundation::EcefCoordinateM emitter_ecef;
-  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(emitter_lla, &emitter_ecef));
+  oneq::coordinate::EcefPositionM emitter_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(emitter_lla, &emitter_ecef));
 
   session::EsrExternalEmitterInput input;
   input.emitter_id = "emitter-001";
   input.emitter_position_ecef_m = emitter_ecef;
-  input.emitter_velocity_mps.x = 3.0f;  // ECEF X → ENU Up at lat=0,lon=0
-  input.emitter_velocity_mps.y = 1.0f;  // ECEF Y → ENU East
-  input.emitter_velocity_mps.z = 2.0f;  // ECEF Z → ENU North
+  input.emitter_velocity_mps.x_mps = 3.0f;  // ECEF X → ENU Up at lat=0,lon=0
+  input.emitter_velocity_mps.y_mps = 1.0f;  // ECEF Y → ENU East
+  input.emitter_velocity_mps.z_mps = 2.0f;  // ECEF Z → ENU North
   input.carrier_hz = 10.0e9;
   input.bandwidth_hz = 2.0e6;
   input.tx_power_w = 5.0e7;

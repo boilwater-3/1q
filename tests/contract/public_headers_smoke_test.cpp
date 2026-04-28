@@ -90,7 +90,10 @@
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
 #include "1q/foundation/atmospheric_types.h"
-#include "1q/foundation/coordinate_transform.h"
+#include "1q/coordinate/attitude_transform.h"
+#include "1q/coordinate/position_transform.h"
+#include "1q/coordinate/types.h"
+#include "1q/coordinate/velocity_transform.h"
 #include "1q/foundation/pose_types.h"
 #include "1q/foundation/scan_schedule_types.h"
 #include "1q/trace/TraceSink.h"
@@ -205,12 +208,12 @@ namespace airborne_radar {
 namespace {
 
 TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
-  oneq::foundation::LlaCoordinateDegM origin_lla;
+  oneq::coordinate::LlaPositionDegM origin_lla;
   origin_lla.latitude_deg = 0.0;
   origin_lla.longitude_deg = 0.0;
   origin_lla.altitude_m = 0.0;
-  oneq::foundation::EcefCoordinateM origin_ecef;
-  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(origin_lla, &origin_ecef));
+  oneq::coordinate::EcefPositionM origin_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(origin_lla, &origin_ecef));
 
   session::RadarSessionConfig session_config = config::presets::MakeDefaultRadarSessionConfig();
   session_config.environment.scenario_config.atmospheric_physics.enable_physical_model = true;
@@ -357,8 +360,8 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   esr_reference.origin_lla.latitude_deg = 0.0;
   esr_reference.origin_lla.longitude_deg = 0.0;
   esr_reference.origin_lla.altitude_m = 0.0;
-  oneq::foundation::EcefCoordinateM esr_origin_ecef;
-  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(esr_reference.origin_lla, &esr_origin_ecef));
+  oneq::coordinate::EcefPositionM esr_origin_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(esr_reference.origin_lla, &esr_origin_ecef));
   session::EsrExternalPoseInput esr_pose_input;
   esr_pose_input.platform_position_ecef_m = esr_origin_ecef;
   session::EsrPoseState esr_pose;
@@ -416,8 +419,8 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   eos_reference.origin_lla.latitude_deg = 0.0;
   eos_reference.origin_lla.longitude_deg = 0.0;
   eos_reference.origin_lla.altitude_m = 0.0;
-  oneq::foundation::EcefCoordinateM eos_origin_ecef;
-  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(eos_reference.origin_lla, &eos_origin_ecef));
+  oneq::coordinate::EcefPositionM eos_origin_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(eos_reference.origin_lla, &eos_origin_ecef));
   session::EosExternalPoseInput eos_pose_input;
   eos_pose_input.platform_position_ecef_m = eos_origin_ecef;
   oneq::foundation::PoseState eos_pose;

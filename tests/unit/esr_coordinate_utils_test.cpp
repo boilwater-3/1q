@@ -6,7 +6,7 @@
 #include <gtest/gtest.h>
 
 #include "1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h"
-#include "1q/foundation/coordinate_transform.h"
+#include "1q/coordinate/position_transform.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
@@ -18,14 +18,14 @@ TEST(EsrCoordinateUtilsTest, EcefVelocityConvertsToEsrLocal) {
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;
 
-  oneq::foundation::LlaCoordinateDegM target_lla;
+  oneq::coordinate::LlaPositionDegM target_lla;
   target_lla.latitude_deg = 0.0;
   target_lla.longitude_deg = 0.001;
   target_lla.altitude_m = 0.0;
 
-  oneq::foundation::EcefCoordinateM target_ecef;
-  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));
-  session::EsrEulerAngleDeg attitude;
+  oneq::coordinate::EcefPositionM target_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(target_lla, &target_ecef));
+  oneq::coordinate::EulerAnglesDeg attitude;
   attitude.yaw_deg = 1.0f;
   attitude.pitch_deg = 2.0f;
   attitude.roll_deg = 3.0f;
@@ -33,9 +33,9 @@ TEST(EsrCoordinateUtilsTest, EcefVelocityConvertsToEsrLocal) {
   session::EsrExternalPoseInput input;
   input.platform_position_ecef_m = target_ecef;
   input.platform_attitude_deg = attitude;
-  input.platform_velocity_mps.x = 0.0f;
-  input.platform_velocity_mps.y = 11.0f;  // ECEF Y → ENU East at lat=0,lon=0
-  input.platform_velocity_mps.z = 12.0f;  // ECEF Z → ENU North at lat=0,lon=0
+  input.platform_velocity_mps.x_mps = 0.0f;
+  input.platform_velocity_mps.y_mps = 11.0f;  // ECEF Y → ENU East at lat=0,lon=0
+  input.platform_velocity_mps.z_mps = 12.0f;  // ECEF Z → ENU North at lat=0,lon=0
 
   session::EsrPoseState pose;
   ASSERT_TRUE(session::TryMakeEsrPoseFromExternalKinematics(input, reference, &pose));
@@ -57,20 +57,20 @@ TEST(EsrCoordinateUtilsTest, ExternalEmitterInputBuildsSceneEmitter) {
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;
 
-  oneq::foundation::LlaCoordinateDegM emitter_lla;
+  oneq::coordinate::LlaPositionDegM emitter_lla;
   emitter_lla.latitude_deg = 0.0;
   emitter_lla.longitude_deg = 0.001;
   emitter_lla.altitude_m = 0.0;
 
-  oneq::foundation::EcefCoordinateM emitter_ecef;
-  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(emitter_lla, &emitter_ecef));
+  oneq::coordinate::EcefPositionM emitter_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(emitter_lla, &emitter_ecef));
 
   session::EsrExternalEmitterInput input;
   input.emitter_id = "e-001";
   input.emitter_position_ecef_m = emitter_ecef;
-  input.emitter_velocity_mps.x = 3.0f;  // ECEF X → ENU Up at lat=0,lon=0
-  input.emitter_velocity_mps.y = 1.0f;  // ECEF Y → ENU East
-  input.emitter_velocity_mps.z = 2.0f;  // ECEF Z → ENU North
+  input.emitter_velocity_mps.x_mps = 3.0f;  // ECEF X → ENU Up at lat=0,lon=0
+  input.emitter_velocity_mps.y_mps = 1.0f;  // ECEF Y → ENU East
+  input.emitter_velocity_mps.z_mps = 2.0f;  // ECEF Z → ENU North
   input.carrier_hz = 10.0e9;
   input.bandwidth_hz = 2.0e6;
   input.tx_power_w = 5.0e7;

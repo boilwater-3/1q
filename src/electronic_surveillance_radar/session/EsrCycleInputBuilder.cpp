@@ -1,5 +1,7 @@
 #include "1q/electronic_surveillance_radar/session/EsrCycleInputBuilder.h"
 
+#include "1q/coordinate/position_transform.h"
+
 namespace electronic_surveillance_radar {
 namespace session {
 
@@ -16,7 +18,7 @@ bool EsrCycleInputBuilder::Build(const EsrExternalPoseInput& platform,
   }
 
   EsrCoordinateReference reference;
-  if (!oneq::foundation::TryEcefToLla(platform.platform_position_ecef_m, &reference.origin_lla)) {
+  if (!oneq::coordinate::TryEcefToLla(platform.platform_position_ecef_m, &reference.origin_lla)) {
     if (status != nullptr) {
       *status = EsrCoordinateStatus::kCoordinateTransformFail;
     }

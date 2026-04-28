@@ -19,7 +19,7 @@
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
-#include "1q/foundation/coordinate_transform.h"
+#include "1q/coordinate/position_transform.h"
 
 namespace rt = ::electro_optical_sensor::foundation::radiative_transfer;
 
@@ -278,21 +278,21 @@ TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsPoseFromExternalKinematic
   reference.frame_attitude_deg.pitch_deg = 0.0f;
   reference.frame_attitude_deg.roll_deg = 0.0f;
 
-  oneq::foundation::LlaCoordinateDegM target_lla;
+  oneq::coordinate::LlaPositionDegM target_lla;
   target_lla.latitude_deg = 0.0;
   target_lla.longitude_deg = 0.001;
   target_lla.altitude_m = 0.0;
-  oneq::foundation::EcefCoordinateM target_ecef;
-  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));
+  oneq::coordinate::EcefPositionM target_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(target_lla, &target_ecef));
 
-  oneq::foundation::EulerAnglesDeg platform_attitude_deg;
+  oneq::coordinate::EulerAnglesDeg platform_attitude_deg;
   platform_attitude_deg.yaw_deg = 5.0f;
 
   session::EosExternalPoseInput input;
   input.platform_position_ecef_m = target_ecef;
-  input.platform_velocity_mps.x = 0.0f;   // ECEF X → ENU Up at lat=0,lon=0
-  input.platform_velocity_mps.y = 10.0f;  // ECEF Y → ENU East at lat=0,lon=0
-  input.platform_velocity_mps.z = 0.0f;   // ECEF Z → ENU North at lat=0,lon=0
+  input.platform_velocity_mps.x_mps = 0.0f;   // ECEF X → ENU Up at lat=0,lon=0
+  input.platform_velocity_mps.y_mps = 10.0f;  // ECEF Y → ENU East at lat=0,lon=0
+  input.platform_velocity_mps.z_mps = 0.0f;   // ECEF Z → ENU North at lat=0,lon=0
   input.platform_attitude_deg = platform_attitude_deg;
 
   oneq::foundation::PoseState pose;
@@ -320,7 +320,7 @@ TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsTargetFromEcefAndLla) {
   appearance.reflectance = 0.1f;
   appearance.projected_area_m2 = 2.0f;
 
-  oneq::foundation::LlaCoordinateDegM target_lla;
+  oneq::coordinate::LlaPositionDegM target_lla;
   target_lla.latitude_deg = 0.0;
   target_lla.longitude_deg = 0.001;
   target_lla.altitude_m = 0.0;
@@ -336,8 +336,8 @@ TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsTargetFromEcefAndLla) {
   EXPECT_GT(target_from_lla.range_m, 0.0f);
   EXPECT_NEAR(target_from_lla.appearance.apparent_temperature_k, 320.0f, 1e-5f);
 
-  oneq::foundation::EcefCoordinateM target_ecef;
-  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));
+  oneq::coordinate::EcefPositionM target_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(target_lla, &target_ecef));
   session::EosExternalTargetInput ecef_input;
   ecef_input.position_frame = session::EosTargetPositionFrame::kEcef;
   ecef_input.target_position_ecef_m = target_ecef;

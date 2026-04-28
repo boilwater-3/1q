@@ -1,10 +1,10 @@
 #include "1q/airborne_radar/session/RadarExternalInputAdapter.h"
 
-#include <algorithm>
 #include <cmath>
 
-#include "common/geometry/CoordinateConversion.h"
-#include "common/geometry/GeometryTransform.h"
+#include "1q/coordinate/attitude_transform.h"
+#include "1q/coordinate/position_transform.h"
+#include "1q/coordinate/velocity_transform.h"
 
 namespace airborne_radar {
 namespace session {
@@ -17,60 +17,48 @@ bool IsFiniteVector3f(const oneq::foundation::Vector3f& value) {
   return IsFinite(value.x) && IsFinite(value.y) && IsFinite(value.z);
 }
 
-oneq::internal::geometry::EulerAnglesDeg ToGeometryEuler(
-    const model::EulerAnglesDeg& euler_deg) {
-  oneq::internal::geometry::EulerAnglesDeg geometry_euler;
-  geometry_euler.yaw_deg = euler_deg.yaw_deg;
-  geometry_euler.pitch_deg = euler_deg.pitch_deg;
-  geometry_euler.roll_deg = euler_deg.roll_deg;
-  return geometry_euler;
+oneq::foundation::EulerAnglesDeg ToFoundationEuler(
+    const oneq::coordinate::EulerAnglesDeg& attitude_deg) {
+  oneq::foundation::EulerAnglesDeg output;
+  output.yaw_deg = static_cast<float>(attitude_deg.yaw_deg);
+  output.pitch_deg = static_cast<float>(attitude_deg.pitch_deg);
+  output.roll_deg = static_cast<float>(attitude_deg.roll_deg);
+  return output;
 }
 
-oneq::internal::geometry::EulerAnglesDeg ComposeGeometryEuler(
-    const model::EulerAnglesDeg& platform_attitude_deg,
-    const model::EulerAnglesDeg& mount_angles_deg) {
-  const Eigen::Matrix3f platform_rotation =
-      oneq::internal::geometry::BuildRotationMatrix(ToGeometryEuler(platform_attitude_deg));
-  const Eigen::Matrix3f mount_rotation =
-      oneq::internal::geometry::BuildRotationMatrix(ToGeometryEuler(mount_angles_deg));
-  const Eigen::Matrix3f composed = platform_rotation * mount_rotation;
+oneq::foundation::Vector3f RotateEnuVectorToLocal(
+    double east,
+    double north,
+    double up,
+    const oneq::coordinate::EulerAnglesDeg& local_attitude_deg) {
+  const oneq::coordinate::RotationMatrix3d inverse =
+      oneq::coordinate::Inverse(oneq::coordinate::BuildRotationMatrix(local_attitude_deg));
+  oneq::foundation::Vector3f local;
+  local.x = static_cast<float>(inverse.m00 * east + inverse.m01 * north + inverse.m02 * up);
+  local.y = static_cast<float>(inverse.m10 * east + inverse.m11 * north + inverse.m12 * up);
+  local.z = static_cast<float>(inverse.m20 * east + inverse.m21 * north + inverse.m22 * up);
+  return local;
+}
 
-  const float r20 = composed(2, 0);
-  const float clamped = std::max(-1.0f, std::min(1.0f, -r20));
-  const float pitch_rad_internal = std::asin(clamped);
-  const float cos_pitch = std::cos(pitch_rad_internal);
+oneq::foundation::Vector3f RotateEnuPositionToLocal(
+    const oneq::coordinate::EnuPositionM& enu,
+    const oneq::coordinate::EulerAnglesDeg& local_attitude_deg) {
+  return RotateEnuVectorToLocal(enu.east_m, enu.north_m, enu.up_m, local_attitude_deg);
+}
 
-  float yaw_rad = 0.0f;
-  float roll_rad = 0.0f;
-  if (std::abs(cos_pitch) > 1.0e-6f) {
-    yaw_rad = std::atan2(composed(1, 0), composed(0, 0));
-    roll_rad = std::atan2(composed(2, 1), composed(2, 2));
-  } else {
-    yaw_rad = std::atan2(-composed(0, 1), composed(1, 1));
-    roll_rad = 0.0f;
-  }
-
-  constexpr float kRadToDeg = 180.0f / 3.14159265358979f;
-  oneq::internal::geometry::EulerAnglesDeg out;
-  out.yaw_deg = yaw_rad * kRadToDeg;
-  out.pitch_deg = -pitch_rad_internal * kRadToDeg;
-  out.roll_deg = roll_rad * kRadToDeg;
-  return out;
+oneq::foundation::Vector3f RotateEnuVelocityToLocal(
+    const oneq::coordinate::EnuVelocityMps& enu,
+    const oneq::coordinate::EulerAnglesDeg& local_attitude_deg) {
+  return RotateEnuVectorToLocal(enu.east_mps, enu.north_mps, enu.up_mps,
+                                local_attitude_deg);
 }
 
 }  // namespace
 
-oneq::foundation::EulerAnglesDeg ComposeRadarAttitudeDeg(
-    const model::EulerAnglesDeg& platform_attitude_deg,
-    const model::EulerAnglesDeg& radar_mount_angles_deg) {
-  const oneq::internal::geometry::EulerAnglesDeg composed =
-      ComposeGeometryEuler(platform_attitude_deg, radar_mount_angles_deg);
-
-  oneq::foundation::EulerAnglesDeg output;
-  output.yaw_deg = composed.yaw_deg;
-  output.pitch_deg = composed.pitch_deg;
-  output.roll_deg = composed.roll_deg;
-  return output;
+oneq::coordinate::EulerAnglesDeg ComposeRadarAttitudeDeg(
+    const oneq::coordinate::EulerAnglesDeg& platform_attitude_deg,
+    const oneq::coordinate::EulerAnglesDeg& radar_mount_angles_deg) {
+  return oneq::coordinate::ComposeAttitudeDeg(platform_attitude_deg, radar_mount_angles_deg);
 }
 
 bool TryMakeRadarPoseFromExternalKinematics(
@@ -81,8 +69,8 @@ bool TryMakeRadarPoseFromExternalKinematics(
     return false;
   }
 
-  oneq::foundation::LlaCoordinateDegM radar_lla;
-  if (!oneq::foundation::TryEcefToLla(input.platform_position_ecef_m, &radar_lla)) {
+  oneq::coordinate::LlaPositionDegM radar_lla;
+  if (!oneq::coordinate::TryEcefToLla(input.platform_position_ecef_m, &radar_lla)) {
     return false;
   }
   reference->origin_lla = radar_lla;
@@ -91,19 +79,19 @@ bool TryMakeRadarPoseFromExternalKinematics(
 
   platform_pose->position_m = oneq::foundation::Vector3f{};
 
-  if (!IsFiniteVector3f(input.platform_velocity_mps)) {
+  if (!oneq::coordinate::IsFinite(input.platform_velocity_mps)) {
     platform_pose->velocity_mps = oneq::foundation::Vector3f{};
   } else {
-    oneq::foundation::EnuCoordinateM velocity_enu;
-    if (!oneq::internal::geometry::TryConvertEcefVelocityToEnu(
+    oneq::coordinate::EnuVelocityMps velocity_enu;
+    if (!oneq::coordinate::TryEcefToEnuVelocity(
             input.platform_velocity_mps, reference->origin_lla, &velocity_enu)) {
       return false;
     }
-    platform_pose->velocity_mps =
-        oneq::internal::geometry::ConvertEnuToLocal(velocity_enu, reference->radar_attitude_deg);
+    platform_pose->velocity_mps = RotateEnuVelocityToLocal(velocity_enu,
+                                                           reference->radar_attitude_deg);
   }
 
-  platform_pose->attitude_deg = input.platform_attitude_deg;
+  platform_pose->attitude_deg = ToFoundationEuler(input.platform_attitude_deg);
   return true;
 }
 
@@ -113,28 +101,27 @@ bool TryMakeTargetFromExternalKinematics(
     const RadarLocalFrameReference& reference,
     oneq::foundation::Vector3f radar_local_velocity_mps,
     RadarSceneTarget* target) {
-  if (target == nullptr || !IsFiniteVector3f(target_input.target_velocity_mps)) {
+  if (target == nullptr || !oneq::coordinate::IsFinite(target_input.target_velocity_mps) ||
+      !IsFiniteVector3f(radar_local_velocity_mps)) {
     return false;
   }
 
-  oneq::internal::geometry::LocalFrameReference shared_ref;
-  shared_ref.origin_lla = reference.origin_lla;
-  shared_ref.frame_attitude_deg = reference.radar_attitude_deg;
-
-  oneq::foundation::Vector3f target_position_local;
-  if (!oneq::internal::geometry::TryConvertEcefPositionToLocal(
-          target_input.target_position_ecef_m, shared_ref, &target_position_local)) {
+  oneq::coordinate::EnuPositionM target_position_enu;
+  if (!oneq::coordinate::TryEcefToEnu(
+          target_input.target_position_ecef_m, reference.origin_lla, &target_position_enu)) {
     return false;
   }
+  oneq::foundation::Vector3f target_position_local =
+      RotateEnuPositionToLocal(target_position_enu, reference.radar_attitude_deg);
 
   // 速度固定为 ECEF，转换为雷达局部坐标系后扣除平台速度得到相对速度
-  oneq::foundation::EnuCoordinateM velocity_enu;
-  if (!oneq::internal::geometry::TryConvertEcefVelocityToEnu(
+  oneq::coordinate::EnuVelocityMps velocity_enu;
+  if (!oneq::coordinate::TryEcefToEnuVelocity(
           target_input.target_velocity_mps, reference.origin_lla, &velocity_enu)) {
     return false;
   }
   oneq::foundation::Vector3f target_velocity_local =
-      oneq::internal::geometry::ConvertEnuToLocal(velocity_enu, reference.radar_attitude_deg);
+      RotateEnuVelocityToLocal(velocity_enu, reference.radar_attitude_deg);
   target_velocity_local.x -= radar_local_velocity_mps.x;
   target_velocity_local.y -= radar_local_velocity_mps.y;
   target_velocity_local.z -= radar_local_velocity_mps.z;

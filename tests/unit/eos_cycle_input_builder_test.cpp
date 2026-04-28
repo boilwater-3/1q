@@ -5,6 +5,8 @@
 
 #include <gtest/gtest.h>
 
+#include "1q/coordinate/position_transform.h"
+
 #include <cmath>
 #include <cstddef>
 
@@ -16,17 +18,17 @@ namespace {
 
 /// @brief Builder 生成结果与两步式适配器对同一输入产生相同输出。
 TEST(EosCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
-  oneq::foundation::LlaCoordinateDegM origin_lla;
+  oneq::coordinate::LlaPositionDegM origin_lla;
   origin_lla.latitude_deg = 31.2304;
   origin_lla.longitude_deg = 121.4737;
   origin_lla.altitude_m = 200.0;
-  oneq::foundation::EcefCoordinateM origin_ecef;
-  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(origin_lla, &origin_ecef));
+  oneq::coordinate::EcefPositionM origin_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(origin_lla, &origin_ecef));
 
-  oneq::foundation::LlaCoordinateDegM target_lla = origin_lla;
+  oneq::coordinate::LlaPositionDegM target_lla = origin_lla;
   target_lla.longitude_deg += 0.001;
-  oneq::foundation::EcefCoordinateM target_ecef;
-  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));
+  oneq::coordinate::EcefPositionM target_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(target_lla, &target_ecef));
 
   EosCoordinateReference reference;
   reference.origin_lla = origin_lla;
@@ -34,9 +36,9 @@ TEST(EosCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
 
   EosExternalPoseInput pose_input;
   pose_input.platform_position_ecef_m = origin_ecef;
-  pose_input.platform_velocity_mps.x = 120.0f;
-  pose_input.platform_velocity_mps.y = -70.0f;
-  pose_input.platform_velocity_mps.z = 30.0f;
+  pose_input.platform_velocity_mps.x_mps = 120.0f;
+  pose_input.platform_velocity_mps.y_mps = -70.0f;
+  pose_input.platform_velocity_mps.z_mps = 30.0f;
   pose_input.platform_attitude_deg.yaw_deg = 5.0f;
 
   // 两步式适配器（参考基准）
@@ -76,12 +78,12 @@ TEST(EosCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
 
 /// @brief Builder 接受空目标列表。
 TEST(EosCycleInputBuilderTest, EmptyTargetsProducesValidCycleInput) {
-  oneq::foundation::LlaCoordinateDegM origin_lla;
+  oneq::coordinate::LlaPositionDegM origin_lla;
   origin_lla.latitude_deg = 31.0;
   origin_lla.longitude_deg = 121.0;
   origin_lla.altitude_m = 1000.0;
-  oneq::foundation::EcefCoordinateM origin_ecef;
-  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(origin_lla, &origin_ecef));
+  oneq::coordinate::EcefPositionM origin_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(origin_lla, &origin_ecef));
 
   EosExternalPoseInput pose_input;
   pose_input.platform_position_ecef_m = origin_ecef;
@@ -106,12 +108,12 @@ TEST(EosCycleInputBuilderTest, NullOutputReturnsFalse) {
 
 /// @brief Builder 等价的 LLA 目标位置。
 TEST(EosCycleInputBuilderTest, LlaTargetPosition) {
-  oneq::foundation::LlaCoordinateDegM origin_lla;
+  oneq::coordinate::LlaPositionDegM origin_lla;
   origin_lla.latitude_deg = 31.0;
   origin_lla.longitude_deg = 121.0;
   origin_lla.altitude_m = 500.0;
-  oneq::foundation::EcefCoordinateM origin_ecef;
-  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(origin_lla, &origin_ecef));
+  oneq::coordinate::EcefPositionM origin_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(origin_lla, &origin_ecef));
 
   EosExternalPoseInput pose_input;
   pose_input.platform_position_ecef_m = origin_ecef;

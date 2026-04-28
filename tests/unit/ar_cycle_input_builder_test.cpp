@@ -5,6 +5,8 @@
 
 #include <gtest/gtest.h>
 
+#include "1q/coordinate/position_transform.h"
+
 #include <cmath>
 #include <cstddef>
 
@@ -16,32 +18,32 @@ namespace {
 
 /// @brief Builder 生成结果与两步式适配器对同一输入产生相同输出。
 TEST(RadarCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
-  oneq::foundation::LlaCoordinateDegM radar_lla;
+  oneq::coordinate::LlaPositionDegM radar_lla;
   radar_lla.latitude_deg = 31.2304;
   radar_lla.longitude_deg = 121.4737;
   radar_lla.altitude_m = 200.0;
-  oneq::foundation::EcefCoordinateM radar_ecef;
-  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(radar_lla, &radar_ecef));
+  oneq::coordinate::EcefPositionM radar_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(radar_lla, &radar_ecef));
 
-  oneq::foundation::LlaCoordinateDegM target_lla = radar_lla;
+  oneq::coordinate::LlaPositionDegM target_lla = radar_lla;
   target_lla.longitude_deg += 0.001;
-  oneq::foundation::EcefCoordinateM target_ecef;
-  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));
+  oneq::coordinate::EcefPositionM target_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(target_lla, &target_ecef));
 
   // 准备外部输入
   RadarExternalPoseInput pose_input;
   pose_input.platform_position_ecef_m = radar_ecef;
-  pose_input.platform_velocity_mps.x = 120.0f;
-  pose_input.platform_velocity_mps.y = -70.0f;
-  pose_input.platform_velocity_mps.z = 30.0f;
+  pose_input.platform_velocity_mps.x_mps = 120.0f;
+  pose_input.platform_velocity_mps.y_mps = -70.0f;
+  pose_input.platform_velocity_mps.z_mps = 30.0f;
   pose_input.platform_attitude_deg.yaw_deg = 5.0f;
   pose_input.radar_mount_angles_deg.pitch_deg = 2.0f;
 
   TargetExternalKinematics target_input;
   target_input.target_position_ecef_m = target_ecef;
-  target_input.target_velocity_mps.x = 120.0f;
-  target_input.target_velocity_mps.y = -70.0f;
-  target_input.target_velocity_mps.z = 30.0f;
+  target_input.target_velocity_mps.x_mps = 120.0f;
+  target_input.target_velocity_mps.y_mps = -70.0f;
+  target_input.target_velocity_mps.z_mps = 30.0f;
   target_input.rcs = 1.2f;
   target_input.swerling_type = 0;
 
@@ -75,12 +77,12 @@ TEST(RadarCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
 
 /// @brief Builder 接受空目标列表，platform_pose 依然正确。
 TEST(RadarCycleInputBuilderTest, EmptyTargetsProducesValidCycleInput) {
-  oneq::foundation::LlaCoordinateDegM radar_lla;
+  oneq::coordinate::LlaPositionDegM radar_lla;
   radar_lla.latitude_deg = 31.0;
   radar_lla.longitude_deg = 121.0;
   radar_lla.altitude_m = 1000.0;
-  oneq::foundation::EcefCoordinateM radar_ecef;
-  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(radar_lla, &radar_ecef));
+  oneq::coordinate::EcefPositionM radar_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(radar_lla, &radar_ecef));
 
   RadarExternalPoseInput pose_input;
   pose_input.platform_position_ecef_m = radar_ecef;
@@ -107,12 +109,12 @@ TEST(RadarCycleInputBuilderTest, NullOutputReturnsFalse) {
 
 /// @brief Builder 多个目标。
 TEST(RadarCycleInputBuilderTest, MultipleTargets) {
-  oneq::foundation::LlaCoordinateDegM radar_lla;
+  oneq::coordinate::LlaPositionDegM radar_lla;
   radar_lla.latitude_deg = 31.0;
   radar_lla.longitude_deg = 121.0;
   radar_lla.altitude_m = 500.0;
-  oneq::foundation::EcefCoordinateM radar_ecef;
-  ASSERT_TRUE(oneq::foundation::TryLlaToEcef(radar_lla, &radar_ecef));
+  oneq::coordinate::EcefPositionM radar_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(radar_lla, &radar_ecef));
 
   RadarExternalPoseInput pose_input;
   pose_input.platform_position_ecef_m = radar_ecef;
