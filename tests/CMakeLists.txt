@@ -8,11 +8,13 @@ if(MSVC AND MSVC_VERSION LESS 1910)
     set(CMAKE_MAP_IMPORTED_CONFIG_MINSIZEREL Release)
 endif()
 
-find_package(GTest CONFIG REQUIRED)
-find_package(Boost CONFIG REQUIRED)
-find_package(Eigen3 CONFIG REQUIRED)
-find_package(flatbuffers CONFIG REQUIRED)
-find_package(ZLIB QUIET)
+if(PACKAGE_MANAGER STREQUAL "conan" OR PACKAGE_MANAGER STREQUAL "vcpkg")
+    find_package(GTest CONFIG REQUIRED)
+    find_package(Boost CONFIG REQUIRED)
+    find_package(Eigen3 CONFIG REQUIRED)
+    find_package(flatbuffers CONFIG REQUIRED)
+    find_package(ZLIB QUIET)
+endif()
 if(NOT DEFINED flatbuffers_INCLUDE_DIRS_RELEASE)
     # Pull Conan-generated include variables without importing flatc target.
     file(GLOB _oneq_flatbuffers_data_candidates

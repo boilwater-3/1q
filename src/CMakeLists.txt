@@ -78,34 +78,31 @@ foreach(ONEQ_OBJECT_TARGET IN LISTS ONEQ_OBJECT_TARGETS)
 endforeach()
 unset(ONEQ_OBJECT_TARGET)
 
-# 第三方依赖由包管理器模块处理
-# 如需添加依赖，请编辑对应的包管理器配置文件：
-#   - cmake/PackageManagerVcpkg.cmake
-#   - cmake/PackageManagerConan.cmake
-if(WIN32)
-    set(PROJECT_ENABLE_SPDLOG OFF)
+# 第三方依赖加载：
+#   - Conan / vcpkg：通过 find_package 从包管理器获取
+#   - 无包管理器（vendor）：通过 third_party/CMakeLists.txt 构建内置依赖
+if(PACKAGE_MANAGER STREQUAL "conan" OR PACKAGE_MANAGER STREQUAL "vcpkg")
+    if(WIN32)
+        set(PROJECT_ENABLE_SPDLOG OFF)
+    else()
+        set(PROJECT_ENABLE_SPDLOG ON)
+    endif()
+    find_package(Eigen3 CONFIG REQUIRED)
+    find_package(Boost CONFIG REQUIRED)
+    find_package(nanoflann CONFIG REQUIRED)
+    find_package(flatbuffers CONFIG REQUIRED)
+    if(PROJECT_ENABLE_SPDLOG)
+        find_package(spdlog CONFIG REQUIRED)
+    endif()
+    find_package(ZLIB REQUIRED)
 else()
     set(PROJECT_ENABLE_SPDLOG ON)
+    find_package(ZLIB QUIET)
+    if(NOT ZLIB_FOUND)
+        set(ONEQ_VENDOR_ZLIB ON)
+    endif()
+    add_subdirectory(${CMAKE_SOURCE_DIR}/third_party ${CMAKE_BINARY_DIR}/third_party)
 endif()
-set(ONEQ_ENABLE_NLOHMANN_JSON ON)
-if(MSVC AND MSVC_VERSION LESS 1910)
-    set(ONEQ_ENABLE_NLOHMANN_JSON OFF)
-endif()
-
-find_package(Eigen3 CONFIG REQUIRED)
-find_package(Boost CONFIG REQUIRED)
-find_package(nanoflann CONFIG REQUIRED)
-if(ONEQ_ENABLE_NLOHMANN_JSON)
-    find_package(nlohmann_json CONFIG REQUIRED)
-endif()
-find_package(flatbuffers CONFIG REQUIRED)
-if(PROJECT_ENABLE_SPDLOG)
-    find_package(spdlog CONFIG REQUIRED)
-endif()
-
-# zlib は全プラットフォームで Conan が供給する（macOS/Linux はシステム互換、
-# Windows は Conan レシピ経由）。
-find_package(ZLIB REQUIRED)
 set(ONEQ_HAVE_ZLIB ON)
 
 set(ONEQ_LINK_DEPENDENCIES
@@ -113,9 +110,6 @@ set(ONEQ_LINK_DEPENDENCIES
     Boost::boost
     nanoflann::nanoflann
 )
-if(ONEQ_ENABLE_NLOHMANN_JSON)
-    list(APPEND ONEQ_LINK_DEPENDENCIES nlohmann_json::nlohmann_json)
-endif()
 list(APPEND ONEQ_LINK_DEPENDENCIES flatbuffers::flatbuffers)
 foreach(ONEQ_BUILD_TARGET IN ITEMS
     ${PROJECT_CORE_TARGET}
@@ -135,9 +129,6 @@ set(_oneq_conan_include_vars
     flatbuffers_INCLUDE_DIRS_RELEASE
     zlib_INCLUDE_DIRS_RELEASE
 )
-if(ONEQ_ENABLE_NLOHMANN_JSON)
-    list(APPEND _oneq_conan_include_vars nlohmann_json_INCLUDE_DIRS_RELEASE)
-endif()
 foreach(_oneq_conan_include_var IN LISTS _oneq_conan_include_vars)
     if(DEFINED ${_oneq_conan_include_var})
         foreach(ONEQ_BUILD_TARGET IN ITEMS

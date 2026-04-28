@@ -13,7 +13,6 @@ _BASE_DEPS_MODERN = {
     "eigen": "eigen/3.4.0",
     "boost": "boost/1.83.0",
     "nanoflann": "nanoflann/1.6.0",
-    "nlohmann_json": "nlohmann_json/3.11.3",
     "flatbuffers": "flatbuffers/1.12.0",
     "zlib": "zlib/1.3.1",
 }
@@ -81,8 +80,6 @@ class OneQConan(ConanFile):
         self.requires(deps["eigen"])
         self.requires(deps["boost"])
         self.requires(deps["nanoflann"])
-        if not self._is_vs2015_target():
-            self.requires(deps["nlohmann_json"])
         self.requires(deps["flatbuffers"])
         self.requires(deps["zlib"])
 

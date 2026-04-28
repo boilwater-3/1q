@@ -38,5 +38,9 @@ CLAUDE.md
 *.dll
 *.exe
 
+# Vendored third-party dependencies (offline build — only CMakeLists tracked)
+third_party/*
+!third_party/CMakeLists.txt
+
 # Submodules or embedded repos
 src/airborne_radar/signal/Stone-Soup/

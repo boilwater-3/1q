@@ -60,6 +60,18 @@
             }
         },
         {
+            "name": "vendor-debug-local",
+            "inherits": "macos-base",
+            "displayName": "macOS Vendor Debug (offline, no package manager)",
+            "binaryDir": "${sourceDir}/build/vendor-debug-local",
+            "cacheVariables": {
+                "PACKAGE_MANAGER": "none",
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ENABLE_TESTING": "ON",
+                "BUILD_SHARED_LIBS": "OFF"
+            }
+        },
+        {
             "name": "windows-base",
             "hidden": true,
             "inherits": "base",
@@ -107,6 +119,10 @@
             "configurePreset": "llvm-ninja-release"
         },
         {
+            "name": "vendor-debug-local",
+            "configurePreset": "vendor-debug-local"
+        },
+        {
             "name": "windows-vs2019",
             "configurePreset": "windows-vs2019",
             "configuration": "Release"
@@ -137,6 +153,11 @@
             "name": "llvm-ninja-release",
             "inherits": "test-base",
             "configurePreset": "llvm-ninja-release"
+        },
+        {
+            "name": "vendor-debug-local",
+            "inherits": "test-base",
+            "configurePreset": "vendor-debug-local"
         }
     ]
 }
