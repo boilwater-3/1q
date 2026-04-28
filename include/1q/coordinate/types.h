@@ -103,6 +103,16 @@ struct ONEQ_API EulerAnglesDeg {
 };
 
 /**
+ * @brief 三维向量（double 精度）。
+ * @note 用于坐标转换中间结果；与 foundation::Vector3f 语义等价但精度不同。
+ */
+struct ONEQ_API Vector3d {
+  double x{0.0};  /**< X 分量 */
+  double y{0.0};  /**< Y 分量 */
+  double z{0.0};  /**< Z 分量 */
+};
+
+/**
  * @brief 局部坐标系参考定义。
  */
 struct ONEQ_API LocalFrameReference {

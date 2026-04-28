@@ -130,5 +130,39 @@ EulerAnglesDeg ComposeAttitudeDeg(const EulerAnglesDeg& parent_to_child,
       Compose(BuildRotationMatrix(parent_to_child), BuildRotationMatrix(child_to_grandchild)));
 }
 
+namespace {
+
+/// @brief ENU ↔ NED 固定坐标旋转矩阵：[[0,1,0],[1,0,0],[0,0,-1]]。
+///        该矩阵是其自身的逆，因此双向转换共用。
+RotationMatrix3d EnuNedFixedRotation() {
+  RotationMatrix3d R;
+  R.m00 = 0.0;  R.m01 = 1.0;  R.m02 = 0.0;
+  R.m10 = 1.0;  R.m11 = 0.0;  R.m12 = 0.0;
+  R.m20 = 0.0;  R.m21 = 0.0;  R.m22 = -1.0;
+  return R;
+}
+
+}  // namespace
+
+EulerAnglesDeg ToEnuAttitude(const EulerAnglesDeg& ned_attitude) {
+  return ToEulerAnglesDeg(
+      Compose(EnuNedFixedRotation(), BuildRotationMatrix(ned_attitude)));
+}
+
+EulerAnglesDeg ToNedAttitude(const EulerAnglesDeg& enu_attitude) {
+  return ToEulerAnglesDeg(
+      Compose(EnuNedFixedRotation(), BuildRotationMatrix(enu_attitude)));
+}
+
+Vector3d RotateEnuToLocal(double enu_east, double enu_north, double enu_up,
+                          const EulerAnglesDeg& local_attitude_deg) {
+  const RotationMatrix3d inverse = Inverse(BuildRotationMatrix(local_attitude_deg));
+  Vector3d local;
+  local.x = inverse.m00 * enu_east + inverse.m01 * enu_north + inverse.m02 * enu_up;
+  local.y = inverse.m10 * enu_east + inverse.m11 * enu_north + inverse.m12 * enu_up;
+  local.z = inverse.m20 * enu_east + inverse.m21 * enu_north + inverse.m22 * enu_up;
+  return local;
+}
+
 }  // namespace coordinate
 }  // namespace oneq

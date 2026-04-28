@@ -30,31 +30,26 @@ EsrEulerAngleDeg ToEsrEuler(const oneq::coordinate::EulerAnglesDeg& attitude_deg
   return output;
 }
 
-EsrVector3f RotateEnuVectorToLocal(
-    double east,
-    double north,
-    double up,
-    const oneq::coordinate::EulerAnglesDeg& local_attitude_deg) {
-  const oneq::coordinate::RotationMatrix3d inverse =
-      oneq::coordinate::Inverse(oneq::coordinate::BuildRotationMatrix(local_attitude_deg));
-  EsrVector3f local;
-  local.x = static_cast<float>(inverse.m00 * east + inverse.m01 * north + inverse.m02 * up);
-  local.y = static_cast<float>(inverse.m10 * east + inverse.m11 * north + inverse.m12 * up);
-  local.z = static_cast<float>(inverse.m20 * east + inverse.m21 * north + inverse.m22 * up);
-  return local;
+EsrVector3f ToEsrVector(const oneq::coordinate::Vector3d& v) {
+  EsrVector3f out;
+  out.x = static_cast<float>(v.x);
+  out.y = static_cast<float>(v.y);
+  out.z = static_cast<float>(v.z);
+  return out;
 }
 
 EsrVector3f RotateEnuPositionToLocal(
     const oneq::coordinate::EnuPositionM& enu,
     const oneq::coordinate::EulerAnglesDeg& local_attitude_deg) {
-  return RotateEnuVectorToLocal(enu.east_m, enu.north_m, enu.up_m, local_attitude_deg);
+  return ToEsrVector(
+      oneq::coordinate::RotateEnuToLocal(enu.east_m, enu.north_m, enu.up_m, local_attitude_deg));
 }
 
 EsrVector3f RotateEnuVelocityToLocal(
     const oneq::coordinate::EnuVelocityMps& enu,
     const oneq::coordinate::EulerAnglesDeg& local_attitude_deg) {
-  return RotateEnuVectorToLocal(enu.east_mps, enu.north_mps, enu.up_mps,
-                                local_attitude_deg);
+  return ToEsrVector(oneq::coordinate::RotateEnuToLocal(
+      enu.east_mps, enu.north_mps, enu.up_mps, local_attitude_deg));
 }
 
 bool TryConvertEcefPositionToLocal(const oneq::coordinate::EcefPositionM& ecef,

@@ -1,6 +1,9 @@
 /**
  * @file position_transform.h
- * @brief 定义不同坐标系位置之间的转换工具。
+ * @brief 定义 WGS-84 坐标系下位置类型的帧间转换。
+ *
+ * 本文件提供 LLA ↔ ECEF、ECEF/LLA → ENU/NED/NUE 以及三种局部坐标系间的
+ * 纯轴重排转换。所有转换遵循 `Try` 模式，输入非法或输出为空时返回 false。
  */
 
 #ifndef ONEQ_COORDINATE_POSITION_TRANSFORM_H_
@@ -12,40 +15,160 @@
 namespace oneq {
 namespace coordinate {
 
+// =============================================================================
+// 输入校验
+// =============================================================================
+
+/// @brief 校验 LLA 纬度/经度范围及有限性。
 ONEQ_API bool IsValid(const LlaPositionDegM& lla);
+
+/// @brief 校验 ECEF 各分量均为有限值。
 ONEQ_API bool IsFinite(const EcefPositionM& ecef);
+
+/// @brief 校验 ENU 各分量均为有限值。
 ONEQ_API bool IsFinite(const EnuPositionM& enu);
+
+/// @brief 校验 NED 各分量均为有限值。
 ONEQ_API bool IsFinite(const NedPositionM& ned);
+
+/// @brief 校验 NUE 各分量均为有限值。
 ONEQ_API bool IsFinite(const NuePositionM& nue);
 
+// =============================================================================
+// LLA ↔ ECEF
+// =============================================================================
+
+/**
+ * @brief 将 WGS84 大地坐标 LLA 转换为地心地固 ECEF 直角坐标。
+ * @param[in] lla 输入大地坐标（单位：deg / m）。
+ * @param[out] ecef 输出 ECEF；可为 nullptr。
+ * @return 成功返回 true。
+ */
 ONEQ_API bool TryLlaToEcef(const LlaPositionDegM& lla, EcefPositionM* ecef);
+
+/**
+ * @brief 将地心地固 ECEF 直角坐标转换为 WGS84 大地坐标 LLA。
+ * @param[in] ecef 输入 ECEF（单位：m）。
+ * @param[out] lla 输出 LLA；可为 nullptr。
+ * @return 成功返回 true。
+ */
 ONEQ_API bool TryEcefToLla(const EcefPositionM& ecef, LlaPositionDegM* lla);
 
+// =============================================================================
+// ECEF → 局部坐标系
+// =============================================================================
+
+/**
+ * @brief 将 ECEF 位置转换到以 origin_lla 为参考点的 ENU 坐标。
+ * @param[in] ecef ECEF 输入（单位：m）。
+ * @param[in] origin_lla 局部 ENU 原点（WGS84 LLA）。
+ * @param[out] enu 输出 ENU；可为 nullptr。
+ * @return 成功返回 true。
+ */
 ONEQ_API bool TryEcefToEnu(const EcefPositionM& ecef,
                            const LlaPositionDegM& origin_lla,
                            EnuPositionM* enu);
+
+/**
+ * @brief 将 ECEF 位置转换到以 origin_lla 为参考点的 NED 坐标。
+ * @param[in] ecef ECEF 输入（单位：m）。
+ * @param[in] origin_lla 局部 NED 原点（WGS84 LLA）。
+ * @param[out] ned 输出 NED；可为 nullptr。
+ * @return 成功返回 true。
+ * @note 内部经由 TryEcefToEnu + ToNed 实现。
+ */
 ONEQ_API bool TryEcefToNed(const EcefPositionM& ecef,
                            const LlaPositionDegM& origin_lla,
                            NedPositionM* ned);
+
+/**
+ * @brief 将 ECEF 位置转换到以 origin_lla 为参考点的 NUE 坐标。
+ * @param[in] ecef ECEF 输入（单位：m）。
+ * @param[in] origin_lla 局部 NUE 原点（WGS84 LLA）。
+ * @param[out] nue 输出 NUE；可为 nullptr。
+ * @return 成功返回 true。
+ * @note 内部经由 TryEcefToEnu + ToNue 实现。
+ */
 ONEQ_API bool TryEcefToNue(const EcefPositionM& ecef,
                            const LlaPositionDegM& origin_lla,
                            NuePositionM* nue);
 
+// =============================================================================
+// LLA → 局部坐标系
+// =============================================================================
+
+/**
+ * @brief 将 WGS84 LLA 位置转换到以 origin_lla 为参考点的 ENU 坐标。
+ * @param[in] lla 输入 LLA（单位：deg / m）。
+ * @param[in] origin_lla 局部 ENU 原点（WGS84 LLA）。
+ * @param[out] enu 输出 ENU；可为 nullptr。
+ * @return 成功返回 true。
+ * @note 内部 LLA → ECEF → ENU，两次调用无额外精度损失。
+ */
 ONEQ_API bool TryLlaToEnu(const LlaPositionDegM& lla,
                           const LlaPositionDegM& origin_lla,
                           EnuPositionM* enu);
+
+/**
+ * @brief 将 WGS84 LLA 位置转换到以 origin_lla 为参考点的 NED 坐标。
+ * @param[in] lla 输入 LLA。
+ * @param[in] origin_lla 局部 NED 原点。
+ * @param[out] ned 输出 NED；可为 nullptr。
+ * @return 成功返回 true。
+ */
 ONEQ_API bool TryLlaToNed(const LlaPositionDegM& lla,
                           const LlaPositionDegM& origin_lla,
                           NedPositionM* ned);
+
+/**
+ * @brief 将 WGS84 LLA 位置转换到以 origin_lla 为参考点的 NUE 坐标。
+ * @param[in] lla 输入 LLA。
+ * @param[in] origin_lla 局部 NUE 原点。
+ * @param[out] nue 输出 NUE；可为 nullptr。
+ * @return 成功返回 true。
+ */
 ONEQ_API bool TryLlaToNue(const LlaPositionDegM& lla,
                           const LlaPositionDegM& origin_lla,
                           NuePositionM* nue);
 
+// =============================================================================
+// 局部坐标系互转（轴重排，无精度损失）
+// =============================================================================
+
+/**
+ * @brief ENU 位置 → NED 位置。
+ * @details 映射关系：NED.north = ENU.north，NED.east = ENU.east，NED.down = -ENU.up。
+ */
 ONEQ_API NedPositionM ToNed(const EnuPositionM& enu);
+
+/**
+ * @brief NED 位置 → ENU 位置。
+ * @details 映射关系：ENU.east = NED.east，ENU.north = NED.north，ENU.up = -NED.down。
+ */
 ONEQ_API EnuPositionM ToEnu(const NedPositionM& ned);
+
+/**
+ * @brief ENU 位置 → NUE 位置。
+ * @details 映射关系：NUE.north = ENU.north，NUE.up = ENU.up，NUE.east = ENU.east。
+ */
 ONEQ_API NuePositionM ToNue(const EnuPositionM& enu);
+
+/**
+ * @brief NUE 位置 → ENU 位置。
+ * @details 映射关系：ENU.east = NUE.east，ENU.north = NUE.north，ENU.up = NUE.up。
+ */
 ONEQ_API EnuPositionM ToEnu(const NuePositionM& nue);
+
+/**
+ * @brief NED 位置 → NUE 位置。
+ * @details 映射关系：NUE.north = NED.north，NUE.up = -NED.down，NUE.east = NED.east。
+ */
 ONEQ_API NuePositionM ToNue(const NedPositionM& ned);
+
+/**
+ * @brief NUE 位置 → NED 位置。
+ * @details 映射关系：NED.north = NUE.north，NED.east = NUE.east，NED.down = -NUE.up。
+ */
 ONEQ_API NedPositionM ToNed(const NuePositionM& nue);
 
 }  // namespace coordinate

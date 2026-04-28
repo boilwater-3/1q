@@ -28,31 +28,26 @@ oneq::foundation::EulerAnglesDeg ToFoundationEuler(
   return output;
 }
 
-oneq::foundation::Vector3f RotateEnuVectorToLocal(
-    double east,
-    double north,
-    double up,
-    const oneq::coordinate::EulerAnglesDeg& local_attitude_deg) {
-  const oneq::coordinate::RotationMatrix3d inverse =
-      oneq::coordinate::Inverse(oneq::coordinate::BuildRotationMatrix(local_attitude_deg));
-  oneq::foundation::Vector3f local;
-  local.x = static_cast<float>(inverse.m00 * east + inverse.m01 * north + inverse.m02 * up);
-  local.y = static_cast<float>(inverse.m10 * east + inverse.m11 * north + inverse.m12 * up);
-  local.z = static_cast<float>(inverse.m20 * east + inverse.m21 * north + inverse.m22 * up);
-  return local;
+oneq::foundation::Vector3f ToFoundationVector(const oneq::coordinate::Vector3d& v) {
+  oneq::foundation::Vector3f out;
+  out.x = static_cast<float>(v.x);
+  out.y = static_cast<float>(v.y);
+  out.z = static_cast<float>(v.z);
+  return out;
 }
 
 oneq::foundation::Vector3f RotateEnuPositionToLocal(
     const oneq::coordinate::EnuPositionM& enu,
     const oneq::coordinate::EulerAnglesDeg& local_attitude_deg) {
-  return RotateEnuVectorToLocal(enu.east_m, enu.north_m, enu.up_m, local_attitude_deg);
+  return ToFoundationVector(
+      oneq::coordinate::RotateEnuToLocal(enu.east_m, enu.north_m, enu.up_m, local_attitude_deg));
 }
 
 oneq::foundation::Vector3f RotateEnuVelocityToLocal(
     const oneq::coordinate::EnuVelocityMps& enu,
     const oneq::coordinate::EulerAnglesDeg& local_attitude_deg) {
-  return RotateEnuVectorToLocal(enu.east_mps, enu.north_mps, enu.up_mps,
-                                local_attitude_deg);
+  return ToFoundationVector(oneq::coordinate::RotateEnuToLocal(
+      enu.east_mps, enu.north_mps, enu.up_mps, local_attitude_deg));
 }
 
 bool TryConvertEcefToEosLocalInternal(const oneq::coordinate::EcefPositionM& position_ecef_m,
@@ -107,9 +102,10 @@ bool ResolveTargetLookAngles(const oneq::foundation::Vector3f& relative_local,
   platform_attitude.yaw_deg = static_cast<double>(platform_attitude_deg.yaw_deg);
   platform_attitude.pitch_deg = static_cast<double>(platform_attitude_deg.pitch_deg);
   platform_attitude.roll_deg = static_cast<double>(platform_attitude_deg.roll_deg);
-  const oneq::foundation::Vector3f platform_frame_vector = RotateEnuVectorToLocal(
-      static_cast<double>(relative_local.x), static_cast<double>(relative_local.y),
-      static_cast<double>(relative_local.z), platform_attitude);
+  const oneq::foundation::Vector3f platform_frame_vector = ToFoundationVector(
+      oneq::coordinate::RotateEnuToLocal(static_cast<double>(relative_local.x),
+                                         static_cast<double>(relative_local.y),
+                                         static_cast<double>(relative_local.z), platform_attitude));
   const float horizontal_norm = std::sqrt(platform_frame_vector.x * platform_frame_vector.x +
                                           platform_frame_vector.y * platform_frame_vector.y);
   *azimuth_deg = std::atan2(platform_frame_vector.y, platform_frame_vector.x) * 180.0f /
