@@ -258,10 +258,9 @@ TEST(EsrPublicApiConvenienceTest, CoordinateUtilsBuildsSceneEmitterFromExternalI
   session::EsrExternalEmitterInput input;
   input.emitter_id = "emitter-001";
   input.emitter_position_ecef_m = emitter_ecef;
-  input.emitter_velocity_frame = session::EsrVelocityFrame::kEnu;
-  input.emitter_velocity_mps.x = 1.0f;
-  input.emitter_velocity_mps.y = 2.0f;
-  input.emitter_velocity_mps.z = 3.0f;
+  input.emitter_velocity_mps.x = 3.0f;  // ECEF X → ENU Up at lat=0,lon=0
+  input.emitter_velocity_mps.y = 1.0f;  // ECEF Y → ENU East
+  input.emitter_velocity_mps.z = 2.0f;  // ECEF Z → ENU North
   input.carrier_hz = 10.0e9;
   input.bandwidth_hz = 2.0e6;
   input.tx_power_w = 5.0e7;

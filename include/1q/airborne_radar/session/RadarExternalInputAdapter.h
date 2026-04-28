@@ -26,36 +26,25 @@ struct ONEQ_API RadarLocalFrameReference {
 };
 
 /**
- * @brief 目标速度输入参考系类型。
- */
-enum class VelocityFrame {
-  kRadarLocal = 0, /**< 雷达局部坐标速度（与 RadarSceneTarget 的 position/velocity 同系） */
-  kEcef = 1,       /**< 地固 ECEF 速度 */
-  kEnu = 2,        /**< 局部 ENU 速度（x=east, y=north, z=up） */
-  kNed = 3         /**< 局部 NED 速度（x=north, y=east, z=down） */
-};
-
-/**
- * @brief 外部平台运动学输入（对齐 EOS/ESR 两步模式）。
+ * @brief 外部平台运动学输入。
+ * @note 速度固定为 ECEF 坐标系，姿态角采用 Body->ENU 约定。
  */
 struct ONEQ_API RadarExternalPoseInput {
-  oneq::foundation::EcefCoordinateM platform_position_ecef_m{};      /**< 平台位置（ECEF，m） */
-  oneq::foundation::Vector3f platform_velocity_mps{};                /**< 平台速度（单位：m/s） */
-  bool has_platform_velocity_ecef_mps{false};                        /**< 是否提供平台速度 */
-  VelocityFrame platform_velocity_frame{VelocityFrame::kEcef};       /**< 平台速度参考系 */
-  oneq::foundation::EulerAnglesDeg platform_attitude_deg{};          /**< 平台姿态角（ENU->Body，deg） */
-  oneq::foundation::EulerAnglesDeg radar_mount_angles_deg{};         /**< 雷达安装角（Body->Radar，deg） */
+  oneq::foundation::EcefCoordinateM platform_position_ecef_m{};  /**< 平台位置（ECEF，m） */
+  oneq::foundation::Vector3f platform_velocity_mps{};            /**< 平台速度（ECEF，单位：m/s） */
+  oneq::foundation::EulerAnglesDeg platform_attitude_deg{};      /**< 平台姿态角（Body->ENU，deg） */
+  oneq::foundation::EulerAnglesDeg radar_mount_angles_deg{};     /**< 雷达安装角（Body->Radar，deg） */
 };
 
 /**
  * @brief 外部目标运动学输入（纯目标字段）。
+ * @note 速度固定为 ECEF 坐标系，适配器内自动扣除平台速度得到相对速度。
  */
 struct ONEQ_API TargetExternalKinematics {
-  oneq::foundation::EcefCoordinateM target_position_ecef_m{};        /**< 目标位置（ECEF，m） */
-  oneq::foundation::Vector3f target_velocity_mps{};                  /**< 目标速度（单位：m/s） */
-  VelocityFrame target_velocity_frame{VelocityFrame::kRadarLocal};   /**< 目标速度参考系 */
-  float rcs{1.0f};                                                   /**< 目标 RCS（m^2） */
-  int swerling_type{0};                                              /**< 目标起伏模型 */
+  oneq::foundation::EcefCoordinateM target_position_ecef_m{};  /**< 目标位置（ECEF，m） */
+  oneq::foundation::Vector3f target_velocity_mps{};            /**< 目标速度（ECEF，单位：m/s） */
+  float rcs{1.0f};                                             /**< 目标 RCS（m^2） */
+  int swerling_type{0};                                        /**< 目标起伏模型 */
 };
 
 /**

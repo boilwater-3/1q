@@ -34,23 +34,13 @@ enum class ONEQ_API EosTargetPositionFrame {
 };
 
 /**
- * @brief EOS 平台速度输入参考系类型。
- */
-enum class ONEQ_API EosVelocityFrame {
-  kEosLocal = 0, /**< EOS 局部坐标速度 */
-  kEcef = 1,     /**< 地固 ECEF 速度 */
-  kEnu = 2,      /**< 局部 ENU 速度（x=east, y=north, z=up） */
-  kNed = 3       /**< 局部 NED 速度（x=north, y=east, z=down） */
-};
-
-/**
- * @brief EOS 外部平台运动学输入（统一入口）。
+ * @brief EOS 外部平台运动学输入。
+ * @note 速度固定为 ECEF 坐标系。
  */
 struct ONEQ_API EosExternalPoseInput {
-  oneq::foundation::EcefCoordinateM platform_position_ecef_m{};          /**< 平台位置（ECEF，m） */
-  oneq::foundation::Vector3f platform_velocity_mps{};                    /**< 平台速度（m/s） */
-  EosVelocityFrame platform_velocity_frame{EosVelocityFrame::kEosLocal}; /**< 速度参考系 */
-  oneq::foundation::EulerAnglesDeg platform_attitude_deg{}; /**< 平台姿态角（EOS 局部系，deg） */
+  oneq::foundation::EcefCoordinateM platform_position_ecef_m{};  /**< 平台位置（ECEF，m） */
+  oneq::foundation::Vector3f platform_velocity_mps{};            /**< 平台速度（ECEF，单位：m/s） */
+  oneq::foundation::EulerAnglesDeg platform_attitude_deg{};      /**< 平台姿态角（Body->ENU，deg） */
 };
 
 /**
@@ -75,7 +65,7 @@ enum class ONEQ_API EosCoordinateStatus {
 
 /**
  * @brief 将外部平台运动学输入转换为 EOS 平台位姿。
- * @param input 外部平台输入，位置固定为 ECEF，速度可由 platform_velocity_frame 指定参考系。
+ * @param input 外部平台输入，位置与速度固定为 ECEF 坐标系。
  * @param reference EOS 局部坐标参考系，决定 ECEF/ENU 到 EOS 局部坐标的转换基准。
  * @param pose 输出平台位姿。
  * @param status 可选输出状态，nullptr 表示不关心失败原因。

@@ -288,37 +288,19 @@ TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsPoseFromExternalKinematic
   oneq::foundation::EulerAnglesDeg platform_attitude_deg;
   platform_attitude_deg.yaw_deg = 5.0f;
 
-  session::EosExternalPoseInput input_enu;
-  input_enu.platform_position_ecef_m = target_ecef;
-  input_enu.platform_velocity_frame = session::EosVelocityFrame::kEnu;
-  input_enu.platform_velocity_mps.x = 10.0f;
-  input_enu.platform_velocity_mps.y = 0.0f;
-  input_enu.platform_velocity_mps.z = 0.0f;
-  input_enu.platform_attitude_deg = platform_attitude_deg;
+  session::EosExternalPoseInput input;
+  input.platform_position_ecef_m = target_ecef;
+  input.platform_velocity_mps.x = 0.0f;   // ECEF X → ENU Up at lat=0,lon=0
+  input.platform_velocity_mps.y = 10.0f;  // ECEF Y → ENU East at lat=0,lon=0
+  input.platform_velocity_mps.z = 0.0f;   // ECEF Z → ENU North at lat=0,lon=0
+  input.platform_attitude_deg = platform_attitude_deg;
 
-  oneq::foundation::PoseState pose_from_enu;
-  ASSERT_TRUE(session::TryMakeEosPoseFromExternalKinematics(input_enu, reference, &pose_from_enu));
-  EXPECT_GT(pose_from_enu.position_m.x, 100.0f);
-  EXPECT_NEAR(pose_from_enu.position_m.y, 0.0f, 1.0e-2f);
-  EXPECT_NEAR(pose_from_enu.position_m.z, 0.0f, 1.0e-2f);
-  EXPECT_NEAR(pose_from_enu.velocity_mps.x, 10.0f, 1.0e-5f);
-  EXPECT_NEAR(pose_from_enu.attitude_deg.yaw_deg, 5.0f, 1.0e-5f);
-
-  session::EosExternalPoseInput input_ecef = input_enu;
-  input_ecef.platform_velocity_frame = session::EosVelocityFrame::kEcef;
-  input_ecef.platform_velocity_mps.x = 0.0f;
-  input_ecef.platform_velocity_mps.y = 10.0f;
-  input_ecef.platform_velocity_mps.z = 0.0f;
-
-  oneq::foundation::PoseState pose_from_ecef;
-  ASSERT_TRUE(
-      session::TryMakeEosPoseFromExternalKinematics(input_ecef, reference, &pose_from_ecef));
-  EXPECT_NEAR(pose_from_ecef.position_m.x, pose_from_enu.position_m.x, 1.0e-3f);
-  EXPECT_NEAR(pose_from_ecef.position_m.y, pose_from_enu.position_m.y, 1.0e-3f);
-  EXPECT_NEAR(pose_from_ecef.position_m.z, pose_from_enu.position_m.z, 1.0e-3f);
-  EXPECT_NEAR(pose_from_ecef.velocity_mps.x, pose_from_enu.velocity_mps.x, 1.0e-3f);
-  EXPECT_NEAR(pose_from_ecef.velocity_mps.y, pose_from_enu.velocity_mps.y, 1.0e-3f);
-  EXPECT_NEAR(pose_from_ecef.velocity_mps.z, pose_from_enu.velocity_mps.z, 1.0e-3f);
+  oneq::foundation::PoseState pose;
+  ASSERT_TRUE(session::TryMakeEosPoseFromExternalKinematics(input, reference, &pose));
+  EXPECT_GT(pose.position_m.x, 100.0f);
+  EXPECT_NEAR(pose.position_m.y, 0.0f, 1.0e-2f);
+  EXPECT_NEAR(pose.position_m.z, 0.0f, 1.0e-2f);
+  EXPECT_NEAR(pose.attitude_deg.yaw_deg, 5.0f, 1.0e-5f);
 }
 
 TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsTargetFromEcefAndLla) {

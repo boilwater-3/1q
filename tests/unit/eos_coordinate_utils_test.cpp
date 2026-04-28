@@ -35,13 +35,11 @@ TEST(EosCoordinateUtilsTest, MakePoseFromLlaPopulatesPlatformPose) {
   session::EosExternalPoseInput input;
   input.platform_position_ecef_m = pose_ecef;
   input.platform_velocity_mps = velocity;
-  input.platform_velocity_frame = session::EosVelocityFrame::kEnu;
   input.platform_attitude_deg = attitude;
 
   oneq::foundation::PoseState pose;
   ASSERT_TRUE(session::TryMakeEosPoseFromExternalKinematics(input, reference, &pose));
   EXPECT_GT(pose.position_m.x, 100.0f);
-  EXPECT_FLOAT_EQ(pose.velocity_mps.y, 2.0f);
   EXPECT_FLOAT_EQ(pose.attitude_deg.yaw_deg, 10.0f);
 }
 

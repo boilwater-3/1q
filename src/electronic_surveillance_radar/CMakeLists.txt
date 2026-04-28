@@ -2,6 +2,7 @@
 
 set(ESR_MODEL_SOURCES
     electronic_surveillance_radar/session/EsrExternalInputAdapter.cpp
+    electronic_surveillance_radar/session/EsrCycleInputBuilder.cpp
 )
 
 set(ESR_ENVIRONMENT_SOURCES
@@ -53,6 +54,7 @@ if(ENABLE_INSTALL)
     )
     set(PUBLIC_HEADERS_ESR_SESSION
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrCycleInput.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrCycleInputBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrCycleResult.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrInputValidation.h

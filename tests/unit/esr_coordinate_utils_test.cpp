@@ -12,7 +12,7 @@ namespace electronic_surveillance_radar {
 namespace session {
 namespace {
 
-TEST(EsrCoordinateUtilsTest, ExternalKinematicsSupportsEnuAndEcefVelocity) {
+TEST(EsrCoordinateUtilsTest, EcefVelocityConvertsToEsrLocal) {
   session::EsrCoordinateReference reference;
   reference.origin_lla.latitude_deg = 0.0;
   reference.origin_lla.longitude_deg = 0.0;
@@ -25,48 +25,24 @@ TEST(EsrCoordinateUtilsTest, ExternalKinematicsSupportsEnuAndEcefVelocity) {
 
   oneq::foundation::EcefCoordinateM target_ecef;
   ASSERT_TRUE(oneq::foundation::TryLlaToEcef(target_lla, &target_ecef));
-  session::EsrVector3f velocity;
-  velocity.x = 11.0f;
-  velocity.y = 12.0f;
-  velocity.z = 13.0f;
   session::EsrEulerAngleDeg attitude;
   attitude.yaw_deg = 1.0f;
   attitude.pitch_deg = 2.0f;
   attitude.roll_deg = 3.0f;
 
-  session::EsrExternalPoseInput enu_input;
-  enu_input.platform_position_ecef_m = target_ecef;
-  enu_input.platform_velocity_mps = velocity;
-  enu_input.platform_velocity_frame = session::EsrVelocityFrame::kEnu;
-  enu_input.platform_attitude_deg = attitude;
+  session::EsrExternalPoseInput input;
+  input.platform_position_ecef_m = target_ecef;
+  input.platform_attitude_deg = attitude;
+  input.platform_velocity_mps.x = 0.0f;
+  input.platform_velocity_mps.y = 11.0f;  // ECEF Y → ENU East at lat=0,lon=0
+  input.platform_velocity_mps.z = 12.0f;  // ECEF Z → ENU North at lat=0,lon=0
 
-  session::EsrExternalPoseInput ecef_input;
-  ecef_input.platform_position_ecef_m = target_ecef;
-  ecef_input.platform_velocity_frame = session::EsrVelocityFrame::kEcef;
-  ecef_input.platform_attitude_deg = attitude;
-  ecef_input.platform_velocity_mps.x = 13.0f;  // up -> +X at lat=0, lon=0
-  ecef_input.platform_velocity_mps.y = 11.0f;  // east -> +Y at lat=0, lon=0
-  ecef_input.platform_velocity_mps.z = 12.0f;  // north -> +Z at lat=0, lon=0
-
-  session::EsrPoseState pose_from_enu;
-  ASSERT_TRUE(session::TryMakeEsrPoseFromExternalKinematics(enu_input, reference, &pose_from_enu));
-  EXPECT_GT(pose_from_enu.position_m.x, 100.0f);
-  EXPECT_FLOAT_EQ(pose_from_enu.velocity_mps.x, 11.0f);
-  EXPECT_FLOAT_EQ(pose_from_enu.velocity_mps.y, 12.0f);
-  EXPECT_FLOAT_EQ(pose_from_enu.velocity_mps.z, 13.0f);
-  EXPECT_FLOAT_EQ(pose_from_enu.attitude_deg.yaw_deg, 1.0f);
-  EXPECT_FLOAT_EQ(pose_from_enu.attitude_deg.pitch_deg, 2.0f);
-  EXPECT_FLOAT_EQ(pose_from_enu.attitude_deg.roll_deg, 3.0f);
-
-  session::EsrPoseState pose_from_ecef;
-  ASSERT_TRUE(
-      session::TryMakeEsrPoseFromExternalKinematics(ecef_input, reference, &pose_from_ecef));
-  EXPECT_NEAR(pose_from_ecef.position_m.x, pose_from_enu.position_m.x, 1.0e-3f);
-  EXPECT_NEAR(pose_from_ecef.position_m.y, pose_from_enu.position_m.y, 1.0e-3f);
-  EXPECT_NEAR(pose_from_ecef.position_m.z, pose_from_enu.position_m.z, 1.0e-3f);
-  EXPECT_NEAR(pose_from_ecef.velocity_mps.x, pose_from_enu.velocity_mps.x, 1.0e-3f);
-  EXPECT_NEAR(pose_from_ecef.velocity_mps.y, pose_from_enu.velocity_mps.y, 1.0e-3f);
-  EXPECT_NEAR(pose_from_ecef.velocity_mps.z, pose_from_enu.velocity_mps.z, 1.0e-3f);
+  session::EsrPoseState pose;
+  ASSERT_TRUE(session::TryMakeEsrPoseFromExternalKinematics(input, reference, &pose));
+  EXPECT_GT(pose.position_m.x, 100.0f);
+  EXPECT_FLOAT_EQ(pose.attitude_deg.yaw_deg, 1.0f);
+  EXPECT_FLOAT_EQ(pose.attitude_deg.pitch_deg, 2.0f);
+  EXPECT_FLOAT_EQ(pose.attitude_deg.roll_deg, 3.0f);
 }
 
 TEST(EsrCoordinateUtilsTest, InvalidInputReturnsFalse) {
@@ -92,10 +68,9 @@ TEST(EsrCoordinateUtilsTest, ExternalEmitterInputBuildsSceneEmitter) {
   session::EsrExternalEmitterInput input;
   input.emitter_id = "e-001";
   input.emitter_position_ecef_m = emitter_ecef;
-  input.emitter_velocity_frame = session::EsrVelocityFrame::kEnu;
-  input.emitter_velocity_mps.x = 1.0f;
-  input.emitter_velocity_mps.y = 2.0f;
-  input.emitter_velocity_mps.z = 3.0f;
+  input.emitter_velocity_mps.x = 3.0f;  // ECEF X → ENU Up at lat=0,lon=0
+  input.emitter_velocity_mps.y = 1.0f;  // ECEF Y → ENU East
+  input.emitter_velocity_mps.z = 2.0f;  // ECEF Z → ENU North
   input.carrier_hz = 10.0e9;
   input.bandwidth_hz = 2.0e6;
   input.tx_power_w = 5.0e7;

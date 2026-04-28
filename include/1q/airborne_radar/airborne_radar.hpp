@@ -17,6 +17,7 @@
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "1q/airborne_radar/model/TargetCategory.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
+#include "1q/airborne_radar/session/RadarCycleInputBuilder.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/airborne_radar/session/RadarExternalInputAdapter.h"
 #include "1q/airborne_radar/session/RadarInputValidation.h"

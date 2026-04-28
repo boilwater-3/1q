@@ -25,34 +25,23 @@ struct ONEQ_API EsrCoordinateReference {
 };
 
 /**
- * @brief ESR 平台速度输入参考系类型。
- */
-enum class ONEQ_API EsrVelocityFrame {
-  kEsrLocal = 0, /**< ESR 局部坐标速度 */
-  kEcef = 1,     /**< 地固 ECEF 速度 */
-  kEnu = 2,      /**< 局部 ENU 速度（x=east, y=north, z=up） */
-  kNed = 3       /**< 局部 NED 速度（x=north, y=east, z=down） */
-};
-
-/**
- * @brief ESR 外部平台运动学输入（统一入口）。
+ * @brief ESR 外部平台运动学输入。
+ * @note 速度固定为 ECEF 坐标系。
  */
 struct ONEQ_API EsrExternalPoseInput {
-  oneq::foundation::EcefCoordinateM platform_position_ecef_m{};          /**< 平台位置（ECEF，m） */
-  EsrVector3f platform_velocity_mps{};                                    /**< 平台速度（m/s） */
-  EsrVelocityFrame platform_velocity_frame{EsrVelocityFrame::kEsrLocal}; /**< 速度参考系 */
-  EsrEulerAngleDeg platform_attitude_deg{}; /**< 平台姿态角（ESR 局部系，deg） */
+  oneq::foundation::EcefCoordinateM platform_position_ecef_m{};  /**< 平台位置（ECEF，m） */
+  EsrVector3f platform_velocity_mps{};                            /**< 平台速度（ECEF，单位：m/s） */
+  EsrEulerAngleDeg platform_attitude_deg{};                       /**< 平台姿态角（Body->ENU，deg） */
 };
 
 /**
  * @brief ESR 外部辐射源输入（统一入口）。
  */
 struct ONEQ_API EsrExternalEmitterInput {
-  std::string emitter_id{};                                  /**< 辐射源标识 */
+  std::string emitter_id{};                                    /**< 辐射源标识 */
   oneq::foundation::EcefCoordinateM emitter_position_ecef_m{}; /**< 辐射源位置（ECEF，m） */
-  EsrVector3f emitter_velocity_mps{};                       /**< 辐射源速度（m/s） */
-  EsrVelocityFrame emitter_velocity_frame{EsrVelocityFrame::kEsrLocal}; /**< 速度参考系 */
-  EsrEulerAngleDeg emitter_attitude_deg{};                  /**< 辐射源姿态角（ESR 局部系，deg） */
+  EsrVector3f emitter_velocity_mps{};                          /**< 辐射源速度（ECEF，单位：m/s） */
+  EsrEulerAngleDeg emitter_attitude_deg{};                     /**< 辐射源姿态角（Body->ENU，deg） */
   double carrier_hz{0.0};                                   /**< 发射中心频率（Hz） */
   double bandwidth_hz{0.0};                                 /**< 发射带宽（Hz） */
   double tx_power_w{0.0};                                   /**< 发射功率（W） */

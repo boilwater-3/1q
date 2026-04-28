@@ -3,6 +3,7 @@
 set(ONEQ_COMMON_SOURCES
     common/atmosphere/AtmospherePhysics.cpp
     common/geometry/CoordinateTransform.cpp
+    common/geometry/CoordinateConversion.cpp
     common/geometry/GeometryTransform.cpp
     common/numerics/SpectralNumerics.cpp
     common/rcs/RcsPhysics.cpp

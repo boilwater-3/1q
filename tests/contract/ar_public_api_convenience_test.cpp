@@ -657,7 +657,6 @@ TEST(PublicApiConvenienceTest, SceneTargetUtilsBuildsTargetFromExternalCoordinat
 
   session::RadarExternalPoseInput pose_input;
   pose_input.platform_position_ecef_m = radar_ecef;
-  pose_input.has_platform_velocity_ecef_mps = false;
 
   session::RadarLocalFrameReference reference;
   oneq::foundation::PoseState platform_pose;
@@ -666,7 +665,6 @@ TEST(PublicApiConvenienceTest, SceneTargetUtilsBuildsTargetFromExternalCoordinat
 
   session::TargetExternalKinematics input;
   input.target_position_ecef_m = target_ecef;
-  input.target_velocity_frame = session::VelocityFrame::kEcef;
   input.target_velocity_mps.x = 80.0f;
   input.target_velocity_mps.y = -30.0f;
   input.target_velocity_mps.z = 10.0f;
@@ -698,8 +696,6 @@ TEST(PublicApiConvenienceTest, SceneTargetUtilsBuildsTargetFromExternalKinematic
 
   session::RadarExternalPoseInput pose_input;
   pose_input.platform_position_ecef_m = radar_ecef;
-  pose_input.has_platform_velocity_ecef_mps = true;
-  pose_input.platform_velocity_frame = session::VelocityFrame::kEcef;
   pose_input.platform_velocity_mps.x = 120.0f;
   pose_input.platform_velocity_mps.y = -70.0f;
   pose_input.platform_velocity_mps.z = 30.0f;
@@ -716,44 +712,15 @@ TEST(PublicApiConvenienceTest, SceneTargetUtilsBuildsTargetFromExternalKinematic
   input.rcs = 1.2f;
 
   // ECEF 速度 + 雷达自身 ECEF 速度补偿后应接近零相对速度。
-  input.target_velocity_frame = session::VelocityFrame::kEcef;
   input.target_velocity_mps.x = 120.0f;
   input.target_velocity_mps.y = -70.0f;
   input.target_velocity_mps.z = 30.0f;
   session::RadarSceneTarget ecef_target;
   ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
       501U, input, reference, platform_pose.velocity_mps, &ecef_target));
-
-  // ENU 输入。
-  input.target_velocity_frame = session::VelocityFrame::kEnu;
-  platform_pose.velocity_mps = oneq::foundation::Vector3f{};
-  input.target_velocity_mps.x = 200.0f;  // east
-  input.target_velocity_mps.y = 0.0f;    // north
-  input.target_velocity_mps.z = 0.0f;    // up
-  session::RadarSceneTarget enu_target;
-  ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
-      502U, input, reference, platform_pose.velocity_mps, &enu_target));
-
-  // NED 输入（north, east, down）。
-  input.target_velocity_frame = session::VelocityFrame::kNed;
-  input.target_velocity_mps.x = 100.0f;  // north
-  input.target_velocity_mps.y = 50.0f;   // east
-  input.target_velocity_mps.z = -20.0f;  // down
-  session::RadarSceneTarget ned_target;
-  ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
-      503U, input, reference, platform_pose.velocity_mps, &ned_target));
-
-  // RadarLocal 输入应直接保留速度分量。
-  input.target_velocity_frame = session::VelocityFrame::kRadarLocal;
-  input.target_velocity_mps.x = 11.0f;
-  input.target_velocity_mps.y = 12.0f;
-  input.target_velocity_mps.z = 13.0f;
-  session::RadarSceneTarget local_target;
-  ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
-      504U, input, reference, platform_pose.velocity_mps, &local_target));
-  EXPECT_NEAR(local_target.velocity_x, 11.0f, 1.0e-5f);
-  EXPECT_NEAR(local_target.velocity_y, 12.0f, 1.0e-5f);
-  EXPECT_NEAR(local_target.velocity_z, 13.0f, 1.0e-5f);
+  EXPECT_NEAR(ecef_target.velocity_x, 0.0f, 1.0e-4f);
+  EXPECT_NEAR(ecef_target.velocity_y, 0.0f, 1.0e-4f);
+  EXPECT_NEAR(ecef_target.velocity_z, 0.0f, 1.0e-4f);
 }
 
 TEST(PublicApiConvenienceTest, TwoStepExternalKinematicsProducesStableTarget) {
@@ -771,11 +738,9 @@ TEST(PublicApiConvenienceTest, TwoStepExternalKinematicsProducesStableTarget) {
 
   session::RadarExternalPoseInput pose_input;
   pose_input.platform_position_ecef_m = radar_ecef;
-  pose_input.has_platform_velocity_ecef_mps = true;
   pose_input.platform_velocity_mps.x = 120.0f;
   pose_input.platform_velocity_mps.y = -70.0f;
   pose_input.platform_velocity_mps.z = 30.0f;
-  pose_input.platform_velocity_frame = session::VelocityFrame::kEcef;
   pose_input.platform_attitude_deg.yaw_deg = 5.0f;
   pose_input.radar_mount_angles_deg.pitch_deg = 2.0f;
 
@@ -789,7 +754,6 @@ TEST(PublicApiConvenienceTest, TwoStepExternalKinematicsProducesStableTarget) {
   target_input.target_velocity_mps.x = 120.0f;
   target_input.target_velocity_mps.y = -70.0f;
   target_input.target_velocity_mps.z = 30.0f;
-  target_input.target_velocity_frame = session::VelocityFrame::kEcef;
   target_input.rcs = 1.2f;
   target_input.swerling_type = 0;
 

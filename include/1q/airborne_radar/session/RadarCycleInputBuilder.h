@@ -1,0 +1,47 @@
+/**
+ * @file RadarCycleInputBuilder.h
+ * @brief 一步法构建 RadarCycleInput，封装 ExternalInputAdapter 的两步调用。
+ */
+
+#ifndef ONEQ_AIRBORNE_RADAR_SESSION_RADAR_CYCLE_INPUT_BUILDER_H_
+#define ONEQ_AIRBORNE_RADAR_SESSION_RADAR_CYCLE_INPUT_BUILDER_H_
+
+#include <cstdint>
+#include <vector>
+
+#include "1q/airborne_radar/session/RadarCycleInput.h"
+#include "1q/airborne_radar/session/RadarExternalInputAdapter.h"
+#include "1q/api.hpp"
+
+namespace airborne_radar {
+namespace session {
+
+/**
+ * @brief RadarCycleInput 一步构建器。
+ *
+ * 封装 ExternalInputAdapter 的两步调用（TryMakeRadarPose + TryMakeTarget），
+ * 调用方只需提供外部坐标系下的平台运动学和目标列表，即可获得可直接传入
+ * RadarSession::Step() 的 RadarCycleInput。
+ */
+struct ONEQ_API RadarCycleInputBuilder {
+  /**
+   * @brief 从外部坐标系输入一步构建 RadarCycleInput。
+   * @param[in] platform 外部平台运动学输入。
+   * @param[in] targets 外部目标运动学输入列表（每个 pair 为 <external_target_id, kinematics>）。
+   * @param[in] dt_sec 周期步长（单位：秒）。
+   * @param[out] output 输出 RadarCycleInput；可为 nullptr。
+   * @return 所有转换成功返回 true。
+   */
+  static bool Build(const RadarExternalPoseInput& platform,
+                    const std::vector<TargetExternalKinematics>& targets,
+                    float dt_sec,
+                    RadarCycleInput* output);
+
+ private:
+  RadarCycleInputBuilder() = delete;
+};
+
+}  // namespace session
+}  // namespace airborne_radar
+
+#endif  // ONEQ_AIRBORNE_RADAR_SESSION_RADAR_CYCLE_INPUT_BUILDER_H_

@@ -61,6 +61,7 @@ set(AR_OUTPUT_HEADERS
 set(AR_SESSION_HEADERS
     "airborne_radar/session/RadarEnvironmentInput.h"
     "airborne_radar/session/RadarCycleInput.h"
+    "airborne_radar/session/RadarCycleInputBuilder.h"
     "airborne_radar/session/RadarCycleResult.h"
     "airborne_radar/session/RadarExternalInputAdapter.h"
     "airborne_radar/session/RadarInputValidation.h"
@@ -100,6 +101,7 @@ set(EOS_PUBLIC_HEADERS
     "electro_optical_sensor/extension/electro_optical_sensor_extension.hpp"
     "electro_optical_sensor/foundation/EosRadiativeTransfer.h"
     "electro_optical_sensor/session/EosCycleInput.h"
+    "electro_optical_sensor/session/EosCycleInputBuilder.h"
     "electro_optical_sensor/session/EosCycleResult.h"
     "electro_optical_sensor/session/EosEnvironmentInput.h"
     "electro_optical_sensor/session/EosExternalInputAdapter.h"
@@ -134,6 +136,7 @@ set(ESR_PUBLIC_HEADERS
     "electronic_surveillance_radar/model/EmitterHypothesis.h"
     "electronic_surveillance_radar/model/EmitterObservation.h"
     "electronic_surveillance_radar/session/EsrCycleInput.h"
+    "electronic_surveillance_radar/session/EsrCycleInputBuilder.h"
     "electronic_surveillance_radar/session/EsrCycleResult.h"
     "electronic_surveillance_radar/session/EsrEnvironmentInput.h"
     "electronic_surveillance_radar/session/EsrExternalInputAdapter.h"
