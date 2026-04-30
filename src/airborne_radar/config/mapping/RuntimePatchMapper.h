@@ -55,6 +55,14 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
 session::RadarSessionConfig MapExecutionToSession(
     const execution::InternalExecutionConfig& execution_config);
 
+/**
+ * @brief 将运行期状态映射为当前 pipeline 可消费的四域会话配置。
+ * @param runtime_state 当前运行期状态。
+ * @return 已叠加运行期驻留偏移的四域会话配置。
+ */
+session::RadarSessionConfig MapRuntimeStateToPipelineSession(
+    const RuntimeConfigState& runtime_state);
+
 }  // namespace mapping
 }  // namespace config
 }  // namespace airborne_radar

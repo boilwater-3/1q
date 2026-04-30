@@ -49,7 +49,7 @@ TEST(DataAssociationEngineTest, KeepsStableAssociationAcrossCycles) {
   signal::association::DataAssociationEngine engine;
 
   const session::RadarSceneTargetList cycle_1{MakePositionTarget(10.0f, 0.0f, 0.0f),
-                                          MakePositionTarget(100.0f, 0.0f, 0.0f)};
+                                              MakePositionTarget(100.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_1{1U, 1U};
 
   const std::vector<std::uint64_t> keys_1 = engine.Associate(cycle_1, detected_1);
@@ -64,7 +64,7 @@ TEST(DataAssociationEngineTest, KeepsStableAssociationAcrossCycles) {
   engine.SetAssociationSeeds(seeds);
 
   const session::RadarSceneTargetList cycle_2{MakePositionTarget(11.0f, 0.0f, 0.0f),
-                                          MakePositionTarget(101.0f, 0.0f, 0.0f)};
+                                              MakePositionTarget(101.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_2{1U, 1U};
 
   const std::vector<std::uint64_t> keys_2 = engine.Associate(cycle_2, detected_2);
@@ -155,20 +155,24 @@ TEST(DataAssociationEngineTest, ExternalAssociationSeedMissingGaussianStateIsSki
   // Subsequent association should work without the invalid seed
   const session::RadarSceneTargetList targets{MakePositionTarget(20.5f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected{1U};
-  const signal::association::AssociationResult result = engine.AssociateDetections(targets, detected);
+  const signal::association::AssociationResult result =
+      engine.AssociateDetections(targets, detected);
   EXPECT_FALSE(result.used_external_association_seeds);
 }
 
 TEST(DataAssociationEngineTest, ExternalAssociationSeedWithReservedKeyIsRejected) {
   signal::association::DataAssociationEngine engine;
 
-  signal::tracking::AssociationTrackSeed seed = MakeExternalSeed(0u, Eigen::Vector3f(20.0f, 0.0f, 0.0f));
+  signal::tracking::AssociationTrackSeed seed =
+      MakeExternalSeed(0u, Eigen::Vector3f(20.0f, 0.0f, 0.0f));
 
-  EXPECT_FALSE(engine.SetAssociationSeeds(std::vector<signal::tracking::AssociationTrackSeed>(1, seed)));
+  EXPECT_FALSE(
+      engine.SetAssociationSeeds(std::vector<signal::tracking::AssociationTrackSeed>(1, seed)));
 
   const session::RadarSceneTargetList targets{MakePositionTarget(20.5f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected{1U};
-  const signal::association::AssociationResult result = engine.AssociateDetections(targets, detected);
+  const signal::association::AssociationResult result =
+      engine.AssociateDetections(targets, detected);
   ASSERT_EQ(result.target_keys.size(), 1u);
   EXPECT_FALSE(result.used_external_association_seeds);
   EXPECT_TRUE(result.matches.empty());
@@ -188,7 +192,8 @@ TEST(DataAssociationEngineTest, DuplicateExternalAssociationSeedKeysAreRejected)
 
   const session::RadarSceneTargetList targets{MakePositionTarget(20.5f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected{1U};
-  const signal::association::AssociationResult result = engine.AssociateDetections(targets, detected);
+  const signal::association::AssociationResult result =
+      engine.AssociateDetections(targets, detected);
   ASSERT_EQ(result.target_keys.size(), 1u);
   EXPECT_FALSE(result.used_external_association_seeds);
   EXPECT_TRUE(result.matches.empty());
@@ -199,7 +204,7 @@ TEST(DataAssociationEngineTest, HandlesCrossedMeasurementsByCostMinimization) {
   signal::association::DataAssociationEngine engine;
 
   const session::RadarSceneTargetList cycle_1{MakePositionTarget(20.0f, 0.0f, 0.0f),
-                                          MakePositionTarget(200.0f, 0.0f, 0.0f)};
+                                              MakePositionTarget(200.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_1{1U, 1U};
 
   const std::vector<std::uint64_t> keys_1 = engine.Associate(cycle_1, detected_1);
@@ -211,7 +216,7 @@ TEST(DataAssociationEngineTest, HandlesCrossedMeasurementsByCostMinimization) {
 
   // The measurement order is swapped, but position-space cost should preserve identity.
   const session::RadarSceneTargetList cycle_2{MakePositionTarget(201.0f, 0.0f, 0.0f),
-                                          MakePositionTarget(19.5f, 0.0f, 0.0f)};
+                                              MakePositionTarget(19.5f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_2{1U, 1U};
 
   const std::vector<std::uint64_t> keys_2 = engine.Associate(cycle_2, detected_2);
@@ -253,7 +258,7 @@ TEST(DataAssociationEngineTest, ReportsMatchesMissesAndUnassociatedTargets) {
       MakeExternalSeed(keys_1[0], Eigen::Vector3f(10.0f, 0.0f, 0.0f))});
 
   const session::RadarSceneTargetList cycle_2{MakePositionTarget(11.0f, 0.0f, 0.0f),
-                                          MakePositionTarget(200.0f, 0.0f, 0.0f)};
+                                              MakePositionTarget(200.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_2{1U, 1U};
 
   const signal::association::AssociationResult result =
@@ -323,7 +328,7 @@ TEST(DataAssociationEngineTest, UsesCartesianPositionByDefaultWhenPositionAvaila
   signal::association::DataAssociationEngine engine(config);
 
   const session::RadarSceneTargetList cycle_1{MakePositionTarget(10.0f, 0.0f, 0.0f),
-                                          MakePositionTarget(100.0f, 0.0f, 0.0f)};
+                                              MakePositionTarget(100.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_1{1U, 1U};
 
   const signal::association::AssociationResult first_result =
@@ -335,7 +340,7 @@ TEST(DataAssociationEngineTest, UsesCartesianPositionByDefaultWhenPositionAvaila
   EXPECT_TRUE(first_result.used_position_association);
 
   const session::RadarSceneTargetList cycle_2{MakePositionTarget(101.0f, 0.0f, 0.0f),
-                                          MakePositionTarget(11.0f, 0.0f, 0.0f)};
+                                              MakePositionTarget(11.0f, 0.0f, 0.0f)};
   const std::vector<std::uint8_t> detected_2{1U, 1U};
 
   engine.SetAssociationSeeds(std::vector<signal::tracking::AssociationTrackSeed>{
@@ -358,7 +363,8 @@ TEST(DataAssociationEngineTest, DetectedTargetWithoutExplicitPositionStillAssoci
   const session::RadarSceneTargetList cycle_1{MakeTarget(100.0f, 2.0f), MakeTarget(220.0f, 5.0f)};
   const std::vector<std::uint8_t> detected_1{1U, 1U};
 
-  const signal::association::AssociationResult result = engine.AssociateDetections(cycle_1, detected_1);
+  const signal::association::AssociationResult result =
+      engine.AssociateDetections(cycle_1, detected_1);
   EXPECT_EQ(result.target_keys.size(), 2u);
   EXPECT_NE(result.target_keys[0], 0u);
   EXPECT_NE(result.target_keys[1], 0u);
@@ -376,10 +382,10 @@ TEST(DataAssociationEngineTest, DetectedTargetWithCoordinatesAssociatesNormally)
   target.position_y = 1.0f;
   target.position_z = 0.0f;
 
-
   const session::RadarSceneTargetList cycle_1{target};
   const std::vector<std::uint8_t> detected_1{1U};
-  const signal::association::AssociationResult result = engine.AssociateDetections(cycle_1, detected_1);
+  const signal::association::AssociationResult result =
+      engine.AssociateDetections(cycle_1, detected_1);
   EXPECT_EQ(result.target_keys.size(), 1u);
   EXPECT_NE(result.target_keys[0], 0u);
   EXPECT_TRUE(result.matches.empty());
@@ -395,7 +401,8 @@ TEST(DataAssociationEngineTest, TargetsWithoutExplicitPositionParticipateInAssoc
 
   const session::RadarSceneTargetList cycle_1{invalid_target, valid_target};
   const std::vector<std::uint8_t> detected_1{1U, 1U};
-  const signal::association::AssociationResult result = engine.AssociateDetections(cycle_1, detected_1);
+  const signal::association::AssociationResult result =
+      engine.AssociateDetections(cycle_1, detected_1);
   ASSERT_EQ(result.target_keys.size(), 2u);
   EXPECT_NE(result.target_keys[0], 0u);
   EXPECT_NE(result.target_keys[1], 0u);
@@ -523,15 +530,16 @@ TEST(DataAssociationEngineTest, EmptyExternalSeedsKeepsAssociationStateless) {
   EXPECT_EQ(result.unassociated_target_indices[0], 0u);
 }
 
-
-TEST(DenseCostHypothesiserTest, NullDependenciesFailFast) {
+TEST(DenseCostHypothesiserTest, NullDependenciesReturnNoHypotheses) {
   const float max_cost = 9.0f;
-  const signal::association::MahalanobisDistanceMetric metric(40.0f, 8.0f, 10.0f);
 
-  EXPECT_DEATH_IF_SUPPORTED(
-      signal::association::DenseCostHypothesiser(
-          static_cast<signal::association::IDistanceMetric*>(nullptr), max_cost),
-      "requires distance metric");
+  const signal::association::DenseCostHypothesiser hypothesiser(
+      static_cast<signal::association::IDistanceMetric*>(nullptr), max_cost);
+  const std::vector<signal::association::AssociationHypothesis> hypotheses = hypothesiser.Generate(
+      signal::association::FeatureVectorList{Eigen::Vector3f(0.0f, 0.0f, 0.0f)},
+      signal::association::FeatureVectorList{Eigen::Vector3f(1.0f, 0.0f, 0.0f)});
+
+  EXPECT_TRUE(hypotheses.empty());
 }
 
 TEST(DenseCostHypothesiserTest, GeneratesOnlyGatedHypotheses) {
@@ -572,22 +580,22 @@ TEST(DenseCostHypothesiserTest, UsesTrackWiseInnovationCovarianceForFullMahalano
   EXPECT_NEAR(accepted[0].cost, 1.0f, 1e-3f);
 }
 
-TEST(DenseCostHypothesiserTest, MismatchedTrackWiseInnovationCovarianceFailsFast) {
+TEST(DenseCostHypothesiserTest, MismatchedTrackWiseInnovationCovarianceReturnsNoHypotheses) {
   signal::association::FullMahalanobisDistanceMetric metric(Eigen::Matrix3f::Identity());
   const float max_cost = 1.5f;
   const signal::association::DenseCostHypothesiser hypothesiser(&metric, max_cost);
 
-  const signal::association::FeatureVectorList predicted_tracks{
-      Eigen::Vector3f(0.0f, 0.0f, 0.0f), Eigen::Vector3f(1.0f, 0.0f, 0.0f)};
+  const signal::association::FeatureVectorList predicted_tracks{Eigen::Vector3f(0.0f, 0.0f, 0.0f),
+                                                                Eigen::Vector3f(1.0f, 0.0f, 0.0f)};
   const signal::association::FeatureVectorList measurements{Eigen::Vector3f(2.0f, 0.0f, 0.0f)};
 
-  EXPECT_DEATH_IF_SUPPORTED(
-      hypothesiser.Generate(predicted_tracks, measurements,
-                            std::vector<Eigen::Matrix3f>(1, Eigen::Matrix3f::Identity())),
-      "innovation_covariances size must match predicted_tracks size");
+  const std::vector<signal::association::AssociationHypothesis> hypotheses = hypothesiser.Generate(
+      predicted_tracks, measurements, std::vector<Eigen::Matrix3f>(1, Eigen::Matrix3f::Identity()));
+
+  EXPECT_TRUE(hypotheses.empty());
 }
 
-TEST(DenseCostHypothesiserTest, ConstMetricRejectsDynamicInnovationCovariance) {
+TEST(DenseCostHypothesiserTest, ConstMetricDynamicInnovationCovarianceReturnsNoHypotheses) {
   const signal::association::FullMahalanobisDistanceMetric metric(Eigen::Matrix3f::Identity());
   const float max_cost = 1.5f;
   const signal::association::DenseCostHypothesiser hypothesiser(&metric, max_cost);
@@ -595,22 +603,21 @@ TEST(DenseCostHypothesiserTest, ConstMetricRejectsDynamicInnovationCovariance) {
   const signal::association::FeatureVectorList predicted_tracks{Eigen::Vector3f(0.0f, 0.0f, 0.0f)};
   const signal::association::FeatureVectorList measurements{Eigen::Vector3f(2.0f, 0.0f, 0.0f)};
 
-  EXPECT_DEATH_IF_SUPPORTED(
-      hypothesiser.Generate(predicted_tracks, measurements,
-                            std::vector<Eigen::Matrix3f>(1, Eigen::Matrix3f::Identity())),
-      "requires FullMahalanobisDistanceMetric");
+  const std::vector<signal::association::AssociationHypothesis> hypotheses = hypothesiser.Generate(
+      predicted_tracks, measurements, std::vector<Eigen::Matrix3f>(1, Eigen::Matrix3f::Identity()));
+
+  EXPECT_TRUE(hypotheses.empty());
 }
 
-TEST(LapjvSolverTest, InvalidMatrixFailsFast) {
+TEST(LapjvSolverTest, InvalidMatrixReturnsNoAssignments) {
   const signal::association::LapjvSolver solver;
 
   Eigen::MatrixXf empty_matrix;
-  EXPECT_DEATH_IF_SUPPORTED(solver.Solve(empty_matrix), "requires a non-empty square cost matrix");
+  EXPECT_TRUE(solver.Solve(empty_matrix).empty());
 
   Eigen::MatrixXf non_square(1, 2);
   non_square << 1.0f, 2.0f;
-  EXPECT_DEATH_IF_SUPPORTED(solver.Solve(non_square),
-                            "requires a non-empty square cost matrix");
+  EXPECT_TRUE(solver.Solve(non_square).empty());
 }
 
 }  // namespace tests

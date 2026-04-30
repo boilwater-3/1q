@@ -44,12 +44,14 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
       return RejectPatch(current_state, true);
     }
     resolved.next_state.dwell_center_deg = patch.dwell_center_deg;
+    execution_config_changed = true;
   }
 
   if (patch.has_environment_runtime_config) {
     has_requested_update = true;
     if (patch.environment_runtime_config.has_scenario_config) {
-      resolved.next_state.environment_scenario_config = patch.environment_runtime_config.scenario_config;
+      resolved.next_state.environment_scenario_config =
+          patch.environment_runtime_config.scenario_config;
       resolved.environment_scenario_config_changed = true;
     }
     if (patch.environment_runtime_config.has_jamming_sensitivity_profile) {
@@ -127,8 +129,7 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
     next_execution_config.association.unassigned_cost =
         next_execution_config.association.policy.unassigned_cost;
     if (next_execution_config.lifecycle.engineering.enable_imm_lifecycle) {
-      next_execution_config.lifecycle.imm_model_noise_diff_coeffs =
-          std::vector<float>{0.5f, 4.0f};
+      next_execution_config.lifecycle.imm_model_noise_diff_coeffs = std::vector<float>{0.5f, 4.0f};
     } else {
       next_execution_config.lifecycle.imm_model_noise_diff_coeffs.clear();
       next_execution_config.lifecycle.imm_initial_weights.clear();
@@ -153,6 +154,14 @@ session::RadarSessionConfig MapExecutionToSession(
   config.policy.tracking = execution_config.tracking.policy;
   config.policy.lifecycle = execution_config.lifecycle.policy;
   config.policy.imm = execution_config.lifecycle.imm_policy;
+  return config;
+}
+
+session::RadarSessionConfig MapRuntimeStateToPipelineSession(
+    const RuntimeConfigState& runtime_state) {
+  session::RadarSessionConfig config = MapExecutionToSession(runtime_state.execution_config);
+  config.mission.orientation.scan_center_deg.az_deg += runtime_state.dwell_center_deg.az_deg;
+  config.mission.orientation.scan_center_deg.el_deg += runtime_state.dwell_center_deg.el_deg;
   return config;
 }
 

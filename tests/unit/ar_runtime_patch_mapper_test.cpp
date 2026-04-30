@@ -21,7 +21,8 @@ TEST(ArRuntimePatchMapperTest, MissionDomainAppliedBeforeLeafPatch) {
   RuntimeConfigState current_state;
   current_state.execution_config.detection.orientation.scan_center_deg.az_deg = 1.0f;
   current_state.execution_config.detection.orientation.scan_center_deg.el_deg = 2.0f;
-  current_state.execution_config.detection.orientation.work_sub_mode = model::RadarWorkSubMode::kTws;
+  current_state.execution_config.detection.orientation.work_sub_mode =
+      model::RadarWorkSubMode::kTws;
 
   RadarMissionConfig mission_patch;
   mission_patch.orientation.scan_center_deg.az_deg = 10.0f;
@@ -46,6 +47,34 @@ TEST(ArRuntimePatchMapperTest, MissionDomainAppliedBeforeLeafPatch) {
                   30.0f);
   EXPECT_FLOAT_EQ(resolved.next_state.execution_config.detection.orientation.scan_center_deg.el_deg,
                   40.0f);
+}
+
+TEST(ArRuntimePatchMapperTest, DwellPatchContributesToPipelinePointing) {
+  RuntimeConfigState current_state;
+  current_state.execution_config.detection.orientation.scan_center_deg.az_deg = 10.0f;
+  current_state.execution_config.detection.orientation.scan_center_deg.el_deg = 2.0f;
+
+  model::AzimuthElevationDeg dwell_center;
+  dwell_center.az_deg = 3.0f;
+  dwell_center.el_deg = -1.0f;
+  const RadarRuntimeConfigPatch patch =
+      RadarRuntimeConfigBuilder().WithDwellCenterDeg(dwell_center).Build();
+
+  const RuntimeConfigResolveResult resolved = ApplyRuntimePatch(current_state, patch);
+  const session::RadarSessionConfig pipeline_config =
+      MapRuntimeStateToPipelineSession(resolved.next_state);
+
+  EXPECT_TRUE(resolved.has_requested_update);
+  EXPECT_TRUE(resolved.is_valid);
+  EXPECT_TRUE(resolved.execution_config_changed);
+  EXPECT_FLOAT_EQ(resolved.next_state.dwell_center_deg.az_deg, 3.0f);
+  EXPECT_FLOAT_EQ(resolved.next_state.dwell_center_deg.el_deg, -1.0f);
+  EXPECT_FLOAT_EQ(pipeline_config.mission.orientation.scan_center_deg.az_deg, 13.0f);
+  EXPECT_FLOAT_EQ(pipeline_config.mission.orientation.scan_center_deg.el_deg, 1.0f);
+  EXPECT_FLOAT_EQ(resolved.next_state.execution_config.detection.orientation.scan_center_deg.az_deg,
+                  10.0f);
+  EXPECT_FLOAT_EQ(resolved.next_state.execution_config.detection.orientation.scan_center_deg.el_deg,
+                  2.0f);
 }
 
 TEST(ArRuntimePatchMapperTest, EnvironmentPatchUpdatesModelAndThreshold) {

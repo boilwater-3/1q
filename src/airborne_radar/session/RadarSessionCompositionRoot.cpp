@@ -3,8 +3,8 @@
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/extension/ISignalPipeline.h"
 #include "1q/airborne_radar/extension/RadarController.h"
-#include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
+#include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/session/MutableRadarContext.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 
@@ -31,12 +31,13 @@ RadarSessionComposition BuildCompositionBase(const RadarSessionConfig& config) {
   return composition;
 }
 
-void SyncPipelineConfig(RadarSessionComposition* composition) {
+bool SyncPipelineConfig(RadarSessionComposition* composition) {
   if (composition == nullptr || composition->signal_pipeline == nullptr) {
-    return;
+    return false;
   }
-  const session::RadarSessionConfig runtime_session_config = BuildRuntimeSessionConfig(*composition);
-  composition->signal_pipeline->UpdateConfig(runtime_session_config);
+  const session::RadarSessionConfig runtime_session_config =
+      BuildRuntimeSessionConfig(*composition);
+  return composition->signal_pipeline->UpdateConfig(runtime_session_config);
 }
 
 void SyncEnvironmentModelConfig(RadarSessionComposition* composition) {
@@ -61,7 +62,7 @@ RadarSessionComposition RadarSessionCompositionRoot::ComposeDefault(
     const RadarSessionConfig& config) {
   RadarSessionComposition composition = BuildCompositionBase(config);
   composition.owned_radar_context.reset(new MutableRadarContext());
-    const config::execution::InternalExecutionConfig runtime_execution_config =
+  const config::execution::InternalExecutionConfig runtime_execution_config =
       config::mapping::MapSessionToExecution(BuildRuntimeSessionConfig(composition));
   composition.owned_signal_pipeline.reset(
       new signal::pipeline::SignalPipeline(runtime_execution_config));
@@ -90,7 +91,7 @@ RadarSessionComposition RadarSessionCompositionRoot::ComposeWithSignalPipeline(
   composition.signal_pipeline = &signal_pipeline;
   composition.environment_service = composition.owned_environment_service.get();
   composition.controller = composition.owned_controller.get();
-  SyncPipelineConfig(&composition);
+  composition.pipeline_config_synced = SyncPipelineConfig(&composition);
   SyncEnvironmentJammingThreshold(&composition);
   return composition;
 }
@@ -99,7 +100,7 @@ RadarSessionComposition RadarSessionCompositionRoot::ComposeWithEnvironmentServi
     const RadarSessionConfig& config, environment::IEnvironmentService& environment_service) {
   RadarSessionComposition composition = BuildCompositionBase(config);
   composition.owned_radar_context.reset(new MutableRadarContext());
-    const config::execution::InternalExecutionConfig runtime_execution_config =
+  const config::execution::InternalExecutionConfig runtime_execution_config =
       config::mapping::MapSessionToExecution(BuildRuntimeSessionConfig(composition));
   composition.owned_signal_pipeline.reset(
       new signal::pipeline::SignalPipeline(runtime_execution_config));
@@ -121,15 +122,14 @@ RadarSessionComposition RadarSessionCompositionRoot::ComposeWithController(
   composition.signal_pipeline = &controller.GetSignalPipeline();
   composition.environment_service = &controller.GetEnvironmentService();
   composition.controller = &controller;
-  SyncPipelineConfig(&composition);
+  composition.pipeline_config_synced = SyncPipelineConfig(&composition);
   SyncEnvironmentModelConfig(&composition);
   SyncEnvironmentJammingThreshold(&composition);
   return composition;
 }
 
 RadarSessionComposition RadarSessionCompositionRoot::ComposeWithOverrideStrategy(
-    const RadarSessionConfig& config,
-    extension::IOverrideControlStrategy& override_strategy) {
+    const RadarSessionConfig& config, extension::IOverrideControlStrategy& override_strategy) {
   RadarSessionComposition composition = BuildCompositionBase(config);
   composition.owned_radar_context.reset(new MutableRadarContext());
   const config::execution::InternalExecutionConfig runtime_execution_config =

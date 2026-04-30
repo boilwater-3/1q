@@ -9,9 +9,9 @@
 #include "1q/airborne_radar/extension/ISignalPipeline.h"
 #include "1q/airborne_radar/extension/RadarController.h"
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
-#include "airborne_radar/session/RadarSessionCompositionRoot.h"
 #include "airborne_radar/config/mapping/RuntimePatchMapper.h"
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
+#include "airborne_radar/session/RadarSessionCompositionRoot.h"
 
 namespace airborne_radar {
 namespace session {
@@ -26,13 +26,13 @@ struct RadarSession::Impl {
         radar_context(*composition.radar_context),
         signal_pipeline(*composition.signal_pipeline),
         environment_service(*composition.environment_service),
-        controller(*composition.controller) {
+        controller(*composition.controller),
+        pipeline_config_synced(composition.pipeline_config_synced) {
     session::RadarSessionConfig initial_session_config;
     initial_session_config.hardware = composition.runtime_hardware;
     initial_session_config.mission = composition.runtime_mission;
     initial_session_config.policy = composition.runtime_policy;
-    runtime_state.execution_config =
-        config::mapping::MapSessionToExecution(initial_session_config);
+    runtime_state.execution_config = config::mapping::MapSessionToExecution(initial_session_config);
     runtime_state.environment_scenario_config = composition.runtime_environment_scenario_config;
     runtime_state.jamming_sensitivity_profile = composition.runtime_jamming_sensitivity_profile;
     pending_runtime_state = runtime_state;
@@ -91,22 +91,27 @@ struct RadarSession::Impl {
   /**
    * @brief 将已暂存的运行期配置提交到各子系统。
    *
-   * 失败时子系统已通过各自内部回滚保持一致，调用方无需额外处理。
+   * 失败时调用方负责恢复已捕获的子系统快照。
    */
   bool CommitPendingRuntimeConfig() {
-    if (!has_pending_runtime_update) {
+    if (!has_pending_runtime_update && pipeline_config_synced) {
       return true;
     }
 
+    const config::mapping::RuntimeConfigState& state_to_commit =
+        has_pending_runtime_update ? pending_runtime_state : runtime_state;
     const session::RadarSessionConfig pipeline_config =
-        config::mapping::MapExecutionToSession(pending_runtime_state.execution_config);
+        config::mapping::MapRuntimeStateToPipelineSession(state_to_commit);
     if (!signal_pipeline.UpdateConfig(pipeline_config)) {
       return false;
     }
-    environment_service.UpdateModelConfig(environment::BuildModelConfigFromScenario(
-        pending_runtime_state.environment_scenario_config));
-    environment_service.SetJammingSensitivityProfile(
-        pending_runtime_state.jamming_sensitivity_profile);
+    pipeline_config_synced = true;
+    if (has_pending_runtime_update) {
+      environment_service.UpdateModelConfig(environment::BuildModelConfigFromScenario(
+          pending_runtime_state.environment_scenario_config));
+      environment_service.SetJammingSensitivityProfile(
+          pending_runtime_state.jamming_sensitivity_profile);
+    }
     return true;
   }
 
@@ -121,6 +126,7 @@ struct RadarSession::Impl {
   config::mapping::RuntimeConfigState runtime_state{};
   config::mapping::RuntimeConfigState pending_runtime_state{};
   bool has_pending_runtime_update{false};
+  bool pipeline_config_synced{true};
   std::unique_ptr<extension::IRadarContext> owned_radar_context;
   std::unique_ptr<extension::ISignalPipeline> owned_signal_pipeline;
   std::unique_ptr<environment::IEnvironmentService> owned_environment_service;
@@ -162,11 +168,10 @@ RadarSession RadarSessionFactory::CreateWithController(const RadarSessionConfig&
 }
 
 RadarSession RadarSessionFactory::CreateWithOverrideStrategy(
-    const RadarSessionConfig& config,
-    extension::IOverrideControlStrategy& override_strategy) {
-  return RadarSession(std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(
-      internal::RadarSessionCompositionRoot::ComposeWithOverrideStrategy(config,
-                                                                         override_strategy))));
+    const RadarSessionConfig& config, extension::IOverrideControlStrategy& override_strategy) {
+  return RadarSession(std::unique_ptr<RadarSession::Impl>(
+      new RadarSession::Impl(internal::RadarSessionCompositionRoot::ComposeWithOverrideStrategy(
+          config, override_strategy))));
 }
 
 session::TrackOutputFrame RadarSession::Step(const RadarCycleInput& input) {
@@ -179,10 +184,13 @@ session::TrackOutputFrame RadarSession::Step(const RadarCycleInput& input) {
       impl_->radar_context.CaptureRuntimeState();
   const extension::SignalPipelineRuntimeState pipeline_state =
       impl_->signal_pipeline.CaptureRuntimeState();
+  const environment::EnvironmentServiceRuntimeState environment_state =
+      impl_->environment_service.CaptureRuntimeState();
 
   if (!impl_->CommitPendingRuntimeConfig()) {
     impl_->radar_context.RestoreRuntimeState(radar_context_state);
     impl_->signal_pipeline.RestoreRuntimeState(pipeline_state);
+    impl_->environment_service.RestoreRuntimeState(environment_state);
     return impl_->BuildOutputFrame();
   }
 
@@ -192,6 +200,7 @@ session::TrackOutputFrame RadarSession::Step(const RadarCycleInput& input) {
   if (!impl_->controller.ExecutedLatestCycle()) {
     impl_->radar_context.RestoreRuntimeState(radar_context_state);
     impl_->signal_pipeline.RestoreRuntimeState(pipeline_state);
+    impl_->environment_service.RestoreRuntimeState(environment_state);
     return impl_->BuildOutputFrame();
   }
 
@@ -199,8 +208,8 @@ session::TrackOutputFrame RadarSession::Step(const RadarCycleInput& input) {
   return impl_->BuildOutputFrame();
 }
 
-session::TrackOutputFrame RadarSession::Step(const RadarCycleInput& input,
-                                            const environment::EnvironmentSceneState& scene_state) {
+session::TrackOutputFrame RadarSession::Step(
+    const RadarCycleInput& input, const environment::EnvironmentSceneState& scene_state) {
   const ValidationIssueList issues = impl_->ValidateInput(input);
   if (HasValidationError(issues)) {
     return impl_->BuildOutputFrame();
@@ -247,11 +256,14 @@ RadarCycleResult RadarSession::StepWithResult(const RadarCycleInput& input) {
       impl_->radar_context.CaptureRuntimeState();
   const extension::SignalPipelineRuntimeState pipeline_state =
       impl_->signal_pipeline.CaptureRuntimeState();
+  const environment::EnvironmentServiceRuntimeState environment_state =
+      impl_->environment_service.CaptureRuntimeState();
 
   // 3. 若有待提交配置，先提交
   if (!impl_->CommitPendingRuntimeConfig()) {
     impl_->radar_context.RestoreRuntimeState(radar_context_state);
     impl_->signal_pipeline.RestoreRuntimeState(pipeline_state);
+    impl_->environment_service.RestoreRuntimeState(environment_state);
     return impl_->BuildExecutionAbortResult(
         extension::SignalCycleAbortReason::kRuntimePreparationFailed);
   }
@@ -265,8 +277,8 @@ RadarCycleResult RadarSession::StepWithResult(const RadarCycleInput& input) {
     // 此处回滚 CommitPendingRuntimeConfig 对 pipeline 的修改
     impl_->radar_context.RestoreRuntimeState(radar_context_state);
     impl_->signal_pipeline.RestoreRuntimeState(pipeline_state);
-    return impl_->BuildExecutionAbortResult(
-        impl_->controller.GetLastSignalCycleAbortReason());
+    impl_->environment_service.RestoreRuntimeState(environment_state);
+    return impl_->BuildExecutionAbortResult(impl_->controller.GetLastSignalCycleAbortReason());
   }
 
   impl_->FinalizePendingRuntimeConfig();
@@ -309,8 +321,7 @@ RadarCycleResult RadarSession::StepWithResult(
     impl_->radar_context.RestoreRuntimeState(radar_context_state);
     impl_->signal_pipeline.RestoreRuntimeState(pipeline_state);
     impl_->environment_service.RestoreRuntimeState(environment_state);
-    return impl_->BuildExecutionAbortResult(
-        impl_->controller.GetLastSignalCycleAbortReason());
+    return impl_->BuildExecutionAbortResult(impl_->controller.GetLastSignalCycleAbortReason());
   }
 
   impl_->FinalizePendingRuntimeConfig();

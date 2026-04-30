@@ -5,8 +5,6 @@
 
 #include <gtest/gtest.h>
 
-#include "1q/coordinate/position_transform.h"
-
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -19,13 +17,14 @@
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/extension/RadarController.h"
-#include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/airborne_radar/session/RadarExternalInputAdapter.h"
 #include "1q/airborne_radar/session/RadarInputValidation.h"
 #include "1q/airborne_radar/session/RadarSceneTargetUtils.h"
+#include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "1q/airborne_radar/session/RadarSession.h"
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
+#include "1q/coordinate/position_transform.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/session/MutableRadarContext.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
@@ -69,23 +68,23 @@ SceneTarget MakeTargetFromCartesian(std::uint64_t external_target_id, float posi
                                     float velocity_y, float velocity_z, float rcs,
                                     int swerling_type = 0) {
   return CloneSceneTarget(session::MakeSceneTarget(external_target_id, position_x, position_y,
-                                                position_z, velocity_x, velocity_y, velocity_z,
-                                                rcs, swerling_type));
+                                                   position_z, velocity_x, velocity_y, velocity_z,
+                                                   rcs, swerling_type));
 }
 
 SceneTarget MakeGroundTarget(std::uint64_t external_target_id, float position_x, float position_y,
-                             float rcs = 1.0f, float velocity_x = 0.0f,
-                             float velocity_y = 0.0f, int swerling_type = 0) {
-  return CloneSceneTarget(session::MakeGroundSceneTarget(external_target_id, position_x, position_y,
-                                                      rcs, velocity_x, velocity_y, swerling_type));
+                             float rcs = 1.0f, float velocity_x = 0.0f, float velocity_y = 0.0f,
+                             int swerling_type = 0) {
+  return CloneSceneTarget(session::MakeGroundSceneTarget(
+      external_target_id, position_x, position_y, rcs, velocity_x, velocity_y, swerling_type));
 }
 
 SceneTarget MakeAirTarget(std::uint64_t external_target_id, float position_x, float position_y,
-                          float position_z, float velocity_x, float velocity_y,
-                          float velocity_z, float rcs = 1.0f, int swerling_type = 0) {
+                          float position_z, float velocity_x, float velocity_y, float velocity_z,
+                          float rcs = 1.0f, int swerling_type = 0) {
   return CloneSceneTarget(session::MakeAirSceneTarget(external_target_id, position_x, position_y,
-                                                   position_z, velocity_x, velocity_y, velocity_z,
-                                                   rcs, swerling_type));
+                                                      position_z, velocity_x, velocity_y,
+                                                      velocity_z, rcs, swerling_type));
 }
 
 void NormalizeTargetGeometry(SceneTarget* target) {
@@ -181,7 +180,8 @@ session::RadarSessionConfig MakeConvenienceSessionConfig() {
       .Build();
 }
 
-session::RadarCycleInput MakeCycleInput(session::RadarSceneTargetList targets, float dt_sec = 1.0f) {
+session::RadarCycleInput MakeCycleInput(session::RadarSceneTargetList targets,
+                                        float dt_sec = 1.0f) {
   session::RadarCycleInput input;
   input.scene = ToSceneTargets(targets);
   input.dt_sec = dt_sec;
@@ -236,16 +236,15 @@ bool ContainsIssueCode(const std::vector<session::ValidationIssue>& issues,
 }
 
 model::TrackStateSnapshot MakeTrackStateSnapshot(float velocity_x, float velocity_y,
-                                                 float velocity_z, float rcs,
-                                                 bool jamming_detected,
+                                                 float velocity_z, float rcs, bool jamming_detected,
                                                  std::uint64_t external_target_id,
                                                  std::uint64_t association_key) {
   model::TrackStateSnapshot track;
   track.velocity_x = velocity_x;
   track.velocity_y = velocity_y;
   track.velocity_z = velocity_z;
-  track.speed = std::sqrt(velocity_x * velocity_x + velocity_y * velocity_y +
-                          velocity_z * velocity_z);
+  track.speed =
+      std::sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
   track.rcs = rcs;
   track.jamming_detected = jamming_detected;
   track.external_target_id = external_target_id;
@@ -569,7 +568,8 @@ TEST(PublicApiConvenienceTest, SceneTargetUtilsBuildCartesianGroundAndAirTargets
   EXPECT_NEAR(SpeedOf(cartesian_target), std::sqrt(105.0f), 1e-5f);
   EXPECT_EQ(cartesian_target.target_swerling_type, 2);
 
-  const session::RadarSceneTarget ground_target = model::MakeGroundTarget(202U, 20.0f, -15.0f, 0.8f);
+  const session::RadarSceneTarget ground_target =
+      model::MakeGroundTarget(202U, 20.0f, -15.0f, 0.8f);
   EXPECT_NEAR(ground_target.position_z, 0.0f, 1e-5f);
   EXPECT_NEAR(ground_target.velocity_z, 0.0f, 1e-5f);
   EXPECT_NEAR(ground_target.range_m, 25.0f, 1e-5f);
@@ -662,8 +662,8 @@ TEST(PublicApiConvenienceTest, SceneTargetUtilsBuildsTargetFromExternalCoordinat
 
   session::RadarLocalFrameReference reference;
   oneq::foundation::PoseState platform_pose;
-  ASSERT_TRUE(session::TryMakeRadarPoseFromExternalKinematics(pose_input, &reference,
-                                                               &platform_pose));
+  ASSERT_TRUE(
+      session::TryMakeRadarPoseFromExternalKinematics(pose_input, &reference, &platform_pose));
 
   session::TargetExternalKinematics input;
   input.target_position_ecef_m = target_ecef;
@@ -706,8 +706,8 @@ TEST(PublicApiConvenienceTest, SceneTargetUtilsBuildsTargetFromExternalKinematic
 
   session::RadarLocalFrameReference reference;
   oneq::foundation::PoseState platform_pose;
-  ASSERT_TRUE(session::TryMakeRadarPoseFromExternalKinematics(pose_input, &reference,
-                                                               &platform_pose));
+  ASSERT_TRUE(
+      session::TryMakeRadarPoseFromExternalKinematics(pose_input, &reference, &platform_pose));
 
   session::TargetExternalKinematics input;
   input.target_position_ecef_m = target_ecef;
@@ -748,8 +748,8 @@ TEST(PublicApiConvenienceTest, TwoStepExternalKinematicsProducesStableTarget) {
 
   session::RadarLocalFrameReference reference;
   oneq::foundation::PoseState platform_pose;
-  ASSERT_TRUE(session::TryMakeRadarPoseFromExternalKinematics(pose_input, &reference,
-                                                               &platform_pose));
+  ASSERT_TRUE(
+      session::TryMakeRadarPoseFromExternalKinematics(pose_input, &reference, &platform_pose));
 
   session::TargetExternalKinematics target_input;
   target_input.target_position_ecef_m = target_ecef;
@@ -760,12 +760,12 @@ TEST(PublicApiConvenienceTest, TwoStepExternalKinematicsProducesStableTarget) {
   target_input.swerling_type = 0;
 
   session::RadarSceneTarget target_1;
-  ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
-      600U, target_input, reference, platform_pose.velocity_mps, &target_1));
+  ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(600U, target_input, reference,
+                                                           platform_pose.velocity_mps, &target_1));
 
   session::RadarSceneTarget target_2;
-  ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
-      600U, target_input, reference, platform_pose.velocity_mps, &target_2));
+  ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(600U, target_input, reference,
+                                                           platform_pose.velocity_mps, &target_2));
 
   EXPECT_EQ(target_1.external_target_id, target_2.external_target_id);
   EXPECT_NEAR(target_1.position_x, target_2.position_x, 1.0e-6f);
@@ -790,8 +790,8 @@ TEST(PublicApiConvenienceTest, TwoStepApiPlatformPoseFeedsDirectlyIntoCycleInput
 
   session::RadarLocalFrameReference reference;
   oneq::foundation::PoseState platform_pose;
-  ASSERT_TRUE(session::TryMakeRadarPoseFromExternalKinematics(pose_input, &reference,
-                                                               &platform_pose));
+  ASSERT_TRUE(
+      session::TryMakeRadarPoseFromExternalKinematics(pose_input, &reference, &platform_pose));
 
   // platform_pose 可直接赋给 RadarCycleInput::platform_pose，无需手动复制姿态
   session::RadarCycleInput cycle_input;
@@ -859,14 +859,10 @@ TEST(PublicApiConvenienceTest, EnvironmentSceneBuilderJammerHelpersPopulateTyped
 
 TEST(PublicApiConvenienceTest, TrackOutputQueriesSupportUniqueDuplicateAndJammingSearch) {
   session::TrackOutputFrame frame;
-  frame.tracks.push_back(
-      MakeTrackStateSnapshot(10.0f, 0.0f, 0.0f, 1.0f, false, 401U, 1U));
-  frame.tracks.push_back(
-      MakeTrackStateSnapshot(20.0f, 0.0f, 0.0f, 1.0f, true, 402U, 2U));
-  frame.tracks.push_back(
-      MakeTrackStateSnapshot(21.0f, 0.0f, 0.0f, 1.1f, false, 402U, 3U));
-  frame.tracks.push_back(
-      MakeTrackStateSnapshot(8.0f, 0.0f, 0.0f, 0.7f, true, 0U, 4U));
+  frame.tracks.push_back(MakeTrackStateSnapshot(10.0f, 0.0f, 0.0f, 1.0f, false, 401U, 1U));
+  frame.tracks.push_back(MakeTrackStateSnapshot(20.0f, 0.0f, 0.0f, 1.0f, true, 402U, 2U));
+  frame.tracks.push_back(MakeTrackStateSnapshot(21.0f, 0.0f, 0.0f, 1.1f, false, 402U, 3U));
+  frame.tracks.push_back(MakeTrackStateSnapshot(8.0f, 0.0f, 0.0f, 0.7f, true, 0U, 4U));
 
   const auto track_map = session::BuildTrackMapByExternalTargetId(frame);
   EXPECT_EQ(track_map.size(), 2U);
@@ -889,8 +885,7 @@ TEST(PublicApiConvenienceTest, TrackOutputQueriesSupportAssociationKeyStatusAndJ
   model::TrackStateSnapshot confirmed =
       MakeTrackStateSnapshot(20.0f, 0.0f, 0.0f, 1.0f, false, 410U, 11U);
   confirmed.status = model::TrackStatus::kConfirmed;
-  model::TrackStateSnapshot lost =
-      MakeTrackStateSnapshot(5.0f, 0.0f, 0.0f, 0.8f, false, 411U, 12U);
+  model::TrackStateSnapshot lost = MakeTrackStateSnapshot(5.0f, 0.0f, 0.0f, 0.8f, false, 411U, 12U);
   lost.status = model::TrackStatus::kLost;
   model::TrackStateSnapshot jammed =
       MakeTrackStateSnapshot(18.0f, 0.0f, 0.0f, 1.2f, true, 412U, 13U);
@@ -1027,7 +1022,8 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
   const session::TrackOutputFrame manual_frame = controller.GetLatestTrackOutputFrame();
 
   EXPECT_EQ(session_frame.tracks.size(), manual_frame.tracks.size());
-  EXPECT_EQ(session::CountTracksByStatus(session_frame, model::TrackStatus::kConfirmed), session::CountTracksByStatus(manual_frame, model::TrackStatus::kConfirmed));
+  EXPECT_EQ(session::CountTracksByStatus(session_frame, model::TrackStatus::kConfirmed),
+            session::CountTracksByStatus(manual_frame, model::TrackStatus::kConfirmed));
   EXPECT_EQ(session::CountJammingTracks(session_frame), session::CountJammingTracks(manual_frame));
 
   const auto session_track_map = session::BuildTrackMapByExternalTargetId(session_frame);
@@ -1093,8 +1089,7 @@ TEST(PublicApiConvenienceTest,
   EXPECT_TRUE(duplicate_result.reused_previous_track_output);
   EXPECT_EQ(duplicate_result.track_output_frame.cycle_index, frame_1.cycle_index);
   EXPECT_EQ(duplicate_result.track_output_frame.batch_id, frame_1.batch_id);
-  EXPECT_EQ(duplicate_result.track_output_frame.tracks.size(),
-            frame_1.tracks.size());
+  EXPECT_EQ(duplicate_result.track_output_frame.tracks.size(), frame_1.tracks.size());
 
   session::RadarCycleInput cycle_2 = cycle_1;
   cycle_2.dt_sec = -1.0f;
@@ -1248,8 +1243,9 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultAggregatesCurrentCycleO
   const session::RadarCycleResult result = session.StepWithResult(input);
 
   EXPECT_GT(result.track_output_frame.tracks.size(), 0U);
-  EXPECT_GE(result.track_output_frame.tracks.size(),
-            session::CountTracksByStatus(result.track_output_frame, model::TrackStatus::kConfirmed));
+  EXPECT_GE(
+      result.track_output_frame.tracks.size(),
+      session::CountTracksByStatus(result.track_output_frame, model::TrackStatus::kConfirmed));
   EXPECT_TRUE(result.executed_this_cycle);
   EXPECT_FALSE(result.reused_previous_track_output);
   EXPECT_EQ(result.submitted_commands.size(), session.GetSubmittedCommands().size());
@@ -1362,6 +1358,71 @@ TEST(PublicApiConvenienceTest,
   EXPECT_EQ(committed.track_output_frame.batch_id, baseline.track_output_frame.batch_id + 1U);
 }
 
+TEST(PublicApiConvenienceTest, RadarSessionRollsBackEnvironmentRuntimePatchWhenNoSceneStepAborts) {
+  RecordingRadarContext radar_context;
+  RecordingSignalPipeline signal_pipeline;
+  RecordingEnvironmentService environment_service;
+  NoopDecisionEngine decision_engine;
+  extension::RadarController controller(radar_context, signal_pipeline, decision_engine,
+                                        environment_service);
+  session::RadarSession session = session::RadarSessionFactory::CreateWithController(
+      MakeConvenienceSessionConfig(), controller);
+
+  const session::RadarCycleInput baseline_input = MakeCycleInput(session::RadarSceneTargetList{
+      model::MakeAirTarget(965U, 180.0f, 0.0f, 12.0f, 70.0f, 0.0f, 0.0f, 1.0f),
+  });
+  const session::RadarCycleResult baseline = session.StepWithResult(baseline_input);
+  ASSERT_TRUE(baseline.executed_this_cycle);
+
+  session.ApplyRuntimeConfig(
+      config::RadarRuntimeConfigBuilder()
+          .WithJammingSensitivityProfile(environment::JammingSensitivityProfile::kStrict)
+          .Build());
+
+  signal_pipeline.SetShouldExecute(false);
+  const session::RadarCycleResult failed = session.StepWithResult(baseline_input);
+  EXPECT_FALSE(failed.executed_this_cycle);
+  EXPECT_EQ(failed.signal_cycle_abort_reason,
+            extension::SignalCycleAbortReason::kRuntimePreparationFailed);
+  EXPECT_EQ(environment_service.jamming_sensitivity_profile(),
+            environment::JammingSensitivityProfile::kBalanced);
+
+  signal_pipeline.SetShouldExecute(true);
+  const session::RadarCycleResult committed = session.StepWithResult(baseline_input);
+  EXPECT_TRUE(committed.executed_this_cycle);
+  EXPECT_EQ(environment_service.jamming_sensitivity_profile(),
+            environment::JammingSensitivityProfile::kStrict);
+}
+
+TEST(PublicApiConvenienceTest, RadarSessionRetriesInitialInjectedPipelineConfigAfterRejection) {
+  RecordingRadarContext radar_context;
+  RecordingSignalPipeline signal_pipeline;
+  RecordingEnvironmentService environment_service;
+  NoopDecisionEngine decision_engine;
+  signal_pipeline.SetShouldAcceptUpdates(false);
+  extension::RadarController controller(radar_context, signal_pipeline, decision_engine,
+                                        environment_service);
+  session::RadarSession session = session::RadarSessionFactory::CreateWithController(
+      MakeConvenienceSessionConfig(), controller);
+
+  const session::RadarCycleInput input = MakeCycleInput(session::RadarSceneTargetList{
+      model::MakeAirTarget(966U, 160.0f, 0.0f, 10.0f, 60.0f, 0.0f, 0.0f, 1.0f),
+  });
+
+  const session::RadarCycleResult rejected = session.StepWithResult(input);
+  EXPECT_FALSE(rejected.executed_this_cycle);
+  EXPECT_EQ(rejected.signal_cycle_abort_reason,
+            extension::SignalCycleAbortReason::kRuntimePreparationFailed);
+  EXPECT_EQ(signal_pipeline.run_cycle_count(), 0U);
+
+  signal_pipeline.SetShouldAcceptUpdates(true);
+  const session::RadarCycleResult committed = session.StepWithResult(input);
+  EXPECT_TRUE(committed.executed_this_cycle);
+  EXPECT_EQ(signal_pipeline.run_cycle_count(), 1U);
+  EXPECT_FLOAT_EQ(signal_pipeline.config().hardware.detection.min_detection_margin_db,
+                  MakeConvenienceSessionConfig().hardware.detection.min_detection_margin_db);
+}
+
 TEST(PublicApiConvenienceTest,
      RadarSessionRuntimePatchPreservesKnownTrackContinuityAcrossSuccessfulCycles) {
   session::RadarSession session =
@@ -1372,7 +1433,8 @@ TEST(PublicApiConvenienceTest,
           model::MakeAirTarget(970U, 180.0f, 1.5f, 12.0f, 65.0f, 0.0f, 0.0f, 1.0f),
       }));
   ASSERT_TRUE(cycle_1.executed_this_cycle);
-  ASSERT_EQ(session::CountTracksByStatus(cycle_1.track_output_frame, model::TrackStatus::kConfirmed), 1U);
+  ASSERT_EQ(
+      session::CountTracksByStatus(cycle_1.track_output_frame, model::TrackStatus::kConfirmed), 1U);
   ASSERT_EQ(cycle_1.track_output_frame.tracks.size(), 1U);
   const std::uint64_t baseline_key = cycle_1.track_output_frame.tracks[0].association_key;
   ASSERT_NE(baseline_key, 0U);
@@ -1386,7 +1448,8 @@ TEST(PublicApiConvenienceTest,
           model::MakeAirTarget(970U, 182.0f, 1.7f, 12.0f, 65.0f, 0.0f, 0.0f, 1.0f),
       }));
   ASSERT_TRUE(cycle_2.executed_this_cycle);
-  ASSERT_GE(session::CountTracksByStatus(cycle_2.track_output_frame, model::TrackStatus::kConfirmed), 1U);
+  ASSERT_GE(
+      session::CountTracksByStatus(cycle_2.track_output_frame, model::TrackStatus::kConfirmed), 1U);
   bool retained_known_track = false;
   for (std::size_t i = 0; i < cycle_2.track_output_frame.tracks.size(); ++i) {
     const model::TrackStateSnapshot& track = cycle_2.track_output_frame.tracks[i];

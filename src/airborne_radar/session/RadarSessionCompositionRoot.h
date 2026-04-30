@@ -28,6 +28,7 @@ struct RadarSessionComposition {
   extension::ISignalPipeline* signal_pipeline{nullptr};
   environment::IEnvironmentService* environment_service{nullptr};
   extension::RadarController* controller{nullptr};
+  bool pipeline_config_synced{true};
 };
 
 class RadarSessionCompositionRoot {
@@ -50,8 +51,7 @@ class RadarSessionCompositionRoot {
    * 注入后内部 LPI/ECCM evaluator 将被跳过。
    */
   static RadarSessionComposition ComposeWithOverrideStrategy(
-      const RadarSessionConfig& config,
-      extension::IOverrideControlStrategy& override_strategy);
+      const RadarSessionConfig& config, extension::IOverrideControlStrategy& override_strategy);
 };
 
 }  // namespace internal
