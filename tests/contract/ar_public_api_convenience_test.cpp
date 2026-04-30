@@ -180,9 +180,11 @@ session::RadarSessionConfig MakeConvenienceSessionConfig() {
       .Build();
 }
 
-session::RadarCycleInput MakeCycleInput(session::RadarSceneTargetList targets,
-                                        float dt_sec = 1.0f) {
+session::RadarCycleInput MakeCycleInput(session::RadarSceneTargetList targets, float dt_sec = 1.0f,
+                                        std::uint32_t cycle_index = 0U) {
+  static std::uint32_t next_cycle_index = 1U;
   session::RadarCycleInput input;
+  input.cycle_index = cycle_index == 0U ? next_cycle_index++ : cycle_index;
   input.scene = ToSceneTargets(targets);
   input.dt_sec = dt_sec;
   input.platform_pose.attitude_deg.yaw_deg = 5.0f;
@@ -256,6 +258,7 @@ class RecordingRadarContext : public extension::IRadarContext {
  public:
   void BeginCycle(const session::RadarCycleInput& input) override {
     ++begin_cycle_count_;
+    cycle_index_ = input.cycle_index;
     scene_targets_ = input.scene;
     platform_attitude_deg_.yaw_deg = input.platform_pose.attitude_deg.yaw_deg;
     platform_attitude_deg_.pitch_deg = input.platform_pose.attitude_deg.pitch_deg;
@@ -269,6 +272,8 @@ class RecordingRadarContext : public extension::IRadarContext {
   model::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_deg_; }
 
   float GetCycleDeltaTimeSec() const override { return cycle_dt_sec_; }
+
+  std::uint32_t GetCycleIndex() const override { return cycle_index_; }
 
   void SubmitControlCommand(extension::control::RadarCommand cmd) override {
     submitted_commands_.push_back(std::move(cmd));
@@ -294,6 +299,7 @@ class RecordingRadarContext : public extension::IRadarContext {
     state.scene_targets = scene_targets_;
     state.platform_pose.attitude_deg = platform_attitude_deg_;
     state.cycle_dt_sec = cycle_dt_sec_;
+    state.cycle_index = cycle_index_;
     state.submitted_commands = submitted_commands_;
     state.latest_control_profile = latest_control_profile_;
     state.has_latest_control_profile = has_latest_control_profile_;
@@ -304,6 +310,7 @@ class RecordingRadarContext : public extension::IRadarContext {
     scene_targets_ = state.scene_targets;
     platform_attitude_deg_ = state.platform_pose.attitude_deg;
     cycle_dt_sec_ = state.cycle_dt_sec;
+    cycle_index_ = state.cycle_index;
     submitted_commands_ = state.submitted_commands;
     latest_control_profile_ = state.latest_control_profile;
     has_latest_control_profile_ = state.has_latest_control_profile;
@@ -315,6 +322,7 @@ class RecordingRadarContext : public extension::IRadarContext {
   session::RadarSceneTargetList scene_targets_{};
   model::PlatformAttitudeDeg platform_attitude_deg_{};
   float cycle_dt_sec_{1.0f};
+  std::uint32_t cycle_index_{0U};
   std::vector<extension::control::RadarCommand> submitted_commands_{};
   extension::control::RadarControlProfile latest_control_profile_{};
   bool has_latest_control_profile_{false};
@@ -1259,6 +1267,22 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultAggregatesCurrentCycleO
             session.GetLastAssociationQualityMetrics().detection_count);
 }
 
+TEST(PublicApiConvenienceTest, RadarSessionUsesInputCycleIndexForOutputFrame) {
+  session::RadarSession session = session::RadarSessionFactory::Create(
+      config::presets::MakeDetectionMissionRadarSessionConfig());
+
+  const session::RadarCycleInput input = MakeCycleInput(
+      session::RadarSceneTargetList{
+          model::MakeAirTarget(949U, 210.0f, -1.0f, 16.0f, 72.0f, 0.1f, 0.0f, 1.0f),
+      },
+      1.0f, 77U);
+
+  const session::RadarCycleResult result = session.StepWithResult(input);
+
+  ASSERT_TRUE(result.executed_this_cycle);
+  EXPECT_EQ(result.track_output_frame.cycle_index, 77U);
+}
+
 TEST(PublicApiConvenienceTest, RadarSessionReusesPreviousOutputWhenSignalPipelineAborts) {
   RecordingRadarContext radar_context;
   RecordingSignalPipeline signal_pipeline;
@@ -1347,7 +1371,9 @@ TEST(PublicApiConvenienceTest,
   EXPECT_TRUE(environment_service.GetPendingSceneState().jammer_emitters.empty());
 
   signal_pipeline.SetShouldExecute(true);
-  const session::RadarCycleResult committed = session.StepWithResult(baseline_input, jammed_scene);
+  session::RadarCycleInput committed_input = baseline_input;
+  committed_input.cycle_index = baseline.track_output_frame.cycle_index + 1U;
+  const session::RadarCycleResult committed = session.StepWithResult(committed_input, jammed_scene);
   EXPECT_TRUE(committed.executed_this_cycle);
   EXPECT_EQ(signal_pipeline.config().mission.orientation.work_sub_mode,
             model::RadarWorkSubMode::kTas);

@@ -6,6 +6,8 @@
 #ifndef AIRBORNE_RADAR_EXTENSION_I_RADAR_CONTEXT_READER_H_
 #define AIRBORNE_RADAR_EXTENSION_I_RADAR_CONTEXT_READER_H_
 
+#include <cstdint>
+
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/api.hpp"
@@ -28,6 +30,9 @@ class ONEQ_API IRadarContextReader {
 
   /** @brief 获取当前周期时间步长。 */
   virtual float GetCycleDeltaTimeSec() const = 0;
+
+  /** @brief 获取当前输入周期号。 */
+  virtual std::uint32_t GetCycleIndex() const = 0;
 };
 
 }  // namespace extension

@@ -4,18 +4,18 @@
 #include <functional>
 #include <memory>
 
+#include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/extension/IOverrideControlStrategy.h"
+#include "1q/airborne_radar/extension/IRadarContext.h"
+#include "1q/airborne_radar/extension/ISignalPipeline.h"
+#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
-#include "1q/airborne_radar/extension/IRadarContext.h"
-#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
-#include "1q/airborne_radar/environment/IEnvironmentService.h"
-#include "1q/airborne_radar/extension/ISignalPipeline.h"
+#include "airborne_radar/decision/ControlReducer.h"
+#include "airborne_radar/decision/TacticalCoordinator.h"
 #include "airborne_radar/runtime/ControlCommandMapper.h"
 #include "airborne_radar/runtime/CycleTelemetryLogger.h"
 #include "airborne_radar/runtime/RadarCycleOrchestrator.h"
-#include "airborne_radar/decision/ControlReducer.h"
-#include "airborne_radar/decision/TacticalCoordinator.h"
 #include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
@@ -38,7 +38,6 @@ struct CycleSnapshot {
   session::TrackOutputFrame previous_output{};
   bool had_previous_output{false};
   std::uint64_t previous_batch_id{0U};
-  std::uint32_t previous_cycle_index{0U};
   extension::SignalPipelineRuntimeState pipeline_state{};
 };
 
@@ -62,8 +61,7 @@ namespace {
 OwnedDecisionComponents BuildDecisionComponents(
     extension::IOverrideControlStrategy* override_strategy) {
   OwnedDecisionComponents components;
-  components.decision_engine.reset(
-      new decision::TacticalCoordinator(nullptr, override_strategy));
+  components.decision_engine.reset(new decision::TacticalCoordinator(nullptr, override_strategy));
   components.tactical_state_store.reset(new extension::TacticalStateStore());
   components.control_reducer.reset(new decision::ControlReducer());
   return components;
@@ -95,7 +93,6 @@ struct RadarController::Impl {
   oneq::internal::runtime::RuntimeCycleState<session::TrackOutputFrame,
                                              session::ValidationIssueList>
       runtime_state{};
-  std::uint32_t cycle_index{1};
   bool last_cycle_executed{false};
   bool last_cycle_reused_previous_output{false};
   extension::SignalCycleAbortReason last_signal_abort_reason{
@@ -112,8 +109,7 @@ struct RadarController::Impl {
     decision_engine = owned_decision_components.decision_engine.get();
     // 显式 upcast 表明 IRadarContext 同时满足两个写入接口
     command_mapper.reset(new extension::ControlCommandMapper(
-        *owned_decision_components.control_reducer,
-        static_cast<extension::IRadarCommandBus&>(ctx),
+        *owned_decision_components.control_reducer, static_cast<extension::IRadarCommandBus&>(ctx),
         static_cast<extension::IRadarControlProfileStore&>(ctx)));
     cycle_orchestrator.reset(new extension::RadarCycleOrchestrator(
         sig, decision_engine, owned_decision_components.tactical_state_store.get(), env));
@@ -121,8 +117,7 @@ struct RadarController::Impl {
 
   /** @brief 构造使用外部决策引擎的控制器。 */
   Impl(extension::IRadarContext& ctx, extension::ISignalPipeline& sig,
-       extension::ITacticalDecisionEngine& ext_engine,
-       environment::IEnvironmentService& env)
+       extension::ITacticalDecisionEngine& ext_engine, environment::IEnvironmentService& env)
       : radar_context(ctx),
         signal_pipeline(sig),
         environment_service(env),
@@ -131,8 +126,7 @@ struct RadarController::Impl {
     owned_decision_components.tactical_state_store.reset(new extension::TacticalStateStore());
     owned_decision_components.control_reducer.reset(new decision::ControlReducer());
     command_mapper.reset(new extension::ControlCommandMapper(
-        *owned_decision_components.control_reducer,
-        static_cast<extension::IRadarCommandBus&>(ctx),
+        *owned_decision_components.control_reducer, static_cast<extension::IRadarCommandBus&>(ctx),
         static_cast<extension::IRadarControlProfileStore&>(ctx)));
     cycle_orchestrator.reset(new extension::RadarCycleOrchestrator(
         sig, decision_engine, owned_decision_components.tactical_state_store.get(), env));
@@ -145,7 +139,6 @@ struct RadarController::Impl {
     snapshot.previous_output = runtime_state.latest_output;
     snapshot.had_previous_output = runtime_state.has_latest_output;
     snapshot.previous_batch_id = runtime_state.next_batch_id;
-    snapshot.previous_cycle_index = cycle_index;
     snapshot.pipeline_state = signal_pipeline.CaptureRuntimeState();
     return snapshot;
   }
@@ -164,11 +157,7 @@ struct RadarController::Impl {
     runtime_state.latest_output = snapshot.previous_output;
     runtime_state.has_latest_output = snapshot.had_previous_output;
     runtime_state.next_batch_id = snapshot.previous_batch_id;
-    cycle_index = snapshot.previous_cycle_index;
   }
-
-  /** @brief 提交成功周期并推进周期计数器。 */
-  void CommitSuccessfulCycle() { ++cycle_index; }
 };
 
 // -- 构造函数
@@ -200,14 +189,14 @@ void RadarController::RunOnce() {
   const session::RadarSceneTargetList* scene_targets = &scene_targets_ref;
   const model::PlatformAttitudeDeg platform_attitude = impl_->radar_context.GetPlatformAttitude();
   const float cycle_dt_sec = impl_->radar_context.GetCycleDeltaTimeSec();
+  const std::uint32_t cycle_index = impl_->radar_context.GetCycleIndex();
 
   const oneq::internal::runtime::RuntimeCycleStamp stamp =
-      oneq::internal::runtime::MakeRuntimeCycleStamp(
-          impl_->cycle_index, impl_->runtime_state.next_batch_id);
+      oneq::internal::runtime::MakeRuntimeCycleStamp(cycle_index,
+                                                     impl_->runtime_state.next_batch_id);
 
   // 校验
-  session::ValidationIssueList issues =
-      session::ValidateRadarCycleDeltaTime(cycle_dt_sec);
+  session::ValidationIssueList issues = session::ValidateRadarCycleDeltaTime(cycle_dt_sec);
   if (scene_targets != nullptr) {
     const session::ValidationIssueList target_issues =
         session::ValidateRadarSceneTargets(*scene_targets);
@@ -238,24 +227,20 @@ void RadarController::RunOnce() {
 
   // 应用控制指令并记录遥测
   const extension::ControlReductionResult reduction_result =
-      impl_->command_mapper->Apply(&impl_->control_profile,
-                                   exec_result.decision_result.proposals);
-  const std::size_t input_target_count =
-      scene_targets != nullptr ? scene_targets->size() : 0U;
-  extension::LogCycleTelemetrySummary(
-      extension::CycleTelemetryPayload(
-          stamp, input_target_count, exec_result.signal_result.decision_frame.tracks.size(),
-          reduction_result.applied_directives.size(),
-          exec_result.signal_result.decision_frame.environment_jamming_detected,
-          impl_->control_profile.version,
-          exec_result.signal_result.decision_frame.perception_quality_info,
-          exec_result.signal_result.association_quality_metrics));
+      impl_->command_mapper->Apply(&impl_->control_profile, exec_result.decision_result.proposals);
+  const std::size_t input_target_count = scene_targets != nullptr ? scene_targets->size() : 0U;
+  extension::LogCycleTelemetrySummary(extension::CycleTelemetryPayload(
+      stamp, input_target_count, exec_result.signal_result.decision_frame.tracks.size(),
+      reduction_result.applied_directives.size(),
+      exec_result.signal_result.decision_frame.environment_jamming_detected,
+      impl_->control_profile.version,
+      exec_result.signal_result.decision_frame.perception_quality_info,
+      exec_result.signal_result.association_quality_metrics));
 
   impl_->runtime_state.latest_output = exec_result.track_output_frame;
   impl_->runtime_state.has_latest_output = true;
   impl_->last_cycle_reused_previous_output = false;
   ++impl_->runtime_state.next_batch_id;
-  impl_->CommitSuccessfulCycle();
 }
 
 void RadarController::RunCycles(std::size_t cycles) {
@@ -264,8 +249,7 @@ void RadarController::RunCycles(std::size_t cycles) {
   }
 }
 
-void RadarController::UpdateControlReducerConfig(
-    const extension::ControlReducerConfig& config) {
+void RadarController::UpdateControlReducerConfig(const extension::ControlReducerConfig& config) {
   if (impl_->owned_decision_components.control_reducer == nullptr) {
     return;
   }
@@ -316,7 +300,6 @@ extension::RadarControllerRuntimeState RadarController::CaptureRuntimeState() co
   state.has_latest_output = impl_->runtime_state.has_latest_output;
   state.last_validation_issues = impl_->runtime_state.last_validation_issues;
   state.next_batch_id = impl_->runtime_state.next_batch_id;
-  state.cycle_index = impl_->cycle_index;
   state.last_cycle_executed = impl_->last_cycle_executed;
   state.last_cycle_reused_previous_output = impl_->last_cycle_reused_previous_output;
   state.last_signal_abort_reason = impl_->last_signal_abort_reason;
@@ -327,15 +310,15 @@ extension::RadarControllerRuntimeState RadarController::CaptureRuntimeState() co
 void RadarController::RestoreRuntimeState(const extension::RadarControllerRuntimeState& state) {
   if (!IsCompatibleSignalPipelineRuntimeState(state.signal_pipeline_state,
                                               impl_->signal_pipeline)) {
-    PROJECT_LOG_ERROR("[RadarController] signal pipeline runtime state restore rejected because "
-                      "snapshot owner or schema does not match the bound pipeline instance.");
+    PROJECT_LOG_ERROR(
+        "[RadarController] signal pipeline runtime state restore rejected because "
+        "snapshot owner or schema does not match the bound pipeline instance.");
     return;
   }
   impl_->runtime_state.latest_output = state.latest_output;
   impl_->runtime_state.has_latest_output = state.has_latest_output;
   impl_->runtime_state.last_validation_issues = state.last_validation_issues;
   impl_->runtime_state.next_batch_id = state.next_batch_id;
-  impl_->cycle_index = state.cycle_index;
   impl_->last_cycle_executed = state.last_cycle_executed;
   impl_->last_cycle_reused_previous_output = state.last_cycle_reused_previous_output;
   impl_->last_signal_abort_reason = state.last_signal_abort_reason;
@@ -344,9 +327,7 @@ void RadarController::RestoreRuntimeState(const extension::RadarControllerRuntim
 
 extension::IRadarContext& RadarController::GetRadarContext() { return impl_->radar_context; }
 
-extension::ISignalPipeline& RadarController::GetSignalPipeline() {
-  return impl_->signal_pipeline;
-}
+extension::ISignalPipeline& RadarController::GetSignalPipeline() { return impl_->signal_pipeline; }
 
 environment::IEnvironmentService& RadarController::GetEnvironmentService() {
   return impl_->environment_service;

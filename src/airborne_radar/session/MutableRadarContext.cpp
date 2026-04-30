@@ -9,6 +9,7 @@ struct MutableRadarContext::RuntimeSnapshot {
   std::shared_ptr<RadarSceneTargetList> scene_targets;
   oneq::foundation::PoseState platform_pose{};
   float cycle_dt_sec{1.0f};
+  std::uint32_t cycle_index{0U};
   std::vector<extension::control::RadarCommand> submitted_commands{};
   extension::control::RadarControlProfile latest_control_profile{};
   bool has_latest_control_profile{false};
@@ -18,6 +19,7 @@ void MutableRadarContext::BeginCycle(const RadarCycleInput& input) {
   SetSceneTargets(input.scene);
   platform_pose_ = input.platform_pose;
   SetCycleDeltaTimeSec(input.dt_sec);
+  cycle_index_ = input.cycle_index;
   ResetCycleOutputs();
 }
 
@@ -41,7 +43,8 @@ const std::vector<extension::control::RadarCommand>& MutableRadarContext::GetSub
 
 bool MutableRadarContext::HasLatestControlProfile() const { return has_latest_control_profile_; }
 
-const extension::control::RadarControlProfile& MutableRadarContext::GetLatestControlProfile() const {
+const extension::control::RadarControlProfile& MutableRadarContext::GetLatestControlProfile()
+    const {
   return latest_control_profile_;
 }
 
@@ -51,6 +54,7 @@ extension::RadarContextRuntimeState MutableRadarContext::CaptureRuntimeState() c
   snapshot->scene_targets = scene_targets_;
   snapshot->platform_pose = platform_pose_;
   snapshot->cycle_dt_sec = cycle_dt_sec_;
+  snapshot->cycle_index = cycle_index_;
   snapshot->submitted_commands = submitted_commands_;
   snapshot->latest_control_profile = latest_control_profile_;
   snapshot->has_latest_control_profile = has_latest_control_profile_;
@@ -60,6 +64,7 @@ extension::RadarContextRuntimeState MutableRadarContext::CaptureRuntimeState() c
   state.scene_targets = scene_targets_ != nullptr ? *scene_targets_ : RadarSceneTargetList();
   state.platform_pose = platform_pose_;
   state.cycle_dt_sec = cycle_dt_sec_;
+  state.cycle_index = cycle_index_;
   state.submitted_commands = submitted_commands_;
   state.latest_control_profile = latest_control_profile_;
   state.has_latest_control_profile = has_latest_control_profile_;
@@ -74,6 +79,7 @@ void MutableRadarContext::RestoreRuntimeState(const extension::RadarContextRunti
       scene_targets_ = snapshot->scene_targets;
       platform_pose_ = snapshot->platform_pose;
       cycle_dt_sec_ = snapshot->cycle_dt_sec;
+      cycle_index_ = snapshot->cycle_index;
       submitted_commands_ = snapshot->submitted_commands;
       latest_control_profile_ = snapshot->latest_control_profile;
       has_latest_control_profile_ = snapshot->has_latest_control_profile;
@@ -84,6 +90,7 @@ void MutableRadarContext::RestoreRuntimeState(const extension::RadarContextRunti
   scene_targets_.reset(new RadarSceneTargetList(state.scene_targets));
   platform_pose_ = state.platform_pose;
   cycle_dt_sec_ = state.cycle_dt_sec;
+  cycle_index_ = state.cycle_index;
   submitted_commands_ = state.submitted_commands;
   latest_control_profile_ = state.latest_control_profile;
   has_latest_control_profile_ = state.has_latest_control_profile;
@@ -99,6 +106,8 @@ model::PlatformAttitudeDeg MutableRadarContext::GetPlatformAttitude() const {
 }
 
 float MutableRadarContext::GetCycleDeltaTimeSec() const { return cycle_dt_sec_; }
+
+std::uint32_t MutableRadarContext::GetCycleIndex() const { return cycle_index_; }
 
 void MutableRadarContext::SubmitControlCommand(extension::control::RadarCommand cmd) {
   submitted_commands_.push_back(std::move(cmd));

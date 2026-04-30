@@ -17,7 +17,7 @@ namespace {
 class DummyRadarContext : public extension::IRadarContext {
  public:
   void BeginCycle(const session::RadarCycleInput& input) override {
-    (void)input;
+    cycle_index_ = input.cycle_index;
     commands_.clear();
   }
 
@@ -29,6 +29,8 @@ class DummyRadarContext : public extension::IRadarContext {
   model::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_; }
 
   float GetCycleDeltaTimeSec() const override { return 1.0f; }
+
+  std::uint32_t GetCycleIndex() const override { return cycle_index_; }
 
   void SubmitControlCommand(extension::control::RadarCommand cmd) override {
     commands_.push_back(cmd);
@@ -52,6 +54,7 @@ class DummyRadarContext : public extension::IRadarContext {
   extension::RadarContextRuntimeState CaptureRuntimeState() const override {
     extension::RadarContextRuntimeState state;
     state.platform_pose.attitude_deg = platform_attitude_;
+    state.cycle_index = cycle_index_;
     state.submitted_commands = commands_;
     state.latest_control_profile = control_profile_;
     state.has_latest_control_profile = has_control_profile_;
@@ -60,6 +63,7 @@ class DummyRadarContext : public extension::IRadarContext {
 
   void RestoreRuntimeState(const extension::RadarContextRuntimeState& state) override {
     platform_attitude_ = state.platform_pose.attitude_deg;
+    cycle_index_ = state.cycle_index;
     commands_ = state.submitted_commands;
     control_profile_ = state.latest_control_profile;
     has_control_profile_ = state.has_latest_control_profile;
@@ -67,6 +71,7 @@ class DummyRadarContext : public extension::IRadarContext {
 
  private:
   model::PlatformAttitudeDeg platform_attitude_{};
+  std::uint32_t cycle_index_{0U};
   extension::control::RadarControlProfile control_profile_{};
   std::vector<extension::control::RadarCommand> commands_{};
   bool has_control_profile_{false};

@@ -9,11 +9,11 @@
 #include <cstddef>
 #include <memory>
 
+#include "1q/airborne_radar/extension/ControlReducerTypes.h"
 #include "1q/airborne_radar/extension/IOverrideControlStrategy.h"
 #include "1q/airborne_radar/extension/ISignalPipeline.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/airborne_radar/session/RadarInputValidation.h"
-#include "1q/airborne_radar/extension/ControlReducerTypes.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
@@ -29,7 +29,6 @@ struct ONEQ_API RadarControllerRuntimeState {
   bool has_latest_output{false};
   session::ValidationIssueList last_validation_issues{};
   std::uint64_t next_batch_id{1U};
-  std::uint32_t cycle_index{1U};
   bool last_cycle_executed{false};
   bool last_cycle_reused_previous_output{false};
   SignalCycleAbortReason last_signal_abort_reason{SignalCycleAbortReason::kNone};

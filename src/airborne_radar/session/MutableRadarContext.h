@@ -98,6 +98,12 @@ class MutableRadarContext final : public extension::IRadarContext {
   float GetCycleDeltaTimeSec() const override;
 
   /**
+   * @brief 获取当前输入周期号。
+   * @return 当前周期号。
+   */
+  std::uint32_t GetCycleIndex() const override;
+
+  /**
    * @brief 记录控制器提交的单条控制指令。
    * @param cmd 控制指令。
    */
@@ -115,6 +121,7 @@ class MutableRadarContext final : public extension::IRadarContext {
   std::shared_ptr<RadarSceneTargetList> scene_targets_{new RadarSceneTargetList()};
   oneq::foundation::PoseState platform_pose_{};
   float cycle_dt_sec_{1.0f};
+  std::uint32_t cycle_index_{0U};
   std::vector<extension::control::RadarCommand> submitted_commands_{};
   extension::control::RadarControlProfile latest_control_profile_{};
   bool has_latest_control_profile_{false};

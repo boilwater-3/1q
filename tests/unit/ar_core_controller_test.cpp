@@ -22,8 +22,8 @@
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/model/DecisionInputFrame.h"
 #include "1q/airborne_radar/model/TrackStateSnapshot.h"
-#include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
+#include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
@@ -122,6 +122,7 @@ class FakeRadarContext : public extension::IRadarContext {
   const session::RadarSceneTargetList& GetSceneTargets() const override { return scene_targets_; }
 
   void BeginCycle(const session::RadarCycleInput& input) override {
+    cycle_index_ = input.cycle_index;
     scene_targets_ = input.scene;
     platform_attitude_deg_.yaw_deg = input.platform_pose.attitude_deg.yaw_deg;
     platform_attitude_deg_.pitch_deg = input.platform_pose.attitude_deg.pitch_deg;
@@ -135,6 +136,9 @@ class FakeRadarContext : public extension::IRadarContext {
 
   /// @brief 获取当前周期时间步长。
   float GetCycleDeltaTimeSec() const override { return cycle_dt_sec_; }
+
+  /// @brief 获取当前输入周期号。
+  std::uint32_t GetCycleIndex() const override { return cycle_index_; }
 
   /// @brief 收集控制指令。
   void SubmitControlCommand(extension::control::RadarCommand cmd) override {
@@ -167,6 +171,7 @@ class FakeRadarContext : public extension::IRadarContext {
     state.scene_targets = scene_targets_;
     state.platform_pose.attitude_deg = platform_attitude_deg_;
     state.cycle_dt_sec = cycle_dt_sec_;
+    state.cycle_index = cycle_index_;
     state.submitted_commands = submitted_commands_;
     state.latest_control_profile = latest_control_profile_;
     state.has_latest_control_profile = has_latest_control_profile_;
@@ -177,6 +182,7 @@ class FakeRadarContext : public extension::IRadarContext {
     scene_targets_ = state.scene_targets;
     platform_attitude_deg_ = state.platform_pose.attitude_deg;
     cycle_dt_sec_ = state.cycle_dt_sec;
+    cycle_index_ = state.cycle_index;
     submitted_commands_ = state.submitted_commands;
     latest_control_profile_ = state.latest_control_profile;
     has_latest_control_profile_ = state.has_latest_control_profile;
@@ -195,6 +201,9 @@ class FakeRadarContext : public extension::IRadarContext {
   /// @brief 设置当前周期时间步长。
   void SetCycleDeltaTimeSec(float cycle_dt_sec) { cycle_dt_sec_ = cycle_dt_sec; }
 
+  /// @brief 设置当前输入周期号。
+  void SetCycleIndex(std::uint32_t cycle_index) { cycle_index_ = cycle_index; }
+
   /// @brief 设置当前周期目标列表。
   void SetSceneTargets(session::RadarSceneTargetList state) {
     scene_targets_ = ToSceneTargets(state);
@@ -204,6 +213,7 @@ class FakeRadarContext : public extension::IRadarContext {
   session::RadarSceneTargetList scene_targets_{};
   model::PlatformAttitudeDeg platform_attitude_deg_{};
   float cycle_dt_sec_{1.0f};
+  std::uint32_t cycle_index_{1U};
   std::vector<extension::control::RadarCommand> submitted_commands_;
   extension::control::RadarControlProfile latest_control_profile_{};
   bool has_latest_control_profile_{false};
@@ -517,11 +527,12 @@ TEST_F(CoreControllerTest, DefaultLifecyclePathBuildsTentativeDecisionFrameOnFir
   const session::TrackOutputFrame& latest_track_output_frame =
       controller.GetLatestTrackOutputFrame();
   EXPECT_EQ(latest_track_output_frame.tracks.size(), 1U);
-  EXPECT_EQ(session::CountTracksByStatus(latest_track_output_frame, model::TrackStatus::kConfirmed), 0U);
-  EXPECT_FALSE(session::CountTracksByStatus(latest_track_output_frame, model::TrackStatus::kLost) > 0U);
+  EXPECT_EQ(session::CountTracksByStatus(latest_track_output_frame, model::TrackStatus::kConfirmed),
+            0U);
+  EXPECT_FALSE(session::CountTracksByStatus(latest_track_output_frame, model::TrackStatus::kLost) >
+               0U);
   ASSERT_EQ(decision_engine.last_frame.tracks.size(), 1U);
-  EXPECT_EQ(decision_engine.last_frame.tracks[0].status,
-            model::TrackStatus::kTentative);
+  EXPECT_EQ(decision_engine.last_frame.tracks[0].status, model::TrackStatus::kTentative);
   EXPECT_EQ(decision_engine.last_frame.tracks[0].association_key,
             latest_track_output_frame.tracks[0].association_key);
 }
@@ -546,8 +557,7 @@ TEST_F(CoreControllerTest, PublicOutputReaderApiExposesLatestTrackOutputFrame) {
   EXPECT_EQ(latest_track_output_frame.batch_id, 1U);
   EXPECT_EQ(latest_track_output_frame.tracks.size(), 1U);
   ASSERT_EQ(latest_track_output_frame.tracks.size(), 1U);
-  EXPECT_EQ(latest_track_output_frame.tracks[0].status,
-            model::TrackStatus::kTentative);
+  EXPECT_EQ(latest_track_output_frame.tracks[0].status, model::TrackStatus::kTentative);
 }
 
 TEST_F(CoreControllerTest, RuntimeValidationErrorsAreExposedAndSkipCommandSubmission) {
@@ -641,7 +651,8 @@ TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {
   EXPECT_EQ(retained_frame.cycle_index, previous_frame.cycle_index);
   EXPECT_EQ(retained_frame.batch_id, previous_frame.batch_id);
   EXPECT_EQ(retained_frame.tracks.size(), previous_frame.tracks.size());
-  EXPECT_EQ(session::CountTracksByStatus(retained_frame, model::TrackStatus::kConfirmed), session::CountTracksByStatus(previous_frame, model::TrackStatus::kConfirmed));
+  EXPECT_EQ(session::CountTracksByStatus(retained_frame, model::TrackStatus::kConfirmed),
+            session::CountTracksByStatus(previous_frame, model::TrackStatus::kConfirmed));
   ASSERT_EQ(radar_context.SubmittedCommands().size(), previous_commands.size());
   for (std::size_t i = 0; i < previous_commands.size(); ++i) {
     EXPECT_EQ(radar_context.SubmittedCommands()[i].type, previous_commands[i].type);
@@ -686,7 +697,8 @@ TEST_F(CoreControllerTest, DuplicateExternalTargetIdRetainsPreviousValidOutputFr
   EXPECT_EQ(retained_frame.cycle_index, previous_frame.cycle_index);
   EXPECT_EQ(retained_frame.batch_id, previous_frame.batch_id);
   EXPECT_EQ(retained_frame.tracks.size(), previous_frame.tracks.size());
-  EXPECT_EQ(session::CountTracksByStatus(retained_frame, model::TrackStatus::kConfirmed), session::CountTracksByStatus(previous_frame, model::TrackStatus::kConfirmed));
+  EXPECT_EQ(session::CountTracksByStatus(retained_frame, model::TrackStatus::kConfirmed),
+            session::CountTracksByStatus(previous_frame, model::TrackStatus::kConfirmed));
   ASSERT_EQ(radar_context.SubmittedCommands().size(), previous_commands.size());
   for (std::size_t i = 0; i < previous_commands.size(); ++i) {
     EXPECT_EQ(radar_context.SubmittedCommands()[i].type, previous_commands[i].type);

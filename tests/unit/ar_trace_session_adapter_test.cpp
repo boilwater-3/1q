@@ -58,10 +58,10 @@ std::string MakeTempTracePath(const char* prefix) {
   if (!path.empty() && path[path.size() - 1] != '/' && path[path.size() - 1] != '\\') {
     stream << "/";
   }
-  const long long ticks = static_cast<long long>(
-      std::chrono::high_resolution_clock::now().time_since_epoch().count());
-  stream << prefix << "-" << std::time(nullptr) << "-" << ticks << "-" << std::rand()
-         << "-" << unique_counter++ << ".trace";
+  const long long ticks =
+      static_cast<long long>(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+  stream << prefix << "-" << std::time(nullptr) << "-" << ticks << "-" << std::rand() << "-"
+         << unique_counter++ << ".trace";
   return stream.str();
 }
 
@@ -348,6 +348,43 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
   EXPECT_EQ(replay_result.playback.applied_runtime_patch_count, 1U);
   EXPECT_EQ(replay_result.playback.compared_output_count, 1U);
   EXPECT_FALSE(replay_result.playback.divergence_found);
+}
+
+TEST(TraceSessionAdapterTest, RadarReplaySessionRejectsSceneStateWithoutPendingInput) {
+  const std::string trace_dir = MakeTempTracePath("oneq-radar-replay-scene-order");
+
+  oneq::replay::ReplayTraceManifest manifest;
+  manifest.trace_id = "radar-replay-scene-order-test";
+  manifest.module = "airborne_radar";
+  manifest.scenario_id = "unit-test";
+
+  {
+    oneq::replay::ReplayTraceWriter writer(trace_dir, manifest, true);
+
+    oneq::replay::ReplayTraceEvent config_event;
+    config_event.module = "airborne_radar";
+    config_event.event_type = "session_config";
+    config_event.payload_type = "RadarSessionConfig";
+    config_event.payload_encoding = "flatbuffers";
+    config_event.payload_bytes =
+        session::EncodeSessionConfigFlatbuffer(session::RadarSessionConfig());
+    writer.WriteEvent(config_event);
+
+    oneq::replay::ReplayTraceEvent scene_event;
+    scene_event.module = "airborne_radar";
+    scene_event.event_type = "scene_state";
+    scene_event.payload_type = "EnvironmentSceneState";
+    scene_event.payload_encoding = "flatbuffers";
+    scene_event.payload_bytes =
+        session::EncodeSceneStateFlatbuffer(environment::EnvironmentSceneState());
+    writer.WriteEvent(scene_event);
+    writer.Flush();
+  }
+
+  const session::RadarReplaySessionResult replay_result = session::ReplayRadarTrace(trace_dir);
+  EXPECT_FALSE(replay_result.ok);
+  EXPECT_NE(replay_result.first_error.find("scene_state without pending cycle_input"),
+            std::string::npos);
 }
 
 TEST(TraceSessionAdapterTest, RadarReplaySessionStopsAtFailureMarker) {

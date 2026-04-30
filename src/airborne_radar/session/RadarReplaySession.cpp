@@ -28,25 +28,18 @@ struct RadarReplayState {
 bool TrackStateSnapshotEqual(const model::TrackStateSnapshot& left,
                              const model::TrackStateSnapshot& right) {
   return left.association_key == right.association_key &&
-         left.external_target_id == right.external_target_id &&
-         left.status == right.status &&
-         left.position_x == right.position_x &&
-         left.position_y == right.position_y &&
-         left.position_z == right.position_z &&
-         left.velocity_x == right.velocity_x &&
-         left.velocity_y == right.velocity_y &&
-         left.velocity_z == right.velocity_z &&
-         left.speed == right.speed &&
-         left.rcs == right.rcs &&
-         left.jamming_detected == right.jamming_detected &&
-         left.hit_count == right.hit_count &&
+         left.external_target_id == right.external_target_id && left.status == right.status &&
+         left.position_x == right.position_x && left.position_y == right.position_y &&
+         left.position_z == right.position_z && left.velocity_x == right.velocity_x &&
+         left.velocity_y == right.velocity_y && left.velocity_z == right.velocity_z &&
+         left.speed == right.speed && left.rcs == right.rcs &&
+         left.jamming_detected == right.jamming_detected && left.hit_count == right.hit_count &&
          left.miss_count == right.miss_count;
 }
 
 bool TrackOutputFrameEqual(const session::TrackOutputFrame& left,
                            const session::TrackOutputFrame& right) {
-  if (left.cycle_index != right.cycle_index ||
-      left.tracks.size() != right.tracks.size() ||
+  if (left.cycle_index != right.cycle_index || left.tracks.size() != right.tracks.size() ||
       left.batch_id != right.batch_id) {
     return false;
   }
@@ -141,6 +134,19 @@ bool OnSceneState(const oneq::replay::ReplayTraceReadEvent& event, void* user_da
   }
 
   RadarReplayState* state = static_cast<RadarReplayState*>(user_data);
+  if (!state->session) {
+    *error = "AR replay received scene_state before session_config";
+    return false;
+  }
+  if (!state->has_pending_input) {
+    *error = "AR replay received scene_state without pending cycle_input";
+    return false;
+  }
+  if (state->has_pending_scene_state) {
+    *error = "AR replay received consecutive scene_state for one cycle_input";
+    return false;
+  }
+
   environment::EnvironmentSceneState scene_state;
   if (!DecodeSceneStateFlatbuffer(event.payload_bytes, &scene_state, error)) {
     return false;
@@ -199,7 +205,8 @@ bool OnCycleOutput(const oneq::replay::ReplayTraceReadEvent& event, void* user_d
   }
 
   if (event.payload_type == "RadarCycleResult") {
-    const bool match = has_expected_result && CycleResultEqual(expected_result, state->latest_result);
+    const bool match =
+        has_expected_result && CycleResultEqual(expected_result, state->latest_result);
     if (!match) {
       *error = "AR replay output divergence (RadarCycleResult)";
       return false;
@@ -208,7 +215,8 @@ bool OnCycleOutput(const oneq::replay::ReplayTraceReadEvent& event, void* user_d
     return true;
   }
   if (event.payload_type == "TrackOutputFrame") {
-    const bool match = has_expected_frame && TrackOutputFrameEqual(expected_frame, state->latest_frame);
+    const bool match =
+        has_expected_frame && TrackOutputFrameEqual(expected_frame, state->latest_frame);
     if (!match) {
       *error = "AR replay output divergence (TrackOutputFrame)";
       return false;

@@ -59,7 +59,6 @@ set(AR_OUTPUT_HEADERS
 
 # ── AR 会话域 ────────────────────────────────────────────────────────
 set(AR_SESSION_HEADERS
-    "airborne_radar/session/RadarEnvironmentInput.h"
     "airborne_radar/session/RadarCycleInput.h"
     "airborne_radar/session/RadarCycleInputBuilder.h"
     "airborne_radar/session/RadarCycleResult.h"

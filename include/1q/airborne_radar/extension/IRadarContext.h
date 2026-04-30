@@ -32,6 +32,7 @@ struct ONEQ_API RadarContextRuntimeState {
   session::RadarSceneTargetList scene_targets{};
   oneq::foundation::PoseState platform_pose{};
   float cycle_dt_sec{1.0f};
+  std::uint32_t cycle_index{0U};
   std::vector<extension::control::RadarCommand> submitted_commands{};
   extension::control::RadarControlProfile latest_control_profile{};
   bool has_latest_control_profile{false};

@@ -31,8 +31,8 @@ table RadarSceneTarget {
   target_swerling_type:int;
 }
 
-// RadarCycleEnvironmentInput 聚合雷达单周期环境输入。
-// 当前为预留占位结构，待 RadarEnvironmentInput 扩展后同步补充字段。
+// RadarCycleEnvironmentInput 保留 replay schema 的空环境槽位。
+// AR 每周期环境变化由独立 scene_state 事件表达。
 table RadarCycleEnvironmentInput {
 }
 
