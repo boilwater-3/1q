@@ -5,12 +5,12 @@
 
 #include <gtest/gtest.h>
 
-#include "1q/coordinate/position_transform.h"
-
 #include <cmath>
 #include <cstddef>
 
+#include "1q/coordinate/position_transform.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInputBuilder.h"
+#include "1q/electronic_surveillance_radar/session/EsrEnvironmentInputState.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
@@ -103,6 +103,53 @@ TEST(EsrCycleInputBuilderTest, EmptyEmittersProducesValidCycleInput) {
   EXPECT_FLOAT_EQ(input.dt_sec, 2.0f);
   EXPECT_NEAR(input.platform_pose.attitude_deg.yaw_deg, 10.0f, 1.0e-5f);
   EXPECT_TRUE(input.scene.empty());
+}
+
+/// @brief Builder 显式环境重载写入完整环境快照。
+TEST(EsrCycleInputBuilderTest, ExplicitEnvironmentSnapshotIsCopiedToCycleInput) {
+  oneq::coordinate::LlaPositionDegM origin_lla;
+  origin_lla.latitude_deg = 31.0;
+  origin_lla.longitude_deg = 121.0;
+  origin_lla.altitude_m = 1000.0;
+  oneq::coordinate::EcefPositionM origin_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(origin_lla, &origin_ecef));
+
+  EsrExternalPoseInput pose_input;
+  pose_input.platform_position_ecef_m = origin_ecef;
+
+  EsrEnvironmentInput environment;
+  environment.propagation_profile = environment::EsrPropagationEnvironmentProfile::kComplex;
+  environment.spectrum_occupancy_ratio = 0.6f;
+  environment.atmospheric_observation.visibility_km = 8.0f;
+
+  EsrCycleInput input;
+  ASSERT_TRUE(EsrCycleInputBuilder::Build(pose_input, {}, 1.0f, environment, &input));
+
+  EXPECT_EQ(input.environment.propagation_profile,
+            environment::EsrPropagationEnvironmentProfile::kComplex);
+  EXPECT_FLOAT_EQ(input.environment.spectrum_occupancy_ratio, 0.6f);
+  EXPECT_FLOAT_EQ(input.environment.atmospheric_observation.visibility_km, 8.0f);
+}
+
+/// @brief 环境输入状态只更新 patch 标记过的字段。
+TEST(EsrCycleInputBuilderTest, EnvironmentInputStateAppliesOnlyFlaggedFields) {
+  EsrEnvironmentInput initial;
+  initial.propagation_profile = environment::EsrPropagationEnvironmentProfile::kOpen;
+  initial.spectrum_occupancy_ratio = 0.1f;
+  initial.atmospheric_observation.visibility_km = 30.0f;
+
+  EsrEnvironmentInputState state(initial);
+
+  EsrEnvironmentInputPatch patch;
+  patch.has_spectrum_occupancy_ratio = true;
+  patch.spectrum_occupancy_ratio = 0.9f;
+  patch.atmospheric_observation.visibility_km = 5.0f;
+  state.Update(patch);
+
+  const EsrEnvironmentInput snapshot = state.Snapshot();
+  EXPECT_EQ(snapshot.propagation_profile, environment::EsrPropagationEnvironmentProfile::kOpen);
+  EXPECT_FLOAT_EQ(snapshot.spectrum_occupancy_ratio, 0.9f);
+  EXPECT_FLOAT_EQ(snapshot.atmospheric_observation.visibility_km, 30.0f);
 }
 
 /// @brief Builder 在 nullptr 输出时返回 false 并设置 status。

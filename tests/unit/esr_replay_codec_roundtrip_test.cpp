@@ -13,10 +13,10 @@
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfig.h"
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
-#include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
-#include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
-#include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
+#include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "electronic_surveillance_radar/session/EsrReplayFlatbufferCodec.h"
 
 namespace electronic_surveillance_radar {
@@ -58,14 +58,12 @@ TEST(EsrReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   emitter.beam_state.beam_state_valid = true;
   input.scene.push_back(emitter);
 
-  input.environment.observation.propagation_profile =
-      environment::EsrPropagationEnvironmentProfile::kComplex;
-  input.environment.observation.clutter_density =
-      environment::EsrClutterDensityLevel::kHigh;
-  input.environment.observation.spectrum_occupancy_ratio = 0.45f;
-  input.environment.observation.atmospheric_observation.relative_humidity_ratio = 0.6f;
-  input.environment.observation.atmospheric_observation.precipitation_rate_mmph = 2.5f;
-  input.environment.observation.atmospheric_observation.visibility_km = 8.0f;
+  input.environment.propagation_profile = environment::EsrPropagationEnvironmentProfile::kComplex;
+  input.environment.clutter_density = environment::EsrClutterDensityLevel::kHigh;
+  input.environment.spectrum_occupancy_ratio = 0.45f;
+  input.environment.atmospheric_observation.relative_humidity_ratio = 0.6f;
+  input.environment.atmospheric_observation.precipitation_rate_mmph = 2.5f;
+  input.environment.atmospheric_observation.visibility_km = 8.0f;
 
   environment::EsrJammerSource jammer;
   jammer.technique = environment::EsrJammingTechnique::kNoiseSuppression;
@@ -75,7 +73,7 @@ TEST(EsrReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   jammer.power_w = 100.0f;
   jammer.deception_risk = 0.1f;
   jammer.confidence = 0.9f;
-  input.environment.observation.jammer_sources.push_back(jammer);
+  input.environment.jammer_sources.push_back(jammer);
 
   const std::string bytes = EncodeEsrCycleInput(input);
   ASSERT_FALSE(bytes.empty());
@@ -97,18 +95,17 @@ TEST(EsrReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   EXPECT_DOUBLE_EQ(decoded.scene[0].beam_state.center_az_deg, 15.0);
   EXPECT_TRUE(decoded.scene[0].beam_state.beam_state_valid);
 
-  EXPECT_EQ(decoded.environment.observation.propagation_profile,
+  EXPECT_EQ(decoded.environment.propagation_profile,
             environment::EsrPropagationEnvironmentProfile::kComplex);
-  EXPECT_EQ(decoded.environment.observation.clutter_density,
-            environment::EsrClutterDensityLevel::kHigh);
-  EXPECT_FLOAT_EQ(decoded.environment.observation.spectrum_occupancy_ratio, 0.45f);
-  EXPECT_FLOAT_EQ(decoded.environment.observation.atmospheric_observation.relative_humidity_ratio, 0.6f);
+  EXPECT_EQ(decoded.environment.clutter_density, environment::EsrClutterDensityLevel::kHigh);
+  EXPECT_FLOAT_EQ(decoded.environment.spectrum_occupancy_ratio, 0.45f);
+  EXPECT_FLOAT_EQ(decoded.environment.atmospheric_observation.relative_humidity_ratio, 0.6f);
 
-  ASSERT_EQ(decoded.environment.observation.jammer_sources.size(), 1U);
-  EXPECT_EQ(decoded.environment.observation.jammer_sources[0].technique,
+  ASSERT_EQ(decoded.environment.jammer_sources.size(), 1U);
+  EXPECT_EQ(decoded.environment.jammer_sources[0].technique,
             environment::EsrJammingTechnique::kNoiseSuppression);
-  EXPECT_TRUE(decoded.environment.observation.jammer_sources[0].active);
-  EXPECT_DOUBLE_EQ(decoded.environment.observation.jammer_sources[0].center_hz, 9.5e9);
+  EXPECT_TRUE(decoded.environment.jammer_sources[0].active);
+  EXPECT_DOUBLE_EQ(decoded.environment.jammer_sources[0].center_hz, 9.5e9);
 }
 
 TEST(EsrReplayCodecRoundtripTest, CycleInputDecodesEmptyEmitterList) {
@@ -199,8 +196,7 @@ TEST(EsrReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
 
   ASSERT_EQ(decoded.truth_evaluation_output.associations.size(), 1U);
   EXPECT_EQ(decoded.truth_evaluation_output.associations[0].observation_id, 100U);
-  EXPECT_EQ(decoded.truth_evaluation_output.associations[0].truth_emitter_id,
-            "truth_emitter_001");
+  EXPECT_EQ(decoded.truth_evaluation_output.associations[0].truth_emitter_id, "truth_emitter_001");
   EXPECT_TRUE(decoded.truth_evaluation_output.associations[0].matched);
   EXPECT_FLOAT_EQ(decoded.truth_evaluation_output.associations[0].confidence, 0.95f);
 }
@@ -329,7 +325,8 @@ TEST(EsrReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_FLOAT_EQ(decoded.policy.detection.threshold_scale, 0.8f);
   EXPECT_TRUE(decoded.policy.detection.enable_statistical_detection);
   // environment
-  EXPECT_EQ(decoded.environment.scenario_config.preset, config::EsrEnvironmentPreset::kDenseClutter);
+  EXPECT_EQ(decoded.environment.scenario_config.preset,
+            config::EsrEnvironmentPreset::kDenseClutter);
   EXPECT_TRUE(decoded.environment.scenario_config.atmospheric_physics.enable_physical_model);
   EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_physics.pressure_hpa, 1010.0f);
   EXPECT_TRUE(decoded.environment.scenario_config.atmospheric_context.has_k_factor);

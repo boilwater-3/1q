@@ -27,14 +27,11 @@ TEST(EosStrayLightTest, ContaminationReducesWhenSunTargetSeparationIncreases) {
   far_sun_inputs.target_azimuth_deg = 30.0f;
   far_sun_inputs.target_elevation_deg = 5.0f;
 
-  const StrayLightFilterResult near_sun_result =
-      EvaluateStrayLightFilter(near_sun_inputs);
-  const StrayLightFilterResult far_sun_result =
-      EvaluateStrayLightFilter(far_sun_inputs);
+  const StrayLightFilterResult near_sun_result = EvaluateStrayLightFilter(near_sun_inputs);
+  const StrayLightFilterResult far_sun_result = EvaluateStrayLightFilter(far_sun_inputs);
 
   EXPECT_GT(near_sun_result.contamination_ratio, far_sun_result.contamination_ratio);
-  EXPECT_GT(near_sun_result.background_penalty_scale,
-            far_sun_result.background_penalty_scale);
+  EXPECT_GT(near_sun_result.background_penalty_scale, far_sun_result.background_penalty_scale);
 }
 
 }  // namespace
@@ -99,10 +96,8 @@ TEST(EosStrayLightPipelineTest, EnablingHoodFilterImprovesNearSunSnr) {
   EosPipeline pipeline_with_filter(MakeConfig(true));
   const ::electro_optical_sensor::session::EosCycleInput input = MakeInput();
 
-    const auto frame_without_filter =
-      pipeline_without_filter.Execute(input);
-    const auto frame_with_filter =
-      pipeline_with_filter.Execute(input);
+  const auto frame_without_filter = pipeline_without_filter.Execute(input);
+  const auto frame_with_filter = pipeline_with_filter.Execute(input);
 
   ASSERT_EQ(frame_without_filter.detections.size(), 1U);
   ASSERT_EQ(frame_with_filter.detections.size(), 1U);

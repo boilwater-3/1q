@@ -33,9 +33,9 @@ struct EsrAtmosphericObservation;
 struct EsrAtmosphericObservationBuilder;
 struct EsrAtmosphericObservationT;
 
-struct EsrEnvironmentObservation;
-struct EsrEnvironmentObservationBuilder;
-struct EsrEnvironmentObservationT;
+struct EsrEnvironmentInput;
+struct EsrEnvironmentInputBuilder;
+struct EsrEnvironmentInputT;
 
 struct EsrCycleInput;
 struct EsrCycleInputBuilder;
@@ -697,23 +697,23 @@ inline flatbuffers::Offset<EsrAtmosphericObservation> CreateEsrAtmosphericObserv
 
 flatbuffers::Offset<EsrAtmosphericObservation> CreateEsrAtmosphericObservation(flatbuffers::FlatBufferBuilder &_fbb, const EsrAtmosphericObservationT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
-struct EsrEnvironmentObservationT : public flatbuffers::NativeTable {
-  typedef EsrEnvironmentObservation TableType;
+struct EsrEnvironmentInputT : public flatbuffers::NativeTable {
+  typedef EsrEnvironmentInput TableType;
   int32_t propagation_profile;
   int32_t clutter_density;
   float spectrum_occupancy_ratio;
   std::unique_ptr<esr::replay::EsrAtmosphericObservationT> atmospheric_observation;
   std::vector<std::unique_ptr<esr::replay::EsrJammerSourceT>> jammer_sources;
-  EsrEnvironmentObservationT()
+  EsrEnvironmentInputT()
       : propagation_profile(0),
         clutter_density(0),
         spectrum_occupancy_ratio(0.0f) {
   }
 };
 
-struct EsrEnvironmentObservation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EsrEnvironmentObservationT NativeTableType;
-  typedef EsrEnvironmentObservationBuilder Builder;
+struct EsrEnvironmentInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef EsrEnvironmentInputT NativeTableType;
+  typedef EsrEnvironmentInputBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_PROPAGATION_PROFILE = 4,
     VT_CLUTTER_DENSITY = 6,
@@ -748,50 +748,50 @@ struct EsrEnvironmentObservation FLATBUFFERS_FINAL_CLASS : private flatbuffers::
            verifier.VerifyVectorOfTables(jammer_sources()) &&
            verifier.EndTable();
   }
-  EsrEnvironmentObservationT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EsrEnvironmentObservationT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EsrEnvironmentObservation> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EsrEnvironmentObservationT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+  EsrEnvironmentInputT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(EsrEnvironmentInputT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<EsrEnvironmentInput> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EsrEnvironmentInputT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
-struct EsrEnvironmentObservationBuilder {
-  typedef EsrEnvironmentObservation Table;
+struct EsrEnvironmentInputBuilder {
+  typedef EsrEnvironmentInput Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_propagation_profile(int32_t propagation_profile) {
-    fbb_.AddElement<int32_t>(EsrEnvironmentObservation::VT_PROPAGATION_PROFILE, propagation_profile, 0);
+    fbb_.AddElement<int32_t>(EsrEnvironmentInput::VT_PROPAGATION_PROFILE, propagation_profile, 0);
   }
   void add_clutter_density(int32_t clutter_density) {
-    fbb_.AddElement<int32_t>(EsrEnvironmentObservation::VT_CLUTTER_DENSITY, clutter_density, 0);
+    fbb_.AddElement<int32_t>(EsrEnvironmentInput::VT_CLUTTER_DENSITY, clutter_density, 0);
   }
   void add_spectrum_occupancy_ratio(float spectrum_occupancy_ratio) {
-    fbb_.AddElement<float>(EsrEnvironmentObservation::VT_SPECTRUM_OCCUPANCY_RATIO, spectrum_occupancy_ratio, 0.0f);
+    fbb_.AddElement<float>(EsrEnvironmentInput::VT_SPECTRUM_OCCUPANCY_RATIO, spectrum_occupancy_ratio, 0.0f);
   }
   void add_atmospheric_observation(flatbuffers::Offset<esr::replay::EsrAtmosphericObservation> atmospheric_observation) {
-    fbb_.AddOffset(EsrEnvironmentObservation::VT_ATMOSPHERIC_OBSERVATION, atmospheric_observation);
+    fbb_.AddOffset(EsrEnvironmentInput::VT_ATMOSPHERIC_OBSERVATION, atmospheric_observation);
   }
   void add_jammer_sources(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<esr::replay::EsrJammerSource>>> jammer_sources) {
-    fbb_.AddOffset(EsrEnvironmentObservation::VT_JAMMER_SOURCES, jammer_sources);
+    fbb_.AddOffset(EsrEnvironmentInput::VT_JAMMER_SOURCES, jammer_sources);
   }
-  explicit EsrEnvironmentObservationBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit EsrEnvironmentInputBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  EsrEnvironmentObservationBuilder &operator=(const EsrEnvironmentObservationBuilder &);
-  flatbuffers::Offset<EsrEnvironmentObservation> Finish() {
+  EsrEnvironmentInputBuilder &operator=(const EsrEnvironmentInputBuilder &);
+  flatbuffers::Offset<EsrEnvironmentInput> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<EsrEnvironmentObservation>(end);
+    auto o = flatbuffers::Offset<EsrEnvironmentInput>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<EsrEnvironmentObservation> CreateEsrEnvironmentObservation(
+inline flatbuffers::Offset<EsrEnvironmentInput> CreateEsrEnvironmentInput(
     flatbuffers::FlatBufferBuilder &_fbb,
     int32_t propagation_profile = 0,
     int32_t clutter_density = 0,
     float spectrum_occupancy_ratio = 0.0f,
     flatbuffers::Offset<esr::replay::EsrAtmosphericObservation> atmospheric_observation = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<esr::replay::EsrJammerSource>>> jammer_sources = 0) {
-  EsrEnvironmentObservationBuilder builder_(_fbb);
+  EsrEnvironmentInputBuilder builder_(_fbb);
   builder_.add_jammer_sources(jammer_sources);
   builder_.add_atmospheric_observation(atmospheric_observation);
   builder_.add_spectrum_occupancy_ratio(spectrum_occupancy_ratio);
@@ -800,7 +800,7 @@ inline flatbuffers::Offset<EsrEnvironmentObservation> CreateEsrEnvironmentObserv
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<EsrEnvironmentObservation> CreateEsrEnvironmentObservationDirect(
+inline flatbuffers::Offset<EsrEnvironmentInput> CreateEsrEnvironmentInputDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     int32_t propagation_profile = 0,
     int32_t clutter_density = 0,
@@ -808,7 +808,7 @@ inline flatbuffers::Offset<EsrEnvironmentObservation> CreateEsrEnvironmentObserv
     flatbuffers::Offset<esr::replay::EsrAtmosphericObservation> atmospheric_observation = 0,
     const std::vector<flatbuffers::Offset<esr::replay::EsrJammerSource>> *jammer_sources = nullptr) {
   auto jammer_sources__ = jammer_sources ? _fbb.CreateVector<flatbuffers::Offset<esr::replay::EsrJammerSource>>(*jammer_sources) : 0;
-  return esr::replay::CreateEsrEnvironmentObservation(
+  return esr::replay::CreateEsrEnvironmentInput(
       _fbb,
       propagation_profile,
       clutter_density,
@@ -817,7 +817,7 @@ inline flatbuffers::Offset<EsrEnvironmentObservation> CreateEsrEnvironmentObserv
       jammer_sources__);
 }
 
-flatbuffers::Offset<EsrEnvironmentObservation> CreateEsrEnvironmentObservation(flatbuffers::FlatBufferBuilder &_fbb, const EsrEnvironmentObservationT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+flatbuffers::Offset<EsrEnvironmentInput> CreateEsrEnvironmentInput(flatbuffers::FlatBufferBuilder &_fbb, const EsrEnvironmentInputT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
 struct EsrCycleInputT : public flatbuffers::NativeTable {
   typedef EsrCycleInput TableType;
@@ -825,7 +825,7 @@ struct EsrCycleInputT : public flatbuffers::NativeTable {
   float dt_sec;
   std::unique_ptr<esr::replay::PoseStateT> platform_pose;
   std::vector<std::unique_ptr<esr::replay::SceneEmitterT>> scene_emitters;
-  std::unique_ptr<esr::replay::EsrEnvironmentObservationT> environment_observation;
+  std::unique_ptr<esr::replay::EsrEnvironmentInputT> environment;
   EsrCycleInputT()
       : cycle_index(0),
         dt_sec(0.0f) {
@@ -840,7 +840,7 @@ struct EsrCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_DT_SEC = 6,
     VT_PLATFORM_POSE = 8,
     VT_SCENE_EMITTERS = 10,
-    VT_ENVIRONMENT_OBSERVATION = 12
+    VT_ENVIRONMENT = 12
   };
   uint32_t cycle_index() const {
     return GetField<uint32_t>(VT_CYCLE_INDEX, 0);
@@ -854,8 +854,8 @@ struct EsrCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const flatbuffers::Vector<flatbuffers::Offset<esr::replay::SceneEmitter>> *scene_emitters() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<esr::replay::SceneEmitter>> *>(VT_SCENE_EMITTERS);
   }
-  const esr::replay::EsrEnvironmentObservation *environment_observation() const {
-    return GetPointer<const esr::replay::EsrEnvironmentObservation *>(VT_ENVIRONMENT_OBSERVATION);
+  const esr::replay::EsrEnvironmentInput *environment() const {
+    return GetPointer<const esr::replay::EsrEnvironmentInput *>(VT_ENVIRONMENT);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -866,8 +866,8 @@ struct EsrCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyOffset(verifier, VT_SCENE_EMITTERS) &&
            verifier.VerifyVector(scene_emitters()) &&
            verifier.VerifyVectorOfTables(scene_emitters()) &&
-           VerifyOffset(verifier, VT_ENVIRONMENT_OBSERVATION) &&
-           verifier.VerifyTable(environment_observation()) &&
+           VerifyOffset(verifier, VT_ENVIRONMENT) &&
+           verifier.VerifyTable(environment()) &&
            verifier.EndTable();
   }
   EsrCycleInputT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -891,8 +891,8 @@ struct EsrCycleInputBuilder {
   void add_scene_emitters(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<esr::replay::SceneEmitter>>> scene_emitters) {
     fbb_.AddOffset(EsrCycleInput::VT_SCENE_EMITTERS, scene_emitters);
   }
-  void add_environment_observation(flatbuffers::Offset<esr::replay::EsrEnvironmentObservation> environment_observation) {
-    fbb_.AddOffset(EsrCycleInput::VT_ENVIRONMENT_OBSERVATION, environment_observation);
+  void add_environment(flatbuffers::Offset<esr::replay::EsrEnvironmentInput> environment) {
+    fbb_.AddOffset(EsrCycleInput::VT_ENVIRONMENT, environment);
   }
   explicit EsrCycleInputBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -912,9 +912,9 @@ inline flatbuffers::Offset<EsrCycleInput> CreateEsrCycleInput(
     float dt_sec = 0.0f,
     flatbuffers::Offset<esr::replay::PoseState> platform_pose = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<esr::replay::SceneEmitter>>> scene_emitters = 0,
-    flatbuffers::Offset<esr::replay::EsrEnvironmentObservation> environment_observation = 0) {
+    flatbuffers::Offset<esr::replay::EsrEnvironmentInput> environment = 0) {
   EsrCycleInputBuilder builder_(_fbb);
-  builder_.add_environment_observation(environment_observation);
+  builder_.add_environment(environment);
   builder_.add_scene_emitters(scene_emitters);
   builder_.add_platform_pose(platform_pose);
   builder_.add_dt_sec(dt_sec);
@@ -928,7 +928,7 @@ inline flatbuffers::Offset<EsrCycleInput> CreateEsrCycleInputDirect(
     float dt_sec = 0.0f,
     flatbuffers::Offset<esr::replay::PoseState> platform_pose = 0,
     const std::vector<flatbuffers::Offset<esr::replay::SceneEmitter>> *scene_emitters = nullptr,
-    flatbuffers::Offset<esr::replay::EsrEnvironmentObservation> environment_observation = 0) {
+    flatbuffers::Offset<esr::replay::EsrEnvironmentInput> environment = 0) {
   auto scene_emitters__ = scene_emitters ? _fbb.CreateVector<flatbuffers::Offset<esr::replay::SceneEmitter>>(*scene_emitters) : 0;
   return esr::replay::CreateEsrCycleInput(
       _fbb,
@@ -936,7 +936,7 @@ inline flatbuffers::Offset<EsrCycleInput> CreateEsrCycleInputDirect(
       dt_sec,
       platform_pose,
       scene_emitters__,
-      environment_observation);
+      environment);
 }
 
 flatbuffers::Offset<EsrCycleInput> CreateEsrCycleInput(flatbuffers::FlatBufferBuilder &_fbb, const EsrCycleInputT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
@@ -2146,13 +2146,13 @@ inline flatbuffers::Offset<EsrAtmosphericObservation> CreateEsrAtmosphericObserv
       _visibility_km);
 }
 
-inline EsrEnvironmentObservationT *EsrEnvironmentObservation::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<esr::replay::EsrEnvironmentObservationT> _o = std::unique_ptr<esr::replay::EsrEnvironmentObservationT>(new EsrEnvironmentObservationT());
+inline EsrEnvironmentInputT *EsrEnvironmentInput::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<esr::replay::EsrEnvironmentInputT> _o = std::unique_ptr<esr::replay::EsrEnvironmentInputT>(new EsrEnvironmentInputT());
   UnPackTo(_o.get(), _resolver);
   return _o.release();
 }
 
-inline void EsrEnvironmentObservation::UnPackTo(EsrEnvironmentObservationT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+inline void EsrEnvironmentInput::UnPackTo(EsrEnvironmentInputT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
   { auto _e = propagation_profile(); _o->propagation_profile = _e; }
@@ -2162,20 +2162,20 @@ inline void EsrEnvironmentObservation::UnPackTo(EsrEnvironmentObservationT *_o, 
   { auto _e = jammer_sources(); if (_e) { _o->jammer_sources.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->jammer_sources[_i] = std::unique_ptr<esr::replay::EsrJammerSourceT>(_e->Get(_i)->UnPack(_resolver)); } } }
 }
 
-inline flatbuffers::Offset<EsrEnvironmentObservation> EsrEnvironmentObservation::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EsrEnvironmentObservationT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEsrEnvironmentObservation(_fbb, _o, _rehasher);
+inline flatbuffers::Offset<EsrEnvironmentInput> EsrEnvironmentInput::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EsrEnvironmentInputT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateEsrEnvironmentInput(_fbb, _o, _rehasher);
 }
 
-inline flatbuffers::Offset<EsrEnvironmentObservation> CreateEsrEnvironmentObservation(flatbuffers::FlatBufferBuilder &_fbb, const EsrEnvironmentObservationT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+inline flatbuffers::Offset<EsrEnvironmentInput> CreateEsrEnvironmentInput(flatbuffers::FlatBufferBuilder &_fbb, const EsrEnvironmentInputT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
   (void)_rehasher;
   (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EsrEnvironmentObservationT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EsrEnvironmentInputT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
   auto _propagation_profile = _o->propagation_profile;
   auto _clutter_density = _o->clutter_density;
   auto _spectrum_occupancy_ratio = _o->spectrum_occupancy_ratio;
   auto _atmospheric_observation = _o->atmospheric_observation ? CreateEsrAtmosphericObservation(_fbb, _o->atmospheric_observation.get(), _rehasher) : 0;
   auto _jammer_sources = _o->jammer_sources.size() ? _fbb.CreateVector<flatbuffers::Offset<esr::replay::EsrJammerSource>> (_o->jammer_sources.size(), [](size_t i, _VectorArgs *__va) { return CreateEsrJammerSource(*__va->__fbb, __va->__o->jammer_sources[i].get(), __va->__rehasher); }, &_va ) : 0;
-  return esr::replay::CreateEsrEnvironmentObservation(
+  return esr::replay::CreateEsrEnvironmentInput(
       _fbb,
       _propagation_profile,
       _clutter_density,
@@ -2197,7 +2197,7 @@ inline void EsrCycleInput::UnPackTo(EsrCycleInputT *_o, const flatbuffers::resol
   { auto _e = dt_sec(); _o->dt_sec = _e; }
   { auto _e = platform_pose(); if (_e) _o->platform_pose = std::unique_ptr<esr::replay::PoseStateT>(_e->UnPack(_resolver)); }
   { auto _e = scene_emitters(); if (_e) { _o->scene_emitters.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->scene_emitters[_i] = std::unique_ptr<esr::replay::SceneEmitterT>(_e->Get(_i)->UnPack(_resolver)); } } }
-  { auto _e = environment_observation(); if (_e) _o->environment_observation = std::unique_ptr<esr::replay::EsrEnvironmentObservationT>(_e->UnPack(_resolver)); }
+  { auto _e = environment(); if (_e) _o->environment = std::unique_ptr<esr::replay::EsrEnvironmentInputT>(_e->UnPack(_resolver)); }
 }
 
 inline flatbuffers::Offset<EsrCycleInput> EsrCycleInput::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EsrCycleInputT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -2212,14 +2212,14 @@ inline flatbuffers::Offset<EsrCycleInput> CreateEsrCycleInput(flatbuffers::FlatB
   auto _dt_sec = _o->dt_sec;
   auto _platform_pose = _o->platform_pose ? CreatePoseState(_fbb, _o->platform_pose.get(), _rehasher) : 0;
   auto _scene_emitters = _o->scene_emitters.size() ? _fbb.CreateVector<flatbuffers::Offset<esr::replay::SceneEmitter>> (_o->scene_emitters.size(), [](size_t i, _VectorArgs *__va) { return CreateSceneEmitter(*__va->__fbb, __va->__o->scene_emitters[i].get(), __va->__rehasher); }, &_va ) : 0;
-  auto _environment_observation = _o->environment_observation ? CreateEsrEnvironmentObservation(_fbb, _o->environment_observation.get(), _rehasher) : 0;
+  auto _environment = _o->environment ? CreateEsrEnvironmentInput(_fbb, _o->environment.get(), _rehasher) : 0;
   return esr::replay::CreateEsrCycleInput(
       _fbb,
       _cycle_index,
       _dt_sec,
       _platform_pose,
       _scene_emitters,
-      _environment_observation);
+      _environment);
 }
 
 inline EmitterObservationT *EmitterObservation::UnPack(const flatbuffers::resolver_function_t *_resolver) const {

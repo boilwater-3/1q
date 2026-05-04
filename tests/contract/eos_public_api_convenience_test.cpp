@@ -12,14 +12,14 @@
 #include <type_traits>
 #include <vector>
 
+#include "1q/coordinate/position_transform.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
 #include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
-#include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
+#include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
-#include "1q/coordinate/position_transform.h"
 
 namespace rt = ::electro_optical_sensor::foundation::radiative_transfer;
 
@@ -29,9 +29,8 @@ namespace tests {
 namespace {
 
 static_assert(
-  std::is_same<config::EosEnvironmentConfig,
-         environment::EosEnvironmentDefaultConfig>::value,
-  "config::EosEnvironmentConfig must alias environment::EosEnvironmentDefaultConfig");
+    std::is_same<config::EosEnvironmentConfig, environment::EosEnvironmentDefaultConfig>::value,
+    "config::EosEnvironmentConfig must alias environment::EosEnvironmentDefaultConfig");
 
 bool ContainsEosIssueCode(const std::vector<session::ValidationIssue>& issues,
                           session::ValidationCode code) {
@@ -78,8 +77,10 @@ TEST(EosPublicApiConvenienceTest, SessionConfigBuilderDefaultsMatchEosSessionCon
   const session::EosSessionConfig default_config;
 
   EXPECT_EQ(built.mission.work_mode, default_config.mission.work_mode);
-  EXPECT_NEAR(built.hardware.wavelength_lower_um, default_config.hardware.wavelength_lower_um, 1e-5f);
-  EXPECT_NEAR(built.hardware.wavelength_upper_um, default_config.hardware.wavelength_upper_um, 1e-5f);
+  EXPECT_NEAR(built.hardware.wavelength_lower_um, default_config.hardware.wavelength_lower_um,
+              1e-5f);
+  EXPECT_NEAR(built.hardware.wavelength_upper_um, default_config.hardware.wavelength_upper_um,
+              1e-5f);
   EXPECT_EQ(built.policy.detection.profile, default_config.policy.detection.profile);
 }
 
@@ -153,20 +154,20 @@ TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderSetsAllFields) {
   environment::EosEnvironmentScenarioConfig env_config;
   env_config.model_type = environment::EosEnvironmentModelType::kAdvanced;
   env_config.has_custom_overrides = true;
-  env_config.custom_overrides.radiative_transfer_model = rt::RadiativeTransferModel::kAdaptivePathRadiance;
+  env_config.custom_overrides.radiative_transfer_model =
+      rt::RadiativeTransferModel::kAdaptivePathRadiance;
   env_config.custom_overrides.aerosol_density_factor = 1.3f;
   env_config.custom_overrides.turbulence_factor = 1.8f;
 
-  const session::EosRuntimeConfigPatch patch = config::EosRuntimeConfigBuilder()
-                                                   .WithWorkMode(config::EosWorkMode::kVisibleOnly)
-                                                   .WithScanRateDegPerSec(50.0f)
-                                                   .WithFrameRateHz(120.0f)
-                                                   .WithDetectionProfile(
-                                                       config::EosDetectionProfile::kConservative)
-                                                   .WithStrayLightProfile(
-                                                       config::EosStrayLightProfile::kEnhancedHood)
-                                                   .WithEnvironmentScenarioConfig(env_config)
-                                                   .Build();
+  const session::EosRuntimeConfigPatch patch =
+      config::EosRuntimeConfigBuilder()
+          .WithWorkMode(config::EosWorkMode::kVisibleOnly)
+          .WithScanRateDegPerSec(50.0f)
+          .WithFrameRateHz(120.0f)
+          .WithDetectionProfile(config::EosDetectionProfile::kConservative)
+          .WithStrayLightProfile(config::EosStrayLightProfile::kEnhancedHood)
+          .WithEnvironmentScenarioConfig(env_config)
+          .Build();
 
   EXPECT_TRUE(patch.has_work_mode);
   EXPECT_EQ(patch.work_mode, config::EosWorkMode::kVisibleOnly);
@@ -179,11 +180,13 @@ TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderSetsAllFields) {
   EXPECT_EQ(patch.policy.stray_light.profile, config::EosStrayLightProfile::kEnhancedHood);
   EXPECT_TRUE(patch.has_environment);
   EXPECT_TRUE(patch.environment.has_scenario_config);
-  EXPECT_EQ(patch.environment.scenario_config.model_type, environment::EosEnvironmentModelType::kAdvanced);
+  EXPECT_EQ(patch.environment.scenario_config.model_type,
+            environment::EosEnvironmentModelType::kAdvanced);
   EXPECT_TRUE(patch.environment.scenario_config.has_custom_overrides);
   EXPECT_EQ(patch.environment.scenario_config.custom_overrides.radiative_transfer_model,
             rt::RadiativeTransferModel::kAdaptivePathRadiance);
-  EXPECT_NEAR(patch.environment.scenario_config.custom_overrides.aerosol_density_factor, 1.3f, 1e-5f);
+  EXPECT_NEAR(patch.environment.scenario_config.custom_overrides.aerosol_density_factor, 1.3f,
+              1e-5f);
   EXPECT_NEAR(patch.environment.scenario_config.custom_overrides.turbulence_factor, 1.8f, 1e-5f);
 }
 
@@ -211,8 +214,7 @@ TEST(EosPublicApiConvenienceTest, InputValidationReportsErrorsForCommonBoundaryC
   EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidSolarIrradiance));
   EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidCloudCoverageRatio));
   EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidAmbientWindSpeed));
-  EXPECT_TRUE(
-      ContainsEosIssueCode(issues, session::ValidationCode::kInvalidBackgroundTemperature));
+  EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidBackgroundTemperature));
   EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidTargetId));
   EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidTargetRange));
   EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidTargetTemperature));
@@ -330,8 +332,8 @@ TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsTargetFromEcefAndLla) {
   lla_input.target_position_lla_deg_m = target_lla;
   lla_input.appearance = appearance;
   session::EosSceneTarget target_from_lla;
-  ASSERT_TRUE(session::TryMakeEosSceneTargetFromExternalInput(
-      401U, lla_input, reference, platform_pose, &target_from_lla));
+  ASSERT_TRUE(session::TryMakeEosSceneTargetFromExternalInput(401U, lla_input, reference,
+                                                              platform_pose, &target_from_lla));
   EXPECT_EQ(target_from_lla.target_id, 401U);
   EXPECT_GT(target_from_lla.range_m, 0.0f);
   EXPECT_NEAR(target_from_lla.appearance.apparent_temperature_k, 320.0f, 1e-5f);
@@ -343,8 +345,8 @@ TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsTargetFromEcefAndLla) {
   ecef_input.target_position_ecef_m = target_ecef;
   ecef_input.appearance = appearance;
   session::EosSceneTarget target_from_ecef;
-  ASSERT_TRUE(session::TryMakeEosSceneTargetFromExternalInput(
-      402U, ecef_input, reference, platform_pose, &target_from_ecef));
+  ASSERT_TRUE(session::TryMakeEosSceneTargetFromExternalInput(402U, ecef_input, reference,
+                                                              platform_pose, &target_from_ecef));
   EXPECT_NEAR(target_from_ecef.range_m, target_from_lla.range_m, 1.0f);
 }
 
@@ -479,8 +481,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionMultiCycleProducesProgressiveCycleIn
     ::electro_optical_sensor::session::EosCycleInput input;
     input.cycle_index = i;
     input.dt_sec = 1.0f;
-    input.scene.push_back(
-        MakeTarget(700U + i, 1500.0f, 0.0f, 0.0f, 320.0f, 0.9f, 0.1f, 2.0f));
+    input.scene.push_back(MakeTarget(700U + i, 1500.0f, 0.0f, 0.0f, 320.0f, 0.9f, 0.1f, 2.0f));
 
     const session::EosOutputFrame frame = session.Step(input);
     EXPECT_EQ(frame.cycle_index, i);
@@ -497,21 +498,23 @@ TEST(EosPublicApiConvenienceTest, EosRuntimeConfigBuilderWithEnvironmentPolicies
   environment::EosEnvironmentScenarioConfig env_config;
   env_config.model_type = environment::EosEnvironmentModelType::kAdvanced;
   env_config.has_custom_overrides = true;
-  env_config.custom_overrides.radiative_transfer_model = rt::RadiativeTransferModel::kAdaptivePathRadiance;
+  env_config.custom_overrides.radiative_transfer_model =
+      rt::RadiativeTransferModel::kAdaptivePathRadiance;
   env_config.custom_overrides.aerosol_density_factor = 1.3f;
   env_config.custom_overrides.turbulence_factor = 1.8f;
 
-  const session::EosRuntimeConfigPatch patch = config::EosRuntimeConfigBuilder()
-                                                   .WithEnvironmentScenarioConfig(env_config)
-                                                   .Build();
+  const session::EosRuntimeConfigPatch patch =
+      config::EosRuntimeConfigBuilder().WithEnvironmentScenarioConfig(env_config).Build();
 
   EXPECT_TRUE(patch.has_environment);
   EXPECT_TRUE(patch.environment.has_scenario_config);
-  EXPECT_EQ(patch.environment.scenario_config.model_type, environment::EosEnvironmentModelType::kAdvanced);
+  EXPECT_EQ(patch.environment.scenario_config.model_type,
+            environment::EosEnvironmentModelType::kAdvanced);
   EXPECT_TRUE(patch.environment.scenario_config.has_custom_overrides);
   EXPECT_EQ(patch.environment.scenario_config.custom_overrides.radiative_transfer_model,
             rt::RadiativeTransferModel::kAdaptivePathRadiance);
-  EXPECT_NEAR(patch.environment.scenario_config.custom_overrides.aerosol_density_factor, 1.3f, 1e-5f);
+  EXPECT_NEAR(patch.environment.scenario_config.custom_overrides.aerosol_density_factor, 1.3f,
+              1e-5f);
   EXPECT_NEAR(patch.environment.scenario_config.custom_overrides.turbulence_factor, 1.8f, 1e-5f);
 }
 

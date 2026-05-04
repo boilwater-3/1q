@@ -12,8 +12,8 @@
 #include <utility>
 #include <vector>
 
-#include "1q/api.hpp"
 #include "1q/airborne_radar/session/RadarSession.h"
+#include "1q/api.hpp"
 #include "1q/replay/ReplayTrace.h"
 
 namespace airborne_radar {
@@ -41,11 +41,7 @@ class ONEQ_API RadarTraceSession {
                              RadarTraceSessionOptions options = {});
 
   session::TrackOutputFrame Step(const RadarCycleInput& input);
-  session::TrackOutputFrame Step(const RadarCycleInput& input,
-                                const environment::EnvironmentSceneState& scene_state);
   RadarCycleResult StepWithResult(const RadarCycleInput& input);
-  RadarCycleResult StepWithResult(const RadarCycleInput& input,
-                                  const environment::EnvironmentSceneState& scene_state);
 
   void ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch);
 

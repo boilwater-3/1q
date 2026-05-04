@@ -31,9 +31,42 @@ table RadarSceneTarget {
   target_swerling_type:int;
 }
 
-// RadarCycleEnvironmentInput 保留 replay schema 的空环境槽位。
-// AR 每周期环境变化由独立 scene_state 事件表达。
+table AtmosphericObservation {
+  enable_physical_model:bool;
+  pressure_hpa:float;
+  temperature_k:float;
+  relative_humidity:float;
+}
+
+table AtmosphericContext {
+  has_simulation_unix_seconds:bool;
+  simulation_unix_seconds:long;
+  solar_flux_f107a:float;
+  solar_flux_f107:float;
+  geomagnetic_ap:float;
+}
+
+table SurfaceObservation {
+  cover_profile:int;
+  enable_physical_model:bool;
+}
+
+table JammerSource {
+  technique:int;
+  power_db:float;
+  js_db:float;
+  has_direction_deg:bool;
+  azimuth_deg:float;
+  elevation_deg:float;
+  angular_span_deg:float;
+  confidence:float;
+}
+
 table RadarCycleEnvironmentInput {
+  atmospheric_observation:AtmosphericObservation;
+  atmospheric_context:AtmosphericContext;
+  surface_observation:SurfaceObservation;
+  jammer_sources:[JammerSource];
 }
 
 table RadarCycleInput {

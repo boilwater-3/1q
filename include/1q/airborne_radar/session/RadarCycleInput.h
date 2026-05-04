@@ -8,6 +8,7 @@
 
 #include <cstdint>
 
+#include "1q/airborne_radar/session/RadarEnvironmentInput.h"
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "1q/api.hpp"
 #include "1q/foundation/pose_types.h"
@@ -23,6 +24,7 @@ struct ONEQ_API RadarCycleInput {
   float dt_sec{1.0f};                          /**< 当前周期步长（单位：秒） */
   oneq::foundation::PoseState platform_pose{}; /**< 当前周期平台位姿状态 */
   RadarSceneTargetList scene{};                /**< 当前周期场景目标输入列表 */
+  RadarEnvironmentInput environment{};         /**< 当前周期环境高层观测输入 */
 };
 
 }  // namespace session

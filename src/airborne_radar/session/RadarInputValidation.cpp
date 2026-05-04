@@ -36,6 +36,8 @@ ValidationIssue MakeIssue(ValidationSeverity severity, ValidationCode code,
  */
 bool IsFinite(float value) { return oneq::internal::validation::IsFinite(value); }
 
+bool IsRatioValid(float value) { return IsFinite(value) && value >= 0.0f && value <= 1.0f; }
+
 void ValidatePlatformPose(const oneq::foundation::PoseState& platform_pose,
                           ValidationIssueList* issues) {
   if (issues == nullptr) {
@@ -51,6 +53,44 @@ void ValidatePlatformPose(const oneq::foundation::PoseState& platform_pose,
         MakeIssue(ValidationSeverity::kError, ValidationCode::kNonFinitePlatformNumericField,
                   ValidationLocationKind::kPlatform, static_cast<std::size_t>(-1), "platform_pose",
                   "platform pose contains non-finite numeric field"));
+  }
+}
+
+void ValidateEnvironmentInput(const RadarEnvironmentInput& environment,
+                              ValidationIssueList* issues) {
+  if (issues == nullptr) {
+    return;
+  }
+  const environment::AtmosphericPhysicsConfig& atmosphere = environment.atmospheric_observation;
+  if (!IsFinite(atmosphere.pressure_hpa) || !IsFinite(atmosphere.temperature_k) ||
+      !IsFinite(atmosphere.relative_humidity) || atmosphere.pressure_hpa <= 0.0f ||
+      atmosphere.temperature_k <= 0.0f || !IsRatioValid(atmosphere.relative_humidity)) {
+    issues->push_back(MakeIssue(ValidationSeverity::kError,
+                                ValidationCode::kInvalidEnvironmentObservation,
+                                ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1),
+                                "environment.atmospheric_observation",
+                                "atmospheric observation must contain positive "
+                                "pressure/temperature and humidity in [0, 1]"));
+  }
+  const environment::AtmosphericDerivedContext& context = environment.atmospheric_context;
+  if (!IsFinite(context.solar_flux_f107a) || !IsFinite(context.solar_flux_f107) ||
+      !IsFinite(context.geomagnetic_ap)) {
+    issues->push_back(MakeIssue(
+        ValidationSeverity::kError, ValidationCode::kInvalidEnvironmentObservation,
+        ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1),
+        "environment.atmospheric_context", "atmospheric context numeric fields must be finite"));
+  }
+  for (std::size_t i = 0; i < environment.jammer_sources.size(); ++i) {
+    const environment::JammerEmitterState& jammer = environment.jammer_sources[i];
+    if (!IsFinite(jammer.power_db) || !IsFinite(jammer.js_db) || !IsFinite(jammer.azimuth_deg) ||
+        !IsFinite(jammer.elevation_deg) || !IsFinite(jammer.angular_span_deg) ||
+        !IsFinite(jammer.confidence) || jammer.power_db < 0.0f || jammer.js_db < 0.0f ||
+        jammer.angular_span_deg < 0.0f || !IsRatioValid(jammer.confidence)) {
+      issues->push_back(MakeIssue(
+          ValidationSeverity::kError, ValidationCode::kInvalidEnvironmentObservation,
+          ValidationLocationKind::kEnvironment, i, "environment.jammer_sources",
+          "jammer source must contain finite non-negative powers/span and confidence in [0, 1]"));
+    }
   }
 }
 
@@ -77,8 +117,8 @@ void ValidateSingleTarget(const RadarSceneTarget& target, std::size_t target_ind
 
   if (!IsFinite(target.position_x) || !IsFinite(target.position_y) ||
       !IsFinite(target.position_z) || !IsFinite(target.velocity_x) ||
-      !IsFinite(target.velocity_y) || !IsFinite(target.velocity_z) ||
-      !IsFinite(target.rcs) || !IsFinite(target.range_m)) {
+      !IsFinite(target.velocity_y) || !IsFinite(target.velocity_z) || !IsFinite(target.rcs) ||
+      !IsFinite(target.range_m)) {
     issues->push_back(MakeIssue(ValidationSeverity::kError, ValidationCode::kNonFiniteTargetField,
                                 ValidationLocationKind::kSceneEntity, target_index, "scene",
                                 "target contains non-finite numeric field"));
@@ -99,8 +139,8 @@ void ValidateSingleTarget(const RadarSceneTarget& target, std::size_t target_ind
 
   if (target.rcs < 0.0f) {
     issues->push_back(MakeIssue(ValidationSeverity::kWarning, ValidationCode::kNegativeRcs,
-                                ValidationLocationKind::kSceneEntity, target_index,
-                                "rcs", "target rcs is negative"));
+                                ValidationLocationKind::kSceneEntity, target_index, "rcs",
+                                "target rcs is negative"));
   }
 }
 
@@ -123,6 +163,7 @@ ValidationIssueList ValidateRadarCycleDeltaTime(float dt_sec) {
 ValidationIssueList ValidateRadarCycleInput(const RadarCycleInput& input) {
   ValidationIssueList issues = ValidateRadarCycleDeltaTime(input.dt_sec);
   ValidatePlatformPose(input.platform_pose, &issues);
+  ValidateEnvironmentInput(input.environment, &issues);
 
   const ValidationIssueList target_issues = ValidateRadarSceneTargets(input.scene);
   issues.insert(issues.end(), target_issues.begin(), target_issues.end());
@@ -150,10 +191,9 @@ ValidationIssueList ValidateRadarSceneTargets(const RadarSceneTargetList& target
     std::ostringstream stream;
     stream << "duplicate external target id " << external_target_id << " first seen at index "
            << it->second;
-    issues.push_back(MakeIssue(ValidationSeverity::kError,
-                               ValidationCode::kDuplicateExternalTargetId,
-                               ValidationLocationKind::kSceneEntity, i, "external_target_id",
-                               stream.str()));
+    issues.push_back(
+        MakeIssue(ValidationSeverity::kError, ValidationCode::kDuplicateExternalTargetId,
+                  ValidationLocationKind::kSceneEntity, i, "external_target_id", stream.str()));
   }
 
   return issues;

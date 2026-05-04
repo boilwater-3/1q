@@ -254,9 +254,8 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
     target.position_z = 150.0f;
     input.scene.push_back(target);
 
-    environment::EnvironmentSceneState scene_state;
-    scene_state.atmospheric_physics.enable_physical_model = true;
-    scene_state.atmospheric_physics.relative_humidity = 0.65f;
+    input.environment.atmospheric_observation.enable_physical_model = true;
+    input.environment.atmospheric_observation.relative_humidity = 0.65f;
     environment::JammerEmitterState jammer;
     jammer.technique = model::JammingTechnique::kNoiseSuppression;
     jammer.power_db = 24.0f;
@@ -264,9 +263,9 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
     jammer.has_direction_deg = true;
     jammer.azimuth_deg = 18.0f;
     jammer.elevation_deg = 2.0f;
-    scene_state.jammer_emitters.push_back(jammer);
+    input.environment.jammer_sources.push_back(jammer);
 
-    const session::RadarCycleResult result = session.StepWithResult(input, scene_state);
+    const session::RadarCycleResult result = session.StepWithResult(input);
     EXPECT_GE(result.track_output_frame.tracks.size(), 0U);
     replay_writer->Flush();
   }
@@ -274,27 +273,19 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
   const std::string content = ReadFile(trace_dir + "/events/000000.events.jsonl");
   EXPECT_NE(content.find("\"event_type\":\"runtime_config_patch\""), std::string::npos);
   EXPECT_NE(content.find("\"payload_type\":\"RadarRuntimeConfigPatch\""), std::string::npos);
-  EXPECT_NE(content.find("\"event_type\":\"scene_state\""), std::string::npos);
+  EXPECT_EQ(content.find("\"event_type\":\"scene_state\""), std::string::npos);
   EXPECT_NE(content.find("\"payload_encoding\":\"flatbuffers\""), std::string::npos);
   EXPECT_NE(content.find("\"payload_base64\":\""), std::string::npos);
 
   oneq::replay::ReplayTraceReader replay_reader(trace_dir);
   oneq::replay::ReplayTraceReadEvent replay_event;
   bool saw_session_config = false;
-  bool saw_scene_state = false;
   bool saw_runtime_patch = false;
   bool saw_cycle_output = false;
   while (replay_reader.ReadNextEvent(&replay_event)) {
     if (replay_event.event_type == "session_config") {
       saw_session_config = true;
       EXPECT_EQ(replay_event.payload_type, "RadarSessionConfig");
-      EXPECT_EQ(replay_event.payload_encoding, "flatbuffers");
-      EXPECT_FALSE(replay_event.payload_bytes.empty());
-      EXPECT_TRUE(replay_event.payload_hash_matches);
-    }
-    if (replay_event.event_type == "scene_state") {
-      saw_scene_state = true;
-      EXPECT_EQ(replay_event.payload_type, "EnvironmentSceneState");
       EXPECT_EQ(replay_event.payload_encoding, "flatbuffers");
       EXPECT_FALSE(replay_event.payload_bytes.empty());
       EXPECT_TRUE(replay_event.payload_hash_matches);
@@ -336,7 +327,6 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
     }
   }
   EXPECT_TRUE(saw_session_config);
-  EXPECT_TRUE(saw_scene_state);
   EXPECT_TRUE(saw_runtime_patch);
   EXPECT_TRUE(saw_cycle_output);
 
@@ -344,47 +334,10 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
   EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
   EXPECT_TRUE(replay_result.report.replay_ready);
   EXPECT_EQ(replay_result.playback.applied_input_count, 1U);
-  EXPECT_EQ(replay_result.playback.applied_scene_state_count, 1U);
+  EXPECT_EQ(replay_result.playback.applied_scene_state_count, 0U);
   EXPECT_EQ(replay_result.playback.applied_runtime_patch_count, 1U);
   EXPECT_EQ(replay_result.playback.compared_output_count, 1U);
   EXPECT_FALSE(replay_result.playback.divergence_found);
-}
-
-TEST(TraceSessionAdapterTest, RadarReplaySessionRejectsSceneStateWithoutPendingInput) {
-  const std::string trace_dir = MakeTempTracePath("oneq-radar-replay-scene-order");
-
-  oneq::replay::ReplayTraceManifest manifest;
-  manifest.trace_id = "radar-replay-scene-order-test";
-  manifest.module = "airborne_radar";
-  manifest.scenario_id = "unit-test";
-
-  {
-    oneq::replay::ReplayTraceWriter writer(trace_dir, manifest, true);
-
-    oneq::replay::ReplayTraceEvent config_event;
-    config_event.module = "airborne_radar";
-    config_event.event_type = "session_config";
-    config_event.payload_type = "RadarSessionConfig";
-    config_event.payload_encoding = "flatbuffers";
-    config_event.payload_bytes =
-        session::EncodeSessionConfigFlatbuffer(session::RadarSessionConfig());
-    writer.WriteEvent(config_event);
-
-    oneq::replay::ReplayTraceEvent scene_event;
-    scene_event.module = "airborne_radar";
-    scene_event.event_type = "scene_state";
-    scene_event.payload_type = "EnvironmentSceneState";
-    scene_event.payload_encoding = "flatbuffers";
-    scene_event.payload_bytes =
-        session::EncodeSceneStateFlatbuffer(environment::EnvironmentSceneState());
-    writer.WriteEvent(scene_event);
-    writer.Flush();
-  }
-
-  const session::RadarReplaySessionResult replay_result = session::ReplayRadarTrace(trace_dir);
-  EXPECT_FALSE(replay_result.ok);
-  EXPECT_NE(replay_result.first_error.find("scene_state without pending cycle_input"),
-            std::string::npos);
 }
 
 TEST(TraceSessionAdapterTest, RadarReplaySessionStopsAtFailureMarker) {

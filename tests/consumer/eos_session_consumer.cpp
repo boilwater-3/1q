@@ -15,14 +15,14 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
-#include "1q/electro_optical_sensor/session/EosCycleInput.h"
-#include "1q/electro_optical_sensor/session/EosInputValidation.h"
-#include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
 #include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
+#include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "1q/electro_optical_sensor/session/EosCycleResult.h"
+#include "1q/electro_optical_sensor/session/EosInputValidation.h"
+#include "1q/electro_optical_sensor/session/EosSession.h"
 
 namespace eos = electro_optical_sensor;
 
@@ -43,8 +43,7 @@ int main() {
   config.policy.detection.visible_reference_irradiance_w_m2 = 720.0f;
 
   // 3. Session construction
-  eos::session::EosSession session =
-      eos::session::EosSessionFactory::Create(config);
+  eos::session::EosSession session = eos::session::EosSessionFactory::Create(config);
 
   // 4. CycleInput with a target
   eos::session::EosCycleInput input;
@@ -69,8 +68,7 @@ int main() {
   input.scene.push_back(target);
 
   // 5. Input validation
-  const eos::session::ValidationIssueList issues =
-      eos::session::ValidateEosCycleInput(input);
+  const eos::session::ValidationIssueList issues = eos::session::ValidateEosCycleInput(input);
   if (eos::session::HasValidationError(issues)) {
     return 1;
   }
@@ -128,41 +126,37 @@ int main() {
 
   // 12. RuntimeConfigBuilder: enable straylight filter
   const eos::session::EosRuntimeConfigPatch straylight_patch =
-      eos::config::EosRuntimeConfigBuilder().WithStrayLightProfile(eos::config::EosStrayLightProfile::kEnhancedHood).Build();
+      eos::config::EosRuntimeConfigBuilder()
+          .WithStrayLightProfile(eos::config::EosStrayLightProfile::kEnhancedHood)
+          .Build();
   session.ApplyRuntimeConfig(straylight_patch);
 
   // 13. RuntimeConfigBuilder: switch environment model to advanced
   const eos::session::EosRuntimeConfigPatch env_patch =
       eos::config::EosRuntimeConfigBuilder()
           .WithEnvironmentModelType(eos::environment::EosEnvironmentModelType::kAdvanced)
-        .WithEnvironmentDetails(
-          eos::foundation::radiative_transfer::RadiativeTransferModel::
-            kAdaptivePathRadiance,
-          1.3f,
-          1.8f)
+          .WithEnvironmentDetails(
+              eos::foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance,
+              1.3f, 1.8f)
           .Build();
   session.ApplyRuntimeConfig(env_patch);
 
-    // 14. RuntimeConfigBuilder: tune environment model details
+  // 14. RuntimeConfigBuilder: tune environment model details
   const eos::session::EosRuntimeConfigPatch rt_patch =
       eos::config::EosRuntimeConfigBuilder()
-        .WithEnvironmentDetails(
-          eos::foundation::radiative_transfer::RadiativeTransferModel::
-            kAdaptivePathRadiance,
-          2.0f,
-          1.2f)
-        .Build();
+          .WithEnvironmentDetails(
+              eos::foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance,
+              2.0f, 1.2f)
+          .Build();
   session.ApplyRuntimeConfig(rt_patch);
 
-    // 15. RuntimeConfigBuilder: change environment model details again
+  // 15. RuntimeConfigBuilder: change environment model details again
   const eos::session::EosRuntimeConfigPatch vis_ref_patch =
       eos::config::EosRuntimeConfigBuilder()
-        .WithEnvironmentDetails(
-          eos::foundation::radiative_transfer::RadiativeTransferModel::
-            kHumidityWeighted,
-          1.1f,
-          1.1f)
-        .Build();
+          .WithEnvironmentDetails(
+              eos::foundation::radiative_transfer::RadiativeTransferModel::kHumidityWeighted, 1.1f,
+              1.1f)
+          .Build();
   session.ApplyRuntimeConfig(vis_ref_patch);
 
   // 16. Final cycle

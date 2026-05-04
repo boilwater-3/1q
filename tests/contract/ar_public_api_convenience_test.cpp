@@ -193,6 +193,17 @@ session::RadarCycleInput MakeCycleInput(session::RadarSceneTargetList targets, f
   return input;
 }
 
+void ApplySceneStateToCycleInput(const environment::EnvironmentSceneState& scene_state,
+                                 session::RadarCycleInput* input) {
+  if (input == nullptr) {
+    return;
+  }
+  input->environment.atmospheric_observation = scene_state.atmospheric_physics;
+  input->environment.atmospheric_context = scene_state.atmospheric_context;
+  input->environment.surface_observation = scene_state.vegetation_scatter_physics;
+  input->environment.jammer_sources = scene_state.jammer_emitters;
+}
+
 /// @brief 比较两组控制命令的类型和来源是否一致。
 /// @param expected 期望命令列表。
 /// @param actual 实际命令列表。
@@ -1021,7 +1032,9 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
   const environment::EnvironmentSceneState scene =
       environment::EnvironmentSceneBuilder().AddNoiseJammer(noise_emitter_2).Build();
 
-  const session::TrackOutputFrame session_frame = session.Step(input, scene);
+  session::RadarCycleInput session_input = input;
+  ApplySceneStateToCycleInput(scene, &session_input);
+  const session::TrackOutputFrame session_frame = session.Step(session_input);
 
   environment_service.UpdateSceneState(scene);
   manual_context.BeginCycle(input);
@@ -1113,8 +1126,10 @@ TEST(PublicApiConvenienceTest,
   noise_emitter_3.elevation_deg = 1.0f;
   noise_emitter_3.angular_span_deg = 10.0f;
 
-  const session::RadarCycleResult result_2 = session.StepWithResult(
-      cycle_2, environment::EnvironmentSceneBuilder().AddNoiseJammer(noise_emitter_3).Build());
+  const environment::EnvironmentSceneState noise_scene =
+      environment::EnvironmentSceneBuilder().AddNoiseJammer(noise_emitter_3).Build();
+  ApplySceneStateToCycleInput(noise_scene, &cycle_2);
+  const session::RadarCycleResult result_2 = session.StepWithResult(cycle_2);
   const session::TrackOutputFrame& frame_2 = result_2.track_output_frame;
 
   EXPECT_TRUE(result_2.has_validation_error);
@@ -1135,8 +1150,10 @@ TEST(PublicApiConvenienceTest,
   cycle_3.dt_sec = 1.0f;
   cycle_3.scene[1].external_target_id = 703U;
   cycle_3.scene[2].external_target_id = 704U;
-  const session::TrackOutputFrame frame_3 =
-      session.Step(cycle_3, environment::EnvironmentSceneBuilder().Build());
+  const environment::EnvironmentSceneState clear_scene =
+      environment::EnvironmentSceneBuilder().Build();
+  ApplySceneStateToCycleInput(clear_scene, &cycle_3);
+  const session::TrackOutputFrame frame_3 = session.Step(cycle_3);
   EXPECT_GT(frame_3.tracks.size(), 0U);
   EXPECT_EQ(session::CountJammingTracks(frame_3), 0U);
   EXPECT_TRUE(session::ContainsExternalTargetId(frame_3, 703U));
@@ -1202,8 +1219,8 @@ TEST(PublicApiConvenienceTest,
           model::MakeAirTarget(811U, 140.0f, -2.0f, 12.0f, 60.0f, 0.0f, 0.0f, 1.0f),
       },
       -1.0f);
-  const session::RadarCycleResult invalid_result =
-      session.StepWithResult(invalid_input, jammed_scene);
+  ApplySceneStateToCycleInput(jammed_scene, &invalid_input);
+  const session::RadarCycleResult invalid_result = session.StepWithResult(invalid_input);
   EXPECT_TRUE(invalid_result.has_validation_error);
   EXPECT_FALSE(invalid_result.executed_this_cycle);
   EXPECT_TRUE(invalid_result.reused_previous_track_output);
@@ -1220,8 +1237,8 @@ TEST(PublicApiConvenienceTest,
   EXPECT_FLOAT_EQ(radar_context.GetCycleDeltaTimeSec(), 1.0f);
   EXPECT_TRUE(environment_service.GetPendingSceneState().jammer_emitters.empty());
 
-  const session::RadarCycleResult committed_result =
-      session.StepWithResult(baseline_input, jammed_scene);
+  ApplySceneStateToCycleInput(jammed_scene, &baseline_input);
+  const session::RadarCycleResult committed_result = session.StepWithResult(baseline_input);
   EXPECT_FALSE(committed_result.has_validation_error);
   EXPECT_TRUE(committed_result.executed_this_cycle);
   EXPECT_FALSE(committed_result.reused_previous_track_output);
@@ -1353,10 +1370,11 @@ TEST(PublicApiConvenienceTest,
   jammed_scene.jammer_emitters.push_back(jammer);
 
   signal_pipeline.SetShouldExecute(false);
-  const session::RadarCycleInput failed_input = MakeCycleInput(session::RadarSceneTargetList{
+  session::RadarCycleInput failed_input = MakeCycleInput(session::RadarSceneTargetList{
       model::MakeAirTarget(961U, 140.0f, -2.0f, 12.0f, 60.0f, 0.0f, 0.0f, 1.0f),
   });
-  const session::RadarCycleResult failed = session.StepWithResult(failed_input, jammed_scene);
+  ApplySceneStateToCycleInput(jammed_scene, &failed_input);
+  const session::RadarCycleResult failed = session.StepWithResult(failed_input);
   EXPECT_FALSE(failed.executed_this_cycle);
   EXPECT_EQ(failed.signal_cycle_abort_reason,
             extension::SignalCycleAbortReason::kRuntimePreparationFailed);
@@ -1373,7 +1391,8 @@ TEST(PublicApiConvenienceTest,
   signal_pipeline.SetShouldExecute(true);
   session::RadarCycleInput committed_input = baseline_input;
   committed_input.cycle_index = baseline.track_output_frame.cycle_index + 1U;
-  const session::RadarCycleResult committed = session.StepWithResult(committed_input, jammed_scene);
+  ApplySceneStateToCycleInput(jammed_scene, &committed_input);
+  const session::RadarCycleResult committed = session.StepWithResult(committed_input);
   EXPECT_TRUE(committed.executed_this_cycle);
   EXPECT_EQ(signal_pipeline.config().mission.orientation.work_sub_mode,
             model::RadarWorkSubMode::kTas);
@@ -1584,7 +1603,9 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultMatchesManualChainUnder
   const environment::EnvironmentSceneState scene =
       environment::EnvironmentSceneBuilder().AddNoiseJammer(noise_emitter_5).Build();
 
-  const session::RadarCycleResult session_result = session.StepWithResult(input, scene);
+  session::RadarCycleInput session_input = input;
+  ApplySceneStateToCycleInput(scene, &session_input);
+  const session::RadarCycleResult session_result = session.StepWithResult(session_input);
 
   environment_service.UpdateSceneState(scene);
   manual_context.BeginCycle(input);

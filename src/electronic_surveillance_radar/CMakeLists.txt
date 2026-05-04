@@ -56,6 +56,9 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrCycleInput.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrCycleInputBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrCycleResult.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrEnvironmentInputPatch.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrEnvironmentInputState.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrInputValidation.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrSession.h

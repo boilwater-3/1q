@@ -5,12 +5,12 @@
 
 #include <gtest/gtest.h>
 
-#include "1q/coordinate/position_transform.h"
-
 #include <cmath>
 #include <cstddef>
 
 #include "1q/airborne_radar/session/RadarCycleInputBuilder.h"
+#include "1q/airborne_radar/session/RadarEnvironmentInputState.h"
+#include "1q/coordinate/position_transform.h"
 
 namespace airborne_radar {
 namespace session {
@@ -54,7 +54,7 @@ TEST(RadarCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
 
   RadarSceneTarget target_2step;
   ASSERT_TRUE(TryMakeTargetFromExternalKinematics(600U, target_input, reference,
-                                                   pose_2step.velocity_mps, &target_2step));
+                                                  pose_2step.velocity_mps, &target_2step));
 
   // Builder（一步构建）
   RadarCycleInput builder_input;
@@ -99,6 +99,58 @@ TEST(RadarCycleInputBuilderTest, EmptyTargetsProducesValidCycleInput) {
   EXPECT_NEAR(input.platform_pose.attitude_deg.pitch_deg, -3.0f, 1.0e-5f);
   EXPECT_NEAR(input.platform_pose.attitude_deg.roll_deg, 1.0f, 1.0e-5f);
   EXPECT_TRUE(input.scene.empty());
+}
+
+/// @brief Builder 显式环境重载写入完整环境快照。
+TEST(RadarCycleInputBuilderTest, ExplicitEnvironmentSnapshotIsCopiedToCycleInput) {
+  oneq::coordinate::LlaPositionDegM radar_lla;
+  radar_lla.latitude_deg = 31.0;
+  radar_lla.longitude_deg = 121.0;
+  radar_lla.altitude_m = 1000.0;
+  oneq::coordinate::EcefPositionM radar_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(radar_lla, &radar_ecef));
+
+  RadarExternalPoseInput pose_input;
+  pose_input.platform_position_ecef_m = radar_ecef;
+
+  RadarEnvironmentInput environment;
+  environment.atmospheric_observation.enable_physical_model = true;
+  environment.atmospheric_observation.temperature_k = 301.0f;
+  environment.atmospheric_context.solar_flux_f107 = 180.0f;
+  environment.surface_observation.cover_profile =
+      environment::VegetationCoverProfile::kSparseWoodland;
+  environment.jammer_sources.push_back(environment::JammerEmitterState{});
+  environment.jammer_sources[0].power_db = 12.0f;
+
+  RadarCycleInput input;
+  ASSERT_TRUE(RadarCycleInputBuilder::Build(pose_input, {}, 1.0f, environment, &input));
+
+  EXPECT_TRUE(input.environment.atmospheric_observation.enable_physical_model);
+  EXPECT_FLOAT_EQ(input.environment.atmospheric_observation.temperature_k, 301.0f);
+  EXPECT_FLOAT_EQ(input.environment.atmospheric_context.solar_flux_f107, 180.0f);
+  EXPECT_EQ(input.environment.surface_observation.cover_profile,
+            environment::VegetationCoverProfile::kSparseWoodland);
+  ASSERT_EQ(input.environment.jammer_sources.size(), 1U);
+  EXPECT_FLOAT_EQ(input.environment.jammer_sources[0].power_db, 12.0f);
+}
+
+/// @brief 环境输入状态只更新 patch 标记过的字段。
+TEST(RadarCycleInputBuilderTest, EnvironmentInputStateAppliesOnlyFlaggedFields) {
+  RadarEnvironmentInput initial;
+  initial.atmospheric_observation.temperature_k = 288.0f;
+  initial.atmospheric_context.solar_flux_f107 = 150.0f;
+
+  RadarEnvironmentInputState state(initial);
+
+  RadarEnvironmentInputPatch patch;
+  patch.has_atmospheric_context = true;
+  patch.atmospheric_context.solar_flux_f107 = 210.0f;
+  patch.atmospheric_observation.temperature_k = 310.0f;
+  state.Update(patch);
+
+  const RadarEnvironmentInput snapshot = state.Snapshot();
+  EXPECT_FLOAT_EQ(snapshot.atmospheric_observation.temperature_k, 288.0f);
+  EXPECT_FLOAT_EQ(snapshot.atmospheric_context.solar_flux_f107, 210.0f);
 }
 
 /// @brief Builder 在 nullptr 输出时返回 false。

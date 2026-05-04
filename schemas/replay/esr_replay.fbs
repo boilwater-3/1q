@@ -63,7 +63,7 @@ table EsrAtmosphericObservation {
   visibility_km:            float;
 }
 
-table EsrEnvironmentObservation {
+table EsrEnvironmentInput {
   propagation_profile:      int32;
   clutter_density:          int32;
   spectrum_occupancy_ratio: float;
@@ -76,7 +76,7 @@ table EsrCycleInput {
   dt_sec:                  float;
   platform_pose:           PoseState;
   scene_emitters:          [SceneEmitter];
-  environment_observation: EsrEnvironmentObservation;
+  environment:             EsrEnvironmentInput;
 }
 
 root_type EsrCycleInput;

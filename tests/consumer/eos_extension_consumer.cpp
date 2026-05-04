@@ -9,14 +9,14 @@
  *   - HasValidationError、GetLastValidationIssues 字段可访问
  */
 
-#include "1q/electro_optical_sensor/session/EosCycleResult.h"
+#include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
+#include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
+#include "1q/electro_optical_sensor/extension/EosController.h"
+#include "1q/electro_optical_sensor/extension/IEosPipeline.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
-#include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
-#include "1q/electro_optical_sensor/extension/EosController.h"
-#include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
-#include "1q/electro_optical_sensor/extension/IEosPipeline.h"
 
 namespace electro_optical_sensor {
 namespace {
@@ -28,7 +28,8 @@ class DummyEosPipeline : public extension::IEosPipeline {
     (void)reset_scan_phase;
   }
 
-  extension::EosPipelineExecuteResult Execute(const ::electro_optical_sensor::session::EosCycleInput& input) override {
+  extension::EosPipelineExecuteResult Execute(
+      const ::electro_optical_sensor::session::EosCycleInput& input) override {
     extension::EosPipelineExecuteResult result;
     session::EosOutputFrame& frame = result.output_frame;
     frame.cycle_index = input.cycle_index;

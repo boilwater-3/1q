@@ -22,17 +22,6 @@ void WriteSessionConfigReplay(const std::shared_ptr<oneq::replay::ReplayTraceWri
   writer->WriteEvent(event);
 }
 
-void WriteSceneStateReplay(const std::shared_ptr<oneq::replay::ReplayTraceWriter>& writer,
-                           const environment::EnvironmentSceneState& scene_state) {
-  oneq::replay::ReplayTraceEvent event;
-  event.module = "airborne_radar";
-  event.event_type = "scene_state";
-  event.payload_type = "EnvironmentSceneState";
-  event.payload_encoding = "flatbuffers";
-  event.payload_bytes = EncodeSceneStateFlatbuffer(scene_state);
-  writer->WriteEvent(event);
-}
-
 void WriteRuntimeConfigPatchReplay(const std::shared_ptr<oneq::replay::ReplayTraceWriter>& writer,
                                    const config::RadarRuntimeConfigPatch& patch) {
   oneq::replay::ReplayTraceEvent event;
@@ -123,43 +112,12 @@ session::TrackOutputFrame RadarTraceSession::Step(const RadarCycleInput& input) 
   return output;
 }
 
-session::TrackOutputFrame RadarTraceSession::Step(
-    const RadarCycleInput& input, const environment::EnvironmentSceneState& scene_state) {
-  if (replay_writer_) {
-    pending_input_written_ = true;
-    WriteCycleInputEvent(replay_writer_, input);
-    WriteSceneStateReplay(replay_writer_, scene_state);
-  }
-  const session::TrackOutputFrame output = session_.Step(input, scene_state);
-  if (replay_writer_) {
-    WriteTrackOutputReplay(replay_writer_, output);
-    pending_input_written_ = false;
-  }
-  return output;
-}
-
 RadarCycleResult RadarTraceSession::StepWithResult(const RadarCycleInput& input) {
   if (replay_writer_) {
     pending_input_written_ = true;
     WriteCycleInputEvent(replay_writer_, input);
   }
   const RadarCycleResult output = session_.StepWithResult(input);
-  if (replay_writer_) {
-    WriteCycleResultReplay(replay_writer_, output);
-    pending_input_written_ = false;
-    MaybeWriteValidationFailureMarker(replay_writer_, output);
-  }
-  return output;
-}
-
-RadarCycleResult RadarTraceSession::StepWithResult(
-    const RadarCycleInput& input, const environment::EnvironmentSceneState& scene_state) {
-  if (replay_writer_) {
-    pending_input_written_ = true;
-    WriteCycleInputEvent(replay_writer_, input);
-    WriteSceneStateReplay(replay_writer_, scene_state);
-  }
-  const RadarCycleResult output = session_.StepWithResult(input, scene_state);
   if (replay_writer_) {
     WriteCycleResultReplay(replay_writer_, output);
     pending_input_written_ = false;

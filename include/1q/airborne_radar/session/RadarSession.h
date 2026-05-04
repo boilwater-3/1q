@@ -10,7 +10,6 @@
 #include <vector>
 
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
-#include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/extension/control/RadarCommand.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
@@ -66,18 +65,6 @@ class ONEQ_API RadarSession {
   session::TrackOutputFrame Step(const RadarCycleInput& input);
 
   /**
-   * @brief 先更新待生效场景，再执行当前周期。
-   * @param input 当前周期输入。
-   * @param scene_state 当前 step 之前要提交的待生效场景。
-   * @return 当前周期生成的轨迹输出帧拷贝。
-   * @note 输入容错：`dt_sec ≤ 0` 或其他非法输入时，函数不抛异常，
-   *       会以尽力而为出发返回上一周期有效状态，输出帧中
-   *       `tracks` 可能为空。
-   */
-  session::TrackOutputFrame Step(const RadarCycleInput& input,
-                                const environment::EnvironmentSceneState& scene_state);
-
-  /**
    * @brief 执行一个不显式切场景的处理周期，并返回聚合结果。
    * @param input 当前周期输入。
    * @return 当前周期聚合结果。
@@ -87,19 +74,6 @@ class ONEQ_API RadarSession {
    *       可进一步通过 `signal_cycle_abort_reason` 区分具体原因。
    */
   RadarCycleResult StepWithResult(const RadarCycleInput& input);
-
-  /**
-   * @brief 先更新待生效场景，再执行当前周期，并返回聚合结果。
-   * @param input 当前周期输入。
-   * @param scene_state 当前 step 之前要提交的待生效场景。
-   * @return 当前周期聚合结果。
-   * @note 输入校验失败时，不会提交 `scene_state`，并可通过结果中的
-   *       `executed_this_cycle` / `reused_previous_track_output`
-   *       判断是否发生了上一有效输出回退；若下游主链路 abort，
-   *       可通过 `signal_cycle_abort_reason` 获取结构化原因。
-   */
-  RadarCycleResult StepWithResult(const RadarCycleInput& input,
-                                  const environment::EnvironmentSceneState& scene_state);
 
   /** @brief 获取当前周期已提交的控制指令。
    * @return 最近一次成功执行周期提交的控制指令列表引用。

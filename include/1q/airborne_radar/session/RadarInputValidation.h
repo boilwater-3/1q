@@ -38,7 +38,8 @@ enum class ONEQ_API ValidationCode {
   kMissingRangeAndCartesianPosition, /**< 目标既没有有效斜距，也没有有效笛卡尔位置 */
   kUnknownExternalTargetId,          /**< 目标外部标识符未知 */
   kDuplicateExternalTargetId,        /**< 外部标识符重复 */
-  kNegativeRcs                       /**< 目标 RCS 为负值 */
+  kNegativeRcs,                      /**< 目标 RCS 为负值 */
+  kInvalidEnvironmentObservation     /**< 环境观测字段非法 */
 };
 
 /**
@@ -66,9 +67,9 @@ struct ONEQ_API ValidationLocation {
 struct ONEQ_API ValidationIssue {
   ValidationSeverity severity{ValidationSeverity::kInfo}; /**< 严重级别 */
   ValidationCode code{ValidationCode::kNone};             /**< 问题类型编码 */
-  ValidationLocation location{};       /**< 结构化定位信息 */
-  std::string field{};                 /**< 触发问题的字段名；为空表示跨字段或域级问题 */
-  std::string message{};             /**< 面向外部调用方的简短说明 */
+  ValidationLocation location{};                          /**< 结构化定位信息 */
+  std::string field{};   /**< 触发问题的字段名；为空表示跨字段或域级问题 */
+  std::string message{}; /**< 面向外部调用方的简短说明 */
 };
 
 /** @brief ValidationIssueList 表示输入校验问题列表。 */
@@ -93,8 +94,7 @@ ONEQ_API ValidationIssueList ValidateRadarCycleInput(const RadarCycleInput& inpu
  * @param[in] targets 当前周期场景目标列表。
  * @return 按发现顺序返回的校验问题列表。
  */
-ONEQ_API ValidationIssueList
-ValidateRadarSceneTargets(const RadarSceneTargetList& targets);
+ONEQ_API ValidationIssueList ValidateRadarSceneTargets(const RadarSceneTargetList& targets);
 
 /**
  * @brief 判断是否包含 error 级别问题。

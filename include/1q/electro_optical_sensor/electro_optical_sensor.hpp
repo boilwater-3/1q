@@ -14,8 +14,11 @@
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleInputBuilder.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
-#include "1q/electro_optical_sensor/session/EosInputValidation.h"
+#include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
+#include "1q/electro_optical_sensor/session/EosEnvironmentInputPatch.h"
+#include "1q/electro_optical_sensor/session/EosEnvironmentInputState.h"
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
+#include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electro_optical_sensor/session/EosTraceSession.h"
 

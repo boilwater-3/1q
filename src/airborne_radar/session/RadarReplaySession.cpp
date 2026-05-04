@@ -16,8 +16,6 @@ struct RadarReplayState {
   std::unique_ptr<RadarSession> session{};
   RadarCycleInput pending_input{};
   bool has_pending_input{false};
-  environment::EnvironmentSceneState pending_scene_state{};
-  bool has_pending_scene_state{false};
   RadarCycleResult latest_result{};
   session::TrackOutputFrame latest_frame{};
   bool reached_failure_marker{false};
@@ -67,16 +65,10 @@ bool ExecutePendingCycle(RadarReplayState* state, std::string* error) {
     return false;
   }
 
-  RadarCycleResult result;
-  if (state->has_pending_scene_state) {
-    result = state->session->StepWithResult(state->pending_input, state->pending_scene_state);
-  } else {
-    result = state->session->StepWithResult(state->pending_input);
-  }
+  RadarCycleResult result = state->session->StepWithResult(state->pending_input);
   state->latest_result = result;
   state->latest_frame = result.track_output_frame;
   state->has_pending_input = false;
-  state->has_pending_scene_state = false;
   return true;
 }
 
@@ -122,37 +114,6 @@ bool OnCycleInput(const oneq::replay::ReplayTraceReadEvent& event, void* user_da
 
   state->pending_input = input;
   state->has_pending_input = true;
-  state->has_pending_scene_state = false;
-  return true;
-}
-
-bool OnSceneState(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
-                  std::string* error) {
-  if (event.payload_type != "EnvironmentSceneState") {
-    *error = "AR replay expected EnvironmentSceneState scene_state";
-    return false;
-  }
-
-  RadarReplayState* state = static_cast<RadarReplayState*>(user_data);
-  if (!state->session) {
-    *error = "AR replay received scene_state before session_config";
-    return false;
-  }
-  if (!state->has_pending_input) {
-    *error = "AR replay received scene_state without pending cycle_input";
-    return false;
-  }
-  if (state->has_pending_scene_state) {
-    *error = "AR replay received consecutive scene_state for one cycle_input";
-    return false;
-  }
-
-  environment::EnvironmentSceneState scene_state;
-  if (!DecodeSceneStateFlatbuffer(event.payload_bytes, &scene_state, error)) {
-    return false;
-  }
-  state->pending_scene_state = scene_state;
-  state->has_pending_scene_state = true;
   return true;
 }
 
@@ -262,7 +223,6 @@ RadarReplaySessionResult ReplayRadarTrace(const std::string& trace_dir) {
   callbacks.user_data = &state;
   callbacks.on_session_config = OnSessionConfig;
   callbacks.on_cycle_input = OnCycleInput;
-  callbacks.on_scene_state = OnSceneState;
   callbacks.on_runtime_config_patch = OnRuntimeConfigPatch;
   callbacks.on_cycle_output = OnCycleOutput;
   callbacks.on_failure_marker = OnFailureMarker;

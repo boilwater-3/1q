@@ -41,18 +41,26 @@
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/model/DecisionInputFrame.h"
 #include "1q/airborne_radar/model/DecisionSourceInfo.h"
-#include "1q/airborne_radar/model/TrackStateSnapshot.h"
 #include "1q/airborne_radar/model/JammingSemantics.h"
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "1q/airborne_radar/model/TargetCategory.h"
-#include "1q/airborne_radar/session/RadarCycleResult.h"
+#include "1q/airborne_radar/model/TrackStateSnapshot.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
+#include "1q/airborne_radar/session/RadarCycleInputBuilder.h"
+#include "1q/airborne_radar/session/RadarCycleResult.h"
+#include "1q/airborne_radar/session/RadarEnvironmentInput.h"
+#include "1q/airborne_radar/session/RadarEnvironmentInputPatch.h"
+#include "1q/airborne_radar/session/RadarEnvironmentInputState.h"
 #include "1q/airborne_radar/session/RadarInputValidation.h"
 #include "1q/airborne_radar/session/RadarSceneTargetUtils.h"
 #include "1q/airborne_radar/session/RadarSession.h"
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
 #include "1q/airborne_radar/session/RadarTraceSession.h"
 #include "1q/api.hpp"
+#include "1q/coordinate/attitude_transform.h"
+#include "1q/coordinate/position_transform.h"
+#include "1q/coordinate/types.h"
+#include "1q/coordinate/velocity_transform.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/electro_optical_sensor_config.hpp"
@@ -68,9 +76,13 @@
 #include "1q/electro_optical_sensor/extension/electro_optical_sensor_extension.hpp"
 #include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "1q/electro_optical_sensor/session/EosCycleInputBuilder.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
-#include "1q/electro_optical_sensor/session/EosInputValidation.h"
+#include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
+#include "1q/electro_optical_sensor/session/EosEnvironmentInputPatch.h"
+#include "1q/electro_optical_sensor/session/EosEnvironmentInputState.h"
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
+#include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electro_optical_sensor/session/EosTraceSession.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
@@ -85,15 +97,15 @@
 #include "1q/electronic_surveillance_radar/environment/electronic_surveillance_radar_environment.hpp"
 #include "1q/electronic_surveillance_radar/extension/IInterceptPipeline.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleInputBuilder.h"
+#include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
+#include "1q/electronic_surveillance_radar/session/EsrEnvironmentInputPatch.h"
+#include "1q/electronic_surveillance_radar/session/EsrEnvironmentInputState.h"
 #include "1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
 #include "1q/foundation/atmospheric_types.h"
-#include "1q/coordinate/attitude_transform.h"
-#include "1q/coordinate/position_transform.h"
-#include "1q/coordinate/types.h"
-#include "1q/coordinate/velocity_transform.h"
 #include "1q/foundation/pose_types.h"
 #include "1q/foundation/scan_schedule_types.h"
 #include "1q/trace/TraceSink.h"
@@ -220,12 +232,14 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
 
   session::RadarCycleInput input;
   input.dt_sec = 1.0f;
+  session::RadarEnvironmentInputState environment_state(input.environment);
+  session::RadarEnvironmentInputPatch environment_patch;
+  environment_patch.has_jammer_sources = true;
+  environment_patch.jammer_sources.push_back(environment::JammerEmitterState{});
+  input.environment = environment_state.Update(environment_patch).Snapshot();
   const std::vector<session::ValidationIssue> issues = session::ValidateRadarCycleInput(input);
 
   EXPECT_FALSE(session::HasValidationError(issues));
-
-  environment::EnvironmentSceneState scene_state;
-  scene_state.jammer_emitters.push_back(environment::JammerEmitterState{});
 
   session::RadarSession session = session::RadarSessionFactory::Create(session_config);
   session::RadarTraceSession trace_session(session_config,
@@ -236,10 +250,10 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
           .EnableCommandedBeamwidth(true)
           .Build();
   session.ApplyRuntimeConfig(runtime_patch);
-  const session::RadarCycleResult result = session.StepWithResult(input, scene_state);
-  const session::RadarCycleResult trace_result = trace_session.StepWithResult(input, scene_state);
-  const std::size_t confirmed_tracks = session::CountTracksByStatus(
-      result.track_output_frame, model::TrackStatus::kConfirmed);
+  const session::RadarCycleResult result = session.StepWithResult(input);
+  const session::RadarCycleResult trace_result = trace_session.StepWithResult(input);
+  const std::size_t confirmed_tracks =
+      session::CountTracksByStatus(result.track_output_frame, model::TrackStatus::kConfirmed);
 
   EXPECT_GE(confirmed_tracks, 0U);
   EXPECT_GE(result.association_quality_metrics.detection_count, 0U);
@@ -346,6 +360,11 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   session::EsrCycleInput input;
   input.cycle_index = 4U;
   input.dt_sec = 1.0f;
+  session::EsrEnvironmentInputState environment_state(input.environment);
+  session::EsrEnvironmentInputPatch environment_patch;
+  environment_patch.has_spectrum_occupancy_ratio = true;
+  environment_patch.spectrum_occupancy_ratio = 0.25f;
+  input.environment = environment_state.Update(environment_patch).Snapshot();
   session::EsrSceneEmitter emitter;
   emitter.emitter_id = "smoke-emitter";
   emitter.pose.position_m.x = 1200.0f;
@@ -403,7 +422,11 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   ::electro_optical_sensor::session::EosCycleInput input;
   input.cycle_index = 2U;
   input.dt_sec = 1.0f;
-  input.environment.day_night_type = ::electro_optical_sensor::session::DayNightType::kDay;
+  session::EosEnvironmentInputState environment_state(input.environment);
+  session::EosEnvironmentInputPatch environment_patch;
+  environment_patch.has_day_night_type = true;
+  environment_patch.day_night_type = ::electro_optical_sensor::session::DayNightType::kDay;
+  input.environment = environment_state.Update(environment_patch).Snapshot();
   session::EosSceneTarget target;
   target.target_id = 7U;
   target.range_m = 1500.0f;
@@ -446,7 +469,8 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   session.ApplyRuntimeConfig(runtime_patch);
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
   session::EosTraceSession trace_session(session_config, session::EosTraceSessionOptions{});
-  const ::electro_optical_sensor::session::EosCycleResult trace_result = trace_session.StepWithResult(input);
+  const ::electro_optical_sensor::session::EosCycleResult trace_result =
+      trace_session.StepWithResult(input);
   EXPECT_TRUE(result.executed_this_cycle);
   EXPECT_FALSE(result.reused_previous_output);
   EXPECT_TRUE(trace_result.executed_this_cycle);

@@ -73,7 +73,8 @@ float ResolveFirstCycleScanAzimuthDeg(const extension::EosPipelineConfig& config
 
 TEST(EosPipelineTest, ScanAngleAdvancesAndWrapsInsideRange) {
   EosPipeline pipeline(MakePipelineConfig());
-  ::electro_optical_sensor::session::EosCycleInput input = MakeCycleInput(5.0f);  // advance by 25 deg, wrap inside [-10, 10]
+  ::electro_optical_sensor::session::EosCycleInput input =
+      MakeCycleInput(5.0f);  // advance by 25 deg, wrap inside [-10, 10]
   input.cycle_index = 1U;
   input.scene.push_back(MakeTarget(1U, -5.0f));
 
@@ -87,8 +88,8 @@ TEST(EosPipelineTest, InFovTargetIsDetectedAndOutOfFovTargetIsFiltered) {
   EosPipeline pipeline(MakePipelineConfig());
   ::electro_optical_sensor::session::EosCycleInput input = MakeCycleInput(1.0f);
   input.cycle_index = 3U;
-  input.scene.push_back(MakeTarget(101U, -5.0f));   // in fov after first advance
-  input.scene.push_back(MakeTarget(102U, 35.0f));   // out of fov
+  input.scene.push_back(MakeTarget(101U, -5.0f));  // in fov after first advance
+  input.scene.push_back(MakeTarget(102U, 35.0f));  // out of fov
 
   const auto frame = pipeline.Execute(input);
 
@@ -249,10 +250,8 @@ TEST(EosPipelineTest, PlatformVelocityDoesNotAffectEnvironmentPenaltyWhenWindFix
   high_speed_input.platform_pose.velocity_mps.y = -90.0f;
   high_speed_input.platform_pose.velocity_mps.z = 20.0f;
 
-    const auto low_speed_frame =
-      low_speed_pipeline.Execute(low_speed_input);
-    const auto high_speed_frame =
-      high_speed_pipeline.Execute(high_speed_input);
+  const auto low_speed_frame = low_speed_pipeline.Execute(low_speed_input);
+  const auto high_speed_frame = high_speed_pipeline.Execute(high_speed_input);
 
   ASSERT_EQ(low_speed_frame.detections.size(), 1U);
   ASSERT_EQ(high_speed_frame.detections.size(), 1U);
@@ -276,8 +275,8 @@ TEST(EosPipelineTest, LowerFrameRateProducesHigherSnrWithLongerIntegrationWindow
   input.cycle_index = 10U;
   input.environment.background_temperature_k = 240.0f;
   input.environment.cloud_coverage_ratio = 0.1f;
-  session::EosSceneTarget target =
-      MakeTarget(701U, ResolveFirstCycleScanAzimuthDeg(low_rate_config, input.dt_sec), 1000.0f, 8.0f);
+  session::EosSceneTarget target = MakeTarget(
+      701U, ResolveFirstCycleScanAzimuthDeg(low_rate_config, input.dt_sec), 1000.0f, 8.0f);
   target.appearance.apparent_temperature_k = 860.0f;
   target.appearance.emissivity = 0.98f;
   input.scene.push_back(target);
@@ -309,10 +308,8 @@ TEST(EosPipelineTest, VisibleReferenceIrradianceAffectsVisibleSnrThroughNoiseMod
   session::EosSceneTarget target = MakeTarget(801U, -5.0f, 1200.0f, 4.0f);
   input.scene.push_back(target);
 
-    const auto matched_frame =
-      matched_reference_pipeline.Execute(input);
-    const auto mismatched_frame =
-      mismatched_reference_pipeline.Execute(input);
+  const auto matched_frame = matched_reference_pipeline.Execute(input);
+  const auto mismatched_frame = mismatched_reference_pipeline.Execute(input);
 
   ASSERT_EQ(matched_frame.detections.size(), 1U);
   ASSERT_EQ(mismatched_frame.detections.size(), 1U);
@@ -341,14 +338,13 @@ TEST(EosPipelineTest, BetterDetectionSensitivityProducesHigherSnr) {
   target.appearance.emissivity = 0.98f;
   input.scene.push_back(target);
 
-    const auto better_frame =
-      better_sensitivity_pipeline.Execute(input);
-    const auto worse_frame =
-      worse_sensitivity_pipeline.Execute(input);
+  const auto better_frame = better_sensitivity_pipeline.Execute(input);
+  const auto worse_frame = worse_sensitivity_pipeline.Execute(input);
 
   ASSERT_EQ(better_frame.detections.size(), 1U);
   ASSERT_EQ(worse_frame.detections.size(), 1U);
-  EXPECT_GT(better_frame.detections[0].fused_snr_linear, worse_frame.detections[0].fused_snr_linear);
+  EXPECT_GT(better_frame.detections[0].fused_snr_linear,
+            worse_frame.detections[0].fused_snr_linear);
 }
 
 TEST(EosPipelineTest, InfraredBandwidthIncreaseRaisesSnrAtFixedCenterWavelength) {
@@ -369,16 +365,14 @@ TEST(EosPipelineTest, InfraredBandwidthIncreaseRaisesSnrAtFixedCenterWavelength)
   input.cycle_index = 13U;
   input.environment.background_temperature_k = 240.0f;
   input.environment.cloud_coverage_ratio = 0.1f;
-  session::EosSceneTarget target =
-      MakeTarget(1001U, ResolveFirstCycleScanAzimuthDeg(narrow_band_config, input.dt_sec), 900.0f, 8.0f);
+  session::EosSceneTarget target = MakeTarget(
+      1001U, ResolveFirstCycleScanAzimuthDeg(narrow_band_config, input.dt_sec), 900.0f, 8.0f);
   target.appearance.apparent_temperature_k = 860.0f;
   target.appearance.emissivity = 0.98f;
   input.scene.push_back(target);
 
-    const auto narrow_band_frame =
-      narrow_band_pipeline.Execute(input);
-    const auto wide_band_frame =
-      wide_band_pipeline.Execute(input);
+  const auto narrow_band_frame = narrow_band_pipeline.Execute(input);
+  const auto wide_band_frame = wide_band_pipeline.Execute(input);
   ASSERT_EQ(narrow_band_frame.detections.size(), 1U);
   ASSERT_EQ(wide_band_frame.detections.size(), 1U);
   EXPECT_GT(wide_band_frame.detections[0].fused_snr_linear,
@@ -406,16 +400,15 @@ TEST(EosPipelineTest, FusedWeightShiftsTowardVisibleInDayAndInfraredAtNight) {
   const float day_scan_azimuth = ResolveFirstCycleScanAzimuthDeg(fused_config, day_input.dt_sec);
   day_input.scene.push_back(MakeTarget(1101U, day_scan_azimuth, 800.0f, 10.0f));
 
-    const auto day_fused_frame = fused_pipeline.Execute(day_input);
-    const auto day_infrared_frame =
-      infrared_pipeline.Execute(day_input);
-    const auto day_visible_frame =
-      visible_pipeline.Execute(day_input);
+  const auto day_fused_frame = fused_pipeline.Execute(day_input);
+  const auto day_infrared_frame = infrared_pipeline.Execute(day_input);
+  const auto day_visible_frame = visible_pipeline.Execute(day_input);
   ASSERT_EQ(day_fused_frame.detections.size(), 1U);
   ASSERT_EQ(day_infrared_frame.detections.size(), 1U);
   ASSERT_EQ(day_visible_frame.detections.size(), 1U);
-  const float day_distance_to_infrared = std::fabs(day_fused_frame.detections[0].fused_snr_linear -
-                                                   day_infrared_frame.detections[0].fused_snr_linear);
+  const float day_distance_to_infrared =
+      std::fabs(day_fused_frame.detections[0].fused_snr_linear -
+                day_infrared_frame.detections[0].fused_snr_linear);
   const float day_distance_to_visible = std::fabs(day_fused_frame.detections[0].fused_snr_linear -
                                                   day_visible_frame.detections[0].fused_snr_linear);
   EXPECT_LT(day_distance_to_visible, day_distance_to_infrared);
@@ -427,12 +420,9 @@ TEST(EosPipelineTest, FusedWeightShiftsTowardVisibleInDayAndInfraredAtNight) {
   ::electro_optical_sensor::session::EosCycleInput night_input = day_input;
   night_input.cycle_index = 13U;
   night_input.environment.day_night_type = ::electro_optical_sensor::session::DayNightType::kNight;
-    const auto night_fused_frame =
-      night_fused_pipeline.Execute(night_input);
-    const auto night_infrared_frame =
-      night_infrared_pipeline.Execute(night_input);
-    const auto night_visible_frame =
-      night_visible_pipeline.Execute(night_input);
+  const auto night_fused_frame = night_fused_pipeline.Execute(night_input);
+  const auto night_infrared_frame = night_infrared_pipeline.Execute(night_input);
+  const auto night_visible_frame = night_visible_pipeline.Execute(night_input);
   ASSERT_EQ(night_fused_frame.detections.size(), 1U);
   ASSERT_EQ(night_infrared_frame.detections.size(), 1U);
   ASSERT_EQ(night_visible_frame.detections.size(), 1U);

@@ -27,6 +27,22 @@ struct RadarSceneTarget;
 struct RadarSceneTargetBuilder;
 struct RadarSceneTargetT;
 
+struct AtmosphericObservation;
+struct AtmosphericObservationBuilder;
+struct AtmosphericObservationT;
+
+struct AtmosphericContext;
+struct AtmosphericContextBuilder;
+struct AtmosphericContextT;
+
+struct SurfaceObservation;
+struct SurfaceObservationBuilder;
+struct SurfaceObservationT;
+
+struct JammerSource;
+struct JammerSourceBuilder;
+struct JammerSourceT;
+
 struct RadarCycleEnvironmentInput;
 struct RadarCycleEnvironmentInputBuilder;
 struct RadarCycleEnvironmentInputT;
@@ -459,8 +475,416 @@ inline flatbuffers::Offset<RadarSceneTarget> CreateRadarSceneTarget(
 
 flatbuffers::Offset<RadarSceneTarget> CreateRadarSceneTarget(flatbuffers::FlatBufferBuilder &_fbb, const RadarSceneTargetT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
+struct AtmosphericObservationT : public flatbuffers::NativeTable {
+  typedef AtmosphericObservation TableType;
+  bool enable_physical_model;
+  float pressure_hpa;
+  float temperature_k;
+  float relative_humidity;
+  AtmosphericObservationT()
+      : enable_physical_model(false),
+        pressure_hpa(0.0f),
+        temperature_k(0.0f),
+        relative_humidity(0.0f) {
+  }
+};
+
+struct AtmosphericObservation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef AtmosphericObservationT NativeTableType;
+  typedef AtmosphericObservationBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ENABLE_PHYSICAL_MODEL = 4,
+    VT_PRESSURE_HPA = 6,
+    VT_TEMPERATURE_K = 8,
+    VT_RELATIVE_HUMIDITY = 10
+  };
+  bool enable_physical_model() const {
+    return GetField<uint8_t>(VT_ENABLE_PHYSICAL_MODEL, 0) != 0;
+  }
+  float pressure_hpa() const {
+    return GetField<float>(VT_PRESSURE_HPA, 0.0f);
+  }
+  float temperature_k() const {
+    return GetField<float>(VT_TEMPERATURE_K, 0.0f);
+  }
+  float relative_humidity() const {
+    return GetField<float>(VT_RELATIVE_HUMIDITY, 0.0f);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_ENABLE_PHYSICAL_MODEL) &&
+           VerifyField<float>(verifier, VT_PRESSURE_HPA) &&
+           VerifyField<float>(verifier, VT_TEMPERATURE_K) &&
+           VerifyField<float>(verifier, VT_RELATIVE_HUMIDITY) &&
+           verifier.EndTable();
+  }
+  AtmosphericObservationT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(AtmosphericObservationT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<AtmosphericObservation> Pack(flatbuffers::FlatBufferBuilder &_fbb, const AtmosphericObservationT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct AtmosphericObservationBuilder {
+  typedef AtmosphericObservation Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_enable_physical_model(bool enable_physical_model) {
+    fbb_.AddElement<uint8_t>(AtmosphericObservation::VT_ENABLE_PHYSICAL_MODEL, static_cast<uint8_t>(enable_physical_model), 0);
+  }
+  void add_pressure_hpa(float pressure_hpa) {
+    fbb_.AddElement<float>(AtmosphericObservation::VT_PRESSURE_HPA, pressure_hpa, 0.0f);
+  }
+  void add_temperature_k(float temperature_k) {
+    fbb_.AddElement<float>(AtmosphericObservation::VT_TEMPERATURE_K, temperature_k, 0.0f);
+  }
+  void add_relative_humidity(float relative_humidity) {
+    fbb_.AddElement<float>(AtmosphericObservation::VT_RELATIVE_HUMIDITY, relative_humidity, 0.0f);
+  }
+  explicit AtmosphericObservationBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  AtmosphericObservationBuilder &operator=(const AtmosphericObservationBuilder &);
+  flatbuffers::Offset<AtmosphericObservation> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<AtmosphericObservation>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<AtmosphericObservation> CreateAtmosphericObservation(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    bool enable_physical_model = false,
+    float pressure_hpa = 0.0f,
+    float temperature_k = 0.0f,
+    float relative_humidity = 0.0f) {
+  AtmosphericObservationBuilder builder_(_fbb);
+  builder_.add_relative_humidity(relative_humidity);
+  builder_.add_temperature_k(temperature_k);
+  builder_.add_pressure_hpa(pressure_hpa);
+  builder_.add_enable_physical_model(enable_physical_model);
+  return builder_.Finish();
+}
+
+flatbuffers::Offset<AtmosphericObservation> CreateAtmosphericObservation(flatbuffers::FlatBufferBuilder &_fbb, const AtmosphericObservationT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct AtmosphericContextT : public flatbuffers::NativeTable {
+  typedef AtmosphericContext TableType;
+  bool has_simulation_unix_seconds;
+  int64_t simulation_unix_seconds;
+  float solar_flux_f107a;
+  float solar_flux_f107;
+  float geomagnetic_ap;
+  AtmosphericContextT()
+      : has_simulation_unix_seconds(false),
+        simulation_unix_seconds(0),
+        solar_flux_f107a(0.0f),
+        solar_flux_f107(0.0f),
+        geomagnetic_ap(0.0f) {
+  }
+};
+
+struct AtmosphericContext FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef AtmosphericContextT NativeTableType;
+  typedef AtmosphericContextBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_HAS_SIMULATION_UNIX_SECONDS = 4,
+    VT_SIMULATION_UNIX_SECONDS = 6,
+    VT_SOLAR_FLUX_F107A = 8,
+    VT_SOLAR_FLUX_F107 = 10,
+    VT_GEOMAGNETIC_AP = 12
+  };
+  bool has_simulation_unix_seconds() const {
+    return GetField<uint8_t>(VT_HAS_SIMULATION_UNIX_SECONDS, 0) != 0;
+  }
+  int64_t simulation_unix_seconds() const {
+    return GetField<int64_t>(VT_SIMULATION_UNIX_SECONDS, 0);
+  }
+  float solar_flux_f107a() const {
+    return GetField<float>(VT_SOLAR_FLUX_F107A, 0.0f);
+  }
+  float solar_flux_f107() const {
+    return GetField<float>(VT_SOLAR_FLUX_F107, 0.0f);
+  }
+  float geomagnetic_ap() const {
+    return GetField<float>(VT_GEOMAGNETIC_AP, 0.0f);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_SIMULATION_UNIX_SECONDS) &&
+           VerifyField<int64_t>(verifier, VT_SIMULATION_UNIX_SECONDS) &&
+           VerifyField<float>(verifier, VT_SOLAR_FLUX_F107A) &&
+           VerifyField<float>(verifier, VT_SOLAR_FLUX_F107) &&
+           VerifyField<float>(verifier, VT_GEOMAGNETIC_AP) &&
+           verifier.EndTable();
+  }
+  AtmosphericContextT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(AtmosphericContextT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<AtmosphericContext> Pack(flatbuffers::FlatBufferBuilder &_fbb, const AtmosphericContextT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct AtmosphericContextBuilder {
+  typedef AtmosphericContext Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_has_simulation_unix_seconds(bool has_simulation_unix_seconds) {
+    fbb_.AddElement<uint8_t>(AtmosphericContext::VT_HAS_SIMULATION_UNIX_SECONDS, static_cast<uint8_t>(has_simulation_unix_seconds), 0);
+  }
+  void add_simulation_unix_seconds(int64_t simulation_unix_seconds) {
+    fbb_.AddElement<int64_t>(AtmosphericContext::VT_SIMULATION_UNIX_SECONDS, simulation_unix_seconds, 0);
+  }
+  void add_solar_flux_f107a(float solar_flux_f107a) {
+    fbb_.AddElement<float>(AtmosphericContext::VT_SOLAR_FLUX_F107A, solar_flux_f107a, 0.0f);
+  }
+  void add_solar_flux_f107(float solar_flux_f107) {
+    fbb_.AddElement<float>(AtmosphericContext::VT_SOLAR_FLUX_F107, solar_flux_f107, 0.0f);
+  }
+  void add_geomagnetic_ap(float geomagnetic_ap) {
+    fbb_.AddElement<float>(AtmosphericContext::VT_GEOMAGNETIC_AP, geomagnetic_ap, 0.0f);
+  }
+  explicit AtmosphericContextBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  AtmosphericContextBuilder &operator=(const AtmosphericContextBuilder &);
+  flatbuffers::Offset<AtmosphericContext> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<AtmosphericContext>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<AtmosphericContext> CreateAtmosphericContext(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    bool has_simulation_unix_seconds = false,
+    int64_t simulation_unix_seconds = 0,
+    float solar_flux_f107a = 0.0f,
+    float solar_flux_f107 = 0.0f,
+    float geomagnetic_ap = 0.0f) {
+  AtmosphericContextBuilder builder_(_fbb);
+  builder_.add_simulation_unix_seconds(simulation_unix_seconds);
+  builder_.add_geomagnetic_ap(geomagnetic_ap);
+  builder_.add_solar_flux_f107(solar_flux_f107);
+  builder_.add_solar_flux_f107a(solar_flux_f107a);
+  builder_.add_has_simulation_unix_seconds(has_simulation_unix_seconds);
+  return builder_.Finish();
+}
+
+flatbuffers::Offset<AtmosphericContext> CreateAtmosphericContext(flatbuffers::FlatBufferBuilder &_fbb, const AtmosphericContextT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct SurfaceObservationT : public flatbuffers::NativeTable {
+  typedef SurfaceObservation TableType;
+  int32_t cover_profile;
+  bool enable_physical_model;
+  SurfaceObservationT()
+      : cover_profile(0),
+        enable_physical_model(false) {
+  }
+};
+
+struct SurfaceObservation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SurfaceObservationT NativeTableType;
+  typedef SurfaceObservationBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_COVER_PROFILE = 4,
+    VT_ENABLE_PHYSICAL_MODEL = 6
+  };
+  int32_t cover_profile() const {
+    return GetField<int32_t>(VT_COVER_PROFILE, 0);
+  }
+  bool enable_physical_model() const {
+    return GetField<uint8_t>(VT_ENABLE_PHYSICAL_MODEL, 0) != 0;
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int32_t>(verifier, VT_COVER_PROFILE) &&
+           VerifyField<uint8_t>(verifier, VT_ENABLE_PHYSICAL_MODEL) &&
+           verifier.EndTable();
+  }
+  SurfaceObservationT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(SurfaceObservationT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<SurfaceObservation> Pack(flatbuffers::FlatBufferBuilder &_fbb, const SurfaceObservationT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct SurfaceObservationBuilder {
+  typedef SurfaceObservation Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_cover_profile(int32_t cover_profile) {
+    fbb_.AddElement<int32_t>(SurfaceObservation::VT_COVER_PROFILE, cover_profile, 0);
+  }
+  void add_enable_physical_model(bool enable_physical_model) {
+    fbb_.AddElement<uint8_t>(SurfaceObservation::VT_ENABLE_PHYSICAL_MODEL, static_cast<uint8_t>(enable_physical_model), 0);
+  }
+  explicit SurfaceObservationBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  SurfaceObservationBuilder &operator=(const SurfaceObservationBuilder &);
+  flatbuffers::Offset<SurfaceObservation> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<SurfaceObservation>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<SurfaceObservation> CreateSurfaceObservation(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    int32_t cover_profile = 0,
+    bool enable_physical_model = false) {
+  SurfaceObservationBuilder builder_(_fbb);
+  builder_.add_cover_profile(cover_profile);
+  builder_.add_enable_physical_model(enable_physical_model);
+  return builder_.Finish();
+}
+
+flatbuffers::Offset<SurfaceObservation> CreateSurfaceObservation(flatbuffers::FlatBufferBuilder &_fbb, const SurfaceObservationT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct JammerSourceT : public flatbuffers::NativeTable {
+  typedef JammerSource TableType;
+  int32_t technique;
+  float power_db;
+  float js_db;
+  bool has_direction_deg;
+  float azimuth_deg;
+  float elevation_deg;
+  float angular_span_deg;
+  float confidence;
+  JammerSourceT()
+      : technique(0),
+        power_db(0.0f),
+        js_db(0.0f),
+        has_direction_deg(false),
+        azimuth_deg(0.0f),
+        elevation_deg(0.0f),
+        angular_span_deg(0.0f),
+        confidence(0.0f) {
+  }
+};
+
+struct JammerSource FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef JammerSourceT NativeTableType;
+  typedef JammerSourceBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_TECHNIQUE = 4,
+    VT_POWER_DB = 6,
+    VT_JS_DB = 8,
+    VT_HAS_DIRECTION_DEG = 10,
+    VT_AZIMUTH_DEG = 12,
+    VT_ELEVATION_DEG = 14,
+    VT_ANGULAR_SPAN_DEG = 16,
+    VT_CONFIDENCE = 18
+  };
+  int32_t technique() const {
+    return GetField<int32_t>(VT_TECHNIQUE, 0);
+  }
+  float power_db() const {
+    return GetField<float>(VT_POWER_DB, 0.0f);
+  }
+  float js_db() const {
+    return GetField<float>(VT_JS_DB, 0.0f);
+  }
+  bool has_direction_deg() const {
+    return GetField<uint8_t>(VT_HAS_DIRECTION_DEG, 0) != 0;
+  }
+  float azimuth_deg() const {
+    return GetField<float>(VT_AZIMUTH_DEG, 0.0f);
+  }
+  float elevation_deg() const {
+    return GetField<float>(VT_ELEVATION_DEG, 0.0f);
+  }
+  float angular_span_deg() const {
+    return GetField<float>(VT_ANGULAR_SPAN_DEG, 0.0f);
+  }
+  float confidence() const {
+    return GetField<float>(VT_CONFIDENCE, 0.0f);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int32_t>(verifier, VT_TECHNIQUE) &&
+           VerifyField<float>(verifier, VT_POWER_DB) &&
+           VerifyField<float>(verifier, VT_JS_DB) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_DIRECTION_DEG) &&
+           VerifyField<float>(verifier, VT_AZIMUTH_DEG) &&
+           VerifyField<float>(verifier, VT_ELEVATION_DEG) &&
+           VerifyField<float>(verifier, VT_ANGULAR_SPAN_DEG) &&
+           VerifyField<float>(verifier, VT_CONFIDENCE) &&
+           verifier.EndTable();
+  }
+  JammerSourceT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(JammerSourceT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<JammerSource> Pack(flatbuffers::FlatBufferBuilder &_fbb, const JammerSourceT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct JammerSourceBuilder {
+  typedef JammerSource Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_technique(int32_t technique) {
+    fbb_.AddElement<int32_t>(JammerSource::VT_TECHNIQUE, technique, 0);
+  }
+  void add_power_db(float power_db) {
+    fbb_.AddElement<float>(JammerSource::VT_POWER_DB, power_db, 0.0f);
+  }
+  void add_js_db(float js_db) {
+    fbb_.AddElement<float>(JammerSource::VT_JS_DB, js_db, 0.0f);
+  }
+  void add_has_direction_deg(bool has_direction_deg) {
+    fbb_.AddElement<uint8_t>(JammerSource::VT_HAS_DIRECTION_DEG, static_cast<uint8_t>(has_direction_deg), 0);
+  }
+  void add_azimuth_deg(float azimuth_deg) {
+    fbb_.AddElement<float>(JammerSource::VT_AZIMUTH_DEG, azimuth_deg, 0.0f);
+  }
+  void add_elevation_deg(float elevation_deg) {
+    fbb_.AddElement<float>(JammerSource::VT_ELEVATION_DEG, elevation_deg, 0.0f);
+  }
+  void add_angular_span_deg(float angular_span_deg) {
+    fbb_.AddElement<float>(JammerSource::VT_ANGULAR_SPAN_DEG, angular_span_deg, 0.0f);
+  }
+  void add_confidence(float confidence) {
+    fbb_.AddElement<float>(JammerSource::VT_CONFIDENCE, confidence, 0.0f);
+  }
+  explicit JammerSourceBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  JammerSourceBuilder &operator=(const JammerSourceBuilder &);
+  flatbuffers::Offset<JammerSource> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<JammerSource>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<JammerSource> CreateJammerSource(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    int32_t technique = 0,
+    float power_db = 0.0f,
+    float js_db = 0.0f,
+    bool has_direction_deg = false,
+    float azimuth_deg = 0.0f,
+    float elevation_deg = 0.0f,
+    float angular_span_deg = 0.0f,
+    float confidence = 0.0f) {
+  JammerSourceBuilder builder_(_fbb);
+  builder_.add_confidence(confidence);
+  builder_.add_angular_span_deg(angular_span_deg);
+  builder_.add_elevation_deg(elevation_deg);
+  builder_.add_azimuth_deg(azimuth_deg);
+  builder_.add_js_db(js_db);
+  builder_.add_power_db(power_db);
+  builder_.add_technique(technique);
+  builder_.add_has_direction_deg(has_direction_deg);
+  return builder_.Finish();
+}
+
+flatbuffers::Offset<JammerSource> CreateJammerSource(flatbuffers::FlatBufferBuilder &_fbb, const JammerSourceT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
 struct RadarCycleEnvironmentInputT : public flatbuffers::NativeTable {
   typedef RadarCycleEnvironmentInput TableType;
+  std::unique_ptr<oneq::replay::airborne_radar::fb::AtmosphericObservationT> atmospheric_observation;
+  std::unique_ptr<oneq::replay::airborne_radar::fb::AtmosphericContextT> atmospheric_context;
+  std::unique_ptr<oneq::replay::airborne_radar::fb::SurfaceObservationT> surface_observation;
+  std::vector<std::unique_ptr<oneq::replay::airborne_radar::fb::JammerSourceT>> jammer_sources;
   RadarCycleEnvironmentInputT() {
   }
 };
@@ -468,8 +892,35 @@ struct RadarCycleEnvironmentInputT : public flatbuffers::NativeTable {
 struct RadarCycleEnvironmentInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef RadarCycleEnvironmentInputT NativeTableType;
   typedef RadarCycleEnvironmentInputBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ATMOSPHERIC_OBSERVATION = 4,
+    VT_ATMOSPHERIC_CONTEXT = 6,
+    VT_SURFACE_OBSERVATION = 8,
+    VT_JAMMER_SOURCES = 10
+  };
+  const oneq::replay::airborne_radar::fb::AtmosphericObservation *atmospheric_observation() const {
+    return GetPointer<const oneq::replay::airborne_radar::fb::AtmosphericObservation *>(VT_ATMOSPHERIC_OBSERVATION);
+  }
+  const oneq::replay::airborne_radar::fb::AtmosphericContext *atmospheric_context() const {
+    return GetPointer<const oneq::replay::airborne_radar::fb::AtmosphericContext *>(VT_ATMOSPHERIC_CONTEXT);
+  }
+  const oneq::replay::airborne_radar::fb::SurfaceObservation *surface_observation() const {
+    return GetPointer<const oneq::replay::airborne_radar::fb::SurfaceObservation *>(VT_SURFACE_OBSERVATION);
+  }
+  const flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::JammerSource>> *jammer_sources() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::JammerSource>> *>(VT_JAMMER_SOURCES);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_ATMOSPHERIC_OBSERVATION) &&
+           verifier.VerifyTable(atmospheric_observation()) &&
+           VerifyOffset(verifier, VT_ATMOSPHERIC_CONTEXT) &&
+           verifier.VerifyTable(atmospheric_context()) &&
+           VerifyOffset(verifier, VT_SURFACE_OBSERVATION) &&
+           verifier.VerifyTable(surface_observation()) &&
+           VerifyOffset(verifier, VT_JAMMER_SOURCES) &&
+           verifier.VerifyVector(jammer_sources()) &&
+           verifier.VerifyVectorOfTables(jammer_sources()) &&
            verifier.EndTable();
   }
   RadarCycleEnvironmentInputT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -481,6 +932,18 @@ struct RadarCycleEnvironmentInputBuilder {
   typedef RadarCycleEnvironmentInput Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
+  void add_atmospheric_observation(flatbuffers::Offset<oneq::replay::airborne_radar::fb::AtmosphericObservation> atmospheric_observation) {
+    fbb_.AddOffset(RadarCycleEnvironmentInput::VT_ATMOSPHERIC_OBSERVATION, atmospheric_observation);
+  }
+  void add_atmospheric_context(flatbuffers::Offset<oneq::replay::airborne_radar::fb::AtmosphericContext> atmospheric_context) {
+    fbb_.AddOffset(RadarCycleEnvironmentInput::VT_ATMOSPHERIC_CONTEXT, atmospheric_context);
+  }
+  void add_surface_observation(flatbuffers::Offset<oneq::replay::airborne_radar::fb::SurfaceObservation> surface_observation) {
+    fbb_.AddOffset(RadarCycleEnvironmentInput::VT_SURFACE_OBSERVATION, surface_observation);
+  }
+  void add_jammer_sources(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::JammerSource>>> jammer_sources) {
+    fbb_.AddOffset(RadarCycleEnvironmentInput::VT_JAMMER_SOURCES, jammer_sources);
+  }
   explicit RadarCycleEnvironmentInputBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -494,9 +957,32 @@ struct RadarCycleEnvironmentInputBuilder {
 };
 
 inline flatbuffers::Offset<RadarCycleEnvironmentInput> CreateRadarCycleEnvironmentInput(
-    flatbuffers::FlatBufferBuilder &_fbb) {
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<oneq::replay::airborne_radar::fb::AtmosphericObservation> atmospheric_observation = 0,
+    flatbuffers::Offset<oneq::replay::airborne_radar::fb::AtmosphericContext> atmospheric_context = 0,
+    flatbuffers::Offset<oneq::replay::airborne_radar::fb::SurfaceObservation> surface_observation = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::JammerSource>>> jammer_sources = 0) {
   RadarCycleEnvironmentInputBuilder builder_(_fbb);
+  builder_.add_jammer_sources(jammer_sources);
+  builder_.add_surface_observation(surface_observation);
+  builder_.add_atmospheric_context(atmospheric_context);
+  builder_.add_atmospheric_observation(atmospheric_observation);
   return builder_.Finish();
+}
+
+inline flatbuffers::Offset<RadarCycleEnvironmentInput> CreateRadarCycleEnvironmentInputDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<oneq::replay::airborne_radar::fb::AtmosphericObservation> atmospheric_observation = 0,
+    flatbuffers::Offset<oneq::replay::airborne_radar::fb::AtmosphericContext> atmospheric_context = 0,
+    flatbuffers::Offset<oneq::replay::airborne_radar::fb::SurfaceObservation> surface_observation = 0,
+    const std::vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::JammerSource>> *jammer_sources = nullptr) {
+  auto jammer_sources__ = jammer_sources ? _fbb.CreateVector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::JammerSource>>(*jammer_sources) : 0;
+  return oneq::replay::airborne_radar::fb::CreateRadarCycleEnvironmentInput(
+      _fbb,
+      atmospheric_observation,
+      atmospheric_context,
+      surface_observation,
+      jammer_sources__);
 }
 
 flatbuffers::Offset<RadarCycleEnvironmentInput> CreateRadarCycleEnvironmentInput(flatbuffers::FlatBufferBuilder &_fbb, const RadarCycleEnvironmentInputT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
@@ -1498,6 +1984,155 @@ inline flatbuffers::Offset<RadarSceneTarget> CreateRadarSceneTarget(flatbuffers:
       _target_swerling_type);
 }
 
+inline AtmosphericObservationT *AtmosphericObservation::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<oneq::replay::airborne_radar::fb::AtmosphericObservationT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::AtmosphericObservationT>(new AtmosphericObservationT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void AtmosphericObservation::UnPackTo(AtmosphericObservationT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = enable_physical_model(); _o->enable_physical_model = _e; }
+  { auto _e = pressure_hpa(); _o->pressure_hpa = _e; }
+  { auto _e = temperature_k(); _o->temperature_k = _e; }
+  { auto _e = relative_humidity(); _o->relative_humidity = _e; }
+}
+
+inline flatbuffers::Offset<AtmosphericObservation> AtmosphericObservation::Pack(flatbuffers::FlatBufferBuilder &_fbb, const AtmosphericObservationT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateAtmosphericObservation(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<AtmosphericObservation> CreateAtmosphericObservation(flatbuffers::FlatBufferBuilder &_fbb, const AtmosphericObservationT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const AtmosphericObservationT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _enable_physical_model = _o->enable_physical_model;
+  auto _pressure_hpa = _o->pressure_hpa;
+  auto _temperature_k = _o->temperature_k;
+  auto _relative_humidity = _o->relative_humidity;
+  return oneq::replay::airborne_radar::fb::CreateAtmosphericObservation(
+      _fbb,
+      _enable_physical_model,
+      _pressure_hpa,
+      _temperature_k,
+      _relative_humidity);
+}
+
+inline AtmosphericContextT *AtmosphericContext::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<oneq::replay::airborne_radar::fb::AtmosphericContextT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::AtmosphericContextT>(new AtmosphericContextT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void AtmosphericContext::UnPackTo(AtmosphericContextT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = has_simulation_unix_seconds(); _o->has_simulation_unix_seconds = _e; }
+  { auto _e = simulation_unix_seconds(); _o->simulation_unix_seconds = _e; }
+  { auto _e = solar_flux_f107a(); _o->solar_flux_f107a = _e; }
+  { auto _e = solar_flux_f107(); _o->solar_flux_f107 = _e; }
+  { auto _e = geomagnetic_ap(); _o->geomagnetic_ap = _e; }
+}
+
+inline flatbuffers::Offset<AtmosphericContext> AtmosphericContext::Pack(flatbuffers::FlatBufferBuilder &_fbb, const AtmosphericContextT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateAtmosphericContext(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<AtmosphericContext> CreateAtmosphericContext(flatbuffers::FlatBufferBuilder &_fbb, const AtmosphericContextT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const AtmosphericContextT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _has_simulation_unix_seconds = _o->has_simulation_unix_seconds;
+  auto _simulation_unix_seconds = _o->simulation_unix_seconds;
+  auto _solar_flux_f107a = _o->solar_flux_f107a;
+  auto _solar_flux_f107 = _o->solar_flux_f107;
+  auto _geomagnetic_ap = _o->geomagnetic_ap;
+  return oneq::replay::airborne_radar::fb::CreateAtmosphericContext(
+      _fbb,
+      _has_simulation_unix_seconds,
+      _simulation_unix_seconds,
+      _solar_flux_f107a,
+      _solar_flux_f107,
+      _geomagnetic_ap);
+}
+
+inline SurfaceObservationT *SurfaceObservation::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<oneq::replay::airborne_radar::fb::SurfaceObservationT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::SurfaceObservationT>(new SurfaceObservationT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void SurfaceObservation::UnPackTo(SurfaceObservationT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = cover_profile(); _o->cover_profile = _e; }
+  { auto _e = enable_physical_model(); _o->enable_physical_model = _e; }
+}
+
+inline flatbuffers::Offset<SurfaceObservation> SurfaceObservation::Pack(flatbuffers::FlatBufferBuilder &_fbb, const SurfaceObservationT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateSurfaceObservation(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<SurfaceObservation> CreateSurfaceObservation(flatbuffers::FlatBufferBuilder &_fbb, const SurfaceObservationT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const SurfaceObservationT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _cover_profile = _o->cover_profile;
+  auto _enable_physical_model = _o->enable_physical_model;
+  return oneq::replay::airborne_radar::fb::CreateSurfaceObservation(
+      _fbb,
+      _cover_profile,
+      _enable_physical_model);
+}
+
+inline JammerSourceT *JammerSource::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<oneq::replay::airborne_radar::fb::JammerSourceT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::JammerSourceT>(new JammerSourceT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void JammerSource::UnPackTo(JammerSourceT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = technique(); _o->technique = _e; }
+  { auto _e = power_db(); _o->power_db = _e; }
+  { auto _e = js_db(); _o->js_db = _e; }
+  { auto _e = has_direction_deg(); _o->has_direction_deg = _e; }
+  { auto _e = azimuth_deg(); _o->azimuth_deg = _e; }
+  { auto _e = elevation_deg(); _o->elevation_deg = _e; }
+  { auto _e = angular_span_deg(); _o->angular_span_deg = _e; }
+  { auto _e = confidence(); _o->confidence = _e; }
+}
+
+inline flatbuffers::Offset<JammerSource> JammerSource::Pack(flatbuffers::FlatBufferBuilder &_fbb, const JammerSourceT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateJammerSource(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<JammerSource> CreateJammerSource(flatbuffers::FlatBufferBuilder &_fbb, const JammerSourceT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const JammerSourceT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _technique = _o->technique;
+  auto _power_db = _o->power_db;
+  auto _js_db = _o->js_db;
+  auto _has_direction_deg = _o->has_direction_deg;
+  auto _azimuth_deg = _o->azimuth_deg;
+  auto _elevation_deg = _o->elevation_deg;
+  auto _angular_span_deg = _o->angular_span_deg;
+  auto _confidence = _o->confidence;
+  return oneq::replay::airborne_radar::fb::CreateJammerSource(
+      _fbb,
+      _technique,
+      _power_db,
+      _js_db,
+      _has_direction_deg,
+      _azimuth_deg,
+      _elevation_deg,
+      _angular_span_deg,
+      _confidence);
+}
+
 inline RadarCycleEnvironmentInputT *RadarCycleEnvironmentInput::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
   std::unique_ptr<oneq::replay::airborne_radar::fb::RadarCycleEnvironmentInputT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::RadarCycleEnvironmentInputT>(new RadarCycleEnvironmentInputT());
   UnPackTo(_o.get(), _resolver);
@@ -1507,6 +2142,10 @@ inline RadarCycleEnvironmentInputT *RadarCycleEnvironmentInput::UnPack(const fla
 inline void RadarCycleEnvironmentInput::UnPackTo(RadarCycleEnvironmentInputT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
+  { auto _e = atmospheric_observation(); if (_e) _o->atmospheric_observation = std::unique_ptr<oneq::replay::airborne_radar::fb::AtmosphericObservationT>(_e->UnPack(_resolver)); }
+  { auto _e = atmospheric_context(); if (_e) _o->atmospheric_context = std::unique_ptr<oneq::replay::airborne_radar::fb::AtmosphericContextT>(_e->UnPack(_resolver)); }
+  { auto _e = surface_observation(); if (_e) _o->surface_observation = std::unique_ptr<oneq::replay::airborne_radar::fb::SurfaceObservationT>(_e->UnPack(_resolver)); }
+  { auto _e = jammer_sources(); if (_e) { _o->jammer_sources.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->jammer_sources[_i] = std::unique_ptr<oneq::replay::airborne_radar::fb::JammerSourceT>(_e->Get(_i)->UnPack(_resolver)); } } }
 }
 
 inline flatbuffers::Offset<RadarCycleEnvironmentInput> RadarCycleEnvironmentInput::Pack(flatbuffers::FlatBufferBuilder &_fbb, const RadarCycleEnvironmentInputT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -1517,8 +2156,16 @@ inline flatbuffers::Offset<RadarCycleEnvironmentInput> CreateRadarCycleEnvironme
   (void)_rehasher;
   (void)_o;
   struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const RadarCycleEnvironmentInputT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _atmospheric_observation = _o->atmospheric_observation ? CreateAtmosphericObservation(_fbb, _o->atmospheric_observation.get(), _rehasher) : 0;
+  auto _atmospheric_context = _o->atmospheric_context ? CreateAtmosphericContext(_fbb, _o->atmospheric_context.get(), _rehasher) : 0;
+  auto _surface_observation = _o->surface_observation ? CreateSurfaceObservation(_fbb, _o->surface_observation.get(), _rehasher) : 0;
+  auto _jammer_sources = _o->jammer_sources.size() ? _fbb.CreateVector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::JammerSource>> (_o->jammer_sources.size(), [](size_t i, _VectorArgs *__va) { return CreateJammerSource(*__va->__fbb, __va->__o->jammer_sources[i].get(), __va->__rehasher); }, &_va ) : 0;
   return oneq::replay::airborne_radar::fb::CreateRadarCycleEnvironmentInput(
-      _fbb);
+      _fbb,
+      _atmospheric_observation,
+      _atmospheric_context,
+      _surface_observation,
+      _jammer_sources);
 }
 
 inline RadarCycleInputT *RadarCycleInput::UnPack(const flatbuffers::resolver_function_t *_resolver) const {

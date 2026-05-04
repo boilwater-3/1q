@@ -8,8 +8,8 @@
 
 #include <cstdint>
 
-#include "1q/api.hpp"
 #include "1q/airborne_radar/environment/EnvironmentConfig.h"
+#include "1q/api.hpp"
 
 namespace airborne_radar {
 namespace environment {
@@ -54,26 +54,26 @@ struct ONEQ_API EnvironmentCycleContext {
  * @brief EnvironmentSnapshot 用于封装单个处理周期内的环境快照。
  */
 struct ONEQ_API EnvironmentSnapshot {
-  float cycle_dt_sec{0.0f};               /**< 当前周期步长（单位：s） */
-  float propagation_loss_db{0.0f};        /**< 传播损耗（单位：dB） */
-  float atmospheric_physics_loss_db{0.0f}; /**< 传播损耗中的大气物理附加项（单位：dB） */
-  float clutter_power_db{0.0f};           /**< 杂波功率估计（单位：dB） */
-  AtmosphericPhysicsConfig atmospheric_physics{}; /**< 当前周期启用的大气物理参数 */
+  float cycle_dt_sec{0.0f};                        /**< 当前周期步长（单位：s） */
+  float propagation_loss_db{0.0f};                 /**< 传播损耗（单位：dB） */
+  float atmospheric_physics_loss_db{0.0f};         /**< 传播损耗中的大气物理附加项（单位：dB） */
+  float clutter_power_db{0.0f};                    /**< 杂波功率估计（单位：dB） */
+  AtmosphericPhysicsConfig atmospheric_physics{};  /**< 当前周期启用的大气物理参数 */
   AtmosphericDerivedContext atmospheric_context{}; /**< 当前周期时间/空间天气上下文输入 */
-  float effective_k_factor{4.0f / 3.0f};          /**< 当前周期自动推导的有效地球半径因子 */
-  std::int32_t effective_day_of_year{172};        /**< 当前周期自动推导的年积日 */
-  JammerSourceFactList jammer_sources{};  /**< 当前周期可见的多源干扰事实 */
-  bool jamming_detected{false};           /**< 是否检测到干扰 */
+  float effective_k_factor{4.0f / 3.0f};           /**< 当前周期自动推导的有效地球半径因子 */
+  std::int32_t effective_day_of_year{172};         /**< 当前周期自动推导的年积日 */
+  JammerSourceFactList jammer_sources{};           /**< 当前周期可见的多源干扰事实 */
+  bool jamming_detected{false};                    /**< 是否检测到干扰 */
 };
 
 /**
  * @brief EnvironmentSceneState 描述环境层待冻结的场景状态。
  */
 struct ONEQ_API EnvironmentSceneState {
-  AtmosphericPhysicsConfig atmospheric_physics{}; /**< 可选物理传播参数 */
-  AtmosphericDerivedContext atmospheric_context{}; /**< 可选时间/空间天气上下文 */
+  AtmosphericPhysicsConfig atmospheric_physics{};              /**< 可选物理传播参数 */
+  AtmosphericDerivedContext atmospheric_context{};             /**< 可选时间/空间天气上下文 */
   VegetationScatterPhysicsConfig vegetation_scatter_physics{}; /**< 可选植被散射参数 */
-  JammerEmitterStateList jammer_emitters{};     /**< 当前场景中的干扰源输入 */
+  JammerEmitterStateList jammer_emitters{};                    /**< 当前场景中的干扰源输入 */
 };
 
 }  // namespace environment

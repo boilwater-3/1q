@@ -6,9 +6,14 @@ namespace electro_optical_sensor {
 namespace session {
 
 bool EosCycleInputBuilder::Build(const EosExternalPoseInput& platform,
-                                 const std::vector<EosExternalTargetInput>& targets,
-                                 float dt_sec,
-                                 EosCycleInput* output,
+                                 const std::vector<EosExternalTargetInput>& targets, float dt_sec,
+                                 EosCycleInput* output, EosCoordinateStatus* status) {
+  return Build(platform, targets, dt_sec, EosEnvironmentInput{}, output, status);
+}
+
+bool EosCycleInputBuilder::Build(const EosExternalPoseInput& platform,
+                                 const std::vector<EosExternalTargetInput>& targets, float dt_sec,
+                                 const EosEnvironmentInput& environment, EosCycleInput* output,
                                  EosCoordinateStatus* status) {
   if (output == nullptr) {
     if (status != nullptr) {
@@ -32,12 +37,14 @@ bool EosCycleInputBuilder::Build(const EosExternalPoseInput& platform,
 
   output->cycle_index = 0U;
   output->dt_sec = dt_sec;
+  output->environment = environment;
   output->scene.clear();
 
   for (std::size_t i = 0; i < targets.size(); ++i) {
     EosSceneTarget target;
-    if (!TryMakeEosSceneTargetFromExternalInput(static_cast<std::uint64_t>(i), targets[i], reference,
-                                                output->platform_pose, &target, status)) {
+    if (!TryMakeEosSceneTargetFromExternalInput(static_cast<std::uint64_t>(i), targets[i],
+                                                reference, output->platform_pose, &target,
+                                                status)) {
       return false;
     }
     output->scene.push_back(target);

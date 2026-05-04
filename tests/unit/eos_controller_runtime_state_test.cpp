@@ -46,7 +46,8 @@ class TrackingPipeline final : public IEosPipeline {
     return true;
   }
 
-  EosPipelineExecuteResult Execute(const ::electro_optical_sensor::session::EosCycleInput& input) override {
+  EosPipelineExecuteResult Execute(
+      const ::electro_optical_sensor::session::EosCycleInput& input) override {
     ++execute_count;
     scan_azimuth_deg += 2.0f;
 
@@ -171,7 +172,8 @@ TEST(EosControllerRuntimeStateTest, FirstValidationRejectDoesNotSynthesizeLatest
   ::electro_optical_sensor::session::EosCycleInput invalid_input = MakeValidInput(45U);
   invalid_input.dt_sec = 0.0f;
   controller.RunOnce(invalid_input);
-  const ::electro_optical_sensor::session::EosCycleResult result = controller.BuildCycleResult(invalid_input);
+  const ::electro_optical_sensor::session::EosCycleResult result =
+      controller.BuildCycleResult(invalid_input);
 
   EXPECT_FALSE(controller.HasLatestOutputFrame());
   EXPECT_FALSE(result.executed_this_cycle);
@@ -188,7 +190,8 @@ TEST(EosControllerRuntimeStateTest,
   pipeline.force_abort = true;
   const ::electro_optical_sensor::session::EosCycleInput input = MakeValidInput(50U);
   controller.RunOnce(input);
-  const ::electro_optical_sensor::session::EosCycleResult result = controller.BuildCycleResult(input);
+  const ::electro_optical_sensor::session::EosCycleResult result =
+      controller.BuildCycleResult(input);
 
   EXPECT_FALSE(result.executed_this_cycle);
   EXPECT_FALSE(result.reused_previous_output);
@@ -196,8 +199,7 @@ TEST(EosControllerRuntimeStateTest,
   EXPECT_EQ(result.output_frame.cycle_index, input.cycle_index);
 }
 
-TEST(EosControllerRuntimeStateTest,
-     PipelineAbortOnExecutedCycleFallsBackToPreviousOutput) {
+TEST(EosControllerRuntimeStateTest, PipelineAbortOnExecutedCycleFallsBackToPreviousOutput) {
   TrackingPipeline pipeline;
   EosController controller(pipeline);
 
@@ -223,7 +225,8 @@ TEST(EosControllerRuntimeStateTest, RestoreRejectDuringRollbackReturnsHardFailur
   pipeline.force_abort = true;
   pipeline.force_restore_reject = true;
   controller.RunOnce(MakeValidInput(71U));
-  const ::electro_optical_sensor::session::EosCycleResult result = controller.BuildCycleResult(MakeValidInput(71U));
+  const ::electro_optical_sensor::session::EosCycleResult result =
+      controller.BuildCycleResult(MakeValidInput(71U));
 
   EXPECT_FALSE(controller.HasLatestOutputFrame());
   EXPECT_FALSE(result.executed_this_cycle);

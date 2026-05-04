@@ -40,13 +40,14 @@ bool IsFinite(T value) {
   return oneq::internal::validation::IsFinite(value);
 }
 
+bool IsRatioValid(float value) { return IsFinite(value) && value >= 0.0f && value <= 1.0f; }
+
 /**
  * @brief 校验平台位姿输入字段。
  * @param[in] platform_pose 平台位姿输入。
  * @param[out] issues 校验问题列表。
  */
-void ValidatePlatformPose(const session::EsrPoseState& platform_pose,
-                          ValidationIssueList* issues) {
+void ValidatePlatformPose(const session::EsrPoseState& platform_pose, ValidationIssueList* issues) {
   if (issues == nullptr) {
     return;
   }
@@ -60,6 +61,36 @@ void ValidatePlatformPose(const session::EsrPoseState& platform_pose,
         MakeIssue(ValidationSeverity::kError, ValidationCode::kNonFinitePlatformNumericField,
                   ValidationLocationKind::kPlatform, static_cast<std::size_t>(-1), "platform_pose",
                   "platform pose contains non-finite numeric field"));
+  }
+}
+
+void ValidateEnvironmentObservation(const environment::EsrEnvironmentObservation& observation,
+                                    ValidationIssueList* issues) {
+  if (issues == nullptr) {
+    return;
+  }
+  const environment::EsrAtmosphericObservation& atmosphere = observation.atmospheric_observation;
+  if (!IsRatioValid(observation.spectrum_occupancy_ratio) ||
+      !IsRatioValid(atmosphere.relative_humidity_ratio) ||
+      !IsFinite(atmosphere.precipitation_rate_mmph) || !IsFinite(atmosphere.visibility_km) ||
+      atmosphere.precipitation_rate_mmph < 0.0f || atmosphere.visibility_km <= 0.0f) {
+    issues->push_back(MakeIssue(
+        ValidationSeverity::kError, ValidationCode::kInvalidEnvironmentObservation,
+        ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1), "environment",
+        "environment observation must contain finite ratios in [0, 1] and positive visibility"));
+  }
+  for (std::size_t i = 0; i < observation.jammer_sources.size(); ++i) {
+    const environment::EsrJammerSource& jammer = observation.jammer_sources[i];
+    if (!IsFinite(jammer.center_hz) || !IsFinite(jammer.bandwidth_hz) ||
+        !IsFinite(jammer.power_w) || !IsFinite(jammer.deception_risk) ||
+        !IsFinite(jammer.confidence) || jammer.center_hz < 0.0 || jammer.bandwidth_hz < 0.0 ||
+        jammer.power_w < 0.0f || !IsRatioValid(jammer.deception_risk) ||
+        !IsRatioValid(jammer.confidence)) {
+      issues->push_back(MakeIssue(
+          ValidationSeverity::kError, ValidationCode::kInvalidEnvironmentObservation,
+          ValidationLocationKind::kEnvironment, i, "environment.jammer_sources",
+          "jammer source must contain finite non-negative RF/power fields and ratios in [0, 1]"));
+    }
   }
 }
 
@@ -111,20 +142,18 @@ void ValidateEmitter(const session::EsrSceneEmitter& emitter, std::size_t emitte
                                 "emitter bandwidth must be positive"));
   }
   if (emitter.tx_power_w <= 0.0) {
-    issues->push_back(MakeIssue(ValidationSeverity::kError,
-                                ValidationCode::kInvalidEmitterPower,
+    issues->push_back(MakeIssue(ValidationSeverity::kError, ValidationCode::kInvalidEmitterPower,
                                 ValidationLocationKind::kSceneEntity, emitter_index, "tx_power_w",
                                 "emitter transmit power must be positive"));
   }
   if (emitter.pulse_width_s <= 0.0) {
     issues->push_back(MakeIssue(ValidationSeverity::kError,
                                 ValidationCode::kInvalidEmitterPulseWidth,
-                                ValidationLocationKind::kSceneEntity, emitter_index, "pulse_width_s",
-                                "emitter pulse width must be positive"));
+                                ValidationLocationKind::kSceneEntity, emitter_index,
+                                "pulse_width_s", "emitter pulse width must be positive"));
   }
   if (emitter.pri_s <= 0.0) {
-    issues->push_back(MakeIssue(ValidationSeverity::kError,
-                                ValidationCode::kInvalidEmitterPri,
+    issues->push_back(MakeIssue(ValidationSeverity::kError, ValidationCode::kInvalidEmitterPri,
                                 ValidationLocationKind::kSceneEntity, emitter_index, "pri_s",
                                 "emitter pri must be positive"));
   }
@@ -132,19 +161,17 @@ void ValidateEmitter(const session::EsrSceneEmitter& emitter, std::size_t emitte
   const bool pulse_width_valid = emitter.pulse_width_s > 0.0;
   if (pri_valid && pulse_width_valid) {
     if (emitter.pri_s < emitter.pulse_width_s) {
-      issues->push_back(MakeIssue(ValidationSeverity::kError,
-                                  ValidationCode::kEmitterPriLessThanPulseWidth,
-                                  ValidationLocationKind::kSceneEntity, emitter_index,
-                                  "pri_s/pulse_width_s",
-                                  "emitter pri must be greater than or equal to pulse width"));
+      issues->push_back(
+          MakeIssue(ValidationSeverity::kError, ValidationCode::kEmitterPriLessThanPulseWidth,
+                    ValidationLocationKind::kSceneEntity, emitter_index, "pri_s/pulse_width_s",
+                    "emitter pri must be greater than or equal to pulse width"));
     }
   }
   if (emitter.beam_state.az_beamwidth_deg <= 0.0 || emitter.beam_state.el_beamwidth_deg <= 0.0) {
-    issues->push_back(MakeIssue(ValidationSeverity::kError,
-                                ValidationCode::kInvalidEmitterBeamwidth,
-                                ValidationLocationKind::kSceneEntity, emitter_index,
-                                "beam_state.az_beamwidth_deg/el_beamwidth_deg",
-                                "emitter beam width must be positive"));
+    issues->push_back(MakeIssue(
+        ValidationSeverity::kError, ValidationCode::kInvalidEmitterBeamwidth,
+        ValidationLocationKind::kSceneEntity, emitter_index,
+        "beam_state.az_beamwidth_deg/el_beamwidth_deg", "emitter beam width must be positive"));
   }
 }
 
@@ -154,17 +181,16 @@ ValidationIssueList ValidateEsrCycleInput(const EsrCycleInput& input) {
   ValidationIssueList issues;
 
   if (!IsFinite(input.dt_sec)) {
-    issues.push_back(MakeIssue(ValidationSeverity::kError,
-                               ValidationCode::kNonFiniteCycleDeltaTime,
+    issues.push_back(MakeIssue(ValidationSeverity::kError, ValidationCode::kNonFiniteCycleDeltaTime,
                                ValidationLocationKind::kGlobal, static_cast<std::size_t>(-1),
                                "dt_sec", "cycle delta time must be finite"));
   } else if (input.dt_sec <= 0.0f) {
-    issues.push_back(MakeIssue(ValidationSeverity::kError,
-                               ValidationCode::kInvalidCycleDeltaTime,
+    issues.push_back(MakeIssue(ValidationSeverity::kError, ValidationCode::kInvalidCycleDeltaTime,
                                ValidationLocationKind::kGlobal, static_cast<std::size_t>(-1),
                                "dt_sec", "cycle delta time must be positive"));
   }
   ValidatePlatformPose(input.platform_pose, &issues);
+  ValidateEnvironmentObservation(input.environment, &issues);
 
   for (std::size_t i = 0; i < input.scene.size(); ++i) {
     ValidateEmitter(input.scene[i], i, &issues);

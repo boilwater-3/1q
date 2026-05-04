@@ -17,7 +17,8 @@ namespace fb = oneq::replay::airborne_radar::fb;
 namespace scene_fb = oneq::replay::airborne_radar::scene::fb;
 namespace session_fb = oneq::replay::airborne_radar::session::fb;
 
-std::size_t CountTracksByStatus(const model::TrackStateSnapshotList& tracks, model::TrackStatus status) {
+std::size_t CountTracksByStatus(const model::TrackStateSnapshotList& tracks,
+                                model::TrackStatus status) {
   std::size_t count = 0U;
   for (std::size_t i = 0; i < tracks.size(); ++i) {
     if (tracks[i].status == status) {
@@ -49,8 +50,8 @@ flatbuffers::Offset<fb::PoseState> EncodePoseState(flatbuffers::FlatBufferBuilde
                              EncodeEulerAngles(builder, value.attitude_deg));
 }
 
-flatbuffers::Offset<fb::RadarSceneTarget> EncodeSceneTarget(
-    flatbuffers::FlatBufferBuilder* builder, const RadarSceneTarget& value) {
+flatbuffers::Offset<fb::RadarSceneTarget> EncodeSceneTarget(flatbuffers::FlatBufferBuilder* builder,
+                                                            const RadarSceneTarget& value) {
   return fb::CreateRadarSceneTarget(*builder, value.external_target_id, value.velocity_x,
                                     value.velocity_y, value.velocity_z, value.rcs, value.range_m,
                                     value.position_x, value.position_y, value.position_z,
@@ -104,14 +105,124 @@ RadarSceneTarget DecodeSceneTarget(const fb::RadarSceneTarget* value) {
   return result;
 }
 
+flatbuffers::Offset<fb::AtmosphericObservation> EncodeCycleAtmosphericObservation(
+    flatbuffers::FlatBufferBuilder* builder, const environment::AtmosphericPhysicsConfig& value) {
+  return fb::CreateAtmosphericObservation(*builder, value.enable_physical_model, value.pressure_hpa,
+                                          value.temperature_k, value.relative_humidity);
+}
+
+flatbuffers::Offset<fb::AtmosphericContext> EncodeCycleAtmosphericContext(
+    flatbuffers::FlatBufferBuilder* builder, const environment::AtmosphericDerivedContext& value) {
+  return fb::CreateAtmosphericContext(*builder, value.has_simulation_unix_seconds,
+                                      value.simulation_unix_seconds, value.solar_flux_f107a,
+                                      value.solar_flux_f107, value.geomagnetic_ap);
+}
+
+flatbuffers::Offset<fb::SurfaceObservation> EncodeCycleSurfaceObservation(
+    flatbuffers::FlatBufferBuilder* builder,
+    const environment::VegetationScatterPhysicsConfig& value) {
+  return fb::CreateSurfaceObservation(*builder, static_cast<int>(value.cover_profile),
+                                      value.enable_physical_model);
+}
+
+flatbuffers::Offset<fb::JammerSource> EncodeCycleJammerSource(
+    flatbuffers::FlatBufferBuilder* builder, const environment::JammerEmitterState& value) {
+  return fb::CreateJammerSource(*builder, static_cast<int>(value.technique), value.power_db,
+                                value.js_db, value.has_direction_deg, value.azimuth_deg,
+                                value.elevation_deg, value.angular_span_deg, value.confidence);
+}
+
+flatbuffers::Offset<fb::RadarCycleEnvironmentInput> EncodeCycleEnvironmentInput(
+    flatbuffers::FlatBufferBuilder* builder, const RadarEnvironmentInput& value) {
+  std::vector<flatbuffers::Offset<fb::JammerSource>> jammer_sources;
+  jammer_sources.reserve(value.jammer_sources.size());
+  for (std::size_t i = 0; i < value.jammer_sources.size(); ++i) {
+    jammer_sources.push_back(EncodeCycleJammerSource(builder, value.jammer_sources[i]));
+  }
+  return fb::CreateRadarCycleEnvironmentInput(
+      *builder, EncodeCycleAtmosphericObservation(builder, value.atmospheric_observation),
+      EncodeCycleAtmosphericContext(builder, value.atmospheric_context),
+      EncodeCycleSurfaceObservation(builder, value.surface_observation),
+      builder->CreateVector(jammer_sources));
+}
+
+environment::AtmosphericPhysicsConfig DecodeCycleAtmosphericObservation(
+    const fb::AtmosphericObservation* value) {
+  environment::AtmosphericPhysicsConfig result;
+  if (value != nullptr) {
+    result.enable_physical_model = value->enable_physical_model();
+    result.pressure_hpa = value->pressure_hpa();
+    result.temperature_k = value->temperature_k();
+    result.relative_humidity = value->relative_humidity();
+  }
+  return result;
+}
+
+environment::AtmosphericDerivedContext DecodeCycleAtmosphericContext(
+    const fb::AtmosphericContext* value) {
+  environment::AtmosphericDerivedContext result;
+  if (value != nullptr) {
+    result.has_simulation_unix_seconds = value->has_simulation_unix_seconds();
+    result.simulation_unix_seconds = value->simulation_unix_seconds();
+    result.solar_flux_f107a = value->solar_flux_f107a();
+    result.solar_flux_f107 = value->solar_flux_f107();
+    result.geomagnetic_ap = value->geomagnetic_ap();
+  }
+  return result;
+}
+
+environment::VegetationScatterPhysicsConfig DecodeCycleSurfaceObservation(
+    const fb::SurfaceObservation* value) {
+  environment::VegetationScatterPhysicsConfig result;
+  if (value != nullptr) {
+    result.cover_profile = static_cast<environment::VegetationCoverProfile>(value->cover_profile());
+    result.enable_physical_model = value->enable_physical_model();
+  }
+  return result;
+}
+
+environment::JammerEmitterState DecodeCycleJammerSource(const fb::JammerSource* value) {
+  environment::JammerEmitterState result;
+  if (value != nullptr) {
+    result.technique = static_cast<environment::JammingTechnique>(value->technique());
+    result.power_db = value->power_db();
+    result.js_db = value->js_db();
+    result.has_direction_deg = value->has_direction_deg();
+    result.azimuth_deg = value->azimuth_deg();
+    result.elevation_deg = value->elevation_deg();
+    result.angular_span_deg = value->angular_span_deg();
+    result.confidence = value->confidence();
+  }
+  return result;
+}
+
+RadarEnvironmentInput DecodeCycleEnvironmentInput(const fb::RadarCycleEnvironmentInput* value) {
+  RadarEnvironmentInput result;
+  if (value != nullptr) {
+    result.atmospheric_observation =
+        DecodeCycleAtmosphericObservation(value->atmospheric_observation());
+    result.atmospheric_context = DecodeCycleAtmosphericContext(value->atmospheric_context());
+    result.surface_observation = DecodeCycleSurfaceObservation(value->surface_observation());
+    const flatbuffers::Vector<flatbuffers::Offset<fb::JammerSource>>* jammer_sources =
+        value->jammer_sources();
+    if (jammer_sources != nullptr) {
+      result.jammer_sources.reserve(jammer_sources->size());
+      for (flatbuffers::uoffset_t i = 0; i < jammer_sources->size(); ++i) {
+        result.jammer_sources.push_back(DecodeCycleJammerSource(jammer_sources->Get(i)));
+      }
+    }
+  }
+  return result;
+}
+
 flatbuffers::Offset<fb::DecisionTrackStateSnapshot> EncodeTrackStateSnapshot(
     flatbuffers::FlatBufferBuilder* builder, const model::TrackStateSnapshot& value) {
   return fb::CreateDecisionTrackStateSnapshot(
-      *builder, value.association_key, value.external_target_id,
-      static_cast<int>(value.status), value.position_x, value.position_y, value.position_z,
-      value.velocity_x, value.velocity_y, value.velocity_z, value.speed,
-      value.acceleration_x, value.acceleration_y, value.acceleration_z, value.acceleration,
-      value.rcs, value.jamming_detected, value.hit_count, value.miss_count);
+      *builder, value.association_key, value.external_target_id, static_cast<int>(value.status),
+      value.position_x, value.position_y, value.position_z, value.velocity_x, value.velocity_y,
+      value.velocity_z, value.speed, value.acceleration_x, value.acceleration_y,
+      value.acceleration_z, value.acceleration, value.rcs, value.jamming_detected, value.hit_count,
+      value.miss_count);
 }
 
 flatbuffers::Offset<fb::TrackStateSnapshot> EncodeTrackSnapshot(
@@ -119,8 +230,7 @@ flatbuffers::Offset<fb::TrackStateSnapshot> EncodeTrackSnapshot(
   return fb::CreateTrackStateSnapshot(*builder, EncodeTrackStateSnapshot(builder, value));
 }
 
-model::TrackStateSnapshot DecodeTrackStateSnapshot(
-    const fb::DecisionTrackStateSnapshot* value) {
+model::TrackStateSnapshot DecodeTrackStateSnapshot(const fb::DecisionTrackStateSnapshot* value) {
   model::TrackStateSnapshot result;
   if (value != nullptr) {
     result.association_key = value->association_key();
@@ -163,8 +273,7 @@ flatbuffers::Offset<fb::TrackOutputFrame> EncodeTrackOutputFrame(
   const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fb::TrackStateSnapshot>>>
       tracks_vec = builder->CreateVector(track_offsets);
   return fb::CreateTrackOutputFrame(
-      *builder, value.cycle_index, static_cast<std::uint64_t>(value.tracks.size()),
-      value.batch_id,
+      *builder, value.cycle_index, static_cast<std::uint64_t>(value.tracks.size()), value.batch_id,
       static_cast<std::uint64_t>(CountTracksByStatus(value.tracks, model::TrackStatus::kConfirmed)),
       CountTracksByStatus(value.tracks, model::TrackStatus::kLost) > 0U, tracks_vec);
 }
@@ -731,10 +840,11 @@ std::string EncodeCycleInputFlatbuffer(const RadarCycleInput& input) {
 
   const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fb::RadarSceneTarget>>>
       scene_vector = builder.CreateVector(targets);
-  auto env = fb::CreateRadarCycleEnvironmentInput(builder);
-  const flatbuffers::Offset<fb::RadarCycleInput> root = fb::CreateRadarCycleInput(
-      builder, input.cycle_index, input.dt_sec, EncodePoseState(&builder, input.platform_pose),
-      scene_vector, env);
+  const flatbuffers::Offset<fb::RadarCycleEnvironmentInput> env =
+      EncodeCycleEnvironmentInput(&builder, input.environment);
+  const flatbuffers::Offset<fb::RadarCycleInput> root =
+      fb::CreateRadarCycleInput(builder, input.cycle_index, input.dt_sec,
+                                EncodePoseState(&builder, input.platform_pose), scene_vector, env);
   builder.Finish(root, fb::RadarCycleInputIdentifier());
 
   const std::uint8_t* buffer = builder.GetBufferPointer();
@@ -770,9 +880,9 @@ bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes, RadarCycleInpu
   input->cycle_index = root->cycle_index();
   input->dt_sec = root->dt_sec();
   input->platform_pose = DecodePoseState(root->platform_pose());
+  input->environment = DecodeCycleEnvironmentInput(root->environment());
   input->scene.clear();
-  const flatbuffers::Vector<flatbuffers::Offset<fb::RadarSceneTarget>>* scene =
-      root->scene();
+  const flatbuffers::Vector<flatbuffers::Offset<fb::RadarSceneTarget>>* scene = root->scene();
   if (scene != nullptr) {
     input->scene.reserve(scene->size());
     for (flatbuffers::uoffset_t i = 0; i < scene->size(); ++i) {

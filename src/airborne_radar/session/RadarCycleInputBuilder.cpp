@@ -5,7 +5,13 @@ namespace session {
 
 bool RadarCycleInputBuilder::Build(const RadarExternalPoseInput& platform,
                                    const std::vector<TargetExternalKinematics>& targets,
-                                   float dt_sec,
+                                   float dt_sec, RadarCycleInput* output) {
+  return Build(platform, targets, dt_sec, RadarEnvironmentInput{}, output);
+}
+
+bool RadarCycleInputBuilder::Build(const RadarExternalPoseInput& platform,
+                                   const std::vector<TargetExternalKinematics>& targets,
+                                   float dt_sec, const RadarEnvironmentInput& environment,
                                    RadarCycleInput* output) {
   if (output == nullptr) {
     return false;
@@ -18,6 +24,7 @@ bool RadarCycleInputBuilder::Build(const RadarExternalPoseInput& platform,
 
   output->cycle_index = 0U;
   output->dt_sec = dt_sec;
+  output->environment = environment;
   output->scene.clear();
 
   for (std::size_t i = 0; i < targets.size(); ++i) {

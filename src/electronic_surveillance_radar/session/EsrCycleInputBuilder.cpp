@@ -6,9 +6,14 @@ namespace electronic_surveillance_radar {
 namespace session {
 
 bool EsrCycleInputBuilder::Build(const EsrExternalPoseInput& platform,
-                                 const std::vector<EsrExternalEmitterInput>& emitters,
-                                 float dt_sec,
-                                 EsrCycleInput* output,
+                                 const std::vector<EsrExternalEmitterInput>& emitters, float dt_sec,
+                                 EsrCycleInput* output, EsrCoordinateStatus* status) {
+  return Build(platform, emitters, dt_sec, EsrEnvironmentInput{}, output, status);
+}
+
+bool EsrCycleInputBuilder::Build(const EsrExternalPoseInput& platform,
+                                 const std::vector<EsrExternalEmitterInput>& emitters, float dt_sec,
+                                 const EsrEnvironmentInput& environment, EsrCycleInput* output,
                                  EsrCoordinateStatus* status) {
   if (output == nullptr) {
     if (status != nullptr) {
@@ -32,6 +37,7 @@ bool EsrCycleInputBuilder::Build(const EsrExternalPoseInput& platform,
 
   output->cycle_index = 0U;
   output->dt_sec = dt_sec;
+  output->environment = environment;
   output->scene.clear();
 
   for (const auto& emitter_input : emitters) {

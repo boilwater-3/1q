@@ -42,7 +42,8 @@ enum class ONEQ_API ValidationCode {
   kInvalidEmitterPri,             /**< 辐射源 PRI 非法（<= 0） */
   kEmitterPriLessThanPulseWidth,  /**< 辐射源 PRI 小于脉宽 */
   kInvalidEmitterBeamwidth,       /**< 辐射源波束宽度非法（<= 0） */
-  kNonFiniteEmitterNumericField   /**< 辐射源存在非有限数值字段 */
+  kNonFiniteEmitterNumericField,  /**< 辐射源存在非有限数值字段 */
+  kInvalidEnvironmentObservation  /**< 环境观测字段非法 */
 };
 
 /**
@@ -70,9 +71,9 @@ struct ONEQ_API ValidationLocation {
 struct ONEQ_API ValidationIssue {
   ValidationSeverity severity{ValidationSeverity::kInfo}; /**< 问题严重级别 */
   ValidationCode code{ValidationCode::kNone};             /**< 结构化编码 */
-  ValidationLocation location{};     /**< 结构化定位信息 */
-  std::string field{};               /**< 触发问题的字段名；为空表示跨字段或域级问题 */
-  std::string message{};             /**< 面向调用方的简短说明 */
+  ValidationLocation location{};                          /**< 结构化定位信息 */
+  std::string field{};   /**< 触发问题的字段名；为空表示跨字段或域级问题 */
+  std::string message{}; /**< 面向调用方的简短说明 */
 };
 
 /** @brief ValidationIssueList 表示输入校验问题列表。 */

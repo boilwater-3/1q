@@ -12,12 +12,8 @@
 namespace electronic_surveillance_radar {
 namespace session {
 
-/**
- * @brief EsrEnvironmentInput 聚合 ESR 单周期环境事实输入。
- */
-struct ONEQ_API EsrEnvironmentInput {
-  environment::EsrEnvironmentObservation observation{}; /**< 本周期环境高层观测输入 */
-};
+/** @brief EsrEnvironmentInput 表示 ESR 单周期环境事实输入。 */
+using EsrEnvironmentInput = environment::EsrEnvironmentObservation;
 
 }  // namespace session
 }  // namespace electronic_surveillance_radar
