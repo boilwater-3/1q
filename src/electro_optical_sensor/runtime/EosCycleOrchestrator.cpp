@@ -5,10 +5,10 @@
 #include "1q/electro_optical_sensor/extension/EosController.h"
 #include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
 #include "1q/electro_optical_sensor/extension/IEosPipeline.h"
+#include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "common/logging/ProjectLog.h"
 #include "electro_optical_sensor/runtime/EosPipelineConfigMapper.h"
 #include "electro_optical_sensor/runtime/EosRuntimeConfigResolver.h"
-#include "1q/electro_optical_sensor/session/EosCycleResult.h"
 
 namespace electro_optical_sensor {
 namespace runtime {
@@ -18,28 +18,16 @@ namespace internal {
 EosCycleOrchestrator::EosCycleOrchestrator(
     const ::electro_optical_sensor::session::EosSessionConfig& config,
     const ::electro_optical_sensor::extension::EosPipelineConfig& pipeline_config,
-    bool initial_reset_scan_phase,
-    ::electro_optical_sensor::extension::IEosPipeline& pipeline,
+    bool initial_reset_scan_phase, ::electro_optical_sensor::extension::IEosPipeline& pipeline,
     ::electro_optical_sensor::extension::EosController& controller)
     : runtime_config_(config), pipeline_(pipeline), controller_(controller) {
   pipeline_.UpdateConfig(pipeline_config, initial_reset_scan_phase);
 }
 
-::electro_optical_sensor::session::EosCycleResult EosCycleOrchestrator::Step(
+::electro_optical_sensor::session::EosCycleResult EosCycleOrchestrator::RunCycle(
     const ::electro_optical_sensor::session::EosCycleInput& input) {
   controller_.RunOnce(input);
   return controller_.BuildCycleResult(input);
-}
-
-::electro_optical_sensor::session::EosOutputFrame EosCycleOrchestrator::BuildOutputFrame(
-    const ::electro_optical_sensor::session::EosCycleInput& input) {
-  controller_.RunOnce(input);
-  if (controller_.HasLatestOutputFrame()) {
-    return controller_.GetLatestOutputFrame();
-  }
-  ::electro_optical_sensor::session::EosOutputFrame frame;
-  frame.cycle_index = input.cycle_index;
-  return frame;
 }
 
 void EosCycleOrchestrator::ApplyRuntimeConfig(

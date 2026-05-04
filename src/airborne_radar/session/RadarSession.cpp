@@ -50,17 +50,12 @@ struct RadarSession::Impl {
     pending_runtime_state = runtime_state;
   }
 
-  session::TrackOutputFrame BuildOutputFrame() const {
-    if (controller.HasLatestTrackOutputFrame()) {
-      return controller.GetLatestTrackOutputFrame();
-    }
-    return session::TrackOutputFrame{};
-  }
-
   RadarCycleResult BuildCycleResult(const RadarCycleInput& input) const {
     RadarCycleResult result;
     result.input_cycle_index = input.cycle_index;
-    result.track_output_frame = BuildOutputFrame();
+    if (controller.HasLatestTrackOutputFrame()) {
+      result.track_output_frame = controller.GetLatestTrackOutputFrame();
+    }
     result.executed_this_cycle = controller.ExecutedLatestCycle();
     result.signal_cycle_abort_reason = controller.GetLastSignalCycleAbortReason();
     result.reused_previous_track_output = controller.ReusedPreviousTrackOutputLatestCycle();
@@ -88,7 +83,9 @@ struct RadarSession::Impl {
                                               const ValidationIssueList& issues) const {
     RadarCycleResult result;
     result.input_cycle_index = input.cycle_index;
-    result.track_output_frame = BuildOutputFrame();
+    if (controller.HasLatestTrackOutputFrame()) {
+      result.track_output_frame = controller.GetLatestTrackOutputFrame();
+    }
     result.reused_previous_track_output = controller.HasLatestTrackOutputFrame();
     result.validation_issues = issues;
     result.has_validation_error = HasValidationError(issues);
@@ -99,7 +96,9 @@ struct RadarSession::Impl {
                                              extension::SignalCycleAbortReason abort_reason) const {
     RadarCycleResult result;
     result.input_cycle_index = input.cycle_index;
-    result.track_output_frame = BuildOutputFrame();
+    if (controller.HasLatestTrackOutputFrame()) {
+      result.track_output_frame = controller.GetLatestTrackOutputFrame();
+    }
     result.reused_previous_track_output = controller.HasLatestTrackOutputFrame();
     result.signal_cycle_abort_reason = abort_reason;
     return result;

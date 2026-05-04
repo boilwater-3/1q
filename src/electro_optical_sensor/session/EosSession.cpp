@@ -3,12 +3,12 @@
 #include <cstdlib>
 #include <utility>
 
-#include "1q/electro_optical_sensor/extension/EosController.h"
 #include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
+#include "1q/electro_optical_sensor/extension/EosController.h"
 #include "1q/electro_optical_sensor/extension/IEosPipeline.h"
 #include "common/logging/ProjectLog.h"
-#include "electro_optical_sensor/session/EosSessionCompositionRoot.h"
 #include "electro_optical_sensor/runtime/EosCycleOrchestrator.h"
+#include "electro_optical_sensor/session/EosSessionCompositionRoot.h"
 
 namespace electro_optical_sensor {
 namespace session {
@@ -40,8 +40,7 @@ struct EosSession::Impl {
         pipeline(RequireCompositionDependency(composition.pipeline, "pipeline")),
         controller(RequireCompositionDependency(composition.controller, "controller")),
         cycle_orchestrator(composition.runtime_config, composition.pipeline_config,
-                           composition.initial_reset_scan_phase, pipeline, controller) {
-  }
+                           composition.initial_reset_scan_phase, pipeline, controller) {}
 
   std::unique_ptr<::electro_optical_sensor::extension::IEosPipeline> owned_pipeline;
   std::unique_ptr<extension::EosController> owned_controller;
@@ -57,39 +56,36 @@ EosSession::EosSession(EosSession&&) noexcept = default;
 EosSession& EosSession::operator=(EosSession&&) noexcept = default;
 
 EosSession EosSessionFactory::Create(const EosSessionConfig& config) {
-  return EosSession(
-      std::unique_ptr<EosSession::Impl>(new EosSession::Impl(
-          internal::EosSessionCompositionRoot::ComposeDefault(config))));
+  return EosSession(std::unique_ptr<EosSession::Impl>(
+      new EosSession::Impl(internal::EosSessionCompositionRoot::ComposeDefault(config))));
 }
 
 EosSession EosSessionFactory::CreateWithPipeline(
     const EosSessionConfig& config, ::electro_optical_sensor::extension::IEosPipeline& pipeline) {
-  return EosSession(
-      std::unique_ptr<EosSession::Impl>(new EosSession::Impl(
-          internal::EosSessionCompositionRoot::ComposeWithPipeline(config, pipeline))));
+  return EosSession(std::unique_ptr<EosSession::Impl>(new EosSession::Impl(
+      internal::EosSessionCompositionRoot::ComposeWithPipeline(config, pipeline))));
 }
 
 EosSession EosSessionFactory::CreateWithEnvironmentService(
-    const EosSessionConfig& config,
-    environment::IEosEnvironmentService& environment_service) {
-  return EosSession(std::unique_ptr<EosSession::Impl>(new EosSession::Impl(
-      internal::EosSessionCompositionRoot::ComposeWithEnvironmentService(config,
-                                                                         environment_service))));
+    const EosSessionConfig& config, environment::IEosEnvironmentService& environment_service) {
+  return EosSession(std::unique_ptr<EosSession::Impl>(
+      new EosSession::Impl(internal::EosSessionCompositionRoot::ComposeWithEnvironmentService(
+          config, environment_service))));
 }
 
-EosSession EosSessionFactory::CreateWithController(
-    const EosSessionConfig& config, extension::EosController& controller) {
-  return EosSession(
-      std::unique_ptr<EosSession::Impl>(new EosSession::Impl(
-          internal::EosSessionCompositionRoot::ComposeWithController(config, controller))));
+EosSession EosSessionFactory::CreateWithController(const EosSessionConfig& config,
+                                                   extension::EosController& controller) {
+  return EosSession(std::unique_ptr<EosSession::Impl>(new EosSession::Impl(
+      internal::EosSessionCompositionRoot::ComposeWithController(config, controller))));
 }
 
 session::EosOutputFrame EosSession::Step(const EosCycleInput& input) {
-  return impl_->cycle_orchestrator.BuildOutputFrame(input);
+  return impl_->cycle_orchestrator.RunCycle(input).output_frame;
 }
 
-::electro_optical_sensor::session::EosCycleResult EosSession::StepWithResult(const EosCycleInput& input) {
-  return impl_->cycle_orchestrator.Step(input);
+::electro_optical_sensor::session::EosCycleResult EosSession::StepWithResult(
+    const EosCycleInput& input) {
+  return impl_->cycle_orchestrator.RunCycle(input);
 }
 
 void EosSession::ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch) {

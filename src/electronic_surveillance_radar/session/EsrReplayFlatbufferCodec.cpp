@@ -172,7 +172,7 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
 
 namespace {
 
-flatbuffers::Offset<esr::replay::EsrOutputFrame> BuildOutputFrame(
+flatbuffers::Offset<esr::replay::EsrOutputFrame> CreateEsrOutputFrameTable(
     flatbuffers::FlatBufferBuilder& fbb, const session::EsrOutputFrame& v) {
   // observation output
   std::vector<flatbuffers::Offset<esr::replay::EmitterObservation>> obs_vec;
@@ -282,7 +282,7 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, session::EsrOutp
 
 std::string EncodeEsrOutputFrame(const session::EsrOutputFrame& v) {
   flatbuffers::FlatBufferBuilder fbb(512);
-  fbb.Finish(BuildOutputFrame(fbb, v));
+  fbb.Finish(CreateEsrOutputFrameTable(fbb, v));
   return {reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize()};
 }
 
@@ -297,7 +297,7 @@ bool DecodeEsrOutputFrame(const std::string& bytes, session::EsrOutputFrame* out
 
 std::string EncodeEsrCycleResult(const EsrCycleResult& v) {
   flatbuffers::FlatBufferBuilder fbb(512);
-  auto frame = BuildOutputFrame(fbb, v.output_frame);
+  auto frame = CreateEsrOutputFrameTable(fbb, v.output_frame);
   std::vector<flatbuffers::Offset<esr::replay::ValidationIssue>> issues;
   for (const auto& i : v.validation_issues) {
     const std::size_t encoded_entity_index = i.location.kind == ValidationLocationKind::kSceneEntity

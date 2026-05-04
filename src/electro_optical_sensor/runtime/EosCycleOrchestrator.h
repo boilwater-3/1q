@@ -19,25 +19,19 @@ namespace internal {
  */
 class EosCycleOrchestrator {
  public:
-  EosCycleOrchestrator(const ::electro_optical_sensor::session::EosSessionConfig& config,
-                       const ::electro_optical_sensor::extension::EosPipelineConfig& pipeline_config,
-                       bool initial_reset_scan_phase,
-                       ::electro_optical_sensor::extension::IEosPipeline& pipeline,
-                       ::electro_optical_sensor::extension::EosController& controller);
+  EosCycleOrchestrator(
+      const ::electro_optical_sensor::session::EosSessionConfig& config,
+      const ::electro_optical_sensor::extension::EosPipelineConfig& pipeline_config,
+      bool initial_reset_scan_phase, ::electro_optical_sensor::extension::IEosPipeline& pipeline,
+      ::electro_optical_sensor::extension::EosController& controller);
 
   /**
    * @brief 执行单周期并返回聚合结果。
    * @param[in] input 当前周期输入。
    * @return 当前周期聚合结果。
    */
-  ::electro_optical_sensor::session::EosCycleResult Step(const ::electro_optical_sensor::session::EosCycleInput& input);
-
-  /**
-   * @brief 执行单周期并仅返回输出帧（跳过全量 EosCycleResult 构造）。
-   * @param[in] input 当前周期输入。
-   * @return 当前周期输出帧。
-   */
-  ::electro_optical_sensor::session::EosOutputFrame BuildOutputFrame(const ::electro_optical_sensor::session::EosCycleInput& input);
+  ::electro_optical_sensor::session::EosCycleResult RunCycle(
+      const ::electro_optical_sensor::session::EosCycleInput& input);
 
   /**
    * @brief 应用运行期可变配置补丁。

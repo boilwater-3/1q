@@ -47,7 +47,7 @@ eos_session::EosCycleInput MakeCycleInput(std::uint32_t cycle_index, float dt_se
   return input;
 }
 
-TEST(EosCycleOrchestratorTest, StepProducesOutputAndPreservesCycleIndex) {
+TEST(EosCycleOrchestratorTest, RunCycleProducesOutputAndPreservesCycleIndex) {
   const eos_session::EosSessionConfig config = MakeSessionConfig();
   const ::electro_optical_sensor::extension::EosPipelineConfig pipeline_config =
       BuildEosPipelineConfig(config);
@@ -56,7 +56,7 @@ TEST(EosCycleOrchestratorTest, StepProducesOutputAndPreservesCycleIndex) {
   EosCycleOrchestrator orchestrator(config, pipeline_config, true, pipeline, controller);
 
   const ::electro_optical_sensor::session::EosCycleResult result =
-      orchestrator.Step(MakeCycleInput(7U, 1.0f));
+      orchestrator.RunCycle(MakeCycleInput(7U, 1.0f));
 
   EXPECT_FALSE(result.has_validation_error);
   EXPECT_TRUE(result.executed_this_cycle);
@@ -72,14 +72,14 @@ TEST(EosCycleOrchestratorTest, ValidRuntimePatchTakesEffectOnNextStep) {
   EosCycleOrchestrator orchestrator(config, pipeline_config, true, pipeline, controller);
 
   const ::electro_optical_sensor::session::EosCycleResult baseline =
-      orchestrator.Step(MakeCycleInput(1U, 1.0f));
+      orchestrator.RunCycle(MakeCycleInput(1U, 1.0f));
   const float baseline_scan_azimuth = baseline.output_frame.scan_azimuth_deg;
 
   orchestrator.ApplyRuntimeConfig(
       eos_config::EosRuntimeConfigBuilder().WithScanRateDegPerSec(9.0f).Build());
 
   const ::electro_optical_sensor::session::EosCycleResult patched =
-      orchestrator.Step(MakeCycleInput(2U, 1.0f));
+      orchestrator.RunCycle(MakeCycleInput(2U, 1.0f));
   EXPECT_FALSE(patched.has_validation_error);
   EXPECT_TRUE(patched.executed_this_cycle);
   EXPECT_NEAR(patched.output_frame.scan_azimuth_deg, -1.0f, 1.0e-6f);
@@ -98,7 +98,7 @@ TEST(EosCycleOrchestratorTest, InvalidRuntimePatchDoesNotChangeUpdateBehavior) {
       eos_config::EosRuntimeConfigBuilder().WithFrameRateHz(0.0f).Build());
 
   const ::electro_optical_sensor::session::EosCycleResult result =
-      orchestrator.Step(MakeCycleInput(3U, 1.0f));
+      orchestrator.RunCycle(MakeCycleInput(3U, 1.0f));
   EXPECT_FALSE(result.has_validation_error);
   EXPECT_TRUE(result.executed_this_cycle);
   EXPECT_NEAR(result.output_frame.scan_azimuth_deg, -5.0f, 1.0e-6f);
