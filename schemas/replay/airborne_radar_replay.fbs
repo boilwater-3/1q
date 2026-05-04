@@ -105,17 +105,70 @@ table DecisionTrackStateSnapshot {
   jamming_detected:bool;
   hit_count:uint;
   miss_count:uint;
+  target_type:string;
+  target_probability:float;
 }
 
 table TrackStateSnapshot {
   state:DecisionTrackStateSnapshot;
 }
 
+table ValidationIssue {
+  severity:int;
+  code:int;
+  location_kind:int;
+  entity_index:int;
+  field:string;
+  message:string;
+}
+
+table RadarCommand {
+  type:int;
+  source:int;
+}
+
+table RadarControlProfile {
+  version:ulong;
+  enable_lpi_power_control:bool;
+  lpi_power_scale:float;
+  enable_lpi_beamforming:bool;
+  lpi_dwell_scale:float;
+  enable_agility_frequency:bool;
+  agility_frequency_hop_phase:ubyte;
+  enable_sidelobe_canceller:bool;
+  enable_adaptive_beamforming:bool;
+  enable_eccm_rejitter:bool;
+  eccm_burnthrough_gain:float;
+}
+
+table AssociationQualityMetrics {
+  prior_track_count:ulong;
+  detection_count:ulong;
+  matched_count:ulong;
+  new_track_count:ulong;
+  missed_track_count:ulong;
+  match_rate:float;
+  new_track_rate:float;
+  missed_track_rate:float;
+  mean_match_cost:float;
+  p95_match_cost:float;
+  dominant_jamming_semantic:int;
+  jamming_severity:float;
+  association_stress:float;
+}
+
 table RadarCycleResult {
   input_cycle_index:uint;
   track_output_frame:TrackOutputFrame;
-  validation_issue_count:uint;
+  submitted_commands:[RadarCommand];
+  validation_issues:[ValidationIssue];
+  has_validation_error:bool;
   executed_this_cycle:bool;
+  signal_cycle_abort_reason:int;
+  reused_previous_track_output:bool;
+  has_control_profile:bool;
+  control_profile:RadarControlProfile;
+  association_quality_metrics:AssociationQualityMetrics;
 }
 
 table FailureMarker {

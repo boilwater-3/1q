@@ -170,10 +170,54 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   snap.position_x = 50.0f;
   snap.rcs = 1.5f;
   snap.status = model::TrackStatus::kTentative;
+  snap.acceleration_x = 0.4f;
+  snap.acceleration_y = 0.5f;
+  snap.acceleration_z = 0.6f;
+  snap.acceleration = 0.9f;
+  snap.target_type = "HIGH_THREAT_FIGHTER";
+  snap.target_probability = 0.75f;
   result.track_output_frame.tracks.push_back(snap);
 
-  result.validation_issues.resize(0U);
+  result.submitted_commands.push_back(
+      extension::control::RadarCommand(extension::control::RadarCommandType::SET_AGILITY_FREQ,
+                                       extension::control::RadarCommandSource::ECCM));
+  ValidationIssue issue;
+  issue.severity = ValidationSeverity::kError;
+  issue.code = ValidationCode::kInvalidCycleDeltaTime;
+  issue.location.kind = ValidationLocationKind::kGlobal;
+  issue.field = "dt_sec";
+  issue.message = "dt_sec must be positive";
+  result.validation_issues.push_back(issue);
+  result.has_validation_error = true;
   result.executed_this_cycle = true;
+  result.signal_cycle_abort_reason = extension::SignalCycleAbortReason::kRuntimePreparationFailed;
+  result.reused_previous_track_output = true;
+  result.has_control_profile = true;
+  result.control_profile.version = 7U;
+  result.control_profile.enable_lpi_power_control = true;
+  result.control_profile.lpi_power_scale = 0.8f;
+  result.control_profile.enable_lpi_beamforming = true;
+  result.control_profile.lpi_dwell_scale = 1.2f;
+  result.control_profile.enable_agility_frequency = true;
+  result.control_profile.agility_frequency_hop_phase = 1U;
+  result.control_profile.enable_sidelobe_canceller = true;
+  result.control_profile.enable_adaptive_beamforming = true;
+  result.control_profile.enable_eccm_rejitter = true;
+  result.control_profile.eccm_burnthrough_gain = 1.4f;
+  result.association_quality_metrics.prior_track_count = 3U;
+  result.association_quality_metrics.detection_count = 4U;
+  result.association_quality_metrics.matched_count = 2U;
+  result.association_quality_metrics.new_track_count = 1U;
+  result.association_quality_metrics.missed_track_count = 1U;
+  result.association_quality_metrics.match_rate = 0.5f;
+  result.association_quality_metrics.new_track_rate = 0.25f;
+  result.association_quality_metrics.missed_track_rate = 0.33f;
+  result.association_quality_metrics.mean_match_cost = 1.1f;
+  result.association_quality_metrics.p95_match_cost = 2.2f;
+  result.association_quality_metrics.dominant_jamming_semantic =
+      model::JammingSemantic::kNoiseSuppression;
+  result.association_quality_metrics.jamming_severity = 0.6f;
+  result.association_quality_metrics.association_stress = 0.7f;
 
   const std::string bytes = EncodeCycleResultFlatbuffer(result);
   ASSERT_FALSE(bytes.empty());
@@ -187,9 +231,55 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   EXPECT_EQ(decoded.track_output_frame.tracks.size(), 1U);
   EXPECT_EQ(decoded.track_output_frame.batch_id, 3U);
   EXPECT_TRUE(decoded.executed_this_cycle);
+  EXPECT_TRUE(decoded.has_validation_error);
+  EXPECT_EQ(decoded.signal_cycle_abort_reason,
+            extension::SignalCycleAbortReason::kRuntimePreparationFailed);
+  EXPECT_TRUE(decoded.reused_previous_track_output);
+  ASSERT_EQ(decoded.submitted_commands.size(), 1U);
+  EXPECT_EQ(decoded.submitted_commands[0].type,
+            extension::control::RadarCommandType::SET_AGILITY_FREQ);
+  EXPECT_EQ(decoded.submitted_commands[0].source, extension::control::RadarCommandSource::ECCM);
+  ASSERT_EQ(decoded.validation_issues.size(), 1U);
+  EXPECT_EQ(decoded.validation_issues[0].severity, ValidationSeverity::kError);
+  EXPECT_EQ(decoded.validation_issues[0].code, ValidationCode::kInvalidCycleDeltaTime);
+  EXPECT_EQ(decoded.validation_issues[0].location.kind, ValidationLocationKind::kGlobal);
+  EXPECT_EQ(decoded.validation_issues[0].field, "dt_sec");
+  EXPECT_EQ(decoded.validation_issues[0].message, "dt_sec must be positive");
+  EXPECT_TRUE(decoded.has_control_profile);
+  EXPECT_EQ(decoded.control_profile.version, 7U);
+  EXPECT_TRUE(decoded.control_profile.enable_lpi_power_control);
+  EXPECT_FLOAT_EQ(decoded.control_profile.lpi_power_scale, 0.8f);
+  EXPECT_TRUE(decoded.control_profile.enable_lpi_beamforming);
+  EXPECT_FLOAT_EQ(decoded.control_profile.lpi_dwell_scale, 1.2f);
+  EXPECT_TRUE(decoded.control_profile.enable_agility_frequency);
+  EXPECT_EQ(decoded.control_profile.agility_frequency_hop_phase, 1U);
+  EXPECT_TRUE(decoded.control_profile.enable_sidelobe_canceller);
+  EXPECT_TRUE(decoded.control_profile.enable_adaptive_beamforming);
+  EXPECT_TRUE(decoded.control_profile.enable_eccm_rejitter);
+  EXPECT_FLOAT_EQ(decoded.control_profile.eccm_burnthrough_gain, 1.4f);
+  EXPECT_EQ(decoded.association_quality_metrics.prior_track_count, 3U);
+  EXPECT_EQ(decoded.association_quality_metrics.detection_count, 4U);
+  EXPECT_EQ(decoded.association_quality_metrics.matched_count, 2U);
+  EXPECT_EQ(decoded.association_quality_metrics.new_track_count, 1U);
+  EXPECT_EQ(decoded.association_quality_metrics.missed_track_count, 1U);
+  EXPECT_FLOAT_EQ(decoded.association_quality_metrics.match_rate, 0.5f);
+  EXPECT_FLOAT_EQ(decoded.association_quality_metrics.new_track_rate, 0.25f);
+  EXPECT_FLOAT_EQ(decoded.association_quality_metrics.missed_track_rate, 0.33f);
+  EXPECT_FLOAT_EQ(decoded.association_quality_metrics.mean_match_cost, 1.1f);
+  EXPECT_FLOAT_EQ(decoded.association_quality_metrics.p95_match_cost, 2.2f);
+  EXPECT_EQ(decoded.association_quality_metrics.dominant_jamming_semantic,
+            model::JammingSemantic::kNoiseSuppression);
+  EXPECT_FLOAT_EQ(decoded.association_quality_metrics.jamming_severity, 0.6f);
+  EXPECT_FLOAT_EQ(decoded.association_quality_metrics.association_stress, 0.7f);
   ASSERT_EQ(decoded.track_output_frame.tracks.size(), 1U);
   EXPECT_FLOAT_EQ(decoded.track_output_frame.tracks[0].position_x, 50.0f);
   EXPECT_FLOAT_EQ(decoded.track_output_frame.tracks[0].rcs, 1.5f);
+  EXPECT_FLOAT_EQ(decoded.track_output_frame.tracks[0].acceleration_x, 0.4f);
+  EXPECT_FLOAT_EQ(decoded.track_output_frame.tracks[0].acceleration_y, 0.5f);
+  EXPECT_FLOAT_EQ(decoded.track_output_frame.tracks[0].acceleration_z, 0.6f);
+  EXPECT_FLOAT_EQ(decoded.track_output_frame.tracks[0].acceleration, 0.9f);
+  EXPECT_EQ(decoded.track_output_frame.tracks[0].target_type, "HIGH_THREAT_FIGHTER");
+  EXPECT_FLOAT_EQ(decoded.track_output_frame.tracks[0].target_probability, 0.75f);
 }
 
 // ---------------------------------------------------------------------------

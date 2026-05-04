@@ -220,7 +220,7 @@ flatbuffers::Offset<fb::DecisionTrackStateSnapshot> EncodeTrackStateSnapshot(
       value.position_x, value.position_y, value.position_z, value.velocity_x, value.velocity_y,
       value.velocity_z, value.speed, value.acceleration_x, value.acceleration_y,
       value.acceleration_z, value.acceleration, value.rcs, value.jamming_detected, value.hit_count,
-      value.miss_count);
+      value.miss_count, builder->CreateString(value.target_type), value.target_probability);
 }
 
 flatbuffers::Offset<fb::TrackStateSnapshot> EncodeTrackSnapshot(
@@ -249,6 +249,10 @@ model::TrackStateSnapshot DecodeTrackStateSnapshot(const fb::DecisionTrackStateS
     result.jamming_detected = value->jamming_detected();
     result.hit_count = value->hit_count();
     result.miss_count = value->miss_count();
+    if (value->target_type() != nullptr) {
+      result.target_type = value->target_type()->str();
+    }
+    result.target_probability = value->target_probability();
   }
   return result;
 }
@@ -293,11 +297,135 @@ session::TrackOutputFrame DecodeTrackOutputFrame(const fb::TrackOutputFrame* val
   return result;
 }
 
+flatbuffers::Offset<fb::ValidationIssue> EncodeValidationIssue(
+    flatbuffers::FlatBufferBuilder* builder, const ValidationIssue& value) {
+  const int encoded_entity_index = value.location.kind == ValidationLocationKind::kSceneEntity
+                                       ? static_cast<int>(value.location.entity_index)
+                                       : -1;
+  return fb::CreateValidationIssue(
+      *builder, static_cast<int>(value.severity), static_cast<int>(value.code),
+      static_cast<int>(value.location.kind), encoded_entity_index,
+      builder->CreateString(value.field), builder->CreateString(value.message));
+}
+
+ValidationIssue DecodeValidationIssue(const fb::ValidationIssue* value) {
+  ValidationIssue result;
+  if (value != nullptr) {
+    result.severity = static_cast<ValidationSeverity>(value->severity());
+    result.code = static_cast<ValidationCode>(value->code());
+    result.location.kind = static_cast<ValidationLocationKind>(value->location_kind());
+    result.location.entity_index = value->entity_index() >= 0
+                                       ? static_cast<std::size_t>(value->entity_index())
+                                       : static_cast<std::size_t>(-1);
+    if (value->field() != nullptr) {
+      result.field = value->field()->str();
+    }
+    if (value->message() != nullptr) {
+      result.message = value->message()->str();
+    }
+  }
+  return result;
+}
+
+flatbuffers::Offset<fb::RadarCommand> EncodeRadarCommand(
+    flatbuffers::FlatBufferBuilder* builder, const extension::control::RadarCommand& value) {
+  return fb::CreateRadarCommand(*builder, static_cast<int>(value.type),
+                                static_cast<int>(value.source));
+}
+
+extension::control::RadarCommand DecodeRadarCommand(const fb::RadarCommand* value) {
+  extension::control::RadarCommand result;
+  if (value != nullptr) {
+    result.type = static_cast<extension::control::RadarCommandType>(value->type());
+    result.source = static_cast<extension::control::RadarCommandSource>(value->source());
+  }
+  return result;
+}
+
+flatbuffers::Offset<fb::RadarControlProfile> EncodeRadarControlProfile(
+    flatbuffers::FlatBufferBuilder* builder, const extension::control::RadarControlProfile& value) {
+  return fb::CreateRadarControlProfile(
+      *builder, value.version, value.enable_lpi_power_control, value.lpi_power_scale,
+      value.enable_lpi_beamforming, value.lpi_dwell_scale, value.enable_agility_frequency,
+      value.agility_frequency_hop_phase, value.enable_sidelobe_canceller,
+      value.enable_adaptive_beamforming, value.enable_eccm_rejitter, value.eccm_burnthrough_gain);
+}
+
+extension::control::RadarControlProfile DecodeRadarControlProfile(
+    const fb::RadarControlProfile* value) {
+  extension::control::RadarControlProfile result;
+  if (value != nullptr) {
+    result.version = value->version();
+    result.enable_lpi_power_control = value->enable_lpi_power_control();
+    result.lpi_power_scale = value->lpi_power_scale();
+    result.enable_lpi_beamforming = value->enable_lpi_beamforming();
+    result.lpi_dwell_scale = value->lpi_dwell_scale();
+    result.enable_agility_frequency = value->enable_agility_frequency();
+    result.agility_frequency_hop_phase = value->agility_frequency_hop_phase();
+    result.enable_sidelobe_canceller = value->enable_sidelobe_canceller();
+    result.enable_adaptive_beamforming = value->enable_adaptive_beamforming();
+    result.enable_eccm_rejitter = value->enable_eccm_rejitter();
+    result.eccm_burnthrough_gain = value->eccm_burnthrough_gain();
+  }
+  return result;
+}
+
+flatbuffers::Offset<fb::AssociationQualityMetrics> EncodeAssociationQualityMetrics(
+    flatbuffers::FlatBufferBuilder* builder, const extension::AssociationQualityMetrics& value) {
+  return fb::CreateAssociationQualityMetrics(
+      *builder, static_cast<std::uint64_t>(value.prior_track_count),
+      static_cast<std::uint64_t>(value.detection_count),
+      static_cast<std::uint64_t>(value.matched_count),
+      static_cast<std::uint64_t>(value.new_track_count),
+      static_cast<std::uint64_t>(value.missed_track_count), value.match_rate, value.new_track_rate,
+      value.missed_track_rate, value.mean_match_cost, value.p95_match_cost,
+      static_cast<int>(value.dominant_jamming_semantic), value.jamming_severity,
+      value.association_stress);
+}
+
+extension::AssociationQualityMetrics DecodeAssociationQualityMetrics(
+    const fb::AssociationQualityMetrics* value) {
+  extension::AssociationQualityMetrics result;
+  if (value != nullptr) {
+    result.prior_track_count = static_cast<std::size_t>(value->prior_track_count());
+    result.detection_count = static_cast<std::size_t>(value->detection_count());
+    result.matched_count = static_cast<std::size_t>(value->matched_count());
+    result.new_track_count = static_cast<std::size_t>(value->new_track_count());
+    result.missed_track_count = static_cast<std::size_t>(value->missed_track_count());
+    result.match_rate = value->match_rate();
+    result.new_track_rate = value->new_track_rate();
+    result.missed_track_rate = value->missed_track_rate();
+    result.mean_match_cost = value->mean_match_cost();
+    result.p95_match_cost = value->p95_match_cost();
+    result.dominant_jamming_semantic =
+        static_cast<model::JammingSemantic>(value->dominant_jamming_semantic());
+    result.jamming_severity = value->jamming_severity();
+    result.association_stress = value->association_stress();
+  }
+  return result;
+}
+
 flatbuffers::Offset<fb::RadarCycleResult> EncodeCycleResult(flatbuffers::FlatBufferBuilder* builder,
                                                             const RadarCycleResult& value) {
+  std::vector<flatbuffers::Offset<fb::RadarCommand>> command_offsets;
+  command_offsets.reserve(value.submitted_commands.size());
+  for (std::size_t i = 0; i < value.submitted_commands.size(); ++i) {
+    command_offsets.push_back(EncodeRadarCommand(builder, value.submitted_commands[i]));
+  }
+
+  std::vector<flatbuffers::Offset<fb::ValidationIssue>> issue_offsets;
+  issue_offsets.reserve(value.validation_issues.size());
+  for (std::size_t i = 0; i < value.validation_issues.size(); ++i) {
+    issue_offsets.push_back(EncodeValidationIssue(builder, value.validation_issues[i]));
+  }
+
   return fb::CreateRadarCycleResult(
       *builder, value.input_cycle_index, EncodeTrackOutputFrame(builder, value.track_output_frame),
-      static_cast<std::uint32_t>(value.validation_issues.size()), value.executed_this_cycle);
+      builder->CreateVector(command_offsets), builder->CreateVector(issue_offsets),
+      value.has_validation_error, value.executed_this_cycle,
+      static_cast<int>(value.signal_cycle_abort_reason), value.reused_previous_track_output,
+      value.has_control_profile, EncodeRadarControlProfile(builder, value.control_profile),
+      EncodeAssociationQualityMetrics(builder, value.association_quality_metrics));
 }
 
 RadarCycleResult DecodeCycleResult(const fb::RadarCycleResult* value) {
@@ -305,8 +433,31 @@ RadarCycleResult DecodeCycleResult(const fb::RadarCycleResult* value) {
   if (value != nullptr) {
     result.input_cycle_index = value->input_cycle_index();
     result.track_output_frame = DecodeTrackOutputFrame(value->track_output_frame());
-    result.validation_issues.resize(value->validation_issue_count());
+    const flatbuffers::Vector<flatbuffers::Offset<fb::RadarCommand>>* commands =
+        value->submitted_commands();
+    if (commands != nullptr) {
+      result.submitted_commands.reserve(commands->size());
+      for (flatbuffers::uoffset_t i = 0; i < commands->size(); ++i) {
+        result.submitted_commands.push_back(DecodeRadarCommand(commands->Get(i)));
+      }
+    }
+    const flatbuffers::Vector<flatbuffers::Offset<fb::ValidationIssue>>* issues =
+        value->validation_issues();
+    if (issues != nullptr) {
+      result.validation_issues.reserve(issues->size());
+      for (flatbuffers::uoffset_t i = 0; i < issues->size(); ++i) {
+        result.validation_issues.push_back(DecodeValidationIssue(issues->Get(i)));
+      }
+    }
+    result.has_validation_error = value->has_validation_error();
     result.executed_this_cycle = value->executed_this_cycle();
+    result.signal_cycle_abort_reason =
+        static_cast<extension::SignalCycleAbortReason>(value->signal_cycle_abort_reason());
+    result.reused_previous_track_output = value->reused_previous_track_output();
+    result.has_control_profile = value->has_control_profile();
+    result.control_profile = DecodeRadarControlProfile(value->control_profile());
+    result.association_quality_metrics =
+        DecodeAssociationQualityMetrics(value->association_quality_metrics());
   }
   return result;
 }

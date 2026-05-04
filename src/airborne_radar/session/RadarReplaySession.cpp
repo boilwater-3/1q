@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
 #include "1q/airborne_radar/model/TrackStateSnapshot.h"
@@ -30,9 +31,13 @@ bool TrackStateSnapshotEqual(const model::TrackStateSnapshot& left,
          left.position_x == right.position_x && left.position_y == right.position_y &&
          left.position_z == right.position_z && left.velocity_x == right.velocity_x &&
          left.velocity_y == right.velocity_y && left.velocity_z == right.velocity_z &&
-         left.speed == right.speed && left.rcs == right.rcs &&
-         left.jamming_detected == right.jamming_detected && left.hit_count == right.hit_count &&
-         left.miss_count == right.miss_count;
+         left.speed == right.speed && left.acceleration_x == right.acceleration_x &&
+         left.acceleration_y == right.acceleration_y &&
+         left.acceleration_z == right.acceleration_z && left.acceleration == right.acceleration &&
+         left.rcs == right.rcs && left.jamming_detected == right.jamming_detected &&
+         left.hit_count == right.hit_count && left.miss_count == right.miss_count &&
+         left.target_type == right.target_type &&
+         left.target_probability == right.target_probability;
 }
 
 bool TrackOutputFrameEqual(const session::TrackOutputFrame& left,
@@ -49,11 +54,82 @@ bool TrackOutputFrameEqual(const session::TrackOutputFrame& left,
   return true;
 }
 
+bool ValidationIssueEqual(const ValidationIssue& left, const ValidationIssue& right) {
+  return left.severity == right.severity && left.code == right.code &&
+         left.location.kind == right.location.kind &&
+         left.location.entity_index == right.location.entity_index && left.field == right.field &&
+         left.message == right.message;
+}
+
+bool ValidationIssueListEqual(const ValidationIssueList& left, const ValidationIssueList& right) {
+  if (left.size() != right.size()) {
+    return false;
+  }
+  for (std::size_t i = 0; i < left.size(); ++i) {
+    if (!ValidationIssueEqual(left[i], right[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool RadarCommandsEqual(const std::vector<extension::control::RadarCommand>& left,
+                        const std::vector<extension::control::RadarCommand>& right) {
+  if (left.size() != right.size()) {
+    return false;
+  }
+  for (std::size_t i = 0; i < left.size(); ++i) {
+    if (left[i].type != right[i].type || left[i].source != right[i].source) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool RadarControlProfileEqual(const extension::control::RadarControlProfile& left,
+                              const extension::control::RadarControlProfile& right) {
+  return left.version == right.version &&
+         left.enable_lpi_power_control == right.enable_lpi_power_control &&
+         left.lpi_power_scale == right.lpi_power_scale &&
+         left.enable_lpi_beamforming == right.enable_lpi_beamforming &&
+         left.lpi_dwell_scale == right.lpi_dwell_scale &&
+         left.enable_agility_frequency == right.enable_agility_frequency &&
+         left.agility_frequency_hop_phase == right.agility_frequency_hop_phase &&
+         left.enable_sidelobe_canceller == right.enable_sidelobe_canceller &&
+         left.enable_adaptive_beamforming == right.enable_adaptive_beamforming &&
+         left.enable_eccm_rejitter == right.enable_eccm_rejitter &&
+         left.eccm_burnthrough_gain == right.eccm_burnthrough_gain;
+}
+
+bool AssociationQualityMetricsEqual(const extension::AssociationQualityMetrics& left,
+                                    const extension::AssociationQualityMetrics& right) {
+  return left.prior_track_count == right.prior_track_count &&
+         left.detection_count == right.detection_count &&
+         left.matched_count == right.matched_count &&
+         left.new_track_count == right.new_track_count &&
+         left.missed_track_count == right.missed_track_count &&
+         left.match_rate == right.match_rate && left.new_track_rate == right.new_track_rate &&
+         left.missed_track_rate == right.missed_track_rate &&
+         left.mean_match_cost == right.mean_match_cost &&
+         left.p95_match_cost == right.p95_match_cost &&
+         left.dominant_jamming_semantic == right.dominant_jamming_semantic &&
+         left.jamming_severity == right.jamming_severity &&
+         left.association_stress == right.association_stress;
+}
+
 bool CycleResultEqual(const RadarCycleResult& left, const RadarCycleResult& right) {
   return left.input_cycle_index == right.input_cycle_index &&
          TrackOutputFrameEqual(left.track_output_frame, right.track_output_frame) &&
-         left.validation_issues.size() == right.validation_issues.size() &&
-         left.executed_this_cycle == right.executed_this_cycle;
+         RadarCommandsEqual(left.submitted_commands, right.submitted_commands) &&
+         ValidationIssueListEqual(left.validation_issues, right.validation_issues) &&
+         left.has_validation_error == right.has_validation_error &&
+         left.executed_this_cycle == right.executed_this_cycle &&
+         left.signal_cycle_abort_reason == right.signal_cycle_abort_reason &&
+         left.reused_previous_track_output == right.reused_previous_track_output &&
+         left.has_control_profile == right.has_control_profile &&
+         RadarControlProfileEqual(left.control_profile, right.control_profile) &&
+         AssociationQualityMetricsEqual(left.association_quality_metrics,
+                                        right.association_quality_metrics);
 }
 
 bool ExecutePendingCycle(RadarReplayState* state, std::string* error) {

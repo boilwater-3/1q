@@ -130,6 +130,7 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) 
 
   session::RadarTraceSession session(config, options);
   session::RadarCycleInput input;
+  input.cycle_index = 11U;
   input.dt_sec = 1.0f;
 
   session::RadarSceneTarget target;
@@ -172,6 +173,8 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) 
       EXPECT_EQ(event.payload_encoding, "flatbuffers");
       EXPECT_FALSE(event.payload_bytes.empty());
       EXPECT_TRUE(event.payload_hash_matches);
+      EXPECT_TRUE(event.has_cycle_index);
+      EXPECT_EQ(event.cycle_index, 11U);
     }
     if (event.event_type == "cycle_output") {
       saw_flatbuffer_output = true;
@@ -372,8 +375,14 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionUsesInputCycleIndexForValidationF
   oneq::replay::ReplayTraceReader replay_reader(trace_dir);
   oneq::replay::ReplayTraceReadEvent replay_event;
   bool saw_cycle_output = false;
+  bool saw_cycle_input = false;
   bool saw_failure_marker = false;
   while (replay_reader.ReadNextEvent(&replay_event)) {
+    if (replay_event.event_type == "cycle_input") {
+      saw_cycle_input = true;
+      EXPECT_TRUE(replay_event.has_cycle_index);
+      EXPECT_EQ(replay_event.cycle_index, 77U);
+    }
     if (replay_event.event_type == "cycle_output") {
       saw_cycle_output = true;
       EXPECT_TRUE(replay_event.has_cycle_index);
@@ -396,6 +405,7 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionUsesInputCycleIndexForValidationF
       EXPECT_EQ(failure.cycle_index, 77U);
     }
   }
+  EXPECT_TRUE(saw_cycle_input);
   EXPECT_TRUE(saw_cycle_output);
   EXPECT_TRUE(saw_failure_marker);
 }

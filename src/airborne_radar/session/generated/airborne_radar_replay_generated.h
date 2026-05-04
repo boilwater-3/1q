@@ -13,78 +13,62 @@ namespace fb {
 
 struct Vector3f;
 struct Vector3fBuilder;
-struct Vector3fT;
 
 struct EulerAnglesDeg;
 struct EulerAnglesDegBuilder;
-struct EulerAnglesDegT;
 
 struct PoseState;
 struct PoseStateBuilder;
-struct PoseStateT;
 
 struct RadarSceneTarget;
 struct RadarSceneTargetBuilder;
-struct RadarSceneTargetT;
 
 struct AtmosphericObservation;
 struct AtmosphericObservationBuilder;
-struct AtmosphericObservationT;
 
 struct AtmosphericContext;
 struct AtmosphericContextBuilder;
-struct AtmosphericContextT;
 
 struct SurfaceObservation;
 struct SurfaceObservationBuilder;
-struct SurfaceObservationT;
 
 struct JammerSource;
 struct JammerSourceBuilder;
-struct JammerSourceT;
 
 struct RadarCycleEnvironmentInput;
 struct RadarCycleEnvironmentInputBuilder;
-struct RadarCycleEnvironmentInputT;
 
 struct RadarCycleInput;
 struct RadarCycleInputBuilder;
-struct RadarCycleInputT;
 
 struct TrackOutputFrame;
 struct TrackOutputFrameBuilder;
-struct TrackOutputFrameT;
 
 struct DecisionTrackStateSnapshot;
 struct DecisionTrackStateSnapshotBuilder;
-struct DecisionTrackStateSnapshotT;
 
 struct TrackStateSnapshot;
 struct TrackStateSnapshotBuilder;
-struct TrackStateSnapshotT;
+
+struct ValidationIssue;
+struct ValidationIssueBuilder;
+
+struct RadarCommand;
+struct RadarCommandBuilder;
+
+struct RadarControlProfile;
+struct RadarControlProfileBuilder;
+
+struct AssociationQualityMetrics;
+struct AssociationQualityMetricsBuilder;
 
 struct RadarCycleResult;
 struct RadarCycleResultBuilder;
-struct RadarCycleResultT;
 
 struct FailureMarker;
 struct FailureMarkerBuilder;
-struct FailureMarkerT;
-
-struct Vector3fT : public flatbuffers::NativeTable {
-  typedef Vector3f TableType;
-  float x;
-  float y;
-  float z;
-  Vector3fT()
-      : x(0.0f),
-        y(0.0f),
-        z(0.0f) {
-  }
-};
 
 struct Vector3f FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef Vector3fT NativeTableType;
   typedef Vector3fBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_X = 4,
@@ -107,9 +91,6 @@ struct Vector3f FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<float>(verifier, VT_Z) &&
            verifier.EndTable();
   }
-  Vector3fT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(Vector3fT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<Vector3f> Pack(flatbuffers::FlatBufferBuilder &_fbb, const Vector3fT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct Vector3fBuilder {
@@ -149,22 +130,7 @@ inline flatbuffers::Offset<Vector3f> CreateVector3f(
   return builder_.Finish();
 }
 
-flatbuffers::Offset<Vector3f> CreateVector3f(flatbuffers::FlatBufferBuilder &_fbb, const Vector3fT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct EulerAnglesDegT : public flatbuffers::NativeTable {
-  typedef EulerAnglesDeg TableType;
-  float yaw_deg;
-  float pitch_deg;
-  float roll_deg;
-  EulerAnglesDegT()
-      : yaw_deg(0.0f),
-        pitch_deg(0.0f),
-        roll_deg(0.0f) {
-  }
-};
-
 struct EulerAnglesDeg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EulerAnglesDegT NativeTableType;
   typedef EulerAnglesDegBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_YAW_DEG = 4,
@@ -187,9 +153,6 @@ struct EulerAnglesDeg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<float>(verifier, VT_ROLL_DEG) &&
            verifier.EndTable();
   }
-  EulerAnglesDegT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EulerAnglesDegT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EulerAnglesDeg> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EulerAnglesDegT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct EulerAnglesDegBuilder {
@@ -229,19 +192,7 @@ inline flatbuffers::Offset<EulerAnglesDeg> CreateEulerAnglesDeg(
   return builder_.Finish();
 }
 
-flatbuffers::Offset<EulerAnglesDeg> CreateEulerAnglesDeg(flatbuffers::FlatBufferBuilder &_fbb, const EulerAnglesDegT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct PoseStateT : public flatbuffers::NativeTable {
-  typedef PoseState TableType;
-  std::unique_ptr<oneq::replay::airborne_radar::fb::Vector3fT> position_m;
-  std::unique_ptr<oneq::replay::airborne_radar::fb::Vector3fT> velocity_mps;
-  std::unique_ptr<oneq::replay::airborne_radar::fb::EulerAnglesDegT> attitude_deg;
-  PoseStateT() {
-  }
-};
-
 struct PoseState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef PoseStateT NativeTableType;
   typedef PoseStateBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_POSITION_M = 4,
@@ -267,9 +218,6 @@ struct PoseState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyTable(attitude_deg()) &&
            verifier.EndTable();
   }
-  PoseStateT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(PoseStateT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<PoseState> Pack(flatbuffers::FlatBufferBuilder &_fbb, const PoseStateT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct PoseStateBuilder {
@@ -309,36 +257,7 @@ inline flatbuffers::Offset<PoseState> CreatePoseState(
   return builder_.Finish();
 }
 
-flatbuffers::Offset<PoseState> CreatePoseState(flatbuffers::FlatBufferBuilder &_fbb, const PoseStateT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct RadarSceneTargetT : public flatbuffers::NativeTable {
-  typedef RadarSceneTarget TableType;
-  uint64_t external_target_id;
-  float velocity_x;
-  float velocity_y;
-  float velocity_z;
-  float rcs;
-  float range_m;
-  float position_x;
-  float position_y;
-  float position_z;
-  int32_t target_swerling_type;
-  RadarSceneTargetT()
-      : external_target_id(0),
-        velocity_x(0.0f),
-        velocity_y(0.0f),
-        velocity_z(0.0f),
-        rcs(0.0f),
-        range_m(0.0f),
-        position_x(0.0f),
-        position_y(0.0f),
-        position_z(0.0f),
-        target_swerling_type(0) {
-  }
-};
-
 struct RadarSceneTarget FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef RadarSceneTargetT NativeTableType;
   typedef RadarSceneTargetBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_EXTERNAL_TARGET_ID = 4,
@@ -396,9 +315,6 @@ struct RadarSceneTarget FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<int32_t>(verifier, VT_TARGET_SWERLING_TYPE) &&
            verifier.EndTable();
   }
-  RadarSceneTargetT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(RadarSceneTargetT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<RadarSceneTarget> Pack(flatbuffers::FlatBufferBuilder &_fbb, const RadarSceneTargetT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct RadarSceneTargetBuilder {
@@ -473,24 +389,7 @@ inline flatbuffers::Offset<RadarSceneTarget> CreateRadarSceneTarget(
   return builder_.Finish();
 }
 
-flatbuffers::Offset<RadarSceneTarget> CreateRadarSceneTarget(flatbuffers::FlatBufferBuilder &_fbb, const RadarSceneTargetT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct AtmosphericObservationT : public flatbuffers::NativeTable {
-  typedef AtmosphericObservation TableType;
-  bool enable_physical_model;
-  float pressure_hpa;
-  float temperature_k;
-  float relative_humidity;
-  AtmosphericObservationT()
-      : enable_physical_model(false),
-        pressure_hpa(0.0f),
-        temperature_k(0.0f),
-        relative_humidity(0.0f) {
-  }
-};
-
 struct AtmosphericObservation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef AtmosphericObservationT NativeTableType;
   typedef AtmosphericObservationBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ENABLE_PHYSICAL_MODEL = 4,
@@ -518,9 +417,6 @@ struct AtmosphericObservation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tab
            VerifyField<float>(verifier, VT_RELATIVE_HUMIDITY) &&
            verifier.EndTable();
   }
-  AtmosphericObservationT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(AtmosphericObservationT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<AtmosphericObservation> Pack(flatbuffers::FlatBufferBuilder &_fbb, const AtmosphericObservationT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct AtmosphericObservationBuilder {
@@ -565,26 +461,7 @@ inline flatbuffers::Offset<AtmosphericObservation> CreateAtmosphericObservation(
   return builder_.Finish();
 }
 
-flatbuffers::Offset<AtmosphericObservation> CreateAtmosphericObservation(flatbuffers::FlatBufferBuilder &_fbb, const AtmosphericObservationT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct AtmosphericContextT : public flatbuffers::NativeTable {
-  typedef AtmosphericContext TableType;
-  bool has_simulation_unix_seconds;
-  int64_t simulation_unix_seconds;
-  float solar_flux_f107a;
-  float solar_flux_f107;
-  float geomagnetic_ap;
-  AtmosphericContextT()
-      : has_simulation_unix_seconds(false),
-        simulation_unix_seconds(0),
-        solar_flux_f107a(0.0f),
-        solar_flux_f107(0.0f),
-        geomagnetic_ap(0.0f) {
-  }
-};
-
 struct AtmosphericContext FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef AtmosphericContextT NativeTableType;
   typedef AtmosphericContextBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_HAS_SIMULATION_UNIX_SECONDS = 4,
@@ -617,9 +494,6 @@ struct AtmosphericContext FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<float>(verifier, VT_GEOMAGNETIC_AP) &&
            verifier.EndTable();
   }
-  AtmosphericContextT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(AtmosphericContextT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<AtmosphericContext> Pack(flatbuffers::FlatBufferBuilder &_fbb, const AtmosphericContextT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct AtmosphericContextBuilder {
@@ -669,20 +543,7 @@ inline flatbuffers::Offset<AtmosphericContext> CreateAtmosphericContext(
   return builder_.Finish();
 }
 
-flatbuffers::Offset<AtmosphericContext> CreateAtmosphericContext(flatbuffers::FlatBufferBuilder &_fbb, const AtmosphericContextT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct SurfaceObservationT : public flatbuffers::NativeTable {
-  typedef SurfaceObservation TableType;
-  int32_t cover_profile;
-  bool enable_physical_model;
-  SurfaceObservationT()
-      : cover_profile(0),
-        enable_physical_model(false) {
-  }
-};
-
 struct SurfaceObservation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef SurfaceObservationT NativeTableType;
   typedef SurfaceObservationBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_COVER_PROFILE = 4,
@@ -700,9 +561,6 @@ struct SurfaceObservation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint8_t>(verifier, VT_ENABLE_PHYSICAL_MODEL) &&
            verifier.EndTable();
   }
-  SurfaceObservationT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(SurfaceObservationT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<SurfaceObservation> Pack(flatbuffers::FlatBufferBuilder &_fbb, const SurfaceObservationT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct SurfaceObservationBuilder {
@@ -737,32 +595,7 @@ inline flatbuffers::Offset<SurfaceObservation> CreateSurfaceObservation(
   return builder_.Finish();
 }
 
-flatbuffers::Offset<SurfaceObservation> CreateSurfaceObservation(flatbuffers::FlatBufferBuilder &_fbb, const SurfaceObservationT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct JammerSourceT : public flatbuffers::NativeTable {
-  typedef JammerSource TableType;
-  int32_t technique;
-  float power_db;
-  float js_db;
-  bool has_direction_deg;
-  float azimuth_deg;
-  float elevation_deg;
-  float angular_span_deg;
-  float confidence;
-  JammerSourceT()
-      : technique(0),
-        power_db(0.0f),
-        js_db(0.0f),
-        has_direction_deg(false),
-        azimuth_deg(0.0f),
-        elevation_deg(0.0f),
-        angular_span_deg(0.0f),
-        confidence(0.0f) {
-  }
-};
-
 struct JammerSource FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef JammerSourceT NativeTableType;
   typedef JammerSourceBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_TECHNIQUE = 4,
@@ -810,9 +643,6 @@ struct JammerSource FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<float>(verifier, VT_CONFIDENCE) &&
            verifier.EndTable();
   }
-  JammerSourceT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(JammerSourceT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<JammerSource> Pack(flatbuffers::FlatBufferBuilder &_fbb, const JammerSourceT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct JammerSourceBuilder {
@@ -877,20 +707,7 @@ inline flatbuffers::Offset<JammerSource> CreateJammerSource(
   return builder_.Finish();
 }
 
-flatbuffers::Offset<JammerSource> CreateJammerSource(flatbuffers::FlatBufferBuilder &_fbb, const JammerSourceT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct RadarCycleEnvironmentInputT : public flatbuffers::NativeTable {
-  typedef RadarCycleEnvironmentInput TableType;
-  std::unique_ptr<oneq::replay::airborne_radar::fb::AtmosphericObservationT> atmospheric_observation;
-  std::unique_ptr<oneq::replay::airborne_radar::fb::AtmosphericContextT> atmospheric_context;
-  std::unique_ptr<oneq::replay::airborne_radar::fb::SurfaceObservationT> surface_observation;
-  std::vector<std::unique_ptr<oneq::replay::airborne_radar::fb::JammerSourceT>> jammer_sources;
-  RadarCycleEnvironmentInputT() {
-  }
-};
-
 struct RadarCycleEnvironmentInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef RadarCycleEnvironmentInputT NativeTableType;
   typedef RadarCycleEnvironmentInputBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ATMOSPHERIC_OBSERVATION = 4,
@@ -923,9 +740,6 @@ struct RadarCycleEnvironmentInput FLATBUFFERS_FINAL_CLASS : private flatbuffers:
            verifier.VerifyVectorOfTables(jammer_sources()) &&
            verifier.EndTable();
   }
-  RadarCycleEnvironmentInputT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(RadarCycleEnvironmentInputT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<RadarCycleEnvironmentInput> Pack(flatbuffers::FlatBufferBuilder &_fbb, const RadarCycleEnvironmentInputT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct RadarCycleEnvironmentInputBuilder {
@@ -985,23 +799,7 @@ inline flatbuffers::Offset<RadarCycleEnvironmentInput> CreateRadarCycleEnvironme
       jammer_sources__);
 }
 
-flatbuffers::Offset<RadarCycleEnvironmentInput> CreateRadarCycleEnvironmentInput(flatbuffers::FlatBufferBuilder &_fbb, const RadarCycleEnvironmentInputT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct RadarCycleInputT : public flatbuffers::NativeTable {
-  typedef RadarCycleInput TableType;
-  uint32_t cycle_index;
-  float dt_sec;
-  std::unique_ptr<oneq::replay::airborne_radar::fb::PoseStateT> platform_pose;
-  std::vector<std::unique_ptr<oneq::replay::airborne_radar::fb::RadarSceneTargetT>> scene;
-  std::unique_ptr<oneq::replay::airborne_radar::fb::RadarCycleEnvironmentInputT> environment;
-  RadarCycleInputT()
-      : cycle_index(0),
-        dt_sec(1.0f) {
-  }
-};
-
 struct RadarCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef RadarCycleInputT NativeTableType;
   typedef RadarCycleInputBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_CYCLE_INDEX = 4,
@@ -1038,9 +836,6 @@ struct RadarCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyTable(environment()) &&
            verifier.EndTable();
   }
-  RadarCycleInputT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(RadarCycleInputT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<RadarCycleInput> Pack(flatbuffers::FlatBufferBuilder &_fbb, const RadarCycleInputT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct RadarCycleInputBuilder {
@@ -1107,27 +902,7 @@ inline flatbuffers::Offset<RadarCycleInput> CreateRadarCycleInputDirect(
       environment);
 }
 
-flatbuffers::Offset<RadarCycleInput> CreateRadarCycleInput(flatbuffers::FlatBufferBuilder &_fbb, const RadarCycleInputT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct TrackOutputFrameT : public flatbuffers::NativeTable {
-  typedef TrackOutputFrame TableType;
-  uint32_t cycle_index;
-  uint64_t published_track_count;
-  uint64_t batch_id;
-  uint64_t confirmed_track_count;
-  bool contains_lost_tracks;
-  std::vector<std::unique_ptr<oneq::replay::airborne_radar::fb::TrackStateSnapshotT>> tracks;
-  TrackOutputFrameT()
-      : cycle_index(0),
-        published_track_count(0),
-        batch_id(0),
-        confirmed_track_count(0),
-        contains_lost_tracks(false) {
-  }
-};
-
 struct TrackOutputFrame FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef TrackOutputFrameT NativeTableType;
   typedef TrackOutputFrameBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_CYCLE_INDEX = 4,
@@ -1167,9 +942,6 @@ struct TrackOutputFrame FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVectorOfTables(tracks()) &&
            verifier.EndTable();
   }
-  TrackOutputFrameT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(TrackOutputFrameT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<TrackOutputFrame> Pack(flatbuffers::FlatBufferBuilder &_fbb, const TrackOutputFrameT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct TrackOutputFrameBuilder {
@@ -1243,52 +1015,7 @@ inline flatbuffers::Offset<TrackOutputFrame> CreateTrackOutputFrameDirect(
       tracks__);
 }
 
-flatbuffers::Offset<TrackOutputFrame> CreateTrackOutputFrame(flatbuffers::FlatBufferBuilder &_fbb, const TrackOutputFrameT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct DecisionTrackStateSnapshotT : public flatbuffers::NativeTable {
-  typedef DecisionTrackStateSnapshot TableType;
-  uint64_t association_key;
-  uint64_t external_target_id;
-  int32_t status;
-  float position_x;
-  float position_y;
-  float position_z;
-  float velocity_x;
-  float velocity_y;
-  float velocity_z;
-  float speed;
-  float acceleration_x;
-  float acceleration_y;
-  float acceleration_z;
-  float acceleration;
-  float rcs;
-  bool jamming_detected;
-  uint32_t hit_count;
-  uint32_t miss_count;
-  DecisionTrackStateSnapshotT()
-      : association_key(0),
-        external_target_id(0),
-        status(0),
-        position_x(0.0f),
-        position_y(0.0f),
-        position_z(0.0f),
-        velocity_x(0.0f),
-        velocity_y(0.0f),
-        velocity_z(0.0f),
-        speed(0.0f),
-        acceleration_x(0.0f),
-        acceleration_y(0.0f),
-        acceleration_z(0.0f),
-        acceleration(0.0f),
-        rcs(0.0f),
-        jamming_detected(false),
-        hit_count(0),
-        miss_count(0) {
-  }
-};
-
 struct DecisionTrackStateSnapshot FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef DecisionTrackStateSnapshotT NativeTableType;
   typedef DecisionTrackStateSnapshotBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ASSOCIATION_KEY = 4,
@@ -1308,7 +1035,9 @@ struct DecisionTrackStateSnapshot FLATBUFFERS_FINAL_CLASS : private flatbuffers:
     VT_RCS = 32,
     VT_JAMMING_DETECTED = 34,
     VT_HIT_COUNT = 36,
-    VT_MISS_COUNT = 38
+    VT_MISS_COUNT = 38,
+    VT_TARGET_TYPE = 40,
+    VT_TARGET_PROBABILITY = 42
   };
   uint64_t association_key() const {
     return GetField<uint64_t>(VT_ASSOCIATION_KEY, 0);
@@ -1364,6 +1093,12 @@ struct DecisionTrackStateSnapshot FLATBUFFERS_FINAL_CLASS : private flatbuffers:
   uint32_t miss_count() const {
     return GetField<uint32_t>(VT_MISS_COUNT, 0);
   }
+  const flatbuffers::String *target_type() const {
+    return GetPointer<const flatbuffers::String *>(VT_TARGET_TYPE);
+  }
+  float target_probability() const {
+    return GetField<float>(VT_TARGET_PROBABILITY, 0.0f);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint64_t>(verifier, VT_ASSOCIATION_KEY) &&
@@ -1384,11 +1119,11 @@ struct DecisionTrackStateSnapshot FLATBUFFERS_FINAL_CLASS : private flatbuffers:
            VerifyField<uint8_t>(verifier, VT_JAMMING_DETECTED) &&
            VerifyField<uint32_t>(verifier, VT_HIT_COUNT) &&
            VerifyField<uint32_t>(verifier, VT_MISS_COUNT) &&
+           VerifyOffset(verifier, VT_TARGET_TYPE) &&
+           verifier.VerifyString(target_type()) &&
+           VerifyField<float>(verifier, VT_TARGET_PROBABILITY) &&
            verifier.EndTable();
   }
-  DecisionTrackStateSnapshotT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(DecisionTrackStateSnapshotT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<DecisionTrackStateSnapshot> Pack(flatbuffers::FlatBufferBuilder &_fbb, const DecisionTrackStateSnapshotT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct DecisionTrackStateSnapshotBuilder {
@@ -1449,6 +1184,12 @@ struct DecisionTrackStateSnapshotBuilder {
   void add_miss_count(uint32_t miss_count) {
     fbb_.AddElement<uint32_t>(DecisionTrackStateSnapshot::VT_MISS_COUNT, miss_count, 0);
   }
+  void add_target_type(flatbuffers::Offset<flatbuffers::String> target_type) {
+    fbb_.AddOffset(DecisionTrackStateSnapshot::VT_TARGET_TYPE, target_type);
+  }
+  void add_target_probability(float target_probability) {
+    fbb_.AddElement<float>(DecisionTrackStateSnapshot::VT_TARGET_PROBABILITY, target_probability, 0.0f);
+  }
   explicit DecisionTrackStateSnapshotBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -1480,10 +1221,14 @@ inline flatbuffers::Offset<DecisionTrackStateSnapshot> CreateDecisionTrackStateS
     float rcs = 0.0f,
     bool jamming_detected = false,
     uint32_t hit_count = 0,
-    uint32_t miss_count = 0) {
+    uint32_t miss_count = 0,
+    flatbuffers::Offset<flatbuffers::String> target_type = 0,
+    float target_probability = 0.0f) {
   DecisionTrackStateSnapshotBuilder builder_(_fbb);
   builder_.add_external_target_id(external_target_id);
   builder_.add_association_key(association_key);
+  builder_.add_target_probability(target_probability);
+  builder_.add_target_type(target_type);
   builder_.add_miss_count(miss_count);
   builder_.add_hit_count(hit_count);
   builder_.add_rcs(rcs);
@@ -1503,17 +1248,54 @@ inline flatbuffers::Offset<DecisionTrackStateSnapshot> CreateDecisionTrackStateS
   return builder_.Finish();
 }
 
-flatbuffers::Offset<DecisionTrackStateSnapshot> CreateDecisionTrackStateSnapshot(flatbuffers::FlatBufferBuilder &_fbb, const DecisionTrackStateSnapshotT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct TrackStateSnapshotT : public flatbuffers::NativeTable {
-  typedef TrackStateSnapshot TableType;
-  std::unique_ptr<oneq::replay::airborne_radar::fb::DecisionTrackStateSnapshotT> state;
-  TrackStateSnapshotT() {
-  }
-};
+inline flatbuffers::Offset<DecisionTrackStateSnapshot> CreateDecisionTrackStateSnapshotDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t association_key = 0,
+    uint64_t external_target_id = 0,
+    int32_t status = 0,
+    float position_x = 0.0f,
+    float position_y = 0.0f,
+    float position_z = 0.0f,
+    float velocity_x = 0.0f,
+    float velocity_y = 0.0f,
+    float velocity_z = 0.0f,
+    float speed = 0.0f,
+    float acceleration_x = 0.0f,
+    float acceleration_y = 0.0f,
+    float acceleration_z = 0.0f,
+    float acceleration = 0.0f,
+    float rcs = 0.0f,
+    bool jamming_detected = false,
+    uint32_t hit_count = 0,
+    uint32_t miss_count = 0,
+    const char *target_type = nullptr,
+    float target_probability = 0.0f) {
+  auto target_type__ = target_type ? _fbb.CreateString(target_type) : 0;
+  return oneq::replay::airborne_radar::fb::CreateDecisionTrackStateSnapshot(
+      _fbb,
+      association_key,
+      external_target_id,
+      status,
+      position_x,
+      position_y,
+      position_z,
+      velocity_x,
+      velocity_y,
+      velocity_z,
+      speed,
+      acceleration_x,
+      acceleration_y,
+      acceleration_z,
+      acceleration,
+      rcs,
+      jamming_detected,
+      hit_count,
+      miss_count,
+      target_type__,
+      target_probability);
+}
 
 struct TrackStateSnapshot FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef TrackStateSnapshotT NativeTableType;
   typedef TrackStateSnapshotBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_STATE = 4
@@ -1527,9 +1309,6 @@ struct TrackStateSnapshot FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyTable(state()) &&
            verifier.EndTable();
   }
-  TrackStateSnapshotT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(TrackStateSnapshotT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<TrackStateSnapshot> Pack(flatbuffers::FlatBufferBuilder &_fbb, const TrackStateSnapshotT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct TrackStateSnapshotBuilder {
@@ -1559,29 +1338,490 @@ inline flatbuffers::Offset<TrackStateSnapshot> CreateTrackStateSnapshot(
   return builder_.Finish();
 }
 
-flatbuffers::Offset<TrackStateSnapshot> CreateTrackStateSnapshot(flatbuffers::FlatBufferBuilder &_fbb, const TrackStateSnapshotT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct RadarCycleResultT : public flatbuffers::NativeTable {
-  typedef RadarCycleResult TableType;
-  uint32_t input_cycle_index;
-  std::unique_ptr<oneq::replay::airborne_radar::fb::TrackOutputFrameT> track_output_frame;
-  uint32_t validation_issue_count;
-  bool executed_this_cycle;
-  RadarCycleResultT()
-      : input_cycle_index(0),
-        validation_issue_count(0),
-        executed_this_cycle(false) {
+struct ValidationIssue FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef ValidationIssueBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_SEVERITY = 4,
+    VT_CODE = 6,
+    VT_LOCATION_KIND = 8,
+    VT_ENTITY_INDEX = 10,
+    VT_FIELD = 12,
+    VT_MESSAGE = 14
+  };
+  int32_t severity() const {
+    return GetField<int32_t>(VT_SEVERITY, 0);
+  }
+  int32_t code() const {
+    return GetField<int32_t>(VT_CODE, 0);
+  }
+  int32_t location_kind() const {
+    return GetField<int32_t>(VT_LOCATION_KIND, 0);
+  }
+  int32_t entity_index() const {
+    return GetField<int32_t>(VT_ENTITY_INDEX, 0);
+  }
+  const flatbuffers::String *field() const {
+    return GetPointer<const flatbuffers::String *>(VT_FIELD);
+  }
+  const flatbuffers::String *message() const {
+    return GetPointer<const flatbuffers::String *>(VT_MESSAGE);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int32_t>(verifier, VT_SEVERITY) &&
+           VerifyField<int32_t>(verifier, VT_CODE) &&
+           VerifyField<int32_t>(verifier, VT_LOCATION_KIND) &&
+           VerifyField<int32_t>(verifier, VT_ENTITY_INDEX) &&
+           VerifyOffset(verifier, VT_FIELD) &&
+           verifier.VerifyString(field()) &&
+           VerifyOffset(verifier, VT_MESSAGE) &&
+           verifier.VerifyString(message()) &&
+           verifier.EndTable();
   }
 };
 
+struct ValidationIssueBuilder {
+  typedef ValidationIssue Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_severity(int32_t severity) {
+    fbb_.AddElement<int32_t>(ValidationIssue::VT_SEVERITY, severity, 0);
+  }
+  void add_code(int32_t code) {
+    fbb_.AddElement<int32_t>(ValidationIssue::VT_CODE, code, 0);
+  }
+  void add_location_kind(int32_t location_kind) {
+    fbb_.AddElement<int32_t>(ValidationIssue::VT_LOCATION_KIND, location_kind, 0);
+  }
+  void add_entity_index(int32_t entity_index) {
+    fbb_.AddElement<int32_t>(ValidationIssue::VT_ENTITY_INDEX, entity_index, 0);
+  }
+  void add_field(flatbuffers::Offset<flatbuffers::String> field) {
+    fbb_.AddOffset(ValidationIssue::VT_FIELD, field);
+  }
+  void add_message(flatbuffers::Offset<flatbuffers::String> message) {
+    fbb_.AddOffset(ValidationIssue::VT_MESSAGE, message);
+  }
+  explicit ValidationIssueBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ValidationIssueBuilder &operator=(const ValidationIssueBuilder &);
+  flatbuffers::Offset<ValidationIssue> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<ValidationIssue>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<ValidationIssue> CreateValidationIssue(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    int32_t severity = 0,
+    int32_t code = 0,
+    int32_t location_kind = 0,
+    int32_t entity_index = 0,
+    flatbuffers::Offset<flatbuffers::String> field = 0,
+    flatbuffers::Offset<flatbuffers::String> message = 0) {
+  ValidationIssueBuilder builder_(_fbb);
+  builder_.add_message(message);
+  builder_.add_field(field);
+  builder_.add_entity_index(entity_index);
+  builder_.add_location_kind(location_kind);
+  builder_.add_code(code);
+  builder_.add_severity(severity);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<ValidationIssue> CreateValidationIssueDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    int32_t severity = 0,
+    int32_t code = 0,
+    int32_t location_kind = 0,
+    int32_t entity_index = 0,
+    const char *field = nullptr,
+    const char *message = nullptr) {
+  auto field__ = field ? _fbb.CreateString(field) : 0;
+  auto message__ = message ? _fbb.CreateString(message) : 0;
+  return oneq::replay::airborne_radar::fb::CreateValidationIssue(
+      _fbb,
+      severity,
+      code,
+      location_kind,
+      entity_index,
+      field__,
+      message__);
+}
+
+struct RadarCommand FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef RadarCommandBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_TYPE = 4,
+    VT_SOURCE = 6
+  };
+  int32_t type() const {
+    return GetField<int32_t>(VT_TYPE, 0);
+  }
+  int32_t source() const {
+    return GetField<int32_t>(VT_SOURCE, 0);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int32_t>(verifier, VT_TYPE) &&
+           VerifyField<int32_t>(verifier, VT_SOURCE) &&
+           verifier.EndTable();
+  }
+};
+
+struct RadarCommandBuilder {
+  typedef RadarCommand Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_type(int32_t type) {
+    fbb_.AddElement<int32_t>(RadarCommand::VT_TYPE, type, 0);
+  }
+  void add_source(int32_t source) {
+    fbb_.AddElement<int32_t>(RadarCommand::VT_SOURCE, source, 0);
+  }
+  explicit RadarCommandBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  RadarCommandBuilder &operator=(const RadarCommandBuilder &);
+  flatbuffers::Offset<RadarCommand> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<RadarCommand>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<RadarCommand> CreateRadarCommand(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    int32_t type = 0,
+    int32_t source = 0) {
+  RadarCommandBuilder builder_(_fbb);
+  builder_.add_source(source);
+  builder_.add_type(type);
+  return builder_.Finish();
+}
+
+struct RadarControlProfile FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef RadarControlProfileBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_VERSION = 4,
+    VT_ENABLE_LPI_POWER_CONTROL = 6,
+    VT_LPI_POWER_SCALE = 8,
+    VT_ENABLE_LPI_BEAMFORMING = 10,
+    VT_LPI_DWELL_SCALE = 12,
+    VT_ENABLE_AGILITY_FREQUENCY = 14,
+    VT_AGILITY_FREQUENCY_HOP_PHASE = 16,
+    VT_ENABLE_SIDELOBE_CANCELLER = 18,
+    VT_ENABLE_ADAPTIVE_BEAMFORMING = 20,
+    VT_ENABLE_ECCM_REJITTER = 22,
+    VT_ECCM_BURNTHROUGH_GAIN = 24
+  };
+  uint64_t version() const {
+    return GetField<uint64_t>(VT_VERSION, 0);
+  }
+  bool enable_lpi_power_control() const {
+    return GetField<uint8_t>(VT_ENABLE_LPI_POWER_CONTROL, 0) != 0;
+  }
+  float lpi_power_scale() const {
+    return GetField<float>(VT_LPI_POWER_SCALE, 0.0f);
+  }
+  bool enable_lpi_beamforming() const {
+    return GetField<uint8_t>(VT_ENABLE_LPI_BEAMFORMING, 0) != 0;
+  }
+  float lpi_dwell_scale() const {
+    return GetField<float>(VT_LPI_DWELL_SCALE, 0.0f);
+  }
+  bool enable_agility_frequency() const {
+    return GetField<uint8_t>(VT_ENABLE_AGILITY_FREQUENCY, 0) != 0;
+  }
+  uint8_t agility_frequency_hop_phase() const {
+    return GetField<uint8_t>(VT_AGILITY_FREQUENCY_HOP_PHASE, 0);
+  }
+  bool enable_sidelobe_canceller() const {
+    return GetField<uint8_t>(VT_ENABLE_SIDELOBE_CANCELLER, 0) != 0;
+  }
+  bool enable_adaptive_beamforming() const {
+    return GetField<uint8_t>(VT_ENABLE_ADAPTIVE_BEAMFORMING, 0) != 0;
+  }
+  bool enable_eccm_rejitter() const {
+    return GetField<uint8_t>(VT_ENABLE_ECCM_REJITTER, 0) != 0;
+  }
+  float eccm_burnthrough_gain() const {
+    return GetField<float>(VT_ECCM_BURNTHROUGH_GAIN, 0.0f);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_VERSION) &&
+           VerifyField<uint8_t>(verifier, VT_ENABLE_LPI_POWER_CONTROL) &&
+           VerifyField<float>(verifier, VT_LPI_POWER_SCALE) &&
+           VerifyField<uint8_t>(verifier, VT_ENABLE_LPI_BEAMFORMING) &&
+           VerifyField<float>(verifier, VT_LPI_DWELL_SCALE) &&
+           VerifyField<uint8_t>(verifier, VT_ENABLE_AGILITY_FREQUENCY) &&
+           VerifyField<uint8_t>(verifier, VT_AGILITY_FREQUENCY_HOP_PHASE) &&
+           VerifyField<uint8_t>(verifier, VT_ENABLE_SIDELOBE_CANCELLER) &&
+           VerifyField<uint8_t>(verifier, VT_ENABLE_ADAPTIVE_BEAMFORMING) &&
+           VerifyField<uint8_t>(verifier, VT_ENABLE_ECCM_REJITTER) &&
+           VerifyField<float>(verifier, VT_ECCM_BURNTHROUGH_GAIN) &&
+           verifier.EndTable();
+  }
+};
+
+struct RadarControlProfileBuilder {
+  typedef RadarControlProfile Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_version(uint64_t version) {
+    fbb_.AddElement<uint64_t>(RadarControlProfile::VT_VERSION, version, 0);
+  }
+  void add_enable_lpi_power_control(bool enable_lpi_power_control) {
+    fbb_.AddElement<uint8_t>(RadarControlProfile::VT_ENABLE_LPI_POWER_CONTROL, static_cast<uint8_t>(enable_lpi_power_control), 0);
+  }
+  void add_lpi_power_scale(float lpi_power_scale) {
+    fbb_.AddElement<float>(RadarControlProfile::VT_LPI_POWER_SCALE, lpi_power_scale, 0.0f);
+  }
+  void add_enable_lpi_beamforming(bool enable_lpi_beamforming) {
+    fbb_.AddElement<uint8_t>(RadarControlProfile::VT_ENABLE_LPI_BEAMFORMING, static_cast<uint8_t>(enable_lpi_beamforming), 0);
+  }
+  void add_lpi_dwell_scale(float lpi_dwell_scale) {
+    fbb_.AddElement<float>(RadarControlProfile::VT_LPI_DWELL_SCALE, lpi_dwell_scale, 0.0f);
+  }
+  void add_enable_agility_frequency(bool enable_agility_frequency) {
+    fbb_.AddElement<uint8_t>(RadarControlProfile::VT_ENABLE_AGILITY_FREQUENCY, static_cast<uint8_t>(enable_agility_frequency), 0);
+  }
+  void add_agility_frequency_hop_phase(uint8_t agility_frequency_hop_phase) {
+    fbb_.AddElement<uint8_t>(RadarControlProfile::VT_AGILITY_FREQUENCY_HOP_PHASE, agility_frequency_hop_phase, 0);
+  }
+  void add_enable_sidelobe_canceller(bool enable_sidelobe_canceller) {
+    fbb_.AddElement<uint8_t>(RadarControlProfile::VT_ENABLE_SIDELOBE_CANCELLER, static_cast<uint8_t>(enable_sidelobe_canceller), 0);
+  }
+  void add_enable_adaptive_beamforming(bool enable_adaptive_beamforming) {
+    fbb_.AddElement<uint8_t>(RadarControlProfile::VT_ENABLE_ADAPTIVE_BEAMFORMING, static_cast<uint8_t>(enable_adaptive_beamforming), 0);
+  }
+  void add_enable_eccm_rejitter(bool enable_eccm_rejitter) {
+    fbb_.AddElement<uint8_t>(RadarControlProfile::VT_ENABLE_ECCM_REJITTER, static_cast<uint8_t>(enable_eccm_rejitter), 0);
+  }
+  void add_eccm_burnthrough_gain(float eccm_burnthrough_gain) {
+    fbb_.AddElement<float>(RadarControlProfile::VT_ECCM_BURNTHROUGH_GAIN, eccm_burnthrough_gain, 0.0f);
+  }
+  explicit RadarControlProfileBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  RadarControlProfileBuilder &operator=(const RadarControlProfileBuilder &);
+  flatbuffers::Offset<RadarControlProfile> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<RadarControlProfile>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<RadarControlProfile> CreateRadarControlProfile(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t version = 0,
+    bool enable_lpi_power_control = false,
+    float lpi_power_scale = 0.0f,
+    bool enable_lpi_beamforming = false,
+    float lpi_dwell_scale = 0.0f,
+    bool enable_agility_frequency = false,
+    uint8_t agility_frequency_hop_phase = 0,
+    bool enable_sidelobe_canceller = false,
+    bool enable_adaptive_beamforming = false,
+    bool enable_eccm_rejitter = false,
+    float eccm_burnthrough_gain = 0.0f) {
+  RadarControlProfileBuilder builder_(_fbb);
+  builder_.add_version(version);
+  builder_.add_eccm_burnthrough_gain(eccm_burnthrough_gain);
+  builder_.add_lpi_dwell_scale(lpi_dwell_scale);
+  builder_.add_lpi_power_scale(lpi_power_scale);
+  builder_.add_enable_eccm_rejitter(enable_eccm_rejitter);
+  builder_.add_enable_adaptive_beamforming(enable_adaptive_beamforming);
+  builder_.add_enable_sidelobe_canceller(enable_sidelobe_canceller);
+  builder_.add_agility_frequency_hop_phase(agility_frequency_hop_phase);
+  builder_.add_enable_agility_frequency(enable_agility_frequency);
+  builder_.add_enable_lpi_beamforming(enable_lpi_beamforming);
+  builder_.add_enable_lpi_power_control(enable_lpi_power_control);
+  return builder_.Finish();
+}
+
+struct AssociationQualityMetrics FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef AssociationQualityMetricsBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_PRIOR_TRACK_COUNT = 4,
+    VT_DETECTION_COUNT = 6,
+    VT_MATCHED_COUNT = 8,
+    VT_NEW_TRACK_COUNT = 10,
+    VT_MISSED_TRACK_COUNT = 12,
+    VT_MATCH_RATE = 14,
+    VT_NEW_TRACK_RATE = 16,
+    VT_MISSED_TRACK_RATE = 18,
+    VT_MEAN_MATCH_COST = 20,
+    VT_P95_MATCH_COST = 22,
+    VT_DOMINANT_JAMMING_SEMANTIC = 24,
+    VT_JAMMING_SEVERITY = 26,
+    VT_ASSOCIATION_STRESS = 28
+  };
+  uint64_t prior_track_count() const {
+    return GetField<uint64_t>(VT_PRIOR_TRACK_COUNT, 0);
+  }
+  uint64_t detection_count() const {
+    return GetField<uint64_t>(VT_DETECTION_COUNT, 0);
+  }
+  uint64_t matched_count() const {
+    return GetField<uint64_t>(VT_MATCHED_COUNT, 0);
+  }
+  uint64_t new_track_count() const {
+    return GetField<uint64_t>(VT_NEW_TRACK_COUNT, 0);
+  }
+  uint64_t missed_track_count() const {
+    return GetField<uint64_t>(VT_MISSED_TRACK_COUNT, 0);
+  }
+  float match_rate() const {
+    return GetField<float>(VT_MATCH_RATE, 0.0f);
+  }
+  float new_track_rate() const {
+    return GetField<float>(VT_NEW_TRACK_RATE, 0.0f);
+  }
+  float missed_track_rate() const {
+    return GetField<float>(VT_MISSED_TRACK_RATE, 0.0f);
+  }
+  float mean_match_cost() const {
+    return GetField<float>(VT_MEAN_MATCH_COST, 0.0f);
+  }
+  float p95_match_cost() const {
+    return GetField<float>(VT_P95_MATCH_COST, 0.0f);
+  }
+  int32_t dominant_jamming_semantic() const {
+    return GetField<int32_t>(VT_DOMINANT_JAMMING_SEMANTIC, 0);
+  }
+  float jamming_severity() const {
+    return GetField<float>(VT_JAMMING_SEVERITY, 0.0f);
+  }
+  float association_stress() const {
+    return GetField<float>(VT_ASSOCIATION_STRESS, 0.0f);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_PRIOR_TRACK_COUNT) &&
+           VerifyField<uint64_t>(verifier, VT_DETECTION_COUNT) &&
+           VerifyField<uint64_t>(verifier, VT_MATCHED_COUNT) &&
+           VerifyField<uint64_t>(verifier, VT_NEW_TRACK_COUNT) &&
+           VerifyField<uint64_t>(verifier, VT_MISSED_TRACK_COUNT) &&
+           VerifyField<float>(verifier, VT_MATCH_RATE) &&
+           VerifyField<float>(verifier, VT_NEW_TRACK_RATE) &&
+           VerifyField<float>(verifier, VT_MISSED_TRACK_RATE) &&
+           VerifyField<float>(verifier, VT_MEAN_MATCH_COST) &&
+           VerifyField<float>(verifier, VT_P95_MATCH_COST) &&
+           VerifyField<int32_t>(verifier, VT_DOMINANT_JAMMING_SEMANTIC) &&
+           VerifyField<float>(verifier, VT_JAMMING_SEVERITY) &&
+           VerifyField<float>(verifier, VT_ASSOCIATION_STRESS) &&
+           verifier.EndTable();
+  }
+};
+
+struct AssociationQualityMetricsBuilder {
+  typedef AssociationQualityMetrics Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_prior_track_count(uint64_t prior_track_count) {
+    fbb_.AddElement<uint64_t>(AssociationQualityMetrics::VT_PRIOR_TRACK_COUNT, prior_track_count, 0);
+  }
+  void add_detection_count(uint64_t detection_count) {
+    fbb_.AddElement<uint64_t>(AssociationQualityMetrics::VT_DETECTION_COUNT, detection_count, 0);
+  }
+  void add_matched_count(uint64_t matched_count) {
+    fbb_.AddElement<uint64_t>(AssociationQualityMetrics::VT_MATCHED_COUNT, matched_count, 0);
+  }
+  void add_new_track_count(uint64_t new_track_count) {
+    fbb_.AddElement<uint64_t>(AssociationQualityMetrics::VT_NEW_TRACK_COUNT, new_track_count, 0);
+  }
+  void add_missed_track_count(uint64_t missed_track_count) {
+    fbb_.AddElement<uint64_t>(AssociationQualityMetrics::VT_MISSED_TRACK_COUNT, missed_track_count, 0);
+  }
+  void add_match_rate(float match_rate) {
+    fbb_.AddElement<float>(AssociationQualityMetrics::VT_MATCH_RATE, match_rate, 0.0f);
+  }
+  void add_new_track_rate(float new_track_rate) {
+    fbb_.AddElement<float>(AssociationQualityMetrics::VT_NEW_TRACK_RATE, new_track_rate, 0.0f);
+  }
+  void add_missed_track_rate(float missed_track_rate) {
+    fbb_.AddElement<float>(AssociationQualityMetrics::VT_MISSED_TRACK_RATE, missed_track_rate, 0.0f);
+  }
+  void add_mean_match_cost(float mean_match_cost) {
+    fbb_.AddElement<float>(AssociationQualityMetrics::VT_MEAN_MATCH_COST, mean_match_cost, 0.0f);
+  }
+  void add_p95_match_cost(float p95_match_cost) {
+    fbb_.AddElement<float>(AssociationQualityMetrics::VT_P95_MATCH_COST, p95_match_cost, 0.0f);
+  }
+  void add_dominant_jamming_semantic(int32_t dominant_jamming_semantic) {
+    fbb_.AddElement<int32_t>(AssociationQualityMetrics::VT_DOMINANT_JAMMING_SEMANTIC, dominant_jamming_semantic, 0);
+  }
+  void add_jamming_severity(float jamming_severity) {
+    fbb_.AddElement<float>(AssociationQualityMetrics::VT_JAMMING_SEVERITY, jamming_severity, 0.0f);
+  }
+  void add_association_stress(float association_stress) {
+    fbb_.AddElement<float>(AssociationQualityMetrics::VT_ASSOCIATION_STRESS, association_stress, 0.0f);
+  }
+  explicit AssociationQualityMetricsBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  AssociationQualityMetricsBuilder &operator=(const AssociationQualityMetricsBuilder &);
+  flatbuffers::Offset<AssociationQualityMetrics> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<AssociationQualityMetrics>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<AssociationQualityMetrics> CreateAssociationQualityMetrics(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t prior_track_count = 0,
+    uint64_t detection_count = 0,
+    uint64_t matched_count = 0,
+    uint64_t new_track_count = 0,
+    uint64_t missed_track_count = 0,
+    float match_rate = 0.0f,
+    float new_track_rate = 0.0f,
+    float missed_track_rate = 0.0f,
+    float mean_match_cost = 0.0f,
+    float p95_match_cost = 0.0f,
+    int32_t dominant_jamming_semantic = 0,
+    float jamming_severity = 0.0f,
+    float association_stress = 0.0f) {
+  AssociationQualityMetricsBuilder builder_(_fbb);
+  builder_.add_missed_track_count(missed_track_count);
+  builder_.add_new_track_count(new_track_count);
+  builder_.add_matched_count(matched_count);
+  builder_.add_detection_count(detection_count);
+  builder_.add_prior_track_count(prior_track_count);
+  builder_.add_association_stress(association_stress);
+  builder_.add_jamming_severity(jamming_severity);
+  builder_.add_dominant_jamming_semantic(dominant_jamming_semantic);
+  builder_.add_p95_match_cost(p95_match_cost);
+  builder_.add_mean_match_cost(mean_match_cost);
+  builder_.add_missed_track_rate(missed_track_rate);
+  builder_.add_new_track_rate(new_track_rate);
+  builder_.add_match_rate(match_rate);
+  return builder_.Finish();
+}
+
 struct RadarCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef RadarCycleResultT NativeTableType;
   typedef RadarCycleResultBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_INPUT_CYCLE_INDEX = 4,
     VT_TRACK_OUTPUT_FRAME = 6,
-    VT_VALIDATION_ISSUE_COUNT = 8,
-    VT_EXECUTED_THIS_CYCLE = 10
+    VT_SUBMITTED_COMMANDS = 8,
+    VT_VALIDATION_ISSUES = 10,
+    VT_HAS_VALIDATION_ERROR = 12,
+    VT_EXECUTED_THIS_CYCLE = 14,
+    VT_SIGNAL_CYCLE_ABORT_REASON = 16,
+    VT_REUSED_PREVIOUS_TRACK_OUTPUT = 18,
+    VT_HAS_CONTROL_PROFILE = 20,
+    VT_CONTROL_PROFILE = 22,
+    VT_ASSOCIATION_QUALITY_METRICS = 24
   };
   uint32_t input_cycle_index() const {
     return GetField<uint32_t>(VT_INPUT_CYCLE_INDEX, 0);
@@ -1589,24 +1829,55 @@ struct RadarCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const oneq::replay::airborne_radar::fb::TrackOutputFrame *track_output_frame() const {
     return GetPointer<const oneq::replay::airborne_radar::fb::TrackOutputFrame *>(VT_TRACK_OUTPUT_FRAME);
   }
-  uint32_t validation_issue_count() const {
-    return GetField<uint32_t>(VT_VALIDATION_ISSUE_COUNT, 0);
+  const flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarCommand>> *submitted_commands() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarCommand>> *>(VT_SUBMITTED_COMMANDS);
+  }
+  const flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::ValidationIssue>> *validation_issues() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::ValidationIssue>> *>(VT_VALIDATION_ISSUES);
+  }
+  bool has_validation_error() const {
+    return GetField<uint8_t>(VT_HAS_VALIDATION_ERROR, 0) != 0;
   }
   bool executed_this_cycle() const {
     return GetField<uint8_t>(VT_EXECUTED_THIS_CYCLE, 0) != 0;
+  }
+  int32_t signal_cycle_abort_reason() const {
+    return GetField<int32_t>(VT_SIGNAL_CYCLE_ABORT_REASON, 0);
+  }
+  bool reused_previous_track_output() const {
+    return GetField<uint8_t>(VT_REUSED_PREVIOUS_TRACK_OUTPUT, 0) != 0;
+  }
+  bool has_control_profile() const {
+    return GetField<uint8_t>(VT_HAS_CONTROL_PROFILE, 0) != 0;
+  }
+  const oneq::replay::airborne_radar::fb::RadarControlProfile *control_profile() const {
+    return GetPointer<const oneq::replay::airborne_radar::fb::RadarControlProfile *>(VT_CONTROL_PROFILE);
+  }
+  const oneq::replay::airborne_radar::fb::AssociationQualityMetrics *association_quality_metrics() const {
+    return GetPointer<const oneq::replay::airborne_radar::fb::AssociationQualityMetrics *>(VT_ASSOCIATION_QUALITY_METRICS);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint32_t>(verifier, VT_INPUT_CYCLE_INDEX) &&
            VerifyOffset(verifier, VT_TRACK_OUTPUT_FRAME) &&
            verifier.VerifyTable(track_output_frame()) &&
-           VerifyField<uint32_t>(verifier, VT_VALIDATION_ISSUE_COUNT) &&
+           VerifyOffset(verifier, VT_SUBMITTED_COMMANDS) &&
+           verifier.VerifyVector(submitted_commands()) &&
+           verifier.VerifyVectorOfTables(submitted_commands()) &&
+           VerifyOffset(verifier, VT_VALIDATION_ISSUES) &&
+           verifier.VerifyVector(validation_issues()) &&
+           verifier.VerifyVectorOfTables(validation_issues()) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_VALIDATION_ERROR) &&
            VerifyField<uint8_t>(verifier, VT_EXECUTED_THIS_CYCLE) &&
+           VerifyField<int32_t>(verifier, VT_SIGNAL_CYCLE_ABORT_REASON) &&
+           VerifyField<uint8_t>(verifier, VT_REUSED_PREVIOUS_TRACK_OUTPUT) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_CONTROL_PROFILE) &&
+           VerifyOffset(verifier, VT_CONTROL_PROFILE) &&
+           verifier.VerifyTable(control_profile()) &&
+           VerifyOffset(verifier, VT_ASSOCIATION_QUALITY_METRICS) &&
+           verifier.VerifyTable(association_quality_metrics()) &&
            verifier.EndTable();
   }
-  RadarCycleResultT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(RadarCycleResultT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<RadarCycleResult> Pack(flatbuffers::FlatBufferBuilder &_fbb, const RadarCycleResultT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct RadarCycleResultBuilder {
@@ -1619,11 +1890,32 @@ struct RadarCycleResultBuilder {
   void add_track_output_frame(flatbuffers::Offset<oneq::replay::airborne_radar::fb::TrackOutputFrame> track_output_frame) {
     fbb_.AddOffset(RadarCycleResult::VT_TRACK_OUTPUT_FRAME, track_output_frame);
   }
-  void add_validation_issue_count(uint32_t validation_issue_count) {
-    fbb_.AddElement<uint32_t>(RadarCycleResult::VT_VALIDATION_ISSUE_COUNT, validation_issue_count, 0);
+  void add_submitted_commands(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarCommand>>> submitted_commands) {
+    fbb_.AddOffset(RadarCycleResult::VT_SUBMITTED_COMMANDS, submitted_commands);
+  }
+  void add_validation_issues(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::ValidationIssue>>> validation_issues) {
+    fbb_.AddOffset(RadarCycleResult::VT_VALIDATION_ISSUES, validation_issues);
+  }
+  void add_has_validation_error(bool has_validation_error) {
+    fbb_.AddElement<uint8_t>(RadarCycleResult::VT_HAS_VALIDATION_ERROR, static_cast<uint8_t>(has_validation_error), 0);
   }
   void add_executed_this_cycle(bool executed_this_cycle) {
     fbb_.AddElement<uint8_t>(RadarCycleResult::VT_EXECUTED_THIS_CYCLE, static_cast<uint8_t>(executed_this_cycle), 0);
+  }
+  void add_signal_cycle_abort_reason(int32_t signal_cycle_abort_reason) {
+    fbb_.AddElement<int32_t>(RadarCycleResult::VT_SIGNAL_CYCLE_ABORT_REASON, signal_cycle_abort_reason, 0);
+  }
+  void add_reused_previous_track_output(bool reused_previous_track_output) {
+    fbb_.AddElement<uint8_t>(RadarCycleResult::VT_REUSED_PREVIOUS_TRACK_OUTPUT, static_cast<uint8_t>(reused_previous_track_output), 0);
+  }
+  void add_has_control_profile(bool has_control_profile) {
+    fbb_.AddElement<uint8_t>(RadarCycleResult::VT_HAS_CONTROL_PROFILE, static_cast<uint8_t>(has_control_profile), 0);
+  }
+  void add_control_profile(flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarControlProfile> control_profile) {
+    fbb_.AddOffset(RadarCycleResult::VT_CONTROL_PROFILE, control_profile);
+  }
+  void add_association_quality_metrics(flatbuffers::Offset<oneq::replay::airborne_radar::fb::AssociationQualityMetrics> association_quality_metrics) {
+    fbb_.AddOffset(RadarCycleResult::VT_ASSOCIATION_QUALITY_METRICS, association_quality_metrics);
   }
   explicit RadarCycleResultBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -1641,42 +1933,61 @@ inline flatbuffers::Offset<RadarCycleResult> CreateRadarCycleResult(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint32_t input_cycle_index = 0,
     flatbuffers::Offset<oneq::replay::airborne_radar::fb::TrackOutputFrame> track_output_frame = 0,
-    uint32_t validation_issue_count = 0,
-    bool executed_this_cycle = false) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarCommand>>> submitted_commands = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::ValidationIssue>>> validation_issues = 0,
+    bool has_validation_error = false,
+    bool executed_this_cycle = false,
+    int32_t signal_cycle_abort_reason = 0,
+    bool reused_previous_track_output = false,
+    bool has_control_profile = false,
+    flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarControlProfile> control_profile = 0,
+    flatbuffers::Offset<oneq::replay::airborne_radar::fb::AssociationQualityMetrics> association_quality_metrics = 0) {
   RadarCycleResultBuilder builder_(_fbb);
-  builder_.add_validation_issue_count(validation_issue_count);
+  builder_.add_association_quality_metrics(association_quality_metrics);
+  builder_.add_control_profile(control_profile);
+  builder_.add_signal_cycle_abort_reason(signal_cycle_abort_reason);
+  builder_.add_validation_issues(validation_issues);
+  builder_.add_submitted_commands(submitted_commands);
   builder_.add_track_output_frame(track_output_frame);
   builder_.add_input_cycle_index(input_cycle_index);
+  builder_.add_has_control_profile(has_control_profile);
+  builder_.add_reused_previous_track_output(reused_previous_track_output);
   builder_.add_executed_this_cycle(executed_this_cycle);
+  builder_.add_has_validation_error(has_validation_error);
   return builder_.Finish();
 }
 
-flatbuffers::Offset<RadarCycleResult> CreateRadarCycleResult(flatbuffers::FlatBufferBuilder &_fbb, const RadarCycleResultT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct FailureMarkerT : public flatbuffers::NativeTable {
-  typedef FailureMarker TableType;
-  std::string error_code;
-  std::string message;
-  std::string location;
-  bool has_cycle_index;
-  uint32_t cycle_index;
-  bool has_sim_time_sec;
-  double sim_time_sec;
-  std::string diagnostics;
-  bool has_last_event_sequence;
-  uint64_t last_event_sequence;
-  FailureMarkerT()
-      : has_cycle_index(false),
-        cycle_index(0),
-        has_sim_time_sec(false),
-        sim_time_sec(0.0),
-        has_last_event_sequence(false),
-        last_event_sequence(0) {
-  }
-};
+inline flatbuffers::Offset<RadarCycleResult> CreateRadarCycleResultDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t input_cycle_index = 0,
+    flatbuffers::Offset<oneq::replay::airborne_radar::fb::TrackOutputFrame> track_output_frame = 0,
+    const std::vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarCommand>> *submitted_commands = nullptr,
+    const std::vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::ValidationIssue>> *validation_issues = nullptr,
+    bool has_validation_error = false,
+    bool executed_this_cycle = false,
+    int32_t signal_cycle_abort_reason = 0,
+    bool reused_previous_track_output = false,
+    bool has_control_profile = false,
+    flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarControlProfile> control_profile = 0,
+    flatbuffers::Offset<oneq::replay::airborne_radar::fb::AssociationQualityMetrics> association_quality_metrics = 0) {
+  auto submitted_commands__ = submitted_commands ? _fbb.CreateVector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarCommand>>(*submitted_commands) : 0;
+  auto validation_issues__ = validation_issues ? _fbb.CreateVector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::ValidationIssue>>(*validation_issues) : 0;
+  return oneq::replay::airborne_radar::fb::CreateRadarCycleResult(
+      _fbb,
+      input_cycle_index,
+      track_output_frame,
+      submitted_commands__,
+      validation_issues__,
+      has_validation_error,
+      executed_this_cycle,
+      signal_cycle_abort_reason,
+      reused_previous_track_output,
+      has_control_profile,
+      control_profile,
+      association_quality_metrics);
+}
 
 struct FailureMarker FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef FailureMarkerT NativeTableType;
   typedef FailureMarkerBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ERROR_CODE = 4,
@@ -1738,9 +2049,6 @@ struct FailureMarker FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint64_t>(verifier, VT_LAST_EVENT_SEQUENCE) &&
            verifier.EndTable();
   }
-  FailureMarkerT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(FailureMarkerT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<FailureMarker> Pack(flatbuffers::FlatBufferBuilder &_fbb, const FailureMarkerT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct FailureMarkerBuilder {
@@ -1845,611 +2153,6 @@ inline flatbuffers::Offset<FailureMarker> CreateFailureMarkerDirect(
       last_event_sequence);
 }
 
-flatbuffers::Offset<FailureMarker> CreateFailureMarker(flatbuffers::FlatBufferBuilder &_fbb, const FailureMarkerT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-inline Vector3fT *Vector3f::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<oneq::replay::airborne_radar::fb::Vector3fT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::Vector3fT>(new Vector3fT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void Vector3f::UnPackTo(Vector3fT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = x(); _o->x = _e; }
-  { auto _e = y(); _o->y = _e; }
-  { auto _e = z(); _o->z = _e; }
-}
-
-inline flatbuffers::Offset<Vector3f> Vector3f::Pack(flatbuffers::FlatBufferBuilder &_fbb, const Vector3fT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateVector3f(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<Vector3f> CreateVector3f(flatbuffers::FlatBufferBuilder &_fbb, const Vector3fT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const Vector3fT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _x = _o->x;
-  auto _y = _o->y;
-  auto _z = _o->z;
-  return oneq::replay::airborne_radar::fb::CreateVector3f(
-      _fbb,
-      _x,
-      _y,
-      _z);
-}
-
-inline EulerAnglesDegT *EulerAnglesDeg::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<oneq::replay::airborne_radar::fb::EulerAnglesDegT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::EulerAnglesDegT>(new EulerAnglesDegT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void EulerAnglesDeg::UnPackTo(EulerAnglesDegT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = yaw_deg(); _o->yaw_deg = _e; }
-  { auto _e = pitch_deg(); _o->pitch_deg = _e; }
-  { auto _e = roll_deg(); _o->roll_deg = _e; }
-}
-
-inline flatbuffers::Offset<EulerAnglesDeg> EulerAnglesDeg::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EulerAnglesDegT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEulerAnglesDeg(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<EulerAnglesDeg> CreateEulerAnglesDeg(flatbuffers::FlatBufferBuilder &_fbb, const EulerAnglesDegT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EulerAnglesDegT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _yaw_deg = _o->yaw_deg;
-  auto _pitch_deg = _o->pitch_deg;
-  auto _roll_deg = _o->roll_deg;
-  return oneq::replay::airborne_radar::fb::CreateEulerAnglesDeg(
-      _fbb,
-      _yaw_deg,
-      _pitch_deg,
-      _roll_deg);
-}
-
-inline PoseStateT *PoseState::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<oneq::replay::airborne_radar::fb::PoseStateT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::PoseStateT>(new PoseStateT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void PoseState::UnPackTo(PoseStateT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = position_m(); if (_e) _o->position_m = std::unique_ptr<oneq::replay::airborne_radar::fb::Vector3fT>(_e->UnPack(_resolver)); }
-  { auto _e = velocity_mps(); if (_e) _o->velocity_mps = std::unique_ptr<oneq::replay::airborne_radar::fb::Vector3fT>(_e->UnPack(_resolver)); }
-  { auto _e = attitude_deg(); if (_e) _o->attitude_deg = std::unique_ptr<oneq::replay::airborne_radar::fb::EulerAnglesDegT>(_e->UnPack(_resolver)); }
-}
-
-inline flatbuffers::Offset<PoseState> PoseState::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PoseStateT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreatePoseState(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<PoseState> CreatePoseState(flatbuffers::FlatBufferBuilder &_fbb, const PoseStateT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const PoseStateT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _position_m = _o->position_m ? CreateVector3f(_fbb, _o->position_m.get(), _rehasher) : 0;
-  auto _velocity_mps = _o->velocity_mps ? CreateVector3f(_fbb, _o->velocity_mps.get(), _rehasher) : 0;
-  auto _attitude_deg = _o->attitude_deg ? CreateEulerAnglesDeg(_fbb, _o->attitude_deg.get(), _rehasher) : 0;
-  return oneq::replay::airborne_radar::fb::CreatePoseState(
-      _fbb,
-      _position_m,
-      _velocity_mps,
-      _attitude_deg);
-}
-
-inline RadarSceneTargetT *RadarSceneTarget::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<oneq::replay::airborne_radar::fb::RadarSceneTargetT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::RadarSceneTargetT>(new RadarSceneTargetT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void RadarSceneTarget::UnPackTo(RadarSceneTargetT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = external_target_id(); _o->external_target_id = _e; }
-  { auto _e = velocity_x(); _o->velocity_x = _e; }
-  { auto _e = velocity_y(); _o->velocity_y = _e; }
-  { auto _e = velocity_z(); _o->velocity_z = _e; }
-  { auto _e = rcs(); _o->rcs = _e; }
-  { auto _e = range_m(); _o->range_m = _e; }
-  { auto _e = position_x(); _o->position_x = _e; }
-  { auto _e = position_y(); _o->position_y = _e; }
-  { auto _e = position_z(); _o->position_z = _e; }
-  { auto _e = target_swerling_type(); _o->target_swerling_type = _e; }
-}
-
-inline flatbuffers::Offset<RadarSceneTarget> RadarSceneTarget::Pack(flatbuffers::FlatBufferBuilder &_fbb, const RadarSceneTargetT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateRadarSceneTarget(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<RadarSceneTarget> CreateRadarSceneTarget(flatbuffers::FlatBufferBuilder &_fbb, const RadarSceneTargetT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const RadarSceneTargetT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _external_target_id = _o->external_target_id;
-  auto _velocity_x = _o->velocity_x;
-  auto _velocity_y = _o->velocity_y;
-  auto _velocity_z = _o->velocity_z;
-  auto _rcs = _o->rcs;
-  auto _range_m = _o->range_m;
-  auto _position_x = _o->position_x;
-  auto _position_y = _o->position_y;
-  auto _position_z = _o->position_z;
-  auto _target_swerling_type = _o->target_swerling_type;
-  return oneq::replay::airborne_radar::fb::CreateRadarSceneTarget(
-      _fbb,
-      _external_target_id,
-      _velocity_x,
-      _velocity_y,
-      _velocity_z,
-      _rcs,
-      _range_m,
-      _position_x,
-      _position_y,
-      _position_z,
-      _target_swerling_type);
-}
-
-inline AtmosphericObservationT *AtmosphericObservation::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<oneq::replay::airborne_radar::fb::AtmosphericObservationT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::AtmosphericObservationT>(new AtmosphericObservationT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void AtmosphericObservation::UnPackTo(AtmosphericObservationT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = enable_physical_model(); _o->enable_physical_model = _e; }
-  { auto _e = pressure_hpa(); _o->pressure_hpa = _e; }
-  { auto _e = temperature_k(); _o->temperature_k = _e; }
-  { auto _e = relative_humidity(); _o->relative_humidity = _e; }
-}
-
-inline flatbuffers::Offset<AtmosphericObservation> AtmosphericObservation::Pack(flatbuffers::FlatBufferBuilder &_fbb, const AtmosphericObservationT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateAtmosphericObservation(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<AtmosphericObservation> CreateAtmosphericObservation(flatbuffers::FlatBufferBuilder &_fbb, const AtmosphericObservationT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const AtmosphericObservationT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _enable_physical_model = _o->enable_physical_model;
-  auto _pressure_hpa = _o->pressure_hpa;
-  auto _temperature_k = _o->temperature_k;
-  auto _relative_humidity = _o->relative_humidity;
-  return oneq::replay::airborne_radar::fb::CreateAtmosphericObservation(
-      _fbb,
-      _enable_physical_model,
-      _pressure_hpa,
-      _temperature_k,
-      _relative_humidity);
-}
-
-inline AtmosphericContextT *AtmosphericContext::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<oneq::replay::airborne_radar::fb::AtmosphericContextT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::AtmosphericContextT>(new AtmosphericContextT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void AtmosphericContext::UnPackTo(AtmosphericContextT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = has_simulation_unix_seconds(); _o->has_simulation_unix_seconds = _e; }
-  { auto _e = simulation_unix_seconds(); _o->simulation_unix_seconds = _e; }
-  { auto _e = solar_flux_f107a(); _o->solar_flux_f107a = _e; }
-  { auto _e = solar_flux_f107(); _o->solar_flux_f107 = _e; }
-  { auto _e = geomagnetic_ap(); _o->geomagnetic_ap = _e; }
-}
-
-inline flatbuffers::Offset<AtmosphericContext> AtmosphericContext::Pack(flatbuffers::FlatBufferBuilder &_fbb, const AtmosphericContextT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateAtmosphericContext(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<AtmosphericContext> CreateAtmosphericContext(flatbuffers::FlatBufferBuilder &_fbb, const AtmosphericContextT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const AtmosphericContextT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _has_simulation_unix_seconds = _o->has_simulation_unix_seconds;
-  auto _simulation_unix_seconds = _o->simulation_unix_seconds;
-  auto _solar_flux_f107a = _o->solar_flux_f107a;
-  auto _solar_flux_f107 = _o->solar_flux_f107;
-  auto _geomagnetic_ap = _o->geomagnetic_ap;
-  return oneq::replay::airborne_radar::fb::CreateAtmosphericContext(
-      _fbb,
-      _has_simulation_unix_seconds,
-      _simulation_unix_seconds,
-      _solar_flux_f107a,
-      _solar_flux_f107,
-      _geomagnetic_ap);
-}
-
-inline SurfaceObservationT *SurfaceObservation::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<oneq::replay::airborne_radar::fb::SurfaceObservationT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::SurfaceObservationT>(new SurfaceObservationT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void SurfaceObservation::UnPackTo(SurfaceObservationT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = cover_profile(); _o->cover_profile = _e; }
-  { auto _e = enable_physical_model(); _o->enable_physical_model = _e; }
-}
-
-inline flatbuffers::Offset<SurfaceObservation> SurfaceObservation::Pack(flatbuffers::FlatBufferBuilder &_fbb, const SurfaceObservationT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateSurfaceObservation(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<SurfaceObservation> CreateSurfaceObservation(flatbuffers::FlatBufferBuilder &_fbb, const SurfaceObservationT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const SurfaceObservationT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _cover_profile = _o->cover_profile;
-  auto _enable_physical_model = _o->enable_physical_model;
-  return oneq::replay::airborne_radar::fb::CreateSurfaceObservation(
-      _fbb,
-      _cover_profile,
-      _enable_physical_model);
-}
-
-inline JammerSourceT *JammerSource::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<oneq::replay::airborne_radar::fb::JammerSourceT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::JammerSourceT>(new JammerSourceT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void JammerSource::UnPackTo(JammerSourceT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = technique(); _o->technique = _e; }
-  { auto _e = power_db(); _o->power_db = _e; }
-  { auto _e = js_db(); _o->js_db = _e; }
-  { auto _e = has_direction_deg(); _o->has_direction_deg = _e; }
-  { auto _e = azimuth_deg(); _o->azimuth_deg = _e; }
-  { auto _e = elevation_deg(); _o->elevation_deg = _e; }
-  { auto _e = angular_span_deg(); _o->angular_span_deg = _e; }
-  { auto _e = confidence(); _o->confidence = _e; }
-}
-
-inline flatbuffers::Offset<JammerSource> JammerSource::Pack(flatbuffers::FlatBufferBuilder &_fbb, const JammerSourceT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateJammerSource(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<JammerSource> CreateJammerSource(flatbuffers::FlatBufferBuilder &_fbb, const JammerSourceT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const JammerSourceT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _technique = _o->technique;
-  auto _power_db = _o->power_db;
-  auto _js_db = _o->js_db;
-  auto _has_direction_deg = _o->has_direction_deg;
-  auto _azimuth_deg = _o->azimuth_deg;
-  auto _elevation_deg = _o->elevation_deg;
-  auto _angular_span_deg = _o->angular_span_deg;
-  auto _confidence = _o->confidence;
-  return oneq::replay::airborne_radar::fb::CreateJammerSource(
-      _fbb,
-      _technique,
-      _power_db,
-      _js_db,
-      _has_direction_deg,
-      _azimuth_deg,
-      _elevation_deg,
-      _angular_span_deg,
-      _confidence);
-}
-
-inline RadarCycleEnvironmentInputT *RadarCycleEnvironmentInput::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<oneq::replay::airborne_radar::fb::RadarCycleEnvironmentInputT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::RadarCycleEnvironmentInputT>(new RadarCycleEnvironmentInputT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void RadarCycleEnvironmentInput::UnPackTo(RadarCycleEnvironmentInputT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = atmospheric_observation(); if (_e) _o->atmospheric_observation = std::unique_ptr<oneq::replay::airborne_radar::fb::AtmosphericObservationT>(_e->UnPack(_resolver)); }
-  { auto _e = atmospheric_context(); if (_e) _o->atmospheric_context = std::unique_ptr<oneq::replay::airborne_radar::fb::AtmosphericContextT>(_e->UnPack(_resolver)); }
-  { auto _e = surface_observation(); if (_e) _o->surface_observation = std::unique_ptr<oneq::replay::airborne_radar::fb::SurfaceObservationT>(_e->UnPack(_resolver)); }
-  { auto _e = jammer_sources(); if (_e) { _o->jammer_sources.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->jammer_sources[_i] = std::unique_ptr<oneq::replay::airborne_radar::fb::JammerSourceT>(_e->Get(_i)->UnPack(_resolver)); } } }
-}
-
-inline flatbuffers::Offset<RadarCycleEnvironmentInput> RadarCycleEnvironmentInput::Pack(flatbuffers::FlatBufferBuilder &_fbb, const RadarCycleEnvironmentInputT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateRadarCycleEnvironmentInput(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<RadarCycleEnvironmentInput> CreateRadarCycleEnvironmentInput(flatbuffers::FlatBufferBuilder &_fbb, const RadarCycleEnvironmentInputT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const RadarCycleEnvironmentInputT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _atmospheric_observation = _o->atmospheric_observation ? CreateAtmosphericObservation(_fbb, _o->atmospheric_observation.get(), _rehasher) : 0;
-  auto _atmospheric_context = _o->atmospheric_context ? CreateAtmosphericContext(_fbb, _o->atmospheric_context.get(), _rehasher) : 0;
-  auto _surface_observation = _o->surface_observation ? CreateSurfaceObservation(_fbb, _o->surface_observation.get(), _rehasher) : 0;
-  auto _jammer_sources = _o->jammer_sources.size() ? _fbb.CreateVector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::JammerSource>> (_o->jammer_sources.size(), [](size_t i, _VectorArgs *__va) { return CreateJammerSource(*__va->__fbb, __va->__o->jammer_sources[i].get(), __va->__rehasher); }, &_va ) : 0;
-  return oneq::replay::airborne_radar::fb::CreateRadarCycleEnvironmentInput(
-      _fbb,
-      _atmospheric_observation,
-      _atmospheric_context,
-      _surface_observation,
-      _jammer_sources);
-}
-
-inline RadarCycleInputT *RadarCycleInput::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<oneq::replay::airborne_radar::fb::RadarCycleInputT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::RadarCycleInputT>(new RadarCycleInputT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void RadarCycleInput::UnPackTo(RadarCycleInputT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = cycle_index(); _o->cycle_index = _e; }
-  { auto _e = dt_sec(); _o->dt_sec = _e; }
-  { auto _e = platform_pose(); if (_e) _o->platform_pose = std::unique_ptr<oneq::replay::airborne_radar::fb::PoseStateT>(_e->UnPack(_resolver)); }
-  { auto _e = scene(); if (_e) { _o->scene.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->scene[_i] = std::unique_ptr<oneq::replay::airborne_radar::fb::RadarSceneTargetT>(_e->Get(_i)->UnPack(_resolver)); } } }
-  { auto _e = environment(); if (_e) _o->environment = std::unique_ptr<oneq::replay::airborne_radar::fb::RadarCycleEnvironmentInputT>(_e->UnPack(_resolver)); }
-}
-
-inline flatbuffers::Offset<RadarCycleInput> RadarCycleInput::Pack(flatbuffers::FlatBufferBuilder &_fbb, const RadarCycleInputT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateRadarCycleInput(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<RadarCycleInput> CreateRadarCycleInput(flatbuffers::FlatBufferBuilder &_fbb, const RadarCycleInputT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const RadarCycleInputT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _cycle_index = _o->cycle_index;
-  auto _dt_sec = _o->dt_sec;
-  auto _platform_pose = _o->platform_pose ? CreatePoseState(_fbb, _o->platform_pose.get(), _rehasher) : 0;
-  auto _scene = _o->scene.size() ? _fbb.CreateVector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarSceneTarget>> (_o->scene.size(), [](size_t i, _VectorArgs *__va) { return CreateRadarSceneTarget(*__va->__fbb, __va->__o->scene[i].get(), __va->__rehasher); }, &_va ) : 0;
-  auto _environment = _o->environment ? CreateRadarCycleEnvironmentInput(_fbb, _o->environment.get(), _rehasher) : 0;
-  return oneq::replay::airborne_radar::fb::CreateRadarCycleInput(
-      _fbb,
-      _cycle_index,
-      _dt_sec,
-      _platform_pose,
-      _scene,
-      _environment);
-}
-
-inline TrackOutputFrameT *TrackOutputFrame::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<oneq::replay::airborne_radar::fb::TrackOutputFrameT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::TrackOutputFrameT>(new TrackOutputFrameT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void TrackOutputFrame::UnPackTo(TrackOutputFrameT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = cycle_index(); _o->cycle_index = _e; }
-  { auto _e = published_track_count(); _o->published_track_count = _e; }
-  { auto _e = batch_id(); _o->batch_id = _e; }
-  { auto _e = confirmed_track_count(); _o->confirmed_track_count = _e; }
-  { auto _e = contains_lost_tracks(); _o->contains_lost_tracks = _e; }
-  { auto _e = tracks(); if (_e) { _o->tracks.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->tracks[_i] = std::unique_ptr<oneq::replay::airborne_radar::fb::TrackStateSnapshotT>(_e->Get(_i)->UnPack(_resolver)); } } }
-}
-
-inline flatbuffers::Offset<TrackOutputFrame> TrackOutputFrame::Pack(flatbuffers::FlatBufferBuilder &_fbb, const TrackOutputFrameT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateTrackOutputFrame(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<TrackOutputFrame> CreateTrackOutputFrame(flatbuffers::FlatBufferBuilder &_fbb, const TrackOutputFrameT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const TrackOutputFrameT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _cycle_index = _o->cycle_index;
-  auto _published_track_count = _o->published_track_count;
-  auto _batch_id = _o->batch_id;
-  auto _confirmed_track_count = _o->confirmed_track_count;
-  auto _contains_lost_tracks = _o->contains_lost_tracks;
-  auto _tracks = _o->tracks.size() ? _fbb.CreateVector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::TrackStateSnapshot>> (_o->tracks.size(), [](size_t i, _VectorArgs *__va) { return CreateTrackStateSnapshot(*__va->__fbb, __va->__o->tracks[i].get(), __va->__rehasher); }, &_va ) : 0;
-  return oneq::replay::airborne_radar::fb::CreateTrackOutputFrame(
-      _fbb,
-      _cycle_index,
-      _published_track_count,
-      _batch_id,
-      _confirmed_track_count,
-      _contains_lost_tracks,
-      _tracks);
-}
-
-inline DecisionTrackStateSnapshotT *DecisionTrackStateSnapshot::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<oneq::replay::airborne_radar::fb::DecisionTrackStateSnapshotT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::DecisionTrackStateSnapshotT>(new DecisionTrackStateSnapshotT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void DecisionTrackStateSnapshot::UnPackTo(DecisionTrackStateSnapshotT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = association_key(); _o->association_key = _e; }
-  { auto _e = external_target_id(); _o->external_target_id = _e; }
-  { auto _e = status(); _o->status = _e; }
-  { auto _e = position_x(); _o->position_x = _e; }
-  { auto _e = position_y(); _o->position_y = _e; }
-  { auto _e = position_z(); _o->position_z = _e; }
-  { auto _e = velocity_x(); _o->velocity_x = _e; }
-  { auto _e = velocity_y(); _o->velocity_y = _e; }
-  { auto _e = velocity_z(); _o->velocity_z = _e; }
-  { auto _e = speed(); _o->speed = _e; }
-  { auto _e = acceleration_x(); _o->acceleration_x = _e; }
-  { auto _e = acceleration_y(); _o->acceleration_y = _e; }
-  { auto _e = acceleration_z(); _o->acceleration_z = _e; }
-  { auto _e = acceleration(); _o->acceleration = _e; }
-  { auto _e = rcs(); _o->rcs = _e; }
-  { auto _e = jamming_detected(); _o->jamming_detected = _e; }
-  { auto _e = hit_count(); _o->hit_count = _e; }
-  { auto _e = miss_count(); _o->miss_count = _e; }
-}
-
-inline flatbuffers::Offset<DecisionTrackStateSnapshot> DecisionTrackStateSnapshot::Pack(flatbuffers::FlatBufferBuilder &_fbb, const DecisionTrackStateSnapshotT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateDecisionTrackStateSnapshot(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<DecisionTrackStateSnapshot> CreateDecisionTrackStateSnapshot(flatbuffers::FlatBufferBuilder &_fbb, const DecisionTrackStateSnapshotT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const DecisionTrackStateSnapshotT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _association_key = _o->association_key;
-  auto _external_target_id = _o->external_target_id;
-  auto _status = _o->status;
-  auto _position_x = _o->position_x;
-  auto _position_y = _o->position_y;
-  auto _position_z = _o->position_z;
-  auto _velocity_x = _o->velocity_x;
-  auto _velocity_y = _o->velocity_y;
-  auto _velocity_z = _o->velocity_z;
-  auto _speed = _o->speed;
-  auto _acceleration_x = _o->acceleration_x;
-  auto _acceleration_y = _o->acceleration_y;
-  auto _acceleration_z = _o->acceleration_z;
-  auto _acceleration = _o->acceleration;
-  auto _rcs = _o->rcs;
-  auto _jamming_detected = _o->jamming_detected;
-  auto _hit_count = _o->hit_count;
-  auto _miss_count = _o->miss_count;
-  return oneq::replay::airborne_radar::fb::CreateDecisionTrackStateSnapshot(
-      _fbb,
-      _association_key,
-      _external_target_id,
-      _status,
-      _position_x,
-      _position_y,
-      _position_z,
-      _velocity_x,
-      _velocity_y,
-      _velocity_z,
-      _speed,
-      _acceleration_x,
-      _acceleration_y,
-      _acceleration_z,
-      _acceleration,
-      _rcs,
-      _jamming_detected,
-      _hit_count,
-      _miss_count);
-}
-
-inline TrackStateSnapshotT *TrackStateSnapshot::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<oneq::replay::airborne_radar::fb::TrackStateSnapshotT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::TrackStateSnapshotT>(new TrackStateSnapshotT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void TrackStateSnapshot::UnPackTo(TrackStateSnapshotT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = state(); if (_e) _o->state = std::unique_ptr<oneq::replay::airborne_radar::fb::DecisionTrackStateSnapshotT>(_e->UnPack(_resolver)); }
-}
-
-inline flatbuffers::Offset<TrackStateSnapshot> TrackStateSnapshot::Pack(flatbuffers::FlatBufferBuilder &_fbb, const TrackStateSnapshotT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateTrackStateSnapshot(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<TrackStateSnapshot> CreateTrackStateSnapshot(flatbuffers::FlatBufferBuilder &_fbb, const TrackStateSnapshotT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const TrackStateSnapshotT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _state = _o->state ? CreateDecisionTrackStateSnapshot(_fbb, _o->state.get(), _rehasher) : 0;
-  return oneq::replay::airborne_radar::fb::CreateTrackStateSnapshot(
-      _fbb,
-      _state);
-}
-
-inline RadarCycleResultT *RadarCycleResult::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<oneq::replay::airborne_radar::fb::RadarCycleResultT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::RadarCycleResultT>(new RadarCycleResultT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void RadarCycleResult::UnPackTo(RadarCycleResultT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = input_cycle_index(); _o->input_cycle_index = _e; }
-  { auto _e = track_output_frame(); if (_e) _o->track_output_frame = std::unique_ptr<oneq::replay::airborne_radar::fb::TrackOutputFrameT>(_e->UnPack(_resolver)); }
-  { auto _e = validation_issue_count(); _o->validation_issue_count = _e; }
-  { auto _e = executed_this_cycle(); _o->executed_this_cycle = _e; }
-}
-
-inline flatbuffers::Offset<RadarCycleResult> RadarCycleResult::Pack(flatbuffers::FlatBufferBuilder &_fbb, const RadarCycleResultT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateRadarCycleResult(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<RadarCycleResult> CreateRadarCycleResult(flatbuffers::FlatBufferBuilder &_fbb, const RadarCycleResultT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const RadarCycleResultT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _input_cycle_index = _o->input_cycle_index;
-  auto _track_output_frame = _o->track_output_frame ? CreateTrackOutputFrame(_fbb, _o->track_output_frame.get(), _rehasher) : 0;
-  auto _validation_issue_count = _o->validation_issue_count;
-  auto _executed_this_cycle = _o->executed_this_cycle;
-  return oneq::replay::airborne_radar::fb::CreateRadarCycleResult(
-      _fbb,
-      _input_cycle_index,
-      _track_output_frame,
-      _validation_issue_count,
-      _executed_this_cycle);
-}
-
-inline FailureMarkerT *FailureMarker::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<oneq::replay::airborne_radar::fb::FailureMarkerT> _o = std::unique_ptr<oneq::replay::airborne_radar::fb::FailureMarkerT>(new FailureMarkerT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void FailureMarker::UnPackTo(FailureMarkerT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = error_code(); if (_e) _o->error_code = _e->str(); }
-  { auto _e = message(); if (_e) _o->message = _e->str(); }
-  { auto _e = location(); if (_e) _o->location = _e->str(); }
-  { auto _e = has_cycle_index(); _o->has_cycle_index = _e; }
-  { auto _e = cycle_index(); _o->cycle_index = _e; }
-  { auto _e = has_sim_time_sec(); _o->has_sim_time_sec = _e; }
-  { auto _e = sim_time_sec(); _o->sim_time_sec = _e; }
-  { auto _e = diagnostics(); if (_e) _o->diagnostics = _e->str(); }
-  { auto _e = has_last_event_sequence(); _o->has_last_event_sequence = _e; }
-  { auto _e = last_event_sequence(); _o->last_event_sequence = _e; }
-}
-
-inline flatbuffers::Offset<FailureMarker> FailureMarker::Pack(flatbuffers::FlatBufferBuilder &_fbb, const FailureMarkerT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateFailureMarker(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<FailureMarker> CreateFailureMarker(flatbuffers::FlatBufferBuilder &_fbb, const FailureMarkerT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const FailureMarkerT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _error_code = _o->error_code.empty() ? 0 : _fbb.CreateString(_o->error_code);
-  auto _message = _o->message.empty() ? 0 : _fbb.CreateString(_o->message);
-  auto _location = _o->location.empty() ? 0 : _fbb.CreateString(_o->location);
-  auto _has_cycle_index = _o->has_cycle_index;
-  auto _cycle_index = _o->cycle_index;
-  auto _has_sim_time_sec = _o->has_sim_time_sec;
-  auto _sim_time_sec = _o->sim_time_sec;
-  auto _diagnostics = _o->diagnostics.empty() ? 0 : _fbb.CreateString(_o->diagnostics);
-  auto _has_last_event_sequence = _o->has_last_event_sequence;
-  auto _last_event_sequence = _o->last_event_sequence;
-  return oneq::replay::airborne_radar::fb::CreateFailureMarker(
-      _fbb,
-      _error_code,
-      _message,
-      _location,
-      _has_cycle_index,
-      _cycle_index,
-      _has_sim_time_sec,
-      _sim_time_sec,
-      _diagnostics,
-      _has_last_event_sequence,
-      _last_event_sequence);
-}
-
 inline const oneq::replay::airborne_radar::fb::RadarCycleInput *GetRadarCycleInput(const void *buf) {
   return flatbuffers::GetRoot<oneq::replay::airborne_radar::fb::RadarCycleInput>(buf);
 }
@@ -2487,18 +2190,6 @@ inline void FinishSizePrefixedRadarCycleInputBuffer(
     flatbuffers::FlatBufferBuilder &fbb,
     flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarCycleInput> root) {
   fbb.FinishSizePrefixed(root, RadarCycleInputIdentifier());
-}
-
-inline std::unique_ptr<oneq::replay::airborne_radar::fb::RadarCycleInputT> UnPackRadarCycleInput(
-    const void *buf,
-    const flatbuffers::resolver_function_t *res = nullptr) {
-  return std::unique_ptr<oneq::replay::airborne_radar::fb::RadarCycleInputT>(GetRadarCycleInput(buf)->UnPack(res));
-}
-
-inline std::unique_ptr<oneq::replay::airborne_radar::fb::RadarCycleInputT> UnPackSizePrefixedRadarCycleInput(
-    const void *buf,
-    const flatbuffers::resolver_function_t *res = nullptr) {
-  return std::unique_ptr<oneq::replay::airborne_radar::fb::RadarCycleInputT>(GetSizePrefixedRadarCycleInput(buf)->UnPack(res));
 }
 
 }  // namespace fb

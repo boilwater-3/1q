@@ -76,7 +76,6 @@ void MaybeWriteValidationFailureMarker(
   writer->WriteFailureMarker(failure, failure_bytes);
 }
 
-// P2-B: 写 cycle_input 事件并更新 pending 标志（直接由成员函数操作成员）。
 void WriteCycleInputEvent(const std::shared_ptr<oneq::replay::ReplayTraceWriter>& writer,
                           const RadarCycleInput& input) {
   oneq::replay::ReplayTraceEvent ev;
@@ -85,6 +84,8 @@ void WriteCycleInputEvent(const std::shared_ptr<oneq::replay::ReplayTraceWriter>
   ev.payload_type = "RadarCycleInput";
   ev.payload_encoding = "flatbuffers";
   ev.payload_bytes = EncodeCycleInputFlatbuffer(input);
+  ev.has_cycle_index = true;
+  ev.cycle_index = input.cycle_index;
   writer->WriteEvent(ev);
 }
 
@@ -101,26 +102,22 @@ RadarTraceSession::RadarTraceSession(const RadarSessionConfig& config,
 
 session::TrackOutputFrame RadarTraceSession::Step(const RadarCycleInput& input) {
   if (replay_writer_) {
-    pending_input_written_ = true;
     WriteCycleInputEvent(replay_writer_, input);
   }
   const session::TrackOutputFrame output = session_.Step(input);
   if (replay_writer_) {
     WriteTrackOutputReplay(replay_writer_, output);
-    pending_input_written_ = false;
   }
   return output;
 }
 
 RadarCycleResult RadarTraceSession::StepWithResult(const RadarCycleInput& input) {
   if (replay_writer_) {
-    pending_input_written_ = true;
     WriteCycleInputEvent(replay_writer_, input);
   }
   const RadarCycleResult output = session_.StepWithResult(input);
   if (replay_writer_) {
     WriteCycleResultReplay(replay_writer_, output);
-    pending_input_written_ = false;
     MaybeWriteValidationFailureMarker(replay_writer_, output);
   }
   return output;

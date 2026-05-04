@@ -56,7 +56,6 @@ class ONEQ_API RadarTraceSession {
  private:
   RadarSession session_;
   std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer_;
-  bool pending_input_written_{false};  // NOLINT: used via pointer in RadarTraceSession.cpp
 };
 
 }  // namespace session
