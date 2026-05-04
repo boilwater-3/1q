@@ -25,22 +25,23 @@ namespace session {
 struct ONEQ_API EsrOutputFrame {
   std::uint32_t cycle_index{0U};                             /**< 当前周期号 */
   std::uint64_t batch_id{0U};                                /**< 当前批次号 */
-  extension::ObservationOutputFrame observation_output{};     /**< 传感器观测输出通道 */
-  extension::EmitterOutputFrame emitter_output{};             /**< 侦察假设输出通道 */
-  extension::TruthEvaluationFrame truth_evaluation_output{};  /**< 真值评估输出通道 */
+  extension::ObservationOutputFrame observation_output{};    /**< 传感器观测输出通道 */
+  extension::EmitterOutputFrame emitter_output{};            /**< 侦察假设输出通道 */
+  extension::TruthEvaluationFrame truth_evaluation_output{}; /**< 真值评估输出通道 */
 };
 
 /**
  * @brief EsrCycleResult 描述电子侦察会话单周期聚合结果。
  */
 struct ONEQ_API EsrCycleResult {
-  EsrOutputFrame output_frame{};               /**< 当前周期输出帧 */
+  std::uint32_t input_cycle_index{0U}; /**< 本次调用输入周期号，用于失败结果与 trace 归属 */
+  EsrOutputFrame output_frame{};       /**< 当前周期输出帧 */
   session::ValidationIssueList validation_issues{}; /**< 当前周期输入校验结果 */
-  bool has_validation_error{false};                    /**< 是否存在 error 级输入问题 */
-  bool executed_this_cycle{false};                     /**< 当前调用是否真正执行了 pipeline */
-  bool reused_previous_output{false};                  /**< 当前 output_frame 是否复用了上一有效周期输出 */
+  bool has_validation_error{false};                 /**< 是否存在 error 级输入问题 */
+  bool executed_this_cycle{false};                  /**< 当前调用是否真正执行了 pipeline */
+  bool reused_previous_output{false}; /**< 当前 output_frame 是否复用了上一有效周期输出 */
   extension::EsrPipelineAbortReason abort_reason{
-      extension::EsrPipelineAbortReason::kNone};       /**< 若 downstream 链路 abort，给出结构化原因 */
+      extension::EsrPipelineAbortReason::kNone}; /**< 若 downstream 链路 abort，给出结构化原因 */
 };
 
 }  // namespace session

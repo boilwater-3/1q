@@ -3,9 +3,9 @@
 #include <string>
 #include <utility>
 
-#include "EsrReplayFlatbufferCodec.h"
 #include "1q/replay/ReplayTrace.h"
 #include "1q/trace/TraceSink.h"
+#include "EsrReplayFlatbufferCodec.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
@@ -72,10 +72,12 @@ session::EsrOutputFrame EsrTraceSession::Step(const EsrCycleInput& input) {
   }
   const session::EsrOutputFrame output = impl_->session.Step(input);
   if (impl_->sink) {
-    impl_->sink->Record("electronic_surveillance_radar", "output", std::to_string(output.cycle_index));
+    impl_->sink->Record("electronic_surveillance_radar", "output",
+                        std::to_string(output.cycle_index));
   }
   if (impl_->replay_writer) {
-    impl_->WriteReplayEvent("cycle_output", "EsrOutputFrame", EncodeEsrOutputFrame(output), output.cycle_index);
+    impl_->WriteReplayEvent("cycle_output", "EsrOutputFrame", EncodeEsrOutputFrame(output),
+                            output.cycle_index);
     impl_->pending_input_written = false;
   }
   return output;
@@ -106,13 +108,13 @@ EsrCycleResult EsrTraceSession::StepWithResult(const EsrCycleInput& input) {
   }
   if (impl_->replay_writer) {
     impl_->WriteReplayEvent("cycle_output", "EsrCycleResult", EncodeEsrCycleResult(result),
-                            result.output_frame.cycle_index);
+                            result.input_cycle_index);
     impl_->pending_input_written = false;
     if (result.has_validation_error) {
       oneq::replay::ReplayTraceFailure failure;
       failure.error_code = "validation_error";
       failure.message = "EsrCycleResult has_validation_error=true";
-      failure.cycle_index = result.output_frame.cycle_index;
+      failure.cycle_index = result.input_cycle_index;
       failure.has_cycle_index = true;
       impl_->replay_writer->WriteFailureMarker(failure);
     }

@@ -16,20 +16,21 @@ namespace session {
  * @brief EosOutputFrame 表示单周期聚合探测输出帧。
  */
 struct ONEQ_API EosOutputFrame {
-  std::uint32_t cycle_index{0U};                       /**< 当前周期号 */
-  float scan_azimuth_deg{0.0f};                        /**< 当前周期扫描中心方位角（单位：deg） */
-  output::EosDetectionRecordList detections{};          /**< 当前周期探测结果 */
+  std::uint32_t cycle_index{0U};               /**< 当前周期号 */
+  float scan_azimuth_deg{0.0f};                /**< 当前周期扫描中心方位角（单位：deg） */
+  output::EosDetectionRecordList detections{}; /**< 当前周期探测结果 */
 };
 
 /**
  * @brief EosCycleResult 描述光学传感器单周期聚合结果。
  */
 struct ONEQ_API EosCycleResult {
-  EosOutputFrame output_frame{};               /**< 当前周期输出帧 */
+  std::uint32_t input_cycle_index{0U};     /**< 本次调用输入周期号，用于失败结果与 trace 归属 */
+  EosOutputFrame output_frame{};           /**< 当前周期输出帧 */
   ValidationIssueList validation_issues{}; /**< 当前周期输入校验结果 */
-  bool has_validation_error{false};                    /**< 是否存在 error 级输入问题 */
-  bool executed_this_cycle{false}; /**< 当前周期是否实际执行了核心 pipeline */
-  bool reused_previous_output{false}; /**< 当前周期是否复用了上一有效输出 */
+  bool has_validation_error{false};        /**< 是否存在 error 级输入问题 */
+  bool executed_this_cycle{false};         /**< 当前周期是否实际执行了核心 pipeline */
+  bool reused_previous_output{false};      /**< 当前周期是否复用了上一有效输出 */
   extension::EosPipelineAbortReason abort_reason{
       extension::EosPipelineAbortReason::kNone}; /**< 当前周期终止原因 */
 };

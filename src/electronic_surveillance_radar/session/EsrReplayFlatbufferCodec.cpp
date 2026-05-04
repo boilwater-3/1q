@@ -309,8 +309,8 @@ std::string EncodeEsrCycleResult(const EsrCycleResult& v) {
         fbb.CreateString(i.message)));
   }
   fbb.Finish(esr::replay::CreateEsrCycleResult(
-      fbb, frame, fbb.CreateVector(issues), v.has_validation_error, v.executed_this_cycle,
-      v.reused_previous_output, static_cast<int32_t>(v.abort_reason)));
+      fbb, v.input_cycle_index, frame, fbb.CreateVector(issues), v.has_validation_error,
+      v.executed_this_cycle, v.reused_previous_output, static_cast<int32_t>(v.abort_reason)));
   return {reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize()};
 }
 
@@ -320,6 +320,7 @@ bool DecodeEsrCycleResult(const std::string& bytes, EsrCycleResult* out) {
     return false;
   }
   const auto* fb = flatbuffers::GetRoot<esr::replay::EsrCycleResult>(bytes.data());
+  out->input_cycle_index = fb->input_cycle_index();
   PopulateOutputFrame(fb->output_frame(), &out->output_frame);
   out->has_validation_error = fb->has_validation_error();
   out->executed_this_cycle = fb->executed_this_cycle();

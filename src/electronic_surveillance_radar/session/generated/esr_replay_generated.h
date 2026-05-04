@@ -1816,6 +1816,7 @@ flatbuffers::Offset<ValidationIssue> CreateValidationIssue(flatbuffers::FlatBuff
 
 struct EsrCycleResultT : public flatbuffers::NativeTable {
   typedef EsrCycleResult TableType;
+  uint32_t input_cycle_index;
   std::unique_ptr<esr::replay::EsrOutputFrameT> output_frame;
   std::vector<std::unique_ptr<esr::replay::ValidationIssueT>> validation_issues;
   bool has_validation_error;
@@ -1823,7 +1824,8 @@ struct EsrCycleResultT : public flatbuffers::NativeTable {
   bool reused_previous_output;
   int32_t abort_reason;
   EsrCycleResultT()
-      : has_validation_error(false),
+      : input_cycle_index(0),
+        has_validation_error(false),
         executed_this_cycle(false),
         reused_previous_output(false),
         abort_reason(0) {
@@ -1834,13 +1836,17 @@ struct EsrCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef EsrCycleResultT NativeTableType;
   typedef EsrCycleResultBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_OUTPUT_FRAME = 4,
-    VT_VALIDATION_ISSUES = 6,
-    VT_HAS_VALIDATION_ERROR = 8,
-    VT_EXECUTED_THIS_CYCLE = 10,
-    VT_REUSED_PREVIOUS_OUTPUT = 12,
-    VT_ABORT_REASON = 14
+    VT_INPUT_CYCLE_INDEX = 4,
+    VT_OUTPUT_FRAME = 6,
+    VT_VALIDATION_ISSUES = 8,
+    VT_HAS_VALIDATION_ERROR = 10,
+    VT_EXECUTED_THIS_CYCLE = 12,
+    VT_REUSED_PREVIOUS_OUTPUT = 14,
+    VT_ABORT_REASON = 16
   };
+  uint32_t input_cycle_index() const {
+    return GetField<uint32_t>(VT_INPUT_CYCLE_INDEX, 0);
+  }
   const esr::replay::EsrOutputFrame *output_frame() const {
     return GetPointer<const esr::replay::EsrOutputFrame *>(VT_OUTPUT_FRAME);
   }
@@ -1861,6 +1867,7 @@ struct EsrCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_INPUT_CYCLE_INDEX) &&
            VerifyOffset(verifier, VT_OUTPUT_FRAME) &&
            verifier.VerifyTable(output_frame()) &&
            VerifyOffset(verifier, VT_VALIDATION_ISSUES) &&
@@ -1881,6 +1888,9 @@ struct EsrCycleResultBuilder {
   typedef EsrCycleResult Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
+  void add_input_cycle_index(uint32_t input_cycle_index) {
+    fbb_.AddElement<uint32_t>(EsrCycleResult::VT_INPUT_CYCLE_INDEX, input_cycle_index, 0);
+  }
   void add_output_frame(flatbuffers::Offset<esr::replay::EsrOutputFrame> output_frame) {
     fbb_.AddOffset(EsrCycleResult::VT_OUTPUT_FRAME, output_frame);
   }
@@ -1913,6 +1923,7 @@ struct EsrCycleResultBuilder {
 
 inline flatbuffers::Offset<EsrCycleResult> CreateEsrCycleResult(
     flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t input_cycle_index = 0,
     flatbuffers::Offset<esr::replay::EsrOutputFrame> output_frame = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<esr::replay::ValidationIssue>>> validation_issues = 0,
     bool has_validation_error = false,
@@ -1923,6 +1934,7 @@ inline flatbuffers::Offset<EsrCycleResult> CreateEsrCycleResult(
   builder_.add_abort_reason(abort_reason);
   builder_.add_validation_issues(validation_issues);
   builder_.add_output_frame(output_frame);
+  builder_.add_input_cycle_index(input_cycle_index);
   builder_.add_reused_previous_output(reused_previous_output);
   builder_.add_executed_this_cycle(executed_this_cycle);
   builder_.add_has_validation_error(has_validation_error);
@@ -1931,6 +1943,7 @@ inline flatbuffers::Offset<EsrCycleResult> CreateEsrCycleResult(
 
 inline flatbuffers::Offset<EsrCycleResult> CreateEsrCycleResultDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t input_cycle_index = 0,
     flatbuffers::Offset<esr::replay::EsrOutputFrame> output_frame = 0,
     const std::vector<flatbuffers::Offset<esr::replay::ValidationIssue>> *validation_issues = nullptr,
     bool has_validation_error = false,
@@ -1940,6 +1953,7 @@ inline flatbuffers::Offset<EsrCycleResult> CreateEsrCycleResultDirect(
   auto validation_issues__ = validation_issues ? _fbb.CreateVector<flatbuffers::Offset<esr::replay::ValidationIssue>>(*validation_issues) : 0;
   return esr::replay::CreateEsrCycleResult(
       _fbb,
+      input_cycle_index,
       output_frame,
       validation_issues__,
       has_validation_error,
@@ -2523,6 +2537,7 @@ inline EsrCycleResultT *EsrCycleResult::UnPack(const flatbuffers::resolver_funct
 inline void EsrCycleResult::UnPackTo(EsrCycleResultT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
+  { auto _e = input_cycle_index(); _o->input_cycle_index = _e; }
   { auto _e = output_frame(); if (_e) _o->output_frame = std::unique_ptr<esr::replay::EsrOutputFrameT>(_e->UnPack(_resolver)); }
   { auto _e = validation_issues(); if (_e) { _o->validation_issues.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->validation_issues[_i] = std::unique_ptr<esr::replay::ValidationIssueT>(_e->Get(_i)->UnPack(_resolver)); } } }
   { auto _e = has_validation_error(); _o->has_validation_error = _e; }
@@ -2539,6 +2554,7 @@ inline flatbuffers::Offset<EsrCycleResult> CreateEsrCycleResult(flatbuffers::Fla
   (void)_rehasher;
   (void)_o;
   struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EsrCycleResultT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _input_cycle_index = _o->input_cycle_index;
   auto _output_frame = _o->output_frame ? CreateEsrOutputFrame(_fbb, _o->output_frame.get(), _rehasher) : 0;
   auto _validation_issues = _o->validation_issues.size() ? _fbb.CreateVector<flatbuffers::Offset<esr::replay::ValidationIssue>> (_o->validation_issues.size(), [](size_t i, _VectorArgs *__va) { return CreateValidationIssue(*__va->__fbb, __va->__o->validation_issues[i].get(), __va->__rehasher); }, &_va ) : 0;
   auto _has_validation_error = _o->has_validation_error;
@@ -2547,6 +2563,7 @@ inline flatbuffers::Offset<EsrCycleResult> CreateEsrCycleResult(flatbuffers::Fla
   auto _abort_reason = _o->abort_reason;
   return esr::replay::CreateEsrCycleResult(
       _fbb,
+      _input_cycle_index,
       _output_frame,
       _validation_issues,
       _has_validation_error,

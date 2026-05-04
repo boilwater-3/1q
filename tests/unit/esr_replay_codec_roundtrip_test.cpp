@@ -207,6 +207,7 @@ TEST(EsrReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
 
 TEST(EsrReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   EsrCycleResult result;
+  result.input_cycle_index = 55U;
   result.output_frame.cycle_index = 5U;
   result.output_frame.batch_id = 3U;
 
@@ -233,6 +234,7 @@ TEST(EsrReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   EsrCycleResult decoded;
   ASSERT_TRUE(DecodeEsrCycleResult(bytes, &decoded));
 
+  EXPECT_EQ(decoded.input_cycle_index, 55U);
   EXPECT_EQ(decoded.output_frame.cycle_index, 5U);
   EXPECT_EQ(decoded.output_frame.batch_id, 3U);
   ASSERT_EQ(decoded.output_frame.observation_output.observations.size(), 1U);

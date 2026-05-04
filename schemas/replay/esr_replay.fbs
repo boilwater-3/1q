@@ -147,6 +147,7 @@ table ValidationIssue {
 }
 
 table EsrCycleResult {
+  input_cycle_index:    uint32;
   output_frame:         EsrOutputFrame;
   validation_issues:    [ValidationIssue];
   has_validation_error: bool;

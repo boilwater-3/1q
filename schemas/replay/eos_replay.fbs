@@ -89,6 +89,7 @@ table ValidationIssue {
 }
 
 table EosCycleResult {
+  input_cycle_index:      uint32;
   output_frame:           EosOutputFrame;
   validation_issues:      [ValidationIssue];
   has_validation_error:   bool;

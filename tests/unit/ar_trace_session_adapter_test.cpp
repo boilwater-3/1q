@@ -30,6 +30,8 @@
 #include "1q/replay/ReplayTrace.h"
 #include "1q/trace/TraceSink.h"
 #include "airborne_radar/session/RadarReplayFlatbufferCodec.h"
+#include "electro_optical_sensor/session/EosReplayFlatbufferCodec.h"
+#include "electronic_surveillance_radar/session/EsrReplayFlatbufferCodec.h"
 
 namespace {
 
@@ -472,6 +474,66 @@ TEST(TraceSessionAdapterTest, EsrTraceSessionWritesConfigInputOutput) {
   std::remove(trace_path.c_str());
 }
 
+TEST(TraceSessionAdapterTest, EsrTraceSessionUsesInputCycleIndexForValidationFailures) {
+  const std::string trace_dir = MakeTempTracePath("oneq-esr-validation-failure");
+
+  oneq::replay::ReplayTraceManifest manifest;
+  manifest.trace_id = "esr-validation-failure-test";
+  manifest.module = "electronic_surveillance_radar";
+  manifest.scenario_id = "unit-test";
+
+  std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
+      new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
+
+  session::EsrSessionConfig config;
+  config.hardware.beam_az_width_deg = 120.0f;
+  config.hardware.beam_el_width_deg = 40.0f;
+
+  session::EsrTraceSessionOptions options;
+  options.replay_writer = replay_writer;
+  options.trace_config_on_construct = true;
+  session::EsrTraceSession session(config, options);
+
+  session::EsrCycleInput valid_input;
+  valid_input.cycle_index = 1U;
+  valid_input.dt_sec = 1.0f;
+  const session::EsrCycleResult valid_result = session.StepWithResult(valid_input);
+  ASSERT_TRUE(valid_result.executed_this_cycle);
+
+  session::EsrCycleInput invalid_input;
+  invalid_input.cycle_index = 77U;
+  invalid_input.dt_sec = -1.0f;
+  const session::EsrCycleResult invalid_result = session.StepWithResult(invalid_input);
+  EXPECT_TRUE(invalid_result.has_validation_error);
+  EXPECT_EQ(invalid_result.input_cycle_index, 77U);
+  EXPECT_EQ(invalid_result.output_frame.cycle_index, valid_result.output_frame.cycle_index);
+  replay_writer->Flush();
+
+  oneq::replay::ReplayTraceReader replay_reader(trace_dir);
+  oneq::replay::ReplayTraceReadEvent replay_event;
+  bool saw_failed_cycle_output = false;
+  bool saw_failure_marker = false;
+  while (replay_reader.ReadNextEvent(&replay_event)) {
+    if (replay_event.event_type == "cycle_output") {
+      session::EsrCycleResult decoded_result;
+      ASSERT_TRUE(session::DecodeEsrCycleResult(replay_event.payload_bytes, &decoded_result));
+      if (decoded_result.has_validation_error) {
+        saw_failed_cycle_output = true;
+        EXPECT_TRUE(replay_event.has_cycle_index);
+        EXPECT_EQ(replay_event.cycle_index, 77U);
+        EXPECT_EQ(decoded_result.input_cycle_index, 77U);
+      }
+    }
+    if (replay_event.event_type == "failure_marker") {
+      saw_failure_marker = true;
+      EXPECT_TRUE(replay_event.has_cycle_index);
+      EXPECT_EQ(replay_event.cycle_index, 77U);
+    }
+  }
+  EXPECT_TRUE(saw_failed_cycle_output);
+  EXPECT_TRUE(saw_failure_marker);
+}
+
 }  // namespace tests
 }  // namespace electronic_surveillance_radar
 
@@ -501,6 +563,66 @@ TEST(TraceSessionAdapterTest, EosTraceSessionWritesConfigInputOutput) {
   ExpectCommonTracePhases(content, "electro_optical_sensor");
 
   std::remove(trace_path.c_str());
+}
+
+TEST(TraceSessionAdapterTest, EosTraceSessionUsesInputCycleIndexForValidationFailures) {
+  const std::string trace_dir = MakeTempTracePath("oneq-eos-validation-failure");
+
+  oneq::replay::ReplayTraceManifest manifest;
+  manifest.trace_id = "eos-validation-failure-test";
+  manifest.module = "electro_optical_sensor";
+  manifest.scenario_id = "unit-test";
+
+  std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
+      new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
+
+  session::EosSessionConfig config;
+  config.policy.detection.profile =
+      ::electro_optical_sensor::config::EosDetectionProfile::kAggressive;
+
+  session::EosTraceSessionOptions options;
+  options.replay_writer = replay_writer;
+  options.trace_config_on_construct = true;
+  session::EosTraceSession session(config, options);
+
+  session::EosCycleInput valid_input;
+  valid_input.cycle_index = 1U;
+  valid_input.dt_sec = 1.0f;
+  const session::EosCycleResult valid_result = session.StepWithResult(valid_input);
+  ASSERT_TRUE(valid_result.executed_this_cycle);
+
+  session::EosCycleInput invalid_input;
+  invalid_input.cycle_index = 77U;
+  invalid_input.dt_sec = -1.0f;
+  const session::EosCycleResult invalid_result = session.StepWithResult(invalid_input);
+  EXPECT_TRUE(invalid_result.has_validation_error);
+  EXPECT_EQ(invalid_result.input_cycle_index, 77U);
+  EXPECT_EQ(invalid_result.output_frame.cycle_index, valid_result.output_frame.cycle_index);
+  replay_writer->Flush();
+
+  oneq::replay::ReplayTraceReader replay_reader(trace_dir);
+  oneq::replay::ReplayTraceReadEvent replay_event;
+  bool saw_failed_cycle_output = false;
+  bool saw_failure_marker = false;
+  while (replay_reader.ReadNextEvent(&replay_event)) {
+    if (replay_event.event_type == "cycle_output") {
+      session::EosCycleResult decoded_result;
+      ASSERT_TRUE(session::DecodeEosCycleResult(replay_event.payload_bytes, &decoded_result));
+      if (decoded_result.has_validation_error) {
+        saw_failed_cycle_output = true;
+        EXPECT_TRUE(replay_event.has_cycle_index);
+        EXPECT_EQ(replay_event.cycle_index, 77U);
+        EXPECT_EQ(decoded_result.input_cycle_index, 77U);
+      }
+    }
+    if (replay_event.event_type == "failure_marker") {
+      saw_failure_marker = true;
+      EXPECT_TRUE(replay_event.has_cycle_index);
+      EXPECT_EQ(replay_event.cycle_index, 77U);
+    }
+  }
+  EXPECT_TRUE(saw_failed_cycle_output);
+  EXPECT_TRUE(saw_failure_marker);
 }
 
 }  // namespace tests

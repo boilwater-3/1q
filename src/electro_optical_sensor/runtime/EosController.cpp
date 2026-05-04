@@ -4,8 +4,8 @@
 #include <memory>
 
 #include "1q/electro_optical_sensor/extension/IEosPipeline.h"
-#include "common/runtime/RuntimeCycleExecutor.h"
 #include "common/logging/ProjectLog.h"
+#include "common/runtime/RuntimeCycleExecutor.h"
 #include "electro_optical_sensor/runtime/components/EosCycleOutcomeRecorder.h"
 #include "electro_optical_sensor/runtime/components/EosInputValidator.h"
 #include "electro_optical_sensor/runtime/components/EosSignalProcessor.h"
@@ -147,8 +147,10 @@ extension::EosPipelineAbortReason EosController::GetLastAbortReason() const {
   return impl_->last_abort_reason;
 }
 
-::electro_optical_sensor::session::EosCycleResult EosController::BuildCycleResult(const ::electro_optical_sensor::session::EosCycleInput& input) const {
+::electro_optical_sensor::session::EosCycleResult EosController::BuildCycleResult(
+    const ::electro_optical_sensor::session::EosCycleInput& input) const {
   ::electro_optical_sensor::session::EosCycleResult result;
+  result.input_cycle_index = input.cycle_index;
   result.validation_issues = impl_->last_validation_issues;
   result.has_validation_error = impl_->has_validation_error;
   result.executed_this_cycle = impl_->last_cycle_executed;

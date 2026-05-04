@@ -148,6 +148,7 @@ TEST(EosReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
 
 TEST(EosReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   EosCycleResult result;
+  result.input_cycle_index = 55U;
   result.output_frame.cycle_index = 5U;
   result.output_frame.scan_azimuth_deg = 20.0f;
 
@@ -167,6 +168,7 @@ TEST(EosReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   EosCycleResult decoded;
   ASSERT_TRUE(DecodeEosCycleResult(bytes, &decoded));
 
+  EXPECT_EQ(decoded.input_cycle_index, 55U);
   EXPECT_EQ(decoded.output_frame.cycle_index, 5U);
   EXPECT_FLOAT_EQ(decoded.output_frame.scan_azimuth_deg, 20.0f);
   ASSERT_EQ(decoded.output_frame.detections.size(), 1U);

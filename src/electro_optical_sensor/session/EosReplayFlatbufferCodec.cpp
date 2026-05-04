@@ -209,8 +209,8 @@ std::string EncodeEosCycleResult(const ::electro_optical_sensor::session::EosCyc
   }
 
   auto result = eos::replay::CreateEosCycleResult(
-      fbb, frame, fbb.CreateVector(issue_vec), v.has_validation_error, v.executed_this_cycle,
-      v.reused_previous_output, static_cast<int32_t>(v.abort_reason));
+      fbb, v.input_cycle_index, frame, fbb.CreateVector(issue_vec), v.has_validation_error,
+      v.executed_this_cycle, v.reused_previous_output, static_cast<int32_t>(v.abort_reason));
   fbb.Finish(result);
   const uint8_t* buf = fbb.GetBufferPointer();
   return std::string(reinterpret_cast<const char*>(buf), fbb.GetSize());
@@ -223,6 +223,7 @@ bool DecodeEosCycleResult(const std::string& bytes,
     return false;
   }
   const auto* fb = flatbuffers::GetRoot<eos::replay::EosCycleResult>(bytes.data());
+  out->input_cycle_index = fb->input_cycle_index();
   if (fb->output_frame()) {
     DecodeEosOutputFrame(EncodeEosOutputFrame(out->output_frame), &out->output_frame);
     // 直接从 fb 还原（不能递归，展开）

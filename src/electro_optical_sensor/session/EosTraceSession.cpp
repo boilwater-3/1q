@@ -3,9 +3,9 @@
 #include <string>
 #include <utility>
 
-#include "EosReplayFlatbufferCodec.h"
 #include "1q/replay/ReplayTrace.h"
 #include "1q/trace/TraceSink.h"
+#include "EosReplayFlatbufferCodec.h"
 
 namespace electro_optical_sensor {
 namespace session {
@@ -81,7 +81,8 @@ session::EosOutputFrame EosTraceSession::Step(const EosCycleInput& input) {
   return output;
 }
 
-::electro_optical_sensor::session::EosCycleResult EosTraceSession::StepWithResult(const EosCycleInput& input) {
+::electro_optical_sensor::session::EosCycleResult EosTraceSession::StepWithResult(
+    const EosCycleInput& input) {
   if (impl_->replay_writer) {
     if (impl_->pending_input_written) {
       // P2-B: 连续两次 cycle_input 无中间 output，记录 warning 后继续
@@ -107,14 +108,14 @@ session::EosOutputFrame EosTraceSession::Step(const EosCycleInput& input) {
   }
   if (impl_->replay_writer) {
     impl_->WriteReplayEvent("cycle_output", "EosCycleResult", EncodeEosCycleResult(result),
-                            result.output_frame.cycle_index);
+                            result.input_cycle_index);
     impl_->pending_input_written = false;
     // P1-A: 自动 failure_marker
     if (result.has_validation_error) {
       oneq::replay::ReplayTraceFailure failure;
       failure.error_code = "validation_error";
       failure.message = "EosCycleResult has_validation_error=true";
-      failure.cycle_index = result.output_frame.cycle_index;
+      failure.cycle_index = result.input_cycle_index;
       failure.has_cycle_index = true;
       impl_->replay_writer->WriteFailureMarker(failure);
     }

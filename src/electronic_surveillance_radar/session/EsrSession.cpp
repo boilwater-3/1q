@@ -1,9 +1,9 @@
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 
-#include "1q/electronic_surveillance_radar/extension/EsrController.h"
-#include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
 #include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
+#include "1q/electronic_surveillance_radar/extension/EsrController.h"
 #include "1q/electronic_surveillance_radar/extension/IInterceptPipeline.h"
+#include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
 #include "electronic_surveillance_radar/session/EsrRuntimeConfigResolver.h"
 #include "electronic_surveillance_radar/session/EsrSessionCompositionRoot.h"
 
@@ -27,8 +27,9 @@ struct EsrSession::Impl {
    * @brief 装配当前周期会话结果。
    * @return 当前周期聚合结果。
    */
-  EsrCycleResult BuildCycleResult() const {
+  EsrCycleResult BuildCycleResult(const session::EsrCycleInput& input) const {
     EsrCycleResult result;
+    result.input_cycle_index = input.cycle_index;
     result.output_frame = BuildOutputFrame();
     result.validation_issues = controller.GetLastValidationIssues();
     result.has_validation_error = session::HasValidationError(result.validation_issues);
@@ -93,7 +94,7 @@ session::EsrOutputFrame EsrSession::Step(const session::EsrCycleInput& input) {
 
 EsrCycleResult EsrSession::StepWithResult(const session::EsrCycleInput& input) {
   impl_->controller.RunOnce(input);
-  return impl_->BuildCycleResult();
+  return impl_->BuildCycleResult(input);
 }
 
 void EsrSession::ApplyRuntimeConfig(const EsrRuntimeConfigPatch& patch) {
