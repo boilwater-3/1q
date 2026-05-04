@@ -55,7 +55,7 @@ void WriteCycleResultReplay(const std::shared_ptr<oneq::replay::ReplayTraceWrite
   event.payload_encoding = "flatbuffers";
   event.payload_bytes = EncodeCycleResultFlatbuffer(result);
   event.has_cycle_index = true;
-  event.cycle_index = result.track_output_frame.cycle_index;
+  event.cycle_index = result.input_cycle_index;
   writer->WriteEvent(event);
 }
 
@@ -71,7 +71,7 @@ void MaybeWriteValidationFailureMarker(
   failure.message = "RadarCycleResult has_validation_error set";
   failure.location = "RadarTraceSession::StepWithResult";
   failure.has_cycle_index = true;
-  failure.cycle_index = result.track_output_frame.cycle_index;
+  failure.cycle_index = result.input_cycle_index;
   const std::string failure_bytes = EncodeFailureMarkerFlatbuffer(failure, false, 0U);
   writer->WriteFailureMarker(failure, failure_bytes);
 }

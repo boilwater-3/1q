@@ -5,7 +5,6 @@
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
-#include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/replay/ReplayTrace.h"
@@ -28,10 +27,6 @@ bool DecodeSessionConfigFlatbuffer(const std::string& payload_bytes, RadarSessio
 std::string EncodeRuntimeConfigPatchFlatbuffer(const config::RadarRuntimeConfigPatch& patch);
 bool DecodeRuntimeConfigPatchFlatbuffer(const std::string& payload_bytes,
                                         config::RadarRuntimeConfigPatch* patch, std::string* error);
-std::string EncodeSceneStateFlatbuffer(const environment::EnvironmentSceneState& scene_state);
-bool DecodeSceneStateFlatbuffer(const std::string& payload_bytes,
-                                environment::EnvironmentSceneState* scene_state,
-                                std::string* error);
 std::string EncodeFailureMarkerFlatbuffer(const oneq::replay::ReplayTraceFailure& failure,
                                           bool has_last_event_sequence,
                                           std::uint64_t last_event_sequence);

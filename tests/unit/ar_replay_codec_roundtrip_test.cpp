@@ -15,8 +15,8 @@
 #include "1q/airborne_radar/environment/EnvironmentConfig.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/model/TrackStateSnapshot.h"
-#include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
+#include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/replay/ReplayTrace.h"
 #include "airborne_radar/session/RadarReplayFlatbufferCodec.h"
 
@@ -153,7 +153,6 @@ TEST(ArReplayCodecRoundtripTest, TrackOutputFramePreservesAllFields) {
   EXPECT_TRUE(ds.jamming_detected);
   EXPECT_EQ(ds.hit_count, 5U);
   EXPECT_EQ(ds.miss_count, 1U);
-
 }
 
 // ---------------------------------------------------------------------------
@@ -162,6 +161,7 @@ TEST(ArReplayCodecRoundtripTest, TrackOutputFramePreservesAllFields) {
 
 TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   RadarCycleResult result;
+  result.input_cycle_index = 55U;
   result.track_output_frame.cycle_index = 5U;
   result.track_output_frame.batch_id = 3U;
 
@@ -182,6 +182,7 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   std::string error;
   ASSERT_TRUE(DecodeCycleResultFlatbuffer(bytes, &decoded, &error)) << error;
 
+  EXPECT_EQ(decoded.input_cycle_index, 55U);
   EXPECT_EQ(decoded.track_output_frame.cycle_index, 5U);
   EXPECT_EQ(decoded.track_output_frame.tracks.size(), 1U);
   EXPECT_EQ(decoded.track_output_frame.batch_id, 3U);
@@ -256,8 +257,7 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_physics.pressure_hpa, 1010.0f);
   EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_physics.temperature_k, 290.0f);
   EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_physics.relative_humidity, 0.6f);
-  EXPECT_TRUE(
-      decoded.environment.scenario_config.atmospheric_context.has_simulation_unix_seconds);
+  EXPECT_TRUE(decoded.environment.scenario_config.atmospheric_context.has_simulation_unix_seconds);
   EXPECT_EQ(decoded.environment.scenario_config.atmospheric_context.simulation_unix_seconds,
             1700000000LL);
   EXPECT_TRUE(decoded.environment.scenario_config.vegetation_scatter_physics.enable_physical_model);
@@ -322,54 +322,6 @@ TEST(ArReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   EXPECT_FLOAT_EQ(
       decoded.environment_runtime_config.scenario_config.atmospheric_physics.relative_humidity,
       0.45f);
-}
-
-// ---------------------------------------------------------------------------
-// EnvironmentSceneState
-// ---------------------------------------------------------------------------
-
-TEST(ArReplayCodecRoundtripTest, SceneStatePreservesAllFields) {
-  environment::EnvironmentSceneState scene;
-  scene.atmospheric_physics.enable_physical_model = true;
-  scene.atmospheric_physics.pressure_hpa = 1005.0f;
-  scene.atmospheric_physics.temperature_k = 285.0f;
-  scene.atmospheric_physics.relative_humidity = 0.7f;
-  scene.atmospheric_context.has_simulation_unix_seconds = true;
-  scene.atmospheric_context.simulation_unix_seconds = 1600000000LL;
-  scene.atmospheric_context.solar_flux_f107a = 155.0f;
-  scene.vegetation_scatter_physics.enable_physical_model = true;
-  scene.vegetation_scatter_physics.cover_profile =
-      environment::VegetationCoverProfile::kDeciduousForest;
-
-  environment::JammerEmitterState jammer;
-  jammer.technique = environment::JammingTechnique::kNoiseSuppression;
-  jammer.power_db = 20.0f;
-  jammer.js_db = 6.0f;
-  jammer.has_direction_deg = false;
-  jammer.confidence = 0.9f;
-  scene.jammer_emitters.push_back(jammer);
-
-  const std::string bytes = EncodeSceneStateFlatbuffer(scene);
-  ASSERT_FALSE(bytes.empty());
-
-  environment::EnvironmentSceneState decoded;
-  std::string error;
-  ASSERT_TRUE(DecodeSceneStateFlatbuffer(bytes, &decoded, &error)) << error;
-
-  EXPECT_TRUE(decoded.atmospheric_physics.enable_physical_model);
-  EXPECT_FLOAT_EQ(decoded.atmospheric_physics.pressure_hpa, 1005.0f);
-  EXPECT_FLOAT_EQ(decoded.atmospheric_physics.relative_humidity, 0.7f);
-  EXPECT_TRUE(decoded.atmospheric_context.has_simulation_unix_seconds);
-  EXPECT_EQ(decoded.atmospheric_context.simulation_unix_seconds, 1600000000LL);
-  EXPECT_FLOAT_EQ(decoded.atmospheric_context.solar_flux_f107a, 155.0f);
-  EXPECT_TRUE(decoded.vegetation_scatter_physics.enable_physical_model);
-  EXPECT_EQ(decoded.vegetation_scatter_physics.cover_profile,
-            environment::VegetationCoverProfile::kDeciduousForest);
-  ASSERT_EQ(decoded.jammer_emitters.size(), 1U);
-  EXPECT_EQ(decoded.jammer_emitters[0].technique, environment::JammingTechnique::kNoiseSuppression);
-  EXPECT_FLOAT_EQ(decoded.jammer_emitters[0].power_db, 20.0f);
-  EXPECT_FLOAT_EQ(decoded.jammer_emitters[0].confidence, 0.9f);
-  EXPECT_FALSE(decoded.jammer_emitters[0].has_direction_deg);
 }
 
 // ---------------------------------------------------------------------------

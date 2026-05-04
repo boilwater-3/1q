@@ -1563,11 +1563,13 @@ flatbuffers::Offset<TrackStateSnapshot> CreateTrackStateSnapshot(flatbuffers::Fl
 
 struct RadarCycleResultT : public flatbuffers::NativeTable {
   typedef RadarCycleResult TableType;
+  uint32_t input_cycle_index;
   std::unique_ptr<oneq::replay::airborne_radar::fb::TrackOutputFrameT> track_output_frame;
   uint32_t validation_issue_count;
   bool executed_this_cycle;
   RadarCycleResultT()
-      : validation_issue_count(0),
+      : input_cycle_index(0),
+        validation_issue_count(0),
         executed_this_cycle(false) {
   }
 };
@@ -1576,10 +1578,14 @@ struct RadarCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef RadarCycleResultT NativeTableType;
   typedef RadarCycleResultBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_TRACK_OUTPUT_FRAME = 4,
-    VT_VALIDATION_ISSUE_COUNT = 6,
-    VT_EXECUTED_THIS_CYCLE = 8
+    VT_INPUT_CYCLE_INDEX = 4,
+    VT_TRACK_OUTPUT_FRAME = 6,
+    VT_VALIDATION_ISSUE_COUNT = 8,
+    VT_EXECUTED_THIS_CYCLE = 10
   };
+  uint32_t input_cycle_index() const {
+    return GetField<uint32_t>(VT_INPUT_CYCLE_INDEX, 0);
+  }
   const oneq::replay::airborne_radar::fb::TrackOutputFrame *track_output_frame() const {
     return GetPointer<const oneq::replay::airborne_radar::fb::TrackOutputFrame *>(VT_TRACK_OUTPUT_FRAME);
   }
@@ -1591,6 +1597,7 @@ struct RadarCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_INPUT_CYCLE_INDEX) &&
            VerifyOffset(verifier, VT_TRACK_OUTPUT_FRAME) &&
            verifier.VerifyTable(track_output_frame()) &&
            VerifyField<uint32_t>(verifier, VT_VALIDATION_ISSUE_COUNT) &&
@@ -1606,6 +1613,9 @@ struct RadarCycleResultBuilder {
   typedef RadarCycleResult Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
+  void add_input_cycle_index(uint32_t input_cycle_index) {
+    fbb_.AddElement<uint32_t>(RadarCycleResult::VT_INPUT_CYCLE_INDEX, input_cycle_index, 0);
+  }
   void add_track_output_frame(flatbuffers::Offset<oneq::replay::airborne_radar::fb::TrackOutputFrame> track_output_frame) {
     fbb_.AddOffset(RadarCycleResult::VT_TRACK_OUTPUT_FRAME, track_output_frame);
   }
@@ -1629,12 +1639,14 @@ struct RadarCycleResultBuilder {
 
 inline flatbuffers::Offset<RadarCycleResult> CreateRadarCycleResult(
     flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t input_cycle_index = 0,
     flatbuffers::Offset<oneq::replay::airborne_radar::fb::TrackOutputFrame> track_output_frame = 0,
     uint32_t validation_issue_count = 0,
     bool executed_this_cycle = false) {
   RadarCycleResultBuilder builder_(_fbb);
   builder_.add_validation_issue_count(validation_issue_count);
   builder_.add_track_output_frame(track_output_frame);
+  builder_.add_input_cycle_index(input_cycle_index);
   builder_.add_executed_this_cycle(executed_this_cycle);
   return builder_.Finish();
 }
@@ -2359,6 +2371,7 @@ inline RadarCycleResultT *RadarCycleResult::UnPack(const flatbuffers::resolver_f
 inline void RadarCycleResult::UnPackTo(RadarCycleResultT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
+  { auto _e = input_cycle_index(); _o->input_cycle_index = _e; }
   { auto _e = track_output_frame(); if (_e) _o->track_output_frame = std::unique_ptr<oneq::replay::airborne_radar::fb::TrackOutputFrameT>(_e->UnPack(_resolver)); }
   { auto _e = validation_issue_count(); _o->validation_issue_count = _e; }
   { auto _e = executed_this_cycle(); _o->executed_this_cycle = _e; }
@@ -2372,11 +2385,13 @@ inline flatbuffers::Offset<RadarCycleResult> CreateRadarCycleResult(flatbuffers:
   (void)_rehasher;
   (void)_o;
   struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const RadarCycleResultT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _input_cycle_index = _o->input_cycle_index;
   auto _track_output_frame = _o->track_output_frame ? CreateTrackOutputFrame(_fbb, _o->track_output_frame.get(), _rehasher) : 0;
   auto _validation_issue_count = _o->validation_issue_count;
   auto _executed_this_cycle = _o->executed_this_cycle;
   return oneq::replay::airborne_radar::fb::CreateRadarCycleResult(
       _fbb,
+      _input_cycle_index,
       _track_output_frame,
       _validation_issue_count,
       _executed_this_cycle);

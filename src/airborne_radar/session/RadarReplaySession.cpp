@@ -50,7 +50,8 @@ bool TrackOutputFrameEqual(const session::TrackOutputFrame& left,
 }
 
 bool CycleResultEqual(const RadarCycleResult& left, const RadarCycleResult& right) {
-  return TrackOutputFrameEqual(left.track_output_frame, right.track_output_frame) &&
+  return left.input_cycle_index == right.input_cycle_index &&
+         TrackOutputFrameEqual(left.track_output_frame, right.track_output_frame) &&
          left.validation_issues.size() == right.validation_issues.size() &&
          left.executed_this_cycle == right.executed_this_cycle;
 }

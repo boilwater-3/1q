@@ -112,6 +112,7 @@ table TrackStateSnapshot {
 }
 
 table RadarCycleResult {
+  input_cycle_index:uint;
   track_output_frame:TrackOutputFrame;
   validation_issue_count:uint;
   executed_this_cycle:bool;

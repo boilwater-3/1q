@@ -1246,7 +1246,7 @@ TEST(PublicApiConvenienceTest,
   EXPECT_EQ(signal_pipeline.run_cycle_count(), committed_signal_runs + 1U);
   EXPECT_EQ(signal_pipeline.update_config_count(), committed_update_config_count + 1U);
   EXPECT_EQ(environment_service.update_scene_state_count(), committed_update_scene_count + 1U);
-  EXPECT_EQ(environment_service.update_model_config_count(), committed_update_model_count + 1U);
+  EXPECT_EQ(environment_service.update_model_config_count(), committed_update_model_count);
   EXPECT_EQ(environment_service.set_sensitivity_count(), committed_threshold_count + 1U);
   EXPECT_EQ(signal_pipeline.config().mission.orientation.work_sub_mode,
             model::RadarWorkSubMode::kTas);
@@ -1551,11 +1551,46 @@ TEST(PublicApiConvenienceTest,
             model::RadarWorkSubMode::kTas);
 }
 
+TEST(PublicApiConvenienceTest,
+     RadarSessionCommitsEnvironmentOnlyRuntimePatchWithoutPipelineConfigUpdate) {
+  RecordingRadarContext radar_context;
+  RecordingSignalPipeline signal_pipeline;
+  RecordingEnvironmentService environment_service;
+  NoopDecisionEngine decision_engine;
+  extension::RadarController controller(radar_context, signal_pipeline, decision_engine,
+                                        environment_service);
+  session::RadarSession session = session::RadarSessionFactory::CreateWithController(
+      MakeConvenienceSessionConfig(), controller);
+
+  const session::RadarCycleResult baseline =
+      session.StepWithResult(MakeCycleInput(session::RadarSceneTargetList{
+          model::MakeAirTarget(983U, 166.0f, 0.0f, 10.0f, 60.0f, 0.0f, 0.0f, 1.0f),
+      }));
+  ASSERT_TRUE(baseline.executed_this_cycle);
+  const std::size_t committed_update_config_count = signal_pipeline.update_config_count();
+
+  session.ApplyRuntimeConfig(
+      config::RadarRuntimeConfigBuilder()
+          .WithJammingSensitivityProfile(environment::JammingSensitivityProfile::kStrict)
+          .Build());
+
+  signal_pipeline.SetShouldAcceptUpdates(false);
+  const session::RadarCycleResult committed =
+      session.StepWithResult(MakeCycleInput(session::RadarSceneTargetList{
+          model::MakeAirTarget(984U, 168.0f, 0.0f, 10.0f, 60.0f, 0.0f, 0.0f, 1.0f),
+      }));
+  EXPECT_TRUE(committed.executed_this_cycle);
+  EXPECT_EQ(signal_pipeline.update_config_count(), committed_update_config_count);
+  EXPECT_EQ(environment_service.jamming_sensitivity_profile(),
+            environment::JammingSensitivityProfile::kStrict);
+}
+
 TEST(PublicApiConvenienceTest, RadarSessionStepWithResultSurfacesValidationErrors) {
   session::RadarSession session =
       session::RadarSessionFactory::Create(MakeConvenienceSessionConfig());
 
   session::RadarCycleInput input;
+  input.cycle_index = 88U;
   input.dt_sec = std::numeric_limits<float>::quiet_NaN();
   session::RadarSceneTarget invalid_target;
   invalid_target.external_target_id = 123U;
@@ -1565,6 +1600,7 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultSurfacesValidationError
   const session::RadarCycleResult result = session.StepWithResult(input);
 
   EXPECT_TRUE(result.has_validation_error);
+  EXPECT_EQ(result.input_cycle_index, 88U);
   EXPECT_FALSE(result.executed_this_cycle);
   EXPECT_FALSE(result.reused_previous_track_output);
   EXPECT_TRUE(result.submitted_commands.empty());
