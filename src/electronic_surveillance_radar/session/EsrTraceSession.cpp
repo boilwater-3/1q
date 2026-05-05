@@ -47,6 +47,15 @@ struct EsrTraceSession::Impl {
     replay_writer->WriteEvent(ev);
   }
 
+  void WriteValidationFailureMarker(const EsrCycleResult& result) const {
+    oneq::replay::ReplayTraceFailure failure;
+    failure.error_code = "validation_error";
+    failure.message = "EsrCycleResult has_validation_error=true";
+    failure.cycle_index = result.input_cycle_index;
+    failure.has_cycle_index = true;
+    replay_writer->WriteFailureMarker(failure);
+  }
+
   EsrSession session;
   std::shared_ptr<oneq::trace::TraceSink> sink;
   std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer;
@@ -70,17 +79,20 @@ session::EsrOutputFrame EsrTraceSession::Step(const EsrCycleInput& input) {
     impl_->sink->Record("electronic_surveillance_radar", "input",
                         std::to_string(input.cycle_index));
   }
-  const session::EsrOutputFrame output = impl_->session.Step(input);
+  const session::EsrCycleResult result = impl_->session.StepWithResult(input);
   if (impl_->sink) {
     impl_->sink->Record("electronic_surveillance_radar", "output",
-                        std::to_string(output.cycle_index));
+                        std::to_string(result.output_frame.cycle_index));
   }
   if (impl_->replay_writer) {
-    impl_->WriteReplayEvent("cycle_output", "EsrOutputFrame", EncodeEsrOutputFrame(output),
-                            output.cycle_index);
+    impl_->WriteReplayEvent("cycle_output", "EsrCycleResult", EncodeEsrCycleResult(result),
+                            result.input_cycle_index);
     impl_->pending_input_written = false;
+    if (result.has_validation_error) {
+      impl_->WriteValidationFailureMarker(result);
+    }
   }
-  return output;
+  return result.output_frame;
 }
 
 EsrCycleResult EsrTraceSession::StepWithResult(const EsrCycleInput& input) {
@@ -111,12 +123,7 @@ EsrCycleResult EsrTraceSession::StepWithResult(const EsrCycleInput& input) {
                             result.input_cycle_index);
     impl_->pending_input_written = false;
     if (result.has_validation_error) {
-      oneq::replay::ReplayTraceFailure failure;
-      failure.error_code = "validation_error";
-      failure.message = "EsrCycleResult has_validation_error=true";
-      failure.cycle_index = result.input_cycle_index;
-      failure.has_cycle_index = true;
-      impl_->replay_writer->WriteFailureMarker(failure);
+      impl_->WriteValidationFailureMarker(result);
     }
   }
   return result;

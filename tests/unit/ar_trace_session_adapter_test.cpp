@@ -19,7 +19,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
-#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarReplaySession.h"
 #include "1q/airborne_radar/session/RadarTraceSession.h"
@@ -123,7 +123,7 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) 
   std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
       new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
 
-  session::RadarSessionConfig config = config::presets::MakeDefaultRadarSessionConfig();
+  session::RadarSessionConfig config = config::RadarSessionConfigBuilder().Build();
   session::RadarTraceSessionOptions options;
   options.replay_writer = replay_writer;
   options.trace_config_on_construct = true;
@@ -598,10 +598,8 @@ TEST(TraceSessionAdapterTest, EsrTraceSessionUsesInputCycleIndexForValidationFai
   session::EsrCycleInput invalid_input;
   invalid_input.cycle_index = 77U;
   invalid_input.dt_sec = -1.0f;
-  const session::EsrCycleResult invalid_result = session.StepWithResult(invalid_input);
-  EXPECT_TRUE(invalid_result.has_validation_error);
-  EXPECT_EQ(invalid_result.input_cycle_index, 77U);
-  EXPECT_EQ(invalid_result.output_frame.cycle_index, valid_result.output_frame.cycle_index);
+  const session::EsrOutputFrame invalid_output = session.Step(invalid_input);
+  EXPECT_EQ(invalid_output.cycle_index, valid_result.output_frame.cycle_index);
   replay_writer->Flush();
 
   oneq::replay::ReplayTraceReader replay_reader(trace_dir);
@@ -689,10 +687,8 @@ TEST(TraceSessionAdapterTest, EosTraceSessionUsesInputCycleIndexForValidationFai
   session::EosCycleInput invalid_input;
   invalid_input.cycle_index = 77U;
   invalid_input.dt_sec = -1.0f;
-  const session::EosCycleResult invalid_result = session.StepWithResult(invalid_input);
-  EXPECT_TRUE(invalid_result.has_validation_error);
-  EXPECT_EQ(invalid_result.input_cycle_index, 77U);
-  EXPECT_EQ(invalid_result.output_frame.cycle_index, valid_result.output_frame.cycle_index);
+  const session::EosOutputFrame invalid_output = session.Step(invalid_input);
+  EXPECT_EQ(invalid_output.cycle_index, valid_result.output_frame.cycle_index);
   replay_writer->Flush();
 
   oneq::replay::ReplayTraceReader replay_reader(trace_dir);

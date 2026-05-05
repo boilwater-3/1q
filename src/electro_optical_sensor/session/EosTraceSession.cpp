@@ -47,6 +47,15 @@ struct EosTraceSession::Impl {
     replay_writer->WriteEvent(ev);
   }
 
+  void WriteValidationFailureMarker(const EosCycleResult& result) const {
+    oneq::replay::ReplayTraceFailure failure;
+    failure.error_code = "validation_error";
+    failure.message = "EosCycleResult has_validation_error=true";
+    failure.cycle_index = result.input_cycle_index;
+    failure.has_cycle_index = true;
+    replay_writer->WriteFailureMarker(failure);
+  }
+
   EosSession session;
   std::shared_ptr<oneq::trace::TraceSink> sink;
   std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer;
@@ -69,16 +78,20 @@ session::EosOutputFrame EosTraceSession::Step(const EosCycleInput& input) {
   if (impl_->sink) {
     impl_->sink->Record("electro_optical_sensor", "input", std::to_string(input.cycle_index));
   }
-  const session::EosOutputFrame output = impl_->session.Step(input);
+  const session::EosCycleResult result = impl_->session.StepWithResult(input);
   if (impl_->sink) {
-    impl_->sink->Record("electro_optical_sensor", "output", std::to_string(output.cycle_index));
+    impl_->sink->Record("electro_optical_sensor", "output",
+                        std::to_string(result.output_frame.cycle_index));
   }
   if (impl_->replay_writer) {
-    impl_->WriteReplayEvent("cycle_output", "EosOutputFrame", EncodeEosOutputFrame(output),
-                            output.cycle_index);
+    impl_->WriteReplayEvent("cycle_output", "EosCycleResult", EncodeEosCycleResult(result),
+                            result.input_cycle_index);
     impl_->pending_input_written = false;
+    if (result.has_validation_error) {
+      impl_->WriteValidationFailureMarker(result);
+    }
   }
-  return output;
+  return result.output_frame;
 }
 
 ::electro_optical_sensor::session::EosCycleResult EosTraceSession::StepWithResult(
@@ -110,14 +123,8 @@ session::EosOutputFrame EosTraceSession::Step(const EosCycleInput& input) {
     impl_->WriteReplayEvent("cycle_output", "EosCycleResult", EncodeEosCycleResult(result),
                             result.input_cycle_index);
     impl_->pending_input_written = false;
-    // P1-A: 自动 failure_marker
     if (result.has_validation_error) {
-      oneq::replay::ReplayTraceFailure failure;
-      failure.error_code = "validation_error";
-      failure.message = "EosCycleResult has_validation_error=true";
-      failure.cycle_index = result.input_cycle_index;
-      failure.has_cycle_index = true;
-      impl_->replay_writer->WriteFailureMarker(failure);
+      impl_->WriteValidationFailureMarker(result);
     }
   }
   return result;
