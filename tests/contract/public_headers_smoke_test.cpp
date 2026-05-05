@@ -18,7 +18,6 @@
 #include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/config/airborne_radar_config.hpp"
 #include "1q/airborne_radar/environment/EnvironmentConfig.h"
 #include "1q/airborne_radar/environment/EnvironmentRuntimeConfigPatch.h"
@@ -227,7 +226,7 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   oneq::coordinate::EcefPositionM origin_ecef;
   ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(origin_lla, &origin_ecef));
 
-  session::RadarSessionConfig session_config = config::presets::MakeDefaultRadarSessionConfig();
+  session::RadarSessionConfig session_config = config::RadarSessionConfigBuilder().Build();
   session_config.environment.scenario_config.atmospheric_physics.enable_physical_model = true;
 
   session::RadarCycleInput input;

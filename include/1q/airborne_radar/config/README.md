@@ -16,7 +16,6 @@ config/
 |-- RadarRuntimeConfigPatch.h             运行期可变参数补丁
 |-- RadarRuntimeConfigBuilder.h           运行期补丁 Builder
 |-- RadarSessionConfigBuilder.h           语义 Builder（Profile 输入）
-|-- RadarSessionConfigPresets.h           预设工厂
 |-- airborne_radar_config.hpp             统一入口头（聚合以上全部）
 ```
 
@@ -83,10 +82,12 @@ legacy 装配类型已下沉到 `src/airborne_radar/config/legacy/*`，不在公
 ## 使用建议
 
 - 业务/任务层优先：`RadarSessionConfigBuilder`
+- 常见场景推荐配置应在调用方业务层以具名函数封装，并返回 `RadarSessionConfig` 传入
+  `RadarSessionFactory::Create`
 - 细粒度建模优先：直接字段赋值
 
 ## 推荐入口
 
 - [`airborne_radar_config.hpp`](airborne_radar_config.hpp)
 - [`RadarSessionConfig.h`](RadarSessionConfig.h)
-- [`RadarSessionConfigPresets.h`](RadarSessionConfigPresets.h)
+- [`RadarSessionConfigBuilder.h`](RadarSessionConfigBuilder.h)

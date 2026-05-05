@@ -7,29 +7,44 @@
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/session/RadarSession.h"
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
 
 namespace airborne_radar {
 namespace tests {
 
+namespace {
+
+session::RadarSessionConfig MakeDetectionFocusedConfig() {
+  return config::RadarSessionConfigBuilder()
+      .Detection()
+      .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
+      .End()
+      .Tracking()
+      .WithTrackingPolicyProfile(config::profiles::TrackingPolicyProfile::kFastAssociation)
+      .End()
+      .Lifecycle()
+      .WithLifecyclePolicyProfile(config::profiles::LifecyclePolicyProfile::kFastConfirm)
+      .End()
+      .Build();
+}
+
+}  // namespace
+
 TEST(RadarSessionConfigBuilderTest, DefaultConstructionPreservesSemanticDefaults) {
   const auto config = config::RadarSessionConfigBuilder().Build();
 
-    EXPECT_FALSE(config.hardware.detection.enable_physics_detection);
-    EXPECT_FLOAT_EQ(config.hardware.detection.min_detection_margin_db, -2.0f);
-    EXPECT_EQ(config.hardware.detection.pulse_count, 10);
-    EXPECT_FALSE(config.policy.tracking.enable_kalman_filter);
-    EXPECT_EQ(config.policy.lifecycle.confirm_hits, 3U);
-    EXPECT_EQ(config.policy.lifecycle.max_miss_before_lost, 2U);
-    EXPECT_FALSE(config.policy.lifecycle.enable_imm_lifecycle);
+  EXPECT_FALSE(config.hardware.detection.enable_physics_detection);
+  EXPECT_FLOAT_EQ(config.hardware.detection.min_detection_margin_db, -2.0f);
+  EXPECT_EQ(config.hardware.detection.pulse_count, 10);
+  EXPECT_FALSE(config.policy.tracking.enable_kalman_filter);
+  EXPECT_EQ(config.policy.lifecycle.confirm_hits, 3U);
+  EXPECT_EQ(config.policy.lifecycle.max_miss_before_lost, 2U);
+  EXPECT_FALSE(config.policy.lifecycle.enable_imm_lifecycle);
 }
 
-TEST(RadarSessionConfigBuilderTest, PresetBasePreservesPresetSemanticValues) {
-  const auto config =
-      config::RadarSessionConfigBuilder(config::presets::MakeDetectionMissionRadarSessionConfig())
-          .Build();
+TEST(RadarSessionConfigBuilderTest, ExistingBuilderBasePreservesSemanticValues) {
+  const auto config = config::RadarSessionConfigBuilder(MakeDetectionFocusedConfig()).Build();
 
   EXPECT_EQ(config.hardware.detection.pulse_count, 16);
   EXPECT_FLOAT_EQ(config.hardware.detection.detection_policy.min_snr_db, -12.0f);
@@ -61,8 +76,7 @@ TEST(RadarSessionConfigBuilderTest, ExistingDetailedConfigIsPreservedWhenOnlyEdi
   EXPECT_FLOAT_EQ(rebuilt.policy.tracking.kalman_measurement_noise_std, 4.5f);
   EXPECT_TRUE(rebuilt.policy.lifecycle.enable_imm_lifecycle);
   EXPECT_EQ(rebuilt.policy.lifecycle.confirm_hits, 2U);
-  EXPECT_EQ(rebuilt.jamming_sensitivity_profile,
-            environment::JammingSensitivityProfile::kStrict);
+  EXPECT_EQ(rebuilt.jamming_sensitivity_profile, environment::JammingSensitivityProfile::kStrict);
 }
 
 TEST(RadarSessionConfigBuilderTest, DetectionSemanticEditorsApplyCorrectly) {
@@ -78,13 +92,12 @@ TEST(RadarSessionConfigBuilderTest, DetectionSemanticEditorsApplyCorrectly) {
           .End()
           .Build();
 
-    EXPECT_TRUE(config.hardware.detection.enable_physics_detection);
-    EXPECT_FLOAT_EQ(config.hardware.detection.transmitter.peak_power_w, 5.0e6f);
-    EXPECT_EQ(config.hardware.detection.pulse_count, 8);
-    EXPECT_FLOAT_EQ(config.hardware.detection.antenna.pattern.max_sidelobe_level_db,
-                                    -30.0f);
-    EXPECT_TRUE(config.hardware.detection.rcs_physics.enable_physical_rcs);
-    EXPECT_FLOAT_EQ(config.hardware.detection.rcs_physics.physics_mix_ratio, 0.60f);
+  EXPECT_TRUE(config.hardware.detection.enable_physics_detection);
+  EXPECT_FLOAT_EQ(config.hardware.detection.transmitter.peak_power_w, 5.0e6f);
+  EXPECT_EQ(config.hardware.detection.pulse_count, 8);
+  EXPECT_FLOAT_EQ(config.hardware.detection.antenna.pattern.max_sidelobe_level_db, -30.0f);
+  EXPECT_TRUE(config.hardware.detection.rcs_physics.enable_physical_rcs);
+  EXPECT_FLOAT_EQ(config.hardware.detection.rcs_physics.physics_mix_ratio, 0.60f);
 }
 
 TEST(RadarSessionConfigBuilderTest, TrackingAndLifecycleSemanticEditorsApplyCorrectly) {
@@ -100,12 +113,11 @@ TEST(RadarSessionConfigBuilderTest, TrackingAndLifecycleSemanticEditorsApplyCorr
           .End()
           .Build();
 
-    EXPECT_TRUE(config.policy.tracking.enable_kalman_filter);
-    EXPECT_EQ(config.policy.tracking.kalman_update_backend,
-                        config::KalmanUpdateBackend::kUdKf);
-    EXPECT_TRUE(config.policy.lifecycle.enable_imm_lifecycle);
-    EXPECT_EQ(config.policy.lifecycle.confirm_hits, 3U);
-    EXPECT_EQ(config.policy.lifecycle.max_lost_cycles, 8U);
+  EXPECT_TRUE(config.policy.tracking.enable_kalman_filter);
+  EXPECT_EQ(config.policy.tracking.kalman_update_backend, config::KalmanUpdateBackend::kUdKf);
+  EXPECT_TRUE(config.policy.lifecycle.enable_imm_lifecycle);
+  EXPECT_EQ(config.policy.lifecycle.confirm_hits, 3U);
+  EXPECT_EQ(config.policy.lifecycle.max_lost_cycles, 8U);
 }
 
 TEST(RadarSessionConfigBuilderTest, BeamAndEnvironmentEditorsApplyCorrectly) {
@@ -124,19 +136,15 @@ TEST(RadarSessionConfigBuilderTest, BeamAndEnvironmentEditorsApplyCorrectly) {
           .End()
           .Build();
 
-    EXPECT_EQ(config.mission.orientation.work_sub_mode,
-            model::RadarWorkSubMode::kTas);
-    EXPECT_FLOAT_EQ(config.mission.orientation.scan_center_deg.az_deg,
-                  8.0f);
-    EXPECT_FLOAT_EQ(config.mission.orientation.scan_center_deg.el_deg,
-                  -2.0f);
-  EXPECT_EQ(config.jamming_sensitivity_profile,
-            environment::JammingSensitivityProfile::kStrict);
+  EXPECT_EQ(config.mission.orientation.work_sub_mode, model::RadarWorkSubMode::kTas);
+  EXPECT_FLOAT_EQ(config.mission.orientation.scan_center_deg.az_deg, 8.0f);
+  EXPECT_FLOAT_EQ(config.mission.orientation.scan_center_deg.el_deg, -2.0f);
+  EXPECT_EQ(config.jamming_sensitivity_profile, environment::JammingSensitivityProfile::kStrict);
 }
 
 TEST(RadarSessionConfigBuilderTest, BuiltConfigCanConstructRadarSession) {
   const auto config =
-      config::RadarSessionConfigBuilder(config::presets::MakeDetectionMissionRadarSessionConfig())
+      config::RadarSessionConfigBuilder(MakeDetectionFocusedConfig())
           .Environment()
           .WithJammingSensitivityProfile(environment::JammingSensitivityProfile::kStrict)
           .End()
@@ -190,7 +198,7 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValue
 
 TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructingSession) {
   session::RadarSession session =
-      session::RadarSessionFactory::Create(config::presets::MakeDetectionMissionRadarSessionConfig());
+      session::RadarSessionFactory::Create(MakeDetectionFocusedConfig());
 
   const config::RadarRuntimeConfigPatch patch =
       config::RadarRuntimeConfigBuilder()
@@ -227,20 +235,16 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig
   detailed_config.policy.lifecycle.max_lost_cycles = 4U;
   detailed_config.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kStrict;
 
-    EXPECT_TRUE(detailed_config.hardware.detection.enable_physics_detection);
-    EXPECT_FLOAT_EQ(detailed_config.hardware.detection.transmitter.peak_power_w,
-                  5.0e6f);
-    EXPECT_FLOAT_EQ(detailed_config.hardware.detection.transmitter.frequency_hz,
-                  9.3e9f);
-        EXPECT_EQ(detailed_config.mission.orientation.work_sub_mode,
-            model::RadarWorkSubMode::kTas);
-    EXPECT_FLOAT_EQ(detailed_config.policy.tracking.kalman_measurement_noise_std,
-                  7.5f);
-    EXPECT_EQ(detailed_config.policy.tracking.kalman_update_backend,
+  EXPECT_TRUE(detailed_config.hardware.detection.enable_physics_detection);
+  EXPECT_FLOAT_EQ(detailed_config.hardware.detection.transmitter.peak_power_w, 5.0e6f);
+  EXPECT_FLOAT_EQ(detailed_config.hardware.detection.transmitter.frequency_hz, 9.3e9f);
+  EXPECT_EQ(detailed_config.mission.orientation.work_sub_mode, model::RadarWorkSubMode::kTas);
+  EXPECT_FLOAT_EQ(detailed_config.policy.tracking.kalman_measurement_noise_std, 7.5f);
+  EXPECT_EQ(detailed_config.policy.tracking.kalman_update_backend,
             config::KalmanUpdateBackend::kUdKf);
-    EXPECT_EQ(detailed_config.policy.lifecycle.confirm_hits, 2U);
-    EXPECT_TRUE(detailed_config.policy.lifecycle.enable_imm_lifecycle);
-    EXPECT_EQ(detailed_config.jamming_sensitivity_profile,
+  EXPECT_EQ(detailed_config.policy.lifecycle.confirm_hits, 2U);
+  EXPECT_TRUE(detailed_config.policy.lifecycle.enable_imm_lifecycle);
+  EXPECT_EQ(detailed_config.jamming_sensitivity_profile,
             environment::JammingSensitivityProfile::kStrict);
 }
 
@@ -273,20 +277,15 @@ TEST(RadarSessionConfigBuilderTest, DetailedBeamSchedulerWritesPolicyPath) {
   detailed_config.policy.beam_control.pointing.nominal_beamwidth_deg = nominal_beamwidth;
   detailed_config.mission.orientation.commanded_beamwidth_deg = nominal_beamwidth;
 
-  EXPECT_EQ(
-      detailed_config.policy.beam_control.scheduler.azimuth_step_count_hint, 8U);
-  EXPECT_EQ(
-      detailed_config.policy.beam_control.scheduler.elevation_step_count_hint, 4U);
-  EXPECT_TRUE(
-      detailed_config.policy.beam_control.scheduler.prefer_dense_tas_sampling);
+  EXPECT_EQ(detailed_config.policy.beam_control.scheduler.azimuth_step_count_hint, 8U);
+  EXPECT_EQ(detailed_config.policy.beam_control.scheduler.elevation_step_count_hint, 4U);
+  EXPECT_TRUE(detailed_config.policy.beam_control.scheduler.prefer_dense_tas_sampling);
   EXPECT_FLOAT_EQ(detailed_config.mission.orientation.scan_center_deg.az_deg, 6.0f);
   EXPECT_FLOAT_EQ(detailed_config.mission.orientation.scan_center_deg.el_deg, -1.5f);
   EXPECT_FLOAT_EQ(
-      detailed_config.mission.orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg,
-      2.5f);
+      detailed_config.mission.orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg, 2.5f);
   EXPECT_FLOAT_EQ(
-      detailed_config.mission.orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg,
-      1.5f);
+      detailed_config.mission.orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg, 1.5f);
 }
 
 }  // namespace tests

@@ -3,7 +3,7 @@
  * @brief 验证安装后机载雷达公共 API 路径可被外部工程编译链接。
  *
  * 覆盖要点：
- *   - RadarSessionConfigPresets + RadarSessionConfigBuilder/直接字段赋值 构造会话配置
+ *   - RadarSessionConfigBuilder/直接字段赋值 构造会话配置
  *   - RadarCycleInput 构造 + RadarInputValidation 校验
  *   - RadarSession 构造、StepWithResult、Step 调用
  *   - RadarRuntimeConfigBuilder 热切换（工作子模式、扫描中心）
@@ -14,16 +14,16 @@
 #include <cstddef>
 
 #include "1q/airborne_radar/config/airborne_radar_config.hpp"
-#include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
+#include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/airborne_radar/session/RadarInputValidation.h"
 #include "1q/airborne_radar/session/RadarSession.h"
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
 
 int main() {
-  // 1. Preset config construction
+  // 1. Builder config construction
   airborne_radar::session::RadarSessionConfig preset_config =
-      airborne_radar::config::presets::MakeDefaultRadarSessionConfig();
+      airborne_radar::config::RadarSessionConfigBuilder().Build();
 
   // 2. 直接字段赋值构造会话配置
   auto built_config = preset_config;

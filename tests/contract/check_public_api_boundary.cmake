@@ -11,7 +11,6 @@ set(AR_PUBLIC_PRIMARY_HEADERS
     "airborne_radar/config/RadarRuntimeConfigPatch.h"
     "airborne_radar/config/RadarRuntimeConfigBuilder.h"
     "airborne_radar/config/RadarSessionConfigBuilder.h"
-    "airborne_radar/config/RadarSessionConfigPresets.h"
     "airborne_radar/config/airborne_radar_config.hpp"
 )
 

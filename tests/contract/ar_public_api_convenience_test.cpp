@@ -13,7 +13,6 @@
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/extension/RadarController.h"
@@ -957,9 +956,8 @@ TEST(PublicApiConvenienceTest, RadarInputValidationFlagsMissingGeometryAndNonFin
   EXPECT_TRUE(session::HasValidationError(issues));
 }
 
-TEST(PublicApiConvenienceTest, ConfigPresetsProvideExpectedDetectionAndRobustnessDefaults) {
-  const session::RadarSessionConfig detection_config =
-      config::presets::MakeDetectionMissionRadarSessionConfig();
+TEST(PublicApiConvenienceTest, BuilderProvidesExpectedDetectionFocusedDefaults) {
+  const session::RadarSessionConfig detection_config = MakeConvenienceSessionConfig();
   EXPECT_EQ(detection_config.policy.lifecycle.confirm_hits, 1U);
   EXPECT_EQ(detection_config.policy.lifecycle.max_miss_before_lost, 1U);
   EXPECT_EQ(detection_config.hardware.detection.pulse_count, 16);
@@ -973,9 +971,6 @@ TEST(PublicApiConvenienceTest, ConfigPresetsProvideExpectedDetectionAndRobustnes
 }
 
 TEST(PublicApiConvenienceTest, DefaultSessionConfigUsesLifecycleManagedTracks) {
-  const session::RadarSessionConfig default_config =
-      config::presets::MakeDefaultRadarSessionConfig();
-
   session::RadarSession session = session::RadarSessionFactory::Create();
   const session::TrackOutputFrame frame = session.Step(MakeCycleInput(session::RadarSceneTargetList{
       model::MakeGroundTarget(902U, 15.0f, -3.0f, 0.8f),
@@ -1256,8 +1251,7 @@ TEST(PublicApiConvenienceTest,
 }
 
 TEST(PublicApiConvenienceTest, RadarSessionStepWithResultAggregatesCurrentCycleObservations) {
-  const session::RadarSessionConfig config =
-      config::presets::MakeDetectionMissionRadarSessionConfig();
+  const session::RadarSessionConfig config = MakeConvenienceSessionConfig();
   session::RadarSession session = session::RadarSessionFactory::Create(config);
 
   const session::RadarCycleInput input = MakeCycleInput(session::RadarSceneTargetList{
@@ -1285,8 +1279,8 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultAggregatesCurrentCycleO
 }
 
 TEST(PublicApiConvenienceTest, RadarSessionUsesInputCycleIndexForOutputFrame) {
-  session::RadarSession session = session::RadarSessionFactory::Create(
-      config::presets::MakeDetectionMissionRadarSessionConfig());
+  session::RadarSession session =
+      session::RadarSessionFactory::Create(MakeConvenienceSessionConfig());
 
   const session::RadarCycleInput input = MakeCycleInput(
       session::RadarSceneTargetList{
@@ -1613,8 +1607,7 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultSurfacesValidationError
 }
 
 TEST(PublicApiConvenienceTest, RadarSessionStepWithResultMatchesManualChainUnderJammedScene) {
-  const session::RadarSessionConfig config =
-      config::presets::MakeDetectionMissionRadarSessionConfig();
+  const session::RadarSessionConfig config = MakeConvenienceSessionConfig();
   session::RadarSession session = session::RadarSessionFactory::Create(config);
 
   session::MutableRadarContext manual_context;

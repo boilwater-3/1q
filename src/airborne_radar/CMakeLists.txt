@@ -59,7 +59,6 @@ set(AIRBORNE_CORE_SOURCES
     airborne_radar/session/RadarSessionCompositionRoot.cpp
     airborne_radar/session/RadarExternalInputAdapter.cpp
     airborne_radar/session/RadarCycleInputBuilder.cpp
-    airborne_radar/session/RadarSessionConfigPresets.cpp
     airborne_radar/session/RadarSessionConfigBuilder.cpp
     airborne_radar/session/RadarReplaySession.cpp
     airborne_radar/session/RadarSession.cpp
@@ -93,7 +92,6 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarSessionConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarRuntimeConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarSessionConfigBuilder.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarSessionConfigPresets.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/airborne_radar_config.hpp
     )
     set(PUBLIC_HEADERS_CORE_CONTEXT

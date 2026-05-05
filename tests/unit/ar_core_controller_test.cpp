@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 
-#include "1q/airborne_radar/config/RadarSessionConfigPresets.h"
+#include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/extension/ControlReducerTypes.h"
 #include "1q/airborne_radar/extension/IRadarContext.h"
@@ -48,6 +48,20 @@ session::RadarSceneTargetList BuildSingleTarget(float speed, float rcs, bool jam
   target.position_z = 0.0f;
   target.range_m = 100.0f;
   return session::RadarSceneTargetList{target};
+}
+
+session::RadarSessionConfig MakeDetectionFocusedConfig() {
+  return config::RadarSessionConfigBuilder()
+      .Detection()
+      .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
+      .End()
+      .Tracking()
+      .WithTrackingPolicyProfile(config::profiles::TrackingPolicyProfile::kFastAssociation)
+      .End()
+      .Lifecycle()
+      .WithLifecyclePolicyProfile(config::profiles::LifecyclePolicyProfile::kFastConfirm)
+      .End()
+      .Build();
 }
 
 session::RadarSceneTarget CloneSceneTarget(const session::RadarSceneTarget& target) {
@@ -626,8 +640,7 @@ TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {
 
   environment::EnvironmentService environment_service;
 
-  const session::RadarSessionConfig session_config =
-      config::presets::MakeDetectionMissionRadarSessionConfig();
+  const session::RadarSessionConfig session_config = MakeDetectionFocusedConfig();
   signal::pipeline::SignalPipeline signal_pipeline(session_config);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
@@ -666,8 +679,7 @@ TEST_F(CoreControllerTest, DuplicateExternalTargetIdRetainsPreviousValidOutputFr
 
   environment::EnvironmentService environment_service;
 
-  const session::RadarSessionConfig session_config =
-      config::presets::MakeDetectionMissionRadarSessionConfig();
+  const session::RadarSessionConfig session_config = MakeDetectionFocusedConfig();
   signal::pipeline::SignalPipeline signal_pipeline(session_config);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
