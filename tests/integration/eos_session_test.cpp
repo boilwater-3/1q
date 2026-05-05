@@ -401,8 +401,12 @@ TEST(EosSessionIntegrationTest, SessionConfigBuilderProducesSameResultAsDirectCo
   const EosSessionConfig direct_config = MakeSessionConfig();
   const EosSessionConfig built_config =
       eos_config::EosSessionConfigBuilder(MakeSessionConfig())
+          .Mission()
           .WithWorkMode(config::EosWorkMode::kFused)
+          .End()
+          .Detection()
           .WithDetectionProfile(eos_config::EosDetectionProfile::kAggressive)
+          .End()
           .Build();
 
   EosSession direct_session = EosSessionFactory::Create(direct_config);

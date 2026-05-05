@@ -48,8 +48,8 @@ class ONEQ_API RadarSessionConfigBuilder {
  public:
   /** @brief 语义探测配置编辑器。 */
   class DetectionEditor;
-  /** @brief 波束控制配置编辑器。 */
-  class BeamEditor;
+  /** @brief 任务态与波束控制配置编辑器。 */
+  class MissionEditor;
   /** @brief 语义跟踪配置编辑器。 */
   class TrackingEditor;
   /** @brief 语义生命周期配置编辑器。 */
@@ -72,8 +72,8 @@ class ONEQ_API RadarSessionConfigBuilder {
 
   /** @brief 进入探测配置编辑域。 */
   DetectionEditor Detection();
-  /** @brief 进入波束控制配置编辑域。 */
-  BeamEditor Beam();
+  /** @brief 进入任务态与波束控制配置编辑域。 */
+  MissionEditor Mission();
   /** @brief 进入跟踪配置编辑域。 */
   TrackingEditor Tracking();
   /** @brief 进入生命周期配置编辑域。 */
@@ -89,7 +89,7 @@ class ONEQ_API RadarSessionConfigBuilder {
 
  private:
   friend class DetectionEditor;
-  friend class BeamEditor;
+  friend class MissionEditor;
   friend class TrackingEditor;
   friend class LifecycleEditor;
   friend class EnvironmentEditor;
@@ -163,29 +163,29 @@ class ONEQ_API RadarSessionConfigBuilder::DetectionEditor {
 };
 
 /**
- * @brief 波束控制配置编辑器。
+ * @brief 任务态与波束控制配置编辑器。
  */
-class ONEQ_API RadarSessionConfigBuilder::BeamEditor {
+class ONEQ_API RadarSessionConfigBuilder::MissionEditor {
  public:
-  explicit BeamEditor(RadarSessionConfigBuilder* builder) : builder_(builder) {}
+  explicit MissionEditor(RadarSessionConfigBuilder* builder) : builder_(builder) {}
 
   /** @brief 设置雷达工作子模式。 */
-  BeamEditor& WithRadarWorkSubMode(RadarWorkSubMode work_sub_mode) {
+  MissionEditor& WithRadarWorkSubMode(RadarWorkSubMode work_sub_mode) {
     builder_->orientation_.work_sub_mode = work_sub_mode;
     return *this;
   }
   /** @brief 设置扫描中心。 */
-  BeamEditor& WithScanCenterDeg(const AzimuthElevationDeg& scan_center_deg) {
+  MissionEditor& WithScanCenterDeg(const AzimuthElevationDeg& scan_center_deg) {
     builder_->orientation_.scan_center_deg = scan_center_deg;
     return *this;
   }
   /** @brief 更新指令态波束使能。 */
-  BeamEditor& EnableCommandedBeamwidth(bool enable = true) {
+  MissionEditor& EnableCommandedBeamwidth(bool enable = true) {
     builder_->orientation_.commanded_beamwidth_enabled = enable;
     return *this;
   }
   /** @brief 设置指令态波束宽度。 */
-  BeamEditor& WithCommandedBeamwidthDeg(const CommandedBeamwidthDeg& beamwidth_deg) {
+  MissionEditor& WithCommandedBeamwidthDeg(const CommandedBeamwidthDeg& beamwidth_deg) {
     builder_->orientation_.commanded_beamwidth_deg = beamwidth_deg;
     return *this;
   }
@@ -276,8 +276,8 @@ inline RadarSessionConfigBuilder::DetectionEditor RadarSessionConfigBuilder::Det
   return DetectionEditor(this);
 }
 
-inline RadarSessionConfigBuilder::BeamEditor RadarSessionConfigBuilder::Beam() {
-  return BeamEditor(this);
+inline RadarSessionConfigBuilder::MissionEditor RadarSessionConfigBuilder::Mission() {
+  return MissionEditor(this);
 }
 
 inline RadarSessionConfigBuilder::TrackingEditor RadarSessionConfigBuilder::Tracking() {

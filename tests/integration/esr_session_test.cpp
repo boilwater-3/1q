@@ -44,8 +44,12 @@ EsrCycleInput MakeBaseInput() {
 
 EsrSessionConfig MakeSessionConfig() {
   EsrSessionConfig config = esr_config::EsrSessionConfigBuilder()
+                                .Detection()
                                 .WithDetectionProfile(esr_config::EsrDetectionProfile::kBalanced)
+                                .End()
+                                .Environment()
                                 .WithEnvironmentPreset(esr_config::EsrEnvironmentPreset::kStandard)
+                                .End()
                                 .Build();
   config.mission.scan.use_explicit_scan_bounds = true;
   config.mission.scan.scan_start_az_deg = -60.0f;
@@ -57,9 +61,11 @@ EsrSessionConfig MakeSessionConfig() {
   return config;
 }
 
-std::size_t CountMatchedTruthObservations(const EsrCycleResult& result, const std::string& truth_id) {
+std::size_t CountMatchedTruthObservations(const EsrCycleResult& result,
+                                          const std::string& truth_id) {
   std::size_t matched_count = 0U;
-  for (std::size_t i = 0; i < result.output_frame.truth_evaluation_output.associations.size(); ++i) {
+  for (std::size_t i = 0; i < result.output_frame.truth_evaluation_output.associations.size();
+       ++i) {
     const extension::TruthAssociationRecord& association =
         result.output_frame.truth_evaluation_output.associations[i];
     if (association.matched && association.truth_emitter_id == truth_id) {
@@ -102,8 +108,10 @@ TEST(EsrSessionIntegrationTest, WorkModeMappingMakesHgesmMoreDetectableThanRwr) 
 
   EsrSession hgesm_session(hgesm_config);
   EsrSession rwr_session(rwr_config);
-  const std::size_t hgesm_matched = CountMatchedAcrossCycles(&hgesm_session, input, "target-emitter", 24U);
-  const std::size_t rwr_matched = CountMatchedAcrossCycles(&rwr_session, input, "target-emitter", 24U);
+  const std::size_t hgesm_matched =
+      CountMatchedAcrossCycles(&hgesm_session, input, "target-emitter", 24U);
+  const std::size_t rwr_matched =
+      CountMatchedAcrossCycles(&rwr_session, input, "target-emitter", 24U);
 
   EXPECT_GE(hgesm_matched, rwr_matched);
 }
@@ -143,7 +151,9 @@ TEST(EsrSessionIntegrationTest, RuntimePatchCanApplyExplicitScanBounds) {
   EXPECT_GT(CountMatchedTruthObservations(baseline, "target-emitter"), 0U);
 
   const EsrRuntimeConfigPatch block_patch =
-      esr_config::EsrRuntimeConfigBuilder().WithExplicitScanBoundsDeg(-180.0f, -150.0f, -20.0f, 20.0f).Build();
+      esr_config::EsrRuntimeConfigBuilder()
+          .WithExplicitScanBoundsDeg(-180.0f, -150.0f, -20.0f, 20.0f)
+          .Build();
   session.ApplyRuntimeConfig(block_patch);
   const EsrCycleResult blocked = session.StepWithResult(input);
   EXPECT_EQ(CountMatchedTruthObservations(blocked, "target-emitter"), 0U);

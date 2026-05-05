@@ -27,12 +27,18 @@
 namespace eos = electro_optical_sensor;
 
 int main() {
-  // 1. 语义 Builder：work mode / profile / preset
+  // 1. 语义 Builder：mission / detection / environment
   const eos::session::EosSessionConfig semantic_config =
       eos::config::EosSessionConfigBuilder()
+          .Mission()
           .WithWorkMode(eos::config::EosWorkMode::kFused)
+          .End()
+          .Detection()
           .WithDetectionProfile(eos::config::EosDetectionProfile::kAggressive)
+          .End()
+          .Environment()
           .WithEnvironmentModelType(eos::environment::EosEnvironmentModelType::kSimplified)
+          .End()
           .Build();
   // 2. 直接字段赋值覆盖四域详细参数
   auto config = semantic_config;

@@ -11,12 +11,12 @@
 #include <string>
 #include <vector>
 
+#include "1q/coordinate/position_transform.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
-#include "1q/coordinate/position_transform.h"
 
 namespace electronic_surveillance_radar {
 namespace tests {
@@ -48,9 +48,15 @@ session::EsrSceneEmitter MakeEmitter(const std::string& id) {
 session::EsrSessionConfig MakeSessionConfig() {
   session::EsrSessionConfig config =
       config::EsrSessionConfigBuilder()
+          .Mission()
           .WithWorkMode(config::EsrWorkMode::kEsm)
+          .End()
+          .Detection()
           .WithDetectionProfile(config::EsrDetectionProfile::kBalanced)
+          .End()
+          .Environment()
           .WithEnvironmentPreset(config::EsrEnvironmentPreset::kStandard)
+          .End()
           .Build();
   config.mission.scan.use_explicit_scan_bounds = true;
   config.mission.scan.scan_start_az_deg = -60.0f;
@@ -76,11 +82,17 @@ TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderDefaultsMatchDefaultConfig
 TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderOverridesDomainFields) {
   const session::EsrSessionConfig cfg =
       config::EsrSessionConfigBuilder()
+          .Mission()
           .WithWorkMode(config::EsrWorkMode::kRwr)
           .WithPowerOn(false)
           .WithScanRateHz(2.0f)
+          .End()
+          .Detection()
           .WithDetectionProfile(config::EsrDetectionProfile::kSensitive)
+          .End()
+          .Environment()
           .WithEnvironmentPreset(config::EsrEnvironmentPreset::kJammed)
+          .End()
           .Build();
 
   EXPECT_EQ(cfg.mission.work_mode, config::EsrWorkMode::kRwr);
@@ -269,7 +281,8 @@ TEST(EsrPublicApiConvenienceTest, CoordinateUtilsBuildsSceneEmitterFromExternalI
 
   session::EsrSceneEmitter emitter;
   session::EsrCoordinateStatus status = session::EsrCoordinateStatus::kCoordinateTransformFail;
-  ASSERT_TRUE(session::TryMakeEsrSceneEmitterFromExternalInput(input, reference, &emitter, &status));
+  ASSERT_TRUE(
+      session::TryMakeEsrSceneEmitterFromExternalInput(input, reference, &emitter, &status));
   EXPECT_EQ(status, session::EsrCoordinateStatus::kOk);
   EXPECT_EQ(emitter.emitter_id, "emitter-001");
   EXPECT_GT(emitter.pose.position_m.x, 100.0f);
@@ -310,21 +323,21 @@ TEST(EsrPublicApiConvenienceTest, TryApplyRuntimeConfigExposesRejectFeedback) {
   invalid_patch.scan_start_el_deg = -10.0f;
   invalid_patch.scan_end_el_deg = 10.0f;
 
-    const session::EsrRuntimeConfigApplyResult invalid_result =
+  const session::EsrRuntimeConfigApplyResult invalid_result =
       session.ApplyRuntimeConfigWithResult(invalid_patch);
-    EXPECT_FALSE(invalid_result.applied);
-    EXPECT_TRUE(invalid_result.has_requested_update);
-    EXPECT_EQ(invalid_result.status,
-        session::EsrRuntimeConfigApplyStatus::kRejectedInvalidExplicitScanBounds);
-    EXPECT_FALSE(session.TryApplyRuntimeConfig(invalid_patch));
+  EXPECT_FALSE(invalid_result.applied);
+  EXPECT_TRUE(invalid_result.has_requested_update);
+  EXPECT_EQ(invalid_result.status,
+            session::EsrRuntimeConfigApplyStatus::kRejectedInvalidExplicitScanBounds);
+  EXPECT_FALSE(session.TryApplyRuntimeConfig(invalid_patch));
 
   const session::EsrRuntimeConfigPatch valid_patch =
       config::EsrRuntimeConfigBuilder().WithSensorEnabled(false).Build();
-    const session::EsrRuntimeConfigApplyResult valid_result =
+  const session::EsrRuntimeConfigApplyResult valid_result =
       session.ApplyRuntimeConfigWithResult(valid_patch);
-    EXPECT_TRUE(valid_result.applied);
-    EXPECT_TRUE(valid_result.has_requested_update);
-    EXPECT_EQ(valid_result.status, session::EsrRuntimeConfigApplyStatus::kApplied);
+  EXPECT_TRUE(valid_result.applied);
+  EXPECT_TRUE(valid_result.has_requested_update);
+  EXPECT_EQ(valid_result.status, session::EsrRuntimeConfigApplyStatus::kApplied);
   EXPECT_TRUE(session.TryApplyRuntimeConfig(valid_patch));
 }
 

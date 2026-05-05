@@ -307,7 +307,7 @@ TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields)
           .WithHardwareProfile(config::profiles::RadarHardwareProfile::kLongRangeHighPower)
           .WithAntennaPatternProfile(config::profiles::AntennaPatternProfile::kLowSidelobe)
           .End()
-          .Beam()
+          .Mission()
           .WithScanCenterDeg(scan_center)
           .End()
           .Lifecycle()
@@ -345,8 +345,12 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
 
   session::EsrSessionConfig session_config =
       config::EsrSessionConfigBuilder()
+          .Mission()
           .WithScanRateHz(1.0f)
+          .End()
+          .Detection()
           .WithDetectionProfile(config::EsrDetectionProfile::kBalanced)
+          .End()
           .Build();
   session_config.mission.scan.use_explicit_scan_bounds = true;
   session_config.mission.scan.scan_start_az_deg = -60.0f;
@@ -412,8 +416,12 @@ namespace {
 TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   session::EosSessionConfig session_config =
       config::EosSessionConfigBuilder()
+          .Mission()
           .WithWorkMode(config::EosWorkMode::kFused)
+          .End()
+          .Detection()
           .WithDetectionProfile(config::EosDetectionProfile::kAggressive)
+          .End()
           .Build();
   session_config.mission.scan_start_az_deg = -20.0f;
   session_config.mission.scan_end_az_deg = 20.0f;

@@ -17,8 +17,8 @@
 
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
-#include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 
@@ -28,8 +28,12 @@ int main() {
   // 1. SessionConfigBuilder
   esr::session::EsrSessionConfig config =
       esr::config::EsrSessionConfigBuilder()
+          .Detection()
           .WithDetectionProfile(esr::config::EsrDetectionProfile::kBalanced)
+          .End()
+          .Mission()
           .WithScanRateHz(1.0f)
+          .End()
           .Build();
 
   // 2. 直接字段赋值构造详细会话配置
@@ -128,13 +132,13 @@ int main() {
       esr::config::EsrRuntimeConfigBuilder().SetUseExplicitScanBounds(false).Build();
   session.ApplyRuntimeConfig(clear_window_patch);
 
-    // 15. RuntimeConfigBuilder: environment atmospheric config via environment runtime config
-    esr::config::EsrAtmosphericPhysicsConfig atmospheric_physics;
-    atmospheric_physics.enable_physical_model = true;
-    atmospheric_physics.relative_humidity = 0.7f;
+  // 15. RuntimeConfigBuilder: environment atmospheric config via environment runtime config
+  esr::config::EsrAtmosphericPhysicsConfig atmospheric_physics;
+  atmospheric_physics.enable_physical_model = true;
+  atmospheric_physics.relative_humidity = 0.7f;
   const esr::session::EsrRuntimeConfigPatch env_patch =
       esr::config::EsrRuntimeConfigBuilder()
-      .WithAtmosphericPhysicsConfig(atmospheric_physics)
+          .WithAtmosphericPhysicsConfig(atmospheric_physics)
           .Build();
   session.ApplyRuntimeConfig(env_patch);
 

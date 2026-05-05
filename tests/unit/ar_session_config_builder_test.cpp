@@ -127,7 +127,7 @@ TEST(RadarSessionConfigBuilderTest, BeamAndEnvironmentEditorsApplyCorrectly) {
 
   const auto config =
       config::RadarSessionConfigBuilder()
-          .Beam()
+          .Mission()
           .WithRadarWorkSubMode(model::RadarWorkSubMode::kTas)
           .WithScanCenterDeg(scan_center)
           .End()

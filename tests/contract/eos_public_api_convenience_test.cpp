@@ -87,11 +87,19 @@ TEST(EosPublicApiConvenienceTest, SessionConfigBuilderDefaultsMatchEosSessionCon
 TEST(EosPublicApiConvenienceTest, SessionConfigBuilderOverridesSemanticFields) {
   const session::EosSessionConfig config =
       config::EosSessionConfigBuilder()
+          .Mission()
           .WithWorkMode(config::EosWorkMode::kInfraredOnly)
+          .End()
+          .Detection()
           .WithDetectionProfile(config::EosDetectionProfile::kConservative)
+          .End()
+          .StrayLight()
           .WithStrayLightProfile(config::EosStrayLightProfile::kEnhancedHood)
+          .End()
+          .Environment()
           .WithEnvironmentModelType(environment::EosEnvironmentModelType::kAdvanced)
           .WithEnvironmentPreset(config::EosEnvironmentPreset::kDusty)
+          .End()
           .Build();
 
   EXPECT_EQ(config.mission.work_mode, config::EosWorkMode::kInfraredOnly);
@@ -131,7 +139,9 @@ TEST(EosPublicApiConvenienceTest, SessionConfigBuilderPreservesPreconfiguredSess
 
   const session::EosSessionConfig config =
       config::EosSessionConfigBuilder(base)
+          .Detection()
           .WithDetectionProfile(config::EosDetectionProfile::kAggressive)
+          .End()
           .Build();
 
   EXPECT_NEAR(config.hardware.wavelength_lower_um, 8.0f, 1e-5f);

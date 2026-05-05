@@ -7,3 +7,10 @@ endif()
 
 add_executable(airborne_radar_session_usage airborne_radar_session_usage.cpp)
 target_link_libraries(airborne_radar_session_usage PRIVATE ${PROJECT_ALIAS})
+
+add_executable(electro_optical_sensor_session_usage electro_optical_sensor_session_usage.cpp)
+target_link_libraries(electro_optical_sensor_session_usage PRIVATE ${PROJECT_ALIAS})
+
+add_executable(electronic_surveillance_radar_session_usage
+    electronic_surveillance_radar_session_usage.cpp)
+target_link_libraries(electronic_surveillance_radar_session_usage PRIVATE ${PROJECT_ALIAS})
