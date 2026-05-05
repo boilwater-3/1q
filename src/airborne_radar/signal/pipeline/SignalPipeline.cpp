@@ -7,13 +7,13 @@
 #include <vector>
 
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
+#include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
-#include "airborne_radar/signal/pipeline/RuntimeAssemblySupport.h"
-#include "airborne_radar/signal/pipeline/SignalComponentFactory.h"
 #include "airborne_radar/signal/pipeline/CycleContextSupport.h"
 #include "airborne_radar/signal/pipeline/CycleExecutor.h"
-#include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
+#include "airborne_radar/signal/pipeline/RuntimeAssemblySupport.h"
+#include "airborne_radar/signal/pipeline/SignalComponentFactory.h"
 #include "airborne_radar/signal/tracking/IKalmanPredictor.h"
 #include "airborne_radar/signal/tracking/IKalmanUpdater.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
@@ -47,10 +47,9 @@ struct PipelineRuntimeConfig {
 
 struct RuntimeOwnedState {
   explicit RuntimeOwnedState(const PipelineRuntimeConfig& config_state)
-      : association_engine(SignalComponentFactory::BuildAssociationConfig(
-            config_state.base_config)),
-        track_filter(SignalComponentFactory::BuildTrackFilterConfig(
-            config_state.base_config)) {}
+      : association_engine(
+            SignalComponentFactory::BuildAssociationConfig(config_state.base_config)),
+        track_filter(SignalComponentFactory::BuildTrackFilterConfig(config_state.base_config)) {}
 
   association::DataAssociationEngine association_engine{};
   tracking::TrackFilter track_filter{};
@@ -74,6 +73,7 @@ struct SignalPipelineSnapshot {
   std::uint32_t cycle_index{1U};
   std::uint64_t batch_id{1U};
   association::DataAssociationRuntimeState association_runtime{};
+  tracking::TrackLifecycleRuntimeState lifecycle_runtime{};
 };
 
 struct RuntimeState {
@@ -99,17 +99,17 @@ struct SignalPipeline::Impl {
   }
 
   CycleExecutionRuntime BuildExecutionRuntimeView() {
-    return CycleExecutionRuntime(
-        runtime_.config.base_config, runtime_.config.control_profile_,
-        runtime_.owned.association_engine, runtime_.owned.track_filter,
-        *runtime_.owned.auto_lifecycle_manager, runtime_.owned.signal_detector.get(),
-        runtime_.association_seeds.manual_association_seeds,
-        runtime_.association_seeds.has_manual_association_seeds);
+    return CycleExecutionRuntime(runtime_.config.base_config, runtime_.config.control_profile_,
+                                 runtime_.owned.association_engine, runtime_.owned.track_filter,
+                                 *runtime_.owned.auto_lifecycle_manager,
+                                 runtime_.owned.signal_detector.get(),
+                                 runtime_.association_seeds.manual_association_seeds,
+                                 runtime_.association_seeds.has_manual_association_seeds);
   }
 
   ResolvedRuntimePipelineConfig ResolveRuntimeConfig() const {
     return ResolveRuntimePipelineConfig(runtime_.config.base_config,
-                                                            runtime_.config.control_profile_);
+                                        runtime_.config.control_profile_);
   }
 
   extension::SignalCycleResult RunCycle(const session::RadarSceneTargetList& scene_targets,
@@ -137,8 +137,8 @@ struct SignalPipeline::Impl {
     }
     const CycleExecutionRuntime runtime_execution = BuildExecutionRuntimeView();
 
-    if (!ExecuteCycle(input_state, environment_snapshot, cycle_.cycle_index,
-                                cycle_.batch_id, runtime_execution, cycle_.scratch)) {
+    if (!ExecuteCycle(input_state, environment_snapshot, environment_snapshot.cycle_index,
+                      cycle_.batch_id, runtime_execution, cycle_.scratch)) {
       ResetCycleScratch(&cycle_.scratch);
       extension::SignalCycleResult result;
       result.abort_reason = extension::SignalCycleAbortReason::kRuntimePreparationFailed;
@@ -151,7 +151,7 @@ struct SignalPipeline::Impl {
     result.updated_scene_targets = scene_targets;
     result.decision_frame = cycle_.scratch.decision_frame;
     result.association_quality_metrics = cycle_.scratch.association_quality_metrics;
-    ++cycle_.cycle_index;
+    cycle_.cycle_index = environment_snapshot.cycle_index + 1U;
     ++cycle_.batch_id;
     return result;
   }
@@ -174,6 +174,9 @@ struct SignalPipeline::Impl {
     snapshot->cycle_index = cycle_.cycle_index;
     snapshot->batch_id = cycle_.batch_id;
     snapshot->association_runtime = runtime_.owned.association_engine.CaptureRuntimeState();
+    if (runtime_.owned.auto_lifecycle_manager != nullptr) {
+      snapshot->lifecycle_runtime = runtime_.owned.auto_lifecycle_manager->CaptureRuntimeState();
+    }
 
     extension::SignalPipelineRuntimeState state;
     state.owner_identity = this;
@@ -200,6 +203,9 @@ struct SignalPipeline::Impl {
     RebuildOwnedComponents();
     runtime_.association_seeds = snapshot->association_seeds;
     runtime_.owned.association_engine.RestoreRuntimeState(snapshot->association_runtime);
+    if (runtime_.owned.auto_lifecycle_manager != nullptr) {
+      runtime_.owned.auto_lifecycle_manager->RestoreRuntimeState(snapshot->lifecycle_runtime);
+    }
     cycle_.scratch = CycleExecutionScratch();
     cycle_.scratch.track_measurements = snapshot->track_measurements;
     cycle_.scratch.association_quality_metrics = snapshot->association_quality_metrics;
@@ -245,8 +251,7 @@ struct SignalPipeline::Impl {
     }
 
     OwnedSignalComponents components =
-        SignalComponentFactory::BuildOwnedPipelineComponents(
-            runtime_.config.base_config);
+        SignalComponentFactory::BuildOwnedPipelineComponents(runtime_.config.base_config);
     runtime_.owned.kalman_predictor = std::move(components.kalman_predictor);
     runtime_.owned.kalman_updater = std::move(components.kalman_updater);
     runtime_.owned.signal_detector = std::move(components.signal_detector);
@@ -274,8 +279,8 @@ struct SignalPipeline::Impl {
     component_slots.kalman_updater = &runtime_.owned.kalman_updater;
     component_slots.signal_detector = &runtime_.owned.signal_detector;
     component_slots.auto_lifecycle_manager = &runtime_.owned.auto_lifecycle_manager;
-    RebuildOwnedComponentsForPipeline(
-        runtime_.config.base_config, runtime_.config.control_profile_, &component_slots);
+    RebuildOwnedComponentsForPipeline(runtime_.config.base_config, runtime_.config.control_profile_,
+                                      &component_slots);
   }
 
   RuntimeState runtime_;
@@ -283,11 +288,10 @@ struct SignalPipeline::Impl {
 };
 
 SignalPipeline::SignalPipeline(const ExecutionConfig& config)
-  : impl_(std::unique_ptr<Impl>(new Impl(config))) {}
+    : impl_(std::unique_ptr<Impl>(new Impl(config))) {}
 
 SignalPipeline::SignalPipeline(const session::RadarSessionConfig& config)
-  : SignalPipeline(
-      ::airborne_radar::config::mapping::MapSessionToExecution(config)) {}
+    : SignalPipeline(::airborne_radar::config::mapping::MapSessionToExecution(config)) {}
 
 SignalPipeline::~SignalPipeline() = default;
 
@@ -343,8 +347,7 @@ extension::control::RadarControlProfile SignalPipeline::GetControlProfile() cons
 }
 
 bool SignalPipeline::UpdateConfig(const session::RadarSessionConfig& config) {
-  return UpdateExecutionConfig(
-      ::airborne_radar::config::mapping::MapSessionToExecution(config));
+  return UpdateExecutionConfig(::airborne_radar::config::mapping::MapSessionToExecution(config));
 }
 
 bool SignalPipeline::UpdateExecutionConfig(const ExecutionConfig& config) {

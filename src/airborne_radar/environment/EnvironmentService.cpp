@@ -236,6 +236,7 @@ void EnvironmentService::RefreshFrozenSnapshotFromActiveScene() {
   const PropagationResult propagation_result =
       propagation_model_->Evaluate(scene_manager_->GetActiveScene());
   const EnvironmentSceneState& active_scene = scene_manager_->GetActiveScene();
+  frozen_snapshot_.cycle_index = current_cycle_context_.cycle_index;
   frozen_snapshot_.cycle_dt_sec = current_cycle_context_.dt_sec;
   frozen_snapshot_.propagation_loss_db = propagation_result.propagation_loss_db;
   frozen_snapshot_.atmospheric_physics_loss_db = propagation_result.atmospheric_physics_loss_db;

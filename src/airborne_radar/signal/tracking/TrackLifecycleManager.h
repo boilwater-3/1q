@@ -86,8 +86,10 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
    * @return 由当前未回收轨迹（tentative/confirmed/lost）构成的关联种子列表。
    */
   std::vector<AssociationTrackSeed> BuildAssociationSeeds() const override;
-  void SyncRuntimeTuning(const LifecycleConfig& lifecycle_config,
-                         float kalman_noise_diff_coeff, float kalman_measurement_noise_std,
+  TrackLifecycleRuntimeState CaptureRuntimeState() const override;
+  void RestoreRuntimeState(const TrackLifecycleRuntimeState& state) override;
+  void SyncRuntimeTuning(const LifecycleConfig& lifecycle_config, float kalman_noise_diff_coeff,
+                         float kalman_measurement_noise_std,
                          const std::vector<float>& imm_model_noise_diff_coeffs,
                          const Eigen::MatrixXf& imm_transition_probability,
                          const Eigen::VectorXf& imm_initial_weights) override;
@@ -214,8 +216,7 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
    * @param measurement 当前量测。
    * @return 若应创建或使用 IMM 路径则返回 true。
    */
-  bool ShouldUseImmForMeasurement(bool track_existed_before_cycle,
-                                  TrackStatus status_before_update,
+  bool ShouldUseImmForMeasurement(bool track_existed_before_cycle, TrackStatus status_before_update,
                                   bool matched_existing_track) const;
   /**
    * @brief 判断指定轨迹在当前失配周期是否应走 IMM 预测路径。
@@ -268,7 +269,8 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
    * @param effective_dt_sec [out] 解析得到的有效时间步长（秒）。
    * @return 输入 `dt_sec` 有效时返回 true，否则返回 false。
    */
-  bool TryResolveEffectiveCycleDeltaTimeSec(const CycleContext& cycle, float* effective_dt_sec) const;
+  bool TryResolveEffectiveCycleDeltaTimeSec(const CycleContext& cycle,
+                                            float* effective_dt_sec) const;
   /**
    * @brief 遍历所有未回收轨迹，对每条轨迹调用 callback(key, track)。
    * @tparam Callback 可调用类型，签名为 void(std::uint64_t, const TrackState&)。
@@ -297,8 +299,8 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
   Eigen::MatrixXf imm_transition_probability_;          /**< IMM 模型转移概率矩阵。 */
   Eigen::VectorXf imm_initial_weights_;                 /**< IMM 模型初始权重。 */
   std::unordered_map<std::uint64_t, std::unique_ptr<ImmFilter>>
-      imm_filters_by_key_;            /**< 每条轨迹对应的 IMM 运行态。 */
-  std::uint32_t last_cycle_index_{0}; /**< 上一周期编号，用于计算 dt。 */
+      imm_filters_by_key_;                     /**< 每条轨迹对应的 IMM 运行态。 */
+  std::uint32_t last_cycle_index_{0};          /**< 上一周期编号，用于计算 dt。 */
   TrackStateSnapshotEmitter snapshot_emitter_; /**< 快照导出器，每周期末刷新。 */
 };
 

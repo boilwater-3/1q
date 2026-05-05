@@ -454,6 +454,91 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionStopsAtFailureMarker) {
   EXPECT_TRUE(replay_result.failure_marker_data.has_cycle_index);
 }
 
+TEST(TraceSessionAdapterTest, RadarTraceSessionStepWritesResultFailureMarker) {
+  const std::string trace_dir = MakeTempTracePath("oneq-radar-step-validation-failure");
+
+  oneq::replay::ReplayTraceManifest manifest;
+  manifest.trace_id = "radar-step-validation-failure-test";
+  manifest.module = "airborne_radar";
+  manifest.scenario_id = "unit-test";
+
+  std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
+      new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
+
+  session::RadarTraceSessionOptions options;
+  options.replay_writer = replay_writer;
+  options.trace_config_on_construct = true;
+  session::RadarTraceSession session(session::RadarSessionConfig(), options);
+
+  session::RadarCycleInput input;
+  input.cycle_index = 91U;
+  input.dt_sec = -1.0f;
+  (void)session.Step(input);
+  replay_writer->Flush();
+
+  oneq::replay::ReplayTraceReader replay_reader(trace_dir);
+  oneq::replay::ReplayTraceReadEvent replay_event;
+  bool saw_result_output = false;
+  bool saw_failure_marker = false;
+  while (replay_reader.ReadNextEvent(&replay_event)) {
+    if (replay_event.event_type == "cycle_output") {
+      EXPECT_EQ(replay_event.payload_type, "RadarCycleResult");
+      session::RadarCycleResult decoded_result;
+      std::string decode_error;
+      ASSERT_TRUE(session::DecodeCycleResultFlatbuffer(replay_event.payload_bytes, &decoded_result,
+                                                       &decode_error))
+          << decode_error;
+      saw_result_output = true;
+      EXPECT_TRUE(decoded_result.has_validation_error);
+      EXPECT_EQ(decoded_result.input_cycle_index, 91U);
+    }
+    if (replay_event.event_type == "failure_marker") {
+      saw_failure_marker = true;
+    }
+  }
+  EXPECT_TRUE(saw_result_output);
+  EXPECT_TRUE(saw_failure_marker);
+}
+
+TEST(TraceSessionAdapterTest, RadarReplaySessionRejectsTrailingCycleInput) {
+  const std::string trace_dir = MakeTempTracePath("oneq-radar-trailing-input");
+
+  oneq::replay::ReplayTraceManifest manifest;
+  manifest.trace_id = "radar-trailing-input-test";
+  manifest.module = "airborne_radar";
+  manifest.scenario_id = "unit-test";
+
+  oneq::replay::ReplayTraceWriter writer(trace_dir, manifest, true);
+
+  oneq::replay::ReplayTraceEvent config_event;
+  config_event.module = "airborne_radar";
+  config_event.event_type = "session_config";
+  config_event.payload_type = "RadarSessionConfig";
+  config_event.payload_encoding = "flatbuffers";
+  config_event.payload_bytes =
+      session::EncodeSessionConfigFlatbuffer(session::RadarSessionConfig());
+  writer.WriteEvent(config_event);
+
+  session::RadarCycleInput input;
+  input.cycle_index = 3U;
+  input.dt_sec = 1.0f;
+  oneq::replay::ReplayTraceEvent input_event;
+  input_event.module = "airborne_radar";
+  input_event.event_type = "cycle_input";
+  input_event.payload_type = "RadarCycleInput";
+  input_event.payload_encoding = "flatbuffers";
+  input_event.payload_bytes = session::EncodeCycleInputFlatbuffer(input);
+  input_event.has_cycle_index = true;
+  input_event.cycle_index = input.cycle_index;
+  writer.WriteEvent(input_event);
+  writer.Flush();
+
+  const session::RadarReplaySessionResult replay_result = session::ReplayRadarTrace(trace_dir);
+
+  EXPECT_FALSE(replay_result.ok);
+  EXPECT_NE(replay_result.first_error.find("pending cycle_input"), std::string::npos);
+}
+
 }  // namespace tests
 }  // namespace airborne_radar
 

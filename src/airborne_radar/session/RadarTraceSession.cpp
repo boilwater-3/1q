@@ -33,19 +33,6 @@ void WriteRuntimeConfigPatchReplay(const std::shared_ptr<oneq::replay::ReplayTra
   writer->WriteEvent(event);
 }
 
-void WriteTrackOutputReplay(const std::shared_ptr<oneq::replay::ReplayTraceWriter>& writer,
-                            const session::TrackOutputFrame& output_frame) {
-  oneq::replay::ReplayTraceEvent event;
-  event.module = "airborne_radar";
-  event.event_type = "cycle_output";
-  event.payload_type = "TrackOutputFrame";
-  event.payload_encoding = "flatbuffers";
-  event.payload_bytes = EncodeTrackOutputFrameFlatbuffer(output_frame);
-  event.has_cycle_index = true;
-  event.cycle_index = output_frame.cycle_index;
-  writer->WriteEvent(event);
-}
-
 void WriteCycleResultReplay(const std::shared_ptr<oneq::replay::ReplayTraceWriter>& writer,
                             const RadarCycleResult& result) {
   oneq::replay::ReplayTraceEvent event;
@@ -104,11 +91,12 @@ session::TrackOutputFrame RadarTraceSession::Step(const RadarCycleInput& input) 
   if (replay_writer_) {
     WriteCycleInputEvent(replay_writer_, input);
   }
-  const session::TrackOutputFrame output = session_.Step(input);
+  const RadarCycleResult result = session_.StepWithResult(input);
   if (replay_writer_) {
-    WriteTrackOutputReplay(replay_writer_, output);
+    WriteCycleResultReplay(replay_writer_, result);
+    MaybeWriteValidationFailureMarker(replay_writer_, result);
   }
-  return output;
+  return result.track_output_frame;
 }
 
 RadarCycleResult RadarTraceSession::StepWithResult(const RadarCycleInput& input) {

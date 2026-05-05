@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 #include "airborne_radar/signal/tracking/ImmFilter.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
@@ -17,6 +18,14 @@ namespace signal {
 namespace tracking {
 
 namespace {
+
+struct TrackLifecycleRuntimeSnapshot {
+  std::uint64_t next_track_id{1U};
+  std::uint32_t last_cycle_index{0U};
+  std::vector<std::pair<std::uint64_t, TrackState>> tracks_by_key{};
+  std::vector<std::pair<std::uint64_t, ImmFilter>> imm_filters_by_key{};
+};
+
 /**
  * @brief 将位置量测写入滤波观测向量。
  * @param measurement 当前量测。
@@ -182,11 +191,87 @@ TrackLifecycleManager::TrackLifecycleManager(
 
 TrackLifecycleManager::~TrackLifecycleManager() = default;
 
-void TrackLifecycleManager::SyncRuntimeTuning(
-    const LifecycleConfig& lifecycle_config, float kalman_noise_diff_coeff,
-    float kalman_measurement_noise_std, const std::vector<float>& imm_model_noise_diff_coeffs,
-    const Eigen::MatrixXf& imm_transition_probability,
-    const Eigen::VectorXf& imm_initial_weights) {
+TrackLifecycleRuntimeState TrackLifecycleManager::CaptureRuntimeState() const {
+  TrackLifecycleRuntimeState state;
+  state.owner_identity = this;
+  state.schema_version = 1U;
+
+  std::shared_ptr<TrackLifecycleRuntimeSnapshot> snapshot(new TrackLifecycleRuntimeSnapshot());
+  snapshot->next_track_id = next_track_id_;
+  snapshot->last_cycle_index = last_cycle_index_;
+  snapshot->tracks_by_key.reserve(tracks_by_key_.size());
+  for (std::unordered_map<std::uint64_t, TrackState*>::const_iterator it = tracks_by_key_.begin();
+       it != tracks_by_key_.end(); ++it) {
+    if (it->second != nullptr) {
+      snapshot->tracks_by_key.push_back(std::make_pair(it->first, *it->second));
+    }
+  }
+  snapshot->imm_filters_by_key.reserve(imm_filters_by_key_.size());
+  for (std::unordered_map<std::uint64_t, std::unique_ptr<ImmFilter>>::const_iterator it =
+           imm_filters_by_key_.begin();
+       it != imm_filters_by_key_.end(); ++it) {
+    if (it->second != nullptr) {
+      snapshot->imm_filters_by_key.push_back(std::make_pair(it->first, *it->second));
+    }
+  }
+  state.opaque = snapshot;
+  return state;
+}
+
+void TrackLifecycleManager::RestoreRuntimeState(const TrackLifecycleRuntimeState& state) {
+  if (state.schema_version != 1U) {
+    PROJECT_LOG_ERROR(
+        "[TrackLifecycleManager] runtime state restore rejected because snapshot schema does not "
+        "match this instance.");
+    return;
+  }
+
+  const std::shared_ptr<TrackLifecycleRuntimeSnapshot> snapshot =
+      std::static_pointer_cast<TrackLifecycleRuntimeSnapshot>(state.opaque);
+  if (snapshot == nullptr) {
+    return;
+  }
+
+  if (pool_ != nullptr) {
+    for (std::unordered_map<std::uint64_t, TrackState*>::iterator it = tracks_by_key_.begin();
+         it != tracks_by_key_.end(); ++it) {
+      pool_->Release(it->second);
+    }
+  }
+  tracks_by_key_.clear();
+  imm_filters_by_key_.clear();
+
+  next_track_id_ = snapshot->next_track_id;
+  last_cycle_index_ = snapshot->last_cycle_index;
+
+  for (std::vector<std::pair<std::uint64_t, TrackState>>::const_iterator it =
+           snapshot->tracks_by_key.begin();
+       it != snapshot->tracks_by_key.end(); ++it) {
+    TrackState* track = pool_ != nullptr ? pool_->Acquire() : nullptr;
+    if (track == nullptr) {
+      PROJECT_LOG_ERROR(
+          "[TrackLifecycleManager] runtime state restore failed to acquire track for "
+          "association_key={}",
+          it->first);
+      continue;
+    }
+    *track = it->second;
+    tracks_by_key_[it->first] = track;
+  }
+  for (std::vector<std::pair<std::uint64_t, ImmFilter>>::const_iterator it =
+           snapshot->imm_filters_by_key.begin();
+       it != snapshot->imm_filters_by_key.end(); ++it) {
+    imm_filters_by_key_[it->first].reset(new ImmFilter(it->second));
+  }
+  snapshot_emitter_.Refresh(tracks_by_key_);
+}
+
+void TrackLifecycleManager::SyncRuntimeTuning(const LifecycleConfig& lifecycle_config,
+                                              float kalman_noise_diff_coeff,
+                                              float kalman_measurement_noise_std,
+                                              const std::vector<float>& imm_model_noise_diff_coeffs,
+                                              const Eigen::MatrixXf& imm_transition_probability,
+                                              const Eigen::VectorXf& imm_initial_weights) {
   config_.confirm_hits = lifecycle_config.confirm_hits;
   config_.max_miss_before_lost = lifecycle_config.max_miss_before_lost;
   config_.max_lost_cycles = lifecycle_config.max_lost_cycles;
@@ -197,9 +282,9 @@ void TrackLifecycleManager::SyncRuntimeTuning(
   UpdateUpdaterConfigIfSupported(kalman_updater_, kalman_measurement_noise_std);
 
   for (std::size_t i = 0; i < imm_predictors_.size(); ++i) {
-    const float model_noise_diff_coeff =
-        i < imm_model_noise_diff_coeffs.size() ? imm_model_noise_diff_coeffs[i]
-                                               : kalman_noise_diff_coeff;
+    const float model_noise_diff_coeff = i < imm_model_noise_diff_coeffs.size()
+                                             ? imm_model_noise_diff_coeffs[i]
+                                             : kalman_noise_diff_coeff;
     UpdatePredictorConfigIfSupported(imm_predictors_[i], model_noise_diff_coeff);
   }
   for (std::size_t i = 0; i < imm_updaters_.size(); ++i) {
@@ -424,9 +509,9 @@ void TrackLifecycleManager::EnsurePhase(LifecycleUpdateScratch& scratch,
 
     const TrackStatus status_before_update =
         track_existed_before_cycle ? track_before_update.status : TrackStatus::kTentative;
-    const bool use_imm = ShouldUseImmForMeasurement(
-        track_existed_before_cycle, status_before_update,
-        measurement.raw_measurement.matched_existing_track);
+    const bool use_imm =
+        ShouldUseImmForMeasurement(track_existed_before_cycle, status_before_update,
+                                   measurement.raw_measurement.matched_existing_track);
     ImmFilter* imm_filter = nullptr;
     if (use_imm) {
       const GaussianTrackState initial_state = measurement.raw_measurement.matched_existing_track
@@ -555,7 +640,6 @@ void TrackLifecycleManager::RecyclePhase(LifecycleUpdateScratch& scratch) {
     }
     tracks_by_key_.erase(found);
   }
-
 }
 
 bool TrackLifecycleManager::TryResolveEffectiveCycleDeltaTimeSec(const CycleContext& cycle,

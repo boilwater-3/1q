@@ -311,6 +311,12 @@ RadarReplaySessionResult ReplayRadarTrace(const std::string& trace_dir) {
 
   result.playback = oneq::replay::PlaybackReplayTrace(trace_dir, callbacks, options);
   result.ok = result.playback.ok;
+  if (result.ok && state.has_pending_input) {
+    result.ok = false;
+    result.playback.ok = false;
+    result.first_error = "AR replay ended with pending cycle_input without cycle_output";
+    result.playback.first_error = result.first_error;
+  }
   result.reached_failure_marker = state.reached_failure_marker;
   result.failure_marker_payload = state.failure_marker_payload;
   result.failure_marker_data = state.failure_marker_data;

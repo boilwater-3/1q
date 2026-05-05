@@ -54,6 +54,7 @@ struct ONEQ_API EnvironmentCycleContext {
  * @brief EnvironmentSnapshot 用于封装单个处理周期内的环境快照。
  */
 struct ONEQ_API EnvironmentSnapshot {
+  std::uint32_t cycle_index{0U};                   /**< 当前周期号 */
   float cycle_dt_sec{0.0f};                        /**< 当前周期步长（单位：s） */
   float propagation_loss_db{0.0f};                 /**< 传播损耗（单位：dB） */
   float atmospheric_physics_loss_db{0.0f};         /**< 传播损耗中的大气物理附加项（单位：dB） */

@@ -6,8 +6,9 @@
 #ifndef AIRBORNE_RADAR_SIGNAL_TRACKING_I_TRACK_LIFECYCLE_MANAGER_H_
 #define AIRBORNE_RADAR_SIGNAL_TRACKING_I_TRACK_LIFECYCLE_MANAGER_H_
 
+#include <cstdint>
+#include <memory>
 #include <vector>
-
 
 #include "1q/airborne_radar/model/TrackStateSnapshot.h"
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
@@ -17,6 +18,13 @@
 namespace airborne_radar {
 namespace signal {
 namespace tracking {
+
+struct TrackLifecycleRuntimeState {
+  const void* owner_identity{nullptr}; /**< 生成该快照的 lifecycle 实例地址 */
+  std::uint32_t schema_version{0U};    /**< 运行态快照 schema 版本 */
+  std::shared_ptr<void> opaque{};      /**< 由具体 lifecycle 实现解释的运行态快照 */
+};
+
 /**
  * @brief ITrackLifecycleManager 抽象轨迹生命周期推进与快照导出能力。
  */
@@ -46,12 +54,23 @@ class ITrackLifecycleManager {
    */
   virtual std::vector<AssociationTrackSeed> BuildAssociationSeeds() const = 0;
   /**
+   * @brief 捕获当前生命周期运行态。
+   * @return 可用于失败回滚的生命周期快照。
+   */
+  virtual TrackLifecycleRuntimeState CaptureRuntimeState() const {
+    return TrackLifecycleRuntimeState();
+  }
+  /**
+   * @brief 恢复此前捕获的生命周期运行态。
+   * @param state 待恢复的生命周期快照。
+   */
+  virtual void RestoreRuntimeState(const TrackLifecycleRuntimeState& state) { (void)state; }
+  /**
    * @brief 同步运行时 lifecycle/KF/IMM 参数。
    * @note 默认空实现，供不支持在线调参的实现安全忽略。
    */
   virtual void SyncRuntimeTuning(const LifecycleConfig& lifecycle_config,
-                                 float kalman_noise_diff_coeff,
-                                 float kalman_measurement_noise_std,
+                                 float kalman_noise_diff_coeff, float kalman_measurement_noise_std,
                                  const std::vector<float>& imm_model_noise_diff_coeffs,
                                  const Eigen::MatrixXf& imm_transition_probability,
                                  const Eigen::VectorXf& imm_initial_weights) {

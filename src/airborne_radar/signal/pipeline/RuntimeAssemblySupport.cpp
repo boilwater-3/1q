@@ -4,8 +4,8 @@
 #include <utility>
 
 #include "airborne_radar/config/SignalEngineeringConfig.h"
-#include "airborne_radar/signal/pipeline/SignalComponentFactory.h"
 #include "airborne_radar/signal/pipeline/ControlProfileEffects.h"
+#include "airborne_radar/signal/pipeline/SignalComponentFactory.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleManager.h"
 #include "common/logging/ProjectLog.h"
 
@@ -165,6 +165,20 @@ class AutoConfiguredLifecycleManager final : public tracking::ITrackLifecycleMan
     return assembly_.lifecycle_manager->BuildAssociationSeeds();
   }
 
+  tracking::TrackLifecycleRuntimeState CaptureRuntimeState() const override {
+    if (assembly_.lifecycle_manager == nullptr) {
+      return tracking::TrackLifecycleRuntimeState();
+    }
+    return assembly_.lifecycle_manager->CaptureRuntimeState();
+  }
+
+  void RestoreRuntimeState(const tracking::TrackLifecycleRuntimeState& state) override {
+    if (assembly_.lifecycle_manager == nullptr) {
+      return;
+    }
+    assembly_.lifecycle_manager->RestoreRuntimeState(state);
+  }
+
   void SyncRuntimeTuning(const tracking::LifecycleConfig& lifecycle_config,
                          float kalman_noise_diff_coeff, float kalman_measurement_noise_std,
                          const std::vector<float>& imm_model_noise_diff_coeffs,
@@ -210,7 +224,8 @@ class AutoConfiguredLifecycleManager final : public tracking::ITrackLifecycleMan
     const float kalman_noise_diff_coeff = config_.tracking.kalman_noise_diff_coeff;
     const float kalman_measurement_noise_std =
         config_.tracking.engineering.kalman_measurement_noise_std;
-    const std::vector<float>& imm_model_noise_diff_coeffs = config_.lifecycle.imm_model_noise_diff_coeffs;
+    const std::vector<float>& imm_model_noise_diff_coeffs =
+        config_.lifecycle.imm_model_noise_diff_coeffs;
     const Eigen::MatrixXf imm_transition_probability =
         BuildImmTransitionProbabilityOrDefault(config_, imm_model_noise_diff_coeffs.size());
     const Eigen::VectorXf imm_initial_weights =
@@ -289,8 +304,6 @@ bool SyncAutoLifecycleManagerForRuntimeConfig(
   resolved.config = runtime_config;
   return SyncAutoLifecycleManagerForResolvedRuntimeConfig(resolved, auto_lifecycle_manager);
 }
-
-
 
 }  // namespace pipeline
 }  // namespace signal
