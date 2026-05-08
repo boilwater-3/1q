@@ -158,6 +158,9 @@ message(STATUS "  └─ Build examples: ${ENABLE_EXAMPLES}")
 message(STATUS "  └─ Build tests: ${ENABLE_TESTING}")
 message(STATUS "  └─ Install support: ${ENABLE_INSTALL}")
 
+# VS2015 行尾兼容处理
+include(cmake/EnsureCRLF.cmake)
+
 # 子目录包含
 if(EXISTS "${CMAKE_SOURCE_DIR}/src/CMakeLists.txt")
     add_subdirectory(src)

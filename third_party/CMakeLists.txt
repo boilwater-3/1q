@@ -5,7 +5,7 @@
 
 # -- Eigen3 (header-only) ---------------------------------------------------
 add_library(eigen3_interface INTERFACE)
-target_include_directories(eigen3_interface INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(eigen3_interface INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/eigen)
 add_library(Eigen3::Eigen ALIAS eigen3_interface)
 
 # -- Boost (header-only，仅用 pool + math/special_functions) ------------------
@@ -52,6 +52,11 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/zlib ${CMAKE_BINARY_DIR}/third_part
 if(NOT TARGET ZLIB::ZLIB)
     add_library(ZLIB::ZLIB ALIAS zlib)
 endif()
+# zlib 1.2.11 uses directory-scope include_directories(), not target PUBLIC.
+# Add the include path to the target so consumers can find zlib.h.
+target_include_directories(zlib
+    SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/zlib
+                  ${CMAKE_CURRENT_BINARY_DIR}/third_party/zlib)
 
 # -- GTest (仅测试用，不构建可跳过) ------------------------------------------
 set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
