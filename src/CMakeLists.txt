@@ -96,7 +96,11 @@ if(PACKAGE_MANAGER STREQUAL "conan" OR PACKAGE_MANAGER STREQUAL "vcpkg")
     endif()
     find_package(ZLIB REQUIRED)
 else()
-    set(PROJECT_ENABLE_SPDLOG ON)
+    if(WIN32)
+        set(PROJECT_ENABLE_SPDLOG OFF)
+    else()
+        set(PROJECT_ENABLE_SPDLOG ON)
+    endif()
     find_package(ZLIB QUIET)
     if(NOT ZLIB_FOUND)
         set(ONEQ_VENDOR_ZLIB ON)
@@ -111,6 +115,21 @@ set(ONEQ_LINK_DEPENDENCIES
     nanoflann::nanoflann
 )
 list(APPEND ONEQ_LINK_DEPENDENCIES flatbuffers::flatbuffers)
+
+# Vendor dependencies are non-IMPORTED targets built in-tree via add_subdirectory.
+# install(EXPORT) requires all referenced targets to be resolvable; wrapping with
+# BUILD_INTERFACE confines them to build-time only.  This is safe for static builds
+# because compiled code is already archived into the static library.
+if(PACKAGE_MANAGER STREQUAL "none" AND ENABLE_INSTALL)
+    set(_oneq_export_safe_deps)
+    foreach(_dep IN LISTS ONEQ_LINK_DEPENDENCIES)
+        list(APPEND _oneq_export_safe_deps "$<BUILD_INTERFACE:${_dep}>")
+    endforeach()
+    set(ONEQ_LINK_DEPENDENCIES ${_oneq_export_safe_deps})
+    unset(_oneq_export_safe_deps)
+    unset(_dep)
+endif()
+
 foreach(ONEQ_BUILD_TARGET IN ITEMS
     ${PROJECT_CORE_TARGET}
     ${ONEQ_OBJECT_TARGETS}
@@ -151,6 +170,9 @@ if(PROJECT_ENABLE_SPDLOG)
     else()
         message(FATAL_ERROR "spdlog target is not available")
     endif()
+    if(PACKAGE_MANAGER STREQUAL "none" AND ENABLE_INSTALL)
+        set(PROJECT_SPDLOG_TARGET "$<BUILD_INTERFACE:${PROJECT_SPDLOG_TARGET}>")
+    endif()
     foreach(ONEQ_BUILD_TARGET IN ITEMS
         ${PROJECT_CORE_TARGET}
         ${ONEQ_OBJECT_TARGETS}
@@ -172,12 +194,18 @@ endforeach()
 unset(ONEQ_BUILD_TARGET)
 
 if(ONEQ_HAVE_ZLIB)
+    if(PACKAGE_MANAGER STREQUAL "none" AND ENABLE_INSTALL)
+        set(_oneq_zlib_dep "$<BUILD_INTERFACE:ZLIB::ZLIB>")
+    else()
+        set(_oneq_zlib_dep ZLIB::ZLIB)
+    endif()
     foreach(ONEQ_BUILD_TARGET IN ITEMS
         ${PROJECT_CORE_TARGET}
         ${ONEQ_OBJECT_TARGETS}
     )
-        target_link_libraries(${ONEQ_BUILD_TARGET} PRIVATE ZLIB::ZLIB)
+        target_link_libraries(${ONEQ_BUILD_TARGET} PRIVATE ${_oneq_zlib_dep})
     endforeach()
+    unset(_oneq_zlib_dep)
     unset(ONEQ_BUILD_TARGET)
 endif()
 

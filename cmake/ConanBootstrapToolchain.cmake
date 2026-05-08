@@ -1,5 +1,10 @@
 include("${CMAKE_CURRENT_LIST_DIR}/ProjectLanguageDefaults.cmake")
 
+# Vendor 模式不使用包管理器，跳过 Conan 安装流程。
+if(DEFINED PACKAGE_MANAGER AND PACKAGE_MANAGER STREQUAL "none")
+  return()
+endif()
+
 # CMake 在编译器探测阶段会进入 try_compile 子工程，此时不应再次触发 Conan 安装。
 get_property(_conan_in_try_compile GLOBAL PROPERTY IN_TRY_COMPILE)
 if(_conan_in_try_compile)

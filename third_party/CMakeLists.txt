@@ -19,17 +19,19 @@ target_include_directories(nanoflann_interface INTERFACE ${CMAKE_CURRENT_SOURCE_
 add_library(nanoflann::nanoflann ALIAS nanoflann_interface)
 
 # -- fmt (保留源码；vendor 模式下 spdlog 使用自带 bundled fmt) -----------------
-set(FMT_INSTALL OFF CACHE BOOL "" FORCE)
-set(FMT_TEST OFF CACHE BOOL "" FORCE)
-set(FMT_DOC OFF CACHE BOOL "" FORCE)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/fmt ${CMAKE_BINARY_DIR}/third_party/fmt)
+if(PROJECT_ENABLE_SPDLOG)
+    set(FMT_INSTALL OFF CACHE BOOL "" FORCE)
+    set(FMT_TEST OFF CACHE BOOL "" FORCE)
+    set(FMT_DOC OFF CACHE BOOL "" FORCE)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/fmt ${CMAKE_BINARY_DIR}/third_party/fmt)
 
-# -- spdlog ------------------------------------------------------------------
-set(SPDLOG_FMT_EXTERNAL OFF CACHE BOOL "" FORCE)
-set(SPDLOG_INSTALL OFF CACHE BOOL "" FORCE)
-set(SPDLOG_BUILD_EXAMPLE OFF CACHE BOOL "" FORCE)
-set(SPDLOG_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/spdlog ${CMAKE_BINARY_DIR}/third_party/spdlog)
+    # -- spdlog ------------------------------------------------------------------
+    set(SPDLOG_FMT_EXTERNAL OFF CACHE BOOL "" FORCE)
+    set(SPDLOG_INSTALL OFF CACHE BOOL "" FORCE)
+    set(SPDLOG_BUILD_EXAMPLE OFF CACHE BOOL "" FORCE)
+    set(SPDLOG_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/spdlog ${CMAKE_BINARY_DIR}/third_party/spdlog)
+endif()
 
 # -- flatbuffers (仅构建运行时库，跳过 flatc 和测试) -------------------------
 # flatbuffers 1.12 的 cmake_minimum_required 较老，CMake 4.0+ 需此策略
