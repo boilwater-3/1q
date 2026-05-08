@@ -131,3 +131,24 @@ if(ONEQ_HAVE_ZLIB)
     unset(_oneq_zlib_dep)
     unset(ONEQ_BUILD_TARGET)
 endif()
+
+# -- find_dependency 块（供 PackageConfig 模板注入）--
+# 与 conanfile.py requirements() 保持一致：Eigen3, Boost, nanoflann, flatbuffers, ZLIB,
+# 非 Windows 平台额外需要 spdlog。Vendor 模式下留空，消费者无需安装任何第三方依赖。
+set(ONEQ_CONFIG_FIND_DEPENDENCIES "")
+if(PACKAGE_MANAGER STREQUAL "conan" OR PACKAGE_MANAGER STREQUAL "vcpkg")
+    string(APPEND ONEQ_CONFIG_FIND_DEPENDENCIES
+        "find_dependency(Eigen3 REQUIRED CONFIG)\n"
+        "find_dependency(Boost REQUIRED CONFIG)\n"
+        "find_dependency(nanoflann REQUIRED CONFIG)\n"
+        "find_dependency(flatbuffers REQUIRED CONFIG)\n"
+    )
+    if(PROJECT_ENABLE_SPDLOG)
+        string(APPEND ONEQ_CONFIG_FIND_DEPENDENCIES
+            "find_dependency(spdlog REQUIRED CONFIG)\n"
+        )
+    endif()
+    string(APPEND ONEQ_CONFIG_FIND_DEPENDENCIES
+        "find_dependency(ZLIB REQUIRED)\n"
+    )
+endif()
