@@ -89,6 +89,11 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/model/JammingSemantics.h
     )
     set(PUBLIC_HEADERS_CONFIG_ENTRY
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarEnvironmentConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarHardwareConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarMissionConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarPolicyConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarRuntimeConfigPatch.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarSessionConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarRuntimeConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarSessionConfigBuilder.h
@@ -112,6 +117,8 @@ if(ENABLE_INSTALL)
     )
     set(PUBLIC_HEADERS_CORE_SESSION
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarCycleResult.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarSceneTargetUtils.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarSceneTypes.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarSessionFactory.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarSession.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarReplaySession.h
