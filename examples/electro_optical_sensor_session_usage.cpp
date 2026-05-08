@@ -39,57 +39,8 @@ eos_session::EosSessionConfig MakeFusedSearchConfig() {
   return config;
 }
 
-eos_session::EosSessionConfig MakeLongRangeInfraredConfig() {
-  eos_session::EosSessionConfig config =
-      eos_config::EosSessionConfigBuilder()
-          .Mission()
-          .WithWorkMode(eos_config::EosWorkMode::kInfraredOnly)
-          .WithScanRateDegPerSec(5.0f)
-          .WithFrameRateHz(20.0f)
-          .End()
-          .Detection()
-          .WithDetectionProfile(eos_config::EosDetectionProfile::kAggressive)
-          .End()
-          .Environment()
-          .WithEnvironmentModelType(eos_env::EosEnvironmentModelType::kAdvanced)
-          .WithEnvironmentPreset(eos_config::EosEnvironmentPreset::kMaritime)
-          .End()
-          .Build();
-  config.mission.scan_start_az_deg = -10.0f;
-  config.mission.scan_end_az_deg = 10.0f;
-  config.mission.horizontal_fov_deg = 20.0f;
-  return config;
-}
-
-eos_session::EosSessionConfig MakeGlareResistantConfig() {
-  eos_session::EosSessionConfig config =
-      eos_config::EosSessionConfigBuilder()
-          .Mission()
-          .WithWorkMode(eos_config::EosWorkMode::kVisibleOnly)
-          .WithScanRateDegPerSec(5.0f)
-          .End()
-          .Detection()
-          .WithDetectionProfile(eos_config::EosDetectionProfile::kConservative)
-          .End()
-          .StrayLight()
-          .WithStrayLightProfile(eos_config::EosStrayLightProfile::kEnhancedHood)
-          .End()
-          .Environment()
-          .WithEnvironmentPreset(eos_config::EosEnvironmentPreset::kDusty)
-          .End()
-          .Build();
-  config.mission.scan_start_az_deg = -10.0f;
-  config.mission.scan_end_az_deg = 10.0f;
-  config.mission.horizontal_fov_deg = 20.0f;
-  return config;
-}
-
 eos_session::EosSession CreateFusedSearchSession() {
   return eos_session::EosSessionFactory::Create(MakeFusedSearchConfig());
-}
-
-eos_session::EosSession CreateLongRangeInfraredSession() {
-  return eos_session::EosSessionFactory::Create(MakeLongRangeInfraredConfig());
 }
 
 eos_session::EosSceneTarget MakeTarget(std::uint64_t id, float range_m, float azimuth_deg,
@@ -106,71 +57,86 @@ eos_session::EosSceneTarget MakeTarget(std::uint64_t id, float range_m, float az
   return target;
 }
 
-eos_session::EosCycleInput MakeCycleInput(std::uint32_t cycle_index) {
-  eos_session::EosCycleInput input;
-  input.cycle_index = cycle_index;
-  input.dt_sec = 1.0f;
-  input.platform_pose.position_m.z = 1500.0f;
-  input.environment.solar_altitude_deg = 42.0f;
-  input.environment.solar_azimuth_deg = 165.0f;
-  input.environment.solar_irradiance_w_m2 = 850.0f;
-  input.environment.cloud_coverage_ratio = 0.15f;
-  input.environment.background_temperature_k = 288.0f;
-  input.environment.day_night_type = eos_session::DayNightType::kDay;
-  input.scene.push_back(MakeTarget(1U, 1400.0f, -5.0f, 335.0f, 4.0f));
-  input.scene.push_back(MakeTarget(2U, 2100.0f, 4.0f, 315.0f, 6.0f));
-  return input;
-}
-
-std::size_t CountDetected(const eos_session::EosOutputFrame& frame) {
-  std::size_t count = 0U;
-  for (std::size_t i = 0; i < frame.detections.size(); ++i) {
-    if (frame.detections[i].detected) {
-      ++count;
-    }
-  }
-  return count;
-}
+struct MovingEosTarget {
+  std::uint64_t id;
+  float range_m;
+  float azimuth_deg;
+  float temperature_k;
+  float area_m2;
+  float speed_range_mps;
+  float speed_az_dps;
+};
 
 void PrintResult(const char* label, const eos_session::EosCycleResult& result) {
-  std::cout << label << ": input_cycle=" << result.input_cycle_index
-            << " output_cycle=" << result.output_frame.cycle_index
+  std::size_t detected = 0;
+  for (std::size_t i = 0; i < result.output_frame.detections.size(); ++i) {
+    if (result.output_frame.detections[i].detected) ++detected;
+  }
+  std::cout << label << ": cycle=" << result.input_cycle_index
             << " detections=" << result.output_frame.detections.size()
-            << " detected=" << CountDetected(result.output_frame)
+            << " detected=" << detected
             << " validation_errors=" << (result.has_validation_error ? "true" : "false") << "\n";
 }
 
-bool RunRecommendedScenario() {
+bool RunMovingTargetsScenario() {
   eos_session::EosSession session = CreateFusedSearchSession();
-  eos_session::EosCycleInput input = MakeCycleInput(1U);
-  const eos_session::ValidationIssueList issues = eos_session::ValidateEosCycleInput(input);
-  if (eos_session::HasValidationError(issues)) {
-    std::cerr << "EOS input is invalid: " << issues.size() << " issues\n";
-    return false;
+
+  std::vector<MovingEosTarget> targets = {
+    {1U, 1400.0f, -5.0f, 335.0f, 4.0f, -10.0f, 0.2f},
+    {2U, 2100.0f, 4.0f, 315.0f, 6.0f, -15.0f, -0.15f},
+    {3U, 3200.0f, 1.5f, 350.0f, 3.0f, -8.0f, 0.1f},
+  };
+
+  const std::uint32_t num_cycles = 50;
+  std::uint32_t validation_error_count = 0;
+  std::uint32_t max_detected = 0;
+  std::uint32_t min_detected = 100;
+
+  for (std::uint32_t i = 0; i < num_cycles; ++i) {
+    eos_session::EosCycleInput input;
+    input.cycle_index = i + 1;
+    input.dt_sec = 1.0f;
+    input.platform_pose.position_m.z = 1500.0f;
+    input.environment.solar_altitude_deg = 42.0f;
+    input.environment.solar_azimuth_deg = 165.0f;
+    input.environment.solar_irradiance_w_m2 = 850.0f;
+    input.environment.cloud_coverage_ratio = 0.15f;
+    input.environment.background_temperature_k = 288.0f;
+    input.environment.day_night_type = eos_session::DayNightType::kDay;
+
+    for (const auto& mt : targets) {
+      input.scene.push_back(
+          MakeTarget(mt.id, mt.range_m, mt.azimuth_deg, mt.temperature_k, mt.area_m2));
+    }
+
+    const float dt = input.dt_sec;
+    for (auto& mt : targets) {
+      mt.range_m += mt.speed_range_mps * dt;
+      mt.azimuth_deg += mt.speed_az_dps * dt;
+      if (mt.range_m < 100.0f) mt.speed_range_mps = -mt.speed_range_mps;
+    }
+
+    eos_session::EosCycleResult result = session.StepWithResult(input);
+    if (result.has_validation_error) ++validation_error_count;
+
+    std::size_t ndetected = 0;
+    for (std::size_t j = 0; j < result.output_frame.detections.size(); ++j) {
+      if (result.output_frame.detections[j].detected) ++ndetected;
+    }
+    if (ndetected > max_detected) max_detected = ndetected;
+    if (ndetected < min_detected) min_detected = ndetected;
+
+    PrintResult("eos-moving", result);
   }
-  PrintResult("fused-search", session.StepWithResult(input));
 
-  const eos_session::EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder()
-          .WithWorkMode(eos_config::EosWorkMode::kInfraredOnly)
-          .WithDetectionProfile(eos_config::EosDetectionProfile::kAggressive)
-          .WithStrayLightProfile(eos_config::EosStrayLightProfile::kEnhancedHood)
-          .Build();
-  session.ApplyRuntimeConfig(patch);
-  PrintResult("runtime-ir", session.StepWithResult(MakeCycleInput(2U)));
-
-  const eos_session::EosOutputFrame output_only = session.Step(MakeCycleInput(3U));
-  std::cout << "output-only detections=" << output_only.detections.size() << "\n";
-
-  eos_session::EosSession ir_session = CreateLongRangeInfraredSession();
-  PrintResult("long-range-ir", ir_session.StepWithResult(MakeCycleInput(10U)));
-
-  eos_session::EosSession glare_session =
-      eos_session::EosSessionFactory::Create(MakeGlareResistantConfig());
-  PrintResult("glare-resistant", glare_session.StepWithResult(MakeCycleInput(20U)));
-  return true;
+  std::cout << "\n=== EOS Summary ===\n"
+            << "cycles=" << num_cycles
+            << " min_detected=" << min_detected
+            << " max_detected=" << max_detected
+            << " validation_errors=" << validation_error_count << "\n";
+  return validation_error_count == 0;
 }
 
 }  // namespace
 
-int main() { return RunRecommendedScenario() ? 0 : 1; }
+int main() { return RunMovingTargetsScenario() ? 0 : 1; }
