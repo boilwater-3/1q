@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file trace_session_adapter_test.cpp
  * @brief 验证三模块 TraceSession 中间层能够落盘记录 config/input/output。
  */
@@ -74,7 +74,7 @@ std::string ReadFile(const std::string& path) {
   return buffer.str();
 }
 
-__attribute__((unused)) std::vector<std::uint8_t> ReadBinaryFile(const std::string& path) {
+static std::vector<std::uint8_t> ReadBinaryFile(const std::string& path) {
   std::ifstream input(path.c_str(), std::ios::in | std::ios::binary);
   return std::vector<std::uint8_t>((std::istreambuf_iterator<char>(input)),
                                    std::istreambuf_iterator<char>());
@@ -87,7 +87,7 @@ void ExpectCommonTracePhases(const std::string& content, const std::string& modu
   EXPECT_NE(content.find("\"phase\":\"output\""), std::string::npos);
 }
 
-__attribute__((unused)) void ExpectFlatbufferRecord(const std::vector<std::uint8_t>& content,
+static void ExpectFlatbufferRecord(const std::vector<std::uint8_t>& content,
                                                     const std::string& module_name,
                                                     const std::string& phase_name) {
   ASSERT_GE(content.size(), 4U);

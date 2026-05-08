@@ -56,7 +56,7 @@ endif()
 # Add the include path to the target so consumers can find zlib.h.
 target_include_directories(zlib
     SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/zlib
-                  ${CMAKE_CURRENT_BINARY_DIR}/third_party/zlib)
+                  ${CMAKE_BINARY_DIR}/third_party/zlib)
 
 # -- GTest (仅测试用，不构建可跳过) ------------------------------------------
 set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
