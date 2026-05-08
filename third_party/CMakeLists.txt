@@ -79,7 +79,7 @@ _vendor_output_dir(flatbuffers)
 # -- zlib (仅静态库，跳过共享库和示例) ----------------------------------------
 # zlib 1.2.11 无条件构建 SHARED + STATIC + 示例，没有禁用选项。
 # 通过 EXCLUDE_FROM_ALL 排除不需要的 target。
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/zlib ${CMAKE_BINARY_DIR}/third_party/zlib)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/zlib ${CMAKE_BINARY_DIR}/third_party/zlib EXCLUDE_FROM_ALL)
 # 排除共享库和示例程序
 if(TARGET zlib)
     set_target_properties(zlib PROPERTIES EXCLUDE_FROM_ALL ON EXCLUDE_FROM_DEFAULT_BUILD ON)
