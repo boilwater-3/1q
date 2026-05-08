@@ -112,6 +112,19 @@
             }
         },
         {
+            "name": "vendor-release-windows-local",
+            "inherits": "windows-vs2015",
+            "displayName": "Windows Vendor Release (offline, no package manager)",
+            "binaryDir": "${sourceDir}/build/vendor-release-windows-local",
+            "cacheVariables": {
+                "PACKAGE_MANAGER": "none",
+                "CMAKE_BUILD_TYPE": "Release",
+                "ENABLE_TESTING": "OFF",
+                "ENABLE_EXAMPLES": "OFF",
+                "BUILD_SHARED_LIBS": "OFF"
+            }
+        },
+        {
             "name": "windows-vs2019",
             "inherits": "windows-base",
             "displayName": "Windows VS2019 x64",
@@ -133,6 +146,11 @@
         {
             "name": "vendor-debug-windows-local",
             "configurePreset": "vendor-debug-windows-local"
+        },
+        {
+            "name": "vendor-release-windows-local",
+            "configurePreset": "vendor-release-windows-local",
+            "configuration": "Release"
         },
         {
             "name": "vendor-debug-mac-local",
@@ -180,6 +198,12 @@
             "inherits": "test-base",
             "configurePreset": "vendor-debug-windows-local",
             "configuration": "Debug"
+        },
+        {
+            "name": "vendor-release-windows-local",
+            "inherits": "test-base",
+            "configurePreset": "vendor-release-windows-local",
+            "configuration": "Release"
         }
     ]
 }
