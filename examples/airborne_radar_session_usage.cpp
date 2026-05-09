@@ -56,18 +56,30 @@ ar_session::RadarSession CreateWideAreaSearchSession() {
   return ar_session::RadarSessionFactory::Create(MakeWideAreaSearchConfig());
 }
 
-ar_session::RadarSceneTarget MakeAirTarget(std::uint64_t id, float x_m, float y_m, float z_m,
-                                           float vx_mps, float vy_mps, float vz_mps, float rcs_m2) {
-  ar_session::RadarSceneTarget target;
-  target.external_target_id = id;
-  target.position_x = x_m;
-  target.position_y = y_m;
-  target.position_z = z_m;
-  target.velocity_x = vx_mps;
-  target.velocity_y = vy_mps;
-  target.velocity_z = vz_mps;
-  target.rcs = rcs_m2;
-  target.range_m = std::sqrt(x_m * x_m + y_m * y_m + z_m * z_m);
+ar_session::RadarExternalPoseInput MakePlatformPose(
+    const oneq::coordinate::EcefPositionM& pos,
+    const oneq::coordinate::EcefVelocityMps& vel) {
+  ar_session::RadarExternalPoseInput platform;
+  platform.platform_position_ecef_m = pos;
+  platform.platform_velocity_mps = vel;
+  platform.platform_attitude_deg.yaw_deg = 0.0;
+  platform.platform_attitude_deg.pitch_deg = 0.0;
+  platform.platform_attitude_deg.roll_deg = 0.0;
+  platform.radar_mount_angles_deg.yaw_deg = 0.0;
+  platform.radar_mount_angles_deg.pitch_deg = 0.0;
+  platform.radar_mount_angles_deg.roll_deg = 0.0;
+  return platform;
+}
+
+ar_session::TargetExternalKinematics MakeTargetKinematics(
+    const oneq::coordinate::EcefPositionM& pos,
+    const oneq::coordinate::EcefVelocityMps& vel,
+    float rcs) {
+  ar_session::TargetExternalKinematics target;
+  target.target_position_ecef_m = pos;
+  target.target_velocity_mps = vel;
+  target.rcs = rcs;
+  target.swerling_type = 0;
   return target;
 }
 
@@ -100,9 +112,8 @@ void PrintResult(const char* label, const ar_session::RadarCycleResult& result) 
 }
 
 struct MovingAirTarget {
-  std::uint64_t id;
-  float x, y, z;
-  float vx, vy, vz;
+  oneq::coordinate::EcefPositionM pos;
+  oneq::coordinate::EcefVelocityMps vel;
   float rcs;
 };
 
@@ -110,10 +121,23 @@ bool RunMovingTargetsScenario() {
   ar_session::RadarSession session = CreateWideAreaSearchSession();
   ar_session::RadarEnvironmentInputState environment_state(MakeInitialEnvironmentInput());
 
+  oneq::coordinate::EcefPositionM platform_pos;
+  platform_pos.x_m = -2289512.0;
+  platform_pos.y_m = 4909946.0;
+  platform_pos.z_m = 3640982.0;
+
+  oneq::coordinate::EcefVelocityMps platform_vel;
+  platform_vel.x_mps = 120.0;
+  platform_vel.y_mps = -80.0;
+  platform_vel.z_mps = 30.0;
+
   std::vector<MovingAirTarget> targets = {
-    {1001U, 18000.0f, 2500.0f, 1200.0f, -120.0f, 8.0f, 0.0f, 2.2f},
-    {1002U, 24000.0f, -4000.0f, 2000.0f, -90.0f, -12.0f, 0.0f, 1.4f},
-    {1003U, 30000.0f, 1000.0f, 1500.0f, -150.0f, 0.0f, -5.0f, 3.0f},
+    {{-2289512.0 + 18000.0, 4909946.0 + 2500.0, 3640982.0 + 1200.0},
+     {-120.0, 8.0, 0.0}, 2.2f},
+    {{-2289512.0 + 24000.0, 4909946.0 - 4000.0, 3640982.0 + 2000.0},
+     {-90.0, -12.0, 0.0}, 1.4f},
+    {{-2289512.0 + 30000.0, 4909946.0 + 1000.0, 3640982.0 + 1500.0},
+     {-150.0, 0.0, -5.0}, 3.0f},
   };
 
   const std::uint32_t num_cycles = 50;
@@ -122,26 +146,29 @@ bool RunMovingTargetsScenario() {
   std::uint32_t min_tracks = 100;
 
   for (std::uint32_t i = 0; i < num_cycles; ++i) {
-    ar_session::RadarCycleInput input;
-    input.cycle_index = i + 1;
-    input.dt_sec = 1.0f;
-    input.platform_pose.position_m.x = 0.0f;
-    input.platform_pose.position_m.y = 0.0f;
-    input.platform_pose.position_m.z = 9000.0f;
-    input.platform_pose.velocity_mps.x = 230.0f;
-    input.platform_pose.attitude_deg.yaw_deg = 0.0f;
-    input.environment = environment_state.Snapshot();
+    ar_session::RadarExternalPoseInput platform = MakePlatformPose(platform_pos, platform_vel);
 
+    std::vector<ar_session::TargetExternalKinematics> target_kinematics;
+    target_kinematics.reserve(targets.size());
     for (const auto& mt : targets) {
-      input.scene.push_back(
-          MakeAirTarget(mt.id, mt.x, mt.y, mt.z, mt.vx, mt.vy, mt.vz, mt.rcs));
+      target_kinematics.push_back(
+          MakeTargetKinematics(mt.pos, mt.vel, mt.rcs));
     }
+
+    ar_session::RadarCycleInput input;
+    if (!ar_session::RadarCycleInputBuilder::Build(
+            platform, target_kinematics, 1.0f,
+            environment_state.Snapshot(), &input)) {
+      std::cerr << "ar-moving: cycle " << (i + 1) << " build failed\n";
+      return false;
+    }
+    input.cycle_index = i + 1;
 
     const float dt = input.dt_sec;
     for (auto& mt : targets) {
-      mt.x += mt.vx * dt;
-      mt.y += mt.vy * dt;
-      mt.z += mt.vz * dt;
+      mt.pos.x_m += mt.vel.x_mps * dt;
+      mt.pos.y_m += mt.vel.y_mps * dt;
+      mt.pos.z_m += mt.vel.z_mps * dt;
     }
 
     ar_session::RadarCycleResult result = session.StepWithResult(input);
