@@ -158,6 +158,8 @@ class ScenarioRadarContext : public extension::IRadarContext {
 
   void SetCycleDeltaTimeSec(float cycle_dt_sec) { cycle_dt_sec_ = cycle_dt_sec; }
 
+  void SetCycleIndex(std::uint32_t cycle_index) { cycle_index_ = cycle_index; }
+
   const std::vector<extension::control::RadarCommand>& SubmittedCommands() const {
     return submitted_commands_;
   }
@@ -297,6 +299,29 @@ session::RadarSceneTargetList BuildMixedPatrolTargetsWithBaseId(std::size_t coun
         x_bias + static_cast<float>(i) * 12.0f, y_bias + static_cast<float>(i % 9) * 1.5f - 6.0f,
         z_bias + static_cast<float>(i % 4) * 2.0f));
   }
+  return targets;
+}
+
+session::RadarSceneTargetList BuildRunwayPatrolScene(float aircraft_progress_m,
+                                                     bool include_ground_targets) {
+  session::RadarSceneTargetList targets;
+  targets.reserve(include_ground_targets ? 5U : 2U);
+
+  if (include_ground_targets) {
+    const float ground_shift_m = -aircraft_progress_m * 0.02f;
+    session::RadarSceneTarget ground_1 =
+        BuildGroundTarget(19001u, 120.0f + ground_shift_m, -18.0f, 1.0f);
+    session::RadarSceneTarget ground_2 =
+        BuildGroundTarget(19002u, 142.0f + ground_shift_m, 4.0f, 0.9f);
+    session::RadarSceneTarget slow_ground =
+        BuildTarget(19003u, 0.35f, 0.0f, 0.0f, 0.95f, 168.0f + ground_shift_m, 16.0f, 0.0f);
+    targets.push_back(ground_1);
+    targets.push_back(ground_2);
+    targets.push_back(slow_ground);
+  }
+
+  targets.push_back(BuildAirTarget(19011u, 0.8f, 0.2f, 0.0f, 1.1f, 42.0f, -34.0f, 16.0f));
+  targets.push_back(BuildAirTarget(19012u, -0.5f, -0.2f, 0.0f, 1.0f, 58.0f, 30.0f, 15.0f));
   return targets;
 }
 
@@ -474,6 +499,34 @@ void ExpectFrameContainsTargetIds(const session::TrackOutputFrame& frame,
   }
 }
 
+void ExpectFrameHasNoDuplicateKnownExternalIds(const session::TrackOutputFrame& frame) {
+  std::unordered_map<std::uint64_t, std::size_t> counts;
+  for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
+    const std::uint64_t target_id = frame.tracks[i].external_target_id;
+    if (target_id == 0U) {
+      continue;
+    }
+    ++counts[target_id];
+  }
+  for (std::unordered_map<std::uint64_t, std::size_t>::const_iterator it = counts.begin();
+       it != counts.end(); ++it) {
+    EXPECT_EQ(it->second, 1U) << "external_target_id=" << it->first;
+  }
+}
+
+void ExpectReadableTrackOutputFrame(const session::TrackOutputFrame& frame,
+                                    std::uint32_t expected_cycle_index,
+                                    std::uint64_t expected_batch_id) {
+  EXPECT_EQ(frame.cycle_index, expected_cycle_index);
+  EXPECT_EQ(frame.batch_id, expected_batch_id);
+  ExpectFrameHasNoDuplicateKnownExternalIds(frame);
+  for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
+    ExpectFiniteTrackState(frame.tracks[i]);
+    EXPECT_NE(frame.tracks[i].association_key, 0U);
+    EXPECT_FALSE(frame.tracks[i].jamming_detected);
+  }
+}
+
 std::vector<std::uint64_t> ExtractTargetIds(const session::RadarSceneTargetList& targets) {
   std::vector<std::uint64_t> target_ids;
   target_ids.reserve(targets.size());
@@ -481,6 +534,17 @@ std::vector<std::uint64_t> ExtractTargetIds(const session::RadarSceneTargetList&
     target_ids.push_back(targets[i].external_target_id);
   }
   return target_ids;
+}
+
+session::TrackOutputFrame RunScenarioCycleAt(extension::RadarController* controller,
+                                             ScenarioRadarContext* radar_context,
+                                             std::uint32_t cycle_index,
+                                             const session::RadarSceneTargetList& targets) {
+  EXPECT_NE(radar_context, nullptr);
+  if (radar_context != nullptr) {
+    radar_context->SetCycleIndex(cycle_index);
+  }
+  return RunScenarioCycle(controller, radar_context, targets);
 }
 
 }  // namespace
@@ -1198,6 +1262,361 @@ TEST(RadarJointIntegrationTest,
         *cycle_3_track_map.at(dropout_targets[i].external_target_id);
     ExpectFiniteTrackState(track);
     EXPECT_NE(track.association_key, 0U);
+  }
+}
+
+TEST(RadarJointIntegrationTest,
+     RunwayPatrolDropoutAndTurnbackRecoveryKeepsEveryOutputFrameReadable) {
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationSessionConfig());
+  environment::EnvironmentService environment_service;
+  ScenarioRadarContext radar_context;
+  radar_context.SetCycleDeltaTimeSec(1.0f);
+  extension::RadarController controller(radar_context, signal_pipeline, environment_service);
+
+  struct PatrolCycle {
+    float aircraft_progress_m;
+    bool include_ground_targets;
+  };
+
+  const std::vector<PatrolCycle> patrol_script{
+      {0.0f, true},    {70.0f, true},   {145.0f, true}, {230.0f, false},
+      {315.0f, false}, {220.0f, false}, {135.0f, true}, {60.0f, true},
+  };
+  const std::vector<std::uint64_t> ground_target_ids{19001u, 19002u, 19003u};
+  const std::vector<std::uint64_t> patrol_target_ids{19011u, 19012u};
+
+  std::unordered_map<std::uint64_t, std::uint64_t> previous_patrol_keys;
+  std::unordered_map<std::uint64_t, std::uint64_t> first_ground_keys;
+  bool observed_ground_dropout = false;
+  bool observed_ground_lost = false;
+  bool observed_ground_recovery = false;
+
+  for (std::size_t cycle = 0; cycle < patrol_script.size(); ++cycle) {
+    const session::RadarSceneTargetList targets = BuildRunwayPatrolScene(
+        patrol_script[cycle].aircraft_progress_m, patrol_script[cycle].include_ground_targets);
+    const session::TrackOutputFrame frame =
+        RunScenarioCycleAt(&controller, &radar_context, static_cast<std::uint32_t>(cycle), targets);
+
+    ExpectReadableTrackOutputFrame(frame, static_cast<std::uint32_t>(cycle),
+                                   static_cast<std::uint64_t>(cycle + 1U));
+    EXPECT_GE(frame.tracks.size(), targets.size());
+    EXPECT_GE(session::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), targets.size());
+    ExpectFrameContainsTargetIds(frame, patrol_target_ids);
+
+    const auto track_map = BuildTrackMapByExternalId(frame);
+    for (std::size_t i = 0; i < patrol_target_ids.size(); ++i) {
+      const std::uint64_t target_id = patrol_target_ids[i];
+      ASSERT_NE(track_map.count(target_id), 0U);
+      const model::TrackStateSnapshot& track = *track_map.at(target_id);
+      EXPECT_GT(track.position_z, 0.0f);
+      EXPECT_LT(track.speed, 5.0f);
+      if (previous_patrol_keys.count(target_id) != 0U) {
+        EXPECT_EQ(track.association_key, previous_patrol_keys[target_id]);
+      }
+      previous_patrol_keys[target_id] = track.association_key;
+    }
+
+    if (patrol_script[cycle].include_ground_targets) {
+      ExpectFrameContainsTargetIds(frame, ground_target_ids);
+      for (std::size_t i = 0; i < ground_target_ids.size(); ++i) {
+        const std::uint64_t target_id = ground_target_ids[i];
+        ASSERT_NE(track_map.count(target_id), 0U);
+        const model::TrackStateSnapshot& track = *track_map.at(target_id);
+        EXPECT_NEAR(track.position_z, 0.0f, 1e-5f);
+        if (target_id == 19003u) {
+          EXPECT_LT(track.speed, 2.0f);
+        } else {
+          EXPECT_LT(track.speed, 2.0f);
+        }
+        if (first_ground_keys.count(target_id) == 0U) {
+          first_ground_keys[target_id] = track.association_key;
+        } else if (observed_ground_dropout) {
+          observed_ground_recovery = true;
+          EXPECT_NE(track.association_key, 0U);
+        } else {
+          EXPECT_EQ(track.association_key, first_ground_keys[target_id]);
+        }
+      }
+    } else {
+      observed_ground_dropout = true;
+      for (std::size_t i = 0; i < ground_target_ids.size(); ++i) {
+        const std::vector<const model::TrackStateSnapshot*> lost_tracks =
+            CollectTracksByExternalId(frame, ground_target_ids[i]);
+        ASSERT_EQ(lost_tracks.size(), 1U);
+        EXPECT_TRUE(lost_tracks[0]->status == model::TrackStatus::kConfirmed ||
+                    lost_tracks[0]->status == model::TrackStatus::kLost);
+        EXPECT_GT(lost_tracks[0]->miss_count, 0U);
+        if (lost_tracks[0]->status == model::TrackStatus::kLost) {
+          observed_ground_lost = true;
+        }
+      }
+    }
+  }
+
+  EXPECT_TRUE(observed_ground_dropout);
+  EXPECT_TRUE(observed_ground_lost);
+  EXPECT_TRUE(observed_ground_recovery);
+  EXPECT_FALSE(
+      ContainsCommandType(radar_context, extension::control::RadarCommandType::SET_AGILITY_FREQ));
+  EXPECT_FALSE(
+      ContainsCommandType(radar_context, extension::control::RadarCommandType::SET_ECCM_REJITTER));
+}
+
+TEST(RadarJointIntegrationTest,
+     RunwayPatrolLongBlindWindowRecyclesStaleGroundTracksBeforeTurnbackRecovery) {
+  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationSessionConfig());
+  environment::EnvironmentService environment_service;
+  ScenarioRadarContext radar_context;
+  radar_context.SetCycleDeltaTimeSec(1.0f);
+  extension::RadarController controller(radar_context, signal_pipeline, environment_service);
+
+  struct PatrolCycle {
+    float aircraft_progress_m;
+    bool include_ground_targets;
+  };
+
+  const std::vector<PatrolCycle> patrol_script{
+      {0.0f, true},    {60.0f, true},   {120.0f, true},  {220.0f, false}, {310.0f, false},
+      {400.0f, false}, {490.0f, false}, {580.0f, false}, {130.0f, true},  {50.0f, true},
+  };
+  const std::vector<std::uint64_t> ground_target_ids{19001u, 19002u, 19003u};
+  const std::vector<std::uint64_t> patrol_target_ids{19011u, 19012u};
+
+  bool observed_ground_lost = false;
+  bool observed_ground_recycled_window = false;
+  bool observed_ground_recovery_after_recycle = false;
+
+  for (std::size_t cycle = 0; cycle < patrol_script.size(); ++cycle) {
+    const session::RadarSceneTargetList targets = BuildRunwayPatrolScene(
+        patrol_script[cycle].aircraft_progress_m, patrol_script[cycle].include_ground_targets);
+    const session::TrackOutputFrame frame =
+        RunScenarioCycleAt(&controller, &radar_context, static_cast<std::uint32_t>(cycle), targets);
+
+    ExpectReadableTrackOutputFrame(frame, static_cast<std::uint32_t>(cycle),
+                                   static_cast<std::uint64_t>(cycle + 1U));
+    ExpectFrameContainsTargetIds(frame, patrol_target_ids);
+
+    if (patrol_script[cycle].include_ground_targets) {
+      ExpectFrameContainsTargetIds(frame, ground_target_ids);
+      const auto track_map = BuildTrackMapByExternalId(frame);
+      for (std::size_t i = 0; i < ground_target_ids.size(); ++i) {
+        const model::TrackStateSnapshot& track = *track_map.at(ground_target_ids[i]);
+        EXPECT_LT(track.speed, 2.0f);
+      }
+      if (observed_ground_recycled_window) {
+        observed_ground_recovery_after_recycle = true;
+      }
+      continue;
+    }
+
+    std::size_t visible_ground_track_count = 0U;
+    for (std::size_t i = 0; i < ground_target_ids.size(); ++i) {
+      const std::vector<const model::TrackStateSnapshot*> ground_tracks =
+          CollectTracksByExternalId(frame, ground_target_ids[i]);
+      ASSERT_LE(ground_tracks.size(), 1U);
+      if (!ground_tracks.empty()) {
+        ++visible_ground_track_count;
+        EXPECT_GT(ground_tracks[0]->miss_count, 0U);
+        if (ground_tracks[0]->status == model::TrackStatus::kLost) {
+          observed_ground_lost = true;
+        }
+      }
+    }
+
+    if (cycle >= 6U) {
+      EXPECT_EQ(visible_ground_track_count, 0U);
+      observed_ground_recycled_window = true;
+    } else {
+      EXPECT_EQ(visible_ground_track_count, ground_target_ids.size());
+    }
+  }
+
+  EXPECT_TRUE(observed_ground_lost);
+  EXPECT_TRUE(observed_ground_recycled_window);
+  EXPECT_TRUE(observed_ground_recovery_after_recycle);
+  EXPECT_FALSE(
+      ContainsCommandType(radar_context, extension::control::RadarCommandType::SET_AGILITY_FREQ));
+  EXPECT_FALSE(
+      ContainsCommandType(radar_context, extension::control::RadarCommandType::SET_ECCM_REJITTER));
+}
+
+TEST(RadarJointIntegrationTest, CommonPatrolScenariosKeepRecoveredTargetSpeedsBounded) {
+  struct PatrolScenarioStep {
+    float progress_m;
+    bool include_ground_targets;
+    float dt_sec;
+  };
+
+  struct PatrolScenario {
+    std::uint64_t base_target_id;
+    float ground_shift_scale;
+    float companion_speed_x;
+    float companion_lateral_speed;
+    float companion_altitude_m;
+    std::vector<PatrolScenarioStep> steps;
+  };
+
+  const std::vector<PatrolScenario> scenarios{
+      {20000u,
+       0.015f,
+       0.7f,
+       0.1f,
+       14.0f,
+       {{0.0f, true, 1.0f},
+        {60.0f, true, 1.0f},
+        {130.0f, true, 1.0f},
+        {240.0f, false, 1.0f},
+        {310.0f, false, 1.0f},
+        {170.0f, true, 1.0f},
+        {80.0f, true, 1.0f}}},
+      {20100u,
+       0.020f,
+       -0.4f,
+       0.3f,
+       18.0f,
+       {{0.0f, true, 0.5f},
+        {45.0f, true, 0.5f},
+        {110.0f, true, 0.75f},
+        {190.0f, false, 1.0f},
+        {260.0f, false, 1.0f},
+        {125.0f, true, 0.75f},
+        {40.0f, true, 0.5f}}},
+      {20200u,
+       0.010f,
+       1.2f,
+       -0.2f,
+       12.0f,
+       {{0.0f, true, 1.0f},
+        {90.0f, true, 1.0f},
+        {180.0f, false, 1.0f},
+        {270.0f, true, 1.0f},
+        {180.0f, false, 1.0f},
+        {90.0f, true, 1.0f}}},
+      {20300u,
+       0.025f,
+       0.2f,
+       0.0f,
+       16.0f,
+       {{0.0f, true, 1.0f},
+        {70.0f, true, 1.0f},
+        {140.0f, true, 1.0f},
+        {230.0f, false, 1.0f},
+        {320.0f, false, 1.0f},
+        {410.0f, false, 1.0f},
+        {500.0f, false, 1.0f},
+        {590.0f, false, 1.0f},
+        {150.0f, true, 1.0f}}},
+      {20400u,
+       0.018f,
+       1.5f,
+       0.5f,
+       20.0f,
+       {{0.0f, true, 1.0f},
+        {55.0f, true, 1.0f},
+        {115.0f, true, 1.0f},
+        {180.0f, true, 1.0f},
+        {245.0f, true, 1.0f},
+        {310.0f, true, 1.0f},
+        {245.0f, true, 1.0f},
+        {180.0f, true, 1.0f}}},
+      {20500u,
+       0.030f,
+       -1.0f,
+       -0.4f,
+       13.0f,
+       {{0.0f, true, 1.0f},
+        {80.0f, true, 1.0f},
+        {160.0f, false, 1.0f},
+        {240.0f, false, 1.0f},
+        {320.0f, true, 1.0f},
+        {240.0f, false, 1.0f},
+        {160.0f, false, 1.0f},
+        {80.0f, true, 1.0f}}},
+  };
+
+  for (std::size_t scenario_index = 0; scenario_index < scenarios.size(); ++scenario_index) {
+    const PatrolScenario& scenario = scenarios[scenario_index];
+    signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationSessionConfig());
+    environment::EnvironmentService environment_service;
+    ScenarioRadarContext radar_context;
+    extension::RadarController controller(radar_context, signal_pipeline, environment_service);
+
+    const std::vector<std::uint64_t> ground_target_ids{
+        scenario.base_target_id + 1U, scenario.base_target_id + 2U, scenario.base_target_id + 3U};
+    const std::vector<std::uint64_t> companion_target_ids{scenario.base_target_id + 11U,
+                                                          scenario.base_target_id + 12U};
+    bool observed_dropout = false;
+    bool observed_recovery = false;
+
+    for (std::size_t cycle = 0; cycle < scenario.steps.size(); ++cycle) {
+      const PatrolScenarioStep& step = scenario.steps[cycle];
+      radar_context.SetCycleDeltaTimeSec(step.dt_sec);
+
+      session::RadarSceneTargetList targets;
+      targets.reserve(step.include_ground_targets ? 5U : 2U);
+      if (step.include_ground_targets) {
+        const float shift_m = -step.progress_m * scenario.ground_shift_scale;
+        targets.push_back(BuildGroundTarget(ground_target_ids[0], 90.0f + shift_m, -22.0f, 0.9f));
+        targets.push_back(BuildGroundTarget(ground_target_ids[1], 125.0f + shift_m, 6.0f, 1.0f));
+        targets.push_back(BuildTarget(ground_target_ids[2], 0.4f, 0.05f, 0.0f, 0.95f,
+                                      155.0f + shift_m, 18.0f, 0.0f));
+      }
+      targets.push_back(BuildAirTarget(companion_target_ids[0], scenario.companion_speed_x,
+                                       scenario.companion_lateral_speed, 0.0f, 1.1f, 45.0f, -35.0f,
+                                       scenario.companion_altitude_m));
+      targets.push_back(BuildAirTarget(companion_target_ids[1], scenario.companion_speed_x * 0.8f,
+                                       -scenario.companion_lateral_speed, 0.0f, 1.0f, 62.0f, 32.0f,
+                                       scenario.companion_altitude_m + 1.5f));
+
+      const session::TrackOutputFrame frame = RunScenarioCycleAt(
+          &controller, &radar_context, static_cast<std::uint32_t>(cycle), targets);
+      ExpectReadableTrackOutputFrame(frame, static_cast<std::uint32_t>(cycle),
+                                     static_cast<std::uint64_t>(cycle + 1U));
+      ExpectFrameContainsTargetIds(frame, companion_target_ids);
+
+      const auto track_map = BuildTrackMapByExternalId(frame);
+      for (std::size_t i = 0; i < companion_target_ids.size(); ++i) {
+        ASSERT_NE(track_map.count(companion_target_ids[i]), 0U);
+        const model::TrackStateSnapshot& track = *track_map.at(companion_target_ids[i]);
+        EXPECT_GT(track.position_z, 0.0f);
+        EXPECT_LT(track.speed, 8.0f) << "scenario=" << scenario_index << " cycle=" << cycle;
+      }
+
+      if (step.include_ground_targets) {
+        ExpectFrameContainsTargetIds(frame, ground_target_ids);
+        for (std::size_t i = 0; i < ground_target_ids.size(); ++i) {
+          ASSERT_NE(track_map.count(ground_target_ids[i]), 0U);
+          const model::TrackStateSnapshot& track = *track_map.at(ground_target_ids[i]);
+          EXPECT_NEAR(track.position_z, 0.0f, 1e-5f);
+          EXPECT_LT(track.speed, 5.0f) << "scenario=" << scenario_index << " cycle=" << cycle
+                                       << " target_id=" << ground_target_ids[i];
+        }
+        if (observed_dropout) {
+          observed_recovery = true;
+        }
+      } else {
+        observed_dropout = true;
+        for (std::size_t i = 0; i < ground_target_ids.size(); ++i) {
+          const std::vector<const model::TrackStateSnapshot*> ground_tracks =
+              CollectTracksByExternalId(frame, ground_target_ids[i]);
+          ASSERT_LE(ground_tracks.size(), 1U);
+          if (!ground_tracks.empty()) {
+            EXPECT_GT(ground_tracks[0]->miss_count, 0U);
+            EXPECT_LT(ground_tracks[0]->speed, 8.0f)
+                << "scenario=" << scenario_index << " cycle=" << cycle
+                << " target_id=" << ground_target_ids[i];
+          }
+        }
+      }
+    }
+
+    if (observed_dropout) {
+      EXPECT_TRUE(observed_recovery) << "scenario=" << scenario_index;
+    }
+    EXPECT_FALSE(
+        ContainsCommandType(radar_context, extension::control::RadarCommandType::SET_AGILITY_FREQ));
+    EXPECT_FALSE(ContainsCommandType(radar_context,
+                                     extension::control::RadarCommandType::SET_ECCM_REJITTER));
   }
 }
 

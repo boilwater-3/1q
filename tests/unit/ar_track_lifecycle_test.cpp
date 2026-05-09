@@ -9,12 +9,12 @@
 #include <vector>
 
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
-#include "airborne_radar/signal/tracking/TrackState.h"
 #include "airborne_radar/signal/tracking/BoostTrackPool.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
 #include "airborne_radar/signal/tracking/SynchronizedTrackPool.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleManager.h"
+#include "airborne_radar/signal/tracking/TrackState.h"
 
 namespace airborne_radar {
 namespace tests {
@@ -30,8 +30,8 @@ class CountingTrackPool : public signal::tracking::ITrackPool {
  public:
   explicit CountingTrackPool(std::size_t capacity) : storage_(capacity) {
     free_list_.reserve(storage_.size());
-    for (std::vector<signal::tracking::TrackState>::iterator it = storage_.begin(); it != storage_.end();
-         ++it) {
+    for (std::vector<signal::tracking::TrackState>::iterator it = storage_.begin();
+         it != storage_.end(); ++it) {
       free_list_.push_back(&(*it));
     }
   }
@@ -79,10 +79,12 @@ class CountingTrackPool : public signal::tracking::ITrackPool {
 
 signal::tracking::TrackMeasurement MakeCartesianMeasurement(std::uint64_t association_key,
                                                             float position_x, float velocity_x,
-                                                            bool matched_existing_track = false) {
+                                                            bool matched_existing_track = false,
+                                                            std::uint64_t external_target_id = 0U) {
   signal::tracking::TrackMeasurement measurement;
   measurement.raw_measurement.association_key = association_key;
   measurement.raw_measurement.matched_existing_track = matched_existing_track;
+  measurement.raw_measurement.external_target_id = external_target_id;
 
   measurement.raw_measurement.position = Eigen::Vector3f(position_x, 0.0f, 0.0f);
   measurement.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
@@ -161,6 +163,57 @@ TEST(TrackLifecycleManagerTest, RecyclesTrackAfterLostTimeout) {
 
   const session::RadarSceneTargetList snapshot = manager.BuildSceneTargetSnapshot();
   EXPECT_TRUE(snapshot.empty());
+}
+
+TEST(TrackLifecycleManagerTest, TrackStateSnapshotsPublishSingleBestKnownExternalTarget) {
+  signal::tracking::BoostTrackPool pool(4, 16);
+  signal::tracking::LifecycleConfig config;
+  config.confirm_hits = 1;
+  config.max_miss_before_lost = 1;
+  config.max_lost_cycles = 3;
+
+  signal::tracking::TrackLifecycleManager manager(pool, config);
+
+  manager.Update(MakeCycle(1u, 2201u), {MakeCartesianMeasurement(21u, 100.0f, 0.0f, false, 7001u),
+                                        MakeCartesianMeasurement(22u, 140.0f, 0.0f, false, 7001u)});
+
+  const model::TrackStateSnapshotList snapshots = manager.BuildTrackStateSnapshots();
+  ASSERT_EQ(snapshots.size(), 1U);
+  EXPECT_EQ(snapshots[0].external_target_id, 7001u);
+  EXPECT_EQ(snapshots[0].association_key, 22u);
+  EXPECT_EQ(snapshots[0].status, model::TrackStatus::kConfirmed);
+}
+
+TEST(TrackLifecycleManagerTest, LostTrackRehitUsesMeasurementVelocityWithoutSpeedSpike) {
+  signal::tracking::BoostTrackPool pool(2, 8);
+  signal::tracking::LifecycleConfig config;
+  config.confirm_hits = 1;
+  config.max_miss_before_lost = 0;
+  config.max_lost_cycles = 3;
+
+  signal::tracking::KalmanPredictorConfig pred_cfg;
+  pred_cfg.noise_diff_coeff = 1.0f;
+  signal::tracking::KalmanPredictor predictor(pred_cfg);
+  signal::tracking::KalmanUpdaterConfig upd_cfg;
+  upd_cfg.measurement_noise_std = 1.0f;
+  signal::tracking::KalmanUpdater updater(upd_cfg);
+
+  signal::tracking::TrackLifecycleManager manager(pool, config, &predictor, &updater);
+
+  manager.Update(MakeCycle(1u, 2301u), {MakeCartesianMeasurement(31u, 0.0f, 0.0f, false, 8001u)});
+  manager.Update(MakeCycle(2u, 2302u), {});
+
+  std::vector<const signal::tracking::TrackState*> active_tracks = manager.GetActiveTracks();
+  ASSERT_EQ(active_tracks.size(), 1U);
+  ASSERT_EQ(active_tracks[0]->status, signal::tracking::TrackStatus::kLost);
+
+  manager.Update(MakeCycle(3u, 2303u), {MakeCartesianMeasurement(31u, 300.0f, 0.2f, true, 8001u)});
+
+  const model::TrackStateSnapshotList snapshots = manager.BuildTrackStateSnapshots();
+  ASSERT_EQ(snapshots.size(), 1U);
+  EXPECT_EQ(snapshots[0].external_target_id, 8001u);
+  EXPECT_EQ(snapshots[0].status, model::TrackStatus::kConfirmed);
+  EXPECT_LT(snapshots[0].speed, 1.0f);
 }
 
 TEST(TrackLifecycleManagerTest, ReusedTrackGetsNewTrackIdAndKeepsGenerationCounter) {
@@ -261,7 +314,8 @@ TEST(TrackLifecycleManagerTest, DeceptionSummaryExtendsLocalMissToleranceOnMiss)
   deception_manager.Update(MakeCycle(1u, 4101u), {deception_measurement});
   deception_manager.Update(MakeCycle(2u, 4102u), {});
 
-  std::vector<const signal::tracking::TrackState*> active_tracks = deception_manager.GetActiveTracks();
+  std::vector<const signal::tracking::TrackState*> active_tracks =
+      deception_manager.GetActiveTracks();
   ASSERT_EQ(active_tracks.size(), 1u);
   EXPECT_EQ(active_tracks[0]->status, signal::tracking::TrackStatus::kConfirmed);
 
@@ -587,7 +641,8 @@ TEST(TrackLifecycleManagerTest, ConfirmedOnlyImmCreatesAndUsesFilterOnFirstConfi
 
   const std::vector<const signal::tracking::TrackState*> confirmed_only_tracks =
       confirmed_only_manager.GetActiveTracks();
-  const std::vector<const signal::tracking::TrackState*> all_tracks = all_tracks_manager.GetActiveTracks();
+  const std::vector<const signal::tracking::TrackState*> all_tracks =
+      all_tracks_manager.GetActiveTracks();
   ASSERT_EQ(confirmed_only_tracks.size(), 1u);
   ASSERT_EQ(all_tracks.size(), 1u);
 
@@ -638,7 +693,8 @@ TEST(TrackLifecycleManagerTest, GlobalLockTrackPoolModePreservesLifecycleResults
 
   const std::vector<const signal::tracking::TrackState*> single_thread_tracks =
       single_thread_manager.GetActiveTracks();
-  const std::vector<const signal::tracking::TrackState*> locked_tracks = locked_manager.GetActiveTracks();
+  const std::vector<const signal::tracking::TrackState*> locked_tracks =
+      locked_manager.GetActiveTracks();
   ASSERT_EQ(single_thread_tracks.size(), 1u);
   ASSERT_EQ(locked_tracks.size(), 1u);
 
@@ -682,7 +738,8 @@ TEST(TrackLifecycleManagerTest, MixedLifecycleCycleOnlyAcquiresNewTracksAndRecyc
   EXPECT_EQ(pool.release_calls(), 0u);
   EXPECT_EQ(pool.InUseCount(), 3u);
 
-  const std::vector<const signal::tracking::TrackState*> after_mixed_cycle = manager.GetActiveTracks();
+  const std::vector<const signal::tracking::TrackState*> after_mixed_cycle =
+      manager.GetActiveTracks();
   ASSERT_EQ(after_mixed_cycle.size(), 3u);
 
   manager.Update(MakeCycle(3u, 8103u), {});
@@ -691,7 +748,8 @@ TEST(TrackLifecycleManagerTest, MixedLifecycleCycleOnlyAcquiresNewTracksAndRecyc
   EXPECT_EQ(pool.release_calls(), 1u);
   EXPECT_EQ(pool.InUseCount(), 2u);
 
-  const std::vector<const signal::tracking::TrackState*> after_recycle_cycle = manager.GetActiveTracks();
+  const std::vector<const signal::tracking::TrackState*> after_recycle_cycle =
+      manager.GetActiveTracks();
   EXPECT_EQ(after_recycle_cycle.size(), 2u);
 }
 
@@ -798,12 +856,11 @@ TEST(TrackLifecycleManagerTest, FilterWritebackUpdatesAccelerationFromVelocityDe
 
   const session::RadarSceneTargetList snapshot = manager.BuildSceneTargetSnapshot();
   ASSERT_EQ(snapshot.size(), 1u);
-  EXPECT_NEAR(
-      SpeedOf(snapshot[0]),
-      std::sqrt(snapshot[0].velocity_x * snapshot[0].velocity_x +
-                snapshot[0].velocity_y * snapshot[0].velocity_y +
-                snapshot[0].velocity_z * snapshot[0].velocity_z),
-      1e-4f);
+  EXPECT_NEAR(SpeedOf(snapshot[0]),
+              std::sqrt(snapshot[0].velocity_x * snapshot[0].velocity_x +
+                        snapshot[0].velocity_y * snapshot[0].velocity_y +
+                        snapshot[0].velocity_z * snapshot[0].velocity_z),
+              1e-4f);
 }
 
 }  // namespace tests

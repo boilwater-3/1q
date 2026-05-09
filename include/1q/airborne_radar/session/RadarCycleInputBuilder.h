@@ -22,6 +22,9 @@ namespace session {
  * 封装 ExternalInputAdapter 的两步调用（TryMakeRadarPose + TryMakeTarget），
  * 调用方只需提供外部坐标系下的平台运动学和目标列表，即可获得可直接传入
  * RadarSession::Step() 的 RadarCycleInput。
+ *
+ * @note AR 输入以当前雷达为局部坐标原点，`output.platform_pose.position_m`
+ *       因此固定为 `(0,0,0)`；平台 ECEF 位置只用于建立局部参考系并转换目标相对位置。
  */
 struct ONEQ_API RadarCycleInputBuilder {
   /**

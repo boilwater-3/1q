@@ -95,6 +95,9 @@ TEST(RadarCycleInputBuilderTest, EmptyTargetsProducesValidCycleInput) {
 
   EXPECT_EQ(input.cycle_index, 0U);
   EXPECT_FLOAT_EQ(input.dt_sec, 2.0f);
+  EXPECT_FLOAT_EQ(input.platform_pose.position_m.x, 0.0f);
+  EXPECT_FLOAT_EQ(input.platform_pose.position_m.y, 0.0f);
+  EXPECT_FLOAT_EQ(input.platform_pose.position_m.z, 0.0f);
   EXPECT_NEAR(input.platform_pose.attitude_deg.yaw_deg, 10.0f, 1.0e-5f);
   EXPECT_NEAR(input.platform_pose.attitude_deg.pitch_deg, -3.0f, 1.0e-5f);
   EXPECT_NEAR(input.platform_pose.attitude_deg.roll_deg, 1.0f, 1.0e-5f);

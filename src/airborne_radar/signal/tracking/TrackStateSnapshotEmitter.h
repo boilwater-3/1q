@@ -10,7 +10,6 @@
 #include <unordered_map>
 #include <vector>
 
-
 #include "1q/airborne_radar/model/TrackStateSnapshot.h"
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
@@ -46,7 +45,6 @@ class TrackStateSnapshotEmitter {
    */
   model::TrackStateSnapshotList BuildTrackStateSnapshots() const;
 
-
   /**
    * @brief 导出供关联阶段消费的轨迹种子。
    * @return 由当前未回收轨迹（tentative/confirmed/lost）构成的关联种子列表。
@@ -59,6 +57,14 @@ class TrackStateSnapshotEmitter {
     std::uint64_t key{0};
     const TrackState* track{nullptr};
   };
+
+  static int OutputPriority(const TrackState& track);
+
+  static bool IsBetterKnownExternalOutput(const ActiveTrackEntry& candidate,
+                                          const ActiveTrackEntry& current);
+
+  static std::vector<ActiveTrackEntry> SelectOutputTracks(
+      const std::vector<ActiveTrackEntry>& active_tracks);
 
   std::vector<ActiveTrackEntry> active_tracks_;
 };

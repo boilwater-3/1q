@@ -514,9 +514,11 @@ void TrackLifecycleManager::EnsurePhase(LifecycleUpdateScratch& scratch,
                                    measurement.raw_measurement.matched_existing_track);
     ImmFilter* imm_filter = nullptr;
     if (use_imm) {
-      const GaussianTrackState initial_state = measurement.raw_measurement.matched_existing_track
-                                                   ? track_before_update.gaussian_state
-                                                   : BuildInitialGaussianState(measurement);
+      const bool reset_filter_on_hit = !measurement.raw_measurement.matched_existing_track ||
+                                       status_before_update == TrackStatus::kLost;
+      const GaussianTrackState initial_state = reset_filter_on_hit
+                                                   ? BuildInitialGaussianState(measurement)
+                                                   : track_before_update.gaussian_state;
       imm_filter = GetOrCreateImmFilter(association_key, initial_state);
     }
 
@@ -658,8 +660,10 @@ void TrackLifecycleManager::ApplyKalmanHitUpdate(const TrackUpdateWorkItem& work
                                                  const TrackMeasurement& measurement,
                                                  TrackState& track, float effective_dt_sec) const {
   const Eigen::Vector3f velocity_before_filter = track.velocity;
+  const bool reset_filter_on_hit = !measurement.raw_measurement.matched_existing_track ||
+                                   work_item.status_before_update == TrackStatus::kLost;
   if (work_item.use_imm && work_item.imm_filter != nullptr) {
-    if (!measurement.raw_measurement.matched_existing_track) {
+    if (reset_filter_on_hit) {
       ApplyGaussianState(track, BuildInitialGaussianState(measurement), velocity_before_filter,
                          effective_dt_sec);
     } else {
@@ -668,7 +672,7 @@ void TrackLifecycleManager::ApplyKalmanHitUpdate(const TrackUpdateWorkItem& work
                          effective_dt_sec);
     }
   } else if (kalman_predictor_ != nullptr && kalman_updater_ != nullptr) {
-    if (!measurement.raw_measurement.matched_existing_track) {
+    if (reset_filter_on_hit) {
       ApplyGaussianState(track, BuildInitialGaussianState(measurement), velocity_before_filter,
                          effective_dt_sec);
     } else {

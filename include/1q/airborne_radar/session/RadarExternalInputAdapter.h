@@ -22,7 +22,7 @@ namespace session {
  * @note `origin_lla` 定义局部 ENU 原点，`radar_attitude_deg` 定义雷达局部坐标相对 ENU 的姿态。
  */
 struct ONEQ_API RadarLocalFrameReference {
-  oneq::coordinate::LlaPositionDegM origin_lla{};      /**< 雷达参考原点（WGS84 LLA） */
+  oneq::coordinate::LlaPositionDegM origin_lla{};        /**< 雷达参考原点（WGS84 LLA） */
   oneq::coordinate::EulerAnglesDeg radar_attitude_deg{}; /**< 雷达局部坐标相对 ENU 的姿态角 */
 };
 
@@ -31,10 +31,10 @@ struct ONEQ_API RadarLocalFrameReference {
  * @note 速度固定为 ECEF 坐标系，姿态角采用 Body->ENU 约定。
  */
 struct ONEQ_API RadarExternalPoseInput {
-  oneq::coordinate::EcefPositionM platform_position_ecef_m{};    /**< 平台位置（ECEF，m） */
-  oneq::coordinate::EcefVelocityMps platform_velocity_mps{};     /**< 平台速度（ECEF，单位：m/s） */
-  oneq::coordinate::EulerAnglesDeg platform_attitude_deg{};      /**< 平台姿态角（Body->ENU，deg） */
-  oneq::coordinate::EulerAnglesDeg radar_mount_angles_deg{};     /**< 雷达安装角（Body->Radar，deg） */
+  oneq::coordinate::EcefPositionM platform_position_ecef_m{}; /**< 平台位置（ECEF，m） */
+  oneq::coordinate::EcefVelocityMps platform_velocity_mps{};  /**< 平台速度（ECEF，单位：m/s） */
+  oneq::coordinate::EulerAnglesDeg platform_attitude_deg{};   /**< 平台姿态角（Body->ENU，deg） */
+  oneq::coordinate::EulerAnglesDeg radar_mount_angles_deg{};  /**< 雷达安装角（Body->Radar，deg） */
 };
 
 /**
@@ -42,10 +42,10 @@ struct ONEQ_API RadarExternalPoseInput {
  * @note 速度固定为 ECEF 坐标系，适配器内自动扣除平台速度得到相对速度。
  */
 struct ONEQ_API TargetExternalKinematics {
-  oneq::coordinate::EcefPositionM target_position_ecef_m{};    /**< 目标位置（ECEF，m） */
-  oneq::coordinate::EcefVelocityMps target_velocity_mps{};     /**< 目标速度（ECEF，单位：m/s） */
-  float rcs{1.0f};                                             /**< 目标 RCS（m^2） */
-  int swerling_type{0};                                        /**< 目标起伏模型 */
+  oneq::coordinate::EcefPositionM target_position_ecef_m{}; /**< 目标位置（ECEF，m） */
+  oneq::coordinate::EcefVelocityMps target_velocity_mps{};  /**< 目标速度（ECEF，单位：m/s） */
+  float rcs{1.0f};                                          /**< 目标 RCS（m^2） */
+  int swerling_type{0};                                     /**< 目标起伏模型 */
 };
 
 /**
@@ -65,11 +65,13 @@ ONEQ_API oneq::coordinate::EulerAnglesDeg ComposeRadarAttitudeDeg(
  * @param[out] reference 输出雷达局部参考系信息，用于后续目标转换。
  * @param[out] platform_pose 输出雷达局部平台位姿。
  * @return 成功返回 true，输入非法或输出为空返回 false。
+ * @note AR 场景输入使用“雷达自身为局部原点”的坐标约定，因此
+ *       `platform_pose.position_m` 固定为 `(0,0,0)`；`input.platform_position_ecef_m`
+ *       会写入 `reference.origin_lla`，用于把目标位置转换为相对雷达的局部坐标。
  */
-ONEQ_API bool TryMakeRadarPoseFromExternalKinematics(
-    const RadarExternalPoseInput& input,
-    RadarLocalFrameReference* reference,
-    oneq::foundation::PoseState* platform_pose);
+ONEQ_API bool TryMakeRadarPoseFromExternalKinematics(const RadarExternalPoseInput& input,
+                                                     RadarLocalFrameReference* reference,
+                                                     oneq::foundation::PoseState* platform_pose);
 
 /**
  * @brief 两步模式——第二步：使用预计算的参考系将外部目标转换为 RadarSceneTarget。
@@ -84,10 +86,8 @@ ONEQ_API bool TryMakeRadarPoseFromExternalKinematics(
  *       在雷达局部坐标系内扣除雷达自身速度：`v_rel = v_target_local - v_radar_local`。
  */
 ONEQ_API bool TryMakeTargetFromExternalKinematics(
-    std::uint64_t external_target_id,
-    const TargetExternalKinematics& target_input,
-    const RadarLocalFrameReference& reference,
-    oneq::foundation::Vector3f radar_local_velocity_mps,
+    std::uint64_t external_target_id, const TargetExternalKinematics& target_input,
+    const RadarLocalFrameReference& reference, oneq::foundation::Vector3f radar_local_velocity_mps,
     RadarSceneTarget* target);
 
 }  // namespace session

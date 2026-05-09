@@ -33,6 +33,75 @@ model::TrackStatus ToTrackStatus(TrackStatus status) {
 
 }  // namespace
 
+int TrackStateSnapshotEmitter::OutputPriority(const TrackState& track) {
+  switch (track.status) {
+    case TrackStatus::kConfirmed:
+      return 3;
+    case TrackStatus::kTentative:
+      return 2;
+    case TrackStatus::kLost:
+      return 1;
+    case TrackStatus::kRecycled:
+    default:
+      return 0;
+  }
+}
+
+bool TrackStateSnapshotEmitter::IsBetterKnownExternalOutput(const ActiveTrackEntry& candidate,
+                                                            const ActiveTrackEntry& current) {
+  const TrackState& candidate_track = *candidate.track;
+  const TrackState& current_track = *current.track;
+  const int candidate_priority = OutputPriority(candidate_track);
+  const int current_priority = OutputPriority(current_track);
+  if (candidate_priority != current_priority) {
+    return candidate_priority > current_priority;
+  }
+  if (candidate_track.last_update_cycle != current_track.last_update_cycle) {
+    return candidate_track.last_update_cycle > current_track.last_update_cycle;
+  }
+  if (candidate_track.hit_count != current_track.hit_count) {
+    return candidate_track.hit_count > current_track.hit_count;
+  }
+  if (candidate_track.miss_count != current_track.miss_count) {
+    return candidate_track.miss_count < current_track.miss_count;
+  }
+  return candidate.key > current.key;
+}
+
+std::vector<TrackStateSnapshotEmitter::ActiveTrackEntry>
+TrackStateSnapshotEmitter::SelectOutputTracks(const std::vector<ActiveTrackEntry>& active_tracks) {
+  std::vector<ActiveTrackEntry> selected_tracks;
+  selected_tracks.reserve(active_tracks.size());
+  std::unordered_map<std::uint64_t, std::size_t> known_external_index;
+
+  for (std::vector<ActiveTrackEntry>::const_iterator it = active_tracks.begin();
+       it != active_tracks.end(); ++it) {
+    if (it->track == nullptr) {
+      continue;
+    }
+    const std::uint64_t external_target_id = it->track->external_target_id;
+    if (external_target_id == 0U) {
+      selected_tracks.push_back(*it);
+      continue;
+    }
+
+    std::unordered_map<std::uint64_t, std::size_t>::const_iterator found =
+        known_external_index.find(external_target_id);
+    if (found == known_external_index.end()) {
+      known_external_index[external_target_id] = selected_tracks.size();
+      selected_tracks.push_back(*it);
+      continue;
+    }
+
+    ActiveTrackEntry& current = selected_tracks[found->second];
+    if (IsBetterKnownExternalOutput(*it, current)) {
+      current = *it;
+    }
+  }
+
+  return selected_tracks;
+}
+
 void TrackStateSnapshotEmitter::Refresh(
     const std::unordered_map<std::uint64_t, TrackState*>& tracks_by_key) {
   active_tracks_.clear();
@@ -66,10 +135,11 @@ session::RadarSceneTargetList TrackStateSnapshotEmitter::BuildSceneTargetSnapsho
 }
 
 model::TrackStateSnapshotList TrackStateSnapshotEmitter::BuildTrackStateSnapshots() const {
+  const std::vector<ActiveTrackEntry> output_tracks = SelectOutputTracks(active_tracks_);
   model::TrackStateSnapshotList snapshots;
-  snapshots.reserve(active_tracks_.size());
-  for (std::vector<ActiveTrackEntry>::const_iterator it = active_tracks_.begin();
-       it != active_tracks_.end(); ++it) {
+  snapshots.reserve(output_tracks.size());
+  for (std::vector<ActiveTrackEntry>::const_iterator it = output_tracks.begin();
+       it != output_tracks.end(); ++it) {
     const std::uint64_t key = it->key;
     const TrackState& track = *it->track;
     model::TrackStateSnapshot snapshot;
