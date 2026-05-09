@@ -60,18 +60,6 @@
             }
         },
         {
-            "name": "vendor-debug-mac-local",
-            "inherits": "macos-base",
-            "displayName": "macOS Vendor Debug (offline, no package manager)",
-            "binaryDir": "${sourceDir}/build/vendor-debug-mac-local",
-            "cacheVariables": {
-                "PACKAGE_MANAGER": "none",
-                "CMAKE_BUILD_TYPE": "Debug",
-                "ENABLE_TESTING": "ON",
-                "BUILD_SHARED_LIBS": "OFF"
-            }
-        },
-        {
             "name": "windows-base",
             "hidden": true,
             "inherits": "base",
@@ -84,8 +72,6 @@
             "architecture": "x64",
             "cacheVariables": {
                 "PACKAGE_MANAGER": "conan",
-                "ENABLE_INSTALL": "ON",
-                "ENABLE_TESTING": "OFF",
                 "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/ConanBootstrapToolchain.cmake"
             }
         },
@@ -96,41 +82,64 @@
             "generator": "Visual Studio 14 2015",
             "cacheVariables": {
                 "BUILD_SHARED_LIBS": "OFF",
+                "ENABLE_INSTALL": "ON",
+                "ENABLE_TESTING": "OFF"
+            }
+        },
+        {
+            "name": "vendor-debug-windows-local-vs2015",
+            "inherits": "windows-vs2015",
+            "displayName": "Windows Vendor Debug VS2015 (offline, no package manager)",
+            "binaryDir": "${sourceDir}/build/vendor-debug-windows-local-vs2015",
+            "cacheVariables": {
+                "PACKAGE_MANAGER": "none",
+                "CMAKE_BUILD_TYPE": "Debug",
                 "ENABLE_TESTING": "ON"
             }
         },
         {
-            "name": "vendor-debug-windows-local",
+            "name": "vendor-release-windows-local-vs2015",
             "inherits": "windows-vs2015",
-            "displayName": "Windows Vendor Debug (offline, no package manager)",
-            "binaryDir": "${sourceDir}/build/vendor-debug-windows-local",
-            "cacheVariables": {
-                "PACKAGE_MANAGER": "none",
-                "CMAKE_BUILD_TYPE": "Debug",
-                "ENABLE_TESTING": "ON",
-                "BUILD_SHARED_LIBS": "OFF"
-            }
-        },
-        {
-            "name": "vendor-release-windows-local",
-            "inherits": "windows-vs2015",
-            "displayName": "Windows Vendor Release (offline, no package manager)",
-            "binaryDir": "${sourceDir}/build/vendor-release-windows-local",
+            "displayName": "Windows Vendor Release VS2015 (offline, no package manager)",
+            "binaryDir": "${sourceDir}/build/vendor-release-windows-local-vs2015",
             "cacheVariables": {
                 "PACKAGE_MANAGER": "none",
                 "CMAKE_BUILD_TYPE": "Release",
-                "ENABLE_TESTING": "OFF",
-                "ENABLE_EXAMPLES": "OFF",
-                "BUILD_SHARED_LIBS": "OFF"
+                "ENABLE_TESTING": "OFF"
             }
         },
         {
-            "name": "windows-vs2019",
+            "name": "windows-vs2017",
             "inherits": "windows-base",
-            "displayName": "Windows VS2019 x64",
-            "generator": "Visual Studio 16 2019",
+            "displayName": "Windows VS2017 x64 (via VS2026 v141 toolset)",
+            "generator": "Visual Studio 18 2026",
+            "toolset": "v141,host=x64",
             "cacheVariables": {
-                "BUILD_SHARED_LIBS": "OFF"
+                "BUILD_SHARED_LIBS": "OFF",
+                "ENABLE_INSTALL": "ON",
+                "ENABLE_TESTING": "OFF"
+            }
+        },
+        {
+            "name": "vendor-debug-windows-local-vs2017",
+            "inherits": "windows-vs2017",
+            "displayName": "Windows Vendor Debug VS2017 (offline, no package manager)",
+            "binaryDir": "${sourceDir}/build/vendor-debug-windows-local-vs2017",
+            "cacheVariables": {
+                "PACKAGE_MANAGER": "none",
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ENABLE_TESTING": "ON"
+            }
+        },
+        {
+            "name": "vendor-release-windows-local-vs2017",
+            "inherits": "windows-vs2017",
+            "displayName": "Windows Vendor Release VS2017 (offline, no package manager)",
+            "binaryDir": "${sourceDir}/build/vendor-release-windows-local-vs2017",
+            "cacheVariables": {
+                "PACKAGE_MANAGER": "none",
+                "CMAKE_BUILD_TYPE": "Release",
+                "ENABLE_TESTING": "OFF"
             }
         }
     ],
@@ -144,26 +153,31 @@
             "configurePreset": "llvm-ninja-release"
         },
         {
-            "name": "vendor-debug-windows-local",
-            "configurePreset": "vendor-debug-windows-local"
+            "name": "vendor-debug-windows-local-vs2015",
+            "configurePreset": "vendor-debug-windows-local-vs2015"
         },
         {
-            "name": "vendor-release-windows-local",
-            "configurePreset": "vendor-release-windows-local",
+            "name": "vendor-release-windows-local-vs2015",
+            "configurePreset": "vendor-release-windows-local-vs2015",
             "configuration": "Release"
         },
         {
-            "name": "vendor-debug-mac-local",
-            "configurePreset": "vendor-debug-mac-local"
+            "name": "vendor-debug-windows-local-vs2017",
+            "configurePreset": "vendor-debug-windows-local-vs2017"
         },
         {
-            "name": "windows-vs2019",
-            "configurePreset": "windows-vs2019",
+            "name": "vendor-release-windows-local-vs2017",
+            "configurePreset": "vendor-release-windows-local-vs2017",
             "configuration": "Release"
         },
         {
             "name": "windows-vs2015",
             "configurePreset": "windows-vs2015",
+            "configuration": "Release"
+        },
+        {
+            "name": "windows-vs2017",
+            "configurePreset": "windows-vs2017",
             "configuration": "Release"
         }
     ],
@@ -189,20 +203,27 @@
             "configurePreset": "llvm-ninja-release"
         },
         {
-            "name": "vendor-debug-mac-local",
+            "name": "vendor-debug-windows-local-vs2015",
             "inherits": "test-base",
-            "configurePreset": "vendor-debug-mac-local"
-        },
-        {
-            "name": "vendor-debug-windows-local",
-            "inherits": "test-base",
-            "configurePreset": "vendor-debug-windows-local",
+            "configurePreset": "vendor-debug-windows-local-vs2015",
             "configuration": "Debug"
         },
         {
-            "name": "vendor-release-windows-local",
+            "name": "vendor-release-windows-local-vs2015",
             "inherits": "test-base",
-            "configurePreset": "vendor-release-windows-local",
+            "configurePreset": "vendor-release-windows-local-vs2015",
+            "configuration": "Release"
+        },
+        {
+            "name": "vendor-debug-windows-local-vs2017",
+            "inherits": "test-base",
+            "configurePreset": "vendor-debug-windows-local-vs2017",
+            "configuration": "Debug"
+        },
+        {
+            "name": "vendor-release-windows-local-vs2017",
+            "inherits": "test-base",
+            "configurePreset": "vendor-release-windows-local-vs2017",
             "configuration": "Release"
         }
     ]
