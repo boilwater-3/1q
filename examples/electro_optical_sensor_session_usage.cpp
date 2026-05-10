@@ -73,8 +73,7 @@ void PrintResult(const char* label, const eos_session::EosCycleResult& result) {
     if (result.output_frame.detections[i].detected) ++detected;
   }
   std::cout << label << ": cycle=" << result.input_cycle_index
-            << " detections=" << result.output_frame.detections.size()
-            << " detected=" << detected
+            << " detections=" << result.output_frame.detections.size() << " detected=" << detected
             << " validation_errors=" << (result.has_validation_error ? "true" : "false") << "\n";
 }
 
@@ -82,9 +81,9 @@ bool RunMovingTargetsScenario() {
   eos_session::EosSession session = CreateFusedSearchSession();
 
   std::vector<MovingEosTarget> targets = {
-    {1U, 1400.0f, -5.0f, 335.0f, 4.0f, -10.0f, 0.2f},
-    {2U, 2100.0f, 4.0f, 315.0f, 6.0f, -15.0f, -0.15f},
-    {3U, 3200.0f, 1.5f, 350.0f, 3.0f, -8.0f, 0.1f},
+      {1U, 1400.0f, -5.0f, 335.0f, 4.0f, -10.0f, 0.2f},
+      {2U, 2100.0f, 4.0f, 315.0f, 6.0f, -15.0f, -0.15f},
+      {3U, 3200.0f, 1.5f, 350.0f, 3.0f, -8.0f, 0.1f},
   };
 
   const std::uint32_t num_cycles = 50;
@@ -119,6 +118,14 @@ bool RunMovingTargetsScenario() {
     eos_session::EosCycleResult result = session.StepWithResult(input);
     if (result.has_validation_error) ++validation_error_count;
 
+    eos_session::EosCoordinateReference output_reference;
+    output_reference.origin_lla.latitude_deg = 31.0;
+    output_reference.origin_lla.longitude_deg = 121.0;
+    output_reference.origin_lla.altitude_m = 0.0;
+    eos_session::EosExternalOutputFrame external_output;
+    const bool external_output_ok = eos_session::EosCycleOutputBuilder::Build(
+        output_reference, input.platform_pose, result.output_frame, &external_output);
+
     std::size_t ndetected = 0;
     for (std::size_t j = 0; j < result.output_frame.detections.size(); ++j) {
       if (result.output_frame.detections[j].detected) ++ndetected;
@@ -127,13 +134,14 @@ bool RunMovingTargetsScenario() {
     if (ndetected < min_detected) min_detected = ndetected;
 
     PrintResult("eos-moving", result);
+    std::cout << "  external_output="
+              << (external_output_ok ? external_output.detections.size() : 0U) << "\n";
   }
 
   std::cout << "\n=== EOS Summary ===\n"
-            << "cycles=" << num_cycles
-            << " min_detected=" << min_detected
-            << " max_detected=" << max_detected
-            << " validation_errors=" << validation_error_count << "\n";
+            << "cycles=" << num_cycles << " min_detected=" << min_detected
+            << " max_detected=" << max_detected << " validation_errors=" << validation_error_count
+            << "\n";
   return validation_error_count == 0;
 }
 

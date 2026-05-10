@@ -11,6 +11,8 @@ set(EOS_SOURCES
     electro_optical_sensor/foundation/EosStrayLight.cpp
     electro_optical_sensor/session/EosExternalInputAdapter.cpp
     electro_optical_sensor/session/EosCycleInputBuilder.cpp
+    electro_optical_sensor/session/EosExternalOutputAdapter.cpp
+    electro_optical_sensor/session/EosCycleOutputBuilder.cpp
     electro_optical_sensor/session/EosInputValidation.cpp
     electro_optical_sensor/runtime/EosController.cpp
     electro_optical_sensor/runtime/components/EosCycleOutcomeRecorder.cpp
@@ -37,11 +39,13 @@ if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_EOS_SESSION
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosCycleInput.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosCycleInputBuilder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosCycleOutputBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosCycleResult.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosEnvironmentInput.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosEnvironmentInputPatch.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosEnvironmentInputState.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosExternalInputAdapter.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosExternalOutputAdapter.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosInputValidation.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosSceneTypes.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosSession.h
