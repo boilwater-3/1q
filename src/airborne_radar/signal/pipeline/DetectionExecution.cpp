@@ -36,6 +36,25 @@ float ResolveRcsPhysicsFrequencyHz(const ExecutionConfig& exec_config) {
   return exec_config.detection.engineering.transmitter.frequency_hz;
 }
 
+float ComputeEquivalentClutterNoiseW(
+    const config::engineering::DetectionConfig& detection_config, float clutter_power_db) {
+  if (!std::isfinite(clutter_power_db)) {
+    return 0.0f;
+  }
+
+  const float thermal_noise_w = detection::RadarEquations::ComputeThermalNoisePower_W(
+      detection_config.transmitter, detection_config.receiver);
+  if (!std::isfinite(thermal_noise_w) || thermal_noise_w <= 0.0f) {
+    return 0.0f;
+  }
+
+  const float kMinRelativeClutterDb = -120.0f;
+  const float kMaxRelativeClutterDb = 120.0f;
+  const float relative_clutter_db =
+      ClampToRange(clutter_power_db, kMinRelativeClutterDb, kMaxRelativeClutterDb);
+  return thermal_noise_w * std::pow(10.0f, relative_clutter_db / 10.0f);
+}
+
 float ComputeTargetSpecificAtmosphericLossDb(
     const ExecutionConfig& exec_config,
     const environment::EnvironmentSnapshot& environment_snapshot, float platform_altitude_m,
@@ -204,7 +223,8 @@ void RunPhysicalDetectionPass(const session::RadarSceneTargetList& input,
 
   const std::size_t count = input.size();
 
-  float clutter_w = std::pow(10.0f, environment_snapshot.clutter_power_db / 10.0f);
+  float clutter_w = ComputeEquivalentClutterNoiseW(config.detection.engineering,
+                                                   environment_snapshot.clutter_power_db);
   if (control_profile.enable_sidelobe_canceller &&
       HasMultiSourceJammingFacts(environment_snapshot)) {
     const bool has_sidelobe_source = std::find_if(environment_snapshot.jammer_sources.begin(),

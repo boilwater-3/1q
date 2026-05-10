@@ -329,6 +329,58 @@ TEST(CycleExecutorTest, PhysicalAtmosphereUsesPlatformAbsoluteAltitude) {
   EXPECT_GT(elevated_scratch.signal_term_db[0], sea_level_scratch.signal_term_db[0]);
 }
 
+TEST(CycleExecutorTest, PhysicalDetectionTreatsClutterDbAsThermalRelativeNoise) {
+  const session::RadarSessionConfig session_config =
+      config::RadarSessionConfigBuilder()
+          .Detection()
+          .EnablePhysicsDetection(true)
+          .WithHardwareProfile(config::profiles::RadarHardwareProfile::kLongRangeHighPower)
+          .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
+          .WithAntennaPatternProfile(config::profiles::AntennaPatternProfile::kStandard)
+          .End()
+          .Build();
+  ExecutionConfig exec_config = config::mapping::MapSessionToExecution(session_config);
+  exec_config.detection.orientation.scan_center_deg.az_deg = 0.0f;
+  exec_config.detection.orientation.scan_center_deg.el_deg = 0.0f;
+  exec_config.detection.orientation.mechanical_scan_limits_deg.az_min_deg = 0.0f;
+  exec_config.detection.orientation.mechanical_scan_limits_deg.az_max_deg = 0.0f;
+  exec_config.detection.orientation.mechanical_scan_limits_deg.el_min_deg = 0.0f;
+  exec_config.detection.orientation.mechanical_scan_limits_deg.el_max_deg = 0.0f;
+  exec_config.detection.orientation.electronic_scan_limits_deg =
+      exec_config.detection.orientation.mechanical_scan_limits_deg;
+
+  environment::EnvironmentSnapshot environment_snapshot = MakeEnvironmentSnapshot(1U);
+  environment_snapshot.propagation_loss_db = 6.5f;
+  environment_snapshot.clutter_power_db = 3.0f;
+
+  session::RadarSceneTarget target(0.0f, 0.0f, 0.0f, 10.0f, 80000.0f, 0, 80001U);
+  target.position_x = 80000.0f;
+  target.position_y = 0.0f;
+  target.position_z = 0.0f;
+  const session::RadarSceneTargetList input_state{target};
+
+  const extension::control::RadarControlProfile control_profile{};
+  signal::association::DataAssociationEngine association_engine;
+  signal::tracking::TrackFilter track_filter;
+  std::unique_ptr<signal::tracking::ITrackLifecycleManager> lifecycle_manager =
+      signal::pipeline::CreateAutoLifecycleManagerForRuntimeConfig(exec_config);
+  ASSERT_TRUE(lifecycle_manager != nullptr);
+  signal::detection::SignalDetector signal_detector(exec_config.detection.engineering);
+  const signal::pipeline::CycleExecutionRuntime runtime =
+      BuildMinimalValidRuntime(exec_config, control_profile, &association_engine, &track_filter,
+                               lifecycle_manager.get(), &signal_detector);
+
+  signal::pipeline::CycleExecutionScratch scratch;
+  ASSERT_TRUE(signal::pipeline::ExecuteCycle(input_state, environment_snapshot, 1U, 1U, runtime,
+                                             scratch, 1000.0f));
+  ASSERT_EQ(scratch.signal_term_db.size(), 1U);
+  ASSERT_EQ(scratch.detection_succeeded.size(), 1U);
+
+  EXPECT_GT(scratch.signal_term_db[0], exec_config.detection.engineering.detection_policy.min_snr_db);
+  EXPECT_GT(scratch.signal_term_db[0], 5.0f);
+  EXPECT_EQ(scratch.detection_succeeded[0], 1U);
+}
+
 TEST(CycleExecutorTest, NonAutoLifecycleManagerCausesRuntimeSyncFailure) {
   ExecutionConfig exec_config;
   const extension::control::RadarControlProfile control_profile{};
