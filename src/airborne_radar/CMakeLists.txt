@@ -59,6 +59,8 @@ set(AIRBORNE_CORE_SOURCES
     airborne_radar/session/RadarSessionCompositionRoot.cpp
     airborne_radar/session/RadarExternalInputAdapter.cpp
     airborne_radar/session/RadarCycleInputBuilder.cpp
+    airborne_radar/session/RadarExternalOutputAdapter.cpp
+    airborne_radar/session/RadarCycleOutputBuilder.cpp
     airborne_radar/session/RadarSessionConfigBuilder.cpp
     airborne_radar/session/RadarReplaySession.cpp
     airborne_radar/session/RadarSession.cpp
@@ -102,11 +104,13 @@ if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_CORE_CONTEXT
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarCycleInput.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarCycleInputBuilder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarCycleOutputBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarEnvironmentInput.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarEnvironmentInputPatch.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarEnvironmentInputState.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarInputValidation.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarExternalInputAdapter.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarExternalOutputAdapter.h
     )
     set(PUBLIC_HEADERS_CORE_CONTROLLER
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/IRadarCommandBus.h
