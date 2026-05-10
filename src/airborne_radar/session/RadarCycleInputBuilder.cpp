@@ -29,7 +29,7 @@ bool RadarCycleInputBuilder::Build(const RadarExternalPoseInput& platform,
 
   for (std::size_t i = 0; i < targets.size(); ++i) {
     RadarSceneTarget target;
-    if (!TryMakeTargetFromExternalKinematics(static_cast<std::uint64_t>(i), targets[i], reference,
+    if (!TryMakeTargetFromExternalKinematics(targets[i].external_target_id, targets[i], reference,
                                              output->platform_pose.velocity_mps, &target)) {
       return false;
     }

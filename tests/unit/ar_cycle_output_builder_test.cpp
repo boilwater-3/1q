@@ -76,6 +76,7 @@ TargetExternalKinematics MakeTargetInput() {
   EXPECT_TRUE(oneq::coordinate::TryLlaToEcef(target_lla, &target_ecef));
 
   TargetExternalKinematics target;
+  target.external_target_id = 9001U;
   target.target_position_ecef_m = target_ecef;
   target.target_velocity_mps.x_mps = -15.0;
   target.target_velocity_mps.y_mps = 42.0;
@@ -98,6 +99,7 @@ std::vector<TargetExternalKinematics> MakeMovingTargetInputs(std::size_t target_
     EXPECT_TRUE(oneq::coordinate::TryLlaToEcef(target_lla, &target_ecef));
 
     TargetExternalKinematics target;
+    target.external_target_id = static_cast<std::uint64_t>(i) + 1U;
     target.target_position_ecef_m = target_ecef;
     target.target_velocity_mps.x_mps = -18.0 + static_cast<double>(i % 5U) * 2.5;
     target.target_velocity_mps.y_mps = 24.0 + static_cast<double>(i % 7U) * 1.7;
@@ -246,7 +248,7 @@ TEST(RadarCycleOutputBuilderTest, MultiCycleMovingTargetsStayNearExternalTruth) 
 
     for (std::size_t target_index = 1U; target_index < targets.size(); ++target_index) {
       const airborne_radar::session::RadarExternalTrackKinematics* estimate =
-          FindExternalTrackByTargetId(external_frame, static_cast<std::uint64_t>(target_index));
+          FindExternalTrackByTargetId(external_frame, static_cast<std::uint64_t>(target_index) + 1U);
       ASSERT_NE(estimate, nullptr) << "cycle=" << cycle << " target_index=" << target_index;
 
       const TargetExternalKinematics& truth = targets[target_index];

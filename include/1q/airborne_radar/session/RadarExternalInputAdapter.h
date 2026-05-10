@@ -42,6 +42,7 @@ struct ONEQ_API RadarExternalPoseInput {
  * @note 速度固定为 ECEF 坐标系，适配器内自动扣除平台速度得到相对速度。
  */
 struct ONEQ_API TargetExternalKinematics {
+  std::uint64_t external_target_id{0};                      /**< 外部目标标识符。0 视为未设置，将触发 kUnknownExternalTargetId 警告 */
   oneq::coordinate::EcefPositionM target_position_ecef_m{}; /**< 目标位置（ECEF，m） */
   oneq::coordinate::EcefVelocityMps target_velocity_mps{};  /**< 目标速度（ECEF，单位：m/s） */
   float rcs{1.0f};                                          /**< 目标 RCS（m^2） */

@@ -92,12 +92,15 @@ ar_session::RadarExternalPoseInput MakePlatformPose(
 }
 
 /// 构造目标外部运动学输入。
+/// external_target_id 为调用方分配的唯一目标标识（不可为 0，否则触发校验警告）。
 /// rcs 为雷达截面积（m²），swerling_type 表示 Swerling 起伏模型编号。
 ar_session::TargetExternalKinematics MakeTargetKinematics(
+    std::uint64_t external_target_id,
     const oneq::coordinate::EcefPositionM& pos,
     const oneq::coordinate::EcefVelocityMps& vel,
     float rcs) {
   ar_session::TargetExternalKinematics target;
+  target.external_target_id = external_target_id;
   target.target_position_ecef_m = pos;
   target.target_velocity_mps = vel;
   target.rcs = rcs;
@@ -152,6 +155,7 @@ void PrintExternalOutput(const ar_session::RadarExternalTrackOutputFrame& output
 }
 
 struct MovingAirTarget {
+  std::uint64_t id;
   oneq::coordinate::EcefPositionM pos;
   oneq::coordinate::EcefVelocityMps vel;
   float rcs;
@@ -181,13 +185,13 @@ bool RunMovingTargetsScenario() {
   platform_vel.y_mps = -80.0;
   platform_vel.z_mps = 30.0;
 
-  // 3 个空中运动目标：位置偏移、速度、RCS
+  // 3 个空中运动目标：标识符、位置偏移、速度、RCS
   std::vector<MovingAirTarget> targets = {
-    {{-2289512.0 + 18000.0, 4909946.0 + 2500.0, 3640982.0 + 1200.0},
+    {1001, {-2289512.0 + 18000.0, 4909946.0 + 2500.0, 3640982.0 + 1200.0},
      {-120.0, 8.0, 0.0}, 2.2f},
-    {{-2289512.0 + 24000.0, 4909946.0 - 4000.0, 3640982.0 + 2000.0},
+    {1002, {-2289512.0 + 24000.0, 4909946.0 - 4000.0, 3640982.0 + 2000.0},
      {-90.0, -12.0, 0.0}, 1.4f},
-    {{-2289512.0 + 30000.0, 4909946.0 + 1000.0, 3640982.0 + 1500.0},
+    {1003, {-2289512.0 + 30000.0, 4909946.0 + 1000.0, 3640982.0 + 1500.0},
      {-150.0, 0.0, -5.0}, 3.0f},
   };
 
@@ -205,7 +209,7 @@ bool RunMovingTargetsScenario() {
     target_kinematics.reserve(targets.size());
     for (const auto& mt : targets) {
       target_kinematics.push_back(
-          MakeTargetKinematics(mt.pos, mt.vel, mt.rcs));
+          MakeTargetKinematics(mt.id, mt.pos, mt.vel, mt.rcs));
     }
 
     // 组装周期输入：平台位姿 + 目标列表 + 时间步长(秒) + 环境快照

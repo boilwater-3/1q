@@ -40,6 +40,7 @@ TEST(RadarCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
   pose_input.radar_mount_angles_deg.pitch_deg = 2.0f;
 
   TargetExternalKinematics target_input;
+  target_input.external_target_id = 600U;
   target_input.target_position_ecef_m = target_ecef;
   target_input.target_velocity_mps.x_mps = 120.0f;
   target_input.target_velocity_mps.y_mps = -70.0f;
@@ -63,7 +64,7 @@ TEST(RadarCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
   ASSERT_EQ(builder_input.scene.size(), 1U);
 
   const auto& builder_target = builder_input.scene[0];
-  EXPECT_EQ(builder_target.external_target_id, 0U);  // Builder 使用索引作为 ID
+  EXPECT_EQ(builder_target.external_target_id, 600U);  // Builder 从字段读取调用方设置的 ID
   EXPECT_NEAR(builder_target.position_x, target_2step.position_x, 1.0e-6f);
   EXPECT_NEAR(builder_target.position_y, target_2step.position_y, 1.0e-6f);
   EXPECT_NEAR(builder_target.position_z, target_2step.position_z, 1.0e-6f);
@@ -177,6 +178,7 @@ TEST(RadarCycleInputBuilderTest, MultipleTargets) {
   std::vector<TargetExternalKinematics> targets(3);
   for (int i = 0; i < 3; ++i) {
     auto& t = targets[i];
+    t.external_target_id = static_cast<std::uint64_t>(i) + 1U;
     t.target_position_ecef_m = radar_ecef;
     t.target_position_ecef_m.x_m += static_cast<double>(i + 1) * 1000.0;
     t.rcs = static_cast<float>(i + 1);
@@ -188,7 +190,7 @@ TEST(RadarCycleInputBuilderTest, MultipleTargets) {
   ASSERT_EQ(input.scene.size(), 3U);
   EXPECT_FLOAT_EQ(input.dt_sec, 0.5f);
   for (std::size_t i = 0; i < 3; ++i) {
-    EXPECT_EQ(input.scene[i].external_target_id, static_cast<std::uint64_t>(i));
+    EXPECT_EQ(input.scene[i].external_target_id, static_cast<std::uint64_t>(i) + 1U);
     EXPECT_GT(input.scene[i].range_m, 0.0f);
   }
 }
