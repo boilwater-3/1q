@@ -57,6 +57,29 @@ TEST(AtmospherePhysicsTest, PhysicsPropagationReturnsPositiveLossWhenEnabled) {
   EXPECT_GT(result.neutral_density_kg_m3, 0.0f);
 }
 
+TEST(AtmospherePhysicsTest, SameAltitudePathLosesLessAtHigherAbsoluteAltitude) {
+  AtmosphericPropagationInputs sea_level_inputs;
+  sea_level_inputs.enable_physics = true;
+  sea_level_inputs.frequency_hz = 9.6e9f;
+  sea_level_inputs.path_length_m = 50.0e3f;
+  sea_level_inputs.radar_altitude_m = 0.0f;
+  sea_level_inputs.target_altitude_m = 0.0f;
+  sea_level_inputs.elevation_deg = 4.0f;
+  sea_level_inputs.relative_humidity = 0.7f;
+  sea_level_inputs.day_of_year = 180;
+
+  AtmosphericPropagationInputs elevated_inputs = sea_level_inputs;
+  elevated_inputs.radar_altitude_m = 1200.0f;
+  elevated_inputs.target_altitude_m = 1200.0f;
+
+  const AtmosphericPropagationResult sea_level_result =
+      EvaluateAtmosphericPropagation(sea_level_inputs);
+  const AtmosphericPropagationResult elevated_result =
+      EvaluateAtmosphericPropagation(elevated_inputs);
+
+  EXPECT_LT(elevated_result.total_physics_loss_db, sea_level_result.total_physics_loss_db);
+}
+
 }  // namespace
 }  // namespace atmosphere
 }  // namespace internal
