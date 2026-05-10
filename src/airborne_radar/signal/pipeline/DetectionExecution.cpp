@@ -12,6 +12,7 @@
 #include "airborne_radar/signal/pipeline/ControlProfileEffects.h"
 #include "airborne_radar/signal/pipeline/JammingEffects.h"
 #include "airborne_radar/signal/pipeline/PipelineTargetUtils.h"
+#include "common/atmosphere/AtmospherePhysics.h"
 #include "common/rcs/RcsPhysics.h"
 
 namespace airborne_radar {
@@ -39,13 +40,27 @@ float ComputeTargetSpecificAtmosphericLossDb(
     const ExecutionConfig& exec_config,
     const environment::EnvironmentSnapshot& environment_snapshot, float platform_altitude_m,
     const detection::ResolvedTargetGeometry& geometry) {
-  (void)exec_config;
-  (void)platform_altitude_m;
-  (void)geometry;
   if (!environment_snapshot.atmospheric_physics.enable_physical_model) {
     return 0.0f;
   }
-  return environment_snapshot.atmospheric_physics_loss_db;
+
+  oneq::internal::atmosphere::AtmosphericPropagationInputs inputs;
+  inputs.enable_physics = true;
+  inputs.frequency_hz = exec_config.detection.engineering.transmitter.frequency_hz;
+  inputs.path_length_m = std::max(geometry.range_m, 0.1f);
+  inputs.radar_altitude_m = platform_altitude_m;
+  inputs.target_altitude_m = std::max(platform_altitude_m + geometry.position_m.z(), 0.0f);
+  inputs.elevation_deg =
+      geometry.look_angles_deg.has_look_angles ? geometry.look_angles_deg.look_el_deg : 0.0f;
+  inputs.pressure_hpa = environment_snapshot.atmospheric_physics.pressure_hpa;
+  inputs.temperature_k = environment_snapshot.atmospheric_physics.temperature_k;
+  inputs.relative_humidity = environment_snapshot.atmospheric_physics.relative_humidity;
+  inputs.k_factor = environment_snapshot.effective_k_factor;
+  inputs.day_of_year = environment_snapshot.effective_day_of_year;
+  inputs.solar_flux_f107a = environment_snapshot.atmospheric_context.solar_flux_f107a;
+  inputs.solar_flux_f107 = environment_snapshot.atmospheric_context.solar_flux_f107;
+  inputs.geomagnetic_ap = environment_snapshot.atmospheric_context.geomagnetic_ap;
+  return oneq::internal::atmosphere::EvaluateAtmosphericPropagation(inputs).total_physics_loss_db;
 }
 
 float ComputeEquivalentRadiusM(float input_rcs_m2,

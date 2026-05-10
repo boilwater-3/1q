@@ -20,8 +20,6 @@ double Clamp(double value, double minimum, double maximum) {
   return std::max(minimum, std::min(maximum, value));
 }
 
-double DegToRad(double degrees) { return degrees * kPi / 180.0; }
-
 double EstimatePressureFromAltitudeHpa(double altitude_m) {
   const double safe_altitude_m = std::max(0.0, altitude_m);
   return kSeaLevelPressureHpa * std::exp(-safe_altitude_m / kPressureScaleHeightM);
@@ -40,8 +38,7 @@ double blake_atmos_loss_r8_1(double h_a_m, double f_hz, double theta_deg, double
   const double safe_range_m = std::max(r_m, 0.0);
   const double safe_altitude_m = std::max(h_a_m, 0.0);
   const double safe_k = std::max(k, 0.2);
-  const double theta_rad = std::fabs(DegToRad(theta_deg));
-  const double slant_factor = 1.0 / std::max(std::sin(theta_rad), 0.05);
+  (void)theta_deg;
 
   const double pressure_ratio =
       EstimatePressureFromAltitudeHpa(safe_altitude_m) / kSeaLevelPressureHpa;
@@ -52,7 +49,7 @@ double blake_atmos_loss_r8_1(double h_a_m, double f_hz, double theta_deg, double
   const double specific_attenuation_db_per_km =
       oxygen_specific_db_per_km + vapor_specific_db_per_km;
   const double path_km = safe_range_m * 1.0e-3;
-  return std::max(0.0, specific_attenuation_db_per_km * path_km * slant_factor / safe_k);
+  return std::max(0.0, specific_attenuation_db_per_km * path_km / safe_k);
 }
 
 float refractivity_index_n_r4(float tc_celsius, float tk_kelvin, float pd_hpa, float p_hpa,
