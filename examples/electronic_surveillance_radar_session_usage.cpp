@@ -8,8 +8,8 @@
 #include <iostream>
 #include <string>
 
-#include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 #include "1q/coordinate/types.h"
+#include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 
 namespace esr_config = electronic_surveillance_radar::config;
 namespace esr_env = electronic_surveillance_radar::environment;
@@ -41,10 +41,9 @@ esr_session::EsrSession CreateEmitterSearchSession() {
   return esr_session::EsrSession(MakeEmitterSearchConfig());
 }
 
-esr_session::EsrExternalEmitterInput MakeEmitterInput(
-    const std::string& id,
-    const oneq::coordinate::EcefPositionM& pos,
-    double carrier_hz) {
+esr_session::EsrExternalEmitterInput MakeEmitterInput(const std::string& id,
+                                                      const oneq::coordinate::EcefPositionM& pos,
+                                                      double carrier_hz) {
   esr_session::EsrExternalEmitterInput emitter;
   emitter.emitter_id = id;
   emitter.emitter_position_ecef_m = pos;
@@ -75,6 +74,18 @@ struct MovingEsrEmitter {
   double speed_x_mps;
 };
 
+MovingEsrEmitter MakeMovingEsrEmitter(const std::string& id, double x_m, double y_m, double z_m,
+                                      double carrier_hz, double speed_x_mps) {
+  MovingEsrEmitter emitter;
+  emitter.id = id;
+  emitter.pos.x_m = x_m;
+  emitter.pos.y_m = y_m;
+  emitter.pos.z_m = z_m;
+  emitter.carrier_hz = carrier_hz;
+  emitter.speed_x_mps = speed_x_mps;
+  return emitter;
+}
+
 bool RunMovingTargetsScenario() {
   esr_session::EsrSession session = CreateEmitterSearchSession();
 
@@ -89,9 +100,12 @@ bool RunMovingTargetsScenario() {
   platform_vel.z_mps = 30.0;
 
   std::vector<MovingEsrEmitter> emitters = {
-    {"search-radar",  {-2289512.0 + 12000.0, 4909946.0, 3640982.0 + 5000.0}, 10.0e9,  50.0},
-    {"tracking-radar",{-2289512.0 + 18000.0, 4909946.0, 3640982.0 + 5000.0}, 9.4e9, -30.0},
-    {"threat-emitter",{-2289512.0 + 25000.0, 4909946.0, 3640982.0 + 5000.0}, 9.8e9, -80.0},
+      MakeMovingEsrEmitter("search-radar", -2289512.0 + 12000.0, 4909946.0, 3640982.0 + 5000.0,
+                           10.0e9, 50.0),
+      MakeMovingEsrEmitter("tracking-radar", -2289512.0 + 18000.0, 4909946.0, 3640982.0 + 5000.0,
+                           9.4e9, -30.0),
+      MakeMovingEsrEmitter("threat-emitter", -2289512.0 + 25000.0, 4909946.0, 3640982.0 + 5000.0,
+                           9.8e9, -80.0),
   };
 
   esr_session::EsrEnvironmentInput environment;
@@ -115,15 +129,13 @@ bool RunMovingTargetsScenario() {
     std::vector<esr_session::EsrExternalEmitterInput> emitter_inputs;
     emitter_inputs.reserve(emitters.size());
     for (const auto& em : emitters) {
-      emitter_inputs.push_back(
-          MakeEmitterInput(em.id, em.pos, em.carrier_hz));
+      emitter_inputs.push_back(MakeEmitterInput(em.id, em.pos, em.carrier_hz));
     }
 
     esr_session::EsrCycleInput input;
     esr_session::EsrCoordinateStatus status;
-    if (!esr_session::EsrCycleInputBuilder::Build(
-            platform, emitter_inputs, 1.0f,
-            environment, &input, &status)) {
+    if (!esr_session::EsrCycleInputBuilder::Build(platform, emitter_inputs, 1.0f, environment,
+                                                  &input, &status)) {
       std::cerr << "esr-moving: cycle " << (i + 1)
                 << " build failed (status=" << static_cast<int>(status) << ")\n";
       return false;
@@ -151,7 +163,6 @@ bool RunMovingTargetsScenario() {
               << (external_output_ok ? external_output.observations.size() : 0U)
               << " external_hypotheses="
               << (external_output_ok ? external_output.hypotheses.size() : 0U) << "\n";
-
 
     const float dt = 1.0f;
     for (auto& em : emitters) {

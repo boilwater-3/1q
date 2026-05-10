@@ -46,7 +46,7 @@ ar_model::AzimuthElevationDeg MakeAzEl(float az_deg, float el_deg) {
 ar_session::RadarSessionConfig MakeWideAreaSearchConfig() {
   return ar_config::RadarSessionConfigBuilder()
       .Detection()
-      .EnablePhysicsDetection(false)       // 关闭物理探测模型，使用简化检测
+      .EnablePhysicsDetection(false)  // 关闭物理探测模型，使用简化检测
       .WithHardwareProfile(ar_config::profiles::RadarHardwareProfile::kLongRangeHighPower)
       .WithDetectionIntentProfile(ar_config::profiles::DetectionIntentProfile::kDetectionPriority)
       .WithAntennaPatternProfile(ar_config::profiles::AntennaPatternProfile::kStandard)
@@ -56,14 +56,17 @@ ar_session::RadarSessionConfig MakeWideAreaSearchConfig() {
       .WithScanCenterDeg(MakeAzEl(0.0f, 0.0f))                 // 扫描中心：正前方
       .End()
       .Tracking()
-      .EnableTrackingFilter(true)                               // 启用跟踪滤波
-      .WithTrackingPolicyProfile(ar_config::profiles::TrackingPolicyProfile::kFastAssociation)  // 快速关联
+      .EnableTrackingFilter(true)  // 启用跟踪滤波
+      .WithTrackingPolicyProfile(
+          ar_config::profiles::TrackingPolicyProfile::kFastAssociation)  // 快速关联
       .End()
       .Lifecycle()
-      .WithLifecyclePolicyProfile(ar_config::profiles::LifecyclePolicyProfile::kFastConfirm)     // 快速确认
+      .WithLifecyclePolicyProfile(
+          ar_config::profiles::LifecyclePolicyProfile::kFastConfirm)  // 快速确认
       .End()
       .Environment()
-      .WithJammingSensitivityProfile(ar_env::JammingSensitivityProfile::kBalanced)  // 干扰灵敏度：均衡
+      .WithJammingSensitivityProfile(
+          ar_env::JammingSensitivityProfile::kBalanced)  // 干扰灵敏度：均衡
       .End()
       .Build();
 }
@@ -76,9 +79,8 @@ ar_session::RadarSession CreateWideAreaSearchSession() {
 
 /// 构造平台（载机）位姿输入。
 /// 位置和速度使用 ECEF 坐标系；姿态和雷达安装角使用角度制。
-ar_session::RadarExternalPoseInput MakePlatformPose(
-    const oneq::coordinate::EcefPositionM& pos,
-    const oneq::coordinate::EcefVelocityMps& vel) {
+ar_session::RadarExternalPoseInput MakePlatformPose(const oneq::coordinate::EcefPositionM& pos,
+                                                    const oneq::coordinate::EcefVelocityMps& vel) {
   ar_session::RadarExternalPoseInput platform;
   platform.platform_position_ecef_m = pos;
   platform.platform_velocity_mps = vel;
@@ -95,10 +97,8 @@ ar_session::RadarExternalPoseInput MakePlatformPose(
 /// external_target_id 为调用方分配的唯一目标标识（不可为 0，否则触发校验警告）。
 /// rcs 为雷达截面积（m²），swerling_type 表示 Swerling 起伏模型编号。
 ar_session::TargetExternalKinematics MakeTargetKinematics(
-    std::uint64_t external_target_id,
-    const oneq::coordinate::EcefPositionM& pos,
-    const oneq::coordinate::EcefVelocityMps& vel,
-    float rcs) {
+    std::uint64_t external_target_id, const oneq::coordinate::EcefPositionM& pos,
+    const oneq::coordinate::EcefVelocityMps& vel, float rcs) {
   ar_session::TargetExternalKinematics target;
   target.external_target_id = external_target_id;
   target.target_position_ecef_m = pos;
@@ -145,10 +145,9 @@ void PrintExternalOutput(const ar_session::RadarExternalTrackOutputFrame& output
   for (std::size_t j = 0; j < output.tracks.size(); ++j) {
     const auto& t = output.tracks[j];
     std::cout << "\n    [" << j << "] id=" << t.external_target_id
-              << " status=" << static_cast<int>(t.status)
-              << " ecef=(" << t.target_position_ecef_m.x_m
-              << "," << t.target_position_ecef_m.y_m
-              << "," << t.target_position_ecef_m.z_m << ")"
+              << " status=" << static_cast<int>(t.status) << " ecef=("
+              << t.target_position_ecef_m.x_m << "," << t.target_position_ecef_m.y_m << ","
+              << t.target_position_ecef_m.z_m << ")"
               << " speed=" << t.speed << " rcs=" << t.rcs;
   }
   std::cout << "\n";
@@ -160,6 +159,20 @@ struct MovingAirTarget {
   oneq::coordinate::EcefVelocityMps vel;
   float rcs;
 };
+
+MovingAirTarget MakeMovingAirTarget(std::uint64_t id, double x_m, double y_m, double z_m,
+                                    double vx_mps, double vy_mps, double vz_mps, float rcs) {
+  MovingAirTarget target;
+  target.id = id;
+  target.pos.x_m = x_m;
+  target.pos.y_m = y_m;
+  target.pos.z_m = z_m;
+  target.vel.x_mps = vx_mps;
+  target.vel.y_mps = vy_mps;
+  target.vel.z_mps = vz_mps;
+  target.rcs = rcs;
+  return target;
+}
 
 /// 多目标运动场景：3 个空中目标在 50 个仿真周期内的广域搜索与跟踪。
 ///
@@ -187,12 +200,12 @@ bool RunMovingTargetsScenario() {
 
   // 3 个空中运动目标：标识符、位置偏移、速度、RCS
   std::vector<MovingAirTarget> targets = {
-    {1001, {-2289512.0 + 18000.0, 4909946.0 + 2500.0, 3640982.0 + 1200.0},
-     {-120.0, 8.0, 0.0}, 2.2f},
-    {1002, {-2289512.0 + 24000.0, 4909946.0 - 4000.0, 3640982.0 + 2000.0},
-     {-90.0, -12.0, 0.0}, 1.4f},
-    {1003, {-2289512.0 + 30000.0, 4909946.0 + 1000.0, 3640982.0 + 1500.0},
-     {-150.0, 0.0, -5.0}, 3.0f},
+      MakeMovingAirTarget(1001, -2289512.0 + 18000.0, 4909946.0 + 2500.0, 3640982.0 + 1200.0,
+                          -120.0, 8.0, 0.0, 2.2f),
+      MakeMovingAirTarget(1002, -2289512.0 + 24000.0, 4909946.0 - 4000.0, 3640982.0 + 2000.0, -90.0,
+                          -12.0, 0.0, 1.4f),
+      MakeMovingAirTarget(1003, -2289512.0 + 30000.0, 4909946.0 + 1000.0, 3640982.0 + 1500.0,
+                          -150.0, 0.0, -5.0, 3.0f),
   };
 
   const std::uint32_t num_cycles = 50;
@@ -208,15 +221,13 @@ bool RunMovingTargetsScenario() {
     std::vector<ar_session::TargetExternalKinematics> target_kinematics;
     target_kinematics.reserve(targets.size());
     for (const auto& mt : targets) {
-      target_kinematics.push_back(
-          MakeTargetKinematics(mt.id, mt.pos, mt.vel, mt.rcs));
+      target_kinematics.push_back(MakeTargetKinematics(mt.id, mt.pos, mt.vel, mt.rcs));
     }
 
     // 组装周期输入：平台位姿 + 目标列表 + 时间步长(秒) + 环境快照
     ar_session::RadarCycleInput input;
-    if (!ar_session::RadarCycleInputBuilder::Build(
-            platform, target_kinematics, 1.0f,
-            environment_state.Snapshot(), &input)) {
+    if (!ar_session::RadarCycleInputBuilder::Build(platform, target_kinematics, 1.0f,
+                                                   environment_state.Snapshot(), &input)) {
       std::cerr << "ar-moving: cycle " << (i + 1) << " build failed\n";
       return false;
     }
@@ -251,10 +262,9 @@ bool RunMovingTargetsScenario() {
 
   // 汇总统计
   std::cout << "\n=== AR Summary ===\n"
-            << "cycles=" << num_cycles
-            << " min_tracks=" << min_tracks
-            << " max_tracks=" << max_tracks
-            << " validation_errors=" << validation_error_count << "\n";
+            << "cycles=" << num_cycles << " min_tracks=" << min_tracks
+            << " max_tracks=" << max_tracks << " validation_errors=" << validation_error_count
+            << "\n";
   return validation_error_count == 0;
 }
 

@@ -7,8 +7,8 @@
 #include <cstdint>
 #include <iostream>
 
-#include "1q/electro_optical_sensor/electro_optical_sensor.hpp"
 #include "1q/coordinate/types.h"
+#include "1q/electro_optical_sensor/electro_optical_sensor.hpp"
 
 namespace eos_config = electro_optical_sensor::config;
 namespace eos_env = electro_optical_sensor::environment;
@@ -44,9 +44,8 @@ eos_session::EosSession CreateFusedSearchSession() {
   return eos_session::EosSessionFactory::Create(MakeFusedSearchConfig());
 }
 
-eos_session::EosExternalTargetInput MakeTargetInput(
-    const oneq::coordinate::EcefPositionM& pos,
-    float temperature_k, float area_m2) {
+eos_session::EosExternalTargetInput MakeTargetInput(const oneq::coordinate::EcefPositionM& pos,
+                                                    float temperature_k, float area_m2) {
   eos_session::EosExternalTargetInput target;
   target.position_frame = eos_session::EosTargetPositionFrame::kEcef;
   target.target_position_ecef_m = pos;
@@ -74,6 +73,20 @@ struct MovingEosTarget {
   oneq::coordinate::EcefVelocityMps vel;
 };
 
+MovingEosTarget MakeMovingEosTarget(double x_m, double y_m, double z_m, float temperature_k,
+                                    float area_m2, double vx_mps, double vy_mps, double vz_mps) {
+  MovingEosTarget target;
+  target.pos.x_m = x_m;
+  target.pos.y_m = y_m;
+  target.pos.z_m = z_m;
+  target.temperature_k = temperature_k;
+  target.area_m2 = area_m2;
+  target.vel.x_mps = vx_mps;
+  target.vel.y_mps = vy_mps;
+  target.vel.z_mps = vz_mps;
+  return target;
+}
+
 bool RunMovingTargetsScenario() {
   eos_session::EosSession session = CreateFusedSearchSession();
 
@@ -88,12 +101,12 @@ bool RunMovingTargetsScenario() {
   platform_vel.z_mps = 30.0;
 
   std::vector<MovingEosTarget> targets = {
-    {{-2289512.0 + 1400.0, 4909946.0 - 5.0, 3640982.0},
-     335.0f, 4.0f, {-10.0, 0.2, 0.0}},
-    {{-2289512.0 + 2100.0, 4909946.0 + 4.0, 3640982.0},
-     315.0f, 6.0f, {-15.0, -0.15, 0.0}},
-    {{-2289512.0 + 3200.0, 4909946.0 + 1.5, 3640982.0},
-     350.0f, 3.0f, {-8.0, 0.1, 0.0}},
+      MakeMovingEosTarget(-2289512.0 + 1400.0, 4909946.0 - 5.0, 3640982.0, 335.0f, 4.0f, -10.0, 0.2,
+                          0.0),
+      MakeMovingEosTarget(-2289512.0 + 2100.0, 4909946.0 + 4.0, 3640982.0, 315.0f, 6.0f, -15.0,
+                          -0.15, 0.0),
+      MakeMovingEosTarget(-2289512.0 + 3200.0, 4909946.0 + 1.5, 3640982.0, 350.0f, 3.0f, -8.0, 0.1,
+                          0.0),
   };
 
   eos_session::EosEnvironmentInput environment;
@@ -120,15 +133,13 @@ bool RunMovingTargetsScenario() {
     std::vector<eos_session::EosExternalTargetInput> target_inputs;
     target_inputs.reserve(targets.size());
     for (const auto& mt : targets) {
-      target_inputs.push_back(
-          MakeTargetInput(mt.pos, mt.temperature_k, mt.area_m2));
+      target_inputs.push_back(MakeTargetInput(mt.pos, mt.temperature_k, mt.area_m2));
     }
 
     eos_session::EosCycleInput input;
     eos_session::EosCoordinateStatus status;
-    if (!eos_session::EosCycleInputBuilder::Build(
-            platform, target_inputs, 1.0f,
-            environment, &input, &status)) {
+    if (!eos_session::EosCycleInputBuilder::Build(platform, target_inputs, 1.0f, environment,
+                                                  &input, &status)) {
       std::cerr << "eos-moving: cycle " << (i + 1)
                 << " build failed (status=" << static_cast<int>(status) << ")\n";
       return false;
@@ -156,7 +167,6 @@ bool RunMovingTargetsScenario() {
     PrintResult("eos-moving", result);
     std::cout << "  external_output="
               << (external_output_ok ? external_output.detections.size() : 0U) << "\n";
-
 
     for (auto& mt : targets) {
       mt.pos.x_m += mt.vel.x_mps;
