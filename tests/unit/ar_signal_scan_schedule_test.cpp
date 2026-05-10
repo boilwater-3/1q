@@ -277,7 +277,7 @@ TEST(CycleExecutorTest, EmptyInputKeepsWorkspaceOutputsEmpty) {
   EXPECT_TRUE(scratch.measurement_covariances.empty());
 }
 
-TEST(CycleExecutorTest, PhysicalAtmosphereUsesPlatformAbsoluteAltitude) {
+TEST(CycleExecutorTest, PhysicalAtmosphereUsesSnapshotLossInsteadOfPerTargetBlake) {
   ExecutionConfig exec_config;
   exec_config.detection.engineering.enable_physics_detection = true;
   exec_config.detection.engineering.min_detection_margin_db = -300.0f;
@@ -290,13 +290,17 @@ TEST(CycleExecutorTest, PhysicalAtmosphereUsesPlatformAbsoluteAltitude) {
   exec_config.detection.orientation.electronic_scan_limits_deg =
       exec_config.detection.orientation.mechanical_scan_limits_deg;
 
-  environment::EnvironmentSnapshot environment_snapshot = MakeEnvironmentSnapshot(1U);
-  environment_snapshot.atmospheric_physics.enable_physical_model = true;
-  environment_snapshot.atmospheric_physics.pressure_hpa = 1013.25f;
-  environment_snapshot.atmospheric_physics.temperature_k = 288.15f;
-  environment_snapshot.atmospheric_physics.relative_humidity = 0.5f;
-  environment_snapshot.effective_k_factor = 4.0f / 3.0f;
-  environment_snapshot.effective_day_of_year = 172;
+  environment::EnvironmentSnapshot disabled_snapshot = MakeEnvironmentSnapshot(1U);
+  disabled_snapshot.propagation_loss_db = 18.0f;
+
+  environment::EnvironmentSnapshot enabled_snapshot = disabled_snapshot;
+  enabled_snapshot.atmospheric_physics_loss_db = 11.58f;
+  enabled_snapshot.atmospheric_physics.enable_physical_model = true;
+  enabled_snapshot.atmospheric_physics.pressure_hpa = 1013.25f;
+  enabled_snapshot.atmospheric_physics.temperature_k = 288.15f;
+  enabled_snapshot.atmospheric_physics.relative_humidity = 0.5f;
+  enabled_snapshot.effective_k_factor = 4.0f / 3.0f;
+  enabled_snapshot.effective_day_of_year = 172;
 
   session::RadarSceneTarget target(220.0f, 0.0f, 0.0f, 1.0e6f);
   target.position_x = 50000.0f;
@@ -316,17 +320,17 @@ TEST(CycleExecutorTest, PhysicalAtmosphereUsesPlatformAbsoluteAltitude) {
       BuildMinimalValidRuntime(exec_config, control_profile, &association_engine, &track_filter,
                                lifecycle_manager.get(), &signal_detector);
 
-  signal::pipeline::CycleExecutionScratch sea_level_scratch;
-  ASSERT_TRUE(signal::pipeline::ExecuteCycle(input_state, environment_snapshot, 1U, 1U, runtime,
-                                             sea_level_scratch, 1.0f));
-  ASSERT_EQ(sea_level_scratch.signal_term_db.size(), 1U);
+  signal::pipeline::CycleExecutionScratch disabled_scratch;
+  ASSERT_TRUE(signal::pipeline::ExecuteCycle(input_state, disabled_snapshot, 1U, 1U, runtime,
+                                             disabled_scratch, 0.0f));
+  ASSERT_EQ(disabled_scratch.signal_term_db.size(), 1U);
 
-  signal::pipeline::CycleExecutionScratch elevated_scratch;
-  ASSERT_TRUE(signal::pipeline::ExecuteCycle(input_state, environment_snapshot, 1U, 2U, runtime,
-                                             elevated_scratch, 1000.0f));
-  ASSERT_EQ(elevated_scratch.signal_term_db.size(), 1U);
+  signal::pipeline::CycleExecutionScratch enabled_scratch;
+  ASSERT_TRUE(signal::pipeline::ExecuteCycle(input_state, enabled_snapshot, 1U, 2U, runtime,
+                                             enabled_scratch, 1000.0f));
+  ASSERT_EQ(enabled_scratch.signal_term_db.size(), 1U);
 
-  EXPECT_GT(elevated_scratch.signal_term_db[0], sea_level_scratch.signal_term_db[0]);
+  EXPECT_NEAR(enabled_scratch.signal_term_db[0], disabled_scratch.signal_term_db[0], 1.0e-4f);
 }
 
 TEST(CycleExecutorTest, PhysicalAtmosphereKeepsSnapshotLossWhenPlatformAltitudeIsUnspecified) {
