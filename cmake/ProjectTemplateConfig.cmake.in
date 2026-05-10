@@ -6,6 +6,12 @@ include(CMakeFindDependencyMacro)
 
 include("${CMAKE_CURRENT_LIST_DIR}/@PROJECT_NAME@Targets.cmake")
 
+# MSVC: 将 CRT 信息写入导入目标，确保消费端自动匹配运行时库。
+if(MSVC AND TARGET @PROJECT_NAME@::@PROJECT_NAME_LOWER@)
+    set_property(TARGET @PROJECT_NAME@::@PROJECT_NAME_LOWER@ PROPERTY
+        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+endif()
+
 # 提供包变量
 check_required_components(@PROJECT_NAME@)
 

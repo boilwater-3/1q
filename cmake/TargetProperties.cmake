@@ -1,17 +1,24 @@
 # 目标属性：输出名称、MSVC 运行时、静态库定义、PDB 路径、vendor 合并、符号可见性
 
-# -- MSVC 运行时库覆盖 --
+# -- MSVC 运行时库 --
+# 显式设置 MSVC_RUNTIME_LIBRARY，确保编译使用正确的 CRT。
+# CRT 信息通过 ProjectTemplateConfig.cmake.in 传递给消费端。
 set(ONEQ_MSVC_RUNTIME_LIBRARY "" CACHE STRING
-    "Optional MSVC runtime override (example: MultiThreadedDLL). Empty keeps toolchain/profile default.")
-if(MSVC AND NOT ONEQ_MSVC_RUNTIME_LIBRARY STREQUAL "")
-    foreach(ONEQ_BUILD_TARGET IN ITEMS
-        ${PROJECT_CORE_TARGET}
-        ${ONEQ_OBJECT_TARGETS}
-    )
+    "MSVC runtime override. Empty = default dynamic CRT (/MD /MDd).")
+if(MSVC)
+    if(ONEQ_MSVC_RUNTIME_LIBRARY STREQUAL "")
+        set(_oneq_msvc_rt "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+    else()
+        set(_oneq_msvc_rt "${ONEQ_MSVC_RUNTIME_LIBRARY}")
+    endif()
+    set_property(TARGET ${PROJECT_CORE_TARGET} PROPERTY
+        MSVC_RUNTIME_LIBRARY "${_oneq_msvc_rt}")
+    foreach(ONEQ_BUILD_TARGET IN LISTS ONEQ_OBJECT_TARGETS)
         set_property(TARGET ${ONEQ_BUILD_TARGET} PROPERTY
-            MSVC_RUNTIME_LIBRARY "${ONEQ_MSVC_RUNTIME_LIBRARY}")
+            MSVC_RUNTIME_LIBRARY "${_oneq_msvc_rt}")
     endforeach()
     unset(ONEQ_BUILD_TARGET)
+    unset(_oneq_msvc_rt)
 endif()
 
 # -- 静态库宏定义 --
@@ -35,21 +42,6 @@ set_target_properties(${PROJECT_CORE_TARGET} PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR}
 )
-
-# MSVC: PDB 输出到与 .lib 同目录（VS 生成器下 COMPILE_PDB_OUTPUT_DIRECTORY 对静态库不生效）
-if(MSVC)
-    get_property(_isMultiConfig GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
-    if(_isMultiConfig)
-        foreach(_cfg ${CMAKE_CONFIGURATION_TYPES})
-            string(TOUPPER ${_cfg} _cfg_upper)
-            target_compile_options(${PROJECT_CORE_TARGET} PRIVATE
-                $<$<AND:$<CONFIG:${_cfg}>,$<CXX_COMPILER_ID:MSVC>>:/Fd${CMAKE_BINARY_DIR}/${_cfg}/lib/>
-            )
-        endforeach()
-    else()
-        target_compile_options(${PROJECT_CORE_TARGET} PRIVATE /Fd${CMAKE_BINARY_DIR}/lib/)
-    endif()
-endif()
 
 # -- Vendor 模式下将编译型第三方静态库合并进主库 --
 if(PACKAGE_MANAGER STREQUAL "none" AND ONEQ_VENDOR_MERGE_TARGETS)

@@ -73,7 +73,7 @@ else()
 endif()
 
 # Debug 模式配置
-add_compile_options($<$<CONFIG:Debug>:/Zi>)        # 完整调试信息
+add_compile_options($<$<CONFIG:Debug>:/Z7>)        # 调试信息嵌入对象文件（分发友好）
 add_compile_options($<$<CONFIG:Debug>:/Od>)        # 禁用优化
 add_compile_options($<$<CONFIG:Debug>:/RTC1>)      # 运行时错误检查
 
@@ -93,7 +93,7 @@ add_compile_options($<$<CONFIG:Release>:/GL>)      # 全程序优化
 add_compile_options($<$<CONFIG:Release>:/Gy>)      # 函数级链接
 add_compile_options($<$<CONFIG:Release>:/GS->)     # 禁用缓冲区安全检查（性能）
 # 项目特殊性：Release 同样生成调试文件，便于线上问题定位
-add_compile_options($<$<CONFIG:Release>:/Zi>)      # 生成完整调试信息（PDB）
+add_compile_options($<$<CONFIG:Release>:/Z7>)      # 调试信息嵌入对象文件（分发友好）
 add_link_options($<$<CONFIG:Release>:/DEBUG:FULL>) # 生成完整 PDB 调试文件
 add_link_options($<$<CONFIG:Release>:/LTCG>)       # 链接时代码生成
 add_link_options($<$<CONFIG:Release>:/OPT:REF>)    # 移除未引用函数
@@ -104,7 +104,7 @@ add_link_options($<$<CONFIG:Release>:/INCREMENTAL:NO>)  # 禁用增量链接
 add_compile_options($<$<CONFIG:RelWithDebInfo>:/O2>)   # 速度优化
 add_compile_options($<$<CONFIG:RelWithDebInfo>:/Ob2>)  # 内联展开
 add_compile_options($<$<CONFIG:RelWithDebInfo>:/Oi>)   # 内置函数
-add_compile_options($<$<CONFIG:RelWithDebInfo>:/Zi>)   # 调试信息
+add_compile_options($<$<CONFIG:RelWithDebInfo>:/Z7>)   # 调试信息嵌入对象文件（分发友好）
 add_link_options($<$<CONFIG:RelWithDebInfo>:/DEBUG:FULL>)
 add_link_options($<$<CONFIG:RelWithDebInfo>:/OPT:REF>)
 add_link_options($<$<CONFIG:RelWithDebInfo>:/OPT:ICF>)

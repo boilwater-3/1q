@@ -141,6 +141,40 @@
                 "CMAKE_BUILD_TYPE": "Release",
                 "ENABLE_TESTING": "OFF"
             }
+        },
+        {
+            "name": "windows-vs2019",
+            "inherits": "windows-base",
+            "displayName": "Windows VS2019 x64 (via VS2026 v142 toolset)",
+            "generator": "Visual Studio 18 2026",
+            "toolset": "v142,host=x64",
+            "cacheVariables": {
+                "BUILD_SHARED_LIBS": "OFF",
+                "ENABLE_INSTALL": "ON",
+                "ENABLE_TESTING": "OFF"
+            }
+        },
+        {
+            "name": "vendor-debug-windows-local-vs2019",
+            "inherits": "windows-vs2019",
+            "displayName": "Windows Vendor Debug VS2019 (offline, no package manager)",
+            "binaryDir": "${sourceDir}/build/vendor-debug-windows-local-vs2019",
+            "cacheVariables": {
+                "PACKAGE_MANAGER": "none",
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ENABLE_TESTING": "ON"
+            }
+        },
+        {
+            "name": "vendor-release-windows-local-vs2019",
+            "inherits": "windows-vs2019",
+            "displayName": "Windows Vendor Release VS2019 (offline, no package manager)",
+            "binaryDir": "${sourceDir}/build/vendor-release-windows-local-vs2019",
+            "cacheVariables": {
+                "PACKAGE_MANAGER": "none",
+                "CMAKE_BUILD_TYPE": "Release",
+                "ENABLE_TESTING": "OFF"
+            }
         }
     ],
     "buildPresets": [
@@ -168,6 +202,20 @@
         {
             "name": "vendor-release-windows-local-vs2017",
             "configurePreset": "vendor-release-windows-local-vs2017",
+            "configuration": "Release"
+        },
+        {
+            "name": "vendor-debug-windows-local-vs2019",
+            "configurePreset": "vendor-debug-windows-local-vs2019"
+        },
+        {
+            "name": "vendor-release-windows-local-vs2019",
+            "configurePreset": "vendor-release-windows-local-vs2019",
+            "configuration": "Release"
+        },
+        {
+            "name": "windows-vs2019",
+            "configurePreset": "windows-vs2019",
             "configuration": "Release"
         },
         {
@@ -224,6 +272,18 @@
             "name": "vendor-release-windows-local-vs2017",
             "inherits": "test-base",
             "configurePreset": "vendor-release-windows-local-vs2017",
+            "configuration": "Release"
+        },
+        {
+            "name": "vendor-debug-windows-local-vs2019",
+            "inherits": "test-base",
+            "configurePreset": "vendor-debug-windows-local-vs2019",
+            "configuration": "Debug"
+        },
+        {
+            "name": "vendor-release-windows-local-vs2019",
+            "inherits": "test-base",
+            "configurePreset": "vendor-release-windows-local-vs2019",
             "configuration": "Release"
         }
     ]

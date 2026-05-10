@@ -20,27 +20,6 @@ install(TARGETS ${PROJECT_CORE_TARGET}
     INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
-# MSVC: 安装编译器生成的 PDB 调试文件
-if(MSVC)
-    get_property(_isMultiConfig GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
-    if(_isMultiConfig)
-        foreach(_cfg ${CMAKE_CONFIGURATION_TYPES})
-            install(FILES
-                "${CMAKE_BINARY_DIR}/${_cfg}/lib/${PROJECT_CORE_TARGET}.pdb"
-                DESTINATION ${CMAKE_INSTALL_LIBDIR}
-                CONFIGURATIONS ${_cfg}
-                OPTIONAL
-            )
-        endforeach()
-    else()
-        install(FILES
-            "${CMAKE_BINARY_DIR}/lib/${PROJECT_CORE_TARGET}.pdb"
-            DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            OPTIONAL
-        )
-    endif()
-endif()
-
 # 安装公共头文件（显式白名单，避免内部头被自动导出）
 install(FILES ${PUBLIC_HEADERS_ROOT}
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q
