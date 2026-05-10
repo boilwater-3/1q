@@ -43,6 +43,9 @@ float ComputeTargetSpecificAtmosphericLossDb(
   if (!environment_snapshot.atmospheric_physics.enable_physical_model) {
     return 0.0f;
   }
+  if (platform_altitude_m <= 0.0f) {
+    return environment_snapshot.atmospheric_physics_loss_db;
+  }
 
   oneq::internal::atmosphere::AtmosphericPropagationInputs inputs;
   inputs.enable_physics = true;
