@@ -91,6 +91,7 @@ std::string EncodeEosCycleInput(const EosCycleInput& v) {
   b.add_platform_pose(pose);
   b.add_environment(env);
   b.add_scene_targets(targets);
+  b.add_platform_altitude_m(v.platform_altitude_m);
   fbb.Finish(b.Finish());
   const uint8_t* buf = fbb.GetBufferPointer();
   return std::string(reinterpret_cast<const char*>(buf), fbb.GetSize());
@@ -104,6 +105,7 @@ bool DecodeEosCycleInput(const std::string& bytes, EosCycleInput* out) {
   const auto* fb = flatbuffers::GetRoot<eos::replay::EosCycleInput>(bytes.data());
   out->cycle_index = fb->cycle_index();
   out->dt_sec = fb->dt_sec();
+  out->platform_altitude_m = fb->platform_altitude_m();
   out->platform_pose = FromFbPoseState(fb->platform_pose());
   if (fb->environment()) {
     const auto* env = fb->environment();

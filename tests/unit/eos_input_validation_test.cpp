@@ -51,6 +51,8 @@ EosCycleInput MakeValidInput() {
   EosCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 0.5f;
+  input.platform_altitude_m = 1200.0f;
+  input.platform_pose.position_m.z = 0.0f;
   input.environment.solar_altitude_deg = 42.0f;
   input.environment.solar_azimuth_deg = 165.0f;
   input.environment.solar_irradiance_w_m2 = 900.0f;
@@ -108,6 +110,16 @@ TEST(EosInputValidationTest, InvalidCycleDeltaTimeIsReportedAsError) {
 TEST(EosInputValidationTest, NonFinitePlatformNumericFieldIsReportedAsError) {
   EosCycleInput input = MakeValidInput();
   input.platform_pose.attitude_deg.yaw_deg = std::numeric_limits<float>::infinity();
+
+  const ValidationIssueList issues = ValidateEosCycleInput(input);
+
+  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kNonFinitePlatformNumericField));
+  EXPECT_TRUE(HasValidationError(issues));
+}
+
+TEST(EosInputValidationTest, NonFinitePlatformAltitudeIsReportedAsError) {
+  EosCycleInput input = MakeValidInput();
+  input.platform_altitude_m = std::numeric_limits<float>::quiet_NaN();
 
   const ValidationIssueList issues = ValidateEosCycleInput(input);
 
@@ -216,7 +228,6 @@ TEST(EosInputValidationTest, RuntimeConfigBuilderCanTightenDetectionThresholdAtR
 
   session::EosSession eos_session = session::EosSessionFactory::Create(config);
   EosCycleInput input = MakeValidInput();
-  input.platform_pose.position_m.z = 1200.0f;
   input.scene[0].range_m = 1700.0f;
   // Keep target aligned to first-cycle scan azimuth so this test isolates threshold behavior.
   input.scene[0].azimuth_deg = ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec);
@@ -413,7 +424,6 @@ TEST(EosInputValidationTest, RuntimePatchIsAtomicWhenAnyFieldIsInvalid) {
 
   session::EosSession eos_session = session::EosSessionFactory::Create(config);
   EosCycleInput input = MakeValidInput();
-  input.platform_pose.position_m.z = 1200.0f;
   input.scene[0].range_m = 1700.0f;
   input.scene[0].azimuth_deg = ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec);
 

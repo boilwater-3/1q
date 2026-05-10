@@ -119,6 +119,18 @@ TEST(EsrInputValidationTest, NonFinitePlatformNumericFieldIsReported) {
   EXPECT_TRUE(HasValidationError(issues));
 }
 
+TEST(EsrInputValidationTest, NonFinitePlatformAltitudeIsReported) {
+  EsrCycleInput input;
+  input.dt_sec = 1.0f;
+  input.platform_altitude_m = std::numeric_limits<float>::quiet_NaN();
+  input.scene.push_back(MakeValidEmitter());
+
+  const ValidationIssueList issues = ValidateEsrCycleInput(input);
+
+  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kNonFinitePlatformNumericField));
+  EXPECT_TRUE(HasValidationError(issues));
+}
+
 TEST(EsrInputValidationTest, NonFiniteEmitterAttitudeIsReported) {
   EsrCycleInput input;
   input.dt_sec = 1.0f;

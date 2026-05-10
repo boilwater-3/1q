@@ -77,6 +77,7 @@ table EsrCycleInput {
   platform_pose:           PoseState;
   scene_emitters:          [SceneEmitter];
   environment:             EsrEnvironmentInput;
+  platform_altitude_m:     float = 0.0;
 }
 
 root_type EsrCycleInput;

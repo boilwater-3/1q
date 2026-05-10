@@ -20,11 +20,12 @@ namespace session {
  * @brief EosCycleInput 描述光学传感器单周期输入。
  */
 struct ONEQ_API EosCycleInput {
-  std::uint32_t cycle_index{0U};            /**< 当前周期号 */
-  float dt_sec{1.0f};                       /**< 当前周期步长（单位：s） */
-  oneq::foundation::PoseState platform_pose{};  /**< 平台位姿状态 */
-  EosSceneTargetList scene{};               /**< 当前周期场景目标输入列表 */
-  EosEnvironmentInput environment{};        /**< 当前周期环境事实输入 */
+  std::uint32_t cycle_index{0U};               /**< 当前周期号 */
+  float dt_sec{1.0f};                          /**< 当前周期步长（单位：s） */
+  float platform_altitude_m{0.0f};             /**< 平台 WGS84 绝对海拔（单位：m） */
+  oneq::foundation::PoseState platform_pose{}; /**< 平台局部位姿状态 */
+  EosSceneTargetList scene{};                  /**< 当前周期场景目标输入列表 */
+  EosEnvironmentInput environment{};           /**< 当前周期环境事实输入 */
 };
 
 }  // namespace session

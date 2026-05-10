@@ -26,6 +26,7 @@ EsrCycleInput MakeBaseInput() {
   EsrCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
+  input.platform_altitude_m = 5000.0f;
   input.platform_pose.position_m.z = 5000.0f;
 
   session::EsrSceneEmitter emitter;

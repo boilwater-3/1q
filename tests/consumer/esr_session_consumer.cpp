@@ -55,6 +55,7 @@ int main() {
   esr::session::EsrCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
+  input.platform_altitude_m = 5000.0f;
 
   esr::session::EsrSceneEmitter emitter;
   emitter.emitter_id = "test-emitter";

@@ -68,7 +68,8 @@ session::EosSceneTarget MakeTarget(float azimuth_deg, float elevation_deg) {
   input.environment.cloud_coverage_ratio = 0.0f;
   input.environment.background_temperature_k = 220.0f;
   input.environment.day_night_type = ::electro_optical_sensor::session::DayNightType::kDay;
-  input.platform_pose.position_m.z = 1200.0f;
+  input.platform_altitude_m = 1200.0f;
+  input.platform_pose.position_m.z = 0.0f;
   input.scene.push_back(MakeTarget(180.0f, 45.0f));
   return input;
 }

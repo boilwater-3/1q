@@ -60,7 +60,8 @@ int main() {
   input.environment.cloud_coverage_ratio = 0.2f;
   input.environment.background_temperature_k = 289.0f;
   input.environment.day_night_type = eos::session::DayNightType::kDay;
-  input.platform_pose.position_m.z = 1200.0f;
+  input.platform_altitude_m = 1200.0f;
+  input.platform_pose.position_m.z = 0.0f;
 
   eos::session::EosSceneTarget target;
   target.target_id = 1U;

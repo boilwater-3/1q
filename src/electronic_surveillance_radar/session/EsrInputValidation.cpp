@@ -64,6 +64,16 @@ void ValidatePlatformPose(const session::EsrPoseState& platform_pose, Validation
   }
 }
 
+void ValidatePlatformAltitude(float platform_altitude_m, ValidationIssueList* issues) {
+  if (issues == nullptr || IsFinite(platform_altitude_m)) {
+    return;
+  }
+  issues->push_back(MakeIssue(ValidationSeverity::kError,
+                              ValidationCode::kNonFinitePlatformNumericField,
+                              ValidationLocationKind::kPlatform, static_cast<std::size_t>(-1),
+                              "platform_altitude_m", "platform altitude must be finite"));
+}
+
 void ValidateEnvironmentObservation(const environment::EsrEnvironmentObservation& observation,
                                     ValidationIssueList* issues) {
   if (issues == nullptr) {
@@ -190,6 +200,7 @@ ValidationIssueList ValidateEsrCycleInput(const EsrCycleInput& input) {
                                "dt_sec", "cycle delta time must be positive"));
   }
   ValidatePlatformPose(input.platform_pose, &issues);
+  ValidatePlatformAltitude(input.platform_altitude_m, &issues);
   ValidateEnvironmentObservation(input.environment, &issues);
 
   for (std::size_t i = 0; i < input.scene.size(); ++i) {

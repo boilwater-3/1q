@@ -94,6 +94,7 @@ TEST(EosCycleInputBuilderTest, EmptyTargetsProducesValidCycleInput) {
 
   EXPECT_EQ(input.cycle_index, 0U);
   EXPECT_FLOAT_EQ(input.dt_sec, 2.0f);
+  EXPECT_FLOAT_EQ(input.platform_altitude_m, 1000.0f);
   EXPECT_NEAR(input.platform_pose.attitude_deg.yaw_deg, 10.0f, 1.0e-5f);
   EXPECT_TRUE(input.scene.empty());
 }
@@ -119,6 +120,7 @@ TEST(EosCycleInputBuilderTest, ExplicitEnvironmentSnapshotIsCopiedToCycleInput) 
   ASSERT_TRUE(EosCycleInputBuilder::Build(pose_input, {}, 1.0f, environment, &input));
 
   EXPECT_FLOAT_EQ(input.environment.solar_altitude_deg, 12.0f);
+  EXPECT_FLOAT_EQ(input.platform_altitude_m, 1000.0f);
   EXPECT_FLOAT_EQ(input.environment.cloud_coverage_ratio, 0.7f);
   EXPECT_EQ(input.environment.day_night_type, DayNightType::kTwilight);
 }

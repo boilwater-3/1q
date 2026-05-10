@@ -100,6 +100,7 @@ std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
   b.add_platform_pose(platform);
   b.add_scene_emitters(emitters_vec);
   b.add_environment(env_fb);
+  b.add_platform_altitude_m(v.platform_altitude_m);
   fbb.Finish(b.Finish());
   return {reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize()};
 }
@@ -112,6 +113,7 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
   const auto* fb = flatbuffers::GetRoot<esr::replay::EsrCycleInput>(bytes.data());
   out->cycle_index = fb->cycle_index();
   out->dt_sec = fb->dt_sec();
+  out->platform_altitude_m = fb->platform_altitude_m();
   out->platform_pose = FromPose(fb->platform_pose());
   out->scene.clear();
   if (fb->scene_emitters()) {

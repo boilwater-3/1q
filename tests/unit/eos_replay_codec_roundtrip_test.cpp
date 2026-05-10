@@ -33,6 +33,7 @@ TEST(EosReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   EosCycleInput input;
   input.cycle_index = 3U;
   input.dt_sec = 0.1f;
+  input.platform_altitude_m = 1200.0f;
   input.platform_pose.position_m.x = 1000.0f;
   input.platform_pose.position_m.y = 2000.0f;
   input.platform_pose.position_m.z = 3000.0f;
@@ -70,6 +71,7 @@ TEST(EosReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
 
   EXPECT_EQ(decoded.cycle_index, 3U);
   EXPECT_FLOAT_EQ(decoded.dt_sec, 0.1f);
+  EXPECT_FLOAT_EQ(decoded.platform_altitude_m, 1200.0f);
   EXPECT_FLOAT_EQ(decoded.platform_pose.position_m.x, 1000.0f);
   EXPECT_FLOAT_EQ(decoded.platform_pose.velocity_mps.y, 10.0f);
   EXPECT_FLOAT_EQ(decoded.platform_pose.attitude_deg.yaw_deg, 90.0f);

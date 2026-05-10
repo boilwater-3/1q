@@ -73,6 +73,10 @@ float ComputeApertureAreaM2(float optical_aperture_m) {
   return foundation::constants::kPi * radius_m * radius_m;
 }
 
+float ResolvePlatformAltitudeM(const ::electro_optical_sensor::session::EosCycleInput& input) {
+  return std::max(0.0f, input.platform_altitude_m);
+}
+
 foundation::radiative_transfer::RadiativeTransferResult ComputePathRadiativeTransfer(
     const EosPipelineConfig& config, const ::electro_optical_sensor::session::EosCycleInput& input,
     float range_m, const environment::EosEnvironmentModelResult& environment_result) {
@@ -81,7 +85,7 @@ foundation::radiative_transfer::RadiativeTransferResult ComputePathRadiativeTran
   const float aerosol_excess = std::max(0.0f, environment_result.aerosol_density_factor - 1.0f);
   const float turbulence_excess = std::max(0.0f, environment_result.turbulence_factor - 1.0f);
   const float path_km = std::max(0.0f, range_m) * 1.0e-3f;
-  const float altitude_km = std::max(0.0f, std::fabs(input.platform_pose.position_m.z)) * 1.0e-3f;
+  const float altitude_km = ResolvePlatformAltitudeM(input) * 1.0e-3f;
   const float attenuation_per_km =
       0.03f + 0.02f * cloud_ratio + 0.035f * aerosol_excess + 0.015f * turbulence_excess;
   const float altitude_relief_scale =
@@ -175,7 +179,7 @@ DetectionComputationContext BuildDetectionComputationContext(
 
   environment::EosEnvironmentModelInputs environment_inputs;
   environment_inputs.model_type = ToEnvironmentModelType(config.environment_model_type);
-  environment_inputs.platform_altitude_m = std::fabs(input.platform_pose.position_m.z);
+  environment_inputs.platform_altitude_m = ResolvePlatformAltitudeM(input);
   environment_inputs.cloud_coverage_ratio =
       oneq::internal::numerics::Clamp01(input.environment.cloud_coverage_ratio);
   environment_inputs.wind_speed_mps = std::max(0.0f, input.environment.ambient_wind_speed_mps);
@@ -197,7 +201,7 @@ DetectionComputationContext BuildDetectionComputationContext(
       std::max(std::fabs(wavelength_upper_um - wavelength_lower_um), 0.1f);
 
   foundation::optics::DetectionRangeInputs range_inputs;
-  range_inputs.platform_altitude_m = std::max(std::fabs(input.platform_pose.position_m.z), 1.0f);
+  range_inputs.platform_altitude_m = std::max(ResolvePlatformAltitudeM(input), 1.0f);
   range_inputs.boresight_depression_deg = config.boresight_depression_deg;
   range_inputs.vertical_fov_deg = config.vertical_fov_deg;
   range_inputs.min_depression_deg = config.min_detection_depression_deg;

@@ -79,6 +79,16 @@ void ValidatePlatformPose(const oneq::foundation::PoseState& platform_pose,
   }
 }
 
+void ValidatePlatformAltitude(float platform_altitude_m, ValidationIssueList* issues) {
+  if (issues == nullptr || IsFinite(platform_altitude_m)) {
+    return;
+  }
+  issues->push_back(MakeIssue(ValidationSeverity::kError,
+                              ValidationCode::kNonFinitePlatformNumericField,
+                              ValidationLocationKind::kPlatform, static_cast<std::size_t>(-1),
+                              "platform_altitude_m", "platform altitude must be finite"));
+}
+
 void ValidateTarget(const EosSceneTarget& target, std::size_t target_index,
                     ValidationIssueList* issues) {
   if (issues == nullptr) {
@@ -156,6 +166,7 @@ ValidationIssueList ValidateEosCycleInput(
   }
 
   ValidatePlatformPose(input.platform_pose, &issues);
+  ValidatePlatformAltitude(input.platform_altitude_m, &issues);
 
   if (!IsFinite(input.environment.solar_altitude_deg) ||
       !IsFinite(input.environment.solar_azimuth_deg)) {

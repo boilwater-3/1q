@@ -451,9 +451,11 @@ struct EosCycleInputT : public flatbuffers::NativeTable {
   std::unique_ptr<eos::replay::PoseStateT> platform_pose;
   std::unique_ptr<eos::replay::EosEnvironmentInputT> environment;
   std::vector<std::unique_ptr<eos::replay::EosTargetStateT>> scene_targets;
+  float platform_altitude_m;
   EosCycleInputT()
       : cycle_index(0),
-        dt_sec(0.0f) {
+        dt_sec(0.0f),
+        platform_altitude_m(0.0f) {
   }
 };
 
@@ -465,7 +467,8 @@ struct EosCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_DT_SEC = 6,
     VT_PLATFORM_POSE = 8,
     VT_ENVIRONMENT = 10,
-    VT_SCENE_TARGETS = 12
+    VT_SCENE_TARGETS = 12,
+    VT_PLATFORM_ALTITUDE_M = 14
   };
   uint32_t cycle_index() const {
     return GetField<uint32_t>(VT_CYCLE_INDEX, 0);
@@ -482,6 +485,9 @@ struct EosCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const flatbuffers::Vector<flatbuffers::Offset<eos::replay::EosTargetState>> *scene_targets() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<eos::replay::EosTargetState>> *>(VT_SCENE_TARGETS);
   }
+  float platform_altitude_m() const {
+    return GetField<float>(VT_PLATFORM_ALTITUDE_M, 0.0f);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint32_t>(verifier, VT_CYCLE_INDEX) &&
@@ -493,6 +499,7 @@ struct EosCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyOffset(verifier, VT_SCENE_TARGETS) &&
            verifier.VerifyVector(scene_targets()) &&
            verifier.VerifyVectorOfTables(scene_targets()) &&
+           VerifyField<float>(verifier, VT_PLATFORM_ALTITUDE_M) &&
            verifier.EndTable();
   }
   EosCycleInputT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -519,6 +526,9 @@ struct EosCycleInputBuilder {
   void add_scene_targets(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<eos::replay::EosTargetState>>> scene_targets) {
     fbb_.AddOffset(EosCycleInput::VT_SCENE_TARGETS, scene_targets);
   }
+  void add_platform_altitude_m(float platform_altitude_m) {
+    fbb_.AddElement<float>(EosCycleInput::VT_PLATFORM_ALTITUDE_M, platform_altitude_m, 0.0f);
+  }
   explicit EosCycleInputBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -537,8 +547,10 @@ inline flatbuffers::Offset<EosCycleInput> CreateEosCycleInput(
     float dt_sec = 0.0f,
     flatbuffers::Offset<eos::replay::PoseState> platform_pose = 0,
     flatbuffers::Offset<eos::replay::EosEnvironmentInput> environment = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<eos::replay::EosTargetState>>> scene_targets = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<eos::replay::EosTargetState>>> scene_targets = 0,
+    float platform_altitude_m = 0.0f) {
   EosCycleInputBuilder builder_(_fbb);
+  builder_.add_platform_altitude_m(platform_altitude_m);
   builder_.add_scene_targets(scene_targets);
   builder_.add_environment(environment);
   builder_.add_platform_pose(platform_pose);
@@ -553,7 +565,8 @@ inline flatbuffers::Offset<EosCycleInput> CreateEosCycleInputDirect(
     float dt_sec = 0.0f,
     flatbuffers::Offset<eos::replay::PoseState> platform_pose = 0,
     flatbuffers::Offset<eos::replay::EosEnvironmentInput> environment = 0,
-    const std::vector<flatbuffers::Offset<eos::replay::EosTargetState>> *scene_targets = nullptr) {
+    const std::vector<flatbuffers::Offset<eos::replay::EosTargetState>> *scene_targets = nullptr,
+    float platform_altitude_m = 0.0f) {
   auto scene_targets__ = scene_targets ? _fbb.CreateVector<flatbuffers::Offset<eos::replay::EosTargetState>>(*scene_targets) : 0;
   return eos::replay::CreateEosCycleInput(
       _fbb,
@@ -561,7 +574,8 @@ inline flatbuffers::Offset<EosCycleInput> CreateEosCycleInputDirect(
       dt_sec,
       platform_pose,
       environment,
-      scene_targets__);
+      scene_targets__,
+      platform_altitude_m);
 }
 
 flatbuffers::Offset<EosCycleInput> CreateEosCycleInput(flatbuffers::FlatBufferBuilder &_fbb, const EosCycleInputT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
@@ -1206,6 +1220,7 @@ inline void EosCycleInput::UnPackTo(EosCycleInputT *_o, const flatbuffers::resol
   { auto _e = platform_pose(); if (_e) _o->platform_pose = std::unique_ptr<eos::replay::PoseStateT>(_e->UnPack(_resolver)); }
   { auto _e = environment(); if (_e) _o->environment = std::unique_ptr<eos::replay::EosEnvironmentInputT>(_e->UnPack(_resolver)); }
   { auto _e = scene_targets(); if (_e) { _o->scene_targets.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->scene_targets[_i] = std::unique_ptr<eos::replay::EosTargetStateT>(_e->Get(_i)->UnPack(_resolver)); } } }
+  { auto _e = platform_altitude_m(); _o->platform_altitude_m = _e; }
 }
 
 inline flatbuffers::Offset<EosCycleInput> EosCycleInput::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosCycleInputT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -1221,13 +1236,15 @@ inline flatbuffers::Offset<EosCycleInput> CreateEosCycleInput(flatbuffers::FlatB
   auto _platform_pose = _o->platform_pose ? CreatePoseState(_fbb, _o->platform_pose.get(), _rehasher) : 0;
   auto _environment = _o->environment ? CreateEosEnvironmentInput(_fbb, _o->environment.get(), _rehasher) : 0;
   auto _scene_targets = _o->scene_targets.size() ? _fbb.CreateVector<flatbuffers::Offset<eos::replay::EosTargetState>> (_o->scene_targets.size(), [](size_t i, _VectorArgs *__va) { return CreateEosTargetState(*__va->__fbb, __va->__o->scene_targets[i].get(), __va->__rehasher); }, &_va ) : 0;
+  auto _platform_altitude_m = _o->platform_altitude_m;
   return eos::replay::CreateEosCycleInput(
       _fbb,
       _cycle_index,
       _dt_sec,
       _platform_pose,
       _environment,
-      _scene_targets);
+      _scene_targets,
+      _platform_altitude_m);
 }
 
 inline EosDetectionRecordT *EosDetectionRecord::UnPack(const flatbuffers::resolver_function_t *_resolver) const {

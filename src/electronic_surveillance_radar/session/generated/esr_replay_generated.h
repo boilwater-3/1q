@@ -826,9 +826,11 @@ struct EsrCycleInputT : public flatbuffers::NativeTable {
   std::unique_ptr<esr::replay::PoseStateT> platform_pose;
   std::vector<std::unique_ptr<esr::replay::SceneEmitterT>> scene_emitters;
   std::unique_ptr<esr::replay::EsrEnvironmentInputT> environment;
+  float platform_altitude_m;
   EsrCycleInputT()
       : cycle_index(0),
-        dt_sec(0.0f) {
+        dt_sec(0.0f),
+        platform_altitude_m(0.0f) {
   }
 };
 
@@ -840,7 +842,8 @@ struct EsrCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_DT_SEC = 6,
     VT_PLATFORM_POSE = 8,
     VT_SCENE_EMITTERS = 10,
-    VT_ENVIRONMENT = 12
+    VT_ENVIRONMENT = 12,
+    VT_PLATFORM_ALTITUDE_M = 14
   };
   uint32_t cycle_index() const {
     return GetField<uint32_t>(VT_CYCLE_INDEX, 0);
@@ -857,6 +860,9 @@ struct EsrCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const esr::replay::EsrEnvironmentInput *environment() const {
     return GetPointer<const esr::replay::EsrEnvironmentInput *>(VT_ENVIRONMENT);
   }
+  float platform_altitude_m() const {
+    return GetField<float>(VT_PLATFORM_ALTITUDE_M, 0.0f);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint32_t>(verifier, VT_CYCLE_INDEX) &&
@@ -868,6 +874,7 @@ struct EsrCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVectorOfTables(scene_emitters()) &&
            VerifyOffset(verifier, VT_ENVIRONMENT) &&
            verifier.VerifyTable(environment()) &&
+           VerifyField<float>(verifier, VT_PLATFORM_ALTITUDE_M) &&
            verifier.EndTable();
   }
   EsrCycleInputT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -894,6 +901,9 @@ struct EsrCycleInputBuilder {
   void add_environment(flatbuffers::Offset<esr::replay::EsrEnvironmentInput> environment) {
     fbb_.AddOffset(EsrCycleInput::VT_ENVIRONMENT, environment);
   }
+  void add_platform_altitude_m(float platform_altitude_m) {
+    fbb_.AddElement<float>(EsrCycleInput::VT_PLATFORM_ALTITUDE_M, platform_altitude_m, 0.0f);
+  }
   explicit EsrCycleInputBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -912,8 +922,10 @@ inline flatbuffers::Offset<EsrCycleInput> CreateEsrCycleInput(
     float dt_sec = 0.0f,
     flatbuffers::Offset<esr::replay::PoseState> platform_pose = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<esr::replay::SceneEmitter>>> scene_emitters = 0,
-    flatbuffers::Offset<esr::replay::EsrEnvironmentInput> environment = 0) {
+    flatbuffers::Offset<esr::replay::EsrEnvironmentInput> environment = 0,
+    float platform_altitude_m = 0.0f) {
   EsrCycleInputBuilder builder_(_fbb);
+  builder_.add_platform_altitude_m(platform_altitude_m);
   builder_.add_environment(environment);
   builder_.add_scene_emitters(scene_emitters);
   builder_.add_platform_pose(platform_pose);
@@ -928,7 +940,8 @@ inline flatbuffers::Offset<EsrCycleInput> CreateEsrCycleInputDirect(
     float dt_sec = 0.0f,
     flatbuffers::Offset<esr::replay::PoseState> platform_pose = 0,
     const std::vector<flatbuffers::Offset<esr::replay::SceneEmitter>> *scene_emitters = nullptr,
-    flatbuffers::Offset<esr::replay::EsrEnvironmentInput> environment = 0) {
+    flatbuffers::Offset<esr::replay::EsrEnvironmentInput> environment = 0,
+    float platform_altitude_m = 0.0f) {
   auto scene_emitters__ = scene_emitters ? _fbb.CreateVector<flatbuffers::Offset<esr::replay::SceneEmitter>>(*scene_emitters) : 0;
   return esr::replay::CreateEsrCycleInput(
       _fbb,
@@ -936,7 +949,8 @@ inline flatbuffers::Offset<EsrCycleInput> CreateEsrCycleInputDirect(
       dt_sec,
       platform_pose,
       scene_emitters__,
-      environment);
+      environment,
+      platform_altitude_m);
 }
 
 flatbuffers::Offset<EsrCycleInput> CreateEsrCycleInput(flatbuffers::FlatBufferBuilder &_fbb, const EsrCycleInputT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
@@ -2212,6 +2226,7 @@ inline void EsrCycleInput::UnPackTo(EsrCycleInputT *_o, const flatbuffers::resol
   { auto _e = platform_pose(); if (_e) _o->platform_pose = std::unique_ptr<esr::replay::PoseStateT>(_e->UnPack(_resolver)); }
   { auto _e = scene_emitters(); if (_e) { _o->scene_emitters.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->scene_emitters[_i] = std::unique_ptr<esr::replay::SceneEmitterT>(_e->Get(_i)->UnPack(_resolver)); } } }
   { auto _e = environment(); if (_e) _o->environment = std::unique_ptr<esr::replay::EsrEnvironmentInputT>(_e->UnPack(_resolver)); }
+  { auto _e = platform_altitude_m(); _o->platform_altitude_m = _e; }
 }
 
 inline flatbuffers::Offset<EsrCycleInput> EsrCycleInput::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EsrCycleInputT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -2227,13 +2242,15 @@ inline flatbuffers::Offset<EsrCycleInput> CreateEsrCycleInput(flatbuffers::FlatB
   auto _platform_pose = _o->platform_pose ? CreatePoseState(_fbb, _o->platform_pose.get(), _rehasher) : 0;
   auto _scene_emitters = _o->scene_emitters.size() ? _fbb.CreateVector<flatbuffers::Offset<esr::replay::SceneEmitter>> (_o->scene_emitters.size(), [](size_t i, _VectorArgs *__va) { return CreateSceneEmitter(*__va->__fbb, __va->__o->scene_emitters[i].get(), __va->__rehasher); }, &_va ) : 0;
   auto _environment = _o->environment ? CreateEsrEnvironmentInput(_fbb, _o->environment.get(), _rehasher) : 0;
+  auto _platform_altitude_m = _o->platform_altitude_m;
   return esr::replay::CreateEsrCycleInput(
       _fbb,
       _cycle_index,
       _dt_sec,
       _platform_pose,
       _scene_emitters,
-      _environment);
+      _environment,
+      _platform_altitude_m);
 }
 
 inline EmitterObservationT *EmitterObservation::UnPack(const flatbuffers::resolver_function_t *_resolver) const {

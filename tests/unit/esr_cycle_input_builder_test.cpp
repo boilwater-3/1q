@@ -101,6 +101,7 @@ TEST(EsrCycleInputBuilderTest, EmptyEmittersProducesValidCycleInput) {
 
   EXPECT_EQ(input.cycle_index, 0U);
   EXPECT_FLOAT_EQ(input.dt_sec, 2.0f);
+  EXPECT_FLOAT_EQ(input.platform_altitude_m, 1000.0f);
   EXPECT_NEAR(input.platform_pose.attitude_deg.yaw_deg, 10.0f, 1.0e-5f);
   EXPECT_TRUE(input.scene.empty());
 }
@@ -127,6 +128,7 @@ TEST(EsrCycleInputBuilderTest, ExplicitEnvironmentSnapshotIsCopiedToCycleInput) 
 
   EXPECT_EQ(input.environment.propagation_profile,
             environment::EsrPropagationEnvironmentProfile::kComplex);
+  EXPECT_FLOAT_EQ(input.platform_altitude_m, 1000.0f);
   EXPECT_FLOAT_EQ(input.environment.spectrum_occupancy_ratio, 0.6f);
   EXPECT_FLOAT_EQ(input.environment.atmospheric_observation.visibility_km, 8.0f);
 }

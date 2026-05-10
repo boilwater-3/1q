@@ -54,6 +54,7 @@ table EosCycleInput {
   platform_pose:            PoseState;
   environment:              EosEnvironmentInput;
   scene_targets:            [EosTargetState];
+  platform_altitude_m:      float = 0.0;
 }
 
 root_type EosCycleInput;
