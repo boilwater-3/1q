@@ -188,6 +188,7 @@ void RadarController::RunOnce() {
   const session::RadarSceneTargetList& scene_targets_ref = impl_->radar_context.GetSceneTargets();
   const session::RadarSceneTargetList* scene_targets = &scene_targets_ref;
   const model::PlatformAttitudeDeg platform_attitude = impl_->radar_context.GetPlatformAttitude();
+  const float platform_altitude_m = impl_->radar_context.GetPlatformAltitudeM();
   const float cycle_dt_sec = impl_->radar_context.GetCycleDeltaTimeSec();
   const std::uint32_t cycle_index = impl_->radar_context.GetCycleIndex();
 
@@ -215,7 +216,7 @@ void RadarController::RunOnce() {
 
   // 执行信号流水线与决策引擎
   const extension::CycleExecutionResult exec_result = impl_->cycle_orchestrator->Execute(
-      scene_targets, platform_attitude, impl_->control_profile, stamp);
+      scene_targets, platform_attitude, platform_altitude_m, impl_->control_profile, stamp);
   impl_->last_cycle_executed = exec_result.signal_result.executed_this_cycle;
   impl_->last_signal_abort_reason = exec_result.signal_result.abort_reason;
 

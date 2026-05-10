@@ -42,6 +42,7 @@ struct PipelineRuntimeConfig {
       : base_config(std::move(initial_config)) {}
 
   ExecutionConfig base_config{};
+  float platform_altitude_m{0.0f};
   extension::control::RadarControlProfile control_profile_{};
 };
 
@@ -66,6 +67,7 @@ struct AssociationSeedState {
 
 struct SignalPipelineSnapshot {
   ExecutionConfig base_config{};
+  float platform_altitude_m{0.0f};
   extension::control::RadarControlProfile control_profile{};
   AssociationSeedState association_seeds{};
   std::vector<tracking::TrackMeasurement> track_measurements{};
@@ -138,7 +140,8 @@ struct SignalPipeline::Impl {
     const CycleExecutionRuntime runtime_execution = BuildExecutionRuntimeView();
 
     if (!ExecuteCycle(input_state, environment_snapshot, environment_snapshot.cycle_index,
-                      cycle_.batch_id, runtime_execution, cycle_.scratch)) {
+                      cycle_.batch_id, runtime_execution, cycle_.scratch,
+                      runtime_.config.platform_altitude_m)) {
       ResetCycleScratch(&cycle_.scratch);
       extension::SignalCycleResult result;
       result.abort_reason = extension::SignalCycleAbortReason::kRuntimePreparationFailed;
@@ -167,6 +170,7 @@ struct SignalPipeline::Impl {
   extension::SignalPipelineRuntimeState CaptureRuntimeState() const {
     std::shared_ptr<SignalPipelineSnapshot> snapshot(new SignalPipelineSnapshot());
     snapshot->base_config = runtime_.config.base_config;
+    snapshot->platform_altitude_m = runtime_.config.platform_altitude_m;
     snapshot->control_profile = runtime_.config.control_profile_;
     snapshot->association_seeds = runtime_.association_seeds;
     snapshot->track_measurements = cycle_.scratch.track_measurements;
@@ -199,6 +203,7 @@ struct SignalPipeline::Impl {
     }
 
     runtime_.config.base_config = snapshot->base_config;
+    runtime_.config.platform_altitude_m = snapshot->platform_altitude_m;
     runtime_.config.control_profile_ = snapshot->control_profile;
     RebuildOwnedComponents();
     runtime_.association_seeds = snapshot->association_seeds;
@@ -262,9 +267,15 @@ struct SignalPipeline::Impl {
     runtime_.config.base_config.detection.platform_attitude_deg = platform_attitude_deg;
   }
 
+  void UpdatePlatformAltitudeM(float platform_altitude_m) {
+    runtime_.config.platform_altitude_m = platform_altitude_m;
+  }
+
   model::PlatformAttitudeDeg GetPlatformAttitude() const {
     return runtime_.config.base_config.detection.platform_attitude_deg;
   }
+
+  float GetPlatformAltitudeM() const { return runtime_.config.platform_altitude_m; }
 
   void SetControlProfile(const extension::control::RadarControlProfile& control_profile) {
     runtime_.config.control_profile_ = control_profile;
@@ -333,9 +344,15 @@ void SignalPipeline::UpdatePlatformAttitude(
   impl_->UpdatePlatformAttitude(platform_attitude_deg);
 }
 
+void SignalPipeline::UpdatePlatformAltitudeM(float platform_altitude_m) {
+  impl_->UpdatePlatformAltitudeM(platform_altitude_m);
+}
+
 model::PlatformAttitudeDeg SignalPipeline::GetPlatformAttitude() const {
   return impl_->GetPlatformAttitude();
 }
+
+float SignalPipeline::GetPlatformAltitudeM() const { return impl_->GetPlatformAltitudeM(); }
 
 void SignalPipeline::SetControlProfile(
     const extension::control::RadarControlProfile& control_profile) {

@@ -6,13 +6,13 @@
 #ifndef AIRBORNE_RADAR_CORE_CONTROLLER_RADAR_CYCLE_ORCHESTRATOR_H_
 #define AIRBORNE_RADAR_CORE_CONTROLLER_RADAR_CYCLE_ORCHESTRATOR_H_
 
-#include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/extension/ISignalPipeline.h"
-#include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/extension/SignalPipelineResultTypes.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
+#include "1q/airborne_radar/model/RadarOrientationConfig.h"
+#include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "common/runtime/RuntimeCycleExecutor.h"
 
 namespace airborne_radar {
@@ -22,8 +22,8 @@ namespace extension {
  * @brief CycleExecutionResult 聚合信号+决策主链路的单周期输出。
  */
 struct CycleExecutionResult {
-  extension::SignalCycleResult signal_result;     /**< 信号流水线原始结果。 */
-  session::TrackOutputFrame track_output_frame;  /**< 装配后的中性输出帧。 */
+  extension::SignalCycleResult signal_result;        /**< 信号流水线原始结果。 */
+  session::TrackOutputFrame track_output_frame;      /**< 装配后的中性输出帧。 */
   extension::TacticalDecisionResult decision_result; /**< 决策引擎输出。 */
 };
 
@@ -41,11 +41,10 @@ class RadarCycleOrchestrator {
    * @param tactical_state_store 跨周期战术内存指针（可为 nullptr）。
    * @param environment_service  环境服务引用。
    */
-  RadarCycleOrchestrator(
-      extension::ISignalPipeline& signal_pipeline,
-      extension::ITacticalDecisionEngine* decision_engine,
-      extension::TacticalStateStore* tactical_state_store,
-      environment::IEnvironmentService& environment_service);
+  RadarCycleOrchestrator(extension::ISignalPipeline& signal_pipeline,
+                         extension::ITacticalDecisionEngine* decision_engine,
+                         extension::TacticalStateStore* tactical_state_store,
+                         environment::IEnvironmentService& environment_service);
 
   /**
    * @brief 冻结本周期环境，驱动 IEnvironmentService::BeginCycle。
@@ -59,15 +58,16 @@ class RadarCycleOrchestrator {
    * @brief 执行信号流水线与决策引擎，返回完整周期执行结果。
    * @param scene_targets     当前周期场景目标列表（可为 nullptr，视为空列表）。
    * @param platform_attitude 当前平台姿态。
+   * @param platform_altitude_m 当前平台 WGS84 绝对海拔（单位：m）。
    * @param current_profile   本周期生效的控制真值（只读）。
    * @param stamp             当前周期时间戳。
    * @return 信号+决策的聚合结果。
    */
-  CycleExecutionResult Execute(
-      const session::RadarSceneTargetList* scene_targets,
-      const model::PlatformAttitudeDeg& platform_attitude,
-      const extension::control::RadarControlProfile& current_profile,
-      const oneq::internal::runtime::RuntimeCycleStamp& stamp);
+  CycleExecutionResult Execute(const session::RadarSceneTargetList* scene_targets,
+                               const model::PlatformAttitudeDeg& platform_attitude,
+                               float platform_altitude_m,
+                               const extension::control::RadarControlProfile& current_profile,
+                               const oneq::internal::runtime::RuntimeCycleStamp& stamp);
 
  private:
   extension::ISignalPipeline& signal_pipeline_;

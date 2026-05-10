@@ -8,6 +8,7 @@ namespace session {
 struct MutableRadarContext::RuntimeSnapshot {
   std::shared_ptr<RadarSceneTargetList> scene_targets;
   oneq::foundation::PoseState platform_pose{};
+  float platform_altitude_m{0.0f};
   float cycle_dt_sec{1.0f};
   std::uint32_t cycle_index{0U};
   std::vector<extension::control::RadarCommand> submitted_commands{};
@@ -18,6 +19,7 @@ struct MutableRadarContext::RuntimeSnapshot {
 void MutableRadarContext::BeginCycle(const RadarCycleInput& input) {
   SetSceneTargets(input.scene);
   platform_pose_ = input.platform_pose;
+  platform_altitude_m_ = input.platform_altitude_m;
   SetCycleDeltaTimeSec(input.dt_sec);
   cycle_index_ = input.cycle_index;
   ResetCycleOutputs();
@@ -53,6 +55,7 @@ extension::RadarContextRuntimeState MutableRadarContext::CaptureRuntimeState() c
   std::shared_ptr<RuntimeSnapshot> snapshot(new RuntimeSnapshot());
   snapshot->scene_targets = scene_targets_;
   snapshot->platform_pose = platform_pose_;
+  snapshot->platform_altitude_m = platform_altitude_m_;
   snapshot->cycle_dt_sec = cycle_dt_sec_;
   snapshot->cycle_index = cycle_index_;
   snapshot->submitted_commands = submitted_commands_;
@@ -63,6 +66,7 @@ extension::RadarContextRuntimeState MutableRadarContext::CaptureRuntimeState() c
   state.opaque = snapshot;
   state.scene_targets = scene_targets_ != nullptr ? *scene_targets_ : RadarSceneTargetList();
   state.platform_pose = platform_pose_;
+  state.platform_altitude_m = platform_altitude_m_;
   state.cycle_dt_sec = cycle_dt_sec_;
   state.cycle_index = cycle_index_;
   state.submitted_commands = submitted_commands_;
@@ -78,6 +82,7 @@ void MutableRadarContext::RestoreRuntimeState(const extension::RadarContextRunti
     if (snapshot != nullptr) {
       scene_targets_ = snapshot->scene_targets;
       platform_pose_ = snapshot->platform_pose;
+      platform_altitude_m_ = snapshot->platform_altitude_m;
       cycle_dt_sec_ = snapshot->cycle_dt_sec;
       cycle_index_ = snapshot->cycle_index;
       submitted_commands_ = snapshot->submitted_commands;
@@ -89,6 +94,7 @@ void MutableRadarContext::RestoreRuntimeState(const extension::RadarContextRunti
 
   scene_targets_.reset(new RadarSceneTargetList(state.scene_targets));
   platform_pose_ = state.platform_pose;
+  platform_altitude_m_ = state.platform_altitude_m;
   cycle_dt_sec_ = state.cycle_dt_sec;
   cycle_index_ = state.cycle_index;
   submitted_commands_ = state.submitted_commands;
@@ -104,6 +110,8 @@ const RadarSceneTargetList& MutableRadarContext::GetSceneTargets() const {
 model::PlatformAttitudeDeg MutableRadarContext::GetPlatformAttitude() const {
   return platform_pose_.attitude_deg;
 }
+
+float MutableRadarContext::GetPlatformAltitudeM() const { return platform_altitude_m_; }
 
 float MutableRadarContext::GetCycleDeltaTimeSec() const { return cycle_dt_sec_; }
 

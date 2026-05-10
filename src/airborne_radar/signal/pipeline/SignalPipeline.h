@@ -87,12 +87,14 @@ class SignalPipeline final : public extension::ISignalPipeline {
    * @param platform_attitude_deg 当前平台姿态。
    */
   void UpdatePlatformAttitude(const model::PlatformAttitudeDeg& platform_attitude_deg) override;
+  void UpdatePlatformAltitudeM(float platform_altitude_m) override;
 
   /**
    * @brief 获取当前缓存的平台姿态。
    * @return 当前平台姿态。
    */
   model::PlatformAttitudeDeg GetPlatformAttitude() const override;
+  float GetPlatformAltitudeM() const override;
 
   /**
    * @brief 更新当前生效的控制真值。

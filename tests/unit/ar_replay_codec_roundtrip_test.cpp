@@ -32,6 +32,7 @@ TEST(ArReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   RadarCycleInput input;
   input.cycle_index = 7U;
   input.dt_sec = 0.5f;
+  input.platform_altitude_m = 1200.0f;
   input.platform_pose.position_m.x = 100.0f;
   input.platform_pose.position_m.y = 200.0f;
   input.platform_pose.position_m.z = 300.0f;
@@ -64,6 +65,7 @@ TEST(ArReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
 
   EXPECT_EQ(decoded.cycle_index, 7U);
   EXPECT_FLOAT_EQ(decoded.dt_sec, input.dt_sec);
+  EXPECT_FLOAT_EQ(decoded.platform_altitude_m, input.platform_altitude_m);
   EXPECT_FLOAT_EQ(decoded.platform_pose.position_m.x, 100.0f);
   EXPECT_FLOAT_EQ(decoded.platform_pose.velocity_mps.y, 20.0f);
   EXPECT_FLOAT_EQ(decoded.platform_pose.attitude_deg.yaw_deg, 45.0f);

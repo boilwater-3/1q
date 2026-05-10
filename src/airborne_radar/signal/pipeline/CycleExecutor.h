@@ -91,24 +91,27 @@ struct CycleExecutionContract {
   CycleExecutionContract(const session::RadarSceneTargetList& input_state,
                          const environment::EnvironmentSnapshot& environment_snapshot,
                          std::uint32_t cycle_index, std::uint64_t batch_id,
-                         ExecutionConfig runtime_config)
+                         ExecutionConfig runtime_config, float platform_altitude_m)
       : input_state(input_state),
         environment_snapshot(environment_snapshot),
         cycle_index(cycle_index),
         batch_id(batch_id),
+        platform_altitude_m(platform_altitude_m),
         runtime_config(std::move(runtime_config)) {}
 
   const session::RadarSceneTargetList& input_state;
   const environment::EnvironmentSnapshot& environment_snapshot;
   std::uint32_t cycle_index{0U};
   std::uint64_t batch_id{0U};
+  float platform_altitude_m{0.0f};
   ExecutionConfig runtime_config{};
 };
 
 bool ExecuteCycle(const session::RadarSceneTargetList& input_state,
                   const environment::EnvironmentSnapshot& environment_snapshot,
                   std::uint32_t cycle_index, std::uint64_t batch_id,
-                  const CycleExecutionRuntime& runtime, CycleExecutionScratch& cycle_scratch);
+                  const CycleExecutionRuntime& runtime, CycleExecutionScratch& cycle_scratch,
+                  float platform_altitude_m = 0.0f);
 
 }  // namespace pipeline
 }  // namespace signal

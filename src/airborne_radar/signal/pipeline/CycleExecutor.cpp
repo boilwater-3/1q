@@ -25,13 +25,13 @@ namespace {
 CycleExecutionContract BuildCycleExecutionContract(
     const session::RadarSceneTargetList& input_state,
     const environment::EnvironmentSnapshot& environment_snapshot, std::uint32_t cycle_index,
-    std::uint64_t batch_id, const CycleExecutionRuntime& runtime) {
+    std::uint64_t batch_id, const CycleExecutionRuntime& runtime, float platform_altitude_m) {
   const ResolvedRuntimePipelineConfig resolved =
       ResolveRuntimePipelineConfig(runtime.base_config, runtime.control_profile);
   ExecutionConfig runtime_config = resolved.config;
   ApplyScanScheduleToRuntimeConfig(cycle_index, &runtime_config);
   return CycleExecutionContract(input_state, environment_snapshot, cycle_index, batch_id,
-                                std::move(runtime_config));
+                                std::move(runtime_config), platform_altitude_m);
 }
 
 // ---------------------------------------------------------------------------
@@ -91,8 +91,8 @@ void RunDetectionPhase(const CycleExecutionContract& contract, const CycleExecut
   if (contract.runtime_config.detection.engineering.enable_physics_detection &&
       runtime.signal_detector != nullptr) {
     RunPhysicalDetectionPass(contract.input_state, contract.runtime_config, runtime.control_profile,
-                             contract.environment_snapshot, runtime.signal_detector,
-                             &detection_buffers);
+                             contract.environment_snapshot, contract.platform_altitude_m,
+                             runtime.signal_detector, &detection_buffers);
   } else {
     RunHeuristicDetectionPass(contract.input_state, contract.runtime_config,
                               runtime.control_profile, contract.environment_snapshot,
@@ -118,8 +118,8 @@ void RunAssociationPhase(const CycleExecutionContract& contract,
 
 void RunMeasurementBuildPhase(const CycleExecutionContract& contract,
                               CycleExecutionScratch& scratch) {
-  BuildTrackMeasurementsPass(contract.input_state,
-                             contract.environment_snapshot.jamming_detected, scratch);
+  BuildTrackMeasurementsPass(contract.input_state, contract.environment_snapshot.jamming_detected,
+                             scratch);
 }
 
 // ---------------------------------------------------------------------------
@@ -235,8 +235,8 @@ void CollectCycleOutputs(const extension::control::RadarControlProfile& control_
   cycle.dt_sec = environment_snapshot.cycle_dt_sec;
   cycle.extra_miss_tolerance = ResolveLifecycleExtraMissTolerance(control_profile);
   auto_lifecycle_manager->Update(cycle, scratch.track_measurements);
-  scratch.decision_frame = model::DecisionInputFrame(
-      auto_lifecycle_manager->BuildTrackStateSnapshots());
+  scratch.decision_frame =
+      model::DecisionInputFrame(auto_lifecycle_manager->BuildTrackStateSnapshots());
   scratch.decision_frame.cycle_index = cycle_index;
   scratch.decision_frame.batch_id = batch_id;
   scratch.decision_frame.environment_jamming_detected = eccm_source_info.has_jamming_signal;
@@ -262,9 +262,10 @@ void AssembleOutputs(std::uint32_t cycle_index, std::uint64_t batch_id,
 bool ExecuteCycle(const session::RadarSceneTargetList& input_state,
                   const environment::EnvironmentSnapshot& environment_snapshot,
                   std::uint32_t cycle_index, std::uint64_t batch_id,
-                  const CycleExecutionRuntime& runtime, CycleExecutionScratch& cycle_scratch) {
-  CycleExecutionContract contract = BuildCycleExecutionContract(input_state, environment_snapshot,
-                                                                cycle_index, batch_id, runtime);
+                  const CycleExecutionRuntime& runtime, CycleExecutionScratch& cycle_scratch,
+                  float platform_altitude_m) {
+  CycleExecutionContract contract = BuildCycleExecutionContract(
+      input_state, environment_snapshot, cycle_index, batch_id, runtime, platform_altitude_m);
   ResetCycleExecutionScratch(contract.input_state, cycle_scratch);
 
   if (!RunEnvironmentPhase(&contract, runtime, cycle_scratch)) {

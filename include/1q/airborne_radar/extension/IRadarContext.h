@@ -31,6 +31,7 @@ struct ONEQ_API RadarContextRuntimeState {
   std::shared_ptr<void> opaque{};      /**< 可选的实现私有快照负载；用于高效回滚 */
   session::RadarSceneTargetList scene_targets{};
   oneq::foundation::PoseState platform_pose{};
+  float platform_altitude_m{0.0f};
   float cycle_dt_sec{1.0f};
   std::uint32_t cycle_index{0U};
   std::vector<extension::control::RadarCommand> submitted_commands{};

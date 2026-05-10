@@ -412,6 +412,14 @@ TEST(SignalPipelineTest, ExposesPublicPlatformAttitudeUpdateApi) {
   EXPECT_FLOAT_EQ(cached_platform_attitude.roll_deg, 1.5f);
 }
 
+TEST(SignalPipelineTest, ExposesPublicPlatformAltitudeUpdateApi) {
+  signal::pipeline::SignalPipeline signal_pipeline;
+
+  signal_pipeline.UpdatePlatformAltitudeM(1200.0f);
+
+  EXPECT_FLOAT_EQ(signal_pipeline.GetPlatformAltitudeM(), 1200.0f);
+}
+
 TEST(SignalPipelineTest, UsesEnvironmentCycleIndexForExecutionContract) {
   signal::pipeline::SignalPipeline signal_pipeline;
   environment::EnvironmentService environment_service;

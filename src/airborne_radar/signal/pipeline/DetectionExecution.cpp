@@ -9,9 +9,9 @@
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/MeasurementErrorModel.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
-#include "airborne_radar/signal/pipeline/PipelineTargetUtils.h"
 #include "airborne_radar/signal/pipeline/ControlProfileEffects.h"
 #include "airborne_radar/signal/pipeline/JammingEffects.h"
+#include "airborne_radar/signal/pipeline/PipelineTargetUtils.h"
 #include "common/atmosphere/AtmospherePhysics.h"
 #include "common/rcs/RcsPhysics.h"
 
@@ -38,7 +38,7 @@ float ResolveRcsPhysicsFrequencyHz(const ExecutionConfig& exec_config) {
 
 float ComputeTargetSpecificAtmosphericLossDb(
     const ExecutionConfig& exec_config,
-    const environment::EnvironmentSnapshot& environment_snapshot,
+    const environment::EnvironmentSnapshot& environment_snapshot, float platform_altitude_m,
     const detection::ResolvedTargetGeometry& geometry) {
   if (!environment_snapshot.atmospheric_physics.enable_physical_model) {
     return 0.0f;
@@ -48,8 +48,8 @@ float ComputeTargetSpecificAtmosphericLossDb(
   inputs.enable_physics = true;
   inputs.frequency_hz = exec_config.detection.engineering.transmitter.frequency_hz;
   inputs.path_length_m = std::max(geometry.range_m, 0.1f);
-  inputs.radar_altitude_m = 0.0f;
-  inputs.target_altitude_m = std::max(geometry.position_m.z(), 0.0f);
+  inputs.radar_altitude_m = platform_altitude_m;
+  inputs.target_altitude_m = std::max(platform_altitude_m + geometry.position_m.z(), 0.0f);
   inputs.elevation_deg =
       geometry.look_angles_deg.has_look_angles ? geometry.look_angles_deg.look_el_deg : 0.0f;
   inputs.pressure_hpa = environment_snapshot.atmospheric_physics.pressure_hpa;
@@ -156,7 +156,8 @@ bool HasValidBuffers(const DetectionExecutionBuffers& buffers) {
 
 }  // namespace
 
-void RunHeuristicDetectionPass(const session::RadarSceneTargetList& input, const ExecutionConfig& config,
+void RunHeuristicDetectionPass(const session::RadarSceneTargetList& input,
+                               const ExecutionConfig& config,
                                const extension::control::RadarControlProfile& control_profile,
                                const environment::EnvironmentSnapshot& environment_snapshot,
                                DetectionExecutionBuffers* buffers) {
@@ -191,10 +192,11 @@ void RunHeuristicDetectionPass(const session::RadarSceneTargetList& input, const
   }
 }
 
-void RunPhysicalDetectionPass(const session::RadarSceneTargetList& input, const ExecutionConfig& config,
+void RunPhysicalDetectionPass(const session::RadarSceneTargetList& input,
+                              const ExecutionConfig& config,
                               const extension::control::RadarControlProfile& control_profile,
                               const environment::EnvironmentSnapshot& environment_snapshot,
-                              detection::SignalDetector* signal_detector,
+                              float platform_altitude_m, detection::SignalDetector* signal_detector,
                               DetectionExecutionBuffers* buffers) {
   if (signal_detector == nullptr || buffers == nullptr || !HasValidBuffers(*buffers)) {
     return;
@@ -232,10 +234,11 @@ void RunPhysicalDetectionPass(const session::RadarSceneTargetList& input, const 
 
   for (std::size_t i = 0; i < count; ++i) {
     (*buffers->target_geometry)[i] = detection::TargetGeometryResolver::Resolve(input[i]);
-    env.propagation_loss_db = environment_snapshot.propagation_loss_db -
-                              environment_snapshot.atmospheric_physics_loss_db +
-                              ComputeTargetSpecificAtmosphericLossDb(
-                                  config, environment_snapshot, (*buffers->target_geometry)[i]);
+    env.propagation_loss_db =
+        environment_snapshot.propagation_loss_db -
+        environment_snapshot.atmospheric_physics_loss_db +
+        ComputeTargetSpecificAtmosphericLossDb(config, environment_snapshot, platform_altitude_m,
+                                               (*buffers->target_geometry)[i]);
     const float effective_rcs_m2 =
         ComputeEffectiveTargetRcsM2(input[i], (*buffers->target_geometry)[i], config);
     detection::TargetReturn target;
@@ -274,7 +277,6 @@ void RunPhysicalDetectionPass(const session::RadarSceneTargetList& input, const 
         config.jamming_effects, control_profile, environment_snapshot);
   }
 }
-
 
 }  // namespace pipeline
 }  // namespace signal

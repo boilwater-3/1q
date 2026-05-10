@@ -912,9 +912,9 @@ std::string EncodeCycleInputFlatbuffer(const RadarCycleInput& input) {
       scene_vector = builder.CreateVector(targets);
   const flatbuffers::Offset<fb::RadarCycleEnvironmentInput> env =
       EncodeCycleEnvironmentInput(&builder, input.environment);
-  const flatbuffers::Offset<fb::RadarCycleInput> root =
-      fb::CreateRadarCycleInput(builder, input.cycle_index, input.dt_sec,
-                                EncodePoseState(&builder, input.platform_pose), scene_vector, env);
+  const flatbuffers::Offset<fb::RadarCycleInput> root = fb::CreateRadarCycleInput(
+      builder, input.cycle_index, input.dt_sec, EncodePoseState(&builder, input.platform_pose),
+      scene_vector, env, input.platform_altitude_m);
   builder.Finish(root, fb::RadarCycleInputIdentifier());
 
   const std::uint8_t* buffer = builder.GetBufferPointer();
@@ -949,6 +949,7 @@ bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes, RadarCycleInpu
   const fb::RadarCycleInput* root = fb::GetRadarCycleInput(data);
   input->cycle_index = root->cycle_index();
   input->dt_sec = root->dt_sec();
+  input->platform_altitude_m = root->platform_altitude_m();
   input->platform_pose = DecodePoseState(root->platform_pose());
   input->environment = DecodeCycleEnvironmentInput(root->environment());
   input->scene.clear();

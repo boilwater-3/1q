@@ -28,6 +28,12 @@ class ONEQ_API IRadarContextReader {
   /** @brief 获取当前搭载平台姿态角。 */
   virtual model::PlatformAttitudeDeg GetPlatformAttitude() const = 0;
 
+  /**
+   * @brief 获取当前雷达平台 WGS84 绝对海拔。
+   * @return 平台绝对海拔（单位：m）。
+   */
+  virtual float GetPlatformAltitudeM() const { return 0.0f; }
+
   /** @brief 获取当前周期时间步长。 */
   virtual float GetCycleDeltaTimeSec() const = 0;
 

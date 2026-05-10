@@ -75,6 +75,7 @@ table RadarCycleInput {
   platform_pose:PoseState;
   scene:[RadarSceneTarget];
   environment:RadarCycleEnvironmentInput;
+  platform_altitude_m:float = 0.0;
 }
 
 table TrackOutputFrame {

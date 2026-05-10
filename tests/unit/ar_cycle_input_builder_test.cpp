@@ -96,6 +96,7 @@ TEST(RadarCycleInputBuilderTest, EmptyTargetsProducesValidCycleInput) {
 
   EXPECT_EQ(input.cycle_index, 0U);
   EXPECT_FLOAT_EQ(input.dt_sec, 2.0f);
+  EXPECT_FLOAT_EQ(input.platform_altitude_m, 1000.0f);
   EXPECT_FLOAT_EQ(input.platform_pose.position_m.x, 0.0f);
   EXPECT_FLOAT_EQ(input.platform_pose.position_m.y, 0.0f);
   EXPECT_FLOAT_EQ(input.platform_pose.position_m.z, 0.0f);
@@ -129,6 +130,7 @@ TEST(RadarCycleInputBuilderTest, ExplicitEnvironmentSnapshotIsCopiedToCycleInput
   RadarCycleInput input;
   ASSERT_TRUE(RadarCycleInputBuilder::Build(pose_input, {}, 1.0f, environment, &input));
 
+  EXPECT_FLOAT_EQ(input.platform_altitude_m, 1000.0f);
   EXPECT_TRUE(input.environment.atmospheric_observation.enable_physical_model);
   EXPECT_FLOAT_EQ(input.environment.atmospheric_observation.temperature_k, 301.0f);
   EXPECT_FLOAT_EQ(input.environment.atmospheric_context.solar_flux_f107, 180.0f);

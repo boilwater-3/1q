@@ -51,10 +51,22 @@ class ONEQ_API ISignalPipeline {
   virtual void UpdatePlatformAttitude(const model::PlatformAttitudeDeg& platform_attitude_deg) = 0;
 
   /**
+   * @brief 更新当前雷达平台 WGS84 绝对海拔。
+   * @param[in] platform_altitude_m 平台绝对海拔（单位：m）。
+   */
+  virtual void UpdatePlatformAltitudeM(float platform_altitude_m) { (void)platform_altitude_m; }
+
+  /**
    * @brief 获取当前搭载平台姿态。
    * @return 平台姿态角（单位：度）。
    */
   virtual model::PlatformAttitudeDeg GetPlatformAttitude() const = 0;
+
+  /**
+   * @brief 获取当前缓存的雷达平台 WGS84 绝对海拔。
+   * @return 平台绝对海拔（单位：m）。
+   */
+  virtual float GetPlatformAltitudeM() const { return 0.0f; }
 
   /**
    * @brief 设置下一周期生效的控制真值。

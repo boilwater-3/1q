@@ -806,7 +806,8 @@ struct RadarCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_DT_SEC = 6,
     VT_PLATFORM_POSE = 8,
     VT_SCENE = 10,
-    VT_ENVIRONMENT = 12
+    VT_ENVIRONMENT = 12,
+    VT_PLATFORM_ALTITUDE_M = 14
   };
   uint32_t cycle_index() const {
     return GetField<uint32_t>(VT_CYCLE_INDEX, 0);
@@ -823,6 +824,9 @@ struct RadarCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const oneq::replay::airborne_radar::fb::RadarCycleEnvironmentInput *environment() const {
     return GetPointer<const oneq::replay::airborne_radar::fb::RadarCycleEnvironmentInput *>(VT_ENVIRONMENT);
   }
+  float platform_altitude_m() const {
+    return GetField<float>(VT_PLATFORM_ALTITUDE_M, 0.0f);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint32_t>(verifier, VT_CYCLE_INDEX) &&
@@ -834,6 +838,7 @@ struct RadarCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVectorOfTables(scene()) &&
            VerifyOffset(verifier, VT_ENVIRONMENT) &&
            verifier.VerifyTable(environment()) &&
+           VerifyField<float>(verifier, VT_PLATFORM_ALTITUDE_M) &&
            verifier.EndTable();
   }
 };
@@ -857,6 +862,9 @@ struct RadarCycleInputBuilder {
   void add_environment(flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarCycleEnvironmentInput> environment) {
     fbb_.AddOffset(RadarCycleInput::VT_ENVIRONMENT, environment);
   }
+  void add_platform_altitude_m(float platform_altitude_m) {
+    fbb_.AddElement<float>(RadarCycleInput::VT_PLATFORM_ALTITUDE_M, platform_altitude_m, 0.0f);
+  }
   explicit RadarCycleInputBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -875,8 +883,10 @@ inline flatbuffers::Offset<RadarCycleInput> CreateRadarCycleInput(
     float dt_sec = 1.0f,
     flatbuffers::Offset<oneq::replay::airborne_radar::fb::PoseState> platform_pose = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarSceneTarget>>> scene = 0,
-    flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarCycleEnvironmentInput> environment = 0) {
+    flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarCycleEnvironmentInput> environment = 0,
+    float platform_altitude_m = 0.0f) {
   RadarCycleInputBuilder builder_(_fbb);
+  builder_.add_platform_altitude_m(platform_altitude_m);
   builder_.add_environment(environment);
   builder_.add_scene(scene);
   builder_.add_platform_pose(platform_pose);
@@ -891,7 +901,8 @@ inline flatbuffers::Offset<RadarCycleInput> CreateRadarCycleInputDirect(
     float dt_sec = 1.0f,
     flatbuffers::Offset<oneq::replay::airborne_radar::fb::PoseState> platform_pose = 0,
     const std::vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarSceneTarget>> *scene = nullptr,
-    flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarCycleEnvironmentInput> environment = 0) {
+    flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarCycleEnvironmentInput> environment = 0,
+    float platform_altitude_m = 0.0f) {
   auto scene__ = scene ? _fbb.CreateVector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarSceneTarget>>(*scene) : 0;
   return oneq::replay::airborne_radar::fb::CreateRadarCycleInput(
       _fbb,
@@ -899,7 +910,8 @@ inline flatbuffers::Offset<RadarCycleInput> CreateRadarCycleInputDirect(
       dt_sec,
       platform_pose,
       scene__,
-      environment);
+      environment,
+      platform_altitude_m);
 }
 
 struct TrackOutputFrame FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {

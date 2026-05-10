@@ -90,6 +90,7 @@ class MutableRadarContext final : public extension::IRadarContext {
    * @return 当前平台姿态角。
    */
   model::PlatformAttitudeDeg GetPlatformAttitude() const override;
+  float GetPlatformAltitudeM() const override;
 
   /**
    * @brief 获取当前周期时间步长。
@@ -120,6 +121,7 @@ class MutableRadarContext final : public extension::IRadarContext {
 
   std::shared_ptr<RadarSceneTargetList> scene_targets_{new RadarSceneTargetList()};
   oneq::foundation::PoseState platform_pose_{};
+  float platform_altitude_m_{0.0f};
   float cycle_dt_sec_{1.0f};
   std::uint32_t cycle_index_{0U};
   std::vector<extension::control::RadarCommand> submitted_commands_{};

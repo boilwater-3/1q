@@ -139,10 +139,11 @@ signal::pipeline::CycleExecutionRuntime BuildMinimalValidRuntime(
     const extension::control::RadarControlProfile& control_profile,
     signal::association::DataAssociationEngine* association_engine,
     signal::tracking::TrackFilter* track_filter,
-    signal::tracking::ITrackLifecycleManager* lifecycle_manager) {
+    signal::tracking::ITrackLifecycleManager* lifecycle_manager,
+    signal::detection::SignalDetector* signal_detector = nullptr) {
   static const std::vector<signal::tracking::AssociationTrackSeed> kEmptyAssociationSeeds;
   return signal::pipeline::CycleExecutionRuntime(exec_config, control_profile, *association_engine,
-                                                 *track_filter, *lifecycle_manager, nullptr,
+                                                 *track_filter, *lifecycle_manager, signal_detector,
                                                  kEmptyAssociationSeeds, false);
 }
 
@@ -274,6 +275,58 @@ TEST(CycleExecutorTest, EmptyInputKeepsWorkspaceOutputsEmpty) {
   EXPECT_TRUE(scratch.detection_succeeded.empty());
   EXPECT_TRUE(scratch.association_keys.empty());
   EXPECT_TRUE(scratch.measurement_covariances.empty());
+}
+
+TEST(CycleExecutorTest, PhysicalAtmosphereUsesPlatformAbsoluteAltitude) {
+  ExecutionConfig exec_config;
+  exec_config.detection.engineering.enable_physics_detection = true;
+  exec_config.detection.engineering.min_detection_margin_db = -300.0f;
+  exec_config.detection.orientation.scan_center_deg.az_deg = 0.0f;
+  exec_config.detection.orientation.scan_center_deg.el_deg = 0.0f;
+  exec_config.detection.orientation.mechanical_scan_limits_deg.az_min_deg = 0.0f;
+  exec_config.detection.orientation.mechanical_scan_limits_deg.az_max_deg = 0.0f;
+  exec_config.detection.orientation.mechanical_scan_limits_deg.el_min_deg = 0.0f;
+  exec_config.detection.orientation.mechanical_scan_limits_deg.el_max_deg = 0.0f;
+  exec_config.detection.orientation.electronic_scan_limits_deg =
+      exec_config.detection.orientation.mechanical_scan_limits_deg;
+
+  environment::EnvironmentSnapshot environment_snapshot = MakeEnvironmentSnapshot(1U);
+  environment_snapshot.atmospheric_physics.enable_physical_model = true;
+  environment_snapshot.atmospheric_physics.pressure_hpa = 1013.25f;
+  environment_snapshot.atmospheric_physics.temperature_k = 288.15f;
+  environment_snapshot.atmospheric_physics.relative_humidity = 0.5f;
+  environment_snapshot.effective_k_factor = 4.0f / 3.0f;
+  environment_snapshot.effective_day_of_year = 172;
+
+  session::RadarSceneTarget target(220.0f, 0.0f, 0.0f, 1.0e6f);
+  target.position_x = 50000.0f;
+  target.position_y = 0.0f;
+  target.position_z = 0.0f;
+  target.range_m = 50000.0f;
+  const session::RadarSceneTargetList input_state{target};
+
+  const extension::control::RadarControlProfile control_profile{};
+  signal::association::DataAssociationEngine association_engine;
+  signal::tracking::TrackFilter track_filter;
+  std::unique_ptr<signal::tracking::ITrackLifecycleManager> lifecycle_manager =
+      signal::pipeline::CreateAutoLifecycleManagerForRuntimeConfig(exec_config);
+  ASSERT_TRUE(lifecycle_manager != nullptr);
+  signal::detection::SignalDetector signal_detector(exec_config.detection.engineering);
+  const signal::pipeline::CycleExecutionRuntime runtime =
+      BuildMinimalValidRuntime(exec_config, control_profile, &association_engine, &track_filter,
+                               lifecycle_manager.get(), &signal_detector);
+
+  signal::pipeline::CycleExecutionScratch sea_level_scratch;
+  ASSERT_TRUE(signal::pipeline::ExecuteCycle(input_state, environment_snapshot, 1U, 1U, runtime,
+                                             sea_level_scratch, 0.0f));
+  ASSERT_EQ(sea_level_scratch.signal_term_db.size(), 1U);
+
+  signal::pipeline::CycleExecutionScratch elevated_scratch;
+  ASSERT_TRUE(signal::pipeline::ExecuteCycle(input_state, environment_snapshot, 1U, 2U, runtime,
+                                             elevated_scratch, 1000.0f));
+  ASSERT_EQ(elevated_scratch.signal_term_db.size(), 1U);
+
+  EXPECT_GT(elevated_scratch.signal_term_db[0], sea_level_scratch.signal_term_db[0]);
 }
 
 TEST(CycleExecutorTest, NonAutoLifecycleManagerCausesRuntimeSyncFailure) {

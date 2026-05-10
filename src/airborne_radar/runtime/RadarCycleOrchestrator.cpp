@@ -3,8 +3,8 @@
 #include <algorithm>
 
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
-#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/extension/ISignalPipeline.h"
+#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 
 namespace airborne_radar {
 namespace extension {
@@ -29,7 +29,7 @@ void RadarCycleOrchestrator::FreezeEnvironment(
 
 CycleExecutionResult RadarCycleOrchestrator::Execute(
     const session::RadarSceneTargetList* scene_targets,
-    const model::PlatformAttitudeDeg& platform_attitude,
+    const model::PlatformAttitudeDeg& platform_attitude, float platform_altitude_m,
     const extension::control::RadarControlProfile& current_profile,
     const oneq::internal::runtime::RuntimeCycleStamp& stamp) {
   const session::RadarSceneTargetList kEmptyTargets;
@@ -38,6 +38,7 @@ CycleExecutionResult RadarCycleOrchestrator::Execute(
 
   signal_pipeline_.SetControlProfile(current_profile);
   signal_pipeline_.UpdatePlatformAttitude(platform_attitude);
+  signal_pipeline_.UpdatePlatformAltitudeM(platform_altitude_m);
 
   CycleExecutionResult result;
   result.signal_result = signal_pipeline_.RunCycle(targets, environment_service_);
@@ -56,8 +57,7 @@ CycleExecutionResult RadarCycleOrchestrator::Execute(
   result.track_output_frame = std::move(track_output_frame);
 
   if (decision_engine_ != nullptr && tactical_state_store_ != nullptr) {
-    result.decision_result =
-        decision_engine_->Evaluate(decision_frame, *tactical_state_store_);
+    result.decision_result = decision_engine_->Evaluate(decision_frame, *tactical_state_store_);
 
     // 将目标分类结果回填到轨迹输出帧
     const auto& classifications = result.decision_result.target_classification_result;

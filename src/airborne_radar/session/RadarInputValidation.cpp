@@ -56,6 +56,16 @@ void ValidatePlatformPose(const oneq::foundation::PoseState& platform_pose,
   }
 }
 
+void ValidatePlatformAltitude(float platform_altitude_m, ValidationIssueList* issues) {
+  if (issues == nullptr || IsFinite(platform_altitude_m)) {
+    return;
+  }
+  issues->push_back(MakeIssue(ValidationSeverity::kError,
+                              ValidationCode::kNonFinitePlatformNumericField,
+                              ValidationLocationKind::kPlatform, static_cast<std::size_t>(-1),
+                              "platform_altitude_m", "platform altitude must be finite"));
+}
+
 void ValidateEnvironmentInput(const RadarEnvironmentInput& environment,
                               ValidationIssueList* issues) {
   if (issues == nullptr) {
@@ -163,6 +173,7 @@ ValidationIssueList ValidateRadarCycleDeltaTime(float dt_sec) {
 ValidationIssueList ValidateRadarCycleInput(const RadarCycleInput& input) {
   ValidationIssueList issues = ValidateRadarCycleDeltaTime(input.dt_sec);
   ValidatePlatformPose(input.platform_pose, &issues);
+  ValidatePlatformAltitude(input.platform_altitude_m, &issues);
   ValidateEnvironmentInput(input.environment, &issues);
 
   const ValidationIssueList target_issues = ValidateRadarSceneTargets(input.scene);

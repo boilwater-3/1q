@@ -24,6 +24,7 @@ bool RadarCycleInputBuilder::Build(const RadarExternalPoseInput& platform,
 
   output->cycle_index = 0U;
   output->dt_sec = dt_sec;
+  output->platform_altitude_m = static_cast<float>(reference.origin_lla.altitude_m);
   output->environment = environment;
   output->scene.clear();
 
