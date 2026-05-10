@@ -136,6 +136,21 @@ void PrintResult(const char* label, const ar_session::RadarCycleResult& result) 
             << " validation_errors=" << (result.has_validation_error ? "true" : "false") << "\n";
 }
 
+/// 打印外部 ECEF 轨迹输出：将雷达局部坐标转换后的世界坐标轨迹摘要。
+void PrintExternalOutput(const ar_session::RadarExternalTrackOutputFrame& output) {
+  std::cout << "  external_tracks=" << output.tracks.size();
+  for (std::size_t j = 0; j < output.tracks.size(); ++j) {
+    const auto& t = output.tracks[j];
+    std::cout << "\n    [" << j << "] id=" << t.external_target_id
+              << " status=" << static_cast<int>(t.status)
+              << " ecef=(" << t.target_position_ecef_m.x_m
+              << "," << t.target_position_ecef_m.y_m
+              << "," << t.target_position_ecef_m.z_m << ")"
+              << " speed=" << t.speed << " rcs=" << t.rcs;
+  }
+  std::cout << "\n";
+}
+
 struct MovingAirTarget {
   oneq::coordinate::EcefPositionM pos;
   oneq::coordinate::EcefVelocityMps vel;
@@ -220,6 +235,14 @@ bool RunMovingTargetsScenario() {
     if (ntracks > max_tracks) max_tracks = ntracks;
     if (ntracks < min_tracks) min_tracks = ntracks;
     PrintResult("ar-moving", result);
+
+    // 使用 RadarCycleOutputBuilder 将内部雷达局部轨迹转换为外部 ECEF 输出
+    ar_session::RadarExternalTrackOutputFrame external_output;
+    bool external_output_ok = ar_session::RadarCycleOutputBuilder::Build(
+        platform, result.track_output_frame, &external_output);
+    if (external_output_ok) {
+      PrintExternalOutput(external_output);
+    }
   }
 
   // 汇总统计
