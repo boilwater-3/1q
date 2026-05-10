@@ -73,9 +73,9 @@ bool RunMovingTargetsScenario() {
   esr_session::EsrSession session = CreateEmitterSearchSession();
 
   std::vector<MovingEsrEmitter> emitters = {
-    {"search-radar",  12000.0f, 10.0e9,  50.0f},
-    {"tracking-radar", 18000.0f, 9.4e9, -30.0f},
-    {"threat-emitter", 25000.0f, 9.8e9, -80.0f},
+      {"search-radar", 12000.0f, 10.0e9, 50.0f},
+      {"tracking-radar", 18000.0f, 9.4e9, -30.0f},
+      {"threat-emitter", 25000.0f, 9.8e9, -80.0f},
   };
 
   const std::uint32_t num_cycles = 50;
@@ -103,17 +103,28 @@ bool RunMovingTargetsScenario() {
     esr_session::EsrCycleResult result = session.StepWithResult(input);
     if (result.has_validation_error) ++validation_error_count;
 
+    esr_session::EsrCoordinateReference output_reference;
+    output_reference.origin_lla.latitude_deg = 30.0;
+    output_reference.origin_lla.longitude_deg = 120.0;
+    output_reference.origin_lla.altitude_m = 0.0;
+    esr_session::EsrExternalOutputFrame external_output;
+    const bool external_output_ok = esr_session::EsrCycleOutputBuilder::Build(
+        output_reference, input.platform_pose, result.output_frame, &external_output);
+
     std::size_t nobs = result.output_frame.observation_output.observations.size();
     std::size_t nhyp = result.output_frame.emitter_output.hypotheses.size();
     if (nobs > max_observations) max_observations = nobs;
     if (nhyp > max_hypotheses) max_hypotheses = nhyp;
 
     PrintResult("esr-moving", result);
+    std::cout << "  external_observations="
+              << (external_output_ok ? external_output.observations.size() : 0U)
+              << " external_hypotheses="
+              << (external_output_ok ? external_output.hypotheses.size() : 0U) << "\n";
   }
 
   std::cout << "\n=== ESR Summary ===\n"
-            << "cycles=" << num_cycles
-            << " max_observations=" << max_observations
+            << "cycles=" << num_cycles << " max_observations=" << max_observations
             << " max_hypotheses=" << max_hypotheses
             << " validation_errors=" << validation_error_count << "\n";
   return validation_error_count == 0;
