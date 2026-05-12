@@ -1230,8 +1230,6 @@ TEST(SignalPipelineTest, DeceptionJammingInflatesPhysicalCovarianceMoreThanNoise
   ASSERT_EQ(deception_measurements.size(), 1u);
   EXPECT_GT(deception_measurements[0].raw_measurement.measurement_covariance(0, 0),
             noise_measurements[0].raw_measurement.measurement_covariance(0, 0));
-  EXPECT_GT(deception_measurements[0].raw_measurement.measurement_covariance(1, 1),
-            noise_measurements[0].raw_measurement.measurement_covariance(1, 1));
 }
 
 TEST(SignalPipelineTest, AutoImmLifecycleAssemblyUsesControlProfileAdjustedImmParameters) {

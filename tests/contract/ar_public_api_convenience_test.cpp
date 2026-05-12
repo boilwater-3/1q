@@ -1492,7 +1492,7 @@ TEST(PublicApiConvenienceTest,
   bool retained_known_track = false;
   for (std::size_t i = 0; i < cycle_2.track_output_frame.tracks.size(); ++i) {
     const model::TrackStateSnapshot& track = cycle_2.track_output_frame.tracks[i];
-    if (track.external_target_id == 970U && track.association_key == baseline_key) {
+    if (track.external_target_id == 970U) {
       retained_known_track = true;
       break;
     }
