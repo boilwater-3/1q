@@ -209,6 +209,7 @@ set(COORDINATE_HEADERS
 # ── 跨域基础 ─────────────────────────────────────────────────────────
 set(FOUNDATION_HEADERS
     "foundation/atmospheric_types.h"
+    "foundation/json_reader.h"
     "foundation/pose_types.h"
     "foundation/scan_schedule_types.h"
     "replay/ReplayTrace.h"

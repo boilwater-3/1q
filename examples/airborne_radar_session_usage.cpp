@@ -13,14 +13,15 @@
  *   4. 从 RadarCycleResult 中读取航迹、指令等输出
  */
 
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
+#include <string>
 #include <vector>
 
 #include "1q/airborne_radar/airborne_radar.hpp"
 #include "1q/coordinate/types.h"
+#include "ar_config_loader.h"
 
 namespace ar = airborne_radar;
 namespace ar_config = airborne_radar::config;
@@ -30,51 +31,22 @@ namespace ar_session = airborne_radar::session;
 
 namespace {
 
-/// 构造方位角/俯仰角（单位：度）。
-ar_model::AzimuthElevationDeg MakeAzEl(float az_deg, float el_deg) {
-  ar_model::AzimuthElevationDeg value;
-  value.az_deg = az_deg;
-  value.el_deg = el_deg;
-  return value;
-}
-
-/// 构造一套"广域搜索"会话配置。
-///
-/// 配置通过链式 Builder 完成，各段（Detection / Mission / Tracking /
-/// Lifecycle / Environment）可独立设置。每段以 End() 结束，
-/// 最终调用 Build() 生成不可变的 RadarSessionConfig。
-ar_session::RadarSessionConfig MakeWideAreaSearchConfig() {
-  return ar_config::RadarSessionConfigBuilder()
-      .Detection()
-      .EnablePhysicsDetection(false)  // 关闭物理探测模型，使用简化检测
-      .WithHardwareProfile(ar_config::profiles::RadarHardwareProfile::kLongRangeHighPower)
-      .WithDetectionIntentProfile(ar_config::profiles::DetectionIntentProfile::kDetectionPriority)
-      .WithAntennaPatternProfile(ar_config::profiles::AntennaPatternProfile::kStandard)
-      .End()
-      .Mission()
-      .WithRadarWorkSubMode(ar_model::RadarWorkSubMode::kTas)  // 广域搜索模式
-      .WithScanCenterDeg(MakeAzEl(0.0f, 0.0f))                 // 扫描中心：正前方
-      .End()
-      .Tracking()
-      .EnableTrackingFilter(true)  // 启用跟踪滤波
-      .WithTrackingPolicyProfile(
-          ar_config::profiles::TrackingPolicyProfile::kFastAssociation)  // 快速关联
-      .End()
-      .Lifecycle()
-      .WithLifecyclePolicyProfile(
-          ar_config::profiles::LifecyclePolicyProfile::kFastConfirm)  // 快速确认
-      .End()
-      .Environment()
-      .WithJammingSensitivityProfile(
-          ar_env::JammingSensitivityProfile::kBalanced)  // 干扰灵敏度：均衡
-      .End()
-      .Build();
+/// 从 JSON 配置文件加载会话配置。
+ar_session::RadarSessionConfig LoadConfigFromFile() {
+  ar_session::RadarSessionConfig config;
+  std::string error;
+  if (!examples::LoadArSessionConfigFromFile("configs/airborne_radar.json",
+                                              &config, &error)) {
+    std::cerr << "Failed to load AR config: " << error << "\n";
+    std::exit(1);
+  }
+  return config;
 }
 
 /// 使用工厂从配置创建 Session。
 /// Session 本身管理内部状态，支持多次 StepWithResult 调用。
 ar_session::RadarSession CreateWideAreaSearchSession() {
-  return ar_session::RadarSessionFactory::Create(MakeWideAreaSearchConfig());
+  return ar_session::RadarSessionFactory::Create(LoadConfigFromFile());
 }
 
 /// 构造平台（载机）位姿输入。

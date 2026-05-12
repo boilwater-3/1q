@@ -10,6 +10,7 @@
 
 #include "1q/coordinate/types.h"
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
+#include "esr_config_loader.h"
 
 namespace esr_config = electronic_surveillance_radar::config;
 namespace esr_env = electronic_surveillance_radar::environment;
@@ -17,28 +18,19 @@ namespace esr_session = electronic_surveillance_radar::session;
 
 namespace {
 
-esr_session::EsrSessionConfig MakeEmitterSearchConfig() {
-  esr_session::EsrSessionConfig config =
-      esr_config::EsrSessionConfigBuilder()
-          .Mission()
-          .WithWorkMode(esr_config::EsrWorkMode::kEsm)
-          .WithPowerOn(true)
-          .WithScanRateHz(1.0f)
-          .End()
-          .Detection()
-          .WithDetectionProfile(esr_config::EsrDetectionProfile::kBalanced)
-          .End()
-          .Environment()
-          .WithEnvironmentPreset(esr_config::EsrEnvironmentPreset::kStandard)
-          .End()
-          .Build();
-  config.hardware.beam_az_width_deg = 120.0f;
-  config.hardware.beam_el_width_deg = 40.0f;
+esr_session::EsrSessionConfig LoadConfigFromFile() {
+  esr_session::EsrSessionConfig config;
+  std::string error;
+  if (!examples::LoadEsrSessionConfigFromFile("configs/electronic_warfare.json",
+                                               &config, &error)) {
+    std::cerr << "Failed to load ESR config: " << error << "\n";
+    std::exit(1);
+  }
   return config;
 }
 
 esr_session::EsrSession CreateEmitterSearchSession() {
-  return esr_session::EsrSession(MakeEmitterSearchConfig());
+  return esr_session::EsrSession(LoadConfigFromFile());
 }
 
 esr_session::EsrExternalEmitterInput MakeEmitterInput(const std::string& id,

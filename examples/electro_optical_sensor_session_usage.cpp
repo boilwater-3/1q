@@ -6,9 +6,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
+#include <string>
 
 #include "1q/coordinate/types.h"
 #include "1q/electro_optical_sensor/electro_optical_sensor.hpp"
+#include "eos_config_loader.h"
 
 namespace eos_config = electro_optical_sensor::config;
 namespace eos_env = electro_optical_sensor::environment;
@@ -16,32 +18,19 @@ namespace eos_session = electro_optical_sensor::session;
 
 namespace {
 
-eos_session::EosSessionConfig MakeFusedSearchConfig() {
-  eos_session::EosSessionConfig config =
-      eos_config::EosSessionConfigBuilder()
-          .Mission()
-          .WithWorkMode(eos_config::EosWorkMode::kFused)
-          .WithScanRateDegPerSec(5.0f)
-          .WithFrameRateHz(30.0f)
-          .End()
-          .Detection()
-          .WithDetectionProfile(eos_config::EosDetectionProfile::kAggressive)
-          .End()
-          .StrayLight()
-          .WithStrayLightProfile(eos_config::EosStrayLightProfile::kStandardHood)
-          .End()
-          .Environment()
-          .WithEnvironmentModelType(eos_env::EosEnvironmentModelType::kSimplified)
-          .End()
-          .Build();
-  config.mission.scan_start_az_deg = -10.0f;
-  config.mission.scan_end_az_deg = 10.0f;
-  config.mission.horizontal_fov_deg = 20.0f;
+eos_session::EosSessionConfig LoadConfigFromFile() {
+  eos_session::EosSessionConfig config;
+  std::string error;
+  if (!examples::LoadEosSessionConfigFromFile("configs/electro_optical.json",
+                                               &config, &error)) {
+    std::cerr << "Failed to load EOS config: " << error << "\n";
+    std::exit(1);
+  }
   return config;
 }
 
 eos_session::EosSession CreateFusedSearchSession() {
-  return eos_session::EosSessionFactory::Create(MakeFusedSearchConfig());
+  return eos_session::EosSessionFactory::Create(LoadConfigFromFile());
 }
 
 eos_session::EosExternalTargetInput MakeTargetInput(const oneq::coordinate::EcefPositionM& pos,

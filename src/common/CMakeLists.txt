@@ -11,6 +11,7 @@ set(ONEQ_COMMON_SOURCES
     common/replay/ReplayTrace.cpp
     common/trace/TraceSink.cpp
     common/timing/TimingRegimeModel.cpp
+    common/config/JsonReader.cpp
 )
 
 if(ENABLE_INSTALL)
@@ -43,5 +44,9 @@ if(ENABLE_INSTALL)
     )
     install(FILES ${PUBLIC_HEADERS_REPLAY}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/replay
+    )
+
+    install(FILES ${CMAKE_SOURCE_DIR}/include/1q/foundation/JsonReader.h
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/foundation
     )
 endif()
