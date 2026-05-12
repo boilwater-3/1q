@@ -85,19 +85,19 @@ add_link_options($<$<CONFIG:Debug>:/DEBUG:FULL>)   # 完整调试信息
 add_link_options($<$<CONFIG:Debug>:/INCREMENTAL>)  # 增量链接
 
 # Release 模式配置（最大性能）
-add_compile_options($<$<CONFIG:Release>:/O2>)      # 最大速度优化
+add_compile_options($<$<CONFIG:Release>:/Od>)      # 最大速度优化
 add_compile_options($<$<CONFIG:Release>:/Ot>)      # 倾向速度而非大小
 add_compile_options($<$<CONFIG:Release>:/Ob2>)     # 内联展开
 add_compile_options($<$<CONFIG:Release>:/Oi>)      # 内置函数
-add_compile_options($<$<CONFIG:Release>:/GL>)      # 全程序优化
+# add_compile_options($<$<CONFIG:Release>:/GL>)      # 全程序优化
 add_compile_options($<$<CONFIG:Release>:/Gy>)      # 函数级链接
 add_compile_options($<$<CONFIG:Release>:/GS->)     # 禁用缓冲区安全检查（性能）
 # 项目特殊性：Release 同样生成调试文件，便于线上问题定位
 add_compile_options($<$<CONFIG:Release>:/Z7>)      # 调试信息嵌入对象文件（分发友好）
 add_link_options($<$<CONFIG:Release>:/DEBUG:FULL>) # 生成完整 PDB 调试文件
-add_link_options($<$<CONFIG:Release>:/LTCG>)       # 链接时代码生成
-add_link_options($<$<CONFIG:Release>:/OPT:REF>)    # 移除未引用函数
-add_link_options($<$<CONFIG:Release>:/OPT:ICF>)    # 合并相同函数
+# add_link_options($<$<CONFIG:Release>:/LTCG>)       # 链接时代码生成
+# add_link_options($<$<CONFIG:Release>:/OPT:REF>)    # 移除未引用函数
+# add_link_options($<$<CONFIG:Release>:/OPT:ICF>)    # 合并相同函数
 add_link_options($<$<CONFIG:Release>:/INCREMENTAL:NO>)  # 禁用增量链接
 
 # RelWithDebInfo 模式配置（性能 + 调试）
