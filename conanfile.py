@@ -22,12 +22,6 @@ _LOG_DEPS_NON_WINDOWS = {
     "fmt": "fmt/10.2.1",
 }
 
-_VIS_DEPS_NON_WINDOWS = {
-    "imgui": "imgui/1.90.5",
-    "implot": "implot/0.16",
-    "glfw": "glfw/3.4",
-}
-
 _GTEST_VERSION_VS2015 = "gtest/1.8.1"
 _GTEST_VERSION_MODERN = "gtest/1.12.1"
 
@@ -47,14 +41,9 @@ class OneQConan(ConanFile):
         "spdlog/*:shared": False,
         "fmt/*:shared": False,
         "gtest/*:shared": False,
-        "glfw/*:shared": False,
-        "imgui/*:shared": False,
-        "implot/*:shared": False,
         "zlib/*:shared": False,
         "boost/*:header_only": True,
         "flatbuffers/*:header_only": True,
-        "imgui/*:with_glfw": True,
-        "imgui/*:with_opengl3": True,
     }
 
     def _is_windows(self):
@@ -87,12 +76,6 @@ class OneQConan(ConanFile):
         if not self._is_windows():
             self.requires(_LOG_DEPS_NON_WINDOWS["spdlog"])
             self.requires(_LOG_DEPS_NON_WINDOWS["fmt"], override=True)
-
-        # 可视化依赖（macOS/Linux dev 工具，Windows 不安装）
-        if not self._is_windows():
-            self.requires(_VIS_DEPS_NON_WINDOWS["imgui"])
-            self.requires(_VIS_DEPS_NON_WINDOWS["implot"])
-            self.requires(_VIS_DEPS_NON_WINDOWS["glfw"])
 
     def build_requirements(self):
         if self.options.enable_testing:

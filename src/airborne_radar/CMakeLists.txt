@@ -162,9 +162,7 @@ if(ENABLE_INSTALL)
     install(FILES ${PUBLIC_HEADERS_COMMON_UTILS}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/model
     )
-    install(FILES ${PUBLIC_HEADERS_COMMON_OUTPUT}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/output
-    )
+    # output/ 目录当前无公开头文件，预留安装点
     install(FILES ${PUBLIC_HEADERS_CONFIG_ENTRY}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/config
     )

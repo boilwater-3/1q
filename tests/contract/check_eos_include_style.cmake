@@ -8,7 +8,7 @@ set(PRIVATE_INCLUDE_ROOT "${SOURCE_DIR}/src")
 
 file(GLOB_RECURSE EOS_IMPL_FILES
      "${EOS_SRC_DIR}/*.h"
-     "${EOS_SRC_DIR}*.hpp"
+     "${EOS_SRC_DIR}/*.hpp"
      "${EOS_SRC_DIR}/*.cpp"
      "${EOS_SRC_DIR}/*.cc")
 

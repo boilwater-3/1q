@@ -81,8 +81,13 @@ set(ROOT_HEADER
     "api.hpp"
 )
 
-# ── EOS 公开头 ──────────────────────────────────────────────────────
-set(EOS_PUBLIC_HEADERS
+# ── EOS 模块入口 ─────────────────────────────────────────────────────
+set(EOS_MODULE_ENTRY_HEADERS
+    "electro_optical_sensor/electro_optical_sensor.hpp"
+)
+
+# ── EOS 配置域 ────────────────────────────────────────────────────────
+set(EOS_CONFIG_HEADERS
     "electro_optical_sensor/config/EosEnvironmentConfig.h"
     "electro_optical_sensor/config/EosHardwareConfig.h"
     "electro_optical_sensor/config/EosMissionConfig.h"
@@ -92,17 +97,32 @@ set(EOS_PUBLIC_HEADERS
     "electro_optical_sensor/config/EosSessionConfig.h"
     "electro_optical_sensor/config/EosSessionConfigBuilder.h"
     "electro_optical_sensor/config/electro_optical_sensor_config.hpp"
-    "electro_optical_sensor/electro_optical_sensor.hpp"
+)
+
+# ── EOS 环境域 ────────────────────────────────────────────────────────
+set(EOS_ENVIRONMENT_HEADERS
     "electro_optical_sensor/environment/EosEnvironmentConfig.h"
     "electro_optical_sensor/environment/EosEnvironmentRuntimeConfigPatch.h"
     "electro_optical_sensor/environment/EosEnvironmentTypes.h"
     "electro_optical_sensor/environment/IEosEnvironmentService.h"
     "electro_optical_sensor/environment/electro_optical_sensor_environment.hpp"
+)
+
+# ── EOS 扩展域 ────────────────────────────────────────────────────────
+set(EOS_EXTENSION_HEADERS
     "electro_optical_sensor/extension/EosController.h"
     "electro_optical_sensor/extension/EosPipelineTypes.h"
     "electro_optical_sensor/extension/IEosPipeline.h"
     "electro_optical_sensor/extension/electro_optical_sensor_extension.hpp"
+)
+
+# ── EOS 基础域 ────────────────────────────────────────────────────────
+set(EOS_FOUNDATION_HEADERS
     "electro_optical_sensor/foundation/EosRadiativeTransfer.h"
+)
+
+# ── EOS 会话域 ────────────────────────────────────────────────────────
+set(EOS_SESSION_HEADERS
     "electro_optical_sensor/session/EosCycleInput.h"
     "electro_optical_sensor/session/EosCycleInputBuilder.h"
     "electro_optical_sensor/session/EosCycleOutputBuilder.h"
@@ -119,7 +139,12 @@ set(EOS_PUBLIC_HEADERS
 )
 
 # ── ESR 公开头 ──────────────────────────────────────────────────────
-set(ESR_PUBLIC_HEADERS
+set(ESR_MODULE_ENTRY_HEADERS
+    "electronic_surveillance_radar/electronic_surveillance_radar.hpp"
+)
+
+# ── ESR 配置域 ────────────────────────────────────────────────────────
+set(ESR_CONFIG_HEADERS
     "electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
     "electronic_surveillance_radar/config/EsrHardwareConfig.h"
     "electronic_surveillance_radar/config/EsrMissionConfig.h"
@@ -129,19 +154,34 @@ set(ESR_PUBLIC_HEADERS
     "electronic_surveillance_radar/config/EsrSessionConfig.h"
     "electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
     "electronic_surveillance_radar/config/electronic_surveillance_radar_config.hpp"
-    "electronic_surveillance_radar/electronic_surveillance_radar.hpp"
+)
+
+# ── ESR 环境域 ────────────────────────────────────────────────────────
+set(ESR_ENVIRONMENT_HEADERS
     "electronic_surveillance_radar/environment/EsrEnvironmentConfig.h"
     "electronic_surveillance_radar/environment/EsrEnvironmentRuntimeConfigPatch.h"
     "electronic_surveillance_radar/environment/EsrEnvironmentSceneBuilder.h"
     "electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
     "electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
     "electronic_surveillance_radar/environment/electronic_surveillance_radar_environment.hpp"
+)
+
+# ── ESR 扩展域 ────────────────────────────────────────────────────────
+set(ESR_EXTENSION_HEADERS
     "electronic_surveillance_radar/extension/EsrController.h"
     "electronic_surveillance_radar/extension/IEsrContext.h"
     "electronic_surveillance_radar/extension/IInterceptPipeline.h"
     "electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
+)
+
+# ── ESR 模型域 ────────────────────────────────────────────────────────
+set(ESR_MODEL_HEADERS
     "electronic_surveillance_radar/model/EmitterHypothesis.h"
     "electronic_surveillance_radar/model/EmitterObservation.h"
+)
+
+# ── ESR 会话域 ────────────────────────────────────────────────────────
+set(ESR_SESSION_HEADERS
     "electronic_surveillance_radar/session/EsrCycleInput.h"
     "electronic_surveillance_radar/session/EsrCycleInputBuilder.h"
     "electronic_surveillance_radar/session/EsrCycleOutputBuilder.h"
@@ -183,8 +223,18 @@ set(EXPECTED_PUBLIC_HEADERS
     ${AR_OUTPUT_HEADERS}
     ${AR_SESSION_HEADERS}
     ${ROOT_HEADER}
-    ${EOS_PUBLIC_HEADERS}
-    ${ESR_PUBLIC_HEADERS}
+    ${EOS_MODULE_ENTRY_HEADERS}
+    ${EOS_CONFIG_HEADERS}
+    ${EOS_ENVIRONMENT_HEADERS}
+    ${EOS_EXTENSION_HEADERS}
+    ${EOS_FOUNDATION_HEADERS}
+    ${EOS_SESSION_HEADERS}
+    ${ESR_MODULE_ENTRY_HEADERS}
+    ${ESR_CONFIG_HEADERS}
+    ${ESR_ENVIRONMENT_HEADERS}
+    ${ESR_EXTENSION_HEADERS}
+    ${ESR_MODEL_HEADERS}
+    ${ESR_SESSION_HEADERS}
     ${COORDINATE_HEADERS}
     ${FOUNDATION_HEADERS}
 )

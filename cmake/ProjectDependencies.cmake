@@ -50,13 +50,19 @@ if(PACKAGE_MANAGER STREQUAL "none" AND ENABLE_INSTALL)
     unset(_dep)
 endif()
 
-foreach(ONEQ_BUILD_TARGET IN ITEMS
-    ${PROJECT_CORE_TARGET}
-    ${ONEQ_OBJECT_TARGETS}
-)
-    target_link_libraries(${ONEQ_BUILD_TARGET} PRIVATE ${ONEQ_LINK_DEPENDENCIES})
-endforeach()
-unset(ONEQ_BUILD_TARGET)
+# -- 主库目标需要全部第三方依赖用于最终链接 --
+target_link_libraries(${PROJECT_CORE_TARGET} PRIVATE ${ONEQ_LINK_DEPENDENCIES})
+
+# -- OBJECT 目标依赖（header-only 传递） --
+# AR/ESR 的 core 层因 composition root 需引用 engine 头文件，必须持有全部算法库路径。
+# EOS 确认无数学库传递依赖，因此 engine/core 均不链接 Eigen/Boost/nanoflann。
+# flatbuffers/zlib 因 replay codec 文件散布于各域，统一提供。
+target_link_libraries(airborne_engine PRIVATE ${ONEQ_LINK_DEPENDENCIES})
+target_link_libraries(airborne_core PRIVATE ${ONEQ_LINK_DEPENDENCIES})
+target_link_libraries(esr_engine PRIVATE ${ONEQ_LINK_DEPENDENCIES})
+target_link_libraries(esr_core PRIVATE ${ONEQ_LINK_DEPENDENCIES})
+target_link_libraries(eos_engine PRIVATE flatbuffers::flatbuffers)
+target_link_libraries(eos_core PRIVATE flatbuffers::flatbuffers)
 
 # Conan's VS multi-config generation may only attach header-only include dirs
 # to Release. Mirror those include dirs onto this target when available so
