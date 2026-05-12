@@ -1,7 +1,7 @@
 # electro_optical_sensor 模块源文件与安装清单
 
-set(EOS_SOURCES
-    electro_optical_sensor/environment/EosEnvironmentModel.cpp
+# -- engine: 信号处理、物理模型（foundation + signal，依赖无） -------------------
+set(EOS_ENGINE_SOURCES
     electro_optical_sensor/foundation/EosNoiseModel.cpp
     electro_optical_sensor/foundation/EosOpticalCharacteristics.cpp
     electro_optical_sensor/foundation/EosPropagation.cpp
@@ -9,6 +9,12 @@ set(EOS_SOURCES
     electro_optical_sensor/foundation/EosRadiometry.cpp
     electro_optical_sensor/foundation/EosSpatialSpectrum.cpp
     electro_optical_sensor/foundation/EosStrayLight.cpp
+    electro_optical_sensor/signal/pipeline/EosPipeline.cpp
+)
+
+# -- core: 会话、运行时、环境（粘合层，依赖轻） --------------------------------
+set(EOS_CORE_SOURCES
+    electro_optical_sensor/environment/EosEnvironmentModel.cpp
     electro_optical_sensor/session/EosExternalInputAdapter.cpp
     electro_optical_sensor/session/EosCycleInputBuilder.cpp
     electro_optical_sensor/session/EosExternalOutputAdapter.cpp
@@ -19,7 +25,6 @@ set(EOS_SOURCES
     electro_optical_sensor/runtime/components/EosInputValidator.cpp
     electro_optical_sensor/runtime/components/EosSignalProcessor.cpp
     electro_optical_sensor/runtime/EosCycleOrchestrator.cpp
-    electro_optical_sensor/signal/pipeline/EosPipeline.cpp
     electro_optical_sensor/runtime/EosPipelineConfigMapper.cpp
     electro_optical_sensor/runtime/EosRuntimeConfigResolver.cpp
     electro_optical_sensor/session/EosSessionCompositionRoot.cpp

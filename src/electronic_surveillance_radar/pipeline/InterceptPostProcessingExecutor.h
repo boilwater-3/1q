@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file InterceptPostProcessingExecutor.h
  * @brief 定义电子侦察后处理执行器。
  *
@@ -15,7 +15,6 @@
 
 #include "1q/electronic_surveillance_radar/extension/IEsrContext.h"
 #include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
-#include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
 #include "electronic_surveillance_radar/pipeline/HypothesisAssociator.h"
 #include "electronic_surveillance_radar/pipeline/KdTreeClusterer.h"
 #include "electronic_surveillance_radar/pipeline/ObservationPipelineTypes.h"
@@ -50,11 +49,12 @@ class InterceptPostProcessingExecutor {
    * @return 单周期流水线输出。
    */
   extension::InterceptPipelineResult Execute(const std::vector<RawObservationRecord>& raw_records,
-                               const extension::IEsrContext& ctx,
-                               ObservationPreprocessor& preprocessor, KdTreeClusterer& clusterer,
-                               HypothesisAssociator& associator,
-                               const ObservationFeatureScales& feature_scales,
-                               std::uint64_t& next_hypothesis_id);
+                                             const extension::IEsrContext& ctx,
+                                             ObservationPreprocessor& preprocessor,
+                                             KdTreeClusterer& clusterer,
+                                             HypothesisAssociator& associator,
+                                             const ObservationFeatureScales& feature_scales,
+                                             std::uint64_t& next_hypothesis_id);
 };
 
 }  // namespace internal

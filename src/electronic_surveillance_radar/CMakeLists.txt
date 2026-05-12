@@ -1,17 +1,7 @@
 # electronic_surveillance_radar 模块源文件与安装清单
 
-set(ESR_MODEL_SOURCES
-    electronic_surveillance_radar/session/EsrExternalInputAdapter.cpp
-    electronic_surveillance_radar/session/EsrCycleInputBuilder.cpp
-    electronic_surveillance_radar/session/EsrExternalOutputAdapter.cpp
-    electronic_surveillance_radar/session/EsrCycleOutputBuilder.cpp
-)
-
-set(ESR_ENVIRONMENT_SOURCES
-    electronic_surveillance_radar/environment/EsrEnvironmentService.cpp
-)
-
-set(ESR_PIPELINE_SOURCES
+# -- engine: 信号处理、拦截流水线（算法密集） --------------------------------
+set(ESR_ENGINE_SOURCES
     electronic_surveillance_radar/pipeline/MutableEsrContext.cpp
     electronic_surveillance_radar/pipeline/HypothesisAssociator.cpp
     electronic_surveillance_radar/pipeline/InterceptDetectionExecutor.cpp
@@ -21,16 +11,19 @@ set(ESR_PIPELINE_SOURCES
     electronic_surveillance_radar/pipeline/ObservationPreprocessor.cpp
 )
 
-set(ESR_RUNTIME_SOURCES
+# -- core: 会话、运行时、环境、输出（粘合层，依赖轻） --------------------------
+set(ESR_CORE_SOURCES
+    electronic_surveillance_radar/session/EsrExternalInputAdapter.cpp
+    electronic_surveillance_radar/session/EsrCycleInputBuilder.cpp
+    electronic_surveillance_radar/session/EsrExternalOutputAdapter.cpp
+    electronic_surveillance_radar/session/EsrCycleOutputBuilder.cpp
+    electronic_surveillance_radar/environment/EsrEnvironmentService.cpp
     electronic_surveillance_radar/runtime/EsrController.cpp
     electronic_surveillance_radar/runtime/EsrCycleTelemetryLogger.cpp
     electronic_surveillance_radar/runtime/components/EsrEnvironmentUpdater.cpp
     electronic_surveillance_radar/runtime/components/EsrOutputFormatter.cpp
     electronic_surveillance_radar/runtime/components/EsrSignalProcessor.cpp
     electronic_surveillance_radar/output/EsrOutputManager.cpp
-)
-
-set(ESR_SESSION_SOURCES
     electronic_surveillance_radar/session/EsrInputValidation.cpp
     electronic_surveillance_radar/session/EsrSessionCompositionRoot.cpp
     electronic_surveillance_radar/session/EsrSessionConfigResolver.cpp

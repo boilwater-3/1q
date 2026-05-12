@@ -62,65 +62,98 @@ if(PROJECT_ENABLE_SPDLOG)
     _vendor_output_dir(spdlog)
 endif()
 
-# -- flatbuffers (仅构建运行时库，跳过 flatc / flathash / 测试) ----------------
-# flatbuffers 1.12 的 cmake_minimum_required 较老，CMake 4.0+ 需此策略
-set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
-set(FLATBUFFERS_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(FLATBUFFERS_BUILD_FLATLIB ON CACHE BOOL "" FORCE)
-set(FLATBUFFERS_BUILD_FLATC OFF CACHE BOOL "" FORCE)
-set(FLATBUFFERS_BUILD_FLATHASH OFF CACHE BOOL "" FORCE)
-set(FLATBUFFERS_INSTALL OFF CACHE BOOL "" FORCE)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/flatbuffers ${CMAKE_BINARY_DIR}/third_party/flatbuffers)
-if(TARGET flatbuffers AND NOT TARGET flatbuffers::flatbuffers)
-    add_library(flatbuffers::flatbuffers ALIAS flatbuffers)
+# -- flatbuffers (OBJECT library，直接编进主库) ----------------------------
+add_library(flatbuffers_objects OBJECT
+    ${CMAKE_CURRENT_SOURCE_DIR}/flatbuffers/src/idl_parser.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/flatbuffers/src/idl_gen_text.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/flatbuffers/src/reflection.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/flatbuffers/src/util.cpp
+)
+target_include_directories(flatbuffers_objects SYSTEM PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/flatbuffers/include
+)
+set_target_properties(flatbuffers_objects PROPERTIES
+    CXX_STANDARD 11
+    POSITION_INDEPENDENT_CODE ON
+)
+if(MSVC)
+    target_compile_options(flatbuffers_objects PRIVATE /W0)
+else()
+    target_compile_options(flatbuffers_objects PRIVATE -w)
 endif()
-_vendor_output_dir(flatbuffers)
+# INTERFACE 目标供 ProjectDependencies.cmake 的 target_link_libraries 使用
+add_library(flatbuffers_interface INTERFACE)
+target_link_libraries(flatbuffers_interface INTERFACE flatbuffers_objects)
+add_library(flatbuffers::flatbuffers ALIAS flatbuffers_interface)
 
-# -- zlib (仅静态库，跳过共享库和示例) ----------------------------------------
-# zlib 1.2.11 无条件构建 SHARED + STATIC + 示例，没有禁用选项。
-# 通过 EXCLUDE_FROM_ALL 排除不需要的 target。
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/zlib ${CMAKE_BINARY_DIR}/third_party/zlib EXCLUDE_FROM_ALL)
-# 排除共享库和示例程序
-if(TARGET zlib)
-    set_target_properties(zlib PROPERTIES EXCLUDE_FROM_ALL ON EXCLUDE_FROM_DEFAULT_BUILD ON)
+# -- zlib (OBJECT library，直接编进主库) ------------------------------------
+# zconf.h 由 zlib 的 CMakeLists.txt 通过 configure_file 生成，这里需要手动生成。
+set(ZLIB_ZCONF_DIR "${CMAKE_BINARY_DIR}/third_party/zlib_objects")
+file(MAKE_DIRECTORY "${ZLIB_ZCONF_DIR}")
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/zlib/zconf.h.in
+    ${ZLIB_ZCONF_DIR}/zconf.h
+    @ONLY
+)
+add_library(zlib_objects OBJECT
+    ${CMAKE_CURRENT_SOURCE_DIR}/zlib/adler32.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/zlib/compress.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/zlib/crc32.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/zlib/deflate.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/zlib/gzclose.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/zlib/gzlib.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/zlib/gzread.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/zlib/gzwrite.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/zlib/inflate.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/zlib/infback.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/zlib/inftrees.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/zlib/inffast.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/zlib/trees.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/zlib/uncompr.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/zlib/zutil.c
+)
+target_include_directories(zlib_objects SYSTEM PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/zlib
+    ${ZLIB_ZCONF_DIR}
+)
+if(MSVC)
+    target_compile_definitions(zlib_objects PRIVATE
+        _CRT_SECURE_NO_DEPRECATE _CRT_NONSTDC_NO_DEPRECATE)
+    target_compile_options(zlib_objects PRIVATE /W0)
+else()
+    target_compile_options(zlib_objects PRIVATE -w)
 endif()
-foreach(_t example minigzip example64 minigzip64)
-    if(TARGET ${_t})
-        set_target_properties(${_t} PROPERTIES EXCLUDE_FROM_ALL ON EXCLUDE_FROM_DEFAULT_BUILD ON)
-    endif()
-endforeach()
-# ZLIB::ZLIB 指向静态库 zlibstatic，确保主库静态链接 zlib
-if(NOT TARGET ZLIB::ZLIB)
-    add_library(ZLIB::ZLIB ALIAS zlibstatic)
-endif()
-# zlib 1.2.11 uses directory-scope include_directories(), not target PUBLIC.
-# Add the include path to the target so consumers can find zlib.h.
-target_include_directories(zlibstatic
-    SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/zlib
-                  ${CMAKE_BINARY_DIR}/third_party/zlib)
-_vendor_output_dir(zlibstatic)
+set_target_properties(zlib_objects PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+)
+# INTERFACE 目标供 ProjectDependencies.cmake 的 target_link_libraries 使用
+add_library(zlib_interface INTERFACE)
+target_link_libraries(zlib_interface INTERFACE zlib_objects)
+add_library(ZLIB::ZLIB ALIAS zlib_interface)
 
 # -- GTest (仅测试用，不构建可跳过) ------------------------------------------
-set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/googletest ${CMAKE_BINARY_DIR}/third_party/googletest)
-# googletest 的 add_subdirectory 创建的是 gtest/gtest_main/gmock，上层期望 GTest:: 前缀
-if(NOT TARGET GTest::gtest)
-    add_library(GTest::gtest ALIAS gtest)
+if(ENABLE_TESTING)
+    set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/googletest ${CMAKE_BINARY_DIR}/third_party/googletest)
+    # googletest 的 add_subdirectory 创建的是 gtest/gtest_main/gmock，上层期望 GTest:: 前缀
+    if(NOT TARGET GTest::gtest)
+        add_library(GTest::gtest ALIAS gtest)
+    endif()
+    if(NOT TARGET GTest::gtest_main)
+        add_library(GTest::gtest_main ALIAS gtest_main)
+    endif()
+    if(TARGET gmock AND NOT TARGET GTest::gmock)
+        add_library(GTest::gmock ALIAS gmock)
+    endif()
+    foreach(_t gtest gtest_main gmock gmock_main)
+        _vendor_output_dir(${_t})
+    endforeach()
 endif()
-if(NOT TARGET GTest::gtest_main)
-    add_library(GTest::gtest_main ALIAS gtest_main)
-endif()
-if(TARGET gmock AND NOT TARGET GTest::gmock)
-    add_library(GTest::gmock ALIAS gmock)
-endif()
-foreach(_t gtest gtest_main gmock gmock_main)
-    _vendor_output_dir(${_t})
-endforeach()
 
-# 需要合并进主库的编译型第三方 target（header-only 的不需要）
-set(ONEQ_VENDOR_MERGE_TARGETS
-    flatbuffers
-    zlibstatic
+# 需要直接编进主库的编译型第三方 OBJECT target
+set(ONEQ_VENDOR_OBJECT_TARGETS
+    flatbuffers_objects
+    zlib_objects
     PARENT_SCOPE
 )

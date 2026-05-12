@@ -1,10 +1,7 @@
 # airborne_radar 模块源文件与安装清单
 
-set(AIRBORNE_COMMON_SOURCES
-    airborne_radar/output/TrackOutputQueries.cpp
-)
-
-set(AIRBORNE_SIGNAL_SOURCES
+# -- engine: 信号处理、检测、关联、跟踪（依赖 Eigen/Boost，算法密集） ---------------
+set(AIRBORNE_ENGINE_SOURCES
     airborne_radar/signal/association/DataAssociation.cpp
     airborne_radar/signal/association/DistanceMetric.cpp
     airborne_radar/signal/association/Hypothesiser.cpp
@@ -38,15 +35,14 @@ set(AIRBORNE_SIGNAL_SOURCES
     airborne_radar/signal/tracking/UdkfUpdater.cpp
 )
 
-set(AIRBORNE_DECISION_SOURCES
+# -- core: 会话、运行时、环境、配置、决策、输出（粘合层，依赖轻） -------------------
+set(AIRBORNE_CORE_SOURCES
+    airborne_radar/output/TrackOutputQueries.cpp
     airborne_radar/decision/ThreatAssessmentEvaluator.cpp
     airborne_radar/decision/LpiEvaluator.cpp
     airborne_radar/decision/EccmEvaluator.cpp
     airborne_radar/decision/ControlReducer.cpp
     airborne_radar/decision/TacticalCoordinator.cpp
-)
-
-set(AIRBORNE_CORE_SOURCES
     airborne_radar/config/mapping/SessionToExecutionMapper.cpp
     airborne_radar/config/mapping/RuntimePatchMapper.cpp
     airborne_radar/session/MutableRadarContext.cpp
@@ -70,9 +66,9 @@ set(AIRBORNE_CORE_SOURCES
     airborne_radar/environment/EnvironmentPhysics.cpp
     airborne_radar/environment/SceneManager.cpp
     airborne_radar/environment/PropagationModel.cpp
+    airborne_radar/session/RadarReplayFlatbufferCodec.cpp
+    airborne_radar/session/RadarTraceSession.cpp
 )
-list(APPEND AIRBORNE_CORE_SOURCES airborne_radar/session/RadarReplayFlatbufferCodec.cpp)
-list(APPEND AIRBORNE_CORE_SOURCES airborne_radar/session/RadarTraceSession.cpp)
 
 if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_COMMON_CONTROL

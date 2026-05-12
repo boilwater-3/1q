@@ -50,6 +50,12 @@ foreach(_file IN LISTS _ensure_crlf_files)
   if(_crlf_pos LESS 0 OR NOT _bom_pos EQUAL 0)
     # File needs conversion: CRLF normalisation and/or BOM addition.
     file(READ "${_file}" _content)
+    # Strip existing BOM to avoid producing a double BOM (EF BB BF EF BB BF).
+    string(FIND "${_content}" "${_utf8_bom}" _existing_bom_pos)
+    if(_existing_bom_pos EQUAL 0)
+      string(LENGTH "${_utf8_bom}" _bom_len)
+      string(SUBSTRING "${_content}" ${_bom_len} -1 _content)
+    endif()
     file(WRITE "${_file}" "${_utf8_bom}${_content}")
     math(EXPR _ensure_crlf_count "${_ensure_crlf_count} + 1")
   endif()

@@ -8,41 +8,38 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/electronic_surveillance_radar/CMakeLists.txt
 include(${CMAKE_CURRENT_SOURCE_DIR}/electro_optical_sensor/CMakeLists.txt)
 
 # --- OBJECT 库 ---
-add_library(airborne_common OBJECT ${AIRBORNE_COMMON_SOURCES})
-add_library(airborne_signal OBJECT ${AIRBORNE_SIGNAL_SOURCES})
-add_library(airborne_decision OBJECT ${AIRBORNE_DECISION_SOURCES})
+add_library(airborne_engine OBJECT ${AIRBORNE_ENGINE_SOURCES})
 add_library(airborne_core OBJECT ${AIRBORNE_CORE_SOURCES})
-add_library(esr_model OBJECT ${ESR_MODEL_SOURCES})
-add_library(esr_environment OBJECT ${ESR_ENVIRONMENT_SOURCES})
-add_library(esr_pipeline OBJECT ${ESR_PIPELINE_SOURCES})
-add_library(esr_runtime OBJECT ${ESR_RUNTIME_SOURCES})
-add_library(esr_session OBJECT ${ESR_SESSION_SOURCES})
+add_library(esr_engine OBJECT ${ESR_ENGINE_SOURCES})
+add_library(esr_core OBJECT ${ESR_CORE_SOURCES})
+add_library(eos_engine OBJECT ${EOS_ENGINE_SOURCES})
+add_library(eos_core OBJECT ${EOS_CORE_SOURCES})
 
 set(ONEQ_OBJECT_TARGETS
-    airborne_common
-    airborne_signal
-    airborne_decision
+    airborne_engine
     airborne_core
-    esr_model
-    esr_environment
-    esr_pipeline
-    esr_runtime
-    esr_session
+    esr_engine
+    esr_core
+    eos_engine
+    eos_core
 )
 
 set(PROJECT_SOURCES
     ${ONEQ_COMMON_SOURCES}
-    ${EOS_SOURCES}
-    $<TARGET_OBJECTS:airborne_common>
-    $<TARGET_OBJECTS:airborne_signal>
-    $<TARGET_OBJECTS:airborne_decision>
+    $<TARGET_OBJECTS:airborne_engine>
     $<TARGET_OBJECTS:airborne_core>
-    $<TARGET_OBJECTS:esr_model>
-    $<TARGET_OBJECTS:esr_environment>
-    $<TARGET_OBJECTS:esr_pipeline>
-    $<TARGET_OBJECTS:esr_runtime>
-    $<TARGET_OBJECTS:esr_session>
+    $<TARGET_OBJECTS:esr_engine>
+    $<TARGET_OBJECTS:esr_core>
+    $<TARGET_OBJECTS:eos_engine>
+    $<TARGET_OBJECTS:eos_core>
 )
+# 追加 vendor OBJECT 目标（flatbuffers_objects, zlib_objects 等）
+if(ONEQ_VENDOR_OBJECT_TARGETS)
+    foreach(_vendor_obj IN LISTS ONEQ_VENDOR_OBJECT_TARGETS)
+        list(APPEND PROJECT_SOURCES $<TARGET_OBJECTS:${_vendor_obj}>)
+    endforeach()
+    unset(_vendor_obj)
+endif()
 
 # --- 主库目标 ---
 add_library(${PROJECT_CORE_TARGET} ${PROJECT_SOURCES})
@@ -76,6 +73,19 @@ foreach(ONEQ_OBJECT_TARGET IN LISTS ONEQ_OBJECT_TARGETS)
     )
 endforeach()
 unset(ONEQ_OBJECT_TARGET)
+
+# vendor OBJECT 目标需要相同的 include 路径
+if(ONEQ_VENDOR_OBJECT_TARGETS)
+    foreach(ONEQ_OBJECT_TARGET IN LISTS ONEQ_VENDOR_OBJECT_TARGETS)
+        target_include_directories(${ONEQ_OBJECT_TARGET}
+            PRIVATE
+                ${CMAKE_CURRENT_SOURCE_DIR}
+                ${PROJECT_GENERATED_INCLUDE_DIR}
+                ${CMAKE_SOURCE_DIR}/include
+        )
+    endforeach()
+    unset(ONEQ_OBJECT_TARGET)
+endif()
 
 # --- 第三方依赖 ---
 include(${CMAKE_SOURCE_DIR}/cmake/ProjectDependencies.cmake)
