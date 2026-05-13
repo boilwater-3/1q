@@ -92,12 +92,12 @@ bool RunMovingTargetsScenario() {
   platform_vel.z_mps = 30.0;
 
   std::vector<MovingEsrEmitter> emitters = {
-      MakeMovingEsrEmitter("search-radar", -2289512.0 + 12000.0, 4909946.0, 3640982.0 + 5000.0,
-                           10.0e9, 50.0),
-      MakeMovingEsrEmitter("tracking-radar", -2289512.0 + 18000.0, 4909946.0, 3640982.0 + 5000.0,
-                           9.4e9, -30.0),
-      MakeMovingEsrEmitter("threat-emitter", -2289512.0 + 25000.0, 4909946.0, 3640982.0 + 5000.0,
-                           9.8e9, -80.0),
+      MakeMovingEsrEmitter("search-radar", -2289512.0, 4909946.0 + 12000.0, 3640982.0 + 5000.0,
+                           10.0e9, -20.0),
+      MakeMovingEsrEmitter("tracking-radar", -2289512.0, 4909946.0 + 18000.0, 3640982.0 + 5000.0,
+                           9.4e9, -15.0),
+      MakeMovingEsrEmitter("threat-emitter", -2289512.0, 4909946.0 + 25000.0, 3640982.0 + 5000.0,
+                           9.8e9, -10.0),
   };
 
   esr_session::EsrEnvironmentInput environment;

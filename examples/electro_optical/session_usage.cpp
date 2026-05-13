@@ -33,11 +33,13 @@ eos_session::EosSession CreateFusedSearchSession() {
   return eos_session::EosSessionFactory::Create(LoadConfigFromFile());
 }
 
-eos_session::EosExternalTargetInput MakeTargetInput(const oneq::coordinate::EcefPositionM& pos,
-                                                    float temperature_k, float area_m2) {
+eos_session::EosExternalTargetInput MakeTargetLla(double lat_deg, double lon_deg, double alt_m,
+                                                   float temperature_k, float area_m2) {
   eos_session::EosExternalTargetInput target;
-  target.position_frame = eos_session::EosTargetPositionFrame::kEcef;
-  target.target_position_ecef_m = pos;
+  target.position_frame = eos_session::EosTargetPositionFrame::kLla;
+  target.target_position_lla_deg_m.latitude_deg = lat_deg;
+  target.target_position_lla_deg_m.longitude_deg = lon_deg;
+  target.target_position_lla_deg_m.altitude_m = alt_m;
   target.appearance.apparent_temperature_k = temperature_k;
   target.appearance.emissivity = 0.92f;
   target.appearance.reflectance = 0.35f;
@@ -55,48 +57,29 @@ void PrintResult(const char* label, const eos_session::EosCycleResult& result) {
             << " validation_errors=" << (result.has_validation_error ? "true" : "false") << "\n";
 }
 
-struct MovingEosTarget {
-  oneq::coordinate::EcefPositionM pos;
+struct LlaTarget {
+  double lat_deg;
+  double lon_deg;
+  double alt_m;
   float temperature_k;
   float area_m2;
-  oneq::coordinate::EcefVelocityMps vel;
 };
-
-MovingEosTarget MakeMovingEosTarget(double x_m, double y_m, double z_m, float temperature_k,
-                                    float area_m2, double vx_mps, double vy_mps, double vz_mps) {
-  MovingEosTarget target;
-  target.pos.x_m = x_m;
-  target.pos.y_m = y_m;
-  target.pos.z_m = z_m;
-  target.temperature_k = temperature_k;
-  target.area_m2 = area_m2;
-  target.vel.x_mps = vx_mps;
-  target.vel.y_mps = vy_mps;
-  target.vel.z_mps = vz_mps;
-  return target;
-}
 
 bool RunMovingTargetsScenario() {
   eos_session::EosSession session = CreateFusedSearchSession();
 
   oneq::coordinate::EcefPositionM platform_pos;
-  platform_pos.x_m = -2289512.0;
-  platform_pos.y_m = 4909946.0;
-  platform_pos.z_m = 3640982.0 + 1500.0;
+  platform_pos.x_m = -2169532.0;
+  platform_pos.y_m = 4760604.0;
+  platform_pos.z_m = 3638727.0;
 
   oneq::coordinate::EcefVelocityMps platform_vel;
   platform_vel.x_mps = 120.0;
   platform_vel.y_mps = -80.0;
   platform_vel.z_mps = 30.0;
 
-  std::vector<MovingEosTarget> targets = {
-      MakeMovingEosTarget(-2289512.0 + 1400.0, 4909946.0 - 5.0, 3640982.0, 335.0f, 4.0f, -10.0, 0.2,
-                          0.0),
-      MakeMovingEosTarget(-2289512.0 + 2100.0, 4909946.0 + 4.0, 3640982.0, 315.0f, 6.0f, -15.0,
-                          -0.15, 0.0),
-      MakeMovingEosTarget(-2289512.0 + 3200.0, 4909946.0 + 1.5, 3640982.0, 350.0f, 3.0f, -8.0, 0.1,
-                          0.0),
-  };
+  // Targets ~2km north of platform at same altitude, well within sensor FOV and range.
+  // Platform is ~35.0N, 114.5E at ~1500m MSL.
 
   eos_session::EosEnvironmentInput environment;
   environment.solar_altitude_deg = 42.0f;
@@ -105,6 +88,14 @@ bool RunMovingTargetsScenario() {
   environment.cloud_coverage_ratio = 0.15f;
   environment.background_temperature_k = 288.0f;
   environment.day_night_type = eos_session::DayNightType::kDay;
+
+  // Ground targets east of platform — within forward-looking FOV (~±10°×±4°) and
+  // detection range (~1900-2160m). Platform at ~1500m MSL, boresight 48° downward.
+  const std::vector<LlaTarget> targets = {
+      {35.0, 114.514, 0.0, 345.0f, 5.0f},
+      {35.0, 114.515, 0.0, 350.0f, 6.0f},
+      {35.0, 114.516, 0.0, 335.0f, 4.0f},
+  };
 
   const std::uint32_t num_cycles = 50;
   std::uint32_t validation_error_count = 0;
@@ -121,8 +112,10 @@ bool RunMovingTargetsScenario() {
 
     std::vector<eos_session::EosExternalTargetInput> target_inputs;
     target_inputs.reserve(targets.size());
-    for (const auto& mt : targets) {
-      target_inputs.push_back(MakeTargetInput(mt.pos, mt.temperature_k, mt.area_m2));
+    for (std::size_t ti = 0; ti < targets.size(); ++ti) {
+      target_inputs.push_back(MakeTargetLla(targets[ti].lat_deg, targets[ti].lon_deg,
+                                            targets[ti].alt_m, targets[ti].temperature_k,
+                                            targets[ti].area_m2));
     }
 
     eos_session::EosCycleInput input;
@@ -156,12 +149,6 @@ bool RunMovingTargetsScenario() {
     PrintResult("eos-moving", result);
     std::cout << "  external_output="
               << (external_output_ok ? external_output.detections.size() : 0U) << "\n";
-
-    for (auto& mt : targets) {
-      mt.pos.x_m += mt.vel.x_mps;
-      mt.pos.y_m += mt.vel.y_mps;
-      mt.pos.z_m += mt.vel.z_mps;
-    }
   }
 
   std::cout << "\n=== EOS Summary ===\n"

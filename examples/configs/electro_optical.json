@@ -7,25 +7,25 @@
   },
   "mission": {
     "work_mode": "kFused",
-    "horizontal_fov_deg": 6.0,
-    "vertical_fov_deg": 4.0,
-    "scan_rate_deg_per_sec": 20.0,
+    "horizontal_fov_deg": 20.0,
+    "vertical_fov_deg": 8.0,
+    "scan_rate_deg_per_sec": 5.0,
     "frame_rate_hz": 30.0,
-    "scan_start_az_deg": -60.0,
-    "scan_end_az_deg": 60.0,
-    "scan_center_el_deg": 0.0,
-    "boresight_depression_deg": 45.0
+    "scan_start_az_deg": -10.0,
+    "scan_end_az_deg": 10.0,
+    "scan_center_el_deg": -48.0,
+    "boresight_depression_deg": 48.0
   },
   "policy": {
     "detection": {
-      "profile": "kBalanced",
+      "profile": "kAggressive",
       "use_profile_defaults": true,
       "minimum_snr_db": 6.0,
       "detection_sensitivity_w": 1.0e-12,
       "visible_reference_irradiance_w_m2": 800.0
     },
     "stray_light": {
-      "profile": "kDisabled",
+      "profile": "kStandardHood",
       "use_profile_defaults": true,
       "enable_straylight_filter": false,
       "hood_inner_half_angle_deg": 12.0,
