@@ -1,40 +1,13 @@
-#ifndef EXAMPLES_ESR_CONFIG_LOADER_H_
-#define EXAMPLES_ESR_CONFIG_LOADER_H_
-
-#include <string>
+#ifndef EXAMPLES_ESR_CONFIG_LOADER_DETAIL_H_
+#define EXAMPLES_ESR_CONFIG_LOADER_DETAIL_H_
 
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 #include "1q/foundation/json_reader.h"
+#include "config_loader_common.h"
 
 namespace examples {
 
-// -- namespace aliases -------------------------------------------------------
-namespace esr_cfg = electronic_surveillance_radar::config;
 namespace esr_env = electronic_surveillance_radar::environment;
-
-// -- enum helpers ------------------------------------------------------------
-
-inline esr_cfg::EsrWorkMode EsrWorkModeFromString(const std::string& s) {
-  if (s == "kEsm") return esr_cfg::EsrWorkMode::kEsm;
-  if (s == "kHgesm") return esr_cfg::EsrWorkMode::kHgesm;
-  if (s == "kRwr") return esr_cfg::EsrWorkMode::kRwr;
-  return esr_cfg::EsrWorkMode::kEsm;
-}
-
-inline esr_cfg::EsrDetectionProfile EsrDetectFromString(const std::string& s) {
-  if (s == "kConservative") return esr_cfg::EsrDetectionProfile::kConservative;
-  if (s == "kBalanced") return esr_cfg::EsrDetectionProfile::kBalanced;
-  if (s == "kSensitive") return esr_cfg::EsrDetectionProfile::kSensitive;
-  return esr_cfg::EsrDetectionProfile::kBalanced;
-}
-
-inline esr_cfg::EsrEnvironmentPreset EsrPresetFromString(const std::string& s) {
-  if (s == "kStandard") return esr_cfg::EsrEnvironmentPreset::kStandard;
-  if (s == "kLowClutter") return esr_cfg::EsrEnvironmentPreset::kLowClutter;
-  if (s == "kDenseClutter") return esr_cfg::EsrEnvironmentPreset::kDenseClutter;
-  if (s == "kJammed") return esr_cfg::EsrEnvironmentPreset::kJammed;
-  return esr_cfg::EsrEnvironmentPreset::kStandard;
-}
 
 // -- struct loaders ----------------------------------------------------------
 
@@ -122,30 +95,6 @@ inline void LoadEsrEnvironment(const oneq::JsonValue& j,
   LoadEsrScenario(j["scenario_config"], &v->scenario_config);
 }
 
-/// Load an EsrSessionConfig from a parsed JSON object.
-inline void LoadEsrSessionConfig(
-    const oneq::JsonValue& root,
-    electronic_surveillance_radar::session::EsrSessionConfig* config) {
-  LoadEsrHardware(root["hardware"], &config->hardware);
-  LoadEsrMission(root["mission"], &config->mission);
-  LoadEsrPolicy(root["policy"], &config->policy);
-  LoadEsrEnvironment(root["environment"], &config->environment);
-}
-
-/// Load an EsrSessionConfig from a JSON file.
-inline bool LoadEsrSessionConfigFromFile(
-    const char* path, electronic_surveillance_radar::session::EsrSessionConfig* config,
-    std::string* error_msg) {
-  oneq::JsonValue root;
-  if (!oneq::JsonReader::ParseFile(path, &root, error_msg)) return false;
-  if (root.type() != oneq::JsonValue::kObject) {
-    *error_msg = "root value must be a JSON object";
-    return false;
-  }
-  LoadEsrSessionConfig(root, config);
-  return true;
-}
-
 }  // namespace examples
 
-#endif  // EXAMPLES_ESR_CONFIG_LOADER_H_
+#endif  // EXAMPLES_ESR_CONFIG_LOADER_DETAIL_H_

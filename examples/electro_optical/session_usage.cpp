@@ -10,7 +10,7 @@
 
 #include "1q/coordinate/types.h"
 #include "1q/electro_optical_sensor/electro_optical_sensor.hpp"
-#include "eos_config_loader.h"
+#include "config_loader.h"
 
 namespace eos_config = electro_optical_sensor::config;
 namespace eos_env = electro_optical_sensor::environment;

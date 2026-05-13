@@ -21,7 +21,7 @@
 
 #include "1q/airborne_radar/airborne_radar.hpp"
 #include "1q/coordinate/types.h"
-#include "ar_config_loader.h"
+#include "config_loader.h"
 
 namespace ar = airborne_radar;
 namespace ar_config = airborne_radar::config;

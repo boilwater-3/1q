@@ -10,7 +10,7 @@
 
 #include "1q/coordinate/types.h"
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
-#include "esr_config_loader.h"
+#include "config_loader.h"
 
 namespace esr_config = electronic_surveillance_radar::config;
 namespace esr_env = electronic_surveillance_radar::environment;
