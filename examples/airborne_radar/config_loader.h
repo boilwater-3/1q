@@ -6,8 +6,7 @@
 #include "1q/airborne_radar/airborne_radar.hpp"
 #include "1q/foundation/json_reader.h"
 #include "config_loader_common.h"
-#include "config_loader_hardware.h"
-#include "config_loader_policy.h"
+#include "config_loader_detail.h"
 
 namespace examples {
 
