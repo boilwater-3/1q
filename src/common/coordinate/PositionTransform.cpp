@@ -266,5 +266,65 @@ NedPositionM ToNed(const NuePositionM& nue) {
   return ned;
 }
 
+bool TryEnuToEcef(const EnuPositionM& enu,
+                  const LlaPositionDegM& origin_lla,
+                  EcefPositionM* ecef) {
+  if (ecef == nullptr || !IsFinite(enu) || !IsValid(origin_lla)) {
+    return false;
+  }
+
+  EcefPositionM origin_ecef;
+  if (!TryLlaToEcef(origin_lla, &origin_ecef)) {
+    return false;
+  }
+
+  const double lat_rad = DegToRad(origin_lla.latitude_deg);
+  const double lon_rad = DegToRad(origin_lla.longitude_deg);
+  const double sin_lat = std::sin(lat_rad);
+  const double cos_lat = std::cos(lat_rad);
+  const double sin_lon = std::sin(lon_rad);
+  const double cos_lon = std::cos(lon_rad);
+
+  ecef->x_m =
+      origin_ecef.x_m - sin_lon * enu.east_m - sin_lat * cos_lon * enu.north_m +
+      cos_lat * cos_lon * enu.up_m;
+  ecef->y_m =
+      origin_ecef.y_m + cos_lon * enu.east_m - sin_lat * sin_lon * enu.north_m +
+      cos_lat * sin_lon * enu.up_m;
+  ecef->z_m = origin_ecef.z_m + cos_lat * enu.north_m + sin_lat * enu.up_m;
+  return IsFinite(*ecef);
+}
+
+bool TryEnuToEcefDirection(const Vector3d& enu_dir,
+                           const LlaPositionDegM& origin_lla,
+                           Vector3d* ecef_dir) {
+  if (ecef_dir == nullptr || !IsValid(origin_lla)) {
+    return false;
+  }
+
+  const double lat_rad = DegToRad(origin_lla.latitude_deg);
+  const double lon_rad = DegToRad(origin_lla.longitude_deg);
+  const double sin_lat = std::sin(lat_rad);
+  const double cos_lat = std::cos(lat_rad);
+  const double sin_lon = std::sin(lon_rad);
+  const double cos_lon = std::cos(lon_rad);
+
+  ecef_dir->x = -sin_lon * enu_dir.x - sin_lat * cos_lon * enu_dir.y +
+                cos_lat * cos_lon * enu_dir.z;
+  ecef_dir->y = cos_lon * enu_dir.x - sin_lat * sin_lon * enu_dir.y +
+                cos_lat * sin_lon * enu_dir.z;
+  ecef_dir->z = cos_lat * enu_dir.y + sin_lat * enu_dir.z;
+  const double norm = std::sqrt(ecef_dir->x * ecef_dir->x + ecef_dir->y * ecef_dir->y +
+                                ecef_dir->z * ecef_dir->z);
+  if (norm <= kNormFloor) {
+    return false;
+  }
+  ecef_dir->x /= norm;
+  ecef_dir->y /= norm;
+  ecef_dir->z /= norm;
+  return IsFiniteScalar(ecef_dir->x) && IsFiniteScalar(ecef_dir->y) &&
+         IsFiniteScalar(ecef_dir->z);
+}
+
 }  // namespace coordinate
 }  // namespace oneq

@@ -132,6 +132,35 @@ ONEQ_API bool TryLlaToNue(const LlaPositionDegM& lla,
                           NuePositionM* nue);
 
 // =============================================================================
+// 局部坐标系 → ECEF（反向转换）
+// =============================================================================
+
+/**
+ * @brief 将 ENU 位置转换回 ECEF 坐标。
+ * @param[in] enu ENU 输入（单位：m）。
+ * @param[in] origin_lla 局部 ENU 原点（WGS84 LLA）。
+ * @param[out] ecef 输出 ECEF；可为 nullptr。
+ * @return 成功返回 true。
+ * @note 为 TryEcefToEnu 的逆运算。
+ */
+ONEQ_API bool TryEnuToEcef(const EnuPositionM& enu,
+                           const LlaPositionDegM& origin_lla,
+                           EcefPositionM* ecef);
+
+/**
+ * @brief 将 ENU 方向向量转换到 ECEF 方向（不含原点平移）。
+ * @param[in] enu_dir ENU 方向向量（单位：m/m）。
+ * @param[in] origin_lla 参考点 LLA，决定局部坐标轴方向。
+ * @param[out] ecef_dir 输出 ECEF 方向向量；可为 nullptr。
+ * @return 成功返回 true。
+ * @note 与 TryEnuToEcef 的区别在于不叠加原点 ECEF 偏移，
+ *       适用于方位/指向等方向量的坐标系变换。
+ */
+ONEQ_API bool TryEnuToEcefDirection(const Vector3d& enu_dir,
+                                    const LlaPositionDegM& origin_lla,
+                                    Vector3d* ecef_dir);
+
+// =============================================================================
 // 局部坐标系互转（轴重排，无精度损失）
 // =============================================================================
 

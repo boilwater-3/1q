@@ -133,6 +133,19 @@ ONEQ_API EulerAnglesDeg ToNedAttitude(const EulerAnglesDeg& enu_attitude);
 ONEQ_API Vector3d RotateEnuToLocal(double enu_east, double enu_north, double enu_up,
                                    const EulerAnglesDeg& local_attitude_deg);
 
+/**
+ * @brief 将局部坐标系向量旋转到 ENU 坐标系。
+ * @param[in] local_x 局部 X 分量。
+ * @param[in] local_y 局部 Y 分量。
+ * @param[in] local_z 局部 Z 分量。
+ * @param[in] local_attitude_deg 局部坐标系相对 ENU 的姿态角。
+ * @return ENU 坐标系下的三维向量。
+ * @details 为 RotateEnuToLocal 的逆运算，
+ *          数学上等价于 BuildRotationMatrix(attitude) * (x,y,z)^T。
+ */
+ONEQ_API Vector3d RotateLocalToEnu(double local_x, double local_y, double local_z,
+                                   const EulerAnglesDeg& local_attitude_deg);
+
 }  // namespace coordinate
 }  // namespace oneq
 

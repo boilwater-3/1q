@@ -164,5 +164,15 @@ Vector3d RotateEnuToLocal(double enu_east, double enu_north, double enu_up,
   return local;
 }
 
+Vector3d RotateLocalToEnu(double local_x, double local_y, double local_z,
+                          const EulerAnglesDeg& local_attitude_deg) {
+  const RotationMatrix3d rotation = BuildRotationMatrix(local_attitude_deg);
+  Vector3d enu;
+  enu.x = rotation.m00 * local_x + rotation.m01 * local_y + rotation.m02 * local_z;
+  enu.y = rotation.m10 * local_x + rotation.m11 * local_y + rotation.m12 * local_z;
+  enu.z = rotation.m20 * local_x + rotation.m21 * local_y + rotation.m22 * local_z;
+  return enu;
+}
+
 }  // namespace coordinate
 }  // namespace oneq

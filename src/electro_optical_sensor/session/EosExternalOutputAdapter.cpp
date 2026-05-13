@@ -16,44 +16,6 @@ constexpr double kPi = 3.14159265358979323846;
 bool IsFinite(float value) { return std::isfinite(value) != 0; }
 double DegToRad(double deg) { return deg * kPi / 180.0; }
 
-oneq::coordinate::Vector3d RotateLocalToEnu(
-    double local_x, double local_y, double local_z,
-    const oneq::coordinate::EulerAnglesDeg& local_attitude_deg) {
-  const oneq::coordinate::RotationMatrix3d rotation =
-      oneq::coordinate::BuildRotationMatrix(local_attitude_deg);
-  oneq::coordinate::Vector3d enu;
-  enu.x = rotation.m00 * local_x + rotation.m01 * local_y + rotation.m02 * local_z;
-  enu.y = rotation.m10 * local_x + rotation.m11 * local_y + rotation.m12 * local_z;
-  enu.z = rotation.m20 * local_x + rotation.m21 * local_y + rotation.m22 * local_z;
-  return enu;
-}
-
-bool TryEnuPositionToEcef(const oneq::coordinate::Vector3d& enu,
-                          const oneq::coordinate::LlaPositionDegM& origin_lla,
-                          oneq::coordinate::EcefPositionM* ecef) {
-  if (ecef == nullptr || !oneq::coordinate::IsValid(origin_lla)) {
-    return false;
-  }
-  oneq::coordinate::EcefPositionM origin_ecef;
-  if (!oneq::coordinate::TryLlaToEcef(origin_lla, &origin_ecef)) {
-    return false;
-  }
-
-  const double lat_rad = DegToRad(origin_lla.latitude_deg);
-  const double lon_rad = DegToRad(origin_lla.longitude_deg);
-  const double sin_lat = std::sin(lat_rad);
-  const double cos_lat = std::cos(lat_rad);
-  const double sin_lon = std::sin(lon_rad);
-  const double cos_lon = std::cos(lon_rad);
-
-  ecef->x_m =
-      origin_ecef.x_m - sin_lon * enu.x - sin_lat * cos_lon * enu.y + cos_lat * cos_lon * enu.z;
-  ecef->y_m =
-      origin_ecef.y_m + cos_lon * enu.x - sin_lat * sin_lon * enu.y + cos_lat * sin_lon * enu.z;
-  ecef->z_m = origin_ecef.z_m + cos_lat * enu.y + sin_lat * enu.z;
-  return oneq::coordinate::IsFinite(*ecef);
-}
-
 oneq::coordinate::Vector3d ToPlatformFrameVector(float range_m, float azimuth_deg,
                                                  float elevation_deg) {
   const double range = static_cast<double>(range_m);
@@ -76,6 +38,14 @@ oneq::coordinate::EulerAnglesDeg ToCoordinateEuler(
   return output;
 }
 
+oneq::coordinate::EnuPositionM Vector3dToEnuPosition(const oneq::coordinate::Vector3d& enu) {
+  oneq::coordinate::EnuPositionM pos;
+  pos.east_m = enu.x;
+  pos.north_m = enu.y;
+  pos.up_m = enu.z;
+  return pos;
+}
+
 }  // namespace
 
 bool TryMakeExternalDetectionFromRecord(const output::EosDetectionRecord& detection,
@@ -90,17 +60,19 @@ bool TryMakeExternalDetectionFromRecord(const output::EosDetectionRecord& detect
   const oneq::coordinate::Vector3d platform_frame =
       ToPlatformFrameVector(detection.range_m, detection.azimuth_deg, detection.elevation_deg);
   const oneq::coordinate::Vector3d relative_local =
-      RotateLocalToEnu(platform_frame.x, platform_frame.y, platform_frame.z,
-                       ToCoordinateEuler(platform_pose.attitude_deg));
+      oneq::coordinate::RotateLocalToEnu(platform_frame.x, platform_frame.y, platform_frame.z,
+                                         ToCoordinateEuler(platform_pose.attitude_deg));
   oneq::coordinate::Vector3d target_local;
   target_local.x = static_cast<double>(platform_pose.position_m.x) + relative_local.x;
   target_local.y = static_cast<double>(platform_pose.position_m.y) + relative_local.y;
   target_local.z = static_cast<double>(platform_pose.position_m.z) + relative_local.z;
-  const oneq::coordinate::Vector3d target_enu = RotateLocalToEnu(
-      target_local.x, target_local.y, target_local.z, reference.frame_attitude_deg);
+  const oneq::coordinate::Vector3d target_enu =
+      oneq::coordinate::RotateLocalToEnu(target_local.x, target_local.y, target_local.z,
+                                         reference.frame_attitude_deg);
 
   oneq::coordinate::EcefPositionM target_ecef;
-  if (!TryEnuPositionToEcef(target_enu, reference.origin_lla, &target_ecef)) {
+  if (!oneq::coordinate::TryEnuToEcef(Vector3dToEnuPosition(target_enu),
+                                       reference.origin_lla, &target_ecef)) {
     return false;
   }
 

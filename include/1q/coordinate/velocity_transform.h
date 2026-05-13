@@ -73,6 +73,22 @@ ONEQ_API bool TryEcefToNueVelocity(const EcefVelocityMps& ecef_velocity,
                                    NueVelocityMps* nue_velocity);
 
 // =============================================================================
+// 局部坐标系 → ECEF（反向转换）
+// =============================================================================
+
+/**
+ * @brief 将 ENU 速度向量转换回 ECEF 速度向量。
+ * @param[in] enu_velocity ENU 速度（单位：m/s）。
+ * @param[in] origin_lla 参考点 LLA，决定 ENU 坐标轴方向。
+ * @param[out] ecef_velocity 输出 ECEF 速度；可为 nullptr。
+ * @return 成功返回 true。
+ * @note 为 TryEcefToEnuVelocity 的逆运算。
+ */
+ONEQ_API bool TryEnuToEcefVelocity(const EnuVelocityMps& enu_velocity,
+                                   const LlaPositionDegM& origin_lla,
+                                   EcefVelocityMps* ecef_velocity);
+
+// =============================================================================
 // 局部坐标系互转（轴重排，无精度损失）
 // =============================================================================
 

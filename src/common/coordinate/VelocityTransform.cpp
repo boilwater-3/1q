@@ -136,5 +136,30 @@ NedVelocityMps ToNedVelocity(const NueVelocityMps& nue_velocity) {
   return ned_velocity;
 }
 
+bool TryEnuToEcefVelocity(const EnuVelocityMps& enu_velocity,
+                          const LlaPositionDegM& origin_lla,
+                          EcefVelocityMps* ecef_velocity) {
+  if (ecef_velocity == nullptr || !IsFinite(enu_velocity) || !IsValid(origin_lla)) {
+    return false;
+  }
+
+  const double lat_rad = DegToRad(origin_lla.latitude_deg);
+  const double lon_rad = DegToRad(origin_lla.longitude_deg);
+  const double sin_lat = std::sin(lat_rad);
+  const double cos_lat = std::cos(lat_rad);
+  const double sin_lon = std::sin(lon_rad);
+  const double cos_lon = std::cos(lon_rad);
+
+  ecef_velocity->x_mps = -sin_lon * enu_velocity.east_mps -
+                         sin_lat * cos_lon * enu_velocity.north_mps +
+                         cos_lat * cos_lon * enu_velocity.up_mps;
+  ecef_velocity->y_mps = cos_lon * enu_velocity.east_mps -
+                         sin_lat * sin_lon * enu_velocity.north_mps +
+                         cos_lat * sin_lon * enu_velocity.up_mps;
+  ecef_velocity->z_mps =
+      cos_lat * enu_velocity.north_mps + sin_lat * enu_velocity.up_mps;
+  return IsFinite(*ecef_velocity);
+}
+
 }  // namespace coordinate
 }  // namespace oneq

@@ -11,75 +11,26 @@ namespace session {
 
 namespace {
 
-constexpr double kPi = 3.14159265358979323846;
-
 bool IsFinite(float value) { return std::isfinite(value) != 0; }
 
 bool IsFiniteVector3f(const oneq::foundation::Vector3f& value) {
   return IsFinite(value.x) && IsFinite(value.y) && IsFinite(value.z);
 }
 
-double DegToRad(double deg) { return deg * kPi / 180.0; }
-
-oneq::coordinate::Vector3d RotateLocalToEnu(
-    double local_x, double local_y, double local_z,
-    const oneq::coordinate::EulerAnglesDeg& local_attitude_deg) {
-  const oneq::coordinate::RotationMatrix3d rotation =
-      oneq::coordinate::BuildRotationMatrix(local_attitude_deg);
-  oneq::coordinate::Vector3d enu;
-  enu.x = rotation.m00 * local_x + rotation.m01 * local_y + rotation.m02 * local_z;
-  enu.y = rotation.m10 * local_x + rotation.m11 * local_y + rotation.m12 * local_z;
-  enu.z = rotation.m20 * local_x + rotation.m21 * local_y + rotation.m22 * local_z;
-  return enu;
+oneq::coordinate::EnuPositionM Vector3dToEnuPosition(const oneq::coordinate::Vector3d& enu) {
+  oneq::coordinate::EnuPositionM pos;
+  pos.east_m = enu.x;
+  pos.north_m = enu.y;
+  pos.up_m = enu.z;
+  return pos;
 }
 
-bool TryEnuPositionToEcef(const oneq::coordinate::Vector3d& enu,
-                          const oneq::coordinate::LlaPositionDegM& origin_lla,
-                          oneq::coordinate::EcefPositionM* ecef) {
-  if (ecef == nullptr || !oneq::coordinate::IsValid(origin_lla)) {
-    return false;
-  }
-
-  oneq::coordinate::EcefPositionM origin_ecef;
-  if (!oneq::coordinate::TryLlaToEcef(origin_lla, &origin_ecef)) {
-    return false;
-  }
-
-  const double lat_rad = DegToRad(origin_lla.latitude_deg);
-  const double lon_rad = DegToRad(origin_lla.longitude_deg);
-  const double sin_lat = std::sin(lat_rad);
-  const double cos_lat = std::cos(lat_rad);
-  const double sin_lon = std::sin(lon_rad);
-  const double cos_lon = std::cos(lon_rad);
-
-  ecef->x_m =
-      origin_ecef.x_m - sin_lon * enu.x - sin_lat * cos_lon * enu.y + cos_lat * cos_lon * enu.z;
-  ecef->y_m =
-      origin_ecef.y_m + cos_lon * enu.x - sin_lat * sin_lon * enu.y + cos_lat * sin_lon * enu.z;
-  ecef->z_m = origin_ecef.z_m + cos_lat * enu.y + sin_lat * enu.z;
-  return oneq::coordinate::IsFinite(*ecef);
-}
-
-bool TryEnuVelocityToEcef(const oneq::coordinate::Vector3d& enu_velocity,
-                          const oneq::coordinate::LlaPositionDegM& origin_lla,
-                          oneq::coordinate::EcefVelocityMps* ecef_velocity) {
-  if (ecef_velocity == nullptr || !oneq::coordinate::IsValid(origin_lla)) {
-    return false;
-  }
-
-  const double lat_rad = DegToRad(origin_lla.latitude_deg);
-  const double lon_rad = DegToRad(origin_lla.longitude_deg);
-  const double sin_lat = std::sin(lat_rad);
-  const double cos_lat = std::cos(lat_rad);
-  const double sin_lon = std::sin(lon_rad);
-  const double cos_lon = std::cos(lon_rad);
-
-  ecef_velocity->x_mps = -sin_lon * enu_velocity.x - sin_lat * cos_lon * enu_velocity.y +
-                         cos_lat * cos_lon * enu_velocity.z;
-  ecef_velocity->y_mps = cos_lon * enu_velocity.x - sin_lat * sin_lon * enu_velocity.y +
-                         cos_lat * sin_lon * enu_velocity.z;
-  ecef_velocity->z_mps = cos_lat * enu_velocity.y + sin_lat * enu_velocity.z;
-  return oneq::coordinate::IsFinite(*ecef_velocity);
+oneq::coordinate::EnuVelocityMps Vector3dToEnuVelocity(const oneq::coordinate::Vector3d& enu) {
+  oneq::coordinate::EnuVelocityMps vel;
+  vel.east_mps = enu.x;
+  vel.north_mps = enu.y;
+  vel.up_mps = enu.z;
+  return vel;
 }
 
 }  // namespace
@@ -95,11 +46,13 @@ bool TryMakeExternalTrackFromSnapshot(const model::TrackStateSnapshot& snapshot,
     return false;
   }
 
-  const oneq::coordinate::Vector3d position_enu = RotateLocalToEnu(
-      static_cast<double>(snapshot.position_x), static_cast<double>(snapshot.position_y),
-      static_cast<double>(snapshot.position_z), reference.radar_attitude_deg);
+  const oneq::coordinate::Vector3d position_enu =
+      oneq::coordinate::RotateLocalToEnu(
+          static_cast<double>(snapshot.position_x), static_cast<double>(snapshot.position_y),
+          static_cast<double>(snapshot.position_z), reference.radar_attitude_deg);
   oneq::coordinate::EcefPositionM position_ecef;
-  if (!TryEnuPositionToEcef(position_enu, reference.origin_lla, &position_ecef)) {
+  if (!oneq::coordinate::TryEnuToEcef(Vector3dToEnuPosition(position_enu),
+                                       reference.origin_lla, &position_ecef)) {
     return false;
   }
 
@@ -110,10 +63,12 @@ bool TryMakeExternalTrackFromSnapshot(const model::TrackStateSnapshot& snapshot,
   const double absolute_velocity_local_z =
       static_cast<double>(snapshot.velocity_z) + static_cast<double>(radar_local_velocity_mps.z);
   const oneq::coordinate::Vector3d velocity_enu =
-      RotateLocalToEnu(absolute_velocity_local_x, absolute_velocity_local_y,
-                       absolute_velocity_local_z, reference.radar_attitude_deg);
+      oneq::coordinate::RotateLocalToEnu(
+          absolute_velocity_local_x, absolute_velocity_local_y,
+          absolute_velocity_local_z, reference.radar_attitude_deg);
   oneq::coordinate::EcefVelocityMps velocity_ecef;
-  if (!TryEnuVelocityToEcef(velocity_enu, reference.origin_lla, &velocity_ecef)) {
+  if (!oneq::coordinate::TryEnuToEcefVelocity(Vector3dToEnuVelocity(velocity_enu),
+                                               reference.origin_lla, &velocity_ecef)) {
     return false;
   }
 
